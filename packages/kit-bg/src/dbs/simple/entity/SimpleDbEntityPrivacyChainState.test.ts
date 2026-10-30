@@ -1619,6 +1619,21 @@ describe('privacy chain state: device', () => {
     await entity.setAllowCellularSync({ allow: true });
     await expect(entity.getAllowCellularSync()).resolves.toBe(true);
   });
+
+  it('keeps each chain pause until that chain is resumed', async () => {
+    const entity = createEntity();
+
+    await expect(entity.getPausedNetworkIds()).resolves.toEqual([]);
+    await entity.setNetworkPaused({ networkId: 'zec--0', paused: true });
+    await entity.setNetworkPaused({ networkId: 'xmr--0', paused: true });
+    await entity.setNetworkPaused({ networkId: 'zec--0', paused: true });
+    await expect(entity.getPausedNetworkIds()).resolves.toEqual([
+      'xmr--0',
+      'zec--0',
+    ]);
+    await entity.setNetworkPaused({ networkId: 'xmr--0', paused: false });
+    await expect(entity.getPausedNetworkIds()).resolves.toEqual(['zec--0']);
+  });
 });
 
 describe('privacy chain state: monero', () => {

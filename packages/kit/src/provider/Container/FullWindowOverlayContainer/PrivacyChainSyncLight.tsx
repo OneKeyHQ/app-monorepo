@@ -230,6 +230,7 @@ function BasicPrivacyChainSyncLight() {
   const {
     boostingNetworkIds,
     dataBlockedNetworkIds,
+    pausedNetworkIds,
     progress,
     storageUnsupportedNetworkIds,
   } = state;
@@ -238,11 +239,15 @@ function BasicPrivacyChainSyncLight() {
   const { bottom: safeAreaBottom } = useSafeAreaInsets();
   const isCellular = useIsCellularNetwork();
   const [expanded, setExpanded] = useState(false);
-  // Paused by this light and not yet stopped by the service: already hidden.
-  const [closingNetworkIds, setClosingNetworkIds] = useState<string[]>([]);
+  // A paused chain stays here, so its Continue is where its Pause was.
   const activeNetworkIds = useMemo(
-    () => uniq([...boostingNetworkIds, ...dataBlockedNetworkIds]),
-    [boostingNetworkIds, dataBlockedNetworkIds],
+    () =>
+      uniq([
+        ...boostingNetworkIds,
+        ...dataBlockedNetworkIds,
+        ...pausedNetworkIds,
+      ]),
+    [boostingNetworkIds, dataBlockedNetworkIds, pausedNetworkIds],
   );
   const activeNetworkKey = activeNetworkIds.join(',');
   const { result: syncedBelowBlocksByNetwork } = usePromiseResult(
@@ -269,21 +274,14 @@ function BasicPrivacyChainSyncLight() {
     () =>
       activeNetworkIds.filter(
         (id) =>
-          !closingNetworkIds.includes(id) &&
           getPrivacyChainNetworkSyncDisplay({
             state,
             networkId: id,
             syncedBelowBlocks: syncedBelowBlocksByNetwork?.[id] ?? 1,
           }).status !== 'synced',
       ),
-    [activeNetworkIds, closingNetworkIds, state, syncedBelowBlocksByNetwork],
+    [activeNetworkIds, state, syncedBelowBlocksByNetwork],
   );
-  useEffect(() => {
-    setClosingNetworkIds((ids) => {
-      const next = ids.filter((id) => activeNetworkIds.includes(id));
-      return next.length === ids.length ? ids : next;
-    });
-  }, [activeNetworkIds]);
   const networkId = pickSlowestPrivacyChainNetwork(visibleNetworkIds, progress);
   const otherNetworkIds = useMemo(
     () => visibleNetworkIds.filter((id) => id !== networkId),
@@ -298,6 +296,10 @@ function BasicPrivacyChainSyncLight() {
   );
   const hasRunningScans = controllableNetworkIds.some((id) =>
     boostingNetworkIds.includes(id),
+  );
+  const resumableNetworkIds = useMemo(
+    () => visibleNetworkIds.filter((id) => pausedNetworkIds.includes(id)),
+    [visibleNetworkIds, pausedNetworkIds],
   );
 
   useEffect(() => {
@@ -322,15 +324,20 @@ function BasicPrivacyChainSyncLight() {
     };
   }, [isCellular]);
   const onPause = useCallback(() => {
-    setClosingNetworkIds((ids) => uniq([...ids, ...controllableNetworkIds]));
     for (const id of controllableNetworkIds) {
-      void backgroundApiProxy.servicePrivacyChain
-        .pauseLocalWalletScan({ networkId: id })
-        .catch(() =>
-          setClosingNetworkIds((ids) => ids.filter((value) => value !== id)),
-        );
+      void backgroundApiProxy.servicePrivacyChain.pauseLocalWalletScan({
+        networkId: id,
+      });
     }
   }, [controllableNetworkIds]);
+  const onResume = useCallback(() => {
+    for (const id of resumableNetworkIds) {
+      void backgroundApiProxy.servicePrivacyChain.startForegroundBoost({
+        networkId: id,
+        trigger: 'manual-sync',
+      });
+    }
+  }, [resumableNetworkIds]);
   const onAllowCellular = useCallback(() => {
     void backgroundApiProxy.servicePrivacyChain.setAllowCellularSync({
       allow: true,
@@ -365,6 +372,16 @@ function BasicPrivacyChainSyncLight() {
           icon="PauseOutline"
           title={intl.formatMessage({ id: ETranslations.global_pause })}
           onPress={onPause}
+        />
+      ) : null}
+      {!hasRunningScans && resumableNetworkIds.length ? (
+        <IconButton
+          testID="privacy-chain-sync-light-resume-btn"
+          size="small"
+          variant="tertiary"
+          icon="PlayOutline"
+          title={intl.formatMessage({ id: ETranslations.global_resume })}
+          onPress={onResume}
         />
       ) : null}
     </>

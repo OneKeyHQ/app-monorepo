@@ -191,7 +191,7 @@ it('prepares without a percentage until this chain has an actual cursor', async 
   expect(text).not.toContain('%');
 });
 
-it('expands both networks, and pausing closes the light at once', async () => {
+it('expands both networks, and pauses all of them', async () => {
   mockState.boostingNetworkIds = ['zec--0', 'xmr--0'];
   mockState.progress['zec--0:account'] = scanProgress(107);
   mockState.progress['xmr--0:account'] = scanProgress(400);
@@ -218,15 +218,24 @@ it('expands both networks, and pausing closes the light at once', async () => {
     [{ networkId: 'zec--0' }],
     [{ networkId: 'xmr--0' }],
   ]);
-  // Still boosting until the service answers; the light is already gone.
-  expect(screen.queryByTestId('privacy-chain-sync-light')).toBeNull();
 });
 
-// Paused state lives on the token and settings pages, which can resume it.
-it('shows nothing for a paused chain', async () => {
-  mockState.pausedNetworkIds = ['zec--0'];
+// The light keeps a paused chain, so Continue is where Pause was.
+it('keeps a paused chain with a Continue that resumes every paused chain', async () => {
+  mockState.pausedNetworkIds = ['zec--0', 'xmr--0'];
+  mockState.progress['zec--0:account'] = scanProgress(107);
   render(<PrivacyChainSyncLight />);
-  expect(screen.queryByTestId('privacy-chain-sync-light')).toBeNull();
+  expect(
+    (await screen.findByTestId('privacy-chain-sync-light')).textContent,
+  ).toContain('syncing_paused__title');
+  expect(screen.queryByTestId('privacy-chain-sync-light-pause-btn')).toBeNull();
+  await act(async () => {
+    fireEvent.click(screen.getByTestId('privacy-chain-sync-light-resume-btn'));
+  });
+  expect(mockResume.mock.calls).toEqual([
+    [{ networkId: 'zec--0', trigger: 'manual-sync' }],
+    [{ networkId: 'xmr--0', trigger: 'manual-sync' }],
+  ]);
 });
 
 // Scanning never finishes; a chain that has caught up shows no "synced" light.

@@ -194,6 +194,8 @@ export type IPrivacyChainWalletRecord = z.infer<typeof walletRecordSchema>;
 
 export interface IPrivacyChainStateDB {
   device?: { allowCellularSync?: boolean };
+  // Chains the user paused as a whole (the sync light); a pause outlasts a restart.
+  pausedNetworkIds?: string[];
   // Networks whose scan database an app reset failed to delete; retried on the next launch and reset.
   pendingLocalDataDrop?: string[];
   // Networks whose runtime may hold an account nothing names any more; cleared by an orphan purge or database drop.
@@ -205,6 +207,7 @@ export interface IPrivacyChainStateDB {
 
 type IMutableState = {
   device: IPrivacyChainStateDB['device'];
+  pausedNetworkIds: string[] | undefined;
   pendingLocalDataDrop: unknown;
   runtimeOrphans: unknown;
   wallets: Record<string, unknown>;
@@ -501,6 +504,8 @@ export class SimpleDbEntityPrivacyChainState extends SimpleDbEntityBase<IPrivacy
     if (
       !isPlainObject(data) ||
       (container.device !== undefined && !isPlainObject(container.device)) ||
+      (container.pausedNetworkIds !== undefined &&
+        !Array.isArray(container.pausedNetworkIds)) ||
       (container.pendingLocalDataDrop !== undefined &&
         !Array.isArray(container.pendingLocalDataDrop)) ||
       (container.runtimeOrphans !== undefined &&
@@ -531,6 +536,7 @@ export class SimpleDbEntityPrivacyChainState extends SimpleDbEntityBase<IPrivacy
     const committed = await this.setRawData((raw) => {
       const state: IMutableState = {
         device: raw?.device,
+        pausedNetworkIds: raw?.pausedNetworkIds,
         pendingLocalDataDrop: raw?.pendingLocalDataDrop,
         runtimeOrphans: raw?.runtimeOrphans,
         wallets: { ...raw?.wallets },
@@ -550,6 +556,7 @@ export class SimpleDbEntityPrivacyChainState extends SimpleDbEntityBase<IPrivacy
       }
       return compact({
         device: state.device,
+        pausedNetworkIds: state.pausedNetworkIds,
         pendingLocalDataDrop: state.pendingLocalDataDrop as
           | string[]
           | undefined,
@@ -606,6 +613,28 @@ export class SimpleDbEntityPrivacyChainState extends SimpleDbEntityBase<IPrivacy
   async setAllowCellularSync({ allow }: { allow: boolean }): Promise<void> {
     await this.update((state) => {
       state.device = { allowCellularSync: allow };
+    });
+  }
+
+  async getPausedNetworkIds(): Promise<string[]> {
+    const raw = await this.getRawData();
+    return (raw?.pausedNetworkIds ?? []).filter(
+      (networkId) => typeof networkId === 'string',
+    );
+  }
+
+  async setNetworkPaused({
+    networkId,
+    paused,
+  }: {
+    networkId: string;
+    paused: boolean;
+  }): Promise<void> {
+    await this.update((state) => {
+      const others = (state.pausedNetworkIds ?? []).filter(
+        (id) => id !== networkId,
+      );
+      state.pausedNetworkIds = paused ? [...others, networkId] : others;
     });
   }
 

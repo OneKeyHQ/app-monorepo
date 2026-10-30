@@ -365,12 +365,27 @@ function PrivacyChainSettingsProgress({
 }) {
   const intl = useIntl();
   const [state] = usePrivacyChainAtom();
+  const [resuming, setResuming] = useState(false);
   const { result: localWalletSettings } = usePromiseResult(
     async () =>
       (await backgroundApiProxy.serviceNetwork.getVaultSettings({ networkId }))
         .localWallet,
     [networkId],
   );
+  // The same chain switch as the sync light's Continue.
+  const resumeChain = useCallback(async () => {
+    setResuming(true);
+    try {
+      await backgroundApiProxy.servicePrivacyChain.startForegroundBoost({
+        networkId,
+        trigger: 'manual-sync',
+      });
+    } catch (error) {
+      console.error('[privacyChain] chain resume failed', error);
+    } finally {
+      setResuming(false);
+    }
+  }, [networkId]);
   const accounts = entries.filter(
     (entry) =>
       entry.networkId === networkId &&
@@ -422,7 +437,19 @@ function PrivacyChainSettingsProgress({
         title={intl.formatMessage({ id: labelId })}
         subtitle={detail}
         subtitleProps={error ? { color: '$textCaution' } : undefined}
-      />
+      >
+        {status === 'chainPaused' ? (
+          <Button
+            testID="privacy-sync-resume-btn"
+            size="small"
+            variant="secondary"
+            loading={resuming}
+            onPress={() => void resumeChain()}
+          >
+            {intl.formatMessage({ id: ETranslations.global_resume })}
+          </Button>
+        ) : null}
+      </ListItem>
     </>
   );
 }

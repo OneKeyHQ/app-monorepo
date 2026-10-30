@@ -57,6 +57,7 @@ const mockDisable = jest.fn<
   [{ accountId: string; networkId: string }]
 >();
 const mockRepair = jest.fn(async (_params: unknown) => undefined);
+const mockResumeChain = jest.fn(async (_params: unknown) => undefined);
 const mockAdmission = jest.fn(async (_params: unknown) => undefined);
 const mockTwinBirthday = jest.fn(
   async (_params: unknown): Promise<{ birthdayHeight: number } | undefined> =>
@@ -181,6 +182,7 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
         networkId: string;
       }) => mockDelete(params),
       repairLocalChainData: (params: unknown) => mockRepair(params),
+      startForegroundBoost: (params: unknown) => mockResumeChain(params),
       getLocalWalletSyncProgress: async () => undefined,
       getLocalWalletNetworkInfo: async () => undefined,
       isPrivacySyncOnCellularAllowed: async () => false,
@@ -595,6 +597,14 @@ describe('Privacy network settings for a temp wallet', () => {
     expect(progressText(screen.getByTestId('privacy-sync-progress'))).toContain(
       'syncing_paused__title',
     );
+    // The chain switch, the same one the sync light's Continue turns on.
+    await act(async () => {
+      fireEvent.click(screen.getByTestId('privacy-sync-resume-btn'));
+    });
+    expect(mockResumeChain).toHaveBeenCalledWith({
+      networkId: 'zec--0',
+      trigger: 'manual-sync',
+    });
     expect(mockDisable).not.toHaveBeenCalled();
     mockPausedNetworks = [];
     delete mockProgress['zec--0:hd-1--1'];

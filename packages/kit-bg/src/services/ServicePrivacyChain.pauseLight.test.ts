@@ -466,48 +466,71 @@ describe('Privacy sync light pause state', () => {
   });
 });
 
-describe('Privacy scan pause is session-scoped', () => {
+describe('Privacy chain pause survives a restart', () => {
   const networkId = 'zec--0';
 
   beforeEach(() => {
     mockPublished = mockEmptyState();
   });
 
-  function createService() {
+  // Stands in for the saved chain switch, shared across "launches".
+  function createStore() {
+    let saved: string[] = [];
+    return {
+      getPausedNetworkIds: jest.fn(async () => saved),
+      setNetworkPaused: jest.fn(
+        async (params: { networkId: string; paused: boolean }) => {
+          saved = saved.filter((id) => id !== params.networkId);
+          if (params.paused) saved = [...saved, params.networkId];
+        },
+      ),
+    };
+  }
+
+  function createService(store: ReturnType<typeof createStore>) {
     return Object.assign(
       Object.create(ServicePrivacyChain.prototype) as {
         pauseLocalWalletScan: (params: { networkId: string }) => Promise<void>;
+        loadChainPauses: () => Promise<void>;
+        setChainPaused: (networkId: string, paused: boolean) => Promise<void>;
         boostPausedByNetwork: Record<string, boolean>;
-        backgroundApi: {
-          simpleDb: { privacyChainState: Record<string, unknown> };
-        };
       },
       {
         foregroundBoostRequestedByNetwork: {} as Record<string, boolean>,
         boostPausedByNetwork: {} as Record<string, boolean>,
         deviceIsCellular: false,
         allowCellularSyncCache: true,
-        backgroundApi: { simpleDb: { privacyChainState: {} } },
+        backgroundApi: { simpleDb: { privacyChainState: store } },
       },
     );
   }
 
-  it('keeps the pause in memory without storing it', async () => {
-    const service = createService();
+  it('saves the chain pause', async () => {
+    const store = createStore();
+    const service = createService(store);
 
     await service.pauseLocalWalletScan({ networkId });
 
     expect(service.boostPausedByNetwork[networkId]).toBe(true);
-    expect(service.backgroundApi.simpleDb.privacyChainState).toEqual({});
+    expect(store.setNetworkPaused).toHaveBeenCalledWith({
+      networkId,
+      paused: true,
+    });
   });
 
-  it('starts the next session scanning again', async () => {
-    const first = createService();
-    await first.pauseLocalWalletScan({ networkId });
+  it('starts the next session still paused, until a Sync lifts it', async () => {
+    const store = createStore();
+    await createService(store).pauseLocalWalletScan({ networkId });
 
-    const restarted = createService();
+    const restarted = createService(store);
+    await restarted.loadChainPauses();
+    expect(restarted.boostPausedByNetwork[networkId]).toBe(true);
+    expect(mockPublished.pausedNetworkIds).toEqual([networkId]);
 
-    expect(restarted.boostPausedByNetwork).toEqual({});
+    await restarted.setChainPaused(networkId, false);
+    const next = createService(store);
+    await next.loadChainPauses();
+    expect(next.boostPausedByNetwork).toEqual({});
   });
 });
 

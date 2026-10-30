@@ -77,6 +77,8 @@ function createHarness() {
         clearRuntimeOrphans: jest.fn(record('runtimeRows')),
         removeWalletState: jest.fn(record('walletState')),
         forgetAccountEpochs: jest.fn(record('memoryCaches')),
+        // The chain switch is a setting, not scan data.
+        setNetworkPaused: jest.fn(async () => undefined),
       },
       privacyChainKeys: {
         removeKeys: jest.fn(record('viewingKeys')),
@@ -263,13 +265,16 @@ describe('privacy chain lifecycle executor', () => {
     emit.mockRestore();
   });
 
-  it('network pause is a session flag only', async () => {
-    const { service, calls } = createHarness();
+  it('network pause saves the chain switch and touches no scan data', async () => {
+    const { service, calls, backgroundApi } = createHarness();
     await service.runLocalWalletLifecycle({
       event: 'networkPause',
       targets: [{ scope: 'accounts', networkId, accountIds: [] }],
     });
     expect(service.boostPausedByNetwork[networkId]).toBe(true);
+    expect(
+      backgroundApi.simpleDb.privacyChainState.setNetworkPaused,
+    ).toHaveBeenCalledWith({ networkId, paused: true });
     expect(calls).toEqual([]);
     expect(service.publishBoostingNetworks).toHaveBeenCalled();
   });

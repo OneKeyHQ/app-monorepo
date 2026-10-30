@@ -61,6 +61,7 @@ describe('Local wallet receive addresses', () => {
         }) => Promise<{ publicAddress: string; privateAddress?: string }>;
       },
       {
+        boostPausedByNetwork: {} as Record<string, boolean>,
         backgroundApi: {
           serviceCustomRpc: {
             ensureLocalWalletRemoteConfigLoaded: async () => undefined,
@@ -84,6 +85,19 @@ describe('Local wallet receive addresses', () => {
 
   it('withholds the private form once scanning is paused', async () => {
     const service = createService(false);
+
+    await expect(
+      service.getLocalWalletAccountAddresses({ networkId, accountId }),
+    ).resolves.toEqual({
+      publicAddress: 't1-address',
+      privateAddress: undefined,
+    });
+  });
+
+  it('withholds the private form while the whole chain is paused', async () => {
+    const service = Object.assign(createService(true), {
+      boostPausedByNetwork: { [networkId]: true },
+    });
 
     await expect(
       service.getLocalWalletAccountAddresses({ networkId, accountId }),

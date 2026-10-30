@@ -292,6 +292,7 @@ class ServicePrivacyChain extends ServiceBase {
     }
     if (!this.initPromise) {
       this.initPromise = (async () => {
+        await this.loadChainPauses();
         await this.isPrivacySyncOnCellularAllowed().catch(() => false);
         await this.gcRemovedAccounts();
         // Not awaited: a slow runtime load must not hold up init.
@@ -315,6 +316,25 @@ class ServicePrivacyChain extends ServiceBase {
       await this.initPromise;
     } finally {
       this.initPromise = undefined;
+    }
+  }
+
+  // An unreadable list scans as before rather than holding init up.
+  private async loadChainPauses(): Promise<void> {
+    let pausedNetworkIds: string[] = [];
+    try {
+      pausedNetworkIds =
+        await this.backgroundApi.simpleDb.privacyChainState.getPausedNetworkIds();
+    } catch (error) {
+      console.error('[privacy-chain] could not read chain pauses', {
+        ...describePrivacyChainError(error),
+      });
+    }
+    for (const networkId of pausedNetworkIds) {
+      this.boostPausedByNetwork[networkId] = true;
+    }
+    if (pausedNetworkIds.length) {
+      await this.publishBoostingNetworks();
     }
   }
 
@@ -727,7 +747,7 @@ class ServicePrivacyChain extends ServiceBase {
     ) {
       return;
     }
-    delete this.boostPausedByNetwork[networkId];
+    await this.setChainPaused(networkId, false);
     this.foregroundBoostRequestedByNetwork[networkId] = true;
     if (trigger === 'manual-sync') {
       await this.setAccountsPreparing({
@@ -755,7 +775,8 @@ class ServicePrivacyChain extends ServiceBase {
     this.scheduleBackgroundSync(0);
   }
 
-  // A pause outlasts page visits and only Sync clears it. A paused network does no scanning.
+  // The chain switch: a paused network does no scanning until a Sync, through page visits and
+  // restarts alike.
   @backgroundMethod()
   @toastLocalWalletError()
   async pauseLocalWalletScan({
@@ -763,11 +784,32 @@ class ServicePrivacyChain extends ServiceBase {
   }: {
     networkId: string;
   }): Promise<void> {
-    // In memory only: a restart returns to default scanning.
     await this.runLocalWalletLifecycle({
       event: 'networkPause',
       targets: [{ scope: 'accounts', networkId, accountIds: [] }],
     });
+  }
+
+  // Saved before the tick reads it, so the next launch starts paused too.
+  private async setChainPaused(networkId: string, paused: boolean) {
+    if (paused) {
+      this.boostPausedByNetwork[networkId] = true;
+    } else if (this.boostPausedByNetwork[networkId]) {
+      delete this.boostPausedByNetwork[networkId];
+    } else {
+      return;
+    }
+    try {
+      await this.backgroundApi.simpleDb.privacyChainState.setNetworkPaused({
+        networkId,
+        paused,
+      });
+    } catch (error) {
+      console.error('[privacy-chain] could not save the chain pause', {
+        networkId,
+        ...describePrivacyChainError(error),
+      });
+    }
   }
 
   // Gate two: device cellular state reported by the UI (only it sees NetInfo). Native fails closed
@@ -1523,7 +1565,7 @@ class ServicePrivacyChain extends ServiceBase {
         return;
       case 'memoryCaches:pauseFlag':
         if (networkId) {
-          this.boostPausedByNetwork[networkId] = true;
+          await this.setChainPaused(networkId, true);
         }
         return;
       default:
@@ -2366,7 +2408,8 @@ class ServicePrivacyChain extends ServiceBase {
             this.boostPausedByNetwork[networkId])
         ) {
           delete this.foregroundBoostRequestedByNetwork[networkId];
-          delete this.boostPausedByNetwork[networkId];
+          // eslint-disable-next-line no-await-in-loop
+          await this.setChainPaused(networkId, false);
           boostStateChanged = true;
         }
       }
@@ -3975,13 +4018,13 @@ class ServicePrivacyChain extends ServiceBase {
     if (!addresses) {
       return undefined;
     }
-    // Paused accounts still hold address material, but handing it out would
+    // Paused accounts and chains still hold address material, but handing it out would
     // let a payment land in a pool nothing is scanning -- gate on scan state.
     const state = await this.getLocalWalletAccountState({
       networkId,
       accountId,
     });
-    if (!state.enabled) {
+    if (!state.enabled || this.boostPausedByNetwork[networkId]) {
       return { ...addresses, privateAddress: undefined };
     }
     return addresses;
@@ -4667,7 +4710,7 @@ class ServicePrivacyChain extends ServiceBase {
     if (!accounts.length) {
       if (wasRequested || this.boostPausedByNetwork[networkId]) {
         delete this.foregroundBoostRequestedByNetwork[networkId];
-        delete this.boostPausedByNetwork[networkId];
+        await this.setChainPaused(networkId, false);
         await this.publishBoostingNetworks();
       }
       return;
