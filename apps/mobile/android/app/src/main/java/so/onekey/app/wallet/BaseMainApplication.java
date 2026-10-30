@@ -408,6 +408,10 @@ public class BaseMainApplication extends Application implements ReactApplication
             io.intercom.android.sdk.Intercom.Visibility.GONE);
         io.intercom.android.sdk.Intercom.client().setLauncherVisibility(
             io.intercom.android.sdk.Intercom.Visibility.GONE);
+        io.intercom.android.sdk.Intercom.client().suppressProactiveContent(
+            java.util.Arrays.asList(
+                io.intercom.android.sdk.Intercom.ContentType.CAROUSEL,
+                io.intercom.android.sdk.Intercom.ContentType.SURVEY));
       } catch (Throwable error) {
         OneKeyLog.error("Intercom", "initialize failed: " + error);
       }

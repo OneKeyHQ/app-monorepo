@@ -594,6 +594,7 @@ export const useIntercomInit = () => {
   const isInitializedRef = useRef(false);
   const theme = useThemeVariant();
   const [{ onekeyUserId, isLoggedIn }] = usePrimePersistAtom();
+  const previousIdentityRef = useRef({ onekeyUserId, isLoggedIn });
 
   useEffect(() => {
     void setIntercomTheme(theme).catch(() => {
@@ -607,9 +608,15 @@ export const useIntercomInit = () => {
         console.warn('Failed to initialize Intercom');
       });
     };
-    // Keep the first sync off the startup path; later sign-in/out changes
-    // re-sync immediately so unread state follows the current identity.
-    if (isInitializedRef.current) {
+    const previousIdentity = previousIdentityRef.current;
+    const identityChanged =
+      previousIdentity.onekeyUserId !== onekeyUserId ||
+      previousIdentity.isLoggedIn !== isLoggedIn;
+    previousIdentityRef.current = { onekeyUserId, isLoggedIn };
+    // Only the initial sync is delayed. An entry can open the SDK before the
+    // timer fires, so identity changes must retire that session immediately.
+    if (isInitializedRef.current || identityChanged) {
+      isInitializedRef.current = true;
       syncIntercom();
       return;
     }

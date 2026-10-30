@@ -24,6 +24,7 @@ const mockSdk = {
   initialize: jest.fn(async () => true),
   setLauncherVisibility: jest.fn(async () => true),
   setInAppMessageVisibility: jest.fn(async (_visibility: string) => true),
+  suppressProactiveContent: jest.fn(async (_types: string[]) => true),
   setThemeMode: jest.fn(async (_theme: string) => true),
   isUserLoggedIn: jest.fn(async () => mockLoggedInUser !== undefined),
   fetchLoggedInUserAttributes: jest.fn(async () => mockLoggedInUser ?? {}),
@@ -58,6 +59,7 @@ jest.mock('@intercom/intercom-react-native', () => ({
   default: mockSdk,
   Visibility: { GONE: 'GONE', VISIBLE: 'VISIBLE' },
   ThemeMode: { DARK: 'DARK', LIGHT: 'LIGHT' },
+  ProactiveContentType: { Carousel: 'CAROUSEL', Survey: 'SURVEY' },
   IntercomEvents: { IntercomUnreadCountDidChange: 'unread-changed' },
   IntercomContent: {
     conversationWithConversationId: (id: string) => ({ id }),
@@ -226,6 +228,10 @@ describe('native Intercom SDK integration', () => {
       expect(subject.getIntercomUnreadCount()).toBe(3);
       expect(mockSdk.setLauncherVisibility).toHaveBeenCalledWith('GONE');
       expect(mockSdk.setInAppMessageVisibility).toHaveBeenCalledWith('GONE');
+      expect(mockSdk.suppressProactiveContent).toHaveBeenCalledWith([
+        'CAROUSEL',
+        'SURVEY',
+      ]);
       expect(mockSdk.setThemeMode).toHaveBeenCalledWith('DARK');
 
       listener.mockClear();

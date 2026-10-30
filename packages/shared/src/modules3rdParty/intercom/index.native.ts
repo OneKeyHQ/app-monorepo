@@ -97,6 +97,10 @@ async function loadSdk() {
       }
       await sdk.default.setLauncherVisibility(sdk.Visibility.GONE);
       await sdk.default.setInAppMessageVisibility(sdk.Visibility.GONE);
+      await sdk.default.suppressProactiveContent([
+        sdk.ProactiveContentType.Carousel,
+        sdk.ProactiveContentType.Survey,
+      ]);
       if (currentTheme) {
         await sdk.default.setThemeMode(toSdkThemeMode(sdk, currentTheme));
       }
