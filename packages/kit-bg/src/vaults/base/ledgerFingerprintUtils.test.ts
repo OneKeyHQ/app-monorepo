@@ -401,6 +401,47 @@ describe('callLedgerWithFingerprint', () => {
     expect(getChainFingerprint).toHaveBeenCalledTimes(1);
   });
 
+  it('compares the seed inside a wallet-match check', async () => {
+    let checking = false;
+    const checkedCompares: boolean[] = [];
+    const getChainFingerprint = jest.fn(async () => {
+      checkedCompares.push(checking);
+      return success('expected');
+    });
+    const runWalletMatchCheck = jest.fn(
+      async <T>(check: () => Promise<T>): Promise<T> => {
+        checking = true;
+        try {
+          return await check();
+        } finally {
+          checking = false;
+        }
+      },
+    );
+    const backgroundApi = {
+      serviceThirdPartyHardware: {
+        getAdapterForVendor: jest.fn().mockResolvedValue({
+          hw: { getChainFingerprint },
+          runWalletMatchCheck,
+        }),
+      },
+    };
+    expect(
+      await verifySeedMatch(
+        backgroundApi as unknown as IBackgroundApi,
+        {
+          ...buildDevice('ledger-wallet-match-check'),
+          settingsRaw: JSON.stringify({
+            chainFingerprints: { evm: 'expected' },
+          }),
+        },
+        'hwk-ledger-wallet-match-check',
+      ),
+    ).toBe('match');
+    expect(checkedCompares).toEqual([true]);
+    expect(runWalletMatchCheck).toHaveBeenCalledTimes(1);
+  });
+
   it('uses the same interaction for address bootstrap and fingerprint generation', async () => {
     const getChainFingerprint = jest.fn().mockResolvedValue(success('fp-evm'));
     const backgroundApi = {

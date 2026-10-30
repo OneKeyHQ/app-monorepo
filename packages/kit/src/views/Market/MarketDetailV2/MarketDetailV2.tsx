@@ -65,6 +65,7 @@ import {
   useAutoRefreshTokenDetail,
   useStockDetail,
 } from './hooks';
+import { MarketSimpleChartRangeChangeProvider } from './hooks/MarketSimpleChartRangeChangeContext';
 import { useSyncMarketCurrentTokenLiveData } from './hooks/useAutoRefreshTokenDetail';
 import { useSwapStockBackTrip } from './hooks/useMarketDetailBackNavigation';
 import { useMarketDetailChartMode } from './hooks/useMarketDetailChartMode';
@@ -557,13 +558,15 @@ function MarketDetailV2(
             initialNetworkId={initialNetworkId}
             initialTokenAddress={initialTokenAddress}
           >
-            <MarketDetail
-              {...props}
-              isChartFullscreen={effectiveIsChartFullscreen}
-              isTradingViewNative={isTradingViewNative}
-              onChartSwitch={handleChartSwitch}
-              onChartFullscreenChange={handleChartFullscreenChange}
-            />
+            <MarketSimpleChartRangeChangeProvider>
+              <MarketDetail
+                {...props}
+                isChartFullscreen={effectiveIsChartFullscreen}
+                isTradingViewNative={isTradingViewNative}
+                onChartSwitch={handleChartSwitch}
+                onChartFullscreenChange={handleChartFullscreenChange}
+              />
+            </MarketSimpleChartRangeChangeProvider>
           </StockDetailProvider>
         </MarketWatchListProviderMirrorV2>
       </AccountSelectorProviderMirror>

@@ -61,6 +61,8 @@ export class LedgerAdapter
 
   private activeOperationId: string | undefined;
 
+  private walletMatchCheckDepth = 0;
+
   constructor(hw: IHardwareWallet) {
     super();
     this.hw = hw;
@@ -86,16 +88,22 @@ export class LedgerAdapter
             event.payload?.sessionId,
           );
           break;
-        case EConnectorInteraction.ConfirmOpenApp:
+        case EConnectorInteraction.ConfirmOpenApp: {
+          const appName =
+            this.walletMatchCheckDepth > 0 ? event.payload?.appName : undefined;
           void this.publishUiState(
             {
               action: EThirdPartyHardwareUiAction.openApp,
               vendor: EHardwareVendor.ledger,
               ...(event.operationId ? { operationId: event.operationId } : {}),
+              ...(appName
+                ? { payload: { appName, openAppReason: 'walletMatch' } }
+                : {}),
             },
             event.payload?.sessionId,
           );
           break;
+        }
         case EConnectorInteraction.UnlockDevice:
           void this.publishUiState(
             {
@@ -337,6 +345,15 @@ export class LedgerAdapter
       });
     }
     return shouldLog;
+  }
+
+  async runWalletMatchCheck<T>(check: () => Promise<T>): Promise<T> {
+    this.walletMatchCheckDepth += 1;
+    try {
+      return await check();
+    } finally {
+      this.walletMatchCheckDepth -= 1;
+    }
   }
 
   async searchDevices(
