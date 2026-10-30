@@ -23149,6 +23149,7 @@
     "packages/kit/src/components/TradingView/TradingViewV2/components/chartControls/hooks/useNativeChartControls.ts": 7148,
     "packages/kit/src/components/TradingView/TradingViewV2/components/indicatorControls/NativeIndicatorControls.tsx": 2978,
     "packages/kit/src/components/TradingView/TradingViewV2/components/indicatorControls/hooks/useNativeIndicatorActiveValues.ts": 14218,
+    "packages/kit/src/components/TradingView/TradingViewV2/components/indicatorControls/hooks/useShowNativeIndicatorsDialog.tsx": 16552,
     "packages/kit/src/components/TradingView/TradingViewV2/components/tradingViewV2/TradingViewRuntimeView.tsx": 15025,
     "packages/kit/src/components/TradingView/TradingViewV2/components/tradingViewV2/TradingViewV2.tsx": 21188,
     "packages/kit/src/components/TradingView/TradingViewV2/components/tradingViewV2/hooks/index.ts": 1936,
