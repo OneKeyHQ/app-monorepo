@@ -100,13 +100,14 @@ not stored. After activation the page shows the device name, model and the
 
 Use a separate acceptance profile without existing encrypted Cloud records. Turn
 off the existing sync mode, then choose **Turn on sync with hardware** and pick
-the device. Two identical message confirmations are expected. Activation uses
+the device. Three confirmations are expected, counted as "Confirm on device
+(1/3)": the sign-in message, then the data key message twice. Activation uses
 the existing credential store; right after the commit it runs one full sync, as turning on Keyless does (a failure keeps sync on for **Sync now** to retry); after successful activation ordinary sync and
 restart hydration do not require the hardware to remain connected. **Turn off
 sync** asks for confirmation and then deletes the stored hardware key; switching
 back to Keyless deletes it too. The source stays selected, and **Turn on sync
-with hardware** asks a picked device with the same standard wallet for two new
-confirmations. When encrypted records exist, a device with another recovery
+with hardware** asks a picked device with the same standard wallet for three new
+confirmations; resetting the Cloud sync key asks for two. When encrypted records exist, a device with another recovery
 phrase is rejected after its identity is read and before it is asked to sign;
 another device restored from the same recovery phrase is accepted. There is no
 device-free resume, and
@@ -235,7 +236,7 @@ Forbidden key path`, which is why the path changed. Firmware `Failure_*`
 6. After activation, disconnect hardware and exercise existing upload/download,
    App lock/restart, and Keyless regression. Use **Sync now** in the hardware
    section. **Turn off sync** must delete the key; turning it on again must ask
-   the same standard wallet for two new confirmations. Existing encrypted-space
+   the same standard wallet for three new confirmations. Existing encrypted-space
    source changes must be rejected without modifying old records. Do not
    interpret phase 1 metadata sync as full hardware-account restoration without
    interaction.

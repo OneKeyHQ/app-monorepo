@@ -13,6 +13,10 @@ import { OneKeyError } from '@onekeyhq/shared/src/errors';
 import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { HardwareCloudSyncError } from '@onekeyhq/shared/src/hardware/hardwareCloudSyncError';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
@@ -24,6 +28,7 @@ import systemTimeUtils, {
   ELocalSystemTimeStatus,
 } from '@onekeyhq/shared/src/utils/systemTimeUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import type {
   IHardwareCloudSyncKeySource,
   IHardwareCloudSyncSession,
@@ -76,6 +81,10 @@ import type {
 import type { IHardwareCloudSyncDataKey } from './hardwareCloudSyncSession';
 import type { IDBCloudSyncItem, IDBWallet } from '../../dbs/local/types';
 import type { AxiosInstance } from 'axios';
+
+const HARDWARE_SESSION_CHECK_INTERVAL_MS = timerUtils.getTimeDurationMs({
+  minute: 5,
+});
 
 @backgroundClass()
 class ServiceKeylessCloudSync extends ServiceBase {
@@ -218,12 +227,15 @@ class ServiceKeylessCloudSync extends ServiceBase {
     expectedCredentialId,
     generation,
     isCurrent,
+    signatures,
     unlock,
   }: {
     connectId: string;
     expectedCredentialId?: string;
     generation: number;
     isCurrent: () => boolean;
+    // Device confirmations the flow expects, shown as progress.
+    signatures: number;
     unlock: IHardwareCloudKeyUnlock;
   }) {
     if (await this.isHardwareCloudSyncSoftwareKeyEnabled()) {
@@ -236,12 +248,25 @@ class ServiceKeylessCloudSync extends ServiceBase {
     }
     const { generateHardwareCloudSyncCredentialWithSdk } =
       await import('./hardwareCloudSyncSdk');
+    let signed = 0;
+    let total = signatures;
     return generateHardwareCloudSyncCredentialWithSdk({
       backgroundApi: this.backgroundApi,
       connectId,
       expectedCredentialId,
       isCurrent,
       unlock,
+      onDeviceSign: () => {
+        if (!isCurrent()) return;
+        signed += 1;
+        // Another device created the key first: its salt is signed too, and
+        // each key costs two confirmations.
+        if (signed > total) total += 2;
+        appEventBus.emit(EAppEventBusNames.HardwareCloudKeySignProgress, {
+          current: signed,
+          total,
+        });
+      },
       onDeviceCancelChange: (cancel) => {
         if (!cancel) {
           if (this.hardwareCloudKeyDeviceCancel?.generation === generation) {
@@ -309,7 +334,7 @@ class ServiceKeylessCloudSync extends ServiceBase {
 
     // The device prompt can wait indefinitely for the user, so it runs outside
     // the Cloud key locks. Wallet reads and ordinary sync must not queue on it.
-    const client = await this.backgroundApi.servicePrime.getPrimeClient();
+    const client = await this.getHardwareSyncClient();
     let previousPwdHashes: string[] = [];
     // One device session: sign in on P_auth, read the Lock, then sign the
     // salted key message for that envelope (or for a new one).
@@ -346,6 +371,8 @@ class ServiceKeylessCloudSync extends ServiceBase {
         expectedCredentialId,
         generation,
         isCurrent,
+        // Sign in, then the data key's message twice.
+        signatures: 3,
         unlock,
       });
     } catch (error) {
@@ -473,6 +500,11 @@ class ServiceKeylessCloudSync extends ServiceBase {
         setUndefinedTimeToNow: true,
         callerName: 'Enable Hardware Cloud Sync',
         forceSync: true,
+      });
+      // The commit cleared it, and a sync with nothing to upload or apply
+      // writes no time of its own.
+      await this.backgroundApi.servicePrimeCloudSync.updateLastSyncTime({
+        syncMode: ECloudSyncMode.Keyless,
       });
     } finally {
       await timerUtils.wait(1000);
@@ -667,10 +699,12 @@ class ServiceKeylessCloudSync extends ServiceBase {
     const syncCredential =
       await this.backgroundApi.servicePrimeCloudSync.getSyncCredentialSafe();
     const keylessCredential = syncCredential?.keylessCredential;
-    if (!keylessCredential) {
+    // A hardware Cloud key has no Keyless signing key: its requests carry the
+    // DPoP session, and push registration goes out unsigned.
+    if (!keylessCredential?.signingPrivateKey) {
       return null;
     }
-    const pwdHash = syncCredential.keylessCredential?.pwdHash;
+    const { pwdHash } = keylessCredential;
     const fullPostData = { ...postData, pwdHash };
     const dataString = stringUtils.stableStringify(fullPostData);
     const dataHash = keylessCloudSyncUtils.computeDataHash(dataString);
@@ -695,6 +729,12 @@ class ServiceKeylessCloudSync extends ServiceBase {
     return !!(
       devSettings.enabled && devSettings.settings?.hardwareCloudSyncSoftwareKey
     );
+  }
+
+  // Hardware sync is apart from OneKey ID: the plain client sends no OneKey ID
+  // token, and has no 90002 handler that could sign the user out of it.
+  private getHardwareSyncClient() {
+    return this.getClient(EServiceEndpointEnum.Prime);
   }
 
   private hardwareSessionRefresh:
@@ -724,7 +764,7 @@ class ServiceKeylessCloudSync extends ServiceBase {
       ) {
         return stored;
       }
-      const client = await this.backgroundApi.servicePrime.getPrimeClient();
+      const client = await this.getHardwareSyncClient();
       let next: IHardwareCloudSyncSession | undefined;
       try {
         next = await refreshHardwareCloudSyncSessionIfNeeded({
@@ -786,9 +826,63 @@ class ServiceKeylessCloudSync extends ServiceBase {
     });
     this.clearKeylessCloudSyncCredentialCache();
     await this.backgroundApi.servicePrimeCloudSync.clearCachedSyncCredential();
+    // The page shows the missing key without waiting to regain focus.
+    appEventBus.emit(EAppEventBusNames.HardwareCloudKeyDropped, undefined);
     throw new OneKeyError(
       'Cloud sync was reset or signed out on another device. Connect your hardware wallet to continue.',
     );
+  }
+
+  private lastHardwareSessionCheckAt = 0;
+
+  // A reset or sign-out on another device otherwise shows up only at this
+  // device's next sync. Reading the Lock is cheap: a revoked session or a new
+  // data key drops the local key, as a refused sync does. Errors stay silent.
+  // The App coming back is throttled; opening the Cloud sync page is not.
+  @backgroundMethod()
+  async checkHardwareCloudSyncSessionThrottled({
+    force,
+  }: { force?: boolean } = {}): Promise<void> {
+    const config = await primeCloudSyncPersistAtom.get();
+    if (
+      !config.isCloudSyncEnabledKeyless ||
+      !config.hardwareCloudSyncKeySource
+    ) {
+      return;
+    }
+    if (
+      !force &&
+      Date.now() - this.lastHardwareSessionCheckAt <
+        HARDWARE_SESSION_CHECK_INTERVAL_MS
+    ) {
+      return;
+    }
+    this.lastHardwareSessionCheckAt = Date.now();
+    try {
+      const credential = await this.getHardwareSessionCredential();
+      if (!credential) return;
+      const fresh = await this.getFreshHardwareCredential(credential);
+      const session = fresh.hardwareSession;
+      if (!session) return;
+      const client = await this.getHardwareSyncClient();
+      let serverDekId: string | undefined;
+      try {
+        serverDekId = await getCurrentHardwareCloudSyncDataKeyId({
+          client,
+          session,
+        });
+      } catch (error) {
+        if (!isHardwareCloudSyncUnauthorizedError(error)) throw error;
+        // A revoked session fails the refresh too, which drops the key.
+        await this.getFreshHardwareCredential(fresh, { force: true });
+        return;
+      }
+      if (serverDekId && serverDekId !== session.dekId) {
+        await this.handleHardwareDataKeyRefused(fresh);
+      }
+    } catch (error) {
+      errorUtils.autoPrintErrorIgnore(error);
+    }
   }
 
   // After a reset other devices must sign again. Best effort: they are also
@@ -811,7 +905,7 @@ class ServiceKeylessCloudSync extends ServiceBase {
     try {
       // Let a refresh in flight finish first, so one token is not sent twice.
       await this.hardwareSessionRefresh?.catch(() => undefined);
-      const client = await this.backgroundApi.servicePrime.getPrimeClient();
+      const client = await this.getHardwareSyncClient();
       const fresh =
         (await refreshHardwareCloudSyncSessionIfNeeded({ client, session })) ??
         session;
@@ -830,7 +924,7 @@ class ServiceKeylessCloudSync extends ServiceBase {
   ) {
     if (!credential.hardwareSession) return;
     try {
-      const client = await this.backgroundApi.servicePrime.getPrimeClient();
+      const client = await this.getHardwareSyncClient();
       await revokeHardwareCloudSyncSession({
         client,
         session: credential.hardwareSession,
@@ -896,7 +990,7 @@ class ServiceKeylessCloudSync extends ServiceBase {
   ): Promise<IKeylessCloudSyncCredential | undefined> {
     const session = credential.hardwareSession;
     if (!session) return undefined;
-    const client = await this.backgroundApi.servicePrime.getPrimeClient();
+    const client = await this.getHardwareSyncClient();
     const serverDekId = await getCurrentHardwareCloudSyncDataKeyId({
       client,
       session,
@@ -950,7 +1044,7 @@ class ServiceKeylessCloudSync extends ServiceBase {
     ) {
       throw new OneKeyError('The Cloud sync key changed. Sync again.');
     }
-    const client = await this.backgroundApi.servicePrime.getPrimeClient();
+    const client = await this.getHardwareSyncClient();
     const send = (current: IKeylessCloudSyncCredential) => {
       if (!current.hardwareSession) {
         throw new OneKeyError('Cloud sync sign-in is missing.');
@@ -1004,7 +1098,7 @@ class ServiceKeylessCloudSync extends ServiceBase {
     const credential = await this.getFreshHardwareCredential(stored);
     const session = credential.hardwareSession;
     if (!session) throw new OneKeyError('Cloud sync sign-in is missing.');
-    const client = await this.backgroundApi.servicePrime.getPrimeClient();
+    const client = await this.getHardwareSyncClient();
     const { items } =
       await this.backgroundApi.servicePrimeCloudSync.getAllLocalSyncItems();
 
@@ -1060,6 +1154,8 @@ class ServiceKeylessCloudSync extends ServiceBase {
       expectedCredentialId: source.credentialId,
       generation,
       isCurrent,
+      // The new key's message twice; the session is already signed in.
+      signatures: 2,
       unlock,
     });
     if (!rotated) {
@@ -1078,6 +1174,9 @@ class ServiceKeylessCloudSync extends ServiceBase {
     await this.backgroundApi.servicePrimeCloudSync.startServerSyncFlow({
       callerName: 'Reset hardware Cloud sync key',
       forceSync: true,
+    });
+    await this.backgroundApi.servicePrimeCloudSync.updateLastSyncTime({
+      syncMode: ECloudSyncMode.Keyless,
     });
   }
 
@@ -1247,6 +1346,43 @@ class ServiceKeylessCloudSync extends ServiceBase {
       urlPath,
     });
     return response.data.data;
+  }
+
+  // CONFIG_FLUSH or LOCK_CHANGE for a hardware Cloud key: another device
+  // replaced the data key (a reset) when the pushed pwdHash is not ours. It is
+  // checked with the server first, as a refused sync would be, and never
+  // treated as a OneKey ID master password change.
+  async onHardwareKeyFlushPush({ pwdHash }: { pwdHash?: string }) {
+    try {
+      const credential = await this.getKeylessCloudSyncCredential();
+      if (!credential?.hardwareSession) return;
+      // Same key: the flush only rewrote data, which the push leaves out.
+      if (credential.pwdHash === pwdHash) {
+        await this.backgroundApi.servicePrimeCloudSync.startServerSyncFlowSilently(
+          { callerName: 'Hardware Cloud sync flush push' },
+        );
+        return;
+      }
+      await this.handleHardwareDataKeyRefused(
+        await this.getFreshHardwareCredential(credential),
+      );
+    } catch (error) {
+      errorUtils.autoPrintErrorIgnore(error);
+    }
+  }
+
+  // The server says this session was revoked. A push alone never drops the
+  // key: a refresh confirms it, and its 90700 drops the key as a refused
+  // sync does.
+  async onHardwareSessionRevokedPush({ sessionId }: { sessionId?: string }) {
+    try {
+      const credential = await this.getKeylessCloudSyncCredential();
+      const session = credential?.hardwareSession;
+      if (!credential || !session || session.sessionId !== sessionId) return;
+      await this.getFreshHardwareCredential(credential, { force: true });
+    } catch (error) {
+      errorUtils.autoPrintErrorIgnore(error);
+    }
   }
 
   computePwdHashForMode(

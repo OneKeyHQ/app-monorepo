@@ -5,6 +5,8 @@
  * Coexists with OneKey ID encryption mode, implementing a dual-encryption scheme.
  */
 
+import type { IHwWalletAvatarImageNames } from '@onekeyhq/shared/src/utils/avatarUtils';
+
 import type { IDeviceType } from '@onekeyfe/hd-core';
 
 /**
@@ -21,6 +23,9 @@ export type IHardwareCloudSyncKeySource = {
   // sign again.
   deviceName: string;
   deviceType: IDeviceType;
+  // Display only: the model and finish the account selector shows for this
+  // device. Absent on sources saved before it was kept.
+  deviceAvatar?: IHwWalletAvatarImageNames;
 };
 
 /**

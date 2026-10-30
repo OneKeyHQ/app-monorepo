@@ -10,7 +10,10 @@ import type {
   ICloudSyncServerItem,
 } from '@onekeyhq/shared/types/prime/primeCloudSyncTypes';
 
-import { primeCloudSyncPersistAtom } from '../../states/jotai/atoms';
+import {
+  primeCloudSyncPersistAtom,
+  primeMasterPasswordPersistAtom,
+} from '../../states/jotai/atoms';
 
 import ServicePrimeCloudSync from './ServicePrimeCloudSync';
 
@@ -811,5 +814,60 @@ describe('ServicePrimeCloudSync App password with a hardware Cloud key', () => {
     });
     await expect(service.syncNowKeyless()).resolves.toBe(true);
     expect(promptPasswordVerify).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('ServicePrimeCloudSync flush pushes outside OneKey ID sync', () => {
+  const flush = {
+    msgId: 'public-test-msg',
+    pwdHash: 'keyless-pwd-hash',
+  } as Parameters<ServicePrimeCloudSync['onWebSocketMasterPasswordChanged']>[0];
+
+  test.each([
+    ['Keyless sync', ECloudSyncMode.Keyless],
+    ['sync off', ECloudSyncMode.None],
+  ])('%s never raises the OneKey ID master password alert', async (_, mode) => {
+    jest.mocked(primeCloudSyncPersistAtom.get).mockResolvedValue({
+      isCloudSyncEnabled: false,
+      isCloudSyncEnabledKeyless: mode === ECloudSyncMode.Keyless,
+    });
+    // A master password UUID left from earlier OneKey ID sync.
+    Object.assign(primeMasterPasswordPersistAtom, {
+      get: jest.fn(async () => ({ masterPasswordUUID: 'old-master-uuid' })),
+    });
+    const service = new ServicePrimeCloudSync({
+      backgroundApi: {
+        serviceKeylessCloudSync: {
+          getActiveSyncMode: jest.fn(async () => mode),
+        },
+      },
+    });
+    const alert = jest
+      .spyOn(service, 'showAlertDialogIfLocalPasswordInvalid')
+      .mockResolvedValue(undefined);
+    await service.onWebSocketMasterPasswordChanged(flush);
+    expect(alert).not.toHaveBeenCalled();
+  });
+
+  test('OneKey ID sync still checks the master password', async () => {
+    jest.mocked(primeCloudSyncPersistAtom.get).mockResolvedValue({
+      isCloudSyncEnabled: true,
+      isCloudSyncEnabledKeyless: false,
+    });
+    Object.assign(primeMasterPasswordPersistAtom, {
+      get: jest.fn(async () => ({ masterPasswordUUID: 'old-master-uuid' })),
+    });
+    const service = new ServicePrimeCloudSync({
+      backgroundApi: {
+        serviceKeylessCloudSync: {
+          getActiveSyncMode: jest.fn(async () => ECloudSyncMode.OnekeyId),
+        },
+      },
+    });
+    const alert = jest
+      .spyOn(service, 'showAlertDialogIfLocalPasswordInvalid')
+      .mockResolvedValue(undefined);
+    await service.onWebSocketMasterPasswordChanged(flush);
+    expect(alert).toHaveBeenCalledTimes(1);
   });
 });

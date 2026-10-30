@@ -10,6 +10,7 @@ import {
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { HardwareCloudKeyDeviceRejectedError } from '@onekeyhq/shared/src/hardware/hardwareCloudKeyDeviceRejectedError';
 import { HardwareCloudKeyPrerequisiteError } from '@onekeyhq/shared/src/hardware/hardwareCloudSyncErrors';
+import { getDeviceAvatarImage } from '@onekeyhq/shared/src/utils/avatarUtils';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import { EHardwareCallContext } from '@onekeyhq/shared/types/device';
 import type {
@@ -71,6 +72,7 @@ export async function generateHardwareCloudSyncCredentialWithSdk({
   expectedCredentialId,
   isCurrent,
   onDeviceCancelChange,
+  onDeviceSign,
   unlock,
 }: {
   backgroundApi: IBackgroundApi;
@@ -82,6 +84,8 @@ export async function generateHardwareCloudSyncCredentialWithSdk({
   isCurrent: () => boolean;
   // Receives a canceller once the hardware lease is held, then undefined.
   onDeviceCancelChange?: (cancel: (() => void) | undefined) => void;
+  // Called right before each signature the user confirms on the device.
+  onDeviceSign?: () => void;
   // Runs while the device session is open: sign in, read the envelope, then
   // derive its KEK.
   unlock: IHardwareCloudKeyUnlock;
@@ -251,6 +255,7 @@ export async function generateHardwareCloudSyncCredentialWithSdk({
                     IHardwareCloudKeyAdapter['signMessage']
                   >[0],
                 ) {
+                  onDeviceSign?.();
                   const response = await call(() =>
                     sdk.btcSignMessage(connectId, deviceId, params),
                   );
@@ -265,6 +270,7 @@ export async function generateHardwareCloudSyncCredentialWithSdk({
                   signAuth: (message) =>
                     sanitizeDeviceError(async () => {
                       assertHardwareCloudSyncAuthMessage(message);
+                      onDeviceSign?.();
                       const response = await call(() =>
                         sdk.btcSignMessage(connectId, deviceId, {
                           path: HARDWARE_CLOUD_SYNC_AUTH_PATH,
@@ -305,6 +311,11 @@ export async function generateHardwareCloudSyncCredentialWithSdk({
                   state: opened.state,
                 }),
                 deviceType: opened.state.identity.deviceType,
+                // The image only; the serial number is not kept.
+                deviceAvatar: getDeviceAvatarImage(
+                  opened.state.identity.deviceType,
+                  opened.state.identity.serialNo,
+                ),
               };
               return { credential: { ...unlocked, source }, source };
             },

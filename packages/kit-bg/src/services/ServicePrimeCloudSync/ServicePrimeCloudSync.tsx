@@ -2126,6 +2126,19 @@ class ServicePrimeCloudSync extends ServiceBase {
   async onWebSocketMasterPasswordChanged(
     payload: IPrimeConfigFlushInfo | IPrimeLockChangedInfo,
   ) {
+    // A hardware Cloud key's flush is a key reset, not a OneKey ID master
+    // password change: a stale master password UUID must not raise its alert.
+    const config = await primeCloudSyncPersistAtom.get();
+    if (config.isCloudSyncEnabledKeyless && config.hardwareCloudSyncKeySource) {
+      await this.backgroundApi.serviceKeylessCloudSync.onHardwareKeyFlushPush({
+        pwdHash: payload.pwdHash,
+      });
+      return;
+    }
+    // The master password only applies to OneKey ID sync. A Keyless flush, or
+    // one arriving with sync off, must not reach the OneKey ID alert through a
+    // master password UUID left from earlier.
+    if ((await this.getActiveSyncMode()) !== ECloudSyncMode.OnekeyId) return;
     const { masterPasswordUUID } = await primeMasterPasswordPersistAtom.get();
     if (masterPasswordUUID && masterPasswordUUID !== payload.pwdHash) {
       await this.showAlertDialogIfLocalPasswordInvalid({

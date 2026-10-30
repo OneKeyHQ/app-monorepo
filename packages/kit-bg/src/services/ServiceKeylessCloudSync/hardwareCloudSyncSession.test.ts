@@ -70,8 +70,12 @@ const proofIatMs = (config: { headers: Record<string, string> }) =>
     ) as { iat: number }
   ).iat * 1000;
 
+// Prime refuses with HTTP 200; the API client throws on the body code.
 const unauthorized = () =>
-  Object.assign(new Error('Unauthorized'), { response: { status: 401 } });
+  Object.assign(new Error('Unauthorized'), {
+    code: 90_700,
+    httpStatusCode: 200,
+  });
 
 describe('hardware Cloud sync session', () => {
   beforeEach(() => {
@@ -147,7 +151,7 @@ describe('hardware Cloud sync session', () => {
           urlPath: '/prime/v1/sync/check',
           data: {},
         }),
-      ).rejects.toMatchObject({ response: { status: 401 } });
+      ).rejects.toMatchObject({ code: 90_700 });
       expect(post).toHaveBeenCalledTimes(1);
       expect(refreshServerTime).toHaveBeenCalledTimes(1);
     });
@@ -334,7 +338,7 @@ describe('hardware Cloud sync session', () => {
       .mockResolvedValueOnce(ok({ lock: winnerLock }));
     loser.post
       .mockRejectedValueOnce(
-        Object.assign(new Error('pwdHash invalid'), { code: 90_010 }),
+        Object.assign(new Error('pwdHash invalid'), { code: 90_704 }),
       )
       .mockResolvedValueOnce(ok({ serverData: [] }));
     const adopted = await bootstrapHardwareCloudSyncDataKey({

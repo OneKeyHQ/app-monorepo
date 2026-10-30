@@ -146,13 +146,17 @@ jest.mock('@onekeyhq/shared/src/utils/timerUtils', () => ({
   default: { wait: async () => undefined },
 }));
 jest.mock('@onekeyhq/shared/src/eventBus/appEventBus', () => ({
-  EAppEventBusNames: { ShowDialogLoading: 'ShowDialogLoading' },
+  EAppEventBusNames: {
+    ShowDialogLoading: 'ShowDialogLoading',
+    HardwareCloudKeyDropped: 'HardwareCloudKeyDropped',
+  },
   appEventBus: {
+    on: () => undefined,
     once: (_name: string, fn: () => void) => {
       mockOnSyncLoading = fn;
     },
-    off: () => {
-      mockOnSyncLoading = undefined;
+    off: (name: string) => {
+      if (name === 'ShowDialogLoading') mockOnSyncLoading = undefined;
     },
   },
 }));

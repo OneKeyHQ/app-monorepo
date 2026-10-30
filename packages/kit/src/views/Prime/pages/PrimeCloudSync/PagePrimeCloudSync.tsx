@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import type { ReactElement } from 'react';
 
 import { useFocusEffect } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
 import {
+  ActionList,
   Alert,
   Button,
   Dialog,
@@ -46,6 +48,7 @@ import {
   EOnboardingV2Routes,
 } from '@onekeyhq/shared/src/routes/onboardingv2';
 import { EPrimeFeatures, EPrimePages } from '@onekeyhq/shared/src/routes/prime';
+import { getDeviceAvatarImage } from '@onekeyhq/shared/src/utils/avatarUtils';
 import { formatDistanceToNow } from '@onekeyhq/shared/src/utils/dateUtils';
 import { isNeverLockDuration } from '@onekeyhq/shared/src/utils/passwordUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
@@ -286,6 +289,50 @@ function CloudSyncHeader({ onLearnMore }: { onLearnMore: () => void }) {
       <Divider mx="$5" my="$2" />
     </>
   );
+}
+
+// Actions for the hardware wallet that holds the sync key: a popover on wide
+// screens, a bottom sheet on narrow ones.
+function HardwareWalletKeyMenu({
+  enabled,
+  onChangeKey,
+  children,
+}: {
+  enabled: boolean;
+  onChangeKey: () => void;
+  children: (onPress?: () => void) => ReactElement;
+}) {
+  const intl = useIntl();
+  const { gtMd } = useMedia();
+  const changeKeyLabel = intl.formatMessage({
+    id: ETranslations.change_sync_key__title,
+  });
+  const title = intl.formatMessage({
+    id: ETranslations.hardware_wallet__title,
+  });
+  const sections = [
+    {
+      items: [
+        {
+          testID: 'cloud-hardware-key-reset',
+          label: changeKeyLabel,
+          icon: 'KeyOutline' as const,
+          onPress: onChangeKey,
+        },
+      ],
+    },
+  ];
+  if (!enabled) return children();
+  if (gtMd) {
+    return (
+      <ActionList
+        title={title}
+        sections={sections}
+        renderTrigger={children()}
+      />
+    );
+  }
+  return children(() => ActionList.show({ title, sections }));
 }
 
 function AppDataSection() {
@@ -928,40 +975,41 @@ function AppDataSection() {
             />
           </ListItem>
           {hardwareSource ? (
-            <ListItem
-              testID="cloud-hardware-key-device"
-              icon="OnekeyProOutline"
-              title={intl.formatMessage({
-                id: ETranslations.hardware_wallet__title,
-              })}
-              subtitle={intl.formatMessage({
-                id: ETranslations.syncing_with_wallet__msg,
-              })}
+            <HardwareWalletKeyMenu
+              enabled={!hardwareKey.keyMissing && !hardwareKey.pending}
+              onChangeKey={hardwareKey.resetKey}
             >
-              <Stack flexDirection="row" alignItems="center" gap="$1.5">
-                {/* Same device image as hardware wallets in the account selector. */}
-                <WalletAvatar
-                  wallet={undefined}
-                  img={hardwareSource.deviceType}
-                  size="$5"
-                />
-                <SizableText size="$bodyLg" color="$textSubdued">
-                  {hardwareSource.deviceName}
-                </SizableText>
-              </Stack>
-            </ListItem>
-          ) : null}
-          {hardwareSource && !hardwareKey.keyMissing ? (
-            <ListItem
-              testID="cloud-hardware-key-reset"
-              icon="KeyOutline"
-              // TODO i18n
-              title="Reset Cloud sync key"
-              subtitle="Encrypt synced data with a new key and sign out other devices"
-              drillIn
-              disabled={hardwareKey.pending}
-              onPress={hardwareKey.resetKey}
-            />
+              {(onPress) => (
+                <ListItem
+                  testID="cloud-hardware-key-device"
+                  icon="OnekeyProOutline"
+                  title={intl.formatMessage({
+                    id: ETranslations.hardware_wallet__title,
+                  })}
+                  subtitle={intl.formatMessage({
+                    id: ETranslations.syncing_with_wallet__msg,
+                  })}
+                  drillIn={!hardwareKey.keyMissing}
+                  disabled={hardwareKey.pending}
+                  onPress={onPress}
+                >
+                  <Stack flexDirection="row" alignItems="center" gap="$1.5">
+                    {/* Same device image as hardware wallets in the account selector. */}
+                    <WalletAvatar
+                      wallet={undefined}
+                      img={
+                        hardwareSource.deviceAvatar ??
+                        getDeviceAvatarImage(hardwareSource.deviceType)
+                      }
+                      size="$5"
+                    />
+                    <SizableText size="$bodyLg" color="$textSubdued">
+                      {hardwareSource.deviceName}
+                    </SizableText>
+                  </Stack>
+                </ListItem>
+              )}
+            </HardwareWalletKeyMenu>
           ) : null}
           {keylessWallet && !hardwareSource ? (
             <ListItem

@@ -202,13 +202,15 @@ describe('hardware Cloud SDK adapter', () => {
       expect.any(Function),
       { deviceKey: 'test-connect' },
     );
-    // No wallet record and no raw XFP: only its hash and display info.
+    // No wallet record and no raw XFP: only its hash and display info. The
+    // avatar is the account selector's image for this model, not the serial.
     expect(result.source).toEqual({
       type: 'hardware',
       credentialId: standardCredentialId,
       derivationVersion: 1,
       deviceName: 'My OneKey',
       deviceType: 'pro',
+      deviceAvatar: 'proBlack',
     });
     expect(result.credential.source).toEqual(result.source);
     expect(result.credential.keylessWalletId).toBe(result.source.credentialId);
@@ -473,9 +475,13 @@ describe('hardware Cloud SDK adapter', () => {
       backgroundApi,
       connectId: 'test-connect',
       isCurrent: () => true,
+      // Progress is announced before each confirmation the device asks for.
+      onDeviceSign: () => order.push('confirm'),
     });
     expect(order).toEqual([
+      'confirm',
       HARDWARE_CLOUD_SYNC_AUTH_PATH,
+      'confirm',
       HARDWARE_CLOUD_SYNC_PATH,
     ]);
     expect(ui.runExclusiveOneKeyOperation).toHaveBeenCalledTimes(1);

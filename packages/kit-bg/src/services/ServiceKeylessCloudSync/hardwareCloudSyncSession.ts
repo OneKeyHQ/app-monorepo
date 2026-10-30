@@ -232,8 +232,8 @@ export async function requestHardwareCloudSyncChallenge({
   client: AxiosInstance;
   jwk: IHardwareCloudSyncDeviceKeyJwk;
 }) {
-  // Measured fresh: the server may spend the challenge before it checks the
-  // sign-in proof, so a stale clock here would cost the user another signature.
+  // Measured fresh: the challenge's expiry is checked against this clock
+  // before the user is asked to sign it.
   const clockOffsetMs = await measureServerClockOffsetMs({ force: true });
   // The server recovers the identity key from the signature.
   const response = await client.post<
@@ -663,30 +663,23 @@ type IEncryptedSyncItem = {
   pwdHash?: string;
 };
 
-// Stale pwdHash response code. Placeholder shared with the local mock server;
-// align with the Prime production code before shipping.
-export const HARDWARE_CLOUD_SYNC_PWD_HASH_INVALID_CODE = 90_010;
+// Prime answers hardware sync requests with HTTP 200 and one of its own 907xx
+// codes, apart from the OneKey ID and Keyless ones.
+// Any auth failure: challenge, signature, proof, token or revoked session.
+export const HARDWARE_CLOUD_SYNC_UNAUTHORIZED_CODE = 90_700;
+// Stale pwdHash: another device replaced the data key.
+export const HARDWARE_CLOUD_SYNC_PWD_HASH_INVALID_CODE = 90_704;
+
+function hasErrorCode(error: unknown, code: number) {
+  return (error as { code?: unknown } | undefined)?.code === code;
+}
 
 export function isHardwareCloudSyncPwdHashInvalidError(error: unknown) {
-  return (
-    (error as { code?: unknown } | undefined)?.code ===
-    HARDWARE_CLOUD_SYNC_PWD_HASH_INVALID_CODE
-  );
+  return hasErrorCode(error, HARDWARE_CLOUD_SYNC_PWD_HASH_INVALID_CODE);
 }
 
 export function isHardwareCloudSyncUnauthorizedError(error: unknown) {
-  const e = error as
-    | {
-        httpStatusCode?: number;
-        response?: { status?: number };
-        data?: { httpStatusCode?: number };
-      }
-    | undefined;
-  return (
-    e?.httpStatusCode === 401 ||
-    e?.response?.status === 401 ||
-    e?.data?.httpStatusCode === 401
-  );
+  return hasErrorCode(error, HARDWARE_CLOUD_SYNC_UNAUTHORIZED_CODE);
 }
 
 /** Returns the data key the server currently holds, or undefined if none. */
@@ -921,12 +914,9 @@ async function downloadAllForReset({
   throw new OneKeyLocalError('Too much Cloud sync data to reset at once');
 }
 
-// Stale data version response code, shared with the local mock server.
-export const HARDWARE_CLOUD_SYNC_NONCE_INVALID_CODE = 90_011;
+// Stale data version: the server's nonce moved since it was read.
+export const HARDWARE_CLOUD_SYNC_NONCE_INVALID_CODE = 90_705;
 
 export function isHardwareCloudSyncNonceInvalidError(error: unknown) {
-  return (
-    (error as { code?: unknown } | undefined)?.code ===
-    HARDWARE_CLOUD_SYNC_NONCE_INVALID_CODE
-  );
+  return hasErrorCode(error, HARDWARE_CLOUD_SYNC_NONCE_INVALID_CODE);
 }

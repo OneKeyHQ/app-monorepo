@@ -392,6 +392,34 @@ describe('ServiceKeylessCloudSync', () => {
     expect(auth?.signatureHeader).toBe('signature-header');
   });
 
+  test('a hardware Cloud key has no Keyless signature to build', async () => {
+    const buildKeylessSignatureHeader = jest.spyOn(
+      keylessCloudSyncUtils,
+      'buildKeylessSignatureHeader',
+    );
+    const service = createService({
+      backgroundApi: {
+        servicePrimeCloudSync: {
+          getSyncCredentialSafe: jest.fn(async () => ({
+            keylessCredential: {
+              keylessWalletId: 'hardware-cloud-v1-test',
+              signingPrivateKey: '',
+              signingPublicKey: '',
+              encryptionKey: 'data-key',
+              pwdHash: 'hw-dek-test',
+            },
+          })),
+        },
+      },
+    });
+
+    // Signing with the empty key threw and stopped push registration.
+    await expect(
+      service.getKeylessSyncAuth({ postData: { foo: 'bar' } }),
+    ).resolves.toBeNull();
+    expect(buildKeylessSignatureHeader).not.toHaveBeenCalled();
+  });
+
   test('keyless signature header ensures fresh server time before signing', async () => {
     const refreshedTimestamp = 1_800_000_000_000;
     jest.spyOn(systemTimeUtils, 'getCorrectedCloudSyncNow').mockReturnValue({

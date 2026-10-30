@@ -78,6 +78,49 @@ export function chooseCloudSyncKey(
   });
 }
 
+// Shown while the user confirms on the device; counts the confirmations, as
+// in "Confirm on device (1/3)", once the first one is asked for.
+function DeviceConfirmWaiting() {
+  const intl = useIntl();
+  const [progress, setProgress] = useState<{
+    current: number;
+    total: number;
+  }>();
+  useEffect(() => {
+    const onProgress = (value: { current: number; total: number }) => {
+      setProgress(value);
+    };
+    appEventBus.on(EAppEventBusNames.HardwareCloudKeySignProgress, onProgress);
+    return () => {
+      appEventBus.off(
+        EAppEventBusNames.HardwareCloudKeySignProgress,
+        onProgress,
+      );
+    };
+  }, []);
+  const title = intl.formatMessage({
+    id: ETranslations.global_confirm_on_device,
+  });
+  return (
+    <YStack gap="$5">
+      <Dialog.Header>
+        <Dialog.Title>
+          {progress
+            ? `${title} (${progress.current}/${progress.total})`
+            : title}
+        </Dialog.Title>
+        {/* Shown while the user is signing, so the risk note lands here. */}
+        <Dialog.Description>
+          {intl.formatMessage({
+            id: ETranslations.cloud_sync_hardware_signing__desc,
+          })}
+        </Dialog.Description>
+      </Dialog.Header>
+      <Spinner size="large" />
+    </YStack>
+  );
+}
+
 function confirmDialog({
   title,
   description,
@@ -134,15 +177,31 @@ export function useHardwareCloudSyncKey() {
   const [pending, setPending] = useState(false);
   const supported = isHardwareCloudSyncPlatformSupported();
   const source = supported ? config.hardwareCloudSyncKeySource : undefined;
-  // Sync can stay on without its key, e.g. after an older App version ran.
-  const { result: keyMissing = false } = usePromiseResult(
-    () =>
-      source?.credentialId && config.isCloudSyncEnabledKeyless
-        ? backgroundApiProxy.serviceKeylessCloudSync.isSelectedHardwareCloudKeyMissing()
-        : Promise.resolve(false),
-    [source?.credentialId, config.isCloudSyncEnabledKeyless],
-    { revalidateOnFocus: true },
-  );
+  // Sync can stay on without its key, e.g. after an older App version ran or
+  // another device reset it. Opening the page asks the server first.
+  const { result: keyMissing = false, run: recheckKeyMissing } =
+    usePromiseResult(
+      async () => {
+        if (!source?.credentialId || !config.isCloudSyncEnabledKeyless) {
+          return false;
+        }
+        await backgroundApiProxy.serviceKeylessCloudSync.checkHardwareCloudSyncSessionThrottled(
+          { force: true },
+        );
+        return backgroundApiProxy.serviceKeylessCloudSync.isSelectedHardwareCloudKeyMissing();
+      },
+      [source?.credentialId, config.isCloudSyncEnabledKeyless],
+      { revalidateOnFocus: true },
+    );
+  useEffect(() => {
+    const onDropped = () => {
+      void recheckKeyMissing();
+    };
+    appEventBus.on(EAppEventBusNames.HardwareCloudKeyDropped, onDropped);
+    return () => {
+      appEventBus.off(EAppEventBusNames.HardwareCloudKeyDropped, onDropped);
+    };
+  }, [recheckKeyMissing]);
   useEffect(
     () => () => {
       void backgroundApiProxy.serviceKeylessCloudSync.cancelHardwareCloudKeyOperation();
@@ -156,17 +215,10 @@ export function useHardwareCloudSyncKey() {
       // Stays up while the device asks for the signature; Cancel stops that
       // request. A late cancel after the commit starts is ignored.
       const waiting = Dialog.show({
-        title: intl.formatMessage({
-          id: ETranslations.global_confirm_on_device,
-        }),
-        // Shown while the user is signing, so the risk note lands here.
-        description: intl.formatMessage({
-          id: ETranslations.cloud_sync_hardware_signing__desc,
-        }),
         showConfirmButton: false,
         dismissOnOverlayPress: false,
         disableDrag: true,
-        renderContent: <Spinner size="large" />,
+        renderContent: <DeviceConfirmWaiting />,
         onCancelText: intl.formatMessage({ id: ETranslations.global_cancel }),
         onClose: async () => {
           if (!finished) {
@@ -220,16 +272,10 @@ export function useHardwareCloudSyncKey() {
     async (connectId: string) => {
       setPending(true);
       const waiting = Dialog.show({
-        title: intl.formatMessage({
-          id: ETranslations.global_confirm_on_device,
-        }),
-        description: intl.formatMessage({
-          id: ETranslations.cloud_sync_hardware_signing__desc,
-        }),
         showConfirmButton: false,
         dismissOnOverlayPress: false,
         disableDrag: true,
-        renderContent: <Spinner size="large" />,
+        renderContent: <DeviceConfirmWaiting />,
         onCancelText: intl.formatMessage({ id: ETranslations.global_cancel }),
         onClose: async () => {
           await backgroundApiProxy.serviceKeylessCloudSync.cancelHardwareCloudKeyOperation();
@@ -241,8 +287,9 @@ export function useHardwareCloudSyncKey() {
         );
         void backgroundApiProxy.serviceApp.showToast({
           method: 'success',
-          // TODO i18n
-          title: 'Cloud sync key reset',
+          title: intl.formatMessage({
+            id: ETranslations.sync_key_changed__title,
+          }),
         });
       } finally {
         void waiting.close();
@@ -312,10 +359,10 @@ export function useHardwareCloudSyncKey() {
   );
   const resetKey = useCallback(async () => {
     const confirmed = await confirmDialog({
-      // TODO i18n
-      title: 'Reset Cloud sync key?',
-      description:
-        'All synced data is encrypted again with a new key and other devices are signed out. They need to connect this hardware wallet again to keep syncing.',
+      title: intl.formatMessage({ id: ETranslations.change_sync_key__title }),
+      description: intl.formatMessage({
+        id: ETranslations.change_sync_key__desc,
+      }),
       onConfirmText: intl.formatMessage({ id: ETranslations.global_confirm }),
     });
     if (!confirmed) return;
