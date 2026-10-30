@@ -96,7 +96,7 @@ export function buildSwapTokenNativeListSnapshot({
         height: 36,
         pressDisabled: true,
         style: {
-          horizontalPadding: isDesktopSelector ? 4 : 20,
+          horizontalPadding: isDesktopSelector ? 12 : 20,
           title: {
             fontSize: 14,
             lineHeight: 20,
@@ -227,7 +227,8 @@ export function buildSwapTokenNativeListSnapshot({
         },
       ],
       style: {
-        horizontalPadding: isDesktopSelector ? 4 : 20,
+        ...(isDesktopSelector ? { container: { cornerRadius: 12 } } : {}),
+        horizontalPadding: isDesktopSelector ? 12 : 20,
         leadingGap: 12,
         trailingGap: 8,
         image: { width: 40, height: 40, shape: 'circle' },
@@ -247,7 +248,7 @@ export function buildSwapTokenNativeListSnapshot({
       generation: 1,
       layout: {
         kind: 'linear',
-        contentPaddingHorizontal: isDesktopSelector ? 16 : 0,
+        contentPaddingHorizontal: isDesktopSelector ? 8 : 0,
       },
       selection: { mode: 'none', selectedKeys: [] },
       theme,
