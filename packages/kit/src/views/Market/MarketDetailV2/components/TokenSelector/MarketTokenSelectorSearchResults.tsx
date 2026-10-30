@@ -432,6 +432,8 @@ const StockSearchRow = memo(
               borderRadius="$full"
               tokenImageUri={item.logoUrl}
               fallbackIcon="CryptoCoinOutline"
+              placeholder={null}
+              loadingStrategy="static"
             />
             <YStack flex={1} minWidth={0} gap="$1" justifyContent="center">
               <SizableText size="$headingSm" numberOfLines={1}>

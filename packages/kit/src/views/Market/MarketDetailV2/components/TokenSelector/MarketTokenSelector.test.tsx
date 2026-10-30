@@ -27,6 +27,7 @@ import MobileTokenSelector from './MobileTokenSelector';
 
 const mockSetSelectorConfig = jest.fn();
 const mockStockListMount = jest.fn();
+const mockTokenListMount = jest.fn();
 const mockTopCoinPress = jest.fn();
 const mockNavigateToMarketTokenDetail = jest.fn();
 const mockToStock = jest.fn();
@@ -101,13 +102,20 @@ jest.mock('@onekeyhq/components', () => {
     children,
     onPress,
     testID,
+    display,
   }: {
     children?: ReactNode;
     onPress?: () => void;
     testID?: string;
+    display?: string;
   }) {
     return (
-      <div data-testid={testID} onClick={onPress} role="presentation">
+      <div
+        data-testid={testID}
+        onClick={onPress}
+        role="presentation"
+        style={{ display }}
+      >
         {children}
       </div>
     );
@@ -334,62 +342,71 @@ jest.mock('./MarketStockSelectorList', () => {
   };
 });
 
-jest.mock('./MarketTokenSelectorList', () => ({
-  MarketTokenSelectorList: ({
-    dataOverride,
-    isWatchlistMode,
-    onItemPress,
-    searchResults,
-    selectedCategory,
-    watchlistFilter,
-  }: {
-    watchlistFilter?: string;
-    dataOverride?: (IMarketToken & { marketAssetId?: string })[];
-    isWatchlistMode: boolean;
-    onItemPress: (item: IMarketToken) => void;
-    searchResults?: IMarketToken[];
-    selectedCategory?: string;
-  }) => (
-    <>
-      <div
-        data-category={selectedCategory}
-        data-override-count={dataOverride?.length ?? 0}
-        data-testid="token-list"
-        data-watchlist={String(isWatchlistMode)}
-        data-filter={watchlistFilter}
-      />
-      {dataOverride?.[0] ? (
-        <button
-          data-testid="market-token-selector-top-coin"
-          type="button"
-          onClick={() => onItemPress(dataOverride[0])}
-        >
-          Select Top Coin
-        </button>
-      ) : null}
-      {searchResults?.[0] ? (
-        <button
-          data-testid="market-token-selector-search-result"
-          type="button"
-          onClick={() => onItemPress(searchResults[0])}
-        >
-          Select search result
-        </button>
-      ) : null}
-      {isWatchlistMode && mockWatchlistToken ? (
-        <button
-          data-testid="market-token-selector-watchlist-result"
-          type="button"
-          onClick={() => {
-            if (mockWatchlistToken) onItemPress(mockWatchlistToken);
-          }}
-        >
-          Select favorite
-        </button>
-      ) : null}
-    </>
-  ),
-}));
+jest.mock('./MarketTokenSelectorList', () => {
+  const { useEffect } = jest.requireActual<typeof import('react')>('react');
+  return {
+    MarketTokenSelectorList: ({
+      dataOverride,
+      isWatchlistMode,
+      onItemPress,
+      searchResults,
+      selectedCategory,
+      watchlistFilter,
+    }: {
+      watchlistFilter?: string;
+      dataOverride?: (IMarketToken & { marketAssetId?: string })[];
+      isWatchlistMode: boolean;
+      onItemPress: (item: IMarketToken) => void;
+      searchResults?: IMarketToken[];
+      selectedCategory?: string;
+    }) => {
+      useEffect(() => {
+        mockTokenListMount(isWatchlistMode);
+        // oxlint-disable-next-line react-hooks/exhaustive-deps -- count mounts, not prop updates
+      }, []);
+      return (
+        <>
+          <div
+            data-category={selectedCategory}
+            data-override-count={dataOverride?.length ?? 0}
+            data-testid={isWatchlistMode ? 'favorites-list' : 'token-list'}
+            data-watchlist={String(isWatchlistMode)}
+            data-filter={watchlistFilter}
+          />
+          {dataOverride?.[0] ? (
+            <button
+              data-testid="market-token-selector-top-coin"
+              type="button"
+              onClick={() => onItemPress(dataOverride[0])}
+            >
+              Select Top Coin
+            </button>
+          ) : null}
+          {searchResults?.[0] ? (
+            <button
+              data-testid="market-token-selector-search-result"
+              type="button"
+              onClick={() => onItemPress(searchResults[0])}
+            >
+              Select search result
+            </button>
+          ) : null}
+          {isWatchlistMode && mockWatchlistToken ? (
+            <button
+              data-testid="market-token-selector-watchlist-result"
+              type="button"
+              onClick={() => {
+                if (mockWatchlistToken) onItemPress(mockWatchlistToken);
+              }}
+            >
+              Select favorite
+            </button>
+          ) : null}
+        </>
+      );
+    },
+  };
+});
 
 jest.mock('./MarketTokenSelectorSearchResults', () => ({
   MarketTokenSelectorSearchResults: ({
@@ -442,6 +459,7 @@ describe('MarketTokenSelector stock default category', () => {
     mockWatchlistItems = [{}];
     mockSetSelectorConfig.mockReset();
     mockStockListMount.mockReset();
+    mockTokenListMount.mockReset();
     mockTopCoinPress.mockReset();
     mockNavigateToMarketTokenDetail.mockReset();
     mockUseToMarketStockDetailPage.mockClear();
@@ -456,6 +474,49 @@ describe('MarketTokenSelector stock default category', () => {
       { type: 'stocks', name: 'Stocks' },
     ];
     mockStockCategories = [];
+  });
+
+  it('loads all browse tabs when opening and keeps only the selected panel visible', () => {
+    renderOpenStockSelector();
+    expect(mockStockListMount).toHaveBeenCalledTimes(1);
+    expect(mockTokenListMount.mock.calls).toEqual([[true], [false]]);
+    expect(
+      screen.getByTestId('market-token-selector-panel-stocks').style.display,
+    ).toBe('flex');
+    expect(
+      screen.getByTestId('market-token-selector-panel-favorites').style.display,
+    ).toBe('none');
+    expect(
+      screen.getByTestId('market-token-selector-panel-tokens').style.display,
+    ).toBe('none');
+  });
+
+  it('retains Favorites and the other browse lists across tab and keyword search switches', () => {
+    renderOpenStockSelector();
+    const favorites = screen.getByTestId('favorites-list');
+    const stocks = screen.getByTestId('stock-list');
+    const tokens = screen.getByTestId('token-list');
+    for (const tab of ['favorites', 'tokens', 'stocks', 'favorites']) {
+      fireEvent.click(screen.getByTestId(`market-token-selector-tab-${tab}`));
+      expect(
+        screen.getByTestId(`market-token-selector-panel-${tab}`).style.display,
+      ).toBe('flex');
+      expect(screen.getByTestId('favorites-list')).toBe(favorites);
+      expect(screen.getByTestId('stock-list')).toBe(stocks);
+      expect(screen.getByTestId('token-list')).toBe(tokens);
+    }
+    const search = screen.getByTestId('market-token-selector-search');
+    fireEvent.change(search, { target: { value: 'BTC' } });
+    expect(
+      screen.getByTestId('market-token-selector-panel-favorites').style.display,
+    ).toBe('none');
+    fireEvent.change(search, { target: { value: '' } });
+    expect(screen.getByTestId('favorites-list')).toBe(favorites);
+    expect(
+      screen.getByTestId('market-token-selector-panel-favorites').style.display,
+    ).toBe('flex');
+    expect(mockStockListMount).toHaveBeenCalledTimes(1);
+    expect(mockTokenListMount).toHaveBeenCalledTimes(2);
   });
 
   it('retains content until exit completes and resets search on reopen', () => {
@@ -618,7 +679,9 @@ describe('MarketTokenSelector stock default category', () => {
     fireEvent.click(tokensTab);
 
     await waitFor(() => {
-      expect(screen.queryByTestId('stock-list')).toBeNull();
+      expect(
+        screen.getByTestId('market-token-selector-panel-stocks').style.display,
+      ).toBe('none');
       expect(
         screen.getByTestId('token-list').getAttribute('data-category'),
       ).toBe('trending');
@@ -734,7 +797,9 @@ describe('MarketTokenSelector stock default category', () => {
     fireEvent.click(screen.getByTestId('market-token-selector-tab-tokens'));
 
     await waitFor(() => {
-      expect(screen.queryByTestId('stock-list')).toBeNull();
+      expect(
+        screen.getByTestId('market-token-selector-panel-stocks').style.display,
+      ).toBe('none');
       expect(
         screen.getByTestId('token-list').getAttribute('data-category'),
       ).toBe('trending');
@@ -751,9 +816,11 @@ describe('MarketTokenSelector stock default category', () => {
     fireEvent.click(screen.getByTestId('market-token-selector-tab-favorites'));
 
     await waitFor(() => {
-      expect(screen.queryByTestId('stock-list')).toBeNull();
       expect(
-        screen.getByTestId('token-list').getAttribute('data-watchlist'),
+        screen.getByTestId('market-token-selector-panel-stocks').style.display,
+      ).toBe('none');
+      expect(
+        screen.getByTestId('favorites-list').getAttribute('data-watchlist'),
       ).toBe('true');
     });
   });
@@ -1011,7 +1078,8 @@ describe('Favorites category selection', () => {
       expect(Boolean(screen.queryByText('prime_crypto_payment__label'))).toBe(
         perpsOnly,
       );
-      const listId = platform === 'mobile' ? 'mobile-favorites' : 'token-list';
+      const listId =
+        platform === 'mobile' ? 'mobile-favorites' : 'favorites-list';
       expect(screen.getByTestId(listId).getAttribute('data-filter')).toBe(
         'all',
       );
@@ -1115,7 +1183,8 @@ describe('Favorites category selection', () => {
       fireEvent.click(
         screen.getByTestId('market-token-selector-tab-favorites'),
       );
-      const listId = platform === 'mobile' ? 'mobile-favorites' : 'token-list';
+      const listId =
+        platform === 'mobile' ? 'mobile-favorites' : 'favorites-list';
       expect(screen.getByTestId(listId).getAttribute('data-filter')).toBe(
         'all',
       );
@@ -1126,7 +1195,14 @@ describe('Favorites category selection', () => {
       fireEvent.change(screen.getByTestId('market-token-selector-search'), {
         target: { value: 'btc' },
       });
-      expect(screen.queryByTestId(listId)).toBeNull();
+      if (platform === 'mobile') {
+        expect(screen.queryByTestId(listId)).toBeNull();
+      } else {
+        expect(
+          screen.getByTestId('market-token-selector-panel-favorites').style
+            .display,
+        ).toBe('none');
+      }
     },
   );
 });

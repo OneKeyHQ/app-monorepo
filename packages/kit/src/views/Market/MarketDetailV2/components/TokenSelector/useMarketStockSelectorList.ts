@@ -167,10 +167,8 @@ async function prewarmStockSelectorImages(items: IMarketStockPublicItem[]) {
       })
       .catch(() => false);
     newUris.forEach((uri) => {
-      const uriPromise = withTimeout(
-        batchPromise,
-        STOCK_SELECTOR_IMAGE_PREWARM_TIMEOUT_MS,
-      ).finally(() => {
+      // The display deadline must not expire the underlying image request.
+      const uriPromise = batchPromise.finally(() => {
         if (prewarmingStockSelectorImagePromises.get(uri) === uriPromise) {
           prewarmingStockSelectorImagePromises.delete(uri);
         }
@@ -179,13 +177,16 @@ async function prewarmStockSelectorImages(items: IMarketStockPublicItem[]) {
     });
   }
 
-  const results = await Promise.all(
-    uris.map(
-      (uri) =>
-        prewarmingStockSelectorImagePromises.get(uri) ?? Promise.resolve(true),
-    ),
+  return withTimeout(
+    Promise.all(
+      uris.map(
+        (uri) =>
+          prewarmingStockSelectorImagePromises.get(uri) ??
+          Promise.resolve(true),
+      ),
+    ).then((results) => results.every(Boolean)),
+    STOCK_SELECTOR_IMAGE_PREWARM_TIMEOUT_MS,
   );
-  return results.every(Boolean);
 }
 
 function dropStaleStockListCache(swrKey: string) {
@@ -304,6 +305,9 @@ export function useMarketStockSelectorList({
               limit: MARKET_STOCK_SELECTOR_PAGE_SIZE,
               ...(listCategory ? { category: listCategory } : {}),
             });
+        // Warm cold first-page logos before mounting their rows. Cached rows
+        // remain interactive, and the prewarm timeout keeps slow images bounded.
+        await prewarmStockSelectorImages(response.items);
         if (queryKeyRef.current === requestQueryKey) {
           remoteQueryKeyRef.current = requestQueryKey;
         }

@@ -692,6 +692,55 @@ it('reuses the cached quote batch so a remount renders rows immediately', async 
     expect.objectContaining({ id: 'stock:AAPL', name: 'Apple', price: 321 }),
   ]);
 });
+it.each([false, true])(
+  'reuses a successful empty spot result only for the same favorites, changed=%s',
+  async (changed) => {
+    mockBatch.mockResolvedValue({ list: [] });
+    mockStockBatch.mockResolvedValue([
+      stockItem('AAPL', { name: 'Apple', price: '321' }),
+    ]);
+    const dataCacheRef: RefObject<IMarketWatchlistDataCache | undefined> = {
+      current: undefined,
+    };
+    const watchlist = [
+      { stockId: 'AAPL', chainId: '', contractAddress: '', sortIndex: 0 },
+      { chainId: 'evm--1', contractAddress: '0xunresolved', sortIndex: 1 },
+    ];
+    const first = renderHook(() =>
+      useMarketWatchlistTokenList({
+        watchlist,
+        pollingInterval: 0,
+        dataCacheRef,
+      }),
+    );
+    await waitFor(() =>
+      expect(first.result.current.hasLoadedAllSources).toBe(true),
+    );
+    expect(first.result.current.data).toHaveLength(1);
+    first.unmount();
+
+    mockBatch.mockReturnValue(new Promise(() => {}));
+    mockStockBatch.mockReturnValue(new Promise(() => {}));
+    const nextWatchlist = changed
+      ? [watchlist[0], { ...watchlist[1], contractAddress: '0xnew' }]
+      : watchlist;
+    const second = renderHook(() =>
+      useMarketWatchlistTokenList({
+        watchlist: nextWatchlist,
+        pollingInterval: 0,
+        dataCacheRef,
+      }),
+    );
+    expect(second.result.current.data.map((item) => item.symbol)).toEqual(
+      changed ? [] : ['AAPL'],
+    );
+    expect(second.result.current.isLoading).toBe(true);
+    await act(async () => {});
+    second.unmount();
+    mockBatch.mockResolvedValue({ list: [] });
+  },
+);
+
 it('withholds a newly favorited listing while the previous batch is reused', async () => {
   mockStockBatch.mockResolvedValue([
     stockItem('AAPL', { name: 'Apple', price: '321' }),

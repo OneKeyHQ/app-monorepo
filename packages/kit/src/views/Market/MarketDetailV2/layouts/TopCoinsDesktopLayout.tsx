@@ -20,6 +20,7 @@ import { Portfolio } from '../components/InformationTabs/components/Portfolio';
 import { PerpetualTradingBanner } from '../components/PerpetualTradingBanner/PerpetualTradingBanner';
 import { TokenDetailHeader } from '../components/TokenDetailHeader/TokenDetailHeader';
 import { TopCoinsOverviewContent } from '../components/TopCoinsOverview/TopCoinsOverviewContent';
+import { useMarketDetailTabMinHeight } from '../hooks/useMarketDetailTabMinHeight';
 
 import { TokenDetailChart } from './components/TokenDetailChart';
 import { MarketEmbeddedSwap } from './MarketEmbeddedSwap';
@@ -109,6 +110,12 @@ function TopCoinsInformation({
 }) {
   const intl = useIntl();
   const [tab, setTab] = useState<'overview' | 'portfolio'>('overview');
+  const { ref, minHeight, preserveScrollPosition } =
+    useMarketDetailTabMinHeight();
+  const handleTabChange = (nextTab: typeof tab) => {
+    preserveScrollPosition();
+    setTab(nextTab);
+  };
 
   let tabContent: ReactNode;
   if (tab === 'portfolio') {
@@ -136,14 +143,14 @@ function TopCoinsInformation({
   }
 
   return (
-    <YStack minHeight={620}>
+    <YStack ref={ref} minHeight={Math.max(620, minHeight)}>
       <XStack height={44} px="$5" gap="$5" alignItems="stretch">
         <XStack
           alignItems="center"
           borderBottomWidth={tab === 'overview' ? 2 : 0}
           borderBottomColor="$borderActive"
           cursor="pointer"
-          onPress={() => setTab('overview')}
+          onPress={() => handleTabChange('overview')}
         >
           <SizableText
             size="$bodyLgMedium"
@@ -157,7 +164,7 @@ function TopCoinsInformation({
           borderBottomWidth={tab === 'portfolio' ? 2 : 0}
           borderBottomColor="$borderActive"
           cursor="pointer"
-          onPress={() => setTab('portfolio')}
+          onPress={() => handleTabChange('portfolio')}
         >
           <SizableText
             size="$bodyLgMedium"
