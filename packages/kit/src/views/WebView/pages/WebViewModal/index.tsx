@@ -30,6 +30,7 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { isPrimeStoreOnlyPayment } from '@onekeyhq/shared/src/prime/primePaymentCapabilities';
 import type {
   EModalWebViewRoutes,
   IModalWebViewParamList,
@@ -69,6 +70,12 @@ export default function WebViewModal() {
 
   const { copyText } = useClipboard();
   const intl = useIntl();
+  const isPrimeCheckout = Boolean(
+    platformEnv.isNativeAndroid &&
+    !isPrimeStoreOnlyPayment() &&
+    isWebEmbed &&
+    hashRoutePath === EWebEmbedRoutePath.primePurchase,
+  );
   const [{ fiatPaySiteWhitelist }] =
     useSettingsFiatPaySiteWhitelistPersistAtom();
 
@@ -219,6 +226,22 @@ export default function WebViewModal() {
     },
     [enableDappBridge, currentUrl, url, title, setNavigationTitle],
   );
+  const openPrimeHostedCheckout = useCallback(
+    async (params: unknown) => {
+      navigation.pop();
+      // Let the WebView modal close before the checkout dialogs show.
+      await timerUtils.wait(350);
+      await handlePrimeHostedCardCheckoutFallbackRequest({
+        params,
+        routePrimeUserId: hashRouteQueryParams?.primeUserId,
+        routePrimeUserEmail: hashRouteQueryParams?.primeUserEmail,
+        routeSubscriptionPeriod: hashRouteQueryParams?.subscriptionPeriod,
+        routeCurrency: hashRouteQueryParams?.currency,
+        intl,
+      });
+    },
+    [navigation, hashRouteQueryParams, intl],
+  );
   const webembedCustomReceiveHandler = useCallback(
     (payload: IJsBridgeMessagePayload) => {
       // Guard against events after unmount started
@@ -246,19 +269,7 @@ export default function WebViewModal() {
         isWebEmbed &&
         hashRoutePath === EWebEmbedRoutePath.primePurchase
       ) {
-        navigation.pop();
-        void (async () => {
-          // Let the WebView modal close before the checkout dialogs show.
-          await timerUtils.wait(350);
-          await handlePrimeHostedCardCheckoutFallbackRequest({
-            params: data.params,
-            routePrimeUserId: hashRouteQueryParams?.primeUserId,
-            routePrimeUserEmail: hashRouteQueryParams?.primeUserEmail,
-            routeSubscriptionPeriod: hashRouteQueryParams?.subscriptionPeriod,
-            routeCurrency: hashRouteQueryParams?.currency,
-            intl,
-          });
-        })();
+        void openPrimeHostedCheckout(data.params);
       }
       if (data.method === EWebEmbedPrivateRequestMethod.showToast) {
         const toastParams = data.params as
@@ -284,14 +295,51 @@ export default function WebViewModal() {
     },
     [
       hashRoutePath,
-      hashRouteQueryParams?.primeUserEmail,
       hashRouteQueryParams?.primeUserId,
-      hashRouteQueryParams?.subscriptionPeriod,
-      hashRouteQueryParams?.currency,
-      intl,
       isWebEmbed,
       navigation,
+      openPrimeHostedCheckout,
     ],
+  );
+
+  const primeCheckoutHeaderRight = useCallback(
+    () => (
+      <ActionList
+        title={intl.formatMessage({ id: ETranslations.explore_options })}
+        renderTrigger={
+          <HeaderIconButton
+            icon="DotHorOutline"
+            testID={WebViewTestIDs.optionsMenuBtn}
+            accessibilityLabel={intl.formatMessage({
+              id: ETranslations.explore_options,
+            })}
+          />
+        }
+        sections={[
+          {
+            items: [
+              {
+                label: intl.formatMessage({
+                  id: ETranslations.explore_open_in_browser,
+                }),
+                icon: 'GlobusOutline',
+                testID: WebViewTestIDs.openInBrowserBtn,
+                onPress: () => {
+                  void openPrimeHostedCheckout({
+                    trigger: 'userRequestedHostedCheckout',
+                    onekeyUserId: hashRouteQueryParams?.primeUserId,
+                    subscriptionPeriod:
+                      hashRouteQueryParams?.subscriptionPeriod,
+                    featureName: hashRouteQueryParams?.featureName,
+                  });
+                },
+              },
+            ],
+          },
+        ]}
+      />
+    ),
+    [intl, openPrimeHostedCheckout, hashRouteQueryParams],
   );
 
   const { onShouldStartLoadWithRequest, onOpenWindow } = useCrossDomainRedirect(
@@ -338,18 +386,21 @@ export default function WebViewModal() {
   // Same inpage provider either way; the wrapper only adds the account/network
   // change notifications a live dApp session needs.
   const WebViewComponent = enableDappBridge ? WebViewWithFeatures : WebView;
+  const defaultHeaderRight = shouldHideWebViewHeaderRight({
+    url: currentUrl,
+    isWebEmbed,
+    hideHeaderRight,
+  })
+    ? undefined
+    : headerRight;
 
   return (
     <Page>
       <Page.Header
         headerRight={
-          shouldHideWebViewHeaderRight({
-            url: currentUrl,
-            isWebEmbed,
-            hideHeaderRight,
-          })
-            ? undefined
-            : headerRight
+          isPrimeCheckout && !hideHeaderRight
+            ? primeCheckoutHeaderRight
+            : defaultHeaderRight
         }
         title={navigationTitle}
       />
