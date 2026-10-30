@@ -90,7 +90,11 @@ async function loadSdk() {
         throw new OneKeyLocalError('Intercom native SDK key is not configured');
       }
       const sdk = await import('@intercom/intercom-react-native');
-      await sdk.default.initialize(apiKey, 'vbbj4ssb');
+      // Android initializes in Application.onCreate (BaseMainApplication) so a
+      // Messenger Activity restored after process death can start before JS.
+      if (!platformEnv.isNativeAndroid) {
+        await sdk.default.initialize(apiKey, 'vbbj4ssb');
+      }
       await sdk.default.setLauncherVisibility(sdk.Visibility.GONE);
       await sdk.default.setInAppMessageVisibility(sdk.Visibility.GONE);
       if (currentTheme) {
@@ -153,6 +157,15 @@ async function syncSession(
 ) {
   if (generation !== sessionGeneration) {
     return;
+  }
+  // Retire a signed-in previous account before the next JWT request can fail,
+  // so its Messenger never stays open under another wallet identity. An
+  // anonymous session is kept so identifying it can retain its history.
+  if (activeUserId && activeUserId !== userId) {
+    activeUserId = undefined;
+    await sdk.default.hideIntercom();
+    await sdk.default.removeUserJwtProvider();
+    await sdk.default.logout();
   }
   const credentials = userId ? await getIntercomCredentials(userId) : undefined;
   if (!(await isCurrentSession(userId, generation))) {

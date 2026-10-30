@@ -394,6 +394,20 @@ public class BaseMainApplication extends Application implements ReactApplication
       });
     }
 
+    // Intercom requires Application.onCreate initialization: after process
+    // death Android may recreate a Messenger Activity before any JS runs.
+    private void initializeIntercom() {
+      String apiKey = BuildConfig.INTERCOM_ANDROID_API_KEY;
+      if (apiKey == null || apiKey.isEmpty()) {
+        return;
+      }
+      try {
+        com.intercom.reactnative.IntercomModule.initialize(this, apiKey, "vbbj4ssb");
+      } catch (Throwable error) {
+        OneKeyLog.error("Intercom", "initialize failed: " + error);
+      }
+    }
+
     private void setupBackgroundThreadBootstrap() {
       if (!isNativeBackgroundThreadEnabled()) {
         OneKeyLog.info(
@@ -492,6 +506,7 @@ public class BaseMainApplication extends Application implements ReactApplication
     // Single-process app: every WebView lives here. A future android:process
     // component that hosts a WebView would need its own install() call.
     so.onekey.app.wallet.webview.WebEmbedLocalOrigin.install(this);
+    initializeIntercom();
     registerActivityLifecycleCallbacks(new IntercomMessengerLockGuard());
 
     initializeNativeSentry();

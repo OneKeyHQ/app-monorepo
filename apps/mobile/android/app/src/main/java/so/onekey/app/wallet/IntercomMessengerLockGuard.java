@@ -16,13 +16,16 @@ import java.util.WeakHashMap;
  * The Intercom Messenger runs in its own Activities, which keeps the React
  * activity paused. Returning from background straight into the Messenger
  * would skip the AppState-driven app lock check, so close every Messenger
- * Activity and let the wallet resume and lock first.
+ * Activity and let the wallet resume and lock first. After process death the
+ * system may restore a Messenger Activity before the wallet exists, so that
+ * restored Activity is closed too.
  */
 final class IntercomMessengerLockGuard implements Application.ActivityLifecycleCallbacks {
   private final Set<Activity> messengerActivities =
       Collections.newSetFromMap(new WeakHashMap<>());
   private int startedActivities = 0;
   private boolean returningFromBackground = false;
+  private boolean firstActivityInProcess = true;
 
   static boolean isMessengerActivity(@NonNull Activity activity) {
     return activity.getClass().getName().startsWith("io.intercom.");
@@ -30,8 +33,13 @@ final class IntercomMessengerLockGuard implements Application.ActivityLifecycleC
 
   @Override
   public void onActivityCreated(@NonNull Activity activity, @Nullable Bundle savedInstanceState) {
+    boolean restoredFirst = firstActivityInProcess && savedInstanceState != null;
+    firstActivityInProcess = false;
     if (isMessengerActivity(activity)) {
       messengerActivities.add(activity);
+      if (restoredFirst) {
+        activity.finish();
+      }
     }
   }
 

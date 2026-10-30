@@ -1,4 +1,7 @@
-import { getCurrentIntercomToken } from './identity';
+import {
+  assertIntercomUserUnchanged,
+  getCurrentIntercomIdentity,
+} from './identity';
 import { notifyIntercomOpenFailed } from './openFailure';
 import {
   type IShowIntercomParams,
@@ -23,8 +26,8 @@ export const setIntercomInAppMessageVisibility = async (_visible: boolean) => {
 };
 
 const openIntercom = async (params?: IShowIntercomParams) => {
-  const [token, instanceId] = await Promise.all([
-    getCurrentIntercomToken(),
+  const [{ userId, token }, instanceId] = await Promise.all([
+    getCurrentIntercomIdentity(),
     getInstanceId(),
   ]);
 
@@ -36,6 +39,8 @@ const openIntercom = async (params?: IShowIntercomParams) => {
     conversationId: params?.conversationId,
   });
 
+  // The metadata awaits above can outlive the identity check.
+  await assertIntercomUserUnchanged(userId);
   window.open(url);
 };
 

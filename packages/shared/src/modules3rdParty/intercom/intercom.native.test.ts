@@ -208,11 +208,16 @@ describe('native Intercom SDK integration', () => {
       expect(mockSdk.initialize).not.toHaveBeenCalled();
       await Promise.all([subject.initIntercom(), subject.initIntercom()]);
 
-      expect(mockSdk.initialize).toHaveBeenCalledTimes(1);
-      expect(mockSdk.initialize).toHaveBeenCalledWith(
-        platform === 'android' ? 'test-android-sdk-key' : 'test-ios-sdk-key',
-        'vbbj4ssb',
-      );
+      if (platform === 'android') {
+        // Android initializes natively in Application.onCreate.
+        expect(mockSdk.initialize).not.toHaveBeenCalled();
+      } else {
+        expect(mockSdk.initialize).toHaveBeenCalledTimes(1);
+        expect(mockSdk.initialize).toHaveBeenCalledWith(
+          'test-ios-sdk-key',
+          'vbbj4ssb',
+        );
+      }
       expect(
         mockSdk.bootstrapEventListeners.mock.invocationCallOrder[0],
       ).toBeLessThan(mockAddListener.mock.invocationCallOrder[0]);
@@ -389,6 +394,20 @@ describe('native Intercom SDK integration', () => {
     mockUserId = null;
     await subject.initIntercom();
     expect(mockSdk.logout).toHaveBeenCalledTimes(1);
+  });
+
+  it('retires the previous account before the next JWT request can fail', async () => {
+    mockUserId = 'A';
+    mockGetCustomerJWT.mockResolvedValue({ token: createToken('intercom-A') });
+    await subject.initIntercom();
+    expect(mockSdk.loginUserWithUserAttributes).toHaveBeenCalledTimes(1);
+
+    mockUserId = 'B';
+    mockGetCustomerJWT.mockRejectedValueOnce(new Error('offline'));
+    await expect(subject.initIntercom()).rejects.toThrow('offline');
+    expect(mockSdk.hideIntercom).toHaveBeenCalledTimes(1);
+    expect(mockSdk.logout).toHaveBeenCalledTimes(1);
+    expect(mockSdk.loginUserWithUserAttributes).toHaveBeenCalledTimes(1);
   });
 
   it('hides the Messenger on lock and keeps in-flight opens closed', async () => {
