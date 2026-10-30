@@ -247,3 +247,35 @@ describe('earnUtils borrow address normalization', () => {
     });
   });
 });
+
+describe('earnUtils Unitas provider behavior (OK-61790)', () => {
+  it('normalizes Unitas and treats every withdraw as a queued path', () => {
+    expect(earnUtils.getEarnProviderEnumKey('unitas')).toBe('Unitas');
+    expect(earnUtils.isUnitasProvider({ providerName: 'UNITAS' })).toBe(true);
+    expect(earnUtils.isVaultBasedProvider({ providerName: 'Unitas' })).toBe(
+      true,
+    );
+    expect(
+      earnUtils.shouldSendEarnProtocolVault({ providerName: 'Unitas' }),
+    ).toBe(true);
+    expect(earnUtils.requiresEarnWithdrawPath({ providerName: 'unitas' })).toBe(
+      true,
+    );
+    expect(
+      earnUtils.isEarnWithdrawPathReady({
+        providerName: 'Unitas',
+        isLoading: false,
+      }),
+    ).toBe(false);
+    expect(
+      earnUtils.isEarnWithdrawPathReady({
+        providerName: 'Unitas',
+        isLoading: false,
+        withdrawType: 'queued',
+      }),
+    ).toBe(true);
+    expect(earnUtils.getEarnProviderName({ providerName: 'unitas' })).toBe(
+      'Unitas',
+    );
+  });
+});
