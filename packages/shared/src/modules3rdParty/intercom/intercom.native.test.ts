@@ -249,13 +249,9 @@ describe('native Intercom SDK integration', () => {
 
   it('sends lock policy to Android without loading the SDK or using bg state', async () => {
     mockPlatformEnv.isNativeAndroid = true;
-    const policy = {
-      autoLockEnabled: true,
-      lockDurationMinutes: 5,
-      lastActivityMs: 1234,
-    };
+    const policy = { validFromMs: 1234, lockAtMs: 301_234 };
     await subject.setIntercomMessengerLocked(false, policy);
-    expect(mockUpdateLockPolicy).toHaveBeenCalledWith(false, true, 5, 1234);
+    expect(mockUpdateLockPolicy).toHaveBeenCalledWith(false, 1234, 301_234);
     expect(mockSdk.setLauncherVisibility).not.toHaveBeenCalled();
     mockUpdateLockPolicy.mockClear();
     mockPlatformEnv.isNativeMainThread = false;

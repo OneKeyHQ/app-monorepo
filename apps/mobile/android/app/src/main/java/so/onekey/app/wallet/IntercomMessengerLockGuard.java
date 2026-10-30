@@ -15,9 +15,9 @@ import java.util.WeakHashMap;
 /**
  * The Intercom Messenger runs in its own Activities, which keeps the React
  * activity paused. Returning from background straight into the Messenger
- * would skip the AppState-driven app lock check. Mirror its lock policy here
- * so an unexpired session can keep picker/camera results without waiting for
- * paused RN timers. After process death the
+ * would skip the AppState-driven app lock check. JS supplies the lock window
+ * computed by the shared auto-lock rule, so an unexpired session can keep
+ * picker/camera results without waiting for paused RN timers. After process death the
  * system may restore a stack of Messenger Activities before the wallet exists,
  * so close all of them until the wallet has resumed.
  */
@@ -29,17 +29,14 @@ final class IntercomMessengerLockGuard implements Application.ActivityLifecycleC
   private boolean walletHasResumed = false;
   private boolean policyReady = false;
   private boolean locked = true;
-  private boolean autoLockEnabled = true;
-  private double lockDurationMinutes = 0;
-  private double lastActivityMs = 0;
+  private double validFromMs = 0;
+  private double lockAtMs = 0;
 
   // Called on the UI thread, just like the Activity lifecycle callbacks.
-  void updateLockPolicy(boolean locked, boolean autoLockEnabled,
-      double lockDurationMinutes, double lastActivityMs) {
+  void updateLockPolicy(boolean locked, double validFromMs, double lockAtMs) {
     this.locked = locked;
-    this.autoLockEnabled = autoLockEnabled;
-    this.lockDurationMinutes = lockDurationMinutes;
-    this.lastActivityMs = lastActivityMs;
+    this.validFromMs = validFromMs;
+    this.lockAtMs = lockAtMs;
     this.policyReady = true;
     if (locked) {
       closeMessengerActivities();
@@ -47,15 +44,7 @@ final class IntercomMessengerLockGuard implements Application.ActivityLifecycleC
   }
 
   boolean shouldLock(double now) {
-    if (!policyReady || locked) {
-      return true;
-    }
-    if (!autoLockEnabled) {
-      return false;
-    }
-    // Keep the same minute granularity and clock-rollback rule as checkLockStatus.
-    return now < lastActivityMs ||
-        Math.floor((now - lastActivityMs) / 60000) >= lockDurationMinutes;
+    return !policyReady || locked || now < validFromMs || now >= lockAtMs;
   }
 
   private void closeMessengerActivities() {

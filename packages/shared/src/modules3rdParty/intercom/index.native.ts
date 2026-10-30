@@ -34,9 +34,8 @@ type IOneKeyIntercom = {
   initialized: boolean;
   updateLockPolicy?: (
     locked: boolean,
-    autoLockEnabled: boolean,
-    lockDurationMinutes: number,
-    lastActivityMs: number,
+    validFromMs: number,
+    lockAtMs: number,
   ) => Promise<void>;
 };
 
@@ -144,9 +143,8 @@ export async function setIntercomMessengerLocked(
   if (platformEnv.isNativeAndroid && policy) {
     await nativeIntercom?.updateLockPolicy?.(
       locked,
-      policy.autoLockEnabled,
-      policy.lockDurationMinutes,
-      policy.lastActivityMs,
+      policy.validFromMs,
+      policy.lockAtMs,
     );
   }
   // Only a loaded SDK can be presenting the native Messenger.

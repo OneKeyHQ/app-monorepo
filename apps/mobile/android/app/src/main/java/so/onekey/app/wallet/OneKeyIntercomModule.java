@@ -30,11 +30,11 @@ final class OneKeyIntercomModule extends ReactContextBaseJavaModule {
   }
 
   @ReactMethod
-  public void updateLockPolicy(boolean locked, boolean autoLockEnabled,
-      double lockDurationMinutes, double lastActivityMs, Promise promise) {
+  public void updateLockPolicy(boolean locked, double validFromMs,
+      double lockAtMs, Promise promise) {
     UiThreadUtil.runOnUiThread(() -> {
       application().intercomLockGuard.updateLockPolicy(
-          locked, autoLockEnabled, lockDurationMinutes, lastActivityMs);
+          locked, validFromMs, lockAtMs);
       promise.resolve(null);
     });
   }

@@ -97,10 +97,11 @@ export type IShowIntercomParams = {
   conversationId?: string;
 };
 
+// Native only compares timestamps: the Messenger must close when
+// now < validFromMs or now >= lockAtMs (see passwordUtils auto-lock rule).
 export type IIntercomLockPolicy = {
-  autoLockEnabled: boolean;
-  lockDurationMinutes: number;
-  lastActivityMs: number;
+  validFromMs: number;
+  lockAtMs: number;
 };
 
 export const buildIntercomUrl = (
