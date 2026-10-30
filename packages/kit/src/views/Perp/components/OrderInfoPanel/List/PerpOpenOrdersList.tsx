@@ -45,7 +45,6 @@ import {
   isPerpsAccountAddressMatched,
   isPerpsAccountScopedDataReady,
 } from '../../../utils/accountScopedData';
-import { isPerpsBboInteractive } from '../../../utils/l2BookFreshness';
 import { showCancelAllOrdersDialog } from '../CancelAllOrdersModal';
 import { showChaseOrderConfirmDialog } from '../ChaseOrderConfirmModal';
 import { MobileOpenOrdersListHeader } from '../Components/MobileOpenOrdersListHeader';
@@ -485,7 +484,7 @@ function PerpOpenOrdersList({
     [actions, ensureTradingEnabled, intl],
   );
 
-  const getChaseOrderSzDecimals = useCallback(
+  const resolveChaseTargetPrice = useCallback(
     async (order: IPerpsFrontendOrder) => {
       const symbolMeta =
         await backgroundApiProxy.serviceHyperliquid.getSymbolMeta({
@@ -499,40 +498,18 @@ function PerpOpenOrdersList({
           }),
         );
       }
-      return szDecimals;
-    },
-    [intl],
-  );
 
-  const resolveChaseTargetPrice = useCallback(
-    async (order: IPerpsFrontendOrder) => {
-      const szDecimals = await getChaseOrderSzDecimals(order);
       const bbo = (await perpsWebSocketConnectedAtom.get()) ? getBbo() : null;
-      if (
-        bbo?.coin === order.coin &&
-        bbo.bbo[0] &&
-        bbo.bbo[1] &&
-        isPerpsBboInteractive({
-          bboTime: bbo.time,
-          bboReceivedAt: bbo.localReceivedAt,
-        })
-      ) {
-        const price = resolveBboOrderPrice({
-          bid: bbo.bbo[0].px,
-          ask: bbo.bbo[1].px,
-          side: order.side === 'B' ? 'long' : 'short',
-          type: 'queue',
-          offsetTicks: 0,
-          szDecimals,
-        });
-        if (price) return price.toFixed();
+      let bid = bbo?.coin === order.coin ? bbo.bbo[0]?.px : undefined;
+      let ask = bbo?.coin === order.coin ? bbo.bbo[1]?.px : undefined;
+      if (!bid || !ask) {
+        const book =
+          await backgroundApiProxy.serviceHyperliquid.fetchL2BookByCoin({
+            coin: order.coin,
+          });
+        bid = book?.levels[0]?.[0]?.px;
+        ask = book?.levels[1]?.[0]?.px;
       }
-      const book =
-        await backgroundApiProxy.serviceHyperliquid.fetchL2BookByCoin({
-          coin: order.coin,
-        });
-      const bid = book?.levels[0]?.[0]?.px;
-      const ask = book?.levels[1]?.[0]?.px;
       const nextPrice =
         bid && ask
           ? resolveBboOrderPrice({
@@ -552,9 +529,12 @@ function PerpOpenOrdersList({
         );
       }
 
-      return nextPrice.toFixed();
+      return {
+        price: nextPrice.toFixed(),
+        szDecimals,
+      };
     },
-    [getBbo, getChaseOrderSzDecimals, intl],
+    [getBbo, intl],
   );
 
   const handleChaseOrder = useCallback(
@@ -582,7 +562,7 @@ function PerpOpenOrdersList({
       await runChasingOrderTask(order.oid, async () => {
         try {
           await ensureTradingEnabled();
-          const targetPrice = await resolveChaseTargetPrice(order);
+          const { price: targetPrice } = await resolveChaseTargetPrice(order);
 
           const latestAccountAddress = normalizePerpsAccountAddress(
             activeAccountAddressRef.current,
@@ -664,7 +644,7 @@ function PerpOpenOrdersList({
 
       await runChasingOrderTask(order.oid, async () => {
         try {
-          const szDecimals = await getChaseOrderSzDecimals(order);
+          const { price, szDecimals } = await resolveChaseTargetPrice(order);
           const latestAccountAddress = normalizePerpsAccountAddress(
             activeAccountAddressRef.current,
           );
@@ -684,6 +664,7 @@ function PerpOpenOrdersList({
           }
           showChaseOrderConfirmDialog({
             order,
+            targetPrice: price,
             szDecimals,
             intl,
             onConfirm: () => handleChaseOrder(order),
@@ -705,10 +686,10 @@ function PerpOpenOrdersList({
       canMutateScopedOrders,
       currentUser?.accountAddress,
       handleChaseOrder,
-      getChaseOrderSzDecimals,
       intl,
       isChasingOrder,
       perpsCustomSettings.skipOrderConfirm,
+      resolveChaseTargetPrice,
       runChasingOrderTask,
     ],
   );

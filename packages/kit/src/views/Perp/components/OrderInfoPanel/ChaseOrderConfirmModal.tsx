@@ -9,7 +9,7 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
-import { useBboForOrderPrice } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
+import { useBboAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import {
   usePerpsCustomSettingsAtom,
   usePerpsWebSocketConnectedAtom,
@@ -34,6 +34,7 @@ import type { IntlShape } from 'react-intl';
 
 interface IChaseOrderConfirmContentProps {
   order: IPerpsFrontendOrder;
+  targetPrice: string;
   szDecimals: number;
 }
 
@@ -58,14 +59,15 @@ function ChaseOrderConfirmRow({
   );
 }
 
-function ChaseOrderTargetPrice({
+function ChaseOrderConfirmContent({
   order,
+  targetPrice,
   szDecimals,
 }: IChaseOrderConfirmContentProps) {
   const intl = useIntl();
-  const bbo = useBboForOrderPrice(true);
+  const [bbo] = useBboAtom();
   const [isConnected] = usePerpsWebSocketConnectedAtom();
-  const price =
+  const liveTargetPrice =
     isConnected && bbo?.coin === order.coin && bbo.bbo[0] && bbo.bbo[1]
       ? resolveBboOrderPrice({
           bid: bbo.bbo[0].px,
@@ -76,25 +78,6 @@ function ChaseOrderTargetPrice({
           szDecimals,
         })?.toFixed()
       : undefined;
-  return (
-    <ChaseOrderConfirmRow
-      label={intl.formatMessage({
-        id: ETranslations.perp_chase_target_price__title,
-      })}
-      value={
-        price
-          ? `$${formatLocalizedNumberString(formatPriceToSignificantDigits(price, szDecimals))}`
-          : '--'
-      }
-    />
-  );
-}
-
-function ChaseOrderConfirmContent({
-  order,
-  szDecimals,
-}: IChaseOrderConfirmContentProps) {
-  const intl = useIntl();
   const [perpsCustomSettings, setPerpsCustomSettings] =
     usePerpsCustomSettingsAtom();
   const assetDisplayName = getOrderAssetDisplayName(order.coin, {});
@@ -151,9 +134,12 @@ function ChaseOrderConfirmContent({
           })}
           value={formatPrice(order.limitPx)}
         />
-        <PerpsProviderMirror>
-          <ChaseOrderTargetPrice order={order} szDecimals={szDecimals} />
-        </PerpsProviderMirror>
+        <ChaseOrderConfirmRow
+          label={intl.formatMessage({
+            id: ETranslations.perp_chase_target_price__title,
+          })}
+          value={formatPrice(liveTargetPrice ?? targetPrice)}
+        />
         <ChaseOrderConfirmRow
           label={intl.formatMessage({
             id: ETranslations.perp_chase_unfilled_size__title,
@@ -196,6 +182,7 @@ function ChaseOrderConfirmContent({
 
 export function showChaseOrderConfirmDialog({
   order,
+  targetPrice,
   szDecimals,
   intl,
   onConfirm,
@@ -211,7 +198,13 @@ export function showChaseOrderConfirmDialog({
       id: ETranslations.chase_order_confirmation__desc,
     }),
     renderContent: (
-      <ChaseOrderConfirmContent order={order} szDecimals={szDecimals} />
+      <PerpsProviderMirror>
+        <ChaseOrderConfirmContent
+          order={order}
+          targetPrice={targetPrice}
+          szDecimals={szDecimals}
+        />
+      </PerpsProviderMirror>
     ),
     // Together with the content's $1 padding, match OrderConfirmContent's $4 button gap.
     contentContainerProps: { pb: '$3' },
