@@ -65,5 +65,14 @@
       "#14007"
     ],
     "notes": "feat: align Market detail search tabs｜OK-64088 (#13809), fix: keep Perps chart across account switches (OK-63967) (#13816), fix: upgrade Hyperliquid SDK and TWAP orders (OK-59156) (#13832), fix: Solana hardware/QR signing silently fails after the 30s blockhash window(OK-64580) (#13878), fix: estimate Blast swap gas after approval (OK-64627) (#13954), fix: refresh Swap prices and honor gas limits (OK-64895, OK-64754) (#13972), feat: clarify address risk check results for 6.6.1 (#13995), fix: handle unknown hardware wallet avatars (#14007)"
+  },
+  {
+    "seq": 5,
+    "commit": "49bdbfde0e6634a03305ae5c0ef920b5f1880d8a",
+    "date": "2026-10-30T14:47:55Z",
+    "prs": [
+      "#14237"
+    ],
+    "notes": "fix: optimize network handling (#14237). Built from release/v6.6.1-ab1b01e (release #4 + #14237); bundle version 26133076"
   }
 ]
