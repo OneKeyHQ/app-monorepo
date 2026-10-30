@@ -5,6 +5,14 @@ import { swapProPositionsListMinValue } from '@onekeyhq/shared/types/swap/SwapPr
 
 import { convertFiat } from '../../../utils/fiatConvert';
 
+export function compareTradePositionFiatValues(left?: string, right?: string) {
+  const leftValue = new BigNumber(left ?? '0');
+  const rightValue = new BigNumber(right ?? '0');
+  return (rightValue.isFinite() ? rightValue : new BigNumber(0)).comparedTo(
+    leftValue.isFinite() ? leftValue : new BigNumber(0),
+  );
+}
+
 export function hasTradePositionBalance(balance?: string) {
   const value = new BigNumber(balance ?? '0');
   return value.isFinite() && value.gt(0);
