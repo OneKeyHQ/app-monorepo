@@ -483,6 +483,45 @@ describe('TradingViewNativeContainer', () => {
   });
 
   describe.each(['mobile', 'desktop'] as const)(
+    '%s chart navigation',
+    (nativeControlsLayoutMode) => {
+      it.each(['market', 'perps', 'swap'] as const)(
+        'enables %s navigation by default and disables it only in compact mode',
+        (storageNamespace) => {
+          const chart = (nativeChartDisplayMode: 'default' | 'compact') => (
+            <TradingViewNativeContainer
+              source={{
+                kind: 'hyperliquid',
+                coin: 'BTC',
+                environment: 'mainnet',
+              }}
+              storageNamespace={storageNamespace}
+              nativeControlsLayoutMode={nativeControlsLayoutMode}
+              nativeChartDisplayMode={nativeChartDisplayMode}
+            />
+          );
+          const { rerender } = render(chart('default'));
+          const expectNavigation = (enabled: boolean) => {
+            expect(mockTradingViewNativeChart).toHaveBeenLastCalledWith(
+              expect.objectContaining({ enableNavigationControls: enabled }),
+            );
+            expect(
+              mockTradingViewNativeChartControlsContainer,
+            ).toHaveBeenLastCalledWith(
+              expect.objectContaining({ enableNavigationButtons: enabled }),
+            );
+          };
+          expectNavigation(true);
+          rerender(chart('compact'));
+          expectNavigation(false);
+          rerender(chart('default'));
+          expectNavigation(true);
+        },
+      );
+    },
+  );
+
+  describe.each(['mobile', 'desktop'] as const)(
     '%s Market drawing tools',
     (nativeControlsLayoutMode) => {
       it.each([
@@ -2074,6 +2113,7 @@ describe('TradingViewNativeContainer', () => {
     );
 
     expect(mockTradingViewNativeChartSettingsButton).toHaveBeenCalledWith({
+      enableNavigationButtons: true,
       enablePreviousClose: false,
       isChartSwitchDisabled: true,
       onChartSwitch: handleChartSwitch,

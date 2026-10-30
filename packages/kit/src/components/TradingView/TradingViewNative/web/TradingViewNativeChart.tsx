@@ -151,7 +151,7 @@ export const TradingViewNativeChart = memo(
     drawingStorageKey,
     loadDrawingHistory,
     enableDrawings: drawingsEnabled = false,
-    enableNavigationControls = false,
+    enableNavigationControls = true,
     candleIntervalSeconds,
     candleTimeMode,
     chartComponents,
@@ -1493,9 +1493,7 @@ export const TradingViewNativeChart = memo(
     }, [handleWheel]);
 
     const showNavigationControls =
-      enableNavigationControls &&
-      !isMobileLayout &&
-      chartSettings.options.navigationButtons;
+      enableNavigationControls && chartSettings.options.navigationButtons;
     const [isNavigationHotZoneHovered, setIsNavigationHotZoneHovered] =
       useState(false);
     useEffect(() => {
@@ -1803,7 +1801,10 @@ export const TradingViewNativeChart = memo(
             <TradingViewNativeNavigationControls
               backgroundColor={background}
               chartWidth={measuredChartWidth}
-              isVisible={isNavigationHotZoneHovered && pointCount > 0}
+              isVisible={
+                (isMobileLayout || isNavigationHotZoneHovered) && pointCount > 0
+              }
+              isMobileLayout={isMobileLayout}
               onAction={handleNavigationAction}
               timeAxisHeight={timeAxisHeight}
               testID={testID}

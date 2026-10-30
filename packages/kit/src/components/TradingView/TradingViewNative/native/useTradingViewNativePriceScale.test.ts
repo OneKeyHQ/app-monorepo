@@ -30,7 +30,10 @@ import {
   getTradingViewNativeSubIndicatorValueRange,
 } from '../utils/subIndicatorRender';
 
-import { createTradingViewNativeChartRuntime } from './chartRuntime';
+import {
+  createTradingViewNativeChartRuntime,
+  navigateTradingViewNativeChartRuntime,
+} from './chartRuntime';
 import { useTradingViewNativePriceScale } from './useTradingViewNativePriceScale';
 
 import type { GestureResponderEvent } from 'react-native';
@@ -401,6 +404,89 @@ describe('useTradingViewNativePriceScale', () => {
       )[0],
     ).toBe(panes[0]);
   });
+
+  it('restores Auto after navigation reset and locks the main range with one press', () => {
+    const { chartRuntime, result } = renderPriceScaleAtOffset(1000);
+    act(() => {
+      const pan = mockPanGestureHandlers[0];
+      pan.onTouchesDown(
+        { changedTouches: [{ x: 340, y: 100 }] },
+        { fail: jest.fn() },
+      );
+      pan.onStart({ y: 100 });
+      pan.onUpdate({ y: 150 });
+      pan.onFinalize();
+    });
+    expect(result.current.isAutoScale).toBe(false);
+    expect(chartRuntime.value.pinnedPriceRange).not.toBeNull();
+    expect(chartRuntime.value.priceRangeScale).not.toBe(1);
+
+    act(() => {
+      result.current.handleMainPriceScaleReset();
+      chartRuntime.value = navigateTradingViewNativeChartRuntime(
+        chartRuntime.value,
+        'reset',
+        52,
+      );
+    });
+    expect(result.current.isAutoScale).toBe(true);
+    expect(chartRuntime.value.pinnedPriceRange).toBeNull();
+    expect(chartRuntime.value.priceRangeScale).toBe(1);
+
+    act(() => result.current.handleAutoScalePress());
+    expect(result.current.isAutoScale).toBe(false);
+    expect(chartRuntime.value.pinnedPriceRange).not.toBeNull();
+  });
+
+  it.each([false, true])(
+    'preserves the active indicator Auto state (%s) when navigation resets the main axis',
+    (indicatorAutoScale) => {
+      const { chartRuntime, result } = renderPriceScaleAtOffset(1000, true);
+      act(() => result.current.handleAutoScalePress());
+      expect(chartRuntime.value.pinnedPriceRange).not.toBeNull();
+      act(() =>
+        result.current.handleTouchStart({
+          nativeEvent: { locationX: 340, locationY: 190 },
+        } as GestureResponderEvent),
+      );
+      expect(result.current.activePaneId).toBe('rsi');
+      act(() => result.current.handleLogScalePress());
+      if (!indicatorAutoScale) {
+        act(() => result.current.handleAutoScalePress());
+      }
+      const indicatorScale = chartRuntime.value.subIndicatorPriceScales.rsi;
+
+      act(() => {
+        result.current.handleMainPriceScaleReset();
+        chartRuntime.value = navigateTradingViewNativeChartRuntime(
+          chartRuntime.value,
+          'reset',
+          52,
+        );
+      });
+      expect(result.current.isAutoScale).toBe(indicatorAutoScale);
+      expect(result.current.mode).toBe('logarithmic');
+      expect(chartRuntime.value.subIndicatorPriceScales.rsi).toBe(
+        indicatorScale,
+      );
+      expect(chartRuntime.value.pinnedPriceRange).toBeNull();
+      expect(chartRuntime.value.priceRangeScale).toBe(1);
+
+      act(() =>
+        result.current.handleTouchStart({
+          nativeEvent: { locationX: 340, locationY: 100 },
+        } as GestureResponderEvent),
+      );
+      expect(result.current.activePaneId).toBeNull();
+      expect(result.current.isAutoScale).toBe(true);
+      act(() => result.current.handleAutoScalePress());
+      expect(result.current.isAutoScale).toBe(false);
+      expect(chartRuntime.value.pinnedPriceRange).not.toBeNull();
+      expect(chartRuntime.value.subIndicatorPriceScales.rsi).toBe(
+        indicatorScale,
+      );
+    },
+  );
 
   it('rejects plot and time-axis touches and cancels indicator dragging', () => {
     const { chartRuntime } = renderPriceScaleAtOffset(1000);

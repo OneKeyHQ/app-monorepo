@@ -257,7 +257,6 @@ const TradingViewNativeContent = memo(
     enablePreviousClose = false,
     enableNativeChartSettings,
     enableDrawings = false,
-    enableNavigationControls = false,
     prioritizePageScroll = false,
     nativeChartSettingsInToolbar = false,
     mobileToolbarExtra,
@@ -1042,6 +1041,7 @@ const TradingViewNativeContent = memo(
               placement="toolbar"
               priceAxisWidth={priceAxisWidth}
               enablePreviousClose={enablePreviousClose}
+              enableNavigationButtons={!isCompactDisplayMode}
               isChartSwitchDisabled={isChartSwitchDisabled}
               onChartSwitch={onChartSwitch}
               onBeforeOpenSettings={handleExitFullscreen}
@@ -1054,6 +1054,7 @@ const TradingViewNativeContent = memo(
         enablePreviousClose,
         handleExitFullscreen,
         isChartSwitchDisabled,
+        isCompactDisplayMode,
         isMobileControlsLayout,
         mobileToolbarExtra,
         nativeChartSettingsInToolbar,
@@ -1088,9 +1089,7 @@ const TradingViewNativeContent = memo(
             enableNativeChartSettings={enableNativeChartSettings}
             mobileSettingsControl={mobileSettingsControl}
             enablePreviousClose={enablePreviousClose}
-            enableNavigationButtons={
-              enableNavigationControls && !isCompactDisplayMode
-            }
+            enableNavigationButtons={!isCompactDisplayMode}
             intervalConfig={intervalConfig}
             activeIndicatorValues={activeIndicatorValues}
             maxSelectableSubIndicatorCount={maxSelectableSubIndicatorCount}
@@ -1123,9 +1122,7 @@ const TradingViewNativeContent = memo(
                 !isCompactDisplayMode &&
                 storageNamespace !== 'swap'
               }
-              enableNavigationControls={
-                enableNavigationControls && !isCompactDisplayMode
-              }
+              enableNavigationControls={!isCompactDisplayMode}
               drawingStorageKey={drawingSourceKey}
               loadDrawingHistory={loadDrawingHistory}
               prioritizePageScroll={
@@ -1225,6 +1222,7 @@ const TradingViewNativeContent = memo(
                 storageNamespace={storageNamespace}
                 priceAxisWidth={priceAxisWidth}
                 enablePreviousClose={enablePreviousClose}
+                enableNavigationButtons={!isCompactDisplayMode}
                 isChartSwitchDisabled={isChartSwitchDisabled}
                 onChartSwitch={onChartSwitch}
               />

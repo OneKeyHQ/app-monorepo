@@ -78,6 +78,8 @@ export function getTradingViewNativeNavigationEvent({
   pointCount: number;
   viewport: ITradingViewNativeChartRuntimeViewport;
 }): ITradingViewNativeChartRuntimeEvent | null {
+  'worklet';
+
   if (!Number.isFinite(chartWidth) || chartWidth <= 0 || pointCount <= 0) {
     return null;
   }

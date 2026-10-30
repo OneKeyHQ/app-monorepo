@@ -179,6 +179,11 @@ export function useTradingViewNativePriceScale({
     setIsAutoScale(nextIsAuto);
   }, []);
 
+  const handleMainPriceScaleReset = useCallback(() => {
+    // Navigation resets the main axis without changing the selected indicator.
+    if (activePaneId === null) setIsAutoScale(true);
+  }, [activePaneId]);
+
   const restoreControls = useCallback(
     (isAuto: boolean, priceScaleMode: ITradingViewNativePriceScaleMode) => {
       setIsAutoScale(isAuto);
@@ -741,6 +746,7 @@ export function useTradingViewNativePriceScale({
     activePaneId,
     handleAutoScalePress,
     handleLogScalePress,
+    handleMainPriceScaleReset,
     handlePointerLeave,
     handlePointerMove,
     handleTouchStart,
