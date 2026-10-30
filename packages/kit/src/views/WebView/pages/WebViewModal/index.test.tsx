@@ -1,17 +1,22 @@
 /** @jest-environment jsdom */
 
-import type { ReactNode } from 'react';
+import type { ReactElement, ReactNode } from 'react';
 
 import WebViewModal from '.';
 
 import { act, cleanup, render } from '@testing-library/react';
 
+import type { IActionListProps } from '@onekeyhq/components/src/actions/ActionList';
+import { handlePrimeHostedCardCheckoutFallbackRequest } from '@onekeyhq/kit/src/views/Prime/hooks/primeHostedCardCheckout';
 import { EWebEmbedRoutePath } from '@onekeyhq/shared/src/consts/webEmbedConsts';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { EPrimeFeatures } from '@onekeyhq/shared/src/routes/prime';
 import type {
   EModalWebViewRoutes,
   IModalWebViewParamList,
 } from '@onekeyhq/shared/src/routes/webView';
+import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
 type IHeaderProps = {
   headerRight?: () => ReactNode;
@@ -24,6 +29,7 @@ type IWebViewProps = {
 
 const mockHeader = jest.fn<null, [IHeaderProps]>(() => null);
 const mockWebViewRef = { current: null };
+const mockPop = jest.fn();
 let mockWebViewProps: IWebViewProps;
 let mockParams: IModalWebViewParamList[EModalWebViewRoutes.WebView];
 
@@ -35,6 +41,7 @@ jest.mock('@onekeyhq/components', () => {
       Body: Passthrough,
     }),
     HeaderIconButton: () => null,
+    ActionList: () => null,
     useClipboard: () => ({ copyText: jest.fn() }),
   };
 });
@@ -48,7 +55,6 @@ jest.mock('@onekeyfe/onekey-cross-webview', () => ({
 
 jest.mock('@react-navigation/core', () => ({
   useRoute: () => ({ params: mockParams }),
-  useNavigation: () => ({ addListener: jest.fn(() => jest.fn()) }),
 }));
 
 jest.mock('react-intl', () => ({
@@ -73,11 +79,7 @@ jest.mock('@onekeyhq/kit/src/components/WebViewWebEmbed', () => ({
 
 jest.mock('@onekeyhq/kit/src/hooks/useAppNavigation', () => ({
   __esModule: true,
-  default: () => ({ pop: jest.fn(), addListener: jest.fn(() => jest.fn()) }),
-}));
-
-jest.mock('@onekeyhq/kit/src/views/Prime/hooks/primeWebCheckout', () => ({
-  isPrimeWebCheckoutUserCurrent: jest.fn(async () => true),
+  default: () => ({ pop: mockPop }),
 }));
 
 jest.mock('@onekeyhq/kit/src/hooks/useCrossDomainRedirect', () => ({
@@ -122,6 +124,8 @@ jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
 }));
 
 const lastHeader = () => mockHeader.mock.calls.at(-1)?.[0];
+const menuProps = () =>
+  (lastHeader()?.headerRight?.() as ReactElement<IActionListProps>).props;
 
 describe('WebViewModal menu', () => {
   beforeEach(() => {
@@ -132,13 +136,14 @@ describe('WebViewModal menu', () => {
       isNativeAndroid: false,
       isNativeAndroidGooglePlay: false,
       isNativeIOS: false,
+      isMas: false,
     });
     mockParams = { title: 'WebView', url: '' };
   });
 
   afterEach(cleanup);
 
-  test('provides the dedicated Prime menu on Android while keeping generic web-embed menus hidden', () => {
+  test('shows a dedicated single-action menu with shared copy on Android Prime', () => {
     Object.assign(platformEnv, { isNative: true, isNativeAndroid: true });
     mockParams = {
       title: 'Prime',
@@ -146,30 +151,124 @@ describe('WebViewModal menu', () => {
       isWebEmbed: true,
       hashRoutePath: EWebEmbedRoutePath.primePurchase,
     };
-    const view = render(<WebViewModal />);
-    expect(lastHeader()?.headerRight).toBeDefined();
-    mockParams = {
-      ...mockParams,
-      hashRoutePath: EWebEmbedRoutePath.webEmbedApi,
-    };
-    view.rerender(<WebViewModal />);
-    expect(lastHeader()?.headerRight).toBeUndefined();
+    render(<WebViewModal />);
+
+    const menu = menuProps();
+    expect(menu.title).toBe(ETranslations.explore_options);
+    expect(menu.renderTrigger).toMatchObject({
+      props: {
+        icon: 'DotHorOutline',
+        accessibilityLabel: ETranslations.explore_options,
+      },
+    });
+    expect(menu.sections).toHaveLength(1);
+    expect(menu.sections?.[0].items).toHaveLength(1);
+    expect(menu.sections?.[0].items[0]).toMatchObject({
+      label: ETranslations.explore_open_in_browser,
+      icon: 'GlobusOutline',
+      onPress: expect.any(Function),
+    });
+    expect(menu.sections?.[0].items[0].disabled).toBeFalsy();
   });
 
-  test('does not add the Prime menu to store-only Android builds', () => {
-    Object.assign(platformEnv, {
-      isNative: true,
+  test.each(['P1M', 'P1Y'])(
+    'opens the existing hosted checkout for route plan %s',
+    async (subscriptionPeriod) => {
+      jest.useFakeTimers();
+      try {
+        Object.assign(platformEnv, { isNative: true, isNativeAndroid: true });
+        mockParams = {
+          title: 'Prime',
+          url: '',
+          isWebEmbed: true,
+          hashRoutePath: EWebEmbedRoutePath.primePurchase,
+          hashRouteQueryParams: {
+            primeUserId: 'test-user',
+            primeUserEmail: 'user@example.com',
+            subscriptionPeriod,
+            currency: 'EUR',
+            featureName: EPrimeFeatures.OneKeyCloud,
+          },
+        };
+        render(<WebViewModal />);
+        void menuProps().sections?.[0].items[0].onPress?.(jest.fn());
+        expect(mockPop).toHaveBeenCalledTimes(1);
+        expect(
+          handlePrimeHostedCardCheckoutFallbackRequest,
+        ).not.toHaveBeenCalled();
+        await jest.advanceTimersByTimeAsync(350);
+        expect(
+          handlePrimeHostedCardCheckoutFallbackRequest,
+        ).toHaveBeenCalledTimes(1);
+        expect(
+          handlePrimeHostedCardCheckoutFallbackRequest,
+        ).toHaveBeenCalledWith({
+          params: {
+            trigger: 'userRequestedHostedCheckout',
+            onekeyUserId: 'test-user',
+            subscriptionPeriod,
+            featureName: EPrimeFeatures.OneKeyCloud,
+          },
+          routePrimeUserId: 'test-user',
+          routePrimeUserEmail: 'user@example.com',
+          routeSubscriptionPeriod: subscriptionPeriod,
+          routeCurrency: 'EUR',
+          intl: expect.objectContaining({
+            formatMessage: expect.any(Function),
+          }),
+        });
+        expect(openUrlExternal).not.toHaveBeenCalled();
+      } finally {
+        jest.useRealTimers();
+      }
+    },
+  );
+
+  test.each([
+    {
+      name: 'Google Play',
       isNativeAndroid: true,
       isNativeAndroidGooglePlay: true,
-    });
-    mockParams = {
-      title: 'Prime',
-      url: '',
-      isWebEmbed: true,
-      hashRoutePath: EWebEmbedRoutePath.primePurchase,
-    };
+    },
+    { name: 'iOS', isNativeIOS: true },
+    {
+      name: 'other Android web-embed',
+      isNativeAndroid: true,
+      hashRoutePath: EWebEmbedRoutePath.webEmbedApi,
+    },
+    { name: 'explicitly hidden', isNativeAndroid: true, hideHeaderRight: true },
+    { name: 'desktop', isNative: false, isDesktop: true },
+  ])(
+    'keeps the menu hidden for $name',
+    ({
+      name: _name,
+      hashRoutePath = EWebEmbedRoutePath.primePurchase,
+      hideHeaderRight,
+      ...platform
+    }) => {
+      Object.assign(platformEnv, { isNative: true }, platform);
+      mockParams = {
+        title: 'Prime',
+        url: '',
+        isWebEmbed: true,
+        hashRoutePath,
+        hideHeaderRight,
+      };
+      render(<WebViewModal />);
+      expect(lastHeader()?.headerRight).toBeUndefined();
+    },
+  );
+
+  test('keeps the generic Android remote-page actions', () => {
+    Object.assign(platformEnv, { isNative: true, isNativeAndroid: true });
+    mockParams.url = 'https://onekey.so';
     render(<WebViewModal />);
-    expect(lastHeader()?.headerRight).toBeUndefined();
+    expect(menuProps().sections?.[0].items.map((item) => item.label)).toEqual([
+      ETranslations.global_refresh,
+      ETranslations.explore_share,
+      ETranslations.global_copy_url,
+      ETranslations.explore_open_in_browser,
+    ]);
   });
 
   test.each([
