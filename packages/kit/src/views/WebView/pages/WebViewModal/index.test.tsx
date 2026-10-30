@@ -6,6 +6,7 @@ import WebViewModal from '.';
 
 import { act, cleanup, render } from '@testing-library/react';
 
+import { EWebEmbedRoutePath } from '@onekeyhq/shared/src/consts/webEmbedConsts';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type {
   EModalWebViewRoutes,
@@ -47,6 +48,7 @@ jest.mock('@onekeyfe/onekey-cross-webview', () => ({
 
 jest.mock('@react-navigation/core', () => ({
   useRoute: () => ({ params: mockParams }),
+  useNavigation: () => ({ addListener: jest.fn(() => jest.fn()) }),
 }));
 
 jest.mock('react-intl', () => ({
@@ -71,7 +73,11 @@ jest.mock('@onekeyhq/kit/src/components/WebViewWebEmbed', () => ({
 
 jest.mock('@onekeyhq/kit/src/hooks/useAppNavigation', () => ({
   __esModule: true,
-  default: () => ({ pop: jest.fn() }),
+  default: () => ({ pop: jest.fn(), addListener: jest.fn(() => jest.fn()) }),
+}));
+
+jest.mock('@onekeyhq/kit/src/views/Prime/hooks/primeWebCheckout', () => ({
+  isPrimeWebCheckoutUserCurrent: jest.fn(async () => true),
 }));
 
 jest.mock('@onekeyhq/kit/src/hooks/useCrossDomainRedirect', () => ({
@@ -120,11 +126,51 @@ const lastHeader = () => mockHeader.mock.calls.at(-1)?.[0];
 describe('WebViewModal menu', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    Object.assign(platformEnv, { isNative: false, isDesktop: false });
+    Object.assign(platformEnv, {
+      isNative: false,
+      isDesktop: false,
+      isNativeAndroid: false,
+      isNativeAndroidGooglePlay: false,
+      isNativeIOS: false,
+    });
     mockParams = { title: 'WebView', url: '' };
   });
 
   afterEach(cleanup);
+
+  test('provides the dedicated Prime menu on Android while keeping generic web-embed menus hidden', () => {
+    Object.assign(platformEnv, { isNative: true, isNativeAndroid: true });
+    mockParams = {
+      title: 'Prime',
+      url: '',
+      isWebEmbed: true,
+      hashRoutePath: EWebEmbedRoutePath.primePurchase,
+    };
+    const view = render(<WebViewModal />);
+    expect(lastHeader()?.headerRight).toBeDefined();
+    mockParams = {
+      ...mockParams,
+      hashRoutePath: EWebEmbedRoutePath.webEmbedApi,
+    };
+    view.rerender(<WebViewModal />);
+    expect(lastHeader()?.headerRight).toBeUndefined();
+  });
+
+  test('does not add the Prime menu to store-only Android builds', () => {
+    Object.assign(platformEnv, {
+      isNative: true,
+      isNativeAndroid: true,
+      isNativeAndroidGooglePlay: true,
+    });
+    mockParams = {
+      title: 'Prime',
+      url: '',
+      isWebEmbed: true,
+      hashRoutePath: EWebEmbedRoutePath.primePurchase,
+    };
+    render(<WebViewModal />);
+    expect(lastHeader()?.headerRight).toBeUndefined();
+  });
 
   test.each([
     {

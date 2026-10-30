@@ -15,6 +15,8 @@ import type { ILocaleJSONSymbol } from '@onekeyhq/shared/src/locale';
 import type { EPrimeFeatures } from '@onekeyhq/shared/src/routes/prime';
 
 import purchaseSdkUtils from '../purchasesSdk/purchaseSdkUtils';
+import { purchaseWithStripeLoadingGuard } from '../purchasesSdk/purchaseWithStripeLoadingGuard';
+import type { IPrimeEmbeddedCheckoutSession } from '../purchasesSdk/primeEmbeddedCheckoutSession';
 import {
   loadPurchasesSdkWeb,
   loadPurchasesSdkWebForEmbeddedPurchase,
@@ -83,6 +85,7 @@ export function usePrimePaymentMethods(): IUsePrimePayment {
     const mode = (searchParams.get('mode') || 'prod') as 'dev' | 'prod';
     const currency = searchParams.get('currency') || undefined;
     const featureName = searchParams.get('featureName') || '';
+    const primeCheckoutId = searchParams.get('primeCheckoutId') || '';
     return {
       apiKey,
       isSandboxKey,
@@ -93,6 +96,7 @@ export function usePrimePaymentMethods(): IUsePrimePayment {
       currency,
       mode,
       featureName,
+      primeCheckoutId,
     };
   }, [searchParams]);
 
@@ -206,12 +210,14 @@ export function usePrimePaymentMethods(): IUsePrimePayment {
       locale,
       currency,
       featureName,
+      embeddedCheckoutSession,
     }: {
       subscriptionPeriod: ISubscriptionPeriod;
       email: string;
       locale?: string; // https://www.revenuecat.com/docs/tools/paywalls/creating-paywalls#supported-locales
       currency?: string;
       featureName?: EPrimeFeatures;
+      embeddedCheckoutSession?: IPrimeEmbeddedCheckoutSession;
     }) => {
       console.log('purchasePackageWeb77632723>>>>>>', {
         subscriptionPeriod,
@@ -279,10 +285,23 @@ export function usePrimePaymentMethods(): IUsePrimePayment {
             locale: locale as ILocaleJSONSymbol,
           }),
         };
+        // The Prime page reserves the SDK's default target for this session.
+        // Leave htmlTarget unset to retain the existing modal and backdrop.
+        if (
+          embeddedCheckoutSession &&
+          document.getElementById('rcb-ui-root') !==
+            embeddedCheckoutSession.root
+        ) {
+          throw new OneKeyLocalError('Prime embedded checkout target changed');
+        }
         // TODO check package user is Matched to id
         // TODO check if user has already purchased
-        const purchase =
-          await Purchases.getSharedInstance().purchase(purchaseParams);
+        const purchase = embeddedCheckoutSession
+          ? await purchaseWithStripeLoadingGuard(
+              () => Purchases.getSharedInstance().purchase(purchaseParams),
+              embeddedCheckoutSession,
+            )
+          : await Purchases.getSharedInstance().purchase(purchaseParams);
 
         primePaymentUtils.trackPrimeSubscriptionSuccess({
           ...primePaymentUtils.extractWebPaywallPrice(paywallPackage),

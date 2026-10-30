@@ -11,6 +11,8 @@ import { usePrimePaymentMethods } from '@onekeyhq/kit/src/views/Prime/hooks/useP
 import type { ISubscriptionPeriod } from '@onekeyhq/kit/src/views/Prime/hooks/usePrimePaymentTypes';
 import { getPrimeEmbeddedCheckoutFallbackTrigger } from '@onekeyhq/kit/src/views/Prime/purchasesSdk/primeEmbeddedCheckoutFallback';
 import type { IPrimeEmbeddedCheckoutFallbackTrigger } from '@onekeyhq/kit/src/views/Prime/purchasesSdk/primeEmbeddedCheckoutFallback';
+import { createPrimeEmbeddedCheckoutSession } from '@onekeyhq/kit/src/views/Prime/purchasesSdk/primeEmbeddedCheckoutSession';
+import { createPrimeWebEmbedCheckoutBridge } from '@onekeyhq/kit/src/views/Prime/purchasesSdk/primeWebEmbedCheckoutBridge';
 import { loadPurchasesSdkWeb } from '@onekeyhq/kit/src/views/Prime/purchasesSdk/purchasesSdkWebLoader';
 import {
   beginStripePaymentElementAttempt,
@@ -18,6 +20,7 @@ import {
 } from '@onekeyhq/kit/src/views/Prime/purchasesSdk/stripePaymentElementHealth';
 import { EWebEmbedPrivateRequestMethod } from '@onekeyhq/shared/src/consts/webEmbedConsts';
 import { EPrimeFeatures } from '@onekeyhq/shared/src/routes/prime';
+import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 
 async function closeNativeWebViewModal() {
   await globalThis.$onekey.$private.request({
@@ -84,13 +87,18 @@ async function fallbackToNativeHostedCheckout(params: {
   currency?: string;
   featureName?: string;
   isSandboxKey: boolean;
+  checkoutId?: string;
+  attemptId: string;
+  requestId?: string;
+  isCurrentAttempt: () => boolean;
 }) {
-  const { isSandboxKey, ...requestParams } = params;
+  const { isSandboxKey, isCurrentAttempt, ...requestParams } = params;
   const purchasePackage = await resolveHostedCheckoutPackage({
     isSandboxKey,
     currency: params.currency,
     subscriptionPeriod: params.subscriptionPeriod,
   });
+  if (!isCurrentAttempt()) return;
   await globalThis.$onekey.$private.request({
     method: EWebEmbedPrivateRequestMethod.fallbackToPrimeHostedCheckout,
     params: { ...requestParams, purchasePackage },
@@ -150,6 +158,10 @@ function Spinner() {
 
 export default function PageWebEmbedPrimePurchase() {
   const isRunning = useRef(false);
+  const targetRef = useRef<HTMLDivElement>(null);
+  const activeBridgeRef = useRef<
+    ReturnType<typeof createPrimeWebEmbedCheckoutBridge> | undefined
+  >(undefined);
   const [debugText, setDebugText] = useState<string>('');
 
   const { webEmbedQueryParams, purchasePackageWeb } = usePrimePaymentMethods();
@@ -166,6 +178,7 @@ export default function PageWebEmbedPrimePurchase() {
     mode,
     featureName,
     isSandboxKey,
+    primeCheckoutId,
   } = webEmbedQueryParams || {};
 
   const run = useCallback(async () => {
@@ -177,6 +190,18 @@ export default function PageWebEmbedPrimePurchase() {
     if (isRunning.current) {
       return;
     }
+
+    const target = targetRef.current;
+    if (!target) return;
+    const attemptId = generateUUID();
+    const session = createPrimeEmbeddedCheckoutSession(target);
+    const bridge = createPrimeWebEmbedCheckoutBridge({
+      session,
+      checkoutId: primeCheckoutId || '',
+      attemptId,
+    });
+    activeBridgeRef.current = bridge;
+    let purchaseCompleted = false;
 
     try {
       isRunning.current = true;
@@ -196,7 +221,11 @@ export default function PageWebEmbedPrimePurchase() {
         locale,
         currency,
         featureName: validFeatureName,
+        embeddedCheckoutSession: session,
       });
+      purchaseCompleted = true;
+      if (!bridge.isActive()) return;
+      bridge.dispose();
 
       const debugMessage = safeStringify.stableStringify(
         purchaseResult,
@@ -205,6 +234,7 @@ export default function PageWebEmbedPrimePurchase() {
       );
       setDebugText(debugMessage);
       await showNativeDebugMessageDialog(debugMessage);
+      if (!bridge.isCurrentAttempt()) return;
 
       if (purchaseResult?.customerInfo.entitlements.active.Prime?.isActive) {
         await closeNativeWebViewModalAfterPrimePurchaseSuccess(primeUserId);
@@ -212,10 +242,20 @@ export default function PageWebEmbedPrimePurchase() {
         await closeNativeWebViewModal();
       }
     } catch (error) {
-      const fallbackTrigger = getPrimeEmbeddedCheckoutFallbackTrigger({
-        error,
-        paymentElementState: getStripePaymentElementState(),
-      });
+      if (!bridge.isCurrentAttempt()) return;
+      const trigger = purchaseCompleted
+        ? undefined
+        : getPrimeEmbeddedCheckoutFallbackTrigger({
+            error,
+            paymentElementState: getStripePaymentElementState(),
+          });
+      const fallbackTrigger =
+        session.hasSubmitted() ||
+        (bridge.getHostedRequestId() &&
+          trigger !== 'userRequestedHostedCheckout')
+          ? undefined
+          : trigger;
+      bridge.dispose();
       if (fallbackTrigger) {
         try {
           // The host closes this page and continues with the hosted checkout.
@@ -226,6 +266,10 @@ export default function PageWebEmbedPrimePurchase() {
             currency,
             featureName,
             isSandboxKey: Boolean(isSandboxKey),
+            checkoutId: primeCheckoutId,
+            attemptId,
+            requestId: bridge.getHostedRequestId(),
+            isCurrentAttempt: bridge.isCurrentAttempt,
           });
           isRunning.current = false;
           return;
@@ -241,16 +285,19 @@ export default function PageWebEmbedPrimePurchase() {
           : `Unknown error: ${trace}`;
       setDebugText(debugMessage);
       await showNativeDebugMessageDialog(debugMessage);
+      if (!bridge.isCurrentAttempt()) return;
 
       await showNativeToast({
         title: 'Error',
         message: error instanceof Error ? error.message : 'Unknown error',
       });
+      if (!bridge.isCurrentAttempt()) return;
 
       await closeNativeWebViewModal();
     }
 
     isRunning.current = false;
+    bridge.dispose();
   }, [
     primeUserId,
     primeUserEmail,
@@ -261,15 +308,37 @@ export default function PageWebEmbedPrimePurchase() {
     currency,
     featureName,
     isSandboxKey,
+    primeCheckoutId,
   ]);
 
   useEffect(() => {
     void run();
   }, [run]);
 
+  useEffect(() => {
+    const target = targetRef.current;
+    const dispose = () => activeBridgeRef.current?.invalidate();
+    globalThis.addEventListener('pagehide', dispose);
+    globalThis.addEventListener('hashchange', dispose);
+    globalThis.addEventListener('popstate', dispose);
+    return () => {
+      // StrictMode replays effects with the same live DOM and SDK purchase.
+      if (!target?.isConnected) dispose();
+      globalThis.removeEventListener('pagehide', dispose);
+      globalThis.removeEventListener('hashchange', dispose);
+      globalThis.removeEventListener('popstate', dispose);
+    };
+  }, []);
+
   return (
     <div>
       <Spinner />
+      <div
+        ref={targetRef}
+        id="rcb-ui-root"
+        className="rcb-ui-root"
+        data-testid="prime-web-embed-checkout-target"
+      />
 
       {mode === 'dev' ? (
         <div>

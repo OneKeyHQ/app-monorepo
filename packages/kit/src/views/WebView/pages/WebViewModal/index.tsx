@@ -21,6 +21,7 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useCrossDomainRedirect } from '@onekeyhq/kit/src/hooks/useCrossDomainRedirect';
 import { handleDeepLinkUrl } from '@onekeyhq/kit/src/routes/config/deeplink';
 import { handlePrimeHostedCardCheckoutFallbackRequest } from '@onekeyhq/kit/src/views/Prime/hooks/primeHostedCardCheckout';
+import { usePrimeWebViewCheckoutMenu } from '@onekeyhq/kit/src/views/Prime/hooks/usePrimeWebViewCheckoutMenu';
 import { handlePrimePurchaseSuccessCloseRequest } from '@onekeyhq/kit/src/views/Prime/primeSubscriptionPurchaseSuccess';
 import { useSettingsFiatPaySiteWhitelistPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/settings';
 import {
@@ -30,6 +31,7 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { isPrimeStoreOnlyPayment } from '@onekeyhq/shared/src/prime/primePaymentCapabilities';
 import type {
   EModalWebViewRoutes,
   IModalWebViewParamList,
@@ -69,6 +71,29 @@ export default function WebViewModal() {
 
   const { copyText } = useClipboard();
   const intl = useIntl();
+  const isPrimeCheckout = Boolean(
+    platformEnv.isNativeAndroid &&
+    !isPrimeStoreOnlyPayment() &&
+    isWebEmbed &&
+    hashRoutePath === EWebEmbedRoutePath.primePurchase,
+  );
+  const primeCheckout = usePrimeWebViewCheckoutMenu({
+    enabled: isPrimeCheckout,
+    routeKey: route.key,
+    primeUserId: hashRouteQueryParams?.primeUserId,
+    intl,
+  });
+  const { handoff: primeHandoff } = primeCheckout;
+  const primeQueryParams = useMemo(
+    () =>
+      isPrimeCheckout
+        ? {
+            ...hashRouteQueryParams,
+            primeCheckoutId: primeCheckout.checkoutId,
+          }
+        : hashRouteQueryParams,
+    [isPrimeCheckout, hashRouteQueryParams, primeCheckout.checkoutId],
+  );
   const [{ fiatPaySiteWhitelist }] =
     useSettingsFiatPaySiteWhitelistPersistAtom();
 
@@ -225,6 +250,12 @@ export default function WebViewModal() {
       if (isUnmounting.current) return;
 
       const data = payload.data as IJsonRpcRequest;
+      if (
+        isPrimeCheckout &&
+        data.method === EWebEmbedPrivateRequestMethod.primeEmbeddedCheckoutState
+      ) {
+        primeHandoff.receiveState(data.params);
+      }
       if (data.method === EWebEmbedPrivateRequestMethod.closeWebViewModal) {
         navigation.pop();
       }
@@ -246,6 +277,8 @@ export default function WebViewModal() {
         isWebEmbed &&
         hashRoutePath === EWebEmbedRoutePath.primePurchase
       ) {
+        if (isPrimeCheckout && !primeHandoff.acceptFallback(data.params))
+          return;
         navigation.pop();
         void (async () => {
           // Let the WebView modal close before the checkout dialogs show.
@@ -291,6 +324,8 @@ export default function WebViewModal() {
       intl,
       isWebEmbed,
       navigation,
+      isPrimeCheckout,
+      primeHandoff,
     ],
   );
 
@@ -338,18 +373,19 @@ export default function WebViewModal() {
   // Same inpage provider either way; the wrapper only adds the account/network
   // change notifications a live dApp session needs.
   const WebViewComponent = enableDappBridge ? WebViewWithFeatures : WebView;
+  const webViewHeaderRight = shouldHideWebViewHeaderRight({
+    url: currentUrl,
+    isWebEmbed,
+    hideHeaderRight,
+  })
+    ? undefined
+    : headerRight;
 
   return (
     <Page>
       <Page.Header
         headerRight={
-          shouldHideWebViewHeaderRight({
-            url: currentUrl,
-            isWebEmbed,
-            hideHeaderRight,
-          })
-            ? undefined
-            : headerRight
+          isPrimeCheckout ? primeCheckout.headerRight : webViewHeaderRight
         }
         title={navigationTitle}
       />
@@ -357,8 +393,14 @@ export default function WebViewModal() {
         {isWebEmbed ? (
           <WebViewWebEmbed
             hashRoutePath={hashRoutePath}
-            hashRouteQueryParams={hashRouteQueryParams}
+            hashRouteQueryParams={primeQueryParams}
             customReceiveHandler={webembedCustomReceiveHandler}
+            onInstanceRef={
+              isPrimeCheckout ? primeCheckout.onInstanceRef : undefined
+            }
+            onLoadStart={
+              isPrimeCheckout ? primeCheckout.onLoadStart : undefined
+            }
           />
         ) : (
           <WebViewComponent
