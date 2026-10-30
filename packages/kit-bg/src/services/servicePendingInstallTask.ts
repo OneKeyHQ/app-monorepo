@@ -904,6 +904,43 @@ class ServicePendingInstallTask {
     });
   }
 
+  private reportInstallFailure(params: {
+    category: 'fullUpdate' | 'hotUpdate';
+    targetVersion: string;
+    bundleVersion?: number;
+    errorCode: 'INSTALL_OR_APPLY_ERROR' | 'STARTUP_ROLLBACK';
+    errorSample?: string;
+  }): void {
+    try {
+      const svc = this.backgroundApi?.serviceAppUpdate as
+        | {
+            reportOtaInstallFailure?: (p: typeof params) => void;
+          }
+        | undefined;
+      svc?.reportOtaInstallFailure?.(params);
+    } catch {
+      // Telemetry must never affect pending install task state
+    }
+  }
+
+  private reportTaskTerminalFailure(
+    task: IPendingInstallTask,
+    reason: string,
+  ): void {
+    const isHot = task.type === EPendingInstallTaskType.jsBundleSwitch;
+    const bundleNum = isHot ? Number(task.targetBundleVersion) : undefined;
+    this.reportInstallFailure({
+      category: isHot ? 'hotUpdate' : 'fullUpdate',
+      targetVersion: task.targetAppVersion,
+      bundleVersion:
+        bundleNum !== undefined && Number.isFinite(bundleNum)
+          ? bundleNum
+          : undefined,
+      errorCode: 'INSTALL_OR_APPLY_ERROR',
+      errorSample: reason,
+    });
+  }
+
   private async markTaskFailed(
     task: IPendingInstallTask,
     message: string,
@@ -1017,6 +1054,10 @@ class ServicePendingInstallTask {
         'warn',
       );
       if (fullFlowRetryCount > MAX_FULL_FLOW_RETRY) {
+        this.reportTaskTerminalFailure(
+          task,
+          TERMINAL_REASON_FULL_FLOW_RETRY_EXHAUSTED,
+        );
         await this.clearPendingTaskWithLog({
           traceId,
           requestSeq,
@@ -1071,6 +1112,7 @@ class ServicePendingInstallTask {
     const nextRetryCount = task.retryCount + 1;
     const now = Date.now();
     if (nextRetryCount >= MAX_TASK_RETRY) {
+      this.reportTaskTerminalFailure(task, TERMINAL_REASON_RETRY_EXHAUSTED);
       await this.clearPendingTaskWithLog({
         traceId,
         requestSeq,
