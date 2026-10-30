@@ -185,7 +185,6 @@ export enum EAppEventBusNames {
   UpdateNotificationBadge = 'UpdateNotificationBadge',
   HyperliquidDataUpdate = 'HyperliquidDataUpdate',
   HyperliquidConnectionChange = 'HyperliquidConnectionChange',
-  PerpsChaseOrderBookUpdate = 'PerpsChaseOrderBookUpdate',
   PerpsReferralBound = 'PerpsReferralBound',
   PerpsWebSocketRecovered = 'PerpsWebSocketRecovered',
   PerpsTvPriceScaleRefreshed = 'PerpsTvPriceScaleRefreshed',

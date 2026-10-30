@@ -613,12 +613,6 @@ export interface IAppEventBusPayload {
     subType: ESubscriptionType;
     data: unknown;
   };
-  [EAppEventBusNames.PerpsChaseOrderBookUpdate]: {
-    coin: string;
-    subscriptionId: string;
-    bestBid?: string;
-    bestAsk?: string;
-  };
   [EAppEventBusNames.PerpsReferralBound]: { userAddress: string };
   [EAppEventBusNames.PerpsWebSocketRecovered]: undefined;
   [EAppEventBusNames.PerpsTvPriceScaleRefreshed]: {

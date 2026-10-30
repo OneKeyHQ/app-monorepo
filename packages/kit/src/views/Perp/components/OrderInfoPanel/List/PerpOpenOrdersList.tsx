@@ -16,11 +16,13 @@ import {
   useHyperliquidActions,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import {
+  useGetBboForOrderPrice,
   useOrderFilterByCurrentTokenAtom,
   usePerpsActiveOpenOrdersAtom,
   usePerpsActiveTwapOrdersAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/atoms';
 import {
+  perpsWebSocketConnectedAtom,
   usePerpsActiveAccountAtom,
   usePerpsCustomSettingsAtom,
   useSpotActiveOpenOrdersAtom,
@@ -43,6 +45,7 @@ import {
   isPerpsAccountAddressMatched,
   isPerpsAccountScopedDataReady,
 } from '../../../utils/accountScopedData';
+import { isPerpsBboInteractive } from '../../../utils/l2BookFreshness';
 import { showCancelAllOrdersDialog } from '../CancelAllOrdersModal';
 import { showChaseOrderConfirmDialog } from '../ChaseOrderConfirmModal';
 import { MobileOpenOrdersListHeader } from '../Components/MobileOpenOrdersListHeader';
@@ -213,6 +216,7 @@ function PerpOpenOrdersList({
   const [filterByCurrentToken] = useOrderFilterByCurrentTokenAtom();
   const [activeTradeInstrument] = useActiveTradeInstrumentAtom();
   const actions = useHyperliquidActions();
+  const getBbo = useGetBboForOrderPrice();
   const ensureTradingEnabled = useEnsureTradingEnabled();
   const [currentListPage, setCurrentListPage] = useState(1);
   const { chasingOrderIds, isChasingOrder, runChasingOrderTask } =
@@ -503,6 +507,26 @@ function PerpOpenOrdersList({
   const resolveChaseTargetPrice = useCallback(
     async (order: IPerpsFrontendOrder) => {
       const szDecimals = await getChaseOrderSzDecimals(order);
+      const bbo = (await perpsWebSocketConnectedAtom.get()) ? getBbo() : null;
+      if (
+        bbo?.coin === order.coin &&
+        bbo.bbo[0] &&
+        bbo.bbo[1] &&
+        isPerpsBboInteractive({
+          bboTime: bbo.time,
+          bboReceivedAt: bbo.localReceivedAt,
+        })
+      ) {
+        const price = resolveBboOrderPrice({
+          bid: bbo.bbo[0].px,
+          ask: bbo.bbo[1].px,
+          side: order.side === 'B' ? 'long' : 'short',
+          type: 'queue',
+          offsetTicks: 0,
+          szDecimals,
+        });
+        if (price) return price.toFixed();
+      }
       const book =
         await backgroundApiProxy.serviceHyperliquid.fetchL2BookByCoin({
           coin: order.coin,
@@ -530,7 +554,7 @@ function PerpOpenOrdersList({
 
       return nextPrice.toFixed();
     },
-    [getChaseOrderSzDecimals, intl],
+    [getBbo, getChaseOrderSzDecimals, intl],
   );
 
   const handleChaseOrder = useCallback(

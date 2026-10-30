@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -9,15 +9,12 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
-import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { usePerpsCustomSettingsAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { useBboForOrderPrice } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import {
-  EAppEventBusNames,
-  appEventBus,
-} from '@onekeyhq/shared/src/eventBus/appEventBus';
-import type { IAppEventBusPayload } from '@onekeyhq/shared/src/eventBus/appEventBus';
+  usePerpsCustomSettingsAtom,
+  usePerpsWebSocketConnectedAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import {
   formatLocalizedNumberString,
   numberFormat,
@@ -28,6 +25,7 @@ import {
 } from '@onekeyhq/shared/src/utils/perpsUtils';
 import type { IPerpsFrontendOrder } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
+import { PerpsProviderMirror } from '../../PerpsProviderMirror';
 import { getTifLabel } from '../../utils/timeInForce';
 
 import { getOrderAssetDisplayName } from './utils';
@@ -65,57 +63,19 @@ function ChaseOrderTargetPrice({
   szDecimals,
 }: IChaseOrderConfirmContentProps) {
   const intl = useIntl();
-  const [price, setPrice] = useState<string>();
-  useEffect(() => {
-    const params = { coin: order.coin, subscriptionId: generateUUID() };
-    let disposed = false;
-    let acquired = false;
-    setPrice(undefined);
-    const onUpdate = (
-      data: IAppEventBusPayload[EAppEventBusNames.PerpsChaseOrderBookUpdate],
-    ) => {
-      if (
-        disposed ||
-        data.coin !== order.coin ||
-        data.subscriptionId !== params.subscriptionId
-      )
-        return;
-      const nextPrice =
-        data.bestBid && data.bestAsk
-          ? resolveBboOrderPrice({
-              bid: data.bestBid,
-              ask: data.bestAsk,
-              side: order.side === 'B' ? 'long' : 'short',
-              type: 'queue',
-              offsetTicks: 0,
-              szDecimals,
-            })?.toFixed()
-          : undefined;
-      setPrice(nextPrice);
-    };
-    const release = () => {
-      if (!acquired) return;
-      acquired = false;
-      void backgroundApiProxy.serviceHyperliquidSubscription
-        .unsubscribeChaseOrderBook(params)
-        .catch(() => undefined);
-    };
-    appEventBus.on(EAppEventBusNames.PerpsChaseOrderBookUpdate, onUpdate);
-    void backgroundApiProxy.serviceHyperliquidSubscription
-      .subscribeChaseOrderBook(params)
-      .then(() => {
-        acquired = true;
-        if (disposed) release();
-      })
-      .catch(() => {
-        if (!disposed) setPrice(undefined);
-      });
-    return () => {
-      disposed = true;
-      appEventBus.off(EAppEventBusNames.PerpsChaseOrderBookUpdate, onUpdate);
-      release();
-    };
-  }, [order.coin, order.side, szDecimals]);
+  const bbo = useBboForOrderPrice(true);
+  const [isConnected] = usePerpsWebSocketConnectedAtom();
+  const price =
+    isConnected && bbo?.coin === order.coin && bbo.bbo[0] && bbo.bbo[1]
+      ? resolveBboOrderPrice({
+          bid: bbo.bbo[0].px,
+          ask: bbo.bbo[1].px,
+          side: order.side === 'B' ? 'long' : 'short',
+          type: 'queue',
+          offsetTicks: 0,
+          szDecimals,
+        })?.toFixed()
+      : undefined;
   return (
     <ChaseOrderConfirmRow
       label={intl.formatMessage({
@@ -191,7 +151,9 @@ function ChaseOrderConfirmContent({
           })}
           value={formatPrice(order.limitPx)}
         />
-        <ChaseOrderTargetPrice order={order} szDecimals={szDecimals} />
+        <PerpsProviderMirror>
+          <ChaseOrderTargetPrice order={order} szDecimals={szDecimals} />
+        </PerpsProviderMirror>
         <ChaseOrderConfirmRow
           label={intl.formatMessage({
             id: ETranslations.perp_chase_unfilled_size__title,
