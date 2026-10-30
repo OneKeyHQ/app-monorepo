@@ -314,7 +314,10 @@ class ServiceWalletConnect extends ServiceBase {
       namespaces: ProposalTypes.RequiredNamespaces,
       notSupportedChains: string[] = [],
     ) => {
-      for (const [key, value] of Object.entries(namespaces)) {
+      for (const [key, value] of Object.entries(namespaces).filter(
+        ([namespaceKey]) =>
+          namespaceToImplsMap[namespaceKey as INamespaceUnion],
+      )) {
         const namespace = key as INamespaceUnion;
         const { chains } = value;
         const impl = namespaceToImplsMap[namespace];
