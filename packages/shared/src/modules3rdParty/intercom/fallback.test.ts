@@ -77,7 +77,7 @@ describe('fallback support URLs', () => {
     });
   });
 
-  it('opens the WebView with the token of the user still signed in', async () => {
+  it('opens WebView home with the token of the user still signed in', async () => {
     const { showIntercom } = await import('./webView.native');
     await showIntercom({ conversationId: 'conversation-1' });
     expect(mockOpenUrlInApp).toHaveBeenCalledTimes(1);
@@ -90,6 +90,7 @@ describe('fallback support URLs', () => {
     expect(mockOpenUrlInApp.mock.calls[0][0]).toContain(
       encodeURIComponent(createToken('intercom-A')),
     );
+    expect(mockOpenUrlInApp.mock.calls[0][0]).not.toContain('conversationId');
   });
 
   it('does not open the WebView when the account changes during metadata loading', async () => {
@@ -104,10 +105,13 @@ describe('fallback support URLs', () => {
     expect(mockOpenUrlInApp).not.toHaveBeenCalled();
   });
 
-  it('uses the external URL opener for extension support', async () => {
+  it('opens extension support home with the external URL opener', async () => {
     const { showIntercom } = await import('./index.ext');
-    await showIntercom();
+    await showIntercom({ conversationId: 'conversation-1' });
     expect(mockOpenUrlExternal).toHaveBeenCalledTimes(1);
+    expect(mockOpenUrlExternal.mock.calls[0][0]).not.toContain(
+      'conversationId',
+    );
     expect(mockWindowOpen).not.toHaveBeenCalled();
   });
 

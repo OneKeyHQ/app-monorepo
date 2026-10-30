@@ -6,8 +6,8 @@ import { IntercomNotificationContainer } from '.';
 
 import { act, render } from '@testing-library/react';
 
-import type { IIntercomLockPolicy } from '@onekeyhq/shared/src/modules3rdParty/intercom/utils';
 import { ELockDuration } from '@onekeyhq/shared/src/consts/appAutoLockConsts';
+import type { IIntercomLockPolicy } from '@onekeyhq/shared/src/modules3rdParty/intercom/utils';
 import { ERootRoutes } from '@onekeyhq/shared/src/routes/root';
 
 import type { IIntercomNavigationState } from './visibility';

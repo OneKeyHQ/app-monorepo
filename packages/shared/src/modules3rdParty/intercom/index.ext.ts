@@ -42,7 +42,6 @@ const openIntercom = async (params?: IShowIntercomParams) => {
     token,
     instanceId,
     requestId: params?.requestId,
-    conversationId: params?.conversationId,
   });
 
   // The metadata awaits above can outlive the identity check.

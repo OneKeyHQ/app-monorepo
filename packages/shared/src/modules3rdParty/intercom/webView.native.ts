@@ -24,7 +24,6 @@ export const showIntercom = async (params?: IShowIntercomParams) => {
     token,
     instanceId,
     requestId: params?.requestId,
-    conversationId: params?.conversationId,
     languageOverride,
   });
 
