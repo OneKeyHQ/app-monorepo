@@ -4,6 +4,8 @@ import type { IAirGapUrJson } from '@onekeyhq/qr-wallet-sdk';
 import type {
   IDeviceStageConnectionTypeValue,
   IDeviceStageErrorI18n,
+  IDeviceStageOpenAppReasonValue,
+  IDeviceStageQrFallbackReasonValue,
 } from '@onekeyhq/shared/types/deviceStage';
 
 import type {
@@ -208,7 +210,8 @@ export interface IDeviceStageProps {
    * key when the code is absent. */
   vendorModelName?: string;
   /** The coin app the install steps talk about (`Ethereum`) — titles
-   * and rows of `installConfirm`/`installing`. */
+   * and rows of `installConfirm`/`installing` — and the app a
+   * wallet-match `openApp` names. */
   appName?: string;
   /** Live install progress, 0–100 — `installing`'s bar and the active
    * row of `installBatch`. Real progress from the vendor SDK, never
@@ -223,6 +226,11 @@ export interface IDeviceStageProps {
   btcHighIndexPath?: string;
   /** The account index parsed from that path. */
   btcHighIndexAccountIndex?: number;
+  /** Why `qrFallback` asks; picks its words and whether it offers a retry. */
+  qrFallbackReason?: IDeviceStageQrFallbackReasonValue;
+  /** Why `openApp`'s device is opening an app; `walletMatch` with an
+   * `appName` names the app and the device. */
+  openAppReason?: IDeviceStageOpenAppReasonValue;
   /** The `pairingCode` entry, confirmed — the code the person copied
    * off the device's screen. Empty is refused inline before this fires. */
   onPairingSubmit?: (code: string) => void;
@@ -239,9 +247,13 @@ export interface IDeviceStageProps {
   /** `btcHighIndex`'s single action — proceed with the non-standard
    * index, one device confirmation per path. Omitted, no button. */
   onBtcHighIndexConfirm?: () => void;
-  /** `qrFallback`'s single action — sign by QR the request too large for
-   * USB. Omitted, no button. */
+  /** `qrFallback`'s QR action — send the request by QR instead of USB.
+   * Omitted, no button. */
   onQrFallbackConfirm?: () => void;
+  /** `qrFallback`'s retry — look for the USB device again, offered only
+   * when a connected device could not serve the wallet. Omitted, no
+   * button. */
+  onQrFallbackRetry?: () => void;
   /** `installConfirm`'s single action — install the missing app. The
    * driver answers by moving to `installing`. Omitted, no button. */
   onInstallConfirm?: () => void;
@@ -354,6 +366,8 @@ export interface IDeviceStageProps {
    * integration layer hands over the UR json and owns nothing else.
    */
   qrValueUr?: IAirGapUrJson;
+  /** A note the showQr card carries under its steps. */
+  qrNoticeI18n?: IDeviceStageErrorI18n;
   qrSessionId?: number;
   qrRenderKey?: string;
   /**

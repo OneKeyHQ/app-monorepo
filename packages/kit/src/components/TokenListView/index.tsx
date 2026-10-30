@@ -1261,6 +1261,7 @@ function TokenListViewCmp(props: IProps) {
         <TokenListHeader
           onManageToken={onManageToken}
           manageTokenEnabled={manageTokenEnabled}
+          withSwapAction={withSwapAction}
           {...(listData.length > 0 ? { tableLayout } : undefined)}
         />
       ) : null}

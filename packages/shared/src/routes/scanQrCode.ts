@@ -10,5 +10,6 @@ export type IScanQrCodeModalParamList = {
     }) => Promise<{ progress?: number }>;
     qrWalletScene?: boolean;
     showProTutorial?: boolean;
+    scanRequestId?: string;
   };
 };

@@ -24,6 +24,7 @@ import type {
   IMarketTokenDetail,
 } from '@onekeyhq/shared/types/marketV2';
 
+import { useReportMarketSimpleChartRangeChange } from '../../hooks/MarketSimpleChartRangeChangeContext';
 import { useStockDetail } from '../../hooks/StockDetailContext';
 import { useMarketKlineLivePrice } from '../../hooks/useMarketKlineLivePrice';
 import { useTokenDetail } from '../../hooks/useTokenDetail';
@@ -35,12 +36,14 @@ import {
   buildStockSimpleChartAssetKey,
   buildStockSimpleChartScopeKey,
   fetchStockSimpleChartPoints,
+  isStockSimpleChartRangeUp,
   resolveStockSimpleChartBucketSeconds,
   resolveStockSimpleChartDisplayPoints,
   resolveStockSimpleChartLivePrice,
   resolveStockSimpleChartMinRefreshMs,
   resolveStockSimpleChartPreviousClose,
   resolveStockSimpleChartPulseLastPoint,
+  resolveStockSimpleChartRangeChange,
   resolveStockSimpleChartRequestScope,
   shouldStoreStockSimpleChartSeries,
 } from './stockSimpleChartData';
@@ -504,6 +507,32 @@ export function StockSimpleChartContent({
     );
   }
 
+  const hasChartPlaceholder = Boolean(chartPlaceholder);
+  const rangeChange = useMemo(
+    () =>
+      hasChartPlaceholder
+        ? undefined
+        : resolveStockSimpleChartRangeChange({
+            points: chartData,
+            previousClose,
+            priceMode: requestPriceMode,
+            range: displayedRange,
+          }),
+    [
+      chartData,
+      displayedRange,
+      hasChartPlaceholder,
+      previousClose,
+      requestPriceMode,
+    ],
+  );
+  const reportRangeChange = useReportMarketSimpleChartRangeChange();
+  useEffect(() => {
+    reportRangeChange(active && updateMarketDetail ? rangeChange : undefined);
+  }, [active, rangeChange, reportRangeChange, updateMarketDetail]);
+  // Unmounting (Pro mode, leaving the page) hands the header back to 24h.
+  useEffect(() => () => reportRangeChange(undefined), [reportRangeChange]);
+
   useEffect(() => {
     const price = chartData.at(-1)?.[1];
     onPriceUpdate?.(
@@ -552,6 +581,11 @@ export function StockSimpleChartContent({
           height={chartHeight}
           pulseLastPoint={pulseLastPoint}
           previousClose={chartPlaceholder ? undefined : previousClose}
+          trend={
+            rangeChange && !isStockSimpleChartRangeUp(rangeChange)
+              ? 'down'
+              : 'up'
+          }
           showCurrentPriceLabel
           priceScaleFormat={priceScaleFormat}
           hoverLabelLargePrice

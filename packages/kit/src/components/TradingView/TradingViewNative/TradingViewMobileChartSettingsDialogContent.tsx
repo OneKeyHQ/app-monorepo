@@ -1,5 +1,5 @@
 // cspell:ignore heikin Ashi
-import { useCallback, useMemo } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
 
 import { useIntl } from 'react-intl';
@@ -25,11 +25,22 @@ import {
   type ITradingViewChartMode,
   TradingViewChartModeSelect,
 } from '../TradingViewChartControls';
+import {
+  formatChartTypeOptionLabel,
+  getChartTypeIconName,
+} from '../TradingViewChartControls/utils/NativeChartControlsShared';
 
 import { normalizeTradingViewNativeChartSettings } from './chartSettingsAdapter';
 import { useTradingViewNativeChartSettings } from './useTradingViewNativeSettings';
 
 import type { ITradingViewNativeStorageNamespace } from './types';
+import type { ITradingViewChartTypeOption } from '../TradingViewChartControls/types';
+
+export interface ITradingViewChartStyleSettings {
+  chartTypes: ITradingViewChartTypeOption[];
+  activeChartType: number | undefined;
+  onChartTypeChange: (chartType: number) => void;
+}
 
 type IQuickSettingOptions = Pick<
   ITradingViewNativeChartSettingsOptions,
@@ -209,6 +220,71 @@ function ChartStyleSelect({
   );
 }
 
+function TradingViewChartStyleSelect({
+  chartTypes,
+  activeChartType,
+  onChartTypeChange,
+}: ITradingViewChartStyleSettings) {
+  const intl = useIntl();
+  const title = intl.formatMessage({ id: ETranslations.market_chart_style });
+  // The dialog content is a static snapshot, so track the selection locally.
+  const [value, setValue] = useState(
+    () => activeChartType ?? chartTypes[0]?.value,
+  );
+  const items = useMemo(
+    () =>
+      chartTypes.map((chartType) => ({
+        value: chartType.value,
+        label: formatChartTypeOptionLabel(intl, chartType),
+        leading: (
+          <Icon
+            name={getChartTypeIconName(chartType)}
+            size="$5"
+            color="$iconSubdued"
+          />
+        ),
+      })),
+    [chartTypes, intl],
+  );
+  const handleChange = useCallback(
+    (nextValue: unknown) => {
+      if (typeof nextValue !== 'number' || nextValue === value) {
+        return;
+      }
+      setValue(nextValue);
+      onChartTypeChange(nextValue);
+    },
+    [onChartTypeChange, value],
+  );
+  const renderTrigger = useCallback(
+    (props: ISelectRenderTriggerProps) => (
+      <SelectValueTrigger
+        {...props}
+        testID="trading-view-native-chart-settings-dialog-chart-style-trigger"
+      />
+    ),
+    [],
+  );
+
+  return (
+    <SettingsListRow
+      label={title}
+      testID="trading-view-native-chart-settings-dialog-chart-style"
+    >
+      <Select
+        testID="trading-view-native-chart-settings-dialog-chart-style-select"
+        title={title}
+        items={items}
+        value={value}
+        onChange={handleChange}
+        placement="bottom-end"
+        floatingPanelProps={CHART_STYLE_FLOATING_PANEL_PROPS}
+        renderTrigger={renderTrigger}
+      />
+    </SettingsListRow>
+  );
+}
+
 function QuickSettingOption({
   option,
   label,
@@ -238,6 +314,7 @@ type IChartSettingsDialogProps = {
   chartMode?: ITradingViewChartMode;
   isChartSwitchDisabled?: boolean;
   showPreviousClose?: boolean;
+  tradingViewChartStyle?: ITradingViewChartStyleSettings;
   onChartSwitch?: () => void;
   onOpenSettings: () => void;
 };
@@ -258,6 +335,7 @@ function ChartSettingsDialogContent({
   chartMode,
   isChartSwitchDisabled = false,
   showPreviousClose = false,
+  tradingViewChartStyle,
   onChartSwitch,
   onOpenSettings,
 }: IChartSettingsDialogProps & {
@@ -330,6 +408,12 @@ function ChartSettingsDialogContent({
             />
           </XStack>
         </SettingsListRow>
+      ) : null}
+
+      {chartMode === 'tradingView' &&
+      tradingViewChartStyle &&
+      tradingViewChartStyle.chartTypes.length > 1 ? (
+        <TradingViewChartStyleSelect {...tradingViewChartStyle} />
       ) : null}
 
       {chartMode !== 'tradingView' ? (

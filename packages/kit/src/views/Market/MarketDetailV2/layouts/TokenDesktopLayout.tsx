@@ -2,6 +2,7 @@ import { memo, useMemo } from 'react';
 import type { ComponentProps, ComponentType, ReactNode } from 'react';
 
 import BigNumber from 'bignumber.js';
+import { useIntl } from 'react-intl';
 
 import {
   NumberSizeableText,
@@ -30,6 +31,10 @@ import { PerpetualTradingBanner } from '../components/PerpetualTradingBanner/Per
 import { TokenActivityOverview } from '../components/TokenActivityOverview/TokenActivityOverview';
 import { TokenDetailHeader } from '../components/TokenDetailHeader/TokenDetailHeader';
 import { TokenSupplementaryInfo } from '../components/TokenSupplementaryInfo/TokenSupplementaryInfo';
+import {
+  useMarketPriceChangeLabelId,
+  useMarketSimpleChartRangePriceChange,
+} from '../hooks/MarketSimpleChartRangeChangeContext';
 import { useMarketDetailDisplayData } from '../hooks/useMarketDetailDisplayData';
 import { formatPriceChangeDisplay } from '../utils/statValue';
 
@@ -71,12 +76,20 @@ function getAbsolutePriceChange(price?: string, priceChangePercent?: string) {
 }
 
 export function TokenPriceHeader() {
+  const intl = useIntl();
   const { tokenDetail, isPreviewTokenDetail } = useMarketDetailDisplayData();
   const price = tokenDetail?.price;
-  const priceChangePercent = tokenDetail?.priceChange24hPercent;
+  // The simple chart's selected range replaces the 24h move while it is drawn.
+  const rangePriceChange = useMarketSimpleChartRangePriceChange('token');
+  const priceChangeLabelId = useMarketPriceChangeLabelId('token');
+  const priceChangePercent =
+    rangePriceChange?.priceChangePercent ?? tokenDetail?.priceChange24hPercent;
+  const rangePriceChangeValue = rangePriceChange?.priceChangeValue;
   const priceChangeValue = useMemo(
-    () => getAbsolutePriceChange(price, priceChangePercent),
-    [price, priceChangePercent],
+    () =>
+      rangePriceChangeValue ??
+      getAbsolutePriceChange(price, priceChangePercent),
+    [price, priceChangePercent, rangePriceChangeValue],
   );
   const { color: priceChangeColor } =
     formatPriceChangeDisplay(priceChangePercent);
@@ -131,6 +144,15 @@ export function TokenPriceHeader() {
             </SizableText>
           ) : null}
         </XStack>
+        <SizableText
+          testID="market-token-price-change-label"
+          // Figma 25227:67442: 10px from the change, past the row's 6px gap.
+          ml="$1"
+          size="$bodyLg"
+          color="$textSubdued"
+        >
+          {intl.formatMessage({ id: priceChangeLabelId })}
+        </SizableText>
       </XStack>
     </XStack>
   );
@@ -144,6 +166,7 @@ function TokenDesktopLayoutBase({
   portfolioData,
   isRefreshing,
   isPortfolioPending,
+  isPortfolioFailed,
   isBTCNetwork,
   isBTCMainnet,
   tokenLogoUrl,
@@ -164,6 +187,7 @@ function TokenDesktopLayoutBase({
   portfolioData: IMarketAccountPortfolioItem[];
   isRefreshing?: boolean;
   isPortfolioPending?: boolean;
+  isPortfolioFailed?: boolean;
   isBTCNetwork: boolean;
   isBTCMainnet: boolean;
   tokenLogoUrl?: string;
@@ -249,6 +273,7 @@ function TokenDesktopLayoutBase({
               portfolioData={portfolioData}
               isRefreshing={isRefreshing}
               isPortfolioPending={isPortfolioPending}
+              isPortfolioFailed={isPortfolioFailed}
               isBTCNetwork={isBTCNetwork}
               tokenLogoUrl={tokenLogoUrl}
             />
