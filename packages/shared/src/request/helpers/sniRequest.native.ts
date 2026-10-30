@@ -11,6 +11,7 @@ import { NativeModules, TurboModuleRegistry } from 'react-native';
 
 import { OneKeyLocalError } from '../../errors';
 import { defaultLogger } from '../../logger/logger';
+import { IP_TABLE_ENABLED } from '../constants/ipTableDefaults';
 
 import { safeSniLogValue } from './sniLogRedaction';
 import { executeSniRequestWithAbort } from './sniRequestAbort';
@@ -188,10 +189,10 @@ function normalizeSniMethod(method: string): SniConnectMethod {
 
 /**
  * Check if SNI is supported on current platform
- * @returns true for Native platforms (iOS/Android)
+ * @returns IP_TABLE_ENABLED for Native platforms (iOS/Android)
  */
 export function isSniSupported(): boolean {
-  return true;
+  return IP_TABLE_ENABLED;
 }
 
 /**
