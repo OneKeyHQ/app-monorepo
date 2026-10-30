@@ -4,7 +4,7 @@ import WidgetKit
 
 @available(iOS 17.0, *)
 struct MarketLockScreenAssetEntity: AppEntity {
-  static var typeDisplayRepresentation: TypeDisplayRepresentation = "Coin"
+  static var typeDisplayRepresentation: TypeDisplayRepresentation = "market_widget_coin__title"
   static var defaultQuery = MarketLockScreenAssetQuery()
   let id: String
   let asset: MarketWidgetAsset
@@ -107,9 +107,9 @@ struct MarketLockScreenSolanaQuery: EntityStringQuery {
 
 @available(iOS 17.0, *)
 struct MarketLockScreenSpotIntent: WidgetConfigurationIntent {
-  static var title: LocalizedStringResource = "Follow spot"
-  static var description = IntentDescription("Choose a coin for this widget.")
-  @Parameter(title: "Coin", query: MarketLockScreenAssetQuery()) var coin: MarketLockScreenAssetEntity?
+  static var title: LocalizedStringResource = "market_widget_lock_spot__title"
+  static var description = IntentDescription("market_widget_lock_coin__desc")
+  @Parameter(title: "market_widget_coin__title", query: MarketLockScreenAssetQuery()) var coin: MarketLockScreenAssetEntity?
   static var parameterSummary: some ParameterSummary { Summary { \.$coin } }
 
   init() { coin = MarketLockScreenAssetEntity(asset: MarketWidgetAsset.defaults[0]) }
@@ -117,12 +117,12 @@ struct MarketLockScreenSpotIntent: WidgetConfigurationIntent {
 
 @available(iOS 17.0, *)
 struct MarketLockScreenListIntent: WidgetConfigurationIntent {
-  static var title: LocalizedStringResource = "Watchlist"
-  static var description = IntentDescription("Choose the three coins shown in this widget.")
+  static var title: LocalizedStringResource = "market_widget_lock_watchlist__title"
+  static var description = IntentDescription("market_widget_lock_list__desc")
   // WidgetKit resolves defaults through each parameter's query, independently of init().
-  @Parameter(title: "Coin 1", query: MarketLockScreenAssetQuery()) var first: MarketLockScreenAssetEntity?
-  @Parameter(title: "Coin 2", query: MarketLockScreenEthereumQuery()) var second: MarketLockScreenAssetEntity?
-  @Parameter(title: "Coin 3", query: MarketLockScreenSolanaQuery()) var third: MarketLockScreenAssetEntity?
+  @Parameter(title: "market_widget_lock_coin_1__title", query: MarketLockScreenAssetQuery()) var first: MarketLockScreenAssetEntity?
+  @Parameter(title: "market_widget_lock_coin_2__title", query: MarketLockScreenEthereumQuery()) var second: MarketLockScreenAssetEntity?
+  @Parameter(title: "market_widget_lock_coin_3__title", query: MarketLockScreenSolanaQuery()) var third: MarketLockScreenAssetEntity?
   static var parameterSummary: some ParameterSummary {
     Summary { \.$first; \.$second; \.$third }
   }

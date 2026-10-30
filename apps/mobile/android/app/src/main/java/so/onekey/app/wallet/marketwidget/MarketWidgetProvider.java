@@ -201,9 +201,9 @@ public class MarketWidgetProvider extends AppWidgetProvider {
                 String date = DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT, locale)
                     .format(new Date(quote.fetchedAt));
                 if (stale) status = textContext.getString(R.string.market_widget_cached_at, date);
-                views.setContentDescription(rows[index], symbol + ", " + price(quote.price, locale) + ", "
-                    + change + ", " + textContext.getString(stale ? R.string.market_widget_cached_at
-                        : R.string.market_widget_updated_at, date));
+                views.setContentDescription(rows[index], textContext.getString(stale
+                    ? R.string.market_widget_quote_cached_at : R.string.market_widget_quote_updated_at,
+                    symbol, price(quote.price, locale, false), change, date));
             }
             Intent open = new Intent(Intent.ACTION_VIEW, asset.deepLink(), context, MainLauncherActivity.class)
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
@@ -216,15 +216,19 @@ public class MarketWidgetProvider extends AppWidgetProvider {
     }
 
     static String price(BigDecimal value, Locale locale) {
-        if (value.signum() > 0 && value.compareTo(new BigDecimal("0.000000000001")) < 0) {
-            return "<$0.000000000001";
-        }
-        NumberFormat format = NumberFormat.getCurrencyInstance(locale);
-        format.setCurrency(Currency.getInstance("USD"));
+        return price(value, locale, true);
+    }
+
+    static String price(BigDecimal value, Locale locale, boolean includeCurrency) {
+        boolean belowMinimum = value.signum() > 0 && value.compareTo(new BigDecimal("0.000000000001")) < 0;
+        BigDecimal displayed = belowMinimum ? new BigDecimal("0.000000000001") : value;
+        NumberFormat format = includeCurrency
+            ? NumberFormat.getCurrencyInstance(locale) : NumberFormat.getNumberInstance(locale);
+        if (includeCurrency) format.setCurrency(Currency.getInstance("USD"));
         format.setMinimumFractionDigits(2);
-        int decimals = value.compareTo(BigDecimal.ONE) >= 0 || value.signum() == 0 ? 2
-            : Math.min(12, Math.max(2, value.scale() - value.precision() + 4));
+        int decimals = displayed.compareTo(BigDecimal.ONE) >= 0 || displayed.signum() == 0 ? 2
+            : Math.min(12, Math.max(2, displayed.scale() - displayed.precision() + 4));
         format.setMaximumFractionDigits(decimals);
-        return format.format(value);
+        return (belowMinimum ? "<" : "") + format.format(displayed);
     }
 }

@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="market_widget_single_title">Одна монета</string>
+    <string name="market_widget_watchlist_title">Список котировок</string>
+    <string name="market_widget_single_description">Цена монеты в USD и изменение за 24 часа.</string>
+    <string name="market_widget_watchlist_description">Три монеты с ценами в USD и графиками за 24 часа.</string>
+    <string name="market_widget_configure">Изменить виджет</string>
+    <string name="market_widget_empty">Этой монеты больше нет в выбранном источнике. Выберите другую.</string>
+    <string name="market_widget_configuration_error">Откройте OneKey, чтобы проверить настройки виджета.</string>
+    <string name="market_widget_cached_at">В кэше: %1$s</string>
+    <string name="market_widget_source_watchlist">Избранное</string>
+    <string name="market_widget_source_hot">Популярные монеты</string>
+    <string name="market_widget_source">Источник</string>
+    <string name="market_widget_coin">Монета</string>
+    <string name="market_widget_edit_title">Изменить виджет</string>
+    <string name="market_widget_edit_description">Следите за ценами монет и динамикой за 24 часа.</string>
+    <string name="market_widget_search">Поиск монет</string>
+    <string name="market_widget_load_failed">Не удалось загрузить монеты. Нажмите, чтобы повторить.</string>
+    <string name="market_widget_watchlist_empty">Добавьте монеты в список наблюдения в OneKey.</string>
+    <string name="market_widget_hot_unavailable">Популярные монеты недоступны. Нажмите для изменения.</string>
+    <string name="market_widget_private">Откройте OneKey, чтобы отобразить виджеты рынка.</string>
+    <string name="market_widget_chart">График цены за 24 часа</string>
+    <string name="market_widget_chart_unavailable">График за 24 часа недоступен</string>
+    <string name="market_widget_selected">Выбрано</string>
+    <string name="market_widget_quote_updated_at">%1$s, цена %2$s USD, изменение за 24 часа %3$s. Обновлено: %4$s.</string>
+    <string name="market_widget_quote_cached_at">%1$s, цена %2$s USD, изменение за 24 часа %3$s. В кэше: %4$s.</string>
+    <string name="market_widget_unavailable">Цена недоступна</string>
+    <string name="market_widget_save_failed">Произошла непредвиденная ошибка. Пожалуйста, попробуйте еще раз.</string>
+    <string name="market_widget_done">Да</string>
+    <string name="market_widget_loading">Загрузка...</string>
+    <string name="market_widget_no_coins">Результатов не найдено</string>
+    <string name="market_widget_back">Назад</string>
+</resources>

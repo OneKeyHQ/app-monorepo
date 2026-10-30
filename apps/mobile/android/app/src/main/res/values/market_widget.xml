@@ -1,22 +1,22 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="market_widget_single_title">OneKey · Price</string>
-    <string name="market_widget_watchlist_title">OneKey · Watchlist</string>
-    <string name="market_widget_single_description">A crypto price and its 24-hour change.</string>
-    <string name="market_widget_watchlist_description">Three coins from your watchlist or Hot coins, with 24-hour charts.</string>
+    <string name="market_widget_single_title">Single coin</string>
+    <string name="market_widget_watchlist_title">Market list</string>
+    <string name="market_widget_single_description">A coin’s USD price and 24-hour change.</string>
+    <string name="market_widget_watchlist_description">Three coins with USD prices and 24-hour charts.</string>
     <string name="market_widget_select_description">Choose one asset from your OneKey watchlist. Quotes are in USD and updates depend on Android.</string>
     <string name="market_widget_currency">USD · 24h change</string>
     <string name="market_widget_refresh">Refresh prices</string>
     <string name="market_widget_configure">Edit widget</string>
-    <string name="market_widget_empty">Asset no longer in watchlist. Tap to edit.</string>
-    <string name="market_widget_configuration_error">Open OneKey to restore widget settings.</string>
-    <string name="market_widget_unavailable">Price unavailable</string>
+    <string name="market_widget_empty">This coin is no longer in the selected source. Choose another coin.</string>
+    <string name="market_widget_configuration_error">Open OneKey to check widget settings.</string>
+    <string name="market_widget_unavailable">No price available</string>
     <string name="market_widget_updated_at">Updated %1$s</string>
     <string name="market_widget_cached_at">Cached %1$s</string>
     <string name="market_widget_manage_watchlist">Manage watchlist in OneKey</string>
     <string name="market_widget_save">Save widget</string>
     <string name="market_widget_choose_asset">Choose an asset first</string>
-    <string name="market_widget_save_failed">Unable to save. Please try again.</string>
+    <string name="market_widget_save_failed">An unexpected error occurred. Please try again.</string>
     <color name="market_widget_background">#FFFFFF</color>
     <color name="market_widget_foreground">#1E2329</color>
     <color name="market_widget_secondary">#707A8A</color>
@@ -32,23 +32,25 @@
         <item name="android:statusBarColor">@color/market_widget_background</item>
         <item name="android:navigationBarColor">@color/market_widget_background</item>
     </style>
-    <string name="market_widget_source_watchlist">My watchlist</string>
-    <string name="market_widget_source_hot">Hot coins</string>
+    <string name="market_widget_source_watchlist">Watchlist</string>
+    <string name="market_widget_source_hot">Hot Coins</string>
     <string name="market_widget_source">Source</string>
     <string name="market_widget_coin">Coin</string>
-    <string name="market_widget_edit_title">Edit market widget</string>
-    <string name="market_widget_edit_description">Track crypto prices and their 24-hour trends.</string>
+    <string name="market_widget_edit_title">Edit widget</string>
+    <string name="market_widget_edit_description">Track coin prices and 24-hour trends.</string>
     <string name="market_widget_search">Search coins</string>
     <string name="market_widget_done">Confirm</string>
-    <string name="market_widget_loading">Loading coins…</string>
+    <string name="market_widget_loading">Loading...</string>
     <string name="market_widget_load_failed">Unable to load coins. Tap to retry.</string>
-    <string name="market_widget_no_coins">No coins found</string>
+    <string name="market_widget_no_coins">No Results Found</string>
     <string name="market_widget_watchlist_empty">Add coins to your watchlist in OneKey.</string>
-    <string name="market_widget_hot_unavailable">Hot coins unavailable. Tap to edit.</string>
+    <string name="market_widget_hot_unavailable">Hot Coins unavailable. Tap to edit.</string>
     <string name="market_widget_private">Open OneKey to display market widgets.</string>
-    <string name="market_widget_chart">24-hour price trend</string>
+    <string name="market_widget_chart">24-hour price chart</string>
     <string name="market_widget_chart_unavailable">24-hour chart unavailable</string>
     <string name="market_widget_back">Back</string>
     <string name="market_widget_selected">Selected</string>
     <string name="market_widget_preview">Preview</string>
+    <string name="market_widget_quote_updated_at">%1$s, price %2$s USD, 24-hour change %3$s. Updated %4$s.</string>
+    <string name="market_widget_quote_cached_at">%1$s, price %2$s USD, 24-hour change %3$s. Cached %4$s.</string>
 </resources>

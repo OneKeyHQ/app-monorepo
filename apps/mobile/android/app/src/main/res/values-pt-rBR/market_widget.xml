@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="market_widget_single_title">Uma moeda</string>
+    <string name="market_widget_watchlist_title">Lista de mercado</string>
+    <string name="market_widget_single_description">Preço em USD e variação de 24 horas de uma moeda.</string>
+    <string name="market_widget_watchlist_description">Três moedas com preços em USD e gráficos de 24 horas.</string>
+    <string name="market_widget_configure">Editar widget</string>
+    <string name="market_widget_empty">Esta moeda não está mais na origem selecionada. Escolha outra moeda.</string>
+    <string name="market_widget_configuration_error">Abra o OneKey para verificar as configurações do widget.</string>
+    <string name="market_widget_cached_at">Em cache: %1$s</string>
+    <string name="market_widget_source_watchlist">Favoritos</string>
+    <string name="market_widget_source_hot">Moedas populares</string>
+    <string name="market_widget_source">Origem</string>
+    <string name="market_widget_coin">Moeda</string>
+    <string name="market_widget_edit_title">Editar widget</string>
+    <string name="market_widget_edit_description">Acompanhe os preços das moedas e as tendências de 24 horas.</string>
+    <string name="market_widget_search">Buscar moedas</string>
+    <string name="market_widget_load_failed">Não foi possível carregar as moedas. Toque para tentar novamente.</string>
+    <string name="market_widget_watchlist_empty">Adicione moedas à sua lista de acompanhamento no OneKey.</string>
+    <string name="market_widget_hot_unavailable">Moedas populares indisponíveis. Toque para editar.</string>
+    <string name="market_widget_private">Abra o OneKey para mostrar os widgets de mercado.</string>
+    <string name="market_widget_chart">Gráfico de preços de 24 horas</string>
+    <string name="market_widget_chart_unavailable">Gráfico de 24 horas indisponível</string>
+    <string name="market_widget_selected">Selecionado</string>
+    <string name="market_widget_quote_updated_at">%1$s, preço %2$s USD, variação de 24 horas %3$s. Atualizado: %4$s.</string>
+    <string name="market_widget_quote_cached_at">%1$s, preço %2$s USD, variação de 24 horas %3$s. Em cache: %4$s.</string>
+    <string name="market_widget_unavailable">Nenhum preço disponível</string>
+    <string name="market_widget_save_failed">Ocorreu um erro inesperado. Por favor, tente novamente.</string>
+    <string name="market_widget_done">Confirmar</string>
+    <string name="market_widget_loading">Carregando...</string>
+    <string name="market_widget_no_coins">Nenhum resultado encontrado</string>
+    <string name="market_widget_back">Voltar</string>
+</resources>

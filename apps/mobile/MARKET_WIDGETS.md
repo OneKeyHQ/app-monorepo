@@ -30,6 +30,24 @@ iOS 和 Android 桌面小组件展示公开的 USD 行情，提供两种形式�
 
 锁屏时间线请求 15 分钟后刷新，实际执行时间由 WidgetKit 决定。旅行模式同时隐藏锁屏内容、停止请求并清理候选与已选缓存；进行中的请求结束后仍需重新检查隐私状态，不能回填隐藏内容。真实行情不可用时展示“—”，图表数据不满足校验条件时不画曲线。组件库预览中的示例行情仅用于选择样式，已添加实例读取真实行情。
 
+## 多语言文案（2026-10-30）
+
+Widget 覆盖 App 当前支持的 19 种语言。App 内配置管理与编辑页面的 17 个新增 key 由 Lokalise 管理，通过官方流程生成 locale JSON 和枚举；原生独有的 36 个语义 key 保存在 iOS `Localizable.strings` 和 Android `market_widget.xml`，不额外上传 Lokalise。两端原生与 App 共用的 8 个新增语义 key 使用一致译文，通用按钮复用已有 App 文案。
+
+iOS 桌面卡片、锁屏内容与辅助功能文案跟随 App 同步的语言；系统组件库及 AppIntent 编辑参数标题跟随系统为扩展选择的语言。Android 原生卡片与配置页跟随 App 同步的语言，打开配置页期间切换语言会重新创建页面。配置的显示名称按当前语言与实际资产动态生成，不改变配置 ID、已保存的币种或绑定关系。
+
+原生语言资源随安装包发布，修改后需要重新构建 iOS/Android，不能仅通过 JavaScript 热更新交付。共享文案、语言覆盖与格式化占位符由 `apps/mobile/scripts/__tests__/market-widget-localization.test.js` 校验；iOS 另有 `apps/mobile/ios/Tests/MarketWidgetLocalizationTests.swift` 检查实际扩展 bundle 的语言选择、辅助功能格式化及配置名称。
+
+Google Play 渠道生成 AAB；由于 App 内语言选择独立于系统语言，Android 关闭 `bundle.language.enableSplit`，让各语言原生资源随基础包安装，避免 RN 已切换语言而 Widget 缺少对应译文。ABI 和屏幕密度拆分保持现有设置；直接安装 APK 不依赖语言拆分。此配置遵循 [Android 的 App 内语言选择说明](https://developer.android.com/guide/app-bundle/configure-base#handling_language_changes)，Play 实际下发仍需商店渠道测试。
+
+已绑定的 iOS 桌面组件可能保留系统缓存的旧配置名称：App 配置列表和原生候选列表会显示当前语言，但系统编辑页的已选摘要不会立即更新，重开编辑页或重启模拟器也未刷新。重新选择同一个配置可更新摘要，配置 ID、币种和绑定目标不变；不自动重建组件或迁移绑定。
+
+本轮校验：Lokalise 17 个 key × 19 种语言上传并回读一致；跨平台资源测试 41 项、App 编辑与身份回归 18 项、Android instrumentation 23 项通过，iOS 已构建扩展 bundle 的本地化检查 2088 项通过。原生资源与最终翻译目录及 App 共用文案逐值比较 1216 项一致。App 模块复扫没有遗漏的静态文案或未补齐 key；五处动态表达式仅涉及资产身份、缩略地址及已翻译的配置名称拼接。AppIntent 元数据另经静态核对与原生编辑页实测，不使用仅断言 Swift 源码文本的 Jest 测试代替运行验证。
+
+实际界面抽查覆盖英文、简中、台湾繁中与德语：iOS App 编辑、配置列表及锁屏/桌面原生选择页，Android 单币卡、行情列表与原生编辑/搜索。修复两端德语来源长标题截断，短标题保持原字号与图标位置。Android AAB 的 `googleRelease` 已通过 AGP 配置解析与 `enableSplit=false` 断言，未生成或提交最终 AAB。官方 Lokalise 同步还带回远端已有的 84 个其他 key 的差异，这些不是本轮新增的 Widget key。
+
+验证环境限于 iOS 26.4 Simulator 与 Android 16 模拟器。iOS 开发启动曾遇到原生壳与 WebEmbed 远端资源 HTTP 404，已使用本地构建完成验证；后续本地缓存命中不代表整轮启动无回退。Android 的 `connectedProdDebugAndroidTest` 自动卸载了模拟器 App，随后重装 APK 并重建自选 BTC 单币卡（ID 11）与热门列表（ID 12），旧 ID 9/10 未恢复；卸载前的 App 沙盒数据没有备份或恢复，不能视作原状态无损恢复。仅重新安装后的原生语言测试状态恢复为默认 `en-US`，未确认卸载前的 App 语言设置。后续使用显式安装测试 APK 与 `am instrument` 流程，避免测试任务自动卸载。
+
 ## 数据与运行时边界
 
 移动端的 `main` 和 `bg` JavaScript 运行时拥有独立的堆，并分别初始化。`main` 通过后台服务获取自选资产标识，再通过 `OneKeyMarketWidget.setConfiguration` 导出带版本号、字段受限的配置。导出内容不包含钱包地址、账户、余额、凭据或钱包数据库。

@@ -37,8 +37,8 @@ struct MarketLockScreenWatchlistWidget: Widget {
     AppIntentConfiguration(kind: kind, intent: MarketLockScreenListIntent.self, provider: MarketLockScreenListProvider()) {
       MarketLockScreenView(entry: $0, style: .watchlist)
     }
-    .configurationDisplayName("Watchlist")
-    .description("Three coins and their USD prices. Tap after adding to choose each coin.")
+    .configurationDisplayName("market_widget_lock_watchlist__title")
+    .description("market_widget_lock_setup__desc")
     .supportedFamilies([.accessoryRectangular])
     .contentMarginsDisabled()
   }
@@ -52,8 +52,8 @@ struct MarketLockScreenCompactWidget: Widget {
                            provider: MarketLockScreenSpotProvider(includingChart: false)) {
       MarketLockScreenView(entry: $0, style: .compact)
     }
-    .configurationDisplayName("Follow spot")
-    .description("A compact USD price. Tap after adding to choose a coin.")
+    .configurationDisplayName("market_widget_lock_spot__title")
+    .description("market_widget_lock_setup__desc")
     .supportedFamilies([.accessoryCircular])
     .contentMarginsDisabled()
   }
@@ -67,8 +67,8 @@ struct MarketLockScreenPriceWidget: Widget {
                            provider: MarketLockScreenSpotProvider(includingChart: false)) {
       MarketLockScreenView(entry: $0, style: .price)
     }
-    .configurationDisplayName("Follow spot")
-    .description("A large USD price and 24-hour change. Tap after adding to choose a coin.")
+    .configurationDisplayName("market_widget_lock_spot__title")
+    .description("market_widget_lock_setup__desc")
     .supportedFamilies([.accessoryRectangular])
     .contentMarginsDisabled()
   }
@@ -82,8 +82,8 @@ struct MarketLockScreenChartWidget: Widget {
                            provider: MarketLockScreenSpotProvider(includingChart: true)) {
       MarketLockScreenView(entry: $0, style: .chart)
     }
-    .configurationDisplayName("Follow spot")
-    .description("A USD price and 24-hour trend. Tap after adding to choose a coin.")
+    .configurationDisplayName("market_widget_lock_spot__title")
+    .description("market_widget_lock_setup__desc")
     .supportedFamilies([.accessoryRectangular])
     .contentMarginsDisabled()
   }
@@ -96,8 +96,8 @@ struct MarketSingleWidget: Widget {
     AppIntentConfiguration(kind: kind, intent: MarketSingleIntent.self, provider: MarketSingleProvider()) {
       MarketWidgetView(entry: $0)
     }
-    .configurationDisplayName("Market price")
-    .description("A coin's USD price and 24-hour change.")
+    .configurationDisplayName("market_widget_single__title")
+    .description("market_widget_single__desc")
     .supportedFamilies([.systemSmall])
     .contentMarginsDisabled()
   }
@@ -109,8 +109,8 @@ struct LegacyMarketSingleWidget: Widget {
     StaticConfiguration(kind: kind, provider: MarketWidgetProvider(isWatchlist: false)) {
       MarketWidgetView(entry: $0)
     }
-    .configurationDisplayName("Market price")
-    .description("The first coin in your watchlist. Open OneKey to change it.")
+    .configurationDisplayName("market_widget_single__title")
+    .description("market_widget_single__desc")
     .supportedFamilies([.systemSmall])
   }
 }
@@ -122,8 +122,8 @@ struct MarketWatchlistWidget: Widget {
     AppIntentConfiguration(kind: kind, intent: MarketListIntent.self, provider: MarketListProvider()) {
       MarketWidgetView(entry: $0)
     }
-    .configurationDisplayName("Market watchlist")
-    .description("Three coins with USD prices and 24-hour charts.")
+    .configurationDisplayName("market_widget_list__title")
+    .description("market_widget_list__desc")
     .supportedFamilies([.systemMedium])
     .contentMarginsDisabled()
   }
@@ -135,8 +135,8 @@ struct LegacyMarketWatchlistWidget: Widget {
     StaticConfiguration(kind: kind, provider: MarketWidgetProvider(isWatchlist: true)) {
       MarketWidgetView(entry: $0)
     }
-    .configurationDisplayName("Market watchlist")
-    .description("The first three coins in your watchlist. Open OneKey to change them.")
+    .configurationDisplayName("market_widget_list__title")
+    .description("market_widget_list__desc")
     .supportedFamilies([.systemMedium])
   }
 }
@@ -144,6 +144,7 @@ struct LegacyMarketWatchlistWidget: Widget {
 struct MarketWidgetView: View {
   let entry: MarketWidgetEntry
   @Environment(\.colorScheme) private var colorScheme
+  private var locale: Locale { Locale(identifier: entry.configuration?.locale ?? "en-US") }
 
   private var foreground: Color { colorScheme == .dark ? Color(red: 0.90, green: 0.91, blue: 0.93) : Color(red: 0.12, green: 0.14, blue: 0.16) }
   private var secondary: Color { colorScheme == .dark ? Color(red: 0.48, green: 0.50, blue: 0.54) : Color(red: 0.48, green: 0.51, blue: 0.55) }
@@ -157,7 +158,7 @@ struct MarketWidgetView: View {
     content
       .foregroundStyle(foreground)
       .widgetURL(widgetURL)
-      .environment(\.locale, Locale(identifier: entry.configuration?.locale ?? "en-US"))
+      .environment(\.locale, locale)
       .modifier(MarketWidgetBackground(background: background))
   }
 
@@ -181,10 +182,11 @@ struct MarketWidgetView: View {
     } else {
       VStack(alignment: .leading, spacing: 0) {
         HStack(spacing: 10) {
-          Text(entry.source == .hot ? "Hot Coins" : "Watchlist")
+          Text(localized(entry.source == .hot ? "market_widget_hot_coins__title" : "market_widget_watchlist__title"))
             .font(.system(size: 12, weight: .medium)).foregroundStyle(secondary)
-            .lineLimit(1).minimumScaleFactor(0.7)
-          Spacer(minLength: 0)
+            .lineLimit(1).minimumScaleFactor(0.65)
+            .allowsTightening(true)
+            .frame(maxWidth: .infinity, alignment: .leading)
           if #available(iOS 17.0, *), let editorURL = entry.editorURL {
             Link(destination: editorURL) {
               ZStack {
@@ -194,7 +196,7 @@ struct MarketWidgetView: View {
               .frame(width: 18, height: 18)
               .foregroundStyle(secondary)
             }
-            .accessibilityLabel("Edit widget")
+            .accessibilityLabel(localized("market_widget_edit__title"))
           }
           Image("MarketWidgetOneKey").resizable().scaledToFit().frame(width: 18, height: 18)
         }
@@ -211,7 +213,7 @@ struct MarketWidgetView: View {
           }
           Text(price(row.quote?.price)).font(.system(size: 28, weight: .semibold))
             .minimumScaleFactor(0.5).lineLimit(1).monospacedDigit()
-            .accessibilityLabel(Text("USD price: \(price(row.quote?.price))"))
+            .accessibilityLabel(localized("market_widget_usd_price__desc", arguments: [price(row.quote?.price, currency: false)]))
         } else { emptyState }
       }
       .padding(17)
@@ -224,24 +226,24 @@ struct MarketWidgetView: View {
     return URL(string: "onekey-wallet://market_widget")
   }
 
-  private var emptyTitle: LocalizedStringKey {
-    if entry.profileUnavailable { return "Configuration unavailable" }
-    if entry.selectionUnavailable { return "Coin unavailable" }
-    return entry.source == .watchlist ? "Your watchlist is empty" : "Prices unavailable"
+  private var emptyTitle: String {
+    if entry.profileUnavailable { return "market_widget_configuration_unavailable__msg" }
+    if entry.selectionUnavailable { return "market_widget_coin_unavailable__msg" }
+    return entry.source == .watchlist ? "market_widget_watchlist_empty__msg" : "wallet.price_unavailable"
   }
 
-  private var emptyMessage: LocalizedStringKey {
-    if entry.profileUnavailable { return "Open OneKey to check this configuration." }
-    if entry.selectionUnavailable { return "Open OneKey to choose another coin." }
-    if entry.source == .watchlist { return "Add coins or edit your configuration in OneKey." }
-    return "Open OneKey and try again."
+  private var emptyMessage: String {
+    if entry.profileUnavailable { return "market_widget_check_configuration__msg" }
+    if entry.selectionUnavailable { return "market_widget_choose_another_coin__msg" }
+    if entry.source == .watchlist { return "market_widget_add_or_edit__msg" }
+    return "market_widget_open_retry__msg"
   }
 
   private var emptyState: some View {
     VStack(alignment: .leading, spacing: 8) {
       Spacer(minLength: 0)
-      Text(emptyTitle).font(.system(size: 14, weight: .semibold))
-      Text(emptyMessage).font(.system(size: 12)).foregroundStyle(secondary)
+      Text(localized(emptyTitle)).font(.system(size: 14, weight: .semibold))
+      Text(localized(emptyMessage)).font(.system(size: 12)).foregroundStyle(secondary)
       Spacer(minLength: 0)
     }.frame(maxWidth: .infinity, alignment: .leading)
   }
@@ -266,7 +268,8 @@ struct MarketWidgetView: View {
           }
         }
         .frame(width: geometry.size.width * 0.195, height: 29)
-        .accessibilityLabel("24-hour chart")
+        .accessibilityLabel(localized((row.quote?.chart?.count ?? 0) >= 2
+          ? "market_widget_chart__desc" : "market_widget_chart_unavailable__msg"))
         Spacer(minLength: 6)
         VStack(alignment: .trailing, spacing: 0) {
           Text(price(row.quote?.price)).font(.system(size: 14, weight: .medium))
@@ -285,14 +288,18 @@ struct MarketWidgetView: View {
     .accessibilityElement(children: .combine)
   }
 
-  private func price(_ text: String?) -> String {
+  private func localized(_ key: String, arguments: [CVarArg] = []) -> String {
+    MarketWidgetLocalization.text(key, locale: locale, arguments: arguments)
+  }
+
+  private func price(_ text: String?, currency: Bool = true) -> String {
     guard let value = MarketWidgetQuote.decimal(text) else { return "—" }
     let formatter = NumberFormatter()
-    formatter.locale = Locale(identifier: entry.configuration?.locale ?? "en-US")
+    formatter.locale = locale
     formatter.numberStyle = value > 0 && value < Decimal(sign: .plus, exponent: -8, significand: 1) ? .scientific : .decimal
     formatter.minimumFractionDigits = value >= 1 ? 2 : 0
     formatter.maximumFractionDigits = value >= 1 ? 2 : 8
-    return formatter.string(from: NSDecimalNumber(decimal: value)).map { "$\($0)" } ?? "—"
+    return formatter.string(from: NSDecimalNumber(decimal: value)).map { currency ? "$\($0)" : $0 } ?? "—"
   }
 
   private func changeColor(_ text: String?) -> Color {
@@ -304,14 +311,14 @@ struct MarketWidgetView: View {
   private func change(_ text: String?, size: CGFloat) -> some View {
     let number = MarketWidgetQuote.decimal(text)
     let formatter = NumberFormatter()
-    formatter.locale = Locale(identifier: entry.configuration?.locale ?? "en-US")
+    formatter.locale = locale
     formatter.minimumFractionDigits = 2
     formatter.maximumFractionDigits = 2
     let label = number.flatMap { formatter.string(from: NSDecimalNumber(decimal: $0)) }
       .map { "\((number ?? 0) >= 0 ? "+" : "")\($0)%" } ?? "—"
     return Text(label).font(.system(size: size, weight: .medium)).monospacedDigit()
       .foregroundStyle(changeColor(text)).lineLimit(1).minimumScaleFactor(0.75)
-      .accessibilityLabel(Text("24-hour change: \(label)"))
+      .accessibilityLabel(localized("market_widget_change__desc", arguments: [label]))
   }
 }
 

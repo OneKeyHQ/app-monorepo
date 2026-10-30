@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="market_widget_single_title">単一銘柄</string>
+    <string name="market_widget_watchlist_title">相場リスト</string>
+    <string name="market_widget_single_description">1銘柄の米ドル価格と24時間の騰落率を表示します。</string>
+    <string name="market_widget_watchlist_description">3銘柄の米ドル価格と24時間チャートを表示します。</string>
+    <string name="market_widget_configure">ウィジェットを編集</string>
+    <string name="market_widget_empty">この銘柄は選択した表示元にありません。別の銘柄を選択してください。</string>
+    <string name="market_widget_configuration_error">OneKeyを開いてウィジェットの設定を確認してください。</string>
+    <string name="market_widget_cached_at">キャッシュ日時：%1$s</string>
+    <string name="market_widget_source_watchlist">ウォッチリスト</string>
+    <string name="market_widget_source_hot">人気の銘柄</string>
+    <string name="market_widget_source">表示元</string>
+    <string name="market_widget_coin">銘柄</string>
+    <string name="market_widget_edit_title">ウィジェットを編集</string>
+    <string name="market_widget_edit_description">銘柄の価格と24時間の推移を確認できます。</string>
+    <string name="market_widget_search">銘柄を検索</string>
+    <string name="market_widget_load_failed">銘柄を読み込めません。タップして再試行してください。</string>
+    <string name="market_widget_watchlist_empty">OneKeyでウォッチリストに銘柄を追加してください。</string>
+    <string name="market_widget_hot_unavailable">人気の銘柄を表示できません。タップして編集してください。</string>
+    <string name="market_widget_private">OneKeyを開くと相場ウィジェットを表示できます。</string>
+    <string name="market_widget_chart">24時間の価格チャート</string>
+    <string name="market_widget_chart_unavailable">24時間チャートを表示できません</string>
+    <string name="market_widget_selected">選択済み</string>
+    <string name="market_widget_quote_updated_at">%1$s、価格%2$s米ドル、24時間の騰落率%3$s。更新日時：%4$s。</string>
+    <string name="market_widget_quote_cached_at">%1$s、価格%2$s米ドル、24時間の騰落率%3$s。キャッシュ日時：%4$s。</string>
+    <string name="market_widget_unavailable">価格情報がありません</string>
+    <string name="market_widget_save_failed">予期しないエラーが発生しました。もう一度お試しください。</string>
+    <string name="market_widget_done">確認</string>
+    <string name="market_widget_loading">読み込み中...</string>
+    <string name="market_widget_no_coins">結果が見つかりませんでした</string>
+    <string name="market_widget_back">戻る</string>
+</resources>

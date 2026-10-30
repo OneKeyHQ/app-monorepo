@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="market_widget_single_title">Satu koin</string>
+    <string name="market_widget_watchlist_title">Daftar pasar</string>
+    <string name="market_widget_single_description">Harga USD dan perubahan 24 jam untuk satu koin.</string>
+    <string name="market_widget_watchlist_description">Tiga koin dengan harga USD dan grafik 24 jam.</string>
+    <string name="market_widget_configure">Edit widget</string>
+    <string name="market_widget_empty">Koin ini tidak lagi ada di sumber yang dipilih. Pilih koin lain.</string>
+    <string name="market_widget_configuration_error">Buka OneKey untuk memeriksa pengaturan widget.</string>
+    <string name="market_widget_cached_at">Disimpan dalam cache: %1$s</string>
+    <string name="market_widget_source_watchlist">Favorit</string>
+    <string name="market_widget_source_hot">Koin populer</string>
+    <string name="market_widget_source">Sumber</string>
+    <string name="market_widget_coin">Koin</string>
+    <string name="market_widget_edit_title">Edit widget</string>
+    <string name="market_widget_edit_description">Pantau harga koin dan tren 24 jam.</string>
+    <string name="market_widget_search">Cari koin</string>
+    <string name="market_widget_load_failed">Gagal memuat koin. Ketuk untuk mencoba lagi.</string>
+    <string name="market_widget_watchlist_empty">Tambahkan koin ke daftar pantauan di OneKey.</string>
+    <string name="market_widget_hot_unavailable">Koin populer tidak tersedia. Ketuk untuk mengedit.</string>
+    <string name="market_widget_private">Buka OneKey untuk menampilkan widget pasar.</string>
+    <string name="market_widget_chart">Grafik harga 24 jam</string>
+    <string name="market_widget_chart_unavailable">Grafik 24 jam tidak tersedia</string>
+    <string name="market_widget_selected">Dipilih</string>
+    <string name="market_widget_quote_updated_at">%1$s, harga %2$s USD, perubahan 24 jam %3$s. Diperbarui: %4$s.</string>
+    <string name="market_widget_quote_cached_at">%1$s, harga %2$s USD, perubahan 24 jam %3$s. Disimpan dalam cache: %4$s.</string>
+    <string name="market_widget_unavailable">Harga tidak tersedia</string>
+    <string name="market_widget_save_failed">Terjadi kesalahan yang tidak terduga. Silakan coba lagi.</string>
+    <string name="market_widget_done">Konfirmasi</string>
+    <string name="market_widget_loading">Memuat...</string>
+    <string name="market_widget_no_coins">Tidak Ada Hasil Ditemukan</string>
+    <string name="market_widget_back">Kembali</string>
+</resources>

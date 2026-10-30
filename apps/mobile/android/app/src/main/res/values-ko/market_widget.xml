@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="market_widget_single_title">단일 코인</string>
+    <string name="market_widget_watchlist_title">시세 목록</string>
+    <string name="market_widget_single_description">코인 하나의 USD 가격과 24시간 등락률을 표시합니다.</string>
+    <string name="market_widget_watchlist_description">코인 3개의 USD 가격과 24시간 차트를 표시합니다.</string>
+    <string name="market_widget_configure">위젯 편집</string>
+    <string name="market_widget_empty">이 코인은 선택한 출처에 더 이상 없습니다. 다른 코인을 선택하세요.</string>
+    <string name="market_widget_configuration_error">OneKey를 열어 위젯 설정을 확인하세요.</string>
+    <string name="market_widget_cached_at">캐시 저장: %1$s</string>
+    <string name="market_widget_source_watchlist">관심 목록</string>
+    <string name="market_widget_source_hot">인기 코인</string>
+    <string name="market_widget_source">출처</string>
+    <string name="market_widget_coin">코인</string>
+    <string name="market_widget_edit_title">위젯 편집</string>
+    <string name="market_widget_edit_description">코인 가격과 24시간 추이를 확인하세요.</string>
+    <string name="market_widget_search">코인 검색</string>
+    <string name="market_widget_load_failed">코인을 불러올 수 없습니다. 탭하여 다시 시도하세요.</string>
+    <string name="market_widget_watchlist_empty">OneKey에서 관심 목록에 코인을 추가하세요.</string>
+    <string name="market_widget_hot_unavailable">인기 코인을 표시할 수 없습니다. 탭하여 편집하세요.</string>
+    <string name="market_widget_private">시세 위젯을 표시하려면 OneKey를 여세요.</string>
+    <string name="market_widget_chart">24시간 가격 차트</string>
+    <string name="market_widget_chart_unavailable">24시간 차트를 표시할 수 없음</string>
+    <string name="market_widget_selected">선택됨</string>
+    <string name="market_widget_quote_updated_at">%1$s, 가격 %2$s USD, 24시간 등락률 %3$s. 업데이트: %4$s.</string>
+    <string name="market_widget_quote_cached_at">%1$s, 가격 %2$s USD, 24시간 등락률 %3$s. 캐시 저장: %4$s.</string>
+    <string name="market_widget_unavailable">가격 정보 없음</string>
+    <string name="market_widget_save_failed">예기치 않은 오류가 발생했습니다. 다시 시도해 주세요.</string>
+    <string name="market_widget_done">확인</string>
+    <string name="market_widget_loading">로딩 중...</string>
+    <string name="market_widget_no_coins">결과가 없습니다</string>
+    <string name="market_widget_back">뒤로</string>
+</resources>

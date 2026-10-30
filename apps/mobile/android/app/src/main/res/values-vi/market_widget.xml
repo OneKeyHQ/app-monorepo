@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="market_widget_single_title">Một đồng tiền</string>
+    <string name="market_widget_watchlist_title">Danh sách giá</string>
+    <string name="market_widget_single_description">Giá USD và mức biến động trong 24 giờ của một đồng tiền.</string>
+    <string name="market_widget_watchlist_description">Ba đồng tiền với giá USD và biểu đồ 24 giờ.</string>
+    <string name="market_widget_configure">Sửa tiện ích</string>
+    <string name="market_widget_empty">Đồng tiền này không còn trong nguồn đã chọn. Hãy chọn đồng tiền khác.</string>
+    <string name="market_widget_configuration_error">Mở OneKey để kiểm tra cài đặt tiện ích.</string>
+    <string name="market_widget_cached_at">Đã lưu bộ nhớ đệm: %1$s</string>
+    <string name="market_widget_source_watchlist">Yêu thích</string>
+    <string name="market_widget_source_hot">Đồng tiền phổ biến</string>
+    <string name="market_widget_source">Nguồn</string>
+    <string name="market_widget_coin">Đồng tiền</string>
+    <string name="market_widget_edit_title">Sửa tiện ích</string>
+    <string name="market_widget_edit_description">Theo dõi giá và xu hướng trong 24 giờ của các đồng tiền.</string>
+    <string name="market_widget_search">Tìm đồng tiền</string>
+    <string name="market_widget_load_failed">Không thể tải đồng tiền. Chạm để thử lại.</string>
+    <string name="market_widget_watchlist_empty">Thêm đồng tiền vào danh sách theo dõi trong OneKey.</string>
+    <string name="market_widget_hot_unavailable">Đồng tiền phổ biến không khả dụng. Chạm để sửa.</string>
+    <string name="market_widget_private">Mở OneKey để hiển thị tiện ích thị trường.</string>
+    <string name="market_widget_chart">Biểu đồ giá 24 giờ</string>
+    <string name="market_widget_chart_unavailable">Biểu đồ 24 giờ không khả dụng</string>
+    <string name="market_widget_selected">Đã chọn</string>
+    <string name="market_widget_quote_updated_at">%1$s, giá %2$s USD, biến động 24 giờ %3$s. Cập nhật: %4$s.</string>
+    <string name="market_widget_quote_cached_at">%1$s, giá %2$s USD, biến động 24 giờ %3$s. Đã lưu bộ nhớ đệm: %4$s.</string>
+    <string name="market_widget_unavailable">Không có giá khả dụng</string>
+    <string name="market_widget_save_failed">Đã xảy ra lỗi không mong muốn. Vui lòng thử lại.</string>
+    <string name="market_widget_done">Xác nhận</string>
+    <string name="market_widget_loading">Đang tải...</string>
+    <string name="market_widget_no_coins">Không tìm thấy kết quả</string>
+    <string name="market_widget_back">Quay lại</string>
+</resources>

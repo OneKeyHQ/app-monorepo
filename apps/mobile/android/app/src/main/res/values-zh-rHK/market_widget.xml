@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="market_widget_single_title">單幣行情</string>
+    <string name="market_widget_watchlist_title">行情列表</string>
+    <string name="market_widget_single_description">查看單個幣種的美元價格與 24 小時升跌幅</string>
+    <string name="market_widget_watchlist_description">查看 3 個幣種的美元價格與 24 小時走勢</string>
+    <string name="market_widget_configure">編輯小工具</string>
+    <string name="market_widget_empty">此幣種已不在所選來源中，請選擇其他幣種</string>
+    <string name="market_widget_configuration_error">開啟 OneKey 檢查小工具設定</string>
+    <string name="market_widget_cached_at">快取於 %1$s</string>
+    <string name="market_widget_source_watchlist">自選</string>
+    <string name="market_widget_source_hot">熱門幣種</string>
+    <string name="market_widget_source">來源</string>
+    <string name="market_widget_coin">幣種</string>
+    <string name="market_widget_edit_title">編輯小工具</string>
+    <string name="market_widget_edit_description">查看幣種價格與 24 小時走勢</string>
+    <string name="market_widget_search">搜尋幣種</string>
+    <string name="market_widget_load_failed">無法載入幣種，點按重試</string>
+    <string name="market_widget_watchlist_empty">在 OneKey 中新增自選幣種</string>
+    <string name="market_widget_hot_unavailable">熱門幣種暫時無法使用，點按編輯</string>
+    <string name="market_widget_private">開啟 OneKey 以顯示行情小工具</string>
+    <string name="market_widget_chart">24 小時價格走勢圖</string>
+    <string name="market_widget_chart_unavailable">24 小時走勢圖暫時無法使用</string>
+    <string name="market_widget_selected">已選擇</string>
+    <string name="market_widget_quote_updated_at">%1$s，價格 %2$s 美元，24 小時升跌幅 %3$s，更新於 %4$s</string>
+    <string name="market_widget_quote_cached_at">%1$s，價格 %2$s 美元，24 小時升跌幅 %3$s，快取於 %4$s</string>
+    <string name="market_widget_unavailable">暫無價格</string>
+    <string name="market_widget_save_failed">發生了未知錯誤，請再試一次。</string>
+    <string name="market_widget_done">確認</string>
+    <string name="market_widget_loading">載入中...</string>
+    <string name="market_widget_no_coins">未找到結果</string>
+    <string name="market_widget_back">返回</string>
+</resources>
