@@ -18,6 +18,7 @@ import { EEarnLabels } from '@onekeyhq/shared/types/staking';
 
 import { useAppRoute } from '../../../hooks/useAppRoute';
 import { EarnProviderMirror } from '../../Earn/EarnProviderMirror';
+import { useEarnWindowReturn } from '../../Earn/earnWindowReturn';
 import { useHeaderHeightCacheKey } from '../../Earn/hooks/useHeaderHeightCacheKey';
 import { useNativeStackHeaderHeightEstimate } from '../../Earn/hooks/useNativeStackHeaderHeightEstimate';
 import { useSettledHeaderHeight } from '../../Earn/hooks/useSettledHeaderHeight';
@@ -47,6 +48,8 @@ function BorrowHomePageContent() {
         : undefined,
     [marketAddress, networkId, provider],
   );
+  // Opened by the Loans window's Manage: Back opens the window again
+  useEarnWindowReturn();
   const headerHeight = useHeaderHeight();
   const headerHeightCacheKey = useHeaderHeightCacheKey();
   const estimatedHeaderHeight = useNativeStackHeaderHeightEstimate();

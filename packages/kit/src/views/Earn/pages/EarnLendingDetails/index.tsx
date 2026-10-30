@@ -87,6 +87,7 @@ import { EasedSection } from '../../components/desktopHome/EarnEasedSection';
 import { EarnPageContainer } from '../../components/EarnPageContainer';
 import { EarnProviderMirror } from '../../EarnProviderMirror';
 import { EarnNavigation } from '../../earnUtils';
+import { useEarnWindowReturn } from '../../earnWindowReturn';
 import { ApyChart } from '../EarnProtocolDetails/components/ApyChart';
 import { DesktopInvestmentSection } from '../EarnProtocolDetails/components/DesktopInvestmentSection';
 import { NarrowInvestmentSection } from '../EarnProtocolDetails/components/NarrowInvestmentSection';
@@ -742,6 +743,8 @@ const EarnLendingDetailsPage = () => {
     marketAddress,
     reserveAddress,
   });
+  // Opened by the Earn window's Details: Back opens the window again
+  useEarnWindowReturn();
   // The page's figures and the account's supply, read again together
   const refreshAll = useCallback(() => {
     void refreshData();

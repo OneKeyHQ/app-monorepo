@@ -101,12 +101,15 @@ export function useLoanPayWith({
   networkAccountId,
   typedAmount,
   isLocked,
+  startKey,
 }: {
   route?: ILoanRoute;
   networkAccountId?: string;
   // What the box holds: an amount of the pay token
   typedAmount: string;
   isLocked: boolean;
+  // The token to start on (the window opened again as it was left)
+  startKey?: string;
 }) {
   const intl = useIntl();
   const navigation = useAppNavigation();
@@ -121,7 +124,7 @@ export function useLoanPayWith({
   });
   // A token picked in the picker, kept while the market stays on its
   // network; on another network Pay with starts on that one's default
-  const [pickedKey, setPickedKey] = useState<string>();
+  const [pickedKey, setPickedKey] = useState<string | undefined>(startKey);
   const [swapPhase, setSwapPhase] = useState<ILoanSwapPhase>('idle');
   const isFrozen = isLocked || swapPhase !== 'idle';
   const picked = findPayToken(pay.tokens, pickedKey);

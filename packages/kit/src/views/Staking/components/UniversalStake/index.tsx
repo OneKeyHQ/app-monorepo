@@ -2609,16 +2609,10 @@ export function UniversalStake({
     providerName?.toLowerCase() === EEarnProviderEnum.Babylon.toLowerCase() &&
     Boolean(estimateFeeUTXO) &&
     isPositiveAmount;
-  // The steps show once the button is pressed, not before: the button
-  // already names them ("Approve and Deposit")
-  const isStakeRunning =
-    approving ||
-    submitting ||
-    Boolean(showStakeProgressRef.current[amountValue]) ||
-    (isWrapStake && stakeProgressStep > EStakeProgressStep.approve);
+  // The steps show as soon as the button names them ("Approve and
+  // Deposit"), before the press as well as while it runs
   const isShowStakeProgress =
     isPositiveAmount &&
-    isStakeRunning &&
     (isWrapStake ||
       (useApprove &&
         (shouldApprove || showStakeProgressRef.current[amountValue])));

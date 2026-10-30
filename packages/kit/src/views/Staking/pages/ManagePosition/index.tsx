@@ -22,6 +22,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   EModalRoutes,
   EModalStakingRoutes,
+  type ETabEarnRoutes,
   type IModalStakingParamList,
 } from '@onekeyhq/shared/src/routes';
 import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
@@ -34,6 +35,7 @@ import type { IStakeProtocolListItem } from '@onekeyhq/shared/types/staking';
 import { DiscoveryBrowserProviderMirror } from '../../../Discovery/components/DiscoveryBrowserProviderMirror';
 import { EarnProviderMirror } from '../../../Earn/EarnProviderMirror';
 import { EarnNavigation } from '../../../Earn/earnUtils';
+import { leaveEarnWindowFor } from '../../../Earn/earnWindowReturn';
 import { EarnAssetPickTrigger } from '../../../Earn/pages/EarnAssetSelect/EarnAssetPickTrigger';
 import { EarnDepositDone } from '../../../Earn/pages/EarnRouter/EarnDepositDone';
 import {
@@ -207,6 +209,7 @@ const ManagePositionPage = () => {
         offerOnly?: boolean;
         wide?: boolean;
         tokenImageUri?: string;
+        payKey?: string;
       }
     | undefined
   >(route.params.earnOffers);
@@ -394,6 +397,54 @@ const ManagePositionPage = () => {
     networkAssets.tokens,
     selectedProtocol.networkId,
   ]);
+  // Details closes the window for an offer's page. Back from that page opens
+  // it again as it was left: what the title picked, the offer, the amount
+  // and Pay with's token (demo 10-30)
+  const handleLeaveForDetails = useCallback(
+    (
+      page:
+        | ETabEarnRoutes.EarnLendingDetails
+        | ETabEarnRoutes.EarnProtocolDetails,
+      left: { offerKey: string; amount?: string; payKey?: string },
+    ) => {
+      const pickedSymbol =
+        assetPick.kind === 'token' ? assetPick.symbol : undefined;
+      const pickedLogo = pickedSymbol
+        ? networkAssets.tokens.find(
+            (token) =>
+              token.symbol.toLowerCase() === pickedSymbol.toLowerCase(),
+          )?.logoURI
+        : undefined;
+      leaveEarnWindowFor(page, {
+        screen: EModalStakingRoutes.ManagePosition,
+        params: {
+          networkId: selectedProtocol.networkId,
+          symbol: pickedSymbol ?? symbol,
+          provider: '',
+          tab: 'deposit',
+          tokenImageUri:
+            pickedLogo || offersEntry?.tokenImageUri || tokenImageUri,
+          earnOffers: {
+            ...route.params.earnOffers,
+            offerKey: left.offerKey,
+            amount: left.amount,
+            payKey: left.payKey,
+            assetClass:
+              assetPick.kind === 'class' ? assetPick.assetClass : undefined,
+          },
+        },
+      });
+    },
+    [
+      assetPick,
+      networkAssets.tokens,
+      offersEntry?.tokenImageUri,
+      route.params.earnOffers,
+      selectedProtocol.networkId,
+      symbol,
+      tokenImageUri,
+    ],
+  );
   // One side of a position names its protocol as the token's offers modal
   // does, with the rate in it, so the card above the button needn't
   const positionRow = positionOffer ? (
@@ -599,6 +650,8 @@ const ManagePositionPage = () => {
         offerOnly={offersEntry.offerOnly}
         routesBeside={isFullRouter}
         amount={offersEntry.amount}
+        startPayKey={offersEntry.payKey}
+        onLeaveForDetails={isRouter ? handleLeaveForDetails : undefined}
         onHeaderRightChange={setHeaderControls}
         onDeposited={handleOffersDeposited}
         assetPick={isRouter ? assetPick : undefined}

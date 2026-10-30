@@ -1,6 +1,7 @@
-import { useMemo } from 'react';
+import { Fragment, useCallback, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
+import Svg, { Line } from 'react-native-svg';
 
 import {
   Icon,
@@ -8,10 +9,13 @@ import {
   Spinner,
   Stack,
   XStack,
+  useTheme,
 } from '@onekeyhq/components';
 import { ANIMATE_ONLY_OPACITY } from '@onekeyhq/components/src/utils/animationConstants';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EApproveType } from '@onekeyhq/shared/types/staking';
+
+import type { LayoutChangeEvent } from 'react-native';
 
 interface IStakeProgressProps {
   /** Current step in the staking process (1, 2, or 3) */
@@ -31,31 +35,95 @@ interface IStakeProgressProps {
   isRunning?: boolean;
 }
 
-const CHECK_ENTER = { opacity: 0 } as const;
+type IStepState = 'todo' | 'next' | 'running' | 'done';
 
-// After a step's label: a check once done, a spinner while it runs
-function StepStatus({ done, running }: { done: boolean; running: boolean }) {
-  if (done) {
-    return (
+const MARK_SIZE = 20;
+const RING_SIZE = 16;
+const LINE_HEIGHT = 2;
+const DASH = '4 4';
+const FADE_IN = { opacity: 0 } as const;
+
+// Each step's mark, in the marks of Swap's order progress: a ring still to
+// come (stronger for the one the press starts with), a spinner while it
+// runs, a green check once done. Keyed apart, so a change fades in
+function StepMark({ state }: { state: IStepState }) {
+  let mark;
+  if (state === 'done') {
+    mark = <Icon name="CheckRadioSolid" size="$5" color="$iconSuccess" />;
+  } else if (state === 'running') {
+    mark = <Spinner size="small" color="$iconSubdued" scale={0.8} />;
+  } else {
+    mark = (
       <Stack
-        // Keyed apart from the spinner's stack, which uses other hooks
-        key="done"
-        transition="quick"
-        animateOnly={ANIMATE_ONLY_OPACITY}
-        enterStyle={CHECK_ENTER}
-      >
-        <Icon name="CheckRadioOutline" size="$4" color="$iconSuccess" />
-      </Stack>
+        w={RING_SIZE}
+        h={RING_SIZE}
+        borderRadius="$full"
+        borderWidth={2}
+        borderColor={state === 'next' ? '$iconSubdued' : '$iconDisabled'}
+      />
     );
   }
-  if (running) {
-    return (
-      <Stack key="running" w="$4" h="$4" ai="center" jc="center">
-        <Spinner size="small" color="$iconSubdued" scale={0.8} />
-      </Stack>
-    );
-  }
-  return null;
+  return (
+    <Stack
+      key={state === 'todo' || state === 'next' ? 'ring' : state}
+      w={MARK_SIZE}
+      h={MARK_SIZE}
+      ai="center"
+      jc="center"
+      flexShrink={0}
+      transition="quick"
+      animateOnly={ANIMATE_ONLY_OPACITY}
+      enterStyle={FADE_IN}
+    >
+      {mark}
+    </Stack>
+  );
+}
+
+// Between two steps: dashed while the one before is still to do, a solid
+// green line once it is done, the way traveled
+function StepLine({ isTraveled }: { isTraveled: boolean }) {
+  const theme = useTheme();
+  const [width, setWidth] = useState(0);
+  const handleLayout = useCallback((event: LayoutChangeEvent) => {
+    const next = Math.round(event.nativeEvent.layout.width);
+    setWidth((prev) => (prev === next ? prev : next));
+  }, []);
+  return (
+    <Stack
+      flex={1}
+      minWidth="$4"
+      h={MARK_SIZE}
+      jc="center"
+      onLayout={handleLayout}
+    >
+      {isTraveled ? (
+        <Stack
+          key="traveled"
+          h={LINE_HEIGHT}
+          borderRadius="$full"
+          bg="$borderSuccess"
+          transition="quick"
+          animateOnly={ANIMATE_ONLY_OPACITY}
+          enterStyle={FADE_IN}
+        />
+      ) : null}
+      {!isTraveled && width > 0 ? (
+        <Svg width={width} height={LINE_HEIGHT}>
+          <Line
+            x1={1}
+            y1={LINE_HEIGHT / 2}
+            x2={width - 1}
+            y2={LINE_HEIGHT / 2}
+            stroke={theme.borderStrong.val}
+            strokeWidth={LINE_HEIGHT}
+            strokeDasharray={DASH}
+            strokeLinecap="round"
+          />
+        </Svg>
+      ) : null}
+    </Stack>
+  );
 }
 
 export enum EStakeProgressStep {
@@ -64,6 +132,12 @@ export enum EStakeProgressStep {
   unstake = 3,
 }
 
+/**
+ * The steps one press runs, over the button that names them ("Swap and
+ * Deposit", "Approve and Supply"): spread across the form's width, the
+ * first at its left edge and the last at its right, a line between each.
+ * Shown before the press as well, the step it starts with marked
+ */
 export function StakeProgress({
   currentStep,
   approveType,
@@ -75,14 +149,6 @@ export function StakeProgress({
   isRunning = false,
 }: IStakeProgressProps) {
   const intl = useIntl();
-  const isStep1Done = currentStep >= EStakeProgressStep.deposit;
-  const isStep2Done = currentStep >= EStakeProgressStep.unstake;
-  const hasStep3 = !!step3LabelId;
-  const step2Color = useMemo(() => {
-    if (isStep2Done) return '$textSuccess' as const;
-    if (isStep1Done) return undefined;
-    return '$textDisabled' as const;
-  }, [isStep2Done, isStep1Done]);
   const resolvedStep1Label = useMemo(() => {
     if (step1Label) {
       return step1Label;
@@ -111,46 +177,52 @@ export function StakeProgress({
   if (!resolvedStep1Label) {
     return null;
   }
+  const labels = [
+    resolvedStep1Label,
+    resolvedStep2Label,
+    ...(step3LabelId ? [intl.formatMessage({ id: step3LabelId })] : []),
+  ];
+  const getState = (step: number): IStepState => {
+    if (step < currentStep) {
+      return 'done';
+    }
+    if (step === currentStep) {
+      return isRunning ? 'running' : 'next';
+    }
+    return 'todo';
+  };
   return (
-    <XStack gap="$1" ai="center" flexWrap="wrap">
-      <XStack ai="center" gap="$1.5">
-        <SizableText
-          size="$bodyMdMedium"
-          color={isStep1Done ? '$textSuccess' : undefined}
-        >
-          1. {resolvedStep1Label}
-        </SizableText>
-        <StepStatus done={isStep1Done} running={isRunning} />
-      </XStack>
-      <Icon
-        name="ArrowRightOutline"
-        size="$4"
-        color={isStep1Done ? '$icon' : '$iconSubdued'}
-      />
-      <XStack ai="center" gap="$1.5">
-        <SizableText size="$bodyMdMedium" color={step2Color}>
-          2. {resolvedStep2Label}
-        </SizableText>
-        <StepStatus done={isStep2Done} running={isRunning && isStep1Done} />
-      </XStack>
-      {hasStep3 ? (
-        <>
-          <Icon
-            name="ArrowRightOutline"
-            size="$4"
-            color={isStep2Done ? '$icon' : '$iconSubdued'}
-          />
-          <XStack ai="center" gap="$1.5">
-            <SizableText
-              size="$bodyMdMedium"
-              color={isStep2Done ? undefined : '$textDisabled'}
+    <XStack testID="earn-step-path" ai="center" gap="$2">
+      {labels.map((label, index) => {
+        const step = index + 1;
+        const state = getState(step);
+        return (
+          <Fragment key={step}>
+            {index > 0 ? (
+              <StepLine isTraveled={step - 1 < currentStep} />
+            ) : null}
+            <XStack
+              testID={`earn-step-path-${step}-${state}`}
+              ai="center"
+              gap="$1.5"
+              flexShrink={0}
             >
-              3. {intl.formatMessage({ id: step3LabelId })}
-            </SizableText>
-            <StepStatus done={false} running={isRunning && isStep2Done} />
-          </XStack>
-        </>
-      ) : null}
+              <StepMark state={state} />
+              <SizableText
+                size="$bodyMdMedium"
+                color={
+                  state === 'next' || state === 'running'
+                    ? '$text'
+                    : '$textSubdued'
+                }
+                numberOfLines={1}
+              >
+                {label}
+              </SizableText>
+            </XStack>
+          </Fragment>
+        );
+      })}
     </XStack>
   );
 }

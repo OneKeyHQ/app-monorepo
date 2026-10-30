@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
-import { createContext, useContext } from 'react';
+import { createContext, useContext, useRef, useState } from 'react';
 
-import { Page, Stack, YStack } from '@onekeyhq/components';
+import { HeightTransition, Page, Stack, YStack } from '@onekeyhq/components';
 import type { IButtonProps, IXStackProps } from '@onekeyhq/components';
 
 import { EarnFooterFade } from './EarnFooterFade';
@@ -33,11 +33,46 @@ export const EARN_HALF_BUTTON: IButtonProps = {
   flexBasis: 0,
 };
 
+// The steps above the button come and go as its words change (an amount
+// that needs an approval, a token picked in Pay with), as the form's rows do
+const PATH_EASE_MS = 200;
+// In the column of the rows' text above it (the summary's inset), close
+// over the button it explains
+const PATH_INSET = '$3.5';
+
+// The steps above the button, easing in and out: they stay drawn while
+// their space closes
+function FooterPath({
+  progress,
+  children,
+}: {
+  progress?: ReactNode;
+  children: (path: ReactNode) => ReactNode;
+}) {
+  const lastRef = useRef(progress);
+  if (progress) {
+    lastRef.current = progress;
+  }
+  const path = progress || lastRef.current;
+  // Steps there as the form opens show at once; later ones ease in
+  const [isThereAtOpen] = useState(Boolean(progress));
+  return (
+    <HeightTransition
+      hide={!progress}
+      duration={PATH_EASE_MS}
+      skipInitialAnimation={isThereAtOpen}
+    >
+      {path ? children(path) : null}
+    </HeightTransition>
+  );
+}
+
 /**
  * An Earn form's button, as Swap's: one large button the form's full width,
- * with the steps above it while they run. On a page (the details page) and
- * in a wide window it ends the form; elsewhere in a modal it is the modal's
- * footer, over the amount stages a phone keyboard shows
+ * with the steps it runs above it whenever it names more than one. On a page
+ * (the details page) and in a wide window it ends the form; elsewhere in a
+ * modal it is the modal's footer, over the amount stages a phone keyboard
+ * shows
  */
 export function EarnFormFooter({
   isInModalContext,
@@ -63,8 +98,14 @@ export function EarnFormFooter({
   };
   if (isInline) {
     return (
-      <YStack bg="$bgApp" gap="$5">
-        {progress}
+      <YStack bg="$bgApp">
+        <FooterPath progress={progress}>
+          {(path) => (
+            <Stack px={PATH_INSET} pb="$3">
+              {path}
+            </Stack>
+          )}
+        </FooterPath>
         <Page.FooterActions
           p={0}
           onConfirmText={confirmText}
@@ -82,11 +123,13 @@ export function EarnFormFooter({
     <Page.Footer>
       <EarnFooterFade>
         <YStack bg="$bgApp">
-          {progress ? (
-            <Stack px="$5" pt="$5">
-              {progress}
-            </Stack>
-          ) : null}
+          <FooterPath progress={progress}>
+            {(path) => (
+              <Stack px="$5" pt="$5">
+                <Stack px={PATH_INSET}>{path}</Stack>
+              </Stack>
+            )}
+          </FooterPath>
           <Page.FooterActions
             onConfirmText={confirmText}
             buttonContainerProps={EARN_FULL_WIDTH_BUTTONS}

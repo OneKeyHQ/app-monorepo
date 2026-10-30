@@ -43,7 +43,11 @@ import {
 import { USD_CURRENCY_ID } from '@onekeyhq/shared/src/consts/currencyConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { EModalRoutes, EModalStakingRoutes } from '@onekeyhq/shared/src/routes';
+import {
+  EModalRoutes,
+  EModalStakingRoutes,
+  ETabEarnRoutes,
+} from '@onekeyhq/shared/src/routes';
 import type { IModalStakingParamList } from '@onekeyhq/shared/src/routes';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
@@ -79,6 +83,7 @@ import {
 } from '../../components/desktopHome/useEarnDesktopHomeData';
 import { EarnProviderMirror } from '../../EarnProviderMirror';
 import { EarnNavigation } from '../../earnUtils';
+import { leaveEarnWindowFor } from '../../earnWindowReturn';
 import { getEarnAssetClassLabel } from '../EarnAssetSelect/earnAssetClassLabel';
 import { EarnAssetPickTrigger } from '../EarnAssetSelect/EarnAssetPickTrigger';
 import {
@@ -444,6 +449,10 @@ function EarnLoanRouterPage() {
     borrowClass: routeBorrowClass,
     routeKey,
     wide,
+    collateralAmount: startCollateralAmount,
+    borrowAmount: startBorrowAmount,
+    ltv: startLtv,
+    payKey: startPayKey,
   } = route.params as IRouteParams;
   const { gtLg } = useMedia();
   const reduceMotion = useReducedMotion();
@@ -474,13 +483,17 @@ function EarnLoanRouterPage() {
     collateralPick.kind === 'class' || borrowPick.kind === 'class';
   // What the first box holds: an amount of what Pay with pays with (the
   // collateral itself unless another token is picked or held)
-  const [collateralAmount, setCollateralAmount] = useState('');
+  const [collateralAmount, setCollateralAmount] = useState(
+    startCollateralAmount ?? '',
+  );
   // The loan typed by hand, an emptied box included; otherwise it follows
   // the LTV bar
-  const [typedBorrow, setTypedBorrow] = useState<string>();
+  const [typedBorrow, setTypedBorrow] = useState<string | undefined>(
+    startBorrowAmount,
+  );
   // The market position's LTV the bar was dragged to. Until then the loan is
   // half the collateral's value, as the Loans list works its Net APY out
-  const [draggedLtv, setDraggedLtv] = useState<number>();
+  const [draggedLtv, setDraggedLtv] = useState<number | undefined>(startLtv);
   const toneColors = useLoanToneColors();
   // While the bar is dragged the markets keep their order
   const [isSliding, setIsSliding] = useState(false);
@@ -592,6 +605,7 @@ function EarnLoanRouterPage() {
     networkAccountId: payRouteFacts?.networkAccountId,
     typedAmount: collateralAmount,
     isLocked: false,
+    startKey: startPayKey,
   });
   const { payToken } = payWith;
   // Paid with another token: a swap buys the collateral first. Once it has,
@@ -1429,13 +1443,51 @@ function EarnLoanRouterPage() {
   // The window closes and the market's own page opens, the whole position
   // there
   const positionMarket = selectedRoute?.market;
+  // Back from that page opens the window again as it was left: the pair
+  // or kinds, the market, the amounts and Pay with's token (demo 10-30)
+  const payPickedKey = payWith.pickedKey;
   const handleManagePosition = useCallback(() => {
     if (!positionMarket) {
       return;
     }
+    leaveEarnWindowFor(ETabEarnRoutes.BorrowHome, {
+      screen: EModalStakingRoutes.EarnLoanRouter,
+      params: {
+        collateral:
+          collateralPick.kind === 'token'
+            ? collateralPick.symbol
+            : routeCollateral,
+        collateralClass:
+          collateralPick.kind === 'class'
+            ? collateralPick.assetClass
+            : undefined,
+        borrow: borrowPick.kind === 'token' ? borrowPick.symbol : routeBorrow,
+        borrowClass:
+          borrowPick.kind === 'class' ? borrowPick.assetClass : undefined,
+        routeKey: selectedRoute?.key,
+        wide,
+        collateralAmount: collateralAmount || undefined,
+        borrowAmount: typedBorrow,
+        ltv: draggedLtv,
+        payKey: payPickedKey,
+      },
+    });
     navigation.popStack();
     BorrowNavigation.pushToBorrowHome(navigation, positionMarket);
-  }, [navigation, positionMarket]);
+  }, [
+    borrowPick,
+    collateralAmount,
+    collateralPick,
+    draggedLtv,
+    navigation,
+    payPickedKey,
+    positionMarket,
+    routeBorrow,
+    routeCollateral,
+    selectedRoute?.key,
+    typedBorrow,
+    wide,
+  ]);
 
   // Where the account already has a position, the loan joins it: what backs
   // every loan there, what is borrowed, and the health factor, before and
@@ -1671,7 +1723,8 @@ function EarnLoanRouterPage() {
     return lines.length ? <YStack gap="$3">{lines}</YStack> : null;
   })();
   // While the swap runs: its step, then the two after it. Once it is in,
-  // the supply's own steps take over (an approval among them where needed)
+  // the supply's own steps take over (an approval among them where needed).
+  // Before the press, the steps it will run
   let progress: ReactElement | null = null;
   if (payWith.isSwapRunning) {
     progress = (
@@ -1701,6 +1754,25 @@ function EarnLoanRouterPage() {
           run.hasApprovalStep ? ETranslations.global_borrow : undefined
         }
         isRunning
+      />
+    );
+  } else if (hasCollateral || !hasLoan) {
+    // Before the press: the steps it runs, as the button names them (a loan
+    // alone is one step, its button "Borrow")
+    progress = (
+      <StakeProgress
+        currentStep={1}
+        step1Label={intl.formatMessage({
+          id: isSwapping
+            ? ETranslations.global_swap
+            : ETranslations.defi_supply,
+        })}
+        step2Label={intl.formatMessage({
+          id: isSwapping
+            ? ETranslations.defi_supply
+            : ETranslations.global_borrow,
+        })}
+        step3LabelId={isSwapping ? ETranslations.global_borrow : undefined}
       />
     );
   }

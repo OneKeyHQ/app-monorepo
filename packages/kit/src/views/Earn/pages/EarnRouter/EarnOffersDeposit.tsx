@@ -33,6 +33,7 @@ import {
 } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { useEarnPortfolioInvestmentsAtom } from '@onekeyhq/kit/src/states/jotai/contexts/earn';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { ETabEarnRoutes } from '@onekeyhq/shared/src/routes';
 import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 
 import { EarnFormActionPlacementContext } from '../../../Staking/components/EarnFormFooter';
@@ -630,6 +631,8 @@ export function EarnOffersDeposit({
   networkAssets,
   onAssetPickChange,
   pickPill,
+  startPayKey,
+  onLeaveForDetails,
 }: {
   symbol: string;
   networkId: string;
@@ -666,6 +669,16 @@ export function EarnOffersDeposit({
   onAssetPickChange?: (pick: IEarnAssetPick) => void;
   // The pick's control, at the head of the form
   pickPill?: ReactNode;
+  // Pay with's token to start on (the window opened again as it was left)
+  startPayKey?: string;
+  // Details closes the window for an offer's page: what the window held, so
+  // Back from that page can open it again
+  onLeaveForDetails?: (
+    page:
+      | ETabEarnRoutes.EarnLendingDetails
+      | ETabEarnRoutes.EarnProtocolDetails,
+    left: { offerKey: string; amount?: string; payKey?: string },
+  ) => void;
 }) {
   const intl = useIntl();
   const pickedClass: IEarnAssetClass | undefined =
@@ -732,7 +745,7 @@ export function EarnOffersDeposit({
 
   // Sent with an amount of the token itself, Pay with starts on that token
   // even before the withdrawal lands in the wallet
-  const [payKey, setPayKey] = useState<string>();
+  const [payKey, setPayKey] = useState<string | undefined>(startPayKey);
   // The token the form pays with, for the cards a swap comes before
   const [payToken, setPayToken] = useState<{
     symbol: string;
@@ -1026,6 +1039,12 @@ export function EarnOffersDeposit({
         amount: new BigNumber(typed).gt(0) ? typed : undefined,
         payKey: payKeyRef.current,
       };
+      onLeaveForDetails?.(
+        offer.kind === 'lending'
+          ? ETabEarnRoutes.EarnLendingDetails
+          : ETabEarnRoutes.EarnProtocolDetails,
+        { offerKey: offer.key, ...carried },
+      );
       navigation.popStack();
       if (offer.kind === 'lending') {
         const { offer: lending } = offer;
@@ -1061,6 +1080,7 @@ export function EarnOffersDeposit({
       logoOf,
       logoURI,
       navigation,
+      onLeaveForDetails,
       tokenSymbol,
     ],
   );

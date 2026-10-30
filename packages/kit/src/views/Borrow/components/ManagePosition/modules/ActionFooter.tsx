@@ -234,13 +234,10 @@ export function ActionFooter({
     ? EARN_DESKTOP_DEMO_COPY.approveAnd(businessActionLabel)
     : businessActionLabel;
 
-  // The Earn forms show the steps once pressed, not before: the button
-  // already names them ("Approve and Supply")
+  // The steps show as soon as the button names them ("Approve and
+  // Supply"), before the press as well as while it runs
   const isShowStakeProgress =
-    !!amountValue &&
-    (isEarnForm
-      ? approvalProgressStarted
-      : shouldApprove || approvalProgressStarted);
+    !!amountValue && (shouldApprove || approvalProgressStarted);
 
   const progressContent = isShowStakeProgress ? (
     <StakeProgress

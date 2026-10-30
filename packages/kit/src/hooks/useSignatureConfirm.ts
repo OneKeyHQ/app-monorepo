@@ -33,6 +33,7 @@ import type { ISwapTxInfo } from '@onekeyhq/shared/types/swap/types';
 import type { ISendTxOnSuccessData } from '@onekeyhq/shared/types/tx';
 
 import backgroundApiProxy from '../background/instance/backgroundApiProxy';
+import { endEarnWindowReturnOnSent } from '../views/Earn/earnWindowReturn';
 
 import useAppNavigation from './useAppNavigation';
 
@@ -132,7 +133,7 @@ function useSignatureConfirm(params: IParams): IUseSignatureConfirmResult {
     async (params: IBuildUnsignedTxParams) => {
       const {
         sameModal,
-        onSuccess,
+        onSuccess: onSuccessBase,
         onFail,
         onCancel,
         onBeforeSend,
@@ -156,6 +157,14 @@ function useSignatureConfirm(params: IParams): IUseSignatureConfirmResult {
       if (isNavigationCurrent && !isNavigationCurrent()) {
         return;
       }
+      // A deposit, a withdrawal or a loan going out from a page a window
+      // opened: Back from that page no longer opens the window (demo 10-30)
+      const onSuccess: typeof onSuccessBase = stakingInfo
+        ? (data) => {
+            endEarnWindowReturnOnSent(stakingInfo.label);
+            onSuccessBase?.(data);
+          }
+        : onSuccessBase;
       try {
         let unsignedTxs: IUnsignedTxPro[] = [];
         if (unsignedTxsFromParams?.length) {

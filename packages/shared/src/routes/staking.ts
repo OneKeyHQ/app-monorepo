@@ -158,6 +158,9 @@ export type IModalStakingParamList = {
       // Every token of the kind compared, the symbol's among them (the Earn
       // button opens the most valuable holding's kind)
       assetClass?: IEarnAssetClass;
+      // Pay with's token, with the amount typed in it (back from the page
+      // the window's Details opened: the window as it was left)
+      payKey?: string;
     };
     // Fires after a deposit/withdraw confirms, before this modal pops. The
     // inline wide-layout ManagePositionPart takes the same callback as a prop;
@@ -198,6 +201,13 @@ export type IModalStakingParamList = {
     borrowClass?: IEarnAssetClass;
     routeKey?: string;
     wide?: boolean;
+    // Back from the market's page Manage opened: the window as it was left.
+    // What the first box held (in Pay with's token), the loan typed by hand
+    // (an emptied box included) or where the LTV bar was dragged
+    collateralAmount?: string;
+    borrowAmount?: string;
+    ltv?: number;
+    payKey?: string;
   };
   [EModalStakingRoutes.EarnRouterAssetSelect]: {
     purpose: IEarnAssetSelectPurpose;

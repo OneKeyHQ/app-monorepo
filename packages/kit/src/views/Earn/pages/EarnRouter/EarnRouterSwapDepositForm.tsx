@@ -1222,15 +1222,16 @@ export function EarnRouterSwapDepositForm({
     overridesState && !footerActionOverride.isSwitchWait
       ? footerActionOverride.text
       : EARN_DESKTOP_DEMO_COPY.swapAnd(actionLabel);
-  // The steps show once pressed: the button already names them
-  const progress = isBusy ? (
+  // The steps the press runs, from the start: the swap marked as the one it
+  // begins with, then spinning while it runs
+  const progress = (
     <StakeProgress
       currentStep={getProgressStep(flow)}
       step1Label={intl.formatMessage({ id: ETranslations.global_swap })}
       step2Label={actionLabel}
-      isRunning
+      isRunning={isBusy}
     />
-  ) : null;
+  );
 
   // What it gets you, as the provider's own form shows it: the server's
   // rewards for a vault, a year at the supply rate for a lending market,

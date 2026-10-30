@@ -100,6 +100,7 @@ import { EasedSection } from '../../components/desktopHome/EarnEasedSection';
 import { EarnPageContainer } from '../../components/EarnPageContainer';
 import { EarnProviderMirror } from '../../EarnProviderMirror';
 import { EarnNavigation, EarnNetworkUtils } from '../../earnUtils';
+import { useEarnWindowReturn } from '../../earnWindowReturn';
 import { useStakingPendingTxs } from '../../hooks/useStakingPendingTxs';
 import { positionMatured } from '../EarnPositions/mobile/myPortfolio.utils';
 
@@ -1475,6 +1476,8 @@ const EarnProtocolDetailsPage = ({ route }: { route: IRouteProps }) => {
   });
   // Every broadcast reloads the page at once and re-reads the local pending
   // list, so the poller picks the transaction up without waiting for focus.
+  // Opened by the Earn window's Details: Back opens the window again
+  useEarnWindowReturn();
   const handleActionSuccess = useCallback(() => {
     void refreshData();
     void refreshPending();

@@ -2238,14 +2238,12 @@ export function UniversalWithdraw({
   const [hasPathCardsFromStart] = useState(
     showWithdrawPathCards || Boolean(waysOutStandIn),
   );
-  // The steps show once pressed: the button already names them
-  const isWithdrawRunning =
-    approving || loading || withdrawProgressStep > EStakeProgressStep.approve;
+  // The steps show as soon as the button names them, before the press as
+  // well as while it runs
   const shouldShowPendleWithdrawProgress =
     useApprove &&
     !!amountValue &&
     !isInvalidAmount(amountValue) &&
-    isWithdrawRunning &&
     (shouldApprove || withdrawProgressStep > EStakeProgressStep.approve);
   const isEthenaCooldownWithdrawPath =
     useApprove &&
