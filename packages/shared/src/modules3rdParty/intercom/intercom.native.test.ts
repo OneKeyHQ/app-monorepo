@@ -390,4 +390,12 @@ describe('native Intercom SDK integration', () => {
     await subject.initIntercom();
     expect(mockSdk.logout).toHaveBeenCalledTimes(1);
   });
+
+  it('hides the Messenger only after the SDK has loaded', async () => {
+    await subject.hideIntercomMessenger();
+    expect(mockSdk.hideIntercom).not.toHaveBeenCalled();
+    await subject.showIntercom();
+    await subject.hideIntercomMessenger();
+    expect(mockSdk.hideIntercom).toHaveBeenCalledTimes(1);
+  });
 });

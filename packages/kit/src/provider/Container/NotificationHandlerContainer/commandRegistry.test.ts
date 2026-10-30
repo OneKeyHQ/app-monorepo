@@ -56,7 +56,7 @@ describe('support conversation notification command', () => {
     mockPlatformEnv.isExtensionUiExpandTab = false;
   });
 
-  it('waits for unlock before opening the claimed conversation', async () => {
+  it('claims and opens the conversation only after unlock', async () => {
     mockTakePending.mockResolvedValueOnce({
       conversationId: 'conversation-123',
     });
@@ -73,6 +73,7 @@ describe('support conversation notification command', () => {
       setImmediate(resolve);
     });
     expect(whenAppUnlocked).toHaveBeenCalledTimes(1);
+    expect(mockTakePending).not.toHaveBeenCalled();
     expect(showIntercom).not.toHaveBeenCalled();
 
     unlock?.();
@@ -92,7 +93,6 @@ describe('support conversation notification command', () => {
   it('does nothing when no support request is pending', async () => {
     mockTakePending.mockResolvedValueOnce(undefined);
     await expect(openSupport()).resolves.toBe(true);
-    expect(whenAppUnlocked).not.toHaveBeenCalled();
     expect(showIntercom).not.toHaveBeenCalled();
   });
 

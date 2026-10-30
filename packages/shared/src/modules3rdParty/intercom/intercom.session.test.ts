@@ -13,6 +13,7 @@ const mockSdk = {
   trackEvent: jest.fn(),
   update: jest.fn(),
   show: jest.fn(),
+  hide: jest.fn(),
   showConversation: jest.fn(),
 };
 
@@ -258,5 +259,13 @@ describe('desktop Intercom identity ownership', () => {
     );
     await subject.showIntercom();
     expect(mockSdk.show).toHaveBeenCalledTimes(1);
+  });
+
+  it('hides the Messenger only after a session has booted', async () => {
+    await subject.hideIntercomMessenger();
+    expect(mockSdk.hide).not.toHaveBeenCalled();
+    await subject.initIntercom();
+    await subject.hideIntercomMessenger();
+    expect(mockSdk.hide).toHaveBeenCalledTimes(1);
   });
 });

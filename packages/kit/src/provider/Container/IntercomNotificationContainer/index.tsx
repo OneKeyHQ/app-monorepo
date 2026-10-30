@@ -4,6 +4,7 @@ import { rootNavigationRef, useOnRouterChange } from '@onekeyhq/components';
 import { useAppIsLockedAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/passwordLock';
 import { setIntercomInAppMessageVisibility } from '@onekeyhq/shared/src/modules3rdParty/intercom';
 
+import { useHideIntercomMessengerWhenLocked } from './useHideIntercomMessengerWhenLocked';
 import {
   type IIntercomNavigationState,
   shouldShowIntercomInAppMessages,
@@ -25,6 +26,7 @@ export function IntercomNotificationContainer() {
     [],
   );
   useOnRouterChange(handleRouterChange);
+  useHideIntercomMessengerWhenLocked();
 
   useEffect(() => {
     const navigation = rootNavigationRef.current;

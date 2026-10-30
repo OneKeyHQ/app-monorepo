@@ -122,6 +122,15 @@ export async function setIntercomInAppMessageVisibility(_visible: boolean) {
   // Native keeps in-app messages off; unread dots and OneKey push cover replies.
 }
 
+export async function hideIntercomMessenger() {
+  // Only a loaded SDK can be presenting the native Messenger.
+  if (!sdkPromise) {
+    return;
+  }
+  const sdk = await sdkPromise;
+  await sdk.default.hideIntercom();
+}
+
 export async function setIntercomTheme(theme: 'light' | 'dark') {
   if (!platformEnv.isNativeMainThread || !canUseNativeSdk()) {
     return;

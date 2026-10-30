@@ -1,3 +1,15 @@
+import { useSyncExternalStore } from 'react';
+
+import {
+  getIntercomUnreadCount,
+  subscribeToIntercomUnreadCount,
+} from '@onekeyhq/shared/src/modules3rdParty/intercom';
+
+// Session sync is owned by Bootstrap so the SDK stays off the startup path.
 export function useIntercomUnreadCount() {
-  return 0;
+  return useSyncExternalStore(
+    subscribeToIntercomUnreadCount,
+    getIntercomUnreadCount,
+    getIntercomUnreadCount,
+  );
 }

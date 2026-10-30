@@ -60,6 +60,13 @@ const loadIntercomSdk = () => {
   return intercomSdkPromise;
 };
 
+export const hideIntercomMessenger = async () => {
+  if (hasBooted) {
+    const sdk = await loadIntercomSdk();
+    sdk.hide();
+  }
+};
+
 const clearIntercomOpenOnBoot = (appId: string) => {
   try {
     const key = `intercom.intercom-state-${appId}`;

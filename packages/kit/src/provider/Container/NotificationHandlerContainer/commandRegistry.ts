@@ -23,12 +23,13 @@ const notificationCommandRegistry: Record<string, ICommandHandler> = {
     if (platformEnv.isExtension && !platformEnv.isExtensionUiExpandTab) {
       return;
     }
+    // Claim only after unlock so a foreground closed while locked keeps it.
+    await whenAppUnlocked();
     const pending =
       await backgroundApiProxy.serviceNotification.takePendingSupportConversation();
     if (!pending) {
       return;
     }
-    await whenAppUnlocked();
     await showIntercom({ conversationId: pending.conversationId });
   },
   [ENotificationCommand.openRewardDistributionHistoryModal]: ({ context }) => {

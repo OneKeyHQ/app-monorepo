@@ -13,6 +13,10 @@ export const setIntercomTheme = async (_theme: 'light' | 'dark') => {
   // The extension opens the website instead of the native SDK.
 };
 
+export const hideIntercomMessenger = async () => {
+  // Support opens in a separate browser window outside the wallet lock.
+};
+
 export const setIntercomInAppMessageVisibility = async (_visible: boolean) => {
   // The extension does not embed the Messenger in its wallet UI.
 };
