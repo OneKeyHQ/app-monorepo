@@ -1719,6 +1719,133 @@ describe('empty Swap bootstrap with a newer restored account revision', () => {
     expect(mockStore.get(swapSelectToTokenAtom())).toEqual(pair.toToken);
   });
 
+  it('preserves both token selections after leaving a Stock modal', async () => {
+    const stock = { ...marketToken, isStock: true };
+    const selectedToken = { ...marketToken, contractAddress: '0xselected' };
+    const stockParams: ISwapInitParams = {
+      swapSource: ESwapSource.MARKET,
+      swapTabSwitchType: ESwapTabSwitchType.STOCK,
+      importToToken: stock,
+      importFromToken: swapDefaultSetTokens['evm--1'].fromToken,
+    };
+    mockFetchNetworks.mockResolvedValue([
+      { ...freshNetwork, supportStock: true },
+    ]);
+    mockStore.set(swapTypeSwitchAtom(), ESwapTabSwitchType.STOCK);
+    mockStore.set(swapSelectToTokenAtom(), stock);
+    const view = renderMarket(stockParams, 'store:swapModal');
+    await waitFor(() =>
+      expect(mockStore.get(swapInitialSelectedTokensSyncedAtom())).toBe(true),
+    );
+    await waitFor(() =>
+      expect(mockStore.get(swapNetworkConfigStatusAtom())).toBe('success'),
+    );
+    act(() => mockStore.set(swapTypeSwitchAtom(), ESwapTabSwitchType.STOCK));
+    view.rerender(stockParams);
+    const pair = swapDefaultSetTokens['evm--1'];
+    act(() => {
+      mockStore.set(swapSelectFromTokenAtom(), pair.fromToken);
+      mockStore.set(swapSelectToTokenAtom(), pair.toToken);
+      mockStore.set(swapSelectedTokensColdStartContextAtom(), undefined);
+      mockStore.set(swapInitialSelectedTokensSyncedAtom(), false);
+      mockStore.set(swapTypeSwitchAtom(), ESwapTabSwitchType.SWAP);
+    });
+    mockIsFocused = false;
+    view.rerender(stockParams);
+    act(() => mockStore.set(swapSelectFromTokenAtom(), selectedToken));
+    mockIsFocused = true;
+    view.rerender(stockParams);
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(mockStore.get(swapSelectFromTokenAtom())).toEqual(selectedToken);
+    expect(mockStore.get(swapSelectToTokenAtom())).toEqual(pair.toToken);
+
+    const selectedToToken = { ...selectedToken, contractAddress: '0xother' };
+    mockIsFocused = false;
+    view.rerender(stockParams);
+    const homeRead = deferred<typeof homeInfo>();
+    jest.mocked(getLatestHomeSelectedAccountInfo).mockClear();
+    jest
+      .mocked(getLatestHomeSelectedAccountInfo)
+      .mockReturnValueOnce(homeRead.promise);
+    act(() => mockStore.set(swapInitialSelectedTokensSyncedAtom(), false));
+    mockIsFocused = true;
+    view.rerender(stockParams);
+    await waitFor(() =>
+      expect(getLatestHomeSelectedAccountInfo).toHaveBeenCalled(),
+    );
+    act(() => mockStore.set(swapSelectToTokenAtom(), selectedToToken));
+    await act(async () =>
+      homeRead.resolve({
+        ...homeInfo,
+        selectedAccount: { ...selectedAccount },
+        selectedAccountUpdatedAt: revision + 1,
+      }),
+    );
+    expect(mockStore.get(swapSelectFromTokenAtom())).toEqual(selectedToken);
+    expect(mockStore.get(swapSelectToTokenAtom())).toEqual(selectedToToken);
+    expect(mockStore.get(swapTypeSwitchAtom())).toBe(ESwapTabSwitchType.SWAP);
+  });
+
+  it('does not restore Stock when a tab-only Stock route returns to Swap', async () => {
+    const params: ISwapInitParams = {
+      swapTabSwitchType: ESwapTabSwitchType.STOCK,
+    };
+    mockFetchNetworks.mockResolvedValue([
+      { ...freshNetwork, supportStock: true },
+    ]);
+    const view = renderMarket(params, 'store:swapModal');
+    await waitFor(() =>
+      expect(mockStore.get(swapNetworkConfigStatusAtom())).toBe('success'),
+    );
+    act(() => mockStore.set(swapTypeSwitchAtom(), ESwapTabSwitchType.STOCK));
+    view.rerender(params);
+    const pair = swapDefaultSetTokens['evm--1'];
+    act(() => {
+      mockStore.set(swapTypeSwitchAtom(), ESwapTabSwitchType.SWAP);
+      mockStore.set(swapSelectFromTokenAtom(), pair.fromToken);
+      mockStore.set(swapSelectToTokenAtom(), pair.toToken);
+      mockStore.set(swapSelectedTokensColdStartContextAtom(), undefined);
+      mockStore.set(swapInitialSelectedTokensSyncedAtom(), false);
+    });
+    mockIsFocused = false;
+    view.rerender(params);
+    mockIsFocused = true;
+    view.rerender(params);
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(mockStore.get(swapTypeSwitchAtom())).toBe(ESwapTabSwitchType.SWAP);
+    expect(mockStore.get(swapSelectFromTokenAtom())).toEqual(pair.fromToken);
+    expect(mockStore.get(swapSelectToTokenAtom())).toEqual(pair.toToken);
+
+    mockIsFocused = false;
+    view.rerender(params);
+    const previousAccountToken = {
+      ...marketToken,
+      contractAddress: '0xpreviousaccount',
+    };
+    act(() => mockStore.set(swapSelectFromTokenAtom(), previousAccountToken));
+    jest.mocked(getLatestHomeSelectedAccountInfo).mockResolvedValueOnce({
+      ...homeInfo,
+      selectedAccount: {
+        ...selectedAccount,
+        walletId: 'new-wallet',
+        indexedAccountId: 'new-account',
+      },
+      selectedAccountUpdatedAt: revision + 1,
+    });
+    act(() => mockStore.set(swapInitialSelectedTokensSyncedAtom(), false));
+    mockIsFocused = true;
+    view.rerender(params);
+    await waitFor(() => expect(selectedAccount.walletId).toBe('new-wallet'));
+    expect(mockStore.get(swapTypeSwitchAtom())).toBe(ESwapTabSwitchType.SWAP);
+    expect(mockStore.get(swapSelectFromTokenAtom())).not.toEqual(
+      previousAccountToken,
+    );
+  });
+
   it.each(['tokens', 'account', 'home', 'blur', 'unmount'])(
     'rejects the bootstrap when %s changes while reading Home',
     async (change) => {
