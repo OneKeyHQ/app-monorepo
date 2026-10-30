@@ -571,6 +571,23 @@ const solNetwork: ISwapNetwork = {
 };
 
 describe('asset entry default counterpart ownership', () => {
+  const btc: ISwapToken = {
+    networkId: 'btc--0',
+    contractAddress: '',
+    symbol: 'BTC',
+    decimals: 8,
+    isNative: true,
+  };
+  const btcNetwork: ISwapNetwork = {
+    ...freshNetwork,
+    networkId: btc.networkId,
+    symbol: 'BTC',
+    name: 'Bitcoin',
+    supportSingleSwap: false,
+    defaultSelectTokenDetail: { from: btc, to: bnb },
+  };
+  const btcNetworks = [btcNetwork, cachedBsc, freshNetwork];
+
   beforeEach(() => {
     jest.clearAllMocks();
     mockStore = createStore();
@@ -580,6 +597,107 @@ describe('asset entry default counterpart ownership', () => {
     jest
       .mocked(getLatestHomeSelectedAccountInfo)
       .mockResolvedValue(emptyHomeAccountInfo);
+  });
+
+  afterEach(() => jest.useRealTimers());
+
+  it('waits for the BTC asset entry API pair and preserves the entered amount', async () => {
+    const request = deferred<ISwapNetwork[]>();
+    mockFetchNetworks.mockReturnValue(request.promise);
+    renderMarket({
+      importFromToken: btc,
+      swapSource: ESwapSource.WALLET_HOME_TOKEN_LIST,
+    });
+    await waitFor(() =>
+      expect(mockStore.get(swapSelectFromTokenAtom())).toEqual(btc),
+    );
+    expect(mockStore.get(swapSelectToTokenAtom())).toBeUndefined();
+    act(() =>
+      mockStore.set(swapFromTokenAmountAtom(), {
+        value: '0.25',
+        isInput: true,
+      }),
+    );
+    await act(async () => request.resolve(btcNetworks));
+    await waitFor(() =>
+      expect(mockStore.get(swapSelectToTokenAtom())).toEqual(bnb),
+    );
+    expect(mockStore.get(swapSelectFromTokenAtom())).toEqual(btc);
+    expect(mockStore.get(swapFromTokenAmountAtom())).toEqual({
+      value: '0.25',
+      isInput: true,
+    });
+  });
+
+  it.each([false, true])(
+    'keeps the BTC fallback after timeout and a late response (cached=%s)',
+    async (cached) => {
+      jest.useFakeTimers();
+      const request = deferred<ISwapNetwork[]>();
+      mockFetchNetworks.mockReturnValue(request.promise);
+      mockGetNetworkCache.mockResolvedValue({
+        data: cached ? btcNetworks : [],
+      });
+      renderMarket({
+        importFromToken: btc,
+        swapSource: ESwapSource.WALLET_HOME_TOKEN_LIST,
+      });
+      await act(async () => {});
+      await act(async () => jest.advanceTimersByTime(2000));
+      expect(mockStore.get(swapSelectToTokenAtom())?.symbol).toBe('ETH');
+      await act(async () => request.resolve(btcNetworks));
+      expect(mockStore.get(swapSelectToTokenAtom())?.symbol).toBe('ETH');
+    },
+  );
+
+  it('falls back to ETH when the configured BTC target network is unsupported', async () => {
+    mockFetchNetworks.mockResolvedValue([
+      btcNetwork,
+      { ...cachedBsc, supportCrossChainSwap: false },
+      freshNetwork,
+    ]);
+    renderMarket({
+      importFromToken: btc,
+      swapSource: ESwapSource.WALLET_HOME_TOKEN_LIST,
+    });
+    await waitFor(() =>
+      expect(mockStore.get(swapSelectToTokenAtom())?.symbol).toBe('ETH'),
+    );
+    expect(mockStore.get(swapSelectFromTokenAtom())).toEqual(btc);
+  });
+
+  it.each([false, true])(
+    'falls back to ETH when BTC configuration fails (cached=%s)',
+    async (cached) => {
+      mockGetNetworkCache.mockResolvedValue({
+        data: cached ? btcNetworks : [],
+      });
+      mockFetchNetworks.mockRejectedValue(new Error('offline'));
+      renderMarket({
+        importFromToken: btc,
+        swapSource: ESwapSource.WALLET_HOME_TOKEN_LIST,
+      });
+      await waitFor(() =>
+        expect(mockStore.get(swapSelectToTokenAtom())?.symbol).toBe('ETH'),
+      );
+      expect(mockStore.get(swapSelectFromTokenAtom())).toEqual(btc);
+    },
+  );
+
+  it('does not overwrite a manual BTC counterpart when configuration arrives', async () => {
+    const request = deferred<ISwapNetwork[]>();
+    mockFetchNetworks.mockReturnValue(request.promise);
+    renderMarket({
+      importFromToken: btc,
+      swapSource: ESwapSource.WALLET_HOME_TOKEN_LIST,
+    });
+    await waitFor(() =>
+      expect(mockStore.get(swapSelectFromTokenAtom())).toEqual(btc),
+    );
+    const manualToken = { ...bnb, contractAddress: 'manual', isNative: false };
+    act(() => mockStore.set(swapSelectToTokenAtom(), manualToken));
+    await act(async () => request.resolve(btcNetworks));
+    expect(mockStore.get(swapSelectToTokenAtom())).toEqual(manualToken);
   });
 
   it.each([ESwapSource.WALLET_HOME_TOKEN_LIST, ESwapSource.TOKEN_DETAIL])(
