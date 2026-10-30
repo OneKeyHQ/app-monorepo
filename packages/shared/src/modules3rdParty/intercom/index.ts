@@ -24,6 +24,7 @@ let hasBooted = false;
 let sdkInitialized = false;
 let configuredSettings: Partial<InitType> | undefined;
 let inAppMessagesVisible = false;
+let messengerLocked = false;
 const unreadCountListeners = new Set<() => void>();
 
 export const setIntercomInAppMessageVisibility = async (visible: boolean) => {
@@ -60,8 +61,9 @@ const loadIntercomSdk = () => {
   return intercomSdkPromise;
 };
 
-export const hideIntercomMessenger = async () => {
-  if (hasBooted) {
+export const setIntercomMessengerLocked = async (locked: boolean) => {
+  messengerLocked = locked;
+  if (locked && hasBooted) {
     const sdk = await loadIntercomSdk();
     sdk.hide();
   }
@@ -263,6 +265,10 @@ const openIntercom = async (params?: IShowIntercomParams) => {
     requestId: params?.requestId,
   });
 
+  // A lock during the awaits above already hid the Messenger; do not reopen.
+  if (messengerLocked) {
+    return;
+  }
   if (params?.conversationId) {
     showConversation(params.conversationId);
   } else {

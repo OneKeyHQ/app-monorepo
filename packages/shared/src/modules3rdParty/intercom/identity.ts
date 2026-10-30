@@ -33,3 +33,17 @@ export async function getIntercomCredentials(expectedUserId: string) {
     attributes: { userId, ...(email ? { email } : {}) },
   };
 }
+
+// Fallback URLs carry the token, so a sign-in change during the request must
+// abort instead of opening support with the previous identity.
+export async function getCurrentIntercomToken(): Promise<string | undefined> {
+  const userId = await getCurrentIntercomUserId();
+  if (userId === null) {
+    return undefined;
+  }
+  const credentials = await getIntercomCredentials(userId);
+  if (!credentials) {
+    throw new OneKeyLocalError('Intercom user changed; please try again');
+  }
+  return credentials.token;
+}

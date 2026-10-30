@@ -26,6 +26,7 @@ let sessionGeneration = 0;
 let unreadRequestId = 0;
 let unreadCount = 0;
 let currentTheme: 'light' | 'dark' | undefined;
+let messengerLocked = false;
 const unreadListeners = new Set<() => void>();
 
 function getNativeSdkApiKey() {
@@ -122,9 +123,10 @@ export async function setIntercomInAppMessageVisibility(_visible: boolean) {
   // Native keeps in-app messages off; unread dots and OneKey push cover replies.
 }
 
-export async function hideIntercomMessenger() {
+export async function setIntercomMessengerLocked(locked: boolean) {
+  messengerLocked = locked;
   // Only a loaded SDK can be presenting the native Messenger.
-  if (!sdkPromise) {
+  if (!locked || !sdkPromise) {
     return;
   }
   const sdk = await sdkPromise;
@@ -287,6 +289,10 @@ async function openIntercom(params?: IShowIntercomParams) {
     EAppSyncStorageKeys.onekey_intercom_native_support_opened,
     true,
   );
+  // A lock during the awaits above already hid the Messenger; do not reopen.
+  if (messengerLocked) {
+    return;
+  }
   if (params?.conversationId) {
     await sdk.default.presentContent(
       sdk.IntercomContent.conversationWithConversationId(params.conversationId),

@@ -1,15 +1,15 @@
 import openUrlUtils from '../../utils/openUrlUtils';
 
+import { getCurrentIntercomToken } from './identity';
 import {
   type IShowIntercomParams,
   buildIntercomUrl,
-  getCustomerJWT,
   getInstanceId,
   getIntercomLanguageOverride,
 } from './utils';
 
 export const showIntercom = async (params?: IShowIntercomParams) => {
-  const token = await getCustomerJWT();
+  const token = await getCurrentIntercomToken();
   const instanceId = await getInstanceId();
   const languageOverride = await getIntercomLanguageOverride();
 

@@ -261,11 +261,22 @@ describe('desktop Intercom identity ownership', () => {
     expect(mockSdk.show).toHaveBeenCalledTimes(1);
   });
 
-  it('hides the Messenger only after a session has booted', async () => {
-    await subject.hideIntercomMessenger();
+  it('hides the Messenger on lock and keeps in-flight opens closed', async () => {
+    await subject.setIntercomMessengerLocked(true);
     expect(mockSdk.hide).not.toHaveBeenCalled();
+    await subject.setIntercomMessengerLocked(false);
     await subject.initIntercom();
-    await subject.hideIntercomMessenger();
+    await subject.setIntercomMessengerLocked(true);
     expect(mockSdk.hide).toHaveBeenCalledTimes(1);
+
+    await subject.setIntercomMessengerLocked(false);
+    const token = deferred<{ token: string }>();
+    mockApiGetCustomerJWT.mockReturnValueOnce(token.promise);
+    const opening = subject.showIntercom();
+    await flushEvents();
+    await subject.setIntercomMessengerLocked(true);
+    token.resolve({ token: createToken('intercom-A') });
+    await opening;
+    expect(mockSdk.show).not.toHaveBeenCalled();
   });
 });

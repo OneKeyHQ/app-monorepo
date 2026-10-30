@@ -17,7 +17,7 @@ let mockRouterChange:
   | undefined;
 let mockReady: (() => void) | undefined;
 const mockRemoveReady = jest.fn();
-const mockHideMessenger = jest.fn(async () => {});
+const mockSetLocked = jest.fn(async (_locked: boolean) => {});
 const mockSetVisibility = jest.fn(async (_visible: boolean) => {});
 
 jest.mock('@onekeyhq/components', () => ({
@@ -49,7 +49,7 @@ jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms/passwordLock', () => ({
 jest.mock('@onekeyhq/shared/src/modules3rdParty/intercom', () => ({
   setIntercomInAppMessageVisibility: (visible: boolean) =>
     mockSetVisibility(visible),
-  hideIntercomMessenger: () => mockHideMessenger(),
+  setIntercomMessengerLocked: (locked: boolean) => mockSetLocked(locked),
 }));
 
 const main: IIntercomNavigationState = {
@@ -93,11 +93,11 @@ describe('Intercom notification visibility integration', () => {
     expect(mockSetVisibility).toHaveBeenLastCalledWith(true);
   });
 
-  it('closes an open Messenger when the wallet locks', () => {
+  it('forwards the wallet lock state to the Messenger guard', () => {
     const screen = render(<IntercomNotificationContainer />);
-    expect(mockHideMessenger).not.toHaveBeenCalled();
+    expect(mockSetLocked).toHaveBeenLastCalledWith(false);
     mockIsLocked = true;
     screen.rerender(<IntercomNotificationContainer />);
-    expect(mockHideMessenger).toHaveBeenCalledTimes(1);
+    expect(mockSetLocked).toHaveBeenLastCalledWith(true);
   });
 });

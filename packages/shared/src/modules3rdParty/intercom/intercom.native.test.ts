@@ -391,11 +391,23 @@ describe('native Intercom SDK integration', () => {
     expect(mockSdk.logout).toHaveBeenCalledTimes(1);
   });
 
-  it('hides the Messenger only after the SDK has loaded', async () => {
-    await subject.hideIntercomMessenger();
+  it('hides the Messenger on lock and keeps in-flight opens closed', async () => {
+    await subject.setIntercomMessengerLocked(true);
     expect(mockSdk.hideIntercom).not.toHaveBeenCalled();
+    await subject.setIntercomMessengerLocked(false);
     await subject.showIntercom();
-    await subject.hideIntercomMessenger();
+    expect(mockSdk.present).toHaveBeenCalledTimes(1);
+    await subject.setIntercomMessengerLocked(true);
     expect(mockSdk.hideIntercom).toHaveBeenCalledTimes(1);
+
+    await subject.setIntercomMessengerLocked(false);
+    const tracking = deferred<boolean>();
+    mockSdk.logEvent.mockReturnValueOnce(tracking.promise);
+    const opening = subject.showIntercom();
+    await flushEvents();
+    await subject.setIntercomMessengerLocked(true);
+    tracking.resolve(true);
+    await opening;
+    expect(mockSdk.present).toHaveBeenCalledTimes(1);
   });
 });
