@@ -18,4 +18,16 @@ export enum EWebEmbedPrivateRequestMethod {
   showDebugMessageDialog = 'webembedPrivateRequest_showDebugMessageDialog',
   // The embedded Stripe checkout failed; continue in the hosted Purchase Link.
   fallbackToPrimeHostedCheckout = 'webembedPrivateRequest_fallbackToPrimeHostedCheckout',
+  primeEmbeddedCheckoutState = 'webembedPrivateRequest_primeEmbeddedCheckoutState',
 }
+
+export const PRIME_CHECKOUT_CANCEL_MESSAGE = 'primeEmbeddedCheckoutCancel';
+
+export type IPrimeEmbeddedCheckoutState = {
+  checkoutId: string;
+  attemptId: string;
+  revision: number;
+  canSwitch: boolean;
+  requestId?: string;
+  cancelled?: boolean;
+};

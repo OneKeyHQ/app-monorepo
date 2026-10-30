@@ -4,6 +4,7 @@ import type {
   IRevenueCatPurchaseResult,
 } from '@onekeyhq/shared/types/prime/revenueCat';
 
+import type { IPrimeEmbeddedCheckoutSession } from '../purchasesSdk/primeEmbeddedCheckoutSession';
 import type {
   CustomerInfo as CustomerInfoWeb,
   PurchaseResult,
@@ -56,6 +57,7 @@ export type IUsePrimePayment = {
     currency?: string;
     mode: 'dev' | 'prod';
     featureName?: string;
+    primeCheckoutId?: string;
   };
   purchasePackageNative:
     | (({
@@ -79,6 +81,7 @@ export type IUsePrimePayment = {
         locale?: string;
         currency?: string;
         featureName?: EPrimeFeatures;
+        embeddedCheckoutSession?: IPrimeEmbeddedCheckoutSession;
       }) => Promise<PurchaseResult>)
     | undefined;
 };

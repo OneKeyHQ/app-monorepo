@@ -3,6 +3,7 @@
 import { act, render } from '@testing-library/react';
 
 import { WebViewWebEmbed } from '@onekeyhq/kit/src/components/WebViewWebEmbed';
+import { EWebEmbedRoutePath } from '@onekeyhq/shared/src/consts/webEmbedConsts';
 
 import type { IJsBridgeReceiveHandler } from '@onekeyfe/cross-inpage-provider-types';
 
@@ -103,6 +104,22 @@ beforeEach(() => {
 });
 
 describe('WebViewWebEmbed bridge ownership', () => {
+  it('exposes only the modal instance ref and forwards navigation invalidation', async () => {
+    const onInstanceRef = jest.fn();
+    const onLoadStart = jest.fn();
+    const view = await mount({
+      hashRoutePath: EWebEmbedRoutePath.primePurchase,
+      onInstanceRef,
+      onLoadStart,
+    });
+    expect(onInstanceRef).toHaveBeenCalledWith(
+      expect.objectContaining({ jsBridge: mockJsBridge }),
+    );
+    expect(mockWebViewProps?.onLoadStart).toBe(onLoadStart);
+    expect(mockConnectWebEmbedBridge).not.toHaveBeenCalled();
+    view.unmount();
+    expect(mockMarkWebEmbedApiNotReady).not.toHaveBeenCalled();
+  });
   it('Prime purchase modal: keeps its handler and never touches the webEmbed bridge', async () => {
     const customReceiveHandler: IJsBridgeReceiveHandler = jest.fn();
     const view = await mount({

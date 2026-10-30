@@ -1,4 +1,5 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import type { ComponentProps } from 'react';
 
 import { NativeModules } from 'react-native';
 
@@ -33,6 +34,7 @@ import WebView from '../WebView';
 // @ts-expect-error text-js module imported as string by babel-plugin-inline-import / esbuild
 import injectedWebEmbedCode from './injectedWebEmbed.text-js';
 
+import type { IWebViewRef } from '../WebView/types';
 import type { JsBridgeBase } from '@onekeyfe/cross-inpage-provider-core';
 import type { IJsBridgeReceiveHandler } from '@onekeyfe/cross-inpage-provider-types';
 import type { IWebViewWrapperRef } from '@onekeyfe/onekey-cross-webview';
@@ -94,19 +96,27 @@ export function WebViewWebEmbed({
   customReceiveHandler,
   hashRoutePath,
   hashRouteQueryParams,
+  onInstanceRef,
+  onLoadStart,
 }: {
   isSingleton?: boolean;
   customReceiveHandler?: IJsBridgeReceiveHandler;
   hashRoutePath?: EWebEmbedRoutePath;
   hashRouteQueryParams?: Record<string, string>;
+  onInstanceRef?: (ref: IWebViewRef | null) => void;
+  onLoadStart?: ComponentProps<typeof WebView>['onLoadStart'];
 }) {
   const [settingsPersistAtom] = useSettingsPersistAtom();
   const { instanceId } = settingsPersistAtom;
 
   const webviewRef = useRef<IWebViewWrapperRef | null>(null);
-  const onWebViewRef = useCallback(($ref: IWebViewWrapperRef | null) => {
-    webviewRef.current = $ref;
-  }, []);
+  const onWebViewRef = useCallback(
+    ($ref: IWebViewRef | null) => {
+      webviewRef.current = $ref;
+      onInstanceRef?.($ref);
+    },
+    [onInstanceRef],
+  );
   const [top, setTop] = useState(initTop);
   const [minimized, setMinimized] = useState(false);
   const config = useMemo(() => webEmbedConfig.getWebEmbedConfig(), []);
@@ -343,6 +353,7 @@ export function WebViewWebEmbed({
         // *** use web-embed local html file
         nativeWebviewSource={nativeWebviewSource}
         onWebViewRef={onWebViewRef}
+        onLoadStart={onLoadStart}
         customReceiveHandler={customReceiveHandler}
         isWebEmbedChannel={!!isSingleton}
         onMessage={handleMessage}
@@ -381,6 +392,7 @@ export function WebViewWebEmbed({
     remoteUrl,
     nativeWebviewSource,
     onWebViewRef,
+    onLoadStart,
     customReceiveHandler,
     isSingleton,
     handleMessage,
