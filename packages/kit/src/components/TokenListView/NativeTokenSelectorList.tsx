@@ -817,6 +817,7 @@ export function NativeTokenSelectorList({
                 type: 'dataRow',
                 key: rowKey,
                 height: 60,
+                heightRounding: 'nearest',
                 testID: nativeRow.testID,
                 leading,
                 badges: nativeRow.badges,

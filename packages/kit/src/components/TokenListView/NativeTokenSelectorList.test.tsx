@@ -527,6 +527,7 @@ it('publishes Home cell values into separate table columns and routes the Swap a
   const first = mockSnapshot?.rows[0];
   expect(first?.type).toBe('dataRow');
   if (first?.type === 'dataRow') {
+    expect(first).toMatchObject({ height: 60, heightRounding: 'nearest' });
     expect(first.columns.map((column) => column.key)).toEqual([
       'asset',
       'balance',
