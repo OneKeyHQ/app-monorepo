@@ -17,6 +17,7 @@ import { useSwapTokenSelectorPreload } from './useSwapTokenSelectorPreload';
 type IPreloadParams = Parameters<typeof useSwapTokenSelectorPreload>[0];
 
 const mockLoadAllNetworks = jest.fn<Promise<void>, unknown[]>();
+let mockGtMd = true;
 const mockActions = {
   current: { swapLoadAllNetworkTokenList: mockLoadAllNetworks },
 };
@@ -24,10 +25,14 @@ const mockActions = {
 jest.mock('@onekeyhq/kit/src/states/jotai/contexts/swap', () => ({
   useSwapActions: () => mockActions,
 }));
+jest.mock('@onekeyhq/components', () => ({
+  useMedia: () => ({ gtMd: mockGtMd }),
+}));
 
 const initialPlatform = {
   isDesktop: platformEnv.isDesktop,
   isWeb: platformEnv.isWeb,
+  isExtension: platformEnv.isExtension,
 };
 const ethereum: ISwapNetwork = {
   networkId: 'evm--1',
@@ -95,6 +100,8 @@ describe('useSwapTokenSelectorPreload', () => {
   beforeEach(() => {
     platformEnv.isDesktop = true;
     platformEnv.isWeb = false;
+    platformEnv.isExtension = false;
+    mockGtMd = true;
     mockLoadAllNetworks.mockReset().mockResolvedValue(undefined);
   });
 
@@ -272,6 +279,53 @@ describe('useSwapTokenSelectorPreload', () => {
       renderHook(useSwapTokenSelectorPreload, { initialProps: params });
 
       expect(mockLoadAllNetworks).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each([
+    { gtMd: true, protocol: ESwapTabSwitchType.SWAP, expected: 1 },
+    { gtMd: false, protocol: ESwapTabSwitchType.SWAP, expected: 0 },
+    { gtMd: true, protocol: ESwapTabSwitchType.STOCK, expected: 0 },
+  ])(
+    'preloads extension only when wide and non-stock ($gtMd, $protocol)',
+    ({ gtMd, protocol, expected }) => {
+      platformEnv.isDesktop = false;
+      platformEnv.isExtension = true;
+      mockGtMd = gtMd;
+      renderHook(useSwapTokenSelectorPreload, {
+        initialProps: { ...preloadParams(), swapType: protocol },
+      });
+      expect(mockLoadAllNetworks).toHaveBeenCalledTimes(expected);
+    },
+  );
+
+  it('starts extension preload when its viewport becomes wide', () => {
+    platformEnv.isDesktop = false;
+    platformEnv.isExtension = true;
+    mockGtMd = false;
+    const { rerender } = renderHook(useSwapTokenSelectorPreload, {
+      initialProps: preloadParams(),
+    });
+    expect(mockLoadAllNetworks).not.toHaveBeenCalled();
+    mockGtMd = true;
+    rerender(preloadParams());
+    expect(mockLoadAllNetworks).toHaveBeenCalledTimes(1);
+  });
+
+  it.each(['desktop', 'web'] as const)(
+    'does not repeat %s preload across viewport breakpoints',
+    (platform) => {
+      platformEnv.isDesktop = platform === 'desktop';
+      platformEnv.isWeb = platform === 'web';
+      const { rerender } = renderHook(useSwapTokenSelectorPreload, {
+        initialProps: preloadParams(),
+      });
+      expect(mockLoadAllNetworks).toHaveBeenCalledTimes(1);
+      mockGtMd = false;
+      rerender(preloadParams());
+      mockGtMd = true;
+      rerender(preloadParams());
+      expect(mockLoadAllNetworks).toHaveBeenCalledTimes(1);
     },
   );
 });

@@ -3640,7 +3640,9 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       options?: ISwapTokenSelectorLoadOptions,
     ) => {
       if (
-        (platformEnv.isDesktop || platformEnv.isWeb) &&
+        (platformEnv.isDesktop ||
+          platformEnv.isWeb ||
+          platformEnv.isExtension) &&
         !isStockProtocol(protocol)
       ) {
         const network = get(swapNetworks()).find(
@@ -3967,7 +3969,10 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
                   !networkUtils.isAllNetwork({ networkId: item.networkId }),
               );
               const parallelDesktop =
-                platformEnv.isDesktop || platformEnv.isWeb;
+                platformEnv.isDesktop ||
+                platformEnv.isWeb ||
+                (platformEnv.isExtension &&
+                  !isStockProtocol(swapTypeSwitchValue));
               if (
                 parallelDesktop &&
                 !isStockProtocol(swapTypeSwitchValue) &&
