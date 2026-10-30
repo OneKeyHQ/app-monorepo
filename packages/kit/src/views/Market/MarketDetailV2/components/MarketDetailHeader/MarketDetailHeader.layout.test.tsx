@@ -9,6 +9,9 @@ import { MarketDetailHeader } from './MarketDetailHeader';
 
 let mockWidth = 900;
 const mockPageHeader = jest.fn((_props: { headerShown?: boolean }) => null);
+const mockShareButton = jest.fn((_props: { address?: string }) => null);
+let mockTokenAddress: string | undefined;
+let mockIsNative = true;
 
 jest.mock('react-intl', () => ({
   useIntl: () => ({ formatMessage: ({ id }: { id: string }) => id }),
@@ -95,7 +98,8 @@ jest.mock('../../hooks/useMarketDetailBackNavigation', () => ({
 jest.mock('../../hooks/useMarketDetailDisplayData', () => ({
   useMarketDetailHeaderDisplayData: () => ({
     networkId: 'evm--1',
-    isNative: true,
+    tokenAddress: mockTokenAddress,
+    isNative: mockIsNative,
     tokenDetail: { symbol: 'ETH', name: 'Ethereum' },
   }),
 }));
@@ -103,7 +107,7 @@ jest.mock('../../hooks/useMarketDetailWatchlistIdentity', () => ({
   useMarketDetailWatchlistIdentity: () => ({ assetId: 'ethereum' }),
 }));
 jest.mock('../TokenDetailHeader/ShareButton', () => ({
-  ShareButton: () => null,
+  ShareButton: (props: { address?: string }) => mockShareButton(props),
 }));
 jest.mock('../TokenDetailHeader/TokenLaunchpad', () => ({
   TokenLaunchpad: () => null,
@@ -125,6 +129,8 @@ describe('Market detail global navigation', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockWidth = 900;
+    mockTokenAddress = undefined;
+    mockIsNative = true;
     jest.replaceProperty(platformEnv, 'isWebDappMode', true);
   });
 
@@ -158,6 +164,23 @@ describe('Market detail global navigation', () => {
     expect(
       mockPageHeader.mock.calls.some(([props]) => props.headerShown === false),
     ).toBe(true);
+  });
+
+  it('shares the active contract address even while detail is loading', () => {
+    mockWidth = 767;
+    mockIsNative = false;
+    mockTokenAddress = '0xactive';
+    render(<MarketDetailHeader />);
+    expect(mockShareButton).toHaveBeenCalledWith(
+      expect.objectContaining({ address: '0xactive' }),
+    );
+  });
+
+  it('does not share an incomplete contract identity', () => {
+    mockWidth = 767;
+    mockIsNative = false;
+    render(<MarketDetailHeader />);
+    expect(mockShareButton).not.toHaveBeenCalled();
   });
 
   it('preserves the compact tablet header outside DApp mode', () => {
