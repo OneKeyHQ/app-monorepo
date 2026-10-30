@@ -98,12 +98,6 @@ on:
         required: false
       ONRAMPER_API_KEY:
         required: false
-      # Publishable Intercom Messenger SDK keys; without them OTA bundles
-      # fall back to the WebView support entry on SDK-capable binaries.
-      INTERCOM_IOS_API_KEY:
-        required: false
-      INTERCOM_ANDROID_API_KEY:
-        required: false
 
 env:
   # Release artifacts must ship the licensed brand font; fonts-sync fails
@@ -331,9 +325,6 @@ jobs:
         uses: ./.github/actions/shared-env
         with:
           checkout_ref: ${{ inputs.checkout_ref || '' }}
-          additional_env: |
-            INTERCOM_IOS_API_KEY=${{ secrets.INTERCOM_IOS_API_KEY }}
-            INTERCOM_ANDROID_API_KEY=${{ secrets.INTERCOM_ANDROID_API_KEY }}
           env_file_name: '.env'
           sentry_project: 'react-native'
           covalent_key: ${{ secrets.COVALENT_KEY }}

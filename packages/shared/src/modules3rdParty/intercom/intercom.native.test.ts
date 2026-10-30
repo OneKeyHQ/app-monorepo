@@ -5,7 +5,15 @@ let mockUserId: string | null = null;
 let mockLoggedInUser: UserAttributes | undefined;
 let mockUnreadCount = 0;
 let mockOnUnreadChanged: (() => void) | undefined;
-const mockNativeModules: { IntercomEventEmitter: object | undefined } = {
+const mockUpdateLockPolicy = jest.fn(async () => {});
+const mockNativeModules: {
+  IntercomEventEmitter: object | undefined;
+  OneKeyIntercom: {
+    initialized: boolean;
+    updateLockPolicy: typeof mockUpdateLockPolicy;
+  };
+} = {
+  OneKeyIntercom: { initialized: true, updateLockPolicy: mockUpdateLockPolicy },
   IntercomEventEmitter: {},
 };
 const mockGetCustomerJWT = jest.fn<Promise<{ token: string }>, []>();
@@ -146,22 +154,6 @@ async function flushEvents() {
 
 describe('native Intercom SDK integration', () => {
   let subject: typeof import('./index.native');
-  const originalApiKey = process.env.INTERCOM_IOS_API_KEY;
-  const originalAndroidApiKey = process.env.INTERCOM_ANDROID_API_KEY;
-
-  afterAll(() => {
-    if (originalApiKey === undefined) {
-      delete process.env.INTERCOM_IOS_API_KEY;
-    } else {
-      process.env.INTERCOM_IOS_API_KEY = originalApiKey;
-    }
-    if (originalAndroidApiKey === undefined) {
-      delete process.env.INTERCOM_ANDROID_API_KEY;
-    } else {
-      process.env.INTERCOM_ANDROID_API_KEY = originalAndroidApiKey;
-    }
-  });
-
   beforeEach(async () => {
     jest.resetModules();
     jest.clearAllMocks();
@@ -177,8 +169,7 @@ describe('native Intercom SDK integration', () => {
     mockStorage.clear();
     // Most cases model an anonymous user who has contacted support before.
     mockStorage.set(SUPPORT_OPENED_KEY, true);
-    process.env.INTERCOM_IOS_API_KEY = 'test-ios-sdk-key';
-    process.env.INTERCOM_ANDROID_API_KEY = 'test-android-sdk-key';
+    mockNativeModules.OneKeyIntercom.initialized = true;
     subject = await import('./index.native');
   });
 
@@ -210,16 +201,8 @@ describe('native Intercom SDK integration', () => {
       expect(mockSdk.initialize).not.toHaveBeenCalled();
       await Promise.all([subject.initIntercom(), subject.initIntercom()]);
 
-      if (platform === 'android') {
-        // Android initializes natively in Application.onCreate.
-        expect(mockSdk.initialize).not.toHaveBeenCalled();
-      } else {
-        expect(mockSdk.initialize).toHaveBeenCalledTimes(1);
-        expect(mockSdk.initialize).toHaveBeenCalledWith(
-          'test-ios-sdk-key',
-          'vbbj4ssb',
-        );
-      }
+      // Native initialization is the only source of readiness on both platforms.
+      expect(mockSdk.initialize).not.toHaveBeenCalled();
       expect(
         mockSdk.bootstrapEventListeners.mock.invocationCallOrder[0],
       ).toBeLessThan(mockAddListener.mock.invocationCallOrder[0]);
@@ -247,8 +230,7 @@ describe('native Intercom SDK integration', () => {
   );
 
   it('preserves support access on older binaries or without SDK configuration', async () => {
-    delete process.env.INTERCOM_IOS_API_KEY;
-    delete process.env.INTERCOM_ANDROID_API_KEY;
+    mockNativeModules.OneKeyIntercom.initialized = false;
     await subject.initIntercom();
     await subject.showIntercom({ conversationId: 'conversation-1' });
     expect(mockSdk.initialize).not.toHaveBeenCalled();
@@ -256,14 +238,47 @@ describe('native Intercom SDK integration', () => {
       conversationId: 'conversation-1',
     });
 
-    process.env.INTERCOM_IOS_API_KEY = 'test-ios-sdk-key';
-    process.env.INTERCOM_ANDROID_API_KEY = 'test-android-sdk-key';
+    mockNativeModules.OneKeyIntercom.initialized = true;
     mockNativeModules.IntercomEventEmitter = undefined;
     await subject.initIntercom();
     await subject.showIntercom();
     expect(mockSdk.initialize).not.toHaveBeenCalled();
     expect(mockWebIntercom).toHaveBeenCalledTimes(2);
     expect(subject.getIntercomUnreadCount()).toBe(0);
+  });
+
+  it('sends lock policy to Android without loading the SDK or using bg state', async () => {
+    mockPlatformEnv.isNativeAndroid = true;
+    const policy = {
+      autoLockEnabled: true,
+      lockDurationMinutes: 5,
+      lastActivityMs: 1234,
+    };
+    await subject.setIntercomMessengerLocked(false, policy);
+    expect(mockUpdateLockPolicy).toHaveBeenCalledWith(false, true, 5, 1234);
+    expect(mockSdk.setLauncherVisibility).not.toHaveBeenCalled();
+    mockUpdateLockPolicy.mockClear();
+    mockPlatformEnv.isNativeMainThread = false;
+    await subject.setIntercomMessengerLocked(true, policy);
+    expect(mockUpdateLockPolicy).not.toHaveBeenCalled();
+  });
+
+  it('retries an initialization cancelled by a transient account change', async () => {
+    mockUserId = 'A';
+    const response = deferred<{ token: string }>();
+    mockGetCustomerJWT.mockReturnValueOnce(response.promise);
+    mockGetCustomerJWT.mockResolvedValue({ token: createToken('intercom-A') });
+    const starting = subject.initIntercom();
+    await flushEvents();
+    mockUserId = 'B';
+    response.resolve({ token: createToken('intercom-A') });
+    await starting;
+    expect(mockSdk.loginUserWithUserAttributes).not.toHaveBeenCalled();
+    mockUserId = 'A';
+    await subject.initIntercom();
+    expect(mockSdk.loginUserWithUserAttributes).toHaveBeenCalledWith({
+      userId: 'intercom-A',
+    });
   });
 
   it('identifies an anonymous session with JWT before login and clears it after sign-out', async () => {
@@ -394,7 +409,7 @@ describe('native Intercom SDK integration', () => {
       token: createToken('intercom-user'),
     });
     await subject.initIntercom();
-    expect(mockSdk.initialize).toHaveBeenCalledTimes(1);
+    expect(mockSdk.initialize).not.toHaveBeenCalled();
     expect(mockSdk.logEvent).not.toHaveBeenCalled();
 
     mockUserId = null;

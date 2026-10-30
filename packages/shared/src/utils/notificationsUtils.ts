@@ -594,6 +594,9 @@ export function parseNotificationPayload(
           }
           void appGlobals.$backgroundApiProxy.serviceNotification
             .requestOpenSupportConversation({
+              sourceNodeId: platformEnv.isExtensionUi
+                ? appEventBus.nodeId
+                : undefined,
               conversationId:
                 typeof conversationId === 'string'
                   ? conversationId.trim() || undefined

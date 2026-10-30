@@ -325,16 +325,25 @@ export default class ServiceNotification extends ServiceBase {
   @backgroundMethod()
   async requestOpenSupportConversation({
     conversationId,
+    sourceNodeId,
   }: {
     conversationId?: string;
+    sourceNodeId?: string;
   }) {
+    const targetNodeId =
+      platformEnv.isExtensionBackground &&
+      sourceNodeId &&
+      !(await this.backgroundApi.serviceApp.isAppLocked())
+        ? sourceNodeId
+        : undefined;
     // Keep the intent in bg until a foreground is mounted and can claim it.
     this.pendingSupportConversation = { conversationId };
-    if (platformEnv.isExtensionBackground) {
+    if (platformEnv.isExtensionBackground && !targetNodeId) {
       await extUtils.openExpandTab({});
     }
     appEventBus.emit(EAppEventBusNames.ExecuteNotificationCommand, {
       action: ENotificationCommand.openSupportConversation,
+      ...(targetNodeId ? { data: { targetNodeId } } : {}),
     });
   }
 

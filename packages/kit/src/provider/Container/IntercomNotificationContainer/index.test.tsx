@@ -6,6 +6,7 @@ import { IntercomNotificationContainer } from '.';
 
 import { act, render } from '@testing-library/react';
 
+import type { IIntercomLockPolicy } from '@onekeyhq/shared/src/modules3rdParty/intercom/utils';
 import { ERootRoutes } from '@onekeyhq/shared/src/routes/root';
 
 import type { IIntercomNavigationState } from './visibility';
@@ -17,7 +18,11 @@ let mockRouterChange:
   | undefined;
 let mockReady: (() => void) | undefined;
 const mockRemoveReady = jest.fn();
-const mockSetLocked = jest.fn(async (_locked: boolean) => {});
+let mockLockDuration = 5;
+let mockLastActivity = 1234;
+const mockSetLocked = jest.fn(
+  async (_locked: boolean, _policy?: IIntercomLockPolicy) => {},
+);
 const mockSetVisibility = jest.fn(async (_visible: boolean) => {});
 
 jest.mock('@onekeyhq/components', () => ({
@@ -45,11 +50,23 @@ jest.mock('@onekeyhq/components', () => ({
 }));
 jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms/passwordLock', () => ({
   useAppIsLockedAtom: () => [mockIsLocked],
+  usePasswordPersistAtom: () => [
+    { isPasswordSet: true, appLockDuration: mockLockDuration },
+  ],
+}));
+jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms/settings', () => ({
+  useSettingsLastActivityAtom: () => [{ time: mockLastActivity }],
+}));
+jest.mock('@onekeyhq/shared/src/travelMode', () => ({
+  travelModeManager: {
+    getRuntimeEnvironmentSync: () => ({ profile: { kind: 'standard' } }),
+  },
 }));
 jest.mock('@onekeyhq/shared/src/modules3rdParty/intercom', () => ({
   setIntercomInAppMessageVisibility: (visible: boolean) =>
     mockSetVisibility(visible),
-  setIntercomMessengerLocked: (locked: boolean) => mockSetLocked(locked),
+  setIntercomMessengerLocked: (locked: boolean, policy?: IIntercomLockPolicy) =>
+    mockSetLocked(locked, policy),
 }));
 
 const main: IIntercomNavigationState = {
@@ -95,9 +112,25 @@ describe('Intercom notification visibility integration', () => {
 
   it('forwards the wallet lock state to the Messenger guard', () => {
     const screen = render(<IntercomNotificationContainer />);
-    expect(mockSetLocked).toHaveBeenLastCalledWith(false);
+    expect(mockSetLocked).toHaveBeenLastCalledWith(false, {
+      autoLockEnabled: true,
+      lockDurationMinutes: 5,
+      lastActivityMs: 1234,
+    });
     mockIsLocked = true;
     screen.rerender(<IntercomNotificationContainer />);
-    expect(mockSetLocked).toHaveBeenLastCalledWith(true);
+    expect(mockSetLocked).toHaveBeenLastCalledWith(true, {
+      autoLockEnabled: true,
+      lockDurationMinutes: 5,
+      lastActivityMs: 1234,
+    });
+    mockLastActivity = 5678;
+    mockLockDuration = 30;
+    screen.rerender(<IntercomNotificationContainer />);
+    expect(mockSetLocked).toHaveBeenLastCalledWith(true, {
+      autoLockEnabled: true,
+      lockDurationMinutes: 30,
+      lastActivityMs: 5678,
+    });
   });
 });

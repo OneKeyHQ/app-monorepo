@@ -92,6 +92,22 @@ describe('desktop Intercom identity ownership', () => {
     }
   });
 
+  it('retries a boot cancelled by a transient account change', async () => {
+    const response = deferred<{ token: string }>();
+    mockApiGetCustomerJWT.mockReturnValueOnce(response.promise);
+    const starting = subject.initIntercom();
+    await flushEvents();
+    mockUserId = 'B';
+    response.resolve({ token: createToken('intercom-A') });
+    await starting;
+    expect(mockSdk.default).not.toHaveBeenCalled();
+    mockUserId = 'A';
+    await subject.initIntercom();
+    expect(mockSdk.default).toHaveBeenCalledWith(
+      expect.objectContaining({ intercom_user_jwt: createToken('intercom-A') }),
+    );
+  });
+
   it('keeps messages hidden until the UI allows them', async () => {
     await subject.initIntercom();
     expect(mockSdk.default).toHaveBeenCalledWith(

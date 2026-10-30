@@ -52,6 +52,13 @@ import so.onekey.app.wallet.sentry.OneKeyNativeCrashDiagnostics;
 import so.onekey.app.wallet.travelmode.OneKeyTravelModeLaunchEpochPackage;
 
 public class BaseMainApplication extends Application implements ReactApplication {
+  final IntercomMessengerLockGuard intercomLockGuard = new IntercomMessengerLockGuard();
+  private volatile boolean intercomInitialized = false;
+
+  boolean isIntercomInitialized() {
+    return intercomInitialized;
+  }
+
   public boolean isTravelModeMaskingData() {
     MMKV mmkv = MMKV.mmkvWithID("onekey-app-setting");
     if (mmkv == null) {
@@ -113,6 +120,7 @@ public class BaseMainApplication extends Application implements ReactApplication
 
         List<ReactPackage> packages = new PackageList(this).getPackages();
         packages.add(new OneKeyTravelModeLaunchEpochPackage());
+        packages.add(new OneKeyIntercomPackage());
         return packages;
       }
 
@@ -187,6 +195,7 @@ public class BaseMainApplication extends Application implements ReactApplication
           BuildVariantBundleInfo bundleInfo = getBuildVariantBundleInfo();
           List<ReactPackage> mainPackages = new PackageList(this).getPackages();
           mainPackages.add(new OneKeyTravelModeLaunchEpochPackage());
+          mainPackages.add(new OneKeyIntercomPackage());
           mReactHost =
             ExpoReactHostFactory.getDefaultReactHost(
               this.getApplicationContext(),
@@ -412,8 +421,9 @@ public class BaseMainApplication extends Application implements ReactApplication
             java.util.Arrays.asList(
                 io.intercom.android.sdk.Intercom.ContentType.CAROUSEL,
                 io.intercom.android.sdk.Intercom.ContentType.SURVEY));
+        intercomInitialized = true;
       } catch (Throwable error) {
-        OneKeyLog.error("Intercom", "initialize failed: " + error);
+        OneKeyLog.error("Intercom", "Native initialization failed");
       }
     }
 
@@ -516,7 +526,7 @@ public class BaseMainApplication extends Application implements ReactApplication
     // component that hosts a WebView would need its own install() call.
     so.onekey.app.wallet.webview.WebEmbedLocalOrigin.install(this);
     initializeIntercom();
-    registerActivityLifecycleCallbacks(new IntercomMessengerLockGuard());
+    registerActivityLifecycleCallbacks(intercomLockGuard);
 
     initializeNativeSentry();
 

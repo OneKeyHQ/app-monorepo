@@ -1,3 +1,4 @@
+import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { showIntercom } from '@onekeyhq/shared/src/modules3rdParty/intercom';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IInviteRewardRouteParams } from '@onekeyhq/shared/src/routes';
@@ -18,10 +19,18 @@ type ICommandHandler = (params: {
 
 const notificationCommandRegistry: Record<string, ICommandHandler> = {
   // The validated conversation id waits in bg until a foreground claims it.
-  [ENotificationCommand.openSupportConversation]: async () => {
-    // Extension notification clicks focus the expand tab, which owns unlock.
-    if (platformEnv.isExtension && !platformEnv.isExtensionUiExpandTab) {
-      return;
+  [ENotificationCommand.openSupportConversation]: async ({ data }) => {
+    // Route live UI clicks back to their source, without another wallet tab.
+    // An unclaimed intent stays recoverable by a later expand-tab mount.
+    if (platformEnv.isExtension) {
+      const targetNodeId = data?.targetNodeId;
+      if (
+        targetNodeId
+          ? targetNodeId !== appEventBus.nodeId
+          : !platformEnv.isExtensionUiExpandTab
+      ) {
+        return;
+      }
     }
     // Claim only after unlock so a foreground closed while locked keeps it.
     await whenAppUnlocked();

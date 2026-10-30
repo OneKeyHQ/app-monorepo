@@ -8,6 +8,7 @@ import { EAppSyncStorageKeys } from '../../storage/syncStorageKeys';
 import { getCurrentIntercomUserId, getIntercomCredentials } from './identity';
 import { notifyIntercomOpenFailed } from './openFailure';
 import {
+  type IIntercomLockPolicy,
   type IShowIntercomParams,
   getInstanceId,
   getIntercomLanguageOverride,
@@ -29,17 +30,25 @@ let currentTheme: 'light' | 'dark' | undefined;
 let messengerLocked = false;
 const unreadListeners = new Set<() => void>();
 
-function getNativeSdkApiKey() {
-  return platformEnv.isNativeAndroid
-    ? process.env.INTERCOM_ANDROID_API_KEY
-    : process.env.INTERCOM_IOS_API_KEY;
-}
+type IOneKeyIntercom = {
+  initialized: boolean;
+  updateLockPolicy?: (
+    locked: boolean,
+    autoLockEnabled: boolean,
+    lockDurationMinutes: number,
+    lastActivityMs: number,
+  ) => Promise<void>;
+};
+
+const nativeIntercom = NativeModules.OneKeyIntercom as
+  | IOneKeyIntercom
+  | undefined;
 
 function canUseNativeSdk() {
   // Older installed binaries and Catalyst keep the existing WebView entry.
   return (
     !platformEnv.isNativeIOSMacCatalyst &&
-    !!getNativeSdkApiKey() &&
+    nativeIntercom?.initialized === true &&
     !!NativeModules.IntercomEventEmitter
   );
 }
@@ -85,16 +94,9 @@ function toSdkThemeMode(sdk: IIntercomSdk, theme: 'light' | 'dark') {
 async function loadSdk() {
   if (!sdkPromise) {
     sdkPromise = (async () => {
-      const apiKey = getNativeSdkApiKey();
-      if (!apiKey) {
-        throw new OneKeyLocalError('Intercom native SDK key is not configured');
-      }
       const sdk = await import('@intercom/intercom-react-native');
-      // Android initializes in Application.onCreate (BaseMainApplication) so a
-      // Messenger Activity restored after process death can start before JS.
-      if (!platformEnv.isNativeAndroid) {
-        await sdk.default.initialize(apiKey, 'vbbj4ssb');
-      }
+      // Both platforms initialize before either JS runtime starts. Native owns
+      // readiness and keys, so OTA configuration cannot strand an old session.
       await sdk.default.setLauncherVisibility(sdk.Visibility.GONE);
       await sdk.default.setInAppMessageVisibility(sdk.Visibility.GONE);
       await sdk.default.suppressProactiveContent([
@@ -131,8 +133,22 @@ export async function setIntercomInAppMessageVisibility(_visible: boolean) {
   // Native keeps in-app messages off; unread dots and OneKey push cover replies.
 }
 
-export async function setIntercomMessengerLocked(locked: boolean) {
+export async function setIntercomMessengerLocked(
+  locked: boolean,
+  policy?: IIntercomLockPolicy,
+) {
+  if (!platformEnv.isNativeMainThread) {
+    return;
+  }
   messengerLocked = locked;
+  if (platformEnv.isNativeAndroid && policy) {
+    await nativeIntercom?.updateLockPolicy?.(
+      locked,
+      policy.autoLockEnabled,
+      policy.lockDurationMinutes,
+      policy.lastActivityMs,
+    );
+  }
   // Only a loaded SDK can be presenting the native Messenger.
   if (!locked || !sdkPromise) {
     return;
@@ -257,6 +273,14 @@ async function syncCurrentSession(userId: IUserId) {
   sessionPromise = operation;
   try {
     await operation;
+    // An identity change can cancel sync without throwing. Do not cache that
+    // fulfilled operation as a usable session if the user comes back later.
+    if (
+      sessionPromise === operation &&
+      activeSessionGeneration !== generation
+    ) {
+      sessionPromise = undefined;
+    }
   } catch (error) {
     if (sessionPromise === operation) {
       sessionPromise = undefined;

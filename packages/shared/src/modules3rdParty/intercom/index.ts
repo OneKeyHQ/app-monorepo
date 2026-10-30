@@ -3,6 +3,7 @@ import { OneKeyLocalError } from '../../errors';
 import { getCurrentIntercomUserId, getIntercomCredentials } from './identity';
 import { notifyIntercomOpenFailed } from './openFailure';
 import {
+  type IIntercomLockPolicy,
   type IShowIntercomParams,
   getInstanceId,
   getIntercomLanguageOverride,
@@ -61,7 +62,10 @@ const loadIntercomSdk = () => {
   return intercomSdkPromise;
 };
 
-export const setIntercomMessengerLocked = async (locked: boolean) => {
+export const setIntercomMessengerLocked = async (
+  locked: boolean,
+  _policy?: IIntercomLockPolicy,
+) => {
   messengerLocked = locked;
   if (locked && hasBooted) {
     const sdk = await loadIntercomSdk();
@@ -222,6 +226,9 @@ export const initIntercom = async (settings?: Partial<InitType>) => {
   intercomInitPromise = operation;
   try {
     await operation;
+    if (intercomInitPromise === operation && activeGeneration !== generation) {
+      intercomInitPromise = undefined;
+    }
   } catch (error) {
     if (intercomInitPromise === operation) {
       intercomInitPromise = undefined;

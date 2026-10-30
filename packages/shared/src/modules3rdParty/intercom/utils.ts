@@ -97,6 +97,12 @@ export type IShowIntercomParams = {
   conversationId?: string;
 };
 
+export type IIntercomLockPolicy = {
+  autoLockEnabled: boolean;
+  lockDurationMinutes: number;
+  lastActivityMs: number;
+};
+
 export const buildIntercomUrl = (
   baseUrl: string,
   params?: {

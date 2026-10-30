@@ -30,5 +30,10 @@ export const showIntercom = async (params?: IShowIntercomParams) => {
 
   // The metadata awaits above can outlive the identity check.
   await assertIntercomUserUnchanged(userId);
-  openUrlUtils.openUrlInApp(url, 'Support');
+  openUrlUtils.openUrlInApp(url, 'Support', {
+    hideHeaderRight: true,
+    redirectExternalNavigation: true,
+    disableBridge: true,
+    intercomUserId: userId,
+  });
 };

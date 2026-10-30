@@ -538,8 +538,6 @@ jobs:
       QA_JS_BUNDLE_UPLOAD_SECRET: ${{ secrets.QA_JS_BUNDLE_UPLOAD_SECRET }}
       SLACK_NOTIFICATION_WEBHOOK: ${{ secrets.SLACK_NOTIFICATION_WEBHOOK }}
       ACTION_SIGN_SECERT_KEY: ${{ secrets.ACTION_SIGN_SECERT_KEY }}
-      INTERCOM_IOS_API_KEY: ${{ secrets.INTERCOM_IOS_API_KEY }}
-      INTERCOM_ANDROID_API_KEY: ${{ secrets.INTERCOM_ANDROID_API_KEY }}
       # Onramper Headless credentials ride only with the iOS bundle.
       ONRAMPER_CLIENT_ID: ${{ secrets.ONRAMPER_CLIENT_ID }}
       ONRAMPER_API_KEY: ${{ secrets.ONRAMPER_API_KEY }}
@@ -577,8 +575,6 @@ jobs:
       QA_JS_BUNDLE_UPLOAD_SECRET: ${{ secrets.QA_JS_BUNDLE_UPLOAD_SECRET }}
       SLACK_NOTIFICATION_WEBHOOK: ${{ secrets.SLACK_NOTIFICATION_WEBHOOK }}
       ACTION_SIGN_SECERT_KEY: ${{ secrets.ACTION_SIGN_SECERT_KEY }}
-      INTERCOM_IOS_API_KEY: ${{ secrets.INTERCOM_IOS_API_KEY }}
-      INTERCOM_ANDROID_API_KEY: ${{ secrets.INTERCOM_ANDROID_API_KEY }}
 
   web-bundle:
     needs: prepare-params

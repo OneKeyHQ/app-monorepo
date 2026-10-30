@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useWebViewBridge } from '@onekeyfe/onekey-cross-webview';
-import { useRoute } from '@react-navigation/core';
+import { useIsFocused, useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 import { Share } from 'react-native';
 
@@ -22,6 +22,8 @@ import { useCrossDomainRedirect } from '@onekeyhq/kit/src/hooks/useCrossDomainRe
 import { handleDeepLinkUrl } from '@onekeyhq/kit/src/routes/config/deeplink';
 import { handlePrimeHostedCardCheckoutFallbackRequest } from '@onekeyhq/kit/src/views/Prime/hooks/primeHostedCardCheckout';
 import { handlePrimePurchaseSuccessCloseRequest } from '@onekeyhq/kit/src/views/Prime/primeSubscriptionPurchaseSuccess';
+import { useAppIsLockedAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/passwordLock';
+import { usePrimePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/prime';
 import { useSettingsFiatPaySiteWhitelistPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/settings';
 import {
   EWebEmbedPrivateRequestMethod,
@@ -64,8 +66,28 @@ export default function WebViewModal() {
     redirectExternalNavigation,
     hideHeaderRight,
     enableDappBridge,
+    disableBridge,
+    intercomUserId,
   } = route.params;
   const navigation = useAppNavigation();
+  const isFocused = useIsFocused();
+  const [isLocked] = useAppIsLockedAtom();
+  const [{ isLoggedIn, onekeyUserId }] = usePrimePersistAtom();
+  const supportSessionClosed = useRef(false);
+  const supportDismissed = useRef(false);
+  if (
+    intercomUserId !== undefined &&
+    (isLocked || (isLoggedIn ? onekeyUserId : null) !== intercomUserId)
+  ) {
+    supportSessionClosed.current = true;
+  }
+  const shouldCloseSupport = supportSessionClosed.current;
+  useEffect(() => {
+    if (shouldCloseSupport && isFocused && !supportDismissed.current) {
+      supportDismissed.current = true;
+      navigation.pop();
+    }
+  }, [isFocused, navigation, shouldCloseSupport]);
 
   const { copyText } = useClipboard();
   const intl = useIntl();
@@ -339,6 +361,12 @@ export default function WebViewModal() {
   // change notifications a live dApp session needs.
   const WebViewComponent = enableDappBridge ? WebViewWithFeatures : WebView;
 
+  // Unmount immediately even when another modal covers this route. Only pop
+  // when focused, so an unrelated modal is never dismissed in its place.
+  if (shouldCloseSupport) {
+    return null;
+  }
+
   return (
     <Page>
       <Page.Header
@@ -362,6 +390,7 @@ export default function WebViewModal() {
           />
         ) : (
           <WebViewComponent
+            disableBridge={disableBridge}
             onWebViewRef={(ref) => ref && setWebViewRef(ref)}
             src={url}
             mediaPermissionWhitelist={fiatPaySiteWhitelist}

@@ -725,6 +725,9 @@ def registerUnionBuildTask(variant, appProjectRootDir) {
 }
 
 dependencies {
+    // BaseMainApplication uses the SDK directly. Match the pinned RN wrapper;
+    // its implementation dependency is not exposed on this app's compile path.
+    implementation 'io.intercom.android:intercom-sdk:18.10.0'
     // The version of react-native is set by the React Native Gradle Plugin
     implementation("com.facebook.react:react-android")
 

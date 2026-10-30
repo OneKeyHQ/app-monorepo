@@ -30,10 +30,13 @@ describe('support notification delivery across startup', () => {
   const previousProxy = appGlobals.$backgroundApiProxy;
   const previousIsExtensionBackground = platformEnv.isExtensionBackground;
   let service: ServiceNotification;
+  const mockIsLocked = jest.fn(async () => false);
 
   beforeEach(() => {
     globalThis.$onekeyIsInBackground = true;
-    service = new ServiceNotification({ backgroundApi: {} });
+    service = new ServiceNotification({
+      backgroundApi: { serviceApp: { isAppLocked: mockIsLocked } },
+    });
     appGlobals.$backgroundApiProxy = {
       serviceNotification: service,
     } as typeof appGlobals.$backgroundApiProxy;
@@ -98,6 +101,51 @@ describe('support notification delivery across startup', () => {
     ).toBeLessThan(emit.mock.invocationCallOrder[0]);
     await expect(service.takePendingSupportConversation()).resolves.toEqual({
       conversationId: 'conversation-123',
+    });
+  });
+
+  it('targets the originating unlocked UI without creating another wallet tab', async () => {
+    platformEnv.isExtensionBackground = true;
+    mockIsLocked.mockResolvedValueOnce(false);
+    const emit = jest.spyOn(appEventBus, 'emit');
+    await service.requestOpenSupportConversation({
+      conversationId: 'c',
+      sourceNodeId: 'popup',
+    });
+    expect(extUtils.openExpandTab).not.toHaveBeenCalled();
+    expect(emit).toHaveBeenCalledWith(
+      EAppEventBusNames.ExecuteNotificationCommand,
+      {
+        action: ENotificationCommand.openSupportConversation,
+        data: { targetNodeId: 'popup' },
+      },
+    );
+    // If the popup closes before claiming, the next expand tab can recover it.
+    await expect(service.takePendingSupportConversation()).resolves.toEqual({
+      conversationId: 'c',
+    });
+    await expect(
+      service.takePendingSupportConversation(),
+    ).resolves.toBeUndefined();
+  });
+
+  it('moves a locked UI request to the expand tab for unlock', async () => {
+    platformEnv.isExtensionBackground = true;
+    mockIsLocked.mockResolvedValueOnce(true);
+    const emit = jest.spyOn(appEventBus, 'emit');
+    await service.requestOpenSupportConversation({
+      conversationId: 'c',
+      sourceNodeId: 'popup',
+    });
+    expect(extUtils.openExpandTab).toHaveBeenCalledTimes(1);
+    expect(emit).toHaveBeenCalledWith(
+      EAppEventBusNames.ExecuteNotificationCommand,
+      {
+        action: ENotificationCommand.openSupportConversation,
+      },
+    );
+    await expect(service.takePendingSupportConversation()).resolves.toEqual({
+      conversationId: 'c',
     });
   });
 

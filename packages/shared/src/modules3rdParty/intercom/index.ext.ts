@@ -1,9 +1,12 @@
+import { openUrlExternal } from '../../utils/openUrlUtils';
+
 import {
   assertIntercomUserUnchanged,
   getCurrentIntercomIdentity,
 } from './identity';
 import { notifyIntercomOpenFailed } from './openFailure';
 import {
+  type IIntercomLockPolicy,
   type IShowIntercomParams,
   buildIntercomUrl,
   getInstanceId,
@@ -17,7 +20,10 @@ export const setIntercomTheme = async (_theme: 'light' | 'dark') => {
   // The extension opens the website instead of the native SDK.
 };
 
-export const setIntercomMessengerLocked = async (_locked: boolean) => {
+export const setIntercomMessengerLocked = async (
+  _locked: boolean,
+  _policy?: IIntercomLockPolicy,
+) => {
   // Support opens in a separate browser window outside the wallet lock.
 };
 
@@ -41,7 +47,7 @@ const openIntercom = async (params?: IShowIntercomParams) => {
 
   // The metadata awaits above can outlive the identity check.
   await assertIntercomUserUnchanged(userId);
-  window.open(url);
+  openUrlExternal(url);
 };
 
 export const showIntercom = async (params?: IShowIntercomParams) => {

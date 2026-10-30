@@ -1,3 +1,4 @@
+import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { showIntercom } from '@onekeyhq/shared/src/modules3rdParty/intercom';
 import { ENotificationCommand } from '@onekeyhq/shared/types/notification';
 
@@ -94,6 +95,25 @@ describe('support conversation notification command', () => {
     mockTakePending.mockResolvedValueOnce(undefined);
     await expect(openSupport()).resolves.toBe(true);
     expect(showIntercom).not.toHaveBeenCalled();
+  });
+
+  it('routes a UI click to its source instead of every mounted foreground', async () => {
+    mockPlatformEnv.isExtension = true;
+    mockPlatformEnv.isExtensionUiExpandTab = true;
+    await executeNotificationCommand(
+      ENotificationCommand.openSupportConversation,
+      context,
+      { targetNodeId: 'another-runtime' },
+    );
+    expect(mockTakePending).not.toHaveBeenCalled();
+    mockPlatformEnv.isExtensionUiExpandTab = false;
+    mockTakePending.mockResolvedValueOnce({ conversationId: 'c' });
+    await executeNotificationCommand(
+      ENotificationCommand.openSupportConversation,
+      context,
+      { targetNodeId: appEventBus.nodeId },
+    );
+    expect(showIntercom).toHaveBeenCalledWith({ conversationId: 'c' });
   });
 
   it('leaves extension popups to the expand tab', async () => {

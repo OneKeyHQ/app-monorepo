@@ -81,6 +81,9 @@ const openUrlByWebview = (
         title,
         enableDappBridge: options?.enableDappBridge,
         redirectExternalNavigation: options?.redirectExternalNavigation,
+        hideHeaderRight: options?.hideHeaderRight,
+        disableBridge: options?.disableBridge,
+        intercomUserId: options?.intercomUserId,
       },
     },
   });
@@ -157,6 +160,10 @@ const openUrlOutsideNative = (url: string): void => {
 };
 
 export interface IOpenUrlInAppOptions {
+  hideHeaderRight?: boolean;
+  disableBridge?: boolean;
+  /** Bind an authenticated support page to its opening wallet identity. */
+  intercomUserId?: string | null;
   /**
    * The page is expected to talk to the wallet (connect, sign). Adds the
    * account/network change notifications a dApp session needs; see
