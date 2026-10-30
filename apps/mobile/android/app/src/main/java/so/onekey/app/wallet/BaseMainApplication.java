@@ -403,6 +403,11 @@ public class BaseMainApplication extends Application implements ReactApplication
       }
       try {
         com.intercom.reactnative.IntercomModule.initialize(this, apiKey, "vbbj4ssb");
+        // A restored session can receive messages before JS applies visibility.
+        io.intercom.android.sdk.Intercom.client().setInAppMessageVisibility(
+            io.intercom.android.sdk.Intercom.Visibility.GONE);
+        io.intercom.android.sdk.Intercom.client().setLauncherVisibility(
+            io.intercom.android.sdk.Intercom.Visibility.GONE);
       } catch (Throwable error) {
         OneKeyLog.error("Intercom", "initialize failed: " + error);
       }
