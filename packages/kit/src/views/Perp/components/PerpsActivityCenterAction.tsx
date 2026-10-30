@@ -13,6 +13,7 @@ import { useIntl } from 'react-intl';
 
 import type { IButtonProps } from '@onekeyhq/components';
 import {
+  Button,
   Dialog,
   IconButton,
   Stack,
@@ -33,6 +34,7 @@ import { usePerpsCommonConfigPersistAtom } from '@onekeyhq/kit-bg/src/states/jot
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import { usePerpsRecallBannerVisibility } from '../hooks/usePerpsRecallBannerVisibility';
 import { usePerpsRecallProgress } from '../hooks/usePerpsRecallProgress';
 
 import { PerpsCampaignIllustration } from './PerpsCampaignIllustration';
@@ -44,6 +46,10 @@ import { PerpsRecallIllustration } from './PerpsRecallIllustration';
 
 function usePerpsActivityHubProps() {
   const { progress, instanceId, refresh } = usePerpsRecallProgress();
+  const { isBannerHidden, setBannerHidden } = usePerpsRecallBannerVisibility({
+    instanceId,
+    activityId: progress?.activityId,
+  });
   const [{ perpConfigCommon }] = usePerpsCommonConfigPersistAtom();
   const campaigns = useMemo(
     () => perpConfigCommon?.activityCards ?? [],
@@ -74,6 +80,8 @@ function usePerpsActivityHubProps() {
     refresh,
     detailEntry,
     instanceId,
+    isBannerHidden,
+    setBannerHidden,
   };
 }
 
@@ -92,8 +100,13 @@ export function PerpsActivityCenterContent({
   menuShortcuts?: ReactNode;
   renderMenuReferral?: (referral: ReactNode) => ReactNode;
 }) {
-  const { campaigns, handleOpenReferral, detailEntry } =
-    usePerpsActivityHubProps();
+  const {
+    campaigns,
+    handleOpenReferral,
+    detailEntry,
+    isBannerHidden,
+    setBannerHidden,
+  } = usePerpsActivityHubProps();
   const showActivityHub = useShowActivityHub();
   // The menu already lists the campaigns, so the dialog holds only the
   // invite panel.
@@ -102,26 +115,43 @@ export function PerpsActivityCenterContent({
   }, [handleOpenReferral, showActivityHub]);
 
   return (
-    <ActivityHubContent
-      source="Perps"
-      closePopover={closePopover}
-      showTitle={showTitle}
-      menuLayout={menuLayout}
-      menuPopoverLayout={menuPopoverLayout}
-      menuShortcuts={menuShortcuts}
-      renderMenuReferral={renderMenuReferral}
-      campaignFallbackIllustration={
-        menuLayout ? <PerpsCampaignIllustration trimmed /> : undefined
-      }
-      onOpenReferral={handleOpenReferral}
-      onOpenInvitePanel={
-        menuLayout && shouldShowActivityHubInvitePanel()
-          ? openInvitePanel
-          : undefined
-      }
-      campaigns={campaigns}
-      detailEntry={detailEntry}
-    />
+    <>
+      <ActivityHubContent
+        source="Perps"
+        closePopover={closePopover}
+        showTitle={showTitle}
+        menuLayout={menuLayout}
+        menuPopoverLayout={menuPopoverLayout}
+        menuShortcuts={menuShortcuts}
+        renderMenuReferral={renderMenuReferral}
+        campaignFallbackIllustration={
+          menuLayout ? <PerpsCampaignIllustration trimmed /> : undefined
+        }
+        onOpenReferral={handleOpenReferral}
+        onOpenInvitePanel={
+          menuLayout && shouldShowActivityHubInvitePanel()
+            ? openInvitePanel
+            : undefined
+        }
+        campaigns={campaigns}
+        detailEntry={detailEntry}
+      />
+      {menuLayout && isBannerHidden ? (
+        <YStack px="$5" pb="$3">
+          <Button
+            testID="perps-recall-restore-banner"
+            variant="tertiary"
+            size="small"
+            onPress={() => {
+              setBannerHidden(false);
+              closePopover();
+            }}
+          >
+            Restore reward banner
+          </Button>
+        </YStack>
+      ) : null}
+    </>
   );
 }
 

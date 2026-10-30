@@ -152,7 +152,13 @@ export function PerpsRecallProgressCard({
         </Stack>
       </XStack>
 
-      <YStack gap="$4" p="$3" borderRadius="$4" bg="$bgStrong">
+      <YStack
+        gap="$4"
+        p="$3"
+        borderRadius="$4"
+        bg="$bgSubdued"
+        $theme-dark={{ bg: '$bgStrong' }}
+      >
         <XStack alignItems="center" gap="$3">
           <RecallProgressRing percentage={percentage} achieved={achieved} />
           <YStack flex={1} minWidth={0} gap="$1">

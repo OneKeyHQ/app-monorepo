@@ -1203,6 +1203,7 @@ export type IPerpsLastAdvancedOrderType = ETriggerOrderType | 'scale' | 'twap';
 export type IPerpsChartPosition = 'top' | 'bottom' | 'hidden';
 
 export interface IPerpsCustomSettings {
+  dismissedRecallBanners?: Record<string, boolean>;
   positionActionVisibility?: Partial<
     Record<'add' | 'tpsl' | 'close' | 'reverse', boolean>
   >;
