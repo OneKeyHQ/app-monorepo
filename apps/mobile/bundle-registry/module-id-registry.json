@@ -22451,6 +22451,7 @@
     "packages/kit-bg/src/vaults/localWallet/privacyChainCacheStore.ts": 8500,
     "packages/kit-bg/src/vaults/localWallet/remoteConfig.ts": 12299,
     "packages/kit-bg/src/vaults/localWallet/storageSupport.ts": 5643,
+    "packages/kit-bg/src/vaults/localWallet/syncStatus.ts": 11154,
     "packages/kit-bg/src/vaults/localWallet/syncTurn.ts": 9985,
     "packages/kit-bg/src/vaults/localWallet/tokenList.ts": 10124,
     "packages/kit-bg/src/vaults/localWallet/userFacingError.ts": 3644,

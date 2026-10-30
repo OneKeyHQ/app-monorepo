@@ -70,6 +70,7 @@ const settings: IVaultSettings = {
     privateAddressPattern: '^u1[02-9ac-hj-np-z]+$',
     hiddenEndpointLabelId: ETranslations.privacy_history_shielded__title,
     tipLagWarningBlocks: 48,
+    syncedBelowBlocks: 48,
     // The first release exposes transparent funds and the Ironwood pool.
     pools: [
       {

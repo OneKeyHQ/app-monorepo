@@ -255,6 +255,9 @@ export type IVaultSettings = {
     balanceShape: 'single' | 'pooled';
     // In this chain's blocks; block time differs per chain.
     tipLagWarningBlocks: number;
+    // Fewer blocks left than this is Synced everywhere: the status, the light closing, a send
+    // gated on sync.
+    syncedBelowBlocks: number;
     // Display order is tab order. At most one backend pool.
     pools: ILocalWalletPoolDescriptor[];
     // Pools history may name but that have no tab, balance or address.

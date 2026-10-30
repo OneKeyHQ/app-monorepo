@@ -50,6 +50,9 @@ jest.mock('react-intl', () => ({
   }),
 }));
 jest.mock('@onekeyhq/kit/src/utils/privacyChainSyncDisplay', () => ({
+  ...jest.requireActual<
+    typeof import('@onekeyhq/kit/src/utils/privacyChainSyncDisplay')
+  >('@onekeyhq/kit/src/utils/privacyChainSyncDisplay'),
   formatPrivacyChainSyncError: (kind?: string) =>
     kind ? `sync-error:${kind}` : undefined,
 }));
@@ -102,8 +105,20 @@ describe('send sync status text', () => {
   it('explains why a send is waiting', () => {
     const text = (readiness: ILocalWalletSendReadiness) =>
       getLocalWalletSendSyncStatusText({ readiness, intl });
-    expect(text({ blocksLeft: 5, canSend: false, paused: true })).toBe(
-      ETranslations.privacy_send_private_paused__msg,
+    for (const status of [
+      'accountPaused',
+      'chainPaused',
+      'unavailable',
+    ] as const) {
+      expect(text({ blocksLeft: 5, canSend: false, status })).toBe(
+        ETranslations.privacy_send_private_paused__msg,
+      );
+    }
+    expect(
+      text({ blocksLeft: 5, canSend: false, status: 'storageUnsupported' }),
+    ).toBe(ETranslations.privacy_error_webview_outdated__msg);
+    expect(text({ blocksLeft: 5, canSend: false, status: 'waitingWifi' })).toBe(
+      ETranslations.privacy_sync_waiting_wifi__msg,
     );
     expect(
       text({ blocksLeft: 5, canSend: false, syncError: 'nodeUnreachable' }),

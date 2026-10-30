@@ -5,66 +5,27 @@ import type { ILocalWalletSyncProgress } from '@onekeyhq/kit-bg/src/vaults/local
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import {
+  PRIVACY_CHAIN_SYNC_STATUS_LABELS,
   formatPrivacyChainSyncError,
   formatPrivacyChainSyncProgress,
   formatPrivacyChainSyncSummary,
   formatPrivacyChainTimeLeft,
   getPrivacyChainBackfillProgress,
   getPrivacyChainNetworkSyncDisplay,
-  getPrivacyChainSyncLabel,
   isPrivacyChainTimeLeftReliable,
   pickPrivacyChainSummaryFigure,
   pickSlowestPrivacyChainNetwork,
 } from './privacyChainSyncDisplay';
 
-it('does not label ordinary scanning as data-blocked', () => {
-  expect(getPrivacyChainSyncLabel({ backfilling: true })).toBe(
-    ETranslations.global_syncing,
+it('labels both pauses alike, and an outdated WebView as a sync error', () => {
+  expect(PRIVACY_CHAIN_SYNC_STATUS_LABELS.accountPaused).toBe(
+    ETranslations.syncing_paused__title,
   );
-  expect(getPrivacyChainSyncLabel({ backfilling: false })).toBe(
-    ETranslations.global_synced,
+  expect(PRIVACY_CHAIN_SYNC_STATUS_LABELS.chainPaused).toBe(
+    ETranslations.syncing_paused__title,
   );
-});
-
-it('puts an unsupported device above every other state', () => {
-  expect(
-    getPrivacyChainSyncLabel({
-      storageUnsupported: true,
-      disabled: true,
-      paused: true,
-      held: true,
-      backfilling: true,
-    }),
-  ).toBe(ETranslations.privacy_error_webview_outdated__msg);
-});
-
-it('prioritizes disabled, paused, held, and preparing states consistently', () => {
-  expect(
-    getPrivacyChainSyncLabel({
-      disabled: true,
-      paused: true,
-      held: true,
-      preparing: true,
-      backfilling: true,
-    }),
-  ).toBe(ETranslations.global_disabled);
-  expect(
-    getPrivacyChainSyncLabel({
-      paused: true,
-      held: true,
-      preparing: true,
-      backfilling: true,
-    }),
-  ).toBe(ETranslations.syncing_paused__title);
-  expect(
-    getPrivacyChainSyncLabel({
-      held: true,
-      preparing: true,
-      backfilling: true,
-    }),
-  ).toBe(ETranslations.privacy_sync_waiting_wifi__msg);
-  expect(getPrivacyChainSyncLabel({ preparing: true, backfilling: true })).toBe(
-    ETranslations.global_preparing,
+  expect(PRIVACY_CHAIN_SYNC_STATUS_LABELS.storageUnsupported).toBe(
+    ETranslations.global_sync_error,
   );
 });
 
@@ -131,12 +92,27 @@ describe('chain status shared by settings and the floating control', () => {
     backfillScannedHeight: null,
     backfillProgress: 0,
   };
+  const complete = {
+    ...scanning,
+    backfillScannedHeight: 1000,
+    backfillProgress: 1,
+    isBackfillComplete: true,
+    tipScannedHeight: 1000,
+    tipLag: 0,
+    isTipCaughtUp: true,
+  };
   let state: IPrivacyChainScanState;
+  const display = () =>
+    getPrivacyChainNetworkSyncDisplay({
+      state,
+      networkId: 'xmr--0',
+      syncedBelowBlocks: 100,
+    });
   beforeEach(() => {
     state = {
       boostingNetworkIds: ['xmr--0'],
       pausedNetworkIds: [],
-      preparingNetworkIds: [],
+      preparingAccountKeys: [],
       dataBlockedNetworkIds: [],
       storageUnsupportedNetworkIds: [],
       syncErrorByNetworkId: {},
@@ -144,75 +120,35 @@ describe('chain status shared by settings and the floating control', () => {
     };
   });
 
-  it('prepares after an explicit start, hiding other accounts figures', () => {
+  it('prepares after an explicit start, hiding that account figures', () => {
     state.progress = { 'xmr--0:active': scanning };
-    state.preparingNetworkIds = ['xmr--0'];
-    expect(
-      getPrivacyChainNetworkSyncDisplay({ state, networkId: 'xmr--0' }),
-    ).toMatchObject({
+    state.preparingAccountKeys = ['xmr--0:active'];
+    expect(display()).toMatchObject({
+      status: 'preparing',
       labelId: ETranslations.global_preparing,
-      entry: undefined,
-      isCaughtUp: false,
     });
+    expect(display().progress).toBeUndefined();
   });
 
-  it('reports a chain whose accounts all finished the backfill as caught up', () => {
-    const complete = {
-      ...scanning,
-      backfillScannedHeight: 1000,
-      backfillProgress: 1,
-      isBackfillComplete: true,
-    };
+  it('calls a chain synced only once every account is', () => {
     state.progress = { 'xmr--0:done': complete };
-    expect(
-      getPrivacyChainNetworkSyncDisplay({ state, networkId: 'xmr--0' })
-        .isCaughtUp,
-    ).toBe(true);
+    expect(display().status).toBe('synced');
     state.progress = { 'xmr--0:done': complete, 'xmr--0:queued': queued };
-    expect(
-      getPrivacyChainNetworkSyncDisplay({ state, networkId: 'xmr--0' })
-        .isCaughtUp,
-    ).toBe(false);
+    expect(display().status).toBe('syncing');
   });
 
   it('shows advancing work while another account is still waiting for its cursor', () => {
     state.progress = { 'xmr--0:active': scanning, 'xmr--0:queued': queued };
-    const result = getPrivacyChainNetworkSyncDisplay({
-      state,
-      networkId: 'xmr--0',
+    expect(display()).toMatchObject({
+      labelId: ETranslations.global_syncing,
+      progress: scanning,
     });
-    expect(result.labelId).toBe(ETranslations.global_syncing);
-    expect(result.entry).toBe(scanning);
   });
 
   it('prepares only while no account on this chain has a scanned cursor', () => {
     state.progress = { 'xmr--0:queued': queued, 'zec--0:other': scanning };
-    expect(
-      getPrivacyChainNetworkSyncDisplay({ state, networkId: 'xmr--0' }),
-    ).toMatchObject({
-      labelId: ETranslations.global_preparing,
-      entry: undefined,
-    });
-  });
-
-  it('does not claim 100% while the scheduler still has foreground work', () => {
-    const complete = {
-      ...scanning,
-      backfillScannedHeight: 1000,
-      backfillProgress: 1,
-      isBackfillComplete: true,
-    };
-    state.progress = { 'xmr--0:done': complete };
-    expect(
-      getPrivacyChainNetworkSyncDisplay({ state, networkId: 'xmr--0' }),
-    ).toMatchObject({
-      labelId: ETranslations.global_syncing,
-      entry: undefined,
-    });
-    state.boostingNetworkIds = [];
-    expect(
-      getPrivacyChainNetworkSyncDisplay({ state, networkId: 'xmr--0' }),
-    ).toMatchObject({ labelId: ETranslations.global_synced, entry: complete });
+    expect(display().labelId).toBe(ETranslations.global_preparing);
+    expect(display().progress).toBeUndefined();
   });
 
   it('puts pause and the data wait ahead of an old error', () => {
@@ -220,26 +156,38 @@ describe('chain status shared by settings and the floating control', () => {
     state.pausedNetworkIds = ['xmr--0'];
     state.dataBlockedNetworkIds = ['xmr--0'];
     state.syncErrorByNetworkId['xmr--0'] = 'failed';
-    expect(
-      getPrivacyChainNetworkSyncDisplay({ state, networkId: 'xmr--0' }),
-    ).toMatchObject({
-      labelId: ETranslations.syncing_paused__title,
-      syncError: undefined,
-    });
+    expect(display().labelId).toBe(ETranslations.syncing_paused__title);
+    expect(display().syncError).toBeUndefined();
     state.pausedNetworkIds = [];
-    expect(
-      getPrivacyChainNetworkSyncDisplay({ state, networkId: 'xmr--0' }),
-    ).toMatchObject({
-      labelId: ETranslations.privacy_sync_waiting_wifi__msg,
-      syncError: undefined,
-    });
+    expect(display().labelId).toBe(
+      ETranslations.privacy_sync_waiting_wifi__msg,
+    );
+    expect(display().syncError).toBeUndefined();
     state.dataBlockedNetworkIds = [];
-    expect(
-      getPrivacyChainNetworkSyncDisplay({ state, networkId: 'xmr--0' }),
-    ).toMatchObject({
+    expect(display()).toMatchObject({
       labelId: ETranslations.global_sync_error,
       syncError: 'failed',
     });
+  });
+
+  it('limits a wallet view to its own accounts and reports them all paused', () => {
+    state.progress = { 'xmr--0:mine': complete, 'xmr--0:other': scanning };
+    expect(
+      getPrivacyChainNetworkSyncDisplay({
+        state,
+        networkId: 'xmr--0',
+        syncedBelowBlocks: 100,
+        accountIds: ['mine'],
+      }).status,
+    ).toBe('synced');
+    expect(
+      getPrivacyChainNetworkSyncDisplay({
+        state,
+        networkId: 'xmr--0',
+        syncedBelowBlocks: 100,
+        accountPaused: true,
+      }).status,
+    ).toBe('accountPaused');
   });
 });
 

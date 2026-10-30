@@ -119,7 +119,7 @@ function publishedState(): IPrivacyChainScanState {
       boostingNetworkIds: [],
       dataBlockedNetworkIds: [],
       pausedNetworkIds: [],
-      preparingNetworkIds: [],
+      preparingAccountKeys: [],
       storageUnsupportedNetworkIds: [],
       syncErrorByNetworkId: {},
     } as IPrivacyChainScanState,
@@ -313,13 +313,20 @@ it.each([
   },
 );
 
-it('marks a chain preparing on an explicit sync until its next published position', async () => {
+it('marks an account preparing on an explicit sync until its next published position', async () => {
   const { service, candidate } = await createHarness();
   stubScheduling(service);
-  await service.startForegroundBoost({ networkId, trigger: 'manual-sync' });
-  expect(publishedState().preparingNetworkIds).toEqual([networkId]);
+  jest.spyOn(service, 'getPublishedRemainingBlocks').mockResolvedValue(0);
+  await service.startForegroundBoost({
+    networkId,
+    accountId,
+    trigger: 'manual-sync',
+  });
+  expect(publishedState().preparingAccountKeys).toEqual([
+    `${networkId}:${accountId}`,
+  ]);
   await service.publishScanProgress(candidate);
-  expect(publishedState().preparingNetworkIds).toEqual([]);
+  expect(publishedState().preparingAccountKeys).toEqual([]);
 });
 
 it('marks a chain preparing when an account is enabled, and starts it as soon as a Sync press would', async () => {
@@ -330,7 +337,9 @@ it('marks a chain preparing when an account is enabled, and starts it as soon as
     accountIds: [accountId],
     backfillActive: true,
   });
-  expect(publishedState().preparingNetworkIds).toEqual([networkId]);
+  expect(publishedState().preparingAccountKeys).toEqual([
+    `${networkId}:${accountId}`,
+  ]);
   expect(service.earliestTickAt).toBe(30_000);
 });
 

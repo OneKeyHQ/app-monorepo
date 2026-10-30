@@ -137,7 +137,7 @@ beforeEach(() => {
     boostingNetworkIds: [],
     dataBlockedNetworkIds: [],
     pausedNetworkIds: [],
-    preparingNetworkIds: [],
+    preparingAccountKeys: [],
     progress: {},
     syncErrorByNetworkId: {},
     storageUnsupportedNetworkIds: [],
@@ -244,9 +244,9 @@ it('shows nothing for a chain that has caught up', async () => {
   expect(screen.queryByTestId('privacy-chain-sync-light')).toBeNull();
 });
 
-it('prepares after an explicit start, without another account figures', async () => {
+it('prepares after an explicit start, without that account figures', async () => {
   mockState.boostingNetworkIds = ['xmr--0'];
-  mockState.preparingNetworkIds = ['xmr--0'];
+  mockState.preparingAccountKeys = ['xmr--0:active'];
   mockState.progress['xmr--0:active'] = scanProgress(191);
   render(<PrivacyChainSyncLight />);
   await screen.findByText(/Monero/);

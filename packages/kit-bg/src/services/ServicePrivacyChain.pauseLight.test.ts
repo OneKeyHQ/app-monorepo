@@ -5,7 +5,7 @@ type IPublished = {
   boostingNetworkIds: string[];
   dataBlockedNetworkIds: string[];
   pausedNetworkIds: string[];
-  preparingNetworkIds: string[];
+  preparingAccountKeys: string[];
   syncErrorByNetworkId: Record<string, string>;
 };
 
@@ -14,7 +14,7 @@ const mockEmptyState = (): IPublished => ({
   boostingNetworkIds: [],
   dataBlockedNetworkIds: [],
   pausedNetworkIds: [],
-  preparingNetworkIds: [],
+  preparingAccountKeys: [],
   syncErrorByNetworkId: {},
 });
 
@@ -60,6 +60,17 @@ describe('Privacy sync light pause state', () => {
           backfillActive: boolean;
         }) => Promise<void>;
         markLocalWalletOrphanCleanupDue: (networkId: string) => void;
+        startForegroundBoost: (params: {
+          networkId: string;
+          accountId?: string;
+          trigger: 'manual-sync';
+        }) => Promise<void>;
+        repairLocalChainData: (params: {
+          networkId: string;
+          accountId: string;
+          mode: 'height';
+          birthdayHeight: number;
+        }) => Promise<void>;
         foregroundBoostRequestedByNetwork: Record<string, boolean>;
         boostPausedByNetwork: Record<string, boolean>;
       },
@@ -87,12 +98,8 @@ describe('Privacy sync light pause state', () => {
     );
   }
 
-  function capabilityForAccounts(
-    accountIds: string[],
-    syncPolicy: { sendMaxBlocksLeft?: number } = {},
-  ) {
+  function capabilityForAccounts(accountIds: string[]) {
     return {
-      syncPolicy,
       listAccounts: async () => ({
         accounts: accountIds.map((accountId) => ({
           accountId,
@@ -161,53 +168,37 @@ describe('Privacy sync light pause state', () => {
     const pass = (
       service: ReturnType<typeof createService>,
       accountIds = ['account'],
-      syncPolicy: { sendMaxBlocksLeft?: number } = {},
     ) =>
       service.refreshAutoBoost({
         networkId,
         accountIds,
-        capability: capabilityForAccounts(accountIds, syncPolicy),
+        capability: capabilityForAccounts(accountIds),
       });
 
-    it('turns on at the threshold and stays on until sending is allowed', async () => {
+    // Zcash counts as synced below 48 blocks left (`syncedBelowBlocks`).
+    it('turns on at the threshold and stays on until the chain counts as synced', async () => {
       const service = createService();
-      const sendGate = { sendMaxBlocksLeft: 100 };
       publishBehind('account', {
         backfill: PRIVACY_CHAIN_LIGHT_MIN_BLOCKS_LEFT - 1,
         tipLag: 0,
       });
-      await pass(service, ['account'], sendGate);
+      await pass(service);
       expect(mockPublished.boostingNetworkIds).toEqual([]);
 
       publishBehind('account', {
         backfill: PRIVACY_CHAIN_LIGHT_MIN_BLOCKS_LEFT,
         tipLag: 0,
       });
-      await pass(service, ['account'], sendGate);
+      await pass(service);
       expect(mockPublished.boostingNetworkIds).toEqual([networkId]);
 
-      publishBehind('account', { backfill: 100, tipLag: 0 });
-      await pass(service, ['account'], sendGate);
-      expect(mockPublished.boostingNetworkIds).toEqual([networkId]);
-
-      publishBehind('account', { backfill: 99, tipLag: 0 });
-      await pass(service, ['account'], sendGate);
-      expect(mockPublished.boostingNetworkIds).toEqual([]);
-    });
-
-    // Zcash doesn't gate sends; its tip-lag warning (48 blocks) closes the light instead.
-    it('stays on until only ordinary tip lag is left where sends are not gated', async () => {
-      const service = createService();
-      service.foregroundBoostRequestedByNetwork[networkId] = true;
       publishBehind('account', { backfill: 0, tipLag: 48 });
       await pass(service);
-      expect(service.foregroundBoostRequestedByNetwork[networkId]).toBe(true);
+      expect(mockPublished.boostingNetworkIds).toEqual([networkId]);
 
       publishBehind('account', { backfill: 0, tipLag: 47 });
       await pass(service);
-      expect(
-        service.foregroundBoostRequestedByNetwork[networkId],
-      ).toBeUndefined();
+      expect(mockPublished.boostingNetworkIds).toEqual([]);
     });
 
     it('counts how far the scan trails the tip', async () => {
@@ -236,6 +227,78 @@ describe('Privacy sync light pause state', () => {
       await pass(service);
       expect(mockPublished.boostingNetworkIds).toEqual([]);
     });
+  });
+
+  describe('a rescan from a new start', () => {
+    const repair = {
+      networkId,
+      accountId: 'account',
+      mode: 'height' as const,
+      birthdayHeight: 3_000_000,
+    };
+    const createRepairService = ({
+      enabled = true,
+      runLocalChainDataRepair = jest.fn(async () => undefined),
+    } = {}) => {
+      const startForegroundBoost = jest.fn(async () => undefined);
+      const service = Object.assign(createService(), {
+        repairMutexByAccount: new Map(),
+        runLocalChainDataRepair,
+        requireAccountCapability: async () => ({
+          getAccountState: async () => ({ enabled, paused: !enabled }),
+        }),
+        startForegroundBoost,
+      });
+      return { service, startForegroundBoost };
+    };
+
+    it('shows at once instead of after the first pass', async () => {
+      const { service, startForegroundBoost } = createRepairService();
+      await service.repairLocalChainData(repair);
+      expect(startForegroundBoost).toHaveBeenCalledWith({
+        networkId,
+        accountId: 'account',
+        trigger: 'manual-sync',
+      });
+    });
+
+    it('leaves a paused account waiting for resume', async () => {
+      const { service, startForegroundBoost } = createRepairService({
+        enabled: false,
+      });
+      await service.repairLocalChainData(repair);
+      expect(startForegroundBoost).not.toHaveBeenCalled();
+    });
+
+    it('shows nothing when the rescan fails', async () => {
+      const { service, startForegroundBoost } = createRepairService({
+        runLocalChainDataRepair: jest
+          .fn()
+          .mockRejectedValue(new Error('rescan failed')),
+      });
+      await expect(service.repairLocalChainData(repair)).rejects.toThrow();
+      expect(startForegroundBoost).not.toHaveBeenCalled();
+    });
+  });
+
+  // Pause then Sync within one block: without a pass, nothing clears Preparing.
+  it('runs a pass on a manual sync even at an unchanged tip', async () => {
+    const service = Object.assign(createService(), {
+      runtimeSyncState: new Map([
+        [`${networkId}|main`, { accountSignature: 'account', lastChainTip: 1 }],
+      ]),
+      getLocalWalletNetworkIds: async () => [networkId],
+    });
+    await service.pauseLocalWalletScan({ networkId });
+    await service.startForegroundBoost({
+      networkId,
+      accountId: 'account',
+      trigger: 'manual-sync',
+    });
+    expect(service.runtimeSyncState.size).toBe(0);
+    expect(mockPublished.preparingAccountKeys).toEqual([
+      `${networkId}:account`,
+    ]);
   });
 
   // Pausing from Settings or after the boost request cleared must still publish, or the light stays

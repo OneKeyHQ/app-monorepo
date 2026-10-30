@@ -125,7 +125,7 @@ jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => ({
     {
       dataBlockedNetworkIds: [],
       pausedNetworkIds: mockPausedNetworks,
-      preparingNetworkIds: [],
+      preparingAccountKeys: [],
       boostingNetworkIds: mockBoostingNetworks,
       storageUnsupportedNetworkIds: mockUnsupportedNetworks,
       syncErrorByNetworkId: {},
@@ -599,17 +599,14 @@ describe('Privacy network settings for a temp wallet', () => {
     mockPausedNetworks = [];
     delete mockProgress['zec--0:hd-1--1'];
     delete mockProgress['zec--0:waiting'];
-    mockBoostingNetworks = ['zec--0'];
-    rerender(<PrivacyNetworkSettings networkId="zec--0" />);
-    expect(progressText(screen.getByTestId('privacy-sync-progress'))).toBe(
-      'global.syncing',
-    );
-    // Caught up: scanned and chain heights, never a bare "synced".
-    mockBoostingNetworks = [];
-    rerender(<PrivacyNetworkSettings networkId="zec--0" />);
-    expect(progressText(screen.getByTestId('privacy-sync-progress'))).toBe(
-      'global.synced · 100 / 100',
-    );
+    // Synced by blocks left, whatever the pace; with scanned and chain heights, never a bare "synced".
+    for (const boosting of [['zec--0'], []]) {
+      mockBoostingNetworks = boosting;
+      rerender(<PrivacyNetworkSettings networkId="zec--0" />);
+      expect(progressText(screen.getByTestId('privacy-sync-progress'))).toBe(
+        'global.synced · 100 / 100',
+      );
+    }
   });
 
   it.each(['date', 'height'] as const)(

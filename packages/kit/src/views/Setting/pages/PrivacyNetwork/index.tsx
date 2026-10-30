@@ -27,6 +27,7 @@ import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useRouteIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import { showPrivacyChainSlotsFullDialog } from '@onekeyhq/kit/src/utils/privacyChainSlotsFullDialog';
 import {
+  PRIVACY_CHAIN_SYNC_STATUS_LABELS,
   formatPrivacyChainSyncDetail,
   formatPrivacyChainSyncError,
   getPrivacyChainNetworkSyncDisplay,
@@ -309,6 +310,8 @@ type IPrivacyAccountEntry = {
   networkId: string;
   enabled: boolean;
   paused: boolean;
+  // An enable still waiting on its password or device: neither on nor off yet.
+  enabling: boolean;
   privacyDisabled?: boolean;
   birthdayTimestamp?: number;
   birthdayHintTimestamp?: number;
@@ -375,30 +378,36 @@ function PrivacyChainSettingsProgress({
       (entry.enabled || entry.paused),
   );
   const {
-    entry,
+    status,
+    progress: entry,
     labelId,
-    isPaused,
-    isHeldByData,
-    isStorageUnsupported,
     syncError,
   } = getPrivacyChainNetworkSyncDisplay({
     state,
     networkId,
+    syncedBelowBlocks: localWalletSettings?.syncedBelowBlocks ?? 1,
+    accountIds: accounts
+      .filter((account) => account.enabled)
+      .map((account) => account.accountId),
     accountPaused:
       accounts.length > 0 && accounts.every((account) => account.paused),
+    unavailable:
+      accounts.length > 0 &&
+      accounts.every((account) => account.privacyDisabled),
   });
   if (!accounts.length) return null;
-  const error = isStorageUnsupported
-    ? intl.formatMessage({
-        id: ETranslations.privacy_error_webview_outdated__msg,
-      })
-    : formatPrivacyChainSyncError(syncError, intl);
+  const error =
+    status === 'storageUnsupported'
+      ? intl.formatMessage({
+          id: ETranslations.privacy_error_webview_outdated__msg,
+        })
+      : formatPrivacyChainSyncError(syncError, intl);
   const detail =
     error ??
     formatPrivacyChainSyncDetail({
       progress: entry,
       settings: localWalletSettings,
-      stopped: isPaused || isHeldByData,
+      stopped: ['accountPaused', 'chainPaused', 'waitingWifi'].includes(status),
       intl,
     }) ??
     undefined;
@@ -477,6 +486,7 @@ export default function PrivacyNetworkSettings({
               networkId: account.networkId,
               enabled: state.enabled,
               paused: state.paused,
+              enabling: state.pendingOperation === 'enable',
               privacyDisabled: state.privacyDisabled,
               birthdayTimestamp: state.birthdayTimestamp,
               birthdayHintTimestamp: state.birthdayHintTimestamp,
@@ -750,15 +760,19 @@ export default function PrivacyNetworkSettings({
     showDeriveLabel: boolean,
   ) => {
     const busy = busyAccountId !== undefined;
-    const statusId: ETranslations = entry.enabled
+    // Same order as the sync status: unavailable, enabling, paused, then the switch itself.
+    let statusId: ETranslations = entry.enabled
       ? ETranslations.global_enabled
       : ETranslations.global_disabled;
-    let status = intl.formatMessage({
-      id: entry.paused ? ETranslations.syncing_paused__title : statusId,
-    });
     if (entry.walletIsTemp || entry.privacyDisabled) {
-      status = intl.formatMessage({ id: ETranslations.global_not_available });
+      statusId = ETranslations.global_not_available;
+    } else if (entry.enabling) {
+      statusId = PRIVACY_CHAIN_SYNC_STATUS_LABELS.enabling;
+    } else if (entry.paused) {
+      statusId = PRIVACY_CHAIN_SYNC_STATUS_LABELS.accountPaused;
     }
+    const status = intl.formatMessage({ id: statusId });
+    const canEnable = !entry.enabled && !entry.paused && !entry.enabling;
     return (
       <YStack
         key={entry.accountId}
@@ -798,7 +812,7 @@ export default function PrivacyNetworkSettings({
               })}
             </Button>
           ) : null}
-          {!entry.walletIsTemp && !entry.enabled && !entry.paused ? (
+          {!entry.walletIsTemp && canEnable ? (
             <Button
               testID={`privacy-network-enable-${entry.accountId}`}
               size="small"

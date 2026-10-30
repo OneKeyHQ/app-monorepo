@@ -13,10 +13,13 @@ import {
   usePrivacyChainPoolDisplayAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/privacyChainPool';
 import {
+  PRIVACY_CHAIN_SYNC_STATUS_LABELS,
   formatPrivacyChainSyncDetail,
   formatPrivacyChainSyncError,
 } from '@onekeyhq/kit/src/utils/privacyChainSyncDisplay';
 import { privacyChainAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import type { IPrivacyChainScanState } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { getLocalWalletAccountSyncStatus } from '@onekeyhq/kit-bg/src/vaults/localWallet/syncStatus';
 import type {
   ILocalWalletAccountAddresses,
   ILocalWalletAccountState,
@@ -286,16 +289,39 @@ export function useLocalWalletPool({
     });
   }, [freshAddresses, freshState, lastSeenKey]);
 
-  // The scheduler publishes progress after each pass; the read covers an account it has not reached yet.
-  const publishedProgressAtom = useMemo(
+  // This account's slice of the published scan state, so other accounts' progress does not
+  // re-render it. The scheduler publishes after each pass; the read below covers an account it
+  // has not reached yet.
+  const scanAtom = useMemo(
     () =>
       selectAtom(
         privacyChainAtom.atom(),
-        (value) => value.progress[`${networkId}:${accountId}`],
+        (value): IPrivacyChainScanState => {
+          const key = `${networkId}:${accountId}`;
+          const progress = value.progress[key];
+          const syncError = value.syncErrorByNetworkId[networkId];
+          const ofNetwork = (ids: string[]) =>
+            ids.filter((id) => id === networkId);
+          return {
+            progress: progress ? { [key]: progress } : {},
+            boostingNetworkIds: ofNetwork(value.boostingNetworkIds),
+            dataBlockedNetworkIds: ofNetwork(value.dataBlockedNetworkIds),
+            pausedNetworkIds: ofNetwork(value.pausedNetworkIds),
+            preparingAccountKeys: value.preparingAccountKeys.filter(
+              (item) => item === key,
+            ),
+            storageUnsupportedNetworkIds: ofNetwork(
+              value.storageUnsupportedNetworkIds,
+            ),
+            syncErrorByNetworkId: syncError ? { [networkId]: syncError } : {},
+          };
+        },
+        isEqual,
       ),
     [networkId, accountId],
   );
-  const publishedProgress = useAtomValue(publishedProgressAtom);
+  const scan = useAtomValue(scanAtom);
+  const publishedProgress = scan.progress[`${networkId}:${accountId}`];
   const { result: progressResult, run: refreshSyncProgress } = usePromiseResult(
     async () => {
       if (!canRead) return null;
@@ -377,37 +403,23 @@ export function useLocalWalletPool({
     refreshRef.current();
   }, []);
 
-  const syncStateAtom = useMemo(
-    () =>
-      selectAtom(
-        privacyChainAtom.atom(),
-        (value) => ({
-          storageUnsupported:
-            value.storageUnsupportedNetworkIds.includes(networkId),
-          paused: value.pausedNetworkIds.includes(networkId),
-          error:
-            value.pausedNetworkIds.includes(networkId) ||
-            value.dataBlockedNetworkIds.includes(networkId)
-              ? undefined
-              : value.syncErrorByNetworkId[networkId],
-        }),
-        isEqual,
-      ),
-    [networkId],
-  );
-  const {
-    storageUnsupported: isStorageUnsupported,
-    paused: networkPaused,
-    error: syncError,
-  } = useAtomValue(syncStateAtom);
-  const isSyncPaused = networkPaused || accountPaused;
-  const hasSyncError = isStorageUnsupported || syncError !== undefined;
-  const isPreparing =
-    enabled &&
-    !isSyncPaused &&
-    !hasSyncError &&
-    (!syncProgress ||
-      (syncProgress.isSyncing && syncProgress.backfillScannedHeight === null));
+  const syncView = state
+    ? getLocalWalletAccountSyncStatus({
+        scan,
+        networkId,
+        accountId,
+        account: state,
+        unavailable: isUnsupportedWallet,
+        progress: canRead ? readProgress : undefined,
+        syncedBelowBlocks: settings?.syncedBelowBlocks ?? 1,
+      })
+    : undefined;
+  const syncStatus = syncView?.status;
+  const isSyncPaused =
+    syncStatus === 'accountPaused' || syncStatus === 'chainPaused';
+  const hasSyncError =
+    syncStatus === 'error' || syncStatus === 'storageUnsupported';
+  const isPreparing = syncStatus === 'preparing' || syncStatus === 'enabling';
 
   const poolBalance: ILocalWalletPoolBalance | undefined = useMemo(
     () => balance?.pools.find((item) => item.key === pool?.key),
@@ -476,26 +488,29 @@ export function useLocalWalletPool({
     return clearDisplay;
   }, [accountId, canReadBalance, networkId, poolId, setPoolDisplay]);
 
-  let syncStatusText: string | null;
-  if (isStorageUnsupported) {
+  let syncStatusText: string | null = null;
+  if (syncStatus === 'storageUnsupported') {
     syncStatusText = intl.formatMessage({
       id: ETranslations.privacy_error_webview_outdated__msg,
     });
+  } else if (syncStatus === 'error') {
+    syncStatusText =
+      formatPrivacyChainSyncError(syncView?.syncError, intl) ?? null;
   } else if (isSyncPaused) {
     syncStatusText = intl.formatMessage({
-      id: ETranslations.syncing_paused__title,
+      id: PRIVACY_CHAIN_SYNC_STATUS_LABELS[syncStatus],
     });
-  } else {
-    syncStatusText =
-      formatPrivacyChainSyncError(syncError, intl) ??
-      formatPrivacyChainSyncDetail({
-        progress: syncProgress,
-        settings,
-        intl,
-      }) ??
-      (enabled
-        ? intl.formatMessage({ id: ETranslations.global_preparing })
-        : null);
+  } else if (isPreparing) {
+    syncStatusText = intl.formatMessage({
+      id: PRIVACY_CHAIN_SYNC_STATUS_LABELS.preparing,
+    });
+  } else if (syncStatus) {
+    syncStatusText = formatPrivacyChainSyncDetail({
+      progress: syncProgress,
+      settings,
+      stopped: syncStatus === 'waitingWifi',
+      intl,
+    });
   }
 
   const runBusy = useCallback(async (fn: () => Promise<void>) => {
@@ -580,9 +595,10 @@ export function useLocalWalletPool({
     addresses,
     syncProgress,
     syncStatusText,
+    syncStatus,
     isPreparing,
     isSyncPaused,
-    isNetworkPaused: networkPaused,
+    isNetworkPaused: syncStatus === 'chainPaused',
     hasSyncError,
     hasAttemptedBalance,
     busy,

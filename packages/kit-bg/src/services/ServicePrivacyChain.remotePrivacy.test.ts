@@ -13,6 +13,20 @@ const mockGetChainOnlyVault = jest.fn();
 jest.mock('../vaults/factory', () => ({
   vaultFactory: { getChainOnlyVault: mockGetChainOnlyVault },
 }));
+jest.mock('../states/jotai/atoms', () => ({
+  privacyChainAtom: {
+    set: async () => undefined,
+    get: async () => ({
+      progress: {},
+      boostingNetworkIds: [],
+      dataBlockedNetworkIds: [],
+      pausedNetworkIds: [],
+      preparingAccountKeys: [],
+      storageUnsupportedNetworkIds: [],
+      syncErrorByNetworkId: {},
+    }),
+  },
+}));
 jest.mock('../vaults/settings', () => ({
   getVaultSettings: async () => ({
     localWallet: { pools: [{ key: 'orchard', source: 'localScan' }] },
@@ -149,7 +163,7 @@ describe.each(['zec--0', 'xmr--0'])(
         }),
       ).toMatchObject({
         canSend: false,
-        paused: true,
+        status: 'unavailable',
       });
     });
 

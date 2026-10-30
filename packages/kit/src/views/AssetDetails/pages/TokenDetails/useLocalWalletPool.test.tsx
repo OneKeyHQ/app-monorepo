@@ -101,9 +101,10 @@ jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => {
   // eslint-disable-next-line @typescript-eslint/no-require-imports
   const { atom } = jest.requireActual<typeof import('jotai')>('jotai');
   const privacyChainAtomValue = atom({
+    boostingNetworkIds: [] as string[],
     storageUnsupportedNetworkIds: [] as string[],
     pausedNetworkIds: [] as string[],
-    preparingNetworkIds: [] as string[],
+    preparingAccountKeys: [] as string[],
     dataBlockedNetworkIds: [] as string[],
     syncErrorByNetworkId: {} as Record<string, string>,
     progress: {},
@@ -178,18 +179,11 @@ jest.mock('react-intl', () => ({
   useIntl: () => ({ formatMessage: ({ id }: { id: string }) => id }),
 }));
 jest.mock('@onekeyhq/kit/src/utils/privacyChainSyncDisplay', () => ({
+  ...jest.requireActual<
+    typeof import('@onekeyhq/kit/src/utils/privacyChainSyncDisplay')
+  >('@onekeyhq/kit/src/utils/privacyChainSyncDisplay'),
   formatPrivacyChainSyncError: (kind?: string) =>
     kind ? `sync-error:${kind}` : undefined,
-  formatPrivacyChainSyncDetail: (
-    ...args: Parameters<
-      typeof import('@onekeyhq/kit/src/utils/privacyChainSyncDisplay').formatPrivacyChainSyncDetail
-    >
-  ) =>
-    jest
-      .requireActual<
-        typeof import('@onekeyhq/kit/src/utils/privacyChainSyncDisplay')
-      >('@onekeyhq/kit/src/utils/privacyChainSyncDisplay')
-      .formatPrivacyChainSyncDetail(...args),
 }));
 jest.mock('@onekeyhq/shared/src/utils/dateUtils', () => ({}));
 jest.mock('@onekeyhq/shared/src/utils/privacyChainSyncPolicy', () => ({
@@ -307,9 +301,10 @@ describe('useLocalWalletPool first balance read', () => {
 
 const setPublishedScanState = (state: Partial<IPrivacyChainScanState>) =>
   getDefaultStore().set(privacyChainAtom.atom(), {
+    boostingNetworkIds: [],
     storageUnsupportedNetworkIds: [],
     pausedNetworkIds: [],
-    preparingNetworkIds: [],
+    preparingAccountKeys: [],
     dataBlockedNetworkIds: [],
     syncErrorByNetworkId: {},
     progress: {},

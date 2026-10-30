@@ -54,6 +54,10 @@ import {
 } from '../vaults/localWallet/remoteConfig';
 import { isLocalWalletStorageUnsupportedError } from '../vaults/localWallet/storageSupport';
 import {
+  getLocalWalletAccountSyncStatus,
+  isLocalWalletScanStopped,
+} from '../vaults/localWallet/syncStatus';
+import {
   LOCAL_WALLET_CHAIN_TIP_TIMEOUT_MESSAGE,
   LOCAL_WALLET_SYNC_TIMEOUT_MESSAGE,
   getLocalWalletSyncErrorKind,
@@ -99,6 +103,7 @@ import type {
   ILocalWalletLifecycleAction,
   ILocalWalletLifecycleEvent,
 } from '../vaults/localWallet/lifecycle';
+import type { ILocalWalletSyncStatusView } from '../vaults/localWallet/syncStatus';
 import type {
   ILocalWalletAccountAddresses,
   ILocalWalletAccountBalance,
@@ -381,6 +386,13 @@ class ServicePrivacyChain extends ServiceBase {
       if (key.startsWith(`${networkId}|`)) {
         this.syncFailureBackoff.delete(key);
       }
+    }
+  }
+
+  // The next tick then runs a pass even at an unchanged tip.
+  forgetRuntimeSyncState(networkId: string) {
+    for (const key of this.runtimeSyncState.keys()) {
+      if (key.startsWith(`${networkId}|`)) this.runtimeSyncState.delete(key);
     }
   }
 
@@ -700,6 +712,8 @@ class ServicePrivacyChain extends ServiceBase {
       return;
     }
     if (trigger === 'manual-sync') {
+      // A pass must follow, or nothing clears Preparing on a chain already at its tip.
+      this.forgetRuntimeSyncState(networkId);
       this.clearSyncFailureBackoff(networkId);
       await this.publishSyncError(networkId, undefined);
     }
@@ -716,7 +730,16 @@ class ServicePrivacyChain extends ServiceBase {
     delete this.boostPausedByNetwork[networkId];
     this.foregroundBoostRequestedByNetwork[networkId] = true;
     if (trigger === 'manual-sync') {
-      await this.setNetworkPreparing(networkId, true);
+      await this.setAccountsPreparing({
+        networkId,
+        accountIds: accountId
+          ? [accountId]
+          : (
+              await this.listScannableAccounts(
+                await this.requireAccountCapability(networkId),
+              )
+            ).map((account) => account.accountId),
+      });
     }
     // Publish before gate two can return early, so the UI can offer the data toggle.
     await this.publishBoostingNetworks();
@@ -864,9 +887,7 @@ class ServicePrivacyChain extends ServiceBase {
     // A paused chain stays paused; the caller re-reads the stored balance.
     if (this.boostPausedByNetwork[networkId]) return;
     // An explicit refresh checks even an unchanged tip.
-    for (const key of this.runtimeSyncState.keys()) {
-      if (key.startsWith(`${networkId}|`)) this.runtimeSyncState.delete(key);
-    }
+    this.forgetRuntimeSyncState(networkId);
     this.clearSyncFailureBackoff(networkId);
     await this.publishSyncError(networkId, undefined);
     // Lights the indicator only for a large catch-up, like any automatic start.
@@ -1013,9 +1034,7 @@ class ServicePrivacyChain extends ServiceBase {
         // eslint-disable-next-line no-continue
         continue;
       }
-      for (const key of this.runtimeSyncState.keys()) {
-        if (key.startsWith(`${networkId}|`)) this.runtimeSyncState.delete(key);
-      }
+      this.forgetRuntimeSyncState(networkId);
       if (later.length) {
         this.followUpSyncDueAt?.set(networkId, later);
       } else {
@@ -1151,7 +1170,7 @@ class ServicePrivacyChain extends ServiceBase {
       // An explicit enable needs a visible progress/consent control before the first scanned block
       // is published.
       this.foregroundBoostRequestedByNetwork[networkId] = true;
-      await this.setNetworkPreparing(networkId, true);
+      await this.setAccountsPreparing({ networkId, accountIds });
       await this.publishBoostingNetworks();
       this.shortenStartupQuietWindow();
     }
@@ -2814,6 +2833,18 @@ class ServicePrivacyChain extends ServiceBase {
         this.repairMutexByAccount.delete(params.accountId);
       }
     }
+    // A rescan the user asked for starts like Sync: shown at once, not after the first pass. A
+    // paused account keeps its new start until it resumes.
+    const capability = await this.requireAccountCapability(params.networkId);
+    const state = await capability.getAccountState({
+      accountId: params.accountId,
+    });
+    if (!state.enabled) return;
+    await this.startForegroundBoost({
+      networkId: params.networkId,
+      accountId: params.accountId,
+      trigger: 'manual-sync',
+    });
   }
 
   private async runLocalChainDataRepair({
@@ -4275,27 +4306,51 @@ class ServicePrivacyChain extends ServiceBase {
         sourcePool,
       });
     }
-    // Privacy switched off by the server: nothing scans, so no balance to vouch for.
-    if (isLocalWalletPrivacyDisabled(networkId)) {
-      return { blocksLeft: null, canSend: false, paused: true };
-    }
     const progress = await this.getLocalWalletSyncProgress({
       networkId,
       accountId,
     }).catch(() => undefined);
-    if (!progress) {
-      // A paused scan reports no progress and cannot vouch for the balance.
-      const state = await this.getLocalWalletAccountState({
-        networkId,
-        accountId,
-      }).catch(() => undefined);
-      return state?.paused ? { blocksLeft: null, canSend: false } : undefined;
-    }
-    const blocksLeft = getPrivacyChainBlocksLeft(progress);
+    const view = await this.getLocalWalletAccountSyncView({
+      networkId,
+      accountId,
+      progress,
+    }).catch(() => undefined);
+    // An account that never scanned has no balance to wait for.
+    if (!view || view.status === 'off') return undefined;
+    // Nothing scanning cannot vouch for the balance, however close it got before stopping.
+    const blocksLeft = isLocalWalletScanStopped(view.status)
+      ? null
+      : getPrivacyChainBlocksLeft(view.progress);
     return {
       blocksLeft,
       canSend: blocksLeft !== null && blocksLeft < sendMaxBlocksLeft,
+      status: view.status,
+      syncError: view.syncError,
     };
+  }
+
+  private async getLocalWalletAccountSyncView({
+    networkId,
+    accountId,
+    progress,
+  }: {
+    networkId: string;
+    accountId: string;
+    progress?: ILocalWalletSyncProgress;
+  }): Promise<ILocalWalletSyncStatusView> {
+    const [account, settings, scan] = await Promise.all([
+      this.getLocalWalletAccountState({ networkId, accountId }),
+      getVaultSettings({ networkId }),
+      privacyChainAtom.get(),
+    ]);
+    return getLocalWalletAccountSyncStatus({
+      scan,
+      networkId,
+      accountId,
+      account,
+      progress,
+      syncedBelowBlocks: settings.localWallet?.syncedBelowBlocks ?? 1,
+    });
   }
 
   // Caught up means a pass that ended after the send page's request reported
@@ -4312,26 +4367,27 @@ class ServicePrivacyChain extends ServiceBase {
     if (!(await this.isSendSyncRequired({ networkId, sourcePool }))) {
       return undefined;
     }
-    if (isLocalWalletPrivacyDisabled(networkId)) {
-      return { blocksLeft: null, canSend: false, paused: true };
-    }
-    const state = await this.getLocalWalletAccountState({
+    const view = await this.getLocalWalletAccountSyncView({
       networkId,
       accountId,
     }).catch(() => undefined);
-    if (!state?.enabled)
-      return { blocksLeft: null, canSend: false, paused: true };
+    if (!view || isLocalWalletScanStopped(view.status)) {
+      return {
+        blocksLeft: null,
+        canSend: false,
+        status: view?.status ?? 'off',
+      };
+    }
     const key = `${networkId}:${accountId}`;
-    const { progress, syncErrorByNetworkId } = await privacyChainAtom.get();
-    const blocksLeft = getPrivacyChainBlocksLeft(progress[key]);
+    const blocksLeft = getPrivacyChainBlocksLeft(view.progress);
     if (this.isSendSyncSatisfied(key)) {
       return { blocksLeft, canSend: true };
     }
     return {
       blocksLeft,
       canSend: false,
-      paused: !!this.boostPausedByNetwork[networkId],
-      syncError: syncErrorByNetworkId[networkId],
+      status: view.status,
+      syncError: view.syncError,
     };
   }
 
@@ -4524,8 +4580,8 @@ class ServicePrivacyChain extends ServiceBase {
         return {
           ...v,
           progress,
-          preparingNetworkIds: v.preparingNetworkIds.filter(
-            (id) => id !== networkId,
+          preparingAccountKeys: v.preparingAccountKeys.filter(
+            (key) => !liveKeys.has(key),
           ),
         };
       });
@@ -4539,19 +4595,21 @@ class ServicePrivacyChain extends ServiceBase {
     }
   }
 
-  // From an explicit start (Sync, enable) until the chain's next published position.
-  async setNetworkPreparing(networkId: string, preparing: boolean) {
-    await privacyChainAtom.set((value) => {
-      if (value.preparingNetworkIds.includes(networkId) === preparing) {
-        return value;
-      }
-      return {
-        ...value,
-        preparingNetworkIds: preparing
-          ? [...value.preparingNetworkIds, networkId]
-          : value.preparingNetworkIds.filter((id) => id !== networkId),
-      };
-    });
+  // From an explicit start (Sync, enable) until each account's next published position.
+  async setAccountsPreparing({
+    networkId,
+    accountIds,
+  }: {
+    networkId: string;
+    accountIds: string[];
+  }) {
+    await privacyChainAtom.set((value) => ({
+      ...value,
+      preparingAccountKeys: uniq([
+        ...value.preparingAccountKeys,
+        ...accountIds.map((accountId) => `${networkId}:${accountId}`),
+      ]),
+    }));
   }
 
   // A waiting user shortens the startup quiet window to its 30s floor.
@@ -4565,7 +4623,7 @@ class ServicePrivacyChain extends ServiceBase {
   // Two published lists: a wanted-but-refused boost is actionable (offers
   // the consent toggle) while a paused one is not; neither implies the other.
   async publishBoostingNetworks() {
-    // The server's privacy switch shows as a pause the user cannot lift.
+    // The server's privacy switch is not a request; accounts show it as unavailable.
     const remotePausedNetworkIds = listPrivacyDisabledNetworkIds();
     const requested = Object.keys(
       this.foregroundBoostRequestedByNetwork,
@@ -4575,12 +4633,9 @@ class ServicePrivacyChain extends ServiceBase {
     );
     // All paused networks, regardless of whether a boost was ever requested:
     // pausing must stay visible even after that request clears.
-    const pausedNetworkIds = uniq([
-      ...Object.keys(this.boostPausedByNetwork).filter(
-        (id) => !!this.boostPausedByNetwork[id],
-      ),
-      ...remotePausedNetworkIds,
-    ]);
+    const pausedNetworkIds = Object.keys(this.boostPausedByNetwork).filter(
+      (id) => !!this.boostPausedByNetwork[id],
+    );
     // A paused network is never also waiting for data consent.
     const dataBlockedNetworkIds = requested.filter(
       (id) =>
@@ -4634,14 +4689,10 @@ class ServicePrivacyChain extends ServiceBase {
         hasUnknownProgress = true;
       }
     }
-    // Once on, the light stays until sending is allowed, or where sends aren't gated, until only
-    // ordinary tip lag is left.
-    const closeBelowBlocks =
-      candidate.capability.syncPolicy.sendMaxBlocksLeft ??
-      settings.localWallet?.tipLagWarningBlocks ??
-      1;
+    // Once on, the light stays until the chain counts as synced.
     const isNearlyDone =
-      !hasUnknownProgress && (mostRemaining ?? 0) < closeBelowBlocks;
+      !hasUnknownProgress &&
+      (mostRemaining ?? 0) < (settings.localWallet?.syncedBelowBlocks ?? 1);
     const wanted = wasRequested
       ? !isNearlyDone
       : shouldStartBoost({

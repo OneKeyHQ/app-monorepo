@@ -3,6 +3,7 @@ import type { IEncodedTx } from '@onekeyhq/core/src/types';
 import type { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IDeviceSharedCallParams } from '@onekeyhq/shared/types/device';
 
+import type { ILocalWalletSyncStatus } from './syncStatus';
 import type { IRescanLocalWalletFrom } from '../types';
 
 export type ILocalWalletAccount = {
@@ -84,8 +85,8 @@ export type ILocalWalletSyncPolicy = {
 export type ILocalWalletSendReadiness = {
   blocksLeft: number | null;
   canSend: boolean;
-  // Why a sendSync wait is not moving: the network is paused, or its last pass failed.
-  paused?: boolean;
+  // Why sending waits: the account's sync status (paused, waiting for Wi-Fi, an error...).
+  status?: ILocalWalletSyncStatus;
   syncError?: ILocalWalletSyncErrorKind;
 };
 

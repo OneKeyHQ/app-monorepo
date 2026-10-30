@@ -306,7 +306,6 @@ function TokenDetailsHeaderContent({
     accountData: { account, vaultSettings },
   });
   const privacyStatus = useTokenPrivacyStatus({
-    networkId,
     pool: localWalletPool,
   });
   const isPrivateSynced = isPrivatePool && privacyStatus.state === 'synced';
@@ -822,7 +821,7 @@ function TokenDetailsHeaderContent({
         }
         disabled={
           isWatchOnly ||
-          localWalletPool.state?.paused ||
+          localWalletPool.isSyncPaused ||
           poolAction.disabled ||
           !poolAction.toAddress ||
           !poolAction.amount
@@ -891,7 +890,7 @@ function TokenDetailsHeaderContent({
               <RawActions testID="token-details-primary-actions">
                 <RawActions.Send
                   testID={AssetDetailsTestIDs.sendBtn}
-                  disabled={isPrivatePool && localWalletPool.state?.paused}
+                  disabled={isPrivatePool && localWalletPool.isSyncPaused}
                   onPress={handleSendPress}
                   trackID="wallet-token-details-send"
                 />
@@ -900,7 +899,7 @@ function TokenDetailsHeaderContent({
                   disabled={
                     isWatchOnly ||
                     isBotWalletReceiveBlocked ||
-                    (isPrivatePool && localWalletPool.state?.paused)
+                    (isPrivatePool && localWalletPool.isSyncPaused)
                   }
                   allowPressWhenDisabled={isBotWalletReceiveBlocked}
                   onPress={async () => {

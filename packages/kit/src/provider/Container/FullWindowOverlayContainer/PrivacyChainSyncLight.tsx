@@ -108,15 +108,19 @@ function PrivacyChainSyncNetwork({
       ? settingsResult.localWallet
       : undefined;
   const {
-    entry,
+    status,
+    progress: entry,
     labelId,
-    isStorageUnsupported,
     isRunning,
-    isPaused,
-    isHeldByData,
     syncError,
-  } = getPrivacyChainNetworkSyncDisplay({ state, networkId });
-  const isSyncing = labelId === ETranslations.global_syncing;
+  } = getPrivacyChainNetworkSyncDisplay({
+    state,
+    networkId,
+    syncedBelowBlocks: localWalletSettings?.syncedBelowBlocks ?? 1,
+  });
+  const isSyncing = status === 'syncing';
+  const isHeldByData = status === 'waitingWifi';
+  const isStopped = status === 'chainPaused' || isHeldByData;
   // A figure follows it here, so not the shared label that ends in an ellipsis.
   const stateLabel = intl.formatMessage({
     id: isSyncing ? ETranslations.privacy_sync_syncing__title : labelId,
@@ -130,7 +134,7 @@ function PrivacyChainSyncNetwork({
         })
       : undefined;
   let syncErrorText: string | undefined;
-  if (isStorageUnsupported) {
+  if (status === 'storageUnsupported') {
     syncErrorText = intl.formatMessage({
       id: ETranslations.privacy_error_webview_outdated__msg,
     });
@@ -144,7 +148,7 @@ function PrivacyChainSyncNetwork({
     formatPrivacyChainSyncDetail({
       progress: entry,
       settings: localWalletSettings,
-      stopped: isPaused || isHeldByData,
+      stopped: isStopped,
       shownAbove: summaryFigure,
       intl,
     });
@@ -162,7 +166,7 @@ function PrivacyChainSyncNetwork({
   if (syncErrorText) {
     lightIcon = 'ErrorOutline';
     lightIconColor = '$iconCaution';
-  } else if (isPaused || isHeldByData) {
+  } else if (isStopped) {
     lightIcon = 'PauseOutline';
   }
   return (
@@ -240,23 +244,39 @@ function BasicPrivacyChainSyncLight() {
     () => uniq([...boostingNetworkIds, ...dataBlockedNetworkIds]),
     [boostingNetworkIds, dataBlockedNetworkIds],
   );
-  // A chain that has caught up only follows the tip; it shows only to report a wait or an error.
+  const activeNetworkKey = activeNetworkIds.join(',');
+  const { result: syncedBelowBlocksByNetwork } = usePromiseResult(
+    async () =>
+      Object.fromEntries(
+        await Promise.all(
+          activeNetworkKey
+            .split(',')
+            .filter(Boolean)
+            .map(async (id) => {
+              const settings =
+                await backgroundApiProxy.serviceNetwork.getVaultSettings({
+                  networkId: id,
+                });
+              return [id, settings.localWallet?.syncedBelowBlocks] as const;
+            }),
+        ),
+      ),
+    [activeNetworkKey],
+    { checkIsFocused: false },
+  );
+  // A synced chain only follows the tip, so it has nothing to show.
   const visibleNetworkIds = useMemo(
     () =>
-      activeNetworkIds.filter((id) => {
-        if (closingNetworkIds.includes(id)) return false;
-        const display = getPrivacyChainNetworkSyncDisplay({
-          state,
-          networkId: id,
-        });
-        return (
-          !display.isCaughtUp ||
-          display.isStorageUnsupported ||
-          display.isHeldByData ||
-          display.syncError !== undefined
-        );
-      }),
-    [activeNetworkIds, closingNetworkIds, state],
+      activeNetworkIds.filter(
+        (id) =>
+          !closingNetworkIds.includes(id) &&
+          getPrivacyChainNetworkSyncDisplay({
+            state,
+            networkId: id,
+            syncedBelowBlocks: syncedBelowBlocksByNetwork?.[id] ?? 1,
+          }).status !== 'synced',
+      ),
+    [activeNetworkIds, closingNetworkIds, state, syncedBelowBlocksByNetwork],
   );
   useEffect(() => {
     setClosingNetworkIds((ids) => {
