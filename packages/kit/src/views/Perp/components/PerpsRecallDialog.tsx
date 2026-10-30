@@ -1,6 +1,7 @@
 import {
+  Button,
   Dialog,
-  IconButton,
+  NATIVE_HIT_SLOP,
   SizableText,
   Stack,
   useDialogInstance,
@@ -10,7 +11,7 @@ import { HELP_CENTER_URL } from '@onekeyhq/shared/src/config/appConfig';
 import { usePerpsRecallProgress } from '../hooks/usePerpsRecallProgress';
 
 import { openGuideUrl } from './Guide/perpGuideData';
-import { PerpFeatureDot } from './PerpFeatureDot';
+import { PerpsRecallActivityIcon } from './PerpsRecallActivityIcon';
 import { PerpsRecallProgressCard } from './PerpsRecallProgressCard';
 
 type IPerpsRecallDialogProps = {
@@ -61,20 +62,18 @@ export function PerpsRecallAction() {
   if (!progress) return null;
 
   return (
-    <Stack
-      position="relative"
-      w="$5"
-      h="$5"
-      alignItems="center"
-      justifyContent="center"
-    >
-      <IconButton
+    <Stack w="$5" h="$5" alignItems="center" justifyContent="center">
+      <Button
         testID="perp-mobile-activity-center"
-        icon="GiftOutline"
         size="small"
         variant="tertiary"
-        iconProps={{ color: '$iconSubdued' }}
-        title="Comeback rewards"
+        childrenAsText={false}
+        px="$1"
+        py="$1"
+        mx={-5}
+        my={-5}
+        hitSlop={NATIVE_HIT_SLOP}
+        accessibilityLabel="Comeback rewards"
         onPress={() => {
           void refresh();
           showPerpsRecallDialog({
@@ -82,21 +81,11 @@ export function PerpsRecallAction() {
             instanceId,
           });
         }}
-      />
-      <Stack
-        position="absolute"
-        top={-4}
-        right={-4}
-        borderRadius="$full"
-        borderWidth="$0.5"
-        borderColor="$bgApp"
-        pointerEvents="none"
-        accessible={false}
-        accessibilityElementsHidden
-        importantForAccessibility="no-hide-descendants"
       >
-        <PerpFeatureDot testID="perp-mobile-activity-center-dot" />
-      </Stack>
+        <Stack w="$5" h="$5" alignItems="center" justifyContent="center">
+          <PerpsRecallActivityIcon />
+        </Stack>
+      </Button>
     </Stack>
   );
 }

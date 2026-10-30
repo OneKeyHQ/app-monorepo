@@ -5,6 +5,7 @@ import type { IIconProps } from '@onekeyhq/components';
 import {
   Divider,
   Icon,
+  Image,
   SizableText,
   Stack,
   XStack,
@@ -16,7 +17,6 @@ import type { IPerpsRecallProgress } from '@onekeyhq/shared/src/referralCode/rec
 import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
 
 import { openGuideUrl } from './Guide/perpGuideData';
-import { PerpsRecallIllustration } from './PerpsRecallIllustration';
 
 export function formatRecallAmount(value: string, minimumDecimals = 2) {
   const amount = new BigNumber(value);
@@ -135,14 +135,20 @@ export function PerpsRecallProgressCard({
         <Stack
           width="32%"
           maxWidth={128}
-          aspectRatio={144 / 128}
+          aspectRatio={1}
           flexShrink={0}
+          transform={[{ translateX: -10 }, { scale: 1.1 }]}
           pointerEvents="none"
           accessible={false}
           accessibilityElementsHidden
           importantForAccessibility="no-hide-descendants"
         >
-          <PerpsRecallIllustration />
+          <Image
+            width="100%"
+            height="100%"
+            resizeMode="contain"
+            source={require('@onekeyhq/kit/assets/perps/recall-reward-gift.png')}
+          />
         </Stack>
       </XStack>
 

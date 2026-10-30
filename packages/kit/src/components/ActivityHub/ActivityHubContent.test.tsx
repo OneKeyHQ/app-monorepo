@@ -49,6 +49,11 @@ jest.mock('../../views/Perp/hooks/usePerpsRecallProgress', () => ({
     refresh: mockRecallRefresh,
   }),
 }));
+jest.mock('../../views/Perp/components/PerpsRecallActivityIcon', () => ({
+  PerpsRecallActivityIcon: () => (
+    <span data-testid="perps-recall-activity-icon" />
+  ),
+}));
 jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => ({
   usePerpsCommonConfigPersistAtom: () => [
     { perpConfigCommon: { activityCards: [] } },
@@ -128,6 +133,8 @@ jest.mock('@onekeyhq/components', () => {
       },
     },
     Button: Primitive,
+    LazyTooltip: ({ renderTrigger }: { renderTrigger: ReactNode }) =>
+      renderTrigger,
     onVisibilityStateChange: () => () => undefined,
     Alert: ({
       title,
@@ -702,10 +709,14 @@ describe('Perps recall activity integration', () => {
   });
 
   it.each([true, false])(
-    'opens recall details directly from the ticker gift (native: %s)',
+    'opens recall details from the ticket without a notification dot (native: %s)',
     (native) => {
       platformEnv.isNative = native;
       render(<PerpsRecallAction />);
+      expect(screen.getByTestId('perps-recall-activity-icon')).toBeTruthy();
+      expect(
+        screen.queryByTestId('perp-mobile-activity-center-dot'),
+      ).toBeNull();
       fireEvent.click(screen.getByTestId('perp-mobile-activity-center'));
       expect(mockDialogShow).toHaveBeenCalledTimes(1);
       expect(mockDialogShow).toHaveBeenCalledWith(
@@ -723,7 +734,7 @@ describe('Perps recall activity integration', () => {
     },
   );
 
-  it('hides the ticker gift when recall progress is unavailable', () => {
+  it('hides the ticker ticket when recall progress is unavailable', () => {
     mockRecallProgress = null;
     render(<PerpsRecallAction />);
     expect(screen.queryByTestId('perp-mobile-activity-center')).toBeNull();
@@ -1116,10 +1127,14 @@ describe('Perps recall activity integration', () => {
     },
   );
 
-  it('updates the SVG illustration and progress ring with the active theme', () => {
-    const view = render(
-      <PerpsRecallProgressCard progress={progress} hasEnded={false} />,
+  it('updates the banner illustration and progress ring with the active theme', () => {
+    const renderContent = () => (
+      <>
+        <PerpsRecallBanner />
+        <PerpsRecallProgressCard progress={progress} hasEnded={false} />
+      </>
     );
+    const view = render(renderContent());
     expect(view.container.querySelector('path[stroke="#111111"]')).toBeTruthy();
     expect(view.container.querySelector('path[fill="#FFFFFF"]')).toBeTruthy();
     expect(
@@ -1127,9 +1142,7 @@ describe('Perps recall activity integration', () => {
     ).toBeTruthy();
 
     mockDarkTheme = true;
-    view.rerender(
-      <PerpsRecallProgressCard progress={progress} hasEnded={false} />,
-    );
+    view.rerender(renderContent());
     expect(view.container.querySelector('path[stroke="#EEEEEE"]')).toBeTruthy();
     expect(view.container.querySelector('path[fill="#1B1B1B"]')).toBeTruthy();
     expect(
