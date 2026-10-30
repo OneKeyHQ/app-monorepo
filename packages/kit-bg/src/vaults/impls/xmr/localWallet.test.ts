@@ -18,7 +18,6 @@ import { buildXmrLocalWalletCapability } from './localWallet';
 import type Vault from './Vault';
 
 jest.mock('@onekeyhq/core/src/chains/xmr/sdkXmrRuntime', () => ({
-  hasXmrRuntimeApiLoader: () => true,
   readXmrRuntimeError: jest.requireActual(
     '@onekeyhq/core/src/chains/xmr/sdkXmrRuntime',
   ).readXmrRuntimeError,
@@ -149,15 +148,12 @@ function capability(intent: 'on' | 'off' = 'on', birthdayHeight?: number) {
             epoch: 'e1',
             appliedEpoch: 'e1',
             intent,
-            operation: undefined,
             birthdayHeight,
           }),
           listScanDataAccountIds: async () =>
             mockHasAnyAccountState ? ['acc'] : [],
-          listXmrEnabledAccountIds: async () => ['acc'],
+          listScanningAccountIds: async () => ['acc'],
           listAccountIds: async () => ['acc'],
-          beginXmrDisable: jest.fn(async () => undefined),
-          completeXmrDisable: jest.fn(async () => undefined),
           saveXmrDisabledAccount: jest.fn(async () => undefined),
           updateXmrBirthday: mockUpdateXmrBirthday,
           saveXmrEnabledAccount: mockSaveXmrEnabledAccount,
@@ -619,7 +615,7 @@ describe('xmr storage reset', () => {
           privacyChainState: {
             getAccountVkFp: async ({ accountId }: { accountId: string }) =>
               mockGetRuntimeUuid(accountId),
-            listXmrEnabledAccountIds: async () => ['acc-1', 'acc-2'],
+            listScanningAccountIds: async () => ['acc-1', 'acc-2'],
             listScanDataAccountIds: async () => ['acc-1', 'acc-2', 'paused'],
             getXmrAccountState: async ({
               accountId,
@@ -679,7 +675,7 @@ describe('xmr delete after turning the account off', () => {
             getAccountEpoch: async () => 'e1',
             getXmrAccountState: async () => state,
             saveXmrDisabledAccount: async () => {
-              state = { ...state, intent: 'off', operation: undefined };
+              state = { ...state, intent: 'off' };
             },
             listAccountIds: async () => ['acc'],
             listScanDataAccountIds: async () => ['acc'],
@@ -1028,11 +1024,10 @@ describe('xmr sync endpoint', () => {
     mockNodeUrl = 'https://node.example:18081';
   });
 
-  it('reports the node in use and the built-in default', async () => {
+  it('reports the node in use', async () => {
     mockNodeUrl = XMR_BUILT_IN_NODE_URLS[0];
     await expect(capability().getSyncEndpoint?.()).resolves.toEqual({
       url: XMR_BUILT_IN_NODE_URLS[0],
-      defaultUrl: XMR_BUILT_IN_NODE_URLS[0],
       health: undefined,
     });
   });
@@ -1201,9 +1196,6 @@ describe('xmr enable authorization boundary', () => {
       birthdayHeight: 3_000_000,
       birthdaySource: 'manual-height',
     });
-    expect(
-      (await state.getXmrAccountState({ accountId })).operation,
-    ).toBeUndefined();
     expect(getKeys).toHaveBeenCalledTimes(1);
     expect(notify).toHaveBeenCalledTimes(1);
     expect(mockOnlineRuntime).not.toHaveBeenCalled();
@@ -1269,9 +1261,6 @@ describe('xmr enable authorization boundary', () => {
     await expect(
       state.getXmrAccountState({ accountId }),
     ).resolves.toMatchObject({ intent: 'on' });
-    expect(
-      (await state.getXmrAccountState({ accountId })).operation,
-    ).toBeUndefined();
 
     mockGetIdentityId.mockRejectedValueOnce(
       new Error('account not registered'),
@@ -1385,14 +1374,16 @@ describe('xmr enable authorization boundary', () => {
 
   it('does not report resumed admission success when its single save is blocked', async () => {
     const { cap, state, notify } = setup();
-    await state.beginXmrEnable({
+    await state.saveXmrEnabledAccount({
       networkId: 'xmr--0',
       accountId,
+      vkFp,
       birthdayHeight: 3_000_000,
     });
-    await state.completeXmrEnable({ accountId, vkFp });
-    await state.beginXmrDisable({ accountId, resumeFromHeight: 3_100_000 });
-    await state.completeXmrDisable({ accountId });
+    await state.saveXmrDisabledAccount({
+      accountId,
+      resumeFromHeight: 3_100_000,
+    });
     jest.spyOn(state, 'setRawData').mockResolvedValueOnce(undefined);
 
     await expect(cap.enableAccount({ accountId })).rejects.toThrow(
@@ -1401,7 +1392,6 @@ describe('xmr enable authorization boundary', () => {
 
     await expect(cap.getAccountState({ accountId })).resolves.toMatchObject({
       enabled: false,
-      pendingOperation: undefined,
     });
     expect(notify).not.toHaveBeenCalled();
   });

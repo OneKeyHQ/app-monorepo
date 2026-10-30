@@ -456,8 +456,9 @@ describe('late display balance handoff', () => {
 
   it('does not publish a delayed result after the account epoch changes', async () => {
     const backgroundApi = createBackgroundApi();
-    await backgroundApi.simpleDb.privacyChainState.beginXmrEnable({
+    await backgroundApi.simpleDb.privacyChainState.saveXmrEnabledAccount({
       ...owner,
+      vkFp: '9'.repeat(32),
       birthdayHeight: 1,
     });
     await seed(backgroundApi, 'saved');
@@ -573,8 +574,9 @@ describe('saved public-side balance', () => {
 // read is in flight; the value that read returns describes destroyed data.
 describe('saved balance epochs', () => {
   async function enable(backgroundApi: IBackgroundApi) {
-    await backgroundApi.simpleDb.privacyChainState.beginXmrEnable({
+    await backgroundApi.simpleDb.privacyChainState.saveXmrEnabledAccount({
       ...owner,
+      vkFp: '9'.repeat(32),
       birthdayHeight: 1,
     });
   }

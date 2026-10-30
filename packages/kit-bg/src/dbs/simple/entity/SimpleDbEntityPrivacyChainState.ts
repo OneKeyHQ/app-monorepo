@@ -77,8 +77,6 @@ export type IXmrAccountScanState = {
   appliedEpoch?: string;
   forceRescan?: boolean;
   intent: 'on' | 'off';
-  /** Set while an enable/disable is in flight; a crash leaves it for resumePendingOperations. */
-  operation?: { type: 'enable' | 'disable'; startedAt: number };
   birthdayHeight?: number;
   birthdaySource?: string;
   birthdayTimestamp?: number;
@@ -427,7 +425,6 @@ function buildXmrView(
     appliedEpoch: scan.appliedEpoch,
     forceRescan: scan.forceRescan,
     intent: scan.intent,
-    operation: scan.operation,
     birthdayHeight: scan.birthday?.height,
     birthdaySource: scan.birthday?.source,
     birthdayTimestamp: scan.birthday?.timestamp,
@@ -773,6 +770,16 @@ export class SimpleDbEntityPrivacyChainState extends SimpleDbEntityBase<IPrivacy
     const raw = await this.getRawData();
     return Object.entries(raw?.accounts ?? {}).flatMap(([accountId, value]) =>
       mayBelongToNetwork(value, networkId) ? [accountId] : [],
+    );
+  }
+
+  async listScanningAccountIds({
+    networkId,
+  }: {
+    networkId: string;
+  }): Promise<string[]> {
+    return (await this.listNetworkRecords(networkId)).flatMap(
+      ({ accountId, record }) => (isScanning(record) ? [accountId] : []),
     );
   }
 
@@ -1185,16 +1192,6 @@ export class SimpleDbEntityPrivacyChainState extends SimpleDbEntityBase<IPrivacy
   }): Promise<boolean> {
     const found = await this.readAccountRecord(accountId);
     return !!found && isScanning(found.record);
-  }
-
-  async listZcashEnabledAccountIds({
-    networkId,
-  }: {
-    networkId: string;
-  }): Promise<string[]> {
-    return (await this.listNetworkRecords(networkId)).flatMap(
-      ({ accountId, record }) => (isScanning(record) ? [accountId] : []),
-    );
   }
 
   async beginZcashPrivacyModeEnable({
@@ -1698,8 +1695,7 @@ export class SimpleDbEntityPrivacyChainState extends SimpleDbEntityBase<IPrivacy
         const current = readAccount(state, accountId);
         if (
           current?.epoch !== expectedState.epoch ||
-          (current?.scan.intent ?? 'off') !== expectedState.intent ||
-          !isEqual(current?.scan.operation, expectedState.operation)
+          (current?.scan.intent ?? 'off') !== expectedState.intent
         )
           return;
       }
@@ -1746,7 +1742,6 @@ export class SimpleDbEntityPrivacyChainState extends SimpleDbEntityBase<IPrivacy
         scan: {
           ...record.scan,
           intent: 'on',
-          operation: undefined,
           appliedEpoch: alreadyApplied ? epoch : undefined,
           forceRescan: rescanRequired || undefined,
           birthday,
@@ -1790,8 +1785,7 @@ export class SimpleDbEntityPrivacyChainState extends SimpleDbEntityBase<IPrivacy
         !record ||
         record.scan.deletion ||
         record.epoch !== epoch ||
-        record.scan.intent !== 'on' ||
-        record.scan.operation
+        record.scan.intent !== 'on'
       )
         return;
       Object.keys(state.accounts).forEach((otherId) => {
@@ -1815,95 +1809,6 @@ export class SimpleDbEntityPrivacyChainState extends SimpleDbEntityBase<IPrivacy
       );
   }
 
-  /** Journal intent first: a crash here is resumed by resumePendingOperations. */
-  async beginXmrEnable({
-    networkId,
-    accountId,
-    birthdayHeight,
-    birthdaySource,
-    birthdayTimestamp,
-  }: {
-    networkId: string;
-    accountId: string;
-    birthdayHeight: number;
-    birthdaySource?: string;
-    birthdayTimestamp?: number;
-  }): Promise<void> {
-    const committed = await this.update((state) => {
-      const record = readOrCreateAccount(state, { networkId, accountId });
-      writeAccount(state, accountId, {
-        ...record,
-        scan: {
-          ...record.scan,
-          intent: 'on',
-          operation: { type: 'enable', startedAt: Date.now() },
-          birthday: {
-            height: birthdayHeight,
-            source: birthdaySource,
-            timestamp: birthdayTimestamp,
-          },
-        },
-      });
-    });
-    if (!committed) {
-      throw new OneKeyLocalError(
-        'xmr: privacy authorization could not be persisted',
-      );
-    }
-  }
-
-  async completeXmrEnable({
-    accountId,
-    birthdayHeight,
-    vkFp,
-  }: {
-    accountId: string;
-    birthdayHeight?: number;
-    vkFp?: string;
-  }): Promise<void> {
-    const committed = await this.update((state) => {
-      const record = readAccount(state, accountId);
-      if (!record) {
-        throw new OneKeyLocalError(
-          'xmr: privacy enable operation is not pending',
-        );
-      }
-      if (
-        vkFp !== undefined &&
-        record.vkFp !== undefined &&
-        record.vkFp !== vkFp
-      ) {
-        throw new OneKeyLocalError(
-          'xmr: viewing identity does not match this account',
-        );
-      }
-      if (record.scan.operation?.type !== 'enable') {
-        throw new OneKeyLocalError(
-          'xmr: privacy enable operation is not pending',
-        );
-      }
-      const height = birthdayHeight ?? record.scan.birthday?.height;
-      writeAccount(state, accountId, {
-        ...record,
-        vkFp: vkFp ?? record.vkFp,
-        scan: {
-          ...record.scan,
-          intent: 'on',
-          operation: undefined,
-          birthday:
-            height === undefined
-              ? undefined
-              : { ...record.scan.birthday, height },
-        },
-      });
-    });
-    if (!committed) {
-      throw new OneKeyLocalError(
-        'xmr: privacy authorization could not be persisted',
-      );
-    }
-  }
-
   async saveXmrDisabledAccount({
     accountId,
     resumeFromHeight,
@@ -1919,58 +1824,8 @@ export class SimpleDbEntityPrivacyChainState extends SimpleDbEntityBase<IPrivacy
         scan: {
           ...record.scan,
           intent: 'off',
-          operation: undefined,
           resumeFromHeight: resumeFromHeight ?? record.scan.resumeFromHeight,
         },
-      });
-    });
-    if (!committed)
-      throw new OneKeyLocalError(
-        'xmr: privacy configuration could not be persisted',
-      );
-  }
-
-  async beginXmrDisable({
-    accountId,
-    resumeFromHeight,
-  }: {
-    accountId: string;
-    resumeFromHeight?: number;
-  }): Promise<void> {
-    await this.update((state) => {
-      const record = readAccount(state, accountId);
-      if (!record) return;
-      writeAccount(state, accountId, {
-        ...record,
-        scan: {
-          ...record.scan,
-          operation: { type: 'disable', startedAt: Date.now() },
-          resumeFromHeight: resumeFromHeight ?? record.scan.resumeFromHeight,
-        },
-      });
-    });
-  }
-
-  async completeXmrDisable({
-    accountId,
-    expectedState,
-  }: {
-    accountId: string;
-    expectedState?: IXmrAccountScanState;
-  }): Promise<void> {
-    const committed = await this.update((state) => {
-      const record = readAccount(state, accountId);
-      if (!record) return;
-      if (
-        expectedState &&
-        (record.epoch !== expectedState.epoch ||
-          record.scan.intent !== expectedState.intent ||
-          !isEqual(record.scan.operation, expectedState.operation))
-      )
-        return;
-      writeAccount(state, accountId, {
-        ...record,
-        scan: { ...record.scan, intent: 'off', operation: undefined },
       });
     });
     if (!committed)
@@ -2000,7 +1855,6 @@ export class SimpleDbEntityPrivacyChainState extends SimpleDbEntityBase<IPrivacy
         ((expectedState.epoch !== undefined &&
           record.epoch !== expectedState.epoch) ||
           record.scan.intent !== expectedState.intent ||
-          record.scan.operation !== undefined ||
           record.scan.birthday?.height !== expectedState.birthdayHeight ||
           record.scan.birthday?.timestamp !== expectedState.birthdayTimestamp ||
           record.scan.birthday?.source !== expectedState.birthdaySource)
@@ -2029,32 +1883,5 @@ export class SimpleDbEntityPrivacyChainState extends SimpleDbEntityBase<IPrivacy
         });
       });
     });
-  }
-
-  async listXmrPendingOperations({
-    networkId,
-    startedBefore,
-  }: {
-    networkId: string;
-    startedBefore?: number;
-  }): Promise<{ accountId: string; state: IXmrAccountScanState }[]> {
-    return (await this.listNetworkRecords(networkId)).flatMap(
-      ({ accountId, record }) =>
-        record.scan.operation !== undefined &&
-        (startedBefore === undefined ||
-          record.scan.operation.startedAt < startedBefore)
-          ? [{ accountId, state: buildXmrView(record) }]
-          : [],
-    );
-  }
-
-  async listXmrEnabledAccountIds({
-    networkId,
-  }: {
-    networkId: string;
-  }): Promise<string[]> {
-    return (await this.listNetworkRecords(networkId)).flatMap(
-      ({ accountId, record }) => (isScanning(record) ? [accountId] : []),
-    );
   }
 }

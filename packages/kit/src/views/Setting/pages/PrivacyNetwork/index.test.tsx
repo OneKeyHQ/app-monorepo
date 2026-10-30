@@ -183,7 +183,7 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
       repairLocalChainData: (params: unknown) => mockRepair(params),
       getLocalWalletSyncProgress: async () => undefined,
       getLocalWalletNetworkInfo: async () => undefined,
-      getAllowPrivacySyncOnCellular: async () => false,
+      isPrivacySyncOnCellularAllowed: async () => false,
     },
   },
 }));

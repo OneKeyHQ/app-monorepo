@@ -170,9 +170,16 @@ describe('Privacy storage reset when the database cannot be read', () => {
     mockGetChainOnlyVault.mockResolvedValue({
       getLocalWalletCapability: () => capability,
     });
-    return Object.create(ServicePrivacyChain.prototype) as InstanceType<
-      typeof ServicePrivacyChain
-    >;
+    return Object.assign(
+      Object.create(ServicePrivacyChain.prototype) as InstanceType<
+        typeof ServicePrivacyChain
+      >,
+      {
+        backgroundApi: {
+          serviceCustomRpc: { resolveDefaultRpcUrl: async () => undefined },
+        },
+      },
+    );
   }
 
   it('reports the size as unknown instead of hiding it', async () => {

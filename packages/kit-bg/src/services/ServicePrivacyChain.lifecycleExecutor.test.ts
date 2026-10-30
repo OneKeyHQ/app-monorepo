@@ -527,12 +527,12 @@ describe('privacy chain cache write-back racing a delete', () => {
   async function seedRecord(
     privacyChainState: SimpleDbEntityPrivacyChainState,
   ) {
-    await privacyChainState.beginXmrEnable({
+    await privacyChainState.saveXmrEnabledAccount({
       networkId,
       accountId,
+      vkFp: '9'.repeat(32),
       birthdayHeight: 100,
     });
-    await privacyChainState.completeXmrEnable({ accountId });
   }
 
   async function deleteLocalData(

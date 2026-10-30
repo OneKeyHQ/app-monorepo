@@ -8,6 +8,7 @@ import {
   ScanRepairControl,
   SetupRepairControl,
   createEnableBirthdayForm,
+  getBirthdayHeightHint,
   readEnableBirthday,
 } from './LocalWalletRepairControls';
 
@@ -181,6 +182,10 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   },
 }));
 jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings', () => ({}));
+// The chain tip is not known yet: heights have no upper bound.
+jest.mock('@onekeyhq/kit/src/hooks/usePromiseResult', () => ({
+  usePromiseResult: () => ({ result: undefined }),
+}));
 
 describe('setup repair', () => {
   beforeEach(() => {
@@ -335,6 +340,58 @@ describe('birthday date precision', () => {
       ).toBeUndefined();
     },
   );
+
+  it('rejects a height above the known chain tip and keeps the tip itself', () => {
+    const form = (height: string) => ({
+      mode: 'height' as const,
+      date: null,
+      height,
+      maxHeight: 3_600_000,
+    });
+    expect(
+      readEnableBirthday(form('3600001'), undefined, 'zec--0'),
+    ).toBeUndefined();
+    expect(readEnableBirthday(form('3600000'), undefined, 'zec--0')).toEqual({
+      birthdayHeight: 3_600_000,
+    });
+  });
+
+  it.each([
+    ['', false, undefined, 'Block height ≥ 1,687,104'],
+    ['', false, 3_600_000, 'Block height 1,687,104 – 3,600,000'],
+    ['1000', true, 3_600_000, 'Block height ≥ 1,687,104'],
+    ['999999999', true, 3_600_000, 'Block height ≤ 3,600,000'],
+    ['99999999999999999999', true, 3_600_000, 'Block height ≤ 3,600,000'],
+    ['99999999999', true, undefined, 'Invalid number'],
+    ['1.5', true, 3_600_000, 'Invalid number'],
+  ])(
+    'tells %p which bound it breaks',
+    (height, invalid, maxHeight, expected) => {
+      expect(
+        getBirthdayHeightHint({
+          height,
+          invalid,
+          minHeight: 1_687_104,
+          maxHeight,
+          label: 'Block height',
+          invalidText: 'Invalid number',
+        }),
+      ).toBe(expected);
+    },
+  );
+
+  it('defaults to today without a recommended date', () => {
+    jest.useFakeTimers().setSystemTime(new Date(2026, 9, 29, 15, 30));
+    try {
+      const form = createEnableBirthdayForm();
+      expect(form.current).toEqual({
+        mode: 'date',
+        date: new Date(2026, 9, 29),
+      });
+    } finally {
+      jest.useRealTimers();
+    }
+  });
 
   it('defaults to the recommended date without truncating its day', () => {
     const hint = new Date(2025, 6, 19).getTime();

@@ -149,10 +149,7 @@ function createService({
           const state = await privacyChainState.getXmrAccountState({
             accountId,
           });
-          return {
-            enabled: state.intent === 'on' && !state.operation,
-            pendingOperation: state.operation?.type,
-          };
+          return { enabled: state.intent === 'on' };
         },
       }),
     },
@@ -183,9 +180,11 @@ async function repairWithOwner(
 ) {
   const db = service.backgroundApi.simpleDb.privacyChainState;
   if ((await db.getAccountEpoch({ accountId })) === undefined) {
-    await db.beginXmrEnable({
+    // Enabled the way production enables: with the identity these tests derive.
+    await db.saveXmrEnabledAccount({
       networkId,
       accountId,
+      vkFp: getViewingKeyFingerprint({ networkId, viewingKey: 'derived' }),
       birthdayHeight: 3_000_000,
     });
   }
@@ -360,14 +359,11 @@ describe('Privacy chain viewing key store', () => {
     const { service, privacyChainKeys, privacyChainState } = createService({
       cachedPassword: 'pw',
     });
-    await privacyChainState.beginXmrEnable({
+    await privacyChainState.saveXmrEnabledAccount({
       networkId,
       accountId: hdAccountId,
-      birthdayHeight: 3_000_000,
-    });
-    await privacyChainState.completeXmrEnable({
-      accountId: hdAccountId,
       vkFp: getViewingKeyFingerprint({ networkId, viewingKey: 'original' }),
+      birthdayHeight: 3_000_000,
     });
 
     const error = await repairWithOwner(service, hdAccountId).catch(
@@ -653,17 +649,13 @@ describe('Privacy chain viewing key lifecycle', () => {
       deriveViewingKey,
       getAccountState: async () => ({ enabled: false }),
     });
-    await privacyChainState.beginXmrEnable({
+    await privacyChainState.saveXmrEnabledAccount({
       networkId,
       accountId: hdAccountId,
+      vkFp: getViewingKeyFingerprint({ networkId, viewingKey: 'spend:view' }),
       birthdayHeight: 100,
     });
-    await privacyChainState.completeXmrEnable({
-      accountId: hdAccountId,
-      vkFp: getViewingKeyFingerprint({ networkId, viewingKey: 'spend:view' }),
-    });
-    await privacyChainState.beginXmrDisable({ accountId: hdAccountId });
-    await privacyChainState.completeXmrDisable({ accountId: hdAccountId });
+    await privacyChainState.saveXmrDisabledAccount({ accountId: hdAccountId });
 
     await service.deleteLocalWalletAccountData({
       networkId,

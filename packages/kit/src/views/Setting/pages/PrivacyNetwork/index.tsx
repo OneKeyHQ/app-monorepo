@@ -217,7 +217,7 @@ function PrivacyChainNetworkSections({
 
   const { result: allowCellular, run: refreshAllowCellular } = usePromiseResult(
     async () =>
-      backgroundApiProxy.servicePrivacyChain.getAllowPrivacySyncOnCellular(),
+      backgroundApiProxy.servicePrivacyChain.isPrivacySyncOnCellularAllowed(),
     [],
   );
   const run = useCallback(

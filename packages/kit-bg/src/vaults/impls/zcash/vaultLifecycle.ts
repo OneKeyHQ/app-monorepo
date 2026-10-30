@@ -1,10 +1,7 @@
 import { uniq } from 'lodash';
 
 import { isShieldedAddress } from '@onekeyhq/core/src/chains/zcash/sdkZcash';
-import {
-  ZCASH_LIGHTWALLETD_MAINNET,
-  ZCASH_NETWORK_MAIN,
-} from '@onekeyhq/core/src/chains/zcash/sdkZcash/constants';
+import { ZCASH_NETWORK_MAIN } from '@onekeyhq/core/src/chains/zcash/sdkZcash/constants';
 import { fetchZcashChainTipDirect } from '@onekeyhq/core/src/chains/zcash/sdkZcash/impl/chainTipDirect';
 import { readZcashRuntimeError } from '@onekeyhq/core/src/chains/zcash/sdkZcash/runtimeError';
 import type {
@@ -279,6 +276,7 @@ export function getLocalWalletCapability(vault: Vault): ILocalWalletCapability {
       }
       return tip;
     },
+    getLatestHeight: () => vault.getLocalWalletChainTip(),
     onWalletCreated: (params) => onPrivacyWalletCreated(vault, params),
     resumePendingOperations: () => resumePendingPrivacyOperations(vault),
     syncGroup: (params) => syncLocalWalletGroup(vault, params),
@@ -315,7 +313,6 @@ export function getLocalWalletCapability(vault: Vault): ILocalWalletCapability {
       ]);
       return {
         url,
-        defaultUrl: ZCASH_LIGHTWALLETD_MAINNET,
         health: health?.url === url ? health : undefined,
       };
     },
@@ -466,11 +463,9 @@ export async function listLocalWalletAccounts(vault: Vault): Promise<{
       vault.backgroundApi.simpleDb.privacyChainState.listZcashAccountMetas({
         networkId: vault.networkId,
       }),
-      vault.backgroundApi.simpleDb.privacyChainState.listZcashEnabledAccountIds(
-        {
-          networkId: vault.networkId,
-        },
-      ),
+      vault.backgroundApi.simpleDb.privacyChainState.listScanningAccountIds({
+        networkId: vault.networkId,
+      }),
       vault.backgroundApi.serviceAccount.getWallets({
         nestedHiddenWallets: false,
       }),

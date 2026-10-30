@@ -12,6 +12,7 @@ import type { IOverlayViewProps } from '@onekeyfe/react-native-native-overlay';
 
 let mockState: IPrivacyChainScanState;
 let mockStage: { step: string } | undefined;
+let mockIsCellular = false;
 let mockOverlayProps: IOverlayViewProps | undefined;
 const mockPause = jest.fn(async (_params: { networkId: string }) => undefined);
 const mockResume = jest.fn(
@@ -35,7 +36,7 @@ jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
   default: { isNative: false, isNativeIOS: false },
 }));
 jest.mock('@onekeyhq/kit/src/hooks/useIsCellularNetwork', () => ({
-  useIsCellularNetwork: () => false,
+  useIsCellularNetwork: () => mockIsCellular,
 }));
 jest.mock('@onekeyhq/shared/src/eventBus/appEventBus', () => ({
   EAppEventBusNames: { BackgroundThreadReady: 'ready' },
@@ -112,7 +113,7 @@ jest.mock('@onekeyhq/components', () => {
   return {
     Button,
     IconButton: Button,
-    Icon: () => null,
+    Icon: Wrapper,
     SizableText: Wrapper,
     Stack: Wrapper,
     XStack: Wrapper,
@@ -122,10 +123,12 @@ jest.mock('@onekeyhq/components', () => {
   };
 });
 
-const nativeEnv = platformEnv as { isNativeIOS: boolean };
+const nativeEnv = platformEnv as { isNative: boolean; isNativeIOS: boolean };
 
 beforeEach(() => {
+  nativeEnv.isNative = false;
   nativeEnv.isNativeIOS = false;
+  mockIsCellular = false;
   mockStage = undefined;
   mockOverlayProps = undefined;
   mockPause.mockClear();
@@ -169,7 +172,7 @@ it('keeps scanning instead of preparing when another account is waiting for a cu
   const text = screen.getByTestId(
     'privacy-chain-sync-network-xmr--0',
   ).textContent;
-  expect(text).toContain('global.syncing 19.1%');
+  expect(text).toContain('privacy_sync_syncing__title · 19.1%');
   expect(text).not.toContain('global.preparing');
 });
 
@@ -204,7 +207,7 @@ it('expands both networks, and pausing closes the light at once', async () => {
   expect(
     screen.getByTestId('privacy-chain-sync-network-xmr--0').textContent,
   ).toContain('40.0%');
-  // The summary already shows the percentage; the detail line adds the blocks.
+  // The summary already shows the percentage; the detail line adds the rest.
   expect(
     screen.getByTestId('privacy-chain-sync-light-detail-xmr--0').textContent,
   ).not.toContain('40.0%');
@@ -282,6 +285,100 @@ it('keeps detailed progress collapsed and expands it on demand', async () => {
   ).toBe('107 / 1,000');
   fireEvent.click(screen.getByTestId('privacy-chain-sync-light-pause-btn'));
   expect(mockPause).toHaveBeenCalledWith({ networkId: 'zec--0' });
+});
+
+it('shows a reliable time left collapsed and the percentage only when expanded', async () => {
+  mockState.boostingNetworkIds = ['zec--0'];
+  mockState.progress['zec--0:account'] = {
+    ...scanProgress(107),
+    blocksPerSec: 10,
+    blocksPerSecSince: Date.now() - 120_000,
+  };
+  render(<PrivacyChainSyncLight />);
+  const light = screen.getByTestId('privacy-chain-sync-light');
+  expect(light.textContent).toMatch(/privacy_sync_syncing__title · ~/);
+  expect(light.textContent).not.toContain('10.7%');
+  await act(async () => {
+    fireEvent.click(screen.getByTestId('privacy-chain-sync-light-details-btn'));
+  });
+  expect(
+    screen.getByTestId('privacy-chain-sync-light-detail').textContent,
+  ).toBe('107 / 1,000 · 10.7%');
+});
+
+describe('on a phone', () => {
+  beforeEach(() => {
+    nativeEnv.isNative = true;
+  });
+
+  it('marks a scan on mobile data with an icon, not words', async () => {
+    mockIsCellular = true;
+    mockState.boostingNetworkIds = ['zec--0'];
+    mockState.progress['zec--0:account'] = scanProgress(107);
+    render(<PrivacyChainSyncLight />);
+    expect(
+      screen.getByTestId('privacy-chain-sync-mobile-data-zec--0'),
+    ).toBeTruthy();
+    await act(async () => {
+      fireEvent.click(
+        screen.getByTestId('privacy-chain-sync-light-details-btn'),
+      );
+    });
+    expect(
+      screen.getByTestId('privacy-chain-sync-light-detail').textContent,
+    ).toBe('107 / 1,000');
+  });
+
+  it('asks to keep the app open only once expanded', async () => {
+    mockState.boostingNetworkIds = ['zec--0'];
+    mockState.progress['zec--0:account'] = scanProgress(107);
+    render(<PrivacyChainSyncLight />);
+    expect(
+      screen.queryByTestId('privacy-chain-sync-light-keep-open'),
+    ).toBeNull();
+    await act(async () => {
+      fireEvent.click(
+        screen.getByTestId('privacy-chain-sync-light-details-btn'),
+      );
+    });
+    expect(
+      screen.getByTestId('privacy-chain-sync-light-keep-open').textContent,
+    ).toBe('privacy_sync_keep_open__msg');
+  });
+
+  // Waiting for Wi-Fi nothing is scanning: no pause, no mobile data icon, nothing to keep open.
+  it('waits for Wi-Fi collapsed and offers the allow button once expanded', async () => {
+    mockIsCellular = true;
+    mockState.dataBlockedNetworkIds = ['zec--0'];
+    mockState.progress['zec--0:account'] = scanProgress(107);
+    render(<PrivacyChainSyncLight />);
+    expect(
+      screen.getByTestId('privacy-chain-sync-network-zec--0').textContent,
+    ).toBe('privacy_sync_waiting_wifi__msg');
+    expect(
+      screen.queryByTestId('privacy-chain-sync-light-allow-data-btn'),
+    ).toBeNull();
+    expect(
+      screen.queryByTestId('privacy-chain-sync-light-pause-btn'),
+    ).toBeNull();
+    expect(
+      screen.queryByTestId('privacy-chain-sync-mobile-data-zec--0'),
+    ).toBeNull();
+    await act(async () => {
+      fireEvent.click(
+        screen.getByTestId('privacy-chain-sync-light-details-btn'),
+      );
+    });
+    expect(
+      screen.getByTestId('privacy-chain-sync-light-allow-data-btn').textContent,
+    ).toBe('privacy_sync_mobile_data__title');
+    expect(
+      screen.getByTestId('privacy-chain-sync-network-zec--0').textContent,
+    ).not.toContain('privacy_sync_mobile_data__desc');
+    expect(
+      screen.queryByTestId('privacy-chain-sync-light-keep-open'),
+    ).toBeNull();
+  });
 });
 
 it('keeps the other chain pause control available while a storage error is visible', async () => {

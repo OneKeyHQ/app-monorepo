@@ -29,6 +29,7 @@ import type {
   IPrivacyChainBoostTrigger,
   IPrivacyChainScanRateSample,
 } from '@onekeyhq/shared/src/utils/privacyChainSyncPolicy';
+import { createTimeoutPromise } from '@onekeyhq/shared/src/utils/promiseUtils';
 import resetUtils from '@onekeyhq/shared/src/utils/resetUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EHardwareCallContext } from '@onekeyhq/shared/types/device';
@@ -758,6 +759,7 @@ class ServicePrivacyChain extends ServiceBase {
   // Last published scan position per `networkId:accountId`, for the speed added to progress.
   private scanRateSamples?: Map<string, IPrivacyChainScanRateSample>;
 
+  @backgroundMethod()
   async isPrivacySyncOnCellularAllowed(): Promise<boolean> {
     this.allowCellularSyncCache =
       await this.backgroundApi.simpleDb.privacyChainState.getAllowCellularSync();
@@ -785,11 +787,8 @@ class ServicePrivacyChain extends ServiceBase {
   }
 
   @backgroundMethod()
-  async setAllowPrivacySyncOnCellular({
-    allow,
-  }: {
-    allow: boolean;
-  }): Promise<void> {
+  @toastLocalWalletError()
+  async setAllowCellularSync({ allow }: { allow: boolean }): Promise<void> {
     await this.backgroundApi.simpleDb.privacyChainState.setAllowCellularSync({
       allow,
     });
@@ -798,17 +797,6 @@ class ServicePrivacyChain extends ServiceBase {
     if (allow) {
       this.scheduleBackgroundSync(0);
     }
-  }
-
-  @backgroundMethod()
-  async getAllowPrivacySyncOnCellular(): Promise<boolean> {
-    return this.isPrivacySyncOnCellularAllowed();
-  }
-
-  @backgroundMethod()
-  @toastLocalWalletError()
-  async setAllowCellularSync({ allow }: { allow: boolean }): Promise<void> {
-    await this.setAllowPrivacySyncOnCellular({ allow });
   }
 
   // Requested but blocked by gate two; the banner reads this to offer the metered-data toggle.
@@ -3035,6 +3023,23 @@ class ServicePrivacyChain extends ServiceBase {
     };
   }
 
+  // Upper bound for a typed sync start. Live only: a cached tip trails the chain and would reject real heights.
+  @backgroundMethod()
+  async getLocalWalletLatestHeight({
+    networkId,
+  }: {
+    networkId: string;
+  }): Promise<number | null> {
+    if (this.boostPausedByNetwork[networkId]) return null;
+    const { getLatestHeight } = await this.requireAccountCapability(networkId);
+    if (!getLatestHeight) return null;
+    return createTimeoutPromise({
+      asyncFunc: () => getLatestHeight().catch(() => null),
+      timeout: PRIVACY_CHAIN_TIP_REQUEST_TIMEOUT_MS,
+      timeoutResult: null,
+    });
+  }
+
   // Generic UI talks to these; the chain vault's ILocalWalletCapability does the work.
 
   private async requireAccountCapability(networkId: string) {
@@ -3812,10 +3817,10 @@ class ServicePrivacyChain extends ServiceBase {
       }),
       capability.getSyncEndpoint?.().catch(() => undefined),
     ]);
-    // A server-delivered default node is still the default, not a custom one.
     const defaultUrl =
-      getLocalWalletRemoteConfig(networkId)?.nodeUrls?.[0] ??
-      endpoint?.defaultUrl;
+      await this.backgroundApi.serviceCustomRpc.resolveDefaultRpcUrl({
+        networkId,
+      });
     return {
       storageBytes: storage?.bytes,
       endpointUrl: endpoint?.url,
@@ -4490,7 +4495,11 @@ class ServicePrivacyChain extends ServiceBase {
           key,
           sample.blocksPerSec === null
             ? progress
-            : { ...progress, blocksPerSec: sample.blocksPerSec },
+            : {
+                ...progress,
+                blocksPerSec: sample.blocksPerSec,
+                blocksPerSecSince: sample.since,
+              },
         ] as const;
       });
       await privacyChainAtom.set((v) => {

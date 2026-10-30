@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -16,6 +16,7 @@ import {
   useClipboard,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
 import type {
   ILocalWalletAccountAddresses,
@@ -34,6 +35,8 @@ export type IBirthdayFormState = {
   date: Date | null;
   height?: string;
   fromEarliest?: boolean;
+  // The chain tip once known; a height above it is not a valid sync start.
+  maxHeight?: number;
 };
 
 export type IEarliestBirthday = { height: number; timestamp: number };
@@ -88,7 +91,8 @@ export function readEnableBirthday(
       !/^\d+$/.test(value) ||
       !Number.isSafeInteger(height) ||
       exceedsRuntimeHeight ||
-      height < Math.max(1, earliest?.height ?? 1)
+      height < Math.max(1, earliest?.height ?? 1) ||
+      (form.maxHeight !== undefined && height > form.maxHeight)
     ) {
       return undefined;
     }
@@ -106,6 +110,40 @@ export function readEnableBirthday(
       form.date.getDate(),
     ).getTime(),
   };
+}
+
+// A rejected height names the bound it breaks; anything else is just invalid.
+export function getBirthdayHeightHint({
+  height,
+  invalid,
+  minHeight,
+  maxHeight,
+  label,
+  invalidText,
+  format = (value: number) => value.toLocaleString('en-US'),
+}: {
+  height: string;
+  invalid: boolean;
+  minHeight: number;
+  maxHeight?: number;
+  label: string;
+  invalidText: string;
+  format?: (value: number) => string;
+}): string {
+  if (!invalid) {
+    return maxHeight === undefined
+      ? `${label} ≥ ${format(minHeight)}`
+      : `${label} ${format(minHeight)} – ${format(maxHeight)}`;
+  }
+  const isWholeNumber = /^\d+$/.test(height);
+  const value = Number(height);
+  if (isWholeNumber && value < minHeight) {
+    return `${label} ≥ ${format(minHeight)}`;
+  }
+  if (isWholeNumber && maxHeight !== undefined && value > maxHeight) {
+    return `${label} ≤ ${format(maxHeight)}`;
+  }
+  return invalidText;
 }
 
 export function getBirthdayInputError(mode: IBirthdayFormState['mode']) {
@@ -169,19 +207,29 @@ export function BirthdayDialogForm({
   const displayedBirthdayHeight = locked
     ? earliestBirthday.height
     : currentBirthdayHeight;
+  // Shown without waiting; the upper bound applies once the tip is known.
+  const { result: chainTip } = usePromiseResult(
+    () =>
+      backgroundApiProxy.servicePrivacyChain.getLocalWalletLatestHeight({
+        networkId,
+      }),
+    [networkId],
+  );
+  const maxHeight = chainTip ?? undefined;
+  useEffect(() => {
+    formRef.current.maxHeight = maxHeight;
+  }, [formRef, maxHeight]);
   const invalidHeight =
     !locked &&
     height.length > 0 &&
     !readEnableBirthday(
-      { mode: 'height', date: null, height },
+      { mode: 'height', date: null, height, maxHeight },
       earliestBirthday,
       networkId,
     );
   const showHeightError =
     displayedMode === 'height' && heightTouched && invalidHeight;
   const minHeight = Math.max(1, earliestBirthday?.height ?? 1);
-  const heightBelowMinimum =
-    /^\d+$/.test(height.trim()) && Number(height) < minHeight;
   let editor: React.ReactNode = null;
   if (displayedMode === 'date') {
     editor = (
@@ -196,6 +244,7 @@ export function BirthdayDialogForm({
           minDate={minDate}
           maxDate={new Date()}
           disabled={locked}
+          showTodayShortcut={false}
           value={locked ? earliestDate : date}
           onChange={(value) => {
             if (locked) return;
@@ -295,11 +344,19 @@ export function BirthdayDialogForm({
                 color="$textCritical"
                 accessibilityRole="alert"
               >
-                {heightBelowMinimum
-                  ? `${intl.formatMessage({ id: ETranslations.global_block_height })} ≥ ${intl.formatNumber(minHeight)}`
-                  : intl.formatMessage({
-                      id: getBirthdayInputError('height'),
-                    })}
+                {getBirthdayHeightHint({
+                  height: height.trim(),
+                  invalid: true,
+                  minHeight,
+                  maxHeight,
+                  label: intl.formatMessage({
+                    id: ETranslations.global_block_height,
+                  }),
+                  invalidText: intl.formatMessage({
+                    id: getBirthdayInputError('height'),
+                  }),
+                  format: (value) => intl.formatNumber(value),
+                })}
               </SizableText>
             ) : null}
           </YStack>

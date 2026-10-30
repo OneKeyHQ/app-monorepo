@@ -132,14 +132,10 @@ let mockRuntime = new FakeXmrRuntime();
 let mockBusy = false;
 
 jest.mock('@onekeyhq/core/src/chains/xmr/sdkXmrRuntime', () => ({
-  hasXmrRuntimeApiLoader: () => true,
   getXmrRuntimeApi: async () => mockRuntime,
   readXmrRuntimeError: jest.requireActual(
     '@onekeyhq/core/src/chains/xmr/sdkXmrRuntime',
   ).readXmrRuntimeError,
-}));
-jest.mock('@onekeyhq/core/src/chains/xmr/sdkXmrRuntime/sdk/install', () => ({
-  installXmrCarrier: () => undefined,
 }));
 // The real lookup (account -> stored key -> vkFp -> runtime row); only session and node are replaced.
 jest.mock('./runtime', () => ({
@@ -151,24 +147,22 @@ jest.mock('./runtime', () => ({
   isXmrRuntimeBusy: () => mockBusy,
 }));
 
-type IScanStateKind = 'on' | 'paused' | 'enabling' | 'deleted-data';
+type IScanStateKind = 'on' | 'paused' | 'deleted-data';
 
 async function seedScanState(
   xmr: SimpleDbEntityPrivacyChainState,
   accountId: string,
   kind: IScanStateKind,
-  birthdayHeight = 10,
+  { birthdayHeight = 10, viewingKey = `${accountId}:key` } = {},
 ) {
-  await xmr.beginXmrEnable({
+  await xmr.saveXmrEnabledAccount({
     networkId: NETWORK_ID,
     accountId,
+    vkFp: getViewingKeyFingerprint({ networkId: NETWORK_ID, viewingKey }),
     birthdayHeight,
   });
-  if (kind === 'enabling') return;
-  await xmr.completeXmrEnable({ accountId });
   if (kind === 'paused') {
-    await xmr.beginXmrDisable({ accountId, resumeFromHeight: 10 });
-    await xmr.completeXmrDisable({ accountId });
+    await xmr.saveXmrDisabledAccount({ accountId, resumeFromHeight: 10 });
   }
   if (kind === 'deleted-data') {
     await xmr.clearAccountScanData({ accountId });
@@ -389,11 +383,10 @@ describe('xmr runtime identity named by viewing key', () => {
       birthdayHeight: 3_000_000,
     });
     await capability.syncGroup({ accountIds: [ALIAS_A], chainTip: TIP });
-    await xmr.beginXmrDisable({
+    await xmr.saveXmrDisabledAccount({
       accountId: ALIAS_A,
       resumeFromHeight: 3_000_000,
     });
-    await xmr.completeXmrDisable({ accountId: ALIAS_A });
     await xmr.rotateAccountEpochs({ accountIds: [ALIAS_A] });
 
     // Resumed, then paused again before any scan step applied the new epoch.
@@ -401,11 +394,10 @@ describe('xmr runtime identity named by viewing key', () => {
       accountId: ALIAS_A,
       birthdayHeight: 3_000_000,
     });
-    await xmr.beginXmrDisable({
+    await xmr.saveXmrDisabledAccount({
       accountId: ALIAS_A,
       resumeFromHeight: 3_000_000,
     });
-    await xmr.completeXmrDisable({ accountId: ALIAS_A });
     expect(
       (await xmr.getXmrAccountState({ accountId: ALIAS_A })).appliedEpoch,
     ).toBeUndefined();
@@ -423,11 +415,10 @@ describe('xmr runtime identity named by viewing key', () => {
       birthdayHeight: 3_000_000,
     });
     await capability.syncGroup({ accountIds: [ALIAS_A], chainTip: TIP });
-    await xmr.beginXmrDisable({
+    await xmr.saveXmrDisabledAccount({
       accountId: ALIAS_A,
       resumeFromHeight: 3_000_000,
     });
-    await xmr.completeXmrDisable({ accountId: ALIAS_A });
     await expect(
       capability.getAccountBalance({ accountId: ALIAS_A }),
     ).resolves.toMatchObject({ total: '1000000000000' });
@@ -465,7 +456,10 @@ describe('xmr runtime identity named by viewing key', () => {
   it('adopts an identity still named by its old account id, sends included', async () => {
     const { capability, saveKey, xmr } = createHarness();
     await saveKey(ALIAS_A, SHARED_KEY);
-    await seedScanState(xmr, ALIAS_A, 'on', 3_700_000);
+    await seedScanState(xmr, ALIAS_A, 'on', {
+      birthdayHeight: 3_700_000,
+      viewingKey: SHARED_KEY,
+    });
     mockRuntime.identities.push({
       id: 7,
       uuid: ALIAS_A,
@@ -677,12 +671,10 @@ describe('xmr runtime orphan purge', () => {
     );
     await seedScanState(xmr, 'on', 'on');
     await seedScanState(xmr, 'paused', 'paused');
-    await seedScanState(xmr, 'enabling', 'enabling');
     await seedScanState(xmr, 'deleted-data', 'deleted-data');
     await expect(capability.listScanDataAccountIds?.()).resolves.toEqual([
       'on',
       'paused',
-      'enabling',
     ]);
   });
 });

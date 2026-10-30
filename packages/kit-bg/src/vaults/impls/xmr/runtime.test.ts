@@ -24,14 +24,10 @@ const raw = {
 };
 
 jest.mock('@onekeyhq/core/src/chains/xmr/sdkXmrRuntime', () => ({
-  hasXmrRuntimeApiLoader: () => true,
   getXmrRuntimeApi: async () => raw,
   readXmrRuntimeError: jest.requireActual(
     '@onekeyhq/core/src/chains/xmr/sdkXmrRuntime',
   ).readXmrRuntimeError,
-}));
-jest.mock('@onekeyhq/core/src/chains/xmr/sdkXmrRuntime/sdk/install', () => ({
-  installXmrCarrier: () => undefined,
 }));
 
 let mockSavedTip: number | undefined;

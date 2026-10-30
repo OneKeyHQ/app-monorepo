@@ -142,9 +142,9 @@ describe('privacy chain state: durable account deletion', () => {
     expect(await restored.listPendingAccountDeletions()).toEqual([
       { ...request, reenabled: true },
     ]);
-    expect(await restored.listXmrEnabledAccountIds(params)).toEqual([]);
+    expect(await restored.listScanningAccountIds(params)).toEqual([]);
     await restored.completeAccountDeletion(request);
-    expect(await restored.listXmrEnabledAccountIds(params)).toEqual([
+    expect(await restored.listScanningAccountIds(params)).toEqual([
       params.accountId,
     ]);
     expect(await restored.getXmrAccountState(params)).toMatchObject({
@@ -360,7 +360,7 @@ describe('privacy chain state: xmr background preparation', () => {
     const restored = createEntity((await entity.getRawData()) ?? undefined);
 
     await expect(
-      restored.listXmrEnabledAccountIds({ networkId: XMR }),
+      restored.listScanningAccountIds({ networkId: XMR }),
     ).resolves.toEqual([pending.accountId]);
     const expectedState = await restored.getXmrAccountState(pending);
     expect(expectedState).toMatchObject({
@@ -369,7 +369,6 @@ describe('privacy chain state: xmr background preparation', () => {
       birthdayTimestamp: pending.birthdayTimestamp,
       birthdaySource: pending.birthdaySource,
     });
-    expect(expectedState.operation).toBeUndefined();
     await restored.updateXmrBirthday({
       ...pending,
       birthdayHeight: 3_000_000,
@@ -383,9 +382,6 @@ describe('privacy chain state: xmr background preparation', () => {
       birthdaySource: 'restore-month',
     });
     expect(
-      (await restored.getXmrAccountState(pending)).operation,
-    ).toBeUndefined();
-    expect(
       (await restored.getRawData())?.accounts?.[pending.accountId],
     ).toMatchObject({ vkFp: pending.vkFp });
   });
@@ -395,7 +391,6 @@ describe('privacy chain state: xmr background preparation', () => {
     'disable',
     'delete',
     'same-value re-enable',
-    'pending operation',
   ] as const)('ignores an old birthday result after %s', async (change) => {
     const entity = createEntity();
     await entity.saveXmrEnabledAccount(pending);
@@ -406,14 +401,12 @@ describe('privacy chain state: xmr background preparation', () => {
         birthdayTimestamp: Date.UTC(2025, 0, 1),
       });
     } else if (change === 'disable') {
-      await entity.completeXmrDisable(pending);
+      await entity.saveXmrDisabledAccount(pending);
     } else if (change === 'delete') {
       await entity.removeAccount(pending);
-    } else if (change === 'same-value re-enable') {
+    } else {
       await entity.removeAccount(pending);
       await entity.saveXmrEnabledAccount(pending);
-    } else {
-      await entity.beginXmrDisable(pending);
     }
     const before = await entity.getXmrAccountState(pending);
 
@@ -469,20 +462,6 @@ describe('privacy chain state: xmr background preparation', () => {
     ).rejects.toThrow('viewing identity does not match');
 
     await expect(entity.getXmrAccountState(pending)).resolves.toEqual(before);
-  });
-
-  it('cannot complete an old disable journal over a newly enabled request', async () => {
-    const entity = createEntity();
-    await entity.saveXmrEnabledAccount(pending);
-    await entity.beginXmrDisable(pending);
-    const expectedState = await entity.getXmrAccountState(pending);
-    await entity.saveXmrEnabledAccount(pending);
-    const newer = await entity.getXmrAccountState(pending);
-    await entity.completeXmrDisable({
-      accountId: pending.accountId,
-      expectedState,
-    });
-    expect(await entity.getXmrAccountState(pending)).toEqual(newer);
   });
 
   it('reports a blocked atomic disable save without claiming the account is off', async () => {
@@ -555,7 +534,7 @@ describe('privacy chain state: zcash privacy mode', () => {
       entity.isZcashPrivacyModeEnabled({ accountId: 'account' }),
     ).resolves.toBe(false);
     await expect(
-      entity.listZcashEnabledAccountIds({ networkId: ZEC }),
+      entity.listScanningAccountIds({ networkId: ZEC }),
     ).resolves.toEqual([]);
   });
 
@@ -634,7 +613,7 @@ describe('privacy chain state: zcash privacy mode', () => {
     ).resolves.toBe(false);
     await entity.saveZcashAccountMeta({ accountId: 'account', meta });
     await expect(
-      entity.listZcashEnabledAccountIds({ networkId: ZEC }),
+      entity.listScanningAccountIds({ networkId: ZEC }),
     ).resolves.toEqual([]);
 
     await entity.completeZcashPrivacyModeEnable({ accountId: 'account' });
@@ -643,7 +622,7 @@ describe('privacy chain state: zcash privacy mode', () => {
       entity.isZcashPrivacyModeEnabled({ accountId: 'account' }),
     ).resolves.toBe(true);
     await expect(
-      entity.listZcashEnabledAccountIds({ networkId: ZEC }),
+      entity.listScanningAccountIds({ networkId: ZEC }),
     ).resolves.toEqual(['account']);
   });
 
@@ -1330,26 +1309,6 @@ describe('privacy chain state: zcash interrupted operations', () => {
       }),
     ).resolves.toEqual(['stale']);
   });
-
-  it('never settles another chain journal', async () => {
-    const entity = createEntity();
-    await entity.beginXmrEnable({
-      networkId: XMR,
-      accountId: 'xmr-account',
-      birthdayHeight: 3_000_000,
-    });
-    await entity.beginXmrDisable({ accountId: 'xmr-account' });
-
-    await expect(
-      entity.cancelZcashPendingEnables({ networkId: ZEC }),
-    ).resolves.toEqual([]);
-    await expect(
-      entity.listZcashPendingDisables({ networkId: ZEC }),
-    ).resolves.toEqual([]);
-    await expect(
-      entity.listXmrPendingOperations({ networkId: XMR }),
-    ).resolves.toHaveLength(1);
-  });
 });
 
 describe('privacy chain state: zcash hardware seed fingerprint', () => {
@@ -1459,7 +1418,7 @@ describe('privacy chain state: per-record validation', () => {
       entity.getZcashPrivacyModeState({ accountId: 'bad' }),
     ).resolves.toEqual({ intent: 'off' });
     await expect(
-      entity.listZcashEnabledAccountIds({ networkId: ZEC }),
+      entity.listScanningAccountIds({ networkId: ZEC }),
     ).resolves.toEqual(['good']);
     await expect(
       entity.getZcashAccountMeta({ accountId: 'good' }),
@@ -1549,9 +1508,10 @@ describe('privacy chain state: per-record validation', () => {
     const entity = createEntity();
 
     await expect(
-      entity.beginXmrEnable({
+      entity.saveXmrEnabledAccount({
         networkId: XMR,
         accountId: 'account',
+        vkFp: '9'.repeat(32),
         birthdayHeight: Number.NaN,
       }),
     ).rejects.toThrow('privacy chain: invalid account state');
@@ -1662,88 +1622,21 @@ describe('privacy chain state: device', () => {
 });
 
 describe('privacy chain state: monero', () => {
-  it('rejects a blocked legacy enable journal before it can be admitted', async () => {
-    const entity = createEntity();
-    jest.spyOn(entity, 'setRawData').mockResolvedValue(undefined);
-
-    await expect(
-      entity.beginXmrEnable({
-        networkId: XMR,
-        accountId: 'account',
-        birthdayHeight: 3_000_000,
-      }),
-    ).rejects.toThrow('authorization could not be persisted');
-
-    await expect(
-      entity.getXmrAccountState({ accountId: 'account' }),
-    ).resolves.toEqual({ intent: 'off' });
-  });
-
-  it('rejects a blocked final legacy enable commit', async () => {
-    const entity = createEntity();
-    await entity.beginXmrEnable({
-      networkId: XMR,
-      accountId: 'account',
-      birthdayHeight: 3_000_000,
-    });
-    jest.spyOn(entity, 'setRawData').mockResolvedValue(undefined);
-
-    await expect(
-      entity.completeXmrEnable({ accountId: 'account', vkFp: '9'.repeat(32) }),
-    ).rejects.toThrow('authorization could not be persisted');
-
-    await expect(
-      entity.listXmrEnabledAccountIds({ networkId: XMR }),
-    ).resolves.toEqual([]);
-  });
-
-  it.each(['deleted', 'disabling'] as const)(
-    'rejects a late enable completion after the account is %s',
-    async (change) => {
-      const entity = createEntity();
-      await entity.beginXmrEnable({
-        networkId: XMR,
-        accountId: 'account',
-        birthdayHeight: 3_000_000,
-      });
-      if (change === 'deleted') {
-        await entity.removeAccount({ accountId: 'account' });
-      } else {
-        await entity.beginXmrDisable({ accountId: 'account' });
-      }
-
-      await expect(
-        entity.completeXmrEnable({
-          accountId: 'account',
-          vkFp: '9'.repeat(32),
-        }),
-      ).rejects.toThrow('enable operation is not pending');
-
-      await expect(
-        entity.listXmrEnabledAccountIds({ networkId: XMR }),
-      ).resolves.toEqual([]);
-    },
-  );
-
   // Re-enabling after a local data delete must not start at tip and miss older funds.
   it('keeps only the birthday when local data is deleted', async () => {
     const entity = createEntity();
-    await entity.beginXmrEnable({
+    await entity.saveXmrEnabledAccount({
       networkId: XMR,
       accountId: 'account',
+      vkFp: '9'.repeat(32),
       birthdayHeight: 3_000_000,
       birthdaySource: 'user',
       birthdayTimestamp: 1_700_000_000_000,
     });
-    await entity.completeXmrEnable({
-      accountId: 'account',
-      vkFp: '9'.repeat(32),
-    });
-    await entity.beginXmrDisable({
+    await entity.saveXmrDisabledAccount({
       accountId: 'account',
       resumeFromHeight: 3_100_000,
     });
-    await entity.completeXmrDisable({ accountId: 'account' });
 
     await entity.clearAccountScanData({ accountId: 'account' });
     expect(await entity.getXmrAccountState({ accountId: 'account' })).toEqual({
@@ -1766,51 +1659,13 @@ describe('privacy chain state: monero', () => {
     );
   });
 
-  it('journals an enable as on, then settles it with the runtime birthday', async () => {
-    const entity = createEntity();
-    await entity.beginXmrEnable({
-      networkId: XMR,
-      accountId: 'account',
-      birthdayHeight: 3_000_000,
-    });
-    await expect(
-      entity.getXmrAccountState({ accountId: 'account' }),
-    ).resolves.toMatchObject({
-      intent: 'on',
-      operation: { type: 'enable' },
-    });
-    await expect(
-      entity.listXmrEnabledAccountIds({ networkId: XMR }),
-    ).resolves.toEqual([]);
-
-    await entity.completeXmrEnable({
-      accountId: 'account',
-      birthdayHeight: 2_900_000,
-      vkFp: '9'.repeat(32),
-    });
-
-    await expect(
-      entity.getXmrAccountState({ accountId: 'account' }),
-    ).resolves.toMatchObject({ intent: 'on', birthdayHeight: 2_900_000 });
-    await expect(
-      entity.listXmrEnabledAccountIds({ networkId: XMR }),
-    ).resolves.toEqual(['account']);
-    await expect(
-      entity.getAccountVkFp({ networkId: XMR, accountId: 'account' }),
-    ).resolves.toBe('9'.repeat(32));
-    await expect(
-      entity.completeXmrEnable({ accountId: 'account', vkFp: '8'.repeat(32) }),
-    ).rejects.toThrow('xmr: viewing identity does not match this account');
-  });
-
   it('does not create state when a never-enabled account is turned off', async () => {
     const entity = createEntity();
 
-    await entity.beginXmrDisable({
+    await entity.saveXmrDisabledAccount({
       accountId: 'account',
       resumeFromHeight: 1,
     });
-    await entity.completeXmrDisable({ accountId: 'account' });
 
     await expect(entity.listAccountIds({ networkId: XMR })).resolves.toEqual(
       [],
@@ -1880,9 +1735,10 @@ describe('privacy chain state: epoch', () => {
 
   it('renews it when Monero local data is deleted', async () => {
     const entity = createEntity();
-    await entity.beginXmrEnable({
+    await entity.saveXmrEnabledAccount({
       networkId: XMR,
       accountId: 'account',
+      vkFp: '9'.repeat(32),
       birthdayHeight: 3_000_000,
     });
     const before = await epochOf(entity, 'account');

@@ -103,6 +103,13 @@ describe('getPrivacyChainBlocksLeft', () => {
     ).toBe(20);
   });
 
+  // Zcash scans out of order, so its height gap overstates what is left.
+  it('uses the backfill count the chain reports', () => {
+    expect(
+      getPrivacyChainBlocksLeft({ ...progress, backfillRemainingBlocks: 30 }),
+    ).toBe(50);
+  });
+
   it('knows nothing before a pass has published a position', () => {
     expect(getPrivacyChainBlocksLeft(undefined)).toBeNull();
     expect(
@@ -221,6 +228,8 @@ describe('nextPrivacyChainScanRate', () => {
       now: 2000,
     });
     expect(second?.blocksPerSec).toBe(10);
+    // The measurement runs from the first sample.
+    expect(second?.since).toBe(0);
   });
 
   it('measures out-of-order scans by blocks left, not the contiguous cursor', () => {
@@ -256,7 +265,7 @@ describe('nextPrivacyChainScanRate', () => {
   });
 
   it('starts over after a rewind or a long gap', () => {
-    const measured = { done: 500, at: 0, blocksPerSec: 10 };
+    const measured = { done: 500, at: 0, since: 0, blocksPerSec: 10 };
     expect(
       nextPrivacyChainScanRate({
         previous: measured,

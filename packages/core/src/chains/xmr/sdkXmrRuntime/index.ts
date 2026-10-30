@@ -1,5 +1,3 @@
-import { OneKeyLocalError } from '@onekeyhq/shared/src/errors/errors/localError';
-
 import type { IXmrFeePriority, IXmrNetwork, IXmrRuntimeError } from './types';
 
 // All async despite sync wasm: reached across a Worker/WebView boundary on
@@ -116,23 +114,9 @@ export type IXmrRuntimeApi = {
   diagDatabase: () => Promise<string>;
 };
 
-let loader: (() => Promise<IXmrRuntimeApi>) | undefined;
-
-export function setXmrRuntimeApiLoader(next: () => Promise<IXmrRuntimeApi>) {
-  loader = next;
-}
-
-export function hasXmrRuntimeApiLoader(): boolean {
-  return Boolean(loader);
-}
-
 export async function getXmrRuntimeApi(): Promise<IXmrRuntimeApi> {
-  if (!loader) {
-    throw new OneKeyLocalError(
-      'xmr runtime is not available on this carrier; setXmrRuntimeApiLoader() was never called',
-    );
-  }
-  return loader();
+  const { getXmrRuntimeApiForCarrier } = await import('./sdk');
+  return getXmrRuntimeApiForCarrier();
 }
 
 /** Runtime errors cross the boundary as JSON strings; anything else returns null. */

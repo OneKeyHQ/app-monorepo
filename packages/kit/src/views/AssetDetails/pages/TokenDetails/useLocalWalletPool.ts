@@ -27,10 +27,7 @@ import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { EAppEventBusNames } from '@onekeyhq/shared/src/eventBus/appEventBusNames';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { getLocalWalletPoolDisplayAddress } from '@onekeyhq/shared/src/utils/privacyChainDisplayUtils';
-import {
-  PRIVACY_CHAIN_SYNC_POLL_MS,
-  PRIVACY_CHAIN_TIP_POLL_MS,
-} from '@onekeyhq/shared/src/utils/privacyChainSyncPolicy';
+import { PRIVACY_CHAIN_TIP_POLL_MS } from '@onekeyhq/shared/src/utils/privacyChainSyncPolicy';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 
 type ILocalWalletSettings = NonNullable<IVaultSettings['localWallet']>;
@@ -289,6 +286,16 @@ export function useLocalWalletPool({
     });
   }, [freshAddresses, freshState, lastSeenKey]);
 
+  // The scheduler publishes progress after each pass; the read covers an account it has not reached yet.
+  const publishedProgressAtom = useMemo(
+    () =>
+      selectAtom(
+        privacyChainAtom.atom(),
+        (value) => value.progress[`${networkId}:${accountId}`],
+      ),
+    [networkId, accountId],
+  );
+  const publishedProgress = useAtomValue(publishedProgressAtom);
   const { result: progressResult, run: refreshSyncProgress } = usePromiseResult(
     async () => {
       if (!canRead) return null;
@@ -299,15 +306,13 @@ export function useLocalWalletPool({
       return { scope: readScope, progress };
     },
     [readScope, canRead, accountId, networkId],
-    {
-      pollingInterval: canRead ? PRIVACY_CHAIN_SYNC_POLL_MS : undefined,
-      overrideIsFocused: (isPageFocused) => isPageFocused && isActive,
-    },
+    { overrideIsFocused: (isPageFocused) => isPageFocused && isActive },
   );
-  const syncProgress =
-    canRead && progressResult?.scope === readScope
-      ? progressResult.progress
-      : undefined;
+  const readProgress =
+    progressResult?.scope === readScope ? progressResult.progress : undefined;
+  const syncProgress = canRead
+    ? (publishedProgress ?? readProgress)
+    : undefined;
 
   const balanceProgressMarker = syncProgress
     ? [

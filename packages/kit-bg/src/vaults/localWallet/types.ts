@@ -36,6 +36,8 @@ export type ILocalWalletSyncProgress = {
   isSyncing: boolean;
   // Smoothed scan speed, added when progress is published; absent until the scan has advanced.
   blocksPerSec?: number;
+  // When the speed above started being measured.
+  blocksPerSecSince?: number;
 };
 
 // Why a network's last background sync failed, for the status row and light.
@@ -281,6 +283,8 @@ export type ILocalWalletCapability = {
   }>;
   getAccountAliases: (params: { accountId: string }) => Promise<string[]>;
   getChainTip: () => Promise<number | null>;
+  // Latest height for validating typed input (node today, backend later); must not load the scanner.
+  getLatestHeight?: () => Promise<number | null>;
   onWalletCreated: (params: {
     walletId: string;
     isFreshlyGeneratedMnemonic: boolean;
@@ -322,7 +326,6 @@ export type ILocalWalletCapability = {
   getSyncEndpoint?: () => Promise<
     | {
         url: string;
-        defaultUrl: string;
         health?: {
           ok: boolean;
           latencyMs: number | null;

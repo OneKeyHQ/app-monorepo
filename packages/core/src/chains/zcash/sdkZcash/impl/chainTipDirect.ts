@@ -1,14 +1,7 @@
 // cspell:ignore lightd Zaino
-import { createFetchStream } from '@onekeyhq/shared/src/utils/fetchStreamClient';
-import { hostFetchStream } from '@onekeyhq/shared/src/utils/hostFetchStream';
+import { privacyChainNodeFetch } from '@onekeyhq/core/src/utils/privacyChainNodeFetch';
 
-const hostFetch = hostFetchStream
-  ? createFetchStream(hostFetchStream)
-  : undefined;
-
-// A lightweight gRPC-web probe without loading WASM. Desktop and extension
-// use the same host transport as scanning; native background fetch already
-// uses native networking. Plain web retains browser Fetch/CORS.
+// A lightweight gRPC-web probe without loading WASM.
 
 const GET_LATEST_BLOCK_PATH =
   '/cash.z.wallet.sdk.rpc.CompactTxStreamer/GetLatestBlock';
@@ -157,7 +150,7 @@ async function fetchGrpcWebEmptyRequestFrame({
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
-    const response = await (hostFetch ?? fetch)(
+    const response = await privacyChainNodeFetch(
       `${lightwalletdUrl.replace(/\/+$/, '')}${path}`,
       {
         method: 'POST',

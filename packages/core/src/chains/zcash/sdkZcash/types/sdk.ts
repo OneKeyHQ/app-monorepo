@@ -32,11 +32,6 @@ export type IZcashInspectedTransaction = {
   recoveredOutputs: { recipient: string; amountZat: string; memoHex: string }[];
 };
 
-export type IZcashGetChainTipParams = {
-  network: IZcashNetwork;
-  lightwalletdUrl: string;
-};
-
 export type IZcashDeriveAccountParams = {
   network: IZcashNetwork;
   // 32-byte Orchard account spending key (m/32'/133'/hdIndex'), hex. The
@@ -449,10 +444,9 @@ export type IZcashSdkApi = {
 
   runRuntimeSelfTest: (params: {
     stage: IZcashRuntimeSelfTestStage;
+    // The node the network stage asks; the caller resolves it like any other request.
+    lightwalletdUrl?: string;
   }) => Promise<IZcashRuntimeSelfTestResult>;
-
-  // No keys/wallet needed; anchors a birthday before derivation and backs the manual rescan-from-earlier repair. Returns null (not throw) on failure.
-  getChainTip: (params: IZcashGetChainTipParams) => Promise<number | null>;
 
   // Stateless recipient decoding; does not open scan storage or use the network.
   validateAddress: (params: {

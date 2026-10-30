@@ -26,6 +26,7 @@ import {
   formatPrivacyChainSyncError,
   formatPrivacyChainSyncSummary,
   getPrivacyChainNetworkSyncDisplay,
+  pickPrivacyChainSummaryFigure,
   pickSlowestPrivacyChainNetwork,
 } from '@onekeyhq/kit/src/utils/privacyChainSyncDisplay';
 import {
@@ -91,15 +92,15 @@ function PrivacyChainSyncNetwork({
   );
   const networkName =
     metadata?.networkId === networkId ? metadata.name : undefined;
+  // Also read collapsed: whether time left is reliable depends on the regions it declares.
   const { result: settingsResult } = usePromiseResult(
     async () => {
-      if (!expanded) return undefined;
       const settings = await backgroundApiProxy.serviceNetwork.getVaultSettings(
         { networkId },
       );
       return { networkId, localWallet: settings.localWallet };
     },
-    [networkId, expanded],
+    [networkId],
     { checkIsFocused: false },
   );
   const localWalletSettings =
@@ -115,7 +116,19 @@ function PrivacyChainSyncNetwork({
     isHeldByData,
     syncError,
   } = getPrivacyChainNetworkSyncDisplay({ state, networkId });
-  const stateLabel = intl.formatMessage({ id: labelId });
+  const isSyncing = labelId === ETranslations.global_syncing;
+  // A figure follows it here, so not the shared label that ends in an ellipsis.
+  const stateLabel = intl.formatMessage({
+    id: isSyncing ? ETranslations.privacy_sync_syncing__title : labelId,
+  });
+  const summaryFigure =
+    isSyncing && entry
+      ? pickPrivacyChainSummaryFigure({
+          progress: entry,
+          settings: localWalletSettings,
+          now: Date.now(),
+        })
+      : undefined;
   let syncErrorText: string | undefined;
   if (isStorageUnsupported) {
     syncErrorText = intl.formatMessage({
@@ -124,34 +137,23 @@ function PrivacyChainSyncNetwork({
   } else {
     syncErrorText = formatPrivacyChainSyncError(syncError, intl);
   }
-  const connection =
-    platformEnv.isNative && isCellular
-      ? intl.formatMessage({
-          id: ETranslations.privacy_sync_on_mobile_data__msg,
-        })
-      : '';
-  const isSyncing = labelId === ETranslations.global_syncing;
+  const isScanningOnMobileData =
+    platformEnv.isNative && isCellular && isRunning;
   const detailLine =
     syncErrorText ??
-    [
-      formatPrivacyChainSyncDetail({
-        progress: entry,
-        settings: localWalletSettings,
-        stopped: isPaused || isHeldByData,
-        // The summary line already shows the percentage and time left.
-        blocksOnly: isSyncing,
-        intl,
-      }),
-      connection,
-    ]
-      .filter(Boolean)
-      .join(' · ');
+    formatPrivacyChainSyncDetail({
+      progress: entry,
+      settings: localWalletSettings,
+      stopped: isPaused || isHeldByData,
+      shownAbove: summaryFigure,
+      intl,
+    });
   const summaryLabel = syncErrorText
     ? stateLabel
     : formatPrivacyChainSyncSummary({
         label: stateLabel,
         progress: entry,
-        syncing: isSyncing,
+        figure: summaryFigure,
       });
   let lightIcon: IKeyOfIcons = 'RefreshCcwOutline';
   let lightIconColor: IIconProps['color'] = isRunning
@@ -175,6 +177,14 @@ function PrivacyChainSyncNetwork({
         >
           {[networkName, summaryLabel].filter(Boolean).join(' · ')}
         </SizableText>
+        {isScanningOnMobileData ? (
+          <Icon
+            testID={`privacy-chain-sync-mobile-data-${networkId}`}
+            name="SignalOutline"
+            size="$4"
+            color="$iconSubdued"
+          />
+        ) : null}
         {controls}
       </XStack>
       {(expanded || syncErrorText) && detailLine ? (
@@ -190,28 +200,22 @@ function PrivacyChainSyncNetwork({
           {detailLine}
         </SizableText>
       ) : null}
-      {isHeldByData ? (
-        <>
-          <SizableText size="$bodySm" color="$textSubdued">
-            {intl.formatMessage({
-              id: ETranslations.privacy_sync_mobile_data__desc,
-            })}
-          </SizableText>
-          <Button
-            testID={
-              primary
-                ? 'privacy-chain-sync-light-allow-data-btn'
-                : `privacy-chain-sync-light-allow-data-btn-${networkId}`
-            }
-            size="small"
-            variant="primary"
-            onPress={onAllowCellular}
-          >
-            {intl.formatMessage({
-              id: ETranslations.privacy_sync_always_allow__action,
-            })}
-          </Button>
-        </>
+      {/* Turns on the same switch as the privacy network settings, so it says the same. */}
+      {isHeldByData && expanded ? (
+        <Button
+          testID={
+            primary
+              ? 'privacy-chain-sync-light-allow-data-btn'
+              : `privacy-chain-sync-light-allow-data-btn-${networkId}`
+          }
+          size="small"
+          variant="primary"
+          onPress={onAllowCellular}
+        >
+          {intl.formatMessage({
+            id: ETranslations.privacy_sync_mobile_data__title,
+          })}
+        </Button>
       ) : null}
     </YStack>
   );
@@ -403,6 +407,18 @@ function BasicPrivacyChainSyncLight() {
               </Stack>
             ))
           : null}
+        {/* The phone stops scanning in the background or when locked. */}
+        {expanded && hasRunningScans && platformEnv.isNative ? (
+          <SizableText
+            testID="privacy-chain-sync-light-keep-open"
+            size="$bodyXs"
+            color="$textSubdued"
+          >
+            {intl.formatMessage({
+              id: ETranslations.privacy_sync_keep_open__msg,
+            })}
+          </SizableText>
+        ) : null}
       </YStack>
     </Stack>
   );
