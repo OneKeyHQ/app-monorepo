@@ -421,7 +421,7 @@ const SwapTokenSelectPage = ({
   }, [isSwapStockSelectTarget, showLpTokenFilterSwitch, showLpTokensOnly]);
   const { gtMd, md } = useMedia();
   const useDesktopTokenSelector =
-    (platformEnv.isDesktop || platformEnv.isWeb) &&
+    (platformEnv.isDesktop || platformEnv.isWeb || platformEnv.isExtension) &&
     gtMd &&
     !isSwapStockSelectTarget;
   const desktopAddressInfo =
