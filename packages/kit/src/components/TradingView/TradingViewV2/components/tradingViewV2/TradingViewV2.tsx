@@ -39,6 +39,7 @@ import {
   TradingViewV2ChartControlsContainer,
   getTradingViewNativeSubIndicatorCountForSnapshot,
   useNativeIndicatorActiveValues,
+  useShowNativeIndicatorsDialog,
 } from '../TradingViewV2ChartControls';
 
 import {
@@ -754,6 +755,19 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
     !showNativeIndicatorQuickBar ||
     nativeChartControlsConfig !== null;
 
+  // Mirrors the header rule that hides the indicator trigger on mobile.
+  const shouldShowQuickBarIndicatorsTrigger =
+    enableNativeChartSettings &&
+    (nativeControlsLayoutMode ?? 'mobile') === 'mobile';
+  const showNativeIndicatorsDialog = useShowNativeIndicatorsDialog({
+    nativeChartControlsConfig,
+    nativeIndicatorState,
+    maxSelectableSubIndicatorCount,
+    onIndicatorSelect: handleNativeIndicatorSelect,
+    onResetLayout: handleNativeResetLayout,
+    onControlInteraction: handleNativeControlInteraction,
+  });
+
   const nativeIndicatorQuickBar = useMemo(() => {
     if (
       !enableNativeChartControls ||
@@ -769,8 +783,17 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
         nativeChartControlsConfig={nativeChartControlsConfig}
         nativeIndicatorState={nativeIndicatorState}
         maxSelectableSubIndicatorCount={maxSelectableSubIndicatorCount}
-        splitSections={nativeControlsLayoutMode === 'mobile'}
+        // Native-style layout: one scroll row with a trailing trigger.
+        splitSections={
+          nativeControlsLayoutMode === 'mobile' &&
+          !shouldShowQuickBarIndicatorsTrigger
+        }
         onIndicatorSelect={handleNativeIndicatorSelect}
+        onIndicatorsDialogPress={
+          shouldShowQuickBarIndicatorsTrigger
+            ? showNativeIndicatorsDialog
+            : undefined
+        }
         onControlInteraction={handleNativeControlInteraction}
       />
     );
@@ -782,7 +805,9 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
     nativeChartControlsConfig,
     nativeIndicatorState,
     nativeControlsLayoutMode,
+    shouldShowQuickBarIndicatorsTrigger,
     showNativeIndicatorQuickBar,
+    showNativeIndicatorsDialog,
   ]);
 
   const nativeIndicatorQuickBarState =

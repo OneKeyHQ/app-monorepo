@@ -195,6 +195,61 @@ describe('ServiceThirdPartyHardware Trezor BLE binding', () => {
     }
   });
 
+  it('runs a Ledger rebind as a wallet-match check only when a fingerprint is recorded', async () => {
+    const service = new ServiceThirdPartyHardware({
+      backgroundApi: {} as IBackgroundApi,
+    });
+    let checking = false;
+    const checkedBinds: boolean[] = [];
+    const bindBleDevice = jest.fn(async () => {
+      checkedBinds.push(checking);
+      return { success: true, payload: 'new-ble' };
+    });
+    const runWalletMatchCheck = jest.fn(
+      async <T>(check: () => Promise<T>): Promise<T> => {
+        checking = true;
+        try {
+          return await check();
+        } finally {
+          checking = false;
+        }
+      },
+    );
+    const adapterLookup = jest
+      .spyOn(service, 'getAdapterForVendor')
+      .mockResolvedValue({
+        hw: { bindBleDevice },
+        runWalletMatchCheck,
+      } as unknown as IThirdPartyHardwareAdapter);
+    const ledgerDevice = (settings: IDBDevice['settings']) => ({
+      id: 'db-device',
+      name: 'Device',
+      uuid: 'test-device',
+      deviceType: EDeviceType.Unknown,
+      features: '{}',
+      settingsRaw: '{}',
+      createdAt: 1,
+      updatedAt: 1,
+      vendor: EHardwareVendor.ledger,
+      deviceId: '',
+      connectId: '',
+      settings,
+    });
+    try {
+      db.getDevice.mockResolvedValueOnce(
+        ledgerDevice({ chainFingerprints: { evm: 'evm-fp' } }),
+      );
+      await service.rebindBleDevice({ dbDeviceId: 'db-device' });
+      db.getDevice.mockResolvedValueOnce(ledgerDevice({}));
+      await service.rebindBleDevice({ dbDeviceId: 'db-device' });
+
+      expect(checkedBinds).toEqual([true, false]);
+      expect(runWalletMatchCheck).toHaveBeenCalledTimes(1);
+    } finally {
+      adapterLookup.mockRestore();
+    }
+  });
+
   it('assigns a distinct publication id to otherwise identical prompts', async () => {
     const atomSet = jest
       .spyOn(thirdPartyHardwareUiStateAtom, 'set')
