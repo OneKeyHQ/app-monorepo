@@ -21364,6 +21364,7 @@
     "packages/core/src/chains/xmr/sdkXmrRuntime/index.ts": 16282,
     "packages/core/src/chains/xmr/sdkXmrRuntime/methods.ts": 18730,
     "packages/core/src/chains/xmr/sdkXmrRuntime/pureRuntimeFallback.native.ts": 16509,
+    "packages/core/src/chains/xmr/sdkXmrRuntime/runtimeError.ts": 9597,
     "packages/core/src/chains/xmr/sdkXmrRuntime/sdk/hostFetch.ts": 20885,
     "packages/core/src/chains/xmr/sdkXmrRuntime/sdk/index.native.ts": 9228,
     "packages/core/src/chains/xmr/sdkXmrRuntime/sdk/install.ts": 4465,

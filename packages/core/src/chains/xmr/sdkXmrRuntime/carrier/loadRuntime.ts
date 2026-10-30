@@ -3,8 +3,8 @@
 import { runPrivacyChainWorkerOperation } from '@onekeyhq/core/src/utils/privacyChainWorkerClient';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors/errors/localError';
 
-import { readXmrRuntimeError } from '..';
 import { XMR_RUNTIME_METHODS, coerceXmrU64Args } from '../methods';
+import { readXmrRuntimeError } from '../runtimeError';
 
 import type { IXmrRuntimeApi } from '..';
 
