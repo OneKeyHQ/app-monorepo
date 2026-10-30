@@ -699,6 +699,46 @@ describe('useSwapTokenList loading lifecycle', () => {
     },
   );
 
+  it.each(['completed', 'inflight'] as const)(
+    'starts a full sweep when a %s compact extension session becomes wide',
+    async (state) => {
+      platformEnv.isDesktop = false;
+      platformEnv.isWeb = false;
+      platformEnv.isExtension = true;
+      mockGtMd = false;
+      mockNetworks = [allNetwork, network];
+      const compact = deferred();
+      mockLoadAllNetworks.mockImplementationOnce(() => compact.promise);
+      const { rerender, unmount } = renderList(allNetwork.networkId);
+      await waitFor(() => expect(mockLoadAllNetworks).toHaveBeenCalledTimes(1));
+      expect(mockLoadAllNetworks).toHaveBeenLastCalledWith(
+        'loading-test-account',
+        undefined,
+        false,
+        'usd',
+        { policy: 'revalidate', fullChainLists: false },
+      );
+      if (state === 'completed') await act(async () => compact.resolve());
+      mockGtMd = true;
+      rerender();
+      try {
+        await waitFor(() =>
+          expect(mockLoadAllNetworks).toHaveBeenCalledTimes(2),
+        );
+        expect(mockLoadAllNetworks).toHaveBeenLastCalledWith(
+          'loading-test-account',
+          undefined,
+          false,
+          'usd',
+          { policy: 'revalidate', fullChainLists: true },
+        );
+      } finally {
+        await act(async () => compact.resolve());
+        unmount();
+      }
+    },
+  );
+
   it('replaces a warm wide-extension chain snapshot through the wallet refresh', async () => {
     platformEnv.isDesktop = false;
     platformEnv.isWeb = false;

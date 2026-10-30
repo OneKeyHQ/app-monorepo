@@ -109,7 +109,7 @@ export function useSwapTokenSelectorPreload({
           otherAccountId,
           false,
           currency,
-          { policy: 'preload' },
+          { policy: 'preload', fullChainLists: true },
         ).catch(() => undefined);
       }
     }

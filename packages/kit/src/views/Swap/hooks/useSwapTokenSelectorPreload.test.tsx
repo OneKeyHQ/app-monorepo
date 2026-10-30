@@ -118,7 +118,7 @@ describe('useSwapTokenSelectorPreload', () => {
       undefined,
       false,
       'usd',
-      { policy: 'preload' },
+      { policy: 'preload', fullChainLists: true },
     );
   });
 
@@ -134,7 +134,7 @@ describe('useSwapTokenSelectorPreload', () => {
       'imported-account-2',
       false,
       'usd',
-      { policy: 'preload' },
+      { policy: 'preload', fullChainLists: true },
     );
   });
 
@@ -256,7 +256,7 @@ describe('useSwapTokenSelectorPreload', () => {
       undefined,
       false,
       'eur',
-      { policy: 'preload' },
+      { policy: 'preload', fullChainLists: true },
     );
     rerender({
       ...params,

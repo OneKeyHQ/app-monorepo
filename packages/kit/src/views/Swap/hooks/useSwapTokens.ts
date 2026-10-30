@@ -439,6 +439,7 @@ export function useSwapTokenList(
     currency: requestCurrency,
     cacheEpoch,
     networks: allNetworkSwapNetworksReadyKey,
+    fullChainLists: refreshFullChainLists,
   });
   // Chain selection starts a new search intent even when contract searches
   // share the same all-network HTTP identity and in-flight request.
@@ -735,7 +736,7 @@ export function useSwapTokenList(
               otherWalletTypeAccountId,
               filter,
               requestCurrency,
-              { policy: 'revalidate' },
+              { policy: 'revalidate', fullChainLists: refreshFullChainLists },
             ),
           fetchTokens: searchSubscription
             ? (params, options) =>

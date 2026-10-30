@@ -457,6 +457,9 @@ const SwapTokenSelectPage = ({
     swapAllNetworkTokenListStatus[desktopAllNetworkTokenListCacheKey];
   const desktopAssetSnapshotReady =
     desktopAllNetworkTokens !== undefined &&
+    (platformEnv.isExtension
+      ? desktopAllNetworkStatus?.dataReady === true
+      : desktopAllNetworkStatus?.dataReady !== false) &&
     (desktopAllNetworkStatus
       ? desktopAllNetworkStatus.identityVersion ===
         tokenSelectorCacheEpoch.identity
