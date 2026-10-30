@@ -224,9 +224,9 @@ export function EarnOfferOptionCard({
           skipInitialAnimation
         >
           {/* Under the name, and its values end where the rate does */}
-          <YStack pl="$12" pr={isChoice ? '$9' : undefined}>
-            {facts}
-          </YStack>
+          {/* The width of the card's row, from the logo's edge: the facts
+              are a panel of their own under it */}
+          <YStack>{facts}</YStack>
         </HeightTransition>
       ) : null}
     </YStack>

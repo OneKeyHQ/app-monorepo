@@ -113,9 +113,9 @@ export const EARN_DESKTOP_DEMO_COPY = {
   onNetwork: (network: string) => `on ${network}`,
   // The Earn window's picked card: what tells the offer apart
   bonusApy: 'Bonus APY',
-  // After the bonus rate: the token it is paid in
-  paidIn: (symbol: string) => `in ${symbol}`,
   bonusEnds: 'Bonus ends',
+  // How long the bonus has left; its date shows on hover
+  inDays: (days: number) => (days === 1 ? 'in 1 day' : `in ${days} days`),
   maturity: 'Maturity',
   fixedRateEarlySale: 'Selling before maturity gets the market price.',
   loanNotLent: (symbol: string, eMode?: string) =>
