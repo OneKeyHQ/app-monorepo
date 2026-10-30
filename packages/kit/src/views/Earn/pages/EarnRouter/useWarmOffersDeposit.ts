@@ -40,6 +40,8 @@ type IWarmTarget = {
   symbol: string;
   networkId: string;
   offers: IEarnDesktopHoldOffer[];
+  /** The offer the modal opens on, when not the best rate */
+  offerKey?: string;
 };
 
 type IWarmFormTarget = {
@@ -203,7 +205,7 @@ export function useWarmOffersDeposit() {
 
   return useCallback(
     (
-      { symbol, networkId, offers }: IWarmTarget,
+      { symbol, networkId, offers, offerKey }: IWarmTarget,
       { withData = true }: { withData?: boolean } = {},
     ) => {
       preloadDepositPage();
@@ -211,7 +213,8 @@ export function useWarmOffersDeposit() {
         buildOffersFirstFrameKey({ accountId, networkId, symbol }),
         offers.length ? offers : undefined,
       );
-      const [offer] = offers;
+      const offer =
+        offers.find((item) => item.key === offerKey) ?? offers.at(0);
       // A lending market's form reads its account first; it loads on open
       if (!withData || !offer || offer.kind === 'lending') {
         return;

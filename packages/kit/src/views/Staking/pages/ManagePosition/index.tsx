@@ -613,6 +613,7 @@ const ManagePositionPage = () => {
               purpose="earn"
               fallbackLogoURI={offersEntry.tokenImageUri ?? tokenImageUri}
               networkLogoURI={networkAssets.networkLogoURI}
+              networkName={networkAssets.networkName ?? network?.name}
               onPress={handleOpenAssetSelect}
             />
           ) : undefined

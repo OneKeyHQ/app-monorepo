@@ -79,6 +79,10 @@ export type ITabEarnParamList = {
     // OK-61377: the phone positions page's Manage lands on the position, so
     // the page scrolls its Portfolio tab into view once it has loaded.
     scrollToPortfolio?: boolean;
+    // Opened from the Earn window's Details: what was typed there and the
+    // token Pay with paid with, for the page's own form (demo 10-30)
+    amount?: string;
+    payKey?: string;
   };
   [ETabEarnRoutes.EarnProtocolDetailsShare]: {
     network: string; // network name, like 'ethereum', 'bitcoin'
@@ -97,6 +101,10 @@ export type ITabEarnParamList = {
     logoURI?: string;
     accountId?: string;
     indexedAccountId?: string;
+    // Opened from the Earn window's Details: what was typed there and the
+    // token Pay with paid with, for the page's own form (demo 10-30)
+    amount?: string;
+    payKey?: string;
   };
   [ETabEarnRoutes.BorrowReserveDetails]: {
     networkId: string;

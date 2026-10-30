@@ -676,6 +676,8 @@ const EarnLendingDetailsPage = () => {
     logoURI: routeLogoURI,
     accountId: routeAccountId,
     indexedAccountId: routeIndexedAccountId,
+    amount: routeAmount,
+    payKey: routePayKey,
   } = route.params as IRouteParams;
   const intl = useIntl();
   const navigation = useAppNavigation();
@@ -839,7 +841,9 @@ const EarnLendingDetailsPage = () => {
 
   // The supply side can be paid with another token the wallet holds; the
   // pick is kept here, so it survives a look at the Withdraw tab
-  const [payKey, setPayKey] = useState<string>();
+  // Opened from the Earn window's Details, it starts on that window's token
+  // and amount
+  const [payKey, setPayKey] = useState(routePayKey);
   const payWith = useMemo<IManagePositionPayWith>(
     () => ({ selectedKey: payKey, onSelectedKeyChange: setPayKey }),
     [payKey],
@@ -1031,6 +1035,7 @@ const EarnLendingDetailsPage = () => {
                   providerDisplayName={marketLabel}
                   providerLogoUri={market?.logoURI}
                   payWith={payWith}
+                  initialAmount={routeAmount}
                   isEarnLending
                   defaultTab={formTab}
                   onTabChange={setFormTab}

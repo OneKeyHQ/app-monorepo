@@ -1,5 +1,7 @@
 import { useCallback, useMemo, useSyncExternalStore } from 'react';
 
+import BigNumber from 'bignumber.js';
+
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useEarnAtom } from '@onekeyhq/kit/src/states/jotai/contexts/earn';
 import { USD_CURRENCY_ID } from '@onekeyhq/shared/src/consts/currencyConsts';
@@ -135,6 +137,12 @@ export function usePayTokens({
     () => pickDefaultPayToken(heldTokens),
     [heldTokens],
   );
+  // The wallet holds nothing at all on the network, of any token
+  const isNetworkEmpty =
+    wallet.isLoaded &&
+    !(group?.tokens ?? []).some((token) =>
+      new BigNumber(group?.map[token.$key]?.balanceParsed ?? 0).gt(0),
+    );
   // After a transaction: the wallet's balances, and the picks' own, which
   // the wallet's list doesn't carry
   const { refresh: refreshWallet } = wallet;
@@ -152,6 +160,7 @@ export function usePayTokens({
     heldTokens,
     defaultToken,
     isLoaded: wallet.isLoaded,
+    isNetworkEmpty,
     refresh,
   };
 }

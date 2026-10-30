@@ -611,6 +611,9 @@ export const EarnNavigation = {
       vault?: string;
       logoURI?: string;
       scrollToPortfolio?: boolean;
+      // From the Earn window's Details: its amount and Pay with token
+      amount?: string;
+      payKey?: string;
     },
   ) {
     void safePushToEarnRoute(navigation, ETabEarnRoutes.EarnProtocolDetails, {
@@ -620,6 +623,8 @@ export const EarnNavigation = {
       vault: params.vault,
       logoURI: params.logoURI,
       ...(params.scrollToPortfolio ? { scrollToPortfolio: true } : {}),
+      ...(params.amount ? { amount: params.amount } : {}),
+      ...(params.payKey ? { payKey: params.payKey } : {}),
     });
   },
 

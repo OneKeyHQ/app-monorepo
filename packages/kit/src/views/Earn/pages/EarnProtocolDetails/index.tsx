@@ -1174,6 +1174,8 @@ const ManagePositionPart = ({
   onStakeWithdrawSuccess,
   tab,
   onTabChange,
+  initialAmount,
+  initialPayKey,
 }: {
   networkId: string;
   symbol: string;
@@ -1185,6 +1187,9 @@ const ManagePositionPart = ({
   suppressPlatformBonus?: boolean;
   onCreateAddress?: () => Promise<void>;
   onStakeWithdrawSuccess?: () => void;
+  // From the Earn window's Details: the amount and Pay with token it had
+  initialAmount?: string;
+  initialPayKey?: string;
   // The page keeps the form's side, so the Investment rows' Redeem can turn
   // it to Withdraw (demo 10-29)
   tab?: 'deposit' | 'withdraw';
@@ -1192,7 +1197,7 @@ const ManagePositionPart = ({
 }) => {
   // The deposit side can be paid with another token the wallet holds. The
   // pick is kept here, so it survives a look at the Withdraw tab
-  const [payKey, setPayKey] = useState<string>();
+  const [payKey, setPayKey] = useState(initialPayKey);
   const payWith = useMemo<IManagePositionPayWith>(
     () => ({ selectedKey: payKey, onSelectedKeyChange: setPayKey }),
     [payKey],
@@ -1202,6 +1207,7 @@ const ManagePositionPart = ({
       <YStack gap="$1.5" flex={1}>
         <ManagePositionContent
           showApyDetail={false}
+          initialAmount={initialAmount}
           networkId={networkId}
           symbol={symbol}
           provider={provider}
@@ -1241,6 +1247,8 @@ const EarnProtocolDetailsPage = ({ route }: { route: IRouteProps }) => {
     vault: string | undefined;
     logoURI?: string;
     scrollToPortfolio?: boolean;
+    amount?: string;
+    payKey?: string;
   }>(() => {
     const routeParams = route.params as any;
 
@@ -1276,8 +1284,16 @@ const EarnProtocolDetailsPage = ({ route }: { route: IRouteProps }) => {
     }
 
     // Old format: normal navigation
-    const { networkId, symbol, provider, vault, logoURI, scrollToPortfolio } =
-      routeParams;
+    const {
+      networkId,
+      symbol,
+      provider,
+      vault,
+      logoURI,
+      scrollToPortfolio,
+      amount,
+      payKey,
+    } = routeParams;
 
     return {
       networkId,
@@ -1286,6 +1302,8 @@ const EarnProtocolDetailsPage = ({ route }: { route: IRouteProps }) => {
       vault,
       logoURI,
       scrollToPortfolio,
+      amount,
+      payKey,
     };
   }, [route.params]);
 
@@ -1914,6 +1932,8 @@ const EarnProtocolDetailsPage = ({ route }: { route: IRouteProps }) => {
               onStakeWithdrawSuccess={handleActionSuccess}
               tab={formTab}
               onTabChange={setFormTab}
+              initialAmount={resolvedParams.amount}
+              initialPayKey={resolvedParams.payKey}
             />
           </StickyFormColumn>
         ) : null}

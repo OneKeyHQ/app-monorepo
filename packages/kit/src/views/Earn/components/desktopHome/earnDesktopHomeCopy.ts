@@ -107,6 +107,17 @@ export const EARN_DESKTOP_DEMO_COPY = {
   loanLiquidationPrice: 'Liquidation Price',
   loanBelowNow: (percent: string) => `${percent} below now`,
   loanNoAccount: (network: string) => `This account can't use ${network}`,
+  // Pay with's balance when the wallet holds nothing on the network
+  noFundsOnNetwork: (network: string) => `No funds on ${network}`,
+  // After the Earn window's pick: the network it is on
+  onNetwork: (network: string) => `on ${network}`,
+  // The Earn window's picked card: what tells the offer apart
+  bonusApy: 'Bonus APY',
+  // After the bonus rate: the token it is paid in
+  paidIn: (symbol: string) => `in ${symbol}`,
+  bonusEnds: 'Bonus ends',
+  maturity: 'Maturity',
+  fixedRateEarlySale: 'Selling before maturity gets the market price.',
   loanNotLent: (symbol: string, eMode?: string) =>
     eMode
       ? `Your E-Mode here (${eMode}) doesn't lend ${symbol}`

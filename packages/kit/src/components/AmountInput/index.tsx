@@ -73,6 +73,9 @@ export type IAmountInputFormItemProps = IFormFieldProps<
       actionLoading?: boolean;
       // Web: Tab reaches the balance's action and Enter or Space press it
       isKeyboardPressable?: boolean;
+      // Words in place of the figure and its icon, where a 0 would say too
+      // little (Earn's Pay with: nothing on the network at all)
+      valueText?: string;
     };
     balanceHelperProps?: {
       onPress?: () => void;
@@ -431,7 +434,7 @@ export function AmountInput({
             {balanceProps.iconText}
           </SizableText>
         );
-      } else if (!balanceProps.hideIcon) {
+      } else if (!balanceProps.hideIcon && !balanceProps.valueText) {
         balanceLeadingElement = (
           <Icon name="WalletOutline" size="$4" color="$iconSubdued" mr="$1" />
         );
@@ -498,7 +501,11 @@ export function AmountInput({
           })}
         >
           {balanceLeadingElement}
-          <>
+          {balanceProps.valueText ? (
+            <SizableText size="$bodySm" color="$textSubdued">
+              {balanceProps.valueText}
+            </SizableText>
+          ) : (
             <NumberSizeableText
               size="$bodySm"
               color="$textSubdued"
@@ -506,7 +513,7 @@ export function AmountInput({
             >
               {balanceProps.value ?? 0}
             </NumberSizeableText>
-          </>
+          )}
           {balanceProps.tokenSymbol ? (
             <SizableText pl="$1" size="$bodySm" color="$textSubdued">
               {balanceProps.tokenSymbol}

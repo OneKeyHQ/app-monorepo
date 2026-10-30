@@ -76,6 +76,7 @@ import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 import type { IToken } from '@onekeyhq/shared/types/token';
 
 import { useEarnRiskWarningGate } from '../../../components/EarnRiskWarningDialog';
+import { EarnBalanceNoteContext } from '../../../components/StakingAmountInput';
 import {
   ProtocolSwitcher,
   UniversalStake,
@@ -332,6 +333,20 @@ export const StakeSection = ({
     depositSymbol,
     enabled: canPayWith && Boolean(depositSymbol),
   });
+  // An account with nothing at all on this network: Pay with's balance says
+  // so and names the network, where a 0 would speak of one token only. The
+  // form stays open; an amount typed gets the usual message (demo 10-30)
+  const { result: payNetwork } = usePromiseResult(
+    async () =>
+      canPayWith
+        ? backgroundApiProxy.serviceNetwork.getNetworkSafe({ networkId })
+        : undefined,
+    [canPayWith, networkId],
+  );
+  const payBalanceNote =
+    canPayWith && accountId && pay.isNetworkEmpty && payNetwork?.name
+      ? EARN_DESKTOP_DEMO_COPY.noFundsOnNetwork(payNetwork.name)
+      : undefined;
   // Pay with's own tokens by address, which the picker lists also where
   // Swap files them under DeFi tokens. Joined, so a balance refresh that
   // keeps the same tokens changes nothing
@@ -1579,7 +1594,7 @@ export const StakeSection = ({
   }
 
   return (
-    <>
+    <EarnBalanceNoteContext.Provider value={payBalanceNote}>
       {isBorrowStake ? (
         <ManagePosition
           accountId={accountId}
@@ -1723,6 +1738,6 @@ export const StakeSection = ({
           pendleSlippage={pendleSlippage}
         />
       )}
-    </>
+    </EarnBalanceNoteContext.Provider>
   );
 };

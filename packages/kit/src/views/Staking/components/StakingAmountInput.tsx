@@ -1,5 +1,13 @@
 import type { ReactNode, RefObject } from 'react';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 
 import BigNumber from 'bignumber.js';
 import { InputAccessoryView } from 'react-native';
@@ -28,6 +36,12 @@ export const stakingInputAccessoryViewID =
 
 // No 100%: the Max beside the balance is the whole balance
 export const StakingPercentageInputStage = [25, 50, 75];
+
+// Said in place of a zero balance by the deposit form around the box: the
+// wallet holds nothing on the network to pay with (demo 10-30)
+export const EarnBalanceNoteContext = createContext<string | undefined>(
+  undefined,
+);
 
 // A form that opens complete takes the focus as a modal is still opening,
 // and the opening can drop it a moment later. This long it is taken back
@@ -184,6 +198,7 @@ export function StakingAmountInput({
     new BigNumber(balanceValue ?? '').isZero();
   const isBalanceLoadedZero = Boolean(onRefreshBalance) && isLoadedZero;
   const balanceOnPress = props.balanceProps?.onPress;
+  const balanceNote = useContext(EarnBalanceNoteContext);
   const balanceProps = useMemo(() => {
     if (!props.balanceProps) {
       return undefined;
@@ -191,6 +206,7 @@ export function StakingAmountInput({
     if (isBalanceLoadedZero) {
       return {
         ...props.balanceProps,
+        valueText: balanceNote,
         ...getSwapBalanceActionProps({
           isLoadedZero: true,
           refreshing: isRefreshingBalance,
@@ -214,6 +230,7 @@ export function StakingAmountInput({
       isKeyboardPressable: true,
     };
   }, [
+    balanceNote,
     balanceOnPress,
     isBalanceLoadedZero,
     isLoadedZero,

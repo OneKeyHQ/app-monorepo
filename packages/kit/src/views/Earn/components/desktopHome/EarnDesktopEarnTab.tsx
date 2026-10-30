@@ -18,6 +18,7 @@ import { useReducedMotion } from 'react-native-reanimated';
 
 import {
   Badge,
+  Button,
   Icon,
   SearchBar,
   SizableText,
@@ -50,6 +51,7 @@ import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import type { IEarnAvailableAsset } from '@onekeyhq/shared/types/earn';
 import { EAvailableAssetsTypeEnum } from '@onekeyhq/shared/types/earn';
 import { normalizeToEarnProvider } from '@onekeyhq/shared/types/earn/earnProvider.constants';
+import { EStakeProtocolGroupEnum } from '@onekeyhq/shared/types/staking';
 import type { IStakeProtocolListItem } from '@onekeyhq/shared/types/staking';
 
 import { EarnText } from '../../../Staking/components/ProtocolDetails/EarnText';
@@ -57,6 +59,7 @@ import { EarnNavigation } from '../../earnUtils';
 import { useEarnAllProtocols } from '../../hooks/useEarnAllProtocols';
 import { getEarnAssetClassLabel } from '../../pages/EarnAssetSelect/earnAssetClassLabel';
 import { EARN_ASSET_CLASS_ORDER } from '../../pages/EarnAssetSelect/earnAssetSelect.utils';
+import { useWarmOffersDeposit } from '../../pages/EarnRouter/useWarmOffersDeposit';
 import { EarnTestIDs } from '../../testIDs';
 import {
   LIST_FOLD_MS,
@@ -72,6 +75,7 @@ import { ANIMATE_ONLY_BG_COLOR } from './earnDesktopColorEase';
 import {
   buildNetworkView,
   buildTokenOffers,
+  collectNetworkOffers,
   findPositionDeposit,
   getAssetSortApr,
   getLoanAssetType,
@@ -94,6 +98,7 @@ import { useEarnDesktopScrollPin } from './useEarnDesktopScrollPin';
 import { useEarnDesktopSurfaces } from './useEarnDesktopSurfaces';
 
 import type {
+  IEarnDesktopHoldOffer,
   IEarnDesktopLendingOffer,
   IEarnDesktopLoanAssetType,
   IEarnDesktopNetworkView,
@@ -146,6 +151,9 @@ const COLUMNS = {
     $md: { flexGrow: 0, flexShrink: 0, flexBasis: 'auto', minWidth: 0 },
   } as const,
 };
+// The rows' last column: an option's button, and the token's chevron at its
+// end, so every rate lines up over the options' rates
+const END_COLUMN_WIDTH = 80;
 // One column keeps the token and its rate; the network and the balance need
 // a wide row
 const WIDE_ONLY = { $md: { display: 'none' } } as const;
@@ -388,6 +396,61 @@ function OfferRowFrame({
   );
 }
 
+const getTokenOfferNetworkId = (offer: IEarnDesktopTokenOffer) =>
+  offer.kind === 'lending'
+    ? offer.offer.market.networkId
+    : offer.item.network.networkId;
+
+// The word on an option's button is the one on the Earn window's button it
+// opens (demo 10-29: an entry names what it opens)
+const getTokenOfferVerbId = (offer: IEarnDesktopTokenOffer) => {
+  if (offer.kind === 'lending') {
+    return ETranslations.defi_supply;
+  }
+  return earnUtils.isPendleProvider({ providerName: offer.item.provider.name })
+    ? ETranslations.global_buy
+    : ETranslations.earn_deposit;
+};
+
+// An option's button: the Earn window on that option, where the row opens
+// its details page. Its own Tab stop, as the two lead to different places
+function OfferActionButton({
+  label,
+  testID,
+  onPress,
+  onWarm,
+}: {
+  label: string;
+  testID: string;
+  onPress: () => void;
+  /** Loads the window, while the button is pointed at or pressed */
+  onWarm: () => void;
+}) {
+  const reduceMotion = useReducedMotion();
+  return (
+    <XStack w={END_COLUMN_WIDTH} flexShrink={0} jc="flex-end">
+      <Button
+        testID={testID}
+        size="small"
+        variant="secondary"
+        transition={reduceMotion ? undefined : 'quick'}
+        animateOnly={ANIMATE_ONLY_BG_COLOR}
+        onHoverIn={onWarm}
+        // Button stops the press at itself, so the row's page doesn't open
+        // too. Stopping the press-in keeps the row at its hover color while
+        // the button is held, so only the button looks pressed
+        onPressIn={(event: { stopPropagation: () => void }) => {
+          event.stopPropagation();
+          onWarm();
+        }}
+        onPress={onPress}
+      >
+        {label}
+      </Button>
+    </XStack>
+  );
+}
+
 // The token row's deposit line, for an offer holding part of it
 function DepositedLine({ value }: { value: number }) {
   const intl = useIntl();
@@ -453,7 +516,7 @@ function OfferSkeleton({
           <Stack {...COLUMNS.apr}>
             <Skeleton w={56} h={16} borderRadius="$2" />
           </Stack>
-          <Stack w="$5" />
+          <Stack w={END_COLUMN_WIDTH} flexShrink={0} />
         </XStack>
       ))}
     </YStack>
@@ -558,6 +621,68 @@ function TokenOffers({
     [asset.symbol, deposits, offers],
   );
   const hasDeposits = [...depositByKey.values()].some((value) => value > 0);
+
+  // What the Earn window lists for the token on each network, in its order:
+  // an option it lists gets a button that opens it there, on that option. A
+  // redeem-only or withdraw-only option isn't among them
+  const windowOffersByNetwork = useMemo(() => {
+    const open = (protocols ?? []).filter(
+      (item) => item.provider.group !== EStakeProtocolGroupEnum.WithdrawOnly,
+    );
+    const byNetwork = new Map<string, IEarnDesktopHoldOffer[]>();
+    offers.forEach((offer) => {
+      const networkId = getTokenOfferNetworkId(offer);
+      if (!byNetwork.has(networkId)) {
+        byNetwork.set(
+          networkId,
+          collectNetworkOffers({
+            networkId,
+            protocols: open,
+            lendingOffers: lendingOffers ?? [],
+          }),
+        );
+      }
+    });
+    return byNetwork;
+  }, [lendingOffers, offers, protocols]);
+  const windowOffersOf = useCallback(
+    (offer: IEarnDesktopTokenOffer) =>
+      windowOffersByNetwork.get(getTokenOfferNetworkId(offer)) ?? [],
+    [windowOffersByNetwork],
+  );
+  const warmDeposit = useWarmOffersDeposit();
+  const handleOfferWarm = useCallback(
+    (offer: IEarnDesktopTokenOffer) =>
+      warmDeposit({
+        symbol: asset.symbol,
+        networkId: getTokenOfferNetworkId(offer),
+        offers: windowOffersOf(offer),
+        offerKey: offer.key,
+      }),
+    [asset.symbol, warmDeposit, windowOffersOf],
+  );
+  const handleOfferDeposit = useCallback(
+    (offer: IEarnDesktopTokenOffer) =>
+      EarnNavigation.pushToEarnOffersDeposit(navigation, {
+        symbol: asset.symbol,
+        networkId: getTokenOfferNetworkId(offer),
+        logoURI: asset.logoURI,
+        offerKey: offer.key,
+        wide: windowOffersOf(offer).length > 1,
+      }),
+    [asset.logoURI, asset.symbol, navigation, windowOffersOf],
+  );
+  const renderOfferAction = (offer: IEarnDesktopTokenOffer) =>
+    windowOffersOf(offer).some((item) => item.key === offer.key) ? (
+      <OfferActionButton
+        label={intl.formatMessage({ id: getTokenOfferVerbId(offer) })}
+        testID={`earn-desktop-offer-action-${offer.key}`}
+        onPress={() => handleOfferDeposit(offer)}
+        onWarm={() => handleOfferWarm(offer)}
+      />
+    ) : (
+      <Stack w={END_COLUMN_WIDTH} flexShrink={0} />
+    );
 
   const handleProtocolPress = useCallback(
     (item: IStakeProtocolListItem) => {
@@ -669,7 +794,7 @@ function TokenOffers({
             {intl.formatMessage({ id: ETranslations.defi_apr_apy })}
           </EarnDesktopSortLabel>
         </Stack>
-        <Stack w="$5" />
+        <Stack w={END_COLUMN_WIDTH} flexShrink={0} />
       </XStack>
       <YStack ref={offerRowsRef}>
         {(isWaiting ? [] : sortedOffers).map((offer, index) => {
@@ -714,7 +839,7 @@ function TokenOffers({
                     <DepositedLine value={deposited} />
                   ) : null}
                 </Stack>
-                <Stack w="$5" />
+                {renderOfferAction(offer)}
               </OfferRowFrame>
             );
           }
@@ -816,7 +941,7 @@ function TokenOffers({
                   <DepositedLine value={deposited} />
                 ) : null}
               </Stack>
-              <Stack w="$5" />
+              {renderOfferAction(offer)}
             </OfferRowFrame>
           );
         })}
@@ -1178,18 +1303,19 @@ function BasicTokenRowCard({
             <AprText asset={asset} hideSuffix />
           )}
         </Stack>
-        <View
-          flexShrink={0}
-          transition="quick"
-          rotate={isOpen ? '180deg' : '0deg'}
-          transformOrigin="center"
-        >
-          <Icon
-            name="ChevronDownSmallOutline"
-            size="$5"
-            color={isHovered ? '$icon' : '$iconSubdued'}
-          />
-        </View>
+        <XStack w={END_COLUMN_WIDTH} flexShrink={0} jc="flex-end">
+          <View
+            transition="quick"
+            rotate={isOpen ? '180deg' : '0deg'}
+            transformOrigin="center"
+          >
+            <Icon
+              name="ChevronDownSmallOutline"
+              size="$5"
+              color={isHovered ? '$icon' : '$iconSubdued'}
+            />
+          </View>
+        </XStack>
       </ListItem>
       {/* The offers unfold under the token as the deposit modal's protocol
           list does, and fade as they fold */}
@@ -1655,7 +1781,7 @@ function BasicEarnDesktopEarnTab({
                     {intl.formatMessage({ id: ETranslations.defi_apr_apy })}
                   </EarnDesktopSortLabel>
                 </Stack>
-                <Stack w="$5" />
+                <Stack w={END_COLUMN_WIDTH} flexShrink={0} />
               </ListItem>
               <YStack ref={listRef}>
                 {isAssetsLoading && !rows.length
@@ -1675,7 +1801,7 @@ function BasicEarnDesktopEarnTab({
                         <Stack {...column(2.8, 'flex-end')}>
                           <Skeleton w={96} h={18} borderRadius="$2" />
                         </Stack>
-                        <Stack w="$5" />
+                        <Stack w={END_COLUMN_WIDTH} flexShrink={0} />
                       </ListItem>
                     ))
                   : sortedRows.map((row) => (

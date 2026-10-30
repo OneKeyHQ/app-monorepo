@@ -5,6 +5,7 @@ import { useIntl } from 'react-intl';
 import { Icon, SizableText, XStack } from '@onekeyhq/components';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 
+import { EARN_DESKTOP_DEMO_COPY } from '../../components/desktopHome/earnDesktopHomeCopy';
 import { buildKeyboardPressProps } from '../../components/desktopHome/earnDesktopPressable';
 
 import { getEarnAssetClassLabel } from './earnAssetClassLabel';
@@ -29,6 +30,7 @@ export function EarnAssetPickTrigger({
   purpose,
   fallbackLogoURI,
   networkLogoURI,
+  networkName,
   variant = 'title',
   isLeading = true,
   testID = 'earn-asset-pick-trigger',
@@ -42,6 +44,9 @@ export function EarnAssetPickTrigger({
   fallbackLogoURI?: string;
   // The pill's token carries its chain, as the amount box's token does
   networkLogoURI?: string;
+  // The pill says the network in words after the pick ("USDC on Ethereum"):
+  // what the window offers, and Pay with pays from, is there alone
+  networkName?: string;
   // First in the title: its text starts where a plain title's would
   isLeading?: boolean;
   testID?: string;
@@ -112,6 +117,11 @@ export function EarnAssetPickTrigger({
         )}
         <SizableText size="$bodyLgMedium" numberOfLines={1} flexShrink={1}>
           {label}
+          {networkName ? (
+            <SizableText size="$bodyLg" color="$textSubdued">
+              {` ${EARN_DESKTOP_DEMO_COPY.onNetwork(networkName)}`}
+            </SizableText>
+          ) : null}
         </SizableText>
         <Icon
           name="ChevronDownSmallOutline"

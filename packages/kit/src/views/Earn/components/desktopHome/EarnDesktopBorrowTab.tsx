@@ -12,6 +12,7 @@ import { useIntl } from 'react-intl';
 import { useReducedMotion } from 'react-native-reanimated';
 
 import {
+  Button,
   Icon,
   IconButton,
   Popover,
@@ -88,6 +89,11 @@ const column = (
     minWidth,
     ai: align,
   }) as const;
+// A wide row ends with its Borrow button, as wide as the Earn table's last
+// column, so the two tabs end their rates at one edge
+const ACTION_COLUMN_WIDTH = 80;
+const stopPropagation = (event: { stopPropagation: () => void }) =>
+  event.stopPropagation();
 const COLUMNS = {
   collateral: column(2),
   borrow: column(1.8),
@@ -368,6 +374,7 @@ function BasicPairRow({
   isWide: boolean;
   onOpenPair: (pair: IEarnDesktopLoanPair) => void;
 }) {
+  const intl = useIntl();
   const reduceMotion = useReducedMotion();
   const [isHovered, setIsHovered] = useState(false);
   const { collateral, borrow, market } = pair;
@@ -479,12 +486,36 @@ function BasicPairRow({
       <Stack {...(isWide ? COLUMNS.net : { flexShrink: 0, ai: 'flex-end' })}>
         <NetApyText value={pair.netApy} />
       </Stack>
-      <Icon
-        name="ChevronRightSmallOutline"
-        size="$5"
-        color={isHovered ? '$icon' : '$iconSubdued'}
-        flexShrink={0}
-      />
+      {/* The row opens a window, not a page: a wide row says what it does,
+          as Earn's options do (demo 10-30). The phone keeps its row */}
+      {isWide ? (
+        <XStack w={ACTION_COLUMN_WIDTH} flexShrink={0} jc="flex-end">
+          <Button
+            testID={`earn-desktop-loan-borrow-${pair.key}`}
+            size="small"
+            variant="secondary"
+            // The row is the Tab stop with the same action: one stop a
+            // row, not two
+            tabIndex={-1}
+            transition={reduceMotion ? undefined : 'quick'}
+            animateOnly={ANIMATE_ONLY_BG_COLOR}
+            // Button stops the press at itself, so the window doesn't open
+            // twice. Stopping the press-in keeps the row at its hover color
+            // while the button is held
+            onPressIn={stopPropagation}
+            onPress={onPress}
+          >
+            {intl.formatMessage({ id: ETranslations.global_borrow })}
+          </Button>
+        </XStack>
+      ) : (
+        <Icon
+          name="ChevronRightSmallOutline"
+          size="$5"
+          color={isHovered ? '$icon' : '$iconSubdued'}
+          flexShrink={0}
+        />
+      )}
     </ListItem>
   );
 }
@@ -945,7 +976,7 @@ function BasicEarnDesktopBorrowTab({
                   {netApyLabel}
                 </EarnDesktopSortLabel>
               </XStack>
-              <Stack w="$5" />
+              <Stack w={isWide ? ACTION_COLUMN_WIDTH : '$5'} flexShrink={0} />
             </ListItem>
             {list}
             {moreCount > 0 ? (

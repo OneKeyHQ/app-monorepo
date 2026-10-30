@@ -25,11 +25,13 @@ import {
 } from '@onekeyhq/components';
 import { ANIMATE_ONLY_OPACITY } from '@onekeyhq/components/src/utils/animationConstants';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import {
   useActiveAccount,
   useSelectedAccount,
 } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import { useEarnPortfolioInvestmentsAtom } from '@onekeyhq/kit/src/states/jotai/contexts/earn';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 
@@ -46,8 +48,14 @@ import {
   ManageSectionShell,
 } from '../../../Staking/pages/ManagePosition/components/ManagePositionContent';
 import { EManagePositionType } from '../../../Staking/pages/ManagePosition/hooks/useManagePage';
+import {
+  findPositionDeposit,
+  sumPortfolioDeposits,
+} from '../../components/desktopHome/earnDesktopHome.utils';
 import { EARN_DESKTOP_DEMO_COPY } from '../../components/desktopHome/earnDesktopHomeCopy';
 import { buildKeyboardPressProps } from '../../components/desktopHome/earnDesktopPressable';
+import { EarnNavigation } from '../../earnUtils';
+import { useEarnAccountKey } from '../../hooks/useEarnAccountKey';
 import {
   LIST_PICK_APPLY_MS,
   getListHeightTransition,
@@ -56,6 +64,7 @@ import {
 import { getEarnAssetClassLabel } from '../EarnAssetSelect/earnAssetClassLabel';
 import { EarnAssetLogos } from '../EarnAssetSelect/EarnAssetLogos';
 
+import { EarnOfferFacts } from './EarnOfferFacts';
 import {
   EARN_OFFER_OPTION_HEIGHT,
   EarnOfferOptionCard,
@@ -302,12 +311,18 @@ function EarnOfferRoutes({
   tokenOf,
   needsSwap,
   footer,
+  renderFacts,
   onSelect,
   onHoverIn,
 }: {
   offers: IEarnDesktopHoldOffer[];
   selectedKey?: string;
   networkLogoURI?: string;
+  // A card's facts, which show while it is the one picked
+  renderFacts?: (
+    offer: IEarnDesktopHoldOffer,
+    isSelected: boolean,
+  ) => ReactNode;
   // Comparing a kind of token: each card's token, and whether a swap comes
   // before its deposit
   tokenOf?: (
@@ -337,6 +352,7 @@ function EarnOfferRoutes({
             token={tokenOf?.(offer)}
             needsSwap={needsSwap?.(offer)}
             isSelected={offer.key === selectedKey}
+            facts={renderFacts?.(offer, offer.key === selectedKey)}
             onSelect={onSelect}
             onHoverIn={onHoverIn}
           />
@@ -987,6 +1003,89 @@ export function EarnOffersDeposit({
     [logoOf, tokenSymbol],
   );
 
+  // What the portfolio holds in each offer, for the picked card's facts
+  const [portfolioCache] = useEarnPortfolioInvestmentsAtom();
+  const earnAccountKey = useEarnAccountKey();
+  const portfolioDeposits = useMemo(
+    () =>
+      sumPortfolioDeposits(
+        (earnAccountKey ? portfolioCache[earnAccountKey] : undefined) ?? [],
+      ),
+    [earnAccountKey, portfolioCache],
+  );
+  // The picked card's Details: the window closes and the offer's details
+  // page opens, its form on what was typed here and Pay with's token
+  const navigation = useAppNavigation();
+  const { activeAccount: detailsAccount } = useActiveAccount({ num: 0 });
+  const payKeyRef = useRef(payKey);
+  payKeyRef.current = payKey;
+  const handleOpenDetails = useCallback(
+    (offer: IEarnDesktopHoldOffer) => {
+      const typed = typedAmountRef.current;
+      const carried = {
+        amount: new BigNumber(typed).gt(0) ? typed : undefined,
+        payKey: payKeyRef.current,
+      };
+      navigation.popStack();
+      if (offer.kind === 'lending') {
+        const { offer: lending } = offer;
+        EarnNavigation.pushToEarnLendingDetails(navigation, {
+          networkId: lending.market.networkId,
+          provider: lending.market.provider,
+          marketAddress: lending.market.marketAddress,
+          reserveAddress: lending.reserveAddress,
+          symbol: lending.symbol,
+          logoURI: lending.logoURI,
+          accountId: detailsAccount.account?.id,
+          indexedAccountId: detailsAccount.indexedAccount?.id,
+          ...carried,
+        });
+        return;
+      }
+      const offerSymbol = getOfferSymbol(offer, tokenSymbol);
+      const providerName = offer.item.provider.name;
+      void EarnNavigation.pushToEarnProtocolDetails(navigation, {
+        networkId: offer.item.network.networkId,
+        symbol: offerSymbol,
+        provider: providerName,
+        vault: earnUtils.shouldSendEarnProtocolVault({ providerName })
+          ? offer.item.provider.vault
+          : undefined,
+        logoURI: logoOf(offerSymbol) ?? logoURI,
+        ...carried,
+      });
+    },
+    [
+      detailsAccount.account?.id,
+      detailsAccount.indexedAccount?.id,
+      logoOf,
+      logoURI,
+      navigation,
+      tokenSymbol,
+    ],
+  );
+  const renderFacts = useCallback(
+    (offer: IEarnDesktopHoldOffer, isSelected: boolean) => (
+      <EarnOfferFacts
+        offer={offer}
+        symbol={tokenSymbol}
+        isShown={isSelected}
+        depositedFiatValue={
+          offer.kind === 'lending'
+            ? offer.offer.depositedFiatValue
+            : findPositionDeposit(portfolioDeposits, {
+                provider: offer.item.provider.name,
+                networkId: offer.item.network.networkId,
+                symbol: getOfferSymbol(offer, tokenSymbol),
+                vault: offer.item.provider.vault,
+              })
+        }
+        onDetails={handleOpenDetails}
+      />
+    ),
+    [handleOpenDetails, portfolioDeposits, tokenSymbol],
+  );
+
   const { gtLg } = useMedia();
   // The full router lists its offers whatever their number
   const listsRoutes =
@@ -1013,6 +1112,7 @@ export function EarnOffersDeposit({
           />
         ) : null
       }
+      renderFacts={renderFacts}
       onSelect={handleRoutePick}
       onHoverIn={warmOffer}
     />
