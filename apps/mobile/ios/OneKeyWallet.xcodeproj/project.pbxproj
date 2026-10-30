@@ -25,6 +25,9 @@
 		15885025AE1EDC8CB76FF2EA /* MarketWidgetService.swift in Sources */ = {isa = PBXBuildFile; fileRef = B05C4D6557651549826573C8 /* MarketWidgetService.swift */; };
 		2788FF4A611FA65E5DD92E66 /* libPods-OneKeyWallet.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 9373BA6134E4C051DB510900 /* libPods-OneKeyWallet.a */; };
 		27F95DFDC80A36AFBA2BBA8B /* MarketWidgetIntents.swift in Sources */ = {isa = PBXBuildFile; fileRef = BCF838E4D9786EDFF0DD1EE6 /* MarketWidgetIntents.swift */; };
+		E1F953FE3451465690B12101 /* MarketLockScreenIntents.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1F953FE3451465690B12201 /* MarketLockScreenIntents.swift */; };
+		E1F953FE3451465690B12102 /* MarketLockScreenProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1F953FE3451465690B12202 /* MarketLockScreenProvider.swift */; };
+		E1F953FE3451465690B12103 /* MarketLockScreenView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1F953FE3451465690B12203 /* MarketLockScreenView.swift */; };
 		2D7ABFACD016A166E5D9967B /* Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = B931E2F5319EF7F0B17D01FB /* Localizable.strings */; };
 		31ADF8BB30114AF196CCBDE4 /* noop-file.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2DAB62C802804CA1BF90BB10 /* noop-file.swift */; };
 		34D69A5113286CFBD0625BE6 /* MarketWidgetProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = CB7037E2870D8EC9DB49C7FC /* MarketWidgetProvider.swift */; };
@@ -171,6 +174,9 @@
 		BB2F792C24A3F905000567C9 /* Expo.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = Expo.plist; sourceTree = "<group>"; };
 		BB4CA7173CF55F2F68DB835D /* Info.plist */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		BCF838E4D9786EDFF0DD1EE6 /* MarketWidgetIntents.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MarketWidgetIntents.swift; sourceTree = "<group>"; };
+		E1F953FE3451465690B12201 /* MarketLockScreenIntents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MarketLockScreenIntents.swift; sourceTree = "<group>"; };
+		E1F953FE3451465690B12202 /* MarketLockScreenProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MarketLockScreenProvider.swift; sourceTree = "<group>"; };
+		E1F953FE3451465690B12203 /* MarketLockScreenView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MarketLockScreenView.swift; sourceTree = "<group>"; };
 		C274DABD2AE2644400755275 /* ServiceExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = ServiceExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		C274DABF2AE2644400755275 /* NotificationService.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = NotificationService.h; sourceTree = "<group>"; };
 		C274DAC02AE2644400755275 /* NotificationService.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = NotificationService.m; sourceTree = "<group>"; };
@@ -306,6 +312,9 @@
 				27C72F9E6D2BF9165383D899 /* OneKeyMarketWidget.swift */,
 				CB7037E2870D8EC9DB49C7FC /* MarketWidgetProvider.swift */,
 				BCF838E4D9786EDFF0DD1EE6 /* MarketWidgetIntents.swift */,
+				E1F953FE3451465690B12201 /* MarketLockScreenIntents.swift */,
+				E1F953FE3451465690B12202 /* MarketLockScreenProvider.swift */,
+				E1F953FE3451465690B12203 /* MarketLockScreenView.swift */,
 				BB4CA7173CF55F2F68DB835D /* Info.plist */,
 				1BF61B53ED133200337D145F /* OneKeyMarketWidget.entitlements */,
 				B931E2F5319EF7F0B17D01FB /* Localizable.strings */,
@@ -929,6 +938,9 @@
 				6B45493A8A076B0FB96C2B59 /* OneKeyMarketWidget.swift in Sources */,
 				34D69A5113286CFBD0625BE6 /* MarketWidgetProvider.swift in Sources */,
 				27F95DFDC80A36AFBA2BBA8B /* MarketWidgetIntents.swift in Sources */,
+				E1F953FE3451465690B12101 /* MarketLockScreenIntents.swift in Sources */,
+				E1F953FE3451465690B12102 /* MarketLockScreenProvider.swift in Sources */,
+				E1F953FE3451465690B12103 /* MarketLockScreenView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

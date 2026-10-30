@@ -208,7 +208,228 @@ struct MarketWidgetDataTests {
     try await checkFollowupRequests(chartResponse: chartResponse)
     try await checkQuoteRequests(chartResponse: chartResponse)
     try await checkTimelineRequests(chartResponse: chartResponse)
+    try await checkLockScreenCatalog()
+    try await checkNonblockingLockScreenSuggestions()
     print("PASS: \(checks) market widget data checks")
+  }
+
+  private static func checkNonblockingLockScreenSuggestions() async throws {
+    let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+    defer { try? FileManager.default.removeItem(at: directory) }
+    let store = MarketWidgetStore(directory: directory)
+    let bitcoin = MarketWidgetAsset.defaults[0]
+    let ethereum = MarketWidgetAsset.defaults[1]
+    let local = MarketWidgetConfiguration(schemaVersion: 1, assets: [bitcoin], greenUp: true, locale: "en-US")
+    try store.saveConfiguration(json: String(decoding: JSONEncoder().encode(local), as: UTF8.self))
+    let configuration = URLSessionConfiguration.ephemeral
+    configuration.protocolClasses = [MarketWidgetTestURLProtocol.self]
+    let session = URLSession(configuration: configuration)
+    defer { session.invalidateAndCancel() }
+    let service = MarketWidgetService(store: store, session: session)
+    let requestStarted = DispatchSemaphore(value: 0)
+    let releaseRequest = DispatchSemaphore(value: 0)
+    let suggestionsReturned = DispatchSemaphore(value: 0)
+    MarketWidgetTestURLProtocol.configure { request in
+      precondition(request.url?.path == "/utility/v2/market/trending")
+      requestStarted.signal()
+      guard releaseRequest.wait(timeout: .now() + 5) == .success else { throw URLError(.timedOut) }
+      return json(#"{"code":0,"data":[{"assetId":"eth","symbol":"ETH","name":"Ethereum"}]}"#)
+    }
+    let pending = Task {
+      let assets = await service.suggestedAssets(locale: "en-US")
+      suggestionsReturned.signal()
+      return assets
+    }
+    let started = await semaphoreResult(requestStarted, timeout: 3)
+    let returned = await semaphoreResult(suggestionsReturned, timeout: 0.5)
+    releaseRequest.signal()
+    let suggestions = await pending.value
+    _ = try await service.trending(locale: "en-US")
+    expect(started == .success && returned == .success,
+           "Cached watchlist suggestions return while a hot-list request is still suspended")
+    expect(suggestions.map(\.id) == [bitcoin.id],
+           "The initial menu presents immediately available local candidates")
+    expect(store.trending()?.assets.map(\.id) == [ethereum.id]
+      && MarketWidgetTestURLProtocol.recordedPaths.count == 1,
+           "The detached refresh updates shared hot suggestions through the existing deduplicated request")
+    let refreshed = await service.suggestedAssets(locale: "en-US")
+    expect(refreshed.map(\.id) == [bitcoin.id, ethereum.id],
+           "The next suggestion query includes the refreshed catalog without replacing watchlist order")
+
+    let emptyDirectory = directory.appendingPathComponent("first-launch")
+    let emptyStore = MarketWidgetStore(directory: emptyDirectory)
+    let emptyService = MarketWidgetService(store: emptyStore, session: session)
+    MarketWidgetTestURLProtocol.configure { _ in throw URLError(.notConnectedToInternet) }
+    let fallback = await emptyService.suggestedAssets(locale: "en-US")
+    expect(fallback.map(\.id) == MarketWidgetAsset.defaults.map(\.id),
+           "A first launch with no cache falls back to public defaults after a failed catalog request")
+  }
+
+  private static func semaphoreResult(_ semaphore: DispatchSemaphore, timeout: TimeInterval) async -> DispatchTimeoutResult {
+    await withCheckedContinuation { continuation in
+      DispatchQueue.global().async {
+        continuation.resume(returning: semaphore.wait(timeout: .now() + timeout))
+      }
+    }
+  }
+
+  private static func checkLockScreenCatalog() async throws {
+    let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+    defer { try? FileManager.default.removeItem(at: directory) }
+    let store = MarketWidgetStore(directory: directory)
+    let bitcoin = MarketWidgetAsset.defaults[0]
+    let ethereum = MarketWidgetAsset.defaults[1]
+    func configure(_ assets: [MarketWidgetAsset] = [], masked: Bool = false) throws {
+      let value = MarketWidgetConfiguration(schemaVersion: 1, assets: assets, greenUp: true,
+        locale: "en-US", privacyMasked: masked)
+      try store.saveConfiguration(json: String(decoding: JSONEncoder().encode(value), as: UTF8.self))
+    }
+    try configure([bitcoin])
+    try store.saveTrending(MarketWidgetCatalog(assets: [bitcoin, ethereum], fetchedAt: Date()))
+    let configuration = URLSessionConfiguration.ephemeral
+    configuration.protocolClasses = [MarketWidgetTestURLProtocol.self]
+    let session = URLSession(configuration: configuration)
+    defer { session.invalidateAndCancel() }
+    let service = MarketWidgetService(store: store, session: session)
+    MarketWidgetTestURLProtocol.configure { _ in throw URLError(.notConnectedToInternet) }
+    let suggestions = await service.suggestedAssets(locale: "en-US")
+    expect(suggestions.map(\.id) == [bitcoin.id, ethereum.id],
+           "Suggestions keep watchlist order and deduplicate exact hot identities")
+    expect(MarketWidgetTestURLProtocol.recordedPaths.isEmpty,
+           "Cached suggestions do not fetch per-candidate prices, charts or metadata")
+    let catalog = json(#"{"code":0,"data":[{"assetId":"business-btc","symbol":"BTC","name":"Bitcoin"},{"assetId":"business-btc","symbol":"BTC","name":"Bitcoin duplicate"},{"network":"evm--1","address":"0xabc","isNative":false,"symbol":"USD","name":"Ethereum token"},{"network":"evm--10","address":"0xabc","isNative":false,"symbol":"USD","name":"Optimism token"},{"network":"sol--101","address":"","isNative":true,"symbol":"SOL","name":"Solana"},{"stockId":"stock","assetId":"stock","symbol":"STOCK","name":"Stock listing"},{"perpsCoin":"BTC","assetId":"perp","symbol":"BTC","name":"Perpetual"},{"network":"evm--1","address":"../bad address","symbol":"BAD","name":"Invalid identity"}]}"#)
+    let decoded = try MarketWidgetService.decodeSearch(catalog)
+    expect(decoded.count == 4 && decoded[0].assetId == "business-btc",
+           "Search retains business asset IDs and removes duplicate, stock, perps and invalid identities")
+    expect(decoded[1].id != decoded[2].id && decoded[1].displaySymbol == decoded[2].displaySymbol,
+           "Same-symbol, same-address tokens remain distinct across networks")
+    expect(decoded[3].isNative == true && decoded[3].requestTokenAddress == "",
+           "Search preserves the API's native address representation")
+    expect(tryValue { try MarketWidgetService.decodeSearch(json(#"{"code":0,"data":[]}"#)) }?.isEmpty == true,
+           "An empty search is valid rather than an invented default result")
+    rejects("Business errors cannot become successful empty searches") {
+      _ = try MarketWidgetService.decodeSearch(json(#"{"code":1,"data":[]}"#))
+    }
+    let many = Array(repeating: #"{"assetId":"btc","symbol":"BTC","name":"Bitcoin"}"#, count: 101).joined(separator: ",")
+    rejects("Search decoding rejects an unbounded result set") {
+      _ = try MarketWidgetService.decodeSearch(json("{\"code\":0,\"data\":[\(many)]}"))
+    }
+    MarketWidgetTestURLProtocol.configure { request in
+      let components = URLComponents(url: request.url!, resolvingAgainstBaseURL: false)!
+      precondition(components.path == "/utility/v2/market/search")
+      precondition(components.queryItems == [URLQueryItem(name: "query", value: "BTC & ETH")])
+      precondition(request.value(forHTTPHeaderField: "X-Onekey-Request-Currency") == "usd")
+      precondition(request.value(forHTTPHeaderField: "X-Onekey-Request-Locale") == "en-US")
+      Thread.sleep(forTimeInterval: 0.03)
+      return catalog
+    }
+    async let firstSearch = service.search(query: "  BTC & ETH  ", locale: "en-US")
+    async let secondSearch = service.search(query: "BTC & ETH", locale: "en-US")
+    let results = try await (firstSearch, secondSearch)
+    expect(results.0.map(\.id) == decoded.map(\.id) && results.1.map(\.id) == decoded.map(\.id),
+           "Concurrent searches return normalized entities without losing identity")
+    expect(MarketWidgetTestURLProtocol.recordedPaths.count == 1,
+           "Concurrent identical queries share one encoded API request")
+    let catalogURL = directory.appendingPathComponent("lock-screen-catalog-v1.json")
+    let previousModificationDate = Date(timeIntervalSince1970: 100)
+    try FileManager.default.setAttributes([.modificationDate: previousModificationDate], ofItemAtPath: catalogURL.path)
+    _ = try await service.search(query: "BTC & ETH", locale: "en-US")
+    expect(MarketWidgetTestURLProtocol.recordedPaths.count == 1, "Repeated search uses the short-lived cache")
+    let catalogAttributes = try FileManager.default.attributesOfItem(atPath: catalogURL.path)
+    expect(catalogAttributes[.modificationDate] as? Date == previousModificationDate,
+           "An identical search cache hit does not rewrite the public metadata catalog")
+    expect(!store.permitsRequests(for: decoded[0]), "Merely appearing in a search does not register a selected asset")
+    let identity = MarketWidgetAsset(kind: decoded[0].kind, assetId: decoded[0].assetId,
+      chainId: decoded[0].chainId, contractAddress: decoded[0].contractAddress,
+      isNative: decoded[0].isNative, requestTokenAddress: decoded[0].requestTokenAddress, symbol: "", name: "")
+    let restoredCandidate = MarketWidgetStore(directory: directory).assetWithMetadata(identity)
+    expect(restoredCandidate == decoded[0] && store.lockScreenAsset(id: identity.id) == nil
+      && store.quote(for: identity) == nil,
+           "An identity-only entity restores display metadata across processes before selection or a quote request")
+    let canceled = Task { try await service.search(query: "canceled-prefix", locale: "en-US") }
+    canceled.cancel()
+    do { _ = try await canceled.value; preconditionFailure("Canceled search must stop") }
+    catch { checks += 1 }
+    expect(MarketWidgetTestURLProtocol.recordedPaths.count == 1, "Canceled prefixes never start an API request")
+
+    try store.rememberLockScreenAssets([identity])
+    expect(store.lockScreenAsset(id: decoded[0].id) == decoded[0] && store.permitsRequests(for: decoded[0]),
+           "An identity-only selection retains searched metadata outside the watchlist and hot ranking")
+    try store.saveQuote(MarketWidgetQuote(asset: decoded[0], price: "12", change24h: nil, fetchedAt: Date()))
+    let extra = (0..<40).map { index in
+      MarketWidgetAsset(kind: .asset, assetId: "extra\(index)", chainId: nil, contractAddress: nil,
+        isNative: nil, symbol: "X\(index)", name: "Extra \(index)")
+    }
+    try store.rememberLockScreenAssets(extra)
+    try configure([])
+    try store.saveTrending(MarketWidgetCatalog(assets: [ethereum], fetchedAt: Date()))
+    expect(store.lockScreenAsset(id: decoded[0].id) != nil && store.quote(for: decoded[0])?.price == "12",
+           "More than twenty other selections and removal from source lists do not invalidate a lock-screen choice")
+    expect(MarketWidgetStore(directory: directory).lockScreenAsset(id: decoded[0].id) != nil,
+           "Independent app and extension store instances can restore the same selected identity")
+    for batch in 0..<3 {
+      let more = (0..<100).map { index in
+        MarketWidgetAsset(kind: .asset, assetId: "batch\(batch)-\(index)", chainId: nil, contractAddress: nil,
+          isNative: nil, symbol: "B", name: "Bounded selection")
+      }
+      try store.rememberLockScreenAssets(more)
+    }
+    let registry = try Data(contentsOf: directory.appendingPathComponent("lock-screen-assets-v1.json"))
+    let stored = try JSONSerialization.jsonObject(with: registry) as! [String: Any]
+    expect((stored["assets"] as? [Any])?.count == 256, "The shared selection cache remains bounded")
+    expect(store.lockScreenAsset(id: decoded[0].id) == nil, "The bounded cache can evict an old public identity")
+    try store.rememberLockScreenAssets([decoded[0]])
+    expect(store.lockScreenAsset(id: decoded[0].id) == decoded[0] && store.permitsRequests(for: decoded[0]),
+           "An intent carrying its full asset can restore a selection evicted from the bounded cache")
+
+    let publicCatalog = try Data(contentsOf: catalogURL)
+    MarketWidgetTestURLProtocol.configure { _ in
+      try configure([], masked: true)
+      return catalog
+    }
+    do {
+      _ = try await service.search(query: "mask-during-request", locale: "en-US")
+      preconditionFailure("Privacy enabled during a request must discard search results")
+    } catch { checks += 1 }
+    expect(store.lockScreenAsset(id: decoded[0].id) == nil && !store.permitsRequests(for: decoded[0]),
+           "Privacy mode clears registered lock-screen choices and disallows their requests")
+    expect(!FileManager.default.fileExists(atPath: catalogURL.path),
+           "Privacy mode removes public picker metadata along with selected identities")
+    try publicCatalog.write(to: catalogURL)
+    expect(store.assetWithMetadata(identity).name.isEmpty && store.assetWithMetadata(identity).symbol.isEmpty,
+           "A leftover public catalog cannot reveal metadata while widgets are masked")
+    rejects("A late search cannot restore candidate metadata while privacy mode is enabled") {
+      try store.cacheLockScreenCandidates(decoded)
+    }
+    rejects("A late entity resolution cannot restore selections while privacy mode is enabled") {
+      try store.rememberLockScreenAssets([decoded[0]])
+    }
+    let maskedSuggestions = await service.suggestedAssets(locale: "en-US")
+    expect(maskedSuggestions.isEmpty && MarketWidgetTestURLProtocol.recordedPaths.count == 1,
+           "Masked suggestions cannot reveal cached identities or start requests")
+    try configure([])
+    MarketWidgetTestURLProtocol.configure { _ in catalog }
+    _ = try await service.search(query: "BTC & ETH", locale: "en-US")
+    expect(MarketWidgetTestURLProtocol.recordedPaths.count == 1,
+           "An observed privacy transition clears the in-memory search cache")
+    for batch in 0..<3 {
+      let candidates = (0..<100).map { index in
+        MarketWidgetAsset(kind: .asset, assetId: "catalog\(batch)-\(index)", chainId: nil, contractAddress: nil,
+          isNative: nil, symbol: "C", name: "Candidate")
+      }
+      try store.cacheLockScreenCandidates(candidates)
+    }
+    var catalogObject = try JSONSerialization.jsonObject(with: Data(contentsOf: catalogURL)) as! [String: Any]
+    expect((catalogObject["assets"] as? [Any])?.count == 256,
+           "Public picker metadata stays bounded independently of selected assets")
+    let candidateIdentity = MarketWidgetAsset(kind: .asset, assetId: "catalog2-99", chainId: nil,
+      contractAddress: nil, isNative: nil, symbol: "", name: "")
+    expect(store.assetWithMetadata(candidateIdentity).name == "Candidate" && !store.permitsRequests(for: candidateIdentity),
+           "Catalog-only identities remain displayable without gaining quote request permission")
+    catalogObject["schemaVersion"] = 2
+    try JSONSerialization.data(withJSONObject: catalogObject).write(to: catalogURL)
+    expect(store.assetWithMetadata(candidateIdentity).name.isEmpty,
+           "An incompatible picker catalog fails closed without returning stale metadata")
   }
 
   private static func checkProfiles() throws {

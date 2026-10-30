@@ -9,6 +9,9 @@ actor MarketWidgetService {
   private var trendingRequest: Task<MarketWidgetCatalog, Error>?
   private var requests: [String: Task<MarketWidgetQuote, Error>] = [:]
   private var chartRequests: [String: Task<MarketWidgetQuote, Error>] = [:]
+  private var searchRequests: [String: (id: UUID, task: Task<[MarketWidgetAsset], Error>)] = [:]
+  private var searchCache: [String: (assets: [MarketWidgetAsset], fetchedAt: Date)] = [:]
+  private var suggestionRefresh: (id: UUID, task: Task<Void, Never>)?
 
   init(store: MarketWidgetStore = MarketWidgetStore(), session: URLSession = .shared) {
     self.store = store
@@ -75,6 +78,119 @@ actor MarketWidgetService {
     trendingRequest = task
     defer { trendingRequest = nil }
     return try await task.value
+  }
+
+  func suggestedAssets(locale: String) async -> [MarketWidgetAsset] {
+    guard permitsCatalogRequests else { clearSearches(); return [] }
+    guard !Task.isCancelled else { return [] }
+    var assets = store.assets(for: .watchlist) + store.assets(for: .hot)
+    if assets.isEmpty {
+      _ = try? await trending(locale: locale)
+      assets = store.assets(for: .watchlist) + store.assets(for: .hot)
+    } else if suggestionRefresh == nil {
+      let id = UUID()
+      let task = Task {
+        _ = try? await trending(locale: locale)
+        if suggestionRefresh?.id == id { suggestionRefresh = nil }
+      }
+      suggestionRefresh = (id, task)
+    }
+    guard !Task.isCancelled, permitsCatalogRequests else { return [] }
+    var seen = Set<String>()
+    let suggestions = (assets.isEmpty ? MarketWidgetAsset.defaults : assets)
+      .filter { seen.insert($0.id).inserted }
+    // Suggestion rows use available display metadata without fetching a quote for every candidate.
+    let enriched = suggestions.map { store.assetWithMetadata($0) }
+    try? store.cacheLockScreenCandidates(enriched)
+    guard !Task.isCancelled, permitsCatalogRequests else { return [] }
+    return enriched
+  }
+
+  func search(query: String, locale: String) async throws -> [MarketWidgetAsset] {
+    try Task.checkCancellation()
+    guard permitsCatalogRequests else { clearSearches(); throw MarketWidgetError.privacyMasked }
+    let query = query.trimmingCharacters(in: .whitespacesAndNewlines)
+    guard !query.isEmpty else { return await suggestedAssets(locale: locale) }
+    guard query.count <= 200, !query.unicodeScalars.contains(where: CharacterSet.controlCharacters.contains) else {
+      throw MarketWidgetError.invalidConfiguration
+    }
+    let key = locale + "|" + query
+    searchCache = searchCache.filter { Date().timeIntervalSince($0.value.fetchedAt) < 300 }
+    if let cached = searchCache[key] {
+      try store.cacheLockScreenCandidates(cached.assets)
+      return cached.assets
+    }
+    // System search calls can arrive for each keystroke; canceled prefixes must not start network requests.
+    try await Task.sleep(nanoseconds: 250_000_000)
+    guard permitsCatalogRequests else { clearSearches(); throw MarketWidgetError.privacyMasked }
+    if let cached = searchCache[key] {
+      try store.cacheLockScreenCandidates(cached.assets)
+      return cached.assets
+    }
+    let request: (id: UUID, task: Task<[MarketWidgetAsset], Error>)
+    if let pending = searchRequests[key] { request = pending }
+    else {
+      request = (UUID(), Task {
+        let request = try Self.searchRequest(query: query, locale: locale)
+        return try Self.decodeSearch(await Self.response(for: request, session: session))
+      })
+      searchRequests[key] = request
+    }
+    defer { if searchRequests[key]?.id == request.id { searchRequests[key] = nil } }
+    let assets = try await request.task.value
+    try Task.checkCancellation()
+    guard permitsCatalogRequests else { clearSearches(); throw MarketWidgetError.privacyMasked }
+    try store.cacheLockScreenCandidates(assets)
+    if searchCache.count >= 20, let oldest = searchCache.min(by: { $0.value.fetchedAt < $1.value.fetchedAt })?.key {
+      searchCache[oldest] = nil
+    }
+    searchCache[key] = (assets, Date())
+    return assets
+  }
+
+  private var permitsCatalogRequests: Bool {
+    store.configuration().configuration.map { $0.privacyMasked != true } == true
+  }
+
+  private func clearSearches() {
+    suggestionRefresh?.task.cancel()
+    suggestionRefresh = nil
+    searchRequests.values.forEach { $0.task.cancel() }
+    searchRequests.removeAll()
+    searchCache.removeAll()
+  }
+
+  static func searchRequest(query: String, locale: String) throws -> URLRequest {
+    var request = try self.request(for: MarketWidgetAsset.defaults[0], locale: locale)
+    guard let url = request.url, var components = URLComponents(url: url, resolvingAgainstBaseURL: false) else {
+      throw URLError(.badURL)
+    }
+    components.path = "/utility/v2/market/search"
+    components.queryItems = [URLQueryItem(name: "query", value: query)]
+    request.url = components.url
+    return request
+  }
+
+  static func decodeSearch(_ data: Data) throws -> [MarketWidgetAsset] {
+    guard data.count <= 1_048_576 else { throw MarketWidgetError.invalidResponse }
+    let envelope = try JSONDecoder().decode(TrendingEnvelope.self, from: data)
+    guard envelope.code == 0, let entries = envelope.data, entries.count <= 100 else {
+      throw MarketWidgetError.invalidResponse
+    }
+    var seen = Set<String>()
+    return entries.compactMap { entry in
+      guard entry.stockId == nil, entry.perpsCoin == nil else { return nil }
+      let asset: MarketWidgetAsset
+      if let assetId = entry.assetId, !assetId.isEmpty {
+        asset = .init(kind: .asset, assetId: assetId, chainId: nil, contractAddress: nil,
+          isNative: nil, symbol: entry.symbol, name: entry.name, logoURL: entry.logoUrl)
+      } else {
+        asset = .init(kind: .token, assetId: nil, chainId: entry.network, contractAddress: entry.address,
+          isNative: entry.isNative, requestTokenAddress: entry.address,
+          symbol: entry.symbol, name: entry.name, logoURL: entry.logoUrl)
+      }
+      return asset.isValid && seen.insert(asset.id).inserted ? asset : nil
+    }
   }
 
   static func prepareEditorMetadata(store: MarketWidgetStore = MarketWidgetStore(),
@@ -327,6 +443,8 @@ actor MarketWidgetService {
   private struct TrendingEnvelope: Decodable { let code: Int; let data: [TrendingAsset]? }
   private struct TrendingAsset: Decodable {
     let assetId: String?
+    let stockId: String?
+    let perpsCoin: String?
     let network: String?
     let address: String?
     let isNative: Bool?
