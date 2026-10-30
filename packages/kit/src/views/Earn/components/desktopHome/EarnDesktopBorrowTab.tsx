@@ -91,7 +91,7 @@ const column = (
   }) as const;
 // A wide row ends with its Borrow button, as wide as the Earn table's last
 // column, so the two tabs end their rates at one edge
-const ACTION_COLUMN_WIDTH = 80;
+const ACTION_COLUMN_WIDTH = 96;
 const stopPropagation = (event: { stopPropagation: () => void }) =>
   event.stopPropagation();
 const COLUMNS = {

@@ -152,8 +152,9 @@ const COLUMNS = {
   } as const,
 };
 // The rows' last column: an option's button, and the token's chevron at its
-// end, so every rate lines up over the options' rates
-const END_COLUMN_WIDTH = 80;
+// end, so every rate lines up over the options' rates. Wide enough for the
+// longest word on a button, "Withdraw" or "Sell Early"
+const END_COLUMN_WIDTH = 96;
 // One column keeps the token and its rate; the network and the balance need
 // a wide row
 const WIDE_ONLY = { $md: { display: 'none' } } as const;
@@ -412,19 +413,40 @@ const getTokenOfferVerbId = (offer: IEarnDesktopTokenOffer) => {
     : ETranslations.earn_deposit;
 };
 
+// An option that takes nothing in (closed to deposits, or Redeemable) isn't
+// in the window. Its button takes out instead, under the word the withdraw
+// window's own button says: Withdraw, or for Pendle Redeem after maturity
+// and Sell early before it (demo 10-29)
+const isTakeOutOnlyOffer = (item: IStakeProtocolListItem) =>
+  item.provider.group === EStakeProtocolGroupEnum.WithdrawOnly ||
+  item.aprInfo?.button?.type === 'redeem';
+
+const getTakeOutVerbId = (item: IStakeProtocolListItem) => {
+  if (!earnUtils.isPendleProvider({ providerName: item.provider.name })) {
+    return ETranslations.global_withdraw;
+  }
+  return item.aprInfo?.button?.type === 'redeem'
+    ? ETranslations.global_redeem
+    : ETranslations.defi_sell_early;
+};
+
 // An option's button: the Earn window on that option, where the row opens
 // its details page. Its own Tab stop, as the two lead to different places
 function OfferActionButton({
   label,
   testID,
+  disabled,
   onPress,
   onWarm,
 }: {
   label: string;
   testID: string;
+  // Off, not gone, while the server keeps the way out shut, as My
+  // portfolio's Redeem does
+  disabled?: boolean;
   onPress: () => void;
   /** Loads the window, while the button is pointed at or pressed */
-  onWarm: () => void;
+  onWarm?: () => void;
 }) {
   const reduceMotion = useReducedMotion();
   return (
@@ -435,13 +457,14 @@ function OfferActionButton({
         variant="secondary"
         transition={reduceMotion ? undefined : 'quick'}
         animateOnly={ANIMATE_ONLY_BG_COLOR}
+        disabled={disabled}
         onHoverIn={onWarm}
         // Button stops the press at itself, so the row's page doesn't open
         // too. Stopping the press-in keeps the row at its hover color while
         // the button is held, so only the button looks pressed
         onPressIn={(event: { stopPropagation: () => void }) => {
           event.stopPropagation();
-          onWarm();
+          onWarm?.();
         }}
         onPress={onPress}
       >
@@ -672,44 +695,66 @@ function TokenOffers({
       }),
     [asset.logoURI, asset.symbol, navigation, windowOffersOf],
   );
-  const renderOfferAction = (offer: IEarnDesktopTokenOffer) =>
-    windowOffersOf(offer).some((item) => item.key === offer.key) ? (
-      <OfferActionButton
-        label={intl.formatMessage({ id: getTokenOfferVerbId(offer) })}
-        testID={`earn-desktop-offer-action-${offer.key}`}
-        onPress={() => handleOfferDeposit(offer)}
-        onWarm={() => handleOfferWarm(offer)}
-      />
-    ) : (
-      <Stack w={END_COLUMN_WIDTH} flexShrink={0} />
-    );
+  // A take-out-only option's button: the withdraw window, which sends an
+  // order provider on to its order list by itself
+  const handleOfferWithdraw = useCallback(
+    (item: IStakeProtocolListItem) =>
+      navigation.pushModal(EModalRoutes.StakingModal, {
+        screen: EModalStakingRoutes.ManagePosition,
+        params: {
+          networkId: item.network.networkId,
+          symbol: asset.symbol,
+          provider: item.provider.name,
+          vault: shouldSendVault(item.provider.name)
+            ? item.provider.vault
+            : undefined,
+          tab: 'withdraw',
+        },
+      }),
+    [asset.symbol, navigation],
+  );
+  const renderOfferAction = (offer: IEarnDesktopTokenOffer) => {
+    if (windowOffersOf(offer).some((item) => item.key === offer.key)) {
+      return (
+        <OfferActionButton
+          label={intl.formatMessage({ id: getTokenOfferVerbId(offer) })}
+          testID={`earn-desktop-offer-action-${offer.key}`}
+          onPress={() => handleOfferDeposit(offer)}
+          onWarm={() => handleOfferWarm(offer)}
+        />
+      );
+    }
+    // Something to take out of an option that takes nothing in
+    if (
+      offer.kind === 'protocol' &&
+      isTakeOutOnlyOffer(offer.item) &&
+      (offer.item.aprInfo?.button?.type === 'redeem' ||
+        (depositByKey.get(offer.key) ?? 0) > 0)
+    ) {
+      const { item } = offer;
+      return (
+        <OfferActionButton
+          label={intl.formatMessage({ id: getTakeOutVerbId(item) })}
+          testID={`earn-desktop-offer-withdraw-${offer.key}`}
+          disabled={item.aprInfo?.button?.disabled}
+          onPress={() => handleOfferWithdraw(item)}
+        />
+      );
+    }
+    return <Stack w={END_COLUMN_WIDTH} flexShrink={0} />;
+  };
 
+  // A row opens its option's details page, a Redeemable one's too: taking
+  // out is that row's button (demo 10-30)
   const handleProtocolPress = useCallback(
     (item: IStakeProtocolListItem) => {
-      const vault = shouldSendVault(item.provider.name)
-        ? item.provider.vault
-        : undefined;
-      if (
-        item.aprInfo?.button?.type === 'redeem' &&
-        !item.aprInfo?.button?.disabled
-      ) {
-        navigation.pushModal(EModalRoutes.StakingModal, {
-          screen: EModalStakingRoutes.ManagePosition,
-          params: {
-            networkId: item.network.networkId,
-            symbol: asset.symbol,
-            provider: item.provider.name,
-            vault,
-            tab: 'withdraw',
-          },
-        });
-        return;
-      }
       void EarnNavigation.pushToEarnProtocolDetails(navigation, {
         networkId: item.network.networkId,
         symbol: asset.symbol,
         provider: item.provider.name,
-        vault,
+        vault: shouldSendVault(item.provider.name)
+          ? item.provider.vault
+          : undefined,
         logoURI: asset.logoURI,
       });
     },
