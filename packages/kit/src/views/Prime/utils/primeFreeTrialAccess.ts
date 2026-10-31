@@ -1,6 +1,10 @@
 import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import {
+  isPrimeUserBannedError,
+  primeUserBannedMessage,
+} from '@onekeyhq/shared/src/prime/primeUserBanned';
 import { EPrimeFeatures } from '@onekeyhq/shared/src/routes/prime';
 import type {
   IPrimeFreeTrialAtomData,
@@ -149,6 +153,9 @@ export function getPrimeFreeTrialErrorToastTitle({
   error: unknown;
   intl: IntlShape;
 }) {
+  if (isPrimeUserBannedError(error)) {
+    return intl.formatMessage(primeUserBannedMessage);
+  }
   const { message, code } =
     (error as { message?: unknown; code?: unknown } | undefined) ?? {};
   if (

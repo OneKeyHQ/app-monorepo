@@ -44,6 +44,7 @@ export function usePrimeRequirements({
     }: {
       skipDialogConfirm?: boolean;
     } = {}) => {
+      await backgroundApiProxy.servicePrime.assertOneKeyIdNotBanned();
       const isLoggedInInBackground: boolean =
         await backgroundApiProxy.servicePrime.isLoggedIn();
       if (!isLoggedInInBackground) {

@@ -21,6 +21,11 @@ import nativeNetworkThrottle, {
   getNetworkThrottleRuntimeConfig,
 } from '../modules/NetworkThrottle';
 import platformEnv from '../platformEnv';
+import {
+  PRIME_USER_BANNED_CODE,
+  isPrimeUserBannedError,
+  primeUserBannedMessage,
+} from '../prime/primeUserBanned';
 import appStorage from '../storage/appStorage';
 import { devSettingSyncStorage } from '../storage/instance/devSettingSyncStorageInstance';
 import {
@@ -45,7 +50,11 @@ import { REQUEST_TIMEOUT } from './requestConst';
 
 import type { IAxiosResponse } from '../appApiClient/appApiClient';
 import type { INativeNetworkThrottleConfig } from '../modules/NetworkThrottle';
-import type { AxiosInstance, AxiosRequestConfig } from 'axios';
+import type {
+  AxiosInstance,
+  AxiosRequestConfig,
+  InternalAxiosRequestConfig,
+} from 'axios';
 
 const NETWORK_THROTTLE_LOG_PREFIX = '[NETWORK-THROTTLE]';
 const LOG_URL_MAX_LENGTH = 160;
@@ -53,6 +62,26 @@ const LOG_URL_MAX_LENGTH = 160;
 // Keep in sync with ONEKEY_REQUEST_TOKEN_HEADER in kit-bg ServiceBase
 // (shared must not import from kit-bg).
 const ONEKEY_REQUEST_TOKEN_HEADER = 'X-Onekey-Request-Token';
+
+function stashRequestAuthContextOfError(
+  error: OneKeyServerApiError,
+  config: InternalAxiosRequestConfig,
+) {
+  // Keep the token and captured identity private. The full config contains
+  // the request body and headers, and must never be attached to surfaced errors.
+  const headers = config.headers;
+  const requestAuthToken =
+    headers?.get?.(ONEKEY_REQUEST_TOKEN_HEADER) ||
+    headers?.[ONEKEY_REQUEST_TOKEN_HEADER] ||
+    headers?.[ONEKEY_REQUEST_TOKEN_HEADER.toLowerCase()];
+  if (requestAuthToken) {
+    stashRequestAuthTokenOfError({
+      error,
+      requestAuthToken: String(requestAuthToken),
+      requestConfig: config,
+    });
+  }
+}
 
 type IAxiosNetworkTimingConfig = AxiosRequestConfig & {
   $oneKeyNetworkThrottleTiming?: {
@@ -434,26 +463,7 @@ axios.interceptors.response.use(
         },
         requestId: config.headers[requestIdKey] as string,
       });
-      // Stash ONLY the request's auth token so later response interceptors
-      // (e.g. the prime invalid-token handler in ServiceBase) can compare it
-      // against the currently active one before clearing the session.
-      // Deliberately NOT the whole axios config: the full config carries the
-      // request body and every header. And deliberately NOT written onto the
-      // error object itself: the error escapes to arbitrary catch blocks and
-      // `console.error(e)` / error-collection contexts, which must never
-      // capture a still-usable bearer token — the module-private WeakMap
-      // stash stays invisible to any serialization of the error.
-      const requestHeaders = config.headers;
-      const requestAuthToken =
-        requestHeaders?.get?.(ONEKEY_REQUEST_TOKEN_HEADER) ||
-        requestHeaders?.[ONEKEY_REQUEST_TOKEN_HEADER] ||
-        requestHeaders?.[ONEKEY_REQUEST_TOKEN_HEADER.toLowerCase()];
-      if (requestAuthToken) {
-        stashRequestAuthTokenOfError({
-          error: serverApiError,
-          requestAuthToken: String(requestAuthToken),
-        });
-      }
+      stashRequestAuthContextOfError(serverApiError, config);
       throw serverApiError;
     }
     if (isEnableLogNetwork(config.url)) {
@@ -499,6 +509,23 @@ axios.interceptors.response.use(
         errorMessage: response?.data?.message,
       });
       if (isOneKeyDomain && Number(response.status) === 403) {
+        // A business ban is independent of regional HTTP 403 restrictions.
+        // Preserve it for the authenticated client's identity-safe handling.
+        if (isPrimeUserBannedError(response.data)) {
+          const bannedError = new OneKeyServerApiError({
+            autoToast: true,
+            message: appLocale.intl.formatMessage(primeUserBannedMessage),
+            code: PRIME_USER_BANNED_CODE,
+            httpStatusCode: 403,
+            data: {
+              code: PRIME_USER_BANNED_CODE,
+              requestUrl: config.url,
+            },
+            requestId: config.headers[HEADER_REQUEST_ID_KEY],
+          });
+          stashRequestAuthContextOfError(bannedError, config);
+          throw bannedError;
+        }
         const title = appLocale.intl.formatMessage({
           id: ETranslations.title_403,
         });
