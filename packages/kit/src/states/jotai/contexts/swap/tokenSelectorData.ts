@@ -118,6 +118,7 @@ export const { atom: swapAllNetworkTokenListStatusAtom } = contextAtom<
     {
       requestKey: string;
       status: 'success' | 'partial' | 'error';
+      dataReady?: boolean;
       updatedAt: number;
       identityVersion: number;
       refreshVersion: number;

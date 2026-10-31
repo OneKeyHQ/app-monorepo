@@ -834,7 +834,7 @@ const SwapProKLineHeaderButton = ({
           isNative: resolvedToken.isNative,
           ...(resolvedToken.isStock
             ? { stockId: resolveMarketStockId(resolvedToken) }
-            : undefined),
+            : { swapTokenSymbol: resolvedToken.symbol }),
           from: EEnterWay.SwapPro,
           disableTrade: true,
           showFavoriteButton: false,

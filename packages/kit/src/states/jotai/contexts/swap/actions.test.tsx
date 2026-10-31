@@ -2831,18 +2831,23 @@ describe('useSwapActions', () => {
     ).toEqual(snapshot);
   });
 
-  it.each([
-    'fresh',
-    'empty',
-    'expired',
-    'future',
-    'missing',
-    'invalidated',
-  ] as const)(
-    'checks %s snapshots before preloading and keeps modal openings forced',
-    async (state) => {
-      const previousDesktop = platformEnv.isDesktop;
-      platformEnv.isDesktop = true;
+  it.each(
+    ['desktop', 'web', 'extension'].flatMap((platform) =>
+      ['fresh', 'empty', 'expired', 'future', 'missing', 'invalidated'].map(
+        (state) => ({ platform, state }),
+      ),
+    ),
+  )(
+    'checks $platform $state snapshots before preloading and keeps modal openings forced',
+    async ({ platform, state }) => {
+      const previousPlatform = {
+        isDesktop: platformEnv.isDesktop,
+        isWeb: platformEnv.isWeb,
+        isExtension: platformEnv.isExtension,
+      };
+      platformEnv.isDesktop = platform === 'desktop';
+      platformEnv.isWeb = platform === 'web';
+      platformEnv.isExtension = platform === 'extension';
       let now = Date.now();
       const clock = jest.spyOn(Date, 'now').mockImplementation(() => now);
       try {
@@ -2905,7 +2910,7 @@ describe('useSwapActions', () => {
             undefined,
             false,
             'usd',
-            { policy: 'preload' },
+            { policy: 'preload', fullChainLists: true },
           );
         });
         const reusable = state === 'fresh' || state === 'empty';
@@ -2914,6 +2919,18 @@ describe('useSwapActions', () => {
           getSwapTokenSelectorStore().get(swapAllNetworkActionLockAtom()),
         ).toEqual({});
         if (reusable) {
+          expect(
+            getSwapTokenSelectorStore().get(
+              swapAllNetworkTokenListStatusAtom(),
+            )[
+              buildSwapAllNetworkTokenListCacheKey({
+                accountId: 'preload-owner',
+                protocol: ESwapTabSwitchType.SWAP,
+                lpToken: false,
+                currency: 'usd',
+              })
+            ],
+          ).toMatchObject({ status: 'partial', updatedAt: 0, dataReady: true });
           expect(
             getSwapTokenSelectorStore().get(swapTokenMapAtom()).tokenCatch?.[
               key
@@ -2925,7 +2942,7 @@ describe('useSwapActions', () => {
               undefined,
               false,
               'usd',
-              { policy: 'revalidate' },
+              { policy: 'revalidate', fullChainLists: true },
             );
           });
           expect(mockFetchSwapTokens).toHaveBeenCalledTimes(1);
@@ -2935,7 +2952,7 @@ describe('useSwapActions', () => {
               undefined,
               false,
               'usd',
-              { policy: 'preload' },
+              { policy: 'preload', fullChainLists: true },
             );
           });
           expect(mockFetchSwapTokens).toHaveBeenCalledTimes(1);
@@ -2946,14 +2963,14 @@ describe('useSwapActions', () => {
               undefined,
               false,
               'usd',
-              { policy: 'preload' },
+              { policy: 'preload', fullChainLists: true },
             );
           });
           expect(mockFetchSwapTokens).toHaveBeenCalledTimes(2);
         }
       } finally {
         clock.mockRestore();
-        platformEnv.isDesktop = previousDesktop;
+        Object.assign(platformEnv, previousPlatform);
       }
     },
   );
@@ -3193,94 +3210,461 @@ describe('useSwapActions', () => {
     ).toBeUndefined();
   });
 
-  it('preloads more than three desktop chains in parallel and reuses their complete selection lists', async () => {
-    const previousDesktop = platformEnv.isDesktop;
-    platformEnv.isDesktop = true;
+  it('publishes compact extension holdings progressively in batches of three', async () => {
+    const previousPlatform = {
+      isDesktop: platformEnv.isDesktop,
+      isWeb: platformEnv.isWeb,
+      isExtension: platformEnv.isExtension,
+    };
+    Object.assign(platformEnv, {
+      isDesktop: false,
+      isWeb: false,
+      isExtension: true,
+    });
+    const slow = createDeferred<ISwapToken[]>();
     try {
-      const response = createDeferred<ISwapToken[]>();
-      const accounts = Array.from({ length: 5 }, (_, index) => ({
+      const accounts = Array.from({ length: 4 }, (_, index) => ({
         networkId: `evm--${index + 1}`,
-        accountId: `account-${index}`,
+        accountId: `compact-${index}`,
         apiAddress: `0x${index}`,
-      }));
-      const networks = accounts.map(({ networkId }) => ({
-        networkId,
-        name: networkId,
-        symbol: 'ETH',
       }));
       mockGetSupportSwapAllAccounts.mockResolvedValue({
         supportAccountsFetchFailed: false,
         swapSupportAccounts: accounts,
       });
-      mockFetchSwapTokens.mockReturnValue(response.promise);
-      const { Wrapper } = createWrapperWithStore((instance) => {
-        instance.set(swapTypeSwitchAtom(), ESwapTabSwitchType.SWAP);
-        instance.set(swapNetworks(), networks);
-      });
+      const held = {
+        ...stockTokenA,
+        networkId: accounts[0].networkId,
+        balanceParsed: '1',
+      };
+      mockFetchSwapTokens.mockImplementation(async (rawParams: unknown) =>
+        (rawParams as IFetchTokensParams).networkId === accounts[0].networkId
+          ? [held]
+          : slow.promise,
+      );
+      const { Wrapper } = createWrapperWithStore((instance) =>
+        instance.set(swapTypeSwitchAtom(), ESwapTabSwitchType.SWAP),
+      );
       const { result } = renderHook(() => useSwapActions().current, {
         wrapper: Wrapper,
       });
-      let preload: Promise<void> | undefined;
-      act(() => {
-        preload = result.current.swapLoadAllNetworkTokenList(
-          'wallet-1',
-          undefined,
-          false,
-          'usd',
-        );
-      });
-      await waitFor(() => expect(mockFetchSwapTokens).toHaveBeenCalledTimes(5));
-      expect(
-        Object.values(
-          getSwapTokenSelectorStore().get(swapAllNetworkTokenListMapAtom()),
-        ),
-      ).toEqual([]);
-      const params = {
-        networkId: accounts[0].networkId,
-        accountNetworkId: accounts[0].networkId,
-        accountId: accounts[0].accountId,
-        accountAddress: accounts[0].apiAddress,
-        keywords: '',
-        currency: 'usd',
-      };
-      let foreground: Promise<ISwapToken[] | undefined> | undefined;
-      act(() => {
-        foreground = result.current.tokenListFetchAction(params);
-      });
-      expect(mockFetchSwapTokens).toHaveBeenCalledTimes(5);
-      await act(async () => {
-        response.resolve([
-          { ...stockTokenA, balanceParsed: '1' },
-          { ...appleStockToken, balanceParsed: '0' },
-        ]);
-        await Promise.all([preload, foreground]);
-        await result.current.swapLoadAllNetworkTokenList(
-          'wallet-1',
-          undefined,
-          false,
-          'usd',
-        );
-        await result.current.tokenListFetchAction(params);
-      });
-      expect(mockGetSupportSwapAllAccounts).toHaveBeenCalledTimes(1);
-      expect(mockFetchSwapTokens).toHaveBeenCalledTimes(5);
-      const key = buildSwapTokenListCacheKey({
-        ...params,
+      const key = buildSwapAllNetworkTokenListCacheKey({
+        accountId: 'compact-owner',
         protocol: ESwapTabSwitchType.SWAP,
+        lpToken: false,
+        currency: 'usd',
       });
+      let request: Promise<void> | undefined;
+      act(() => {
+        request = result.current.swapLoadAllNetworkTokenList(
+          'compact-owner',
+          undefined,
+          false,
+          'usd',
+          { fullChainLists: false },
+        );
+      });
+      await waitFor(() =>
+        expect(
+          getSwapTokenSelectorStore().get(swapAllNetworkTokenListMapAtom())[
+            key
+          ],
+        ).toEqual([held]),
+      );
+      expect(mockFetchSwapTokens).toHaveBeenCalledTimes(3);
+      expect(mockFetchSwapTokens).toHaveBeenCalledWith(
+        expect.objectContaining({
+          onlyAccountTokens: true,
+          isAllNetworkFetchAccountTokens: true,
+        }),
+      );
       expect(
-        getSwapTokenSelectorStore().get(swapTokenMapAtom()).tokenCatch?.[key]
-          .data,
-      ).toHaveLength(2);
+        getSwapTokenSelectorStore().get(swapAllNetworkTokenListStatusAtom())[
+          key
+        ].dataReady,
+      ).toBe(false);
+      await act(async () => {
+        slow.resolve([]);
+        await request;
+      });
+      expect(mockFetchSwapTokens).toHaveBeenCalledTimes(4);
       expect(
-        Object.values(
-          getSwapTokenSelectorStore().get(swapAllNetworkTokenListMapAtom()),
-        ).flat(),
-      ).toHaveLength(5);
+        getSwapTokenSelectorStore().get(swapAllNetworkTokenListStatusAtom())[
+          key
+        ],
+      ).toMatchObject({ status: 'success', dataReady: true });
     } finally {
-      platformEnv.isDesktop = previousDesktop;
+      slow.resolve([]);
+      Object.assign(platformEnv, previousPlatform);
     }
   });
+
+  it.each(['completed', 'inflight'] as const)(
+    'runs the wide extension plan after a %s compact plan',
+    async (state) => {
+      const previousPlatform = {
+        isDesktop: platformEnv.isDesktop,
+        isWeb: platformEnv.isWeb,
+        isExtension: platformEnv.isExtension,
+      };
+      Object.assign(platformEnv, {
+        isDesktop: false,
+        isWeb: false,
+        isExtension: true,
+      });
+      const compact = createDeferred<ISwapToken[]>();
+      try {
+        const account = {
+          networkId: 'evm--1',
+          accountId: 'mode-account',
+          apiAddress: '0xmode',
+        };
+        const held = {
+          ...stockTokenA,
+          networkId: account.networkId,
+          balanceParsed: '1',
+        };
+        const recommended = {
+          ...appleStockToken,
+          networkId: account.networkId,
+          balanceParsed: '0',
+        };
+        mockGetSupportSwapAllAccounts.mockResolvedValue({
+          supportAccountsFetchFailed: false,
+          swapSupportAccounts: [account],
+        });
+        mockFetchSwapTokens.mockImplementation(async (rawParams: unknown) =>
+          (rawParams as IFetchTokensParams).onlyAccountTokens
+            ? compact.promise
+            : [held, recommended],
+        );
+        const { Wrapper } = createWrapperWithStore((instance) => {
+          instance.set(swapTypeSwitchAtom(), ESwapTabSwitchType.SWAP);
+          instance.set(swapNetworks(), [
+            { networkId: account.networkId, name: 'Ethereum', symbol: 'ETH' },
+          ]);
+        });
+        const { result } = renderHook(() => useSwapActions().current, {
+          wrapper: Wrapper,
+        });
+        const key = buildSwapAllNetworkTokenListCacheKey({
+          accountId: 'mode-owner',
+          protocol: ESwapTabSwitchType.SWAP,
+          lpToken: false,
+          currency: 'usd',
+        });
+        let first: Promise<void> | undefined;
+        let wide: Promise<void> | undefined;
+        act(() => {
+          first = result.current.swapLoadAllNetworkTokenList(
+            'mode-owner',
+            undefined,
+            false,
+            'usd',
+            { fullChainLists: false },
+          );
+        });
+        await waitFor(() =>
+          expect(mockFetchSwapTokens).toHaveBeenCalledTimes(1),
+        );
+        if (state === 'completed')
+          await act(async () => {
+            compact.resolve([held]);
+            await first;
+          });
+        act(() => {
+          wide = result.current.swapLoadAllNetworkTokenList(
+            'mode-owner',
+            undefined,
+            false,
+            'usd',
+            { fullChainLists: true },
+          );
+        });
+        if (state === 'inflight') {
+          expect(
+            getSwapTokenSelectorStore().get(swapAllNetworkActionLockAtom())[key]
+              .pendingRequestKey,
+          ).toBeDefined();
+          expect(mockFetchSwapTokens).toHaveBeenCalledTimes(1);
+        }
+        await act(async () => {
+          compact.resolve([held]);
+          await Promise.all([first, wide]);
+        });
+        expect(mockFetchSwapTokens).toHaveBeenCalledTimes(2);
+        const chainKey = buildSwapTokenListCacheKey({
+          networkId: account.networkId,
+          accountNetworkId: account.networkId,
+          accountId: account.accountId,
+          accountAddress: account.apiAddress,
+          protocol: ESwapTabSwitchType.SWAP,
+          currency: 'usd',
+        });
+        expect(
+          getSwapTokenSelectorStore().get(swapTokenMapAtom()).tokenCatch?.[
+            chainKey
+          ].data,
+        ).toEqual(expect.arrayContaining([held, recommended]));
+        expect(
+          getSwapTokenSelectorStore().get(swapAllNetworkTokenListStatusAtom())[
+            key
+          ],
+        ).toMatchObject({ status: 'success', dataReady: true });
+      } finally {
+        compact.resolve([]);
+        Object.assign(platformEnv, previousPlatform);
+      }
+    },
+  );
+
+  it.each([false, true])(
+    'preserves data readiness %s when a wide extension refresh fails completely',
+    async (dataReady) => {
+      const previousPlatform = {
+        isDesktop: platformEnv.isDesktop,
+        isWeb: platformEnv.isWeb,
+        isExtension: platformEnv.isExtension,
+      };
+      Object.assign(platformEnv, {
+        isDesktop: false,
+        isWeb: false,
+        isExtension: true,
+      });
+      try {
+        const epoch = getSwapTokenSelectorCacheEpoch();
+        const key = buildSwapAllNetworkTokenListCacheKey({
+          accountId: 'failed-mode-owner',
+          protocol: ESwapTabSwitchType.SWAP,
+          lpToken: false,
+          currency: 'usd',
+        });
+        const held = {
+          ...stockTokenA,
+          networkId: 'evm--1',
+          balanceParsed: '1',
+        };
+        mockGetSupportSwapAllAccounts.mockResolvedValue({
+          supportAccountsFetchFailed: false,
+          swapSupportAccounts: [
+            {
+              networkId: 'evm--1',
+              accountId: 'failed-account',
+              apiAddress: '0xfailed',
+            },
+          ],
+        });
+        mockFetchSwapTokens.mockRejectedValue(new Error('offline'));
+        const { Wrapper } = createWrapperWithStore((instance) => {
+          instance.set(swapTypeSwitchAtom(), ESwapTabSwitchType.SWAP);
+          getSwapTokenSelectorStore().set(swapAllNetworkTokenListMapAtom(), {
+            [key]: [held],
+          });
+          getSwapTokenSelectorStore().set(swapAllNetworkTokenListStatusAtom(), {
+            [key]: {
+              requestKey: 'previous-mode',
+              status: dataReady ? 'success' : 'partial',
+              dataReady,
+              identityVersion: epoch.identity,
+              refreshVersion: epoch.refresh,
+              updatedAt: Date.now(),
+            },
+          });
+        });
+        const { result } = renderHook(() => useSwapActions().current, {
+          wrapper: Wrapper,
+        });
+        await act(async () => {
+          await result.current.swapLoadAllNetworkTokenList(
+            'failed-mode-owner',
+            undefined,
+            false,
+            'usd',
+            { fullChainLists: true, policy: 'revalidate' },
+          );
+        });
+        expect(
+          getSwapTokenSelectorStore().get(swapAllNetworkTokenListMapAtom())[
+            key
+          ],
+        ).toEqual([held]);
+        expect(
+          getSwapTokenSelectorStore().get(swapAllNetworkTokenListStatusAtom())[
+            key
+          ],
+        ).toMatchObject({ status: 'error', dataReady });
+      } finally {
+        Object.assign(platformEnv, previousPlatform);
+      }
+    },
+  );
+
+  it.each(['desktop', 'web', 'extension'] as const)(
+    'preloads more than three %s chains in parallel and reuses their complete selection lists',
+    async (platform) => {
+      const previousPlatform = {
+        isDesktop: platformEnv.isDesktop,
+        isWeb: platformEnv.isWeb,
+        isExtension: platformEnv.isExtension,
+      };
+      platformEnv.isDesktop = platform === 'desktop';
+      platformEnv.isWeb = platform === 'web';
+      platformEnv.isExtension = platform === 'extension';
+      try {
+        const responses = Array.from({ length: 5 }, () =>
+          createDeferred<ISwapToken[]>(),
+        );
+        const accounts = Array.from({ length: 5 }, (_, index) => ({
+          networkId: `evm--${index + 1}`,
+          accountId: `account-${index}`,
+          apiAddress: `0x${index}`,
+        }));
+        const networks = accounts.map(({ networkId }) => ({
+          networkId,
+          name: networkId,
+          symbol: 'ETH',
+        }));
+        mockGetSupportSwapAllAccounts.mockResolvedValue({
+          supportAccountsFetchFailed: false,
+          swapSupportAccounts: accounts,
+        });
+        mockFetchSwapTokens.mockImplementation((fetchParams: unknown) => {
+          const { networkId } = fetchParams as IFetchTokensParams;
+          return responses[
+            accounts.findIndex((account) => account.networkId === networkId)
+          ].promise;
+        });
+        const { Wrapper } = createWrapperWithStore((instance) => {
+          instance.set(swapTypeSwitchAtom(), ESwapTabSwitchType.SWAP);
+          instance.set(swapNetworks(), networks);
+        });
+        const { result } = renderHook(() => useSwapActions().current, {
+          wrapper: Wrapper,
+        });
+        let preload: Promise<void> | undefined;
+        act(() => {
+          preload = result.current.swapLoadAllNetworkTokenList(
+            'wallet-1',
+            undefined,
+            false,
+            'usd',
+            { policy: 'preload', fullChainLists: true },
+          );
+        });
+        await waitFor(() =>
+          expect(mockFetchSwapTokens).toHaveBeenCalledTimes(5),
+        );
+        expect(
+          Object.values(
+            getSwapTokenSelectorStore().get(swapAllNetworkTokenListMapAtom()),
+          ),
+        ).toEqual([]);
+        const params = {
+          networkId: accounts[0].networkId,
+          accountNetworkId: accounts[0].networkId,
+          accountId: accounts[0].accountId,
+          accountAddress: accounts[0].apiAddress,
+          keywords: '',
+          currency: 'usd',
+        };
+        let foreground: Promise<ISwapToken[] | undefined> | undefined;
+        act(() => {
+          foreground = result.current.tokenListFetchAction(params);
+        });
+        expect(mockFetchSwapTokens).toHaveBeenCalledTimes(5);
+        const chainTokens = accounts.map((account) => [
+          { ...stockTokenA, networkId: account.networkId, balanceParsed: '1' },
+          {
+            ...appleStockToken,
+            networkId: account.networkId,
+            balanceParsed: '0',
+          },
+        ]);
+        await act(async () => responses[0].resolve(chainTokens[0]));
+        expect(
+          Object.values(
+            getSwapTokenSelectorStore().get(swapAllNetworkTokenListMapAtom()),
+          ),
+        ).toEqual([]);
+        await act(async () => {
+          responses
+            .slice(1)
+            .forEach((response, index) =>
+              response.resolve(chainTokens[index + 1]),
+            );
+          await Promise.all([preload, foreground]);
+          await result.current.swapLoadAllNetworkTokenList(
+            'wallet-1',
+            undefined,
+            false,
+            'usd',
+            { fullChainLists: true },
+          );
+          await result.current.tokenListFetchAction(params);
+        });
+        expect(mockGetSupportSwapAllAccounts).toHaveBeenCalledTimes(1);
+        expect(mockFetchSwapTokens).toHaveBeenCalledTimes(5);
+        const key = buildSwapTokenListCacheKey({
+          ...params,
+          protocol: ESwapTabSwitchType.SWAP,
+        });
+        expect(
+          getSwapTokenSelectorStore().get(swapTokenMapAtom()).tokenCatch?.[key]
+            .data,
+        ).toHaveLength(2);
+        expect(
+          Object.values(
+            getSwapTokenSelectorStore().get(swapAllNetworkTokenListMapAtom()),
+          ).flat(),
+        ).toHaveLength(5);
+        const refreshedTokens = chainTokens.map((tokens) =>
+          tokens.map((token) => ({
+            ...token,
+            balanceParsed: token.balanceParsed === '1' ? '2' : '0',
+          })),
+        );
+        mockFetchSwapTokens.mockImplementation(async (fetchParams: unknown) => {
+          const { networkId } = fetchParams as IFetchTokensParams;
+          return refreshedTokens[
+            accounts.findIndex((account) => account.networkId === networkId)
+          ];
+        });
+        await act(async () => {
+          await result.current.swapLoadAllNetworkTokenList(
+            'wallet-1',
+            undefined,
+            false,
+            'usd',
+            { policy: 'revalidate', fullChainLists: true },
+          );
+        });
+        accounts.forEach((account, index) => {
+          const chainKey = buildSwapTokenListCacheKey({
+            ...params,
+            networkId: account.networkId,
+            accountNetworkId: account.networkId,
+            accountId: account.accountId,
+            accountAddress: account.apiAddress,
+            protocol: ESwapTabSwitchType.SWAP,
+          });
+          expect(
+            getSwapTokenSelectorStore().get(swapTokenMapAtom()).tokenCatch?.[
+              chainKey
+            ].data,
+          ).toEqual(expect.arrayContaining(refreshedTokens[index]));
+        });
+        expect(
+          Object.values(
+            getSwapTokenSelectorStore().get(swapAllNetworkTokenListMapAtom()),
+          )
+            .flat()
+            .map((token) => token.balanceParsed),
+        ).toEqual(['2', '2', '2', '2', '2']);
+      } finally {
+        Object.assign(platformEnv, previousPlatform);
+      }
+    },
+  );
 
   it('reuses the post-transaction chain refresh in the queued desktop projection pass', async () => {
     const previousDesktop = platformEnv.isDesktop;
@@ -3467,78 +3851,91 @@ describe('useSwapActions', () => {
     expect(getSwapTokenSelectorCacheEpoch().identity).toBe(epoch.identity + 1);
   });
 
-  it('keeps native first-load progress and never merges a previous identity into it', async () => {
-    const previousDesktop = platformEnv.isDesktop;
-    const previousWeb = platformEnv.isWeb;
-    platformEnv.isDesktop = false;
-    platformEnv.isWeb = false;
-    try {
-      const epoch = getSwapTokenSelectorCacheEpoch();
-      const key = buildSwapAllNetworkTokenListCacheKey({
-        accountId: 'account-1',
-        protocol: ESwapTabSwitchType.SWAP,
-        lpToken: false,
-        currency: 'usd',
-      });
-      const delayed = createDeferred<ISwapToken[]>();
-      const accounts = Array.from({ length: 4 }, (_, index) => ({
-        networkId: `evm--${index + 1}`,
-        accountId: `account-${index}`,
-        apiAddress: `0x${index}`,
-      }));
-      mockGetSupportSwapAllAccounts.mockResolvedValue({
-        supportAccountsFetchFailed: false,
-        swapSupportAccounts: accounts,
-      });
-      mockFetchSwapTokens.mockImplementation(async (params: unknown) =>
-        (params as IFetchTokensParams).networkId === 'evm--1'
-          ? [{ ...stockTokenA, networkId: 'evm--1' }]
-          : delayed.promise,
-      );
-      const { Wrapper } = createWrapperWithStore((instance) => {
-        instance.set(swapTypeSwitchAtom(), ESwapTabSwitchType.SWAP);
-        getSwapTokenSelectorStore().set(swapAllNetworkTokenListMapAtom(), {
-          [key]: [{ ...stockTokenA, networkId: 'old-network' }],
+  it.each([
+    { platform: 'native', extension: false, protocol: ESwapTabSwitchType.SWAP },
+    {
+      platform: 'extension stock',
+      extension: true,
+      protocol: ESwapTabSwitchType.STOCK,
+    },
+  ])(
+    'keeps $platform first-load progress and three-request batches without merging a previous identity',
+    async ({ extension, protocol }) => {
+      const previousDesktop = platformEnv.isDesktop;
+      const previousWeb = platformEnv.isWeb;
+      const previousExtension = platformEnv.isExtension;
+      platformEnv.isDesktop = false;
+      platformEnv.isWeb = false;
+      platformEnv.isExtension = extension;
+      try {
+        const epoch = getSwapTokenSelectorCacheEpoch();
+        const key = buildSwapAllNetworkTokenListCacheKey({
+          accountId: 'account-1',
+          protocol,
+          lpToken: false,
+          currency: 'usd',
         });
-        getSwapTokenSelectorStore().set(swapAllNetworkTokenListStatusAtom(), {
-          [key]: {
-            requestKey: 'old',
-            status: 'success',
-            updatedAt: 0,
-            identityVersion: epoch.identity - 1,
-            refreshVersion: epoch.refresh - 1,
-          },
+        const delayed = createDeferred<ISwapToken[]>();
+        const accounts = Array.from({ length: 4 }, (_, index) => ({
+          networkId: `evm--${index + 1}`,
+          accountId: `account-${index}`,
+          apiAddress: `0x${index}`,
+        }));
+        mockGetSupportSwapAllAccounts.mockResolvedValue({
+          supportAccountsFetchFailed: false,
+          swapSupportAccounts: accounts,
         });
-      });
-      const { result } = renderHook(() => useSwapActions().current, {
-        wrapper: Wrapper,
-      });
-      let pending: Promise<void> | undefined;
-      act(() => {
-        pending = result.current.swapLoadAllNetworkTokenList(
-          undefined,
-          'account-1',
-          false,
-          'usd',
+        mockFetchSwapTokens.mockImplementation(async (params: unknown) =>
+          (params as IFetchTokensParams).networkId === 'evm--1'
+            ? [{ ...stockTokenA, networkId: 'evm--1' }]
+            : delayed.promise,
         );
-      });
-      await waitFor(() => {
-        const tokens = getSwapTokenSelectorStore().get(
-          swapAllNetworkTokenListMapAtom(),
-        )[key];
-        expect(tokens.map((token) => token.networkId)).toEqual(['evm--1']);
-      });
-      expect(mockFetchSwapTokens).toHaveBeenCalledTimes(3);
-      await act(async () => {
-        delayed.resolve([]);
-        await pending;
-      });
-      expect(mockFetchSwapTokens).toHaveBeenCalledTimes(4);
-    } finally {
-      platformEnv.isDesktop = previousDesktop;
-      platformEnv.isWeb = previousWeb;
-    }
-  });
+        const { Wrapper } = createWrapperWithStore((instance) => {
+          instance.set(swapTypeSwitchAtom(), protocol);
+          getSwapTokenSelectorStore().set(swapAllNetworkTokenListMapAtom(), {
+            [key]: [{ ...stockTokenA, networkId: 'old-network' }],
+          });
+          getSwapTokenSelectorStore().set(swapAllNetworkTokenListStatusAtom(), {
+            [key]: {
+              requestKey: 'old',
+              status: 'success',
+              updatedAt: 0,
+              identityVersion: epoch.identity - 1,
+              refreshVersion: epoch.refresh - 1,
+            },
+          });
+        });
+        const { result } = renderHook(() => useSwapActions().current, {
+          wrapper: Wrapper,
+        });
+        let pending: Promise<void> | undefined;
+        act(() => {
+          pending = result.current.swapLoadAllNetworkTokenList(
+            undefined,
+            'account-1',
+            false,
+            'usd',
+          );
+        });
+        await waitFor(() => {
+          const tokens = getSwapTokenSelectorStore().get(
+            swapAllNetworkTokenListMapAtom(),
+          )[key];
+          expect(tokens.map((token) => token.networkId)).toEqual(['evm--1']);
+        });
+        expect(mockFetchSwapTokens).toHaveBeenCalledTimes(3);
+        await act(async () => {
+          delayed.resolve([]);
+          await pending;
+        });
+        expect(mockFetchSwapTokens).toHaveBeenCalledTimes(4);
+      } finally {
+        platformEnv.isDesktop = previousDesktop;
+        platformEnv.isWeb = previousWeb;
+        platformEnv.isExtension = previousExtension;
+      }
+    },
+  );
 
   it('retries cold account discovery without caching the failure as empty', async () => {
     const cacheKey = buildSwapAllNetworkTokenListCacheKey({

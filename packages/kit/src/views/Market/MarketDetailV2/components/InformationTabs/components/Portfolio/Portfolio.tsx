@@ -4,7 +4,10 @@ import type { ReactElement } from 'react';
 import { useIntl } from 'react-intl';
 
 import { Empty, YStack, useMedia } from '@onekeyhq/components';
-import { isTradePositionVisible } from '@onekeyhq/kit/src/views/Swap/utils/tradePositionUtils';
+import {
+  compareTradePositionFiatValues,
+  isTradePositionVisible,
+} from '@onekeyhq/kit/src/views/Swap/utils/tradePositionUtils';
 import { useCurrencyPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -128,21 +131,23 @@ function PortfolioBase({
     );
   }
 
-  const data = useMemo(
-    () =>
-      canShowPortfolio
-        ? portfolioData.filter((item) =>
-            isTradePositionVisible({
-              balance: item.amount,
-              isStock,
-              fiatValue: item.totalPrice,
-              currency: item.currency ?? 'usd',
-              currencyMap,
-            }),
-          )
-        : [],
-    [canShowPortfolio, currencyMap, isStock, portfolioData],
-  );
+  const data = useMemo(() => {
+    if (!canShowPortfolio) return [];
+    const visibleItems = portfolioData.filter((item) =>
+      isTradePositionVisible({
+        balance: item.amount,
+        isStock,
+        fiatValue: item.totalPrice,
+        currency: item.currency ?? 'usd',
+        currencyMap,
+      }),
+    );
+    return isMarketDetail
+      ? visibleItems.toSorted((left, right) =>
+          compareTradePositionFiatValues(left.totalPrice, right.totalPrice),
+        )
+      : visibleItems;
+  }, [canShowPortfolio, currencyMap, isMarketDetail, isStock, portfolioData]);
 
   const pnlUnsupportedHint =
     isMarketDetail && hasPnlUnsupportedPosition(data) ? (

@@ -112,7 +112,7 @@ class ServiceMarket extends ServiceBase {
   _fetchMarketAssetIdentityList = memoizee(
     async () => {
       const assets = await withSearchAssetTimeout(
-        this.fetchMarketAssetList(),
+        this.fetchMarketAssetList({ autoHandleError: false }),
         SEARCH_ASSET_RESOLUTION_TIMEOUT_MS,
       );
       return assets.list.map(({ assetId, symbol }) => ({ assetId, symbol }));
@@ -225,24 +225,34 @@ class ServiceMarket extends ServiceBase {
     type = 'top_coins',
     page = 1,
     limit = 100,
+    autoHandleError,
   }: {
     currency?: string;
     type?: string;
     page?: number;
     limit?: number;
+    autoHandleError?: boolean;
   } = {}) {
-    const client = await this.getClient(EServiceEndpointEnum.Utility);
-    const response = await client.get<{
-      data: IMarketAssetListData;
-    }>('/utility/v1/market/asset/list', {
-      params: {
-        currency,
-        type,
-        page,
-        limit,
-      },
-    });
-    return response.data.data;
+    try {
+      const client = await this.getClient(EServiceEndpointEnum.Utility);
+      const response = await client.get<{
+        code?: number;
+        data: IMarketAssetListData;
+      }>('/utility/v1/market/asset/list', {
+        params: { currency, type, page, limit },
+        ...(autoHandleError === false ? { autoHandleError: false } : {}),
+      });
+      if (
+        autoHandleError === false &&
+        ((response.data.code !== undefined && response.data.code !== 0) ||
+          !response.data.data)
+      )
+        throw new OneKeyLocalError('Market asset list request failed');
+      return response.data.data;
+    } catch (error) {
+      if (autoHandleError === false) errorToastUtils.toastIfErrorDisable(error);
+      throw error;
+    }
   }
 
   @backgroundMethod()
@@ -472,19 +482,32 @@ class ServiceMarket extends ServiceBase {
   }
 
   @backgroundMethod()
-  async searchV2Token(query: string) {
-    const client = await this.getClient(EServiceEndpointEnum.Utility);
-    const response = await client.get<{
-      data: IMarketSearchV2Token[];
-    }>('/utility/v2/market/search', {
-      params: { query },
-      headers: { 'x-onekey-request-currency': 'usd' },
-    });
-    const { data } = response.data;
-    if (Array.isArray(data) && data.length) {
-      return this.resolveSearchTokenAssets(data);
+  async searchV2Token(
+    query: string,
+    options?: { autoHandleError?: boolean; resolveNativeAssetId?: boolean },
+  ) {
+    try {
+      const client = await this.getClient(EServiceEndpointEnum.Utility);
+      const response = await client.get<{
+        data: IMarketSearchV2Token[];
+      }>('/utility/v2/market/search', {
+        params: { query },
+        headers: { 'x-onekey-request-currency': 'usd' },
+        ...(options?.autoHandleError === false
+          ? { autoHandleError: false }
+          : {}),
+      });
+      const { data } = response.data;
+      if (Array.isArray(data) && data.length)
+        return options?.resolveNativeAssetId === false
+          ? data
+          : await this.resolveSearchTokenAssets(data);
+      return [];
+    } catch (error) {
+      if (options?.autoHandleError === false)
+        errorToastUtils.toastIfErrorDisable(error);
+      throw error;
     }
-    return [];
   }
 
   async buildMarketWatchListSyncItems(_: {
