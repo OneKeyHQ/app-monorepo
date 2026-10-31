@@ -150,6 +150,21 @@ describe('market widget destination mapping', () => {
     return { getState: () => state };
   }
 
+  it('opens the underlying stock detail without substituting a chain token', async () => {
+    await handleMarketWidgetLink({
+      target: { kind: 'stock', stockId: 'NVDA' },
+      shouldContinue: () => true,
+    });
+    expect(navigate).toHaveBeenCalledWith(ERootRoutes.Main, {
+      screen: ETabRoutes.Market,
+      params: {
+        screen: ETabMarketRoutes.MarketStockDetail,
+        params: { stockId: 'NVDA' },
+      },
+    });
+    expect(fetchAssetDetail).not.toHaveBeenCalled();
+  });
+
   it('dismisses Android More from the root stack before opening widget detail', async () => {
     const { getState } = setRootStack([
       {

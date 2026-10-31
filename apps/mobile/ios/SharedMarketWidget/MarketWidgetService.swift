@@ -23,7 +23,7 @@ actor MarketWidgetService {
              force: Bool = false) async throws -> MarketWidgetQuote {
     guard store.permitsRequests(for: asset) else { throw MarketWidgetError.invalidConfiguration }
     var quote = try await price(for: asset, locale: locale, force: force)
-    if includingChart { quote = await withChart(quote, asset: asset, locale: locale) }
+    if includingChart && asset.kind != .stock { quote = await withChart(quote, asset: asset, locale: locale) }
     guard store.permitsRequests(for: asset) else { throw MarketWidgetError.invalidConfiguration }
     return quote.merging(store.quote(for: asset))
   }
@@ -132,8 +132,14 @@ actor MarketWidgetService {
     if let pending = searchRequests[key] { request = pending }
     else {
       request = (UUID(), Task {
-        let request = try Self.searchRequest(query: query, locale: locale)
-        return try Self.decodeSearch(await Self.response(for: request, session: session))
+        async let tokens = try? Self.decodeSearch(await Self.response(
+          for: Self.searchRequest(query: query, locale: locale), session: session))
+        async let stocks = try? Self.decodeStockSearch(await Self.response(
+          for: Self.searchRequest(query: query, locale: locale, stocks: true), session: session))
+        let results = await (tokens, stocks)
+        guard results.0 != nil || results.1 != nil else { throw MarketWidgetError.invalidResponse }
+        var seen = Set<String>()
+        return ((results.0 ?? []) + (results.1 ?? [])).filter { seen.insert($0.id).inserted }
       })
       searchRequests[key] = request
     }
@@ -161,12 +167,12 @@ actor MarketWidgetService {
     searchCache.removeAll()
   }
 
-  static func searchRequest(query: String, locale: String) throws -> URLRequest {
+  static func searchRequest(query: String, locale: String, stocks: Bool = false) throws -> URLRequest {
     var request = try self.request(for: MarketWidgetAsset.defaults[0], locale: locale)
     guard let url = request.url, var components = URLComponents(url: url, resolvingAgainstBaseURL: false) else {
       throw URLError(.badURL)
     }
-    components.path = "/utility/v2/market/search"
+    components.path = stocks ? "/utility/v1/stocks/search" : "/utility/v2/market/search"
     components.queryItems = [URLQueryItem(name: "query", value: query)]
     request.url = components.url
     return request
@@ -180,9 +186,13 @@ actor MarketWidgetService {
     }
     var seen = Set<String>()
     return entries.compactMap { entry in
-      guard entry.stockId == nil, entry.perpsCoin == nil else { return nil }
+      guard entry.perpsCoin == nil else { return nil }
       let asset: MarketWidgetAsset
-      if let assetId = entry.assetId, !assetId.isEmpty {
+      if let stockId = entry.stockId, (entry.network ?? "").isEmpty {
+        asset = .init(kind: .stock, assetId: nil, chainId: nil, contractAddress: nil,
+          isNative: nil, symbol: entry.symbol, name: entry.name, logoURL: entry.logoUrl,
+          stockId: stockId.uppercased())
+      } else if let assetId = entry.assetId, !assetId.isEmpty {
         asset = .init(kind: .asset, assetId: assetId, chainId: nil, contractAddress: nil,
           isNative: nil, symbol: entry.symbol, name: entry.name, logoURL: entry.logoUrl)
       } else {
@@ -191,6 +201,20 @@ actor MarketWidgetService {
           symbol: entry.symbol, name: entry.name, logoURL: entry.logoUrl)
       }
       return asset.isValid && seen.insert(asset.id).inserted ? asset : nil
+    }
+  }
+
+  static func decodeStockSearch(_ data: Data) throws -> [MarketWidgetAsset] {
+    let envelope = try JSONDecoder().decode(StockSearchEnvelope.self, from: data)
+    guard envelope.code == 0, let items = envelope.data?.items, items.count <= 100 else {
+      throw MarketWidgetError.invalidResponse
+    }
+    return items.compactMap { item in
+      guard item.currency == "USD" else { return nil }
+      let asset = MarketWidgetAsset(kind: .stock, assetId: nil, chainId: nil, contractAddress: nil,
+        isNative: nil, symbol: item.symbol ?? item.stockId, name: item.name ?? "",
+        logoURL: item.logoUrl, stockId: item.stockId.uppercased())
+      return asset.isValid ? asset : nil
     }
   }
 
@@ -239,7 +263,9 @@ actor MarketWidgetService {
     var components = URLComponents()
     components.scheme = "https"
     components.host = "utility.onekeycn.com"
-    if asset.kind == .asset {
+    if asset.kind == .stock {
+      components.path = "/utility/v1/stocks/\(asset.stockId ?? "")"
+    } else if asset.kind == .asset {
       components.path = "/utility/v1/market/asset/detail"
       components.queryItems = [URLQueryItem(name: "assetId", value: asset.assetId)]
     } else {
@@ -287,6 +313,7 @@ actor MarketWidgetService {
   }
 
   static func chartRequest(for asset: MarketWidgetAsset, locale: String, now: Date = Date()) throws -> URLRequest {
+    guard asset.kind != .stock else { throw MarketWidgetError.invalidConfiguration }
     var request = try self.request(for: asset, locale: locale)
     guard let url = request.url, var components = URLComponents(url: url, resolvingAgainstBaseURL: false) else {
       throw MarketWidgetError.invalidConfiguration
@@ -333,6 +360,7 @@ actor MarketWidgetService {
     }
     var seen = Set<String>()
     let assets = entries.compactMap { entry -> MarketWidgetAsset? in
+      guard entry.stockId == nil, entry.perpsCoin == nil else { return nil }
       let asset: MarketWidgetAsset
       if let assetId = entry.assetId, !assetId.isEmpty {
         asset = .init(kind: .asset, assetId: assetId, chainId: nil, contractAddress: nil,
@@ -380,6 +408,7 @@ actor MarketWidgetService {
   }
 
   static func decode(_ data: Data, asset: MarketWidgetAsset, fetchedAt: Date) throws -> MarketWidgetQuote {
+    if asset.kind == .stock { return try decodeStock(data, asset: asset, fetchedAt: fetchedAt) }
     let envelope = try JSONDecoder().decode(Envelope.self, from: data)
     guard envelope.code == 0, let payload = envelope.data else { throw MarketWidgetError.invalidResponse }
     let fields: QuoteFields
@@ -428,6 +457,54 @@ actor MarketWidgetService {
     guard quote.isValid else { throw MarketWidgetError.invalidQuote }
     return quote
   }
+
+  static func decodeStock(_ data: Data, asset: MarketWidgetAsset, fetchedAt: Date) throws -> MarketWidgetQuote {
+    let envelope = try JSONDecoder().decode(StockEnvelope.self, from: data)
+    guard envelope.code == 0, let payload = envelope.data,
+          payload.stockId.uppercased() == asset.stockId, payload.currency == "USD",
+          let price = payload.price?.value, let value = MarketWidgetQuote.decimal(price), value >= 0 else {
+      throw MarketWidgetError.invalidResponse
+    }
+    let enriched = MarketWidgetAsset(kind: .stock, assetId: nil, chainId: nil, contractAddress: nil,
+      isNative: nil, symbol: payload.symbol ?? asset.symbol, name: payload.name ?? asset.name,
+      logoURL: payload.logoUrl ?? asset.logoURL, stockId: asset.stockId)
+    let prices = payload.sparkline?.compactMap { $0.value.flatMap(Double.init) } ?? []
+    let validSamples = (2...10_000).contains(prices.count)
+      && prices.count == payload.sparkline?.count && prices.allSatisfy { $0.isFinite && $0 > 0 }
+    let count = min(prices.count, 96)
+    let samples = validSamples ? (0..<count).map { prices[$0 * (prices.count - 1) / (count - 1)] } : nil
+    let formatter = ISO8601DateFormatter()
+    formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+    var updated = payload.priceUpdatedAt.flatMap { formatter.date(from: $0) }
+    if updated == nil {
+      formatter.formatOptions = [.withInternetDateTime]
+      updated = payload.priceUpdatedAt.flatMap { formatter.date(from: $0) }
+    }
+    if let date = updated, date.timeIntervalSince1970 <= 0 || date > fetchedAt.addingTimeInterval(60) { updated = nil }
+    let quote = MarketWidgetQuote(asset: enriched, price: price,
+      change24h: payload.priceChange24hPercent?.value.flatMap { MarketWidgetQuote.decimal($0) == nil ? nil : $0 },
+      fetchedAt: fetchedAt, stockSparkline: samples, priceUpdatedAt: updated,
+      marketClosed: payload.marketStatus.map { !$0.isOpen })
+    guard quote.isValid else { throw MarketWidgetError.invalidQuote }
+    return quote
+  }
+
+  private struct StockEnvelope: Decodable { let code: Int; let data: StockPayload? }
+  private struct StockSearchEnvelope: Decodable { let code: Int; let data: StockSearchPayload? }
+  private struct StockSearchPayload: Decodable { let items: [StockPayload] }
+  private struct StockPayload: Decodable {
+    let stockId: String
+    let currency: String
+    let symbol: String?
+    let name: String?
+    let logoUrl: String?
+    let price: NumericValue?
+    let priceChange24hPercent: NumericValue?
+    let priceUpdatedAt: String?
+    let sparkline: [NumericValue]?
+    let marketStatus: StockMarketStatus?
+  }
+  private struct StockMarketStatus: Decodable { let isOpen: Bool }
 
   private struct Envelope: Decodable { let code: Int; let data: Payload? }
   private struct Payload: Decodable {

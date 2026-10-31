@@ -126,7 +126,15 @@ describe('Market widget translations bundled with the app', () => {
         .toSorted(),
     );
     expect(activeIOS.length).toBeGreaterThan(30);
-    expect(activeAndroid.length).toBeGreaterThan(25);
+    expect(activeAndroid).toEqual(
+      expect.arrayContaining([
+        'market_widget_configure',
+        'market_widget_watchlist_title',
+        'market_widget_quote_cached_at',
+        'market_widget_market_closed',
+        'market_widget_stock_chart',
+      ]),
+    );
   });
 
   it.each(locales)(

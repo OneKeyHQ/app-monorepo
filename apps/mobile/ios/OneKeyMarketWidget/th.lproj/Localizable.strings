@@ -8,9 +8,9 @@
 "market_widget_configuration__title" = "การตั้งค่า";
 "market_widget_lock_watchlist__title" = "รายการติดตาม";
 "market_widget_lock_spot__title" = "ติดตามสปอต";
-"market_widget_lock_coin_1__title" = "เหรียญ 1";
-"market_widget_lock_coin_2__title" = "เหรียญ 2";
-"market_widget_lock_coin_3__title" = "เหรียญ 3";
+"market_widget_lock_coin_1__title" = "สินทรัพย์ 1";
+"market_widget_lock_coin_2__title" = "สินทรัพย์ 2";
+"market_widget_lock_coin_3__title" = "สินทรัพย์ 3";
 "market_widget_single__desc" = "ราคา USD และการเปลี่ยนแปลงใน 24 ชั่วโมงของเหรียญหนึ่งรายการ";
 "market_widget_list__desc" = "สามเหรียญพร้อมราคา USD และกราฟ 24 ชั่วโมง";
 "market_widget_choose_configuration__desc" = "สร้างการตั้งค่าใน OneKey แล้วเลือกที่นี่";
@@ -32,3 +32,6 @@
 "market_widget_quote__desc" = "%1$@ ราคา %2$@ USD การเปลี่ยนแปลงใน 24 ชั่วโมง %3$@";
 "market_widget_quote_cached__desc" = "%1$@ ราคา %2$@ USD การเปลี่ยนแปลงใน 24 ชั่วโมง %3$@ ข้อมูลจากแคช";
 "wallet.price_unavailable" = "ไม่มีข้อมูลราคา";
+"market_widget_market_closed__title" = "ปิด";
+"market_widget_stock_chart__desc" = "แผนภูมิ";
+"market_widget_asset__title" = "สินทรัพย์";

@@ -8,9 +8,9 @@
 "market_widget_configuration__title" = "설정";
 "market_widget_lock_watchlist__title" = "관심 목록";
 "market_widget_lock_spot__title" = "관심 현물";
-"market_widget_lock_coin_1__title" = "코인 1";
-"market_widget_lock_coin_2__title" = "코인 2";
-"market_widget_lock_coin_3__title" = "코인 3";
+"market_widget_lock_coin_1__title" = "자산 1";
+"market_widget_lock_coin_2__title" = "자산 2";
+"market_widget_lock_coin_3__title" = "자산 3";
 "market_widget_single__desc" = "코인 하나의 USD 가격과 24시간 등락률을 표시합니다.";
 "market_widget_list__desc" = "코인 3개의 USD 가격과 24시간 차트를 표시합니다.";
 "market_widget_choose_configuration__desc" = "OneKey에서 설정을 만든 다음 여기에서 선택하세요.";
@@ -32,3 +32,6 @@
 "market_widget_quote__desc" = "%1$@, 가격 %2$@ USD, 24시간 등락률 %3$@.";
 "market_widget_quote_cached__desc" = "%1$@, 가격 %2$@ USD, 24시간 등락률 %3$@. 캐시된 데이터입니다.";
 "wallet.price_unavailable" = "가격 정보 없음";
+"market_widget_market_closed__title" = "마감";
+"market_widget_stock_chart__desc" = "차트";
+"market_widget_asset__title" = "자산";

@@ -25,7 +25,9 @@ import so.onekey.app.wallet.BuildConfig;
 final class MarketWidgetClient {
     static Uri endpoint(MarketWidgetData.Asset asset) {
         Uri.Builder endpoint = Uri.parse("https://utility.onekeycn.com").buildUpon();
-        if ("asset".equals(asset.kind)) {
+        if ("stock".equals(asset.kind)) {
+            endpoint.path("/utility/v1/stocks").appendPath(asset.stockId);
+        } else if ("asset".equals(asset.kind)) {
             endpoint.path("/utility/v1/market/asset/detail").appendQueryParameter("assetId", asset.assetId);
         } else {
             // Empty is the API's canonical native-token address on BTC, EVM and Solana.
@@ -82,6 +84,7 @@ final class MarketWidgetClient {
         throws Exception {
         if (envelope.getInt("code") != 0) throw new IOException("Market response failed");
         JSONObject data = envelope.getJSONObject("data");
+        if ("stock".equals(asset.kind)) return decodeStock(asset, data, fetchedAt);
         JSONObject quote;
         JSONObject identity;
         if ("asset".equals(asset.kind)) {
@@ -114,6 +117,42 @@ final class MarketWidgetClient {
             identity.optString("logoUrl", asset.iconUrl));
     }
 
+    private static MarketWidgetData.Quote decodeStock(MarketWidgetData.Asset asset, JSONObject data, long fetchedAt)
+        throws Exception {
+        if (!asset.stockId.equalsIgnoreCase(data.getString("stockId")) || !"USD".equals(data.getString("currency"))) {
+            throw new IOException("Stock identity mismatch");
+        }
+        BigDecimal price = MarketWidgetData.number(data.opt("price"));
+        if (price == null || price.signum() < 0) throw new IOException("Stock price unavailable");
+        long updatedAt = 0;
+        try {
+            updatedAt = java.time.Instant.parse(data.optString("priceUpdatedAt", "")).toEpochMilli();
+        } catch (java.time.format.DateTimeParseException ignored) {
+            // A missing feed timestamp must not be replaced with a false trade time.
+        }
+        if (updatedAt < 0 || updatedAt > fetchedAt + 60_000) updatedAt = 0;
+        JSONObject status = data.optJSONObject("marketStatus");
+        Boolean closed = status != null && status.opt("isOpen") instanceof Boolean
+            ? !status.getBoolean("isOpen") : null;
+        return new MarketWidgetData.Quote(price, MarketWidgetData.number(data.opt("priceChange24hPercent")),
+            data.optString("symbol", asset.symbol), data.optString("name", asset.name), fetchedAt,
+            data.optString("logoUrl", asset.iconUrl), decodeStockSparkline(data.optJSONArray("sparkline")), updatedAt, closed);
+    }
+
+    static List<BigDecimal> decodeStockSparkline(JSONArray samples) {
+        if (samples == null || samples.length() < 2 || samples.length() > 10_000) return null;
+        List<BigDecimal> values = new ArrayList<>();
+        for (int index = 0; index < samples.length(); index++) {
+            BigDecimal value = MarketWidgetData.number(samples.opt(index));
+            if (value == null || value.signum() <= 0) return null;
+            values.add(value);
+        }
+        int count = Math.min(values.size(), 96);
+        List<BigDecimal> result = new ArrayList<>();
+        for (int index = 0; index < count; index++) result.add(values.get(index * (values.size() - 1) / (count - 1)));
+        return result;
+    }
+
     static List<MarketWidgetData.Asset> fetchHot(String locale) throws Exception {
         return decodeHot(request(Uri.parse("https://utility.onekeycn.com/utility/v2/market/trending"), locale));
     }
@@ -125,6 +164,7 @@ final class MarketWidgetClient {
         Set<String> keys = new HashSet<>();
         for (int index = 0; index < Math.min(items.length(), MarketWidgetData.MAX_ASSETS); index++) {
             JSONObject item = items.getJSONObject(index);
+            if (item.has("stockId") || item.has("perpsCoin")) continue;
             try {
                 MarketWidgetData.Asset asset = new MarketWidgetData.Asset(new JSONObject()
                     .put("kind", "token").put("chainId", item.getString("network"))
@@ -144,6 +184,7 @@ final class MarketWidgetClient {
     }
 
     static MarketWidgetData.History fetchHistory(MarketWidgetData.Asset asset, String locale) throws Exception {
+        if ("stock".equals(asset.kind)) throw new IOException("Stock chart is included in its quote");
         long now = System.currentTimeMillis();
         Uri detail = endpoint(asset);
         Uri uri = detail.buildUpon().path(detail.getPath().replace("/detail", "/kline"))

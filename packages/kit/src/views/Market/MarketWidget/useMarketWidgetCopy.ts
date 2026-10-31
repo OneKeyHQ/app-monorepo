@@ -23,9 +23,9 @@ export function useMarketWidgetCopy() {
     source: intl.formatMessage({
       id: ETranslations.market_widget_source__title,
     }),
-    coin: intl.formatMessage({ id: ETranslations.market_widget_coin__title }),
+    coin: intl.formatMessage({ id: ETranslations.global_asset }),
     searchCoins: intl.formatMessage({
-      id: ETranslations.market_widget_search__title,
+      id: ETranslations.global_search_asset,
     }),
     configurations: intl.formatMessage({
       id: ETranslations.market_widget_configurations__title,

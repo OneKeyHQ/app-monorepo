@@ -5,6 +5,7 @@ import WidgetKit
 @objc(OneKeyMarketWidget)
 final class MarketWidgetModule: NSObject {
   @objc static func requiresMainQueueSetup() -> Bool { false }
+  @objc func constantsToExport() -> [String: Any] { ["stockSupportVersion": 1] }
 
   @objc(setConfiguration:resolver:rejecter:)
   func setConfiguration(_ json: String, resolver resolve: RCTPromiseResolveBlock,

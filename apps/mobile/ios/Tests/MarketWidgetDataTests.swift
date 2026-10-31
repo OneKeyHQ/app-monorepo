@@ -64,7 +64,61 @@ struct MarketWidgetDataTests {
     return String(decoding: try JSONSerialization.data(withJSONObject: value), as: UTF8.self)
   }
 
+  private static func testStocks() throws {
+    let now = Date()
+    let stock = MarketWidgetAsset(kind: .stock, assetId: nil, chainId: nil,
+      contractAddress: nil, isNative: nil, symbol: "NVDA", name: "NVIDIA", stockId: "NVDA")
+    expect(stock.isValid && stock.id == "stock:NVDA", "A stock has its own identity namespace")
+    expect(stock.detailURL?.absoluteString == "onekey-wallet://market_widget?stockId=NVDA", "Stock taps retain the underlying stock identity")
+    let url = try MarketWidgetService.request(for: stock, locale: "en-US").url
+    expect(url?.path == "/utility/v1/stocks/NVDA", "Stock quotes use the existing public stocks service")
+    var invalid = stock
+    invalid.stockId = ".."
+    expect(!invalid.isValid, "A stock identifier cannot address a parent path")
+    let payload: [String: Any] = ["stockId": "NVDA", "currency": "USD", "symbol": "NVDA", "name": "NVIDIA",
+      "price": "205.25", "priceChange24hPercent": "-1.2", "marketStatus": ["isOpen": false],
+      "priceUpdatedAt": ISO8601DateFormatter().string(from: now.addingTimeInterval(-2 * 86400)),
+      "sparkline": (0..<960).map { 200 + Double($0) / 100 }]
+    func response(_ fields: [String: Any]) throws -> Data {
+      try JSONSerialization.data(withJSONObject: ["code": 0, "data": fields])
+    }
+    let quote = try MarketWidgetService.decode(response(payload), asset: stock, fetchedAt: now)
+    expect(quote.price == "205.25" && quote.marketClosed == true, "A closed exchange still returns its last real quote")
+    expect(quote.priceUpdatedAt != nil && quote.priceUpdatedAt! < now.addingTimeInterval(-86400),
+      "The last traded price timestamp is not replaced by the fetch timestamp")
+    expect(quote.stockSparkline?.count == 96 && quote.stockSparkline?.first == 200 && quote.stockSparkline?.last == 209.59,
+      "Stock curves are bounded while preserving their endpoints")
+    expect(quote.withFreshChart(at: now).plotPoints?.count == 96,
+      "A freshly fetched weekend curve does not require eighteen hours of candles")
+    expect(quote.withFreshChart(at: now.addingTimeInterval(3601)).stockSparkline == nil,
+      "A stock curve still expires when the client stops receiving updates")
+    var wrong = payload
+    wrong["stockId"] = "AAPL"
+    rejects("A different ticker must never replace the selected stock") { _ = try MarketWidgetService.decode(response(wrong), asset: stock, fetchedAt: now) }
+    wrong = payload
+    wrong["currency"] = "HKD"
+    rejects("A non-USD quote must not be labeled USD") { _ = try MarketWidgetService.decode(response(wrong), asset: stock, fetchedAt: now) }
+    wrong = payload
+    wrong["sparkline"] = [200, "bad", 201]
+    let noChart = try MarketWidgetService.decode(response(wrong), asset: stock, fetchedAt: now)
+    expect(noChart.stockSparkline == nil && noChart.price == "205.25", "Malformed history does not create a fabricated curve or hide a valid price")
+    let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+    defer { try? FileManager.default.removeItem(at: directory) }
+    let store = MarketWidgetStore(directory: directory)
+    let assets = [MarketWidgetAsset.defaults[0], stock, MarketWidgetAsset.defaults[1]]
+    try store.saveConfiguration(json: String(decoding: JSONEncoder().encode(MarketWidgetConfiguration(
+      schemaVersion: 1, assets: assets, greenUp: true, locale: "en-US")), as: UTF8.self))
+    _ = try store.saveSettings(json: settingsJSON(kind: .list, source: .watchlist, assets: assets))
+    try store.saveQuote(quote)
+    let reopened = MarketWidgetStore(directory: directory)
+    expect(reopened.selection(kind: .list).assets.map(\.id) == assets.map(\.id), "Mixed slot order survives a process restart")
+    let editorState = try reopened.editorState()
+    expect(editorState.watchlist[1].stockId == "NVDA", "Metadata enrichment retains stock identity in the editor")
+    expect(reopened.quote(for: stock)?.stockSparkline == quote.stockSparkline, "The native quote cache preserves stock curves")
+  }
+
   static func main() async throws {
+    try testStocks()
     let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
     defer { try? FileManager.default.removeItem(at: directory) }
     let store = MarketWidgetStore(directory: directory)
@@ -352,8 +406,8 @@ struct MarketWidgetDataTests {
            "Cached suggestions do not fetch per-candidate prices, charts or metadata")
     let catalog = json(#"{"code":0,"data":[{"assetId":"business-btc","symbol":"BTC","name":"Bitcoin"},{"assetId":"business-btc","symbol":"BTC","name":"Bitcoin duplicate"},{"network":"evm--1","address":"0xabc","isNative":false,"symbol":"USD","name":"Ethereum token"},{"network":"evm--10","address":"0xabc","isNative":false,"symbol":"USD","name":"Optimism token"},{"network":"sol--101","address":"","isNative":true,"symbol":"SOL","name":"Solana"},{"stockId":"stock","assetId":"stock","symbol":"STOCK","name":"Stock listing"},{"perpsCoin":"BTC","assetId":"perp","symbol":"BTC","name":"Perpetual"},{"network":"evm--1","address":"../bad address","symbol":"BAD","name":"Invalid identity"}]}"#)
     let decoded = try MarketWidgetService.decodeSearch(catalog)
-    expect(decoded.count == 4 && decoded[0].assetId == "business-btc",
-           "Search retains business asset IDs and removes duplicate, stock, perps and invalid identities")
+    expect(decoded.count == 5 && decoded[0].assetId == "business-btc" && decoded[4].stockId == "STOCK",
+           "Search retains asset and stock identities while removing duplicates, perps and invalid identities")
     expect(decoded[1].id != decoded[2].id && decoded[1].displaySymbol == decoded[2].displaySymbol,
            "Same-symbol, same-address tokens remain distinct across networks")
     expect(decoded[3].isNative == true && decoded[3].requestTokenAddress == "",
@@ -369,25 +423,25 @@ struct MarketWidgetDataTests {
     }
     MarketWidgetTestURLProtocol.configure { request in
       let components = URLComponents(url: request.url!, resolvingAgainstBaseURL: false)!
-      precondition(components.path == "/utility/v2/market/search")
+      precondition(["/utility/v2/market/search", "/utility/v1/stocks/search"].contains(components.path))
       precondition(components.queryItems == [URLQueryItem(name: "query", value: "BTC & ETH")])
       precondition(request.value(forHTTPHeaderField: "X-Onekey-Request-Currency") == "usd")
       precondition(request.value(forHTTPHeaderField: "X-Onekey-Request-Locale") == "en-US")
       Thread.sleep(forTimeInterval: 0.03)
-      return catalog
+      return components.path == "/utility/v1/stocks/search" ? json(#"{"code":0,"data":{"items":[]}}"#) : catalog
     }
     async let firstSearch = service.search(query: "  BTC & ETH  ", locale: "en-US")
     async let secondSearch = service.search(query: "BTC & ETH", locale: "en-US")
     let results = try await (firstSearch, secondSearch)
     expect(results.0.map(\.id) == decoded.map(\.id) && results.1.map(\.id) == decoded.map(\.id),
            "Concurrent searches return normalized entities without losing identity")
-    expect(MarketWidgetTestURLProtocol.recordedPaths.count == 1,
-           "Concurrent identical queries share one encoded API request")
+    expect(MarketWidgetTestURLProtocol.recordedPaths.count == 2,
+           "Concurrent identical queries share one request per market data source")
     let catalogURL = directory.appendingPathComponent("lock-screen-catalog-v1.json")
     let previousModificationDate = Date(timeIntervalSince1970: 100)
     try FileManager.default.setAttributes([.modificationDate: previousModificationDate], ofItemAtPath: catalogURL.path)
     _ = try await service.search(query: "BTC & ETH", locale: "en-US")
-    expect(MarketWidgetTestURLProtocol.recordedPaths.count == 1, "Repeated search uses the short-lived cache")
+    expect(MarketWidgetTestURLProtocol.recordedPaths.count == 2, "Repeated search uses the short-lived cache")
     let catalogAttributes = try FileManager.default.attributesOfItem(atPath: catalogURL.path)
     expect(catalogAttributes[.modificationDate] as? Date == previousModificationDate,
            "An identical search cache hit does not rewrite the public metadata catalog")
@@ -403,7 +457,7 @@ struct MarketWidgetDataTests {
     canceled.cancel()
     do { _ = try await canceled.value; preconditionFailure("Canceled search must stop") }
     catch { checks += 1 }
-    expect(MarketWidgetTestURLProtocol.recordedPaths.count == 1, "Canceled prefixes never start an API request")
+    expect(MarketWidgetTestURLProtocol.recordedPaths.count == 2, "Canceled prefixes never start an API request")
 
     try store.rememberLockScreenAssets([identity])
     expect(store.lockScreenAsset(id: decoded[0].id) == decoded[0] && store.permitsRequests(for: decoded[0]),
@@ -457,13 +511,16 @@ struct MarketWidgetDataTests {
     rejects("A late entity resolution cannot restore selections while privacy mode is enabled") {
       try store.rememberLockScreenAssets([decoded[0]])
     }
+    let requestsBeforeMaskedSuggestions = MarketWidgetTestURLProtocol.recordedPaths.count
     let maskedSuggestions = await service.suggestedAssets(locale: "en-US")
-    expect(maskedSuggestions.isEmpty && MarketWidgetTestURLProtocol.recordedPaths.count == 1,
+    expect(maskedSuggestions.isEmpty && MarketWidgetTestURLProtocol.recordedPaths.count == requestsBeforeMaskedSuggestions,
            "Masked suggestions cannot reveal cached identities or start requests")
     try configure([])
-    MarketWidgetTestURLProtocol.configure { _ in catalog }
+    MarketWidgetTestURLProtocol.configure { request in
+      request.url?.path == "/utility/v1/stocks/search" ? json(#"{"code":0,"data":{"items":[]}}"#) : catalog
+    }
     _ = try await service.search(query: "BTC & ETH", locale: "en-US")
-    expect(MarketWidgetTestURLProtocol.recordedPaths.count == 1,
+    expect(MarketWidgetTestURLProtocol.recordedPaths.count == 2,
            "An observed privacy transition clears the in-memory search cache")
     for batch in 0..<3 {
       let candidates = (0..<100).map { index in

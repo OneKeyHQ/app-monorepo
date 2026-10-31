@@ -53,4 +53,7 @@
     <string name="market_widget_preview">Preview</string>
     <string name="market_widget_quote_updated_at">%1$s, price %2$s USD, 24-hour change %3$s. Updated %4$s.</string>
     <string name="market_widget_quote_cached_at">%1$s, price %2$s USD, 24-hour change %3$s. Cached %4$s.</string>
+    <string name="market_widget_market_closed">Closed</string>
+    <string name="market_widget_stock_chart">Chart</string>
+    <string name="market_widget_asset">Asset</string>
 </resources>

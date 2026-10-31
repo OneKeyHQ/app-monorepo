@@ -8,9 +8,9 @@
 "market_widget_configuration__title" = "設定";
 "market_widget_lock_watchlist__title" = "ウォッチリスト";
 "market_widget_lock_spot__title" = "現物ウォッチ";
-"market_widget_lock_coin_1__title" = "銘柄1";
-"market_widget_lock_coin_2__title" = "銘柄2";
-"market_widget_lock_coin_3__title" = "銘柄3";
+"market_widget_lock_coin_1__title" = "資産 1";
+"market_widget_lock_coin_2__title" = "資産 2";
+"market_widget_lock_coin_3__title" = "資産 3";
 "market_widget_single__desc" = "1銘柄の米ドル価格と24時間の騰落率を表示します。";
 "market_widget_list__desc" = "3銘柄の米ドル価格と24時間チャートを表示します。";
 "market_widget_choose_configuration__desc" = "OneKeyで設定を作成してから、ここで選択してください。";
@@ -32,3 +32,6 @@
 "market_widget_quote__desc" = "%1$@、価格%2$@米ドル、24時間の騰落率%3$@。";
 "market_widget_quote_cached__desc" = "%1$@、価格%2$@米ドル、24時間の騰落率%3$@。キャッシュされたデータです。";
 "wallet.price_unavailable" = "価格情報がありません";
+"market_widget_market_closed__title" = "クローズ";
+"market_widget_stock_chart__desc" = "チャート";
+"market_widget_asset__title" = "資産";

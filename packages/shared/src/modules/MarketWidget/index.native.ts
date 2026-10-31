@@ -10,6 +10,7 @@ import type {
 } from './types';
 
 type IOneKeyMarketWidgetNativeModule = {
+  stockSupportVersion?: number;
   setConfiguration: (configuration: string) => Promise<void>;
   getEditorState?: () => Promise<string>;
   refreshEditorState?: () => Promise<string>;
@@ -32,6 +33,7 @@ function getNativeModule() {
 
 const marketWidget: IMarketWidgetModule = {
   isSupported: () => typeof getNativeModule()?.setConfiguration === 'function',
+  supportsStockAssets: () => getNativeModule()?.stockSupportVersion === 1,
   supportsProfileEditing: () =>
     !!platformEnv.isNativeIOS &&
     Number.parseInt(String(Platform.Version), 10) >= 17 &&

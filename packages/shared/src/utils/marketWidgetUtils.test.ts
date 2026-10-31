@@ -22,7 +22,7 @@ const configuration = (locale: string): IMarketWidgetConfiguration => ({
 });
 
 describe('market widget configuration', () => {
-  it('keeps supported source order and chain identity, excluding stocks and perps', () => {
+  it('keeps mixed stock and token order and chain identity, excluding perps', () => {
     expect(
       buildMarketWidgetAssets([
         { assetId: 'bitcoin', chainId: '', contractAddress: '' },
@@ -38,6 +38,7 @@ describe('market widget configuration', () => {
       ]),
     ).toEqual([
       { kind: 'asset', assetId: 'bitcoin', symbol: '', name: '' },
+      { kind: 'stock', stockId: 'AAPL', symbol: 'AAPL', name: '' },
       {
         kind: 'token',
         chainId: 'sol--101',
@@ -57,6 +58,63 @@ describe('market widget configuration', () => {
         name: '',
       },
     ]);
+  });
+
+  it('deduplicates stock symbols without confusing them with chain tokens or contracts', () => {
+    expect(
+      buildMarketWidgetAssets([
+        { stockId: 'nvda', chainId: '', contractAddress: '' },
+        { stockId: 'NVDA', chainId: '', contractAddress: '' },
+        { stockId: '../NVDA', chainId: '', contractAddress: '' },
+        {
+          stockId: 'NVDA',
+          perpsCoin: 'NVDA',
+          chainId: '',
+          contractAddress: '',
+        },
+        { stockId: 'NVDA', chainId: 'sol--101', contractAddress: 'NVDAtoken' },
+      ]),
+    ).toEqual([
+      { kind: 'stock', stockId: 'NVDA', symbol: 'NVDA', name: '' },
+      {
+        kind: 'token',
+        chainId: 'sol--101',
+        contractAddress: 'NVDAtoken',
+        requestTokenAddress: 'NVDAtoken',
+        isNative: false,
+        symbol: '',
+        name: '',
+      },
+    ]);
+  });
+
+  it('does not send stock identities to older native binaries', () => {
+    expect(
+      buildMarketWidgetAssets(
+        [
+          { stockId: 'NVDA', chainId: '', contractAddress: '' },
+          { assetId: 'btc', chainId: '', contractAddress: '' },
+        ],
+        { includeStocks: false },
+      ),
+    ).toEqual([{ kind: 'asset', assetId: 'btc', symbol: '', name: '' }]);
+  });
+
+  it('parses stock links and rejects mixed identities or path injection', () => {
+    expect(
+      parseMarketWidgetLinkUrl('onekey-wallet://market_widget?stockId=nvda')
+        .target,
+    ).toEqual({ kind: 'stock', stockId: 'NVDA' });
+    for (const query of [
+      'stockId=NVDA&assetId=btc',
+      'stockId=..%2FNVDA',
+      'stockId=NVDA&perpsCoin=NVDA',
+    ]) {
+      expect(
+        parseMarketWidgetLinkUrl(`onekey-wallet://market_widget?${query}`)
+          .target,
+      ).toBeUndefined();
+    }
   });
 
   it('bounds the exported public metadata and strips additional fields', () => {

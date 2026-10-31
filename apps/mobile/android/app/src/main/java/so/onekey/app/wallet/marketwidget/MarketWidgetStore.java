@@ -302,6 +302,15 @@ final class MarketWidgetStore {
 
     static synchronized MarketWidgetData.History history(Context context, MarketWidgetData.Asset asset) {
         if (!canDisplay(context)) return null;
+        if ("stock".equals(asset.kind)) {
+            MarketWidgetData.Quote quote = quote(context, asset);
+            if (quote == null || quote.stockSparkline == null) return null;
+            // Stock samples have no timestamps; the renderer uses their order as
+            // horizontal positions without inventing a continuous 24-hour range.
+            List<Long> positions = new ArrayList<>();
+            for (int index = 0; index < quote.stockSparkline.size(); index++) positions.add((long) index);
+            return new MarketWidgetData.History(quote.stockSparkline, positions, quote.fetchedAt);
+        }
         return MarketWidgetData.History.cached(preferences(context).getString("history_" + asset.key(), ""));
     }
 

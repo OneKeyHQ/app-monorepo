@@ -2,7 +2,7 @@ internal import CryptoKit
 import Foundation
 
 struct MarketWidgetAsset: Codable, Hashable, Identifiable {
-  enum Kind: String, Codable { case asset, token }
+  enum Kind: String, Codable { case asset, token, stock }
   let kind: Kind
   let assetId: String?
   let chainId: String?
@@ -12,9 +12,11 @@ struct MarketWidgetAsset: Codable, Hashable, Identifiable {
   let symbol: String
   let name: String
   var logoURL: String? = nil
+  var stockId: String? = nil
 
   var id: String {
     switch kind {
+    case .stock: return "stock:\(stockId ?? "")"
     case .asset: return "asset:\(assetId ?? "")"
     case .token: return "token:\(chainId ?? "")|\(isNative == true)|\(contractAddress ?? "")"
     }
@@ -22,6 +24,7 @@ struct MarketWidgetAsset: Codable, Hashable, Identifiable {
 
   var displaySymbol: String {
     if !symbol.isEmpty { return symbol }
+    if let stockId { return stockId }
     if let assetId { return assetId }
     if isNative == true { return chainId ?? "—" }
     let address = contractAddress ?? ""
@@ -32,7 +35,9 @@ struct MarketWidgetAsset: Codable, Hashable, Identifiable {
     var components = URLComponents()
     components.scheme = "onekey-wallet"
     components.host = "market_widget"
-    if kind == .asset {
+    if kind == .stock {
+      components.queryItems = [URLQueryItem(name: "stockId", value: stockId)]
+    } else if kind == .asset {
       components.queryItems = [URLQueryItem(name: "assetId", value: assetId)]
     } else {
       components.queryItems = [
@@ -47,10 +52,13 @@ struct MarketWidgetAsset: Codable, Hashable, Identifiable {
   var isValid: Bool {
     guard symbol.count <= 80, name.count <= 200, (logoURL?.count ?? 0) <= 2048 else { return false }
     switch kind {
+    case .stock:
+      return stockId?.range(of: #"\A[A-Z0-9][A-Z0-9._:-]{0,127}\z"#, options: .regularExpression) != nil
+        && assetId == nil && chainId == nil && contractAddress == nil && isNative == nil
     case .asset:
-      return Self.validIdentifier(assetId, maximum: 128) && chainId == nil
+      return Self.validIdentifier(assetId, maximum: 128) && chainId == nil && stockId == nil
     case .token:
-      guard Self.validIdentifier(chainId, maximum: 64), assetId == nil,
+      guard Self.validIdentifier(chainId, maximum: 64), assetId == nil, stockId == nil,
             let address = contractAddress, Self.validAddress(address)
       else { return false }
       if let requestTokenAddress,
@@ -128,14 +136,27 @@ struct MarketWidgetQuote: Codable {
   let asset: MarketWidgetAsset
   let price: String
   let change24h: String?
-  // The API does not expose a reliable quote timestamp. This is fetch completion time.
+  // Fetch completion is separate from the stock feed's last price update.
   let fetchedAt: Date
   var chart: [MarketWidgetChartPoint]? = nil
   var chartFetchedAt: Date? = nil
+  var stockSparkline: [Double]? = nil
+  var priceUpdatedAt: Date? = nil
+  var marketClosed: Bool? = nil
+
+  var plotPoints: [MarketWidgetChartPoint]? {
+    guard asset.kind == .stock else { return chart }
+    // The stock list feed provides ordered samples without timestamps. Use sample
+    // positions only for drawing, never fabricate an intraday time range.
+    return withFreshChart().stockSparkline?.enumerated().map {
+      MarketWidgetChartPoint(timestamp: Double($0.offset), value: $0.element)
+    }
+  }
 
   func merging(_ other: MarketWidgetQuote?, at now: Date = Date()) -> MarketWidgetQuote {
     guard let other, other.asset.id == asset.id else { return withFreshChart(at: now) }
     let latestPrice = other.fetchedAt > fetchedAt ? other : self
+    if asset.kind == .stock { return latestPrice.withFreshChart(at: now) }
     let latestChart = (other.chartFetchedAt ?? .distantPast) > (chartFetchedAt ?? .distantPast) ? other : self
     return MarketWidgetQuote(asset: latestPrice.asset, price: latestPrice.price,
       change24h: latestPrice.change24h, fetchedAt: latestPrice.fetchedAt,
@@ -153,6 +174,12 @@ struct MarketWidgetQuote: Codable {
 
   func withFreshChart(at now: Date = Date()) -> MarketWidgetQuote {
     var quote = self
+    if asset.kind == .stock {
+      if fetchedAt > now.addingTimeInterval(60) || now.timeIntervalSince(fetchedAt) >= 3600 {
+        quote.stockSparkline = nil
+      }
+      return quote
+    }
     guard let chart, chart.count >= 12,
           let first = chart.first, let last = chart.last, last.timestamp - first.timestamp >= 18 * 3600,
           let chartFetchedAt, chartFetchedAt <= now.addingTimeInterval(60),
@@ -166,6 +193,13 @@ struct MarketWidgetQuote: Codable {
 
   var isValid: Bool {
     guard asset.isValid, let value = Self.decimal(price), value >= 0 else { return false }
+    if let stockSparkline {
+      guard asset.kind == .stock, (2...96).contains(stockSparkline.count),
+            stockSparkline.allSatisfy({ $0.isFinite && $0 > 0 }) else { return false }
+    }
+    if let priceUpdatedAt {
+      guard priceUpdatedAt.timeIntervalSince1970 > 0, priceUpdatedAt <= fetchedAt.addingTimeInterval(60) else { return false }
+    }
     if let chart {
       guard chart.count >= 2, chart.count <= 96, let chartFetchedAt,
             chartFetchedAt.timeIntervalSince1970 > 0, chartFetchedAt <= Date().addingTimeInterval(60),
@@ -434,7 +468,7 @@ struct MarketWidgetStore {
       requestTokenAddress: enriched.requestTokenAddress,
       symbol: enriched.displaySymbol,
       name: enriched.name.isEmpty ? (enriched.assetId ?? enriched.chainId ?? enriched.contractAddress ?? enriched.displaySymbol) : enriched.name,
-      logoURL: enriched.logoURL)
+      logoURL: enriched.logoURL, stockId: enriched.stockId)
   }
 
   func assetWithMetadata(_ asset: MarketWidgetAsset) -> MarketWidgetAsset {
@@ -453,7 +487,8 @@ struct MarketWidgetStore {
     // Cached display fields must not replace the source's current request identity.
     return MarketWidgetAsset(kind: asset.kind, assetId: asset.assetId, chainId: asset.chainId,
       contractAddress: asset.contractAddress, isNative: asset.isNative,
-      requestTokenAddress: asset.requestTokenAddress, symbol: value(\.symbol), name: value(\.name), logoURL: logoURL)
+      requestTokenAddress: asset.requestTokenAddress, symbol: value(\.symbol), name: value(\.name),
+      logoURL: logoURL, stockId: asset.stockId)
   }
 
   func metadata(for asset: MarketWidgetAsset) -> MarketWidgetAsset? {

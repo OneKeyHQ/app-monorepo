@@ -8,9 +8,9 @@
 "market_widget_configuration__title" = "Конфигурация";
 "market_widget_lock_watchlist__title" = "Список наблюдения";
 "market_widget_lock_spot__title" = "Отслеживание спота";
-"market_widget_lock_coin_1__title" = "Монета 1";
-"market_widget_lock_coin_2__title" = "Монета 2";
-"market_widget_lock_coin_3__title" = "Монета 3";
+"market_widget_lock_coin_1__title" = "Актив 1";
+"market_widget_lock_coin_2__title" = "Актив 2";
+"market_widget_lock_coin_3__title" = "Актив 3";
 "market_widget_single__desc" = "Цена монеты в USD и изменение за 24 часа.";
 "market_widget_list__desc" = "Три монеты с ценами в USD и графиками за 24 часа.";
 "market_widget_choose_configuration__desc" = "Создайте конфигурацию в OneKey, затем выберите её здесь.";
@@ -32,3 +32,6 @@
 "market_widget_quote__desc" = "%1$@, цена %2$@ USD, изменение за 24 часа %3$@.";
 "market_widget_quote_cached__desc" = "%1$@, цена %2$@ USD, изменение за 24 часа %3$@. Данные из кэша.";
 "wallet.price_unavailable" = "Цена недоступна";
+"market_widget_market_closed__title" = "Закрыт";
+"market_widget_stock_chart__desc" = "Диаграмма";
+"market_widget_asset__title" = "Актив";

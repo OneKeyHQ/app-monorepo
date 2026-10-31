@@ -30,4 +30,7 @@
     <string name="market_widget_loading">Memuat...</string>
     <string name="market_widget_no_coins">Tidak Ada Hasil Ditemukan</string>
     <string name="market_widget_back">Kembali</string>
+    <string name="market_widget_market_closed">Tutup</string>
+    <string name="market_widget_stock_chart">Bagan</string>
+    <string name="market_widget_asset">Aset</string>
 </resources>

@@ -35,6 +35,11 @@ public final class OneKeyMarketWidgetModule extends ReactContextBaseJavaModule {
         return NAME;
     }
 
+    @Override
+    public java.util.Map<String, Object> getConstants() {
+        return java.util.Collections.singletonMap("stockSupportVersion", 1);
+    }
+
     @ReactMethod
     public void setConfiguration(String json, Promise promise) {
         try {

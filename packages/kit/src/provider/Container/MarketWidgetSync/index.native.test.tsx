@@ -11,6 +11,7 @@ const mockGetNativeTokenAddress = jest.fn(async (_value: unknown) => '0xeeee');
 let mockWatchlist: IMarketWatchListItemV2[] = [];
 const mockReadWatchlist = jest.fn(async () => ({ data: mockWatchlist }));
 let mockSupported = true;
+let mockStockSupported = true;
 let mockMasked = false;
 let mockWatchlistChanged: (() => void) | undefined;
 let mockAppStateChanged: ((state: string) => void) | undefined;
@@ -46,6 +47,7 @@ jest.mock('@onekeyhq/shared/src/modules/MarketWidget', () => ({
   __esModule: true,
   default: {
     isSupported: () => mockSupported,
+    supportsStockAssets: () => mockStockSupported,
     setConfiguration: (value: unknown) => mockSetConfiguration(value),
   },
 }));
@@ -70,12 +72,39 @@ describe('native market widget sync host', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockSupported = true;
+    mockStockSupported = true;
     mockMasked = false;
     mockWatchlist = [
       { chainId: 'evm--1', contractAddress: '', isNative: true },
     ];
   });
   afterEach(cleanup);
+
+  it.each([true, false])(
+    'syncs mixed favorites only to stock-capable binaries: %s',
+    async (supported) => {
+      mockStockSupported = supported;
+      mockWatchlist = [
+        { assetId: 'btc', chainId: '', contractAddress: '' },
+        { stockId: 'NVDA', chainId: '', contractAddress: '' },
+        { perpsCoin: 'ETH', chainId: '', contractAddress: '' },
+      ];
+      render(<MarketWidgetSync />);
+      await waitFor(() =>
+        expect(mockSetConfiguration).toHaveBeenCalledTimes(1),
+      );
+      expect(mockSetConfiguration).toHaveBeenCalledWith(
+        expect.objectContaining({
+          assets: [
+            { kind: 'asset', assetId: 'btc', symbol: '', name: '' },
+            ...(supported
+              ? [{ kind: 'stock', stockId: 'NVDA', symbol: 'NVDA', name: '' }]
+              : []),
+          ],
+        }),
+      );
+    },
+  );
 
   it('syncs public identities on mount, watchlist changes, and foreground', async () => {
     render(<MarketWidgetSync />);

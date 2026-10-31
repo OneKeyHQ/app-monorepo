@@ -8,9 +8,9 @@
 "market_widget_configuration__title" = "কনফিগারেশন";
 "market_widget_lock_watchlist__title" = "নজরতালিকা";
 "market_widget_lock_spot__title" = "স্পট নজরদারি";
-"market_widget_lock_coin_1__title" = "কয়েন 1";
-"market_widget_lock_coin_2__title" = "কয়েন 2";
-"market_widget_lock_coin_3__title" = "কয়েন 3";
+"market_widget_lock_coin_1__title" = "সম্পদ 1";
+"market_widget_lock_coin_2__title" = "সম্পদ 2";
+"market_widget_lock_coin_3__title" = "সম্পদ 3";
 "market_widget_single__desc" = "একটি কয়েনের USD মূল্য ও 24 ঘণ্টার পরিবর্তন।";
 "market_widget_list__desc" = "তিনটি কয়েনের USD মূল্য ও 24 ঘণ্টার চার্ট।";
 "market_widget_choose_configuration__desc" = "OneKey-তে একটি কনফিগারেশন তৈরি করে এখানে বেছে নিন।";
@@ -32,3 +32,6 @@
 "market_widget_quote__desc" = "%1$@, মূল্য %2$@ USD, 24 ঘণ্টার পরিবর্তন %3$@।";
 "market_widget_quote_cached__desc" = "%1$@, মূল্য %2$@ USD, 24 ঘণ্টার পরিবর্তন %3$@। ক্যাশের তথ্য।";
 "wallet.price_unavailable" = "কোনো মূল্য উপলব্ধ নেই";
+"market_widget_market_closed__title" = "বন্ধ";
+"market_widget_stock_chart__desc" = "চার্ট";
+"market_widget_asset__title" = "সম্পদ";

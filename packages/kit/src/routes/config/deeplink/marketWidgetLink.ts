@@ -37,6 +37,7 @@ type IWidgetDetail = {
 type IWidgetDestination =
   | Extract<IMarketWidgetLinkTarget, { kind: 'editor' }>
   | { kind: 'detail'; detail: IWidgetDetail }
+  | { kind: 'stock'; stockId: string }
   | { kind: 'home' };
 
 function dismissAndroidMoreMenu() {
@@ -76,6 +77,7 @@ const handleLink = createMarketWidgetLinkHandler<IWidgetDestination>({
   isAllowed: () => !travelModeManager.isMaskingDataSync(),
   async resolve(target) {
     if (target.kind === 'home') return target;
+    if (target.kind === 'stock') return target;
     if (target.kind === 'editor') {
       if (
         !marketWidget.supportsSettingsEditing() ||
@@ -160,6 +162,15 @@ const handleLink = createMarketWidgetLinkHandler<IWidgetDestination>({
           screen: EModalMarketRoutes.MarketWidgetList,
         });
       }
+    } else if (destination.kind === 'stock') {
+      prepareMarketDetailTabBarTransition();
+      navigation?.navigate(ERootRoutes.Main, {
+        screen: ETabRoutes.Market,
+        params: {
+          screen: ETabMarketRoutes.MarketStockDetail,
+          params: { stockId: destination.stockId },
+        },
+      });
     } else if (destination.kind === 'detail') {
       prepareMarketDetailTabBarTransition();
       navigation?.navigate(ERootRoutes.Main, {

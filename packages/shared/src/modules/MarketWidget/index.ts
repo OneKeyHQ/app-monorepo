@@ -4,6 +4,7 @@ import type { IMarketWidgetModule } from './types';
 
 const marketWidget: IMarketWidgetModule = {
   isSupported: () => false,
+  supportsStockAssets: () => false,
   supportsProfileEditing: () => false,
   supportsSettingsEditing: () => false,
   setConfiguration: async () => undefined,

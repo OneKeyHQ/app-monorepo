@@ -30,4 +30,7 @@
     <string name="market_widget_loading">読み込み中...</string>
     <string name="market_widget_no_coins">結果が見つかりませんでした</string>
     <string name="market_widget_back">戻る</string>
+    <string name="market_widget_market_closed">クローズ</string>
+    <string name="market_widget_stock_chart">チャート</string>
+    <string name="market_widget_asset">資産</string>
 </resources>

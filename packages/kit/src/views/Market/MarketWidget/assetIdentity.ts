@@ -8,6 +8,7 @@ import type {
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 
 export function getMarketWidgetAssetKey(asset: IMarketWidgetAsset) {
+  if (asset.kind === 'stock') return `stock:${asset.stockId}`;
   return asset.kind === 'asset'
     ? `asset:${asset.assetId}`
     : `token:${asset.chainId}|${String(asset.isNative)}|${asset.contractAddress}`;
@@ -79,6 +80,7 @@ export function getMarketWidgetAssetTitle(asset: IMarketWidgetAsset) {
     return networkUtils.getLocalNetworkInfo(asset.chainId)?.symbol ?? '—';
   }
   if (asset.symbol.trim()) return asset.symbol;
+  if (asset.kind === 'stock') return asset.stockId;
   if (asset.kind === 'asset') return asset.assetId;
   if (asset.isNative || !asset.contractAddress) return asset.chainId;
   return asset.contractAddress.length > 14
@@ -109,21 +111,21 @@ export function getMarketWidgetAssetSubtitle(asset: IMarketWidgetAsset) {
   if (asset.kind === 'token' && (!asset.name || asset.name === asset.chainId)) {
     return networkUtils.getLocalNetworkInfo(asset.chainId)?.name;
   }
-  const subtitle =
-    asset.name || (asset.kind === 'asset' ? asset.assetId : asset.chainId);
+  let fallback: string;
+  if (asset.kind === 'stock') fallback = asset.stockId;
+  else if (asset.kind === 'asset') fallback = asset.assetId;
+  else fallback = asset.chainId;
+  const subtitle = asset.name || fallback;
   return subtitle === getMarketWidgetAssetTitle(asset) ? undefined : subtitle;
 }
 
 export function getMarketWidgetAssetSearchText(asset: IMarketWidgetAsset) {
-  return [
-    asset.symbol,
-    asset.name,
-    asset.kind === 'asset'
-      ? asset.assetId
-      : `${asset.chainId} ${asset.contractAddress} ${asset.requestTokenAddress}`,
-  ]
-    .join(' ')
-    .toLowerCase();
+  let identity: string;
+  if (asset.kind === 'stock') identity = asset.stockId;
+  else if (asset.kind === 'asset') identity = asset.assetId;
+  else
+    identity = `${asset.chainId} ${asset.contractAddress} ${asset.requestTokenAddress}`;
+  return [asset.symbol, asset.name, identity].join(' ').toLowerCase();
 }
 
 export function containsMarketWidgetAsset(

@@ -30,4 +30,7 @@
     <string name="market_widget_loading">Загрузка...</string>
     <string name="market_widget_no_coins">Результатов не найдено</string>
     <string name="market_widget_back">Назад</string>
+    <string name="market_widget_market_closed">Закрыт</string>
+    <string name="market_widget_stock_chart">Диаграмма</string>
+    <string name="market_widget_asset">Актив</string>
 </resources>

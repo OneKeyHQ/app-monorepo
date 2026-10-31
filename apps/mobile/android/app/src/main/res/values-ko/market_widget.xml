@@ -30,4 +30,7 @@
     <string name="market_widget_loading">로딩 중...</string>
     <string name="market_widget_no_coins">결과가 없습니다</string>
     <string name="market_widget_back">뒤로</string>
+    <string name="market_widget_market_closed">마감</string>
+    <string name="market_widget_stock_chart">차트</string>
+    <string name="market_widget_asset">자산</string>
 </resources>

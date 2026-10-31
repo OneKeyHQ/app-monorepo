@@ -45,6 +45,17 @@ describe('market widget editor bridge availability', () => {
     NativeModules.OneKeyMarketWidget = nativeModule;
   });
 
+  it('requires explicit native stock support and does not expose it in the background runtime', () => {
+    expect(marketWidget.supportsStockAssets()).toBe(false);
+    NativeModules.OneKeyMarketWidget = {
+      ...nativeModule,
+      stockSupportVersion: 1,
+    };
+    expect(marketWidget.supportsStockAssets()).toBe(true);
+    platformEnv.isNativeBackgroundThread = true;
+    expect(marketWidget.supportsStockAssets()).toBe(false);
+  });
+
   it('routes Android reads and saves through the same native-validated session', async () => {
     platformEnv.isNativeIOS = false;
     platformEnv.isNativeAndroid = true;

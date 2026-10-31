@@ -8,9 +8,9 @@
 "market_widget_configuration__title" = "Cấu hình";
 "market_widget_lock_watchlist__title" = "Danh sách theo dõi";
 "market_widget_lock_spot__title" = "Theo dõi giao ngay";
-"market_widget_lock_coin_1__title" = "Đồng tiền 1";
-"market_widget_lock_coin_2__title" = "Đồng tiền 2";
-"market_widget_lock_coin_3__title" = "Đồng tiền 3";
+"market_widget_lock_coin_1__title" = "Tài sản 1";
+"market_widget_lock_coin_2__title" = "Tài sản 2";
+"market_widget_lock_coin_3__title" = "Tài sản 3";
 "market_widget_single__desc" = "Giá USD và mức biến động trong 24 giờ của một đồng tiền.";
 "market_widget_list__desc" = "Ba đồng tiền với giá USD và biểu đồ 24 giờ.";
 "market_widget_choose_configuration__desc" = "Tạo cấu hình trong OneKey, rồi chọn cấu hình đó tại đây.";
@@ -32,3 +32,6 @@
 "market_widget_quote__desc" = "%1$@, giá %2$@ USD, biến động 24 giờ %3$@.";
 "market_widget_quote_cached__desc" = "%1$@, giá %2$@ USD, biến động 24 giờ %3$@. Dữ liệu từ bộ nhớ đệm.";
 "wallet.price_unavailable" = "Không có giá khả dụng";
+"market_widget_market_closed__title" = "Đóng cửa";
+"market_widget_stock_chart__desc" = "Biểu đồ";
+"market_widget_asset__title" = "Tài sản";

@@ -8,9 +8,9 @@
 "market_widget_configuration__title" = "配置";
 "market_widget_lock_watchlist__title" = "关注列表";
 "market_widget_lock_spot__title" = "关注现货";
-"market_widget_lock_coin_1__title" = "关注1";
-"market_widget_lock_coin_2__title" = "关注2";
-"market_widget_lock_coin_3__title" = "关注3";
+"market_widget_lock_coin_1__title" = "资产 1";
+"market_widget_lock_coin_2__title" = "资产 2";
+"market_widget_lock_coin_3__title" = "资产 3";
 "market_widget_single__desc" = "查看单个币种的美元价格与 24 小时涨跌幅";
 "market_widget_list__desc" = "查看 3 个币种的美元价格与 24 小时走势";
 "market_widget_choose_configuration__desc" = "在 OneKey 中创建配置，然后在此选择";
@@ -32,3 +32,6 @@
 "market_widget_quote__desc" = "%1$@，价格 %2$@ 美元，24 小时涨跌幅 %3$@";
 "market_widget_quote_cached__desc" = "%1$@，价格 %2$@ 美元，24 小时涨跌幅 %3$@，缓存数据";
 "wallet.price_unavailable" = "暂无价格";
+"market_widget_market_closed__title" = "休市";
+"market_widget_stock_chart__desc" = "图表";
+"market_widget_asset__title" = "资产";

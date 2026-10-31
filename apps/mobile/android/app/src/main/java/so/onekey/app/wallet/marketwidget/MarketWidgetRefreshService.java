@@ -123,7 +123,8 @@ public final class MarketWidgetRefreshService extends JobService {
         }
         if (Thread.currentThread().isInterrupted() || !MarketWidgetStore.contains(context, asset)) return;
         MarketWidgetData.History history = MarketWidgetStore.history(context, asset);
-        if (chart && (history == null || System.currentTimeMillis() - history.fetchedAt >= 15 * 60_000)) {
+        if (chart && !"stock".equals(asset.kind)
+            && (history == null || System.currentTimeMillis() - history.fetchedAt >= 15 * 60_000)) {
             try {
                 MarketWidgetStore.saveHistory(context, asset, MarketWidgetClient.fetchHistory(asset, locale));
             } catch (Exception ignored) {

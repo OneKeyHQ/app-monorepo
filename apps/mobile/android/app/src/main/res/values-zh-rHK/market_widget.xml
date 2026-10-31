@@ -30,4 +30,7 @@
     <string name="market_widget_loading">載入中...</string>
     <string name="market_widget_no_coins">未找到結果</string>
     <string name="market_widget_back">返回</string>
+    <string name="market_widget_market_closed">休市</string>
+    <string name="market_widget_stock_chart">圖表</string>
+    <string name="market_widget_asset">資產</string>
 </resources>
