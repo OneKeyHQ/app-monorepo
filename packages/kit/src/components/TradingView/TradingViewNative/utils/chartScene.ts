@@ -55,6 +55,7 @@ import {
   formatTradingViewNativePriceTick,
   getTradingViewNativeChartLayout,
   getTradingViewNativeChartWidth,
+  getTradingViewNativeCurrentPriceAxisLabel,
   getTradingViewNativeCurrentPriceLabel,
   getTradingViewNativeCurrentPriceLayout,
   getTradingViewNativePriceAtY,
@@ -274,6 +275,7 @@ export interface IBuildTradingViewNativeChartSceneOptions {
   ) => number;
   candleLabels: ITradingViewNativeCandleLabels;
   currentPriceLabel?: string;
+  priceAxisDecimalPlaces?: number;
   priceDecimalPlaces?: number;
   points: IMarketTokenKLineDataPoint[];
   pinnedPriceRange?: ITradingViewNativePriceRange | null;
@@ -694,6 +696,7 @@ export function buildTradingViewNativeChartScene({
   measureTextWidth,
   candleLabels,
   currentPriceLabel,
+  priceAxisDecimalPlaces,
   priceDecimalPlaces,
   points,
   pinnedPriceRange,
@@ -749,7 +752,10 @@ export function buildTradingViewNativeChartScene({
       currentPriceLabelWidth: measureTextWidth(
         chartSettings?.options.latestPrice === false
           ? ''
-          : resolvedCurrentPriceLabel,
+          : getTradingViewNativeCurrentPriceAxisLabel(
+              resolvedCurrentPriceLabel,
+              priceDecimalPlaces,
+            ),
         'priceAxis',
       ),
       widestPriceLabelWidth: Math.max(
@@ -978,7 +984,34 @@ export function buildTradingViewNativeChartScene({
     y2: timeAxisY,
   });
   for (const { price, y } of priceTicks) {
-    const text = formatTradingViewNativePriceTick(price, 4, priceDecimalPlaces);
+    const decimals = Math.max(
+      0,
+      Math.min(12, Math.floor(priceAxisDecimalPlaces ?? 0)),
+    );
+    let tickPrice = price;
+    if (priceAxisDecimalPlaces !== undefined) {
+      const scale = 10 ** decimals;
+      const nearestTick = Math.round(price * scale);
+      const boundary = nearestTick / scale;
+      // Remove only machine-scale interpolation error before truncating ticks.
+      if (
+        Number.isSafeInteger(nearestTick) &&
+        Math.abs(price - boundary) <= Math.abs(price) * Number.EPSILON * 4
+      ) {
+        tickPrice = boundary;
+      }
+    }
+    let text = formatTradingViewNativePriceTick(
+      tickPrice,
+      4,
+      priceAxisDecimalPlaces ?? priceDecimalPlaces,
+      priceAxisDecimalPlaces === undefined ? 'round' : 'truncate',
+    );
+    if (decimals > 0 && text !== '--') {
+      // Keep axis ticks aligned without padding actual price labels.
+      const [integer, fraction = ''] = text.split('.');
+      text = `${integer}.${fraction.padEnd(decimals, '0')}`;
+    }
     if (showHorizontalGrid) {
       commands.push({
         ...(chartSettings ? { customPaintId: GRID_HORIZONTAL_PAINT_ID } : {}),

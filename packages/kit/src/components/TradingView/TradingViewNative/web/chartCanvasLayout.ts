@@ -1,5 +1,6 @@
 import {
   getTradingViewNativeChartWidth,
+  getTradingViewNativeCurrentPriceAxisLabel,
   getTradingViewNativePriceAxisWidth,
   getTradingViewNativeScaledPriceAxisLabel,
 } from '../utils/chartLayout';
@@ -68,7 +69,13 @@ export function getTradingViewNativeCanvasPriceAxisWidth(
       })
     : labels.widestPrice;
   return getTradingViewNativePriceAxisWidth({
-    currentPriceLabelWidth: context.measureText(labels.currentPrice).width,
+    // Reserve widest-digit space so live price kerning cannot resize the plot.
+    currentPriceLabelWidth: context.measureText(
+      getTradingViewNativeCurrentPriceAxisLabel(
+        labels.currentPrice,
+        labels.priceDecimalPlaces,
+      ),
+    ).width,
     minimumWidth: getTradingViewNativePriceScaleControlsMinimumAxisWidth(
       PRICE_SCALE_CONTROL_WEB_SIZING,
     ),
