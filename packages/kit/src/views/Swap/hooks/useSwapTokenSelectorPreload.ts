@@ -1,5 +1,6 @@
 import { useEffect, useSyncExternalStore } from 'react';
 
+import { useMedia } from '@onekeyhq/components';
 import { useSwapActions } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
@@ -41,6 +42,7 @@ export function useSwapTokenSelectorPreload({
   swapType,
   currency,
 }: ISwapTokenSelectorPreloadParams) {
+  const { gtMd } = useMedia();
   const { swapLoadAllNetworkTokenList } = useSwapActions().current;
   const cacheEpoch = useSyncExternalStore(
     subscribeSwapTokenSelectorCache,
@@ -70,11 +72,15 @@ export function useSwapTokenSelectorPreload({
   const networkReadyKey = isSwapNetworkCacheReadyForBasicList(networks)
     ? buildSwapNetworkReadyKey(networks)
     : '';
+  const isPreloadPlatformSupported =
+    platformEnv.isDesktop ||
+    platformEnv.isWeb ||
+    (platformEnv.isExtension && gtMd);
 
   useEffect(() => {
     if (
       !enabled ||
-      !(platformEnv.isDesktop || platformEnv.isWeb) ||
+      !isPreloadPlatformSupported ||
       swapType === ESwapTabSwitchType.STOCK ||
       !networkReadyKey
     ) {
@@ -103,7 +109,7 @@ export function useSwapTokenSelectorPreload({
           otherAccountId,
           false,
           currency,
-          { policy: 'preload' },
+          { policy: 'preload', fullChainLists: true },
         ).catch(() => undefined);
       }
     }
@@ -113,6 +119,7 @@ export function useSwapTokenSelectorPreload({
     currency,
     fromIndexedAccountId,
     fromOtherAccountId,
+    isPreloadPlatformSupported,
     networkReadyKey,
     swapLoadAllNetworkTokenList,
     swapType,
