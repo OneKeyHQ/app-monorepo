@@ -36,6 +36,7 @@ import {
 import { travelModeManager } from '@onekeyhq/shared/src/travelMode';
 import { closeExtensionPopupAfterExpandTabOpen } from '@onekeyhq/shared/src/utils/extUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+import type { IMarketAssetListItem } from '@onekeyhq/shared/types/market';
 import type { IMarketTokenDetailPreview } from '@onekeyhq/shared/types/marketV2';
 
 import type { IMarketToken as IMarketHomeToken } from '../MarketTokenData';
@@ -130,51 +131,36 @@ export function useToDetailPage(options?: IUseToDetailPageOptions) {
   }, []);
 
   const toMarketDetailPage = useCallback(
-    async (selectedItem: IMarketToken) => {
+    async (selectedItem: IMarketToken | IMarketAssetListItem) => {
       if (
         travelModeManager.getRuntimeEnvironmentSync().profile.kind ===
         'travel-mode'
       ) {
         return;
       }
-      let item = selectedItem;
+      const selectedToken = selectedItem as IMarketToken;
+      const hasNoFetchTokenIdentity = Boolean(
+        selectedToken.skipMarketDataFetch &&
+        selectedToken.networkId &&
+        (selectedToken.tokenAddress || selectedToken.isNative),
+      );
+      const isAssetEntry = Boolean(
+        selectedItem.assetId && !hasNoFetchTokenIdentity,
+      );
+      const item: IMarketToken = isAssetEntry
+        ? {
+            assetId: selectedItem.assetId,
+            symbol: selectedItem.symbol,
+            name: selectedItem.name,
+            networkId: '',
+            tokenAddress: '',
+            marketVariantId: selectedToken.marketVariantId,
+            disableTrade: selectedToken.disableTrade,
+            showFavoriteButton: selectedToken.showFavoriteButton,
+          }
+        : selectedToken;
       const navigationGeneration = navigationGenerationRef.current + 1;
       navigationGenerationRef.current = navigationGeneration;
-      if (item.assetId) {
-        try {
-          const { default: backgroundApiProxy } =
-            await import('@onekeyhq/kit/src/background/instance/backgroundApiProxy');
-          if (navigationGenerationRef.current !== navigationGeneration) return;
-          const { selectedVariant } =
-            await backgroundApiProxy.serviceMarket.fetchMarketAssetDetail({
-              assetId: item.assetId,
-              currency: 'usd',
-              autoHandleError: false,
-            });
-          if (navigationGenerationRef.current !== navigationGeneration) {
-            return;
-          }
-          item = {
-            ...item,
-            marketTokenId: item.assetId,
-            marketVariantId: selectedVariant.variantId,
-            networkId: selectedVariant.networkId,
-            tokenAddress: selectedVariant.tokenAddress,
-            address: selectedVariant.tokenAddress,
-            isNative: selectedVariant.isNative,
-          };
-        } catch {
-          if (navigationGenerationRef.current !== navigationGeneration) {
-            return;
-          }
-          Toast.error({
-            title: intl.formatMessage({
-              id: ETranslations.global_an_error_occurred,
-            }),
-          });
-          return;
-        }
-      }
       const shouldResolveMarketAsset = Boolean(
         options?.resolveMarketAsset && !item.marketTokenId && !item.stock,
       );
@@ -200,12 +186,18 @@ export function useToDetailPage(options?: IUseToDetailPageOptions) {
           : options?.showFavoriteButton;
 
       const tokenParams = {
-        tokenAddress: resolvedItem.tokenAddress,
-        network: shortCode || resolvedItem.networkId,
+        ...(!isAssetEntry
+          ? {
+              tokenAddress: resolvedItem.tokenAddress,
+              network: shortCode || resolvedItem.networkId,
+            }
+          : undefined),
         isNative: resolvedItem.isNative,
         from: options?.from,
-        ...(resolvedItem.marketTokenId
-          ? { marketTokenId: resolvedItem.marketTokenId }
+        ...(resolvedItem.marketTokenId || resolvedItem.assetId
+          ? {
+              marketTokenId: resolvedItem.marketTokenId ?? resolvedItem.assetId,
+            }
           : undefined),
         ...(resolvedItem.marketVariantId
           ? { marketVariantId: resolvedItem.marketVariantId }
@@ -230,8 +222,8 @@ export function useToDetailPage(options?: IUseToDetailPageOptions) {
       const stockParams = stockId
         ? {
             stockId,
-            tokenAddress: tokenParams.tokenAddress,
-            network: tokenParams.network,
+            tokenAddress: resolvedItem.tokenAddress,
+            network: shortCode || resolvedItem.networkId,
             isNative: tokenParams.isNative,
             from: options?.from,
             ...(typeof tokenParams.disableTrade === 'boolean'
@@ -289,8 +281,8 @@ export function useToDetailPage(options?: IUseToDetailPageOptions) {
         if (stockId) {
           await backgroundApiProxy.serviceApp.openExtensionMarketStockDetail({
             stockId,
-            tokenAddress: tokenParams.tokenAddress,
-            network: tokenParams.network,
+            tokenAddress: resolvedItem.tokenAddress,
+            network: shortCode || resolvedItem.networkId,
             isNative: tokenParams.isNative,
             disableTrade: tokenParams.disableTrade,
             showFavoriteButton: tokenParams.showFavoriteButton,
@@ -382,7 +374,7 @@ export function useToDetailPage(options?: IUseToDetailPageOptions) {
           );
         }
 
-        if (platformEnv.isNative) {
+        if (platformEnv.isNative && !isAssetEntry) {
           await marketDetailShellPreloadPromise;
           if (navigationGenerationRef.current !== navigationGeneration) {
             return;

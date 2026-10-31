@@ -575,6 +575,40 @@ describe('DesktopLayout', () => {
     expect(mockNativeChartMount).toHaveBeenCalledTimes(1);
   });
 
+  it('keeps Top Coins embedded trade disabled until real decimals arrive', () => {
+    mockStockDetailState = { ...mockStockDetailState, isStockRoute: false };
+    mockDisplayTokenDetail = {
+      ...mockDisplayTokenDetail,
+      decimals: 2,
+      decimalsResolved: false,
+    };
+    const props = {
+      isChartFullscreen: false,
+      isTradingViewNative: false,
+      onChartSwitch: jest.fn(),
+      onChartFullscreenChange: jest.fn(),
+      isNative: false,
+      networkId: 'evm--1',
+      tokenAddress: '0xaapl',
+      marketTokenId: 'top-coin',
+      marketTokenCategory: 'top_coins',
+    };
+    const { rerender } = render(<DesktopLayout {...props} />);
+    expect(mockTopCoinsDesktopLayout.mock.calls.at(-1)?.[0]).toEqual(
+      expect.objectContaining({ disableTrade: true }),
+    );
+
+    mockDisplayTokenDetail = {
+      ...mockDisplayTokenDetail,
+      decimals: 18,
+      decimalsResolved: true,
+    };
+    rerender(<DesktopLayout {...props} />);
+    expect(mockTopCoinsDesktopLayout.mock.calls.at(-1)?.[0]).toEqual(
+      expect.objectContaining({ disableTrade: false }),
+    );
+  });
+
   it.each([
     { networkId: 'evm--1', contractAddress: '0xnext' },
     { networkId: 'evm--8453', contractAddress: '0xaapl' },

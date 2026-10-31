@@ -1,9 +1,39 @@
 import { getPathFromState, getStateFromPath } from '@react-navigation/core';
 
 import {
+  ERootRoutes,
+  ETabMarketRoutes,
+  ETabRoutes,
+} from '@onekeyhq/shared/src/routes';
+import {
   marketTokenPreviewRouteConfig,
   parseTokenDetailPreviewParam,
 } from '@onekeyhq/shared/src/utils/marketTokenPreviewRoute';
+import { buildAllowList } from '@onekeyhq/shared/src/utils/routeUtils';
+
+import { marketRouters } from '../Tab/Marktet/router';
+
+import { getWebDappAllowListRule } from './webDappUrlFallback';
+
+jest.mock('../../components/LazyLoadPage', () => ({
+  LazyLoadPage: () => () => null,
+  LazyLoadRootTabPage: () => () => null,
+}));
+jest.mock('../../views/Market/MarketDetailV2/MarketDetailV2Route', () => ({
+  createMarketDetailV2Route: () => () => null,
+}));
+jest.mock(
+  '../../views/Market/MarketHomeV2/components/MarketHomeLoadingFallback',
+  () => ({
+    MarketHomeLoadingFallback: () => null,
+  }),
+);
+jest.mock('../Tab/RootTabLoadingFallback', () => ({
+  RootTabLoadingFallback: () => null,
+}));
+jest.mock('../Tab/Marktet/MarketDetailV2LoadingFallback', () => ({
+  MarketDetailV2LoadingFallback: () => null,
+}));
 
 const preview = {
   address: '0xabc',
@@ -107,4 +137,104 @@ describe('market preview URL boundary', () => {
       );
     }
   });
+});
+
+it('maps Asset-only, native and contract URLs to their existing Market routes', () => {
+  const routePath = (name: string) =>
+    `market${marketRouters.find((route) => route.name === name)?.rewrite ?? ''}`;
+  const actualConfig = {
+    screens: {
+      MarketDetailV2: {
+        path: routePath('MarketDetailV2'),
+        ...marketTokenPreviewRouteConfig,
+      },
+      MarketNativeDetail: {
+        path: routePath('MarketNativeDetail'),
+        ...marketTokenPreviewRouteConfig,
+      },
+      MarketStockDetail: { path: routePath('MarketStockDetail') },
+    },
+  };
+  for (const [path, screen] of [
+    [
+      '/market/token?marketTokenId=bitcoin&marketTokenCategory=top_coins',
+      'MarketDetailV2',
+    ],
+    ['/market/token/eth', 'MarketNativeDetail'],
+    ['/market/token/eth/0xabc', 'MarketDetailV2'],
+    ['/market/stock/AAPL', 'MarketStockDetail'],
+  ]) {
+    const state = getStateFromPath(path, actualConfig);
+    expect(state?.routes[0].name).toBe(screen);
+    const roundtrip = getStateFromPath(
+      getPathFromState(state!, actualConfig),
+      actualConfig,
+    );
+    expect(roundtrip?.routes[0].name).toBe(screen);
+  }
+});
+
+it('keeps Asset-only URLs and their variant query in the production allowlist', () => {
+  const routePath = (name: string) =>
+    marketRouters.find((route) => route.name === name)?.rewrite ?? '';
+  const screens = {
+    [ERootRoutes.Main]: {
+      path: '/',
+      exact: false,
+      screens: {
+        [ETabRoutes.Market]: {
+          path: '/market',
+          exact: false,
+          screens: {
+            [ETabMarketRoutes.TabMarket]: { path: '/', exact: false },
+            [ETabMarketRoutes.MarketDetailV2]: {
+              path: routePath(ETabMarketRoutes.MarketDetailV2),
+              exact: false,
+            },
+            [ETabMarketRoutes.MarketNativeDetail]: {
+              path: routePath(ETabMarketRoutes.MarketNativeDetail),
+              exact: false,
+            },
+          },
+        },
+      },
+    },
+  };
+  const allowList = buildAllowList(screens, false, false);
+  const params = {
+    marketTokenId: 'bitcoin',
+    marketTokenCategory: 'top_coins',
+    marketVariantId: 'bitcoin-evm--1-0xbtc',
+  };
+  const path = getPathFromState(
+    {
+      routes: [
+        {
+          name: ERootRoutes.Main,
+          state: {
+            routes: [
+              {
+                name: ETabRoutes.Market,
+                state: {
+                  routes: [{ name: ETabMarketRoutes.MarketDetailV2, params }],
+                },
+              },
+            ],
+          },
+        },
+      ],
+    },
+    { screens },
+  );
+  expect(path).toContain('/market/token/?');
+  expect(path).toContain('marketVariantId=bitcoin-evm--1-0xbtc');
+  for (const pathname of ['/market/token', '/market/token/']) {
+    expect(
+      getWebDappAllowListRule({
+        allowList,
+        allowListKeys: Object.keys(allowList),
+        path: pathname,
+      }),
+    ).toEqual({ showUrl: true, showParams: true });
+  }
 });

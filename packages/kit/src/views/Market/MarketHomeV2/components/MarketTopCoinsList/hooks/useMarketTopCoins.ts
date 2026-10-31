@@ -47,21 +47,7 @@ export async function resolveMarketTopCoinNavigationTarget(
   if (!networkInfo || !hasTokenIdentity) {
     throw new OneKeyLocalError('Invalid market asset variant');
   }
-  let decimals: number | undefined;
-  if (selectedVariant.isNative) {
-    decimals = networkInfo.decimals;
-  } else {
-    try {
-      const tokenInfo =
-        await backgroundApiProxy.serviceToken.fetchTokenInfoOnly({
-          networkId: selectedVariant.networkId,
-          tokenAddress: selectedVariant.tokenAddress,
-        });
-      decimals = tokenInfo?.info?.decimals;
-    } catch {
-      decimals = undefined;
-    }
-  }
+  let decimals = selectedVariant.isNative ? networkInfo.decimals : undefined;
   if (
     typeof decimals !== 'number' ||
     !Number.isFinite(decimals) ||
@@ -125,7 +111,6 @@ export function useMarketTopCoinNavigation({
   replaceCurrentDetail = false,
 }: IUseMarketTopCoinNavigationOptions = {}) {
   const intl = useIntl();
-  const resolveMarketTopCoin = useMarketTopCoinResolver();
   const toMarketDetailPage = useToDetailPage({
     marketTokenCategory: MARKET_TOP_COINS_CATEGORY_ID,
     replaceCurrentDetail,
@@ -142,10 +127,7 @@ export function useMarketTopCoinNavigation({
       }
       isNavigatingRef.current = true;
       try {
-        const token = await resolveMarketTopCoin(item);
-        if (token) {
-          await toMarketDetailPage(token);
-        }
+        await toMarketDetailPage(item);
       } catch (_error) {
         Toast.error({
           title: intl.formatMessage({
@@ -156,7 +138,7 @@ export function useMarketTopCoinNavigation({
         isNavigatingRef.current = false;
       }
     },
-    [intl, resolveMarketTopCoin, toMarketDetailPage],
+    [intl, toMarketDetailPage],
   );
 
   return handleItemPress;

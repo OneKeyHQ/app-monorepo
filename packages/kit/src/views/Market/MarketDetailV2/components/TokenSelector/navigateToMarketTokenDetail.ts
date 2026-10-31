@@ -1,5 +1,4 @@
 import { rootNavigationRef } from '@onekeyhq/components';
-import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import type { useTokenDetailActions } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
 import { MARKET_TOP_COINS_CATEGORY_ID } from '@onekeyhq/shared/src/consts/marketConsts';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -25,6 +24,7 @@ export async function navigateToMarketTokenDetail(
     networkId: string;
     isNative?: boolean;
     assetId?: string;
+    marketVariantId?: string;
     stockId?: string;
   },
   opts: {
@@ -47,29 +47,7 @@ export async function navigateToMarketTokenDetail(
   },
 ) {
   const isCurrentRequest = opts.isCurrentRequest ?? (() => true);
-  let token = selectedToken;
-  let marketVariantId: string | undefined;
-  if (token.assetId) {
-    try {
-      const { selectedVariant } =
-        await backgroundApiProxy.serviceMarket.fetchMarketAssetDetail({
-          assetId: token.assetId,
-          currency: 'usd',
-          autoHandleError: false,
-        });
-      if (!isCurrentRequest()) return;
-      token = {
-        ...token,
-        address: selectedVariant.tokenAddress,
-        networkId: selectedVariant.networkId,
-        isNative: selectedVariant.isNative,
-      };
-      marketVariantId = selectedVariant.variantId;
-    } catch {
-      if (isCurrentRequest()) opts.onError?.();
-      return;
-    }
-  }
+  const token = selectedToken;
   prewarmMarketTokenDetailPreviewImages(opts.tokenDetailPreview);
 
   const shortCode = networkUtils.getNetworkShortCode({
@@ -97,7 +75,7 @@ export async function navigateToMarketTokenDetail(
     } else {
       opts.tokenDetailActions.current.clearTokenDetail();
     }
-  } else {
+  } else if (!token.assetId) {
     void opts.tokenDetailActions.current.changeActiveToken({
       tokenAddress: token.address,
       networkId: token.networkId,
@@ -113,13 +91,19 @@ export async function navigateToMarketTokenDetail(
     ...(token.assetId
       ? {
           marketTokenId: token.assetId,
-          marketVariantId,
+          ...(token.marketVariantId
+            ? { marketVariantId: token.marketVariantId }
+            : undefined),
           marketTokenCategory: MARKET_TOP_COINS_CATEGORY_ID,
         }
       : undefined),
-    tokenAddress: token.address,
-    network: shortCode || token.networkId,
-    isNative: token.isNative,
+    ...(!token.assetId
+      ? {
+          tokenAddress: token.address,
+          network: shortCode || token.networkId,
+          isNative: token.isNative,
+        }
+      : undefined),
     ...(shouldResolveMarketAsset
       ? {
           resolveMarketAsset: true,

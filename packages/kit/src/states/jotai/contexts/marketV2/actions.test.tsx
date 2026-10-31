@@ -795,6 +795,117 @@ describe('marketV2 asset token detail actions', () => {
     });
   });
 
+  it('shows contract Asset prices before metadata and only patches current decimals', async () => {
+    const metadata = createDeferred<{ info: { decimals: number } }>();
+    mockFetchTokenInfoOnly.mockReturnValue(metadata.promise);
+    const contractDetail: IMarketAssetDetailData = {
+      ...dogeAssetDetail,
+      selectedVariant: {
+        ...dogeAssetDetail.selectedVariant,
+        variantId: 'doge-evm--1-0xabc',
+        networkId: 'evm--1',
+        tokenAddress: '0xabc',
+        isNative: false,
+      },
+    };
+    mockFetchMarketAssetDetail.mockResolvedValue(contractDetail);
+    const { store, Wrapper } = createWrapper();
+    const { result } = renderHook(() => useMarketAssetTokenDetailAction(), {
+      wrapper: Wrapper,
+    });
+
+    await act(async () => {
+      await result.current({
+        assetId: 'doge',
+        tokenAddress: '',
+        networkId: '',
+      });
+    });
+    expect(store.get(tokenDetailAtom())).toMatchObject({
+      address: '0xabc',
+      networkId: 'evm--1',
+      price: '0.25',
+      decimalsResolved: false,
+    });
+    expect(mockFetchTokenInfoOnly).toHaveBeenCalledTimes(1);
+
+    const current = store.get(tokenDetailAtom());
+    expect(current).toBeDefined();
+    act(() => {
+      store.set(tokenDetailAtom(), {
+        ...current!,
+        price: '0.30',
+        chartPriceUpdatedAt: Date.now(),
+      });
+    });
+    await act(async () => {
+      metadata.resolve({ info: { decimals: 18 } });
+    });
+    expect(store.get(tokenDetailAtom())).toMatchObject({
+      price: '0.30',
+      decimals: 18,
+      decimalsResolved: true,
+    });
+
+    await act(async () => {
+      await result.current({
+        assetId: 'doge',
+        variantId: 'doge-evm--1-0xabc',
+        tokenAddress: '',
+        networkId: '',
+      });
+    });
+    expect(store.get(tokenDetailAtom())).toMatchObject({
+      price: '0.30',
+      decimals: 18,
+      decimalsResolved: true,
+    });
+    expect(mockFetchTokenInfoOnly).toHaveBeenCalledTimes(1);
+  });
+
+  it.each(['inactive', 'new-request'])(
+    'ignores late Asset metadata after %s takes ownership away',
+    async (ownerChange) => {
+      const metadata = createDeferred<{ info: { decimals: number } }>();
+      mockFetchTokenInfoOnly.mockReturnValue(metadata.promise);
+      mockFetchMarketAssetDetail.mockResolvedValue({
+        ...dogeAssetDetail,
+        selectedVariant: {
+          ...dogeAssetDetail.selectedVariant,
+          variantId: 'doge-evm--1-0xabc',
+          networkId: 'evm--1',
+          tokenAddress: '0xabc',
+          isNative: false,
+        },
+      });
+      let active = true;
+      const { store, Wrapper } = createWrapper();
+      const { result } = renderHook(() => useMarketAssetTokenDetailAction(), {
+        wrapper: Wrapper,
+      });
+      await act(async () => {
+        await result.current({
+          assetId: 'doge',
+          tokenAddress: '',
+          networkId: '',
+          isCurrentRequest: () => active,
+        });
+      });
+      if (ownerChange === 'inactive') {
+        active = false;
+      } else {
+        store.set(
+          tokenDetailRequestIdAtom(),
+          store.get(tokenDetailRequestIdAtom()) + 1,
+        );
+      }
+      await act(async () => {
+        metadata.resolve({ info: { decimals: 18 } });
+      });
+      expect(store.get(tokenDetailAtom())?.decimalsResolved).toBe(false);
+    },
+  );
+
   it('resolves perps info for the asset detail path', async () => {
     mockResolveMarketPerpsInfoBySymbol.mockResolvedValue({ hlTicker: 'DOGE' });
     const { store, Wrapper } = createWrapper();
