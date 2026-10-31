@@ -303,6 +303,7 @@ export default class ServicePassword extends ServiceBase {
   @backgroundMethod()
   async clearCachedPassword() {
     this.cachedPassword = undefined;
+    void this.backgroundApi.serviceKeylessCloudSync.cancelHardwareCloudKeyOperation();
     void clearPbkdf2CacheAsync();
     // Clear sync credential caches on lock screen (security invariant).
     // For keyless mode, credentials can be re-read from storage without password.

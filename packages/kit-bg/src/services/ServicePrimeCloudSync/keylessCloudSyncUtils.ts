@@ -9,6 +9,7 @@ import { decryptStringAsync } from '@onekeyhq/core/src/secret';
 import { secp256k1 } from '@onekeyhq/core/src/secret/curves';
 import appCrypto from '@onekeyhq/shared/src/appCrypto';
 import { EAppCryptoAesEncryptionMode } from '@onekeyhq/shared/src/appCrypto/consts';
+import { HARDWARE_CLOUD_SYNC_DEK_PWDHASH_PREFIX } from '@onekeyhq/shared/src/consts/hardwareCloudSyncConsts';
 import {
   KEYLESS_PWDHASH_CONTEXT,
   KEYLESS_PWDHASH_PREFIX,
@@ -55,8 +56,13 @@ function computeKeylessPwdHash(encryptionKey: string): string {
  * @param pwdHash - pwdHash string to check
  * @returns true if pwdHash starts with 'keyless-' prefix
  */
+// Hardware data keys use the same AES path through keylessCredential, so
+// their pwdHash routes the same way.
 function isKeylessPwdHash(pwdHash: string | undefined): boolean {
-  return !!pwdHash?.startsWith(KEYLESS_PWDHASH_PREFIX);
+  return (
+    !!pwdHash?.startsWith(KEYLESS_PWDHASH_PREFIX) ||
+    !!pwdHash?.startsWith(HARDWARE_CLOUD_SYNC_DEK_PWDHASH_PREFIX)
+  );
 }
 
 /**

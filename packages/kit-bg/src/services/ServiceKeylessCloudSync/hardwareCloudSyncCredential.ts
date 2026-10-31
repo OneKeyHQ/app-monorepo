@@ -1,0 +1,250 @@
+import { hkdf } from '@noble/hashes/hkdf';
+import { sha256 } from '@noble/hashes/sha256';
+import { payments } from 'bitcoinjs-lib';
+import bitcoinMessage from 'bitcoinjs-message';
+
+import appCrypto from '@onekeyhq/shared/src/appCrypto';
+import {
+  HARDWARE_CLOUD_SYNC_KEK_HKDF_INFO,
+  HARDWARE_CLOUD_SYNC_PATH,
+  buildHardwareCloudSyncMessage,
+} from '@onekeyhq/shared/src/consts/hardwareCloudSyncConsts';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import { HardwareCloudKeyDeviceRejectedError } from '@onekeyhq/shared/src/hardware/hardwareCloudKeyDeviceRejectedError';
+import type { IKeylessCloudSyncCredential } from '@onekeyhq/shared/types/keylessCloudSync';
+
+export type IHardwareCloudKeyIdentity = {
+  connectId: string;
+  deviceId: string;
+  walletXfp: string;
+  publicKey: string;
+  address: string;
+  walletType: 'standard' | 'hidden';
+  passphraseState?: string | null;
+  unlockedAttachPin: boolean;
+  connected: boolean;
+};
+
+export type IHardwareCloudKeyAdapter = {
+  openStandardWallet(): Promise<IHardwareCloudKeyIdentity>;
+  getIdentity(): Promise<IHardwareCloudKeyIdentity>;
+  signMessage(params: {
+    path: string;
+    messageHex: string;
+    coin: 'Bitcoin';
+    useEmptyPassphrase: true;
+  }): Promise<{ address: string; signature: string }>;
+};
+
+// Signs a server sign-in challenge on HARDWARE_CLOUD_SYNC_AUTH_PATH; returns a
+// base64 BIP-137 signature.
+export type IHardwareCloudSyncAuthSigner = (message: string) => Promise<string>;
+
+type IExpectedIdentity = Pick<
+  IHardwareCloudKeyIdentity,
+  'connectId' | 'deviceId' | 'walletXfp'
+>;
+
+const SECP256K1_ORDER =
+  0xff_ff_ff_ff_ff_ff_ff_ff_ff_ff_ff_ff_ff_ff_ff_fe_ba_ae_dc_e6_af_48_a0_3b_bf_d2_5e_8c_d0_36_41_41n;
+
+function identityError(): OneKeyLocalError {
+  return new OneKeyLocalError('Hardware Cloud key identity changed');
+}
+
+export function normalizeHardwareCloudWalletXfp(walletXfp: string): string {
+  const parts = /^([\da-fA-F]{1,8})--([1-9A-HJ-NP-Za-km-z]{100,120})$/.exec(
+    walletXfp,
+  );
+  if (!parts) {
+    throw identityError();
+  }
+  return `${parts[1].toLowerCase().padStart(8, '0')}--${parts[2]}`;
+}
+
+export function getHardwareCloudSyncIdentityTag(walletXfp: string): string {
+  return Buffer.from(
+    appCrypto.hash.sha256Sync(
+      Buffer.from(normalizeHardwareCloudWalletXfp(walletXfp), 'utf8'),
+    ),
+  )
+    .toString('hex')
+    .slice(0, 16);
+}
+
+function assertIdentity(
+  identity: IHardwareCloudKeyIdentity,
+  expected: IExpectedIdentity,
+  standard?: IHardwareCloudKeyIdentity,
+): void {
+  if (
+    !identity.connected ||
+    identity.walletType !== 'standard' ||
+    identity.unlockedAttachPin !== false ||
+    !!identity.passphraseState ||
+    !identity.connectId ||
+    !identity.deviceId ||
+    identity.connectId !== expected.connectId ||
+    identity.deviceId !== expected.deviceId ||
+    normalizeHardwareCloudWalletXfp(identity.walletXfp) !==
+      normalizeHardwareCloudWalletXfp(expected.walletXfp) ||
+    !/^(02|03)[\da-f]{64}$/i.test(identity.publicKey)
+  ) {
+    throw identityError();
+  }
+  if (
+    standard &&
+    (identity.publicKey.toLowerCase() !== standard.publicKey.toLowerCase() ||
+      identity.address !== standard.address)
+  ) {
+    throw identityError();
+  }
+  const address = payments.p2pkh({
+    pubkey: Buffer.from(identity.publicKey, 'hex'),
+  }).address;
+  if (!address || identity.address !== address) {
+    throw identityError();
+  }
+}
+
+// V1 material is compressed P2PKH compact65: header || r32 || lowS32. Normalize
+// the recovery parity when changing S so equivalent ECDSA encodings agree.
+export function normalizeHardwareCloudSignature(signatureHex: string): Buffer {
+  if (!/^[\da-f]{130}$/i.test(signatureHex)) {
+    throw new OneKeyLocalError('Invalid Hardware Cloud key signature');
+  }
+  const signature = Buffer.from(signatureHex, 'hex');
+  const r = BigInt(`0x${signature.subarray(1, 33).toString('hex')}`);
+  const s = BigInt(`0x${signature.subarray(33, 65).toString('hex')}`);
+  if (
+    signature[0] < 31 ||
+    signature[0] > 34 ||
+    r <= 0n ||
+    r >= SECP256K1_ORDER ||
+    s <= 0n ||
+    s >= SECP256K1_ORDER
+  ) {
+    signature.fill(0);
+    throw new OneKeyLocalError('Invalid Hardware Cloud key signature');
+  }
+  if (s > SECP256K1_ORDER / 2n) {
+    const recovery = signature[0] - 31;
+    signature[0] = 31 + (recovery % 2 === 0 ? recovery + 1 : recovery - 1);
+    Buffer.from(
+      (SECP256K1_ORDER - s).toString(16).padStart(64, '0'),
+      'hex',
+    ).copy(signature, 33);
+  }
+  return signature;
+}
+
+/**
+ * Signs the salted key message twice on HARDWARE_CLOUD_SYNC_PATH and returns
+ * KEK = HKDF-SHA256(signature, kekSalt, info) as hex. The signature never
+ * leaves this function.
+ */
+export async function deriveHardwareCloudSyncKek({
+  adapter,
+  expectedIdentity,
+  credentialId,
+  isCurrent,
+  kekSalt,
+}: {
+  adapter: IHardwareCloudKeyAdapter;
+  expectedIdentity: IExpectedIdentity;
+  credentialId: string;
+  isCurrent: () => boolean;
+  kekSalt: string;
+}): Promise<string> {
+  const expected = Object.freeze({ ...expectedIdentity });
+  let first: Buffer | undefined;
+  let second: Buffer | undefined;
+  const assertCurrent = () => {
+    if (!isCurrent() || !credentialId) {
+      throw new OneKeyLocalError('Hardware Cloud key operation expired');
+    }
+  };
+  try {
+    assertCurrent();
+    const opened = await adapter.openStandardWallet();
+    assertCurrent();
+    const standard = Object.freeze({ ...opened });
+    assertIdentity(standard, expected);
+    const message = buildHardwareCloudSyncMessage(
+      getHardwareCloudSyncIdentityTag(standard.walletXfp),
+      kekSalt,
+    );
+    const checkCurrentIdentity = async () => {
+      assertCurrent();
+      const identity = await adapter.getIdentity();
+      assertCurrent();
+      assertIdentity(identity, expected, standard);
+    };
+    const sign = async () => {
+      await checkCurrentIdentity();
+      const response = await adapter.signMessage({
+        path: HARDWARE_CLOUD_SYNC_PATH,
+        messageHex: Buffer.from(message, 'ascii').toString('hex'),
+        coin: 'Bitcoin',
+        useEmptyPassphrase: true,
+      });
+      assertCurrent();
+      const normalized = normalizeHardwareCloudSignature(response.signature);
+      try {
+        if (
+          response.address !== standard.address ||
+          !bitcoinMessage.verify(message, standard.address, normalized)
+        ) {
+          throw identityError();
+        }
+        await checkCurrentIdentity();
+        return normalized;
+      } catch {
+        normalized.fill(0);
+        throw identityError();
+      }
+    };
+    first = await sign();
+    second = await sign();
+    if (!first.equals(second)) {
+      throw new OneKeyLocalError('Hardware Cloud key signature is not stable');
+    }
+    assertCurrent();
+    const kek = hkdf(
+      sha256,
+      first,
+      Buffer.from(kekSalt, 'hex'),
+      Buffer.from(HARDWARE_CLOUD_SYNC_KEK_HKDF_INFO, 'utf8'),
+      32,
+    );
+    try {
+      return Buffer.from(kek).toString('hex');
+    } finally {
+      kek.fill(0);
+    }
+  } catch (error) {
+    // A firmware rejection carries only its failure text, so the user sees it.
+    if (error instanceof HardwareCloudKeyDeviceRejectedError) throw error;
+    // SDK errors may carry request/response objects. Do not propagate them into
+    // ordinary RPC error logging, analytics, or the message-signing UI.
+    throw new OneKeyLocalError(
+      'Hardware Cloud key could not be unlocked. Check the standard wallet and try again.',
+    );
+  } finally {
+    first?.fill(0);
+    second?.fill(0);
+  }
+}
+
+// What a device session offers while it is open: sign the server sign-in
+// challenge, and derive a KEK for an envelope's salt.
+export type IHardwareCloudKeyDevice = {
+  credentialId: string;
+  signAuth: IHardwareCloudSyncAuthSigner;
+  deriveKek: (kekSalt: string) => Promise<string>;
+};
+
+// Runs inside the device session and returns the credential to keep.
+export type IHardwareCloudKeyUnlock = (
+  device: IHardwareCloudKeyDevice,
+) => Promise<IKeylessCloudSyncCredential>;

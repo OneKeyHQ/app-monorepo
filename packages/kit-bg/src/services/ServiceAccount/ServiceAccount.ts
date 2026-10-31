@@ -214,7 +214,6 @@ import { findLocalWalletAddressOwners } from '../../vaults/localWallet/addressOw
 import { getVaultSettings } from '../../vaults/settings';
 import ServiceBase from '../ServiceBase';
 import { identityLifecycleMutex } from '../ServiceIdentityExit/identityLifecycleMutex';
-import keylessSyncCredentialStorage from '../ServiceKeylessWallet/utils/keylessSyncCredentialStorage';
 import { isBotWalletInCurrentKeylessSyncScope } from '../ServicePrimeCloudSync/botWalletCloudSyncUtils';
 import keylessCloudSyncUtils from '../ServicePrimeCloudSync/keylessCloudSyncUtils';
 
@@ -4718,8 +4717,7 @@ class ServiceAccount extends ServiceBase {
                   seed: seedBuffer,
                   keylessWalletId,
                 });
-              await keylessSyncCredentialStorage.saveCredential(credential);
-              this.backgroundApi.serviceKeylessCloudSync.setKeylessCloudSyncCredentialCache(
+              await this.backgroundApi.serviceKeylessCloudSync.persistNewKeylessCloudSyncCredential(
                 credential,
               );
             } catch (error) {
@@ -7134,6 +7132,19 @@ class ServiceAccount extends ServiceBase {
           });
         }
       },
+    );
+  }
+
+  // Same wallets generateHDWalletMissingHashAndXfp fills; read-only.
+  async hasHdWalletsMissingHashOrXfp(): Promise<boolean> {
+    const appStatus = await simpleDb.appStatus.getRawData();
+    if (appStatus?.allHdWalletsHashAndXfpGenerated) return false;
+    const { wallets } = await localDb.getAllWallets();
+    return wallets.some(
+      (wallet) =>
+        accountUtils.isHdWallet({ walletId: wallet.id }) &&
+        !wallet.isKeyless &&
+        !(wallet.hash && accountUtils.isValidWalletXfp({ xfp: wallet.xfp })),
     );
   }
 

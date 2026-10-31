@@ -42,6 +42,7 @@ import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { ensureSerializable } from '@onekeyhq/shared/src/utils/assertUtils';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import extUtils from '@onekeyhq/shared/src/utils/extUtils';
+import { assertNoHardwareCloudSyncSigningRequest } from '@onekeyhq/shared/src/utils/hardwareCloudSyncGuards';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { buildModalRouteParams } from '@onekeyhq/shared/src/utils/routeUtils';
@@ -661,6 +662,8 @@ class ServiceDApp extends ServiceBase {
     if (!accountId || !networkId) {
       throw new OneKeyLocalError('accountId and networkId required');
     }
+    if (networkUtils.isBTCNetwork(networkId) && 'message' in unsignedMessage)
+      assertNoHardwareCloudSyncSigningRequest(unsignedMessage.message);
     return this.openModal({
       request,
       screens: [

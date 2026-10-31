@@ -62,7 +62,11 @@ const getBasicClient = async ({
   if (!endpoint || !name) {
     throw new OneKeyError('Invalid endpoint name.');
   }
-  if (!endpoint.startsWith('https://')) {
+  // Dev builds may target a local mock server (custom API endpoint setting).
+  const isLocalDevEndpoint =
+    platformEnv.isDev &&
+    /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(endpoint);
+  if (!endpoint.startsWith('https://') && !isLocalDevEndpoint) {
     throw new OneKeyError('Invalid endpoint, https only');
   }
 
