@@ -8,6 +8,7 @@ import {
   IconButton,
   NumberSizeableText,
   SizableText,
+  Tooltip,
   XStack,
   YStack,
   useClipboard,
@@ -353,12 +354,22 @@ function BalanceRowDesktop({
     }
 
     return (
-      <SizableText
-        size="$bodySmMedium"
-        color={cell.key === 'pnl' ? pnlColor : undefined}
-      >
-        {cell.cellValue}
-      </SizableText>
+      <Tooltip
+        triggerAsChild
+        renderContent={cell.cellValue}
+        renderTrigger={
+          <SizableText
+            size="$bodySmMedium"
+            color={cell.key === 'pnl' ? pnlColor : undefined}
+            numberOfLines={1}
+            flexShrink={1}
+            maxWidth="100%"
+            pr="$3"
+          >
+            {cell.cellValue}
+          </SizableText>
+        }
+      />
     );
   };
 
