@@ -105,6 +105,10 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import appStorage from '@onekeyhq/shared/src/storage/appStorage';
+import { getNativeStorageMigrationRecoveryTarget } from '@onekeyhq/shared/src/storage/nativeStorageTypes';
+import { travelModeManager } from '@onekeyhq/shared/src/travelMode';
+import type { IRuntimeEnvironment } from '@onekeyhq/shared/src/travelMode/runtimeEnvironment';
 import type {
   IChangeHistoryItem,
   IChangeHistoryUpdateItem,
@@ -5996,6 +6000,178 @@ class ServiceAccount extends ServiceBase {
       return { address: account.addressDetail.normalizedAddress, account };
     }
     return { address: account.address, account };
+  }
+
+  private manualMnemonicRecovery:
+    | {
+        id: string;
+        walletId: string;
+        credential: string;
+        environment: IRuntimeEnvironment;
+        expiresAt: number;
+        busy: boolean;
+        cleanup: () => void;
+      }
+    | undefined;
+
+  private async assertManualMnemonicWallet(walletId: string) {
+    const environment = await travelModeManager.getRuntimeEnvironment();
+    if (environment.commands.isBlocked) {
+      throw new OneKeyLocalError(
+        'Manual mnemonic recovery is unavailable in this runtime',
+      );
+    }
+    const wallet = await localDb.getWallet({ walletId, withoutRefill: true });
+    if (
+      !accountUtils.isHdWallet({ walletId }) ||
+      accountUtils.isBotWallet({ walletId }) ||
+      wallet.type !== WALLET_TYPE_HD ||
+      wallet.isKeyless
+    ) {
+      throw new OneKeyLocalError(
+        'This wallet does not support manual mnemonic recovery',
+      );
+    }
+    return environment;
+  }
+
+  @backgroundMethod()
+  async getManualMnemonicRecoveryInfo({
+    walletId,
+    mainHydrationFailed,
+  }: {
+    walletId: string;
+    mainHydrationFailed?: boolean;
+  }) {
+    if (!platformEnv.isNative) return undefined;
+    let appStorageMismatch = false;
+    try {
+      if (!mainHydrationFailed)
+        await appStorage.getItem('$$manualMnemonicRecoveryProbe');
+    } catch (error) {
+      if (getNativeStorageMigrationRecoveryTarget(error) !== 'appStorage')
+        throw error;
+      appStorageMismatch = true;
+    }
+    if (!appStorageMismatch && !mainHydrationFailed) return undefined;
+    const environment = await this.assertManualMnemonicWallet(walletId);
+    if (!(await localDb.isPasswordSet()))
+      throw new OneKeyLocalError(
+        'A wallet password is required for manual recovery',
+      );
+    const credential = await localDb.getCredentialRaw(walletId);
+    if (credential.id !== walletId || !credential.credential)
+      throw new OneKeyLocalError('Wallet credential is unavailable');
+    this.manualMnemonicRecovery?.cleanup();
+    const id = stringUtils.generateUUID();
+    const expiresAt = Date.now() + 5 * 60_000;
+    const timer = setTimeout(() => {
+      if (this.manualMnemonicRecovery?.id === id)
+        this.manualMnemonicRecovery.cleanup();
+    }, 5 * 60_000);
+    const cancel = () => {
+      if (this.manualMnemonicRecovery?.id === id)
+        this.manualMnemonicRecovery = undefined;
+      appEventBus.off(EAppEventBusNames.LockApp, cancel);
+      clearTimeout(timer);
+    };
+    appEventBus.on(EAppEventBusNames.LockApp, cancel);
+    this.manualMnemonicRecovery = {
+      id,
+      walletId,
+      credential: credential.credential,
+      environment,
+      expiresAt,
+      busy: false,
+      cleanup: cancel,
+    };
+    return { sessionId: id, expiresAt };
+  }
+
+  @backgroundMethod()
+  async cancelManualMnemonicRecovery({ sessionId }: { sessionId: string }) {
+    if (this.manualMnemonicRecovery?.id === sessionId)
+      this.manualMnemonicRecovery.cleanup();
+  }
+
+  @backgroundMethod()
+  async getManualRecoveryMnemonic({
+    sessionId,
+    password,
+  }: {
+    sessionId: string;
+    password: string;
+  }) {
+    const session = this.manualMnemonicRecovery;
+    const assertSession = async () => {
+      if (
+        !session ||
+        session.id !== sessionId ||
+        this.manualMnemonicRecovery !== session ||
+        Date.now() >= session.expiresAt
+      ) {
+        throw new OneKeyLocalError(
+          'Manual mnemonic recovery request expired or was cancelled',
+        );
+      }
+      const environment = await this.assertManualMnemonicWallet(
+        session.walletId,
+      );
+      if (
+        environment !== session.environment ||
+        environment.commands.isBlocked
+      ) {
+        throw new OneKeyLocalError(
+          'Runtime changed during manual mnemonic recovery',
+        );
+      }
+      const credential = await localDb.getCredentialRaw(session.walletId);
+      if (
+        credential.id !== session.walletId ||
+        credential.credential !== session.credential
+      ) {
+        throw new OneKeyLocalError(
+          'Wallet credential changed during manual mnemonic recovery',
+        );
+      }
+      if (
+        this.manualMnemonicRecovery !== session ||
+        Date.now() >= session.expiresAt ||
+        environment.commands.isBlocked
+      ) {
+        throw new OneKeyLocalError(
+          'Manual mnemonic recovery request expired or was cancelled',
+        );
+      }
+    };
+    await assertSession();
+    if (!session || session.busy)
+      throw new OneKeyLocalError(
+        'Manual mnemonic recovery is already in progress',
+      );
+    session.busy = true;
+    try {
+      await this.backgroundApi.servicePassword.verifyPasswordForManualMnemonicRecovery(
+        password,
+      );
+      await assertSession();
+      const credential = await localDb.getCredentialInner({
+        credentialId: session.walletId,
+      });
+      const mnemonicRaw = await mnemonicFromEntropy(
+        credential.credential,
+        password,
+      );
+      const mnemonic =
+        await this.backgroundApi.servicePassword.encodeSensitiveText({
+          text: mnemonicRaw,
+        });
+      await assertSession();
+      session.cleanup();
+      return { mnemonic };
+    } finally {
+      session.busy = false;
+    }
   }
 
   @backgroundMethod()

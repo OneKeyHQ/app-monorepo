@@ -20485,6 +20485,7 @@
     "packages/kit/src/components/WalletBackup/WalletBackupAlert.tsx": 22652,
     "packages/kit/src/components/WalletBackup/WalletBackupDialog.tsx": 21085,
     "packages/kit/src/components/WalletBackup/WalletBackupPreCheckContainer.tsx": 21751,
+    "packages/kit/src/components/WalletBackup/getManualBackupMnemonic.tsx": 3581,
     "packages/kit/src/components/WalletBackup/index.ts": 6324,
     "packages/kit/src/components/WalletConnect/WalletConnectModal.native.tsx": 12249,
     "packages/kit/src/components/WalletConnect/WalletConnectModalContainer.tsx": 20881,

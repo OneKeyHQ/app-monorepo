@@ -3,6 +3,15 @@ import type { INativeStorageMigrationRecoveryTarget } from './nativeStorageTypes
 let requestedTarget: INativeStorageMigrationRecoveryTarget | undefined;
 let requestedTestSessionId: string | undefined;
 const listeners = new Set<() => void>();
+let jotaiMainHydrationFailed = false;
+
+export function setNativeJotaiMainHydrationFailed(failed: boolean) {
+  jotaiMainHydrationFailed = failed;
+}
+
+export function hasNativeJotaiMainHydrationFailed() {
+  return jotaiMainHydrationFailed;
+}
 
 // This is UI-runtime state only. Storage mutations still go through bg RPC.
 export function requestNativeStorageRecovery(

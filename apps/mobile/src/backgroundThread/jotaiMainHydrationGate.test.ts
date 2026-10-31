@@ -1,4 +1,5 @@
 import type { IGlobalStatesSyncBroadcastParams } from '@onekeyhq/shared/src/background/backgroundUtils';
+import { hasNativeJotaiMainHydrationFailed } from '@onekeyhq/shared/src/storage/nativeStorageRecovery';
 
 const mockJotaiUpdateFromUiByBgBroadcast = jest.fn<
   Promise<void>,
@@ -92,6 +93,7 @@ describe('jotai main hydration gate', () => {
 
     firstInitialization.reject(new Error('snapshot failed'));
     await expect(firstHydrationPromise).rejects.toThrow('snapshot failed');
+    expect(hasNativeJotaiMainHydrationFailed()).toBe(true);
     applyOrQueueJotaiStateBroadcast({
       name: 'testAtom',
       payload: 'while-waiting',
@@ -104,6 +106,7 @@ describe('jotai main hydration gate', () => {
     applyOrQueueJotaiStateBroadcast({ name: 'testAtom', payload: 'fresh' });
     retryInitialization.resolve();
     await retryHydrationPromise;
+    expect(hasNativeJotaiMainHydrationFailed()).toBe(false);
 
     expect(mockJotaiUpdateFromUiByBgBroadcast).toHaveBeenCalledTimes(1);
     expect(mockJotaiUpdateFromUiByBgBroadcast).toHaveBeenCalledWith({
