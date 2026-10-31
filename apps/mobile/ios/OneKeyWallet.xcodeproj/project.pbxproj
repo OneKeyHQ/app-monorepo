@@ -7,6 +7,8 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		01E7975AE6B642C2A897BEA0 /* MarketWidgetDiagnostics.swift in Sources */ = {isa = PBXBuildFile; fileRef = C057968404B44E07A984357D /* MarketWidgetDiagnostics.swift */; };
+		4B4DD5365AF04622B9AC3D18 /* MarketWidgetDiagnostics.swift in Sources */ = {isa = PBXBuildFile; fileRef = C057968404B44E07A984357D /* MarketWidgetDiagnostics.swift */; };
 		284F4FD572CC77F4388725B0 /* MarketWidgetLocalization.swift in Sources */ = {isa = PBXBuildFile; fileRef = 14F33BC4A64354615C5FBDE0 /* MarketWidgetLocalization.swift */; };
 		AE1C50C6CF0B466EB0CE5E82 /* MarketWidgetService.swift in Sources */ = {isa = PBXBuildFile; fileRef = B05C4D6557651549826573C8 /* MarketWidgetService.swift */; };
 		D1675C543F9747BC98BD0002 /* MarketWidgetAssets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = D1675C543F9747BC98BD0003 /* MarketWidgetAssets.xcassets */; };
@@ -128,6 +130,7 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		C057968404B44E07A984357D /* MarketWidgetDiagnostics.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MarketWidgetDiagnostics.swift; sourceTree = "<group>"; };
 		3ECA36CDD5E527435DDF6321 /* vi */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "vi"; path = "vi.lproj/Localizable.strings"; sourceTree = "<group>"; };
 		92F70FD02BC6B7DE10172AA8 /* uk-UA */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "uk-UA"; path = "uk-UA.lproj/Localizable.strings"; sourceTree = "<group>"; };
 		93B2A2E39515C7EB990A2BF9 /* th */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "th"; path = "th.lproj/Localizable.strings"; sourceTree = "<group>"; };
@@ -308,6 +311,7 @@
 			children = (
 				D1675C543F9747BC98BD0003 /* MarketWidgetAssets.xcassets */,
 				C5F973B21C4F7985CA645E5B /* MarketWidgetData.swift */,
+				C057968404B44E07A984357D /* MarketWidgetDiagnostics.swift */,
 				B05C4D6557651549826573C8 /* MarketWidgetService.swift */,
 			);
 			name = SharedMarketWidget;
@@ -931,6 +935,7 @@
 				A1C00000000000000000000C /* AppClipAttributionModule.swift in Sources */,
 				A1C00000000000000000000D /* AppClipAttributionModule.m in Sources */,
 				00150D8E2550895727C68738 /* MarketWidgetData.swift in Sources */,
+				01E7975AE6B642C2A897BEA0 /* MarketWidgetDiagnostics.swift in Sources */,
 				AE1C50C6CF0B466EB0CE5E82 /* MarketWidgetService.swift in Sources */,
 				87CC3FF58F52829A885B64AC /* MarketWidgetModule.swift in Sources */,
 				855CFDE445F2D1F1407C6BA1 /* MarketWidgetModule.m in Sources */,
@@ -954,6 +959,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				40F6CA7726307513C784E6A0 /* MarketWidgetData.swift in Sources */,
+				4B4DD5365AF04622B9AC3D18 /* MarketWidgetDiagnostics.swift in Sources */,
 				15885025AE1EDC8CB76FF2EA /* MarketWidgetService.swift in Sources */,
 				6B45493A8A076B0FB96C2B59 /* OneKeyMarketWidget.swift in Sources */,
 				34D69A5113286CFBD0625BE6 /* MarketWidgetProvider.swift in Sources */,

@@ -24,6 +24,7 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useAppRoute } from '@onekeyhq/kit/src/hooks/useAppRoute';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import marketWidget from '@onekeyhq/shared/src/modules/MarketWidget';
+import { logMarketWidgetEvent } from '@onekeyhq/shared/src/modules/MarketWidget/diagnostics';
 import type {
   IMarketWidgetAsset,
   IMarketWidgetKind,
@@ -113,11 +114,23 @@ export default function MarketWidgetEditor() {
 
   useEffect(
     () => () => {
+      logMarketWidgetEvent(
+        'editor.unmounted',
+        { finished: finishedRef.current },
+        editorSession,
+      );
       if (editorSession && !finishedRef.current) {
         finishedRef.current = true;
         void marketWidget
           .finishEditing?.(editorSession, false)
-          .catch(() => undefined);
+          .catch((error: unknown) =>
+            logMarketWidgetEvent(
+              'editor.cleanup_failed',
+              {},
+              editorSession,
+              error,
+            ),
+          );
       }
     },
     [editorSession],
@@ -125,16 +138,25 @@ export default function MarketWidgetEditor() {
 
   const closeEditor = useCallback(
     (saved: boolean, pop = navigation.pop) => {
+      logMarketWidgetEvent('editor.close', { saved }, editorSession);
       finishedRef.current = true;
       pop();
       if (editorSession) {
-        void marketWidget.finishEditing?.(editorSession, saved).catch(() => {
-          Toast.error({
-            title: intl.formatMessage({
-              id: ETranslations.global_unknown_error_retry_message,
-            }),
+        void marketWidget
+          .finishEditing?.(editorSession, saved)
+          .catch((error: unknown) => {
+            logMarketWidgetEvent(
+              'editor.finish_failed',
+              { saved },
+              editorSession,
+              error,
+            );
+            Toast.error({
+              title: intl.formatMessage({
+                id: ETranslations.global_unknown_error_retry_message,
+              }),
+            });
           });
-        });
       }
     },
     [editorSession, intl, navigation],

@@ -7,8 +7,8 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
-import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import marketWidget from '@onekeyhq/shared/src/modules/MarketWidget';
+import { logMarketWidgetEvent } from '@onekeyhq/shared/src/modules/MarketWidget/diagnostics';
 import { travelModeManager } from '@onekeyhq/shared/src/travelMode';
 import {
   buildMarketWidgetAssets,
@@ -18,9 +18,15 @@ import {
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 
 const configurationSync = createMarketWidgetConfigurationSync({
-  write: (configuration) => marketWidget.setConfiguration(configuration),
-  onError: () =>
-    defaultLogger.app.error.log('Market widget configuration sync failed'),
+  write: async (configuration) => {
+    logMarketWidgetEvent('configuration.sync_started', {
+      assetCount: configuration.assets.length,
+      privacyMasked: configuration.privacyMasked,
+    });
+    await marketWidget.setConfiguration(configuration);
+    logMarketWidgetEvent('configuration.sync_succeeded');
+  },
+  onError: () => logMarketWidgetEvent('configuration.sync_failed'),
 });
 
 export function MarketWidgetSync() {

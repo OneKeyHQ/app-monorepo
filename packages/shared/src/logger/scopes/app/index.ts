@@ -11,6 +11,7 @@ import { ErrorScene } from './scenes/error';
 import { EventBusScene } from './scenes/eventBus';
 import { InstallScene } from './scenes/install';
 import { JsBundleDevScene } from './scenes/jsBundleDev';
+import { MarketWidgetScene } from './scenes/marketWidget';
 import { NetworkScene } from './scenes/network';
 import { PageScene } from './scenes/page';
 import { AppPerfScene } from './scenes/perf';
@@ -50,6 +51,8 @@ export class AppScope extends BaseScope {
   bootRecovery = this.createScene('bootRecovery', BootRecoveryScene);
 
   jsBundleDev = this.createScene('jsBundleDev', JsBundleDevScene);
+
+  marketWidget = this.createScene('marketWidget', MarketWidgetScene);
 
   customUA = this.createScene('customUA', CustomUAScene);
 

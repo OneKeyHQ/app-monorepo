@@ -54,7 +54,9 @@ public final class MarketWidgetConfigureActivity extends Activity {
 
     @Override protected void onCreate(Bundle state) {
         super.onCreate(state);
+        MarketWidgetLog.initialize(this);
         int widgetId = getIntent().getIntExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, AppWidgetManager.INVALID_APPWIDGET_ID);
+        MarketWidgetLog.event("activity.create", "widgetId", widgetId, "restored", state != null, "taskId", getTaskId());
         setResult(RESULT_CANCELED, new Intent().putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, widgetId));
         if (!MarketWidgetProvider.owns(this, widgetId)) { finish(); return; }
         try {
@@ -70,11 +72,13 @@ public final class MarketWidgetConfigureActivity extends Activity {
             if (state == null) {
                 Uri url = new Uri.Builder().scheme("onekey-wallet").authority("market_widget_config")
                     .appendQueryParameter("editorSession", session).build();
+                logLifecycle("activity.open_editor");
                 startActivity(new Intent(Intent.ACTION_VIEW, url, this, MainLauncherActivity.class));
             } else {
                 leftForEditor = state.getBoolean("leftForEditor", true);
             }
-        } catch (Exception ignored) {
+        } catch (Exception error) {
+            MarketWidgetLog.failure("activity.create_failed", error, "sessionRef", MarketWidgetLog.sessionRef(session));
             finish();
         }
     }
@@ -82,10 +86,12 @@ public final class MarketWidgetConfigureActivity extends Activity {
     private void finishFromSession() {
         try {
             MarketWidgetEditorSession current = MarketWidgetEditorSession.read(this, session);
+            MarketWidgetLog.event("activity.check_completion", "sessionRef", MarketWidgetLog.sessionRef(session), "result", current.result);
             if (current.result == 0) return;
             setResult(current.result == 1 ? RESULT_OK : RESULT_CANCELED,
                 new Intent().putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, current.widgetId));
-        } catch (Exception ignored) {
+        } catch (Exception error) {
+            MarketWidgetLog.failure("activity.completion_failed", error, "sessionRef", MarketWidgetLog.sessionRef(session));
             // Missing or invalid sessions remain canceled.
         }
         finish();
@@ -93,14 +99,21 @@ public final class MarketWidgetConfigureActivity extends Activity {
 
     @Override protected void onResume() {
         super.onResume();
+        logLifecycle("activity.resume");
         if (!leftForEditor || isFinishing()) return;
         finishFromSession();
         if (!isFinishing()) finish();
     }
 
     @Override protected void onStop() {
+        logLifecycle("activity.stop");
         leftForEditor = true;
         super.onStop();
+    }
+
+    @Override protected void onPause() {
+        logLifecycle("activity.pause");
+        super.onPause();
     }
 
     @Override protected void onSaveInstanceState(Bundle state) {
@@ -110,8 +123,14 @@ public final class MarketWidgetConfigureActivity extends Activity {
     }
 
     @Override protected void onDestroy() {
+        logLifecycle("activity.destroy");
         if (receiverRegistered) unregisterReceiver(completion);
         if (isFinishing()) MarketWidgetEditorSession.remove(this, session);
         super.onDestroy();
+    }
+
+    private void logLifecycle(String event) {
+        MarketWidgetLog.event(event, "sessionRef", MarketWidgetLog.sessionRef(session), "taskId", getTaskId(),
+            "leftForEditor", leftForEditor, "finishing", isFinishing(), "changingConfiguration", isChangingConfigurations());
     }
 }

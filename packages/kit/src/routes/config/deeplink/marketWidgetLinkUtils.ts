@@ -15,7 +15,7 @@ export function createMarketWidgetLinkHandler<T>({
   isAllowed: () => boolean;
   resolve: (target: IMarketWidgetLinkTarget) => Promise<T>;
   navigate: (detail: T) => void;
-  onError: () => void;
+  onError: (error: unknown) => void;
 }) {
   let generation = 0;
   return async (
@@ -39,8 +39,8 @@ export function createMarketWidgetLinkHandler<T>({
       await waitForUnlock();
       if (!active()) return;
       navigate(detail);
-    } catch {
-      if (active()) onError();
+    } catch (error) {
+      if (active()) onError(error);
     }
   };
 }

@@ -43,12 +43,16 @@ public final class OneKeyMarketWidgetModule extends ReactContextBaseJavaModule {
     @ReactMethod
     public void setConfiguration(String json, Promise promise) {
         try {
-            if (MarketWidgetStore.setConfiguration(getReactApplicationContext(), json)) {
+            boolean changed = MarketWidgetStore.setConfiguration(getReactApplicationContext(), json);
+            MarketWidgetLog.event("configuration.synced", "changed", changed,
+                "privacyMasked", !MarketWidgetStore.canDisplay(getReactApplicationContext()));
+            if (changed) {
                 MarketWidgetProvider.renderAll(getReactApplicationContext());
                 MarketWidgetRefreshService.configurationChanged(getReactApplicationContext());
             }
             promise.resolve(null);
         } catch (Exception error) {
+            MarketWidgetLog.failure("configuration.sync_failed", error);
             promise.reject("MARKET_WIDGET_CONFIGURATION_FAILED", "Could not update market widgets", error);
         }
     }
@@ -60,23 +64,29 @@ public final class OneKeyMarketWidgetModule extends ReactContextBaseJavaModule {
             if (!configuration.valid) throw new IllegalStateException("Invalid widget configuration");
             promise.resolve(configuration.json());
         } catch (Exception error) {
+            MarketWidgetLog.failure("configuration.read_failed", error);
             promise.reject("MARKET_WIDGET_CONFIGURATION_FAILED", "Could not read market widget configuration", error);
         }
     }
 
     @ReactMethod
     public void getWidgetEditorState(String token, Promise promise) {
+        MarketWidgetLog.event("editor.read_started", "sessionRef", MarketWidgetLog.sessionRef(token));
         try {
             MarketWidgetEditorSession session = MarketWidgetEditorSession.requireActive(getReactApplicationContext(), token);
-            promise.resolve(MarketWidgetStore.editorState(getReactApplicationContext(), session.widgetId,
-                session.single, session.source).toString());
+            String state = MarketWidgetStore.editorState(getReactApplicationContext(), session.widgetId,
+                session.single, session.source).toString();
+            MarketWidgetLog.event("editor.read_succeeded", "sessionRef", MarketWidgetLog.sessionRef(token), "widgetId", session.widgetId);
+            promise.resolve(state);
         } catch (Exception error) {
+            MarketWidgetLog.failure("editor.read_failed", error, "sessionRef", MarketWidgetLog.sessionRef(token));
             promise.reject("MARKET_WIDGET_EDITOR_FAILED", "Could not open widget settings", error);
         }
     }
 
     @ReactMethod
     public void refreshWidgetEditorState(String token, Promise promise) {
+        MarketWidgetLog.event("editor.metadata_started", "sessionRef", MarketWidgetLog.sessionRef(token));
         editorExecutor.execute(() -> {
             try {
                 MarketWidgetEditorSession session = MarketWidgetEditorSession.requireActive(getReactApplicationContext(), token);
@@ -86,7 +96,8 @@ public final class OneKeyMarketWidgetModule extends ReactContextBaseJavaModule {
                         MarketWidgetStore.saveHot(getReactApplicationContext(),
                             MarketWidgetClient.fetchHot(MarketWidgetStore.configuration(getReactApplicationContext()).locale),
                             System.currentTimeMillis());
-                    } catch (Exception ignored) {
+                    } catch (Exception error) {
+                        MarketWidgetLog.failure("editor.ranking_fallback", error, "sessionRef", MarketWidgetLog.sessionRef(token));
                         // Keep cached candidates available if the metadata refresh is offline.
                     }
                 }
@@ -106,7 +117,8 @@ public final class OneKeyMarketWidgetModule extends ReactContextBaseJavaModule {
                             if (!MarketWidgetStore.contains(getReactApplicationContext(), asset)) return;
                             MarketWidgetStore.saveQuote(getReactApplicationContext(), asset,
                                 MarketWidgetClient.fetch(asset, MarketWidgetStore.configuration(getReactApplicationContext()).locale));
-                        } catch (Exception ignored) {
+                        } catch (Exception error) {
+                            MarketWidgetLog.failure("editor.metadata_fallback", error, "sessionRef", MarketWidgetLog.sessionRef(token));
                             // Missing metadata must not block cached selections or change their identity.
                         }
                     }));
@@ -116,8 +128,10 @@ public final class OneKeyMarketWidgetModule extends ReactContextBaseJavaModule {
                     }
                 }
                 CompletableFuture.allOf(pending.toArray(new CompletableFuture<?>[0])).join();
+                MarketWidgetLog.event("editor.metadata_finished", "sessionRef", MarketWidgetLog.sessionRef(token));
                 getWidgetEditorState(token, promise);
             } catch (Exception error) {
+                MarketWidgetLog.failure("editor.metadata_failed", error, "sessionRef", MarketWidgetLog.sessionRef(token));
                 promise.reject("MARKET_WIDGET_EDITOR_FAILED", "Could not refresh widget settings", error);
             }
         });
@@ -125,6 +139,8 @@ public final class OneKeyMarketWidgetModule extends ReactContextBaseJavaModule {
 
     @ReactMethod
     public void saveWidgetSettings(String token, String raw, Promise promise) {
+        long started = android.os.SystemClock.elapsedRealtime();
+        MarketWidgetLog.event("editor.save_started", "sessionRef", MarketWidgetLog.sessionRef(token));
         try {
             synchronized (MarketWidgetEditorSession.class) {
                 MarketWidgetEditorSession session = MarketWidgetEditorSession.requireActive(getReactApplicationContext(), token);
@@ -133,28 +149,35 @@ public final class OneKeyMarketWidgetModule extends ReactContextBaseJavaModule {
                 MarketWidgetEditorSession.markSaved(getReactApplicationContext(), token);
                 MarketWidgetProvider.render(getReactApplicationContext(), session.widgetId);
                 MarketWidgetRefreshService.configurationChanged(getReactApplicationContext());
+                MarketWidgetLog.event("editor.save_succeeded", "sessionRef", MarketWidgetLog.sessionRef(token),
+                    "widgetId", session.widgetId, "durationMs", android.os.SystemClock.elapsedRealtime() - started);
                 promise.resolve(saved);
             }
         } catch (Exception error) {
+            MarketWidgetLog.failure("editor.save_failed", error, "sessionRef", MarketWidgetLog.sessionRef(token));
             promise.reject("MARKET_WIDGET_SAVE_FAILED", "Could not save widget settings", error);
         }
     }
 
     @ReactMethod
     public void finishWidgetEditing(String token, boolean saved, Promise promise) {
+        MarketWidgetLog.event("editor.finish_started", "sessionRef", MarketWidgetLog.sessionRef(token), "saved", saved);
         getReactApplicationContext().runOnUiQueueThread(() -> {
             try {
                 MarketWidgetEditorSession.complete(getReactApplicationContext(), token, saved);
                 Activity activity = getReactApplicationContext().getCurrentActivity();
                 if (activity != null && !activity.isFinishing()) activity.moveTaskToBack(true);
+                MarketWidgetLog.event("editor.finish_succeeded", "sessionRef", MarketWidgetLog.sessionRef(token), "saved", saved);
                 promise.resolve(null);
             } catch (Exception error) {
+                MarketWidgetLog.failure("editor.finish_failed", error, "sessionRef", MarketWidgetLog.sessionRef(token));
                 promise.reject("MARKET_WIDGET_EDITOR_FAILED", "Could not finish widget settings", error);
             }
         });
     }
 
     @Override public void invalidate() {
+        MarketWidgetLog.event("module.invalidated");
         editorExecutor.shutdownNow();
         super.invalidate();
     }

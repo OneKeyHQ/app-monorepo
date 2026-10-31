@@ -41,14 +41,21 @@ public final class MarketWidgetRefreshService extends JobService {
     }
 
     static void schedule(Context context) {
-        if (MarketWidgetProvider.allIds(context).length == 0) return;
+        if (MarketWidgetProvider.allIds(context).length == 0) {
+            MarketWidgetLog.event("refresh.schedule_skipped", "reason", "no_widgets");
+            return;
+        }
         JobScheduler scheduler = context.getSystemService(JobScheduler.class);
-        if (scheduler == null || scheduler.getPendingJob(JOB_ID) != null) return;
+        if (scheduler == null || scheduler.getPendingJob(JOB_ID) != null) {
+            MarketWidgetLog.event("refresh.schedule_skipped", "reason", scheduler == null ? "scheduler_unavailable" : "already_pending");
+            return;
+        }
         JobInfo request = new JobInfo.Builder(JOB_ID, new ComponentName(context, MarketWidgetRefreshService.class))
             .setRequiredNetworkType(JobInfo.NETWORK_TYPE_ANY)
             .setBackoffCriteria(30_000, JobInfo.BACKOFF_POLICY_EXPONENTIAL)
             .build();
-        scheduler.schedule(request);
+        int result = scheduler.schedule(request);
+        MarketWidgetLog.event("refresh.scheduled", "accepted", result == JobScheduler.RESULT_SUCCESS);
     }
 
     static void cancelIfUnused(Context context) {
@@ -58,6 +65,7 @@ public final class MarketWidgetRefreshService extends JobService {
     }
 
     static void configurationChanged(Context context) {
+        MarketWidgetLog.event("refresh.configuration_changed");
         JobScheduler scheduler = context.getSystemService(JobScheduler.class);
         if (scheduler != null) scheduler.cancel(JOB_ID);
         schedule(context);
@@ -65,9 +73,16 @@ public final class MarketWidgetRefreshService extends JobService {
 
     @Override
     public boolean onStartJob(JobParameters parameters) {
+        MarketWidgetLog.initialize(this);
         running = EXECUTOR.submit(() -> {
+            MarketWidgetLog.refreshId.set(java.util.UUID.randomUUID().toString());
+            long started = android.os.SystemClock.elapsedRealtime();
+            MarketWidgetLog.event("refresh.started", "widgetCount", MarketWidgetProvider.allIds(this).length);
             try {
-                if (!MarketWidgetStore.canDisplay(this)) return;
+                if (!MarketWidgetStore.canDisplay(this)) {
+                    MarketWidgetLog.event("refresh.skipped", "reason", "privacy_or_configuration");
+                    return;
+                }
                 String locale = MarketWidgetStore.configuration(this).locale;
                 boolean needsHotRanking = false;
                 for (int widgetId : MarketWidgetProvider.allIds(this)) {
@@ -78,7 +93,8 @@ public final class MarketWidgetRefreshService extends JobService {
                 if (needsHotRanking && System.currentTimeMillis() - MarketWidgetStore.hotUpdatedAt(this) > 5 * 60_000) {
                     try {
                         MarketWidgetStore.saveHot(this, MarketWidgetClient.fetchHot(locale), System.currentTimeMillis());
-                    } catch (Exception ignored) {
+                    } catch (Exception error) {
+                        MarketWidgetLog.failure("refresh.ranking_fallback", error);
                         // Keep the last real ranking while offline.
                     }
                 }
@@ -90,12 +106,16 @@ public final class MarketWidgetRefreshService extends JobService {
                     }
                 }
                 MarketWidgetProvider.renderAll(this);
+                MarketWidgetLog.event("refresh.assets_selected", "assetCount", assets.size());
                 for (AssetRequest request : assets.values()) {
                     if (Thread.currentThread().isInterrupted() || !MarketWidgetStore.canDisplay(this)) return;
                     refreshAsset(this, request.asset, locale, request.needsChart);
                     MarketWidgetProvider.renderAll(this);
                 }
             } finally {
+                MarketWidgetLog.event("refresh.finished", "durationMs", android.os.SystemClock.elapsedRealtime() - started,
+                    "interrupted", Thread.currentThread().isInterrupted());
+                MarketWidgetLog.refreshId.remove();
                 new Handler(Looper.getMainLooper()).post(() -> jobFinished(parameters, false));
             }
         });
@@ -111,14 +131,19 @@ public final class MarketWidgetRefreshService extends JobService {
                 quote = MarketWidgetClient.fetch(asset, locale);
                 if (Thread.currentThread().isInterrupted()) return;
                 MarketWidgetStore.saveQuote(context, asset, quote);
-            } catch (Exception ignored) {
+                MarketWidgetLog.event("refresh.quote_saved", "kind", asset.kind);
+            } catch (Exception error) {
+                MarketWidgetLog.failure("refresh.quote_fallback", error, "hasCache", quote != null);
                 MarketWidgetStore.markFailed(context, asset);
             }
+        } else {
+            MarketWidgetLog.event("refresh.quote_cache_hit", "ageMs", System.currentTimeMillis() - quote.fetchedAt);
         }
         if (Thread.currentThread().isInterrupted()) return;
         try {
             MarketWidgetImages.fetch(context, asset, quote != null && !quote.iconUrl.isEmpty() ? quote.iconUrl : asset.iconUrl);
-        } catch (Exception ignored) {
+        } catch (Exception error) {
+            MarketWidgetLog.failure("refresh.icon_fallback", error);
             // An unavailable image does not invalidate the price.
         }
         if (Thread.currentThread().isInterrupted() || !MarketWidgetStore.contains(context, asset)) return;
@@ -127,14 +152,20 @@ public final class MarketWidgetRefreshService extends JobService {
             && (history == null || System.currentTimeMillis() - history.fetchedAt >= 15 * 60_000)) {
             try {
                 MarketWidgetStore.saveHistory(context, asset, MarketWidgetClient.fetchHistory(asset, locale));
-            } catch (Exception ignored) {
+                MarketWidgetLog.event("refresh.chart_saved");
+            } catch (Exception error) {
+                MarketWidgetLog.failure("refresh.chart_fallback", error, "hasCache", history != null);
                 // Only actual server history is drawn; the renderer expires stale curves.
             }
+        } else {
+            MarketWidgetLog.event("refresh.chart_skipped", "reason", !chart ? "not_requested"
+                : "stock".equals(asset.kind) ? "included_in_quote" : "cache_fresh");
         }
     }
 
     @Override
     public boolean onStopJob(JobParameters parameters) {
+        MarketWidgetLog.event("refresh.stopped_by_system");
         if (running != null) running.cancel(true);
         return MarketWidgetProvider.allIds(this).length > 0;
     }

@@ -15,31 +15,37 @@ enum MarketLockScreenTimeline {
   static func timeline(assets: [MarketWidgetAsset], isWatchlist: Bool, includingChart: Bool,
                        store: MarketWidgetStore = MarketWidgetStore(),
                        service: MarketWidgetService = .shared) async -> Timeline<MarketWidgetEntry> {
-    let initial = snapshot(assets: assets, isWatchlist: isWatchlist, store: store)
-    guard !initial.rows.isEmpty else { return result(initial) }
-    do { try store.rememberLockScreenAssets(initial.rows.map(\.asset)) }
-    catch { return result(snapshot(assets: assets, isWatchlist: isWatchlist, store: store)) }
-    let rows = await withTaskGroup(of: (Int, MarketWidgetRow).self) { group in
-      for (index, row) in initial.rows.enumerated() {
-        group.addTask {
-          do {
-            let quote = try await service.quote(for: row.asset,
-              locale: initial.configuration?.locale ?? "en-US", includingChart: includingChart)
-            return (index, MarketWidgetRow(asset: row.asset, quote: quote, failed: false))
-          } catch {
-            return (index, MarketWidgetRow(asset: row.asset, quote: row.quote?.withFreshChart(), failed: true))
+    return await MarketWidgetDiagnostics.$refreshID.withValue(UUID().uuidString) {
+      let started = Date()
+      MarketWidgetDiagnostics.event("timeline.started", ["surface": "lock_screen", "kind": isWatchlist ? "list" : "single"])
+      defer { MarketWidgetDiagnostics.event("timeline.completed", ["durationMs": Int(Date().timeIntervalSince(started) * 1000), "nextRequestedAfterSeconds": 900]) }
+      let initial = snapshot(assets: assets, isWatchlist: isWatchlist, store: store)
+      guard !initial.rows.isEmpty else { return result(initial) }
+      do { try store.rememberLockScreenAssets(initial.rows.map(\.asset)) }
+      catch { return result(snapshot(assets: assets, isWatchlist: isWatchlist, store: store)) }
+      let rows = await withTaskGroup(of: (Int, MarketWidgetRow).self) { group in
+        for (index, row) in initial.rows.enumerated() {
+          group.addTask {
+            do {
+              let quote = try await service.quote(for: row.asset,
+                locale: initial.configuration?.locale ?? "en-US", includingChart: includingChart)
+              return (index, MarketWidgetRow(asset: row.asset, quote: quote, failed: false))
+            } catch {
+              MarketWidgetDiagnostics.event("timeline.quote_fallback", error: error)
+              return (index, MarketWidgetRow(asset: row.asset, quote: row.quote?.withFreshChart(), failed: true))
+            }
           }
         }
+        var values: [(Int, MarketWidgetRow)] = []
+        for await value in group { values.append(value) }
+        return values.sorted { $0.0 < $1.0 }.map(\.1)
       }
-      var values: [(Int, MarketWidgetRow)] = []
-      for await value in group { values.append(value) }
-      return values.sorted { $0.0 < $1.0 }.map(\.1)
+      // The App can mask shared data while requests are suspended.
+      let current = snapshot(assets: assets, isWatchlist: isWatchlist, store: store)
+      guard current.configuration == initial.configuration else { return result(current) }
+      return result(MarketWidgetEntry(date: Date(), configuration: current.configuration, rows: rows,
+        isWatchlist: isWatchlist, selectionUnavailable: false, source: .hot))
     }
-    // The App can mask shared data while requests are suspended.
-    let current = snapshot(assets: assets, isWatchlist: isWatchlist, store: store)
-    guard current.configuration == initial.configuration else { return result(current) }
-    return result(MarketWidgetEntry(date: Date(), configuration: current.configuration, rows: rows,
-      isWatchlist: isWatchlist, selectionUnavailable: false, source: .hot))
   }
 
   private static func result(_ entry: MarketWidgetEntry) -> Timeline<MarketWidgetEntry> {
