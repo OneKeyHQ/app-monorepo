@@ -239,7 +239,7 @@ export function useLocalWalletPool({
     canReadBalance && balanceResult?.scope === readScope
       ? balanceResult.balance
       : undefined;
-  const lastSyncedAt =
+  const readLastSyncedAt =
     balanceResult?.scope === readScope ? balanceResult.lastSyncedAt : undefined;
   // A balance that landed after its read gave up; the poll would show the saved one a full interval.
   useEffect(() => {
@@ -505,10 +505,12 @@ export function useLocalWalletPool({
       id: PRIVACY_CHAIN_SYNC_STATUS_LABELS.preparing,
     });
   } else if (syncStatus) {
+    // The panel shows the percentage beside this line already.
     syncStatusText = formatPrivacyChainSyncDetail({
       progress: syncProgress,
       settings,
       stopped: syncStatus === 'waitingWifi',
+      shownAbove: 'percent',
       intl,
     });
   }
@@ -589,7 +591,8 @@ export function useLocalWalletPool({
     isReady,
     enabled,
     balance,
-    lastSyncedAt,
+    // Published with each caught-up pass, so a Refresh at an unchanged tip still moves it.
+    lastSyncedAt: publishedProgress?.lastSyncedAt ?? readLastSyncedAt,
     poolBalance,
     poolAddress,
     addresses,

@@ -216,11 +216,11 @@ function PrivacyChainNetworkSections({
     endpointStatus = `${endpointHealth.latencyMs} ms`;
   }
 
-  const { result: allowCellular, run: refreshAllowCellular } = usePromiseResult(
-    async () =>
-      backgroundApiProxy.servicePrivacyChain.isPrivacySyncOnCellularAllowed(),
-    [],
-  );
+  // Published, so a Use mobile data pressed on the light or token page shows here at once.
+  const [{ allowCellularSync: allowCellular }] = usePrivacyChainAtom();
+  useEffect(() => {
+    void backgroundApiProxy.servicePrivacyChain.isPrivacySyncOnCellularAllowed();
+  }, []);
   const run = useCallback(
     async (fn: () => Promise<void>) => {
       setBusy(true);
@@ -264,7 +264,6 @@ function PrivacyChainNetworkSections({
                 await backgroundApiProxy.servicePrivacyChain.setAllowCellularSync(
                   { allow: next },
                 );
-                await refreshAllowCellular();
               })
             }
           />

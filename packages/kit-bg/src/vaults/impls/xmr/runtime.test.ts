@@ -249,7 +249,7 @@ describe('xmr stale-first reads', () => {
         }),
     );
     const api = await getXmrRuntime(vault);
-    for (const key of ['history:a', 'progress:a', 'history:b']) {
+    for (const key of ['history:a', 'progress:a', 'history:b', 'storage']) {
       // eslint-disable-next-line no-await-in-loop
       await readXmrStaleFirst({ key, read: async () => 'old', fallback: '?' });
     }
@@ -259,7 +259,8 @@ describe('xmr stale-first reads', () => {
     const step = api.syncStep('3', '10');
     await Promise.resolve();
     const read = jest.fn(async () => 'new');
-    for (const key of ['history:a', 'progress:a']) {
+    // The database size changes with any one account's data.
+    for (const key of ['history:a', 'progress:a', 'storage']) {
       // eslint-disable-next-line no-await-in-loop
       await expect(
         readXmrStaleFirst({ key, read, fallback: '?' }),

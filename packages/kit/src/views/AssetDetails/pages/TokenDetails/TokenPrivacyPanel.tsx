@@ -12,6 +12,7 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import { formatPrivacyChainPercent } from '@onekeyhq/kit/src/utils/privacyChainSyncDisplay';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 export type ITokenPrivacyPanelState =
@@ -212,10 +213,7 @@ export function TokenPrivacyPanel({
                 color="$textSubdued"
                 fontVariant={['tabular-nums']}
               >
-                {intl.formatNumber(progressValue / 100, {
-                  style: 'percent',
-                  maximumFractionDigits: 1,
-                })}
+                {formatPrivacyChainPercent(progressValue / 100)}
               </SizableText>
             ) : null}
             {action}

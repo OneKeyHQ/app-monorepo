@@ -510,6 +510,23 @@ export function buildXmrLocalWalletCapability(
     }
   };
 
+  const readStorageUsage = async () => {
+    // Opening the runtime creates its database; measuring must not.
+    const holders = await stateDb().listScanDataAccountIds({ networkId });
+    if (!holders?.length) return { bytes: 0 };
+    return readXmrStaleFirst({
+      key: 'storage',
+      fallback: { bytes: null },
+      read: async () => {
+        const api = await getXmrLocalRuntime(vault);
+        const diag = JSON.parse(await api.diagDatabase()) as {
+          logicalBytes?: number;
+        };
+        return { bytes: diag.logicalBytes ?? null };
+      },
+    });
+  };
+
   const syncPolicy: ILocalWalletSyncPolicy = {
     maxSyncDurationMs: XMR_SYNC_WATCHDOG_MS,
     turn: {
@@ -972,22 +989,7 @@ export function buildXmrLocalWalletCapability(
       return false;
     },
 
-    async getStorageUsage() {
-      // Opening the runtime creates its database; measuring must not.
-      const holders = await stateDb().listScanDataAccountIds({ networkId });
-      if (!holders?.length) return { bytes: 0 };
-      return readXmrStaleFirst({
-        key: 'storage',
-        fallback: { bytes: null },
-        read: async () => {
-          const api = await getXmrLocalRuntime(vault);
-          const diag = JSON.parse(await api.diagDatabase()) as {
-            logicalBytes?: number;
-          };
-          return { bytes: diag.logicalBytes ?? null };
-        },
-      });
-    },
+    getStorageUsage: readStorageUsage,
 
     // Deletes the DB without opening it (an unopenable DB stays recoverable), then re-registers every
     // account holding scan data from its saved birthday. The caller rotates their epochs first.
@@ -1011,6 +1013,9 @@ export function buildXmrLocalWalletCapability(
           });
         }
       }
+      // The old size is wrong now, not just old: measure the new database before scanning resumes.
+      forgetXmrStaleFirst();
+      await readStorageUsage().catch(() => undefined);
     },
 
     listScanDataAccountIds: () =>

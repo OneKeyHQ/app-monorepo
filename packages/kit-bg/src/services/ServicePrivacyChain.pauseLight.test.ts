@@ -7,6 +7,7 @@ type IPublished = {
   pausedNetworkIds: string[];
   preparingAccountKeys: string[];
   syncErrorByNetworkId: Record<string, string>;
+  allowCellularSync?: boolean;
 };
 
 const mockEmptyState = (): IPublished => ({
@@ -253,8 +254,16 @@ describe('Privacy sync light pause state', () => {
     };
 
     it('shows at once instead of after the first pass', async () => {
-      const { service, startUserSync } = createRepairService();
+      let preparingWhileRunning: string[] = [];
+      const { service, startUserSync } = createRepairService({
+        runLocalChainDataRepair: jest.fn(async () => {
+          preparingWhileRunning = [...mockPublished.preparingAccountKeys];
+          return undefined;
+        }),
+      });
       await service.repairLocalChainData(repair);
+      // Preparing from the press, not once the rescan is done.
+      expect(preparingWhileRunning).toEqual([`${networkId}:account`]);
       expect(startUserSync).toHaveBeenCalledWith({
         networkId,
         accountId: 'account',
@@ -284,6 +293,7 @@ describe('Privacy sync light pause state', () => {
       });
       await expect(service.repairLocalChainData(repair)).rejects.toThrow();
       expect(startUserSync).not.toHaveBeenCalled();
+      expect(mockPublished.preparingAccountKeys).toEqual([]);
     });
   });
 
@@ -453,6 +463,101 @@ describe('Privacy sync light pause state', () => {
       backfillActive: false,
     });
     expect(mockPublished.boostingNetworkIds).toEqual([networkId]);
+  });
+});
+
+describe('Privacy data consent publish', () => {
+  beforeEach(() => {
+    mockPublished = mockEmptyState();
+  });
+
+  // The settings switch reads it from here, so a Use mobile data pressed elsewhere shows at once.
+  it('publishes the stored consent once read, and a change at once', async () => {
+    let stored = true;
+    const service = Object.assign(
+      Object.create(ServicePrivacyChain.prototype) as {
+        isPrivacySyncOnCellularAllowed: () => Promise<boolean>;
+        setAllowCellularSync: (params: { allow: boolean }) => Promise<void>;
+      },
+      {
+        allowCellularSyncCache: false,
+        boostPausedByNetwork: {} as Record<string, boolean>,
+        foregroundBoostRequestedByNetwork: {} as Record<string, boolean>,
+        deviceIsCellular: false,
+        scheduleBackgroundSync: jest.fn(),
+        backgroundApi: {
+          simpleDb: {
+            privacyChainState: {
+              getAllowCellularSync: async () => stored,
+              setAllowCellularSync: async ({ allow }: { allow: boolean }) => {
+                stored = allow;
+              },
+            },
+          },
+        },
+      },
+    );
+    expect(mockPublished.allowCellularSync).toBeUndefined();
+    await service.isPrivacySyncOnCellularAllowed();
+    expect(mockPublished.allowCellularSync).toBe(true);
+    await service.setAllowCellularSync({ allow: false });
+    expect(mockPublished.allowCellularSync).toBe(false);
+  });
+});
+
+describe('Privacy progress forgotten for a rescan', () => {
+  beforeEach(() => {
+    mockPublished = mockEmptyState();
+  });
+
+  // A new start makes blocks done jump; measured as speed it would promise minutes for hours.
+  it('starts the speed over with the position', async () => {
+    const service = Object.assign(
+      Object.create(ServicePrivacyChain.prototype) as {
+        forgetPublishedProgress: (params: {
+          networkId: string;
+          accountIds: string[];
+        }) => Promise<void>;
+        scanRateSamples: Map<string, unknown>;
+      },
+      {
+        scanRateSamples: new Map([
+          ['zec--0:a', { done: 1 }],
+          ['zec--0:b', { done: 1 }],
+        ]),
+      },
+    );
+    mockPublished.progress['zec--0:a'] = { tipScannedHeight: 1 };
+    await service.forgetPublishedProgress({
+      networkId: 'zec--0',
+      accountIds: ['a'],
+    });
+    expect([...service.scanRateSamples.keys()]).toEqual(['zec--0:b']);
+    expect(mockPublished.progress['zec--0:a']).toBeUndefined();
+  });
+});
+
+describe('Privacy scan held between steps', () => {
+  // Read between every scan step, so it must not touch storage.
+  it('answers from memory: a chain pause or a lost data consent', async () => {
+    const service = Object.assign(
+      Object.create(ServicePrivacyChain.prototype) as {
+        isLocalWalletScanHeld: (networkId: string) => Promise<boolean>;
+      },
+      {
+        boostPausedByNetwork: {} as Record<string, boolean>,
+        deviceIsCellular: false,
+        allowCellularSyncCache: false,
+      },
+    );
+    await expect(service.isLocalWalletScanHeld('zec--0')).resolves.toBe(false);
+    Object.assign(service, { deviceIsCellular: true });
+    await expect(service.isLocalWalletScanHeld('zec--0')).resolves.toBe(true);
+    Object.assign(service, {
+      deviceIsCellular: false,
+      boostPausedByNetwork: { 'zec--0': true },
+    });
+    await expect(service.isLocalWalletScanHeld('zec--0')).resolves.toBe(true);
   });
 });
 

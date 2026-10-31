@@ -303,7 +303,13 @@ export function getLocalWalletCapability(vault: Vault): ILocalWalletCapability {
       if (!diagnostics.databaseExists) {
         return { bytes: 0 };
       }
-      return { bytes: diagnostics.storageStats?.sqlite.logicalBytes ?? null };
+      // Pages in use: deleted scan data leaves free pages in a file SQLite never shrinks.
+      const sqlite = diagnostics.storageStats?.sqlite;
+      return {
+        bytes: sqlite
+          ? (sqlite.pageCount - sqlite.freePages) * sqlite.pageSize
+          : null,
+      };
     },
     getSyncEndpoint: async () => {
       const api = await vault.zcashGetApi();

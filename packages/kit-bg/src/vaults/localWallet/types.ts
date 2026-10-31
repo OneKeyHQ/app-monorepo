@@ -39,6 +39,9 @@ export type ILocalWalletSyncProgress = {
   blocksPerSec?: number;
   // When the speed above started being measured.
   blocksPerSecSince?: number;
+  // When a pass last caught the account up, added when progress is published; the page needs no
+  // read of its own to show it.
+  lastSyncedAt?: number;
 };
 
 // Why a network's last background sync failed, for the status row and light.

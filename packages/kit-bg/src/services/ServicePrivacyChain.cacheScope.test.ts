@@ -37,6 +37,7 @@ function lifecycleHarness() {
       orphanCleanupGeneration: new Map(),
       scheduleBackgroundSync: jest.fn(),
       // Starting the scan after a reset is covered by the service's own tests.
+      listUserRescanAccountIds: jest.fn(async () => []),
       startUserSync: jest.fn(async () => undefined),
     } as Record<string, unknown>,
     backgroundApi: {

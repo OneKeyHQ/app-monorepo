@@ -19,6 +19,8 @@ export type IPrivacyChainScanState = {
   // not retried this session.
   storageUnsupportedNetworkIds: string[];
   syncErrorByNetworkId: Record<string, ILocalWalletSyncErrorKind>;
+  // Metered-data consent, the same for every chain; unknown until the stored answer is read.
+  allowCellularSync?: boolean;
 };
 
 export const { target: privacyChainAtom, use: usePrivacyChainAtom } =

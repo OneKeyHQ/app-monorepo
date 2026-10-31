@@ -345,6 +345,19 @@ it('marks an account preparing on an explicit sync until its next published posi
   expect(publishedState().preparingAccountKeys).toEqual([]);
 });
 
+// A Refresh at an unchanged tip moves nothing else the page watches, so the time rides on progress.
+it('publishes the last sync time with progress and keeps it on later passes', async () => {
+  const { service, epoch, candidate } = await createHarness();
+  await service.publishScanProgress(candidate, new Map([[accountId, epoch]]));
+  const syncedAt =
+    publishedState().progress[`${networkId}:${accountId}`]?.lastSyncedAt;
+  expect(syncedAt).toEqual(expect.any(Number));
+  await service.publishScanProgress(candidate, new Map());
+  expect(
+    publishedState().progress[`${networkId}:${accountId}`]?.lastSyncedAt,
+  ).toBe(syncedAt);
+});
+
 it('does not use stale display progress to establish success, and does not lose authoritative success to a failed display read', async () => {
   const { service, cache, epoch, candidate, getSyncProgress } =
     await createHarness();

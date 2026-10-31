@@ -294,6 +294,8 @@ export function forgetXmrStaleFirst(accountIds?: string[]) {
         staleFirstCache.delete(`${kind}:${accountId}`);
       }
     }
+    // The database size changes with any account's data.
+    staleFirstCache.delete('storage');
   }
   staleFirstGeneration += 1;
 }
