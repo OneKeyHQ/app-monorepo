@@ -31,6 +31,7 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import { INTERCOM_SUPPORT_ORIGIN } from '@onekeyhq/shared/src/modules3rdParty/intercom/bridge';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { isPrimeWebCheckoutReturnFromCheckoutTab } from '@onekeyhq/shared/src/prime/primeWebCheckoutReturn';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
@@ -114,6 +115,25 @@ export interface IOneKeyWalletInfo {
 
 @backgroundClass()
 class ProviderApiPrivate extends ProviderApiBase {
+  @providerApiMethod()
+  async wallet_getIntercomContext(
+    request: IJsBridgeMessagePayload,
+    params: { supportSession?: string },
+  ) {
+    if (
+      request.origin !== INTERCOM_SUPPORT_ORIGIN ||
+      typeof params?.supportSession !== 'string' ||
+      !params.supportSession ||
+      params.supportSession.length > 128
+    ) {
+      throw new OneKeyLocalError('Invalid Support context request');
+    }
+    return this.backgroundApi.servicePrime.redeemIntercomSupportSession({
+      supportSession: params.supportSession,
+      origin: request.origin,
+    });
+  }
+
   public providerName = IInjectedProviderNames.$private;
 
   private lastFocusUrl = '';

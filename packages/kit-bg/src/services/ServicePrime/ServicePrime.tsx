@@ -1,4 +1,6 @@
 /* cspell:ignore Infini */
+import { randomBytes } from 'crypto';
+
 import { type AuthResponse } from '@supabase/supabase-js';
 import { Semaphore } from 'async-mutex';
 import axios from 'axios';
@@ -42,6 +44,7 @@ import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { ETranslations } from '@onekeyhq/shared/src/locale/enum/translations';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type { IPrimeCryptoPaymentStage } from '@onekeyhq/shared/src/logger/scopes/prime/scenes/subscription';
+import type { IIntercomSupportContext } from '@onekeyhq/shared/src/modules3rdParty/intercom/bridge';
 import { EPrimeFeatures } from '@onekeyhq/shared/src/routes/prime';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
@@ -114,6 +117,10 @@ import { EPrimeAuthSessionSource } from '@onekeyhq/shared/types/prime/primeTypes
 
 import { devSettingsPersistAtom } from '../../states/jotai/atoms/devSettings';
 import {
+  passwordAtom,
+  passwordPersistAtom,
+} from '../../states/jotai/atoms/password';
+import {
   primeGiftEligibilityPersistAtom,
   primeLoginDialogAtom,
   primePersistAtom,
@@ -132,6 +139,7 @@ import {
   markIdentityRecoveryReady,
 } from '../ServiceIdentityExit/identityLifecycleMutex';
 
+import { IntercomSupportSessions } from './IntercomSupportSessions';
 import {
   enqueuePrimeProfileAnalyticsReport as enqueuePrimeProfileAnalyticsReportImpl,
   trackOneKeyIdIdentityLinked as trackOneKeyIdIdentityLinkedImpl,
@@ -520,6 +528,61 @@ function resolveInviteProfilePublic({
 }
 
 class ServicePrime extends ServiceBase {
+  private intercomSupportSessions = new IntercomSupportSessions();
+
+  private async getIntercomSupportOwner() {
+    return this.authStateWriteMutex.runExclusive(async () => {
+      const [password, passwordSettings, user, generation, source] =
+        await Promise.all([
+          passwordAtom.get(),
+          passwordPersistAtom.get(),
+          primePersistAtom.get(),
+          this.backgroundApi.simpleDb.prime.getAuthStateGeneration(),
+          this.backgroundApi.simpleDb.prime.getAuthSessionSource(),
+        ]);
+      const canAuthenticate =
+        passwordSettings.isPasswordSet &&
+        password.unLock &&
+        isIdentityRecoveryReady() &&
+        user.isLoggedIn &&
+        user.isLoggedInOnServer;
+      return `${canAuthenticate ? 'authenticated' : 'guest'}:${user.isLoggedIn}:${user.isLoggedInOnServer}:${user.onekeyUserId ?? ''}:${source ?? ''}:${generation}`;
+    });
+  }
+
+  @backgroundMethod()
+  async createIntercomSupportSession() {
+    const owner = await this.getIntercomSupportOwner();
+    return this.intercomSupportSessions.create(
+      randomBytes(32).toString('hex'),
+      owner,
+    );
+  }
+
+  @backgroundMethod()
+  async redeemIntercomSupportSession({
+    supportSession,
+    origin,
+  }: {
+    supportSession: string;
+    origin?: string;
+  }): Promise<IIntercomSupportContext> {
+    return this.intercomSupportSessions.redeem({
+      id: supportSession,
+      origin,
+      getOwner: () => this.getIntercomSupportOwner(),
+      getContext: async (owner) => {
+        if (!owner.startsWith('authenticated:')) return {};
+        try {
+          const token = (await this.apiGetCustomerJWT())?.token;
+          return token ? { intercom_user_jwt: token } : {};
+        } catch {
+          return {};
+        }
+      },
+    });
+  }
+
   private primeGiftMutex = new Semaphore(1);
 
   private primeGiftEligibilityRequests = new Map<string, number>();
