@@ -137,6 +137,7 @@ import {
   sortActivePerpsPositions,
 } from './utils/coldStartMergeUtils';
 import {
+  getPerpsActiveAccountChangedMessage,
   getPerpsOrderChangedMessage,
   getPerpsOrderNoLongerEligibleForChaseMessage,
   getPerpsTokenInfoNotFoundMessage,
@@ -558,11 +559,19 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       atom: ReturnType<typeof perpsActiveOpenOrdersAtom>,
     ) => IPerpsActiveOpenOrdersAtom,
     oid: number,
+    expectedAccountAddress?: string,
   ): Promise<HL.IPerpsFrontendOrder | undefined> {
     const activeAccount = await perpsActiveAccountAtom.get();
     const activeAccountAddress = normalizePerpsAccountAddress(
       activeAccount?.accountAddress,
     );
+    if (
+      expectedAccountAddress !== undefined &&
+      activeAccountAddress !==
+        normalizePerpsAccountAddress(expectedAccountAddress)
+    ) {
+      throw new OneKeyLocalError(getPerpsActiveAccountChangedMessage());
+    }
     if (!activeAccountAddress) {
       return undefined;
     }
@@ -1442,12 +1451,13 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
     }
   });
 
-  updateBbo = contextAtomMethod(async (get, set, data: HL.IWsBbo) => {
-    const activeInstrument = get(activeTradeInstrumentAtom());
-    const activeCoin = activeInstrument.coin || (await this._getActiveCoin());
+  updateBbo = contextAtomMethod(async (get, set, data: HL.IWsBbo | null) => {
     if (!data) {
+      set(bboAtom(), null);
       return;
     }
+    const activeInstrument = get(activeTradeInstrumentAtom());
+    const activeCoin = activeInstrument.coin || (await this._getActiveCoin());
     if (activeCoin !== data.coin) {
       const currentBbo = get(bboAtom());
       if (
@@ -3358,7 +3368,11 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
     ) => {
       return withToast({
         asyncFn: async () => {
-          const existing = await this.findChartOrder(get, params.oid);
+          const existing = await this.findChartOrder(
+            get,
+            params.oid,
+            params.expectedAccountAddress,
+          );
           if (!existing) {
             throw new OneKeyLocalError(getPerpsOrderChangedMessage());
           }
@@ -3375,6 +3389,14 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
               getPerpsOrderNoLongerEligibleForChaseMessage(),
             );
           }
+          // Preserve queue priority for unchanged ALO orders; same-price GTC orders
+          // still need amendment to enforce post-only execution.
+          if (
+            existing.tif === 'Alo' &&
+            new BigNumber(existing.limitPx).eq(params.newPrice)
+          ) {
+            return undefined;
+          }
           return backgroundApiProxy.serviceHyperliquidExchange.amendOrderPriceByOid(
             {
               coin: params.coin,
@@ -3386,11 +3408,11 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
               amendKind,
               cloid: existing.cloid,
               expectedAccountAddress: params.expectedAccountAddress,
-              alwaysPlace: true,
             },
           );
         },
         actionType: EActionType.MODIFY_ORDER,
+        shouldShowSuccess: (result) => result !== undefined,
       });
     },
   );
