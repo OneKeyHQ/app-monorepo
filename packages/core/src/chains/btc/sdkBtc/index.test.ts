@@ -4,6 +4,7 @@ import {
   getBtcForkNetwork,
   getInputsToSignFromPsbt,
   getSignPsbtOptionsForPsbtIndex,
+  loadOPReturn,
 } from '.';
 
 import { Psbt, Transaction } from 'bitcoinjs-lib';
@@ -232,5 +233,29 @@ describe('findBtcSighashNoneInput', () => {
     expect(
       findBtcSighashNoneInput({ psbt, inputsToSign: [{ index: 0 }] }),
     ).toBeUndefined();
+  });
+});
+
+describe('loadOPReturn - byte size limit', () => {
+  it('returns the full encoded buffer for ASCII within the limit', () => {
+    expect(loadOPReturn('hello')).toEqual(Buffer.from('hello'));
+  });
+
+  it('throws when the ASCII data exceeds the byte limit', () => {
+    expect(() => loadOPReturn('a'.repeat(81))).toThrow('OP_RETURN data is too large.');
+  });
+
+  it('throws on a multi-byte string that exceeds the byte limit but not the code-unit count', () => {
+    // 40 code units, 120 UTF-8 bytes: the old `opReturn.length > 80` guard let
+    // this pass and then truncated it to 80 bytes (mid-character).
+    const multiByte = '€'.repeat(40);
+    expect(multiByte.length).toBe(40);
+    expect(Buffer.from(multiByte).length).toBe(120);
+    expect(() => loadOPReturn(multiByte)).toThrow('OP_RETURN data is too large.');
+  });
+
+  it('never truncates: the returned buffer round-trips to the input', () => {
+    const data = '✓ onekey';
+    expect(loadOPReturn(data).toString('utf8')).toBe(data);
   });
 });
