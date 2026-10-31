@@ -10,12 +10,14 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import { TradingViewChartLoadingMask } from '@onekeyhq/kit/src/components/TradingView/TradingViewChartLoadingMask';
 import { TradingViewNative } from '@onekeyhq/kit/src/components/TradingView/TradingViewNative';
 import { deferHeavyWorkUntilUIIdle } from '@onekeyhq/kit/src/utils/deferHeavyWork';
 import { FLOAT_NAV_BAR_Z_INDEX } from '@onekeyhq/shared/src/consts/zIndexConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { useActiveTradeDisplay } from '../hooks/useActiveTradeDisplay';
+import { usePerpsNativeChartMetadata } from '../hooks/usePerpsNativeChartMetadata';
 import { PerpTestIDs } from '../testIDs';
 
 const MOBILE_CHART_MAX_HEIGHT = 250;
@@ -47,6 +49,7 @@ function PerpMobileChartContent({
   preloadWhenCollapsed?: boolean;
   showCloseControl?: boolean;
 }) {
+  const metadata = usePerpsNativeChartMetadata();
   const [mountedCoin, setMountedCoin] = useState<string | undefined>();
 
   useEffect(() => {
@@ -124,6 +127,7 @@ function PerpMobileChartContent({
         >
           <YStack h={chartHeight} overflow="hidden">
             <TradingViewNative
+              {...metadata}
               key={chartCoin}
               testID={PerpTestIDs.MobileChart}
               source={chartSource}
@@ -133,6 +137,11 @@ function PerpMobileChartContent({
               onNativeChartClose={onClose}
               showNativeChartCloseControl={showCloseControl}
             />
+            {metadata.priceDecimalPlaces === undefined ? (
+              <TradingViewChartLoadingMask
+                testID={`${PerpTestIDs.MobileChart}-metadata-loading`}
+              />
+            ) : null}
           </YStack>
         </HeaderScrollGestureWrapper>
       </YStack>
