@@ -287,17 +287,31 @@ it('leaves a paused chain paused when the balance is refreshed', async () => {
   expect(wake).not.toHaveBeenCalled();
 });
 
-// A caught-up account is too small for the light, but a held Refresh must still offer the data choice.
+// Held by metered data, a Refresh asks for the data choice only while the account has blocks left;
+// a synced one has nothing to wait for.
 it.each([
-  { deviceIsCellular: true, dataBlockedNetworkIds: [networkId] },
-  { deviceIsCellular: false, dataBlockedNetworkIds: [] },
-])(
-  'requests a caught-up refresh only while metered data holds scanning (cellular: $deviceIsCellular)',
-  async ({ deviceIsCellular, dataBlockedNetworkIds }) => {
+  {
+    deviceIsCellular: true,
+    status: 'syncing',
+    dataBlockedNetworkIds: [networkId],
+  },
+  { deviceIsCellular: true, status: 'synced', dataBlockedNetworkIds: [] },
+  { deviceIsCellular: false, status: 'syncing', dataBlockedNetworkIds: [] },
+] as const)(
+  'requests a held refresh only with work left (cellular: $deviceIsCellular, $status)',
+  async ({ deviceIsCellular, status, dataBlockedNetworkIds }) => {
     const { service } = await createHarness();
     stubScheduling(service);
     Object.assign(service, { deviceIsCellular });
     jest.spyOn(service, 'getPublishedRemainingBlocks').mockResolvedValue(0);
+    jest
+      .spyOn(
+        service as unknown as {
+          getLocalWalletAccountSyncView: () => Promise<{ status: string }>;
+        },
+        'getLocalWalletAccountSyncView',
+      )
+      .mockResolvedValue({ status });
     const wake = jest
       .spyOn(service, 'wakeLocalWalletSync')
       .mockResolvedValue(undefined);
@@ -307,7 +321,7 @@ it.each([
     );
     expect(publishedState().boostingNetworkIds).toEqual([]);
     expect(!!service.foregroundBoostRequestedByNetwork[networkId]).toBe(
-      deviceIsCellular,
+      dataBlockedNetworkIds.length > 0,
     );
     expect(wake).toHaveBeenCalledTimes(1);
   },
@@ -325,22 +339,10 @@ it('marks an account preparing on an explicit sync until its next published posi
   expect(publishedState().preparingAccountKeys).toEqual([
     `${networkId}:${accountId}`,
   ]);
+  // Started as soon as the user asked, not after the startup quiet window.
+  expect(service.earliestTickAt).toBe(30_000);
   await service.publishScanProgress(candidate);
   expect(publishedState().preparingAccountKeys).toEqual([]);
-});
-
-it('marks a chain preparing when an account is enabled, and starts it as soon as a Sync press would', async () => {
-  const { service } = await createHarness();
-  stubScheduling(service);
-  await service.onLocalWalletAccountsChanged({
-    networkId,
-    accountIds: [accountId],
-    backfillActive: true,
-  });
-  expect(publishedState().preparingAccountKeys).toEqual([
-    `${networkId}:${accountId}`,
-  ]);
-  expect(service.earliestTickAt).toBe(30_000);
 });
 
 it('does not use stale display progress to establish success, and does not lose authoritative success to a failed display read', async () => {

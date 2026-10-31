@@ -839,6 +839,10 @@ export function buildXmrLocalWalletCapability(
         const result = await runBoundedSyncTurn({
           budgetMs: turn.budgetMs,
           expectedStepMs: turn.expectedStepMs,
+          shouldStop: () =>
+            vault.backgroundApi.servicePrivacyChain.isLocalWalletScanHeld(
+              vault.networkId,
+            ),
           onStep: async () => {
             if (await isCurrentRequest(accountId, owner)) {
               await vault.backgroundApi.servicePrivacyChain.publishLocalWalletSyncProgress(

@@ -135,6 +135,7 @@ function capability(intent: 'on' | 'off' = 'on', birthdayHeight?: number) {
     backgroundApi: {
       servicePrivacyChain: {
         publishLocalWalletSyncProgress: mockPublish,
+        isLocalWalletScanHeld: jest.fn(async () => false),
         onLocalWalletAccountsChanged: jest.fn(async () => undefined),
         ensureLocalWalletViewingKey: mockEnsureViewingKey,
       },
@@ -664,6 +665,7 @@ describe('xmr delete after turning the account off', () => {
       backgroundApi: {
         servicePrivacyChain: {
           publishLocalWalletSyncProgress: mockPublish,
+          isLocalWalletScanHeld: jest.fn(async () => false),
           onLocalWalletAccountsChanged: jest.fn(async () => undefined),
           ensureLocalWalletViewingKey,
         },
@@ -777,6 +779,7 @@ describe('xmr sync registers an enabled account the runtime lost', () => {
       backgroundApi: {
         servicePrivacyChain: {
           publishLocalWalletSyncProgress: mockPublish,
+          isLocalWalletScanHeld: jest.fn(async () => false),
           ensureLocalWalletViewingKey: mockEnsureViewingKey,
         },
         simpleDb: {
@@ -1139,6 +1142,7 @@ describe('xmr enable authorization boundary', () => {
           onLocalWalletAccountsChanged: notify,
           ensureLocalWalletViewingKey: mockEnsureViewingKey,
           publishLocalWalletSyncProgress: mockPublish,
+          isLocalWalletScanHeld: jest.fn(async () => false),
         },
       },
     } as unknown as Vault;

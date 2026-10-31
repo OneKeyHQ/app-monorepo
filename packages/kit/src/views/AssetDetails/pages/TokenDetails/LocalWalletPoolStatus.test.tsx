@@ -626,6 +626,8 @@ describe('LocalWalletSyncRow balance refresh', () => {
         pool={pool({
           enabled: true,
           state: { enabled: false, paused: true },
+          syncStatus: 'accountPaused',
+          isSyncPaused: true,
           enableAccount,
           refreshBalanceNow,
           lastSyncedAt: 1_700_000_000_000,
@@ -644,9 +646,8 @@ describe('LocalWalletSyncRow balance refresh', () => {
     expect(screen.queryByTestId('local-wallet-disabled-card')).toBeNull();
   });
 
-  // The light closes on pause, so the token page is where a paused chain resumes.
   it('offers Resume for a paused chain and resumes it', async () => {
-    const resumeNetworkSync = jest.fn(async () => undefined);
+    const startSync = jest.fn(async () => undefined);
     const refreshBalanceNow = jest.fn(async () => undefined);
     render(
       <LocalWalletSyncRow
@@ -655,8 +656,10 @@ describe('LocalWalletSyncRow balance refresh', () => {
         pool={pool({
           enabled: true,
           state: { enabled: true, paused: false },
+          syncStatus: 'chainPaused',
+          isSyncPaused: true,
           isNetworkPaused: true,
-          resumeNetworkSync,
+          startSync,
           refreshBalanceNow,
         })}
       />,
@@ -664,7 +667,7 @@ describe('LocalWalletSyncRow balance refresh', () => {
     const button = screen.getByTestId('local-wallet-refresh-balance-btn');
     expect(button.textContent).toBe('global.resume');
     await act(async () => fireEvent.click(button));
-    expect(resumeNetworkSync).toHaveBeenCalledTimes(1);
+    expect(startSync).toHaveBeenCalledTimes(1);
     expect(refreshBalanceNow).not.toHaveBeenCalled();
   });
 

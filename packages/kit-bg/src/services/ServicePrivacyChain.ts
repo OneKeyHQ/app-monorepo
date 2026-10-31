@@ -723,19 +723,16 @@ class ServicePrivacyChain extends ServiceBase {
     accountId?: string;
     trigger: IPrivacyChainBoostTrigger;
   }): Promise<void> {
+    if (trigger === 'manual-sync') {
+      await this.startUserSync({ networkId, accountId });
+      return;
+    }
     const remainingBlocks = await this.getPublishedRemainingBlocks({
       networkId,
       accountId,
     });
-    const localWalletNetworkIds = await this.getLocalWalletNetworkIds();
-    if (!localWalletNetworkIds.includes(networkId)) {
+    if (!(await this.getLocalWalletNetworkIds()).includes(networkId)) {
       return;
-    }
-    if (trigger === 'manual-sync') {
-      // A pass must follow, or nothing clears Preparing on a chain already at its tip.
-      this.forgetRuntimeSyncState(networkId);
-      this.clearSyncFailureBackoff(networkId);
-      await this.publishSyncError(networkId, undefined);
     }
     if (
       !shouldStartBoost({
@@ -747,27 +744,48 @@ class ServicePrivacyChain extends ServiceBase {
     ) {
       return;
     }
+    await this.requestForegroundScan(networkId);
+  }
+
+  // Every scan the user starts (Sync, Continue, enable, a rescan, a retry) comes through here: it
+  // lifts a chain pause, forces a pass even at an unchanged tip, and shows Preparing at once.
+  private async startUserSync({
+    networkId,
+    accountId,
+  }: {
+    networkId: string;
+    accountId?: string;
+  }): Promise<void> {
+    // Landing on the aggregate view is not a request to catch any chain up.
+    if (networkUtils.isAllNetwork({ networkId })) return;
+    if (!(await this.getLocalWalletNetworkIds()).includes(networkId)) return;
+    // A pass must follow, or nothing clears Preparing on a chain already at its tip.
+    this.forgetRuntimeSyncState(networkId);
+    this.clearSyncFailureBackoff(networkId);
+    await this.publishSyncError(networkId, undefined);
     await this.setChainPaused(networkId, false);
+    await this.setAccountsPreparing({
+      networkId,
+      accountIds: accountId
+        ? [accountId]
+        : (
+            await this.listScannableAccounts(
+              await this.requireAccountCapability(networkId),
+            )
+          ).map((account) => account.accountId),
+    });
+    await this.requestForegroundScan(networkId);
+  }
+
+  // Wants the foreground pace. Held by metered data, the request stands so the light can offer the
+  // data choice.
+  private async requestForegroundScan(networkId: string): Promise<void> {
     this.foregroundBoostRequestedByNetwork[networkId] = true;
-    if (trigger === 'manual-sync') {
-      await this.setAccountsPreparing({
-        networkId,
-        accountIds: accountId
-          ? [accountId]
-          : (
-              await this.listScannableAccounts(
-                await this.requireAccountCapability(networkId),
-              )
-            ).map((account) => account.accountId),
-      });
-    }
-    // Publish before gate two can return early, so the UI can offer the data toggle.
     await this.publishBoostingNetworks();
     if (
       this.deviceIsCellular !== false &&
       !(await this.isPrivacySyncOnCellularAllowed())
     ) {
-      // Requested but refused by gate two; the request stands so the banner can offer the toggle.
       return;
     }
     await this.init();
@@ -829,6 +847,14 @@ class ServicePrivacyChain extends ServiceBase {
     this.allowCellularSyncCache =
       await this.backgroundApi.simpleDb.privacyChainState.getAllowCellularSync();
     return this.allowCellularSyncCache;
+  }
+
+  // Asked by a chain between scan steps, so a pause or a lost data consent stops the turn in flight.
+  async isLocalWalletScanHeld(networkId: string): Promise<boolean> {
+    return (
+      !!this.boostPausedByNetwork[networkId] ||
+      !(await this.isLocalWalletScanAllowed())
+    );
   }
 
   async isLocalWalletScanAllowed(): Promise<boolean> {
@@ -938,13 +964,20 @@ class ServicePrivacyChain extends ServiceBase {
       accountId,
       trigger: 'auto-backfill',
     });
-    // Held by metered data: request it anyway so the light offers the data choice.
+    // Held by metered data: request it anyway so the light offers the data choice, unless the
+    // account is synced and has nothing to wait for.
     if (
       !(await this.isLocalWalletScanAllowed()) &&
       (await this.getLocalWalletNetworkIds()).includes(networkId)
     ) {
-      this.foregroundBoostRequestedByNetwork[networkId] = true;
-      await this.publishBoostingNetworks();
+      const view = await this.getLocalWalletAccountSyncView({
+        networkId,
+        accountId,
+      }).catch(() => undefined);
+      if (view?.status !== 'synced') {
+        this.foregroundBoostRequestedByNetwork[networkId] = true;
+        await this.publishBoostingNetworks();
+      }
     }
     this.shortenStartupQuietWindow();
     await this.wakeLocalWalletSync();
@@ -1203,18 +1236,6 @@ class ServicePrivacyChain extends ServiceBase {
         networkId,
         capability: await this.requireAccountCapability(networkId),
       });
-    }
-    if (
-      backfillActive &&
-      generation === this.orphanCleanupGeneration.get(networkId) &&
-      !this.boostPausedByNetwork[networkId]
-    ) {
-      // An explicit enable needs a visible progress/consent control before the first scanned block
-      // is published.
-      this.foregroundBoostRequestedByNetwork[networkId] = true;
-      await this.setAccountsPreparing({ networkId, accountIds });
-      await this.publishBoostingNetworks();
-      this.shortenStartupQuietWindow();
     }
     await this.init();
     this.scheduleBackgroundSync(0);
@@ -2876,18 +2897,27 @@ class ServicePrivacyChain extends ServiceBase {
         this.repairMutexByAccount.delete(params.accountId);
       }
     }
-    // A rescan the user asked for starts like Sync: shown at once, not after the first pass. A
-    // paused account keeps its new start until it resumes.
-    const capability = await this.requireAccountCapability(params.networkId);
-    const state = await capability.getAccountState({
-      accountId: params.accountId,
-    });
-    if (!state.enabled) return;
-    await this.startForegroundBoost({
+    await this.startScanUnlessPaused({
       networkId: params.networkId,
       accountId: params.accountId,
-      trigger: 'manual-sync',
     });
+  }
+
+  // A rescan or setup repair the user asked for starts like Sync, shown at once rather than after
+  // the first pass. A paused account or chain only keeps its new start until the user continues.
+  private async startScanUnlessPaused({
+    networkId,
+    accountId,
+  }: {
+    networkId: string;
+    accountId?: string;
+  }): Promise<void> {
+    if (this.boostPausedByNetwork[networkId]) return;
+    if (accountId) {
+      const capability = await this.requireAccountCapability(networkId);
+      if (!(await capability.getAccountState({ accountId })).enabled) return;
+    }
+    await this.startUserSync({ networkId, accountId });
   }
 
   private async runLocalChainDataRepair({
@@ -3032,6 +3062,8 @@ class ServicePrivacyChain extends ServiceBase {
         event: 'resetSyncStorage',
         targets: [target],
       });
+      // eslint-disable-next-line no-await-in-loop
+      await this.startScanUnlessPaused({ networkId });
     }
   }
 
@@ -3705,6 +3737,19 @@ class ServicePrivacyChain extends ServiceBase {
     if (isActivation) {
       defaultLogger.wallet.privacyChain.privacyEnabled(tracked);
     }
+    // Enabling or resuming is a Sync: the chain switch turns on with the account's. The account
+    // is already on, so a failure to start must not report the enable as failed.
+    await this.startUserSync({ networkId, accountId }).catch(
+      (error: unknown) => {
+        console.error(
+          '[privacy-chain] could not start the scan after enabling',
+          {
+            networkId,
+            ...describePrivacyChainError(error),
+          },
+        );
+      },
+    );
   }
 
   private async enableLocalWalletAccountInSlot({
@@ -3999,6 +4044,7 @@ class ServicePrivacyChain extends ServiceBase {
       await capability.retryAccountSetup({ accountId });
       await this.claimSyncSlot({ networkId, accountId });
     });
+    await this.startScanUnlessPaused({ networkId, accountId });
   }
 
   @backgroundMethod()

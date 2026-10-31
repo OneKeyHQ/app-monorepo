@@ -37,6 +37,7 @@ import {
   readEnableBirthday,
 } from './LocalWalletRepairControls';
 import { TokenPrivacyPanel } from './TokenPrivacyPanel';
+import { getLocalWalletSyncAction } from './useLocalWalletPool';
 
 import type { ILocalWalletPool } from './useLocalWalletPool';
 
@@ -409,9 +410,8 @@ export function LocalWalletSyncRow({
   settingsOnly?: boolean;
 }) {
   const intl = useIntl();
-  const accountPaused = lw.state?.paused === true;
   // Paused here or from the sync light; either way this button resumes it.
-  const canResume = accountPaused || lw.isNetworkPaused;
+  const canResume = lw.isSyncPaused;
   const openSettings = useOpenPrivacyNetworkSettings({ accountId, networkId });
 
   if (
@@ -497,13 +497,9 @@ export function LocalWalletSyncRow({
         icon={canResume ? 'PlayOutline' : 'RefreshCcwOutline'}
         loading={lw.busy}
         onPress={() => {
-          let action = lw.refreshBalanceNow;
-          if (accountPaused) {
-            action = () => lw.enableAccount({});
-          } else if (lw.isNetworkPaused) {
-            action = lw.resumeNetworkSync;
-          }
-          void action().catch(logLocalWalletActionError('refresh'));
+          void getLocalWalletSyncAction(lw)().catch(
+            logLocalWalletActionError('refresh'),
+          );
         }}
       >
         {intl.formatMessage({

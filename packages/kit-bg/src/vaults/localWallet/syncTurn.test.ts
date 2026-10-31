@@ -77,6 +77,28 @@ describe('runBoundedSyncTurn', () => {
   });
 });
 
+describe('runBoundedSyncTurn shouldStop', () => {
+  // A pause or a lost data consent must not leave the turn scanning for its whole budget.
+  it('ends the turn before the next step once asked to stop', async () => {
+    const c = clock();
+    let stop = false;
+    const step = jest.fn(async () => {
+      c.advance(500);
+      stop = true;
+      return { done: false };
+    });
+    const result = await runBoundedSyncTurn({
+      budgetMs: 30_000,
+      expectedStepMs: 1000,
+      now: c.now,
+      step,
+      shouldStop: async () => stop,
+    });
+    expect(step).toHaveBeenCalledTimes(1);
+    expect(result).toMatchObject({ done: false, steps: 1 });
+  });
+});
+
 describe('runBoundedSyncTurn onStep', () => {
   it('runs after every step, so progress can be published step by step', async () => {
     const c = clock();

@@ -88,7 +88,7 @@ function pool(
     isTempWallet: false,
     refresh: jest.fn(),
     refreshBalanceNow: jest.fn(async () => undefined),
-    resumeNetworkSync: jest.fn(async () => undefined),
+    startSync: jest.fn(async () => undefined),
     enableAccount: jest.fn(async () => undefined),
     deleteLocalData: jest.fn(async () => undefined),
     ...overrides,
@@ -189,9 +189,9 @@ describe('token privacy status', () => {
 
   it.each([
     ['accountPaused', 'enableAccount'],
-    ['chainPaused', 'resumeNetworkSync'],
+    ['chainPaused', 'startSync'],
     ['synced', 'refreshBalanceNow'],
-    ['error', 'refreshBalanceNow'],
+    ['error', 'startSync'],
   ] as const)('acts on %s through %s', async (syncStatus, operation) => {
     const value = pool(syncStatus);
     const { result } = renderStatus(value);
@@ -200,7 +200,7 @@ describe('token privacy status', () => {
     });
     for (const name of [
       'enableAccount',
-      'resumeNetworkSync',
+      'startSync',
       'refreshBalanceNow',
     ] as const) {
       expect(value[name]).toHaveBeenCalledTimes(name === operation ? 1 : 0);
@@ -234,7 +234,7 @@ describe('token privacy status', () => {
     try {
       const { result } = renderStatus(
         pool('chainPaused', {
-          resumeNetworkSync: jest.fn(async () => {
+          startSync: jest.fn(async () => {
             throw new OneKeyLocalError('Network resume failed');
           }),
         }),

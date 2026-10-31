@@ -36,7 +36,9 @@ function lifecycleHarness() {
       syncFailureBackoff: new Map(),
       orphanCleanupGeneration: new Map(),
       scheduleBackgroundSync: jest.fn(),
-    },
+      // Starting the scan after a reset is covered by the service's own tests.
+      startUserSync: jest.fn(async () => undefined),
+    } as Record<string, unknown>,
     backgroundApi: {
       serviceAccount: {
         getDBAccountSafe: async ({ accountId }: { accountId: string }) => ({

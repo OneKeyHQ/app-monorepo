@@ -93,6 +93,7 @@ function createService({
     },
     enableMutexByNetwork: new Map<string, Mutex>(),
     repairMutexByAccount: new Map<string, Mutex>(),
+    boostPausedByNetwork: {} as Record<string, boolean>,
     storageUnsupportedNetworkIds: new Set<string>(),
     orphanCleanupGeneration: new Map<string, number>(),
     ...overrides,
@@ -190,6 +191,7 @@ describe('temp wallets cannot turn on privacy', () => {
     const runLocalWalletLifecycle = jest.fn(async () => ({
       failedNetworkIds: [],
     }));
+    const startUserSync = jest.fn(async () => undefined);
     const accounts: ILocalWalletAccount[] = [tempAccountId, savedAccountId].map(
       (accountId) => ({
         accountId,
@@ -204,12 +206,14 @@ describe('temp wallets cannot turn on privacy', () => {
         listAccounts: async () => ({ accounts, cleanupAccountIds: [] }),
         getAccountAliases: async ({ accountId }) => [accountId],
       },
-      overrides: { runLocalWalletLifecycle },
+      overrides: { runLocalWalletLifecycle, startUserSync },
     });
 
     await service.clearTransactionHistoryCache({ networkId });
 
     expect(runLocalWalletLifecycle).toHaveBeenCalledTimes(1);
+    // The reset starts the chain like a Sync, so it shows at once.
+    expect(startUserSync).toHaveBeenCalledWith({ networkId });
     expect(runLocalWalletLifecycle).toHaveBeenCalledWith({
       event: 'resetSyncStorage',
       targets: [

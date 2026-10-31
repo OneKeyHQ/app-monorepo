@@ -545,8 +545,8 @@ export function useLocalWalletPool({
       }),
     [accountId, networkId, runBusy],
   );
-  // Resumes a chain paused from the sync light, as the light's Sync did.
-  const resumeNetworkSync = useCallback(
+  // A Sync the user pressed: Preparing at once, a pass even at an unchanged tip, a chain pause lifted.
+  const startSync = useCallback(
     () =>
       runBusy(async () => {
         await backgroundApiProxy.servicePrivacyChain.startForegroundBoost({
@@ -606,10 +606,24 @@ export function useLocalWalletPool({
     isTempWallet: accountSupport === 'tempWallet',
     refresh,
     refreshBalanceNow,
-    resumeNetworkSync,
+    startSync,
     enableAccount,
     deleteLocalData,
   };
 }
 
 export type ILocalWalletPool = ReturnType<typeof useLocalWalletPool>;
+
+// What Sync/Resume does for the account's status, the same on every surface.
+export function getLocalWalletSyncAction(
+  lw: Pick<
+    ILocalWalletPool,
+    'syncStatus' | 'enableAccount' | 'startSync' | 'refreshBalanceNow'
+  >,
+): () => Promise<void> {
+  if (lw.syncStatus === 'accountPaused') return () => lw.enableAccount({});
+  if (lw.syncStatus === 'chainPaused' || lw.syncStatus === 'error') {
+    return lw.startSync;
+  }
+  return lw.refreshBalanceNow;
+}

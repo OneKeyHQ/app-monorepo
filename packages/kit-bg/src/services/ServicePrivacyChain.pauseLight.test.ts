@@ -240,44 +240,50 @@ describe('Privacy sync light pause state', () => {
       enabled = true,
       runLocalChainDataRepair = jest.fn(async () => undefined),
     } = {}) => {
-      const startForegroundBoost = jest.fn(async () => undefined);
+      const startUserSync = jest.fn(async () => undefined);
       const service = Object.assign(createService(), {
         repairMutexByAccount: new Map(),
         runLocalChainDataRepair,
         requireAccountCapability: async () => ({
           getAccountState: async () => ({ enabled, paused: !enabled }),
         }),
-        startForegroundBoost,
+        startUserSync,
       });
-      return { service, startForegroundBoost };
+      return { service, startUserSync };
     };
 
     it('shows at once instead of after the first pass', async () => {
-      const { service, startForegroundBoost } = createRepairService();
+      const { service, startUserSync } = createRepairService();
       await service.repairLocalChainData(repair);
-      expect(startForegroundBoost).toHaveBeenCalledWith({
+      expect(startUserSync).toHaveBeenCalledWith({
         networkId,
         accountId: 'account',
-        trigger: 'manual-sync',
       });
     });
 
     it('leaves a paused account waiting for resume', async () => {
-      const { service, startForegroundBoost } = createRepairService({
+      const { service, startUserSync } = createRepairService({
         enabled: false,
       });
       await service.repairLocalChainData(repair);
-      expect(startForegroundBoost).not.toHaveBeenCalled();
+      expect(startUserSync).not.toHaveBeenCalled();
+    });
+
+    it('keeps a paused chain paused, with its new start saved', async () => {
+      const { service, startUserSync } = createRepairService();
+      service.boostPausedByNetwork[networkId] = true;
+      await service.repairLocalChainData(repair);
+      expect(startUserSync).not.toHaveBeenCalled();
     });
 
     it('shows nothing when the rescan fails', async () => {
-      const { service, startForegroundBoost } = createRepairService({
+      const { service, startUserSync } = createRepairService({
         runLocalChainDataRepair: jest
           .fn()
           .mockRejectedValue(new Error('rescan failed')),
       });
       await expect(service.repairLocalChainData(repair)).rejects.toThrow();
-      expect(startForegroundBoost).not.toHaveBeenCalled();
+      expect(startUserSync).not.toHaveBeenCalled();
     });
   });
 
@@ -433,25 +439,11 @@ describe('Privacy sync light pause state', () => {
       service.foregroundBoostRequestedByNetwork[networkId],
     ).toBeUndefined();
   });
-  it('keeps a new account visible when another account is deleted during init', async () => {
+  it('keeps a new account visible when another account is deleted', async () => {
     const service = createService();
-    let finishInit!: () => void;
-    let initRequested!: () => void;
-    const requested = new Promise<void>((resolve) => {
-      initRequested = resolve;
-    });
-    service.init.mockImplementationOnce(() => {
-      initRequested();
-      return new Promise<void>((resolve) => {
-        finishInit = resolve;
-      });
-    });
-    const enabling = service.onLocalWalletAccountsChanged({
-      networkId,
-      accountIds: ['new'],
-      backfillActive: true,
-    });
-    await requested;
+    // As the user's enable would.
+    service.foregroundBoostRequestedByNetwork[networkId] = true;
+    await service.publishBoostingNetworks();
     mockGetChainOnlyVault.mockResolvedValue({
       getLocalWalletCapability: () => capabilityForAccounts(['new']),
     });
@@ -460,8 +452,6 @@ describe('Privacy sync light pause state', () => {
       accountIds: ['old'],
       backfillActive: false,
     });
-    finishInit();
-    await enabling;
     expect(mockPublished.boostingNetworkIds).toEqual([networkId]);
   });
 });

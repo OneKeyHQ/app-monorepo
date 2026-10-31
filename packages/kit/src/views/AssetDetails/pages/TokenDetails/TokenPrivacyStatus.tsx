@@ -11,6 +11,8 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EGalleryRoutes, EModalRoutes } from '@onekeyhq/shared/src/routes';
 
+import { getLocalWalletSyncAction } from './useLocalWalletPool';
+
 import type {
   ITokenPrivacyPanelProps,
   ITokenPrivacyPanelState,
@@ -43,18 +45,12 @@ export function useTokenPrivacyStatus({
     ? 'unavailable'
     : lw.syncStatus;
   const handleSync = useCallback(() => {
-    let action = lw.refreshBalanceNow;
-    if (status === 'accountPaused') {
-      action = () => lw.enableAccount({});
-    } else if (status === 'chainPaused') {
-      action = lw.resumeNetworkSync;
-    }
-    void action().catch((error: unknown) => {
+    void getLocalWalletSyncAction(lw)().catch((error: unknown) => {
       console.error('[privacyChain] refresh failed', {
         error: error instanceof Error ? error.message : '',
       });
     });
-  }, [lw, status]);
+  }, [lw]);
   const handleAllowMobileData = useCallback(() => {
     void backgroundApiProxy.servicePrivacyChain.setAllowCellularSync({
       allow: true,

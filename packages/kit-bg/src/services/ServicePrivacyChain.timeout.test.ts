@@ -383,11 +383,13 @@ describe('Privacy password work after a sync turn', () => {
   });
 });
 
-describe('Privacy enable scan visibility', () => {
+// The user's own entry (enable, Sync, a rescan) shows the scan; the notice only queues a pass.
+describe('Privacy accounts-changed notice', () => {
   it.each([false, true])(
-    'publishes an initial scan request without clearing manual pause (%s)',
+    'queues a pass without requesting the light or touching a pause (paused: %s)',
     async (paused) => {
       const publishBoostingNetworks = jest.fn();
+      const scheduleBackgroundSync = jest.fn();
       const service = Object.assign(
         Object.create(ServicePrivacyChain.prototype) as InstanceType<
           typeof ServicePrivacyChain
@@ -399,7 +401,7 @@ describe('Privacy enable scan visibility', () => {
           boostPausedByNetwork: { 'zec--0': paused },
           foregroundBoostRequestedByNetwork: {},
           init: jest.fn(),
-          scheduleBackgroundSync: jest.fn(),
+          scheduleBackgroundSync,
           publishBoostingNetworks,
         },
       );
@@ -408,11 +410,13 @@ describe('Privacy enable scan visibility', () => {
         accountIds: ['account'],
         backfillActive: true,
       });
-      expect(service.foregroundBoostRequestedByNetwork['zec--0']).toBe(
-        paused ? undefined : true,
-      );
+      expect(service.backfillActiveByAccount.account).toBe(true);
+      expect(scheduleBackgroundSync).toHaveBeenCalledWith(0);
+      expect(
+        service.foregroundBoostRequestedByNetwork['zec--0'],
+      ).toBeUndefined();
       expect(service.boostPausedByNetwork['zec--0']).toBe(paused);
-      expect(publishBoostingNetworks).toHaveBeenCalledTimes(paused ? 0 : 1);
+      expect(publishBoostingNetworks).not.toHaveBeenCalled();
     },
   );
 });
