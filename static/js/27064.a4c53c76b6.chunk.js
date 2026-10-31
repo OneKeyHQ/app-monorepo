@@ -1,0 +1,2 @@
+"use strict";(self.rspackChunkweb=self.rspackChunkweb||[]).push([[27064],{214027(t,e,a){a.r(e);var r=a(636767),n=a(672852);let sendProtection=async(t,e)=>{let a=e?.urlResult;if(a?.data?.urlParamList){let t=a?.data?.origin;if([r.rq,r.$U,r.km].includes(t)&&a?.data?.pathname==="/send/protection")return{type:n.Wb.SEND_PROTECTION,data:{}}}return null};a.d(e,{},{default:sendProtection})}}]);
+//# sourceMappingURL=27064.a4c53c76b6.chunk.js.map

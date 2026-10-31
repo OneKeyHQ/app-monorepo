@@ -1,0 +1,2 @@
+"use strict";(self.rspackChunkweb=self.rspackChunkweb||[]).push([[26327],{426154(e,t,a){var s=a(704102);let SimpleDbEntityLegacyWalletNames=class SimpleDbEntityLegacyWalletNames extends s.t{constructor(...e){super(...e),this.entityName="legacyWalletNames",this.enableCache=!1}};a.d(t,{SimpleDbEntityLegacyWalletNames:()=>SimpleDbEntityLegacyWalletNames})}}]);
+//# sourceMappingURL=26327.001e0e1236.chunk.js.map

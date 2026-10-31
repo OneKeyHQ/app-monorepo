@@ -1,0 +1,2 @@
+"use strict";(self.rspackChunkweb=self.rspackChunkweb||[]).push([[83758],{73789(t,a,e){e.r(a),e(446968);var l=e(672852),r=e(8909);let walletConnect=async(t,a)=>{let e=a?.urlResult,u=a?.deeplinkResult;if(u&&u.data.urlPathList?.[0]==="wc"&&(e=await r.A(u.data.urlParamList?.uri,a)),e&&-1!==["wc"].findIndex(t=>t===e?.data.urlSchema)){let t=e.data.urlPathList?.[0].split("@"),a={version:t?.[1],wcUri:e.data.url};return{type:l.Wb.WALLET_CONNECT,data:a}}return null};e.d(a,{},{default:walletConnect})}}]);
+//# sourceMappingURL=83758.f125e6a473.chunk.js.map

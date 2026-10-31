@@ -1,0 +1,2 @@
+"use strict";(self.rspackChunkweb=self.rspackChunkweb||[]).push([[15065],{610464(n,c,e){var r=e(826315);async function reconcileCurrencyInfoSymbolSnapshot({currencyMap:n}){let{currencyInfo:c}=await r.bB.get(),e=n[c.id]?.unit;e&&e!==c.symbol&&await r.bB.set(n=>n.currencyInfo.id===c.id?{...n,currencyInfo:{...n.currencyInfo,symbol:e}}:n)}e.d(c,{reconcileCurrencyInfoSymbolSnapshot:()=>reconcileCurrencyInfoSymbolSnapshot})}}]);
+//# sourceMappingURL=15065.e061423b2e.chunk.js.map

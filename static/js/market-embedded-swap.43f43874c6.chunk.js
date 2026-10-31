@@ -1,0 +1,2 @@
+"use strict";(self.rspackChunkweb=self.rspackChunkweb||[]).push([[96603],{188051(t,e,r){var a;let i=((a={}).MarketDetailV2="MarketDetailV2",a.MarketBannerDetail="MarketBannerDetail",a.MobileTokenSelector="MobileTokenSelector",a.MarketChartSettings="MarketChartSettings",a.MarketIndicatorSettings="MarketIndicatorSettings",a.MarketWidgetList="MarketWidgetList",a.MarketWidgetEditor="MarketWidgetEditor",a);r.d(e,{j:()=>i})}}]);
+//# sourceMappingURL=market-embedded-swap.43f43874c6.chunk.js.map

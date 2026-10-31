@@ -1,0 +1,2 @@
+"use strict";(self.rspackChunkweb=self.rspackChunkweb||[]).push([[8447],{451330(t,e,s){var r=s(704102);let SimpleDbEntitySwapNetworksSort=class SimpleDbEntitySwapNetworksSort extends r.t{constructor(...t){super(...t),this.entityName="swapNetworksSort",this.enableCache=!1}};s.d(e,{SimpleDbEntitySwapNetworksSort:()=>SimpleDbEntitySwapNetworksSort})}}]);
+//# sourceMappingURL=8447.550069608e.chunk.js.map

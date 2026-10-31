@@ -1,0 +1,2 @@
+"use strict";(self.rspackChunkweb=self.rspackChunkweb||[]).push([[98159],{889586(e,a,l){l.r(a);var s=l(361632),t=l(667745),r=l(344649);async function settle(e,a,l=!1){l&&t.U.app.error.log(`[WalletBackupPreCheckContainerLazy] load failed: ${a.message}`),await Promise.allSettled(e.map(e=>e.walletId&&r.A.isHdWallet({walletId:e.walletId})?s.default.servicePromise.rejectCallback({id:e.promiseId,error:a}):s.default.servicePromise.resolveCallback({id:e.promiseId,data:!0})))}l.d(a,{settle:()=>settle})}}]);
+//# sourceMappingURL=98159.150a2fdaa9.chunk.js.map

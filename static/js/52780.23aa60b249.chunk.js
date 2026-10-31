@@ -1,0 +1,2 @@
+"use strict";(self.rspackChunkweb=self.rspackChunkweb||[]).push([[52780],{886855(o,t,e){var r=e(689613);let NetworkDoctor=class NetworkDoctor{constructor(o){throw new r.pYd("NetworkDoctor is only available on native platforms (iOS/Android). This functionality requires native modules that are not available on web/desktop/extension.")}async run(){throw new r.pYd("NetworkDoctor is only available on native platforms (iOS/Android).")}};e.d(t,{NetworkDoctor:()=>NetworkDoctor})}}]);
+//# sourceMappingURL=52780.23aa60b249.chunk.js.map
