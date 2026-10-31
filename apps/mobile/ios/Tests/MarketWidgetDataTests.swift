@@ -118,6 +118,7 @@ struct MarketWidgetDataTests {
   }
 
   static func main() async throws {
+    try testAppQuoteSync()
     try testStocks()
     let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
     defer { try? FileManager.default.removeItem(at: directory) }
@@ -318,6 +319,37 @@ struct MarketWidgetDataTests {
     try await checkNonblockingLockScreenSuggestions()
     try testManualSlots()
     print("PASS: \(checks) market widget data checks")
+  }
+
+  private static func testAppQuoteSync() throws {
+    let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+    defer { try? FileManager.default.removeItem(at: directory) }
+    let store = MarketWidgetStore(directory: directory)
+    let asset = MarketWidgetAsset.defaults[0]
+    let now = Date()
+    try store.saveConfiguration(json: String(decoding: JSONEncoder().encode(MarketWidgetConfiguration(
+      schemaVersion: 1, assets: [asset], greenUp: true, locale: "en-US")), as: UTF8.self))
+    let points = (0..<24).map { MarketWidgetChartPoint(timestamp: now.timeIntervalSince1970 - Double(23 - $0) * 3600, value: 100) }
+    try store.saveQuote(MarketWidgetQuote(asset: asset, price: "100", change24h: "1",
+      fetchedAt: now.addingTimeInterval(-20), chart: points, chartFetchedAt: now.addingTimeInterval(-20)))
+    var payload: [String: Any] = ["currency": "usd", "quote": [
+      "asset": try JSONSerialization.jsonObject(with: JSONEncoder().encode(asset)),
+      "price": "105", "change24h": "2", "fetchedAt": now.addingTimeInterval(-5).timeIntervalSince1970 * 1000]]
+    func sync() throws -> Bool {
+      try store.syncQuote(json: String(decoding: JSONSerialization.data(withJSONObject: payload), as: UTF8.self))
+    }
+    expect(tryValue { try sync() } == true, "A fresh App quote updates the shared cache")
+    expect(store.quote(for: asset)?.price == "105" && store.quote(for: asset)?.chart?.count == 24,
+      "A price-only App update preserves the 24-hour chart")
+    expect(tryValue { try sync() } == false, "Duplicate App observations do not spend timeline reloads")
+    try store.saveQuote(MarketWidgetQuote(asset: asset, price: "90", change24h: "-1", fetchedAt: now.addingTimeInterval(-10)))
+    expect(store.quote(for: asset)?.price == "105", "A native request started earlier cannot overwrite the App quote")
+    payload["currency"] = "eur"
+    rejects("Converted prices cannot be labeled USD") { _ = try sync() }
+    payload["currency"] = "usd"
+    try store.saveConfiguration(json: #"{"schemaVersion":1,"assets":[],"privacyMasked":true,"greenUp":true,"locale":"en-US"}"#)
+    expect(tryValue { try sync() } == false && store.quote(for: asset) == nil,
+      "An in-flight bridge write cannot restore prices after privacy masking")
   }
 
   private static func checkNonblockingLockScreenSuggestions() async throws {

@@ -7,6 +7,25 @@ final class MarketWidgetModule: NSObject {
   @objc static func requiresMainQueueSetup() -> Bool { false }
   @objc func constantsToExport() -> [String: Any] { ["stockSupportVersion": 1] }
 
+  @objc(syncQuote:resolver:rejecter:)
+  func syncQuote(_ json: String, resolver resolve: RCTPromiseResolveBlock,
+                 rejecter reject: RCTPromiseRejectBlock) {
+    do {
+      let changed = try MarketWidgetStore().syncQuote(json: json)
+      if changed {
+        for kind in ["OneKeyMarketSingle", "OneKeyMarketWatchlist", "OneKeyMarketLockScreenWatchlist",
+                     "OneKeyMarketLockScreenCompact", "OneKeyMarketLockScreenPrice", "OneKeyMarketLockScreenChart"] {
+          WidgetCenter.shared.reloadTimelines(ofKind: kind)
+        }
+      }
+      MarketWidgetDiagnostics.event("quote.app_synced", ["changed": changed, "reloadRequested": changed])
+      resolve(changed)
+    } catch {
+      MarketWidgetDiagnostics.event("quote.app_sync_failed", error: error)
+      reject("MARKET_WIDGET_QUOTE_FAILED", "Unable to sync widget quote.", error)
+    }
+  }
+
   @objc(exportDiagnostics:rejecter:)
   func exportDiagnostics(_ resolve: RCTPromiseResolveBlock, rejecter reject: RCTPromiseRejectBlock) {
     do { try MarketWidgetDiagnostics.exportToAppLogs(); resolve(nil) }

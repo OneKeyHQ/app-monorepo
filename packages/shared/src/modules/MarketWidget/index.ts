@@ -7,6 +7,8 @@ const marketWidget: IMarketWidgetModule = {
   supportsStockAssets: () => false,
   supportsProfileEditing: () => false,
   supportsSettingsEditing: () => false,
+  supportsQuoteSync: () => false,
+  syncQuote: async () => false,
   setConfiguration: async () => undefined,
   getEditorState: async () => {
     throw new OneKeyLocalError('Market widget profile editing is unavailable');

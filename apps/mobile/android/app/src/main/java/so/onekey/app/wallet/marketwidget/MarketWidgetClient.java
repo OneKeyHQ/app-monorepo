@@ -42,7 +42,8 @@ final class MarketWidgetClient {
     }
 
     static MarketWidgetData.Quote fetch(MarketWidgetData.Asset asset, String locale) throws Exception {
-        return decode(asset, request(endpoint(asset), locale), System.currentTimeMillis());
+        long startedAt = System.currentTimeMillis();
+        return decode(asset, request(endpoint(asset), locale), startedAt);
     }
 
     private static JSONObject request(Uri uri, String locale) throws Exception {

@@ -32,6 +32,20 @@ export type IMarketWidgetConfiguration = {
   privacyMasked?: boolean;
 };
 
+export type IMarketWidgetQuoteUpdate = {
+  currency: 'usd';
+  quote: {
+    asset: IMarketWidgetAsset;
+    price: string;
+    change24h?: string;
+    // Request start (or live tick receipt), never the time a cached value is read.
+    fetchedAt: number;
+    stockSparkline?: number[];
+    priceUpdatedAt?: number;
+    marketClosed?: boolean;
+  };
+};
+
 export type IMarketWidgetKind = 'single' | 'list';
 export type IMarketWidgetSource = 'watchlist' | 'hot';
 
@@ -61,6 +75,8 @@ export type IMarketWidgetModule = {
   supportsStockAssets: () => boolean;
   supportsProfileEditing: () => boolean;
   supportsSettingsEditing: () => boolean;
+  supportsQuoteSync: () => boolean;
+  syncQuote: (update: IMarketWidgetQuoteUpdate) => Promise<boolean>;
   setConfiguration: (
     configuration: IMarketWidgetConfiguration,
   ) => Promise<void>;

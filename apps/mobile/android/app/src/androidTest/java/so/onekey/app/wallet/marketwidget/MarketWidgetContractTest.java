@@ -30,6 +30,31 @@ import so.onekey.app.wallet.R;
 @RunWith(AndroidJUnit4.class)
 public final class MarketWidgetContractTest {
     @Test
+    public void appQuotesRejectOldWritersAndRespectCurrencyAndPrivacy() throws Exception {
+        MarketWidgetData.Asset asset = MarketWidgetData.defaults().assets.get(0);
+        MarketWidgetStore.setConfiguration(context, new JSONObject().put("schemaVersion", 1).put("locale", "en-US")
+            .put("assets", new JSONArray().put(asset.json())).toString());
+        long now = System.currentTimeMillis();
+        JSONObject quote = new JSONObject().put("asset", asset.json()).put("price", "105")
+            .put("change24h", "2").put("fetchedAt", now - 5000);
+        JSONObject update = new JSONObject().put("currency", "usd").put("quote", quote);
+        assertTrue(MarketWidgetStore.syncQuote(context, update.toString()));
+        assertFalse(MarketWidgetStore.syncQuote(context, update.toString()));
+        assertFalse(MarketWidgetStore.saveQuote(context, asset,
+            new MarketWidgetData.Quote(new BigDecimal("90"), null, "BTC", "Bitcoin", now - 10_000)));
+        assertEquals(new BigDecimal("105"), MarketWidgetStore.quote(context, asset).price);
+        quote.put("fetchedAt", now - 8000).put("price", "95");
+        assertFalse(MarketWidgetStore.syncQuote(context, update.toString()));
+        update.put("currency", "eur");
+        try { MarketWidgetStore.syncQuote(context, update.toString()); fail("Converted prices must be rejected"); }
+        catch (org.json.JSONException expected) { }
+        update.put("currency", "usd");
+        MarketWidgetStore.setConfiguration(context, "{\"schemaVersion\":1,\"assets\":[],\"privacyMasked\":true,\"locale\":\"en-US\"}");
+        assertFalse(MarketWidgetStore.syncQuote(context, update.toString()));
+        assertNull(MarketWidgetStore.quote(context, asset));
+    }
+
+    @Test
     public void stocksKeepIdentityAndClosedSessionCurvesAcrossCacheReads() throws Exception {
         MarketWidgetData.Asset stock = new MarketWidgetData.Asset(new JSONObject()
             .put("kind", "stock").put("stockId", "NVDA").put("symbol", "NVDA").put("name", "NVIDIA"));

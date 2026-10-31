@@ -136,7 +136,7 @@ struct MarketWidgetQuote: Codable {
   let asset: MarketWidgetAsset
   let price: String
   let change24h: String?
-  // Fetch completion is separate from the stock feed's last price update.
+  // Request start (or App live tick receipt) orders concurrent quote writers.
   let fetchedAt: Date
   var chart: [MarketWidgetChartPoint]? = nil
   var chartFetchedAt: Date? = nil
@@ -608,18 +608,45 @@ struct MarketWidgetStore {
     return quote.isValid ? quote : nil
   }
 
-  func saveQuote(_ quote: MarketWidgetQuote) throws {
+  func syncQuote(json: String) throws -> Bool {
+    struct Update: Decodable {
+      let currency: String
+      let quote: MarketWidgetQuote
+    }
+    guard let data = json.data(using: .utf8), data.count <= 65_536 else {
+      throw MarketWidgetError.invalidQuote
+    }
+    let decoder = JSONDecoder()
+    decoder.dateDecodingStrategy = .millisecondsSince1970
+    let update = try decoder.decode(Update.self, from: data)
+    guard update.currency == "usd", update.quote.isValid,
+          update.quote.change24h.map({ MarketWidgetQuote.decimal($0) != nil }) ?? true else {
+      throw MarketWidgetError.invalidQuote
+    }
+    guard Date().timeIntervalSince(update.quote.fetchedAt) < 300,
+          permitsRequests(for: update.quote.asset) else { return false }
+    return try saveQuote(update.quote)
+  }
+
+  @discardableResult
+  func saveQuote(_ quote: MarketWidgetQuote) throws -> Bool {
     guard quote.isValid else { throw MarketWidgetError.invalidQuote }
     let directory = try preparedDirectory()
     guard let url = quoteURL(for: quote.asset) else { throw MarketWidgetError.storageUnavailable }
+    var changed = false
     try coordinateWrite(at: directory) {
       guard permittedAssets().contains(where: { $0.id == quote.asset.id }) else {
         throw MarketWidgetError.invalidConfiguration
       }
+      let current = self.quote(for: quote.asset)
+      if let current, quote.fetchedAt <= current.fetchedAt,
+         (quote.chartFetchedAt ?? .distantPast) <= (current.chartFetchedAt ?? .distantPast) { return }
       // Price-only updates and chart completions can arrive in either order, including across processes.
-      let merged = quote.merging(self.quote(for: quote.asset))
+      let merged = quote.merging(current)
       try JSONEncoder().encode(merged).write(to: url, options: .atomic)
+      changed = true
     }
+    return changed
   }
 
   func assets(for source: MarketWidgetSource) -> [MarketWidgetAsset] {
