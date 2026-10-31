@@ -50,7 +50,7 @@ const PREVIOUS_CLOSE_HIDDEN_OPTION_IDS = [
 ] as const satisfies NonNullable<
   ITradingViewChartSettingsProps['hiddenOptionIds']
 >;
-// Only charts that render the hover navigation bar offer its visibility toggle.
+// Only charts that render navigation controls offer their visibility toggle.
 const NAVIGATION_BUTTONS_HIDDEN_OPTION_IDS = [
   'navigationButtons',
 ] as const satisfies NonNullable<
@@ -203,6 +203,7 @@ export default function MarketChartSettingsModal() {
           usePageFooter={!md}
           mobileLayout={md}
           showPreviousClose={showPreviousClose}
+          showNavigationButtons={route.params?.showNavigationButtons}
           showChartType={route.params?.showChartType}
           renderChartDisplayLeadingRow={
             chartMode && onChartSwitch

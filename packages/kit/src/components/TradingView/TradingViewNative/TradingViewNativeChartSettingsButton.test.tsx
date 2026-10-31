@@ -93,6 +93,7 @@ describe('TradingViewNativeChartSettingsButton', () => {
         screen: 'MarketChartSettings',
         params: {
           showPreviousClose: false,
+          showNavigationButtons: false,
           showChartType: true,
           chartMode: 'native',
           isChartSwitchDisabled: true,
@@ -107,6 +108,7 @@ describe('TradingViewNativeChartSettingsButton', () => {
       <TradingViewNativeChartSettingsButton
         priceAxisWidth={52}
         enablePreviousClose
+        enableNavigationButtons
       />,
     );
 
@@ -114,7 +116,11 @@ describe('TradingViewNativeChartSettingsButton', () => {
 
     expect(mockPushModal).toHaveBeenCalledWith('MarketModal', {
       screen: 'MarketChartSettings',
-      params: { showPreviousClose: true, showChartType: true },
+      params: {
+        showPreviousClose: true,
+        showNavigationButtons: true,
+        showChartType: true,
+      },
     });
   });
 
@@ -133,7 +139,11 @@ describe('TradingViewNativeChartSettingsButton', () => {
     expect(onBeforeOpenSettings).toHaveBeenCalledTimes(1);
     expect(mockPushModal).toHaveBeenCalledWith('MarketModal', {
       screen: 'MarketChartSettings',
-      params: { showPreviousClose: false, showChartType: true },
+      params: {
+        showPreviousClose: false,
+        showNavigationButtons: false,
+        showChartType: true,
+      },
     });
     expect(onBeforeOpenSettings.mock.invocationCallOrder[0]).toBeLessThan(
       mockPushModal.mock.invocationCallOrder[0],

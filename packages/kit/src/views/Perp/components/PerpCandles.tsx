@@ -226,7 +226,6 @@ export function PerpCandles({
           onInteractionChange={setIsChartInteracting}
           enableNativeChartSettings
           enableDrawings={!platformEnv.isNative}
-          enableNavigationControls={isDesktopLayout}
           prioritizePageScroll={platformEnv.isNativeIOS}
           nativeControlsLayoutMode={isDesktopLayout ? 'desktop' : 'mobile'}
           nativeChartSettingsInToolbar={platformEnv.isNative}
