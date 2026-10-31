@@ -20,6 +20,7 @@ import type {
   IModalSwapParamList,
 } from '@onekeyhq/shared/src/routes';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
+import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { IMarketSearchV2Token } from '@onekeyhq/shared/types/market';
 import { ESwapProAnalyticsTokenSelectFrom } from '@onekeyhq/shared/types/swap/types';
 
@@ -29,7 +30,6 @@ import {
 } from '../../../Market/MarketHomeV2/components/MarketTokenList';
 import { MarketTokenListNetworkSelector } from '../../../Market/MarketHomeV2/components/MarketTokenListNetworkSelector';
 import { MarketWatchListProviderMirrorV2 } from '../../../Market/MarketWatchListProviderMirrorV2';
-import { getSwapAccountSelectorSceneName } from '../../hooks/useSwapAccount.utils';
 import { useSwapProTokenSearch } from '../../hooks/useSwapPro';
 import SwapProSearchTokenList from '../components/SwapProSearchTokenList';
 import { SwapProviderMirror } from '../SwapProviderMirror';
@@ -211,14 +211,10 @@ const SwapProSelectTokenModalWithProvider = () => {
   );
 };
 export default function SwapProSelectTokenModal() {
-  const route =
-    useRoute<
-      RouteProp<IModalSwapParamList, EModalSwapRoutes.SwapProSelectToken>
-    >();
   return (
     <AccountSelectorProviderMirror
       config={{
-        sceneName: getSwapAccountSelectorSceneName(route.params.storeName),
+        sceneName: EAccountSelectorSceneName.swap,
       }}
       enabledNum={[0, 1]}
     >

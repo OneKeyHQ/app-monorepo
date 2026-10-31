@@ -29,11 +29,9 @@ import { buildSwapNetworkReadyKey } from '../utils/swapNetworkCacheUtils';
 import {
   buildSwapTokenListCacheKey,
   getSwapTokenSelectorCacheEpoch,
-  invalidateUrlAccountTokenSelectorCache,
 } from '../utils/swapTokenSelectorCacheUtils';
 
 import {
-  invalidateSwapSupportAllAccounts,
   useSwapSelectedTokenInfo,
   useSwapTokenList,
   useSwapTokenSearchKeyword,
@@ -1191,68 +1189,6 @@ describe('useSwapTokenList loading lifecycle', () => {
     });
     expect(mockFetchTokenList).toHaveBeenCalledTimes(2);
     expect(mockFetchTokenList.mock.calls[1][0].accountAddress).toBeUndefined();
-    unmount();
-  });
-
-  it('discards an older account discovery after repeated URL account invalidations', async () => {
-    const makeAccount = (apiAddress: string): IAllNetworkAccountInfo => ({
-      networkId: network.networkId,
-      accountId: 'same-url-account-id',
-      apiAddress,
-      accountXpub: undefined,
-      pub: undefined,
-      dbAccount: undefined,
-      isNftEnabled: true,
-      isBackendIndexed: true,
-      deriveType: undefined,
-      deriveInfo: undefined,
-      isTestnet: false,
-    });
-    const first = makeAccount('address-a');
-    const late = deferred();
-    mockGetSupportAccounts.mockResolvedValue({
-      supportAccountsFetchFailed: false,
-      swapSupportAccounts: [first],
-    });
-    mockFetchTokenList.mockImplementation(async (params) =>
-      cacheScopedTokens(params, [token]),
-    );
-    const { result, unmount } = renderList();
-    await waitFor(() => expect(result.current.currentTokens).toEqual([token]));
-    mockGetSupportAccounts
-      .mockImplementationOnce(async () => {
-        await late.promise;
-        return {
-          supportAccountsFetchFailed: false,
-          swapSupportAccounts: [makeAccount('address-b')],
-        };
-      })
-      .mockResolvedValue({
-        supportAccountsFetchFailed: false,
-        swapSupportAccounts: [first],
-      });
-    act(() => {
-      invalidateUrlAccountTokenSelectorCache();
-      invalidateSwapSupportAllAccounts();
-    });
-    await waitFor(() =>
-      expect(mockGetSupportAccounts).toHaveBeenCalledTimes(2),
-    );
-    act(() => {
-      invalidateUrlAccountTokenSelectorCache();
-      invalidateSwapSupportAllAccounts();
-    });
-    await waitFor(() =>
-      expect(mockGetSupportAccounts).toHaveBeenCalledTimes(3),
-    );
-    await waitFor(() => expect(result.current.currentTokens).toEqual([token]));
-    await act(async () => late.resolve());
-    expect(result.current.currentTokens).toEqual([token]);
-    expect(
-      mockFetchTokenList.mock.calls.some(
-        ([params]) => params.accountAddress === 'address-b',
-      ),
-    ).toBe(false);
     unmount();
   });
 

@@ -316,9 +316,7 @@ export const SwapModalRootProvider = memo(
     const store = useJotaiContextRootStore(data);
     return (
       <ProviderJotaiContextSwap store={store}>
-        {storeName === EJotaiContextStoreNames.swapUrlAccount ? null : (
-          <SwapColdStartCacheSync />
-        )}
+        <SwapColdStartCacheSync />
         <SwapTokenSelectorColdStartCacheSync />
       </ProviderJotaiContextSwap>
     );

@@ -123,10 +123,6 @@ function invalidate(identityChanged: boolean, clearAll?: boolean) {
   listeners.forEach((listener) => listener());
 }
 
-export function invalidateUrlAccountTokenSelectorCache() {
-  invalidate(true, false);
-}
-
 appEventBus.on(EAppEventBusNames.SwapTxHistoryStatusUpdate, () =>
   invalidate(false),
 );

@@ -9,12 +9,10 @@ import { swapDefaultSetTokens } from '@onekeyhq/shared/types/swap/SwapProvider.c
 import { ESwapTabSwitchType } from '@onekeyhq/shared/types/swap/types';
 
 import {
-  swapBalanceDisplayCacheAtom,
   swapFromTokenAmountAtom,
   swapInitialSelectedTokensSyncedAtom,
   swapSelectFromTokenAtom,
   swapSelectToTokenAtom,
-  swapSelectedFromTokenBalanceAtom,
   swapSelectedTokensColdStartContextAtom,
   swapToTokenAmountAtom,
   swapTypeSwitchAtom,
@@ -23,11 +21,6 @@ import { prepareMarketSwapEntry } from '../../../states/jotai/contexts/swap/prep
 import { jotaiContextStore } from '../../../states/jotai/utils/jotaiContextStore';
 import { buildMarketEmbeddedSwapInitParams } from '../../Market/MarketDetailV2/layouts/marketEmbeddedSwapUtils';
 import { getLatestHomeSelectedAccount } from '../utils/swapHomeSelectedAccountUtils';
-import {
-  getSwapTokenSelectorCacheEpoch,
-  invalidateUrlAccountTokenSelectorCache,
-  isSwapTokenSelectorSnapshotCurrent,
-} from '../utils/swapTokenSelectorCacheUtils';
 
 import { SwapProviderMirror } from './SwapProviderMirror';
 import { SwapModalRootProvider } from './SwapRootProvider';
@@ -47,56 +40,6 @@ jest.mock('../utils/swapHomeSelectedAccountUtils', () => ({
 }));
 
 describe('Market modal initial token selection', () => {
-  it('invalidates selector snapshots on every URL account transition, including A to B to A', () => {
-    const before = getSwapTokenSelectorCacheEpoch();
-    const snapshot = {
-      identityVersion: before.identity,
-      refreshVersion: before.refresh,
-    };
-    invalidateUrlAccountTokenSelectorCache();
-    invalidateUrlAccountTokenSelectorCache();
-    expect(getSwapTokenSelectorCacheEpoch().identity).toBe(before.identity + 2);
-    expect(isSwapTokenSelectorSnapshotCurrent(snapshot)).toBe(false);
-  });
-  it('does not reuse a previous URL account balance for the same token', () => {
-    const storeName = EJotaiContextStoreNames.swapUrlAccount;
-    const store = jotaiContextStore.getOrCreateStore({ storeName });
-    const btc = {
-      networkId: 'btc--0',
-      contractAddress: '',
-      decimals: 8,
-      symbol: 'BTC',
-      isNative: true,
-    };
-    store.set(swapSelectFromTokenAtom(), btc);
-    store.set(swapSelectedFromTokenBalanceAtom(), '42');
-    store.set(swapBalanceDisplayCacheAtom(), {
-      version: 1,
-      entries: [
-        {
-          accountAddress: 'address-a',
-          accountKey: 'same-key',
-          balance: '42',
-          networkId: 'btc--0',
-          isNative: true,
-          updatedAt: Date.now(),
-        },
-      ],
-    });
-    const view = render(
-      <SwapProviderMirror
-        storeName={storeName}
-        initialSelectedTokensOnInit={{
-          accountKey: 'same-key',
-          fromToken: btc,
-          swapType: ESwapTabSwitchType.SWAP,
-        }}
-      />,
-    );
-    expect(store.get(swapSelectedFromTokenBalanceAtom())).toBe('');
-    expect(store.get(swapBalanceDisplayCacheAtom()).entries).toHaveLength(0);
-    view.unmount();
-  });
   it('keeps Tab, More and inline token selections in separate scoped caches', () => {
     const tab = jotaiContextStore.prepareStoreForImmediateUse({
       storeName: EJotaiContextStoreNames.swap,

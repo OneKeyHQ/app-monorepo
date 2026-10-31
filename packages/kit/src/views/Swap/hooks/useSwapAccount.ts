@@ -448,14 +448,10 @@ export function useSwapAddressInfo(
         activeAccount.wallet?.id ?? '',
         activeAccount.indexedAccount?.id ?? '',
         activeAccount.account?.id ?? '',
-        accountUtils.isUrlAccountFn({ accountId: activeAccount.account?.id })
-          ? (activeAccount.account?.addressDetail?.address ?? '')
-          : '',
         activeAccount.deriveType ?? '',
       ].join('|'),
     [
       activeAccount.account?.id,
-      activeAccount.account?.addressDetail?.address,
       activeAccount.deriveType,
       activeAccount.indexedAccount?.id,
       activeAccount.wallet?.id,

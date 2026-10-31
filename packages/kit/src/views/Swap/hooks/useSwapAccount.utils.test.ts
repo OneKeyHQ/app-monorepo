@@ -1,7 +1,4 @@
-import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
-import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
-import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import {
   ESwapDirectionType,
   ESwapTabSwitchType,
@@ -10,14 +7,11 @@ import {
 import {
   buildSwapAddressAccountInfo,
   getSwapAccountNetworkWarningAccountId,
-  getSwapAccountSelectorSceneName,
   getSwapAddressAccountSelectorNum,
   getSwapRecipientActionState,
   getSwapRecipientEditorAccountInfo,
   getSwapRecipientValidationAccountId,
-  getUrlAccountReviewMode,
   hasSwapFromAddressForVerdict,
-  isSameUrlAccountAddress,
   resolveSettledSwapRecipientRequired,
   resolveSwapBalanceAccount,
   resolveSwapTargetNetworkAccount,
@@ -26,109 +20,9 @@ import {
   shouldShowSwapRecipientAddressInfo,
   shouldShowSwapRecipientEntry,
   shouldUseSwapCustomRecipientAddress,
-  verifyUrlAccountForSwapReview,
 } from './useSwapAccount.utils';
 
 import type { IAccountSelectorActiveAccountInfo } from '../../../states/jotai/contexts/accountSelector';
-
-describe('isSameUrlAccountAddress', () => {
-  it('ignores EVM address case but preserves case for other networks', () => {
-    expect(
-      isSameUrlAccountAddress({
-        actual: '0xAbC',
-        expected: '0xaBc',
-        networkId: 'evm--1',
-      }),
-    ).toBe(true);
-    expect(
-      isSameUrlAccountAddress({
-        actual: 'AbC',
-        expected: 'aBc',
-        networkId: 'btc--0',
-      }),
-    ).toBe(false);
-    expect(
-      isSameUrlAccountAddress({
-        actual: '',
-        expected: '',
-        networkId: 'evm--1',
-      }),
-    ).toBe(false);
-  });
-});
-
-describe('getSwapAccountSelectorSceneName', () => {
-  it('keeps the URL account scene isolated and retains the normal scene elsewhere', () => {
-    expect(
-      getSwapAccountSelectorSceneName(EJotaiContextStoreNames.swapUrlAccount),
-    ).toBe(EAccountSelectorSceneName.swapUrlAccount);
-    expect(
-      getSwapAccountSelectorSceneName(EJotaiContextStoreNames.swapHomeToken),
-    ).toBe(EAccountSelectorSceneName.swap);
-  });
-});
-
-describe('getUrlAccountReviewMode', () => {
-  it('blocks an unresolved account, checks the URL account and permits an explicitly selected regular account', () => {
-    const urlAccountAddress = 'address-a';
-    expect(getUrlAccountReviewMode({ urlAccountAddress, isReady: false })).toBe(
-      'blocked',
-    );
-    expect(getUrlAccountReviewMode({ urlAccountAddress, isReady: true })).toBe(
-      'blocked',
-    );
-    expect(
-      getUrlAccountReviewMode({
-        urlAccountAddress,
-        accountId: accountUtils.URL_ACCOUNT_ID,
-        isReady: true,
-      }),
-    ).toBe('verify');
-    expect(
-      getUrlAccountReviewMode({
-        urlAccountAddress,
-        accountId: 'hd--account',
-        isReady: true,
-      }),
-    ).toBe('normal');
-    expect(getUrlAccountReviewMode({ isReady: false })).toBe('normal');
-  });
-});
-
-describe('verifyUrlAccountForSwapReview', () => {
-  it('rejects a replaced account and a selection changed during the read', async () => {
-    let complete: ((address: string) => void) | undefined;
-    let isCurrent = true;
-    const pending = verifyUrlAccountForSwapReview({
-      expectedAddress: 'address-a',
-      networkId: 'btc--0',
-      readAccountAddress: () =>
-        new Promise((resolve) => {
-          complete = resolve;
-        }),
-      isCurrent: () => isCurrent,
-    });
-    isCurrent = false;
-    complete?.('address-a');
-    await expect(pending).resolves.toBe('stale');
-    await expect(
-      verifyUrlAccountForSwapReview({
-        expectedAddress: 'address-a',
-        networkId: 'btc--0',
-        readAccountAddress: async () => 'address-b',
-        isCurrent: () => true,
-      }),
-    ).resolves.toBe('mismatch');
-    await expect(
-      verifyUrlAccountForSwapReview({
-        expectedAddress: 'address-a',
-        networkId: 'btc--0',
-        readAccountAddress: async () => 'address-a',
-        isCurrent: () => true,
-      }),
-    ).resolves.toBe('valid');
-  });
-});
 
 function buildAccountInfo({
   accountId,

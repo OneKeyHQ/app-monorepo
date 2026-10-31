@@ -11,9 +11,9 @@ import type { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IModalSwapParamList } from '@onekeyhq/shared/src/routes';
 import { EModalSwapRoutes } from '@onekeyhq/shared/src/routes';
+import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { IFetchLimitOrderRes } from '@onekeyhq/shared/types/swap/types';
 
-import { getSwapAccountSelectorSceneName } from '../../hooks/useSwapAccount.utils';
 import { useSwapLimitOrdersVisibilityRefresh } from '../../hooks/useSwapLimitOrdersVisibilityRefresh';
 import LimitOrderList from '../components/LimitOrderList';
 import { SwapProviderMirror } from '../SwapProviderMirror';
@@ -87,7 +87,7 @@ export default function LimitOrderListModalWithAllProvider({
   return (
     <AccountSelectorProviderMirror
       config={{
-        sceneName: getSwapAccountSelectorSceneName(storeName),
+        sceneName: EAccountSelectorSceneName.swap,
       }}
       enabledNum={[0, 1]}
     >

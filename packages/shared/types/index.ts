@@ -85,7 +85,6 @@ export enum EAccountSelectorSceneName {
   home = 'home',
   homeUrlAccount = 'homeUrlAccount',
   swap = 'swap',
-  swapUrlAccount = 'swapUrlAccount',
   primePayment = 'primePayment',
   perp = 'perp',
   discover = 'discover',

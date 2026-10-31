@@ -196,8 +196,6 @@ export function useSwapInit(params?: ISwapInitParams) {
     buildSwapInitParamsConsumptionKey(params);
   const [swapTypeSwitch] = useSwapTypeSwitchAtom();
   const swapColdStartScopeKey = useSwapColdStartScopeKey();
-  const isUrlAccountSwap =
-    swapColdStartScopeKey === `store:${EJotaiContextStoreNames.swapUrlAccount}`;
   const rootSwapInitType =
     swapColdStartScopeKey === `store:${EJotaiContextStoreNames.swap}`
       ? swapTypeSwitch
@@ -967,9 +965,6 @@ export function useSwapInit(params?: ISwapInitParams) {
   >(undefined);
 
   const syncSwapSelectedAccountFromLatestHomeStorage = useCallback(async () => {
-    if (isUrlAccountSwap) {
-      return { synced: false as const, cancelled: false as const };
-    }
     if (syncSwapSelectedAccountFromHomeStoragePromiseRef.current) {
       return syncSwapSelectedAccountFromHomeStoragePromiseRef.current;
     }
@@ -980,15 +975,12 @@ export function useSwapInit(params?: ISwapInitParams) {
     });
     syncSwapSelectedAccountFromHomeStoragePromiseRef.current = promise;
     return promise;
-  }, [isUrlAccountSwap, syncSwapSelectedAccountFromLatestHome]);
+  }, [syncSwapSelectedAccountFromLatestHome]);
 
   useEffect(() => {
     const handleAccountSelectorSelectedAccountUpdate = (
       eventPayload: IAppEventBusPayload[EAppEventBusNames.AccountSelectorSelectedAccountUpdate],
     ) => {
-      if (isUrlAccountSwap) {
-        return;
-      }
       if (
         eventPayload.sceneName !== SWAP_COLD_START_HOME_SCENE_NAME ||
         eventPayload.num !== 0
@@ -1030,11 +1022,7 @@ export function useSwapInit(params?: ISwapInitParams) {
         handleAccountSelectorSelectedAccountUpdate,
       );
     };
-  }, [
-    isUrlAccountSwap,
-    markInitialSelectedTokensSynced,
-    syncSwapSelectedAccountFromHome,
-  ]);
+  }, [markInitialSelectedTokensSynced, syncSwapSelectedAccountFromHome]);
 
   useEffect(() => {
     if (hasSyncedSwapSelectedAccountFromHomeStorageRef.current) {

@@ -43,7 +43,6 @@ export type IModalSwapParamList = {
     importAccountKey?: string;
     fromAmount?: string;
     importNetworkId?: string;
-    importUrlAccount?: { address: string; networkId: string };
     swapTabSwitchType?: ESwapTabSwitchType;
     importDeriveType?: IAccountDeriveTypes;
     swapSource?: ESwapSource;

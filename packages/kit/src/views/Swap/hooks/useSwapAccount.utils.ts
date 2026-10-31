@@ -1,10 +1,7 @@
-import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
-import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { equalsIgnoreCase } from '@onekeyhq/shared/src/utils/stringUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
-import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 import {
   ESwapDirectionType,
@@ -12,65 +9,6 @@ import {
 } from '@onekeyhq/shared/types/swap/types';
 
 import type { IAccountSelectorActiveAccountInfo } from '../../../states/jotai/contexts/accountSelector';
-
-export function getSwapAccountSelectorSceneName(
-  storeName: EJotaiContextStoreNames,
-) {
-  return storeName === EJotaiContextStoreNames.swapUrlAccount
-    ? EAccountSelectorSceneName.swapUrlAccount
-    : EAccountSelectorSceneName.swap;
-}
-
-export function isSameUrlAccountAddress({
-  actual,
-  expected,
-  networkId,
-}: {
-  actual?: string;
-  expected?: string;
-  networkId: string;
-}) {
-  if (!actual || !expected) return false;
-  return networkUtils.isEvmNetwork({ networkId })
-    ? equalsIgnoreCase(actual, expected)
-    : actual === expected;
-}
-
-export function getUrlAccountReviewMode({
-  urlAccountAddress,
-  accountId,
-  isReady,
-}: {
-  urlAccountAddress?: string;
-  accountId?: string;
-  isReady: boolean;
-}): 'normal' | 'blocked' | 'verify' {
-  if (!urlAccountAddress) return 'normal';
-  if (!isReady || !accountId) return 'blocked';
-  return accountUtils.isUrlAccountFn({ accountId }) ? 'verify' : 'normal';
-}
-
-export async function verifyUrlAccountForSwapReview({
-  expectedAddress,
-  networkId,
-  readAccountAddress,
-  isCurrent,
-}: {
-  expectedAddress: string;
-  networkId: string;
-  readAccountAddress: () => Promise<string | undefined>;
-  isCurrent: () => boolean;
-}): Promise<'valid' | 'mismatch' | 'stale'> {
-  const actual = await readAccountAddress();
-  if (!isCurrent()) return 'stale';
-  return isSameUrlAccountAddress({
-    actual,
-    expected: expectedAddress,
-    networkId,
-  })
-    ? 'valid'
-    : 'mismatch';
-}
 
 /**
  * Builds the account info exposed to swap actions after an optional
