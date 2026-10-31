@@ -449,6 +449,48 @@ describe('TradingViewNativeContainer', () => {
     jest.useRealTimers();
   });
 
+  it.each([
+    ['hyperliquid', 'ZEC', 1278.4, 4, 1, '1278.4'],
+    ['hyperliquid', '@143', 1.234_567, 6, 6, '1.234567'],
+    ['hyperliquid', 'PURR/USDC', 1.234_567, 6, 6, '1.234567'],
+    ['hyperliquid', '@143', 0.000_000_12, 8, 8, '0.00000012'],
+    ['hyperliquid', '@143', 0.123_456, 6, 6, '0.123456'],
+    ['market', 'TOKEN', 1271.25, 1, undefined, '1271.3'],
+  ] as const)(
+    'keeps %s %s prices intact while choosing axis precision',
+    (kind, coin, price, decimals, axisDecimals, label) => {
+      mockDataState = { status: 'live' };
+      mockPoints = [
+        { c: 999.1234, h: 999.2345, l: 998.1234, o: 999.1, t: 1, v: 10 },
+        { c: price, h: price, l: price, o: price, t: 2, v: 10 },
+      ];
+      const chart = (sourceCoin: string) => (
+        <TradingViewNativeContainer
+          source={
+            kind === 'hyperliquid'
+              ? { kind, coin: sourceCoin, environment: 'mainnet' }
+              : {
+                  kind,
+                  networkId: 'evm--1',
+                  tokenAddress: '0x123',
+                  symbol: 'TOKEN',
+                  realtime: 'disabled',
+                }
+          }
+          priceDecimalPlaces={decimals}
+        />
+      );
+      const view = render(chart('ZEC'));
+      view.rerender(chart(coin));
+      expect(mockTradingViewNativeChart.mock.lastCall?.[0]).toMatchObject({
+        priceAxisDecimalPlaces: axisDecimals,
+        priceDecimalPlaces: decimals,
+        currentPriceLabel: label,
+        points: mockPoints,
+      });
+    },
+  );
+
   it('restores retained inline dimensions and ignores a closing fullscreen layout', () => {
     const onSizeChange = jest.fn();
     const area = (isActive: boolean) => (
@@ -1085,6 +1127,40 @@ describe('TradingViewNativeContainer', () => {
         activeIndicatorValues: new Set(['EMA']),
       }),
     );
+  });
+
+  it('keeps the precision mask inside the fullscreen portal until metadata is ready', () => {
+    mockDataState = { status: 'live' };
+    mockPoints = [{ c: 100, h: 101, l: 99, o: 100, t: 1, v: 10 }];
+    const chart = (fullscreen: boolean, loading = true) => {
+      const props = { isPricePrecisionLoading: loading };
+      return (
+        <TradingViewNativeContainer
+          {...props}
+          source={{ kind: 'hyperliquid', coin: 'ZEC', environment: 'mainnet' }}
+          useFullscreenOverlay
+          isNativeChartFullscreen={fullscreen}
+          priceDecimalPlaces={loading ? undefined : 4}
+          testID="chart"
+        />
+      );
+    };
+    const view = render(chart(true));
+    const layer = screen.getByTestId('trading-view-native-fullscreen-layer');
+    const chartTree = layer.firstElementChild;
+    expect(layer.contains(screen.getByTestId('chart-loading'))).toBe(true);
+    expect(view.container.contains(layer)).toBe(false);
+
+    view.rerender(chart(false));
+    expect(view.container.contains(screen.getByTestId('chart-loading'))).toBe(
+      true,
+    );
+    view.rerender(chart(true));
+    expect(layer.contains(screen.getByTestId('chart-loading'))).toBe(true);
+
+    view.rerender(chart(true, false));
+    expect(screen.queryByTestId('chart-loading')).toBeNull();
+    expect(layer.firstElementChild).toBe(chartTree);
   });
 
   it('shows the loading animation until the initial K-line points arrive', () => {

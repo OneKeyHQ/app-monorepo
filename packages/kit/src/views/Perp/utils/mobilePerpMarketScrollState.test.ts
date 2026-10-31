@@ -1,7 +1,42 @@
+import { getTradingViewNativeSubIndicatorPaneStackLayout } from '@onekeyhq/kit/src/components/TradingView/TradingViewNative/utils/subIndicatorRender/layout';
+
 import {
+  getMobilePerpMarketChartHeight,
   getMobilePerpMarketPageScrollState,
   getMobilePerpMarketPagerHeight,
 } from './mobilePerpMarketScrollState';
+
+describe('getMobilePerpMarketChartHeight', () => {
+  it('keeps the native main chart height when adding and removing sub-indicators', () => {
+    const layouts = [0, 1, 2, 1, 0].map((paneCount) =>
+      getTradingViewNativeSubIndicatorPaneStackLayout({
+        height: getMobilePerpMarketChartHeight({
+          isNativeChart: true,
+          isNative: true,
+          subIndicatorCount: paneCount,
+        }),
+        paneCount,
+      }),
+    );
+
+    expect(layouts.map(({ top }) => top)).toEqual([476, 476, 476, 476, 476]);
+    expect(layouts.map(({ bottom }) => bottom)).toEqual([
+      476, 532, 588, 532, 476,
+    ]);
+  });
+
+  it.each([
+    { isNativeChart: false, isNative: true },
+    { isNativeChart: true, isNative: false },
+  ])(
+    'keeps the existing height for TradingView and web charts: %j',
+    (platform) => {
+      expect(
+        getMobilePerpMarketChartHeight({ ...platform, subIndicatorCount: 2 }),
+      ).toBe(500);
+    },
+  );
+});
 
 describe('getMobilePerpMarketPagerHeight', () => {
   const pageHeights = {

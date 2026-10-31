@@ -1,3 +1,5 @@
+import { Platform } from 'react-native';
+
 import type { ITradingViewNativeSubIndicatorRenderPane } from '../utils/subIndicatorRender';
 
 export type IIndicatorPanePreferences = {
@@ -54,7 +56,11 @@ export function arrangeIndicatorPanes(
   return panes
     .map((pane) => ({
       ...pane,
-      preferredHeight: preferences.heights[pane.instanceId],
+      preferredHeight: Platform.select({
+        ios: undefined,
+        android: undefined,
+        default: preferences.heights[pane.instanceId],
+      }),
     }))
     .toSorted(
       (a, b) => order.indexOf(a.instanceId) - order.indexOf(b.instanceId),

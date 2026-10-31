@@ -29,6 +29,10 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
+import {
+  getDisplayPriceScaleDecimals,
+  isSpotInstrument,
+} from '@onekeyhq/shared/src/utils/perpsUtils';
 import { stableStringify } from '@onekeyhq/shared/src/utils/stringUtils';
 import { TRADING_VIEW_NATIVE_THEME_COLORS } from '@onekeyhq/shared/types/tradingViewNative';
 
@@ -242,6 +246,7 @@ const TradingViewNativeContent = memo(
     testID,
     source,
     priceDecimalPlaces,
+    isPricePrecisionLoading,
     onPriceSelect,
     priceSelectionLabel,
     onInteractionChange,
@@ -530,10 +535,27 @@ const TradingViewNativeContent = memo(
       }),
       [intl],
     );
+    const sourceCoin = source.kind === 'hyperliquid' ? source.coin : undefined;
     const latestPoint = points[points.length - 1];
     const latestPrice = latestPoint?.c;
+    const priceAxisDecimalPlaces = useMemo(() => {
+      if (source.kind !== 'hyperliquid') return undefined;
+      if (
+        priceDecimalPlaces === undefined ||
+        latestPrice === undefined ||
+        !Number.isFinite(latestPrice) ||
+        latestPrice < 1 ||
+        isSpotInstrument(sourceCoin)
+      ) {
+        // Preserve spot and sub-dollar precision instead of applying the perp display scale.
+        return priceDecimalPlaces;
+      }
+      return Math.min(
+        priceDecimalPlaces,
+        getDisplayPriceScaleDecimals(latestPrice),
+      );
+    }, [latestPrice, priceDecimalPlaces, source.kind, sourceCoin]);
     const latestPriceTimestamp = latestPoint?.t;
-    const sourceCoin = source.kind === 'hyperliquid' ? source.coin : undefined;
     const sourceEnvironment =
       source.kind === 'hyperliquid' ? source.environment : undefined;
     const sourceNetworkId =
@@ -1027,7 +1049,8 @@ const TradingViewNativeContent = memo(
       onNativeChartFullscreenChange?.(!isNativeChartFullscreen);
     }, [isNativeChartFullscreen, onNativeChartFullscreenChange]);
     const showChartLoadingMask =
-      points.length === 0 && dataState.status !== 'error';
+      isPricePrecisionLoading ||
+      (points.length === 0 && dataState.status !== 'error');
     const priceAxisWidth =
       chartWidth > 0 ? Math.max(chartAreaWidth - chartWidth, 0) : 0;
     const mobileSettingsControl = useMemo(
@@ -1137,6 +1160,7 @@ const TradingViewNativeContent = memo(
               chartType={forcedChartType ?? chartType}
               chartPictureVersion={chartPictureVersion}
               currentPriceLabel={currentPriceLabel}
+              priceAxisDecimalPlaces={priceAxisDecimalPlaces}
               priceDecimalPlaces={priceDecimalPlaces}
               onPriceSelect={onPriceSelect}
               priceSelectionLabel={priceSelectionLabel}

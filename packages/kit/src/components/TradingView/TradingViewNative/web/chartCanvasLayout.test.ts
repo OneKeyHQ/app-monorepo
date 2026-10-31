@@ -2,6 +2,8 @@
  * @jest-environment jsdom
  */
 
+import { formatTradingViewNativePriceTick } from '../utils/chartLayout';
+
 import {
   getTradingViewNativeCanvasPriceAxisWidth,
   isTradingViewNativeCanvasMainPriceAxisPointer,
@@ -20,7 +22,10 @@ const LABELS: ITradingViewNativeCanvasPriceAxisLabels = {
   yAxisVisible: true,
 };
 
-function createCanvas(options?: { scaleWithFont?: boolean }) {
+function createCanvas(options?: {
+  scaleWithFont?: boolean;
+  priceKerning?: boolean;
+}) {
   return {
     getBoundingClientRect: () =>
       ({
@@ -37,13 +42,41 @@ function createCanvas(options?: { scaleWithFont?: boolean }) {
       font: '',
       measureText(label: string) {
         const fontSize = options?.scaleWithFont ? parseFloat(this.font) : 12;
-        return { width: label.length * (fontSize / 2) };
+        const kerning = options?.priceKerning
+          ? (label.match(/11/g)?.length ?? 0)
+          : 0;
+        return { width: label.length * (fontSize / 2) - kerning };
       },
     }),
   } as unknown as HTMLCanvasElement;
 }
 
 describe('TradingViewNative web canvas layout', () => {
+  it('keeps plot width stable across live price kerning and trimmed decimal zeros', () => {
+    const canvas = createCanvas({ priceKerning: true });
+    const labels = {
+      ...LABELS,
+      autoPriceRange: { minPrice: 79_184, maxPrice: 81_014 },
+      priceDecimalPlaces: 1,
+      widestPrice: '88888.8',
+    };
+    const priceScale = { mode: 'linear' as const, rangeScale: 1 };
+    const widthFor = (price: number) =>
+      getTradingViewNativeCanvasPriceAxisWidth(
+        canvas,
+        {
+          ...labels,
+          currentPrice: formatTradingViewNativePriceTick(price, 4, 1),
+        },
+        priceScale,
+      );
+    expect(formatTradingViewNativePriceTick(80_311, 4, 1)).toBe('80311');
+    expect(widthFor(80_311.1)).toBe(widthFor(80_311));
+    expect(widthFor(80_311)).toBe(widthFor(80_310));
+    expect(widthFor(81_111)).toBe(widthFor(80_888));
+    expect(widthFor(100_000)).toBeGreaterThan(widthFor(80_310));
+  });
+
   it('grows the price axis for labels introduced by manual scaling', () => {
     const canvas = createCanvas();
     const autoWidth = getTradingViewNativeCanvasPriceAxisWidth(canvas, LABELS, {

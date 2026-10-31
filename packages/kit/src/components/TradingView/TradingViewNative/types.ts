@@ -164,6 +164,7 @@ export interface ITradingViewNativeProps {
   testID?: string;
   source: ITradingViewNativeSource;
   priceDecimalPlaces?: number;
+  isPricePrecisionLoading?: boolean;
   onPriceSelect?: (selection: ITradingViewNativePriceSelection) => void;
   priceSelectionLabel?: string;
   onInteractionChange?: (isInteracting: boolean) => void;
