@@ -90,6 +90,7 @@ async function confirm() {
   await mockDialog?.onConfirm?.({
     getForm: () => mockForm,
     close: mockClose,
+    preventClose: jest.fn(),
   } as unknown as Parameters<NonNullable<IDialogShowProps['onConfirm']>>[0]);
 }
 

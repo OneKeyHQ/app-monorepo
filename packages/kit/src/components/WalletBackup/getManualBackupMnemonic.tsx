@@ -113,12 +113,18 @@ export async function getManualBackupMnemonic(
           dialog?.getForm()?.reset({ password: '' });
           if (!settled) cancel();
         },
-        onConfirm: async ({ getForm, close }) => {
-          if (cancelled || submitting) return;
+        onConfirm: async ({ getForm, close, preventClose }) => {
+          if (cancelled || submitting) {
+            preventClose();
+            return;
+          }
           submitting = true;
           const form = getForm();
           try {
-            if (!form || !(await form.trigger())) return;
+            if (!form || !(await form.trigger())) {
+              preventClose();
+              return;
+            }
             const password =
               await backgroundApiProxy.servicePassword.encodeSensitiveText({
                 text: form.getValues().password as string,
