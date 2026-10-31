@@ -888,7 +888,7 @@ export function useSwapProTokenInit() {
     swapTypeSwitch,
   });
   const shouldSyncSwapProTokenInfo =
-    swapTypeSwitch !== ESwapTabSwitchType.STOCK;
+    ownsActiveSwapProTradeState && swapTypeSwitch !== ESwapTabSwitchType.STOCK;
 
   const {
     defaultTokens,

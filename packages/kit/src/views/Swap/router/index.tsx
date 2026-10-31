@@ -1,6 +1,7 @@
 import type { IModalFlowNavigatorConfig } from '@onekeyhq/components';
 import LazyLoad from '@onekeyhq/shared/src/lazyLoad';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalSwapRoutes } from '@onekeyhq/shared/src/routes/swap';
 import type { IModalSwapParamList } from '@onekeyhq/shared/src/routes/swap';
 
@@ -62,9 +63,14 @@ export const ModalSwapStack: IModalFlowNavigatorConfig<
     options: ({ route }) => {
       const isSwapStockSelectTarget =
         route.params?.selectTarget === 'swapStock';
+      const useDesktopTokenSelector =
+        (platformEnv.isDesktop ||
+          platformEnv.isWeb ||
+          platformEnv.isExtension) &&
+        !isSwapStockSelectTarget;
       return {
-        modalContentMaxWidth: isSwapStockSelectTarget ? undefined : 880,
-        modalContentMaxHeight: isSwapStockSelectTarget ? undefined : 700,
+        modalContentMaxWidth: useDesktopTokenSelector ? 880 : undefined,
+        modalContentMaxHeight: useDesktopTokenSelector ? 700 : undefined,
       };
     },
     translationId: ETranslations.token_selector_title,

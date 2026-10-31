@@ -10,6 +10,7 @@ import type {
 import { useAppIsLockedAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/passwordLock';
 import type { INetworkDeriveInfo } from '@onekeyhq/kit-bg/src/vaults/types';
 import { POLLING_DEBOUNCE_INTERVAL } from '@onekeyhq/shared/src/consts/walletConsts';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { isRequestCanceledError } from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import {
   EAppEventBusNames,
@@ -310,6 +311,12 @@ function buildRunAccountKey({
   return `${accountId}__${networkId}`;
 }
 
+export type IAllNetworkRunResult = {
+  didComplete: boolean;
+  requestCount: number;
+  resultCount: number;
+};
+
 function useAllNetworkRequests<T>(params: {
   accountId: string | undefined;
   networkId: string | undefined;
@@ -399,19 +406,25 @@ function useAllNetworkRequests<T>(params: {
     networkId,
     allNetworkDataInit,
     isRunCurrent,
+    generation,
   }: {
     accountId?: string;
     networkId?: string;
     allNetworkDataInit?: boolean;
+    generation: number;
     // See `allNetworkCacheData`: re-check after every await before writing.
     isRunCurrent?: () => boolean;
   }) => Promise<void>;
   onFinished?: ({
     accountId,
     networkId,
+    runResult,
+    generation,
   }: {
     accountId?: string;
     networkId?: string;
+    runResult: IAllNetworkRunResult;
+    generation: number;
   }) => Promise<void>;
   onCacheChecked?: ({
     accountId,
@@ -427,6 +440,7 @@ function useAllNetworkRequests<T>(params: {
   onResultPublished?: (
     result: Array<T> | null | undefined,
     generation: number,
+    runResult: IAllNetworkRunResult,
   ) => void;
   revalidateOnFocus?: boolean;
   // Clear a retained result after the all-network redundant-run gate accepts a
@@ -916,6 +930,13 @@ function useAllNetworkRequests<T>(params: {
       // Per-network requests actually issued by this run; distinguishes an
       // owner with no accounts from a fan-out whose every request failed.
       let fanOutRequestCount = 0;
+      let didComplete = false;
+      let fanOutHadError = false;
+      const getRunResult = (): IAllNetworkRunResult => ({
+        didComplete,
+        requestCount: fanOutRequestCount,
+        resultCount: completedResult?.length ?? 0,
+      });
       let hasQueuedRerun = false;
       let cacheDispatchStarted = 0;
       let cacheDispatchDropped = 0;
@@ -988,6 +1009,7 @@ function useAllNetworkRequests<T>(params: {
             networkId: currentNetworkId,
             allNetworkDataInit: allNetworkDataInit.current,
             isRunCurrent: isCurrentRun,
+            generation: runGeneration,
           }).catch((err) => {
             onStartedError = err;
           });
@@ -1016,18 +1038,23 @@ function useAllNetworkRequests<T>(params: {
           skipCache: skipAccountsCacheForThisRun,
         });
 
-        const deFiEnabledNetworksMapTask = isDeFiRequests
-          ? backgroundApiProxy.serviceDeFi.getDeFiEnabledNetworksMap()
+        const deFiEnabledNetworksStateTask = isDeFiRequests
+          ? backgroundApiProxy.serviceDeFi.getDeFiEnabledNetworksMapState()
           : undefined;
 
-        const baseResult = await accountsTask;
-        const deFiEnabledNetworksMap = deFiEnabledNetworksMapTask
-          ? await deFiEnabledNetworksMapTask
-          : undefined;
+        const [baseResult, deFiEnabledNetworksState] = await Promise.all([
+          accountsTask,
+          deFiEnabledNetworksStateTask,
+        ]);
         if (!isCurrentRun()) {
           traceRunSkipped('stale-owner-after-accounts', runGeneration);
           return;
         }
+        if (deFiEnabledNetworksState && !deFiEnabledNetworksState.isReady) {
+          throw new OneKeyLocalError('DeFi enabled networks are unavailable');
+        }
+        const deFiEnabledNetworksMap =
+          deFiEnabledNetworksState?.enabledNetworksMap;
 
         let accountsInfoResult = baseResult;
         if (isNFTRequests) {
@@ -1294,6 +1321,7 @@ function useAllNetworkRequests<T>(params: {
               ).flatMap((settledBatch) => settledBatch ?? []);
             } catch (e) {
               console.error(e);
+              fanOutHadError = true;
               completedResult = null;
               abortAllNetworkRequests?.();
             }
@@ -1334,6 +1362,7 @@ function useAllNetworkRequests<T>(params: {
               ).filter(Boolean);
             } catch (e) {
               console.error(e);
+              fanOutHadError = true;
               completedResult = null;
               abortAllNetworkRequests?.();
             }
@@ -1364,6 +1393,7 @@ function useAllNetworkRequests<T>(params: {
                 );
               } catch (e) {
                 console.error(e);
+                fanOutHadError = true;
               }
             }
           } else {
@@ -1398,6 +1428,7 @@ function useAllNetworkRequests<T>(params: {
               respTemp.push(...r);
             } catch (e) {
               console.error(e);
+              fanOutHadError = true;
               // pass
             }
 
@@ -1417,6 +1448,7 @@ function useAllNetworkRequests<T>(params: {
               respTemp.push(...r);
             } catch (e) {
               console.error(e);
+              fanOutHadError = true;
               // pass
             }
           }
@@ -1429,6 +1461,8 @@ function useAllNetworkRequests<T>(params: {
         if (accountsInfo.length && accountsInfo.length > 0) {
           markDataInitialized();
         }
+
+        didComplete = !fanOutHadError;
 
         if (isAccountSwitchDiagnosticsEnabled()) {
           defaultLogger.account.allNetworkAccountPerf.homeTokenListRefreshTrace(
@@ -1447,6 +1481,7 @@ function useAllNetworkRequests<T>(params: {
           );
         }
       } catch (error) {
+        didComplete = false;
         if (!isCurrentRun()) {
           // Stale or superseded: the run that replaced it owns the published
           // result.
@@ -1488,6 +1523,8 @@ function useAllNetworkRequests<T>(params: {
             await onFinished?.({
               accountId: currentAccountId,
               networkId: currentNetworkId,
+              runResult: getRunResult(),
+              generation: runGeneration,
             });
           }
         } catch (e) {
@@ -1586,7 +1623,11 @@ function useAllNetworkRequests<T>(params: {
       });
       lastPublishedResultRef.current = resolved.nextLastPublished;
       if (!hasQueuedRerun) {
-        onResultPublished?.(resolved.publishedResult, runGeneration);
+        onResultPublished?.(
+          resolved.publishedResult,
+          runGeneration,
+          getRunResult(),
+        );
       }
       return resolved.publishedResult;
     },

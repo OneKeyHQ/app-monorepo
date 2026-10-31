@@ -150,6 +150,7 @@ const MARKET_HOST_ROUTE_NAMES = new Set<string>([
 const DETAIL_ROUTE_PARAM_KEYS = [
   'tokenAddress',
   'network',
+  'swapTokenSymbol',
   'isNative',
   'marketTokenId',
   'marketVariantId',
