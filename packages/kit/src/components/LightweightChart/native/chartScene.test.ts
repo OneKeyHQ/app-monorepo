@@ -104,6 +104,29 @@ it('clips the stock dot pattern under the curve and preserves the previous-close
   );
 });
 
+it('centers the previous-close tag on its axis badge, even when nudged', () => {
+  const tagAndBadge = (price: number) => {
+    const chart = scene({
+      showLastValue: true,
+      referenceLine: {
+        price,
+        color: '#aaa',
+        title: 'Previous close',
+        axisLabelVisible: true,
+      },
+    });
+    const [badge, tag] = chart.commands
+      .filter((c) => c.kind === 'rect')
+      .filter((c) => c.customPaintId === 'referenceLabel');
+    return { badge, tag };
+  };
+  for (const price of [102, 105.1]) {
+    const { badge, tag } = tagAndBadge(price);
+    expect(tag.y).toBe(badge.y);
+    expect(tag.height).toBe(badge.height);
+  }
+});
+
 it('preserves overlay-only timestamps, gaps, isolated points and hover values', () => {
   const chart = scene({
     secondaryLineData: [
