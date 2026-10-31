@@ -154,10 +154,15 @@ function DeFiContainer() {
 
   const [{ protocols }] = useDeFiListProtocolsAtom();
   const [{ protocolMap }] = useDeFiListProtocolMapAtom();
-  const [{ isRefreshing, initialized }] = useDeFiListStateAtom();
+  const [{ isRefreshing, initialized, confirmedEmptyOwnerKey, hasError }] =
+    useDeFiListStateAtom();
   const [, setIsSliced] = useDeFiListSlicedAtom();
+  const hasConfirmedEmpty =
+    Boolean(account?.id && network?.id) &&
+    confirmedEmptyOwnerKey === `${account?.id}:${network?.id}`;
   const isOverviewLoading =
-    !initialized || (isRefreshing && (protocols?.length ?? 0) === 0);
+    !initialized ||
+    (isRefreshing && (protocols?.length ?? 0) === 0 && !hasConfirmedEmpty);
 
   // Warm the image cache for every protocol logo + every position
   // asset/debt/reward icon the expanded cards will eventually render.
@@ -978,6 +983,14 @@ function DeFiContainer() {
     if (!isDeFiEnabled) {
       return null;
     }
+    const totalText =
+      hasError && !hasConfirmedEmpty && protocols.length === 0
+        ? '--'
+        : formatPortfolioTotal(
+            portfolioStats.total,
+            currencySymbol,
+            settingsValue.hideValue,
+          );
 
     return (
       <>
@@ -1006,11 +1019,7 @@ function DeFiContainer() {
                 <Skeleton.HeadingXl w={120} />
               ) : (
                 <SizableText size="$headingXl" color="$textSubdued">
-                  {formatPortfolioTotal(
-                    portfolioStats.total,
-                    currencySymbol,
-                    settingsValue.hideValue,
-                  )}
+                  {totalText}
                 </SizableText>
               )
             }

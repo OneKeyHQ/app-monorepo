@@ -39,10 +39,16 @@ export const { atom: deFiListStateAtom, use: useDeFiListStateAtom } =
     isRefreshing: boolean;
     initialized: boolean;
     loadedOwnerKey?: string;
+    confirmedEmptyOwnerKey?: string;
+    confirmedSnapshotOwnerKey?: string;
+    hasError?: boolean;
   }>({
     isRefreshing: true,
     initialized: false,
     loadedOwnerKey: undefined,
+    confirmedEmptyOwnerKey: undefined,
+    confirmedSnapshotOwnerKey: undefined,
+    hasError: false,
   });
 
 export const { atom: deFiListSlicedAtom, use: useDeFiListSlicedAtom } =
