@@ -6,7 +6,9 @@ import { useIntl } from 'react-intl';
 import type { IKeyOfIcons } from '@onekeyhq/components';
 import {
   Icon,
+  Input,
   SizableText,
+  Toast,
   XStack,
   YStack,
   useMedia,
@@ -75,6 +77,11 @@ function CreateNewWallet() {
   );
   const isKeylessWalletEnabled = useKeylessWalletFeatureIsEnabled();
   const [isResetMode, setIsResetMode] = useState(false);
+  const [showPassphrase, setShowPassphrase] = useState(false);
+  const [passphrase, setPassphrase] = useState('');
+  const [confirmPassphrase, setConfirmPassphrase] = useState('');
+  const [isPassphraseSecure, setIsPassphraseSecure] = useState(true);
+  const [isConfirmSecure, setIsConfirmSecure] = useState(true);
 
   const {
     enableKeylessWalletLoading,
@@ -88,16 +95,41 @@ function CreateNewWallet() {
   });
 
   const handleCreateSeedPhraseWallet = useCallback(async () => {
+    if (showPassphrase) {
+      if (!passphrase?.trim()) {
+        Toast.error({
+          title: 'Please enter a passphrase',
+        });
+        return;
+      }
+      if (passphrase.trim() !== confirmPassphrase.trim()) {
+        Toast.error({
+          title: 'Passphrase does not match',
+        });
+        return;
+      }
+    }
+
     const mnemonic = await backgroundApiProxy.serviceAccount.generateMnemonic();
     const encodedMnemonic =
       await backgroundApiProxy.servicePassword.encodeSensitiveText({
         text: mnemonic,
       });
+
+    let encodedPassphrase: string | undefined;
+    if (showPassphrase && passphrase?.trim()) {
+      encodedPassphrase =
+        await backgroundApiProxy.servicePassword.encodeSensitiveText({
+          text: passphrase.trim(),
+        });
+    }
+
     const hasCachedPassword =
       await backgroundApiProxy.servicePassword.hasCachedPassword();
     if (hasCachedPassword) {
       navigation.push(EOnboardingPagesV2.FinalizeWalletSetup, {
         mnemonic: encodedMnemonic,
+        passphrase: encodedPassphrase,
         isWalletBackedUp: false,
       });
       defaultLogger.account.wallet.onboard({ onboardMethod: 'createWallet' });
@@ -105,9 +137,10 @@ function CreateNewWallet() {
     }
     navigation.push(EOnboardingPagesV2.CreatePasscode, {
       mnemonic: encodedMnemonic,
+      passphrase: encodedPassphrase,
       isWalletBackedUp: false,
     });
-  }, [navigation]);
+  }, [confirmPassphrase, navigation, passphrase, showPassphrase]);
 
   useAutoStartKeylessProvider({
     autoStartProvider: autoLoginKeylessProvider,
@@ -184,6 +217,59 @@ function CreateNewWallet() {
               id: ETranslations.create_seed_phrase_wallet,
             })}
           </OnboardingIconButton>
+          <YStack pt="$2" px="$1" gap="$2">
+            <XStack
+              alignItems="center"
+              gap="$2"
+              cursor="pointer"
+              onPress={() => setShowPassphrase(!showPassphrase)}
+              userSelect="none"
+            >
+              <Icon
+                name={showPassphrase ? 'ChevronDownSmallOutline' : 'ChevronRightSmallOutline'}
+                size="$4"
+                color="$iconSubdued"
+              />
+              <SizableText size="$bodyMdMedium" color="$textSubdued">
+                Advanced: BIP-39 Passphrase (Optional)
+              </SizableText>
+            </XStack>
+            {showPassphrase ? (
+              <YStack gap="$2" pt="$1">
+                <Input
+                  placeholder="Enter passphrase"
+                  value={passphrase}
+                  onChangeText={setPassphrase}
+                  secureTextEntry={isPassphraseSecure}
+                  addOns={[
+                    {
+                      iconName: isPassphraseSecure ? 'EyeOutline' : 'EyeOffOutline',
+                      onPress: () => setIsPassphraseSecure(!isPassphraseSecure),
+                      testID: `create-passphrase-eye-${isPassphraseSecure ? 'off' : 'on'}`,
+                    },
+                  ]}
+                  testID="create-passphrase-input"
+                />
+                <Input
+                  placeholder="Confirm passphrase"
+                  value={confirmPassphrase}
+                  onChangeText={setConfirmPassphrase}
+                  secureTextEntry={isConfirmSecure}
+                  addOns={[
+                    {
+                      iconName: isConfirmSecure ? 'EyeOutline' : 'EyeOffOutline',
+                      onPress: () => setIsConfirmSecure(!isConfirmSecure),
+                      testID: `create-confirm-passphrase-eye-${isConfirmSecure ? 'off' : 'on'}`,
+                    },
+                  ]}
+                  testID="create-confirm-passphrase-input"
+                />
+                <SizableText size="$bodyXs" color="$textCaution">
+                  Warning: Passphrase creates an independent hidden wallet. If forgotten, your funds cannot be recovered!
+                </SizableText>
+              </YStack>
+            ) : null}
+          </YStack>
         </>
       )}
       {isWebKeylessSidePanelMode || !isKeylessWalletEnabled ? null : (

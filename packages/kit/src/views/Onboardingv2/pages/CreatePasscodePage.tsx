@@ -45,9 +45,11 @@ function PasscodeFormView() {
   const handlePasscodeConfirm = useCallback(
     async (_passcode: string) => {
       const mnemonic = route?.params?.mnemonic;
+      const passphrase = route?.params?.passphrase;
       if (mnemonic) {
         navigation.push(EOnboardingPagesV2.FinalizeWalletSetup, {
           mnemonic,
+          passphrase,
           isWalletBackedUp: route?.params?.isWalletBackedUp ?? false,
         });
         defaultLogger.account.wallet.onboard({ onboardMethod: 'createWallet' });
@@ -60,6 +62,7 @@ function PasscodeFormView() {
       navigation,
       route?.params?.action,
       route?.params?.mnemonic,
+      route?.params?.passphrase,
       route?.params?.isWalletBackedUp,
     ],
   );

@@ -127,6 +127,22 @@ describe('Lightning Path Transformation', () => {
 });
 
 describe('Bot Wallet ID Parsing', () => {
+  test('builds hd wallet hash with passphrase producing different hash', () => {
+    const hashWithoutPassphrase = accountUtils.buildHdWalletHash({
+      mnemonic: 'test test test test test test test test test test test junk',
+    });
+    const hashWithPassphrase = accountUtils.buildHdWalletHash({
+      mnemonic: 'test test test test test test test test test test test junk',
+      passphrase: 'my-secret-passphrase',
+    });
+    const hashWithDifferentPassphrase = accountUtils.buildHdWalletHash({
+      mnemonic: 'test test test test test test test test test test test junk',
+      passphrase: 'another-passphrase',
+    });
+    expect(hashWithPassphrase).not.toBe(hashWithoutPassphrase);
+    expect(hashWithPassphrase).not.toBe(hashWithDifferentPassphrase);
+  });
+
   test('builds hd wallet hash with the shared mnemonic salt algorithm', () => {
     expect(
       accountUtils.buildHdWalletHash({

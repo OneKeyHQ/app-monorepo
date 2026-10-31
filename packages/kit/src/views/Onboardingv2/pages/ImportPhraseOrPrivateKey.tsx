@@ -266,7 +266,7 @@ export default function ImportPhraseOrPrivateKey() {
       setIsConfirming(true);
       if (phaseInputAreaRef.current) {
         try {
-          const { mnemonic, mnemonicType } =
+          const { mnemonic, passphrase, mnemonicType } =
             await phaseInputAreaRef.current.submit();
           if (mnemonicType === EMnemonicType.TON) {
             navigation.push(EOnboardingPagesV2.FinalizeWalletSetup, {
@@ -280,6 +280,7 @@ export default function ImportPhraseOrPrivateKey() {
           // details page (LocalWalletPoolStatus), not during import.
           navigation.push(EOnboardingPagesV2.FinalizeWalletSetup, {
             mnemonic,
+            passphrase,
             mnemonicType,
             isWalletBackedUp: true,
           });

@@ -57,6 +57,7 @@ function FinalizeWalletSetupPage({
   const [showStep, setShowStep] = useState(false);
   const navigation = useAppNavigation();
   const mnemonic = route?.params?.mnemonic;
+  const passphrase = route?.params?.passphrase;
   const mnemonicType = route?.params?.mnemonicType;
   const isWalletBackedUp = route?.params?.isWalletBackedUp;
   const isKeylessWallet = route?.params?.isKeylessWallet;
@@ -133,6 +134,7 @@ function FinalizeWalletSetupPage({
               }
               const createdWalletResult = await actions.current.createHDWallet({
                 mnemonic,
+                passphrase,
                 isWalletBackedUp,
                 isKeylessWallet,
               });

@@ -312,6 +312,7 @@ function FinalizeWalletSetupPage({
     IFinalizeWalletSetupAccountCreationResult | undefined
   >(undefined);
   const mnemonic = route?.params?.mnemonic;
+  const passphrase = route?.params?.passphrase;
   const mnemonicType = route?.params?.mnemonicType;
   const deviceData = route?.params?.deviceData;
   const connectProtocol = route?.params?.connectProtocol;
@@ -441,6 +442,7 @@ function FinalizeWalletSetupPage({
               !!isKeylessWallet && !!shouldAutoResetKeylessPinAfterRestore;
             hdWalletCreatedResult = await actions.current.createHDWallet({
               mnemonic,
+              passphrase,
               isWalletBackedUp,
               isKeylessWallet,
               keylessDetailsInfo,

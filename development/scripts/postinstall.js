@@ -6,7 +6,7 @@ console.log('Running postinstall script...');
 
 // Run setup:env, patch-package, copy:inject, and fonts:sync
 execSync(
-  'yarn setup:env && patch-package && yarn copy:inject && yarn fonts:sync',
+  'yarn setup:env && yarn patch-package && yarn copy:inject && yarn fonts:sync',
   {
     stdio: 'inherit',
   },

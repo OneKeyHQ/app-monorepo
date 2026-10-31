@@ -1188,8 +1188,16 @@ function isEnabledBtcFreshAddress({
   return false;
 }
 
-function buildHdWalletHash({ mnemonic }: { mnemonic: string }): string {
-  const text = `${mnemonic}--${HD_WALLET_HASH_SALT}`;
+function buildHdWalletHash({
+  mnemonic,
+  passphrase,
+}: {
+  mnemonic: string;
+  passphrase?: string;
+}): string {
+  const text = passphrase
+    ? `${mnemonic}--passphrase:${passphrase}--${HD_WALLET_HASH_SALT}`
+    : `${mnemonic}--${HD_WALLET_HASH_SALT}`;
   return bufferUtils.bytesToHex(
     sha256Buffer(bufferUtils.toBuffer(text, 'utf8')),
   );

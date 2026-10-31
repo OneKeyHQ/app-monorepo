@@ -3918,11 +3918,13 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
       set,
       {
         mnemonic,
+        passphrase,
         isWalletBackedUp,
         isKeylessWallet,
         keylessDetailsInfo,
       }: {
         mnemonic: string;
+        passphrase?: string;
         isWalletBackedUp?: boolean;
         isKeylessWallet?: boolean;
         keylessDetailsInfo?: IKeylessWalletDetailsInfo;
@@ -3934,6 +3936,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
           let { wallet, indexedAccount, isOverrideWallet } =
             await serviceAccount.createHDWallet({
               mnemonic,
+              passphrase,
               isWalletBackedUp,
               isKeylessWallet,
               keylessDetailsInfo,

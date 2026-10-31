@@ -73,18 +73,21 @@ export type IOnboardingParamList = {
   // create wallet
   [EOnboardingPages.BeforeShowRecoveryPhrase]: {
     mnemonic?: string;
+    passphrase?: string;
     isBackup?: boolean;
     isWalletBackedUp?: boolean;
     walletId?: string;
   };
   [EOnboardingPages.RecoveryPhrase]: {
     mnemonic?: string;
+    passphrase?: string;
     isBackup?: boolean;
     isWalletBackedUp?: boolean;
     walletId?: string;
   };
   [EOnboardingPages.VerifyRecoverPhrase]: {
     mnemonic: string;
+    passphrase?: string;
     verifyRecoveryPhrases?: string[][][];
     isBackup?: boolean;
     isWalletBackedUp?: boolean;
@@ -113,6 +116,7 @@ export type IOnboardingParamList = {
   // finalize wallet setup
   [EOnboardingPages.FinalizeWalletSetup]: {
     mnemonic?: string;
+    passphrase?: string;
     mnemonicType?: EMnemonicType; // bip39 or ton
     isWalletBackedUp?: boolean;
     isKeylessWallet?: boolean;

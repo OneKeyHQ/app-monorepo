@@ -4313,12 +4313,14 @@ class ServiceAccount extends ServiceBase {
   hdWalletHashAndXfpBuilder = async (options: {
     realMnemonic: string;
     seed?: string | Buffer;
+    passphrase?: string;
   }): Promise<{
     hash: string;
     xfp: string;
   }> => {
     const hash = accountUtils.buildHdWalletHash({
       mnemonic: options.realMnemonic,
+      passphrase: options.passphrase,
     });
 
     const { fullXfp: fulXfp } = options.seed
@@ -4327,6 +4329,7 @@ class ServiceAccount extends ServiceBase {
         })
       : await coreChainApi.btc.hd.buildXfpFromMnemonic({
           mnemonic: options.realMnemonic,
+      passphrase: options.passphrase,
         });
     return { hash, xfp: fulXfp };
   };
@@ -4335,6 +4338,7 @@ class ServiceAccount extends ServiceBase {
   async createHDWallet({
     name,
     mnemonic,
+    passphrase,
     isWalletBackedUp,
     isKeylessWallet,
     avatarInfo,
@@ -4343,6 +4347,7 @@ class ServiceAccount extends ServiceBase {
     applyRestoreSyncPolicy,
   }: {
     mnemonic: string;
+    passphrase?: string;
     name?: string;
     isWalletBackedUp?: boolean;
     isKeylessWallet?: boolean;
@@ -4359,6 +4364,10 @@ class ServiceAccount extends ServiceBase {
 
     ensureSensitiveTextEncoded(mnemonic); // TODO also add check for imported account
 
+    const realPassphrase = passphrase
+      ? await decodeSensitiveTextAsync({ encodedText: passphrase })
+      : undefined;
+
     const { mnemonic: realMnemonic, mnemonicType } =
       await this.validateMnemonic(mnemonic);
 
@@ -4373,7 +4382,7 @@ class ServiceAccount extends ServiceBase {
 
     let revealableSeed: IBip39RevealableSeed;
     try {
-      revealableSeed = mnemonicToRevealableSeed(realMnemonic);
+      revealableSeed = mnemonicToRevealableSeed(realMnemonic, realPassphrase);
     } catch {
       throw new InvalidMnemonic();
     }
@@ -4387,6 +4396,7 @@ class ServiceAccount extends ServiceBase {
     const walletHashAndXfp = await this.hdWalletHashAndXfpBuilder({
       realMnemonic,
       seed: revealableSeed.seed,
+      passphrase: realPassphrase,
     });
 
     const kdfParams = getPbkdf2KdfParamsForNonDbTx();
@@ -4416,6 +4426,7 @@ class ServiceAccount extends ServiceBase {
     revealableSeed,
     password,
     name,
+    passphrase,
     isWalletBackedUp,
     isKeylessWallet,
     avatarInfo,
@@ -4426,6 +4437,7 @@ class ServiceAccount extends ServiceBase {
     revealableSeed: IBip39RevealableSeed;
     password: string;
     name?: string;
+    passphrase?: string;
     isWalletBackedUp?: boolean;
     isKeylessWallet?: boolean;
     avatarInfo?: IAvatarInfo;
@@ -4450,6 +4462,7 @@ class ServiceAccount extends ServiceBase {
     const walletHashAndXfp = await this.hdWalletHashAndXfpBuilder({
       realMnemonic: mnemonicFromRs,
       seed: revealableSeed.seed,
+      passphrase,
     });
 
     const kdfParams = getPbkdf2KdfParamsForNonDbTx();

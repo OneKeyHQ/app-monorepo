@@ -40,6 +40,7 @@ import {
   SizableText,
   Stack,
   XStack,
+  YStack,
   useKeyboardEvent,
   useMedia,
 } from '@onekeyhq/components';
@@ -458,6 +459,7 @@ const PhaseInput = forwardRef(BasicPhaseInput);
 export interface IPhaseInputAreaInstance {
   submit: () => Promise<{
     mnemonic: string;
+    passphrase?: string;
     mnemonicType: EMnemonicType;
   }>;
 }
@@ -493,6 +495,9 @@ export function PhaseInputArea({
   );
   const phraseLengthNumber = Number(phraseLength);
   const { serviceAccount, servicePassword } = backgroundApiProxy;
+  const [showPassphrase, setShowPassphrase] = useState(false);
+  const [passphrase, setPassphrase] = useState('');
+  const [isPassphraseSecure, setIsPassphraseSecure] = useState(true);
   const defaultPhrasesMap = useMemo(() => {
     const map: Record<string, string> = {};
     range(0, phraseLengthNumber)?.forEach((_, i) => {
@@ -520,10 +525,20 @@ export function PhaseInputArea({
     });
     const { mnemonicType } =
       await serviceAccount.validateMnemonic(mnemonicEncoded);
-    const result = { mnemonic: mnemonicEncoded, mnemonicType };
+    let passphraseEncoded: string | undefined;
+    if (showPassphrase && passphrase?.trim()) {
+      passphraseEncoded = await servicePassword.encodeSensitiveText({
+        text: passphrase.trim(),
+      });
+    }
+    const result = {
+      mnemonic: mnemonicEncoded,
+      passphrase: passphraseEncoded,
+      mnemonicType,
+    };
     onConfirm?.(result);
     return result;
-  }, [form, onConfirm, serviceAccount, servicePassword]);
+  }, [form, onConfirm, passphrase, serviceAccount, servicePassword, showPassphrase]);
 
   const {
     suggestions,
@@ -572,6 +587,7 @@ export function PhaseInputArea({
     Object.entries(defaultPhrasesMap).forEach(([key, value]) => {
       form.setValue(key, value);
     });
+    setPassphrase('');
   }, [defaultPhrasesMap, form]);
 
   const handleChangePhraseLength = useCallback(
@@ -670,6 +686,45 @@ export function PhaseInputArea({
           ))}
         </XStack>
       </Form>
+      <YStack pt="$3" px="$1" gap="$2">
+        <XStack
+          alignItems="center"
+          gap="$2"
+          cursor="pointer"
+          onPress={() => setShowPassphrase(!showPassphrase)}
+          userSelect="none"
+        >
+          <Icon
+            name={showPassphrase ? 'ChevronDownSmallOutline' : 'ChevronRightSmallOutline'}
+            size="$4"
+            color="$iconSubdued"
+          />
+          <SizableText size="$bodyMdMedium" color="$textSubdued">
+            BIP-39 Passphrase (Optional)
+          </SizableText>
+        </XStack>
+        {showPassphrase ? (
+          <YStack gap="$2" pt="$1">
+            <Input
+              placeholder="Enter passphrase"
+              value={passphrase}
+              onChangeText={setPassphrase}
+              secureTextEntry={isPassphraseSecure}
+              addOns={[
+                {
+                  iconName: isPassphraseSecure ? 'EyeOutline' : 'EyeOffOutline',
+                  onPress: () => setIsPassphraseSecure(!isPassphraseSecure),
+                  testID: `import-passphrase-eye-${isPassphraseSecure ? 'off' : 'on'}`,
+                },
+              ]}
+              testID="onboardingv2-import-passphrase-input"
+            />
+            <SizableText size="$bodyXs" color="$textSubdued">
+              An optional extra passphrase to access a hidden wallet. Leave blank for standard wallet.
+            </SizableText>
+          </YStack>
+        ) : null}
+      </YStack>
 
       <HeightTransition>
         {invalidWordsLength > 0 ? (

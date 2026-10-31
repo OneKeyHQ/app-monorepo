@@ -65,6 +65,7 @@ interface IVerifyRecoveryPhraseParams {
   isWalletBackedUp?: boolean;
   walletId: string;
   accountName?: string;
+  passphrase?: string;
 }
 
 export type IOnboardingAutoConnectOrigin = string;
@@ -80,6 +81,7 @@ export type IOnboardingParamListV2 = {
   [EOnboardingPagesV2.CreateOrImportWallet]: undefined;
   [EOnboardingPagesV2.FinalizeWalletSetup]: {
     mnemonic?: string;
+    passphrase?: string;
     mnemonicType?: EMnemonicType;
     isWalletBackedUp?: boolean;
     isKeylessWallet?: boolean;
@@ -168,6 +170,7 @@ export type IOnboardingParamListV2 = {
   [EOnboardingPagesV2.CreatePasscode]: {
     action?: EKeylessFinalizeAction;
     mnemonic?: string;
+    passphrase?: string;
     isWalletBackedUp?: boolean;
   };
   [EOnboardingPagesV2.VerifyPin]: {
