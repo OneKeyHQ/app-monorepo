@@ -54,6 +54,9 @@ jest.mock('./jotaiMainHydrationGate', () => ({
 }));
 
 jest.mock('react-native', () => ({
+  ScrollView: ({ children }: { children?: import('react').ReactNode }) => (
+    <div>{children}</div>
+  ),
   ActivityIndicator: ({ testID }: { testID?: string }) => (
     <div data-testid={testID} />
   ),

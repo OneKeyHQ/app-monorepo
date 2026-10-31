@@ -33,6 +33,8 @@ export interface ITestAccount {
 }
 
 export interface IDevSettings {
+  // Resume the isolated storage recovery scenario from Home after a restart.
+  nativeStorageRecoveryTestOnHome?: boolean;
   // enable test endpoint
   enableTestEndpoint?: boolean;
   // enable dev overlay window
