@@ -36,7 +36,9 @@ export function MarketWidgetSync() {
           ? []
           : (await backgroundApiProxy.serviceMarketV2.getMarketWatchListV2())
               .data;
-        const assets = buildMarketWidgetAssets(watchlist);
+        const assets = buildMarketWidgetAssets(watchlist, {
+          includeStocks: marketWidget.supportsStockAssets(),
+        });
         await Promise.all(
           assets.map(async (asset) => {
             if (

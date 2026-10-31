@@ -7,6 +7,7 @@ import type {
 
 export const MARKET_WIDGET_MAX_ASSETS = 20;
 const MARKET_WIDGET_QUERY_KEYS = new Set([
+  'stockId',
   'assetId',
   'chainId',
   'contractAddress',
@@ -20,6 +21,9 @@ const MARKET_WIDGET_EDITOR_QUERY_KEYS = new Set([
 
 const validAssetId = (value: unknown): value is string =>
   typeof value === 'string' && /^[A-Za-z0-9._:-]{1,128}$/u.test(value);
+const validStockId = (value: unknown): value is string =>
+  typeof value === 'string' &&
+  /^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/u.test(value);
 const validChainId = (value: unknown): value is string =>
   typeof value === 'string' && /^[A-Za-z0-9._:-]{1,64}$/u.test(value);
 const validAddress = (value: unknown): value is string =>
@@ -27,19 +31,24 @@ const validAddress = (value: unknown): value is string =>
 
 export function buildMarketWidgetAssets(
   watchlist: IMarketWatchListItemV2[],
+  { includeStocks = true }: { includeStocks?: boolean } = {},
 ): IMarketWidgetAsset[] {
   const assets: IMarketWidgetAsset[] = [];
   const seen = new Set<string>();
   watchlist.forEach((item) => {
     if (
       assets.length === MARKET_WIDGET_MAX_ASSETS ||
-      item.stockId !== undefined ||
       item.perpsCoin !== undefined
     )
       return;
     let asset: IMarketWidgetAsset;
     let key: string;
-    if (item.assetId !== undefined) {
+    if (item.stockId !== undefined && !item.chainId && !item.assetId) {
+      if (!includeStocks || !validStockId(item.stockId)) return;
+      const stockId = item.stockId.toUpperCase();
+      asset = { kind: 'stock', stockId, symbol: stockId, name: '' };
+      key = `stock:${stockId}`;
+    } else if (item.assetId !== undefined) {
       if (!validAssetId(item.assetId)) return;
       asset = { kind: 'asset', assetId: item.assetId, symbol: '', name: '' };
       key = `asset:${item.assetId}`;
@@ -76,6 +85,7 @@ export type IMarketWidgetLinkTarget =
       editorSession?: string;
     }
   | Pick<Extract<IMarketWidgetAsset, { kind: 'asset' }>, 'kind' | 'assetId'>
+  | Pick<Extract<IMarketWidgetAsset, { kind: 'stock' }>, 'kind' | 'stockId'>
   | Pick<
       Extract<IMarketWidgetAsset, { kind: 'token' }>,
       'kind' | 'chainId' | 'contractAddress' | 'isNative'
@@ -88,6 +98,11 @@ export function parseMarketWidgetLink(
   if (Object.keys(params).length === 0) return { kind: 'home' };
   if (Object.keys(params).some((key) => !MARKET_WIDGET_QUERY_KEYS.has(key))) {
     return undefined;
+  }
+  if (params.stockId !== undefined) {
+    return Object.keys(params).length === 1 && validStockId(params.stockId)
+      ? { kind: 'stock', stockId: params.stockId.toUpperCase() }
+      : undefined;
   }
   if (params.assetId !== undefined) {
     return Object.keys(params).length === 1 && validAssetId(params.assetId)

@@ -30,4 +30,7 @@
     <string name="market_widget_loading">Đang tải...</string>
     <string name="market_widget_no_coins">Không tìm thấy kết quả</string>
     <string name="market_widget_back">Quay lại</string>
+    <string name="market_widget_market_closed">Đóng cửa</string>
+    <string name="market_widget_stock_chart">Biểu đồ</string>
+    <string name="market_widget_asset">Tài sản</string>
 </resources>

@@ -170,8 +170,11 @@ public class MarketWidgetProvider extends AppWidgetProvider {
             MarketWidgetData.Quote quote = MarketWidgetStore.quote(context, asset);
             String symbol = quote != null && !quote.symbol.isEmpty() ? quote.symbol : asset.label();
             String name = quote != null && !quote.name.isEmpty() ? quote.name : asset.name;
+            boolean closed = quote != null && Boolean.TRUE.equals(quote.marketClosed);
             views.setTextViewText(symbols[index], symbol);
-            if (!single) views.setTextViewText(identities[index], name);
+            if (!single) views.setTextViewText(identities[index], closed
+                ? textContext.getString(R.string.market_widget_market_closed) : name);
+            else if (closed) views.setTextViewText(R.id.market_widget_title, textContext.getString(R.string.market_widget_market_closed));
             views.setTextViewText(prices[index], quote == null ? "—" : price(quote.price, locale));
             Bitmap icon = MarketWidgetImages.cached(context, asset);
             if (icon == null) views.setImageViewResource(icons[index], R.drawable.market_widget_token_placeholder);
@@ -196,8 +199,9 @@ public class MarketWidgetProvider extends AppWidgetProvider {
                 if (history != null && System.currentTimeMillis() - history.fetchedAt > STALE_AFTER_MS) history = null;
                 views.setImageViewBitmap(charts[index], MarketWidgetImages.chart(history, color,
                     context.getResources().getDisplayMetrics().density));
-                views.setContentDescription(charts[index], textContext.getString(history == null
-                    ? R.string.market_widget_chart_unavailable : R.string.market_widget_chart));
+                views.setContentDescription(charts[index], textContext.getString("stock".equals(asset.kind)
+                    ? R.string.market_widget_stock_chart : history == null
+                        ? R.string.market_widget_chart_unavailable : R.string.market_widget_chart));
             }
             if (quote == null) {
                 status = textContext.getString(R.string.market_widget_unavailable);
@@ -205,11 +209,16 @@ public class MarketWidgetProvider extends AppWidgetProvider {
                 boolean stale = MarketWidgetStore.failed(context, asset)
                     || System.currentTimeMillis() - quote.fetchedAt > STALE_AFTER_MS;
                 String date = DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT, locale)
-                    .format(new Date(quote.fetchedAt));
+                    .format(new Date("stock".equals(asset.kind) && quote.priceUpdatedAt > 0
+                        ? quote.priceUpdatedAt : quote.fetchedAt));
                 if (stale) status = textContext.getString(R.string.market_widget_cached_at, date);
                 views.setContentDescription(rows[index], textContext.getString(stale
                     ? R.string.market_widget_quote_cached_at : R.string.market_widget_quote_updated_at,
                     symbol, price(quote.price, locale, false), change, date));
+                if ("stock".equals(asset.kind)) {
+                    views.setContentDescription(rows[index], symbol + ", " + price(quote.price, locale) + ", " + change
+                        + (closed ? ", " + textContext.getString(R.string.market_widget_market_closed) : "") + ", " + date);
+                }
             }
             Intent open = new Intent(Intent.ACTION_VIEW, asset.deepLink(), context, MainLauncherActivity.class)
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);

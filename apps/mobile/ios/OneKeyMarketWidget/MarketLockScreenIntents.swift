@@ -4,7 +4,7 @@ import WidgetKit
 
 @available(iOS 17.0, *)
 struct MarketLockScreenAssetEntity: AppEntity {
-  static var typeDisplayRepresentation: TypeDisplayRepresentation = "market_widget_coin__title"
+  static var typeDisplayRepresentation: TypeDisplayRepresentation = "market_widget_asset__title"
   static var defaultQuery = MarketLockScreenAssetQuery()
   let id: String
   let asset: MarketWidgetAsset
@@ -23,7 +23,7 @@ struct MarketLockScreenAssetEntity: AppEntity {
     // Display metadata changes must not change the system's selected entity identifier.
     let identity = MarketWidgetAsset(kind: asset.kind, assetId: asset.assetId, chainId: asset.chainId,
       contractAddress: asset.contractAddress, isNative: asset.isNative,
-      requestTokenAddress: asset.requestTokenAddress, symbol: "", name: "")
+      requestTokenAddress: asset.requestTokenAddress, symbol: "", name: "", stockId: asset.stockId)
     id = (try? encoder.encode(identity).base64EncodedString()) ?? asset.id
   }
 
@@ -55,12 +55,12 @@ enum MarketLockScreenPicker {
       if sameName.count > 1 {
         if let network = networkName(asset.chainId) { details.append(network) }
         if sameName.filter({ $0.chainId == asset.chainId }).count > 1 {
-          let identifier = asset.kind == .token ? asset.contractAddress ?? "" : asset.assetId ?? ""
+          let identifier = asset.kind == .token ? asset.contractAddress ?? "" : asset.stockId ?? asset.assetId ?? ""
           if !identifier.isEmpty {
             let shortened = shortIdentifier(identifier)
             let collision = sameName.filter { peer in
               guard peer.chainId == asset.chainId else { return false }
-              let value = peer.kind == .token ? peer.contractAddress ?? "" : peer.assetId ?? ""
+              let value = peer.kind == .token ? peer.contractAddress ?? "" : peer.stockId ?? peer.assetId ?? ""
               return shortIdentifier(value) == shortened
             }.count > 1
             details.append(collision ? identifier : shortened)
@@ -79,7 +79,7 @@ enum MarketLockScreenPicker {
     let shortAddress = shortIdentifier(address)
     let fallback = asset.kind == .token
       ? (asset.isNative == true ? networkName(asset.chainId) ?? "—" : shortAddress)
-      : (asset.assetId ?? "—")
+      : (asset.stockId ?? asset.assetId ?? "—")
     return "\(symbol.isEmpty ? (name.isEmpty ? fallback : name) : symbol)/USD"
   }
 
@@ -178,7 +178,7 @@ struct MarketLockScreenSolanaQuery: EntityStringQuery {
 struct MarketLockScreenSpotIntent: WidgetConfigurationIntent {
   static var title: LocalizedStringResource = "market_widget_lock_spot__title"
   static var description = IntentDescription("market_widget_lock_coin__desc")
-  @Parameter(title: "market_widget_coin__title", query: MarketLockScreenAssetQuery()) var coin: MarketLockScreenAssetEntity?
+  @Parameter(title: "market_widget_asset__title", query: MarketLockScreenAssetQuery()) var coin: MarketLockScreenAssetEntity?
   static var parameterSummary: some ParameterSummary { Summary { \.$coin } }
 
   init() { coin = MarketLockScreenAssetEntity(asset: MarketWidgetAsset.defaults[0]) }

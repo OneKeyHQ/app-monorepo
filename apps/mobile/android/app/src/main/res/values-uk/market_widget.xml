@@ -30,4 +30,7 @@
     <string name="market_widget_loading">Завантаження...</string>
     <string name="market_widget_no_coins">Не знайдено результатів</string>
     <string name="market_widget_back">Назад</string>
+    <string name="market_widget_market_closed">Закрито</string>
+    <string name="market_widget_stock_chart">Діаграма</string>
+    <string name="market_widget_asset">Актив</string>
 </resources>

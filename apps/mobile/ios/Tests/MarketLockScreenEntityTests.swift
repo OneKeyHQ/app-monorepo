@@ -19,6 +19,18 @@ struct MarketLockScreenEntityTests {
     try store.saveConfiguration(json: #"{"schemaVersion":1,"assets":[],"greenUp":true,"locale":"en-US"}"#)
 
     let bitcoin = MarketWidgetAsset.defaults[0]
+    let stock = MarketWidgetAsset(kind: .stock, assetId: nil, chainId: nil, contractAddress: nil,
+      isNative: nil, symbol: "NVDA", name: "NVIDIA", stockId: "NVDA")
+    let stockEntity = MarketLockScreenAssetEntity(asset: stock)
+    try store.rememberLockScreenAssets([stock])
+    let restoredStock = MarketLockScreenAssetEntity(id: stockEntity.id, store: store)
+    expect(restoredStock?.asset.stockId == "NVDA" && restoredStock?.asset.kind == .stock,
+      "Native configuration restores a stock identity without converting it to a token")
+    expect(restoredStock?.title == "NVDA/USD", "Stock entities keep readable quote labels")
+    let stockSearch = try MarketWidgetService.decodeStockSearch(Data(#"{"code":0,"data":{"items":[{"stockId":"NVDA","currency":"USD","symbol":"NVDA","name":"NVIDIA"}]}}"#.utf8))
+    expect(stockSearch.map(\.id) == [stock.id], "The lock-screen search offers actual stock listings")
+    expect(MarketLockScreenPicker.entities([bitcoin, stock, bitcoin]).map(\.asset.id) == [bitcoin.id, stock.id],
+      "Mixed suggestions preserve order and remove repeated identities")
     let bitcoinEntity = MarketLockScreenAssetEntity(asset: bitcoin)
     let renamedBitcoin = MarketWidgetAsset(kind: .asset, assetId: bitcoin.assetId, chainId: nil,
       contractAddress: nil, isNative: nil, symbol: "XBT", name: "Bitcoin updated",

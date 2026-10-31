@@ -38,4 +38,7 @@
     <string name="market_widget_preview">示例</string>
     <string name="market_widget_quote_updated_at">%1$s，价格 %2$s 美元，24 小时涨跌幅 %3$s，更新于 %4$s</string>
     <string name="market_widget_quote_cached_at">%1$s，价格 %2$s 美元，24 小时涨跌幅 %3$s，缓存于 %4$s</string>
+    <string name="market_widget_market_closed">休市</string>
+    <string name="market_widget_stock_chart">图表</string>
+    <string name="market_widget_asset">资产</string>
 </resources>

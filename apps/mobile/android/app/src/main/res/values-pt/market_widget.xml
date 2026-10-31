@@ -30,4 +30,7 @@
     <string name="market_widget_loading">A carregar...</string>
     <string name="market_widget_no_coins">Nenhum resultado encontrado</string>
     <string name="market_widget_back">Voltar</string>
+    <string name="market_widget_market_closed">Fechado</string>
+    <string name="market_widget_stock_chart">Gráfico</string>
+    <string name="market_widget_asset">Ativo</string>
 </resources>

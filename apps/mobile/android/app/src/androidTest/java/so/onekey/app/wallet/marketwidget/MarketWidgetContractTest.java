@@ -29,6 +29,51 @@ import so.onekey.app.wallet.R;
 
 @RunWith(AndroidJUnit4.class)
 public final class MarketWidgetContractTest {
+    @Test
+    public void stocksKeepIdentityAndClosedSessionCurvesAcrossCacheReads() throws Exception {
+        MarketWidgetData.Asset stock = new MarketWidgetData.Asset(new JSONObject()
+            .put("kind", "stock").put("stockId", "NVDA").put("symbol", "NVDA").put("name", "NVIDIA"));
+        assertEquals("onekey-wallet://market_widget?stockId=NVDA", stock.deepLink().toString());
+        assertEquals("/utility/v1/stocks/NVDA", MarketWidgetClient.endpoint(stock).getPath());
+        assertNotEquals(stock.key(), new MarketWidgetData.Asset(new JSONObject()
+            .put("kind", "asset").put("assetId", "NVDA")).key());
+        long now = System.currentTimeMillis();
+        JSONArray samples = new JSONArray();
+        for (int index = 0; index < 960; index++) samples.put(200 + index / 100.0);
+        JSONObject data = new JSONObject().put("stockId", "NVDA").put("currency", "USD")
+            .put("price", "205.25").put("symbol", "NVDA").put("name", "NVIDIA")
+            .put("priceChange24hPercent", "-1.2").put("marketStatus", new JSONObject().put("isOpen", false))
+            .put("priceUpdatedAt", java.time.Instant.ofEpochMilli(now - 2 * 86400_000L).toString()).put("sparkline", samples);
+        JSONObject envelope = new JSONObject().put("code", 0).put("data", data);
+        MarketWidgetData.Quote quote = MarketWidgetClient.decode(stock, envelope, now);
+        assertEquals(new BigDecimal("205.25"), quote.price);
+        assertEquals(Boolean.TRUE, quote.marketClosed);
+        assertEquals(now - 2 * 86400_000L, quote.priceUpdatedAt);
+        assertEquals(96, quote.stockSparkline.size());
+        assertEquals(0, new BigDecimal("200").compareTo(quote.stockSparkline.get(0)));
+        assertEquals(0, new BigDecimal("209.59").compareTo(quote.stockSparkline.get(95)));
+        MarketWidgetData.Quote cached = MarketWidgetData.Quote.cached(quote.json().toString());
+        assertNotNull(cached);
+        assertEquals(quote.stockSparkline, cached.stockSparkline);
+        MarketWidgetData.Asset btc = MarketWidgetData.defaults().assets.get(0);
+        JSONObject configuration = new JSONObject().put("schemaVersion", 1).put("locale", "en-US")
+            .put("assets", new JSONArray().put(btc.json()).put(stock.json()));
+        MarketWidgetStore.setConfiguration(context, configuration.toString());
+        MarketWidgetStore.saveQuote(context, stock, quote);
+        assertEquals(96, MarketWidgetStore.history(context, stock).prices.size());
+        assertEquals(stock.stockId, MarketWidgetStore.availableAssets(context, MarketWidgetStore.WATCHLIST).get(1).stockId);
+        data.put("stockId", "AAPL");
+        try { MarketWidgetClient.decode(stock, envelope, now); fail("Mismatched stocks must be rejected"); }
+        catch (java.io.IOException expected) { }
+        data.put("stockId", "NVDA").put("currency", "HKD");
+        try { MarketWidgetClient.decode(stock, envelope, now); fail("Non-USD quotes must be rejected"); }
+        catch (java.io.IOException expected) { }
+        data.put("currency", "USD").put("sparkline", new JSONArray().put(200).put("bad").put(201));
+        assertNull(MarketWidgetClient.decode(stock, envelope, now).stockSparkline);
+        try { new MarketWidgetData.Asset(new JSONObject().put("kind", "stock").put("stockId", "..")); fail("Path identities must be rejected"); }
+        catch (org.json.JSONException expected) { }
+    }
+
     private static final String STORE_NAME = "onekey_public_market_widgets_v1";
     private Context context;
     private Context storageContext;

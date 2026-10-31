@@ -8,9 +8,9 @@
 "market_widget_configuration__title" = "Konfiguration";
 "market_widget_lock_watchlist__title" = "Beobachtungsliste";
 "market_widget_lock_spot__title" = "Spot-Beobachtung";
-"market_widget_lock_coin_1__title" = "Coin 1";
-"market_widget_lock_coin_2__title" = "Coin 2";
-"market_widget_lock_coin_3__title" = "Coin 3";
+"market_widget_lock_coin_1__title" = "Vermögen 1";
+"market_widget_lock_coin_2__title" = "Vermögen 2";
+"market_widget_lock_coin_3__title" = "Vermögen 3";
 "market_widget_single__desc" = "USD-Kurs und 24-Stunden-Änderung eines Coins.";
 "market_widget_list__desc" = "Drei Coins mit USD-Kursen und 24-Stunden-Charts.";
 "market_widget_choose_configuration__desc" = "Erstelle eine Konfiguration in OneKey und wähle sie dann hier aus.";
@@ -32,3 +32,6 @@
 "market_widget_quote__desc" = "%1$@, Kurs %2$@ USD, 24-Stunden-Änderung %3$@.";
 "market_widget_quote_cached__desc" = "%1$@, Kurs %2$@ USD, 24-Stunden-Änderung %3$@. Zwischengespeicherte Daten.";
 "wallet.price_unavailable" = "Kein Preis verfügbar";
+"market_widget_market_closed__title" = "Geschlossen";
+"market_widget_stock_chart__desc" = "Diagramm";
+"market_widget_asset__title" = "Vermögen";

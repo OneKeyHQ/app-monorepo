@@ -121,9 +121,9 @@ struct MarketLockScreenView: View {
         }
         .font(.system(size: 13, weight: .medium))
         .frame(height: 16)
-        if let points = row.quote?.chart, MarketLockScreenChartGeometry.isValid(points) {
+        if let points = row.quote?.plotPoints, MarketLockScreenChartGeometry.isValid(points) {
           MarketLockScreenChart(points: points)
-            .accessibilityLabel(localized("market_widget_chart__desc"))
+            .accessibilityLabel(localized(row.asset.kind == .stock ? "market_widget_stock_chart__desc" : "market_widget_chart__desc"))
         } else {
           Text("—").font(.system(size: 13)).frame(maxWidth: .infinity, maxHeight: .infinity)
             .accessibilityLabel(localized("market_widget_chart_unavailable__msg"))
@@ -158,7 +158,10 @@ struct MarketLockScreenView: View {
   }
 
   @ViewBuilder private func direction(_ row: MarketWidgetRow, size: CGFloat) -> some View {
-    if let change = MarketWidgetQuote.decimal(row.quote?.change24h), change != 0 {
+    if row.quote?.marketClosed == true {
+      Image(systemName: "moon.fill").font(.system(size: size))
+        .frame(width: size, height: size).accessibilityHidden(true)
+    } else if let change = MarketWidgetQuote.decimal(row.quote?.change24h), change != 0 {
       MarketLockScreenDirection(pointsUp: change > 0)
         .fill(.primary)
         .frame(width: size, height: size)
@@ -171,6 +174,18 @@ struct MarketLockScreenView: View {
 
   private func accessibilityLabel(_ row: MarketWidgetRow) -> String {
     let change = MarketLockScreenFormatting.change(row.quote?.change24h, locale: locale)
+    if row.asset.kind == .stock {
+      var parts = [symbol(row), localized("market_widget_usd_price__desc", arguments: [price(row, fixedDecimals: style == .price)]), change]
+      if row.quote?.marketClosed == true { parts.append(localized("market_widget_market_closed__title")) }
+      if let date = row.quote?.priceUpdatedAt {
+        let formatter = DateFormatter()
+        formatter.locale = locale
+        formatter.dateStyle = .short
+        formatter.timeStyle = .short
+        parts.append(formatter.string(from: date))
+      }
+      return parts.joined(separator: ", ")
+    }
     return localized(row.failed ? "market_widget_quote_cached__desc" : "market_widget_quote__desc",
       arguments: [symbol(row), price(row, fixedDecimals: style == .price), change])
   }

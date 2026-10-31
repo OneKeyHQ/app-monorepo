@@ -8,9 +8,9 @@
 "market_widget_configuration__title" = "Конфігурація";
 "market_widget_lock_watchlist__title" = "Список спостереження";
 "market_widget_lock_spot__title" = "Стеження за спотом";
-"market_widget_lock_coin_1__title" = "Монета 1";
-"market_widget_lock_coin_2__title" = "Монета 2";
-"market_widget_lock_coin_3__title" = "Монета 3";
+"market_widget_lock_coin_1__title" = "Актив 1";
+"market_widget_lock_coin_2__title" = "Актив 2";
+"market_widget_lock_coin_3__title" = "Актив 3";
 "market_widget_single__desc" = "Ціна монети в USD і зміна за 24 години.";
 "market_widget_list__desc" = "Три монети з цінами в USD і графіками за 24 години.";
 "market_widget_choose_configuration__desc" = "Створіть конфігурацію в OneKey, а потім виберіть її тут.";
@@ -32,3 +32,6 @@
 "market_widget_quote__desc" = "%1$@, ціна %2$@ USD, зміна за 24 години %3$@.";
 "market_widget_quote_cached__desc" = "%1$@, ціна %2$@ USD, зміна за 24 години %3$@. Дані з кешу.";
 "wallet.price_unavailable" = "Ціна недоступна";
+"market_widget_market_closed__title" = "Закрито";
+"market_widget_stock_chart__desc" = "Діаграма";
+"market_widget_asset__title" = "Актив";

@@ -8,9 +8,9 @@
 "market_widget_configuration__title" = "Konfigurasi";
 "market_widget_lock_watchlist__title" = "Daftar pantauan";
 "market_widget_lock_spot__title" = "Pantauan spot";
-"market_widget_lock_coin_1__title" = "Koin 1";
-"market_widget_lock_coin_2__title" = "Koin 2";
-"market_widget_lock_coin_3__title" = "Koin 3";
+"market_widget_lock_coin_1__title" = "Aset 1";
+"market_widget_lock_coin_2__title" = "Aset 2";
+"market_widget_lock_coin_3__title" = "Aset 3";
 "market_widget_single__desc" = "Harga USD dan perubahan 24 jam untuk satu koin.";
 "market_widget_list__desc" = "Tiga koin dengan harga USD dan grafik 24 jam.";
 "market_widget_choose_configuration__desc" = "Buat konfigurasi di OneKey, lalu pilih di sini.";
@@ -32,3 +32,6 @@
 "market_widget_quote__desc" = "%1$@, harga %2$@ USD, perubahan 24 jam %3$@.";
 "market_widget_quote_cached__desc" = "%1$@, harga %2$@ USD, perubahan 24 jam %3$@. Data dari cache.";
 "wallet.price_unavailable" = "Harga tidak tersedia";
+"market_widget_market_closed__title" = "Tutup";
+"market_widget_stock_chart__desc" = "Bagan";
+"market_widget_asset__title" = "Aset";

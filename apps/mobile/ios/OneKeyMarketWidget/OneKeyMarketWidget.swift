@@ -164,7 +164,8 @@ struct MarketWidgetView: View {
 
   @ViewBuilder private var content: some View {
     if entry.isWatchlist {
-      VStack(spacing: 0) {
+      VStack(alignment: .leading, spacing: 0) {
+        header.padding(.bottom, 4)
         if entry.rows.isEmpty { emptyState }
         else {
           ForEach(Array(entry.rows.enumerated()), id: \.offset) { index, row in
@@ -181,27 +182,7 @@ struct MarketWidgetView: View {
       .padding(.vertical, 8)
     } else {
       VStack(alignment: .leading, spacing: 0) {
-        HStack(spacing: 10) {
-          Text(localized(entry.manualSelection
-            ? (entry.isWatchlist ? "market_widget_list__title" : "market_widget_single__title")
-            : (entry.source == .hot ? "market_widget_hot_coins__title" : "market_widget_watchlist__title")))
-            .font(.system(size: 12, weight: .medium)).foregroundStyle(secondary)
-            .lineLimit(1).minimumScaleFactor(0.65)
-            .allowsTightening(true)
-            .frame(maxWidth: .infinity, alignment: .leading)
-          if #available(iOS 17.0, *), let editorURL = entry.editorURL {
-            Link(destination: editorURL) {
-              ZStack {
-                Image(systemName: "hexagon").font(.system(size: 15, weight: .medium))
-                Image(systemName: "diamond.fill").font(.system(size: 6))
-              }
-              .frame(width: 18, height: 18)
-              .foregroundStyle(secondary)
-            }
-            .accessibilityLabel(localized("market_widget_edit__title"))
-          }
-          Image("MarketWidgetOneKey").resizable().scaledToFit().frame(width: 18, height: 18)
-        }
+        header
         if let row = entry.rows.first {
           MarketWidgetTokenIcon(asset: row.quote?.asset ?? row.asset, size: 32)
             .padding(.top, 17)
@@ -209,7 +190,7 @@ struct MarketWidgetView: View {
           HStack(alignment: .firstTextBaseline, spacing: 2) {
             Text(row.quote?.asset.displaySymbol ?? row.asset.displaySymbol)
               .font(.system(size: 14, weight: .medium)).lineLimit(1)
-            change(row.quote?.change24h, size: 13)
+            change(row.quote?.change24h, size: 13, isStock: row.asset.kind == .stock)
             Spacer(minLength: 0)
             if row.failed { Image(systemName: "exclamationmark.circle").font(.system(size: 10)).foregroundStyle(secondary) }
           }
@@ -219,6 +200,31 @@ struct MarketWidgetView: View {
         } else { emptyState }
       }
       .padding(17)
+    }
+  }
+
+  private var header: some View {
+    HStack(spacing: 10) {
+      Text(localized(!entry.isWatchlist && entry.rows.first?.quote?.marketClosed == true
+        ? "market_widget_market_closed__title" : entry.isWatchlist ? "market_widget_list__title"
+        : entry.manualSelection ? "market_widget_single__title"
+        : entry.source == .hot ? "market_widget_hot_coins__title" : "market_widget_watchlist__title"))
+        .font(.system(size: 12, weight: .medium)).foregroundStyle(secondary)
+        .lineLimit(1).minimumScaleFactor(0.65)
+        .allowsTightening(true)
+        .frame(maxWidth: .infinity, alignment: .leading)
+      if #available(iOS 17.0, *), let editorURL = entry.editorURL {
+        Link(destination: editorURL) {
+          ZStack {
+            Image(systemName: "hexagon").font(.system(size: 15, weight: .medium))
+            Image(systemName: "diamond.fill").font(.system(size: 6))
+          }
+          .frame(width: 18, height: 18)
+          .foregroundStyle(secondary)
+        }
+        .accessibilityLabel(localized("market_widget_edit__title"))
+      }
+      Image("MarketWidgetOneKey").resizable().scaledToFit().frame(width: 18, height: 18)
     }
   }
 
@@ -258,27 +264,28 @@ struct MarketWidgetView: View {
           MarketWidgetTokenIcon(asset: asset, size: 32)
           VStack(alignment: .leading, spacing: 1) {
             Text(asset.displaySymbol).font(.system(size: 14, weight: .medium)).lineLimit(1)
-            Text(asset.name).font(.system(size: 11)).foregroundStyle(secondary).lineLimit(1)
+            Text(row.quote?.marketClosed == true ? localized("market_widget_market_closed__title") : asset.name)
+              .font(.system(size: 11)).foregroundStyle(secondary).lineLimit(1)
           }
         }
         .frame(width: geometry.size.width * 0.46, alignment: .leading)
         Group {
-          if let chart = row.quote?.chart, chart.count >= 2 {
+          if let chart = row.quote?.plotPoints, chart.count >= 2 {
             MarketWidgetSparkline(points: chart).stroke(changeColor(row.quote?.change24h), style: StrokeStyle(lineWidth: 1, lineCap: .round, lineJoin: .round))
           } else {
             Text("—").font(.system(size: 12)).foregroundStyle(secondary)
           }
         }
         .frame(width: geometry.size.width * 0.195, height: 29)
-        .accessibilityLabel(localized((row.quote?.chart?.count ?? 0) >= 2
-          ? "market_widget_chart__desc" : "market_widget_chart_unavailable__msg"))
+        .accessibilityLabel(asset.kind == .stock ? localized("market_widget_stock_chart__desc")
+          : localized((row.quote?.chart?.count ?? 0) >= 2 ? "market_widget_chart__desc" : "market_widget_chart_unavailable__msg"))
         Spacer(minLength: 6)
         VStack(alignment: .trailing, spacing: 0) {
           Text(price(row.quote?.price)).font(.system(size: 14, weight: .medium))
             .monospacedDigit().lineLimit(1).minimumScaleFactor(0.65)
           HStack(spacing: 3) {
             if row.failed { Image(systemName: "exclamationmark.circle").font(.system(size: 9)).foregroundStyle(secondary) }
-            change(row.quote?.change24h, size: 12)
+            change(row.quote?.change24h, size: 12, isStock: asset.kind == .stock)
           }
         }
         .padding(.trailing, 1)
@@ -310,7 +317,7 @@ struct MarketWidgetView: View {
     return green ? Color(red: 0.18, green: 0.74, blue: 0.54) : Color(red: 0.97, green: 0.27, blue: 0.39)
   }
 
-  private func change(_ text: String?, size: CGFloat) -> some View {
+  private func change(_ text: String?, size: CGFloat, isStock: Bool = false) -> some View {
     let number = MarketWidgetQuote.decimal(text)
     let formatter = NumberFormatter()
     formatter.locale = locale
@@ -320,7 +327,7 @@ struct MarketWidgetView: View {
       .map { "\((number ?? 0) >= 0 ? "+" : "")\($0)%" } ?? "—"
     return Text(label).font(.system(size: size, weight: .medium)).monospacedDigit()
       .foregroundStyle(changeColor(text)).lineLimit(1).minimumScaleFactor(0.75)
-      .accessibilityLabel(localized("market_widget_change__desc", arguments: [label]))
+      .accessibilityLabel(isStock ? label : localized("market_widget_change__desc", arguments: [label]))
   }
 }
 

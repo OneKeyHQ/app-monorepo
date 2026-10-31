@@ -30,4 +30,7 @@
     <string name="market_widget_loading">กำลังโหลด...</string>
     <string name="market_widget_no_coins">ไม่พบผลลัพธ์</string>
     <string name="market_widget_back">กลับ</string>
+    <string name="market_widget_market_closed">ปิด</string>
+    <string name="market_widget_stock_chart">แผนภูมิ</string>
+    <string name="market_widget_asset">สินทรัพย์</string>
 </resources>

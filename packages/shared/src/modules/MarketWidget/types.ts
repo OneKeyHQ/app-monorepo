@@ -1,5 +1,12 @@
 export type IMarketWidgetAsset =
   | {
+      kind: 'stock';
+      stockId: string;
+      symbol: string;
+      name: string;
+      logoURL?: string;
+    }
+  | {
       kind: 'asset';
       assetId: string;
       symbol: string;
@@ -51,6 +58,7 @@ export type IMarketWidgetEditorState = {
 
 export type IMarketWidgetModule = {
   isSupported: () => boolean;
+  supportsStockAssets: () => boolean;
   supportsProfileEditing: () => boolean;
   supportsSettingsEditing: () => boolean;
   setConfiguration: (

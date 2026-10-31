@@ -23,6 +23,7 @@ final class MarketWidgetData {
     static final class Asset {
         final String kind;
         final String assetId;
+        final String stockId;
         final String chainId;
         final String contractAddress;
         final String requestTokenAddress;
@@ -33,10 +34,15 @@ final class MarketWidgetData {
 
         Asset(JSONObject value) throws JSONException {
             kind = value.getString("kind");
-            if (!"asset".equals(kind) && !"token".equals(kind)) {
+            if (!"asset".equals(kind) && !"token".equals(kind) && !"stock".equals(kind)) {
                 throw new JSONException("Unsupported market identity");
             }
             assetId = "asset".equals(kind) ? identity(value, "assetId", 200, false) : "";
+            stockId = "stock".equals(kind) ? identity(value, "stockId", 128, false).toUpperCase(Locale.ROOT) : "";
+            if ("stock".equals(kind) && (!stockId.matches("[A-Z0-9][A-Z0-9._:-]{0,127}")
+                || value.has("assetId") || value.has("chainId") || value.has("contractAddress"))) {
+                throw new JSONException("Invalid stock identity");
+            }
             chainId = "token".equals(kind) ? identity(value, "chainId", 100, false) : "";
             isNative = "token".equals(kind) && value.optBoolean("isNative", false);
             contractAddress = "token".equals(kind)
@@ -52,6 +58,7 @@ final class MarketWidgetData {
             // Preserve address case: Solana and other non-EVM identities are case sensitive.
             String identity = kind + "\n" + assetId + "\n" + chainId + "\n"
                 + isNative + "\n" + contractAddress;
+            if ("stock".equals(kind)) identity = "stock\n" + stockId;
             try {
                 byte[] hash = MessageDigest.getInstance("SHA-256")
                     .digest(identity.getBytes(StandardCharsets.UTF_8));
@@ -65,6 +72,7 @@ final class MarketWidgetData {
 
         String label() {
             if (!symbol.isEmpty()) return symbol;
+            if (!stockId.isEmpty()) return stockId;
             if (!assetId.isEmpty()) return assetId;
             if (isNative) return chainId;
             return contractAddress.length() > 12
@@ -74,7 +82,9 @@ final class MarketWidgetData {
 
         Uri deepLink() {
             Uri.Builder builder = new Uri.Builder().scheme("onekey-wallet").authority("market_widget");
-            if ("asset".equals(kind)) {
+            if ("stock".equals(kind)) {
+                builder.appendQueryParameter("stockId", stockId);
+            } else if ("asset".equals(kind)) {
                 builder.appendQueryParameter("assetId", assetId);
             } else {
                 builder.appendQueryParameter("chainId", chainId)
@@ -86,6 +96,7 @@ final class MarketWidgetData {
 
         JSONObject json() throws JSONException {
             JSONObject value = new JSONObject().put("kind", kind).put("symbol", symbol).put("name", name).put("iconUrl", iconUrl);
+            if ("stock".equals(kind)) return value.put("stockId", stockId);
             if ("asset".equals(kind)) return value.put("assetId", assetId);
             return value.put("chainId", chainId).put("contractAddress", contractAddress)
                 .put("requestTokenAddress", requestTokenAddress).put("isNative", isNative);
@@ -154,24 +165,39 @@ final class MarketWidgetData {
         final String name;
         final long fetchedAt;
         final String iconUrl;
+        final List<BigDecimal> stockSparkline;
+        final long priceUpdatedAt;
+        final Boolean marketClosed;
 
         Quote(BigDecimal price, BigDecimal change, String symbol, String name, long fetchedAt) {
             this(price, change, symbol, name, fetchedAt, "");
         }
 
         Quote(BigDecimal price, BigDecimal change, String symbol, String name, long fetchedAt, String iconUrl) {
+            this(price, change, symbol, name, fetchedAt, iconUrl, null, 0, null);
+        }
+
+        Quote(BigDecimal price, BigDecimal change, String symbol, String name, long fetchedAt, String iconUrl,
+              List<BigDecimal> stockSparkline, long priceUpdatedAt, Boolean marketClosed) {
             this.iconUrl = imageUrl(iconUrl);
             this.price = price;
             this.change = change;
             this.symbol = displayString(symbol, 40);
             this.name = displayString(name, 100);
             this.fetchedAt = fetchedAt;
+            this.stockSparkline = stockSparkline;
+            this.priceUpdatedAt = priceUpdatedAt;
+            this.marketClosed = marketClosed;
         }
 
         JSONObject json() throws JSONException {
+            JSONArray samples = new JSONArray();
+            if (stockSparkline != null) for (BigDecimal sample : stockSparkline) samples.put(sample.toPlainString());
             return new JSONObject().put("price", price.toPlainString())
                 .put("change", change == null ? JSONObject.NULL : change.toPlainString())
-                .put("symbol", symbol).put("name", name).put("fetchedAt", fetchedAt).put("iconUrl", iconUrl);
+                .put("symbol", symbol).put("name", name).put("fetchedAt", fetchedAt).put("iconUrl", iconUrl)
+                .put("stockSparkline", samples).put("priceUpdatedAt", priceUpdatedAt)
+                .put("marketClosed", marketClosed == null ? JSONObject.NULL : marketClosed);
         }
 
         static Quote cached(String raw) {
@@ -181,7 +207,10 @@ final class MarketWidgetData {
                 long time = value.getLong("fetchedAt");
                 if (price == null || price.signum() < 0 || time <= 0) return null;
                 return new Quote(price, number(value.opt("change")), value.optString("symbol"),
-                    value.optString("name"), time, value.optString("iconUrl", ""));
+                    value.optString("name"), time, value.optString("iconUrl", ""),
+                    MarketWidgetClient.decodeStockSparkline(value.optJSONArray("stockSparkline")),
+                    value.optLong("priceUpdatedAt", 0),
+                    value.opt("marketClosed") instanceof Boolean ? value.getBoolean("marketClosed") : null);
             } catch (Exception ignored) {
                 return null;
             }

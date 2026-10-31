@@ -30,4 +30,7 @@
     <string name="market_widget_loading">लोड हो रहा है...</string>
     <string name="market_widget_no_coins">कोई परिणाम नहीं मिला</string>
     <string name="market_widget_back">वापस</string>
+    <string name="market_widget_market_closed">बंद</string>
+    <string name="market_widget_stock_chart">चार्ट</string>
+    <string name="market_widget_asset">संपत्ति</string>
 </resources>

@@ -8,9 +8,9 @@
 "market_widget_configuration__title" = "Configuration";
 "market_widget_lock_watchlist__title" = "Watchlist";
 "market_widget_lock_spot__title" = "Spot Watch";
-"market_widget_lock_coin_1__title" = "Coin 1";
-"market_widget_lock_coin_2__title" = "Coin 2";
-"market_widget_lock_coin_3__title" = "Coin 3";
+"market_widget_lock_coin_1__title" = "Asset 1";
+"market_widget_lock_coin_2__title" = "Asset 2";
+"market_widget_lock_coin_3__title" = "Asset 3";
 "market_widget_single__desc" = "A coin’s USD price and 24-hour change.";
 "market_widget_list__desc" = "Three coins with USD prices and 24-hour charts.";
 "market_widget_choose_configuration__desc" = "Create a configuration in OneKey, then select it here.";
@@ -32,3 +32,6 @@
 "market_widget_quote__desc" = "%1$@, price %2$@ USD, 24-hour change %3$@.";
 "market_widget_quote_cached__desc" = "%1$@, price %2$@ USD, 24-hour change %3$@. Cached data.";
 "wallet.price_unavailable" = "No price available";
+"market_widget_market_closed__title" = "Closed";
+"market_widget_stock_chart__desc" = "Chart";
+"market_widget_asset__title" = "Asset";

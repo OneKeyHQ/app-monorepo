@@ -8,9 +8,9 @@
 "market_widget_configuration__title" = "Configuration";
 "market_widget_lock_watchlist__title" = "Liste de suivi";
 "market_widget_lock_spot__title" = "Suivi au comptant";
-"market_widget_lock_coin_1__title" = "Crypto 1";
-"market_widget_lock_coin_2__title" = "Crypto 2";
-"market_widget_lock_coin_3__title" = "Crypto 3";
+"market_widget_lock_coin_1__title" = "Actif 1";
+"market_widget_lock_coin_2__title" = "Actif 2";
+"market_widget_lock_coin_3__title" = "Actif 3";
 "market_widget_single__desc" = "Prix en USD et variation sur 24 heures d’une crypto.";
 "market_widget_list__desc" = "Trois cryptos avec prix en USD et graphiques sur 24 heures.";
 "market_widget_choose_configuration__desc" = "Créez une configuration dans OneKey, puis sélectionnez-la ici.";
@@ -32,3 +32,6 @@
 "market_widget_quote__desc" = "%1$@, prix %2$@ USD, variation sur 24 heures %3$@.";
 "market_widget_quote_cached__desc" = "%1$@, prix %2$@ USD, variation sur 24 heures %3$@. Données en cache.";
 "wallet.price_unavailable" = "Aucun prix disponible";
+"market_widget_market_closed__title" = "Fermé";
+"market_widget_stock_chart__desc" = "Graphique";
+"market_widget_asset__title" = "Actif";
