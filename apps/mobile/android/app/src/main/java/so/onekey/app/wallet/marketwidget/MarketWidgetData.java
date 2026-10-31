@@ -51,7 +51,7 @@ final class MarketWidgetData {
                 ? identity(value, "requestTokenAddress", 256, true) : "";
             symbol = displayString(value.optString("symbol", ""), 40);
             name = displayString(value.optString("name", ""), 100);
-            iconUrl = imageUrl(value.optString("iconUrl", ""));
+            iconUrl = imageUrl(value.optString("iconUrl", value.optString("logoURL", "")));
         }
 
         String key() {

@@ -12,6 +12,7 @@ import type {
 type IOneKeyMarketWidgetNativeModule = {
   stockSupportVersion?: number;
   setConfiguration: (configuration: string) => Promise<void>;
+  syncQuote?: (update: string) => Promise<boolean>;
   getEditorState?: () => Promise<string>;
   refreshEditorState?: () => Promise<string>;
   saveProfile?: (profile: string) => Promise<string>;
@@ -34,6 +35,12 @@ function getNativeModule() {
 const marketWidget: IMarketWidgetModule = {
   isSupported: () => typeof getNativeModule()?.setConfiguration === 'function',
   supportsStockAssets: () => getNativeModule()?.stockSupportVersion === 1,
+  supportsQuoteSync: () => typeof getNativeModule()?.syncQuote === 'function',
+  async syncQuote(update) {
+    return (
+      (await getNativeModule()?.syncQuote?.(JSON.stringify(update))) ?? false
+    );
+  },
   supportsProfileEditing: () =>
     !!platformEnv.isNativeIOS &&
     Number.parseInt(String(Platform.Version), 10) >= 17 &&

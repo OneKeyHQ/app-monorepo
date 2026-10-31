@@ -342,6 +342,7 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
       set(tokenDetailAtom(), {
         ...tokenDetail,
         price: payload.price,
+        priceObservedAt: chartPriceUpdatedAt,
         priceConverted: getMarketTokenConvertedPrice(
           payload.price,
           priceConversionRate,

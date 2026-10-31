@@ -152,6 +152,7 @@ export function mergeMarketTokenDetailPrice({
         priceConversionRate,
       ),
       priceConversionRate,
+      priceObservedAt: current.priceObservedAt,
       lastUpdated: current.lastUpdated,
       chartPriceUpdatedAt,
       detailPriceInitializedAt,
@@ -173,5 +174,6 @@ export function mergeMarketTokenDetailPrice({
     chartPriceUpdatedAt,
     detailPriceInitializedAt,
     priceConversionRate,
+    priceObservedAt: hasValidPrice ? requestStartedAt : undefined,
   };
 }

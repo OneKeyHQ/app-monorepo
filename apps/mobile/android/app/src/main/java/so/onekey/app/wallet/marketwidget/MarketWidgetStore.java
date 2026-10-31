@@ -320,11 +320,38 @@ final class MarketWidgetStore {
         return preferences(context).getBoolean("failed_" + asset.key(), false);
     }
 
-    static synchronized void saveQuote(Context context, MarketWidgetData.Asset asset, MarketWidgetData.Quote quote)
+    static synchronized boolean syncQuote(Context context, String json) throws JSONException {
+        if (json.length() > 65_536) throw new JSONException("Invalid quote size");
+        JSONObject update = new JSONObject(json);
+        if (!"usd".equals(update.optString("currency"))) throw new JSONException("Invalid quote currency");
+        JSONObject value = update.getJSONObject("quote");
+        MarketWidgetData.Asset asset = new MarketWidgetData.Asset(value.getJSONObject("asset"));
+        java.math.BigDecimal price = MarketWidgetData.number(value.opt("price"));
+        java.math.BigDecimal change = MarketWidgetData.number(value.opt("change24h"));
+        long fetchedAt = value.getLong("fetchedAt");
+        long priceUpdatedAt = value.optLong("priceUpdatedAt", 0);
+        if (price == null || price.signum() < 0 || fetchedAt <= 0
+            || fetchedAt > System.currentTimeMillis() + 60_000
+            || priceUpdatedAt < 0 || priceUpdatedAt > fetchedAt + 60_000
+            || (value.has("change24h") && !value.isNull("change24h") && change == null)) {
+            throw new JSONException("Invalid quote");
+        }
+        if (!contains(context, asset) || System.currentTimeMillis() - fetchedAt >= 300_000) return false;
+        MarketWidgetData.Quote quote = new MarketWidgetData.Quote(price, change, asset.symbol, asset.name,
+            fetchedAt, asset.iconUrl,
+            "stock".equals(asset.kind) ? MarketWidgetClient.decodeStockSparkline(value.optJSONArray("stockSparkline")) : null,
+            priceUpdatedAt, value.opt("marketClosed") instanceof Boolean ? value.getBoolean("marketClosed") : null);
+        return saveQuote(context, asset, quote);
+    }
+
+    static synchronized boolean saveQuote(Context context, MarketWidgetData.Asset asset, MarketWidgetData.Quote quote)
         throws JSONException {
-        if (!contains(context, asset)) return;
+        if (!contains(context, asset)) return false;
+        MarketWidgetData.Quote current = quote(context, asset);
+        if (current != null && current.fetchedAt >= quote.fetchedAt) return false;
         if (!preferences(context).edit().putString("quote_" + asset.key(), quote.json().toString())
             .putBoolean("failed_" + asset.key(), false).commit()) throw new IllegalStateException("Could not persist market quote");
+        return true;
     }
 
     static synchronized void saveHistory(Context context, MarketWidgetData.Asset asset, MarketWidgetData.History history)

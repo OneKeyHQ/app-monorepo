@@ -64,6 +64,8 @@ export interface IMarketTokenDetail {
   // Runtime-only: start the grace period before detail quotes may recover a stalled feed.
   detailPriceInitializedAt?: number;
   chartPriceUpdatedAt?: number;
+  // Runtime-only: orders the displayed USD price against native widget requests.
+  priceObservedAt?: number;
   priceChange1mPercent?: string;
   priceChange5mPercent?: string;
   priceChange30mPercent?: string;

@@ -331,7 +331,8 @@ actor MarketWidgetService {
   static func fetch(asset: MarketWidgetAsset, locale: String, store: MarketWidgetStore = MarketWidgetStore(),
                     session: URLSession = .shared) async throws -> MarketWidgetQuote {
     guard store.permitsRequests(for: asset) else { throw MarketWidgetError.invalidConfiguration }
-    let quote = try decode(try await response(for: request(for: asset, locale: locale), session: session), asset: asset, fetchedAt: Date())
+    let startedAt = Date()
+    let quote = try decode(try await response(for: request(for: asset, locale: locale), session: session), asset: asset, fetchedAt: startedAt)
     // A detail request can finish after the host masks widgets or removes this asset.
     guard store.permitsRequests(for: asset) else { throw MarketWidgetError.invalidConfiguration }
     await fetchIcon(asset: quote.asset, store: store, session: session)

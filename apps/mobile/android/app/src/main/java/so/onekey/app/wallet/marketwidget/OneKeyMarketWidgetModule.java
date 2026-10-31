@@ -41,6 +41,19 @@ public final class OneKeyMarketWidgetModule extends ReactContextBaseJavaModule {
     }
 
     @ReactMethod
+    public void syncQuote(String json, Promise promise) {
+        try {
+            boolean changed = MarketWidgetStore.syncQuote(getReactApplicationContext(), json);
+            if (changed) MarketWidgetProvider.renderAll(getReactApplicationContext());
+            MarketWidgetLog.event("quote.app_synced", "changed", changed, "renderRequested", changed);
+            promise.resolve(changed);
+        } catch (Exception error) {
+            MarketWidgetLog.failure("quote.app_sync_failed", error);
+            promise.reject("MARKET_WIDGET_QUOTE_FAILED", "Could not sync widget quote", error);
+        }
+    }
+
+    @ReactMethod
     public void setConfiguration(String json, Promise promise) {
         try {
             boolean changed = MarketWidgetStore.setConfiguration(getReactApplicationContext(), json);
