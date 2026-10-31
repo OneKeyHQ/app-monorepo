@@ -235,6 +235,7 @@ class AppDelegate: ExpoAppDelegate, ExpoReactNativeFactoryProvider {
     // request (incl. recovery-mode path below). See SlowMist audit iOS-9.1.
     URLCache.shared.removeAllCachedResponses()
     URLCache.shared = URLCache(memoryCapacity: 4 * 1024 * 1024, diskCapacity: 0, diskPath: nil)
+    OneKeyInitializeIntercom()
 
     // The Objective-C MMKV wrapper has initialization separate from the JS factory.
     MMKV.initialize(rootDir: nil)

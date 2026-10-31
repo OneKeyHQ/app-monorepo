@@ -43,6 +43,7 @@ import appStorage from '@onekeyhq/shared/src/storage/appStorage';
 import { travelModeManager } from '@onekeyhq/shared/src/travelMode';
 import { rejectTravelModeUnknownError } from '@onekeyhq/shared/src/travelMode/runtimeEnvironment';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import { isAppAutoLockDue } from '@onekeyhq/shared/src/utils/passwordUtils';
 import { isEncodedSensitiveText } from '@onekeyhq/shared/src/utils/sensitiveTextUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import {
@@ -1681,9 +1682,7 @@ export default class ServicePassword extends ServiceBase {
       return;
     }
     const { time: lastActivity } = await settingsLastActivityAtom.get();
-    const idleDuration = Math.floor((Date.now() - lastActivity) / (1000 * 60));
-    const unavailableTime = Date.now() < lastActivity;
-    if (idleDuration >= appLockDuration || unavailableTime) {
+    if (isAppAutoLockDue({ now: Date.now(), lastActivity, appLockDuration })) {
       await this.lockApp({ manual: false });
     }
   }

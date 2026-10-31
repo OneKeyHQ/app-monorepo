@@ -5,6 +5,7 @@ import {
   appIsLocked,
   tradingModeAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -28,6 +29,7 @@ import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import {
+  ENotificationCommand,
   ENotificationViewDialogActionType,
   type INotificationViewDialogPayload,
 } from '@onekeyhq/shared/types/notification';
@@ -245,23 +247,36 @@ function BaseNotificationHandlerContainer() {
       handleShowNotificationInWebViewOverlay,
     );
 
-    const handleExecuteCommand = ({
+    const handleExecuteCommand = async ({
       action,
       data,
     }: {
       action: string;
       data?: Record<string, unknown>;
     }) => {
-      const context = { toInviteRewardPage, openHardwareSalesOrderDetail };
-      const success = executeNotificationCommand(action, context, data);
-      if (!success) {
-        showFallbackUpdateDialog(null);
+      try {
+        const success = await executeNotificationCommand(
+          action,
+          {
+            toInviteRewardPage,
+            openHardwareSalesOrderDetail,
+          },
+          data,
+        );
+        if (!success) {
+          showFallbackUpdateDialog(null);
+        }
+      } catch (error) {
+        errorToastUtils.showToastOfError(error);
       }
     };
     appEventBus.on(
       EAppEventBusNames.ExecuteNotificationCommand,
       handleExecuteCommand,
     );
+    void handleExecuteCommand({
+      action: ENotificationCommand.openSupportConversation,
+    });
 
     return () => {
       appEventBus.off(

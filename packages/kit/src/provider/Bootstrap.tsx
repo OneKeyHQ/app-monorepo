@@ -26,6 +26,7 @@ import {
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
 import { useOnboardingConnectWalletLoadingAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/onboarding';
 import { useAppIsLockedAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/passwordLock';
+import { usePrimePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/prime';
 import {
   EAppUpdateStatus,
   EUpdateFileType,
@@ -50,7 +51,10 @@ import {
 import BootRecovery from '@onekeyhq/shared/src/modules/BootRecovery';
 import nativeNetworkThrottle from '@onekeyhq/shared/src/modules/NetworkThrottle';
 import { electronUpdateListeners } from '@onekeyhq/shared/src/modules3rdParty/auto-update/electronUpdateListeners';
-import { initIntercom } from '@onekeyhq/shared/src/modules3rdParty/intercom';
+import {
+  initIntercom,
+  setIntercomTheme,
+} from '@onekeyhq/shared/src/modules3rdParty/intercom';
 import performance from '@onekeyhq/shared/src/performance';
 import {
   createDistinctChangeCounter,
@@ -96,6 +100,7 @@ import useAppNavigation from '../hooks/useAppNavigation';
 import { useHandleAppStateActive } from '../hooks/useHandleAppStateActive';
 import { useOnLock } from '../hooks/useOnLock';
 import { useRunAfterTokensDone } from '../hooks/useRunAfterTokensDone';
+import { useThemeVariant } from '../hooks/useThemeVariant';
 import { useTrayDataProvider } from '../hooks/useTrayDataProvider';
 import { registerHomeTokenListOwnerCacheInvalidation } from '../states/jotai/contexts/tokenList/cells/ownerCacheInvalidation';
 import { registerSwrCacheMutationInvalidation } from '../utils/swrCacheMutationInvalidation';
@@ -587,21 +592,50 @@ const useLogVersionInfo = () => {
 
 export const useIntercomInit = () => {
   const isInitializedRef = useRef(false);
+  const theme = useThemeVariant();
+  const [{ onekeyUserId, isLoggedIn }] = usePrimePersistAtom();
+  const previousIdentityRef = useRef({ onekeyUserId, isLoggedIn });
 
   useEffect(() => {
+    void setIntercomTheme(theme).catch(() => {
+      console.warn('Failed to update Intercom theme');
+    });
+  }, [theme]);
+
+  useEffect(() => {
+    const syncIntercom = () => {
+      void initIntercom().catch(() => {
+        console.warn('Failed to initialize Intercom');
+      });
+    };
+    const previousIdentity = previousIdentityRef.current;
+    const identityChanged =
+      previousIdentity.onekeyUserId !== onekeyUserId ||
+      previousIdentity.isLoggedIn !== isLoggedIn;
+    previousIdentityRef.current = { onekeyUserId, isLoggedIn };
+    // Only the initial sync is delayed. An entry can open the SDK before the
+    // timer fires, so identity changes must retire that session immediately.
+    if (isInitializedRef.current || identityChanged) {
+      isInitializedRef.current = true;
+      syncIntercom();
+      return;
+    }
     const timer = setTimeout(
       () => {
-        if (isInitializedRef.current) {
-          return;
-        }
-        void initIntercom();
         isInitializedRef.current = true;
+        syncIntercom();
       },
       timerUtils.getTimeDurationMs({ seconds: 10 }),
     );
     return () => clearTimeout(timer);
-  }, []);
+  }, [onekeyUserId, isLoggedIn]);
 };
+
+// Leaf component so prime-atom and theme updates skip the rest of Bootstrap.
+function IntercomSessionSync() {
+  useIntercomInit();
+  return null;
+}
 
 export const useLaunchEvents = (): void => {
   const intl = useIntl();
@@ -1117,7 +1151,6 @@ export function Bootstrap() {
   useIPadMainMenu();
   useLaunchEvents();
   useCheckUpdateOnDesktop();
-  useIntercomInit();
   useClearStorageOnExtension();
   useRemindDevelopmentBuildExtension();
   useTabletDetailView();
@@ -1129,6 +1162,7 @@ export function Bootstrap() {
           UpdateReminder/hooks.tsx#useAppUpdateInfo. */}
       <AppUpdateForeground />
       <PrivacyChainForeground />
+      <IntercomSessionSync />
       <SplitViewPrompt />
       {LazyExtensionMarketTokenDetailHashNavigation ? (
         <Suspense fallback={null}>

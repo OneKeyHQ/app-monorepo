@@ -199,6 +199,9 @@ def enableNativeBackgroundThread =
     defEnvStr(appEnvConfig, 'ENABLE_NATIVE_BACKGROUND_THREAD', 'false').toLowerCase()
 def sentryDsnReactNative =
     defEnvStr(appEnvConfig, 'SENTRY_DSN_REACT_NATIVE', '')
+// Publishable Messenger SDK key; Intercom must initialize in Application.onCreate.
+def intercomAndroidApiKey =
+    defEnvStr(appEnvConfig, 'INTERCOM_ANDROID_API_KEY', '')
 
 apply from: new File(["node", "--print", "require.resolve('@sentry/react-native/package.json')"].execute().text.trim(), "../sentry.gradle")
 android {
@@ -225,6 +228,11 @@ android {
             "String",
             "SENTRY_DSN_REACT_NATIVE",
             groovy.json.JsonOutput.toJson(sentryDsnReactNative),
+        )
+        buildConfigField(
+            "String",
+            "INTERCOM_ANDROID_API_KEY",
+            groovy.json.JsonOutput.toJson(intercomAndroidApiKey),
         )
         // ONEKEY_STARTUP_PROFILE — single env-var flag enabling native HBC + segment
         // timing + JS module profile. See .skillshare/skills/1k-startup-profile/SKILL.md
@@ -717,6 +725,9 @@ def registerUnionBuildTask(variant, appProjectRootDir) {
 }
 
 dependencies {
+    // BaseMainApplication uses the SDK directly. Match the pinned RN wrapper;
+    // its implementation dependency is not exposed on this app's compile path.
+    implementation 'io.intercom.android:intercom-sdk:18.10.0'
     // The version of react-native is set by the React Native Gradle Plugin
     implementation("com.facebook.react:react-android")
 

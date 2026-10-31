@@ -16,6 +16,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import perfUtils from '@onekeyhq/shared/src/utils/debug/perfUtils';
+import extUtils from '@onekeyhq/shared/src/utils/extUtils';
 import notificationsUtils, {
   NOTIFICATION_ACCOUNT_ACTIVITY_DEFAULT_MAX_ACCOUNT_COUNT,
 } from '@onekeyhq/shared/src/utils/notificationsUtils';
@@ -45,6 +46,7 @@ import type {
   INotificationShowResult,
 } from '@onekeyhq/shared/types/notification';
 import {
+  ENotificationCommand,
   ENotificationPermission,
   ENotificationPermissionRecoveryAction,
   ENotificationPermissionRecoveryTestScenario,
@@ -317,6 +319,42 @@ export default class ServiceNotification extends ServiceBase {
   };
 
   isColdStartByNotificationDone = false;
+
+  private pendingSupportConversation: { conversationId?: string } | undefined;
+
+  @backgroundMethod()
+  async requestOpenSupportConversation({
+    conversationId,
+    sourceNodeId,
+  }: {
+    conversationId?: string;
+    sourceNodeId?: string;
+  }) {
+    const targetNodeId =
+      platformEnv.isExtensionBackground &&
+      sourceNodeId &&
+      !(await this.backgroundApi.serviceApp.isAppLocked())
+        ? sourceNodeId
+        : undefined;
+    // Keep the intent in bg until a foreground is mounted and can claim it.
+    this.pendingSupportConversation = { conversationId };
+    if (platformEnv.isExtensionBackground && !targetNodeId) {
+      await extUtils.openExpandTab({});
+    }
+    appEventBus.emit(EAppEventBusNames.ExecuteNotificationCommand, {
+      action: ENotificationCommand.openSupportConversation,
+      ...(targetNodeId ? { data: { targetNodeId } } : {}),
+    });
+  }
+
+  @backgroundMethod()
+  async takePendingSupportConversation(): Promise<
+    { conversationId?: string } | undefined
+  > {
+    const pendingConversation = this.pendingSupportConversation;
+    this.pendingSupportConversation = undefined;
+    return pendingConversation;
+  }
 
   @backgroundMethod()
   async handleColdStartByNotification(params: INotificationClickParams) {
