@@ -970,16 +970,12 @@ describe('TradingViewNative data providers', () => {
   it('keeps Hyperliquid transport details behind its adapter', async () => {
     const mocks = globalMockBag.__tradingViewNativeProviderMocks;
     mocks?.hyperliquidFetchCandles.mockResolvedValue({ points: [], total: 0 });
-    mocks?.hyperliquidSubscribeCandle.mockResolvedValue({
-      ensure: jest.fn(),
-      unsubscribe: jest.fn(),
-    });
     const provider = createTradingViewNativeDataProvider({
       kind: 'hyperliquid',
       coin: 'BTC',
       environment: 'testnet',
     });
-    const interval = getInterval('1M');
+    const interval = getInterval('60');
     expect(provider.getHistoryRequestCandleCount(interval)).toBe(5000);
     expect(
       provider.hasMoreHistory({ interval, receivedPointCount: 5000 }),
@@ -995,10 +991,55 @@ describe('TradingViewNative data providers', () => {
     expect(mocks?.hyperliquidFetchCandles).toHaveBeenCalledWith({
       coin: 'BTC',
       environment: 'testnet',
-      interval: '1M',
+      interval: '1h',
       signal: abortController.signal,
       timeFrom: 100,
       timeTo: 200,
+    });
+  });
+
+  it('builds Hyperliquid monthly history from complete daily calendar windows', async () => {
+    const mocks = globalMockBag.__tradingViewNativeProviderMocks;
+    const firstDay = Date.parse('2025-02-01') / 1000;
+    const lastDay = Date.parse('2025-02-28') / 1000;
+    mocks?.hyperliquidFetchCandles.mockResolvedValue({
+      points: [
+        { t: firstDay, o: 100, h: 120, l: 90, c: 110, v: 10 },
+        { t: lastDay, o: 110, h: 130, l: 100, c: 125, v: 20 },
+      ],
+      total: 2,
+    });
+    const provider = createTradingViewNativeDataProvider({
+      kind: 'hyperliquid',
+      coin: 'BTC',
+      environment: 'testnet',
+    });
+    const interval = getInterval('1M');
+    expect(provider.getHistoryRequestCandleCount(interval)).toBe(100);
+    expect(provider.hasMoreHistory({ interval, receivedPointCount: 1 })).toBe(
+      true,
+    );
+    expect(provider.hasMoreHistory({ interval, receivedPointCount: 0 })).toBe(
+      false,
+    );
+    const signal = new AbortController().signal;
+    const result = await provider.fetchHistory({
+      interval,
+      signal,
+      timeFrom: Date.parse('2025-02-10') / 1000,
+      timeTo: Date.parse('2025-02-20') / 1000,
+    });
+    expect(mocks?.hyperliquidFetchCandles).toHaveBeenCalledWith({
+      coin: 'BTC',
+      environment: 'testnet',
+      interval: '1d',
+      signal,
+      timeFrom: firstDay,
+      timeTo: Date.parse('2025-03-01') / 1000 - 1,
+    });
+    expect(result).toEqual({
+      points: [{ t: firstDay, o: 100, h: 130, l: 90, c: 125, v: 30 }],
+      total: 1,
     });
   });
 

@@ -4,6 +4,12 @@ import type { IIpTableRemoteConfig } from '../types/ipTable';
 
 // ========== IP Table Service Configuration Constants ==========
 
+/**
+ * Master switch. When false, every request goes to the domain directly:
+ * no SNI/IP requests, no remote config fetch and no speed tests.
+ */
+export const IP_TABLE_ENABLED = false;
+
 export const CDN_SIGNER_ADDRESS = '0x3eaf57d1aD767CA3aFeDbF8D82C1De610c6F6519';
 
 /**

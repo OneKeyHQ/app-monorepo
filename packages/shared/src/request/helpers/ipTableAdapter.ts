@@ -299,7 +299,7 @@ const adapterFailoverStates = new Map<string, IAdapterFailoverState>();
 /** IP Table state for availability metrics, from the inputs selection uses. */
 const readIpTableAvailabilityState = memoizee(
   async (): Promise<IAvailabilityIpTableState> => {
-    if (!(await shouldUseIpTable())) return 'disabled';
+    if (!isSniSupported() || !(await shouldUseIpTable())) return 'disabled';
     const configWithRuntime = await requestHelper.getIpTableConfig();
     if (!configWithRuntime) return 'noConfig';
     return configWithRuntime.runtime?.enabled === false
