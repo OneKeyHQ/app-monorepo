@@ -1721,10 +1721,25 @@ function RecipientQuickSelect({
     [activeTab, networkId, setActiveTab, trimmedSearchKey],
   );
 
+  const initialPagerIndex = Math.max(0, visibleTabKeys.indexOf(activeTab));
+  const pagerSelectedIndexRef = useRef(initialPagerIndex);
+  const pagerSelectedTabRef = useRef<IRecipientQuickSelectTab | undefined>(
+    visibleTabKeys[initialPagerIndex],
+  );
+
   useEffect(() => {
     if (!pagerMode) return;
     const index = visibleTabKeys.indexOf(activeTab);
-    if (index >= 0) pagerRef.current?.setPageWithoutAnimation(index);
+    if (index < 0) return;
+    if (
+      pagerSelectedTabRef.current === activeTab &&
+      pagerSelectedIndexRef.current === index
+    ) {
+      return;
+    }
+    pagerSelectedIndexRef.current = index;
+    pagerSelectedTabRef.current = activeTab;
+    pagerRef.current?.setPageWithoutAnimation(index);
   }, [activeTab, pagerMode, visibleTabKeys]);
 
   const handlePagerHeaderLayout = useCallback(
@@ -1790,7 +1805,7 @@ function RecipientQuickSelect({
               ? { backgroundColor: theme.bgApp.val }
               : {}),
           }}
-          initialPage={Math.max(0, visibleTabKeys.indexOf(activeTab))}
+          initialPage={initialPagerIndex}
           headerHeight={pagerHeaderHeight}
           stickyHeaderHeight={stickyHeaderHeight}
           header={
@@ -1845,7 +1860,11 @@ function RecipientQuickSelect({
           onPageSelected={({ nativeEvent }) => {
             invalidateFocusMeasurement(true);
             const tab = visibleTabKeys[nativeEvent.position];
-            if (tab) handleManualTabChange(tab);
+            if (tab) {
+              pagerSelectedIndexRef.current = nativeEvent.position;
+              pagerSelectedTabRef.current = tab;
+              handleManualTabChange(tab);
+            }
           }}
           onPageScrollStateChanged={({ nativeEvent }) => {
             if (nativeEvent.pageScrollState === 'dragging')
