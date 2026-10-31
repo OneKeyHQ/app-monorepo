@@ -30,6 +30,7 @@ export function TradingViewNativeChartSettingsButton({
   storageNamespace,
   priceAxisWidth,
   enablePreviousClose = false,
+  enableNavigationButtons = false,
   isChartSwitchDisabled = false,
   onChartSwitch,
   onBeforeOpenSettings,
@@ -38,6 +39,7 @@ export function TradingViewNativeChartSettingsButton({
   storageNamespace?: ITradingViewNativeStorageNamespace;
   priceAxisWidth: number;
   enablePreviousClose?: boolean;
+  enableNavigationButtons?: boolean;
   isChartSwitchDisabled?: boolean;
   onChartSwitch?: () => void;
   onBeforeOpenSettings?: () => void;
@@ -51,6 +53,7 @@ export function TradingViewNativeChartSettingsButton({
       screen: EModalMarketRoutes.MarketChartSettings,
       params: {
         showPreviousClose: enablePreviousClose,
+        showNavigationButtons: enableNavigationButtons,
         showChartType: true,
         ...(storageNamespace ? { storageNamespace } : {}),
         ...(onChartSwitch
@@ -67,6 +70,7 @@ export function TradingViewNativeChartSettingsButton({
     onBeforeOpenSettings?.();
     navigation.pushModal(EModalRoutes.MarketModal, params);
   }, [
+    enableNavigationButtons,
     enablePreviousClose,
     isChartSwitchDisabled,
     navigation,

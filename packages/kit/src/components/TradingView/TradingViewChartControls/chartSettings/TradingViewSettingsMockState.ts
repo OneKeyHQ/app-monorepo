@@ -1678,7 +1678,7 @@ export function createTradingViewChartSettingsValue(): ITradingViewChartSettings
       pastEvents: false,
       clickInteraction: false,
       crossLine: true,
-      navigationButtons: true,
+      navigationButtons: false,
     },
     latestPriceLine: {
       upColor: TRADING_VIEW_NATIVE_THEME_COLORS.positive,
