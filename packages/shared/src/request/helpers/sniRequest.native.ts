@@ -3,6 +3,7 @@ import { NativeModules, TurboModuleRegistry } from 'react-native';
 import { OneKeyLocalError } from '../../errors';
 import { defaultLogger } from '../../logger/logger';
 import platformEnv from '../../platformEnv';
+import { IP_TABLE_ENABLED } from '../constants/ipTableDefaults';
 
 import { safeSniLogValue } from './sniLogRedaction';
 import { executeSniRequestWithAbort } from './sniRequestAbort';
@@ -196,10 +197,10 @@ function normalizeSniMethod(method: string): SniConnectMethod {
 /**
  * Check if SNI is supported on current platform
  * The current native transport dependency has no Mac Catalyst binary slice.
- * @returns true when the native SNI dependency is linked
+ * @returns true if IP_TABLE_ENABLED and the native SNI dependency is linked
  */
 export function isSniSupported(): boolean {
-  return !platformEnv.isNativeIOSMacCatalyst;
+  return IP_TABLE_ENABLED && !platformEnv.isNativeIOSMacCatalyst;
 }
 
 /**

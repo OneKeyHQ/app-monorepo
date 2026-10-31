@@ -6,6 +6,7 @@ import {
 } from '../../types/swap/SwapProvider.constants';
 import { getNetworkIdsMap } from '../config/networkIds';
 
+import tokenRebaseUtils from './tokenRebaseUtils';
 import { equalTokenNoCaseSensitive } from './tokenUtils';
 
 import type { ISwapNetwork, ISwapToken } from '../../types/swap/types';
@@ -107,6 +108,66 @@ export function getSwapDefaultCounterpartToken({
   );
 }
 
+function getConfiguredNativeCrossChainCounterpart({
+  fromToken,
+  swapNetworks,
+}: {
+  fromToken: ISwapToken;
+  swapNetworks: ISwapNetwork[];
+}): ISwapToken | undefined {
+  const sourceNetwork = swapNetworks.find(
+    (network) => network.networkId === fromToken.networkId,
+  );
+  const configuredFrom = sourceNetwork?.defaultSelectTokenDetail?.from;
+  const configuredTo = sourceNetwork?.defaultSelectTokenDetail?.to;
+
+  if (
+    !sourceNetwork?.supportCrossChainSwap ||
+    configuredFrom?.isNative !== true ||
+    typeof configuredFrom.contractAddress !== 'string' ||
+    !equalTokenNoCaseSensitive({ token1: fromToken, token2: configuredFrom }) ||
+    !configuredTo
+  ) {
+    return undefined;
+  }
+
+  if (
+    typeof configuredTo.networkId !== 'string' ||
+    !configuredTo.networkId.trim() ||
+    configuredTo.networkId === fromToken.networkId
+  ) {
+    return undefined;
+  }
+
+  if (
+    typeof configuredTo.symbol !== 'string' ||
+    !configuredTo.symbol.trim() ||
+    typeof configuredTo.contractAddress !== 'string' ||
+    (configuredTo.isNative !== true && !configuredTo.contractAddress.trim()) ||
+    !Number.isInteger(configuredTo.decimals) ||
+    configuredTo.decimals < 0 ||
+    configuredTo.decimals > 255
+  ) {
+    return undefined;
+  }
+
+  if (
+    (configuredTo.balanceMultiplier !== undefined &&
+      typeof configuredTo.balanceMultiplier !== 'string') ||
+    tokenRebaseUtils.isScalingBalanceMultiplier(configuredTo.balanceMultiplier)
+  ) {
+    return undefined;
+  }
+
+  const targetNetwork = swapNetworks.find(
+    (network) => network.networkId === configuredTo.networkId,
+  );
+  return targetNetwork?.supportSingleSwap ||
+    targetNetwork?.supportCrossChainSwap
+    ? configuredTo
+    : undefined;
+}
+
 export function getSwapEntryDefaultToToken({
   fromToken,
   swapNetworks = [],
@@ -125,11 +186,13 @@ export function getSwapEntryDefaultToToken({
   if (configuredToken) {
     return configuredToken;
   }
-  if (
-    (fromToken.networkId === getNetworkIdsMap().btc && fromToken.isNative) ||
-    (!isSupportSwap && isSupportCrossChain)
-  ) {
-    return getSwapBridgeDefaultToToken(fromToken);
+  const isNativeBtc =
+    fromToken.networkId === getNetworkIdsMap().btc && fromToken.isNative;
+  if (isNativeBtc || (!isSupportSwap && isSupportCrossChain)) {
+    const configuredCrossChainToken = isNativeBtc
+      ? getConfiguredNativeCrossChainCounterpart({ fromToken, swapNetworks })
+      : undefined;
+    return configuredCrossChainToken ?? getSwapBridgeDefaultToToken(fromToken);
   }
   // Unknown capabilities can preview a default; execution still validates support.
   return isSupportSwap !== false

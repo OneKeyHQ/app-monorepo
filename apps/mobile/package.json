@@ -61,7 +61,6 @@
     "@gorhom/bottom-sheet": "5.2.14",
     "@react-native-community/datetimepicker": "9.1.0",
     "@react-native/metro-config": "0.88.0",
-    "@rozenite/expo-atlas-plugin": "1.0.0-alpha.16",
     "@rozenite/metro": "1.0.0-alpha.16",
     "@rozenite/network-activity-plugin": "1.0.0-alpha.16",
     "@rozenite/react-navigation-plugin": "1.0.0-alpha.16",

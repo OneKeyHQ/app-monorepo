@@ -333,6 +333,35 @@ export function useSwapInit(params?: ISwapInitParams) {
   const hasSyncedSwapSelectedAccountFromHomeStorageRef = useRef(false);
   const appliedImportNetworkIdRef = useRef<string | undefined>(undefined);
   const consumedSwapInitParamsKeyRef = useRef<string | undefined>(undefined);
+  // The route selects Stock only until that tab has actually become active.
+  // Later user switches must not be undone by the original entry parameters.
+  const stockRouteIntentRef = useRef({
+    key: swapInitParamsConsumptionKey,
+    type: params?.swapTabSwitchType,
+    activated: false,
+  });
+  if (
+    stockRouteIntentRef.current.key !== swapInitParamsConsumptionKey ||
+    stockRouteIntentRef.current.type !== params?.swapTabSwitchType
+  ) {
+    stockRouteIntentRef.current = {
+      key: swapInitParamsConsumptionKey,
+      type: params?.swapTabSwitchType,
+      activated: false,
+    };
+  }
+  if (swapTypeSwitch === ESwapTabSwitchType.STOCK) {
+    stockRouteIntentRef.current.activated = true;
+  }
+  const getCurrentRouteSwapType = useCallback(
+    (fallback: ESwapTabSwitchType) =>
+      params?.swapTabSwitchType === ESwapTabSwitchType.STOCK &&
+      stockRouteIntentRef.current.activated &&
+      swapTypeSwitchRef.current !== ESwapTabSwitchType.STOCK
+        ? swapTypeSwitchRef.current
+        : (params?.swapTabSwitchType ?? fallback),
+    [params?.swapTabSwitchType],
+  );
   const deferredImportedTokensRef = useRef<
     | {
         key: string | undefined;
@@ -621,12 +650,12 @@ export function useSwapInit(params?: ISwapInitParams) {
       setSelectedTokensColdStartContext(context);
       if (resetSwapType) {
         switchSwapTypeIfNeeded(
-          params?.swapTabSwitchType ?? ESwapTabSwitchType.SWAP,
+          getCurrentRouteSwapType(ESwapTabSwitchType.SWAP),
         );
       }
     },
     [
-      params?.swapTabSwitchType,
+      getCurrentRouteSwapType,
       resetSwapTokenData,
       setSelectedTokensColdStartContext,
       switchSwapTypeIfNeeded,
@@ -1230,7 +1259,8 @@ export function useSwapInit(params?: ISwapInitParams) {
     }
     const isStockDefaultTokenFlow =
       swapTypeSwitchRef.current === ESwapTabSwitchType.STOCK ||
-      params?.swapTabSwitchType === ESwapTabSwitchType.STOCK;
+      (params?.swapTabSwitchType === ESwapTabSwitchType.STOCK &&
+        !stockRouteIntentRef.current.activated);
     const hasStockExecutionSelectedTokens =
       fromTokenRef.current?.isStock === true ||
       toTokenRef.current?.isStock === true;
@@ -1722,8 +1752,9 @@ export function useSwapInit(params?: ISwapInitParams) {
     ) {
       return;
     }
-    const preferredDefaultSwapType =
-      params?.swapTabSwitchType ?? swapTypeSwitchRef.current;
+    const preferredDefaultSwapType = getCurrentRouteSwapType(
+      swapTypeSwitchRef.current,
+    );
     const defaultSelectedTokens = buildSwapDefaultSelectedTokensForNetwork({
       networkId: defaultTokenNetworkId,
       swapType: preferredDefaultSwapType,
@@ -1813,7 +1844,7 @@ export function useSwapInit(params?: ISwapInitParams) {
         void syncNetworksSort(defaultToToken.networkId);
         if (shouldResetInvalidColdStartSwapType) {
           switchSwapTypeIfNeeded(
-            params?.swapTabSwitchType ?? ESwapTabSwitchType.SWAP,
+            getCurrentRouteSwapType(ESwapTabSwitchType.SWAP),
             defaultFromTokenWithLogo?.networkId ?? defaultToToken.networkId,
           );
         }
@@ -1898,9 +1929,7 @@ export function useSwapInit(params?: ISwapInitParams) {
         finishSwapInitParamsSync();
       }
     } else if (shouldResetInvalidColdStartSwapType) {
-      switchSwapTypeIfNeeded(
-        params?.swapTabSwitchType ?? ESwapTabSwitchType.SWAP,
-      );
+      switchSwapTypeIfNeeded(getCurrentRouteSwapType(ESwapTabSwitchType.SWAP));
     }
   }, [
     params?.fromAmount,
@@ -1910,6 +1939,7 @@ export function useSwapInit(params?: ISwapInitParams) {
     params?.swapSource,
     params?.marketSwapDirection,
     params?.swapTabSwitchType,
+    getCurrentRouteSwapType,
     normalizedSwapTabSwitchType,
     supportCheckSwapTabSwitchType,
     swapInitParamsConsumptionKey,

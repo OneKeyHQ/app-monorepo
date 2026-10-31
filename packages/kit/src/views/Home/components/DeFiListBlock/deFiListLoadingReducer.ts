@@ -2,6 +2,9 @@ export type IDeFiListLoadingState = {
   isRefreshing: boolean;
   initialized: boolean;
   loadedOwnerKey?: string;
+  confirmedEmptyOwnerKey?: string;
+  confirmedSnapshotOwnerKey?: string;
+  hasError?: boolean;
 };
 
 export type IDeFiListLoadingEvent =
@@ -12,12 +15,16 @@ export type IDeFiListLoadingEvent =
 const TERMINAL: IDeFiListLoadingState = {
   isRefreshing: false,
   initialized: true,
+  hasError: false,
 };
 
 const LOADING: IDeFiListLoadingState = {
   isRefreshing: true,
   initialized: false,
   loadedOwnerKey: undefined,
+  confirmedEmptyOwnerKey: undefined,
+  confirmedSnapshotOwnerKey: undefined,
+  hasError: false,
 };
 
 export function deFiListLoadingReducer(
@@ -27,10 +34,15 @@ export function deFiListLoadingReducer(
     case 'start':
       return LOADING;
     case 'settled':
-    case 'error':
       return {
         ...TERMINAL,
         loadedOwnerKey: event.loadedOwnerKey,
+      };
+    case 'error':
+      return {
+        ...TERMINAL,
+        hasError: true,
+        loadedOwnerKey: undefined,
       };
     default: {
       const _exhaustive: never = event;
@@ -40,24 +52,18 @@ export function deFiListLoadingReducer(
 }
 
 export function shouldShowDeFiEmptyState({
-  initialized,
-  isRefreshing,
-  loadedOwnerKey,
+  confirmedEmptyOwnerKey,
   ownerKey,
   protocolsLength,
 }: {
-  initialized: boolean;
-  isRefreshing: boolean;
-  loadedOwnerKey?: string;
+  confirmedEmptyOwnerKey?: string;
   ownerKey?: string;
   protocolsLength: number;
 }) {
   return (
     protocolsLength === 0 &&
-    initialized &&
-    !isRefreshing &&
     Boolean(ownerKey) &&
-    loadedOwnerKey === ownerKey
+    confirmedEmptyOwnerKey === ownerKey
   );
 }
 
@@ -96,28 +102,46 @@ export function shouldApplyDeFiAllNetworksResult<T>({
   return !(applied?.result === result && applied.ownerKey !== ownerKey);
 }
 
-// State written when an all-network fan-out finishes. The hook calls
-// `onFinished` before it publishes the result, so when the run returned
-// positions the owner is not stamped loaded yet: the result effect does that
-// in the commit that fills the list, keeping the skeleton (not the empty
-// state) in between. Without positions nothing else will settle the owner.
+// Positions are committed after onFinished; do not display the previous empty
+// state between those two updates. Only a successful run can confirm empty.
 export function resolveDeFiFanOutFinishedState({
   positionsOwnerKey,
   finishedOwnerKey,
+  runSucceeded,
+  previousConfirmedEmptyOwnerKey,
 }: {
   positionsOwnerKey?: string;
   finishedOwnerKey?: string;
+  runSucceeded: boolean;
+  previousConfirmedEmptyOwnerKey?: string;
 }): Partial<IDeFiListLoadingState> {
   if (
     positionsOwnerKey !== undefined &&
     positionsOwnerKey === finishedOwnerKey
   ) {
-    return { initialized: true, isRefreshing: false };
+    return {
+      initialized: true,
+      isRefreshing: false,
+      confirmedEmptyOwnerKey: undefined,
+      hasError: !runSucceeded,
+    };
   }
-  return deFiListLoadingReducer({
-    type: 'settled',
-    loadedOwnerKey: finishedOwnerKey,
-  });
+  if (!runSucceeded) {
+    return {
+      ...deFiListLoadingReducer({ type: 'error', error: undefined }),
+      confirmedEmptyOwnerKey:
+        finishedOwnerKey && previousConfirmedEmptyOwnerKey === finishedOwnerKey
+          ? previousConfirmedEmptyOwnerKey
+          : undefined,
+    };
+  }
+  return {
+    ...deFiListLoadingReducer({
+      type: 'settled',
+      loadedOwnerKey: finishedOwnerKey,
+    }),
+    confirmedEmptyOwnerKey: finishedOwnerKey,
+  };
 }
 
 // Whether an all-network run start marks the header's DeFi readiness unknown.

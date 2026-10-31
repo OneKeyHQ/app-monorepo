@@ -183,6 +183,140 @@ describe('asset entry counterpart routing', () => {
     isNative: true,
   };
 
+  const bnb: ISwapToken = {
+    networkId: 'evm--56',
+    contractAddress: '',
+    symbol: 'BNB',
+    decimals: 18,
+    isNative: true,
+  };
+  const btcNetwork: ISwapNetwork = {
+    networkId: btc.networkId,
+    name: 'Bitcoin',
+    symbol: 'BTC',
+    supportCrossChainSwap: true,
+    defaultSelectTokenDetail: { from: btc, to: bnb },
+  };
+  const bnbNetwork: ISwapNetwork = {
+    networkId: bnb.networkId,
+    name: 'BNB Smart Chain',
+    symbol: 'BNB',
+    supportSingleSwap: true,
+    supportCrossChainSwap: true,
+  };
+
+  it('uses the configured cross-chain counterpart for native BTC', () => {
+    expect(
+      getSwapEntryDefaultToToken({
+        fromToken: btc,
+        swapNetworks: [btcNetwork, bnbNetwork],
+        isSupportSwap: false,
+        isSupportCrossChain: true,
+      }),
+    ).toEqual(bnb);
+  });
+
+  it.each([
+    [
+      'missing pair',
+      { ...btcNetwork, defaultSelectTokenDetail: undefined },
+      bnbNetwork,
+    ],
+    [
+      'different source',
+      {
+        ...btcNetwork,
+        defaultSelectTokenDetail: {
+          from: { ...btc, contractAddress: 'other' },
+          to: bnb,
+        },
+      },
+      bnbNetwork,
+    ],
+    [
+      'same-chain target',
+      {
+        ...btcNetwork,
+        defaultSelectTokenDetail: {
+          from: btc,
+          to: { ...bnb, networkId: btc.networkId },
+        },
+      },
+      bnbNetwork,
+    ],
+    [
+      'invalid target',
+      {
+        ...btcNetwork,
+        defaultSelectTokenDetail: { from: btc, to: { ...bnb, decimals: -1 } },
+      },
+      bnbNetwork,
+    ],
+    [
+      'empty token address',
+      {
+        ...btcNetwork,
+        defaultSelectTokenDetail: {
+          from: btc,
+          to: { ...bnb, isNative: false, contractAddress: '  ' },
+        },
+      },
+      bnbNetwork,
+    ],
+    [
+      'unsupported target network',
+      btcNetwork,
+      { ...bnbNetwork, supportSingleSwap: false, supportCrossChainSwap: false },
+    ],
+    [
+      'scaled target',
+      {
+        ...btcNetwork,
+        defaultSelectTokenDetail: {
+          from: btc,
+          to: { ...bnb, balanceMultiplier: '2' },
+        },
+      },
+      bnbNetwork,
+    ],
+    [
+      'malformed target multiplier',
+      {
+        ...btcNetwork,
+        defaultSelectTokenDetail: {
+          from: btc,
+          to: {
+            ...bnb,
+            balanceMultiplier: {
+              _isBigNumber: true,
+              c: {},
+              e: 0,
+            } as unknown as string,
+          },
+        },
+      },
+      bnbNetwork,
+    ],
+  ])('falls back locally for %s', (_reason, source, target) => {
+    expect(
+      getSwapEntryDefaultToToken({
+        fromToken: btc,
+        swapNetworks: [source, target],
+        isSupportSwap: false,
+        isSupportCrossChain: true,
+      }),
+    ).toEqual(expect.objectContaining({ networkId: 'evm--1', symbol: 'ETH' }));
+  });
+
+  it('falls back locally when the configured target network is missing', () => {
+    expect(
+      getSwapEntryDefaultToToken({
+        fromToken: btc,
+        swapNetworks: [btcNetwork],
+      }),
+    ).toEqual(expect.objectContaining({ networkId: 'evm--1', symbol: 'ETH' }));
+  });
+
   it.each([undefined, false, true])(
     'keeps native BTC bridged to ETH with same-chain support %s',
     (isSupportSwap) => {
