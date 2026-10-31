@@ -1,6 +1,8 @@
 const {
   buildStartupProfilePrologue,
+  isFunctionTraceEnabled,
   isStartupProfileEnabled,
+  FUNCTION_TRACE_FLAG_KEY,
   GLOBAL_FLAG_KEY,
   GLOBAL_ID_TO_PATH_KEY,
 } = require('../startupProfilePrologue');
@@ -33,7 +35,44 @@ describe('isStartupProfileEnabled', () => {
   });
 });
 
+describe('isFunctionTraceEnabled', () => {
+  it('only accepts "1"', () => {
+    expect(isFunctionTraceEnabled({ ONEKEY_FUNCTION_TRACE: '1' })).toBe(true);
+    for (const v of [undefined, '0', 'true', '']) {
+      expect(isFunctionTraceEnabled({ ONEKEY_FUNCTION_TRACE: v })).toBe(false);
+    }
+  });
+});
+
 describe('buildStartupProfilePrologue', () => {
+  function runPrologue(env) {
+    const out = buildStartupProfilePrologue({
+      fileToIdMap: fakeFileToIdMap([]),
+      env,
+    });
+    const g = {};
+    // eslint-disable-next-line no-new-func
+    new Function('globalThis', out)(g);
+    return { out, g };
+  }
+
+  it('sets the function trace flag only when function tracing is enabled', () => {
+    const traced = runPrologue({
+      ONEKEY_STARTUP_PROFILE: '1',
+      ONEKEY_FUNCTION_TRACE: '1',
+    });
+    expect(traced.g[GLOBAL_FLAG_KEY]).toBe(true);
+    expect(traced.g[FUNCTION_TRACE_FLAG_KEY]).toBe(true);
+
+    const profileOnly = runPrologue({ ONEKEY_STARTUP_PROFILE: '1' });
+    expect(profileOnly.g[GLOBAL_FLAG_KEY]).toBe(true);
+    expect(profileOnly.g[FUNCTION_TRACE_FLAG_KEY]).toBeUndefined();
+  });
+
+  it('emits nothing for function tracing without the startup profile', () => {
+    expect(runPrologue({ ONEKEY_FUNCTION_TRACE: '1' }).out).toBe('');
+  });
+
   it('returns empty string when the flag is not set — caller must skip injection', () => {
     const out = buildStartupProfilePrologue({
       fileToIdMap: fakeFileToIdMap([['/repo/apps/mobile/index.ts', 1]]),
