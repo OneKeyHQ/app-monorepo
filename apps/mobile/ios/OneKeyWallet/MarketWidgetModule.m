@@ -14,4 +14,6 @@ RCT_EXTERN_METHOD(saveProfile:(NSString *)json
 RCT_EXTERN_METHOD(saveSettings:(NSString *)json
                   resolver:(RCTPromiseResolveBlock)resolve
                   rejecter:(RCTPromiseRejectBlock)reject)
+RCT_EXTERN_METHOD(exportDiagnostics:(RCTPromiseResolveBlock)resolve
+                  rejecter:(RCTPromiseRejectBlock)reject)
 @end

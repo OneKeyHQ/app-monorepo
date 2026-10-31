@@ -36,13 +36,21 @@ final class MarketWidgetImages {
     static void fetch(Context context, MarketWidgetData.Asset asset, String url) throws Exception {
         if (MarketWidgetData.imageUrl(url).isEmpty() || !MarketWidgetStore.contains(context, asset)) return;
         File file = file(context, asset);
-        if (file.exists() && System.currentTimeMillis() - file.lastModified() < 7 * 24 * 3600_000L) return;
+        if (file.exists() && System.currentTimeMillis() - file.lastModified() < 7 * 24 * 3600_000L) {
+            MarketWidgetLog.event("icon.cache_hit");
+            return;
+        }
+        String requestId = java.util.UUID.randomUUID().toString();
+        long started = android.os.SystemClock.elapsedRealtime();
+        int status = 0;
         HttpsURLConnection connection = (HttpsURLConnection) new URL(url).openConnection();
         connection.setConnectTimeout(6_000);
         connection.setReadTimeout(6_000);
         connection.setInstanceFollowRedirects(false);
+        MarketWidgetLog.event("request.started", "requestId", requestId, "operation", "icon");
         try {
-            if (connection.getResponseCode() != 200) throw new IOException("Icon unavailable");
+            status = connection.getResponseCode();
+            if (status != 200) throw new IOException("Icon unavailable");
             byte[] raw;
             try (InputStream input = connection.getInputStream(); ByteArrayOutputStream output = new ByteArrayOutputStream()) {
                 byte[] buffer = new byte[4096];
@@ -79,6 +87,7 @@ final class MarketWidgetImages {
                     rounded.compress(Bitmap.CompressFormat.PNG, 100, output);
                 }
                 if (!temporary.renameTo(file)) throw new IOException("Icon cache unavailable");
+                MarketWidgetLog.event("icon.cached", "requestId", requestId);
                 File[] cached = parent.listFiles((directory, name) -> name.endsWith(".png"));
                 if (cached != null && cached.length > 80) {
                     java.util.Arrays.sort(cached, java.util.Comparator.comparingLong(File::lastModified));
@@ -87,7 +96,12 @@ final class MarketWidgetImages {
             } finally {
                 temporary.delete();
             }
+        } catch (Exception error) {
+            MarketWidgetLog.failure("request.failed", error, "requestId", requestId, "operation", "icon", "httpStatus", status);
+            throw error;
         } finally {
+            MarketWidgetLog.event("request.finished", "requestId", requestId, "operation", "icon", "httpStatus", status,
+                "durationMs", android.os.SystemClock.elapsedRealtime() - started);
             connection.disconnect();
         }
     }

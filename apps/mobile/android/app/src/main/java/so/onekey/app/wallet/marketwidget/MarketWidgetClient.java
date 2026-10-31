@@ -46,6 +46,12 @@ final class MarketWidgetClient {
     }
 
     private static JSONObject request(Uri uri, String locale) throws Exception {
+        long started = android.os.SystemClock.elapsedRealtime();
+        String requestId = UUID.randomUUID().toString();
+        String path = uri.getPath();
+        String operation = path != null && path.contains("/kline") ? "chart"
+            : path != null && path.contains("/trending") ? "ranking" : "quote";
+        int status = 0;
         HttpsURLConnection connection = (HttpsURLConnection) new URL(uri.toString()).openConnection();
         connection.setConnectTimeout(8_000);
         connection.setReadTimeout(8_000);
@@ -59,11 +65,11 @@ final class MarketWidgetClient {
         connection.setRequestProperty("X-Onekey-Request-Locale", locale);
         connection.setRequestProperty("X-Onekey-Request-Version", BuildConfig.VERSION_NAME);
         connection.setRequestProperty("X-Onekey-Request-Build-Number", Integer.toString(BuildConfig.VERSION_CODE));
-        String requestId = UUID.randomUUID().toString();
         connection.setRequestProperty("X-Onekey-Request-ID", requestId);
         connection.setRequestProperty("X-Amzn-Trace-Id", requestId);
+        MarketWidgetLog.event("request.started", "requestId", requestId, "operation", operation);
         try {
-            int status = connection.getResponseCode();
+            status = connection.getResponseCode();
             if (status < 200 || status >= 300) throw new IOException("Market response unavailable");
             try (InputStream input = connection.getInputStream(); ByteArrayOutputStream bytes = new ByteArrayOutputStream()) {
                 byte[] buffer = new byte[4096];
@@ -73,8 +79,16 @@ final class MarketWidgetClient {
                     if (bytes.size() + count > 512 * 1024) throw new IOException("Market response too large");
                     bytes.write(buffer, 0, count);
                 }
-                return new JSONObject(bytes.toString(StandardCharsets.UTF_8.name()));
+                JSONObject response = new JSONObject(bytes.toString(StandardCharsets.UTF_8.name()));
+                MarketWidgetLog.event("request.completed", "requestId", requestId, "operation", operation,
+                    "httpStatus", status, "apiCode", response.optInt("code", -1),
+                    "durationMs", android.os.SystemClock.elapsedRealtime() - started);
+                return response;
             }
+        } catch (Exception error) {
+            MarketWidgetLog.failure("request.failed", error, "requestId", requestId, "operation", operation,
+                "httpStatus", status, "durationMs", android.os.SystemClock.elapsedRealtime() - started);
+            throw error;
         } finally {
             connection.disconnect();
         }

@@ -4,6 +4,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import { AppState } from 'react-native';
 
 import marketWidget from '@onekeyhq/shared/src/modules/MarketWidget';
+import { logMarketWidgetEvent } from '@onekeyhq/shared/src/modules/MarketWidget/diagnostics';
 import type { IMarketWidgetEditorState } from '@onekeyhq/shared/src/modules/MarketWidget/types';
 import { travelModeManager } from '@onekeyhq/shared/src/travelMode';
 
@@ -31,6 +32,7 @@ export function useMarketWidgetEditorState(editorSession?: string) {
     requestRef.current += 1;
     const request = requestRef.current;
     if (!focusedRef.current) return;
+    logMarketWidgetEvent('editor.read_started', { request }, editorSession);
     setIsLoading(true);
     setHasError(false);
     setState(undefined);
@@ -41,6 +43,7 @@ export function useMarketWidgetEditorState(editorSession?: string) {
     }
     try {
       const next = await marketWidget.getEditorState(editorSession);
+      logMarketWidgetEvent('editor.read_succeeded', { request }, editorSession);
       if (!focusedRef.current || request !== requestRef.current) return;
       const masked =
         next.privacyMasked || travelModeManager.isMaskingDataSync();
@@ -58,11 +61,23 @@ export function useMarketWidgetEditorState(editorSession?: string) {
             setPrivacyMasked(isMasked);
             setState(isMasked ? undefined : updated);
           })
-          .catch(() => {
+          .catch((error: unknown) => {
+            logMarketWidgetEvent(
+              'editor.metadata_failed',
+              { request },
+              editorSession,
+              error,
+            );
             // A failed background refresh does not invalidate the readable local snapshot.
           });
       }
-    } catch {
+    } catch (error) {
+      logMarketWidgetEvent(
+        'editor.read_failed',
+        { request },
+        editorSession,
+        error,
+      );
       if (!focusedRef.current || request !== requestRef.current) return;
       setHasError(true);
     } finally {
@@ -74,11 +89,13 @@ export function useMarketWidgetEditorState(editorSession?: string) {
 
   useFocusEffect(
     useCallback(() => {
+      logMarketWidgetEvent('editor.focus', {}, editorSession);
       focusedRef.current = true;
       activeRef.current = true;
       lifecycleRef.current += 1;
       void refresh();
       const subscription = AppState.addEventListener('change', (appState) => {
+        logMarketWidgetEvent('editor.app_state', { appState }, editorSession);
         if (appState === 'active') {
           activeRef.current = true;
           void refresh();
@@ -92,6 +109,7 @@ export function useMarketWidgetEditorState(editorSession?: string) {
         }
       });
       return () => {
+        logMarketWidgetEvent('editor.blur', {}, editorSession);
         focusedRef.current = false;
         lifecycleRef.current += 1;
         requestRef.current += 1;
@@ -100,7 +118,7 @@ export function useMarketWidgetEditorState(editorSession?: string) {
         setIsLoading(true);
         setHasError(false);
       };
-    }, [refresh]),
+    }, [editorSession, refresh]),
   );
 
   return {

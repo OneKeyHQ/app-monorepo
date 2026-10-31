@@ -36,6 +36,7 @@ public class MarketWidgetProvider extends AppWidgetProvider {
 
     @Override
     public void onUpdate(Context context, AppWidgetManager manager, int[] ids) {
+        MarketWidgetLog.event("provider.update", "count", ids.length, "kind", this instanceof MarketSingleWidgetProvider ? "single" : "list");
         for (int id : ids) render(context, id);
         int listWidgetCount = manager.getAppWidgetIds(new ComponentName(context, MarketWatchlistWidgetProvider.class)).length;
         if (ownsPeriodicRefresh(this instanceof MarketWatchlistWidgetProvider, listWidgetCount)) {
@@ -50,13 +51,16 @@ public class MarketWidgetProvider extends AppWidgetProvider {
 
     @Override
     public void onAppWidgetOptionsChanged(Context context, AppWidgetManager manager, int id, Bundle options) {
+        MarketWidgetLog.event("provider.resized", "widgetId", id);
         render(context, id);
     }
 
     @Override
     public void onReceive(Context context, Intent intent) {
+        MarketWidgetLog.initialize(context);
         super.onReceive(context, intent);
         if (REFRESH.equals(intent.getAction())) {
+            MarketWidgetLog.event("provider.refresh_broadcast");
             renderAll(context);
             MarketWidgetRefreshService.schedule(context);
         }
@@ -64,12 +68,16 @@ public class MarketWidgetProvider extends AppWidgetProvider {
 
     @Override
     public void onDeleted(Context context, int[] ids) {
-        for (int id : ids) MarketWidgetStore.deleteWidget(context, id);
+        for (int id : ids) {
+            MarketWidgetLog.event("provider.deleted", "widgetId", id);
+            MarketWidgetStore.deleteWidget(context, id);
+        }
         MarketWidgetRefreshService.cancelIfUnused(context);
     }
 
     @Override
     public void onDisabled(Context context) {
+        MarketWidgetLog.event("provider.disabled", "kind", this instanceof MarketSingleWidgetProvider ? "single" : "list");
         MarketWidgetRefreshService.cancelIfUnused(context);
         // The remaining single widgets take over without waiting for their next periodic broadcast.
         if (this instanceof MarketWatchlistWidgetProvider) MarketWidgetRefreshService.schedule(context);
@@ -79,6 +87,7 @@ public class MarketWidgetProvider extends AppWidgetProvider {
     public void onRestored(Context context, int[] oldIds, int[] newIds) {
         AppWidgetManager manager = AppWidgetManager.getInstance(context);
         for (int index = 0; index < oldIds.length; index++) {
+            MarketWidgetLog.event("provider.restored", "oldWidgetId", oldIds[index], "widgetId", newIds[index]);
             MarketWidgetStore.restoreWidget(context, oldIds[index], newIds[index]);
             Bundle options = new Bundle();
             options.putBoolean(AppWidgetManager.OPTION_APPWIDGET_RESTORE_COMPLETED, true);
@@ -128,7 +137,10 @@ public class MarketWidgetProvider extends AppWidgetProvider {
     }
 
     private static void renderLocked(Context context, int id) {
-        if (!owns(context, id)) return;
+        if (!owns(context, id)) {
+            MarketWidgetLog.event("render.skipped", "widgetId", id, "reason", "widget_missing");
+            return;
+        }
         Context textContext = MarketWidgetStore.localized(context);
         boolean single = isSingle(context, id);
         MarketWidgetData.Configuration configuration = MarketWidgetStore.configuration(context);
@@ -230,6 +242,8 @@ public class MarketWidgetProvider extends AppWidgetProvider {
         AppWidgetManager manager = AppWidgetManager.getInstance(context);
         manager.updateAppWidget(id, single
             ? singleSizedViews(views, manager.getAppWidgetOptions(id), !status.isEmpty()) : views);
+        MarketWidgetLog.event("render.submitted", "widgetId", id, "kind", single ? "single" : "list",
+            "slotCount", assets.size(), "hasStatus", !status.isEmpty(), "privacyMasked", configuration.privacyMasked);
     }
 
     private static RemoteViews singleSizedViews(RemoteViews views, Bundle options, boolean hasStatus) {

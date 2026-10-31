@@ -223,6 +223,8 @@ final class MarketWidgetStore {
             .remove("selection_" + widgetId).remove("selected_hot_" + widgetId).commit()) {
             throw new IllegalStateException("Could not persist widget settings");
         }
+        MarketWidgetLog.event("settings.persisted", "widgetId", widgetId, "kind", single ? "single" : "list",
+            "source", source, "slotCount", selected.length());
         return editorState(context, widgetId, single, source).getJSONArray("settings").getJSONObject(0);
     }
 

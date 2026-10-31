@@ -8,6 +8,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import marketWidget from '@onekeyhq/shared/src/modules/MarketWidget';
+import { logMarketWidgetEvent } from '@onekeyhq/shared/src/modules/MarketWidget/diagnostics';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   EModalRoutes,
@@ -79,6 +80,7 @@ const handleLink = createMarketWidgetLinkHandler<IWidgetDestination>({
     if (target.kind === 'home') return target;
     if (target.kind === 'stock') return target;
     if (target.kind === 'editor') {
+      logMarketWidgetEvent('link.resolve_editor', {}, target.editorSession);
       if (
         !marketWidget.supportsSettingsEditing() ||
         (platformEnv.isNativeAndroid && !target.editorSession) ||
@@ -144,6 +146,7 @@ const handleLink = createMarketWidgetLinkHandler<IWidgetDestination>({
     const navigation = appGlobals.$rootAppNavigation;
     if (destination.kind !== 'editor') dismissAndroidMoreMenu();
     if (destination.kind === 'editor') {
+      logMarketWidgetEvent('link.open_editor', {}, destination.editorSession);
       if (
         destination.profileId ||
         destination.widgetKind ||
@@ -184,7 +187,8 @@ const handleLink = createMarketWidgetLinkHandler<IWidgetDestination>({
       });
     }
   },
-  onError: () => {
+  onError: (error) => {
+    logMarketWidgetEvent('link.failed', {}, undefined, error);
     defaultLogger.app.error.log('Market widget deep link could not be opened');
     Toast.error({
       // Deep links run outside React; this executes after the unlock gate.

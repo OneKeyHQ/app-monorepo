@@ -30,11 +30,18 @@ actor MarketWidgetService {
 
   private func price(for asset: MarketWidgetAsset, locale: String, force: Bool) async throws -> MarketWidgetQuote {
     if let cached = store.quote(for: asset),
-       Date().timeIntervalSince(cached.fetchedAt) < (force ? 15 : 300) { return cached }
-    if let request = requests[asset.id] { return try await request.value }
+       Date().timeIntervalSince(cached.fetchedAt) < (force ? 15 : 300) {
+      MarketWidgetDiagnostics.event("quote.cache_hit", ["ageSeconds": Int(Date().timeIntervalSince(cached.fetchedAt))])
+      return cached
+    }
+    if let request = requests[asset.id] {
+      MarketWidgetDiagnostics.event("quote.request_coalesced")
+      return try await request.value
+    }
     let request = Task {
       let quote = try await Self.fetch(asset: asset, locale: locale, store: store, session: session)
-      try? store.saveQuote(quote)
+      do { try store.saveQuote(quote); MarketWidgetDiagnostics.event("quote.cached") }
+      catch { MarketWidgetDiagnostics.event("quote.cache_write_failed", error: error) }
       return quote
     }
     requests[asset.id] = request
@@ -45,7 +52,10 @@ actor MarketWidgetService {
   private func withChart(_ quote: MarketWidgetQuote, asset: MarketWidgetAsset, locale: String) async -> MarketWidgetQuote {
     let current = quote.merging(store.quote(for: asset))
     if current.chart != nil, let fetchedAt = current.chartFetchedAt,
-       Date().timeIntervalSince(fetchedAt) < 900 { return current }
+       Date().timeIntervalSince(fetchedAt) < 900 {
+      MarketWidgetDiagnostics.event("chart.cache_hit", ["ageSeconds": Int(Date().timeIntervalSince(fetchedAt))])
+      return current
+    }
     if let request = chartRequests[asset.id] {
       return current.merging(try? await request.value)
     }
@@ -55,7 +65,8 @@ actor MarketWidgetService {
       var updated = quote
       updated.chart = points
       updated.chartFetchedAt = Date()
-      try? store.saveQuote(updated)
+      do { try store.saveQuote(updated); MarketWidgetDiagnostics.event("chart.cached") }
+      catch { MarketWidgetDiagnostics.event("chart.cache_write_failed", error: error) }
       return updated
     }
     chartRequests[asset.id] = request
@@ -296,10 +307,25 @@ actor MarketWidgetService {
   }
 
   private static func response(for request: URLRequest, session: URLSession = .shared) async throws -> Data {
-    let (data, response) = try await session.data(for: request)
-    guard let response = response as? HTTPURLResponse, (200..<300).contains(response.statusCode),
-          data.count <= 1_048_576 else { throw MarketWidgetError.invalidResponse }
-    return data
+    let started = Date()
+    let requestID = request.value(forHTTPHeaderField: "X-Onekey-Request-ID") ?? UUID().uuidString
+    let path = request.url?.path ?? ""
+    let operation = path.contains("kline") ? "chart" : path.contains("trending") ? "ranking"
+      : path.contains("search") ? "search" : "quote"
+    var status = 0
+    MarketWidgetDiagnostics.event("request.started", ["requestId": requestID, "operation": operation])
+    do {
+      let (data, response) = try await session.data(for: request)
+      status = (response as? HTTPURLResponse)?.statusCode ?? 0
+      guard (200..<300).contains(status), data.count <= 1_048_576 else { throw MarketWidgetError.invalidResponse }
+      MarketWidgetDiagnostics.event("request.completed", ["requestId": requestID, "operation": operation,
+        "httpStatus": status, "durationMs": Int(Date().timeIntervalSince(started) * 1000)])
+      return data
+    } catch {
+      MarketWidgetDiagnostics.event("request.failed", ["requestId": requestID, "operation": operation,
+        "httpStatus": status, "durationMs": Int(Date().timeIntervalSince(started) * 1000)], error: error)
+      throw error
+    }
   }
 
   static func fetch(asset: MarketWidgetAsset, locale: String, store: MarketWidgetStore = MarketWidgetStore(),

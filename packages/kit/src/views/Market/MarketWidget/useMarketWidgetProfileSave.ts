@@ -1,6 +1,7 @@
 import { useCallback, useRef, useState } from 'react';
 
 import marketWidget from '@onekeyhq/shared/src/modules/MarketWidget';
+import { logMarketWidgetEvent } from '@onekeyhq/shared/src/modules/MarketWidget/diagnostics';
 import type { IMarketWidgetProfileInput } from '@onekeyhq/shared/src/modules/MarketWidget/types';
 import { travelModeManager } from '@onekeyhq/shared/src/travelMode';
 
@@ -38,11 +39,23 @@ export function useMarketWidgetProfileSave({
     if (savingRef.current) return;
     savingRef.current = true;
     const lifecycleToken = editor.getLifecycleToken();
+    logMarketWidgetEvent(
+      'editor.save_started',
+      { lifecycleToken },
+      editorSession,
+    );
     setIsSaving(true);
     onError(undefined);
     try {
       const valid = await validate();
-      if (!editor.isLifecycleCurrent(lifecycleToken) || !valid) return;
+      if (!editor.isLifecycleCurrent(lifecycleToken) || !valid) {
+        logMarketWidgetEvent(
+          'editor.save_skipped',
+          { reason: valid ? 'lifecycle_changed' : 'validation_failed' },
+          editorSession,
+        );
+        return;
+      }
       if (travelModeManager.isMaskingDataSync()) {
         await editor.refresh();
         return;
@@ -78,12 +91,18 @@ export function useMarketWidgetProfileSave({
         return;
       }
       await marketWidget.saveSettings(input, editorSession);
+      logMarketWidgetEvent(
+        'editor.save_succeeded',
+        { kind: input.kind, slotCount: input.assets?.length },
+        editorSession,
+      );
       if (editor.isLifecycleCurrent(lifecycleToken)) {
         onSaved();
       } else if (editor.isLifecycleCurrent(editor.getLifecycleToken())) {
         await editor.refresh();
       }
-    } catch {
+    } catch (error) {
+      logMarketWidgetEvent('editor.save_failed', {}, editorSession, error);
       if (editor.isLifecycleCurrent(lifecycleToken)) {
         onError('failed');
         await editor.refresh();
