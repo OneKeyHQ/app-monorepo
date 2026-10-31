@@ -7,7 +7,7 @@ import marketWidget from '@onekeyhq/shared/src/modules/MarketWidget';
 import type { IMarketWidgetEditorState } from '@onekeyhq/shared/src/modules/MarketWidget/types';
 import { travelModeManager } from '@onekeyhq/shared/src/travelMode';
 
-export function useMarketWidgetEditorState() {
+export function useMarketWidgetEditorState(editorSession?: string) {
   const [state, setState] = useState<IMarketWidgetEditorState>();
   const [isLoading, setIsLoading] = useState(true);
   const [hasError, setHasError] = useState(false);
@@ -40,12 +40,28 @@ export function useMarketWidgetEditorState() {
       return;
     }
     try {
-      const next = await marketWidget.getEditorState();
+      const next = await marketWidget.getEditorState(editorSession);
       if (!focusedRef.current || request !== requestRef.current) return;
       const masked =
         next.privacyMasked || travelModeManager.isMaskingDataSync();
       setPrivacyMasked(masked);
       setState(masked ? undefined : next);
+      setIsLoading(false);
+      if (!masked && marketWidget.refreshEditorState) {
+        // Display the local snapshot first; network metadata must not block navigation.
+        void marketWidget
+          .refreshEditorState(editorSession)
+          .then((updated) => {
+            if (!focusedRef.current || request !== requestRef.current) return;
+            const isMasked =
+              updated.privacyMasked || travelModeManager.isMaskingDataSync();
+            setPrivacyMasked(isMasked);
+            setState(isMasked ? undefined : updated);
+          })
+          .catch(() => {
+            // A failed background refresh does not invalidate the readable local snapshot.
+          });
+      }
     } catch {
       if (!focusedRef.current || request !== requestRef.current) return;
       setHasError(true);
@@ -54,7 +70,7 @@ export function useMarketWidgetEditorState() {
         setIsLoading(false);
       }
     }
-  }, []);
+  }, [editorSession]);
 
   useFocusEffect(
     useCallback(() => {
@@ -81,6 +97,8 @@ export function useMarketWidgetEditorState() {
         requestRef.current += 1;
         subscription.remove();
         setState(undefined);
+        setIsLoading(true);
+        setHasError(false);
       };
     }, [refresh]),
   );

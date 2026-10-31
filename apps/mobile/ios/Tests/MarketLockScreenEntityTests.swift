@@ -80,6 +80,73 @@ struct MarketLockScreenEntityTests {
     expect(restoredNative?.asset.requestTokenAddress == native.requestTokenAddress,
            "Native assets retain the request address independently from their canonical address")
 
+    expect(bitcoinEntity.title == "BTC/USD", "Picker labels use the real USD quote currency")
+    let nativeBitcoin = MarketWidgetAsset(kind: .token, assetId: nil, chainId: "btc--0",
+      contractAddress: "", isNative: true, symbol: "BTC", name: "Bitcoin")
+    let nativeEthereum = MarketWidgetAsset(kind: .token, assetId: nil, chainId: "evm--1",
+      contractAddress: "", isNative: true, symbol: "ETH", name: "Ethereum")
+    let bnb = MarketWidgetAsset(kind: .asset, assetId: "bnb", chainId: nil,
+      contractAddress: nil, isNative: nil, symbol: "BNB", name: "BNB")
+    let nativeBNB = MarketWidgetAsset(kind: .token, assetId: nil, chainId: "evm--56",
+      contractAddress: "", isNative: true, symbol: "BNB", name: "BNB")
+    let nativeAliases = [nativeBitcoin, nativeEthereum, native, nativeBNB]
+    let aggregate = MarketWidgetAsset.defaults + [bnb]
+    let deduplicated = MarketLockScreenPicker.entities(aggregate + nativeAliases + aggregate)
+    expect(deduplicated.map(\.asset.id) == aggregate.map(\.id),
+           "Suggestions collapse only known native/aggregate equivalents and repeated identities")
+    expect(MarketLockScreenPicker.entities(nativeAliases + aggregate).map(\.asset.id) == nativeAliases.map(\.id),
+           "Deduplication keeps source ordering and does not rewrite the first candidate's request identity")
+    for legacy in nativeAliases {
+      let entity = MarketLockScreenAssetEntity(asset: legacy)
+      expect(MarketLockScreenAssetEntity(id: entity.id, store: store)?.asset.id == legacy.id,
+             "Previously selected native entity IDs still resolve after suggestion deduplication")
+    }
+    let wrappedBitcoin = MarketWidgetAsset(kind: .token, assetId: nil, chainId: "evm--1",
+      contractAddress: "0x9999", isNative: false, symbol: "BTC", name: "Wrapped Bitcoin")
+    let differentBitcoin = MarketWidgetAsset(kind: .asset, assetId: "another-bitcoin", chainId: nil,
+      contractAddress: nil, isNative: nil, symbol: "BTC", name: "Another Bitcoin")
+    let sameSymbol = MarketLockScreenPicker.entities([bitcoin, wrappedBitcoin, differentBitcoin])
+    expect(sameSymbol.count == 3 && Set(sameSymbol.map(\.title)).count == 3,
+           "Distinct same-symbol assets remain separately selectable and have distinct labels")
+    expect(sameSymbol.map(\.title) == ["BTC/USD · Bitcoin", "BTC/USD · Wrapped Bitcoin", "BTC/USD · Another Bitcoin"],
+           "Colliding symbols use public asset names rather than inventing a trading pair")
+    let sameNameTokens = MarketLockScreenPicker.entities([token, otherNetworkToken, otherAddressToken])
+    expect(sameNameTokens.map(\.title) == ["TEST/USD · Test Token · Ethereum · 0x1234",
+      "TEST/USD · Test Token · BNB Chain", "TEST/USD · Test Token · Ethereum · 0x5678"],
+           "Same-name tokens are distinguished by friendly network and contract when necessary")
+    expect(sameNameTokens.allSatisfy { !$0.title.contains("--") },
+           "Picker labels never expose OneKey internal network IDs")
+    let whitespaceName = MarketWidgetAsset(kind: .token, assetId: nil, chainId: token.chainId,
+      contractAddress: "0x9876", isNative: false, symbol: token.symbol, name: " Test Token ")
+    let normalizedNames = MarketLockScreenPicker.entities([token, whitespaceName])
+    expect(normalizedNames.map(\.title) == ["TEST/USD · Test Token · Ethereum · 0x1234",
+      "TEST/USD · Test Token · Ethereum · 0x9876"],
+           "Display-equivalent names with whitespace still require identity disambiguation")
+    let upperAddress = MarketWidgetAsset(kind: .token, assetId: nil, chainId: "evm--1",
+      contractAddress: "0xABCD", isNative: false, symbol: "TEST", name: "Test Token")
+    let lowerAddress = MarketWidgetAsset(kind: .token, assetId: nil, chainId: "evm--1",
+      contractAddress: "0xabcd", isNative: false, symbol: "TEST", name: "Test Token")
+    expect(MarketLockScreenPicker.entities([upperAddress, lowerAddress]).count == 1,
+           "Equivalent EVM address casing does not create duplicate candidates")
+    let sameSolanaAddressCase = MarketWidgetAsset(kind: .token, assetId: nil, chainId: "sol--101",
+      contractAddress: "AbCd", isNative: false, symbol: "TEST", name: "Test Token")
+    let differentSolanaAddressCase = MarketWidgetAsset(kind: .token, assetId: nil, chainId: "sol--101",
+      contractAddress: "abcd", isNative: false, symbol: "TEST", name: "Test Token")
+    expect(MarketLockScreenPicker.entities([sameSolanaAddressCase, differentSolanaAddressCase]).count == 2,
+           "Case-sensitive non-EVM addresses retain distinct identities")
+    let similarAddresses = ["0x123456000000000000000000000000000000abcd",
+      "0x123456111111111111111111111111111111abcd"].map { address in
+      MarketWidgetAsset(kind: .token, assetId: nil, chainId: "evm--1", contractAddress: address,
+        isNative: false, symbol: "TEST", name: "Test Token")
+    }
+    let similarCandidates = MarketLockScreenPicker.entities(similarAddresses)
+    expect(Set(similarCandidates.map(\.title)).count == 2
+      && similarCandidates[0].title.contains(similarAddresses[0].contractAddress!),
+           "Colliding shortened addresses fall back to their full public address")
+    let titleChangedEntity = MarketLockScreenAssetEntity(asset: bitcoin, title: "BTC/USD · Bitcoin")
+    expect(titleChangedEntity.id == bitcoinEntity.id,
+           "Adding disambiguation text never changes a selected entity identifier")
+
     let custom = MarketWidgetAsset(kind: .asset, assetId: "custom-selected-asset", chainId: nil,
       contractAddress: nil, isNative: nil, symbol: "CUSTOM", name: "Custom Selected Asset")
     let customEntity = MarketLockScreenAssetEntity(asset: custom)

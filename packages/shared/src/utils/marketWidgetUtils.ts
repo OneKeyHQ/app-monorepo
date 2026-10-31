@@ -12,7 +12,11 @@ const MARKET_WIDGET_QUERY_KEYS = new Set([
   'contractAddress',
   'isNative',
 ]);
-const MARKET_WIDGET_EDITOR_QUERY_KEYS = new Set(['profileId', 'kind']);
+const MARKET_WIDGET_EDITOR_QUERY_KEYS = new Set([
+  'profileId',
+  'kind',
+  'editorSession',
+]);
 
 const validAssetId = (value: unknown): value is string =>
   typeof value === 'string' && /^[A-Za-z0-9._:-]{1,128}$/u.test(value);
@@ -65,7 +69,12 @@ export function buildMarketWidgetAssets(
 
 export type IMarketWidgetLinkTarget =
   | { kind: 'home' }
-  | { kind: 'editor'; profileId?: string; widgetKind?: IMarketWidgetKind }
+  | {
+      kind: 'editor';
+      profileId?: string;
+      widgetKind?: IMarketWidgetKind;
+      editorSession?: string;
+    }
   | Pick<Extract<IMarketWidgetAsset, { kind: 'asset' }>, 'kind' | 'assetId'>
   | Pick<
       Extract<IMarketWidgetAsset, { kind: 'token' }>,
@@ -141,6 +150,20 @@ export function parseMarketWidgetLinkUrl(url: string): {
         return { matches: true, target: { kind: 'editor' } };
       }
       if (Object.keys(params).length !== 1) return { matches: true };
+      if (
+        params.editorSession &&
+        /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/iu.test(
+          params.editorSession,
+        )
+      ) {
+        return {
+          matches: true,
+          target: {
+            kind: 'editor',
+            editorSession: params.editorSession.toLowerCase(),
+          },
+        };
+      }
       if (
         params.profileId &&
         /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/iu.test(

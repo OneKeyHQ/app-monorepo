@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import { useNavigationState } from '@react-navigation/native';
+import { useNavigationState, usePreventRemove } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 import { FlatList } from 'react-native';
 
@@ -11,7 +11,7 @@ import {
   Page,
   ScrollView,
   SearchBar,
-  Select,
+  SegmentControl,
   SizableText,
   Toast,
   YStack,
@@ -23,6 +23,7 @@ import { Token } from '@onekeyhq/kit/src/components/Token';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useAppRoute } from '@onekeyhq/kit/src/hooks/useAppRoute';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import marketWidget from '@onekeyhq/shared/src/modules/MarketWidget';
 import type {
   IMarketWidgetAsset,
   IMarketWidgetKind,
@@ -31,13 +32,12 @@ import type {
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import {
-  containsMarketWidgetAsset,
   getMarketWidgetAssetKey,
   getMarketWidgetAssetSearchText,
   getMarketWidgetAssetSubtitle,
   getMarketWidgetAssetTitle,
-  getMarketWidgetProfileTitle,
-  isMarketWidgetAssetAvailable,
+  getMarketWidgetDisplayAsset,
+  isMarketWidgetManualAssetAvailable,
 } from './assetIdentity';
 import { MarketWidgetStateView } from './MarketWidgetStateView';
 import { useMarketWidgetCopy } from './useMarketWidgetCopy';
@@ -59,83 +59,122 @@ export default function MarketWidgetEditor() {
     IModalMarketParamList,
     EModalMarketRoutes.MarketWidgetEditor
   >();
-  const { profileId: routeProfileId, kind: routeKind } = route.params;
-  const [persistedProfileId, setPersistedProfileId] = useState<string>();
-  const profileId = routeProfileId ?? persistedProfileId;
-  const editor = useMarketWidgetEditorState();
+  const {
+    profileId: routeProfileId,
+    kind: routeKind,
+    editorSession,
+  } = route.params;
+  const editor = useMarketWidgetEditorState(editorSession);
   const initializedRef = useRef(false);
+  const finishedRef = useRef(false);
   const [kind, setKind] = useState<IMarketWidgetKind>(routeKind ?? 'single');
   const [source, setSource] = useState<IMarketWidgetSource>('hot');
-  const [asset, setAsset] = useState<IMarketWidgetAsset>();
-  const [isPickingAsset, setIsPickingAsset] = useState(false);
+  const [slots, setSlots] = useState<(IMarketWidgetAsset | undefined)[]>([]);
+  const [activeSlot, setActiveSlot] = useState<number>();
+  const isPickingAsset = activeSlot !== undefined;
   const [query, setQuery] = useState('');
   const [saveError, setSaveError] = useState<string>();
-  const profile = editor.state?.profiles.find((item) => item.id === profileId);
-  const missingProfile = !!profileId && !!editor.state && !profile;
+  const legacyKind = editor.state?.profiles.find(
+    (item) => item.id === routeProfileId,
+  )?.kind;
+  const settings = editorSession
+    ? editor.state?.settings?.[0]
+    : editor.state?.settings?.find(
+        (item) => item.kind === (routeKind ?? legacyKind ?? 'single'),
+      );
 
   useEffect(() => {
-    if (initializedRef.current || !editor.state || missingProfile) return;
-    const nextKind = profile?.kind ?? routeKind ?? 'single';
+    if (initializedRef.current || !editor.state) return;
+    const nextKind = settings?.kind ?? routeKind ?? legacyKind ?? 'single';
+    const nextSource = settings?.source ?? 'hot';
+    const initial =
+      settings?.assets ??
+      (nextKind === 'single' && settings?.asset
+        ? [settings.asset]
+        : editor.state[nextSource]);
     setKind(nextKind);
-    setSource(profile?.source ?? 'hot');
-    setAsset(
-      profile?.asset ??
-        (nextKind === 'single' ? editor.state.hot[0] : undefined),
+    setSource(nextSource);
+    setSlots(
+      Array.from(
+        { length: nextKind === 'single' ? 1 : 3 },
+        (_, index) => initial[index],
+      ),
     );
     initializedRef.current = true;
-  }, [editor.state, missingProfile, profile, routeKind]);
+  }, [editor.state, legacyKind, settings, routeKind]);
 
   useEffect(() => {
     if (!editor.privacyMasked) return;
-    setAsset(undefined);
+    setSlots([]);
     setQuery('');
-    setIsPickingAsset(false);
+    setActiveSlot(undefined);
     initializedRef.current = false;
   }, [editor.privacyMasked]);
 
-  const sourceAssets = editor.state?.[source] ?? [];
-  const assetRemoved =
-    kind === 'single' &&
-    !!asset &&
-    !!editor.state &&
-    !isMarketWidgetAssetAvailable({
-      state: editor.state,
-      source,
-      asset,
-      profileId,
-    });
+  useEffect(
+    () => () => {
+      if (editorSession && !finishedRef.current) {
+        finishedRef.current = true;
+        void marketWidget
+          .finishEditing?.(editorSession, false)
+          .catch(() => undefined);
+      }
+    },
+    [editorSession],
+  );
+
+  const closeEditor = useCallback(
+    (saved: boolean, pop = navigation.pop) => {
+      finishedRef.current = true;
+      pop();
+      if (editorSession) {
+        void marketWidget.finishEditing?.(editorSession, saved).catch(() => {
+          Toast.error({
+            title: intl.formatMessage({
+              id: ETranslations.global_unknown_error_retry_message,
+            }),
+          });
+        });
+      }
+    },
+    [editorSession, intl, navigation],
+  );
+  const displaySlots = useMemo(
+    () =>
+      slots.map((asset) =>
+        getMarketWidgetDisplayAsset({
+          asset,
+          state: editor.state,
+          source,
+          kind,
+        }),
+      ),
+    [slots, editor.state, source, kind],
+  );
+  const slotsValid =
+    slots.length === (kind === 'single' ? 1 : 3) &&
+    slots.every(
+      (asset) =>
+        !!editor.state &&
+        isMarketWidgetManualAssetAvailable({
+          state: editor.state,
+          asset,
+          kind,
+        }),
+    );
   const visibleAssets = useMemo(() => {
-    const assets = editor.state?.[source] ?? [];
-    const available =
-      source === 'hot' &&
-      asset &&
-      !assetRemoved &&
-      !containsMarketWidgetAsset(assets, asset)
-        ? [asset, ...assets]
-        : assets;
     const search = query.trim().toLowerCase();
-    return available.filter(
+    return (editor.state?.[source] ?? []).filter(
       (item) =>
         !search || getMarketWidgetAssetSearchText(item).includes(search),
     );
-  }, [asset, assetRemoved, editor.state, query, source]);
-
-  const handleSourceChange = useCallback(
-    (next: IMarketWidgetSource) => {
-      if (next === source) return;
-      setSource(next);
-      setSaveError(undefined);
-      if (!containsMarketWidgetAsset(editor.state?.[next] ?? [], asset)) {
-        setAsset(undefined);
-      }
-    },
-    [asset, editor.state, source],
-  );
+  }, [editor.state, query, source]);
 
   const closePicker = useCallback(() => {
-    setIsPickingAsset(false);
+    setActiveSlot(undefined);
     setQuery('');
   }, []);
+  usePreventRemove(isPickingAsset, closePicker);
   const headerLeft = useCallback(
     () => (
       <HeaderIconButton
@@ -149,10 +188,10 @@ export default function MarketWidgetEditor() {
             ? 'ChevronLeftOutline'
             : 'CrossedLargeOutline'
         }
-        onPress={isPickingAsset ? closePicker : navigation.pop}
+        onPress={isPickingAsset ? closePicker : () => closeEditor(false)}
       />
     ),
-    [closePicker, hasPreviousPage, isPickingAsset, navigation.pop],
+    [closeEditor, closePicker, hasPreviousPage, isPickingAsset],
   );
   const buildNativeHeaderLeftItems = useCallback(
     () => [glassBarItem(headerLeft())],
@@ -161,25 +200,23 @@ export default function MarketWidgetEditor() {
 
   const { isSaving, save: handleSave } = useMarketWidgetProfileSave({
     editor,
-    validate: async () => true,
-    getInput: () => {
-      return {
-        id: profileId,
-        kind,
-        name: getMarketWidgetProfileTitle({ kind, source, asset }, copy).slice(
-          0,
-          40,
-        ),
-        source,
-        asset: kind === 'single' ? asset : undefined,
-      };
-    },
-    onPersisted: (saved) => setPersistedProfileId(saved.id),
+    editorSession,
+    validate: async () => slotsValid,
+    getInput: () => ({
+      kind,
+      name: (kind === 'single' ? copy.singleCoin : copy.marketList).slice(
+        0,
+        40,
+      ),
+      source,
+      asset: kind === 'single' ? slots[0] : undefined,
+      assets: slots.filter((item): item is IMarketWidgetAsset => !!item),
+    }),
     onSaved: () => {
       Toast.success({
         title: intl.formatMessage({ id: ETranslations.feedback_change_saved }),
       });
-      navigation.pop();
+      closeEditor(true);
     },
     onError: (reason) => {
       if (!reason) setSaveError(undefined);
@@ -193,9 +230,9 @@ export default function MarketWidgetEditor() {
     },
   });
 
-  const isReady = !!editor.state && !editor.privacyMasked && !missingProfile;
+  const isReady = !!editor.state && !editor.privacyMasked;
   const showFooter = isReady && !isPickingAsset;
-  let title = profileId ? copy.editConfiguration : copy.newConfiguration;
+  let title = kind === 'single' ? copy.singleCoin : copy.marketList;
   if (isPickingAsset) title = copy.coin;
   return (
     <Page scrollEnabled={false}>
@@ -207,15 +244,19 @@ export default function MarketWidgetEditor() {
       />
       <Page.Body>
         {!isReady ? (
-          <MarketWidgetStateView
-            {...editor}
-            unavailable={missingProfile}
-            onRetry={editor.refresh}
-          />
+          <MarketWidgetStateView {...editor} onRetry={editor.refresh} />
         ) : null}
         {isReady && isPickingAsset ? (
           <YStack flex={1}>
-            <YStack px="$5" pb="$3">
+            <YStack px="$5" pb="$3" gap="$3">
+              <SegmentControl
+                value={source}
+                onChange={(value) => setSource(value as IMarketWidgetSource)}
+                options={[
+                  { label: copy.watchlist, value: 'watchlist' },
+                  { label: copy.hotCoins, value: 'hot' },
+                ]}
+              />
               <SearchBar
                 testID="market-widget-coin-search"
                 placeholder={copy.searchCoins}
@@ -236,12 +277,16 @@ export default function MarketWidgetEditor() {
                   title={getMarketWidgetAssetTitle(item)}
                   subtitle={getMarketWidgetAssetSubtitle(item)}
                   checkMark={
-                    !!asset &&
-                    getMarketWidgetAssetKey(asset) ===
+                    !!slots[activeSlot] &&
+                    getMarketWidgetAssetKey(slots[activeSlot]) ===
                       getMarketWidgetAssetKey(item)
                   }
                   onPress={() => {
-                    setAsset(item);
+                    setSlots((previous) =>
+                      previous.map((value, index) =>
+                        index === activeSlot ? item : value,
+                      ),
+                    );
                     setSaveError(undefined);
                     closePicker();
                   }}
@@ -272,29 +317,19 @@ export default function MarketWidgetEditor() {
             keyboardShouldPersistTaps="handled"
             contentContainerStyle={{ px: '$5', gap: '$5', pb: '$5' }}
           >
-            <YStack gap="$2">
-              <SizableText size="$bodyMdMedium">{copy.source}</SizableText>
-              <Select<IMarketWidgetSource>
-                testID="market-widget-source"
-                title={copy.source}
-                value={source}
-                disabled={isSaving}
-                onChange={handleSourceChange}
-                items={[
-                  {
-                    value: 'watchlist',
-                    label: copy.watchlist,
-                  },
-                  { value: 'hot', label: copy.hotCoins },
-                ]}
-                defaultTriggerInputProps={{ size: 'large' }}
-              />
-            </YStack>
-            {kind === 'single' ? (
-              <YStack gap="$2">
-                <SizableText size="$bodyMdMedium">{copy.coin}</SizableText>
+            {displaySlots.map((asset, index) => (
+              <YStack key={index} gap="$2">
+                <SizableText size="$bodyMdMedium">
+                  {kind === 'single'
+                    ? copy.coin
+                    : `${copy.coin} ${intl.formatNumber(index + 1)}`}
+                </SizableText>
                 <ListItem
-                  testID="market-widget-choose-coin"
+                  testID={
+                    kind === 'single'
+                      ? 'market-widget-choose-coin'
+                      : `market-widget-choose-coin-${index + 1}`
+                  }
                   mx="$0"
                   borderWidth="$px"
                   borderColor="$borderSubdued"
@@ -314,39 +349,10 @@ export default function MarketWidgetEditor() {
                   }
                   drillIn
                   disabled={isSaving}
-                  onPress={() => setIsPickingAsset(true)}
+                  onPress={() => setActiveSlot(index)}
                 />
-                {assetRemoved ? (
-                  <SizableText color="$textCritical" size="$bodySm">
-                    {copy.assetUnavailable}
-                  </SizableText>
-                ) : null}
               </YStack>
-            ) : (
-              <YStack gap="$2">
-                <SizableText size="$bodyMd" color="$textSubdued">
-                  {copy.listDescription}
-                </SizableText>
-                {sourceAssets.slice(0, 3).map((item) => (
-                  <ListItem
-                    key={getMarketWidgetAssetKey(item)}
-                    mx="$0"
-                    renderAvatar={
-                      <Token size="md" tokenImageUri={item.logoURL} />
-                    }
-                    title={getMarketWidgetAssetTitle(item)}
-                    subtitle={getMarketWidgetAssetSubtitle(item)}
-                  />
-                ))}
-                {!sourceAssets.length ? (
-                  <SizableText size="$bodyMd" color="$textSubdued">
-                    {intl.formatMessage({
-                      id: ETranslations.empty_no_tokens_found,
-                    })}
-                  </SizableText>
-                ) : null}
-              </YStack>
-            )}
+            ))}
             {saveError ? (
               <Alert type="critical" description={saveError} />
             ) : null}
@@ -355,15 +361,13 @@ export default function MarketWidgetEditor() {
       </Page.Body>
       <Page.Footer
         disableKeyboardAnimation={!showFooter}
+        onCancel={(pop) => closeEditor(false, pop)}
         onConfirm={handleSave}
         onConfirmText={intl.formatMessage({ id: ETranslations.action_save })}
         confirmButtonProps={{
           testID: 'market-widget-save',
           loading: isSaving,
-          disabled:
-            !showFooter ||
-            isSaving ||
-            (kind === 'single' && (!asset || assetRemoved)),
+          disabled: !showFooter || isSaving || !slotsValid,
         }}
         cancelButtonProps={{
           testID: 'market-widget-cancel',

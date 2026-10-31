@@ -139,6 +139,17 @@ describe('market widget configuration', () => {
 });
 
 describe('market widget deep link identity', () => {
+  it('accepts only an opaque session for an Android editor handoff', () => {
+    expect(
+      parseMarketWidgetLinkUrl(
+        'onekey-wallet://market_widget_config?editorSession=4BDFEB88-A55D-4A91-BEDB-DF13ACFAEA39',
+      ).target,
+    ).toEqual({
+      kind: 'editor',
+      editorSession: '4bdfeb88-a55d-4a91-bedb-df13acfaea39',
+    });
+  });
+
   it('routes editor links by stable profile identity or widget family', () => {
     expect(
       parseMarketWidgetLinkUrl('onekey-wallet://market_widget_config'),
@@ -172,6 +183,9 @@ describe('market widget deep link identity', () => {
   });
 
   it.each([
+    '?editorSession=',
+    '?editorSession=123',
+    '?editorSession=4bdfeb88-a55d-4a91-bedb-df13acfaea39&kind=list',
     '?profileId=',
     '?profileId=bitcoin',
     '?profileId=4bdfeb88-a55d-4a91-bedb-df13acfaea39&kind=single',

@@ -30,14 +30,24 @@ final class MarketWidgetModule: NSObject {
     Task {
       do {
         let store = MarketWidgetStore()
-        if let configuration = store.configuration().configuration, configuration.privacyMasked != true {
-          _ = try? await MarketWidgetService.shared.trending(locale: configuration.locale)
-        }
-        await MarketWidgetService.prepareEditorMetadata(store: store)
         let state = try store.editorState()
         resolve(String(decoding: try JSONEncoder().encode(state), as: UTF8.self))
       } catch {
         reject("MARKET_WIDGET_EDITOR_FAILED", "Unable to load widget configurations.", error)
+      }
+    }
+  }
+
+  @objc(refreshEditorState:rejecter:)
+  func refreshEditorState(_ resolve: @escaping RCTPromiseResolveBlock,
+                          rejecter reject: @escaping RCTPromiseRejectBlock) {
+    Task {
+      do {
+        await MarketWidgetService.shared.refreshEditorMetadata()
+        let state = try MarketWidgetStore().editorState()
+        resolve(String(decoding: try JSONEncoder().encode(state), as: UTF8.self))
+      } catch {
+        reject("MARKET_WIDGET_EDITOR_FAILED", "Unable to refresh widget settings.", error)
       }
     }
   }
@@ -58,6 +68,18 @@ final class MarketWidgetModule: NSObject {
       default: code = "MARKET_WIDGET_PROFILE_FAILED"
       }
       reject(code, "Unable to save widget configuration.", error)
+    }
+  }
+
+  @objc(saveSettings:resolver:rejecter:)
+  func saveSettings(_ json: String, resolver resolve: RCTPromiseResolveBlock,
+                    rejecter reject: RCTPromiseRejectBlock) {
+    do {
+      let settings = try MarketWidgetStore().saveSettings(json: json)
+      WidgetCenter.shared.reloadTimelines(ofKind: settings.kind.timelineKind)
+      resolve(String(decoding: try JSONEncoder().encode(settings), as: UTF8.self))
+    } catch {
+      reject("MARKET_WIDGET_SETTINGS_FAILED", "Unable to save widget settings.", error)
     }
   }
 

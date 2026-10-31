@@ -17,9 +17,10 @@ struct MarketWidgetEntry: TimelineEntry {
   var source: MarketWidgetSource = .watchlist
   var profileID: String? = nil
   var profileUnavailable = false
+  var manualSelection = false
 
   var editorURL: URL? {
-    MarketWidgetEditorLink.url(profileID: profileID, kind: isWatchlist ? .list : .single)
+    MarketWidgetEditorLink.url(profileID: nil, kind: isWatchlist ? .list : .single)
   }
 
   static func placeholder(isWatchlist: Bool) -> MarketWidgetEntry {
@@ -34,30 +35,27 @@ struct MarketWidgetEntry: TimelineEntry {
     MarketWidgetEntry(date: Date(), configuration: selection.configuration,
       rows: selection.assets.map { MarketWidgetRow(asset: $0, quote: store.quote(for: $0), failed: false) },
       isWatchlist: isWatchlist, selectionUnavailable: selection.selectionUnavailable,
-      source: selection.source, profileID: selection.profileID, profileUnavailable: selection.profileUnavailable)
+      source: selection.source, profileID: selection.profileID, profileUnavailable: selection.profileUnavailable,
+      manualSelection: selection.profile?.assets != nil)
   }
 
-  static func snapshot(isWatchlist: Bool, selected: [MarketWidgetAsset]? = nil,
-                       source: MarketWidgetSource = .watchlist, profileID: String? = nil) -> MarketWidgetEntry {
-    let store = MarketWidgetStore()
-    return entry(selection: store.selection(kind: isWatchlist ? .list : .single, profileID: profileID,
-      legacySource: source, legacyAsset: selected?.first), isWatchlist: isWatchlist, store: store)
+  static func snapshot(isWatchlist: Bool, selected _: [MarketWidgetAsset]? = nil,
+                       source _: MarketWidgetSource = .watchlist, profileID _: String? = nil,
+                       store: MarketWidgetStore = MarketWidgetStore()) -> MarketWidgetEntry {
+    entry(selection: store.selection(kind: isWatchlist ? .list : .single), isWatchlist: isWatchlist, store: store)
   }
 
-  static func timeline(isWatchlist: Bool, selected: [MarketWidgetAsset]? = nil,
-                       source: MarketWidgetSource = .watchlist, profileID: String? = nil,
+  static func timeline(isWatchlist: Bool, selected _: [MarketWidgetAsset]? = nil,
+                       source _: MarketWidgetSource = .watchlist, profileID _: String? = nil,
                        store: MarketWidgetStore = MarketWidgetStore(),
                        service: MarketWidgetService = .shared) async -> Timeline<MarketWidgetEntry> {
     let kind: MarketWidgetKind = isWatchlist ? .list : .single
-    let initial = store.selection(kind: kind, profileID: profileID, legacySource: source, legacyAsset: selected?.first)
-    if initial.source == .hot && initial.configuration.map({ $0.privacyMasked != true }) == true {
-      if profileID == nil, let asset = selected?.first { try? store.rememberHotAsset(asset) }
-      // A fixed coin remains valid after leaving the ranking; only dynamic selections need the catalog.
-      if isWatchlist || (initial.profile?.asset == nil && selected?.first == nil) {
-        _ = try? await service.trending(locale: initial.configuration?.locale ?? "en-US")
-      }
+    let initial = store.selection(kind: kind)
+    // Single-coin settings are fixed, including the initial BTC default.
+    if isWatchlist, initial.profile?.assets == nil, initial.source == .hot, initial.configuration.map({ $0.privacyMasked != true }) == true {
+      _ = try? await service.trending(locale: initial.configuration?.locale ?? "en-US")
     }
-    let selection = store.selection(kind: kind, profileID: profileID, legacySource: source, legacyAsset: selected?.first)
+    let selection = store.selection(kind: kind)
     let snapshot = entry(selection: selection, isWatchlist: isWatchlist, store: store)
     let rows = await withTaskGroup(of: (Int, MarketWidgetRow).self) { group in
       for (index, row) in snapshot.rows.enumerated() {
@@ -75,15 +73,16 @@ struct MarketWidgetEntry: TimelineEntry {
       for await result in group { results.append(result) }
       return results.sorted { $0.0 < $1.0 }.map(\.1)
     }
-    // Re-resolve the bound profile after awaits; edits must not publish the previous selection.
-    let current = store.selection(kind: kind, profileID: profileID, legacySource: source, legacyAsset: selected?.first)
+    // Settings and privacy can change while a quote is pending in another process.
+    let current = store.selection(kind: kind)
     guard current == selection else {
       return Timeline(entries: [entry(selection: current, isWatchlist: isWatchlist, store: store)],
         policy: .after(Date().addingTimeInterval(15 * 60)))
     }
     let entry = MarketWidgetEntry(date: Date(), configuration: snapshot.configuration,
       rows: rows, isWatchlist: isWatchlist, selectionUnavailable: snapshot.selectionUnavailable,
-      source: snapshot.source, profileID: snapshot.profileID, profileUnavailable: snapshot.profileUnavailable)
+      source: snapshot.source, profileID: snapshot.profileID, profileUnavailable: snapshot.profileUnavailable,
+      manualSelection: snapshot.manualSelection)
     return Timeline(entries: [entry], policy: .after(Date().addingTimeInterval(15 * 60)))
   }
 }

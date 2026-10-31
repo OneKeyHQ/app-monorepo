@@ -8,11 +8,13 @@ import { useMarketWidgetCopy } from './useMarketWidgetCopy';
 export function MarketWidgetStateView({
   privacyMasked,
   isLoading,
+  hasError = false,
   onRetry,
   unavailable = false,
 }: {
   privacyMasked: boolean;
   isLoading: boolean;
+  hasError?: boolean;
   onRetry: () => Promise<void>;
   unavailable?: boolean;
 }) {
@@ -23,7 +25,7 @@ export function MarketWidgetStateView({
   });
   if (privacyMasked) title = copy.privacyUnavailable;
   else if (unavailable) title = copy.unavailableConfiguration;
-  if (isLoading && !privacyMasked) {
+  if (!privacyMasked && !unavailable && (isLoading || !hasError)) {
     return (
       <YStack
         flex={1}

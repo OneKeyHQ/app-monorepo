@@ -93,7 +93,7 @@ struct MarketLockScreenChartWidget: Widget {
 struct MarketSingleWidget: Widget {
   let kind = "OneKeyMarketSingle"
   var body: some WidgetConfiguration {
-    AppIntentConfiguration(kind: kind, intent: MarketSingleIntent.self, provider: MarketSingleProvider()) {
+    StaticConfiguration(kind: kind, provider: MarketWidgetProvider(isWatchlist: false)) {
       MarketWidgetView(entry: $0)
     }
     .configurationDisplayName("market_widget_single__title")
@@ -119,7 +119,7 @@ struct LegacyMarketSingleWidget: Widget {
 struct MarketWatchlistWidget: Widget {
   let kind = "OneKeyMarketWatchlist"
   var body: some WidgetConfiguration {
-    AppIntentConfiguration(kind: kind, intent: MarketListIntent.self, provider: MarketListProvider()) {
+    StaticConfiguration(kind: kind, provider: MarketWidgetProvider(isWatchlist: true)) {
       MarketWidgetView(entry: $0)
     }
     .configurationDisplayName("market_widget_list__title")
@@ -167,7 +167,7 @@ struct MarketWidgetView: View {
       VStack(spacing: 0) {
         if entry.rows.isEmpty { emptyState }
         else {
-          ForEach(Array(entry.rows.enumerated()), id: \.element.id) { index, row in
+          ForEach(Array(entry.rows.enumerated()), id: \.offset) { index, row in
             if let url = row.asset.detailURL {
               Link(destination: url) { listRow(row) }
             }
@@ -182,7 +182,9 @@ struct MarketWidgetView: View {
     } else {
       VStack(alignment: .leading, spacing: 0) {
         HStack(spacing: 10) {
-          Text(localized(entry.source == .hot ? "market_widget_hot_coins__title" : "market_widget_watchlist__title"))
+          Text(localized(entry.manualSelection
+            ? (entry.isWatchlist ? "market_widget_list__title" : "market_widget_single__title")
+            : (entry.source == .hot ? "market_widget_hot_coins__title" : "market_widget_watchlist__title")))
             .font(.system(size: 12, weight: .medium)).foregroundStyle(secondary)
             .lineLimit(1).minimumScaleFactor(0.65)
             .allowsTightening(true)

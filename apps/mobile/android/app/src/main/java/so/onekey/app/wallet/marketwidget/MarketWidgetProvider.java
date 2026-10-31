@@ -9,6 +9,9 @@ import android.content.Context;
 import android.content.Intent;
 import android.net.Uri;
 import android.os.Bundle;
+import android.os.Build;
+import android.util.SizeF;
+import android.util.TypedValue;
 import android.view.View;
 import android.graphics.Bitmap;
 import android.widget.RemoteViews;
@@ -21,6 +24,8 @@ import java.util.Currency;
 import java.util.Date;
 import java.util.List;
 import java.util.Locale;
+import java.util.LinkedHashMap;
+import java.util.Map;
 
 import so.onekey.app.wallet.MainLauncherActivity;
 import so.onekey.app.wallet.R;
@@ -131,8 +136,9 @@ public class MarketWidgetProvider extends AppWidgetProvider {
         RemoteViews views = new RemoteViews(context.getPackageName(),
             single ? R.layout.market_widget_single : R.layout.market_widget_watchlist);
         boolean hot = MarketWidgetStore.HOT.equals(MarketWidgetStore.source(context, id));
-        views.setTextViewText(R.id.market_widget_title, textContext.getString(hot
-            ? R.string.market_widget_source_hot : R.string.market_widget_source_watchlist));
+        views.setTextViewText(R.id.market_widget_title, textContext.getString(MarketWidgetStore.hasManualSelection(context, id)
+            ? (single ? R.string.market_widget_single_title : R.string.market_widget_watchlist_title)
+            : (hot ? R.string.market_widget_source_hot : R.string.market_widget_source_watchlist)));
         views.setContentDescription(R.id.market_widget_configure, textContext.getString(R.string.market_widget_configure));
         Intent configure = configureIntent(context, id);
         PendingIntent configureIntent = PendingIntent.getActivity(context, id, configure,
@@ -212,7 +218,34 @@ public class MarketWidgetProvider extends AppWidgetProvider {
         }
         views.setTextViewText(R.id.market_widget_status, status);
         views.setViewVisibility(R.id.market_widget_status, status.isEmpty() ? View.GONE : View.VISIBLE);
-        AppWidgetManager.getInstance(context).updateAppWidget(id, views);
+        AppWidgetManager manager = AppWidgetManager.getInstance(context);
+        manager.updateAppWidget(id, single
+            ? singleSizedViews(views, manager.getAppWidgetOptions(id), !status.isEmpty()) : views);
+    }
+
+    private static RemoteViews singleSizedViews(RemoteViews views, Bundle options, boolean hasStatus) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) return views;
+        List<SizeF> sizes = options.getParcelableArrayList(AppWidgetManager.OPTION_APPWIDGET_SIZES);
+        if (sizes == null || sizes.isEmpty()) {
+            // Older launchers only expose the portrait and landscape bounds.
+            sizes = Arrays.asList(
+                new SizeF(options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH, 140),
+                    options.getInt(AppWidgetManager.OPTION_APPWIDGET_MAX_HEIGHT, 160)),
+                new SizeF(options.getInt(AppWidgetManager.OPTION_APPWIDGET_MAX_WIDTH, 140),
+                    options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT, 160)));
+        }
+        Map<SizeF, RemoteViews> layouts = new LinkedHashMap<>();
+        for (SizeF size : sizes) {
+            if (size.getWidth() <= 0 || size.getHeight() <= 0) continue;
+            RemoteViews sized = new RemoteViews(views);
+            // Launcher rows can be much taller than columns; keep the card's reference proportions.
+            sized.setViewLayoutHeight(R.id.market_widget_root,
+                Math.min(size.getHeight(), size.getWidth() * 8f / 7f + (hasStatus ? 16f : 0f)),
+                TypedValue.COMPLEX_UNIT_DIP);
+            layouts.put(size, sized);
+            if (layouts.size() == 16) break;
+        }
+        return layouts.isEmpty() ? views : new RemoteViews(layouts);
     }
 
     static String price(BigDecimal value, Locale locale) {

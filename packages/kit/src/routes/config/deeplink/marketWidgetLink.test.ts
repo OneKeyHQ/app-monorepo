@@ -49,7 +49,10 @@ jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
 }));
 jest.mock('@onekeyhq/shared/src/modules/MarketWidget', () => ({
   __esModule: true,
-  default: { supportsProfileEditing: jest.fn(() => true) },
+  default: {
+    supportsSettingsEditing: jest.fn(() => true),
+    getEditorState: jest.fn(async () => ({ privacyMasked: false })),
+  },
 }));
 jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
   defaultLogger: { app: { error: { log: jest.fn() } } },
@@ -88,11 +91,12 @@ describe('market widget destination mapping', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     platformEnv.isNativeAndroid = true;
+    platformEnv.isNativeIOS = false;
     jest.mocked(travelModeManager.isMaskingDataSync).mockReturnValue(false);
     jest.mocked(whenAppUnlocked).mockReset().mockResolvedValue(undefined);
     mockGetRootState.mockReset();
     mockRootDispatch.mockReset();
-    jest.mocked(marketWidget.supportsProfileEditing).mockReturnValue(true);
+    jest.mocked(marketWidget.supportsSettingsEditing).mockReturnValue(true);
     appGlobals.$rootAppNavigation = {
       navigate,
       pushModal,
@@ -255,7 +259,7 @@ describe('market widget destination mapping', () => {
       shouldContinue: () => true,
     });
     expect(mockRootDispatch).not.toHaveBeenCalled();
-    platformEnv.isNativeAndroid = true;
+    platformEnv.isNativeAndroid = false;
     await handleMarketWidgetLink({
       target: { kind: 'editor', widgetKind: 'single' },
       shouldContinue: () => true,
@@ -265,6 +269,7 @@ describe('market widget destination mapping', () => {
   });
 
   it('opens the bound profile editor without resolving market data', async () => {
+    platformEnv.isNativeAndroid = false;
     const profileId = '4bdfeb88-a55d-4a91-bedb-df13acfaea39';
     await handleMarketWidgetLink({
       target: { kind: 'editor', profileId },
@@ -278,19 +283,55 @@ describe('market widget destination mapping', () => {
     expect(fetchAssetDetail).not.toHaveBeenCalled();
   });
 
-  it('opens a family-filtered manager for an unbound widget', async () => {
+  it.each(['single', 'list'] as const)(
+    'opens %s settings directly without creating or binding a profile',
+    async (kind) => {
+      platformEnv.isNativeAndroid = false;
+      await handleMarketWidgetLink({
+        target: { kind: 'editor', widgetKind: kind },
+        shouldContinue: () => true,
+      });
+      expect(pushModal).toHaveBeenCalledWith(EModalRoutes.MarketModal, {
+        screen: EModalMarketRoutes.MarketWidgetEditor,
+        params: { kind },
+      });
+    },
+  );
+
+  it('validates an Android session before opening the shared editor', async () => {
+    const editorSession = '4bdfeb88-a55d-4a91-bedb-df13acfaea39';
     await handleMarketWidgetLink({
-      target: { kind: 'editor', widgetKind: 'single' },
+      target: { kind: 'editor', editorSession },
       shouldContinue: () => true,
     });
+    expect(marketWidget.getEditorState).toHaveBeenCalledWith(editorSession);
     expect(pushModal).toHaveBeenCalledWith(EModalRoutes.MarketModal, {
-      screen: EModalMarketRoutes.MarketWidgetList,
-      params: { kind: 'single' },
+      screen: EModalMarketRoutes.MarketWidgetEditor,
+      params: { editorSession },
     });
   });
 
+  it('rejects Android editor links without a session and invalid native sessions', async () => {
+    await handleMarketWidgetLink({
+      target: { kind: 'editor', widgetKind: 'list' },
+      shouldContinue: () => true,
+    });
+    jest
+      .mocked(marketWidget.getEditorState)
+      .mockRejectedValueOnce(new OneKeyLocalError('Expired session'));
+    await handleMarketWidgetLink({
+      target: {
+        kind: 'editor',
+        editorSession: '4bdfeb88-a55d-4a91-bedb-df13acfaea39',
+      },
+      shouldContinue: () => true,
+    });
+    expect(pushModal).not.toHaveBeenCalled();
+    expect(Toast.error).toHaveBeenCalledTimes(2);
+  });
+
   it('does not open the editor on an older native binary', async () => {
-    jest.mocked(marketWidget.supportsProfileEditing).mockReturnValue(false);
+    jest.mocked(marketWidget.supportsSettingsEditing).mockReturnValue(false);
     await handleMarketWidgetLink({
       target: { kind: 'editor' },
       shouldContinue: () => true,

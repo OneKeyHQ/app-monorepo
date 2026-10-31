@@ -186,6 +186,7 @@ struct MarketWidgetProfile: Codable, Equatable, Identifiable {
   let name: String
   let source: MarketWidgetSource
   var asset: MarketWidgetAsset?
+  var assets: [MarketWidgetAsset]? = nil
 
   var isValid: Bool {
     UUID(uuidString: id)?.uuidString.lowercased() == id
@@ -193,6 +194,8 @@ struct MarketWidgetProfile: Codable, Equatable, Identifiable {
       && name == name.trimmingCharacters(in: .whitespacesAndNewlines)
       && !name.unicodeScalars.contains(where: CharacterSet.controlCharacters.contains)
       && (kind == .single ? asset?.isValid == true : asset == nil)
+      && (assets.map { $0.count == (kind == .single ? 1 : 3) && $0.allSatisfy(\.isValid)
+        && (kind != .single || $0.first?.id == asset?.id) } ?? true)
   }
 }
 
@@ -202,6 +205,7 @@ struct MarketWidgetProfileInput: Decodable {
   let name: String
   let source: MarketWidgetSource
   let asset: MarketWidgetAsset?
+  let assets: [MarketWidgetAsset]?
 }
 
 private struct MarketWidgetProfiles: Codable {
@@ -213,12 +217,22 @@ private struct MarketWidgetProfiles: Codable {
   }
 }
 
+private struct MarketWidgetDesktopSettings: Codable {
+  let schemaVersion: Int
+  let settings: [MarketWidgetProfile]
+  var isValid: Bool {
+    schemaVersion == 1 && settings.count <= 2 && settings.allSatisfy(\.isValid)
+      && Set(settings.map(\.kind)).count == settings.count
+  }
+}
+
 struct MarketWidgetEditorState: Codable {
   let profiles: [MarketWidgetProfile]
+  let settings: [MarketWidgetProfile]
   let watchlist: [MarketWidgetAsset]
   let hot: [MarketWidgetAsset]
   let privacyMasked: Bool
-  static let masked = MarketWidgetEditorState(profiles: [], watchlist: [], hot: [], privacyMasked: true)
+  static let masked = MarketWidgetEditorState(profiles: [], settings: [], watchlist: [], hot: [], privacyMasked: true)
 }
 
 struct MarketWidgetSelection: Equatable {
@@ -299,6 +313,90 @@ struct MarketWidgetStore {
     return profiles(kind: kind).first { $0.id == id }
   }
 
+  func desktopSettings(kind: MarketWidgetKind) -> MarketWidgetProfile? {
+    guard let configuration = configuration().configuration, configuration.privacyMasked != true else { return nil }
+    if let settings = try? storedDesktopSettings(), let saved = settings.first(where: { $0.kind == kind }) {
+      return saved
+    }
+    if let previous = profiles(kind: kind).last { return previous }
+    return MarketWidgetProfile(id: Self.desktopSettingsID(kind: kind), kind: kind,
+      name: kind == .single ? "Single coin" : "Market list", source: .hot,
+      asset: kind == .single ? MarketWidgetAsset.defaults[0] : nil)
+  }
+
+  private static func desktopSettingsID(kind: MarketWidgetKind) -> String {
+    kind == .single ? "00000000-0000-4000-8000-000000000001" : "00000000-0000-4000-8000-000000000002"
+  }
+
+  private func desktopAssets(for source: MarketWidgetSource) -> [MarketWidgetAsset] {
+    guard let configuration = configuration().configuration, configuration.privacyMasked != true else { return [] }
+    return source == .hot ? trending()?.assets ?? MarketWidgetAsset.defaults : configuration.assets
+  }
+
+  private func storedDesktopSettings() throws -> [MarketWidgetProfile] {
+    guard let directory else { throw MarketWidgetError.storageUnavailable }
+    let url = directory.appendingPathComponent("desktop-settings-v1.json")
+    guard FileManager.default.fileExists(atPath: url.path) else { return [] }
+    let data = try Data(contentsOf: url)
+    guard data.count <= 32_768 else { throw MarketWidgetError.invalidProfile }
+    let stored = try JSONDecoder().decode(MarketWidgetDesktopSettings.self, from: data)
+    guard stored.isValid else { throw MarketWidgetError.invalidProfile }
+    return stored.settings
+  }
+
+  func saveSettings(json: String) throws -> MarketWidgetProfile {
+    guard let data = json.data(using: .utf8), data.count <= 8192 else { throw MarketWidgetError.invalidProfile }
+    let input = try JSONDecoder().decode(MarketWidgetProfileInput.self, from: data)
+    let name = input.name.trimmingCharacters(in: .whitespacesAndNewlines)
+    guard !name.isEmpty, name.count <= 40,
+          !name.unicodeScalars.contains(where: CharacterSet.controlCharacters.contains),
+          input.kind == .single ? input.asset?.isValid == true : input.asset == nil else {
+      throw MarketWidgetError.invalidProfile
+    }
+    let directory = try preparedDirectory()
+    var result: MarketWidgetProfile?
+    try coordinateWrite(at: directory) {
+      guard let configuration = configuration().configuration else { throw MarketWidgetError.invalidConfiguration }
+      guard configuration.privacyMasked != true else { throw MarketWidgetError.privacyMasked }
+      var settings = try storedDesktopSettings()
+      let previous = desktopSettings(kind: input.kind)
+      var canonicalAsset: MarketWidgetAsset?
+      var canonicalAssets: [MarketWidgetAsset]?
+      if let requested = input.assets {
+        guard requested.count == (input.kind == .single ? 1 : 3), requested.allSatisfy(\.isValid) else {
+          throw MarketWidgetError.invalidProfile
+        }
+        let candidates = desktopAssets(for: .watchlist) + desktopAssets(for: .hot)
+          + (previous?.assets ?? []) + (previous?.asset.map { [$0] } ?? [])
+        canonicalAssets = try requested.map { requested in
+          guard let asset = candidates.first(where: { $0.id == requested.id }) else {
+            throw MarketWidgetError.invalidProfile
+          }
+          return assetWithMetadata(asset)
+        }
+        if input.kind == .single { canonicalAsset = canonicalAssets?.first }
+      } else if input.kind == .single, let requested = input.asset {
+        canonicalAsset = desktopAssets(for: input.source).first { $0.id == requested.id }
+        if canonicalAsset == nil, input.source == .hot, previous?.source == .hot,
+           previous?.asset?.id == requested.id { canonicalAsset = previous?.asset }
+        guard let asset = canonicalAsset else { throw MarketWidgetError.invalidProfile }
+        canonicalAsset = assetWithMetadata(asset)
+      }
+      let saved = MarketWidgetProfile(id: Self.desktopSettingsID(kind: input.kind), kind: input.kind,
+        name: name, source: input.source, asset: canonicalAsset, assets: canonicalAssets)
+      guard saved.isValid else { throw MarketWidgetError.invalidProfile }
+      if let index = settings.firstIndex(where: { $0.kind == input.kind }) { settings[index] = saved }
+      else { settings.append(saved) }
+      let encoded = try JSONEncoder().encode(MarketWidgetDesktopSettings(schemaVersion: 1, settings: settings))
+      guard encoded.count <= 32_768 else { throw MarketWidgetError.invalidProfile }
+      try encoded.write(to: directory.appendingPathComponent("desktop-settings-v1.json"), options: .atomic)
+      pruneQuotes(keeping: permittedAssets())
+      result = saved
+    }
+    guard let result else { throw MarketWidgetError.storageUnavailable }
+    return result
+  }
+
   func editorState() throws -> MarketWidgetEditorState {
     let directory = try preparedDirectory()
     var state: MarketWidgetEditorState?
@@ -314,9 +412,15 @@ struct MarketWidgetStore {
         if let asset = profile.asset { enriched.asset = editorAsset(asset) }
         return enriched
       }
-      state = MarketWidgetEditorState(profiles: profiles,
+      let settings = [MarketWidgetKind.single, .list].compactMap { kind -> MarketWidgetProfile? in
+        guard var settings = desktopSettings(kind: kind) else { return nil }
+        if let asset = settings.asset { settings.asset = editorAsset(asset) }
+        settings.assets = settings.assets?.map(editorAsset)
+        return settings
+      }
+      state = MarketWidgetEditorState(profiles: profiles, settings: settings,
         watchlist: assets(for: .watchlist).map(editorAsset),
-        hot: assets(for: .hot).map(editorAsset), privacyMasked: false)
+        hot: desktopAssets(for: .hot).map(editorAsset), privacyMasked: false)
     }
     if let error { throw error }
     guard let state else { throw MarketWidgetError.invalidConfiguration }
@@ -422,33 +526,30 @@ struct MarketWidgetStore {
     return result
   }
 
-  func selection(kind: MarketWidgetKind, profileID: String? = nil,
-                 legacySource: MarketWidgetSource = .watchlist,
-                 legacyAsset: MarketWidgetAsset? = nil) -> MarketWidgetSelection {
+  func selection(kind: MarketWidgetKind, profileID _: String? = nil,
+                 legacySource _: MarketWidgetSource = .watchlist,
+                 legacyAsset _: MarketWidgetAsset? = nil) -> MarketWidgetSelection {
     let configuration = configuration().configuration
-    let canonicalID = profileID.flatMap { UUID(uuidString: $0)?.uuidString.lowercased() }
     guard configuration.map({ $0.privacyMasked != true }) == true else {
-      return MarketWidgetSelection(configuration: configuration, profile: nil, profileID: canonicalID,
+      return MarketWidgetSelection(configuration: configuration, profile: nil, profileID: nil,
         source: .watchlist, assets: [], selectionUnavailable: false, profileUnavailable: false)
     }
-    let profile = canonicalID.flatMap { self.profile(id: $0, kind: kind) }
-    if profileID != nil && profile == nil {
-      return MarketWidgetSelection(configuration: configuration, profile: nil, profileID: canonicalID,
-        source: .watchlist, assets: [], selectionUnavailable: false, profileUnavailable: true)
-    }
-    let source = profile?.source ?? legacySource
-    let selected = profile?.asset ?? legacyAsset
-    let available = assets(for: source)
+    let settings = desktopSettings(kind: kind)
+    let source = settings?.source ?? .hot
+    let selected = settings?.asset
+    let available = desktopAssets(for: source)
     let resolved: [MarketWidgetAsset]
     var unavailable = false
-    if kind == .single, let selected {
+    if let pinned = settings?.assets {
+      resolved = pinned
+    } else if kind == .single, let selected {
       let canonical = available.first { $0.id == selected.id } ?? (source == .hot && selected.isValid ? selected : nil)
       resolved = canonical.map { [$0] } ?? []
       unavailable = canonical == nil
     } else {
       resolved = Array(available.prefix(kind == .single ? 1 : 3))
     }
-    return MarketWidgetSelection(configuration: configuration, profile: profile, profileID: canonicalID,
+    return MarketWidgetSelection(configuration: configuration, profile: settings, profileID: nil,
       source: source, assets: resolved, selectionUnavailable: unavailable, profileUnavailable: false)
   }
 
@@ -498,9 +599,16 @@ struct MarketWidgetStore {
 
   private func permittedAssets() -> [MarketWidgetAsset] {
     guard let configuration = configuration().configuration, configuration.privacyMasked != true else { return [] }
+    let desktopAssets = [MarketWidgetKind.single, .list].flatMap { kind -> [MarketWidgetAsset] in
+      guard let settings = desktopSettings(kind: kind) else { return [] }
+      if let pinned = settings.assets { return pinned }
+      guard settings.source == .hot else { return [] }
+      if kind == .single { return settings.asset.map { [$0] } ?? [] }
+      return Array(self.desktopAssets(for: .hot).prefix(3))
+    }
     return configuration.assets + (trending()?.assets ?? []) + savedHotSelections()
       + ((try? storedProfiles()) ?? []).filter { $0.source == .hot }.compactMap(\.asset)
-      + lockScreenAssets()
+      + desktopAssets + lockScreenAssets()
   }
 
   func lockScreenAsset(id: String) -> MarketWidgetAsset? {

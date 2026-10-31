@@ -442,7 +442,7 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
                   renderElement: <HapticFeedbackListItem />,
                 }
               : undefined,
-            marketWidget.supportsProfileEditing()
+            platformEnv.isNativeIOS && marketWidget.supportsSettingsEditing()
               ? {
                   id: 'market-widgets',
                   icon: 'LayoutDashboardOutline',

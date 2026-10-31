@@ -34,6 +34,7 @@ export type IMarketWidgetProfile = {
   name: string;
   source: IMarketWidgetSource;
   asset?: IMarketWidgetAsset;
+  assets?: IMarketWidgetAsset[];
 };
 
 export type IMarketWidgetProfileInput = Omit<IMarketWidgetProfile, 'id'> & {
@@ -42,6 +43,7 @@ export type IMarketWidgetProfileInput = Omit<IMarketWidgetProfile, 'id'> & {
 
 export type IMarketWidgetEditorState = {
   profiles: IMarketWidgetProfile[];
+  settings?: IMarketWidgetProfile[];
   watchlist: IMarketWidgetAsset[];
   hot: IMarketWidgetAsset[];
   privacyMasked: boolean;
@@ -50,11 +52,20 @@ export type IMarketWidgetEditorState = {
 export type IMarketWidgetModule = {
   isSupported: () => boolean;
   supportsProfileEditing: () => boolean;
+  supportsSettingsEditing: () => boolean;
   setConfiguration: (
     configuration: IMarketWidgetConfiguration,
   ) => Promise<void>;
-  getEditorState: () => Promise<IMarketWidgetEditorState>;
+  getEditorState: (editorSession?: string) => Promise<IMarketWidgetEditorState>;
+  refreshEditorState?: (
+    editorSession?: string,
+  ) => Promise<IMarketWidgetEditorState>;
+  finishEditing?: (editorSession: string, saved: boolean) => Promise<void>;
   saveProfile: (
     profile: IMarketWidgetProfileInput,
+  ) => Promise<IMarketWidgetProfile>;
+  saveSettings: (
+    settings: Omit<IMarketWidgetProfile, 'id'>,
+    editorSession?: string,
   ) => Promise<IMarketWidgetProfile>;
 };
