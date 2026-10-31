@@ -121,6 +121,116 @@ function buildPoints({
 }
 
 describe('TradingViewNative chart layout', () => {
+  it.each([
+    [1285.0569, 1, '1285'],
+    [1271.25, 1, '1271.2'],
+    [1278.4, 1, '1278.4'],
+    [999.99, 1, '999.9'],
+    [0.29, 2, '0.29'],
+    [0.000_000_129, 8, '0.00000012'],
+    [0.009, 2, '0'],
+    [-1271.25, 1, '-1271.2'],
+    [-0.009, 2, '0'],
+    [0, 1, '0'],
+  ])(
+    'truncates %s to %s decimals without binary multiplication',
+    (price, decimals, expected) => {
+      expect(
+        formatTradingViewNativePriceTick(price, 4, decimals, 'truncate'),
+      ).toBe(expected);
+    },
+  );
+
+  it('keeps rounding as the default for real price labels', () => {
+    expect(formatTradingViewNativePriceTick(1271.25, 4, 1)).toBe('1271.3');
+  });
+
+  it.each([
+    { priceDecimalPlaces: 6, axisLabel: '888.888888' },
+    { priceDecimalPlaces: 4, axisLabel: '888.8888' },
+  ])(
+    'uses a maximum precision of $priceDecimalPlaces without padding displayed prices',
+    ({ priceDecimalPlaces, axisLabel }) => {
+      const points = [
+        {
+          o: 101.73,
+          h: 101.74,
+          l: 101.72,
+          c: 101.73,
+          t: 1_700_000_000,
+          v: 10,
+        },
+      ];
+      expect(
+        formatTradingViewNativePriceTick(101.73, 4, priceDecimalPlaces),
+      ).toBe('101.73');
+      expect(
+        getTradingViewNativeCurrentPriceLabel(points, priceDecimalPlaces),
+      ).toBe('101.73');
+      expect(
+        getTradingViewNativePriceAxisLabel(points, priceDecimalPlaces),
+      ).toBe(axisLabel);
+    },
+  );
+
+  it('preserves display prices beyond order significant figures and trims only padding', () => {
+    expect(formatTradingViewNativePriceTick(18.620_413_81, 4, 8)).toBe(
+      '18.62041381',
+    );
+    expect(formatTradingViewNativePriceTick(101.733_333, 4, 6)).toBe(
+      '101.733333',
+    );
+    expect(formatTradingViewNativePriceTick(123_456, 4, 6)).toBe('123456');
+    expect(formatTradingViewNativePriceTick(1e30, 4, 6)).toBe('1e+30');
+    expect(formatTradingViewNativePriceTick(0, 4, 6)).toBe('0');
+    expect(formatTradingViewNativePriceTick(0.000_001, 4, 6)).toBe('0.000001');
+  });
+
+  it.each(['linear', 'logarithmic'] as const)(
+    'reserves full fractional slots for interpolated %s price ticks',
+    (priceScaleMode) => {
+      const points = [
+        {
+          o: 100.64,
+          h: 107.3,
+          l: 78.138,
+          c: 103.6,
+          t: 1_700_000_000,
+          v: 10,
+        },
+      ];
+      const priceRange = { minPrice: 78.138, maxPrice: 107.3 };
+      const autoLabel = getTradingViewNativePriceAxisLabel(points, 4);
+      const scaledLabel = getTradingViewNativeScaledPriceAxisLabel({
+        autoPriceRange: priceRange,
+        priceDecimalPlaces: 4,
+        priceRangeScale: 1,
+        priceScaleMode,
+      });
+      const layout = getTradingViewNativeChartLayout({
+        candleIntervalSeconds: 3600,
+        hasVolume: false,
+        height: 600,
+        minimumTimeTickIndexSpacing: 1,
+        pinnedPriceRange: priceRange,
+        points,
+        priceAxisTickCount: 7,
+        priceAxisWidth: 60,
+        priceScaleMode,
+        visiblePointRange: { startIndex: 0, endIndex: points.length },
+        width: 320,
+      });
+
+      expect(formatTradingViewNativePriceTick(107.3, 4, 4)).toBe('107.3');
+      expect(layout?.priceTicks).toHaveLength(7);
+      for (const { price } of layout?.priceTicks ?? []) {
+        const label = formatTradingViewNativePriceTick(price, 4, 4);
+        expect(autoLabel.length).toBeGreaterThanOrEqual(label.length);
+        expect(scaledLabel.length).toBeGreaterThanOrEqual(label.length);
+      }
+    },
+  );
+
   it('formats price ticks with the shared price display precision', () => {
     expect(formatTradingViewNativePriceTick(123.456_789)).toBe('123.46');
     expect(formatTradingViewNativePriceTick(1)).toBe('1.00');
