@@ -314,7 +314,10 @@ class ServiceWalletConnect extends ServiceBase {
       namespaces: ProposalTypes.RequiredNamespaces,
       notSupportedChains: string[] = [],
     ) => {
-      for (const [key, value] of Object.entries(namespaces)) {
+      for (const [key, value] of Object.entries(namespaces).filter(
+        ([namespaceKey]) =>
+          namespaceToImplsMap[namespaceKey as INamespaceUnion],
+      )) {
         const namespace = key as INamespaceUnion;
         const { chains } = value;
         const impl = namespaceToImplsMap[namespace];
@@ -353,16 +356,10 @@ class ServiceWalletConnect extends ServiceBase {
 
     // Process optional namespaces, considering unsupported chains
     if (proposal.params.optionalNamespaces) {
-      const isEmptyRequiredNamespace =
-        Object.keys(proposal.params.requiredNamespaces).length <= 0;
-      const filteredOptionalNamespaces = isEmptyRequiredNamespace
-        ? proposal.params.optionalNamespaces
-        : Object.fromEntries(
-            Object.entries(proposal.params.optionalNamespaces).filter(
-              ([key]) => key in proposal.params.requiredNamespaces,
-            ),
-          );
-      await processNamespaces(filteredOptionalNamespaces, notSupportedChains);
+      await processNamespaces(
+        proposal.params.optionalNamespaces,
+        notSupportedChains,
+      );
     }
 
     console.log('supportedNamespaces: ', supportedNamespaces);
