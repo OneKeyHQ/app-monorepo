@@ -178,32 +178,45 @@ describe('ServiceWalletConnect.buildWalletConnectNamespace', () => {
     ).toBeNull();
   });
 
-  it('preserves supported optional Algorand alongside EVM', async () => {
-    const algoAccount = {
-      ...evmAccount,
-      networkImpl: 'algo',
-      networkId: 'algo--4160',
-      address: 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAY5HFKQ',
-    };
-    const proposal = createProposal({
-      eip155: evmNamespace,
-      algorand: {
+  it.each([false, true])(
+    'preserves optional Algorand (EVM required: %s)',
+    async (requiredEvm) => {
+      const algoAccount = {
+        ...evmAccount,
+        networkImpl: 'algo',
+        networkId: 'algo--4160',
+        address: 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAY5HFKQ',
+      };
+      const proposal = createProposal(
+        {
+          ...(requiredEvm ? {} : { eip155: evmNamespace }),
+          algorand: {
+            chains: [algoChain],
+            methods: ['algo_signTxn'],
+            events: ['accountsChanged', 'chainChanged'],
+          },
+        },
+        requiredEvm ? { eip155: evmNamespace } : {},
+      );
+
+      const namespaces = await service.buildWalletConnectNamespace({
+        proposal,
+        accountsInfo: [evmAccount, algoAccount],
+      });
+
+      expect(Object.keys(namespaces)).toEqual(['eip155', 'algorand']);
+      expect(namespaces.algorand).toMatchObject({
         chains: [algoChain],
-        methods: ['algo_signTxn'],
-        events: ['accountsChanged', 'chainChanged'],
-      },
-    });
-
-    const namespaces = await service.buildWalletConnectNamespace({
-      proposal,
-      accountsInfo: [evmAccount, algoAccount],
-    });
-
-    expect(Object.keys(namespaces)).toEqual(['eip155', 'algorand']);
-    expect(namespaces.algorand).toMatchObject({
-      chains: [algoChain],
-      accounts: [`${algoChain}:${algoAccount.address}`],
-    });
-    expect(isValidNamespaces(namespaces, 'approve()')).toBeNull();
-  });
+        accounts: [`${algoChain}:${algoAccount.address}`],
+      });
+      expect(isValidNamespaces(namespaces, 'approve()')).toBeNull();
+      expect(
+        isConformingNamespaces(
+          proposal.params.requiredNamespaces,
+          namespaces,
+          'approve()',
+        ),
+      ).toBeNull();
+    },
+  );
 });
