@@ -49,12 +49,12 @@ struct MarketLockScreenView: View {
               .frame(maxWidth: .infinity, alignment: .leading)
             HStack(spacing: 2) {
               direction(item, size: 8)
-              Text(price(item, currency: true))
+              Text(price(item))
                 .lineLimit(1).minimumScaleFactor(0.65).monospacedDigit()
             }
             .layoutPriority(1)
           }
-          .font(.system(size: 12, weight: .regular))
+          .font(.system(size: 12, weight: .medium))
           .frame(maxHeight: .infinity)
           .accessibilityElement(children: .ignore)
           .accessibilityLabel(accessibilityLabel(item))
@@ -74,7 +74,7 @@ struct MarketLockScreenView: View {
             .font(.system(size: 14, weight: .semibold))
             .lineLimit(1).minimumScaleFactor(0.65)
           Text(price(row, compact: true))
-            .font(.system(size: 12, weight: .regular))
+            .font(.system(size: 12, weight: .medium))
             .lineLimit(1).minimumScaleFactor(0.6).monospacedDigit()
           direction(row, size: 8)
         }
@@ -93,9 +93,9 @@ struct MarketLockScreenView: View {
           Text(MarketLockScreenFormatting.change(row.quote?.change24h, locale: locale))
             .lineLimit(1).minimumScaleFactor(0.75).monospacedDigit()
         }
-        .font(.system(size: 13, weight: .regular))
+        .font(.system(size: 13, weight: .medium))
         Text(price(row, currency: true, fixedDecimals: true))
-          .font(.system(size: 32, weight: .regular))
+          .font(.system(size: 32, weight: .medium))
           .lineLimit(1).minimumScaleFactor(0.45).monospacedDigit()
           .frame(maxWidth: .infinity, alignment: .leading)
       } else { unavailable }
@@ -119,7 +119,7 @@ struct MarketLockScreenView: View {
           }
           .layoutPriority(1)
         }
-        .font(.system(size: 13, weight: .regular))
+        .font(.system(size: 13, weight: .medium))
         .frame(height: 16)
         if let points = row.quote?.chart, MarketLockScreenChartGeometry.isValid(points) {
           MarketLockScreenChart(points: points)
@@ -172,7 +172,7 @@ struct MarketLockScreenView: View {
   private func accessibilityLabel(_ row: MarketWidgetRow) -> String {
     let change = MarketLockScreenFormatting.change(row.quote?.change24h, locale: locale)
     return localized(row.failed ? "market_widget_quote_cached__desc" : "market_widget_quote__desc",
-      arguments: [symbol(row), price(row), change])
+      arguments: [symbol(row), price(row, fixedDecimals: style == .price), change])
   }
 }
 
@@ -187,8 +187,9 @@ enum MarketLockScreenFormatting {
     if scientific {
       formatter.maximumFractionDigits = compact ? 2 : 3
     } else if number >= 1 || number == 0 {
-      formatter.minimumFractionDigits = fixedDecimals ? 2 : 0
-      formatter.maximumFractionDigits = 2
+      let singleDecimal = !fixedDecimals && number >= 10_000
+      formatter.minimumFractionDigits = singleDecimal ? 1 : (fixedDecimals ? 2 : 0)
+      formatter.maximumFractionDigits = singleDecimal ? 1 : 2
     } else {
       formatter.usesSignificantDigits = true
       formatter.minimumSignificantDigits = 1

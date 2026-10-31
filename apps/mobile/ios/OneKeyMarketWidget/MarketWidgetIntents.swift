@@ -153,15 +153,12 @@ struct MarketSingleProvider: AppIntentTimelineProvider {
   func placeholder(in context: Context) -> MarketWidgetEntry { .placeholder(isWatchlist: false) }
   func snapshot(for configuration: MarketSingleIntent, in context: Context) async -> MarketWidgetEntry {
     if context.isPreview {
-      return await MarketWidgetEntry.timeline(isWatchlist: false, selected: configuration.asset.map { [$0.asset] },
-        source: configuration.source ?? .hot, profileID: configuration.profile?.id).entries.first ?? .placeholder(isWatchlist: false)
+      return await MarketWidgetEntry.timeline(isWatchlist: false).entries.first ?? .placeholder(isWatchlist: false)
     }
-    return .snapshot(isWatchlist: false, selected: configuration.asset.map { [$0.asset] },
-      source: configuration.source ?? .hot, profileID: configuration.profile?.id)
+    return .snapshot(isWatchlist: false)
   }
   func timeline(for configuration: MarketSingleIntent, in context: Context) async -> Timeline<MarketWidgetEntry> {
-    await MarketWidgetEntry.timeline(isWatchlist: false, selected: configuration.asset.map { [$0.asset] },
-      source: configuration.source ?? .hot, profileID: configuration.profile?.id)
+    await MarketWidgetEntry.timeline(isWatchlist: false)
   }
 }
 
@@ -170,12 +167,12 @@ struct MarketListProvider: AppIntentTimelineProvider {
   func placeholder(in context: Context) -> MarketWidgetEntry { .placeholder(isWatchlist: true) }
   func snapshot(for configuration: MarketListIntent, in context: Context) async -> MarketWidgetEntry {
     if context.isPreview {
-      return await MarketWidgetEntry.timeline(isWatchlist: true, source: configuration.source ?? .hot, profileID: configuration.profile?.id)
+      return await MarketWidgetEntry.timeline(isWatchlist: true)
         .entries.first ?? .placeholder(isWatchlist: true)
     }
-    return .snapshot(isWatchlist: true, source: configuration.source ?? .hot, profileID: configuration.profile?.id)
+    return .snapshot(isWatchlist: true)
   }
   func timeline(for configuration: MarketListIntent, in context: Context) async -> Timeline<MarketWidgetEntry> {
-    await MarketWidgetEntry.timeline(isWatchlist: true, source: configuration.source ?? .hot, profileID: configuration.profile?.id)
+    await MarketWidgetEntry.timeline(isWatchlist: true)
   }
 }

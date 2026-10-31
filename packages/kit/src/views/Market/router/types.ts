@@ -24,6 +24,7 @@ export type IModalMarketParamList = {
   [EModalMarketRoutes.MarketWidgetEditor]: {
     profileId?: string;
     kind?: IMarketWidgetKind;
+    editorSession?: string;
   };
   [EModalMarketRoutes.MarketDetailV2]: {
     tokenAddress?: string;

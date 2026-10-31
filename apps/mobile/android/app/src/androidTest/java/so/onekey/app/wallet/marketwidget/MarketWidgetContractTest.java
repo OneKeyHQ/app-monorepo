@@ -13,6 +13,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.platform.app.InstrumentationRegistry;
 
 import org.json.JSONObject;
+import org.json.JSONArray;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -56,6 +57,46 @@ public final class MarketWidgetContractTest {
     public void tearDown() {
         context.getSharedPreferences(STORE_NAME, Context.MODE_PRIVATE).edit().clear().commit();
         storageContext.deleteSharedPreferences(preferencesPrefix + STORE_NAME);
+    }
+
+    @Test
+    public void manualSlotsKeepOrderAndAreIsolatedFromOtherWidgetsAndCandidateChanges() throws Exception {
+        MarketWidgetData.Configuration defaults = MarketWidgetData.defaults();
+        MarketWidgetData.Asset btc = defaults.assets.get(0);
+        MarketWidgetData.Asset eth = defaults.assets.get(1);
+        MarketWidgetData.Asset sol = defaults.assets.get(2);
+        MarketWidgetStore.saveHot(context, defaults.assets, System.currentTimeMillis());
+        JSONObject list = new JSONObject().put("kind", "list").put("source", "hot")
+            .put("assets", new JSONArray().put(sol.json()).put(btc.json()).put(eth.json()));
+        MarketWidgetStore.saveSettings(context, 11, false, list.toString());
+        MarketWidgetStore.saveSettings(context, 12, true, new JSONObject().put("kind", "single").put("source", "watchlist")
+            .put("assets", new JSONArray().put(eth.json())).toString());
+        MarketWidgetStore.setConfiguration(context, "{\"schemaVersion\":1,\"assets\":[]}");
+        MarketWidgetStore.saveHot(context, java.util.Collections.singletonList(btc), System.currentTimeMillis());
+        assertEquals(sol.key(), MarketWidgetStore.assets(context, 11, false).get(0).key());
+        assertEquals(eth.key(), MarketWidgetStore.assets(context, 11, false).get(2).key());
+        assertEquals(eth.key(), MarketWidgetStore.assets(context, 12, true).get(0).key());
+        assertFalse(MarketWidgetStore.needsHotRanking(context, 11, false));
+        assertTrue(MarketWidgetStore.contains(context, sol));
+        MarketWidgetStore.saveSettings(context, 11, false, list.toString());
+        assertEquals(eth.key(), MarketWidgetStore.assets(context, 12, true).get(0).key());
+        try {
+            MarketWidgetStore.saveSettings(context, 11, false, new JSONObject(list.toString())
+                .put("assets", new JSONArray().put(btc.json())).toString());
+            fail("Incomplete slots must not replace saved selections");
+        } catch (IllegalArgumentException expected) { }
+        assertEquals(3, MarketWidgetStore.assets(context, 11, false).size());
+        JSONObject state = MarketWidgetStore.editorState(context, 11, false, MarketWidgetStore.HOT);
+        assertEquals(3, state.getJSONArray("settings").getJSONObject(0).getJSONArray("assets").length());
+        assertTrue(state.getJSONArray("settings").getJSONObject(0).getJSONArray("assets").getJSONObject(0).has("logoURL"));
+        MarketWidgetStore.restoreWidget(context, 11, 13);
+        assertEquals(sol.key(), MarketWidgetStore.assets(context, 13, false).get(0).key());
+        assertFalse(MarketWidgetStore.hasManualSelection(context, 11));
+        MarketWidgetStore.setConfiguration(context, "{\"schemaVersion\":1,\"assets\":[],\"privacyMasked\":true}");
+        assertTrue(MarketWidgetStore.assets(context, 13, false).isEmpty());
+        assertFalse(MarketWidgetStore.contains(context, sol));
+        MarketWidgetStore.deleteWidget(context, 13);
+        assertFalse(MarketWidgetStore.hasManualSelection(context, 13));
     }
 
     @Test

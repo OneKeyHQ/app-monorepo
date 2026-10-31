@@ -1,9 +1,11 @@
 import type {
   IMarketWidgetAsset,
   IMarketWidgetEditorState,
+  IMarketWidgetKind,
   IMarketWidgetProfile,
   IMarketWidgetSource,
 } from '@onekeyhq/shared/src/modules/MarketWidget/types';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 
 export function getMarketWidgetAssetKey(asset: IMarketWidgetAsset) {
   return asset.kind === 'asset'
@@ -11,7 +13,71 @@ export function getMarketWidgetAssetKey(asset: IMarketWidgetAsset) {
     : `token:${asset.chainId}|${String(asset.isNative)}|${asset.contractAddress}`;
 }
 
+export function getMarketWidgetDisplayAsset({
+  asset,
+  state,
+  source,
+  kind,
+}: {
+  asset: IMarketWidgetAsset | undefined;
+  state: IMarketWidgetEditorState | undefined;
+  source: IMarketWidgetSource;
+  kind: IMarketWidgetKind;
+}): IMarketWidgetAsset | undefined {
+  if (state?.privacyMasked) return undefined;
+  if (!asset || !state) return asset;
+  const key = getMarketWidgetAssetKey(asset);
+  const settings = state.settings?.find(
+    (item) => item.kind === kind && (item.assets || item.source === source),
+  );
+  const latest =
+    state[source].find((item) => getMarketWidgetAssetKey(item) === key) ??
+    [...state.watchlist, ...state.hot, ...(settings?.assets ?? [])].find(
+      (item) => getMarketWidgetAssetKey(item) === key,
+    ) ??
+    (settings?.asset && getMarketWidgetAssetKey(settings.asset) === key
+      ? settings.asset
+      : undefined);
+  if (!latest) return asset;
+  // Enrichment may update the display, but never replace the user's draft selection.
+  return {
+    ...asset,
+    symbol: latest.symbol.trim() ? latest.symbol : asset.symbol,
+    name: latest.name.trim() ? latest.name : asset.name,
+    logoURL: latest.logoURL || asset.logoURL,
+  };
+}
+
+export function isMarketWidgetManualAssetAvailable({
+  state,
+  asset,
+  kind,
+}: {
+  state: IMarketWidgetEditorState;
+  asset: IMarketWidgetAsset | undefined;
+  kind: IMarketWidgetKind;
+}) {
+  if (state.privacyMasked) return false;
+  const settings = state.settings?.find((item) => item.kind === kind);
+  return containsMarketWidgetAsset(
+    [
+      ...state.watchlist,
+      ...state.hot,
+      ...(settings?.assets ?? []),
+      ...(settings?.asset ? [settings.asset] : []),
+    ],
+    asset,
+  );
+}
+
 export function getMarketWidgetAssetTitle(asset: IMarketWidgetAsset) {
+  if (
+    asset.kind === 'token' &&
+    asset.isNative &&
+    (!asset.symbol.trim() || asset.symbol === asset.chainId)
+  ) {
+    return networkUtils.getLocalNetworkInfo(asset.chainId)?.symbol ?? '—';
+  }
   if (asset.symbol.trim()) return asset.symbol;
   if (asset.kind === 'asset') return asset.assetId;
   if (asset.isNative || !asset.contractAddress) return asset.chainId;
@@ -40,6 +106,9 @@ export function getMarketWidgetProfileTitle(
 }
 
 export function getMarketWidgetAssetSubtitle(asset: IMarketWidgetAsset) {
+  if (asset.kind === 'token' && (!asset.name || asset.name === asset.chainId)) {
+    return networkUtils.getLocalNetworkInfo(asset.chainId)?.name;
+  }
   const subtitle =
     asset.name || (asset.kind === 'asset' ? asset.assetId : asset.chainId);
   return subtitle === getMarketWidgetAssetTitle(asset) ? undefined : subtitle;
@@ -75,14 +144,18 @@ export function isMarketWidgetAssetAvailable({
   source,
   asset,
   profileId,
+  kind,
 }: {
   state: IMarketWidgetEditorState;
   source: IMarketWidgetSource;
   asset: IMarketWidgetAsset | undefined;
-  profileId: string | undefined;
+  profileId?: string;
+  kind?: IMarketWidgetKind;
 }) {
   if (containsMarketWidgetAsset(state[source], asset)) return true;
-  const profile = state.profiles.find((item) => item.id === profileId);
+  const profile = kind
+    ? state.settings?.find((item) => item.kind === kind)
+    : state.profiles.find((item) => item.id === profileId);
   return (
     source === 'hot' &&
     profile?.source === 'hot' &&

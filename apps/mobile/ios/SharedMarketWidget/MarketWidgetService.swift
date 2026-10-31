@@ -12,6 +12,7 @@ actor MarketWidgetService {
   private var searchRequests: [String: (id: UUID, task: Task<[MarketWidgetAsset], Error>)] = [:]
   private var searchCache: [String: (assets: [MarketWidgetAsset], fetchedAt: Date)] = [:]
   private var suggestionRefresh: (id: UUID, task: Task<Void, Never>)?
+  private var editorMetadataRequest: Task<Void, Never>?
 
   init(store: MarketWidgetStore = MarketWidgetStore(), session: URLSession = .shared) {
     self.store = store
@@ -193,11 +194,24 @@ actor MarketWidgetService {
     }
   }
 
+  func refreshEditorMetadata() async {
+    guard let configuration = store.configuration().configuration, configuration.privacyMasked != true else { return }
+    if let request = editorMetadataRequest { await request.value; return }
+    let request = Task {
+      _ = try? await trending(locale: configuration.locale)
+      await Self.prepareEditorMetadata(store: store, session: session)
+    }
+    editorMetadataRequest = request
+    defer { editorMetadataRequest = nil }
+    await request.value
+  }
+
   static func prepareEditorMetadata(store: MarketWidgetStore = MarketWidgetStore(),
                                     session: URLSession = .shared) async {
     guard let configuration = store.configuration().configuration, configuration.privacyMasked != true else { return }
     var seen = Set<String>()
-    let assets = (store.assets(for: .watchlist) + store.assets(for: .hot) + store.profiles().compactMap(\.asset))
+    let assets = (store.assets(for: .watchlist) + store.assets(for: .hot)
+      + store.profiles().compactMap(\.asset) + [store.desktopSettings(kind: .single)?.asset].compactMap { $0 })
       .filter { seen.insert($0.id).inserted }
       .filter { asset in
         let known = store.assetWithMetadata(asset)

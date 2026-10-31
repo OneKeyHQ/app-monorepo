@@ -9,20 +9,14 @@ struct MarketLockScreenAssetEntity: AppEntity {
   let id: String
   let asset: MarketWidgetAsset
 
+  let title: String
+
   var displayRepresentation: DisplayRepresentation {
-    let subtitle: String
-    if asset.kind == .token {
-      let network = asset.chainId ?? ""
-      let address = asset.contractAddress ?? ""
-      let shortAddress = address.count > 16 ? "\(address.prefix(6))…\(address.suffix(4))" : address
-      subtitle = [asset.name, network, shortAddress].filter { !$0.isEmpty }.joined(separator: " · ")
-    } else {
-      subtitle = asset.name
-    }
-    return DisplayRepresentation(title: "\(asset.displaySymbol)", subtitle: "\(subtitle)")
+    DisplayRepresentation(title: "\(title)")
   }
 
-  init(asset: MarketWidgetAsset) {
+  init(asset: MarketWidgetAsset, title: String? = nil) {
+    self.title = title ?? MarketLockScreenPicker.title(asset)
     self.asset = asset
     let encoder = JSONEncoder()
     encoder.outputFormatting = .sortedKeys
@@ -39,6 +33,81 @@ struct MarketLockScreenAssetEntity: AppEntity {
           asset.isValid else { return nil }
     self.id = id
     self.asset = store.assetWithMetadata(asset)
+    title = MarketLockScreenPicker.title(self.asset)
+  }
+}
+
+// Picker aliases affect suggestions only; saved entity IDs always resolve their original identity.
+@available(iOS 17.0, *)
+enum MarketLockScreenPicker {
+  static func entities(_ assets: [MarketWidgetAsset]) -> [MarketLockScreenAssetEntity] {
+    var seen = Set<String>()
+    let unique = assets.filter { seen.insert(identity($0)).inserted }
+    let groups = Dictionary(grouping: unique, by: { title($0).uppercased() })
+    return unique.map { asset in
+      let peers = groups[title(asset).uppercased()] ?? []
+      guard peers.count > 1 else { return MarketLockScreenAssetEntity(asset: asset) }
+      let name = asset.name.trimmingCharacters(in: .whitespacesAndNewlines)
+      var details = name.isEmpty ? [] : [name]
+      let sameName = peers.filter {
+        $0.name.trimmingCharacters(in: .whitespacesAndNewlines).caseInsensitiveCompare(name) == .orderedSame
+      }
+      if sameName.count > 1 {
+        if let network = networkName(asset.chainId) { details.append(network) }
+        if sameName.filter({ $0.chainId == asset.chainId }).count > 1 {
+          let identifier = asset.kind == .token ? asset.contractAddress ?? "" : asset.assetId ?? ""
+          if !identifier.isEmpty {
+            let shortened = shortIdentifier(identifier)
+            let collision = sameName.filter { peer in
+              guard peer.chainId == asset.chainId else { return false }
+              let value = peer.kind == .token ? peer.contractAddress ?? "" : peer.assetId ?? ""
+              return shortIdentifier(value) == shortened
+            }.count > 1
+            details.append(collision ? identifier : shortened)
+          }
+        }
+      }
+      return MarketLockScreenAssetEntity(asset: asset,
+        title: ([title(asset)] + details).joined(separator: " · "))
+    }
+  }
+
+  static func title(_ asset: MarketWidgetAsset) -> String {
+    let symbol = asset.symbol.trimmingCharacters(in: .whitespacesAndNewlines)
+    let name = asset.name.trimmingCharacters(in: .whitespacesAndNewlines)
+    let address = asset.contractAddress ?? ""
+    let shortAddress = shortIdentifier(address)
+    let fallback = asset.kind == .token
+      ? (asset.isNative == true ? networkName(asset.chainId) ?? "—" : shortAddress)
+      : (asset.assetId ?? "—")
+    return "\(symbol.isEmpty ? (name.isEmpty ? fallback : name) : symbol)/USD"
+  }
+
+  private static func shortIdentifier(_ identifier: String) -> String {
+    identifier.count > 16 ? "\(identifier.prefix(6))…\(identifier.suffix(4))" : identifier
+  }
+
+  private static func identity(_ asset: MarketWidgetAsset) -> String {
+    if asset.kind == .token, asset.isNative == true, (asset.contractAddress ?? "").isEmpty,
+       let canonical = ["btc--0": "btc", "evm--1": "eth", "sol--101": "sol", "evm--56": "bnb"][asset.chainId ?? ""] {
+      return "asset:\(canonical)"
+    }
+    if asset.kind == .token, asset.chainId?.hasPrefix("evm--") == true {
+      return "token:\(asset.chainId ?? "")|\(asset.isNative == true)|\((asset.contractAddress ?? "").lowercased())"
+    }
+    return asset.id
+  }
+
+  private static func networkName(_ id: String?) -> String? {
+    guard let id, !id.isEmpty else { return nil }
+    let names = ["btc--0": "Bitcoin", "evm--1": "Ethereum", "evm--56": "BNB Chain",
+      "sol--101": "Solana", "evm--137": "Polygon", "evm--42161": "Arbitrum",
+      "evm--10": "Optimism", "evm--8453": "Base", "evm--43114": "Avalanche",
+      "evm--250": "Fantom", "evm--324": "ZKsync Era", "evm--59144": "Linea",
+      "evm--534352": "Scroll", "evm--5000": "Mantle", "evm--81457": "Blast",
+      "tron--0x2b6653dc": "Tron", "sui--mainnet": "Sui", "aptos--1": "Aptos"]
+    if let name = names[id] { return name }
+    return id.components(separatedBy: "--").map { $0.uppercased() }.joined(separator: " ")
   }
 }
 
@@ -60,7 +129,7 @@ struct MarketLockScreenAssetQuery: EntityStringQuery {
     let store = MarketWidgetStore()
     let assets = await MarketWidgetService.shared.suggestedAssets(
       locale: store.configuration().configuration?.locale ?? "en-US")
-    return assets.map(MarketLockScreenAssetEntity.init(asset:))
+    return MarketLockScreenPicker.entities(assets)
   }
 
   func entities(matching string: String) async throws -> [MarketLockScreenAssetEntity] {
@@ -69,7 +138,7 @@ struct MarketLockScreenAssetQuery: EntityStringQuery {
     let store = MarketWidgetStore()
     let assets = try await MarketWidgetService.shared.search(query: query,
       locale: store.configuration().configuration?.locale ?? "en-US")
-    return assets.map(MarketLockScreenAssetEntity.init(asset:))
+    return MarketLockScreenPicker.entities(assets)
   }
 }
 

@@ -15,6 +15,55 @@ struct MarketWidgetDataTests {
 
   static func json(_ value: String) -> Data { Data(value.utf8) }
 
+  private static func testManualSlots() throws {
+    let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+    defer { try? FileManager.default.removeItem(at: directory) }
+    let store = MarketWidgetStore(directory: directory)
+    let btc = MarketWidgetAsset.defaults[0]
+    let eth = MarketWidgetAsset.defaults[1]
+    let sol = MarketWidgetAsset.defaults[2]
+    let pinned = [sol, btc, eth]
+    _ = try store.saveSettings(json: settingsJSON(kind: .list, assets: pinned))
+    _ = try store.saveSettings(json: settingsJSON(source: .watchlist, asset: eth, assets: [eth]))
+    try store.saveConfiguration(json: #"{"schemaVersion":1,"assets":[],"greenUp":true,"locale":"en-US"}"#)
+    try store.saveTrending(MarketWidgetCatalog(assets: [btc], fetchedAt: Date()))
+    expect(store.selection(kind: .list).assets.map(\.id) == pinned.map(\.id),
+           "Manual slots retain their exact order after watchlist removal and hot ranking changes")
+    expect(store.selection(kind: .single).assets.map(\.id) == [eth.id],
+           "Single and list settings stay independent even when they share a coin")
+    expect(store.permitsRequests(for: sol) && store.permitsRequests(for: eth),
+           "Pinned assets remain eligible for quotes after disappearing from candidate sources")
+    let reloaded = MarketWidgetStore(directory: directory)
+    expect(tryValue { try reloaded.editorState().settings.first { $0.kind == .list }?.assets?.map(\.id) } == pinned.map(\.id),
+           "A new process reads all three ordered slots")
+    _ = try store.saveSettings(json: settingsJSON(kind: .list, source: .watchlist, assets: Array(pinned.reversed())))
+    expect(store.selection(kind: .list).assets.map(\.id) == pinned.reversed().map(\.id),
+           "Reediting pinned coins does not require their original source membership")
+    rejects("A list must contain exactly three slots") {
+      _ = try store.saveSettings(json: settingsJSON(kind: .list, assets: [btc, eth]))
+    }
+    let unknown = MarketWidgetAsset(kind: .asset, assetId: "unknown-widget-test", chainId: nil,
+      contractAddress: nil, isNative: nil, requestTokenAddress: nil, symbol: "UNKNOWN", name: "Unknown")
+    rejects("Manual input cannot authorize an arbitrary asset") {
+      _ = try store.saveSettings(json: settingsJSON(kind: .list, assets: [btc, eth, unknown]))
+    }
+    try store.saveConfiguration(json: #"{"schemaVersion":1,"assets":[],"privacyMasked":true,"greenUp":true,"locale":"en-US"}"#)
+    expect(store.selection(kind: .list).assets.isEmpty && !store.permitsRequests(for: sol),
+           "Privacy masks manual selections and prevents their quote requests")
+    rejects("Privacy blocks manual saves") {
+      _ = try store.saveSettings(json: settingsJSON(kind: .list, assets: pinned))
+    }
+  }
+
+  private static func settingsJSON(kind: MarketWidgetKind = .single, source: MarketWidgetSource = .hot,
+                                   asset: MarketWidgetAsset? = nil, id: String? = nil, assets: [MarketWidgetAsset]? = nil) throws -> String {
+    var value: [String: Any] = ["kind": kind.rawValue, "name": "Market", "source": source.rawValue]
+    if let asset { value["asset"] = try JSONSerialization.jsonObject(with: JSONEncoder().encode(asset)) }
+    if let id { value["id"] = id }
+    if let assets { value["assets"] = try JSONSerialization.jsonObject(with: JSONEncoder().encode(assets)) }
+    return String(decoding: try JSONSerialization.data(withJSONObject: value), as: UTF8.self)
+  }
+
   static func main() async throws {
     let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
     defer { try? FileManager.default.removeItem(at: directory) }
@@ -124,6 +173,8 @@ struct MarketWidgetDataTests {
     rejects("Cross-network quote must fail") { _ = try MarketWidgetService.decode(tokenResponse, asset: otherNetwork, fetchedAt: date) }
     let bitcoinWatchlist = MarketWidgetConfiguration(schemaVersion: 1, assets: [bitcoin], greenUp: true, locale: "en-US")
     try store.saveConfiguration(json: String(decoding: JSONEncoder().encode(bitcoinWatchlist), as: UTF8.self))
+    _ = try store.saveSettings(json: settingsJSON(source: .watchlist, asset: bitcoin))
+    _ = try store.saveSettings(json: settingsJSON(kind: .list, source: .watchlist))
     try store.saveQuote(quote)
     expect(store.quote(for: bitcoin)?.fetchedAt == date, "Cache preserves last successful fetch time")
     try store.saveQuote(MarketWidgetQuote(asset: bitcoin, price: "1", change24h: nil, fetchedAt: date.addingTimeInterval(-60)))
@@ -203,6 +254,7 @@ struct MarketWidgetDataTests {
       preconditionFailure("An unavailable configuration must surface a retryable editor error")
     } catch MarketWidgetError.invalidConfiguration { checks += 1 }
     try checkProfiles()
+    try checkDesktopSettings()
     try await checkEditorMetadata()
     try await checkTrendingMetadata()
     try await checkFollowupRequests(chartResponse: chartResponse)
@@ -210,6 +262,7 @@ struct MarketWidgetDataTests {
     try await checkTimelineRequests(chartResponse: chartResponse)
     try await checkLockScreenCatalog()
     try await checkNonblockingLockScreenSuggestions()
+    try testManualSlots()
     print("PASS: \(checks) market widget data checks")
   }
 
@@ -454,10 +507,10 @@ struct MarketWidgetDataTests {
     try store.saveTrending(MarketWidgetCatalog(assets: [bitcoin, ethereum], fetchedAt: Date()))
     let profileFile = directory.appendingPathComponent("profiles-v1.json")
     let legacy = store.selection(kind: .single, legacySource: .watchlist, legacyAsset: ethereum)
-    expect(legacy.profileID == nil && legacy.assets.first?.id == ethereum.id,
-           "Legacy explicit coin remains independent from named configurations")
+    expect(legacy.profileID == nil && legacy.assets.first?.id == bitcoin.id,
+           "Desktop defaults ignore obsolete per-instance coin selection")
     expect(store.selection(kind: .list, legacySource: .hot).assets.count == 2,
-           "Unbound legacy list keeps its selected source")
+           "Desktop lists use the shared default Hot source")
     expect(!FileManager.default.fileExists(atPath: profileFile.path),
            "Resolving an unbound widget does not generate a profile or UUID")
     let first = try store.saveProfile(json: profileJSON(name: " BTC 1 ", asset: bitcoin))
@@ -472,9 +525,9 @@ struct MarketWidgetDataTests {
            "Editing one configuration never changes another identical configuration")
     let firstInstance = store.selection(kind: .single, profileID: first.id)
     let secondInstance = store.selection(kind: .single, profileID: first.id)
-    expect(firstInstance == secondInstance && firstInstance.assets.first?.id == ethereum.id,
-           "Two widgets intentionally bound to one profile resolve the same updated selection")
-    expect(beforeEdit != firstInstance, "A changed profile invalidates an in-flight timeline selection")
+    expect(firstInstance == secondInstance && firstInstance.assets.first?.id == bitcoin.id,
+           "Desktop instances ignore old bindings and use the last profile as migration fallback")
+    expect(beforeEdit == firstInstance, "Editing an older profile does not replace the last migration fallback")
     let reopened = MarketWidgetStore(directory: directory)
     expect(reopened.profile(id: first.id, kind: .single) == changed,
            "Profile identity and content survive a fresh native store instance")
@@ -488,11 +541,11 @@ struct MarketWidgetDataTests {
         _ = try store.saveProfile(json: profileJSON(id: invalidID, asset: bitcoin))
       }
       let missing = store.selection(kind: .single, profileID: invalidID, legacySource: .hot, legacyAsset: bitcoin)
-      expect(missing.profileUnavailable && missing.assets.isEmpty,
-             "Invalid or missing bindings cannot fall back to another source or coin")
+      expect(!missing.profileUnavailable && missing.assets.first?.id == bitcoin.id,
+             "Invalid or missing old bindings cannot block shared desktop settings")
     }
-    expect(store.selection(kind: .single, profileID: list.id).profileUnavailable,
-           "A binding to the wrong widget kind is unavailable")
+    expect(store.selection(kind: .single, profileID: list.id).assets.first?.id == bitcoin.id,
+           "A binding to another kind cannot override shared desktop settings")
     rejects("A profile kind is immutable") {
       _ = try store.saveProfile(json: profileJSON(id: first.id, kind: "list"))
     }
@@ -534,10 +587,11 @@ struct MarketWidgetDataTests {
     rejects("Off-ranking coins cannot be introduced into a new Hot Coin profile") {
       _ = try store.saveProfile(json: profileJSON(source: "hot", asset: bitcoin))
     }
+    _ = try store.saveSettings(json: settingsJSON(source: .watchlist, asset: bitcoin))
     try configure([ethereum])
     let removed = store.selection(kind: .single, profileID: second.id)
     expect(removed.selectionUnavailable && removed.assets.isEmpty,
-           "Removing a watchlist coin makes that binding unavailable rather than choosing a replacement")
+           "Removing the shared watchlist coin makes it unavailable rather than choosing a replacement")
     rejects("Removed watchlist coins cannot be resaved") {
       _ = try store.saveProfile(json: profileJSON(id: second.id, asset: bitcoin))
     }
@@ -547,7 +601,7 @@ struct MarketWidgetDataTests {
     let profileCount = store.profiles().count
     try configure([], masked: true)
     let masked = try store.editorState()
-    expect(masked.privacyMasked && masked.profiles.isEmpty && masked.watchlist.isEmpty && masked.hot.isEmpty,
+    expect(masked.privacyMasked && masked.profiles.isEmpty && masked.settings.isEmpty && masked.watchlist.isEmpty && masked.hot.isEmpty,
            "Privacy exposes no profiles or asset choices through the native editor")
     expect(store.profiles().isEmpty && store.profile(id: hot.id, kind: .single) == nil,
            "Privacy also hides configuration names from system entity queries")
@@ -582,6 +636,102 @@ struct MarketWidgetDataTests {
     }
     expect(tryValue { try Data(contentsOf: profileFile) } == json("broken"),
            "A failed edit preserves malformed storage for recovery")
+  }
+
+  private static func checkDesktopSettings() throws {
+    let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+    defer { try? FileManager.default.removeItem(at: directory) }
+    let store = MarketWidgetStore(directory: directory)
+    let bitcoin = MarketWidgetAsset.defaults[0]
+    let ethereum = MarketWidgetAsset.defaults[1]
+    let settingsFile = directory.appendingPathComponent("desktop-settings-v1.json")
+    let profileFile = directory.appendingPathComponent("profiles-v1.json")
+    func configure(_ assets: [MarketWidgetAsset], masked: Bool = false) throws {
+      let config = MarketWidgetConfiguration(schemaVersion: 1, assets: assets,
+        greenUp: true, locale: "en-US", privacyMasked: masked)
+      try store.saveConfiguration(json: String(decoding: JSONEncoder().encode(config), as: UTF8.self))
+    }
+    let defaults = try store.editorState()
+    expect(defaults.settings.count == 2 && defaults.settings.allSatisfy { $0.source == .hot },
+           "First launch exposes both desktop settings without creating a profile")
+    expect(store.selection(kind: .single).assets == [bitcoin]
+      && store.selection(kind: .list).assets == MarketWidgetAsset.defaults
+      && defaults.hot == MarketWidgetAsset.defaults,
+           "Offline first launch supplies BTC and three public list defaults")
+    expect(!FileManager.default.fileExists(atPath: settingsFile.path)
+      && !FileManager.default.fileExists(atPath: profileFile.path),
+           "Reading desktop defaults never creates persisted settings or legacy profiles")
+    try configure([ethereum])
+    let list = try store.saveSettings(json: settingsJSON(kind: .list, source: .watchlist))
+    expect(store.selection(kind: .list).assets == [ethereum]
+      && store.selection(kind: .single).assets == [bitcoin],
+           "The first list save needs no profile and leaves single-coin settings independent")
+    let single = try store.saveSettings(json: settingsJSON(source: .watchlist, asset: ethereum, id: "obsolete-id"))
+    let secondSave = try store.saveSettings(json: settingsJSON(source: .watchlist, asset: ethereum))
+    expect(single.id == secondSave.id && single.id != list.id && UUID(uuidString: single.id) != nil
+      && store.profiles().isEmpty && (tryValue { try store.editorState().settings.count }) == 2,
+           "Settings upsert by kind with stable internal IDs and ignore obsolete input IDs")
+    let snapshot = MarketWidgetEntry.snapshot(isWatchlist: false, selected: [bitcoin], source: .hot,
+      profileID: UUID().uuidString, store: store)
+    expect(snapshot.rows.first?.asset.id == ethereum.id && !snapshot.profileUnavailable,
+           "A desktop snapshot reads shared settings despite an obsolete binding and selection")
+    let link = URLComponents(url: snapshot.editorURL!, resolvingAgainstBaseURL: false)?.queryItems
+    expect(link == [URLQueryItem(name: "kind", value: "single")],
+           "The desktop gear opens its kind directly without exposing profile IDs")
+    _ = try store.saveSettings(json: settingsJSON(source: .hot, asset: bitcoin))
+    try store.saveTrending(MarketWidgetCatalog(assets: [ethereum], fetchedAt: Date()))
+    let retained = try store.saveSettings(json: settingsJSON(asset: bitcoin))
+    expect(retained.asset?.id == bitcoin.id && store.permitsRequests(for: bitcoin),
+           "A selected Hot coin remains editable and requestable after leaving the ranking")
+    _ = try store.saveSettings(json: settingsJSON(asset: ethereum))
+    rejects("A new selection cannot introduce an off-ranking Hot coin") {
+      _ = try store.saveSettings(json: settingsJSON(asset: bitcoin))
+    }
+    expect(!store.permitsRequests(for: bitcoin),
+           "Changing the only owner of an off-ranking coin removes its request permission")
+    _ = try store.saveSettings(json: settingsJSON(source: .watchlist, asset: ethereum))
+    try configure([])
+    expect(store.selection(kind: .single).selectionUnavailable && store.selection(kind: .single).assets.isEmpty,
+           "A removed shared watchlist selection stays unavailable without choosing another asset")
+    rejects("A removed watchlist selection cannot be resaved") {
+      _ = try store.saveSettings(json: settingsJSON(source: .watchlist, asset: ethereum))
+    }
+    let settingsBeforeMask = try Data(contentsOf: settingsFile)
+    try configure([], masked: true)
+    expect(store.desktopSettings(kind: .single) == nil && store.desktopSettings(kind: .list) == nil
+      && (tryValue { try store.editorState().settings.isEmpty }) == true
+      && store.selection(kind: .list).assets.isEmpty && !store.permitsRequests(for: ethereum),
+           "Privacy hides desktop settings and prevents both kinds from making requests")
+    rejects("Privacy rejects settings writes") { _ = try store.saveSettings(json: settingsJSON(kind: .list)) }
+    expect(tryValue { try Data(contentsOf: settingsFile) } == settingsBeforeMask,
+           "Privacy preserves settings without rewriting or exposing them")
+    try configure([ethereum])
+    expect(store.desktopSettings(kind: .single)?.asset?.id == ethereum.id,
+           "Unmasking restores the user's shared settings")
+    try json("broken").write(to: settingsFile)
+    rejects("Malformed desktop settings cannot be overwritten silently") {
+      _ = try store.saveSettings(json: settingsJSON(kind: .list))
+    }
+    expect(tryValue { try Data(contentsOf: settingsFile) } == json("broken"),
+           "Rejected writes preserve malformed desktop settings for recovery")
+
+    let legacyStore = MarketWidgetStore(directory: directory.appendingPathComponent("legacy"))
+    let legacyConfiguration = MarketWidgetConfiguration(schemaVersion: 1, assets: [bitcoin, ethereum], greenUp: true, locale: "en-US")
+    try legacyStore.saveConfiguration(json: String(decoding: JSONEncoder().encode(legacyConfiguration), as: UTF8.self))
+    _ = try legacyStore.saveProfile(json: settingsJSON(source: .watchlist, asset: bitcoin))
+    let last = try legacyStore.saveProfile(json: settingsJSON(source: .watchlist, asset: ethereum))
+    _ = try legacyStore.saveProfile(json: settingsJSON(kind: .list, source: .watchlist))
+    expect(legacyStore.desktopSettings(kind: .single) == last
+      && legacyStore.selection(kind: .list).assets == [bitcoin, ethereum],
+           "Upgrade uses the last legacy profile of each kind before its first settings save")
+    let legacyFile = directory.appendingPathComponent("legacy/profiles-v1.json")
+    let legacyData = try Data(contentsOf: legacyFile)
+    _ = try legacyStore.saveSettings(json: settingsJSON(source: .watchlist, asset: bitcoin))
+    expect(legacyStore.selection(kind: .single, profileID: last.id).assets == [bitcoin]
+      && legacyStore.desktopSettings(kind: .list)?.source == .watchlist,
+           "New shared settings override old bindings without changing the other kind's fallback")
+    expect(tryValue { try Data(contentsOf: legacyFile) } == legacyData,
+           "Migrating a desktop kind leaves legacy profile data intact")
   }
 
   private static func checkEditorMetadata() async throws {
@@ -683,6 +833,8 @@ struct MarketWidgetDataTests {
       try store.saveConfiguration(json: #"{"schemaVersion":1,"assets":[],"greenUp":true,"locale":"en-US"}"#)
       let initial = MarketWidgetConfiguration(schemaVersion: 1, assets: [bitcoin], greenUp: true, locale: "en-US")
       try store.saveConfiguration(json: String(decoding: JSONEncoder().encode(initial), as: UTF8.self))
+      _ = try store.saveSettings(json: settingsJSON(source: .watchlist, asset: bitcoin))
+      _ = try store.saveSettings(json: settingsJSON(kind: .list, source: .watchlist))
       MarketWidgetTestURLProtocol.configure { request in
         if request.url?.path.hasSuffix("/detail") == true {
           if transition != "unchanged" {
@@ -716,23 +868,23 @@ struct MarketWidgetDataTests {
     try store.saveConfiguration(json: String(decoding: JSONEncoder().encode(initial), as: UTF8.self))
     try store.saveTrending(MarketWidgetCatalog(assets: [bitcoin, ethereum], fetchedAt: Date()))
     let input = #"{"kind":"single","name":"Race","source":"hot","asset":{"kind":"asset","assetId":"btc","symbol":"BTC","name":"Bitcoin"}}"#
-    let profile = try store.saveProfile(json: input)
+    let profile = try store.saveSettings(json: input)
     try store.saveTrending(MarketWidgetCatalog(assets: [ethereum], fetchedAt: Date()))
     let pendingSelection = store.selection(kind: .single, profileID: profile.id)
     MarketWidgetTestURLProtocol.configure { _ in
       let changed = MarketWidgetProfile(id: profile.id, kind: .single, name: profile.name, source: .hot, asset: ethereum)
-      _ = try store.saveProfile(json: String(decoding: JSONEncoder().encode(changed), as: UTF8.self))
+      _ = try store.saveSettings(json: String(decoding: JSONEncoder().encode(changed), as: UTF8.self))
       return detail
     }
     do {
       _ = try await MarketWidgetService(store: store, session: session)
         .quote(for: bitcoin, locale: "en-US", includingChart: true)
-      preconditionFailure("Editing a profile must invalidate its exclusive in-flight asset request")
+      preconditionFailure("Editing shared settings must invalidate their exclusive in-flight asset request")
     } catch { checks += 1 }
     expect(MarketWidgetTestURLProtocol.recordedPaths.count == 1,
-           "A profile changed after detail blocks stale follow-up chart and icon requests")
+           "Settings changed after detail block stale follow-up chart and icon requests")
     expect(store.selection(kind: .single, profileID: profile.id) != pendingSelection,
-           "Timeline publication can detect a profile edit made during its network request")
+           "Timeline publication can detect settings edited during its network request")
   }
 
   private static func checkQuoteRequests(chartResponse: Data) async throws {
@@ -774,6 +926,9 @@ struct MarketWidgetDataTests {
       MarketWidgetTestURLProtocol.recordedPaths.filter { $0.hasSuffix(suffix) }.count
     }
 
+    try configure([bitcoin])
+    _ = try store.saveSettings(json: settingsJSON(source: .watchlist, asset: bitcoin))
+    _ = try store.saveSettings(json: settingsJSON(kind: .list, source: .watchlist))
     try reset()
     respond()
     let single = try await service.quote(for: bitcoin, locale: "en-US")
@@ -939,7 +1094,8 @@ struct MarketWidgetDataTests {
     let session = URLSession(configuration: configuration)
     defer { session.invalidateAndCancel() }
     let trending = json(#"{"code":0,"data":[{"assetId":"btc","symbol":"BTC","name":"Bitcoin"},{"assetId":"eth","symbol":"ETH","name":"Ethereum"},{"assetId":"sol","symbol":"SOL","name":"Solana"}]}"#)
-    for scenario in ["pinnedProfile", "pinnedLegacy", "defaultHot", "hotList", "watchlist", "missingProfile", "masked"] {
+    for scenario in ["savedSingle", "legacyFallback", "defaultHot", "hotList", "watchlist", "watchlistList",
+                     "obsoleteBinding", "settingsChanged", "privacyChanged", "masked"] {
       let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
       defer { try? FileManager.default.removeItem(at: directory) }
       let store = MarketWidgetStore(directory: directory)
@@ -947,11 +1103,14 @@ struct MarketWidgetDataTests {
       try store.saveConfiguration(json: String(decoding: JSONEncoder().encode(config), as: UTF8.self))
       try store.saveTrending(MarketWidgetCatalog(assets: allAssets, fetchedAt: Date().addingTimeInterval(-1800)))
       var profileID: String?
-      if scenario == "pinnedProfile" {
+      if scenario == "savedSingle" || scenario == "legacyFallback" || scenario == "settingsChanged" {
         let input = #"{"kind":"single","name":"Pinned","source":"hot","asset":{"kind":"asset","assetId":"btc","symbol":"BTC","name":"Bitcoin"}}"#
-        profileID = try store.saveProfile(json: input).id
-      } else if scenario == "missingProfile" {
+        profileID = try scenario == "legacyFallback" ? store.saveProfile(json: input).id : store.saveSettings(json: input).id
+      } else if scenario == "watchlist" || scenario == "obsoleteBinding" {
+        _ = try store.saveSettings(json: settingsJSON(source: .watchlist, asset: ethereum))
         profileID = UUID().uuidString.lowercased()
+      } else if scenario == "watchlistList" {
+        _ = try store.saveSettings(json: settingsJSON(kind: .list, source: .watchlist))
       }
       try store.saveTrending(MarketWidgetCatalog(assets: [ethereum], fetchedAt: Date().addingTimeInterval(-1800)))
       if scenario == "masked" {
@@ -961,35 +1120,51 @@ struct MarketWidgetDataTests {
       MarketWidgetTestURLProtocol.configure { request in
         if request.url?.path.hasSuffix("/trending") == true { return trending }
         if request.url?.path.hasSuffix("/kline") == true { return chartResponse }
+        if scenario == "settingsChanged" {
+          _ = try store.saveSettings(json: settingsJSON(source: .watchlist, asset: ethereum))
+        } else if scenario == "privacyChanged" {
+          let masked = MarketWidgetConfiguration(schemaVersion: 1, assets: [], greenUp: true, locale: "en-US", privacyMasked: true)
+          try store.saveConfiguration(json: String(decoding: JSONEncoder().encode(masked), as: UTF8.self))
+        }
         let id = URLComponents(url: request.url!, resolvingAgainstBaseURL: false)?.queryItems?.first { $0.name == "assetId" }?.value ?? ""
         return json("{\"code\":0,\"data\":{\"asset\":{\"assetId\":\"\(id)\",\"symbol\":\"\(id.uppercased())\",\"name\":\"\(id)\"},\"market\":{\"price\":\"1\"}}}")
       }
-      let result = await MarketWidgetEntry.timeline(isWatchlist: scenario == "hotList",
-        selected: scenario == "pinnedLegacy" || scenario == "masked" ? [bitcoin] : nil,
+      let result = await MarketWidgetEntry.timeline(isWatchlist: scenario == "hotList" || scenario == "watchlistList",
+        selected: [bitcoin],
         source: scenario == "watchlist" ? .watchlist : .hot, profileID: profileID,
         store: store, service: MarketWidgetService(store: store, session: session))
       let paths = MarketWidgetTestURLProtocol.recordedPaths
       let detailCount = paths.filter { $0.hasSuffix("/detail") }.count
       let chartCount = paths.filter { $0.hasSuffix("/kline") }.count
       let trendingCount = paths.filter { $0.hasSuffix("/trending") }.count
-      if scenario == "pinnedProfile" || scenario == "pinnedLegacy" {
+      if scenario == "savedSingle" || scenario == "legacyFallback" || scenario == "defaultHot" {
         expect(detailCount == 1 && chartCount == 0 && trendingCount == 0,
                "\(scenario) only requests its fixed coin price, even with an expired ranking")
         expect(result.entries.first?.rows.first?.asset.id == bitcoin.id,
                "\(scenario) keeps a selected coin after it leaves the ranking")
-      } else if scenario == "defaultHot" {
-        expect(detailCount == 1 && chartCount == 0 && trendingCount == 1,
-               "The unselected default Hot single still refreshes the ranking")
-        expect(result.entries.first?.rows.first?.asset.id == bitcoin.id,
-               "The default Hot single follows the newly fetched ranking")
       } else if scenario == "hotList" {
         expect(detailCount == 3 && chartCount == 3 && trendingCount == 1,
                "A dynamic Hot list fetches the ranking and all three prices and charts")
         expect(result.entries.first?.rows.allSatisfy { $0.quote?.chart?.count == 24 } == true,
                "Every Hot list row receives its chart")
-      } else if scenario == "watchlist" {
+      } else if scenario == "watchlist" || scenario == "obsoleteBinding" {
         expect(detailCount == 1 && chartCount == 0 && trendingCount == 0,
                "A watchlist single never fetches the Hot ranking")
+        expect(result.entries.first?.rows.first?.asset.id == ethereum.id
+          && result.entries.first?.profileUnavailable == false,
+               "An obsolete binding or per-instance coin cannot block the shared watchlist selection")
+      } else if scenario == "watchlistList" {
+        expect(detailCount == 1 && chartCount == 1 && trendingCount == 0
+          && result.entries.first?.rows.first?.asset.id == ethereum.id,
+               "The list uses its own saved watchlist source independently of single-coin defaults")
+      } else if scenario == "settingsChanged" {
+        expect(detailCount == 1 && result.entries.first?.rows.first?.asset.id == ethereum.id
+          && result.entries.first?.rows.first?.quote == nil,
+               "A settings edit during a request publishes the new selection without the stale coin's quote")
+      } else if scenario == "privacyChanged" {
+        expect(detailCount == 1 && result.entries.first?.rows.isEmpty == true
+          && result.entries.first?.configuration?.privacyMasked == true,
+               "Privacy enabled during a request removes its assets before timeline publication")
       } else {
         expect(paths.isEmpty && result.entries.first?.rows.isEmpty == true,
                "\(scenario) cannot introduce price, chart, or ranking requests")

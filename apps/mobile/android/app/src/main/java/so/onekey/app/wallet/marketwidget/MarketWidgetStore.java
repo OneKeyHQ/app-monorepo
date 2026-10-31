@@ -6,6 +6,7 @@ import android.content.res.Configuration;
 
 import org.json.JSONArray;
 import org.json.JSONException;
+import org.json.JSONObject;
 
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -98,7 +99,7 @@ final class MarketWidgetStore {
         }
         try {
             SharedPreferences.Editor editor = preferences(context).edit().putString("source_" + widgetId, source)
-                .remove("selection_" + widgetId).remove("selected_hot_" + widgetId);
+                .remove("selection_" + widgetId).remove("selected_hot_" + widgetId).remove("manual_assets_" + widgetId);
             if (single) {
                 editor.putString("selection_" + widgetId, selected.key());
                 if (HOT.equals(source)) editor.putString("selected_hot_" + widgetId, selected.json().toString());
@@ -116,6 +117,18 @@ final class MarketWidgetStore {
     static synchronized List<MarketWidgetData.Asset> assets(Context context, int widgetId, boolean single) {
         List<MarketWidgetData.Asset> result = new ArrayList<>();
         if (!canDisplay(context)) return result;
+        if (hasManualSelection(context, widgetId)) {
+            try {
+                JSONArray values = new JSONArray(preferences(context).getString("manual_assets_" + widgetId, "[]"));
+                if (values.length() != (single ? 1 : 3)) return result;
+                for (int index = 0; index < values.length(); index++) {
+                    result.add(new MarketWidgetData.Asset(values.getJSONObject(index)));
+                }
+            } catch (JSONException ignored) {
+                result.clear();
+            }
+            return result;
+        }
         String source = source(context, widgetId);
         List<MarketWidgetData.Asset> assets = availableAssets(context, source);
         if (!single) return new ArrayList<>(assets.subList(0, Math.min(3, assets.size())));
@@ -142,8 +155,79 @@ final class MarketWidgetStore {
         return result;
     }
 
+    static synchronized boolean hasManualSelection(Context context, int widgetId) {
+        return preferences(context).contains("manual_assets_" + widgetId);
+    }
+
+    static synchronized JSONObject editorState(Context context, int widgetId, boolean single, String initialSource)
+        throws JSONException {
+        JSONObject state = new JSONObject().put("profiles", new JSONArray()).put("settings", new JSONArray())
+            .put("watchlist", new JSONArray()).put("hot", new JSONArray()).put("privacyMasked", !canDisplay(context));
+        if (!canDisplay(context)) return state;
+        String source = isConfigured(context, widgetId) ? source(context, widgetId) : initialSource;
+        List<MarketWidgetData.Asset> selected = isConfigured(context, widgetId)
+            ? assets(context, widgetId, single) : availableAssets(context, source);
+        JSONArray selections = editorAssets(context, selected.subList(0, Math.min(single ? 1 : 3, selected.size())));
+        JSONObject settings = new JSONObject().put("id", Integer.toString(widgetId))
+            .put("kind", single ? "single" : "list").put("name", single ? "Single coin" : "Market list")
+            .put("source", source).put("assets", selections);
+        if (single && selections.length() > 0) settings.put("asset", selections.get(0));
+        return state.put("settings", new JSONArray().put(settings))
+            .put("watchlist", editorAssets(context, availableAssets(context, WATCHLIST)))
+            .put("hot", editorAssets(context, availableAssets(context, HOT)));
+    }
+
+    private static JSONArray editorAssets(Context context, List<MarketWidgetData.Asset> assets) throws JSONException {
+        JSONArray result = new JSONArray();
+        for (MarketWidgetData.Asset asset : assets) {
+            JSONObject item = asset.json();
+            MarketWidgetData.Quote quote = quote(context, asset);
+            if (quote != null) {
+                if (!quote.symbol.isEmpty()) item.put("symbol", quote.symbol);
+                if (!quote.name.isEmpty()) item.put("name", quote.name);
+                if (!quote.iconUrl.isEmpty()) item.put("iconUrl", quote.iconUrl);
+            }
+            item.put("logoURL", item.optString("iconUrl"));
+            item.remove("iconUrl");
+            result.put(item);
+        }
+        return result;
+    }
+
+    static synchronized JSONObject saveSettings(Context context, int widgetId, boolean single, String raw)
+        throws JSONException {
+        if (raw.length() > 8192 || !canDisplay(context)) throw new IllegalArgumentException("Invalid widget settings");
+        JSONObject input = new JSONObject(raw);
+        String source = input.getString("source");
+        if (!WATCHLIST.equals(source) && !HOT.equals(source)) throw new IllegalArgumentException("Invalid source");
+        if (!(single ? "single" : "list").equals(input.getString("kind"))) {
+            throw new IllegalArgumentException("Invalid widget kind");
+        }
+        JSONArray requested = input.getJSONArray("assets");
+        if (requested.length() != (single ? 1 : 3)) throw new IllegalArgumentException("Invalid slot count");
+        List<MarketWidgetData.Asset> candidates = availableAssets(context, WATCHLIST);
+        candidates.addAll(availableAssets(context, HOT));
+        candidates.addAll(assets(context, widgetId, single));
+        JSONArray selected = new JSONArray();
+        for (int index = 0; index < requested.length(); index++) {
+            MarketWidgetData.Asset identity = new MarketWidgetData.Asset(requested.getJSONObject(index));
+            MarketWidgetData.Asset canonical = null;
+            for (MarketWidgetData.Asset candidate : candidates) {
+                if (candidate.key().equals(identity.key())) { canonical = candidate; break; }
+            }
+            if (canonical == null) throw new IllegalArgumentException("Widget asset is no longer available");
+            selected.put(canonical.json());
+        }
+        if (!preferences(context).edit().putString("source_" + widgetId, source)
+            .putString("manual_assets_" + widgetId, selected.toString())
+            .remove("selection_" + widgetId).remove("selected_hot_" + widgetId).commit()) {
+            throw new IllegalStateException("Could not persist widget settings");
+        }
+        return editorState(context, widgetId, single, source).getJSONArray("settings").getJSONObject(0);
+    }
+
     static synchronized boolean needsHotRanking(Context context, int widgetId, boolean single) {
-        return canDisplay(context) && HOT.equals(source(context, widgetId))
+        return canDisplay(context) && !hasManualSelection(context, widgetId) && HOT.equals(source(context, widgetId))
             && (!single || preferences(context).getString("selection_" + widgetId, "").isEmpty());
     }
 
@@ -185,6 +269,16 @@ final class MarketWidgetStore {
         assets.addAll(availableAssets(context, HOT));
         if (canDisplay(context)) {
             for (String key : preferences(context).getAll().keySet()) {
+                if (key.startsWith("manual_assets_")) {
+                    try {
+                        JSONArray selected = new JSONArray(preferences(context).getString(key, "[]"));
+                        for (int index = 0; index < Math.min(3, selected.length()); index++) {
+                            assets.add(new MarketWidgetData.Asset(selected.getJSONObject(index)));
+                        }
+                    } catch (JSONException ignored) {
+                        // Corrupt selections cannot authorize requests.
+                    }
+                }
                 if (!key.startsWith("selected_hot_")) continue;
                 try {
                     assets.add(new MarketWidgetData.Asset(new org.json.JSONObject(preferences(context).getString(key, ""))));
@@ -234,12 +328,12 @@ final class MarketWidgetStore {
 
     static synchronized void deleteWidget(Context context, int widgetId) {
         preferences(context).edit().remove("selection_" + widgetId).remove("source_" + widgetId)
-            .remove("selected_hot_" + widgetId).apply();
+            .remove("selected_hot_" + widgetId).remove("manual_assets_" + widgetId).apply();
     }
 
     static synchronized void restoreWidget(Context context, int oldId, int newId) {
         SharedPreferences.Editor editor = preferences(context).edit();
-        for (String prefix : new String[]{"selection_", "source_", "selected_hot_"}) {
+        for (String prefix : new String[]{"selection_", "source_", "selected_hot_", "manual_assets_"}) {
             if (preferences(context).contains(prefix + oldId)) {
                 editor.putString(prefix + newId, preferences(context).getString(prefix + oldId, ""));
                 editor.remove(prefix + oldId);

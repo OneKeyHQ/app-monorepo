@@ -77,11 +77,17 @@ const handleLink = createMarketWidgetLinkHandler<IWidgetDestination>({
   async resolve(target) {
     if (target.kind === 'home') return target;
     if (target.kind === 'editor') {
-      if (!marketWidget.supportsProfileEditing()) {
+      if (
+        !marketWidget.supportsSettingsEditing() ||
+        (platformEnv.isNativeAndroid && !target.editorSession) ||
+        (platformEnv.isNativeIOS && !!target.editorSession)
+      ) {
         throw new OneKeyLocalError(
           'Market widget profile editing is unavailable',
         );
       }
+      if (target.editorSession)
+        await marketWidget.getEditorState(target.editorSession);
       return target;
     }
     let token: {
@@ -136,15 +142,22 @@ const handleLink = createMarketWidgetLinkHandler<IWidgetDestination>({
     const navigation = appGlobals.$rootAppNavigation;
     if (destination.kind !== 'editor') dismissAndroidMoreMenu();
     if (destination.kind === 'editor') {
-      if (destination.profileId) {
+      if (
+        destination.profileId ||
+        destination.widgetKind ||
+        destination.editorSession
+      ) {
         navigation?.pushModal(EModalRoutes.MarketModal, {
           screen: EModalMarketRoutes.MarketWidgetEditor,
-          params: { profileId: destination.profileId },
+          params: {
+            profileId: destination.profileId,
+            kind: destination.widgetKind,
+            editorSession: destination.editorSession,
+          },
         });
       } else {
         navigation?.pushModal(EModalRoutes.MarketModal, {
           screen: EModalMarketRoutes.MarketWidgetList,
-          params: { kind: destination.widgetKind },
         });
       }
     } else if (destination.kind === 'detail') {

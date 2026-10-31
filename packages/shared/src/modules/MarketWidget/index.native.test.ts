@@ -26,20 +26,57 @@ describe('market widget editor bridge availability', () => {
     getEditorState: jest.fn(async () =>
       JSON.stringify({
         profiles: [profile],
+        settings: [profile],
         watchlist: [],
         hot: [],
         privacyMasked: false,
       }),
     ),
     saveProfile: jest.fn(async () => JSON.stringify(profile)),
+    saveSettings: jest.fn(async () => JSON.stringify(profile)),
   };
 
   beforeEach(() => {
     jest.clearAllMocks();
     jest.restoreAllMocks();
     platformEnv.isNativeIOS = true;
+    platformEnv.isNativeAndroid = false;
     platformEnv.isNativeBackgroundThread = false;
     NativeModules.OneKeyMarketWidget = nativeModule;
+  });
+
+  it('routes Android reads and saves through the same native-validated session', async () => {
+    platformEnv.isNativeIOS = false;
+    platformEnv.isNativeAndroid = true;
+    const token = '4bdfeb88-a55d-4a91-bedb-df13acfaea39';
+    const getWidgetEditorState = jest.fn(async () =>
+      nativeModule.getEditorState(),
+    );
+    const saveWidgetSettings = jest.fn(async () => JSON.stringify(profile));
+    const finishWidgetEditing = jest.fn(async () => undefined);
+    NativeModules.OneKeyMarketWidget = {
+      ...nativeModule,
+      getWidgetEditorState,
+      saveWidgetSettings,
+      finishWidgetEditing,
+    };
+    expect(marketWidget.supportsSettingsEditing()).toBe(true);
+    await expect(marketWidget.getEditorState()).rejects.toThrow('session');
+    await marketWidget.getEditorState(token);
+    expect(getWidgetEditorState).toHaveBeenCalledWith(token);
+    await marketWidget.saveSettings(profile, token);
+    expect(saveWidgetSettings).toHaveBeenCalledWith(
+      token,
+      JSON.stringify(profile),
+    );
+    expect(nativeModule.saveSettings).not.toHaveBeenCalled();
+    await marketWidget.finishEditing?.(token, true);
+    expect(finishWidgetEditing).toHaveBeenCalledWith(token, true);
+    platformEnv.isNativeBackgroundThread = true;
+    expect(marketWidget.supportsSettingsEditing()).toBe(false);
+    await expect(marketWidget.saveSettings(profile, token)).rejects.toThrow(
+      'session',
+    );
   });
 
   it('preserves the native-assigned profile ID when reading and saving', async () => {
@@ -53,6 +90,32 @@ describe('market widget editor bridge availability', () => {
     );
   });
 
+  it('saves type settings without requiring a configuration identity', async () => {
+    expect(marketWidget.supportsSettingsEditing()).toBe(true);
+    const input = {
+      name: profile.name,
+      kind: profile.kind,
+      source: profile.source,
+    };
+    await expect(marketWidget.saveSettings(input)).resolves.toEqual(profile);
+    expect(nativeModule.saveSettings).toHaveBeenCalledWith(
+      JSON.stringify(input),
+    );
+    expect(nativeModule.saveProfile).not.toHaveBeenCalled();
+  });
+
+  it('does not advertise direct settings on a binary that only supports bound profiles', async () => {
+    NativeModules.OneKeyMarketWidget = {
+      ...nativeModule,
+      saveSettings: undefined,
+    };
+    expect(marketWidget.supportsSettingsEditing()).toBe(false);
+    await expect(marketWidget.saveSettings(profile)).rejects.toThrow(
+      'unavailable',
+    );
+    expect(nativeModule.saveProfile).not.toHaveBeenCalled();
+  });
+
   it('keeps configuration sync on older shells but rejects unsupported editing', async () => {
     NativeModules.OneKeyMarketWidget = {
       setConfiguration: nativeModule.setConfiguration,
@@ -63,6 +126,26 @@ describe('market widget editor bridge availability', () => {
       'unavailable',
     );
     expect(nativeModule.saveProfile).not.toHaveBeenCalled();
+  });
+
+  it('refreshes metadata separately from reading the local snapshot', async () => {
+    const refreshEditorState = jest.fn(async () =>
+      nativeModule.getEditorState(),
+    );
+    NativeModules.OneKeyMarketWidget = { ...nativeModule, refreshEditorState };
+    await marketWidget.getEditorState();
+    expect(refreshEditorState).not.toHaveBeenCalled();
+    await expect(marketWidget.refreshEditorState?.()).resolves.toMatchObject({
+      profiles: [profile],
+    });
+    expect(refreshEditorState).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps editor refresh compatible with a shell without the optional refresh method', async () => {
+    await expect(marketWidget.refreshEditorState?.()).resolves.toMatchObject({
+      profiles: [profile],
+    });
+    expect(nativeModule.getEditorState).toHaveBeenCalledTimes(1);
   });
 
   it('does not expose the UI-owned module in the native background runtime', async () => {

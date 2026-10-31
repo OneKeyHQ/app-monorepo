@@ -18,12 +18,45 @@ struct MarketLockScreenViewTests {
     }
     expect(MarketLockScreenFormatting.price("0", locale: locale, currency: true, fixedDecimals: true) == "$0.00",
            "A real zero keeps the large-price decimal format")
+    expect(MarketLockScreenFormatting.price("77447.7", locale: locale) == "77,447.7",
+           "The watchlist price omits the currency symbol while retaining numeric precision")
     expect(MarketLockScreenFormatting.price("77447.7", locale: locale, currency: true) == "$77,447.7",
            "The compact rectangular formats preserve meaningful decimals without padding")
     expect(MarketLockScreenFormatting.price("77447.7", locale: locale, currency: true, fixedDecimals: true) == "$77,447.70",
            "The large price uses two decimal places")
-    expect(MarketLockScreenFormatting.price("123456789.12", locale: locale, currency: true) == "$123,456,789.12",
-           "Large prices remain numeric rather than being abbreviated or clamped")
+    for (currency, compact) in [(false, false), (true, false), (false, true)] {
+      let prefix = currency ? "$" : ""
+      for (input, expected) in [
+        ("9999.99", "9,999.99"),
+        ("9999.994", "9,999.99"),
+        ("9999.99999999999999999999", "10,000"),
+        ("10000", "10,000.0"),
+        ("10000.04", "10,000.0"),
+        ("10000.05", "10,000.0"),
+        ("10000.06", "10,000.1"),
+        ("77447.24", "77,447.2"),
+        ("77447.26", "77,447.3"),
+        ("99999.96", "100,000.0"),
+        ("123456789.12", "123,456,789.1"),
+        ("9007199254740993.25", "9,007,199,254,740,993.2"),
+      ] {
+        expect(MarketLockScreenFormatting.price(input, locale: locale, currency: currency,
+          compact: compact) == prefix + expected,
+          "List, chart and circular prices use one decimal starting at five integer digits")
+      }
+      expect(MarketLockScreenFormatting.price("77447.26", locale: Locale(identifier: "de-DE"),
+        currency: currency, compact: compact) == prefix + "77.447,3",
+        "The one-decimal rule preserves locale-specific grouping and decimal separators")
+    }
+    for (input, expected) in [
+      ("10000.06", "$10,000.06"),
+      ("77447.24", "$77,447.24"),
+      ("123456789.12", "$123,456,789.12"),
+    ] {
+      expect(MarketLockScreenFormatting.price(input, locale: locale, currency: true,
+        fixedDecimals: true) == expected,
+        "The large-price card retains two decimals above the compact-format threshold")
+    }
     expect(MarketLockScreenFormatting.price("0.028765", locale: locale) == "0.028765",
            "Sub-dollar assets retain their significant fractional digits")
     expect(MarketLockScreenFormatting.price("0.028765", locale: locale, compact: true) == "0.02876",

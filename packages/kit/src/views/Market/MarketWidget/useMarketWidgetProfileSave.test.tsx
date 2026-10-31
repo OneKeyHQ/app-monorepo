@@ -2,17 +2,23 @@
 
 import { act, cleanup, renderHook, waitFor } from '@testing-library/react';
 
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import type {
   IMarketWidgetEditorState,
+  IMarketWidgetKind,
   IMarketWidgetProfile,
-  IMarketWidgetProfileInput,
 } from '@onekeyhq/shared/src/modules/MarketWidget/types';
 
 import { useMarketWidgetEditorState } from './useMarketWidgetEditorState';
 import { useMarketWidgetProfileSave } from './useMarketWidgetProfileSave';
 
 const mockGetEditorState = jest.fn<Promise<IMarketWidgetEditorState>, []>();
-const mockSaveProfile = jest.fn<Promise<IMarketWidgetProfile>, [unknown]>();
+type ISettingsInput = Omit<IMarketWidgetProfile, 'id'>;
+const mockSaveSettings = jest.fn<
+  Promise<IMarketWidgetProfile>,
+  [ISettingsInput]
+>();
+let mockPersistedSettings = new Map<IMarketWidgetKind, IMarketWidgetProfile>();
 let mockFocused = true;
 let mockMasked = false;
 let mockAppStateChanged: ((value: string) => void) | undefined;
@@ -36,25 +42,38 @@ jest.mock('@onekeyhq/shared/src/modules/MarketWidget', () => ({
   __esModule: true,
   default: {
     getEditorState: () => mockGetEditorState(),
-    saveProfile: (input: unknown) => mockSaveProfile(input),
+    saveSettings: (input: ISettingsInput) => mockSaveSettings(input),
   },
 }));
 jest.mock('@onekeyhq/shared/src/travelMode', () => ({
   travelModeManager: { isMaskingDataSync: () => mockMasked },
 }));
 
-const profile: IMarketWidgetProfile = {
-  id: 'profile',
+const settings: IMarketWidgetProfile = {
+  id: 'settings-list',
   name: 'Market list',
   kind: 'list',
   source: 'hot',
 };
 const state: IMarketWidgetEditorState = {
-  profiles: [profile],
+  profiles: [],
+  settings: [settings],
   watchlist: [],
   hot: [],
   privacyMasked: false,
 };
+
+const settingsInput: ISettingsInput = {
+  name: settings.name,
+  kind: settings.kind,
+  source: settings.source,
+};
+
+function persistSettings(input: ISettingsInput) {
+  const saved = { ...input, id: `settings-${input.kind}` };
+  mockPersistedSettings.set(input.kind, saved);
+  return saved;
+}
 
 function pendingValue<T>() {
   let resolve: (value: T) => void = () => undefined;
@@ -66,9 +85,8 @@ function pendingValue<T>() {
 
 function setup(
   validate = async () => true,
-  input: IMarketWidgetProfileInput = profile,
+  input: ISettingsInput = settingsInput,
 ) {
-  const onPersisted = jest.fn();
   const onSaved = jest.fn();
   const onError = jest.fn();
   const rendered = renderHook(() => {
@@ -77,19 +95,24 @@ function setup(
       editor,
       validate,
       getInput: () => input,
-      onPersisted,
       onSaved,
       onError,
     });
   });
-  return { ...rendered, onPersisted, onSaved, onError };
+  return { ...rendered, onSaved, onError };
 }
 
-describe('widget profile save lifecycle', () => {
+describe('widget settings save lifecycle', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    mockGetEditorState.mockReset().mockResolvedValue(state);
-    mockSaveProfile.mockReset().mockResolvedValue(profile);
+    mockPersistedSettings = new Map([[settings.kind, settings]]);
+    mockGetEditorState.mockReset().mockImplementation(async () => ({
+      ...state,
+      settings: [...mockPersistedSettings.values()],
+    }));
+    mockSaveSettings
+      .mockReset()
+      .mockImplementation(async (input) => persistSettings(input));
     mockFocused = true;
     mockMasked = false;
     mockAppStateChanged = undefined;
@@ -98,16 +121,16 @@ describe('widget profile save lifecycle', () => {
 
   it('clears pending state when a save settles under a different modal', async () => {
     const pending = pendingValue<IMarketWidgetProfile>();
-    mockSaveProfile.mockReturnValue(pending.promise);
+    mockSaveSettings.mockReturnValue(pending.promise);
     const { result, rerender, onSaved } = setup();
     act(() => {
       void result.current.save();
     });
-    await waitFor(() => expect(mockSaveProfile).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(mockSaveSettings).toHaveBeenCalledTimes(1));
     mockFocused = false;
     rerender();
     await act(async () => {
-      pending.resolve(profile);
+      pending.resolve(settings);
     });
     expect(result.current.isSaving).toBe(false);
     await act(async () => {
@@ -120,12 +143,12 @@ describe('widget profile save lifecycle', () => {
 
   it('does not navigate when an old save resolves after returning to the same editor', async () => {
     const pending = pendingValue<IMarketWidgetProfile>();
-    mockSaveProfile.mockReturnValue(pending.promise);
+    mockSaveSettings.mockReturnValue(pending.promise);
     const { result, rerender, onSaved } = setup();
     act(() => {
       void result.current.save();
     });
-    await waitFor(() => expect(mockSaveProfile).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(mockSaveSettings).toHaveBeenCalledTimes(1));
     mockFocused = false;
     rerender();
     await act(async () => {
@@ -133,42 +156,27 @@ describe('widget profile save lifecycle', () => {
       rerender();
     });
     await act(async () => {
-      pending.resolve(profile);
+      pending.resolve(settings);
     });
     expect(result.current.isSaving).toBe(false);
     expect(onSaved).not.toHaveBeenCalled();
   });
 
   it.each(['background', 'blur'])(
-    'updates the same newly persisted profile after %s interrupts its acknowledgement',
+    'updates the same widget kind after %s interrupts its acknowledgement',
     async (interruption) => {
       const pending = pendingValue<IMarketWidgetProfile>();
-      const persisted: IMarketWidgetProfile[] = [];
-      const created = {
-        ...profile,
-        id: '4bdfeb88-a55d-4a91-bedb-df13acfaea39',
-      };
-      mockGetEditorState.mockImplementation(async () => ({
-        ...state,
-        profiles: [...persisted],
-      }));
-      mockSaveProfile
-        .mockImplementationOnce(() => {
-          persisted.push(created);
-          return pending.promise;
-        })
-        .mockImplementationOnce(async (input) => {
-          expect(input).toMatchObject({ id: created.id });
-          return created;
-        });
-      const { result, rerender, onPersisted, onSaved } = setup(
-        async () => true,
-        { name: profile.name, kind: profile.kind, source: profile.source },
-      );
+      mockPersistedSettings.clear();
+      mockSaveSettings.mockImplementationOnce((input) => {
+        persistSettings(input);
+        return pending.promise;
+      });
+      const input = { ...settingsInput };
+      const { result, rerender, onSaved } = setup(async () => true, input);
       act(() => {
         void result.current.save();
       });
-      await waitFor(() => expect(mockSaveProfile).toHaveBeenCalledTimes(1));
+      await waitFor(() => expect(mockSaveSettings).toHaveBeenCalledTimes(1));
       act(() => {
         if (interruption === 'background') {
           mockAppStateChanged?.('background');
@@ -178,9 +186,8 @@ describe('widget profile save lifecycle', () => {
         }
       });
       await act(async () => {
-        pending.resolve(created);
+        pending.resolve(settings);
       });
-      expect(onPersisted).toHaveBeenCalledWith(created);
       expect(onSaved).not.toHaveBeenCalled();
       expect(result.current.isSaving).toBe(false);
       await act(async () => {
@@ -191,27 +198,29 @@ describe('widget profile save lifecycle', () => {
           rerender();
         }
       });
+      input.source = 'watchlist';
       await act(async () => {
         await result.current.save();
       });
-      expect(mockSaveProfile).toHaveBeenCalledTimes(2);
-      expect(persisted).toHaveLength(1);
+      expect(mockSaveSettings).toHaveBeenCalledTimes(2);
+      expect(mockSaveSettings).toHaveBeenLastCalledWith({
+        ...settingsInput,
+        source: 'watchlist',
+      });
+      expect(mockPersistedSettings.size).toBe(1);
+      expect(mockPersistedSettings.get('list')?.source).toBe('watchlist');
       expect(onSaved).toHaveBeenCalledTimes(1);
     },
   );
 
-  it('refreshes a refocused editor when an older creation succeeds', async () => {
+  it('refreshes a refocused editor when an older save succeeds', async () => {
     const pending = pendingValue<IMarketWidgetProfile>();
-    mockSaveProfile.mockReturnValueOnce(pending.promise);
-    const { result, rerender, onPersisted, onSaved } = setup(async () => true, {
-      name: profile.name,
-      kind: profile.kind,
-      source: profile.source,
-    });
+    mockSaveSettings.mockReturnValueOnce(pending.promise);
+    const { result, rerender, onSaved } = setup();
     act(() => {
       void result.current.save();
     });
-    await waitFor(() => expect(mockSaveProfile).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(mockSaveSettings).toHaveBeenCalledTimes(1));
     mockFocused = false;
     rerender();
     await act(async () => {
@@ -220,28 +229,88 @@ describe('widget profile save lifecycle', () => {
     });
     const readsBeforeCompletion = mockGetEditorState.mock.calls.length;
     await act(async () => {
-      pending.resolve(profile);
+      pending.resolve(settings);
     });
-    expect(onPersisted).toHaveBeenCalledWith(profile);
     expect(mockGetEditorState.mock.calls.length).toBe(
       readsBeforeCompletion + 1,
     );
     expect(onSaved).not.toHaveBeenCalled();
   });
 
-  it('does not infer a persisted identity from an ambiguous failure', async () => {
-    mockSaveProfile.mockRejectedValueOnce(new Error('Native response lost'));
-    const { result, onPersisted, onError } = setup(async () => true, {
-      name: profile.name,
-      kind: profile.kind,
-      source: profile.source,
+  it('retries the same widget kind after native persistence loses its response', async () => {
+    mockPersistedSettings.clear();
+    mockSaveSettings.mockImplementationOnce(async (input) => {
+      persistSettings(input);
+      throw new OneKeyLocalError('Native response lost');
     });
+    const { result, onSaved, onError } = setup();
     await act(async () => {
       await result.current.save();
     });
     expect(onError).toHaveBeenLastCalledWith('failed');
-    expect(onPersisted).not.toHaveBeenCalled();
     expect(result.current.isSaving).toBe(false);
+    expect(mockPersistedSettings.size).toBe(1);
+    expect(onSaved).not.toHaveBeenCalled();
+    await act(async () => {
+      await result.current.save();
+    });
+    expect(mockSaveSettings).toHaveBeenCalledTimes(2);
+    expect(mockSaveSettings.mock.calls.map(([input]) => input)).toEqual([
+      settingsInput,
+      settingsInput,
+    ]);
+    expect(mockPersistedSettings.size).toBe(1);
+    expect(onSaved).toHaveBeenCalledTimes(1);
+  });
+
+  it('retains an off-ranking hot coin from the settings of the same widget kind', async () => {
+    const asset = {
+      kind: 'asset',
+      assetId: 'btc',
+      symbol: 'BTC',
+      name: 'Bitcoin',
+    } as const;
+    const single: ISettingsInput = {
+      name: 'BTC',
+      kind: 'single',
+      source: 'hot',
+      asset,
+    };
+    persistSettings(single);
+    const { result, onSaved, onError } = setup(async () => true, single);
+    await act(async () => {
+      await result.current.save();
+    });
+    expect(mockSaveSettings).toHaveBeenCalledWith(single);
+    expect(onSaved).toHaveBeenCalledTimes(1);
+    expect(onError).not.toHaveBeenCalledWith('unavailable');
+  });
+
+  it('does not use a legacy profile as the retained hot coin for type settings', async () => {
+    const asset = {
+      kind: 'asset',
+      assetId: 'btc',
+      symbol: 'BTC',
+      name: 'Bitcoin',
+    } as const;
+    const single: ISettingsInput = {
+      name: 'BTC',
+      kind: 'single',
+      source: 'hot',
+      asset,
+    };
+    mockGetEditorState.mockResolvedValue({
+      ...state,
+      profiles: [{ ...single, id: 'old-profile' }],
+      settings: [],
+    });
+    const { result, onSaved, onError } = setup(async () => true, single);
+    await act(async () => {
+      await result.current.save();
+    });
+    expect(mockSaveSettings).not.toHaveBeenCalled();
+    expect(onSaved).not.toHaveBeenCalled();
+    expect(onError).toHaveBeenCalledWith('unavailable');
   });
 
   it('does not start persistence if the editor is left during async validation', async () => {
@@ -259,7 +328,7 @@ describe('widget profile save lifecycle', () => {
     await act(async () => {
       validation.resolve(true);
     });
-    expect(mockSaveProfile).not.toHaveBeenCalled();
+    expect(mockSaveSettings).not.toHaveBeenCalled();
     expect(onSaved).not.toHaveBeenCalled();
     expect(result.current.isSaving).toBe(false);
   });
@@ -270,9 +339,9 @@ describe('widget profile save lifecycle', () => {
     await act(async () => {
       await result.current.save();
     });
-    expect(mockSaveProfile).not.toHaveBeenCalled();
+    expect(mockSaveSettings).not.toHaveBeenCalled();
     unmount();
-    expect(mockSaveProfile).not.toHaveBeenCalled();
+    expect(mockSaveSettings).not.toHaveBeenCalled();
   });
 
   it('persists only on Save and completes the active editor once', async () => {
@@ -281,13 +350,13 @@ describe('widget profile save lifecycle', () => {
       await Promise.resolve();
     });
     first.unmount();
-    expect(mockSaveProfile).not.toHaveBeenCalled();
+    expect(mockSaveSettings).not.toHaveBeenCalled();
     const second = setup();
     await act(async () => {
       await second.result.current.save();
     });
-    expect(mockSaveProfile).toHaveBeenCalledTimes(1);
-    expect(mockSaveProfile).toHaveBeenCalledWith(profile);
+    expect(mockSaveSettings).toHaveBeenCalledTimes(1);
+    expect(mockSaveSettings).toHaveBeenCalledWith(settingsInput);
     expect(second.onSaved).toHaveBeenCalledTimes(1);
     expect(second.result.current.isSaving).toBe(false);
   });

@@ -1,13 +1,13 @@
 import { useCallback, useRef, useState } from 'react';
 
 import marketWidget from '@onekeyhq/shared/src/modules/MarketWidget';
-import type {
-  IMarketWidgetProfile,
-  IMarketWidgetProfileInput,
-} from '@onekeyhq/shared/src/modules/MarketWidget/types';
+import type { IMarketWidgetProfileInput } from '@onekeyhq/shared/src/modules/MarketWidget/types';
 import { travelModeManager } from '@onekeyhq/shared/src/travelMode';
 
-import { isMarketWidgetAssetAvailable } from './assetIdentity';
+import {
+  isMarketWidgetAssetAvailable,
+  isMarketWidgetManualAssetAvailable,
+} from './assetIdentity';
 
 import type { useMarketWidgetEditorState } from './useMarketWidgetEditorState';
 
@@ -18,21 +18,20 @@ type IEditorLifecycle = Pick<
 
 export function useMarketWidgetProfileSave({
   editor,
+  editorSession,
   validate,
   getInput,
-  onPersisted,
   onSaved,
   onError,
 }: {
   editor: IEditorLifecycle;
+  editorSession?: string;
   validate: () => Promise<boolean>;
   getInput: () => IMarketWidgetProfileInput;
-  onPersisted: (profile: IMarketWidgetProfile) => void;
   onSaved: () => void;
   onError: (reason: 'unavailable' | 'failed' | undefined) => void;
 }) {
   const savingRef = useRef(false);
-  const persistedIdRef = useRef<string | undefined>(undefined);
   const [isSaving, setIsSaving] = useState(false);
 
   const save = useCallback(async () => {
@@ -48,32 +47,37 @@ export function useMarketWidgetProfileSave({
         await editor.refresh();
         return;
       }
-      const draft = getInput();
-      const input = { ...draft, id: draft.id ?? persistedIdRef.current };
-      const latest = await marketWidget.getEditorState();
+      const input = getInput();
+      const latest = await marketWidget.getEditorState(editorSession);
       if (!editor.isLifecycleCurrent(lifecycleToken)) return;
       if (latest.privacyMasked || travelModeManager.isMaskingDataSync()) {
         await editor.refresh();
         return;
       }
       if (
-        input.kind === 'single' &&
-        !isMarketWidgetAssetAvailable({
-          state: latest,
-          source: input.source,
-          asset: input.asset,
-          profileId: input.id,
-        })
+        input.assets
+          ? input.assets.length !== (input.kind === 'single' ? 1 : 3) ||
+            input.assets.some(
+              (asset) =>
+                !isMarketWidgetManualAssetAvailable({
+                  state: latest,
+                  asset,
+                  kind: input.kind,
+                }),
+            )
+          : input.kind === 'single' &&
+            !isMarketWidgetAssetAvailable({
+              state: latest,
+              source: input.source,
+              asset: input.asset,
+              kind: input.kind,
+            })
       ) {
         onError('unavailable');
         await editor.refresh();
         return;
       }
-      const saved = await marketWidget.saveProfile(input);
-      // Persistence can finish after blur. Retain its native identity even
-      // when the old request must no longer navigate the current screen.
-      persistedIdRef.current = saved.id;
-      if (editor.isMounted()) onPersisted(saved);
+      await marketWidget.saveSettings(input, editorSession);
       if (editor.isLifecycleCurrent(lifecycleToken)) {
         onSaved();
       } else if (editor.isLifecycleCurrent(editor.getLifecycleToken())) {
@@ -88,7 +92,7 @@ export function useMarketWidgetProfileSave({
       savingRef.current = false;
       if (editor.isMounted()) setIsSaving(false);
     }
-  }, [editor, getInput, onError, onPersisted, onSaved, validate]);
+  }, [editor, editorSession, getInput, onError, onSaved, validate]);
 
   return { isSaving, save };
 }
