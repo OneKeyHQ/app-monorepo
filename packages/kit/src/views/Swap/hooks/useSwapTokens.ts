@@ -110,7 +110,7 @@ function getSwapSupportAllAccountsGeneration() {
   return swapSupportAllAccountsCacheGeneration;
 }
 
-function invalidateSwapSupportAllAccounts() {
+export function invalidateSwapSupportAllAccounts() {
   swapSupportAllAccountsCacheGeneration += 1;
   swapSupportAllAccountsCache.clear();
   swapSupportAllAccountsListeners.forEach((listener) => listener());

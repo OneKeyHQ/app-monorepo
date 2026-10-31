@@ -25,12 +25,12 @@ import type {
   EModalSwapRoutes,
   IModalSwapParamList,
 } from '@onekeyhq/shared/src/routes/swap';
-import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import {
   EProtocolOfExchange,
   ESwapCleanHistorySource,
 } from '@onekeyhq/shared/types/swap/types';
 
+import { getSwapAccountSelectorSceneName } from '../../hooks/useSwapAccount.utils';
 import { useSwapLimitOrdersLocalDataVisibility } from '../../hooks/useSwapLocalDataVisibility';
 import { useSwapMarketHistoryList } from '../../hooks/useSwapMarketHistoryList';
 import {
@@ -484,10 +484,14 @@ const SwapHistoryListModalWithProvider = () => {
 };
 
 export default function SwapHistoryListModalWithAllProvider() {
+  const route =
+    useRoute<
+      RouteProp<IModalSwapParamList, EModalSwapRoutes.SwapHistoryList>
+    >();
   return (
     <AccountSelectorProviderMirror
       config={{
-        sceneName: EAccountSelectorSceneName.swap,
+        sceneName: getSwapAccountSelectorSceneName(route.params.storeName),
       }}
       enabledNum={[0, 1]}
     >

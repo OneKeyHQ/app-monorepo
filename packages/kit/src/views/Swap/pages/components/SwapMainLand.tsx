@@ -92,7 +92,6 @@ import {
   checkWrappedTokenPair,
   equalTokenNoCaseSensitive,
 } from '@onekeyhq/shared/src/utils/tokenUtils';
-import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { ISwapReviewCloseReason } from '@onekeyhq/shared/types/swap/reviewAnalytics';
 import type {
   IFetchLimitOrderRes,
@@ -130,6 +129,12 @@ import TransactionLossNetworkFeeExceedDialog from '../../components/TransactionL
 import { registerMarketSwapApprovalFlow } from '../../hooks/swapNavigationUtils';
 import { useMarketPresetSwapOverridesEffect } from '../../hooks/useMarketPresetSwapOverridesEffect';
 import { useSwapAddressInfo } from '../../hooks/useSwapAccount';
+import {
+  getSwapAccountSelectorSceneName,
+  getUrlAccountReviewMode,
+  isSameUrlAccountAddress,
+  verifyUrlAccountForSwapReview,
+} from '../../hooks/useSwapAccount.utils';
 import { useSwapBuildTx } from '../../hooks/useSwapBuiltTx';
 import { useSwapInit } from '../../hooks/useSwapGlobal';
 import { useSwapLimitOrdersVisibilityRefresh } from '../../hooks/useSwapLimitOrdersVisibilityRefresh';
@@ -203,6 +208,8 @@ interface ISwapMainLoadProps {
   stockTradeHeader?: React.ReactNode;
   stockTradeIdentityLoading?: boolean;
   reviewContextKey?: string;
+  urlAccountAddress?: string;
+  urlAccountNetworkId?: string;
   stockTradeToken?: ISwapToken;
   initialInputAmountDraft?: ISwapInputAmountDraft;
   onInputDraftChange?: (draft: ISwapInputAmountDraft) => void;
@@ -225,9 +232,12 @@ const SwapMainLoad = ({
   stockTradeHeader,
   stockTradeIdentityLoading,
   reviewContextKey,
+  urlAccountAddress,
+  urlAccountNetworkId,
   stockTradeToken,
   onInputDraftChange,
 }: ISwapMainLoadContentProps) => {
+  const accountSelectorSceneName = getSwapAccountSelectorSceneName(storeName);
   const dialogRef = useRef<IDialogInstance>(null);
   const reviewDialogTimerRef = useRef<
     ReturnType<typeof setTimeout> | undefined
@@ -305,6 +315,8 @@ const SwapMainLoad = ({
   const [{ currencyMap }] = useCurrencyPersistAtom();
   const toAddressInfo = useSwapAddressInfo(ESwapDirectionType.TO);
   const swapFromAddressInfo = useSwapAddressInfo(ESwapDirectionType.FROM);
+  const swapFromAddressInfoRef = useRef(swapFromAddressInfo);
+  swapFromAddressInfoRef.current = swapFromAddressInfo;
   // Check custom RPC availability for the from network
   const { isCustomRpcUnavailable } = useCustomRpcAvailability(
     swapFromAddressInfo.networkId,
@@ -617,6 +629,24 @@ const SwapMainLoad = ({
     }
     return toSelectTokenAtom;
   }, [focusSwapPro, toSelectTokenAtom, swapProToToken]);
+  const reviewInputsRef = useRef({
+    quote: currentQuoteRes,
+    fromAmount: fromTokenAmount.value,
+    toAmount: swapToAmount.value,
+    fromToken: fromSelectToken,
+    toToken: toSelectToken,
+    toAddress: toAddressInfo.address,
+    swapType: swapTypeSwitch,
+  });
+  reviewInputsRef.current = {
+    quote: currentQuoteRes,
+    fromAmount: fromTokenAmount.value,
+    toAmount: swapToAmount.value,
+    fromToken: fromSelectToken,
+    toToken: toSelectToken,
+    toAddress: toAddressInfo.address,
+    swapType: swapTypeSwitch,
+  };
 
   const fromTokenBalance = useMemo(() => {
     if (focusSwapPro) {
@@ -1234,14 +1264,14 @@ const SwapMainLoad = ({
       screen: EAccountManagerStacksRoutes.AccountSelectorStack,
       params: {
         num: 0,
-        sceneName: EAccountSelectorSceneName.swap,
+        sceneName: accountSelectorSceneName,
         editable: true,
         linkNetwork: true,
       },
     });
-  }, [navigation]);
+  }, [accountSelectorSceneName, navigation]);
 
-  const onPreSwap = useCallback(
+  const onPreSwapUnchecked = useCallback(
     (stockReviewToken?: ISwapToken) => {
       if (reviewDialogTimerRef.current !== undefined) {
         return;
@@ -1304,7 +1334,7 @@ const SwapMainLoad = ({
           renderContent: (
             <AccountSelectorProviderMirror
               config={{
-                sceneName: EAccountSelectorSceneName.swap,
+                sceneName: accountSelectorSceneName,
                 sceneUrl: '',
               }}
               enabledNum={[0, 1]}
@@ -1337,6 +1367,7 @@ const SwapMainLoad = ({
     },
     [
       focusSwapPro,
+      accountSelectorSceneName,
       swapProAccount?.result?.addressDetail.address,
       isSwapProMarketPresetLoading,
       currentQuoteRes,
@@ -1364,6 +1395,91 @@ const SwapMainLoad = ({
       isMarketEmbeddedSwap,
       pageType,
     ],
+  );
+
+  const onPreSwap = useCallback(
+    (stockReviewToken?: ISwapToken) => {
+      const from = swapFromAddressInfoRef.current;
+      const accountId = from.accountInfo?.account?.id;
+      const reviewMode = getUrlAccountReviewMode({
+        urlAccountAddress,
+        accountId,
+        isReady: from.isAddressInfoReady,
+      });
+      if (reviewMode === 'normal') {
+        onPreSwapUnchecked(stockReviewToken);
+        return;
+      }
+      if (reviewMode === 'blocked' || !urlAccountAddress) {
+        return;
+      }
+      if (
+        !isSameUrlAccountAddress({
+          actual: from.address,
+          expected: urlAccountAddress,
+          networkId: from.networkId ?? '',
+        })
+      ) {
+        Toast.error({
+          title: intl.formatMessage({
+            id: ETranslations.global_an_error_occurred,
+          }),
+        });
+        return;
+      }
+      const generation = reviewGenerationRef.current;
+      const reviewInputs = reviewInputsRef.current;
+      void verifyUrlAccountForSwapReview({
+        expectedAddress: urlAccountAddress,
+        networkId: urlAccountNetworkId ?? '',
+        readAccountAddress: async () =>
+          (await backgroundApiProxy.serviceAccount.getUrlDBAccountSafe())
+            ?.address,
+        isCurrent: () => {
+          const current = swapFromAddressInfoRef.current;
+          const currentInputs = reviewInputsRef.current;
+          return (
+            isFocusedRef.current &&
+            generation === reviewGenerationRef.current &&
+            current.accountInfo?.account?.id === accountId &&
+            current.address === from.address &&
+            current.networkId === from.networkId &&
+            currentInputs.quote === reviewInputs.quote &&
+            currentInputs.fromAmount === reviewInputs.fromAmount &&
+            currentInputs.toAmount === reviewInputs.toAmount &&
+            currentInputs.fromToken === reviewInputs.fromToken &&
+            currentInputs.toToken === reviewInputs.toToken &&
+            currentInputs.toAddress === reviewInputs.toAddress &&
+            currentInputs.swapType === reviewInputs.swapType
+          );
+        },
+      })
+        .then((result) => {
+          if (result === 'stale') return;
+          if (result === 'mismatch') {
+            Toast.error({
+              title: intl.formatMessage({
+                id: ETranslations.global_an_error_occurred,
+              }),
+            });
+            return;
+          }
+          onPreSwapUnchecked(stockReviewToken);
+        })
+        .catch(() => {
+          if (
+            isFocusedRef.current &&
+            generation === reviewGenerationRef.current
+          ) {
+            Toast.error({
+              title: intl.formatMessage({
+                id: ETranslations.global_an_error_occurred,
+              }),
+            });
+          }
+        });
+    },
+    [intl, onPreSwapUnchecked, urlAccountAddress, urlAccountNetworkId],
   );
 
   const onOpenOrdersClick = useCallback(

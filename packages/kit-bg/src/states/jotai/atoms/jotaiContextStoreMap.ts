@@ -20,6 +20,7 @@ export enum EJotaiContextStoreNames {
   swapModal = 'swapModal',
   swapHomeMore = 'swapHomeMore',
   swapHomeToken = 'swapHomeToken',
+  swapUrlAccount = 'swapUrlAccount',
   swapTokenSelector = 'swapTokenSelector',
   marketSwap = 'marketSwap',
   marketSwapReview = 'marketSwapReview',

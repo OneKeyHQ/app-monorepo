@@ -6,6 +6,7 @@ import { act, renderHook, waitFor } from '@testing-library/react';
 
 import type { IAddressQueryResult } from '@onekeyhq/kit/src/components/AddressInput';
 import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 import type { IQueryCheckAddressArgs } from '@onekeyhq/shared/types/address';
 import {
@@ -247,6 +248,37 @@ describe('useSwapAddressInfo recipient validation context', () => {
       );
       expect(result.current.validation.isAddressInfoReady).toBe(true);
     });
+  });
+
+  it('does not reuse a pending network lookup when the URL account address changes', async () => {
+    let finishOld: ((account: INetworkAccount) => void) | undefined;
+    mockAccounts[0] = {
+      ...buildActiveAccount(accountUtils.URL_ACCOUNT_ID),
+      account: buildNetworkAccount(accountUtils.URL_ACCOUNT_ID, 'address-a'),
+    };
+    mockGetNetworkAccount
+      .mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            finishOld = resolve;
+          }),
+      )
+      .mockResolvedValue(buildNetworkAccount('target-b', 'target-address-b'));
+    const { result, rerender } = renderAddressContexts();
+    await waitFor(() => expect(mockGetNetworkAccount).toHaveBeenCalledTimes(1));
+    mockAccounts[0] = {
+      ...mockAccounts[0],
+      account: buildNetworkAccount(accountUtils.URL_ACCOUNT_ID, 'address-b'),
+    };
+    rerender();
+    await waitFor(() =>
+      expect(result.current.validation.address).toBe('target-address-b'),
+    );
+    await act(async () =>
+      finishOld?.(buildNetworkAccount('target-a', 'target-address-a')),
+    );
+    expect(result.current.validation.address).toBe('target-address-b');
+    expect(mockGetNetworkAccount).toHaveBeenCalledTimes(2);
   });
 
   it('invalidates the validation context when the destination network actually changes', async () => {

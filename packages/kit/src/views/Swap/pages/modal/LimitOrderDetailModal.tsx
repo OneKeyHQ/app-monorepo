@@ -39,7 +39,6 @@ import {
   formatBalance,
 } from '@onekeyhq/shared/src/utils/numberUtils';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
-import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import { limitOrderEstimationFeePercent } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import type { IFetchLimitOrderRes } from '@onekeyhq/shared/types/swap/types';
 import {
@@ -57,6 +56,7 @@ import {
   getLimitOrderDisplayAmounts,
   getLimitOrderDisplayPrice,
 } from '../../components/LimitOrderCard.utils';
+import { getSwapAccountSelectorSceneName } from '../../hooks/useSwapAccount.utils';
 import { useSwapBuildTx } from '../../hooks/useSwapBuiltTx';
 import { useSwapLimitOrdersLocalDataVisibility } from '../../hooks/useSwapLocalDataVisibility';
 import LimitOrderCancelDialog from '../components/LimitOrderCancelDialog';
@@ -797,10 +797,14 @@ const LimitOrderDetailModalWithProvider = () => {
 };
 
 export default function LimitOrderDetailModalWithAllProvider() {
+  const route =
+    useRoute<
+      RouteProp<IModalSwapParamList, EModalSwapRoutes.LimitOrderDetail>
+    >();
   return (
     <AccountSelectorProviderMirror
       config={{
-        sceneName: EAccountSelectorSceneName.swap,
+        sceneName: getSwapAccountSelectorSceneName(route.params.storeName),
       }}
       enabledNum={[0, 1]}
     >

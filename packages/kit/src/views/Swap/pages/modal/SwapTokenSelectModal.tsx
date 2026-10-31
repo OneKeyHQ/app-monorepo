@@ -77,7 +77,6 @@ import {
   isTokenSelectorDappTokenFilterSupportedNetwork,
 } from '@onekeyhq/shared/src/utils/tokenSelectorFilterUtils';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
-import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { IMarketStockInfo } from '@onekeyhq/shared/types/marketV2';
 import {
   swapNetworksCommonCount,
@@ -101,6 +100,7 @@ import {
   getSwapTokenSelectorTokenKey,
 } from '../../components/SwapTokenSelectorDesktop';
 import { useSwapAddressInfo } from '../../hooks/useSwapAccount';
+import { getSwapAccountSelectorSceneName } from '../../hooks/useSwapAccount.utils';
 import { useSwapTokenRiskCheck } from '../../hooks/useSwapTokenRiskCheck';
 import {
   useSwapTokenList,
@@ -1665,10 +1665,14 @@ const SwapTokenSelectPageWithProvider = () => {
   );
 };
 export default function SwapTokenSelectModal() {
+  const route =
+    useRoute<
+      RouteProp<IModalSwapParamList, EModalSwapRoutes.SwapTokenSelect>
+    >();
   return (
     <AccountSelectorProviderMirror
       config={{
-        sceneName: EAccountSelectorSceneName.swap,
+        sceneName: getSwapAccountSelectorSceneName(route.params.storeName),
       }}
       enabledNum={[0, 1]}
     >

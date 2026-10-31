@@ -27,7 +27,10 @@ import {
 } from '../../../states/jotai/contexts/swap';
 import { jotaiContextStore } from '../../../states/jotai/utils/jotaiContextStore';
 import { JotaiContextStoreMirrorTracker } from '../../../states/jotai/utils/JotaiContextStoreMirrorTracker';
-import { updateSwapBalanceDisplayCache } from '../utils/swapBalanceDisplayCacheUtils';
+import {
+  EMPTY_SWAP_BALANCE_DISPLAY_CACHE,
+  updateSwapBalanceDisplayCache,
+} from '../utils/swapBalanceDisplayCacheUtils';
 import { shouldPreserveSwapUserInputOnAccountSwitch } from '../utils/swapColdStartTokenCacheUtils';
 import { shouldClearSwapSelectedTokensBeforeHomeAccountSync } from '../utils/swapDefaultTokenSeedUtils';
 import { getVisibleSwapTabSwitchType } from '../utils/swapTypeUtils';
@@ -112,6 +115,7 @@ export const SwapProviderMirror = memo(
           swapSelectedTokensColdStartContextAtom(),
         );
         const canReuseCachedTokens =
+          storeName !== EJotaiContextStoreNames.swapUrlAccount &&
           isSwapSelectedTokensColdStartContextMatched({
             cachedContext,
             currentContext: entryContext,
@@ -138,6 +142,12 @@ export const SwapProviderMirror = memo(
         const initialBalanceDisplayCache = store.get(
           swapBalanceDisplayCacheAtom(),
         );
+        if (storeName === EJotaiContextStoreNames.swapUrlAccount) {
+          store.set(
+            swapBalanceDisplayCacheAtom(),
+            EMPTY_SWAP_BALANCE_DISPLAY_CACHE,
+          );
+        }
         const seededBalanceDisplayCache = [
           initialSelectedTokensOnInit.fromToken,
           initialToToken,
@@ -150,7 +160,9 @@ export const SwapProviderMirror = memo(
               cache,
               token,
             }),
-          initialBalanceDisplayCache,
+          storeName === EJotaiContextStoreNames.swapUrlAccount
+            ? EMPTY_SWAP_BALANCE_DISPLAY_CACHE
+            : initialBalanceDisplayCache,
         );
         let initialStockSelectedToken: ISwapToken | undefined;
         if (initialSelectedTokensOnInit.fromToken?.isStock) {
@@ -160,14 +172,18 @@ export const SwapProviderMirror = memo(
         }
 
         hasInitializedSelectedTokensRef.current = true;
-        const shouldKeepFromBalance = equalTokenNoCaseSensitive({
-          token1: cachedFromToken,
-          token2: initialSelectedTokensOnInit.fromToken,
-        });
-        const shouldKeepToBalance = equalTokenNoCaseSensitive({
-          token1: cachedToToken,
-          token2: initialToToken,
-        });
+        const shouldKeepFromBalance =
+          storeName !== EJotaiContextStoreNames.swapUrlAccount &&
+          equalTokenNoCaseSensitive({
+            token1: cachedFromToken,
+            token2: initialSelectedTokensOnInit.fromToken,
+          });
+        const shouldKeepToBalance =
+          storeName !== EJotaiContextStoreNames.swapUrlAccount &&
+          equalTokenNoCaseSensitive({
+            token1: cachedToToken,
+            token2: initialToToken,
+          });
         store.set(
           swapSelectFromTokenAtom(),
           initialSelectedTokensOnInit.fromToken,

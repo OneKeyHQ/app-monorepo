@@ -32,7 +32,6 @@ import type {
   EModalSwapRoutes,
   IModalSwapParamList,
 } from '@onekeyhq/shared/src/routes/swap';
-import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import { ESwapDirectionType } from '@onekeyhq/shared/types/swap/types';
 
 import RecipientQuickSelect from '../../../Send/pages/SendDataInput/RecipientQuickSelect';
@@ -40,6 +39,7 @@ import { shouldSkipResolvedRecipientUpdate } from '../../../Send/pages/SendDataI
 import { useWebDappRecipientOptions } from '../../../Send/pages/SendDataInput/useWebDappRecipientOptions';
 import { useSwapAddressInfo } from '../../hooks/useSwapAccount';
 import {
+  getSwapAccountSelectorSceneName,
   getSwapRecipientEditorAccountInfo,
   getSwapRecipientValidationAccountId,
 } from '../../hooks/useSwapAccount.utils';
@@ -263,10 +263,14 @@ const SwapToAnotherAddressPageWithProvider = () => {
 };
 
 export default function SwapToAnotherAddressPageModal() {
+  const route =
+    useRoute<
+      RouteProp<IModalSwapParamList, EModalSwapRoutes.SwapToAnotherAddress>
+    >();
   return (
     <AccountSelectorProviderMirror
       config={{
-        sceneName: EAccountSelectorSceneName.swap,
+        sceneName: getSwapAccountSelectorSceneName(route.params.storeName),
       }}
       enabledNum={[0, 1]}
     >

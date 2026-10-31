@@ -196,6 +196,11 @@ function JotaiContextRootProviderRendererCmp({
               <SwapModalRootProviderLazy key={key} storeName={storeName} />
             );
           }
+          case EJotaiContextStoreNames.swapUrlAccount: {
+            return (
+              <SwapModalRootProviderLazy key={key} storeName={storeName} />
+            );
+          }
           case EJotaiContextStoreNames.swapTokenSelector:
           case EJotaiContextStoreNames.marketSwap:
           case EJotaiContextStoreNames.marketSwapReview: {

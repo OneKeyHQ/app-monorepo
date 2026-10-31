@@ -7,6 +7,7 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EModalRoutes, EModalSwapRoutes } from '@onekeyhq/shared/src/routes';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import deriveTypeCollapseUtils from '@onekeyhq/shared/src/utils/deriveTypeCollapseUtils';
 import { buildSwapSelectedTokensColdStartAccountKey } from '@onekeyhq/shared/src/utils/swapColdStartCacheSnapshotUtils';
 import { isSwapEntryDisabledToken } from '@onekeyhq/shared/src/utils/swapEntryUtils';
@@ -178,6 +179,14 @@ function TokenActionsView(props: IProps) {
       return;
     }
 
+    const isUrlAccount = accountUtils.isUrlAccountFn({
+      accountId: activeAccount.account?.id,
+    });
+    const urlAddress = activeAccount.account?.addressDetail?.address;
+    if (isUrlAccount && (!urlAddress || !networkId)) {
+      return;
+    }
+
     const importAccountKey =
       buildSwapSelectedTokensColdStartAccountKey(activeAccount);
     const importFromToken = buildTokenActionSwapFromToken({
@@ -196,6 +205,10 @@ function TokenActionsView(props: IProps) {
       screen: EModalSwapRoutes.SwapMainLand,
       params: {
         importNetworkId: networkId,
+        importUrlAccount:
+          isUrlAccount && urlAddress
+            ? { address: urlAddress, networkId }
+            : undefined,
         importAccountKey,
         importFromToken,
         // A merged Bitcoin row carries whichever derive type answered
