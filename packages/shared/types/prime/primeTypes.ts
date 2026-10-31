@@ -172,6 +172,19 @@ export type IPrimeInfiniPayment = {
   amountConfirmed?: string;
   amountConfirming?: string;
   warningMessages?: string[];
+  // Only activity is retained; remote transaction payloads and IDs stay out of storage.
+  hasTransactions?: boolean;
+};
+
+export type IPrimeInfiniPendingPaymentLookup = {
+  authContext: IPrimeInfiniCheckoutAuthContext;
+  // An existing order can be reported without enough fields to restore it.
+  pendingPayment?: {
+    paymentId?: string;
+    payment?: IPrimeInfiniPayment;
+    plan?: IPrimeInfiniSubscriptionPlan;
+    hasTransactions: boolean;
+  };
 };
 
 export type IPrimeInfiniPaymentValidationFailure =
@@ -208,6 +221,7 @@ export type IPrimeInfiniPaymentCreateParams = {
   token: string;
   expectedOneKeyUserId: string;
   flowContext?: IPrimeInfiniPaymentFlowContext;
+  authContext?: IPrimeInfiniCheckoutAuthContext;
 };
 
 export type IPrimeRedemptionParams = {

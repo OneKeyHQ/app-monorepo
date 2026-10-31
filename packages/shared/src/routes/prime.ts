@@ -5,7 +5,10 @@ import type {
   IE2EESocketUserInfo,
   IPrimeTransferData,
 } from '../../types/prime/primeTransferTypes';
-import type { IPrimeServerUserInfo } from '../../types/prime/primeTypes';
+import type {
+  IPrimeInfiniCheckoutAuthContext,
+  IPrimeServerUserInfo,
+} from '../../types/prime/primeTypes';
 import type {
   EOneKeyDeepLinkPath,
   IEOneKeyDeepLinkParams,
@@ -94,6 +97,10 @@ export type IPrimeParamList = {
     selectedSubscriptionPeriod: ISubscriptionPeriod;
     featureName?: EPrimeFeatures;
     createNewPayment?: boolean;
+    remotePaymentResumeIntent?: {
+      paymentId: string;
+      authContext: IPrimeInfiniCheckoutAuthContext;
+    };
     networkId?: string;
   };
   [EPrimePages.PrimeInfiniSubscription]: undefined;

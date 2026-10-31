@@ -18,6 +18,19 @@ import type {
   IPrimeInfiniSubscriptionPlan,
 } from '../../types/prime/primeTypes';
 
+const TRANSFER_PAYMENT_STATUSES = new Set([
+  'signed',
+  'broadcast',
+  'broadcasted',
+  'confirming',
+  'processing',
+  'confirmed',
+  'completed',
+  'paid',
+  'success',
+  'succeeded',
+]);
+
 const FAILED_PAYMENT_STATUSES = new Set([
   'cancelled',
   'canceled',
@@ -492,6 +505,11 @@ export function hasPrimeInfiniPaymentProgressSnapshot(
   payment: IPrimeInfiniPayment,
 ) {
   return Boolean(
+    payment.hasTransactions ||
+    TRANSFER_PAYMENT_STATUSES.has(normalizePaymentStatus(payment.status)) ||
+    TRANSFER_PAYMENT_STATUSES.has(
+      normalizePaymentStatus(payment.infiniStatus),
+    ) ||
     getPositiveAmount(payment.amountConfirmed) ||
     getPositiveAmount(payment.amountConfirming),
   );
@@ -581,6 +599,9 @@ export function mergePrimeInfiniPaymentProgressSnapshot({
   );
   return {
     ...latest,
+    ...(previous.hasTransactions || latest.hasTransactions
+      ? { hasTransactions: true }
+      : undefined),
     status: preservePreviousTerminalStatus ? previous.status : latest.status,
     infiniStatus: preservePreviousTerminalStatus
       ? previous.infiniStatus

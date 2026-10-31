@@ -21,6 +21,9 @@ const mockPushModal = jest.fn();
 const mockIsLoggedIn = jest.fn<Promise<boolean>, []>();
 const mockApiGetInfiniPurchaseStatusSnapshot = jest.fn();
 const mockApiGetInfiniCheckoutUrl = jest.fn();
+const mockApiGetInfiniPendingPayment = jest.fn();
+const mockApiGetInfiniPaymentOptions = jest.fn();
+const mockUnfinishedPaymentChoice = jest.fn();
 const mockGetPrimeInfiniExternalCheckoutGuard = jest.fn();
 const mockOpenUrlExternal = jest.fn();
 const mockShowPrimeInfiniWaitingDialog = jest.fn();
@@ -66,6 +69,9 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
         mockIsInfiniCheckoutAuthContextCurrent(...args),
       apiGetInfiniPurchaseStatusSnapshot: (...args: unknown[]) =>
         mockApiGetInfiniPurchaseStatusSnapshot(...args),
+      apiGetInfiniPendingPayment: (...args: unknown[]) =>
+        mockApiGetInfiniPendingPayment(...args),
+      apiGetInfiniPaymentOptions: () => mockApiGetInfiniPaymentOptions(),
       apiGetInfiniCheckoutUrl: (...args: unknown[]) =>
         mockApiGetInfiniCheckoutUrl(...args),
     },
@@ -113,6 +119,14 @@ jest.mock('@onekeyhq/shared/src/utils/timerUtils', () => ({
   },
 }));
 
+jest.mock(
+  '../components/PrimePurchaseDialog/showPrimeInfiniUnfinishedPaymentDialog',
+  () => ({
+    showPrimeInfiniUnfinishedPaymentDialog: (...args: unknown[]) =>
+      mockUnfinishedPaymentChoice(...args),
+  }),
+);
+
 jest.mock('../components/PrimeInfiniWaitingDialog', () => ({
   showPrimeInfiniWaitingDialog: (...args: unknown[]) =>
     mockShowPrimeInfiniWaitingDialog(...args),
@@ -125,6 +139,22 @@ jest.mock('./primeInfiniExternalCheckoutGuard', () => ({
 
 describe('usePrimeInfiniPurchase internal wallet route', () => {
   beforeEach(() => {
+    mockApiGetInfiniPendingPayment.mockResolvedValue({
+      authContext: checkoutAuthContext,
+    });
+    mockApiGetInfiniPaymentOptions.mockResolvedValue([
+      {
+        chain: 'ETHEREUM',
+        networkId: 'evm--1',
+        tokens: [
+          {
+            symbol: 'USDC',
+            contract: '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48',
+          },
+        ],
+      },
+    ]);
+    mockUnfinishedPaymentChoice.mockResolvedValue('replace');
     mockGetInfiniCheckoutAuthContext.mockResolvedValue(checkoutAuthContext);
     mockIsInfiniCheckoutAuthContextCurrent.mockResolvedValue(true);
     mockWaitingDelay.mockResolvedValue(undefined);
@@ -137,6 +167,131 @@ describe('usePrimeInfiniPurchase internal wallet route', () => {
   afterEach(() => {
     cleanup();
     jest.clearAllMocks();
+  });
+
+  const remotePayment = {
+    paymentId: 'remote-order',
+    address: '0x1234',
+    chain: 'ETHEREUM',
+    token: 'USDC',
+    amountDue: '29.99',
+    expiresAt: Date.now() + 3_600_000,
+    status: 'confirming',
+  };
+
+  function setupRemotePending(plan?: 'monthly') {
+    mockIsLoggedIn.mockResolvedValue(true);
+    mockGetPrimeInfiniExternalCheckoutGuard.mockResolvedValue({
+      isLoggedIn: true,
+      hasPendingPayment: false,
+      onekeyUserId: 'user-1',
+    });
+    mockApiGetInfiniPurchaseStatusSnapshot.mockResolvedValue({
+      onekeyUserId: 'user-1',
+      primeSubscription: { isActive: false },
+    });
+    mockApiGetInfiniPendingPayment.mockResolvedValue({
+      authContext: checkoutAuthContext,
+      pendingPayment: {
+        paymentId: remotePayment.paymentId,
+        payment: remotePayment,
+        plan,
+        hasTransactions: false,
+      },
+    });
+    mockApiGetInfiniCheckoutUrl.mockResolvedValue({
+      checkoutUrl: 'https://checkout.example.com/new',
+    });
+  }
+
+  it('requires consent before external checkout when the remote plan is missing', async () => {
+    setupRemotePending();
+    mockUnfinishedPaymentChoice.mockImplementation(async () => {
+      expect(mockApiGetInfiniCheckoutUrl).not.toHaveBeenCalled();
+      return 'replace';
+    });
+    const { result } = renderHook(() => usePrimeInfiniPurchase());
+    await act(async () => {
+      await result.current.purchaseByExternalCheckout({
+        selectedSubscriptionPeriod: 'P1Y',
+      });
+    });
+    expect(mockUnfinishedPaymentChoice).toHaveBeenCalledWith(
+      expect.objectContaining({ canResume: false }),
+    );
+    expect(mockApiGetInfiniCheckoutUrl).toHaveBeenCalledTimes(1);
+  });
+
+  it('opens recovery on the remote order plan instead of creating external checkout', async () => {
+    setupRemotePending('monthly');
+    mockUnfinishedPaymentChoice.mockResolvedValue('resume');
+    const { result } = renderHook(() => usePrimeInfiniPurchase());
+    await act(async () => {
+      await result.current.purchaseByExternalCheckout({
+        selectedSubscriptionPeriod: 'P1Y',
+      });
+    });
+    expect(mockApiGetInfiniCheckoutUrl).not.toHaveBeenCalled();
+    expect(mockPushModal).toHaveBeenCalledWith(EModalRoutes.PrimeModal, {
+      screen: EPrimePages.PrimeInfiniPayment,
+      params: expect.objectContaining({
+        selectedSubscriptionPeriod: 'P1M',
+        createNewPayment: false,
+        remotePaymentResumeIntent: {
+          paymentId: 'remote-order',
+          authContext: checkoutAuthContext,
+        },
+      }),
+    });
+  });
+
+  it('keeps a dismissed remote warning from creating a new checkout', async () => {
+    setupRemotePending();
+    mockUnfinishedPaymentChoice.mockResolvedValue('cancel');
+    const { result } = renderHook(() => usePrimeInfiniPurchase());
+    await act(async () => {
+      await result.current.purchaseByExternalCheckout({
+        selectedSubscriptionPeriod: 'P1Y',
+      });
+    });
+    expect(mockApiGetInfiniCheckoutUrl).not.toHaveBeenCalled();
+    expect(mockPushModal).not.toHaveBeenCalled();
+  });
+
+  it('rejects auth changes while the remote warning is open', async () => {
+    setupRemotePending();
+    mockUnfinishedPaymentChoice.mockImplementation(async () => {
+      mockIsInfiniCheckoutAuthContextCurrent.mockResolvedValue(false);
+      return 'replace';
+    });
+    const { result } = renderHook(() => usePrimeInfiniPurchase());
+    await act(async () => {
+      await result.current.purchaseByExternalCheckout({
+        selectedSubscriptionPeriod: 'P1Y',
+      });
+    });
+    expect(mockApiGetInfiniCheckoutUrl).not.toHaveBeenCalled();
+  });
+
+  it('allows only one discovery and warning during repeated external clicks', async () => {
+    setupRemotePending();
+    const pending = createDeferred<'cancel'>();
+    mockUnfinishedPaymentChoice.mockReturnValue(pending.promise);
+    const { result } = renderHook(() => usePrimeInfiniPurchase());
+    const first = result.current.purchaseByExternalCheckout({
+      selectedSubscriptionPeriod: 'P1Y',
+    });
+    await act(async () => {
+      await result.current.purchaseByExternalCheckout({
+        selectedSubscriptionPeriod: 'P1Y',
+      });
+    });
+    pending.resolve('cancel');
+    await act(async () => {
+      await first;
+    });
+    expect(mockApiGetInfiniPendingPayment).toHaveBeenCalledTimes(1);
+    expect(mockUnfinishedPaymentChoice).toHaveBeenCalledTimes(1);
   });
 
   it('opens the Prime payment route in a separate modal', async () => {
@@ -433,12 +588,13 @@ describe('usePrimeInfiniPurchase internal wallet route', () => {
     it('rechecks cancellation after the final background validation returns', async () => {
       const validationStarted = createDeferred();
       const validationResult = createDeferred<boolean>();
-      mockIsInfiniCheckoutAuthContextCurrent
-        .mockResolvedValueOnce(true)
-        .mockImplementationOnce(() => {
-          validationStarted.resolve();
-          return validationResult.promise;
-        });
+      mockIsInfiniCheckoutAuthContextCurrent.mockImplementation(() => {
+        if (!mockShowPrimeInfiniWaitingDialog.mock.calls.length) {
+          return Promise.resolve(true);
+        }
+        validationStarted.resolve();
+        return validationResult.promise;
+      });
       const { result } = renderHook(() => usePrimeInfiniPurchase());
       await act(async () => {
         const attempt = result.current.purchaseByExternalCheckout({

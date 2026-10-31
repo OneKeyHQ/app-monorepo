@@ -60,6 +60,7 @@ import {
 import { showPrimeInfiniWaitingDialog } from '../PrimeInfiniWaitingDialog';
 
 import { PrimeSubscriptionPlans } from './PrimeSubscriptionPlans';
+import { showPrimeInfiniUnfinishedPaymentDialog } from './showPrimeInfiniUnfinishedPaymentDialog';
 import { usePurchasePackageWebview } from './usePurchasePackageWebview';
 
 import type {
@@ -521,34 +522,10 @@ export function usePrimePurchaseCallback({
           throw new OneKeyLocalError('Infini purchase user changed');
         }
         const canResumeCryptoPayment = !isPrimeAppleStorePayment();
-        const choice = await new Promise<'replace' | 'resume' | 'cancel'>(
-          (resolve) => {
-            let selectedChoice: 'replace' | 'resume' | 'cancel' = 'cancel';
-            Dialog.show({
-              title: intl.formatMessage({
-                id: ETranslations.prime_unfinished_payment__title,
-              }),
-              description: intl.formatMessage({
-                id: ETranslations.prime_unfinished_payment__desc,
-              }),
-              onConfirmText: intl.formatMessage({
-                id: ETranslations.prime_start_new_payment__action,
-              }),
-              onCancelText: intl.formatMessage({
-                id: canResumeCryptoPayment
-                  ? ETranslations.prime_keep_waiting__action
-                  : ETranslations.global_cancel,
-              }),
-              onConfirm: () => {
-                selectedChoice = 'replace';
-              },
-              onCancel: () => {
-                selectedChoice = canResumeCryptoPayment ? 'resume' : 'cancel';
-              },
-              onClose: () => resolve(selectedChoice),
-            });
-          },
-        );
+        const choice = await showPrimeInfiniUnfinishedPaymentDialog({
+          intl,
+          canResume: canResumeCryptoPayment,
+        });
         if (choice === 'cancel') {
           return 'cancelled';
         }
