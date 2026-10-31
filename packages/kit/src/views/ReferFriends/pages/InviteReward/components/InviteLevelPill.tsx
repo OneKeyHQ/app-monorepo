@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -13,14 +13,15 @@ import {
   useMedia,
 } from '@onekeyhq/components';
 import { useCurrency } from '@onekeyhq/kit/src/components/Currency';
+import { LevelPolicyNotice } from '@onekeyhq/kit/src/views/ReferFriends/components/LevelPolicyNotice';
 import { CardTextAction } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/components/CardTextAction';
 import { RetentionStatus } from '@onekeyhq/kit/src/views/ReferFriends/pages/ReferralLevel/components/LevelStatusCard';
 import {
   formatLevelTargetRemaining,
   getLevelTargetLabel,
 } from '@onekeyhq/kit/src/views/ReferFriends/pages/ReferralLevel/components/UpgradeTargetsCard';
-import { getLevelOverview } from '@onekeyhq/kit/src/views/ReferFriends/pages/ReferralLevel/getLevelOverview';
 import type { ILevelOverview } from '@onekeyhq/kit/src/views/ReferFriends/pages/ReferralLevel/getLevelOverview';
+import { useLevelOverview } from '@onekeyhq/kit/src/views/ReferFriends/pages/ReferralLevel/hooks/useLevelOverview';
 import { useNavigateToReferralLevel } from '@onekeyhq/kit/src/views/ReferFriends/pages/ReferralLevel/hooks/useNavigateToReferralLevel';
 import { getDisplayLabel } from '@onekeyhq/kit/src/views/ReferFriends/utils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -48,11 +49,16 @@ function LevelSummary({
 }) {
   const intl = useIntl();
   const currencyCode = useCurrency().id.toUpperCase();
-  const { retentionStatus, nextLevel, upgradeTargets } = overview;
+  const { retentionStatus, nextLevel, upgradeTargets, levelPolicy } = overview;
 
   return (
     <YStack px="$5" py="$4" gap="$3">
       <RetentionStatus status={retentionStatus} />
+      <LevelPolicyNotice
+        policy={levelPolicy}
+        floorUntil={overview.floorUntil}
+        inlineDescription
+      />
       {nextLevel && upgradeTargets.length > 0 ? (
         <YStack gap="$1.5">
           <YStack pb="$1">
@@ -107,11 +113,11 @@ function LevelSummary({
           ))}
         </YStack>
       ) : null}
-      {nextLevel ? null : (
+      {!nextLevel && levelPolicy !== 'fixed' ? (
         <SizableText size="$bodyMdMedium">
           {intl.formatMessage({ id: ETranslations.referral_top_level__msg })}
         </SizableText>
-      )}
+      ) : null}
       <XStack pt="$2">
         <CardTextAction
           testID={ReferFriendsTestIDs.inviteLevelDetailsBtn}
@@ -137,10 +143,7 @@ export function InviteLevelPill({
   );
   const navigateToReferralLevel = useNavigateToReferralLevel();
   const { gtMd } = useMedia();
-  const overview = useMemo(
-    () => (levelDetail ? getLevelOverview(levelDetail) : undefined),
-    [levelDetail],
-  );
+  const overview = useLevelOverview(levelDetail);
   // Controlled so a press can close the hover summary at once; left to the
   // hover delay it lingers over the level page.
   const [isSummaryOpen, setIsSummaryOpen] = useState(false);

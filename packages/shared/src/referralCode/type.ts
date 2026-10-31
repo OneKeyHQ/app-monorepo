@@ -42,7 +42,25 @@ export interface IWithdrawAddress {
   updatedAt: string;
 }
 
-export interface IInviteSummary {
+export interface IInviteEffectiveRate {
+  status: string;
+  rebate?: number;
+  discount?: number;
+  source?: 'level' | 'plan';
+  effectiveLevel?: number;
+  planId?: string;
+  ruleMode?: 'userLevel' | 'specifiedLevel' | 'custom';
+}
+
+export interface IInviteUserConfig {
+  configs?: Record<string, IInviteEffectiveRate>;
+  partnerPlan?: { planId: string } | null;
+  levelPolicy?: 'normal' | 'floor' | 'fixed';
+  levelLock?: { isLocked: boolean };
+  floorUntil?: string | null;
+}
+
+export interface IInviteSummary extends IInviteUserConfig {
   faqs: Array<{
     q: string;
     a: string;
@@ -557,7 +575,7 @@ export interface IInviteLevelItem {
     | IInviteLevelCommissionRate[];
 }
 
-export interface IInviteLevelDetail {
+export interface IInviteLevelDetail extends IInviteUserConfig {
   currentLevel: number;
   levelProgress:
     | Record<string, IInviteLevelProgressMeta>

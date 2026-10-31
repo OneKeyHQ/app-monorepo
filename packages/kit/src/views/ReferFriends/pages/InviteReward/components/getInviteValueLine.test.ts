@@ -29,6 +29,18 @@ function figures(items: IInviteValueLineItem[]) {
 }
 
 describe('getInviteValueSummary', () => {
+  it('shows an explicit zero personal rate instead of hiding that product', () => {
+    expect(
+      getInviteValueSummary(
+        [{ subject: 'HardwareSales', you: 0, invitee: 5, enabled: true }],
+        { includeZeroRates: true },
+      ),
+    ).toMatchObject({
+      rate: '0%',
+      friendRate: '5%',
+      rows: [{ subject: 'HardwareSales', you: '0%', friend: '5%' }],
+    });
+  });
   it('leads with the top rate across every paying product', () => {
     expect(figures(GOLD_RATES)).toEqual({
       rate: 'up to 18%',
@@ -114,6 +126,112 @@ describe('getInviteValueSummary', () => {
 });
 
 describe('selectInviteValueLineItems', () => {
+  it.each([
+    { rebate: 0, discount: 5, ruleMode: 'custom' as const },
+    { rebate: 5, discount: 8, ruleMode: 'custom' as const },
+    { rebate: 12, discount: 3, ruleMode: 'specifiedLevel' as const },
+    { rebate: 18, discount: 0, ruleMode: 'userLevel' as const },
+  ])(
+    'uses the exact server-resolved rate, including overrides below the standard tier: %j',
+    (rate) => {
+      const items = selectInviteValueLineItems({
+        commissionRates: GOLD_RATES,
+        partnerPlan: { planId: 'test-plan' },
+        effectiveConfigs: { HardwareSales: { status: 'ok', ...rate } },
+      });
+      expect(
+        getInviteValueSummary(items, { includeZeroRates: true })?.rows,
+      ).toEqual([
+        {
+          subject: 'HardwareSales',
+          labelId: ETranslations.referral_referred_type_3,
+          you: `${rate.rebate}%`,
+          friend: rate.discount > 0 ? `${rate.discount}%` : null,
+        },
+      ]);
+      expect(
+        GOLD_RATES.find((item) => item.subject === 'HardwareSales')?.you,
+      ).toBe(18);
+    },
+  );
+
+  it('does not claim a maximum rate from a partially resolved response', () => {
+    expect(
+      selectInviteValueLineItems({
+        commissionRates: GOLD_RATES,
+        effectiveConfigs: {
+          HardwareSales: { status: 'unavailable' },
+          Swap: { status: 'ok', rebate: 10, discount: 8 },
+        },
+      }),
+    ).toEqual([]);
+  });
+  it('uses resolved personal rates without mutating the standard levels', () => {
+    const levelsBefore = JSON.stringify(GOLD_RATES);
+    const items = selectInviteValueLineItems({
+      commissionRates: GOLD_RATES,
+      effectiveConfigs: {
+        HardwareSales: {
+          status: 'ok',
+          rebate: 50,
+          discount: 0,
+          source: 'plan',
+        },
+        Swap: { status: 'ok', rebate: 10, discount: 8, source: 'plan' },
+        Earn: { status: 'ok', rebate: 10, discount: 10, source: 'level' },
+      },
+      partnerPlan: { planId: 'test-plan' },
+    });
+    expect(figures(items)?.rate).toBe('up to 50%');
+    expect(items.find((item) => item.subject === 'Swap')).toMatchObject({
+      you: 10,
+      invitee: 8,
+      enabled: true,
+    });
+    expect(JSON.stringify(GOLD_RATES)).toBe(levelsBefore);
+  });
+
+  it('keeps products disabled when effective Earn maps to legacy Onchain', () => {
+    expect(
+      selectInviteValueLineItems({
+        commissionRates: GOLD_RATES,
+        configs: { Onchain: { rebate: 10, enabled: false } },
+        effectiveConfigs: { Earn: { status: 'ok', rebate: 50, discount: 10 } },
+      }),
+    ).toEqual([]);
+  });
+
+  it.each([
+    { status: 'unavailable' },
+    { status: 'ok', rebate: Number.NaN, discount: 10 },
+    { status: 'ok', rebate: 50 },
+  ])(
+    'does not substitute a standard rate for an unresolved personal rate: %j',
+    (rate) => {
+      expect(
+        selectInviteValueLineItems({
+          commissionRates: GOLD_RATES,
+          effectiveConfigs: { HardwareSales: rate },
+        }),
+      ).toEqual([]);
+    },
+  );
+
+  it('does not fall back to standard rates for an empty effective result or a plan without rates', () => {
+    expect(
+      selectInviteValueLineItems({
+        commissionRates: GOLD_RATES,
+        effectiveConfigs: {},
+      }),
+    ).toEqual([]);
+    expect(
+      selectInviteValueLineItems({
+        commissionRates: GOLD_RATES,
+        partnerPlan: { planId: 'test-plan' },
+      }),
+    ).toEqual([]);
+  });
+
   it('keeps hook rates when subjects are already the config keys', () => {
     expect(
       selectInviteValueLineItems({

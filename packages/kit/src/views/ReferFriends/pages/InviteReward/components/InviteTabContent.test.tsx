@@ -18,6 +18,12 @@ import { InviteTabContent } from './InviteTabContent';
 const mockCopyText = jest.fn();
 const mockCopyUrl = jest.fn();
 const mockShowReferralShareDialog = jest.fn();
+const mockGetReferralShareCopy = jest.fn(
+  (_intl: unknown, _inviteeRate?: string) => ({
+    headlineId: 'headline',
+    shareText: '',
+  }),
+);
 const mockNavigateToYourReferred = jest.fn();
 const mockNavigateToInviteCodes = jest.fn();
 const mockNavigateToEditAddress = jest.fn();
@@ -180,7 +186,8 @@ jest.mock(
     showReferralShareDialog: (data: unknown) => {
       mockShowReferralShareDialog(data);
     },
-    getReferralShareCopy: () => ({ headlineId: 'headline', shareText: '' }),
+    getReferralShareCopy: (intl: unknown, inviteeRate?: string) =>
+      mockGetReferralShareCopy(intl, inviteeRate),
   }),
 );
 jest.mock('./ReferralLinkDropdown', () => ({
@@ -268,6 +275,47 @@ describe('InviteTabContent entry points', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockMd = false;
+  });
+
+  it('keeps the partner badge separate from the level and clears it when the plan is removed', () => {
+    mockMd = true;
+    const { rerender } = renderTab({
+      ...SUMMARY,
+      partnerPlan: { planId: 'test-plan' },
+    });
+    expect(
+      screen.getByText(ETranslations.referral_partner_benefits__title),
+    ).toBeTruthy();
+    expect(
+      screen.getByTestId(ReferFriendsTestIDs.inviteLevelPill).parentElement
+        ?.textContent,
+    ).not.toContain(ETranslations.referral_partner_benefits__title);
+    rerender(
+      <InviteTabContent
+        summaryInfo={SUMMARY}
+        fetchSummaryInfo={jest.fn()}
+        levelDetail={undefined}
+      />,
+    );
+    expect(
+      screen.queryByText(ETranslations.referral_partner_benefits__title),
+    ).toBeNull();
+    expect(
+      screen.getByTestId(ReferFriendsTestIDs.inviteLevelPill),
+    ).toBeTruthy();
+  });
+
+  it('uses the effective invitee discount when opening the share card', () => {
+    renderTab({
+      ...SUMMARY,
+      partnerPlan: { planId: 'test-plan' },
+      configs: { HardwareSales: { status: 'ok', rebate: 50, discount: 8 } },
+    });
+    fireEvent.click(screen.getByTestId(ReferFriendsTestIDs.inviteShareCardBtn));
+    expect(mockGetReferralShareCopy).toHaveBeenLastCalledWith(
+      expect.anything(),
+      '8%',
+    );
   });
 
   it('copies the invite link and the invite code', () => {
