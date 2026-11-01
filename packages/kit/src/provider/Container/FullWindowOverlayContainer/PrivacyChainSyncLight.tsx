@@ -311,24 +311,6 @@ function BasicPrivacyChainSyncLight() {
   useEffect(() => {
     if (!networkId) setExpanded(false);
   }, [networkId]);
-  useEffect(() => {
-    const reportDeviceNetworkState = () => {
-      void backgroundApiProxy.servicePrivacyChain.setDeviceNetworkState({
-        isCellular,
-      });
-    };
-    reportDeviceNetworkState();
-    appEventBus.on(
-      EAppEventBusNames.BackgroundThreadReady,
-      reportDeviceNetworkState,
-    );
-    return () => {
-      appEventBus.off(
-        EAppEventBusNames.BackgroundThreadReady,
-        reportDeviceNetworkState,
-      );
-    };
-  }, [isCellular]);
   const onPause = useCallback(() => {
     for (const id of pausableNetworkIds) {
       void backgroundApiProxy.servicePrivacyChain.pauseLocalWalletScan({
@@ -469,6 +451,31 @@ function BasicPrivacyChainSyncLight() {
 
 const PrivacyChainSyncLightContent = memo(BasicPrivacyChainSyncLight);
 
+// Tells the scheduler the device's network. Outside the light: the iOS host unmounts the light
+// during a device stage, and a remount would first report the network as unknown.
+function PrivacyChainNetworkReporter() {
+  const isCellular = useIsCellularNetwork();
+  useEffect(() => {
+    const reportDeviceNetworkState = () => {
+      void backgroundApiProxy.servicePrivacyChain.setDeviceNetworkState({
+        isCellular,
+      });
+    };
+    reportDeviceNetworkState();
+    appEventBus.on(
+      EAppEventBusNames.BackgroundThreadReady,
+      reportDeviceNetworkState,
+    );
+    return () => {
+      appEventBus.off(
+        EAppEventBusNames.BackgroundThreadReady,
+        reportDeviceNetworkState,
+      );
+    };
+  }, [isCellular]);
+  return null;
+}
+
 const IOS_HOST_ANIMATION: IOverlayAnimation = { enter: { type: 'none' } };
 
 // iOS lost its full-window container; `hardware` level keeps the light above dialogs and sheets.
@@ -495,8 +502,14 @@ function IOSPrivacyChainSyncLight() {
 
 // Elsewhere the stage's overlay level sits above the app tree the light renders in.
 export function PrivacyChainSyncLight() {
-  if (!platformEnv.isNativeIOS) {
-    return <PrivacyChainSyncLightContent />;
-  }
-  return <IOSPrivacyChainSyncLight />;
+  return (
+    <>
+      <PrivacyChainNetworkReporter />
+      {platformEnv.isNativeIOS ? (
+        <IOSPrivacyChainSyncLight />
+      ) : (
+        <PrivacyChainSyncLightContent />
+      )}
+    </>
+  );
 }

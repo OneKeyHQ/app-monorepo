@@ -15,6 +15,9 @@ let mockStage: { step: string } | undefined;
 let mockIsCellular = false;
 let mockOverlayProps: IOverlayViewProps | undefined;
 const mockPause = jest.fn(async (_params: { networkId: string }) => undefined);
+const mockSetNetwork = jest.fn(
+  async (_params: { isCellular: boolean | undefined }) => undefined,
+);
 const mockResume = jest.fn(
   async (_params: { networkId: string; trigger: string }) => undefined,
 );
@@ -50,7 +53,8 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   __esModule: true,
   default: {
     servicePrivacyChain: {
-      setDeviceNetworkState: async () => undefined,
+      setDeviceNetworkState: (params: { isCellular: boolean | undefined }) =>
+        mockSetNetwork(params),
       pauseLocalWalletScan: (params: { networkId: string }) =>
         mockPause(params),
       startForegroundBoost: (params: { networkId: string; trigger: string }) =>
@@ -441,6 +445,18 @@ describe('under a hardware stage', () => {
     rerender(<PrivacyChainSyncLight />);
     expect(mockOverlayProps?.visible).toBe(true);
     expect(screen.getByTestId('privacy-chain-sync-light')).toBeTruthy();
+  });
+
+  // The light unmounts during the stage; a remount would first report the network as unknown.
+  it('keeps one network report across a device stage', () => {
+    nativeEnv.isNativeIOS = true;
+    mockSetNetwork.mockClear();
+    const { rerender } = render(<PrivacyChainSyncLight />);
+    mockStage = { step: 'loading' };
+    rerender(<PrivacyChainSyncLight />);
+    mockStage = { step: 'off' };
+    rerender(<PrivacyChainSyncLight />);
+    expect(mockSetNetwork.mock.calls).toEqual([[{ isCellular: false }]]);
   });
 
   it('shows on iOS when no stage was ever opened', () => {
