@@ -77,7 +77,7 @@ import type {
   RowActionEvent,
   RowModel,
 } from '@onekeyfe/react-native-native-list';
-import type { ViewInstance } from 'react-native';
+import type { LayoutChangeEvent, ViewInstance } from 'react-native';
 
 type IPendingActions = {
   actions: FooterAction[];
@@ -216,7 +216,7 @@ export function NativeHistoryList(
 ) {
   const {
     data,
-    tableLayout = false,
+    tableLayout: requestedTableLayout,
     initialized,
     frozenTopEnabled,
     observeFrozenTop,
@@ -232,6 +232,13 @@ export function NativeHistoryList(
     webScrollHost,
     webContentPadding,
   } = props;
+  const [nativeListWidth, setNativeListWidth] = useState(0);
+  const handleNativeLayout = useCallback((event: LayoutChangeEvent) => {
+    setNativeListWidth(event.nativeEvent.layout.width);
+  }, []);
+  const tableLayout =
+    requestedTableLayout ??
+    (platformEnv.isNative ? nativeListWidth >= 768 : false);
   const intl = useIntl();
   const nativeListTheme = useHomeNativeListTheme();
   const componentTheme = useTheme();
@@ -949,6 +956,11 @@ export function NativeHistoryList(
   return (
     <View
       ref={containerRef}
+      onLayout={
+        platformEnv.isNative && requestedTableLayout === undefined
+          ? handleNativeLayout
+          : undefined
+      }
       style={
         webScrollHost === undefined
           ? { flex: 1 }

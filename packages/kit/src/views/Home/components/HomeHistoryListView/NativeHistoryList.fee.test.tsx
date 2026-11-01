@@ -11,6 +11,7 @@ import type {
   ActivityRow,
   NativeListSnapshot,
 } from '@onekeyfe/react-native-native-list';
+import type { LayoutChangeEvent } from 'react-native';
 
 let mockSnapshot: NativeListSnapshot;
 let mockNativeListProps: {
@@ -24,9 +25,11 @@ let mockIsNative = true;
 let mockSettingsHideValue = false;
 let mockCanReplaceTx = false;
 let mockStatus = 'confirmed';
+let mockRootLayout: ((event: LayoutChangeEvent) => void) | undefined;
+let mockNativeListMounts = 0;
 const mockTriggerRefresh = jest.fn();
 const mockBuildHistoryActivityRow = jest.fn(
-  (_params: { hideValue: boolean }) => ({
+  (_params: { hideValue: boolean; tableLayout?: boolean }) => ({
     address: '',
     row: { key: 'test-tx', type: 'activity' },
   }),
@@ -49,6 +52,9 @@ jest.mock('@onekeyfe/react-native-native-list', () => ({
   }) => {
     mockSnapshot = snapshot;
     mockNativeListProps = props;
+    React.useEffect(() => {
+      mockNativeListMounts += 1;
+    }, []);
     return null;
   },
 }));
@@ -61,7 +67,16 @@ jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
   },
 }));
 jest.mock('react-native', () => ({
-  View: ({ children }: { children: React.ReactNode }) => children,
+  View: ({
+    children,
+    onLayout,
+  }: {
+    children: React.ReactNode;
+    onLayout?: (event: LayoutChangeEvent) => void;
+  }) => {
+    mockRootLayout = onLayout;
+    return children;
+  },
 }));
 jest.mock('@onekeyhq/components', () => ({
   Stack: () => null,
@@ -180,8 +195,10 @@ jest.mock('../homeNativeListSnapshot', () => ({
   prepareHomeNativeListSnapshot: (snapshot: NativeListSnapshot) => snapshot,
 }));
 jest.mock('./historyActivityRows', () => ({
-  buildHistoryActivityRow: (params: { hideValue: boolean }) =>
-    mockBuildHistoryActivityRow(params),
+  buildHistoryActivityRow: (params: {
+    hideValue: boolean;
+    tableLayout?: boolean;
+  }) => mockBuildHistoryActivityRow(params),
   formatHistoryNumber: () => ({ text: 'fee', textSegments: [] }),
 }));
 
@@ -190,6 +207,8 @@ beforeEach(() => {
   mockSettingsHideValue = false;
   mockCanReplaceTx = false;
   mockStatus = 'confirmed';
+  mockRootLayout = undefined;
+  mockNativeListMounts = 0;
   mockTriggerRefresh.mockClear();
   mockBuildHistoryActivityRow.mockClear();
   mockGetVaultSettings.mockResolvedValue({ hideFeeInfoInHistoryList: false });
@@ -211,6 +230,38 @@ const baseProps = {
   observeFrozenTop: false,
   onAwayFromTopChange() {},
 } as IHomeHistoryListViewProps;
+
+it('switches native rows at the root width without remounting the list', () => {
+  const { rerender } = render(<NativeHistoryList {...baseProps} />);
+  const rowLayout = () =>
+    mockBuildHistoryActivityRow.mock.lastCall?.[0].tableLayout;
+  expect(rowLayout()).toBe(false);
+  act(() => {
+    mockRootLayout?.({
+      nativeEvent: { layout: { width: 767 } },
+    } as LayoutChangeEvent);
+  });
+  expect(rowLayout()).toBe(false);
+  act(() => {
+    mockRootLayout?.({
+      nativeEvent: { layout: { width: 768 } },
+    } as LayoutChangeEvent);
+  });
+  expect(rowLayout()).toBe(true);
+  act(() => {
+    mockRootLayout?.({
+      nativeEvent: { layout: { width: 767 } },
+    } as LayoutChangeEvent);
+  });
+  expect(rowLayout()).toBe(false);
+  expect(mockNativeListMounts).toBe(1);
+
+  rerender(<NativeHistoryList {...baseProps} tableLayout={false} />);
+  expect(mockRootLayout).toBeUndefined();
+  expect(rowLayout()).toBe(false);
+  rerender(<NativeHistoryList {...baseProps} tableLayout />);
+  expect(rowLayout()).toBe(true);
+});
 
 it('only observes the native scroll position when requested', () => {
   const view = render(<NativeHistoryList {...baseProps} frozenTopEnabled />);
