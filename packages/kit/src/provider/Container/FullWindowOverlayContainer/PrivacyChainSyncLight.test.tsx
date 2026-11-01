@@ -220,6 +220,18 @@ it('expands both networks, and pauses all of them', async () => {
   ]);
 });
 
+// Waiting for Wi-Fi must not keep the light up for the whole cellular session.
+it('pauses a chain that waits for Wi-Fi, folding it into the Continue bar', async () => {
+  mockState.dataBlockedNetworkIds = ['zec--0'];
+  mockState.progress['zec--0:account'] = scanProgress(107);
+  render(<PrivacyChainSyncLight />);
+  await screen.findByTestId('privacy-chain-sync-network-zec--0');
+  await act(async () => {
+    fireEvent.click(screen.getByTestId('privacy-chain-sync-light-pause-btn'));
+  });
+  expect(mockPause.mock.calls).toEqual([[{ networkId: 'zec--0' }]]);
+});
+
 // The light keeps a paused chain, so Continue is where Pause was.
 it('keeps a paused chain with a Continue that resumes every paused chain', async () => {
   mockState.pausedNetworkIds = ['zec--0', 'xmr--0'];
@@ -355,7 +367,8 @@ describe('on a phone', () => {
     ).toBe('privacy_sync_keep_open__msg');
   });
 
-  // Waiting for Wi-Fi nothing is scanning: no pause, no mobile data icon, nothing to keep open.
+  // Waiting for Wi-Fi nothing is scanning: no mobile data icon, nothing to keep open, but Pause
+  // still folds it away.
   it('waits for Wi-Fi collapsed and offers the allow button once expanded', async () => {
     mockIsCellular = true;
     mockState.dataBlockedNetworkIds = ['zec--0'];
@@ -369,7 +382,7 @@ describe('on a phone', () => {
     ).toBeNull();
     expect(
       screen.queryByTestId('privacy-chain-sync-light-pause-btn'),
-    ).toBeNull();
+    ).toBeTruthy();
     expect(
       screen.queryByTestId('privacy-chain-sync-mobile-data-zec--0'),
     ).toBeNull();
@@ -390,7 +403,7 @@ describe('on a phone', () => {
   });
 });
 
-it('keeps the other chain pause control available while a storage error is visible', async () => {
+it('pauses a chain with a storage error along with the other one', async () => {
   mockState.storageUnsupportedNetworkIds = ['zec--0'];
   mockState.boostingNetworkIds = ['zec--0', 'xmr--0'];
   mockState.progress['xmr--0:account'] = scanProgress(400);
@@ -401,11 +414,11 @@ it('keeps the other chain pause control available while a storage error is visib
   await act(async () => {
     fireEvent.click(screen.getByTestId('privacy-chain-sync-light-pause-btn'));
   });
-  expect(mockPause.mock.calls).toEqual([[{ networkId: 'xmr--0' }]]);
-  // The storage error cannot be paused away; it stays visible.
-  expect(
-    screen.getByTestId('privacy-chain-sync-light-detail').textContent,
-  ).toContain('privacy_error_webview_outdated__msg');
+  // An outdated WebView must not keep the light up either.
+  expect(mockPause.mock.calls).toEqual([
+    [{ networkId: 'zec--0' }],
+    [{ networkId: 'xmr--0' }],
+  ]);
 });
 
 describe('under a hardware stage', () => {

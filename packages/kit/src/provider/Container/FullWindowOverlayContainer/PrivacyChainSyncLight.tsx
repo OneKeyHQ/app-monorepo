@@ -301,6 +301,12 @@ function BasicPrivacyChainSyncLight() {
     () => visibleNetworkIds.filter((id) => pausedNetworkIds.includes(id)),
     [visibleNetworkIds, pausedNetworkIds],
   );
+  // Waiting for Wi-Fi or an outdated WebView must not keep the light up either: Pause folds every
+  // shown chain that is not paused yet into the Continue bar.
+  const pausableNetworkIds = useMemo(
+    () => visibleNetworkIds.filter((id) => !pausedNetworkIds.includes(id)),
+    [visibleNetworkIds, pausedNetworkIds],
+  );
 
   useEffect(() => {
     if (!networkId) setExpanded(false);
@@ -324,12 +330,12 @@ function BasicPrivacyChainSyncLight() {
     };
   }, [isCellular]);
   const onPause = useCallback(() => {
-    for (const id of controllableNetworkIds) {
+    for (const id of pausableNetworkIds) {
       void backgroundApiProxy.servicePrivacyChain.pauseLocalWalletScan({
         networkId: id,
       });
     }
-  }, [controllableNetworkIds]);
+  }, [pausableNetworkIds]);
   const onResume = useCallback(() => {
     for (const id of resumableNetworkIds) {
       void backgroundApiProxy.servicePrivacyChain.startForegroundBoost({
@@ -364,7 +370,7 @@ function BasicPrivacyChainSyncLight() {
         })}
         onPress={() => setExpanded((value) => !value)}
       />
-      {hasRunningScans ? (
+      {pausableNetworkIds.length ? (
         <IconButton
           testID="privacy-chain-sync-light-pause-btn"
           size="small"
@@ -374,7 +380,7 @@ function BasicPrivacyChainSyncLight() {
           onPress={onPause}
         />
       ) : null}
-      {!hasRunningScans && resumableNetworkIds.length ? (
+      {!pausableNetworkIds.length && resumableNetworkIds.length ? (
         <IconButton
           testID="privacy-chain-sync-light-resume-btn"
           size="small"
