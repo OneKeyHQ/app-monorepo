@@ -446,8 +446,6 @@ class ServicePrivacyChain extends ServiceBase {
     });
   }
 
-  // Viewing material for an account, rebuilt from the mnemonic when missing, using a cached
-  // password only; never prompts. Undefined while locked.
   // `created`: no key was stored before this call. Only the user's own enable comes here, so it
   // may prompt.
   private async obtainLocalWalletViewingKey({
