@@ -1,8 +1,11 @@
 /** @jest-environment jsdom */
 
+import { isValidElement } from 'react';
 import type { CSSProperties, PropsWithChildren, ReactElement } from 'react';
 
 import { act, render } from '@testing-library/react';
+
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import {
   MobileMarketNativeStockList,
@@ -104,6 +107,16 @@ let mockNativeSnapshot: NativeListSnapshot | undefined;
 let mockNativeLayout: ((event: LayoutChangeEvent) => void) | undefined;
 let mockNativeHeader: unknown;
 let mockNativeListMounts = 0;
+
+function collectHeaderText(node: unknown): string[] {
+  if (typeof node === 'string') return [node];
+  if (Array.isArray(node)) return node.flatMap(collectHeaderText);
+  if (isValidElement<{ children?: unknown }>(node)) {
+    return collectHeaderText(node.props.children);
+  }
+  return [];
+}
+
 let mockTravelMode = false;
 const mockRefetch = jest.fn();
 const mockRefresh = jest.fn();
@@ -563,6 +576,34 @@ describe('MobileMarketNativeTokenList refresh', () => {
     mockIsLoadMoreError = false;
     jest.clearAllMocks();
   });
+
+  it.each([
+    ['5m', 768],
+    ['1h', 768],
+    ['4h', 1024],
+  ] as const)(
+    'labels the %s change metric without implying 24h at width %i',
+    (timeRange, width) => {
+      render(
+        <MobileMarketNativeTokenList
+          networkId="evm--1"
+          timeRange={timeRange}
+          listContainerProps={{ paddingBottom: 20 }}
+        />,
+      );
+      act(() => {
+        mockNativeLayout?.({
+          nativeEvent: { layout: { width } },
+        } as LayoutChangeEvent);
+      });
+      expect(collectHeaderText(mockNativeHeader)).toContain(
+        ETranslations.dexmarket_token_change,
+      );
+      expect(collectHeaderText(mockNativeHeader)).not.toContain(
+        ETranslations.dexmarket_banner_token_24hchange,
+      );
+    },
+  );
 
   it('retries an error row through the uncached native request', async () => {
     mockRefetch.mockResolvedValue(undefined);

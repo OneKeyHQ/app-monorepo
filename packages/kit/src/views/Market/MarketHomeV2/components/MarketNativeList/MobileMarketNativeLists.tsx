@@ -954,6 +954,9 @@ function MobileMarketNativeTokenListImpl({
         listRef={listRef}
         onColumnModeChange={onColumnModeChange}
         rows={rows}
+        changeColumnTitle={intl.formatMessage({
+          id: ETranslations.dexmarket_token_change,
+        })}
         loading={showSkeleton}
         errorMessage={
           result.isError
