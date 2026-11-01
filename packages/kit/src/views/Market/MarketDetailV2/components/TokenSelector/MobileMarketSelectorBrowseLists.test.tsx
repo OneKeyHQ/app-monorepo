@@ -100,8 +100,26 @@ jest.mock('@onekeyhq/components', () => {
         {children}
       </button>
     ),
-    NumberSizeableText: ({ children }: { children?: ReactNode }) => (
-      <span data-testid="number">{children}</span>
+    NumberSizeableText: ({
+      children,
+      formatter,
+      formatterOptions,
+      numberOfLines,
+    }: {
+      children?: ReactNode;
+      formatter?: string;
+      formatterOptions?: { currency?: string; capAtMaxT?: boolean };
+      numberOfLines?: number;
+    }) => (
+      <span
+        data-testid="number"
+        data-formatter={formatter}
+        data-currency={formatterOptions?.currency}
+        data-cap-at-max-t={String(formatterOptions?.capAtMaxT)}
+        data-number-of-lines={numberOfLines}
+      >
+        {children}
+      </span>
     ),
     SizableText: ({ children }: { children?: ReactNode }) => (
       <span>{children}</span>
@@ -292,6 +310,12 @@ describe('MobileSelectorSearchTokenRow price change', () => {
     expect(screen.getAllByTestId('number')).toHaveLength(4);
     expect(screen.getByText('1000')).toBeTruthy();
     expect(screen.getByText('500')).toBeTruthy();
+    for (const value of screen.getAllByTestId('number').slice(-2)) {
+      expect(value.dataset.formatter).toBe('marketCap');
+      expect(value.dataset.currency).toBe('$');
+      expect(value.dataset.capAtMaxT).toBe('true');
+      expect(value.dataset.numberOfLines).toBe('1');
+    }
 
     rerender(
       <MobileSelectorSearchTokenRow

@@ -318,7 +318,12 @@ function BasicMobileMarketSelectorListItem({
           {[metricValue, volumeValue].map((value, index) => (
             <XStack key={index} width={120} justifyContent="flex-end">
               {value !== undefined && value > 0 ? (
-                <NumberSizeableText size="$bodyMd" formatter="marketCap">
+                <NumberSizeableText
+                  size="$bodyMd"
+                  numberOfLines={1}
+                  formatter="marketCap"
+                  formatterOptions={{ currency: '$', capAtMaxT: true }}
+                >
                   {value}
                 </NumberSizeableText>
               ) : (
