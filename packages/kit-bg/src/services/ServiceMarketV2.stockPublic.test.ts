@@ -230,6 +230,19 @@ describe('ServiceMarketV2 public stock APIs', () => {
     expect(mockGet).toHaveBeenCalledTimes(2);
   });
 
+  it('suppresses optional basic-config errors for the detail lookup', async () => {
+    const service = createService();
+    const error = Object.assign(new Error('offline'), { autoToast: true });
+    mockGet.mockRejectedValueOnce(error);
+    await expect(
+      service.fetchMarketBasicConfig({ autoHandleError: false }),
+    ).rejects.toBe(error);
+    expect(error.autoToast).toBe(false);
+    expect(mockGet.mock.calls[0]?.[1]).toEqual(
+      expect.objectContaining({ autoHandleError: false }),
+    );
+  });
+
   it('loads a stock watchlist quote without resolving a token variant', async () => {
     const service = createService();
     const variants = jest.spyOn(service, 'fetchMarketStockTokenVariants');
