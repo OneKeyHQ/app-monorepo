@@ -157,7 +157,7 @@ function createService({
       getLocalWalletAccountState: jest.fn(async () => accountState),
       refreshLocalWalletAccount: jest.fn(async () => undefined),
       scheduleBackgroundSync: jest.fn(),
-      shortenStartupQuietWindow: jest.fn(),
+      endStartupQuietWindow: jest.fn(),
       publishScanProgress: jest.fn(),
       publishBoostingNetworks: jest.fn(),
       refreshAutoBoost: jest.fn(),

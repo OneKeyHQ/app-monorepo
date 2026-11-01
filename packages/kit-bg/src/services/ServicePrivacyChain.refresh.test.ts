@@ -137,8 +137,8 @@ function stubScheduling(service: object) {
     foregroundBoostRequestedByNetwork: {},
     syncFailureBackoff: new Map(),
     deviceIsCellular: false,
-    serviceBootAt: 0,
-    earliestTickAt: 60_000,
+    serviceBootAt: Date.now(),
+    earliestTickAt: Date.now() + 60_000,
   });
 }
 
@@ -340,7 +340,7 @@ it('marks an account preparing on an explicit sync until its next published posi
     `${networkId}:${accountId}`,
   ]);
   // Started as soon as the user asked, not after the startup quiet window.
-  expect(service.earliestTickAt).toBe(30_000);
+  expect(service.earliestTickAt).toBeLessThanOrEqual(Date.now());
   await service.publishScanProgress(candidate);
   expect(publishedState().preparingAccountKeys).toEqual([]);
 });

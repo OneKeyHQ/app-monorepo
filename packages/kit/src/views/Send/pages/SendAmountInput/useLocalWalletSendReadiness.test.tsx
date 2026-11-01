@@ -11,6 +11,7 @@ let mockRequest:
   | undefined;
 const mockRun = jest.fn(async () => undefined);
 const mockRequestSync = jest.fn<Promise<void>, [object]>(async () => undefined);
+const mockPageOpened = jest.fn<Promise<void>, [object]>(async () => undefined);
 const mockGetReadiness = jest.fn<
   Promise<ILocalWalletSendReadiness | undefined>,
   [{ networkId: string; accountId: string; sourcePool?: string }]
@@ -21,6 +22,7 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   default: {
     servicePrivacyChain: {
       requestLocalWalletSendSync: (params: object) => mockRequestSync(params),
+      onLocalWalletPageOpened: (params: object) => mockPageOpened(params),
       getLocalWalletSendReadiness: (params: {
         networkId: string;
         accountId: string;
@@ -152,6 +154,15 @@ describe('useLocalWalletSendReadiness', () => {
     expect(mockRequestSync).toHaveBeenCalledTimes(2);
   });
 
+  // Not only a pool with a send sync: every privacy send wants the chain caught up now.
+  it('wakes the scan as the page opens', () => {
+    mockPageOpened.mockClear();
+    renderHook(() => useLocalWalletSendReadiness(props));
+    expect(mockPageOpened).toHaveBeenCalledWith({
+      networkId: props.networkId,
+    });
+  });
+
   it('waits until this account and pool have an answer, then follows it', () => {
     const { result, rerender } = renderHook(
       (value: typeof props) => useLocalWalletSendReadiness(value),
@@ -185,6 +196,7 @@ describe('useLocalWalletSendReadiness', () => {
     );
     expect(result.current.isWaitingForSync).toBe(false);
     expect(mockRequestSync).not.toHaveBeenCalled();
+    expect(mockPageOpened).not.toHaveBeenCalled();
   });
 
   it('reads again when the account publishes progress', async () => {

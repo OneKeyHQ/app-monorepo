@@ -71,9 +71,13 @@ export function useLocalWalletSendReadiness({
   const intl = useIntl();
   const scope = `${networkId}:${accountId ?? ''}:${sourcePool ?? ''}`;
 
-  // Keyed on account and pool only, so typing an amount never restarts it.
+  // Keyed on account and pool only, so typing an amount never restarts it. Every send catches up
+  // at once; one with a send sync also waits for it.
   useEffect(() => {
     if (!enabled || !accountId) return;
+    void backgroundApiProxy.servicePrivacyChain
+      .onLocalWalletPageOpened({ networkId })
+      .catch(() => undefined);
     void backgroundApiProxy.servicePrivacyChain
       .requestLocalWalletSendSync({ networkId, accountId, sourcePool })
       .catch(() => undefined);

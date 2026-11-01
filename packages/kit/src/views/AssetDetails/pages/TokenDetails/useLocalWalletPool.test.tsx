@@ -52,6 +52,7 @@ const mockGetLastSyncedAt = jest.fn<
   [IAccountParams]
 >();
 const mockRefreshAccount = jest.fn<Promise<void>, [IAccountParams]>();
+const mockPageOpened = jest.fn<Promise<void>, [{ networkId: string }]>();
 const mockEnableAccount = jest.fn<Promise<void>, [IAccountParams]>();
 const mockGetSyncProgress = jest.fn<
   Promise<ILocalWalletSyncProgress | undefined>,
@@ -87,6 +88,8 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
         mockGetLastSyncedAt(params),
       refreshLocalWalletAccount: (params: IAccountParams) =>
         mockRefreshAccount(params),
+      onLocalWalletPageOpened: (params: { networkId: string }) =>
+        mockPageOpened(params),
       getLocalWalletSyncProgress: (params: IAccountParams) =>
         mockGetSyncProgress(params),
       enableLocalWalletAccount: (params: IAccountParams) =>
@@ -245,6 +248,7 @@ beforeEach(() => {
   mockTimerWait.mockReset().mockImplementation(() => new Promise(() => {}));
   mockGetLastSyncedAt.mockReset().mockResolvedValue(undefined);
   mockRefreshAccount.mockReset().mockResolvedValue(undefined);
+  mockPageOpened.mockReset().mockResolvedValue(undefined);
   mockGetState.mockReset().mockImplementation(async () => ({
     enabled: mockEnabled,
     paused: mockPaused,
@@ -267,6 +271,29 @@ beforeEach(() => {
 
 afterEach(() => {
   jest.useRealTimers();
+});
+
+// An open token page wants fresh data, not the startup quiet window's.
+describe('useLocalWalletPool wakes the scan', () => {
+  it.each([
+    [true, false, 1],
+    [false, false, 0],
+    [true, true, 0],
+  ])(
+    'when the page opens (enabled: %s, paused: %s)',
+    async (enabled, paused, calls) => {
+      mockEnabled = enabled;
+      mockPaused = paused;
+      renderHook(useLocalWalletPool, { initialProps: props });
+      await flushReads();
+      expect(mockPageOpened).toHaveBeenCalledTimes(calls);
+      if (calls) {
+        expect(mockPageOpened).toHaveBeenCalledWith({
+          networkId: props.networkId,
+        });
+      }
+    },
+  );
 });
 
 describe('useLocalWalletPool address shows quickly', () => {

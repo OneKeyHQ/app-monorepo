@@ -933,3 +933,40 @@ describe('Privacy sync backoff after a user action', () => {
     logged.mockRestore();
   });
 });
+
+// An open privacy page is a waiting user: the startup quiet window ends, and nothing lights up.
+describe('Privacy page opened', () => {
+  function createService() {
+    return Object.assign(
+      Object.create(ServicePrivacyChain.prototype) as InstanceType<
+        typeof ServicePrivacyChain
+      >,
+      {
+        serviceBootAt: Date.now(),
+        earliestTickAt: Date.now() + 60_000,
+        getLocalWalletNetworkIds: async () => ['zec--0'],
+        init: jest.fn(async () => undefined),
+        scheduleBackgroundSync: jest.fn(),
+        publishBoostingNetworks: jest.fn(),
+        foregroundBoostRequestedByNetwork: {},
+      },
+    );
+  }
+
+  it('schedules a pass now, ignoring the startup quiet window', async () => {
+    const service = createService();
+    await service.onLocalWalletPageOpened({ networkId: 'zec--0' });
+    expect(service.earliestTickAt).toBeLessThanOrEqual(Date.now());
+    expect(service.scheduleBackgroundSync).toHaveBeenCalledWith(0);
+    expect(service.foregroundBoostRequestedByNetwork).toEqual({});
+    expect(service.publishBoostingNetworks).not.toHaveBeenCalled();
+  });
+
+  it('does nothing for a network without local scanning', async () => {
+    const service = createService();
+    const quietUntil = service.earliestTickAt;
+    await service.onLocalWalletPageOpened({ networkId: 'evm--1' });
+    expect(service.earliestTickAt).toBe(quietUntil);
+    expect(service.scheduleBackgroundSync).not.toHaveBeenCalled();
+  });
+});

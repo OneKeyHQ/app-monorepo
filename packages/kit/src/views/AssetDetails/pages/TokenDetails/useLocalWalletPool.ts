@@ -192,6 +192,13 @@ export function useLocalWalletPool({
     hasPooledBalance &&
     !!accountId &&
     (enabled || pool?.source === 'backend');
+  // An open privacy token page wants fresh data now, not after the startup quiet window.
+  useEffect(() => {
+    if (!canRead) return;
+    void backgroundApiProxy.servicePrivacyChain
+      .onLocalWalletPageOpened({ networkId })
+      .catch(() => undefined);
+  }, [canRead, networkId]);
   // Scope follows accountScope only, so a tab switch keeps what is already on screen.
   const readScope = useMemo(() => ({ accountScope }), [accountScope]);
   const readScopeRef = useRef(readScope);
