@@ -47,7 +47,7 @@ export function BannerDetailListColumnHeader({
 
   if (columnMode !== 'compact') {
     return (
-      <XStack px="$5" py="$2" gap="$2" ai="center">
+      <XStack key="table" px="$5" py="$2" gap="$2" ai="center">
         <XStack flex={2} minWidth={0}>
           <SizableText
             pl={46}
@@ -107,7 +107,7 @@ export function BannerDetailListColumnHeader({
   }
 
   return (
-    <XStack px="$5">
+    <XStack key="compact" px="$5">
       <XStack jc="flex-start" ai="center" width="50%">
         <SizableText color="$textSubdued" size="$bodySmMedium" py="$2">
           {primaryColumnTitle}
