@@ -13,12 +13,26 @@ import androidx.core.content.ContextCompat;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.HashMap;
+import java.util.Map;
+import java.lang.ref.WeakReference;
 
 import so.onekey.app.wallet.MainLauncherActivity;
 
 /** Keeps the launcher's result contract while the app renders the shared editor. */
 public final class MarketWidgetConfigureActivity extends Activity {
     static final String EXTRA_EDIT_EXISTING = "so.onekey.app.wallet.marketwidget.EDIT_EXISTING";
+    private static final Map<String, WeakReference<Activity>> editors = new HashMap<>();
+
+    static void completeEditing(Context context, String token, boolean saved, Activity editor) throws Exception {
+        if (editor != null) editors.put(token, new WeakReference<>(editor));
+        try {
+            MarketWidgetEditorSession.complete(context, token, saved);
+        } catch (Exception error) {
+            editors.remove(token);
+            throw error;
+        }
+    }
 
     static final class InitialEditorState {
         final String source;
@@ -48,10 +62,14 @@ public final class MarketWidgetConfigureActivity extends Activity {
     private final BroadcastReceiver completion = new BroadcastReceiver() {
         @Override public void onReceive(Context context, Intent intent) {
             if (session != null && session.equals(intent.getStringExtra(MarketWidgetEditorSession.EXTRA_SESSION))) {
-                // Keep the launcher's result activity in the task until the app returns to it.
-                // Finishing it in the background can resume Home before the proxy delivers RESULT_OK.
                 if (resumed) finishFromSession();
-                else logLifecycle("activity.completion_waiting_for_resume");
+                else {
+                    // Launch from this Activity's token to return to its original task.
+                    // Sending the app task behind Home can cancel the launcher's pending result.
+                    logLifecycle("activity.return_requested");
+                    startActivity(new Intent(MarketWidgetConfigureActivity.this, MarketWidgetConfigureActivity.class)
+                        .addFlags(Intent.FLAG_ACTIVITY_REORDER_TO_FRONT | Intent.FLAG_ACTIVITY_SINGLE_TOP));
+                }
             }
         }
     };
@@ -92,6 +110,14 @@ public final class MarketWidgetConfigureActivity extends Activity {
             MarketWidgetEditorSession current = MarketWidgetEditorSession.read(this, session);
             MarketWidgetLog.event("activity.check_completion", "sessionRef", MarketWidgetLog.sessionRef(session), "result", current.result);
             if (current.result == 0) return;
+            WeakReference<Activity> reference = editors.remove(session);
+            Activity editor = reference == null ? null : reference.get();
+            // Hide the app only after the result owner is foreground, so Home cannot cancel it.
+            if (editor != null && !editor.isFinishing() && editor.getTaskId() != getTaskId()) {
+                boolean moved = editor.moveTaskToBack(true);
+                MarketWidgetLog.event("activity.editor_backgrounded", "sessionRef", MarketWidgetLog.sessionRef(session),
+                    "editorTaskId", editor.getTaskId(), "taskId", getTaskId(), "resumed", resumed, "moved", moved);
+            }
             setResult(current.result == 1 ? RESULT_OK : RESULT_CANCELED,
                 new Intent().putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, current.widgetId));
             MarketWidgetLog.event("activity.result_returned", "sessionRef", MarketWidgetLog.sessionRef(session),
@@ -135,7 +161,10 @@ public final class MarketWidgetConfigureActivity extends Activity {
     @Override protected void onDestroy() {
         logLifecycle("activity.destroy");
         if (receiverRegistered) unregisterReceiver(completion);
-        if (isFinishing()) MarketWidgetEditorSession.remove(this, session);
+        if (isFinishing()) {
+            editors.remove(session);
+            MarketWidgetEditorSession.remove(this, session);
+        }
         super.onDestroy();
     }
 

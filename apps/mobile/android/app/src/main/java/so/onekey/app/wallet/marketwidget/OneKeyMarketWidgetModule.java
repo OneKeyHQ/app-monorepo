@@ -203,10 +203,10 @@ public final class OneKeyMarketWidgetModule extends ReactContextBaseJavaModule {
         MarketWidgetLog.event("editor.finish_started", "sessionRef", MarketWidgetLog.sessionRef(token), "saved", saved);
         getReactApplicationContext().runOnUiQueueThread(() -> {
             try {
-                MarketWidgetEditorSession.complete(getReactApplicationContext(), token, saved);
                 Activity activity = getReactApplicationContext().getCurrentActivity();
-                if (activity != null && !activity.isFinishing()) activity.moveTaskToBack(true);
-                MarketWidgetLog.event("editor.finish_succeeded", "sessionRef", MarketWidgetLog.sessionRef(token), "saved", saved);
+                MarketWidgetConfigureActivity.completeEditing(getReactApplicationContext(), token, saved, activity);
+                MarketWidgetLog.event("editor.finish_succeeded", "sessionRef", MarketWidgetLog.sessionRef(token),
+                    "saved", saved, "editorTaskId", activity == null ? -1 : activity.getTaskId());
                 promise.resolve(null);
             } catch (Exception error) {
                 MarketWidgetLog.failure("editor.finish_failed", error, "sessionRef", MarketWidgetLog.sessionRef(token));
