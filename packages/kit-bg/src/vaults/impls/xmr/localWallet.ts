@@ -34,6 +34,7 @@ import { KeyringHd } from './KeyringHd';
 import { getXmrLifecycleMutex } from './lifecycle';
 import {
   deleteXmrDatabase,
+  fetchXmrChainTipDirect,
   forgetXmrStaleFirst,
   getXmrChainTip,
   getXmrIdentityId,
@@ -746,7 +747,7 @@ export function buildXmrLocalWalletCapability(
     getAccountAliases,
 
     async getChainTip() {
-      const tip = await getXmrChainTip(await requireRuntime());
+      const tip = await fetchXmrChainTipDirect(vault);
       await saveLastLocalWalletChainTip({
         backgroundApi: vault.backgroundApi,
         networkId: vault.networkId,

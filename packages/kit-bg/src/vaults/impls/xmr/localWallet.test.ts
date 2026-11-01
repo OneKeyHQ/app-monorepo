@@ -80,6 +80,7 @@ const mockForgetStaleFirst = jest.fn<void, [string[] | undefined]>();
 const mockOnlineRuntime = jest.fn(async () => runtime);
 const mockLocalRuntime = jest.fn(async () => runtime);
 const mockLiveTip = jest.fn(async () => 3_767_827);
+const mockDirectTip = jest.fn(async () => 3_767_827);
 let mockCachedTip: number | undefined = 3_767_827;
 jest.mock('./runtime', () => ({
   isXmrRuntimeBusy: () => mockBusy,
@@ -92,6 +93,7 @@ jest.mock('./runtime', () => ({
   getXmrRuntimeUuid: ({ accountId }: { accountId: string }) =>
     mockGetRuntimeUuid(accountId),
   getXmrChainTip: () => mockLiveTip(),
+  fetchXmrChainTipDirect: () => mockDirectTip(),
   getXmrLastKnownChainTip: async () => mockCachedTip,
   getXmrNodeHealth: () => mockNodeHealth,
   readXmrStaleFirst: async <T>(p: {
@@ -1007,11 +1009,17 @@ describe('xmr local management while offline', () => {
 });
 
 describe('xmr chain tip for the next cold start', () => {
-  it('saves the tip the scheduler fetches', async () => {
-    await expect(capability().getChainTip()).resolves.toBe(3_767_827);
+  // Asked of the node directly, so a send or read holding the runtime never delays the scheduler.
+  it('saves the tip the scheduler fetches, without the runtime', async () => {
+    mockOnlineRuntime.mockClear();
+    mockLiveTip.mockClear();
+    mockDirectTip.mockResolvedValueOnce(3_767_900);
+    await expect(capability().getChainTip()).resolves.toBe(3_767_900);
     await expect(
       privacyChainCache.getChainTip({ networkId: 'xmr--0' }),
-    ).resolves.toBe(3_767_827);
+    ).resolves.toBe(3_767_900);
+    expect(mockOnlineRuntime).not.toHaveBeenCalled();
+    expect(mockLiveTip).not.toHaveBeenCalled();
   });
 });
 

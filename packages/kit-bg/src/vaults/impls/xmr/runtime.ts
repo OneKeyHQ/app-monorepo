@@ -7,9 +7,11 @@ import {
 import type { IXmrRuntimeApi } from '@onekeyhq/core/src/chains/xmr/sdkXmrRuntime';
 import { XMR_RUNTIME_METHODS } from '@onekeyhq/core/src/chains/xmr/sdkXmrRuntime/methods';
 import type { IXmrNetwork } from '@onekeyhq/core/src/chains/xmr/sdkXmrRuntime/types';
+import { fetchXmrNodeHeightDirect } from '@onekeyhq/core/src/chains/xmr/xmrNodeDirect';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
 import { getLastLocalWalletChainTip } from '../../localWallet/privacyChainCacheStore';
+import { LOCAL_WALLET_CHAIN_TIP_FAILED_MESSAGE } from '../../localWallet/userFacingError';
 import { getLocalWalletViewingKey } from '../../localWallet/viewingKeyStore';
 
 import type Vault from './Vault';
@@ -435,6 +437,23 @@ export async function getXmrChainTip(api: IXmrRuntimeApi): Promise<number> {
   });
   lastKnownChainTip = tip.height;
   return tip.height;
+}
+
+// The scheduler's tip, asked of the node directly: the runtime's own fetch waits behind a running
+// scan or send, holding up every chain's turn. It feeds the same health and last-tip records.
+export async function fetchXmrChainTipDirect(vault: Vault): Promise<number> {
+  const url = await vault.resolveXmrNodeUrl();
+  const startedAt = Date.now();
+  const height = await fetchXmrNodeHeightDirect({ nodeBase: url }).catch(
+    () => null,
+  );
+  if (height === null) {
+    recordXmrNodeHealth({ url, ok: false, latencyMs: null });
+    throw new OneKeyLocalError(LOCAL_WALLET_CHAIN_TIP_FAILED_MESSAGE);
+  }
+  recordXmrNodeHealth({ url, ok: true, latencyMs: Date.now() - startedAt });
+  lastKnownChainTip = height;
+  return height;
 }
 
 // Last observed tip for display and local scan-data management. Sending and

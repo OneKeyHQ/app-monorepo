@@ -1,6 +1,9 @@
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
+import { getLocalWalletSyncErrorKind } from '../../localWallet/userFacingError';
+
 import {
+  fetchXmrChainTipDirect,
   forgetXmrStaleFirst,
   getXmrChainTip,
   getXmrLastKnownChainTip,
@@ -22,6 +25,11 @@ const raw = {
   balance: jest.fn(async () => '{}'),
   syncStep: jest.fn(async () => '{}'),
 };
+
+const mockFetchHeightDirect = jest.fn<Promise<number | null>, [unknown]>();
+jest.mock('@onekeyhq/core/src/chains/xmr/xmrNodeDirect', () => ({
+  fetchXmrNodeHeightDirect: (params: unknown) => mockFetchHeightDirect(params),
+}));
 
 jest.mock('@onekeyhq/core/src/chains/xmr/sdkXmrRuntime', () => ({
   getXmrRuntimeApi: async () => raw,
@@ -542,6 +550,37 @@ describe('xmr node health', () => {
       ok: false,
     });
   });
+
+  // The scheduler's tip skips the runtime and its lock, yet still feeds health and the last tip.
+  it('records a direct tip fetch without opening the runtime', async () => {
+    mockFetchHeightDirect.mockResolvedValueOnce(3_800_000);
+    await expect(fetchXmrChainTipDirect(vault)).resolves.toBe(3_800_000);
+    expect(raw.openWallet).not.toHaveBeenCalled();
+    expect(raw.chainTip).not.toHaveBeenCalled();
+    expect(mockFetchHeightDirect).toHaveBeenCalledWith({
+      nodeBase: 'https://node.example:18081',
+    });
+    expect(getXmrNodeHealth()).toMatchObject({
+      url: 'https://node.example:18081',
+      ok: true,
+    });
+    await expect(getXmrLastKnownChainTip(vault)).resolves.toBe(3_800_000);
+  });
+
+  it.each([
+    ['a refused connection', () => Promise.reject(new Error('offline'))],
+    ['an error status', () => Promise.resolve(null)],
+  ])(
+    'reports %s on the direct tip as an unreachable node',
+    async (_, reply) => {
+      mockFetchHeightDirect.mockImplementationOnce(reply);
+      const error = await fetchXmrChainTipDirect(vault).catch(
+        (e: unknown) => e,
+      );
+      expect(getLocalWalletSyncErrorKind(error)).toBe('nodeUnreachable');
+      expect(getXmrNodeHealth()).toMatchObject({ ok: false });
+    },
+  );
 
   it('keys the sample by the node it came from', async () => {
     await getXmrChainTip(await getXmrRuntime(vault));
