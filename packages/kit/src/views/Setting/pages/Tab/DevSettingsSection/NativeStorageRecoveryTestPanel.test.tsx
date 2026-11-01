@@ -98,10 +98,8 @@ jest.mock('@onekeyhq/shared/src/modules3rdParty/appRestart', () => ({
 
 function openConfirmation() {
   const button = screen.getByTestId('real-storage-marker-remove');
-  expect((button as HTMLButtonElement).disabled).toBe(true);
-  fireEvent.change(screen.getByTestId('real-storage-marker-confirmation'), {
-    target: { value: NATIVE_STORAGE_REAL_MARKER_TEST_CONFIRMATION },
-  });
+  expect((button as HTMLButtonElement).disabled).toBe(false);
+  expect(screen.queryByTestId('real-storage-marker-confirmation')).toBeNull();
   fireEvent.click(button);
   return mockDialog.mock.calls[0][0] as {
     onConfirm: () => Promise<void>;
@@ -123,7 +121,7 @@ describe('real marker developer test UI', () => {
     expect(mockInspect).not.toHaveBeenCalled();
     expect(mockSimulate).not.toHaveBeenCalled();
   });
-  it('requires the exact typed acknowledgement and a second confirmation; cancellation changes nothing', async () => {
+  it('requires a second confirmation without typing; cancellation changes nothing', async () => {
     render(<NativeStorageRecoveryTestPanel />);
     await waitFor(() => expect(mockInspect).toHaveBeenCalled());
     const dialog = openConfirmation();
@@ -170,10 +168,7 @@ describe('real marker developer test UI', () => {
       screen.getByText(/real marker is missing but restart failed/),
     ).not.toBeNull();
     expect(mockSimulate).toHaveBeenCalledTimes(1);
-    expect(
-      (screen.getByTestId('real-storage-marker-remove') as HTMLButtonElement)
-        .disabled,
-    ).toBe(true);
+    expect(mockDialog).toHaveBeenCalledTimes(1);
   });
   it('does not run a stale confirmation after leaving the panel', async () => {
     const view = render(<NativeStorageRecoveryTestPanel />);

@@ -24,13 +24,20 @@ export type INativeStorageBootstrapErrorScreenProps = {
   testSessionId?: string;
   storageRepairInProgress: boolean;
   storageRepairCompleted: boolean;
+  storageEmergencyModeEnabled?: boolean;
   storageRepairCanReset: boolean;
   storageRepairError?: string;
   storageRepairSummary?: INativeAppStorageRepairSummary;
   hasAppComponent: boolean;
   startStorageRepair: (
     target: INativeStorageMigrationRecoveryTarget,
-    action?: 'prepare' | 'complete' | 'reset' | 'close' | 'restart',
+    action?:
+      | 'prepare'
+      | 'complete'
+      | 'reset'
+      | 'close'
+      | 'restart'
+      | 'emergency',
     force?: boolean,
   ) => Promise<void>;
   retryBootstrapAfterFailure: () => Promise<void>;
@@ -82,6 +89,7 @@ export function NativeStorageBootstrapErrorScreen({
   testSessionId,
   storageRepairInProgress,
   storageRepairCompleted,
+  storageEmergencyModeEnabled,
   storageRepairCanReset,
   storageRepairError,
   storageRepairSummary,
@@ -95,6 +103,9 @@ export function NativeStorageBootstrapErrorScreen({
   const [repairConfirmationTarget, setRepairConfirmationTarget] = useState<
     INativeStorageMigrationRecoveryTarget | undefined
   >();
+  const [confirmEmergency, setConfirmEmergency] = useState(false);
+  const isEmergency =
+    recoveryTarget === 'appStorage' && storageEmergencyModeEnabled;
   const isConfirmingRepair = repairConfirmationTarget === recoveryTarget;
   const isRepairCompleted =
     recoveryTarget === 'appStorage' && storageRepairCompleted;
@@ -104,6 +115,7 @@ export function NativeStorageBootstrapErrorScreen({
       ? 'Storage repair complete'
       : 'Local storage needs repair';
   }
+  if (isEmergency) recoveryTitle = 'Emergency storage mode enabled';
   let recoveryDescription = bootstrapErrorMessage;
   if (recoveryTarget === 'appStorage') {
     recoveryDescription = isRepairCompleted
@@ -113,6 +125,9 @@ export function NativeStorageBootstrapErrorScreen({
     recoveryDescription =
       'Retry loading local preferences. If that fails, you can choose to rebuild the affected preferences. The original legacy storage will be kept unchanged.';
   }
+  if (isEmergency)
+    recoveryDescription =
+      'Current MMKV reads and writes are enabled. Migration is NOT complete and data may be incomplete. Legacy and old transaction evidence are retained. Close to restart the app. Future recovery must explicitly choose the current or legacy snapshot; it must not silently merge old data into new writes.';
   let repairConfirmationMessage =
     'This resets the affected local preferences. The original legacy storage will be kept unchanged. Continue?';
   if (recoveryTarget === 'appStorage') {
@@ -127,6 +142,50 @@ export function NativeStorageBootstrapErrorScreen({
   if (storageRepairInProgress) {
     recoveryAction = (
       <ActivityIndicator testID="native-storage-repair-progress" />
+    );
+  } else if (isEmergency) {
+    recoveryAction = (
+      <Pressable
+        accessibilityRole="button"
+        onPress={() => void startStorageRepair('appStorage', 'close')}
+        style={styles.retryButton}
+        testID="native-storage-emergency-close"
+      >
+        <Text style={styles.retryText}>Use current data (restart)</Text>
+      </Pressable>
+    );
+  } else if (confirmEmergency) {
+    recoveryAction = (
+      <>
+        <Text style={styles.message}>
+          Continue with the current real MMKV, even if data is incomplete or
+          inconsistent? Legacy is a retained historical snapshot, not
+          necessarily the latest data. Existing values and transaction evidence
+          will be kept, and migration will NOT be marked complete. New writes
+          will change the current snapshot; a future restore of legacy may
+          discard those new changes. Storage that cannot persist writes cannot
+          be forced to work. Back up your wallets first.
+        </Text>
+        <Pressable
+          accessibilityRole="button"
+          onPress={() => {
+            setConfirmEmergency(false);
+            void startStorageRepair('appStorage', 'emergency');
+          }}
+          style={styles.retryButton}
+          testID="native-storage-emergency-confirm"
+        >
+          <Text style={styles.retryText}>Confirm emergency continuation</Text>
+        </Pressable>
+        <Pressable
+          accessibilityRole="button"
+          onPress={() => setConfirmEmergency(false)}
+          style={styles.restartButton}
+          testID="native-storage-emergency-cancel"
+        >
+          <Text style={styles.restartText}>Cancel</Text>
+        </Pressable>
+      </>
     );
   } else if (isRepairCompleted) {
     recoveryAction = (
@@ -221,7 +280,7 @@ export function NativeStorageBootstrapErrorScreen({
       !storageRepairSummary.scanComplete;
     recoveryAction = (
       <>
-        {requiresForce ? (
+        {requiresForce && testSessionId ? (
           <Pressable
             accessibilityRole="button"
             onPress={() => setRepairConfirmationTarget(recoveryTarget)}
@@ -298,10 +357,29 @@ export function NativeStorageBootstrapErrorScreen({
         <Text style={styles.message}>{storageRepairError}</Text>
       ) : null}
       {recoveryAction}
+      {recoveryTarget === 'appStorage' &&
+      !testSessionId &&
+      !storageRepairInProgress &&
+      !isRepairCompleted &&
+      !isEmergency &&
+      !confirmEmergency &&
+      (storageRepairSummary || storageRepairError) ? (
+        <Pressable
+          accessibilityRole="button"
+          onPress={() => setConfirmEmergency(true)}
+          style={styles.restartButton}
+          testID="native-storage-emergency-open"
+        >
+          <Text style={styles.restartText}>
+            Continue with current data (emergency)
+          </Text>
+        </Pressable>
+      ) : null}
       {recoveryTarget &&
       !testSessionId &&
       !storageRepairInProgress &&
       !isRepairCompleted &&
+      !isEmergency &&
       (storageRepairSummary || storageRepairError) ? (
         <Pressable
           accessibilityRole="button"

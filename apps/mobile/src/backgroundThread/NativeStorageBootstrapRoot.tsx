@@ -21,11 +21,13 @@ import {
   dismissNativeStorageRecovery,
   getRequestedNativeStorageRecovery,
   getRequestedNativeStorageRecoveryTestSessionId,
+  setNativeAppStorageEmergencyStatus,
   subscribeNativeStorageRecovery,
 } from '@onekeyhq/shared/src/storage/nativeStorageRecovery';
 import type { INativeStorageRecoveryTestRequest } from '@onekeyhq/shared/src/storage/nativeStorageRecoveryTestTypes';
 import { getNativeStorageMigrationRecoveryTarget } from '@onekeyhq/shared/src/storage/nativeStorageTypes';
 import type {
+  INativeAppStorageEmergencyStatus,
   INativeAppStorageRepairSummary,
   INativeStorageMigrationRecoveryTarget,
 } from '@onekeyhq/shared/src/storage/nativeStorageTypes';
@@ -49,6 +51,7 @@ let storageRepairPromise: Promise<void> | undefined;
 let recoveryRestartPromise: Promise<void> | undefined;
 let storageRepairInProgress = false;
 let storageRepairCompleted = false;
+let storageEmergencyModeEnabled = false;
 let storageRepairCanReset = false;
 let storageRepairError: string | undefined;
 let storageRepairSummary: INativeAppStorageRepairSummary | undefined;
@@ -427,7 +430,13 @@ function restartAfterBootstrapFailure({
 
 function startStorageRepair(
   target: INativeStorageMigrationRecoveryTarget,
-  action: 'prepare' | 'complete' | 'reset' | 'close' | 'restart' = 'prepare',
+  action:
+    | 'prepare'
+    | 'complete'
+    | 'reset'
+    | 'close'
+    | 'restart'
+    | 'emergency' = 'prepare',
   force = false,
 ) {
   if (storageRepairPromise) {
@@ -450,7 +459,8 @@ function startStorageRepair(
     if (action === 'close' || action === 'restart') {
       if (
         action === 'close' &&
-        (target !== 'appStorage' || !storageRepairCompleted)
+        (target !== 'appStorage' ||
+          (!storageRepairCompleted && !storageEmergencyModeEnabled))
       ) {
         throw new OneKeyLocalError('Storage repair has not completed');
       }
@@ -459,11 +469,31 @@ function startStorageRepair(
         ? 'storage.migration.test.repaired'
         : 'storage.migration.repaired';
       if (action === 'restart') restartReason = 'storage.migration.incomplete';
+      if (storageEmergencyModeEnabled)
+        restartReason = 'storage.migration.emergency';
       await appRestart({
         mode: EAppRestartMode.All,
         reason: restartReason,
       });
       restartScheduled = true;
+      return;
+    }
+    if (target === 'appStorage' && action === 'emergency') {
+      if (testSessionId)
+        throw new OneKeyLocalError(
+          'Real emergency continuation is unavailable for isolated test sessions',
+        );
+      const status = await callNativeStorage<INativeAppStorageEmergencyStatus>({
+        scope: 'recovery',
+        operation: 'enableEmergencyAppStorage',
+        confirmed: true,
+      });
+      if (status?.mode !== 'emergency' || status.phase !== 'active')
+        throw new OneKeyLocalError('Emergency mode was not durably activated');
+      storageEmergencyModeEnabled = true;
+      setNativeAppStorageEmergencyStatus(status);
+      await bootstrapNativeStorage({ force: true });
+      await initializeJotaiFromBackground();
       return;
     }
     if (target === 'appStorage' && action === 'prepare') {
@@ -562,7 +592,10 @@ function startStorageRepair(
         target === 'jotai' &&
         action !== 'reset' &&
         getNativeStorageMigrationRecoveryTarget(error) === target;
-      if (storageRepairCompleted) {
+      if (storageEmergencyModeEnabled) {
+        storageRepairError =
+          'Emergency storage mode is active, but app state could not be refreshed or restarted. Close to restart, or fully close and reopen the app. Migration is not complete.';
+      } else if (storageRepairCompleted) {
         storageRepairError =
           action === 'close'
             ? 'Storage repair is complete, but the app could not restart. Please close and reopen the app.'
@@ -698,6 +731,7 @@ export function NativeStorageBootstrapRoot() {
           testSessionId={getRequestedNativeStorageRecoveryTestSessionId()}
           storageRepairInProgress={storageRepairInProgress}
           storageRepairCompleted={storageRepairCompleted}
+          storageEmergencyModeEnabled={storageEmergencyModeEnabled}
           storageRepairCanReset={storageRepairCanReset}
           storageRepairError={storageRepairError}
           storageRepairSummary={storageRepairSummary}

@@ -1,4 +1,30 @@
-import type { INativeStorageMigrationRecoveryTarget } from './nativeStorageTypes';
+import type {
+  INativeAppStorageEmergencyStatus,
+  INativeStorageMigrationRecoveryTarget,
+} from './nativeStorageTypes';
+
+let emergencyStatus: INativeAppStorageEmergencyStatus | undefined;
+const emergencyListeners = new Set<() => void>();
+export function getNativeAppStorageEmergencyStatus() {
+  return emergencyStatus;
+}
+export function subscribeNativeAppStorageEmergencyStatus(listener: () => void) {
+  emergencyListeners.add(listener);
+  return () => {
+    emergencyListeners.delete(listener);
+  };
+}
+export function setNativeAppStorageEmergencyStatus(
+  status: INativeAppStorageEmergencyStatus | undefined,
+) {
+  const next =
+    status?.mode === 'emergency' && status.phase === 'active'
+      ? status
+      : undefined;
+  if (emergencyStatus?.epoch === next?.epoch) return;
+  emergencyStatus = next;
+  emergencyListeners.forEach((listener) => listener());
+}
 
 let requestedTarget: INativeStorageMigrationRecoveryTarget | undefined;
 let requestedTestSessionId: string | undefined;

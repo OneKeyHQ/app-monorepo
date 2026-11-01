@@ -9,6 +9,7 @@ import { OneKeyLocalError } from '@onekeyhq/shared/src/errors/errors/localError'
 import { dismissKeyboard } from '@onekeyhq/shared/src/keyboard';
 import type { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { getNativeStorageRecoveryToastTarget } from '@onekeyhq/shared/src/storage/nativeStorageTypes';
 
 import { Portal } from '../../hocs';
 import { useSettingConfig } from '../../hocs/Provider/hooks/useProviderValue';
@@ -24,6 +25,7 @@ import {
 } from '../../primitives';
 import { Spinner } from '../../primitives/Spinner/Spinner';
 
+import { NativeStorageRecoveryToastActions } from './NativeStorageRecoveryToastActions';
 import { ShowCustom, ShowToasterClose } from './ShowCustom';
 import { dismissToast, showMessage } from './showMessage';
 
@@ -42,6 +44,7 @@ export interface IToastProps {
   actionsAlign?: 'left' | 'right';
   actions?: JSX.Element | JSX.Element[];
   onClose?: () => void;
+  nativeStorageRecoveryTestSessionId?: string;
 }
 
 export interface IToastBaseProps extends IToastProps {
@@ -129,6 +132,8 @@ export function ToastContent({
   actions,
   onClose,
   actionsAlign = 'right',
+  nativeStorageRecoveryTestSessionId,
+  onRequestClose,
 }: {
   title: string;
   message?: string;
@@ -137,6 +142,8 @@ export function ToastContent({
   onClose?: () => void;
   actions?: IToastProps['actions'];
   actionsAlign?: 'left' | 'right';
+  nativeStorageRecoveryTestSessionId?: string;
+  onRequestClose?: () => void | Promise<void>;
 }) {
   const { height } = useWindowDimensions();
   const pageWidth = usePageWidth();
@@ -189,7 +196,9 @@ export function ToastContent({
             </RenderLines>
           ) : null}
 
-          {actions ? (
+          {actions ||
+          (platformEnv.isNative &&
+            getNativeStorageRecoveryToastTarget(title, message)) ? (
             <XStack
               gap="$2"
               justifyContent={
@@ -199,7 +208,15 @@ export function ToastContent({
               paddingRight="$0.5"
               paddingBottom="$0.5"
             >
-              {actions}
+              <NativeStorageRecoveryToastActions
+                title={title}
+                message={message}
+                actions={actions}
+                nativeStorageRecoveryTestSessionId={
+                  nativeStorageRecoveryTestSessionId
+                }
+                onRequestClose={onRequestClose}
+              />
             </XStack>
           ) : null}
         </YStack>
@@ -250,6 +267,16 @@ const handleToastId = ({
   }
   return handleClose;
 };
+function createToastCloseHandler() {
+  let instance: ReturnType<typeof showMessage> | undefined;
+  return {
+    close: () => instance?.close(),
+    attach: (value: ReturnType<typeof showMessage>) => {
+      instance = value;
+    },
+  };
+}
+
 function toastMessage({
   toastId,
   title,
@@ -262,6 +289,7 @@ function toastMessage({
   actionsAlign = 'right',
   position,
   onClose,
+  nativeStorageRecoveryTestSessionId,
 }: IToastBaseProps) {
   const handleClose = handleToastId({ title, toastId, duration, onClose });
   if (!handleClose) return;
@@ -281,7 +309,8 @@ function toastMessage({
   ) : (
     iconMap[haptic as keyof typeof iconMap]
   );
-  return showMessage({
+  const closeHandler = createToastCloseHandler();
+  const instance: ReturnType<typeof showMessage> = showMessage({
     renderContent: (props) => (
       <ToastContent
         onClose={handleClose}
@@ -291,6 +320,8 @@ function toastMessage({
         icon={iconElement}
         actions={actions}
         actionsAlign={actionsAlign}
+        nativeStorageRecoveryTestSessionId={nativeStorageRecoveryTestSessionId}
+        onRequestClose={closeHandler.close}
       />
     ),
     toastId,
@@ -299,6 +330,8 @@ function toastMessage({
     preset,
     position,
   });
+  closeHandler.attach(instance);
+  return instance;
 }
 
 function ToastNotificationContent({
@@ -309,7 +342,10 @@ function ToastNotificationContent({
   imageUri,
   onClose,
   onPress,
-}: IToastNotificationProps) {
+  actions,
+  nativeStorageRecoveryTestSessionId,
+  onRequestClose,
+}: IToastNotificationProps & { onRequestClose?: () => void | Promise<void> }) {
   const pageWidth = usePageWidth();
   useEffect(
     () => () => {
@@ -372,6 +408,20 @@ function ToastNotificationContent({
         >
           {message}
         </SizableText>
+        {platformEnv.isNative &&
+        getNativeStorageRecoveryToastTarget(title, message) ? (
+          <XStack gap="$2" justifyContent="flex-end" paddingTop="$3">
+            <NativeStorageRecoveryToastActions
+              title={title}
+              message={message}
+              actions={actions}
+              nativeStorageRecoveryTestSessionId={
+                nativeStorageRecoveryTestSessionId
+              }
+              onRequestClose={onRequestClose}
+            />
+          </XStack>
+        ) : null}
       </YStack>
       {imageUri && imageSource ? (
         <Image borderRadius="$1" size="$12" source={imageSource} />
@@ -395,10 +445,12 @@ function toastNotification({
   position,
   onPress,
   onClose,
+  nativeStorageRecoveryTestSessionId,
 }: IToastNotificationProps) {
   const handleClose = handleToastId({ title, toastId, duration, onClose });
   if (!handleClose) return;
-  return showMessage({
+  const closeHandler = createToastCloseHandler();
+  const instance: ReturnType<typeof showMessage> = showMessage({
     renderContent: (_props) => (
       <ToastNotificationContent
         onClose={handleClose}
@@ -410,6 +462,8 @@ function toastNotification({
         actions={actions}
         actionsAlign={actionsAlign}
         onPress={onPress}
+        nativeStorageRecoveryTestSessionId={nativeStorageRecoveryTestSessionId}
+        onRequestClose={closeHandler.close}
       />
     ),
     duration,
@@ -417,6 +471,8 @@ function toastNotification({
     preset,
     position,
   });
+  closeHandler.attach(instance);
+  return instance;
 }
 
 export { default as Toaster } from './Toaster';

@@ -33,6 +33,9 @@ jest.mock('@onekeyhq/core/src/secret', () => ({
   ),
   mnemonicFromEntropy: jest.fn(),
 }));
+jest.mock('@onekeyhq/shared/src/storage/nativeStorageExecutor', () => ({
+  isNativeAppStorageEmergencyModeActive: jest.fn(() => false),
+}));
 jest.mock('../../dbs/local/localDb', () => ({
   __esModule: true,
   default: {
@@ -220,6 +223,37 @@ describe('isolated manual mnemonic recovery', () => {
         password: 'encoded-test-password',
       }),
     ).rejects.toThrow('expired');
+  });
+
+  it('uses verified background emergency state even when current MMKV reads succeed, while still verifying the wallet password', async () => {
+    jest.replaceProperty(platformEnv, 'isNativeBackgroundThread', true);
+    const owner =
+      await import('@onekeyhq/shared/src/storage/nativeStorageExecutor');
+    jest
+      .mocked(owner.isNativeAppStorageEmergencyModeActive)
+      .mockReturnValueOnce(true);
+    jest.mocked(appStorage.getItem).mockResolvedValue(null);
+    const {
+      service,
+      getAtomStates,
+      verifyPasswordForManualMnemonicRecovery,
+      promptPasswordVerifyByWallet,
+    } = createService();
+    const info = await service.getManualMnemonicRecoveryInfo({
+      walletId: 'hd-1',
+    });
+    expect(info).toBeDefined();
+    expect(getAtomStates).not.toHaveBeenCalled();
+    await expect(
+      service.getManualRecoveryMnemonic({
+        sessionId: info!.sessionId,
+        password: 'encoded-test-password',
+      }),
+    ).resolves.toEqual({ mnemonic: 'encoded-test-result' });
+    expect(verifyPasswordForManualMnemonicRecovery).toHaveBeenCalledWith(
+      'encoded-test-password',
+    );
+    expect(promptPasswordVerifyByWallet).not.toHaveBeenCalled();
   });
 
   it('recovers only after the background full canonical snapshot actually fails', async () => {

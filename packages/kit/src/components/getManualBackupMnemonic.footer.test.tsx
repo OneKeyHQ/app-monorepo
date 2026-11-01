@@ -5,6 +5,10 @@
 import type { ReactNode } from 'react';
 
 import { act, fireEvent, render, screen } from '@testing-library/react';
+import { useForm } from 'react-hook-form';
+
+import { WrongPassword } from '@onekeyhq/shared/src/errors';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { DialogContext } from '../../../components/src/composite/Dialog/context';
 import { Footer } from '../../../components/src/composite/Dialog/Footer';
@@ -22,6 +26,7 @@ const mockForm = {
   trigger: jest.fn(async () => true),
   getValues: () => ({ password: 'typed-test-password' }),
   reset: jest.fn(),
+  setError: jest.fn(),
 };
 const mockFormRef: { current: typeof mockForm | undefined } = {
   current: mockForm,
@@ -31,7 +36,13 @@ const mockClose = jest.fn(async () => {
 });
 const mockRecover = jest.fn(async () => ({ mnemonic: 'encoded-test-result' }));
 const mockCancel = jest.fn(async () => undefined);
-const intl = { formatMessage: () => 'Enter passcode' } as unknown as IntlShape;
+const mockShowError = jest.fn();
+const intl = {
+  formatMessage: ({ id }: { id: string }) =>
+    id === ETranslations.auth_error_password_incorrect
+      ? 'Incorrect passcode'
+      : 'Enter passcode',
+} as unknown as IntlShape;
 
 jest.mock('react-native', () => ({
   AppState: { addEventListener: () => ({ remove: jest.fn() }) },
@@ -73,6 +84,11 @@ jest.mock('@onekeyhq/components', () => ({
     { Form: () => null, FormField: () => null },
   ),
   Input: () => null,
+  Toast: {
+    error: (...args: unknown[]) => {
+      mockShowError(...args);
+    },
+  },
   rootNavigationRef: {
     current: {
       getCurrentRoute: () => ({ key: 'manual-backup' }),
@@ -103,7 +119,23 @@ async function flush() {
   });
 }
 
-async function openWithRealFooter() {
+function RealPasswordForm() {
+  const form = useForm<{ password: string }>({
+    defaultValues: { password: 'typed-test-password' },
+  });
+  mockFormRef.current = form as unknown as typeof mockForm;
+  return (
+    <>
+      <input
+        aria-label="Recovery password"
+        {...form.register('password', { required: true })}
+      />
+      <span>{form.formState.errors.password?.message}</span>
+    </>
+  );
+}
+
+async function openWithRealFooter(realForm = false) {
   const result = getManualBackupMnemonic('hd-1', intl);
   await flush();
   const context = {
@@ -116,6 +148,7 @@ async function openWithRealFooter() {
   } as unknown as IDialogContextType;
   render(
     <DialogContext.Provider value={context}>
+      {realForm ? <RealPasswordForm /> : null}
       <Footer showFooter showConfirmButton onConfirm={mockDialog?.onConfirm} />
     </DialogContext.Provider>,
   );
@@ -148,6 +181,41 @@ describe('manual backup with the real Dialog Footer confirmation contract', () =
     await pressConfirm();
     await expect(result).resolves.toEqual({ mnemonic: 'encoded-test-result' });
     expect(mockClose).toHaveBeenCalledTimes(1);
+  });
+
+  it('shows WrongPassword below the real form, stays open and accepts another password', async () => {
+    mockRecover.mockRejectedValueOnce(new WrongPassword());
+    const { result } = await openWithRealFooter(true);
+    await pressConfirm();
+    expect(screen.getByText('Incorrect passcode')).toBeTruthy();
+    expect(mockClose).not.toHaveBeenCalled();
+    expect(mockShowError).not.toHaveBeenCalled();
+    expect(
+      (screen.getByLabelText('Recovery password') as HTMLInputElement).value,
+    ).toBe('');
+    fireEvent.change(screen.getByLabelText('Recovery password'), {
+      target: { value: 'correct-test-password' },
+    });
+    await pressConfirm();
+    await expect(result).resolves.toEqual({ mnemonic: 'encoded-test-result' });
+    expect(mockRecover).toHaveBeenCalledTimes(2);
+    expect(mockClose).toHaveBeenCalledTimes(1);
+    expect(screen.queryByText('Incorrect passcode')).toBeNull();
+  });
+
+  it('keeps other failures visible without labelling them as WrongPassword', async () => {
+    mockRecover.mockRejectedValueOnce(
+      new Error('Wallet credential is unavailable'),
+    );
+    const { result } = await openWithRealFooter(true);
+    await pressConfirm();
+    expect(mockShowError).toHaveBeenCalledWith({
+      title: 'Wallet credential is unavailable',
+    });
+    expect(screen.queryByText('Incorrect passcode')).toBeNull();
+    expect(mockClose).not.toHaveBeenCalled();
+    await mockDialog?.onClose?.();
+    await expect(result).resolves.toBeUndefined();
   });
 
   it('keeps the dialog open when validation changes between Footer and callback', async () => {

@@ -86,7 +86,12 @@ const mockRestart = jest.fn(async (_options: unknown) => {
   reloadBackground();
   mockDismissRecovery();
 });
-type IToast = { title: string; actions?: import('react').ReactNode };
+type IToast = {
+  title: string;
+  message?: string;
+  actions?: import('react').ReactNode;
+  nativeStorageRecoveryTestSessionId?: string;
+};
 let mockToast: IToast | undefined;
 const mockToastListeners = new Set<() => void>();
 function updateToast(toast?: IToast) {
@@ -95,6 +100,8 @@ function updateToast(toast?: IToast) {
 }
 const mockToastError = jest.fn((toast: IToast) => updateToast(toast));
 function TestToastHost() {
+  const { NativeStorageRecoveryToastActions } =
+    require('../../../../packages/components/src/actions/Toast/NativeStorageRecoveryToastActions') as typeof import('../../../../packages/components/src/actions/Toast/NativeStorageRecoveryToastActions');
   const toast = mockReact.useSyncExternalStore(
     (listener) => {
       mockToastListeners.add(listener);
@@ -107,7 +114,10 @@ function TestToastHost() {
   return toast ? (
     <div>
       {toast.title}
-      {toast.actions}
+      <NativeStorageRecoveryToastActions
+        {...toast}
+        onRequestClose={() => updateToast()}
+      />
     </div>
   ) : null;
 }
@@ -133,6 +143,9 @@ function TestButton({ children, testID, onPress, disabled }: IElementProps) {
   );
 }
 
+jest.mock('../../../../packages/components/src/primitives/Button', () => ({
+  Button: TestButton,
+}));
 jest.mock('react-native', () => ({
   ScrollView: TestView,
   View: TestView,

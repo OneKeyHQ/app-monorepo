@@ -6055,6 +6055,13 @@ class ServiceAccount extends ServiceBase {
           throw error;
         return true;
       }
+      if (platformEnv.isNativeBackgroundThread) {
+        // Owner state is set only after the persisted emergency fence is
+        // verified. A caller cannot assert this recovery evidence.
+        const { isNativeAppStorageEmergencyModeActive } =
+          await import('@onekeyhq/shared/src/storage/nativeStorageExecutor');
+        if (isNativeAppStorageEmergencyModeActive()) return true;
+      }
       try {
         // Fixed full snapshot, read directly in bg. Caller-selected atoms and
         // main-runtime reports must never establish recovery admission.

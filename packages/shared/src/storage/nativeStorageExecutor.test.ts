@@ -237,6 +237,353 @@ describe('nativeStorageExecutor', () => {
     jest.restoreAllMocks();
   });
 
+  describe('public emergency continuation', () => {
+    function seedMismatch() {
+      mockMigrationLedger.set('app-storage-v1', 'complete-v1');
+      mockAppMMKV.set('app:keep', 'current');
+      mockLegacyData.set('keep', 'stale-legacy');
+      mockLegacyData.set('legacy-only', 'must-not-be-imported');
+      mockAppMMKV.set(
+        BATCH_JOURNAL_KEY,
+        JSON.stringify({
+          version: 1,
+          previousValues: [['app:keep', 'before-old-crash']],
+        }),
+      );
+    }
+    it('requires confirmation and a real mismatch without trapping healthy normal reads on rejection', async () => {
+      markAppStorageMigrated();
+      mockAppMMKV.set('app:keep', 'healthy');
+      const { executeNativeStorageRequest } = loadExecutor();
+      await expect(
+        executeNativeStorageRequest({
+          scope: 'recovery',
+          operation: 'enableEmergencyAppStorage',
+          confirmed: false,
+        } as unknown as Parameters<typeof executeNativeStorageRequest>[0]),
+      ).rejects.toThrow('explicit confirmation');
+      await expect(
+        executeNativeStorageRequest({
+          scope: 'recovery',
+          operation: 'enableEmergencyAppStorage',
+          confirmed: true,
+        }),
+      ).rejects.toThrow('missing-marker fault');
+      await expect(
+        executeNativeStorageRequest({
+          scope: 'asyncStorage',
+          operation: 'getItem',
+          key: 'keep',
+        }),
+      ).resolves.toBe('healthy');
+      expect(mockAppMMKV.getString(MIGRATION_KEY)).toBe('1');
+      expect(
+        mockAppMMKV.getAllKeys().filter((key) => key.includes('emergency')),
+      ).toEqual([]);
+    });
+
+    it('holds later business writes behind the final emergency durability acknowledgement', async () => {
+      seedMismatch();
+      const { executeNativeStorageRequest } = loadExecutor();
+      let release: (() => void) | undefined;
+      let reached: (() => void) | undefined;
+      const finalBarrier = new Promise<void>((resolve) => {
+        reached = resolve;
+      });
+      let calls = 0;
+      mockSyncNativeStorageMMKV.mockImplementation(async () => {
+        calls += 1;
+        if (calls === 6) {
+          reached?.();
+          await new Promise<void>((resolve) => {
+            release = resolve;
+          });
+        }
+      });
+      const activation = executeNativeStorageRequest({
+        scope: 'recovery',
+        operation: 'enableEmergencyAppStorage',
+        confirmed: true,
+      });
+      await finalBarrier;
+      const write = executeNativeStorageRequest({
+        scope: 'asyncStorage',
+        operation: 'setItem',
+        key: 'later',
+        value: 'acknowledged-later',
+      });
+      await Promise.resolve();
+      expect(mockAppMMKV.getString('app:later')).toBeUndefined();
+      release?.();
+      await expect(activation).resolves.toMatchObject({ phase: 'active' });
+      await write;
+      expect(mockAppMMKV.getString('app:later')).toBe('acknowledged-later');
+    });
+
+    it('allows ordinary users to retain current data across restarts without a complete marker or legacy merge', async () => {
+      seedMismatch();
+      const { executeNativeStorageRequest } = loadExecutor();
+      const state = await executeNativeStorageRequest({
+        scope: 'recovery',
+        operation: 'enableEmergencyAppStorage',
+        confirmed: true,
+      });
+      expect(state).toMatchObject({ mode: 'emergency', phase: 'active' });
+      expect(mockAppMMKV.getString('app:keep')).toBe('current');
+      expect(mockAppMMKV.getString(MIGRATION_KEY)).toBeUndefined();
+      expect(mockAppMMKV.getAllKeys()).not.toContain(BATCH_JOURNAL_KEY);
+      await executeNativeStorageRequest({
+        scope: 'asyncStorage',
+        operation: 'setItem',
+        key: 'new-write',
+        value: 'post-emergency',
+      });
+      await executeNativeStorageRequest({
+        scope: 'asyncStorage',
+        operation: 'removeItem',
+        key: 'keep',
+      });
+      jest.resetModules();
+      const cold = loadExecutor();
+      await expect(
+        cold.executeNativeStorageRequest({
+          scope: 'asyncStorage',
+          operation: 'getItem',
+          key: 'new-write',
+        }),
+      ).resolves.toBe('post-emergency');
+      await expect(
+        cold.executeNativeStorageRequest({
+          scope: 'asyncStorage',
+          operation: 'getItem',
+          key: 'keep',
+        }),
+      ).resolves.toBeNull();
+      await expect(
+        cold.executeNativeStorageRequest({
+          scope: 'asyncStorage',
+          operation: 'getItem',
+          key: 'legacy-only',
+        }),
+      ).resolves.toBeNull();
+      await expect(
+        cold.executeNativeStorageRequest({
+          scope: 'recovery',
+          operation: 'prepareMigrationRepair',
+          target: 'appStorage',
+        }),
+      ).rejects.toThrow('snapshot selection');
+      await expect(cold.ensureNativeAppStorageMigrated()).rejects.toThrow(
+        'migration marker is missing',
+      );
+      expect(cold.isNativeAppStorageEmergencyModeActive()).toBe(true);
+      expect(mockLegacyData.get('keep')).toBe('stale-legacy');
+      await expect(
+        cold.executeNativeStorageRequest({ scope: 'bootstrap' }),
+      ).resolves.toMatchObject({
+        appStorageEmergency: { mode: 'emergency', phase: 'active' },
+      });
+    });
+
+    it('recovers a NEW failed batch after restart, without replaying the archived old rollback', async () => {
+      seedMismatch();
+      const { executeNativeStorageRequest } = loadExecutor();
+      await executeNativeStorageRequest({
+        scope: 'recovery',
+        operation: 'enableEmergencyAppStorage',
+        confirmed: true,
+      });
+      await executeNativeStorageRequest({
+        scope: 'asyncStorage',
+        operation: 'setItem',
+        key: 'keep',
+        value: 'fresh',
+      });
+      const originalSet = mockAppMMKV.set.bind(mockAppMMKV);
+      const failed = jest
+        .spyOn(mockAppMMKV, 'set')
+        .mockImplementation((key, value) => {
+          if (key === 'app:new' || (key === 'app:keep' && value === 'fresh'))
+            throw new Error('batch or rollback failure');
+          originalSet(key, value);
+        });
+      await expect(
+        executeNativeStorageRequest({
+          scope: 'asyncStorage',
+          operation: 'multiSet',
+          entries: [
+            ['keep', 'changed'],
+            ['new', 'partial'],
+          ],
+        }),
+      ).rejects.toThrow();
+      expect(
+        JSON.parse(mockAppMMKV.getString(BATCH_JOURNAL_KEY)!),
+      ).toHaveProperty('emergencyEpoch');
+      failed.mockRestore();
+      jest.resetModules();
+      const cold = loadExecutor();
+      await expect(
+        cold.executeNativeStorageRequest({
+          scope: 'asyncStorage',
+          operation: 'getItem',
+          key: 'keep',
+        }),
+      ).resolves.toBe('fresh');
+      expect(mockAppMMKV.getString(MIGRATION_KEY)).toBeUndefined();
+      expect(mockAppMMKV.getAllKeys()).not.toContain(BATCH_JOURNAL_KEY);
+    });
+
+    it('retains a foreign old journal instead of applying it to emergency-era writes', async () => {
+      seedMismatch();
+      const { executeNativeStorageRequest } = loadExecutor();
+      await executeNativeStorageRequest({
+        scope: 'recovery',
+        operation: 'enableEmergencyAppStorage',
+        confirmed: true,
+      });
+      const old = JSON.stringify({
+        version: 1,
+        previousValues: [['app:keep', 'old']],
+      });
+      mockAppMMKV.set(BATCH_JOURNAL_KEY, old);
+      await expect(
+        executeNativeStorageRequest({
+          scope: 'asyncStorage',
+          operation: 'getItem',
+          key: 'keep',
+        }),
+      ).rejects.toThrow('another recovery epoch');
+      expect(mockAppMMKV.getString('app:keep')).toBe('current');
+      expect(mockAppMMKV.getString(BATCH_JOURNAL_KEY)).toBe(old);
+    });
+
+    it.each([1, 2, 3, 4, 5])(
+      'resumes only an explicit app erase after emergency clear flush %s fails',
+      async (barrier) => {
+        seedMismatch();
+        const { executeNativeStorageRequest } = loadExecutor();
+        await executeNativeStorageRequest({
+          scope: 'recovery',
+          operation: 'enableEmergencyAppStorage',
+          confirmed: true,
+        });
+        let count = 0;
+        mockSyncNativeStorageMMKV.mockImplementation(async () => {
+          count += 1;
+          if (count === barrier) throw new Error('clear persistence failed');
+        });
+        await expect(
+          executeNativeStorageRequest({
+            scope: 'asyncStorage',
+            operation: 'clear',
+          }),
+        ).rejects.toThrow('clear persistence failed');
+        jest.resetModules();
+        mockSyncNativeStorageMMKV.mockResolvedValue(undefined);
+        const cold = loadExecutor();
+        await expect(
+          cold.executeNativeStorageRequest({
+            scope: 'asyncStorage',
+            operation: 'getAllKeys',
+          }),
+        ).resolves.toEqual([]);
+        expect(mockLegacyData.size).toBe(0);
+        expect(mockAppMMKV.getString(MIGRATION_KEY)).toBe('1');
+        expect(cold.isNativeAppStorageEmergencyModeActive()).toBe(false);
+        await cold.executeNativeStorageRequest({
+          scope: 'asyncStorage',
+          operation: 'setItem',
+          key: 'after-clear',
+          value: 'retained-new',
+        });
+        jest.resetModules();
+        await expect(
+          loadExecutor().executeNativeStorageRequest({
+            scope: 'asyncStorage',
+            operation: 'getItem',
+            key: 'after-clear',
+          }),
+        ).resolves.toBe('retained-new');
+      },
+    );
+
+    it('clears a stale owner epoch after an uncertain clear and rejected warm activation retry', async () => {
+      seedMismatch();
+      const {
+        executeNativeStorageRequest,
+        isNativeAppStorageEmergencyModeActive,
+      } = loadExecutor();
+      await executeNativeStorageRequest({
+        scope: 'recovery',
+        operation: 'enableEmergencyAppStorage',
+        confirmed: true,
+      });
+      let count = 0;
+      mockSyncNativeStorageMMKV.mockImplementation(async () => {
+        count += 1;
+        if (count === 5) throw new Error('clear acknowledgement failed');
+      });
+      await expect(
+        executeNativeStorageRequest({
+          scope: 'asyncStorage',
+          operation: 'clear',
+        }),
+      ).rejects.toThrow('clear acknowledgement failed');
+      mockSyncNativeStorageMMKV.mockResolvedValue(undefined);
+      await expect(
+        executeNativeStorageRequest({
+          scope: 'recovery',
+          operation: 'enableEmergencyAppStorage',
+          confirmed: true,
+        }),
+      ).rejects.toThrow('missing-marker fault');
+      expect(isNativeAppStorageEmergencyModeActive()).toBe(false);
+      await executeNativeStorageRequest({
+        scope: 'asyncStorage',
+        operation: 'setItem',
+        key: 'new',
+        value: 'fresh',
+      });
+      await expect(
+        executeNativeStorageRequest({
+          scope: 'asyncStorage',
+          operation: 'getItem',
+          key: 'new',
+        }),
+      ).resolves.toBe('fresh');
+      await expect(
+        executeNativeStorageRequest({
+          scope: 'asyncStorage',
+          operation: 'clear',
+        }),
+      ).resolves.toBeUndefined();
+      expect(isNativeAppStorageEmergencyModeActive()).toBe(false);
+    });
+
+    it('rejects lossy forced completion before deleting failed records or publishing a marker', async () => {
+      mockMigrationLedger.set('app-storage-v1', 'complete-v1');
+      mockAppMMKV.set('app:keep', 'current');
+      const { executeNativeStorageRequest } = loadExecutor();
+      const summary = (await executeNativeStorageRequest({
+        scope: 'recovery',
+        operation: 'prepareMigrationRepair',
+        target: 'appStorage',
+      })) as INativeAppStorageRepairSummary;
+      await expect(
+        executeNativeStorageRequest({
+          scope: 'recovery',
+          operation: 'completeMigrationRepair',
+          target: 'appStorage',
+          repairId: summary.repairId,
+          force: true,
+        }),
+      ).rejects.toThrow('cannot be marked complete');
+      expect(mockAppMMKV.getString('app:keep')).toBe('current');
+      expect(mockAppMMKV.getString(MIGRATION_KEY)).toBeUndefined();
+    });
+  });
+
   describe('real missing-marker simulation', () => {
     function seedTestDevice() {
       markAppStorageMigrated();
@@ -526,9 +873,9 @@ describe('nativeStorageExecutor', () => {
         operation: 'completeMigrationRepair',
         target: 'appStorage',
         repairId: summary.repairId,
-        force: true,
+        force: false,
       }),
-    ).rejects.toThrow('results changed');
+    ).rejects.toThrow('explicit confirmation');
     expect(get('app:newer')).toBe('newer-current');
     expect(mockLegacyData.get('newer')).toBe('stale-legacy');
     const nextSummary = (await executeNativeStorageRequest({
@@ -677,12 +1024,14 @@ describe('nativeStorageExecutor', () => {
       expect(prepared.scanComplete).toBe(false);
       await executeNativeStorageRequest({
         scope: 'recovery',
-        operation: 'completeMigrationRepair',
-        target: 'appStorage',
-        repairId: prepared.repairId,
-        force: true,
+        operation: 'enableEmergencyAppStorage',
+        confirmed: true,
       });
-      const key = REPAIR_JOURNAL_BACKUP_PREFIX + prepared.repairId;
+      const key = mockAppMMKV
+        .getAllKeys()
+        .find((item) =>
+          item.startsWith(`${REPAIR_JOURNAL_BACKUP_PREFIX}emergency-`),
+        )!;
       expect(JSON.parse(mockAppMMKV.getString(key) ?? '')).toEqual({
         version: 1,
         ...(failure === 'rollback write' ? { journal } : {}),
@@ -1300,7 +1649,7 @@ describe('nativeStorageExecutor', () => {
     expect(mockSetMigrationLedger).not.toHaveBeenCalled();
   });
 
-  it('skips individual read/write failures, preserves newer MMKV values, and confirms partial completion without deleting the source', async () => {
+  it('skips individual read/write failures, preserves newer MMKV values, and enables emergency continuation without deleting the source or marking migration complete', async () => {
     mockMigrationLedger.set('app-storage-v1', 'complete-v1');
     mockAppMMKV.set('app:current', 'newer');
     mockLegacyData.set('current', 'older');
@@ -1351,12 +1700,10 @@ describe('nativeStorageExecutor', () => {
     ).rejects.toThrow('explicit confirmation');
     await executeNativeStorageRequest({
       scope: 'recovery',
-      operation: 'completeMigrationRepair',
-      target: 'appStorage',
-      repairId: summary.repairId,
-      force: true,
+      operation: 'enableEmergencyAppStorage',
+      confirmed: true,
     });
-    expect(mockAppMMKV.getString(MIGRATION_KEY)).toBe('1');
+    expect(mockAppMMKV.getString(MIGRATION_KEY)).toBeUndefined();
     await expect(
       executeNativeStorageRequest({
         scope: 'asyncStorage',
@@ -1507,10 +1854,8 @@ describe('nativeStorageExecutor', () => {
     ).rejects.toThrow('explicit confirmation');
     await executeNativeStorageRequest({
       scope: 'recovery',
-      operation: 'completeMigrationRepair',
-      target: 'appStorage',
-      repairId: summary.repairId,
-      force: true,
+      operation: 'enableEmergencyAppStorage',
+      confirmed: true,
     });
     await executeNativeStorageRequest({
       scope: 'asyncStorage',
@@ -1522,7 +1867,7 @@ describe('nativeStorageExecutor', () => {
     expect(mockLegacyStorage.multiRemove).not.toHaveBeenCalled();
   });
 
-  it('requires force confirmation for a readable empty legacy source after migration marker loss', async () => {
+  it('requires separate emergency confirmation for an empty legacy source after marker loss', async () => {
     mockMigrationLedger.set('app-storage-v1', 'complete-v1');
     const archiveKey = `${REPAIR_JOURNAL_BACKUP_PREFIX}previous-attempt`;
     const archive = JSON.stringify({
@@ -1572,12 +1917,10 @@ describe('nativeStorageExecutor', () => {
     ).rejects.toThrow('migration marker is missing');
     await executeNativeStorageRequest({
       scope: 'recovery',
-      operation: 'completeMigrationRepair',
-      target: 'appStorage',
-      repairId: summary.repairId,
-      force: true,
+      operation: 'enableEmergencyAppStorage',
+      confirmed: true,
     });
-    expect(mockAppMMKV.getString(MIGRATION_KEY)).toBe('1');
+    expect(mockAppMMKV.getString(MIGRATION_KEY)).toBeUndefined();
     await executeNativeStorageRequest({
       scope: 'asyncStorage',
       operation: 'setItem',
@@ -1590,7 +1933,7 @@ describe('nativeStorageExecutor', () => {
     expect(mockLegacyStorage.multiRemove).not.toHaveBeenCalled();
   });
 
-  it('allows forced completion when every legacy record fails, retaining all source records', async () => {
+  it('allows emergency continuation when every legacy record fails, retaining all source records', async () => {
     mockMigrationLedger.set('app-storage-v1', 'complete-v1');
     mockLegacyData.set('bad', 'keep-original');
     mockLegacyStorage.multiGet.mockImplementation(async (keys) => {
@@ -1610,10 +1953,8 @@ describe('nativeStorageExecutor', () => {
     });
     await executeNativeStorageRequest({
       scope: 'recovery',
-      operation: 'completeMigrationRepair',
-      target: 'appStorage',
-      repairId: summary.repairId,
-      force: true,
+      operation: 'enableEmergencyAppStorage',
+      confirmed: true,
     });
     await expect(
       executeNativeStorageRequest({
@@ -1645,25 +1986,23 @@ describe('nativeStorageExecutor', () => {
     expect(mockLegacyData.get('key')).toBe('backup');
   });
 
-  it('does not bypass a durability failure during forced completion', async () => {
+  it('does not bypass a durability failure during emergency activation', async () => {
     mockMigrationLedger.set('app-storage-v1', 'complete-v1');
     mockLegacyData.set('key', 'backup');
     const { executeNativeStorageRequest } = loadExecutor();
-    const summary = (await executeNativeStorageRequest({
+    await executeNativeStorageRequest({
       scope: 'recovery',
       operation: 'prepareMigrationRepair',
       target: 'appStorage',
-    })) as INativeAppStorageRepairSummary;
+    });
     mockSyncNativeStorageMMKV.mockRejectedValueOnce(
       new Error('disk unavailable'),
     );
     await expect(
       executeNativeStorageRequest({
         scope: 'recovery',
-        operation: 'completeMigrationRepair',
-        target: 'appStorage',
-        repairId: summary.repairId,
-        force: true,
+        operation: 'enableEmergencyAppStorage',
+        confirmed: true,
       }),
     ).rejects.toThrow('disk unavailable');
     expect(mockSetMigrationLedgerComplete).not.toHaveBeenCalled();
@@ -1789,7 +2128,7 @@ describe('nativeStorageExecutor', () => {
     },
   );
 
-  it('rejects newly discovered records before removing any failed records during forced completion', async () => {
+  it('refuses forced completion and preserves newly discovered and unreadable records', async () => {
     mockMigrationLedger.set('app-storage-v1', 'complete-v1');
     mockAppMMKV.set('app:invalid', 42);
     mockAppMMKV.set('app:valid', 'current');
@@ -1808,7 +2147,7 @@ describe('nativeStorageExecutor', () => {
         repairId: summary.repairId,
         force: true,
       }),
-    ).rejects.toThrow('results changed');
+    ).rejects.toThrow('cannot be marked complete');
     expect(mockAppMMKV.getString('app:late')).toBe('new-current');
     expect(mockAppMMKV.getNumber('app:invalid')).toBe(42);
     expect(mockAppMMKV.getString(MIGRATION_KEY)).toBeUndefined();
@@ -1818,19 +2157,21 @@ describe('nativeStorageExecutor', () => {
       target: 'appStorage',
     })) as INativeAppStorageRepairSummary;
     expect(freshSummary).toMatchObject({ successfulCount: 2, failedCount: 1 });
-    await executeNativeStorageRequest({
-      scope: 'recovery',
-      operation: 'completeMigrationRepair',
-      target: 'appStorage',
-      repairId: freshSummary.repairId,
-      force: true,
-    });
+    await expect(
+      executeNativeStorageRequest({
+        scope: 'recovery',
+        operation: 'completeMigrationRepair',
+        target: 'appStorage',
+        repairId: freshSummary.repairId,
+        force: true,
+      }),
+    ).rejects.toThrow('cannot be marked complete');
     expect(mockAppMMKV.getString('app:late')).toBe('new-current');
-    expect(mockAppMMKV.getNumber('app:invalid')).toBeUndefined();
+    expect(mockAppMMKV.getNumber('app:invalid')).toBe(42);
   });
 
   it.each(['absent', 'unreadable'] as const)(
-    'preserves a failed %s record that becomes readable before forced completion',
+    'preserves a failed %s record that becomes readable when forced completion is refused',
     async (initialState) => {
       mockMigrationLedger.set('app-storage-v1', 'complete-v1');
       mockAppMMKV.set('app:still-invalid', 42);
@@ -1869,7 +2210,7 @@ describe('nativeStorageExecutor', () => {
           repairId: summary.repairId,
           force: true,
         }),
-      ).rejects.toThrow('results changed');
+      ).rejects.toThrow('cannot be marked complete');
       expect(mockAppMMKV.getString('app:failed')).toBe('latest-current');
       expect(mockAppMMKV.getNumber('app:still-invalid')).toBe(42);
       expect(mockAppMMKV.getString(MIGRATION_KEY)).toBeUndefined();
@@ -1883,21 +2224,23 @@ describe('nativeStorageExecutor', () => {
         successfulCount: 2,
         failedCount: 1,
       });
-      await executeNativeStorageRequest({
-        scope: 'recovery',
-        operation: 'completeMigrationRepair',
-        target: 'appStorage',
-        repairId: freshSummary.repairId,
-        force: true,
-      });
+      await expect(
+        executeNativeStorageRequest({
+          scope: 'recovery',
+          operation: 'completeMigrationRepair',
+          target: 'appStorage',
+          repairId: freshSummary.repairId,
+          force: true,
+        }),
+      ).rejects.toThrow('cannot be marked complete');
       expect(mockAppMMKV.getString('app:failed')).toBe('latest-current');
-      expect(mockAppMMKV.getNumber('app:still-invalid')).toBeUndefined();
+      expect(mockAppMMKV.getNumber('app:still-invalid')).toBe(42);
       expect(mockLegacyStorage.multiRemove).not.toHaveBeenCalled();
     },
   );
 
   it.each([false, true])(
-    'only removes an unchanged failed partial write with changed=%s',
+    'preserves failed partial writes when force is refused with changed=%s',
     async (changed) => {
       mockMigrationLedger.set('app-storage-v1', 'complete-v1');
       mockAppMMKV.set('app:valid', 'current');
@@ -1921,22 +2264,18 @@ describe('nativeStorageExecutor', () => {
         repairId: summary.repairId,
         force: true,
       });
-      if (changed) {
-        await expect(completion).rejects.toThrow('results changed');
-        expect(mockAppMMKV.getString('app:failed')).toBe('latest-current');
-        expect(mockAppMMKV.getString(MIGRATION_KEY)).toBeUndefined();
-      } else {
-        await completion;
-        expect(mockAppMMKV.getString('app:failed')).toBeUndefined();
-        expect(mockAppMMKV.getString(MIGRATION_KEY)).toBe('1');
-      }
+      await expect(completion).rejects.toThrow('cannot be marked complete');
+      expect(mockAppMMKV.getString('app:failed')).toBe(
+        changed ? 'latest-current' : undefined,
+      );
+      expect(mockAppMMKV.getString(MIGRATION_KEY)).toBeUndefined();
       expect(mockAppMMKV.getString('app:valid')).toBe('current');
       expect(mockLegacyData.get('failed')).toBe('expected-backup');
       expect(mockLegacyStorage.multiRemove).not.toHaveBeenCalled();
     },
   );
 
-  it('blocks a previously marked store when forced deletion fails finalization', async () => {
+  it('refuses forced deletion without disturbing a previously healthy marker', async () => {
     mockMigrationLedger.set('app-storage-v1', 'complete-v1');
     mockAppMMKV.set(MIGRATION_KEY, '1');
     mockAppMMKV.set('app:invalid', 42);
@@ -1947,7 +2286,6 @@ describe('nativeStorageExecutor', () => {
       operation: 'prepareMigrationRepair',
       target: 'appStorage',
     })) as INativeAppStorageRepairSummary;
-    mockSyncNativeStorageMMKV.mockRejectedValueOnce(new Error('sync failed'));
     await expect(
       executeNativeStorageRequest({
         scope: 'recovery',
@@ -1956,9 +2294,9 @@ describe('nativeStorageExecutor', () => {
         repairId: summary.repairId,
         force: true,
       }),
-    ).rejects.toThrow('sync failed');
+    ).rejects.toThrow('cannot be marked complete');
     expect(mockAppMMKV.getString('app:valid')).toBe('current');
-    expect(mockAppMMKV.getString(MIGRATION_KEY)).toBeUndefined();
+    expect(mockAppMMKV.getString(MIGRATION_KEY)).toBe('1');
     jest.resetModules();
     const restarted = loadExecutor();
     await expect(
@@ -1967,7 +2305,8 @@ describe('nativeStorageExecutor', () => {
         operation: 'getItem',
         key: 'valid',
       }),
-    ).rejects.toThrow('MMKV migration marker is missing');
+    ).resolves.toBe('current');
+    expect(mockAppMMKV.getNumber('app:invalid')).toBe(42);
   });
 
   it('rejects changed results before finalization instead of publishing misleading counts', async () => {
@@ -1986,7 +2325,7 @@ describe('nativeStorageExecutor', () => {
         operation: 'completeMigrationRepair',
         target: 'appStorage',
         repairId: summary.repairId,
-        force: true,
+        force: false,
       }),
     ).rejects.toThrow('results changed');
     expect(mockAppMMKV.getString(MIGRATION_KEY)).toBeUndefined();
@@ -2009,14 +2348,14 @@ describe('nativeStorageExecutor', () => {
         operation: 'completeMigrationRepair',
         target: 'appStorage',
         repairId: summary.repairId,
-        force: true,
+        force: false,
       }),
     ).rejects.toThrow('record verification failed');
     expect(mockAppMMKV.getString(MIGRATION_KEY)).toBeUndefined();
     expect(mockLegacyData.get('key')).toBe('backup');
   });
 
-  it('removes an unrecoverable target record only on forced confirmation and preserves verified records', async () => {
+  it('preserves both unrecoverable and verified records when force is refused', async () => {
     mockMigrationLedger.set('app-storage-v1', 'complete-v1');
     mockAppMMKV.set('app:invalid', 42);
     mockAppMMKV.set('app:valid', 'current');
@@ -2032,14 +2371,16 @@ describe('nativeStorageExecutor', () => {
       scanComplete: true,
     });
     expect(mockAppMMKV.getNumber('app:invalid')).toBe(42);
-    await executeNativeStorageRequest({
-      scope: 'recovery',
-      operation: 'completeMigrationRepair',
-      target: 'appStorage',
-      repairId: summary.repairId,
-      force: true,
-    });
-    expect(mockAppMMKV.getNumber('app:invalid')).toBeUndefined();
+    await expect(
+      executeNativeStorageRequest({
+        scope: 'recovery',
+        operation: 'completeMigrationRepair',
+        target: 'appStorage',
+        repairId: summary.repairId,
+        force: true,
+      }),
+    ).rejects.toThrow('cannot be marked complete');
+    expect(mockAppMMKV.getNumber('app:invalid')).toBe(42);
     expect(mockAppMMKV.getString('app:valid')).toBe('current');
     expect(mockLegacyStorage.multiRemove).not.toHaveBeenCalled();
   });
@@ -2065,7 +2406,7 @@ describe('nativeStorageExecutor', () => {
         repairId: summary.repairId,
         force: true,
       }),
-    ).rejects.toThrow('results changed');
+    ).rejects.toThrow('cannot be marked complete');
     expect(mockAppMMKV.getString(MIGRATION_KEY)).toBeUndefined();
     expect(mockSetMigrationLedgerComplete).not.toHaveBeenCalled();
     expect(mockLegacyStorage.multiRemove).not.toHaveBeenCalled();

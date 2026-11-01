@@ -1,8 +1,10 @@
 import { AppState } from 'react-native';
 
-import { Dialog, Input, rootNavigationRef } from '@onekeyhq/components';
+import { Dialog, Input, Toast, rootNavigationRef } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
+import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -28,6 +30,7 @@ export async function getManualBackupMnemonic(
   let finish: ((result: { mnemonic: string } | undefined) => void) | undefined;
   let settled = false;
   let submitting = false;
+  let completing = false;
   let cancelInfo: (() => void) | undefined;
   let timeout: ReturnType<typeof setTimeout> | undefined;
   const cancel = () => {
@@ -53,6 +56,14 @@ export async function getManualBackupMnemonic(
       if (rootNavigationRef.current?.getCurrentRoute()?.key !== route) cancel();
     },
   );
+  let listenersAttached = true;
+  const removeRecoveryListeners = () => {
+    if (!listenersAttached) return;
+    listenersAttached = false;
+    appState.remove();
+    unsubscribeRoute?.();
+    appEventBus.off(EAppEventBusNames.LockApp, cancel);
+  };
   try {
     const infoRequest = backgroundApiProxy.serviceAccount
       .getManualMnemonicRecoveryInfo({
@@ -80,12 +91,15 @@ export async function getManualBackupMnemonic(
     cancelInfo = undefined;
     if (cancelled) return undefined;
     if (!info) {
+      // The established password flow owns its lifecycle, including native
+      // authentication overlays. Recovery cancellation must not discard it.
+      removeRecoveryListeners();
       const result =
         await backgroundApiProxy.serviceAccount.getHDAccountMnemonic({
           walletId,
           reason: EReasonForNeedPassword.Security,
         });
-      return cancelled ? undefined : result;
+      return result;
     }
     sessionId = info.sessionId;
     timeout = setTimeout(cancel, Math.max(0, info.expiresAt - Date.now()));
@@ -109,7 +123,7 @@ export async function getManualBackupMnemonic(
         ),
         onClose: () => {
           dialog?.getForm()?.reset({ password: '' });
-          if (!settled) cancel();
+          if (!settled && !completing) cancel();
         },
         onConfirm: async ({ getForm, close, preventClose }) => {
           if (cancelled || submitting) {
@@ -118,6 +132,7 @@ export async function getManualBackupMnemonic(
           }
           submitting = true;
           const form = getForm();
+          let passwordError: string | undefined;
           try {
             if (!form || !(await form.trigger())) {
               preventClose();
@@ -134,12 +149,46 @@ export async function getManualBackupMnemonic(
                 { sessionId: info.sessionId, password },
               );
             if (cancelled) return;
+            completing = true;
+            await close();
+            if (cancelled) return;
             settled = true;
             resolve(result);
-            await close();
+          } catch (error) {
+            preventClose();
+            if (cancelled) return;
+            const className =
+              error && typeof error === 'object' && 'className' in error
+                ? error.className
+                : undefined;
+            if (
+              className === EOneKeyErrorClassNames.WrongPassword &&
+              !completing
+            ) {
+              passwordError = intl.formatMessage({
+                id: ETranslations.auth_error_password_incorrect,
+              });
+            } else {
+              if (!errorToastUtils.wasAutoToastShown(error))
+                Toast.error({
+                  title:
+                    error instanceof Error
+                      ? error.message
+                      : intl.formatMessage({
+                          id: ETranslations.global_unknown_error,
+                        }),
+                });
+              if (completing) cancel();
+            }
           } finally {
             form?.reset({ password: '' });
+            if (passwordError && !cancelled)
+              form?.setError('password', {
+                type: 'manual',
+                message: passwordError,
+              });
             submitting = false;
+            completing = false;
           }
         },
       });
@@ -147,9 +196,7 @@ export async function getManualBackupMnemonic(
   } finally {
     cancelled = true;
     clearTimeout(timeout);
-    appState.remove();
-    unsubscribeRoute?.();
-    appEventBus.off(EAppEventBusNames.LockApp, cancel);
+    removeRecoveryListeners();
     if (sessionId)
       void backgroundApiProxy.serviceAccount.cancelManualMnemonicRecovery({
         sessionId,

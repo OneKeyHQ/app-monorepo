@@ -17,6 +17,7 @@ const mockForm = {
   trigger: jest.fn(async () => true),
   getValues: () => ({ password: 'typed-test-password' }),
   reset: jest.fn(),
+  setError: jest.fn(),
 };
 const mockClose = jest.fn(async () => {
   await mockDialog?.onClose?.();
@@ -35,8 +36,13 @@ const mockNormal = jest.fn<Promise<{ mnemonic: string }>, [unknown]>(
 const mockEncode = jest.fn<Promise<string>, [unknown]>(
   async () => 'encoded-test-password',
 );
-const mockRemove = jest.fn();
-const mockUnsubscribeRoute = jest.fn();
+const mockShowError = jest.fn();
+const mockRemove = jest.fn(() => {
+  mockAppStateListener = undefined;
+});
+const mockUnsubscribeRoute = jest.fn(() => {
+  mockRouteListener = undefined;
+});
 const intl = { formatMessage: () => 'Enter passcode' } as unknown as IntlShape;
 
 jest.mock('react-native', () => ({
@@ -58,6 +64,11 @@ jest.mock('@onekeyhq/components', () => ({
     { Form: () => null, FormField: () => null },
   ),
   Input: () => null,
+  Toast: {
+    error: (...args: unknown[]) => {
+      mockShowError(...args);
+    },
+  },
   rootNavigationRef: {
     current: {
       getCurrentRoute: () => ({ key: mockRouteKey }),
@@ -117,6 +128,70 @@ describe('manual mnemonic backup fallback UI', () => {
     expect(mockNormal).toHaveBeenCalledTimes(1);
     expect(mockDialog).toBeUndefined();
     expect(mockRecover).not.toHaveBeenCalled();
+  });
+
+  it.each(['inactive', 'background', 'lock', 'navigate'])(
+    'does not override the original password response after %s once storage is healthy',
+    async (state) => {
+      mockInfo.mockResolvedValueOnce(undefined);
+      let finish!: (value: { mnemonic: string }) => void;
+      mockNormal.mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            finish = resolve;
+          }),
+      );
+      const result = getManualBackupMnemonic('hd-1', intl);
+      await flush();
+      expect(mockNormal).toHaveBeenCalledTimes(1);
+      expect(mockRemove).toHaveBeenCalledTimes(1);
+      if (state === 'lock')
+        appEventBus.emit(EAppEventBusNames.LockApp, undefined);
+      else if (state === 'navigate') {
+        mockRouteKey = 'other';
+        mockRouteListener?.();
+      } else mockAppStateListener?.(state);
+      finish({ mnemonic: 'normal-encoded-test-result' });
+      await expect(result).resolves.toEqual({
+        mnemonic: 'normal-encoded-test-result',
+      });
+      expect(mockRecover).not.toHaveBeenCalled();
+    },
+  );
+
+  it('preserves original password rejection and allows the same healthy flow to retry', async () => {
+    mockInfo.mockResolvedValue(undefined);
+    mockNormal.mockRejectedValueOnce(new Error('Original prompt cancelled'));
+    await expect(getManualBackupMnemonic('hd-1', intl)).rejects.toThrow(
+      'Original prompt cancelled',
+    );
+    await expect(getManualBackupMnemonic('hd-1', intl)).resolves.toEqual({
+      mnemonic: 'normal-encoded-test-result',
+    });
+  });
+
+  it('waits for the recovery dialog to close before returning the mnemonic', async () => {
+    let finishClose!: () => void;
+    mockClose.mockImplementationOnce(
+      () =>
+        new Promise<void>((resolve) => {
+          finishClose = resolve;
+        }),
+    );
+    const result = getManualBackupMnemonic('hd-1', intl);
+    let returned = false;
+    void result.then(() => {
+      returned = true;
+    });
+    await flush();
+    const request = confirm();
+    await flush();
+    expect(returned).toBe(false);
+    finishClose();
+    await request;
+    await expect(result).resolves.toEqual({
+      mnemonic: 'recovery-encoded-test-result',
+    });
   });
 
   it('requests background admission without passing a UI hydration assertion', async () => {

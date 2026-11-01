@@ -2,7 +2,7 @@ import { useEffect } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Button, Toast, globalNetInfo } from '@onekeyhq/components';
+import { Toast, globalNetInfo } from '@onekeyhq/components';
 import type { IAppEventBusPayload } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import {
   EAppEventBusNames,
@@ -14,8 +14,11 @@ import {
 } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { subscribeNativeStorageContractViolations } from '@onekeyhq/shared/src/storage/nativeStorageContractViolationSubscription';
-import { requestNativeStorageRecovery } from '@onekeyhq/shared/src/storage/nativeStorageRecovery';
-import { getNativeStorageMigrationRecoveryTarget } from '@onekeyhq/shared/src/storage/nativeStorageTypes';
+import {
+  getNativeAppStorageEmergencyStatus,
+  subscribeNativeAppStorageEmergencyStatus,
+} from '@onekeyhq/shared/src/storage/nativeStorageRecovery';
+import { getNativeStorageRecoveryToastTarget } from '@onekeyhq/shared/src/storage/nativeStorageTypes';
 
 import { getErrorAction } from './ErrorToasts';
 import {
@@ -63,6 +66,32 @@ const MAIN_THREAD_HARDWARE_ERROR_I18N_KEYS = new Set<ETranslations>([
 export function ErrorToastContainer() {
   const intl = useIntl();
 
+  useEffect(() => {
+    if (!platformEnv.isNative) return;
+    let warnedEpoch: string | undefined;
+    const showEmergencyWarning = () => {
+      const status = getNativeAppStorageEmergencyStatus();
+      if (!status) {
+        warnedEpoch = undefined;
+        return;
+      }
+      if (warnedEpoch === status.epoch) return;
+      warnedEpoch = status.epoch;
+      Toast.warning({
+        title: 'Emergency storage mode',
+        duration: 10_000,
+        message:
+          'Using current MMKV data, which may be incomplete. Legacy data and old transaction evidence are retained. Migration is not complete. Back up your wallets; future recovery must explicitly choose which snapshot to keep.',
+      });
+    };
+    // Locale/provider startup may mount this consumer after the bg snapshot.
+    // Subscribe before reading, and repeat the warning on a new app mount.
+    const unsubscribe =
+      subscribeNativeAppStorageEmergencyStatus(showEmergencyWarning);
+    showEmergencyWarning();
+    return unsubscribe;
+  }, []);
+
   useEffect(
     () =>
       subscribeNativeStorageContractViolations((violation) => {
@@ -79,38 +108,6 @@ export function ErrorToastContainer() {
   useEffect(() => {
     const fn = (p: IAppEventBusPayload[EAppEventBusNames.ShowToast]) => {
       if (!p.title) {
-        return;
-      }
-      const recoveryTarget = platformEnv.isNative
-        ? getNativeStorageMigrationRecoveryTarget(
-            `${p.title}; ${p.message ?? ''}`,
-          )
-        : undefined;
-      if (recoveryTarget) {
-        const testSessionId =
-          recoveryTarget === 'appStorage'
-            ? p.nativeStorageRecoveryTestSessionId
-            : undefined;
-        const toastId = testSessionId
-          ? `native-storage-migration-test:${testSessionId}`
-          : `native-storage-migration:${recoveryTarget}`;
-        Toast.error({
-          title: 'Local storage needs repair',
-          toastId,
-          duration: 10_000,
-          actions: (
-            <Button
-              size="small"
-              testID="native-storage-repair-toast-action"
-              onPress={() => {
-                Toast.dismiss(toastId);
-                requestNativeStorageRecovery(recoveryTarget, testSessionId);
-              }}
-            >
-              {intl.formatMessage({ id: ETranslations.global_retry })}
-            </Button>
-          ),
-        });
         return;
       }
       const isInternetReachable =
@@ -145,6 +142,10 @@ export function ErrorToastContainer() {
       });
 
       const canLocalizeError =
+        !(
+          platformEnv.isNative &&
+          getNativeStorageRecoveryToastTarget(p.title, p.message)
+        ) &&
         p.i18nKey &&
         ((p.isHardwareError && isKnownTranslationKey(p.i18nKey)) ||
           MAIN_THREAD_HARDWARE_ERROR_I18N_KEYS.has(p.i18nKey) ||
@@ -165,6 +166,8 @@ export function ErrorToastContainer() {
         toastId,
         actions,
         duration: p.duration,
+        nativeStorageRecoveryTestSessionId:
+          p.nativeStorageRecoveryTestSessionId,
       });
     };
     appEventBus.on(EAppEventBusNames.ShowToast, fn);

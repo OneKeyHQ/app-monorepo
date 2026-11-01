@@ -24,6 +24,7 @@ import {
   NATIVE_STORAGE_RECOVERY_TEST_LEGACY_KEY_PREFIX,
 } from './nativeStorageRecoveryTestTypes';
 import {
+  NATIVE_APP_STORAGE_EMERGENCY_CONTROL_KEY,
   NATIVE_STORAGE_BOOTSTRAP_DEFAULT_STORES,
   createNativeStorageMigrationInconsistentErrorMessage,
 } from './nativeStorageTypes';
@@ -152,6 +153,106 @@ type ILegacyAppStorageCopyResult = {
 let appStorageMigrationPromise: Promise<void> | undefined;
 let appStorageMismatchLogged = false;
 let appStorageRepairActive = false;
+// Retain recovery metadata even when journal removal succeeds in memory but
+// its durability barrier fails. Only bg owns this JS state.
+let pendingAppStorageRecovery: string | undefined;
+let emergencyEpoch: string | undefined;
+let emergencyController:
+  | ReturnType<
+      typeof import('./nativeAppStorageEmergency').createNativeAppStorageEmergencyController
+    >
+  | undefined;
+
+function emergencyGuard() {
+  assertBackgroundRuntime();
+  const environment = travelModeManager.getRuntimeEnvironmentSync();
+  return () => {
+    if (
+      environment !== travelModeManager.getRuntimeEnvironmentSync() ||
+      environment.persistence.kind !== 'real' ||
+      environment.commands.isBlocked
+    )
+      throw new OneKeyLocalError('Storage recovery runtime changed');
+  };
+}
+
+async function getEmergencyController() {
+  if (!emergencyController) {
+    const { createNativeAppStorageEmergencyController } =
+      await import('./nativeAppStorageEmergency');
+    emergencyController = createNativeAppStorageEmergencyController({
+      getMMKV: getAppStorageMMKV,
+      sync: () => syncNativeStorageMMKV(APP_STORAGE_MMKV_ID),
+      assertFault: async () => {
+        if (
+          (await getNativeStorageMigrationLedger(
+            APP_STORAGE_MIGRATION_LEDGER_KEY,
+          )) !== NATIVE_STORAGE_MIGRATION_LEDGER_COMPLETE ||
+          getAppStorageMMKV().getString(APP_STORAGE_MIGRATION_COMPLETE_KEY) ===
+            '1'
+        )
+          throw new OneKeyLocalError(
+            'Emergency continuation requires the completed-ledger / missing-marker fault',
+          );
+      },
+      getPendingJournal: () => pendingAppStorageRecovery,
+      clearPendingJournal: () => {
+        pendingAppStorageRecovery = undefined;
+      },
+      clearApplicationData: async () => {
+        const mmkv = getAppStorageMMKV();
+        await clearAppStorageAndLegacyData(mmkv);
+        if (
+          mmkv
+            .getAllKeys()
+            .some((key) => key.startsWith(APP_STORAGE_KEY_PREFIX))
+        )
+          throw new OneKeyLocalError(
+            'Explicit app-storage clear left business records behind',
+          );
+        // This is the existing explicit app erase, not emergency activation.
+        // Both current and legacy namespaces have been verified empty.
+        mmkv.set(APP_STORAGE_MIGRATION_COMPLETE_KEY, '1');
+        await syncNativeStorageMMKV(APP_STORAGE_MMKV_ID);
+        if (mmkv.getString(APP_STORAGE_MIGRATION_COMPLETE_KEY) !== '1')
+          throw new OneKeyLocalError(
+            'Explicit app-storage clear verification failed',
+          );
+        appStorageMigrationPromise = undefined;
+      },
+    });
+  }
+  return emergencyController;
+}
+
+function hasEmergencyControl() {
+  return (
+    getAppStorageMMKV().getString(NATIVE_APP_STORAGE_EMERGENCY_CONTROL_KEY) !==
+      undefined || Boolean(emergencyController?.hasPendingWork())
+  );
+}
+
+export function isNativeAppStorageEmergencyModeActive() {
+  assertBackgroundRuntime();
+  return emergencyEpoch !== undefined;
+}
+
+async function ensureNativeAppStorageUsable() {
+  if (hasEmergencyControl()) {
+    const status = await (
+      await getEmergencyController()
+    ).resume(emergencyGuard());
+    emergencyEpoch = status?.phase === 'active' ? status.epoch : undefined;
+    if (emergencyEpoch) {
+      appStorageRepairActive = false;
+      await recoverInterruptedAppStorageBatch(getAppStorageMMKV(), true);
+      return status;
+    }
+  }
+  emergencyEpoch = undefined;
+  await ensureNativeAppStorageMigrated();
+  return undefined;
+}
 export type INativeAppStorageRepairDependencies = {
   getMMKV: () => IMMKVInstance;
   getLedger: () => Promise<string | null>;
@@ -746,11 +847,8 @@ function clearAppStorageUserKeys(mmkv: IMMKVInstance) {
 type IAppStorageTransactionJournal = {
   previousValues: Array<[string, string | null]>;
   version: 1;
+  emergencyEpoch?: string;
 };
-
-// Retain recovery metadata even when journal removal succeeds in memory but
-// its durability barrier fails. Only bg owns this JS state.
-let pendingAppStorageRecovery: string | undefined;
 
 function parseAppStorageTransactionJournal(
   raw: string,
@@ -763,6 +861,12 @@ function parseAppStorageTransactionJournal(
   if (journal.version !== 1 || !Array.isArray(journal.previousValues)) {
     throw new OneKeyLocalError('App-storage batch journal is invalid');
   }
+  if (
+    journal.emergencyEpoch !== undefined &&
+    (typeof journal.emergencyEpoch !== 'string' ||
+      !/^\d{1,16}-[a-z0-9]{1,32}$/.test(journal.emergencyEpoch))
+  )
+    throw new OneKeyLocalError('App-storage batch recovery epoch is invalid');
   const seenKeys = new Set<string>();
   for (const entry of journal.previousValues) {
     if (
@@ -793,7 +897,10 @@ function restoreAppStoragePreviousValues(
   });
 }
 
-async function recoverInterruptedAppStorageBatch(mmkv: IMMKVInstance) {
+async function recoverInterruptedAppStorageBatch(
+  mmkv: IMMKVInstance,
+  preserveEvidence = false,
+) {
   const raw =
     pendingAppStorageRecovery ??
     mmkv.getString(APP_STORAGE_TRANSACTION_JOURNAL_KEY);
@@ -805,6 +912,10 @@ async function recoverInterruptedAppStorageBatch(mmkv: IMMKVInstance) {
   try {
     journal = parseAppStorageTransactionJournal(raw);
   } catch {
+    if (preserveEvidence || emergencyEpoch)
+      throw new OneKeyLocalError(
+        'App-storage batch journal is invalid; transaction evidence was retained',
+      );
     // Invalid rollback metadata cannot restore a trustworthy prior state. Keep
     // the current business values and remove only the internal recovery key so
     // a malformed journal cannot trap every later startup in the same failure.
@@ -814,6 +925,10 @@ async function recoverInterruptedAppStorageBatch(mmkv: IMMKVInstance) {
     logMigration('discarded invalid app-storage batch journal');
     return;
   }
+  if (emergencyEpoch && journal.emergencyEpoch !== emergencyEpoch)
+    throw new OneKeyLocalError(
+      'App-storage transaction journal belongs to another recovery epoch',
+    );
   restoreAppStoragePreviousValues(mmkv, journal.previousValues);
   await syncNativeStorageMMKV(APP_STORAGE_MMKV_ID);
   mmkv.remove(APP_STORAGE_TRANSACTION_JOURNAL_KEY);
@@ -1120,6 +1235,10 @@ export function ensureNativeAppStorageMigrated() {
 }
 
 async function resetAppStorageAfterMigrationMismatch() {
+  if (hasEmergencyControl())
+    throw new OneKeyLocalError(
+      'Emergency data requires an explicit future snapshot-selection flow',
+    );
   const mmkv = getAppStorageMMKV();
   const ledger = await getNativeStorageMigrationLedger(
     APP_STORAGE_MIGRATION_LEDGER_KEY,
@@ -1510,7 +1629,7 @@ const appStorageRepairController = createNativeAppStorageRepairController({
     getNativeStorageMigrationLedger(APP_STORAGE_MIGRATION_LEDGER_KEY),
   getLegacy: getLegacyAsyncStorageForMigration,
   sync: () => syncNativeStorageMMKV(APP_STORAGE_MMKV_ID),
-  recoverJournal: recoverInterruptedAppStorageBatch,
+  recoverJournal: (mmkv) => recoverInterruptedAppStorageBatch(mmkv, true),
   getPendingRecovery: () => pendingAppStorageRecovery,
   completeLedger: () =>
     setNativeStorageMigrationLedgerComplete(APP_STORAGE_MIGRATION_LEDGER_KEY),
@@ -1529,10 +1648,20 @@ const appStorageRepairController = createNativeAppStorageRepairController({
 });
 
 function prepareAppStorageRepair() {
+  if (hasEmergencyControl())
+    throw new OneKeyLocalError(
+      'Emergency mode preserves current data; legacy recovery requires an explicit future snapshot selection',
+    );
   return appStorageRepairController.prepare();
 }
 
 function completeAppStorageRepair(repairId: string, force: boolean) {
+  if (force)
+    throw new OneKeyLocalError(
+      'Incomplete recovery cannot be marked complete. Use emergency continuation to retain current records.',
+    );
+  if (hasEmergencyControl())
+    throw new OneKeyLocalError('Emergency mode is not completed migration');
   return appStorageRepairController.complete(repairId, force);
 }
 
@@ -1605,6 +1734,7 @@ async function applyAppStorageChanges(
   const journal: IAppStorageTransactionJournal = {
     previousValues: [...previousValues],
     version: 1,
+    ...(emergencyEpoch ? { emergencyEpoch } : {}),
   };
   const serializedJournal = JSON.stringify(journal);
   const trimRemovedJournal = () => {
@@ -1684,7 +1814,7 @@ async function clearAppStorageAndLegacyData(mmkv: IMMKVInstance) {
 }
 
 async function executeAsyncStorageRequest(request: INativeAsyncStorageRequest) {
-  await ensureNativeAppStorageMigrated();
+  await ensureNativeAppStorageUsable();
   const mmkv = getAppStorageMMKV();
   await recoverInterruptedAppStorageBatch(mmkv);
 
@@ -1710,7 +1840,10 @@ async function executeAsyncStorageRequest(request: INativeAsyncStorageRequest) {
       return undefined;
     }
     case 'clear':
-      await clearAppStorageAndLegacyData(mmkv);
+      if (emergencyEpoch) {
+        await (await getEmergencyController()).clear(emergencyGuard());
+        emergencyEpoch = undefined;
+      } else await clearAppStorageAndLegacyData(mmkv);
       return undefined;
     case 'getAllKeys':
       return mmkv
@@ -2019,7 +2152,7 @@ async function buildBootstrapSnapshot(
   const startedAt = Date.now();
   await prepareNativeStorageForBackgroundStartup();
   const syncStoresReadyAt = Date.now();
-  await ensureNativeAppStorageMigrated();
+  const emergencyStatus = await ensureNativeAppStorageUsable();
   const appStorageReadyAt = Date.now();
   const readStore = (store: INativeSyncStorageName) =>
     stores.includes(store)
@@ -2028,6 +2161,7 @@ async function buildBootstrapSnapshot(
   const snapshot = {
     settings: readStore('settings'),
     devSettings: readStore('devSettings'),
+    ...(emergencyStatus ? { appStorageEmergency: emergencyStatus } : {}),
   };
   logBootstrapSnapshotTiming({
     startedAt,
@@ -2123,6 +2257,40 @@ async function executeRealNativeStorageRequest(
       return result;
     }
     case 'recovery':
+      if (request.operation === 'enableEmergencyAppStorage') {
+        if (request.confirmed !== true)
+          throw new OneKeyLocalError(
+            'Emergency continuation requires explicit confirmation',
+          );
+        return enqueueAppStorageOperation(async () => {
+          const wasRepairActive = appStorageRepairActive;
+          appStorageRepairActive = true;
+          appStorageMigrationPromise = undefined;
+          try {
+            const guard = emergencyGuard();
+            const status = await (
+              await getEmergencyController()
+            ).activate(guard);
+            if (!status || status.phase !== 'active')
+              throw new OneKeyLocalError(
+                'Emergency continuation was not activated',
+              );
+            emergencyEpoch = status.epoch;
+            await recoverInterruptedAppStorageBatch(getAppStorageMMKV(), true);
+            guard();
+            appStorageRepairActive = false;
+            return status;
+          } catch (error) {
+            // Rejected admission must not trap a previously healthy store.
+            // Once intent exists, only its durable state machine releases it.
+            if (!hasEmergencyControl()) {
+              emergencyEpoch = undefined;
+              appStorageRepairActive = wasRepairActive;
+            }
+            throw error;
+          }
+        });
+      }
       if (
         request.operation === 'prepareMigrationRepair' &&
         request.target === 'appStorage'

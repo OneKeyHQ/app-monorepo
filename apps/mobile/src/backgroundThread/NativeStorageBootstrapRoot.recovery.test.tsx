@@ -136,7 +136,7 @@ describe('native storage recovery after fast startup', () => {
     jest.useRealTimers();
   });
 
-  it('requires force for incomplete results, automatically completes success, and only restarts on close', async () => {
+  it('requires emergency confirmation for incomplete results, automatically completes full success, and only restarts on close', async () => {
     const loader = jest.requireActual<
       typeof import('../splitBundle/installProdBundleLoader')
     >('../splitBundle/installProdBundleLoader');
@@ -227,16 +227,17 @@ describe('native storage recovery after fast startup', () => {
     expect(screen.queryByTestId('native-storage-repair-close')).toBeNull();
     expect(mockHydrate).not.toHaveBeenCalled();
     expect(mockRestart).not.toHaveBeenCalled();
-    fireEvent.click(screen.getByTestId('native-storage-repair-complete'));
-    expect(screen.getByText(/empty local store/)).toBeTruthy();
+    expect(screen.queryByTestId('native-storage-repair-complete')).toBeNull();
+    fireEvent.click(screen.getByTestId('native-storage-emergency-open'));
     expect(
-      screen.getByText(/address book and history may be unavailable/),
+      screen.getByText(/Legacy is a retained historical snapshot/),
     ).toBeTruthy();
-    fireEvent.click(
-      screen.getByTestId('native-storage-migration-repair-cancel'),
-    );
+    expect(
+      screen.getByText(/migration will NOT be marked complete/),
+    ).toBeTruthy();
+    fireEvent.click(screen.getByTestId('native-storage-emergency-cancel'));
     expect(mockStorageCall).toHaveBeenCalledTimes(1);
-    expect(screen.getByTestId('native-storage-repair-complete')).toBeTruthy();
+    expect(screen.getByTestId('native-storage-emergency-open')).toBeTruthy();
     mockStorageCall.mockClear();
     const partial = {
       repairId: 'attempt-1',
@@ -271,28 +272,23 @@ describe('native storage recovery after fast startup', () => {
     expect(screen.getByTestId('native-storage-repair-restart')).toBeTruthy();
     expect(mockStorageCall).toHaveBeenCalledTimes(1);
     mockRestart.mockClear();
-    fireEvent.click(screen.getByTestId('native-storage-repair-complete'));
-    expect(screen.getByText(/Force completion\?/)).toBeTruthy();
-    fireEvent.click(
-      screen.getByTestId('native-storage-migration-repair-cancel'),
-    );
+    fireEvent.click(screen.getByTestId('native-storage-emergency-open'));
+    fireEvent.click(screen.getByTestId('native-storage-emergency-cancel'));
     expect(mockStorageCall).toHaveBeenCalledTimes(1);
     expect(mockRestart).not.toHaveBeenCalled();
 
-    fireEvent.click(screen.getByTestId('native-storage-repair-complete'));
+    fireEvent.click(screen.getByTestId('native-storage-emergency-open'));
     mockStorageCall.mockRejectedValueOnce(new Error('sync failed'));
-    fireEvent.click(
-      screen.getByTestId('native-storage-migration-repair-confirm'),
-    );
+    fireEvent.click(screen.getByTestId('native-storage-emergency-confirm'));
     await flush();
     expect(mockStorageCall).toHaveBeenLastCalledWith({
       scope: 'recovery',
-      operation: 'completeMigrationRepair',
-      target: 'appStorage',
-      repairId: 'attempt-1',
-      force: true,
+      operation: 'enableEmergencyAppStorage',
+      confirmed: true,
     });
     expect(screen.getByText(/Storage repair failed/)).toBeTruthy();
+    expect(screen.queryByText('Emergency storage mode enabled')).toBeNull();
+    expect(mockHydrate).not.toHaveBeenCalled();
     expect(mockRestart).not.toHaveBeenCalled();
     expect(screen.getByText(/Successful: 3. Failed: 2/)).toBeTruthy();
     expect(screen.queryByTestId('native-storage-repair-back')).toBeNull();
@@ -330,7 +326,8 @@ describe('native storage recovery after fast startup', () => {
     fireEvent.click(screen.getByTestId('native-storage-repair-retry'));
     await flush();
     expect(mockStorageCall).toHaveBeenCalledTimes(callsBeforeIncomplete + 1);
-    expect(screen.getByText('Force completion')).toBeTruthy();
+    expect(screen.queryByText('Force completion')).toBeNull();
+    expect(screen.getByTestId('native-storage-emergency-open')).toBeTruthy();
     expect(screen.getByText(/counts cover known items only/)).toBeTruthy();
     expect(screen.queryByTestId('native-storage-repair-close')).toBeNull();
 

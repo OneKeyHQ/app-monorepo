@@ -22,11 +22,8 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import {
-  dismissNativeStorageRecovery,
-  getRequestedNativeStorageRecovery,
-  getRequestedNativeStorageRecoveryTestSessionId,
-} from '@onekeyhq/shared/src/storage/nativeStorageRecovery';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { setNativeAppStorageEmergencyStatus } from '@onekeyhq/shared/src/storage/nativeStorageRecovery';
 
 import { ErrorToastContainer } from './ErrorToastContainer';
 import { getErrorAction } from './ErrorToasts';
@@ -119,72 +116,121 @@ const mockedGlobalNetInfo = globalNetInfo as unknown as {
 describe('ErrorToastContainer', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    setNativeAppStorageEmergencyStatus(undefined);
     mockSubscribeNativeStorageContractViolations.mockReturnValue(jest.fn());
     mockedGlobalNetInfo.currentState.mockReturnValue({
       isInternetReachable: true,
     });
   });
 
-  it('offers a deduplicated recovery action without mutating storage', () => {
-    dismissNativeStorageRecovery();
-    const { unmount } = render(<ErrorToastContainer />);
-    act(() => {
-      appEventBus.emit(EAppEventBusNames.ShowToast, {
-        method: 'error',
-        title:
-          'Native storage migration target is inconsistent:appStorage; App-storage MMKV migration marker is missing after migration completed',
-      });
-    });
-    const toast = mockedToast.error.mock.calls[0][0] as {
-      actions: import('react').ReactElement;
-      toastId: string;
-    };
-    expect(toast.toastId).toBe('native-storage-migration:appStorage');
-    expect(getRequestedNativeStorageRecovery()).toBeUndefined();
-    const action = render(toast.actions);
-    fireEvent.click(action.getByRole('button', { name: '重试' }));
-    expect(getRequestedNativeStorageRecovery()).toBe('appStorage');
-    action.unmount();
-    unmount();
-    dismissNativeStorageRecovery();
+  const emergencyStatus = {
+    mode: 'emergency',
+    phase: 'active',
+    epoch: '1-test',
+    policy: 'retain-current-without-legacy-merge-v1',
+  } as const;
+
+  it('shows a persisted emergency warning when the toast consumer mounts after bootstrap and locale loading', () => {
+    setNativeAppStorageEmergencyStatus(emergencyStatus);
+    expect(Toast.warning).not.toHaveBeenCalled();
+    const view = render(<ErrorToastContainer />);
+    expect(Toast.warning).toHaveBeenCalledTimes(1);
+    expect(Toast.warning).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        title: 'Emergency storage mode',
+        message: expect.stringContaining('Migration is not complete'),
+      }),
+    );
+    act(() => setNativeAppStorageEmergencyStatus({ ...emergencyStatus }));
+    expect(Toast.warning).toHaveBeenCalledTimes(1);
+    view.unmount();
+    render(<ErrorToastContainer />);
+    expect(Toast.warning).toHaveBeenCalledTimes(2);
   });
 
-  it('keeps simulated and real migration errors in separate recovery sessions', () => {
-    dismissNativeStorageRecovery();
+  it('subscribes to later emergency activation and stops observing after unmount', () => {
     const view = render(<ErrorToastContainer />);
-    const sessionId = 'storage-repair-test-toast';
+    expect(Toast.warning).not.toHaveBeenCalled();
+    act(() => setNativeAppStorageEmergencyStatus(emergencyStatus));
+    expect(Toast.warning).toHaveBeenCalledTimes(1);
+    act(() =>
+      setNativeAppStorageEmergencyStatus({
+        ...emergencyStatus,
+        epoch: '2-test',
+      }),
+    );
+    expect(Toast.warning).toHaveBeenCalledTimes(2);
+    view.unmount();
+    act(() =>
+      setNativeAppStorageEmergencyStatus({
+        ...emergencyStatus,
+        epoch: '3-test',
+      }),
+    );
+    expect(Toast.warning).toHaveBeenCalledTimes(2);
+  });
+
+  it('does not display native emergency status on non-native platforms', () => {
+    const property = jest.replaceProperty(platformEnv, 'isNative', false);
+    try {
+      setNativeAppStorageEmergencyStatus(emergencyStatus);
+      const view = render(<ErrorToastContainer />);
+      expect(Toast.warning).not.toHaveBeenCalled();
+      view.unmount();
+    } finally {
+      property.restore();
+    }
+  });
+
+  it('forwards raw migration text, method, icon, duration and existing actions to the shared toast', async () => {
+    const view = render(<ErrorToastContainer />);
     const title =
-      'Native storage migration target is inconsistent:appStorage; migration marker is missing';
-    act(() => {
+      'Native storage migration target is inconsistent:appStorage; App-storage MMKV migration marker is missing after migration completed';
+    const action = <button type="button">Support</button>;
+    jest.mocked(getErrorAction).mockReturnValueOnce(action);
+    await act(async () =>
+      appEventBus.emit(EAppEventBusNames.ShowToast, {
+        method: 'warning',
+        title,
+        message: 'Original diagnostic details',
+        icon: 'ErrorOutline',
+        duration: 8000,
+        toastId: 'caller-id',
+        nativeStorageRecoveryTestSessionId: 'storage-repair-test-toast',
+      }),
+    );
+    expect(Toast.warning).toHaveBeenCalledWith(
+      expect.objectContaining({
+        title,
+        message: 'Original diagnostic details',
+        icon: 'ErrorOutline',
+        duration: 8000,
+        toastId: 'caller-id',
+        actions: action,
+        nativeStorageRecoveryTestSessionId: 'storage-repair-test-toast',
+      }),
+    );
+    expect(Toast.error).not.toHaveBeenCalled();
+    view.unmount();
+  });
+
+  it('keeps the title verbatim when the migration diagnostic is only in message', async () => {
+    const view = render(<ErrorToastContainer />);
+    const message =
+      'Native storage migration target is inconsistent:jotai; Jotai MMKV migration marker is missing after migration completed';
+    await act(async () =>
       appEventBus.emit(EAppEventBusNames.ShowToast, {
         method: 'error',
-        title,
-        nativeStorageRecoveryTestSessionId: sessionId,
-      });
-    });
-    const simulated = mockedToast.error.mock.calls[0][0] as {
-      actions: import('react').ReactElement;
-      toastId: string;
-    };
-    expect(simulated.toastId).toBe(
-      `native-storage-migration-test:${sessionId}`,
+        title: 'Original operation failure',
+        message,
+        i18nKey: ETranslations.wallet_action_failed,
+        i18nInfo: { message: 'would replace the title' },
+      }),
     );
-    const simulatedAction = render(simulated.actions);
-    fireEvent.click(simulatedAction.getByRole('button', { name: '重试' }));
-    expect(getRequestedNativeStorageRecoveryTestSessionId()).toBe(sessionId);
-    simulatedAction.unmount();
-    act(() => {
-      appEventBus.emit(EAppEventBusNames.ShowToast, { method: 'error', title });
-    });
-    const real = mockedToast.error.mock.calls[1][0] as typeof simulated;
-    expect(real.toastId).toBe('native-storage-migration:appStorage');
-    const realAction = render(real.actions);
-    fireEvent.click(realAction.getByRole('button', { name: '重试' }));
-    expect(getRequestedNativeStorageRecovery()).toBe('appStorage');
-    expect(getRequestedNativeStorageRecoveryTestSessionId()).toBeUndefined();
-    realAction.unmount();
+    expect(Toast.error).toHaveBeenCalledWith(
+      expect.objectContaining({ title: 'Original operation failure', message }),
+    );
     view.unmount();
-    dismissNativeStorageRecovery();
   });
 
   it('shows the Portfolio firmware guidance and opens updates for that device', async () => {

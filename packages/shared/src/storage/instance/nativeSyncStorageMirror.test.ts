@@ -111,6 +111,39 @@ describe('nativeSyncStorageMirror', () => {
     });
   });
 
+  it('publishes persisted emergency status from bg and clears it after a healthy bootstrap', async () => {
+    const status = {
+      mode: 'emergency',
+      phase: 'active',
+      epoch: '1-test',
+      policy: 'retain-current-without-legacy-merge-v1',
+    };
+    mockCallNativeStorage.mockResolvedValueOnce({
+      settings: [],
+      devSettings: [],
+      appStorageEmergency: status,
+    });
+    const {
+      bootstrapNativeSyncStorageMirrors,
+      refreshNativeSyncStorageMirrors,
+    } = loadMirror();
+    const recovery = await import('../nativeStorageRecovery');
+    const changed = jest.fn();
+    const unsubscribe =
+      recovery.subscribeNativeAppStorageEmergencyStatus(changed);
+    await bootstrapNativeSyncStorageMirrors();
+    expect(recovery.getNativeAppStorageEmergencyStatus()).toEqual(status);
+    expect(changed).toHaveBeenCalledTimes(1);
+    mockCallNativeStorage.mockResolvedValueOnce({
+      settings: [],
+      devSettings: [],
+    });
+    await refreshNativeSyncStorageMirrors();
+    expect(recovery.getNativeAppStorageEmergencyStatus()).toBeUndefined();
+    expect(changed).toHaveBeenCalledTimes(2);
+    unsubscribe();
+  });
+
   it('updates UI memory immediately and serializes mutations to bg', async () => {
     mockCallNativeStorage.mockImplementation(async (request) =>
       buildMutationAcknowledgement(request),

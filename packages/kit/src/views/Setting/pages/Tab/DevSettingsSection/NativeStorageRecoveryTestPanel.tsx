@@ -3,7 +3,6 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Button,
   Dialog,
-  Input,
   ScrollView,
   SizableText,
   XStack,
@@ -62,7 +61,6 @@ const SCENARIOS: Record<
 
 export function NativeStorageRecoveryTestPanel() {
   const [devSettings] = useDevSettingsPersistAtom();
-  const [confirmation, setConfirmation] = useState('');
   const [snapshot, setSnapshot] =
     useState<INativeStorageRecoveryTestSnapshot>();
   const [busy, setBusy] = useState(false);
@@ -75,14 +73,12 @@ export function NativeStorageRecoveryTestPanel() {
     inFlight.current = true;
     setBusy(true);
     setError(undefined);
-    setConfirmation('');
     let created = false;
     try {
       await backgroundApiProxy.serviceDevSetting.simulateRealAppStorageMissingMarker(
-        confirmation,
+        NATIVE_STORAGE_REAL_MARKER_TEST_CONFIRMATION,
       );
       created = true;
-      setConfirmation('');
       await appRestart({
         mode: EAppRestartMode.All,
         reason: 'storage.migration.test.realMissingMarker',
@@ -160,25 +156,10 @@ export function NativeStorageRecoveryTestPanel() {
             values; there is no blind undo or guarantee against later I/O
             failures. This reproduces the missing marker state, not its cause.
           </SizableText>
-          <SizableText size="$bodySm">
-            Type {NATIVE_STORAGE_REAL_MARKER_TEST_CONFIRMATION} to confirm this
-            is your test device.
-          </SizableText>
-          <Input
-            testID="real-storage-marker-confirmation"
-            value={confirmation}
-            onChangeText={setConfirmation}
-            autoCapitalize="none"
-            autoCorrect={false}
-            disabled={busy}
-          />
           <Button
             testID="real-storage-marker-remove"
             variant="destructive"
-            disabled={
-              busy ||
-              confirmation !== NATIVE_STORAGE_REAL_MARKER_TEST_CONFIRMATION
-            }
+            disabled={busy}
             onPress={() => {
               if (confirmOpen.current || inFlight.current) return;
               confirmOpen.current = true;
