@@ -286,3 +286,39 @@ To experiment with OneKey without using your own ETH, switch your default networ
 - By submitting a report, the researcher grants OneKey an unrestricted, perpetual license to use the report and any associated materials for the purpose of improving OneKey's security.
 - OneKey may publicly acknowledge researchers (with their consent) but is not obligated to provide public credit.
 - All disputes arising from this program will be governed by the laws of the jurisdiction in which OneKey is incorporated.
+
+## Verifying OneKey App Downloads
+
+Every desktop and Android release on [GitHub Releases](https://github.com/OneKeyHQ/app-monorepo/releases) ships with a `*.SHA256SUMS.asc` file signed by the OneKey release signing key:
+
+```
+onekeyhq developer <dev@onekey.so>
+Fingerprint: EB68 AE54 4F1F DD8C D264  624F B369 A67A 90BF 387B
+```
+
+The same fingerprint is published in several independent places. Before trusting the key, check that they all match:
+
+- This file, and the public key file [`docs/onekey-release-signing-key.asc`](docs/onekey-release-signing-key.asc) in this repository
+- The public key built into the desktop app's updater: [`apps/desktop/app/constant/gpg.js`](apps/desktop/app/constant/gpg.js)
+- [keys.openpgp.org](https://keys.openpgp.org/vks/v1/by-fingerprint/EB68AE544F1FDD8CD264624FB369A67A90BF387B)
+- The OneKey Help Center: [Verify OneKey App Packages with GPG Signatures](https://help.onekey.so/en/articles/11461184-verify-onekey-app-packages-with-gpg-signatures)
+
+Steps:
+
+```bash
+# 1. Import the key (from this repository, or from keys.openpgp.org)
+gpg --import docs/onekey-release-signing-key.asc
+# gpg --keyserver hkps://keys.openpgp.org --recv-keys EB68AE544F1FDD8CD264624FB369A67A90BF387B
+
+# 2. Confirm the fingerprint matches the one above
+gpg --fingerprint dev@onekey.so
+
+# 3. Verify the signature on the checksum file
+gpg --verify OneKey-Wallet-<version>-<platform>.SHA256SUMS.asc
+
+# 4. Check the installer against the signed checksum
+shasum -a 256 --check OneKey-Wallet-<version>-<platform>.SHA256SUMS.asc
+# Windows: certutil -hashfile <installer> SHA256, then compare with the value in the .asc file
+```
+
+Step 3 must report `Good signature from "onekeyhq developer <dev@onekey.so>"` with the primary key fingerprint above. If any step fails or the fingerprint differs, do not install the package, and contact <security@onekey.so>.

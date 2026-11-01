@@ -1,0 +1,36 @@
+name: release-notes-signing-key
+
+# Appends the release signing key fingerprint to the notes of every published
+# release, so users can cross-check it against SECURITY.md, keys.openpgp.org
+# and the Help Center before trusting the *.SHA256SUMS.asc files.
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: write
+
+jobs:
+  append-fingerprint:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Append signing key fingerprint to release notes
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          TAG: ${{ github.event.release.tag_name }}
+        run: |
+          set -euo pipefail
+          FPR='EB68 AE54 4F1F DD8C D264  624F B369 A67A 90BF 387B'
+          gh release view "$TAG" --repo "$REPO" --json body --jq .body > notes.md
+          if grep -qF "$FPR" notes.md; then
+            echo "Fingerprint already present, nothing to do."
+            exit 0
+          fi
+          {
+            printf '\n\n---\n\n'
+            printf '🔏 Release signing key / 签名公钥 (dev@onekey.so): `%s`\n\n' "$FPR"
+            printf 'How to verify / 验证方法: https://github.com/%s/blob/x/SECURITY.md#verifying-onekey-app-downloads\n' "$REPO"
+          } >> notes.md
+          gh release edit "$TAG" --repo "$REPO" --notes-file notes.md
