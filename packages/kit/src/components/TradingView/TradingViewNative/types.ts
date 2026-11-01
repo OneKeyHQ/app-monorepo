@@ -164,6 +164,7 @@ export interface ITradingViewNativeProps {
   testID?: string;
   source: ITradingViewNativeSource;
   priceDecimalPlaces?: number;
+  isPricePrecisionLoading?: boolean;
   onPriceSelect?: (selection: ITradingViewNativePriceSelection) => void;
   priceSelectionLabel?: string;
   onInteractionChange?: (isInteracting: boolean) => void;
@@ -173,8 +174,6 @@ export interface ITradingViewNativeProps {
   enableDrawings?: boolean;
   /** Let the enclosing page claim vertical drags on an embedded native chart. */
   prioritizePageScroll?: boolean;
-  /** Opt-in for the hover zoom/scroll/reset bar on desktop web charts. */
-  enableNavigationControls?: boolean;
   forcedChartType?: ITradingViewNativeChartType;
   chartComponents?: readonly ITradingViewNativeChartComponentNode[];
   onReferenceLineAction?: (

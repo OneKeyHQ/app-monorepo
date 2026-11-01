@@ -17,6 +17,7 @@ export type ISwapTokenSelectorLoadOptions = {
   throwOnError?: boolean;
   subscriberSignal?: AbortSignal;
   priority?: 'foreground' | 'background';
+  fullChainLists?: boolean;
 };
 
 export function createSwapTokenSearchSubscriptions(onUnused: () => void) {

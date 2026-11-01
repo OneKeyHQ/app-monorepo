@@ -257,6 +257,7 @@ FunctionEnd
 
 !ifdef BUILD_UNINSTALLER
 
+  !define /redef APP_PRODUCT_FILENAME "OneKey Wallet"
   Var OneKeyModernUninstallAccepted
   Var OneKeyModernUninstallOriginalDirectory
   !define MUI_CUSTOMFUNCTION_UNGUIINIT un.OneKeyModernOnGuiInit
@@ -274,6 +275,7 @@ FunctionEnd
   FunctionEnd
 
   !macro customUnWelcomePage
+    !define MUI_WELCOMEPAGE_TEXT "$(OneKeyUninstallWarning)"
     !define MUI_PAGE_CUSTOMFUNCTION_PRE un.OneKeyModernUninstallWelcomePre
     !insertmacro MUI_UNPAGE_WELCOME
   !macroend
@@ -471,6 +473,37 @@ FunctionEnd
       ${EndIf}
     ${EndIf}
     DeleteRegKey SHELL_CONTEXT "${ONEKEY_NOTIFICATION_IDENTITY_REGISTRY_KEY}"
+  !macroend
+
+  !macro customHeader
+    !tempfile ONEKEY_UNINSTALL_MESSAGES
+    !system 'node "${PROJECT_DIR}/scripts/generate-nsis-uninstall-messages.js" "${ONEKEY_UNINSTALL_MESSAGES}"' = 0
+    !include /CHARSET=UTF8 "${ONEKEY_UNINSTALL_MESSAGES}"
+    !delfile "${ONEKEY_UNINSTALL_MESSAGES}"
+    !undef ONEKEY_UNINSTALL_MESSAGES
+
+    Function un.OneKeyRemoveAppData
+      SetShellVarContext current
+      RMDir /r "$APPDATA\${APP_FILENAME}"
+      !ifdef APP_PRODUCT_FILENAME
+        RMDir /r "$APPDATA\${APP_PRODUCT_FILENAME}"
+      !endif
+      !ifdef APP_PACKAGE_NAME
+        RMDir /r "$APPDATA\${APP_PACKAGE_NAME}"
+      !endif
+      ${If} $installMode == "all"
+        SetShellVarContext all
+      ${EndIf}
+    FunctionEnd
+  !macroend
+
+  !macro customRemoveAppData
+    ${If} $installMode == "all"
+    ${AndIf} ${UAC_IsInnerInstance}
+      !insertmacro UAC_AsUser_Call Function un.OneKeyRemoveAppData 0
+    ${Else}
+      Call un.OneKeyRemoveAppData
+    ${EndIf}
   !macroend
 
   !macro customUninstallPage

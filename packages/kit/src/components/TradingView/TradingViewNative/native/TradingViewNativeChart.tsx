@@ -49,6 +49,7 @@ import { getTradingViewNativeChartComponentPriceAxisLabel } from '../utils/chart
 import { getTradingViewNativeIndicatorPriceAxisLabel } from '../utils/chartIndicators';
 import {
   getTradingViewNativeChartWidth,
+  getTradingViewNativeCurrentPriceAxisLabel,
   getTradingViewNativePriceAxisLabel,
   getTradingViewNativePriceAxisWidth,
   getTradingViewNativeScaledPriceAxisLabel,
@@ -84,6 +85,7 @@ import {
 import {
   type ITradingViewNativeChartSize,
   createTradingViewNativeChartRuntime,
+  navigateTradingViewNativeChartRuntime,
   resizeTradingViewNativeChartRuntime,
   shouldHoldTradingViewNativeSubIndicatorResize,
 } from './chartRuntime';
@@ -105,12 +107,14 @@ import {
   getTradingViewNativeSkiaPriceAxisLabelWidth,
 } from './chartSkiaText';
 import { NativeDrawingToolbar } from './NativeDrawingToolbar';
+import { TradingViewNativeNavigationControls } from './TradingViewNativeNavigationControls';
 import { TradingViewNativePriceScaleControls } from './TradingViewNativePriceScaleControls';
 import { useNativeChartDrawings } from './useNativeChartDrawings';
 import { useTradingViewNativeChartGestures } from './useTradingViewNativeChartGestures';
 import { useTradingViewNativePriceScale } from './useTradingViewNativePriceScale';
 
 import type { ITradingViewNativeChartProps } from '../TradingViewNativeChart.types';
+import type { ITradingViewNativeNavigationAction } from '../utils/chartNavigation';
 import type { LayoutChangeEvent } from 'react-native';
 
 const SYSTEM_FONT_FAMILY = platformEnv.isNativeAndroid
@@ -136,6 +140,7 @@ export const TradingViewNativeChart = memo(
     drawingStorageKey,
     loadDrawingHistory,
     enableDrawings = false,
+    enableNavigationControls = true,
     prioritizePageScroll = false,
     candleIntervalSeconds,
     candleTimeMode = 'calendar',
@@ -146,6 +151,7 @@ export const TradingViewNativeChart = memo(
     chartPictureVersion,
     extendTimeAxisBorderToCanvasEdge = false,
     currentPriceLabel,
+    priceAxisDecimalPlaces,
     priceDecimalPlaces,
     hasVolume,
     indicatorSeries,
@@ -462,9 +468,6 @@ export const TradingViewNativeChart = memo(
         return 0;
       }
       const measuredPriceAxisFont = resources.value.fonts.priceAxis;
-      const currentPriceLabelBounds = measuredPriceAxisFont.measureText(
-        chartSettings.options.latestPrice ? currentPriceLabel : '',
-      );
       const measureCandidateLabel = (label: string) => {
         'worklet';
 
@@ -493,9 +496,13 @@ export const TradingViewNativeChart = memo(
         ),
       );
       return getTradingViewNativePriceAxisWidth({
-        currentPriceLabelWidth: Math.max(
-          currentPriceLabelBounds.x + currentPriceLabelBounds.width,
-          0,
+        currentPriceLabelWidth: measureCandidateLabel(
+          chartSettings.options.latestPrice
+            ? getTradingViewNativeCurrentPriceAxisLabel(
+                currentPriceLabel,
+                priceDecimalPlaces,
+              )
+            : '',
         ),
         minimumWidth: getTradingViewNativePriceScaleControlsMinimumAxisWidth(
           PRICE_SCALE_CONTROL_NATIVE_SIZING,
@@ -566,6 +573,7 @@ export const TradingViewNativeChart = memo(
         crosshair: runtime.crosshair,
         extendTimeAxisBorderToCanvasEdge,
         currentPriceLabel: runtime.currentPriceLabel,
+        priceAxisDecimalPlaces,
         priceDecimalPlaces,
         hasVolume: runtime.hasVolume,
         height: runtime.size.height,
@@ -594,6 +602,7 @@ export const TradingViewNativeChart = memo(
     }, [
       candleLabels,
       dateFormatTemplate,
+      priceAxisDecimalPlaces,
       priceDecimalPlaces,
       enableDrawings,
       drawingText,
@@ -1088,6 +1097,7 @@ export const TradingViewNativeChart = memo(
       controlsBottomInset: priceScaleControlsBottomInset,
       handleAutoScalePress: handlePriceScaleAutoPress,
       handleLogScalePress: handlePriceScaleLogPress,
+      handleMainPriceScaleReset,
       handlePointerLeave: handleChartPointerLeave,
       handlePointerMove: handleChartPointerMove,
       handleTouchStart: handleChartTouchStart,
@@ -1112,6 +1122,25 @@ export const TradingViewNativeChart = memo(
       subIndicatorPanes,
       timeAxisHeight,
     });
+
+    const handleNavigationAction = useCallback(
+      (action: ITradingViewNativeNavigationAction) => {
+        if (action === 'reset') handleMainPriceScaleReset();
+        scheduleOnUI(() => {
+          'worklet';
+
+          const nextRuntime = navigateTradingViewNativeChartRuntime(
+            chartRuntime.value,
+            action,
+            priceAxisWidth.value,
+          );
+          cancelAnimation(decayOffset);
+          decayOffset.value = nextRuntime.viewport.offset;
+          chartRuntime.value = nextRuntime;
+        });
+      },
+      [chartRuntime, decayOffset, handleMainPriceScaleReset, priceAxisWidth],
+    );
 
     const chartGestures = useTradingViewNativeChartGestures({
       prioritizePageScroll,
@@ -1205,6 +1234,18 @@ export const TradingViewNativeChart = memo(
               <Picture picture={picture} />
             </Canvas>
           </GestureDetector>
+          {enableNavigationControls &&
+          chartSettings.options.navigationButtons &&
+          chartWidth > 0 &&
+          pointCount > 0 ? (
+            <TradingViewNativeNavigationControls
+              backgroundColor={background}
+              chartWidth={chartWidth}
+              onAction={handleNavigationAction}
+              timeAxisHeight={timeAxisHeight}
+              testID={testID}
+            />
+          ) : null}
           {chartSettings.options.yAxis && priceAxisControlWidth > 0 ? (
             <TradingViewNativePriceScaleControls
               backgroundColor={background}

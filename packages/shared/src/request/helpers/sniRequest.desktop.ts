@@ -1,6 +1,7 @@
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { defaultLogger } from '../../logger/logger';
+import { IP_TABLE_ENABLED } from '../constants/ipTableDefaults';
 
 import { isSniFailClosedError } from './sniFailClosedError';
 import { safeSniLogValue } from './sniLogRedaction';
@@ -73,10 +74,10 @@ export async function sniRequest(
 
 /**
  * Check if SNI is supported on current platform
- * @returns true if desktop environment with desktopApiProxy available
+ * @returns true if IP_TABLE_ENABLED and desktop environment with desktopApiProxy available
  */
 export function isSniSupported(): boolean {
-  if (!platformEnv.isDesktop) {
+  if (!IP_TABLE_ENABLED || !platformEnv.isDesktop) {
     return false;
   }
 

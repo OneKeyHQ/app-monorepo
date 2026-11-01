@@ -13,13 +13,19 @@ import type { INativeSheetPresentationProps } from '@onekeyhq/components/src/hoc
 
 import { StockSelectorPopover } from './StockSelectorPopover.native';
 
+let mockIsNativeIOS = true;
+
 jest.mock('react-native', () => ({
   useWindowDimensions: () => ({ height: 907, width: 393 }),
 }));
 
 jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
   __esModule: true,
-  default: { isNativeIOS: true },
+  default: {
+    get isNativeIOS() {
+      return mockIsNativeIOS;
+    },
+  },
 }));
 
 // The repository mapper routes the components barrel and every subpath to
@@ -42,7 +48,26 @@ jest.mock('@onekeyhq/components', () => {
     ...context,
     Stack: Wrapper,
     XStack: Wrapper,
-    YStack: Wrapper,
+    YStack: ({
+      children,
+      height,
+      maxHeight,
+      pb,
+    }: {
+      children?: ReactNode;
+      height?: number;
+      maxHeight?: number;
+      pb?: number;
+    }) => (
+      <div
+        data-testid="selector-stack"
+        data-height={height}
+        data-max-height={maxHeight}
+        data-bottom-padding={pb}
+      >
+        {children}
+      </div>
+    ),
     SizableText: Wrapper,
     useSafeAreaInsets: () => ({ top: 59, bottom: 34, left: 0, right: 0 }),
     runPopoverOpenSideEffects: jest.fn(),
@@ -115,6 +140,7 @@ describe('StockSelectorPopover native sheet', () => {
   beforeEach(() => {
     jest.useFakeTimers();
     jest.clearAllMocks();
+    mockIsNativeIOS = true;
   });
 
   afterEach(() => {
@@ -198,8 +224,43 @@ describe('StockSelectorPopover native sheet', () => {
     expect(
       Number(screen.getByTestId('native-sheet').getAttribute('data-height')),
     ).toBeCloseTo(746.02);
+    expect(
+      Number(
+        screen.getAllByTestId('selector-stack')[0].getAttribute('data-height'),
+      ),
+    ).toBeCloseTo(780.02);
+    expect(
+      screen
+        .getAllByTestId('selector-stack')[0]
+        .getAttribute('data-bottom-padding'),
+    ).toBe('0');
     expect(screen.queryByTestId('stock-selector-close')).toBeNull();
     expect(screen.queryByText('Select stock tokens')).toBeNull();
+  });
+
+  it('extends the Android ticker content through the navigation inset', () => {
+    mockIsNativeIOS = false;
+    render(
+      <StockSelectorPopover
+        {...props}
+        showHeader={false}
+        sheetProps={{ snapPoints: [86], snapPointsMode: 'percent' }}
+      />,
+    );
+    openSelector();
+    expect(
+      Number(screen.getByTestId('native-sheet').getAttribute('data-height')),
+    ).toBeCloseTo(780.02);
+    expect(
+      Number(
+        screen.getAllByTestId('selector-stack')[0].getAttribute('data-height'),
+      ),
+    ).toBeCloseTo(814.02);
+    expect(
+      screen
+        .getAllByTestId('selector-stack')[0]
+        .getAttribute('data-bottom-padding'),
+    ).toBe('0');
   });
 
   it('lets issuer content fit while bounding the total surface to 92 percent', () => {
