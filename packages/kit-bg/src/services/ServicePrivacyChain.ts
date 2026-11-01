@@ -80,6 +80,7 @@ import {
   getPrivacySyncDurationBucket,
 } from './PrivacyChainActivationTracking';
 import {
+  WATCHED_FAILURE_BACKOFF_MAX_MS,
   getPrivacyChainFailureBackoffMs,
   getPrivacyChainSyncReason,
   getQuarantineRecoveryDelayMs,
@@ -399,9 +400,12 @@ class ServicePrivacyChain extends ServiceBase {
 
   boostPausedByNetwork: Record<string, boolean> = {};
 
-  // Groups whose last turns failed skip picks until `untilMs`, so one failing chain cannot starve
-  // the others.
-  syncFailureBackoff = new Map<string, { failures: number; untilMs: number }>();
+  // Groups whose last turns failed skip picks until `untilMs` (`watchedUntilMs` while the user
+  // watches), so one failing chain cannot starve the others.
+  syncFailureBackoff = new Map<
+    string,
+    { failures: number; untilMs: number; watchedUntilMs?: number }
+  >();
 
   clearSyncFailureBackoff(networkId: string) {
     for (const key of this.syncFailureBackoff.keys()) {
@@ -440,10 +444,30 @@ class ServicePrivacyChain extends ServiceBase {
   recordSyncFailure(runtimeStateKey: string) {
     const failures =
       (this.syncFailureBackoff.get(runtimeStateKey)?.failures ?? 0) + 1;
+    const backoffMs = getPrivacyChainFailureBackoffMs(failures);
     this.syncFailureBackoff.set(runtimeStateKey, {
       failures,
-      untilMs: Date.now() + getPrivacyChainFailureBackoffMs(failures),
+      untilMs: Date.now() + backoffMs,
+      watchedUntilMs:
+        Date.now() + Math.min(backoffMs, WATCHED_FAILURE_BACKOFF_MAX_MS),
     });
+  }
+
+  private getSyncBackoffUntilMs({
+    runtimeStateKey,
+    networkId,
+  }: {
+    runtimeStateKey: string;
+    networkId: string;
+  }): number {
+    const backoff = this.syncFailureBackoff.get(runtimeStateKey);
+    if (!backoff) return 0;
+    const watched =
+      this.isNetworkForegroundHot(networkId) ||
+      this.isNetworkSendSyncPending(networkId);
+    return watched
+      ? (backoff.watchedUntilMs ?? backoff.untilMs)
+      : backoff.untilMs;
   }
 
   // `created`: no key was stored before this call. Only the user's own enable comes here, so it
@@ -2245,9 +2269,7 @@ class ServicePrivacyChain extends ServiceBase {
 
       const pickedAtMs = Date.now();
       const backedOff = candidates.filter(
-        ({ runtimeStateKey }) =>
-          (this.syncFailureBackoff.get(runtimeStateKey)?.untilMs ?? 0) >
-          pickedAtMs,
+        (c) => this.getSyncBackoffUntilMs(c) > pickedAtMs,
       );
       const runnableCandidates = candidates.filter(
         (c) =>
@@ -2486,18 +2508,6 @@ class ServicePrivacyChain extends ServiceBase {
       }
       if (runnableCandidates.length > 1) {
         continueDelayMs = timerUtils.getTimeDurationMs({ seconds: 1 });
-      } else if (!runnableCandidates.length && backedOff.length) {
-        // Everything wanting a turn is backing off: wake at the first backoff end.
-        continueDelayMs = Math.max(
-          timerUtils.getTimeDurationMs({ seconds: 1 }),
-          Math.min(
-            ...backedOff.map(
-              (c) =>
-                (this.syncFailureBackoff.get(c.runtimeStateKey)?.untilMs ??
-                  pickedAtMs) - Date.now(),
-            ),
-          ),
-        );
       } else if (retryNeeded) {
         // Hot networks retry faster than the background backoff, so a transient failure does not
         // freeze visible progress.
@@ -2509,6 +2519,21 @@ class ServicePrivacyChain extends ServiceBase {
         continueDelayMs = hot
           ? timerUtils.getTimeDurationMs({ seconds: 3 })
           : timerUtils.getTimeDurationMs({ seconds: 30 });
+      }
+      // A chain backing off wakes when its wait ends, even after another chain took this turn.
+      if (backedOff.length) {
+        const backoffEndsInMs = Math.max(
+          timerUtils.getTimeDurationMs({ seconds: 1 }),
+          Math.min(
+            ...backedOff.map((c) => this.getSyncBackoffUntilMs(c) - Date.now()),
+          ),
+        );
+        if (
+          continueDelayMs === undefined ||
+          backoffEndsInMs < continueDelayMs
+        ) {
+          continueDelayMs = backoffEndsInMs;
+        }
       }
       const followUpDelayMs = this.getFollowUpSyncDelayMs(Date.now());
       if (

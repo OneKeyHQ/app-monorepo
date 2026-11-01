@@ -82,6 +82,10 @@ export function getPrivacyChainFailureBackoffMs(failures: number): number {
   );
 }
 
+// The longest a failing chain waits while the user watches it; only background scanning backs off
+// further.
+export const WATCHED_FAILURE_BACKOFF_MAX_MS = 30 * 1000;
+
 // A runtime whose stuck scan could not be stopped is tried again, slower each time: nothing else
 // frees it short of a restart.
 const QUARANTINE_RECOVERY_BASE_MS = 30 * 1000;

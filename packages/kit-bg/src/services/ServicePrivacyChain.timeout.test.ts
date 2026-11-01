@@ -357,6 +357,53 @@ describe('Privacy sync failure backoff', () => {
     expect(xmrSync).toHaveBeenCalledTimes(1);
   });
 
+  // Without this the failing chain waits for the periodic check, minutes later.
+  it('wakes a backed-off chain when its wait ends, after another chain took the turn', async () => {
+    const zcashSync = jest.fn().mockRejectedValue(new Error('NETWORK_ERROR'));
+    const xmrSync = jest.fn().mockResolvedValue({
+      synced: true,
+      chainTip: 200,
+      backfillRemaining: false,
+    });
+    const service = createTwoChainScheduler(zcashSync, xmrSync) as unknown as {
+      backgroundSyncTick: () => Promise<void>;
+      scheduleBackgroundSync: jest.Mock;
+    };
+
+    await service.backgroundSyncTick();
+    service.scheduleBackgroundSync.mockClear();
+    await service.backgroundSyncTick();
+
+    expect(xmrSync).toHaveBeenCalledTimes(1);
+    expect(service.scheduleBackgroundSync).toHaveBeenCalledWith(5000);
+  });
+
+  // Only background scanning backs off for minutes; a chain the user watches retries within 30s.
+  it.each([
+    [false, 5 * 60 * 1000],
+    [true, 30 * 1000],
+  ])(
+    'caps the wait of a watched chain (watched: %s)',
+    async (watched, wait) => {
+      const service = createTwoChainScheduler(
+        jest.fn(),
+        jest.fn().mockResolvedValue({ synced: true, chainTip: 200 }),
+      ) as unknown as {
+        backgroundSyncTick: () => Promise<void>;
+        recordSyncFailure: (key: string) => void;
+        scheduleBackgroundSync: jest.Mock;
+        isNetworkForegroundHot: (networkId: string) => boolean;
+      };
+      for (let i = 0; i < 8; i += 1) service.recordSyncFailure('zec--0|main');
+      service.isNetworkForegroundHot = (networkId) =>
+        watched && networkId === 'zec--0';
+
+      await service.backgroundSyncTick();
+
+      expect(service.scheduleBackgroundSync).toHaveBeenCalledWith(wait);
+    },
+  );
+
   // An outdated WebView cannot become usable mid-session; retrying it only
   // takes turns from the chain that works.
   it('never retries a chain whose storage is unsupported', async () => {
