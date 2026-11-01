@@ -394,9 +394,7 @@ function ApprovalListPageContent() {
                   pb: tabBarHeight,
                 },
               }}
-              {...(media.gtLg && {
-                tableLayout: true,
-              })}
+              tableLayout={!!media.gtLg}
             />
           ) : null}
         </Page.Container>

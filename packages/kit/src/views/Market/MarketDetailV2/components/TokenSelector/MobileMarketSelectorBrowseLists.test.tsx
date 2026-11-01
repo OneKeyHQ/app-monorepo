@@ -271,6 +271,36 @@ describe('MobileSelectorSearchTokenRow price change', () => {
     expect(numbers).toHaveLength(2);
     expect(numbers[1]?.textContent).toBe('0');
   });
+
+  it('keeps shared selector rows compact by default and switches only when requested', () => {
+    const onPress = jest.fn();
+    const { rerender } = render(
+      <MobileSelectorSearchTokenRow
+        item={{ ...searchToken, priceChangeRaw: '0' }}
+        onPress={onPress}
+      />,
+    );
+    expect(screen.getAllByTestId('number')).toHaveLength(2);
+
+    rerender(
+      <MobileSelectorSearchTokenRow
+        item={{ ...searchToken, priceChangeRaw: '0' }}
+        onPress={onPress}
+        tableLayout
+      />,
+    );
+    expect(screen.getAllByTestId('number')).toHaveLength(4);
+    expect(screen.getByText('1000')).toBeTruthy();
+    expect(screen.getByText('500')).toBeTruthy();
+
+    rerender(
+      <MobileSelectorSearchTokenRow
+        item={{ ...searchToken, priceChangeRaw: '0' }}
+        onPress={onPress}
+      />,
+    );
+    expect(screen.getAllByTestId('number')).toHaveLength(2);
+  });
 });
 
 describe('MobileSelectorWatchlistList', () => {
