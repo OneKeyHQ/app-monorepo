@@ -241,12 +241,16 @@ public class MarketWidgetProvider extends AppWidgetProvider {
         views.setViewVisibility(R.id.market_widget_status, status.isEmpty() ? View.GONE : View.VISIBLE);
         AppWidgetManager manager = AppWidgetManager.getInstance(context);
         manager.updateAppWidget(id, single
-            ? singleSizedViews(views, manager.getAppWidgetOptions(id), !status.isEmpty()) : views);
+            ? singleSizedViews(views, manager.getAppWidgetOptions(id)) : views);
         MarketWidgetLog.event("render.submitted", "widgetId", id, "kind", single ? "single" : "list",
             "slotCount", assets.size(), "hasStatus", !status.isEmpty(), "privacyMasked", configuration.privacyMasked);
     }
 
-    private static RemoteViews singleSizedViews(RemoteViews views, Bundle options, boolean hasStatus) {
+    static float singleCardHeight(float width, float height) {
+        return Math.min(height, width * 8f / 7f);
+    }
+
+    private static RemoteViews singleSizedViews(RemoteViews views, Bundle options) {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) return views;
         List<SizeF> sizes = options.getParcelableArrayList(AppWidgetManager.OPTION_APPWIDGET_SIZES);
         if (sizes == null || sizes.isEmpty()) {
@@ -263,7 +267,7 @@ public class MarketWidgetProvider extends AppWidgetProvider {
             RemoteViews sized = new RemoteViews(views);
             // Launcher rows can be much taller than columns; keep the card's reference proportions.
             sized.setViewLayoutHeight(R.id.market_widget_root,
-                Math.min(size.getHeight(), size.getWidth() * 8f / 7f + (hasStatus ? 16f : 0f)),
+                singleCardHeight(size.getWidth(), size.getHeight()),
                 TypedValue.COMPLEX_UNIT_DIP);
             layouts.put(size, sized);
             if (layouts.size() == 16) break;

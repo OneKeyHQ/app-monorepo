@@ -177,7 +177,7 @@ final class MarketWidgetStore {
             .put("hot", editorAssets(context, availableAssets(context, HOT)));
     }
 
-    private static JSONArray editorAssets(Context context, List<MarketWidgetData.Asset> assets) throws JSONException {
+    static JSONArray editorAssets(Context context, List<MarketWidgetData.Asset> assets) throws JSONException {
         JSONArray result = new JSONArray();
         for (MarketWidgetData.Asset asset : assets) {
             JSONObject item = asset.json();
@@ -196,6 +196,11 @@ final class MarketWidgetStore {
 
     static synchronized JSONObject saveSettings(Context context, int widgetId, boolean single, String raw)
         throws JSONException {
+        return saveSettings(context, widgetId, single, raw, java.util.Collections.emptyList());
+    }
+
+    static synchronized JSONObject saveSettings(Context context, int widgetId, boolean single, String raw,
+        List<MarketWidgetData.Asset> searchAssets) throws JSONException {
         if (raw.length() > 8192 || !canDisplay(context)) throw new IllegalArgumentException("Invalid widget settings");
         JSONObject input = new JSONObject(raw);
         String source = input.getString("source");
@@ -208,6 +213,7 @@ final class MarketWidgetStore {
         List<MarketWidgetData.Asset> candidates = availableAssets(context, WATCHLIST);
         candidates.addAll(availableAssets(context, HOT));
         candidates.addAll(assets(context, widgetId, single));
+        candidates.addAll(searchAssets);
         JSONArray selected = new JSONArray();
         for (int index = 0; index < requested.length(); index++) {
             MarketWidgetData.Asset identity = new MarketWidgetData.Asset(requested.getJSONObject(index));

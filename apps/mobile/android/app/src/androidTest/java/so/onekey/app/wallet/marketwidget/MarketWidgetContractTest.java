@@ -30,6 +30,42 @@ import so.onekey.app.wallet.R;
 @RunWith(AndroidJUnit4.class)
 public final class MarketWidgetContractTest {
     @Test
+    public void stockSearchCandidatesCanBeSavedWithoutJoiningTheWatchlistOrHotRanking() throws Exception {
+        JSONObject apple = new JSONObject().put("stockId", "AAPL").put("symbol", "AAPL")
+            .put("name", "Apple").put("currency", "USD");
+        JSONObject otherCurrency = new JSONObject(apple.toString()).put("stockId", "HK").put("currency", "HKD");
+        java.util.List<MarketWidgetData.Asset> stocks = MarketWidgetClient.decodeStockSearch(new JSONObject()
+            .put("code", 0).put("data", new JSONObject().put("items", new JSONArray().put(apple).put(apple).put(otherCurrency))));
+        assertEquals(1, stocks.size());
+        assertEquals("stock", stocks.get(0).kind);
+        JSONObject input = new JSONObject().put("kind", "single").put("source", "hot")
+            .put("assets", new JSONArray().put(stocks.get(0).json()));
+        try {
+            MarketWidgetStore.saveSettings(context, 201, true, input.toString());
+            fail("A JS identity without a native search candidate must not be accepted");
+        } catch (IllegalArgumentException expected) { }
+        MarketWidgetStore.saveSettings(context, 201, true, input.toString(), stocks);
+        assertEquals("AAPL", MarketWidgetStore.assets(context, 201, true).get(0).stockId);
+        java.util.List<MarketWidgetData.Asset> tokens = MarketWidgetData.defaults().assets;
+        MarketWidgetStore.saveHot(context, tokens, System.currentTimeMillis());
+        JSONObject mixed = new JSONObject().put("kind", "list").put("source", "hot").put("assets",
+            new JSONArray().put(tokens.get(0).json()).put(stocks.get(0).json()).put(tokens.get(1).json()));
+        MarketWidgetStore.saveSettings(context, 203, false, mixed.toString(), stocks);
+        assertEquals(tokens.get(0).key(), MarketWidgetStore.assets(context, 203, false).get(0).key());
+        assertEquals("AAPL", MarketWidgetStore.assets(context, 203, false).get(1).stockId);
+        assertEquals(tokens.get(1).key(), MarketWidgetStore.assets(context, 203, false).get(2).key());
+        assertFalse(MarketWidgetStore.availableAssets(context, MarketWidgetStore.HOT).stream()
+            .anyMatch(asset -> "stock".equals(asset.kind)));
+        assertFalse(MarketWidgetStore.availableAssets(context, MarketWidgetStore.WATCHLIST).stream()
+            .anyMatch(asset -> "stock".equals(asset.kind)));
+        MarketWidgetStore.setConfiguration(context, "{\"schemaVersion\":1,\"assets\":[],\"privacyMasked\":true}");
+        try {
+            MarketWidgetStore.saveSettings(context, 202, true, input.toString(), stocks);
+            fail("Search candidates must not bypass privacy masking");
+        } catch (IllegalArgumentException expected) { }
+    }
+
+    @Test
     public void appQuotesRejectOldWritersAndRespectCurrencyAndPrivacy() throws Exception {
         MarketWidgetData.Asset asset = MarketWidgetData.defaults().assets.get(0);
         MarketWidgetStore.setConfiguration(context, new JSONObject().put("schemaVersion", 1).put("locale", "en-US")

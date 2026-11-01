@@ -8,6 +8,10 @@ import org.json.JSONException;
 import org.json.JSONObject;
 
 import java.util.UUID;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.LinkedHashMap;
+import org.json.JSONArray;
 
 /** Opaque handoff from the launcher to the app's existing React Native host. */
 final class MarketWidgetEditorSession {
@@ -21,6 +25,7 @@ final class MarketWidgetEditorSession {
     final String source;
     final int result;
     final boolean saved;
+    final List<MarketWidgetData.Asset> searchAssets = new ArrayList<>();
 
     private MarketWidgetEditorSession(String token, JSONObject value) throws JSONException {
         this.token = token;
@@ -29,6 +34,11 @@ final class MarketWidgetEditorSession {
         source = value.getString("source");
         result = value.optInt("result", 0);
         saved = value.optBoolean("saved", false);
+        JSONArray assets = value.optJSONArray("searchAssets");
+        if (assets != null) for (int index = 0; index < Math.min(assets.length(), 100); index++) {
+            MarketWidgetData.Asset asset = new MarketWidgetData.Asset(assets.getJSONObject(index));
+            if ("stock".equals(asset.kind)) searchAssets.add(asset);
+        }
     }
 
     private static SharedPreferences preferences(Context context) {
@@ -92,6 +102,24 @@ final class MarketWidgetEditorSession {
             throw new IllegalStateException("Could not persist editor result");
         }
         MarketWidgetLog.event("session.saved", "sessionRef", MarketWidgetLog.sessionRef(token));
+    }
+
+    static synchronized void cacheSearchAssets(Context context, String token, List<MarketWidgetData.Asset> assets)
+        throws JSONException {
+        MarketWidgetEditorSession session = requireActive(context, token);
+        if (!MarketWidgetStore.canDisplay(context)) throw new IllegalStateException("Widget data is hidden");
+        LinkedHashMap<String, MarketWidgetData.Asset> merged = new LinkedHashMap<>();
+        for (MarketWidgetData.Asset asset : assets) if ("stock".equals(asset.kind)) merged.put(asset.key(), asset);
+        for (MarketWidgetData.Asset asset : session.searchAssets) merged.putIfAbsent(asset.key(), asset);
+        JSONArray values = new JSONArray();
+        for (MarketWidgetData.Asset asset : merged.values()) {
+            values.put(asset.json());
+            if (values.length() == 100) break;
+        }
+        JSONObject value = new JSONObject(preferences(context).getString(token, "")).put("searchAssets", values);
+        if (!preferences(context).edit().putString(token, value.toString()).commit()) {
+            throw new IllegalStateException("Could not persist search candidates");
+        }
     }
 
     static synchronized void complete(Context context, String token, boolean saved) throws JSONException {

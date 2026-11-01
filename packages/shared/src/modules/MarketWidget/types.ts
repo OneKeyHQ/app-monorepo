@@ -67,6 +67,7 @@ export type IMarketWidgetEditorState = {
   settings?: IMarketWidgetProfile[];
   watchlist: IMarketWidgetAsset[];
   hot: IMarketWidgetAsset[];
+  searchAssets?: IMarketWidgetAsset[];
   privacyMasked: boolean;
 };
 
@@ -83,6 +84,10 @@ export type IMarketWidgetModule = {
   getEditorState: (editorSession?: string) => Promise<IMarketWidgetEditorState>;
   refreshEditorState?: (
     editorSession?: string,
+  ) => Promise<IMarketWidgetEditorState>;
+  searchStocks?: (
+    query: string,
+    editorSession: string,
   ) => Promise<IMarketWidgetEditorState>;
   finishEditing?: (editorSession: string, saved: boolean) => Promise<void>;
   saveProfile: (
