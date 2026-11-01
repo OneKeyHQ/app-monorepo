@@ -146,6 +146,33 @@ describe('Privacy sync failure state', () => {
     expect(mockPublished.syncErrorByNetworkId).toEqual({});
   });
 
+  // Mobile data, a database rebuild or a reset racing the pass can end it without running.
+  it('retries a pass that did not run, even at an unchanged tip', async () => {
+    const syncGroup = jest
+      .fn()
+      .mockResolvedValueOnce({ synced: false })
+      .mockResolvedValue({ synced: true, chainTip: 100 });
+    const service = createService({ syncGroup });
+    const state = service as unknown as {
+      runtimeSyncState: Map<string, unknown>;
+      backfillActiveByAccount: Record<string, boolean>;
+      syncFailureBackoff: Map<string, unknown>;
+    };
+    // An earlier pass reached this tip with blocks still queued.
+    state.runtimeSyncState.set(`${networkId}|main`, {
+      accountSignature: 'account',
+      lastChainTip: 100,
+    });
+    state.backfillActiveByAccount.account = true;
+
+    await service.backgroundSyncTick();
+    expect(state.backfillActiveByAccount.account).toBe(true);
+    state.syncFailureBackoff.clear();
+    await service.backgroundSyncTick();
+
+    expect(syncGroup).toHaveBeenCalledTimes(2);
+  });
+
   it('names an unreachable node when even the chain tip fails', async () => {
     const service = createService({
       syncGroup: jest.fn(),

@@ -2290,13 +2290,15 @@ class ServicePrivacyChain extends ServiceBase {
                   ?.lastChainTip ??
                 null,
             });
+            for (const accountId of candidate.accountIds) {
+              this.backfillActiveByAccount[accountId] =
+                !!result.backfillRemaining;
+            }
           } else {
+            // A pass that did not run says nothing about what is left; clearing the flag here
+            // would leave the retry nothing to run until the tip moves.
             retryNeeded = true;
             this.recordSyncFailure(candidate.runtimeStateKey);
-          }
-          for (const accountId of candidate.accountIds) {
-            this.backfillActiveByAccount[accountId] =
-              !!result.backfillRemaining;
           }
           // Publish while the wallet is still ours, so readers subscribe instead of polling.
           await this.publishScanProgress(
