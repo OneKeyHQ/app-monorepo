@@ -50,7 +50,8 @@ final class MarketWidgetClient {
         long started = android.os.SystemClock.elapsedRealtime();
         String requestId = UUID.randomUUID().toString();
         String path = uri.getPath();
-        String operation = path != null && path.contains("/kline") ? "chart"
+        String operation = path != null && path.contains("/search") ? "search"
+            : path != null && path.contains("/kline") ? "chart"
             : path != null && path.contains("/trending") ? "ranking" : "quote";
         int status = 0;
         HttpsURLConnection connection = (HttpsURLConnection) new URL(uri.toString()).openConnection();
@@ -93,6 +94,33 @@ final class MarketWidgetClient {
         } finally {
             connection.disconnect();
         }
+    }
+
+    static List<MarketWidgetData.Asset> searchStocks(String query, String locale) throws Exception {
+        String normalized = query.trim();
+        if (normalized.isEmpty() || normalized.length() > 200 || normalized.matches("(?s).*[\\p{Cntrl}].*")) {
+            throw new IllegalArgumentException("Invalid stock query");
+        }
+        Uri uri = Uri.parse("https://utility.onekeycn.com/utility/v1/stocks/search").buildUpon()
+            .appendQueryParameter("query", normalized).appendQueryParameter("limit", "20").build();
+        return decodeStockSearch(request(uri, locale));
+    }
+
+    static List<MarketWidgetData.Asset> decodeStockSearch(JSONObject envelope) throws Exception {
+        if (envelope.getInt("code") != 0) throw new IOException("Stock search unavailable");
+        JSONArray items = envelope.getJSONObject("data").getJSONArray("items");
+        if (items.length() > 100) throw new IOException("Too many stock results");
+        List<MarketWidgetData.Asset> result = new ArrayList<>();
+        Set<String> seen = new HashSet<>();
+        for (int index = 0; index < Math.min(items.length(), 20); index++) {
+            JSONObject item = items.getJSONObject(index);
+            if (!"USD".equals(item.optString("currency"))) continue;
+            MarketWidgetData.Asset asset = new MarketWidgetData.Asset(new JSONObject().put("kind", "stock")
+                .put("stockId", item.getString("stockId")).put("symbol", item.optString("symbol"))
+                .put("name", item.optString("name")).put("iconUrl", item.optString("logoUrl")));
+            if (seen.add(asset.key())) result.add(asset);
+        }
+        return result;
     }
 
     static MarketWidgetData.Quote decode(MarketWidgetData.Asset asset, JSONObject envelope, long fetchedAt)

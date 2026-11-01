@@ -74,6 +74,16 @@ export default function MarketWidgetEditor() {
   const [activeSlot, setActiveSlot] = useState<number>();
   const isPickingAsset = activeSlot !== undefined;
   const [query, setQuery] = useState('');
+  const { searchStocks, cancelSearch } = editor;
+  useEffect(() => {
+    const normalized = query.trim();
+    if (!normalized || !isPickingAsset || source !== 'hot') return;
+    const timer = setTimeout(() => void searchStocks(normalized), 300);
+    return () => {
+      clearTimeout(timer);
+      cancelSearch();
+    };
+  }, [query, isPickingAsset, source, searchStocks, cancelSearch]);
   const [saveError, setSaveError] = useState<string>();
   const legacyKind = editor.state?.profiles.find(
     (item) => item.id === routeProfileId,
@@ -186,10 +196,17 @@ export default function MarketWidgetEditor() {
     );
   const visibleAssets = useMemo(() => {
     const search = query.trim().toLowerCase();
-    return (editor.state?.[source] ?? []).filter(
-      (item) =>
-        !search || getMarketWidgetAssetSearchText(item).includes(search),
-    );
+    const candidates = [
+      ...(editor.state?.[source] ?? []),
+      ...(search && source === 'hot' ? (editor.state?.searchAssets ?? []) : []),
+    ];
+    const seen = new Set<string>();
+    return candidates.filter((item) => {
+      const key = getMarketWidgetAssetKey(item);
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return !search || getMarketWidgetAssetSearchText(item).includes(search);
+    });
   }, [editor.state, query, source]);
 
   const closePicker = useCallback(() => {
@@ -315,20 +332,31 @@ export default function MarketWidgetEditor() {
                 />
               )}
               ListEmptyComponent={
-                <Empty
-                  title={intl.formatMessage({
-                    id: query
-                      ? ETranslations.global_no_results
-                      : ETranslations.empty_no_tokens_found,
-                  })}
-                  description={
-                    query
-                      ? intl.formatMessage({
-                          id: ETranslations.global_search_no_results_desc,
-                        })
-                      : undefined
-                  }
-                />
+                query &&
+                source === 'hot' &&
+                (editor.isSearching || editor.searchError) ? (
+                  <MarketWidgetStateView
+                    privacyMasked={editor.privacyMasked}
+                    isLoading={editor.isSearching}
+                    hasError={editor.searchError}
+                    onRetry={() => searchStocks(query.trim())}
+                  />
+                ) : (
+                  <Empty
+                    title={intl.formatMessage({
+                      id: query
+                        ? ETranslations.global_no_results
+                        : ETranslations.empty_no_tokens_found,
+                    })}
+                    description={
+                      query
+                        ? intl.formatMessage({
+                            id: ETranslations.global_search_no_results_desc,
+                          })
+                        : undefined
+                    }
+                  />
+                )
               }
             />
           </YStack>

@@ -33,9 +33,12 @@ export function getMarketWidgetDisplayAsset({
   );
   const latest =
     state[source].find((item) => getMarketWidgetAssetKey(item) === key) ??
-    [...state.watchlist, ...state.hot, ...(settings?.assets ?? [])].find(
-      (item) => getMarketWidgetAssetKey(item) === key,
-    ) ??
+    [
+      ...state.watchlist,
+      ...state.hot,
+      ...(state.searchAssets ?? []),
+      ...(settings?.assets ?? []),
+    ].find((item) => getMarketWidgetAssetKey(item) === key) ??
     (settings?.asset && getMarketWidgetAssetKey(settings.asset) === key
       ? settings.asset
       : undefined);
@@ -64,6 +67,7 @@ export function isMarketWidgetManualAssetAvailable({
     [
       ...state.watchlist,
       ...state.hot,
+      ...(state.searchAssets ?? []),
       ...(settings?.assets ?? []),
       ...(settings?.asset ? [settings.asset] : []),
     ],

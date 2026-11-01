@@ -44,10 +44,14 @@ public final class MarketWidgetConfigureActivity extends Activity {
     private String session;
     private boolean leftForEditor;
     private boolean receiverRegistered;
+    private boolean resumed;
     private final BroadcastReceiver completion = new BroadcastReceiver() {
         @Override public void onReceive(Context context, Intent intent) {
             if (session != null && session.equals(intent.getStringExtra(MarketWidgetEditorSession.EXTRA_SESSION))) {
-                finishFromSession();
+                // Keep the launcher's result activity in the task until the app returns to it.
+                // Finishing it in the background can resume Home before the proxy delivers RESULT_OK.
+                if (resumed) finishFromSession();
+                else logLifecycle("activity.completion_waiting_for_resume");
             }
         }
     };
@@ -68,7 +72,7 @@ public final class MarketWidgetConfigureActivity extends Activity {
             ContextCompat.registerReceiver(this, completion, new IntentFilter(MarketWidgetEditorSession.COMPLETED),
                 ContextCompat.RECEIVER_NOT_EXPORTED);
             receiverRegistered = true;
-            if (current.result != 0) { finishFromSession(); return; }
+            if (current.result != 0) { leftForEditor = true; return; }
             if (state == null) {
                 Uri url = new Uri.Builder().scheme("onekey-wallet").authority("market_widget_config")
                     .appendQueryParameter("editorSession", session).build();
@@ -90,6 +94,9 @@ public final class MarketWidgetConfigureActivity extends Activity {
             if (current.result == 0) return;
             setResult(current.result == 1 ? RESULT_OK : RESULT_CANCELED,
                 new Intent().putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, current.widgetId));
+            MarketWidgetLog.event("activity.result_returned", "sessionRef", MarketWidgetLog.sessionRef(session),
+                "widgetId", current.widgetId, "resultCode", current.result == 1 ? RESULT_OK : RESULT_CANCELED,
+                "resumed", resumed, "caller", getCallingPackage());
         } catch (Exception error) {
             MarketWidgetLog.failure("activity.completion_failed", error, "sessionRef", MarketWidgetLog.sessionRef(session));
             // Missing or invalid sessions remain canceled.
@@ -99,6 +106,7 @@ public final class MarketWidgetConfigureActivity extends Activity {
 
     @Override protected void onResume() {
         super.onResume();
+        resumed = true;
         logLifecycle("activity.resume");
         if (!leftForEditor || isFinishing()) return;
         finishFromSession();
@@ -112,6 +120,8 @@ public final class MarketWidgetConfigureActivity extends Activity {
     }
 
     @Override protected void onPause() {
+        resumed = false;
+        leftForEditor = true;
         logLifecycle("activity.pause");
         super.onPause();
     }
@@ -131,6 +141,6 @@ public final class MarketWidgetConfigureActivity extends Activity {
 
     private void logLifecycle(String event) {
         MarketWidgetLog.event(event, "sessionRef", MarketWidgetLog.sessionRef(session), "taskId", getTaskId(),
-            "leftForEditor", leftForEditor, "finishing", isFinishing(), "changingConfiguration", isChangingConfigurations());
+            "leftForEditor", leftForEditor, "resumed", resumed, "finishing", isFinishing(), "changingConfiguration", isChangingConfigurations());
     }
 }

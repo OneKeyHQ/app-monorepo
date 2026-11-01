@@ -12,6 +12,8 @@ export function useMarketWidgetEditorState(editorSession?: string) {
   const [state, setState] = useState<IMarketWidgetEditorState>();
   const [isLoading, setIsLoading] = useState(true);
   const [hasError, setHasError] = useState(false);
+  const [isSearching, setIsSearching] = useState(false);
+  const [searchError, setSearchError] = useState(false);
   const [privacyMasked, setPrivacyMasked] = useState(
     travelModeManager.isMaskingDataSync(),
   );
@@ -20,6 +22,56 @@ export function useMarketWidgetEditorState(editorSession?: string) {
   const activeRef = useRef(true);
   const lifecycleRef = useRef(0);
   const requestRef = useRef(0);
+  const searchRequestRef = useRef(0);
+
+  const cancelSearch = useCallback(() => {
+    searchRequestRef.current += 1;
+    setIsSearching(false);
+    setSearchError(false);
+  }, []);
+
+  const searchStocks = useCallback(
+    async (query: string) => {
+      if (
+        !editorSession ||
+        !marketWidget.searchStocks ||
+        !focusedRef.current ||
+        !activeRef.current
+      )
+        return;
+      searchRequestRef.current += 1;
+      const request = searchRequestRef.current;
+      // An older metadata refresh must not erase newly discovered stock candidates.
+      requestRef.current += 1;
+      const snapshotRequest = requestRef.current;
+      const lifecycle = lifecycleRef.current;
+      const isCurrent = () =>
+        mountedRef.current &&
+        focusedRef.current &&
+        activeRef.current &&
+        lifecycle === lifecycleRef.current &&
+        snapshotRequest === requestRef.current &&
+        request === searchRequestRef.current;
+      setIsSearching(true);
+      setSearchError(false);
+      try {
+        await travelModeManager.ready;
+        if (!isCurrent() || travelModeManager.isMaskingDataSync()) return;
+        const next = await marketWidget.searchStocks(query, editorSession);
+        if (!isCurrent()) return;
+        const masked =
+          next.privacyMasked || travelModeManager.isMaskingDataSync();
+        setPrivacyMasked(masked);
+        setState(masked ? undefined : next);
+      } catch (error) {
+        logMarketWidgetEvent('editor.search_failed', {}, editorSession, error);
+        if (isCurrent()) setSearchError(true);
+      } finally {
+        if (isCurrent()) setIsSearching(false);
+      }
+    },
+    [editorSession],
+  );
 
   useEffect(() => {
     mountedRef.current = true;
@@ -100,6 +152,7 @@ export function useMarketWidgetEditorState(editorSession?: string) {
           activeRef.current = true;
           void refresh();
         } else {
+          cancelSearch();
           activeRef.current = false;
           lifecycleRef.current += 1;
           // Do not retain a visible native snapshot while the app is inactive.
@@ -113,12 +166,13 @@ export function useMarketWidgetEditorState(editorSession?: string) {
         focusedRef.current = false;
         lifecycleRef.current += 1;
         requestRef.current += 1;
+        cancelSearch();
         subscription.remove();
         setState(undefined);
         setIsLoading(true);
         setHasError(false);
       };
-    }, [editorSession, refresh]),
+    }, [editorSession, refresh, cancelSearch]),
   );
 
   return {
@@ -126,6 +180,10 @@ export function useMarketWidgetEditorState(editorSession?: string) {
     isLoading,
     hasError,
     privacyMasked,
+    isSearching,
+    searchError,
+    searchStocks,
+    cancelSearch,
     refresh,
     isActive: () => focusedRef.current,
     isMounted: () => mountedRef.current,

@@ -24,6 +24,8 @@ import com.facebook.react.module.annotations.ReactModule;
 public final class OneKeyMarketWidgetModule extends ReactContextBaseJavaModule {
     static final String NAME = "OneKeyMarketWidget";
     private final ExecutorService editorExecutor = Executors.newSingleThreadExecutor();
+    private final ExecutorService searchExecutor = Executors.newFixedThreadPool(2);
+    private final java.util.concurrent.atomic.AtomicInteger searchRequest = new java.util.concurrent.atomic.AtomicInteger();
 
     OneKeyMarketWidgetModule(ReactApplicationContext context) {
         super(context);
@@ -87,14 +89,38 @@ public final class OneKeyMarketWidgetModule extends ReactContextBaseJavaModule {
         MarketWidgetLog.event("editor.read_started", "sessionRef", MarketWidgetLog.sessionRef(token));
         try {
             MarketWidgetEditorSession session = MarketWidgetEditorSession.requireActive(getReactApplicationContext(), token);
-            String state = MarketWidgetStore.editorState(getReactApplicationContext(), session.widgetId,
-                session.single, session.source).toString();
+            org.json.JSONObject state = MarketWidgetStore.editorState(getReactApplicationContext(), session.widgetId,
+                session.single, session.source);
+            if (MarketWidgetStore.canDisplay(getReactApplicationContext())) {
+                state.put("searchAssets", MarketWidgetStore.editorAssets(getReactApplicationContext(), session.searchAssets));
+            }
             MarketWidgetLog.event("editor.read_succeeded", "sessionRef", MarketWidgetLog.sessionRef(token), "widgetId", session.widgetId);
-            promise.resolve(state);
+            promise.resolve(state.toString());
         } catch (Exception error) {
             MarketWidgetLog.failure("editor.read_failed", error, "sessionRef", MarketWidgetLog.sessionRef(token));
             promise.reject("MARKET_WIDGET_EDITOR_FAILED", "Could not open widget settings", error);
         }
+    }
+
+    @ReactMethod
+    public void searchWidgetStocks(String token, String query, Promise promise) {
+        MarketWidgetLog.event("editor.search_started", "sessionRef", MarketWidgetLog.sessionRef(token));
+        int request = searchRequest.incrementAndGet();
+        searchExecutor.execute(() -> {
+            try {
+                MarketWidgetEditorSession.requireActive(getReactApplicationContext(), token);
+                if (!MarketWidgetStore.canDisplay(getReactApplicationContext())) throw new IllegalStateException("Widget data is hidden");
+                if (request != searchRequest.get()) { getWidgetEditorState(token, promise); return; }
+                List<MarketWidgetData.Asset> assets = MarketWidgetClient.searchStocks(query,
+                    MarketWidgetStore.configuration(getReactApplicationContext()).locale);
+                MarketWidgetEditorSession.cacheSearchAssets(getReactApplicationContext(), token, assets);
+                MarketWidgetLog.event("editor.search_succeeded", "sessionRef", MarketWidgetLog.sessionRef(token), "resultCount", assets.size());
+                getWidgetEditorState(token, promise);
+            } catch (Exception error) {
+                MarketWidgetLog.failure("editor.search_failed", error, "sessionRef", MarketWidgetLog.sessionRef(token));
+                promise.reject("MARKET_WIDGET_SEARCH_FAILED", "Could not search stocks", error);
+            }
+        });
     }
 
     @ReactMethod
@@ -158,7 +184,7 @@ public final class OneKeyMarketWidgetModule extends ReactContextBaseJavaModule {
             synchronized (MarketWidgetEditorSession.class) {
                 MarketWidgetEditorSession session = MarketWidgetEditorSession.requireActive(getReactApplicationContext(), token);
                 String saved = MarketWidgetStore.saveSettings(getReactApplicationContext(), session.widgetId,
-                    session.single, raw).toString();
+                    session.single, raw, session.searchAssets).toString();
                 MarketWidgetEditorSession.markSaved(getReactApplicationContext(), token);
                 MarketWidgetProvider.render(getReactApplicationContext(), session.widgetId);
                 MarketWidgetRefreshService.configurationChanged(getReactApplicationContext());
@@ -192,6 +218,7 @@ public final class OneKeyMarketWidgetModule extends ReactContextBaseJavaModule {
     @Override public void invalidate() {
         MarketWidgetLog.event("module.invalidated");
         editorExecutor.shutdownNow();
+        searchExecutor.shutdownNow();
         super.invalidate();
     }
 

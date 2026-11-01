@@ -8,6 +8,10 @@ import { useMarketWidgetEditorState } from './useMarketWidgetEditorState';
 
 const mockGetEditorState = jest.fn<Promise<IMarketWidgetEditorState>, []>();
 const mockRefreshEditorState = jest.fn<Promise<IMarketWidgetEditorState>, []>();
+const mockSearchStocks = jest.fn<
+  Promise<IMarketWidgetEditorState>,
+  [string, string]
+>();
 const mockRemoveListener = jest.fn();
 let mockMasked = false;
 let mockBackgroundRefreshSupported = false;
@@ -41,6 +45,8 @@ jest.mock('@onekeyhq/shared/src/modules/MarketWidget', () => ({
   __esModule: true,
   default: {
     getEditorState: () => mockGetEditorState(),
+    searchStocks: (query: string, session: string) =>
+      mockSearchStocks(query, session),
     get refreshEditorState() {
       return mockBackgroundRefreshSupported
         ? () => mockRefreshEditorState()
@@ -81,6 +87,7 @@ describe('market widget editor native snapshot lifecycle', () => {
     jest.clearAllMocks();
     mockGetEditorState.mockReset();
     mockRefreshEditorState.mockReset();
+    mockSearchStocks.mockReset();
     mockMasked = false;
     mockBackgroundRefreshSupported = false;
     mockAppStateChanged = undefined;
@@ -88,6 +95,90 @@ describe('market widget editor native snapshot lifecycle', () => {
     mockFocusCleanup = undefined;
   });
   afterEach(cleanup);
+
+  it('accepts stock candidates only from the current search and ignores canceled results', async () => {
+    mockGetEditorState.mockResolvedValue(createState('local'));
+    const first = createPendingState();
+    const second = createPendingState();
+    mockSearchStocks
+      .mockReturnValueOnce(first.promise)
+      .mockReturnValueOnce(second.promise);
+    const { result } = renderHook(() => useMarketWidgetEditorState('session'));
+    await waitFor(() =>
+      expect(result.current.state?.profiles[0].name).toBe('local'),
+    );
+    act(() => {
+      void result.current.searchStocks('A');
+    });
+    await act(async () => undefined);
+    act(() => {
+      void result.current.searchStocks('AAPL');
+    });
+    await act(async () => undefined);
+    await act(async () => {
+      second.resolve(createState('AAPL'));
+    });
+    await act(async () => {
+      first.resolve(createState('outdated'));
+    });
+    expect(result.current.state?.profiles[0].name).toBe('AAPL');
+    expect(mockSearchStocks).toHaveBeenLastCalledWith('AAPL', 'session');
+    const canceled = createPendingState();
+    mockSearchStocks.mockReturnValueOnce(canceled.promise);
+    act(() => {
+      void result.current.searchStocks('NVDA');
+    });
+    await act(async () => undefined);
+    act(() => result.current.cancelSearch());
+    await act(async () => {
+      canceled.resolve(createState('canceled'));
+    });
+    expect(result.current.state?.profiles[0].name).toBe('AAPL');
+    expect(result.current.isSearching).toBe(false);
+  });
+
+  it('prevents stock search while masked and ignores a result received in the background', async () => {
+    mockGetEditorState.mockResolvedValue(createState('local'));
+    const pending = createPendingState();
+    mockSearchStocks.mockReturnValueOnce(pending.promise);
+    const { result } = renderHook(() => useMarketWidgetEditorState('session'));
+    await waitFor(() => expect(result.current.state).toBeDefined());
+    mockMasked = true;
+    await act(async () => {
+      await result.current.searchStocks('AAPL');
+    });
+    expect(mockSearchStocks).not.toHaveBeenCalled();
+    mockMasked = false;
+    act(() => {
+      void result.current.searchStocks('NVDA');
+    });
+    await act(async () => undefined);
+    act(() => mockAppStateChanged?.('background'));
+    await act(async () => {
+      pending.resolve(createState('hidden'));
+    });
+    expect(result.current.state).toBeUndefined();
+    expect(result.current.isSearching).toBe(false);
+  });
+
+  it('does not let an older metadata snapshot erase stock search candidates', async () => {
+    const metadata = createPendingState();
+    mockBackgroundRefreshSupported = true;
+    mockGetEditorState.mockResolvedValue(createState('local'));
+    mockRefreshEditorState.mockReturnValueOnce(metadata.promise);
+    mockSearchStocks.mockResolvedValue(createState('AAPL'));
+    const { result } = renderHook(() => useMarketWidgetEditorState('session'));
+    await waitFor(() =>
+      expect(result.current.state?.profiles[0].name).toBe('local'),
+    );
+    await act(async () => {
+      await result.current.searchStocks('AAPL');
+    });
+    await act(async () => {
+      metadata.resolve(createState('outdated'));
+    });
+    expect(result.current.state?.profiles[0].name).toBe('AAPL');
+  });
 
   it('ignores an older native response after a newer refresh', async () => {
     const first = createPendingState();
