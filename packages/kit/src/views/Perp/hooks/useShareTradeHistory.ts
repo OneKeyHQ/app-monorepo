@@ -45,36 +45,39 @@ export function useShareTradeHistory() {
     [activeAsset, lastUsedLeverage],
   );
 
-  const calculateEntryPrice = useCallback((fill: IFill): BigNumber | null => {
-    const sizeBN = new BigNumber(fill.sz);
-    if (sizeBN.isZero()) {
+  const calculateEntryPrice = useCallback(
+    (fill: IFill, sizeBN: BigNumber): BigNumber | null => {
+      if (sizeBN.isZero()) {
+        return null;
+      }
+
+      const exitPriceBN = new BigNumber(fill.px);
+      const pnlPerUnit = new BigNumber(fill.closedPnl).dividedBy(sizeBN);
+      const directionType = getPerpFillDirectionType(fill.dir);
+      const direction = fill.dir.trim().toLowerCase();
+
+      if (directionType === 'closeLong' || direction === 'long > short') {
+        return exitPriceBN.minus(pnlPerUnit);
+      }
+
+      if (directionType === 'closeShort' || direction === 'short > long') {
+        return exitPriceBN.plus(pnlPerUnit);
+      }
+
+      // Spot Sell realizes PnL against the running cost basis — same math as a
+      // perp Close Long, since HL's closedPnl is pre-fee on both sides.
+      if (
+        isSpotInstrument(fill.coin) &&
+        fill.side === 'A' &&
+        !new BigNumber(fill.closedPnl).isZero()
+      ) {
+        return exitPriceBN.minus(pnlPerUnit);
+      }
+
       return null;
-    }
-
-    const exitPriceBN = new BigNumber(fill.px);
-    const pnlPerUnit = new BigNumber(fill.closedPnl).dividedBy(sizeBN);
-    const directionType = getPerpFillDirectionType(fill.dir);
-
-    if (directionType === 'closeLong') {
-      return exitPriceBN.minus(pnlPerUnit);
-    }
-
-    if (directionType === 'closeShort') {
-      return exitPriceBN.plus(pnlPerUnit);
-    }
-
-    // Spot Sell realizes PnL against the running cost basis — same math as a
-    // perp Close Long, since HL's closedPnl is pre-fee on both sides.
-    if (
-      isSpotInstrument(fill.coin) &&
-      fill.side === 'A' &&
-      !new BigNumber(fill.closedPnl).isZero()
-    ) {
-      return exitPriceBN.minus(pnlPerUnit);
-    }
-
-    return null;
-  }, []);
+    },
+    [],
+  );
 
   const handleShare = useCallback(
     async (fill: IFill) => {
@@ -89,7 +92,14 @@ export function useShareTradeHistory() {
       }
       const isSpot = isSpotInstrument(fill.coin);
       const leverage = isSpot ? 1 : await getLeverage(fill.coin);
-      const entryPriceBN = calculateEntryPrice(fill);
+      // A reversal fill includes both closing the old position and opening the new one.
+      const isReversal = ['long > short', 'short > long'].includes(
+        fill.dir.trim().toLowerCase(),
+      );
+      const positionSize = isReversal
+        ? BigNumber.minimum(new BigNumber(fill.startPosition).abs(), fill.sz)
+        : new BigNumber(fill.sz);
+      const entryPriceBN = calculateEntryPrice(fill, positionSize);
 
       // Spot fill.side: 'B' = buy (~long), 'A' = sell (~short).
       // Perp fill.side: 'A' encodes long via existing convention.
@@ -101,7 +111,6 @@ export function useShareTradeHistory() {
         const decimals = getValidPriceDecimals(entryPriceBN.toFixed());
         entryPrice = entryPriceBN.toFixed(decimals);
 
-        const positionSize = new BigNumber(fill.sz);
         const investedCapital = positionSize
           .multipliedBy(entryPriceBN)
           .dividedBy(leverage);
