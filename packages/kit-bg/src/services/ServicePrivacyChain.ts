@@ -83,6 +83,7 @@ import {
   getPrivacyChainFailureBackoffMs,
   getPrivacyChainSyncReason,
   pickPrivacyChainSyncCandidate,
+  setActiveTimeout,
 } from './PrivacyChainSyncScheduler';
 import {
   canAdmitNetworkAccount,
@@ -2227,7 +2228,7 @@ class ServicePrivacyChain extends ServiceBase {
         this.lastBackfillRuntimeStateKey,
       );
       if (candidate) {
-        let timeoutHandle: ReturnType<typeof setTimeout> | undefined;
+        let cancelWatchdog: (() => void) | undefined;
         let syncPromise: ReturnType<
           ILocalWalletCapability['syncGroup']
         > | null = null;
@@ -2253,7 +2254,7 @@ class ServicePrivacyChain extends ServiceBase {
             syncPromise,
             new Promise<never>((_, reject) => {
               const arm = () => {
-                timeoutHandle = setTimeout(
+                cancelWatchdog = setActiveTimeout(
                   () => {
                     // Waiting behind a send is not a stuck sync; give it a full window after the
                     // send.
@@ -2415,9 +2416,7 @@ class ServicePrivacyChain extends ServiceBase {
             ...describePrivacyChainError(e),
           });
         } finally {
-          if (timeoutHandle) {
-            clearTimeout(timeoutHandle);
-          }
+          cancelWatchdog?.();
         }
       }
 
