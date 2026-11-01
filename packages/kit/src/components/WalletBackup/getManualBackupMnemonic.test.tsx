@@ -4,7 +4,6 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
-import { setNativeJotaiMainHydrationFailed } from '@onekeyhq/shared/src/storage/nativeStorageRecovery';
 
 import { getManualBackupMnemonic } from './getManualBackupMnemonic';
 
@@ -97,7 +96,6 @@ async function confirm() {
 describe('manual mnemonic backup fallback UI', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    setNativeJotaiMainHydrationFailed(false);
     jest.useFakeTimers();
     mockDialog = undefined;
     mockRouteKey = 'manual-backup';
@@ -121,13 +119,11 @@ describe('manual mnemonic backup fallback UI', () => {
     expect(mockRecover).not.toHaveBeenCalled();
   });
 
-  it('passes only a confirmed hydration failure as the UI fallback signal', async () => {
-    setNativeJotaiMainHydrationFailed(true);
+  it('requests background admission without passing a UI hydration assertion', async () => {
     const result = getManualBackupMnemonic('hd-1', intl);
     await flush();
     expect(mockInfo).toHaveBeenCalledWith({
       walletId: 'hd-1',
-      mainHydrationFailed: true,
     });
     await mockDialog?.onClose?.();
     await expect(result).resolves.toBeUndefined();

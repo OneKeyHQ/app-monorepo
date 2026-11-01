@@ -8,7 +8,6 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { hasNativeJotaiMainHydrationFailed } from '@onekeyhq/shared/src/storage/nativeStorageRecovery';
 import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 
 import type { IntlShape } from 'react-intl';
@@ -58,7 +57,6 @@ export async function getManualBackupMnemonic(
     const infoRequest = backgroundApiProxy.serviceAccount
       .getManualMnemonicRecoveryInfo({
         walletId,
-        mainHydrationFailed: hasNativeJotaiMainHydrationFailed(),
       })
       .then((info) => {
         if (cancelled && info) {

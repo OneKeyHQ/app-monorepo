@@ -15,8 +15,10 @@ import { travelModeManager } from '@onekeyhq/shared/src/travelMode';
 import { EHardwareCallContext } from '@onekeyhq/shared/types/device';
 import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 
+import BackgroundApiBase from '../../apis/BackgroundApiBase';
 import localDb from '../../dbs/local/localDb';
 import simpleDb from '../../dbs/simple/simpleDb';
+import { EAtomNames } from '../../states/jotai/atomNames';
 import {
   appIsLocked,
   passwordPersistAtom,
@@ -51,7 +53,9 @@ function createService() {
     async () => 'encoded-test-password',
   );
   const encodeSensitiveText = jest.fn(async () => 'encoded-test-result');
+  const getAtomStates = jest.fn(async () => ({ states: {} }));
   service.backgroundApi = {
+    getAtomStates,
     servicePassword: {
       promptPasswordVerifyByWallet,
       encodeSensitiveText,
@@ -63,6 +67,7 @@ function createService() {
     promptPasswordVerifyByWallet,
     encodeSensitiveText,
     verifyPasswordForManualMnemonicRecovery,
+    getAtomStates,
   };
 }
 
@@ -212,11 +217,12 @@ describe('isolated manual mnemonic recovery', () => {
     ).rejects.toThrow('expired');
   });
 
-  it('recovers from a confirmed UI hydration failure without consulting Jotai or AppStorage', async () => {
-    const { service } = createService();
+  it('recovers only after the background full canonical snapshot actually fails', async () => {
+    const { service, getAtomStates } = createService();
+    jest.mocked(appStorage.getItem).mockResolvedValue(null);
+    getAtomStates.mockRejectedValue(new Error('Canonical Jotai read failed'));
     const info = await service.getManualMnemonicRecoveryInfo({
       walletId: 'hd-1',
-      mainHydrationFailed: true,
     });
     expect(info).toBeDefined();
     await expect(
@@ -227,8 +233,193 @@ describe('isolated manual mnemonic recovery', () => {
     ).resolves.toEqual({ mnemonic: 'encoded-test-result' });
     expect(passwordPersistAtom.get).not.toHaveBeenCalled();
     expect(appIsLocked.get).not.toHaveBeenCalled();
-    expect(appStorage.getItem).not.toHaveBeenCalled();
+    expect(appStorage.getItem).toHaveBeenCalledTimes(1);
+    expect(getAtomStates).toHaveBeenCalledWith();
   });
+
+  it('ignores a forged main failure flag and atom selector when the background stores are healthy', async () => {
+    const { service, getAtomStates } = createService();
+    jest.mocked(appStorage.getItem).mockResolvedValue(null);
+    const callerParams = {
+      walletId: 'hd-1',
+      mainHydrationFailed: true,
+      atomNames: ['missingAtom'],
+    };
+    await expect(
+      service.getManualMnemonicRecoveryInfo(callerParams),
+    ).resolves.toBeUndefined();
+    expect(getAtomStates).toHaveBeenCalledWith();
+    expect(localDb.getCredentialRaw).not.toHaveBeenCalled();
+    expect(localDb.getWallet).not.toHaveBeenCalled();
+  });
+
+  it.each(['cold owner', 'atom read'])(
+    'uses the real canonical reader to detect a %s failure',
+    async (stage) => {
+      const { service } = createService();
+      jest.mocked(appStorage.getItem).mockResolvedValue(null);
+      const background = Object.create(
+        BackgroundApiBase.prototype,
+      ) as BackgroundApiBase;
+      const readError =
+        stage === 'cold owner'
+          ? new Error('Background canonical Jotai read failed')
+          : new TypeError('Corrupt persisted Jotai atom');
+      background.allAtoms =
+        stage === 'cold owner'
+          ? Promise.reject(readError)
+          : Promise.resolve({
+              [EAtomNames.localDbOpenErrorAtom]: { get: async () => ({}) },
+              [EAtomNames.passwordAtom]: {
+                get: async () => {
+                  throw readError;
+                },
+              },
+            } as unknown as Awaited<BackgroundApiBase['allAtoms']>);
+      service.backgroundApi.getAtomStates =
+        background.getAtomStates.bind(background);
+      const info = await service.getManualMnemonicRecoveryInfo({
+        walletId: 'hd-1',
+      });
+      expect(info).toBeDefined();
+      await service.cancelManualMnemonicRecovery({
+        sessionId: info!.sessionId,
+      });
+    },
+  );
+
+  it('reads every canonical atom and admits no recovery when all are readable', async () => {
+    const { service } = createService();
+    jest.mocked(appStorage.getItem).mockResolvedValue(null);
+    const background = Object.create(
+      BackgroundApiBase.prototype,
+    ) as BackgroundApiBase;
+    const first = jest.fn(async () => ({}));
+    const second = jest.fn(async () => ({ unLock: false }));
+    background.allAtoms = Promise.resolve({
+      [EAtomNames.localDbOpenErrorAtom]: { get: first },
+      [EAtomNames.passwordAtom]: { get: second },
+    } as unknown as Awaited<BackgroundApiBase['allAtoms']>);
+    service.backgroundApi.getAtomStates =
+      background.getAtomStates.bind(background);
+    const callerParams = {
+      walletId: 'hd-1',
+      mainHydrationFailed: true,
+      atomNames: ['missingAtom'],
+    };
+    await expect(
+      service.getManualMnemonicRecoveryInfo(callerParams),
+    ).resolves.toBeUndefined();
+    expect(first).toHaveBeenCalledTimes(1);
+    expect(second).toHaveBeenCalledTimes(1);
+    expect(localDb.getCredentialRaw).not.toHaveBeenCalled();
+  });
+
+  it.each([undefined, null, '', 7])(
+    'does not probe or admit an invalid wallet parameter %s',
+    async (walletId) => {
+      const { service, getAtomStates } = createService();
+      await expect(
+        service.getManualMnemonicRecoveryInfo({ walletId } as {
+          walletId: string;
+        }),
+      ).rejects.toThrow('Invalid manual mnemonic');
+      expect(appStorage.getItem).not.toHaveBeenCalled();
+      expect(getAtomStates).not.toHaveBeenCalled();
+      expect(localDb.getCredentialRaw).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each([
+    ['non-Error rejection', 'snapshot rejection'],
+    ['timeout message', new Error('Canonical snapshot timed-out')],
+    [
+      'timeout code',
+      Object.assign(new Error('request failed'), { code: 'ETIMEDOUT' }),
+    ],
+    [
+      'invalid params',
+      Object.assign(new Error('Invalid params'), { code: -32_602 }),
+    ],
+    [
+      'invalid atom name',
+      new Error('getAtomStates ERROR: atomName not found: missingAtom'),
+    ],
+    [
+      'cancellation',
+      Object.assign(new Error('request ended'), { name: 'AbortError' }),
+    ],
+    ['invalid argument type', new TypeError('Invalid arguments')],
+  ])('does not use %s as fault evidence', async (_label, error) => {
+    const { service, getAtomStates } = createService();
+    jest.mocked(appStorage.getItem).mockResolvedValue(null);
+    getAtomStates.mockRejectedValue(error);
+    await expect(
+      service.getManualMnemonicRecoveryInfo({ walletId: 'hd-1' }),
+    ).rejects.toBe(error);
+    expect(localDb.getCredentialRaw).not.toHaveBeenCalled();
+    expect(localDb.getWallet).not.toHaveBeenCalled();
+  });
+
+  it('does not admit a failure observed across a runtime change', async () => {
+    const { service, getAtomStates } = createService();
+    jest.mocked(appStorage.getItem).mockResolvedValue(null);
+    const environment = await travelModeManager.getRuntimeEnvironment();
+    getAtomStates.mockImplementationOnce(async () => {
+      jest
+        .spyOn(travelModeManager, 'getRuntimeEnvironment')
+        .mockResolvedValue({ ...environment });
+      throw new OneKeyLocalError('Canonical read failed after runtime changed');
+    });
+    await expect(
+      service.getManualMnemonicRecoveryInfo({ walletId: 'hd-1' }),
+    ).rejects.toThrow('Runtime changed');
+    expect(localDb.getCredentialRaw).not.toHaveBeenCalled();
+  });
+
+  it.each(['appStorage', 'snapshot'])(
+    'rejects a pending %s probe without creating a session on a late failure',
+    async (stage) => {
+      const { service, getAtomStates } = createService();
+      let rejectProbe!: (error: Error) => void;
+      const pending = new Promise<never>((_resolve, reject) => {
+        rejectProbe = reject;
+      });
+      if (stage === 'appStorage')
+        jest.mocked(appStorage.getItem).mockReturnValueOnce(pending);
+      else {
+        jest.mocked(appStorage.getItem).mockResolvedValue(null);
+        getAtomStates.mockReturnValueOnce(pending);
+      }
+      const request = service.getManualMnemonicRecoveryInfo({
+        walletId: 'hd-1',
+      });
+      const rejected = (async () => {
+        await expect(request).rejects.toThrow('probe timed out');
+      })();
+      for (let i = 0; i < 10; i += 1) await Promise.resolve();
+      jest.advanceTimersByTime(10_000);
+      await rejected;
+      rejectProbe(
+        stage === 'appStorage'
+          ? new OneKeyLocalError(
+              createNativeStorageMigrationInconsistentErrorMessage(
+                'appStorage',
+              ),
+            )
+          : new OneKeyLocalError('Late canonical read failure'),
+      );
+      for (let i = 0; i < 10; i += 1) await Promise.resolve();
+      expect(localDb.getCredentialRaw).not.toHaveBeenCalled();
+      expect(localDb.getWallet).not.toHaveBeenCalled();
+      await expect(
+        service.getManualRecoveryMnemonic({
+          sessionId: 'late',
+          password: 'encoded-test-password',
+        }),
+      ).rejects.toThrow('expired');
+    },
+  );
 
   it('keeps the original path when storage is healthy and does not downgrade unknown failures', async () => {
     const { service } = createService();

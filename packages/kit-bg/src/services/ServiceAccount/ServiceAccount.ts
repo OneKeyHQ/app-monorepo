@@ -6036,25 +6036,65 @@ class ServiceAccount extends ServiceBase {
   }
 
   @backgroundMethod()
-  async getManualMnemonicRecoveryInfo({
-    walletId,
-    mainHydrationFailed,
-  }: {
-    walletId: string;
-    mainHydrationFailed?: boolean;
-  }) {
+  async getManualMnemonicRecoveryInfo({ walletId }: { walletId: string }) {
     if (!platformEnv.isNative) return undefined;
-    let appStorageMismatch = false;
-    try {
-      if (!mainHydrationFailed)
-        await appStorage.getItem('$$manualMnemonicRecoveryProbe');
-    } catch (error) {
-      if (getNativeStorageMigrationRecoveryTarget(error) !== 'appStorage')
-        throw error;
-      appStorageMismatch = true;
+    if (typeof walletId !== 'string' || !walletId) {
+      throw new OneKeyLocalError('Invalid manual mnemonic recovery wallet');
     }
-    if (!appStorageMismatch && !mainHydrationFailed) return undefined;
+    const probeEnvironment = await travelModeManager.getRuntimeEnvironment();
+    if (probeEnvironment.commands.isBlocked) {
+      throw new OneKeyLocalError(
+        'Manual mnemonic recovery is unavailable in this runtime',
+      );
+    }
+    const probe = async () => {
+      try {
+        await appStorage.getItem('$$manualMnemonicRecoveryProbe');
+      } catch (error) {
+        if (getNativeStorageMigrationRecoveryTarget(error) !== 'appStorage')
+          throw error;
+        return true;
+      }
+      try {
+        // Fixed full snapshot, read directly in bg. Caller-selected atoms and
+        // main-runtime reports must never establish recovery admission.
+        await this.backgroundApi.getAtomStates();
+      } catch (error) {
+        const code = (error as { code?: unknown } | undefined)?.code;
+        if (
+          !(error instanceof Error) ||
+          code === -32_602 ||
+          code === 'ERR_CANCELED' ||
+          code === 'ETIMEDOUT' ||
+          code === 'ECONNABORTED' ||
+          /time[\s-]*out|timed[\s-]*out|abort|cancel|invalid\s*(?:params?|parameters?|arguments?)|atomName not found/i.test(
+            `${error.name} ${error.message}`,
+          )
+        ) {
+          throw error;
+        }
+        return true;
+      }
+      return false;
+    };
+    let probeTimer: ReturnType<typeof setTimeout> | undefined;
+    const hasBackgroundFault = await new Promise<boolean>((resolve, reject) => {
+      probeTimer = setTimeout(
+        () =>
+          reject(
+            new OneKeyLocalError('Manual mnemonic recovery probe timed out'),
+          ),
+        10_000,
+      );
+      void probe().then(resolve, reject);
+    }).finally(() => clearTimeout(probeTimer));
+    if (!hasBackgroundFault) return undefined;
     const environment = await this.assertManualMnemonicWallet(walletId);
+    if (environment !== probeEnvironment || environment.commands.isBlocked) {
+      throw new OneKeyLocalError(
+        'Runtime changed during manual mnemonic recovery',
+      );
+    }
     if (!(await localDb.isPasswordSet()))
       throw new OneKeyLocalError(
         'A wallet password is required for manual recovery',

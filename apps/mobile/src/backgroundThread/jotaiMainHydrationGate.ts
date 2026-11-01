@@ -1,6 +1,5 @@
 import { jotaiUpdateFromUiByBgBroadcast } from '@onekeyhq/kit-bg/src/states/jotai/jotaiInitFromUi';
 import type { IGlobalStatesSyncBroadcastParams } from '@onekeyhq/shared/src/background/backgroundUtils';
-import { setNativeJotaiMainHydrationFailed } from '@onekeyhq/shared/src/storage/nativeStorageRecovery';
 
 type IJotaiStateBroadcast = Pick<
   IGlobalStatesSyncBroadcastParams,
@@ -72,13 +71,11 @@ export async function runJotaiMainHydration(
 
     if (generation === hydrationGeneration) {
       hydrationState = 'ready';
-      setNativeJotaiMainHydrationFailed(false);
     }
   } catch (error) {
     if (generation === hydrationGeneration) {
       pendingBroadcasts = [];
       hydrationState = 'waitingForRetry';
-      setNativeJotaiMainHydrationFailed(true);
     }
     throw error;
   }
