@@ -82,6 +82,18 @@ export function getPrivacyChainFailureBackoffMs(failures: number): number {
   );
 }
 
+// A runtime whose stuck scan could not be stopped is tried again, slower each time: nothing else
+// frees it short of a restart.
+const QUARANTINE_RECOVERY_BASE_MS = 30 * 1000;
+const QUARANTINE_RECOVERY_MAX_MS = 5 * 60 * 1000;
+
+export function getQuarantineRecoveryDelayMs(failures: number): number {
+  return Math.min(
+    QUARANTINE_RECOVERY_BASE_MS * 2 ** Math.max(0, failures - 1),
+    QUARANTINE_RECOVERY_MAX_MS,
+  );
+}
+
 const ACTIVE_TIMEOUT_TICK_MS = 1000;
 // Longer than a hidden window's slowest timer (about a minute), so throttling still counts; a
 // longer gap means the process was suspended: a phone in the background, a laptop asleep.

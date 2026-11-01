@@ -41,7 +41,7 @@ describe('Privacy sync timeout recovery', () => {
 
   function createService(
     authoritative: boolean,
-    terminated = false,
+    terminated: boolean | (() => Promise<boolean>) = false,
     isUserOperationActive?: () => boolean,
   ) {
     let resolveSync!: (value: ISyncResult) => void;
@@ -65,7 +65,10 @@ describe('Privacy sync timeout recovery', () => {
         syncPolicy: { maxSyncDurationMs: 10 },
         syncGroup,
         syncCompletionIsAuthoritative: authoritative,
-        recoverFromTimeout: async () => terminated,
+        recoverFromTimeout:
+          typeof terminated === 'function'
+            ? terminated
+            : async () => terminated,
         isUserOperationActive,
       }),
     });
@@ -87,6 +90,7 @@ describe('Privacy sync timeout recovery', () => {
         syncTickRunning: false,
         syncTickRequested: false,
         quarantinedSyncs: new Map<string, Promise<unknown>>(),
+        quarantineRecoveries: new Map<string, () => Promise<void>>(),
         storageUnsupportedNetworkIds: new Set<string>(),
         syncFailureBackoff: new Map(),
         runtimeSyncState: new Map(),
@@ -162,6 +166,86 @@ describe('Privacy sync timeout recovery', () => {
     await tick;
     expect(service.scheduleBackgroundSync).toHaveBeenCalledWith(0);
   });
+
+  // A carrier that could not be replaced stays quarantined; without a retry, the chain waits for a
+  // restart.
+  it('retries a failed recovery, slower each time, until it works', async () => {
+    jest.spyOn(console, 'error').mockImplementation(() => undefined);
+    const recover = jest
+      .fn<Promise<boolean>, []>()
+      .mockRejectedValueOnce(new Error('WebEmbed did not answer reset'))
+      .mockRejectedValueOnce(new Error('WebEmbed did not answer reset'))
+      .mockResolvedValue(true);
+    const { service } = createService(false, recover);
+    const tick = service.backgroundSyncTick();
+    await jest.advanceTimersByTimeAsync(11);
+    await tick;
+    expect(recover).toHaveBeenCalledTimes(1);
+    expect(service.quarantinedSyncs.has(stateKey)).toBe(true);
+
+    await jest.advanceTimersByTimeAsync(29_000);
+    expect(recover).toHaveBeenCalledTimes(1);
+    await jest.advanceTimersByTimeAsync(1000);
+    expect(recover).toHaveBeenCalledTimes(2);
+    expect(service.quarantinedSyncs.has(stateKey)).toBe(true);
+
+    await jest.advanceTimersByTimeAsync(59_000);
+    expect(recover).toHaveBeenCalledTimes(2);
+    await jest.advanceTimersByTimeAsync(1000);
+    expect(recover).toHaveBeenCalledTimes(3);
+    expect(service.quarantinedSyncs.has(stateKey)).toBe(false);
+    expect(service.scheduleBackgroundSync).toHaveBeenCalledWith(0);
+
+    await jest.advanceTimersByTimeAsync(10 * 60_000);
+    expect(recover).toHaveBeenCalledTimes(3);
+  });
+
+  it.each([
+    { outcome: 'replaced', stuck: false },
+    { outcome: 'still stuck', stuck: true },
+  ])(
+    'replaces a stuck runtime at once when the user starts a sync ($outcome)',
+    async ({ stuck }) => {
+      jest.spyOn(console, 'error').mockImplementation(() => undefined);
+      const recover = jest
+        .fn<Promise<boolean>, []>()
+        .mockRejectedValueOnce(new Error('WebEmbed did not answer reset'));
+      if (stuck) {
+        recover.mockRejectedValue(new Error('WebEmbed did not answer reset'));
+      } else {
+        recover.mockResolvedValue(true);
+      }
+      const { service } = createService(false, recover);
+      const tick = service.backgroundSyncTick();
+      await jest.advanceTimersByTimeAsync(11);
+      await tick;
+      expect(recover).toHaveBeenCalledTimes(1);
+      const publishSyncError = jest.fn(async () => undefined);
+      Object.assign(service, {
+        publishSyncError,
+        setChainPaused: jest.fn(async () => undefined),
+        setAccountsPreparing: jest.fn(async () => undefined),
+        requestForegroundScan: jest.fn(async () => undefined),
+      });
+
+      await (
+        service as unknown as {
+          startUserSync: (params: {
+            networkId: string;
+            accountId: string;
+          }) => Promise<void>;
+        }
+      ).startUserSync({ networkId, accountId: 'account' });
+      await jest.advanceTimersByTimeAsync(0);
+
+      expect(recover).toHaveBeenCalledTimes(2);
+      expect(service.quarantinedSyncs.has(stateKey)).toBe(stuck);
+      expect(publishSyncError).toHaveBeenLastCalledWith(
+        networkId,
+        stuck ? 'runtimeUnavailable' : undefined,
+      );
+    },
+  );
 
   it('does not clear a newer quarantine when an older writer finishes', async () => {
     const { service, resolveSync } = createService(true);

@@ -82,6 +82,7 @@ import {
 import {
   getPrivacyChainFailureBackoffMs,
   getPrivacyChainSyncReason,
+  getQuarantineRecoveryDelayMs,
   pickPrivacyChainSyncCandidate,
   setActiveTimeout,
 } from './PrivacyChainSyncScheduler';
@@ -774,6 +775,12 @@ class ServicePrivacyChain extends ServiceBase {
               await this.requireAccountCapability(networkId),
             )
           ).map((account) => account.accountId),
+    });
+    void this.recoverQuarantinedNetwork(networkId).catch((error: unknown) => {
+      console.error('[privacy-chain] quarantine recovery failed', {
+        networkId,
+        error: error instanceof Error ? error.message : String(error),
+      });
     });
     await this.requestForegroundScan(networkId);
   }
@@ -2031,8 +2038,87 @@ class ServicePrivacyChain extends ServiceBase {
   // or the carrier confirms replacement, or a second lease could write the same wallet DB.
   quarantinedSyncs = new Map<string, Promise<unknown>>();
 
+  // Runs a quarantined runtime's next recovery attempt now.
+  quarantineRecoveries = new Map<string, () => Promise<void>>();
+
   // Only an app restart (after updating the WebView) can change this.
   storageUnsupportedNetworkIds = new Set<string>();
+
+  private quarantineStuckSync(
+    {
+      runtimeStateKey,
+      capability,
+    }: { runtimeStateKey: string; capability: ILocalWalletCapability },
+    stuckSync: Promise<unknown>,
+  ) {
+    this.quarantinedSyncs.set(runtimeStateKey, stuckSync);
+    const isCurrent = () =>
+      this.quarantinedSyncs.get(runtimeStateKey) === stuckSync;
+    const clearQuarantine = () => {
+      if (isCurrent()) {
+        this.quarantinedSyncs.delete(runtimeStateKey);
+        this.quarantineRecoveries.delete(runtimeStateKey);
+        this.scheduleBackgroundSync(0);
+      }
+    };
+    if (capability.syncCompletionIsAuthoritative) {
+      // Direct execution and desktop Worker replies settle only once
+      // the writer has finished. A proxy timeout cannot prove that.
+      void stuckSync.then(clearQuarantine, clearQuarantine);
+    }
+    // A failed recovery leaves the remote writer possibly running, so the runtime stays
+    // quarantined; only a later recovery or a restart frees it.
+    let failures = 0;
+    let retryTimer: ReturnType<typeof setTimeout> | undefined;
+    let running: Promise<void> | undefined;
+    // Resolves true when the attempt failed and the runtime is still ours to recover.
+    const attempt = async (): Promise<boolean> => {
+      clearTimeout(retryTimer);
+      if (!isCurrent()) return false;
+      try {
+        if (await capability.recoverFromTimeout()) clearQuarantine();
+        return false;
+      } catch (resetErr) {
+        console.error('[privacy-chain] carrier timeout recovery failed', {
+          runtimeStateKey,
+          failures,
+          error:
+            resetErr instanceof Error ? resetErr.message : String(resetErr),
+        });
+        return isCurrent();
+      }
+    };
+    const recoverNow = (): Promise<void> => {
+      running ??= attempt().then((failed) => {
+        running = undefined;
+        if (!failed) return;
+        failures += 1;
+        retryTimer = setTimeout(
+          () => void recoverNow(),
+          getQuarantineRecoveryDelayMs(failures),
+        );
+      });
+      return running;
+    };
+    this.quarantineRecoveries.set(runtimeStateKey, recoverNow);
+    void recoverNow();
+  }
+
+  // A Sync on a stuck runtime asks for it to be replaced now. Still stuck afterwards, the chain
+  // shows its error again instead of a Preparing nothing would clear.
+  private async recoverQuarantinedNetwork(networkId: string) {
+    const recoveries = [...this.quarantineRecoveries].filter(([key]) =>
+      key.startsWith(`${networkId}|`),
+    );
+    if (!recoveries.length) return;
+    await Promise.all(recoveries.map(([, recoverNow]) => recoverNow()));
+    const stillStuck = [...this.quarantinedSyncs.keys()].some((key) =>
+      key.startsWith(`${networkId}|`),
+    );
+    if (stillStuck) {
+      await this.publishSyncError(networkId, 'runtimeUnavailable');
+    }
+  }
 
   private async noteStorageUnsupported(
     networkId: string,
@@ -2378,35 +2464,7 @@ class ServicePrivacyChain extends ServiceBase {
             if (!stuckSync) {
               throw e;
             }
-            this.quarantinedSyncs.set(candidate.runtimeStateKey, stuckSync);
-            const clearQuarantine = () => {
-              if (
-                this.quarantinedSyncs.get(candidate.runtimeStateKey) ===
-                stuckSync
-              ) {
-                this.quarantinedSyncs.delete(candidate.runtimeStateKey);
-                this.scheduleBackgroundSync(0);
-              }
-            };
-            if (candidate.capability.syncCompletionIsAuthoritative) {
-              // Direct execution and desktop Worker replies settle only once
-              // the writer has finished. A proxy timeout cannot prove that.
-              void stuckSync.then(clearQuarantine, clearQuarantine);
-            }
-            void candidate.capability
-              .recoverFromTimeout()
-              .then((terminated) => {
-                if (terminated) {
-                  clearQuarantine();
-                }
-              })
-              .catch((resetErr) => {
-                // Stays quarantined: the remote writer may still be running.
-                console.error(
-                  '[privacy-chain] carrier timeout recovery failed',
-                  resetErr,
-                );
-              });
+            this.quarantineStuckSync(candidate, stuckSync);
           }
           // `message` is an opaque code; `operation`/`detail` name the failing call.
           console.error('[privacy-chain] background sync failed', {
