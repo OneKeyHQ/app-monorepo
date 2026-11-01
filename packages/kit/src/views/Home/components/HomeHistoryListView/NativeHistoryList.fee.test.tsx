@@ -301,6 +301,25 @@ it('keeps Home defaults and disables detail refresh while hiding the leading slo
   expect(mockBuildHistoryActivityRow).toHaveBeenLastCalledWith(
     expect.objectContaining({ hideValue: false }),
   );
+  const rowLayout = () =>
+    mockBuildHistoryActivityRow.mock.lastCall?.[0].tableLayout;
+  (
+    [
+      [767, false],
+      [768, true],
+      [767, false],
+    ] as const
+  ).forEach(([width, expected]) => {
+    act(() => {
+      mockRootLayout?.({
+        nativeEvent: { layout: { width } },
+      } as LayoutChangeEvent);
+    });
+    expect(rowLayout()).toBe(expected);
+    expect(activity().hideLeading).toBe(true);
+    expect(mockSnapshot.capabilities?.pullToRefresh).toBe(false);
+  });
+  expect(mockNativeListMounts).toBe(1);
 
   mockSettingsHideValue = true;
   rerender(
@@ -311,6 +330,15 @@ it('keeps Home defaults and disables detail refresh while hiding the leading slo
       hideValue
     />,
   );
+  expect(mockBuildHistoryActivityRow).toHaveBeenLastCalledWith(
+    expect.objectContaining({ hideValue: true }),
+  );
+  act(() => {
+    mockRootLayout?.({
+      nativeEvent: { layout: { width: 768 } },
+    } as LayoutChangeEvent);
+  });
+  expect(rowLayout()).toBe(true);
   expect(mockBuildHistoryActivityRow).toHaveBeenLastCalledWith(
     expect.objectContaining({ hideValue: true }),
   );
@@ -365,9 +393,19 @@ it.each([true, false])(
     );
     const props = {
       ...baseProps,
-      tableLayout: true,
+      showIcon: false,
+      refreshEnabled: false,
+      hideValue: true,
     } as IHomeHistoryListViewProps;
     render(<NativeHistoryList {...props} />);
+    act(() => {
+      mockRootLayout?.({
+        nativeEvent: { layout: { width: 768 } },
+      } as LayoutChangeEvent);
+    });
+    expect(mockBuildHistoryActivityRow.mock.lastCall?.[0].tableLayout).toBe(
+      true,
+    );
     const fee = () =>
       (mockSnapshot.rows.find((row) => row.type === 'activity') as ActivityRow)
         .fee;

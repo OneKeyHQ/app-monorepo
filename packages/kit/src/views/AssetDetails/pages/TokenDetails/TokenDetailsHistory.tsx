@@ -348,7 +348,6 @@ function TokenDetailsHistoryContent({
   const historyList = (
     <TokenDetailsNativeHistoryList
       key={historyCacheKey}
-      tableLayout={false}
       hideValue
       showIcon={false}
       showFooter

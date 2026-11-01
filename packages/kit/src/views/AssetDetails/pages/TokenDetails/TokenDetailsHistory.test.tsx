@@ -206,7 +206,7 @@ it('keeps native pagination on the list and gates tab polling on route focus', (
   mockIsNative = true;
   mockRouteFocused = false;
   render(<TokenDetailsHistory {...props} isTabView inTabList />);
-  expect(mockHistoryListProps.tableLayout).toBe(false);
+  expect(mockHistoryListProps.tableLayout).toBeUndefined();
   expect(mockHistoryListProps.webScrollHost).toBeUndefined();
   expect(mockHistoryListProps.onEndReached).toBeUndefined();
   expect(mockPromiseOptions.overrideIsFocused(true)).toBe(false);

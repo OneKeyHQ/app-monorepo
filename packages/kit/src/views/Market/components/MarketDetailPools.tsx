@@ -17,6 +17,7 @@ import {
   useMedia,
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 import type {
   IMarketDetailPlatform,
@@ -33,6 +34,8 @@ import { PairDetailDialog } from './PairDetailDialog';
 import { PoolDetailDialog } from './PoolDetailDialog';
 import { useSortType } from './useSortType';
 
+import type { LayoutChangeEvent } from 'react-native';
+
 const CEX = 'CEX';
 
 function NetworkIdSelect({
@@ -40,14 +43,17 @@ function NetworkIdSelect({
   onChange,
   options,
   oneKeyNetworkSymbols,
+  onLayout,
 }: {
   options: string[];
   value: number;
   oneKeyNetworkSymbols: { logoURI?: string; networkName?: string }[];
   onChange: (selectedIndex: number) => void;
+  onLayout?: (event: LayoutChangeEvent) => void;
 }) {
   return (
     <XStack
+      onLayout={onLayout}
       gap="$2"
       px="$5"
       pb="$2"
@@ -166,7 +172,15 @@ export function MarketDetailPools({
   const intl = useIntl();
   const { gtXl: gtXlMedia } = useMedia();
   const isOverlayPage = useIsOverlayPage();
-  const gtXl = gtXlMedia && !isOverlayPage;
+  const [tableWidth, setTableWidth] = useState(0);
+  const onTableLayout = useCallback((event: LayoutChangeEvent) => {
+    setTableWidth(event.nativeEvent.layout.width);
+  }, []);
+  const gtXl =
+    !isOverlayPage &&
+    (platformEnv.isNative
+      ? tableWidth >= 1024 && tableWidth - 24 - 24 >= 256 + 4 * 104
+      : gtXlMedia);
 
   const { result: pools } = usePromiseResult(
     async () => {
@@ -659,6 +673,7 @@ export function MarketDetailPools({
           oneKeyNetworkSymbols={oneKeyNetworkSymbols}
           value={index}
           onChange={handleChange}
+          onLayout={onTableLayout}
         />
       }
       TableEmptyComponent={<MarketDetailPoolsSkeletonRow />}
