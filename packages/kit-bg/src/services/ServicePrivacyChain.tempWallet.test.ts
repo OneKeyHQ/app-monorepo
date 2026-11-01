@@ -148,21 +148,14 @@ describe('temp wallets cannot turn on privacy', () => {
     );
   });
 
-  it('refuses setup retries and rescans for a temp-wallet account', async () => {
-    const retryAccountSetup = jest.fn(async () => undefined);
+  it('refuses rescans for a temp-wallet account', async () => {
     const rescan = jest.fn(async () => ({ fromHeight: 0 }));
     const rewindAccount = jest.fn(async () => undefined);
     const { service } = createService({
       tempWalletIds: new Set([tempWalletId]),
-      capability: { retryAccountSetup, rescan, rewindAccount },
+      capability: { rescan, rewindAccount },
     });
 
-    await expect(
-      service.retryLocalWalletAccountSetup({
-        networkId,
-        accountId: tempAccountId,
-      }),
-    ).rejects.toThrow();
     await expect(
       service.resetLocalChainData({ networkId, accountId: tempAccountId }),
     ).rejects.toThrow();
@@ -182,7 +175,6 @@ describe('temp wallets cannot turn on privacy', () => {
       }),
     ).rejects.toThrow();
 
-    expect(retryAccountSetup).not.toHaveBeenCalled();
     expect(rescan).not.toHaveBeenCalled();
     expect(rewindAccount).not.toHaveBeenCalled();
   });
@@ -325,7 +317,14 @@ describe('temp wallets read as privacy unavailable', () => {
     });
 
     await expect(
-      service.ensureLocalWalletViewingKey({
+      (
+        service as unknown as {
+          obtainLocalWalletViewingKey: (params: {
+            networkId: string;
+            accountId: string;
+          }) => Promise<unknown>;
+        }
+      ).obtainLocalWalletViewingKey({
         networkId: 'xmr--0',
         accountId: tempHdAccountId,
       }),

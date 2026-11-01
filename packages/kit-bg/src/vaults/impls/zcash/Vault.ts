@@ -82,7 +82,10 @@ import * as zcashHistory from './vaultHistory';
 import * as zcashLifecycle from './vaultLifecycle';
 import * as zcashSend from './vaultSend';
 import * as zcashTransparent from './vaultTransparent';
-import { createZcashSetupIncompleteError } from './vaultUtils';
+import {
+  createZcashSetupIncompleteError,
+  isZcashSetupIncompleteError,
+} from './vaultUtils';
 
 import type { IEncodedTxZcash } from './types';
 import type { IDBUtxoAccount, IDBWalletType } from '../../../dbs/local/types';
@@ -258,12 +261,29 @@ export default class Vault extends VaultBtc {
     accountId: string;
     meta: IZcashAccountMeta;
   }): Promise<string> {
-    return getZcashAccountUfvk({
-      backgroundApi: this.backgroundApi,
-      networkId: this.networkId,
-      accountId,
-      meta,
-    });
+    try {
+      return await getZcashAccountUfvk({
+        backgroundApi: this.backgroundApi,
+        networkId: this.networkId,
+        accountId,
+        meta,
+      });
+    } catch (error) {
+      // Every use of the key comes through here; the service decides whether to turn it off.
+      if (isZcashSetupIncompleteError(error)) {
+        void this.backgroundApi.servicePrivacyChain
+          .turnOffLocalWalletAccountWithoutKey({
+            networkId: this.networkId,
+            accountId,
+          })
+          .catch((turnOffError: unknown) => {
+            console.error('[zcash] could not turn off an account without key', {
+              error: turnOffError instanceof Error ? turnOffError.message : '',
+            });
+          });
+      }
+      throw error;
+    }
   }
 
   async zcashGetStoredUfvk({
@@ -446,10 +466,6 @@ export default class Vault extends VaultBtc {
     forceDerivation?: boolean;
   }): Promise<void> {
     return zcashLifecycle.zcashRetryLocalWalletSetup(this, params);
-  }
-
-  async zcashTryAutoRepairLocalWalletSetupIfUnlocked(): Promise<boolean> {
-    return zcashLifecycle.zcashTryAutoRepairLocalWalletSetupIfUnlocked(this);
   }
 
   async getLocalWalletAccountMeta({

@@ -649,29 +649,9 @@ export async function zcashGetBalanceSafe(
   try {
     return await readZcashRuntimeBalance(vault, vault.accountId);
   } catch (e) {
-    // Self-heal missing shielded meta here, since every trigger lands in this catch; no-op if locked.
     const code = readZcashRuntimeError(e)?.code;
     if (code === 'NOT_SYNCED' || code === 'ACCOUNT_NOT_FOUND') return null;
-    // Only an unfinished setup is repairable here; retrying on any other failure would re-derive keys every poll.
-    const repaired =
-      privacyModeState.intent === 'on' &&
-      isZcashSetupIncompleteError(e) &&
-      (await vault.zcashTryAutoRepairLocalWalletSetupIfUnlocked());
-    if (repaired) {
-      try {
-        return await readZcashRuntimeBalance(vault, vault.accountId);
-      } catch (e2) {
-        const retryCode = readZcashRuntimeError(e2)?.code;
-        if (retryCode === 'NOT_SYNCED' || retryCode === 'ACCOUNT_NOT_FOUND')
-          return null;
-        console.error('[zcash] getBalance still failing after auto repair', {
-          accountId: vault.accountId,
-          ...zcashDescribeError(e2),
-        });
-        throw e2;
-      }
-    }
-    // Keep setup unavailable so Repair stays reachable, instead of claiming an unscanned wallet is empty.
+    // No key: unknown, not an empty wallet. The account is being turned off (zcashGetAccountUfvk).
     if (isZcashSetupIncompleteError(e)) {
       return null;
     }

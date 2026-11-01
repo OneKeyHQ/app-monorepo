@@ -113,10 +113,8 @@ beforeEach(() => {
 
 let mockNodeUrl = 'https://node.example:18081';
 
-// undefined: the key cannot be derived yet (locked wallet, no cached password).
-const mockEnsureViewingKey = jest.fn(
-  async ({ accountId }: { accountId: string }): Promise<string | undefined> =>
-    `key-${accountId}`,
+const mockTurnOffWithoutKey = jest.fn(
+  async (_params: { networkId: string; accountId: string }) => undefined,
 );
 
 const viewingKeys = async ({ accountId }: { accountId: string }) => ({
@@ -137,7 +135,7 @@ function capability(intent: 'on' | 'off' = 'on', birthdayHeight?: number) {
         publishLocalWalletSyncProgress: mockPublish,
         isLocalWalletScanHeld: jest.fn(async () => false),
         onLocalWalletAccountsChanged: jest.fn(async () => undefined),
-        ensureLocalWalletViewingKey: mockEnsureViewingKey,
+        turnOffLocalWalletAccountWithoutKey: mockTurnOffWithoutKey,
       },
       simpleDb: {
         privacyChainCache,
@@ -657,7 +655,6 @@ describe('xmr delete after turning the account off', () => {
       birthdayHeight: 3_600_000,
     };
     const getXmrViewingKeys = jest.fn(viewingKeys);
-    const ensureLocalWalletViewingKey = jest.fn(async () => undefined);
     const cap = buildXmrLocalWalletCapability({
       networkId: 'xmr--0',
       getXmrNetwork: async () => 'mainnet',
@@ -667,7 +664,7 @@ describe('xmr delete after turning the account off', () => {
           publishLocalWalletSyncProgress: mockPublish,
           isLocalWalletScanHeld: jest.fn(async () => false),
           onLocalWalletAccountsChanged: jest.fn(async () => undefined),
-          ensureLocalWalletViewingKey,
+          turnOffLocalWalletAccountWithoutKey: mockTurnOffWithoutKey,
         },
         simpleDb: {
           privacyChainCache,
@@ -695,7 +692,7 @@ describe('xmr delete after turning the account off', () => {
     ).resolves.toEqual({ orphaned: false });
     expect(runtime.removeAccount).toHaveBeenCalledWith('fp-acc');
 
-    // A sync whose account list predates the delete must not derive the key again.
+    // A sync whose account list predates the delete must not register it again.
     mockGetRuntimeUuid.mockImplementation(async () => undefined);
     try {
       await expect(
@@ -706,38 +703,35 @@ describe('xmr delete after turning the account off', () => {
         async (accountId: string) => `fp-${accountId}`,
       );
     }
-    expect(ensureLocalWalletViewingKey).not.toHaveBeenCalled();
     expect(getXmrViewingKeys).not.toHaveBeenCalled();
     expect(runtime.addAccount).not.toHaveBeenCalled();
     expect(runtime.syncStep).not.toHaveBeenCalled();
   });
 });
 
-// One account whose key cannot be read must not stall the group.
+// An enabled account always has its key: one without is skipped and turned off, never stalling the
+// group.
 describe('xmr sync skips an account without its view key', () => {
   beforeEach(() => {
-    mockGetRuntimeUuid.mockImplementation(async () => undefined);
+    mockTurnOffWithoutKey.mockClear();
+    mockGetRuntimeUuid.mockImplementation(async (accountId: string) =>
+      accountId === 'keyless' ? undefined : `fp-${accountId}`,
+    );
   });
 
   afterEach(() => {
-    mockEnsureViewingKey.mockImplementation(
-      async ({ accountId }) => `key-${accountId}`,
-    );
     mockGetRuntimeUuid.mockImplementation(
       async (accountId: string) => `fp-${accountId}`,
     );
   });
 
-  it('steps the others and skips the locked one', async () => {
-    mockEnsureViewingKey.mockImplementation(async ({ accountId }) =>
-      accountId === 'locked' ? undefined : `key-${accountId}`,
-    );
+  it('steps the others and has the keyless one turned off', async () => {
     runtime.syncStep.mockClear();
     runtime.syncStep.mockImplementationOnce(async () =>
       JSON.stringify({ blocksScanned: 4, done: true, outputsFound: 0 }),
     );
     const result = await capability().syncGroup({
-      accountIds: ['locked', 'acc'],
+      accountIds: ['keyless', 'acc'],
       chainTip: 3_767_827,
     });
     expect(runtime.syncStep).toHaveBeenCalledTimes(1);
@@ -746,15 +740,15 @@ describe('xmr sync skips an account without its view key', () => {
       backfillRemaining: false,
       caughtUpAccountIds: ['acc'],
     });
+    expect(mockTurnOffWithoutKey.mock.calls).toEqual([
+      [{ networkId: 'xmr--0', accountId: 'keyless' }],
+    ]);
   });
 
-  it('reports no turn when every account is waiting for its key', async () => {
-    mockEnsureViewingKey.mockImplementation(async () => {
-      throw new OneKeyLocalError('derivation failed');
-    });
+  it('reports no turn when no account has its key', async () => {
     runtime.syncStep.mockClear();
     await expect(
-      capability().syncGroup({ accountIds: ['acc'], chainTip: 3_767_827 }),
+      capability().syncGroup({ accountIds: ['keyless'], chainTip: 3_767_827 }),
     ).resolves.toEqual({ synced: false });
     expect(runtime.syncStep).not.toHaveBeenCalled();
   });
@@ -780,7 +774,7 @@ describe('xmr sync registers an enabled account the runtime lost', () => {
         servicePrivacyChain: {
           publishLocalWalletSyncProgress: mockPublish,
           isLocalWalletScanHeld: jest.fn(async () => false),
-          ensureLocalWalletViewingKey: mockEnsureViewingKey,
+          turnOffLocalWalletAccountWithoutKey: mockTurnOffWithoutKey,
         },
         simpleDb: {
           privacyChainState: {
@@ -1140,7 +1134,7 @@ describe('xmr enable authorization boundary', () => {
         simpleDb: { privacyChainState: state, privacyChainCache },
         servicePrivacyChain: {
           onLocalWalletAccountsChanged: notify,
-          ensureLocalWalletViewingKey: mockEnsureViewingKey,
+          turnOffLocalWalletAccountWithoutKey: mockTurnOffWithoutKey,
           publishLocalWalletSyncProgress: mockPublish,
           isLocalWalletScanHeld: jest.fn(async () => false),
         },
@@ -1159,7 +1153,7 @@ describe('xmr enable authorization boundary', () => {
   beforeEach(() => {
     mockOnlineRuntime.mockReset().mockResolvedValue(runtime);
     mockLocalRuntime.mockReset().mockResolvedValue(runtime);
-    mockEnsureViewingKey.mockClear();
+    mockTurnOffWithoutKey.mockClear();
     mockLiveTip.mockReset().mockResolvedValue(3_767_827);
     mockGetIdentityId.mockReset().mockResolvedValue('3');
     runtime.addAccount
@@ -1252,7 +1246,7 @@ describe('xmr enable authorization boundary', () => {
       birthdaySource: 'restore-month',
     });
     expect(getKeys).toHaveBeenCalledTimes(2);
-    expect(mockEnsureViewingKey).not.toHaveBeenCalled();
+    expect(mockTurnOffWithoutKey).not.toHaveBeenCalled();
   });
 
   it('keeps authorization after a background failure and retries without another enable', async () => {

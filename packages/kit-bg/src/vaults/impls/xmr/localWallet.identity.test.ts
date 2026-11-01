@@ -176,18 +176,7 @@ function createHarness() {
     servicePrivacyChain: {
       publishLocalWalletSyncProgress: jest.fn(async () => undefined),
       onLocalWalletAccountsChanged: jest.fn(async () => undefined),
-      ensureLocalWalletViewingKey: async ({
-        accountId,
-      }: {
-        accountId: string;
-      }) =>
-        (
-          await getLocalWalletViewingKey({
-            backgroundApi: backgroundApi as never,
-            networkId: NETWORK_ID,
-            accountId,
-          })
-        )?.value,
+      turnOffLocalWalletAccountWithoutKey: jest.fn(async () => undefined),
     },
     simpleDb: {
       privacyChainState: xmr,

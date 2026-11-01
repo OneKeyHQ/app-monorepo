@@ -1,34 +1,22 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
 import {
-  Button,
   Checkbox,
   DatePicker,
-  Dialog,
   Input,
-  ScrollView,
   SegmentControl,
   SizableText,
-  Toast,
   YStack,
-  useClipboard,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
-import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
-import type {
-  ILocalWalletAccountAddresses,
-  ILocalWalletAccountBalance,
-  ILocalWalletAccountState,
-  ILocalWalletSyncProgress,
-} from '@onekeyhq/kit-bg/src/vaults/localWallet/types';
 import { IMPL_ZCASH } from '@onekeyhq/shared/src/engine/engineConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 
-// Recovery controls for a local-wallet account; every action goes through servicePrivacyChain.
+// The sync start (birthday) form and the enable disclosure for a local-wallet account.
 
 export type IBirthdayFormState = {
   mode: 'saved-birthday' | 'date' | 'height';
@@ -380,209 +368,5 @@ export function BirthdayDialogForm({
         </YStack>
       ) : null}
     </YStack>
-  );
-}
-
-export function SetupRepairControl({
-  networkId,
-  accountId,
-  onDone,
-  onError,
-}: {
-  networkId: string;
-  accountId: string;
-  onDone: () => void;
-  // A failed repair can change what the caller shows (e.g. identity mismatch).
-  onError?: () => void;
-}) {
-  const intl = useIntl();
-  const [busy, setBusy] = useState(false);
-  const handlePress = useCallback(async () => {
-    setBusy(true);
-    try {
-      await backgroundApiProxy.servicePrivacyChain.retryLocalWalletAccountSetup(
-        { networkId, accountId },
-      );
-      Toast.success({
-        title: intl.formatMessage({
-          id: ETranslations.privacy_sync_setup_done__msg,
-        }),
-      });
-      onDone();
-    } catch (e) {
-      console.error('[privacyChain] retryLocalWalletAccountSetup failed', e);
-      onError?.();
-    } finally {
-      setBusy(false);
-    }
-  }, [networkId, accountId, onDone, onError, intl]);
-
-  return (
-    <Button
-      testID="local-wallet-repair-setup-btn"
-      size="small"
-      variant="tertiary"
-      loading={busy}
-      onPress={handlePress}
-    >
-      {intl.formatMessage({ id: ETranslations.global_retry })}
-    </Button>
-  );
-}
-
-export function ScanRepairControl({
-  networkId,
-  accountId,
-  currentBirthdayHeight,
-  earliestBirthday,
-  onDone,
-}: {
-  networkId: string;
-  accountId: string;
-  currentBirthdayHeight?: number;
-  earliestBirthday?: IEarliestBirthday;
-  onDone: () => void;
-}) {
-  const intl = useIntl();
-  const handlePress = useCallback(() => {
-    const formRef: { current: IBirthdayFormState } = {
-      current: {
-        mode: 'saved-birthday',
-        date: null,
-        height: currentBirthdayHeight?.toString(),
-      },
-    };
-    Dialog.confirm({
-      title: intl.formatMessage({
-        id: ETranslations.privacy_sync_resync__action,
-      }),
-      tone: 'warning',
-      description: intl.formatMessage({
-        id: ETranslations.privacy_sync_resync__desc,
-      }),
-      renderContent: (
-        <BirthdayDialogForm
-          networkId={networkId}
-          formRef={formRef}
-          currentBirthdayHeight={currentBirthdayHeight}
-          earliestBirthday={earliestBirthday}
-        />
-      ),
-      onConfirmText: intl.formatMessage({
-        id: ETranslations.privacy_sync_resync__action,
-      }),
-      onConfirm: async ({ preventClose }) => {
-        const { fromEarliest } = formRef.current;
-        let mode = formRef.current.mode;
-        let birthdayTimestamp: number | undefined;
-        let birthdayHeightValue: number | undefined;
-        if (fromEarliest && earliestBirthday) {
-          mode = 'height';
-        }
-        if (mode === 'date' || mode === 'height') {
-          const birthday = readEnableBirthday(
-            formRef.current,
-            earliestBirthday,
-            networkId,
-          );
-          if (!birthday) {
-            Toast.error({
-              title: intl.formatMessage({
-                id: getBirthdayInputError(mode),
-              }),
-            });
-            preventClose();
-            return;
-          }
-          birthdayTimestamp = birthday.birthdayTimestamp;
-          birthdayHeightValue = birthday.birthdayHeight;
-        }
-        await backgroundApiProxy.servicePrivacyChain.repairLocalChainData({
-          networkId,
-          accountId,
-          // The existing timestamp API accepts any day, despite its mode name.
-          mode: mode === 'date' ? 'month' : mode,
-          birthdayTimestamp,
-          birthdayHeight: birthdayHeightValue,
-        });
-        onDone();
-      },
-    });
-  }, [
-    networkId,
-    accountId,
-    currentBirthdayHeight,
-    earliestBirthday,
-    onDone,
-    intl,
-  ]);
-
-  return (
-    <Button
-      testID="local-wallet-repair-scan-btn"
-      size="small"
-      variant="tertiary"
-      onPress={handlePress}
-    >
-      {intl.formatMessage({
-        id: ETranslations.privacy_sync_resync__action,
-      })}
-    </Button>
-  );
-}
-
-export function LocalWalletDebugControl({
-  networkId,
-  accountId,
-  state,
-  addresses,
-  balance,
-  syncProgress,
-}: {
-  networkId: string;
-  accountId: string;
-  state: ILocalWalletAccountState | undefined;
-  addresses: ILocalWalletAccountAddresses | null | undefined;
-  balance: ILocalWalletAccountBalance | null | undefined;
-  syncProgress: ILocalWalletSyncProgress | null | undefined;
-}) {
-  const [devSettings] = useDevSettingsPersistAtom();
-  const { copyText } = useClipboard();
-
-  const handlePress = useCallback(() => {
-    const dump = {
-      account: { networkId, accountId },
-      state: state ?? null,
-      addresses: addresses ?? null,
-      syncProgress: syncProgress ?? null,
-      balance: balance ?? null,
-    };
-    const text = JSON.stringify(dump, null, 2);
-    Dialog.show({
-      title: 'Local wallet account debug',
-      renderContent: (
-        <ScrollView maxHeight={420} showsVerticalScrollIndicator>
-          <SizableText size="$bodySm" selectable>
-            {text}
-          </SizableText>
-        </ScrollView>
-      ),
-      onConfirmText: 'Copy',
-      onConfirm: () => copyText(text),
-    });
-  }, [networkId, accountId, state, addresses, balance, syncProgress, copyText]);
-
-  if (!devSettings.enabled) {
-    return null;
-  }
-  return (
-    <Button
-      testID="local-wallet-debug-btn"
-      size="small"
-      variant="tertiary"
-      onPress={handlePress}
-    >
-      Debug
-    </Button>
   );
 }

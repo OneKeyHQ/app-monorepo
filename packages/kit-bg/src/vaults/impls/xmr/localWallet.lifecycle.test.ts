@@ -119,7 +119,7 @@ async function setup() {
     },
     servicePrivacyChain: {
       onLocalWalletAccountsChanged: async () => undefined,
-      ensureLocalWalletViewingKey: async () => 'synthetic-key',
+      turnOffLocalWalletAccountWithoutKey: async () => undefined,
       publishLocalWalletSyncProgress: async () => undefined,
     },
   };

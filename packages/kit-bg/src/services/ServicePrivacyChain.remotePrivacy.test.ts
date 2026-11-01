@@ -43,7 +43,6 @@ type IService = {
   ) => Promise<ILocalWalletAccountState>;
   enableLocalWalletAccount: (params: IParams) => Promise<void>;
   assertLocalWalletAccountAdmission: (params: IParams) => Promise<void>;
-  retryLocalWalletAccountSetup: (params: IParams) => Promise<void>;
   enableLocalWalletAccountInSlot: (params: IParams) => Promise<void>;
   refreshLocalWalletAccount: (params: IParams) => Promise<void>;
   getLocalWalletSendReadiness: (
@@ -139,9 +138,6 @@ describe.each(['zec--0', 'xmr--0'])(
       await expect(service.enableLocalWalletAccount(params)).rejects.toThrow();
       await expect(
         service.assertLocalWalletAccountAdmission(params),
-      ).rejects.toThrow();
-      await expect(
-        service.retryLocalWalletAccountSetup(params),
       ).rejects.toThrow();
       expect(ensureLoaded).toHaveBeenCalled();
       expect(enableAccount).not.toHaveBeenCalled();

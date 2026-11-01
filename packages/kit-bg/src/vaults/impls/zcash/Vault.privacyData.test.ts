@@ -21,7 +21,7 @@ import { getViewingKeyFingerprint } from '../../localWallet/viewingKeyFingerprin
 import { getZcashLifecycleMutex } from './lifecycle';
 import { ZcashPrivacyMode } from './privacyMode';
 import Vault from './Vault';
-import { zcashIdentityMismatchAccountIds } from './vaultUtils';
+import { isZcashSetupIncompleteError } from './vaultUtils';
 
 import type {
   IZcashAccountMeta,
@@ -687,55 +687,55 @@ describe('zcash chain tip for month-based birthday estimates', () => {
 });
 
 // A re-derived key naming another identity is not derived again on every poll; the latch holds until local data is deleted.
-describe('zcash background repair after an identity mismatch', () => {
-  function createVault() {
-    const zcashRetryLocalWalletSetup = jest.fn(async () => undefined);
+// Every use of an account's key reads it here; a missing one asks the service to turn it off.
+describe('zcash account key read', () => {
+  const keyMeta = {
+    vkFp: getViewingKeyFingerprint({ networkId: 'zec--0', viewingKey: 'ufvk' }),
+  } as IZcashAccountMeta;
+
+  function createVault(storedValue: string | undefined) {
+    const turnOff = jest.fn(async () => undefined);
     const vault = Object.assign(Object.create(Vault.prototype) as Vault, {
-      accountId: 'mismatched-account',
       networkId: 'zec--0',
-      keyring: {},
       backgroundApi: {
-        servicePassword: {
-          hasCachedPassword: async () => true,
-          isAlwaysReenterPassword: async () => false,
-          getCachedPassword: async () => 'password',
+        simpleDb: {
+          privacyChainKeys: {
+            getKey: async () =>
+              storedValue === undefined
+                ? undefined
+                : {
+                    networkId: 'zec--0',
+                    vkFp: keyMeta.vkFp,
+                    sealed: { format: 'plain', value: storedValue },
+                  },
+          },
         },
+        servicePrivacyChain: { turnOffLocalWalletAccountWithoutKey: turnOff },
       },
-      zcashRetryLocalWalletSetup,
     });
-    return { vault, zcashRetryLocalWalletSetup };
+    return { vault, turnOff };
   }
 
-  afterEach(() => {
-    zcashIdentityMismatchAccountIds.clear();
+  it.each([
+    ['missing', undefined],
+    ['damaged', 'other-ufvk'],
+  ])('turns the account off when its key is %s', async (_, storedValue) => {
+    const { vault, turnOff } = createVault(storedValue);
+    const error = await vault
+      .zcashGetAccountUfvk({ accountId: 'account', meta: keyMeta })
+      .catch((e: unknown) => e);
+    expect(isZcashSetupIncompleteError(error)).toBe(true);
+    expect(turnOff).toHaveBeenCalledWith({
+      networkId: 'zec--0',
+      accountId: 'account',
+    });
   });
 
-  it('derives again while no mismatch is latched', async () => {
-    const { vault, zcashRetryLocalWalletSetup } = createVault();
+  it('reads a stored key without turning anything off', async () => {
+    const { vault, turnOff } = createVault('ufvk');
     await expect(
-      vault.zcashTryAutoRepairLocalWalletSetupIfUnlocked(),
-    ).resolves.toBe(true);
-    expect(zcashRetryLocalWalletSetup).toHaveBeenCalledTimes(1);
-  });
-
-  it('does not derive once a mismatch is latched', async () => {
-    const { vault, zcashRetryLocalWalletSetup } = createVault();
-    zcashIdentityMismatchAccountIds.add('mismatched-account');
-    await expect(
-      vault.zcashTryAutoRepairLocalWalletSetupIfUnlocked(),
-    ).resolves.toBe(false);
-    expect(zcashRetryLocalWalletSetup).not.toHaveBeenCalled();
-  });
-
-  it('derives again after the account memory is forgotten', async () => {
-    const { vault, zcashRetryLocalWalletSetup } = createVault();
-    zcashIdentityMismatchAccountIds.add('mismatched-account');
-    await vault
-      .getLocalWalletCapability()
-      .forgetMemoryCaches?.({ accountIds: ['mismatched-account'] });
-    await expect(
-      vault.zcashTryAutoRepairLocalWalletSetupIfUnlocked(),
-    ).resolves.toBe(true);
-    expect(zcashRetryLocalWalletSetup).toHaveBeenCalledTimes(1);
+      vault.zcashGetAccountUfvk({ accountId: 'account', meta: keyMeta }),
+    ).resolves.toBe('ufvk');
+    expect(turnOff).not.toHaveBeenCalled();
   });
 });

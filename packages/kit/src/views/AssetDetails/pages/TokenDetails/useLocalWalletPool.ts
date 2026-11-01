@@ -560,18 +560,6 @@ export function useLocalWalletPool({
       }),
     [accountId, networkId, runBusy],
   );
-  const deleteLocalData = useCallback(
-    () =>
-      runBusy(async () => {
-        await backgroundApiProxy.servicePrivacyChain.deleteLocalWalletAccountData(
-          { networkId, accountId },
-        );
-        setPoolDisplay(undefined);
-        setAttemptedBalanceScope(undefined);
-        void refreshState();
-      }),
-    [accountId, networkId, refreshState, runBusy, setPoolDisplay],
-  );
   const isReady = (() => {
     if (!hasPooledBalance) return true;
     if (isWalletSupported === undefined) return false;
@@ -611,7 +599,6 @@ export function useLocalWalletPool({
     refreshBalanceNow,
     startSync,
     enableAccount,
-    deleteLocalData,
   };
 }
 

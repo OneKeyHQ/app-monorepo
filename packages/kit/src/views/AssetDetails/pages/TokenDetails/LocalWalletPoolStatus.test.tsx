@@ -61,22 +61,7 @@ jest.mock('./LocalWalletPasswordAlert', () => ({
 }));
 jest.mock('./LocalWalletRepairControls', () => ({
   BirthdayDialogForm: () => null,
-  LocalWalletDebugControl: () => null,
   PrivacyEnableDisclosure: () => null,
-  ScanRepairControl: () => (
-    <button
-      type="button"
-      data-testid="mock-scan-repair"
-      aria-label="Repair scan"
-    />
-  ),
-  SetupRepairControl: () => (
-    <button
-      type="button"
-      data-testid="mock-setup-repair"
-      aria-label="Retry setup"
-    />
-  ),
   createEnableBirthdayForm: () => ({ current: {} }),
   getBirthdayInputError: () => 'global.bulk_accounts_page_number_error',
   // `var` below: jest hoists this factory above it.
@@ -256,55 +241,46 @@ describe('LocalWalletPoolStatus for an enabled account', () => {
   });
 });
 
-it.each([false, true])(
-  'shows preparing without errors or repair controls while registration is pending (settings: %s)',
-  (settingsMode) => {
-    const pending = pool({
-      enabled: true,
-      hasAttemptedBalance: true,
-      state: { enabled: true, paused: false },
-      addresses: { publicAddress: 't1', privateAddress: 'u1' },
-      balance: null,
-      syncProgress: {
-        birthdayHeight: 2_000_000,
-        backfillScannedHeight: null,
-        backfillTargetHeight: null,
-        backfillProgress: 0,
-        isBackfillComplete: false,
-        tipScannedHeight: null,
-        chainTip: null,
-        tipLag: null,
-        isTipCaughtUp: false,
-        isSyncing: true,
-      },
-      syncStatusText: 'global.preparing',
-      isPreparing: true,
-    });
-    render(
-      <>
-        <LocalWalletPoolStatus
-          networkId="zec--0"
-          accountId="hd-1--0"
-          pool={pending}
-          settingsMode={settingsMode}
-        />
-        <LocalWalletSyncRow
-          networkId="zec--0"
-          accountId="hd-1--0"
-          pool={pending}
-        />
-      </>,
-    );
-    expect(screen.queryByText('global.preparing') !== null).toBe(settingsMode);
-    expect(
-      screen.queryByText('privacy_error_setup_incomplete__msg'),
-    ).toBeNull();
-    expect(screen.queryByText('privacy_balance_unavailable__msg')).toBeNull();
-    expect(screen.queryByText('DATABASE_ERROR')).toBeNull();
-    expect(screen.queryByTestId('mock-setup-repair')).toBeNull();
-    expect(screen.queryByTestId('mock-scan-repair')).toBeNull();
-  },
-);
+it('shows no error while registration is pending', () => {
+  const pending = pool({
+    enabled: true,
+    hasAttemptedBalance: true,
+    state: { enabled: true, paused: false },
+    addresses: { publicAddress: 't1', privateAddress: 'u1' },
+    balance: null,
+    syncProgress: {
+      birthdayHeight: 2_000_000,
+      backfillScannedHeight: null,
+      backfillTargetHeight: null,
+      backfillProgress: 0,
+      isBackfillComplete: false,
+      tipScannedHeight: null,
+      chainTip: null,
+      tipLag: null,
+      isTipCaughtUp: false,
+      isSyncing: true,
+    },
+    syncStatusText: 'global.preparing',
+    isPreparing: true,
+  });
+  render(
+    <>
+      <LocalWalletPoolStatus
+        networkId="zec--0"
+        accountId="hd-1--0"
+        pool={pending}
+      />
+      <LocalWalletSyncRow
+        networkId="zec--0"
+        accountId="hd-1--0"
+        pool={pending}
+      />
+    </>,
+  );
+  expect(screen.queryByText('privacy_error_setup_incomplete__msg')).toBeNull();
+  expect(screen.queryByText('privacy_balance_unavailable__msg')).toBeNull();
+  expect(screen.queryByText('DATABASE_ERROR')).toBeNull();
+});
 
 type IConfirmArgs = {
   onConfirm: (params: { preventClose: () => void }) => Promise<void>;
@@ -346,7 +322,6 @@ it.each([
     status.hasSyncError,
   );
   expect(screen.getByTestId('local-wallet-refresh-balance-btn')).toBeTruthy();
-  expect(screen.queryByTestId('mock-setup-repair')).toBeNull();
   expect(screen.queryByText('privacy_error_setup_incomplete__msg')).toBeNull();
   expect(screen.queryByText('privacy_balance_unavailable__msg')).toBeNull();
 });
@@ -365,39 +340,31 @@ describe('LocalWalletPoolStatus enable failure', () => {
     mockBirthday = { birthdayTimestamp: 1_700_000_000_000 };
   });
 
-  it.each([false, true])(
-    'explains a full network before the birthday form, offering settings unless already there (settingsMode=%s)',
-    async (settingsMode) => {
-      mockAssertAdmission.mockRejectedValue(slotsFullError);
-      const enableAccount = jest.fn(async () => undefined);
-      render(
-        <LocalWalletPoolStatus
-          networkId="zec--0"
-          accountId="hd-1--0"
-          settingsMode={settingsMode}
-          pool={pool({
-            enableAccount,
-            settings: { accountSetup: { requiresBirthday: true } },
-          } as unknown as Partial<ILocalWalletPool>)}
-        />,
-      );
-      await act(async () => {
-        fireEvent.click(screen.getByTestId('local-wallet-enable-button'));
-      });
+  it('explains a full network before the birthday form, offering settings', async () => {
+    mockAssertAdmission.mockRejectedValue(slotsFullError);
+    const enableAccount = jest.fn(async () => undefined);
+    render(
+      <LocalWalletPoolStatus
+        networkId="zec--0"
+        accountId="hd-1--0"
+        pool={pool({
+          enableAccount,
+          settings: { accountSetup: { requiresBirthday: true } },
+        } as unknown as Partial<ILocalWalletPool>)}
+      />,
+    );
+    await act(async () => {
+      fireEvent.click(screen.getByTestId('local-wallet-enable-button'));
+    });
 
-      expect(Dialog.confirm).not.toHaveBeenCalled();
-      expect(enableAccount).not.toHaveBeenCalled();
-      const params = mockShowSlotsFull.mock.calls[0][0] as {
-        onOpenSettings?: () => void;
-      };
-      if (settingsMode) {
-        expect(params.onOpenSettings).toBeUndefined();
-      } else {
-        params.onOpenSettings?.();
-        expect(mockPushModal).toHaveBeenCalledTimes(1);
-      }
-    },
-  );
+    expect(Dialog.confirm).not.toHaveBeenCalled();
+    expect(enableAccount).not.toHaveBeenCalled();
+    const params = mockShowSlotsFull.mock.calls[0][0] as {
+      onOpenSettings?: () => void;
+    };
+    params.onOpenSettings?.();
+    expect(mockPushModal).toHaveBeenCalledTimes(1);
+  });
 
   it('explains a network that filled up while the form was open', async () => {
     const enableAccount = jest.fn().mockRejectedValue(slotsFullError);

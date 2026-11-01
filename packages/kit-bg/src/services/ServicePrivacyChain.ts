@@ -448,63 +448,16 @@ class ServicePrivacyChain extends ServiceBase {
 
   // Viewing material for an account, rebuilt from the mnemonic when missing, using a cached
   // password only; never prompts. Undefined while locked.
-  async ensureLocalWalletViewingKey({
-    networkId,
-    accountId,
-    expectedEpoch,
-  }: {
-    networkId: string;
-    accountId: string;
-    expectedEpoch?: string;
-  }): Promise<string | undefined> {
-    if (expectedEpoch === undefined) {
-      return (
-        await getLocalWalletViewingKey({
-          backgroundApi: this.backgroundApi,
-          networkId,
-          accountId,
-        })
-      )?.value;
-    }
-    return this.getEnableMutex(networkId).runExclusive(async () => {
-      const isCurrent = async () => {
-        if (expectedEpoch === undefined) return false;
-        const capability = await this.requireAccountCapability(networkId);
-        const state = await capability.getAccountState({ accountId });
-        const epoch =
-          await this.backgroundApi.simpleDb.privacyChainState.getAccountEpoch({
-            accountId,
-          });
-        return (
-          (state.enabled || state.pendingOperation === 'enable') &&
-          epoch === expectedEpoch
-        );
-      };
-      if (!(await isCurrent())) return undefined;
-      const key = await this.obtainLocalWalletViewingKey({
-        networkId,
-        accountId,
-        promptForPassword: false,
-        isCurrent,
-      });
-      return key?.value;
-    });
-  }
-
-  // `created`: no key was stored before this call. Prompting is for the
-  // user's own enable only.
+  // `created`: no key was stored before this call. Only the user's own enable comes here, so it
+  // may prompt.
   private async obtainLocalWalletViewingKey({
     networkId,
     accountId,
-    promptForPassword,
     forceDerivation = false,
-    isCurrent,
   }: {
     networkId: string;
     accountId: string;
-    promptForPassword: boolean;
     forceDerivation?: boolean;
-    isCurrent?: () => Promise<boolean>;
   }): Promise<{ value: string; created: boolean } | undefined> {
     const stored = await getLocalWalletViewingKey({
       backgroundApi: this.backgroundApi,
@@ -517,8 +470,6 @@ class ServicePrivacyChain extends ServiceBase {
     if (!isHardware && !accountUtils.isHdAccount({ accountId })) {
       return undefined;
     }
-    // The device asks for confirmation, so only the user's own enable may reach it.
-    if (isHardware && !promptForPassword) return undefined;
     if (await this.isTempWalletAccount({ accountId })) return undefined;
     const vault = await vaultFactory.getVault({ networkId, accountId });
     const derive = vault.getLocalWalletCapability()?.deriveViewingKey;
@@ -540,7 +491,7 @@ class ServicePrivacyChain extends ServiceBase {
         (await this.backgroundApi.servicePassword.hasCachedPassword())
           ? await this.backgroundApi.servicePassword.getCachedPassword()
           : undefined;
-      if (!password && promptForPassword) {
+      if (!password) {
         ({ password } =
           await this.backgroundApi.servicePassword.promptPasswordVerifyByAccount(
             {
@@ -552,7 +503,6 @@ class ServicePrivacyChain extends ServiceBase {
       if (!password) return undefined;
       value = await derive({ accountId, password });
     }
-    if (isCurrent && !(await isCurrent())) return undefined;
     // A derived key that differs from the stored identity stops here.
     await saveLocalWalletViewingKey({
       backgroundApi: this.backgroundApi,
@@ -3901,7 +3851,6 @@ class ServicePrivacyChain extends ServiceBase {
         ? await this.obtainLocalWalletViewingKey({
             networkId,
             accountId,
-            promptForPassword: true,
             forceDerivation: !!pendingDeletion,
           })
         : undefined;
@@ -4070,29 +4019,82 @@ class ServicePrivacyChain extends ServiceBase {
     accountId: string;
   }): Promise<void> {
     await this.getEnableMutex(networkId).runExclusive(async () => {
-      const capability = await this.requireAccountCapability(networkId);
-      // Twins share one scan, so turning one off turns all of them off.
-      const twins = await this.listLocalWalletAccountTwins({
+      await this.disableLocalWalletAccountWithTwins({
         networkId,
         accountId,
+        capability: await this.requireAccountCapability(networkId),
       });
-      const twinStates = await Promise.all(
-        twins.map((twinId) =>
-          capability.getAccountState({ accountId: twinId }),
-        ),
-      );
-      const enabledTwins = twins.filter(
-        (_twinId, index) => twinStates[index].enabled,
-      );
-      for (const id of [accountId, ...enabledTwins]) {
-        // eslint-disable-next-line no-await-in-loop
-        await this.disableLocalWalletAccountUnlocked({
-          networkId,
-          accountId: id,
-          capability,
-        });
-      }
     });
+  }
+
+  // Enable stores the key before turning an account on, so an enabled account without one has a
+  // damaged record. It is turned off, keeping its data and start; the next enable derives the key
+  // again and continues where the scan stopped.
+  async turnOffLocalWalletAccountWithoutKey({
+    networkId,
+    accountId,
+  }: {
+    networkId: string;
+    accountId: string;
+  }): Promise<void> {
+    await this.getEnableMutex(networkId).runExclusive(async () => {
+      if (resetUtils.getIsResetting() || (await this.isPersistenceMasked())) {
+        return;
+      }
+      const capability = await this.requireAccountCapability(networkId);
+      const state = await capability.getAccountState({ accountId });
+      if (!state.enabled || state.pendingOperation !== undefined) return;
+      const [key, identity] = await Promise.all([
+        getLocalWalletViewingKey({
+          backgroundApi: this.backgroundApi,
+          networkId,
+          accountId,
+        }),
+        this.backgroundApi.simpleDb.privacyChainState.getAccountVkFp({
+          networkId,
+          accountId,
+        }),
+      ]);
+      if (key && (identity === undefined || key.vkFp === identity)) return;
+      console.error('[privacy-chain] viewing key missing; turning off', {
+        networkId,
+      });
+      await this.disableLocalWalletAccountWithTwins({
+        networkId,
+        accountId,
+        capability,
+      });
+    });
+  }
+
+  // Twins share one scan, so turning one off turns all of them off.
+  private async disableLocalWalletAccountWithTwins({
+    networkId,
+    accountId,
+    capability,
+  }: {
+    networkId: string;
+    accountId: string;
+    capability: ILocalWalletCapability;
+  }): Promise<void> {
+    const twins = await this.listLocalWalletAccountTwins({
+      networkId,
+      accountId,
+    });
+    const twinStates = await Promise.all(
+      twins.map((twinId) => capability.getAccountState({ accountId: twinId })),
+    );
+    const enabledTwins = twins.filter(
+      (_twinId, index) => twinStates[index].enabled,
+    );
+    for (const id of [accountId, ...enabledTwins]) {
+      // eslint-disable-next-line no-await-in-loop
+      await this.disableLocalWalletAccountUnlocked({
+        networkId,
+        accountId: id,
+        capability,
+      });
+    }
   }
 
   private async disableLocalWalletAccountUnlocked({
@@ -4130,28 +4132,6 @@ class ServicePrivacyChain extends ServiceBase {
     }
     const capability = await this.requireAccountCapability(networkId);
     return capability.getDebugAccountMeta?.({ accountId });
-  }
-
-  @backgroundMethod()
-  @toastLocalWalletError()
-  async retryLocalWalletAccountSetup({
-    networkId,
-    accountId,
-  }: {
-    networkId: string;
-    accountId: string;
-  }): Promise<void> {
-    await this.backgroundApi.serviceCustomRpc.ensureLocalWalletRemoteConfigLoaded();
-    assertLocalWalletPrivacyEnabled(networkId);
-    const capability = await this.requireAccountCapability(networkId);
-    await this.assertNotTempWalletAccount(accountId);
-    await this.runUserRescan({ networkId, accountId }, () =>
-      this.getSyncSlotMutex().runExclusive(async () => {
-        assertLocalWalletPrivacyEnabled(networkId);
-        await capability.retryAccountSetup({ accountId });
-        await this.claimSyncSlot({ networkId, accountId });
-      }),
-    );
   }
 
   @backgroundMethod()

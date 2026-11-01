@@ -241,7 +241,6 @@ export type ILocalWalletCapability = {
     forceViewingKeyDerivation?: boolean;
   }) => Promise<void>;
   disableAccount: (params: { accountId: string }) => Promise<void>;
-  retryAccountSetup: (params: { accountId: string }) => Promise<void>;
   // Undefined until the account is enabled and its viewing material exists.
   getAccountAddresses: (params: {
     accountId: string;

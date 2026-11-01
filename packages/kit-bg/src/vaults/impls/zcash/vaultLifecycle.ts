@@ -18,7 +18,6 @@ import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IDeviceSharedCallParams } from '@onekeyhq/shared/types/device';
-import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 
 import { isSameZcashPendingRescan } from '../../../dbs/simple/entity/SimpleDbEntityPrivacyChainState';
 import { getPrivacyModeResumeFromHeight } from '../../../services/PrivacyModeState';
@@ -53,6 +52,7 @@ import {
   ZCASH_WORKER_RESET_TIMEOUT_MS,
   createZcashSetupIncompleteError,
   isZcashRuntimeDatabaseBroken,
+  isZcashSetupIncompleteError,
   zcashDescribeError,
   zcashIdentityMismatchAccountIds,
   zcashUserOperationsActive,
@@ -374,22 +374,24 @@ export function getLocalWalletCapability(vault: Vault): ILocalWalletCapability {
         networkId: vault.networkId,
         accountId,
       }),
-    retryAccountSetup: ({ accountId }) =>
-      vault.zcashPrivacyMode().enablePrivacyMode({
-        networkId: vault.networkId,
-        accountId,
-      }),
     getAccountAddresses: async ({ accountId }) => {
       // Transparent address is account backbone, not privacy material -- available even while Privacy Mode is paused.
       const dbAccount = (await vault.backgroundApi.serviceAccount
         .getDBAccountSafe({ accountId })
         .catch(() => null)) as IDBUtxoAccount | null;
-      // Imported and watch-only accounts have no privacy material to read.
+      // Imported and watch-only accounts have no privacy material to read. Without its key the
+      // account is being turned off, so it shows as not scanning.
       const meta = vault.supportsAccountWalletType({ accountId })
-        ? await vault.zcashPrivacyMode().getLocalWalletAccountMeta({
-            networkId: vault.networkId,
-            accountId,
-          })
+        ? await vault
+            .zcashPrivacyMode()
+            .getLocalWalletAccountMeta({
+              networkId: vault.networkId,
+              accountId,
+            })
+            .catch((error: unknown) => {
+              if (isZcashSetupIncompleteError(error)) return undefined;
+              throw error;
+            })
         : undefined;
       const publicAddress = meta?.transparentAddress ?? dbAccount?.address;
       if (!publicAddress) {
@@ -1298,45 +1300,6 @@ export async function zcashRetryLocalWalletSetup(
     password: checkIsDefined(password),
     forceDerivation,
   });
-}
-
-export async function zcashTryAutoRepairLocalWalletSetupIfUnlocked(
-  vault: Vault,
-): Promise<boolean> {
-  // A hardware account needs the device in hand; never auto-prompt for it.
-  if (vault.keyring instanceof KeyringHardware) {
-    return false;
-  }
-  // Deriving again would only find the same other identity.
-  if (zcashIdentityMismatchAccountIds.has(vault.accountId)) {
-    return false;
-  }
-  const hasCachedPassword =
-    await vault.backgroundApi.servicePassword.hasCachedPassword();
-  if (!hasCachedPassword) {
-    return false;
-  }
-  try {
-    // Never prompts: a balance poll must not open a password dialog or bypass 'always re-enter password'.
-    if (
-      await vault.backgroundApi.servicePassword.isAlwaysReenterPassword(
-        EReasonForNeedPassword.CreateTransaction,
-      )
-    ) {
-      return false;
-    }
-    const password =
-      await vault.backgroundApi.servicePassword.getCachedPassword();
-    if (!password) return false;
-    await vault.zcashRetryLocalWalletSetup({ password });
-    return true;
-  } catch (e) {
-    console.error('[zcash] auto repair local wallet setup failed', {
-      accountId: vault.accountId,
-      error: e instanceof Error ? e.message : String(e),
-    });
-    return false;
-  }
 }
 
 // Powers the sync-progress display by reading the wallet summary only; polling must never enqueue or join a scan job.

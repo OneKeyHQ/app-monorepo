@@ -139,20 +139,6 @@ export function buildXmrLocalWalletCapability(
     });
   };
 
-  const deriveScanningAccountKey = async (accountId: string) => {
-    const state = await stateDb().getXmrAccountState({ accountId });
-    if (state.deletionPending) return false;
-    if (state.intent !== 'on') return false;
-    const key = await vault.backgroundApi.servicePrivacyChain
-      .ensureLocalWalletViewingKey({
-        networkId,
-        accountId,
-        expectedEpoch: state.epoch,
-      })
-      .catch(() => undefined);
-    return key !== undefined;
-  };
-
   const getAccountAliases = async ({
     accountId,
   }: {
@@ -637,8 +623,6 @@ export function buildXmrLocalWalletCapability(
       await notifyAccountsChanged({ accountId, backfillActive: false });
     },
 
-    async retryAccountSetup() {},
-
     async getAccountAddresses({
       accountId,
     }): Promise<ILocalWalletAccountAddresses | undefined> {
@@ -811,14 +795,17 @@ export function buildXmrLocalWalletCapability(
       let skipped = 0;
 
       for (const accountId of accountIds) {
-        // An account whose key cannot be read yet (locked wallet) waits for unlock; keys are derived
-        // only for accounts still scanning, as this turn list may predate a delete.
-        if (
-          // eslint-disable-next-line no-await-in-loop
-          (await getXmrRuntimeUuid({ vault, accountId })) === undefined &&
-          // eslint-disable-next-line no-await-in-loop
-          !(await deriveScanningAccountKey(accountId))
-        ) {
+        // An enabled account always has its key; without one the service turns it off (it checks
+        // the account is still on, as this turn list may predate a delete).
+        // eslint-disable-next-line no-await-in-loop
+        if ((await getXmrRuntimeUuid({ vault, accountId })) === undefined) {
+          void vault.backgroundApi.servicePrivacyChain
+            .turnOffLocalWalletAccountWithoutKey({ networkId, accountId })
+            .catch((error: unknown) => {
+              console.error('[xmr] could not turn off an account without key', {
+                error: error instanceof Error ? error.message : '',
+              });
+            });
           skipped += 1;
           // eslint-disable-next-line no-continue
           continue;
@@ -997,8 +984,8 @@ export function buildXmrLocalWalletCapability(
       await deleteXmrDatabase(await vault.getXmrNetwork());
       const holders =
         (await stateDb().listScanDataAccountIds({ networkId })) ?? [];
-      // The database is gone either way. An account whose key is locked
-      // keeps its state: the next scan or resume registers it again.
+      // The database is gone either way. An account that cannot be registered
+      // now keeps its state: the next scan registers it, or turns it off without a key.
       for (const accountId of holders) {
         try {
           // eslint-disable-next-line no-await-in-loop

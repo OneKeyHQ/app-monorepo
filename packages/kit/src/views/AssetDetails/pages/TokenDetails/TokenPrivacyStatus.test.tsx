@@ -90,7 +90,6 @@ function pool(
     refreshBalanceNow: jest.fn(async () => undefined),
     startSync: jest.fn(async () => undefined),
     enableAccount: jest.fn(async () => undefined),
-    deleteLocalData: jest.fn(async () => undefined),
     ...overrides,
   };
 }

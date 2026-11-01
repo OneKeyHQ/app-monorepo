@@ -51,7 +51,7 @@ function build() {
       simpleDb: { privacyChainState: state },
       servicePrivacyChain: {
         onLocalWalletAccountsChanged: notify,
-        ensureLocalWalletViewingKey: async () => 'synthetic-key',
+        turnOffLocalWalletAccountWithoutKey: async () => undefined,
       },
     },
   } as unknown as Vault;
