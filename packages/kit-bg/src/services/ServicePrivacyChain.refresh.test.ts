@@ -339,8 +339,8 @@ it('marks an account preparing on an explicit sync until its next published posi
   expect(publishedState().preparingAccountKeys).toEqual([
     `${networkId}:${accountId}`,
   ]);
-  // Started as soon as the user asked, not after the startup quiet window.
-  expect(service.earliestTickAt).toBeLessThanOrEqual(Date.now());
+  // Started at the startup floor, not after the full quiet window.
+  expect(service.earliestTickAt).toBe(service.serviceBootAt + 30_000);
   await service.publishScanProgress(candidate);
   expect(publishedState().preparingAccountKeys).toEqual([]);
 });

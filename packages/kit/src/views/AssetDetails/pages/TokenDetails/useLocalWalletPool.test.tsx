@@ -273,7 +273,7 @@ afterEach(() => {
   jest.useRealTimers();
 });
 
-// An open token page wants fresh data, not the startup quiet window's.
+// An open token page wants fresh data, not after the full startup quiet window.
 describe('useLocalWalletPool wakes the scan', () => {
   it.each([
     [true, false, 1],

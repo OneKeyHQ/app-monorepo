@@ -934,7 +934,8 @@ describe('Privacy sync backoff after a user action', () => {
   });
 });
 
-// An open privacy page is a waiting user: the startup quiet window ends, and nothing lights up.
+// An open privacy page is a waiting user: the startup quiet window shrinks to its floor, and nothing
+// lights up.
 describe('Privacy page opened', () => {
   function createService() {
     return Object.assign(
@@ -953,10 +954,10 @@ describe('Privacy page opened', () => {
     );
   }
 
-  it('schedules a pass now, ignoring the startup quiet window', async () => {
+  it('schedules a pass, waiting only for the startup floor', async () => {
     const service = createService();
     await service.onLocalWalletPageOpened({ networkId: 'zec--0' });
-    expect(service.earliestTickAt).toBeLessThanOrEqual(Date.now());
+    expect(service.earliestTickAt).toBe(service.serviceBootAt + 30_000);
     expect(service.scheduleBackgroundSync).toHaveBeenCalledWith(0);
     expect(service.foregroundBoostRequestedByNetwork).toEqual({});
     expect(service.publishBoostingNetworks).not.toHaveBeenCalled();

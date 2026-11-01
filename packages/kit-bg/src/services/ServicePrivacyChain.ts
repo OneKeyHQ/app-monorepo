@@ -278,8 +278,9 @@ class ServicePrivacyChain extends ServiceBase {
 
   initPromise: Promise<void> | undefined;
 
-  // No sync tick fires before `earliestTickAt`: 60s after construction, unless a user waits on a
-  // chain sooner. Reads are never held back.
+  // No sync tick fires before `earliestTickAt`: 60s after construction, 30s floor once the user
+  // waits on a chain, so the rest of the app loads before a runtime this large. Reads are never held
+  // back.
   serviceBootAt = Date.now();
 
   earliestTickAt =
@@ -769,7 +770,7 @@ class ServicePrivacyChain extends ServiceBase {
       return;
     }
     await this.init();
-    this.endStartupQuietWindow();
+    this.shortenStartupQuietWindow();
     this.scheduleBackgroundSync(0);
   }
 
@@ -930,8 +931,8 @@ class ServicePrivacyChain extends ServiceBase {
     this.scheduleBackgroundSync(0);
   }
 
-  // A privacy token or send page opened: catch up now, startup quiet window or not. Lights nothing;
-  // the automatic rules still decide the light.
+  // A privacy token or send page opened: catch up now, or at the startup floor. Lights nothing; the
+  // automatic rules still decide the light.
   @backgroundMethod()
   async onLocalWalletPageOpened({
     networkId,
@@ -940,7 +941,7 @@ class ServicePrivacyChain extends ServiceBase {
   }): Promise<void> {
     if (!(await this.getLocalWalletNetworkIds()).includes(networkId)) return;
     await this.init();
-    this.endStartupQuietWindow();
+    this.shortenStartupQuietWindow();
     this.scheduleBackgroundSync(0);
   }
 
@@ -989,7 +990,7 @@ class ServicePrivacyChain extends ServiceBase {
         await this.publishBoostingNetworks();
       }
     }
-    this.endStartupQuietWindow();
+    this.shortenStartupQuietWindow();
     await this.wakeLocalWalletSync();
   }
 
@@ -1106,7 +1107,7 @@ class ServicePrivacyChain extends ServiceBase {
       ),
     );
     await this.init();
-    this.endStartupQuietWindow();
+    this.shortenStartupQuietWindow();
     this.scheduleBackgroundSync(0);
   }
 
@@ -4853,9 +4854,12 @@ class ServicePrivacyChain extends ServiceBase {
     }));
   }
 
-  // A waiting user ends the startup quiet window.
-  endStartupQuietWindow() {
-    this.earliestTickAt = Math.min(this.earliestTickAt, Date.now());
+  // A waiting user shortens the startup quiet window to its 30s floor.
+  shortenStartupQuietWindow() {
+    this.earliestTickAt = Math.min(
+      this.earliestTickAt,
+      this.serviceBootAt + timerUtils.getTimeDurationMs({ seconds: 30 }),
+    );
   }
 
   // Two published lists: a wanted-but-refused boost is actionable (offers

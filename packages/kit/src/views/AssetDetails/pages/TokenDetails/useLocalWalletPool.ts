@@ -192,7 +192,7 @@ export function useLocalWalletPool({
     hasPooledBalance &&
     !!accountId &&
     (enabled || pool?.source === 'backend');
-  // An open privacy token page wants fresh data now, not after the startup quiet window.
+  // An open privacy token page wants fresh data, not after the full startup quiet window.
   useEffect(() => {
     if (!canRead) return;
     void backgroundApiProxy.servicePrivacyChain
