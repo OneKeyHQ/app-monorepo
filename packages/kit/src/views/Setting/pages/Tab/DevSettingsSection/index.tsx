@@ -1611,7 +1611,7 @@ const BaseDevSettingsSection = () => {
                         <SectionPressItem
                           icon="StorageOutline"
                           title="Storage recovery tests"
-                          subtitle="Simulate migration failures with isolated test data"
+                          subtitle="Isolated scenarios and dangerous real-marker test"
                           testID="native-storage-recovery-tests-menu"
                           onPress={() => {
                             Dialog.cancel({

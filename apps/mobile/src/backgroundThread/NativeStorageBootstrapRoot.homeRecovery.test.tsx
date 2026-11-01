@@ -38,7 +38,41 @@ const mockRpc = jest.fn(async (request: INativeStorageRecoveryTestRequest) => {
     const { toPlainErrorObject } = jest.requireActual<
       typeof import('@onekeyhq/shared/src/errors/utils/errorUtils')
     >('@onekeyhq/shared/src/errors/utils/errorUtils');
-    throw toPlainErrorObject(error);
+    const {
+      buildSafeBackgroundThreadErrorData,
+      serializeBackgroundThreadResponse,
+      parseBackgroundThreadResponse,
+    } = jest.requireActual<typeof import('./rpcProtocol')>('./rpcProtocol');
+    const { data, ...plainError } = toPlainErrorObject(error);
+    const message =
+      typeof plainError.message === 'string'
+        ? plainError.message
+        : 'Unknown background error';
+    // Exercise the wire whitelist and JSON boundary instead of passing the
+    // bg Error object directly into the main runtime.
+    const response = parseBackgroundThreadResponse(
+      serializeBackgroundThreadResponse({
+        ok: false,
+        error: {
+          ...plainError,
+          name:
+            typeof plainError.name === 'string'
+              ? plainError.name
+              : 'BackgroundThreadError',
+          message,
+          data: buildSafeBackgroundThreadErrorData(data, {
+            request: {
+              type: 'service-call',
+              method: 'serviceDevSetting.nativeStorageRecoveryTest',
+              params: [request],
+              sync: false,
+            },
+            message,
+          }),
+        },
+      }),
+    );
+    throw response?.error;
   }
 });
 function reloadBackground() {
@@ -110,6 +144,8 @@ jest.mock('react-native', () => ({
 }));
 jest.mock('@onekeyhq/components', () => ({
   Button: TestButton,
+  Input: () => null,
+  Dialog: { show: jest.fn() },
   ScrollView: TestView,
   SizableText: TestView,
   XStack: TestView,

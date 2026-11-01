@@ -671,6 +671,21 @@ class ServiceDevSetting extends ServiceBase {
   }
 
   @backgroundMethod()
+  public async simulateRealAppStorageMissingMarker(confirmation: string) {
+    if (
+      !platformEnv.isNativeBackgroundThread ||
+      !(await devSettingsPersistAtom.get()).enabled
+    ) {
+      throw new OneKeyLocalError(
+        'Real marker simulation requires native background runtime and developer mode',
+      );
+    }
+    const { simulateNativeAppStorageMissingMarker } =
+      await import('@onekeyhq/shared/src/storage/nativeStorageExecutor');
+    return simulateNativeAppStorageMissingMarker(confirmation);
+  }
+
+  @backgroundMethod()
   public async nativeStorageRecoveryTest(
     request: INativeStorageRecoveryTestRequest,
   ): Promise<INativeStorageRecoveryTestResult> {

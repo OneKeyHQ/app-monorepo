@@ -2,20 +2,25 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 import {
   Button,
+  Dialog,
+  Input,
   ScrollView,
   SizableText,
   XStack,
   YStack,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
 import {
   EAppRestartMode,
   appRestart,
 } from '@onekeyhq/shared/src/modules3rdParty/appRestart';
+import { requestNativeStorageRecovery } from '@onekeyhq/shared/src/storage/nativeStorageRecovery';
 import {
   type INativeStorageRecoveryTestRequest,
   type INativeStorageRecoveryTestScenario,
   type INativeStorageRecoveryTestSnapshot,
+  NATIVE_STORAGE_REAL_MARKER_TEST_CONFIRMATION,
   NATIVE_STORAGE_RECOVERY_TEST_SCENARIOS,
 } from '@onekeyhq/shared/src/storage/nativeStorageRecoveryTestTypes';
 
@@ -56,12 +61,44 @@ const SCENARIOS: Record<
 };
 
 export function NativeStorageRecoveryTestPanel() {
+  const [devSettings] = useDevSettingsPersistAtom();
+  const [confirmation, setConfirmation] = useState('');
   const [snapshot, setSnapshot] =
     useState<INativeStorageRecoveryTestSnapshot>();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string>();
   const mounted = useRef(true);
   const inFlight = useRef(false);
+  const confirmOpen = useRef(false);
+  const simulateRealMarker = async () => {
+    if (!mounted.current || inFlight.current) return;
+    inFlight.current = true;
+    setBusy(true);
+    setError(undefined);
+    setConfirmation('');
+    let created = false;
+    try {
+      await backgroundApiProxy.serviceDevSetting.simulateRealAppStorageMissingMarker(
+        confirmation,
+      );
+      created = true;
+      setConfirmation('');
+      await appRestart({
+        mode: EAppRestartMode.All,
+        reason: 'storage.migration.test.realMissingMarker',
+      });
+    } catch (e) {
+      if (mounted.current)
+        setError(
+          created
+            ? 'The real marker is missing but restart failed. Fully close and reopen the app. Use the normal storage error / repair entry to recover; do not clear app data.'
+            : `${e instanceof Error ? e.message : 'Real marker simulation failed'}. If the request was interrupted, its outcome may be unknown. Fully close and reopen the app and use normal storage repair if shown; do not clear app data.`,
+        );
+    } finally {
+      inFlight.current = false;
+      if (mounted.current) setBusy(false);
+    }
+  };
   const run = useCallback(
     async (request: INativeStorageRecoveryTestRequest) => {
       if (inFlight.current) return;
@@ -98,15 +135,74 @@ export function NativeStorageRecoveryTestPanel() {
 
   useEffect(() => {
     mounted.current = true;
-    void run({ action: 'inspect' });
+    if (devSettings.enabled) void run({ action: 'inspect' });
     return () => {
       mounted.current = false;
     };
-  }, [run]);
+  }, [run, devSettings.enabled]);
+
+  if (!devSettings.enabled) return null;
 
   return (
     <ScrollView maxHeight={560} testID="native-storage-recovery-test-panel">
       <YStack gap="$3" py="$2">
+        <YStack gap="$2" borderWidth={1} borderColor="$borderCritical" p="$3">
+          <SizableText size="$bodyMdMedium" color="$textCritical">
+            DANGER: remove the REAL AppStorage marker
+          </SizableText>
+          <SizableText size="$bodySm">
+            Dedicated test device only. Verify your test wallet mnemonic is
+            backed up first. This affects the entire app installation, blocks
+            AppStorage and restarts both runtimes. Wallet credentials and
+            business records are not deleted. After restart, use the normal
+            storage error / repair entry to recover. Manual mnemonic recovery
+            still requires your password. Repair may import retained legacy
+            values; there is no blind undo or guarantee against later I/O
+            failures. This reproduces the missing marker state, not its cause.
+          </SizableText>
+          <SizableText size="$bodySm">
+            Type {NATIVE_STORAGE_REAL_MARKER_TEST_CONFIRMATION} to confirm this
+            is your test device.
+          </SizableText>
+          <Input
+            testID="real-storage-marker-confirmation"
+            value={confirmation}
+            onChangeText={setConfirmation}
+            autoCapitalize="none"
+            autoCorrect={false}
+            disabled={busy}
+          />
+          <Button
+            testID="real-storage-marker-remove"
+            variant="destructive"
+            disabled={
+              busy ||
+              confirmation !== NATIVE_STORAGE_REAL_MARKER_TEST_CONFIRMATION
+            }
+            onPress={() => {
+              if (confirmOpen.current || inFlight.current) return;
+              confirmOpen.current = true;
+              Dialog.show({
+                title: 'Remove the REAL marker and restart?',
+                description:
+                  'Only continue on a dedicated test device with its mnemonic backed up. The entire installation will enter real storage recovery. Cancelling now changes nothing.',
+                onConfirm: simulateRealMarker,
+                onClose: () => {
+                  confirmOpen.current = false;
+                },
+              });
+            }}
+          >
+            Remove real marker and restart
+          </Button>
+          <Button
+            testID="real-storage-marker-open-repair"
+            disabled={busy}
+            onPress={() => requestNativeStorageRecovery('appStorage')}
+          >
+            Open normal AppStorage repair
+          </Button>
+        </YStack>
         <SizableText size="$bodyMd">
           Uses isolated MMKV and three synthetic legacy keys. Wallet storage is
           not part of these scenarios. Repair keeps the synthetic legacy copy

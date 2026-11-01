@@ -1,6 +1,9 @@
 /* eslint-disable @typescript-eslint/no-unsafe-call, onekey/no-raw-error */
 
-import { NATIVE_STORAGE_RECOVERY_TEST_LEGACY_KEY_PREFIX } from './nativeStorageRecoveryTestTypes';
+import {
+  NATIVE_STORAGE_REAL_MARKER_TEST_CONFIRMATION,
+  NATIVE_STORAGE_RECOVERY_TEST_LEGACY_KEY_PREFIX,
+} from './nativeStorageRecoveryTestTypes';
 
 import type {
   INativeAppStorageRepairSummary,
@@ -232,6 +235,228 @@ describe('nativeStorageExecutor', () => {
 
   afterEach(() => {
     jest.restoreAllMocks();
+  });
+
+  describe('real missing-marker simulation', () => {
+    function seedTestDevice() {
+      markAppStorageMigrated();
+      mockAppMMKV.set('app:current', 'newer-test-value');
+      mockLegacyData.set('current', 'stale-test-value');
+      mockDevSettingsMMKV.set('onekey_developer_mode_enabled', true);
+    }
+
+    it('rejects direct owner calls without developer mode or explicit confirmation', async () => {
+      seedTestDevice();
+      const before = new Map(mockAppMMKV.values);
+      const { simulateNativeAppStorageMissingMarker } = loadExecutor();
+      mockDevSettingsMMKV.set('onekey_developer_mode_enabled', false);
+      await expect(
+        simulateNativeAppStorageMissingMarker(
+          NATIVE_STORAGE_REAL_MARKER_TEST_CONFIRMATION,
+        ),
+      ).rejects.toThrow('developer mode');
+      mockDevSettingsMMKV.set('onekey_developer_mode_enabled', true);
+      await expect(
+        simulateNativeAppStorageMissingMarker('yes'),
+      ).rejects.toThrow('confirmation');
+      expect(mockAppMMKV.values).toEqual(before);
+      expect(mockSyncNativeStorageMMKV).not.toHaveBeenCalled();
+    });
+
+    it.each([
+      'missing marker',
+      'incomplete ledger',
+      'pending batch',
+      'empty target',
+      'unreadable target',
+      'legacy failure',
+    ])('refuses an unsafe precondition: %s', async (reason) => {
+      seedTestDevice();
+      if (reason === 'missing marker') mockAppMMKV.remove(MIGRATION_KEY);
+      if (reason === 'incomplete ledger')
+        mockMigrationLedger.set('app-storage-v1', 'migrating-v1');
+      if (reason === 'pending batch')
+        mockAppMMKV.set(BATCH_JOURNAL_KEY, 'pending');
+      if (reason === 'empty target') mockAppMMKV.remove('app:current');
+      if (reason === 'unreadable target') mockAppMMKV.set('app:current', true);
+      if (reason === 'legacy failure')
+        mockLegacyStorage.getAllKeys.mockRejectedValue(
+          new Error('legacy unavailable'),
+        );
+      const before = new Map(mockAppMMKV.values);
+      const { simulateNativeAppStorageMissingMarker } = loadExecutor();
+      await expect(
+        simulateNativeAppStorageMissingMarker(
+          NATIVE_STORAGE_REAL_MARKER_TEST_CONFIRMATION,
+        ),
+      ).rejects.toThrow();
+      expect(mockAppMMKV.values).toEqual(before);
+      expect(mockSyncNativeStorageMMKV).not.toHaveBeenCalled();
+    });
+
+    it('invalidates warm migration, survives cold restart and uses public repair with developer mode OFF', async () => {
+      seedTestDevice();
+      mockLegacyData.set('legacy-only', 'recover-test-value');
+      const before = new Map(mockAppMMKV.values);
+      const legacyBefore = new Map(mockLegacyData);
+      const {
+        ensureNativeAppStorageMigrated,
+        simulateNativeAppStorageMissingMarker,
+      } = loadExecutor();
+      await ensureNativeAppStorageMigrated();
+      mockSyncNativeStorageMMKV.mockClear();
+      await expect(
+        simulateNativeAppStorageMissingMarker(
+          NATIVE_STORAGE_REAL_MARKER_TEST_CONFIRMATION,
+        ),
+      ).resolves.toEqual({ restartRequired: true });
+      before.delete(MIGRATION_KEY);
+      expect(mockAppMMKV.values).toEqual(before);
+      expect(mockLegacyData).toEqual(legacyBefore);
+      expect(mockMigrationLedger.get('app-storage-v1')).toBe('complete-v1');
+      expect(mockSyncNativeStorageMMKV).toHaveBeenCalledWith(
+        'onekey-app-storage-v1',
+      );
+      await expect(ensureNativeAppStorageMigrated()).rejects.toThrow(
+        'App-storage MMKV migration marker is missing',
+      );
+      await expect(
+        simulateNativeAppStorageMissingMarker(
+          NATIVE_STORAGE_REAL_MARKER_TEST_CONFIRMATION,
+        ),
+      ).rejects.toThrow('healthy AppStorage');
+
+      jest.resetModules();
+      mockDevSettingsMMKV.set('onekey_developer_mode_enabled', false);
+      const { executeNativeStorageRequest } = loadExecutor();
+      await expect(
+        executeNativeStorageRequest({
+          scope: 'asyncStorage',
+          operation: 'getItem',
+          key: 'current',
+        }),
+      ).rejects.toThrow('App-storage MMKV migration marker is missing');
+      const summary = (await executeNativeStorageRequest({
+        scope: 'recovery',
+        operation: 'prepareMigrationRepair',
+        target: 'appStorage',
+      })) as INativeAppStorageRepairSummary;
+      expect(summary).toMatchObject({
+        successfulCount: 2,
+        failedCount: 0,
+        scanComplete: true,
+      });
+      await executeNativeStorageRequest({
+        scope: 'recovery',
+        operation: 'completeMigrationRepair',
+        target: 'appStorage',
+        repairId: summary.repairId,
+        force: false,
+      });
+      await expect(
+        executeNativeStorageRequest({
+          scope: 'asyncStorage',
+          operation: 'getItem',
+          key: 'current',
+        }),
+      ).resolves.toBe('newer-test-value');
+      expect(mockAppMMKV.getString('app:legacy-only')).toBe(
+        'recover-test-value',
+      );
+      expect(mockLegacyData).toEqual(legacyBefore);
+      expect(mockAppMMKV.getString(MIGRATION_KEY)).toBe('1');
+    });
+
+    it('restores only its own marker when creation flush fails, and releases its guard', async () => {
+      seedTestDevice();
+      const before = new Map(mockAppMMKV.values);
+      mockSyncNativeStorageMMKV.mockRejectedValueOnce(
+        new Error('flush failed'),
+      );
+      const {
+        simulateNativeAppStorageMissingMarker,
+        ensureNativeAppStorageMigrated,
+      } = loadExecutor();
+      await expect(
+        simulateNativeAppStorageMissingMarker(
+          NATIVE_STORAGE_REAL_MARKER_TEST_CONFIRMATION,
+        ),
+      ).rejects.toThrow('flush failed');
+      expect(mockAppMMKV.values).toEqual(before);
+      await expect(ensureNativeAppStorageMigrated()).resolves.toBeUndefined();
+    });
+
+    it('reports failed rollback without claiming the marker is healthy', async () => {
+      seedTestDevice();
+      mockAppMMKV.failOnSetKey = MIGRATION_KEY;
+      mockSyncNativeStorageMMKV.mockRejectedValueOnce(
+        new Error('flush failed'),
+      );
+      const {
+        simulateNativeAppStorageMissingMarker,
+        ensureNativeAppStorageMigrated,
+      } = loadExecutor();
+      await expect(
+        simulateNativeAppStorageMissingMarker(
+          NATIVE_STORAGE_REAL_MARKER_TEST_CONFIRMATION,
+        ),
+      ).rejects.toThrow('rollback failed');
+      expect(mockAppMMKV.getString(MIGRATION_KEY)).toBeUndefined();
+      expect(mockAppMMKV.getString('app:current')).toBe('newer-test-value');
+      await expect(ensureNativeAppStorageMigrated()).rejects.toThrow(
+        'App-storage MMKV migration marker is missing',
+      );
+    });
+
+    it('rechecks developer mode after asynchronous preflight', async () => {
+      seedTestDevice();
+      mockLegacyStorage.getAllKeys.mockImplementationOnce(async () => {
+        mockDevSettingsMMKV.set('onekey_developer_mode_enabled', false);
+        return [...mockLegacyData.keys()];
+      });
+      const { simulateNativeAppStorageMissingMarker } = loadExecutor();
+      await expect(
+        simulateNativeAppStorageMissingMarker(
+          NATIVE_STORAGE_REAL_MARKER_TEST_CONFIRMATION,
+        ),
+      ).rejects.toThrow('developer mode');
+      expect(mockAppMMKV.getString(MIGRATION_KEY)).toBe('1');
+    });
+
+    it.each(['masked', 'changed'])(
+      'refuses a %s runtime without changing the marker',
+      async (mode) => {
+        seedTestDevice();
+        const { simulateNativeAppStorageMissingMarker } = loadExecutor();
+        const { travelModeManager } =
+          require('../travelMode') as typeof import('../travelMode');
+        const { RuntimeEnvironment } =
+          require('../travelMode/runtimeEnvironment') as typeof import('../travelMode/runtimeEnvironment');
+        const { getTravelModeRuntimeProfile } =
+          require('../travelMode/runtimeProfile') as typeof import('../travelMode/runtimeProfile');
+        const environment = jest
+          .spyOn(travelModeManager, 'getRuntimeEnvironmentSync')
+          .mockReturnValue(
+            RuntimeEnvironment.create(
+              getTravelModeRuntimeProfile(mode === 'masked'),
+            ),
+          );
+        if (mode === 'changed') {
+          mockLegacyStorage.getAllKeys.mockImplementationOnce(async () => {
+            environment.mockReturnValue(
+              RuntimeEnvironment.create(getTravelModeRuntimeProfile(false)),
+            );
+            return [...mockLegacyData.keys()];
+          });
+        }
+        await expect(
+          simulateNativeAppStorageMissingMarker(
+            NATIVE_STORAGE_REAL_MARKER_TEST_CONFIRMATION,
+          ),
+        ).rejects.toThrow('runtime');
+        expect(mockAppMMKV.getString(MIGRATION_KEY)).toBe('1');
+      },
+    );
   });
 
   it.each(['ledger read failure', 'inapplicable ledger'])(

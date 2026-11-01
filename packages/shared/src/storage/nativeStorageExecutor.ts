@@ -19,13 +19,19 @@ import {
   setNativeStorageMigrationLedgerComplete,
   syncNativeStorageMMKV,
 } from './nativeStorageMigrationModule';
-import { NATIVE_STORAGE_RECOVERY_TEST_LEGACY_KEY_PREFIX } from './nativeStorageRecoveryTestTypes';
+import {
+  NATIVE_STORAGE_REAL_MARKER_TEST_CONFIRMATION,
+  NATIVE_STORAGE_RECOVERY_TEST_LEGACY_KEY_PREFIX,
+} from './nativeStorageRecoveryTestTypes';
 import {
   NATIVE_STORAGE_BOOTSTRAP_DEFAULT_STORES,
   createNativeStorageMigrationInconsistentErrorMessage,
 } from './nativeStorageTypes';
 import { broadcastNativeSyncStorageMutation } from './nativeSyncStorageBroadcast';
-import { EAppSyncStorageKeys } from './syncStorageKeys';
+import {
+  EAppSyncStorageKeys,
+  EDevSettingSyncStorageKeys,
+} from './syncStorageKeys';
 
 import type { ILegacyAsyncStorageNativeModule } from './legacyAsyncStorageMigration';
 import type {
@@ -1770,6 +1776,123 @@ function enqueueAppStorageOperation<T>(
     () => undefined,
   );
   return execution;
+}
+
+/** Developer-only fault injection. Public repair does not use this guard. */
+export async function simulateNativeAppStorageMissingMarker(
+  confirmation: string,
+): Promise<{ restartRequired: true }> {
+  assertBackgroundRuntime();
+  const environment = travelModeManager.getRuntimeEnvironmentSync();
+  const assertAllowed = () => {
+    if (
+      confirmation !== NATIVE_STORAGE_REAL_MARKER_TEST_CONFIRMATION ||
+      getSyncStorageMMKV('devSettings').getBoolean(
+        EDevSettingSyncStorageKeys.onekey_developer_mode_enabled,
+      ) !== true ||
+      environment !== travelModeManager.getRuntimeEnvironmentSync() ||
+      environment.persistence.kind !== 'real' ||
+      environment.commands.isBlocked
+    ) {
+      throw new OneKeyLocalError(
+        'Real marker simulation requires developer mode, a real native runtime and explicit test-device confirmation',
+      );
+    }
+  };
+  assertAllowed();
+  return enqueueAppStorageOperation(async () => {
+    assertAllowed();
+    const mmkv = getAppStorageMMKV();
+    const assertHealthyTarget = async () => {
+      if (
+        appStorageRepairActive ||
+        pendingAppStorageRecovery ||
+        (await peekNativeStorageRecoveryAction()) ||
+        (await getNativeStorageMigrationLedger(
+          APP_STORAGE_MIGRATION_LEDGER_KEY,
+        )) !== NATIVE_STORAGE_MIGRATION_LEDGER_COMPLETE ||
+        mmkv.getString(APP_STORAGE_MIGRATION_COMPLETE_KEY) !== '1' ||
+        mmkv.getAllKeys().includes(APP_STORAGE_TRANSACTION_JOURNAL_KEY)
+      ) {
+        throw new OneKeyLocalError(
+          'Real marker simulation requires completed, idle and healthy AppStorage',
+        );
+      }
+    };
+    await assertHealthyTarget();
+
+    // Read-only preflight: do not manufacture a fault on already unreadable
+    // data or when the existing public repair cannot enumerate its sources.
+    const currentKeys = new Set(
+      mmkv.getAllKeys().filter((key) => key.startsWith(APP_STORAGE_KEY_PREFIX)),
+    );
+    if (
+      currentKeys.size === 0 ||
+      [...currentKeys].some(
+        (key) =>
+          !decodeAppStorageKey(key) || typeof mmkv.getString(key) !== 'string',
+      )
+    ) {
+      throw new OneKeyLocalError(
+        'Real marker simulation requires readable, nonempty test AppStorage',
+      );
+    }
+    const legacy = getLegacyAsyncStorageForMigration();
+    const enumeration = await enumerateLegacyAppStorageKeys(legacy, () => {});
+    if (
+      enumeration.enumerationStatus !== 'complete' ||
+      enumeration.invalidSourceKeyCount > 0
+    ) {
+      throw new OneKeyLocalError('Legacy repair preflight failed');
+    }
+    for (const [index, key] of enumeration.keys.entries()) {
+      if (!currentKeys.has(encodeAppStorageKey(key))) {
+        const read = await readLegacyAppStorageKey({
+          enumerated: enumeration.enumeratedKeys.has(key),
+          index,
+          key,
+          legacy,
+          log: () => {},
+        });
+        if (!read) {
+          throw new OneKeyLocalError('Legacy repair preflight failed');
+        }
+      }
+    }
+    await assertHealthyTarget();
+    assertAllowed();
+
+    // This queue owns AppStorage writes. Block direct migration callers as
+    // well, and invalidate the warm success promise before removing the marker.
+    appStorageRepairActive = true;
+    appStorageMigrationPromise = undefined;
+    try {
+      mmkv.remove(APP_STORAGE_MIGRATION_COMPLETE_KEY);
+      await syncNativeStorageMMKV(APP_STORAGE_MMKV_ID);
+      if (mmkv.getString(APP_STORAGE_MIGRATION_COMPLETE_KEY) !== undefined) {
+        throw new OneKeyLocalError('Real marker removal verification failed');
+      }
+    } catch (error) {
+      // Only undo our own in-flight mutation while all other writes are
+      // excluded. Never offer a blind marker write for an existing fault.
+      try {
+        mmkv.set(APP_STORAGE_MIGRATION_COMPLETE_KEY, '1');
+        await syncNativeStorageMMKV(APP_STORAGE_MMKV_ID);
+        if (mmkv.getString(APP_STORAGE_MIGRATION_COMPLETE_KEY) !== '1') {
+          throw new OneKeyLocalError('Marker rollback verification failed');
+        }
+      } catch {
+        throw new OneKeyLocalError(
+          'Marker simulation and rollback failed. Close and reopen the app, then use the normal storage repair entry.',
+        );
+      }
+      throw error;
+    } finally {
+      appStorageRepairActive = false;
+      appStorageMigrationPromise = undefined;
+    }
+    return { restartRequired: true };
+  });
 }
 
 async function syncDurableSyncStorageMutation(store: INativeSyncStorageName) {

@@ -19,6 +19,7 @@ import BackgroundApiBase from '../../apis/BackgroundApiBase';
 import localDb from '../../dbs/local/localDb';
 import simpleDb from '../../dbs/simple/simpleDb';
 import { EAtomNames } from '../../states/jotai/atomNames';
+import { devSettingsPersistAtom } from '../../states/jotai/atoms/devSettings';
 import {
   appIsLocked,
   passwordPersistAtom,
@@ -188,7 +189,10 @@ describe('isolated manual mnemonic recovery', () => {
     jest.useRealTimers();
   });
 
-  it('uses a wallet-bound request and the verification-only path without a global password prompt', async () => {
+  it('allows ordinary users a wallet-bound, password-verified recovery without a global password prompt', async () => {
+    const devSettings = jest
+      .spyOn(devSettingsPersistAtom, 'get')
+      .mockResolvedValue({ enabled: false });
     const {
       service,
       promptPasswordVerifyByWallet,
@@ -209,6 +213,7 @@ describe('isolated manual mnemonic recovery', () => {
     );
     expect(promptPasswordVerifyByWallet).not.toHaveBeenCalled();
     expect(simpleDb.botWallet.getMetadata).not.toHaveBeenCalled();
+    expect(devSettings).not.toHaveBeenCalled();
     await expect(
       service.getManualRecoveryMnemonic({
         sessionId: info!.sessionId,
