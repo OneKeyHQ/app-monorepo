@@ -1795,9 +1795,9 @@ describe('hardware reset session and local data races', () => {
         throw new OneKeyLocalError('public-test-cancelled');
       });
     const hide = jest.spyOn(service, 'hideDialogLoading');
-    await expect(service.resetHardwareCloudSyncKey({ connectId })).rejects.toThrow(
-      'public-test-cancelled',
-    );
+    await expect(
+      service.resetHardwareCloudSyncKey({ connectId }),
+    ).rejects.toThrow('public-test-cancelled');
     expect(await service.cancelHardwareCloudKeyOperation()).toBe(false);
     expect(hide).not.toHaveBeenCalled();
   });
