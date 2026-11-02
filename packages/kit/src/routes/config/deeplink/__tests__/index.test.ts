@@ -231,6 +231,35 @@ describe('handleDeepLinkUrl', () => {
       }
     },
   );
+
+  it('does not log raw deep-link URLs or query parameters such as symKey to console', async () => {
+    const consoleLogSpy = jest
+      .spyOn(console, 'log')
+      .mockImplementation(() => {});
+    const originalRootAppNavigation = appGlobals.$rootAppNavigation;
+    appGlobals.$rootAppNavigation = {
+      navigate: jest.fn(),
+    } as unknown as typeof appGlobals.$rootAppNavigation;
+    try {
+      // oxlint-disable-next-line @cspell/spellchecker
+      const wcLink =
+        'wc:eb16df1f-1d3b-4018-9d18-28ef610cc1a4@2?relay-protocol=irn&symKey=secretSymKeyDevLog123';
+      handleDeepLinkUrl({ url: wcLink });
+      await flushAsyncTasks();
+      await flushAsyncTasks();
+
+      expect(JSON.stringify(consoleLogSpy.mock.calls)).not.toContain(
+        'secretSymKeyDevLog123',
+      );
+      expect(JSON.stringify(consoleLogSpy.mock.calls)).not.toContain(
+        'eb16df1f-1d3b-4018-9d18-28ef610cc1a4',
+      );
+      expect(JSON.stringify(consoleLogSpy.mock.calls)).not.toContain(wcLink);
+    } finally {
+      consoleLogSpy.mockRestore();
+      appGlobals.$rootAppNavigation = originalRootAppNavigation;
+    }
+  });
 });
 
 describe('disabled webview deep links', () => {

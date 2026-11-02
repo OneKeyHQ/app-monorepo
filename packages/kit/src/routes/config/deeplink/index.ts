@@ -447,9 +447,6 @@ async function processDeepLinkUrlAccount(
       scheme === ONEKEY_APP_DEEP_LINK ||
       scheme === ONEKEY_APP_DEEP_LINK_NAME
     ) {
-      if (process.env.NODE_ENV !== 'production') {
-        console.log('processDeepLinkUrlAccount: >>>>> ', parsedUrl);
-      }
       const navigation = appGlobals.$rootAppNavigation;
       if (!navigation) {
         setTimeout(() => {
@@ -697,25 +694,12 @@ const processDeepLinkUrl = memoizee(
       // An open SFSafariViewController would cover any navigation this deep
       // link triggers; close it first (iOS-only, no-op elsewhere).
       dismissNativeInAppBrowser();
-      if (process.env.NODE_ENV !== 'production') {
-        console.log('processDeepLinkUrl: >>>>> ', url);
-      }
       captureAndReportLoggerUtmParamsFromUrl(url);
       if (await handleReferralLandingUrl({ url })) {
         return;
       }
 
       const parsedUrl = Linking.parse(url);
-      const { hostname, path, queryParams, scheme } = parsedUrl;
-      if (process.env.NODE_ENV !== 'production') {
-        console.log('processDeepLinkUrl details >>>> ', {
-          url,
-          hostname,
-          path,
-          queryParams,
-          scheme,
-        });
-      }
       if (await handleReferralLandingAppDeepLink({ url, parsedUrl })) {
         return;
       }
@@ -780,9 +764,6 @@ export const handleDeepLinkUrl = (data: IDesktopOpenUrlEventData) => {
     ),
   );
   urls.forEach((url) => {
-    if (process.env.NODE_ENV !== 'production') {
-      console.log('processDeepLinkUrl >>>>>> ', url);
-    }
     void processDeepLinkUrl(url);
   });
 };
