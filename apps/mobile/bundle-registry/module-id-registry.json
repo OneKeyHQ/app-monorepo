@@ -22020,6 +22020,7 @@
     "packages/kit-bg/src/states/jotai/utils/index.ts": 17953,
     "packages/kit-bg/src/states/jotai/utils/jotaiDefaultStore.ts": 7627,
     "packages/kit-bg/src/states/jotai/utils/jotaiVerify.ts": 21387,
+    "packages/kit-bg/src/states/jotai/utils/optimisticAtomWrites.ts": 15547,
     "packages/kit-bg/src/states/jotai/utils/wrapAtomPro.ts": 3326,
     "packages/kit-bg/src/utils/accountTokensSnapshotCache.ts": 15175,
     "packages/kit-bg/src/utils/homeTokenRequestRegistry.ts": 5690,

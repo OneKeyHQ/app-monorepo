@@ -8,15 +8,19 @@ import { pathToFileURL } from 'node:url';
 
 import { planNativeListPatches } from '@onekeyfe/react-native-native-list';
 import { fireEvent, render } from '@testing-library/react';
+import { createStore } from 'jotai';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETokenSelectorSyntheticRowType } from '@onekeyhq/shared/src/utils/tokenSelectorCrossNetworkUtils';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 import type { IAccountToken, ITokenFiat } from '@onekeyhq/shared/types/token';
 
+import { cell } from '../../states/jotai/contexts/tokenList/cells/projection';
+
 import { formatNativeSelectorAmount } from './nativeSelectorFormat';
 import { NativeTokenSelectorList } from './NativeTokenSelectorList';
 
+import type { IJotaiContextStore } from '../../states/jotai/utils/createJotaiContext';
 import type {
   NativeListSnapshot,
   RowPatch,
@@ -84,6 +88,7 @@ let mockProcessingTokenState: {
 } = { isProcessing: false, token: null };
 const mockEmptySubFiatMap = {};
 const mockSwap = jest.fn();
+let mockHomeCellStore: IJotaiContextStore | undefined;
 
 jest.mock('@onekeyfe/react-native-native-list', () => {
   const React = jest.requireActual<typeof import('react')>('react');
@@ -202,6 +207,7 @@ jest.mock('./nativeSelectorFormat', () => {
 jest.mock('../../states/jotai/contexts/tokenList', () => ({
   useCreateAccountStateAtom: () => [mockCreateAccountState],
   useProcessingTokenStateAtom: () => [mockProcessingTokenState],
+  useTokenListContextData: () => ({ store: mockHomeCellStore }),
 }));
 
 jest.mock('../Loading', () => ({ ListLoading: () => null }));
@@ -880,5 +886,55 @@ it('invalidates selector rows for owner, presentation, and processing changes', 
     mockCurrencyId = 'usd';
     mockIntl = { formatMessage: ({ id }: { id: string }) => id };
     mockTheme = { ...mockTheme, background: '#FFFFFF' };
+  }
+});
+
+it('fills a first-mount Home row from its cell before the mirror reports', () => {
+  // The mirrors publish cell values from a layout effect, so the snapshot
+  // built in the same render as a row's first mount used to carry no fiat
+  // (OK-66042). The row must read its cell directly on that first pass.
+  const store = createStore() as unknown as IJotaiContextStore;
+  const fiat = {
+    balanceParsed: '0.414',
+    balanceMultiplier: '1000',
+    fiatValue: '0.41',
+    price: 1.5,
+    price24h: 5.5,
+    currency: 'usd',
+  } as ITokenFiat;
+  store.set(cell(store, ethToken.$key), fiat);
+  mockHomeCellStore = store;
+  // Mirrors report nothing for this key (no cell hook value), so only the
+  // direct store read can fill the first snapshot.
+  mockHomeFiatMap = {};
+  const firstIndex = mockSnapshotProps.length;
+  try {
+    render(
+      <NativeTokenSelectorList
+        rows={[ethToken]}
+        networkId="evm--1"
+        ownerKey="owner-A"
+        crossNetworkGroupingActive={false}
+        zeroFillMissingFiat={false}
+        showProcessingState={false}
+        isSearching={false}
+        currentNetworkName="Ethereum"
+        empty={<div />}
+        homeCellSeam
+        tableLayout
+        withPrice
+        withSwapAction
+      />,
+    );
+    const first = mockSnapshotProps[firstIndex]?.rows[0];
+    expect(first?.type).toBe('dataRow');
+    if (first?.type === 'dataRow') {
+      expect(first.columns[1].text).toBe('414');
+      expect(first.columns[1].secondaryText).toContain('0.41');
+      expect(first.columns[2].text).toContain('1.5');
+    }
+  } finally {
+    mockHomeCellStore = undefined;
+    mockHomeFiatMap = {};
   }
 });
