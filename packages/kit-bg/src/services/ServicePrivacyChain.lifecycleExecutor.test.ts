@@ -317,11 +317,14 @@ describe('privacy chain lifecycle executor', () => {
             },
           },
         },
-        requireAccountCapability: async () => ({}),
-        isPersistenceMasked: async () => false,
-        listLocalWalletAccountTwins: async () => [],
-        processPendingAccountDeletion,
-        onLocalWalletAccountsChanged: jest.fn(async () => undefined),
+        // Private methods stubbed here; typed loosely so the intersection keeps the service.
+        ...({
+          requireAccountCapability: async () => ({}),
+          isPersistenceMasked: async () => false,
+          listLocalWalletAccountTwins: async () => [],
+          processPendingAccountDeletion,
+          onLocalWalletAccountsChanged: jest.fn(async () => undefined),
+        } as Record<string, unknown>),
       },
     );
 
