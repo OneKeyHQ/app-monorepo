@@ -443,3 +443,43 @@ export function filterHistoryTxs({
     return true;
   });
 }
+
+/**
+ * The amount a UTXO history row should display. The server's `value` is the
+ * account's net change, so it is `0` when every input and output belongs to
+ * the account — a transfer between two of its own addresses (fresh receive
+ * address to fresh receive address). Show what actually moved instead: the
+ * owned outputs, minus the ones the server explicitly marks as change.
+ */
+export function getUtxoHistoryDisplayValue({
+  value,
+  sends,
+  receives,
+}: Pick<IOnChainHistoryTx, 'value' | 'sends' | 'receives'>): string {
+  const valueBN = new BigNumber(value ?? '');
+  if (!valueBN.isNaN() && !valueBN.isZero()) {
+    return value;
+  }
+  if (!sends?.length || !receives?.length) {
+    return value;
+  }
+  const isSelfTransfer =
+    sends.every((send) => send.isOwn === true) &&
+    receives.every((receive) => receive.isOwn === true);
+  if (!isSelfTransfer) {
+    return value;
+  }
+  const nonChangeReceives = receives.filter(
+    (receive) => receive.isChange !== true,
+  );
+  const moved = (
+    nonChangeReceives.length ? nonChangeReceives : receives
+  ).reduce(
+    (sum, receive) => sum.plus(new BigNumber(receive.amount ?? 0)),
+    new BigNumber(0),
+  );
+  if (moved.isNaN() || moved.isZero()) {
+    return value;
+  }
+  return moved.toFixed();
+}
