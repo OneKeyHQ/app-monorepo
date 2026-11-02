@@ -180,9 +180,27 @@ export class LocalBackupPasswordCache {
           return;
         const manifest = await this.readManifest();
         const cacheKey = getCacheKey(scope);
-        // Even a missing/invalidated key is not permission to replace a pairing.
-        // Re-enabling existing entries requires a separate explicit forget flow.
-        if (manifest.erasing || manifest.entries[cacheKey]) return;
+        const entry = manifest.entries[cacheKey];
+        // A complete pairing stays unchanged even if authentication/read fails.
+        if (manifest.erasing || entry?.ciphertext !== undefined) return;
+        if (entry) {
+          // set is reached only after backup verification or manual decryption.
+          // An interrupted enrollment may already have written its native key.
+          // Retire it before replacing the journal so its erasure ref is not lost.
+          if (
+            Object.entries(manifest.entries).some(
+              ([otherScope, other]) =>
+                otherScope !== cacheKey && other.keyRef === entry.keyRef,
+            )
+          )
+            throw new OneKeyLocalError('Invalid recovery cache');
+          this.assertPersistenceAvailable();
+          await secureStorage.removeSecureItem(entry.keyRef, {
+            keychainService: entry.keyRef,
+          });
+          this.assertPersistenceAvailable();
+          if (this.resetting || this.erasurePending) return;
+        }
         const randomHex = () =>
           Buffer.from(crypto.getRandomValues(new Uint8Array(32))).toString(
             'hex',

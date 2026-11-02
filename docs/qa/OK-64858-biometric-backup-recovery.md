@@ -18,8 +18,10 @@ no plaintext passwords or random keys. No old unprotected cache is imported.
 Eligibility uses SecureStore's current biometric capability check, without
 memoization. Missing hardware, enrollment, strong authentication support or native
 API support fails closed. New entries are written only for verified backup
-records or successful manual decryption. Existing entries (including pending,
-missing or invalidated keys) are never implicitly replaced. Recordless provider
+records or successful manual decryption. Complete entries (including missing or
+invalidated keys) are never implicitly replaced. Interrupted enrollment can retry
+after verified manual decryption, retiring its old key before replacing its
+journal reference; see [OK-65971](OK-65971-biometric-backup-retry.md). Recordless provider
 password setup/verification does not create an entry.
 
 The manifest journals the key reference before protected creation, then commits
@@ -58,9 +60,9 @@ reset policy; wrong-passcode security reset and unknown callers erase recovery.
    wording. Product/localization should explicitly explain that this device's
    biometric backup recovery survives manual reset. Generated translations have
    not been edited. Security-triggered reset must continue erasing recovery.
-2. Re-enable/forget UI for invalidated or interrupted entries is not introduced.
+2. Re-enable/forget UI for complete entries with invalidated keys is not introduced.
    Recommend explicit per-backup “forget saved recovery” followed by verified
-   password and opt-in enrollment. Until then existing entries stay unchanged and
+   password and opt-in enrollment. Until then complete entries stay unchanged and
    manual password restore works. New records can enroll independently.
 3. SecureStore can reject large values on some OS versions. A large manifest
    therefore makes new cache writes fail closed while leaving prior committed
