@@ -19,9 +19,6 @@ jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
   __esModule: true,
   default: { isNative: true },
 }));
-jest.mock('../../hooks/useOverlayWidthClass', () => ({
-  useOverlayWidthClass: () => 'compact',
-}));
 jest.mock('../../primitives', () => {
   const Box = ({ children }: { children?: ReactNode }) => <div>{children}</div>;
   return { Stack: Box, SizableText: Box };
@@ -68,7 +65,9 @@ const items: ISelectItem[] = [
 const renderItem = () => null;
 
 it('starts each new search at the top without moving or remounting the search field', () => {
-  render(<SelectSearchableList items={items} renderItem={renderItem} />);
+  render(
+    <SelectSearchableList items={items} renderItem={renderItem} isSheet />,
+  );
   const input = screen.getByRole('textbox', { name: 'Search' });
   input.focus();
   mockScrollToOffset.mockClear();

@@ -1177,3 +1177,10 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries â€
 **Root Cause**: The new language-picker files are imported by Select and the locale options, so they enter the native graph, but no stable IDs were committed.
 **Fix**: Register the four files in apps/mobile/bundle-registry/module-id-registry.json with the existing module ID allocator.
 **Catchable by**: Section 4: a new file that the native bundle imports must be added to module-id-registry.json before the release bundle runs.
+
+## Case: Wide iPad language search used the anchored layout inside a sheet
+**Date**: 2026-11-02 | **Platforms**: iPad Settings (native main UI). Phone sheets and triggered wide panels are unchanged.
+**Symptom**: On iPad Settings the language picker is a sheet, but the search field autofocused at the small size and the list used a fixed 360-point height, leaving empty sheet space.
+**Root Cause**: Search layout followed window width. iPad Settings clamps Tamagui `md`, so Select passes no popover trigger and the native popover stays a sheet even when the window is at least 768 points wide.
+**Fix**: Treat the search UI as a sheet unless a popover trigger exists and the window is expanded, matching native anchoring. Include that flag in the open content memo so a web resize does not keep the previous layout.
+**Catchable by**: Section 3: a layout mode must follow the presentation the host actually mounts, not only the window width; Section 4: logic moved into a memo must keep the condition that changes while the memo stays mounted.

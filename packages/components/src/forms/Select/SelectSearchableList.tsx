@@ -5,7 +5,6 @@ import { useIntl } from 'react-intl';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { useOverlayWidthClass } from '../../hooks/useOverlayWidthClass';
 import { ListView, SearchBar } from '../../layouts';
 import { SizableText, Stack } from '../../primitives';
 
@@ -94,15 +93,14 @@ export function SelectSearchableList({
   renderItem,
   extraData,
   searchPlaceholder,
+  isSheet,
 }: {
   items?: ISelectItem[];
   renderItem: ListRenderItem<ISelectItem>;
   extraData?: unknown;
   searchPlaceholder?: string;
+  isSheet: boolean;
 }) {
-  // Anchored popovers start at the expanded window width, including iPad.
-  // Phone and medium windows use the sheet's remaining height.
-  const isSheet = useOverlayWidthClass() !== 'expanded';
   const { query, handleQueryChange, filteredItems } = useSelectSearch(items);
   const listRef = useRef<IListViewRef<ISelectItem> | null>(null);
   useEffect(() => {

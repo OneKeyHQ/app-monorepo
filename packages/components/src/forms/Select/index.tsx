@@ -19,6 +19,7 @@ import {
   SELECT_SEARCHABLE_PANEL_HEIGHT,
   SelectSearchableList,
 } from './SelectSearchableList';
+import { isSelectSearchSheet } from './selectSearchPresentation';
 
 import type { IContextType } from './context';
 import type {
@@ -358,6 +359,12 @@ function SelectContent() {
   );
 
   const sectionSeparator = useMemo(() => <Stack h="$2" />, []);
+  const popoverTrigger = useRenderPopoverTrigger();
+  const isExpandedWindow = useOverlayWidthClass() === 'expanded';
+  const isSearchSheet = isSelectSearchSheet({
+    hasPopoverTrigger: Boolean(popoverTrigger),
+    isExpandedWindow,
+  });
   const renderContentVersion = waitForChangeBeforeClose
     ? `${String(isOpen)}-${String((value as ISelectItem)?.value ?? value)}`
     : isOpen;
@@ -374,6 +381,7 @@ function SelectContent() {
             renderItem={renderItem}
             extraData={value}
             searchPlaceholder={searchPlaceholder}
+            isSheet={isSearchSheet}
           />
         );
       }
@@ -406,13 +414,12 @@ function SelectContent() {
     },
     // Select lists are normally frozen while open. The wait mode is the one
     // exception: its selected check must follow the value that settles before
-    // the sheet closes.
+    // the sheet closes. isSearchSheet still updates so a resize that swaps the
+    // open web panel and sheet does not keep the previous search layout.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [renderContentVersion],
+    [renderContentVersion, isSearchSheet],
   );
 
-  const popoverTrigger = useRenderPopoverTrigger();
-  const isExpandedWindow = useOverlayWidthClass() === 'expanded';
   const usingPercentSnapPoints =
     usingPercentSnapPointsFromContext ||
     Boolean(searchable) ||
@@ -432,7 +439,7 @@ function SelectContent() {
     () => ({
       maxHeight: platformEnv.isNative ? undefined : '60vh',
       width: '$56',
-      ...(searchable && isExpandedWindow
+      ...(searchable && !isSearchSheet
         ? {
             height: SELECT_SEARCHABLE_PANEL_HEIGHT,
             maxHeight: SELECT_SEARCHABLE_PANEL_HEIGHT,
@@ -440,7 +447,7 @@ function SelectContent() {
         : null),
       ...floatingPanelProps,
     }),
-    [floatingPanelProps, isExpandedWindow, searchable],
+    [floatingPanelProps, isSearchSheet, searchable],
   );
   return (
     <Popover
