@@ -9,8 +9,6 @@ export interface IBinanceSupportedAssetInfo {
   binanceNetwork?: string;
   // Absent for native coins. A deposit create request echoes it verbatim.
   contractAddress?: string;
-  // Documented as a decimal string; a JSON number has been seen as well.
-  depositDust?: number | string;
   requiresAddressTag?: boolean;
 }
 
@@ -84,16 +82,12 @@ export interface IBinanceDepositAuthorizedDestination {
   authorizedAt: number;
 }
 
-export type IBinanceDepositServerReportStatus = 'PENDING' | 'CONFIRMED';
-
 export interface IBinanceDepositSessionView {
   sessionId: string;
   status: EBinanceDepositSessionStatus;
   networkId: string;
   cryptoCurrency: string;
   contractAddress?: string;
-  reportedTxHash?: string;
-  reportStatus?: IBinanceDepositServerReportStatus;
   // INIT only.
   link?: string;
   linkExpireTime?: number;
