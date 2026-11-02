@@ -39,6 +39,9 @@ jest.mock('../splitBundle/segmentManifest', () => ({
 }));
 
 jest.mock('react-native', () => ({
+  Modal: ({ children }: { children?: import('react').ReactNode }) => (
+    <div>{children}</div>
+  ),
   ScrollView: ({ children }: { children?: import('react').ReactNode }) => (
     <div>{children}</div>
   ),
@@ -166,7 +169,7 @@ describe('public emergency continuation UI', () => {
     expect(
       screen.getByText(/app state could not be refreshed or restarted/),
     ).toBeTruthy();
-    expect(screen.queryByTestId('business-app')).toBeNull();
+    expect(screen.getByTestId('business-app')).toBeTruthy();
     expect(screen.queryByTestId('native-storage-repair-back')).toBeNull();
     expect(screen.getAllByRole('button')).toHaveLength(1);
     expect(mockRestart).not.toHaveBeenCalled();
@@ -178,7 +181,7 @@ describe('public emergency continuation UI', () => {
       reason: 'storage.migration.emergency',
     });
     expect(screen.getByTestId('native-storage-emergency-close')).toBeTruthy();
-    expect(screen.queryByTestId('business-app')).toBeNull();
+    expect(screen.getByTestId('business-app')).toBeTruthy();
     fireEvent.click(screen.getByTestId('native-storage-emergency-close'));
     await flush();
     expect(mockRestart).toHaveBeenCalledTimes(2);

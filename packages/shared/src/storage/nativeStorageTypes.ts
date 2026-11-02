@@ -50,6 +50,10 @@ export type INativeAppStorageRepairSummary = {
   scanComplete: boolean;
 };
 
+export type INativeAppStorageMigrationStatus = {
+  errorMessage: string | null;
+};
+
 const NATIVE_STORAGE_MIGRATION_INCONSISTENT_ERROR_PREFIX =
   'Native storage migration target is inconsistent:';
 
@@ -192,6 +196,10 @@ export type INativeSyncStorageRequest =
     };
 
 export type INativeStorageRequest =
+  | {
+      scope: 'recovery';
+      operation: 'inspectAppStorageMigration';
+    }
   | {
       scope: 'recovery';
       operation: 'enableEmergencyAppStorage';

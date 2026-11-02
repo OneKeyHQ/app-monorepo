@@ -147,6 +147,7 @@ jest.mock('../../../../packages/components/src/primitives/Button', () => ({
   Button: TestButton,
 }));
 jest.mock('react-native', () => ({
+  Modal: TestView,
   ScrollView: TestView,
   View: TestView,
   Text: TestView,
@@ -399,13 +400,13 @@ describe('manual fault → restarted Home Toast → repair → healthy Home', ()
       panel.unmount();
       const { NativeStorageBootstrapRoot } =
         require('./NativeStorageBootstrapRoot') as typeof import('./NativeStorageBootstrapRoot');
-      render(<NativeStorageBootstrapRoot />);
+      const runtime = render(<NativeStorageBootstrapRoot />);
       await screen.findByTestId('home-page');
       fireEvent.click(
         await screen.findByTestId('native-storage-repair-toast-action'),
       );
       await screen.findByText(/Isolated storage recovery test/);
-      expect(screen.queryByTestId('home-page')).toBeNull();
+      expect(screen.getByTestId('home-page')).toBeTruthy();
       fireEvent.click(
         screen.getByTestId('native-storage-migration-repair-attempt'),
       );
@@ -432,7 +433,7 @@ describe('manual fault → restarted Home Toast → repair → healthy Home', ()
         );
       }
       await screen.findByText('Storage repair complete');
-      expect(screen.queryByTestId('home-page')).toBeNull();
+      expect(screen.getByTestId('home-page')).toBeTruthy();
       expect(mockRestart).toHaveBeenCalledTimes(1);
       expect(mockDevSettings.settings?.nativeStorageRecoveryTestOnHome).toBe(
         true,
@@ -444,6 +445,10 @@ describe('manual fault → restarted Home Toast → repair → healthy Home', ()
         require('@onekeyhq/shared/src/storage/nativeStorageRecovery') as typeof import('@onekeyhq/shared/src/storage/nativeStorageRecovery');
       mockDismissRecovery = dismissNativeStorageRecovery;
       fireEvent.click(screen.getByTestId('native-storage-repair-close'));
+      await waitFor(() => expect(mockRestart).toHaveBeenCalledTimes(2));
+      // Back preserves the App; an explicit full-runtime restart recreates it.
+      runtime.unmount();
+      render(<NativeStorageBootstrapRoot />);
       await screen.findByTestId('home-page');
       await waitFor(() =>
         expect(mockDevSettings.settings?.nativeStorageRecoveryTestOnHome).toBe(

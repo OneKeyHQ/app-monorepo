@@ -86,6 +86,7 @@ jest.mock('react-native', () => {
     <div data-testid={testID}>{children}</div>
   );
   return {
+    Modal: ({ children }: IProps) => <div>{children}</div>,
     ScrollView: View,
     View,
     Text: View,

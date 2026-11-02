@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import type { ReactNode } from 'react';
+import { useCallback, useImperativeHandle, useState } from 'react';
+import type { ReactNode, Ref } from 'react';
 
 import {
   ActivityIndicator,
@@ -47,6 +47,7 @@ export type INativeStorageBootstrapErrorScreenProps = {
   }) => Promise<void>;
   releaseStorageRecoveryTestFault: () => Promise<void>;
   onBack: () => void;
+  backRequestRef?: Ref<() => void>;
 };
 
 const styles = StyleSheet.create({
@@ -99,6 +100,7 @@ export function NativeStorageBootstrapErrorScreen({
   restartAfterBootstrapFailure,
   releaseStorageRecoveryTestFault,
   onBack,
+  backRequestRef,
 }: INativeStorageBootstrapErrorScreenProps) {
   const [repairConfirmationTarget, setRepairConfirmationTarget] = useState<
     INativeStorageMigrationRecoveryTarget | undefined
@@ -106,9 +108,30 @@ export function NativeStorageBootstrapErrorScreen({
   const [confirmEmergency, setConfirmEmergency] = useState(false);
   const isEmergency =
     recoveryTarget === 'appStorage' && storageEmergencyModeEnabled;
-  const isConfirmingRepair = repairConfirmationTarget === recoveryTarget;
+  const isConfirmingRepair =
+    Boolean(recoveryTarget) && repairConfirmationTarget === recoveryTarget;
   const isRepairCompleted =
     recoveryTarget === 'appStorage' && storageRepairCompleted;
+  const canGoBack = hasAppComponent && !isRepairCompleted && !isEmergency;
+  const handleBack = useCallback(() => {
+    if (storageRepairInProgress || !canGoBack) return;
+    if (confirmEmergency) {
+      setConfirmEmergency(false);
+    } else if (repairConfirmationTarget) {
+      setRepairConfirmationTarget(undefined);
+    } else {
+      onBack();
+    }
+  }, [
+    canGoBack,
+    confirmEmergency,
+    onBack,
+    repairConfirmationTarget,
+    storageRepairInProgress,
+  ]);
+  // RN Modal routes Android's button and system back gesture here. Full-screen
+  // presentation disables iOS swipe dismissal, so it cannot bypass this guard.
+  useImperativeHandle(backRequestRef, () => handleBack, [handleBack]);
   let recoveryTitle = bootstrapErrorTitle;
   if (recoveryTarget) {
     recoveryTitle = isRepairCompleted
@@ -403,17 +426,14 @@ export function NativeStorageBootstrapErrorScreen({
           <Text style={styles.restartText}>Clear simulated fault</Text>
         </Pressable>
       ) : null}
-      {hasAppComponent &&
-      (recoveryTarget !== 'appStorage' || testSessionId) &&
-      !storageRepairInProgress &&
-      !isRepairCompleted ? (
+      {hasAppComponent && !isRepairCompleted && !isEmergency ? (
         <Pressable
           accessibilityRole="button"
           style={styles.restartButton}
           testID="native-storage-repair-back"
-          onPress={() => {
-            onBack();
-          }}
+          disabled={storageRepairInProgress}
+          accessibilityState={{ disabled: storageRepairInProgress }}
+          onPress={handleBack}
         >
           <Text style={styles.restartText}>Back</Text>
         </Pressable>

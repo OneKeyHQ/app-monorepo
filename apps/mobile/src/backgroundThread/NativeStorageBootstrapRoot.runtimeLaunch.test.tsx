@@ -54,6 +54,9 @@ jest.mock('./jotaiMainHydrationGate', () => ({
 }));
 
 jest.mock('react-native', () => ({
+  Modal: ({ children }: { children?: import('react').ReactNode }) => (
+    <div>{children}</div>
+  ),
   ScrollView: ({ children }: { children?: import('react').ReactNode }) => (
     <div>{children}</div>
   ),

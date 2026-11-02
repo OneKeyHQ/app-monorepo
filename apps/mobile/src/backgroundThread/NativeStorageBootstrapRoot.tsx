@@ -1,8 +1,9 @@
-import { useEffect, useSyncExternalStore } from 'react';
-import type { ComponentType } from 'react';
+import { useEffect, useRef, useSyncExternalStore } from 'react';
+import type { ComponentType, ReactNode } from 'react';
 
 import {
   ActivityIndicator,
+  Modal,
   Pressable,
   StyleSheet,
   Text,
@@ -671,6 +672,8 @@ function loadErrorScreen(retry = false) {
 }
 
 const styles = StyleSheet.create({
+  app: { flex: 1 },
+  hiddenApp: { display: 'none' },
   container: { alignItems: 'center', flex: 1, justifyContent: 'center' },
   waitingDark: { backgroundColor: '#000' },
   waitingLight: { backgroundColor: '#fff' },
@@ -699,7 +702,24 @@ subscribeNativeStorageRecovery(() => {
   notifySubscribers();
 });
 
+function returnFromStorageRecovery() {
+  // Recheck the current operation synchronously. A stale Back callback in the
+  // same frame as Confirm/Repair must never detach a running mutation/restart.
+  if (
+    !AppComponent ||
+    !getRequestedNativeStorageRecovery() ||
+    storageRepairPromise ||
+    recoveryRestartPromise ||
+    storageRepairInProgress ||
+    storageRepairCompleted ||
+    storageEmergencyModeEnabled
+  )
+    return;
+  dismissNativeStorageRecovery();
+}
+
 export function NativeStorageBootstrapRoot() {
+  const backRequestRef = useRef<(() => void) | null>(null);
   useSyncExternalStore(subscribeBootstrapState, getBootstrapStateVersion);
   const requestedRecoveryTarget = useSyncExternalStore(
     subscribeNativeStorageRecovery,
@@ -716,13 +736,10 @@ export function NativeStorageBootstrapRoot() {
     }
   }, [showError]);
 
-  if (AppComponent && !requestedRecoveryTarget) {
-    const App = AppComponent;
-    return <App />;
-  }
+  let recoveryContent: ReactNode;
   if (showError) {
     if (ErrorScreenComponent) {
-      return (
+      recoveryContent = (
         <ErrorScreenComponent
           bootstrapErrorMessage={bootstrapError?.message}
           bootstrapErrorTitle={bootstrapErrorTitle}
@@ -740,72 +757,114 @@ export function NativeStorageBootstrapRoot() {
           retryBootstrapAfterFailure={retryBootstrapAfterFailure}
           restartAfterBootstrapFailure={restartAfterBootstrapFailure}
           releaseStorageRecoveryTestFault={releaseStorageRecoveryTestFault}
-          onBack={() => {
-            storageRepairError = undefined;
-            storageRepairCanReset = false;
-            dismissNativeStorageRecovery();
-          }}
+          onBack={returnFromStorageRecovery}
+          backRequestRef={backRequestRef}
         />
       );
-    }
-    return (
-      <View style={[styles.container, styles.fallback]}>
-        {errorScreenLoadFailed ? (
-          <>
-            <Text style={styles.fallbackText}>
-              Could not load the storage repair screen. Retry or restart the
-              app.
-            </Text>
-            <Pressable
-              accessibilityRole="button"
-              onPress={() => {
-                void loadErrorScreen(true);
-                notifySubscribers();
-              }}
-              testID="native-storage-error-screen-retry"
-            >
-              <Text style={styles.fallbackText}>Retry</Text>
-            </Pressable>
-            <Pressable
-              accessibilityRole="button"
-              onPress={() => {
-                if (AppComponent) {
-                  dismissNativeStorageRecovery();
-                  return;
-                }
-                void restartAfterBootstrapFailure({
-                  failureStage: bootstrapFailureStage ?? 'storage',
-                  reason: 'storage.recovery-screen.restart',
-                });
-              }}
-              testID="native-storage-error-screen-restart"
-            >
+    } else {
+      recoveryContent = (
+        <View style={[styles.container, styles.fallback]}>
+          {errorScreenLoadFailed ? (
+            <>
               <Text style={styles.fallbackText}>
-                {AppComponent ? 'Back' : 'Restart App'}
+                Could not load the storage repair screen. Retry or restart the
+                app.
               </Text>
-            </Pressable>
-          </>
-        ) : (
-          <ActivityIndicator
-            color="#fff"
-            testID="native-storage-error-screen-loading"
-          />
-        )}
-      </View>
-    );
+              <Pressable
+                accessibilityRole="button"
+                onPress={() => {
+                  void loadErrorScreen(true);
+                  notifySubscribers();
+                }}
+                testID="native-storage-error-screen-retry"
+              >
+                <Text style={styles.fallbackText}>Retry</Text>
+              </Pressable>
+              <Pressable
+                accessibilityRole="button"
+                onPress={() => {
+                  if (AppComponent) {
+                    returnFromStorageRecovery();
+                    return;
+                  }
+                  void restartAfterBootstrapFailure({
+                    failureStage: bootstrapFailureStage ?? 'storage',
+                    reason: 'storage.recovery-screen.restart',
+                  });
+                }}
+                testID="native-storage-error-screen-restart"
+              >
+                <Text style={styles.fallbackText}>
+                  {AppComponent ? 'Back' : 'Restart App'}
+                </Text>
+              </Pressable>
+            </>
+          ) : (
+            <>
+              <ActivityIndicator
+                color="#fff"
+                testID="native-storage-error-screen-loading"
+              />
+              {AppComponent ? (
+                <Pressable
+                  accessibilityRole="button"
+                  onPress={returnFromStorageRecovery}
+                  testID="native-storage-error-screen-back"
+                >
+                  <Text style={styles.fallbackText}>Back</Text>
+                </Pressable>
+              ) : null}
+            </>
+          )}
+        </View>
+      );
+    }
   }
+  const App = AppComponent;
   return (
-    <View
-      style={[
-        styles.container,
-        isDarkMode ? styles.waitingDark : styles.waitingLight,
-      ]}
-      testID="native-storage-bootstrap-waiting"
-    >
-      <ActivityIndicator
-        color={isDarkMode ? '#fff' : '#000'}
-        testID="native-storage-bootstrap-spinner"
-      />
-    </View>
+    <>
+      {App ? (
+        <View
+          style={showError ? styles.hiddenApp : styles.app}
+          pointerEvents={showError ? 'none' : 'auto'}
+          accessibilityElementsHidden={showError}
+          importantForAccessibility={showError ? 'no-hide-descendants' : 'auto'}
+          testID="native-storage-retained-app"
+        >
+          <App />
+        </View>
+      ) : null}
+      {showError && App ? (
+        <Modal
+          visible
+          animationType="none"
+          presentationStyle="fullScreen"
+          allowSwipeDismissal={false}
+          onRequestClose={() => {
+            if (backRequestRef.current) backRequestRef.current();
+            else returnFromStorageRecovery();
+          }}
+          testID="native-storage-recovery-modal"
+        >
+          {recoveryContent}
+        </Modal>
+      ) : (
+        recoveryContent
+      )}
+      {!App && !showError ? (
+        <View
+          style={[
+            styles.container,
+            isDarkMode ? styles.waitingDark : styles.waitingLight,
+          ]}
+          testID="native-storage-bootstrap-waiting"
+        >
+          <ActivityIndicator
+            color={isDarkMode ? '#fff' : '#000'}
+            testID="native-storage-bootstrap-spinner"
+          />
+        </View>
+      ) : null}
+    </>
   );
 }

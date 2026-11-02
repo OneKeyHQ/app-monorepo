@@ -32,6 +32,9 @@ const mockRestart = jest.fn<Promise<void>, [unknown]>(async () => undefined);
 const mockHydrate = jest.fn(async () => undefined);
 
 jest.mock('react-native', () => ({
+  Modal: ({ children }: { children?: import('react').ReactNode }) => (
+    <div>{children}</div>
+  ),
   ScrollView: ({ children }: { children?: import('react').ReactNode }) => (
     <div>{children}</div>
   ),

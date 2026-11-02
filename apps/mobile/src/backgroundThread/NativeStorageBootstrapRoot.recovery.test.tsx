@@ -50,6 +50,9 @@ jest.mock('../splitBundle/segmentManifest', () => ({
 }));
 
 jest.mock('react-native', () => ({
+  Modal: ({ children }: { children?: import('react').ReactNode }) => (
+    <div>{children}</div>
+  ),
   ScrollView: ({ children }: { children?: import('react').ReactNode }) => (
     <div>{children}</div>
   ),
@@ -203,8 +206,8 @@ describe('native storage recovery after fast startup', () => {
     expect(mockLoadErrorScreen).toHaveBeenCalledTimes(2);
     expect(nativeLoad).toHaveBeenCalledTimes(2);
     expect(loader.getSegmentState(SCREEN_SEGMENT_KEY)).toBe('ready');
-    expect(screen.queryByTestId('business-app')).toBeNull();
-    expect(screen.queryByTestId('native-storage-repair-back')).toBeNull();
+    expect(screen.getByTestId('business-app')).toBeTruthy();
+    expect(screen.getByTestId('native-storage-repair-back')).toBeTruthy();
     mockStorageCall.mockResolvedValueOnce({
       repairId: 'empty-readable-legacy',
       successfulCount: 0,
@@ -259,7 +262,7 @@ describe('native storage recovery after fast startup', () => {
     expect(screen.getByText(/counts cover known items only/)).toBeTruthy();
     expect(mockRestart).not.toHaveBeenCalled();
     expect(mockBootstrap).toHaveBeenCalledTimes(1);
-    expect(screen.queryByTestId('native-storage-repair-back')).toBeNull();
+    expect(screen.getByTestId('native-storage-repair-back')).toBeTruthy();
     mockRestart.mockRejectedValueOnce(new Error('restart unavailable'));
     fireEvent.click(screen.getByTestId('native-storage-repair-restart'));
     await flush();
@@ -267,8 +270,8 @@ describe('native storage recovery after fast startup', () => {
       mode: 'all',
       reason: 'storage.migration.incomplete',
     });
-    expect(screen.queryByTestId('business-app')).toBeNull();
-    expect(screen.queryByTestId('native-storage-repair-back')).toBeNull();
+    expect(screen.getByTestId('business-app')).toBeTruthy();
+    expect(screen.getByTestId('native-storage-repair-back')).toBeTruthy();
     expect(screen.getByTestId('native-storage-repair-restart')).toBeTruthy();
     expect(mockStorageCall).toHaveBeenCalledTimes(1);
     mockRestart.mockClear();
@@ -291,8 +294,8 @@ describe('native storage recovery after fast startup', () => {
     expect(mockHydrate).not.toHaveBeenCalled();
     expect(mockRestart).not.toHaveBeenCalled();
     expect(screen.getByText(/Successful: 3. Failed: 2/)).toBeTruthy();
-    expect(screen.queryByTestId('native-storage-repair-back')).toBeNull();
-    expect(screen.queryByTestId('business-app')).toBeNull();
+    expect(screen.getByTestId('native-storage-repair-back')).toBeTruthy();
+    expect(screen.getByTestId('business-app')).toBeTruthy();
 
     const complete = {
       ...partial,
@@ -391,6 +394,6 @@ describe('native storage recovery after fast startup', () => {
       mockRestart.mock.invocationCallOrder[0],
     );
     expect(screen.getByTestId('native-storage-repair-progress')).toBeTruthy();
-    expect(screen.queryByTestId('business-app')).toBeNull();
+    expect(screen.getByTestId('business-app')).toBeTruthy();
   });
 });

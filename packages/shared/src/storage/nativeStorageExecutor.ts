@@ -2215,6 +2215,9 @@ async function executeMaskedNativeStorageRequest(
     };
   }
   if (request.scope === 'recovery') {
+    if (request.operation === 'inspectAppStorageMigration') {
+      return { errorMessage: null };
+    }
     return undefined;
   }
   if (request.scope === 'asyncStorage') {
@@ -2257,6 +2260,31 @@ async function executeRealNativeStorageRequest(
       return result;
     }
     case 'recovery':
+      if (request.operation === 'inspectAppStorageMigration') {
+        return enqueueAppStorageOperation(async () => {
+          // Inspect the owner's physical evidence without initializing business
+          // storage, importing legacy values, or depending on canonical Jotai.
+          const guard = emergencyGuard();
+          guard();
+          const ledger = await getNativeStorageMigrationLedger(
+            APP_STORAGE_MIGRATION_LEDGER_KEY,
+          );
+          guard();
+          const mismatch =
+            ledger === NATIVE_STORAGE_MIGRATION_LEDGER_COMPLETE &&
+            getAppStorageMMKV().getString(
+              APP_STORAGE_MIGRATION_COMPLETE_KEY,
+            ) !== '1' &&
+            !hasEmergencyControl();
+          return {
+            errorMessage: mismatch
+              ? createNativeStorageMigrationInconsistentErrorMessage(
+                  'appStorage',
+                )
+              : null,
+          };
+        });
+      }
       if (request.operation === 'enableEmergencyAppStorage') {
         if (request.confirmed !== true)
           throw new OneKeyLocalError(
