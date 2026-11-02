@@ -194,22 +194,30 @@ async function getPrimeDeviceLogoutHandler(): Promise<
   );
 }
 
+// initWebSocket() awaits getEndpointInfo() before it calls io(), so one
+// microtask tick is enough - the same assumption getSocketHandler() makes.
+async function createProviderAndWaitForSocket() {
+  createFixture();
+  await Promise.resolve();
+}
+
 const logoutPayload: IPrimeDeviceLogoutInfo = {
   msgId: 'logout-message-1',
   id: 'device-1',
   emails: ['user@example.com'],
 };
 
-describe('PushProviderWebSocket prime device logout', () => {
-  beforeEach(() => {
-    jest.clearAllMocks();
-    mockSocketHandlers.clear();
-    mockGetEndpointInfo.mockResolvedValue({
-      endpoint: 'wss://notification.example.com',
-      name: EServiceEndpointEnum.NotificationWebSocket,
-    });
+// Both suites build the same provider fixture against the same endpoint.
+beforeEach(() => {
+  jest.clearAllMocks();
+  mockSocketHandlers.clear();
+  mockGetEndpointInfo.mockResolvedValue({
+    endpoint: 'wss://notification.example.com',
+    name: EServiceEndpointEnum.NotificationWebSocket,
   });
+});
 
+describe('PushProviderWebSocket prime device logout', () => {
   test('does not ACK when durable remote logout staging rejects', async () => {
     const fixture = createFixture();
     fixture.stageRemoteOneKeyIdLogoutNotification.mockRejectedValue(
@@ -472,23 +480,6 @@ describe('PushProviderWebSocket prime device logout', () => {
 });
 
 describe('PushProviderWebSocket sticky key', () => {
-  beforeEach(() => {
-    jest.clearAllMocks();
-    mockSocketHandlers.clear();
-    mockGetEndpointInfo.mockResolvedValue({
-      endpoint: 'wss://notification.example.com',
-      name: EServiceEndpointEnum.NotificationWebSocket,
-    });
-  });
-
-  async function createProviderAndWaitForSocket() {
-    createFixture();
-    // initWebSocket awaits getEndpointInfo before calling io()
-    await new Promise((resolve) => {
-      setTimeout(resolve, 0);
-    });
-  }
-
   test('sends the sticky key as an underscored query parameter', async () => {
     await createProviderAndWaitForSocket();
 
