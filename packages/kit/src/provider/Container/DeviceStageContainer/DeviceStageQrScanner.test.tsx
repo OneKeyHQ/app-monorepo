@@ -11,7 +11,7 @@ type IScanHandler = (value: string) => Promise<Record<string, unknown>>;
 
 let mockScanHandler: IScanHandler | undefined;
 const mockParse = jest.fn<Promise<unknown>, unknown[]>();
-const mockCancelStageAirGapScan = jest.fn<Promise<void>, []>(
+const mockCancelStageAirGapScan = jest.fn<Promise<void>, [unknown]>(
   async () => undefined,
 );
 
@@ -27,7 +27,8 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
       parse: (...args: unknown[]) => mockParse(...args),
     },
     serviceQrWallet: {
-      cancelStageAirGapScan: () => mockCancelStageAirGapScan(),
+      cancelStageAirGapScan: (params: unknown) =>
+        mockCancelStageAirGapScan(params),
       submitStageAirGapScanResult: jest.fn(async () => undefined),
     },
   },
@@ -70,4 +71,29 @@ it('ends the scan once for a code that can never be accepted', async () => {
   await expect(scan('UR:BYTES/1-2/LPADAOCF')).resolves.toEqual({});
   await expect(scan('UR:BYTES/2-2/LPAOAOCF')).resolves.toEqual({});
   expect(mockCancelStageAirGapScan).toHaveBeenCalledTimes(1);
+  expect(mockCancelStageAirGapScan).toHaveBeenCalledWith({
+    scanning: true,
+    sessionId: 1,
+  });
+});
+
+it('drops a parse that settles after the scanner unmounted', async () => {
+  const { unmount } = render(<DeviceStageQrScanner sessionId={1} />);
+  let rejectParse: (error: unknown) => void = () => undefined;
+  mockParse.mockReturnValueOnce(
+    new Promise((_resolve, reject) => {
+      rejectParse = reject;
+    }),
+  );
+
+  const pending = scan('UR:BYTES/1-2/LPADAOCF');
+  await new Promise((resolve) => {
+    setTimeout(resolve, 0);
+  });
+  expect(mockParse).toHaveBeenCalledTimes(1);
+  unmount();
+  rejectParse({ key: ETranslations.feedback_invalid_qr_code });
+
+  await expect(pending).resolves.toEqual({});
+  expect(mockCancelStageAirGapScan).not.toHaveBeenCalled();
 });

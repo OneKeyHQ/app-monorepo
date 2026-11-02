@@ -561,6 +561,9 @@ export function NativeHistoryList(
           height:
             (sectionIndex === 0 ? 32 : 52) +
             (pending && platformEnv.isNative ? 4 : 0),
+          // The header pairs its height with unscaled padding and lineHeight,
+          // so it must not take Android's legacy sub-400dp 0.9 scale (OK-66072).
+          heightRounding: 'nearest',
           ...(!platformEnv.isNative ? { pressDisabled: true } : {}),
           titleLoading: pending,
           title: pending

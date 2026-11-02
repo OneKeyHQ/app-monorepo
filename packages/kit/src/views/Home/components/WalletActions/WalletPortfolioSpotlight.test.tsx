@@ -25,6 +25,7 @@ let mockRootState: IMockRootState = {
   routes: [{ name: ERootRoutes.Main }],
 };
 const mockRouterListeners = new Set<(state: IMockRootState) => void>();
+const mockMedia = { gtSm: false };
 
 jest.mock('@onekeyhq/components', () => {
   const React = jest.requireActual<typeof import('react')>('react');
@@ -41,6 +42,7 @@ jest.mock('@onekeyhq/components', () => {
         };
       }, [callback]);
     },
+    useMedia: () => mockMedia,
     rootNavigationRef: {
       current: { getRootState: () => mockRootState },
     },
@@ -111,6 +113,7 @@ jest.mock('@onekeyhq/kit/src/components/Spotlight', () => {
       children,
       closeOnBackdropPress,
       confirmText,
+      containerProps,
       deferUntilIdle,
       requireVisibleAnchor,
       delayMs,
@@ -132,6 +135,7 @@ jest.mock('@onekeyhq/kit/src/components/Spotlight', () => {
       children?: ReactNode;
       closeOnBackdropPress?: boolean;
       confirmText?: string;
+      containerProps?: Record<string, unknown>;
       deferUntilIdle?: boolean;
       requireVisibleAnchor?: boolean;
       delayMs?: number;
@@ -144,7 +148,12 @@ jest.mock('@onekeyhq/kit/src/components/Spotlight', () => {
       const blocked = useIsDeferredGuideBlocked();
       return (
         <>
-          {children}
+          <div
+            data-testid="portfolio-spotlight-container"
+            data-container-props={JSON.stringify(containerProps ?? null)}
+          >
+            {children}
+          </div>
           {isVisible && !(deferUntilIdle && blocked) ? (
             <div
               data-testid="portfolio-spotlight"
@@ -202,9 +211,36 @@ describe('WalletPortfolioSpotlight eligibility', () => {
     mockRootState = { index: 0, routes: [{ name: ERootRoutes.Main }] };
     mockRouterListeners.clear();
     mockVisibilityListeners.clear();
+    mockMedia.gtSm = false;
   });
 
   afterEach(cleanup);
+
+  // A `$gtSm` override of `flex: 1, flexBasis: 0` kept the zero basis on
+  // native, collapsing the wide icon trigger to zero width.
+  it.each([
+    { gtSm: false, iconOnly: false, expected: { flex: 1, flexBasis: 0 } },
+    { gtSm: true, iconOnly: false, expected: null },
+    { gtSm: false, iconOnly: true, expected: null },
+  ])(
+    'stretches the anchor only for the narrow card trigger (%o)',
+    ({ gtSm, iconOnly, expected }) => {
+      mockMedia.gtSm = gtSm;
+      render(
+        <WalletPortfolioSpotlight enabled iconOnly={iconOnly}>
+          <button type="button">More</button>
+        </WalletPortfolioSpotlight>,
+      );
+
+      expect(
+        JSON.parse(
+          screen
+            .getByTestId('portfolio-spotlight-container')
+            .getAttribute('data-container-props') ?? 'null',
+        ),
+      ).toEqual(expected);
+    },
+  );
 
   it.each([true, false])(
     'opts into anchor-end alignment only on native platforms: native=%s',

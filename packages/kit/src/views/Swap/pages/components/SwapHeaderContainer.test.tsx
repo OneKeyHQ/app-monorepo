@@ -52,6 +52,7 @@ const mockProToken: ISwapToken = {
   isNative: false,
 };
 let mockAccountNetworkId = mockProToken.networkId;
+let mockSwapTypeSwitch: ESwapTabSwitchType = ESwapTabSwitchType.LIMIT;
 
 jest.mock('react-intl', () => ({
   useIntl: () => ({
@@ -135,7 +136,7 @@ jest.mock('@onekeyhq/kit/src/states/jotai/contexts/swap', () => ({
   }),
   useSwapProSelectTokenAtom: () => [mockProToken],
   useSwapSelectFromTokenAtom: () => [mockFromToken],
-  useSwapTypeSwitchAtom: () => [ESwapTabSwitchType.LIMIT],
+  useSwapTypeSwitchAtom: () => [mockSwapTypeSwitch],
 }));
 jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms/swap', () => ({
   useSwapProJumpTokenAtom: () => [{ token: undefined }],
@@ -156,10 +157,17 @@ jest.mock('../../hooks/useSwapProTokenCarry', () => ({
 }));
 jest.mock('./SwapHeaderRightActionContainer', () => {
   const { createElement } = jest.requireActual<typeof import('react')>('react');
-  return ({ storeName }: { storeName?: EJotaiContextStoreNames }) =>
+  return ({
+    storeName,
+    hideKLine,
+  }: {
+    storeName?: EJotaiContextStoreNames;
+    hideKLine?: boolean;
+  }) =>
     createElement('div', {
       'data-testid': 'swap-header-right-actions',
       'data-store': storeName,
+      'data-hide-kline': String(Boolean(hideKLine)),
     });
 });
 
@@ -253,6 +261,7 @@ describe('SwapHeaderContainer', () => {
     platformEnv.isNative = true;
     jest.clearAllMocks();
     mockAccountNetworkId = mockProToken.networkId;
+    mockSwapTypeSwitch = ESwapTabSwitchType.LIMIT;
     mockSwapTypeSwitchAction.mockResolvedValue(mockFromToken);
     mockUpdateSelectedAccountNetwork.mockResolvedValue(undefined);
   });
@@ -260,6 +269,91 @@ describe('SwapHeaderContainer', () => {
   afterEach(() => {
     platformEnv.isNative = false;
   });
+
+  it.each([
+    { label: 'wallet home', source: ESwapSource.WALLET_HOME },
+    { label: 'wallet token', source: ESwapSource.WALLET_HOME_TOKEN_LIST },
+    { label: 'token details', source: ESwapSource.TOKEN_DETAIL },
+    { label: 'market', source: ESwapSource.MARKET },
+    { label: 'no source', source: undefined },
+  ])('hides Stock K-line in the Desktop modal from $label', ({ source }) => {
+    const originalDesktop = platformEnv.isDesktop;
+    platformEnv.isDesktop = true;
+    platformEnv.isNative = false;
+    mockSwapTypeSwitch = ESwapTabSwitchType.STOCK;
+    try {
+      const { getByTestId } = render(
+        <SwapHeaderContainer pageType={EPageType.modal} enterFrom={source} />,
+      );
+      expect(
+        getByTestId('swap-header-right-actions').getAttribute(
+          'data-hide-kline',
+        ),
+      ).toBe('true');
+    } finally {
+      platformEnv.isDesktop = originalDesktop;
+    }
+  });
+
+  it.each([
+    {
+      label: 'Desktop modal Swap',
+      desktop: true,
+      native: false,
+      modal: true,
+      type: ESwapTabSwitchType.SWAP,
+    },
+    {
+      label: 'Desktop modal Limit',
+      desktop: true,
+      native: false,
+      modal: true,
+      type: ESwapTabSwitchType.LIMIT,
+    },
+    {
+      label: 'Desktop Stock page',
+      desktop: true,
+      native: false,
+      modal: false,
+      type: ESwapTabSwitchType.STOCK,
+    },
+    {
+      label: 'native Stock modal',
+      desktop: false,
+      native: true,
+      modal: true,
+      type: ESwapTabSwitchType.STOCK,
+    },
+    {
+      label: 'web Stock modal',
+      desktop: false,
+      native: false,
+      modal: true,
+      type: ESwapTabSwitchType.STOCK,
+    },
+  ])(
+    'preserves K-line visibility for $label',
+    ({ desktop, native, modal, type }) => {
+      const originalDesktop = platformEnv.isDesktop;
+      platformEnv.isDesktop = desktop;
+      platformEnv.isNative = native;
+      mockSwapTypeSwitch = type;
+      try {
+        const { getByTestId } = render(
+          <SwapHeaderContainer
+            pageType={modal ? EPageType.modal : undefined}
+          />,
+        );
+        expect(
+          getByTestId('swap-header-right-actions').getAttribute(
+            'data-hide-kline',
+          ),
+        ).toBe('false');
+      } finally {
+        platformEnv.isDesktop = originalDesktop;
+      }
+    },
+  );
 
   it('leaves the Pro owner before synchronizing the restored Swap network', async () => {
     let resolveTypeSwitch: ((token?: ISwapToken) => void) | undefined;

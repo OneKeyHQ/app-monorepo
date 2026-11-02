@@ -58,6 +58,7 @@ import { ListLoading } from '../Loading';
 import { formatNativeSelectorAmount } from './nativeSelectorFormat';
 import { resolveMapTokenFiat } from './resolveMapTokenFiat';
 import TokenActionsView from './TokenActionsView';
+import { getTokenRowIconSize } from './tokenListRowLayoutShared';
 
 import type {
   DataRow,
@@ -384,7 +385,7 @@ export function NativeTokenSelectorList({
       }
     >();
     const targetCurrency = settings.currencyInfo?.id ?? '';
-    const iconSize = gtMd ? 32 : 40;
+    const iconSize = getTokenRowIconSize(gtMd);
     for (const item of rows) {
       if (isTokenSelectorSyntheticRow(item)) {
         switch (item.syntheticRowType) {
@@ -730,6 +731,10 @@ export function NativeTokenSelectorList({
               type: 'identity',
               key: rowKey,
               height: 60,
+              // The $bodyLg/$bodyMd line boxes (24 + 20) and 8dp paddings are
+              // unscaled, so the row height must not take Android's legacy
+              // sub-400dp 0.9 factor or the subtitle gets clipped (OK-66072).
+              heightRounding: 'nearest',
               testID: `${tokenItemTestIDPrefix}-${token.networkId ?? 'any'}-${token.symbol ?? key}`,
               title: token.isAggregateToken
                 ? (token.commonSymbol ?? token.symbol ?? '')
@@ -812,6 +817,7 @@ export function NativeTokenSelectorList({
                 type: 'dataRow',
                 key: rowKey,
                 height: 60,
+                heightRounding: 'nearest',
                 testID: nativeRow.testID,
                 leading,
                 badges: nativeRow.badges,

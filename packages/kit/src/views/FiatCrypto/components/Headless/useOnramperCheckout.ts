@@ -419,13 +419,14 @@ export function useOnramperCheckout({
           : await backgroundApiProxy.serviceFiatCrypto.fetchOnramperSession();
       } catch (error) {
         if (!cancelled) {
+          const message = getErrorMessageForLog(error);
           defaultLogger.fiatCrypto.onramper.sessionMintFailed({
             ...getLogContext(),
             durationMs: Date.now() - mintStartedAt,
-            errorMessage: getErrorMessageForLog(error),
+            errorMessage: message,
           });
           initFailedRef.current = true;
-          goWebFallback({ code: 'sessionMintFailed' });
+          goWebFallback({ code: 'sessionMintFailed', message });
         }
         return;
       }
@@ -452,7 +453,10 @@ export function useOnramperCheckout({
             }),
           });
           initFailedRef.current = true;
-          goWebFallback({ code: err?.code ?? 'clientInitFailed' });
+          goWebFallback({
+            code: err?.code ?? 'clientInitFailed',
+            message: err?.message,
+          });
         }
         return;
       }

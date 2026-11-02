@@ -34,6 +34,8 @@ export enum EAppEventBusNames {
   NativeStorageContractViolation = 'NativeStorageContractViolation',
   ShowLocalSecretEnvelopeErrorDialog = 'ShowLocalSecretEnvelopeErrorDialog',
   ShowAirGapQrcode = 'ShowAirGapQrcode',
+  ScanAirGapQrcode = 'ScanAirGapQrcode',
+  CancelAirGapQrcodeScan = 'CancelAirGapQrcodeScan',
   HideAirGapQrcode = 'HideAirGapQrcode',
   RealmInit = 'RealmInit',
   V4RealmInit = 'V4RealmInit',
