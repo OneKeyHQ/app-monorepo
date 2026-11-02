@@ -1,6 +1,7 @@
 import {
   isConformingNamespaces,
   isValidNamespaces,
+  isValidRequiredNamespaces,
 } from '@walletconnect/utils';
 
 import type { IWalletConnectChainInfo } from '@onekeyhq/shared/src/walletConnect/types';
@@ -56,6 +57,7 @@ const evmNamespace: ProposalTypes.RequiredNamespace = {
 
 const solanaChain = 'solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp';
 const algoChain = 'algorand:wGHE2Pwdvd7S12BL5FaOP20EGYesN73k';
+const inheritedNamespaceKeys = ['toString', 'constructor', '__proto__'];
 
 function createProposal(
   optionalNamespaces: ProposalTypes.OptionalNamespaces,
@@ -90,7 +92,7 @@ function createProposal(
   };
 }
 
-describe('ServiceWalletConnect.buildWalletConnectNamespace', () => {
+describe('ServiceWalletConnect namespace approval', () => {
   let service: ServiceWalletConnect;
 
   beforeEach(() => {
@@ -116,6 +118,81 @@ describe('ServiceWalletConnect.buildWalletConnectNamespace', () => {
   afterEach(() => {
     jest.restoreAllMocks();
   });
+
+  it.each(inheritedNamespaceKeys)(
+    'omits inherited optional namespace %s from approval',
+    async (namespace) => {
+      const optionalNamespaces = {
+        [namespace]: { chains: [`${namespace}:1`], methods: [], events: [] },
+      };
+      const proposal = createProposal(optionalNamespaces, {
+        eip155: evmNamespace,
+      });
+
+      expect(
+        isValidRequiredNamespaces(
+          optionalNamespaces,
+          'proposal()',
+          'optionalNamespaces',
+        ),
+      ).toBeNull();
+
+      const namespaces = await service.buildWalletConnectNamespace({
+        proposal,
+        accountsInfo: [evmAccount],
+      });
+
+      expect(Object.keys(namespaces)).toEqual(['eip155']);
+      expect(Object.getPrototypeOf(namespaces)).toBe(Object.prototype);
+      expect(isValidNamespaces(namespaces, 'approve()')).toBeNull();
+      expect(
+        isConformingNamespaces(
+          proposal.params.requiredNamespaces,
+          namespaces,
+          'approve()',
+        ),
+      ).toBeNull();
+    },
+  );
+
+  it.each(inheritedNamespaceKeys)(
+    'omits inherited optional namespace %s from account selection',
+    async (namespace) => {
+      const proposal = createProposal(
+        {
+          [namespace]: { chains: [`${namespace}:1`], methods: [], events: [] },
+        },
+        { eip155: evmNamespace },
+      );
+
+      await expect(
+        service.getSessionApprovalAccountInfo(proposal),
+      ).resolves.toEqual([
+        {
+          impl: 'evm',
+          accountSelectorNum: 1000,
+          networkIds: ['evm--1'],
+        },
+      ]);
+    },
+  );
+
+  it.each(inheritedNamespaceKeys)(
+    'rejects inherited required namespace %s',
+    async (namespace) => {
+      const proposal = createProposal(
+        {},
+        {
+          eip155: evmNamespace,
+          [namespace]: { chains: [`${namespace}:1`], methods: [], events: [] },
+        },
+      );
+
+      await expect(
+        service.getSessionApprovalAccountInfo(proposal),
+      ).rejects.toThrow('Namespace not supported');
+    },
+  );
 
   it.each<{ events: string[] }>([
     { events: [] },

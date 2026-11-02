@@ -696,3 +696,10 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries â€
 **Root Cause**: Account selection skipped unsupported namespaces, but approval construction retained them with undefined events. When required namespaces were present, another filter removed optional namespaces that were absent from the required set, including supported Algorand.
 **Fix**: Filter approval namespaces by the wallet's supported implementation map and process all optional namespaces while retaining unsupported-chain filtering. Required namespace validation remains in place.
 **Catchable by**: Section 4: data flow end-to-end; regression tests must cover unsupported optional namespaces and supported optional namespaces alongside a different required namespace, checking both approved accounts and real SDK validation.
+
+## Case: WalletConnect inherited namespace keys
+**Date**: 2026-11-02 | **Platforms**: Shared WalletConnect background service; reproduced in unit tests
+**Symptom**: Proposals with required EVM and optional `toString`, `constructor`, or `__proto__` passed SDK proposal validation but produced invalid approval namespaces and extra unsupported account selectors.
+**Root Cause**: Support checks read ordinary object properties without checking ownership. Inherited functions were treated as supported implementations and methods/events; assigning `__proto__` also changed the approval result object's prototype.
+**Fix**: Reuse an own-property-checked implementation lookup for approval account selection and namespace construction. Unsupported required namespaces are rejected and unsupported optional namespaces are omitted before accessing methods/events.
+**Catchable by**: Section 4: data flow end-to-end; test inherited property names as external keys, assert account selection and result prototype, and validate the resulting session with the real SDK.

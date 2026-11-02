@@ -40,6 +40,12 @@ import { WalletConnectDappSide } from './WalletConnectDappSide';
 import type { WalletKitTypes } from '@reown/walletkit';
 import type { ProposalTypes, SessionTypes } from '@walletconnect/types';
 
+function getSupportedNamespaceImpl(namespace: string): string | undefined {
+  return Object.prototype.hasOwnProperty.call(namespaceToImplsMap, namespace)
+    ? namespaceToImplsMap[namespace as INamespaceUnion]
+    : undefined;
+}
+
 @backgroundClass()
 class ServiceWalletConnect extends ServiceBase {
   constructor({ backgroundApi }: { backgroundApi: any }) {
@@ -255,7 +261,7 @@ class ServiceWalletConnect extends ServiceBase {
     let index = 0;
     // Filter supported chains from requiredNamespace
     for (const namespace of Object.keys(requiredNamespaces)) {
-      const impl = namespaceToImplsMap[namespace as INamespaceUnion];
+      const impl = getSupportedNamespaceImpl(namespace);
       if (!impl) {
         throw new OneKeyLocalError('Namespace not supported');
       }
@@ -275,7 +281,7 @@ class ServiceWalletConnect extends ServiceBase {
 
     // Filter supported chains from optionalNamespace
     for (const namespace of Object.keys(optionalNamespaces)) {
-      const impl = namespaceToImplsMap[namespace as INamespaceUnion];
+      const impl = getSupportedNamespaceImpl(namespace);
       // Skip namespaces not supported by the wallet
       if (impl) {
         const existImpl = supported.find((s) => s.impl === impl);
@@ -315,8 +321,7 @@ class ServiceWalletConnect extends ServiceBase {
       notSupportedChains: string[] = [],
     ) => {
       for (const [key, value] of Object.entries(namespaces).filter(
-        ([namespaceKey]) =>
-          namespaceToImplsMap[namespaceKey as INamespaceUnion],
+        ([namespaceKey]) => getSupportedNamespaceImpl(namespaceKey),
       )) {
         const namespace = key as INamespaceUnion;
         const { chains } = value;
