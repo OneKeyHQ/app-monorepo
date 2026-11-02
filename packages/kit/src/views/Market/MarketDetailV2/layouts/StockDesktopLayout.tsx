@@ -69,6 +69,7 @@ import {
 } from '../hooks/MarketSimpleChartRangeChangeContext';
 import { useStockDetail } from '../hooks/StockDetailContext';
 import { useMarketDetailPositionTab } from '../hooks/useMarketDetailPositionTab';
+import { useMarketDetailTabMinHeight } from '../hooks/useMarketDetailTabMinHeight';
 import { useStockPortfolioData } from '../hooks/useStockPortfolioData';
 import { useStockPriceSource } from '../hooks/useStockPriceSource';
 import { useTokenDetail } from '../hooks/useTokenDetail';
@@ -1332,9 +1333,15 @@ function StockOverview({
   const intl = useIntl();
   const { activeTab, selectTab } = useStockDetailTab(initialSection);
   const { stockId } = useStockDetail();
+  const { ref, minHeight, preserveScrollPosition } =
+    useMarketDetailTabMinHeight(stockId);
+  const handleTabChange = (tab: IStockDetailTab) => {
+    preserveScrollPosition();
+    selectTab(tab);
+  };
 
   return (
-    <YStack>
+    <YStack ref={ref} minHeight={minHeight}>
       <XStack
         testID={STOCK_DETAIL_TABS_TEST_ID}
         height={44}
@@ -1356,7 +1363,7 @@ function StockOverview({
           height={44}
           m="$0"
           px="$0"
-          onPress={() => selectTab('overview')}
+          onPress={() => handleTabChange('overview')}
         >
           {intl.formatMessage({ id: ETranslations.global_overview })}
         </Button>
@@ -1374,7 +1381,7 @@ function StockOverview({
           height={44}
           m="$0"
           px="$0"
-          onPress={() => selectTab('position')}
+          onPress={() => handleTabChange('position')}
         >
           {intl.formatMessage({
             id: ETranslations.dexmarket_details_myposition,

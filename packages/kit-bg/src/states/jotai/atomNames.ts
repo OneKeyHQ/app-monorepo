@@ -181,6 +181,11 @@ export const atomsConfig: Partial<
   [EAtomNames.notificationsAtom]: {
     deepCompare: true,
   },
+  // The hide-value toggle is applied on the UI runtime before the bg echo
+  // arrives; an equal echo must not re-render every masked number again.
+  [EAtomNames.settingsValuePersistAtom]: {
+    deepCompare: true,
+  },
   [EAtomNames.primePersistAtom]: {
     mergeInitialValue: false,
   },
