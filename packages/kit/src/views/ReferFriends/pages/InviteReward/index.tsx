@@ -367,6 +367,8 @@ const InviteShareFooter = memo(function InviteShareFooter({
   const { summary } = useInviteValueSummary({
     rebateConfig: summaryInfo.rebateConfig,
     rebateLevels: summaryInfo.rebateLevels,
+    configs: summaryInfo.configs,
+    partnerPlan: summaryInfo.partnerPlan,
     levelDetail,
   });
   const intl = useIntl();
