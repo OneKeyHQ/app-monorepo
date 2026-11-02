@@ -128,11 +128,7 @@ export function useInputProps(props: IInputProps, ref: any) {
 
   return {
     ref: combinedRef,
-    // Native TextInput prefers a defined `readOnly` over `editable`, and Group
-    // passes an explicit `disabled: false` to its items. Mapping that to
-    // `readOnly: false` would re-enable `editable={false}` inputs (e.g. the
-    // Android Select trigger), letting them take touches from their parent.
-    readOnly: props.disabled ? true : undefined,
+    readOnly: props.disabled,
     ...props,
     placeholderTextColor,
     selectionColor,
