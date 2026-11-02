@@ -3,7 +3,10 @@ import path from 'path';
 import {
   ONEKEY_APP_DEEP_LINK_NAME,
   WALLET_CONNECT_DEEP_LINK_NAME,
+  hasUnsafeUrlChars,
 } from '@onekeyhq/shared/src/consts/deeplinkConsts';
+
+export { hasUnsafeUrlChars };
 
 export const ETHEREUM_DEEP_LINK_NAME = 'ethereum';
 
@@ -19,20 +22,8 @@ const ALLOWED_DEEP_LINK_SCHEMES = [
   `${ETHEREUM_DEEP_LINK_NAME}:`,
 ] as const;
 
-// Reject ASCII control characters (<= 0x20, 0x7f), raw whitespace, and raw double quotes (`"`, 0x22).
-// On Windows, unencoded quotes in `%1` can break out of `"%1"` command templates.
-function hasUnsafeDeepLinkChars(value: string): boolean {
-  for (let i = 0; i < value.length; i += 1) {
-    const code = value.charCodeAt(i);
-    if (code <= 0x20 || code === 0x22 || code === 0x7f) {
-      return true;
-    }
-  }
-  return false;
-}
-
 export function isAllowedDeepLinkUrl(url: string): boolean {
-  if (!url || typeof url !== 'string' || hasUnsafeDeepLinkChars(url)) {
+  if (!url || typeof url !== 'string' || hasUnsafeUrlChars(url)) {
     return false;
   }
   if (!ALLOWED_DEEP_LINK_SCHEMES.some((scheme) => url.startsWith(scheme))) {
@@ -66,7 +57,14 @@ export function findAllowedDeepLinkArg(
   }
 
   const matches = argv.slice(1).filter((arg) => isAllowedDeepLinkUrl(arg));
-  return matches.length === 1 ? matches[0] : undefined;
+  if (matches.length !== 1) {
+    return undefined;
+  }
+  const candidate = matches[0];
+  // Even when `--` is absent (e.g. Linux `.desktop` `%U` launches), `%U`/`%1` is
+  // placed at the end of the command template, so any trailing argument after
+  // the deep link URL indicates multi-argument injection and must be rejected.
+  return argv[argv.length - 1] === candidate ? candidate : undefined;
 }
 
 export function getDesktopProtocolClientArgs(

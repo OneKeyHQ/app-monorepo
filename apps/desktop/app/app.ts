@@ -697,9 +697,10 @@ function handleDeepLinkUrl(
   argv?: string[],
   isColdStartup?: boolean,
 ) {
-  // Validate deep link scheme and syntax before forwarding to renderer
+  // Validate deep link scheme and syntax before forwarding to renderer.
+  // Never log raw deep link URLs as they may contain pairing keys or tokens.
   if (!url || !isAllowedDeepLinkUrl(url)) {
-    logger.warn('[DeepLink] Rejected URL with unknown scheme:', url);
+    logger.warn('[DeepLink] Rejected URL with unknown or unsafe scheme');
     return;
   }
 
@@ -2149,9 +2150,12 @@ if (!singleInstance && !process.mas) {
   app.quit();
 } else {
   app.on('second-instance', (e, argv) => {
+    const deeplinkingUrl = findAllowedDeepLinkArg(argv);
+    // Omit raw `argv` and `deeplinkingUrl` from logs so sensitive deep-link
+    // parameters (e.g. WalletConnect `symKey` or voucher codes) are not persisted.
     logger.info('Second instance launched, focusing existing window', {
-      argv,
       platform: process.platform,
+      hasDeepLink: Boolean(deeplinkingUrl),
     });
 
     const safelyMainWindow = getSafelyMainWindow();
@@ -2162,8 +2166,6 @@ if (!singleInstance && !process.mas) {
       }
 
       // Handle deep link arguments for all platforms
-      // argv: An array of the second instance's (command line / deep linked) arguments
-      const deeplinkingUrl = findAllowedDeepLinkArg(argv);
       if (deeplinkingUrl) {
         // handleDeepLinkUrl internally calls showMainWindow(), so we don't need to call it separately
         handleDeepLinkUrl(null, deeplinkingUrl, argv, false); // isColdStartup=false for second instance

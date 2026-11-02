@@ -189,6 +189,48 @@ describe('handleDeepLinkUrl', () => {
 
     expect(mockedNavigateToReferralLanding).not.toHaveBeenCalled();
   });
+
+  it('rejects deep links containing unsafe characters across all platforms', async () => {
+    const unsafeUrls = [
+      'onekey-wallet://invited_by_friend?code=VALID" --switch',
+      'onekey-wallet://invited_by_friend?code=VALID with space',
+      'onekey-wallet://invited_by_friend?code=VALID\u0000null',
+      'onekey-wallet://invited_by_friend?code=VALID\r\ninject',
+    ];
+    for (const url of unsafeUrls) {
+      handleDeepLinkUrl({ url });
+    }
+    await flushAsyncTasks();
+
+    expect(mockedHandleReferralLandingUrl).not.toHaveBeenCalled();
+    expect(mockedNavigateToReferralLanding).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    'onekey-wallet://wc?uri=https%3A%2F%2Fevil.example',
+    'onekey-wallet://wc?uri=wc%3A123%402%22--inject',
+    'onekey-wallet://wc?uri=wc%3A123%402%20space',
+  ])(
+    'rejects WalletConnect deep links with non-wc scheme or decoded unsafe characters in uri: %s',
+    async (url) => {
+      const originalRootAppNavigation = appGlobals.$rootAppNavigation;
+      appGlobals.$rootAppNavigation = {
+        navigate: jest.fn(),
+      } as unknown as typeof appGlobals.$rootAppNavigation;
+      try {
+        const { connectWalletConnectToDapp } = jest.requireMock(
+          '../../../../components/WalletConnect/connectWalletConnectToDapp',
+        ) as { connectWalletConnectToDapp: jest.Mock };
+        handleDeepLinkUrl({ url });
+        await flushAsyncTasks();
+        await flushAsyncTasks();
+
+        expect(connectWalletConnectToDapp).not.toHaveBeenCalled();
+      } finally {
+        appGlobals.$rootAppNavigation = originalRootAppNavigation;
+      }
+    },
+  );
 });
 
 describe('disabled webview deep links', () => {

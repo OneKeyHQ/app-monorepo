@@ -15,6 +15,7 @@ import {
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
 import { getLocale } from '../../i18n';
+import { hasUnsafeUrlChars } from '../../libs/deepLink';
 
 import { OAUTH_CALLBACK_ERROR_HTML } from './oauthCallbackHtml';
 
@@ -253,18 +254,8 @@ const OAUTH_ALLOWED_ORIGINS = new Set([
   new URL(KEYLESS_SUPABASE_PROJECT_URL).origin,
 ]);
 
-function hasUnsafeOAuthUrlChars(value: string): boolean {
-  for (let i = 0; i < value.length; i += 1) {
-    const code = value.charCodeAt(i);
-    if (code <= 0x20 || code === 0x22 || code === 0x7f) {
-      return true;
-    }
-  }
-  return false;
-}
-
 export async function openOAuthBrowser(url: string): Promise<void> {
-  if (!url || typeof url !== 'string' || hasUnsafeOAuthUrlChars(url)) {
+  if (!url || typeof url !== 'string' || hasUnsafeUrlChars(url)) {
     throw new OneKeyLocalError('Invalid OAuth URL');
   }
   let parsed: URL;

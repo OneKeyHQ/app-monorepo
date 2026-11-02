@@ -9,6 +9,7 @@ import {
   ETHEREUM_DEEP_LINK_NAME,
   findAllowedDeepLinkArg,
   getDesktopProtocolClientArgs,
+  hasUnsafeUrlChars,
   isAllowedDeepLinkUrl,
   resolveDesktopRuntimeFlags,
 } from './deepLink';
@@ -78,6 +79,33 @@ describe('desktop deep link arguments', () => {
         'https://app.onekey.so/clip/web?web_url=https://evil.example',
       ]),
     ).toBeUndefined();
+  });
+
+  test('rejects trailing arguments or multiple deep links when "--" is absent (e.g. Linux .desktop %U)', () => {
+    expect(
+      findAllowedDeepLinkArg([
+        'OneKey.exe',
+        'onekey-wallet://search/list?q=onekey',
+        '--gpu-launcher=calc.exe',
+      ]),
+    ).toBeUndefined();
+
+    expect(
+      findAllowedDeepLinkArg([
+        'OneKey.exe',
+        'onekey-wallet://search/list?q=onekey',
+        'onekey-wallet://second',
+      ]),
+    ).toBeUndefined();
+  });
+
+  test('validates unsafe URL characters via shared hasUnsafeUrlChars helper', () => {
+    expect(hasUnsafeUrlChars('https://onekey.so/path?a=1')).toBe(false);
+    expect(hasUnsafeUrlChars('onekey-wallet://wc?uri=wc%3A123')).toBe(false);
+    expect(hasUnsafeUrlChars('onekey-wallet://normal" --switch')).toBe(true);
+    expect(hasUnsafeUrlChars('onekey-wallet://normal with space')).toBe(true);
+    expect(hasUnsafeUrlChars('onekey-wallet://normal\u0000null')).toBe(true);
+    expect(hasUnsafeUrlChars('onekey-wallet://normal\u007fdel')).toBe(true);
   });
 
   test.each([
@@ -226,5 +254,93 @@ describe('desktop deep link arguments', () => {
       isDevServer: false,
       isLocalUnpacked: true,
     });
+  });
+
+  test('does not log raw argv or deep-link URLs in second-instance or handleDeepLinkUrl', () => {
+    const handleDeepLinkCode = getAppTopLevelStatementSource((text) =>
+      text.startsWith('function handleDeepLinkUrl('),
+    );
+    const secondInstanceBlockCode = getAppTopLevelStatementSource((text) =>
+      text.includes("app.on('second-instance'"),
+    );
+
+    const loggerInfo = jest.fn();
+    const loggerWarn = jest.fn();
+    const handleDeepLinkSpy = jest.fn();
+    const showMainWindowSpy = jest.fn();
+    let secondInstanceHandler: ((e: unknown, argv: string[]) => void) | null =
+      null;
+
+    const context = {
+      singleInstance: true,
+      process: {
+        mas: false,
+        platform: 'win32',
+      },
+      logger: {
+        info: loggerInfo,
+        warn: loggerWarn,
+      },
+      app: {
+        quit: jest.fn(),
+        on: jest.fn(
+          (event: string, cb: (e: unknown, argv: string[]) => void) => {
+            if (event === 'second-instance') {
+              secondInstanceHandler = cb;
+            }
+          },
+        ),
+      },
+      findAllowedDeepLinkArg,
+      isAllowedDeepLinkUrl,
+      getSafelyMainWindow: () => ({
+        isMinimized: () => false,
+        restore: jest.fn(),
+      }),
+      handleDeepLinkUrl: handleDeepLinkSpy,
+      showMainWindow: showMainWindowSpy,
+      emitter: { once: jest.fn() },
+      isAppReady: false,
+      mainWindow: null,
+    };
+
+    vm.runInNewContext(secondInstanceBlockCode, context);
+    expect(secondInstanceHandler).not.toBeNull();
+
+    // eslint-disable-next-line @cspell/spellchecker
+    const sensitiveUrl =
+      'wc:eb16df1f-1d3b-4018-9d18-28ef610cc1a4@2?relay-protocol=irn&symKey=secretSymKey123';
+    const argv = ['OneKey.exe', '--', sensitiveUrl];
+    secondInstanceHandler!(null, argv);
+
+    expect(loggerInfo).toHaveBeenCalledWith(
+      'Second instance launched, focusing existing window',
+      {
+        platform: 'win32',
+        hasDeepLink: true,
+      },
+    );
+    expect(JSON.stringify(loggerInfo.mock.calls)).not.toContain(
+      'secretSymKey123',
+    );
+    expect(handleDeepLinkSpy).toHaveBeenCalledWith(
+      null,
+      sensitiveUrl,
+      argv,
+      false,
+    );
+
+    vm.runInNewContext(
+      `${handleDeepLinkCode}\nhandleDeepLinkUrl(null, ${JSON.stringify(
+        `${sensitiveUrl}" --gpu-launcher=calc`,
+      )});`,
+      context,
+    );
+    expect(loggerWarn).toHaveBeenCalledWith(
+      '[DeepLink] Rejected URL with unknown or unsafe scheme',
+    );
+    expect(JSON.stringify(loggerWarn.mock.calls)).not.toContain(
+      'secretSymKey123',
+    );
   });
 });
