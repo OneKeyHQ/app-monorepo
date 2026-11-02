@@ -42,6 +42,13 @@ export interface IWithdrawAddress {
   updatedAt: string;
 }
 
+// Server-owned, already localized. The app shows `description` as-is and
+// never keeps its own channel or token list.
+export interface IInviteRewardScope {
+  subject: string;
+  description: string;
+}
+
 export interface IInviteSummary {
   faqs: Array<{
     q: string;
@@ -98,6 +105,7 @@ export interface IInviteSummary {
   Earn?: Record<string, any>;
   banners: any[];
   cumulativeRewards: IHardwareCumulativeRewards;
+  rewardScopes?: IInviteRewardScope[];
 }
 
 export interface IEarnWalletHistoryItem {
