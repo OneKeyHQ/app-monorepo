@@ -110,6 +110,7 @@ import { getFirmwareManifestSnapshot } from '../ServiceFirmwareUpdate/FirmwareMa
 
 import { DeviceSettingsManager } from './DeviceSettingsManager';
 import { HardwareConnectionManager } from './HardwareConnectionManager';
+import { getHardwareTelemetry } from './HardwareTelemetry';
 import {
   HardwareUiEventQueue,
   createHardwareUiEventState,
@@ -2085,6 +2086,42 @@ class ServiceHardware extends ServiceBase {
           const messageType =
             messages.payload.length > 0 ? messages.payload[0] : '';
           const message = messages.payload.join(' ');
+          const transfer = serviceHardwareUtils.parseBleFileWriteLogPayload(
+            messages.payload,
+          );
+          if (transfer) {
+            const deviceKey =
+              this.backgroundApi.serviceHardwareUI?.hardwareProcessingManager?.getActiveOneKeyOperationLease()
+                ?.deviceKey;
+            void (async () => {
+              const { devices } = await localDb.getAllDevices();
+              const device = deviceKey
+                ? devices.find((item) =>
+                    [
+                      item.id,
+                      item.deviceId,
+                      item.uuid,
+                      item.connectId,
+                      item.usbConnectId,
+                      item.bleConnectId,
+                    ].includes(deviceKey),
+                  )
+                : undefined;
+              getHardwareTelemetry().report({
+                kind: 'ble',
+                params: {
+                  ...transfer,
+                  deviceType: device?.deviceType,
+                  firmwareVersion:
+                    device?.deviceStateInfo?.versions?.firmware ?? undefined,
+                  bleVersion:
+                    device?.deviceStateInfo?.versions?.ble ?? undefined,
+                },
+              });
+            })().catch(() => {
+              // Telemetry must never affect the SDK event handler.
+            });
+          }
 
           if (showSdkDebugLogs) {
             try {
@@ -2135,6 +2172,8 @@ class ServiceHardware extends ServiceBase {
 
   @backgroundMethod()
   async init() {
+    if (platformEnv.isNative || platformEnv.isDesktop)
+      void getHardwareTelemetry().flush();
     await this.getSDKInstance({
       hardwareCallContext: EHardwareCallContext.SDK_INITIALIZATION,
       connectId: undefined,

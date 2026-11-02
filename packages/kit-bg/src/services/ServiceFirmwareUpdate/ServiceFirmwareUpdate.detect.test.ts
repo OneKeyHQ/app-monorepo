@@ -832,6 +832,35 @@ describe('ServiceFirmwareUpdate.detectActiveAccountFirmwareUpdates', () => {
     jest.clearAllMocks();
   });
 
+  it('prefetches owned models without waiting for device detection or holding the hardware lock', async () => {
+    (localDb.getAllDevices as jest.Mock).mockResolvedValueOnce({
+      devices: [
+        { deviceType: 'pro2' },
+        { deviceType: 'pro2' },
+        { deviceType: 'neo' },
+      ],
+    });
+    const prefetchDeviceModels = jest.fn().mockResolvedValue(undefined);
+    const lock = jest.fn();
+    const service = new ServiceFirmwareUpdate({
+      backgroundApi: {
+        serviceDevSetting: {
+          getFirmwareUpdateDevSettings: jest.fn().mockResolvedValue(false),
+        },
+        serviceHardwareUI: { tryRunExclusiveOneKeyOperation: lock },
+      } as unknown as IBackgroundApi,
+    });
+    Object.defineProperty(service, 'firmwareUpdateRuntimeHost', {
+      value: Promise.resolve({ artifacts: { prefetchDeviceModels } }),
+    });
+    await expect(
+      service.detectActiveAccountFirmwareUpdates({ connectId: '' }),
+    ).resolves.toEqual({ status: 'skipped' });
+    await (Reflect.get(service, 'firmwarePrefetch') as Promise<void>);
+    expect(prefetchDeviceModels).toHaveBeenCalledWith(['pro2', 'neo'], false);
+    expect(lock).not.toHaveBeenCalled();
+  });
+
   it.each([
     EHardwareTransportType.WEBUSB,
     EHardwareTransportType.DesktopWebBle,

@@ -418,6 +418,45 @@ type IFirmwareUpdateV4AppParams = IFirmwareUpdateV3VersionParams & {
 class ServiceFirmwareUpdate extends ServiceBase {
   private firmwareUpdateRuntimeHost?: Promise<IFirmwareUpdateRuntimeHost>;
 
+  private firmwarePrefetch?: Promise<void>;
+
+  private prefetchKnownDeviceFirmware(): void {
+    if (
+      !(platformEnv.isNative || platformEnv.isDesktop) ||
+      this.firmwarePrefetch
+    )
+      return;
+    this.firmwarePrefetch = (async () => {
+      const { devices } = await localDb.getAllDevices();
+      const models = [
+        ...new Set(
+          devices
+            .filter(
+              (device) =>
+                !device.vendor || !getVendorProfile(device.vendor).isThirdParty,
+            )
+            .map((device) => String(device.deviceType)),
+        ),
+      ];
+      if (!models.length) return;
+      const preRelease =
+        await this.backgroundApi.serviceDevSetting.getFirmwareUpdateDevSettings(
+          'usePreReleaseConfig',
+        );
+      const runtime = await this.getFirmwareUpdateRuntimeHost();
+      await runtime.artifacts.prefetchDeviceModels(models, preRelease === true);
+    })()
+      .catch(() => {
+        serviceHardwareUtils.hardwareLog(
+          'firmwarePrefetch',
+          'Unable to complete model downloads',
+        );
+      })
+      .finally(() => {
+        this.firmwarePrefetch = undefined;
+      });
+  }
+
   constructor({ backgroundApi }: { backgroundApi: any }) {
     super({ backgroundApi });
   }
@@ -718,6 +757,8 @@ class ServiceFirmwareUpdate extends ServiceBase {
   }: {
     connectId: string;
   }): Promise<IDetectActiveAccountFirmwareUpdatesResult> {
+    // Network-only prefetch must not depend on a connected device or hold its lock.
+    this.prefetchKnownDeviceFirmware();
     // detect certain account device firmware update, so connectId is required
     if (!connectId) {
       return { status: 'skipped' };
