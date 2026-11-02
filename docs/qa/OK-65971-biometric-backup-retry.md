@@ -7,6 +7,8 @@ investigation uses development branch `x`, commit
 `36b3dc9340e005c34317b2535ea503cf7ac3d620` (`.env.version`: 6.7.0).
 The dependency at that revision is `expo-secure-store@58.0.2`; the older native
 audit in OK-64858 is historical, not device validation for this revision.
+Before PR creation, the branch was synchronized with the new `x` head
+`57a89cf05dcbca68debaaef762adc167c0a4d8f6` (an unrelated native-chart fix).
 
 - `useCloudBackup.doBackup` calls `serviceCloudBackupV2.backup`. After upload,
   download/content/listing verification and account checks, `backup` calls
