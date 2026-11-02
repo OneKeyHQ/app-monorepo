@@ -18,11 +18,13 @@ import type {
   EModalReceiveRoutes,
   IModalReceiveParamList,
 } from '@onekeyhq/shared/src/routes';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useAccountData } from '../../../hooks/useAccountData';
 import useAppNavigation from '../../../hooks/useAppNavigation';
+import { useLightningSparkSession } from '../../../hooks/useLightningSparkSession';
 import { ReceiveCard, ReceiveCardCell } from '../components/ReceiveCard';
 import { ReceiveTestIDs } from '../testIDs';
 
@@ -36,6 +38,8 @@ function ReceiveInvoice() {
     >();
 
   const { networkId, accountId, paymentRequest, paymentHash } = route.params;
+  // The invoice is paid to the connected SDK, so it must stay connected here.
+  useLightningSparkSession({ accountId, networkId });
   const { account, network } = useAccountData({
     accountId,
     networkId,
@@ -46,17 +50,31 @@ function ReceiveInvoice() {
   const timerRef = useRef<ReturnType<typeof setInterval>>(undefined);
   useEffect(() => {
     if (!paymentHash || !networkId || !accountId) return;
-    const { serviceLightning } = backgroundApiProxy;
-    timerRef.current = setInterval(
-      () => {
-        serviceLightning
-          .fetchSpecialInvoice({
+    const { serviceLightning, serviceLightningSpark } = backgroundApiProxy;
+    const fetchIsPaid = async () => {
+      // Lightning on Spark is checked against the wallet's own SDK; the
+      // custodial invoice status comes from the OneKey Lightning server.
+      if (networkUtils.isLightningSparkNetworkByNetworkId(networkId)) {
+        const { isPaid } =
+          await serviceLightningSpark.fetchInvoicePaymentStatus({
             paymentHash,
             accountId,
             networkId,
-          })
-          .then((res) => {
-            if (res.is_paid) {
+          });
+        return isPaid;
+      }
+      const invoice = await serviceLightning.fetchSpecialInvoice({
+        paymentHash,
+        accountId,
+        networkId,
+      });
+      return invoice.is_paid;
+    };
+    timerRef.current = setInterval(
+      () => {
+        fetchIsPaid()
+          .then((isPaid) => {
+            if (isPaid) {
               Toast.success({
                 title: intl.formatMessage({
                   id: ETranslations.ln_payment_received_label,

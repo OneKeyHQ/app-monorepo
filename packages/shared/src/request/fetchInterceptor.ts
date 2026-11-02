@@ -13,16 +13,25 @@ import { HEADER_REQUEST_ID_KEY, getRequestHeaders } from './Interceptor';
 import { AVAILABILITY_COUNTED_FETCH_OPTION } from './requestConst';
 import requestHelper from './requestHelper';
 
-// Event streams never end on their own; their owner counts them.
-function isEventStream(options: RequestInit) {
+function getRequestHeader(options: RequestInit, name: string) {
   const headers = options.headers as
-    | { get?: (name: string) => string | null; [key: string]: unknown }
+    | { get?: (key: string) => string | null; [key: string]: unknown }
     | undefined;
-  const accept =
+  const value =
     typeof headers?.get === 'function'
-      ? headers.get('accept')
-      : (headers?.Accept ?? headers?.accept);
-  return String(accept ?? '').includes('text/event-stream');
+      ? headers.get(name)
+      : (headers?.[name] ??
+        headers?.[name.replace(/(^|-)[a-z]/g, (s) => s.toUpperCase())]);
+  return String(value ?? '');
+}
+
+// Event streams never end on their own, and a gRPC-web call may be a server
+// stream; their owner counts them.
+function isStreamingRequest(options: RequestInit) {
+  return (
+    getRequestHeader(options, 'accept').includes('text/event-stream') ||
+    getRequestHeader(options, 'content-type').includes('application/grpc-web')
+  );
 }
 
 // Resolves when the body has arrived, so fetch outcomes are timed like axios.
@@ -117,7 +126,7 @@ const newFetch = async function (
 
   const availabilityTiming =
     (options as Record<string, unknown>)[AVAILABILITY_COUNTED_FETCH_OPTION] ||
-    isEventStream(options)
+    isStreamingRequest(options)
       ? undefined
       : createApiAvailabilityTiming({ url });
   // A Request carries its own signal, which `options.signal` overrides when
@@ -145,24 +154,30 @@ const newFetch = async function (
             requestId,
           });
         }
-        const response = res.clone();
         if (res.status >= 400) {
           // The outcome is known; callers may drop error bodies unread.
           reportApiAvailabilityResponse({
             timing: availabilityTiming,
             httpStatus: res.status,
           });
-        } else if (availabilityTiming) {
-          void whenBodyEnds(res).then(
-            () =>
-              reportApiAvailabilityResponse({
-                timing: availabilityTiming,
-                httpStatus: res.status,
-              }),
-            (e: unknown) =>
-              reportApiAvailabilityError(availabilityTiming, e, abortSignal),
-          );
+          return res;
         }
+        if (!availabilityTiming) {
+          return res;
+        }
+        // The caller reads a clone while the original is drained to time the
+        // body. Cloning only here keeps an unread copy off long streams, and
+        // lets the caller's cancel close them.
+        const response = res.clone();
+        void whenBodyEnds(res).then(
+          () =>
+            reportApiAvailabilityResponse({
+              timing: availabilityTiming,
+              httpStatus: res.status,
+            }),
+          (e: unknown) =>
+            reportApiAvailabilityError(availabilityTiming, e, abortSignal),
+        );
         return response;
       })
       .catch((e: unknown) => {

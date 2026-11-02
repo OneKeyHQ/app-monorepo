@@ -6079,7 +6079,7 @@ class ServiceAccount extends ServiceBase {
       return { address: ALL_NETWORK_ACCOUNT_MOCK_ADDRESS, account };
     }
 
-    if (networkUtils.isLightningNetworkByNetworkId(networkId)) {
+    if (networkUtils.isAnyLightningNetworkByNetworkId(networkId)) {
       return { address: account.addressDetail.normalizedAddress, account };
     }
     return { address: account.address, account };

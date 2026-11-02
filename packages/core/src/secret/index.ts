@@ -61,8 +61,10 @@ import type {
 export * from './bip32';
 export * from './bip340';
 export * from './bip39';
+export * from './bip85';
 export * from './botWallet';
 export * from './curves';
+export * from './lightningSpark';
 export * from './encryptors/aes256';
 
 export * from '@onekeyhq/shared/src/appCrypto/modules/hash';

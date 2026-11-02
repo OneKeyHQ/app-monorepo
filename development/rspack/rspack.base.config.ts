@@ -140,6 +140,10 @@ const CANVASKIT_WASM_TEST =
   /canvaskit-wasm[\\/]bin[\\/](full[\\/])?canvaskit\.wasm$/;
 const ZXING_READER_WASM_TEST =
   /zxing-wasm[\\/]dist[\\/]reader[\\/]zxing_reader\.wasm$/;
+const BREEZ_SDK_SPARK_WASM_TEST =
+  /breez-sdk-spark[\\/]web[\\/]breez_sdk_spark_wasm_bg\.wasm$/;
+const BREEZ_SDK_SPARK_GLUE_TEST =
+  /breez-sdk-spark[\\/]web[\\/]breez_sdk_spark_wasm\.js$/;
 const ICON_MODULE_TEST =
   /[\\/]packages[\\/]components[\\/]src[\\/]primitives[\\/]Icon[\\/]react[\\/]/;
 
@@ -524,9 +528,22 @@ export function createBaseConfig({
           type: 'asset/resource',
           generator: { filename: 'static/zxing/[name].[contenthash:8][ext]' },
         },
+        // cspell:ignore breez
+        // Breez SDK Spark's web entry fetches this wasm through
+        // `new URL(..., import.meta.url)` and instantiates it itself, so it
+        // must be emitted as a URL asset, not parsed as an async wasm module.
+        {
+          test: BREEZ_SDK_SPARK_WASM_TEST,
+          type: 'asset/resource',
+          generator: { filename: 'static/breez/[name].[contenthash:8][ext]' },
+        },
         {
           test: /\.wasm$/,
-          exclude: [CANVASKIT_WASM_TEST, ZXING_READER_WASM_TEST],
+          exclude: [
+            CANVASKIT_WASM_TEST,
+            ZXING_READER_WASM_TEST,
+            BREEZ_SDK_SPARK_WASM_TEST,
+          ],
           type: 'webassembly/async',
         },
         {
@@ -840,6 +857,17 @@ export function createBaseConfig({
               },
             ]
           : []),
+        // Sends every Breez SDK Spark request through the OneKey proxy.
+        {
+          test: BREEZ_SDK_SPARK_GLUE_TEST,
+          loader: path.resolve(
+            __dirname,
+            'loaders/breezSdkSparkNetworkLoader.js',
+          ),
+          // The glue is in a "type": "module" package; let the injected
+          // import resolve without a file extension.
+          resolve: { fullySpecified: false },
+        },
         {
           test: /\.(css)$/,
           use: buildCssLoaders(platform),

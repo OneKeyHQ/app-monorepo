@@ -45,6 +45,7 @@ import {
   canDeriveTypesCollapse,
   useDeriveTypesCollapseState,
 } from '@onekeyhq/kit/src/hooks/useDeriveTypesCollapseState';
+import { useLightningSparkSession } from '@onekeyhq/kit/src/hooks/useLightningSparkSession';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { openTokenDetailsUrl } from '@onekeyhq/kit/src/utils/explorerUtils';
 import type {
@@ -143,6 +144,7 @@ function TokenDetailsView() {
     aggregateTokens: aggregateTokensParam,
     accountAddress,
   } = route.params;
+  useLightningSparkSession({ accountId, networkId });
 
   const { gtMd } = useMedia();
 

@@ -514,7 +514,7 @@ function TokenDetailsHeaderContent({
 
   const { hideAccountAddress } = useDisplayAccountAddress({ networkId });
   const shouldShowAddressBlock = useMemo(() => {
-    if (networkUtils.isLightningNetworkByNetworkId(networkId)) return false;
+    if (networkUtils.isAnyLightningNetworkByNetworkId(networkId)) return false;
 
     if (wallet?.type === WALLET_TYPE_HD && !wallet?.backuped) return false;
 

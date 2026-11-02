@@ -38,6 +38,7 @@ export enum EScopeName {
   prime = 'prime',
   cloudSync = 'cloudSync',
   ipTable = 'ipTable',
+  lightning = 'lightning',
   networkDoctor = 'networkDoctor',
   staking = 'staking',
   update = 'update',

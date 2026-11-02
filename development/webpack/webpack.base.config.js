@@ -22,6 +22,10 @@ const CANVASKIT_WASM_TEST =
   /canvaskit-wasm[\\/]bin[\\/](full[\\/])?canvaskit\.wasm$/;
 const ZXING_READER_WASM_TEST =
   /zxing-wasm[\\/]dist[\\/]reader[\\/]zxing_reader\.wasm$/;
+const BREEZ_SDK_SPARK_WASM_TEST =
+  /breez-sdk-spark[\\/]web[\\/]breez_sdk_spark_wasm_bg\.wasm$/;
+const BREEZ_SDK_SPARK_GLUE_TEST =
+  /breez-sdk-spark[\\/]web[\\/]breez_sdk_spark_wasm\.js$/;
 
 class BuildDoneNotifyPlugin {
   apply(compiler) {
@@ -308,9 +312,23 @@ module.exports = ({ platform, basePath, configName }) => {
                 filename: 'static/zxing/[name].[contenthash:8][ext]',
               },
             },
+            // cspell:ignore breez
+            // Breez SDK Spark wasm, fetched by its web entry; mirrors the
+            // rule in rspack.base.config.ts.
+            {
+              test: BREEZ_SDK_SPARK_WASM_TEST,
+              type: 'asset/resource',
+              generator: {
+                filename: 'static/breez/[name].[contenthash:8][ext]',
+              },
+            },
             {
               test: /\.wasm$/,
-              exclude: [CANVASKIT_WASM_TEST, ZXING_READER_WASM_TEST],
+              exclude: [
+                CANVASKIT_WASM_TEST,
+                ZXING_READER_WASM_TEST,
+                BREEZ_SDK_SPARK_WASM_TEST,
+              ],
               type: 'webassembly/async',
             },
             {
@@ -415,6 +433,15 @@ module.exports = ({ platform, basePath, configName }) => {
         {
           test: /@polkadot/,
           loader: require.resolve('@open-wc/webpack-import-meta-loader'),
+        },
+        // Mirrors the Breez SDK Spark network rule in rspack.base.config.ts.
+        {
+          test: BREEZ_SDK_SPARK_GLUE_TEST,
+          loader: path.resolve(
+            __dirname,
+            '../rspack/loaders/breezSdkSparkNetworkLoader.js',
+          ),
+          resolve: { fullySpecified: false },
         },
         {
           test: /\.mjs$/,

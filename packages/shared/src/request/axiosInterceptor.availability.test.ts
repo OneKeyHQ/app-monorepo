@@ -151,6 +151,25 @@ describe('API availability counting in request interceptors', () => {
     ]);
   });
 
+  it('leaves gRPC-web calls to their owner and hands back the response unread', async () => {
+    const upstream = new Response(new Uint8Array([0, 0, 0, 0, 0]), {
+      headers: { 'content-type': 'application/grpc-web+proto' },
+    });
+    stubFetch.mockImplementation(async () => upstream);
+
+    const response = await globalThis.fetch(WALLET_URL, {
+      method: 'POST',
+      headers: { 'content-type': 'application/grpc-web+proto' },
+    });
+    await new Promise((resolve) => setImmediate(resolve));
+
+    // A clone would keep an unread copy of a server stream and outlive the
+    // caller's cancel.
+    expect(response).toBe(upstream);
+    expect(response.bodyUsed).toBe(false);
+    expect(apiOutcomes()).toEqual([]);
+  });
+
   it('counts a timeout carried by a Request as a timeout, not a cancellation', async () => {
     // The signal lives on the Request, not in the options.
     const controller = new AbortController();

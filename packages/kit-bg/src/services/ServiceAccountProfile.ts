@@ -269,7 +269,9 @@ class ServiceAccountProfile extends ServiceBase {
       await this.backgroundApi.serviceNetwork.isCustomNetwork({
         networkId,
       });
-    if (isCustomNetwork) {
+    const { addressBadgeDisabled } =
+      await this.backgroundApi.serviceNetwork.getVaultSettings({ networkId });
+    if (isCustomNetwork || addressBadgeDisabled) {
       return emptyAccountBadgeResult();
     }
     const client = await this.getClient(EServiceEndpointEnum.Wallet);
