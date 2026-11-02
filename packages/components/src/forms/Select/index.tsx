@@ -450,6 +450,7 @@ function SelectContent() {
       keepChildrenMounted={!platformEnv.isNative}
       mountNativePortalBeforeOpen
       sheetProps={mergedSheetProps}
+      sheetContentScrollable={!searchable || Boolean(sections)}
       floatingPanelProps={mergedFloatingPanelProps}
       placement={placement}
       renderTrigger={popoverTrigger}

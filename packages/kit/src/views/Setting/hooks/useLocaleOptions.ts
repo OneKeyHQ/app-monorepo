@@ -14,6 +14,13 @@ import { isKnownTranslationKey } from '@onekeyhq/shared/src/locale/translationKe
 
 const SKIPPED_LANGUAGE_SEARCH_VALUES = new Set(['system', 'en-US']);
 
+type ILocaleOption = {
+  label: string;
+  value: string;
+  description?: string;
+  searchKeywords?: string[];
+};
+
 function getTranslatedLocaleName(
   translate: (descriptor: {
     id: ETranslations;
@@ -36,7 +43,7 @@ function getTranslatedLocaleName(
 
 export function useLocaleOptions() {
   const intl = useIntl();
-  const localeOptions = useMemo(() => {
+  const localeOptions = useMemo<ILocaleOption[]>(() => {
     const currentLocale = normalizeSelectableLocale(intl.locale);
     const translate = (descriptor: {
       id: ETranslations;
@@ -72,7 +79,10 @@ export function useLanguageSearchKeywords() {
         for (const keyword of option.searchKeywords ?? []) {
           // Locale codes (`id`, `pt`) belong to the picker, not Settings
           // search, where a two-letter query should not surface Language.
-          if (keyword !== option.value) {
+          if (
+            keyword !== option.value &&
+            !SKIPPED_LANGUAGE_SEARCH_VALUES.has(keyword)
+          ) {
             keywords.add(keyword);
           }
         }

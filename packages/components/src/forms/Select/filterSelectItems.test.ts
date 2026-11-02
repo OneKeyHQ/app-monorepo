@@ -3,7 +3,11 @@ import { filterSelectItems } from './filterSelectItems';
 import type { ISelectItem } from './type';
 
 const ITEMS: ISelectItem[] = [
-  { label: 'English', value: 'en', searchKeywords: ['English', 'en'] },
+  {
+    label: 'English',
+    value: 'en',
+    searchKeywords: ['English', 'en', 'en-US'],
+  },
   {
     label: '日本語',
     value: 'ja-JP',
@@ -40,5 +44,31 @@ describe('filterSelectItems', () => {
       filterSelectItems(ITEMS, 'portugues').map((item) => item.value),
     ).toEqual(['pt-BR']);
     expect(filterSelectItems(ITEMS, 'zzz')).toEqual([]);
+  });
+
+  it('accepts locale separators, case, and the deprecated English alias', () => {
+    expect(
+      filterSelectItems(ITEMS, ' PT_br ').map((item) => item.value),
+    ).toEqual(['pt-BR']);
+    expect(filterSelectItems(ITEMS, 'JA_jp').map((item) => item.value)).toEqual(
+      ['ja-JP'],
+    );
+    expect(filterSelectItems(ITEMS, 'en_US').map((item) => item.value)).toEqual(
+      ['en'],
+    );
+  });
+
+  it('puts exact matches first while preserving partial matches and input order', () => {
+    const items: ISelectItem[] = [
+      { label: 'French', value: 'fr-FR' },
+      ITEMS[0],
+      { label: 'Bengali', value: 'bn' },
+    ];
+    expect(filterSelectItems(items, 'en').map((item) => item.value)).toEqual([
+      'en',
+      'fr-FR',
+      'bn',
+    ]);
+    expect(items.map((item) => item.value)).toEqual(['fr-FR', 'en', 'bn']);
   });
 });

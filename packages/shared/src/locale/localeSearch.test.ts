@@ -7,11 +7,13 @@ import {
   normalizeSearchText,
   resolveLocaleDescription,
 } from './localeSearch';
+import { isKnownTranslationKey } from './translationKeys';
 
 describe('normalizeSearchText', () => {
   it('folds case, accents, and surrounding whitespace', () => {
     expect(normalizeSearchText('  Português ')).toBe('portugues');
     expect(normalizeSearchText('JA')).toBe('ja');
+    expect(normalizeSearchText(' ZH_cn ')).toBe('zh-cn');
   });
 
   it('treats a blank query as empty', () => {
@@ -129,16 +131,16 @@ describe('buildLocaleSelectOption', () => {
       translatedName: '英语',
     });
     expect(option.description).toBeUndefined();
-    expect(option.searchKeywords).toEqual(['English', 'en', '英语']);
+    expect(option.searchKeywords).toEqual(['English', 'en', 'en-US', '英语']);
   });
 });
 
 describe('LOCALE_DISPLAY_NAME_MESSAGE_IDS', () => {
-  it('has a message id for every shipped locale', () => {
+  it('has a generated message id for every shipped locale', () => {
     for (const locale of LOCALE_KEYS) {
-      expect(LOCALE_DISPLAY_NAME_MESSAGE_IDS[locale]).toEqual(
-        expect.any(String),
-      );
+      expect(
+        isKnownTranslationKey(LOCALE_DISPLAY_NAME_MESSAGE_IDS[locale]),
+      ).toBe(true);
     }
   });
 });

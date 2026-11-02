@@ -1,8 +1,9 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useOverlayWidthClass } from '../../hooks/useOverlayWidthClass';
 import { ListView, SearchBar } from '../../layouts';
@@ -11,17 +12,28 @@ import { SizableText, Stack } from '../../primitives';
 import { filterSelectItems } from './filterSelectItems';
 
 import type { ISelectItem } from './type';
+import type { IListViewRef } from '../../layouts/ListView';
 import type { ListRenderItem } from 'react-native';
 
 export const SELECT_SEARCHABLE_PANEL_HEIGHT = 360;
+
+const DISABLED_SCROLL_POSITION_MAINTENANCE = {
+  disabled: true,
+  minIndexForVisible: 0,
+};
 
 const SEARCHABLE_LIST_MD_STYLE = {
   p: '$3' as const,
   minHeight: '$7' as const,
 };
 
-function selectItemKeyExtractor(item: ISelectItem, index: number) {
-  return `${String(item.value)}-${item.label}-${index}`;
+const SEARCHABLE_SHEET_LIST_MD_STYLE = {
+  ...SEARCHABLE_LIST_MD_STYLE,
+  pt: '$0' as const,
+};
+
+function selectItemKeyExtractor(item: ISelectItem) {
+  return `${typeof item.value}-${String(item.value)}-${item.label}`;
 }
 
 function useSelectSearch(items: ISelectItem[] | undefined) {
@@ -37,19 +49,19 @@ function useSelectSearch(items: ISelectItem[] | undefined) {
 }
 
 function SelectSearchField({
-  autoFocus,
+  isSheet,
   onQueryChange,
   placeholder,
 }: {
-  autoFocus: boolean;
+  isSheet: boolean;
   onQueryChange: (text: string) => void;
   placeholder?: string;
 }) {
   return (
-    <Stack px="$2" pt="$2" pb="$1.5">
+    <Stack px="$2" pt={isSheet ? '$0' : '$2'} pb="$1.5">
       <SearchBar
-        autoFocus={autoFocus}
-        size="small"
+        autoFocus={!isSheet}
+        size={isSheet ? 'medium' : 'small'}
         debounceInterval={0}
         onSearchTextChange={onQueryChange}
         testID="select-search"
@@ -89,14 +101,18 @@ export function SelectSearchableList({
   searchPlaceholder?: string;
 }) {
   // Anchored popovers start at the expanded window width, including iPad.
-  // Phone and medium windows stay sheets, so the field scrolls with the list.
+  // Phone and medium windows use the sheet's remaining height.
   const isSheet = useOverlayWidthClass() !== 'expanded';
   const { query, handleQueryChange, filteredItems } = useSelectSearch(items);
+  const listRef = useRef<IListViewRef<ISelectItem> | null>(null);
+  useEffect(() => {
+    listRef.current?.scrollToOffset({ offset: 0, animated: false });
+  }, [query]);
   // Keep the field instance stable so a keystroke does not remount it.
   const searchField = useMemo(
     () => (
       <SelectSearchField
-        autoFocus={!isSheet}
+        isSheet={isSheet}
         onQueryChange={handleQueryChange}
         placeholder={searchPlaceholder}
       />
@@ -109,24 +125,32 @@ export function SelectSearchableList({
   );
   const list = (
     <ListView
+      ref={listRef}
       data={filteredItems}
       renderItem={renderItem}
       extraData={extraData}
       keyExtractor={selectItemKeyExtractor}
       keyboardShouldPersistTaps="handled"
-      ListHeaderComponent={isSheet ? searchField : undefined}
+      // FlashList otherwise anchors retained rows at their pre-filter position.
+      maintainVisibleContentPosition={
+        platformEnv.isNative ? DISABLED_SCROLL_POSITION_MAINTENANCE : undefined
+      }
       ListEmptyComponent={emptyState}
       p="$1"
-      $md={SEARCHABLE_LIST_MD_STYLE}
-      flex={isSheet ? undefined : 1}
+      $md={isSheet ? SEARCHABLE_SHEET_LIST_MD_STYLE : SEARCHABLE_LIST_MD_STYLE}
+      flex={1}
     />
   );
-  if (isSheet) {
-    return list;
-  }
   return (
-    <Stack height={SELECT_SEARCHABLE_PANEL_HEIGHT} overflow="hidden">
-      {searchField}
+    <Stack
+      flex={isSheet ? 1 : undefined}
+      height={isSheet ? undefined : SELECT_SEARCHABLE_PANEL_HEIGHT}
+      minHeight={0}
+      overflow="hidden"
+    >
+      <Stack px={isSheet ? '$3' : '$0'} flexShrink={0}>
+        {searchField}
+      </Stack>
       <Stack flex={1} minHeight={0}>
         {list}
       </Stack>

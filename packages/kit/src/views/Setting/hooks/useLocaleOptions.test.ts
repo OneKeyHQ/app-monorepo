@@ -11,8 +11,8 @@ import {
 
 const messages: Record<string, string> = {
   'global.auto': 'Auto',
-  'global.language_name_ja_jp': '日语',
-  'global.language_name_zh_cn': '简体中文',
+  'language_name_ja_jp__desc': '日语',
+  'language_name_zh_cn__desc': '简体中文',
 };
 
 jest.mock('react-intl', () => ({
@@ -30,8 +30,7 @@ jest.mock('react-intl', () => ({
 
 jest.mock('@onekeyhq/shared/src/locale/translationKeys', () => ({
   isKnownTranslationKey: (key: string) =>
-    key === 'global.language_name_ja_jp' ||
-    key === 'global.language_name_zh_cn',
+    key === 'language_name_ja_jp__desc' || key === 'language_name_zh_cn__desc',
 }));
 
 describe('useLocaleOptions', () => {
