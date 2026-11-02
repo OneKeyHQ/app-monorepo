@@ -110,24 +110,26 @@ export function PerpFooterActions() {
           })}
         </SizableText>
       </XStack>
-      <ActionList
-        title={intl.formatMessage({ id: ETranslations.global_more })}
-        renderTrigger={menuTrigger}
-        sections={[
-          {
-            items: links.map((item) => ({
-              label: intl.formatMessage({ id: item.translationKey }),
-              onPress: () => {
-                if (item.onPress) {
-                  item.onPress();
-                } else if (item.href) {
-                  openUrlExternal(item.href);
-                }
-              },
-            })),
-          },
-        ]}
-      />
+      {platformEnv.isDesktop ? null : (
+        <ActionList
+          title={intl.formatMessage({ id: ETranslations.global_more })}
+          renderTrigger={menuTrigger}
+          sections={[
+            {
+              items: links.map((item) => ({
+                label: intl.formatMessage({ id: item.translationKey }),
+                onPress: () => {
+                  if (item.onPress) {
+                    item.onPress();
+                  } else if (item.href) {
+                    openUrlExternal(item.href);
+                  }
+                },
+              })),
+            },
+          ]}
+        />
+      )}
     </XStack>
   );
 }
@@ -161,7 +163,7 @@ export function Footer() {
     <XStack
       width="100%"
       pl="$2"
-      pr="$6"
+      pr={platformEnv.isDesktop && isInPerpRoute ? '$3' : '$6'}
       py="$2"
       borderTopWidth={1}
       borderTopColor="$borderSubdued"

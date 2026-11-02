@@ -20,7 +20,7 @@ export function PerpContentFooter() {
           h={40}
           alignItems="center"
           pl="$2"
-          pr="$6"
+          pr={platformEnv.isDesktop ? '$3' : '$6'}
           gap="$2"
         >
           <XStack alignItems="center" gap="$2" flexShrink={0}>
