@@ -21,6 +21,7 @@ import { useNavigateToHardwareSalesReward } from '@onekeyhq/kit/src/views/ReferF
 import { useNavigateToPerpsReward } from '@onekeyhq/kit/src/views/ReferFriends/pages/PerpsReward/hooks/useNavigateToPerpsReward';
 import { useNavigateToSwapReward } from '@onekeyhq/kit/src/views/ReferFriends/pages/SwapReward/hooks/useNavigateToSwapReward';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IInviteSummary } from '@onekeyhq/shared/src/referralCode/type';
 
 import { ReferralCardEmpty } from '../../../components/ReferralCardEmpty';
@@ -73,8 +74,17 @@ function RewardScopeInfo({
   content: string;
 }) {
   return (
-    <Stack onPress={stopPropagation} flexShrink={0}>
-      <InfoIcon size="$4" tooltip={{ title, content }} />
+    <Stack
+      onPress={stopPropagation}
+      flexShrink={0}
+      m={platformEnv.isNative ? '$-3' : undefined}
+    >
+      <InfoIcon
+        size="$4"
+        color="$iconSubdued"
+        triggerPadding={platformEnv.isNative ? '$3' : undefined}
+        tooltip={{ title, content }}
+      />
     </Stack>
   );
 }
@@ -171,7 +181,15 @@ function RewardListRow({
       title={title}
       renderItemText={
         scopeDescription ? (
-          <XStack flex={1} ai="center" gap="$1" minWidth={0}>
+          <XStack
+            flex={1}
+            ai="center"
+            gap="$1"
+            minWidth={0}
+            // Keep the full native trigger inside its parent's touch bounds.
+            minHeight={platformEnv.isNative ? '$10' : undefined}
+            my={platformEnv.isNative ? '$-2' : undefined}
+          >
             <SizableText
               {...COMPACT_ENTRY_TITLE_PROPS}
               flexShrink={1}
