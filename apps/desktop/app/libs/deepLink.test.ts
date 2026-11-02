@@ -373,15 +373,23 @@ describe('desktop deep link arguments', () => {
         // eslint-disable-next-line no-template-curly-in-string
         'WriteRegStr SHELL_CONTEXT "Software\\Classes\\${SCHEME}\\shell\\open\\command" "" \'"$appExe" "--" "%1"\'',
       );
+      expect(content).toContain(
+        'DeleteRegKey SHELL_CONTEXT "Software\\Classes\\onekey-wallet"',
+      );
+      expect(content).toContain(
+        'DeleteRegKey HKCU "Software\\Classes\\onekey-wallet"',
+      );
       for (const scheme of DESKTOP_DEEP_LINK_PROTOCOLS) {
         expect(content).toContain(
           `!insertmacro OneKeyRegisterProtocolScheme "${scheme}"`,
         );
+      }
+      for (const sharedScheme of ['wc', 'ethereum']) {
         expect(content).toContain(
-          `DeleteRegKey SHELL_CONTEXT "Software\\Classes\\${scheme}"`,
+          `!insertmacro OneKeyUnregisterSharedProtocolIfOwned SHELL_CONTEXT "${sharedScheme}"`,
         );
         expect(content).toContain(
-          `DeleteRegKey HKCU "Software\\Classes\\${scheme}"`,
+          `!insertmacro OneKeyUnregisterSharedProtocolIfOwned HKCU "${sharedScheme}"`,
         );
       }
     }

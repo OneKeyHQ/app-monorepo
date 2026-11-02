@@ -1,8 +1,21 @@
 !define ONEKEY_APP_USER_MODEL_ID "OneKey Wallet"
 !define ONEKEY_NOTIFICATION_IDENTITY_REGISTRY_KEY "Software\Classes\AppUserModelId\${ONEKEY_APP_USER_MODEL_ID}"
 
+!macro OneKeyUnregisterSharedProtocolIfOwned ROOT_KEY SCHEME
+  ReadRegStr $R9 ${ROOT_KEY} "Software\Classes\${SCHEME}\shell\open\command" ""
+  ${If} $R9 == '"$INSTDIR\${APP_EXECUTABLE_FILENAME}" "--" "%1"'
+  ${OrIf} $R9 == '"$INSTDIR\${APP_EXECUTABLE_FILENAME}" "%1"'
+    DeleteRegKey ${ROOT_KEY} "Software\Classes\${SCHEME}"
+  ${EndIf}
+  ClearErrors
+!macroend
+
 !macro OneKeyRegisterProtocolScheme SCHEME DESCRIPTION
-  DeleteRegKey HKCU "Software\Classes\${SCHEME}"
+  ${If} "${SCHEME}" == "onekey-wallet"
+    DeleteRegKey HKCU "Software\Classes\${SCHEME}"
+  ${Else}
+    !insertmacro OneKeyUnregisterSharedProtocolIfOwned HKCU "${SCHEME}"
+  ${EndIf}
   WriteRegStr SHELL_CONTEXT "Software\Classes\${SCHEME}" "" "${DESCRIPTION}"
   WriteRegStr SHELL_CONTEXT "Software\Classes\${SCHEME}" "URL Protocol" ""
   WriteRegStr SHELL_CONTEXT "Software\Classes\${SCHEME}\DefaultIcon" "" "$appExe,0"
@@ -13,10 +26,10 @@
 !macro OneKeyUnregisterProtocolSchemes
   DeleteRegKey SHELL_CONTEXT "Software\Classes\onekey-wallet"
   DeleteRegKey HKCU "Software\Classes\onekey-wallet"
-  DeleteRegKey SHELL_CONTEXT "Software\Classes\wc"
-  DeleteRegKey HKCU "Software\Classes\wc"
-  DeleteRegKey SHELL_CONTEXT "Software\Classes\ethereum"
-  DeleteRegKey HKCU "Software\Classes\ethereum"
+  !insertmacro OneKeyUnregisterSharedProtocolIfOwned SHELL_CONTEXT "wc"
+  !insertmacro OneKeyUnregisterSharedProtocolIfOwned HKCU "wc"
+  !insertmacro OneKeyUnregisterSharedProtocolIfOwned SHELL_CONTEXT "ethereum"
+  !insertmacro OneKeyUnregisterSharedProtocolIfOwned HKCU "ethereum"
   ClearErrors
 !macroend
 

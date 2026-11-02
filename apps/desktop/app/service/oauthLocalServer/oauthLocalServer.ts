@@ -50,24 +50,6 @@ function isChromiumBasedBrowser(appName: string): boolean {
   );
 }
 
-function getChromiumBinForWindows(appName: string): string | null {
-  const n = (appName || '').toLowerCase();
-  if (n.includes('edge')) {
-    return 'msedge';
-  }
-  if (n.includes('brave')) {
-    return 'brave';
-  }
-  if (n.includes('vivaldi')) {
-    return 'vivaldi';
-  }
-  // Default to chrome if the handler looks like Chrome/Chromium.
-  if (n.includes('chrome') || n.includes('chromium')) {
-    return 'chrome';
-  }
-  return null;
-}
-
 function getChromiumBinsForLinux(appName: string): string[] {
   const n = (appName || '').toLowerCase();
   if (n.includes('brave')) {
@@ -122,22 +104,9 @@ function tryOpenChromeAppWindow(url: string): boolean {
     }
 
     if (process.platform === 'win32') {
-      // Windows: best-effort. Only attempt known Chromium executable names. Fallback to default browser.
-      const bin = getChromiumBinForWindows(handlerName);
-      if (!bin) {
-        return false;
-      }
-      const child = spawn(
-        'cmd.exe',
-        ['/c', 'start', '""', bin, ...commonArgs],
-        {
-          detached: true,
-          stdio: 'ignore',
-          windowsHide: true,
-        },
-      );
-      child.unref();
-      return true;
+      // Never spawn `cmd.exe /c start` with unquoted URLs on Windows because
+      // `cmd.exe` interprets `&` in OAuth query strings as a shell command separator.
+      return false;
     }
 
     // Linux: try common executable names
