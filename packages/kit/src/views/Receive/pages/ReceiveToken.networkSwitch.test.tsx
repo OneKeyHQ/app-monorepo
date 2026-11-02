@@ -222,7 +222,7 @@ jest.mock('@onekeyhq/components', () => {
   }: {
     children?: ReactNode;
     onConfirm?: () => void;
-    confirmButtonProps?: { testID?: string };
+    confirmButtonProps?: { testID?: string; disabled?: boolean };
   }) =>
     React.createElement(
       'div',
@@ -230,6 +230,7 @@ jest.mock('@onekeyhq/components', () => {
       onConfirm
         ? React.createElement('button', {
             'data-testid': confirmButtonProps?.testID,
+            disabled: confirmButtonProps?.disabled,
             onClick: onConfirm,
           })
         : null,
@@ -904,6 +905,26 @@ describe('ReceiveToken network switch', () => {
     },
   );
 
+  // Not scanning: no private address is handed out, so there is nothing to
+  // verify until privacy is on.
+  it('disables verifying the private form while privacy is off', async () => {
+    mockRouteParams = {
+      ...zcashHardwareParams,
+      localWalletAddressForm: 'private',
+    };
+    mockGetLocalWalletAccountAddresses.mockResolvedValue({});
+    const { getByTestId } = render(<ReceiveToken />);
+    await waitFor(() =>
+      expect(getByTestId('receive-open-privacy-settings')).toBeTruthy(),
+    );
+    const button = getByTestId(
+      'receive-verify-on-device-button',
+    ) as HTMLButtonElement;
+    expect(button.disabled).toBe(true);
+    fireEvent.click(button);
+    expect(mockVerifyHWAccountAddresses).not.toHaveBeenCalled();
+  });
+
   it.each([
     ['a public tab', 'public'],
     ['an entry without a form', undefined],
@@ -937,6 +958,9 @@ describe('ReceiveToken network switch', () => {
     };
     mockVerifyHWAccountAddresses.mockResolvedValueOnce(['u1Private']);
     const { getByTestId, queryByTestId } = render(<ReceiveToken />);
+    // Settled first: a verification the page's late account path resets
+    // would never show the address.
+    await expectAddressForm(getByTestId, 'private');
     await pressVerifyOnDevice(getByTestId);
     await waitFor(() =>
       expect(getByTestId('qr-value').textContent).toBe('u1Private'),

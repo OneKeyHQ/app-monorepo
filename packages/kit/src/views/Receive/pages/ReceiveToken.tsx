@@ -1557,6 +1557,9 @@ function ReceiveToken() {
   }, [intl]);
 
   const renderVerifyFooter = useCallback(() => {
+    // No address yet (a private form that is loading, not scanning or failed):
+    // nothing to verify or show.
+    const isNothingToVerify = !displayAddress;
     if (platformEnv.isNative) {
       return (
         <Page.Footer safeAreaBottomMode="content">
@@ -1566,6 +1569,7 @@ function ReceiveToken() {
               variant="primary"
               size="large"
               loading={isVerifying}
+              disabled={isNothingToVerify}
               onPress={handleVerifyOnDevicePressDebounced}
             >
               {intl.formatMessage({
@@ -1575,6 +1579,7 @@ function ReceiveToken() {
             <Button
               testID={ReceiveTestIDs.SkipVerifyButton}
               size="large"
+              disabled={isNothingToVerify}
               onPress={handleSkipVerifyPress}
             >
               {intl.formatMessage({
@@ -1595,6 +1600,7 @@ function ReceiveToken() {
         confirmButtonProps={{
           variant: 'primary',
           loading: isVerifying,
+          disabled: isNothingToVerify,
           testID: ReceiveTestIDs.VerifyOnDeviceButton,
         }}
         // keep one declared param: FooterCancelButton auto-closes the page
@@ -1604,12 +1610,14 @@ function ReceiveToken() {
           id: ETranslations.no_device_with_me__action,
         })}
         cancelButtonProps={{
+          disabled: isNothingToVerify,
           testID: ReceiveTestIDs.SkipVerifyButton,
         }}
       />
     );
   }, [
     bottom,
+    displayAddress,
     handleSkipVerifyPress,
     handleVerifyOnDevicePressDebounced,
     intl,
