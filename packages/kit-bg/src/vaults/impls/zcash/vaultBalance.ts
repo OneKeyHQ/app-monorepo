@@ -439,6 +439,34 @@ export async function zcashReadTransparentForDisplay(
   return shown ?? {};
 }
 
+// The fee policy comes from the runtime, which a scan turn holds; a balance on screen never waits for
+// it. The last answer stands in at once; with none yet, Shield stays off until a later read has one.
+const zcashDisplayMinimumFee = new Map<
+  string,
+  { value?: string; pending?: Promise<string | undefined> }
+>();
+
+async function readZcashShieldingThreshold(
+  vault: Vault,
+): Promise<string | undefined> {
+  const entry = zcashDisplayMinimumFee.get(vault.networkId) ?? {};
+  zcashDisplayMinimumFee.set(vault.networkId, entry);
+  const pending = (entry.pending ??= getZcashTransactionPolicy(vault)
+    .then(({ minimumFeeZat }) => {
+      entry.value = minimumFeeZat;
+      return minimumFeeZat;
+    })
+    .catch(() => entry.value)
+    .finally(() => {
+      entry.pending = undefined;
+    }));
+  if (entry.value !== undefined) return entry.value;
+  return Promise.race([
+    pending,
+    timerUtils.wait(LOCAL_WALLET_DISPLAY_WAIT_MS).then(() => entry.value),
+  ]);
+}
+
 export async function getLocalWalletAccountBalance(
   vault: Vault,
   {
@@ -447,7 +475,7 @@ export async function getLocalWalletAccountBalance(
     accountId: string;
   },
 ): Promise<ILocalWalletAccountBalance | null> {
-  const [balance, transparent] = await Promise.all([
+  const [balance, transparent, shieldingThreshold] = await Promise.all([
     // Gate covers the private half only; gating transparent too would hide funds the account can still spend.
     (async () => {
       const state =
@@ -475,6 +503,7 @@ export async function getLocalWalletAccountBalance(
         return {};
       }
     })(),
+    readZcashShieldingThreshold(vault),
   ]);
   const zat = (value: string | undefined) => new BigNumber(value ?? '0');
   const parsed = (value: string | undefined) => zatoshiToZec(value ?? '0');
@@ -493,9 +522,6 @@ export async function getLocalWalletAccountBalance(
   ];
 
   const transparentSpendable = transparent.spendable;
-  const shieldingThreshold = (
-    await getZcashTransactionPolicy(vault).catch(() => undefined)
-  )?.minimumFeeZat;
   const transparentTotal = transparent.total;
   const transparentFrozen =
     transparentTotal && transparentSpendable

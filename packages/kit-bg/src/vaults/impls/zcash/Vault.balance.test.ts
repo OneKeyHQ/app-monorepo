@@ -17,13 +17,15 @@ import Vault from './Vault';
 import { zcashReadTransparentForDisplay } from './vaultBalance';
 
 jest.mock('../../../dbs/local/localDbInstance');
+const feePolicy = {
+  marginalFeeZat: '5000',
+  minimumFeeZat: '10000',
+  expiryHeight: 3_000_040,
+};
+const mockTransactionPolicy = jest.fn(async () => feePolicy);
 jest.mock('./vaultUtils', () => ({
   ...jest.requireActual<typeof import('./vaultUtils')>('./vaultUtils'),
-  getZcashTransactionPolicy: async () => ({
-    marginalFeeZat: '5000',
-    minimumFeeZat: '10000',
-    expiryHeight: 3_000_040,
-  }),
+  getZcashTransactionPolicy: () => mockTransactionPolicy(),
 }));
 
 const pool = (amount: string) => ({
@@ -598,17 +600,18 @@ describe('Zcash transparent balance saved for the next open', () => {
     accountId: string,
     read: jest.Mock,
     seed?: typeof saved,
+    networkId = 'zec--0',
   ) {
     const privacyChainCache = memoryCache();
     if (seed) {
       await privacyChainCache.setLastPublicBalance({
         accountId,
-        record: { networkId: 'zec--0', ...seed, savedAt: 1 },
+        record: { networkId, ...seed, savedAt: 1 },
         isCurrent: async () => true,
       });
     }
     const vault = Object.assign(Object.create(Vault.prototype) as Vault, {
-      networkId: 'zec--0',
+      networkId,
       backgroundApi: {
         simpleDb: {
           privacyChainCache,
@@ -808,6 +811,43 @@ describe('Zcash transparent balance saved for the next open', () => {
       key: 'transparent',
       total: '80',
       spendable: '50',
+    });
+  });
+
+  // A scan holds the runtime the fee policy comes from; the policy only decides Shield.
+  it('shows the balance without waiting for the fee policy', async () => {
+    jest.spyOn(timerUtils, 'wait').mockResolvedValue(undefined);
+    const policy = deferred<typeof feePolicy>();
+    mockTransactionPolicy.mockReturnValueOnce(policy.promise);
+    const { vault } = await createVault(
+      'policy-held',
+      jest.fn().mockResolvedValue({
+        total: new BigNumber(90_000),
+        spendable: new BigNumber(90_000),
+      }),
+      undefined,
+      // A network no other test has read the policy for.
+      'zec--policy-held',
+    );
+    jest.spyOn(vault, 'getLocalWalletBalance').mockResolvedValue(balance);
+
+    const before = await vault.getLocalWalletAccountBalance({
+      accountId: 'policy-held',
+    });
+    expect(before?.pools[0]).toMatchObject({
+      key: 'transparent',
+      total: '90000',
+      move: { type: 'shield', enabled: false },
+    });
+
+    policy.resolve(feePolicy);
+    await flush();
+    const after = await vault.getLocalWalletAccountBalance({
+      accountId: 'policy-held',
+    });
+    expect(after?.pools[0].move).toMatchObject({
+      type: 'shield',
+      enabled: true,
     });
   });
 
