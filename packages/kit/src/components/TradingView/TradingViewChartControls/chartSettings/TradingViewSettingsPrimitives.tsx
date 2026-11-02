@@ -332,7 +332,9 @@ export function SettingsSelect<TValue extends string>({
       testID={`trading-view-settings-select-${testID}`}
       title={title}
       value={value}
-      disabled={disabled}
+      // On Android, explicit false maps to readOnly={false} in the default
+      // trigger Input, overriding its editable={false} and intercepting taps.
+      disabled={platformEnv.isNativeAndroid ? disabled || undefined : disabled}
       onChange={onChange}
       placement="bottom-end"
       floatingPanelProps={
