@@ -723,6 +723,9 @@ function TokenDetailsOverview(props: IProps) {
           key,
           type: 'identity',
           height: tokenDetail ? 60 : 48,
+          // Explicit heights pair with unscaled style metrics, so they must not
+          // take Android's legacy sub-400dp 0.9 row scale (OK-66072).
+          heightRounding: 'nearest',
           leading,
           title: String(token.networkName || token.networkId || ''),
           subtitle: renderPercent(tokenDetail) ?? undefined,
