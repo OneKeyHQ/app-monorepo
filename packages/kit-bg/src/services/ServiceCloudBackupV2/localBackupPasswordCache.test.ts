@@ -270,7 +270,7 @@ describe.each([
     expect(secure.removeSecureItem).toHaveBeenCalledWith(pending.keyRef, {
       keychainService: pending.keyRef,
     });
-    expect(readEntry().keyRef).not.toBe(pending.keyRef);
+    expect(readEntry().keyRef).toBe(pending.keyRef);
     expect(secure.setSecureItemWithBiometrics).toHaveBeenCalledTimes(2);
     expect(secure.getSecureItemWithBiometrics).not.toHaveBeenCalled();
     cache = new LocalBackupPasswordCache();
@@ -278,7 +278,7 @@ describe.each([
     expect(keys.size).toBe(1);
   });
 
-  it('retires a key whose ciphertext commit failed before journaling a fresh retry', async () => {
+  it('retires a key whose ciphertext commit failed before reusing its isolated service', async () => {
     await cache.set({ ...second, password: 'synthetic-second-password' });
     const otherEntry = readEntry(second);
     secure.setSecureItem
@@ -290,12 +290,14 @@ describe.each([
     const pending = readEntry();
     expect(pending.ciphertext).toBeUndefined();
     expect(keys.has(pending.keyRef)).toBe(true);
+    const oldValue = keys.get(pending.keyRef);
     cache = new LocalBackupPasswordCache();
     secure.setSecureItemWithBiometrics.mockImplementationOnce(
       async (key, value) => {
         expect(keys.has(pending.keyRef)).toBe(false);
         expect(readEntry()).toEqual({ keyRef: key });
-        expect(key).not.toBe(pending.keyRef);
+        expect(key).toBe(pending.keyRef);
+        expect(value).not.toBe(oldValue);
         keys.set(key, value);
       },
     );
@@ -325,11 +327,12 @@ describe.each([
     cache = new LocalBackupPasswordCache();
     await cache.set({ ...scope, password: 'verified-manual-password' });
     expect(keys.size).toBe(1);
-    expect(keys.has(oldKeys[0][0])).toBe(false);
+    expect(readEntry().keyRef).toBe(oldKeys[0][0]);
+    expect(keys.get(oldKeys[0][0])).not.toBe(oldKeys[0][1]);
     expect(await cache.get(scope)).toBe('verified-manual-password');
   });
 
-  it.each(['reject', 'no-op', 'persist then reject'])(
+  it.each(['reject', 'persist then reject'])(
     'does not write a new protected key when retry journaling fails (%s)',
     async (failure) => {
       secure.setSecureItemWithBiometrics.mockRejectedValueOnce(
@@ -338,7 +341,7 @@ describe.each([
       await cache.set({ ...scope, password: 'synthetic-password' });
       secure.setSecureItem.mockImplementationOnce(async (key, value) => {
         if (failure === 'persist then reject') metadata.set(key, value);
-        if (failure !== 'no-op') throw new OneKeyLocalError('journal failure');
+        throw new OneKeyLocalError('journal failure');
       });
       await cache.set({ ...scope, password: 'verified-manual-password' });
       expect(secure.setSecureItemWithBiometrics).toHaveBeenCalledTimes(1);
@@ -349,6 +352,30 @@ describe.each([
       expect(await cache.get(scope)).toBe('verified-manual-password');
     },
   );
+
+  it('can reuse an already durable pending reference when an identical journal write is a no-op', async () => {
+    secure.setSecureItemWithBiometrics.mockRejectedValueOnce(
+      new Error('cancelled'),
+    );
+    await cache.set({ ...scope, password: 'synthetic-password' });
+    const pending = readEntry();
+    secure.setSecureItem.mockImplementationOnce(async () => {});
+    await cache.set({ ...scope, password: 'verified-manual-password' });
+    expect(readEntry().keyRef).toBe(pending.keyRef);
+    expect(secure.setSecureItemWithBiometrics).toHaveBeenCalledTimes(2);
+    expect(await cache.get(scope)).toBe('verified-manual-password');
+  });
+
+  it('does not create a protected item when the initial journal is not persisted', async () => {
+    secure.setSecureItem.mockImplementationOnce(async () => {});
+    await cache.set({ ...scope, password: 'synthetic-password' });
+    expect(metadata.size).toBe(0);
+    expect(keys.size).toBe(0);
+    expect(secure.setSecureItemWithBiometrics).not.toHaveBeenCalled();
+    cache = new LocalBackupPasswordCache();
+    await cache.set({ ...scope, password: 'verified-manual-password' });
+    expect(await cache.get(scope)).toBe('verified-manual-password');
+  });
 
   it('keeps a failed retry commit erasable and allows another cold retry', async () => {
     secure.setSecureItemWithBiometrics.mockRejectedValueOnce(
@@ -362,11 +389,13 @@ describe.each([
       .mockRejectedValueOnce(new Error('commit failed'));
     await cache.set({ ...scope, password: 'verified-manual-password' });
     const interrupted = readEntry();
+    const oldValue = keys.get(interrupted.keyRef);
     expect(interrupted.ciphertext).toBeUndefined();
     expect(keys.has(interrupted.keyRef)).toBe(true);
     cache = new LocalBackupPasswordCache();
     await cache.set({ ...scope, password: 'verified-manual-password' });
-    expect(keys.has(interrupted.keyRef)).toBe(false);
+    expect(readEntry().keyRef).toBe(interrupted.keyRef);
+    expect(keys.get(interrupted.keyRef)).not.toBe(oldValue);
     expect(await cache.get(scope)).toBe('verified-manual-password');
     await cache.prepareForReset({ preserve: false });
     expect(metadata.size).toBe(0);
@@ -391,6 +420,38 @@ describe.each([
     await cache.prepareForReset({ preserve: false });
     expect(keys.size).toBe(0);
     expect(metadata.size).toBe(0);
+  });
+
+  it('bounds wrapping aliases across cold cancelled retries while rotating the recovery key', async () => {
+    // Model Expo Android: alias creation precedes authentication, and deleting
+    // a stored item does not delete that alias. This is not a device test.
+    const aliases = new Set<string>();
+    let attempts = 0;
+    secure.setSecureItemWithBiometrics.mockImplementation(
+      async (ref, value) => {
+        aliases.add(ref);
+        attempts += 1;
+        if (attempts <= 3) throw new OneKeyLocalError('cancelled');
+        keys.set(ref, value);
+      },
+    );
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      await cache.set({ ...scope, password: 'verified-manual-password' });
+      expect(aliases.size).toBe(1);
+      expect(await cache.get(scope)).toBeUndefined();
+      cache = new LocalBackupPasswordCache();
+    }
+    await cache.set({ ...scope, password: 'verified-manual-password' });
+    const writes = secure.setSecureItemWithBiometrics.mock.calls;
+    expect(new Set(writes.map(([ref]) => ref)).size).toBe(1);
+    expect(new Set(writes.map(([, value]) => value)).size).toBe(4);
+    expect(secure.getSecureItemWithBiometrics).not.toHaveBeenCalled();
+    expect(await cache.get(scope)).toBe('verified-manual-password');
+    await cache.prepareForReset({ preserve: false });
+    expect(keys.size).toBe(0);
+    expect(metadata.size).toBe(0);
+    // JS deletion removes recovery values, not Android's Keystore wrapping key.
+    expect(aliases.size).toBe(1);
   });
 
   it('preserves a complete pairing when final commit persisted before rejecting', async () => {

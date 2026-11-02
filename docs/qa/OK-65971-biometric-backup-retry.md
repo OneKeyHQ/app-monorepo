@@ -41,26 +41,76 @@ stay paired; cancelling an existing protected read never deletes it.
 A pending entry can mean cancellation, a native write with uncertain outcome, or
 a successful native write followed by failed manifest commit. Under the existing
 bg mutex, retry rejects a reference shared with another scope, removes the old
-protected item using its own service, checks real persistence, then journals a
-fresh random reference before writing a fresh protected key. No authenticated
+protected value using its own service, checks real persistence, then journals the
+same isolated reference before writing a fresh random recovery key. No authenticated
 read-back or plaintext fallback is introduced. A failed deletion retains the old
 journal. A failed journal write prevents protected creation. A failed protected
 write or final commit retains an erasable pending reference for another attempt.
 The existing erasure marker/tombstone and reset barrier remain in force.
+An identical no-op retry journal write is safe when the same reference is already
+durable and read-back matches; an unpersisted initial journal still blocks creation.
 
 This changes only the optional local recovery credential. Wallet databases,
 remote backups, native authentication policy and encryption formats are unchanged.
 
+## Android wrapping-alias lifecycle
+
+Source audit of the exact `expo-secure-store@58.0.2` tag and installed patched
+source confirms:
+
+- [`SecureStoreModule.setItemImpl`](https://github.com/expo/expo/blob/expo-secure-store%4058.0.2/packages/expo-secure-store/android/src/main/java/expo/modules/securestore/SecureStoreModule.kt)
+  gets or creates the service's Keystore entry before `createEncryptedItem`
+  authenticates. Cancellation can therefore leave a wrapping alias even when no
+  protected value was saved.
+- `deleteValueWithKeyAsync` / `deleteItemImpl` only remove SharedPreferences values;
+  they do not delete that alias. The private invalidation path calls
+  `keyStore.deleteEntry`, but it is not a public cleanup API. The existing OneKey
+  patch changes read-failure handling and write-commit validation, not deletion.
+- [`AESEncryptor`](https://github.com/expo/expo/blob/expo-secure-store%4058.0.2/packages/expo-secure-store/android/src/main/java/expo/modules/securestore/encryptors/AESEncryptor.kt)
+  derives an authenticated alias from `keychainService`, creates it with user
+  authentication required, and uses a fresh GCM IV per write. It reuses an existing
+  alias for the same service; invalidation recreation uses that same alias name.
+
+Rotating to a random service on every pending retry would thus leave one additional
+wrapping alias per attempt. This PR retains the pending entry's original, dedicated,
+authenticated service after removing its old value, and generates a new random
+recovery key on every attempt. It does not reuse complete pairings, share services
+between records, read a protected key to probe state, or upgrade an unprotected
+namespace. Repeated cancellation/cold retries no longer add service aliases.
+
+This is a source-backed resource-growth mitigation, not proof of native alias
+erasure. Android deletion/reset still leaves the wrapping alias, including aliases
+orphaned before this change. A bare alias is not the backup password or the random
+recovery key; it remains OS/authentication protected. If historical wrapped values
+and their manifest ciphertext were retained separately, deleting current values
+does not establish cryptographic destruction of those historical copies. Alias
+capacity, latency and vendor-specific limits have not been measured on devices.
+
+Full alias cleanup requires a separately tested native capability and a rebuilt
+Android binary. It must restrict deletion to an owned, dedicated recovery service,
+verify it cannot destroy another value sharing an alias, and retain durable retry
+intent until deletion succeeds. A global change to SecureStore's normal deletion
+would risk unrelated credentials that intentionally share services. This PR does
+not add that native behavior or claim cleanup of existing orphaned aliases.
+
 ## Validation
 
-Five focused Jest suites pass, **220 tests**: encrypted cache, restore service,
+Five focused Jest suites pass, **224 tests**: encrypted cache, restore service,
 real persistence facade, ServiceApp reset and native storage adapter. Running the
 four new cancellation/retry cases against the original `x` cache implementation
 fails all four (both providers plus Android backup/first restore). The original
 source is injected by a temporary Jest transformer without changing the worktree.
+The wrapping-alias regression also fails against PR head `e9ed4a2303` for both
+providers (the model observes two aliases on the second attempt); it passes with
+the retained service. It checks cancellation before value persistence, cold
+instances, fresh recovery-key material per attempt, and successful later restore.
+The model deliberately retains the wrapping alias after reset to avoid claiming
+native alias erasure from a JS storage test.
 
 `agent:check --profile commit` passes every gate, including type-aware lint and
 full TypeScript (199 seconds with `GOMEMLIMIT=10GiB`, `GOGC=50`, four Go workers).
+The stable-service follow-up also passes every commit gate, including full
+TypeScript (192.4 seconds).
 An initial concurrent Jest/TypeScript attempt exhausted the 16 GB container and
 is discarded; the successful final Jest and commit checks ran sequentially.
 

@@ -186,7 +186,9 @@ export class LocalBackupPasswordCache {
         if (entry) {
           // set is reached only after backup verification or manual decryption.
           // An interrupted enrollment may already have written its native key.
-          // Retire it before replacing the journal so its erasure ref is not lost.
+          // Delete the old protected value but keep its isolated service: Expo's
+          // Android delete leaves the wrapping alias behind. Rotating services
+          // on every cancelled retry would accumulate unreachable aliases.
           if (
             Object.entries(manifest.entries).some(
               ([otherScope, other]) =>
@@ -205,7 +207,7 @@ export class LocalBackupPasswordCache {
           Buffer.from(crypto.getRandomValues(new Uint8Array(32))).toString(
             'hex',
           );
-        const keyRef = `${KEY_PREFIX}${randomHex()}`;
+        const keyRef = entry?.keyRef ?? `${KEY_PREFIX}${randomHex()}`;
         const key = randomHex();
         const ciphertext = await encryptStringAsyncWithFormat({
           data: scope.password,

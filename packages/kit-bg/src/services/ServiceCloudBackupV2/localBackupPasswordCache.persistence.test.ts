@@ -125,6 +125,7 @@ describe('recovery erasure through the Travel Mode persistence facade', () => {
     await cache.set({ ...scope, password: 'synthetic-password' });
     const before = [...mockMetadata];
     const oldKey = [...mockKeys.keys()][0];
+    const oldValue = mockKeys.get(oldKey);
     mockNative.removeSecureItem.mockImplementationOnce(async () => {
       // The facade can start a native call in real mode, then mask continuations.
       mockMasked = true;
@@ -136,7 +137,8 @@ describe('recovery erasure through the Travel Mode persistence facade', () => {
     mockMasked = false;
     const cold = new LocalBackupPasswordCache();
     await cold.set({ ...scope, password: 'verified-manual-password' });
-    expect(mockKeys.has(oldKey)).toBe(false);
+    expect(mockKeys.size).toBe(1);
+    expect(mockKeys.get(oldKey)).not.toBe(oldValue);
     expect(await cold.get(scope)).toBe('verified-manual-password');
   });
 });

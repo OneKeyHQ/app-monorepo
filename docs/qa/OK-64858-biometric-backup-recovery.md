@@ -20,8 +20,8 @@ memoization. Missing hardware, enrollment, strong authentication support or nati
 API support fails closed. New entries are written only for verified backup
 records or successful manual decryption. Complete entries (including missing or
 invalidated keys) are never implicitly replaced. Interrupted enrollment can retry
-after verified manual decryption, retiring its old key before replacing its
-journal reference; see [OK-65971](OK-65971-biometric-backup-retry.md). Recordless provider
+after verified manual decryption, retiring its old value while retaining its
+isolated service; see [OK-65971](OK-65971-biometric-backup-retry.md). Recordless provider
 password setup/verification does not create an entry.
 
 The manifest journals the key reference before protected creation, then commits
