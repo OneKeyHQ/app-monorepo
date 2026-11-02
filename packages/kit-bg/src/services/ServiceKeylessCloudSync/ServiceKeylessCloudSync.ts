@@ -744,6 +744,8 @@ class ServiceKeylessCloudSync extends ServiceBase {
     | Promise<IKeylessCloudSyncCredential>
     | undefined;
 
+  private hardwareSessionEnding = false;
+
   // One refresh at a time: refreshing twice with one token voids the first
   // reply's token, and later using it makes the server revoke the session.
   // A failed refresh keeps the stored token; the server accepts it once more
@@ -752,6 +754,9 @@ class ServiceKeylessCloudSync extends ServiceBase {
     credential: IKeylessCloudSyncCredential,
     { force }: { force?: boolean } = {},
   ): Promise<IKeylessCloudSyncCredential> {
+    if (this.hardwareSessionEnding) {
+      throw new OneKeyError('Cloud sync settings changed. Try again.');
+    }
     if (this.hardwareSessionRefresh) return this.hardwareSessionRefresh;
     const session = credential.hardwareSession;
     if (!session) return credential;
@@ -905,11 +910,18 @@ class ServiceKeylessCloudSync extends ServiceBase {
   private async revokeCurrentHardwareSession(
     credential: IKeylessCloudSyncCredential,
   ) {
-    const session = credential.hardwareSession;
-    if (!session) return;
+    const originalSession = credential.hardwareSession;
+    if (!originalSession) return;
     try {
       // Let a refresh in flight finish first, so one token is not sent twice.
       await this.hardwareSessionRefresh?.catch(() => undefined);
+      const stored = await keylessSyncCredentialStorage.getCredential(
+        credential.keylessWalletId,
+      );
+      const session =
+        stored?.hardwareSession?.sessionId === originalSession.sessionId
+          ? stored.hardwareSession
+          : originalSession;
       const client = await this.getHardwareSyncClient();
       const fresh =
         (await refreshHardwareCloudSyncSessionIfNeeded({ client, session })) ??
@@ -2010,39 +2022,50 @@ class ServiceKeylessCloudSync extends ServiceBase {
       }
     }
 
-    await primeCloudSyncPersistAtom.set((v) => ({
-      ...v,
-      isCloudSyncEnabled: shouldEnableKeyless ? false : v.isCloudSyncEnabled,
-      isCloudSyncEnabledKeyless: shouldEnableKeyless,
-      hasEverEnabledKeylessSync:
-        shouldEnableKeyless ||
-        !!v.hasEverEnabledKeylessSync ||
-        !!v.isCloudSyncEnabledKeyless ||
-        !!v.lastSyncTimeKeyless,
-    }));
-    await this.backgroundApi.servicePrimeCloudSync.clearCachedSyncCredential();
-
-    if (shouldEnableKeyless) {
-      // Re-hydrate credential cache after clearing stale entries
-      await this.hydrateKeylessSyncCredentialFromStorageIfNeeded();
-    }
-
-    // Remove persisted credential when disabling keyless sync
-    // A hardware key is removed too: turning sync off revokes it on this device,
-    // and re-enabling requires a fresh signature from the same standard wallet.
-    if (!shouldEnableKeyless) {
-      const currentWalletId = await this.getCurrentCloudSyncKeylessWalletId();
-      if (currentWalletId) {
-        const stored =
-          await keylessSyncCredentialStorage.getCredential(currentWalletId);
-        if (stored?.hardwareSession) {
-          await this.revokeCurrentHardwareSession(stored);
-        }
-        await keylessSyncCredentialStorage.removeAllCredentials();
+    const endingHardwareSession = !shouldEnableKeyless && !!hardwareSource;
+    if (endingHardwareSession) this.hardwareSessionEnding = true;
+    try {
+      if (endingHardwareSession) {
+        // Let the existing refresh persist before disabling storage writes, and
+        // prevent another request from starting a refresh during revocation.
+        await this.hardwareSessionRefresh?.catch(() => undefined);
       }
-    }
+      await primeCloudSyncPersistAtom.set((v) => ({
+        ...v,
+        isCloudSyncEnabled: shouldEnableKeyless ? false : v.isCloudSyncEnabled,
+        isCloudSyncEnabledKeyless: shouldEnableKeyless,
+        hasEverEnabledKeylessSync:
+          shouldEnableKeyless ||
+          !!v.hasEverEnabledKeylessSync ||
+          !!v.isCloudSyncEnabledKeyless ||
+          !!v.lastSyncTimeKeyless,
+      }));
+      await this.backgroundApi.servicePrimeCloudSync.clearCachedSyncCredential();
 
-    return shouldEnableKeyless;
+      if (shouldEnableKeyless) {
+        // Re-hydrate credential cache after clearing stale entries
+        await this.hydrateKeylessSyncCredentialFromStorageIfNeeded();
+      }
+
+      // Remove persisted credential when disabling keyless sync
+      // A hardware key is removed too: turning sync off revokes it on this device,
+      // and re-enabling requires a fresh signature from the same standard wallet.
+      if (!shouldEnableKeyless) {
+        const currentWalletId = await this.getCurrentCloudSyncKeylessWalletId();
+        if (currentWalletId) {
+          const stored =
+            await keylessSyncCredentialStorage.getCredential(currentWalletId);
+          if (stored?.hardwareSession) {
+            await this.revokeCurrentHardwareSession(stored);
+          }
+          await keylessSyncCredentialStorage.removeAllCredentials();
+        }
+      }
+
+      return shouldEnableKeyless;
+    } finally {
+      if (endingHardwareSession) this.hardwareSessionEnding = false;
+    }
   }
 
   @backgroundMethod()

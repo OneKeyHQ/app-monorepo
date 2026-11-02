@@ -1762,6 +1762,85 @@ describe('hardware reset session and local data races', () => {
     ).not.toHaveBeenCalled();
   });
 
+  test('turning sync off waits for an in-flight refresh and revokes the new session', async () => {
+    const { service } = setup();
+    const stale = {
+      ...current,
+      hardwareSession: { ...session, accessTokenExpiresAt: 0 },
+    };
+    mockStored = stale;
+    const refreshedSession = {
+      ...session,
+      accessToken: 'public-test-access-new',
+      refreshToken: 'public-test-refresh-new',
+    };
+    let finishRefresh: () => void = () => undefined;
+    let refreshEntered: () => void = () => undefined;
+    const entered = new Promise<void>((resolve) => {
+      refreshEntered = resolve;
+    });
+    const reply = new Promise<typeof session>((resolve) => {
+      finishRefresh = () => resolve(refreshedSession);
+    });
+    jest
+      .mocked(sessionApi.refreshHardwareCloudSyncSessionIfNeeded)
+      .mockReset()
+      .mockResolvedValue(undefined)
+      .mockImplementationOnce(async () => {
+        refreshEntered();
+        return reply;
+      });
+    const refreshing = service['getFreshHardwareCredential'](stale);
+    const observedRefresh = refreshing.then(
+      (value) => ({ value }),
+      (error: unknown) => ({ error }),
+    );
+    await entered;
+    const disabling = service.setCloudSyncEnabledKeyless(false);
+    // Let the disable flow reach its wait before the server answers refresh.
+    await new Promise<void>((resolve) => setTimeout(resolve, 0));
+    const blockedRefresh = service['getFreshHardwareCredential'](stale).then(
+      () => undefined,
+      (error: unknown) => error,
+    );
+    finishRefresh();
+    await disabling;
+    expect(await observedRefresh).toMatchObject({
+      value: { hardwareSession: refreshedSession },
+    });
+    expect(await blockedRefresh).toEqual(
+      expect.objectContaining({
+        message: 'Cloud sync settings changed. Try again.',
+      }),
+    );
+    expect(sessionApi.revokeHardwareCloudSyncSession).toHaveBeenCalledWith(
+      expect.objectContaining({ session: refreshedSession, scope: 'current' }),
+    );
+    expect(mockStored).toBeUndefined();
+    expect(mockConfig.isCloudSyncEnabledKeyless).toBe(false);
+  });
+
+  test('revocation reads the stored session after waiting for an earlier refresh', async () => {
+    const { service } = setup();
+    const fresh = {
+      ...current,
+      hardwareSession: {
+        ...session,
+        accessToken: 'public-test-access-new',
+        refreshToken: 'public-test-refresh-new',
+      },
+    };
+    mockStored = fresh;
+    service['hardwareSessionRefresh'] = Promise.resolve(fresh);
+    await service['revokeCurrentHardwareSession'](current);
+    expect(sessionApi.revokeHardwareCloudSyncSession).toHaveBeenCalledWith(
+      expect.objectContaining({
+        session: fresh.hardwareSession,
+        scope: 'current',
+      }),
+    );
+  });
+
   test('a late refresh cannot restore the data key retired by a reset', async () => {
     const { service } = setup();
     mockStored = {
