@@ -8,6 +8,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { JOTAI_RESET } from '../types';
 
 import jotaiVerify from './jotaiVerify';
+import { shouldIgnoreBgEchoForOptimisticWrite } from './optimisticAtomWrites';
 
 import type { EAtomNames } from '../atomNames';
 import type {
@@ -98,6 +99,11 @@ export function wrapAtomPro(
           nextValueFromBg?.$$isFromBgStatesSyncBroadcast &&
           nextValueFromBg?.name === name
         ) {
+          if (
+            shouldIgnoreBgEchoForOptimisticWrite(name, nextValueFromBg.payload)
+          ) {
+            return;
+          }
           nextValue = nextValueFromBg.payload;
           proxyToBg = false;
         }
