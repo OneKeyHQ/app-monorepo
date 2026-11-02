@@ -1782,4 +1782,23 @@ describe('hardware reset session and local data races', () => {
     expect(newer.data).toBe('newer-ciphertext');
     expect(newer.dataTime).toBe(2);
   });
+
+  test('a cancelled reset cannot clear another operation committing state', async () => {
+    const { service } = setup();
+    jest
+      .mocked(generateHardwareCloudSyncCredentialWithSdk)
+      .mockImplementationOnce(async () => {
+        expect(await service.cancelHardwareCloudKeyOperation()).toBe(true);
+        // Another operation entered its irreversible phase before this old
+        // device request reported cancellation.
+        service['hardwareCloudKeyCommitting'] = true;
+        throw new OneKeyLocalError('public-test-cancelled');
+      });
+    const hide = jest.spyOn(service, 'hideDialogLoading');
+    await expect(service.resetHardwareCloudSyncKey({ connectId })).rejects.toThrow(
+      'public-test-cancelled',
+    );
+    expect(await service.cancelHardwareCloudKeyOperation()).toBe(false);
+    expect(hide).not.toHaveBeenCalled();
+  });
 });

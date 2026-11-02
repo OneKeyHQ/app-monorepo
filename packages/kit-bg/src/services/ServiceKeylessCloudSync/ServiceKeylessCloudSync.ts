@@ -1177,6 +1177,7 @@ class ServiceKeylessCloudSync extends ServiceBase {
           ReturnType<typeof rotateHardwareCloudSyncDataKey<IDBCloudSyncItem>>
         >
       | undefined;
+    let committing = false;
     // The same wallet (checked by expectedCredentialId) signs a new salt; the
     // new KEK wraps the new data key.
     const unlock: IHardwareCloudKeyUnlock = async (device) => {
@@ -1214,6 +1215,7 @@ class ServiceKeylessCloudSync extends ServiceBase {
             );
           }
           this.hardwareCloudKeyCommitting = true;
+          committing = true;
           await this.showDialogLoading({
             title: appLocale.intl.formatMessage({
               id: ETranslations.global_syncing,
@@ -1269,7 +1271,7 @@ class ServiceKeylessCloudSync extends ServiceBase {
         syncMode: ECloudSyncMode.Keyless,
       });
     } finally {
-      if (this.hardwareCloudKeyCommitting) {
+      if (committing) {
         this.hardwareCloudKeyCommitting = false;
         await this.hideDialogLoading();
       }
