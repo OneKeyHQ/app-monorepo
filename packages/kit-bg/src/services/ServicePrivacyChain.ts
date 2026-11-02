@@ -4128,6 +4128,7 @@ class ServicePrivacyChain extends ServiceBase {
     const capability = requireLocalWalletCapability(vault);
     const { getStorageUsage } = capability;
     const [storage, endpoint] = await Promise.all([
+      // Not answered in time is unknown, not absent: absent hides the section and its reset button.
       getStorageUsage
         ? readLocalWalletForDisplay({
             key: `${networkId}:storage`,
@@ -4141,7 +4142,7 @@ class ServicePrivacyChain extends ServiceBase {
                 });
                 return { bytes: null };
               }),
-          })
+          }).then((usage) => usage ?? { bytes: null })
         : undefined,
       capability.getSyncEndpoint?.().catch(() => undefined),
     ]);

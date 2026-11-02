@@ -1094,13 +1094,14 @@ describe('Privacy page reads while the runtime is held', () => {
     await expect(progress).resolves.toBeUndefined();
   });
 
+  // Unknown, not absent: an absent size hides the reset button exactly when it may be needed.
   it('answers the network page with the size unknown and the node shown', async () => {
     const info = createService().getLocalWalletNetworkInfo({
       networkId: 'zec--held',
     });
     await jest.advanceTimersByTimeAsync(1000);
     await expect(info).resolves.toMatchObject({
-      storageBytes: undefined,
+      storageBytes: null,
       endpointUrl: 'https://node.example',
     });
   });
