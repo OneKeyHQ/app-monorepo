@@ -855,3 +855,61 @@ describe('ServiceApp privacy database reset ordering', () => {
     ).toBeGreaterThan(clear.mock.invocationCallOrder[0]);
   });
 });
+
+describe('ServiceApp Binance deposit reset', () => {
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  function createService(discardSession: jest.Mock) {
+    return new ServiceApp({
+      backgroundApi: {
+        serviceLogger: {
+          stopPersistenceForReset: jest.fn().mockResolvedValue(undefined),
+        },
+        servicePrivacyChain: {
+          dropAllLocalWalletData: jest.fn().mockResolvedValue([]),
+        },
+        serviceBinanceDeposit: { discardSession },
+      },
+    });
+  }
+
+  function mockStorageClears() {
+    const clear = jest.spyOn(appStorage, 'clear').mockResolvedValue(undefined);
+    jest.spyOn(appStorage.syncStorage, 'clearAll').mockResolvedValue(undefined);
+    jest.spyOn(biologyAuthUtils, 'deletePassword').mockResolvedValue(undefined);
+    jest.spyOn(timerUtils, 'wait').mockResolvedValue(undefined);
+    jest.spyOn(console, 'error').mockImplementation(() => undefined);
+    return clear;
+  }
+
+  it('discards the deposit session before app storage is cleared', async () => {
+    const clear = mockStorageClears();
+    const discardSession = jest.fn().mockResolvedValue(undefined);
+    const service = createService(discardSession);
+
+    await (service as unknown as { resetData: () => Promise<void> })
+      .resetData()
+      .catch(() => undefined);
+
+    expect(discardSession).toHaveBeenCalledTimes(1);
+    expect(discardSession.mock.invocationCallOrder[0]).toBeLessThan(
+      clear.mock.invocationCallOrder[0],
+    );
+  });
+
+  it('still clears app storage when the discard fails', async () => {
+    const clear = mockStorageClears();
+    const discardSession = jest
+      .fn()
+      .mockRejectedValue(new Error('secure storage unavailable'));
+    const service = createService(discardSession);
+
+    await (service as unknown as { resetData: () => Promise<void> })
+      .resetData()
+      .catch(() => undefined);
+
+    expect(clear).toHaveBeenCalledTimes(1);
+  });
+});

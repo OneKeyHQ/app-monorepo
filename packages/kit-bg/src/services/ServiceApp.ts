@@ -198,6 +198,16 @@ class ServiceApp extends ServiceBase {
     }
     defaultLogger.setting.page.clearDataStep('privacyChain-dropLocalData');
 
+    // The Binance deposit session key sits in secure storage, which nothing
+    // below clears. It is found through the session in simpleDb, so it goes
+    // before app storage.
+    try {
+      await this.backgroundApi.serviceBinanceDeposit.discardSession();
+    } catch {
+      console.error('serviceBinanceDeposit.discardSession() error');
+    }
+    defaultLogger.setting.page.clearDataStep('binanceDeposit-discardSession');
+
     // clean app storage
     try {
       await appStorage.clear();
