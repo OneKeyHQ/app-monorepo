@@ -38,10 +38,12 @@ jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => ({
       typeof update === 'function'
         ? (update as (state: unknown) => unknown)({
             progress: {},
+            boostingNetworkIds: [],
+            dataBlockedNetworkIds: [],
             syncErrorByNetworkId: {},
             storageUnsupportedNetworkIds: [],
             pausedNetworkIds: [],
-            preparingNetworkIds: [],
+            preparingAccountKeys: [],
           })
         : update,
   },

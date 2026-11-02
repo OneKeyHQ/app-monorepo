@@ -191,6 +191,28 @@ describe('Privacy sync failure state', () => {
     });
   });
 
+  // Whatever stopped it (a wallet made temporary, or a path that forgot), a turn drops the scan state
+  // of an account no longer scannable, so the chain never waits on its Preparing.
+  it('drops the scan state of an account that no longer scans', async () => {
+    mockPublished.preparingAccountKeys = [
+      `${networkId}:account`,
+      `${networkId}:stopped`,
+    ];
+    mockPublished.progress = {
+      [`${networkId}:stopped`]: {} as never,
+    };
+    const service = createService({
+      syncGroup: jest.fn().mockResolvedValue({ synced: true, chainTip: 100 }),
+    });
+
+    await service.backgroundSyncTick();
+
+    expect(mockPublished.preparingAccountKeys).toEqual([
+      `${networkId}:account`,
+    ]);
+    expect(mockPublished.progress).toEqual({});
+  });
+
   it('drops the failure when the user presses Sync', async () => {
     mockPublished.syncErrorByNetworkId = { [networkId]: 'failed' };
     const service = createService({ syncGroup: jest.fn() });

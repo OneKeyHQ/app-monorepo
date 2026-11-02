@@ -1262,23 +1262,17 @@ class ServicePrivacyChain extends ServiceBase {
     this.clearSyncFailureBackoff(networkId);
     this.markLocalWalletOrphanCleanupDue(networkId);
     const generation = this.orphanCleanupGeneration.get(networkId);
-    for (const accountId of accountIds) {
-      if (backfillActive) {
+    if (backfillActive) {
+      for (const accountId of accountIds) {
         this.backfillActiveByAccount[accountId] = true;
-      } else {
-        delete this.backfillActiveByAccount[accountId];
       }
-    }
-    if (!backfillActive) {
-      await privacyChainAtom.set((value) => {
-        if (generation !== this.orphanCleanupGeneration.get(networkId)) {
-          return value;
-        }
-        const progress = { ...value.progress };
-        for (const accountId of accountIds) {
-          delete progress[`${networkId}:${accountId}`];
-        }
-        return { ...value, progress };
+    } else {
+      // A newer change (a quick re-enable) overtakes this stop.
+      await this.forgetAccountScanState({
+        networkId,
+        accountIds,
+        isCurrent: () =>
+          generation === this.orphanCleanupGeneration.get(networkId),
       });
       await this.refreshAutoBoost({
         networkId,
@@ -1616,27 +1610,23 @@ class ServicePrivacyChain extends ServiceBase {
         if (event === 'appReset' || event === 'travelMode') {
           await stateDb.forgetAccountEpochs();
         }
+        if (action.effect === 'delete') {
+          if (networkId) {
+            await this.forgetAccountScanState({ networkId, accountIds });
+          }
+          return;
+        }
+        // A rescan starts over and keeps Preparing.
         if (networkId) {
           await this.forgetPublishedProgress({ networkId, accountIds });
-          // A deleted account never publishes the position that would clear it. A rescan keeps it.
-          if (action.effect === 'delete') {
-            await this.clearAccountsPreparing({ networkId, accountIds });
-          }
         }
         for (const accountId of accountIds) {
-          if (action.effect === 'restartScan') {
-            this.backfillActiveByAccount[accountId] = true;
-          } else {
-            delete this.backfillActiveByAccount[accountId];
-          }
+          this.backfillActiveByAccount[accountId] = true;
         }
         return;
       case 'memoryCaches:progressOnly':
         if (networkId) {
-          await this.forgetPublishedProgress({ networkId, accountIds });
-          // A turned-off account never publishes the position that would clear Preparing, which
-          // would hold the chain's light at Preparing while its other accounts scan.
-          await this.clearAccountsPreparing({ networkId, accountIds });
+          await this.forgetAccountScanState({ networkId, accountIds });
         }
         return;
       case 'memoryCaches:pauseFlag':
@@ -1649,6 +1639,61 @@ class ServicePrivacyChain extends ServiceBase {
           `privacy-chain: no lifecycle handler for ${action.dataClass}:${action.effect}`,
         );
     }
+  }
+
+  // The one way a stopped account's scan state goes: turned off, data deleted, deleted, or no longer
+  // scannable (a wallet made temporary). Its position and Preparing go together, so no stop can leave
+  // Preparing waiting for a position that never comes. `isStopped` is read when the state is written.
+  private async forgetStoppedAccountScanState(
+    isStopped: (networkId: string, accountId: string) => boolean,
+  ): Promise<void> {
+    const isStoppedKey = (key: string) => {
+      const separator = key.indexOf(':');
+      return (
+        separator > 0 &&
+        isStopped(key.slice(0, separator), key.slice(separator + 1))
+      );
+    };
+    // Deleting the visited key is safe while a Map iterates.
+    for (const byKey of [this.scanRateSamples, this.sendSyncRequestedAt]) {
+      for (const key of byKey?.keys() ?? []) {
+        if (isStoppedKey(key)) byKey?.delete(key);
+      }
+    }
+    await privacyChainAtom.set((value) => {
+      const progress = Object.fromEntries(
+        Object.entries(value.progress).filter(([key]) => !isStoppedKey(key)),
+      );
+      const preparingAccountKeys = value.preparingAccountKeys.filter(
+        (key) => !isStoppedKey(key),
+      );
+      if (
+        Object.keys(progress).length === Object.keys(value.progress).length &&
+        preparingAccountKeys.length === value.preparingAccountKeys.length
+      ) {
+        return value;
+      }
+      return { ...value, progress, preparingAccountKeys };
+    });
+  }
+
+  private async forgetAccountScanState({
+    networkId,
+    accountIds,
+    isCurrent = () => true,
+  }: {
+    networkId: string;
+    accountIds: string[];
+    isCurrent?: () => boolean;
+  }): Promise<void> {
+    if (accountIds.length === 0) return;
+    for (const accountId of accountIds) {
+      delete this.backfillActiveByAccount[accountId];
+    }
+    await this.forgetStoppedAccountScanState(
+      (each, accountId) =>
+        each === networkId && accountIds.includes(accountId) && isCurrent(),
+    );
   }
 
   private async forgetPublishedProgress({
@@ -2535,22 +2580,19 @@ class ServicePrivacyChain extends ServiceBase {
           boostStateChanged = true;
         }
       }
+      // Backstop for every way an account stops scanning, including ones no path cleans up itself.
+      await this.forgetStoppedAccountScanState(
+        (networkId, accountId) =>
+          canPruneNetwork(networkId) && !seenAccountIds.has(accountId),
+      );
       await privacyChainAtom.set((value) => {
-        const progress = Object.fromEntries(
-          Object.entries(value.progress).filter(([key]) => {
-            const separator = key.indexOf(':');
-            const networkId = separator >= 0 ? key.slice(0, separator) : '';
-            const accountId = separator >= 0 ? key.slice(separator + 1) : key;
-            return !canPruneNetwork(networkId) || seenAccountIds.has(accountId);
-          }),
-        );
         const syncErrorByNetworkId = Object.fromEntries(
           Object.entries(value.syncErrorByNetworkId).filter(
             ([networkId]) =>
               !canPruneNetwork(networkId) || liveNetworkIds.has(networkId),
           ),
         );
-        return { ...value, progress, syncErrorByNetworkId };
+        return { ...value, syncErrorByNetworkId };
       });
       if (boostStateChanged) {
         await this.publishBoostingNetworks();
@@ -4307,8 +4349,8 @@ class ServicePrivacyChain extends ServiceBase {
         ),
       );
     }
-    // The runtime delete may wait behind a running scan; Preparing goes now, not when it lands.
-    await this.clearAccountsPreparing({ networkId, accountIds });
+    // The runtime delete may wait behind a running scan; its scan state goes now, not when it lands.
+    await this.forgetAccountScanState({ networkId, accountIds });
     for (const request of requests) {
       void this.processPendingAccountDeletion(request, capability).catch(
         () => undefined,

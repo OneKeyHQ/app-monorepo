@@ -319,6 +319,7 @@ describe('privacy chain lifecycle executor', () => {
         },
         // Private methods stubbed here; typed loosely so the intersection keeps the service.
         ...({
+          backfillActiveByAccount: {},
           requireAccountCapability: async () => ({}),
           isPersistenceMasked: async () => false,
           listLocalWalletAccountTwins: async () => [],
@@ -330,18 +331,24 @@ describe('privacy chain lifecycle executor', () => {
 
     await service.deleteLocalWalletAccountData({ networkId, accountId });
 
-    let preparing = [own, other];
+    type IScanState = {
+      progress: Record<string, unknown>;
+      preparingAccountKeys: string[];
+    };
+    let state: IScanState = {
+      progress: { [own]: {}, [other]: {} },
+      preparingAccountKeys: [own, other],
+    };
     for (const [update] of mockAtomSet.mock.calls) {
       if (typeof update === 'function') {
-        preparing = (
-          update as (value: { preparingAccountKeys: string[] }) => {
-            preparingAccountKeys: string[];
-          }
-        )({ preparingAccountKeys: preparing }).preparingAccountKeys;
+        state = (update as (value: IScanState) => IScanState)(state);
       }
     }
     expect(processPendingAccountDeletion).toHaveBeenCalled();
-    expect(preparing).toEqual([other]);
+    expect(state).toEqual({
+      progress: { [other]: {} },
+      preparingAccountKeys: [other],
+    });
   });
 
   it('network pause saves the chain switch and touches no scan data', async () => {
