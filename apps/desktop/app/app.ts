@@ -186,13 +186,12 @@ process.nextTick(initSentry);
 // SECURITY: never allow development or unpacked modes (such as ELECTRON_IS_DEV=1
 // or PERF_CI_MODE=1) in packaged builds; they enable unpacked file/URL loading
 // and skip production file:// hash/GPG checks.
-const { isDev, isPerfCiMode, isDevServer, isLocalUnpacked } =
+const { isDev, isPerfCiMode, isDevServer, isLocalUnpacked, isDesktopE2EMode } =
   resolveDesktopRuntimeFlags({
     isPackaged: app.isPackaged,
     electronIsDev,
     env: process.env,
   });
-const isDesktopE2EMode = process.env.DESKTOP_E2E_MODE === 'true';
 
 function isWhitelistedMediaOrigin(
   origin: string,
@@ -1603,7 +1602,7 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
         ) => {
           if (isAllowedWebViewUrl(url)) return;
           navigationEvent.preventDefault();
-          logger.info('overlay pre-navigation block (main process):', url);
+          logger.info('overlay pre-navigation block (main process)');
         };
         contents.on('will-redirect', guardOverlayPreNavigation);
         contents.on('will-navigate', guardOverlayPreNavigation);
@@ -1628,16 +1627,13 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
         );
         if (action === uriUtils.EDAppOpenActionEnum.DENY) {
           e.preventDefault();
-          logger.info(
-            'reject navigate main process will-frame-navigate: ',
-            url,
-          );
+          logger.info('reject navigate main process will-frame-navigate');
           return false;
         }
 
         if (uriUtils.isValidDeepLink(url)) {
           e.preventDefault();
-          logger.info('reject deeplink in main process:', url);
+          logger.info('reject deeplink in main process');
           return false;
         }
       });

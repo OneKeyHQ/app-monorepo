@@ -1,3 +1,4 @@
+/* cspell:ignore insertmacro HKCU */
 import fs from 'fs';
 import path from 'path';
 import vm from 'vm';
@@ -7,6 +8,7 @@ import ts from 'typescript';
 import {
   DESKTOP_DEEP_LINK_PROTOCOLS,
   ETHEREUM_DEEP_LINK_NAME,
+  MAX_DESKTOP_DEEP_LINK_URL_LENGTH,
   findAllowedDeepLinkArg,
   getDesktopProtocolClientArgs,
   hasUnsafeUrlChars,
@@ -126,12 +128,22 @@ describe('desktop deep link arguments', () => {
     expect(isAllowedDeepLinkUrl(url)).toBe(false);
   });
 
-  test('rejects deep link URLs containing ASCII control characters', () => {
+  test('rejects deep link URLs containing ASCII control characters or exceeding max length', () => {
     expect(isAllowedDeepLinkUrl('onekey-wallet://normal\u0000null')).toBe(
       false,
     );
     expect(isAllowedDeepLinkUrl('onekey-wallet://normal\r\nheader')).toBe(
       false,
+    );
+    const maxLenPrefix = 'onekey-wallet://search/list?q=';
+    const validMaxUrl =
+      maxLenPrefix +
+      'a'.repeat(MAX_DESKTOP_DEEP_LINK_URL_LENGTH - maxLenPrefix.length);
+    const oversizedUrl = `${validMaxUrl}a`;
+    expect(isAllowedDeepLinkUrl(validMaxUrl)).toBe(true);
+    expect(isAllowedDeepLinkUrl(oversizedUrl)).toBe(false);
+    expect(findAllowedDeepLinkArg(['OneKey.exe', '--', oversizedUrl])).toBe(
+      undefined,
     );
   });
 
@@ -187,13 +199,13 @@ describe('desktop deep link arguments', () => {
     ]);
   });
 
-  test('gates isDev, isPerfCiMode, isDevServer, and isLocalUnpacked on !app.isPackaged even when ELECTRON_IS_DEV=1', () => {
+  test('gates isDev, isPerfCiMode, isDevServer, isLocalUnpacked, and isDesktopE2EMode on !app.isPackaged even when env vars are set', () => {
     const runtimeFlagsDeclarationCode = getAppTopLevelStatementSource((text) =>
       text.includes('resolveDesktopRuntimeFlags'),
     );
 
     const packagedResult = vm.runInNewContext(
-      `(() => { ${runtimeFlagsDeclarationCode}\nreturn { isDev, isPerfCiMode, isDevServer, isLocalUnpacked }; })()`,
+      `(() => { ${runtimeFlagsDeclarationCode}\nreturn { isDev, isPerfCiMode, isDevServer, isLocalUnpacked, isDesktopE2EMode }; })()`,
       {
         resolveDesktopRuntimeFlags,
         app: { isPackaged: true },
@@ -202,6 +214,7 @@ describe('desktop deep link arguments', () => {
           env: {
             ELECTRON_IS_DEV: '1',
             PERF_CI_MODE: '1',
+            DESKTOP_E2E_MODE: 'true',
           },
         },
       },
@@ -212,6 +225,7 @@ describe('desktop deep link arguments', () => {
       isPerfCiMode: false,
       isDevServer: false,
       isLocalUnpacked: false,
+      isDesktopE2EMode: false,
     });
 
     expect(
@@ -220,6 +234,7 @@ describe('desktop deep link arguments', () => {
         env: {
           ELECTRON_IS_DEV: '1',
           PERF_CI_MODE: '1',
+          DESKTOP_E2E_MODE: 'true',
         },
       }),
     ).toEqual({
@@ -227,19 +242,21 @@ describe('desktop deep link arguments', () => {
       isPerfCiMode: false,
       isDevServer: false,
       isLocalUnpacked: false,
+      isDesktopE2EMode: false,
     });
 
     expect(
       resolveDesktopRuntimeFlags({
         isPackaged: false,
         electronIsDev: true,
-        env: {},
+        env: { DESKTOP_E2E_MODE: 'true' },
       }),
     ).toEqual({
       isDev: true,
       isPerfCiMode: false,
       isDevServer: true,
       isLocalUnpacked: true,
+      isDesktopE2EMode: true,
     });
 
     expect(
@@ -253,6 +270,7 @@ describe('desktop deep link arguments', () => {
       isPerfCiMode: true,
       isDevServer: false,
       isLocalUnpacked: true,
+      isDesktopE2EMode: false,
     });
   });
 
@@ -342,5 +360,30 @@ describe('desktop deep link arguments', () => {
     expect(JSON.stringify(loggerWarn.mock.calls)).not.toContain(
       'secretSymKey123',
     );
+  });
+
+  test('registers and cleans up protocol handlers with "--" "%1" in Windows NSIS installer scripts', () => {
+    const installerScripts = [
+      path.resolve(__dirname, '../../build/installer.nsh'),
+      path.resolve(__dirname, '../../resources/windows/installer.nsh'),
+    ];
+    for (const scriptPath of installerScripts) {
+      const content = fs.readFileSync(scriptPath, 'utf8');
+      expect(content).toContain(
+        // eslint-disable-next-line no-template-curly-in-string
+        'WriteRegStr SHELL_CONTEXT "Software\\Classes\\${SCHEME}\\shell\\open\\command" "" \'"$appExe" "--" "%1"\'',
+      );
+      for (const scheme of DESKTOP_DEEP_LINK_PROTOCOLS) {
+        expect(content).toContain(
+          `!insertmacro OneKeyRegisterProtocolScheme "${scheme}"`,
+        );
+        expect(content).toContain(
+          `DeleteRegKey SHELL_CONTEXT "Software\\Classes\\${scheme}"`,
+        );
+        expect(content).toContain(
+          `DeleteRegKey HKCU "Software\\Classes\\${scheme}"`,
+        );
+      }
+    }
   });
 });

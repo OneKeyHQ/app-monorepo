@@ -10,6 +10,7 @@ import { openWebView as openWebViewOverlay } from '@onekeyhq/kit/src/views/WebVi
 import { perpsCommonConfigPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import appGlobals from '@onekeyhq/shared/src/appGlobals';
 import { EOneKeyDeepLinkPath } from '@onekeyhq/shared/src/consts/deeplinkConsts';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   EModalRoutes,
@@ -232,10 +233,13 @@ describe('handleDeepLinkUrl', () => {
     },
   );
 
-  it('does not log raw deep-link URLs or query parameters such as symKey to console', async () => {
+  it('does not log raw deep-link URLs or query parameters such as symKey to console or UTM analytics', async () => {
     const consoleLogSpy = jest
       .spyOn(console, 'log')
       .mockImplementation(() => {});
+    const utmReportSpy = jest
+      .spyOn(defaultLogger.app.router, 'utmParamsCaptured')
+      .mockImplementation((params) => params);
     const originalRootAppNavigation = appGlobals.$rootAppNavigation;
     appGlobals.$rootAppNavigation = {
       navigate: jest.fn(),
@@ -243,7 +247,7 @@ describe('handleDeepLinkUrl', () => {
     try {
       // oxlint-disable-next-line @cspell/spellchecker
       const wcLink =
-        'wc:eb16df1f-1d3b-4018-9d18-28ef610cc1a4@2?relay-protocol=irn&symKey=secretSymKeyDevLog123';
+        'wc:eb16df1f-1d3b-4018-9d18-28ef610cc1a4@2?relay-protocol=irn&symKey=secretSymKeyDevLog123&utm_source=dapp';
       handleDeepLinkUrl({ url: wcLink });
       await flushAsyncTasks();
       await flushAsyncTasks();
@@ -255,8 +259,10 @@ describe('handleDeepLinkUrl', () => {
         'eb16df1f-1d3b-4018-9d18-28ef610cc1a4',
       );
       expect(JSON.stringify(consoleLogSpy.mock.calls)).not.toContain(wcLink);
+      expect(utmReportSpy).not.toHaveBeenCalled();
     } finally {
       consoleLogSpy.mockRestore();
+      utmReportSpy.mockRestore();
       appGlobals.$rootAppNavigation = originalRootAppNavigation;
     }
   });

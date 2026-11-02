@@ -22,8 +22,15 @@ const ALLOWED_DEEP_LINK_SCHEMES = [
   `${ETHEREUM_DEEP_LINK_NAME}:`,
 ] as const;
 
+export const MAX_DESKTOP_DEEP_LINK_URL_LENGTH = 4096;
+
 export function isAllowedDeepLinkUrl(url: string): boolean {
-  if (!url || typeof url !== 'string' || hasUnsafeUrlChars(url)) {
+  if (
+    !url ||
+    typeof url !== 'string' ||
+    url.length > MAX_DESKTOP_DEEP_LINK_URL_LENGTH ||
+    hasUnsafeUrlChars(url)
+  ) {
     return false;
   }
   if (!ALLOWED_DEEP_LINK_SCHEMES.some((scheme) => url.startsWith(scheme))) {
@@ -88,6 +95,7 @@ export interface IDesktopRuntimeFlags {
   isPerfCiMode: boolean;
   isDevServer: boolean;
   isLocalUnpacked: boolean;
+  isDesktopE2EMode: boolean;
 }
 
 export function resolveDesktopRuntimeFlags({
@@ -105,6 +113,7 @@ export function resolveDesktopRuntimeFlags({
   }
   const isDev = !isPackaged && rawIsDev;
   const isPerfCiMode = !isPackaged && env.PERF_CI_MODE === '1';
+  const isDesktopE2EMode = !isPackaged && env.DESKTOP_E2E_MODE === 'true';
   const isDevServer = !isPackaged && isDev && !isPerfCiMode;
   const isLocalUnpacked = !isPackaged && (isDev || isPerfCiMode);
 
@@ -113,5 +122,6 @@ export function resolveDesktopRuntimeFlags({
     isPerfCiMode,
     isDevServer,
     isLocalUnpacked,
+    isDesktopE2EMode,
   };
 }

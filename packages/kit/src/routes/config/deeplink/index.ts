@@ -694,7 +694,9 @@ const processDeepLinkUrl = memoizee(
       // An open SFSafariViewController would cover any navigation this deep
       // link triggers; close it first (iOS-only, no-op elsewhere).
       dismissNativeInAppBrowser();
-      captureAndReportLoggerUtmParamsFromUrl(url);
+      if (!url.toLowerCase().startsWith(`${WALLET_CONNECT_DEEP_LINK_NAME}:`)) {
+        captureAndReportLoggerUtmParamsFromUrl(url);
+      }
       if (await handleReferralLandingUrl({ url })) {
         return;
       }
