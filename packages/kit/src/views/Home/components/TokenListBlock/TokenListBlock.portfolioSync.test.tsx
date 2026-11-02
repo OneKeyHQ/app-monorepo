@@ -23,6 +23,8 @@ const mockAsyncNoop = jest.fn(async () => undefined);
 const mockCustomTokens: ICustomTokenItem[] = [];
 const mockCurrencyMap = {};
 let mockEpoch = 0;
+let mockTokenWorth = '125';
+let mockTapTokenMap: IFetchAccountTokensResp['tokens']['map'] = {};
 const mockAccount = {
   id: 'hw-account-1',
   address: '0x123',
@@ -62,11 +64,13 @@ const mockSelectorStore = {
     ];
   },
 };
-const mockTokenStore = { get: mockNoop };
+const mockTokenStore = {
+  get: jest.fn(() => tokenResponse().tokens.data[0]),
+};
 const mockStructure = {
   ownerKey: 'home-owner',
   generation: 0,
-  orderedIds: [],
+  orderedIds: [] as string[],
   smallBalanceIds: [],
   aggMembership: {},
   ownedAggregateTokenListMap: {},
@@ -206,7 +210,7 @@ jest.mock('@onekeyhq/kit/src/states/jotai/contexts/accountOverview', () => ({
       accountId: mockAccount.id,
       initialized: true,
       currency: 'usd',
-      worth: { [`hw-account-1_${mockNetwork.id}`]: '125' },
+      worth: { [`hw-account-1_${mockNetwork.id}`]: mockTokenWorth },
       updateAll: true,
     },
   ],
@@ -236,11 +240,11 @@ jest.mock('@onekeyhq/kit/src/states/jotai/contexts/tokenList/cells', () => ({
 }));
 jest.mock(
   '@onekeyhq/kit/src/states/jotai/contexts/tokenList/cells/projection',
-  () => ({}),
+  () => ({ meta: (_store: unknown, key: string) => key }),
 );
 jest.mock(
   '@onekeyhq/kit/src/states/jotai/contexts/tokenList/cells/tapTimeHomeMap',
-  () => ({ buildTapTimeHomeTokenMap: () => ({}) }),
+  () => ({ buildTapTimeHomeTokenMap: () => mockTapTokenMap }),
 );
 jest.mock('@onekeyhq/kit/src/views/AssetList/hooks/useTokenManagement', () => ({
   useTokenManagement: () => ({ customTokens: mockCustomTokens }),
@@ -394,6 +398,9 @@ describe('Home automatic Portfolio sync', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockEpoch = 0;
+    mockTokenWorth = '125';
+    mockTapTokenMap = {};
+    mockStructure.orderedIds = [];
     mockNetwork = { id: 'evm--1', isAllNetworks: false };
     mockHomeDisplay = {
       ownerKey: 'hw-account-1__evm--1',
@@ -433,9 +440,34 @@ describe('Home automatic Portfolio sync', () => {
       tokenFiatUsd: '100',
       defiFiatUsd: '40',
       perpsFiatUsd: '20',
-      isLive: false,
+      isLive: true,
     };
-    render(<TokenListBlock />);
+    const heldResponse = tokenResponse();
+    heldResponse.tokens.fiatValue = '100';
+    heldResponse.tokens.map.eth = {
+      balance: '1',
+      balanceParsed: '1',
+      fiatValue: '100',
+      price: 100,
+    };
+    mockTokenWorth = '100';
+    mockTapTokenMap = heldResponse.tokens.map;
+    mockStructure.orderedIds = ['eth'];
+    mockFetchTokens.mockResolvedValue(heldResponse);
+    const { rerender } = render(<TokenListBlock />);
+    await refresh();
+    await waitFor(() => expect(mockNotifySettled).toHaveBeenCalledTimes(1));
+
+    mockHomeDisplay = { ...mockHomeDisplay, isLive: false };
+    mockTokenWorth = '125';
+    mockTapTokenMap = tokenResponse().tokens.map;
+    rerender(<TokenListBlock />);
+    mockFetchTokens.mockResolvedValue(tokenResponse());
+    await act(async () => {
+      appEventBus.emit(EAppEventBusNames.RefreshTokenList, undefined);
+    });
+    expect(mockFetchTokens).toHaveBeenCalledTimes(2);
+    expect(mockNotifySettled).toHaveBeenCalledTimes(1);
     const { request, disabled } = mockUpdateSyncUi.mock.calls.at(-1)?.[0] as {
       request: () => void;
       disabled: boolean;
@@ -449,9 +481,29 @@ describe('Home automatic Portfolio sync', () => {
           totalFiat: '100',
           homeTotalFiatUsd: '160',
           homeCategoryFiatUsd: { defiFiat: '40', perpsFiat: '20' },
+          tokenMap: heldResponse.tokens.map,
+          tokens: [expect.objectContaining({ symbol: 'ETH' })],
         }),
       }),
     );
+    expect(mockFetchTokens).toHaveBeenCalledTimes(2);
+  });
+
+  it('waits for matching token rows when only the held balance is available', async () => {
+    mockHomeDisplay = {
+      ...mockHomeDisplay,
+      tokenFiatUsd: '100',
+      isLive: false,
+    };
+    render(<TokenListBlock />);
+    const { request, disabled } = mockUpdateSyncUi.mock.calls.at(-1)?.[0] as {
+      request: () => void;
+      disabled: boolean;
+    };
+    expect(disabled).toBe(true);
+    await act(async () => request());
+    expect(mockSyncPortfolio).not.toHaveBeenCalled();
+    expect(mockFetchTokens).not.toHaveBeenCalled();
   });
 
   it('syncs the displayed cached total without fetching or waiting for asset categories', async () => {
