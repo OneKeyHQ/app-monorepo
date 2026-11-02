@@ -115,6 +115,7 @@ import {
   StakingAmountInput,
   useOnBlurAmountValue,
 } from '../StakingAmountInput';
+import { StakingAmountInputSkeleton } from '../StakingAmountInput/StakingAmountInputSkeleton';
 import StakingFormWrapper from '../StakingFormWrapper';
 import { TradeOrBuy } from '../TradeOrBuy';
 import { formatStakingDistanceToNowStrict } from '../utils';
@@ -434,6 +435,7 @@ type IUniversalStakeProps = {
    */
   tokenImageLoading?: boolean;
   tokenSymbol?: string;
+  isStakeAssetLoading?: boolean;
 
   decimals?: number;
 
@@ -502,6 +504,7 @@ export function UniversalStake({
   tokenImageUri,
   tokenImageLoading,
   tokenSymbol,
+  isStakeAssetLoading,
   providerName = '',
   providerLogo,
   estimateFeeUTXO,
@@ -2076,19 +2079,25 @@ export function UniversalStake({
     onSubmit,
   ]);
 
-  const effectiveOnConfirmText = footerActionOverride?.text ?? onConfirmText;
+  const effectiveOnConfirmText = isStakeAssetLoading
+    ? ''
+    : (footerActionOverride?.text ?? onConfirmText);
   const effectiveConfirmOnPress =
     footerActionOverride?.onPress ?? confirmOnPress;
   const baseConfirmLoading = effectiveShowExpiredRefresh
     ? quoteRefreshing
     : loadingAllowance || approving || submitting || checkAmountLoading;
   const baseConfirmDisabled = effectiveShowExpiredRefresh ? false : isDisable;
-  const effectiveConfirmLoading = footerActionOverride
-    ? Boolean(footerActionOverride.loading)
-    : baseConfirmLoading;
-  const effectiveConfirmDisabled = footerActionOverride
-    ? Boolean(footerActionOverride.disabled)
-    : baseConfirmDisabled;
+  const effectiveConfirmLoading =
+    Boolean(isStakeAssetLoading) ||
+    (footerActionOverride
+      ? Boolean(footerActionOverride.loading)
+      : baseConfirmLoading);
+  const effectiveConfirmDisabled =
+    Boolean(isStakeAssetLoading) ||
+    (footerActionOverride
+      ? Boolean(footerActionOverride.disabled)
+      : baseConfirmDisabled);
 
   const footerContent = (
     <YStack bg="$bgApp" gap="$5">
@@ -2269,16 +2278,21 @@ export function UniversalStake({
     showPendleTransactionSection,
   });
 
-  const tradeOrBuyContent = isPendleProvider ? null : (
-    <TradeOrBuy
-      token={tokenInfo?.token as IToken}
-      accountId={accountId}
-      networkId={networkId}
-      containerStyle={{
-        pt: '$0',
-      }}
-    />
-  );
+  let tradeOrBuyContent: ReactElement | null = null;
+  if (!isPendleProvider) {
+    tradeOrBuyContent = isStakeAssetLoading ? (
+      <XStack h="$8" />
+    ) : (
+      <TradeOrBuy
+        token={tokenInfo?.token as IToken}
+        accountId={accountId}
+        networkId={networkId}
+        containerStyle={{
+          pt: '$0',
+        }}
+      />
+    );
+  }
 
   const platformBonus = suppressPlatformBonus
     ? undefined
@@ -2347,49 +2361,58 @@ export function UniversalStake({
     <StakingFormWrapper>
       <Stack position="relative">
         <YStack gap="$2">
-          <Stack position="relative" opacity={amountInputDisabled ? 0.7 : 1}>
-            <StakingAmountInput
+          {isStakeAssetLoading ? (
+            <StakingAmountInputSkeleton
               title={
                 inputTitle ||
                 intl.formatMessage({ id: ETranslations.earn_deposit })
               }
-              disabled={amountInputDisabled}
-              hasError={isInsufficientBalance || isCheckAmountMessageError}
-              value={amountValue}
-              onChange={onChangeAmountValue}
-              onBlur={onBlurAmountValue}
-              tokenSelectorTriggerProps={{
-                selectedTokenImageUri: tokenImageUri,
-                selectedTokenImageLoading: tokenImageLoading,
-                selectedTokenSymbol: tokenSymbol,
-                selectedNetworkImageUri: networkLogoURI,
-                ...tokenSelectorTriggerProps,
-              }}
-              balanceProps={{
-                value: balance,
-                onPress: onMax,
-                // During a protocol switch the on-screen balance still belongs
-                // to the previous protocol/network — show the built-in balance
-                // skeleton instead of a stale value that jumps on load.
-                loading: Boolean(footerActionOverride?.loading),
-              }}
-              inputProps={{
-                placeholder: '0',
-                autoFocus: !amountInputDisabled,
-              }}
-              valueProps={{
-                value: currentValue,
-                currency: currentValue ? currencySymbol : undefined,
-              }}
-              enableMaxAmount
-              usePercentageKeyboardAccessory
-              onAmountFocusChange={onAmountFocusChange}
-              onSelectPercentageStage={onSelectPercentageStage}
             />
-            {amountInputDisabled ? (
-              <Stack position="absolute" w="100%" h="100%" zIndex={1} />
-            ) : null}
-          </Stack>
+          ) : (
+            <Stack position="relative" opacity={amountInputDisabled ? 0.7 : 1}>
+              <StakingAmountInput
+                title={
+                  inputTitle ||
+                  intl.formatMessage({ id: ETranslations.earn_deposit })
+                }
+                disabled={amountInputDisabled}
+                hasError={isInsufficientBalance || isCheckAmountMessageError}
+                value={amountValue}
+                onChange={onChangeAmountValue}
+                onBlur={onBlurAmountValue}
+                tokenSelectorTriggerProps={{
+                  selectedTokenImageUri: tokenImageUri,
+                  selectedTokenImageLoading: tokenImageLoading,
+                  selectedTokenSymbol: tokenSymbol,
+                  selectedNetworkImageUri: networkLogoURI,
+                  ...tokenSelectorTriggerProps,
+                }}
+                balanceProps={{
+                  value: balance,
+                  onPress: onMax,
+                  // During a protocol switch the on-screen balance still belongs
+                  // to the previous protocol/network — show the built-in balance
+                  // skeleton instead of a stale value that jumps on load.
+                  loading: Boolean(footerActionOverride?.loading),
+                }}
+                inputProps={{
+                  placeholder: '0',
+                  autoFocus: !amountInputDisabled,
+                }}
+                valueProps={{
+                  value: currentValue,
+                  currency: currentValue ? currencySymbol : undefined,
+                }}
+                enableMaxAmount
+                usePercentageKeyboardAccessory
+                onAmountFocusChange={onAmountFocusChange}
+                onSelectPercentageStage={onSelectPercentageStage}
+              />
+              {amountInputDisabled ? (
+                <Stack position="absolute" w="100%" h="100%" zIndex={1} />
+              ) : null}
+            </Stack>
+          )}
           <ManagePageV2ReceiveInput
             receive={transactionConfirmation?.receive}
             config={effectiveReceiveInputConfig}
