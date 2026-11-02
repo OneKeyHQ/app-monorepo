@@ -27259,6 +27259,7 @@
     "packages/shared/src/locale/localeLoaders.ts": 2318,
     "packages/shared/src/locale/localeOptions.ts": 10392,
     "packages/shared/src/locale/localeSearch.ts": 14186,
+    "packages/shared/src/locale/normalizeSearchText.ts": 12944,
     "packages/shared/src/locale/systemLocale/index.ts": 15079,
     "packages/shared/src/locale/thirdpartyLocaleConverter.ts": 19614,
     "packages/shared/src/locale/translationKeys.ts": 18715,

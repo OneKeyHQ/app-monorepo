@@ -21,4 +21,3 @@ export { LOCALES_OPTION };
 export * from './type';
 export * from './enum/translations';
 export * from './enum/translationsMock';
-export * from './localeSearch';

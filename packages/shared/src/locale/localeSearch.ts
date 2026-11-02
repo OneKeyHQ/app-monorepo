@@ -1,8 +1,11 @@
 import ISO6391 from 'iso-639-1';
 
 import { ETranslations } from './enum/translations';
+import { matchesSearchQuery, normalizeSearchText } from './normalizeSearchText';
 
 import type { ILocaleJSONSymbol } from './type';
+
+export { matchesSearchQuery, normalizeSearchText };
 
 const LOCALE_ENGLISH_NAMES: Record<string, string> = {
   'zh-CN': 'Chinese (Simplified)',
@@ -37,31 +40,6 @@ export const LOCALE_DISPLAY_NAME_MESSAGE_IDS = {
   'zh-HK': ETranslations.language_name_zh_hk__desc,
   'zh-TW': ETranslations.language_name_zh_tw__desc,
 } as const satisfies Record<ILocaleJSONSymbol, ETranslations>;
-
-export function normalizeSearchText(text: string): string {
-  return text
-    .trim()
-    .toLowerCase()
-    .replaceAll('_', '-')
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '');
-}
-
-export function matchesSearchQuery(
-  fields: Array<string | undefined>,
-  query: string,
-): boolean {
-  const normalizedQuery = normalizeSearchText(query);
-  if (!normalizedQuery) {
-    return true;
-  }
-  return fields.some((field) => {
-    if (!field) {
-      return false;
-    }
-    return normalizeSearchText(field).includes(normalizedQuery);
-  });
-}
 
 export function getLocaleEnglishName(symbol: string): string {
   const englishName = LOCALE_ENGLISH_NAMES[symbol] || ISO6391.getName(symbol);

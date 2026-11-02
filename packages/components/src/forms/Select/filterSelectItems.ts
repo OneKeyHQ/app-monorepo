@@ -1,4 +1,6 @@
-import { normalizeSearchText } from '@onekeyhq/shared/src/locale/localeSearch';
+// localeSearch.ts also imports the translations enum. Select is on the web
+// startup graph, so the text helper has to come from the module that does not.
+import { normalizeSearchText } from '@onekeyhq/shared/src/locale/normalizeSearchText';
 
 import type { ISelectItem } from './type';
 
