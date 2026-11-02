@@ -212,6 +212,7 @@ export function RiskNativeList({
           type: 'system',
           variant: 'spacer',
           height: 20,
+          heightRounding: 'nearest',
         });
       }
       rows.push({
@@ -220,6 +221,7 @@ export function RiskNativeList({
         sectionKey,
         title: truncateNativeText(section.title),
         height: 36,
+        heightRounding: 'nearest',
         pressDisabled: true,
         style: {
           horizontalPadding: 12,
@@ -315,6 +317,9 @@ export function RiskNativeList({
           sectionKey,
           testID: AssetListTestIDs.riskTokenListItem,
           height: gtMd ? 48 : 56,
+          // Explicit heights pair with unscaled style metrics, so they must not
+          // take Android's legacy sub-400dp 0.9 row scale (OK-66072).
+          heightRounding: 'nearest',
           leading: {
             kind: 'token',
             image: tokenLogo
