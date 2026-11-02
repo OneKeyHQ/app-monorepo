@@ -15,6 +15,25 @@ const CANDLE_LABELS = {
 };
 
 describe('TradingViewNative chart legend', () => {
+  it.each([6, 4])(
+    'does not pad candle values to the maximum precision of %s',
+    (priceDecimalPlaces) => {
+      const legend = getTradingViewNativeChartLegend(
+        { o: 101.73, h: 101.74, l: 101.72, c: 101.73, t: 1, v: 10 },
+        CANDLE_LABELS,
+        'candlestick',
+        undefined,
+        priceDecimalPlaces,
+      );
+      expect(legend.priceItems.slice(0, 4).map((item) => item.value)).toEqual([
+        '101.73',
+        '101.74',
+        '101.72',
+        '101.73',
+      ]);
+    },
+  );
+
   it('builds colored price and volume values from an up candle', () => {
     expect(
       getTradingViewNativeChartLegend(

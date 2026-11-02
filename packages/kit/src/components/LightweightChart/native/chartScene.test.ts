@@ -455,3 +455,36 @@ it.each([
   );
   expect(labels.length).toBeLessThanOrEqual(1);
 });
+
+it('draws a curved line, area and overlay through every data point', () => {
+  const chart = scene({
+    lineType: 'curved',
+    seriesType: 'dotted-area',
+    secondaryLineData: config.data,
+  });
+  const stroke = chart.commands.find((c) => c.kind === 'polyline');
+  expect(stroke?.points.length).toBeGreaterThan(chart.points.length);
+  chart.points.forEach(({ x, y }) => {
+    expect(stroke?.points).toContainEqual(expect.objectContaining({ x, y }));
+  });
+  const clip = chart.commands.find((c) => c.kind === 'clipPolygon');
+  expect(clip?.points.slice(1, -1)).toEqual(stroke?.points);
+  expect(chart.secondarySegments[0]).toEqual(
+    stroke?.points.map(({ x, y }) => ({ x, y })),
+  );
+});
+
+it('leaves the hover dot to the pulse when asked', () => {
+  const chart = scene();
+  const point = chart.points[1];
+  const circles = (hideHoverDot?: boolean) =>
+    buildNativeChartCrosshair(
+      chart,
+      point.x,
+      100,
+      undefined,
+      hideHoverDot,
+    ).commands.filter((c) => c.kind === 'circle');
+  expect(circles()).toHaveLength(2);
+  expect(circles(true)).toHaveLength(0);
+});

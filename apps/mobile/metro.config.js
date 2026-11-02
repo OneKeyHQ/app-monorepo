@@ -34,7 +34,6 @@ const {
 const {
   getThirdPartyMMKVImportError,
 } = require('./scripts/native-storage-metro-policy');
-// const { withRozeniteExpoAtlasPlugin } = require('@rozenite/expo-atlas-plugin'); // Uncomment if needed
 
 const projectRoot = __dirname;
 
@@ -769,7 +768,6 @@ module.exports = withRozenite(
   }),
   {
     enabled: process.env.WITH_ROZENITE === 'true',
-    // enhanceMetroConfig: (cfg) => withRozeniteExpoAtlasPlugin(cfg),
     enhanceMetroConfig: (cfg) => cfg,
   },
 );

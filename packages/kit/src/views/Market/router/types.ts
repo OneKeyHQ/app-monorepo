@@ -41,6 +41,7 @@ export type IModalMarketParamList = {
     | {
         // Only stock detail charts can offer Prev close.
         showPreviousClose?: boolean;
+        showNavigationButtons?: boolean;
         storageNamespace?: ITradingViewNativeStorageNamespace;
         // Native toolbars hide the chart type select, so their settings must
         // offer chart style at every width.

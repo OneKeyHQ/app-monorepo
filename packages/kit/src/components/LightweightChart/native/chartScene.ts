@@ -6,6 +6,7 @@ import {
   formatChartPrice,
   formatChartPriceFullTicks,
 } from '../utils/formatChartPrice';
+import { sampleMonotoneCurve } from '../utils/monotoneCurve';
 
 import type { ITradingViewNativeSkiaCommand } from '../../TradingView/TradingViewNative/native/chartSkiaRenderer';
 import type {
@@ -371,6 +372,7 @@ type IChartDrawingContext = {
 };
 
 function getLinePoints(config: ILightweightChartConfig, source: IPoint[]) {
+  if (config.lineType === 'curved') return sampleMonotoneCurve(source);
   return config.lineType === 'steps'
     ? source.flatMap((point, i) =>
         i ? [{ x: point.x, y: source[i - 1].y }, point] : [point],
@@ -539,7 +541,7 @@ function drawPrimarySeries(context: IChartDrawingContext) {
     });
 }
 
-function buildSecondarySegments(layout: IChartDrawingContext['layout']) {
+function buildSecondarySegments({ config, layout }: IChartDrawingContext) {
   const { secondary, indexByTime, xAtIndex, yAtValue } = layout;
   const secondarySegments: IPoint[][] = [];
   let segment: IPoint[] = [];
@@ -553,7 +555,11 @@ function buildSecondarySegments(layout: IChartDrawingContext['layout']) {
     segment.push({ x: xAtIndex(index), y: yAtValue(point.value) });
   });
   if (segment.length) secondarySegments.push(segment);
-  return secondarySegments;
+  // Curved like the primary line so the two coincide. The samples keep every
+  // data point, so the scrub cut at a point still ends on the curve.
+  return config.lineType === 'curved'
+    ? secondarySegments.map((part) => sampleMonotoneCurve(part))
+    : secondarySegments;
 }
 
 function drawSecondarySeries(
@@ -659,7 +665,7 @@ function drawPlot(context: IChartDrawingContext) {
   painter.commands.push({ kind: 'clip', rect: layout.plot });
   drawSeriesFill(context);
   drawPrimarySeries(context);
-  const secondarySegments = buildSecondarySegments(layout);
+  const secondarySegments = buildSecondarySegments(context);
   drawSecondarySeries(context, secondarySegments);
   drawLastPointMarker(context);
   drawPriceLines(context);
@@ -1057,6 +1063,7 @@ function drawCrosshairPlot(
   commands: INativeChartScene['commands'],
   crosshairX: number,
   scrub?: ILightweightChartConfig['nativeScrubOptions'],
+  hideHoverDot?: boolean,
 ) {
   'worklet';
   commands.push({ kind: 'clip', rect: scene.plot });
@@ -1082,22 +1089,24 @@ function drawCrosshairPlot(
         });
     }
   }
-  commands.push({
-    kind: 'circle',
-    paint: 'line',
-    customPaintId: 'hoverText',
-    cx: point.x,
-    cy: point.y,
-    radius: 5,
-  });
-  commands.push({
-    kind: 'circle',
-    paint: 'line',
-    customPaintId: 'hoverDot',
-    cx: point.x,
-    cy: point.y,
-    radius: 3.5,
-  });
+  if (!hideHoverDot) {
+    commands.push({
+      kind: 'circle',
+      paint: 'line',
+      customPaintId: 'hoverText',
+      cx: point.x,
+      cy: point.y,
+      radius: 5,
+    });
+    commands.push({
+      kind: 'circle',
+      paint: 'line',
+      customPaintId: 'hoverDot',
+      cx: point.x,
+      cy: point.y,
+      radius: 3.5,
+    });
+  }
   commands.push({ kind: 'restore' });
 }
 
@@ -1212,6 +1221,8 @@ export function buildNativeChartCrosshair(
   x: number,
   y: number,
   scrub?: ILightweightChartConfig['nativeScrubOptions'],
+  // Set when the pulse dot follows the crosshair and stands in for this dot.
+  hideHoverDot?: boolean,
 ) {
   'worklet';
   const hover = getNativeChartHover(scene, x, y);
@@ -1221,7 +1232,14 @@ export function buildNativeChartCrosshair(
     customPaintStyles: buildCrosshairStyles(scene, point, scrub),
   };
   if (!point) return overlay;
-  drawCrosshairPlot(scene, point, overlay.commands, scrub ? x : point.x, scrub);
+  drawCrosshairPlot(
+    scene,
+    point,
+    overlay.commands,
+    scrub ? x : point.x,
+    scrub,
+    hideHoverDot,
+  );
   drawCrosshairPrice(scene, point, overlay.commands);
   drawScrubTooltip(scene, point, x, y, overlay, scrub);
   return overlay;

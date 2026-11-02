@@ -1,4 +1,5 @@
 import { createLastValueSeriesOptions } from './chartOptions';
+import { buildMonotoneCurveSegments } from './monotoneCurve';
 
 import type { ILightweightChartTheme } from '../types';
 import type {
@@ -45,6 +46,12 @@ export interface IDottedAreaSeriesOptions extends CustomSeriesOptions {
   patternOpacity: number;
   patternRadius: number;
   patternSpacing: number;
+  // False draws the line alone, for an overlay laid over another series.
+  showPattern: boolean;
+  curved: boolean;
+  // The line stops at the bar with this time; the curve is still fitted to the
+  // whole series, so a cut line keeps the exact shape of the full one.
+  drawUntilTime: number;
   showLastPointMarker: boolean;
   lastPointMarkerColor: string;
   lastPointMarkerRadius: number;
@@ -60,6 +67,9 @@ function getDefaultDottedAreaSeriesOptions(): IDottedAreaSeriesOptions {
     patternOpacity: 0.28,
     patternRadius: 0.9,
     patternSpacing: 10,
+    showPattern: true,
+    curved: false,
+    drawUntilTime: Number.POSITIVE_INFINITY,
     showLastPointMarker: true,
     lastPointMarkerColor: '#8D8FE8',
     lastPointMarkerRadius: 5.5,
@@ -68,6 +78,33 @@ function getDefaultDottedAreaSeriesOptions(): IDottedAreaSeriesOptions {
 
 function getNormalizedLineWidth(lineWidth = 3) {
   return Math.min(4, Math.max(1, Math.round(lineWidth)));
+}
+
+// Continues the current path from `points[0]` through `points[lastIndex]`.
+function tracePoints(
+  ctx: CanvasRenderingContext2D,
+  points: { x: number; y: number }[],
+  curved: boolean,
+  lastIndex = points.length - 1,
+) {
+  if (curved) {
+    buildMonotoneCurveSegments(points)
+      .slice(0, lastIndex)
+      .forEach((segment) => {
+        ctx.bezierCurveTo(
+          segment.cp1x,
+          segment.cp1y,
+          segment.cp2x,
+          segment.cp2y,
+          segment.x,
+          segment.y,
+        );
+      });
+    return;
+  }
+  points.slice(1, lastIndex + 1).forEach((point) => {
+    ctx.lineTo(point.x, point.y);
+  });
 }
 
 class DottedAreaPaneRenderer implements ICustomSeriesPaneRenderer {
@@ -126,10 +163,11 @@ class DottedAreaPaneRenderer implements ICustomSeriesPaneRenderer {
           return {
             x: x * horizontalRatio,
             y: y * verticalRatio,
+            time: Number(bar.originalData.time),
           };
         })
         .filter(
-          (point): point is { x: number; y: number } =>
+          (point): point is { x: number; y: number; time: number } =>
             !!point && Number.isFinite(point.x) && Number.isFinite(point.y),
         );
 
@@ -146,13 +184,12 @@ class DottedAreaPaneRenderer implements ICustomSeriesPaneRenderer {
       );
       const minY = Math.max(0, Math.min(...points.map((point) => point.y)));
 
-      if (points.length > 1) {
+      if (options.showPattern && points.length > 1) {
         ctx.save();
         ctx.beginPath();
         ctx.moveTo(firstPoint.x, bottom);
-        points.forEach((point) => {
-          ctx.lineTo(point.x, point.y);
-        });
+        ctx.lineTo(firstPoint.x, firstPoint.y);
+        tracePoints(ctx, points, options.curved);
         ctx.lineTo(lastPoint.x, bottom);
         ctx.closePath();
         ctx.clip();
@@ -172,19 +209,22 @@ class DottedAreaPaneRenderer implements ICustomSeriesPaneRenderer {
         ctx.restore();
       }
 
+      let lastDrawnIndex = points.length - 1;
+      while (
+        lastDrawnIndex > 0 &&
+        points[lastDrawnIndex].time > options.drawUntilTime
+      ) {
+        lastDrawnIndex -= 1;
+      }
+
       ctx.save();
       ctx.lineCap = 'round';
       ctx.lineJoin = 'round';
       ctx.strokeStyle = options.lineColor;
       ctx.lineWidth = getNormalizedLineWidth(options.lineWidth) * verticalRatio;
       ctx.beginPath();
-      points.forEach((point, index) => {
-        if (index === 0) {
-          ctx.moveTo(point.x, point.y);
-        } else {
-          ctx.lineTo(point.x, point.y);
-        }
-      });
+      ctx.moveTo(firstPoint.x, firstPoint.y);
+      tracePoints(ctx, points, options.curved, lastDrawnIndex);
       ctx.stroke();
       ctx.restore();
 
@@ -242,6 +282,7 @@ export function createDottedAreaSeriesOptions({
   // Falls back to the line color, so callers that omit it are unaffected.
   patternColor,
   priceFormatter,
+  curved,
 }: {
   theme: ILightweightChartTheme;
   lineWidth?: number;
@@ -251,6 +292,7 @@ export function createDottedAreaSeriesOptions({
   showLastPointMarker?: boolean;
   patternColor?: string;
   priceFormatter?: (price: number) => string;
+  curved?: boolean;
 }): SeriesPartialOptions<IDottedAreaSeriesOptions> {
   const resolvedPatternColor = patternColor ?? theme.lineColor;
   return {
@@ -261,6 +303,7 @@ export function createDottedAreaSeriesOptions({
     patternOpacity: 0.28,
     patternRadius: 0.9,
     patternSpacing: 10,
+    curved: curved ?? false,
     showLastPointMarker: showLastPointMarker ?? true,
     lastPointMarkerColor: resolvedPatternColor,
     lastPointMarkerRadius: 5.5,
