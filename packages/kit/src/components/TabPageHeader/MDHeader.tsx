@@ -272,9 +272,12 @@ export function MDHeader({
     </>
   );
   return platformEnv.isNativeIOS ? (
+    // box-none: this measuring wrapper spans the page top padding, where
+    // Discovery overlays its absolute search bar; it must not catch those taps.
     <YStack
       ref={headerRef}
       collapsable={false}
+      pointerEvents="box-none"
       onLayout={measureHeaderPosition}
     >
       {content}
