@@ -37,6 +37,7 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { isDualScreenDevice } from '@onekeyhq/shared/src/modules/DualScreenInfo';
+import { useWindowControlsLeadingOffset } from '@onekeyhq/shared/src/modules/WindowControlsInsets';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type {
   ETabDiscoveryRoutes,
@@ -526,6 +527,9 @@ function MobileBrowser() {
   // a 56pt row, i.e. ~6pt lower than this bar's safe-area-top anchor. Off iOS 26
   // / Android nothing changes.
   const searchGlassActive = isLiquidGlassAvailable();
+  // The search row sits beside the iPadOS window controls.
+  // The row already keeps 20pt ($5 / $pagePadding) from the window edge.
+  const windowControlsOffset = useWindowControlsLeadingOffset(20);
   let discoverSearchTop = top;
   if (platformEnv.isNativeAndroid) {
     discoverSearchTop = top + 5;
@@ -633,12 +637,14 @@ function MobileBrowser() {
             px="$5"
             {...(searchGlassActive && { left: 0, right: 0 })}
           >
-            <LegacyUniversalSearchInput
-              size="medium"
-              glass
-              initialTab={searchInitialTab}
-              tabRoute={universalSearchTabRoute}
-            />
+            <Stack pl={windowControlsOffset}>
+              <LegacyUniversalSearchInput
+                size="medium"
+                glass
+                initialTab={searchInitialTab}
+                tabRoute={universalSearchTabRoute}
+              />
+            </Stack>
           </Stack>
           <TabPageHeader
             sceneName={EAccountSelectorSceneName.home}

@@ -449,6 +449,48 @@ describe('TradingViewNativeContainer', () => {
     jest.useRealTimers();
   });
 
+  it.each([
+    ['hyperliquid', 'ZEC', 1278.4, 4, 1, '1278.4'],
+    ['hyperliquid', '@143', 1.234_567, 6, 6, '1.234567'],
+    ['hyperliquid', 'PURR/USDC', 1.234_567, 6, 6, '1.234567'],
+    ['hyperliquid', '@143', 0.000_000_12, 8, 8, '0.00000012'],
+    ['hyperliquid', '@143', 0.123_456, 6, 6, '0.123456'],
+    ['market', 'TOKEN', 1271.25, 1, undefined, '1271.3'],
+  ] as const)(
+    'keeps %s %s prices intact while choosing axis precision',
+    (kind, coin, price, decimals, axisDecimals, label) => {
+      mockDataState = { status: 'live' };
+      mockPoints = [
+        { c: 999.1234, h: 999.2345, l: 998.1234, o: 999.1, t: 1, v: 10 },
+        { c: price, h: price, l: price, o: price, t: 2, v: 10 },
+      ];
+      const chart = (sourceCoin: string) => (
+        <TradingViewNativeContainer
+          source={
+            kind === 'hyperliquid'
+              ? { kind, coin: sourceCoin, environment: 'mainnet' }
+              : {
+                  kind,
+                  networkId: 'evm--1',
+                  tokenAddress: '0x123',
+                  symbol: 'TOKEN',
+                  realtime: 'disabled',
+                }
+          }
+          priceDecimalPlaces={decimals}
+        />
+      );
+      const view = render(chart('ZEC'));
+      view.rerender(chart(coin));
+      expect(mockTradingViewNativeChart.mock.lastCall?.[0]).toMatchObject({
+        priceAxisDecimalPlaces: axisDecimals,
+        priceDecimalPlaces: decimals,
+        currentPriceLabel: label,
+        points: mockPoints,
+      });
+    },
+  );
+
   it('restores retained inline dimensions and ignores a closing fullscreen layout', () => {
     const onSizeChange = jest.fn();
     const area = (isActive: boolean) => (
@@ -481,6 +523,45 @@ describe('TradingViewNativeContainer', () => {
     expect(onSizeChange).toHaveBeenCalledTimes(1);
     expect(onSizeChange).toHaveBeenLastCalledWith({ width: 360, height: 240 });
   });
+
+  describe.each(['mobile', 'desktop'] as const)(
+    '%s chart navigation',
+    (nativeControlsLayoutMode) => {
+      it.each(['market', 'perps', 'swap'] as const)(
+        'enables %s navigation by default and disables it only in compact mode',
+        (storageNamespace) => {
+          const chart = (nativeChartDisplayMode: 'default' | 'compact') => (
+            <TradingViewNativeContainer
+              source={{
+                kind: 'hyperliquid',
+                coin: 'BTC',
+                environment: 'mainnet',
+              }}
+              storageNamespace={storageNamespace}
+              nativeControlsLayoutMode={nativeControlsLayoutMode}
+              nativeChartDisplayMode={nativeChartDisplayMode}
+            />
+          );
+          const { rerender } = render(chart('default'));
+          const expectNavigation = (enabled: boolean) => {
+            expect(mockTradingViewNativeChart).toHaveBeenLastCalledWith(
+              expect.objectContaining({ enableNavigationControls: enabled }),
+            );
+            expect(
+              mockTradingViewNativeChartControlsContainer,
+            ).toHaveBeenLastCalledWith(
+              expect.objectContaining({ enableNavigationButtons: enabled }),
+            );
+          };
+          expectNavigation(true);
+          rerender(chart('compact'));
+          expectNavigation(false);
+          rerender(chart('default'));
+          expectNavigation(true);
+        },
+      );
+    },
+  );
 
   describe.each(['mobile', 'desktop'] as const)(
     '%s Market drawing tools',
@@ -1048,6 +1129,40 @@ describe('TradingViewNativeContainer', () => {
     );
   });
 
+  it('keeps the precision mask inside the fullscreen portal until metadata is ready', () => {
+    mockDataState = { status: 'live' };
+    mockPoints = [{ c: 100, h: 101, l: 99, o: 100, t: 1, v: 10 }];
+    const chart = (fullscreen: boolean, loading = true) => {
+      const props = { isPricePrecisionLoading: loading };
+      return (
+        <TradingViewNativeContainer
+          {...props}
+          source={{ kind: 'hyperliquid', coin: 'ZEC', environment: 'mainnet' }}
+          useFullscreenOverlay
+          isNativeChartFullscreen={fullscreen}
+          priceDecimalPlaces={loading ? undefined : 4}
+          testID="chart"
+        />
+      );
+    };
+    const view = render(chart(true));
+    const layer = screen.getByTestId('trading-view-native-fullscreen-layer');
+    const chartTree = layer.firstElementChild;
+    expect(layer.contains(screen.getByTestId('chart-loading'))).toBe(true);
+    expect(view.container.contains(layer)).toBe(false);
+
+    view.rerender(chart(false));
+    expect(view.container.contains(screen.getByTestId('chart-loading'))).toBe(
+      true,
+    );
+    view.rerender(chart(true));
+    expect(layer.contains(screen.getByTestId('chart-loading'))).toBe(true);
+
+    view.rerender(chart(true, false));
+    expect(screen.queryByTestId('chart-loading')).toBeNull();
+    expect(layer.firstElementChild).toBe(chartTree);
+  });
+
   it('shows the loading animation until the initial K-line points arrive', () => {
     mockDataState = { status: 'idle' };
     const source = {
@@ -1300,6 +1415,49 @@ describe('TradingViewNativeContainer', () => {
       chartProps.subIndicatorPanes.map(({ indicator }) => indicator),
     ).toEqual(['VOL']);
   });
+
+  it.each([
+    {
+      expectedObv: [0, 10, 20, null, null],
+      source: { kind: 'stock' as const, stockId: 'NVDA' },
+    },
+    {
+      expectedObv: [0, 10, 20, 20, 20],
+      source: {
+        kind: 'hyperliquid' as const,
+        coin: 'ETH',
+        environment: 'mainnet' as const,
+      },
+    },
+  ])(
+    'reads zero volume on $source.kind bars for OBV',
+    ({ expectedObv, source }) => {
+      mockDataState = { status: 'live' };
+      mockPoints = Array.from({ length: 5 }, (_, index) => ({
+        c: 100 + index,
+        h: 101 + index,
+        l: 99 + index,
+        o: 100 + index,
+        t: 1000 + index * 3600,
+        v: index < 3 ? 10 : 0,
+      }));
+      render(<TradingViewNativeContainer source={source} />);
+
+      const controlsProps = mockTradingViewNativeChartControlsContainer.mock
+        .calls[0][0] as {
+        onIndicatorChange: (indicator: 'OBV', desiredActive: boolean) => void;
+      };
+      act(() => controlsProps.onIndicatorChange('OBV', true));
+
+      const chartProps = mockTradingViewNativeChart.mock.calls.at(
+        -1,
+      )?.[0] as ITradingViewNativeChartProps;
+      expect(
+        chartProps.subIndicatorPanes?.[0]?.series.find(({ id }) => id === 'obv')
+          ?.values,
+      ).toEqual(expectedObv);
+    },
+  );
 
   it.each(['market', 'swap', 'perps'] as const)(
     'opens the %s mobile editor on the selected sub-indicator from its chart legend',
@@ -2031,6 +2189,7 @@ describe('TradingViewNativeContainer', () => {
     );
 
     expect(mockTradingViewNativeChartSettingsButton).toHaveBeenCalledWith({
+      enableNavigationButtons: true,
       enablePreviousClose: false,
       isChartSwitchDisabled: true,
       onChartSwitch: handleChartSwitch,

@@ -214,6 +214,25 @@ jest.mock(
   }),
 );
 jest.mock(
+  '@onekeyhq/kit/src/views/Market/MarketDetailV2/layouts/components/MarketDesktopChartContainer',
+  () => ({
+    MarketDesktopChartContainer: ({
+      children,
+      footer,
+      testID,
+    }: {
+      children: ReactNode;
+      footer?: ReactNode;
+      testID: string;
+    }) => (
+      <div>
+        <div data-testid={testID}>{children}</div>
+        {footer}
+      </div>
+    ),
+  }),
+);
+jest.mock(
   '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/StockTokenInfo/StockTokenInfoPopover',
   () => ({
     StockTokenInfoPopover: ({ label }: { label: ReactNode }) => (
@@ -427,6 +446,24 @@ describe('Swap Stock chart and headline price ownership', () => {
   afterEach(() => {
     mockChartMode = 'simple';
     mockProSourceAvailable = false;
+  });
+
+  it('keeps the toolbar outside the resizable chart in Simple and Pro modes', () => {
+    mockProSourceAvailable = true;
+    const { rerender } = render(<SwapStockMarketPanel />);
+    const chart = screen.getByTestId('swap-stock-chart');
+    expect(chart.contains(screen.getByTestId('swap-stock-chart-toolbar'))).toBe(
+      false,
+    );
+    expect(mockSimpleChart).toHaveBeenCalled();
+
+    mockChartMode = 'pro';
+    rerender(<SwapStockMarketPanel />);
+    expect(screen.getByTestId('swap-stock-chart')).toBe(chart);
+    expect(chart.contains(screen.getByTestId('swap-stock-chart-toolbar'))).toBe(
+      false,
+    );
+    expect(mockProChart).toHaveBeenCalled();
   });
 
   it('uses the visible chart close and rejects callbacks from a previous token or mode', () => {

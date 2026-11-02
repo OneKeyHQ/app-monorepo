@@ -1,6 +1,11 @@
 // cspell:ignore Alphaf Skia XYWH
 
 import {
+  formatTradingViewNativePriceTick,
+  getTradingViewNativeCurrentPriceAxisLabel,
+} from '../utils/chartLayout';
+
+import {
   createTradingViewNativeSkiaFontForText,
   createTradingViewNativeSkiaPicture,
   createTradingViewNativeSkiaResources,
@@ -321,6 +326,21 @@ describe('TradingViewNative Skia scene renderer', () => {
         digitWidth,
       );
 
+      for (const [price, decimals] of [
+        [80_311, 1],
+        [3012.5, 2],
+      ]) {
+        const widthFor = (value: number) =>
+          getTradingViewNativeSkiaPriceAxisLabelWidth(
+            getTradingViewNativeCurrentPriceAxisLabel(
+              formatTradingViewNativePriceTick(value, 4, decimals),
+              decimals,
+            ),
+            font,
+            digitWidth,
+          );
+        expect(widthFor(price)).toBe(widthFor(price + 10 ** -decimals));
+      }
       expect(reservedWidth).toBe(expectedWidth);
       expect(reservedWidth).toBeGreaterThanOrEqual(
         fourAdvance * 6 + 3 + fourRight,

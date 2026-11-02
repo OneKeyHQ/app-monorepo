@@ -13,6 +13,7 @@ const {
   getTempTypeAwareConfigPath,
   parseOxlintConfig,
   parseOxlintCounts,
+  resolveLintPasses,
   resolvePackageBinary,
 } = require('./eslint');
 
@@ -83,6 +84,24 @@ test('parses warning and error counts from oxlint summary output', () => {
     parseOxlintCounts('Found 1 warning and 3 errors.\nFinished in 12.1s'),
     { warnings: 1, errors: 3 },
   );
+});
+
+test('selects oxlint passes so CI can split the type-aware pass into its own job', () => {
+  const all = { standard: true, typeAware: true, format: true };
+  assert.deepEqual(resolveLintPasses(undefined), all);
+  assert.deepEqual(resolveLintPasses(''), all);
+  assert.deepEqual(resolveLintPasses('all'), all);
+  assert.deepEqual(resolveLintPasses('standard'), {
+    standard: true,
+    typeAware: false,
+    format: true,
+  });
+  assert.deepEqual(resolveLintPasses('type-aware'), {
+    standard: false,
+    typeAware: true,
+    format: false,
+  });
+  assert.throws(() => resolveLintPasses('typeaware'), /ONEKEY_OXLINT_PASS/);
 });
 
 test('scopes temporary type-aware config path by pid to prevent concurrent run collisions', () => {

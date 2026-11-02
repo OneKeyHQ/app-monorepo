@@ -146,6 +146,7 @@ import { SortableHeaderCell } from './SortableHeaderCell';
 
 export const SPOT_DEX_INDEX = -1;
 const DESKTOP_TOKEN_SELECTOR_PANEL_WIDTH = 800;
+const DESKTOP_TOKEN_SELECTOR_BODY_HEIGHT = 440;
 const TOKEN_SELECTOR_DESKTOP_ROW_HEIGHT = 48;
 const TOKEN_SELECTOR_DESKTOP_RENDER_BATCH_SIZE = 20;
 const TOKEN_SELECTOR_OPEN_PREWARM_TIMEOUT_MS = 600;
@@ -1679,56 +1680,70 @@ function BasePerpTokenSelectorContent() {
             </XStack>
           </ScrollView>
         </XStack>
-        {showCategoryTabs ? (
-          <XStack bg="$bg">
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              bounces={false}
-              width="100%"
-              contentContainerStyle={{ minWidth: '100%' }}
-            >
-              <XStack minWidth="100%" pl="$2" pr="$4" py="$1.5" gap="$2">
-                {categoryTabs.map((tab: IPerpDynamicTab) => (
-                  <CategoryTabItem
-                    key={tab.tabId}
-                    id={tab.tabId}
-                    name={tab.name}
-                    isFocused={displayActiveTab === tab.tabId}
-                    onPress={setActiveTab}
-                  />
-                ))}
-              </XStack>
-            </ScrollView>
-          </XStack>
-        ) : null}
-        <YStack>
-          {showFavoritesEmpty ? (
-            <YStack height={350}>
-              <FavoritesEmptyState />
-            </YStack>
-          ) : (
-            <YStack width="100%" minWidth={0} overflow="hidden">
-              <TokenListHeader layoutMode={desktopListLayout} />
-              <YStack height={350} minWidth={0}>
-                <ListView
-                  ref={listRef}
-                  showsVerticalScrollIndicator={false}
-                  keyExtractor={keyExtractor}
-                  estimatedItemSize={TOKEN_SELECTOR_DESKTOP_ROW_HEIGHT}
-                  windowSize={5}
-                  initialNumToRender={TOKEN_SELECTOR_DESKTOP_RENDER_BATCH_SIZE}
-                  maxToRenderPerBatch={TOKEN_SELECTOR_DESKTOP_RENDER_BATCH_SIZE}
-                  data={activeTabData}
-                  renderItem={renderItem}
-                  ListEmptyComponent={listEmptyComponent}
-                  contentContainerStyle={{
-                    paddingBottom: 10,
-                  }}
-                />
+        <YStack height={DESKTOP_TOKEN_SELECTOR_BODY_HEIGHT} gap="$1">
+          {showCategoryTabs ? (
+            <XStack bg="$bg" flexShrink={0}>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                bounces={false}
+                width="100%"
+                contentContainerStyle={{ minWidth: '100%' }}
+              >
+                <XStack minWidth="100%" pl="$2" pr="$4" py="$1.5" gap="$2">
+                  {categoryTabs.map((tab: IPerpDynamicTab) => (
+                    <CategoryTabItem
+                      key={tab.tabId}
+                      id={tab.tabId}
+                      name={tab.name}
+                      isFocused={displayActiveTab === tab.tabId}
+                      onPress={setActiveTab}
+                    />
+                  ))}
+                </XStack>
+              </ScrollView>
+            </XStack>
+          ) : null}
+          <YStack flex={1} minHeight={0}>
+            {showFavoritesEmpty ? (
+              <YStack flex={1} minHeight={0}>
+                <FavoritesEmptyState />
               </YStack>
-            </YStack>
-          )}
+            ) : (
+              <YStack
+                flex={1}
+                width="100%"
+                minWidth={0}
+                minHeight={0}
+                overflow="hidden"
+              >
+                <YStack flexShrink={0}>
+                  <TokenListHeader layoutMode={desktopListLayout} />
+                </YStack>
+                <YStack flex={1} minWidth={0} minHeight={0}>
+                  <ListView
+                    ref={listRef}
+                    showsVerticalScrollIndicator={false}
+                    keyExtractor={keyExtractor}
+                    estimatedItemSize={TOKEN_SELECTOR_DESKTOP_ROW_HEIGHT}
+                    windowSize={5}
+                    initialNumToRender={
+                      TOKEN_SELECTOR_DESKTOP_RENDER_BATCH_SIZE
+                    }
+                    maxToRenderPerBatch={
+                      TOKEN_SELECTOR_DESKTOP_RENDER_BATCH_SIZE
+                    }
+                    data={activeTabData}
+                    renderItem={renderItem}
+                    ListEmptyComponent={listEmptyComponent}
+                    contentContainerStyle={{
+                      paddingBottom: 10,
+                    }}
+                  />
+                </YStack>
+              </YStack>
+            )}
+          </YStack>
         </YStack>
       </YStack>
       {!platformEnv.isNative ? (

@@ -89,10 +89,28 @@ index 0bcf1dd..dd9ecf3 100644
          return _nodePath.default
            .relative(
 diff --git a/node_modules/metro/src/HmrServer.js b/node_modules/metro/src/HmrServer.js
-index 2c98831..8dec2b2 100644
+index 2c98831..54bf229 100644
 --- a/node_modules/metro/src/HmrServer.js
 +++ b/node_modules/metro/src/HmrServer.js
-@@ -318,6 +318,8 @@ class HmrServer {
+@@ -199,7 +199,16 @@ class HmrServer {
+         case "register-entrypoints":
+           return Promise.all(
+             data.entryPoints.map((entryPoint) =>
+-              this._registerEntryPoint(client, entryPoint, sendFn),
++              // OneKey patch: report a failed registration to its client. The
++              // websocket server drops this promise, so a rejection stops Metro.
++              this._registerEntryPoint(client, entryPoint, sendFn).catch(
++                (error) => {
++                  send([sendFn], {
++                    type: "error",
++                    body: (0, _formatBundlingError.default)(error),
++                  });
++                },
++              ),
+             ),
+           );
+         case "log":
+@@ -318,6 +327,8 @@ class HmrServer {
          clientUrl: new URL(group.clientUrl),
          createModuleId: this._createModuleId,
          includeAsyncPaths: group.graphOptions.lazy,

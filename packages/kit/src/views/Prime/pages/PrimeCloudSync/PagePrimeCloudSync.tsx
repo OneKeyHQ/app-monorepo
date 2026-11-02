@@ -863,7 +863,7 @@ function AppDataSection() {
           ) : null}
           <Divider mx="$5" my="$2" />
           <ListItem
-            title={intl.formatMessage({ id: ETranslations.wallet_backup_now })}
+            title={intl.formatMessage({ id: ETranslations.sync_now__action })}
             icon="RefreshCwOutline"
             drillIn
             nativePressableStyle={listItemNativePressableStyle}
@@ -912,7 +912,7 @@ function AppDataSection() {
           </ListItem>
           <Divider mx="$5" my="$2" />
           <ListItem
-            title={intl.formatMessage({ id: ETranslations.wallet_backup_now })}
+            title={intl.formatMessage({ id: ETranslations.sync_now__action })}
             icon="RefreshCwOutline"
             drillIn
             nativePressableStyle={listItemNativePressableStyle}
@@ -961,7 +961,7 @@ function AppDataSection() {
           </ListItem>
           <Divider mx="$5" my="$2" />
           <ListItem
-            title={intl.formatMessage({ id: ETranslations.wallet_backup_now })}
+            title={intl.formatMessage({ id: ETranslations.sync_now__action })}
             icon="RefreshCwOutline"
             drillIn
             nativePressableStyle={listItemNativePressableStyle}

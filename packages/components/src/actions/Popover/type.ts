@@ -44,6 +44,19 @@ export interface IPopoverProps {
     trapFocus?: boolean;
   };
   sheetProps?: ISheetOptions;
+  /**
+   * Native only. `auto` (default) anchors the panel to `renderTrigger` in
+   * expanded windows (>= 768 wide) and uses a sheet below that, like web;
+   * `sheet` always uses a sheet; `anchored` always anchors. Without
+   * `renderTrigger` there is nothing to anchor to, so a sheet is used. An open
+   * popover closes when the presentation changes, such as on folding.
+   */
+  nativePresentation?: 'auto' | 'anchored' | 'sheet';
+  /**
+   * Native only. Window rect to anchor to instead of measuring
+   * `renderTrigger`, for popovers opened imperatively from a known position.
+   */
+  nativeAnchorRect?: { x: number; y: number; width: number; height: number };
   mountNativePortalBeforeOpen?: boolean;
   /**
    * Unique identifier for tracking/analytics purposes.

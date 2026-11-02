@@ -63,6 +63,10 @@ import {
 import { ShareButton } from '../components/TokenDetailHeader/ShareButton';
 import { MarketTokenSelector } from '../components/TokenSelector/MarketTokenSelector';
 import { MarketDetailWatchlistSidebarToggle } from '../components/WatchlistSidebar/MarketDetailWatchlistSidebarContext';
+import {
+  useMarketPriceChangeLabelId,
+  useMarketSimpleChartRangePriceChange,
+} from '../hooks/MarketSimpleChartRangeChangeContext';
 import { useStockDetail } from '../hooks/StockDetailContext';
 import { useMarketDetailPositionTab } from '../hooks/useMarketDetailPositionTab';
 import { useStockPortfolioData } from '../hooks/useStockPortfolioData';
@@ -306,12 +310,20 @@ function StockPriceHeader({
   const { stockDetail, selectedTokenVariant } = useStockDetail();
   const isSharePrice = priceMode === 'share';
   const price = isSharePrice ? stockDetail?.price : tokenDetail?.price;
-  const priceChangePercent = isSharePrice
-    ? stockDetail?.priceChange24hPercent
-    : tokenDetail?.priceChange24hPercent;
-  const reportedPriceChangeValue = isSharePrice
-    ? stockDetail?.priceChange24hValue
-    : undefined;
+  // The simple chart's selected range replaces the 24h move while it is drawn.
+  const rangePriceChange = useMarketSimpleChartRangePriceChange(priceMode);
+  const priceChangeLabelId = useMarketPriceChangeLabelId(priceMode);
+  const priceChangePercent =
+    rangePriceChange?.priceChangePercent ??
+    (isSharePrice
+      ? stockDetail?.priceChange24hPercent
+      : tokenDetail?.priceChange24hPercent);
+  let reportedPriceChangeValue: string | undefined;
+  if (rangePriceChange) {
+    reportedPriceChangeValue = rangePriceChange.priceChangeValue;
+  } else if (isSharePrice) {
+    reportedPriceChangeValue = stockDetail?.priceChange24hValue;
+  }
   // Only the share feed reports the absolute move. Everywhere else it is
   // derived from the percentage and the price shown next to it, so the two
   // figures on the line can never disagree.
@@ -358,12 +370,26 @@ function StockPriceHeader({
       flexWrap="wrap-reverse"
       alignItems="flex-end"
       justifyContent="space-between"
-      gap="$2"
+      columnGap="$3"
+      rowGap="$2"
     >
-      {/* Keep the intrinsic price width when deciding whether the controls fit.
-          Reverse wrapping places the controls above the quote on narrow charts. */}
-      <YStack flexGrow={1} flexShrink={1} minWidth={0} gap="$2">
-        <XStack alignItems="baseline" flexWrap="wrap" gap="$3.5">
+      {/* Sized from its narrowest layout, not its one-line width, so a long
+          change line wraps under the price before the controls are pushed off
+          the row. Reverse wrapping places the controls above the quote only
+          once even the price and the change line on their own do not fit. */}
+      <YStack
+        flexGrow={1}
+        flexShrink={1}
+        flexBasis={0}
+        minWidth="min-content"
+        gap="$2"
+      >
+        <XStack
+          alignItems="baseline"
+          flexWrap="wrap"
+          columnGap="$3.5"
+          rowGap="$1.5"
+        >
           <MarketTooltipLabel
             testID="stock-price-tooltip-trigger"
             hovering
@@ -410,6 +436,15 @@ function StockPriceHeader({
                 </SizableText>
               ) : null}
             </XStack>
+            <SizableText
+              testID="stock-price-change-label"
+              // Figma 25227:67442: 10px from the change, past the row's 6px gap.
+              ml="$1"
+              size="$bodyLg"
+              color="$textSubdued"
+            >
+              {intl.formatMessage({ id: priceChangeLabelId })}
+            </SizableText>
           </XStack>
         </XStack>
         {/* The token price updates around the clock, so its quote is never
@@ -858,18 +893,25 @@ function StockPosition({
   portfolioData,
   isRefreshing,
   hasAccount,
+  isPortfolioPending,
+  isPortfolioIncomplete,
 }: {
   portfolioData: IMarketAccountPortfolioDisplayItem[];
   isRefreshing: boolean;
   hasAccount: boolean;
+  isPortfolioPending?: boolean;
+  isPortfolioIncomplete?: boolean;
 }) {
   return (
     <Portfolio
       standalone
       isStock
       hasAccount={hasAccount}
+      isPending={isPortfolioPending}
+      isFailed={isPortfolioIncomplete}
       portfolioData={portfolioData}
       isRefreshing={isRefreshing}
+      isMarketDetail
     />
   );
 }
@@ -1276,11 +1318,15 @@ function StockOverview({
   portfolioData,
   isRefreshing,
   hasAccount,
+  isPortfolioPending,
+  isPortfolioIncomplete,
   initialSection,
 }: {
   portfolioData: IMarketAccountPortfolioDisplayItem[];
   isRefreshing: boolean;
   hasAccount: boolean;
+  isPortfolioPending?: boolean;
+  isPortfolioIncomplete?: boolean;
   initialSection?: IMarketStockDetailInitialSection;
 }) {
   const intl = useIntl();
@@ -1356,6 +1402,8 @@ function StockOverview({
             portfolioData={portfolioData}
             isRefreshing={isRefreshing}
             hasAccount={hasAccount}
+            isPortfolioPending={isPortfolioPending}
+            isPortfolioIncomplete={isPortfolioIncomplete}
           />
         </YStack>
       )}
@@ -1402,6 +1450,8 @@ export function StockDesktopLayout({
     resolvedVariantKeys,
     isRefreshing: isStockPortfolioRefreshing,
     hasAccount: hasStockPortfolioAccount,
+    isPortfolioPending: isStockPortfolioPending,
+    isPortfolioIncomplete: isStockPortfolioIncomplete,
   } = useStockPortfolioData();
   const { priceMode, handlePriceModeChange, sharePriceAvailable } =
     useStockPriceSource();
@@ -1461,6 +1511,8 @@ export function StockDesktopLayout({
             portfolioData={stockPortfolioData}
             isRefreshing={isStockPortfolioRefreshing}
             hasAccount={hasStockPortfolioAccount}
+            isPortfolioPending={isStockPortfolioPending}
+            isPortfolioIncomplete={isStockPortfolioIncomplete}
             initialSection={initialSection}
           />
         </YStack>

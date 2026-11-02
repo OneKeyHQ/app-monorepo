@@ -12,6 +12,7 @@ import { numberFormatAsRaw } from '@onekeyhq/shared/src/utils/numberUtils';
 import type { IMarketTokenChart } from '@onekeyhq/shared/types/market';
 
 import { LightweightChart } from '../LightweightChart';
+import { downsampleChartLine } from '../LightweightChart/utils/downsampleChartLine';
 import {
   formatChartPrice,
   formatChartPriceFull,
@@ -26,9 +27,6 @@ import type {
 } from '../LightweightChart/types';
 
 const PRICE_SCALE_MARGINS = { top: 0.12, bottom: 0.1 } as const;
-// Kept in sync with `priceScaleMinimumWidth` below, so the price axis reserves
-// a stable width instead of resizing with the figures it prints.
-const PRICE_SCALE_WIDTH = 88;
 // The widest sub-$1 form the title can print is 4 leading zeros + 4 significant
 // digits (`0.0000653`), i.e. 10 characters. Anything smaller makes the axis fall
 // back to `$0.0₄653` and read as a different price than the title.
@@ -57,6 +55,11 @@ const DIMMED_LINE_ALPHA_RATIO = 0.35;
 // lightweight-charts `LineStyle.Dashed`: reads as one continuous guide next to
 // the sparser large-dashed default.
 const CROSSHAIR_VERT_LINE_STYLE = 2;
+// Width, in px/pt, given to each drawn point. Denser data turns into short
+// jitter that no curve can smooth, so a chart keeps only as many evenly spaced
+// closes as fit: a phone's 1D falls to about 20-minute bars, while a chart
+// 1152px or wider keeps the full 5-minute series.
+const MIN_POINT_SPACING = 4;
 
 function fadeLineColor(color: string) {
   const parsed = colord(color);
@@ -107,7 +110,7 @@ export type IStockPriceLineChartHoverPoint = {
 };
 
 export function StockPriceLineChart({
-  data,
+  data: sourceData,
   height,
   pulseLastPoint,
   previousClose,
@@ -117,6 +120,7 @@ export function StockPriceLineChart({
   hoverLabelShowsPrice = true,
   hoverLabelLargePrice = false,
   onHoverChange,
+  trend = 'up',
 }: {
   data: IMarketTokenChart;
   height: number;
@@ -140,12 +144,28 @@ export function StockPriceLineChart({
   hoverLabelLargePrice?: boolean;
   // Called with undefined when the pointer leaves the plot, and on unmount.
   onHoverChange?: (point: IStockPriceLineChartHoverPoint | undefined) => void;
+  // Direction of the drawn range: the line, its fill, the live pulse and the
+  // last-price badge all take the matching success or critical color.
+  trend?: 'up' | 'down';
 }) {
   const theme = useTheme();
   const intl = useIntl();
   const { formatDate } = useFormatDate();
   const [hoverData, setHoverData] = useState<IChartHoverData | null>(null);
   const [chartWidth, setChartWidth] = useState(0);
+  // Everything drawn or scrubbed reads the thinned series, so the hover snaps
+  // only to points that sit on the line. Until the width is known, the full
+  // series is drawn.
+  const data = useMemo(
+    () =>
+      chartWidth > 0
+        ? downsampleChartLine(
+            sourceData,
+            Math.floor(chartWidth / MIN_POINT_SPACING),
+          )
+        : sourceData,
+    [sourceData, chartWidth],
+  );
   const priceFormatter = useCallback(
     (price: number) => {
       if (priceScaleFormat === 'full') return formatChartPriceFull(price);
@@ -216,7 +236,10 @@ export function StockPriceLineChart({
     };
   }, [data, hoverData]);
 
-  const solidLineColor = theme.textSuccess.val;
+  const isDown = trend === 'down';
+  const solidLineColor = isDown
+    ? theme.textCritical.val
+    : theme.textSuccess.val;
   // Constant for the life of the chart: only the overlay's data follows the
   // cursor, so hovering never re-creates the chart instance.
   const dimmedLineColor = useMemo(
@@ -227,7 +250,8 @@ export function StockPriceLineChart({
   const pageBackgroundColor = theme.bgApp.val;
   // Figma stock detail (25907:24812 / 25907:24808): the dashed guide is
   // `border/strong`, its tag and axis label sit on `bg/primary-active` with
-  // `text/inverse`, and the live price tag on `bg/success-strong`.
+  // `text/inverse`, and the live price tag on `bg/success-strong` (or
+  // `bg/critical-strong` on a falling range).
   const previousCloseLineColor = theme.borderStrong.val;
   // The design library's `bg/primary-active` is ~50% black in light mode, but
   // the app's `$bgPrimaryActive` maps to primary11 (~61%) there. primary10
@@ -238,7 +262,7 @@ export function StockPriceLineChart({
   );
   const previousCloseLabelTextColor = theme.textInverse.val;
   const currentPriceLabelColor = flattenColor(
-    theme.bgSuccessStrong.val,
+    isDown ? theme.bgCriticalStrong.val : theme.bgSuccessStrong.val,
     pageBackgroundColor,
   );
   const previousCloseLabel = intl.formatMessage({
@@ -269,18 +293,11 @@ export function StockPriceLineChart({
     ],
   );
 
-  // The whole range stays on the main (faded) series so the price scale never
-  // moves; only the solid overlay drawn on top of it is cut at the cursor.
-  const hoveredTime = hoverData?.time;
-  const solidData = useMemo(() => {
-    if (platformEnv.isNative || hoveredTime === undefined) {
-      return data;
-    }
-    const upToCursor = data.filter(([time]) => time <= hoveredTime);
-    // An empty overlay would drop the overlay series entirely and rebuild the
-    // chart mid-scrub, so it always keeps at least the first point.
-    return upToCursor.length > 0 ? upToCursor : data.slice(0, 1);
-  }, [data, hoveredTime]);
+  // The whole range stays on both series so the price scale never moves; on
+  // web the solid overlay is cut at the cursor (native cuts it while
+  // scrubbing), still curved over the full series so it never leaves the
+  // faded line underneath.
+  const solidLineEndTime = platformEnv.isNative ? undefined : hoverData?.time;
 
   const nativeScrubOptions = useMemo<
     ILightweightChartNativeScrubOptions | undefined
@@ -404,12 +421,14 @@ export function StockPriceLineChart({
         // read as the chart's fill, not as part of the faded tail.
         patternColor={solidLineColor}
         pulseLastPointColor={solidLineColor}
-        secondaryLineData={solidData}
+        secondaryLineData={data}
+        secondaryLineEndTime={solidLineEndTime}
         secondaryLineColor={solidLineColor}
         secondaryLineWidth={2}
         crosshairVertLineColor={crosshairVertLineColor}
         crosshairVertLineStyle={CROSSHAIR_VERT_LINE_STYLE}
         seriesType="dotted-area"
+        lineType="curved"
         showPriceScale
         referenceLine={referenceLine}
         showLastValue={showCurrentPriceLabel}
@@ -421,8 +440,9 @@ export function StockPriceLineChart({
         showTimeScale
         priceScaleMargins={PRICE_SCALE_MARGINS}
         priceScaleEntireTextOnly
-        // Let the native canvas measure its labels instead of reserving desktop space.
-        priceScaleMinimumWidth={platformEnv.isNative ? 0 : PRICE_SCALE_WIDTH}
+        // The right axis draws its labels left-aligned, so any reserved width
+        // shows up as a gap after short prices. Let it fit its widest label.
+        priceScaleMinimumWidth={0}
         timeScaleRightOffsetPixels={LAST_POINT_RIGHT_GAP}
         priceFormatter={priceFormatter}
         priceTickFormatter={priceTickFormatter}

@@ -366,6 +366,9 @@ describe('ServiceAccount Keyless removal phase', () => {
             .fn()
             .mockResolvedValue(true),
         },
+        servicePrivacyChain: {
+          onWalletCreated: jest.fn().mockResolvedValue(undefined),
+        },
       },
     });
     jest.spyOn(service, 'getKeylessWallet').mockResolvedValue(undefined);
@@ -413,6 +416,38 @@ describe('ServiceAccount Keyless removal phase', () => {
     ).toBeLessThan(
       jest.mocked(decryptRevealableSeed).mock.invocationCallOrder[0],
     );
+  });
+
+  test('returns the saved wallet when the privacy-chain fanout fails', async () => {
+    const hdWallet = { ...keylessWallet, id: 'hd-1', isKeylessWallet: false };
+    jest.mocked(localDb).createHDWallet.mockResolvedValue({
+      wallet: hdWallet,
+      indexedAccount: undefined,
+    });
+    jest.spyOn(console, 'error').mockImplementation(() => undefined);
+    const onWalletCreated = jest
+      .fn()
+      .mockRejectedValue(new Error('network list unavailable'));
+    const service = new ServiceAccount({
+      backgroundApi: {
+        servicePrimeTransfer: {
+          isInTransferImportOrBackupRestoreFlow: jest
+            .fn()
+            .mockResolvedValue(true),
+        },
+        servicePrivacyChain: { onWalletCreated },
+      },
+    });
+
+    await expect(
+      service.createHDWalletWithRs({
+        rs: 'encrypted-revealable-seed',
+        password: 'encoded-password',
+        walletHash: '',
+        walletXfp: '',
+      }),
+    ).resolves.toEqual({ wallet: hdWallet, indexedAccount: undefined });
+    expect(onWalletCreated).toHaveBeenCalledTimes(1);
   });
 
   test('returns after child cascade and parent-row deletion without running post-delete side effects', async () => {

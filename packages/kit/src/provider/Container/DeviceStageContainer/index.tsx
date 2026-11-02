@@ -531,6 +531,11 @@ function DeviceStageContainerCmp() {
     void serviceHardwareUI.deviceStageNoteInputSubmitted();
   }, [sendVendorUiResponse, serviceHardwareUI]);
 
+  const handleQrFallbackRetry = useCallback(() => {
+    sendVendorUiResponse(false, { retry: true });
+    void serviceHardwareUI.deviceStageNoteInputSubmitted();
+  }, [sendVendorUiResponse, serviceHardwareUI]);
+
   const handleInstallConfirm = useCallback(() => {
     const current = stageRef.current;
     if (!current?.vendor) {
@@ -598,6 +603,8 @@ function DeviceStageContainerCmp() {
       installActiveIndex={stage?.installActiveIndex}
       btcHighIndexPath={stage?.btcHighIndexPath}
       btcHighIndexAccountIndex={stage?.btcHighIndexAccountIndex}
+      qrFallbackReason={stage?.qrFallbackReason}
+      openAppReason={stage?.openAppReason}
       errorReason={stage?.errorReason}
       errorMessage={stage?.errorMessage}
       errorI18n={stage?.errorI18n}
@@ -630,6 +637,7 @@ function DeviceStageContainerCmp() {
       confirmDescriptionDanger={stage?.confirmDescriptionDanger}
       confirmCount={stage?.confirmCount}
       qrValueUr={stage?.qrValueUr}
+      qrNoticeI18n={stage?.qrNoticeI18n}
       qrSessionId={stage?.qrSessionId}
       qrRenderKey={
         stage?.qrDiagnostic
@@ -638,12 +646,17 @@ function DeviceStageContainerCmp() {
       }
       qrScannerView={
         step === 'scanQr' ? (
-          <DeviceStageQrScanner sessionId={stage?.qrSessionId} />
+          // Keyed by session: a scan that supersedes another on this step
+          // mounts a fresh scanner, so the decoder resets.
+          <DeviceStageQrScanner
+            key={stage?.qrSessionId}
+            sessionId={stage?.qrSessionId}
+          />
         ) : undefined
       }
       onQrNext={handleQrNext}
       onQrRenderReady={handleQrRenderReady}
-      onQrBack={handleQrBack}
+      onQrBack={stage?.qrValueUr ? handleQrBack : undefined}
       onClose={closable ? handleClose : undefined}
       onErrorNoticeExpire={retireErrorOutcome}
       errorNoticeKey={
@@ -691,6 +704,7 @@ function DeviceStageContainerCmp() {
       }
       onBtcHighIndexConfirm={handleBtcHighIndexConfirm}
       onQrFallbackConfirm={handleQrFallbackConfirm}
+      onQrFallbackRetry={handleQrFallbackRetry}
       onInstallConfirm={handleInstallConfirm}
     />
   );

@@ -8,6 +8,7 @@ import { TradingViewNativeFullscreenHost } from '../../../components/TradingView
 import { AccountSelectorMirrorInspectorContainer } from './AccountSelectorMirrorInspectorContainer';
 import { DevOverlayWindowContainer } from './DevOverlayWindowContainer';
 import { HardwareStageOverlayContainer } from './HardwareStageOverlayContainer';
+import { PrivacyChainSyncLight } from './PrivacyChainSyncLight';
 import { ToastOverlayContainer } from './ToastOverlayContainer';
 import { TradingViewNativeDebugPanelContainer } from './TradingViewNativeDebugPanelContainer';
 
@@ -34,6 +35,7 @@ export function FullWindowOverlayContainer() {
         {platformEnv.isE2E ? <></> : <Toaster />}
       </ToastOverlayContainer>
       <DevOverlayWindowContainer />
+      <PrivacyChainSyncLight />
       {process.env.NODE_ENV !== 'production' &&
       platformEnv.isWeb &&
       (platformEnv.isDev || platformEnv.isE2E) ? (

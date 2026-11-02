@@ -153,6 +153,22 @@ export const {
   initialValue: { mode: 'simple' },
 });
 
+export interface IMarketDetailChartModePersistAtom {
+  chartMode: 'native' | 'tradingView';
+}
+
+// Whether the detail pages draw the native chart or TradingView. It is a
+// viewing preference rather than a per-asset choice, so one value covers every
+// token and stock detail page.
+export const {
+  target: marketDetailChartModePersistAtom,
+  use: useMarketDetailChartModePersistAtom,
+} = globalAtom<IMarketDetailChartModePersistAtom>({
+  persist: true,
+  name: EAtomNames.marketDetailChartModePersistAtom,
+  initialValue: { chartMode: 'native' },
+});
+
 export interface IMarketDetailPositionTabPersistAtom {
   preferPosition: boolean;
 }
