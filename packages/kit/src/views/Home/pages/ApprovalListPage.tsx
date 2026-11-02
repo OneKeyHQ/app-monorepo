@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useMemo } from 'react';
+import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 
 import { CanceledError } from 'axios';
 import { useIntl } from 'react-intl';
@@ -26,6 +26,7 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes, ETabRoutes } from '@onekeyhq/shared/src/routes';
 import { EModalApprovalManagementRoutes } from '@onekeyhq/shared/src/routes/approvalManagement';
 import type {
@@ -54,6 +55,8 @@ import {
   useContractMapAtom,
   useTokenMapAtom,
 } from '../../../states/jotai/contexts/approvalList';
+
+import type { LayoutChangeEvent } from 'react-native';
 
 const networksSupportBulkRevokeApproval =
   getNetworksSupportBulkRevokeApproval();
@@ -177,6 +180,13 @@ function ApprovalListPageContent() {
 
   const intl = useIntl();
   const media = useMedia();
+  const [nativeContentWidth, setNativeContentWidth] = useState(0);
+  const handleNativeLayout = useCallback((event: LayoutChangeEvent) => {
+    setNativeContentWidth(event.nativeEvent.layout.width);
+  }, []);
+  const tableLayout = platformEnv.isNative
+    ? nativeContentWidth >= 768
+    : !!media.gtLg;
   const navigation = useAppNavigation();
   const tabBarHeight = useScrollContentTabBarOffset();
 
@@ -351,7 +361,11 @@ function ApprovalListPageContent() {
       )}
       <ApprovalListBar />
       <Page.Body>
-        <Page.Container padded={false} flex={1}>
+        <Page.Container
+          padded={false}
+          flex={1}
+          onLayout={platformEnv.isNative ? handleNativeLayout : undefined}
+        >
           {media.gtMd ? (
             <XStack
               justifyContent="space-between"
@@ -375,7 +389,7 @@ function ApprovalListPageContent() {
           {isBulkRevokeApprovalEnabled !== false &&
           (isBulkRevokeApprovalEnabled !== true ||
             !approvalListState.initialized) ? (
-            <ApprovalListSkeleton tableLayout={media.gtLg} />
+            <ApprovalListSkeleton tableLayout={tableLayout} />
           ) : null}
           {isBulkRevokeApprovalEnabled === true &&
           approvalListState.initialized ? (
@@ -394,7 +408,7 @@ function ApprovalListPageContent() {
                   pb: tabBarHeight,
                 },
               }}
-              tableLayout={!!media.gtLg}
+              tableLayout={tableLayout}
             />
           ) : null}
         </Page.Container>
