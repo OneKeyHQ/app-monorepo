@@ -28,6 +28,21 @@ let mockExpandedContent: ReactNode;
 let mockStructureToggle: ReactNode;
 const mockSnapshotProps: NativeListSnapshot[] = [];
 const getMockSnapshot = () => mockSnapshot;
+// Mirrors the library's patch semantics: a `null` change removes the field
+// from the row (6.7.0-alpha.402 "resilient updates"), any other value replaces it.
+function applyRowChanges<T extends object>(
+  row: T,
+  changes: Record<string, unknown>,
+): T {
+  const merged: Record<string, unknown> = Object.fromEntries(
+    Object.entries(row),
+  );
+  Object.entries(changes).forEach(([key, value]) => {
+    if (value === null) delete merged[key];
+    else merged[key] = value;
+  });
+  return merged as T;
+}
 const mockApplyPatches = jest.fn((patches: readonly RowPatch[]) => {
   if (!mockSnapshot) return;
   mockSnapshot = {
@@ -37,10 +52,10 @@ const mockApplyPatches = jest.fn((patches: readonly RowPatch[]) => {
         (item) => item.key === row.key && item.type === row.type,
       );
       if (patch?.type === 'dataRow' && row.type === 'dataRow') {
-        return { ...row, ...patch.changes };
+        return applyRowChanges(row, patch.changes);
       }
       if (patch?.type === 'identity' && row.type === 'identity') {
-        return { ...row, ...patch.changes };
+        return applyRowChanges(row, patch.changes);
       }
       return row;
     }),
