@@ -74,6 +74,62 @@ describe('ServiceHistory local pending reconciliation', () => {
   );
 });
 
+describe('ServiceHistory pending order across accounts (OK-66004)', () => {
+  function pendingTx(networkId: string, createdAt: number): IAccountHistoryTx {
+    return {
+      id: `${networkId}_addr_txid-${createdAt}`,
+      isLocalCreated: true,
+      decodedTx: {
+        txid: `txid-${createdAt}`,
+        accountId: `acc-${networkId}`,
+        networkId,
+        status: EDecodedTxStatus.Pending,
+        createdAt,
+        actions: [],
+        encodedTx: {},
+      },
+    } as unknown as IAccountHistoryTx;
+  }
+
+  it('keeps All Networks pending rows in time order instead of account order', async () => {
+    // The local store hands the Home list its pending rows newest first
+    // (DOGE, BCH, BTC). The All Networks refresh then re-ran them account by
+    // account and concatenated the per-account results, so after the reload the
+    // BTC row jumped above the two newer pending rows.
+    const service = Object.assign(
+      Object.create(ServiceHistory.prototype) as InstanceType<
+        typeof ServiceHistory
+      >,
+      {
+        backgroundApi: {
+          serviceNetwork: { getVaultSettings: async () => ({}) },
+          simpleDb: {
+            localHistory: { batchUpdateLocalHistoryTxs: async () => undefined },
+          },
+        },
+      },
+    );
+    const btc = pendingTx('btc--0', 1000);
+    const doge = pendingTx('doge--0', 3000);
+    const bch = pendingTx('bch--0', 2000);
+    const result = await service.batchUpdateLocalHistoryTxs(
+      [btc, doge, bch].map((pending) => ({
+        accountAddress: 'addr',
+        networkId: pending.decodedTx.networkId,
+        onChainHistoryTxs: [],
+        confirmedTxs: [],
+        pendingTxs: [pending],
+        pendingTxsToModify: [],
+      })),
+    );
+    expect(result.allFinalPendingTxs.map((item) => item.id)).toEqual([
+      doge.id,
+      bch.id,
+      btc.id,
+    ]);
+  });
+});
+
 describe('ServiceHistory clear pending transactions', () => {
   it('never touches local wallet send locks', async () => {
     const clearLocalHistoryPendingTxs = jest.fn(async () => undefined);
