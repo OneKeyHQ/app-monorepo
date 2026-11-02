@@ -217,7 +217,7 @@ describe('TradingViewChartSettings', () => {
     expect(nextValue?.options.previousClose).toBe(true);
   });
 
-  it('shows the navigation buttons option enabled by default and updates it', () => {
+  it('shows the navigation buttons option disabled by default and updates it', () => {
     const initialValue = createTradingViewChartSettingsValue();
     const onChange = jest.fn<void, [ITradingViewChartSettingsValue]>();
 
@@ -235,12 +235,12 @@ describe('TradingViewChartSettings', () => {
     expect(navigationButtonsCheckbox.textContent).toBe(
       'chart_navigation_buttons__title',
     );
-    expect(navigationButtonsCheckbox.getAttribute('data-value')).toBe('true');
+    expect(navigationButtonsCheckbox.getAttribute('data-value')).toBe('false');
 
     fireEvent.click(navigationButtonsCheckbox);
 
     const nextValue = onChange.mock.calls.at(-1)?.[0];
-    expect(nextValue?.options.navigationButtons).toBe(false);
+    expect(nextValue?.options.navigationButtons).toBe(true);
   });
 
   it('keeps the chart interface group when only navigation buttons are offered', () => {

@@ -2,7 +2,13 @@
 
 import type { ReactNode } from 'react';
 
-import { act, cleanup, render } from '@testing-library/react';
+import {
+  act,
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+} from '@testing-library/react';
 
 import type { IDialogShowProps } from '@onekeyhq/components/src/composite/Dialog/type';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
@@ -12,6 +18,7 @@ import { showPrimeWebCheckoutWaitingDialog } from './PrimeWebCheckoutWaitingDial
 
 import type { settlePrimeWebCheckout } from '../hooks/primeWebCheckout';
 import type { IPrimeWebCheckoutResult } from '../hooks/primeWebCheckoutResult';
+import type { IPrimePurchaseMonitorAdapter } from '../hooks/usePrimePurchaseMonitor';
 
 const mockClose = jest.fn<Promise<void>, []>();
 const mockSettle = jest.fn<
@@ -22,6 +29,15 @@ const mockFinish = jest.fn<Promise<void>, [unknown]>();
 const mockToast = jest.fn<void, []>();
 const mockIsUserCurrent = jest.fn<Promise<boolean>, [string]>();
 const mockWait = jest.fn<Promise<void>, [number]>();
+const mockGetPendingSession = jest.fn<
+  Promise<IPrimeWebCheckoutPendingSession | undefined>,
+  [unknown]
+>();
+const mockCheck = jest.fn<Promise<IPrimeWebCheckoutResult>, [unknown]>();
+const mockOpenPage = jest.fn<Promise<void>, [unknown, unknown]>();
+let mockAdapter:
+  | IPrimePurchaseMonitorAdapter<IPrimeWebCheckoutResult, string>
+  | undefined;
 let mockOnSuccess:
   | ((result: IPrimeWebCheckoutResult | undefined) => void | Promise<void>)
   | undefined;
@@ -38,7 +54,11 @@ jest.mock('@onekeyhq/components', () => ({
     Footer: () => null,
   },
   useDialogInstance: () => ({ close: mockClose }),
-  Button: () => null,
+  Button: ({ onPress, testID }: { onPress: () => void; testID: string }) => (
+    <button type="button" data-testid={testID} onClick={onPress}>
+      Open checkout
+    </button>
+  ),
   LottieView: () => null,
   SizableText: ({ children }: { children?: ReactNode }) => <>{children}</>,
   YStack: ({ children }: { children?: ReactNode }) => <>{children}</>,
@@ -46,7 +66,21 @@ jest.mock('@onekeyhq/components', () => ({
 }));
 jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   __esModule: true,
-  default: {},
+  default: {
+    simpleDb: {
+      prime: {
+        getWebCheckoutPendingSession: (params: unknown) =>
+          mockGetPendingSession(params),
+      },
+    },
+    servicePrime: {
+      getLocalUserInfo: async () => ({
+        isLoggedIn: true,
+        onekeyUserId: 'user-1',
+        email: 'user@example.com',
+      }),
+    },
+  },
 }));
 jest.mock('@onekeyhq/shared/src/eventBus/appEventBus', () => ({
   EAppEventBusNames: {
@@ -68,16 +102,23 @@ jest.mock('../hooks/primeWebCheckout', () => ({
   showPrimeWebCheckoutSuccessToast: () => mockToast(),
   isPrimeWebCheckoutUserCurrent: (onekeyUserId: string) =>
     mockIsUserCurrent(onekeyUserId),
+  checkPrimeWebCheckout: (value: unknown) => mockCheck(value),
+  openPrimeWebCheckoutPage: (value: unknown, options: unknown) =>
+    mockOpenPage(value, options),
+  logPrimeWebCheckoutSessionFlow: jest.fn(),
 }));
 jest.mock('../hooks/usePrimePurchaseMonitor', () => ({
   usePrimePurchaseMonitor: ({
     onSuccess,
+    adapter,
   }: {
+    adapter: IPrimePurchaseMonitorAdapter<IPrimeWebCheckoutResult, string>;
     onSuccess: (
       result: IPrimeWebCheckoutResult | undefined,
     ) => void | Promise<void>;
   }) => {
     mockOnSuccess = onSuccess;
+    mockAdapter = adapter;
     return { refresh: jest.fn(), isTimedOut: false };
   },
 }));
@@ -123,9 +164,47 @@ describe('hosted checkout waiting-dialog success handoff', () => {
     mockFinish.mockResolvedValue(undefined);
     mockIsUserCurrent.mockResolvedValue(true);
     mockSettle.mockResolvedValue({ outcome: 'succeeded', successPayload });
+    mockGetPendingSession.mockResolvedValue(session);
     showPrimeWebCheckoutWaitingDialog({ session });
     // Opening the singleton also closes the preceding test's dialog.
     mockClose.mockClear();
+  });
+
+  it('retires an old monitor when a fresh attempt replaced its record', async () => {
+    mockGetPendingSession.mockResolvedValue({
+      ...session,
+      checkoutId: 'checkout-new',
+    });
+
+    await expect(mockAdapter?.({ data: undefined })).resolves.toEqual({
+      status: 'terminal',
+      reason: 'sessionClosed',
+    });
+    expect(mockCheck).not.toHaveBeenCalled();
+    expect(mockSettle).not.toHaveBeenCalled();
+  });
+
+  it('continues its own current attempt from the waiting dialog', async () => {
+    await act(async () => {
+      fireEvent.click(screen.getByTestId('prime-web-checkout-open-checkout'));
+    });
+
+    expect(mockOpenPage).toHaveBeenCalledWith(session, {
+      email: 'user@example.com',
+    });
+  });
+
+  it('does not reopen an old checkout after a fresh attempt replaces it', async () => {
+    mockGetPendingSession.mockResolvedValue({
+      ...session,
+      checkoutId: 'checkout-new',
+    });
+    await act(async () => {
+      fireEvent.click(screen.getByTestId('prime-web-checkout-open-checkout'));
+    });
+
+    expect(mockOpenPage).not.toHaveBeenCalled();
+    expect(mockClose).toHaveBeenCalledTimes(1);
   });
 
   afterEach(cleanup);

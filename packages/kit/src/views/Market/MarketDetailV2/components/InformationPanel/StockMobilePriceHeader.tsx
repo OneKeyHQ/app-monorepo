@@ -20,6 +20,10 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IMarketStockInfo } from '@onekeyhq/shared/types/marketV2';
 
 import { StockMarketStatusBadge } from '../../../components/PerpsBadges';
+import {
+  useMarketPriceChangeLabelId,
+  useMarketSimpleChartRangePriceChange,
+} from '../../hooks/MarketSimpleChartRangeChangeContext';
 import { useStockDetail } from '../../hooks/StockDetailContext';
 import { useStockPriceSource } from '../../hooks/useStockPriceSource';
 import { useTokenDetail } from '../../hooks/useTokenDetail';
@@ -71,10 +75,12 @@ function StockPriceChangeLine({
   changeValueText,
   priceChangePercent,
   color,
+  label,
 }: {
   changeValueText?: string;
   priceChangePercent?: string;
   color: ReturnType<typeof formatPriceChangeDisplay>['color'];
+  label: string;
 }) {
   return (
     <XStack alignItems="center" gap="$1.5">
@@ -104,6 +110,15 @@ function StockPriceChangeLine({
           </SizableText>
         ) : null}
       </XStack>
+      <SizableText
+        testID="stock-mobile-price-change-label"
+        // Figma 25227:67442: 10px from the change, past the row's 6px gap.
+        ml="$1"
+        size="$bodyMd"
+        color="$textSubdued"
+      >
+        {label}
+      </SizableText>
     </XStack>
   );
 }
@@ -131,16 +146,28 @@ export function StockMobilePriceHeader() {
   const shareQuote =
     stockDetail?.price !== undefined ? stockDetail : sharePreview;
   const price = isSharePrice ? shareQuote?.price : tokenDetail?.price;
-  const priceChangePercent = isSharePrice
-    ? shareQuote?.priceChange24hPercent
-    : tokenDetail?.priceChange24hPercent;
+  // The simple chart's selected range replaces the 24h move while it is drawn.
+  const rangePriceChange = useMarketSimpleChartRangePriceChange(
+    isSharePrice ? 'share' : 'token',
+  );
+  const priceChangeLabelId = useMarketPriceChangeLabelId(
+    isSharePrice ? 'share' : 'token',
+  );
+  const priceChangePercent =
+    rangePriceChange?.priceChangePercent ??
+    (isSharePrice
+      ? shareQuote?.priceChange24hPercent
+      : tokenDetail?.priceChange24hPercent);
+  let reportedPriceChangeValue: string | undefined;
+  if (rangePriceChange) {
+    reportedPriceChangeValue = rangePriceChange.priceChangeValue;
+  } else if (isSharePrice && stockDetail?.price !== undefined) {
+    reportedPriceChangeValue = stockDetail.priceChange24hValue;
+  }
   const priceChangeValue = resolveDisplayedPriceChange({
     price,
     priceChangePercent,
-    reportedPriceChangeValue:
-      isSharePrice && stockDetail?.price !== undefined
-        ? stockDetail.priceChange24hValue
-        : undefined,
+    reportedPriceChangeValue,
   });
   const { color: priceChangeColor } =
     formatPriceChangeDisplay(priceChangePercent);
@@ -209,6 +236,7 @@ export function StockMobilePriceHeader() {
               changeValueText={changeValueText}
               priceChangePercent={priceChangePercent}
               color={priceChangeColor}
+              label={intl.formatMessage({ id: priceChangeLabelId })}
             />
           ) : (
             <Stack height={20} justifyContent="center">

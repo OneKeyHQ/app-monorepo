@@ -22,7 +22,10 @@ jest.mock('@onekeyhq/shared/src/performance/enabled', () => {
 });
 jest.mock('../background/instance/backgroundApiProxy', () => ({
   __esModule: true,
-  default: { serviceAllNetwork: { getAllNetworkAccountsForHome: jest.fn() } },
+  default: {
+    serviceAllNetwork: { getAllNetworkAccountsForHome: jest.fn() },
+    serviceDeFi: { getDeFiEnabledNetworksMapState: jest.fn() },
+  },
 }));
 jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms/passwordLock', () => ({
   useAppIsLockedAtom: () => [false],
@@ -125,10 +128,12 @@ function setup({
   warm,
   requestBatchSize,
   batchImpl,
+  isDeFiRequests = false,
 }: {
   warm: boolean;
   requestBatchSize?: number;
   batchImpl?: (args: IBatchArgs) => Promise<Array<IRound | undefined>>;
+  isDeFiRequests?: boolean;
 }) {
   setupCount += 1;
   const fetch = jest.fn(async ({ networkId }: { networkId: string }) => ({
@@ -151,7 +156,7 @@ function setup({
       networkId: 'onekeyall--0',
       walletId: `test-wallet-${setupCount}`,
       isAllNetworks: true,
-      isDeFiRequests: false,
+      isDeFiRequests,
       allNetworkRequests: fetch,
       allNetworkRequestsBatch: batch,
       requestBatchSize,
@@ -170,6 +175,10 @@ function setup({
 const getAccounts = jest.spyOn(
   backgroundApiProxy.serviceAllNetwork,
   'getAllNetworkAccountsForHome',
+);
+const getDeFiEnabledNetworksMapState = jest.spyOn(
+  backgroundApiProxy.serviceDeFi,
+  'getDeFiEnabledNetworksMapState',
 );
 
 beforeEach(() => {
@@ -212,6 +221,16 @@ describe('useAllNetworkRequests batch mode', () => {
       expect(hook.settled).toHaveBeenCalledTimes(13);
       expect(hook.published.mock.calls[0][0]).toHaveLength(13);
       expect(hook.finished).toHaveBeenCalledTimes(1);
+      expect(hook.finished).toHaveBeenCalledWith(
+        expect.objectContaining({
+          runResult: { didComplete: true, requestCount: 13, resultCount: 13 },
+        }),
+      );
+      expect(hook.published).toHaveBeenCalledWith(
+        expect.arrayContaining([{ networkId: 'evm--1' }]),
+        expect.any(Number),
+        { didComplete: true, requestCount: 13, resultCount: 13 },
+      );
     },
   );
 
@@ -255,5 +274,98 @@ describe('useAllNetworkRequests batch mode', () => {
     await act(() => hook.result.current.run());
     expect(hook.settled).toHaveBeenCalledTimes(1);
     expect(hook.published.mock.calls[0][0]).toEqual([{ networkId: 'evm--1' }]);
+    expect(hook.finished).toHaveBeenCalledWith(
+      expect.objectContaining({
+        runResult: { didComplete: true, requestCount: 2, resultCount: 1 },
+      }),
+    );
+    expect(hook.published).toHaveBeenCalledWith(
+      [{ networkId: 'evm--1' }],
+      expect.any(Number),
+      { didComplete: true, requestCount: 2, resultCount: 1 },
+    );
+  });
+
+  it('reports a resolved empty account as a complete run', async () => {
+    getAccounts.mockResolvedValueOnce([]);
+    const hook = setup({ warm: false });
+    await act(() => hook.result.current.run());
+    expect(hook.batch).not.toHaveBeenCalled();
+    expect(hook.finished).toHaveBeenCalledWith(
+      expect.objectContaining({
+        runResult: { didComplete: true, requestCount: 0, resultCount: 0 },
+      }),
+    );
+  });
+
+  it('reports failed batches as incomplete results, not an empty account', async () => {
+    getAccounts.mockResolvedValueOnce([account('evm--1'), account('evm--2')]);
+    const hook = setup({
+      warm: true,
+      batchImpl: () => Promise.reject(new Error('request failed')),
+    });
+    const errorLog = jest
+      .spyOn(console, 'error')
+      .mockImplementation(() => undefined);
+    try {
+      await act(() => hook.result.current.run());
+      expect(hook.finished).toHaveBeenCalledWith(
+        expect.objectContaining({
+          runResult: { didComplete: true, requestCount: 2, resultCount: 0 },
+        }),
+      );
+    } finally {
+      errorLog.mockRestore();
+    }
+  });
+
+  it('reports a failure to resolve accounts separately from an empty account', async () => {
+    getAccounts.mockRejectedValueOnce(new Error('account discovery failed'));
+    const hook = setup({ warm: false });
+    await act(async () => {
+      await expect(hook.result.current.run()).rejects.toThrow(
+        'account discovery failed',
+      );
+    });
+    expect(hook.finished).toHaveBeenCalledWith(
+      expect.objectContaining({
+        runResult: { didComplete: false, requestCount: 0, resultCount: 0 },
+      }),
+    );
+  });
+
+  it('does not treat unavailable DeFi network configuration as an empty account', async () => {
+    getAccounts.mockResolvedValueOnce([account('evm--1')]);
+    getDeFiEnabledNetworksMapState.mockResolvedValueOnce({
+      enabledNetworksMap: {},
+      isReady: false,
+    });
+    const hook = setup({ warm: false, isDeFiRequests: true });
+    await act(async () => {
+      await expect(hook.result.current.run()).rejects.toThrow(
+        'DeFi enabled networks are unavailable',
+      );
+    });
+    expect(hook.batch).not.toHaveBeenCalled();
+    expect(hook.finished).toHaveBeenCalledWith(
+      expect.objectContaining({
+        runResult: { didComplete: false, requestCount: 0, resultCount: 0 },
+      }),
+    );
+  });
+
+  it('fetches only enabled DeFi networks when configuration is ready', async () => {
+    getAccounts.mockResolvedValueOnce([account('evm--1'), account('evm--2')]);
+    getDeFiEnabledNetworksMapState.mockResolvedValueOnce({
+      enabledNetworksMap: { 'evm--1': true },
+      isReady: true,
+    });
+    const hook = setup({ warm: false, isDeFiRequests: true });
+    await act(() => hook.result.current.run());
+    expect(hook.finished).toHaveBeenCalledWith(
+      expect.objectContaining({
+        runResult: { didComplete: true, requestCount: 1, resultCount: 1 },
+      }),
+    );
   });
 });

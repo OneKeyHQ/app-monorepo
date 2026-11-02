@@ -224,6 +224,13 @@ describe('Home All Networks dispatch ownership', () => {
         expect(hook.fetch).toHaveBeenCalledTimes(21);
         expect(hook.published.mock.calls[0][0]).toHaveLength(21);
         expect(hook.finished).toHaveBeenCalledTimes(1);
+        const generation = hook.published.mock.calls[0][1];
+        expect(hook.started).toHaveBeenCalledWith(
+          expect.objectContaining({ generation }),
+        );
+        expect(hook.finished).toHaveBeenCalledWith(
+          expect.objectContaining({ generation }),
+        );
         if (enabled) {
           expect(trace).toHaveBeenCalledWith(
             expect.objectContaining({
@@ -363,6 +370,7 @@ describe('Home All Networks dispatch ownership', () => {
     expect(hook.cache).not.toHaveBeenCalled();
     expect(hook.fetch).not.toHaveBeenCalled();
     expect(hook.published).not.toHaveBeenCalled();
+    expect(hook.finished).not.toHaveBeenCalled();
   });
 
   it('does not publish the previous owner accounts when their preflight resolves after a switch without an external guard', async () => {
@@ -531,6 +539,37 @@ describe('Home All Networks dispatch ownership', () => {
     expect(hook.fetch).toHaveBeenCalledTimes(42);
     expect(getAccounts).toHaveBeenCalledTimes(2);
     expect(hook.published.mock.calls[0][0]).toHaveLength(21);
+  });
+
+  it('publishes the queued run with its own result counts', async () => {
+    getAccounts
+      .mockResolvedValueOnce(accountsFor('a', 2).accountsInfo)
+      .mockResolvedValueOnce(accountsFor('a', 3).accountsInfo);
+    const pending = deferred<IRound>();
+    const hook = setup();
+    hook.fetch.mockImplementation(() => pending.promise);
+    const firstRun = hook.result.current.run();
+    await waitFor(() => expect(hook.fetch).toHaveBeenCalledTimes(2));
+    await act(() =>
+      hook.result.current.run({
+        alwaysSetState: true,
+        skipAccountsCache: true,
+      }),
+    );
+    hook.fetch.mockImplementation(async ({ networkId }) => ({
+      networkId: `new-${networkId}`,
+    }));
+    await act(async () => {
+      pending.resolve({ networkId: 'old' });
+      await firstRun;
+    });
+    await waitFor(() => expect(hook.published).toHaveBeenCalledTimes(1));
+    expect(hook.finished).toHaveBeenCalledTimes(2);
+    expect(hook.published).toHaveBeenCalledWith(
+      expect.arrayContaining([{ networkId: 'new-evm--1' }]),
+      expect.any(Number),
+      { didComplete: true, requestCount: 3, resultCount: 3 },
+    );
   });
 
   it('preserves all requests for consumers without a Home ownership predicate', async () => {

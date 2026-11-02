@@ -15,6 +15,7 @@ import { DustSweepPaused, executeDustSweepItem } from './utils/execution';
 import {
   loadDustSweepNetworks,
   refreshDustSweepNetwork,
+  validateDustSweepNetworkContexts,
 } from './utils/loadNetworks';
 import { invalidateDustSweepNetworksCache } from './utils/networkCache';
 
@@ -47,6 +48,7 @@ jest.mock('@onekeyhq/kit/src/views/Swap/hooks/useSwapTxHistory', () => ({
 jest.mock('./utils/loadNetworks', () => ({
   loadDustSweepNetworks: jest.fn(),
   refreshDustSweepNetwork: jest.fn(),
+  validateDustSweepNetworkContexts: jest.fn(),
 }));
 jest.mock('./utils/execution', () => ({
   executeDustSweepItem: jest.fn(),
@@ -85,6 +87,7 @@ const bnb: IDustSweepNetwork = {
 beforeEach(() => {
   invalidateDustSweepNetworksCache('w');
   jest.resetAllMocks();
+  jest.mocked(validateDustSweepNetworkContexts).mockResolvedValue([bnb]);
 });
 
 it('skips a token that gets no quote on submit and settles the sweep', async () => {

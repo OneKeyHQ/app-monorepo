@@ -70,6 +70,7 @@ import {
   DustSweepScreenProvider,
   useDustSweep,
 } from './DustSweepProvider';
+import { getDustSweepHeaderHeightForSettling } from './hooks/dustSweepHeaderHeight';
 import { useDustSweepTabBarVisibility } from './hooks/useDustSweepTabBarVisibility';
 import { EDustSweepPhase, getDustSweepPresentation } from './stateMachine';
 
@@ -293,6 +294,7 @@ function DustSweepPageContent() {
   const intl = useIntl();
   const { exit, continueRemoval, execution } = useDustSweepFlow();
   const desktop = useDustSweepDesktopLayout();
+  const overlay = useIsOverlayPage();
   const [networkExtraHeight, setNetworkExtraHeight] = useState(0);
   const desktopCardMinHeight = Math.max(
     DUST_SWEEP_DESKTOP_CARD_MIN_HEIGHT - networkExtraHeight,
@@ -304,11 +306,24 @@ function DustSweepPageContent() {
   const headerHeight = useHeaderHeight();
   const headerHeightCacheKey = useHeaderHeightCacheKey();
   const estimatedHeaderHeight = useNativeStackHeaderHeightEstimate();
+  const useTransparentHeader =
+    !!platformEnv.isNativeIOS26Plus &&
+    !!platformEnv.isNativeIOSPhone &&
+    !overlay;
   const { paddingTop: bodyPaddingTop, isSettled: isHeaderHeightSettled } =
-    useSettledHeaderHeight(headerHeight, {
-      cacheKey: headerHeightCacheKey,
-      estimatedHeaderHeight,
-    });
+    useSettledHeaderHeight(
+      getDustSweepHeaderHeightForSettling({
+        headerHeight,
+        estimatedHeaderHeight,
+        useTransparentHeader,
+      }),
+      {
+        cacheKey: useTransparentHeader
+          ? `dust-sweep:tab:${headerHeightCacheKey}`
+          : headerHeightCacheKey,
+        estimatedHeaderHeight,
+      },
+    );
   const [approvedRemovalAction, setApprovedRemovalAction] = useState<
     NavigationAction | undefined
   >(undefined);
@@ -592,7 +607,6 @@ function DustSweepPageContent() {
   );
   // The Home tab top bar (with its back button) is only rendered on the tab
   // route, so a Swap modal widened to desktop width keeps its own back control.
-  const overlay = useIsOverlayPage();
   // A wallet with no assets has no network chips, so drop the empty row.
   const showNetworks = loadStatus === 'loading' || networks.length > 0;
   return (

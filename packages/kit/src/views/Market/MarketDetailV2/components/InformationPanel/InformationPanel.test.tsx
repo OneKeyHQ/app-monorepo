@@ -45,6 +45,13 @@ jest.mock('@onekeyhq/kit/src/views/Market/components/MarketTokenPrice', () => ({
   BaseMarketTokenPrice: () => null,
   MarketTokenPrice: () => null,
 }));
+jest.mock(
+  '@onekeyhq/kit/src/views/Market/components/PriceChangePercentage',
+  () => ({
+    PriceChangePercentage: ({ children }: { children: string }) =>
+      `percent:${children}`,
+  }),
+);
 jest.mock('../../../components/PerpsBadges', () => ({
   StockMarketStatusBadge: () => null,
 }));
@@ -219,7 +226,10 @@ it.each(['trending', 'topCoin'] as const)(
     expect(
       screen.getByTestId('market-mobile-price-change-value').textContent,
     ).toBe('10');
-    expect(screen.getByText('(+10%)')).toBeTruthy();
+    // The move goes through the capped percentage formatter, in parentheses.
+    expect(screen.getByText('percent:10')).toBeTruthy();
+    expect(screen.getByText('(')).toBeTruthy();
+    expect(screen.getByText(')')).toBeTruthy();
     mockDetail = { ...mockDetail, price: '90', priceChange24hPercent: '-10' };
     rerender(<InformationPanel mobileDetailKind={mobileDetailKind} />);
     expect(

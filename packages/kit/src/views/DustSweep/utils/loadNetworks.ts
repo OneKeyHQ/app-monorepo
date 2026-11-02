@@ -163,6 +163,7 @@ export type IDustSweepNetworksResult = {
 type IDustSweepNetworkLoad = {
   fresh: Promise<IDustSweepNetworksResult>;
   cached: Promise<IDustSweepNetwork[]>;
+  contexts: Promise<IDustSweepNetworkContexts>;
 };
 
 const inFlightLoads = new Map<string, IDustSweepNetworkLoad>();
@@ -213,7 +214,7 @@ function waitForLoad<T>(promise: Promise<T>, signal: AbortSignal) {
   });
 }
 
-type IDustSweepNetworkContext = Omit<
+export type IDustSweepNetworkContext = Omit<
   IDustSweepNetwork,
   'tokens' | 'nativeToken' | 'balanceUsd'
 >;
@@ -408,6 +409,16 @@ type IDustSweepNetworkContexts = Awaited<
   ReturnType<typeof loadDustSweepNetworkContexts>
 >;
 
+export function validateDustSweepNetworkContexts(
+  params: IDustSweepRouteParams,
+  signal: AbortSignal,
+) {
+  if (signal.aborted) return Promise.reject(createCancellationError());
+  return waitForLoad(loadDustSweepNetworkContexts(params), signal).then(
+    ({ entries }) => entries,
+  );
+}
+
 async function loadDustSweepNetworksInternal(
   params: IDustSweepRouteParams,
   contexts: Promise<IDustSweepNetworkContexts>,
@@ -513,16 +524,24 @@ export function loadDustSweepNetworks(
   {
     isManualRefresh = false,
     skipCache = false,
-  }: { isManualRefresh?: boolean; skipCache?: boolean } = {},
+    forceFresh = false,
+    onContexts,
+  }: {
+    isManualRefresh?: boolean;
+    skipCache?: boolean;
+    forceFresh?: boolean;
+    onContexts?: (entries: IDustSweepNetworkContext[]) => void;
+  } = {},
 ) {
   const key = getLoadKey(params);
   // A return from Swap must not reuse a request started before the trade.
-  let load = isManualRefresh ? undefined : inFlightLoads.get(key);
+  let load = isManualRefresh || forceFresh ? undefined : inFlightLoads.get(key);
   if (!load) {
     // Discovery and the network round are shared across quick re-entry. Each
     // consumer independently decides whether its cached preview is still useful.
     const contexts = loadDustSweepNetworkContexts(params);
     load = {
+      contexts,
       fresh: loadDustSweepNetworksInternal(params, contexts, isManualRefresh),
       cached: skipCache
         ? Promise.resolve([])
@@ -535,6 +554,12 @@ export function loadDustSweepNetworks(
     void load.fresh.then(cleanup, cleanup);
   }
   let settled = false;
+  void load.contexts.then(
+    ({ entries }) => {
+      if (!settled && !signal.aborted) onContexts?.(entries);
+    },
+    () => undefined,
+  );
   void load.cached.then((networks) => {
     if (!settled && !signal.aborted && networks.length) onCache?.(networks);
   });

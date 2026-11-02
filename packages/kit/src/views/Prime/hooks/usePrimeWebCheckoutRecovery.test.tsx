@@ -5,6 +5,7 @@ import { act, renderHook } from '@testing-library/react';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import type { IPrimeWebCheckoutPendingSession } from '@onekeyhq/shared/types/prime/primeTypes';
 
+import { retirePrimeWebCheckout } from './retirePrimeWebCheckout';
 import { usePrimeWebCheckoutRecovery } from './usePrimeWebCheckoutRecovery';
 
 import type {
@@ -39,10 +40,28 @@ jest.mock('react-intl', () => ({ useIntl: () => ({ locale: 'en-US' }) }));
 jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   __esModule: true,
   default: {
+    servicePrime: {
+      getLocalUserInfo: async () => ({
+        isLoggedIn: true,
+        onekeyUserId: 'user-1',
+      }),
+    },
     simpleDb: {
       prime: {
         getWebCheckoutPendingSession: (params: { onekeyUserId: string }) =>
           mockGetPending(params),
+        clearWebCheckoutPendingSession: async ({
+          onekeyUserId,
+          expectedCheckoutId,
+        }: {
+          onekeyUserId: string;
+          expectedCheckoutId: string;
+        }) => {
+          if (mockSessions.get(onekeyUserId)?.checkoutId !== expectedCheckoutId)
+            return false;
+          mockSessions.delete(onekeyUserId);
+          return true;
+        },
       },
     },
   },
@@ -155,6 +174,11 @@ describe('hosted checkout recovery return signals', () => {
     mockIsInitiator.mockResolvedValue(true);
     mockIsMonitored.mockReturnValue(false);
     mockSettle.mockImplementation(async ({ session }) => {
+      if (
+        mockSessions.get(session.onekeyUserId)?.checkoutId !==
+        session.checkoutId
+      )
+        return undefined;
       mockSessions.delete(session.onekeyUserId);
       return {
         outcome: 'succeeded',
@@ -165,6 +189,30 @@ describe('hosted checkout recovery return signals', () => {
 
   afterEach(() => {
     jest.useRealTimers();
+  });
+
+  it('does not settle an embedded activation against the retired hosted record', async () => {
+    await mountRecovery();
+    await act(async () => retirePrimeWebCheckout('user-1'));
+    mockCheck.mockResolvedValue(successResult);
+
+    await returnFromCheckout();
+
+    expect(mockSettle).not.toHaveBeenCalled();
+    expect(mockFinish).not.toHaveBeenCalled();
+    expect(mockToast).not.toHaveBeenCalled();
+    expect(mockSessions.has('user-1')).toBe(false);
+  });
+
+  it('drops an old in-flight entitlement result after embedded start retires its record', async () => {
+    const oldCheck = deferred<IPrimeWebCheckoutResult>();
+    mockCheck.mockReturnValueOnce(oldCheck.promise);
+    await mountRecovery();
+    await act(async () => retirePrimeWebCheckout('user-1'));
+    await act(async () => oldCheck.resolve(successResult));
+
+    expect(mockFinish).not.toHaveBeenCalled();
+    expect(mockToast).not.toHaveBeenCalled();
   });
 
   it('coalesces returns during an entitlement request into one fresh check and settles once', async () => {

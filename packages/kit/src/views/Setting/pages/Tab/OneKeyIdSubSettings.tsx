@@ -13,6 +13,7 @@ function BasicOneKeyIdSubSettings({ route }: { route: RouteProp<any, any> }) {
   const { name } = route;
   return (
     <TabSubStackNavigator
+      pushedScreenPresentation="modal"
       config={[
         {
           name,

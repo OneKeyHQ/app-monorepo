@@ -2,11 +2,18 @@
 import type { PropsWithChildren, ReactElement } from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
+import {
+  OverlayView,
+  useNestedOverlayLevel,
+} from '@onekeyfe/react-native-native-overlay';
 import { useIsomorphicLayoutEffect } from '@tamagui/core';
 import { useWindowDimensions } from 'react-native';
 
-import { useMedia } from '@onekeyhq/components/src/hooks/useStyle';
-import { withStaticProperties } from '@onekeyhq/components/src/shared/tamagui';
+import {
+  getTokenValue,
+  withStaticProperties,
+} from '@onekeyhq/components/src/shared/tamagui';
+import type { Token } from '@onekeyhq/components/src/shared/tamagui';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { GlassButtonCapsule } from '../../content/GlassButtonCapsule';
@@ -18,6 +25,7 @@ import {
   useSafeAreaInsets,
 } from '../../hooks';
 import { useDeferredGuideBlocker } from '../../hooks/useDeferredGuideBlocker';
+import { useOverlayWidthClass } from '../../hooks/useOverlayWidthClass';
 import { PageContext, usePageContext } from '../../layouts/Page/PageContext';
 import { ScrollView } from '../../layouts/ScrollView';
 import { SizableText, XStack, YStack } from '../../primitives';
@@ -27,6 +35,11 @@ import { NATIVE_HIT_SLOP } from '../../utils/getFontSize';
 import { IconButton } from '../IconButton';
 import { Trigger } from '../Trigger';
 
+import {
+  type IAnchorRect,
+  getAnchoredFrame,
+  resolveAnchoredOffset,
+} from './anchoredFrame';
 import { PopoverContext, usePopoverContext } from './context';
 import {
   runPopoverCloseSideEffects,
@@ -42,12 +55,6 @@ import { useNativePortalLifecycle } from './useNativePortalLifecycle';
 import type { IPopoverProps, IPopoverTooltip } from './type';
 import type { IIconButtonProps } from '../IconButton';
 import type { LayoutChangeEvent, ViewInstance } from 'react-native';
-
-const gtMdShFrameStyle = {
-  minWidth: 400,
-  maxWidth: 480,
-  mx: 'auto',
-} as const;
 
 // Fit-mode sheets size their frame to the content, and the sheet only caps the
 // inner ScrollView at the full screen height, so a tall list plus the header
@@ -159,11 +166,9 @@ function RawPopover({
   useDeferredGuideBlocker(Boolean(isOpen));
   const { bottom } = useSafeAreaInsets();
   const { height: viewportHeight } = useWindowDimensions();
-  const { gtMd } = useMedia();
   // Native callers always keep a sheet presentation, including controls
   // that opt out of sheets only for their web anchored panel.
   const useNativeSheet = true;
-  const isWideSheet = Boolean(gtMd) || Boolean(platformEnv.isNativeIOSPad);
   const [sheetHeaderHeight, setSheetHeaderHeight] = useState<
     number | undefined
   >();
@@ -447,10 +452,8 @@ function RawPopover({
       maxHeight={nativeSheetDetentMaxHeight}
       onAnimationComplete={handleSheetAnimationComplete}
     >
-      <YStack
-        height={percentSheetHeight}
-        {...(isWideSheet ? gtMdShFrameStyle : undefined)}
-      >
+      {/* The overlay caps the sheet width (OVERLAY_SHEET_MAX_WIDTH). */}
+      <YStack height={percentSheetHeight}>
         {/* header */}
         {showHeader ? (
           <XStack
@@ -520,6 +523,267 @@ function RawPopover({
   );
 }
 
+const ANCHORED_PANEL_WIDTH = 384;
+
+// The panel is positioned in points, so size tokens (`$56`) resolve here.
+// Unset widths get the default panel width; `'auto'` and other values that
+// are not points size the panel to its content (`undefined`).
+function resolveAnchoredPanelWidth(width: unknown): number | undefined {
+  if (width === undefined) return ANCHORED_PANEL_WIDTH;
+  if (typeof width === 'number') return width;
+  if (typeof width === 'string' && width.startsWith('$')) {
+    const value = Number(getTokenValue(width as Token, 'size'));
+    if (Number.isFinite(value) && value > 0) return value;
+  }
+  return undefined;
+}
+function resolveAnchoredPanelMaxSize(maxHeight: unknown) {
+  if (typeof maxHeight === 'number') return maxHeight;
+  if (typeof maxHeight === 'string' && maxHeight.startsWith('$')) {
+    const value = Number(getTokenValue(maxHeight as Token, 'size'));
+    if (Number.isFinite(value) && value > 0) return value;
+  }
+  return undefined;
+}
+// Longer than the system rotation and window resize animations.
+const ANCHORED_SETTLE_MS = 500;
+const ANCHORED_BACKDROP = { color: 'transparent', dismissOnPress: true };
+const ANCHORED_SHADOW_OFFSET = { width: 0, height: 8 };
+
+// Counts open cycles: it increases on the render where `isOpen` turns true,
+// so state measured in an earlier cycle can be told apart from fresh state.
+function useOpenCycle(isOpen: boolean) {
+  const cycleRef = useRef(0);
+  const wasOpenRef = useRef(false);
+  if (isOpen && !wasOpenRef.current) cycleRef.current += 1;
+  wasOpenRef.current = isOpen;
+  return cycleRef.current;
+}
+
+// Wide-window presentation: a panel placed under (or above) its trigger in a
+// non-sheet overlay, like the anchored panel on web.
+function AnchoredPopover({
+  isOpen,
+  anchor,
+  placement,
+  offset,
+  floatingPanelProps,
+  renderContent,
+  closePopover,
+  onAnimationComplete,
+  anchorIsModalRelative,
+  anchorMeasurement,
+}: {
+  isOpen: boolean;
+  anchor: IAnchorRect | undefined;
+  // A rect from `measureInWindow`, relative to the enclosing native modal;
+  // the overlay reports the offset that maps it onto the screen.
+  anchorIsModalRelative: boolean;
+  // Increases with every trigger measurement. The modal can move while the
+  // trigger keeps its modal-relative rect (rotation, window resize), so each
+  // measurement asks for the offset again.
+  anchorMeasurement: number;
+  placement: IPopoverProps['placement'];
+  offset: IPopoverProps['offset'];
+  floatingPanelProps: IPopoverProps['floatingPanelProps'];
+  renderContent: IPopoverProps['renderContent'];
+  closePopover: () => void;
+  // Mirrors the sheet's animation callback so callers that wait for the
+  // close (ActionList runs item actions after it) are not left on a timeout.
+  onAnimationComplete?: (info: { open: boolean }) => void;
+}) {
+  useDeferredGuideBlocker(isOpen);
+  // Unlike the sheet, this stays mounted while closed, so dismiss the
+  // keyboard on open/close transitions only, never on mount.
+  const wasOpenRef = useRef(false);
+  useEffect(() => {
+    if (wasOpenRef.current === isOpen) return;
+    wasOpenRef.current = isOpen;
+    void Keyboard.dismissWithDelay(50);
+  }, [isOpen]);
+  const level = useNestedOverlayLevel();
+  const insets = useSafeAreaInsets();
+  const window = useWindowDimensions();
+  // An offset from an earlier open is ignored, so a reopen waits for a fresh
+  // one; the closing panel keeps its offset through the exit animation.
+  const openCycle = useOpenCycle(isOpen);
+  const openCycleRef = useRef(openCycle);
+  openCycleRef.current = openCycle;
+  const [reportedOffset, setReportedOffset] = useState<{
+    cycle: number;
+    x: number;
+    y: number;
+  }>();
+  const windowOffset =
+    reportedOffset?.cycle === openCycle ? reportedOffset : undefined;
+  const [windowOffsetRequest, setWindowOffsetRequest] = useState(0);
+  useEffect(() => {
+    if (anchorIsModalRelative && isOpen && anchor) {
+      setWindowOffsetRequest((request) => request + 1);
+    }
+  }, [anchor, anchorIsModalRelative, anchorMeasurement, isOpen]);
+  const handleWindowOffset = useCallback(
+    (next: { x: number; y: number }) =>
+      setReportedOffset((prev) =>
+        prev &&
+        prev.cycle === openCycleRef.current &&
+        prev.x === next.x &&
+        prev.y === next.y
+          ? prev
+          : { cycle: openCycleRef.current, x: next.x, y: next.y },
+      ),
+    [],
+  );
+  const screenAnchor = useMemo(() => {
+    if (!anchor || !anchorIsModalRelative) return anchor;
+    if (!windowOffset) return undefined;
+    return {
+      ...anchor,
+      x: anchor.x + windowOffset.x,
+      y: anchor.y + windowOffset.y,
+    };
+  }, [anchor, anchorIsModalRelative, windowOffset]);
+  const closeResolversRef = useRef<Array<() => void>>([]);
+  const flushCloseResolvers = useCallback(() => {
+    const resolvers = closeResolversRef.current;
+    closeResolversRef.current = [];
+    resolvers.forEach((resolve) => resolve());
+  }, []);
+  useEffect(() => flushCloseResolvers, [flushCloseResolvers]);
+  const handlePresented = useCallback(
+    () => onAnimationComplete?.({ open: true }),
+    [onAnimationComplete],
+  );
+  const handleClosed = useCallback(() => {
+    flushCloseResolvers();
+    onAnimationComplete?.({ open: false });
+  }, [flushCloseResolvers, onAnimationComplete]);
+  const handleClosePopover = useCallback(
+    () =>
+      new Promise<void>((resolve) => {
+        if (!isOpen) {
+          resolve();
+          return;
+        }
+        closeResolversRef.current.push(resolve);
+        setTimeout(resolve, POPOVER_CLOSE_FALLBACK_MS);
+        closePopover();
+      }),
+    [closePopover, isOpen],
+  );
+  const popoverContextValue = useMemo(
+    () => ({ open: isOpen, closePopover: handleClosePopover }),
+    [handleClosePopover, isOpen],
+  );
+
+  // Size props, including the `w` shorthand, are resolved into the frame;
+  // left in `panelProps` they would resize the panel after it is placed.
+  const {
+    width: panelWidthLonghand,
+    w: panelWidthShorthand,
+    maxWidth: panelMaxWidthProp,
+    maxHeight: panelMaxHeightProp,
+    style: _style,
+    onOpenAutoFocus: _openFocus,
+    onCloseAutoFocus: _closeFocus,
+    trapFocus: _trapFocus,
+    ...panelProps
+  } = floatingPanelProps ?? {};
+  const resolvedOffset = resolveAnchoredOffset(offset, placement);
+  const panelWidth = resolveAnchoredPanelWidth(
+    panelWidthLonghand ?? panelWidthShorthand,
+  );
+  const panelMaxWidth = resolveAnchoredPanelMaxSize(panelMaxWidthProp);
+  const frame = screenAnchor
+    ? getAnchoredFrame({
+        anchor: screenAnchor,
+        placement,
+        offset: resolvedOffset.mainAxis,
+        crossOffset: resolvedOffset.crossAxis,
+        width:
+          panelWidth === undefined
+            ? undefined
+            : Math.min(panelWidth, panelMaxWidth ?? panelWidth),
+        maxHeight: resolveAnchoredPanelMaxSize(panelMaxHeightProp),
+        window,
+        insets,
+      })
+    : undefined;
+
+  const RenderContent =
+    typeof renderContent === 'function' ? renderContent : null;
+  return (
+    <OverlayView
+      visible={isOpen && !!frame}
+      level={level}
+      presentation="anchored"
+      backdrop={ANCHORED_BACKDROP}
+      dismissOnBackPress
+      onRequestDismiss={closePopover}
+      onPresented={handlePresented}
+      onClose={handleClosed}
+      // Mounted (hidden) while open so it can report the modal offset
+      // before the panel is placed.
+      keepContentMounted={anchorIsModalRelative && isOpen}
+      windowOffsetRequest={windowOffsetRequest}
+      onWindowOffset={anchorIsModalRelative ? handleWindowOffset : undefined}
+    >
+      {frame ? (
+        <YStack
+          position="absolute"
+          left={frame.left}
+          top={frame.top}
+          width={frame.width}
+          height={frame.height}
+          alignItems={frame.alignItems}
+          justifyContent={frame.justifyContent}
+          pointerEvents="box-none"
+        >
+          <YStack
+            width={frame.panelWidth}
+            maxWidth={Math.min(frame.width, panelMaxWidth ?? frame.width)}
+            maxHeight={frame.panelMaxHeight}
+            backgroundColor="$bg"
+            borderRadius="$4"
+            borderWidth="$px"
+            borderColor="$borderSubdued"
+            borderCurve="continuous"
+            overflow="hidden"
+            elevation={8}
+            shadowColor="black"
+            shadowOpacity={0.12}
+            shadowRadius={24}
+            shadowOffset={ANCHORED_SHADOW_OFFSET}
+            {...panelProps}
+          >
+            <ScrollView
+              // Size to the content and shrink to the max height; the default
+              // flexGrow would fill a content-sized panel to the region height.
+              flexGrow={0}
+              flexShrink={1}
+              nestedScrollEnabled
+              showsVerticalScrollIndicator={false}
+            >
+              <ModalPortalProvider>
+                <PopoverContext.Provider value={popoverContextValue}>
+                  {RenderContent
+                    ? ((
+                        <RenderContent
+                          isOpen={isOpen}
+                          closePopover={handleClosePopover}
+                        />
+                      ) as ReactElement)
+                    : (renderContent as ReactElement)}
+                </PopoverContext.Provider>
+              </ModalPortalProvider>
+            </ScrollView>
+          </YStack>
+        </YStack>
+      ) : null}
+    </OverlayView>
+  );
+}
+
 function BasicPopover({
   open,
   onOpenChange: onOpenChangeFunc,
@@ -528,6 +792,8 @@ function BasicPopover({
   trackID,
   keepChildrenMounted,
   mountNativePortalBeforeOpen,
+  nativePresentation = 'auto',
+  nativeAnchorRect,
   ...rest
 }: IPopoverProps) {
   assertOverlayProps('Popover', { ...rest, sheetProps });
@@ -536,13 +802,78 @@ function BasicPopover({
     onOpenChangeFunc,
     trackID,
   );
+  const isExpandedWindow = useOverlayWidthClass() === 'expanded';
+  const isAnchored =
+    Boolean(renderTrigger || nativeAnchorRect) &&
+    (nativePresentation === 'anchored' ||
+      (nativePresentation === 'auto' && isExpandedWindow));
+  // A presentation change (folding, rotating across the wide threshold,
+  // resizing a window) leaves the open panel or sheet in the wrong form, and a
+  // transient menu is cheaper to reopen than to morph: close it.
+  const previousIsAnchoredRef = useRef(isAnchored);
+  useEffect(() => {
+    if (previousIsAnchoredRef.current === isAnchored) return;
+    previousIsAnchoredRef.current = isAnchored;
+    if (isOpen) {
+      closePopover();
+    }
+  }, [closePopover, isAnchored, isOpen]);
+
+  const triggerRef = useRef<ViewInstance>(null);
+  // A measurement from an earlier open is ignored, so a reopen waits for a
+  // fresh one instead of presenting at the old position and jumping; the
+  // closing panel keeps its position through the exit animation.
+  const openCycle = useOpenCycle(Boolean(isOpen));
+  const [measuredAnchor, setMeasuredAnchor] = useState<{
+    cycle: number;
+    rect: IAnchorRect;
+  }>();
+  const anchor =
+    measuredAnchor?.cycle === openCycle ? measuredAnchor.rect : undefined;
+  const [anchorMeasurement, setAnchorMeasurement] = useState(0);
+  const { width: windowWidth, height: windowHeight } = useWindowDimensions();
+  useEffect(() => {
+    if (!isAnchored || !isOpen || nativeAnchorRect) return;
+    // Re-measure on every window size change so the panel follows its
+    // trigger when the window resizes or rotates within the wide range. The
+    // new size arrives before the rotated layout settles, so measure again
+    // once the rotation animation is over.
+    const measure = () => {
+      triggerRef.current?.measureInWindow((x, y, width, height) => {
+        setAnchorMeasurement((count) => count + 1);
+        setMeasuredAnchor((prev) =>
+          prev &&
+          prev.cycle === openCycle &&
+          prev.rect.x === x &&
+          prev.rect.y === y &&
+          prev.rect.width === width &&
+          prev.rect.height === height
+            ? prev
+            : { cycle: openCycle, rect: { x, y, width, height } },
+        );
+      });
+    };
+    measure();
+    const timer = setTimeout(measure, ANCHORED_SETTLE_MS);
+    return () => clearTimeout(timer);
+  }, [
+    isAnchored,
+    isOpen,
+    nativeAnchorRect,
+    openCycle,
+    windowHeight,
+    windowWidth,
+  ]);
+
   const {
     shouldUseNativePortalLifecycle,
     isNativePortalMounted,
     popoverOpen,
     resolvedSheetProps,
   } = useNativePortalLifecycle({
-    isOpen,
+    // The anchored panel reports its own close; the sheet lifecycle would
+    // otherwise complete before the panel's exit animation.
+    isOpen: isAnchored ? false : isOpen,
     sheetProps,
     mountNativePortalBeforeOpen,
   });
@@ -573,6 +904,36 @@ function BasicPopover({
       rest,
     ],
   );
+  if (isAnchored) {
+    return (
+      <>
+        {renderTrigger ? (
+          <Trigger
+            ref={triggerRef}
+            testID="popover-trigger"
+            onPress={isOpen ? closePopover : openPopover}
+          >
+            {renderTrigger}
+          </Trigger>
+        ) : null}
+        <AnchoredPopover
+          isOpen={Boolean(isOpen)}
+          anchor={nativeAnchorRect ?? anchor}
+          // Only iOS measures triggers relative to an enclosing native modal
+          // and reports the modal's offset; Android's rects are on-screen.
+          anchorIsModalRelative={!nativeAnchorRect && !!platformEnv.isNativeIOS}
+          anchorMeasurement={anchorMeasurement}
+          placement={rest.placement}
+          offset={rest.offset}
+          floatingPanelProps={rest.floatingPanelProps}
+          renderContent={rest.renderContent}
+          closePopover={closePopover}
+          onAnimationComplete={sheetProps?.onAnimationComplete}
+        />
+      </>
+    );
+  }
+
   // The overlay sheet renders in the native overlay level, so the popover
   // stays in the caller's tree (and its contexts) instead of a portal.
   return (

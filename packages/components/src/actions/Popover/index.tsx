@@ -14,6 +14,7 @@ import { withStaticProperties } from '@onekeyhq/components/src/shared/tamagui';
 
 import { useSafeAreaInsets } from '../../hooks';
 import { useDeferredGuideBlocker } from '../../hooks/useDeferredGuideBlocker';
+import { OVERLAY_SHEET_MAX_WIDTH } from '../../hooks/useOverlayWidthClass';
 import { ScrollView } from '../../layouts/ScrollView';
 import { SizableText, XStack, YStack } from '../../primitives';
 import { assertOverlayProps } from '../../shared/assertOverlayProps';
@@ -238,6 +239,7 @@ function RawPopover({
   const sheetOptions = useMemo<IOverlaySheetOptions>(
     () => ({
       height: percentSheetHeight,
+      maxWidth: OVERLAY_SHEET_MAX_WIDTH,
       cornerRadius: 0,
       showHandle: false,
       backgroundColor: 'transparent',

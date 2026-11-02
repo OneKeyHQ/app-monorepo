@@ -163,6 +163,8 @@ export function createDesktopConfig({
         commonDesktopConfig,
         {
           optimization: {
+            // The wasm glue and its .wasm URL reference each other; RealContentHashPlugin cannot order the cycle.
+            realContentHash: false,
             runtimeChunk: 'single',
           },
           output: {

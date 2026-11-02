@@ -33,6 +33,8 @@ export function createWebEmbedConfig({
       /node_modules[\\/]@sentry(-internal)?[\\/]/,
       /node_modules[\\/]@onekeyfe[\\/]kaspa-wasm/,
       /node_modules[\\/]@revenuecat[\\/]purchases-js/,
+      /node_modules[\\/]@onekeyfe[\\/]zcash-(runtime|keys)/,
+      /node_modules[\\/]@onekeyfe[\\/]monero-runtime/,
     ],
   });
   const entryConfig: RspackOptions = {

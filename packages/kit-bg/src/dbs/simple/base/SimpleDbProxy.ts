@@ -56,6 +56,12 @@ import type { SimpleDbEntityPerp } from '../entity/SimpleDbEntityPerp';
 import type { SimpleDbEntityPrime } from '../entity/SimpleDbEntityPrime';
 import type { SimpleDbEntityPrimeFreeTrial } from '../entity/SimpleDbEntityPrimeFreeTrial';
 import type { SimpleDbEntityPrimeTransfer } from '../entity/SimpleDbEntityPrimeTransfer';
+import type { SimpleDbEntityPrivacyChainCache } from '../entity/SimpleDbEntityPrivacyChainCache';
+import type { SimpleDbEntityPrivacyChainJournal } from '../entity/SimpleDbEntityPrivacyChainJournal';
+import type { SimpleDbEntityPrivacyChainKeys } from '../entity/SimpleDbEntityPrivacyChainKeys';
+import type { SimpleDbEntityPrivacyChainState } from '../entity/SimpleDbEntityPrivacyChainState';
+import type { SimpleDbEntityPrivacyChainXmrSent } from '../entity/SimpleDbEntityPrivacyChainXmrSent';
+import type { SimpleDbEntityPrivacyChainZcashSent } from '../entity/SimpleDbEntityPrivacyChainZcashSent';
 import type { SimpleDbEntityReceiveArrivalConfig } from '../entity/SimpleDbEntityReceiveArrivalConfig';
 import type { SimpleDbEntityRecentNetworks } from '../entity/SimpleDbEntityRecentNetworks';
 import type { SimpleDbEntityReferralCode } from '../entity/SimpleDbEntityReferralCode';
@@ -174,6 +180,30 @@ export class SimpleDbProxy
   ) as SimpleDbEntityNotificationSettings;
 
   lightning = this._createProxyService('lightning') as SimpleDbEntityLightning;
+
+  privacyChainState = this._createProxyService(
+    'privacyChainState',
+  ) as SimpleDbEntityPrivacyChainState;
+
+  privacyChainCache = this._createProxyService(
+    'privacyChainCache',
+  ) as SimpleDbEntityPrivacyChainCache;
+
+  privacyChainKeys = this._createProxyService(
+    'privacyChainKeys',
+  ) as SimpleDbEntityPrivacyChainKeys;
+
+  privacyChainJournal = this._createProxyService(
+    'privacyChainJournal',
+  ) as SimpleDbEntityPrivacyChainJournal;
+
+  privacyChainXmrSent = this._createProxyService(
+    'privacyChainXmrSent',
+  ) as SimpleDbEntityPrivacyChainXmrSent;
+
+  privacyChainZcashSent = this._createProxyService(
+    'privacyChainZcashSent',
+  ) as SimpleDbEntityPrivacyChainZcashSent;
 
   feeInfo = this._createProxyService('feeInfo') as SimpleDbEntityFeeInfo;
 

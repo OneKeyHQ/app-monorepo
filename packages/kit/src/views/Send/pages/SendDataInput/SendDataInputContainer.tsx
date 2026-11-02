@@ -26,6 +26,7 @@ import {
   TextArea,
   Toast,
   XStack,
+  YStack,
   useMedia,
 } from '@onekeyhq/components';
 import {
@@ -57,7 +58,12 @@ import type {
 } from '@onekeyhq/kit-bg/src/services/ServiceScanQRCode/utils/parseQRCode/type';
 import { useInscriptionProtectionStateAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { ITransferInfo } from '@onekeyhq/kit-bg/src/vaults/types';
-import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
+import { IMPL_ZCASH } from '@onekeyhq/shared/src/engine/engineConsts';
+import {
+  OneKeyInternalError,
+  OneKeyLocalError,
+} from '@onekeyhq/shared/src/errors';
+import type { IOneKeyErrorI18nInfo } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -78,6 +84,8 @@ import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
 import { isReusableLightningRecipient } from '@onekeyhq/shared/src/utils/lnUrlUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import type { IZcashMemoEncoding } from '@onekeyhq/shared/src/utils/zcashMemo';
+import { encodeZcashMemo } from '@onekeyhq/shared/src/utils/zcashMemo';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import { EInputAddressChangeType } from '@onekeyhq/shared/types/address';
 import type { IAccountNFT } from '@onekeyhq/shared/types/nft';
@@ -144,6 +152,7 @@ interface IFormValues {
   amount: string;
   nftAmount: string;
   memo: string;
+  memoEncoding: IZcashMemoEncoding;
   paymentId: string;
   note: string;
   txMessage: string;
@@ -209,6 +218,7 @@ function SendDataInputContainer() {
     onFail,
     onCancel,
     isAllNetworks,
+    localWalletSourcePool,
   } = route.params;
   const nft = nfts?.[0];
   const [tokenInfo, setTokenInfo] = useState(token);
@@ -342,6 +352,8 @@ function SendDataInputContainer() {
 
   // Algo uses Note instead of Memo; history memos should map to the note field
   const isNoteOnlyChain = displayNoteForm && !displayMemoForm;
+  const isZcashMemo = network?.impl === IMPL_ZCASH;
+  const [showZcashMemoAdvanced, setShowZcashMemoAdvanced] = useState(false);
 
   const { result: [tokenDetails] = [] } = usePromiseResult(
     async () => {
@@ -424,6 +436,7 @@ function SendDataInputContainer() {
         amount: sendAmount,
         nftAmount: sendAmount || '1',
         memo: '',
+        memoEncoding: 'utf8' as IZcashMemoEncoding,
         paymentId: '',
         note: '',
         txMessage: '',
@@ -437,6 +450,7 @@ function SendDataInputContainer() {
   const form = useForm<IFormValues>(formOptions);
 
   const memoValue = form.watch('memo') as string | undefined;
+  const memoEncoding = form.watch('memoEncoding');
   const noteValue = form.watch('note') as string | undefined;
   const paymentIdValue = form.watch('paymentId') as string | undefined;
   // Don't include isValidating — async memo validation (XRP vault) would
@@ -453,6 +467,10 @@ function SendDataInputContainer() {
   const toPending = toValue?.pending;
   const toResolved = toValue?.resolved;
   const toAddressRaw = toValue?.raw;
+  const zcashMemoSupported = toResolved?.startsWith('u1');
+  useEffect(() => {
+    if (isZcashMemo) void form.trigger('memo');
+  }, [form, isZcashMemo, memoEncoding, zcashMemoSupported]);
   const toSimilarAddress = toValue?.similarAddress;
   // Only drives the Prime badge; free-trial access is checked on press.
   const isPrimeUser = Boolean(isPrimeSubscriptionActive);
@@ -704,7 +722,9 @@ function SendDataInputContainer() {
         addressInputMethod: addressInputChangeType.current,
       });
 
-      const nextMemoValue = form.getValues('memo')?.trim();
+      const rawMemoValue = form.getValues('memo');
+      // Zcash memo whitespace is part of the on-chain payload.
+      const nextMemoValue = isZcashMemo ? rawMemoValue : rawMemoValue?.trim();
       const nextPaymentIdValue = form.getValues('paymentId');
       const nextNoteValue = form.getValues('note');
 
@@ -861,6 +881,9 @@ function SendDataInputContainer() {
         nfts,
         recipientAddress: toResolved,
         recipientMemo: nextMemoValue || undefined,
+        recipientMemoEncoding: isZcashMemo
+          ? form.getValues('memoEncoding')
+          : undefined,
         recipientPaymentId: nextPaymentIdValue || undefined,
         recipientNote: nextNoteValue || undefined,
         recipientIsContract: toVal?.isContract,
@@ -868,6 +891,11 @@ function SendDataInputContainer() {
         isInvoiceAmountLocked,
         isAllNetworks,
         hasAcknowledgedCexDepositWarning: hasAcknowledgedWarning,
+        localWalletSourcePool:
+          currentAccount.accountId === accountId &&
+          currentAccount.networkId === networkId
+            ? localWalletSourcePool
+            : undefined,
         onSuccess,
         onFail,
         onCancel,
@@ -891,11 +919,15 @@ function SendDataInputContainer() {
     tokenInfo,
     nfts,
     isAllNetworks,
+    accountId,
+    networkId,
+    localWalletSourcePool,
     onSuccess,
     onFail,
     onCancel,
     intl,
     network?.name,
+    isZcashMemo,
   ]);
 
   const handleNavigateToAmountInput = useCallback(async () => {
@@ -924,6 +956,39 @@ function SendDataInputContainer() {
     supportMemoValidation: vaultSettings?.supportMemoValidation,
     tokenAddress: tokenInfo?.address,
   });
+
+  const validateRecipientMemo = useCallback(
+    (value: string) => {
+      if (!isZcashMemo) return validateMemoField(value);
+      if (value && toResolved && !zcashMemoSupported) {
+        return intl.formatMessage({
+          id: ETranslations.privacy_memo_shielded_only__msg,
+        });
+      }
+      try {
+        encodeZcashMemo(value, memoEncoding);
+        return undefined;
+      } catch (error) {
+        if (error instanceof OneKeyLocalError && error.key) {
+          return intl.formatMessage(
+            { id: error.key },
+            (error as OneKeyLocalError<IOneKeyErrorI18nInfo>).info,
+          );
+        }
+        return error instanceof Error
+          ? error.message
+          : intl.formatMessage({ id: ETranslations.global_hex_data_error });
+      }
+    },
+    [
+      intl,
+      isZcashMemo,
+      memoEncoding,
+      toResolved,
+      validateMemoField,
+      zcashMemoSupported,
+    ],
+  );
 
   const renderMemoForm = useCallback(
     (requestFocusVisibility: IFocusVisibilityRequest) => {
@@ -958,18 +1023,20 @@ function SendDataInputContainer() {
               ) : undefined
             }
             rules={{
-              maxLength: {
-                value: maxLength,
-                message: intl.formatMessage(
-                  {
-                    id: ETranslations.dapp_connect_msg_description_can_be_up_to_int_characters,
+              maxLength: isZcashMemo
+                ? undefined
+                : {
+                    value: maxLength,
+                    message: intl.formatMessage(
+                      {
+                        id: ETranslations.dapp_connect_msg_description_can_be_up_to_int_characters,
+                      },
+                      {
+                        number: maxLength,
+                      },
+                    ),
                   },
-                  {
-                    number: maxLength,
-                  },
-                ),
-              },
-              validate: validateMemoField,
+              validate: validateRecipientMemo,
             }}
           >
             <TextArea
@@ -978,14 +1045,55 @@ function SendDataInputContainer() {
               testID={SendTestIDs.memoTextarea}
               numberOfLines={memoInputLines}
               size={media.gtMd ? 'medium' : 'large'}
-              placeholder={intl.formatMessage({
-                id: ETranslations.send_tag_placeholder,
-              })}
+              placeholder={
+                isZcashMemo && memoEncoding === 'hex'
+                  ? 'ff000102'
+                  : intl.formatMessage({
+                      id: ETranslations.send_tag_placeholder,
+                    })
+              }
               keyboardType={
                 isNumericMemo && platformEnv.isNative ? 'number-pad' : undefined
               }
+              autoCapitalize={isZcashMemo ? 'none' : undefined}
+              autoCorrect={isZcashMemo ? false : undefined}
             />
           </Form.Field>
+          {isZcashMemo ? (
+            <YStack gap="$2" mt="$2">
+              <Button
+                testID="zcash-memo-advanced"
+                alignSelf="flex-start"
+                size="small"
+                variant="tertiary"
+                iconAfter={
+                  showZcashMemoAdvanced
+                    ? 'ChevronTopSmallOutline'
+                    : 'ChevronDownSmallOutline'
+                }
+                onPress={() => setShowZcashMemoAdvanced((value) => !value)}
+              >
+                {intl.formatMessage({ id: ETranslations.global_advanced })}
+              </Button>
+              {showZcashMemoAdvanced ? (
+                <XStack gap="$2">
+                  {(['utf8', 'hex'] as const).map((encoding) => (
+                    <Button
+                      testID={`zcash-memo-encoding-${encoding}`}
+                      key={encoding}
+                      size="small"
+                      variant={
+                        memoEncoding === encoding ? 'primary' : 'secondary'
+                      }
+                      onPress={() => form.setValue('memoEncoding', encoding)}
+                    >
+                      {encoding === 'utf8' ? 'UTF-8' : 'HEX'}
+                    </Button>
+                  ))}
+                </XStack>
+              ) : null}
+            </YStack>
+          ) : null}
         </>
       );
     },
@@ -997,7 +1105,10 @@ function SendDataInputContainer() {
       memoMaxLength,
       memoValue,
       numericOnlyMemo,
-      validateMemoField,
+      validateRecipientMemo,
+      isZcashMemo,
+      memoEncoding,
+      showZcashMemoAdvanced,
     ],
   );
 
@@ -1191,6 +1302,7 @@ function SendDataInputContainer() {
       selectedNote?: string;
     }) => {
       const memoText = normalizeOptionalRecipientText(selectedMemo);
+      form.setValue('memoEncoding', 'utf8');
       const noteText = normalizeOptionalRecipientText(selectedNote);
       form.setValue('memo', displayMemoForm ? memoText : '', {
         shouldValidate: true,
@@ -1321,8 +1433,16 @@ function SendDataInputContainer() {
         const effectiveNote =
           selectedNote || (isNoteOnlyChain ? selectedMemo?.trim() : undefined);
         const recipientMemo = displayMemoForm
-          ? selectedMemo?.trim() || undefined
+          ? (isZcashMemo ? selectedMemo : selectedMemo?.trim()) || undefined
           : undefined;
+        if (isZcashMemo && recipientMemo) {
+          if (!resolvedAddress.startsWith('u1')) {
+            throw new OneKeyLocalError({
+              key: ETranslations.privacy_memo_shielded_only__msg,
+            });
+          }
+          encodeZcashMemo(recipientMemo, 'utf8');
+        }
         const recipientPaymentId = form.getValues('paymentId') || undefined;
         const recipientNote = effectiveNote || undefined;
         const nftItem = nfts?.[0];
@@ -1380,11 +1500,17 @@ function SendDataInputContainer() {
           recipientAddress: resolvedAddress,
           recipientIsContract: queryResult.isContract ?? false,
           recipientMemo,
+          recipientMemoEncoding: isZcashMemo ? 'utf8' : undefined,
           recipientPaymentId,
           recipientNote,
           amount: scannedAmount || sendAmount || undefined,
           isAllNetworks,
           hasAcknowledgedCexDepositWarning: hasAcknowledgedWarning,
+          localWalletSourcePool:
+            currentAccount.accountId === accountId &&
+            currentAccount.networkId === networkId
+              ? localWalletSourcePool
+              : undefined,
           onSuccess,
           onFail,
           onCancel,
@@ -1406,11 +1532,15 @@ function SendDataInputContainer() {
       currentAccount.networkId,
       account,
       displayMemoForm,
+      isZcashMemo,
       isNoteOnlyChain,
       fillRecipientFromQuickSelect,
       form,
       enableAllowListValidation,
       isAllNetworks,
+      accountId,
+      networkId,
+      localWalletSourcePool,
       isNFT,
       badgeQueryTokenAddress,
       nfts,

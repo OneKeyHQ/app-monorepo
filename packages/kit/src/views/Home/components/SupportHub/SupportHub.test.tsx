@@ -116,6 +116,8 @@ jest.mock('@onekeyhq/shared/src/config/appConfig', () => ({
 }));
 
 jest.mock('@onekeyhq/shared/src/modules3rdParty/intercom', () => ({
+  getIntercomUnreadCount: () => 0,
+  subscribeToIntercomUnreadCount: () => () => undefined,
   showIntercom: jest.fn(),
 }));
 

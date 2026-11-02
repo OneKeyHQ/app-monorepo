@@ -1,5 +1,3 @@
-import BigNumber from 'bignumber.js';
-
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import type {
   IJotaiGetter,
@@ -33,7 +31,10 @@ import {
   compareSwapProPositionNetworkIds,
 } from './swapProPositionsKeyUtils';
 import { buildStockPositionTokens } from './swapStockPositionsUtils';
-import { hasTradePositionBalance } from './tradePositionUtils';
+import {
+  compareTradePositionFiatValues,
+  hasTradePositionBalance,
+} from './tradePositionUtils';
 
 export type ISwapProPositionsLoadOptions = {
   forceRefresh?: boolean;
@@ -215,9 +216,7 @@ export const loadSwapProPositions: ISwapProPositionsLoader = async (
   const refreshedNetworkIdsByOwner = new Map<string, Set<string>>();
   const sortPositionTokens = (tokens: ISwapToken[]) =>
     tokens.toSorted((left, right) =>
-      new BigNumber(right.fiatValue ?? '0').comparedTo(
-        new BigNumber(left.fiatValue ?? '0'),
-      ),
+      compareTradePositionFiatValues(left.fiatValue, right.fiatValue),
     );
   const publishNetworkPositions = ({
     networkId,

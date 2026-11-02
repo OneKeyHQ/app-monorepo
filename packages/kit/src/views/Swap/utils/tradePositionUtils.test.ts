@@ -1,6 +1,7 @@
 import type { ICurrencyItem } from '@onekeyhq/shared/types';
 
 import {
+  compareTradePositionFiatValues,
   hasTradePositionBalance,
   isTradePositionVisible,
 } from './tradePositionUtils';
@@ -15,6 +16,44 @@ const currencyMap: Record<string, ICurrencyItem> = {
     value: '7',
   },
 };
+
+describe('compareTradePositionFiatValues', () => {
+  it('sorts raw fiat values descending without losing precision', () => {
+    const values = ['1.000000000000000001', '20', '1.000000000000000002'];
+    expect(values.toSorted(compareTradePositionFiatValues)).toEqual([
+      '20',
+      '1.000000000000000002',
+      '1.000000000000000001',
+    ]);
+    expect(values[0]).toBe('1.000000000000000001');
+  });
+
+  it('treats missing values as zero and retains equal-value order', () => {
+    const rows = [
+      { id: 'missing', value: undefined },
+      { id: 'first', value: '1' },
+      { id: 'zero', value: '0' },
+      { id: 'second', value: '1' },
+    ];
+    expect(
+      rows
+        .toSorted((a, b) => compareTradePositionFiatValues(a.value, b.value))
+        .map(({ id }) => id),
+    ).toEqual(['first', 'second', 'missing', 'zero']);
+  });
+
+  it('does not let unavailable values interrupt descending order', () => {
+    const values = ['10', '', '100', 'NaN', 'Infinity', '2'];
+    expect(values.toSorted(compareTradePositionFiatValues)).toEqual([
+      '100',
+      '10',
+      '2',
+      '',
+      'NaN',
+      'Infinity',
+    ]);
+  });
+});
 
 describe('hasTradePositionBalance', () => {
   it.each(['0.000000000000000001', '0.00000001', '0.1', '1'])(
