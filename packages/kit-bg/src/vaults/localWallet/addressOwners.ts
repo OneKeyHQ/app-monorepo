@@ -6,7 +6,10 @@ export async function findLocalWalletAddressOwners({
 }: {
   capability: Pick<
     ILocalWalletCapability,
-    'listAccounts' | 'getAccountState' | 'getAccountAddresses'
+    | 'listAccounts'
+    | 'getAccountState'
+    | 'getAccountAddresses'
+    | 'isSameRecipient'
   >;
   address: string;
 }): Promise<string[]> {
@@ -16,8 +19,12 @@ export async function findLocalWalletAddressOwners({
       const state = await capability.getAccountState({ accountId });
       if (!state.enabled) return undefined;
       const addresses = await capability.getAccountAddresses({ accountId });
-      return addresses?.privateAddress === address ||
-        addresses?.publicAddress === address
+      const { privateAddress } = addresses ?? {};
+      const isPrivateMatch =
+        !!privateAddress &&
+        (capability.isSameRecipient?.(privateAddress, address) ??
+          privateAddress === address);
+      return isPrivateMatch || addresses?.publicAddress === address
         ? accountId
         : undefined;
     }),

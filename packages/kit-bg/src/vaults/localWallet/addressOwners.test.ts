@@ -68,3 +68,20 @@ it('a failed account read does not suppress another account’s label', async ()
     await findLocalWalletAddressOwners({ capability, address: 'u-own-two' }),
   ).toEqual(['own-two']);
 });
+// The chain reads back a payment as the receiver it paid, not the receive address shown.
+it("uses the chain's own recipient match for a private address", async () => {
+  const capability = {
+    ...fixture(),
+    isSameRecipient: (a: string, b: string) =>
+      a.replace(/^u-/, '') === b.replace(/^receiver-/, ''),
+  };
+  expect(
+    await findLocalWalletAddressOwners({
+      capability,
+      address: 'receiver-own-one',
+    }),
+  ).toEqual(['own-one']);
+  expect(
+    await findLocalWalletAddressOwners({ capability, address: 't-own-two' }),
+  ).toEqual(['own-two']);
+});

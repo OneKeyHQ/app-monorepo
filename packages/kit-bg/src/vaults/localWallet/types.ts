@@ -241,6 +241,9 @@ export type ILocalWalletCapability = {
     forceViewingKeyDerivation?: boolean;
   }) => Promise<void>;
   disableAccount: (params: { accountId: string }) => Promise<void>;
+  // Whether two addresses pay one recipient. A private address read back from the chain names only
+  // the receiver it paid, not the full address entered. Absent: the strings must be equal.
+  isSameRecipient?: (a: string, b: string) => boolean;
   // Undefined until the account is enabled and its viewing material exists.
   getAccountAddresses: (params: {
     accountId: string;

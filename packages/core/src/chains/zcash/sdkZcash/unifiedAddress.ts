@@ -70,9 +70,10 @@ function validateSaplingReceiver(receiver: Uint8Array) {
     invalidAddress();
 }
 
-export function getSupportedZcashUnifiedAddressReceiverTypes(
+// Each receiver by its type, in address order; undefined unless the address is payable here.
+function decodeSupportedZcashUnifiedAddress(
   address: string,
-): number[] | undefined {
+): Map<number, Uint8Array> | undefined {
   try {
     if (
       address.length > MAX_UNIFIED_CHARACTERS ||
@@ -102,7 +103,7 @@ export function getSupportedZcashUnifiedAddressReceiverTypes(
     let previousType = -1;
     let hasTransparent = false;
     let hasOrchard = false;
-    const receiverTypes: number[] = [];
+    const receivers = new Map<number, Uint8Array>();
     while (offset < payload.length) {
       const type = readCompactSize();
       const length = readCompactSize();
@@ -125,13 +126,29 @@ export function getSupportedZcashUnifiedAddressReceiverTypes(
         // Revision-zero addresses cannot contain MUST-understand metadata.
         return undefined;
       }
-      receiverTypes.push(type);
+      receivers.set(type, receiver);
     }
     // Only a Unified address with an Orchard receiver is payable.
-    return hasOrchard ? receiverTypes : undefined;
+    return hasOrchard ? receivers : undefined;
   } catch {
     return undefined;
   }
+}
+
+export function getSupportedZcashUnifiedAddressReceiverTypes(
+  address: string,
+): number[] | undefined {
+  const receivers = decodeSupportedZcashUnifiedAddress(address);
+  return receivers ? [...receivers.keys()] : undefined;
+}
+
+// A shielded payment goes to one Orchard receiver; the wallet reads back only that receiver, so two
+// addresses holding it are one recipient.
+export function isSameZcashOrchardRecipient(a: string, b: string): boolean {
+  if (a === b) return true;
+  const orchardA = decodeSupportedZcashUnifiedAddress(a)?.get(3);
+  const orchardB = decodeSupportedZcashUnifiedAddress(b)?.get(3);
+  return !!orchardA && !!orchardB && Buffer.from(orchardA).equals(orchardB);
 }
 
 export function isSupportedZcashUnifiedAddress(address: string): boolean {

@@ -8,6 +8,7 @@ import type {
   IZcashSyncProgress,
   IZcashWalletAccount,
 } from '@onekeyhq/core/src/chains/zcash/sdkZcash/types/sdk';
+import { isSameZcashOrchardRecipient } from '@onekeyhq/core/src/chains/zcash/sdkZcash/unifiedAddress';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import {
   EAppEventBusNames,
@@ -374,6 +375,7 @@ export function getLocalWalletCapability(vault: Vault): ILocalWalletCapability {
         networkId: vault.networkId,
         accountId,
       }),
+    isSameRecipient: isSameZcashOrchardRecipient,
     getAccountAddresses: async ({ accountId }) => {
       // Transparent address is account backbone, not privacy material -- available even while Privacy Mode is paused.
       const dbAccount = (await vault.backgroundApi.serviceAccount
