@@ -22736,6 +22736,7 @@
     "packages/kit/src/components/Footer/components/FooterNavigation.tsx": 1757,
     "packages/kit/src/components/Footer/desktopWebFooterRoute.ts": 11927,
     "packages/kit/src/components/Footer/index.ts": 15323,
+    "packages/kit/src/components/Footer/perpFooterConfig.ts": 13365,
     "packages/kit/src/components/GlobalJotaiReady/GlobalJotaiReady.tsx": 8501,
     "packages/kit/src/components/GlobalJotaiReady/index.tsx": 558,
     "packages/kit/src/components/Hardware/CommunicatingLottieView.tsx": 24364,
