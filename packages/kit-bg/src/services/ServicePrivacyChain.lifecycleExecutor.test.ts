@@ -265,6 +265,37 @@ describe('privacy chain lifecycle executor', () => {
     emit.mockRestore();
   });
 
+  // Preparing clears on the account's next position. One that stops scanning never gets one, and
+  // its flag would hold the chain at Preparing while other accounts scan.
+  it.each([
+    ['disable', false],
+    ['deleteAccount', false],
+    ['rescan', true],
+  ] as const)('%s keeps the account Preparing: %s', async (event, keeps) => {
+    const { service, capability } = createHarness();
+    await service.runLocalWalletLifecycle({
+      event,
+      targets: [targetFor(event, capability)],
+    });
+    const own = `${networkId}:${accountId}`;
+    const other = `${networkId}:other`;
+    let state = {
+      progress: {},
+      boostingNetworkIds: [],
+      dataBlockedNetworkIds: [],
+      pausedNetworkIds: [],
+      preparingAccountKeys: [own, other],
+      storageUnsupportedNetworkIds: [],
+      syncErrorByNetworkId: {},
+    };
+    for (const [update] of mockAtomSet.mock.calls) {
+      if (typeof update === 'function') {
+        state = (update as (value: typeof state) => typeof state)(state);
+      }
+    }
+    expect(state.preparingAccountKeys).toEqual(keeps ? [own, other] : [other]);
+  });
+
   it('network pause saves the chain switch and touches no scan data', async () => {
     const { service, calls, backgroundApi } = createHarness();
     await service.runLocalWalletLifecycle({

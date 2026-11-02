@@ -1618,6 +1618,10 @@ class ServicePrivacyChain extends ServiceBase {
         }
         if (networkId) {
           await this.forgetPublishedProgress({ networkId, accountIds });
+          // A deleted account never publishes the position that would clear it. A rescan keeps it.
+          if (action.effect === 'delete') {
+            await this.clearAccountsPreparing({ networkId, accountIds });
+          }
         }
         for (const accountId of accountIds) {
           if (action.effect === 'restartScan') {
@@ -1630,6 +1634,9 @@ class ServicePrivacyChain extends ServiceBase {
       case 'memoryCaches:progressOnly':
         if (networkId) {
           await this.forgetPublishedProgress({ networkId, accountIds });
+          // A turned-off account never publishes the position that would clear Preparing, which
+          // would hold the chain's light at Preparing while its other accounts scan.
+          await this.clearAccountsPreparing({ networkId, accountIds });
         }
         return;
       case 'memoryCaches:pauseFlag':
