@@ -1,4 +1,4 @@
-import { EStakeProgressStep } from '@onekeyhq/kit/src/views/Staking/components/StakeProgress';
+import { EStakeProgressStep } from '@onekeyhq/kit/src/views/Staking/components/stakeProgressStep';
 import type { IToken } from '@onekeyhq/shared/types/token';
 
 import {

@@ -5,9 +5,12 @@ import {
   getLoanForPositionLtv,
   getLoanHealthTone,
   getLoanLtvBar,
+  getLoanPlaces,
   getLoanRouteMetrics,
   parseLoanFigure,
   rankLoanRoutes,
+  snapLoanLtv,
+  stepLoanLtv,
 } from './loanRouter.utils';
 
 import type { ILoanRoute, ILoanRouteFacts } from './loanRouter.utils';
@@ -487,6 +490,42 @@ describe('getLoanForPositionLtv', () => {
     ).toBe('0.001005');
   });
 
+  it('rounds the loan as far as the LTV it gives still reads the same', () => {
+    // 0.7 x (2.78 + 4.58) - 1.45 = 3.702 USDT at 1.0001: four places on
+    // $7.36 of collateral
+    expect(
+      getLoanForPositionLtv({
+        ltv: 0.7,
+        collateralValue: 2.78,
+        debtValue: 1.45,
+        newCollateralValue: 4.58,
+        borrowPrice: 1.0001,
+        decimals: 6,
+      }),
+    ).toBe('3.7016');
+    // One place on $10,000, whole tokens on $1,000,000
+    expect(
+      getLoanForPositionLtv({
+        ltv: 0.5,
+        collateralValue: 0,
+        debtValue: 0,
+        newCollateralValue: 10_000,
+        borrowPrice: 1.0001,
+        decimals: 6,
+      }),
+    ).toBe('4999.5');
+    expect(
+      getLoanForPositionLtv({
+        ltv: 0.5,
+        collateralValue: 0,
+        debtValue: 0,
+        newCollateralValue: 1_000_000,
+        borrowPrice: 1.0001,
+        decimals: 6,
+      }),
+    ).toBe('499950');
+  });
+
   it('lends nothing at or below the debt already there', () => {
     expect(
       getLoanForPositionLtv({
@@ -498,6 +537,43 @@ describe('getLoanForPositionLtv', () => {
         decimals: 18,
       }),
     ).toBe('');
+  });
+});
+
+describe('getLoanPlaces', () => {
+  it('keeps a small ETH loan to eight places and caps at the token', () => {
+    expect(
+      getLoanPlaces({ collateralValue: 4.58, borrowPrice: 2300, decimals: 18 }),
+    ).toBe(8);
+    expect(
+      getLoanPlaces({ collateralValue: 4.58, borrowPrice: 1, decimals: 6 }),
+    ).toBe(4);
+    expect(
+      getLoanPlaces({ collateralValue: 0, borrowPrice: 1, decimals: 6 }),
+    ).toBe(6);
+  });
+});
+
+describe('snapLoanLtv and stepLoanLtv', () => {
+  const bounds = { lower: 0.1967, upper: 0.808 };
+
+  it('lands a drag on whole percents, the floor and Max as stops', () => {
+    expect(snapLoanLtv(0.7006, bounds)).toBeCloseTo(0.7, 10);
+    expect(snapLoanLtv(0.806, bounds)).toBe(0.808);
+    expect(snapLoanLtv(0.194, bounds)).toBe(0.1967);
+    expect(snapLoanLtv(0.199, bounds)).toBeCloseTo(0.2, 10);
+  });
+
+  it('steps a key press to the next whole percent, or ten', () => {
+    const step = (value: number, size: number, direction: 1 | -1) =>
+      stepLoanLtv(value, { step: size, direction, ...bounds });
+    expect(step(0.519, 0.01, 1)).toBeCloseTo(0.52, 10);
+    expect(step(0.519, 0.01, -1)).toBeCloseTo(0.51, 10);
+    expect(step(0.52, 0.01, 1)).toBeCloseTo(0.53, 10);
+    expect(step(0.52, 0.01, -1)).toBeCloseTo(0.51, 10);
+    expect(step(0.519, 0.1, 1)).toBeCloseTo(0.6, 10);
+    expect(step(0.2, 0.01, -1)).toBe(0.1967);
+    expect(step(0.8, 0.01, 1)).toBe(0.808);
   });
 });
 

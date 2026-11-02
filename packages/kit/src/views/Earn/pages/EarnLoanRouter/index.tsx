@@ -297,18 +297,24 @@ function HealthFactorValue({
   );
 }
 
-// The position's LTV, before and after once amounts are typed
+// The position's LTV, before and after once amounts are typed. While the
+// market's figures load, a placeholder as the figures under it have
 function LtvValue({
   before,
   after,
   isChanging,
+  isLoading,
   color,
 }: {
   before?: number;
   after?: number;
   isChanging: boolean;
+  isLoading?: boolean;
   color?: string;
 }) {
+  if (isLoading) {
+    return <Skeleton.BodyMd w={56} />;
+  }
   const shown = isChanging ? after : (before ?? after);
   if (shown === undefined) {
     return <RowValue>–</RowValue>;
@@ -494,6 +500,12 @@ function EarnLoanRouterPage() {
   // The market position's LTV the bar was dragged to. Until then the loan is
   // half the collateral's value, as the Loans list works its Net APY out
   const [draggedLtv, setDraggedLtv] = useState<number | undefined>(startLtv);
+  // The loan an LTV gives where there is collateral to hold one (in the
+  // market already, or typed), else none
+  const loanAtLtvRef = useRef<((ltv: number) => string) | undefined>(undefined);
+  // Max LTV on the bar, and the loan the Borrow box says is available there
+  const ltvCapRef = useRef<number | undefined>(undefined);
+  const availableRef = useRef<string | undefined>(undefined);
   const toneColors = useLoanToneColors();
   // While the bar is dragged the markets keep their order
   const [isSliding, setIsSliding] = useState(false);
@@ -727,6 +739,23 @@ function EarnLoanRouterPage() {
           borrowPrice: priceRoute?.facts.borrowPrice,
           decimals: borrowDecimals,
         }));
+  // The loan a let-go of the bar writes in the box: the amount it showed
+  // while held
+  const positionCollateralValue = priceRoute?.facts.collateralValue ?? 0;
+  const positionDebtValue = priceRoute?.facts.debtValue ?? 0;
+  const priceBorrow = priceRoute?.facts.borrowPrice;
+  loanAtLtvRef.current =
+    priceBorrow && positionCollateralValue + newCollateralValue > 0
+      ? (ltv: number) =>
+          getLoanForPositionLtv({
+            ltv,
+            collateralValue: positionCollateralValue,
+            debtValue: positionDebtValue,
+            newCollateralValue,
+            borrowPrice: priceBorrow,
+            decimals: borrowDecimals,
+          })
+      : undefined;
   // Before amounts are typed, every market is worked out at the bar's LTV
   const previewLtv = draggedLtv ?? EARN_DESKTOP_LOAN_LTV;
 
@@ -917,11 +946,31 @@ function EarnLoanRouterPage() {
   // Where the bar starts (what is borrowed in the market already), read at
   // the press
   const ltvStartRef = useRef(0);
-  const handleLtvChange = useCallback((ltv: number) => {
-    setTypedBorrow(undefined);
+  const handleLtvChange = useCallback((ltv: number, isFinal: boolean) => {
     // At the start there is no loan: kept as none, not as the LTV the start
     // sat at, so a price move can't make one up
-    setDraggedLtv(ltv <= ltvStartRef.current + 1e-9 ? 0 : ltv);
+    const value = ltv <= ltvStartRef.current + 1e-9 ? 0 : ltv;
+    const loanAt = loanAtLtvRef.current;
+    // At Max LTV the loan is what the Borrow box says is available, to its
+    // last place, not a rounded amount a hair under it
+    const cap = ltvCapRef.current;
+    const available = availableRef.current;
+    if (loanAt && cap !== undefined && available && value >= cap - 1e-9) {
+      setTypedBorrow(available);
+      setDraggedLtv(undefined);
+      return;
+    }
+    // Let go, the loan the bar set is the plan, as if typed: a price move or
+    // more collateral then moves the bar, not the amount. With nothing to
+    // borrow against yet, the bar stays the LTV the loan follows once
+    // collateral is typed
+    if (isFinal && loanAt) {
+      setTypedBorrow(value > 0 ? loanAt(value) : '');
+      setDraggedLtv(undefined);
+      return;
+    }
+    setTypedBorrow(undefined);
+    setDraggedLtv(value);
   }, []);
   const handleSlideStart = useCallback(() => {
     slideOrderRef.current = items.map((item) => item.route.key);
@@ -1234,6 +1283,14 @@ function EarnLoanRouterPage() {
         })
       : undefined;
   ltvStartRef.current = ltvBar && !ltvBar.isPreview ? ltvBar.used : 0;
+  ltvCapRef.current = isClosed ? undefined : ltvBar?.cap;
+  availableRef.current = availableToBorrow;
+  // Until the picked market's own figures are in (and the markets, while
+  // they load), the form holds their places: the LTV's, the Net APY's and
+  // the position's. A preview rate shown meanwhile would turn into a dash
+  // once the market turned out not to lend the token
+  const isFiguresLoading =
+    !isMarketsLoaded || (Boolean(selectedRoute) && !selectedFacts);
   // A position's health factor is the server's, the Borrow page's figure;
   // the window's own reading of it (from the reserves' prices, a hair off)
   // only scales what typed amounts do to it, so before and after agree with
@@ -1245,22 +1302,62 @@ function EarnLoanRouterPage() {
     Number.isFinite(serverHealthValue) && ownHealthBefore
       ? serverHealthValue / ownHealthBefore
       : 1;
-  // The health factor the bar's LTV leaves, in the Borrow page's bands
-  const barTone = getLoanHealthTone(
-    ltvBar?.liquidation !== undefined && ltvBar.value > 0
-      ? (ltvBar.liquidation / ltvBar.value) * healthScale
-      : undefined,
-  );
   const hasPosition = Boolean(
     selectedFacts &&
     (selectedFacts.collateralValue > 0 || selectedFacts.debtValue > 0),
   );
   const isChanging = hasLoan || hasCollateral;
+  // The market's LTV as it stands, where the account has collateral there
+  const currentLtv =
+    selectedFacts && selectedFacts.collateralValue > 0
+      ? selectedFacts.debtValue / selectedFacts.collateralValue
+      : undefined;
+  // A market that doesn't lend the token here (or no market at all) has no
+  // plan to draw: the bar keeps only what is borrowed there already
+  const isBarInert = !isFiguresLoading && (isClosed || !selectedRoute);
+  let barShown = ltvBar;
+  if (isClosed) {
+    barShown =
+      currentLtv !== undefined
+        ? { used: currentLtv, value: currentLtv, isPreview: false }
+        : undefined;
+  }
+  // A fresh pair before any amount: the bar is the plan's LTV, and what the
+  // plan leaves follows from it alone, the health factor and the price that
+  // would sell the collateral. The rows under the bar show them, as its
+  // color already does
+  const planPreview =
+    !isClosed &&
+    !hasPosition &&
+    !isChanging &&
+    ltvBar?.isPreview &&
+    ltvBar.liquidation !== undefined &&
+    ltvBar.value > 0
+      ? {
+          health: ltvBar.liquidation / ltvBar.value,
+          liquidationPrice: selectedFacts?.collateralPrice
+            ? (selectedFacts.collateralPrice * ltvBar.value) /
+              ltvBar.liquidation
+            : undefined,
+        }
+      : undefined;
+  // The health factor the bar's LTV leaves, in the Borrow page's bands;
+  // where the market doesn't lend, the position's own
+  const barTone = isClosed
+    ? getLoanHealthTone(
+        Number.isFinite(serverHealthValue) ? serverHealthValue : undefined,
+      )
+    : getLoanHealthTone(
+        ltvBar?.liquidation !== undefined && ltvBar.value > 0
+          ? (ltvBar.liquidation / ltvBar.value) * healthScale
+          : undefined,
+      );
+  const isLtvChanging = isChanging && !isClosed;
 
   // Before anything is typed the bar is the position as it stands, not a
   // loan on offer
   const ltvLabel =
-    hasPosition && !isChanging
+    hasPosition && !isLtvChanging
       ? EARN_DESKTOP_DEMO_COPY.loanCurrentLtv
       : EARN_DESKTOP_DEMO_COPY.loanLtv;
   const ltvBlock = (
@@ -1270,19 +1367,17 @@ function EarnLoanRouterPage() {
           {ltvLabel}
         </SizableText>
         <LtvValue
-          before={
-            hasPosition && selectedFacts && selectedFacts.collateralValue > 0
-              ? selectedFacts.debtValue / selectedFacts.collateralValue
-              : undefined
-          }
-          after={ltvBar?.value}
-          isChanging={isChanging}
+          before={currentLtv}
+          after={isClosed ? undefined : ltvBar?.value}
+          isChanging={isLtvChanging}
+          isLoading={isFiguresLoading}
           color={toneColors.text[barTone]}
         />
       </XStack>
       <LoanLtvBar
         testID="earn-loan-ltv-bar"
-        bar={ltvBar}
+        bar={barShown}
+        isInert={isBarInert}
         tone={barTone}
         disabled={isLocked || isClosed}
         onChange={handleLtvChange}
@@ -1309,6 +1404,12 @@ function EarnLoanRouterPage() {
 
   // ---------- What the picked market makes of it ----------
 
+  let healthAfter = scaleHealth(ownHealthBefore, healthScale);
+  if (isChanging) {
+    healthAfter = scaleHealth(selectedMetrics?.healthFactor, healthScale);
+  } else if (planPreview) {
+    healthAfter = planPreview.health;
+  }
   const healthRow = (
     <EarnFormRow
       key="health"
@@ -1321,11 +1422,7 @@ function EarnLoanRouterPage() {
               ? ownHealthBefore * healthScale
               : undefined
           }
-          after={
-            isChanging
-              ? scaleHealth(selectedMetrics?.healthFactor, healthScale)
-              : scaleHealth(ownHealthBefore, healthScale)
-          }
+          after={healthAfter}
           current={serverHealth}
         />
       }
@@ -1350,6 +1447,14 @@ function EarnLoanRouterPage() {
       isSameSymbol(asset.symbol, selectedRoute.borrow.symbol),
     ),
   );
+  // The plan's, once amounts are typed; before, a fresh pair's at the bar's
+  // LTV. None where the market doesn't lend
+  let liquidationPrice: number | undefined;
+  if (!isClosed) {
+    liquidationPrice = isChanging
+      ? selectedMetrics?.liquidationPrice
+      : planPreview?.liquidationPrice;
+  }
   const liquidationRow =
     !hasPosition || isSinglePair ? (
       <EarnFormRow
@@ -1358,8 +1463,8 @@ function EarnLoanRouterPage() {
         label={EARN_DESKTOP_DEMO_COPY.loanLiquidationPrice}
         value={
           <RowValue>
-            {selectedMetrics?.liquidationPrice !== undefined && isChanging
-              ? numberFormat(String(selectedMetrics.liquidationPrice), {
+            {liquidationPrice !== undefined
+              ? numberFormat(String(liquidationPrice), {
                   formatter: 'price',
                   formatterOptions: { currency },
                 })
@@ -1369,15 +1474,14 @@ function EarnLoanRouterPage() {
         // Only while the price is still above it: past it, the health
         // factor in red says so
         note={
-          selectedMetrics?.liquidationPrice !== undefined &&
+          liquidationPrice !== undefined &&
           selectedFacts?.collateralPrice &&
-          selectedMetrics.liquidationPrice < selectedFacts.collateralPrice &&
-          isChanging ? (
+          liquidationPrice < selectedFacts.collateralPrice ? (
             <SizableText size="$bodySm" color="$textSubdued">
               {EARN_DESKTOP_DEMO_COPY.loanBelowNow(
                 `${new BigNumber(1)
                   .minus(
-                    new BigNumber(selectedMetrics.liquidationPrice).div(
+                    new BigNumber(liquidationPrice).div(
                       selectedFacts.collateralPrice,
                     ),
                   )
@@ -1390,12 +1494,6 @@ function EarnLoanRouterPage() {
       />
     ) : null;
 
-  // Until the picked market's own figures are in (and the markets, while
-  // they load), the form holds their places: the Net APY's and the
-  // position's. A preview rate shown meanwhile would turn into a dash once
-  // the market turned out not to lend the token
-  const isFiguresLoading =
-    !isMarketsLoaded || (Boolean(selectedRoute) && !selectedFacts);
   // Figures that land after the form shows fade in
   const fadeInProps = reduceMotion
     ? undefined

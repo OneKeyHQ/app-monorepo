@@ -1,13 +1,28 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import type {
   CSSProperties,
   KeyboardEvent as ReactKeyboardEvent,
   PointerEvent as ReactPointerEvent,
 } from 'react';
 
+import { useReducedMotion } from 'react-native-reanimated';
+
 import { SizableText, useTheme } from '@onekeyhq/components';
 import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
 
+import {
+  LOAN_LTV_STEP,
+  LOAN_LTV_STEP_LARGE,
+  snapLoanLtv,
+  stepLoanLtv,
+} from './loanRouter.utils';
 import { useLoanToneColors } from './loanToneColors';
 
 import type { ILoanLtvBarProps } from './loanLtvBar.types';
@@ -15,15 +30,20 @@ import type { ILoanLtvBarProps } from './loanLtvBar.types';
 const THUMB_SIZE = 18;
 const TRACK_HEIGHT = 6;
 const HIT_HEIGHT = 26;
+// A press counts this far above and below the bar as well, for a finger; the
+// layout keeps the bar's own height
+const HIT_REACH = 8;
 const WALL_HEIGHT = 14;
+const CAP_ROW_HEIGHT = 18;
 // The track runs the block's full width, level with the figures above; the
 // thumb's center stops half a thumb from each end
 const INSET = THUMB_SIZE / 2;
-// Moves made with the keyboard
-const KEY_STEP = 0.01;
-const KEY_STEP_LARGE = 0.1;
 // Figures typed or a market switched glide there; a drag follows the finger
 const GLIDE = '180ms cubic-bezier(0.2, 0, 0, 1)';
+// What the market's figures bring fades in as the form's figures do
+const REVEAL_MS = 150;
+// The thumb counts as at Max LTV this close to it
+const AT_CAP = 0.0005;
 
 // Quiet greys, so the loan's color and the white thumb lead
 const SURFACES = {
@@ -63,14 +83,22 @@ const span = (from: number, to: number): CSSProperties => ({
 const tint = (color: string, percent: number) =>
   `color-mix(in srgb, ${color} ${percent}%, transparent)`;
 
+const fadeIn = (element: HTMLElement | null) => {
+  element?.animate?.([{ opacity: 0 }, { opacity: 1 }], {
+    duration: REVEAL_MS,
+    easing: 'ease-out',
+  });
+};
+
 /**
  * The market position's LTV, 0 to 100%: what is borrowed there already, this
  * loan in the color of the health factor it leaves, and the thumb, which
- * stops at Max LTV. Past it the track dims; from the liquidation LTV on it is
- * red. Dragging sets the loan
+ * moves in whole percents and stops at Max LTV. Past it the track dims; from
+ * the liquidation LTV on it is red. Dragging sets the loan
  */
 export function LoanLtvBar({
   bar,
+  isInert,
   tone,
   disabled,
   onChange,
@@ -84,22 +112,39 @@ export function LoanLtvBar({
   const theme = useTheme();
   const surfaces = SURFACES[useThemeVariant() === 'light' ? 'light' : 'dark'];
   const { fill } = useLoanToneColors();
+  const reduceMotion = useReducedMotion();
 
   const trackRef = useRef<HTMLDivElement>(null);
+  const layerRef = useRef<HTMLDivElement>(null);
+  const wallRef = useRef<HTMLDivElement>(null);
+  const thumbRef = useRef<HTMLDivElement>(null);
+  const capRowRef = useRef<HTMLDivElement>(null);
+  const capLabelRef = useRef<HTMLDivElement>(null);
   const draggingRef = useRef(false);
   const pendingRef = useRef<number | undefined>(undefined);
   const frameRef = useRef<number | undefined>(undefined);
   const [dragValue, setDragValue] = useState<number>();
   const [focusVisible, setFocusVisible] = useState(false);
+  // How far the line under the bar moves off center to stay within the
+  // bar's ends
+  const [labelShift, setLabelShift] = useState(0);
+  // The pointer over the red part: the line under the bar names it
+  const [isOverRed, setIsOverRed] = useState(false);
 
-  const lower = bar && !bar.isPreview ? bar.used : 0;
-  const upper = Math.max(lower, bar?.cap ?? 1);
-  const isDisabled = disabled || !bar;
-  const clamp = useCallback(
-    (value: number) => Math.max(lower, Math.min(upper, value)),
-    [lower, upper],
-  );
+  // What the thumb and the loan draw from: none while the figures load or
+  // where the market doesn't lend
+  const live = isInert ? undefined : bar;
+  const lower = live && !live.isPreview ? live.used : 0;
+  const upper = Math.max(lower, live?.cap ?? 1);
+  const isDisabled = disabled || !live;
+  const bounds = useMemo(() => ({ lower, upper }), [lower, upper]);
 
+  const cancelFrame = useCallback(() => {
+    if (frameRef.current !== undefined) {
+      cancelAnimationFrame(frameRef.current);
+      frameRef.current = undefined;
+    }
+  }, []);
   // The page's figures follow a drag once a frame
   const emit = useCallback(
     (value: number) => {
@@ -110,20 +155,13 @@ export function LoanLtvBar({
       frameRef.current = requestAnimationFrame(() => {
         frameRef.current = undefined;
         if (pendingRef.current !== undefined) {
-          onChange(pendingRef.current);
+          onChange(pendingRef.current, false);
         }
       });
     },
     [onChange],
   );
-  useEffect(
-    () => () => {
-      if (frameRef.current !== undefined) {
-        cancelAnimationFrame(frameRef.current);
-      }
-    },
-    [],
-  );
+  useEffect(() => cancelFrame, [cancelFrame]);
 
   const valueAt = useCallback(
     (clientX: number) => {
@@ -135,9 +173,12 @@ export function LoanLtvBar({
       if (rect.width <= INSET * 2) {
         return lower;
       }
-      return clamp((clientX - rect.left - INSET) / (rect.width - INSET * 2));
+      return snapLoanLtv(
+        (clientX - rect.left - INSET) / (rect.width - INSET * 2),
+        bounds,
+      );
     },
-    [clamp, lower],
+    [bounds, lower],
   );
 
   const handlePointerDown = useCallback(
@@ -151,6 +192,8 @@ export function LoanLtvBar({
         // Without capture the press still sets the value once
       }
       draggingRef.current = true;
+      // Held, the line under the bar shows Max again
+      setIsOverRed(false);
       onSlideStart?.();
       const value = valueAt(event.clientX);
       setDragValue(value);
@@ -169,49 +212,118 @@ export function LoanLtvBar({
     },
     [emit, valueAt],
   );
+  // Let go: the last value is final. A frame still waiting would hand the
+  // page a value in motion after it
   const finishDrag = useCallback(() => {
     if (!draggingRef.current) {
       return;
     }
     draggingRef.current = false;
+    cancelFrame();
     if (pendingRef.current !== undefined) {
-      onChange(pendingRef.current);
+      onChange(pendingRef.current, true);
+      pendingRef.current = undefined;
     }
     setDragValue(undefined);
     onSlideEnd?.();
-  }, [onChange, onSlideEnd]);
+  }, [cancelFrame, onChange, onSlideEnd]);
 
   const handleKeyDown = useCallback(
     (event: ReactKeyboardEvent<HTMLDivElement>) => {
-      if (isDisabled || !bar) {
+      if (isDisabled || !live) {
         return;
       }
-      const step = event.shiftKey ? KEY_STEP_LARGE : KEY_STEP;
-      const moves: Record<string, number | undefined> = {
-        ArrowRight: bar.value + step,
-        ArrowUp: bar.value + step,
-        ArrowLeft: bar.value - step,
-        ArrowDown: bar.value - step,
-        PageUp: bar.value + KEY_STEP_LARGE,
-        PageDown: bar.value - KEY_STEP_LARGE,
-        Home: lower,
-        End: upper,
+      const step = event.shiftKey ? LOAN_LTV_STEP_LARGE : LOAN_LTV_STEP;
+      const by = (size: number, direction: 1 | -1) =>
+        stepLoanLtv(live.value, { step: size, direction, ...bounds });
+      const moves: Record<string, (() => number) | undefined> = {
+        ArrowRight: () => by(step, 1),
+        ArrowUp: () => by(step, 1),
+        ArrowLeft: () => by(step, -1),
+        ArrowDown: () => by(step, -1),
+        PageUp: () => by(LOAN_LTV_STEP_LARGE, 1),
+        PageDown: () => by(LOAN_LTV_STEP_LARGE, -1),
+        Home: () => lower,
+        End: () => upper,
       };
-      const next = moves[event.key];
-      if (next === undefined) {
+      const move = moves[event.key];
+      if (!move) {
         return;
       }
       event.preventDefault();
-      onChange(clamp(next));
+      onChange(move(), true);
     },
-    [bar, clamp, isDisabled, lower, onChange, upper],
+    [bounds, isDisabled, live, lower, onChange, upper],
   );
 
+  // The line under the bar: Max LTV under the wall, or, with the pointer
+  // over the red part, the liquidation LTV under where the red starts. It
+  // sits centered under its place, moved in where it would run past the
+  // bar's end (a high Max on a phone-width bar)
+  const liquidation = live?.liquidation;
+  const showsLiquidation =
+    isOverRed &&
+    Boolean(liquidationLabel) &&
+    liquidation !== undefined &&
+    liquidation < 1;
+  const labelAt = showsLiquidation ? liquidation : live?.cap;
+  const labelText = showsLiquidation ? liquidationLabel : capLabel;
+  useLayoutEffect(() => {
+    const row = capRowRef.current;
+    const label = capLabelRef.current;
+    if (!row || !label || labelAt === undefined) {
+      return undefined;
+    }
+    const place = () => {
+      const width = row.offsetWidth;
+      const labelWidth = label.offsetWidth;
+      const centered =
+        INSET + (width - INSET * 2) * clamp01(labelAt) - labelWidth / 2;
+      const left = Math.max(0, Math.min(width - labelWidth, centered));
+      setLabelShift(left - centered);
+    };
+    place();
+    if (typeof ResizeObserver === 'undefined') {
+      return undefined;
+    }
+    const observer = new ResizeObserver(place);
+    observer.observe(row);
+    return () => observer.disconnect();
+  }, [labelAt, labelText]);
+
+  // Once the market's figures are in, the loan, the limit and the thumb fade
+  // in rather than appear at once
+  const isLive = Boolean(live);
+  const wasLiveRef = useRef(isLive);
+  useLayoutEffect(() => {
+    if (isLive && !wasLiveRef.current && !reduceMotion) {
+      fadeIn(layerRef.current);
+      fadeIn(wallRef.current);
+      fadeIn(thumbRef.current);
+      fadeIn(capLabelRef.current);
+    }
+    wasLiveRef.current = isLive;
+  }, [isLive, reduceMotion]);
+
   const isDragging = dragValue !== undefined;
-  const shown = dragValue ?? bar?.value ?? 0;
-  const used = bar && !bar.isPreview ? bar.used : 0;
-  const overCap = bar?.cap !== undefined && shown > bar.cap + 1e-9;
+  const shown = dragValue ?? live?.value ?? 0;
+  // Where the market doesn't lend, the position as it stands
+  let used = 0;
+  if (live && !live.isPreview) {
+    used = live.used;
+  } else if (isInert && bar && !bar.isPreview) {
+    used = bar.used;
+  }
+  const overCap = live?.cap !== undefined && shown > live.cap + 1e-9;
+  const isAtCap =
+    live?.cap !== undefined && !overCap && Math.abs(shown - live.cap) < AT_CAP;
   const loanColor = overCap ? fill.critical : fill[tone];
+  let labelColor: '$text' | '$textSubdued' | '$textCritical' = '$textSubdued';
+  if (showsLiquidation) {
+    labelColor = '$textCritical';
+  } else if (isAtCap) {
+    labelColor = '$text';
+  }
   const glideEnds = isDragging ? '' : `left ${GLIDE}, right ${GLIDE}, `;
   const part = (
     from: number,
@@ -225,6 +337,13 @@ export function LoanLtvBar({
     background,
     pointerEvents: 'none',
   });
+
+  let cursor: CSSProperties['cursor'] = 'pointer';
+  if (isDisabled) {
+    cursor = 'default';
+  } else if (isDragging) {
+    cursor = 'grabbing';
+  }
 
   return (
     <div data-testid={testID}>
@@ -250,7 +369,7 @@ export function LoanLtvBar({
         style={{
           position: 'relative',
           height: HIT_HEIGHT,
-          cursor: isDisabled ? 'default' : 'pointer',
+          cursor,
           userSelect: 'none',
           touchAction: 'none',
           outline: focusVisible ? `2px solid ${theme.focusRing.val}` : 'none',
@@ -258,6 +377,18 @@ export function LoanLtvBar({
           borderRadius: 6,
         }}
       >
+        {isDisabled ? null : (
+          // The press area past the bar's own height
+          <div
+            style={{
+              position: 'absolute',
+              top: -HIT_REACH,
+              bottom: -HIT_REACH,
+              left: 0,
+              right: 0,
+            }}
+          />
+        )}
         <div
           ref={trackRef}
           style={{
@@ -270,55 +401,77 @@ export function LoanLtvBar({
             borderRadius: TRACK_HEIGHT / 2,
             overflow: 'hidden',
             background: surfaces.track,
-            opacity: bar ? 1 : 0.5,
           }}
         >
-          {bar?.cap !== undefined ? (
-            // Past Max LTV the loan can't go: the track dims
-            <div style={part(bar.cap, 1, surfaces.locked)} />
-          ) : null}
-          {bar?.liquidation !== undefined && bar.liquidation < 1 ? (
-            // Deeper red toward 100%
-            <div
-              title={liquidationLabel}
-              style={{
-                ...part(
-                  bar.liquidation,
+          <div
+            ref={layerRef}
+            style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}
+          >
+            {live?.cap !== undefined ? (
+              // Past Max LTV the loan can't go: the track dims
+              <div style={part(live.cap, 1, surfaces.locked)} />
+            ) : null}
+            {live?.liquidation !== undefined && live.liquidation < 1 ? (
+              // Deeper red toward 100%
+              <div
+                style={part(
+                  live.liquidation,
                   1,
                   `linear-gradient(90deg, ${tint(fill.critical, 35)}, ${tint(
                     fill.critical,
                     60,
                   )})`,
-                ),
-                pointerEvents: 'auto',
-              }}
-            />
-          ) : null}
-          {used > 0 ? (
-            // What is borrowed in the market already
-            <div
-              style={{
-                ...part(0, used, surfaces.used),
-                transition: isDragging ? 'none' : `right ${GLIDE}`,
-              }}
-            />
-          ) : null}
-          {shown > used ? (
-            <div
-              style={{
-                ...part(used, shown, loanColor),
-                transition: `${glideEnds}background-color ${GLIDE}`,
-              }}
-            />
-          ) : null}
+                )}
+              />
+            ) : null}
+            {used > 0 ? (
+              // What is borrowed in the market already
+              <div
+                style={{
+                  ...part(0, used, surfaces.used),
+                  transition: isDragging ? 'none' : `right ${GLIDE}`,
+                }}
+              />
+            ) : null}
+            {live && shown > used ? (
+              <div
+                style={{
+                  ...part(used, shown, loanColor),
+                  transition: `${glideEnds}background-color ${GLIDE}`,
+                }}
+              />
+            ) : null}
+          </div>
         </div>
-        {bar?.cap !== undefined ? (
+        {live?.liquidation !== undefined &&
+        live.liquidation < 1 &&
+        liquidationLabel ? (
+          // Over the red part, the line under the bar names it
+          <div
+            data-testid={testID ? `${testID}-liquidation` : undefined}
+            onPointerEnter={(event) => {
+              if (event.pointerType === 'mouse' && !draggingRef.current) {
+                setIsOverRed(true);
+              }
+            }}
+            onPointerLeave={() => setIsOverRed(false)}
+            style={{
+              position: 'absolute',
+              top: -HIT_REACH,
+              bottom: -HIT_REACH,
+              left: posAt(live.liquidation),
+              right: 0,
+            }}
+          />
+        ) : null}
+        {live?.cap !== undefined ? (
           // The wall the thumb stops at
           <div
+            ref={wallRef}
             style={{
               position: 'absolute',
               top: '50%',
-              left: posAt(bar.cap),
+              left: posAt(live.cap),
               width: 2,
               height: WALL_HEIGHT,
               marginTop: -WALL_HEIGHT / 2,
@@ -330,8 +483,9 @@ export function LoanLtvBar({
             }}
           />
         ) : null}
-        {bar ? (
+        {live ? (
           <div
+            ref={thumbRef}
             style={{
               position: 'absolute',
               top: '50%',
@@ -355,33 +509,43 @@ export function LoanLtvBar({
           />
         ) : null}
       </div>
-      {/* Under the wall, its figure */}
-      <div style={{ position: 'relative', height: 18 }}>
-        {bar?.cap !== undefined && capLabel ? (
-          <div
-            style={{
-              position: 'absolute',
-              top: 0,
-              left: posAt(bar.cap),
-              transform: `translateX(${bar.cap > 0.8 ? '-100%' : '-50%'})`,
-              // Its own width, not the room right of the wall: near the end
-              // of a phone-width bar that room is narrower than the figure
-              width: 'max-content',
-              whiteSpace: 'nowrap',
-              transition: `left ${GLIDE}`,
-            }}
-          >
-            <SizableText
-              size="$bodySm"
-              color="$textSubdued"
-              numberOfLines={1}
-              style={{ fontVariantNumeric: 'tabular-nums' }}
+      {/* Under the wall, its figure, brighter once the thumb is at it; over
+          the red part, where liquidation starts. The line keeps its room
+          while the figures load, so nothing moves once they are in */}
+      {isInert ? null : (
+        <div
+          ref={capRowRef}
+          style={{ position: 'relative', height: CAP_ROW_HEIGHT }}
+        >
+          {live && labelAt !== undefined && labelText ? (
+            <div
+              ref={capLabelRef}
+              style={{
+                position: 'absolute',
+                top: 0,
+                left: posAt(labelAt),
+                transform: `translateX(calc(-50% + ${labelShift}px))`,
+                width: 'max-content',
+                whiteSpace: 'nowrap',
+                transition: `left ${GLIDE}, transform ${GLIDE}`,
+                pointerEvents: 'none',
+              }}
             >
-              {capLabel}
-            </SizableText>
-          </div>
-        ) : null}
-      </div>
+              <SizableText
+                size="$bodySm"
+                color={labelColor}
+                numberOfLines={1}
+                style={{
+                  fontVariantNumeric: 'tabular-nums',
+                  transition: `color ${GLIDE}`,
+                }}
+              >
+                {labelText}
+              </SizableText>
+            </div>
+          ) : null}
+        </div>
+      )}
     </div>
   );
 }

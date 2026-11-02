@@ -843,10 +843,77 @@ export function rankLoanRoutes<
   );
 }
 
+// The LTV bar moves in whole percents, ten at a time with Shift; what is
+// borrowed already and Max LTV are stops of their own
+export const LOAN_LTV_STEP = 0.01;
+export const LOAN_LTV_STEP_LARGE = 0.1;
+
+type ILoanLtvBounds = { lower: number; upper: number };
+
+const clampLtv = (value: number, { lower, upper }: ILoanLtvBounds) =>
+  Math.max(lower, Math.min(upper, value));
+
+/** Where a press or a drag on the bar lands: the nearest whole percent */
+export function snapLoanLtv(value: number, bounds: ILoanLtvBounds) {
+  return clampLtv(Math.round(value / LOAN_LTV_STEP) * LOAN_LTV_STEP, bounds);
+}
+
+/**
+ * A key's move: to the next step up or down, so 51.90% goes to 52% or 51%,
+ * not to 52.90%
+ */
+export function stepLoanLtv(
+  value: number,
+  {
+    step,
+    direction,
+    ...bounds
+  }: ILoanLtvBounds & { step: number; direction: 1 | -1 },
+) {
+  const next =
+    direction > 0
+      ? (Math.floor(value / step + 1e-6) + 1) * step
+      : (Math.ceil(value / step - 1e-6) - 1) * step;
+  return clampLtv(next, bounds);
+}
+
+// Half the last place an LTV shows (two)
+const LOAN_LTV_TOLERANCE = 5e-5;
+
+/**
+ * The fewest places a loan the bar sets can round down to while the LTV it
+ * gives still reads as the one set: 3.7016 USDT on $7 of collateral, 4,999.5
+ * on $10,000, whole tokens past that. Never more than the token's own (8 at
+ * most)
+ */
+export function getLoanPlaces({
+  collateralValue,
+  borrowPrice,
+  decimals,
+}: {
+  // All the collateral the loan is measured against, in the currency
+  collateralValue: number;
+  borrowPrice: number;
+  decimals: number;
+}) {
+  const most = Math.min(decimals, 8);
+  const unit = (LOAN_LTV_TOLERANCE * collateralValue) / borrowPrice;
+  if (!Number.isFinite(unit) || unit <= 0) {
+    return most;
+  }
+  return Math.max(0, Math.min(most, -Math.floor(Math.log10(unit))));
+}
+
+const roundLoan = (amount: BigNumber, places: number) => {
+  const rounded = amount.decimalPlaces(places, BigNumber.ROUND_DOWN);
+  return rounded.gt(0) ? rounded.toFixed() : '';
+};
+
 /**
  * The loan that brings the market's whole position to an LTV: what all its
  * collateral after the supply allows at that LTV, less the debt already
- * there, in the loan's units. None at or below the debt already there
+ * there, in the loan's units, as round as the LTV allows. None at or below
+ * the debt already there
  */
 export function getLoanForPositionLtv({
   ltv,
@@ -864,14 +931,15 @@ export function getLoanForPositionLtv({
   borrowPrice?: number;
   decimals: number;
 }) {
-  const loanValue = ltv * (collateralValue + newCollateralValue) - debtValue;
+  const allCollateral = collateralValue + newCollateralValue;
+  const loanValue = ltv * allCollateral - debtValue;
   if (!borrowPrice || !Number.isFinite(loanValue) || loanValue <= 0) {
     return '';
   }
-  return new BigNumber(loanValue)
-    .div(borrowPrice)
-    .decimalPlaces(Math.min(decimals, 8), BigNumber.ROUND_DOWN)
-    .toFixed();
+  return roundLoan(
+    new BigNumber(loanValue).div(borrowPrice),
+    getLoanPlaces({ collateralValue: allCollateral, borrowPrice, decimals }),
+  );
 }
 
 // The LTV bar, as fractions of the collateral after the supply
@@ -936,7 +1004,10 @@ export function getLoanLtvBar({
   };
 }
 
-/** The loan for a share of the collateral's value, in the loan's units */
+/**
+ * The loan for a share of the collateral's value, in the loan's units, as
+ * round as the LTV allows
+ */
 export function getLoanForLtv({
   collateralAmount,
   ltv,
@@ -959,14 +1030,14 @@ export function getLoanForLtv({
   ) {
     return '';
   }
-  return (
-    collateral
-      .times(collateralPrice)
-      .times(ltv)
-      .div(borrowPrice)
-      // Eight places keep a small ETH loan at the LTV chosen
-      .decimalPlaces(Math.min(decimals, 8), BigNumber.ROUND_DOWN)
-      .toFixed()
+  const collateralValue = collateral.times(collateralPrice);
+  return roundLoan(
+    collateralValue.times(ltv).div(borrowPrice),
+    getLoanPlaces({
+      collateralValue: collateralValue.toNumber(),
+      borrowPrice,
+      decimals,
+    }),
   );
 }
 

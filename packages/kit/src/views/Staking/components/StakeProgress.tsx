@@ -126,11 +126,7 @@ function StepLine({ isTraveled }: { isTraveled: boolean }) {
   );
 }
 
-export enum EStakeProgressStep {
-  approve = 1,
-  deposit = 2,
-  unstake = 3,
-}
+export { EStakeProgressStep } from './stakeProgressStep';
 
 /**
  * The steps one press runs, over the button that names them ("Swap and

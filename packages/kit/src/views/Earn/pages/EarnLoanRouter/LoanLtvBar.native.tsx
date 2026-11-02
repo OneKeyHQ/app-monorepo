@@ -11,13 +11,21 @@ const toPercent = (value: number) =>
  * The same bar on the phone apps, shown without a thumb: the loan is typed
  * there (the router is a desktop and web page)
  */
-export function LoanLtvBar({ bar, tone, capLabel, testID }: ILoanLtvBarProps) {
+export function LoanLtvBar({
+  bar,
+  isInert,
+  tone,
+  capLabel,
+  testID,
+}: ILoanLtvBarProps) {
   const toneColor = {
     success: '$iconSuccess',
     caution: '$iconCaution',
     critical: '$iconCritical',
   } as const;
   const used = bar && !bar.isPreview ? bar.used : 0;
+  // Where the market doesn't lend: what is borrowed there already, alone
+  const live = isInert ? undefined : bar;
   return (
     <YStack testID={testID} gap="$1.5" py="$2">
       <Stack
@@ -26,12 +34,12 @@ export function LoanLtvBar({ bar, tone, capLabel, testID }: ILoanLtvBarProps) {
         bg="$neutral5"
         overflow="hidden"
       >
-        {bar?.cap !== undefined ? (
+        {live?.cap !== undefined ? (
           <Stack
             position="absolute"
             top={0}
             bottom={0}
-            left={toPercent(bar.cap)}
+            left={toPercent(live.cap)}
             right={0}
             bg="$neutral3"
           />
@@ -46,18 +54,18 @@ export function LoanLtvBar({ bar, tone, capLabel, testID }: ILoanLtvBarProps) {
             bg="$neutral8"
           />
         ) : null}
-        {bar && bar.value > used ? (
+        {live && live.value > used ? (
           <Stack
             position="absolute"
             top={0}
             bottom={0}
             left={toPercent(used)}
-            w={toPercent(Math.min(1, bar.value) - used)}
+            w={toPercent(Math.min(1, live.value) - used)}
             bg={toneColor[tone]}
           />
         ) : null}
       </Stack>
-      {capLabel ? (
+      {capLabel && !isInert ? (
         <SizableText size="$bodySm" color="$textSubdued" textAlign="right">
           {capLabel}
         </SizableText>
