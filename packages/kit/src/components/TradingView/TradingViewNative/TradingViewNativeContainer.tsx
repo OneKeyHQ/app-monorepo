@@ -1058,27 +1058,30 @@ const TradingViewNativeContent = memo(
         isMobileControlsLayout &&
         enableNativeChartSettings &&
         nativeChartSettingsInToolbar ? (
+          // The wrapper stays in fullscreen: without a toolbar control the chart
+          // type and indicator actions would take over the toolbar.
           <XStack alignItems="center" gap="$1" flexShrink={0}>
-            <TradingViewNativeChartSettingsButton
-              storageNamespace={storageNamespace}
-              placement="toolbar"
-              priceAxisWidth={priceAxisWidth}
-              enablePreviousClose={enablePreviousClose}
-              enableNavigationButtons={!isCompactDisplayMode}
-              isChartSwitchDisabled={isChartSwitchDisabled}
-              onChartSwitch={onChartSwitch}
-              onBeforeOpenSettings={handleExitFullscreen}
-            />
+            {isNativeChartFullscreen ? null : (
+              <TradingViewNativeChartSettingsButton
+                storageNamespace={storageNamespace}
+                placement="toolbar"
+                priceAxisWidth={priceAxisWidth}
+                enablePreviousClose={enablePreviousClose}
+                enableNavigationButtons={!isCompactDisplayMode}
+                isChartSwitchDisabled={isChartSwitchDisabled}
+                onChartSwitch={onChartSwitch}
+              />
+            )}
             {mobileToolbarExtra}
           </XStack>
         ) : undefined,
       [
         enableNativeChartSettings,
         enablePreviousClose,
-        handleExitFullscreen,
         isChartSwitchDisabled,
         isCompactDisplayMode,
         isMobileControlsLayout,
+        isNativeChartFullscreen,
         mobileToolbarExtra,
         nativeChartSettingsInToolbar,
         onChartSwitch,

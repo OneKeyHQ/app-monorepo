@@ -4,6 +4,7 @@
 
 import type { ReactElement, ReactNode, SetStateAction } from 'react';
 import {
+  Children,
   Suspense,
   isValidElement,
   startTransition,
@@ -14,7 +15,6 @@ import {
 import { act, fireEvent, render, screen } from '@testing-library/react';
 
 import { getMarketDetailTradingViewNativeSource } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/utils/getMarketDetailTradingViewNativeSource';
-import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import type { IMarketTokenKLineDataPoint } from '@onekeyhq/shared/types/marketV2';
 import {
   type ITradingViewNativeChartSettings,
@@ -907,8 +907,9 @@ describe('TradingViewNativeContainer', () => {
     );
   });
 
-  it('preserves the toolbar settings element across chart updates and exits fullscreen before navigation', () => {
+  it('preserves the toolbar settings element across chart updates and hides the button in fullscreen', () => {
     const onFullscreenChange = jest.fn();
+    const toolbarExtra = <span data-testid="toolbar-extra" />;
     const source = {
       kind: 'market',
       networkId: 'evm--1',
@@ -922,6 +923,7 @@ describe('TradingViewNativeContainer', () => {
         nativeControlsLayoutMode="mobile"
         enableNativeChartSettings
         nativeChartSettingsInToolbar
+        mobileToolbarExtra={toolbarExtra}
         isNativeChartFullscreen={isFullscreen}
         onNativeChartFullscreenChange={onFullscreenChange}
       />
@@ -930,51 +932,38 @@ describe('TradingViewNativeContainer', () => {
       const props = mockTradingViewNativeChartControlsContainer.mock.calls.at(
         -1,
       )?.[0] as {
-        mobileSettingsControl: ReactElement<{
-          children?: ReactNode;
-          onBeforeOpenSettings?: () => void;
-        }>;
+        mobileSettingsControl?: ReactElement<{ children?: ReactNode }>;
       };
       return props.mobileSettingsControl;
     };
-    const getSettingsAction = (
-      control: ReactElement<{
-        children?: ReactNode;
-        onBeforeOpenSettings?: () => void;
-      }>,
-    ) => {
-      if (typeof control.props.onBeforeOpenSettings === 'function') {
-        return control.props.onBeforeOpenSettings;
-      }
-      const children = Array.isArray(control.props.children)
-        ? control.props.children
-        : [control.props.children];
-      const settingsButton = children.find(
-        (child): child is ReactElement<{ onBeforeOpenSettings: () => void }> =>
-          isValidElement<{ onBeforeOpenSettings?: () => void }>(child) &&
-          typeof child.props.onBeforeOpenSettings === 'function',
+    const getToolbarItems = () =>
+      Children.toArray(getSettingsControl()?.props.children).filter(
+        (child): child is ReactElement<{ placement?: string }> =>
+          isValidElement<{ placement?: string }>(child),
       );
-      if (!settingsButton) {
-        throw new OneKeyLocalError('Missing toolbar settings button');
-      }
-      return settingsButton.props.onBeforeOpenSettings;
-    };
+    const hasSettingsButton = () =>
+      getToolbarItems().some(({ props }) => props.placement === 'toolbar');
+    const hasToolbarExtra = () =>
+      getToolbarItems().some(({ type }) => type === toolbarExtra.type);
+
     const { rerender } = render(chart());
     const settingsControl = getSettingsControl();
-    act(() => {
-      getSettingsAction(settingsControl)();
-    });
-    expect(onFullscreenChange).not.toHaveBeenCalled();
+    expect(hasSettingsButton()).toBe(true);
+    expect(hasToolbarExtra()).toBe(true);
 
     mockPoints = [{ o: 100, h: 110, l: 99, c: 105, v: 10, t: 1000 }];
     rerender(chart());
     expect(getSettingsControl()).toBe(settingsControl);
 
     rerender(chart(true));
-    act(() => {
-      getSettingsAction(getSettingsControl())();
-    });
-    expect(onFullscreenChange).toHaveBeenCalledWith(false);
+    // The control itself must stay so the toolbar keeps its other actions hidden.
+    expect(getSettingsControl()).toBeTruthy();
+    expect(hasSettingsButton()).toBe(false);
+    expect(hasToolbarExtra()).toBe(true);
+
+    rerender(chart());
+    expect(hasSettingsButton()).toBe(true);
+    expect(onFullscreenChange).not.toHaveBeenCalled();
   });
 
   it('syncs quick bar selections with chart indicators, settings, and the sub-indicator cap', () => {
