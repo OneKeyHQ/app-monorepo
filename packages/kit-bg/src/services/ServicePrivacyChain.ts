@@ -3280,6 +3280,35 @@ class ServicePrivacyChain extends ServiceBase {
     );
   }
 
+  // Keeping a temp wallet (or no longer keeping it) decides whether its accounts may scan. Its pages
+  // re-read at once; a pass follows under the usual rules.
+  async onWalletTempStatusChanged({
+    walletId,
+  }: {
+    walletId: string;
+  }): Promise<void> {
+    const networkIds = await this.getLocalWalletNetworkIds();
+    if (!networkIds.length) return;
+    const { accounts } =
+      await this.backgroundApi.serviceAccount.getAllAccounts();
+    const accountIds = accounts
+      .map(({ id }) => id)
+      .filter(
+        (accountId) =>
+          accountUtils.getWalletIdFromAccountId({ accountId }) === walletId,
+      );
+    if (!accountIds.length) return;
+    for (const networkId of networkIds) {
+      appEventBus.emit(EAppEventBusNames.LocalWalletAccountsChanged, {
+        networkId,
+        accountIds,
+      });
+    }
+    await this.init();
+    this.shortenStartupQuietWindow();
+    this.scheduleBackgroundSync(0);
+  }
+
   private async assertNotTempWalletAccount(accountId: string): Promise<void> {
     if (await this.isTempWalletAccount({ accountId })) {
       throw new OneKeyLocalError({

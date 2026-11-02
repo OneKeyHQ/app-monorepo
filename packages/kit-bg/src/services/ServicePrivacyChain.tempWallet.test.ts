@@ -439,3 +439,66 @@ describe('the scheduler never scans temp-wallet accounts', () => {
     });
   });
 });
+
+// Wallet settings flip "keep" on a temp wallet; its pages must not wait for the periodic check.
+describe('a temp wallet kept or no longer kept', () => {
+  const { appEventBus, EAppEventBusNames } = jest.requireActual<
+    typeof import('@onekeyhq/shared/src/eventBus/appEventBus')
+  >('@onekeyhq/shared/src/eventBus/appEventBus');
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  function createKeepService(networkIds: string[]) {
+    return Object.assign(
+      Object.create(ServicePrivacyChain.prototype) as IService,
+      {
+        backgroundApi: {
+          serviceAccount: {
+            getAllAccounts: async () => ({
+              accounts: [
+                { id: tempAccountId },
+                { id: `${tempWalletId}--0` },
+                { id: savedAccountId },
+              ],
+            }),
+          },
+        },
+        getLocalWalletNetworkIds: async () => networkIds,
+        init: jest.fn(async () => undefined),
+        shortenStartupQuietWindow: jest.fn(),
+        scheduleBackgroundSync: jest.fn(),
+      },
+    );
+  }
+
+  it("tells that wallet's pages to read again, then schedules a pass", async () => {
+    const emit = jest.spyOn(appEventBus, 'emit');
+    const service = createKeepService(['zec--0', 'xmr--0']);
+
+    await service.onWalletTempStatusChanged({ walletId: tempWalletId });
+
+    const notices = emit.mock.calls.filter(
+      ([name]) => name === EAppEventBusNames.LocalWalletAccountsChanged,
+    );
+    expect(notices.map(([, payload]) => payload)).toEqual(
+      ['zec--0', 'xmr--0'].map((id) => ({
+        networkId: id,
+        accountIds: [tempAccountId, `${tempWalletId}--0`],
+      })),
+    );
+    expect(service.shortenStartupQuietWindow).toHaveBeenCalled();
+    expect(service.scheduleBackgroundSync).toHaveBeenCalledWith(0);
+  });
+
+  it('does nothing without a privacy network', async () => {
+    const emit = jest.spyOn(appEventBus, 'emit');
+    const service = createKeepService([]);
+
+    await service.onWalletTempStatusChanged({ walletId: tempWalletId });
+
+    expect(emit).not.toHaveBeenCalled();
+    expect(service.scheduleBackgroundSync).not.toHaveBeenCalled();
+  });
+});

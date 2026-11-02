@@ -109,17 +109,23 @@ export function useLocalWalletPool({
   );
 
   // Read from the chain rather than inferred from the account id: Monero has no hardware
-  // keyring, so a hardware account there can never scan despite looking scannable.
-  const { result: accountSupport } = usePromiseResult(
-    async () => {
-      if (!hasPooledBalance || !accountId) return undefined;
-      return backgroundApiProxy.servicePrivacyChain.getLocalWalletAccountSupport(
-        { networkId, accountId },
-      );
-    },
-    [hasPooledBalance, accountId, networkId],
-    { undefinedResultIfReRun: true },
-  );
+  // keyring, so a hardware account there can never scan despite looking scannable. Read again on
+  // every change notice (a temp wallet kept), keeping this account's last answer meanwhile.
+  const { result: accountSupportResult } = usePromiseResult(async () => {
+    if (!hasPooledBalance || !accountId) return undefined;
+    return {
+      scope: accountScope,
+      support:
+        await backgroundApiProxy.servicePrivacyChain.getLocalWalletAccountSupport(
+          { networkId, accountId },
+        ),
+    };
+  }, [hasPooledBalance, accountScope, accountId, networkId]);
+  const accountSupport =
+    accountSupportResult?.scope.networkId === networkId &&
+    accountSupportResult.scope.accountId === accountId
+      ? accountSupportResult.support
+      : undefined;
   const isWalletSupported =
     accountSupport === undefined ? undefined : accountSupport === 'supported';
   const isUnsupportedWallet = isWalletSupported === false;

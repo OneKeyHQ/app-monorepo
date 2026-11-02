@@ -991,6 +991,24 @@ describe('a wallet the chain cannot serve', () => {
     expect(result.current.isReady).toBe(true);
   });
 
+  // Kept from Wallet settings: the page reads again without unmounting, and keeps its answer
+  // meanwhile instead of blanking.
+  it('reads again once a temp wallet is kept', async () => {
+    mockWalletSupport = 'tempWallet';
+    const { result } = renderHook(useLocalWalletPool, { initialProps: props });
+    await flushReads();
+    expect(result.current.isTempWallet).toBe(true);
+
+    mockWalletSupport = 'supported';
+    emitPrivacyChange();
+    expect(result.current.isReady).toBe(true);
+    expect(result.current.isTempWallet).toBe(true);
+    await flushReads();
+
+    expect(result.current.isTempWallet).toBe(false);
+    expect(result.current.isUnsupportedWallet).toBe(false);
+  });
+
   it('does not call a wallet of an unsupported type temp', async () => {
     mockWalletSupport = 'unsupported';
     const { result } = renderHook(() =>
