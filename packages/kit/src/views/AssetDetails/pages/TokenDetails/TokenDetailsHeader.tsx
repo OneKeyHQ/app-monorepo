@@ -938,7 +938,8 @@ function TokenDetailsHeaderContent({
                   trackID="wallet-token-details-receive"
                 />
                 {poolActionItem}
-                {isPublicPool ? (
+                {/* Every pool page, public or private, folds Swap and Buy into More. */}
+                {hasSelectedPool ? (
                   <RawActions.More
                     testID="token-details-more-btn"
                     renderItems={({ handleActionListClose }) => (
