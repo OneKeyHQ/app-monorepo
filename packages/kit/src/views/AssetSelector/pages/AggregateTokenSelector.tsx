@@ -181,6 +181,9 @@ function NativeAggregateRowMirror({
       key: token.$key,
       testID: AssetSelectorTestIDs.aggregateTokenListItem,
       height: 60,
+      // The $bodyLg/$bodyMd line boxes are unscaled, so the row must not take
+      // Android's legacy sub-400dp 0.9 row scale (OK-66072).
+      heightRounding: 'nearest',
       title: token.networkName || network?.name || '',
       subtitle: !accountId
         ? intl.formatMessage({
