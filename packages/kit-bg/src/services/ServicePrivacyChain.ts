@@ -595,6 +595,26 @@ class ServicePrivacyChain extends ServiceBase {
     }
   }
 
+  // Funds a send from a hardware account must first verify on its device, for
+  // the send page to explain before the device asks; undefined when none.
+  @backgroundMethod()
+  async getLocalWalletDeviceVerifyAmount({
+    networkId,
+    accountId,
+  }: {
+    networkId: string;
+    accountId: string;
+  }): Promise<string | undefined> {
+    const vault = await vaultFactory.getVault({ networkId, accountId });
+    if (!(await vault.localWalletHasDeviceWork())) return undefined;
+    const balance = await this.getLocalWalletAccountBalance({
+      networkId,
+      accountId,
+    });
+    return balance?.frozen?.find(({ reason }) => reason === 'needsPassword')
+      ?.amountParsed;
+  }
+
   // The user asked to confirm funds that need the password: prompt even when background work would
   // not.
   @backgroundMethod()
@@ -607,6 +627,7 @@ class ServicePrivacyChain extends ServiceBase {
   }
 
   // Passive check on entering a send: scanning accounts only; failures are logged, never toasted.
+  // The device is not asked here: the send page explains and asks once the user sends.
   @backgroundMethod()
   async maybeVerifyLocalWalletOnSend(params: {
     networkId: string;
@@ -615,7 +636,7 @@ class ServicePrivacyChain extends ServiceBase {
     try {
       const state = await this.getLocalWalletAccountState(params);
       if (!state.enabled) return;
-      await this.confirmLocalWalletFunds(params);
+      await this.confirmLocalWalletFunds({ ...params, withDevice: false });
     } catch (e) {
       console.error('[privacy-chain] send verification skipped', {
         networkId: params.networkId,
@@ -627,13 +648,16 @@ class ServicePrivacyChain extends ServiceBase {
   private async confirmLocalWalletFunds({
     networkId,
     accountId,
+    withDevice = true,
   }: {
     networkId: string;
     accountId: string;
+    withDevice?: boolean;
   }): Promise<void> {
     const vault = await vaultFactory.getVault({ networkId, accountId });
     // A hardware account confirms the same funds with its device instead.
     if (await vault.localWalletHasDeviceWork()) {
+      if (!withDevice) return;
       const deviceParams =
         await this.backgroundApi.serviceAccount.getWalletDeviceParams({
           walletId: accountUtils.getWalletIdFromAccountId({ accountId }),

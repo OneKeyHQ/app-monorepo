@@ -14,6 +14,7 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { IMPL_ZCASH } from '@onekeyhq/shared/src/engine/engineConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 
 // The sync start (birthday) form and the enable disclosure for a local-wallet account.
@@ -143,8 +144,10 @@ export function getBirthdayInputError(mode: IBirthdayFormState['mode']) {
 // Shared by both enable entry points. Repair dialogs must NOT show it: the
 // account is already scanning by then.
 export function PrivacyEnableDisclosure({
+  accountId,
   hasRecommendedMonth,
 }: {
+  accountId: string;
   hasRecommendedMonth: boolean;
 }) {
   const intl = useIntl();
@@ -153,6 +156,14 @@ export function PrivacyEnableDisclosure({
       <SizableText size="$bodyMd">
         {intl.formatMessage({ id: ETranslations.privacy_enable__desc })}
       </SizableText>
+      {/* Enabling asks the device for the view key. */}
+      {accountUtils.isHwAccount({ accountId }) ? (
+        <SizableText size="$bodyMd">
+          {intl.formatMessage({
+            id: ETranslations.privacy_enable_device_view_key__msg,
+          })}
+        </SizableText>
+      ) : null}
       {hasRecommendedMonth ? (
         <SizableText size="$bodySm" color="$textSubdued">
           {intl.formatMessage({

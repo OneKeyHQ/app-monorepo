@@ -617,6 +617,7 @@ export default function PrivacyNetworkSettings({
         renderContent: (
           <YStack gap="$4">
             <PrivacyEnableDisclosure
+              accountId={entry.accountId}
               hasRecommendedMonth={
                 typeof entry.birthdayHintTimestamp === 'number'
               }

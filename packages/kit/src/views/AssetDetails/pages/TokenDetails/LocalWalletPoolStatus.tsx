@@ -129,6 +129,7 @@ export function LocalWalletPoolStatus({
       renderContent: (
         <YStack gap="$4">
           <PrivacyEnableDisclosure
+            accountId={accountId}
             hasRecommendedMonth={typeof hintTimestamp === 'number'}
           />
           <BirthdayDialogForm
