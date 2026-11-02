@@ -1950,6 +1950,8 @@ function EarnLoanRouterPage() {
         <EarnAssetPickTrigger
           variant="pill"
           testID="earn-loan-collateral-pick"
+          // The steps' words, so the row reads as the loan runs
+          lead={intl.formatMessage({ id: ETranslations.defi_supply })}
           pick={collateralPick}
           tokens={supplyTokens}
           purpose="loanSupply"
@@ -1962,6 +1964,7 @@ function EarnLoanRouterPage() {
         <EarnAssetPickTrigger
           variant="pill"
           testID="earn-loan-borrow-pick"
+          lead={intl.formatMessage({ id: ETranslations.global_borrow })}
           pick={borrowPick}
           tokens={borrowTokens}
           purpose="loanBorrow"

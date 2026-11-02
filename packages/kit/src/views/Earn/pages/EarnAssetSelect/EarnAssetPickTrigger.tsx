@@ -33,6 +33,7 @@ export function EarnAssetPickTrigger({
   networkName,
   variant = 'title',
   isLeading = true,
+  lead,
   testID = 'earn-asset-pick-trigger',
   onPress,
 }: {
@@ -49,6 +50,9 @@ export function EarnAssetPickTrigger({
   networkName?: string;
   // First in the title: its text starts where a plain title's would
   isLeading?: boolean;
+  // A pill's role before its token, in the form's own words ("Supply ETH"):
+  // where two pills sit side by side, each says what it picks
+  lead?: string;
   testID?: string;
   onPress: () => void;
 }) {
@@ -83,8 +87,9 @@ export function EarnAssetPickTrigger({
         ai="center"
         gap="$2"
         h="$10"
-        // The logo sits concentric with the pill's round end
-        pl="$2"
+        // The logo sits concentric with the pill's round end; a role before
+        // it starts as far in as the chevron ends
+        pl={lead ? '$3' : '$2'}
         pr="$3"
         borderRadius="$full"
         borderCurve="continuous"
@@ -102,6 +107,11 @@ export function EarnAssetPickTrigger({
         onPress={onPress}
         {...buildKeyboardPressProps(onPress, 2)}
       >
+        {lead ? (
+          <SizableText size="$bodyLg" color="$textSubdued" flexShrink={0}>
+            {lead}
+          </SizableText>
+        ) : null}
         {pick.kind === 'class' ? (
           <EarnAssetLogos
             logos={kindLogos}

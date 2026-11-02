@@ -1029,12 +1029,11 @@ export function LoanRouteList({
 // ---------- The pair's title ----------
 
 /**
- * The two picks as the window's title, each a button that opens the
- * selector, as the deposit modal's title is its pick: what backs the loan,
- * then the loan
+ * The two picks heading the Loans form, read in the loan's order: what is
+ * supplied, an arrow, what is borrowed. Each pill says its role, so the pair
+ * isn't read as a trading pair. Where the row can't hold both, the borrow
+ * pick goes to the next line with its arrow
  */
-// The two picks heading the Loans form, written as the markets' pairs are:
-// collateral / borrow
 export function LoanPickPills({
   collateral,
   borrow,
@@ -1043,16 +1042,22 @@ export function LoanPickPills({
   borrow: ReactNode;
 }) {
   return (
-    <XStack ai="center" gap="$2" minWidth={0}>
+    <XStack ai="center" flexWrap="wrap" gap="$2" minWidth={0}>
       {collateral}
-      <SizableText size="$bodyLgMedium" color="$textSubdued" flexShrink={0}>
-        /
-      </SizableText>
-      {borrow}
+      <XStack ai="center" gap="$2" minWidth={0} maxWidth="100%" flexShrink={1}>
+        <Icon
+          name="ArrowRightOutline"
+          size="$4"
+          color="$iconSubdued"
+          flexShrink={0}
+        />
+        {borrow}
+      </XStack>
     </XStack>
   );
 }
 
+// The done view's title: the pair that went in, written as the picks were
 export function LoanPairTitle({
   collateral,
   borrow,
@@ -1060,22 +1065,28 @@ export function LoanPairTitle({
   collateral: { symbol: string; logoURI?: string };
   borrow: { symbol: string; logoURI?: string };
 }) {
-  return (
-    <XStack gap="$2" ai="center">
-      <XStack>
-        <Token size="sm" tokenImageUri={collateral.logoURI} />
-        <Stack
-          ml="$-2"
-          borderRadius="$full"
-          borderWidth={2}
-          borderColor="$bgApp"
-        >
-          <Token size="sm" tokenImageUri={borrow.logoURI} />
-        </Stack>
-      </XStack>
-      <SizableText size="$headingLg" numberOfLines={1} flexShrink={1}>
-        {`${collateral.symbol} / ${borrow.symbol}`}
+  const intl = useIntl();
+  const side = (role: string, token: { symbol: string; logoURI?: string }) => (
+    <XStack ai="center" gap="$2" minWidth={0} flexShrink={1}>
+      <SizableText size="$headingLg" color="$textSubdued" flexShrink={0}>
+        {role}
       </SizableText>
+      <Token size="sm" tokenImageUri={token.logoURI} />
+      <SizableText size="$headingLg" numberOfLines={1} flexShrink={1}>
+        {token.symbol}
+      </SizableText>
+    </XStack>
+  );
+  return (
+    <XStack gap="$2" ai="center" minWidth={0}>
+      {side(intl.formatMessage({ id: ETranslations.defi_supply }), collateral)}
+      <Icon
+        name="ArrowRightOutline"
+        size="$4"
+        color="$iconSubdued"
+        flexShrink={0}
+      />
+      {side(intl.formatMessage({ id: ETranslations.global_borrow }), borrow)}
     </XStack>
   );
 }
