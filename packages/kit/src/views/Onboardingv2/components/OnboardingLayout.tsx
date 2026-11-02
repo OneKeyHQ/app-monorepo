@@ -10,6 +10,7 @@ import {
   KEYBOARD_AWARE_SCROLL_BOTTOM_OFFSET,
   Keyboard,
   Page,
+  SELECT_SEARCHABLE_PANEL_HEIGHT,
   Select,
   SizableText,
   XStack,
@@ -71,7 +72,8 @@ const OnboardingLayoutLanguageSelector = memo(() => {
         value={value}
         onChange={handleLanguageChange}
         placement="bottom-end"
-        floatingPanelProps={{ maxHeight: 280 }}
+        searchable
+        floatingPanelProps={{ maxHeight: SELECT_SEARCHABLE_PANEL_HEIGHT }}
         sheetProps={{ snapPoints: [80], snapPointsMode: 'percent' }}
         renderTrigger={({ label }) =>
           gtMd ? (

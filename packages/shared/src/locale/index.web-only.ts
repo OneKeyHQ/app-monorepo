@@ -15,7 +15,9 @@ export const LOCALES = LOCALE_LOADERS as unknown as Record<
 >;
 
 export { LOCALES_OPTION };
+export { isKnownTranslationKey } from './translationKeys';
 
 export * from './type';
 export * from './enum/translations';
 export * from './enum/translationsMock';
+export * from './localeSearch';

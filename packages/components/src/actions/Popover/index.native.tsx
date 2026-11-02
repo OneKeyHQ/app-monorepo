@@ -500,6 +500,7 @@ function RawPopover({
         <ScrollView
           flex={isFitSheet ? undefined : 1}
           nestedScrollEnabled
+          keyboardShouldPersistTaps="handled"
           flexShrink={1}
           minHeight={0}
           marginTop="$-0.5"
@@ -762,6 +763,7 @@ function AnchoredPopover({
               flexGrow={0}
               flexShrink={1}
               nestedScrollEnabled
+              keyboardShouldPersistTaps="handled"
               showsVerticalScrollIndicator={false}
             >
               <ModalPortalProvider>

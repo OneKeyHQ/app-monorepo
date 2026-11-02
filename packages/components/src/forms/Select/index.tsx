@@ -2,6 +2,7 @@ import { useCallback, useContext, useMemo, useRef, useState } from 'react';
 
 import { Keyboard } from 'react-native';
 
+import { useOverlayWidthClass } from '@onekeyhq/components/src/hooks/useOverlayWidthClass';
 import { useMedia } from '@onekeyhq/components/src/hooks/useStyle';
 import { withStaticProperties } from '@onekeyhq/components/src/shared/tamagui';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -14,6 +15,10 @@ import { assertOverlayProps } from '../../shared/assertOverlayProps';
 import { Input } from '../Input';
 
 import { SelectContext } from './context';
+import {
+  SELECT_SEARCHABLE_PANEL_HEIGHT,
+  SelectSearchableList,
+} from './SelectSearchableList';
 
 import type { IContextType } from './context';
 import type {
@@ -271,6 +276,8 @@ function SelectContent() {
     waitForChangeBeforeClose,
     usingPercentSnapPoints: usingPercentSnapPointsFromContext,
     offset,
+    searchable,
+    searchPlaceholder,
   } = useContext(SelectContext);
   const isSelectingRef = useRef(false);
   const selectionGenerationRef = useRef(0);
@@ -357,6 +364,19 @@ function SelectContent() {
 
   const renderContent = useMemo(
     () => {
+      if (searchable && !sections) {
+        if (!isOpen) {
+          return null;
+        }
+        return (
+          <SelectSearchableList
+            items={items}
+            renderItem={renderItem}
+            extraData={value}
+            searchPlaceholder={searchPlaceholder}
+          />
+        );
+      }
       const listProps = {
         keyExtractor,
         estimatedItemSize: '$6',
@@ -392,8 +412,11 @@ function SelectContent() {
   );
 
   const popoverTrigger = useRenderPopoverTrigger();
+  const isExpandedWindow = useOverlayWidthClass() === 'expanded';
   const usingPercentSnapPoints =
-    usingPercentSnapPointsFromContext || (items?.length && items?.length > 10);
+    usingPercentSnapPointsFromContext ||
+    Boolean(searchable) ||
+    Boolean(items?.length && items.length > 10);
   const mergedSheetProps = useMemo(
     () => ({
       dismissOnSnapToBottom: true,
@@ -409,9 +432,15 @@ function SelectContent() {
     () => ({
       maxHeight: platformEnv.isNative ? undefined : '60vh',
       width: '$56',
+      ...(searchable && isExpandedWindow
+        ? {
+            height: SELECT_SEARCHABLE_PANEL_HEIGHT,
+            maxHeight: SELECT_SEARCHABLE_PANEL_HEIGHT,
+          }
+        : null),
       ...floatingPanelProps,
     }),
-    [floatingPanelProps],
+    [floatingPanelProps, isExpandedWindow, searchable],
   );
   return (
     <Popover
@@ -452,6 +481,8 @@ function SelectFrame<
     placement = platformEnv.isNative ? 'bottom-start' : undefined,
     usingPercentSnapPoints,
     waitForChangeBeforeClose,
+    searchable,
+    searchPlaceholder,
   } = props;
   const [isOpenInternal, setIsOpenInternal] = useState(false);
   const isControlled = openProp !== undefined;
@@ -488,6 +519,8 @@ function SelectFrame<
       offset,
       usingPercentSnapPoints,
       waitForChangeBeforeClose,
+      searchable,
+      searchPlaceholder,
     }),
     [
       isOpen,
@@ -506,6 +539,8 @@ function SelectFrame<
       offset,
       usingPercentSnapPoints,
       waitForChangeBeforeClose,
+      searchable,
+      searchPlaceholder,
     ],
   );
   return (
@@ -586,6 +621,8 @@ function BasicSelect<
     </SelectFrame>
   );
 }
+
+export { SELECT_SEARCHABLE_PANEL_HEIGHT };
 
 export const Select = withStaticProperties(BasicSelect, {
   Frame: SelectFrame,
