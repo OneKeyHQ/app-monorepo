@@ -1,23 +1,25 @@
-const assert = require('node:assert/strict');
-const fs = require('node:fs');
-const test = require('node:test');
-const vm = require('node:vm');
+import assert from 'assert/strict';
+import fs from 'fs';
+import vm from 'vm';
 
 test('hardware SDK caches and emits redacted Bitcoin signing payloads', () => {
   const bundle = fs.readFileSync(require.resolve('@onekeyfe/hd-core'), 'utf8');
-  const section = (start, end) => {
+  const section = (start: string, end: string) => {
     const first = bundle.indexOf(start);
     const last = bundle.indexOf(end, first);
     assert.ok(first >= 0 && last > first, `SDK section: ${start}`);
     return bundle.slice(first, last);
   };
-  const emitted = [];
+  const emitted: unknown[] = [];
   const context = vm.createContext({
+    captured: '',
+    label: '',
+    ordinary: { payload: { firmware: '' } },
     UI_REQUEST: {},
     UI_RESPONSE: {},
     LOG: { OUTPUT: 'output' },
-    createLogMessage: (type, payload) => ({ type, payload }),
-    emit: (message) => emitted.push(message),
+    createLogMessage: (type: string, payload: unknown) => ({ type, payload }),
+    emit: (message: unknown) => emitted.push(message),
   });
   // Execute the installed runtime's redactor and log ring, including the
   // patch-package change, without opening a device or starting the SDK.
