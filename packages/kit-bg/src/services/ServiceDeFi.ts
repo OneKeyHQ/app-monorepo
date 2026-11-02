@@ -661,12 +661,45 @@ class ServiceDeFi extends ServiceBase {
       },
       {
         signal: controller.signal,
-        headers:
-          await this.backgroundApi.serviceAccountProfile._getWalletTypeHeader({
-            accountId,
-          }),
+        ...(params.timeoutMs !== undefined
+          ? { timeout: params.timeoutMs }
+          : {}),
+        headers: {
+          ...(await this.backgroundApi.serviceAccountProfile._getWalletTypeHeader(
+            { accountId },
+          )),
+          ...(params.requireComplete && sourceCurrencyInfo
+            ? { 'x-onekey-request-currency': sourceCurrencyInfo.id }
+            : {}),
+        },
       },
     );
+
+    if (params.requireComplete) {
+      const result = resp.data.data;
+      const totals = result.data?.totals;
+      const fields = [
+        'totalValue',
+        'totalDebt',
+        'totalReward',
+        'netWorth',
+      ] as const;
+      if (
+        !result.success ||
+        result.meta?.degraded !== false ||
+        !result.meta.requestedNetworkIds?.includes(networkId) ||
+        result.meta.networkIds.some((id) => id !== networkId) ||
+        Object.entries(result.data.positions ?? {}).some(
+          ([id, positions]) => id !== networkId && positions.length > 0,
+        ) ||
+        this._getNotQueriedNetworkIds({ networkIds: [networkId], resp: result })
+          .length > 0 ||
+        !totals ||
+        fields.some((field) => !new BigNumber(totals[field]).isFinite())
+      ) {
+        throw new OneKeyLocalError('Incomplete DeFi portfolio response');
+      }
+    }
 
     const parsedData = defiUtils.transformDeFiData({
       accountId,

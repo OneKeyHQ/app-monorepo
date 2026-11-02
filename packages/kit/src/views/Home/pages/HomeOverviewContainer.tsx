@@ -14,7 +14,9 @@ import {
   Button,
   IconButton,
   PROPORTIONAL_NUMS,
+  SizableText,
   Skeleton,
+  Spinner,
   XStack,
   YStack,
 } from '@onekeyhq/components';
@@ -61,9 +63,11 @@ import {
   useLastConfirmedOverviewBalanceAtom,
   useOverviewDeFiDataStateAtom,
   useOverviewTokenCacheStateAtom,
+  usePortfolioCategoryRefreshAtom,
 } from '../../../states/jotai/contexts/accountOverview';
 import { buildOverviewOwnerKey } from '../../../states/jotai/contexts/accountOverview/atoms';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
+import { usePortfolioSyncUiStateAtom } from '../../../states/jotai/contexts/tokenList';
 import { convertFiat } from '../../../utils/fiatConvert';
 import { LocalWalletPasswordAlert } from '../../AssetDetails/pages/TokenDetails/LocalWalletPasswordAlert';
 import { showBalanceDetailsDialog } from '../components/BalanceDetailsDialog';
@@ -134,6 +138,16 @@ function HomeOverviewContainer() {
   const [lastConfirmedOverviewBalance, setLastConfirmedOverviewBalance] =
     useLastConfirmedOverviewBalanceAtom();
   const [, setHomePortfolioDisplay] = useHomePortfolioDisplayAtom();
+  const [portfolioCategoryRefresh] = usePortfolioCategoryRefreshAtom();
+  const [portfolioSyncUiState] = usePortfolioSyncUiStateAtom();
+  const portfolioCategories =
+    portfolioCategoryRefresh.ownerKey ===
+    buildOverviewOwnerKey(account?.id, network?.id)
+      ? portfolioCategoryRefresh
+      : undefined;
+  const committedPortfolioCategoryRevisionRef = useRef<string | undefined>(
+    undefined,
+  );
   const [overviewTokenCacheState] = useOverviewTokenCacheStateAtom();
   const [overviewDeFiDataState] = useOverviewDeFiDataStateAtom();
   const [{ currencyMap }] = useCurrencyPersistAtom();
@@ -152,13 +166,37 @@ function HomeOverviewContainer() {
     updateAccountDeFiOverview,
   } = useAccountOverviewActions().current;
 
+  useLayoutEffect(() => {
+    if (
+      !portfolioCategories?.data?.deFiOverview ||
+      `${portfolioCategories.ownerKey}:${portfolioCategories.dataRequestId}` ===
+        committedPortfolioCategoryRevisionRef.current
+    )
+      return;
+    committedPortfolioCategoryRevisionRef.current = `${portfolioCategories.ownerKey}:${portfolioCategories.dataRequestId}`;
+    updateAccountDeFiOverview({
+      accountId: account?.id,
+      networkId: network?.id,
+      currency: USD_CURRENCY_ID,
+      overview: portfolioCategories.data.deFiOverview,
+      isReady: true,
+    });
+  }, [
+    account?.id,
+    network?.id,
+    portfolioCategories?.data,
+    portfolioCategories?.dataRequestId,
+    portfolioCategories?.ownerKey,
+    updateAccountDeFiOverview,
+  ]);
+
   const [settings] = useSettingsPersistAtom();
   const { isPerpsSupported: isPerpsEnabled } = useHomeWalletTabSupport({
     network,
   });
 
   const { result: perpsSnapshot } = usePromiseResult<
-    { ownerKey: string; netWorthUsd: string } | undefined
+    { ownerKey: string; netWorthUsd: string; fetchedAt: number } | undefined
   >(
     async () => {
       if (!isPerpsEnabled) return undefined;
@@ -192,11 +230,12 @@ function HomeOverviewContainer() {
           { address },
         );
 
-      return snapshot?.netWorthUsd === undefined
+      return snapshot?.netWorthUsd === undefined || snapshot.isDegraded
         ? undefined
         : {
             ownerKey: buildOverviewOwnerKey(accountId, network?.id),
             netWorthUsd: snapshot.netWorthUsd,
+            fetchedAt: snapshot.fetchedAt,
           };
     },
     [account?.id, account?.indexedAccountId, network?.id, isPerpsEnabled],
@@ -209,10 +248,29 @@ function HomeOverviewContainer() {
     },
   );
 
-  const perpsNetWorthUsd =
+  let perpsNetWorthUsd =
     perpsSnapshot?.ownerKey === buildOverviewOwnerKey(account?.id, network?.id)
-      ? perpsSnapshot?.netWorthUsd
+      ? perpsSnapshot.netWorthUsd
       : undefined;
+  if (
+    portfolioCategories?.data &&
+    (perpsSnapshot?.ownerKey !==
+      buildOverviewOwnerKey(account?.id, network?.id) ||
+      portfolioCategories.data.fetchedAt >= (perpsSnapshot?.fetchedAt ?? 0))
+  ) {
+    perpsNetWorthUsd = portfolioCategories.data.perpsFiat;
+  }
+  const isPortfolioCategoryCommitPending = Boolean(
+    portfolioCategories?.data &&
+    `${portfolioCategories.ownerKey}:${portfolioCategories.dataRequestId}` !==
+      committedPortfolioCategoryRevisionRef.current,
+  );
+  const holdPortfolioBalance = Boolean(
+    portfolioCategories &&
+    (portfolioCategories.isRefreshing ||
+      portfolioCategories.failedSources.length ||
+      isPortfolioCategoryCommitPending),
+  );
 
   const isWalletNotBackedUp = useMemo(() => {
     if (wallet && wallet.type === WALLET_TYPE_HD && !wallet.backuped) {
@@ -963,12 +1021,16 @@ function HomeOverviewContainer() {
     settings.currencyInfo.id,
     vaultSettings?.mergeDeriveAssetsEnabled,
   ]);
-  const displayBalanceString = shouldHoldCurrentConfirmedBalance
+  const resolvedDisplayBalance = shouldHoldCurrentConfirmedBalance
     ? currentConfirmedBalance
     : (resolvedBalanceString ??
       currentConfirmedBalance ??
       provisionalTokenOnlyBalanceUsd ??
       lastConfirmedLatestUsd);
+  const displayBalanceString =
+    holdPortfolioBalance && portfolioCategories?.heldTotalFiatUsd !== undefined
+      ? portfolioCategories.heldTotalFiatUsd
+      : resolvedDisplayBalance;
 
   const balancePayload = useMemo(
     () => ({
@@ -1036,7 +1098,10 @@ function HomeOverviewContainer() {
   ]);
 
   const showSkeleton =
-    !hasDisplayableOverviewBalance && !shouldDisplayZeroBalancePlaceholder;
+    (!hasDisplayableOverviewBalance && !shouldDisplayZeroBalancePlaceholder) ||
+    (holdPortfolioBalance &&
+      portfolioCategories?.heldTotalFiatUsd === undefined &&
+      !portfolioCategories?.data);
 
   const debouncedBalanceString =
     debouncedBalancePayload.ownerKey === currentOverviewOwnerKey
@@ -1097,6 +1162,7 @@ function HomeOverviewContainer() {
     const isLive =
       isCurrentOwnerBalance &&
       !shouldHoldCurrentConfirmedBalance &&
+      !holdPortfolioBalance &&
       resolvedBalanceString !== undefined &&
       renderedBalanceString === resolvedBalanceString;
     const hasKnownDeFi =
@@ -1133,6 +1199,7 @@ function HomeOverviewContainer() {
       defiFiatUsd: deFiFiatUsd,
       perpsFiatUsd,
       isLive,
+      categoryRevision: portfolioCategories?.dataRequestId,
     };
     setHomePortfolioDisplay((prev) => {
       const snapshot = resolveHomePortfolioSnapshot({
@@ -1167,6 +1234,8 @@ function HomeOverviewContainer() {
     settings.currencyInfo.id,
     setHomePortfolioDisplay,
     shouldHoldCurrentConfirmedBalance,
+    holdPortfolioBalance,
+    portfolioCategories?.dataRequestId,
     showSkeleton,
   ]);
   useEffect(() => {
@@ -1277,6 +1346,54 @@ function HomeOverviewContainer() {
           </XStack>
         )}
       </YStack>
+      {portfolioCategories?.isRefreshing || portfolioSyncUiState.loading ? (
+        <XStack
+          alignItems="center"
+          gap="$2"
+          testID="portfolio-data-refresh-loading"
+        >
+          <Spinner size="small" />
+          <SizableText size="$bodySm" color="$textSubdued">
+            {intl.formatMessage(
+              { id: ETranslations.global_updating_type },
+              {
+                type: intl.formatMessage({
+                  id: ETranslations.global_portfolio,
+                }),
+              },
+            )}
+          </SizableText>
+        </XStack>
+      ) : null}
+      {!portfolioCategories?.isRefreshing &&
+      !portfolioSyncUiState.loading &&
+      portfolioCategories?.failedSources.length ? (
+        <XStack
+          alignItems="center"
+          gap="$2"
+          testID="portfolio-data-refresh-error"
+        >
+          <SizableText size="$bodySm" color="$textSubdued">
+            {portfolioCategories.failedSources
+              .map((source) =>
+                source === 'defi'
+                  ? 'DeFi'
+                  : intl.formatMessage({ id: ETranslations.global_perp }),
+              )
+              .join(' / ')}
+            {': '}
+            {intl.formatMessage({ id: ETranslations.global_failed })}
+          </SizableText>
+          <Button
+            testID="portfolio-data-refresh-retry"
+            size="small"
+            variant="tertiary"
+            onPress={portfolioCategories.retry}
+          >
+            {intl.formatMessage({ id: ETranslations.global_retry })}
+          </Button>
+        </XStack>
+      ) : null}
       {vaultSettings?.hasFrozenBalance ? (
         <Button
           testID="home-btn"

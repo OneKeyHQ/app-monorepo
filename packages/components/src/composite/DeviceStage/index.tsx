@@ -589,7 +589,6 @@ export function DeviceStage({
   vendorModelName,
   appName,
   transferProgress,
-  transferMetrics,
   installProgress,
   installQueue,
   installActiveIndex,
@@ -2336,36 +2335,9 @@ export function DeviceStage({
     () => ({ min: 0, max: 100, now: transferPercent }),
     [transferPercent],
   );
-  const transferredBytes = transferMetrics?.transferredBytes;
-  const totalBytes = transferMetrics?.totalBytes;
-  const rateBytesPerSecond = transferMetrics?.rateBytesPerSecond;
-  const formatTransferBytes = (bytes: number) =>
-    bytes >= 1024 * 1024
-      ? `${(bytes / 1024 / 1024).toFixed(1)} MiB`
-      : `${(bytes / 1024).toFixed(1)} KiB`;
-  const transferSizeText =
-    typeof transferredBytes === 'number' &&
-    Number.isFinite(transferredBytes) &&
-    typeof totalBytes === 'number' &&
-    Number.isFinite(totalBytes) &&
-    totalBytes > 0
-      ? `${formatTransferBytes(Math.max(0, Math.min(transferredBytes, totalBytes)))} / ${formatTransferBytes(totalBytes)}`
-      : undefined;
-  const transferSpeedText =
-    typeof rateBytesPerSecond === 'number' &&
-    Number.isFinite(rateBytesPerSecond) &&
-    rateBytesPerSecond > 0
-      ? `${formatTransferBytes(rateBytesPerSecond)}/s`
-      : undefined;
-  const transferRetryText =
-    typeof transferMetrics?.retryCount === 'number' &&
-    Number.isSafeInteger(transferMetrics.retryCount) &&
-    transferMetrics.retryCount > 0
-      ? `${intl.formatMessage({ id: ETranslations.global_retry })} ${transferMetrics.retryCount}`
-      : undefined;
   const transferTitle =
     transferPercent !== undefined
-      ? intl.formatMessage({ id: ETranslations.hardware_transferring_data })
+      ? intl.formatMessage({ id: ETranslations.communication_communicating })
       : capsuleText.title;
   const capsule = useMemo(
     () => (
@@ -2424,9 +2396,6 @@ export function DeviceStage({
           ) : null}
           {transferPercent !== undefined ? (
             <YStack gap="$1" mt="$1" minWidth={120}>
-              <SizableText size="$bodySmMedium" color="$textSubdued">
-                {`${transferPercent}%`}
-              </SizableText>
               <Stack
                 testID="device-stage-transfer-progress"
                 accessibilityRole="progressbar"
@@ -2438,18 +2407,6 @@ export function DeviceStage({
               >
                 <Stack h="100%" width={`${transferPercent}%`} bg="$bgPrimary" />
               </Stack>
-              {transferSizeText ? (
-                <SizableText size="$bodySm" color="$textSubdued">
-                  {transferSizeText}
-                </SizableText>
-              ) : null}
-              {transferSpeedText || transferRetryText ? (
-                <SizableText size="$bodySm" color="$textSubdued">
-                  {[transferRetryText, transferSpeedText]
-                    .filter(Boolean)
-                    .join(' · ')}
-                </SizableText>
-              ) : null}
             </YStack>
           ) : null}
         </YStack>
@@ -2460,9 +2417,6 @@ export function DeviceStage({
       capsuleGlyph,
       capsuleText,
       transferTitle,
-      transferSizeText,
-      transferSpeedText,
-      transferRetryText,
       pose,
       transferAccessibilityValue,
       transferPercent,

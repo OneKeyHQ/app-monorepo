@@ -103,6 +103,17 @@ type IPortfolioServerSubmitResult = NonNullable<
 
 type IPortfolioCategoryFiatResult = IPortfolioCategoryFiat & {
   deFiSource?: 'live' | 'cache' | 'empty' | 'unknown';
+  deFiOverview?: {
+    totalValue: number;
+    totalDebt: number;
+    totalReward: number;
+    netWorth: number;
+  };
+};
+
+export type IPortfolioCategoryRefreshResult = IPortfolioCategoryFiatResult & {
+  failedSources: ('defi' | 'perps')[];
+  fetchedAt: number;
 };
 
 export type IPortfolioSyncMode = 'interactive' | 'silent';
@@ -324,6 +335,11 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
   private lastArtifacts: IPortfolioSyncArtifacts | undefined;
 
   private lastResult: IPortfolioSyncLastResult | undefined;
+
+  private portfolioCategoryRefreshes = new Map<
+    string,
+    Promise<IPortfolioCategoryRefreshResult>
+  >();
 
   private pendingCooldownPayloadByConnectId = new Map<
     string,
@@ -2061,10 +2077,100 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
     return cached && cached.expiresAt > now ? cached.value : undefined;
   }
 
+  @backgroundMethod()
+  async refreshPortfolioCategories({
+    accountId,
+    indexedAccountId,
+    networkId,
+    force = false,
+    sources = ['defi', 'perps'],
+  }: {
+    accountId: string;
+    indexedAccountId: string;
+    networkId: string;
+    force?: boolean;
+    sources?: ('defi' | 'perps')[];
+  }): Promise<IPortfolioCategoryRefreshResult> {
+    const [networkState, deFiState, deriveType, perpsDeriveType] =
+      await Promise.all([
+        this.backgroundApi.serviceAllNetwork.getAllNetworksState(),
+        this.backgroundApi.serviceDeFi.getDeFiEnabledNetworksMapState(),
+        networkId === getNetworkIdsMap().onekeyall
+          ? Promise.resolve(undefined)
+          : this.backgroundApi.serviceNetwork.getGlobalDeriveTypeOfNetwork({
+              networkId,
+            }),
+        this.backgroundApi.serviceNetwork.getGlobalDeriveTypeOfNetwork({
+          networkId: PERPS_NETWORK_ID,
+        }),
+      ]);
+    const key = stringUtils.stableStringify({
+      accountId,
+      indexedAccountId,
+      networkId,
+      force,
+      sources,
+      networkState,
+      enabledNetworksMap: deFiState.enabledNetworksMap,
+      deriveType,
+      perpsDeriveType,
+    });
+    const pending = this.portfolioCategoryRefreshes.get(key);
+    if (pending) return pending;
+
+    const controller = new AbortController();
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const request = (async () => {
+      try {
+        const result = await Promise.race([
+          this.getPortfolioCategoryFiat(
+            { accountId, indexedAccountId, networkId },
+            controller.signal,
+            undefined,
+            { force, sources },
+          ),
+          new Promise<never>((_resolve, reject) => {
+            timer = setTimeout(() => {
+              controller.abort();
+              reject(new OneKeyLocalError('Portfolio data refresh timed out'));
+            }, 20_000);
+          }),
+        ]);
+        const failedSources: IPortfolioCategoryRefreshResult['failedSources'] =
+          [];
+        if (
+          sources.includes('defi') &&
+          (result.defiFiat === undefined ||
+            !new BigNumber(result.defiFiat).isFinite() ||
+            !['live', 'empty'].includes(result.deFiSource ?? ''))
+        ) {
+          failedSources.push('defi');
+        }
+        if (
+          sources.includes('perps') &&
+          (result.perpsFiat === undefined ||
+            !new BigNumber(result.perpsFiat).isFinite())
+        ) {
+          failedSources.push('perps');
+        }
+        return { ...result, failedSources, fetchedAt: Date.now() };
+      } finally {
+        clearTimeout(timer);
+        this.portfolioCategoryRefreshes.delete(key);
+      }
+    })();
+    this.portfolioCategoryRefreshes.set(key, request);
+    return request;
+  }
+
   private async getPortfolioCategoryFiat(
-    eventPayload: IPortfolioSyncSettledPayload,
+    eventPayload: Pick<
+      IPortfolioSyncSettledPayload,
+      'accountId' | 'indexedAccountId' | 'networkId'
+    >,
     signal?: AbortSignal,
     cacheKey?: string,
+    refresh?: { force: boolean; sources: ('defi' | 'perps')[] },
   ): Promise<IPortfolioCategoryFiatResult> {
     try {
       const accountId = eventPayload.accountId;
@@ -2172,11 +2278,22 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
         }
         return netWorth;
       };
+      let deFiOverview: IPortfolioCategoryFiatResult['deFiOverview'];
+      const emptyOverview = {
+        totalValue: 0,
+        totalDebt: 0,
+        totalReward: 0,
+        netWorth: 0,
+      };
       const fetchDeFi = async (): Promise<{
         source: 'live' | 'cache' | 'empty' | 'unknown';
         value: string | undefined;
       }> => {
+        if (refresh && !refresh.sources.includes('defi')) {
+          return { source: 'unknown', value: undefined };
+        }
         if (!support.isDeFiSupported) {
+          deFiOverview = emptyOverview;
           return { source: 'empty', value: '0' };
         }
         const isAllNetwork = networkId === getNetworkIdsMap().onekeyall;
@@ -2186,6 +2303,7 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
               { networkId },
             );
         if (!isAllNetwork && !deriveType) {
+          deFiOverview = emptyOverview;
           return { source: 'empty', value: '0' };
         }
         const { accountsInfo } =
@@ -2199,11 +2317,23 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
             excludeTestNetwork: true,
           });
         if (!accountsInfo.length) {
+          deFiOverview = emptyOverview;
           return { source: 'empty', value: '0' };
+        }
+        if (refresh?.force) {
+          const { allowed } =
+            await this.backgroundApi.serviceDeFi.consumeManualDeFiForceRefreshQuota();
+          if (!allowed) return { source: 'unknown', value: undefined };
         }
         const client = await this.getClient(EServiceEndpointEnum.Wallet);
         let total = new BigNumber(0);
         let completeCount = 0;
+        const overviewTotals = {
+          totalValue: new BigNumber(0),
+          totalDebt: new BigNumber(0),
+          totalReward: new BigNumber(0),
+          netWorth: new BigNumber(0),
+        };
         const accounts = uniqBy(
           accountsInfo,
           (account) => `${account.networkId}:${account.apiAddress}`,
@@ -2212,6 +2342,47 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
           const values = await Promise.all(
             batch.map(async (account) => {
               try {
+                if (refresh) {
+                  const { currencyMap } = await currencyPersistAtom.get();
+                  const usd = currencyMap.usd;
+                  if (!usd || signal?.aborted) return undefined;
+                  const response =
+                    await this.backgroundApi.serviceDeFi.fetchAccountDeFiPositions(
+                      {
+                        accountId: account.accountId,
+                        indexedAccountId,
+                        networkId: account.networkId,
+                        accountAddress: account.apiAddress,
+                        saveToLocal: true,
+                        excludeLowValueProtocols: true,
+                        sourceCurrencyInfo: usd,
+                        targetCurrencyInfo: usd,
+                        isForceRefresh: refresh.force,
+                        requireComplete: true,
+                        abortable: false,
+                        timeoutMs: 20_000,
+                      },
+                    );
+                  const fields = Object.keys(
+                    overviewTotals,
+                  ) as (keyof typeof overviewTotals)[];
+                  if (
+                    !response.isNetworkQueried ||
+                    signal?.aborted ||
+                    fields.some(
+                      (field) =>
+                        !new BigNumber(response.overview[field]).isFinite(),
+                    )
+                  ) {
+                    return undefined;
+                  }
+                  fields.forEach((field) => {
+                    overviewTotals[field] = overviewTotals[field].plus(
+                      response.overview[field],
+                    );
+                  });
+                  return new BigNumber(response.overview.netWorth);
+                }
                 const response = await client.post<{
                   data: IFetchAccountDeFiPositionsResp;
                 }>(
@@ -2244,6 +2415,10 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
                 if (
                   !result?.success ||
                   result.meta?.degraded !== false ||
+                  (Array.isArray(result.meta?.queriedNetworkIds) &&
+                    !result.meta.queriedNetworkIds.includes(
+                      account.networkId,
+                    )) ||
                   !hasRequestedNetwork ||
                   !hasCompleteNetworkCoverage ||
                   !value.isFinite()
@@ -2271,8 +2446,17 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
           }
         }
         if (completeCount === accounts.length) {
+          if (refresh) {
+            deFiOverview = {
+              totalValue: overviewTotals.totalValue.toNumber(),
+              totalDebt: overviewTotals.totalDebt.toNumber(),
+              totalReward: overviewTotals.totalReward.toNumber(),
+              netWorth: overviewTotals.netWorth.toNumber(),
+            };
+          }
           return { source: 'live', value: total.toFixed() };
         }
+        if (refresh) return { source: 'unknown', value: undefined };
         const cached = await fetchCachedDeFi(accounts);
         if (cached !== undefined) {
           debugPortfolioSyncLog('defi-cache-fallback', {
@@ -2283,6 +2467,7 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
         return { source: 'unknown', value: undefined };
       };
       const fetchPerps = async (): Promise<string | undefined> => {
+        if (refresh && !refresh.sources.includes('perps')) return undefined;
         if (!support.isPerpsSupported) {
           return '0';
         }
@@ -2316,6 +2501,7 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
           await this.backgroundApi.serviceHyperliquid.getHyperliquidPortfolioSnapshot(
             {
               address,
+              ...(refresh ? { force: true, requireFresh: true } : {}),
             },
           );
         return snapshot && !snapshot.isDegraded
@@ -2331,6 +2517,7 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
         defiFiat: deFiResult?.value,
         deFiSource: deFiResult?.source ?? 'unknown',
         perpsFiat: perps.status === 'fulfilled' ? perps.value : undefined,
+        ...(refresh ? { deFiOverview } : {}),
       };
       if (
         scopedCacheKey &&

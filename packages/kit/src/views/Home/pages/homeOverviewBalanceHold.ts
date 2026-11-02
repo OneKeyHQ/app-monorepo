@@ -106,6 +106,7 @@ export interface IHomePortfolioSnapshot {
   defiFiatUsd?: string;
   perpsFiatUsd?: string;
   isLive: boolean;
+  categoryRevision?: number;
 }
 
 // Publish the rendered total immediately; retain held categories only for that same total.

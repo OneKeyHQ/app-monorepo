@@ -119,14 +119,15 @@ it('renders SDK file-write progress and updates the same progress bar', () => {
     <DeviceStage step="processing" transferProgress={0} />,
   );
   const bar = screen.getByRole('progressbar');
-  expect(screen.getByText('0%')).toBeTruthy();
+  expect(screen.queryByText('0%')).toBeNull();
   expect(bar.getAttribute('aria-valuenow')).toBe('0');
   rerender(<DeviceStage step="processing" transferProgress={42} />);
   expect(screen.getByRole('progressbar')).toBe(bar);
-  expect(screen.getByText('42%')).toBeTruthy();
+  expect(screen.queryByText('42%')).toBeNull();
   expect(bar.firstElementChild?.getAttribute('data-width')).toBe('42%');
   rerender(<DeviceStage step="processing" transferProgress={100} />);
-  expect(screen.getByText('100%')).toBeTruthy();
+  expect(screen.queryByText('100%')).toBeNull();
+  expect(bar.getAttribute('aria-valuenow')).toBe('100');
 });
 
 it('shows progress only for the file-transfer processing step', () => {
@@ -147,7 +148,7 @@ const transferTestMetrics = {
   retryCount: 1,
 };
 
-it('shows transfer size, speed and retry count, then replaces them with confirmation', () => {
+it('shows only communicating status and a progress bar, then replaces them with confirmation', () => {
   const { rerender } = render(
     <DeviceStage
       step="processing"
@@ -155,9 +156,11 @@ it('shows transfer size, speed and retry count, then replaces them with confirma
       transferMetrics={transferTestMetrics}
     />,
   );
-  expect(screen.getByText('hardware.transferring_data')).toBeTruthy();
-  expect(screen.getByText('32.0 KiB / 128.0 KiB')).toBeTruthy();
-  expect(screen.getByText('global.retry 1 · 16.0 KiB/s')).toBeTruthy();
+  expect(screen.getByText('communication.communicating')).toBeTruthy();
+  expect(screen.getByRole('progressbar').getAttribute('aria-valuenow')).toBe(
+    '25',
+  );
+  expect(screen.queryByText(/KiB|MiB|global.retry|25%/)).toBeNull();
   rerender(
     <DeviceStage
       step="confirm"
