@@ -23,7 +23,7 @@ import { TooltipText } from './TooltipText';
 import { useTooltipOpenState } from './useTooltipOpenState';
 
 import type { ITooltipProps } from './type';
-import type { View } from 'react-native';
+import type { ViewInstance } from 'react-native';
 
 const TOOLTIP_OFFSET = 6;
 const TOOLTIP_CONTENT_WEB_STYLE = {
@@ -86,9 +86,9 @@ export function Tooltip({
   requestOpenChangeRef.current = requestOpenChange;
 
   const level = useNestedOverlayLevel();
-  const triggerRef = useRef<View | null>(null);
-  const [trigger, setTrigger] = useState<View | null>(null);
-  const handleTriggerRef = useCallback((node: View | null) => {
+  const triggerRef = useRef<ViewInstance | null>(null);
+  const [trigger, setTrigger] = useState<ViewInstance | null>(null);
+  const handleTriggerRef = useCallback((node: ViewInstance | null) => {
     triggerRef.current = node;
     setTrigger(node);
   }, []);

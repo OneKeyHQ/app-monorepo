@@ -139,8 +139,12 @@ function loadResolveAssetSource(scriptURL) {
       if (request === './AssetUtils') {
         return { pickScale: () => 1 };
       }
-      if (request === '@react-native/assets-registry/registry') {
-        return { getAssetByID: () => ({ name: 'test', type: 'png' }) };
+      if (request === '../../src/private/assets/AssetRegistry') {
+        return {
+          AssetRegistry: {
+            getAssetByID: () => ({ name: 'test', type: 'png' }),
+          },
+        };
       }
       if (request === '../Core/Devtools/getDevServer') {
         return { __esModule: true, default: getDevServer };
@@ -816,7 +820,7 @@ describe('devVendor', () => {
       const yarnLockPath = path.join(fixture.repoRoot, 'yarn.lock');
       const yarnLock = fs.readFileSync(yarnLockPath, 'utf8');
       const changedYarnLock = yarnLock.replace(
-        /("react-native@npm:0\.86\.2":[\s\S]*?\n  checksum: )[^\n]+/u,
+        /("react-native@npm:0\.88\.0":[\s\S]*?\n  checksum: )[^\n]+/u,
         `$1${`10/${'a'.repeat(128)}`}`,
       );
       expect(changedYarnLock).not.toBe(yarnLock);
@@ -931,6 +935,97 @@ describe('devVendor', () => {
         iosBaseline,
       );
     } finally {
+      fs.rmSync(fixture.repoRoot, { force: true, recursive: true });
+    }
+  });
+
+  it('excludes Catalyst-disabled modules while retaining required ABI checks', () => {
+    const fixture = createTemporaryRuntimeFixture();
+    const previousMode = process.env.ONEKEY_MAC_CATALYST;
+    const lockPath = path.join(
+      fixture.repoRoot,
+      'apps/mobile/ios/Podfile.lock',
+    );
+    const excluded = [
+      '@onekeyfe/react-native-lite-card',
+      '@onekeyfe/react-native-sni-connect',
+      '@onramper/onramper-react-native',
+      '@phantom/react-native-juicebox-sdk',
+      '@shopify/react-native-skia',
+      '@walletconnect/react-native-compat',
+      'jcore-react-native',
+      'jpush-react-native',
+    ];
+    const androidBaseline = computeNativeContractKey(
+      'android',
+      fixture.repoRoot,
+    );
+    const catalystLock = fs
+      .readFileSync(lockPath, 'utf8')
+      .split('\n')
+      .filter(
+        (line) =>
+          !excluded.some((name) => line.includes(`node_modules/${name}`)),
+      )
+      .join('\n');
+    fs.writeFileSync(lockPath, catalystLock);
+    try {
+      process.env.ONEKEY_MAC_CATALYST = '1';
+      jest.isolateModules(() => {
+        const catalystVendor = require('../devVendor');
+        const catalystConfig = require('../../react-native.config');
+        const { findDisabledLibrariesByPlatform } = require(
+          path.join(
+            repoRoot,
+            'node_modules/react-native/scripts/codegen/generate-artifacts-executor/utils',
+          ),
+        );
+        const disabled = findDisabledLibrariesByPlatform(catalystConfig, 'ios');
+        for (const supported of [
+          '@onekeyfe/react-native-cloud-kit-module',
+          '@onekeyfe/react-native-network-info',
+          'expo-camera',
+        ]) {
+          expect(disabled).not.toContain(supported);
+        }
+        const descriptor = catalystVendor.getNativeContractDescriptor(
+          'ios',
+          fixture.repoRoot,
+        );
+        const names = descriptor.dependencies.map(({ name }) => name);
+        expect(names).toContain('@onekeyfe/react-native-bundle-crypto');
+        expect(names).toContain('@onekeyfe/react-native-cloud-kit-module');
+        expect(names).toContain('react-native-network-info');
+        for (const name of excluded) {
+          expect(names).not.toContain(name);
+        }
+        expect(
+          catalystVendor.computeNativeContractKey('android', fixture.repoRoot),
+        ).toBe(androidBaseline);
+        fs.writeFileSync(
+          lockPath,
+          catalystLock
+            .split('\n')
+            .filter(
+              (line) =>
+                !line.includes(
+                  'node_modules/@onekeyfe/react-native-bundle-crypto',
+                ),
+            )
+            .join('\n'),
+        );
+        expect(() =>
+          catalystVendor.getNativeContractDescriptor('ios', fixture.repoRoot),
+        ).toThrow(
+          'Native ABI dependency is missing from Podfile.lock: @onekeyfe/react-native-bundle-crypto',
+        );
+      });
+    } finally {
+      if (previousMode === undefined) {
+        delete process.env.ONEKEY_MAC_CATALYST;
+      } else {
+        process.env.ONEKEY_MAC_CATALYST = previousMode;
+      }
       fs.rmSync(fixture.repoRoot, { force: true, recursive: true });
     }
   });
@@ -1503,6 +1598,50 @@ describe('devVendor', () => {
         },
       }),
     ).toBe(false);
+  });
+
+  it('reports a rejected HMR registration to its client instead of stopping Metro', async () => {
+    const HmrServer = require(path.join(metroRoot, 'HmrServer')).default;
+    const sessionId = 'wk-111111111111-dev-222222222222-3333333333333333';
+    // A device that another DevSession left pointed at this port registers its
+    // entry point here, and the session contract rejects it.
+    const rejectForeignSession = () =>
+      assertNativeDevVendorResolverContract({
+        customResolverOptions: {
+          devVendor: 'true',
+          devVendorNative: 'true',
+          devVendorFingerprint: 'fingerprint-android',
+          devSessionId: sessionId.replace('3333', '4444'),
+          runtimeTarget: 'main',
+        },
+        env: { ONEKEY_DEV_SESSION_ID: sessionId },
+        manifest: { fingerprint: 'fingerprint-android' },
+        platform: 'android',
+      });
+    const hmrServer = new HmrServer({}, jest.fn(), {
+      resolver: { platforms: ['android', 'ios'] },
+      server: { rewriteRequestUrl: rejectForeignSession },
+    });
+    const sendFn = jest.fn();
+    const client = await hmrServer.onClientConnect('/hot', sendFn);
+
+    await expect(
+      hmrServer.onClientMessage(
+        client,
+        JSON.stringify({
+          type: 'register-entrypoints',
+          entryPoints: ['http://10.0.2.2:8083/index.bundle?platform=android'],
+        }),
+        sendFn,
+      ),
+    ).resolves.toBeDefined();
+    expect(sendFn).toHaveBeenCalledTimes(1);
+    expect(JSON.parse(sendFn.mock.calls[0][0])).toMatchObject({
+      type: 'error',
+      body: {
+        message: expect.stringContaining('does not match this Metro server'),
+      },
+    });
   });
 
   it('refreshes the cached dev server from native runtime delta URLs', () => {

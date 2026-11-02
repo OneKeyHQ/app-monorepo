@@ -121,11 +121,19 @@ describe('Swap Review server events', () => {
         feeType: '0',
         isFirstTime: false,
         createFrom: 'swapPage',
+        fromRecentTokenPair: false,
         walletType: 'hd',
         deviceType: undefined,
       });
       estimate.swapEstimateFee({ ...execution, isBatch: true });
-      send.swapSendTx(execution);
+      send.swapSendTx({
+        ...execution,
+        status:
+          message === undefined
+            ? ESwapEventAPIStatus.SUCCESS
+            : ESwapEventAPIStatus.FAIL,
+        error: message,
+      });
       review.swapReviewReady({
         ...identity,
         status: 'error',

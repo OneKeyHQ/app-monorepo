@@ -29,6 +29,7 @@ export interface ITradingViewNativeChartProps {
   drawingStorageKey?: string;
   loadDrawingHistory?: IDrawingHistoryLoader;
   enableDrawings?: boolean;
+  enableNavigationControls?: boolean;
   prioritizePageScroll?: boolean;
   /** Owned by the data controller so native presentation changes retain the viewport. */
   runtimeRef?: RefObject<{
@@ -45,6 +46,7 @@ export interface ITradingViewNativeChartProps {
   chartType: ITradingViewNativeChartType;
   chartPictureVersion: number;
   currentPriceLabel: string;
+  priceAxisDecimalPlaces?: number;
   priceDecimalPlaces?: number;
   onPriceSelect?: (selection: ITradingViewNativePriceSelection) => void;
   priceSelectionLabel?: string;

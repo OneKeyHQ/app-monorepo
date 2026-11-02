@@ -337,7 +337,9 @@ describe('useToMarketStockDetailPage', () => {
     },
   );
 
-  it('resets the tab stack before opening the selected stock', async () => {
+  it('resets the tab stack before opening a different detail type on web', async () => {
+    mockedPlatformEnv.isDesktop = false;
+    mockedPlatformEnv.isWeb = true;
     const { result } = renderHook(() =>
       useToMarketStockDetailPage({ replaceCurrentDetail: true }),
     );
@@ -359,6 +361,49 @@ describe('useToMarketStockDetailPage', () => {
     expect(mockReplace).not.toHaveBeenCalled();
   });
 
+  it('keeps the desktop detail route when the selector switches from a token to a stock', async () => {
+    mockGetRootState.mockReturnValue({
+      key: 'root',
+      routes: [
+        {
+          name: 'main',
+          state: {
+            key: 'market-stack',
+            index: 1,
+            routes: [
+              { key: 'list', name: 'TabMarket' },
+              { key: 'detail', name: 'MarketDetailV2' },
+            ],
+          },
+        },
+      ],
+    });
+    const { result } = renderHook(() =>
+      useToMarketStockDetailPage({ replaceCurrentDetail: true }),
+    );
+    await act(async () => {
+      await result.current('TSM');
+    });
+    expect(mockDispatch).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: 'RESET',
+        target: 'market-stack',
+        payload: expect.objectContaining({
+          routes: expect.arrayContaining([
+            expect.objectContaining({
+              key: 'detail',
+              name: 'MarketStockDetail',
+              params: expect.objectContaining({ stockId: 'TSM' }),
+            }),
+          ]),
+        }),
+      }),
+    );
+    expect(mockPopToTop).not.toHaveBeenCalled();
+    expect(mockPush).not.toHaveBeenCalled();
+    expect(mockReplace).not.toHaveBeenCalled();
+  });
+
   it('updates the current stock route without remounting the detail page', async () => {
     mockCurrentRouteName = ETabMarketRoutes.MarketStockDetail;
     const { result } = renderHook(() =>
@@ -374,18 +419,23 @@ describe('useToMarketStockDetailPage', () => {
       });
     });
 
-    expect(mockSetParams).toHaveBeenCalledWith({
-      stockId: 'GOOG',
-      from: undefined,
-      disableTrade: undefined,
-      showFavoriteButton: undefined,
-      tokenAddress: undefined,
-      network: undefined,
-      isNative: undefined,
-      stockPreviewSymbol: 'GOOG',
-      stockPreviewName: 'Alphabet Inc.',
-      stockPreviewLogoUrl: 'goog.png',
-    });
+    expect(mockSetParams).toHaveBeenCalledWith(
+      expect.objectContaining({
+        stockId: 'GOOG',
+        from: undefined,
+        disableTrade: undefined,
+        showFavoriteButton: undefined,
+        tokenAddress: undefined,
+        network: undefined,
+        isNative: undefined,
+        stockPreviewSymbol: 'GOOG',
+        stockPreviewName: 'Alphabet Inc.',
+        stockPreviewLogoUrl: 'goog.png',
+        marketTokenId: undefined,
+        marketTokenCategory: undefined,
+        legacyTokenPreview: undefined,
+      }),
+    );
     expect(mockPopToTop).not.toHaveBeenCalled();
     expect(mockPush).not.toHaveBeenCalled();
     expect(mockPrepareStockTokenDetail).toHaveBeenCalledTimes(1);
@@ -591,21 +641,36 @@ describe('useToMarketStockDetailPage', () => {
           { key: 'detail', name: sourceName, params: { stockId: 'AAPL' } },
         ],
       };
+      let modalOpen = true;
       mockGetRootState.mockImplementation(() => ({
         key: 'root',
-        index: 1,
+        index: modalOpen ? 1 : 0,
         routes: [
           { name: 'main', state: stack },
-          { key: 'selector', name: 'MobileTokenSelector' },
+          ...(modalOpen
+            ? [{ key: 'selector', name: 'MobileTokenSelector' }]
+            : []),
         ],
       }));
-      mockGetCurrentRoute.mockReturnValue({
-        key: 'selector',
-        name: 'MobileTokenSelector',
-      });
+      mockGetCurrentRoute.mockImplementation(() =>
+        modalOpen
+          ? { key: 'selector', name: 'MobileTokenSelector' }
+          : stack.routes[stack.index],
+      );
       mockDispatch.mockImplementation((action: IStackAction) => {
         const next = router.getStateForAction(stack, action, config);
-        if (next) stack = router.getRehydratedState(next, config);
+        if (next) {
+          queueMicrotask(() => {
+            stack = router.getRehydratedState(next, config);
+          });
+        }
+      });
+      mockSwitchTabAsync.mockImplementationOnce(async () => {
+        // Closing the root modal restores its snapshot before child updates commit.
+        const capturedStack = stack;
+        await Promise.resolve();
+        stack = capturedStack;
+        modalOpen = false;
       });
       const { result } = renderHook(() =>
         useToMarketStockDetailPage({ replaceCurrentDetail: true }),
@@ -615,14 +680,19 @@ describe('useToMarketStockDetailPage', () => {
       });
       expect(stack.routes.map((route) => route.name)).toEqual([
         ETabMarketRoutes.TabMarket,
-        ETabMarketRoutes.MarketStockDetail,
+        sourceName === ETabMarketRoutes.MarketNativeDetail
+          ? ETabMarketRoutes.MarketStockDetail
+          : sourceName,
       ]);
+      if (sourceName !== ETabMarketRoutes.MarketNativeDetail) {
+        expect(stack.routes[1].key).toBe('detail');
+      }
       expect(stack.routes[1].params).toEqual(
         expect.objectContaining({ stockId: 'NVDA' }),
       );
       expect(mockSwitchTabAsync).toHaveBeenCalledWith(ETabRoutes.Market);
       expect(mockNavigate).not.toHaveBeenCalled();
-      expect(mockDispatch.mock.invocationCallOrder[0]).toBeLessThan(
+      expect(mockDispatch.mock.invocationCallOrder[0]).toBeGreaterThan(
         mockSwitchTabAsync.mock.invocationCallOrder[0],
       );
       const afterBack = router.getStateForAction(
@@ -635,6 +705,27 @@ describe('useToMarketStockDetailPage', () => {
       ]);
     },
   );
+
+  it('does not clear detail or navigate when a native selection expires during modal dismissal', async () => {
+    mockIsModalPage = true;
+    mockedPlatformEnv.isNative = true;
+    mockedPlatformEnv.isDesktop = false;
+    let isCurrent = true;
+    mockSwitchTabAsync.mockImplementationOnce(async () => {
+      isCurrent = false;
+    });
+    const { result } = renderHook(() =>
+      useToMarketStockDetailPage({ replaceCurrentDetail: true }),
+    );
+    await act(async () => {
+      await expect(
+        result.current('NVDA', { isCurrentRequest: () => isCurrent }),
+      ).resolves.toBe(false);
+    });
+    expect(mockPrepareStockTokenDetail).not.toHaveBeenCalled();
+    expect(mockDispatch).not.toHaveBeenCalled();
+    expect(mockNavigate).not.toHaveBeenCalled();
+  });
 
   it('cancels native stock navigation when the selector is dismissed during preload', async () => {
     mockIsModalPage = true;
@@ -774,53 +865,59 @@ describe('useToMarketStockDetailPage', () => {
     }
   });
 
-  it('preserves native detail when the modal reselects its current stock', async () => {
-    mockIsModalPage = true;
-    mockedPlatformEnv.isDesktop = false;
-    mockedPlatformEnv.isNative = true;
-    mockCurrentRouteName = 'MobileTokenSelector';
-    mockGetRootState.mockReturnValue({
-      key: 'root',
-      index: 1,
-      routes: [
-        {
-          name: 'main',
-          state: {
-            key: 'market-stack',
-            index: 1,
-            routes: [
-              { key: 'list', name: ETabMarketRoutes.TabMarket },
-              {
-                key: 'stock-detail',
-                name: ETabMarketRoutes.MarketStockDetail,
-                params: { stockId: 'AAPL' },
-              },
-            ],
+  it.each([
+    ETabMarketRoutes.MarketStockDetail,
+    ETabMarketRoutes.MarketDetailV2,
+  ])(
+    'preserves native %s when the modal reselects its current stock',
+    async (routeName) => {
+      mockIsModalPage = true;
+      mockedPlatformEnv.isDesktop = false;
+      mockedPlatformEnv.isNative = true;
+      mockCurrentRouteName = 'MobileTokenSelector';
+      mockGetRootState.mockReturnValue({
+        key: 'root',
+        index: 1,
+        routes: [
+          {
+            name: 'main',
+            state: {
+              key: 'market-stack',
+              index: 1,
+              routes: [
+                { key: 'list', name: ETabMarketRoutes.TabMarket },
+                {
+                  key: 'stock-detail',
+                  name: routeName,
+                  params: { stockId: 'AAPL' },
+                },
+              ],
+            },
           },
-        },
-        { key: 'selector', name: 'MobileTokenSelector' },
-      ],
-    });
-    const { result } = renderHook(() =>
-      useToMarketStockDetailPage({ replaceCurrentDetail: true }),
-    );
-
-    await act(async () => {
-      await result.current({
-        stockId: 'aapl',
-        symbol: 'AAPL',
-        name: 'Apple',
-        logoUrl: 'aapl.png',
+          { key: 'selector', name: 'MobileTokenSelector' },
+        ],
       });
-    });
+      const { result } = renderHook(() =>
+        useToMarketStockDetailPage({ replaceCurrentDetail: true }),
+      );
 
-    expect(mockPrepareStockTokenDetail).not.toHaveBeenCalled();
-    expect(mockSwitchTabAsync).toHaveBeenCalledWith(ETabRoutes.Market);
-    expect(mockNavigate).not.toHaveBeenCalled();
-    expect(mockDispatch).toHaveBeenCalledWith(
-      expect.objectContaining({ type: 'SET_PARAMS', source: 'stock-detail' }),
-    );
-  });
+      await act(async () => {
+        await result.current({
+          stockId: 'aapl',
+          symbol: 'AAPL',
+          name: 'Apple',
+          logoUrl: 'aapl.png',
+        });
+      });
+
+      expect(mockPrepareStockTokenDetail).not.toHaveBeenCalled();
+      expect(mockSwitchTabAsync).toHaveBeenCalledWith(ETabRoutes.Market);
+      expect(mockNavigate).not.toHaveBeenCalled();
+      expect(mockDispatch).toHaveBeenCalledWith(
+        expect.objectContaining({ type: 'SET_PARAMS', source: 'stock-detail' }),
+      );
+    },
+  );
 
   it('preserves the selected stock preview in the detail route seed', async () => {
     const stockPreview = {

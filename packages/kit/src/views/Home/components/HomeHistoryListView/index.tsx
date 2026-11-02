@@ -18,7 +18,7 @@ import type { ViewStyle } from 'react-native';
 
 const SharedHistoryList = withBrowserProvider(NativeHistoryList);
 
-function WebHistoryPaginationObserver({
+export function WebHistoryPaginationObserver({
   enabled,
   hasMore,
   isLoadingMore,
@@ -209,7 +209,7 @@ function WebHistoryList(props: IHomeHistoryListViewProps) {
   return (
     <>
       <FrozenTopHistoryScrollObserver
-        enabled={props.frozenTopEnabled}
+        enabled={props.observeFrozenTop && props.frozenTopEnabled}
         onAwayFromTopChange={props.onAwayFromTopChange}
       />
       <AppPagerContent>
@@ -233,7 +233,7 @@ function WebHistoryList(props: IHomeHistoryListViewProps) {
 }
 
 export function HomeHistoryListView(props: IHomeHistoryListViewProps) {
-  if (!props.plainMode && props.observeFrozenTop) {
+  if (!props.plainMode) {
     return <WebHistoryList key={props.frozenTopIdentityKey} {...props} />;
   }
   const {

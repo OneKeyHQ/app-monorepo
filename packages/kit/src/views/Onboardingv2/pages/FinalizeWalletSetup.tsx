@@ -725,8 +725,8 @@ function FinalizeWalletSetupPage({
                   message: 'Keystone device search target is required',
                 });
               }
-              // A device search target only describes how to reach Keystone.
-              // Account derivation stays in the wallet creation operation.
+              // Onboarding explicitly selected USB for this attempt. Keep connection failures
+              // on that channel and derive accounts in the same wallet creation operation.
               goNextStep(EFinalizeWalletSetupSteps.ConnectingDevice);
               setupAttemptsRef.current.startFirstContact(attempt);
               const connected =

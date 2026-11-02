@@ -19,7 +19,7 @@ function patchNativeAssetResolution(assetsPath) {
   let getAndroidResourceFolderName;
   let getAndroidResourceIdentifier;
   if (Platform.OS === 'android') {
-    const pathSupport = require('@react-native/assets-registry/path-support');
+    const pathSupport = require('@react-native/asset-utils');
     getAndroidResourceFolderName = pathSupport.getAndroidResourceFolderName;
     getAndroidResourceIdentifier = pathSupport.getAndroidResourceIdentifier;
   }

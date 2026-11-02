@@ -29,6 +29,7 @@ import {
   useMedia,
 } from '@onekeyhq/components';
 import type { IVideoRef } from '@onekeyhq/components';
+import { isImageSourceArray } from '@onekeyhq/components/src/primitives/Image/utils';
 import { fs } from '@onekeyhq/components/src/utils/scale';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
@@ -145,7 +146,7 @@ function getVideoPoster(
   }
   if (
     !platformEnv.isNative &&
-    !Array.isArray(posterSource) &&
+    !isImageSourceArray(posterSource) &&
     typeof posterSource !== 'number' &&
     typeof posterSource.uri === 'string'
   ) {

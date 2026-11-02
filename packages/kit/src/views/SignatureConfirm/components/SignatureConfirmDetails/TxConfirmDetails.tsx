@@ -16,6 +16,8 @@ import type {
 import { EParseTxComponentType } from '@onekeyhq/shared/types/signatureConfirm';
 
 import { SignatureConfirmTestIDs } from '../../testIDs';
+import { useZcashConfirmAccountAddress } from '../SignatureConfirmExtraInfo/ExtraInfoZcash/useZcashConfirmAccountAddress';
+import { replaceAccountAddressComponent } from '../SignatureConfirmExtraInfo/ExtraInfoZcash/zcashConfirmDisplay';
 import { SignatureConfirmItem } from '../SignatureConfirmItem';
 
 import SignatureConfirmDetails from './SignatureConfirmDetails';
@@ -36,6 +38,12 @@ function TxConfirmDetails(props: IProps) {
   const [{ isSendNativeTokenOnly }] = useSendTxStatusAtom();
 
   const isMultiTxs = decodedTxs?.length > 1;
+
+  const zcashAccountAddress = useZcashConfirmAccountAddress({
+    accountId,
+    networkId,
+    encodedTx: decodedTxs?.[0]?.encodedTx,
+  });
 
   const isBridge = useMemo(() => {
     const swapTx = find(unsignedTxs, 'swapInfo');
@@ -63,7 +71,14 @@ function TxConfirmDetails(props: IProps) {
     for (let i = 0; i < decodedTxs.length; i += 1) {
       const decodedTx = decodedTxs[i];
 
-      const components = decodedTx.txDisplay?.components ?? [];
+      let components = decodedTx.txDisplay?.components ?? [];
+      if (i === 0 && isLocalParsed) {
+        components = replaceAccountAddressComponent({
+          components,
+          signer: decodedTx.signer,
+          address: zcashAccountAddress,
+        });
+      }
       let finalComponents: IDisplayComponent[] = [];
 
       // merge token/nft components to assets component with same label
@@ -154,6 +169,7 @@ function TxConfirmDetails(props: IProps) {
     isBridge,
     isSendNativeTokenOnly,
     nativeTokenTransferAmountToUpdate,
+    zcashAccountAddress,
   ]);
 
   return (

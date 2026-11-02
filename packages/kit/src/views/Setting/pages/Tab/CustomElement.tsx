@@ -29,6 +29,7 @@ import {
   IconButton,
   Select,
   SizableText,
+  Stack,
   Switch,
   Toast,
   Tooltip,
@@ -47,8 +48,11 @@ import { UniversalContainerWithSuspense } from '@onekeyhq/kit/src/components/Bio
 import { useKeylessWallet } from '@onekeyhq/kit/src/components/KeylessWallet/useKeylessWallet';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import PasswordUpdateContainer from '@onekeyhq/kit/src/components/Password/container/PasswordUpdateContainer';
+import { SupportUnreadDot } from '@onekeyhq/kit/src/components/SupportUnreadDot';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { useIntercomUnreadCount } from '@onekeyhq/kit/src/hooks/useIntercomUnreadCount';
 import { TabFreezeOnBlurContext } from '@onekeyhq/kit/src/provider/Container/TabFreezeOnBlurContainer';
+import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { openTravelModeSettingsWithAdmission } from '@onekeyhq/kit/src/utils/onboardingEntryGate';
 import {
   useAppUpdatePersistAtom,
@@ -362,6 +366,9 @@ export function ClearPendingTransactionsListItem({
   ...props
 }: ICustomElementProps) {
   const intl = useIntl();
+  const {
+    activeAccount: { network, account, indexedAccount },
+  } = useActiveAccount({ num: 0 });
   const onPress = useCallback(() => {
     logItemClick?.();
     Dialog.show({
@@ -376,7 +383,15 @@ export function ClearPendingTransactionsListItem({
         id: ETranslations.global_clear,
       }),
       onConfirm: async () => {
-        await backgroundApiProxy.serviceSetting.clearPendingTransaction();
+        await backgroundApiProxy.serviceSetting.clearPendingTransaction({
+          selectedAccount: network
+            ? {
+                networkId: network.id,
+                accountId: account?.id,
+                indexedAccountId: indexedAccount?.id,
+              }
+            : undefined,
+        });
         appEventBus.emit(
           EAppEventBusNames.ClearLocalHistoryPendingTxs,
           undefined,
@@ -388,7 +403,7 @@ export function ClearPendingTransactionsListItem({
         });
       },
     });
-  }, [intl, logItemClick]);
+  }, [account?.id, indexedAccount?.id, intl, logItemClick, network]);
   return <TabSettingsListItem {...props} onPress={onPress} drillIn />;
 }
 
@@ -704,26 +719,37 @@ function SocialButton({
 // Special Support Button component that uses showIntercom
 function SupportButton({ text }: { text: string }) {
   const isTabNavigator = useIsTabNavigator();
+  const hasUnreadSupportMessages = useIntercomUnreadCount() > 0;
   const buttonSize = isTabNavigator ? undefined : '$14';
   const size = isTabNavigator ? '$5' : '$6';
   const onPress = useCallback(() => {
     // Then show intercom support
     void showIntercom();
   }, []);
+  const button = (
+    <IconButton
+      testID={SettingTestIDs.socialSupportBtn}
+      bg="$bgSubdued"
+      w={buttonSize}
+      h={buttonSize}
+      iconSize={size as IIconProps['size']}
+      icon="HelpSupportOutline"
+      borderRadius="$full"
+      onPress={onPress}
+    />
+  );
 
   return (
     <Tooltip
       renderTrigger={
-        <IconButton
-          testID={SettingTestIDs.socialSupportBtn}
-          bg="$bgSubdued"
-          w={buttonSize}
-          h={buttonSize}
-          iconSize={size as IIconProps['size']}
-          icon="HelpSupportOutline"
-          borderRadius="$full"
-          onPress={onPress}
-        />
+        hasUnreadSupportMessages ? (
+          <Stack position="relative">
+            {button}
+            <SupportUnreadDot testID="settings-support-unread-dot" />
+          </Stack>
+        ) : (
+          button
+        )
       }
       renderContent={text}
       placement="top"

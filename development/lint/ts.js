@@ -8,6 +8,15 @@ const { parse } = require('@aivenio/tsc-output-parser');
 const getTimestamp = () => new Date().toLocaleTimeString();
 const startTime = Date.now();
 
+// CI runs tsc in its own job, so the lint checks job sets this to run the rest
+// of `yarn lint` without a second full type check.
+if (process.env.ONEKEY_LINT_SKIP_TSC === 'true') {
+  console.log(
+    `[${getTimestamp()}] TypeScript check skipped (ONEKEY_LINT_SKIP_TSC=true).`,
+  );
+  exit(0);
+}
+
 console.log(`[${getTimestamp()}] TypeScript check started...`);
 
 const getDuration = () => ((Date.now() - startTime) / 1000).toFixed(2);

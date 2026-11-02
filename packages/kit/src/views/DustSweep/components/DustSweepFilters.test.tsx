@@ -258,6 +258,8 @@ it('retains the compact network selector menu', () => {
       networkValues: { 'evm--1': '1', 'evm--56': '1' },
       networkValueCurrency: 'usd',
       groupByNetworkValue: true,
+      recentNetworksEnabled: false,
+      highlightSelected: true,
     }),
   );
   expect(mockOpenChainSelector.mock.calls[0][0]).not.toHaveProperty('grouped');

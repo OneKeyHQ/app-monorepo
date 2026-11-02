@@ -157,7 +157,8 @@ function withMenuLog<TArgs extends unknown[], TResult>(
 // Ordered by usage (30-day analytics): the frequent page actions (copy,
 // bookmark, share, open elsewhere) as a row of tiles on top, then page tools
 // (translate is used by very few people), then tab/session actions. Reload
-// and exit are left out: the bar's refresh and the header's ✕ cover them.
+// and close tab are left out: the bar's refresh and the header's ✕ cover
+// them. Minimize is a secondary action here.
 function buildOptionsSections(
   intl: IntlShape,
   {
@@ -168,7 +169,7 @@ function buildOptionsSections(
     isPinned,
     onPinnedPress,
     onBrowserOpen,
-    onCloseTab,
+    onMinimize,
     displayDisconnectOption,
     onDisconnect,
     siteMode,
@@ -284,16 +285,11 @@ function buildOptionsSections(
           testID: 'action-list-item-disconnect-in-browser',
         },
         {
-          label: intl.formatMessage({
-            id: isPinned
-              ? ETranslations.explore_close_pin_tab
-              : ETranslations.explore_close_tab,
-          }),
-          icon: 'CrossedLargeOutline',
-          // Not styled destructive: closing a tab is routine and easy to
-          // undo by reopening the site.
-          onPress: runAfterMenuClose(onCloseTab),
-          testID: DiscoveryTestIDs.tabActionClose,
+          label: intl.formatMessage({ id: ETranslations.menu_minimize }),
+          icon: 'MinimizeOutline',
+          // Captures the tab thumbnail, so the page must be uncovered.
+          onPress: runAfterMenuClose(onMinimize),
+          testID: DiscoveryTestIDs.browserMinimizeButton,
         },
       ].filter(Boolean) as IActionListItemProps[],
     },
@@ -319,13 +315,12 @@ export function useMobileBrowserOptions(props: IMobileBottomOptionsProps) {
       onCopyUrl: withMenuLog('copyUrl', current.onCopyUrl),
       onBrowserOpen: withMenuLog('openInBrowser', current.onBrowserOpen),
       onRequestSiteMode: withMenuLog('siteMode', current.onRequestSiteMode),
-      // These also have their own events (addBookmark, pinTab, disconnect,
-      // closeTab) that don't say where they came from; closeTab from the tab
-      // list and from this menu even share closeMethod 'Menu'.
+      // These also have their own events (addBookmark, pinTab, disconnect)
+      // that don't say where they came from.
       onBookmarkPress: withMenuLog('bookmark', current.onBookmarkPress),
       onPinnedPress: withMenuLog('pin', current.onPinnedPress),
       onDisconnect: withMenuLog('disconnect', current.onDisconnect),
-      onCloseTab: withMenuLog('closeTab', current.onCloseTab),
+      onMinimize: withMenuLog('minimize', current.onMinimize),
     });
     ActionList.show({
       title: intl.formatMessage({ id: ETranslations.explore_options }),

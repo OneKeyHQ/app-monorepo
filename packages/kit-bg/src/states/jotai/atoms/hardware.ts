@@ -22,6 +22,8 @@ import type {
   IDeviceStageConfirmDetail,
   IDeviceStageErrorI18n,
   IDeviceStageErrorReasonValue,
+  IDeviceStageOpenAppReasonValue,
+  IDeviceStageQrFallbackReasonValue,
   IDeviceStageStepValue,
 } from '@onekeyhq/shared/types/deviceStage';
 import type { EHardwareUiStateAction } from '@onekeyhq/shared/types/hardwareUi';
@@ -222,13 +224,20 @@ export type IDeviceStageState = {
   /** The original third-party action — the container builds UI responses
    * from it without reverse-mapping steps. */
   thirdPartyAction?: EThirdPartyHardwareUiAction;
-  /** Install steps: coin app name, real SDK progress (0–100), batch queue. */
+  /** SDK request identifier for the current third-party prompt. */
+  thirdPartyRequestId?: string;
+  /** Install steps and a wallet-match openApp: coin app name; install
+   * steps also carry real SDK progress (0–100) and the batch queue. */
   appName?: string;
   installProgress?: number;
   installQueue?: string[];
   installActiveIndex?: number;
   btcHighIndexPath?: string;
   btcHighIndexAccountIndex?: number;
+  /** Why the Keystone request is offered as a QR (qrFallback step). */
+  qrFallbackReason?: IDeviceStageQrFallbackReasonValue;
+  /** Why the openApp step's device is opening an app, when the app knows. */
+  openAppReason?: IDeviceStageOpenAppReasonValue;
   /** Authenticity flow: the per-component checklist and what ended it. */
   authChecklist?: IDeviceStageAuthChecklistItem[];
   authFailureReason?: IDeviceStageAuthFailureReasonValue;
@@ -262,6 +271,8 @@ export type IDeviceStageState = {
    * request. The servicePromise id itself never leaves bg. */
   qrSessionId?: number;
   qrDiagnostic?: ISolanaTxDiagnosticContext;
+  /** A note the showQr card carries under its steps; scoped like the UR. */
+  qrNoticeI18n?: IDeviceStageErrorI18n;
   confirmDetails?: IDeviceStageConfirmDetail[];
   confirmMessage?: string;
   confirmDescription?: string;
@@ -308,6 +319,8 @@ export enum EThirdPartyHardwareUiAction {
   // Keystone QR: the device is already showing its own export/response QR,
   // so there's no display step, the app just scans.
   requestKeystoneQrScan = 'request-keystone-qr-scan',
+  // Keystone: the request is too large for USB; ask whether to sign it by QR.
+  requestKeystoneQrFallbackConfirm = 'request-keystone-qr-fallback-confirm',
   // Non-blocking notifications — UI shows status.
   openApp = 'ui-event-ledger-open-app',
   confirmOnDevice = 'ui-event-ledger-confirm-on-device',
@@ -346,13 +359,21 @@ export function isThirdPartyConfirmOnDevice(
 export type IThirdPartyHardwareUiState = {
   /** Runtime-only publication id; stable across serialization and independent of SDK request ids. */
   uiRequestId?: string;
+  /** Supplied by the current SDK call; an independent request has no operation owner. */
+  operationId?: string;
   action: EThirdPartyHardwareUiAction;
   vendor: EHardwareVendor;
   payload?: {
+    /** SDK request id echoed by the QR fallback consent response. */
+    requestId?: string;
     message?: string;
     chain?: string;
     /** SDK request reason used for UI copy. */
     reason?: string;
+    /** Ledger openApp: the app the device is asked to open (`Ethereum`). */
+    appName?: string;
+    /** Ledger openApp: why the app is being opened, when the app knows. */
+    openAppReason?: IDeviceStageOpenAppReasonValue;
     /** BIP-44 path that triggered the request (e.g. requestBtcHighIndexConfirm). */
     path?: string;
     /** Account index parsed from the path (e.g. requestBtcHighIndexConfirm). */
@@ -376,6 +397,8 @@ export type IThirdPartyHardwareUiState = {
     urData?: string;
     /** Keystone QR: hints the display payload needs multi-frame animated rendering. */
     animated?: boolean;
+    /** The current QR requests public accounts and accepts a device export instead. */
+    allowAccountExport?: boolean;
   };
 };
 
@@ -417,6 +440,7 @@ export async function publishThirdPartyHardwareUiState(
 
 export type IThirdPartyAppInstallState = {
   vendor: EHardwareVendor;
+  operationId?: string;
   appName: string;
   progress?: number;
 };

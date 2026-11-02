@@ -15,6 +15,7 @@ import {
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { ESwapEventAPIStatus } from '@onekeyhq/shared/src/logger/scopes/swap/scenes/swapEstimateFee';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { getSwapErrorMessage } from '@onekeyhq/shared/src/utils/sensitiveErrorMessageUtils';
 import { EMessageTypesEth } from '@onekeyhq/shared/types/message';
 import type {
   IFetchBuildTxResponse,
@@ -40,6 +41,7 @@ import {
   swapFromTokenAmountAtom,
   swapQuoteActionLockAtom,
   swapQuoteListAtom,
+  swapRecentTokenPairSelectionAtom,
   swapStepsAtom,
   swapTypeSwitchAtom,
 } from '../../../states/jotai/contexts/swap';
@@ -498,6 +500,93 @@ describe('useSwapBuildTx confirmed execution ownership', () => {
       expect(store.get(swapQuoteListAtom())).toHaveLength(
         mode === 'unchanged' ? 0 : 1,
       );
+    },
+  );
+
+  it('attributes one sent order to a Recent trades pick', async () => {
+    const { result, store } = renderExecutionReview();
+    await act(async () => {
+      store.set(swapFromTokenAmountAtom(), { value: '0.1', isInput: true });
+      store.set(swapQuoteListAtom(), [quote]);
+      store.set(swapRecentTokenPairSelectionAtom(), { fromToken, toToken });
+    });
+    mockLogCreateOrder.mockClear();
+    await act(async () => {
+      await result.current.preSwapStepsStart();
+    });
+    expect(mockLogCreateOrder).toHaveBeenCalledWith(
+      expect.objectContaining({ fromRecentTokenPair: true }),
+    );
+    expect(store.get(swapRecentTokenPairSelectionAtom())).toBeUndefined();
+  });
+
+  it('releases a Recent trades pick after a wrapped send', async () => {
+    const { result, store } = renderExecutionReview({
+      steps: [{ type: ESwapStepType.WRAP_TX, status: ESwapStepStatus.READY }],
+    });
+    await act(async () => {
+      store.set(swapFromTokenAmountAtom(), { value: '0.1', isInput: true });
+      store.set(swapQuoteListAtom(), [quote]);
+      store.set(swapRecentTokenPairSelectionAtom(), { fromToken, toToken });
+    });
+    await act(async () => {
+      await result.current.preSwapStepsStart();
+    });
+    expect(mockSignAndSendTransaction).toHaveBeenCalledTimes(1);
+    expect(mockFetchBuildTx).not.toHaveBeenCalled();
+    expect(store.get(swapRecentTokenPairSelectionAtom())).toBeUndefined();
+  });
+
+  it('releases the pick of an order identified only by its provider id', async () => {
+    mockFetchBuildTx.mockReset().mockResolvedValue({
+      ...buildResponse('120'),
+      orderId: undefined,
+      ctx: { changeHeroOrderId: 'changehero-order' },
+    });
+    const { result, store } = renderExecutionReview();
+    await act(async () => {
+      store.set(swapFromTokenAmountAtom(), { value: '0.1', isInput: true });
+      store.set(swapQuoteListAtom(), [quote]);
+      store.set(swapRecentTokenPairSelectionAtom(), { fromToken, toToken });
+    });
+    await act(async () => {
+      await result.current.preSwapStepsStart();
+    });
+    expect(store.get(swapRecentTokenPairSelectionAtom())).toBeUndefined();
+  });
+
+  it.each([
+    ['the reversed pair', () => ({ fromToken: toToken, toToken: fromToken })],
+    ['the same pair again', () => ({ fromToken, toToken })],
+  ])(
+    'keeps a newer Recent trades pick of %s when an older order finishes',
+    async (_label, makeNewerPick) => {
+      const sent = deferred<ISignedTxPro>();
+      const started = deferred<void>();
+      mockSignAndSendTransaction.mockImplementationOnce(() => {
+        started.resolve();
+        return sent.promise;
+      });
+      const { result, store } = renderExecutionReview();
+      await act(async () => {
+        store.set(swapFromTokenAmountAtom(), { value: '0.1', isInput: true });
+        store.set(swapQuoteListAtom(), [quote]);
+        store.set(swapRecentTokenPairSelectionAtom(), { fromToken, toToken });
+      });
+      let execution!: Promise<void>;
+      await act(async () => {
+        execution = result.current.preSwapStepsStart();
+        await started.promise;
+      });
+      const newerPick = makeNewerPick();
+      await act(async () => {
+        store.set(swapRecentTokenPairSelectionAtom(), newerPick);
+      });
+      await act(async () => {
+        sent.resolve({ txid: 'swap-tx', rawTx: '', encodedTx: {} });
+        await execution;
+      });
+      expect(store.get(swapRecentTokenPairSelectionAtom())).toBe(newerPick);
     },
   );
 
@@ -1968,6 +2057,24 @@ describe('useSwapBuildTx Review analytics', () => {
     expect(mockNavigateTxConfirm).not.toHaveBeenCalled();
   });
 
+  it('releases a Recent trades pick made after the cached build when it is sent', async () => {
+    const review = renderReview();
+    await review.prepare();
+    await act(async () => {
+      review.store.set(swapRecentTokenPairSelectionAtom(), {
+        fromToken: quote.fromTokenInfo,
+        toToken: quote.toTokenInfo,
+      });
+    });
+    await review.send();
+
+    expect(mockFetchBuildTx).toHaveBeenCalledTimes(1);
+    expect(mockSignAndSendTransaction).toHaveBeenCalledTimes(1);
+    expect(
+      review.store.get(swapRecentTokenPairSelectionAtom()),
+    ).toBeUndefined();
+  });
+
   it('reports one send success when confirming a cached build and gas estimate', async () => {
     const review = renderReview();
     await review.prepare();
@@ -2074,8 +2181,10 @@ describe('useSwapBuildTx Review analytics', () => {
         quoteId: quote.quoteId,
         orderId: 'review-repro-98',
         status: ESwapEventAPIStatus.FAIL,
-        message: 'Transaction rejected',
       }),
+    );
+    expect(getSwapErrorMessage(mockLogSendTx.mock.calls[0][0].error)).toBe(
+      'Transaction rejected',
     );
     expect(mockLogCreateOrder).toHaveBeenCalledWith(
       expect.objectContaining({ isPreBuild: false }),
@@ -2135,10 +2244,12 @@ describe('useSwapBuildTx Review analytics', () => {
       expect(mockLogSendTx).toHaveBeenCalledWith(
         expect.objectContaining({
           status: ESwapEventAPIStatus.FAIL,
-          message: 'Network error',
           reviewSessionId: 'review-session-1',
           quoteId: quote.quoteId,
         }),
+      );
+      expect(getSwapErrorMessage(mockLogSendTx.mock.calls[0][0].error)).toBe(
+        'Network error',
       );
       expect(mockLogEstimateFee.mock.calls).toEqual(
         supportBatchEstimateFee
@@ -2254,6 +2365,42 @@ describe('useSwapBuildTx Review analytics', () => {
         }),
       }),
     );
+  });
+
+  it('releases a Recent trades pick when a fallback sends an approval first', async () => {
+    const review = renderReview({ preSwapData: { shouldFallback: true } });
+    await act(async () => {
+      review.store.set(swapRecentTokenPairSelectionAtom(), {
+        fromToken: quote.fromTokenInfo,
+        toToken: quote.toTokenInfo,
+      });
+    });
+    await review.send();
+    const fallback = mockNavigateTxConfirm.mock.calls[0][0];
+    const decodedTx = {
+      totalFeeInNative: '0.000021',
+      totalFeeFiatValue: '0.021',
+    } as ISendTxOnSuccessData['decodedTx'];
+    await act(async () => {
+      fallback.onSuccess?.([
+        {
+          signedTx: { txid: 'approval-tx', rawTx: '', encodedTx: {} },
+          decodedTx,
+        },
+        {
+          signedTx: {
+            txid: 'fallback-swap-tx',
+            rawTx: '',
+            encodedTx: {},
+            swapInfo: fallback.swapInfo,
+          },
+          decodedTx,
+        },
+      ]);
+    });
+    expect(
+      review.store.get(swapRecentTokenPairSelectionAtom()),
+    ).toBeUndefined();
   });
 
   it('logs the actual swap from a late fallback callback with an approval first', async () => {

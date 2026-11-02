@@ -110,7 +110,7 @@ export interface IMobileBottomOptionsProps {
   isPinned: boolean;
   onPinnedPress: (pinned: boolean) => void;
   onBrowserOpen: () => void;
-  onCloseTab: () => void;
+  onMinimize: () => void;
   displayDisconnectOption: boolean;
   onDisconnect: () => void;
   siteMode?: ESiteMode;

@@ -15,7 +15,10 @@ import type {
   IDustSweepRouteParams,
 } from '@onekeyhq/shared/types/swap/dustSweep';
 
-import { loadDustSweepNetworks } from '../utils/loadNetworks';
+import {
+  loadDustSweepNetworks,
+  validateDustSweepNetworkContexts,
+} from '../utils/loadNetworks';
 import {
   beginDustSweepNetworksCacheWrite,
   getDustSweepIdentityRevision,
@@ -24,9 +27,13 @@ import {
   invalidateDustSweepNetworksCache,
   setDustSweepNetworksCache,
   subscribeDustSweepIdentity,
+  subscribeDustSweepNetworkCacheRevision,
 } from '../utils/networkCache';
 
-import type { IDustSweepNetworksResult } from '../utils/loadNetworks';
+import type {
+  IDustSweepNetworkContext,
+  IDustSweepNetworksResult,
+} from '../utils/loadNetworks';
 import type { IDustSweepCacheWrite } from '../utils/networkCache';
 
 const EMPTY_NETWORKS: IDustSweepNetwork[] = [];
@@ -36,19 +43,47 @@ type ILoadState = {
   data?: IDustSweepNetworksResult;
   status: 'refreshing' | 'idle' | 'error';
   freshNetworks?: IDustSweepNetwork[];
+  verifiedContexts?: IDustSweepNetworkContext[];
+  needsRevalidation?: boolean;
+  needsContextRefresh?: boolean;
+  // Keep failed assets hidden until an authoritative refresh succeeds.
+  loadFailed?: boolean;
 };
 
 type ILoadScope = {
   params: IDustSweepRouteParams;
   state: ILoadState;
   request?: AbortController;
+  validation?: AbortController;
   suspended: boolean;
   disposed: boolean;
   identityRevision: number;
   write?: IDustSweepCacheWrite;
 };
 
+function matchesVerifiedContext(
+  entry: IDustSweepNetwork,
+  verified: IDustSweepNetworkContext,
+) {
+  return (
+    verified.network.networkId === entry.network.networkId &&
+    verified.accountId === entry.accountId &&
+    verified.address === entry.address &&
+    verified.deriveAddressEncoding === entry.deriveAddressEncoding &&
+    verified.denySingleSwapProvider === entry.denySingleSwapProvider
+  );
+}
+
 export function useDustSweepNetworks(params: IDustSweepRouteParams) {
+  const getCacheRevision = useCallback(
+    () => getDustSweepNetworksCacheRevision(params.walletId),
+    [params.walletId],
+  );
+  useSyncExternalStore(
+    subscribeDustSweepNetworkCacheRevision,
+    getCacheRevision,
+    getCacheRevision,
+  );
   const identityRevision = useSyncExternalStore(
     subscribeDustSweepIdentity,
     getDustSweepIdentityRevision,
@@ -86,10 +121,12 @@ export function useDustSweepNetworks(params: IDustSweepRouteParams) {
   );
 
   const refresh = useCallback(
-    (isManualRefresh = true) => {
+    (isManualRefresh = true, forceFresh = false) => {
       if (activeScope.current !== scope || scope.suspended || scope.disposed)
         return;
       scope.request?.abort();
+      scope.validation?.abort();
+      scope.validation = undefined;
       const controller = new AbortController();
       scope.request = controller;
       const write = beginDustSweepNetworksCacheWrite(params);
@@ -100,7 +137,13 @@ export function useDustSweepNetworks(params: IDustSweepRouteParams) {
         scope.request === controller &&
         !controller.signal.aborted &&
         getDustSweepNetworksCacheRevision(params.walletId) === revision;
-      publish({ ...scope.state, status: 'refreshing' });
+      publish({
+        ...scope.state,
+        status: 'refreshing',
+        verifiedContexts: undefined,
+        needsRevalidation: false,
+        needsContextRefresh: false,
+      });
       let freshSettled = false;
       void loadDustSweepNetworks(
         params,
@@ -118,7 +161,14 @@ export function useDustSweepNetworks(params: IDustSweepRouteParams) {
             data: { networks: cached, partialError: false },
           });
         },
-        { isManualRefresh, skipCache: !!scope.state.data },
+        {
+          isManualRefresh,
+          skipCache: !!scope.state.data,
+          ...(forceFresh ? { forceFresh: true } : {}),
+          onContexts: (verifiedContexts) => {
+            if (isCurrent()) publish({ ...scope.state, verifiedContexts });
+          },
+        },
       )
         .then((result) => {
           freshSettled = true;
@@ -139,13 +189,18 @@ export function useDustSweepNetworks(params: IDustSweepRouteParams) {
           };
           setDustSweepNetworksCache(params, data, write);
           scope.request = undefined;
-          publish({ data, status: 'idle', freshNetworks: result.networks });
+          publish({
+            data,
+            status: 'idle',
+            freshNetworks: result.networks,
+            verifiedContexts: result.networks,
+          });
         })
         .catch(() => {
           freshSettled = true;
           if (isCurrent()) {
             scope.request = undefined;
-            publish({ ...scope.state, status: 'error' });
+            publish({ ...scope.state, status: 'error', loadFailed: true });
           }
         })
         .finally(() => {
@@ -203,22 +258,80 @@ export function useDustSweepNetworks(params: IDustSweepRouteParams) {
     )
       return false;
     // Retire pre-trade reads before execution starts, including shared cache writes.
-    invalidateDustSweepNetworksCache(params.walletId);
     scope.suspended = true;
+    invalidateDustSweepNetworksCache(params.walletId);
     scope.write = beginDustSweepNetworksCacheWrite(params);
     scope.request?.abort();
     scope.request = undefined;
-    publish({ ...scope.state, status: 'idle' });
+    scope.validation?.abort();
+    scope.validation = undefined;
+    publish({
+      ...scope.state,
+      status: 'idle',
+      verifiedContexts: undefined,
+      needsRevalidation: true,
+    });
     return true;
   }, [identityRevision, params, publish, scope]);
 
   const resetIdentity = useCallback(() => {
     scope.request?.abort();
     scope.request = undefined;
+    scope.validation?.abort();
+    scope.validation = undefined;
     scope.identityRevision = getDustSweepIdentityRevision();
     publish({ status: 'refreshing' });
     refresh(true);
   }, [publish, refresh, scope]);
+
+  const revalidate = useCallback(() => {
+    if (
+      activeScope.current !== scope ||
+      scope.suspended ||
+      scope.disposed ||
+      scope.request ||
+      scope.validation
+    )
+      return;
+    const controller = new AbortController();
+    scope.validation = controller;
+    const revision = getDustSweepNetworksCacheRevision(params.walletId);
+    const isCurrent = () =>
+      activeScope.current === scope &&
+      scope.validation === controller &&
+      !controller.signal.aborted &&
+      getDustSweepNetworksCacheRevision(params.walletId) === revision;
+    publish({ ...scope.state, needsRevalidation: false });
+    void validateDustSweepNetworkContexts(params, controller.signal)
+      .then(
+        (verifiedContexts) => {
+          if (!isCurrent()) return;
+          scope.validation = undefined;
+          const needsContextRefresh = !!scope.state.data?.networks.some(
+            (entry) =>
+              !verifiedContexts.some((verified) =>
+                matchesVerifiedContext(entry, verified),
+              ),
+          );
+          publish({ ...scope.state, verifiedContexts, needsContextRefresh });
+        },
+        () => {
+          if (!isCurrent()) return;
+          scope.validation = undefined;
+          publish({ ...scope.state, verifiedContexts: undefined });
+        },
+      )
+      .finally(() => {
+        if (scope.validation !== controller) return;
+        scope.validation = undefined;
+        if (activeScope.current === scope && !controller.signal.aborted) {
+          publish({
+            ...scope.state,
+            verifiedContexts: undefined,
+          });
+        }
+      });
+  }, [params, publish, scope]);
 
   const resume = useCallback(() => {
     if (activeScope.current !== scope || scope.disposed) return;
@@ -240,13 +353,34 @@ export function useDustSweepNetworks(params: IDustSweepRouteParams) {
     return true;
   }, [params, scope]);
 
+  const isNetworkVerified = useCallback(
+    (entry: IDustSweepNetwork) =>
+      activeScope.current === scope &&
+      !scope.disposed &&
+      scope.identityRevision === getDustSweepIdentityRevision() &&
+      scope.write?.revision ===
+        getDustSweepNetworksCacheRevision(params.walletId) &&
+      scope.state.status !== 'error' &&
+      !scope.state.loadFailed &&
+      !!scope.state.data?.networks.includes(entry) &&
+      !scope.state.data?.failedNetworkIds?.includes(entry.network.networkId) &&
+      !!scope.state.verifiedContexts?.some((verified) =>
+        matchesVerifiedContext(entry, verified),
+      ),
+    [params.walletId, scope],
+  );
+
   useEffect(() => {
     scope.disposed = false;
-    refresh(!!scope.state.data);
+    // A new page must not authorize cached assets from a previous page's
+    // discovery request, even when that request is still loading balances.
+    refresh(!!scope.state.data, true);
     return () => {
       scope.disposed = true;
       scope.request?.abort();
       scope.request = undefined;
+      scope.validation?.abort();
+      scope.validation = undefined;
     };
   }, [refresh, scope]);
 
@@ -257,13 +391,18 @@ export function useDustSweepNetworks(params: IDustSweepRouteParams) {
   const hasData = !!state.data;
   let loadStatus: 'ready' | 'loading' | 'error' = 'loading';
   if (hasData) loadStatus = 'ready';
-  else if (state.status === 'error') loadStatus = 'error';
+  else if (state.loadFailed || state.status === 'error') loadStatus = 'error';
   const isRefreshing = useCallback(() => !!scope.request, [scope]);
   return {
     networks: state.data?.networks ?? EMPTY_NETWORKS,
     providerInfo: state.data?.providerInfo,
     failedNetworks: state.data?.failedNetworks,
-    partialError: state.status === 'error' || !!state.data?.partialError,
+    failedNetworkIds: state.data?.failedNetworkIds,
+    loadFailed: !!state.loadFailed,
+    partialError:
+      !!state.loadFailed ||
+      state.status === 'error' ||
+      !!state.data?.partialError,
     freshNetworks: state.freshNetworks,
     hasData,
     loadStatus,
@@ -274,6 +413,10 @@ export function useDustSweepNetworks(params: IDustSweepRouteParams) {
     suspend,
     resume,
     claimCacheWrite,
+    isNetworkVerified,
+    needsRevalidation: !!state.needsRevalidation,
+    needsContextRefresh: !!state.needsContextRefresh,
+    revalidate,
     identityRevision,
   };
 }
@@ -351,7 +494,7 @@ export function useDustSweepNetworkRefresh({
     if (
       !enabled ||
       !isFocused ||
-      !hasData ||
+      (!hasData && refreshStatus !== 'error') ||
       pending ||
       refreshStatus === 'refreshing'
     ) {

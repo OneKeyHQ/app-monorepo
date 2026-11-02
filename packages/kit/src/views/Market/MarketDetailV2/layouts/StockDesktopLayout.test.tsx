@@ -5,11 +5,20 @@ import type { ReactNode } from 'react';
 
 import { act, fireEvent, render, renderHook } from '@testing-library/react';
 
-import { StockChart, useStockDetailTab } from './StockDesktopLayout';
+import type { IMarketAccountPortfolioDisplayItem } from '@onekeyhq/shared/types/marketV2';
+
+import {
+  StockChart,
+  StockDesktopLayout,
+  useStockDetailTab,
+} from './StockDesktopLayout';
 
 const mockSetChartDisplayMode = jest.fn();
 const mockRecordTabChange = jest.fn();
 let mockPreferPosition = false;
+let mockPortfolioData: IMarketAccountPortfolioDisplayItem[] = [];
+let mockIsPortfolioPending = false;
+let mockIsPortfolioIncomplete = false;
 const mockStockSimpleChart = jest.fn(
   (_props: { priceMode: 'share' | 'token'; range: string }) => (
     <div data-testid="stock-simple-chart" />
@@ -55,6 +64,9 @@ jest.mock('@onekeyhq/components', () => {
 
   return {
     Button,
+    DashText: Stack,
+    Empty: ({ testID }: { testID?: string }) => <div data-testid={testID} />,
+    Tooltip: Stack,
     Icon: Stack,
     NumberSizeableText: Stack,
     SizableText: Stack,
@@ -62,10 +74,13 @@ jest.mock('@onekeyhq/components', () => {
     Stack,
     XStack: Stack,
     YStack: Stack,
+    Tabs: { FlatList: Stack, ScrollView: Stack },
+    useMedia: () => ({ gtLg: true }),
   };
 });
 
 jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => ({
+  useCurrencyPersistAtom: () => [{ currencyMap: {} }],
   useMarketDetailChartDisplayModePersistAtom: () => [
     { mode: 'simple' },
     mockSetChartDisplayMode,
@@ -80,6 +95,13 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
 jest.mock('@onekeyhq/kit/src/components/Token', () => ({
   Token: () => null,
 }));
+jest.mock('@onekeyhq/kit/src/components/Currency', () => ({
+  Currency: ({ children }: { children?: ReactNode }) => <span>{children}</span>,
+}));
+jest.mock(
+  '../components/InformationTabs/components/Portfolio/components/PnlCell',
+  () => ({ PnlCell: () => null }),
+);
 jest.mock('@onekeyhq/kit/src/hooks/useFormatDate', () => ({
   __esModule: true,
   default: () => ({ formatDate: jest.fn() }),
@@ -104,9 +126,6 @@ jest.mock('../../components/MarketStarV2', () => ({
 jest.mock('../../components/PerpsBadges', () => ({
   StockMarketStatusBadge: () => null,
 }));
-jest.mock('../components/InformationTabs/components/Portfolio', () => ({
-  Portfolio: () => null,
-}));
 jest.mock('../components/StockFinancials/StockFinancials', () => ({
   StockFinancials: () => null,
 }));
@@ -124,10 +143,21 @@ jest.mock('../components/TokenSelector/MarketTokenSelector', () => ({
   MarketTokenSelector: () => null,
 }));
 jest.mock('../hooks/StockDetailContext', () => ({
-  useStockDetail: jest.fn(),
+  useStockDetail: () => ({
+    stockId: 'AAPL',
+    tokenVariants: [],
+    priceSource: { priceMode: 'share', sharePriceAvailable: false },
+  }),
 }));
 jest.mock('../hooks/useStockPortfolioData', () => ({
-  useStockPortfolioData: jest.fn(),
+  useStockPortfolioData: () => ({
+    portfolioData: mockPortfolioData,
+    hasAccount: true,
+    isRefreshing: false,
+    isPortfolioPending: mockIsPortfolioPending,
+    isPortfolioIncomplete: mockIsPortfolioIncomplete,
+    resolvedVariantKeys: [],
+  }),
 }));
 jest.mock('../hooks/useMarketDetailPositionTab', () => ({
   useMarketDetailPositionTab: () => ({
@@ -136,7 +166,7 @@ jest.mock('../hooks/useMarketDetailPositionTab', () => ({
   }),
 }));
 jest.mock('../hooks/useTokenDetail', () => ({
-  useTokenDetail: jest.fn(),
+  useTokenDetail: () => ({ networkId: 'evm--1' }),
 }));
 jest.mock('./components/StockEventsSection', () => ({
   StockEventsSection: () => null,
@@ -301,4 +331,95 @@ describe('useStockDetailTab', () => {
     expect(result.current.activeTab).toBe('position');
     expect(mockRecordTabChange).toHaveBeenCalledWith(true);
   });
+});
+
+describe('StockDesktopLayout positions', () => {
+  const renderLayout = () =>
+    render(
+      <StockDesktopLayout
+        marketTradingView={<div />}
+        swapToken={{
+          networkId: 'evm--1',
+          contractAddress: '0xaapl',
+          symbol: 'AAPL',
+          decimals: 18,
+        }}
+        swapInputDraftKey="stock-portfolio-test"
+        chartMode="native"
+        showFavoriteButton={false}
+        isChartFullscreen={false}
+        chartFullscreenZIndex={1}
+        onChartSwitch={jest.fn()}
+        onEnterChartFullscreen={jest.fn()}
+      />,
+    );
+
+  afterEach(() => {
+    mockIsPortfolioPending = false;
+    mockIsPortfolioIncomplete = false;
+  });
+
+  it.each([
+    ['settled with no holdings', false, false, true],
+    ['still loading', true, false, false],
+    ['failed with nothing cached', false, true, false],
+  ] as const)(
+    'shows No positions: %s',
+    (_case, isPending, isIncomplete, showsNoPositions) => {
+      mockPreferPosition = true;
+      mockPortfolioData = [];
+      mockIsPortfolioPending = isPending;
+      mockIsPortfolioIncomplete = isIncomplete;
+      const view = renderLayout();
+      expect(Boolean(view.queryByTestId('market-detail-portfolio-empty'))).toBe(
+        showsNoPositions,
+      );
+    },
+  );
+
+  it.each([
+    ['', true],
+    ['NaN', true],
+    ['0.009', false],
+    ['0.01', true],
+  ] as const)(
+    'handles a positive holding valued at %s',
+    (totalPrice, visible) => {
+      mockPreferPosition = true;
+      mockPortfolioData = [
+        {
+          networkId: 'evm--1',
+          tokenAddress: '0xaapl',
+          accountAddress: '0xaccount',
+          symbol: 'AAPL-HOLDING',
+          amount: '2',
+          tokenPrice: '1',
+          totalPrice,
+        },
+      ];
+      const view = render(
+        <StockDesktopLayout
+          marketTradingView={<div />}
+          swapToken={{
+            networkId: 'evm--1',
+            contractAddress: '0xaapl',
+            symbol: 'AAPL',
+            decimals: 18,
+          }}
+          swapInputDraftKey="stock-portfolio-test"
+          chartMode="native"
+          showFavoriteButton={false}
+          isChartFullscreen={false}
+          chartFullscreenZIndex={1}
+          onChartSwitch={jest.fn()}
+          onEnterChartFullscreen={jest.fn()}
+        />,
+      );
+      expect(Boolean(view.queryByText('AAPL-HOLDING'))).toBe(visible);
+      if (visible && (!totalPrice || totalPrice === 'NaN')) {
+        expect(view.getByText('--')).toBeTruthy();
+        expect(view.queryByText('NaN')).toBeNull();
+      }
+    },
+  );
 });

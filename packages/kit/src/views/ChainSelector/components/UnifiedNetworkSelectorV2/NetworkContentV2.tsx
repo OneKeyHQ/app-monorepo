@@ -15,7 +15,7 @@ import { buildNetworkContentSwrKey } from '../networkContentCache';
 
 import { NetworkSectionListV2 } from './NetworkSectionListV2';
 
-import type { View } from 'react-native';
+import type { ViewInstance } from 'react-native';
 
 const defaultChainSelectorNetworks: {
   mainnetItems: IServerNetwork[];
@@ -31,7 +31,7 @@ const defaultChainSelectorNetworks: {
 };
 
 type INetworkContentPropsV2 = {
-  webSectionIndexContainerRef: RefObject<View | null>;
+  webSectionIndexContainerRef: RefObject<ViewInstance | null>;
   webSectionIndexBottomInset?: number;
   walletId?: string;
   accountId?: string;

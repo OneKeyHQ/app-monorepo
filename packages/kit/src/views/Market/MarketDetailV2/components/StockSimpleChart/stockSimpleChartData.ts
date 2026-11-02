@@ -108,6 +108,54 @@ export function resolveStockSimpleChartPulseLastPoint({
   );
 }
 
+export type IStockSimpleChartRangeChange = {
+  priceMode: 'share' | 'token';
+  range: IStockSimpleChartRange;
+  baseline: number;
+  latest: number;
+};
+
+/**
+ * The move the drawn range has made, from its start to the line's live tail.
+ * A share's 1D starts at the previous session close, as broker quotes do: the
+ * feed opens in pre-market, so its first point is not "today's" reference.
+ * Every other range, and every tokenized price, starts at its first point.
+ */
+export function resolveStockSimpleChartRangeChange({
+  points,
+  previousClose,
+  priceMode,
+  range,
+}: {
+  points: IMarketTokenChart;
+  previousClose?: number;
+  priceMode: 'share' | 'token';
+  range: IStockSimpleChartRange;
+}): IStockSimpleChartRangeChange | undefined {
+  const latest = points.at(-1)?.[1];
+  const baseline =
+    priceMode === 'share' && range === '1D' && previousClose !== undefined
+      ? previousClose
+      : points[0]?.[1];
+  if (
+    latest === undefined ||
+    baseline === undefined ||
+    !Number.isFinite(latest) ||
+    !Number.isFinite(baseline) ||
+    baseline <= 0
+  ) {
+    return undefined;
+  }
+  return { priceMode, range, baseline, latest };
+}
+
+// Ties read as up, so a flat range keeps the chart's default green.
+export function isStockSimpleChartRangeUp(
+  change: IStockSimpleChartRangeChange,
+): boolean {
+  return change.latest >= change.baseline;
+}
+
 /**
  * One interval for every range, on purpose. `usePromiseResult` treats a changed
  * `pollingInterval` as a timer retune: it withholds the dependency-triggered run

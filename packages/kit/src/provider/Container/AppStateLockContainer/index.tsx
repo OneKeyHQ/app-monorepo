@@ -16,7 +16,7 @@ import {
 import AppStateLock from './components/AppStateLock';
 import { AppStateUpdater } from './components/AppStateUpdater';
 
-import type { View } from 'react-native';
+import type { ViewInstance } from 'react-native';
 
 const passwordVerifyFallback = (
   <YStack h={46} justifyContent="center" alignItems="center">
@@ -143,7 +143,7 @@ export function AppStateLockContainer({
   const lockContainerRef = useWebLockCheck(isLocked);
   const [lockElement, setLockElement] = useState<HTMLElement | null>(null);
   const handleLockContainerRef = useCallback(
-    (node: View | null) => {
+    (node: ViewInstance | null) => {
       const element = node as unknown as HTMLElement | null;
       lockContainerRef.current = element;
       if (!platformEnv.isNative) setLockElement(element);

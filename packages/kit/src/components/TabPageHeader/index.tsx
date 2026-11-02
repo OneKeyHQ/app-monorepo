@@ -136,7 +136,7 @@ function BaseDesktopTabPageHeader({
             px="$5"
             alignItems={platformEnv.isDesktop ? 'center' : undefined}
           >
-            <GiftAction copyAsUrl />
+            <GiftAction />
           </XStack>
         ) : null}
         {tabRoute === ETabRoutes.Discovery ? (

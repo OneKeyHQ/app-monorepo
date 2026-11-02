@@ -18,6 +18,7 @@ import {
   fetchSwapStockSelection,
   fetchSwapStockVariantToken,
   getCachedSwapStockAssetPreview,
+  getCachedSwapStockDisplayVariants,
   getCachedSwapStockId,
   resolveSwapStockAutoVariant,
   resolveSwapStockAvailability,
@@ -455,6 +456,59 @@ describe('Swap stock selection caches', () => {
     searchStocksMock.mockReset();
     fetchVariantsMock.mockReset();
     fetchDetailMock.mockReset();
+  });
+
+  it('uses only a matching company variants cache for display', () => {
+    const variants = [buildVariant()];
+    swrCacheUtils.set(variantsKey, {
+      stockId: 'APPLE',
+      items: variants,
+      failed: false,
+    });
+    expect(getCachedSwapStockDisplayVariants('apple', locale)).toBe(variants);
+    expect(getCachedSwapStockDisplayVariants('GOOGL', locale)).toBeUndefined();
+    swrCacheUtils.set(variantsKey, {
+      stockId: 'GOOGL',
+      items: variants,
+      failed: false,
+    });
+    expect(getCachedSwapStockDisplayVariants('APPLE', locale)).toBeUndefined();
+    swrCacheUtils.set(variantsKey, {
+      stockId: 'APPLE',
+      items: variants,
+      failed: true,
+    });
+    expect(getCachedSwapStockDisplayVariants('APPLE', locale)).toBeUndefined();
+  });
+
+  it('publishes cold variant identity before the selected trade token detail resolves', async () => {
+    const variants = [buildVariant()];
+    fetchVariantsMock.mockResolvedValue({
+      stockId: stock.stockId,
+      items: variants,
+    });
+    let finishDetail: (response: IMarketTokenDetailResponse) => void = () =>
+      undefined;
+    fetchDetailMock.mockReturnValueOnce(
+      new Promise((resolve) => {
+        finishDetail = resolve;
+      }),
+    );
+    let publish: (variants: IMarketStockTokenVariant[]) => void = () =>
+      undefined;
+    const published = new Promise<IMarketStockTokenVariant[]>((resolve) => {
+      publish = resolve;
+    });
+    const selection = fetchSwapStockSelection(
+      stock,
+      undefined,
+      locale,
+      undefined,
+      publish,
+    );
+    expect(await published).toBe(variants);
+    finishDetail(buildDetailResponse());
+    await expect(selection).resolves.toMatchObject({ symbol: 'AAPLon' });
   });
 
   it('reuses verified contract identity without replacing account-owned token fields', async () => {

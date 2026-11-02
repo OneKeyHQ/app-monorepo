@@ -181,6 +181,8 @@ export type IFetchAccountDeFiPositionsResult = {
   protocols: IDeFiProtocol[];
   protocolMap: Record<string, IProtocolSummary>;
   isSameAllNetworksAccountData: boolean;
+  isNetworkQueried?: boolean;
+  overviewRequestRevision?: number;
 };
 
 export type IDeFiProtocol = {

@@ -14,6 +14,10 @@ import type {
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 
 import { vaultFactory } from '../vaults/factory';
+import {
+  isLocalWalletNetwork,
+  mayBeLocalWalletAddress,
+} from '../vaults/localWallet/isLocalWalletNetwork';
 
 import ServiceBase from './ServiceBase';
 
@@ -32,6 +36,21 @@ class ServiceValidator extends ServiceBase {
     const { networkId, address } = params;
     if (!networkId) {
       return 'invalid';
+    }
+    // A privacy chain's local SDK owns recipient support; server indexing support must not veto it.
+    if (await isLocalWalletNetwork({ networkId })) {
+      try {
+        const localValidation = await this.localValidateAddress(params);
+        return localValidation.isValid ? 'valid' : 'invalid';
+      } catch (localError) {
+        defaultLogger.addressInput.validation.failWithUnknownError({
+          networkId,
+          address,
+          serverError: '',
+          localError: String(localError),
+        });
+        return 'unknown';
+      }
     }
     try {
       const isCustomNetwork =
@@ -132,6 +151,56 @@ class ServiceValidator extends ServiceBase {
       promise: true,
     },
   );
+
+  async validateAddressBatch(params: {
+    networkIdList: string[];
+    accountAddress: string;
+  }): Promise<{ isValid: boolean; networkIds: string[] }> {
+    const serverRequest = this.serverBatchValidateAddress(params);
+    serverRequest.catch(() => undefined);
+    const isLocalWallet = await Promise.all(
+      params.networkIdList.map((networkId) =>
+        isLocalWalletNetwork({ networkId }),
+      ),
+    );
+    const localNetworkIds = params.networkIdList.filter(
+      (_, index) => isLocalWallet[index],
+    );
+    const [server, ...local] = await Promise.allSettled([
+      serverRequest,
+      ...localNetworkIds.map(async (networkId) => {
+        // Search runs this per keystroke; do not load a chain runtime for input that cannot be its address.
+        if (
+          !(await mayBeLocalWalletAddress({
+            networkId,
+            address: params.accountAddress,
+          }))
+        ) {
+          return undefined;
+        }
+        const validation = await this.localValidateAddress({
+          networkId,
+          address: params.accountAddress,
+        });
+        return validation.isValid ? networkId : undefined;
+      }),
+    ]);
+    const localMatches = local.flatMap((result) =>
+      result.status === 'fulfilled' && result.value ? [result.value] : [],
+    );
+    if (server.status === 'rejected' && localMatches.length === 0) {
+      throw server.reason;
+    }
+    const networkIds = [
+      ...(server.status === 'fulfilled'
+        ? server.value.networkIds.filter(
+            (networkId) => !localNetworkIds.includes(networkId),
+          )
+        : []),
+      ...localMatches,
+    ];
+    return { isValid: networkIds.length > 0, networkIds };
+  }
 
   @backgroundMethod()
   async localValidateAddress({

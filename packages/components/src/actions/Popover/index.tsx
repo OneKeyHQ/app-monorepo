@@ -14,6 +14,7 @@ import { withStaticProperties } from '@onekeyhq/components/src/shared/tamagui';
 
 import { useSafeAreaInsets } from '../../hooks';
 import { useDeferredGuideBlocker } from '../../hooks/useDeferredGuideBlocker';
+import { OVERLAY_SHEET_MAX_WIDTH } from '../../hooks/useOverlayWidthClass';
 import { ScrollView } from '../../layouts/ScrollView';
 import { SizableText, XStack, YStack } from '../../primitives';
 import { assertOverlayProps } from '../../shared/assertOverlayProps';
@@ -35,7 +36,7 @@ import type {
   IOverlayBackdrop,
   IOverlaySheetOptions,
 } from '@onekeyfe/react-native-native-overlay';
-import type { LayoutChangeEvent, View } from 'react-native';
+import type { LayoutChangeEvent, ViewInstance } from 'react-native';
 
 // Fit-mode sheets size their frame to the content, and the sheet only caps the
 // inner ScrollView at the full screen height, so a tall list plus the header
@@ -143,7 +144,7 @@ function RawPopover({
   const { height: viewportHeight } = useWindowDimensions();
   const isSheet = usingSheet && md;
   const level = useNestedOverlayLevel();
-  const triggerRef = useRef<View | null>(null);
+  const triggerRef = useRef<ViewInstance | null>(null);
   const panelRef = useRef<HTMLDivElement | null>(null);
   const [panel, setPanel] = useState<HTMLDivElement | null>(null);
   const handlePanelRef = useCallback((node: HTMLDivElement | null) => {
@@ -238,6 +239,7 @@ function RawPopover({
   const sheetOptions = useMemo<IOverlaySheetOptions>(
     () => ({
       height: percentSheetHeight,
+      maxWidth: OVERLAY_SHEET_MAX_WIDTH,
       cornerRadius: 0,
       showHandle: false,
       backgroundColor: 'transparent',

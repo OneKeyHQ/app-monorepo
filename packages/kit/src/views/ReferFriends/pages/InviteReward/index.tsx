@@ -31,7 +31,6 @@ import { useRedirectWhenNotLoggedIn } from '@onekeyhq/kit/src/views/ReferFriends
 import { useInviteLevelDetail } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/components/CurrentLevelCard/hooks/useCurrentLevelCard';
 import { getInviteEarningsState } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/components/getInviteEarningsState';
 import { InviteLevelPill } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/components/InviteLevelPill';
-import { InviteRewardSettingsButton } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/components/InviteRewardSettingsButton';
 import { InviteTabContent } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/components/InviteTabContent';
 import { useInviteValueSummary } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/components/InviteValueLine';
 import { LogoutButton } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/components/LogoutButton';
@@ -48,8 +47,8 @@ import {
   EReferralPageTab,
   type IReferralPageTab,
   IS_BENEFITS_TAB_ENABLED,
-  resolveReferralPageTab,
 } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/referralPageTab';
+import { useReferralPageTab } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/useReferralPageTab';
 import { useReferralTabSwitch } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/useReferralTabSwitch';
 import {
   getInviteCodeStepImageHeight,
@@ -104,12 +103,7 @@ const ReferralPageHeader = memo(function ReferralPageHeader({
     if (activeTab !== EReferralPageTab.invite) {
       return null;
     }
-    return (
-      <XStack gap="$2" ai="center">
-        <RulesButton />
-        <InviteRewardSettingsButton />
-      </XStack>
-    );
+    return <RulesButton />;
   }, [activeTab]);
 
   if (isCompactHeader) {
@@ -412,7 +406,7 @@ function InviteRewardPage() {
     params?: IInviteRewardRouteParams;
   }>();
   const isCompactHeader = platformEnv.isNative || md;
-  const activeTab = resolveReferralPageTab(route.params?.tab);
+  const activeTab = useReferralPageTab(route.params?.tab);
   const isInviteTab = activeTab === EReferralPageTab.invite;
   const { setActiveTab, openPerks, openInvite } =
     useReferralTabSwitch(activeTab);
@@ -638,7 +632,6 @@ function InviteRewardPage() {
                   ) : null}
                   <XStack gap="$4" ai="center">
                     <RulesButton />
-                    <InviteRewardSettingsButton />
                     {platformEnv.isWeb ? <LogoutButton /> : null}
                   </XStack>
                 </XStack>

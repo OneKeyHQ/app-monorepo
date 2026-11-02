@@ -104,6 +104,29 @@ it('clips the stock dot pattern under the curve and preserves the previous-close
   );
 });
 
+it('centers the previous-close tag on its axis badge, even when nudged', () => {
+  const tagAndBadge = (price: number) => {
+    const chart = scene({
+      showLastValue: true,
+      referenceLine: {
+        price,
+        color: '#aaa',
+        title: 'Previous close',
+        axisLabelVisible: true,
+      },
+    });
+    const [badge, tag] = chart.commands
+      .filter((c) => c.kind === 'rect')
+      .filter((c) => c.customPaintId === 'referenceLabel');
+    return { badge, tag };
+  };
+  for (const price of [102, 105.1]) {
+    const { badge, tag } = tagAndBadge(price);
+    expect(tag.y).toBe(badge.y);
+    expect(tag.height).toBe(badge.height);
+  }
+});
+
 it('preserves overlay-only timestamps, gaps, isolated points and hover values', () => {
   const chart = scene({
     secondaryLineData: [
@@ -212,6 +235,37 @@ it('draws a native scrub card and cuts only the solid overlay at the cursor', ()
   );
   expect(buildNativeChartCrosshair(chart, -1, 20).commands).toHaveLength(0);
 });
+
+it.each(['left', 'right'] as const)(
+  'keeps the scrub guide under the finger on the %s price scale',
+  (priceScalePosition) => {
+    const chart = scene({ priceScalePosition, hideCrosshairPriceLabel: true });
+    const point = chart.hoverPoints[1];
+    const scrub = {
+      labels: { 200: { time: 'selected point', price: '$110.00' } },
+      backgroundColor: '#fff',
+      borderColor: '#ddd',
+      textColor: '#000',
+      timeColor: '#888',
+      largePrice: false,
+    };
+    for (const x of [point.x - 4, point.x + 4]) {
+      const overlay = buildNativeChartCrosshair(chart, x, 100, scrub);
+      expect(overlay.commands).toContainEqual(
+        expect.objectContaining({ kind: 'line', x1: x, x2: x }),
+      );
+      expect(overlay.commands).toContainEqual(
+        expect.objectContaining({ kind: 'circle', cx: point.x, cy: point.y }),
+      );
+      expect(overlay.commands).toContainEqual(
+        expect.objectContaining({ kind: 'text', text: '$110.00' }),
+      );
+      expect(buildNativeChartCrosshair(chart, x, 100).commands).toContainEqual(
+        expect.objectContaining({ kind: 'line', x1: point.x, x2: point.x }),
+      );
+    }
+  },
+);
 
 it('localizes axis dates in the configured timezone including year boundaries', () => {
   const chart = scene({
@@ -423,4 +477,37 @@ it.each([
     c.kind === 'text' && c.font === 'priceAxis' ? [c.text] : [],
   );
   expect(labels.length).toBeLessThanOrEqual(1);
+});
+
+it('draws a curved line, area and overlay through every data point', () => {
+  const chart = scene({
+    lineType: 'curved',
+    seriesType: 'dotted-area',
+    secondaryLineData: config.data,
+  });
+  const stroke = chart.commands.find((c) => c.kind === 'polyline');
+  expect(stroke?.points.length).toBeGreaterThan(chart.points.length);
+  chart.points.forEach(({ x, y }) => {
+    expect(stroke?.points).toContainEqual(expect.objectContaining({ x, y }));
+  });
+  const clip = chart.commands.find((c) => c.kind === 'clipPolygon');
+  expect(clip?.points.slice(1, -1)).toEqual(stroke?.points);
+  expect(chart.secondarySegments[0]).toEqual(
+    stroke?.points.map(({ x, y }) => ({ x, y })),
+  );
+});
+
+it('leaves the hover dot to the pulse when asked', () => {
+  const chart = scene();
+  const point = chart.points[1];
+  const circles = (hideHoverDot?: boolean) =>
+    buildNativeChartCrosshair(
+      chart,
+      point.x,
+      100,
+      undefined,
+      hideHoverDot,
+    ).commands.filter((c) => c.kind === 'circle');
+  expect(circles()).toHaveLength(2);
+  expect(circles(true)).toHaveLength(0);
 });

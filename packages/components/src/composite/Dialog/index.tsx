@@ -29,7 +29,6 @@ import Animated, {
 } from 'react-native-reanimated';
 import { initialWindowMetrics } from 'react-native-safe-area-context';
 
-import { useMedia } from '@onekeyhq/components/src/hooks/useStyle';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors/errors/localError';
 import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import {
@@ -56,6 +55,7 @@ import {
 } from '../../hooks';
 import { useDeferredGuideBlocker } from '../../hooks/useDeferredGuideBlocker';
 import { useKeyboardAnimation } from '../../hooks/useKeyboardAnimation';
+import { useOverlayWidthClass } from '../../hooks/useOverlayWidthClass';
 import { usePageContext } from '../../layouts/Page/PageContext';
 import { ScrollView } from '../../layouts/ScrollView';
 import { SizableText, Spinner, Stack } from '../../primitives';
@@ -248,6 +248,21 @@ const HEADER_DRAG_ZONE_MIN_HEIGHT = 24;
  *
  * @returns The rendered dialog UI as a React element.
  */
+// Folding or resizing a window across the expanded width while a dialog is
+// open would swap sheet and card and remount its content, dropping input and
+// focus, so the presentation chosen when it opened holds until it closes.
+function useValueLatchedWhileOpen<T>(open: boolean, value: T): T {
+  const latchedRef = useRef(value);
+  const wasOpenRef = useRef(false);
+  if (open && !wasOpenRef.current) {
+    latchedRef.current = value;
+  }
+  wasOpenRef.current = open;
+  // Closing still renders the exit animation with the original presentation.
+  // Refresh only when the next open cycle starts.
+  return latchedRef.current;
+}
+
 function DialogFrame({
   open,
   onHeaderCloseButtonPress,
@@ -332,11 +347,16 @@ function DialogFrame({
     await onClose?.();
   }, [onClose, onHeaderCloseButtonPress]);
 
-  const media = useMedia();
   useDeferredGuideBlocker(Boolean(open));
   const { top: safeAreaTop, bottom: safeAreaBottom } = useSafeAreaInsets();
   const isNativeCentered = nativeCentered && platformEnv.isNative;
-  const useSheetPresentation = media.md && !isNativeCentered;
+  // Expanded windows center the dialog; narrower ones use a sheet, capped in
+  // width on medium windows (see useOverlayWidthClass).
+  const overlayWidthClass = useOverlayWidthClass();
+  const useSheetPresentation = useValueLatchedWhileOpen(
+    Boolean(open),
+    overlayWidthClass !== 'expanded' && !isNativeCentered,
+  );
   const centeredInset = Math.max(safeAreaTop, safeAreaBottom, 16);
 
   // Native OneKey login opt-in (OK-63232): cap + scroll inside the overlay

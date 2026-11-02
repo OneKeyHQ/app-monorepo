@@ -9,6 +9,7 @@ import {
 } from 'react';
 import type {
   CSSProperties,
+  ComponentProps,
   ForwardedRef,
   PropsWithChildren,
   ReactElement,
@@ -52,10 +53,15 @@ import type {
   DropResult,
 } from 'react-beautiful-dnd';
 import type {
-  CellRendererProps,
+  FlatListProps,
   ListRenderItem,
   ListRenderItemInfo,
 } from 'react-native';
+
+// `CellRendererProps` is no longer re-exported by react-native's strict API.
+type ICellRendererProps<T> = ComponentProps<
+  NonNullable<FlatListProps<T>['CellRendererComponent']>
+>;
 
 // eslint-disable-next-line unicorn/prefer-global-this
 if (typeof window !== 'undefined') {
@@ -133,7 +139,7 @@ function Item<T>({
 function CellContainer<T>({
   children,
   ...props
-}: Omit<CellRendererProps<T>, 'ref'> & {
+}: Omit<ICellRendererProps<T>, 'ref'> & {
   ref: RefObject<HTMLDivElement>;
 }) {
   const { ref, index, style } = props;

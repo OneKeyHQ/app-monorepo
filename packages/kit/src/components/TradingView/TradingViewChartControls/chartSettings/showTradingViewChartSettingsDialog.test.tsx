@@ -41,7 +41,7 @@ describe('showTradingViewChartSettingsDialog', () => {
       mockShowDialog.mock.calls[0][0].dialogContainer({
         ref: { current: null },
       }).props.hiddenOptionIds,
-    ).toEqual(['previousClose']);
+    ).toEqual(['previousClose', 'navigationButtons']);
   });
 
   it('lets custom settings content close its own dialog', () => {

@@ -140,7 +140,7 @@ function TradingPanelPreview({ compact = false }: { compact?: boolean }) {
 
 function ChartPositionPreview({ position }: { position: IPerpsChartPosition }) {
   return (
-    <YStack width="100%" height={104} gap="$2">
+    <YStack width="100%" height={112} gap="$2">
       {position === 'top' ? <MiniCandlestickChart /> : null}
       <TradingPanelPreview compact={position === 'hidden'} />
       {position === 'bottom' ? <MiniCandlestickChart /> : null}
@@ -165,37 +165,32 @@ function ChartPositionOption({
 
   return (
     <YStack
+      testID={PerpTestIDs.MobileChartPositionOption(position)}
+      accessibilityRole="radio"
+      accessibilityState={{ selected }}
       flexGrow={1}
       flexShrink={1}
       flexBasis={0}
       minWidth={0}
       gap="$2"
       alignItems="stretch"
+      cursor="pointer"
+      pressStyle={{ opacity: 0.6 }}
+      onPress={handlePress}
     >
       <YStack
-        testID={PerpTestIDs.MobileChartPositionOption(position)}
-        accessibilityRole="radio"
-        accessibilityState={{ selected }}
-        height={128}
-        px="$2"
-        py="$1.5"
-        justifyContent="center"
-        borderRadius="$3"
+        p="$2"
+        borderRadius="$2"
         borderWidth="$px"
         borderColor={selected ? '$borderActive' : '$borderSubdued'}
         backgroundColor="$bgApp"
-        cursor="default"
-        onPress={handlePress}
       >
         <ChartPositionPreview position={position} />
       </YStack>
       <SizableText
         size="$bodySmMedium"
-        color="$text"
+        color={selected ? '$text' : '$textSubdued'}
         textAlign="center"
-        numberOfLines={1}
-        cursor="default"
-        onPress={handlePress}
       >
         {label}
       </SizableText>
@@ -300,7 +295,8 @@ export function PerpPositionActionsSettingsContent() {
 
 export function PerpLayoutSettingsContent({
   onOpenPositionActions,
-}: { onOpenPositionActions?: () => void } = {}) {
+  showChartPosition = true,
+}: { onOpenPositionActions?: () => void; showChartPosition?: boolean } = {}) {
   const copy = useLayoutSettingsCopy();
   const [perpsCustomSettings, setPerpsCustomSettings] =
     usePerpsCustomSettingsAtom();
@@ -317,43 +313,54 @@ export function PerpLayoutSettingsContent({
   );
 
   return (
-    <YStack testID={PerpTestIDs.MobileLayoutSettingsPage} width="100%">
+    <YStack
+      testID={PerpTestIDs.MobileLayoutSettingsPage}
+      width="100%"
+      px="$5"
+      pt="$2"
+      pb="$3"
+      gap="$2"
+    >
       <XStack
-        px="$5"
-        py="$4"
+        minHeight="$11"
         gap="$3"
         alignItems="center"
+        accessibilityRole="button"
+        accessibilityLabel={copy.positionActionsTitle}
+        pressStyle={{ opacity: 0.6 }}
         onPress={onOpenPositionActions}
         cursor="pointer"
         testID={PerpTestIDs.PositionActionsSettingsButton}
       >
-        <SizableText size="$bodyLgMedium" flex={1}>
+        <SizableText size="$bodyMdMedium" flex={1}>
           {copy.positionActionsTitle}
         </SizableText>
         <Icon name="ChevronRightOutline" size="$4" color="$iconSubdued" />
       </XStack>
-      <YStack px="$5" pt="$2" pb="$6" gap="$3">
-        <SizableText size="$bodyLgMedium" color="$text">
-          {copy.sectionTitle}
-        </SizableText>
-        <XStack
-          testID={PerpTestIDs.MobileChartPositionControl}
-          accessibilityRole="radiogroup"
-          width="100%"
-          gap="$3.5"
-          overflow="hidden"
-        >
-          {CHART_POSITION_OPTIONS.map((position) => (
-            <ChartPositionOption
-              key={position}
-              position={position}
-              label={copy.optionLabels[position]}
-              selected={selectedPosition === position}
-              onSelect={handleSelect}
-            />
-          ))}
-        </XStack>
-      </YStack>
+      {showChartPosition ? (
+        <YStack gap="$3">
+          <SizableText size="$bodyMdMedium" color="$text">
+            {copy.sectionTitle}
+          </SizableText>
+          <XStack
+            testID={PerpTestIDs.MobileChartPositionControl}
+            accessibilityRole="radiogroup"
+            width="100%"
+            gap="$2.5"
+            overflow="hidden"
+          >
+            {CHART_POSITION_OPTIONS.map((position) => (
+              <ChartPositionOption
+                key={position}
+                position={position}
+                label={copy.optionLabels[position]}
+                selected={selectedPosition === position}
+                onSelect={handleSelect}
+              />
+            ))}
+          </XStack>
+        </YStack>
+      ) : null}
     </YStack>
   );
 }

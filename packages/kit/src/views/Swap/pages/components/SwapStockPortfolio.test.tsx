@@ -10,13 +10,12 @@ import type {
 } from '@onekeyhq/shared/types/marketV2';
 import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 
-import {
-  SwapStockMyPosition,
-  SwapStockPortfolioProvider,
-} from './SwapStockPortfolio';
+import { SwapStockMyPosition } from './SwapStockPortfolio';
 
 let mockLargeLayout = true;
 let mockSelectionPending = false;
+let mockDisplayStockId = 'TSM';
+let mockDisplayVariants: IMarketStockTokenVariant[] | undefined;
 let mockItems: IMarketAccountPortfolioDisplayItem[] = [];
 let mockTokens: ISwapToken[] = [];
 let mockVariants: IMarketStockTokenVariant[] = [];
@@ -28,6 +27,9 @@ const mockSelectVariant = jest.fn<
 
 jest.mock('react-intl', () => ({
   useIntl: () => ({ formatMessage: ({ id }: { id: string }) => id }),
+}));
+jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => ({
+  useCurrencyPersistAtom: () => [{ currencyMap: {} }],
 }));
 jest.mock('@onekeyhq/components', () => {
   const Stack = ({
@@ -73,21 +75,28 @@ jest.mock(
     useStockDetail: () => ({ stockId: 'TSM', tokenVariants: mockVariants }),
   }),
 );
-jest.mock('../../hooks/useSwapStockPortfolioData', () => ({
-  useSwapStockPortfolioData: () => ({
-    positionListData: mockItems,
-    hasAccount: true,
-    isRefreshing: false,
-  }),
-}));
 jest.mock('./SwapStockPositions', () => ({
-  useSwapStockPositions: () => ({ positionTokenList: mockTokens }),
+  useSwapStockPositions: () => ({
+    positionTokenList: mockTokens,
+    portfolio: {
+      positionListData: mockItems,
+      hasAccount: true,
+      isRefreshing: false,
+    },
+    displayPortfolio: {
+      positionListData: mockItems,
+      hasAccount: true,
+      isRefreshing: false,
+    },
+  }),
 }));
 jest.mock('./SwapStockMarketProvider', () => ({
   useSwapStockSelection: () => ({
     selectToken: mockSelectToken,
     selectVariant: mockSelectVariant,
     stockSelectionPending: mockSelectionPending,
+    displayStockId: mockDisplayStockId,
+    displayTokenVariants: mockDisplayVariants ?? mockVariants,
   }),
 }));
 jest.mock('./SwapSmoothReveal', () => ({
@@ -125,17 +134,15 @@ const item: IMarketAccountPortfolioDisplayItem = {
 };
 
 function renderPosition() {
-  return render(
-    <SwapStockPortfolioProvider>
-      <SwapStockMyPosition />
-    </SwapStockPortfolioProvider>,
-  );
+  return render(<SwapStockMyPosition />);
 }
 
 describe('SwapStockMyPosition selection', () => {
   beforeEach(() => {
     mockLargeLayout = true;
     mockSelectionPending = false;
+    mockDisplayStockId = 'TSM';
+    mockDisplayVariants = undefined;
     mockItems = [item, { ...item, networkId: 'evm--1', amount: '3' }];
     mockTokens = [{ ...token, networkId: 'evm--1' }, token];
     mockVariants = [variant, { ...variant, networkId: 'evm--1' }];
@@ -143,11 +150,54 @@ describe('SwapStockMyPosition selection', () => {
     mockSelectVariant.mockReset().mockResolvedValue(true);
   });
 
-  it('does not show the committed company holdings under a pending company header', () => {
+  it('keeps the display-scoped holdings visible while the trade token is pending', () => {
     mockSelectionPending = true;
     const screen = renderPosition();
-    expect(screen.queryByText(item.amount)).toBeNull();
+    expect(screen.getAllByRole('button')).toHaveLength(2);
+  });
+
+  it.each([
+    ['', true],
+    ['', false],
+    ['NaN', true],
+    ['NaN', false],
+  ] as const)(
+    'retains the positive Stock row with unavailable value %s (large=%s)',
+    (totalPrice, large) => {
+      mockLargeLayout = large;
+      mockItems = [{ ...item, totalPrice }];
+      const screen = renderPosition();
+      expect(screen.getByRole('button').textContent).toContain('--');
+      expect(screen.getByRole('button').textContent).not.toContain('NaN');
+    },
+  );
+
+  it('collapses a genuinely empty display portfolio while selection is pending', () => {
+    mockSelectionPending = true;
+    mockItems = [];
+    const screen = renderPosition();
     expect(screen.queryByRole('button')).toBeNull();
+    expect(screen.queryByText('dexmarket_details_myposition')).toBeNull();
+  });
+
+  it('never backfills the old company identity into a preview holding', () => {
+    mockSelectionPending = true;
+    mockDisplayStockId = 'GOOGL';
+    const google = { ...token, symbol: 'GOOGLB', contractAddress: '0xGOOGLE' };
+    mockTokens = [google];
+    mockItems = [
+      { ...item, symbol: google.symbol, tokenAddress: google.contractAddress },
+    ];
+    mockDisplayVariants = [
+      { ...variant, contractAddress: google.contractAddress },
+    ];
+    const screen = renderPosition();
+    fireEvent.click(screen.getAllByRole('button')[0]);
+    expect(mockSelectToken).toHaveBeenCalledWith({
+      ...google,
+      stock: { ...google.stock, stockId: 'GOOGL' },
+    });
+    expect(mockSelectVariant).not.toHaveBeenCalled();
   });
 
   it.each([true, false])(

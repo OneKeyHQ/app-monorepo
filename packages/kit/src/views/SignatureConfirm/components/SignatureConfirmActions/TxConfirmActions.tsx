@@ -1216,8 +1216,24 @@ function TxConfirmActions(props: IProps) {
     customRpcStatus?.useDefaultRpcOnce,
   ]);
 
+  const unsignedTxsRef = useRef(unsignedTxs);
+  unsignedTxsRef.current = unsignedTxs;
   usePageUnMounted(() => {
     if (!isSubmitted.current) {
+      // Inputs the build reserved (Zcash) would otherwise stay locked for
+      // the reservation's whole lifetime. Only local-wallet chains reserve;
+      // settings still loading keeps the call.
+      if (!vaultSettings || vaultSettings.localWallet) {
+        void backgroundApiProxy.serviceSend
+          .releaseUnsignedTxs({
+            networkId,
+            accountId,
+            unsignedTxs: unsignedTxsRef.current,
+          })
+          .catch((error: unknown) => {
+            console.error('releaseUnsignedTxs failed', error);
+          });
+      }
       onCancelOnce();
     }
   });

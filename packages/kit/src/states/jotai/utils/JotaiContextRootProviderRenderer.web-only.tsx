@@ -103,12 +103,16 @@ const SwapRootProviderLazy = LazyLoad<IProviderWithoutProps>(async () => {
   };
 });
 
-const SwapModalRootProviderLazy = LazyLoad<IProviderWithoutProps>(async () => {
+const SwapModalRootProviderLazy = LazyLoad<{
+  storeName: EJotaiContextStoreNames;
+}>(async () => {
   const { SwapModalRootProvider } =
     await import('../../../views/Swap/pages/SwapRootProvider');
   return {
-    default: function SwapModalRootProviderLazyImpl() {
-      return <SwapModalRootProvider />;
+    default: function SwapModalRootProviderLazyImpl(props: {
+      storeName: EJotaiContextStoreNames;
+    }) {
+      return <SwapModalRootProvider {...props} />;
     },
   };
 });
@@ -185,8 +189,12 @@ function JotaiContextRootProviderRendererCmp({
             }
             return <SwapRootProviderLazy key={key} />;
           }
-          case EJotaiContextStoreNames.swapModal: {
-            return <SwapModalRootProviderLazy key={key} />;
+          case EJotaiContextStoreNames.swapModal:
+          case EJotaiContextStoreNames.swapHomeMore:
+          case EJotaiContextStoreNames.swapHomeToken: {
+            return (
+              <SwapModalRootProviderLazy key={key} storeName={storeName} />
+            );
           }
           case EJotaiContextStoreNames.swapTokenSelector:
           case EJotaiContextStoreNames.marketSwap:

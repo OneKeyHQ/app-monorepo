@@ -1,3 +1,4 @@
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IMarketTokenKLineDataPoint } from '@onekeyhq/shared/types/marketV2';
 
 import {
@@ -10,43 +11,148 @@ import { getTradingViewNativePriceAtProgress } from '../utils/priceScale';
 
 import { ADDITIONAL_DRAWING_TOOLS } from './additionalTools';
 
+import type { IDrawingCanvasText } from './drawingText';
 import type { ITradingViewNativeChartLayout } from '../utils/chartLayout';
 import type { ITradingViewNativeChartRuntimeViewport } from '../utils/chartRuntime';
 
 export const DRAWING_TOOLS = {
-  trend: { label: 'Trend Line', group: 'Lines', points: 2 },
-  ray: { label: 'Ray', group: 'Lines', points: 2 },
-  extended: { label: 'Extended Line', group: 'Lines', points: 2 },
-  horizontal: { label: 'Horizontal Line', group: 'Lines', points: 1 },
-  horizontalRay: { label: 'Horizontal Ray', group: 'Lines', points: 1 },
-  vertical: { label: 'Vertical Line', group: 'Lines', points: 1 },
-  cross: { label: 'Cross Line', group: 'Lines', points: 1 },
-  arrow: { label: 'Arrow', group: 'Lines', points: 2 },
-  info: { label: 'Info Line', group: 'Lines', points: 2 },
-  angle: { label: 'Trend Angle', group: 'Lines', points: 2 },
-  channel: { label: 'Parallel Channel', group: 'Lines', points: 3 },
-  fib: { label: 'Fib Retracement', group: 'Fibonacci', points: 2 },
+  trend: {
+    labelId: ETranslations.market_drawing_tool_trend__title,
+    group: 'Lines',
+    points: 2,
+  },
+  ray: {
+    labelId: ETranslations.market_drawing_tool_ray__title,
+    group: 'Lines',
+    points: 2,
+  },
+  extended: {
+    labelId: ETranslations.market_drawing_tool_extended__title,
+    group: 'Lines',
+    points: 2,
+  },
+  horizontal: {
+    labelId: ETranslations.market_drawing_tool_horizontal__title,
+    group: 'Lines',
+    points: 1,
+  },
+  horizontalRay: {
+    labelId: ETranslations.market_drawing_tool_horizontal_ray__title,
+    group: 'Lines',
+    points: 1,
+  },
+  vertical: {
+    labelId: ETranslations.market_drawing_tool_vertical__title,
+    group: 'Lines',
+    points: 1,
+  },
+  cross: {
+    labelId: ETranslations.market_drawing_tool_cross__title,
+    group: 'Lines',
+    points: 1,
+  },
+  arrow: {
+    labelId: ETranslations.market_drawing_tool_arrow__title,
+    group: 'Lines',
+    points: 2,
+  },
+  info: {
+    labelId: ETranslations.market_drawing_tool_info__title,
+    group: 'Lines',
+    points: 2,
+  },
+  angle: {
+    labelId: ETranslations.market_drawing_tool_angle__title,
+    group: 'Lines',
+    points: 2,
+  },
+  channel: {
+    labelId: ETranslations.market_drawing_tool_channel__title,
+    group: 'Lines',
+    points: 3,
+  },
+  fib: {
+    labelId: ETranslations.market_drawing_tool_fib__title,
+    group: 'Fibonacci',
+    points: 2,
+  },
   fibExtension: {
-    label: 'Trend-Based Fib Extension',
+    labelId: ETranslations.market_drawing_tool_fib_extension__title,
     group: 'Fibonacci',
     points: 3,
   },
-  fibChannel: { label: 'Fib Channel', group: 'Fibonacci', points: 3 },
-  fibFan: { label: 'Fib Speed Resistance Fan', group: 'Fibonacci', points: 2 },
-  fibTime: { label: 'Fib Time Zone', group: 'Fibonacci', points: 2 },
-  rectangle: { label: 'Rectangle', group: 'Shapes', points: 2 },
-  ellipse: { label: 'Ellipse', group: 'Shapes', points: 2 },
-  triangle: { label: 'Triangle', group: 'Shapes', points: 3 },
-  brush: { label: 'Brush', group: 'Brushes', points: 2 },
-  highlighter: { label: 'Highlighter', group: 'Brushes', points: 2 },
-  text: { label: 'Text', group: 'Text', points: 1 },
-  callout: { label: 'Callout', group: 'Text', points: 2 },
-  priceLabel: { label: 'Price Label', group: 'Text', points: 1 },
-  measure: { label: 'Measure', group: 'Measure', points: 2 },
-  priceRange: { label: 'Price Range', group: 'Measure', points: 2 },
-  dateRange: { label: 'Date Range', group: 'Measure', points: 2 },
+  fibChannel: {
+    labelId: ETranslations.market_drawing_tool_fib_channel__title,
+    group: 'Fibonacci',
+    points: 3,
+  },
+  fibFan: {
+    labelId: ETranslations.market_drawing_tool_fib_fan__title,
+    group: 'Fibonacci',
+    points: 2,
+  },
+  fibTime: {
+    labelId: ETranslations.market_drawing_tool_fib_time__title,
+    group: 'Fibonacci',
+    points: 2,
+  },
+  rectangle: {
+    labelId: ETranslations.market_drawing_tool_rectangle__title,
+    group: 'Shapes',
+    points: 2,
+  },
+  ellipse: {
+    labelId: ETranslations.market_drawing_tool_ellipse__title,
+    group: 'Shapes',
+    points: 2,
+  },
+  triangle: {
+    labelId: ETranslations.market_drawing_tool_triangle__title,
+    group: 'Shapes',
+    points: 3,
+  },
+  brush: {
+    labelId: ETranslations.market_drawing_tool_brush__title,
+    group: 'Brushes',
+    points: 2,
+  },
+  highlighter: {
+    labelId: ETranslations.market_drawing_tool_highlighter__title,
+    group: 'Brushes',
+    points: 2,
+  },
+  text: {
+    labelId: ETranslations.market_drawing_tool_text__title,
+    group: 'Text',
+    points: 1,
+  },
+  callout: {
+    labelId: ETranslations.market_drawing_tool_callout__title,
+    group: 'Text',
+    points: 2,
+  },
+  priceLabel: {
+    labelId: ETranslations.market_drawing_tool_price_label__title,
+    group: 'Text',
+    points: 1,
+  },
+  measure: {
+    labelId: ETranslations.market_drawing_tool_measure__title,
+    group: 'Measure',
+    points: 2,
+  },
+  priceRange: {
+    labelId: ETranslations.market_drawing_tool_price_range__title,
+    group: 'Measure',
+    points: 2,
+  },
+  dateRange: {
+    labelId: ETranslations.market_drawing_tool_date_range__title,
+    group: 'Measure',
+    points: 2,
+  },
   datePriceRange: {
-    label: 'Date and Price Range',
+    labelId: ETranslations.market_drawing_tool_date_price_range__title,
     group: 'Measure',
     points: 2,
   },
@@ -66,7 +172,25 @@ export const DRAWING_TOOLBAR_GROUPS = [
   'Measure',
 ] as const;
 
-export function getDrawingToolbarGroup(tool: IDrawingTool) {
+export type IDrawingToolbarGroup = (typeof DRAWING_TOOLBAR_GROUPS)[number];
+
+export const DRAWING_TOOLBAR_GROUP_LABEL_IDS: Record<
+  IDrawingToolbarGroup,
+  ETranslations
+> = {
+  Lines: ETranslations.market_drawing_lines__title,
+  Fibonacci: ETranslations.market_drawing_fibonacci__title,
+  Patterns: ETranslations.market_drawing_patterns__title,
+  Forecasting: ETranslations.market_drawing_forecasting__title,
+  Shapes: ETranslations.market_drawing_shapes__title,
+  Text: ETranslations.market_drawing_tool_text__title,
+  Icons: ETranslations.market_drawing_tool_icon__title,
+  Measure: ETranslations.market_drawing_tool_measure__title,
+};
+
+export function getDrawingToolbarGroup(
+  tool: IDrawingTool,
+): IDrawingToolbarGroup {
   const group = DRAWING_TOOLS[tool].group;
   if (group === 'Pitchforks') return 'Lines';
   if (group === 'Gann') return 'Fibonacci';
@@ -121,6 +245,14 @@ export type IDrawingStyle = {
     | 'arrowUp'
     | 'arrowDown';
 };
+export const DRAWING_DASH_LABEL_IDS: Record<
+  IDrawingStyle['dash'],
+  ETranslations
+> = {
+  solid: ETranslations.market_chart_settings__solid_line,
+  dashed: ETranslations.market_chart_indicator_dashed_line__label,
+  dotted: ETranslations.market_chart_settings__dotted_line,
+};
 export type IDrawingVolumeBin = {
   low: number;
   high: number;
@@ -150,6 +282,8 @@ export type IDrawingProjection = {
   priceDecimalPlaces?: number;
   size?: { width: number; height: number };
   showPriceAxis?: boolean;
+  // Canvas copy is translated on the JS thread; native labels render in worklets.
+  text?: IDrawingCanvasText;
 };
 
 export const DEFAULT_DRAWING_FONT_SIZE = 12;

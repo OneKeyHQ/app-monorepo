@@ -3,8 +3,8 @@ import {
   findOverflowAncestorFromLocalNode,
   findScrollableAncestorFromLocalNode,
   isChipFullyVisible,
+  isProtocolVisible,
   shouldQueueProtocolNavigation,
-  shouldReleasePinLock,
 } from '../defiDesktopStickyDom';
 
 type IFakeElement = HTMLElement & {
@@ -194,42 +194,131 @@ describe('defiDesktopStickyDom', () => {
         }),
       ).toBe('visible');
     });
+
+    it('advances through multiple unreachable tail cards in both directions', () => {
+      const getActive = (scrollTop: number) =>
+        findActiveProtocolKey({
+          stickyLine: 215,
+          scrollMetrics: { scrollTop, maxScroll: 4620, viewportBottom: 1240 },
+          // Deliberately not in visual order: registration can be asynchronous.
+          candidates: [
+            {
+              key: 'last',
+              top: 4990 + 215 - scrollTop,
+              bottom: 4990 + 445 - scrollTop,
+              width: 100,
+            },
+            {
+              key: 'first',
+              top: 4300 + 215 - scrollTop,
+              bottom: 4300 + 615 - scrollTop,
+              width: 100,
+            },
+            {
+              key: 'middle',
+              top: 4735 + 215 - scrollTop,
+              bottom: 4735 + 450 - scrollTop,
+              width: 100,
+            },
+          ],
+        });
+
+      expect([4300, 4410, 4520, 4619.5, 4410, 4300].map(getActive)).toEqual([
+        'first',
+        'middle',
+        'last',
+        'last',
+        'middle',
+        'first',
+      ]);
+    });
+
+    it('advances through visible cards when none can reach the sticky line', () => {
+      const getActive = (scrollTop: number) =>
+        findActiveProtocolKey({
+          stickyLine: 100,
+          scrollMetrics: { scrollTop, maxScroll: 1000, viewportBottom: 800 },
+          candidates: [1100, 1200, 1300].map((trigger, index) => ({
+            key: ['first', 'middle', 'last'][index],
+            top: trigger + 100 - scrollTop,
+            bottom: trigger + 180 - scrollTop,
+            width: 100,
+          })),
+        });
+
+      expect([400, 401, 610, 810, 1000, 610, 401].map(getActive)).toEqual([
+        undefined,
+        'first',
+        'middle',
+        'last',
+        'last',
+        'middle',
+        'first',
+      ]);
+    });
+
+    it('keeps the visible card when an unreachable last card is below the viewport', () => {
+      expect(
+        findActiveProtocolKey({
+          stickyLine: 100,
+          scrollMetrics: {
+            scrollTop: 1000,
+            maxScroll: 1000,
+            viewportBottom: 800,
+          },
+          candidates: [
+            { key: 'visible', top: 200, bottom: 280, width: 100 },
+            { key: 'below', top: 900, bottom: 980, width: 100 },
+          ],
+        }),
+      ).toBe('visible');
+    });
+
+    it('does not activate an off-screen or hidden tail card', () => {
+      expect(
+        findActiveProtocolKey({
+          stickyLine: 100,
+          scrollMetrics: {
+            scrollTop: 1000,
+            maxScroll: 1000,
+            viewportBottom: 500,
+          },
+          candidates: [
+            { key: 'visible', top: 90, bottom: 250, width: 100 },
+            { key: 'hidden', top: 120, bottom: 200, width: 0 },
+            { key: 'below', top: 600, bottom: 700, width: 100 },
+          ],
+        }),
+      ).toBe('visible');
+    });
+
+    it('does not use the tail rule when the page cannot scroll', () => {
+      expect(
+        findActiveProtocolKey({
+          stickyLine: 100,
+          scrollMetrics: { scrollTop: 0, maxScroll: 0, viewportBottom: 500 },
+          candidates: [
+            { key: 'first', top: 90, bottom: 200, width: 100 },
+            { key: 'last', top: 150, bottom: 200, width: 100 },
+          ],
+        }),
+      ).toBe('first');
+    });
   });
 
-  describe('shouldReleasePinLock', () => {
-    it('releases when the pin candidate has caught up to the click target', () => {
-      // Smooth scroll has landed: the pin tracker's natural read agrees
-      // with what the chip click asked for. Safe to lift the lock.
-      expect(
-        shouldReleasePinLock({ candidate: 'target', target: 'target' }),
-      ).toBe(true);
-    });
-
-    it('keeps the lock while the scroll is still mid-flight on a previous protocol', () => {
-      // The previous bug: a fixed-time release would lift the lock here
-      // and let the strip flicker to "previous" before the scroll lands
-      // on "target". Condition-based release waits for the match.
-      expect(
-        shouldReleasePinLock({ candidate: 'previous', target: 'target' }),
-      ).toBe(false);
-    });
-
-    it('keeps the lock while the pin tracker has no candidate yet', () => {
-      // Scroll has moved past the last protocol or the tab is unfocused;
-      // the lock is held until either the candidate appears as the
-      // target or the safety timer in the caller fires.
-      expect(shouldReleasePinLock({ candidate: null, target: 'target' })).toBe(
-        false,
-      );
-    });
-
-    it('returns false when no lock is in effect (target null)', () => {
-      // The caller can invoke this unconditionally; a null target is the
-      // "no lock" sentinel and must never trigger a release.
-      expect(
-        shouldReleasePinLock({ candidate: 'anything', target: null }),
-      ).toBe(false);
-    });
+  it('treats a rearranged protocol as invisible outside the unobscured viewport', () => {
+    const candidate = { key: 'selected', top: 500, bottom: 600, width: 100 };
+    const viewport = { stickyLine: 100, viewportBottom: 800 };
+    expect(isProtocolVisible({ ...candidate, ...viewport })).toBe(true);
+    expect(isProtocolVisible({ ...candidate, ...viewport, top: 800 })).toBe(
+      false,
+    );
+    expect(isProtocolVisible({ ...candidate, ...viewport, bottom: 100 })).toBe(
+      false,
+    );
+    expect(isProtocolVisible({ ...candidate, ...viewport, width: 0 })).toBe(
+      false,
+    );
   });
 
   describe('shouldQueueProtocolNavigation', () => {

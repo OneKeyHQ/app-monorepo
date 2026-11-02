@@ -11,6 +11,7 @@ import {
   StakeProgress,
 } from '@onekeyhq/kit/src/views/Staking/components/StakeProgress';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { BorrowTestIDs } from '../../../testIDs';
 import { showLiquidationRiskDialog } from '../../showLiquidationRiskDialog';
@@ -28,6 +29,7 @@ const ACTION_LABEL_MAP: Record<IBorrowActionType, ETranslations> = {
 export function ActionFooter({
   isInModalContext: isInModalContextProp,
   beforeFooter,
+  isAmountFocused,
 }: IActionFooterProps) {
   const intl = useIntl();
   const { state, actions, actionResult, approval } = useManagePositionContext();
@@ -214,11 +216,18 @@ export function ActionFooter({
             ) : null}
             {footerContent}
           </Stack>
-          <PercentageStageOnKeyboard
-            onSelectPercentageStage={
-              isFormInteractionLocked ? undefined : onSelectPercentageStage
-            }
-          />
+          {platformEnv.isNativeIOSPhone ? null : (
+            <PercentageStageOnKeyboard
+              isAmountFocused={
+                Boolean(isAmountFocused) &&
+                !isDisabled &&
+                !isFormInteractionLocked
+              }
+              onSelectPercentageStage={
+                isFormInteractionLocked ? undefined : onSelectPercentageStage
+              }
+            />
+          )}
         </Page.Footer>
       ) : (
         <YStack bg="$bgApp" gap="$5">

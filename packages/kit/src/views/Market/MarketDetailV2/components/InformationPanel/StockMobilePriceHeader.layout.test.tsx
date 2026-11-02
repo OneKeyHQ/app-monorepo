@@ -95,7 +95,7 @@ it('keeps header geometry while waiting for the initial price mode', () => {
   const { rerender } = render(<StockMobilePriceHeader />);
   const header = screen.getByTestId('stock-mobile-price-header');
   const statusRow = screen.getByTestId('stock-mobile-market-status-row');
-  expect(statusRow.style.minHeight).toBe('20px');
+  expect(statusRow.style.minHeight).toBe('16px');
   expect(screen.queryByText('100')).toBeNull();
   expect(screen.queryByText('Market closed')).toBeNull();
 
@@ -103,7 +103,7 @@ it('keeps header geometry while waiting for the initial price mode', () => {
   rerender(<StockMobilePriceHeader />);
   expect(screen.getByTestId('stock-mobile-price-header')).toBe(header);
   expect(screen.getByTestId('stock-mobile-market-status-row')).toBe(statusRow);
-  expect(statusRow.style.minHeight).toBe('20px');
+  expect(statusRow.style.minHeight).toBe('16px');
   expect(screen.getByText('100')).toBeTruthy();
   expect(screen.getByText('Market closed')).toBeTruthy();
 });

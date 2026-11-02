@@ -322,16 +322,9 @@ interface IFetchSwapQuoteBaseParams {
   protocol: string;
 }
 
-export type ISwapTokenSearchNetwork = {
-  networkId: string;
-  lpToken?: boolean;
-};
-
 export interface IFetchTokensParams {
   protocol?: string;
   networkId?: string;
-  contractSearchNetworkId?: string;
-  searchNetworks?: ISwapTokenSearchNetwork[];
   searchRequestId?: string;
   keywords?: string;
   limit?: number;

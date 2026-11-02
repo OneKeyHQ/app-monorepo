@@ -16,6 +16,7 @@ import {
   Stack,
   XStack,
   YStack,
+  resetScanModalRoute,
 } from '@onekeyhq/components';
 import type { IDialogInstance, ILottieViewProps } from '@onekeyhq/components';
 import type { IShowToasterInstance } from '@onekeyhq/components/src/actions/Toast/ShowCustom';
@@ -35,7 +36,7 @@ import {
   useThirdPartyBleBindingAtom,
   useThirdPartyHardwareUiStateAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import { airGapUrUtils } from '@onekeyhq/qr-wallet-sdk';
+import { OneKeyErrorScanQrCodeCancel } from '@onekeyhq/shared/src/errors';
 import { EThirdPartyDevicePermissionDeniedReason } from '@onekeyhq/shared/src/errors/errors/thirdPartyHardwareErrors';
 import {
   EAppEventBusNames,
@@ -45,6 +46,10 @@ import { getVendorProfile } from '@onekeyhq/shared/src/hardware/config/vendorPro
 import { isLegacyHardwareUiActive } from '@onekeyhq/shared/src/hardware/deviceStageOwnership';
 import { TREZOR_THP_APP_NAME } from '@onekeyhq/shared/src/hardware/trezorThpIdentity';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import {
+  getCurrentVisibilityState,
+  onVisibilityStateChange,
+} from '@onekeyhq/shared/src/utils/appVisibility';
 import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 import { EQRCodeHandlerNames } from '@onekeyhq/shared/types/qrCode';
 
@@ -55,7 +60,6 @@ import {
   RequireBlePermissionDialog,
 } from '../../../components/Hardware/HardwareDialog';
 import { showThirdPartyDeviceSelectionDialog } from '../../../components/Hardware/ThirdPartyDeviceSelectionDialog';
-import { SecureQRToast } from '../../../components/SecureQRToast';
 import { useThemeVariant } from '../../../hooks/useThemeVariant';
 import useScanQrCodeLazy from '../../../views/ScanQrCode/hooks/useScanQrCodeLazy';
 import { yieldDeviceStageToDialog } from '../DeviceStageContainer/waitForDeviceStageExit';
@@ -261,13 +265,14 @@ function InstallAppDialogContent() {
       if (vendor) {
         await backgroundApiProxy.serviceHardware.thirdPartyHardwareCancel({
           vendor,
+          ...(state?.operationId ? { connectId: state.operationId } : {}),
         });
       }
     } finally {
       await thirdPartyAppInstallAtom.set(undefined);
       await thirdPartyBatchInstallAtom.set(undefined);
     }
-  }, [vendor]);
+  }, [vendor, state?.operationId]);
 
   if (!appName && !inBatch) {
     return null;
@@ -619,6 +624,14 @@ function getDialogContent(
         ),
         showFooter: true,
       };
+    case EThirdPartyHardwareUiAction.requestKeystoneQrFallbackConfirm:
+      return {
+        title: intl.formatMessage({ id: ETranslations.qr_connection_cta }),
+        message: intl.formatMessage({
+          id: ETranslations.hardware_third_party_qr_fallback__desc,
+        }),
+        showFooter: true,
+      };
     case EThirdPartyHardwareUiAction.requestTrezorThpPairing:
       return {
         title: intl.formatMessage({
@@ -905,7 +918,12 @@ function ThirdPartyHardwareUiStateContainerCmp() {
               },
             )
           : backgroundApiProxy.serviceThirdPartyHardware.thirdPartyHardwareCancel(
-              { vendor },
+              {
+                vendor,
+                ...(expectedState?.operationId
+                  ? { connectId: expectedState.operationId }
+                  : {}),
+              },
             );
         void cancelRequest.finally(clearExpectedState);
       } else {
@@ -926,6 +944,7 @@ function ThirdPartyHardwareUiStateContainerCmp() {
     const callbacks = createThirdPartyDeviceSelectionDialogCallbacks({
       vendor,
       requestId: selection?.requestId,
+      operationId: expectedState?.operationId,
       dialogInstanceRef: localDialogRef,
       settledRef,
       uiResponse: (requestParams) =>
@@ -985,150 +1004,96 @@ function ThirdPartyHardwareUiStateContainerCmp() {
     };
   }, [intl, isThirdPartyDeviceSelection, uiState]);
 
-  // Keystone QR round trip: not a generic Dialog action, since it needs
-  // animated-QR display and camera-scan, not title/message/footer. Like Trezor's THP pairing, the SDK blocks in hw.on() until uiResponse() is called.
+  // Every viewport may wake the request; bg deduplicates it and answers the SDK.
   const { start: startKeystoneQrScan } = useScanQrCodeLazy();
-
   useEffect(() => {
-    if (!isKeystoneQr) {
-      return;
-    }
-    const vendor = uiState?.vendor;
-    const action = uiState?.action;
-    const { urType, urData } = uiState?.payload ?? {};
-    if (!vendor || !action) {
-      return;
-    }
-    const expectedState = uiState;
-    let isSettled = false;
+    const uiRequestId = uiState?.uiRequestId;
+    if (!isKeystoneQr || !uiRequestId) return;
+    const wake = () => {
+      void backgroundApiProxy.serviceThirdPartyHardware
+        .handleKeystoneQrRequest({ uiRequestId })
+        .catch(() => undefined);
+    };
+    const unsubscribe = onVisibilityStateChange((visible) => {
+      if (visible) wake();
+    });
+    wake();
+    return unsubscribe;
+  }, [isKeystoneQr, uiState?.uiRequestId]);
 
-    const clearExpectedState = async () => {
-      const cleared = await clearThirdPartyHardwareUiStateIfCurrent({
-        expectedState,
-        clearInBackground: (params) =>
-          backgroundApiProxy.serviceThirdPartyHardware.clearThirdPartyHardwareUiStateIfCurrent(
-            params,
-          ),
+  // The firmware-update gate can decline the stage camera. The legacy page
+  // returns data to bg's callback, never directly to the vendor SDK.
+  useEffect(() => {
+    const pendingScans = new Map<number, (viewportClosed?: boolean) => void>();
+    const cancel = ({ promiseId }: { promiseId: number }) => {
+      pendingScans.get(promiseId)?.();
+      resetScanModalRoute({ scanRequestId: `air-gap:${promiseId}` });
+    };
+    const scan = ({ promiseId }: { promiseId: number }) => {
+      if (!getCurrentVisibilityState() || pendingScans.has(promiseId)) return;
+      let cancelled = false;
+      let claimed = false;
+      let viewportClosed = false;
+      const cancelledPromise = new Promise<undefined>((resolve) => {
+        pendingScans.set(promiseId, (closed = false) => {
+          cancelled = true;
+          viewportClosed ||= closed;
+          resolve(undefined);
+        });
       });
-      uiStateRef.current = cleared
-        ? undefined
-        : await thirdPartyHardwareUiStateAtom.get();
-      return cleared;
-    };
-
-    // Effect cleanup: cancel only while this request is still the current
-    // one, so a superseded cleanup cannot fire the vendor-wide cancel at a
-    // newer request.
-    const cancelIfStillCurrent = async () => {
-      if (isSettled) return;
-      isSettled = true;
-      const cleared = await clearExpectedState();
-      if (!cleared) return;
-      await backgroundApiProxy.serviceThirdPartyHardware.thirdPartyHardwareCancel(
-        { vendor },
-      );
-    };
-
-    const sendResponse = async (
-      qrResponse: { urType: string; urData: string } | null,
-    ) => {
-      if (isSettled) return;
-      isSettled = true;
-      const response = buildThirdPartyHardwareUiResponse(
-        action,
-        Boolean(qrResponse),
-        qrResponse ? { qrResponse } : undefined,
-      );
-      try {
-        if (response) {
-          await backgroundApiProxy.serviceThirdPartyHardware.thirdPartyHardwareUiResponse(
-            { vendor, response },
-          );
-        } else {
-          await backgroundApiProxy.serviceThirdPartyHardware.thirdPartyHardwareCancel(
-            { vendor },
-          );
-        }
-      } catch {
-        await backgroundApiProxy.serviceThirdPartyHardware.thirdPartyHardwareCancel(
-          { vendor },
-        );
-      } finally {
-        await clearExpectedState();
-      }
-    };
-
-    const runScan = async () => {
-      if (isSettled) return;
-      try {
-        await yieldDeviceStageToDialog();
-        if (isSettled) return;
-        const result = await startKeystoneQrScan({
-          handlers: [EQRCodeHandlerNames.animation],
-          qrWalletScene: true,
-          autoExecuteParsedAction: false,
-        });
-        const ur = await airGapUrUtils.qrcodeToUr(result.raw);
-        await sendResponse({
-          urType: ur.type,
-          urData: ur.cbor.toString('hex'),
-        });
-      } catch {
-        await sendResponse(null);
-      }
-    };
-
-    // REQUEST_QR_SCAN (device already showing its own export/response QR) or
-    // a malformed display request: go straight to the camera.
-    if (
-      action === EThirdPartyHardwareUiAction.requestKeystoneQrScan ||
-      !urData
-    ) {
-      void runScan();
-      return () => {
-        void cancelIfStillCurrent();
-      };
-    }
-
-    // The stage must step aside first, or its capsule covers the QR code.
-    let toast: ReturnType<typeof SecureQRToast.show> | undefined;
-    let isDisposed = false;
-    void (async () => {
-      await yieldDeviceStageToDialog();
-      if (isSettled || isDisposed) return;
-      toast = SecureQRToast.show({
-        valueUr: { type: urType ?? '', cbor: urData },
-        drawType: 'line',
-        dismissOnOverlayPress: false,
-        showConfirmButton: true,
-        onConfirm: async () => {
-          await toast?.close({ flag: 'skipReject' });
-          await runScan();
-        },
-        onCancel: async () => {
-          await toast?.close();
-          await sendResponse(null);
-        },
-        onClose: async (params) => {
-          if (params?.flag !== 'skipReject') {
-            await sendResponse(null);
+      void (async () => {
+        try {
+          claimed =
+            await backgroundApiProxy.serviceQrWallet.claimLegacyAirGapScan({
+              promiseId,
+            });
+          if (!claimed || cancelled) return;
+          await yieldDeviceStageToDialog();
+          if (cancelled) return;
+          if (!getCurrentVisibilityState())
+            throw new OneKeyErrorScanQrCodeCancel();
+          const result = await Promise.race([
+            startKeystoneQrScan({
+              handlers: [EQRCodeHandlerNames.animation],
+              qrWalletScene: true,
+              autoExecuteParsedAction: false,
+              scanRequestId: `air-gap:${promiseId}`,
+            }),
+            cancelledPromise,
+          ]);
+          if (!result || cancelled) return;
+          await backgroundApiProxy.servicePromise.resolveCallback({
+            id: promiseId,
+            data: result,
+          });
+        } catch (error) {
+          if (cancelled) return;
+          await backgroundApiProxy.servicePromise.rejectCallback({
+            id: promiseId,
+            error,
+          });
+        } finally {
+          pendingScans.delete(promiseId);
+          if (claimed && viewportClosed) {
+            await backgroundApiProxy.servicePromise.rejectCallback({
+              id: promiseId,
+              error: new OneKeyErrorScanQrCodeCancel(),
+            });
           }
-        },
-      });
-    })();
-    return () => {
-      isDisposed = true;
-      void cancelIfStillCurrent();
-      void toast?.close({ flag: 'skipReject' });
+        }
+      })().catch(() => undefined);
     };
-  }, [
-    isKeystoneQr,
-    uiState,
-    uiState?.vendor,
-    uiState?.action,
-    uiState?.payload,
-    startKeystoneQrScan,
-  ]);
+    appEventBus.on(EAppEventBusNames.ScanAirGapQrcode, scan);
+    appEventBus.on(EAppEventBusNames.CancelAirGapQrcodeScan, cancel);
+    return () => {
+      appEventBus.off(EAppEventBusNames.ScanAirGapQrcode, scan);
+      appEventBus.off(EAppEventBusNames.CancelAirGapQrcodeScan, cancel);
+      pendingScans.forEach((close, promiseId) => {
+        close(true);
+        resetScanModalRoute({ scanRequestId: `air-gap:${promiseId}` });
+      });
+    };
+  }, [startKeystoneQrScan]);
 
   useEffect(() => {
     const callback = async ({
@@ -1220,7 +1185,10 @@ function ThirdPartyHardwareUiStateContainerCmp() {
       ) {
         return;
       }
-      const response = buildThirdPartyHardwareUiResponse(action, true, { tag });
+      const response = buildThirdPartyHardwareUiResponse(action, true, {
+        tag,
+        requestId: uiStateRef.current?.payload?.requestId,
+      });
       if (response) {
         await backgroundApiProxy.serviceThirdPartyHardware.thirdPartyHardwareUiResponse(
           {
@@ -1385,12 +1353,14 @@ function ThirdPartyHardwareUiStateContainerCmp() {
   }, [uiState, isToastAction, intl]);
 
   const handleToastUserClose = useCallback(async () => {
-    const vendor = uiStateRef.current?.vendor;
+    const state = uiStateRef.current;
+    const vendor = state?.vendor;
     try {
       if (vendor) {
         await backgroundApiProxy.serviceThirdPartyHardware.thirdPartyHardwareCancel(
           {
             vendor,
+            ...(state?.operationId ? { connectId: state.operationId } : {}),
           },
         );
       }

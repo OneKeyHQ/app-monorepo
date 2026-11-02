@@ -33,6 +33,7 @@ import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { getSolanaDiagnosticError } from '@onekeyhq/shared/src/utils/solanaTxDiagnostics';
 import type { IQrWalletDevice } from '@onekeyhq/shared/types/device';
+import type { IDeviceStageErrorI18n } from '@onekeyhq/shared/types/deviceStage';
 import type { ISolanaTxDiagnosticContext } from '@onekeyhq/shared/types/solanaTxDiagnostics';
 
 import { vaultFactory } from '../../vaults/factory';
@@ -90,10 +91,24 @@ class ServiceQrWallet extends ServiceBase {
         promiseId: number;
         sessionId: number;
         diagnostic?: ISolanaTxDiagnosticContext;
+        /** The caller's tag, so its own cleanup cannot cancel a newer session. */
+        owner?: string;
+        legacyScan?: boolean;
+        legacyScanClaimed?: boolean;
       }
     | undefined;
 
   private stageAirGapSessionSeq = 0;
+
+  private stageAirGapOpeningSeq = 0;
+
+  /** Each cancellation is consumed by its delayed start, independently of other callers. */
+  private cancelledStageAirGapOwners = new Set<string>();
+
+  /** True once for the owner that cancelled early: its session must not open. */
+  private takeCancelledStageAirGapOwner(owner: string | undefined) {
+    return owner !== undefined && this.cancelledStageAirGapOwners.delete(owner);
+  }
 
   private async rejectStageAirGapSession(error: unknown) {
     const session = this.stageAirGapSession;
@@ -105,6 +120,34 @@ class ServiceQrWallet extends ServiceBase {
       id: session.promiseId,
       error,
     });
+  }
+
+  @backgroundMethod()
+  async claimLegacyAirGapScan({ promiseId }: { promiseId: number }) {
+    const session = this.stageAirGapSession;
+    if (
+      !session?.legacyScan ||
+      session.promiseId !== promiseId ||
+      session.legacyScanClaimed
+    ) {
+      return false;
+    }
+    // Every UI receives the event; only one may open its camera.
+    session.legacyScanClaimed = true;
+    return true;
+  }
+
+  notifyLegacyAirGapScan({ owner }: { owner: string }) {
+    const session = this.stageAirGapSession;
+    if (
+      session?.legacyScan &&
+      !session.legacyScanClaimed &&
+      session.owner === owner
+    ) {
+      appEventBus.emit(EAppEventBusNames.ScanAirGapQrcode, {
+        promiseId: session.promiseId,
+      });
+    }
   }
 
   /**
@@ -165,9 +208,27 @@ class ServiceQrWallet extends ServiceBase {
    * with the same cancel the legacy surfaces used — the toast's cancel on
    * showQr, the scan page's on scanQr — so every downstream contract
    * (silent-cancel toast policy, batch-flow termination) keeps holding.
+   * With `owner`, only that caller's own session ends; a cancel that beats
+   * its session's registration keeps that session from opening. With
+   * `sessionId` (the stage scanner's), only that session ends.
    */
   @backgroundMethod()
-  async cancelStageAirGapScan({ scanning }: { scanning?: boolean } = {}) {
+  async cancelStageAirGapScan({
+    scanning,
+    owner,
+    sessionId,
+  }: { scanning?: boolean; owner?: string; sessionId?: number } = {}) {
+    if (owner !== undefined && this.stageAirGapSession?.owner !== owner) {
+      this.cancelledStageAirGapOwners.add(owner);
+      return;
+    }
+    // A replaced scanner's late cancel must not end the newer session.
+    if (
+      sessionId !== undefined &&
+      this.stageAirGapSession?.sessionId !== sessionId
+    ) {
+      return;
+    }
     await this.rejectStageAirGapSession(
       scanning
         ? new OneKeyErrorScanQrCodeCancel()
@@ -180,19 +241,35 @@ class ServiceQrWallet extends ServiceBase {
     appQrCodeModalTitle,
     allowPlainTextResponse,
     diagnostic,
+    notice,
+    owner,
+    allowLegacyScan,
   }: {
-    requestUr: AirGapUR;
+    requestUr?: AirGapUR;
     appQrCodeModalTitle?: string;
     allowPlainTextResponse?: boolean;
     diagnostic?: ISolanaTxDiagnosticContext;
+    /** Shown under the stage card's steps; the legacy toast has no slot. */
+    notice?: IDeviceStageErrorI18n;
+    /** See cancelStageAirGapScan: lets the caller end its own stage session. */
+    owner?: string;
+    allowLegacyScan?: boolean;
   }): Promise<{
     raw?: string;
     responseUr?: AirGapUR;
   }> {
     const { airGapUrUtils } = await loadQrWalletSdk();
     // **** 1. Device scan App Qrcode
-    const valueUr = airGapUrUtils.urToJson({ ur: requestUr });
+    const valueUr = requestUr
+      ? airGapUrUtils.urToJson({ ur: requestUr })
+      : undefined;
     const { deviceStageBurst } = this.backgroundApi.serviceHardwareUI;
+    if (this.takeCancelledStageAirGapOwner(owner)) {
+      throw new SecureQRCodeDialogCancel();
+    }
+    this.stageAirGapOpeningSeq += 1;
+    const openingSeq = this.stageAirGapOpeningSeq;
+    const superseded = new SecureQRCodeDialogCancel();
     // The firmware-update workflow silences the stage; production rode
     // the legacy toast through that window, so this does too — the gate
     // is the stage's, never the flow's. The decision is begin()'s own
@@ -202,12 +279,39 @@ class ServiceQrWallet extends ServiceBase {
     // would stand over the update page for good.
     let stageOpened = false;
     if (await deviceStageBurst.isEnabled()) {
+      // Checked before the supersede: a cancelled caller must not end a
+      // newer caller's session.
+      if (this.takeCancelledStageAirGapOwner(owner)) {
+        throw new SecureQRCodeDialogCancel();
+      }
+      if (openingSeq !== this.stageAirGapOpeningSeq) {
+        throw superseded;
+      }
       // A newer request supersedes a pending one — the legacy container
       // closed the standing toast and rejected its promise the same way.
-      await this.rejectStageAirGapSession(new SecureQRCodeDialogCancel());
+      await this.rejectStageAirGapSession(superseded);
+      if (openingSeq !== this.stageAirGapOpeningSeq) {
+        throw superseded;
+      }
       // Depth-joins the wrapper's burst where one is active (sign, verify
       // address); brackets the flows that have no wrapper (add address).
       stageOpened = await deviceStageBurst.begin({});
+      const cancelled = this.takeCancelledStageAirGapOwner(owner);
+      if (cancelled || openingSeq !== this.stageAirGapOpeningSeq) {
+        if (stageOpened) await deviceStageBurst.end({});
+        throw cancelled ? new SecureQRCodeDialogCancel() : superseded;
+      }
+    }
+    if (!stageOpened) {
+      if (this.takeCancelledStageAirGapOwner(owner)) {
+        throw new SecureQRCodeDialogCancel();
+      }
+      if (openingSeq !== this.stageAirGapOpeningSeq) throw superseded;
+      await this.rejectStageAirGapSession(superseded);
+      if (this.takeCancelledStageAirGapOwner(owner)) {
+        throw new SecureQRCodeDialogCancel();
+      }
+      if (openingSeq !== this.stageAirGapOpeningSeq) throw superseded;
     }
 
     // **** 2. app scan device Qrcode
@@ -228,7 +332,7 @@ class ServiceQrWallet extends ServiceBase {
       // bracket whose finally clears it: registered ahead of a begin()
       // that rejected, the session and its callback stayed parked until
       // the next scan or the callback expiry.
-      this.stageAirGapSession = { promiseId, sessionId, diagnostic };
+      this.stageAirGapSession = { promiseId, sessionId, diagnostic, owner };
       let stageError: unknown;
       try {
         logSolanaTxDiagnostic(diagnostic, {
@@ -236,8 +340,18 @@ class ServiceQrWallet extends ServiceBase {
           status: 'started',
           reason: 'stage',
         });
-        await deviceStageBurst.qrShowCode({ valueUr, sessionId, diagnostic });
-        appScanDeviceResult = await scanPromise;
+        const [, result] = await Promise.all([
+          valueUr
+            ? deviceStageBurst.qrShowCode({
+                valueUr,
+                sessionId,
+                diagnostic,
+                notice,
+              })
+            : deviceStageBurst.qrStartScan({ sessionId }),
+          scanPromise,
+        ]);
+        appScanDeviceResult = result;
       } catch (error) {
         stageError = error;
         const details = getSolanaDiagnosticError(error);
@@ -255,26 +369,40 @@ class ServiceQrWallet extends ServiceBase {
         }
         await deviceStageBurst.end({ error: stageError });
       }
-    } else {
+    } else if (valueUr || allowLegacyScan) {
+      let promiseId = 0;
+      const scanPromise = new Promise<
+        IQRCodeHandlerParseResult<IAnimationValue>
+      >((resolve, reject) => {
+        promiseId = this.backgroundApi.servicePromise.createCallback({
+          resolve,
+          reject,
+        });
+      });
+      this.stageAirGapSessionSeq += 1;
+      this.stageAirGapSession = {
+        promiseId,
+        sessionId: this.stageAirGapSessionSeq,
+        diagnostic,
+        owner,
+        legacyScan: !valueUr,
+      };
       try {
-        appScanDeviceResult = await new Promise<
-          IQRCodeHandlerParseResult<IAnimationValue>
-        >((resolve, reject) => {
-          const promiseId = this.backgroundApi.servicePromise.createCallback({
-            resolve,
-            reject,
-          });
-          logSolanaTxDiagnostic(diagnostic, {
-            stage: 'qrShowRequested',
-            status: 'started',
-            reason: 'legacy',
-          });
+        logSolanaTxDiagnostic(diagnostic, {
+          stage: valueUr ? 'qrShowRequested' : 'qrScanStarted',
+          status: 'started',
+          reason: 'legacy',
+        });
+        if (valueUr) {
           appEventBus.emit(EAppEventBusNames.ShowAirGapQrcode, {
             valueUr,
             promiseId,
             title: appQrCodeModalTitle,
           });
-        });
+        } else {
+          appEventBus.emit(EAppEventBusNames.ScanAirGapQrcode, { promiseId });
+        }
+        appScanDeviceResult = await scanPromise;
       } catch (error) {
         const details = getSolanaDiagnosticError(error);
         logSolanaTxDiagnostic(diagnostic, {
@@ -285,13 +413,24 @@ class ServiceQrWallet extends ServiceBase {
           ...details,
         });
         throw error;
+      } finally {
+        if (this.stageAirGapSession?.promiseId === promiseId) {
+          this.stageAirGapSession = undefined;
+        }
+        if (!valueUr) {
+          appEventBus.emit(EAppEventBusNames.CancelAirGapQrcodeScan, {
+            promiseId,
+          });
+        }
       }
+    } else {
+      return {};
     }
 
     let responseUr: AirGapUR | undefined;
     let raw: string | undefined;
     try {
-      raw = appScanDeviceResult.data.fullData || appScanDeviceResult.raw || '';
+      raw = appScanDeviceResult.data?.fullData || appScanDeviceResult.raw || '';
       responseUr = await airGapUrUtils.qrcodeToUr(raw);
     } catch {
       // Plain text is permitted only by the existing caller opt-in below.
@@ -315,13 +454,38 @@ class ServiceQrWallet extends ServiceBase {
   }
 
   @backgroundMethod()
-  async startTwoWayAirGapScan(appUr: IAirGapUrJson): Promise<IAirGapUrJson> {
+  async scanAirGapOnStage({ owner }: { owner?: string } = {}): Promise<
+    IAirGapUrJson | undefined
+  > {
+    const { responseUr } = await this.startTwoWayAirGapScanUr({ owner });
+    if (!responseUr) return undefined;
+    const { airGapUrUtils } = await loadQrWalletSdk();
+    return airGapUrUtils.urToJson({ ur: responseUr });
+  }
+
+  @backgroundMethod()
+  async scanAirGap({ owner }: { owner?: string } = {}): Promise<IAirGapUrJson> {
+    const { responseUr } = await this.startTwoWayAirGapScanUr({
+      owner,
+      allowLegacyScan: true,
+    });
+    const { airGapUrUtils } = await loadQrWalletSdk();
+    return airGapUrUtils.urToJson({ ur: checkIsDefined(responseUr) });
+  }
+
+  @backgroundMethod()
+  async startTwoWayAirGapScan(
+    appUr: IAirGapUrJson,
+    options?: { notice?: IDeviceStageErrorI18n; owner?: string },
+  ): Promise<IAirGapUrJson> {
     const { airGapUrUtils } = await loadQrWalletSdk();
     const deviceScanAppUr: AirGapUR = airGapUrUtils.jsonToUr({
       ur: appUr,
     });
     const { responseUr: appScanDeviceUr } = await this.startTwoWayAirGapScanUr({
       requestUr: deviceScanAppUr,
+      notice: options?.notice,
+      owner: options?.owner,
     });
     return airGapUrUtils.urToJson({
       ur: checkIsDefined(appScanDeviceUr),

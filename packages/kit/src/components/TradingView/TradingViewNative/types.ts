@@ -164,6 +164,7 @@ export interface ITradingViewNativeProps {
   testID?: string;
   source: ITradingViewNativeSource;
   priceDecimalPlaces?: number;
+  isPricePrecisionLoading?: boolean;
   onPriceSelect?: (selection: ITradingViewNativePriceSelection) => void;
   priceSelectionLabel?: string;
   onInteractionChange?: (isInteracting: boolean) => void;
@@ -204,6 +205,11 @@ export interface ITradingViewNativeProps {
   nativeControlsFlushHorizontalInset?: boolean;
   showNativeChartCloseControl?: boolean;
   showNativeIndicatorQuickBar?: boolean;
+  /**
+   * The parent grows the chart container by one pane height per visible
+   * sub-indicator, so the main price chart keeps its height.
+   */
+  nativeChartGrowsWithSubIndicators?: boolean;
   isNativeChartFullscreen?: boolean;
   nativeChartFullscreenHeader?: ReactNode;
   isChartSwitchDisabled?: boolean;

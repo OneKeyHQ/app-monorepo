@@ -18,6 +18,8 @@ export enum EJotaiContextStoreNames {
   discoveryBrowser = 'discoveryBrowser',
   swap = 'swap',
   swapModal = 'swapModal',
+  swapHomeMore = 'swapHomeMore',
+  swapHomeToken = 'swapHomeToken',
   swapTokenSelector = 'swapTokenSelector',
   marketSwap = 'marketSwap',
   marketSwapReview = 'marketSwapReview',

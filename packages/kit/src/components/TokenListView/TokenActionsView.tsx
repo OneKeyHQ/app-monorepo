@@ -40,10 +40,14 @@ const EMPTY_FIAT_MAP: Record<string, ITokenFiat> = {};
 
 type IProps = {
   token: IAccountToken;
+  nativeActionState?: (state: {
+    disabled: boolean;
+    onPress: () => void;
+  }) => void;
 } & XStackProps;
 
 function TokenActionsView(props: IProps) {
-  const { token, ...rest } = props;
+  const { token, nativeActionState, ...rest } = props;
   const intl = useIntl();
   const { activeAccount } = useActiveAccount({ num: 0 });
   const { tokenListMap: contextTokenListMap, ownedAggregateTokenListMap } =
@@ -219,7 +223,20 @@ function TokenActionsView(props: IProps) {
     resolvedActiveToken,
   ]);
 
+  const swapDisabled =
+    !isTokenActionReady || isScaledUiSwapBlocked || isSwapEntryDisabled;
+  useEffect(() => {
+    nativeActionState?.({
+      disabled: swapDisabled,
+      onPress: handleTokenOnSwap,
+    });
+  }, [nativeActionState, swapDisabled, handleTokenOnSwap]);
+
   if (!token) {
+    return null;
+  }
+
+  if (nativeActionState) {
     return null;
   }
 
@@ -231,9 +248,7 @@ function TokenActionsView(props: IProps) {
         variant="secondary"
         cursor="pointer"
         onPress={handleTokenOnSwap}
-        disabled={
-          !isTokenActionReady || isScaledUiSwapBlocked || isSwapEntryDisabled
-        }
+        disabled={swapDisabled}
       >
         {intl.formatMessage({ id: ETranslations.global_swap })}
       </Button>

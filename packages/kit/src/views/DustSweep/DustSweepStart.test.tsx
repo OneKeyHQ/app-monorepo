@@ -15,6 +15,7 @@ import { DustSweepPaused, executeDustSweepItem } from './utils/execution';
 import {
   loadDustSweepNetworks,
   refreshDustSweepNetwork,
+  validateDustSweepNetworkContexts,
 } from './utils/loadNetworks';
 import { invalidateDustSweepNetworksCache } from './utils/networkCache';
 
@@ -47,6 +48,7 @@ jest.mock('@onekeyhq/kit/src/views/Swap/hooks/useSwapTxHistory', () => ({
 jest.mock('./utils/loadNetworks', () => ({
   loadDustSweepNetworks: jest.fn(),
   refreshDustSweepNetwork: jest.fn(),
+  validateDustSweepNetworkContexts: jest.fn(),
 }));
 jest.mock('./utils/execution', () => ({
   executeDustSweepItem: jest.fn(),
@@ -85,6 +87,7 @@ const bnb: IDustSweepNetwork = {
 beforeEach(() => {
   invalidateDustSweepNetworksCache('w');
   jest.resetAllMocks();
+  jest.mocked(validateDustSweepNetworkContexts).mockResolvedValue([bnb]);
 });
 
 it('skips a token that gets no quote on submit and settles the sweep', async () => {
@@ -153,7 +156,14 @@ it.each(['success', 'approval'] as const)(
     jest
       .mocked(executeDustSweepItem)
       .mockImplementationOnce(
-        async ({ onSigning, onBroadcast, onApprovalBroadcast, onPrepared }) => {
+        async ({
+          onBuilding,
+          onSigning,
+          onBroadcast,
+          onApprovalBroadcast,
+          onPrepared,
+        }) => {
+          onBuilding();
           onSigning();
           if (outcome === 'success') onBroadcast('tx-confirming');
           else {
@@ -190,7 +200,7 @@ it.each(['success', 'approval'] as const)(
     });
     expect(refreshDustSweepNetwork).not.toHaveBeenCalled();
     expect(result.current.session.state.items[0].status).toBe(
-      outcome === 'success' ? 'broadcasted' : 'preparing',
+      outcome === 'success' ? 'broadcasted' : 'building',
     );
     await act(async () => {
       settle();

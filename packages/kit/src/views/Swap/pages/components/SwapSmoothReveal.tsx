@@ -4,6 +4,8 @@ import type { ReactNode } from 'react';
 import { AnimatePresence, Stack } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import type { LayoutChangeEvent } from 'react-native';
+
 const ANIMATE_ONLY_SMOOTH_REVEAL = ['height', 'opacity'] as string[];
 
 // Native only: under Yoga a normal-flow child of the height-0 animated wrapper
@@ -53,16 +55,22 @@ export function SwapSmoothReveal({
 }) {
   const [measuredHeight, setMeasuredHeight] = useState(0);
 
-  const onContentLayout = useCallback(
-    (event: { nativeEvent: { layout: { height: number } } }) => {
-      const nextHeight = event?.nativeEvent?.layout?.height;
-      if (typeof nextHeight !== 'number' || Number.isNaN(nextHeight)) {
-        return;
-      }
-      setMeasuredHeight((prev) => (prev === nextHeight ? prev : nextHeight));
-    },
-    [],
-  );
+  const onContentLayout = useCallback((event: LayoutChangeEvent) => {
+    const nextHeight = event?.nativeEvent?.layout?.height;
+    if (typeof nextHeight !== 'number' || Number.isNaN(nextHeight)) {
+      return;
+    }
+    // Hidden web tabs report 0 x 0 without a content change. Preserve the
+    // measurable height; `visible` still controls actual collapsing.
+    if (
+      !platformEnv.isNative &&
+      event.nativeEvent.layout.width === 0 &&
+      nextHeight === 0
+    ) {
+      return;
+    }
+    setMeasuredHeight((prev) => (prev === nextHeight ? prev : nextHeight));
+  }, []);
 
   const isGapTop = gapSide === 'top';
   const hidden = keepMounted && !visible;

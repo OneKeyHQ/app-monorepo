@@ -1,14 +1,26 @@
-import { type ReactNode, useMemo } from 'react';
+import {
+  type ReactNode,
+  useCallback,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
+
+import { useWindowDimensions } from 'react-native';
 
 import {
   GlassButtonCapsule,
   Page,
   View,
   XStack,
+  YStack,
   isLiquidGlassAvailable,
   useSafeAreaInsets,
 } from '@onekeyhq/components';
+import type { IElement } from '@onekeyhq/components';
 import type { ETranslations } from '@onekeyhq/shared/src/locale';
+import { useWindowControlsLeadingOffset } from '@onekeyhq/shared/src/modules/WindowControlsInsets';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
@@ -97,6 +109,29 @@ export function MDHeader({
   pageScrollPosition?: SharedValue<number>;
 }) {
   const { top } = useSafeAreaInsets();
+  const { width, height } = useWindowDimensions();
+  const headerRef = useRef<IElement | null>(null);
+  const measureRequest = useRef(0);
+  const [headerWindowX, setHeaderWindowX] = useState(0);
+  const windowLeadingOffset = useWindowControlsLeadingOffset(20);
+  const measureHeaderPosition = useCallback(() => {
+    if (!windowLeadingOffset) return;
+    const header = headerRef.current;
+    measureRequest.current += 1;
+    const request = measureRequest.current;
+    header?.measureInWindow((x) => {
+      if (request === measureRequest.current && header === headerRef.current) {
+        setHeaderWindowX(x);
+      }
+    });
+  }, [windowLeadingOffset]);
+  useLayoutEffect(measureHeaderPosition, [
+    measureHeaderPosition,
+    width,
+    height,
+  ]);
+  // Measure the host before applying the row margin: a detail pane may start beyond the window controls.
+  const windowControlsOffset = Math.max(0, windowLeadingOffset - headerWindowX);
   const isHomeTab =
     tabRoute === ETabRoutes.Home &&
     sceneName !== EAccountSelectorSceneName.homeUrlAccount;
@@ -136,7 +171,7 @@ export function MDHeader({
       tabRoute === ETabRoutes.DeviceManagement
     );
   }, [tabRoute]);
-  return (
+  const content = (
     <>
       <Page.Header headerShown={false} />
       {showBaseHeader ? (
@@ -147,6 +182,7 @@ export function MDHeader({
               <XStack
                 alignItems="center"
                 px={headerPx}
+                ml={windowControlsOffset}
                 h={56}
                 gap={headerGlassActive || usePlainHomeHeader ? '$3' : '$6'}
                 {...(top || platformEnv.isNativeAndroid
@@ -203,6 +239,7 @@ export function MDHeader({
                 alignItems="center"
                 justifyContent="space-between"
                 px={headerPx}
+                ml={windowControlsOffset}
                 h={44}
                 {...(top || platformEnv.isNativeAndroid
                   ? { mt: top || '$2' }
@@ -233,5 +270,16 @@ export function MDHeader({
         <XStack h={top || '$2'} bg="$bgApp" />
       )}
     </>
+  );
+  return platformEnv.isNativeIOS ? (
+    <YStack
+      ref={headerRef}
+      collapsable={false}
+      onLayout={measureHeaderPosition}
+    >
+      {content}
+    </YStack>
+  ) : (
+    content
   );
 }

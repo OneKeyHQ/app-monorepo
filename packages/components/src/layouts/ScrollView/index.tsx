@@ -21,8 +21,8 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import type {
   NativeScrollEvent,
-  NativeScrollPoint,
   NativeSyntheticEvent,
+  ScrollViewInstance,
   ScrollViewProps as ScrollViewNativeProps,
   StyleProp,
   ViewStyle,
@@ -36,11 +36,11 @@ export type IScrollViewProps = Omit<
     contentContainerStyle?: StackProps;
   };
 
-export type IScrollViewRef = ScrollViewNative;
+export type IScrollViewRef = ScrollViewInstance;
 
 const scrollViewRefContext = createContext<{
   scrollViewRef: MutableRefObject<IScrollViewRef | null>;
-  pageOffsetRef: MutableRefObject<NativeScrollPoint>;
+  pageOffsetRef: MutableRefObject<NativeScrollEvent['contentOffset']>;
 }>({
   scrollViewRef: {
     current: {} as IScrollViewRef,
