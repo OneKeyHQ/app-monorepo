@@ -284,7 +284,15 @@ describe('Privacy sync failure backoff', () => {
         ],
       }),
       getChainTip: async () => 200,
-      syncPolicy: { maxSyncDurationMs: 60_000 },
+      // The chains' real rests: Zcash 0.5s watched, 30s in a phone's background; Monero 0.25s / 5s.
+      syncPolicy: {
+        maxSyncDurationMs: 60_000,
+        foregroundBackfillDelayMs: networkId === 'zec--0' ? 500 : 250,
+        backgroundBackfillDelayMs:
+          networkId === 'zec--0'
+            ? { desktop: 5000, default: 30_000 }
+            : { desktop: 1500, default: 5000 },
+      },
       syncGroup: networkId === 'zec--0' ? zcashSync : xmrSync,
       syncCompletionIsAuthoritative: true,
       recoverFromTimeout: async () => false,
@@ -403,6 +411,75 @@ describe('Privacy sync failure backoff', () => {
       expect(service.scheduleBackgroundSync).toHaveBeenCalledWith(wait);
     },
   );
+
+  describe('two chains backfilling', () => {
+    type IScheduler = {
+      backgroundSyncTick: () => Promise<void>;
+      scheduleBackgroundSync: jest.Mock;
+      runtimeSyncState: Map<string, unknown>;
+      isNetworkForegroundHot: (networkId: string) => boolean;
+    };
+    const backfilling = () =>
+      jest.fn().mockResolvedValue({
+        synced: true,
+        chainTip: 200,
+        backfillRemaining: true,
+      });
+
+    // Zcash takes the first turn (its tip moved), Monero the second; both still have blocks left.
+    async function afterOneTurnEach() {
+      const zcashSync = backfilling();
+      const xmrSync = backfilling();
+      const service = createTwoChainScheduler(
+        zcashSync,
+        xmrSync,
+      ) as unknown as IScheduler;
+      await service.backgroundSyncTick();
+      await service.backgroundSyncTick();
+      expect(zcashSync).toHaveBeenCalledTimes(1);
+      expect(xmrSync).toHaveBeenCalledTimes(1);
+      return { service, zcashSync, xmrSync };
+    }
+
+    // Swapping every second would keep a phone scanning nonstop in the background.
+    it('lets each chain rest at its own background pace', async () => {
+      const { service, zcashSync, xmrSync } = await afterOneTurnEach();
+      expect(service.scheduleBackgroundSync).toHaveBeenLastCalledWith(5000);
+
+      await service.backgroundSyncTick();
+      expect(zcashSync).toHaveBeenCalledTimes(1);
+      expect(xmrSync).toHaveBeenCalledTimes(1);
+
+      jest.setSystemTime(Date.now() + 5000);
+      await service.backgroundSyncTick();
+      expect(xmrSync).toHaveBeenCalledTimes(2);
+      expect(zcashSync).toHaveBeenCalledTimes(1);
+    });
+
+    it('scans a new tip at once, even while the chain rests', async () => {
+      const { service, zcashSync } = await afterOneTurnEach();
+      service.runtimeSyncState.set('zec--0|main', {
+        accountSignature: 'zec--0-account',
+        lastChainTip: 100,
+      });
+
+      await service.backgroundSyncTick();
+
+      expect(zcashSync).toHaveBeenCalledTimes(2);
+    });
+
+    it('keeps a watched chain moving at its foreground pace', async () => {
+      const { service, zcashSync } = await afterOneTurnEach();
+      service.isNetworkForegroundHot = (networkId) => networkId === 'zec--0';
+
+      await service.backgroundSyncTick();
+      expect(service.scheduleBackgroundSync).toHaveBeenLastCalledWith(1000);
+      jest.setSystemTime(Date.now() + 1000);
+      await service.backgroundSyncTick();
+
+      expect(zcashSync).toHaveBeenCalledTimes(2);
+    });
+  });
 
   // An outdated WebView cannot become usable mid-session; retrying it only
   // takes turns from the chain that works.

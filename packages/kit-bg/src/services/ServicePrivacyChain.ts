@@ -454,6 +454,43 @@ class ServicePrivacyChain extends ServiceBase {
     });
   }
 
+  // When each group last ended a turn with blocks still to backfill; its next backfill turn waits out
+  // the chain's own rest.
+  private backfillTurnEndedAt?: Map<string, number>;
+
+  // Short while the user watches; longer in the background, longest on phones.
+  private getBackfillRestMs({
+    networkId,
+    capability,
+  }: {
+    networkId: string;
+    capability: ILocalWalletCapability;
+  }): number {
+    const { syncPolicy } = capability;
+    if (
+      this.isNetworkForegroundHot(networkId) ||
+      this.isNetworkSendSyncPending(networkId)
+    ) {
+      return syncPolicy.foregroundBackfillDelayMs;
+    }
+    return platformEnv.isDesktop
+      ? syncPolicy.backgroundBackfillDelayMs.desktop
+      : syncPolicy.backgroundBackfillDelayMs.default;
+  }
+
+  // Only backfill rests: a new tip, an account change or a user's Sync runs at once.
+  private getSyncWaitUntilMs(candidate: IPrivacyChainSyncCandidate): number {
+    const backoffUntilMs = this.getSyncBackoffUntilMs(candidate);
+    const endedAt = this.backfillTurnEndedAt?.get(candidate.runtimeStateKey);
+    if (candidate.reason !== 'backfill' || endedAt === undefined) {
+      return backoffUntilMs;
+    }
+    return Math.max(
+      backoffUntilMs,
+      endedAt + this.getBackfillRestMs(candidate),
+    );
+  }
+
   private getSyncBackoffUntilMs({
     runtimeStateKey,
     networkId,
@@ -2283,15 +2320,16 @@ class ServicePrivacyChain extends ServiceBase {
       }
 
       const pickedAtMs = Date.now();
-      const backedOff = candidates.filter(
-        (c) => this.getSyncBackoffUntilMs(c) > pickedAtMs,
+      // Backing off after failures, or resting between backfill turns.
+      const waiting = candidates.filter(
+        (c) => this.getSyncWaitUntilMs(c) > pickedAtMs,
       );
       const runnableCandidates = candidates.filter(
         (c) =>
           // A pause may arrive while enumeration is waiting for the node tip.
           !this.boostPausedByNetwork[c.networkId] &&
           !this.quarantinedSyncs.has(c.runtimeStateKey) &&
-          !backedOff.includes(c) &&
+          !waiting.includes(c) &&
           !this.storageUnsupportedNetworkIds.has(c.networkId),
       );
       const candidate = pickPrivacyChainSyncCandidate(
@@ -2399,23 +2437,15 @@ class ServicePrivacyChain extends ServiceBase {
           if (candidate.reason === 'backfill') {
             this.lastBackfillRuntimeStateKey = candidate.runtimeStateKey;
           }
+          // Backfill continues after the chain's rest; tip-following waits for the next tip.
           if (result.backfillRemaining) {
-            const isHot =
-              this.isNetworkForegroundHot(candidate.networkId) ||
-              this.isNetworkSendSyncPending(candidate.networkId);
-            // Backfill runs hard, tip-following stays gentle (no backfill means no continue delay).
-            if (isHot) {
-              continueDelayMs =
-                candidate.capability.syncPolicy.foregroundBackfillDelayMs;
-            } else if (platformEnv.isDesktop) {
-              continueDelayMs =
-                candidate.capability.syncPolicy.backgroundBackfillDelayMs
-                  .desktop;
-            } else {
-              continueDelayMs =
-                candidate.capability.syncPolicy.backgroundBackfillDelayMs
-                  .default;
-            }
+            (this.backfillTurnEndedAt ??= new Map()).set(
+              candidate.runtimeStateKey,
+              Date.now(),
+            );
+            continueDelayMs = this.getBackfillRestMs(candidate);
+          } else {
+            this.backfillTurnEndedAt?.delete(candidate.runtimeStateKey);
           }
           // A send page still waiting gets another pass, even at an unchanged tip.
           if (
@@ -2535,19 +2565,16 @@ class ServicePrivacyChain extends ServiceBase {
           ? timerUtils.getTimeDurationMs({ seconds: 3 })
           : timerUtils.getTimeDurationMs({ seconds: 30 });
       }
-      // A chain backing off wakes when its wait ends, even after another chain took this turn.
-      if (backedOff.length) {
-        const backoffEndsInMs = Math.max(
+      // A waiting chain wakes when its wait ends, even after another chain took this turn.
+      if (waiting.length) {
+        const waitEndsInMs = Math.max(
           timerUtils.getTimeDurationMs({ seconds: 1 }),
           Math.min(
-            ...backedOff.map((c) => this.getSyncBackoffUntilMs(c) - Date.now()),
+            ...waiting.map((c) => this.getSyncWaitUntilMs(c) - Date.now()),
           ),
         );
-        if (
-          continueDelayMs === undefined ||
-          backoffEndsInMs < continueDelayMs
-        ) {
-          continueDelayMs = backoffEndsInMs;
+        if (continueDelayMs === undefined || waitEndsInMs < continueDelayMs) {
+          continueDelayMs = waitEndsInMs;
         }
       }
       const followUpDelayMs = this.getFollowUpSyncDelayMs(Date.now());
