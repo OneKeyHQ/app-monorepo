@@ -1129,6 +1129,13 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries �
 **Fix**: The header mirrors the row template per engine through `tokenListRowLayout.ts` / `tokenListRowLayout.native.ts` (`getTokenListHeaderLayout`), shares `getTokenRowIconSize` with the row config, reserves the trailing swap footprint from `withSwapAction`, and pins the geometry with `TokenListHeader.test.tsx`.
 **Catchable by**: Section 4: Business Logic & Regression — when a list migrates its rows to another rendering engine (NativeList), re-verify every sibling that hand-mirrors row geometry (headers, skeletons, footers) on each platform, not only the rows.
 
+## Case: Native chart previous-close tag drawn half a badge above its price badge
+**Date**: 2026-10-30 | **Platforms**: iOS, Android (native Skia chart, main UI runtime)
+**Symptom**: On the share 1D simple chart, the `Previous close` tag and the `$213.66` axis badge looked shifted up as a pair: the tag sat entirely above the dashed reference line while the price badge was centered on it.
+**Root Cause**: The Skia port in #14075 laid out the two halves of the reference-line label with different vertical anchors. `createPriceAxisLabelPainter` centered the axis badge on its label Y (`y - labelHeight / 2`), but `drawReferenceTitle` placed the tag at `yAtValue(price) - labelHeight`, so its bottom edge touched the line. It also used the raw line position, so the tag did not follow the badge when `getPriceAxisLabels` nudged it away from the last-price badge.
+**Fix**: `drawReferenceTitle` takes the computed price-axis labels and centers the tag on `referenceLabelY` (falling back to the clamped line position), matching the axis badge. A unit test pins equal `y` and `height` for the tag and badge, both at rest and when nudged.
+**Catchable by**: NEW — when one visual element is drawn as several shapes (tag + axis badge), derive every shape's position from one shared anchor and assert their alignment in a scene test, especially when porting a renderer (web lightweight-charts → native Skia).
+
 ## Case: Desktop Swap token picker clipped the three-dot menu control (OK-65963)
 **Date**: 2026-11-02 | **Platforms**: Desktop (Electron renderer; single JS runtime)
 **Symptom**: In the Swap token picker, the three-dot menu control extended past the token row's right edge, clipping its hover background and focus ring; the row also lacked the expected 12px hover corners.

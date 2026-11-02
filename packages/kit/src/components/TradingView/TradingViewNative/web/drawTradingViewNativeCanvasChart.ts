@@ -42,6 +42,7 @@ interface IDrawTradingViewNativeCanvasChartOptions {
   hasVolume: boolean;
   candleLabels: ITradingViewNativeCandleLabels;
   currentPriceLabel: string;
+  priceAxisDecimalPlaces?: number;
   priceDecimalPlaces?: number;
   indicatorSeries: ITradingViewNativeIndicatorSeries[];
   isMobileLayout: boolean;
@@ -76,6 +77,7 @@ export function drawTradingViewNativeCanvasChart({
   hasVolume,
   candleLabels,
   currentPriceLabel,
+  priceAxisDecimalPlaces,
   priceDecimalPlaces,
   indicatorSeries,
   isMobileLayout,
@@ -136,10 +138,16 @@ export function drawTradingViewNativeCanvasChart({
         priceAxisFontSize,
         timeAxisFontSize,
       );
-      return context.measureText(text).width;
+      // Reserve price digits so kerning cannot move or rewrap the open/high/low/close fields.
+      const measuredText =
+        font === 'legend' && /^[0-9₀-₉.+-]+$/.test(text)
+          ? text.replace(/[0-9]/g, '8')
+          : text;
+      return context.measureText(measuredText).width;
     },
     candleLabels,
     currentPriceLabel,
+    priceAxisDecimalPlaces,
     priceDecimalPlaces,
     points,
     pinnedPriceRange,

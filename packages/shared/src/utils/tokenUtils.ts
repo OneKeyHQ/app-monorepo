@@ -1891,6 +1891,37 @@ export function filterAccountTokenListByLimit({
   };
 }
 
+export type ITokenKeyMissingFromMap = {
+  group: 'tokens' | 'smallBalanceTokens' | 'riskTokens';
+  $key: string;
+  symbol: string;
+};
+
+/**
+ * Rows of a token-list response that have no entry in their own group's
+ * `map`. Home renders such a row with a "--" price and an empty balance /
+ * value column (OK-66042), and nothing on the client side can recover the
+ * missing fiat, so the mismatch is worth logging at the response boundary.
+ */
+export function findTokenKeysMissingFromMap(
+  resp: Pick<
+    IFetchAccountTokensResp,
+    'tokens' | 'smallBalanceTokens' | 'riskTokens'
+  >,
+): ITokenKeyMissingFromMap[] {
+  const missing: ITokenKeyMissingFromMap[] = [];
+  (['tokens', 'smallBalanceTokens', 'riskTokens'] as const).forEach((group) => {
+    const tokenData = resp[group];
+    const map = tokenData?.map ?? {};
+    (tokenData?.data ?? []).forEach((token) => {
+      if (token.$key && !map[token.$key]) {
+        missing.push({ group, $key: token.$key, symbol: token.symbol ?? '' });
+      }
+    });
+  });
+  return missing;
+}
+
 export function calculateAccountTokensValue({
   accountId,
   networkId,

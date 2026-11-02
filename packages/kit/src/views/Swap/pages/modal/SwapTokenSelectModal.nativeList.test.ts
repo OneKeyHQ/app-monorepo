@@ -118,6 +118,14 @@ describe('Swap NativeList row adapter', () => {
       'identity',
     ]);
     const [first, second] = rows(built.snapshot);
+    // Explicit heights opt out of Android's legacy sub-400dp 0.9 row scale,
+    // which clipped unscaled text metrics (OK-66072).
+    expect(built.snapshot.rows[0]).toMatchObject({
+      type: 'sectionHeader',
+      height: 36,
+      heightRounding: 'nearest',
+    });
+    expect(first).toMatchObject({ height: 76, heightRounding: 'nearest' });
     expect(first?.titleMatch).toEqual([{ start: 0, end: 2 }]);
     expect(first?.tertiary).toBe(selected.contractAddress);
     expect(first?.trailing?.[0]).toEqual(
@@ -226,6 +234,18 @@ describe('Swap NativeList row adapter', () => {
       'system',
       'identity',
     ]);
+    expect(built.snapshot.rows[1]).toMatchObject({
+      height: 12,
+      heightRounding: 'nearest',
+    });
+    expect(built.snapshot.rows[3]).toMatchObject({
+      height: 8,
+      heightRounding: 'nearest',
+    });
+    expect(built.snapshot.rows[4]).toMatchObject({
+      height: 60,
+      heightRounding: 'nearest',
+    });
     expect(built.snapshot.rows[2]).toEqual(
       expect.objectContaining({
         type: 'message',

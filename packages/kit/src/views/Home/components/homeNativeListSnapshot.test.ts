@@ -187,7 +187,10 @@ describe('Home NativeList snapshot boundaries', () => {
     expect(prepared.rows[1]).toMatchObject({ key: 'normal', title: 'Normal' });
   });
 
-  it('drops a malformed activity while preserving its valid peer', () => {
+  // NativeList 6.7.0-alpha.402 repairs a malformed image descriptor (it
+  // clears the image and keeps the row) instead of rejecting the row, and the
+  // prepared snapshot must carry that repaired row, not the malformed input.
+  it('keeps a malformed activity with its image cleared while preserving its valid peer', () => {
     const snapshot: NativeListSnapshot = {
       schemaVersion: 1,
       generation: 1,
@@ -200,6 +203,27 @@ describe('Home NativeList snapshot boundaries', () => {
             image: { uri: '', width: 40, height: 40 },
           },
         },
+        activity('normal', 'Normal'),
+      ],
+    };
+    const prepared = prepareHomeNativeListSnapshot(snapshot);
+    expect(prepared.rows.map((row) => row.key)).toEqual(['bad', 'normal']);
+    expect(prepared.rows[0]).toMatchObject({ leading: { kind: 'token' } });
+    expect(
+      prepared.rows[0].type === 'activity' &&
+        prepared.rows[0].leading &&
+        'image' in prepared.rows[0].leading,
+    ).toBe(false);
+    expect(() => serializeSnapshot(prepared)).not.toThrow();
+  });
+
+  it('drops a row the validator still rejects while preserving its valid peer', () => {
+    const snapshot: NativeListSnapshot = {
+      schemaVersion: 1,
+      generation: 1,
+      layout: { kind: 'sectioned' },
+      rows: [
+        { ...activity('bad', 'Bad'), key: '' },
         activity('normal', 'Normal'),
       ],
     };

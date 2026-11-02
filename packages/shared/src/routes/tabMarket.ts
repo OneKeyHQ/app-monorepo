@@ -18,6 +18,7 @@ export enum ETabMarketRoutes {
 export type IMarketTokenDetailRouteParams = {
   tokenAddress: string;
   network: string;
+  swapTokenSymbol?: string;
   marketTokenId?: string;
   marketVariantId?: string;
   marketTokenCategory?: string;
@@ -66,6 +67,7 @@ export type ITabMarketParamList = {
   [ETabMarketRoutes.MarketStockDetail]: IMarketStockDetailRouteParams;
   [ETabMarketRoutes.MarketNativeDetail]: {
     network: string;
+    swapTokenSymbol?: string;
     marketTokenId?: string;
     marketVariantId?: string;
     marketTokenCategory?: string;

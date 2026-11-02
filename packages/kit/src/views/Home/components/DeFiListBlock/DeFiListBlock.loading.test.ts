@@ -14,6 +14,8 @@ describe('deFiListLoadingReducer', () => {
       isRefreshing: true,
       initialized: false,
       loadedOwnerKey: undefined,
+      confirmedEmptyOwnerKey: undefined,
+      hasError: false,
     });
   });
 
@@ -27,10 +29,11 @@ describe('deFiListLoadingReducer', () => {
       isRefreshing: false,
       initialized: true,
       loadedOwnerKey: 'account-1:network-1',
+      hasError: false,
     });
   });
 
-  it('clears the flag and keeps the loaded owner on "error"', () => {
+  it('does not mark the owner loaded on "error"', () => {
     expect(
       deFiListLoadingReducer({
         type: 'error',
@@ -40,7 +43,8 @@ describe('deFiListLoadingReducer', () => {
     ).toEqual({
       isRefreshing: false,
       initialized: true,
-      loadedOwnerKey: 'account-1:network-1',
+      loadedOwnerKey: undefined,
+      hasError: true,
     });
   });
 });
@@ -134,15 +138,20 @@ describe('resolveDeFiFanOutFinishedState', () => {
     const state = resolveDeFiFanOutFinishedState({
       positionsOwnerKey: 'account-2:all',
       finishedOwnerKey: 'account-2:all',
+      runSucceeded: true,
+      previousConfirmedEmptyOwnerKey: 'account-2:all',
     });
-    expect(state).toEqual({ initialized: true, isRefreshing: false });
+    expect(state).toEqual({
+      initialized: true,
+      isRefreshing: false,
+      confirmedEmptyOwnerKey: undefined,
+      hasError: false,
+    });
     expect(
       shouldShowDeFiEmptyState({
         protocolsLength: 0,
-        initialized: true,
-        isRefreshing: false,
         ownerKey: 'account-2:all',
-        loadedOwnerKey: state.loadedOwnerKey,
+        confirmedEmptyOwnerKey: state.confirmedEmptyOwnerKey,
       }),
     ).toBe(false);
   });
@@ -152,11 +161,14 @@ describe('resolveDeFiFanOutFinishedState', () => {
       resolveDeFiFanOutFinishedState({
         positionsOwnerKey: undefined,
         finishedOwnerKey: 'account-2:all',
+        runSucceeded: true,
       }),
     ).toEqual({
       initialized: true,
       isRefreshing: false,
       loadedOwnerKey: 'account-2:all',
+      confirmedEmptyOwnerKey: 'account-2:all',
+      hasError: false,
     });
   });
 
@@ -165,8 +177,96 @@ describe('resolveDeFiFanOutFinishedState', () => {
       resolveDeFiFanOutFinishedState({
         positionsOwnerKey: 'account-1:all',
         finishedOwnerKey: 'account-2:all',
+        runSucceeded: true,
       }).loadedOwnerKey,
     ).toBe('account-2:all');
+  });
+
+  it('does not invent a confirmed empty result for a failed or partial run', () => {
+    const state = resolveDeFiFanOutFinishedState({
+      finishedOwnerKey: 'account-2:all',
+      runSucceeded: false,
+    });
+    expect(state).toEqual({
+      initialized: true,
+      isRefreshing: false,
+      loadedOwnerKey: undefined,
+      confirmedEmptyOwnerKey: undefined,
+      hasError: true,
+    });
+    expect(
+      shouldShowDeFiEmptyState({
+        protocolsLength: 0,
+        ownerKey: 'account-2:all',
+        confirmedEmptyOwnerKey: state.confirmedEmptyOwnerKey,
+      }),
+    ).toBe(false);
+  });
+
+  it('keeps a previously confirmed empty result only for the same owner on failure', () => {
+    const failed = resolveDeFiFanOutFinishedState({
+      finishedOwnerKey: 'account-2:all',
+      previousConfirmedEmptyOwnerKey: 'account-2:all',
+      runSucceeded: false,
+    });
+    expect(failed.hasError).toBe(true);
+    expect(
+      shouldShowDeFiEmptyState({
+        protocolsLength: 0,
+        ownerKey: 'account-2:all',
+        confirmedEmptyOwnerKey: failed.confirmedEmptyOwnerKey,
+      }),
+    ).toBe(true);
+    const switched = resolveDeFiFanOutFinishedState({
+      finishedOwnerKey: 'account-3:all',
+      previousConfirmedEmptyOwnerKey: 'account-2:all',
+      runSucceeded: false,
+    });
+    expect(switched.confirmedEmptyOwnerKey).toBeUndefined();
+  });
+
+  it('does not keep an empty result once a partial run has found positions', () => {
+    const state = resolveDeFiFanOutFinishedState({
+      positionsOwnerKey: 'account-2:all',
+      finishedOwnerKey: 'account-2:all',
+      previousConfirmedEmptyOwnerKey: 'account-2:all',
+      runSucceeded: false,
+    });
+    expect(state.confirmedEmptyOwnerKey).toBeUndefined();
+    expect(state.hasError).toBe(true);
+  });
+});
+
+describe('shouldShowDeFiEmptyState', () => {
+  it('shows only a verified empty result belonging to the active owner', () => {
+    expect(
+      shouldShowDeFiEmptyState({
+        protocolsLength: 0,
+        ownerKey: 'a',
+        confirmedEmptyOwnerKey: 'a',
+      }),
+    ).toBe(true);
+    expect(
+      shouldShowDeFiEmptyState({
+        protocolsLength: 0,
+        ownerKey: 'b',
+        confirmedEmptyOwnerKey: 'a',
+      }),
+    ).toBe(false);
+    expect(
+      shouldShowDeFiEmptyState({
+        protocolsLength: 1,
+        ownerKey: 'a',
+        confirmedEmptyOwnerKey: 'a',
+      }),
+    ).toBe(false);
+    expect(
+      shouldShowDeFiEmptyState({
+        protocolsLength: 0,
+        ownerKey: undefined,
+        confirmedEmptyOwnerKey: undefined,
+      }),
+    ).toBe(false);
   });
 });
 

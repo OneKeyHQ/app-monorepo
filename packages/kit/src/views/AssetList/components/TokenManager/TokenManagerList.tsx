@@ -360,6 +360,10 @@ function NativeTokenManagerList({
       }),
     );
 
+    // Every explicit height below pairs with unscaled style metrics (padding,
+    // lineHeight), so it must round to the nearest pixel: without heightRounding
+    // Android applies its legacy sub-400dp 0.9 factor to the row only, leaving a
+    // 60dp content box inside a 54dp row and clipping the subtitle (OK-66072).
     if (hasTokenRows) {
       dataSource.forEach((section, sectionIndex) => {
         const sectionKey = `section:${sectionIndex}`;
@@ -369,6 +373,7 @@ function NativeTokenManagerList({
             type: 'system',
             variant: 'spacer',
             height: 20,
+            heightRounding: 'nearest',
           });
         }
         if (sectionIndex === 0 && leadingEmptySection) return;
@@ -379,6 +384,7 @@ function NativeTokenManagerList({
           sectionKey,
           title: truncateNativeText(section.title),
           height: 30,
+          heightRounding: 'nearest',
           pressDisabled: true,
           style: {
             container: { contentVerticalAlignment: 'bottom' },
@@ -503,6 +509,7 @@ function NativeTokenManagerList({
             type: 'identity',
             sectionKey,
             height: 60,
+            heightRounding: 'nearest',
             pressDisabled: true,
             leading: {
               kind: 'token',

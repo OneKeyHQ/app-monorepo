@@ -101,6 +101,7 @@ jest.mock('@onekeyhq/components', () => {
     XStack: Wrapper,
     YStack: Wrapper,
     useMedia: () => ({ md: false }),
+    useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
   };
 });
 jest.mock('@onekeyhq/kit/src/components/Token', () => ({

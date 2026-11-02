@@ -7,6 +7,7 @@ import {
   TOKEN_SIMPLE_CHART_RANGES,
   buildStockSimpleChartScopeKey,
   fetchStockSimpleChartPoints,
+  isStockSimpleChartRangeUp,
   mergeStockSimpleChartLivePrice,
   resolveStockSimpleChartBucketSeconds,
   resolveStockSimpleChartDisplayPoints,
@@ -14,6 +15,7 @@ import {
   resolveStockSimpleChartMinRefreshMs,
   resolveStockSimpleChartPreviousClose,
   resolveStockSimpleChartPulseLastPoint,
+  resolveStockSimpleChartRangeChange,
   resolveStockSimpleChartRangeForPriceMode,
   resolveStockSimpleChartRequestScope,
   shouldStoreStockSimpleChartSeries,
@@ -690,6 +692,103 @@ describe('resolveStockSimpleChartPreviousClose', () => {
         stockDetail: { previousClose: '' },
       }),
     ).toBeUndefined();
+  });
+});
+
+describe('resolveStockSimpleChartRangeChange', () => {
+  const points: IMarketTokenChart = [
+    [100, 10],
+    [200, 12],
+    [300, 9],
+  ];
+
+  it('measures from the first point of the range', () => {
+    expect(
+      resolveStockSimpleChartRangeChange({
+        points,
+        priceMode: 'token',
+        range: '1W',
+      }),
+    ).toEqual({ priceMode: 'token', range: '1W', baseline: 10, latest: 9 });
+  });
+
+  it('measures a share 1D from the previous close', () => {
+    expect(
+      resolveStockSimpleChartRangeChange({
+        points,
+        previousClose: 8,
+        priceMode: 'share',
+        range: '1D',
+      }),
+    ).toEqual({ priceMode: 'share', range: '1D', baseline: 8, latest: 9 });
+  });
+
+  it('keeps the first point for share 1H and for token 1D', () => {
+    expect(
+      resolveStockSimpleChartRangeChange({
+        points,
+        previousClose: 8,
+        priceMode: 'share',
+        range: '1H',
+      })?.baseline,
+    ).toBe(10);
+    expect(
+      resolveStockSimpleChartRangeChange({
+        points,
+        previousClose: 8,
+        priceMode: 'token',
+        range: '1D',
+      })?.baseline,
+    ).toBe(10);
+  });
+
+  it('falls back to the first point when the share has no previous close', () => {
+    expect(
+      resolveStockSimpleChartRangeChange({
+        points,
+        priceMode: 'share',
+        range: '1D',
+      })?.baseline,
+    ).toBe(10);
+  });
+
+  it('reports nothing without a usable series', () => {
+    expect(
+      resolveStockSimpleChartRangeChange({
+        points: [],
+        priceMode: 'token',
+        range: '1D',
+      }),
+    ).toBeUndefined();
+    expect(
+      resolveStockSimpleChartRangeChange({
+        points: [
+          [100, 0],
+          [200, 1],
+        ],
+        priceMode: 'token',
+        range: '1D',
+      }),
+    ).toBeUndefined();
+  });
+
+  it('reads a flat range as up', () => {
+    expect(
+      isStockSimpleChartRangeUp({
+        priceMode: 'token',
+        range: '1D',
+        baseline: 5,
+        latest: 5,
+      }),
+    ).toBe(true);
+    expect(
+      isStockSimpleChartRangeUp({
+        priceMode: 'token',
+        range: '1D',
+        baseline: 5,
+        latest: 4,
+      }),
+    ).toBe(false);
   });
 });
 
