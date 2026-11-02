@@ -10,9 +10,11 @@ import { SimpleDbEntityPrivacyChainState } from '../../dbs/simple/entity/SimpleD
 
 import {
   clearLocalWalletBalances,
+  forgetLocalWalletDisplayReads,
   readLastLocalWalletPublicBalance,
   readLocalWalletBalanceStaleFirst,
   readLocalWalletCacheEpoch,
+  readLocalWalletForDisplay,
   removeLastLocalWalletBalances,
   removeNetworkLastLocalWalletBalances,
   saveLastLocalWalletBalance,
@@ -698,5 +700,98 @@ describe('saved balance epochs', () => {
         epoch: after,
       }),
     ).resolves.toBeUndefined();
+  });
+});
+
+// A runtime that is starting or scanning answers late; a page never waits on it past the display wait.
+describe('reads a page makes of a busy runtime', () => {
+  beforeEach(() => {
+    jest.useFakeTimers();
+  });
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
+  function heldRead<T>() {
+    let answer: (value: T) => void = () => {};
+    const read = jest.fn(
+      () =>
+        new Promise<T>((resolve) => {
+          answer = resolve;
+        }),
+    );
+    return { read, answer: (value: T) => answer(value) };
+  }
+
+  it('answers nothing in time, then the late answer on the next read', async () => {
+    const { read, answer } = heldRead<number>();
+    const first = readLocalWalletForDisplay({ key: 'zec--0:size', read });
+    await jest.advanceTimersByTimeAsync(1000);
+    await expect(first).resolves.toBeUndefined();
+
+    answer(42);
+    await jest.advanceTimersByTimeAsync(0);
+    const second = readLocalWalletForDisplay({
+      key: 'zec--0:size',
+      read: () => new Promise<number>(() => {}),
+    });
+    await jest.advanceTimersByTimeAsync(1000);
+    await expect(second).resolves.toBe(42);
+    expect(read).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps nothing for a read the scheduler publishes', async () => {
+    const first = readLocalWalletForDisplay({
+      key: 'zec--0:hd-1--0:progress',
+      read: async () => 7,
+      remember: false,
+    });
+    await jest.advanceTimersByTimeAsync(0);
+    await expect(first).resolves.toBe(7);
+    const second = readLocalWalletForDisplay({
+      key: 'zec--0:hd-1--0:progress',
+      read: () => new Promise<number>(() => {}),
+      remember: false,
+    });
+    await jest.advanceTimersByTimeAsync(1000);
+    await expect(second).resolves.toBeUndefined();
+  });
+
+  it("forgets a network's answers when its data goes", async () => {
+    await readLocalWalletForDisplay({
+      key: 'xmr--0:size',
+      read: async () => 9,
+    });
+    await readLocalWalletForDisplay({
+      key: 'zec--1:size',
+      read: async () => 5,
+    });
+    forgetLocalWalletDisplayReads({ networkId: 'xmr--0' });
+
+    const read = (key: string) =>
+      readLocalWalletForDisplay({
+        key,
+        read: () => new Promise<number>(() => {}),
+      });
+    const gone = read('xmr--0:size');
+    const kept = read('zec--1:size');
+    await jest.advanceTimersByTimeAsync(1000);
+    await expect(gone).resolves.toBeUndefined();
+    await expect(kept).resolves.toBe(5);
+  });
+
+  it('keeps the last answer when a read fails', async () => {
+    await readLocalWalletForDisplay({
+      key: 'zec--2:size',
+      read: async () => 3,
+    });
+    const failed = readLocalWalletForDisplay({
+      key: 'zec--2:size',
+      read: async () => {
+        throw new OneKeyLocalError('runtime unavailable');
+      },
+    });
+    await jest.advanceTimersByTimeAsync(0);
+    await expect(failed).resolves.toBe(3);
   });
 });

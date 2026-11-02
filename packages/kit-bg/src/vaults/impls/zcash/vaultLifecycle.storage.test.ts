@@ -44,3 +44,27 @@ describe('Zcash storage usage', () => {
     ).resolves.toEqual({ bytes: null });
   });
 });
+
+// Node health is read through the runtime; the node itself is not.
+describe('Zcash node status while the runtime is held', () => {
+  beforeEach(() => {
+    jest.useFakeTimers();
+  });
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
+  it('shows the node with its health unknown', async () => {
+    const vault = Object.assign(Object.create(Vault.prototype) as Vault, {
+      networkId: 'zec--held-node',
+      zcashGetApi: () => new Promise(() => {}),
+      zcashResolveLightwalletdUrl: async () => 'https://zec.example',
+    });
+    const endpoint = getLocalWalletCapability(vault).getSyncEndpoint?.();
+    await jest.advanceTimersByTimeAsync(1000);
+    await expect(endpoint).resolves.toEqual({
+      url: 'https://zec.example',
+      health: undefined,
+    });
+  });
+});

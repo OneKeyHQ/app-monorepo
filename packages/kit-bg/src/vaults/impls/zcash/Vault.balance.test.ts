@@ -506,7 +506,25 @@ describe('Zcash transparent balance on display', () => {
   it('asks for one retry, not the spend default', async () => {
     const read = jest.fn().mockResolvedValue({ total: new BigNumber(1) });
     await zcashReadTransparentForDisplay(createVault(read), { account });
-    expect(read).toHaveBeenCalledWith({ account, rawTxRetries: 1 });
+    expect(read).toHaveBeenCalledWith(
+      expect.objectContaining({ account, rawTxRetries: 1 }),
+    );
+  });
+
+  // With nothing saved, a busy runtime still parsing the spendable set must not leave the total at 0.
+  it("shows the indexer's total while the spendable set is still being parsed", async () => {
+    jest.spyOn(timerUtils, 'wait').mockResolvedValue(undefined);
+    const read = jest.fn(
+      (params: { onIndexerTotal?: (total: BigNumber) => void }) => {
+        params.onIndexerTotal?.(new BigNumber(70));
+        return new Promise(() => {});
+      },
+    );
+    await expect(
+      zcashReadTransparentForDisplay(createVault(read), {
+        account: { id: 'parsing-account' } as typeof account,
+      }),
+    ).resolves.toEqual({ total: new BigNumber(70) });
   });
 
   it('asks only for spendable UTXOs when the total is not needed', async () => {

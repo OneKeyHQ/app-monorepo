@@ -24,6 +24,7 @@ import { isSameZcashPendingRescan } from '../../../dbs/simple/entity/SimpleDbEnt
 import { getPrivacyModeResumeFromHeight } from '../../../services/PrivacyModeState';
 import {
   getLastLocalWalletChainTip,
+  readLocalWalletForDisplay,
   saveLastLocalWalletChainTip,
 } from '../../localWallet/privacyChainCacheStore';
 import { getLocalWalletRemoteConfig } from '../../localWallet/remoteConfig';
@@ -313,9 +314,12 @@ export function getLocalWalletCapability(vault: Vault): ILocalWalletCapability {
       };
     },
     getSyncEndpoint: async () => {
-      const api = await vault.zcashGetApi();
+      // Health is what the scanner last saw, read through the runtime; the URL needs no runtime.
       const [health, url] = await Promise.all([
-        api.getEndpointHealth().catch(() => undefined),
+        readLocalWalletForDisplay({
+          key: `${vault.networkId}:endpointHealth`,
+          read: async () => (await vault.zcashGetApi()).getEndpointHealth(),
+        }),
         vault.zcashResolveLightwalletdUrl(),
       ]);
       return {

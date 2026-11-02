@@ -552,6 +552,7 @@ export default class Vault extends VaultBtc {
   async zcashGetIndexerTransparentBalance(params: {
     account: IDBUtxoAccount;
     rawTxRetries?: number;
+    onIndexerTotal?: (total: BigNumber) => void;
   }): Promise<{
     total?: BigNumber;
     spendable?: BigNumber;

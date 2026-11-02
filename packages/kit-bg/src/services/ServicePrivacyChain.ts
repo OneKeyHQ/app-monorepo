@@ -41,7 +41,9 @@ import { planLocalWalletLifecycle } from '../vaults/localWallet/lifecycle';
 import { localWalletText } from '../vaults/localWallet/messages';
 import {
   clearLocalWalletBalances,
+  forgetLocalWalletDisplayReads,
   listLastLocalWalletBalanceAccountIds,
+  readLocalWalletForDisplay,
   removeLastLocalWalletBalances,
   removeLastLocalWalletChainTips,
   removeNetworkLastLocalWalletBalances,
@@ -1738,6 +1740,8 @@ class ServicePrivacyChain extends ServiceBase {
       }
       if (runtimeChanged) {
         this.markLocalWalletOrphanCleanupDue(networkId);
+        // A size or similar answer read before the change describes data that is gone.
+        forgetLocalWalletDisplayReads({ networkId });
       }
       if (accountIds.length) {
         this.clearSyncFailureBackoff(networkId);
@@ -4122,16 +4126,23 @@ class ServicePrivacyChain extends ServiceBase {
   }> {
     const vault = await vaultFactory.getChainOnlyVault({ networkId });
     const capability = requireLocalWalletCapability(vault);
+    const { getStorageUsage } = capability;
     const [storage, endpoint] = await Promise.all([
-      // Unreadable is shown as unknown, not hidden: a database that cannot be
-      // read is exactly when the reset button is needed.
-      capability.getStorageUsage?.().catch((e) => {
-        console.error('[privacy-chain] storage usage unavailable', {
-          networkId,
-          error: e instanceof Error ? e.message : String(e),
-        });
-        return { bytes: null };
-      }),
+      getStorageUsage
+        ? readLocalWalletForDisplay({
+            key: `${networkId}:storage`,
+            // Unreadable is shown as unknown, not hidden: a database that cannot be
+            // read is exactly when the reset button is needed.
+            read: () =>
+              getStorageUsage().catch((e) => {
+                console.error('[privacy-chain] storage usage unavailable', {
+                  networkId,
+                  error: e instanceof Error ? e.message : String(e),
+                });
+                return { bytes: null };
+              }),
+          })
+        : undefined,
       capability.getSyncEndpoint?.().catch(() => undefined),
     ]);
     const defaultUrl =
@@ -4728,10 +4739,15 @@ class ServicePrivacyChain extends ServiceBase {
     if (published) {
       return published;
     }
-    // Nothing published yet (cold start, or this account has never been in a
-    // pass). Pay the queued read once; the scheduler publishes from then on.
+    // Nothing published yet (cold start, or an account still preparing). The runtime may be starting
+    // or busy: ask it, but never wait longer than a page may; the scheduler publishes from then on.
     const vault = await vaultFactory.getChainOnlyVault({ networkId });
-    return requireLocalWalletCapability(vault).getSyncProgress({ accountId });
+    const capability = requireLocalWalletCapability(vault);
+    return readLocalWalletForDisplay({
+      key: `${networkId}:${accountId}:progress`,
+      read: () => capability.getSyncProgress({ accountId }),
+      remember: false,
+    });
   }
 
   // Progress for a chain held back by metered data. No network call: reads

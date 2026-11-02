@@ -13,7 +13,10 @@ jest.mock('../vaults/factory', () => ({
   },
 }));
 jest.mock('../states/jotai/atoms', () => ({
-  privacyChainAtom: { set: jest.fn(async () => undefined) },
+  privacyChainAtom: {
+    set: jest.fn(async () => undefined),
+    get: jest.fn(async () => ({ progress: {} })),
+  },
 }));
 
 const ServicePrivacyChain = require('./ServicePrivacyChain')
@@ -1046,5 +1049,59 @@ describe('Privacy page opened', () => {
     await service.onLocalWalletPageOpened({ networkId: 'evm--1' });
     expect(service.earliestTickAt).toBe(quietUntil);
     expect(service.scheduleBackgroundSync).not.toHaveBeenCalled();
+  });
+});
+
+// A runtime starting or running a turn answers late; no page read waits on it past the display wait.
+describe('Privacy page reads while the runtime is held', () => {
+  beforeEach(() => {
+    jest.useFakeTimers();
+  });
+  afterEach(() => {
+    jest.useRealTimers();
+    mockGetChainOnlyVault.mockReset();
+  });
+
+  function createService() {
+    const never = () => new Promise<never>(() => {});
+    mockGetChainOnlyVault.mockResolvedValue({
+      getLocalWalletCapability: () => ({
+        getSyncProgress: never,
+        getStorageUsage: never,
+        getSyncEndpoint: async () => ({ url: 'https://node.example' }),
+      }),
+    });
+    return Object.assign(
+      Object.create(ServicePrivacyChain.prototype) as InstanceType<
+        typeof ServicePrivacyChain
+      >,
+      {
+        backgroundApi: {
+          serviceCustomRpc: {
+            resolveDefaultRpcUrl: async () => 'https://node.example',
+          },
+        },
+      },
+    );
+  }
+
+  it('answers sync progress for an account with nothing published yet', async () => {
+    const progress = createService().getLocalWalletSyncProgress({
+      networkId: 'zec--held',
+      accountId: 'account',
+    });
+    await jest.advanceTimersByTimeAsync(1000);
+    await expect(progress).resolves.toBeUndefined();
+  });
+
+  it('answers the network page with the size unknown and the node shown', async () => {
+    const info = createService().getLocalWalletNetworkInfo({
+      networkId: 'zec--held',
+    });
+    await jest.advanceTimersByTimeAsync(1000);
+    await expect(info).resolves.toMatchObject({
+      storageBytes: undefined,
+      endpointUrl: 'https://node.example',
+    });
   });
 });
