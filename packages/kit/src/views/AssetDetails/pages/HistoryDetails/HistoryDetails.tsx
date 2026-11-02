@@ -1314,9 +1314,34 @@ function HistoryDetails() {
                   ? ETranslations.global_from
                   : ETranslations.global_to,
             });
+            const endpoints = localWalletEndpoints?.[direction] ?? [];
+            // As on BTC, several outside senders show as a count; Inputs &
+            // Outputs lists them.
+            const senderAddresses =
+              direction === 'from'
+                ? endpoints.filter(
+                    (endpoint) =>
+                      endpoint.isPublic && !endpoint.isOwn && endpoint.address,
+                  )
+                : [];
+            const collapsedSenders =
+              senderAddresses.length > 1 ? senderAddresses : [];
             return (
               <Fragment key={direction}>
-                {localWalletEndpoints?.[direction].map((endpoint) => {
+                {endpoints.map((endpoint) => {
+                  if (collapsedSenders.includes(endpoint)) {
+                    return endpoint === collapsedSenders[0] ? (
+                      <InfoItem
+                        key="senders"
+                        testID="history-details-from-addresses"
+                        label={label}
+                        renderContent={intl.formatMessage(
+                          { id: ETranslations.explore_addresses_count },
+                          { number: collapsedSenders.length },
+                        )}
+                      />
+                    ) : null;
+                  }
                   if (!endpoint.address) {
                     return (
                       <InfoItem

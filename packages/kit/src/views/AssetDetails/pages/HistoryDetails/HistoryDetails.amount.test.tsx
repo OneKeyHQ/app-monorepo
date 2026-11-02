@@ -432,6 +432,44 @@ it('names the pool of a hidden sender', () => {
   ).toBeTruthy();
 });
 
+it.each([
+  [1, false],
+  [2, true],
+])(
+  'shows %s outside public sender(s) as a count only when there are several',
+  (count, collapsed) => {
+    const senders = [`t1${'S'.repeat(33)}`, `t1${'R'.repeat(33)}`].slice(
+      0,
+      count,
+    );
+    mockAccountAddresses = { publicAddress: OWN_T };
+    setZcashFlow(senders[0], OWN_T);
+    mockHistory.decodedTx.signer = '';
+    const transfer = mockHistory.decodedTx.actions[0].assetTransfer;
+    if (!transfer) throw new OneKeyLocalError('missing transfer fixture');
+    transfer.receives = senders.map((from) => ({
+      ...transfer.sends[0],
+      from,
+      to: OWN_T,
+    }));
+    transfer.sends = [];
+    const result = render(<HistoryDetails />);
+    if (collapsed) {
+      const countRow = within(
+        result.getByTestId('history-details-from-addresses'),
+      );
+      expect(countRow.getByText('2 addresses')).toBeTruthy();
+      senders.forEach((sender) => {
+        expect(result.queryByText(sender)).toBeNull();
+      });
+    } else {
+      expect(result.queryByTestId('history-details-from-addresses')).toBeNull();
+      expect(result.getAllByText(senders[0])).toHaveLength(1);
+    }
+    expect(result.getAllByText(OWN_T)).toHaveLength(1);
+  },
+);
+
 it('does not infer a destination pool from change alone', () => {
   setZcashEndpoints({ poolId: 3, own: true }, { shielded: true });
   mockTxDetails = {
