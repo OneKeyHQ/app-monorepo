@@ -108,7 +108,7 @@ function useReceiveToken({
         return;
       }
 
-      if (networkUtils.isLightningNetworkByNetworkId(networkId)) {
+      if (networkUtils.isAnyLightningNetworkByNetworkId(networkId)) {
         if (sameModal) {
           navigation.push(EModalReceiveRoutes.CreateInvoice, {
             networkId,
@@ -284,7 +284,7 @@ function useReceiveToken({
             t: IToken,
             selectContext?: IAggregateTokenSelectContext,
           ) => {
-            if (networkUtils.isLightningNetworkByNetworkId(t.networkId)) {
+            if (networkUtils.isAnyLightningNetworkByNetworkId(t.networkId)) {
               navigation.pushModal(EModalRoutes.ReceiveModal, {
                 screen: EModalReceiveRoutes.CreateInvoice,
                 params: {

@@ -22,6 +22,7 @@ import type ServiceHyperliquidReferral from '../services/ServiceHyperLiquid/Serv
 import type ServiceHyperliquidSubscription from '../services/ServiceHyperLiquid/ServiceHyperliquidSubscription';
 import type ServiceHyperliquidWallet from '../services/ServiceHyperLiquid/ServiceHyperliquidWallet';
 import type ServiceIdentityExit from '../services/ServiceIdentityExit/ServiceIdentityExit';
+import type ServiceLightningSpark from '../services/ServiceLightningSpark/ServiceLightningSpark';
 import type ServiceThirdPartyHardware from '../services/ServiceThirdPartyHardware';
 import type ServiceUnifoldDeposit from '../services/ServiceUnifoldDeposit';
 
@@ -697,6 +698,13 @@ class BackgroundApi extends BackgroundApiBase implements IBackgroundApi {
     });
     Object.defineProperty(this, 'serviceLightning', { value });
     return value;
+  }
+
+  get serviceLightningSpark(): ILazyServiceProxy<ServiceLightningSpark> {
+    return this.buildLazyService(
+      'serviceLightningSpark',
+      () => import('../services/ServiceLightningSpark/ServiceLightningSpark'),
+    );
   }
 
   get serviceLogger() {

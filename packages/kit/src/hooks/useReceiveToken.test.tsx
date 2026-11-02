@@ -48,6 +48,7 @@ jest.mock('@onekeyhq/shared/src/utils/networkUtils', () => ({
     isAllNetwork: ({ networkId }: { networkId: string }) =>
       networkId === 'onekeyall--0',
     isLightningNetworkByNetworkId: () => false,
+    isAnyLightningNetworkByNetworkId: () => false,
   },
 }));
 

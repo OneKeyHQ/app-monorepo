@@ -159,6 +159,8 @@ jest.mock('@onekeyhq/shared/src/utils/networkUtils', () => ({
       networkId === 'onekeyall--0',
     isLightningNetworkByNetworkId: (networkId?: string) =>
       networkId === 'lightning--0',
+    isAnyLightningNetworkByNetworkId: (networkId?: string) =>
+      networkId === 'lightning--0',
     getNetworkImpl: ({ networkId }: { networkId: string }) =>
       networkId.split('--')[0],
   },

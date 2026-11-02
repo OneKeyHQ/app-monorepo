@@ -306,7 +306,7 @@ function BulkCopyAddresses({
         );
       // exclude lightning network
       return networkIdsCompatible.filter(
-        (id) => !networkUtils.isLightningNetworkByNetworkId(id),
+        (id) => !networkUtils.isAnyLightningNetworkByNetworkId(id),
       );
     },
     [selectedWalletId],

@@ -4,6 +4,7 @@
   "private": true,
   "main": "src/index.tsx",
   "dependencies": {
+    "@breeztech/breez-sdk-spark": "0.26.1",
     "@zip.js/zip.js": "2.10.0",
     "eth-url-parser": "^1.0.4",
     "fflate": "0.8.2",

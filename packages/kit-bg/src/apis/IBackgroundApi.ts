@@ -59,6 +59,7 @@ import type ServiceIpTable from '../services/ServiceIpTable';
 import type ServiceKeylessCloudSync from '../services/ServiceKeylessCloudSync';
 import type ServiceKeylessWallet from '../services/ServiceKeylessWallet/ServiceKeylessWallet';
 import type ServiceLightning from '../services/ServiceLightning';
+import type ServiceLightningSpark from '../services/ServiceLightningSpark/ServiceLightningSpark';
 import type ServiceLiteCardMnemonic from '../services/ServiceLiteCardMnemonic';
 import type ServiceLogger from '../services/ServiceLogger';
 import type ServiceMarket from '../services/ServiceMarket';
@@ -238,6 +239,7 @@ export interface IBackgroundApi extends IBackgroundApiBridge {
   serviceThirdPartyHardware: ServiceThirdPartyHardware;
   serviceFirmwareUpdate: ServiceFirmwareUpdate;
   serviceLightning: ServiceLightning;
+  serviceLightningSpark: ILazyServiceProxy<ServiceLightningSpark>;
   serviceOnboarding: ServiceOnboarding;
   serviceScanQRCode: ServiceScanQRCode;
   serviceCloudBackup: ServiceCloudBackup;

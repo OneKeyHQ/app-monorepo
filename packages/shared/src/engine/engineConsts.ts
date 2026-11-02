@@ -121,6 +121,13 @@ const COINTYPE_NEO = '888';
 const IMPL_STELLAR = 'stellar';
 const COINTYPE_STELLAR = '148';
 
+// Self-custodial Lightning on Spark (Breez SDK), separate from the custodial
+// IMPL_LIGHTNING impls. Spark has no BIP44 coin type; the account path is the
+// BIP-85 child seed path, so the coin type is its second element, the BIP-85
+// application number "OKLN". Every Spark network shares it.
+const IMPL_LIGHTNING_SPARK = 'lightningspark';
+const COINTYPE_LIGHTNING_SPARK = '1330334798';
+
 const IMPL_ALLNETWORKS = 'onekeyall';
 const COINTYPE_ALLNETWORKS = '0000';
 
@@ -160,6 +167,7 @@ const SUPPORTED_IMPLS = new Set([
   IMPL_NEO,
   IMPL_STELLAR,
   IMPL_ZCASH,
+  IMPL_LIGHTNING_SPARK,
   IMPL_ALLNETWORKS,
 ]);
 
@@ -287,6 +295,7 @@ export {
   COINTYPE_NEO,
   COINTYPE_STELLAR,
   COINTYPE_ZCASH,
+  COINTYPE_LIGHTNING_SPARK,
   COINTYPE_AGGREGATE,
   IMPL_ADA,
   IMPL_ALGO,
@@ -324,6 +333,7 @@ export {
   IMPL_NEO,
   IMPL_STELLAR,
   IMPL_ZCASH,
+  IMPL_LIGHTNING_SPARK,
   IMPL_AGGREGATE,
   INDEX_PLACEHOLDER,
   SEPERATOR,

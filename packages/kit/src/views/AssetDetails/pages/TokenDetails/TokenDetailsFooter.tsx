@@ -125,7 +125,7 @@ function TokenDetailsFooter(props: {
     return '$textSubdued';
   }, [tokenMetadata?.priceChange24h]);
 
-  if (networkUtils.isLightningNetworkByNetworkId(networkId)) {
+  if (networkUtils.isAnyLightningNetworkByNetworkId(networkId)) {
     return null;
   }
 

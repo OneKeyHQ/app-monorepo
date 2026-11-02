@@ -509,6 +509,13 @@ class ServiceAccountSelector extends ServiceBase {
         canCreateAddress =
           !isWalletUnusable && !!vaultSettings.qrAccountEnabled;
       }
+      if (
+        vaultSettings?.firstAccountOnly &&
+        indexedAccount &&
+        indexedAccount.index !== 0
+      ) {
+        canCreateAddress = false;
+      }
     }
     finishStage('deviceAndAllNetwork', deviceAndAllNetworkStartedAt);
 
