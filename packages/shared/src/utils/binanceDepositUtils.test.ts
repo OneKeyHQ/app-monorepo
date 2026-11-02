@@ -1,4 +1,4 @@
-import { EBinanceDepositSessionStatus } from '../../types/exchange';
+import { EBinanceDepositSessionStatus } from '../../types/binanceDeposit';
 import { BINANCE_DEPOSIT_TOKEN_REGEX } from '../consts/binanceDepositConsts';
 
 import {
@@ -17,8 +17,8 @@ import {
 import type {
   IBinanceDepositAuthorizedDestination,
   IBinanceDepositLocalSession,
-  IBinanceSupportedAssets,
-} from '../../types/exchange';
+} from '../../types/binanceDeposit';
+import type { IBinanceSupportedAssets } from '../../types/exchange';
 
 const NONCE = 'AbCdEfGhIjKlMnOpQrStUvWxYz0123456789-_abcde';
 const RETURN_URL = `onekey-wallet://binance-connect/deposit-return?rn=${NONCE}`;

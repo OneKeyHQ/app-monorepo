@@ -20,12 +20,12 @@ import openUrlUtils from '@onekeyhq/shared/src/utils/openUrlUtils';
 import {
   EBinanceDepositErrorCode,
   EBinanceDepositSessionStatus,
-} from '@onekeyhq/shared/types/exchange';
+} from '@onekeyhq/shared/types/binanceDeposit';
 import type {
   IBinanceDepositAsset,
   IBinanceDepositPhase,
   IBinanceDepositSnapshot,
-} from '@onekeyhq/shared/types/exchange';
+} from '@onekeyhq/shared/types/binanceDeposit';
 import type { IToken } from '@onekeyhq/shared/types/token';
 
 import type { IntlShape } from 'react-intl';

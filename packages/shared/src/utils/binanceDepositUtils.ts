@@ -1,4 +1,4 @@
-import { EBinanceDepositSessionStatus } from '../../types/exchange';
+import { EBinanceDepositSessionStatus } from '../../types/binanceDeposit';
 import {
   BINANCE_DEPOSIT_BIND_WINDOW_MS,
   BINANCE_DEPOSIT_LINK_HOST_ALLOWLIST,
@@ -20,8 +20,8 @@ import type {
   IBinanceDepositAuthorizedDestination,
   IBinanceDepositLocalSession,
   IBinanceDepositPhase,
-  IBinanceSupportedAssets,
-} from '../../types/exchange';
+} from '../../types/binanceDeposit';
+import type { IBinanceSupportedAssets } from '../../types/exchange';
 
 const SESSION_KEY_BYTE_LENGTH = 32;
 const RETURN_URL_PREFIX = `${BINANCE_DEPOSIT_RETURN_SCHEME}://`;

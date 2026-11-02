@@ -28,8 +28,8 @@ import {
 } from '@onekeyhq/shared/src/consts/exchangeConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { EBinanceDepositSessionStatus } from '@onekeyhq/shared/types/exchange';
-import type { IBinanceDepositSnapshot } from '@onekeyhq/shared/types/exchange';
+import { EBinanceDepositSessionStatus } from '@onekeyhq/shared/types/binanceDeposit';
+import type { IBinanceDepositSnapshot } from '@onekeyhq/shared/types/binanceDeposit';
 
 import type { ImageSourcePropType } from 'react-native';
 

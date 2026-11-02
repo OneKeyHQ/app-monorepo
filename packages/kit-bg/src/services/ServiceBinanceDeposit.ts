@@ -27,11 +27,10 @@ import {
 } from '@onekeyhq/shared/src/utils/binanceDepositUtils';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
-import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import {
   EBinanceDepositErrorCode,
   EBinanceDepositSessionStatus,
-} from '@onekeyhq/shared/types/exchange';
+} from '@onekeyhq/shared/types/binanceDeposit';
 import type {
   IBinanceDepositAsset,
   IBinanceDepositAuthorizedDestination,
@@ -39,7 +38,8 @@ import type {
   IBinanceDepositLocalSession,
   IBinanceDepositSessionView,
   IBinanceDepositSnapshot,
-} from '@onekeyhq/shared/types/exchange';
+} from '@onekeyhq/shared/types/binanceDeposit';
+import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 
 import { devSettingsPersistAtom } from '../states/jotai/atoms';
 

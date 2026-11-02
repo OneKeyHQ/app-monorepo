@@ -2,12 +2,12 @@ import { EBinanceDepositLocalErrorCode } from '@onekeyhq/shared/src/consts/binan
 import {
   EBinanceDepositErrorCode,
   EBinanceDepositSessionStatus,
-} from '@onekeyhq/shared/types/exchange';
+} from '@onekeyhq/shared/types/binanceDeposit';
 import type {
   IBinanceDepositAsset,
   IBinanceDepositAuthorizedDestination,
   IBinanceDepositLocalSession,
-} from '@onekeyhq/shared/types/exchange';
+} from '@onekeyhq/shared/types/binanceDeposit';
 
 import ServiceBinanceDeposit from './ServiceBinanceDeposit';
 

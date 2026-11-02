@@ -1,4 +1,4 @@
-import type { IBinanceDepositLocalSession } from '@onekeyhq/shared/types/exchange';
+import type { IBinanceDepositLocalSession } from '@onekeyhq/shared/types/binanceDeposit';
 
 import { SimpleDbEntityBase } from '../base/SimpleDbEntityBase';
 

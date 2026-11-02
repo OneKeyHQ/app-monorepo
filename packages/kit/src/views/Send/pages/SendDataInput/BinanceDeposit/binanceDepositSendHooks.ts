@@ -5,8 +5,8 @@ import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { getBinanceDepositEventContext } from '@onekeyhq/shared/src/utils/binanceDepositUtils';
-import { EBinanceDepositErrorCode } from '@onekeyhq/shared/types/exchange';
-import type { IBinanceDepositSendContext } from '@onekeyhq/shared/types/exchange';
+import { EBinanceDepositErrorCode } from '@onekeyhq/shared/types/binanceDeposit';
+import type { IBinanceDepositSendContext } from '@onekeyhq/shared/types/binanceDeposit';
 import type { ISendTxOnSuccessData } from '@onekeyhq/shared/types/tx';
 
 import type { IntlShape } from 'react-intl';
