@@ -89,9 +89,9 @@ function usePreCheckFeeInfo() {
   const showFeeInfoOverflowConfirm = useCallback(
     () =>
       new Promise<boolean>((resolve) => {
-        // Published for flows that own a system-level presentation covering
-        // this RN-layer dialog on native (the WalletConnect Pay sheet parks
-        // for it, see txFeeOverflowConfirmPresence). Cleared on every way
+        // Published for flows that keep their own sheet up during a
+        // transaction (the WalletConnect Pay sheet steps aside for it on
+        // native, see txFeeOverflowConfirmPresence). Cleared on every way
         // the dialog can settle; the mark tolerates the button and onClose
         // both firing.
         const markClosed = markTxFeeOverflowConfirmOpen();

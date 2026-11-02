@@ -2,8 +2,10 @@
 
 import type { ReactNode } from 'react';
 
-import { fireEvent, render } from '@testing-library/react';
+import { render } from '@testing-library/react';
 
+import { StockEventsSection } from '../../layouts/components/StockEventsSection';
+import { StockNewsSection } from '../../layouts/components/StockNewsSection';
 import {
   StockAbout,
   StockAnalystRatings,
@@ -12,36 +14,9 @@ import {
 
 import { StockMobileOverview } from './StockMobileOverview';
 
-let mockLayoutWidth = 375;
-
-jest.mock('react-native', () => ({
-  useWindowDimensions: () => ({ width: 375, height: 812 }),
-}));
-
 jest.mock('@onekeyhq/components', () => {
-  function StackComponent({
-    children,
-    onLayout,
-  }: {
-    children?: ReactNode;
-    onLayout?: (event: { nativeEvent: { layout: { width: number } } }) => void;
-  }) {
-    return (
-      <div>
-        {onLayout ? (
-          <button
-            type="button"
-            data-testid="measure-overview"
-            onClick={() =>
-              onLayout({ nativeEvent: { layout: { width: mockLayoutWidth } } })
-            }
-          >
-            Measure
-          </button>
-        ) : null}
-        {children}
-      </div>
-    );
+  function StackComponent({ children }: { children?: ReactNode }) {
+    return <div>{children}</div>;
   }
 
   return { YStack: StackComponent };
@@ -54,11 +29,11 @@ jest.mock('../../layouts/StockDesktopLayout', () => ({
 }));
 
 jest.mock('../../layouts/components/StockEventsSection', () => ({
-  StockEventsSection: () => <div data-testid="stock-events" />,
+  StockEventsSection: jest.fn(() => <div data-testid="stock-events" />),
 }));
 
 jest.mock('../../layouts/components/StockNewsSection', () => ({
-  StockNewsSection: () => <div data-testid="stock-news" />,
+  StockNewsSection: jest.fn(() => <div data-testid="stock-news" />),
 }));
 
 describe('StockMobileOverview', () => {
@@ -66,25 +41,21 @@ describe('StockMobileOverview', () => {
     jest.mocked(StockOverviewGrid).mockClear();
     jest.mocked(StockAbout).mockClear();
     jest.mocked(StockAnalystRatings).mockClear();
-    mockLayoutWidth = 375;
+    jest.mocked(StockEventsSection).mockClear();
+    jest.mocked(StockNewsSection).mockClear();
   });
 
-  it('fits the analyst gauge to the content width after layout and resize', () => {
-    const view = render(<StockMobileOverview />);
-    expect(jest.mocked(StockAnalystRatings).mock.lastCall?.[0]).toEqual({
-      gaugeWidth: 327,
-    });
+  it('renders the mobile variants of the shared sections', () => {
+    render(<StockMobileOverview />);
 
-    mockLayoutWidth = 320;
-    fireEvent.click(view.getByTestId('measure-overview'));
-    expect(jest.mocked(StockAnalystRatings).mock.lastCall?.[0]).toEqual({
-      gaugeWidth: 272,
+    expect(jest.mocked(StockAnalystRatings).mock.calls[0]?.[0]).toEqual({
+      variant: 'compact',
     });
-
-    mockLayoutWidth = 430;
-    fireEvent.click(view.getByTestId('measure-overview'));
-    expect(jest.mocked(StockAnalystRatings).mock.lastCall?.[0]).toEqual({
-      gaugeWidth: 382,
+    expect(jest.mocked(StockEventsSection).mock.calls[0]?.[0]).toEqual({
+      variant: 'mobile',
+    });
+    expect(jest.mocked(StockNewsSection).mock.calls[0]?.[0]).toEqual({
+      variant: 'mobile',
     });
   });
 

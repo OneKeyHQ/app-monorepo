@@ -1293,6 +1293,7 @@ const validDeriveTypesList = [
   'BIP84',
   'BIP44',
   'kaspaOfficial',
+  'cake',
 ] as const satisfies readonly IAccountDeriveTypes[];
 
 // Compile-time guard: ensures every IAccountDeriveTypes member is present in

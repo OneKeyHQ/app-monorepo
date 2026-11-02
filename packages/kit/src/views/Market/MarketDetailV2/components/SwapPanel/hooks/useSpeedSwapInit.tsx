@@ -133,9 +133,15 @@ type ISpeedSwapConfigState = {
   fromCache?: boolean;
 };
 
+export enum ESpeedSwapConfigScope {
+  DEFAULT = 'default',
+  MARKET = 'market',
+}
+
 export function useSpeedSwapInit(
   networkId: string,
   enableNoNetworkCheck?: boolean,
+  scopes = ESpeedSwapConfigScope.DEFAULT,
 ) {
   const fallbackConfig = useMemo(
     () => buildSwapPairFallbackConfig(networkId),
@@ -200,14 +206,24 @@ export function useSpeedSwapInit(
   const rawSpeedSwapConfig = speedSwapConfigReady
     ? (speedSwapConfigState?.config ?? fallbackConfig)
     : fallbackConfig;
-  const speedSwapConfig = useMemo(
-    () =>
-      applySwapPairFallback({
-        config: rawSpeedSwapConfig,
-        fallbackConfig,
-      }),
-    [fallbackConfig, rawSpeedSwapConfig],
-  );
+  const speedSwapConfig = useMemo(() => {
+    const config = applySwapPairFallback({
+      config: rawSpeedSwapConfig,
+      fallbackConfig,
+    });
+    if (scopes !== ESpeedSwapConfigScope.MARKET) {
+      return config;
+    }
+    return {
+      ...config,
+      speedConfig: {
+        ...config.speedConfig,
+        defaultTokens: config.speedConfig.defaultTokens.filter(
+          (token) => !token.isNative,
+        ),
+      },
+    };
+  }, [fallbackConfig, rawSpeedSwapConfig, scopes]);
 
   return {
     speedSwapConfig,

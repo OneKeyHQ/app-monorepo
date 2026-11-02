@@ -691,9 +691,10 @@ function BaseBulkSendAddressesInput({
       values: form.getValues(),
     });
   }, [form]);
-  // The entry lets a free user in whatever the quota, so "Next" checks it:
-  // a user without uses left gets the exhausted toast before filling in the
-  // amounts. Start on the Review page stays the final judge.
+  // The entry lets a free user in while the quota is unknown (e.g. right
+  // after a login), so "Next" checks it again: a user without uses left gets
+  // the exhausted feedback before filling in the amounts. Start on the
+  // Review page stays the final judge.
   const checkBulkSendAccess = useCallback(async () => {
     if (platformEnv.isE2E) {
       return true;
@@ -843,8 +844,6 @@ function BaseBulkSendAddressesInput({
           <Page.FooterActions
             px="$0"
             gap="$3"
-            // A column on wide screens too, so the hint sits above the button.
-            $gtMd={{ flexDirection: 'column', alignItems: 'flex-end' }}
             onConfirmText={intl.formatMessage({
               id: ETranslations.wallet_bulk_send_btn_next,
             })}
@@ -854,10 +853,11 @@ function BaseBulkSendAddressesInput({
               disabled: isSubmitDisabled || isCheckingAccess,
             }}
           >
+            {/* Left of the button on wide screens, above it on narrow ones. */}
             <PrimeFreeTrialRemainingHint
               featureId={EPrimeFeatures.BulkSend}
-              networkId={selectedNetworkId}
-              $md={{ alignSelf: 'center' }}
+              $md={{ alignSelf: 'center', textAlign: 'center' }}
+              $gtMd={{ flex: 1 }}
             />
           </Page.FooterActions>
         </BulkSendContentWrapper>

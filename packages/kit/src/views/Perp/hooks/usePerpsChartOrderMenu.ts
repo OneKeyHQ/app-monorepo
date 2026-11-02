@@ -1,8 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 
+import { useOverlayPageScope } from '@onekeyfe/react-native-native-overlay';
 import { useIntl } from 'react-intl';
 
-import { ActionList, runAfterActionListClose } from '@onekeyhq/components';
+import {
+  ActionList,
+  Toast,
+  runAfterActionListClose,
+} from '@onekeyhq/components';
 import type { IDialogInstance } from '@onekeyhq/components';
 import type { ITradingViewNativePriceSelection } from '@onekeyhq/kit/src/components/TradingView/TradingViewNative/types';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
@@ -23,9 +28,11 @@ import {
 
 import { useActiveTradeDisplay } from './useActiveTradeDisplay';
 import { usePerpsAccountScopedActivePositions } from './usePerpsAccountScopedActivePositions';
+import { usePerpsMidPrice } from './usePerpsMidPrice';
 
 export function usePerpsChartOrderMenu(enabled: boolean) {
   const intl = useIntl();
+  const sourcePage = useOverlayPageScope();
   const [instrument] = useActiveTradeInstrumentAtom();
   const [account] = usePerpsActiveAccountAtom();
   const [loading] = usePerpsAccountLoadingInfoAtom();
@@ -41,6 +48,11 @@ export function usePerpsChartOrderMenu(enabled: boolean) {
     instrument.mode === 'spot'
       ? instrument.universe?.baseSzDecimals
       : instrument.universe?.szDecimals;
+  const { mid: midPrice } = usePerpsMidPrice({
+    coin: instrument.mode === 'perp' ? instrument.coin : '',
+    szDecimals,
+    allowActiveAssetFallback: true,
+  });
   const ready =
     enabled &&
     szDecimals !== undefined &&
@@ -52,8 +64,8 @@ export function usePerpsChartOrderMenu(enabled: boolean) {
       activeAccountId: account.accountId,
       activeIndexedAccountId: account.indexedAccountId,
     });
-  const latest = useRef({ scope, ready, positions });
-  latest.current = { scope, ready, positions };
+  const latest = useRef({ scope, ready, positions, midPrice });
+  latest.current = { scope, ready, positions, midPrice };
   const menu = useRef<ReturnType<typeof ActionList.show> | null>(null);
   const dialog = useRef<IDialogInstance | null>(null);
   const mounted = useRef(false);
@@ -76,25 +88,53 @@ export function usePerpsChartOrderMenu(enabled: boolean) {
       price: selectedPrice,
       screenX,
       screenY,
+      onClose,
     }: ITradingViewNativePriceSelection) => {
       const isCurrent = () =>
         mounted.current &&
         latest.current.scope === scope &&
         latest.current.ready;
-      if (!isCurrent() || !Number.isFinite(selectedPrice) || selectedPrice <= 0)
+      if (
+        !isCurrent() ||
+        !Number.isFinite(selectedPrice) ||
+        selectedPrice <= 0
+      ) {
+        onClose?.();
         return;
-      if (szDecimals === undefined) return;
+      }
+      if (szDecimals === undefined) {
+        onClose?.();
+        return;
+      }
       const price = formatHlPrice(selectedPrice, szDecimals, instrument.mode);
-      if (!price || Number(price) <= 0) return;
-      const hasPosition = () =>
-        latest.current.positions.some(
-          ({ position }) =>
-            position.coin === scope.coin && Number(position.szi) !== 0,
-        );
+      if (!price || Number(price) <= 0) {
+        onClose?.();
+        return;
+      }
+      const getTpsl = () => {
+        const position = latest.current.positions.find(
+          (item) => item.position.coin === scope.coin,
+        )?.position;
+        const size = Number(position?.szi);
+        const mid = Number(latest.current.midPrice);
+        if (
+          instrument.mode !== 'perp' ||
+          !Number.isFinite(size) ||
+          size === 0 ||
+          !Number.isFinite(mid) ||
+          mid <= 0 ||
+          Number(price) === mid
+        )
+          return undefined;
+        const isAboveMid = Number(price) > mid;
+        const isLong = size > 0;
+        return isAboveMid === isLong ? 'tp' : 'sl';
+      };
       const openLimit = () => {
         if (!isCurrent()) return;
         close();
         dialog.current = showLimitOrderDialog({
+          sourcePage,
           symbol: scope.coin,
           price,
           displayPair: displayName,
@@ -105,11 +145,18 @@ export function usePerpsChartOrderMenu(enabled: boolean) {
       const openTpsl = (tpsl: 'tp' | 'sl') => {
         if (
           !isCurrent() ||
-          !hasPosition() ||
           instrument.mode !== 'perp' ||
           instrument.assetId === undefined
         )
           return;
+        if (getTpsl() !== tpsl) {
+          Toast.error({
+            title: intl.formatMessage({
+              id: ETranslations.order_changed_try_again__msg,
+            }),
+          });
+          return;
+        }
         close();
         dialog.current = showSetTpslDialog({
           coin: scope.coin,
@@ -122,7 +169,9 @@ export function usePerpsChartOrderMenu(enabled: boolean) {
       };
       close();
       const labelValues = { coin: baseName, price };
+      const tpsl = getTpsl();
       menu.current = ActionList.show({
+        onClose,
         title: `${displayName} · ${price}`,
         triggerPosition: { x: screenX, y: screenY },
         items: [
@@ -135,32 +184,40 @@ export function usePerpsChartOrderMenu(enabled: boolean) {
               runAfterActionListClose(closeMenu, openLimit),
             testID: 'perps-chart-limit-order',
           },
-          ...(instrument.mode === 'perp' && hasPosition()
+          ...(tpsl
             ? [
                 {
                   label: intl.formatMessage(
-                    { id: ETranslations.perps_chart_take_profit__action },
+                    {
+                      id:
+                        tpsl === 'tp'
+                          ? ETranslations.perps_chart_take_profit__action
+                          : ETranslations.perps_chart_stop_loss__action,
+                    },
                     labelValues,
                   ),
                   onPress: (closeMenu: () => void) =>
-                    runAfterActionListClose(closeMenu, () => openTpsl('tp')),
-                  testID: 'perps-chart-take-profit',
-                },
-                {
-                  label: intl.formatMessage(
-                    { id: ETranslations.perps_chart_stop_loss__action },
-                    labelValues,
-                  ),
-                  onPress: (closeMenu: () => void) =>
-                    runAfterActionListClose(closeMenu, () => openTpsl('sl')),
-                  testID: 'perps-chart-stop-loss',
+                    runAfterActionListClose(closeMenu, () => openTpsl(tpsl)),
+                  testID:
+                    tpsl === 'tp'
+                      ? 'perps-chart-take-profit'
+                      : 'perps-chart-stop-loss',
                 },
               ]
             : []),
         ],
       });
     },
-    [scope, instrument, szDecimals, displayName, baseName, intl, close],
+    [
+      scope,
+      instrument,
+      szDecimals,
+      displayName,
+      baseName,
+      intl,
+      close,
+      sourcePage,
+    ],
   );
 
   return {

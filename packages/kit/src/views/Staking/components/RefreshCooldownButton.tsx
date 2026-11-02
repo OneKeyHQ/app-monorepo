@@ -44,7 +44,7 @@ function RefreshCooldownButtonComponent({
         Animated.timing(rotateAnim, {
           toValue: 1,
           duration: 800,
-          easing: Easing.linear,
+          easing: (progress) => Easing.linear(progress),
           useNativeDriver: true,
         }),
       );

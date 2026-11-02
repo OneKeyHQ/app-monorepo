@@ -7,8 +7,6 @@ import { cloneDeep, isEmpty, isEqual, isUndefined, omitBy } from 'lodash';
 import { Toast } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import type useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import { shouldContinueLedgerAutoCreateForCoreAppsCheckResult } from '@onekeyhq/kit/src/provider/Container/ThirdPartyHardwareUiStateContainer/ledgerCoreAppsReadyUtils';
-import { ensureLedgerCoreAppsReady } from '@onekeyhq/kit/src/provider/Container/ThirdPartyHardwareUiStateContainer/LedgerInstallCoreAppsDialog';
 import {
   dropSwrCacheForRemovedAccount,
   dropSwrCacheForRemovedWallet,
@@ -47,6 +45,10 @@ import {
 } from '@onekeyhq/shared/src/consts/jotaiConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import {
+  THIRD_PARTY_HW_OPERATION_ENDED_CODE,
+  THIRD_PARTY_HW_OPERATION_NOT_FOUND_CODE,
+} from '@onekeyhq/shared/src/errors/errors/thirdPartyHardwareErrors';
+import {
   EOneKeyErrorClassNames,
   type IOneKeyError,
 } from '@onekeyhq/shared/src/errors/types/errorTypes';
@@ -64,7 +66,7 @@ import {
   HARDWARE_ERROR_DIALOG_TYPES,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
-import type { ILedgerCoreAppName } from '@onekeyhq/shared/src/hardware/ledgerApps';
+import type { ILedgerCoreAppName } from '@onekeyhq/shared/src/hardware/config/ledger';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -96,7 +98,10 @@ import {
   EAccountSelectorSceneName,
 } from '@onekeyhq/shared/types';
 import { EGlobalDeriveTypesScopes } from '@onekeyhq/shared/types/account';
-import { EHardwareVendor } from '@onekeyhq/shared/types/device';
+import {
+  EHardwareVendor,
+  type IHardwareOperationContext,
+} from '@onekeyhq/shared/types/device';
 
 import { ContextJotaiActionsBase } from '../../utils/ContextJotaiActionsBase';
 
@@ -2027,12 +2032,14 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         num: number;
         networkId: string;
         reason?: string;
+        shouldCommit?: () => boolean;
       },
     ) => {
-      const { num, networkId, reason } = payload;
+      const { num, networkId, reason, shouldCommit } = payload;
       await this.updateSelectedAccount.call(set, {
         num,
         reason: reason || 'updateSelectedAccountNetwork',
+        shouldCommit,
         builder: (v) => ({
           ...v,
           networkId,
@@ -2123,11 +2130,14 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         networkId: string | undefined;
         walletId: IDBWalletIdSingleton;
         othersWalletAccountId: string | undefined;
+        shouldCommit?: () => boolean;
       },
     ) => {
-      const { num, walletId, networkId, othersWalletAccountId } = payload;
+      const { num, walletId, networkId, othersWalletAccountId, shouldCommit } =
+        payload;
       await this.updateSelectedAccount.call(set, {
         num,
+        shouldCommit,
         reason: 'updateSelectedAccountForSingletonAccount',
         builder: (v) => ({
           ...v,
@@ -3642,7 +3652,11 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
           isLedgerWallet &&
           isHardwareErrorByCode({
             error: error as IOneKeyError | undefined,
-            code: ORPHAN_ELIGIBLE_ERROR_CODES,
+            code: [
+              ...ORPHAN_ELIGIBLE_ERROR_CODES,
+              THIRD_PARTY_HW_OPERATION_NOT_FOUND_CODE,
+              THIRD_PARTY_HW_OPERATION_ENDED_CODE,
+            ],
           })
         ) {
           const walletId = createdResult.wallet?.id;
@@ -3693,6 +3707,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         autoHandleExitError?: boolean;
         isCreateWallet?: boolean;
         deferPassphraseAlwaysOnDeviceToast?: boolean;
+        hardwareOperationContext?: IHardwareOperationContext;
       },
     ) => {
       const {
@@ -3718,6 +3733,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
       const isAutoCreateMultiNetwork =
         !!isCreateWallet || networkUtils.isAllNetwork({ networkId });
       const isHwWallet = accountUtils.isHwWallet({ walletId: wallet.id });
+      const operationId = params.hardwareOperationContext?.operationId;
       const customNetworks =
         networkId && deriveType ? [{ networkId, deriveType }] : undefined;
       let ledgerRequiredApps: ILedgerCoreAppName[] = [];
@@ -3745,27 +3761,16 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
             });
           hardwareVendor = device?.vendor;
           if (hardwareVendor === EHardwareVendor.ledger) {
-            ledgerRequiredApps =
-              await backgroundApiProxy.serviceBatchCreateAccount.buildRequiredLedgerAppsForDefaultNetworkAccounts(
-                {
-                  walletId: wallet.id,
-                  customNetworks,
-                  isCreateWallet,
-                },
-              );
-            if (ledgerRequiredApps.length > 0) {
-              const ensureResult = await ensureLedgerCoreAppsReady({
-                walletId: wallet.id,
-                requiredApps: ledgerRequiredApps,
-              });
-              if (
-                !shouldContinueLedgerAutoCreateForCoreAppsCheckResult(
-                  ensureResult,
-                )
-              ) {
-                return;
-              }
-            }
+            const { prepareLedgerCoreAppsForCreate } =
+              await import('./hardwareWalletActions');
+            const prepared = await prepareLedgerCoreAppsForCreate({
+              walletId: wallet.id,
+              customNetworks,
+              isCreateWallet,
+              operationId,
+            });
+            ledgerRequiredApps = prepared.ledgerRequiredApps;
+            if (!prepared.shouldContinue) return;
           }
         }
 
@@ -3780,12 +3785,13 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
               skipDeviceCancel,
               hideCheckingDeviceLoading,
               autoHandleExitError,
+              hardwareOperationContext: params.hardwareOperationContext,
             },
           );
       }
 
       if (autoHandleExitError) {
-        void (async () => {
+        const handleFailedAccountsPromise = (async () => {
           let failedList = result?.failedAccounts || [];
           let isThirdPartyHw = false;
 
@@ -3809,13 +3815,15 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
                   isAutoCreateMultiNetwork,
                 })
               ) {
-                const ensureResult = await ensureLedgerCoreAppsReady({
-                  walletId: wallet.id,
-                  requiredApps: ledgerRequiredApps.length
-                    ? ledgerRequiredApps
-                    : undefined,
-                });
-                if (!ensureResult.ok) return;
+                const { installLedgerCoreAppsAfterCreateFailure } =
+                  await import('./hardwareWalletActions');
+                const shouldRetry =
+                  await installLedgerCoreAppsAfterCreateFailure({
+                    walletId: wallet.id,
+                    operationId,
+                    ledgerRequiredApps,
+                  });
+                if (!shouldRetry) return;
                 const retry =
                   await backgroundApiProxy.serviceBatchCreateAccount.addDefaultNetworkAccounts(
                     {
@@ -3827,6 +3835,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
                       skipDeviceCancel,
                       hideCheckingDeviceLoading,
                       autoHandleExitError: false,
+                      hardwareOperationContext: params.hardwareOperationContext,
                     },
                   );
                 failedList = retry?.failedAccounts || [];
@@ -3892,6 +3901,11 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
             }
           }
         })();
+        if (operationId) {
+          await handleFailedAccountsPromise;
+        } else {
+          void handleFailedAccountsPromise;
+        }
       }
 
       return result;
@@ -4073,6 +4087,24 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         set,
         params,
         mode: options?.mode,
+      });
+    },
+  );
+
+  createKeystoneWalletWithDefaultAccounts = contextAtomMethod(
+    async (
+      _,
+      set,
+      params: Parameters<
+        typeof backgroundApiProxy.serviceThirdPartyHardware.createKeystoneWalletWithDefaultAccounts
+      >[0],
+    ) => {
+      const { createKeystoneWalletWithDefaultAccounts } =
+        await import('./hardwareWalletActions');
+      return createKeystoneWalletWithDefaultAccounts({
+        actions: this,
+        set,
+        params,
       });
     },
   );
@@ -4264,7 +4296,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         for (const walletWithDevice of Object.values(allHwWallets)) {
           const wallet = walletWithDevice.wallet;
           const device = walletWithDevice.device;
-          if (wallet?.id && device?.connectId) {
+          if (wallet?.id && device?.vendor === EHardwareVendor.trezor) {
             // A Trezor device is reachable by any of its transport ids — match
             // the same key set the connection-status light uses.
             const walletConnectIds = [
@@ -7011,11 +7043,16 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
             });
 
             if (
-              isSelectedWalletRemoved &&
+              (isSelectedWalletRemoved ||
+                triggerBy ===
+                  EAccountSelectorAutoSelectTriggerBy.removeAccount ||
+                triggerBy ===
+                  EAccountSelectorAutoSelectTriggerBy.removeLastOthersAccount) &&
               isSelectedAccountIdentityIncomplete(selectedAccountNew)
             ) {
-              // A network-only selection is the final empty state after removing
-              // the last wallet, so it must replace the stale active account.
+              // Removing the last singleton account leaves its wallet container
+              // in the DB. Its empty selection must still clear the old active
+              // account instead of keeping it as an incomplete cold-start value.
               await this.reloadActiveAccountInfo.call(set, {
                 forceIncompleteSelectionReload: true,
                 num,
@@ -7131,6 +7168,8 @@ export function useAccountSelectorActions() {
   const createHWHiddenWallet = actions.createHWHiddenWallet.use();
   const createHWWalletWithHidden = actions.createHWWalletWithHidden.use();
   const createHWWalletWithoutHidden = actions.createHWWalletWithoutHidden.use();
+  const createKeystoneWalletWithDefaultAccounts =
+    actions.createKeystoneWalletWithDefaultAccounts.use();
   const createQrWallet = actions.createQrWallet.use();
   const createTonImportedWallet = actions.createTonImportedWallet.use();
   const autoSelectNextAccount = actions.autoSelectNextAccount.use();
@@ -7175,6 +7214,7 @@ export function useAccountSelectorActions() {
     createHWHiddenWallet,
     createHWWalletWithHidden,
     createHWWalletWithoutHidden,
+    createKeystoneWalletWithDefaultAccounts,
     createQrWallet,
     createTonImportedWallet,
     updateHwWalletsDeprecatedStatus,

@@ -48,6 +48,7 @@ import { EHomeTab } from '@onekeyhq/shared/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import NumberSizeableTextWrapper from '../../../components/NumberSizeableTextWrapper';
+import { HERO_BALANCE_FIT_PROPS } from '../../../components/NumberSizeableTextWrapper/heroBalanceFit';
 import { showResourceDetailsDialog } from '../../../components/Resource';
 import { useDebounce } from '../../../hooks/useDebounce';
 import {
@@ -64,6 +65,7 @@ import {
 import { buildOverviewOwnerKey } from '../../../states/jotai/contexts/accountOverview/atoms';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 import { convertFiat } from '../../../utils/fiatConvert';
+import { LocalWalletPasswordAlert } from '../../AssetDetails/pages/TokenDetails/LocalWalletPasswordAlert';
 import { showBalanceDetailsDialog } from '../components/BalanceDetailsDialog';
 import { roundPortfolioTotal } from '../components/DeFiListBlock/formatPortfolioTotal';
 import { useHomeWalletTabSupport } from '../hooks/useHomeWalletTabSupport';
@@ -1246,6 +1248,7 @@ function HomeOverviewContainer() {
                 // Large hero balance reads better with the font's natural
                 // proportional figures than equal-width tabular ones.
                 fontVariant={PROPORTIONAL_NUMS}
+                {...HERO_BALANCE_FIT_PROPS}
                 {...numberFormatter}
               >
                 {renderedBalanceStringDisplay ?? '0'}
@@ -1268,6 +1271,17 @@ function HomeOverviewContainer() {
           })}
         </Button>
       ) : undefined}
+      {vaultSettings?.localWallet &&
+      account?.id &&
+      network?.id &&
+      !network.isAllNetworks ? (
+        <YStack w="100%">
+          <LocalWalletPasswordAlert
+            networkId={network.id}
+            accountId={account.id}
+          />
+        </YStack>
+      ) : null}
       {isWalletNotBackedUp && vaultSettings?.hasResource ? (
         <Button
           testID="home-btn"

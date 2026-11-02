@@ -2,7 +2,7 @@ import { useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Icon, SizableText, XStack } from '@onekeyhq/components';
+import { Icon, SizableText, Skeleton, XStack } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { ISwapTokenBase } from '@onekeyhq/shared/types/swap/types';
 
@@ -23,7 +23,7 @@ const SellForSelector = ({
   currentSelectToken,
   onTokenSelect,
   symbol,
-  isLoading: _isLoading,
+  isLoading,
 }: ISellForSelectorProps) => {
   const intl = useIntl();
   const [isPopoverOpen, setIsPopoverOpen] = useState(false);
@@ -54,7 +54,11 @@ const SellForSelector = ({
             pressStyle: { bg: '$bgActive' },
           })}
         >
-          <SizableText size="$bodyMdMedium">{symbol ?? '-'}</SizableText>
+          {isLoading && (!symbol || symbol === '-') ? (
+            <Skeleton width="$12" height="$4" />
+          ) : (
+            <SizableText size="$bodyMdMedium">{symbol ?? '-'}</SizableText>
+          )}
           {hasMultipleTokens ? (
             <Icon
               name="ChevronDownSmallOutline"

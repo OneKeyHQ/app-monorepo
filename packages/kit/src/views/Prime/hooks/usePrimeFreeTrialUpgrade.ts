@@ -46,8 +46,8 @@ export function usePrimeFreeTrialUpgrade() {
     [navigation],
   );
 
-  // "Get Prime" of the exhausted toast and of the remaining hint (used up, or
-  // no free trial for the feature).
+  // "Get Prime" of a rejection toast that stays on its page (translate, a
+  // quota held by an earlier use, details not eligible).
   const getPrime = useCallback(
     ({
       featureId,

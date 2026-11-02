@@ -1,5 +1,7 @@
 import { useMemo } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import type { ITVLine } from '@onekeyhq/kit/src/components/TradingView/TradingViewPerpsV2/types';
 import { buildAllLinesForSymbol } from '@onekeyhq/kit/src/components/TradingView/TradingViewPerpsV2/utils/lineBuilder';
 import { useActiveTradeInstrumentAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
@@ -22,6 +24,7 @@ export function usePerpsChartLines({
   szDecimals: number;
   userAddress: string | undefined | null;
 }): ITVLine[] {
+  const intl = useIntl();
   const [activeTradeInstrument] = useActiveTradeInstrumentAtom();
   const perpsPositions = usePerpsAccountScopedActivePositions();
   const perpsOpenOrders = usePerpsAccountScopedOpenOrdersByCoin(symbol);
@@ -81,6 +84,7 @@ export function usePerpsChartLines({
       currentOrders,
       symbol,
       szDecimals,
+      intl,
     );
   }, [
     perpsPositions,
@@ -89,5 +93,6 @@ export function usePerpsChartLines({
     symbol,
     szDecimals,
     showChartLines,
+    intl,
   ]);
 }

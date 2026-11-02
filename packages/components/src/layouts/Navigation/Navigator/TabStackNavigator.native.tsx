@@ -16,6 +16,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes/tab';
 import { ESwapSource } from '@onekeyhq/shared/types/swap/types';
 
+import { EPageType } from '../../../hocs';
 import { useSettingConfig } from '../../../hocs/Provider/hooks/useProviderValue';
 import {
   ESplitViewType,
@@ -27,7 +28,11 @@ import {
 } from '../../../hooks';
 import { BottomTabBarVisibilityContext } from '../../Page/BottomTabBarVisibilityContext';
 import { createNativeBottomTabNavigator } from '../BottomTabs';
-import { makeTabScreenOptions } from '../GlobalScreenOptions';
+import { ANDROID_TAB_BAR_STYLE } from '../BottomTabs/tabBarOverlay';
+import {
+  makeModalStackNavigatorOptions,
+  makeTabScreenOptions,
+} from '../GlobalScreenOptions';
 import { createStackNavigator } from '../StackNavigator';
 
 import {
@@ -36,15 +41,14 @@ import {
   willTabFocusTransition,
 } from './NavigationContainer';
 
-import type { ITabNavigatorProps, ITabSubNavigatorConfig } from './types';
+import type { ITabNavigatorProps, ITabSubStackNavigatorProps } from './types';
 
 const Stack = createStackNavigator();
 
 function BasicTabSubStackNavigator({
   config,
-}: {
-  config: ITabSubNavigatorConfig<string, any>[] | null;
-}) {
+  pushedScreenPresentation = 'tab',
+}: ITabSubStackNavigatorProps) {
   const theme = useTheme();
   const intl = useIntl();
 
@@ -56,31 +60,68 @@ function BasicTabSubStackNavigator({
     <Stack.Navigator>
       {config
         .filter(({ disable }) => !disable)
-        .map(({ name, component, translationId, headerShown = true }) => {
-          // eslint-disable-next-line react-perf/jsx-no-new-function-as-prop
-          const screenOptions = ({ navigation }: { navigation: any }) => ({
-            freezeOnBlur: true,
-            title: translationId
-              ? intl.formatMessage({
-                  id: translationId,
-                })
-              : '',
-            ...makeTabScreenOptions({
-              navigation,
-              bgColor: theme.bgApp.val,
-              titleColor: theme.text.val,
-            }),
-            headerShown,
-          });
-          return (
-            <Stack.Screen
-              key={name}
-              name={name}
-              component={component}
-              options={screenOptions}
-            />
-          );
-        })}
+        .map(
+          (
+            { name, component, translationId, options, headerShown = true },
+            index,
+          ) => {
+            if (index > 0 && pushedScreenPresentation === 'modal') {
+              // Pages built for the modal stack expect its opaque header, not
+              // the root tab's Liquid Glass bar that content extends under.
+              // Their own title and options apply on top, as in the modal flow.
+              // eslint-disable-next-line react-perf/jsx-no-new-function-as-prop
+              const modalScreenOptions = (optionsInfo: {
+                navigation: any;
+                route: any;
+              }) => ({
+                freezeOnBlur: true,
+                ...makeModalStackNavigatorOptions({
+                  optionsInfo,
+                  bgColor: theme.bgApp.val,
+                  titleColor: theme.text.val,
+                  pageType: EPageType.modal,
+                }),
+                title: translationId
+                  ? intl.formatMessage({ id: translationId })
+                  : '',
+                ...(typeof options === 'function'
+                  ? options(optionsInfo)
+                  : options),
+              });
+              return (
+                <Stack.Screen
+                  key={name}
+                  name={name}
+                  component={component}
+                  options={modalScreenOptions}
+                />
+              );
+            }
+            // eslint-disable-next-line react-perf/jsx-no-new-function-as-prop
+            const screenOptions = ({ navigation }: { navigation: any }) => ({
+              freezeOnBlur: true,
+              title: translationId
+                ? intl.formatMessage({
+                    id: translationId,
+                  })
+                : '',
+              ...makeTabScreenOptions({
+                navigation,
+                bgColor: theme.bgApp.val,
+                titleColor: theme.text.val,
+              }),
+              headerShown,
+            });
+            return (
+              <Stack.Screen
+                key={name}
+                name={name}
+                component={component}
+                options={screenOptions}
+              />
+            );
+          },
+        )}
     </Stack.Navigator>
   );
 }
@@ -111,6 +152,7 @@ const nativeTabScreenOptions = {
 export function TabStackNavigator<RouteName extends string>({
   config,
   extraConfig,
+  sideAccessory,
 }: ITabNavigatorProps<RouteName>) {
   const intl = useIntl();
   const theme = useTheme();
@@ -244,7 +286,7 @@ export function TabStackNavigator<RouteName extends string>({
     () =>
       // On iOS 26+ omit backgroundColor so UITabBar renders the system
       // Liquid Glass material via configureWithDefaultBackground. Setting
-      // appearance.backgroundColor in @onekeyfe/react-native-tab-view would
+      // appearance.backgroundColor in @onekeyfe/react-native-bottom-tabs would
       // overwrite the glass material with an opaque fill.
       platformEnv.isNativeIOS26Plus
         ? undefined
@@ -259,11 +301,15 @@ export function TabStackNavigator<RouteName extends string>({
         hapticFeedbackEnabled={hapticFeedbackEnabled !== false}
         disablePageAnimations
         sidebarAdaptable={false}
+        androidTabBarStyle={ANDROID_TAB_BAR_STYLE}
         tabBarHidden={hidden}
         tabBarActiveTintColor={theme.iconActive.val}
         tabBarInactiveTintColor={theme.iconSubdued.val}
         tabBarStyle={tabBarStyle}
         screenOptions={nativeTabScreenOptions}
+        sideAccessoryIcon={sideAccessory?.icon}
+        sideAccessoryLabel={sideAccessory?.label}
+        onSideAccessoryPress={sideAccessory?.onPress}
       >
         {tabScreens}
       </NativeTab.Navigator>

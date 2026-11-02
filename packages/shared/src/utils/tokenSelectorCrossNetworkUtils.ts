@@ -25,6 +25,71 @@ function isCjkCodePoint(codePoint: number): boolean {
   );
 }
 
+// A separator-free keyword of address-like length is treated as a pasted
+// contract address, which must reach the backend verbatim.
+export function isAddressLikeTokenSearchKeywords(keywords?: string) {
+  const trimmedKeywords = keywords?.trim() ?? '';
+  return trimmedKeywords.length >= 20 && !/\s/.test(trimmedKeywords);
+}
+
+// Contract address formats of the chains token search covers: EVM and other
+// 0x hex (incl. Move-style Sui/Aptos coin types), base58 (Solana/Tron), TON
+// and NEAR (implicit hex accounts and named .near/.tg accounts). Stricter than
+// isAddressLikeTokenSearchKeywords, so a long single-word token name is not
+// mistaken for an address.
+const TOKEN_CONTRACT_ADDRESS_PATTERNS = [
+  /^0x[0-9a-f]{40,64}$/i,
+  /^0x[0-9a-f]{1,64}::\w+::\w+$/i,
+  /^(?:[EU]Q[\w-]{46}|-?\d:[0-9a-f]{64})$/i,
+  /^[0-9a-f]{64}$/i,
+  /^[a-z0-9_-]+(?:\.[a-z0-9_-]+)*\.(?:near|tg)$/,
+];
+
+const BASE58_ALPHABET =
+  '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
+
+function decodeBase58(value: string): number[] | undefined {
+  const bytes: number[] = [];
+  for (const char of value) {
+    let carry = BASE58_ALPHABET.indexOf(char);
+    if (carry < 0) return undefined;
+    for (let i = 0; i < bytes.length; i += 1) {
+      carry += bytes[i] * 58;
+      bytes[i] = carry % 256;
+      carry = Math.floor(carry / 256);
+    }
+    while (carry > 0) {
+      bytes.push(carry % 256);
+      carry = Math.floor(carry / 256);
+    }
+  }
+  for (const char of value) {
+    if (char !== '1') break;
+    bytes.push(0);
+  }
+  return bytes.toReversed();
+}
+
+// Base58 addresses are recognized by their decoded size rather than by the
+// characters used, so digit-free addresses match while a long single-word
+// token name (which decodes to an odd byte count) does not.
+function isBase58ContractAddress(value: string) {
+  if (!/^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(value)) return false;
+  const bytes = decodeBase58(value);
+  if (!bytes) return false;
+  // Solana public key, or Tron base58check (0x41 prefix + 20 bytes + checksum).
+  return bytes.length === 32 || (bytes.length === 25 && bytes[0] === 0x41);
+}
+
+export function isTokenContractAddressKeywords(keywords?: string) {
+  const trimmedKeywords = keywords?.trim() ?? '';
+  return (
+    TOKEN_CONTRACT_ADDRESS_PATTERNS.some((pattern) =>
+      pattern.test(trimmedKeywords),
+    ) || isBase58ContractAddress(trimmedKeywords)
+  );
+}
+
 // Splits a raw search string into lowercase words on whitespace, common
 // symbol-network separators (- _ / +), and ASCII↔CJK boundaries, so grassroots
 // spellings like "USDT-Trc20" or "usdt波场" become ['usdt', 'trc20'-like]

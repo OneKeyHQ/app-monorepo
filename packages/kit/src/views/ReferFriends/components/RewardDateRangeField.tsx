@@ -15,19 +15,15 @@ export function formatRangeLabel(
 ) {
   const { start, end } = range ?? { start: null, end: null };
   if (!start || !end) {
-    return start
-      ? formatDate(start, { formatTemplate: 'yyyy/LL/dd' })
-      : allTime;
+    return start ? formatDate(start, { hideTimeForever: true }) : allTime;
   }
   if (isSameDay(start, REFERRAL_ALL_TIME_START) && isSameDay(end, new Date())) {
     return allTime;
   }
-  const endTemplate =
-    start.getFullYear() === end.getFullYear() ? 'LL/dd' : 'yyyy/LL/dd';
-  return `${formatDate(start, { formatTemplate: 'yyyy/LL/dd' })} – ${formatDate(
-    end,
-    { formatTemplate: endTemplate },
-  )}`;
+  return `${formatDate(start, { hideTimeForever: true })} – ${formatDate(end, {
+    hideTimeForever: true,
+    hideYear: start.getFullYear() === end.getFullYear(),
+  })}`;
 }
 
 // Date range filter for the reward pages: a chip that reads the range (or

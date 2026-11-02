@@ -4,7 +4,7 @@ import type { ComponentProps } from 'react';
 import { NFTListLoadingView } from '@onekeyhq/kit/src/components/Loading';
 
 const NativeNFTListView = lazy(() =>
-  import('./NativeNFTList.native').then(({ NFTListView: Component }) => ({
+  import('./NativeNFTList').then(({ NFTListView: Component }) => ({
     default: Component,
   })),
 );

@@ -1,4 +1,4 @@
-import { memo } from 'react';
+import { memo, useCallback } from 'react';
 
 import {
   NumberSizeableText,
@@ -9,6 +9,7 @@ import {
 import { Currency } from '@onekeyhq/kit/src/components/Currency';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { USD_CURRENCY_ID } from '@onekeyhq/shared/src/consts/currencyConsts';
+import { displayOrUnavailable } from '@onekeyhq/shared/src/utils/tokenValueUtils';
 import type { IMarketAccountPortfolioDisplayItem } from '@onekeyhq/shared/types/marketV2';
 
 import { PnlCell } from '../components/PnlCell';
@@ -18,14 +19,17 @@ import { PORTFOLIO_TOKEN_COLUMN_WIDTH } from './portfolioColumnConstants';
 interface IPortfolioItemNormalProps {
   item: IMarketAccountPortfolioDisplayItem;
   tokenLogoUrl?: string;
+  onPress?: (item: IMarketAccountPortfolioDisplayItem) => void;
 }
 
 function PortfolioItemNormalBase({
   item,
   tokenLogoUrl,
+  onPress,
 }: IPortfolioItemNormalProps) {
   const pnl = item.pnl;
   const isPnlSupported = pnl?.isPnlSupported ?? false;
+  const handlePress = useCallback(() => onPress?.(item), [item, onPress]);
 
   return (
     <XStack
@@ -36,7 +40,8 @@ function PortfolioItemNormalBase({
       px="$3"
       py="$2.5"
       borderRadius="$3"
-      cursor="default"
+      onPress={onPress ? handlePress : undefined}
+      cursor={onPress ? 'pointer' : 'default'}
       hoverStyle={{ backgroundColor: '$bgHover' }}
     >
       <XStack gap="$2.5" alignItems="center" w={PORTFOLIO_TOKEN_COLUMN_WIDTH}>
@@ -64,9 +69,9 @@ function PortfolioItemNormalBase({
           color="$text"
           autoFormatter="price-marketCap"
           autoFormatterThreshold={1000}
-          sourceCurrency={USD_CURRENCY_ID}
+          sourceCurrency={item.currency ?? USD_CURRENCY_ID}
         >
-          {item.totalPrice}
+          {displayOrUnavailable(item.totalPrice)}
         </Currency>
         <NumberSizeableText
           size="$bodySm"

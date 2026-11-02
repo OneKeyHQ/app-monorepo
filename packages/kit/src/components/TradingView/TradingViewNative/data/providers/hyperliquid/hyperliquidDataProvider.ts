@@ -11,6 +11,7 @@ export function createTradingViewNativeHyperliquidDataProvider(
   source: Extract<ITradingViewNativeSource, { kind: 'hyperliquid' }>,
 ): ITradingViewNativeDataProvider {
   return {
+    getInitialHistoryRequestCandleCount: () => 500,
     getHistoryRequestCandleCount: () => HYPERLIQUID_HISTORY_BATCH_SIZE,
     hasMoreHistory: ({ receivedPointCount }) =>
       receivedPointCount >= HYPERLIQUID_HISTORY_BATCH_SIZE,

@@ -258,6 +258,28 @@ describe('market native list rows', () => {
     expect(row.pressInActionKey).toBe('prewarm-detail');
   });
 
+  it('opens the favorite menu on long press outside the watchlist', () => {
+    expect(
+      buildTokenMarketRow({ item: token, presentation, favoriteMenu: true })
+        .longPressActionKey,
+    ).toBe('favorite-menu');
+    expect(
+      buildPerpsMarketRow({ item: perp, presentation, favoriteMenu: true })
+        .longPressActionKey,
+    ).toBe('favorite-menu');
+    expect(
+      buildTokenMarketRow({
+        item: token,
+        presentation,
+        watchlist: true,
+        favoriteMenu: true,
+      }).longPressActionKey,
+    ).toBe('watchlist-menu');
+    expect(
+      buildTokenMarketRow({ item: token, presentation }).longPressActionKey,
+    ).toBeUndefined();
+  });
+
   it('serializes leverage and interactive DEX badges for perps', () => {
     const row = buildPerpsMarketRow({ item: perp, presentation });
 
@@ -327,7 +349,7 @@ describe('market native list rows', () => {
     expect(withoutName.subtitlePrefix).toBeUndefined();
   });
 
-  it('names a favorited stock listing by its company, but not an asset listing', () => {
+  it('names a favorited stock listing by its company alone, without a volume', () => {
     const listing: IMarketToken = {
       ...token,
       id: 'stock:AAPL',
@@ -344,13 +366,8 @@ describe('market native list rows', () => {
       presentation,
       watchlist: true,
     });
-    expect(stockRow.subtitle).toBe('$123.46K');
-    expect(stockRow.subtitlePrefix).toMatchObject({
-      text: 'Apple',
-      gap: 6,
-      maxWidth: 66,
-      style: { fontSize: 12, lineHeight: 16 },
-    });
+    expect(stockRow.subtitle).toBe('Apple');
+    expect(stockRow.subtitlePrefix).toBeUndefined();
     const assetRow = buildTokenMarketRow({
       item: {
         ...listing,
@@ -362,7 +379,43 @@ describe('market native list rows', () => {
       presentation,
       watchlist: true,
     });
+    expect(assetRow.subtitle).toBe('$123.46K');
     expect(assetRow.subtitlePrefix).toBeUndefined();
+  });
+
+  it('shows only the volume on every other favorited row', () => {
+    const perpItem: IMarketToken = {
+      ...token,
+      stock: undefined,
+      name: 'BTC',
+      symbol: 'BTC',
+      address: '',
+      networkId: '',
+      perpsCoin: 'BTC',
+      perpsSubtitle: 'Bitcoin',
+      maxLeverage: 40,
+    };
+    const rows = [
+      // Spot token
+      { ...token, stock: undefined },
+      // Tokenized stock
+      token,
+      perpItem,
+    ].map((item) =>
+      buildTokenMarketRow({ item, presentation, watchlist: true }),
+    );
+    for (const row of rows) {
+      expect(row.subtitle).toBe('$123.46K');
+      expect(row.subtitlePrefix).toBeUndefined();
+    }
+    // Outside Favorites, a tokenized stock and a perp still lead with a name.
+    expect(
+      buildTokenMarketRow({ item: token, presentation }).subtitlePrefix?.text,
+    ).toBe('Tiny Corp');
+    expect(
+      buildTokenMarketRow({ item: perpItem, presentation }).subtitlePrefix
+        ?.text,
+    ).toBe('Bitcoin');
   });
 
   it('gives standalone and watchlist perpetual rows the same row frame', () => {
@@ -752,5 +805,46 @@ describe('market native list rows', () => {
         }),
       ).toBeUndefined();
     }
+  });
+
+  it('includes visible table cells when only the unrounded quote changes', () => {
+    const row = buildTokenMarketRow({ item: token, presentation });
+    const webTable = {
+      columns: [{ key: 'change24h', flex: 1 }],
+      cells: [
+        {
+          key: 'change24h',
+          kind: 'text' as const,
+          primary: [{ text: '+1.23%' }],
+        },
+      ],
+    };
+    const previous = buildMarketNativeSnapshot({
+      rows: [
+        { ...row, change: { text: '1.2341', tone: 'positive' }, webTable },
+      ],
+      generation: 1,
+      presentation,
+      loading: false,
+      canLoadMore: false,
+      noDataMessage: 'No data',
+      retryMessage: 'Retry',
+      contentPaddingBottom: 20,
+    });
+    const next = {
+      ...previous,
+      rows: previous.rows.map((item) =>
+        item.type === 'market'
+          ? { ...item, change: { text: '1.2342', tone: 'positive' as const } }
+          : item,
+      ),
+    };
+    expect(buildMarketNativeRowPatches(previous, next)).toEqual([
+      {
+        type: 'market',
+        key: row.key,
+        changes: { change: { text: '1.2342', tone: 'positive' }, webTable },
+      },
+    ]);
   });
 });

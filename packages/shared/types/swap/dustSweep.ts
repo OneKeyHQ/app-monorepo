@@ -1,8 +1,8 @@
-import type { ISwapNetwork, ISwapToken } from './types';
+import type { ISwapErrorMessage, ISwapNetwork, ISwapToken } from './types';
 
 export const DUST_SWEEP_PROVIDER = 'SwapOKX';
 
-export type IDustSweepEntry = 'walletMore' | 'lowValueRow';
+export type IDustSweepEntry = 'lowValueRow' | 'tokenListHeader';
 export type IDustSweepRouteParams = {
   accountId?: string;
   indexedAccountId?: string;
@@ -16,12 +16,9 @@ export type IDustSweepReason =
   | 'valueDrop'
   | 'noQuote'
   | 'insufficientGas'
+  | 'insufficientBalance'
   | 'txFailed'
   | 'unknown';
-export type IDustSweepQuoteFailure = {
-  reason: IDustSweepReason;
-  providerErrorMessage?: string;
-};
 export type IDustSweepToken = ISwapToken & {
   key: string;
   amount: string;
@@ -35,18 +32,22 @@ export type IDustSweepNetwork = {
   deriveAddressEncoding?: string;
   tokens: IDustSweepToken[];
   nativeToken: ISwapToken;
-  valueUsd: string;
+  /** Total USD value of the account's tokens on this network (risk tokens excluded). */
+  balanceUsd: string;
   denySingleSwapProvider?: string;
 };
-export type IDustSweepItemStatus =
-  | 'waiting'
-  | 'preparing'
-  | 'signing'
-  | 'broadcasted'
-  | 'success'
-  | 'skipped'
-  | 'failed'
-  | 'unknown';
+export enum EDustSweepItemStatus {
+  Waiting = 'waiting',
+  Preparing = 'preparing',
+  Building = 'building',
+  Signing = 'signing',
+  Broadcasted = 'broadcasted',
+  Success = 'success',
+  Skipped = 'skipped',
+  Failed = 'failed',
+  Unknown = 'unknown',
+}
+export type IDustSweepItemStatus = `${EDustSweepItemStatus}`;
 export type IDustSweepItem = {
   token: IDustSweepToken;
   status: IDustSweepItemStatus;
@@ -54,10 +55,14 @@ export type IDustSweepItem = {
   approvalTxIds?: string[];
   txId?: string;
   receivedAmount?: string;
+  receivedAmountEstimated?: boolean;
   receiptUnavailable?: boolean;
   reason?: IDustSweepReason;
   message?: string;
+  /** User-facing send API error while the transaction outcome is unresolved. */
+  submissionErrorMessage?: string;
   providerErrorMessage?: string;
+  localError?: ISwapErrorMessage;
 };
 export type IDustSweepSnapshot = {
   id: string;

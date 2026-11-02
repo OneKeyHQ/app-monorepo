@@ -6,10 +6,7 @@ import type { IKeyOfIcons } from '@onekeyhq/components';
 import { Dialog, Icon, Stack, YStack } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { EPrimeFeatures } from '@onekeyhq/shared/src/routes/prime';
 import { EBulkSendMode } from '@onekeyhq/shared/types/bulkSend';
-
-import { PrimeFreeTrialRemainingHint } from '../../Prime/components/PrimeFreeTrialRemainingHint';
 
 function BulkSendModeIcon({ name }: { name: IKeyOfIcons }) {
   return (
@@ -86,13 +83,6 @@ export function useBulkSendModeDialog() {
                 }}
               />
             ))}
-            <PrimeFreeTrialRemainingHint
-              featureId={EPrimeFeatures.BulkSend}
-              px="$5"
-              pt="$2"
-              pb="$3"
-              $md={{ pb: '$0' }}
-            />
           </YStack>
         ),
       });

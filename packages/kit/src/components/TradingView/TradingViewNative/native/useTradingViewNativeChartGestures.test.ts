@@ -6,11 +6,13 @@ import { createElement } from 'react';
 import type { PropsWithChildren } from 'react';
 
 import { renderHook } from '@testing-library/react';
+import { I18nManager } from 'react-native';
 import { Gesture } from 'react-native-gesture-handler';
 import { withDecay } from 'react-native-reanimated';
 import { scheduleOnRN } from 'react-native-worklets';
 
 import { HeaderScrollGestureContext } from '@onekeyhq/components/src/composite/Tabs/HeaderScrollGestureContext';
+import { createTradingViewNativeChartSettings } from '@onekeyhq/shared/types/tradingViewNative';
 
 import {
   TRADING_VIEW_NATIVE_PAN_DRAG_RATIO,
@@ -28,9 +30,12 @@ import {
   getTradingViewNativeSubIndicatorLegendIndicatorAtPoint,
 } from '../utils/subIndicatorRender';
 
+import {
+  createTradingViewNativeChartRuntime,
+  navigateTradingViewNativeChartRuntime,
+} from './chartRuntime';
 import { useTradingViewNativeChartGestures } from './useTradingViewNativeChartGestures';
 
-import type { ITradingViewNativePriceRange } from '../utils/chartViewport';
 import type { GestureType } from 'react-native-gesture-handler';
 
 type IMockGestureHandler = (...args: unknown[]) => void;
@@ -60,7 +65,13 @@ jest.mock(
   () => ({
     HeaderScrollGestureContext: jest
       .requireActual<typeof import('react')>('react')
-      .createContext<GestureType[]>([]),
+      .createContext<{
+        gestures: GestureType[];
+        excludeStartEdgeWidth: number;
+      }>({
+        gestures: [],
+        excludeStartEdgeWidth: 0,
+      }),
   }),
 );
 
@@ -114,6 +125,12 @@ jest.mock('react-native-gesture-handler', () => ({
       return gesture;
     }),
   },
+}));
+
+jest.mock('react-native', () => ({
+  ...jest.requireActual<typeof import('react-native')>('react-native'),
+  I18nManager: { isRTL: false },
+  useWindowDimensions: () => ({ width: 400, height: 874 }),
 }));
 
 jest.mock('react-native-reanimated', () => ({
@@ -179,46 +196,34 @@ function renderSettingsGesture(
 function renderChartGestures({
   headerScrollGestures = [],
   prioritizePageScroll = false,
+  excludeStartEdgeWidth = 0,
 }: {
   headerScrollGestures?: GestureType[];
   prioritizePageScroll?: boolean;
+  excludeStartEdgeWidth?: number;
 } = {}) {
   const chartRuntime = {
     value: {
+      ...createTradingViewNativeChartRuntime({
+        candleIntervalSeconds: 60,
+        chartComponents: [],
+        chartSettings: createTradingViewNativeChartSettings(),
+        chartType: 'candlestick',
+        currentPriceLabel: '100',
+        hasVolume: false,
+        indicatorSeries: [],
+        points: Array.from({ length: 100 }, (_, index) => ({
+          o: 100,
+          h: 120,
+          l: 80,
+          c: 100,
+          v: 1,
+          t: 1_700_000_000 + index * 60,
+        })),
+        subIndicatorPanes: [],
+      }),
       crosshair: { visible: true, x: 0, y: 0 },
-      indicatorSeries: [],
-      panGesture: { startOffset: 0, translationX: 0 },
-      pinchGesture: {
-        anchorX: 0,
-        currentScale: 1,
-        isActive: false,
-        scaleBaseline: 1,
-        startOffset: 0,
-        startZoomScale: 1,
-      },
-      candleIntervalSeconds: 60,
-      hasVolume: false,
-      pinnedPriceRange: null as ITradingViewNativePriceRange | null,
-      priceRangeScale: 1,
-      priceScaleMode: 'linear',
-      points: Array.from({ length: 100 }, (_, index) => ({
-        o: 100,
-        h: 120,
-        l: 80,
-        c: 100,
-        v: 1,
-        t: 1_700_000_000 + index * 60,
-      })),
       size: { height: 300, width: 320 },
-      subIndicatorPanes: [],
-      timeAxisScaleGesture: {
-        chartWidth: 0,
-        currentX: 0,
-        isActive: false,
-        startOffset: 0,
-        startX: 0,
-        startZoomScale: 1,
-      },
       viewport: { offset: 0, zoomScale: 1 },
     },
   };
@@ -250,13 +255,17 @@ function renderChartGestures({
     wrapper: ({ children }: PropsWithChildren) =>
       createElement(
         HeaderScrollGestureContext.Provider,
-        { value: headerScrollGestures },
+        { value: { gestures: headerScrollGestures, excludeStartEdgeWidth } },
         children,
       ),
   });
   return {
     chartRuntime,
     decayOffset,
+    crosshairGesture: mockPanGestures[initialPanGestureCount],
+    tapCrosshairGesture: mockTapGestures.find(
+      (gesture) => gesture.maxDistance.mock.calls.length === 0,
+    ),
     contentPanGesture: mockPanGestures[initialPanGestureCount + 1],
     pinchGesture: mockPinchGestures[mockPinchGestures.length - 1],
     timeAxisScaleGesture: mockPanGestures[initialPanGestureCount + 2],
@@ -266,12 +275,81 @@ function renderChartGestures({
 describe('useTradingViewNativeChartGestures', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    I18nManager.isRTL = false;
     mockPanGestures.length = 0;
     mockTapGestures.length = 0;
     mockGetSubIndicatorAtPoint.mockImplementation(
       ({ y }: { y: number }): 'RSI' | null => (y === 100 ? 'RSI' : null),
     );
   });
+
+  it.each([
+    { isRTL: false, absoluteX: 0 },
+    { isRTL: false, absoluteX: 16 },
+    { isRTL: false, absoluteX: 31 },
+    { isRTL: true, absoluteX: 400 },
+    { isRTL: true, absoluteX: 384 },
+    { isRTL: true, absoluteX: 369 },
+  ])(
+    'leaves the logical start edge to navigation (%j)',
+    ({ isRTL, absoluteX }) => {
+      I18nManager.isRTL = isRTL;
+      const gestures = renderChartGestures({ excludeStartEdgeWidth: 32 });
+      for (const gesture of [
+        gestures.contentPanGesture,
+        gestures.crosshairGesture,
+        gestures.tapCrosshairGesture,
+      ]) {
+        const fail = jest.fn();
+        gesture?.handlers.onTouchesDown?.(
+          { changedTouches: [{ absoluteX, x: 24, y: 120 }] },
+          { fail },
+        );
+        expect(fail).toHaveBeenCalledTimes(1);
+      }
+
+      const failTimeAxis = jest.fn();
+      gestures.timeAxisScaleGesture.handlers.onTouchesDown?.(
+        { changedTouches: [{ absoluteX, x: 24, y: 290 }] },
+        { fail: failTimeAxis },
+      );
+      expect(failTimeAxis).toHaveBeenCalledTimes(1);
+
+      const settingsGesture = mockTapGestures.find(
+        (gesture) => gesture.maxDistance.mock.calls.length > 0,
+      );
+      const failSettings = jest.fn();
+      settingsGesture?.handlers.onTouchesDown?.(
+        { changedTouches: [{ absoluteX, x: 24, y: 100 }] },
+        { fail: failSettings },
+      );
+      expect(failSettings).toHaveBeenCalledTimes(1);
+      expect(mockGetSubIndicatorLegendHitRegions).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each([
+    { isRTL: false, excludeStartEdgeWidth: 0, absoluteX: 0 },
+    { isRTL: true, excludeStartEdgeWidth: 0, absoluteX: 400 },
+    { isRTL: true, excludeStartEdgeWidth: 32, absoluteX: 368 },
+    { isRTL: true, excludeStartEdgeWidth: 32, absoluteX: 16 },
+    { isRTL: false, excludeStartEdgeWidth: 32, absoluteX: 32 },
+    { isRTL: false, excludeStartEdgeWidth: 32, absoluteX: 64 },
+  ])(
+    'keeps chart panning available outside the reserved screen edge (%j)',
+    ({ isRTL, excludeStartEdgeWidth, absoluteX }) => {
+      I18nManager.isRTL = isRTL;
+      const { contentPanGesture } = renderChartGestures({
+        excludeStartEdgeWidth,
+      });
+      const fail = jest.fn();
+      contentPanGesture.handlers.onTouchesDown?.(
+        { changedTouches: [{ absoluteX, x: 24, y: 120 }] },
+        { fail },
+      );
+      expect(fail).not.toHaveBeenCalled();
+    },
+  );
 
   it('opens the indicator pressed at touch-down after an allowed drift', () => {
     const onSubIndicatorSettingsPress = jest.fn();
@@ -385,6 +463,35 @@ describe('useTradingViewNativeChartGestures', () => {
     expect(failMainChartTapCrosshair).not.toHaveBeenCalled();
   });
 
+  it.each([100, 250])(
+    'leaves Y-axis touches at %i to the scale gestures',
+    (y) => {
+      renderChartGestures();
+      const gestures = [
+        mockPanGestures[0],
+        mockPanGestures[1],
+        mockTapGestures.find(
+          (gesture) => gesture.maxDistance.mock.calls.length === 0,
+        ),
+      ];
+      for (const gesture of gestures) {
+        expect(gesture).toBeDefined();
+        const fail = jest.fn();
+        gesture?.handlers.onTouchesDown?.(
+          { changedTouches: [{ x: 310, y }] },
+          { fail },
+        );
+        expect(fail).toHaveBeenCalledTimes(1);
+        fail.mockClear();
+        gesture?.handlers.onTouchesDown?.(
+          { changedTouches: [{ x: 100, y }] },
+          { fail },
+        );
+        expect(fail).not.toHaveBeenCalled();
+      }
+    },
+  );
+
   it('keeps the crosshair visible after the long press ends', () => {
     const { chartRuntime } = renderChartGestures();
     const crosshairGesture = mockPanGestures[0];
@@ -424,6 +531,62 @@ describe('useTradingViewNativeChartGestures', () => {
 });
 
 describe('zoom continuity at viewport boundaries', () => {
+  describe.each(['pinch', 'timeAxis'] as const)(
+    '%s navigation continuity',
+    (kind) => {
+      it.each([
+        'zoomIn',
+        'zoomOut',
+        'scrollLeft',
+        'scrollRight',
+        'reset',
+      ] as const)(
+        'continues the active gesture after %s without undoing navigation',
+        (action) => {
+          const {
+            chartRuntime,
+            decayOffset,
+            pinchGesture,
+            timeAxisScaleGesture,
+          } = renderChartGestures();
+          const chartWidth = 276;
+          const gesture =
+            kind === 'pinch' ? pinchGesture : timeAxisScaleGesture;
+          chartRuntime.value.viewport.offset = 120;
+          gesture.handlers.onStart?.(
+            kind === 'pinch' ? { focalX: 140, scale: 1 } : { x: 100 },
+          );
+          const stationaryEvent = kind === 'pinch' ? { scale: 1.5 } : { x: 80 };
+          gesture.handlers.onUpdate?.(stationaryEvent);
+          chartRuntime.value = navigateTradingViewNativeChartRuntime(
+            chartRuntime.value,
+            action,
+            44,
+          );
+          const viewport = { ...chartRuntime.value.viewport };
+
+          gesture.handlers.onUpdate?.(stationaryEvent);
+          expect(chartRuntime.value.viewport.offset).toBeCloseTo(
+            viewport.offset,
+          );
+          expect(chartRuntime.value.viewport.zoomScale).toBeCloseTo(
+            viewport.zoomScale,
+          );
+
+          const zoomRatio = kind === 'pinch' ? 1.2 : Math.exp(20 / chartWidth);
+          gesture.handlers.onUpdate?.(
+            kind === 'pinch' ? { scale: 1.8 } : { x: 70 },
+          );
+          expect(chartRuntime.value.viewport.zoomScale).toBeCloseTo(
+            viewport.zoomScale * zoomRatio,
+          );
+          expect(chartRuntime.value.viewport.offset).not.toBe(viewport.offset);
+          expect(decayOffset.value).toBe(chartRuntime.value.viewport.offset);
+        },
+      );
+    },
+  );
+
   it.each(['pinch', 'timeAxis'] as const)(
     'preserves an appended candle anchor during an active %s gesture',
     (kind) => {
@@ -516,6 +679,40 @@ describe('horizontal chart panning', () => {
     mockPanGestures.length = 0;
     mockTapGestures.length = 0;
   });
+  it.each(['zoomIn', 'zoomOut', 'scrollLeft', 'scrollRight', 'reset'] as const)(
+    'continues dragging from the viewport after %s without jumping',
+    (action) => {
+      const { chartRuntime, contentPanGesture, decayOffset } =
+        renderChartGestures();
+      contentPanGesture.handlers.onStart?.({ translationX: 0 });
+      contentPanGesture.handlers.onUpdate?.({ translationX: 30 });
+      chartRuntime.value = navigateTradingViewNativeChartRuntime(
+        chartRuntime.value,
+        action,
+        44,
+      );
+      const { offset, zoomScale } = chartRuntime.value.viewport;
+
+      // A stationary finger must not undo navigation, and further movement
+      // must still pan from the new viewport.
+      contentPanGesture.handlers.onUpdate?.({ translationX: 30 });
+      expect(chartRuntime.value.viewport.offset).toBeCloseTo(offset);
+      contentPanGesture.handlers.onUpdate?.({ translationX: 50 });
+      expect(chartRuntime.value.viewport.offset).toBeCloseTo(
+        offset + 20 * TRADING_VIEW_NATIVE_PAN_DRAG_RATIO,
+      );
+      expect(chartRuntime.value.viewport.zoomScale).toBe(zoomScale);
+      expect(decayOffset.value).toBe(chartRuntime.value.viewport.offset);
+
+      const nextStartOffset = chartRuntime.value.viewport.offset;
+      contentPanGesture.handlers.onStart?.({ translationX: 0 });
+      contentPanGesture.handlers.onUpdate?.({ translationX: -10 });
+      expect(chartRuntime.value.viewport.offset).toBeCloseTo(
+        nextStartOffset - 10 * TRADING_VIEW_NATIVE_PAN_DRAG_RATIO,
+      );
+    },
+  );
+
   it('keeps other embedded charts independent of parent scroll thresholds', () => {
     const headerScrollGesture = Gesture.Pan();
     const { contentPanGesture } = renderChartGestures({

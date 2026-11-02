@@ -1,6 +1,7 @@
 import { memo, useCallback, useEffect, useMemo } from 'react';
 import type { ReactNode } from 'react';
 
+import { NativeList } from '@onekeyfe/react-native-native-list';
 import { useIntl } from 'react-intl';
 
 import {
@@ -21,6 +22,10 @@ import useFormatDate from '@onekeyhq/kit/src/hooks/useFormatDate';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { isAddressOwnedByDeactivatedBotWallet } from '@onekeyhq/kit/src/utils/botWalletAccountUtils';
 import { showBotWalletDisabledToast } from '@onekeyhq/kit/src/utils/botWalletDisabledToast';
+import {
+  accountSelectorWalletVisualV2,
+  useAccountSelectorNativeListThemeV2,
+} from '@onekeyhq/kit/src/views/AccountManagerStacks/pages/AccountSelectorStack/accountSelectorNativeListV2';
 import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -39,6 +44,11 @@ import {
   shortenRecipientAddress,
 } from './recipientListAddressUtils';
 import {
+  recipientBlockieVisual,
+  recipientIdentityRow,
+  recipientSnapshot,
+} from './recipientNativeList';
+import {
   normalizeSearchKey,
   prioritizeNameThenAddressMatches,
 } from './searchMatchUtils';
@@ -46,6 +56,7 @@ import { useRecentRecipientsData } from './useRecentRecipientsData';
 import { useStableItemPress } from './useStableItemPress';
 
 import type { IEnrichedRecentRecipient } from './useRecentRecipientsData';
+import type { RowActionEvent } from '@onekeyfe/react-native-native-list';
 
 interface IRecentRecipientsProps {
   accountId?: string;
@@ -58,6 +69,7 @@ interface IRecentRecipientsProps {
   searchKey?: string;
   isSearchMode?: boolean;
   compact?: boolean;
+  nativeList?: boolean;
   onMatchStatusChange?: (hasMatches: boolean, matchCount: number) => void;
   onLastUsedDeriveTypeChange?: (deriveType: string | undefined) => void;
   // Lookalikes among every tab's addresses; those rows show the full address.
@@ -79,11 +91,38 @@ type IQuickItem = {
   accountName?: string;
   walletId?: string;
   wallet?: IDBWallet;
+  // Native rows: whether the row menu offers the address book.
+  canAddToAddressBook?: boolean;
 };
 
 // The address a row stands for, also what the lookalike check compares.
 function getRecipientAddress(recipient: IEnrichedRecentRecipient): string {
   return recipient.validAddress ?? recipient.input ?? '';
+}
+
+// Offered for addresses worth saving: not saved yet, not an account the user
+// signs with, and not a lookalike, which a saved contact would let past the
+// similarity checks. Watch-only and connected accounts keep it: with the
+// transfer allowlist on they must be saved before a send. Lightning has no
+// address book.
+function canAddRecipientToAddressBook({
+  recipient,
+  isLookalike,
+  isLightningNetwork,
+}: {
+  recipient: IEnrichedRecentRecipient;
+  isLookalike: boolean;
+  isLightningNetwork: boolean;
+}): boolean {
+  return (
+    !recipient.isAddressBook &&
+    !isLightningNetwork &&
+    !isLookalike &&
+    !(
+      recipient.walletAccountId &&
+      accountUtils.isOwnAccount({ accountId: recipient.walletAccountId })
+    )
+  );
 }
 
 function QuickSelectListItemBase({
@@ -290,6 +329,7 @@ const QuickSelectListItem = memo(
 
 function RecentRecipients(props: IRecentRecipientsProps) {
   const intl = useIntl();
+  const navigation = useAppNavigation();
   const {
     accountId,
     networkId,
@@ -297,6 +337,7 @@ function RecentRecipients(props: IRecentRecipientsProps) {
     isSearchMode,
     onSelect,
     compact = false,
+    nativeList = false,
     onMatchStatusChange,
     onLastUsedDeriveTypeChange,
     lookalikeAddresses,
@@ -305,6 +346,7 @@ function RecentRecipients(props: IRecentRecipientsProps) {
   } = props;
 
   const { formatDistanceToNowStrict } = useFormatDate();
+  const nativeListTheme = useAccountSelectorNativeListThemeV2();
 
   // Compact time format: "2h ago" / "3d ago" for Latin, "2小时前" / "3天前" for CJK
   const formatCompactTime = useCallback(
@@ -481,6 +523,169 @@ function RecentRecipients(props: IRecentRecipientsProps) {
     });
   });
 
+  const isLightningNetwork =
+    networkUtils.isLightningNetworkByNetworkId(networkId);
+
+  const nativeItems = useMemo(
+    () =>
+      nativeList
+        ? filteredRecentRecipients.map((recipient) => {
+            const address = getRecipientAddress(recipient);
+            return {
+              id: address,
+              name:
+                recipient.addressBookName ?? recipient.walletAccountName ?? '',
+              address,
+              memo: recipient.recipientMemo,
+              lastTransferTime: recipient.lastTransferTime,
+              lastTransferNetworkName: recipient.lastTransferNetworkName,
+              isAddressBook: recipient.isAddressBook,
+              walletName: recipient.walletName,
+              walletId: recipient.walletId,
+              wallet: recipient.walletId
+                ? recentWalletMap.get(recipient.walletId)
+                : undefined,
+              canAddToAddressBook: canAddRecipientToAddressBook({
+                recipient,
+                isLookalike: isLookalikeAddress(lookalikeAddresses, address),
+                isLightningNetwork,
+              }),
+            } satisfies IQuickItem;
+          })
+        : [],
+    [
+      nativeList,
+      filteredRecentRecipients,
+      recentWalletMap,
+      lookalikeAddresses,
+      isLightningNetwork,
+    ],
+  );
+  const nativeItemByKey = useMemo(
+    () =>
+      new Map(
+        nativeItems.map((item, index) => [`${index}-${item.address}`, item]),
+      ),
+    [nativeItems],
+  );
+  const nativeSnapshot = useMemo(
+    () =>
+      recipientSnapshot(
+        nativeItems.map((item, index) => {
+          const hasName = !!item.name;
+          const isEvmNetwork = networkUtils.isEvmNetwork({ networkId });
+          const showMenu = !!item.canAddToAddressBook;
+          const titleSuffixes: NonNullable<
+            Parameters<typeof recipientIdentityRow>[0]['titleSuffixes']
+          >[number][] = [];
+          if (item.isAddressBook && isEvmNetwork) {
+            titleSuffixes.push({
+              text: 'EVM',
+              tone: 'secondary',
+              maxWidth: 128,
+            });
+          } else if (isEvmNetwork && !hasName) {
+            if (item.lastTransferNetworkName) {
+              titleSuffixes.push({
+                text: item.lastTransferNetworkName,
+                tone: 'disabled',
+                maxWidth: 96,
+              });
+            }
+          }
+          if (item.lastTransferTime) {
+            titleSuffixes.push({
+              text: formatCompactTime(item.lastTransferTime),
+              tone: 'disabled',
+            });
+          }
+          const note = item.memo
+            ? ` · ${accountUtils.shortenAddress({
+                address: item.memo,
+                leadingLength: 6,
+                trailingLength: 4,
+              })}`
+            : '';
+          const blockie = recipientBlockieVisual(item.address);
+          const walletVisual = item.wallet
+            ? accountSelectorWalletVisualV2({
+                wallet: item.wallet,
+                badgeBackground: nativeListTheme.rowBackground,
+                connectionColor: nativeListTheme.accent,
+                theme: nativeListTheme,
+              })
+            : undefined;
+          const leading =
+            walletVisual?.kind === 'wallet'
+              ? {
+                  ...blockie,
+                  overlays: [
+                    ...(walletVisual.overlays?.filter(
+                      (overlay) => overlay.position === 'topLeft',
+                    ) ?? []),
+                    {
+                      position: 'bottomRight' as const,
+                      size: 20,
+                      padding: 2,
+                      offset: 6,
+                      backgroundColor: nativeListTheme.rowBackground,
+                      image: walletVisual.image,
+                      fallbackIcon: walletVisual.fallbackIcon,
+                      text: walletVisual.fallbackText,
+                    },
+                  ],
+                }
+              : blockie;
+          return recipientIdentityRow({
+            key: `${index}-${item.address}`,
+            testID: `recent-item-${item.address}`,
+            address: item.address,
+            leading,
+            name: item.name,
+            secondary: `${item.address}${note}`,
+            titleSuffixes: titleSuffixes.length ? titleSuffixes : undefined,
+            longPressActionKey: showMenu ? 'menu' : undefined,
+            trailing: showMenu
+              ? [{ kind: 'menu', actionKey: 'menu' }]
+              : undefined,
+          });
+        }),
+        nativeListTheme,
+      ),
+    [nativeItems, networkId, formatCompactTime, nativeListTheme],
+  );
+  const showNativeMenu = useCallback(
+    (item: IQuickItem, event: RowActionEvent) => {
+      if (!item.canAddToAddressBook) return;
+      const primaryText =
+        item.name || accountUtils.shortenAddress({ address: item.address });
+      ActionList.show({
+        triggerRect: event.anchor?.windowRect,
+        triggerPosition: event.anchor ? undefined : event.windowPoint,
+        title: primaryText,
+        sections: [
+          {
+            items: [
+              {
+                label: intl.formatMessage({
+                  id: ETranslations.add_to_address_book__action,
+                }),
+                icon: 'BookOpenOutline',
+                onPress: () => {
+                  navigation.pushModal(EModalRoutes.AddressBookModal, {
+                    screen: EModalAddressBookRoutes.EditItemModal,
+                    params: { address: item.address, networkId },
+                  });
+                },
+              },
+            ],
+          },
+        ],
+      });
+    },
+    [intl, navigation, networkId],
+  );
+
   // Notify parent of match status and count.
   // Skip during debounce — parent resets tabMatchStatus to null on
   // searchKey change, so allReported stays false until we re-report.
@@ -510,10 +715,6 @@ function RecentRecipients(props: IRecentRecipientsProps) {
     });
     return counts;
   }, [filteredRecentRecipients]);
-
-  // Lightning Network doesn't support address book.
-  const isLightningNetwork =
-    networkUtils.isLightningNetworkByNetworkId(networkId);
 
   const renderContent = useCallback(() => {
     if (!filteredRecentRecipients.length && isLoadingRecent) {
@@ -548,22 +749,11 @@ function RecentRecipients(props: IRecentRecipientsProps) {
                 : undefined,
             }}
             showFullAddress={isSearchActive || isLookalike}
-            // Offered for addresses worth saving: not saved yet, not an
-            // account the user signs with, and not a lookalike, which a
-            // saved contact would let past the similarity checks. Watch-only
-            // and connected accounts keep it: with the transfer allowlist on
-            // they must be saved before a send.
-            canAddToAddressBook={
-              !recipient.isAddressBook &&
-              !isLightningNetwork &&
-              !isLookalike &&
-              !(
-                recipient.walletAccountId &&
-                accountUtils.isOwnAccount({
-                  accountId: recipient.walletAccountId,
-                })
-              )
-            }
+            canAddToAddressBook={canAddRecipientToAddressBook({
+              recipient,
+              isLookalike,
+              isLightningNetwork,
+            })}
             keepWalletName={
               (accountNameCounts.get(recipient.accountName ?? '') ?? 0) > 1 ||
               accountUtils.isWatchingWallet({ walletId: recipient.walletId }) ||
@@ -613,6 +803,59 @@ function RecentRecipients(props: IRecentRecipientsProps) {
     handleRecipientPress,
     recentWalletMap,
   ]);
+
+  let nativeEmpty = (
+    <Empty
+      mt="$3"
+      icon="ClockTimeHistoryOutline"
+      title={intl.formatMessage({
+        id: ETranslations.transfer_recent_transfers,
+      })}
+      description={intl.formatMessage({
+        id: ETranslations.transfer_recent_transfers_empty,
+      })}
+    />
+  );
+  if (isSearchActive) {
+    nativeEmpty = (
+      <Empty
+        mt="$3"
+        icon="SearchOutline"
+        title={intl.formatMessage({
+          id: ETranslations.no_search_results__title,
+        })}
+      />
+    );
+  }
+  if (!nativeItems.length && isLoadingRecent) {
+    nativeEmpty = <QuickSelectListSkeleton />;
+  }
+
+  if (nativeList) {
+    return (
+      <NativeList
+        style={{ flex: 1 }}
+        snapshot={nativeSnapshot}
+        keyboardShouldPersistTaps="handled"
+        listEmpty={nativeEmpty}
+        listFooter={
+          isLoadingMore ? (
+            <XStack justifyContent="center" py="$3">
+              <Spinner size="small" />
+            </XStack>
+          ) : null
+        }
+        onRowAction={(event) => {
+          const item = event.rowKey
+            ? nativeItemByKey.get(event.rowKey)
+            : undefined;
+          if (!item) return;
+          if (event.actionKey === 'press') void handleRecipientPress(item);
+          if (event.actionKey === 'menu') showNativeMenu(item, event);
+        }}
+      />
+    );
+  }
 
   return (
     <Stack mx={compact ? 0 : -20}>

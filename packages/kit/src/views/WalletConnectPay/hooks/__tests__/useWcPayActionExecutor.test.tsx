@@ -170,10 +170,10 @@ describe('useWcPayActionExecutor confirm-modal parking', () => {
   });
 
   // Every executor branch that pushes a confirm modal must first give the
-  // host dialog a chance to park itself: the WC Pay dialog is a system-level
-  // sheet that renders ABOVE the pushed RN-layer confirm page and is
-  // non-dismissible during the paying phase, so a missed park is an
-  // unrecoverable deadlock (P0 review finding on PR #12590).
+  // host dialog a chance to park itself: the WC Pay dialog renders ABOVE the
+  // pushed confirm page (full-window overlay) and is non-dismissible during
+  // the paying phase, so a missed park is an unrecoverable deadlock (P0
+  // review finding on PR #12590).
   const cases: Array<{
     label: string;
     action: IWcPayAction;

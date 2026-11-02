@@ -525,7 +525,6 @@ function OverflowMoreButton({
     <LazyPopover
       title={moreLabel}
       hoverable={OVERFLOW_HOVER_CONFIG}
-      scope="desktop-sidebar-overflow"
       showHeader={false}
       usingSheet={false}
       offset={8}

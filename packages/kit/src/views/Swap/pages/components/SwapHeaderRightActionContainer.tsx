@@ -38,8 +38,10 @@ import {
   HeaderButtonGroup,
   HeaderIconButton,
 } from '@onekeyhq/components/src/layouts/Navigation/Header';
+import type { IActivityHubOpenReferral } from '@onekeyhq/kit/src/components/ActivityHub';
 import { SlippageInput } from '@onekeyhq/kit/src/components/SlippageSettingDialog';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { useOpenReferralPage } from '@onekeyhq/kit/src/hooks/useReferFriends';
 import { useTokenDetailActions } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
 import {
   useSwapActions,
@@ -90,7 +92,6 @@ import {
   ESwapTxHistoryStatus,
 } from '@onekeyhq/shared/types/swap/types';
 
-import { useSwapInviteeRewardAction } from '../../components/InviteeReward/hooks/useSwapInviteeRewardAction';
 import { SwapActivityHubSettingsItem } from '../../components/InviteeReward/SwapActivityHubSettingsItem';
 import { useSwapActivityHubPendingRouteSwapType } from '../../components/InviteeReward/useSwapActivityHubActionPlacement';
 import { getSwapActivityHubActionPlacement } from '../../components/InviteeReward/utils';
@@ -379,7 +380,7 @@ const SwapSettingsDialogContent = ({
   swapType,
 }: {
   activityHubAction?: {
-    onOpenInviteeReward: () => void;
+    onOpenReferral: IActivityHubOpenReferral;
   };
   marketPresetSettings?: IMarketPresetSettingsState;
   swapType?: ESwapTabSwitchType;
@@ -429,35 +430,29 @@ const SwapSettingsDialogContent = ({
     () => (
       <SegmentControl
         value={slippageItem.key}
-        options={swapSlippageItems.map((item) => {
-          const isActive = slippageItem.key === item.key;
-          return {
-            label: (
-              <XStack>
-                {item.key === ESwapSlippageSegmentKey.AUTO ? (
-                  <Icon
-                    name="Ai3StarOutline"
-                    size="$4.5"
-                    color="$iconSuccess"
-                    mr="$0.5"
-                  />
-                ) : null}
-                <SizableText
-                  size="$bodyMdMedium"
-                  color={isActive ? '$text' : '$textSubdued'}
-                >
-                  {intl.formatMessage({
-                    id:
-                      item.key === ESwapSlippageSegmentKey.AUTO
-                        ? ETranslations.slippage_tolerance_switch_auto
-                        : ETranslations.slippage_tolerance_switch_custom,
-                  })}
-                </SizableText>
-              </XStack>
-            ),
-            value: item.key,
-          };
-        })}
+        options={swapSlippageItems.map((item) => ({
+          label: ({ color }) => (
+            <XStack>
+              {item.key === ESwapSlippageSegmentKey.AUTO ? (
+                <Icon
+                  name="Ai3StarOutline"
+                  size="$4.5"
+                  color="$iconSuccess"
+                  mr="$0.5"
+                />
+              ) : null}
+              <SizableText size="$bodyMdMedium" color={color}>
+                {intl.formatMessage({
+                  id:
+                    item.key === ESwapSlippageSegmentKey.AUTO
+                      ? ETranslations.slippage_tolerance_switch_auto
+                      : ETranslations.slippage_tolerance_switch_custom,
+                })}
+              </SizableText>
+            </XStack>
+          ),
+          value: item.key,
+        }))}
         onChange={(value) => {
           const keyValue = value as ESwapSlippageSegmentKey;
           setNoPersistSettings((s) => ({
@@ -620,7 +615,7 @@ const SwapSettingsDialogContent = ({
           <>
             <Divider />
             <SwapActivityHubSettingsItem
-              onOpenInviteeReward={activityHubAction.onOpenInviteeReward}
+              onOpenReferral={activityHubAction.onOpenReferral}
             />
           </>
         ) : null}
@@ -839,7 +834,7 @@ const SwapProKLineHeaderButton = ({
           isNative: resolvedToken.isNative,
           ...(resolvedToken.isStock
             ? { stockId: resolveMarketStockId(resolvedToken) }
-            : undefined),
+            : { swapTokenSymbol: resolvedToken.symbol }),
           from: EEnterWay.SwapPro,
           disableTrade: true,
           showFavoriteButton: false,
@@ -875,7 +870,7 @@ type ISwapSettingsHeaderButtonProps = {
   compact?: boolean;
   showCustomSlippageValue?: boolean;
   activityHubAction?: {
-    onOpenInviteeReward: () => void;
+    onOpenReferral: IActivityHubOpenReferral;
   };
   marketPresetSettings?: IMarketPresetSettingsState;
 };
@@ -1005,17 +1000,17 @@ export function SwapSettingsHeaderButton({
   );
 }
 
-// The reward action needs the active account, so it is resolved here in the page
-// tree and handed to the settings dialog, which renders outside of it.
+// The reward action is resolved here in the page tree and handed to the
+// settings dialog, which renders outside of it.
 function SwapSettingsHeaderButtonWithActivityHub(
   props: Omit<ISwapSettingsHeaderButtonProps, 'activityHubAction'>,
 ) {
-  const { showSwapInviteeReward } = useSwapInviteeRewardAction();
+  const openReferralPage = useOpenReferralPage();
   const activityHubAction = useMemo(
     () => ({
-      onOpenInviteeReward: showSwapInviteeReward,
+      onOpenReferral: openReferralPage,
     }),
-    [showSwapInviteeReward],
+    [openReferralPage],
   );
 
   return (
@@ -1263,7 +1258,10 @@ const SwapHeaderRightActionContainer = ({
     // iOS 26: the header actions share one Liquid Glass capsule (like the Wallet
     // header's notification/menu capsule). Passthrough off iOS 26 / non-native.
     <GlassButtonCapsule>
-      <HeaderButtonGroup gap={compact ? '$2' : '$4'} flexShrink={0}>
+      <HeaderButtonGroup
+        gap={compact && platformEnv.isNativeIOS ? '$2' : '$4'}
+        flexShrink={0}
+      >
         {kLineButton}
         {showActivityHubInSettings ? (
           <SwapSettingsHeaderButtonWithActivityHub

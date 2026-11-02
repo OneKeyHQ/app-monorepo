@@ -13,6 +13,8 @@ import {
   useCheckAddressRisk,
 } from './useCheckAddressRisk';
 
+const mockTrialAttempt = jest.fn();
+const mockTrialResult = jest.fn();
 const mockPush = jest.fn();
 const mockPop = jest.fn();
 const mockPopStack = jest.fn();
@@ -27,6 +29,10 @@ const mockGetCheck = jest.fn<
 >();
 const mockAddressRiskCheckSuccess = jest.fn<void, [unknown]>();
 const mockHandleFreeTrialError = jest.fn<unknown, [unknown]>();
+const mockShowActiveRejectedFeedback = jest.fn<void, [unknown]>();
+let mockCachedAccess: { status: string; resetAt?: number } = {
+  status: 'available',
+};
 
 jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms/prime', () => ({
   usePrimePersistAtom: () => [
@@ -41,6 +47,9 @@ jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms/prime', () => ({
 jest.mock('../../Prime/hooks/usePrimeFeatureAccess', () => ({
   usePrimeFeatureAccess: () => ({
     handleFreeTrialError: (params: unknown) => mockHandleFreeTrialError(params),
+    getCachedAccess: () => mockCachedAccess,
+    showActiveRejectedFeedback: (params: unknown) =>
+      mockShowActiveRejectedFeedback(params),
   }),
 }));
 
@@ -67,6 +76,14 @@ jest.mock('@onekeyhq/kit/src/hooks/useAppNavigation', () => ({
 }));
 
 let mockIsFocused = true;
+// The route the root navigator shows: the page the result page landed on.
+let mockCurrentRouteKey = 'input';
+const mockWait = jest.fn(() => Promise.resolve());
+jest.mock('@onekeyhq/components', () => ({
+  rootNavigationRef: {
+    current: { getCurrentRoute: () => ({ key: mockCurrentRouteKey }) },
+  },
+}));
 jest.mock('@react-navigation/core', () => ({
   ...jest.requireActual<typeof import('@react-navigation/core')>(
     '@react-navigation/core',
@@ -76,12 +93,20 @@ jest.mock('@react-navigation/core', () => ({
 
 jest.mock('@onekeyhq/shared/src/utils/timerUtils', () => ({
   __esModule: true,
-  default: { wait: () => Promise.resolve() },
+  default: { wait: () => mockWait() },
 }));
 
 jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
   defaultLogger: {
     prime: {
+      subscription: {
+        primeFreeTrialAttempt: (params: unknown) => {
+          mockTrialAttempt(params);
+        },
+        primeFreeTrialResult: (params: unknown) => {
+          mockTrialResult(params);
+        },
+      },
       usage: {
         addressRiskCheckSuccess: (params: unknown) =>
           mockAddressRiskCheckSuccess(params),
@@ -113,6 +138,9 @@ function buildFreeTrialError(code = 90_600) {
 beforeEach(() => {
   jest.clearAllMocks();
   mockIsFocused = true;
+  mockCurrentRouteKey = 'input';
+  mockWait.mockImplementation(() => Promise.resolve());
+  mockCachedAccess = { status: 'available' };
   mockCheckAddressRisk.mockResolvedValue(riskResult);
   mockAddCheck.mockResolvedValue(undefined);
   mockGetCheck.mockResolvedValue(undefined);
@@ -273,7 +301,7 @@ describe('executeAddressRiskCheckWithHistory', () => {
 });
 
 describe('useCheckAddressRisk', () => {
-  it('opens the result page right away and lets it run the check', () => {
+  it('opens the result page right away and lets it run the check', async () => {
     for (const entryPoint of [
       'inputManual',
       'inputRecentList',
@@ -282,8 +310,8 @@ describe('useCheckAddressRisk', () => {
       mockPush.mockClear();
       const { result } = renderHook(() => useCheckAddressRisk());
 
-      act(() => {
-        result.current.checkRisk({
+      await act(async () => {
+        await result.current.checkRisk({
           networkId: riskResult.networkId,
           address: riskResult.address,
           entryPoint,
@@ -305,7 +333,7 @@ describe('useCheckAddressRisk', () => {
     expect(mockCheckAddressRisk).not.toHaveBeenCalled();
   });
 
-  it('ignores a double tap', () => {
+  it('ignores a double tap', async () => {
     const nowSpy = jest.spyOn(Date, 'now').mockReturnValue(10_000);
     const { result } = renderHook(() => useCheckAddressRisk());
     const request = {
@@ -314,18 +342,99 @@ describe('useCheckAddressRisk', () => {
       entryPoint: 'inputRecentList' as const,
     };
 
-    act(() => {
-      result.current.checkRisk(request);
-      result.current.checkRisk(request);
+    await act(async () => {
+      await Promise.all([
+        result.current.checkRisk(request),
+        result.current.checkRisk(request),
+      ]);
     });
     expect(mockPush).toHaveBeenCalledTimes(1);
 
     nowSpy.mockReturnValue(11_000);
-    act(() => {
-      result.current.checkRisk(request);
+    await act(async () => {
+      await result.current.checkRisk(request);
     });
     expect(mockPush).toHaveBeenCalledTimes(2);
     nowSpy.mockRestore();
+  });
+
+  it.each(['exhausted', 'notOpen'] as const)(
+    'gives the %s feedback on the press when the address has no history',
+    async (status) => {
+      mockCachedAccess = { status, resetAt: 123 };
+      const { result } = renderHook(() => useCheckAddressRisk());
+
+      await act(async () => {
+        await result.current.checkRisk({
+          networkId: riskResult.networkId,
+          address: riskResult.address,
+          entryPoint: 'inputManual',
+        });
+      });
+
+      expect(mockPush).not.toHaveBeenCalled();
+      expect(mockShowActiveRejectedFeedback).toHaveBeenCalledWith({
+        featureId: 'AddressRiskCheck',
+        reason: status,
+        resetAt: status === 'exhausted' ? 123 : undefined,
+        networkId: riskResult.networkId,
+      });
+    },
+  );
+
+  it('opens the history result of a manually entered address', async () => {
+    mockCachedAccess = { status: 'notOpen' };
+    mockGetCheck.mockResolvedValueOnce({ result: historyResult });
+    const { result } = renderHook(() => useCheckAddressRisk());
+
+    await act(async () => {
+      await result.current.checkRisk({
+        networkId: riskResult.networkId,
+        address: riskResult.address,
+        entryPoint: 'inputManual',
+      });
+    });
+
+    expect(mockPush).toHaveBeenCalledTimes(1);
+    expect(mockShowActiveRejectedFeedback).not.toHaveBeenCalled();
+  });
+
+  it('still opens the history result of a used-up user', async () => {
+    mockCachedAccess = { status: 'exhausted' };
+    const { result } = renderHook(() => useCheckAddressRisk());
+
+    await act(async () => {
+      await result.current.checkRisk({
+        networkId: riskResult.networkId,
+        address: riskResult.address,
+        entryPoint: 'historyList',
+      });
+    });
+
+    expect(mockPush).toHaveBeenCalledTimes(1);
+    expect(mockShowActiveRejectedFeedback).not.toHaveBeenCalled();
+    // Picked from the history: no lookup needed.
+    expect(mockGetCheck).not.toHaveBeenCalled();
+  });
+
+  it('does nothing when the user left the page during the history lookup', async () => {
+    mockCachedAccess = { status: 'exhausted' };
+    mockGetCheck.mockImplementationOnce(async () => {
+      mockIsFocused = false;
+      return undefined;
+    });
+    const { result } = renderHook(() => useCheckAddressRisk());
+
+    await act(async () => {
+      await result.current.checkRisk({
+        networkId: riskResult.networkId,
+        address: riskResult.address,
+        entryPoint: 'inputManual',
+      });
+    });
+
+    expect(mockPush).not.toHaveBeenCalled();
+    expect(mockShowActiveRejectedFeedback).not.toHaveBeenCalled();
   });
 });
 
@@ -400,21 +509,34 @@ describe('useAddressRiskCheckRequest', () => {
     expect(mockPop).not.toHaveBeenCalled();
   });
 
-  it('only gives the feedback when the page is already closing', async () => {
-    mockIsFocused = false;
-    const freeTrialError = buildFreeTrialError();
+  it('gives no feedback when the user moved on during the close animation', async () => {
     mockCheckAddressRisk.mockRejectedValueOnce(
-      freeTrialError as unknown as Error,
+      buildFreeTrialError() as unknown as Error,
     );
+    mockWait.mockImplementation(async () => {
+      // The user went back from the input page meanwhile.
+      mockCurrentRouteKey = 'home';
+    });
     renderHook(() => useAddressRiskCheckRequest(historyRequest));
 
-    await waitFor(() =>
-      expect(mockHandleFreeTrialError).toHaveBeenCalledWith({
-        error: freeTrialError,
-        networkId: riskResult.networkId,
-        afterPageExit: true,
-      }),
+    await waitFor(() => expect(mockPop).toHaveBeenCalledTimes(1));
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(mockHandleFreeTrialError).not.toHaveBeenCalled();
+  });
+
+  it('shows the failed state without feedback once the page is not on top', async () => {
+    mockIsFocused = false;
+    mockCheckAddressRisk.mockRejectedValueOnce(
+      buildFreeTrialError() as unknown as Error,
     );
+    const { result } = renderHook(() =>
+      useAddressRiskCheckRequest(historyRequest),
+    );
+
+    await waitFor(() => expect(result.current.isFailed).toBe(true));
+    expect(mockHandleFreeTrialError).not.toHaveBeenCalled();
     expect(mockPop).not.toHaveBeenCalled();
     expect(mockPopStack).not.toHaveBeenCalled();
   });
@@ -450,5 +572,56 @@ describe('useAddressRiskCheckRequest', () => {
 
     expect(mockPop).not.toHaveBeenCalled();
     expect(mockHandleFreeTrialError).not.toHaveBeenCalled();
+  });
+});
+
+describe('address-risk free-trial analytics', () => {
+  const request = {
+    networkId: 'evm--1',
+    address: 'private-address',
+    entryPoint: 'inputManual' as const,
+    entitlementSource: 'freeTrial' as const,
+  };
+  it.each([90_600, 90_601])(
+    'records server rejection %s before a history fallback without claiming success',
+    async (code) => {
+      mockCheckAddressRisk.mockRejectedValueOnce(buildFreeTrialError(code));
+      mockGetCheck.mockResolvedValueOnce({ result: historyResult });
+      await executeAddressRiskCheckWithHistory(request);
+      expect(mockTrialAttempt).toHaveBeenCalledTimes(1);
+      expect(mockTrialResult).toHaveBeenCalledWith(
+        expect.objectContaining({
+          result: code === 90_600 ? 'exhausted' : 'notOpen',
+          rejectionSource: 'server',
+        }),
+      );
+      expect(mockTrialResult).not.toHaveBeenCalledWith(
+        expect.objectContaining({ result: 'success' }),
+      );
+      expect(JSON.stringify(mockTrialAttempt.mock.calls)).not.toContain(
+        request.address,
+      );
+    },
+  );
+  it('records failure and a successful user retry as two attempts', async () => {
+    mockCheckAddressRisk
+      .mockRejectedValueOnce(new Error('offline'))
+      .mockResolvedValueOnce(riskResult);
+    await expect(executeAddressRiskCheck(request)).rejects.toThrow('offline');
+    await executeAddressRiskCheck(request);
+    expect(mockTrialAttempt).toHaveBeenCalledTimes(2);
+    expect(
+      mockTrialResult.mock.calls.map(
+        ([params]: [{ result: string }]) => params.result,
+      ),
+    ).toEqual(['failed', 'success']);
+  });
+  it('deduplicates rapid identical requests and records the actual success once', async () => {
+    const first = executeAddressRiskCheck(request);
+    const second = executeAddressRiskCheck(request);
+    await Promise.all([first, second]);
+    expect(mockTrialAttempt).toHaveBeenCalledTimes(1);
+    expect(mockTrialResult).toHaveBeenCalledTimes(1);
+    expect(mockCheckAddressRisk).toHaveBeenCalledTimes(1);
   });
 });

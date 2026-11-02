@@ -86,9 +86,12 @@ function JotaiContextRootProviderRendererCmp({
             }
             return <SwapRootProvider key={key} />;
           }
-          case EJotaiContextStoreNames.swapModal: {
-            return <SwapModalRootProvider key={key} />;
+          case EJotaiContextStoreNames.swapModal:
+          case EJotaiContextStoreNames.swapHomeMore:
+          case EJotaiContextStoreNames.swapHomeToken: {
+            return <SwapModalRootProvider key={key} storeName={storeName} />;
           }
+          case EJotaiContextStoreNames.swapTokenSelector:
           case EJotaiContextStoreNames.marketSwap:
           case EJotaiContextStoreNames.marketSwapReview: {
             return null;

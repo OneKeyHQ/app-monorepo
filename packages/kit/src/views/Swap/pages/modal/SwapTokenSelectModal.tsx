@@ -1,8 +1,17 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from 'react';
 
+import { NativeList } from '@onekeyfe/react-native-native-list';
 import { useRoute } from '@react-navigation/core';
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
+import { StyleSheet } from 'react-native';
 
 import type { IPageNavigationProp } from '@onekeyhq/components';
 import {
@@ -21,6 +30,7 @@ import {
   useClipboard,
   useMedia,
   useSafeAreaInsets,
+  useTheme,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
@@ -29,13 +39,12 @@ import type { ITokenListItemProps } from '@onekeyhq/kit/src/components/TokenList
 import { TokenListItem } from '@onekeyhq/kit/src/components/TokenListItem';
 import { TokenSelectorLpTokenSwitch } from '@onekeyhq/kit/src/components/TokenSelectorFilter';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import { useDebounce } from '@onekeyhq/kit/src/hooks/useDebounce';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
-import { useRouteIsFocused as useIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import { useAccountSelectorActions } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector/actions';
 import {
   useSwapActions,
   useSwapAllNetworkTokenListMapAtom,
+  useSwapAllNetworkTokenListStatusAtom,
   useSwapNetworksAtom,
   useSwapNetworksIncludeAllNetworkAtom,
   useSwapSelectFromTokenAtom,
@@ -89,35 +98,47 @@ import SwapPopularTokenGroup from '../../components/SwapPopularTokenGroup';
 import {
   SwapTokenSelectorDesktop,
   buildSwapTokenSelectorAssetNetworks,
+  getSwapTokenSelectorTokenKey,
 } from '../../components/SwapTokenSelectorDesktop';
 import { useSwapAddressInfo } from '../../hooks/useSwapAccount';
 import { useSwapTokenRiskCheck } from '../../hooks/useSwapTokenRiskCheck';
-import { useSwapTokenList } from '../../hooks/useSwapTokens';
 import {
-  buildSwapNetworkReadyKey,
-  isSwapNetworkCacheCompatible,
-  isSwapNetworkCacheReadyForBasicList,
-} from '../../utils/swapNetworkCacheUtils';
+  useSwapTokenList,
+  useSwapTokenSearchKeyword,
+} from '../../hooks/useSwapTokens';
+import { isSwapNetworkCacheReadyForBasicList } from '../../utils/swapNetworkCacheUtils';
 import {
   SWAP_STOCK_ANALYTICS_TOKEN_LIST_TYPE_STOCK,
   SWAP_STOCK_ANALYTICS_TOKEN_ROLE_STOCK,
   getSwapAnalyticsTokenListType,
   getSwapAnalyticsTokenRole,
 } from '../../utils/swapStockAnalytics';
+import {
+  getSwapTokenSelectorCacheEpoch,
+  subscribeSwapTokenSelectorCache,
+} from '../../utils/swapTokenSelectorCacheUtils';
 import { SwapProviderMirror } from '../SwapProviderMirror';
 
+import { buildSwapTokenNativeListSnapshot } from './SwapTokenSelectModal.nativeList';
 import {
   buildSwapStockMetadataKey,
   buildSwapStockSelectableNetworks,
   buildSwapTokenSelectorDisableNetworks,
   buildSwapTokenSelectorNetworkView,
   getSwapStockTokenDisplayName,
+  groupSwapSearchTokensBySelectedNetwork,
   isSwapStockMetadataPending,
   isSwapStockTokenSearchMatch,
   isSwapTokenSelectorFromNetworkBridgeOnly,
   normalizeSwapStockSelectableToken,
 } from './SwapTokenSelectModal.utils';
 
+import type {
+  ActionAnchorInvalidatedEvent,
+  NativeListRef,
+  NativeListTheme,
+  RowActionEvent,
+} from '@onekeyfe/react-native-native-list';
 import type { RouteProp } from '@react-navigation/core';
 import type { FlatList } from 'react-native';
 
@@ -315,16 +336,17 @@ const SwapTokenSelectPage = ({
     ? route.params?.defaultNetworkId
     : undefined;
   const intl = useIntl();
+  const colors = useTheme();
   const [searchInputValue, setSearchInputValue] = useState<string>('');
-  const [searchKeyword, setSearchKeyword] = useState<string>('');
+  const {
+    searchKeyword,
+    setSearchKeyword,
+    requestedSearchKeyword,
+    searchRound,
+    isSearchKeywordSettling,
+  } = useSwapTokenSearchKeyword();
   const [networkSearchInputValue, setNetworkSearchInputValue] =
     useState<string>('');
-  const searchKeywordDebounce = useDebounce(searchKeyword, 500);
-  // Reset to the default token list immediately when the input is cleared.
-  const requestedSearchKeyword = searchKeyword
-    ? searchKeywordDebounce
-    : searchKeyword;
-  const isSearchKeywordSettling = searchKeyword !== requestedSearchKeyword;
   const [rawSwapNetworks] = useSwapNetworksAtom();
   const [swapNetworksIncludeAllNetworkBase] =
     useSwapNetworksIncludeAllNetworkAtom();
@@ -345,6 +367,13 @@ const SwapTokenSelectPage = ({
   const [fromToken, setSwapSelectFromToken] = useSwapSelectFromTokenAtom();
   const [swapTypeSwitch] = useSwapTypeSwitchAtom();
   const [swapAllNetworkTokenListMap] = useSwapAllNetworkTokenListMapAtom();
+  const [swapAllNetworkTokenListStatus] =
+    useSwapAllNetworkTokenListStatusAtom();
+  const tokenSelectorCacheEpoch = useSyncExternalStore(
+    subscribeSwapTokenSelectorCache,
+    getSwapTokenSelectorCacheEpoch,
+    getSwapTokenSelectorCacheEpoch,
+  );
   const swapFromAddressInfo = useSwapAddressInfo(ESwapDirectionType.FROM);
   const swapToAddressInfo = useSwapAddressInfo(ESwapDirectionType.TO);
   const [toToken, setSwapSelectToToken] = useSwapSelectToTokenAtom();
@@ -355,7 +384,7 @@ const SwapTokenSelectPage = ({
     selectFromToken,
     selectToToken,
     syncNetworksSort,
-    swapLoadAllNetworkTokenList,
+    requestSelectedTokenBalanceRefresh,
   } = useSwapActions().current;
   const [currentSelectNetwork, setCurrentSelectNetwork] =
     useSwapSelectTokenNetworkAtom();
@@ -391,9 +420,8 @@ const SwapTokenSelectPage = ({
     return undefined;
   }, [isSwapStockSelectTarget, showLpTokenFilterSwitch, showLpTokensOnly]);
   const { gtMd, md } = useMedia();
-  const isFocused = useIsFocused();
   const useDesktopTokenSelector =
-    (platformEnv.isDesktop || platformEnv.isWeb) &&
+    (platformEnv.isDesktop || platformEnv.isWeb || platformEnv.isExtension) &&
     gtMd &&
     !isSwapStockSelectTarget;
   const desktopAddressInfo =
@@ -404,6 +432,7 @@ const SwapTokenSelectPage = ({
     ? (desktopAddressInfo.accountInfo?.account?.id ??
       desktopAddressInfo.accountInfo?.dbAccount?.id)
     : undefined;
+  // The sidebar summarizes wallet holdings independently of the token filter.
   const desktopAllNetworkTokenListCacheKey = useMemo(
     () =>
       buildSwapAllNetworkTokenListCacheKey({
@@ -411,61 +440,35 @@ const SwapTokenSelectPage = ({
           desktopIndexedAccountId ??
           desktopOtherWalletTypeAccountId ??
           'noAccountId',
-        lpToken: requestLpToken,
+        lpToken: false,
         currency: settingsPersistAtom.currencyInfo.id,
         protocol: swapTypeSwitch,
       }),
     [
       desktopIndexedAccountId,
       desktopOtherWalletTypeAccountId,
-      requestLpToken,
       settingsPersistAtom.currencyInfo.id,
       swapTypeSwitch,
     ],
   );
   const desktopAllNetworkTokens =
     swapAllNetworkTokenListMap[desktopAllNetworkTokenListCacheKey];
-  const desktopAllNetworkTokenListReady = useMemo(() => {
-    if (requestLpToken) {
-      return isSwapNetworkCacheCompatible(rawSwapNetworks);
-    }
-    return isSwapNetworkCacheReadyForBasicList(rawSwapNetworks);
-  }, [rawSwapNetworks, requestLpToken]);
-  const desktopAllNetworkSwapNetworksReadyKey = useMemo(
-    () =>
-      desktopAllNetworkTokenListReady
-        ? buildSwapNetworkReadyKey(rawSwapNetworks)
-        : '',
-    [desktopAllNetworkTokenListReady, rawSwapNetworks],
+  const desktopAllNetworkStatus =
+    swapAllNetworkTokenListStatus[desktopAllNetworkTokenListCacheKey];
+  const desktopAssetSnapshotReady =
+    desktopAllNetworkTokens !== undefined &&
+    (platformEnv.isExtension
+      ? desktopAllNetworkStatus?.dataReady === true
+      : desktopAllNetworkStatus?.dataReady !== false) &&
+    (desktopAllNetworkStatus
+      ? desktopAllNetworkStatus.identityVersion ===
+        tokenSelectorCacheEpoch.identity
+      : tokenSelectorCacheEpoch.identity === 0);
+  const desktopSessionScopeKey = `${desktopAllNetworkTokenListCacheKey}__${tokenSelectorCacheEpoch.identity}`;
+  const desktopAllNetworkTokenListReady = useMemo(
+    () => isSwapNetworkCacheReadyForBasicList(rawSwapNetworks),
+    [rawSwapNetworks],
   );
-
-  // The cold snapshot is only for first paint. Every selector entry starts a
-  // fresh request so balance-sensitive values are never gated by cache age.
-  useEffect(() => {
-    if (
-      !isFocused ||
-      !useDesktopTokenSelector ||
-      !desktopAllNetworkTokenListReady
-    ) {
-      return;
-    }
-    void swapLoadAllNetworkTokenList(
-      desktopIndexedAccountId,
-      desktopOtherWalletTypeAccountId,
-      requestLpToken,
-      settingsPersistAtom.currencyInfo.id,
-    ).catch(() => undefined);
-  }, [
-    desktopIndexedAccountId,
-    desktopOtherWalletTypeAccountId,
-    requestLpToken,
-    settingsPersistAtom.currencyInfo.id,
-    swapLoadAllNetworkTokenList,
-    useDesktopTokenSelector,
-    desktopAllNetworkTokenListReady,
-    desktopAllNetworkSwapNetworksReadyKey,
-    isFocused,
-  ]);
   const fromTokenRef = useRef<ISwapToken | undefined>(fromToken);
   const toTokenRef = useRef<ISwapToken | undefined>(toToken);
   const hasUserSelectedNetworkRef = useRef(false);
@@ -544,6 +547,10 @@ const SwapTokenSelectPage = ({
     type,
   ]);
   const listViewRef = useRef<FlatList>(null);
+  const nativeListRef = useRef<NativeListRef>(null);
+  const nativeMenuRef = useRef<
+    { token: string; close: () => void } | undefined
+  >(undefined);
   const handleLpTokenFilterChange = useCallback(
     (value: boolean) => {
       setTokenSelectorFilter((prev) => ({
@@ -554,6 +561,7 @@ const SwapTokenSelectPage = ({
         offset: 0,
         animated: false,
       });
+      nativeListRef.current?.scrollToOffset({ offset: 0, animated: false });
     },
     [setTokenSelectorFilter],
   );
@@ -637,7 +645,7 @@ const SwapTokenSelectPage = ({
         : undefined,
     [isSwapStockSelectTarget],
   );
-  const { fetchLoading, currentTokens } = useSwapTokenList(
+  const { fetchLoading, currentTokens, searchNetworkId } = useSwapTokenList(
     type,
     currentSelectNetwork?.networkId,
     requestedSearchKeyword,
@@ -645,6 +653,8 @@ const SwapTokenSelectPage = ({
     requestLpToken,
     searchAnalyticsOverride,
     swapNetworksIncludeAllNetwork,
+    searchRound,
+    isSearchKeywordSettling,
   );
   const stockSearchBaseNetworkId = currentSelectNetwork?.networkId;
   const stockSearchBaseTokensRef = useRef<{
@@ -770,9 +780,48 @@ const SwapTokenSelectPage = ({
     stockSearchFallbackTokens.length > 0
       ? stockSearchFallbackTokens
       : currentTokens;
-  const displayTokens = stockMetadataPending
-    ? EMPTY_SWAP_TOKEN_LIST
-    : tokensForDisplay;
+  // useSwapTokenList widens pasted-address searches to all networks; group
+  // those results so the selected network's matches stay on top.
+  const groupedSearchNetworkId =
+    searchNetworkId !== currentSelectNetwork?.networkId
+      ? currentSelectNetwork?.networkId
+      : undefined;
+  // Search results on a concrete network are titled by scope.
+  const searchSectionTitles = useMemo(() => {
+    const networkName = currentSelectNetwork?.name;
+    if (
+      !requestedSearchKeyword ||
+      isSwapStockSelectTarget ||
+      currentSelectNetwork?.isAllNetworks ||
+      !networkName
+    ) {
+      return undefined;
+    }
+    return {
+      selectedNetwork: intl.formatMessage(
+        { id: ETranslations.title_tokens_on_network },
+        { network: networkName },
+      ),
+      otherNetworks: intl.formatMessage({
+        id: ETranslations.title_tokens_on_other,
+      }),
+    };
+  }, [
+    currentSelectNetwork?.isAllNetworks,
+    currentSelectNetwork?.name,
+    intl,
+    isSwapStockSelectTarget,
+    requestedSearchKeyword,
+  ]);
+  const { tokens: displayTokens, otherNetworkStartIndex } = useMemo(
+    () =>
+      groupSwapSearchTokensBySelectedNetwork({
+        tokens: stockMetadataPending ? EMPTY_SWAP_TOKEN_LIST : tokensForDisplay,
+        selectedNetworkId: groupedSearchNetworkId,
+        getNetworkId: (item) => getRawSwapToken(item).networkId,
+      }),
+    [groupedSearchNetworkId, stockMetadataPending, tokensForDisplay],
+  );
   const tokenListLoading =
     fetchLoading || stockMetadataPending || isSearchKeywordSettling;
   const alertIndex = useMemo(
@@ -887,6 +936,7 @@ const SwapTokenSelectPage = ({
         offset: 0,
         animated: false,
       });
+      nativeListRef.current?.scrollToOffset({ offset: 0, animated: false });
     },
     [setCurrentSelectNetwork],
   );
@@ -900,7 +950,7 @@ const SwapTokenSelectPage = ({
       setSearchInputValue(trimmedText);
       setSearchKeyword(trimmedText);
     }
-  }, [getClipboard]);
+  }, [getClipboard, setSearchKeyword]);
 
   const disableNetworksOnClick = useCallback(() => {
     // STOCK keeps the legacy copy until stock-specific copy is defined
@@ -1017,8 +1067,25 @@ const SwapTokenSelectPage = ({
         ),
         badgeText,
       };
+      let sectionTitle: string | undefined;
+      if (searchSectionTitles && index === otherNetworkStartIndex) {
+        sectionTitle = searchSectionTitles.otherNetworks;
+      } else if (searchSectionTitles && index === 0) {
+        sectionTitle = searchSectionTitles.selectedNetwork;
+      }
       return (
         <>
+          {sectionTitle ? (
+            <SizableText
+              size={useDesktopTokenSelector ? '$bodyMdMedium' : '$bodyMd'}
+              color="$textSubdued"
+              px="$5"
+              pt="$3"
+              pb="$1"
+            >
+              {sectionTitle}
+            </SizableText>
+          ) : null}
           {alertIndex === index ? (
             <Stack
               pt={useDesktopTokenSelector ? '$0' : '$3'}
@@ -1047,6 +1114,7 @@ const SwapTokenSelectPage = ({
                     <ListItem.IconButton
                       icon="DotVerSolid"
                       variant="tertiary"
+                      {...(useDesktopTokenSelector ? { m: '$0' } : {})}
                     />
                   }
                   items={[
@@ -1088,6 +1156,8 @@ const SwapTokenSelectPage = ({
     },
     [
       alertIndex,
+      otherNetworkStartIndex,
+      searchSectionTitles,
       copyText,
       disableNetworks,
       intl,
@@ -1101,6 +1171,166 @@ const SwapTokenSelectPage = ({
       type,
       useDesktopTokenSelector,
     ],
+  );
+
+  const useNativeTokenRows = !isSwapStockSelectTarget;
+  const nativeListTheme = useMemo<NativeListTheme>(
+    () => ({
+      background: colors.bgApp.val,
+      rowBackground: colors.bgApp.val,
+      rowSelectedBackground: colors.bgActive.val,
+      rowPressedBackground: colors.bgActive.val,
+      rowHoverBackground: platformEnv.isNative ? undefined : colors.bgHover.val,
+      subduedBackground: colors.bgSubdued.val,
+      strongBackground: colors.bgStrong.val,
+      primaryText: colors.text.val,
+      secondaryText: colors.textSubdued.val,
+      disabledText: colors.textDisabled.val,
+      icon: colors.icon.val,
+      iconSubdued: colors.iconSubdued.val,
+      separator: colors.borderSubdued.val,
+      accent: colors.iconActive.val,
+      positive: colors.textSuccess.val,
+      negative: colors.textCritical.val,
+    }),
+    [colors],
+  );
+  const { snapshot: nativeListSnapshot, tokensByKey: nativeTokensByKey } =
+    useMemo(
+      () =>
+        buildSwapTokenNativeListSnapshot({
+          tokens: useNativeTokenRows ? displayTokens : EMPTY_SWAP_TOKEN_LIST,
+          theme: nativeListTheme,
+          disabledNetworkIds: disableNetworks,
+          searchKeyword: requestedSearchKeyword,
+          isMediumScreen: md,
+          isDesktopSelector: Boolean(useDesktopTokenSelector),
+          currencySymbol: settingsPersistAtom.currencyInfo.symbol,
+          oppositeToken:
+            type === ESwapDirectionType.FROM
+              ? toTokenRef.current
+              : fromTokenRef.current,
+          otherNetworkStartIndex,
+          warningIndex: alertIndex,
+          warningText: intl.formatMessage({
+            id: ETranslations.token_selector_unverified_token_warning,
+          }),
+          warningBorderWidth: StyleSheet.hairlineWidth,
+          searchSectionTitles,
+        }),
+      [
+        useNativeTokenRows,
+        displayTokens,
+        nativeListTheme,
+        disableNetworks,
+        requestedSearchKeyword,
+        md,
+        useDesktopTokenSelector,
+        settingsPersistAtom.currencyInfo.symbol,
+        type,
+        otherNetworkStartIndex,
+        alertIndex,
+        intl,
+        searchSectionTitles,
+      ],
+    );
+  useEffect(() => {
+    if (!useNativeTokenRows) {
+      nativeMenuRef.current?.close();
+      nativeMenuRef.current = undefined;
+    }
+  }, [useNativeTokenRows]);
+  useEffect(
+    () => () => {
+      nativeMenuRef.current?.close();
+      nativeMenuRef.current = undefined;
+    },
+    [],
+  );
+  const handleNativeRowAction = useCallback(
+    (event: RowActionEvent) => {
+      const token = nativeTokensByKey.get(event.rowKey ?? '');
+      if (!token) return;
+      if (event.actionKey === 'press') {
+        if (disableNetworks.includes(token.networkId)) {
+          disableNetworksOnClick();
+        } else {
+          void onSelectToken(token);
+        }
+      } else if (
+        event.actionKey === 'menu' &&
+        !token.isNative &&
+        event.anchor
+      ) {
+        const anchor = event.anchor;
+        nativeMenuRef.current?.close();
+        nativeListRef.current?.setActionAnchorState({
+          token: anchor.token,
+          open: true,
+        });
+        const activeMenu: NonNullable<typeof nativeMenuRef.current> = {
+          token: anchor.token,
+          close: () => undefined,
+        };
+        nativeMenuRef.current = activeMenu;
+        const menu = ActionList.show({
+          title: token.symbol,
+          triggerRect: anchor.windowRect,
+          onClose: () => {
+            if (nativeMenuRef.current === activeMenu) {
+              nativeListRef.current?.setActionAnchorState({
+                token: anchor.token,
+                open: false,
+                restoreFocus: true,
+              });
+              nativeMenuRef.current = undefined;
+            }
+          },
+          items: [
+            {
+              icon: 'Copy3Outline',
+              label: intl.formatMessage({
+                id: ETranslations.global_copy_token_contract,
+              }),
+              onPress: () => copyText(token.contractAddress),
+            },
+            {
+              icon: 'OpenOutline',
+              label: intl.formatMessage({
+                id: ETranslations.swap_token_selector_contract_info,
+              }),
+              onPress: async () => {
+                const url =
+                  await backgroundApiProxy.serviceExplorer.buildExplorerUrl({
+                    networkId: token.networkId,
+                    type: 'token',
+                    param: token.contractAddress,
+                  });
+                openUrlExternal(url);
+              },
+            },
+          ],
+        });
+        activeMenu.close = menu.close;
+      }
+    },
+    [
+      copyText,
+      disableNetworks,
+      disableNetworksOnClick,
+      intl,
+      nativeTokensByKey,
+      onSelectToken,
+    ],
+  );
+  const handleNativeAnchorInvalidated = useCallback(
+    (event: ActionAnchorInvalidatedEvent) => {
+      if (nativeMenuRef.current?.token === event.token) {
+        nativeMenuRef.current.close();
+        nativeMenuRef.current = undefined;
+      }
+    },
+    [],
   );
 
   const networkFilterData = useMemo(() => {
@@ -1128,13 +1358,19 @@ const SwapTokenSelectPage = ({
   );
   const desktopAssetNetworks = useMemo(
     () =>
-      buildSwapTokenSelectorAssetNetworks({
-        networks: swapAllSupportNetworks.filter(
-          (network) => !network.isAllNetworks,
-        ),
-        tokens: desktopAllNetworkTokens,
-      }),
-    [desktopAllNetworkTokens, swapAllSupportNetworks],
+      desktopAssetSnapshotReady
+        ? buildSwapTokenSelectorAssetNetworks({
+            networks: swapAllSupportNetworks.filter(
+              (network) => !network.isAllNetworks,
+            ),
+            tokens: desktopAllNetworkTokens,
+          })
+        : undefined,
+    [
+      desktopAssetSnapshotReady,
+      desktopAllNetworkTokens,
+      swapAllSupportNetworks,
+    ],
   );
 
   const openChainSelector = useConfigurableChainSelector();
@@ -1175,7 +1411,7 @@ const SwapTokenSelectPage = ({
     );
   }, [intl, tokenListLoading]);
   return (
-    <Page lazyLoad={!platformEnv.isNativeIOS} safeAreaEnabled={false}>
+    <Page safeAreaEnabled={false} onClose={requestSelectedTokenBalanceRefresh}>
       <Page.Header
         title={intl.formatMessage({ id: ETranslations.token_selector_title })}
         modalContentMaxWidth={useDesktopTokenSelector ? 880 : undefined}
@@ -1211,6 +1447,9 @@ const SwapTokenSelectPage = ({
       <Page.Body>
         {useDesktopTokenSelector && allNetwork ? (
           <SwapTokenSelectorDesktop
+            key={desktopSessionScopeKey}
+            sessionScopeKey={desktopSessionScopeKey}
+            networksReady={desktopAllNetworkTokenListReady}
             allNetwork={allNetwork}
             networks={networkFilterData.networks}
             sameChainNetwork={networkFilterData.sameChainNetwork}
@@ -1225,7 +1464,11 @@ const SwapTokenSelectPage = ({
             allNetworksLabel={intl.formatMessage({
               id: ETranslations.global_all_networks,
             })}
-            sameChainLabel={sameChainBadgeText}
+            // Same copy as the selector's "Same network" group title above
+            // this row (OK-65493); the mobile network toggles keep theirs.
+            sameChainLabel={intl.formatMessage({
+              id: ETranslations.label_same_network,
+            })}
             onNetworkSearchChange={setNetworkSearchInputValue}
             onTokenSearchChange={(text) => {
               setSearchInputValue(text);
@@ -1238,6 +1481,11 @@ const SwapTokenSelectPage = ({
             onDisableNetworksClick={disableNetworksOnClick}
             onSelectToken={onSelectToken}
             listViewRef={listViewRef}
+            nativeListRef={nativeListRef}
+            nativeListSnapshot={nativeListSnapshot}
+            onNativeRowAction={handleNativeRowAction}
+            onNativeAnchorInvalidated={handleNativeAnchorInvalidated}
+            useNativeTokenRows={useNativeTokenRows}
             popularTokens={currentNetworkPopularTokens}
             showPopularTokens={shouldShowPopularTokens}
             showLpTokenFilterSwitch={showLpTokenFilterSwitch}
@@ -1323,6 +1571,7 @@ const SwapTokenSelectPage = ({
               networks={networkFilterData.networks}
               sameChainNetwork={networkFilterData.sameChainNetwork}
               sameChainBadgeText={sameChainBadgeText}
+              fitToAvailableWidth
               maxVisibleNetworks={
                 md
                   ? swapNetworksCommonCountMD -
@@ -1336,30 +1585,68 @@ const SwapTokenSelectPage = ({
             />
             {shouldShowPopularTokens ? <Divider mt="$2" /> : null}
             <YStack flex={1}>
-              <ListView
-                useFlashList={platformEnv.isNative}
-                ref={listViewRef}
-                data={displayTokens}
-                renderItem={renderItem}
-                estimatedItemSize={60}
-                ListHeaderComponent={
-                  shouldShowPopularTokens ? (
-                    <YStack px="$5" pt="$3" gap="$2">
-                      <SizableText size="$bodyMd" color="$textSubdued" pr="$2">
-                        {intl.formatMessage({
-                          id: ETranslations.swap_token_selector_popular_token,
-                        })}
-                      </SizableText>
-                      <SwapPopularTokenGroup
-                        onSelectToken={onSelectToken}
-                        tokens={currentNetworkPopularTokens}
-                      />
-                    </YStack>
-                  ) : null
-                }
-                ListFooterComponent={<Stack h={bottom || '$2'} />}
-                ListEmptyComponent={tokenListEmptyComponent}
-              />
+              {useNativeTokenRows ? (
+                <NativeList
+                  ref={nativeListRef}
+                  style={{ flex: 1 }}
+                  snapshot={nativeListSnapshot}
+                  keyboardDismissMode="on-drag"
+                  keyboardShouldPersistTaps="handled"
+                  onRowAction={handleNativeRowAction}
+                  onActionAnchorInvalidated={handleNativeAnchorInvalidated}
+                  listHeader={
+                    shouldShowPopularTokens ? (
+                      <YStack px="$5" pt="$3" gap="$2">
+                        <SizableText
+                          size="$bodyMd"
+                          color="$textSubdued"
+                          pr="$2"
+                        >
+                          {intl.formatMessage({
+                            id: ETranslations.swap_token_selector_popular_token,
+                          })}
+                        </SizableText>
+                        <SwapPopularTokenGroup
+                          onSelectToken={onSelectToken}
+                          tokens={currentNetworkPopularTokens}
+                        />
+                      </YStack>
+                    ) : null
+                  }
+                  listFooter={<Stack h={bottom || '$2'} />}
+                  listEmpty={tokenListEmptyComponent}
+                />
+              ) : (
+                <ListView
+                  useFlashList={platformEnv.isNative}
+                  ref={listViewRef}
+                  data={displayTokens}
+                  keyExtractor={getSwapTokenSelectorTokenKey}
+                  renderItem={renderItem}
+                  estimatedItemSize={60}
+                  ListHeaderComponent={
+                    shouldShowPopularTokens ? (
+                      <YStack px="$5" pt="$3" gap="$2">
+                        <SizableText
+                          size="$bodyMd"
+                          color="$textSubdued"
+                          pr="$2"
+                        >
+                          {intl.formatMessage({
+                            id: ETranslations.swap_token_selector_popular_token,
+                          })}
+                        </SizableText>
+                        <SwapPopularTokenGroup
+                          onSelectToken={onSelectToken}
+                          tokens={currentNetworkPopularTokens}
+                        />
+                      </YStack>
+                    ) : null
+                  }
+                  ListFooterComponent={<Stack h={bottom || '$2'} />}
+                  ListEmptyComponent={tokenListEmptyComponent}
+                />
+              )}
             </YStack>
           </>
         )}

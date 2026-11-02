@@ -1,5 +1,7 @@
 /** @jest-environment jsdom */
 
+import { StrictMode } from 'react';
+
 import { act, renderHook, waitFor } from '@testing-library/react';
 
 import type { ISwapNetwork } from '@onekeyhq/shared/types/swap/types';
@@ -21,6 +23,8 @@ const mockFetchNetworks = jest.fn<
   Promise<ISwapNetwork[]>,
   [{ refreshClientNetworks: boolean; autoHandleError?: boolean }]
 >();
+let mockInitialNetworks: ISwapNetwork[] = [];
+let mockInitialConfigStatus: ISwapDefaultConfigStatus = 'pending';
 
 jest.mock('../../../background/instance/backgroundApiProxy', () => ({
   __esModule: true,
@@ -45,8 +49,11 @@ jest.mock('../../../states/jotai/contexts/swap/atoms', () => {
   const { useState: useMockState } =
     jest.requireActual<typeof import('react')>('react');
   return {
-    useSwapNetworksAtom: () => useMockState<ISwapNetwork[]>([]),
+    useSwapNetworksAtom: () =>
+      useMockState<ISwapNetwork[]>(mockInitialNetworks),
     useSwapDefaultConfigStatusAtom: () =>
+      useMockState<ISwapDefaultConfigStatus>(mockInitialConfigStatus),
+    useSwapNetworkConfigStatusAtom: () =>
       useMockState<ISwapDefaultConfigStatus>('pending'),
   };
 });
@@ -107,6 +114,8 @@ function deferred<T>() {
 describe('useSwapNetworks configuration lifecycle', () => {
   beforeEach(() => {
     jest.resetAllMocks();
+    mockInitialNetworks = [];
+    mockInitialConfigStatus = 'pending';
     mockGetNetworkCache.mockResolvedValue({ data: [cachedNetwork] });
     mockSetNetworkCache.mockResolvedValue(undefined);
   });
@@ -115,8 +124,45 @@ describe('useSwapNetworks configuration lifecycle', () => {
     jest.useRealTimers();
   });
 
+  it.each(['success', 'failed'] as const)(
+    'keeps warm cached networks visible while refreshing a previous %s result',
+    async (previousStatus) => {
+      mockInitialNetworks = [cachedNetwork];
+      mockInitialConfigStatus = previousStatus;
+      const request = deferred<ISwapNetwork[]>();
+      mockFetchNetworks.mockReturnValue(request.promise);
+      const { result } = renderHook(useSwapNetworks);
+      await waitFor(() => expect(mockFetchNetworks).toHaveBeenCalledTimes(1));
+      expect(result.current.swapNetworks).toEqual([cachedNetwork]);
+      expect(result.current.networkListFetching).toBe(false);
+      expect(result.current.defaultConfigStatus).toBe('pending');
+      await act(async () => request.resolve([freshNetwork]));
+      expect(result.current.defaultConfigStatus).toBe('success');
+      expect(result.current.swapNetworks).toEqual([freshNetwork]);
+    },
+  );
+
+  it.each(['failed', 'empty'] as const)(
+    'keeps newer memory when stale disk is read and refresh is %s',
+    async (outcome) => {
+      mockInitialNetworks = [freshNetwork];
+      mockInitialConfigStatus = 'success';
+      const request = deferred<ISwapNetwork[]>();
+      mockFetchNetworks.mockReturnValue(request.promise);
+      const { result } = renderHook(useSwapNetworks);
+      await waitFor(() => expect(mockFetchNetworks).toHaveBeenCalledTimes(1));
+      expect(result.current.swapNetworks).toEqual([freshNetwork]);
+      await act(async () => {
+        if (outcome === 'failed') request.reject(new Error('offline'));
+        else request.resolve([]);
+      });
+      expect(result.current.defaultConfigStatus).toBe('failed');
+      expect(result.current.swapNetworks).toEqual([freshNetwork]);
+    },
+  );
+
   it.each([true, false])(
-    'retries repeated configuration failures with cache=%s until fresh configuration settles',
+    'retries capabilities after failures with cache=%s while keeping local defaults settled',
     async (hasCache) => {
       jest.useFakeTimers();
       mockGetNetworkCache.mockResolvedValue(
@@ -150,7 +196,7 @@ describe('useSwapNetworks configuration lifecycle', () => {
         refreshClientNetworks: true,
         autoHandleError: false,
       });
-      expect(result.current.defaultConfigStatus).toBe('success');
+      expect(result.current.defaultConfigStatus).toBe('failed');
       expect(result.current.swapNetworks).toEqual([freshNetwork]);
 
       await act(async () => jest.advanceTimersByTime(90_000));
@@ -262,6 +308,85 @@ describe('useSwapNetworks configuration lifecycle', () => {
     expect(result.current.defaultConfigStatusRef.current).toBe('failed');
     expect(result.current.networkListFetching).toBe(false);
     expect(result.current.swapNetworks).toEqual([cachedNetwork]);
+  });
+
+  it('settles local defaults at two seconds and ignores late defaults while accepting network capabilities', async () => {
+    jest.useFakeTimers();
+    const request = deferred<ISwapNetwork[]>();
+    mockFetchNetworks.mockReturnValue(request.promise);
+    const { result } = renderHook(useSwapNetworks);
+    await act(async () => {});
+
+    await act(async () => jest.advanceTimersByTime(1999));
+    expect(result.current.defaultConfigStatus).toBe('pending');
+    await act(async () => jest.advanceTimersByTime(1));
+    expect(result.current.defaultConfigStatus).toBe('failed');
+    expect(result.current.networkListFetching).toBe(false);
+
+    await act(async () => request.resolve([freshNetwork]));
+    expect(result.current.swapNetworks).toEqual([freshNetwork]);
+    expect(result.current.defaultConfigStatus).toBe('failed');
+    const defaults = buildSwapDefaultSelectedTokensForNetwork({
+      networkId: 'evm--1',
+      swapNetworks: result.current.swapNetworks,
+      defaultConfigStatus: result.current.defaultConfigStatus,
+    });
+    expect(defaults?.fromToken?.symbol).toBe('ETH');
+    expect(defaults?.toToken?.symbol).toBe('USDC');
+  });
+
+  it.each([1999, 2000])(
+    'settles a response at %i ms against the deadline even before its timer callback',
+    async (elapsed) => {
+      jest.useFakeTimers({ now: 0 });
+      const request = deferred<ISwapNetwork[]>();
+      mockFetchNetworks.mockReturnValue(request.promise);
+      const { result } = renderHook(useSwapNetworks);
+      await act(async () => {});
+      jest.setSystemTime(elapsed);
+      await act(async () => request.resolve([freshNetwork]));
+      expect(result.current.defaultConfigStatus).toBe(
+        elapsed < 2000 ? 'success' : 'failed',
+      );
+      await act(async () => jest.advanceTimersByTime(30_000));
+      expect(result.current.defaultConfigStatus).toBe(
+        elapsed < 2000 ? 'success' : 'failed',
+      );
+      expect(mockFetchNetworks).toHaveBeenCalledTimes(1);
+    },
+  );
+
+  it('includes the cache read in the deadline while retaining late selector data', async () => {
+    jest.useFakeTimers();
+    const cache = deferred<INetworkCache>();
+    const request = deferred<ISwapNetwork[]>();
+    mockGetNetworkCache.mockReturnValue(cache.promise);
+    mockFetchNetworks.mockReturnValue(request.promise);
+    const { result } = renderHook(useSwapNetworks);
+    await act(async () => jest.advanceTimersByTime(2000));
+    expect(result.current.defaultConfigStatus).toBe('failed');
+    expect(result.current.networkListFetching).toBe(true);
+    expect(mockFetchNetworks).not.toHaveBeenCalled();
+    await act(async () => cache.resolve({ data: [cachedNetwork] }));
+    expect(result.current.swapNetworks).toEqual([cachedNetwork]);
+    expect(result.current.networkListFetching).toBe(false);
+    await act(async () => request.resolve([freshNetwork]));
+    expect(result.current.defaultConfigStatus).toBe('failed');
+  });
+
+  it('keeps the deadline through effect replay and rejects a completion after unmount', async () => {
+    jest.useFakeTimers();
+    const request = deferred<ISwapNetwork[]>();
+    mockFetchNetworks.mockReturnValue(request.promise);
+    const { result, unmount } = renderHook(useSwapNetworks, {
+      wrapper: StrictMode,
+    });
+    await act(async () => {});
+    await act(async () => jest.advanceTimersByTime(2000));
+    expect(result.current.defaultConfigStatus).toBe('failed');
+    unmount();
+    await act(async () => request.resolve([freshNetwork]));
+    expect(mockSetNetworkCache).not.toHaveBeenCalled();
   });
 
   it('does not restore old defaults during an explicit refresh after an empty response', async () => {

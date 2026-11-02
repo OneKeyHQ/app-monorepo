@@ -69,6 +69,7 @@ const Container = forwardRef<any, PropsWithChildren<IExtendedContainerProps>>(
 );
 Container.displayName = 'NativeTabsContainer';
 
+/** @deprecated Use CollapsiblePagerView and NativeScroller from react-native-pager-view. */
 export const Tabs = {
   ...NativeTabs,
   Container,

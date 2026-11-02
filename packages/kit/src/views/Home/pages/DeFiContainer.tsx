@@ -26,10 +26,12 @@ import {
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import defiUtils from '@onekeyhq/shared/src/utils/defiUtils';
 import type { IDeFiProtocol } from '@onekeyhq/shared/types/defi';
 import { EHomeWalletTab } from '@onekeyhq/shared/types/wallet';
 
+import useListenTabFocusState from '../../../hooks/useListenTabFocusState';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 import {
   ProviderJotaiContextDeFiList,
@@ -67,8 +69,8 @@ import { STICKY_TOP_OFFSET } from '../types';
 import {
   findActiveProtocolKey,
   findScrollableAncestorFromLocalNode,
+  isProtocolVisible,
   shouldQueueProtocolNavigation,
-  shouldReleasePinLock,
 } from './defiDesktopStickyDom';
 
 // Mirrors HomePageView's `homePageContentMaxWidthSx` so the DeFi tab content
@@ -99,14 +101,15 @@ function scrollToAnchor(
   anchor: HTMLElement,
   offset: number,
   behavior: ScrollBehavior,
-) {
+): { alreadyThere: boolean; targetY: number } {
   const scroller = findScrollableAncestorFromLocalNode(anchor);
   const anchorRect = anchor.getBoundingClientRect();
 
   if (!scroller) {
     const targetY = Math.max(0, anchorRect.top + globalThis.scrollY - offset);
+    const alreadyThere = Math.abs(globalThis.scrollY - targetY) < 1;
     globalThis.scrollTo({ top: targetY, behavior });
-    return;
+    return { alreadyThere, targetY };
   }
 
   const maxScroll = Math.max(0, scroller.scrollHeight - scroller.clientHeight);
@@ -118,7 +121,13 @@ function scrollToAnchor(
       anchorRect.top - scrollerRect.top + scroller.scrollTop - offset,
     ),
   );
-  scroller.scrollTo({ top: targetY, behavior });
+  const scrollTo =
+    scroller.ownerDocument.defaultView?.Element.prototype.scrollTo.bind(
+      scroller,
+    ) ?? scroller.scrollTo.bind(scroller);
+  const alreadyThere = Math.abs(scroller.scrollTop - targetY) < 1;
+  scrollTo({ top: targetY, behavior });
+  return { alreadyThere, targetY };
 }
 
 function DeFiContainer() {
@@ -145,10 +154,15 @@ function DeFiContainer() {
 
   const [{ protocols }] = useDeFiListProtocolsAtom();
   const [{ protocolMap }] = useDeFiListProtocolMapAtom();
-  const [{ isRefreshing, initialized }] = useDeFiListStateAtom();
+  const [{ isRefreshing, initialized, confirmedEmptyOwnerKey, hasError }] =
+    useDeFiListStateAtom();
   const [, setIsSliced] = useDeFiListSlicedAtom();
+  const hasConfirmedEmpty =
+    Boolean(account?.id && network?.id) &&
+    confirmedEmptyOwnerKey === `${account?.id}:${network?.id}`;
   const isOverviewLoading =
-    !initialized || (isRefreshing && (protocols?.length ?? 0) === 0);
+    !initialized ||
+    (isRefreshing && (protocols?.length ?? 0) === 0 && !hasConfirmedEmpty);
 
   // Warm the image cache for every protocol logo + every position
   // asset/debt/reward icon the expanded cards will eventually render.
@@ -182,8 +196,16 @@ function DeFiContainer() {
   }, [account?.id, network?.id]);
 
   const triggerPinCheckRef = useRef<() => void>(() => {});
+  // The inactive Home tab is hidden with `content-visibility: hidden`, which
+  // keeps its last layout but stops updating it, so a pin-tracker pass while
+  // the route is blurred (window resize, effect re-run) would read stale
+  // rects and nothing would correct the result until the next user scroll
+  // (same failure class as OK-63164 / OK-65383). Skip the pass while blurred
+  // and re-run it once the route is focused again.
+  const isHomeRouteFocusedRef = useRef(true);
   const scrollContainerRef = useRef<HTMLElement | null>(null);
   const protocolRefs = useRef<Map<string, IProtocolHandle>>(new Map());
+  const protocolObservationDirtyRef = useRef(true);
   // Read by pin tracker each scroll frame; ref avoids effect teardown on remeasure.
   const chipStripHeightRef = useRef<number>(0);
   // Currently sticky-tracked protocol key. Optimistically written by
@@ -196,12 +218,13 @@ function DeFiContainer() {
   // distinct floats every frame; an epsilon guard skips redundant writes
   // before they reach the UI thread's animated style + props consumers.
   const lastChipRevealRef = useRef(0);
-  // Protocol navigation pin lock. Single source of truth: a non-null target
-  // means the lock is engaged. The pin tracker condition-releases the lock
-  // (see shouldReleasePinLock) the moment its computed candidate catches
-  // up to the click target; the safety timer is a fallback for cases
-  // where the target is never reached (unreachable, layout collapse).
+  // Keep explicit navigation selected until the user scrolls again. Multiple
+  // tail cards can share the same clamped scroll position.
   const pinLockTargetRef = useRef<string | null>(null);
+  const pinLockScrollSettledRef = useRef(false);
+  const pinLockSettledScrollTopRef = useRef<number | null>(null);
+  const pinLockExpectedScrollTopRef = useRef<number | null>(null);
+  const protocolNavigationGenerationRef = useRef(0);
   const pinLockSafetyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
     null,
   );
@@ -231,10 +254,24 @@ function DeFiContainer() {
   }, []);
 
   const clearProtocolNavigationState = useCallback(() => {
+    protocolNavigationGenerationRef.current += 1;
     clearPendingProtocolNavigationTarget();
     pinLockTargetRef.current = null;
+    pinLockScrollSettledRef.current = false;
+    pinLockSettledScrollTopRef.current = null;
+    pinLockExpectedScrollTopRef.current = null;
     clearPinLockSafetyTimer();
   }, [clearPendingProtocolNavigationTarget, clearPinLockSafetyTimer]);
+
+  useListenTabFocusState(ETabRoutes.Home, (isFocus) => {
+    const wasFocused = isHomeRouteFocusedRef.current;
+    isHomeRouteFocusedRef.current = isFocus;
+    if (!isFocus && wasFocused) {
+      clearProtocolNavigationState();
+    } else if (isFocus && !wasFocused) {
+      triggerPinCheckRef.current();
+    }
+  });
 
   const armPendingProtocolNavigationTargetTimer = useCallback(
     (safetyMs: number) => {
@@ -243,6 +280,7 @@ function DeFiContainer() {
       }
       pendingProtocolNavigationTargetTimerRef.current = setTimeout(() => {
         clearPendingProtocolNavigationTarget();
+        pinLockTargetRef.current = null;
         triggerPinCheckRef.current();
       }, safetyMs);
     },
@@ -308,7 +346,7 @@ function DeFiContainer() {
   }, []);
 
   const scrollProtocolHandleIntoView = useCallback(
-    (handle: IProtocolHandle) => {
+    (key: string, generation: number, handle: IProtocolHandle) => {
       handle.expand();
 
       if (platformEnv.isNative || typeof requestAnimationFrame !== 'function') {
@@ -317,15 +355,25 @@ function DeFiContainer() {
 
       requestAnimationFrame(() => {
         requestAnimationFrame(() => {
+          if (
+            pinLockTargetRef.current !== key ||
+            protocolNavigationGenerationRef.current !== generation
+          )
+            return;
           const anchor = handle.getAnchor();
           if (!anchor) return;
           const behavior: ScrollBehavior = reducedMotion ? 'auto' : 'smooth';
-          scrollToAnchor(anchor, getLiveStickyOffset(), behavior);
-          // Edge case: if the target was already at the sticky line, the
-          // scrollTo above is a no-op and no scroll events fire — which
-          // would leave any chip-click pin lock waiting on the safety
-          // timer. A manual ping lets the pin tracker observe the
-          // already-landed state and release the lock within a frame.
+          const { alreadyThere, targetY } = scrollToAnchor(
+            anchor,
+            getLiveStickyOffset(),
+            behavior,
+          );
+          pinLockScrollSettledRef.current = alreadyThere;
+          pinLockExpectedScrollTopRef.current = targetY;
+          if (pinLockScrollSettledRef.current) {
+            pinLockSettledScrollTopRef.current =
+              scrollContainerRef.current?.scrollTop ?? null;
+          }
           triggerPinCheckRef.current();
         });
       });
@@ -352,10 +400,43 @@ function DeFiContainer() {
 
       clearPendingProtocolNavigationTarget();
       clearPinLockSafetyTimer();
+      protocolNavigationGenerationRef.current += 1;
+      const generation = protocolNavigationGenerationRef.current;
       pinLockTargetRef.current = key;
+      pinLockScrollSettledRef.current = false;
+      pinLockSettledScrollTopRef.current = null;
+      pinLockExpectedScrollTopRef.current = null;
       setPinnedKey(key);
       if (handle) {
-        scrollProtocolHandleIntoView(handle);
+        scrollProtocolHandleIntoView(key, generation, handle);
+        // A scroll can stop short of its destination after a layout change
+        // or interruption. Do not leave the scroll spy locked indefinitely.
+        pinLockSafetyTimerRef.current = setTimeout(() => {
+          pinLockSafetyTimerRef.current = null;
+          if (
+            pinLockTargetRef.current !== key ||
+            protocolNavigationGenerationRef.current !== generation
+          )
+            return;
+
+          const anchor = protocolRefs.current.get(key)?.getAnchor();
+          const scrollTop =
+            scrollContainerRef.current?.scrollTop ?? globalThis.scrollY;
+          const expectedScrollTop = pinLockExpectedScrollTopRef.current;
+          if (
+            anchor?.isConnected &&
+            expectedScrollTop !== null &&
+            Math.abs(scrollTop - expectedScrollTop) <= 1
+          ) {
+            pinLockScrollSettledRef.current = true;
+            pinLockSettledScrollTopRef.current = scrollTop;
+            triggerPinCheckRef.current();
+            return;
+          }
+
+          clearProtocolNavigationState();
+          triggerPinCheckRef.current();
+        }, 2000);
       } else {
         pendingProtocolNavigationTargetRef.current = { key, protocol: p };
         armPendingProtocolNavigationTargetTimer(
@@ -363,22 +444,13 @@ function DeFiContainer() {
         );
         setIsSliced(false);
       }
-      // Fallback for the rare case where the scroll never settles on
-      // the target (target unreachable, layout collapse). Generous so
-      // it almost never fires — condition-release is the normal path.
-      const safetyMs = reducedMotion ? 250 : 2000;
-      pinLockSafetyTimerRef.current = setTimeout(() => {
-        pinLockSafetyTimerRef.current = null;
-        pinLockTargetRef.current = null;
-        triggerPinCheckRef.current();
-      }, safetyMs);
     },
     [
       armPendingProtocolNavigationTargetTimer,
       clearPendingProtocolNavigationTarget,
       clearPinLockSafetyTimer,
+      clearProtocolNavigationState,
       scrollProtocolHandleIntoView,
-      reducedMotion,
       setIsSliced,
       tableLayout,
     ],
@@ -393,9 +465,13 @@ function DeFiContainer() {
         protocolRefs.current.set(key, handle);
       } else {
         protocolRefs.current.delete(key);
+        if (currentHandle && pinLockTargetRef.current === key) {
+          clearProtocolNavigationState();
+        }
       }
 
       if (changed && !platformEnv.isNative && tableLayout) {
+        protocolObservationDirtyRef.current = true;
         triggerPinCheckRef.current();
       }
 
@@ -409,14 +485,28 @@ function DeFiContainer() {
         navigateToProtocol(pendingTarget.protocol);
       }
     },
-    [navigateToProtocol, tableLayout],
+    [clearProtocolNavigationState, navigateToProtocol, tableLayout],
   );
+
+  const handlePageScrollIntent = useCallback(() => {
+    if (
+      pinLockTargetRef.current ||
+      pendingProtocolNavigationTargetRef.current
+    ) {
+      clearProtocolNavigationState();
+      triggerPinCheckRef.current();
+    }
+  }, [clearProtocolNavigationState]);
+
+  const getPageScroller = useCallback(() => scrollContainerRef.current, []);
 
   const handleCollapseToProtocol = useCallback(
     (p: IDeFiProtocol) => {
       if (platformEnv.isNative || typeof requestAnimationFrame !== 'function') {
         return;
       }
+      clearProtocolNavigationState();
+      const generation = protocolNavigationGenerationRef.current;
 
       const key = defiUtils.buildProtocolMapKey({
         protocol: p.protocol,
@@ -425,6 +515,7 @@ function DeFiContainer() {
 
       requestAnimationFrame(() => {
         requestAnimationFrame(() => {
+          if (protocolNavigationGenerationRef.current !== generation) return;
           const anchor = protocolRefs.current.get(key)?.getAnchor();
           if (!anchor) return;
           const behavior: ScrollBehavior = reducedMotion ? 'auto' : 'smooth';
@@ -433,7 +524,7 @@ function DeFiContainer() {
         });
       });
     },
-    [getLiveStickyOffset, reducedMotion],
+    [clearProtocolNavigationState, getLiveStickyOffset, reducedMotion],
   );
 
   // Chip strip click handler uses the same protocol navigation path as
@@ -492,9 +583,102 @@ function DeFiContainer() {
 
     let raf = 0;
     let attachedScroller: HTMLElement | null = null;
+    let schedule = () => {};
+    const observedAnchors = new Set<HTMLElement>();
+    const resizeObserver =
+      typeof ResizeObserver === 'undefined'
+        ? null
+        : new ResizeObserver(() => schedule());
+    protocolObservationDirtyRef.current = true;
     const scrollOpts: AddEventListenerOptions = {
       capture: true,
       passive: true,
+    };
+    const handleWheel = (event: WheelEvent) => {
+      if (Math.abs(event.deltaY) > Math.abs(event.deltaX)) {
+        handlePageScrollIntent();
+      }
+    };
+    const handleScroll = (event: Event) => {
+      if (
+        attachedScroller &&
+        event.target === attachedScroller &&
+        pinLockTargetRef.current &&
+        pinLockScrollSettledRef.current &&
+        pinLockSettledScrollTopRef.current !== null &&
+        Math.abs(
+          attachedScroller.scrollTop - pinLockSettledScrollTopRef.current,
+        ) > 1
+      ) {
+        clearProtocolNavigationState();
+      }
+      schedule();
+    };
+    const handleScrollEnd = () => {
+      if (
+        pinLockTargetRef.current &&
+        attachedScroller &&
+        pinLockExpectedScrollTopRef.current !== null &&
+        Math.abs(
+          attachedScroller.scrollTop - pinLockExpectedScrollTopRef.current,
+        ) <= 1
+      ) {
+        pinLockScrollSettledRef.current = true;
+        pinLockSettledScrollTopRef.current = attachedScroller.scrollTop;
+        schedule();
+      }
+    };
+    const handleScrollbarPointerDown = (event: PointerEvent) => {
+      if (!attachedScroller || event.target !== attachedScroller) return;
+      const rect = attachedScroller.getBoundingClientRect();
+      if (event.clientX >= rect.right - 16) handlePageScrollIntent();
+    };
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (!isHomeRouteFocusedRef.current || !isTabFocused) return;
+      const target = event.target;
+      if (
+        target instanceof HTMLElement &&
+        (target.isContentEditable ||
+          ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName) ||
+          target.closest(
+            'dialog, [role="dialog"], [role="alertdialog"], [aria-modal="true"]',
+          ))
+      ) {
+        return;
+      }
+      if (target instanceof HTMLElement) {
+        if (
+          event.key === ' ' &&
+          target.closest(
+            'button, a[href], [role="button"], [role="link"], [role="checkbox"], [role="radio"], [role="switch"], [role="menuitem"], [role="option"], [role="tab"]',
+          )
+        )
+          return;
+        if (
+          ['ArrowUp', 'ArrowDown', 'Home', 'End'].includes(event.key) &&
+          target.closest(
+            '[role="slider"], [role="spinbutton"], [role="listbox"], [role="combobox"], [role="menu"], [role="tablist"], [role="tree"], [role="grid"]',
+          )
+        )
+          return;
+      }
+      if (
+        [
+          'ArrowUp',
+          'ArrowDown',
+          'PageUp',
+          'PageDown',
+          'Home',
+          'End',
+          ' ',
+        ].includes(event.key)
+      ) {
+        handlePageScrollIntent();
+      }
+    };
+    const handleResize = () => {
+      clearProtocolNavigationState();
+      schedule();
     };
 
     const resolveOriginNode = () => {
@@ -511,13 +695,33 @@ function DeFiContainer() {
 
     let check = () => {};
     let syncScrollerSubscription = () => {};
-    const schedule = () => {
+    schedule = () => {
       syncScrollerSubscription();
       if (raf) cancelAnimationFrame(raf);
       raf = requestAnimationFrame(check);
     };
 
     syncScrollerSubscription = () => {
+      if (resizeObserver && protocolObservationDirtyRef.current) {
+        protocolObservationDirtyRef.current = false;
+        const nextAnchors = new Set<HTMLElement>();
+        for (const handle of protocolRefs.current.values()) {
+          const anchor = handle.getAnchor();
+          if (anchor?.isConnected) nextAnchors.add(anchor);
+        }
+        for (const anchor of observedAnchors) {
+          if (!nextAnchors.has(anchor)) {
+            resizeObserver.unobserve(anchor);
+            observedAnchors.delete(anchor);
+          }
+        }
+        for (const anchor of nextAnchors) {
+          if (!observedAnchors.has(anchor)) {
+            resizeObserver.observe(anchor);
+            observedAnchors.add(anchor);
+          }
+        }
+      }
       const originNode = resolveOriginNode();
       const nextScroller = originNode
         ? findScrollableAncestorFromLocalNode(originNode)
@@ -529,18 +733,49 @@ function DeFiContainer() {
       }
 
       if (attachedScroller) {
-        attachedScroller.removeEventListener('scroll', schedule, scrollOpts);
+        attachedScroller.removeEventListener(
+          'scroll',
+          handleScroll,
+          scrollOpts,
+        );
+        attachedScroller.removeEventListener('scrollend', handleScrollEnd);
+        attachedScroller.removeEventListener('wheel', handleWheel, scrollOpts);
+        attachedScroller.removeEventListener(
+          'touchmove',
+          handlePageScrollIntent,
+          scrollOpts,
+        );
+        attachedScroller.removeEventListener(
+          'pointerdown',
+          handleScrollbarPointerDown,
+          scrollOpts,
+        );
       }
 
       attachedScroller = nextScroller;
       scrollContainerRef.current = nextScroller;
 
       if (attachedScroller) {
-        attachedScroller.addEventListener('scroll', schedule, scrollOpts);
+        attachedScroller.addEventListener('scroll', handleScroll, scrollOpts);
+        attachedScroller.addEventListener('scrollend', handleScrollEnd);
+        attachedScroller.addEventListener('wheel', handleWheel, scrollOpts);
+        attachedScroller.addEventListener(
+          'touchmove',
+          handlePageScrollIntent,
+          scrollOpts,
+        );
+        attachedScroller.addEventListener(
+          'pointerdown',
+          handleScrollbarPointerDown,
+          scrollOpts,
+        );
       }
     };
 
     check = () => {
+      if (!isHomeRouteFocusedRef.current) {
+        return;
+      }
       syncScrollerSubscription();
 
       const stickyHostRect =
@@ -622,47 +857,87 @@ function DeFiContainer() {
           ? findActiveProtocolKey({
               stickyLine: nextStickyLine,
               candidates,
+              scrollMetrics: attachedScroller
+                ? {
+                    scrollTop: attachedScroller.scrollTop,
+                    maxScroll:
+                      attachedScroller.scrollHeight -
+                      attachedScroller.clientHeight,
+                    viewportBottom:
+                      attachedScroller.getBoundingClientRect().bottom,
+                  }
+                : undefined,
             })
           : null) ?? null;
 
-      // Chip-click pin lock: hold pinnedKey at the click target while a
-      // chip-click smooth scroll is in flight. Release once the pin
-      // tracker's natural candidate catches up (see shouldReleasePinLock
-      // for why a time-based release was wrong).
       const lockTarget = pinLockTargetRef.current;
       if (lockTarget !== null) {
-        if (shouldReleasePinLock({ candidate: nextKey, target: lockTarget })) {
-          pinLockTargetRef.current = null;
-          if (pinLockSafetyTimerRef.current) {
-            clearTimeout(pinLockSafetyTimerRef.current);
-            pinLockSafetyTimerRef.current = null;
-          }
+        const target = candidates.find(
+          (candidate) => candidate.key === lockTarget,
+        );
+        if (
+          !pinLockScrollSettledRef.current ||
+          !attachedScroller ||
+          (target &&
+            isProtocolVisible({
+              ...target,
+              stickyLine: nextStickyLine,
+              viewportBottom: attachedScroller.getBoundingClientRect().bottom,
+            }))
+        ) {
+          return;
         }
-        return;
+        clearProtocolNavigationState();
       }
 
       setPinnedKey((prev) => (prev === nextKey ? prev : nextKey));
     };
 
     syncScrollerSubscription();
-    globalThis.addEventListener('resize', schedule);
+    globalThis.addEventListener('resize', handleResize);
+    globalThis.addEventListener('keydown', handleKeyDown, true);
     triggerPinCheckRef.current = schedule;
     schedule();
     return () => {
       if (raf) cancelAnimationFrame(raf);
+      resizeObserver?.disconnect();
       if (attachedScroller) {
-        attachedScroller.removeEventListener('scroll', schedule, scrollOpts);
+        attachedScroller.removeEventListener(
+          'scroll',
+          handleScroll,
+          scrollOpts,
+        );
+        attachedScroller.removeEventListener('scrollend', handleScrollEnd);
+        attachedScroller.removeEventListener('wheel', handleWheel, scrollOpts);
+        attachedScroller.removeEventListener(
+          'touchmove',
+          handlePageScrollIntent,
+          scrollOpts,
+        );
+        attachedScroller.removeEventListener(
+          'pointerdown',
+          handleScrollbarPointerDown,
+          scrollOpts,
+        );
       }
       scrollContainerRef.current = null;
-      globalThis.removeEventListener('resize', schedule);
+      globalThis.removeEventListener('resize', handleResize);
+      globalThis.removeEventListener('keydown', handleKeyDown, true);
       triggerPinCheckRef.current = () => {};
     };
   }, [
     chipRevealShared,
+    clearProtocolNavigationState,
+    handlePageScrollIntent,
     isTabFocused,
     stickyHeaderCtx?.stickyHost,
     tableLayout,
   ]);
+
+  useEffect(() => {
+    clearProtocolNavigationState();
+    triggerPinCheckRef.current();
+  }, [account?.id, network?.id, clearProtocolNavigationState]);
 
   useEffect(() => {
     if (isTabFocused) {
@@ -699,14 +974,23 @@ function DeFiContainer() {
     );
 
     if (!stillExists) {
+      clearProtocolNavigationState();
       setPinnedKey(null);
     }
-  }, [pinnedKey, protocols]);
+  }, [pinnedKey, protocols, clearProtocolNavigationState]);
 
   if (tableLayout) {
     if (!isDeFiEnabled) {
       return null;
     }
+    const totalText =
+      hasError && !hasConfirmedEmpty && protocols.length === 0
+        ? '--'
+        : formatPortfolioTotal(
+            portfolioStats.total,
+            currencySymbol,
+            settingsValue.hideValue,
+          );
 
     return (
       <>
@@ -735,11 +1019,7 @@ function DeFiContainer() {
                 <Skeleton.HeadingXl w={120} />
               ) : (
                 <SizableText size="$headingXl" color="$textSubdued">
-                  {formatPortfolioTotal(
-                    portfolioStats.total,
-                    currencySymbol,
-                    settingsValue.hideValue,
-                  )}
+                  {totalText}
                 </SizableText>
               )
             }
@@ -786,6 +1066,8 @@ function DeFiContainer() {
               isAllNetworks={isAllNetworks}
               activeKey={pinnedKey}
               onPressChip={handleChipPress}
+              onPageScrollIntent={handlePageScrollIntent}
+              getPageScroller={getPageScroller}
               onHeightChange={handleChipStripHeight}
               revealProgress={chipRevealShared}
             />

@@ -4,6 +4,8 @@ import type { IAirGapUrJson } from '@onekeyhq/qr-wallet-sdk';
 import type {
   IDeviceStageConnectionTypeValue,
   IDeviceStageErrorI18n,
+  IDeviceStageOpenAppReasonValue,
+  IDeviceStageQrFallbackReasonValue,
 } from '@onekeyhq/shared/types/deviceStage';
 
 import type {
@@ -102,13 +104,14 @@ export type IDeviceStageStep =
   | 'pairingCode'
   | 'deviceNotFound'
   | 'btcHighIndex'
+  | 'qrFallback'
   | 'installConfirm'
   | 'installing'
   | 'installBatch';
 
 /** The third-party vendors the stage can dress for. Values match
  * EHardwareVendor in @onekeyhq/shared/types/device. */
-export type IDeviceStageVendor = 'ledger' | 'trezor';
+export type IDeviceStageVendor = 'ledger' | 'trezor' | 'keystone';
 
 /** The transport a burst rides. Desktop runs USB and Bluetooth side by
  * side, so the connecting wait tells them apart; which one is the
@@ -207,7 +210,8 @@ export interface IDeviceStageProps {
    * key when the code is absent. */
   vendorModelName?: string;
   /** The coin app the install steps talk about (`Ethereum`) — titles
-   * and rows of `installConfirm`/`installing`. */
+   * and rows of `installConfirm`/`installing` — and the app a
+   * wallet-match `openApp` names. */
   appName?: string;
   /** Live install progress, 0–100 — `installing`'s bar and the active
    * row of `installBatch`. Real progress from the vendor SDK, never
@@ -222,6 +226,11 @@ export interface IDeviceStageProps {
   btcHighIndexPath?: string;
   /** The account index parsed from that path. */
   btcHighIndexAccountIndex?: number;
+  /** Why `qrFallback` asks; picks its words and whether it offers a retry. */
+  qrFallbackReason?: IDeviceStageQrFallbackReasonValue;
+  /** Why `openApp`'s device is opening an app; `walletMatch` with an
+   * `appName` names the app and the device. */
+  openAppReason?: IDeviceStageOpenAppReasonValue;
   /** The `pairingCode` entry, confirmed — the code the person copied
    * off the device's screen. Empty is refused inline before this fires. */
   onPairingSubmit?: (code: string) => void;
@@ -238,6 +247,13 @@ export interface IDeviceStageProps {
   /** `btcHighIndex`'s single action — proceed with the non-standard
    * index, one device confirmation per path. Omitted, no button. */
   onBtcHighIndexConfirm?: () => void;
+  /** `qrFallback`'s QR action — send the request by QR instead of USB.
+   * Omitted, no button. */
+  onQrFallbackConfirm?: () => void;
+  /** `qrFallback`'s retry — look for the USB device again, offered only
+   * when a connected device could not serve the wallet. Omitted, no
+   * button. */
+  onQrFallbackRetry?: () => void;
   /** `installConfirm`'s single action — install the missing app. The
    * driver answers by moving to `installing`. Omitted, no button. */
   onInstallConfirm?: () => void;
@@ -277,6 +293,22 @@ export interface IDeviceStageProps {
    * exit is already under way when this fires.
    */
   onClose?: () => void;
+  /**
+   * The error notice's own exit, requested after its readable hold. Kept
+   * apart from `onClose` on purpose: the notice leaves the app live
+   * (OK-64696), so the hold can run out just as the person starts the
+   * next attempt from the page, and a close would end that attempt's
+   * call. Called with the `errorNoticeKey` the hold was armed for: the
+   * driver retires that outcome only, never one that has replaced it.
+   * Absent, the notice stays until closed or replaced.
+   */
+  onErrorNoticeExpire?: (noticeKey: string | undefined) => void;
+  /**
+   * Which error outcome is on stage. A new one landing in place of the
+   * last, with no other step between, restarts the notice's readable hold
+   * — it is a different failure, owed its own read.
+   */
+  errorNoticeKey?: string;
   /**
    * The confirm card's payload — parked: confirm rests as the capsule,
    * which has no seat for it, so none of these render today (see
@@ -334,6 +366,8 @@ export interface IDeviceStageProps {
    * integration layer hands over the UR json and owns nothing else.
    */
   qrValueUr?: IAirGapUrJson;
+  /** A note the showQr card carries under its steps. */
+  qrNoticeI18n?: IDeviceStageErrorI18n;
   qrSessionId?: number;
   qrRenderKey?: string;
   /**
@@ -401,9 +435,8 @@ export interface IDeviceStageProps {
    * ask card. Without it the step plays as the notice, for the many
    * failures that have no honest retry: the stage rests as the capsule —
    * the failure ✗ beside the reason's title, no second line, no button —
-   * and after a readable hold requests its own exit through `onClose`, so
-   * a driver that means the error to leave by itself grants close along
-   * with it.
+   * and after a readable hold requests its own exit through
+   * `onErrorNoticeExpire`.
    */
   onErrorAction?: () => void;
   /** The pinOnApp entry, confirmed. The driver decides what follows. */

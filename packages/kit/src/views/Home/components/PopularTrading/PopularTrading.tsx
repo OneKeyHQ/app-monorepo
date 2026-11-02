@@ -49,6 +49,7 @@ import {
   usePerpsNavigation,
 } from '../../../Market/hooks';
 import { CategorySelector } from '../../../Market/MarketHomeV2/components/CategorySelector';
+import { MARKET_TOKEN_ROW_GROUP_NAME } from '../../../Market/MarketHomeV2/components/MarketHoverRevealLine';
 import { getNativeTokenInfo } from '../../../Market/MarketHomeV2/components/MarketTokenList/utils/tokenListHelpers';
 import { useMarketTopCoinResolver } from '../../../Market/MarketHomeV2/components/MarketTopCoinsList/hooks/useMarketTopCoins';
 import { EMarketHomeTab } from '../../../Market/MarketHomeV2/types';
@@ -420,10 +421,7 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
   // Always show 4 tokens in empty state
   const displayCount = 4;
 
-  // Market tab differs by platform
-  const marketTab = platformEnv.isNative
-    ? ETabRoutes.Discovery
-    : ETabRoutes.Market;
+  const marketTab = ETabRoutes.Market;
 
   const marketCategories = useMemo<IMarketCategoryItem[]>(() => {
     if (apiSpotCategories.length > 0) {
@@ -1281,7 +1279,10 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
             mx: '$2',
             px: '$3',
             ...(shouldUseTableLayout
-              ? { minHeight: HOME_MARKET_TABLE_ROW_MIN_HEIGHT }
+              ? {
+                  minHeight: HOME_MARKET_TABLE_ROW_MIN_HEIGHT,
+                  group: MARKET_TOKEN_ROW_GROUP_NAME,
+                }
               : undefined),
           }}
           headerRowProps={{

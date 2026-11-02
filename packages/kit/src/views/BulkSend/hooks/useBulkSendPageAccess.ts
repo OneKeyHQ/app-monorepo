@@ -18,7 +18,8 @@ import {
 // 1. E2E and Prime pass.
 // 2. Logged-in free user: stays whatever the quota; "Next" checks it and the
 //    start on the Review page is the final judge.
-// 3. Logged out: log in in place; a cancel leaves the page.
+// 3. Logged out: log in in place, then stay (the quota is not known yet);
+//    a cancel leaves the page.
 export function useBulkSendPageAccess({
   networkId,
   isInModal,
@@ -75,9 +76,9 @@ export function useBulkSendPageAccess({
         return;
       }
       await ensureFeatureAccess({
+        trackAttempt: false,
         featureId: EPrimeFeatures.BulkSend,
         networkId,
-        deferQuotaCheck: true,
         isContextValid: () => !isUnmountedRef.current,
         onDenied: async () => {
           if (isUnmountedRef.current) {

@@ -53,13 +53,12 @@ import type { IDeviceHomeScreen } from '@onekeyhq/shared/types/device';
 import UploadedHomeScreenCache from './uploadedHomeScreenCache';
 
 import type { IDeviceType } from '@onekeyfe/hd-core';
-import type { DimensionValue } from 'react-native';
 
 const USER_UPLOAD_IMG_NAME_PREFIX = 'user_upload__';
 
 type IAspectRatioInfo = {
   ratio: number;
-  flexBasis: DimensionValue | undefined;
+  flexBasis: string | undefined;
 };
 
 type IWallpaperCategory = {
@@ -75,7 +74,7 @@ function useAspectRatioInfo(params: {
   const { sizeInfo, deviceType } = params;
   const media = useMedia();
   return useMemo(() => {
-    let flexBasis: DimensionValue | undefined = '25%';
+    let flexBasis: string | undefined = '25%';
     let ratio = (sizeInfo?.width ?? 1) / (sizeInfo?.height ?? 1);
     if (
       [
@@ -93,7 +92,7 @@ function useAspectRatioInfo(params: {
   }, [sizeInfo?.width, sizeInfo?.height, deviceType, media.gtMd]);
 }
 
-const getCountByFlexBasis = (flexBasis: DimensionValue | undefined) => {
+const getCountByFlexBasis = (flexBasis: string | undefined) => {
   if (flexBasis === '25%') {
     return 8;
   }

@@ -51,6 +51,10 @@ import { urlAccountNavigation } from '../../Home/pages/urlAccount/urlAccountUtil
 import { marketNavigation } from '../../Market/marketUtils';
 import { openWcPayDialog } from '../../WalletConnectPay/dialog/wcPayDialogStore';
 import { getAccountIdOnNetwork } from '../utils/getAccountIdOnNetwork';
+import {
+  isInvalidQrCodeError,
+  markRetryableQrParseFailure,
+} from '../utils/isInvalidQrCodeError';
 import { parseOnChainAmount } from '../utils/parseOnChainAmount';
 
 export { getAccountIdOnNetwork } from '../utils/getAccountIdOnNetwork';
@@ -62,16 +66,16 @@ export type IParseQRCodeRuntimeDeps = {
   navigation: IAppNavigation;
   clipboard: ReturnType<typeof useClipboard>;
   intl: ReturnType<typeof useIntl>;
+  scanRequestId?: string;
 };
 
 export async function parseQRCodeWithDeps(
   value: Parameters<IQRCodeHandlerParse<IBaseValue>>[0],
   params: Parameters<IQRCodeHandlerParse<IBaseValue>>[1],
-  { navigation, clipboard, intl }: IParseQRCodeRuntimeDeps,
+  { navigation, clipboard, intl, scanRequestId }: IParseQRCodeRuntimeDeps,
 ) {
   const showCopyDialog = (content: string) => {
     Dialog.confirm({
-      nativeSheet: true,
       title: intl.formatMessage({ id: ETranslations.global_info }),
       description: content,
       onConfirmText: intl.formatMessage({
@@ -114,7 +118,7 @@ export async function parseQRCodeWithDeps(
         // preserving caller routes (e.g. onboarding). This avoids
         // goBack() animated dismiss which causes RNSScreenStack
         // window=NIL and blocks Fabric commits on the underlying page.
-        resetScanModalRoute();
+        resetScanModalRoute(scanRequestId ? { scanRequestId } : undefined);
         if (!platformEnv.isNativeIOS) {
           await timerUtils.wait(100);
         }
@@ -122,10 +126,21 @@ export async function parseQRCodeWithDeps(
     }
   };
 
-  const result = await backgroundApiProxy.serviceScanQRCode.parse(
-    value,
-    options,
-  );
+  let result: Awaited<
+    ReturnType<typeof backgroundApiProxy.serviceScanQRCode.parse>
+  >;
+  try {
+    result = await backgroundApiProxy.serviceScanQRCode.parse(value, options);
+  } catch (error) {
+    // A code the scan can never accept (the error toasts itself): end the scan.
+    // Any other failure leaves the page open so a scanner can retry the frame.
+    if (isInvalidQrCodeError(error)) {
+      await closeScanPage();
+    } else {
+      markRetryableQrParseFailure(error);
+    }
+    throw error;
+  }
 
   // Manual mode: close scanner overlays and return parsed data to caller.
   if (!options?.autoExecuteParsedAction) {

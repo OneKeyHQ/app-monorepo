@@ -169,8 +169,8 @@ export const SignText = () => {
       sections={sections}
       keyExtractor={keyExtractor}
       // estimatedItemSize={191}
-      ItemSeparatorComponent={null}
-      SectionSeparatorComponent={null}
+      ItemSeparatorComponent={undefined}
+      SectionSeparatorComponent={undefined}
       renderSectionHeader={({ section }) => (
         <SectionList.SectionHeader
           px={SETTINGS_PAGE_CONTENT_PADDING_X}

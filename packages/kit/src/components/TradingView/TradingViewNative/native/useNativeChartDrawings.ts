@@ -20,8 +20,10 @@ import { getDataWindowSnapshot } from '../drawings/dataWindow';
 import { hitTestDrawings } from '../drawings/geometry';
 import { isInDrawingPane } from '../drawings/model';
 import { useChartDrawings } from '../drawings/useChartDrawings';
+import { useDrawingCanvasText } from '../drawings/useDrawingCanvasText';
 
 import type { ITradingViewNativeChartRuntime } from './chartRuntime';
+import type { IDrawingHistoryLoader } from '../drawings/drawingHistory';
 import type { IDrawingProjection, IDrawingTool } from '../drawings/model';
 import type { IDrawingRenderState } from '../drawings/useChartDrawings';
 import type { ITradingViewNativeIndicatorSeries } from '../utils/chartIndicators';
@@ -48,24 +50,33 @@ export function useNativeChartDrawings({
   indicatorSeries,
   subIndicatorPanes,
   storageKey,
+  loadHistory,
+  candleIntervalSeconds,
   chartRuntime,
   decayOffset,
+  priceDecimalPlaces,
 }: {
   enabled: boolean;
   points: IMarketTokenKLineDataPoint[];
   indicatorSeries: ITradingViewNativeIndicatorSeries[];
   subIndicatorPanes: readonly ITradingViewNativeSubIndicatorRenderPane[];
   storageKey?: string;
+  loadHistory?: IDrawingHistoryLoader;
+  candleIntervalSeconds: number;
   chartRuntime: SharedValue<ITradingViewNativeChartRuntime>;
   decayOffset: SharedValue<number>;
+  priceDecimalPlaces?: number;
 }) {
   const projectionRef = useRef<IDrawingProjection | null>(null);
+  const drawingText = useDrawingCanvasText();
   const redrawRef = useRef<() => void>(() => undefined);
   const controller = useChartDrawings({
     enabled,
     projectionRef,
     redrawRef,
     storageKey,
+    loadHistory,
+    historyContext: { points, interval: candleIntervalSeconds },
   });
   const controllerRef = useRef(controller);
   controllerRef.current = controller;
@@ -111,6 +122,8 @@ export function useNativeChartDrawings({
         viewport: metadata.viewport,
         points: pointsRef.current,
         interval,
+        priceDecimalPlaces,
+        text: drawingText,
       };
       const event = {
         type,
@@ -128,7 +141,7 @@ export function useNativeChartDrawings({
       else if (type === 'pointermove') model.onPointerMove(event);
       else model.onPointerUp(event);
     },
-    [],
+    [drawingText, priceDecimalPlaces],
   );
   const cancel = useCallback(() => controllerRef.current.cancel(), []);
   const gesture = useMemo(
@@ -161,6 +174,8 @@ export function useNativeChartDrawings({
             viewport: metadata.viewport,
             points: runtime.points,
             interval: runtime.candleIntervalSeconds,
+            priceDecimalPlaces,
+            text: drawingText,
           };
           if (!isInDrawingPane(point, drawingProjection)) {
             manager.fail();
@@ -250,11 +265,13 @@ export function useNativeChartDrawings({
       cancel,
       chartRuntime,
       decayOffset,
+      drawingText,
       drawings,
       enabled,
       handlePointer,
       pointerId,
       projection,
+      priceDecimalPlaces,
     ],
   );
 
@@ -280,5 +297,5 @@ export function useNativeChartDrawings({
   useEffect(() => {
     updateDataIndex(dataIndex.current);
   }, [points, indicatorSeries, subIndicatorPanes, updateDataIndex]);
-  return { controller, drawings, projection, gesture, pointerId };
+  return { controller, drawings, drawingText, projection, gesture, pointerId };
 }

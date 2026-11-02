@@ -170,6 +170,44 @@ describe('TradingViewNative sub-indicator scene', () => {
     }
   });
 
+  it('keeps RSI reference labels inside a manually zoomed pane', () => {
+    const [{ pane }] = createTradingViewNativeSubIndicatorRenderSnapshots({
+      configs: [{ id: 'rsi', indicator: 'RSI' }],
+      points: POINTS,
+    });
+    const layouts = getTradingViewNativeSubIndicatorPaneLayouts({
+      endIndex: POINTS.length,
+      panes: [
+        { ...pane, scale: { kind: 'fixed', minValue: 45, maxValue: 55 } },
+      ],
+      stackBottom: 300,
+      stackTop: 220,
+      startIndex: 20,
+    });
+    const commands: ITradingViewNativeChartSceneCommand[] = [];
+    appendTradingViewNativeSubIndicatorCommands({
+      candleBodyWidth: 5,
+      chartWidth: 280,
+      commands,
+      customPaintStyles: {},
+      endIndex: POINTS.length,
+      getPointX: (index) => index * 6,
+      layouts,
+      priceAxisX: 280,
+      startIndex: 20,
+    });
+    const labels = commands.filter(
+      (command) => command.kind === 'text' && command.font === 'priceAxis',
+    );
+    expect(labels).toEqual([expect.objectContaining({ text: '50.00' })]);
+    expect(
+      labels.every(
+        (command) =>
+          command.kind === 'text' && command.y >= 220 && command.y <= 300,
+      ),
+    ).toBe(true);
+  });
+
   it('uses MACD palette slots and a zero baseline for columns', () => {
     const [pane] = createTradingViewNativeSubIndicatorRenderSnapshots({
       configs: [{ id: 'macd', indicator: 'MACD' }],

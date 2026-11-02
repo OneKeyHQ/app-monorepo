@@ -12,10 +12,12 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 interface ITabPageHeaderContainerProps {
   children: ReactNode;
+  hideNavigationHeader?: boolean;
 }
 
 export function TabPageHeaderContainer({
   children,
+  hideNavigationHeader = true,
 }: ITabPageHeaderContainerProps) {
   const { top } = useSafeAreaInsets();
   const headerHeight = useHeaderHeight();
@@ -34,7 +36,7 @@ export function TabPageHeaderContainer({
 
   return (
     <>
-      <Page.Header headerShown={false} />
+      {hideNavigationHeader ? <Page.Header headerShown={false} /> : null}
       <XStack
         alignItems="center"
         justifyContent="space-between"

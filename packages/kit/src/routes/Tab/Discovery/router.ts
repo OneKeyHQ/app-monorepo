@@ -6,12 +6,10 @@ import {
   ETabMarketRoutes,
 } from '@onekeyhq/shared/src/routes';
 
-import {
-  LazyLoadPage,
-  LazyLoadRootTabPage,
-} from '../../../components/LazyLoadPage';
+import { LazyLoadRootTabPage } from '../../../components/LazyLoadPage';
 import { earnLazyPageFallback } from '../../../views/Earn/components/EarnLazyPageFallback';
-import { createMarketDetailV2Route } from '../../../views/Market/MarketDetailV2/MarketDetailV2Route';
+
+import { DiscoveryMarketRouteRedirect } from './DiscoveryMarketRouteRedirect';
 
 const Browser = LazyLoadRootTabPage(
   () => import('../../../views/Discovery/pages/Browser/Browser'),
@@ -51,12 +49,6 @@ const EarnPositions = LazyLoadRootTabPage(
 );
 const BorrowReserveDetails = LazyLoadRootTabPage(
   () => import('../../../views/Borrow/pages/ReserveDetails'),
-);
-
-// Market pages for native platforms (Market is embedded in Discovery on mobile)
-const MarketDetailV2 = createMarketDetailV2Route();
-const MarketBannerDetail = LazyLoadPage(
-  () => import('../../../views/Market/MarketBannerDetail'),
 );
 
 export const discoveryRouters: ITabSubNavigatorConfig<any, any>[] = [
@@ -107,7 +99,8 @@ export const discoveryRouters: ITabSubNavigatorConfig<any, any>[] = [
     component: EarnProtocolDetails,
     headerShown: !platformEnv.isNative,
   },
-  // Borrow and Market pages live in the Discovery stack on native.
+  // Borrow pages live in the Discovery stack on native; legacy Market sub-routes
+  // redirect to the standalone Market tab stack.
   ...(platformEnv.isNative
     ? [
         {
@@ -127,17 +120,17 @@ export const discoveryRouters: ITabSubNavigatorConfig<any, any>[] = [
         },
         {
           name: ETabMarketRoutes.MarketDetailV2,
-          component: MarketDetailV2,
+          component: DiscoveryMarketRouteRedirect,
           headerShown: false,
         },
         {
           name: ETabMarketRoutes.MarketStockDetail,
-          component: MarketDetailV2,
+          component: DiscoveryMarketRouteRedirect,
           headerShown: false,
         },
         {
           name: ETabMarketRoutes.MarketBannerDetail,
-          component: MarketBannerDetail,
+          component: DiscoveryMarketRouteRedirect,
           headerShown: false,
         },
       ]

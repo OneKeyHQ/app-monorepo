@@ -10,6 +10,7 @@ import {
   ActionList,
   Stack,
   useScrollContentTabBarOffset,
+  useTheme,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { EmptySearch } from '@onekeyhq/kit/src/components/Empty';
@@ -19,6 +20,7 @@ import { ListFooterComponent } from '@onekeyhq/kit/src/components/TxHistoryListV
 import TxHistoryAddressInfo from '@onekeyhq/kit/src/components/TxHistoryListView/TxHistoryAddressInfo';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useReplaceTx } from '@onekeyhq/kit/src/hooks/useReplaceTx';
+import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import {
   useAddressesInfoAtom,
@@ -34,6 +36,7 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
 import {
   buildAddressMapInfoKey,
@@ -74,6 +77,7 @@ import type {
   RowActionEvent,
   RowModel,
 } from '@onekeyfe/react-native-native-list';
+import type { ViewInstance } from 'react-native';
 
 type IPendingActions = {
   actions: FooterAction[];
@@ -202,12 +206,20 @@ function PendingActionsController({
   return null;
 }
 
-export function NativeHistoryList(props: IHomeHistoryListViewProps) {
+export function NativeHistoryList(
+  props: IHomeHistoryListViewProps & {
+    refreshEnabled?: boolean;
+    isAllNetworks?: boolean;
+    webScrollHost?: HTMLElement | null;
+    webContentPadding?: { top: number; bottom: number };
+  },
+) {
   const {
     data,
     tableLayout = false,
     initialized,
     frozenTopEnabled,
+    observeFrozenTop,
     onAwayFromTopChange,
     ListHeaderComponent,
     onEndReached,
@@ -215,9 +227,30 @@ export function NativeHistoryList(props: IHomeHistoryListViewProps) {
     hasMore,
     onPressHistory,
     hideValue,
+    showIcon = true,
+    refreshEnabled = true,
+    webScrollHost,
+    webContentPadding,
   } = props;
   const intl = useIntl();
-  const theme = useHomeNativeListTheme();
+  const nativeListTheme = useHomeNativeListTheme();
+  const componentTheme = useTheme();
+  const isDark = useThemeVariant() === 'dark';
+  const theme = useMemo(
+    () =>
+      platformEnv.isNative
+        ? nativeListTheme
+        : {
+            ...nativeListTheme,
+            cautionBackground: componentTheme.bgCaution.val,
+            accent: componentTheme.focusRing.val,
+            rowPressedBackground: componentTheme.bgHover.val,
+            imageFallbackBackground: tableLayout
+              ? undefined
+              : componentTheme.gray5.val,
+          },
+    [nativeListTheme, componentTheme, tableLayout],
+  );
   const bottom = useScrollContentTabBarOffset();
   const { refreshing, onRefresh: triggerRefresh } = useHomeNativeRefresh();
   const [networkMetadataRetry, setNetworkMetadataRetry] = useState(0);
@@ -233,6 +266,7 @@ export function NativeHistoryList(props: IHomeHistoryListViewProps) {
   const {
     activeAccount: { network },
   } = useActiveAccount({ num: 0 });
+  const isAllNetworks = props.isAllNetworks ?? network?.isAllNetworks;
   const filtered = useMemo(
     () => getFilteredHistoryBySearchKey({ history: data, searchKey }),
     [data, searchKey],
@@ -319,7 +353,7 @@ export function NativeHistoryList(props: IHomeHistoryListViewProps) {
   // badges need an asynchronous lookup in the background runtime.
   const missingBadgeNetworkIds = useMemo(
     () =>
-      network?.isAllNetworks
+      isAllNetworks
         ? [
             ...new Set(
               filtered
@@ -332,7 +366,7 @@ export function NativeHistoryList(props: IHomeHistoryListViewProps) {
             ),
           ].toSorted()
         : [],
-    [filtered, localNetworkLogos, network?.isAllNetworks],
+    [filtered, localNetworkLogos, isAllNetworks],
   );
   const badgeRequestIdentity = JSON.stringify({
     scope: props.frozenTopIdentityKey,
@@ -393,9 +427,16 @@ export function NativeHistoryList(props: IHomeHistoryListViewProps) {
                   history.decodedTx.accountId,
                 ])
               ]?.vault?.isUtxo,
+            localWallet:
+              networkData?.[
+                JSON.stringify([
+                  history.decodedTx.networkId,
+                  history.decodedTx.accountId,
+                ])
+              ]?.vault?.localWallet,
             hideValue: effectiveHideValue,
             currency: settings.currencyInfo.symbol,
-            isAllNetworks: network?.isAllNetworks,
+            isAllNetworks,
             networkBadge: {
               logoURI:
                 localNetworkLogos[history.decodedTx.networkId] ||
@@ -416,7 +457,7 @@ export function NativeHistoryList(props: IHomeHistoryListViewProps) {
       fetchedBadges,
       effectiveHideValue,
       settings.currencyInfo.symbol,
-      network?.isAllNetworks,
+      isAllNetworks,
       theme.primaryText,
       theme.rowBackground,
     ],
@@ -515,8 +556,15 @@ export function NativeHistoryList(props: IHomeHistoryListViewProps) {
         const header: RowModel = {
           key: sectionKey,
           type: 'sectionHeader',
+          variant: platformEnv.isNative ? undefined : 'history',
           sectionKey,
-          height: (sectionIndex === 0 ? 32 : 52) + (pending ? 4 : 0),
+          height:
+            (sectionIndex === 0 ? 32 : 52) +
+            (pending && platformEnv.isNative ? 4 : 0),
+          // The header pairs its height with unscaled padding and lineHeight,
+          // so it must not take Android's legacy sub-400dp 0.9 scale (OK-66072).
+          heightRounding: 'nearest',
+          ...(!platformEnv.isNative ? { pressDisabled: true } : {}),
           titleLoading: pending,
           title: pending
             ? intl.formatMessage({ id: ETranslations.global_confirming })
@@ -558,8 +606,135 @@ export function NativeHistoryList(props: IHomeHistoryListViewProps) {
                   history.decodedTx.accountId,
                 ])
               ];
+            let leading = model.row.leading;
+            let secondaryLeading = model.row.secondaryLeading;
+            const amounts =
+              !platformEnv.isNative && tableLayout
+                ? model.row.amounts?.map((amount) =>
+                    amount.leading?.kind === 'token' && amount.leading.image
+                      ? {
+                          ...amount,
+                          leading: {
+                            ...amount.leading,
+                            backgroundColor: isDark
+                              ? componentTheme.neutral6Dark.val
+                              : componentTheme.bgApp.val,
+                            borderColor: isDark
+                              ? componentTheme.neutral2Dark.val
+                              : undefined,
+                          },
+                        }
+                      : amount,
+                  )
+                : model.row.amounts;
+            if (
+              !platformEnv.isNative &&
+              tableLayout &&
+              leading?.kind === 'token'
+            ) {
+              leading = {
+                ...leading,
+                backgroundColor: componentTheme.gray2.val,
+                borderColor: componentTheme.gray3.val,
+                fallbackIcon: leading.fallbackIcon
+                  ? {
+                      ...leading.fallbackIcon,
+                      tintColor: componentTheme.icon.val,
+                    }
+                  : undefined,
+              };
+            } else if (
+              !platformEnv.isNative &&
+              !tableLayout &&
+              leading?.kind === 'token' &&
+              leading.image &&
+              !model.row.secondaryLeading
+            ) {
+              leading = {
+                ...leading,
+                backgroundColor: isDark
+                  ? componentTheme.neutral6Dark.val
+                  : componentTheme.bgApp.val,
+                borderColor: isDark
+                  ? componentTheme.neutral2Dark.val
+                  : undefined,
+              };
+            } else if (
+              !platformEnv.isNative &&
+              !tableLayout &&
+              leading?.kind === 'icon'
+            ) {
+              leading = {
+                ...leading,
+                backgroundColor: componentTheme.gray5.val,
+                tintColor: componentTheme.iconSubdued.val,
+              };
+            } else if (
+              !platformEnv.isNative &&
+              !tableLayout &&
+              leading?.kind === 'token' &&
+              !leading.image &&
+              leading.fallbackIcon
+            ) {
+              leading = {
+                ...leading,
+                backgroundColor: isDark
+                  ? componentTheme.neutral6Dark.val
+                  : componentTheme.bgApp.val,
+                borderColor: isDark
+                  ? componentTheme.neutral2Dark.val
+                  : undefined,
+                fallbackIcon: {
+                  ...leading.fallbackIcon,
+                  tintColor: componentTheme.iconSubdued.val,
+                },
+              };
+            }
+            if (!platformEnv.isNative && !tableLayout && secondaryLeading) {
+              [leading, secondaryLeading] = [leading, secondaryLeading].map(
+                (source) =>
+                  source?.kind === 'token'
+                    ? {
+                        ...source,
+                        backgroundColor: isDark
+                          ? componentTheme.neutral6Dark.val
+                          : componentTheme.bgApp.val,
+                        borderColor: isDark
+                          ? componentTheme.neutral2Dark.val
+                          : undefined,
+                        fallbackIcon: source.fallbackIcon
+                          ? {
+                              ...source.fallbackIcon,
+                              tintColor: componentTheme.iconSubdued.val,
+                            }
+                          : undefined,
+                      }
+                    : source,
+              );
+            }
+            let height = model.row.height;
+            if (!platformEnv.isNative && !tableLayout) {
+              if (pending) {
+                height = pendingActions.get(history.id)?.length
+                  ? undefined
+                  : 60;
+              } else if (!showIcon) {
+                height = props.inTabList ? 68 : 60;
+              }
+            }
             return {
               ...model.row,
+              hideLeading: showIcon ? undefined : true,
+              height,
+              style: showIcon
+                ? model.row.style
+                : {
+                    ...model.row.style,
+                    verticalPadding: 8,
+                  },
+              leading,
+              secondaryLeading,
+              amounts,
               sectionKey,
               description,
               descriptionActionKey: badge ? 'address-info' : undefined,
@@ -621,46 +796,79 @@ export function NativeHistoryList(props: IHomeHistoryListViewProps) {
       networkData,
       pendingActions,
       tableLayout,
+      componentTheme,
+      isDark,
       effectiveHideValue,
+      showIcon,
+      props.inTabList,
       settings.currencyInfo.symbol,
     ],
   );
+  const rowStructure = useMemo(
+    () => JSON.stringify(rows.map((row) => row.key)),
+    [rows],
+  );
+  const [webGeneration, setWebGeneration] = useState({
+    structure: rowStructure,
+    generation: 1,
+  });
+  if (!platformEnv.isNative && webGeneration.structure !== rowStructure) {
+    // Commit structure and generation together, including interrupted renders.
+    setWebGeneration({
+      structure: rowStructure,
+      generation: webGeneration.generation + 1,
+    });
+  }
+  const generation = platformEnv.isNative ? 1 : webGeneration.generation;
   const snapshot = useMemo<NativeListSnapshot>(
     () => ({
       schemaVersion: 1,
-      generation: 1,
+      generation,
       layout: {
         kind: 'sectioned',
         stickyHeaders: false,
-        contentPaddingTop: 12,
-        contentPaddingBottom: bottom ?? 0,
+        contentPaddingTop: webContentPadding?.top ?? 12,
+        contentPaddingBottom: webContentPadding?.bottom ?? bottom ?? 0,
       },
       rows,
       theme,
       capabilities: {
-        pullToRefresh: true,
-        refreshing,
+        pullToRefresh: refreshEnabled,
+        refreshing: refreshEnabled && refreshing,
         refreshTriggerDistance: 65,
-        loadMore: !!onEndReached && !!hasMore && !isLoadingMore,
+        loadMore:
+          webScrollHost === undefined &&
+          !!onEndReached &&
+          !!hasMore &&
+          !isLoadingMore,
         endReachedThreshold: props.onEndReachedThreshold ?? 0.2,
       },
     }),
     [
       rows,
+      generation,
       theme,
       bottom,
+      webContentPadding,
       refreshing,
+      refreshEnabled,
       onEndReached,
       hasMore,
       isLoadingMore,
       props.onEndReachedThreshold,
+      webScrollHost,
     ],
   );
   const preparedSnapshot = useMemo(
     () => prepareHomeNativeListSnapshot(snapshot),
     [snapshot],
   );
-  const containerRef = useRef<View>(null);
+  const [webSnapshot, setWebSnapshot] = useState(preparedSnapshot);
+  if (!platformEnv.isNative && !isEqual(webSnapshot, preparedSnapshot)) {
+    // Equal Web refreshes must not invalidate an open row action anchor.
+    setWebSnapshot(preparedSnapshot);
+  }
+  const containerRef = useRef<ViewInstance>(null);
   const listRef = useRef<NativeListRef>(null);
   const [addressInfo, setAddressInfo] = useState<{
     address: string;
@@ -742,7 +950,19 @@ export function NativeHistoryList(props: IHomeHistoryListViewProps) {
     props.tokenMap,
   ]);
   return (
-    <View ref={containerRef} style={{ flex: 1 }}>
+    <View
+      ref={containerRef}
+      style={
+        webScrollHost === undefined
+          ? { flex: 1 }
+          : {
+              flexGrow: 0,
+              flexShrink: 0,
+              // Match the legacy empty list's extent without moving its content.
+              marginBottom: rows.length ? 0 : -(webContentPadding?.top ?? 12),
+            }
+      }
+    >
       {filtered
         .filter(
           (history) =>
@@ -759,8 +979,13 @@ export function NativeHistoryList(props: IHomeHistoryListViewProps) {
         ref={listRef}
         onActionAnchorInvalidated={closeAddressInfo}
         testID="home-history-list"
-        style={{ flex: 1 }}
-        snapshot={preparedSnapshot}
+        style={
+          webScrollHost === undefined
+            ? { flex: 1 }
+            : { flexGrow: 0, flexShrink: 0 }
+        }
+        snapshot={platformEnv.isNative ? preparedSnapshot : webSnapshot}
+        webScrollHost={webScrollHost}
         listHeader={ListHeaderComponent}
         listEmpty={empty}
         listFooter={
@@ -776,16 +1001,22 @@ export function NativeHistoryList(props: IHomeHistoryListViewProps) {
             hasMore={hasMore}
           />
         }
-        onRefresh={onRefresh}
-        onEndReached={onEndReached}
+        onRefresh={refreshEnabled ? onRefresh : undefined}
+        onEndReached={webScrollHost === undefined ? onEndReached : undefined}
         onRowAction={handleRowAction}
-        scrollPositionThresholds={{
-          start: FREEZE_RELEASE_OFFSET,
-          end: FREEZE_ENGAGE_OFFSET,
-          enabled: frozenTopEnabled,
-        }}
-        onScrollPositionThresholdChange={({ isBeyondThreshold }) =>
-          onAwayFromTopChange(isBeyondThreshold)
+        scrollPositionThresholds={
+          platformEnv.isNative
+            ? {
+                start: FREEZE_RELEASE_OFFSET,
+                end: FREEZE_ENGAGE_OFFSET,
+                enabled: frozenTopEnabled && observeFrozenTop,
+              }
+            : undefined
+        }
+        onScrollPositionThresholdChange={
+          platformEnv.isNative && observeFrozenTop
+            ? ({ isBeyondThreshold }) => onAwayFromTopChange(isBeyondThreshold)
+            : undefined
         }
       />
       {addressInfo ? (

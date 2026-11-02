@@ -42,7 +42,7 @@ import {
 } from '@solana/web3.js';
 import BigNumber from 'bignumber.js';
 import bs58 from 'bs58';
-import { isEmpty, isNil } from 'lodash';
+import { chunk as chunkArray, isEmpty, isNil } from 'lodash';
 
 import { BLOCK_HASH_NOT_FOUND_ERROR_CODE } from '@onekeyhq/core/src/chains/sol/constants';
 import { parseToNativeTx } from '@onekeyhq/core/src/chains/sol/sdkSol/parse';
@@ -65,6 +65,8 @@ import {
   OneKeyInternalError,
   OneKeyLocalError,
 } from '@onekeyhq/shared/src/errors';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import {
   createSolanaTxDiagnosticContext,
   logSolanaTxDiagnostic,
@@ -95,6 +97,7 @@ import type {
   ISolanaTxDiagnosticContext,
 } from '@onekeyhq/shared/types/solanaTxDiagnostics';
 import type { ISwapTxInfo } from '@onekeyhq/shared/types/swap/types';
+import { EProtocolOfExchange } from '@onekeyhq/shared/types/swap/types';
 import type { IToken } from '@onekeyhq/shared/types/token';
 import {
   EDecodedTxActionType,
@@ -107,9 +110,11 @@ import type {
 } from '@onekeyhq/shared/types/tx';
 
 import { VaultBase } from '../../base/VaultBase';
+import { ESignedTxBroadcastStatus } from '../../types';
 
 import { KeyringExternal } from './KeyringExternal';
 import { KeyringHardware } from './KeyringHardware';
+import { KeyringHardwareKeystone } from './KeyringHardwareKeystone';
 import { KeyringHardwareLedger } from './KeyringHardwareLedger';
 import { KeyringHardwareTrezor } from './KeyringHardwareTrezor';
 import { KeyringHd } from './KeyringHd';
@@ -128,6 +133,15 @@ import {
 import { ClientCustomRpcSol } from './sdkSol/ClientCustomRpcSol';
 import ClientSol, { EParamsEncodings } from './sdkSol/ClientSol';
 import {
+  MPL_CORE_PROGRAM_ID,
+  buildMplCoreTransferInstruction,
+  decodeMplCoreTransferInstruction,
+  isMplCoreAssetFrozen,
+  parseMplCoreAssetAccount,
+  parseMplCoreCollectionAccount,
+} from './sdkSol/mplCore';
+import { getSolanaSwapRent } from './solanaRentUtils';
+import {
   inspectSolTxDiagnostic,
   withSolTxDiagnosticBlockhash,
 } from './solTxDiagnostics';
@@ -137,6 +151,7 @@ import {
   CREATE_TOKEN_ACCOUNT_RENT,
   TOKEN_AUTH_RULES_ID,
   canRefreshSolTxBlockhash,
+  getSolTxRecentBlockhash,
   isCustomProgram,
   isDurableNonceSolTx,
   masterEditionAddress,
@@ -149,6 +164,11 @@ import {
 } from './utils';
 
 import type { IBubblegumTransferDecoded } from './sdkSol/bubblegum';
+import type {
+  IMplCoreAssetInfo,
+  IMplCoreCollectionInfo,
+  IMplCoreTransferDecoded,
+} from './sdkSol/mplCore';
 import type {
   IAssociatedTokenInfo,
   IDasAsset,
@@ -178,15 +198,37 @@ import type { AccountInfo, TransactionInstruction } from '@solana/web3.js';
 import type { FailedAttemptError } from 'p-retry';
 
 // A pending Solana tx that never reached the ledger leaves no signature
-// status. Its blockhash lives ~150 slots (60-90 s) and the broadcast retries
-// add up to ~45 s more, so an unseen tx older than this window is dropped.
+// status. Its blockhash lives 150 blocks (~30 s at 200 ms slots, up to ~60 s
+// on slower cadences) and the broadcast retries add a few seconds more, so an
+// unseen tx older than this window is dropped.
 const SOL_PENDING_TX_DROPPED_TIMEOUT_MS = timerUtils.getTimeDurationMs({
   minute: 3,
 });
 // Preflight rejection text shared by the proxy (code 40028) and custom RPCs.
 const SOL_BLOCKHASH_NOT_FOUND_MESSAGE = 'Blockhash not found';
-// TODO(OK-63381): move to an ETranslations key once the copy lands in Lokalise.
-const SOL_TX_EXPIRED_MESSAGE = 'Transaction expired, please try again.';
+// A fresh blockhash can trail a lagging node by a slot or two, which clears in
+// a few seconds; an expired one never comes back. Two retries cover the lag
+// case without making the user wait a minute for a verdict that was already
+// final on the first attempt.
+const SOL_BLOCKHASH_NOT_FOUND_MAX_RETRY_ATTEMPTS = 2;
+// getSignatureStatuses accepts at most 256 signatures per request.
+const SOL_SIGNATURE_STATUSES_MAX_PER_CALL = 256;
+// Wall-clock fallback for the broadcast status check when the node cannot
+// answer isBlockhashValid: a blockhash lives 150 blocks (~30-60 s at any
+// cadence the cluster has run at), so an unseen signature this much older
+// than its broadcast attempt can never land unless the chain has halted.
+const SOL_SIGNED_TX_MAX_VALIDITY_MS = timerUtils.getTimeDurationMs({
+  minute: 10,
+});
+// Hard cap on one status check, measured from its start. A node that keeps
+// reporting the blockhash valid for this long is broken; give up with an
+// error rather than guess either way.
+const SOL_BROADCAST_STATUS_MAX_WAIT_MS = timerUtils.getTimeDurationMs({
+  minute: 10,
+});
+const SOL_BROADCAST_STATUS_POLL_INTERVAL_MS = timerUtils.getTimeDurationMs({
+  seconds: 2,
+});
 
 function isSolBlockhashNotFoundError(error: unknown): boolean {
   return (
@@ -202,13 +244,18 @@ function isSolBlockhashNotFoundError(error: unknown): boolean {
 
 // Both broadcast paths surface the raw node text ("Error JSON RPC response:
 // Transaction simulation failed: Blockhash not found"); replace it with the
-// user-facing copy while keeping the code the retry check matches on.
+// user-facing copy while keeping the code the retry check matches on. Solana
+// mainnet runs 200 ms slots since 2026-10-09, so a blockhash is only valid for
+// ~30 s; hardware/QR signing slower than that lands here, and the copy tells
+// the user to confirm faster next time.
 function normalizeSolBroadcastError(error: unknown): unknown {
   if (!isSolBlockhashNotFoundError(error)) {
     return error;
   }
   return new OneKeyLocalError({
-    message: SOL_TX_EXPIRED_MESSAGE,
+    message: appLocale.intl.formatMessage({
+      id: ETranslations.wallet_sol_tx_expired__msg,
+    }),
     code: BLOCK_HASH_NOT_FOUND_ERROR_CODE,
   });
 }
@@ -245,6 +292,7 @@ export default class Vault extends VaultBase {
     hw: KeyringHardware,
     hwLedger: KeyringHardwareLedger,
     hwTrezor: KeyringHardwareTrezor,
+    hwKeystone: KeyringHardwareKeystone,
     imported: KeyringImported,
     watching: KeyringWatching,
     external: KeyringExternal,
@@ -271,7 +319,14 @@ export default class Vault extends VaultBase {
     ({ err?: unknown; confirmationStatus?: string | null } | null)[] | undefined
   > {
     const client = await this.getClient();
-    return client.getSignatureStatuses(signatures);
+    // The RPC rejects more than 256 signatures per call; batch and keep the
+    // caller's order so the result still lines up with the input.
+    const batches = await Promise.all(
+      chunkArray(signatures, SOL_SIGNATURE_STATUSES_MAX_PER_CALL).map((batch) =>
+        client.getSignatureStatuses(batch),
+      ),
+    );
+    return batches.flat();
   }
 
   override async buildAccountAddressDetail(
@@ -383,6 +438,32 @@ export default class Vault extends VaultBase {
               source,
               destination,
             })),
+          );
+          return instructions;
+        }
+        // Metaplex Core assets do have an on-chain account (so the cNFT guard
+        // lets them through) but no mint either; route them before any
+        // token-program lookup.
+        const mplCoreAsset = await this._resolveMplCoreAsset({
+          assetId: tokenAddress,
+        });
+        if (mplCoreAsset) {
+          // Collection-level plugins (permanent freeze, external adapters)
+          // apply to every asset in the collection.
+          const mplCoreCollection =
+            mplCoreAsset.updateAuthority.type === 'collection'
+              ? await this._resolveMplCoreCollection({
+                  address: mplCoreAsset.updateAuthority.address,
+                })
+              : null;
+          instructions.push(
+            ...this._buildMplCoreNFTInstructions({
+              asset: mplCoreAsset,
+              collection: mplCoreCollection,
+              assetId: new PublicKey(tokenAddress),
+              source,
+              destination,
+            }),
           );
           return instructions;
         }
@@ -849,6 +930,81 @@ export default class Vault extends VaultBase {
     return { ...unsignedTx, encodedTx, solanaTxDiagnostic };
   }
 
+  override async checkSignedTxBroadcastStatus({
+    signedTx,
+    attemptedAt,
+  }: {
+    signedTx: ISignedTxPro;
+    attemptedAt: number;
+  }): Promise<ESignedTxBroadcastStatus> {
+    const { txid } = signedTx;
+    if (!txid) {
+      return ESignedTxBroadcastStatus.Unknown;
+    }
+    const nativeTx =
+      typeof signedTx.encodedTx === 'string'
+        ? parseToNativeTx(signedTx.encodedTx)
+        : undefined;
+    // A durable-nonce tx never expires, and a re-sign of it is
+    // byte-identical anyway, so there is no verdict to wait for.
+    if (nativeTx && isDurableNonceSolTx(nativeTx)) {
+      return ESignedTxBroadcastStatus.Unknown;
+    }
+    const blockhash = nativeTx ? getSolTxRecentBlockhash(nativeTx) : undefined;
+    const client = await this.getClient();
+    const startedAt = Date.now();
+    for (;;) {
+      // The lookup searches transaction history, so `null` only means the
+      // signature has not reached the ledger yet: it may still be in flight
+      // on a node ahead of this one, so keep asking until its blockhash is
+      // gone.
+      const [status] = (await this.getSignatureStatuses([txid])) ?? [];
+      if (status) {
+        // A tx that executed with an error consumed its signature; a fresh
+        // one cannot pay twice.
+        return isNil(status.err)
+          ? ESignedTxBroadcastStatus.Broadcast
+          : ESignedTxBroadcastStatus.NotBroadcast;
+      }
+      // The node's own view of the blockhash is the verdict; the wall clock
+      // only decides when the node cannot answer, because block time, not
+      // elapsed time, is what expires a blockhash.
+      let isBlockhashStillValid: boolean | undefined;
+      if (blockhash) {
+        try {
+          isBlockhashStillValid = await client.isBlockhashValid(blockhash);
+        } catch (error) {
+          console.error(
+            'SOL checkSignedTxBroadcastStatus: isBlockhashValid failed',
+            error,
+          );
+        }
+      }
+      if (isBlockhashStillValid === false) {
+        return ESignedTxBroadcastStatus.NotBroadcast;
+      }
+      if (
+        isBlockhashStillValid === undefined &&
+        Date.now() - attemptedAt >= SOL_SIGNED_TX_MAX_VALIDITY_MS
+      ) {
+        return ESignedTxBroadcastStatus.NotBroadcast;
+      }
+      if (Date.now() - startedAt >= SOL_BROADCAST_STATUS_MAX_WAIT_MS) {
+        throw new OneKeyLocalError(
+          'Solana broadcast status is still unknown; try again later',
+        );
+      }
+      await timerUtils.wait(SOL_BROADCAST_STATUS_POLL_INTERVAL_MS);
+    }
+  }
+
+  override async isSignedTxRejectedByBroadcast(
+    error: unknown,
+  ): Promise<boolean> {
+    // Preflight refused the payload, so no node ever held it.
+    return isSolBlockhashNotFoundError(error);
+  }
+
   override async getDroppedPendingTxs({
     pendingTxs,
   }: {
@@ -1175,6 +1331,102 @@ export default class Vault extends VaultBase {
     }
 
     return [instruction];
+  }
+
+  // Returns the parsed Core asset when `assetId` is an account owned by the
+  // Metaplex Core program; null for anything else (SPL mint, missing account).
+  async _resolveMplCoreAsset({
+    assetId,
+  }: {
+    assetId: string;
+  }): Promise<IMplCoreAssetInfo | null> {
+    const client = await this.getClient();
+    const accountInfo = await client.getAccountInfo({
+      address: assetId,
+      encoding: EParamsEncodings.BASE64,
+    });
+    if (
+      !accountInfo ||
+      accountInfo.owner.toString() !== MPL_CORE_PROGRAM_ID.toBase58()
+    ) {
+      return null;
+    }
+    return parseMplCoreAssetAccount(Buffer.from(accountInfo.data[0], 'base64'));
+  }
+
+  // Returns the parsed collection when `address` is a CollectionV1 account
+  // owned by the Core program; null when it is missing, in which case the
+  // program reports the problem itself.
+  async _resolveMplCoreCollection({
+    address,
+  }: {
+    address: string;
+  }): Promise<IMplCoreCollectionInfo | null> {
+    const client = await this.getClient();
+    const accountInfo = await client.getAccountInfo({
+      address,
+      encoding: EParamsEncodings.BASE64,
+    });
+    if (
+      !accountInfo ||
+      accountInfo.owner.toString() !== MPL_CORE_PROGRAM_ID.toBase58()
+    ) {
+      return null;
+    }
+    return parseMplCoreCollectionAccount(
+      Buffer.from(accountInfo.data[0], 'base64'),
+    );
+  }
+
+  _buildMplCoreNFTInstructions({
+    asset,
+    collection,
+    assetId,
+    source,
+    destination,
+  }: {
+    asset: IMplCoreAssetInfo;
+    // The asset's collection when its update authority is one; collection
+    // plugins apply to the asset as well.
+    collection: IMplCoreCollectionInfo | null;
+    assetId: PublicKey;
+    source: PublicKey;
+    destination: PublicKey;
+  }): TransactionInstruction[] {
+    if (asset.owner !== source.toString()) {
+      throw new OneKeyLocalError(
+        'Metaplex Core NFT is not owned by the sender',
+      );
+    }
+    // Marketplace listings and staking freeze the asset inside the wallet;
+    // the program rejects the transfer, so fail before anything is signed.
+    if (isMplCoreAssetFrozen({ asset, collection })) {
+      throw new OneKeyLocalError(
+        'Metaplex Core NFT is frozen and cannot be transferred',
+      );
+    }
+    // Oracle / LifecycleHook adapters need extra accounts appended to
+    // TransferV1 that this wallet does not derive; without them the program
+    // rejects the transfer, so refuse up front instead of at simulation.
+    if (
+      asset.hasExternalTransferPlugin ||
+      collection?.hasExternalTransferPlugin
+    ) {
+      throw new OneKeyLocalError(
+        'Metaplex Core NFT with an Oracle or lifecycle hook plugin is not supported yet',
+      );
+    }
+    return [
+      buildMplCoreTransferInstruction({
+        asset: assetId,
+        collection:
+          asset.updateAuthority.type === 'collection'
+            ? new PublicKey(asset.updateAuthority.address)
+            : null,
+        payer: source,
+        newOwner: destination,
+      }),
+    ];
   }
 
   async _getAssociatedTokenAddress({
@@ -1538,16 +1790,10 @@ export default class Vault extends VaultBase {
     },
   );
 
-  async _extractATADetailsFromEncodedTx(
-    encodedTx: IEncodedTxSol,
+  async _extractATADetailsFromInstructions(
+    instructions: TransactionInstruction[],
   ): Promise<IATADetails[]> {
     const ataDetails: IATADetails[] = [];
-    const nativeTx = parseToNativeTx(encodedTx) as INativeTxSol;
-    const client = await this.getClient();
-    const { instructions } = await parseNativeTxDetail({
-      nativeTx,
-      client,
-    });
 
     // Track ATAs created in this transaction for quick lookup
     const createdAta: Record<string, IATADetails> = {};
@@ -1684,6 +1930,24 @@ export default class Vault extends VaultBase {
         // Metaplex set, so any other instruction (burn, delegate, ...) would
         // otherwise be dropped silently; treat it as custom so the tx falls
         // back to the server-parsed UNKNOWN view instead.
+        hasCustomProgram = true;
+      }
+
+      const mplCoreTransfer = decodeMplCoreTransferInstruction(instruction);
+      const mplCoreAction = mplCoreTransfer
+        ? await this._buildMplCoreNFTTransferAction({
+            transfer: mplCoreTransfer,
+            amountToSend,
+          })
+        : null;
+      if (mplCoreAction) {
+        actions.push(mplCoreAction);
+        // eslint-disable-next-line no-continue
+        continue;
+      }
+      if (instruction.programId.equals(MPL_CORE_PROGRAM_ID)) {
+        // Same rule as Bubblegum: only a TransferV1 whose asset owner can be
+        // established is decoded locally.
         hasCustomProgram = true;
       }
 
@@ -1944,6 +2208,71 @@ export default class Vault extends VaultBase {
     });
   }
 
+  // TransferV1 only names the signing authority, which is a Transfer Delegate
+  // rather than the owner when someone else's asset is moved, so the sender
+  // is read from the asset itself. Returns null when the owner cannot be
+  // established; the caller then leaves the tx to the server-parsed view
+  // instead of guessing from the signer.
+  async _buildMplCoreNFTTransferAction({
+    transfer,
+    amountToSend,
+  }: {
+    transfer: IMplCoreTransferDecoded;
+    amountToSend: string | undefined;
+  }): Promise<IDecodedTxAction | null> {
+    let owner: string | undefined;
+    let name = '';
+    let symbol = '';
+    let icon = '';
+    try {
+      const client = await this.getClient();
+      try {
+        const asset = await client.getAsset(transfer.asset);
+        owner = asset.ownership?.owner;
+        name = asset.content?.metadata?.name ?? '';
+        symbol = asset.content?.metadata?.symbol ?? name;
+        icon = asset.content?.links?.image ?? '';
+      } catch {
+        // DAS unavailable: the on-chain account is read below.
+      }
+      if (!owner) {
+        const accountInfo = await client.getAccountInfo({
+          address: transfer.asset,
+          encoding: EParamsEncodings.BASE64,
+        });
+        if (accountInfo) {
+          const parsed = parseMplCoreAssetAccount(
+            Buffer.from(accountInfo.data[0], 'base64'),
+          );
+          owner = parsed.owner;
+          name = name || parsed.name;
+          symbol = symbol || parsed.name;
+        }
+      }
+    } catch {
+      // Neither source reachable: `owner` stays unset.
+    }
+    if (!owner) {
+      return null;
+    }
+    const transferInfo: IDecodedTxTransferInfo = {
+      from: owner,
+      to: transfer.newOwner,
+      tokenIdOnNetwork: transfer.asset,
+      icon,
+      name,
+      symbol,
+      amount: amountToSend ?? '1',
+      isNFT: true,
+      NFTType: ENFTType.ERC721,
+    };
+    return this.buildTxTransferAssetAction({
+      from: owner,
+      to: transfer.newOwner,
+      transfers: [transferInfo],
+    });
+  }
+
   override async buildUnsignedTx(
     params: IBuildUnsignedTxParams,
   ): Promise<IUnsignedTxPro> {
@@ -2024,8 +2353,17 @@ export default class Vault extends VaultBase {
       }
     }
 
-    // Extract ATA details from the encoded transaction for hardware signing
-    const ataDetails = await this._extractATADetailsFromEncodedTx(newEncodedTx);
+    const client = await this.getClient();
+    const { instructions } = await parseNativeTxDetail({
+      nativeTx: parseToNativeTx(newEncodedTx) as INativeTxSol,
+      client,
+    });
+    const ataDetails =
+      await this._extractATADetailsFromInstructions(instructions);
+    const solanaRent =
+      swapInfo && swapInfo.protocol !== EProtocolOfExchange.PRIVATE_SEND
+        ? await getSolanaSwapRent({ instructions, accountAddress, client })
+        : undefined;
 
     return {
       payload: {
@@ -2033,6 +2371,7 @@ export default class Vault extends VaultBase {
         ataDetails: ataDetails.length > 0 ? ataDetails : undefined,
       },
       encodedTx: newEncodedTx,
+      solanaRent,
     };
   }
 
@@ -2436,7 +2775,11 @@ export default class Vault extends VaultBase {
     // slots behind rejects it transiently the same way the proxy does with
     // 40028; retry both alike.
     if (isSolBlockhashNotFoundError(error)) {
-      await timerUtils.wait((error?.attemptNumber || 1) * 1000);
+      const attemptNumber = error?.attemptNumber || 1;
+      if (attemptNumber > SOL_BLOCKHASH_NOT_FOUND_MAX_RETRY_ATTEMPTS) {
+        return false;
+      }
+      await timerUtils.wait(attemptNumber * 1000);
       return true;
     }
     return false;

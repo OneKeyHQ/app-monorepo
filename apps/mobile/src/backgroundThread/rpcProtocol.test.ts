@@ -1,10 +1,17 @@
+import { OneKeyServerApiError } from '@onekeyhq/shared/src/errors';
+import {
+  getBroadcastTxContext,
+  withBroadcastTxContext,
+} from '@onekeyhq/shared/src/errors/utils/broadcastTxErrorUtils';
 import { isOneKeyHardwareError } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
+import { toPlainErrorObject } from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import {
   LOCAL_SECRET_ENVELOPE_CREDENTIAL_ERROR_DATA_TYPE,
   LOCAL_SECRET_ENVELOPE_ERROR_DATA_TYPE_FIELD,
 } from '@onekeyhq/shared/src/errors/utils/localSecretEnvelopeErrorData';
 
 import {
+  buildBackgroundThreadErrorResponse,
   buildSafeBackgroundThreadErrorData,
   parseBackgroundThreadJotaiStateBroadcastBatchPayload,
   parseBackgroundThreadMainCapabilitiesPayload,
@@ -15,6 +22,49 @@ import {
 } from './rpcProtocol';
 
 describe('background thread RPC protocol', () => {
+  it('preserves Zcash runtime payloads across response serialization', () => {
+    const error = Object.assign(new Error('INSUFFICIENT_FUNDS'), {
+      code: 'INSUFFICIENT_FUNDS',
+      payload: {
+        code: 'INSUFFICIENT_FUNDS',
+        params: { shortfallZat: 20_000 },
+        detail: 'proposal failed',
+      },
+    });
+
+    const response = parseBackgroundThreadResponse(
+      serializeBackgroundThreadResponse(
+        buildBackgroundThreadErrorResponse(error),
+      ),
+    );
+
+    expect(response?.error).toMatchObject({
+      message: 'INSUFFICIENT_FUNDS',
+      code: 'INSUFFICIENT_FUNDS',
+      payload: error.payload,
+    });
+  });
+
+  it('preserves flat keys-runtime diagnostics without a payload wrapper', () => {
+    const error = Object.assign(new Error('PCZT_SIGN_FAILED'), {
+      code: 'PCZT_SIGN_FAILED',
+      params: { missingSignatures: 1 },
+      detail: 'one action was not signed',
+    });
+
+    const response = parseBackgroundThreadResponse(
+      serializeBackgroundThreadResponse(
+        buildBackgroundThreadErrorResponse(error),
+      ),
+    );
+
+    expect(response?.error).toMatchObject({
+      code: 'PCZT_SIGN_FAILED',
+      params: error.params,
+      detail: error.detail,
+    });
+  });
+
   it('preserves hardware error identity across response serialization', () => {
     const payload = {
       connectId: 'CE:1F:0C:F1:CA:A9',
@@ -63,6 +113,68 @@ describe('background thread RPC protocol', () => {
       [LOCAL_SECRET_ENVELOPE_ERROR_DATA_TYPE_FIELD]:
         LOCAL_SECRET_ENVELOPE_CREDENTIAL_ERROR_DATA_TYPE,
     });
+  });
+
+  it('round-trips only the broadcast identity from background error data', () => {
+    const context = { networkId: 'evm--46630', txId: `0x${'a'.repeat(64)}` };
+    const error = withBroadcastTxContext(
+      new OneKeyServerApiError({
+        message: 'Nonce already used',
+        code: 40_024,
+        requestId: 'request-1',
+        data: { rawTx: 'must-not-cross', request: { headers: 'private' } },
+      }),
+      context,
+    );
+    const plain = toPlainErrorObject(error);
+    const response = parseBackgroundThreadResponse(
+      serializeBackgroundThreadResponse({
+        ok: false,
+        error: {
+          ...plain,
+          name: error.name,
+          message: error.message,
+          data: buildSafeBackgroundThreadErrorData(plain.data),
+        },
+      }),
+    );
+
+    expect(response?.error?.data).toEqual({ $$broadcastTxContext: context });
+    expect(response?.error).toMatchObject({
+      message: error.message,
+      code: 40_024,
+      requestId: 'request-1',
+      className: error.className,
+    });
+    expect(getBroadcastTxContext(response?.error, context.networkId)).toEqual(
+      context,
+    );
+  });
+
+  it('drops invalid broadcast identities and arbitrary nested context fields', () => {
+    expect(
+      buildSafeBackgroundThreadErrorData({
+        $$broadcastTxContext: { networkId: 'evm--1', txId: '0xshort' },
+      }),
+    ).toBeUndefined();
+    const context = { networkId: 'evm--1', txId: `0x${'a'.repeat(64)}` };
+    expect(
+      buildSafeBackgroundThreadErrorData({
+        $$broadcastTxContext: { ...context, rawTx: 'must-not-cross' },
+      }),
+    ).toEqual({ $$broadcastTxContext: context });
+  });
+
+  it('keeps the privacy runtime failure marker from background error data', () => {
+    expect(
+      buildSafeBackgroundThreadErrorData({
+        privacyChainRuntimeFailure: 'handshake',
+        detail: 'must-not-cross',
+      }),
+    ).toEqual({ privacyChainRuntimeFailure: 'handshake' });
+    expect(
+      buildSafeBackgroundThreadErrorData({ privacyChainRuntimeFailure: 1 }),
+    ).toBeUndefined();
   });
 
   it('drops non-LSE background error data before serialization', () => {

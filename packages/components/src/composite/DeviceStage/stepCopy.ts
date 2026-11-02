@@ -2,13 +2,18 @@ import type { ComponentProps } from 'react';
 
 import { TREZOR_THP_APP_NAME } from '@onekeyhq/shared/src/hardware/trezorThpIdentity';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import type { IDeviceStageErrorI18n } from '@onekeyhq/shared/types/deviceStage';
+import type {
+  IDeviceStageErrorI18n,
+  IDeviceStageOpenAppReasonValue,
+  IDeviceStageQrFallbackReasonValue,
+} from '@onekeyhq/shared/types/deviceStage';
 
 import type {
   IAuthFailureReason,
   IDeviceStageConnectionType,
   IDeviceStageErrorReason,
   IDeviceStageStep,
+  IDeviceStageVendor,
 } from './type';
 import type { HardwareDevice } from '../../content/HardwareDevice';
 import type { IKeyOfIcons } from '../../primitives';
@@ -276,6 +281,10 @@ export const STEP_TEXT: Record<
     title: ETranslations.hardware_third_party_btc_high_index_confirm_title,
     sub: ETranslations.device_stage_btc_high_index__desc,
   },
+  qrFallback: {
+    title: ETranslations.qr_connection_cta,
+    sub: ETranslations.hardware_third_party_qr_fallback__desc,
+  },
   installConfirm: { title: ETranslations.device_stage_install_app__title },
   installing: {
     title: ETranslations.device_stage_install_app__title,
@@ -289,9 +298,10 @@ export const STEP_TEXT: Record<
 
 /** The vendors' display names, for the cards that address the brand.
  * Brand names, not translations. */
-export const VENDOR_LABEL: Record<'ledger' | 'trezor', string> = {
+export const VENDOR_LABEL: Record<IDeviceStageVendor, string> = {
   ledger: 'Ledger',
   trezor: 'Trezor',
+  keystone: 'Keystone',
 };
 
 /** `connecting` worn by the vendor track: the board's own label — the
@@ -318,7 +328,7 @@ export function resolvePairingCodeText(intl: IntlShape): {
 /** `deviceNotFound`'s words, addressed to the brand. */
 export function resolveDeviceNotFoundText(
   intl: IntlShape,
-  vendor?: 'ledger' | 'trezor',
+  vendor?: IDeviceStageVendor,
 ): {
   title: string;
   sub: string;
@@ -349,6 +359,64 @@ export function resolveBtcHighIndexSub(
     { id: ETranslations.hardware_third_party_btc_high_index_confirm_desc },
     { accountIndex: accountIndex ?? '', path: path ?? '' },
   );
+}
+
+/** `qrFallback` for a connected Keystone the wallet cannot use: what is
+ * wrong, then retry or QR. An oversized request keeps the step's words. */
+const QR_FALLBACK_UNUSABLE_USB_TEXT: Record<
+  Exclude<IDeviceStageQrFallbackReasonValue, 'payload-too-large'>,
+  { title: ETranslations; sub: ETranslations }
+> = {
+  'wallet-mismatch': {
+    title: ETranslations.hardware_third_party_device_mismatch,
+    sub: ETranslations.hardware_third_party_qr_fallback_wallet_mismatch__desc,
+  },
+  'device-locked': {
+    title: ETranslations.hardware_third_party_device_locked,
+    sub: ETranslations.hardware_third_party_qr_fallback_device_locked__desc,
+  },
+  'usb-unavailable': {
+    title: ETranslations.settings_unable_to_connect,
+    sub: ETranslations.hardware_third_party_qr_fallback_usb_unavailable__desc,
+  },
+};
+
+export function resolveQrFallbackText(
+  intl: IntlShape,
+  reason?: IDeviceStageQrFallbackReasonValue,
+): { title: string; sub: string } {
+  if (!reason || reason === 'payload-too-large') {
+    return {
+      title: intl.formatMessage({ id: STEP_TEXT.qrFallback.title }),
+      sub: resolveStepSub(intl, 'qrFallback'),
+    };
+  }
+  const text = QR_FALLBACK_UNUSABLE_USB_TEXT[reason];
+  return {
+    title: intl.formatMessage({ id: text.title }),
+    sub: intl.formatMessage({ id: text.sub }),
+  };
+}
+
+/** The openApp capsule's words while checking that the device holds this
+ * wallet: which app to open on which device. Undefined leaves the generic
+ * open-app label. */
+export function resolveWalletMatchOpenAppText(
+  intl: IntlShape,
+  reason?: IDeviceStageOpenAppReasonValue,
+  appName?: string,
+  vendor?: IDeviceStageVendor,
+): { title: string; sub: string } | undefined {
+  if (reason !== 'walletMatch' || !appName || !vendor) {
+    return undefined;
+  }
+  return {
+    title: intl.formatMessage(
+      { id: ETranslations.hardware_third_party_open_app_on_device__title },
+      { appName, device: VENDOR_LABEL[vendor] },
+    ),
+    sub: '',
+  };
 }
 
 /** The install steps' words around the app's name. Without a name the
@@ -477,6 +545,7 @@ export const SCENE_ANIMATION: Record<
   pairingCode: undefined,
   deviceNotFound: undefined,
   btcHighIndex: undefined,
+  qrFallback: undefined,
   installConfirm: undefined,
   installing: undefined,
   installBatch: undefined,
@@ -525,6 +594,7 @@ export const STEP_POSE: Record<
   pairingCode: 'card',
   deviceNotFound: 'card',
   btcHighIndex: 'card',
+  qrFallback: 'card',
   installConfirm: 'card',
   installing: 'card',
   installBatch: 'card',
@@ -599,7 +669,7 @@ export function resolveCapsuleText(
   intl: IntlShape,
   step: IDeviceStageStep,
   deviceName?: string,
-  vendor?: 'ledger' | 'trezor',
+  vendor?: IDeviceStageVendor,
   errorReason?: IDeviceStageErrorReason,
   errorMessage?: string,
   stalledOn?: IDeviceStageConnectionType,

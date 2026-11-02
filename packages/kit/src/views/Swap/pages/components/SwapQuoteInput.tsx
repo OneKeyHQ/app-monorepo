@@ -1,4 +1,4 @@
-import { memo, useCallback } from 'react';
+import { memo, useCallback, useId } from 'react';
 
 import { IconButton, Stack, YStack } from '@onekeyhq/components';
 import {
@@ -13,7 +13,10 @@ import {
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import { validateAmountInput } from '@onekeyhq/kit/src/utils/validateAmountInput';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { ESwapDirectionType } from '@onekeyhq/shared/types/swap/types';
+import {
+  ESwapDirectionType,
+  SwapAmountInputAccessoryViewID,
+} from '@onekeyhq/shared/types/swap/types';
 
 import { useSwapFromAccountNetworkSync } from '../../hooks/useSwapAccount';
 import { useSwapLimitPriceCheck } from '../../hooks/useSwapPro';
@@ -35,6 +38,9 @@ const SwapQuoteInput = ({
   onBalanceMaxPress,
   onSelectPercentageStage,
 }: ISwapQuoteInputProps) => {
+  const inputId = useId();
+  // Recycled native inputs need a new accessory ID when this pair mounts.
+  const inputAccessoryViewID = `${SwapAmountInputAccessoryViewID}-${inputId}`;
   const [fromInputAmount, setFromInputAmount] = useSwapFromTokenAmountAtom();
   const [toInputAmount, setToInputAmount] = useSwapToTokenAmountAtom();
   const { isQuotePresentationLoading } = useSwapQuoteProgressState();
@@ -60,6 +66,7 @@ const SwapQuoteInput = ({
   return (
     <YStack gap="$2">
       <SwapInputContainer
+        inputAccessoryViewID={inputAccessoryViewID}
         token={fromToken}
         direction={ESwapDirectionType.FROM}
         inputLoading={isQuotePresentationLoading}
@@ -109,6 +116,7 @@ const SwapQuoteInput = ({
         />
       </Stack>
       <SwapInputContainer
+        inputAccessoryViewID={inputAccessoryViewID}
         token={toToken}
         inputLoading={isQuotePresentationLoading}
         selectTokenLoading={selectLoading}

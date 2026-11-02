@@ -90,11 +90,23 @@ function makeService() {
     ),
   });
   const backgroundApi = {
+    simpleDb: {
+      broadcastRecords: {
+        getRecord: jest.fn().mockResolvedValue(undefined),
+        updateRecord: jest.fn().mockResolvedValue(undefined),
+      },
+    },
     serviceSignature: {
       addItemFromSendProcess: jest.fn().mockResolvedValue(undefined),
     },
     serviceHistory: {
       saveSendConfirmHistoryTxs: jest.fn().mockResolvedValue(undefined),
+    },
+    serviceDevSetting: {
+      getDevSetting: jest.fn().mockResolvedValue({ enabled: false }),
+    },
+    serviceDeFi: {
+      trackSubmittedDeFiTransaction: jest.fn(),
     },
   };
   const Ctor = ServiceSend as unknown as new (args: {
@@ -130,6 +142,96 @@ describe('ServiceSend.batchSignAndSendTransaction sentTxsTrackingId', () => {
     jest.clearAllMocks();
   });
 
+  test('tracks each broadcast DeFi action even when a later batch item fails', async () => {
+    const { service, backgroundApi, signAndSend } = makeService();
+    signAndSend
+      .mockImplementationOnce(async ({ unsignedTx }) =>
+        makeSignedTx(unsignedTx),
+      )
+      .mockRejectedValueOnce(new Error('device disconnected'));
+    const first = {
+      ...makeUnsignedTx('tx-1'),
+      payload: { defiActionInfo: {} },
+    } as unknown as IUnsignedTxPro;
+    const second = {
+      ...makeUnsignedTx('tx-2'),
+      payload: { defiActionInfo: {} },
+    } as unknown as IUnsignedTxPro;
+    await expect(
+      sendFromUi(service, {
+        accountId,
+        networkId,
+        unsignedTxs: [first, second],
+        signOnly: false,
+        transferPayload: undefined,
+      }),
+    ).rejects.toThrow('device disconnected');
+    expect(
+      backgroundApi.serviceDeFi.trackSubmittedDeFiTransaction,
+    ).toHaveBeenCalledTimes(1);
+    expect(
+      backgroundApi.serviceDeFi.trackSubmittedDeFiTransaction,
+    ).toHaveBeenCalledWith({
+      accountId,
+      networkId,
+      txid: 'txid-tx-1',
+    });
+  });
+
+  test('does not track a sign-only DeFi action', async () => {
+    const { service, backgroundApi } = makeService();
+    const unsignedTx = {
+      ...makeUnsignedTx('tx-1'),
+      payload: { defiActionInfo: {} },
+    } as unknown as IUnsignedTxPro;
+    await sendFromUi(service, {
+      accountId,
+      networkId,
+      unsignedTxs: [unsignedTx],
+      signOnly: true,
+      transferPayload: undefined,
+    });
+    expect(
+      backgroundApi.serviceDeFi.trackSubmittedDeFiTransaction,
+    ).not.toHaveBeenCalled();
+  });
+
+  test('starts settlement tracking after local pending history has been saved', async () => {
+    const { service, backgroundApi } = makeService();
+    let finishSave: (() => void) | undefined;
+    let notifySaveStarted: (() => void) | undefined;
+    const saveStarted = new Promise<void>((resolve) => {
+      notifySaveStarted = resolve;
+    });
+    backgroundApi.serviceHistory.saveSendConfirmHistoryTxs.mockImplementationOnce(
+      () =>
+        new Promise<void>((resolve) => {
+          finishSave = resolve;
+          notifySaveStarted?.();
+        }),
+    );
+    const unsignedTx = {
+      ...makeUnsignedTx('tx-1'),
+      payload: { defiActionInfo: {} },
+    } as unknown as IUnsignedTxPro;
+    const send = sendFromUi(service, {
+      accountId,
+      networkId,
+      unsignedTxs: [unsignedTx],
+      signOnly: false,
+      transferPayload: undefined,
+    });
+    await saveStarted;
+    expect(
+      backgroundApi.serviceDeFi.trackSubmittedDeFiTransaction,
+    ).not.toHaveBeenCalled();
+    finishSave?.();
+    await send;
+    expect(
+      backgroundApi.serviceDeFi.trackSubmittedDeFiTransaction,
+    ).toHaveBeenCalledTimes(1);
+  });
+
   test('retry skips txs broadcast by an earlier attempt', async () => {
     const { service, signAndSend } = makeService();
     signAndSend
@@ -156,6 +258,39 @@ describe('ServiceSend.batchSignAndSendTransaction sentTxsTrackingId', () => {
       'txid-tx-1',
       'txid-tx-2',
     ]);
+  });
+
+  test('retry with sent txs pruned still refreshes the first remaining tx', async () => {
+    const { service, signAndSend } = makeService();
+    const vault = (await (vaultFactory.getVault as unknown as jest.Mock)()) as {
+      refreshUnsignedTxBeforeBatchSign: jest.Mock;
+    };
+    signAndSend
+      .mockImplementationOnce(async ({ unsignedTx }) =>
+        makeSignedTx(unsignedTx),
+      )
+      .mockRejectedValueOnce(new Error('device disconnected'));
+    const params: IBatchParams = {
+      accountId,
+      networkId,
+      unsignedTxs: [makeUnsignedTx('tx-1'), makeUnsignedTx('tx-2')],
+      signOnly: false,
+      transferPayload: undefined,
+      sentTxsTrackingId: 'screen-1',
+    };
+
+    await expect(sendFromUi(service, params)).rejects.toThrow(
+      'device disconnected',
+    );
+    vault.refreshUnsignedTxBeforeBatchSign.mockClear();
+    // The page drops the recorded tx-1, so tx-2 is now the only tx
+    await sendFromUi(service, {
+      ...params,
+      unsignedTxs: [makeUnsignedTx('tx-2')],
+    });
+
+    expect(vault.refreshUnsignedTxBeforeBatchSign).toHaveBeenCalledTimes(1);
+    expect(sentUuids(signAndSend)).toEqual(['tx-1', 'tx-2', 'tx-2']);
   });
 
   test('retry after a lost response replays results without sending', async () => {
@@ -227,6 +362,54 @@ describe('ServiceSend.batchSignAndSendTransaction sentTxsTrackingId', () => {
     await expect(sendFromUi(service, params)).resolves.toEqual(result);
     expect(signAndSend).toHaveBeenCalledTimes(1);
     expect(saveSendConfirmHistoryTxs).toHaveBeenCalledTimes(2);
+  });
+
+  test('bulk send rebuild starts above the nonce of a broadcast-but-unrecorded tx', async () => {
+    const { service, backgroundApi } = makeService();
+    backgroundApi.serviceHistory.saveSendConfirmHistoryTxs.mockRejectedValueOnce(
+      new Error('history write failed'),
+    );
+    await expect(
+      sendFromUi(service, {
+        accountId,
+        networkId,
+        unsignedTxs: [{ ...makeUnsignedTx('tx-1'), nonce: 6 }],
+        signOnly: false,
+        transferPayload: undefined,
+        sentTxsTrackingId: 'screen-1',
+      }),
+    ).rejects.toThrow('history write failed');
+
+    Object.assign(backgroundApi, {
+      serviceNetwork: {
+        getVaultSettings: jest
+          .fn()
+          .mockResolvedValue({ bulkSendMaxTransfersPerTx: 200 }),
+      },
+      serviceAccount: {
+        getAccount: jest.fn().mockResolvedValue({ address: '0xfrom' }),
+      },
+    });
+    // The pending tx is neither on chain nor in history yet
+    jest.spyOn(service, 'getNextNonce').mockResolvedValue(6);
+    const prepare = jest
+      .spyOn(service, 'prepareSendConfirmUnsignedTx')
+      .mockImplementation(
+        async ({ prevNonce }) =>
+          ({ nonce: (prevNonce ?? -1) + 1 }) as IUnsignedTxPro,
+      );
+
+    const txs = await service.prepareBulkSendTransferTxs({
+      accountId,
+      networkId,
+      transfersInfo: makeUnsignedTx('tx-2').transfersInfo ?? [],
+      sentTxsTrackingId: 'screen-1',
+    });
+
+    expect(prepare).toHaveBeenCalledWith(
+      expect.objectContaining({ prevNonce: 6 }),
+    );
+    expect(txs.map((tx) => tx.nonce)).toEqual([7]);
   });
 
   test('tracking is scoped to its id and opt-in', async () => {

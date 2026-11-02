@@ -2,11 +2,12 @@
 
 import type { ReactNode } from 'react';
 
-import { EDeviceType } from '@onekeyfe/hd-shared';
+import { EDeviceType, HardwareErrorCode } from '@onekeyfe/hd-shared';
 import {
   act,
   fireEvent,
   render,
+  renderHook,
   screen,
   waitFor,
 } from '@testing-library/react';
@@ -15,6 +16,7 @@ import { Dialog } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { ICheckAllFirmwareReleaseResult } from '@onekeyhq/shared/types/device';
 
+import { usePrepareUSBConnectForFirmwareUpdate } from '../../Onboardingv2/hooks/usePrepareUSBConnectForFirmwareUpdate';
 import { FirmwareUpdateTestIDs } from '../testIDs';
 
 import { FirmwareChangeLogView } from './FirmwareChangeLogView';
@@ -82,6 +84,11 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
     serviceHardware: {
       detectUSBDeviceAvailability: (params: unknown) =>
         mockDetectUSBDeviceAvailability(params),
+      checkDeviceReachableForFirmwareUpdate: ({
+        connectId,
+      }: {
+        connectId: string;
+      }) => Promise.resolve(connectId),
     },
   },
 }));
@@ -132,10 +139,9 @@ jest.mock('../hooks/useFirmwareVersionValid', () => ({
 }));
 
 jest.mock('../utils', () => ({
-  getFirmwareUpdateUSBPreflightParams: async () => ({
-    connectId: 'usb-connect-id',
-    connectProtocol: undefined,
-  }),
+  getFirmwareUpdateUSBPreflightParams:
+    jest.requireActual<typeof import('../utils')>('../utils')
+      .getFirmwareUpdateUSBPreflightParams,
   getProtocolV2FirmwareVersionDisplayItems: () => [],
   getProtocolV2FirmwareVersionTitle: () => '',
   shouldHidePro2FirmwareDebugInfo: () => false,
@@ -173,6 +179,10 @@ jest.mock('./FirmwareUpdatePageLayout', () => {
       ),
   };
 });
+
+jest.mock('../../Onboardingv2/utils', () => ({
+  getDesktopForceUSBTransportType: async () => undefined,
+}));
 
 type IDialogShowProps = Parameters<typeof Dialog.show>[0];
 
@@ -458,6 +468,31 @@ describe('FirmwareChangeLogView desktop USB suggestion', () => {
       mockIsDesktop = true;
     });
 
+    it('shows the single-device warning before the checklist and allows retry', async () => {
+      mockDetectUSBDeviceAvailability.mockRejectedValueOnce({
+        $isHardwareError: true,
+        code: HardwareErrorCode.FirmwareUpdateLimitOneDevice,
+      });
+      const result = buildResult(EDeviceType.Classic1s);
+      render(<FirmwareChangeLogView result={result} />);
+      tapUpdateNow();
+      await waitFor(() =>
+        expect(mockDialogShow).toHaveBeenCalledWith(
+          expect.objectContaining({
+            description:
+              ETranslations.update_only_one_usb_device_supported_for_upgrade,
+            showCancelButton: false,
+          }),
+        ),
+      );
+      expect(mockShowCheckList).not.toHaveBeenCalled();
+      expect(mockSetStepInfo).not.toHaveBeenCalled();
+      tapUpdateNow();
+      await waitFor(() =>
+        expect(mockShowCheckList).toHaveBeenCalledWith({ result }),
+      );
+    });
+
     it('opens the checklist without the suggestion when USB is available', async () => {
       const result = buildResult(EDeviceType.Pro2);
       const onConfirmClick = jest.fn();
@@ -478,9 +513,77 @@ describe('FirmwareChangeLogView desktop USB suggestion', () => {
       expect(onConfirmClick).toHaveBeenCalledTimes(1);
     });
 
-    it('keeps the USB-required dialog when no USB device is found', async () => {
+    it('opens firmware recovery for a loader with a nonempty temporary path', async () => {
+      mockDetectUSBDeviceAvailability.mockImplementation(
+        async (params) =>
+          (params as { bootloaderRecoveryDeviceType?: EDeviceType })
+            .bootloaderRecoveryDeviceType === EDeviceType.Classic1s,
+      );
+      const result = {
+        ...buildResult(EDeviceType.Classic1s),
+        originalConnectId: '000000000000000000000000',
+        isBootloaderMode: true,
+        features: { mode: 'bootloader' },
+      } as ICheckAllFirmwareReleaseResult;
+      render(<FirmwareChangeLogView result={result} />);
+      tapUpdateNow();
+      await waitFor(() =>
+        expect(mockShowCheckList).toHaveBeenCalledWith({ result }),
+      );
+      expect(mockDetectUSBDeviceAvailability).toHaveBeenCalledWith({
+        connectId: result.originalConnectId,
+        connectProtocol: 'V1',
+        bootloaderRecoveryDeviceType: EDeviceType.Classic1s,
+      });
+      expect(mockDialogShow).not.toHaveBeenCalled();
+    });
+
+    it('prepares onboarding recovery for a loader with a nonempty temporary path', async () => {
+      mockDetectUSBDeviceAvailability.mockImplementation(
+        async (params) =>
+          (params as { bootloaderRecoveryDeviceType?: EDeviceType })
+            .bootloaderRecoveryDeviceType === EDeviceType.Classic1s,
+      );
+      const { result } = renderHook(() =>
+        usePrepareUSBConnectForFirmwareUpdate(),
+      );
+      await expect(
+        result.current.prepareUSBConnect({
+          device: {
+            connectId: '000000000000000000000000',
+            deviceType: EDeviceType.Classic1s,
+            uuid: '',
+            deviceId: null,
+            name: 'OneKey Classic 1S',
+            commType: 'webusb',
+          },
+          features: {
+            mode: 'bootloader',
+          } as ICheckAllFirmwareReleaseResult['features'],
+        }),
+      ).resolves.toMatchObject({ connectId: '000000000000000000000000' });
+      expect(mockDetectUSBDeviceAvailability).toHaveBeenCalledWith({
+        connectId: '000000000000000000000000',
+        connectProtocol: 'V1',
+        bootloaderRecoveryDeviceType: EDeviceType.Classic1s,
+      });
+      expect(mockDialogShow).not.toHaveBeenCalled();
+    });
+
+    it('requires the selected Pro 2 USB target before opening the checklist or install page', async () => {
       mockDetectUSBDeviceAvailability.mockResolvedValue(false);
-      render(<FirmwareChangeLogView result={buildResult(EDeviceType.Pro2)} />);
+      const onConfirmClick = jest.fn();
+      const result = {
+        ...buildResult(EDeviceType.Pro2),
+        originalConnectId: 'PRO2_BLE_ENDPOINT',
+        features: { serialNo: 'PRO2_TARGET_SERIAL' },
+      } as ICheckAllFirmwareReleaseResult;
+      render(
+        <FirmwareChangeLogView
+          result={result}
+          onConfirmClick={onConfirmClick}
+        />,
+      );
 
       tapUpdateNow();
       await waitFor(() => {
@@ -495,11 +598,12 @@ describe('FirmwareChangeLogView desktop USB suggestion', () => {
         showCancelButton: false,
       });
       expect(mockDetectUSBDeviceAvailability).toHaveBeenCalledWith({
-        connectId: 'usb-connect-id',
-        connectProtocol: undefined,
+        connectId: 'PRO2_TARGET_SERIAL',
+        connectProtocol: 'V2',
       });
       expect(mockSetStepInfo).not.toHaveBeenCalled();
       expect(mockShowCheckList).not.toHaveBeenCalled();
+      expect(onConfirmClick).not.toHaveBeenCalled();
     });
   });
 });

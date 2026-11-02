@@ -35,11 +35,9 @@ describe('TradingViewNative chart constants', () => {
     );
   });
 
-  it('uses the project monospace font for price-axis labels', () => {
+  it('uses a regular sans-serif font for price-axis labels', () => {
     expect(TRADING_VIEW_NATIVE_PRICE_AXIS_FONT_SIZE).toBe(11);
-    expect(TRADING_VIEW_NATIVE_PRICE_AXIS_FONT_FAMILY).toBe(
-      'GeistMono-Regular',
-    );
+    expect(TRADING_VIEW_NATIVE_PRICE_AXIS_FONT_FAMILY).toBe('sans-serif');
     expect(TRADING_VIEW_NATIVE_PRICE_AXIS_TEXT_BASELINE_OFFSET).toBe(-2);
   });
 

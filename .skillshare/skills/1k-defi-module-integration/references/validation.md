@@ -1,59 +1,41 @@
-# Earn / DeFi Validation
+# Prove The Changed DeFi Contract
 
-## Focused Checks
+Choose checks for the changed behavior; this is not a checklist to run in full
+for every task. Start with the reported transition and one adjacent path that
+shares its owner.
 
-Find tests beside the changed owner; do not rely on a frozen test list:
+## Find Focused Tests
+
+Search beside the actual owner, including lowercase utilities and background
+services:
 
 ```bash
 rg --files packages/kit packages/kit-bg packages/shared | \
-  rg '(Earn|DeFi|Borrow|Staking).*(test|spec)\.'
+  rg -i '(earn|defi|borrow|staking).*(test|spec)\.'
 yarn jest <focused-test-files> --runInBand
 ```
 
-Add a focused test when the changed identity resolver, setup/business
-sequence, terminal callback, stale-result guard, or persistence transition is
-not covered. Before committing product code, run:
+For an uncovered defect, add a test at the identity, merge, operation, or
+settlement boundary that could make the proposed fix fail. Follow `AGENTS.md`
+for commit/PR checks and the development skills for platform launch commands.
 
-```bash
-yarn agent:check --profile commit
-```
+## Match Evidence To The Change
 
-## Runtime Proof
+| Changed contract | A useful adversarial check |
+| --- | --- |
+| Account/product identity | Switch address derivation, account, network, or reserve while a request is pending; only the new scope may publish. |
+| Portfolio merge | Compare targeted/full refresh, explicit zero, partial error, and omitted data; unrelated positions remain intact. |
+| Approval/setup | Reopen after allowance changes; delay allowance after a successful receipt; separate setup completion from business success. |
+| Confirmation lifetime | Transfer from modal to confirmation, cancel, and reopen for another action; old results must not mutate the new action. |
+| Pending/replacement | Follow SpeedUp and Cancel through local pending and remote merge; operation locks and displayed action remain correct. |
+| Settlement/refresh | Confirm without opening History; observe the matching position settle, including first deposit, exit-to-zero, and delayed indexing. |
+| Funding return | Exercise success, failure, cancellation, and missing history; re-read balance before enabling the next step. |
+| Layout/navigation | Use the real host, first and settled frames, loading sections, repeated entry, and back/modal behavior. |
 
-Choose the real source entry and affected platform. Capture the layers that
-matter to the change:
+## Report The Proof Boundary
 
-- route params and account/network/provider identity
-- current position, supported action, and build payload
-- setup and business confirmation sequence
-- tx/order result, terminal status, pending/history state
-- refresh event/request and final visible position
-- restart or account-switch result when persistence/staleness is involved
-
-For native route or layout work, validate the Discovery host and real modal or
-bottom sheet. For extension/desktop/web, validate their actual dialog/route
-host. Element existence and a successful build response are not end-to-end
-proof.
-
-## Minimum Regression Set
-
-- the reported entry/action on its owning platform
-- one sibling action or protocol sharing the changed owner
-- cancel/failure or missing-data behavior
-- account/network change while a request is in flight, when applicable
-- refresh/pending/history agreement after success
-- setup reconciliation: reopen an approval-sensitive action after its chain
-  state changes and prove the current account/network/asset/spender scope is
-  re-read before enabling it
-- replacement lifecycle: follow a replacement through pending, remote merge,
-  and history; prove guards retain linkage while display/action classification
-  stays correct
-- capability and scope: distinguish unsupported, supported-but-disabled, and
-  enabled actions across account/network/provider/market identity
-- cache and refresh: exercise cached, empty, loading, error, and retry states;
-  preserve a complete visible snapshot and invalidate it when identity changes
-- platform and handoff: verify the account-scoped portfolio read model,
-  staged reward/action capabilities, and Market-to-Earn navigation on the
-  owning host
-
-Report checks actually run and any unavailable runtime or service evidence.
+For behavior involving transactions, capture the relevant request/build
+payload, tx/order result, status source, and refreshed position on the owning
+platform. Test data or static tracing can prove a branch or merge invariant;
+they cannot prove real signing, provider settlement, or native interaction.
+State which layers were exercised and which remain unverified.

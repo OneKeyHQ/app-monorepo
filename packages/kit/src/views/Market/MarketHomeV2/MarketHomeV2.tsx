@@ -1,10 +1,21 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
+import { findNodeHandle } from 'react-native';
 
-import { DelayedFreeze, Page, YStack, useMedia } from '@onekeyhq/components';
-import type { ITabContainerRef } from '@onekeyhq/components';
-import { useRouteIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
+import {
+  DelayedFreeze,
+  Page,
+  YStack,
+  isLiquidGlassAvailable,
+  useMedia,
+  useSafeAreaInsets,
+} from '@onekeyhq/components';
+import type { IAppPagerRef } from '@onekeyhq/kit/src/components/AppPager/types';
+import {
+  getRootRoutersLength,
+  useRouteIsFocused,
+} from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import {
   EJotaiContextStoreNames,
   useMarketSelectedTabAtom,
@@ -13,6 +24,7 @@ import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type { IMarketCategoryToSelectResult } from '@onekeyhq/shared/src/logger/scopes/market/scenes/navigation';
+import { useWindowControlsLeadingOffset } from '@onekeyhq/shared/src/modules/WindowControlsInsets';
 import { debugLandingLog } from '@onekeyhq/shared/src/performance/init';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
@@ -20,7 +32,9 @@ import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import { AccountSelectorProviderMirror } from '../../../components/AccountSelector';
 import { LazyPageContainer } from '../../../components/LazyPageContainer';
+import { TabletHomeContainer } from '../../../components/TabletHomeContainer';
 import { TabPageHeader } from '../../../components/TabPageHeader';
+import { LegacyUniversalSearchInput } from '../../../components/TabPageHeader/LegacyUniversalSearchInput';
 import { useWatchListV2Actions } from '../../../states/jotai/contexts/marketV2';
 import { useMarketBasicConfig } from '../hooks';
 import { resolveMarketHomeNetworkSelection } from '../hooks/marketNetworkUtils';
@@ -48,6 +62,7 @@ import {
 } from './utils';
 
 import type { ILiquidityFilter, IMarketCategoryItem } from './types';
+import type { ViewInstance } from 'react-native';
 
 markMarketPerf('market-home-module-eval');
 preloadMarketHomeTokenListSeed();
@@ -342,7 +357,13 @@ const useMarketHomeLayoutProps = () => {
   );
 };
 
-function MarketHomeLayoutContent() {
+function MarketHomeLayoutContent({
+  externalTopOverlayTag,
+  externalTopOverlayHeight,
+}: {
+  externalTopOverlayTag?: number;
+  externalTopOverlayHeight?: number;
+}) {
   const { isLoading: isBannerPending } = useMarketBannerState();
   markMarketPerf('market-home-base-layout-render');
   useMarketRenderCommitProbe('MarketHome.BaseLayout');
@@ -357,7 +378,11 @@ function MarketHomeLayoutContent() {
   ) {
     return (
       <LazyPageContainer eager={platformEnv.isWeb}>
-        {md || platformEnv.isNative ? <MarketHomeLoadingFallback /> : null}
+        {md || platformEnv.isNative ? (
+          <YStack flex={1} pt={externalTopOverlayHeight ?? 0}>
+            <MarketHomeLoadingFallback />
+          </YStack>
+        ) : null}
       </LazyPageContainer>
     );
   }
@@ -365,7 +390,13 @@ function MarketHomeLayoutContent() {
   return (
     <LazyPageContainer eager={platformEnv.isWeb}>
       {md || platformEnv.isNative ? (
-        <MobileLayout {...layoutProps} />
+        <MobileLayout
+          {...layoutProps}
+          isFocused={isFocused}
+          {...(platformEnv.isNativeIOS
+            ? { externalTopOverlayTag, externalTopOverlayHeight }
+            : {})}
+        />
       ) : (
         <DesktopLayout {...layoutProps} />
       )}
@@ -373,25 +404,130 @@ function MarketHomeLayoutContent() {
   );
 }
 
-function BaseMarketHomeLayout() {
+function BaseMarketHomeLayout({
+  externalTopOverlayTag,
+  externalTopOverlayHeight,
+}: {
+  externalTopOverlayTag?: number;
+  externalTopOverlayHeight?: number;
+}) {
   return (
     <MarketBannerProvider>
-      <MarketHomeLayoutContent />
+      <MarketHomeLayoutContent
+        externalTopOverlayTag={externalTopOverlayTag}
+        externalTopOverlayHeight={externalTopOverlayHeight}
+      />
     </MarketBannerProvider>
   );
 }
 
 function BaseMarketHome() {
   const isFocused = useRouteIsFocused();
+  const rootRoutersLength = getRootRoutersLength();
+  const focusedRootRoutersLengthRef = useRef(rootRoutersLength);
+  const ownsModalBackgroundRef = useRef(isFocused);
+  if (isFocused) {
+    ownsModalBackgroundRef.current = true;
+    focusedRootRoutersLengthRef.current = rootRoutersLength;
+  } else if (rootRoutersLength <= focusedRootRoutersLengthRef.current) {
+    ownsModalBackgroundRef.current = false;
+  }
+  // Root modals blur Market while its content remains visible underneath.
+  const isCoveredByModal =
+    ownsModalBackgroundRef.current &&
+    rootRoutersLength > focusedRootRoutersLengthRef.current;
+  const { top } = useSafeAreaInsets();
+  // The search row sits beside the iPadOS window controls.
+  // The row already keeps 20pt ($5 / $pagePadding) from the window edge.
+  const windowControlsOffset = useWindowControlsLeadingOffset(20);
+  const searchGlassActive = isLiquidGlassAvailable();
+  const scrollEdgeHeaderEnabled = Boolean(
+    platformEnv.isNativeIOS && searchGlassActive,
+  );
+  const headerRef = useRef<ViewInstance>(null);
+  const [headerHeight, setHeaderHeight] = useState(0);
+  const [headerTag, setHeaderTag] = useState(0);
+  const handleHeaderRef = useCallback((view: ViewInstance | null) => {
+    headerRef.current = view;
+    if (view === null) {
+      setHeaderTag(0);
+      setHeaderHeight(0);
+    }
+  }, []);
+  const headerReady =
+    scrollEdgeHeaderEnabled && headerHeight > 0 && headerTag > 0;
+  let searchTop = top;
+  if (platformEnv.isNativeAndroid) {
+    searchTop = top + 5;
+  } else if (searchGlassActive) {
+    searchTop = top + 6;
+  }
+
   return (
-    <Page>
-      <TabPageHeader
-        sceneName={EAccountSelectorSceneName.home}
-        tabRoute={ETabRoutes.Market}
-      />
+    <Page fullPage={platformEnv.isNative}>
+      {platformEnv.isNative ? (
+        <>
+          <Page.Header headerShown={false} />
+          <YStack
+            ref={handleHeaderRef}
+            collapsable={false}
+            onLayout={(event) => {
+              if (!scrollEdgeHeaderEnabled) return;
+              const tag = findNodeHandle(headerRef.current) ?? 0;
+              if (
+                tag <= 0 ||
+                !('target' in event.nativeEvent) ||
+                event.nativeEvent.target !== tag
+              ) {
+                return;
+              }
+              const height = event.nativeEvent.layout.height;
+              if (height > 0 && height !== headerHeight) {
+                setHeaderHeight(height);
+              }
+              if (tag > 0 && tag !== headerTag) {
+                setHeaderTag(tag);
+              }
+            }}
+            bg={headerReady ? undefined : '$bgApp'}
+            position={headerReady ? 'absolute' : undefined}
+            top={headerReady ? 0 : undefined}
+            left={headerReady ? 0 : undefined}
+            right={headerReady ? 0 : undefined}
+            zIndex={headerReady ? 10 : undefined}
+            pt={searchTop}
+            pb="$2"
+            px="$5"
+            width="100%"
+          >
+            <YStack pl={windowControlsOffset}>
+              <LegacyUniversalSearchInput
+                size="medium"
+                glass
+                initialTab="market"
+                tabRoute={ETabRoutes.Market}
+                containerProps={{
+                  width: '100%',
+                  $gtLg: undefined,
+                }}
+              />
+            </YStack>
+          </YStack>
+        </>
+      ) : (
+        <TabPageHeader
+          sceneName={EAccountSelectorSceneName.home}
+          tabRoute={ETabRoutes.Market}
+        />
+      )}
       <Page.Body testID={MarketTestIDs.marketPage}>
-        <DelayedFreeze freeze={!platformEnv.isNative && !isFocused}>
-          <BaseMarketHomeLayout />
+        <DelayedFreeze
+          freeze={!platformEnv.isNative && !isFocused && !isCoveredByModal}
+        >
+          <BaseMarketHomeLayout
+            externalTopOverlayTag={headerReady ? headerTag : undefined}
+            externalTopOverlayHeight={headerReady ? headerHeight : undefined}
+          />
         </DelayedFreeze>
       </Page.Body>
     </Page>
@@ -405,20 +541,22 @@ export function MarketHomeV2() {
     debugLandingLog('MarketHomeV2 render');
   }
   return (
-    <AccountSelectorProviderMirror
-      config={{
-        sceneName: EAccountSelectorSceneName.home,
-        sceneUrl: '',
-      }}
-      enabledNum={[0]}
-      waitForStorageReady={!platformEnv.isWeb}
-    >
-      <MarketWatchListProviderMirrorV2
-        storeName={EJotaiContextStoreNames.marketWatchListV2}
+    <TabletHomeContainer>
+      <AccountSelectorProviderMirror
+        config={{
+          sceneName: EAccountSelectorSceneName.home,
+          sceneUrl: '',
+        }}
+        enabledNum={[0]}
+        waitForStorageReady={!platformEnv.isWeb}
       >
-        <BaseMarketHome />
-      </MarketWatchListProviderMirrorV2>
-    </AccountSelectorProviderMirror>
+        <MarketWatchListProviderMirrorV2
+          storeName={EJotaiContextStoreNames.marketWatchListV2}
+        >
+          <BaseMarketHome />
+        </MarketWatchListProviderMirrorV2>
+      </AccountSelectorProviderMirror>
+    </TabletHomeContainer>
   );
 }
 
@@ -430,7 +568,7 @@ function BaseMarketHomeWithProvider({
   externalTopOverlayHeight,
 }: {
   isFocused?: boolean;
-  tabsRef?: React.RefObject<ITabContainerRef | null>;
+  tabsRef?: React.RefObject<IAppPagerRef | null>;
   nestedPager?: boolean;
   externalTopOverlayTag?: number;
   externalTopOverlayHeight?: number;
@@ -476,7 +614,7 @@ export function MarketHomeWithProvider({
   externalTopOverlayHeight,
 }: {
   isFocused?: boolean;
-  tabsRef?: React.RefObject<ITabContainerRef | null>;
+  tabsRef?: React.RefObject<IAppPagerRef | null>;
   nestedPager?: boolean;
   externalTopOverlayTag?: number;
   externalTopOverlayHeight?: number;

@@ -20,6 +20,7 @@ import {
   Stack,
   XStack,
   YStack,
+  useMedia,
 } from '@onekeyhq/components';
 import { getSharedInputStyles } from '@onekeyhq/components/src/forms/Input/sharedStyles';
 import { useForm } from '@onekeyhq/components/src/hooks/useForm';
@@ -131,6 +132,7 @@ function BulkCopyAddresses({
   EModalBulkCopyAddressesRoutes.BulkCopyAddressesModal
 >) {
   const intl = useIntl();
+  const media = useMedia();
   const { walletId, networkId } = route.params;
 
   const navigation = useAppNavigation();
@@ -1241,16 +1243,19 @@ function BulkCopyAddresses({
       </Page.Body>
       <Page.Footer>
         <YStack p="$5" bg="$bgApp" gap="$3">
-          <PrimeFreeTrialRemainingHint
-            featureId={EPrimeFeatures.BulkCopyAddresses}
-            networkId={selectedNetworkId}
-            alignSelf="flex-end"
-            $md={{ alignSelf: 'center' }}
-          />
+          {/* Above the buttons on narrow screens. */}
+          {media.gtMd ? null : (
+            <PrimeFreeTrialRemainingHint
+              featureId={EPrimeFeatures.BulkCopyAddresses}
+              alignSelf="center"
+              textAlign="center"
+            />
+          )}
           <YStack
             alignItems="center"
             justifyContent="space-between"
             flexDirection="row-reverse"
+            gap="$3"
             $md={{
               flexDirection: 'column',
               gap: '$5',
@@ -1316,6 +1321,13 @@ function BulkCopyAddresses({
                   id: ETranslations.global_bulk_copy_addresses_action_export_without_device,
                 })}
               </Button>
+            ) : null}
+            {/* Last child of the reversed row: left of the buttons. */}
+            {media.gtMd ? (
+              <PrimeFreeTrialRemainingHint
+                featureId={EPrimeFeatures.BulkCopyAddresses}
+                flex={1}
+              />
             ) : null}
           </YStack>
         </YStack>

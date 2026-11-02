@@ -845,3 +845,293 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries �
 **Root Cause**: `chrome.notifications.create` used `BLANK_ICON_BASE64` (1x1 transparent PNG) when `extras.image` was missing or the remote URL failed, so the notification's content icon was invisible. On macOS the app icon is always Chrome's, so `iconUrl` is the only place OneKey can appear.
 **Fix**: Resolve `iconUrl` with the packaged `icon-128.png` via `chrome.runtime.getURL` when the payload has no usable icon, including the create-failure retry path.
 **Catchable by**: Section 3: identified which platforms consume modified code; NEW — extension OS notifications must not use a transparent placeholder for `iconUrl`
+
+
+## Case: Web native chart shifted when toggling its drawing toolbar (OK-64893)
+**Date**: 2026-10-17 | **Platforms**: Web (single JS runtime)
+**Symptom**: Collapsing the drawing toolbar left unused space and briefly stretched the canvas; existing candles moved when the toolbar changed width. At the pan boundary, expanding the toolbar still moved the edge candle. Fractional layouts could also alternate measured widths.
+**Root Cause**: ResizeObserver deferred drawing until another animation frame, while percentage right padding, auto scaling, and pan limits used the changing visible width. Measurement mixed integer clientWidth with fractional bounding rectangles. The toggle was anchored to the full chart instead of the main price pane.
+**Fix**: Collapse to zero width without animation, redraw resized canvases before paint, anchor padding/scales/pan limits to the combined chart and toolbar width, consistently use bounding rectangles for width measurements, and position the toggle above indicator panes.
+**Catchable by**: Compare candle screen coordinates and sizes before and after repeated sidebar toggles at normal and extreme pan offsets, with fractional widths, zoom, and multiple indicator panes; verify bitmap dimensions before paint.
+
+## Case: Native SOL Pro chart showed a flat OBV
+**Date**: 2026-10-19 | **Platforms**: iOS, Android, extension (main runtime); desktop, web (single runtime), TradingViewNative charts
+**Symptom**: The native SOL Pro chart showed a flat OBV curve while prices changed (OK-64825).
+**Root Cause**: Native SOL was missing from the Hyperliquid whitelist, so the chart selected the Market price-sample feed without traded volume. OBV had no volume to accumulate.
+**Fix**: Map native Solana to Hyperliquid `SOL` OHLCV candles and realtime updates for Market, Swap, and Wallet. Keep wrapped SOL and other SPL tokens outside that native-token mapping. Add regression coverage for all three branches, SPL exclusion, and Market source resolution before and after transport metadata loads.
+**Catchable by**: Section 4: Data flow end-to-end — volume-based indicators need a feed with traded volume. Test native-token source selection and same-network contract-token exclusion whenever a shared chart whitelist changes.
+
+## Case: iOS Home header jumped or disappeared during cold-start overlay handoff
+**Date**: 2026-10-19 | **Platforms**: iOS (main UI runtime and its UIKit pager views)
+**Symptom**: During cold start, the Home header and list briefly jumped upward by 162 points. Reserving the height alone still left the fixed search/account header blank for two frames during the outer-to-local overlay handoff.
+**Root Cause**: Local overlay mode became active before the first `onLayout` and native slot installation, so the effective overlay height temporarily became zero. Separately, the old outer header could unmount before the local overlay was installed on the next main-queue turn. This was a UI/native mounting-order issue, independent of background runtime readiness or shared JS state.
+**Fix**: Pass the known `topOverlayHeightHint` from `HomePageView` and use it until the wrapper measures the overlay. The pager SDK reserves the committed local height and installs ready overlay slots synchronously during `didMount` only for smooth Hard mode with nonempty pages, positive local height, complete slots, and no drag, page transition, or recycling; other states retain the deferred fallback.
+**Catchable by**: Section 5: verify geometry and view ownership across async layout and mounting boundaries. NativeLogger height/phase traces and frame-by-frame light/dark cold starts must show a stable nonzero overlay height and an uninterrupted fixed header. A native regression must assert overlay attachment before `didMount` returns; final settled screenshots alone miss the gap.
+
+## Case: Perps detail chart toolbar became a white strip in dark mode
+**Date**: 2026-10-19 | **Platforms**: iOS (main)
+**Symptom**: The native chart's interval and settings toolbar appeared as a blank white strip in dark mode, while the candles and the rest of the Perps detail page were dark.
+**Root Cause**: The iOS collapsible tabs header defaults to a white background. The native chart toolbar is transparent, so its dark-theme white text and icons were drawn over that white header.
+**Fix**: Set this page's collapsible header background to the current `bgApp` theme color and update it when the theme changes.
+**Catchable by**: Section 8: open Perps detail with the native chart in dark and light themes, verify the interval/settings toolbar is visible and usable, and recheck after switching themes and reopening the page.
+
+## Case: Swap keyboard percentage shortcuts disappeared after remount (OK-64938)
+**Date**: 2026-10-20 | **Platforms**: iOS (main UI runtime and native input accessory views)
+**Symptom**: The percentage shortcuts above the keyboard disappeared after leaving and reopening Swap.
+**Root Cause**: Fabric recycling cleared the native input's accessory ID while retaining the previous React props. Reusing the same prop value after remount skipped the native setter, leaving the input unbound to the accessory view.
+**Fix**: Derive an accessory ID from `useId` in the mounted input-pair owner and pass the same ID to both inputs and the accessory view. Keep it stable during that mount and distinct after remount.
+**Catchable by**: Section 8: focus both amount inputs, use percentage shortcuts, then leave and reopen Swap with the keyboard hidden and shown; verify the shortcuts still render and update the intended amount.
+
+## Case: Swap stock-position hover corners were clipped (OK-64536)
+**Date**: 2026-10-20 | **Platforms**: Desktop and web (single-runtime stock panel; associated iOS path checked)
+**Symptom**: The stock-position row's rounded hover background was cut off at the sides.
+**Root Cause**: The table extended into the card gutter, but the animated reveal's overflow clip remained inside that gutter and cut through the row corners.
+**Fix**: Expand the reveal boundary to include the table gutters while keeping the title and token columns aligned. Offset the parent gap on the outer wrapper and include the visible gap in the measured content, preserving zero-height collapse and empty-state spacing.
+**Catchable by**: Section 8: inspect the actual hover background and clipping geometry with a position, click the row, and compare the surrounding spacing with no positions; component existence alone does not verify the corners.
+
+## Case: Swap modal action labels wrapped despite available width (OK-64452)
+**Date**: 2026-10-20 | **Platforms**: Desktop and web (single-runtime modal action layout; associated iOS path checked)
+**Symptom**: Long action labels wrapped because the action button was constrained to the width of the smaller savings badge.
+**Root Cause**: The badge measurement supplied both the action's width and minimum width, preventing the label from determining its natural width.
+**Fix**: Use the measured badge width only as a minimum and let the action content determine its width. Preserve loading, disabled, and changing-badge states.
+**Catchable by**: Section 8: compare long labels against shorter badges and changing badge values, including loading and disabled actions; verify text width and alignment in the real modal.
+
+## Case: Swap account-discovery cache invalidated on network presentation changes
+**Date**: 2026-10-20 | **Platforms**: Desktop and web (single runtime); native and extension consumers (main UI runtime)
+**Symptom**: Cached token rows could return to a whole-list skeleton when network order or selected-chain derive metadata changed; account-only cached rows could also lack network badges.
+**Root Cause**: The wallet-wide discovery key depended on presentation order and selected-chain derive resolution. The account-only fallback also omitted network-logo metadata already available in the network list.
+**Fix**: Normalize network-set keys, invalidate discovery on the actual global derive-change generation, and fill missing network logos in the account-only fallback. Existing hook tests cover reorder stability and explicit derive invalidation. These retained changes do not eliminate individual-image placeholder flicker or establish that all token-selector image issues are resolved.
+**Catchable by**: Section 5: distinguish cache identity changes from presentation changes; verify populated-list continuity, account switches, explicit invalidation, and late responses separately from individual-image loading.
+
+
+## Case: Market chart gesture ownership and independent Simple layout (OK-64931, OK-65115, OK-64930)
+**Date**: 2026-10-21 | **Platforms**: iOS, mobile layouts
+**Symptom**: Chart touches blocked iOS swipe-back, Pro indicators expanded the Simple chart, and the Simple toggle overlapped the TradingView toolbar.
+**Root Cause**: Chart and page recognizers owned the navigation edge, Simple reused Pro pane height, and an absolute toggle overlay competed with toolbar controls.
+**Fix**: Reserve the logical start edge consistently in header, native chart, price-axis and WebView gestures; preserve a 280pt plot plus 48pt controls; use the toolbar's existing right-control slot. Verify the installed native-stack implementation before interpreting start/end response bounds.
+**Catchable by**: Section 4: Update every consumer of shared contracts; Section 7: Verify real navigation and independent chart modes on iOS, including RTL.
+
+## Case: Stock status and trading-hours panel disagreed on holidays
+**Date**: 2026-10-21 | **Platforms**: iOS, Android, web, desktop
+**Symptom**: Non-Ondo stocks hid valid market status; after enabling all issuers, a holiday's 24/7 badge could open a panel highlighting regular trading.
+**Root Cause**: Issuer guards suppressed valid stock signals, while the panel's session resolver received no backend market status and fell back to clock-only session math.
+**Fix**: Remove issuer filtering and feed the panel the existing cached US market-status hook, retaining clock fallback when unavailable. Cover status updates and weekday closures for Ondo, xStocks and bstock.
+**Catchable by**: Section 4: Trace data from API through every display consumer; Section 7: Compare badge and panel states for holidays and issuer variants.
+
+## Case: Web Market bootstrap seed stopped matching default Trending order
+**Date**: 2026-10-21 | **Platforms**: web
+**Symptom**: Market cold-start CI reported missing business/list readiness despite injecting a token seed.
+**Root Cause**: Trending switched to API default sorting, but seed acquisition and both runtime matching checks still required explicit volume-descending sorting.
+**Fix**: Align the build seed query, synchronous first-frame initialization and light API seed matching with the default order; keep explicitly sorted queries isolated. Verify regression tests and the production cold-start budget.
+**Catchable by**: Section 4: Update every producer and consumer when query identity changes; Section 7: Verify first-frame rendering with unavailable network requests.
+
+## Case: Market modal root unnecessarily reserved the swipe-back edge
+**Date**: 2026-10-21 | **Platforms**: iOS (main UI runtime)
+**Symptom**: Chart and header gestures ignored the first 32pt when Swap Pro opened Market detail as a modal root, which had no horizontal back gesture.
+**Root Cause**: Edge reservation checked platform and fullscreen state without checking history in the current stack; parent modal dismissal can make `canGoBack()` true even at the inner stack root.
+**Fix**: Subscribe to the current stack index and reserve the edge only when it has a previous screen, while retaining the fullscreen exemption.
+**Catchable by**: Section 8: compare a modal root with a pushed detail, including a parent that can go back; verify edge interactions, swipe-back and fullscreen separately.
+
+## Case: Dust Sweep default network disagreed with displayed order (OK-65143)
+**Date**: 2026-10-21 | **Platforms**: Shared Dust Sweep UI
+**Symptom**: Dust Sweep opened on a network below the first displayed network, and a provisional cached choice could remain after fresh data changed the order.
+**Root Cause**: The list used total balances for ordering, while automatic selection separately ranked balances below the current dust threshold. A cached automatic choice could also become sticky.
+**Fix**: Derive the default from the first displayed network and let provisional defaults follow fresh ordering. Preserve explicit route choices, manual selection, and the executing snapshot.
+**Catchable by**: Section 4: use the displayed order as the default-selection source; Section 5: distinguish provisional defaults from user-owned state; Section 8: verify entry, re-entry, cache-to-fresh refresh, and threshold changes.
+
+## Case: Dust Sweep approval handling diverged from ordinary Swap (OK-65087)
+**Date**: 2026-10-21 | **Platforms**: Shared EVM/Tron execution and gas adapter; Desktop pre-sign runtime checks
+**Symptom**: Valid EVM/Tron quotes without approval metadata stopped with an unknown error before estimation. Review also found that the shared gas adapter dropped the legacy MegaFuel eligibility marker.
+**Root Cause**: Dust Sweep treated absent approval instructions as malformed instead of following ordinary Swap's estimation path. The gas adapter preserved newer payer fields but omitted `megafuelEligible`.
+**Fix**: Continue quotes with absent approval instructions through actual estimation and prechecks, retain rejection of explicitly malformed instructions, and preserve the legacy sponsorship marker in the shared gas result.
+**Catchable by**: Section 4: compare approval and sponsorship contracts across consumers; Section 6: cover absent, valid, malformed and contradictory approval fields plus marker-only sponsorship responses; Section 8: verify real quote/build and prechecks with an explicit stop before signing. These checks do not establish broadcast success or native runtime acceptance.
+
+## Case: Dust Sweep notification suppression waited for post-broadcast work (OK-65087)
+**Date**: 2026-10-21 | **Platforms**: Shared Dust Sweep execution
+**Symptom**: A same-chain transfer notification could arrive while decoding or history persistence was still running after a successful swap broadcast.
+**Root Cause**: Notification suppression started after the shared sender returned, although its broadcast callback already provided the transaction ID before awaited post-processing.
+**Fix**: Request suppression from the swap broadcast callback without waiting for the notification service. Use the same path for a recovered hash only after its broadcast is confirmed; keep approval hashes separate.
+**Catchable by**: Section 6: defer or reject post-broadcast processing and leave notification suppression pending; assert suppression starts before sender completion, settlement still completes, and recovery does not suppress unconfirmed or approval hashes.
+
+## Case: Dust Sweep rounded tiny nonzero receipts to zero
+**Date**: 2026-10-21 | **Platforms**: Shared Dust Sweep preview and result UI
+**Symptom**: A completed conversion could show `+0 BNB` while its fiat value was below the minimum display unit.
+**Root Cause**: Both receive displays rounded raw decimal strings to six decimal places. The state and receipt retained their precision, but tiny positive amounts disappeared at the presentation boundary.
+**Fix**: Pass raw amounts to the shared balance formatter used by Earn client amounts. Reuse its leading-zero subscript rendering for both preview and result while preserving zero and unavailable states.
+**Catchable by**: Section 6: render a tiny positive receipt and selection estimate through the real formatter, assert the subscript and significant digits, and retain normal, zero and unavailable cases.
+
+## Case: Dust Sweep custom slippage did not enforce the requested preset floor
+**Date**: 2026-10-21 | **Platforms**: Shared Dust Sweep settings and controller
+**Symptom**: Although the default and smallest preset were 5%, custom input and the raw controller setter could still select lower values.
+**Root Cause**: Validation shared ordinary Swap's positive-value boundary rather than enforcing the newly required Dust Sweep minimum.
+**Fix**: Define a Dust Sweep-only 5–50% range, disable confirmation outside it, and reject invalid values at the state setter so snapshots retain the same valid slippage shown in the UI.
+**Catchable by**: Section 6: exercise values immediately below and at both bounds, direct setter calls, and the slippage captured by the submission snapshot.
+
+## Case: Dust Sweep loading used status text and an unknown-token fallback
+**Date**: 2026-10-21 | **Platforms**: Shared Dust Sweep summary UI
+**Symptom**: Initial loading displayed a generic coin fallback and a disabled action labeled as syncing instead of a loading button.
+**Root Cause**: The unknown receive token was mounted before its data existed. Asset refresh only changed the action label, and the button never received its loading prop.
+**Fix**: Show a token skeleton while assets are loading and the token identity is unknown. Use a spinner-only button for initial loading and cached-asset refresh, retain a known cached token, and preserve error retry and completed actions.
+**Catchable by**: Section 6: cover cold load, cache refresh, transition to ready, refresh failure and completed-state background refresh; Section 8: inspect actual spinner and skeleton rendering.
+
+## Case: Dust Sweep selected network remained clipped in the horizontal strip
+**Date**: 2026-10-21 | **Platforms**: Horizontal Dust Sweep network selector
+**Symptom**: Selecting a partially visible network at the end of the strip left its chip cut off by the viewport.
+**Root Cause**: The plain horizontal ScrollView had no selected-item layout registration or scroll behavior.
+**Fix**: Reuse Swap's ScrollableFilterBar, pass the selected network ID, and register each chip's layout under that same ID. Preserve the existing chip appearance, execution lock and compact network menu.
+**Catchable by**: Section 8: click clipped chips near both edges, verify complete visibility after scrolling, and repeat after viewport resizing; confirm execution cannot change the network.
+
+## Case: Home startup included on-demand NFC dialog animations
+**Date**: 2026-10-21 | **Platforms**: Native main UI JS runtime
+**Symptom**: The Native startup size gate failed although the module-count budget passed. The CI report exceeded 14 MiB by 477 bytes; local absolute source paths made the same graph larger.
+**Root Cause**: Home backup and import hooks synchronously reached two OneKey Lite animation JSON files used only inside NFC dialogs. Keeping require calls inside callbacks did not remove these assets from Metro's synchronous dependency graph.
+**Fix**: Load a display-only animation component through the existing LazyLoad boundary. Keep dialog dimensions reserved outside that boundary and retain all NFC event, permission, confirmation and connection callbacks unchanged.
+**Catchable by**: Section 6: check Android immediate connection and transfer events, iOS confirmation, both animation sources and dimensions; Section 8: rebuild the Union graph, prove the JSON assets moved out of main startup, and run both runtime budgets plus architecture and stable module-ID checks without relaxing limits.
+
+## Case: Dust Sweep balance formatting invalidated its cache on every render
+**Date**: 2026-10-21 | **Platforms**: Shared Dust Sweep preview and result UI
+**Symptom**: Unrelated summary renders recomputed balance formatting even when the amount and token symbol were unchanged.
+**Root Cause**: Inline formatter options changed object identity on every parent render. The shared numeric component uses that identity as a formatting memo dependency, while its locale is read globally rather than listed in the memo dependencies.
+**Fix**: Memoize each options object by token symbol and key the numeric component by the current locale so language changes rebuild the cached numeric output. Keep the shared formatter and amount calculations unchanged.
+**Catchable by**: Section 6: trace the shared formatter's memo dependencies and rerender both receipt and estimate with changed token symbols and locale-specific decimal/group separators while the raw amount stays fixed.
+
+## Case: Hardware rebate empty state had no copy link (OK-64959)
+**Date**: 2026-10-21 | **Platforms**: desktop, web, extension, iOS, Android
+**Symptom**: After filtering hardware sales by date, the empty state asked users to share an invite code but showed no copy button.
+**Root Cause**: HardwareSales empty UI rendered title and description only. Swap and Perps already copy a subject-specific link; hardware's share URL is the summary invite URL plus `/shop`.
+**Fix**: Show a copy-link button on the empty list and copy that shop invite URL once summary info is ready. Keep the button disabled when the URL is missing.
+**Catchable by**: Section 4: shared empty-state copy must include the action it describes; Section 6: cover loading and missing-URL states.
+
+## Case: Hardware empty-state modules missing native module IDs (OK-64959)
+**Date**: 2026-10-21 | **Platforms**: iOS, Android (native union and production bundles)
+**Symptom**: Strict native bundling throws because HardwareEmptyData.tsx and useHardwareShopInviteUrl.ts are not in the module ID registry.
+**Root Cause**: The new production files are imported by the hardware sales page, so they enter the native graph, but no stable IDs were committed.
+**Fix**: Register both files in apps/mobile/bundle-registry/module-id-registry.json and pass a strict iOS union build.
+**Catchable by**: Section 4: a new file that the native bundle imports must be added to module-id-registry.json before the release bundle runs.
+
+## Case: Invite consent write could land on the account that became active
+**Date**: 2026-10-21 | **Platforms**: Desktop, Mobile, Web, Extension
+**Symptom**: Toggling invite nickname/avatar consent could update a different OneKey ID if the account changed before the request left the background runtime.
+**Root Cause**: `updateInviteProfilePublic` remembered the user id, then sent a PUT with no pinned token. The request interceptor attached whoever was current. The local atom guard ran only after the server accepted the write.
+**Fix**: The switch passes the user id visible at tap time. The service captures that account's auth snapshot, sends `X-Onekey-Request-Token`, and refuses success if the session changed before or after the PUT.
+**Catchable by**: Section 5: race conditions in async operations; NEW — an account-scoped write must pin the token captured for the initiating user, not only guard the local state write
+
+## Case: A non-user-info payload cleared invite consent
+**Date**: 2026-10-21 | **Platforms**: Desktop, Mobile, Web, Extension
+**Symptom**: The invite profile switch could show off after a legacy login or a profile-only fallback even though the server still had consent on.
+**Root Cause**: `updatePrimeAtomByServerUserInfo` treated a missing `inviteProfilePublic` as off for every caller. Legacy `/prime/v1/user/login` and a complete `/account/profile` fallback omit the field.
+**Fix**: Only a successful `GET /prime/v1/user/info` normalizes an omitted field to false, and that value is applied after the profile merge. Other payloads keep the same user's value unless they include a real boolean.
+**Catchable by**: Section 4: shared writer checked for every caller; NEW — an omitted optional field is authoritative only for the endpoint that owns it
+
+## Case: Bulk revoke Cancel mid-run restarted the loop and blanked the app
+**Date**: 2026-10-23 | **Platforms**: Desktop, Mobile, Web, Extension (reproduced on Desktop)
+**Symptom**: After closing the hardware capsule on one tx and pressing the footer Cancel while the bulk approval revoke was still running, the whole app went to a blank ErrorBoundary page reading `Cannot read properties of undefined (reading 'uuid')`, and the device received two sign requests within the same second.
+**Root Cause**: `handleOnCancel` picked retry vs. abort from `failedTxCount` / `skippedTxCount` instead of the run state, so a mid-run Cancel replaced `unsignedTxs` and started a second `usePromiseResult` loop next to the live one. The old loop later wrote `currentProcessIndex` past the end of the shorter list, and the Pause/Resume state updater dereferenced `unsignedTxs[currentProcessIndex].uuid` during render. Separately, every `await waitUntilInProgress()` was preceded, not followed, by the abort check, so Cancel while paused right before the sign call still signed one more tx after the page had closed.
+**Fix**: Retry is only offered from `Finished`; Cancel always aborts and pops. Retry resets the progress index and the progress ref. `waitUntilInProgress` resolves `false` on abort and every call site breaks on it. The index reads are null-guarded and the signed-tx read is hoisted out of the updater. jsdom tests cover cancel mid-run, cancel while paused (after and before the sign call) and retry after finish.
+**Catchable by**: Section 5: race conditions in async operations; NEW — a button that can both abort and restart must branch on the run state, not on derived counts; NEW — an abort flag must be re-checked after every await that can park the loop (pause / poll), not only before it; NEW — a state updater runs during render, so it must not dereference an index owned by an async loop
+
+## Case: Perks empty state read a missing bind status
+**Date**: 2026-10-22 | **Platforms**: Desktop, mobile, web, extension
+**Symptom**: The Perks empty state could throw while the wallet id and the bind-status result were both still missing.
+**Root Cause**: `result?.walletId === walletId` is true when both sides are undefined, and the true branch then read `result.status`.
+**Fix**: Require `result` itself before comparing wallet ids.
+**Catchable by**: Section 7: type check. A comparison of two optional ids does not prove the object exists.
+
+## Case: Perks Enter Code hidden when wallet lookup fails
+**Date**: 2026-10-23 | **Platforms**: iOS, Android, extension main, desktop, web
+**Symptom**: When the wallet or first account could not be read yet, the Perks empty state treated the wallet as not applicable and hid Enter Code, with no refresh.
+**Root Cause**: Wallet lookup returned null for both ineligible wallets and transient getWallet/getAccount failures. Bind display status mapped every null to unsupported.
+**Fix**: Return unavailable for a failed or unfinished lookup and unsupported only for wallets that can never take a code. Display status stays unknown when the lookup is unavailable.
+**Catchable by**: Section 4: distinguish not loaded from ineligible; Section 6: lookup failure stays unknown, and an ineligible wallet stays unsupported.
+
+## Case: Priced Earn token dropped when a sibling has no USD
+**Date**: 2026-10-23 | **Platforms**: desktop, web, extension, iOS, Android
+**Symptom**: A server-priced WETH reward counted as $0 in Perks totals when another reward in the same group had no usdValue.
+**Root Cause**: getEarnValue required every item to have usdValue. One gap switched the whole group to title parsing, which only counts stablecoins.
+**Fix**: Price each item with server USD first, then a stablecoin amount or title. Return a dollar amount only when every item has one; otherwise keep the token text and sum the known dollars.
+**Catchable by**: Section 6: priced WETH plus unpriced ARB keeps the WETH dollars in usdPart.
+
+## Case: Android hardware send built from already-spent UTXOs after a previous send (OK-63999)
+**Date**: 2026-10-26 | **Platforms**: Android (native `bg` runtime); BTC-family vaults on all platforms for the broadcast-time cache clear
+**Symptom**: After sending BTC/LTC/BCH/DOGE on Android, the next max-amount send on the same account showed 2.7 in the app but 2.8 (total 2.9) on the hardware wallet, and the broadcast failed with server error 40001. iOS and desktop were fine.
+**Root Cause**: On the Android background runtime `process.nextTick` came from the npm `process` polyfill, whose cached `setTimeout` is the React Native TimerManager timer that never fires on the never-resumed background ReactHost. `next-tick` (used by memoizee's promise/max-age extensions) captured that dead function by reference while `@onekeyhq/shared/src/polyfills` loaded the request stack, before `background.ts` replaced `process.nextTick`. Every `memoizee({ promise: true, maxAge })` cache in kit-bg therefore never expired, including the BTC vault UTXO list (30s) and `VaultFactory.getVault` (15 min), so the next send reused spent inputs.
+**Fix**: Install a working `process.nextTick` (setImmediate/queueMicrotask) right after the `process` shim in `polyfillsPlatform.js`, gated to Android background, with a bootstrap-order contract test; clear the BTC vault UTXO caches in `finally` after both `broadcastTransaction` and `broadcastTransactionFromCustomRpc`.
+**Catchable by**: Section 5: No stale closures capturing outdated state (module-load capture of `process.nextTick` by a dependency); the split-runtime timer availability itself is NEW — not covered
+
+## Case: Native chart crosshair froze under the price action "+" button and its menu
+**Date**: 2026-10-27 | **Platforms**: Desktop, Web (native chart web renderer)
+**Symptom**: Hovering the "+" button next to the price axis froze the crosshair and the button until the pointer left it. With the limit menu open, the crosshair stayed pinned at the selected price, even while the pointer was on the menu.
+**Root Cause**: Elements above the canvas swallow its pointer events: the absolutely positioned button and the anchored Popover's full-screen transparent backdrop. `useChartPriceSelection` also pinned the crosshair while the menu was open.
+**Fix**: The button forwards hover moves to the canvas, only with no buttons pressed (a pressed move hits the canvas handler's hide and swallows the click). While the menu is open, a document `pointermove` listener re-dispatches plot hovers on the backdrop to the canvas and runs the chart's mouse-leave handler elsewhere. Removed the pinned crosshair; the visible button is realigned with the price axis on every redraw.
+**Catchable by**: NEW — not covered (an overlay or transparent backdrop above a canvas blocks its hover events)
+
+## Case: Native chart "+" price action button lingered over the axes
+**Date**: 2026-10-27 | **Platforms**: Desktop, Web (native chart web renderer)
+**Symptom**: Moving the pointer from the plot onto the price axis, the time axis or a pane handle hid the crosshair but left the "+" button at its last position.
+**Root Cause**: Those overlays are siblings above the canvas. Their pointer-enter handlers hide only the crosshair, and the canvas handler that hides the button stops receiving moves.
+**Fix**: The canvas and the button hide the button on pointer leave unless the pointer moves between the two. It reads the native `relatedTarget`, because React's synthetic leave event reports `window` for nodes React does not manage.
+**Catchable by**: NEW — not covered (same pattern as the previous case: overlays above a canvas take its pointer events)
+
+## Case: Mobile browser top chrome missed gradient pages and copied a button color (OK-65819)
+**Date**: 2026-10-28 | **Platforms**: iOS, Android (in-app browser; Android/iPad bottom bar follows the top color)
+**Symptom**: On Tinyman the header stayed white, and after scroll it turned the yellow of the "Go to Tinyman v2" button. Android's bottom bar copied that color.
+**Root Cause**: The top sample was one point at the viewport center, then an ancestor walk for opaque background-color. The green is a full-width linear-gradient behind the content (not an ancestor, and background-color is transparent). A narrow button at that point won after it stuck.
+**Fix**: Sample the top edge at 25/50/75% width, ignore layers narrower than 80% of the viewport, and read a wide linear-gradient at the sample point. body/html and theme-color stay fallbacks. Bottom-edge sampling is unchanged.
+**Catchable by**: Section 6: jsdom script tests for gradient, narrow button, and disagreeing points. Device check that WebView elementsFromPoint includes z-index -1 is NEW — not covered.
+
+## Case: Inner scroll cancelled the mobile browser late top-color read (OK-65819)
+**Date**: 2026-10-28 | **Platforms**: iOS, Android (in-app browser)
+**Symptom**: A page with an auto-scrolling panel could keep the first-frame header color. The 800ms correction never ran.
+**Root Cause**: The scroll listener is on window in the capture phase so inner containers update the bottom color. That same handler cancelled the one late top read for every scroll event, including a panel that does not move the viewport.
+**Fix**: Cancel the late top read only when the scroll target is the document, documentElement, body, or window.
+**Catchable by**: Section 6: lifecycle test dispatches scroll on an inner element and still expects the late top color.
+
+## Case: Opaque body was skipped and a hidden negative-z color painted the header (OK-65819)
+**Date**: 2026-10-28 | **Platforms**: iOS, Android (in-app browser)
+**Symptom**: With an opaque html background and an opaque body, the header could take the color of a z-index -1 layer the body covers.
+**Root Cause**: The top walk skipped body whenever it had no background-image, then accepted the next wide layer. That is right only when the body background has propagated to the canvas, which requires html to paint nothing. Once html paints, the body background is drawn above negative z-index descendants.
+**Fix**: Stop at an opaque body when html paints any background. Keep looking through body when html is transparent, when body is transparent, or when body itself is a stacking context.
+**Catchable by**: Section 6: top-color tests for opaque html plus opaque body, translucent html, and a transformed body.
+
+## Case: Native Market search and recommendations did not share Top Coins favorites (OK-64236)
+**Date**: 2026-10-28 | **Platforms**: Desktop/Web single JS runtime; iOS/Android/extension background services and UI consumers, with separate JS heaps on those targets
+**Symptom**: A native coin favorited in Top Coins appeared unfavorited in search or recommendations, allowing another favorite for the same asset.
+**Root Cause**: Native results missing the backend asset ID used a chain/address favorite key while Top Coins used an asset key. A stalled metadata candidate could also leave the memoized identity lookup pending and prevent matching later candidates.
+**Fix**: Resolve missing native asset IDs using verified network variants, preserve backend identities, bound metadata and candidate requests, and share the result across search, trending, and fallback recommendations. Existing duplicate favorites are not migrated.
+**Catchable by**: Section 4: Data flow end-to-end: API → state → UI; Section 5: No race conditions in async operations
+
+## Case: Universal search hid the Market background and reset its scroll position (OK-65811)
+**Date**: 2026-10-28 | **Platforms**: Desktop/Web single JS runtime; native Market rendering is unchanged
+**Symptom**: Opening universal search blanked the Market page beneath the backdrop and reset its scroll position.
+**Root Cause**: The Market freeze guard treated modal coverage as leaving the page. React Freeze suspended to an empty fallback and hid the DOM. Comparing root depth alone also thawed an already inactive Market when another tab opened a modal.
+**Fix**: Retain the Market background only while it owns modal coverage, clear that ownership when leaving at the same root depth, and continue freezing genuinely inactive pages. Regression tests cover search coverage, returning from modals, and another tab opening a modal.
+**Catchable by**: Section 2: React Check; Section 4: Business Logic & Regression
+
+## Case: Desktop tray popover blank in production builds (OK-65749)
+**Date**: 2026-10-28 | **Platforms**: Desktop (macOS menu-bar tray renderer; production builds only)
+**Symptom**: On App 6.7.0 the menu-bar tray popover rendered as an empty white panel. 6.6.1 on the same machine worked, and the bug never reproduced in a dev session. Logs showed the tray renderer alive at ~0% CPU with no `did-fail-load`, `render-process-gone`, or Sentry events.
+**Root Cause**: The preload hardening in #13770 stopped exposing `$mmkvSync` to the tray window, but the tray shares the main renderer bundle. `dbPerfMonitor` reads `syncStorage.getBoolean()` at module evaluation time behind `platformEnv.isDev ||`, so only production builds reached `ipc()` in `syncStorageInstance.desktop.ts`, which called `globalThis.$mmkvSync(...)` unguarded. The resulting `TypeError` fired before React mounted and left the transparent window showing the white `index.html` body.
+**Fix**: The desktop syncStorage adapter looks up the bridge per call and degrades to an empty store when it is absent: reads return `undefined`, `getAllKeys` returns `[]`, writes are no-ops, and a single warning is logged. Unit tests cover the bridged and bridge-less paths; the bridge-less cases failed with the original TypeError before the fix.
+**Catchable by**: Section 4: Shared hook/utility modified → checked all consumers (the #13770 preload change removed a bridge without checking every renderer that loads the shared bundle); Section 1: Error cases handled (an unguarded global bridge call); NEW — a dev-only short-circuit (`isDev ||`) hides a production-only code path, so bridge/global access gated behind it must be verified with a production build or with the flag forced off
+
+## Case: Android crash when popping a screen with a mounted CollapsiblePagerView / ViewPager2
+**Date**: 2026-10-29 | **Platforms**: Android (main UI runtime and native `Screen` / `RecyclerView` / `ViewPager2` views)
+**Symptom**: Navigating back on Android from a screen containing a `CollapsiblePagerView` (such as DeFi Protocol Detail) crashed with `java.lang.IllegalArgumentException: Tmp detached view should be removed from RecyclerView before it can be recycled` in `RecyclerView$Recycler.recycleViewHolderInternal`.
+**Root Cause**: Upgrading `react-native-screens` from `4.26.0` to `4.30.0` regenerated `patches/react-native-screens+4.30.0.patch` from upstream `Screen.kt` and dropped the custom `RecyclerView` removal-transition suppression in `Screen.startRemovalTransition`. Without that suppression, `Screen.startTransitionRecursive` walked into `RecyclerView` (`ViewPager2.mRecyclerView`) and called `startViewTransition(holder.itemView)`, placing the `ViewHolder` root view into `mDisappearingChildren` (`isTmpDetached == true`). When `CollapsiblePagerHost` removed its React page children on unmount (`notifyItemRangeRemoved`) and ran `layoutPagerIfRequested()` on pre-draw, `RecyclerView` laid out against the empty adapter and tried to recycle the `TmpDetached` `ViewHolder`.
+**Fix**: Restore `RecyclerView` removal-transition suppression and reference-counted layout/animator restoration in `patches/react-native-screens+4.30.0.patch` (`Screen.kt`) so `startTransitionRecursive` stops at `RecyclerView.childViewHolder` boundaries, suppresses layout, and clears `itemAnimator` during screen removal transitions. Companion `app-modules` fix (`#179`) also disables `DefaultItemAnimator` on `CollapsiblePagerHost`'s internal `ViewPager2` `RecyclerView` and skips unmount-time empty-adapter layout passes.
+**Catchable by**: Section 4: Business Logic & Regression — when upgrading a patched third-party dependency (`patch-package`), diff every hunk of the previous `.patch` file against the regenerated patch to verify no custom files or behaviors were silently dropped.
+
+
+## Case: Desktop home token list header misaligned with NativeList table columns
+**Date**: 2026-10-29 | **Platforms**: Desktop, Web (single runtime)
+**Symptom**: On the desktop Home token list the "Balance" and "Price" header labels sat about 88px / 114px left of their columns while the rows themselves rendered correctly (OK-65944).
+**Root Cause**: #14122 moved Home token rows on every platform to NativeList `dataRow`s (icon slot, three `weight: 1` cells with a fixed 12px gap, trailing swap button, `horizontalPadding: 12`). `TokenListHeader` is a plain `ListItem` rendered through `NativeList.listHeader`; its web branch kept the pre-#14122 four-equal-column layout (`$3` gap, no leading slot, an empty fourth flex column, default `mx="$2"`), so each header cell was narrower and shifted left of the data cells. The native branch already hard-coded the native row geometry, so mobile looked fine.
+**Fix**: The header mirrors the row template per engine through `tokenListRowLayout.ts` / `tokenListRowLayout.native.ts` (`getTokenListHeaderLayout`), shares `getTokenRowIconSize` with the row config, reserves the trailing swap footprint from `withSwapAction`, and pins the geometry with `TokenListHeader.test.tsx`.
+**Catchable by**: Section 4: Business Logic & Regression — when a list migrates its rows to another rendering engine (NativeList), re-verify every sibling that hand-mirrors row geometry (headers, skeletons, footers) on each platform, not only the rows.
+
+## Case: Native chart previous-close tag drawn half a badge above its price badge
+**Date**: 2026-10-30 | **Platforms**: iOS, Android (native Skia chart, main UI runtime)
+**Symptom**: On the share 1D simple chart, the `Previous close` tag and the `$213.66` axis badge looked shifted up as a pair: the tag sat entirely above the dashed reference line while the price badge was centered on it.
+**Root Cause**: The Skia port in #14075 laid out the two halves of the reference-line label with different vertical anchors. `createPriceAxisLabelPainter` centered the axis badge on its label Y (`y - labelHeight / 2`), but `drawReferenceTitle` placed the tag at `yAtValue(price) - labelHeight`, so its bottom edge touched the line. It also used the raw line position, so the tag did not follow the badge when `getPriceAxisLabels` nudged it away from the last-price badge.
+**Fix**: `drawReferenceTitle` takes the computed price-axis labels and centers the tag on `referenceLabelY` (falling back to the clamped line position), matching the axis badge. A unit test pins equal `y` and `height` for the tag and badge, both at rest and when nudged.
+**Catchable by**: NEW — when one visual element is drawn as several shapes (tag + axis badge), derive every shape's position from one shared anchor and assert their alignment in a scene test, especially when porting a renderer (web lightweight-charts → native Skia).

@@ -228,6 +228,7 @@ const SwapHeaderContainer = ({
       !defaultSwapType ||
       (pageType === 'modal' &&
         (enterFrom === ESwapSource.WALLET_HOME_TOKEN_LIST ||
+          enterFrom === ESwapSource.TOKEN_DETAIL ||
           enterFrom === ESwapSource.MARKET))
     ) {
       return;
@@ -292,6 +293,7 @@ const SwapHeaderContainer = ({
         syncRouteTabParam(newType);
         await swapTypeSwitchAction(newType, networkId, {
           carryTargetToken: true,
+          initializeSwapDefaultsFromHome: pageType !== 'modal',
           ...swapProTokenCarryOptions,
         });
         return;
@@ -335,6 +337,7 @@ const SwapHeaderContainer = ({
       fromToken?.networkId,
       updateSelectedAccountNetworkAction,
       enterFrom,
+      pageType,
       isSwapProCategory,
       swapProTokenCarryOptions,
     ],
@@ -426,10 +429,9 @@ const SwapHeaderContainer = ({
     gtLg &&
     !platformEnv.isNative &&
     !platformEnv.isExtensionUiSidePanel;
-  const hideWalletHomeTokenListStockKLine = Boolean(
+  const hideDesktopModalStockKLine = Boolean(
     platformEnv.isDesktop &&
     pageType === 'modal' &&
-    enterFrom === ESwapSource.WALLET_HOME_TOKEN_LIST &&
     swapTypeSwitch === ESwapTabSwitchType.STOCK,
   );
   const tabs = (
@@ -474,14 +476,17 @@ const SwapHeaderContainer = ({
   if (singleSwapBridgeTab) {
     // This branch is only reached from the Market detail pages' embedded swap.
     // The panel carries no "Swap & Bridge" title (OK-62956): only the right
-    // actions remain, pinned to the trailing edge.
+    // actions remain, pinned to the trailing edge. All 8px of padding sits on
+    // top: the buttons' -7px margin would otherwise lift their 34px hover
+    // background past the panel's `overflow: hidden` top edge.
     return (
       <XStack
         alignItems="center"
         justifyContent="flex-end"
         gap="$2"
         px="$5"
-        py="$1"
+        pt="$2"
+        pb="$0"
       >
         {!hideRightActions ? (
           // The actions match the stock trade panel sitting in the same slot:
@@ -533,7 +538,7 @@ const SwapHeaderContainer = ({
           marketPresetSettings={marketPresetSettings}
           routeSwapType={defaultSwapType}
           compact={Boolean(isCompactLayout && !useDesktopModalHeaderActions)}
-          hideKLine={hideWalletHomeTokenListStockKLine}
+          hideKLine={hideDesktopModalStockKLine}
         />
       ) : null}
     </XStack>

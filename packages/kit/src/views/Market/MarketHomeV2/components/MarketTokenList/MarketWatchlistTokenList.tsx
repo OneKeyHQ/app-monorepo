@@ -4,9 +4,9 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useIntl } from 'react-intl';
 
 import { ActionList, Tabs, Toast } from '@onekeyhq/components';
-import { Portal } from '@onekeyhq/components/src/hocs';
 import type { IPortalManager } from '@onekeyhq/components/src/hocs/Portal';
 import type { IDragEndParamsWithItem } from '@onekeyhq/components/src/layouts/SortableListView/types';
+import { mountImperativeOverlay } from '@onekeyhq/components/src/shared/imperativeOverlayMount';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import {
   useMarketWatchListV2Atom,
@@ -224,57 +224,59 @@ function MarketWatchlistTokenList({
           portalRef.current = null;
         }
         setActiveActionItem({ item, index });
-        portalRef.current = Portal.Render(
-          Portal.Constant.FULL_WINDOW_OVERLAY_PORTAL,
-          <InlineActionBar
-            isFirstItem={index === 0}
-            onMoveToTop={async () => {
-              setActiveActionItem(null);
-              portalRef.current?.destroy();
-              portalRef.current = null;
-              try {
-                await actions.current.moveToTopV2(tokenToWatchListItem(item));
-                Toast.success({
-                  title: intl.formatMessage({
-                    id: ETranslations.market_move_to_top,
-                  }),
-                });
-              } catch {
-                // error handled internally
-              }
-            }}
-            onToggleWatchlist={async () => {
-              setActiveActionItem(null);
-              portalRef.current?.destroy();
-              portalRef.current = null;
-              try {
-                if (item.perpsCoin) {
-                  await actions.current.removePerpsFromWatchListV2(
-                    item.perpsCoin,
-                  );
-                } else {
-                  await actions.current.removeFromWatchListV2(
-                    item.networkId,
-                    item.address,
-                    { assetId: item.assetId, stockId: item.stockId },
-                  );
+        portalRef.current = mountImperativeOverlay({
+          target: 'global',
+          node: (
+            <InlineActionBar
+              isFirstItem={index === 0}
+              onMoveToTop={async () => {
+                setActiveActionItem(null);
+                portalRef.current?.destroy();
+                portalRef.current = null;
+                try {
+                  await actions.current.moveToTopV2(tokenToWatchListItem(item));
+                  Toast.success({
+                    title: intl.formatMessage({
+                      id: ETranslations.market_move_to_top,
+                    }),
+                  });
+                } catch {
+                  // error handled internally
                 }
-                Toast.success({
-                  title: intl.formatMessage({
-                    id: ETranslations.market_remove_from_watchlist,
-                  }),
-                });
-              } catch {
-                // error handled internally
-              }
-            }}
-            onDismiss={() => {
-              setActiveActionItem(null);
-              portalRef.current?.destroy();
-              portalRef.current = null;
-            }}
-          />,
-        );
+              }}
+              onToggleWatchlist={async () => {
+                setActiveActionItem(null);
+                portalRef.current?.destroy();
+                portalRef.current = null;
+                try {
+                  if (item.perpsCoin) {
+                    await actions.current.removePerpsFromWatchListV2(
+                      item.perpsCoin,
+                    );
+                  } else {
+                    await actions.current.removeFromWatchListV2(
+                      item.networkId,
+                      item.address,
+                      { assetId: item.assetId, stockId: item.stockId },
+                    );
+                  }
+                  Toast.success({
+                    title: intl.formatMessage({
+                      id: ETranslations.market_remove_from_watchlist,
+                    }),
+                  });
+                } catch {
+                  // error handled internally
+                }
+              }}
+              onDismiss={() => {
+                setActiveActionItem(null);
+                portalRef.current?.destroy();
+                portalRef.current = null;
+              }}
+            />
+          ),
+        });
         return;
       }
 

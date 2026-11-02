@@ -27,13 +27,13 @@ import { GlobalErrorHandlerContainer } from './GlobalErrorHandlerContainer';
 import { GlobalWalletConnectModalContainer } from './GlobalWalletConnectModalContainer';
 import { HardwareUiStateContainerLazy } from './HardwareUiStateContainer/Lazy';
 import InAppNotification from './InAppNotification';
+import { IntercomNotificationContainer } from './IntercomNotificationContainer';
 import { KeylessWebAutoConnectHashCleanupContainer } from './KeylessWebAutoConnectHashCleanupContainer';
 import { LinuxUdevGuideDialogContainer } from './LinuxUdevGuideDialogContainer/LinuxUdevGuideDialogContainer';
 import { LocalDbDowngradeDialogContainer } from './LocalDbDowngradeDialogContainer';
 import { LocalSecretEnvelopeErrorDialogContainer } from './LocalSecretEnvelopeErrorDialogContainer';
 import { NavigationContainer } from './NavigationContainer';
 import PageTrackerContainer from './PageTrackerContainer';
-import { PasswordVerifyPortalContainer } from './PasswordVerifyPortalContainer';
 import { PerpsUnifoldDepositTerminalDeliveryContainer } from './PerpsUnifoldDepositTerminalDeliveryContainer';
 import { PrevCheckBeforeSendingContainer } from './PrevCheckBeforeSendingContainer';
 import { PrimeGlobalEffectLazy } from './PrimeGlobalEffectLazy';
@@ -68,6 +68,7 @@ function DetailRouter() {
       <InAppNotification />
       <GlobalRootAppNavigationUpdate />
       <JotaiContextRootProvidersAutoMount />
+      <IntercomNotificationContainer />
       <Bootstrap />
       <FullWindowOverlayContainer />
       <AirGapQrcodeDialogContainer />
@@ -96,7 +97,6 @@ function DetailRouter() {
       <ColdStartByNotification />
       <PrimeGlobalEffectLazy />
       <WebPerformanceMonitorContainer />
-      <PasswordVerifyPortalContainer />
       <RookieShareContainerLazy />
       <Suspense fallback={null}>
         <WalletConnectPayDialogContainerLazy />

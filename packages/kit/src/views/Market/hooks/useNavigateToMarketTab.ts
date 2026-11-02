@@ -5,17 +5,11 @@ import {
   type IMarketSelectedTab,
   useMarketSelectedTabAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import {
-  EAppEventBusNames,
-  appEventBus,
-} from '@onekeyhq/shared/src/eventBus/appEventBus';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type { IMarketNavigationTrigger } from '@onekeyhq/shared/src/logger/scopes/market/scenes/navigation';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   ERootRoutes,
-  ETabDiscoveryRoutes,
   ETabMarketRoutes,
   ETabRoutes,
 } from '@onekeyhq/shared/src/routes';
@@ -130,13 +124,8 @@ export function useNavigateToMarketTab() {
         return;
       }
 
-      // Market tab differs by platform
-      const marketTab = platformEnv.isNative
-        ? ETabRoutes.Discovery
-        : ETabRoutes.Market;
-      const marketTabScreen = platformEnv.isNative
-        ? ETabDiscoveryRoutes.TabDiscovery
-        : ETabMarketRoutes.TabMarket;
+      const marketTab = ETabRoutes.Market;
+      const marketTabScreen = ETabMarketRoutes.TabMarket;
 
       if (platformEnv.isNative) {
         // Keep the primary and detail navigation containers aligned in split view.
@@ -147,11 +136,6 @@ export function useNavigateToMarketTab() {
         screen: marketTab,
         params: {
           screen: marketTabScreen,
-          params: platformEnv.isNative
-            ? {
-                defaultTab: ETranslations.global_market,
-              }
-            : undefined,
         },
       });
       defaultLogger.market.navigation.performNavigationDispatched({
@@ -167,12 +151,8 @@ export function useNavigateToMarketTab() {
         });
       };
 
-      // On native, need to switch to Market sub-tab inside Discovery
       if (platformEnv.isNative) {
         setTimeout(() => {
-          appEventBus.emit(EAppEventBusNames.SwitchDiscoveryTabInNative, {
-            tab: ETranslations.global_market,
-          });
           if (target) {
             applyNavigationTarget(target);
           }

@@ -235,6 +235,7 @@ function TokenDetailChartBase({
             marketAssetId={marketAssetId}
             range={range}
             priceMode="token"
+            priceScaleFormat="full"
           />
         ) : (
           <>

@@ -222,10 +222,10 @@ function DeviceDetailsModalV2Cmp({
               <YStack w="100%">
                 <DeviceBasicInfo
                   showFirmwareVersion={Boolean(
-                    vendorProfile?.supportsFirmwareVersionDisplay,
+                    vendorProfile?.firmware.showVersion,
                   )}
                   showDeviceVerification={Boolean(
-                    vendorProfile?.supportsFirmwareVerify,
+                    vendorProfile?.firmware.verify,
                   )}
                 />
                 {device && !isQrWallet ? (
@@ -237,12 +237,8 @@ function DeviceDetailsModalV2Cmp({
               {showDeviceSupport ? (
                 <DeviceSectionSupport
                   onPressCheckForUpdates={onPressCheckForUpdates}
-                  showFirmwareVerify={Boolean(
-                    vendorProfile?.supportsFirmwareVerify,
-                  )}
-                  showFirmwareUpdate={Boolean(
-                    vendorProfile?.supportsFirmwareUpdate,
-                  )}
+                  showFirmwareVerify={Boolean(vendorProfile?.firmware.verify)}
+                  showFirmwareUpdate={Boolean(vendorProfile?.firmware.update)}
                 />
               ) : null}
               {showDeviceSettings && showInteractiveSections ? (

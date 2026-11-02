@@ -134,7 +134,9 @@ class DesktopApiNetwork {
         bundleDirPath,
         metadata,
         driveLetter,
-        url: preloadJsPath.replace(`${bundleDirPath}/`, ''),
+        url: preloadJsPath
+          .replace(/\\/g, '/')
+          .replace(`${bundleDirPath.replace(/\\/g, '/')}/`, ''),
       });
     }
     // ref: https://github.com/electron/electron/blob/7e031f7e33dcc66cbe5e0e4153a0fc0544618612/lib/sandboxed_renderer/preload.ts#L47

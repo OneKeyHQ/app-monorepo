@@ -934,18 +934,18 @@ export interface IWcPayInlineController {
    * fallback's eth_sendTransaction confirm as well as the typed-data,
    * personal-sign, and Solana branches that never consult the inline plan.
    *
-   * The dialog host uses this to park its system-level sheet (iOS SwiftUI
-   * .sheet / Android ModalBottomSheet), which would otherwise cover the
-   * pushed RN-layer confirm page while itself being non-dismissible during
-   * the paying phase — a deadlock. Parking only in `onFallback` is not
+   * The dialog host uses this to park its sheet, which paints above modal
+   * pages (full-window overlay) and would otherwise cover the pushed confirm
+   * page while itself being non-dismissible during the paying phase — a
+   * deadlock. Parking only in `onFallback` is not
    * enough: multi-action sequences and the non-EVM-send branches push
    * confirm modals without ever entering the inline attempts loop.
    * Idempotent; paired with `onAfterConfirmModalSettled`, which fires when
    * that confirm modal resolves either way.
    */
-  // May return a promise: the host awaits it so a system sheet has finished
-  // dismissing before the RN-layer confirm modal is pushed (pushing while the
-  // sheet is still animating out leaves the modal under a stuck sheet).
+  // May return a promise: the host awaits it so its sheet has finished
+  // sliding out before the confirm modal is pushed (a modal pushed earlier
+  // opens under the departing sheet).
   onBeforePushConfirmModal?: () => void | Promise<void>;
   /**
    * Called when a confirm modal pushed after `onBeforePushConfirmModal`

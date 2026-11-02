@@ -25,6 +25,7 @@ export enum EAtomNames {
   hardwareUiStateCompletedAtom = 'hardwareUiStateCompletedAtom',
   deviceStageAtom = 'deviceStageAtom',
   thirdPartyHardwareUiStateAtom = 'thirdPartyHardwareUiStateAtom',
+  thirdPartyBleBindingAtom = 'thirdPartyBleBindingAtom',
   thirdPartyAppInstallAtom = 'thirdPartyAppInstallAtom',
   thirdPartyBatchInstallAtom = 'thirdPartyBatchInstallAtom',
   hardwareWalletXfpStatusAtom = 'hardwareWalletXfpStatusAtom',
@@ -42,6 +43,7 @@ export enum EAtomNames {
   onboardingCloudBackupListRefreshAtom = 'onboardingCloudBackupListRefreshAtom',
   isOnBoardingOpenAtom = 'isOnBoardingOpenAtom',
   inAppNotificationAtom = 'inAppNotificationAtom',
+  privacyChainAtom = 'privacyChainAtom',
   swapLimitOrdersLoadingAtom = 'swapLimitOrdersLoadingAtom',
   v4migrationAtom = 'v4migrationAtom',
   v4migrationPersistAtom = 'v4migrationPersistAtom',
@@ -144,6 +146,7 @@ export enum EAtomNames {
 
   // swap
   dustSweepPreferencesPersistAtom = 'dustSweepPreferencesPersistAtom',
+  swapStockIssuerPreferencePersistAtom = 'swapStockIssuerPreferencePersistAtom',
   swapProJumpTokenAtom = 'swapProJumpTokenAtom',
   swapFromMarketJumpTokenAtom = 'swapFromMarketJumpTokenAtom',
   swapTradingViewChartSettingsPersistAtom = 'swapTradingViewChartSettingsPersistAtom',
@@ -158,6 +161,9 @@ export enum EAtomNames {
   marketTradingViewIndicatorSettingsPersistAtom = 'marketTradingViewIndicatorSettingsPersistAtom',
   marketTradingViewSubIndicatorCountPersistAtom = 'marketTradingViewSubIndicatorCountPersistAtom',
   marketDetailChartDisplayModePersistAtom = 'marketDetailChartDisplayModePersistAtom',
+  marketDetailChartModePersistAtom = 'marketDetailChartModePersistAtom',
+  marketDetailPositionTabPersistAtom = 'marketDetailPositionTabPersistAtom',
+  marketDetailWatchlistSidebarPersistAtom = 'marketDetailWatchlistSidebarPersistAtom',
   marketPriceSourceAtom = 'marketPriceSourceAtom',
   marketCurrentTokenLiveDataAtom = 'marketCurrentTokenLiveDataAtom',
 

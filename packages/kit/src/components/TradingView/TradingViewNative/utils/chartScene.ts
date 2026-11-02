@@ -55,6 +55,7 @@ import {
   formatTradingViewNativePriceTick,
   getTradingViewNativeChartLayout,
   getTradingViewNativeChartWidth,
+  getTradingViewNativeCurrentPriceAxisLabel,
   getTradingViewNativeCurrentPriceLabel,
   getTradingViewNativeCurrentPriceLayout,
   getTradingViewNativePriceAtY,
@@ -254,6 +255,8 @@ export type ITradingViewNativeChartSceneCommand =
     };
 
 export interface IBuildTradingViewNativeChartSceneOptions {
+  dateFormatTemplate?: string;
+  autoScalePointRange?: ITradingViewNativeVisiblePointRange;
   candleIntervalSeconds: number;
   candleTimeMode?: ITradingViewNativeCandleTimeMode;
   chartComponents?: readonly ITradingViewNativeChartLeafComponent[];
@@ -272,6 +275,7 @@ export interface IBuildTradingViewNativeChartSceneOptions {
   ) => number;
   candleLabels: ITradingViewNativeCandleLabels;
   currentPriceLabel?: string;
+  priceAxisDecimalPlaces?: number;
   priceDecimalPlaces?: number;
   points: IMarketTokenKLineDataPoint[];
   pinnedPriceRange?: ITradingViewNativePriceRange | null;
@@ -675,6 +679,8 @@ function appendLegendCommands({
 }
 
 export function buildTradingViewNativeChartScene({
+  dateFormatTemplate,
+  autoScalePointRange,
   candleIntervalSeconds,
   candleTimeMode,
   chartComponents = [],
@@ -690,6 +696,7 @@ export function buildTradingViewNativeChartScene({
   measureTextWidth,
   candleLabels,
   currentPriceLabel,
+  priceAxisDecimalPlaces,
   priceDecimalPlaces,
   points,
   pinnedPriceRange,
@@ -745,7 +752,10 @@ export function buildTradingViewNativeChartScene({
       currentPriceLabelWidth: measureTextWidth(
         chartSettings?.options.latestPrice === false
           ? ''
-          : resolvedCurrentPriceLabel,
+          : getTradingViewNativeCurrentPriceAxisLabel(
+              resolvedCurrentPriceLabel,
+              priceDecimalPlaces,
+            ),
         'priceAxis',
       ),
       widestPriceLabelWidth: Math.max(
@@ -823,10 +833,8 @@ export function buildTradingViewNativeChartScene({
       const colorKey = direction === 'up' ? 'upColor' : 'downColor';
       customPaintStyles[LATEST_PRICE_LINE_PAINT_IDS[direction]] = {
         color: chartSettings.latestPriceLine[colorKey],
-        dash:
-          chartSettings.latestPriceLine.style === 'dashed'
-            ? [CURRENT_PRICE_LINE_DASH_LENGTH, CURRENT_PRICE_LINE_DASH_GAP]
-            : undefined,
+        // The latest price line is always dashed; any stored style is ignored.
+        dash: [CURRENT_PRICE_LINE_DASH_LENGTH, CURRENT_PRICE_LINE_DASH_GAP],
         opacity: 1,
       };
       customPaintStyles[LATEST_PRICE_LABEL_PAINT_IDS[direction]] = {
@@ -891,9 +899,12 @@ export function buildTradingViewNativeChartScene({
     return emptyScene;
   }
 
+  const scalePointRange = autoScalePointRange ?? visiblePointRange;
   const layout = getTradingViewNativeChartLayout({
+    dateFormatTemplate,
+    autoScalePointRange: scalePointRange,
     additionalPriceRange: getTradingViewNativeIndicatorPriceRange({
-      ...visiblePointRange,
+      ...scalePointRange,
       series: indicatorSeries,
     }),
     candleIntervalSeconds,
@@ -936,11 +947,11 @@ export function buildTradingViewNativeChartScene({
     volumeTop,
   } = layout;
   const subIndicatorLayouts = getTradingViewNativeSubIndicatorPaneLayouts({
-    endIndex: visiblePointRange.endIndex,
+    endIndex: scalePointRange.endIndex,
     panes: visibleSubIndicatorPanes,
     stackBottom: subIndicatorPaneStackLayout.bottom,
     stackTop: subIndicatorPaneStackLayout.top,
-    startIndex: visiblePointRange.startIndex,
+    startIndex: scalePointRange.startIndex,
   });
   const getPointX = (index: number) =>
     getTradingViewNativeCandleX({
@@ -973,7 +984,34 @@ export function buildTradingViewNativeChartScene({
     y2: timeAxisY,
   });
   for (const { price, y } of priceTicks) {
-    const text = formatTradingViewNativePriceTick(price, 4, priceDecimalPlaces);
+    const decimals = Math.max(
+      0,
+      Math.min(12, Math.floor(priceAxisDecimalPlaces ?? 0)),
+    );
+    let tickPrice = price;
+    if (priceAxisDecimalPlaces !== undefined) {
+      const scale = 10 ** decimals;
+      const nearestTick = Math.round(price * scale);
+      const boundary = nearestTick / scale;
+      // Remove only machine-scale interpolation error before truncating ticks.
+      if (
+        Number.isSafeInteger(nearestTick) &&
+        Math.abs(price - boundary) <= Math.abs(price) * Number.EPSILON * 4
+      ) {
+        tickPrice = boundary;
+      }
+    }
+    let text = formatTradingViewNativePriceTick(
+      tickPrice,
+      4,
+      priceAxisDecimalPlaces ?? priceDecimalPlaces,
+      priceAxisDecimalPlaces === undefined ? 'round' : 'truncate',
+    );
+    if (decimals > 0 && text !== '--') {
+      // Keep axis ticks aligned without padding actual price labels.
+      const [integer, fraction = ''] = text.split('.');
+      text = `${integer}.${fraction.padEnd(decimals, '0')}`;
+    }
     if (showHorizontalGrid) {
       commands.push({
         ...(chartSettings ? { customPaintId: GRID_HORIZONTAL_PAINT_ID } : {}),
@@ -1211,8 +1249,21 @@ export function buildTradingViewNativeChartScene({
       });
     }
   }
+  const pinnedPriceIsOutsideChart =
+    crosshair.price !== undefined &&
+    (crosshair.price < minPrice || crosshair.price > maxPrice);
   const crosshairY =
-    crosshairX === null ? null : Math.min(Math.max(crosshair.y, 0), timeAxisY);
+    crosshairX === null || pinnedPriceIsOutsideChart
+      ? null
+      : Math.min(
+          Math.max(
+            crosshair.price === undefined
+              ? crosshair.y
+              : getTradingViewNativePriceY(crosshair.price, layout),
+            0,
+          ),
+          timeAxisY,
+        );
   if (crosshairX !== null && crosshairY !== null) {
     commands.push(
       {
@@ -1513,6 +1564,7 @@ export function buildTradingViewNativeChartScene({
     const timeLabel = formatTradingViewNativeCrosshairTime(
       crosshairTimestamp,
       candleIntervalSeconds,
+      dateFormatTemplate,
     );
     const timeTextWidth = measureTextWidth(timeLabel, 'axis');
     const timeLabelWidth = Math.min(

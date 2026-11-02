@@ -52,6 +52,8 @@ type IMarketHomeTokenListWebSocketParams = {
   onSubscriptionCountChange?: (count: number) => void;
 };
 
+// The most token subscriptions one Market list keeps open at a time.
+export const MARKET_HOME_WS_MAX_SUBSCRIPTIONS = 80;
 const DEFAULT_MARKET_HOME_WS_CHART_TYPE = '1m';
 const DEFAULT_MARKET_HOME_WS_CURRENCY = 'usd';
 
@@ -219,6 +221,9 @@ function mergeLiveOverride(
   }
   if (override.change24h !== undefined) {
     nextToken.change24h = override.change24h;
+    // Keep the raw value in step, so a row whose feed had no change ('-' or
+    // omitted) shows the live change instead of still reading as missing.
+    nextToken.priceChangeRaw = String(override.change24h);
     hasOverride = true;
   }
   if (override.marketCap !== undefined) {

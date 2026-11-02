@@ -7,7 +7,7 @@ import {
   dismissKeyboardWithDelay,
 } from '@onekeyhq/shared/src/keyboard';
 
-import type { ScrollViewProps } from 'react-native';
+import type { ScrollViewInstance, ScrollViewProps } from 'react-native';
 import type {
   KeyboardAvoidingView,
   KeyboardAwareScrollView,
@@ -28,7 +28,7 @@ const PassThrough = ({
 
 // On non-native platforms, strip keyboard-specific props and render a plain ScrollView
 const AwareScrollViewFallback = forwardRef<
-  ScrollView,
+  ScrollViewInstance,
   ScrollViewProps & Record<string, unknown>
 >(({ bottomOffset: _bottomOffset, ...rest }, ref) => (
   <ScrollView ref={ref} {...rest} />

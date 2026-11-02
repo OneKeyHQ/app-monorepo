@@ -33,15 +33,17 @@ describe('market detail trade column', () => {
     );
   };
 
-  it('holds the 384px floor up to a 1280px window', () => {
-    expect(tradeWidthForWindow(1024)).toBe(384);
-    expect(tradeWidthForWindow(1280)).toBeCloseTo(384, 6);
+  it('holds the 368px floor up to a ~1354px window', () => {
+    expect(tradeWidthForWindow(1024)).toBe(368);
+    expect(tradeWidthForWindow(1280)).toBe(368);
+    expect(tradeWidthForWindow(1350)).toBe(368);
+    expect(tradeWidthForWindow(1380)).toBeCloseTo(375.2, 1);
   });
 
   it('scales with the content row and stops at the frame cap', () => {
-    expect(tradeWidthForWindow(1440)).toBeCloseTo(433.5, 1);
-    expect(tradeWidthForWindow(1480)).toBeCloseTo(445.9, 1);
-    expect(tradeWidthForWindow(2560)).toBeCloseTo(445.9, 1);
+    expect(tradeWidthForWindow(1440)).toBeCloseTo(392, 1);
+    expect(tradeWidthForWindow(1480)).toBeCloseTo(403.2, 1);
+    expect(tradeWidthForWindow(2560)).toBeCloseTo(403.2, 1);
     expect(MARKET_DETAIL_TRADE_COLUMN_PROPS.flexShrink).toBe(0);
   });
 

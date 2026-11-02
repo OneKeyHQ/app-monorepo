@@ -27,7 +27,7 @@ export function canDeriveTypesCollapse({
 
 // Whether the account shows only its default address type on this network.
 // Decided once per account: a page keeps the answer it opened with unless it
-// opts into `revalidateOnFocus`.
+// opts into `revalidateOnFocus` or bumps `revision`.
 export function useDeriveTypesCollapseState({
   networkId,
   walletId,
@@ -35,6 +35,7 @@ export function useDeriveTypesCollapseState({
   activeDeriveType,
   enabled = true,
   revalidateOnFocus,
+  revision = 0,
 }: {
   networkId: string | undefined;
   walletId: string | undefined;
@@ -43,14 +44,20 @@ export function useDeriveTypesCollapseState({
   activeDeriveType?: IAccountDeriveTypes;
   enabled?: boolean;
   revalidateOnFocus?: boolean;
+  // Bumped after the default address type changed. A collapsed answer is
+  // dropped (not ready again): it names the previous default's account. A
+  // not-collapsed one stays until the new answer arrives, so type tabs are
+  // not torn down for nothing.
+  revision?: number;
 }) {
   const isApplicable =
     enabled && canDeriveTypesCollapse({ networkId, walletId });
   // The account may still be loading on the caller's side.
-  const queryKey =
+  const accountKey =
     isApplicable && networkId && indexedAccountId
       ? `${networkId}__${indexedAccountId}`
       : undefined;
+  const queryKey = accountKey ? `${accountKey}__${revision}` : undefined;
 
   const { result } = usePromiseResult(
     async () => {
@@ -63,14 +70,14 @@ export function useDeriveTypesCollapseState({
             networkId,
             indexedAccountId,
           });
-        return { queryKey, state };
+        return { queryKey, accountKey, state };
       } catch (_error) {
         // A failed round trip to the background must not leave the page
         // waiting forever: fall back to showing every address type.
-        return { queryKey, state: NOT_COLLAPSED };
+        return { queryKey, accountKey, state: NOT_COLLAPSED };
       }
     },
-    [queryKey, networkId, indexedAccountId],
+    [queryKey, accountKey, networkId, indexedAccountId],
     { revalidateOnFocus },
   );
 
@@ -81,6 +88,13 @@ export function useDeriveTypesCollapseState({
   if (!isApplicable) {
     state = NOT_COLLAPSED;
   } else if (queryKey && result?.queryKey === queryKey) {
+    state = result.state;
+  } else if (
+    accountKey &&
+    result?.accountKey === accountKey &&
+    !result.state.collapsed
+  ) {
+    // This account's answer from before a revision bump (see `revision`).
     state = result.state;
   }
   const defaultNetworkAccount = state?.collapsed

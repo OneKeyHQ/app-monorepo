@@ -38,6 +38,7 @@ export function useWalletConnection({
   } = useConnectExternalWallet();
 
   const dialogRef = useRef<IDialogInstance | null>(null);
+  const connectionGenerationRef = useRef(0);
   const isMountedRef = useRef(true);
   const shouldCancelWalletConnectOnDialogCloseRef = useRef(false);
 
@@ -53,14 +54,15 @@ export function useWalletConnection({
     [],
   );
 
-  // Only add WalletConnect modal state listener for retry button
   const loadingRef = useRef(loading);
   loadingRef.current = loading;
 
   const isWalletConnect = !!connectionInfo.walletConnect;
 
   useEffect(() => {
-    if (!loading) {
+    // An SDK modal close can belong to a superseded pairing. WalletConnect
+    // loading is owned by the connection promise and its progress dialog.
+    if (!loading || isWalletConnect) {
       return;
     }
     const fn = (state: { open: boolean }) => {
@@ -72,18 +74,35 @@ export function useWalletConnection({
     return () => {
       appEventBus.off(EAppEventBusNames.WalletConnectModalState, fn);
     };
-  }, [hideLoading, loading]);
+  }, [hideLoading, isWalletConnect, loading]);
 
   useEffect(() => {
-    const fn = async (state: { open: boolean }) => {
-      if (state.open === true && platformEnv.isNative && isWalletConnect) {
+    const fn = async (state: { open: boolean; attemptId?: number }) => {
+      if (
+        state.open === true &&
+        (platformEnv.isNative || platformEnv.isDesktop) &&
+        isWalletConnect
+      ) {
+        const generation = connectionGenerationRef.current;
+        const progress = await backgroundApiProxy.serviceWalletConnect
+          .getDappSideConnectionProgress()
+          .catch(() => undefined);
+        if (
+          !isMountedRef.current ||
+          generation !== connectionGenerationRef.current ||
+          state.attemptId === undefined ||
+          state.attemptId !== progress?.attemptId
+        ) {
+          return;
+        }
         // Dialog component will cover the WalletConnectSDK modal, so we need to manually close the Dialog
         // search: zIndex: 99993173
         await closeDialogWithoutCancelling();
 
-        // Wait for React Native Fabric to complete view cleanup
-        // This prevents race conditions when opening WalletConnect modal
-        await timerUtils.wait(100);
+        if (platformEnv.isNative) {
+          // Wait for Fabric cleanup before opening the SDK modal.
+          await timerUtils.wait(100);
+        }
       }
     };
     appEventBus.on(EAppEventBusNames.WalletConnectModalState, fn);
@@ -97,6 +116,13 @@ export function useWalletConnection({
     if (loading || loadingRef.current) {
       return;
     }
+    connectionGenerationRef.current += 1;
+    const generation = connectionGenerationRef.current;
+    const closeOwnedDialog = async () => {
+      if (generation === connectionGenerationRef.current) {
+        await closeDialogWithoutCancelling();
+      }
+    };
     let shouldShowDialogLoading = true;
     if (platformEnv.isNative && isWalletConnect) {
       // shouldShowDialogLoading = false;
@@ -111,13 +137,18 @@ export function useWalletConnection({
       await timerUtils.wait(100);
     }
 
-    if (!isMountedRef.current) return;
+    if (
+      !isMountedRef.current ||
+      generation !== connectionGenerationRef.current
+    ) {
+      return;
+    }
 
     if (shouldShowDialogLoading) {
       shouldCancelWalletConnectOnDialogCloseRef.current = true;
       dialogRef.current = Dialog.show({
         title:
-          platformEnv.isNative && isWalletConnect
+          (platformEnv.isNative || platformEnv.isDesktop) && isWalletConnect
             ? undefined
             : intl.formatMessage(
                 { id: ETranslations.global_connect_to_wallet },
@@ -133,8 +164,9 @@ export function useWalletConnection({
         useInitialSafeAreaBottomInsetFallback:
           platformEnv.isNativeIOS && isWalletConnect,
         onClose() {
+          if (generation !== connectionGenerationRef.current) return;
           if (
-            platformEnv.isNative &&
+            (platformEnv.isNative || platformEnv.isDesktop) &&
             isWalletConnect &&
             shouldCancelWalletConnectOnDialogCloseRef.current
           ) {
@@ -154,12 +186,12 @@ export function useWalletConnection({
         renderContent: (
           <ConnectToWalletDialogContent
             isWalletConnect={isWalletConnect}
-            onSocketProgressExhausted={closeDialogWithoutCancelling}
+            onSocketProgressExhausted={closeOwnedDialog}
             onRetryPress={async () => {
               try {
                 const result = await connectToWallet(connectionInfo);
                 if (result !== false) {
-                  await closeDialogWithoutCancelling();
+                  await closeOwnedDialog();
                 }
               } catch {
                 // Dialog stays open to allow further retries
@@ -173,10 +205,12 @@ export function useWalletConnection({
     try {
       await connectToWallet(connectionInfo);
       // Connection successful - close the dialog
-      await closeDialogWithoutCancelling();
+      await closeOwnedDialog();
     } catch (error) {
       // Connection failed - dialog stays open to show retry button
-      console.error('Wallet connection failed:', error);
+      if (generation === connectionGenerationRef.current) {
+        console.error('Wallet connection failed:', error);
+      }
       throw error;
     }
   }, [

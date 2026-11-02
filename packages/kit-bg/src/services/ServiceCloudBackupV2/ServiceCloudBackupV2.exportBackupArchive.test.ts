@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/unbound-method -- Jest mocks do not use this binding. */
 import { webcrypto } from 'crypto';
 
 import {
@@ -9,10 +10,12 @@ import {
   type IBackupCloudServerDownloadData,
 } from '@onekeyhq/shared/src/cloudBackup/cloudBackupTypes';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import type { IPrimeTransferData } from '@onekeyhq/shared/types/prime/primeTransferTypes';
 
 import { createBackupExportArchive } from './createBackupExportArchive';
+import cache from './localBackupPasswordCache';
 import ServiceCloudBackupV2 from './ServiceCloudBackupV2';
 
 import type { IZipJsNativeModule } from './zipJsTypes';
@@ -38,6 +41,11 @@ jest.mock('./backupProviders/OneKeyBackupProvider', () => ({
 }));
 jest.mock('../../states/jotai/atoms/cloudBackup', () => ({
   cloudBackupStatusAtom: {},
+}));
+
+jest.mock('./localBackupPasswordCache', () => ({
+  __esModule: true,
+  default: { set: jest.fn(), get: jest.fn() },
 }));
 
 const data: IPrimeTransferData = {
@@ -190,8 +198,22 @@ describe('cloud backup ZIP export', () => {
 
   it('removes redundant wrapped credentials and refuses exports that still need another password', async () => {
     const { service, password } = await prepareCloudBackup('synthetic-user-id');
-    const prepare = jest.spyOn(service, 'restorePreparePrivateData');
-    prepare.mockResolvedValueOnce({
+    const prepare = async (privateData: IPrimeTransferData['privateData']) => {
+      const encrypted = await encryptAsync({
+        data: Buffer.from(stringUtils.stableStringify(privateData)),
+        password: await service.buildFullBackupPassword({ password }),
+        allowRawPassword: true,
+        format: ESecretEncryptPayloadFormat.legacy,
+      });
+      jest.spyOn(service, 'download').mockResolvedValue({
+        content: 'synthetic',
+        payload: {
+          ...data,
+          privateDataEncrypted: encrypted.toString('base64'),
+        },
+      });
+    };
+    await prepare({
       ...data.privateData,
       credentials: { fixture: 'redundant-encrypted-credential' },
     });
@@ -202,20 +224,36 @@ describe('cloud backup ZIP export', () => {
     expect(
       JSON.parse(await readArchive(exported.archiveBase64, exported.password)),
     ).toEqual(data);
-    prepare.mockResolvedValueOnce({
+    await prepare({
       ...data.privateData,
       credentials: { missing: 'encrypted-credential' },
     });
     await expect(
       service.exportBackupArchive({ recordId: 'fixture', password }),
     ).rejects.toThrow('cannot be exported as plaintext');
-    prepare.mockResolvedValueOnce({
+    await prepare({
       ...data.privateData,
       decryptedCredentialsHex: 'encrypted-transfer-credentials',
     });
     await expect(
       service.exportBackupArchive({ recordId: 'fixture', password }),
     ).rejects.toThrow('cannot be exported as plaintext');
+  });
+
+  it('exports on native without enrolling or authenticating recovery credentials', async () => {
+    const wasIOS = platformEnv.isNativeIOS;
+    platformEnv.isNativeIOS = true;
+    jest.mocked(cache.set).mockClear();
+    jest.mocked(cache.get).mockClear();
+    try {
+      const { service, password } =
+        await prepareCloudBackup('synthetic-user-id');
+      await service.exportBackupArchive({ recordId: 'fixture', password });
+      expect(cache.set).not.toHaveBeenCalled();
+      expect(cache.get).not.toHaveBeenCalled();
+    } finally {
+      platformEnv.isNativeIOS = wasIOS;
+    }
   });
 
   it('does not produce an archive for a wrong backup password or missing backup', async () => {

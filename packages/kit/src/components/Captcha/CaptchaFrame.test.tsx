@@ -116,6 +116,27 @@ const success = {
 const ready = { type: 'onekey-test-captcha', requestId, status: 'ready' };
 const handshake = { type: 'onekey-captcha-bridge', version: 1, requestId };
 
+test('preserves provider load-error code and strips spoofed host source', () => {
+  const onResult = jest.fn();
+  render(<CaptchaFrame url={url} requestId={requestId} onResult={onResult} />);
+  const frame = screen.getByTitle<HTMLIFrameElement>('Security verification');
+  const port = connect(frame);
+  port.send({
+    ...ready,
+    status: 'load-error',
+    code: '110100',
+    source: 'host_watchdog',
+    token: 'private-token',
+    message: 'private-message',
+  });
+  expect(onResult).toHaveBeenCalledWith({
+    ...ready,
+    status: 'load-error',
+    code: '110100',
+    source: 'provider_message',
+  });
+});
+
 function CommitProbe({
   children,
   onCommit,
@@ -217,7 +238,15 @@ test.each(['no bridge', 'legacy window bridge', 'handshake only'])(
     port?.send(success);
     sendWindowMessage(frame, { data: success });
     expect(onResult.mock.calls).toEqual([
-      [{ type: 'onekey-test-captcha', requestId, status: 'load-error' }],
+      [
+        {
+          type: 'onekey-test-captcha',
+          requestId,
+          status: 'load-error',
+          code: undefined,
+          source: 'host_watchdog',
+        },
+      ],
     ]);
     expect(screen.queryByTitle('Security verification')).toBeNull();
     if (port) expect(port.close).toHaveBeenCalled();
@@ -249,7 +278,15 @@ test.each(['second load', 'pagehide', 'port error', 'frame error'])(
     });
     expect(onResult.mock.calls).toEqual([
       [{ ...ready, token: undefined }],
-      [{ ...ready, status: 'load-error' }],
+      [
+        {
+          ...ready,
+          status: 'load-error',
+          code: undefined,
+          source:
+            failure === 'pagehide' ? 'provider_message' : 'host_load_error',
+        },
+      ],
     ]);
     expect(port.close).toHaveBeenCalled();
     expect(screen.queryByTitle('Security verification')).toBeNull();

@@ -35,6 +35,7 @@ import { SizeInputModeSelector } from '../selectors/SizeInputModeSelector';
 import {
   canSkipPerpsSizePriceConversion,
   convertPerpsSizeDisplayValueToToken,
+  getPerpsMinimumOrderSuggestion,
 } from './sizeInputConversion';
 import { TradingFormInput } from './TradingFormInput';
 
@@ -61,6 +62,7 @@ export function getMinimumOrderToastActionProps(
 ) {
   if (platformEnv.isNativeIOS || !action || !actionLabel) return {};
   return {
+    duration: 3000,
     actionsAlign: 'left' as const,
     actions: (
       <Button
@@ -93,6 +95,7 @@ interface ISizeInputProps {
   label?: string;
   isMobile?: boolean;
   leverage: number;
+  minimumOrderNotional?: number;
   allowMarginInput?: boolean;
   ifOnDialog?: boolean;
   inputRef?: Ref<IInputRef>;
@@ -120,6 +123,7 @@ export const SizeInput = memo(
     label,
     isMobile = false,
     leverage,
+    minimumOrderNotional = MINIMUM_ORDER_NOTIONAL,
     allowMarginInput = true,
     ifOnDialog = false,
     inputRef,
@@ -481,29 +485,20 @@ export const SizeInput = memo(
     const minimumOrderSuggestion = useMemo(() => {
       if (!hasValidPrice || isDisabled) return undefined;
 
-      const tokenValue = new BigNumber(MINIMUM_ORDER_NOTIONAL)
-        .dividedBy(priceBN)
-        .decimalPlaces(szDecimals, BigNumber.ROUND_CEIL)
-        .toFixed(szDecimals);
-      if (inputMode === 'token') {
-        return {
-          displayValue: tokenValue,
-          label: `${tokenValue} ${symbol}`.trim(),
-        };
-      }
-
-      const orderValue = new BigNumber(tokenValue).multipliedBy(priceBN);
-      const displayValue = (
-        inputMode === 'margin' ? orderValue.dividedBy(leverageBN) : orderValue
-      )
-        .decimalPlaces(2, BigNumber.ROUND_CEIL)
-        .toFixed(2);
-      return { displayValue, label: `$${displayValue}` };
+      return getPerpsMinimumOrderSuggestion({
+        price: priceBN,
+        szDecimals,
+        minimumNotional: minimumOrderNotional,
+        inputMode,
+        leverage,
+        symbol,
+      });
     }, [
       hasValidPrice,
       inputMode,
       isDisabled,
-      leverageBN,
+      leverage,
+      minimumOrderNotional,
       priceBN,
       symbol,
       szDecimals,

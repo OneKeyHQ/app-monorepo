@@ -20,8 +20,8 @@ import {
   clearWhatsNewShown,
 } from '@onekeyhq/shared/src/appUpdate';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { AppUpdate } from '@onekeyhq/shared/src/modules3rdParty/auto-update';
+import { EUpdateErrorCode } from '@onekeyhq/shared/src/modules3rdParty/auto-update/error';
 
 import SkipGPGVerificationToggle from './SkipGPGVerificationToggle';
 
@@ -204,7 +204,9 @@ export default function DevAppUpdateTestModal() {
             variant="secondary"
             onPress={() => {
               void backgroundApiProxy.serviceAppUpdate.downloadPackageFailed({
-                message: '404',
+                code: EUpdateErrorCode.httpError,
+                step: 'download',
+                httpStatus: 404,
               });
             }}
           >
@@ -214,7 +216,9 @@ export default function DevAppUpdateTestModal() {
             variant="secondary"
             onPress={() => {
               void backgroundApiProxy.serviceAppUpdate.downloadASCFailed({
-                message: '404',
+                code: EUpdateErrorCode.httpError,
+                step: 'downloadASC',
+                httpStatus: 404,
               });
             }}
           >
@@ -224,8 +228,8 @@ export default function DevAppUpdateTestModal() {
             variant="secondary"
             onPress={() => {
               void backgroundApiProxy.serviceAppUpdate.verifyASCFailed({
-                message:
-                  ETranslations.update_signature_verification_failed_alert_text,
+                code: EUpdateErrorCode.integrityFailed,
+                step: 'verifyASC',
               });
             }}
           >
@@ -235,8 +239,8 @@ export default function DevAppUpdateTestModal() {
             variant="secondary"
             onPress={() => {
               void backgroundApiProxy.serviceAppUpdate.verifyASCFailed({
-                message:
-                  ETranslations.update_installation_package_possibly_compromised,
+                code: EUpdateErrorCode.integrityFailed,
+                step: 'verifyASC',
               });
             }}
           >
@@ -246,8 +250,8 @@ export default function DevAppUpdateTestModal() {
             variant="secondary"
             onPress={() => {
               void backgroundApiProxy.serviceAppUpdate.verifyPackageFailed({
-                message:
-                  ETranslations.update_installation_package_possibly_compromised,
+                code: EUpdateErrorCode.integrityFailed,
+                step: 'verifyPackage',
               });
             }}
           >
@@ -257,7 +261,8 @@ export default function DevAppUpdateTestModal() {
             variant="secondary"
             onPress={() => {
               void backgroundApiProxy.serviceAppUpdate.verifyPackageFailed({
-                message: ETranslations.update_installation_not_safe_alert_text,
+                code: EUpdateErrorCode.integrityFailed,
+                step: 'verifyPackage',
               });
             }}
           >

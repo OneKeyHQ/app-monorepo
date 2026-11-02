@@ -1,4 +1,4 @@
-import { useCallback, useRef } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 
 import { Haptics, ImpactFeedbackStyle } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -8,6 +8,7 @@ import {
 } from '@onekeyhq/shared/types/qrCode';
 
 import { ScanQrCode } from '../../../views/ScanQrCode/components';
+import { isInvalidQrCodeError } from '../../../views/ScanQrCode/utils/isInvalidQrCodeError';
 
 import { interpretAirGapScanFrame } from './airGapScanFrame';
 
@@ -36,6 +37,13 @@ export function DeviceStageQrScanner({
   const resetPromiseRef = useRef<Promise<void> | undefined>(undefined);
   const sessionIdRef = useRef(sessionId);
   sessionIdRef.current = sessionId;
+  const unmountedRef = useRef(false);
+  useEffect(() => {
+    unmountedRef.current = false;
+    return () => {
+      unmountedRef.current = true;
+    };
+  }, []);
   const handleBarCodeScanned = useCallback(async (value: string) => {
     // The empty value is ScanQrCode's unmount cleanup — never an answer.
     if (!value || submittedRef.current) {
@@ -55,12 +63,40 @@ export function DeviceStageQrScanner({
         });
     }
     await resetPromiseRef.current;
-    const parsed = await backgroundApiProxy.serviceScanQRCode.parse(value, {
-      handlers: [EQRCodeHandlerNames.animation],
-      qrWalletScene: true,
-      autoExecuteParsedAction: false,
-    });
-    if (submittedRef.current) {
+    // A frame that outlived this scanner must not reach the next session's decoder.
+    if (unmountedRef.current) {
+      return {};
+    }
+    let parsed: Awaited<
+      ReturnType<typeof backgroundApiProxy.serviceScanQRCode.parse>
+    >;
+    try {
+      parsed = await backgroundApiProxy.serviceScanQRCode.parse(value, {
+        handlers: [EQRCodeHandlerNames.animation],
+        qrWalletScene: true,
+        autoExecuteParsedAction: false,
+      });
+    } catch (error) {
+      if (unmountedRef.current) {
+        return {};
+      }
+      // Anything but an unacceptable code is a transient failure (a bridge
+      // hiccup): retry the frame, as a rejected submit does below.
+      if (!isInvalidQrCodeError(error)) {
+        return { retry: true };
+      }
+      // A code the scan can never accept (its error toasts itself): end the
+      // scan rather than fail every further frame of the same code.
+      if (!submittedRef.current) {
+        submittedRef.current = true;
+        await backgroundApiProxy.serviceQrWallet.cancelStageAirGapScan({
+          scanning: true,
+          sessionId: sessionIdRef.current,
+        });
+      }
+      return {};
+    }
+    if (submittedRef.current || unmountedRef.current) {
       // A slower frame racing the one that completed the set.
       return {};
     }

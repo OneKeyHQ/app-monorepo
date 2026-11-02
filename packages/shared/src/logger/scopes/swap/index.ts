@@ -15,6 +15,7 @@ import { SwapLowSlippageWarningScene } from './scenes/swapLowSlippageWarning';
 import { SwapOrderLongPendingWarningScene } from './scenes/swapOrderLongPendingWarning';
 import { SwapProScene } from './scenes/swapPro';
 import { SwapQuoteScene } from './scenes/swapQuote';
+import { SwapReviewScene } from './scenes/swapReview';
 import { SwapSendTxScene } from './scenes/swapSendTx';
 import { TokenSelectorSearchScene } from './scenes/tokenSelectorSearch';
 import { TradeCategorySwitchScene } from './scenes/tradeCategorySwitch';
@@ -42,6 +43,8 @@ export class SwapScope extends BaseScope {
   cleanSwapOrder = this.createScene('cleanSwapOrder', CleanSwapOrderScene);
 
   swapQuote = this.createScene('swapQuote', SwapQuoteScene);
+
+  swapReview = this.createScene('swapReview', SwapReviewScene);
 
   enterSwap = this.createScene('enterSwap', EnterSwapScene);
 

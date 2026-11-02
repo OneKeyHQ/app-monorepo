@@ -1,3 +1,5 @@
+import type { IMarketStockTokenVariant } from '@onekeyhq/shared/types/marketV2';
+
 export function resolveMarketDetailHeaderIdentity({
   isStockToken,
   stockSymbol,
@@ -5,6 +7,7 @@ export function resolveMarketDetailHeaderIdentity({
   tokenSymbol,
   tokenLogoUrl,
   tokenLogoUrls,
+  tokenVariant,
 }: {
   isStockToken: boolean;
   stockSymbol?: string;
@@ -12,6 +15,7 @@ export function resolveMarketDetailHeaderIdentity({
   tokenSymbol?: string;
   tokenLogoUrl?: string;
   tokenLogoUrls?: string[];
+  tokenVariant?: Pick<IMarketStockTokenVariant, 'symbol' | 'name' | 'logoUrl'>;
 }): {
   symbol: string;
   logoUrl?: string;
@@ -24,6 +28,13 @@ export function resolveMarketDetailHeaderIdentity({
     return {
       symbol: stockSymbol || tokenSymbol || '',
       logoUrl: stockLogoUrl?.trim() || undefined,
+    };
+  }
+  // Variant selection can precede the detail request clearing the old token.
+  if (tokenVariant) {
+    return {
+      symbol: tokenVariant.symbol || tokenVariant.name || '',
+      logoUrl: tokenVariant.logoUrl,
     };
   }
   return {

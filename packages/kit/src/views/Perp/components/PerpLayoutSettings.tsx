@@ -4,9 +4,11 @@ import { useIntl } from 'react-intl';
 
 import {
   Dialog,
+  ESwitchSize,
   Icon,
   SizableText,
   Stack,
+  Switch,
   XStack,
   YStack,
 } from '@onekeyhq/components';
@@ -55,6 +57,9 @@ function useLayoutSettingsCopy() {
     () => ({
       pageTitle: intl.formatMessage({
         id: ETranslations.perps_layout_settings__title,
+      }),
+      positionActionsTitle: intl.formatMessage({
+        id: ETranslations.perp_position_action_buttons__title,
       }),
       sectionTitle: intl.formatMessage({
         id: ETranslations.perps_trading_page_chart__title,
@@ -135,7 +140,7 @@ function TradingPanelPreview({ compact = false }: { compact?: boolean }) {
 
 function ChartPositionPreview({ position }: { position: IPerpsChartPosition }) {
   return (
-    <YStack width="100%" height={104} gap="$2">
+    <YStack width="100%" height={112} gap="$2">
       {position === 'top' ? <MiniCandlestickChart /> : null}
       <TradingPanelPreview compact={position === 'hidden'} />
       {position === 'bottom' ? <MiniCandlestickChart /> : null}
@@ -160,37 +165,32 @@ function ChartPositionOption({
 
   return (
     <YStack
+      testID={PerpTestIDs.MobileChartPositionOption(position)}
+      accessibilityRole="radio"
+      accessibilityState={{ selected }}
       flexGrow={1}
       flexShrink={1}
       flexBasis={0}
       minWidth={0}
       gap="$2"
       alignItems="stretch"
+      cursor="pointer"
+      pressStyle={{ opacity: 0.6 }}
+      onPress={handlePress}
     >
       <YStack
-        testID={PerpTestIDs.MobileChartPositionOption(position)}
-        accessibilityRole="radio"
-        accessibilityState={{ selected }}
-        height={128}
-        px="$2"
-        py="$1.5"
-        justifyContent="center"
-        borderRadius="$3"
+        p="$2"
+        borderRadius="$2"
         borderWidth="$px"
         borderColor={selected ? '$borderActive' : '$borderSubdued'}
         backgroundColor="$bgApp"
-        cursor="default"
-        onPress={handlePress}
       >
         <ChartPositionPreview position={position} />
       </YStack>
       <SizableText
         size="$bodySmMedium"
-        color="$text"
+        color={selected ? '$text' : '$textSubdued'}
         textAlign="center"
-        numberOfLines={1}
-        cursor="default"
-        onPress={handlePress}
       >
         {label}
       </SizableText>
@@ -247,7 +247,56 @@ export function PerpLayoutSettingsEntry({
   );
 }
 
-export function PerpLayoutSettingsContent() {
+export function PerpPositionActionsSettingsContent() {
+  const intl = useIntl();
+  const [settings, setSettings] = usePerpsCustomSettingsAtom();
+  const actions = [
+    { key: 'add', label: ETranslations.add_position__action },
+    { key: 'reverse', label: ETranslations.perp_reverse_position__action },
+    { key: 'tpsl', label: ETranslations.perp_position_tp_sl_short },
+    { key: 'close', label: ETranslations.perp_position_close_short },
+  ] as const;
+  return (
+    <YStack gap="$5" testID={PerpTestIDs.PositionActionsSettingsDialog}>
+      <SizableText size="$bodyMd" color="$textSubdued">
+        {intl.formatMessage({
+          id: ETranslations.perp_position_action_buttons__desc,
+        })}
+      </SizableText>
+      {actions.map(({ key, label }) => (
+        <XStack
+          key={key}
+          gap="$4"
+          justifyContent="space-between"
+          alignItems="center"
+        >
+          <SizableText size="$bodyLgMedium" flexShrink={1}>
+            {intl.formatMessage({ id: label })}
+          </SizableText>
+          <Switch
+            testID={PerpTestIDs.PositionActionSwitch(key)}
+            size={ESwitchSize.large}
+            value={settings.positionActionVisibility?.[key] !== false}
+            onChange={(value) =>
+              setSettings((previous) => ({
+                ...previous,
+                positionActionVisibility: {
+                  ...previous.positionActionVisibility,
+                  [key]: value,
+                },
+              }))
+            }
+          />
+        </XStack>
+      ))}
+    </YStack>
+  );
+}
+
+export function PerpLayoutSettingsContent({
+  onOpenPositionActions,
+  showChartPosition = true,
+}: { onOpenPositionActions?: () => void; showChartPosition?: boolean } = {}) {
   const copy = useLayoutSettingsCopy();
   const [perpsCustomSettings, setPerpsCustomSettings] =
     usePerpsCustomSettingsAtom();
@@ -264,35 +313,66 @@ export function PerpLayoutSettingsContent() {
   );
 
   return (
-    <YStack testID={PerpTestIDs.MobileLayoutSettingsPage} width="100%">
-      <YStack px="$5" pt="$2" pb="$6" gap="$3">
-        <SizableText size="$bodyLgMedium" color="$text">
-          {copy.sectionTitle}
+    <YStack
+      testID={PerpTestIDs.MobileLayoutSettingsPage}
+      width="100%"
+      px="$5"
+      pt="$2"
+      pb="$3"
+      gap="$2"
+    >
+      <XStack
+        minHeight="$11"
+        gap="$3"
+        alignItems="center"
+        accessibilityRole="button"
+        accessibilityLabel={copy.positionActionsTitle}
+        pressStyle={{ opacity: 0.6 }}
+        onPress={onOpenPositionActions}
+        cursor="pointer"
+        testID={PerpTestIDs.PositionActionsSettingsButton}
+      >
+        <SizableText size="$bodyMdMedium" flex={1}>
+          {copy.positionActionsTitle}
         </SizableText>
-        <XStack
-          testID={PerpTestIDs.MobileChartPositionControl}
-          accessibilityRole="radiogroup"
-          width="100%"
-          gap="$3.5"
-          overflow="hidden"
-        >
-          {CHART_POSITION_OPTIONS.map((position) => (
-            <ChartPositionOption
-              key={position}
-              position={position}
-              label={copy.optionLabels[position]}
-              selected={selectedPosition === position}
-              onSelect={handleSelect}
-            />
-          ))}
-        </XStack>
-      </YStack>
+        <Icon name="ChevronRightOutline" size="$4" color="$iconSubdued" />
+      </XStack>
+      {showChartPosition ? (
+        <YStack gap="$3">
+          <SizableText size="$bodyMdMedium" color="$text">
+            {copy.sectionTitle}
+          </SizableText>
+          <XStack
+            testID={PerpTestIDs.MobileChartPositionControl}
+            accessibilityRole="radiogroup"
+            width="100%"
+            gap="$2.5"
+            overflow="hidden"
+          >
+            {CHART_POSITION_OPTIONS.map((position) => (
+              <ChartPositionOption
+                key={position}
+                position={position}
+                label={copy.optionLabels[position]}
+                selected={selectedPosition === position}
+                onSelect={handleSelect}
+              />
+            ))}
+          </XStack>
+        </YStack>
+      ) : null}
     </YStack>
   );
 }
 
-export function showPerpLayoutSettingsDialog({ title }: { title: string }) {
-  return Dialog.show({
+export function showPerpLayoutSettingsDialog({
+  title,
+  positionActionsTitle,
+}: {
+  title: string;
+  positionActionsTitle: string;
+}) {
+  const dialog = Dialog.show({
     title,
     showFooter: false,
     contentContainerProps: {
@@ -303,8 +383,23 @@ export function showPerpLayoutSettingsDialog({ title }: { title: string }) {
     },
     renderContent: (
       <PerpsProviderMirror>
-        <PerpLayoutSettingsContent />
+        <PerpLayoutSettingsContent
+          onOpenPositionActions={() => {
+            void Promise.resolve(dialog.close()).then(() => {
+              Dialog.show({
+                title: positionActionsTitle,
+                showFooter: false,
+                renderContent: (
+                  <PerpsProviderMirror>
+                    <PerpPositionActionsSettingsContent />
+                  </PerpsProviderMirror>
+                ),
+              });
+            });
+          }}
+        />
       </PerpsProviderMirror>
     ),
   });
+  return dialog;
 }

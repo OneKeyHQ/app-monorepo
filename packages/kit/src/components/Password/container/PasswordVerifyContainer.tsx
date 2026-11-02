@@ -26,6 +26,7 @@ import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import {
+  BIOLOGY_AUTH_ABORTED_ERROR,
   BIOLOGY_AUTH_ATTEMPTS_FACE,
   BIOLOGY_AUTH_ATTEMPTS_FINGERPRINT,
   BIOLOGY_AUTH_CANCEL_ERROR,
@@ -337,6 +338,7 @@ const PasswordVerifyContainer = ({
         ...v,
         passwordVerifyStatus: { value: EPasswordVerifyStatus.VERIFYING },
       }));
+      const isWebAuth = !isEnable && isBiologyAuthEnable;
       try {
         if (isExtLockNoCachePassword) {
           // Try to retrieve password from secure storage (WebAuthn PRF)
@@ -374,7 +376,7 @@ const PasswordVerifyContainer = ({
           }
         } else {
           let biologyAuthRes;
-          if (!isEnable && isBiologyAuthEnable) {
+          if (isWebAuth) {
             // webAuth verify
             biologyAuthRes = await verifiedPasswordWebAuth();
           } else {
@@ -427,16 +429,39 @@ const PasswordVerifyContainer = ({
             className: EOneKeyErrorClassNames.IncorrectPassword,
           });
         const isCancel = error?.name === BIOLOGY_AUTH_CANCEL_ERROR;
+        // WebAuthn reports a lost or removed passkey the same way as a
+        // dismissed prompt, so its dismissals still count toward falling back
+        // to the passcode.
+        const isCountedCancel =
+          isCancel && (isExtLockNoCachePassword || isWebAuth);
         const isNativeBiometricError = error?.cause === biologyAuthNativeError;
+        const isAborted =
+          platformEnv.isDesktopWin &&
+          isNativeBiometricError &&
+          error?.name === BIOLOGY_AUTH_ABORTED_ERROR;
         // `undefined` means "no user-facing error": keep the lock screen in a
         // neutral state and let the flow retry, instead of showing a wrong-
         // password message for a transient failure. (OK-56875)
         let message: string | undefined = error?.message || undefined;
-        if (isCancel) {
-          message = intl.formatMessage(
-            { id: ETranslations.auth_biometric_cancel },
-            { biometric: title },
-          );
+        // Trying again is all these need, so they render as a neutral hint
+        // rather than a field error.
+        let isRetry = false;
+        if (isAborted) {
+          message = undefined;
+        } else if (isCancel) {
+          // Dismissing the system prompt is the user's choice: say nothing.
+          // RETRY (not DEFAULT) keeps the prompt from reopening by itself. Only
+          // a counted dismissal that reaches the limit explains why the
+          // biometric action goes away.
+          message =
+            isCountedCancel &&
+            verifyPeriodBiologyAuthAttempts >= biologyAuthAttempts
+              ? intl.formatMessage(
+                  { id: ETranslations.auth_biometric_failed },
+                  { biometric: title },
+                )
+              : undefined;
+          isRetry = true;
         } else if (isSecureStorageUnavailable) {
           // A secure-storage / keychain outage is not a wrong password.
           message = SECURE_KEY_UNAVAILABLE_MESSAGE;
@@ -454,26 +479,30 @@ const PasswordVerifyContainer = ({
             { id: ETranslations.auth_biometric_failed },
             { biometric: title },
           );
+          isRetry = true;
         } else if (isGenuineWrongPassword) {
           message = intl.formatMessage({
             id: ETranslations.prime_incorrect_password,
           });
+          isRetry = true;
         } else if (isNativeBiometricError) {
           // Native biometric failure (e.g. face not recognized): keep its own
           // message.
+          isRetry = true;
         } else {
           // Transient / unexpected failure (e.g. encryptor not ready, slow KDF):
           // do not surface a wrong-password error. (OK-56875)
           message = undefined;
         }
         // Skip biology auth protection for callback errors, secure-storage
-        // outages, DB open failures, and transient failures (message
-        // undefined): none of these is a real biometric/password attempt.
+        // outages, DB open failures, transient failures and uncounted
+        // dismissals (message undefined): none of these is a real
+        // biometric/password attempt.
         if (
           !isCallbackError &&
           !isSecureStorageUnavailable &&
           !isDbOpenError &&
-          message !== undefined
+          (message !== undefined || isCountedCancel)
         ) {
           if (verifyPeriodBiologyAuthAttempts >= biologyAuthAttempts) {
             setVerifyPeriodBiologyEnable(false);
@@ -481,12 +510,16 @@ const PasswordVerifyContainer = ({
             setVerifyPeriodBiologyAuthAttempts((v) => v + 1);
           }
         }
+        let nextStatus: { value: EPasswordVerifyStatus; message?: string } =
+          message === undefined
+            ? { value: EPasswordVerifyStatus.DEFAULT }
+            : { value: EPasswordVerifyStatus.ERROR, message };
+        if (isRetry) {
+          nextStatus = { value: EPasswordVerifyStatus.RETRY, message };
+        }
         setPasswordAtom((v) => ({
           ...v,
-          passwordVerifyStatus:
-            message === undefined
-              ? { value: EPasswordVerifyStatus.DEFAULT }
-              : { value: EPasswordVerifyStatus.ERROR, message },
+          passwordVerifyStatus: nextStatus,
         }));
       } finally {
         biologyAuthInProgressRef.current = false;
@@ -535,14 +568,9 @@ const PasswordVerifyContainer = ({
       const finalPassword =
         passwordMode === EPasswordMode.PASSWORD ? data.password : data.passCode;
       try {
-        const encodePassword =
-          await backgroundApiProxy.servicePassword.encodeSensitiveText({
-            text: finalPassword,
-            ...kdfParams,
-          });
         const verifiedPassword =
-          await backgroundApiProxy.servicePassword.verifyPassword({
-            password: encodePassword,
+          await backgroundApiProxy.servicePassword.verifyPasswordFromInput({
+            password: finalPassword,
             passwordMode,
             enforcePasswordErrorProtection,
             skipPostVerifyBackgroundTasks,
@@ -612,6 +640,7 @@ const PasswordVerifyContainer = ({
           className: EOneKeyErrorClassNames.LocalDbOpenError,
         });
         let message: string;
+        let isRetry = false;
         if (isCallbackError) {
           message =
             errorWithFlag?.message ||
@@ -628,9 +657,13 @@ const PasswordVerifyContainer = ({
             localDbDowngradeGuidanceMessage,
           );
         } else {
+          // Also covers failures that are not a wrong passcode. Do not give
+          // them their own message: travel mode masks its cooldown rejections
+          // as unknown errors, and different copy would reveal it.
           message = intl.formatMessage({
-            id: ETranslations.auth_error_password_incorrect,
+            id: ETranslations.auth_passcode_retry__msg,
           });
+          isRetry = true;
         }
         let skipProtection = false;
         if (
@@ -650,7 +683,14 @@ const PasswordVerifyContainer = ({
             skipProtection = true;
           }
           if (nextAttempts >= PASSCODE_PROTECTION_ATTEMPTS) {
+            // Reaching the limit stays a critical error, also when the reset
+            // fails and the lock screen remains.
+            isRetry = false;
             if (isLock) {
+              // A retry hint would be wrong past the reset threshold.
+              message = intl.formatMessage({
+                id: ETranslations.settings_reset_app_description,
+              });
               defaultLogger.setting.page.resetApp({
                 reason: 'WrongPasscodeMaxAttempts',
               });
@@ -669,33 +709,41 @@ const PasswordVerifyContainer = ({
               setPasswordErrorProtectionTimeMinutesSurplus(timeMinutes);
             }
           } else if (
-            nextAttempts >= PASSCODE_PROTECTION_ATTEMPTS_MESSAGE_SHOW_MAX &&
-            !skipProtection
+            nextAttempts >= PASSCODE_PROTECTION_ATTEMPTS_MESSAGE_SHOW_MAX
           ) {
-            const timeMinutes =
-              PASSCODE_PROTECTION_ATTEMPTS_PER_MINUTE_MAP[
-                nextAttempts.toString()
-              ];
+            // The reset warning stays a critical error, also for a repeated
+            // password that costs no attempt, so a neutral retry hint never
+            // replaces it this close to the reset.
             message = intl.formatMessage(
               {
-                id: ETranslations.auth_passcode_failed_alert,
+                id: ETranslations.auth_passcode_reset_warning__msg,
               },
               {
                 count: PASSCODE_PROTECTION_ATTEMPTS - nextAttempts,
               },
             );
-            setPasswordPersist((v) => ({
-              ...v,
-              passwordErrorAttempts: nextAttempts,
-              passwordErrorProtectionTime: Date.now() + timeMinutes * 60 * 1000, // 2s for animation
-            }));
-            setPasswordErrorProtectionTimeMinutesSurplus(timeMinutes);
+            isRetry = false;
+            if (!skipProtection) {
+              const timeMinutes =
+                PASSCODE_PROTECTION_ATTEMPTS_PER_MINUTE_MAP[
+                  nextAttempts.toString()
+                ];
+              setPasswordPersist((v) => ({
+                ...v,
+                passwordErrorAttempts: nextAttempts,
+                passwordErrorProtectionTime:
+                  Date.now() + timeMinutes * 60 * 1000, // 2s for animation
+              }));
+              setPasswordErrorProtectionTimeMinutesSurplus(timeMinutes);
+            }
           }
         }
         setPasswordAtom((v) => ({
           ...v,
           passwordVerifyStatus: {
-            value: EPasswordVerifyStatus.ERROR,
+            value: isRetry
+              ? EPasswordVerifyStatus.RETRY
+              : EPasswordVerifyStatus.ERROR,
             message,
           },
         }));

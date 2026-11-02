@@ -1,7 +1,7 @@
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import appGlobals from '@onekeyhq/shared/src/appGlobals';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
-import { canUseHeadless } from '@onekeyhq/shared/src/modules3rdParty/onramper';
+import { canUseHeadless } from '@onekeyhq/shared/src/modules3rdParty/onramper/canUseHeadless';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes, ERootRoutes } from '@onekeyhq/shared/src/routes';
 import { EModalFiatCryptoRoutes } from '@onekeyhq/shared/src/routes/fiatCrypto';

@@ -31,6 +31,17 @@ export class JsBridgeDesktopApiOfMain extends JsBridgeBase {
 
   setup() {
     ipcMain.on(CALL_DESKTOP_API_EVENT_NAME, (event, payload) => {
+      const mainWindow =
+        globalThis.$desktopMainAppFunctions?.getSafelyMainWindow?.();
+      if (
+        !mainWindow ||
+        !globalThis.$desktopMainAppFunctions?.isTrustedMainWindowSender?.(
+          event.sender.id,
+          event.senderFrame,
+          event.sender.mainFrame,
+        )
+      )
+        return;
       const responsePayload = payload as IJsBridgeMessagePayload;
       const sender:
         | {

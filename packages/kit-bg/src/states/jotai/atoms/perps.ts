@@ -63,14 +63,31 @@ export const {
 } = globalAtom<ITradingViewNativeIndicatorSettings>({
   persist: true,
   name: EAtomNames.perpsTradingViewIndicatorSettingsPersistAtom,
-  initialValue: createTradingViewNativeIndicatorSettings(),
+  initialValue: {
+    ...createTradingViewNativeIndicatorSettings(),
+    subIndicators: [
+      {
+        active: true,
+        id: 'VOL',
+        lines: {},
+        parameters: {},
+        transparency: 50,
+      },
+    ],
+  },
 });
 
 // Shared by Market entries and Web Perps, including expanded extension windows.
+export type IWebviewPerpTradeTarget = {
+  coin?: string;
+  revision: number;
+  requestId?: string;
+};
+
 export const {
   target: webviewPerpTradeTargetAtom,
   use: useWebviewPerpTradeTargetAtom,
-} = globalAtom<{ coin?: string; revision: number }>({
+} = globalAtom<IWebviewPerpTradeTarget>({
   name: EAtomNames.webviewPerpTradeTargetAtom,
   initialValue: { revision: 0 },
 });
@@ -132,6 +149,7 @@ export interface IPerpsAccountDisplaySnapshotEntry {
   account: IPerpsActiveAccountAtom;
   accountValue: string | undefined;
   withdrawable: string | undefined;
+  isAccountValuePartial?: boolean;
   activeAsset:
     | {
         coin: string;
@@ -349,6 +367,7 @@ export const { target: perpsSpotBalancesAtom, use: usePerpsSpotBalancesAtom } =
         accountAddress: IHex | undefined;
         balances: ISpotBalanceItem[];
         spotTotalUsd: string | undefined;
+        hasUnsupportedBalances?: boolean;
       }
     | undefined
   >({
@@ -407,6 +426,7 @@ export const {
   accountValue: string | undefined;
   withdrawable: string | undefined;
   isLoading: boolean;
+  isAccountValuePartial?: boolean;
 }>({
   read: (get) => {
     const account = get(perpsActiveAccountAtom.atom());
@@ -479,6 +499,7 @@ export const {
         : '0';
       return {
         accountValue: activeSpotData.spotTotalUsd,
+        isAccountValuePartial: activeSpotData.hasUnsupportedBalances,
         withdrawable: usdcWithdrawable,
         isLoading: false,
       };
@@ -489,6 +510,7 @@ export const {
     const spotValue = new BigNumber(activeSpotData?.spotTotalUsd || '0');
     return {
       accountValue: spotValue.plus(perpsValue).toFixed(),
+      isAccountValuePartial: activeSpotData?.hasUnsupportedBalances,
       withdrawable: activeSummary?.withdrawable,
       isLoading: activeSpotData?.spotTotalUsd === undefined,
     };
@@ -869,6 +891,21 @@ export const {
   initialValue: undefined,
 });
 
+const twapMarkPriceAtom = globalAtomComputedR<string | undefined>({
+  read: (get) =>
+    get(perpsActiveAssetCtxAtom.atom())?.ctx?.markPrice ??
+    get(perpsActiveAssetDataAtom.atom())?.markPx,
+});
+const disabledTwapMarkPriceAtom = globalAtomComputedR<string | undefined>({
+  read: () => undefined,
+});
+
+export function usePerpsTwapMarkPrice(enabled: boolean): string | undefined {
+  const { use } = enabled ? twapMarkPriceAtom : disabledTwapMarkPriceAtom;
+  const [markPrice] = use();
+  return markPrice;
+}
+
 // #region Trading Mode
 export type ITradingMode = 'perp' | 'spot';
 export const { target: tradingModeAtom, use: useTradingModeAtom } =
@@ -1153,6 +1190,9 @@ export type IPerpsLastAdvancedOrderType = ETriggerOrderType | 'scale' | 'twap';
 export type IPerpsChartPosition = 'top' | 'bottom' | 'hidden';
 
 export interface IPerpsCustomSettings {
+  positionActionVisibility?: Partial<
+    Record<'add' | 'tpsl' | 'close' | 'reverse', boolean>
+  >;
   skipOrderConfirm: boolean;
   showTradeMarks: boolean;
   showChartLines: boolean;

@@ -22,7 +22,11 @@ function DialogTrigger({ label, ...dialogProps }: IDialogTriggerProps) {
     Dialog.show(dialogProps);
   }, [dialogProps]);
   return (
-    <Button alignSelf="flex-start" onPress={handlePress}>
+    <Button
+      testID="dialog-story-open"
+      alignSelf="flex-start"
+      onPress={handlePress}
+    >
       {label}
     </Button>
   );
@@ -33,7 +37,11 @@ function ConfirmTrigger({ label, ...dialogProps }: IDialogTriggerProps) {
     Dialog.confirm(dialogProps);
   }, [dialogProps]);
   return (
-    <Button alignSelf="flex-start" onPress={handlePress}>
+    <Button
+      testID="dialog-story-confirm-open"
+      alignSelf="flex-start"
+      onPress={handlePress}
+    >
       {label}
     </Button>
   );

@@ -73,7 +73,10 @@ export interface ITradingViewNativeIntervalChangeData {
   toInterval: ITradingViewNativeChartInterval;
 }
 
-export type ITradingViewNativeInitialRightOffset =
+export type ITradingViewNativeInitialRightOffset = {
+  // Keep padding and pan limits stable when a sidebar changes the visible width.
+  referenceWidth?: number;
+} & (
   | {
       type: 'chartWidthPercentage';
       value: number;
@@ -81,7 +84,8 @@ export type ITradingViewNativeInitialRightOffset =
   | {
       type: 'pointCount';
       value: number;
-    };
+    }
+);
 
 export interface ITradingViewNativePriceChartAnchor {
   type: 'price';
@@ -97,13 +101,14 @@ export interface ITradingViewNativeReferenceLineComponent {
     interactive: boolean;
     cancelable?: boolean;
     draggable?: boolean;
-    pending?: boolean;
+    pending?: ITradingViewNativeReferenceLineAction['type'];
     style: ITradingViewNativeChartLineStyle | 'dotted';
     title: string;
-    /** Opt into an outlined label on the left, with an optional quantity segment. */
+    /** Opt into an outlined label with an optional quantity segment. */
     label?: {
       variant?: 'order';
-      offset: number;
+      /** Offset from the chart's left edge; numbers are pixels. */
+      offset: number | { type: 'chartWidthPercentage'; value: number };
       backgroundColor: string;
       color: string;
       quantity?: {
@@ -159,6 +164,7 @@ export interface ITradingViewNativeProps {
   testID?: string;
   source: ITradingViewNativeSource;
   priceDecimalPlaces?: number;
+  isPricePrecisionLoading?: boolean;
   onPriceSelect?: (selection: ITradingViewNativePriceSelection) => void;
   priceSelectionLabel?: string;
   onInteractionChange?: (isInteracting: boolean) => void;
@@ -199,6 +205,11 @@ export interface ITradingViewNativeProps {
   nativeControlsFlushHorizontalInset?: boolean;
   showNativeChartCloseControl?: boolean;
   showNativeIndicatorQuickBar?: boolean;
+  /**
+   * The parent grows the chart container by one pane height per visible
+   * sub-indicator, so the main price chart keeps its height.
+   */
+  nativeChartGrowsWithSubIndicators?: boolean;
   isNativeChartFullscreen?: boolean;
   nativeChartFullscreenHeader?: ReactNode;
   isChartSwitchDisabled?: boolean;
@@ -218,4 +229,5 @@ export interface ITradingViewNativePriceSelection {
   price: number;
   screenX: number;
   screenY: number;
+  onClose?: () => void;
 }

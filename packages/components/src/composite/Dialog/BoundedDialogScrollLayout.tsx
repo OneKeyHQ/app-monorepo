@@ -18,11 +18,11 @@ import { DialogScrollView } from './DialogScrollView';
  * and above the keyboard. Close/grabber chrome is overlaid so it stays
  * reachable while tall content scrolls manually. ScrollView is capped with
  * maxHeight (not height) so a short OAuth sheet still sizes to its content
- * inside snapPointsMode="fit".
+ * inside the fitted overlay sheet.
  *
  * `keyboardPaddingBottom` must be the same value DialogFrame applies as
  * paddingBottom — subtract it exactly once. Overflowing email/OTP content
- * is reached by scrolling the Sheet.ScrollView; there is no auto-reveal.
+ * is reached by scrolling the scroll view; there is no auto-reveal.
  * Native centered dialogs place this offset outside the card and supply
  * centeredInset for equal clearance above and below the available viewport.
  */

@@ -1,4 +1,5 @@
 import {
+  memo,
   useCallback,
   useContext,
   useEffect,
@@ -7,6 +8,7 @@ import {
   useRef,
   useState,
 } from 'react';
+import type { ReactNode } from 'react';
 
 import { CanceledError } from 'axios';
 import BigNumber from 'bignumber.js';
@@ -14,6 +16,8 @@ import { isEmpty, isNil, uniqBy } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import {
+  Button,
+  IconButton,
   Skeleton,
   Stack,
   onVisibilityStateChange,
@@ -72,6 +76,10 @@ import {
 import { buildTapTimeHomeTokenMap } from '@onekeyhq/kit/src/states/jotai/contexts/tokenList/cells/tapTimeHomeMap';
 import { convertFiat } from '@onekeyhq/kit/src/utils/fiatConvert';
 import { useTokenManagement } from '@onekeyhq/kit/src/views/AssetList/hooks/useTokenManagement';
+import {
+  DustSweepEntryCapabilitiesProvider,
+  useActiveAccountDustSweep,
+} from '@onekeyhq/kit/src/views/DustSweep/hooks/useNavigateToDustSweep';
 import type { IDBAccount } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import type { ISimpleDBAggregateToken } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAggregateToken';
 import type { ICustomTokenDBStruct } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityCustomTokens';
@@ -105,6 +113,7 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { isAccountSwitchDiagnosticsEnabled } from '@onekeyhq/shared/src/performance/enabled';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   EModalAssetDetailRoutes,
   EModalReceiveRoutes,
@@ -143,9 +152,12 @@ import type {
   ITokenFiat,
 } from '@onekeyhq/shared/types/token';
 
+import { useHomeNativeRefresh } from '../../hooks/useHomeNativeRefresh';
 import { useTabIsRefreshingFocused } from '../../hooks/useHomeTab';
+import { HomeTestIDs } from '../../testIDs';
 import { HomeStickyHeaderContext } from '../HomeStickyHeaderContext';
 import { RichBlock } from '../RichBlock/RichBlock';
+import { RichBlockHeader } from '../RichBlock/RichBlockHeader';
 
 import {
   WALLET_ASSET_STATUS_BASIS,
@@ -168,6 +180,7 @@ import { getOwnerWorth, rememberOwnerWorth } from './ownerWorthCache';
 import {
   buildPortfolioSyncTargetKey,
   resolvePortfolioSyncRequestTransition,
+  shouldPortfolioSyncStandDownOnStageOff,
 } from './portfolioSyncRequestState';
 import {
   countFundedHardwarePortfolioTokens,
@@ -178,6 +191,7 @@ import { useTokenListReactivePipeline } from './useTokenListReactivePipeline';
 import type {
   IPortfolioSyncRequest,
   IPortfolioSyncRequestPhase,
+  IPortfolioSyncStageHold,
 } from './portfolioSyncRequestState';
 
 const networkIdsMap = getNetworkIdsMap();
@@ -260,13 +274,65 @@ function isSameActiveAccountTokenListRequestContext(
   );
 }
 
+const TokenListDustSweepAction = memo(function TokenListDustSweepAction({
+  showLabel,
+}: {
+  showLabel?: boolean;
+}) {
+  const intl = useIntl();
+  const { canDustSweep, openDustSweep } = useActiveAccountDustSweep();
+  const handlePress = useCallback(() => {
+    void openDustSweep('tokenListHeader');
+  }, [openDustSweep]);
+
+  if (!canDustSweep) {
+    return null;
+  }
+
+  if (showLabel) {
+    return (
+      <Button
+        testID="token-list-header-dust-sweep"
+        size="small"
+        variant="secondary"
+        icon="BroomOutline"
+        onPress={handlePress}
+      >
+        {intl.formatMessage({ id: ETranslations.out_title_dust_sweep })}
+      </Button>
+    );
+  }
+
+  return (
+    <IconButton
+      testID="token-list-header-dust-sweep"
+      variant="tertiary"
+      icon="BroomOutline"
+      title={intl.formatMessage({ id: ETranslations.title_dust_sweep })}
+      onPress={handlePress}
+    />
+  );
+});
+
 function TokenListBlock({
   tableLayout,
   showRecentHistory,
+  nativeListFooter,
+  nativeListSidecar,
+  nativeListSidecarLayout,
 }: {
   tableLayout?: boolean;
   showRecentHistory?: boolean;
+  nativeListFooter?: ReactNode;
+  nativeListSidecar?: ReactNode;
+  nativeListSidecarLayout?: Readonly<{
+    width: number;
+    gap: number;
+    maxContentWidth: number;
+  }>;
 }) {
+  const { refreshing: nativeRefreshing, onRefresh: onNativeRefresh } =
+    useHomeNativeRefresh();
   const { isFocused, isHeaderRefreshing, setIsHeaderRefreshing } =
     useTabIsRefreshingFocused();
   // Outer-route focus: false when user is on Market/Swap (Home tab inactive),
@@ -479,6 +545,9 @@ function TokenListBlock({
   const portfolioSyncRequestRef = useRef<IPortfolioSyncRequest | undefined>(
     undefined,
   );
+  const portfolioSyncStageHoldRef = useRef<IPortfolioSyncStageHold | undefined>(
+    undefined,
+  );
   const portfolioSyncAllNetworksFallbackTimerRef = useRef<
     ReturnType<typeof setTimeout> | undefined
   >(undefined);
@@ -599,9 +668,18 @@ function TokenListBlock({
   }, [finishPortfolioSyncRequest, portfolioSyncTargetKey]);
 
   useEffect(() => {
-    const handleDeviceStageOff = () => {
+    const handleDeviceStageOff = (
+      payload: IAppEventBusPayload[EAppEventBusNames.DeviceStageOff],
+    ) => {
       const request = portfolioSyncRequestRef.current;
-      if (request) {
+      if (
+        request &&
+        shouldPortfolioSyncStandDownOnStageOff({
+          request,
+          stageHold: portfolioSyncStageHoldRef.current,
+          offBurstId: payload?.burstId,
+        })
+      ) {
         finishPortfolioSyncRequest(request.id);
       }
     };
@@ -3549,10 +3627,11 @@ function TokenListBlock({
       deviceName: device?.name,
       deviceType: portfolioSyncDeviceType,
     })
-      .then(async () => {
+      .then(async (burstId) => {
         if (portfolioSyncRequestRef.current?.id !== request.id) {
           return;
         }
+        portfolioSyncStageHoldRef.current = { requestId: request.id, burstId };
 
         const portfolioSynced =
           await backgroundApiProxy.serviceHardwarePortfolioSync.syncPortfolio({
@@ -4079,6 +4158,7 @@ function TokenListBlock({
   const renderContent = useCallback(() => {
     return (
       <TokenListView
+        tokenItemTestIDPrefix={HomeTestIDs.tokenItemTestIDPrefix}
         limit={6}
         plainMode
         withHeader
@@ -4133,11 +4213,30 @@ function TokenListBlock({
             </Stack>
           ) : null
         }
-        listViewStyleProps={{
-          ListHeaderComponentStyle: {
-            pt: '$3',
-          },
-        }}
+        nativeListHeader={
+          platformEnv.isNative ? (
+            <Stack pt="$3">
+              <RichBlockHeader
+                withTitleSeparator
+                title={intl.formatMessage({
+                  id: ETranslations.global_universal_search_tabs_tokens,
+                })}
+                subTitle={renderSubTitle()}
+                headerActions={
+                  <TokenListDustSweepAction showLabel={tableLayout} />
+                }
+                headerContainerProps={{ px: '$pagePadding' }}
+              />
+            </Stack>
+          ) : undefined
+        }
+        nativeListFooter={platformEnv.isNative ? nativeListFooter : undefined}
+        nativeListSidecar={platformEnv.isNative ? nativeListSidecar : undefined}
+        nativeListSidecarLayout={
+          platformEnv.isNative ? nativeListSidecarLayout : undefined
+        }
+        onRefresh={platformEnv.isNative ? onNativeRefresh : undefined}
+        refreshing={platformEnv.isNative ? nativeRefreshing : undefined}
       />
     );
   }, [
@@ -4158,6 +4257,12 @@ function TokenListBlock({
     network?.id,
     network?.isAllNetworks,
     network?.name,
+    nativeListFooter,
+    nativeListSidecar,
+    nativeListSidecarLayout,
+    nativeRefreshing,
+    onNativeRefresh,
+    renderSubTitle,
     scopedLpTokenList,
     scopedLpTokenListMap,
     scopedLpTokenListState,
@@ -4165,16 +4270,25 @@ function TokenListBlock({
   ]);
 
   return (
-    <RichBlock
-      withTitleSeparator
-      title={intl.formatMessage({
-        id: ETranslations.global_universal_search_tabs_tokens,
-      })}
-      subTitle={renderSubTitle()}
-      headerContainerProps={{ px: '$pagePadding' }}
-      content={renderContent()}
-      plainContentContainer
-    />
+    <DustSweepEntryCapabilitiesProvider
+      isFocused={Boolean(isFocused && isRouteFocused)}
+    >
+      {platformEnv.isNative ? (
+        renderContent()
+      ) : (
+        <RichBlock
+          withTitleSeparator
+          title={intl.formatMessage({
+            id: ETranslations.global_universal_search_tabs_tokens,
+          })}
+          subTitle={renderSubTitle()}
+          headerActions={<TokenListDustSweepAction showLabel={tableLayout} />}
+          headerContainerProps={{ px: '$pagePadding' }}
+          content={renderContent()}
+          plainContentContainer
+        />
+      )}
+    </DustSweepEntryCapabilitiesProvider>
   );
 }
 

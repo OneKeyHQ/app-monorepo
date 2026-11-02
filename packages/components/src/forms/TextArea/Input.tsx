@@ -10,7 +10,7 @@ import { TextArea as TMTextArea } from './TamaguiTextArea';
 
 import type { ITextAreaProps as TextAreaProps } from './TamaguiTextArea';
 import type { IInputProps } from '../Input';
-import type { TextInput } from 'react-native';
+import type { TextInputInstance } from 'react-native';
 
 export type ITextAreaInputProps = Omit<IInputProps, 'size'> &
   Pick<TextAreaProps, 'size' | 'verticalAlign'>;
@@ -49,7 +49,7 @@ const textAreaInputComponentStyle = {
 
 function BaseTextArea(
   { size, verticalAlign, allowSecureTextEye, ...props }: ITextAreaInputProps,
-  forwardedRef: Ref<TextInput>,
+  forwardedRef: Ref<TextInputInstance>,
 ) {
   // On native, multiline TextInput does not support secureTextEntry properly.
   // In RN 0.81+ (Fabric), setting secureTextEntry on a controlled multiline
@@ -60,8 +60,8 @@ function BaseTextArea(
   const effectiveAllowSecureTextEye = platformEnv.isNative
     ? false
     : allowSecureTextEye;
-  const ref = useRef<TextInput>(null);
-  useImperativeHandle(forwardedRef, () => ref.current as TextInput);
+  const ref = useRef<TextInputInstance>(null);
+  useImperativeHandle(forwardedRef, () => ref.current as TextInputInstance);
   return (
     // testID is forwarded via the rest props the caller supplies.
     // oxlint-disable-next-line onekey/require-testid

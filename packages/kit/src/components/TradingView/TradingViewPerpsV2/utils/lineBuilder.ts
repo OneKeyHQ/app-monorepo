@@ -1,6 +1,7 @@
 import BigNumber from 'bignumber.js';
 
-import { getTpSlKind } from '@onekeyhq/shared/src/utils/perpsTpSlUtils';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { classifyTpSlOrder } from '@onekeyhq/shared/src/utils/perpsTpSlUtils';
 import {
   formatHlSize,
   formatWithPrecision,
@@ -11,6 +12,7 @@ import type {
 } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
 import type { ITVLine, ITVLineSide } from '../types';
+import type { IntlShape } from 'react-intl';
 
 let lineVersionCounter = 0;
 
@@ -61,6 +63,7 @@ function formatPriceForLabel(
 export function buildLiquidationLine(
   position: IPerpsAssetPosition['position'],
   symbol: string,
+  intl: IntlShape,
 ): ITVLine | null {
   const szi = parseSize(position.szi);
   if (szi === 0 || !parseValidPrice(position.liquidationPx)) {
@@ -76,7 +79,9 @@ export function buildLiquidationLine(
     kind: 'liquidation',
     price: toChartPriceString(position.liquidationPx),
     side,
-    label: { left: 'Liq. Price' },
+    label: {
+      left: intl.formatMessage({ id: ETranslations.perp_position_liq_price }),
+    },
     editable: false,
     meta: { leverageType },
     version: getNextVersion(),
@@ -87,6 +92,7 @@ export function buildPositionLine(
   position: IPerpsAssetPosition['position'],
   symbol: string,
   szDecimals: number,
+  intl: IntlShape,
 ): ITVLine | null {
   const szi = parseSize(position.szi);
   if (szi === 0 || !parseValidPrice(position.entryPx)) {
@@ -99,7 +105,10 @@ export function buildPositionLine(
   const unrealizedPnl = new BigNumber(position.unrealizedPnl || '0');
 
   const pnlSign = unrealizedPnl.gte(0) ? '+' : '-';
-  const pnlFormatted = `PNL ${pnlSign}$${formatWithPrecision(
+  const pnlLabel = intl.formatMessage({
+    id: ETranslations.perp_position_pnl_mobile,
+  });
+  const pnlFormatted = `${pnlLabel} ${pnlSign}$${formatWithPrecision(
     unrealizedPnl.abs(),
     2,
   )}`;
@@ -126,6 +135,7 @@ export function buildOrderLine(
   order: IPerpsFrontendOrder,
   szDecimals: number,
   symbol: string,
+  intl: IntlShape,
 ): ITVLine | null {
   const sz = parseSize(order.sz);
   if (sz === 0 || !parseValidPrice(order.limitPx)) {
@@ -133,10 +143,17 @@ export function buildOrderLine(
   }
 
   const side: ITVLineSide = order.side === 'B' ? 'long' : 'short';
-  const orderTypeLabel = order.orderType || 'Limit';
+  const orderTypeLabel = intl.formatMessage({
+    id: ETranslations.perp_trade_limit,
+  });
   const priceLabel = formatPriceForLabel(order.limitPx);
-  const labelText = order.isTrigger
-    ? `${orderTypeLabel} ${priceLabel} ${order.triggerCondition ?? ''}`.trimEnd()
+  const triggerCondition = order.isTrigger
+    ? formatTriggerCondition(order.triggerCondition)
+    : '';
+  const labelText = triggerCondition
+    ? `${orderTypeLabel} ${priceLabel} ${intl.formatMessage({
+        id: ETranslations.global_price,
+      })} ${triggerCondition}`
     : `${orderTypeLabel} ${priceLabel}`;
 
   return {
@@ -160,21 +177,18 @@ export function buildOrderLine(
 
 /**
  * Convert trigger condition to symbol format.
- * "Price above 95000" -> "Price > 95000"
- * "Price below 89000" -> "Price < 89000"
+ * "Price above 95000" -> "> 95000"
+ * "Price below 89000" -> "< 89000"
  *
  * Note: triggerCondition is returned directly from Hyperliquid API,
  * always in English format "Price above/below {price}", not localized.
  */
 function formatTriggerCondition(triggerCondition: string | undefined): string {
   if (!triggerCondition) return '';
-  // Replace "above" with ">" and "below" with "<"
-  // Using word boundary to be more precise
-  return triggerCondition.replace(/\babove\b/i, '>').replace(/\bbelow\b/i, '<');
-}
-
-function isTriggerTpSlOrder(orderType: string): boolean {
-  return orderType.startsWith('Trigger');
+  return triggerCondition
+    .replace(/^Price\s+/i, '')
+    .replace(/\babove\b/i, '>')
+    .replace(/\bbelow\b/i, '<');
 }
 
 /**
@@ -185,6 +199,7 @@ export function buildTpSlLine(
   order: IPerpsFrontendOrder,
   szDecimals: number,
   symbol: string,
+  intl: IntlShape,
   positionSize?: string,
 ): ITVLine | null {
   const orderSize = parseSize(order.sz);
@@ -198,27 +213,32 @@ export function buildTpSlLine(
   }
 
   const side: ITVLineSide = order.side === 'B' ? 'long' : 'short';
-  const kind = getTpSlKind(order);
-  if (!kind) {
+  const classification = classifyTpSlOrder(order);
+  if (!classification) {
     return null;
   }
+  const { kind, isMarket } = classification;
   const isTp = kind === 'tp';
-  const isMarket = order.orderType.includes('Market');
-  const isTriggerOrder = isTriggerTpSlOrder(order.orderType);
   const formattedCondition = formatTriggerCondition(order.triggerCondition);
 
-  // Build label text
-  // Market: "TP Price > 93723" or "SL Price > 95000"
-  // Limit: "Take Profit Limit 92,206 Price < 89000" or "Stop Limit 92,206 Price > 96502"
   let labelText: string;
-  if (isMarket || isTriggerOrder) {
-    const prefix = isTp ? 'TP' : 'SL';
+  if (isMarket) {
+    const prefix = intl.formatMessage({
+      id: isTp
+        ? ETranslations.perp_trade_tp_price
+        : ETranslations.perp_trade_sl_price,
+    });
     labelText = `${prefix} ${formattedCondition}`;
   } else {
-    const typeLabel = isTp ? 'Take Profit Limit' : 'Stop Limit';
+    const typeLabel = intl.formatMessage({
+      id: isTp
+        ? ETranslations.perp_order_tp_limit
+        : ETranslations.perp_order_stop_limit,
+    });
+    const priceLabel = intl.formatMessage({ id: ETranslations.global_price });
     labelText = `${typeLabel} ${formatPriceForLabel(
       order.limitPx,
-    )} ${formattedCondition}`;
+    )} ${priceLabel} ${formattedCondition}`;
   }
 
   return {
@@ -253,6 +273,7 @@ export function buildAllLinesForSymbol(
   orders: IPerpsFrontendOrder[],
   symbol: string,
   szDecimals: number,
+  intl: IntlShape,
 ): ITVLine[] {
   const lines: ITVLine[] = [];
 
@@ -260,8 +281,8 @@ export function buildAllLinesForSymbol(
   for (const { position } of positions.filter(
     (p) => p.position.coin === symbol,
   )) {
-    const liquidationLine = buildLiquidationLine(position, symbol);
-    const positionLine = buildPositionLine(position, symbol, szDecimals);
+    const liquidationLine = buildLiquidationLine(position, symbol, intl);
+    const positionLine = buildPositionLine(position, symbol, szDecimals, intl);
     if (liquidationLine) lines.push(liquidationLine);
     if (positionLine) lines.push(positionLine);
   }
@@ -277,9 +298,15 @@ export function buildAllLinesForSymbol(
   for (const order of orders) {
     let line: ITVLine | null = null;
     if (order.orderType === 'Limit') {
-      line = buildOrderLine(order, szDecimals, symbol);
+      line = buildOrderLine(order, szDecimals, symbol, intl);
     } else if (isTpSlOrder(order.orderType)) {
-      line = buildTpSlLine(order, szDecimals, symbol, currentPositionSize);
+      line = buildTpSlLine(
+        order,
+        szDecimals,
+        symbol,
+        intl,
+        currentPositionSize,
+      );
     }
     if (line) lines.push(line);
   }

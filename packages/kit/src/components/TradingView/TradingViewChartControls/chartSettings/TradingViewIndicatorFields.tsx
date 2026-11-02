@@ -1,16 +1,13 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import type { IStackProps } from '@onekeyhq/components';
 import {
-  ColorPicker,
-  Input,
+  NumberInput,
   SegmentSlider,
   SizableText,
   Stack,
   XStack,
-  useThemeName,
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
@@ -18,14 +15,10 @@ import {
   SettingsCheckboxRow,
   SettingsColorField,
   SettingsColorPicker,
+  SettingsLineStylePreview,
   SettingsRow,
   SettingsSelect,
 } from './TradingViewSettingsPrimitives';
-import { TRADING_VIEW_SETTINGS_COLOR_PALETTE } from './TradingViewSettingsShared';
-import {
-  resolveTradingViewSettingsThemeColor,
-  useTradingViewSettingsThemeColors,
-} from './TradingViewSettingsThemeColors';
 
 import type {
   ITradingViewSettingsMockColorRole,
@@ -35,165 +28,32 @@ import type {
 } from './TradingViewSettingsMockState';
 
 const TRADING_VIEW_INDICATOR_NUMBER_INPUT_WIDTH = 128;
-// Same footprint as the settings dialog's line preview (`$8` wide, 2px tall).
-const TRADING_VIEW_INDICATOR_LINE_PREVIEW_WIDTH = 32;
-const TRADING_VIEW_INDICATOR_LINE_PREVIEW_DASHES = [0, 1, 2, 3, 4, 5];
-const TRADING_VIEW_INDICATOR_LINE_STYLE_OPTIONS: ITradingViewSettingsMockLineStyle[] =
-  ['solid', 'medium', 'bold', 'extraBold'];
-const TRADING_VIEW_INDICATOR_SECONDARY_STYLE_OPTIONS = [
-  'solid',
-  'dashed',
-] as const satisfies readonly ITradingViewSettingsMockLineStyle[];
+const TRADING_VIEW_INDICATOR_LINE_STYLE_OPTIONS = [
+  { value: 'solid-1', style: 'solid', pattern: 'solid', width: 1 },
+  { value: 'solid-2', style: 'medium', pattern: 'solid', width: 2 },
+  { value: 'solid-3', style: 'bold', pattern: 'solid', width: 3 },
+  { value: 'solid-4', style: 'extraBold', pattern: 'solid', width: 4 },
+  { value: 'dashed-1', style: 'solid', pattern: 'dashed', width: 1 },
+  { value: 'dashed-2', style: 'medium', pattern: 'dashed', width: 2 },
+  { value: 'dashed-3', style: 'bold', pattern: 'dashed', width: 3 },
+  { value: 'dashed-4', style: 'extraBold', pattern: 'dashed', width: 4 },
+] as const satisfies readonly {
+  value: string;
+  style: ITradingViewSettingsMockLineStyle;
+  pattern: 'solid' | 'dashed';
+  width: number;
+}[];
 const TRADING_VIEW_INDICATOR_OPACITY_SEGMENTS = 4;
 
-function TradingViewIndicatorLinePreview({
-  style,
-}: {
-  style: ITradingViewSettingsMockLineStyle;
-}) {
-  if (style === 'dashed') {
-    return (
-      <XStack
-        w={TRADING_VIEW_INDICATOR_LINE_PREVIEW_WIDTH}
-        h={2}
-        gap="$0.5"
-        alignItems="center"
-      >
-        {TRADING_VIEW_INDICATOR_LINE_PREVIEW_DASHES.map((dash) => (
-          <Stack key={dash} w="$1" h={2} bg="$iconSubdued" />
-        ))}
-      </XStack>
-    );
-  }
-
-  if (style === 'dotted') {
-    return (
-      <XStack
-        w={TRADING_VIEW_INDICATOR_LINE_PREVIEW_WIDTH}
-        h={2}
-        gap="$1"
-        alignItems="center"
-      >
-        {TRADING_VIEW_INDICATOR_LINE_PREVIEW_DASHES.map((dot) => (
-          <Stack key={dot} w={2} h={2} borderRadius="$full" bg="$iconSubdued" />
-        ))}
-      </XStack>
-    );
-  }
-
-  const lineHeight = {
-    solid: 1,
-    medium: 2,
-    bold: 3,
-    extraBold: 4,
-  }[style];
-
-  return (
-    <Stack
-      w={TRADING_VIEW_INDICATOR_LINE_PREVIEW_WIDTH}
-      h={lineHeight}
-      bg="$iconSubdued"
-    />
+function renderIndicatorLineStyleOption(
+  value: (typeof TRADING_VIEW_INDICATOR_LINE_STYLE_OPTIONS)[number]['value'],
+) {
+  const option = TRADING_VIEW_INDICATOR_LINE_STYLE_OPTIONS.find(
+    (item) => item.value === value,
   );
-}
-
-function TradingViewIndicatorCheckerColorTrigger({
-  testID,
-  color,
-  checkerColor,
-  disabled,
-  onPress,
-}: {
-  testID?: string;
-  color: string;
-  checkerColor: string;
-  disabled?: boolean;
-  // The ColorPicker popover clones its trigger element to inject the press
-  // handler, the same way the design-system default trigger receives it.
-  onPress?: IStackProps['onPress'];
-}) {
-  return (
-    <Stack
-      testID={testID}
-      w={32}
-      h={32}
-      p="$1"
-      borderRadius="$2"
-      borderWidth="$px"
-      borderColor="$borderSubdued"
-      bg="$bgStrong"
-      opacity={disabled ? 0.5 : 1}
-      cursor={disabled ? 'default' : 'pointer'}
-      hoverStyle={{ bg: '$bgHover' }}
-      pressStyle={{ bg: '$bgActive' }}
-      onPress={onPress}
-    >
-      <Stack
-        flex={1}
-        borderRadius="$1"
-        // Native has no CSS `background`, so the plain fill shows there; web
-        // paints the checker over it.
-        bg={color}
-        style={{
-          background: `repeating-conic-gradient(${color} 0% 25%, ${checkerColor} 0% 50%) 50% / 6px 6px`,
-        }}
-      />
-    </Stack>
-  );
-}
-
-function TradingViewIndicatorColorPicker({
-  testID,
-  value,
-  pattern,
-  onChange,
-}: {
-  testID?: string;
-  value: string;
-  pattern?: 'checker';
-  onChange: (value: string) => void;
-}) {
-  const themeColors = useTradingViewSettingsThemeColors();
-  const themeName = useThemeName();
-
-  if (pattern !== 'checker') {
-    return (
-      <SettingsColorPicker
-        testID={testID}
-        value={value}
-        disabled={false}
-        onChange={onChange}
-      />
-    );
-  }
-
-  // Band fills keep their checker swatch so a translucent fill reads as one;
-  // the trigger frame matches the design-system ColorPicker trigger.
-  const resolvedValue = resolveTradingViewSettingsThemeColor(
-    value,
-    themeColors,
-  );
-  const checkerColor =
-    themeName === 'light' ? 'rgba(0, 0, 0, 0.08)' : 'rgba(255, 255, 255, 0.08)';
-
-  return (
-    <ColorPicker
-      value={value}
-      colors={TRADING_VIEW_SETTINGS_COLOR_PALETTE}
-      columns={5}
-      triggerSize={32}
-      testID={testID}
-      onChange={onChange}
-      renderTrigger={({ disabled }) => (
-        <TradingViewIndicatorCheckerColorTrigger
-          testID={testID ? `${testID}-trigger` : undefined}
-          color={resolvedValue}
-          checkerColor={checkerColor}
-          disabled={disabled}
-        />
-      )}
-    />
-  );
+  return option ? (
+    <SettingsLineStylePreview style={option.pattern} lineWidth={option.width} />
+  ) : null;
 }
 
 function TradingViewIndicatorNumberInput({
@@ -201,12 +61,14 @@ function TradingViewIndicatorNumberInput({
   min = 0,
   max = Number.POSITIVE_INFINITY,
   step = 1,
+  width = TRADING_VIEW_INDICATOR_NUMBER_INPUT_WIDTH,
   onChange,
 }: {
   value: number;
   min?: number;
   max?: number;
   step?: number;
+  width?: number;
   onChange: (value: number) => void;
 }) {
   const valueRef = useRef(value);
@@ -291,27 +153,17 @@ function TradingViewIndicatorNumberInput({
   );
 
   return (
-    <Input
+    <NumberInput
       testID="trading-view-indicator-number-input"
       size="small"
-      containerProps={{ w: TRADING_VIEW_INDICATOR_NUMBER_INPUT_WIDTH }}
+      containerProps={{ w: width }}
       value={inputValue}
       keyboardType="decimal-pad"
       returnKeyType="done"
       selectTextOnFocus
       autoCorrect={false}
-      addOns={[
-        {
-          testID: 'trading-view-indicator-number-input-increment',
-          iconName: 'ChevronTopSmallOutline',
-          onPress: () => stepInputValue(1),
-        },
-        {
-          testID: 'trading-view-indicator-number-input-decrement',
-          iconName: 'ChevronDownSmallOutline',
-          onPress: () => stepInputValue(-1),
-        },
-      ]}
+      showControls
+      onStep={stepInputValue}
       onChangeText={setInputValue}
       onBlur={commitInputValue}
       onSubmitEditing={commitInputValue}
@@ -399,58 +251,84 @@ export function TradingViewIndicatorLineRow({
   const showPeriod = line.showPeriod !== false;
   const showStyle = line.showStyle !== false;
   const showColor = line.showColor !== false;
-  const showSecondaryStyle = line.showSecondaryStyle === true;
+  const showSecondaryStyle = line.showSecondaryStyle ?? showStyle;
   const lineStyleTitle = intl.formatMessage({
     id: ETranslations.market_chart_settings__line_style,
   });
+  const { lineStyleOptions, lineStyleValues, lineStyleLabels } = useMemo(() => {
+    const options = TRADING_VIEW_INDICATOR_LINE_STYLE_OPTIONS.filter(
+      (option) =>
+        (showStyle || option.style === 'solid') &&
+        (showSecondaryStyle || option.pattern === 'solid'),
+    );
+    return {
+      lineStyleOptions: options,
+      lineStyleValues: options.map((option) => option.value),
+      lineStyleLabels: Object.fromEntries(
+        options.map((option) => [
+          option.value,
+          `${intl.formatMessage({
+            id:
+              option.pattern === 'dashed'
+                ? ETranslations.market_chart_indicator_dashed_line__label
+                : ETranslations.market_chart_settings__solid_line,
+          })}, ${option.width}px`,
+        ]),
+      ),
+    };
+  }, [intl, showSecondaryStyle, showStyle]);
+  const selectedLineStyle =
+    lineStyleOptions.find(
+      (option) =>
+        option.style === (showStyle ? line.style : 'solid') &&
+        option.pattern ===
+          (showSecondaryStyle && line.secondaryStyle === 'dashed'
+            ? 'dashed'
+            : 'solid'),
+    ) ?? lineStyleOptions[0];
 
   const controls = (
-    <XStack gap="$3" alignItems="center" flexWrap="wrap" flexShrink={1}>
+    <XStack gap="$2" alignItems="center" flexWrap="wrap" flexShrink={1}>
       {showPeriod ? (
         <TradingViewIndicatorNumberInput
           value={line.period}
+          width={104}
           min={1}
           onChange={(period) => onPeriodChange(line.id, period)}
         />
       ) : null}
-      {showStyle ? (
+      {showStyle || showSecondaryStyle ? (
         <SettingsSelect
           testID={`indicator-line-style-${line.id}`}
+          width={104}
           title={lineStyleTitle}
-          value={line.style}
-          options={TRADING_VIEW_INDICATOR_LINE_STYLE_OPTIONS}
+          value={selectedLineStyle.value}
+          options={lineStyleValues}
           disabled={false}
-          renderTriggerContent={(style) => (
-            <TradingViewIndicatorLinePreview style={style} />
-          )}
-          renderOption={(style) => (
-            <TradingViewIndicatorLinePreview style={style} />
-          )}
-          onChange={(style) => onStyleChange(line.id, style)}
+          showLinePreview
+          optionLabels={lineStyleLabels}
+          renderOptionLabel={renderIndicatorLineStyleOption}
+          onChange={(value) => {
+            const option = lineStyleOptions.find(
+              (item) => item.value === value,
+            );
+            if (option) {
+              if (showStyle) {
+                onStyleChange(line.id, option.style);
+              }
+              if (showSecondaryStyle) {
+                onSecondaryStyleChange(line.id, option.pattern);
+              }
+            }
+          }}
         />
       ) : null}
       {showColor ? (
-        <TradingViewIndicatorColorPicker
+        <SettingsColorPicker
           testID={`trading-view-indicator-color-${line.id}`}
           value={line.color}
-          pattern={line.colorPattern}
-          onChange={(color) => onColorChange(line.id, color)}
-        />
-      ) : null}
-      {showSecondaryStyle ? (
-        <SettingsSelect
-          testID={`indicator-line-secondary-style-${line.id}`}
-          title={lineStyleTitle}
-          value={line.secondaryStyle === 'dashed' ? 'dashed' : 'solid'}
-          options={TRADING_VIEW_INDICATOR_SECONDARY_STYLE_OPTIONS}
-          // Keep the indicator's own "Dashed Line" copy; the shared settings
-          // map labels `dashed` as "Dotted line".
-          optionTranslationIds={{
-            dashed: ETranslations.market_chart_indicator_dashed_line__label,
-          }}
           disabled={false}
-          showLinePreview
-          onChange={(style) => onSecondaryStyleChange(line.id, style)}
+          onChange={(color) => onColorChange(line.id, color)}
         />
       ) : null}
     </XStack>
@@ -460,6 +338,7 @@ export function TradingViewIndicatorLineRow({
     return (
       <SettingsCheckboxRow
         label={line.label}
+        controlsIndent={0}
         testID={`indicator-line-${line.id}`}
         value={line.enabled}
         disabled={false}

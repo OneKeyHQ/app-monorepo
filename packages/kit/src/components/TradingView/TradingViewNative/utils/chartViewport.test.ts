@@ -17,6 +17,7 @@ import {
   getTradingViewNativeGestureStartOffsetAfterDataUpdate,
   getTradingViewNativeMaxPanOffset,
   getTradingViewNativePanOffsetAfterDataUpdate,
+  getTradingViewNativePanOffsetBounds,
   getTradingViewNativePanStartOffsetAfterViewportPreservation,
   getTradingViewNativePointIndexAtX,
   getTradingViewNativePriceExtrema,
@@ -44,6 +45,66 @@ function buildPoint(
 }
 
 describe('TradingViewNative chart viewport', () => {
+  it.each([
+    { type: 'chartWidthPercentage' as const, value: 5 },
+    { type: 'pointCount' as const, value: 2 },
+    { type: 'pointCount' as const, value: 0 },
+  ])(
+    'preserves the pan boundary when the left edge is cropped (%p)',
+    (rightOffset) => {
+      const referenceWidth = 780.5;
+      const options = {
+        initialRightOffset: { ...rightOffset, referenceWidth },
+        pointCount: 200,
+        zoomScale: 1.25,
+      };
+      const fullBounds = getTradingViewNativePanOffsetBounds({
+        ...options,
+        chartWidth: referenceWidth,
+      });
+      for (const offset of [fullBounds.minOffset, fullBounds.maxOffset]) {
+        const beforeX = getTradingViewNativeCandleX({
+          ...options,
+          index: options.pointCount - 1,
+          offset,
+          priceAxisX: referenceWidth,
+        });
+        for (const chartWidth of [referenceWidth - 48, referenceWidth]) {
+          expect(
+            getTradingViewNativePanOffsetBounds({ ...options, chartWidth }),
+          ).toEqual(fullBounds);
+          const nextOffset = getTradingViewNativePanOffsetAfterDataUpdate({
+            ...options,
+            appendedPointCount: 0,
+            chartWidth,
+            currentOffset: offset,
+          });
+          expect(nextOffset).toBe(offset);
+          expect(
+            getTradingViewNativeCandleX({
+              ...options,
+              index: options.pointCount - 1,
+              offset: nextOffset,
+              priceAxisX: chartWidth,
+            }) +
+              referenceWidth -
+              chartWidth,
+          ).toBeCloseTo(beforeX);
+        }
+      }
+      expect(
+        getTradingViewNativeVisiblePointRange({
+          ...options,
+          chartWidth: referenceWidth - 48,
+          offset: fullBounds.minOffset,
+        }),
+      ).toEqual({
+        startIndex: options.pointCount,
+        endIndex: options.pointCount,
+      });
+    },
+  );
+
   it('allows empty space while keeping an edge candle visible', () => {
     const chartWidth = 100;
     const pointCount = 20;

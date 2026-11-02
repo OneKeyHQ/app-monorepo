@@ -4,6 +4,7 @@ import path from 'path';
 import { app, safeStorage } from 'electron';
 import logger from 'electron-log/main';
 import Store from 'electron-store';
+import semver from 'semver';
 
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import {
@@ -18,6 +19,8 @@ import type {
   IDesktopStoreUpdateBundleData,
   IDesktopStoreUpdateSettings,
 } from '@onekeyhq/shared/types/desktop';
+
+import { assertSafeBundleVersion } from './bundlePaths';
 
 // OneKey.json is frozen: do not add fields. Put new state in a dedicated store.
 // Keep existing preferences, encrypted data, and instance metadata here.
@@ -255,6 +258,8 @@ export const clearUpdateBuildNumber = () => {
 export const setUpdateBundleData = (
   updateBundleData: IDesktopStoreUpdateBundleData,
 ) => {
+  assertSafeBundleVersion(updateBundleData.appVersion);
+  assertSafeBundleVersion(updateBundleData.bundleVersion);
   updateStateStore.set(EDesktopStoreKeys.UpdateBundleData, updateBundleData);
 };
 
@@ -271,6 +276,10 @@ export const clearUpdateBundleData = () => {
 export const setFallbackUpdateBundleData = (
   fallbackUpdateBundleData: IDesktopStoreFallbackUpdateBundleData,
 ) => {
+  for (const entry of fallbackUpdateBundleData) {
+    assertSafeBundleVersion(entry.appVersion);
+    assertSafeBundleVersion(entry.bundleVersion);
+  }
   updateStateStore.set(
     EDesktopStoreKeys.FallbackUpdateBundleData,
     fallbackUpdateBundleData,
@@ -346,12 +355,71 @@ export const setBootFailAppVersion = (version: string) =>
 
 // ==================== MMKV Persistent Store ====================
 const mmkvAppSettingStore = new Store({ name: 'mmkv-onekey-app-setting' });
+const mmkvDevSettingStore = new Store({ name: 'mmkv-onekey-app-dev-setting' });
+
+export const getDevSettingsEnabled = (): boolean => {
+  const devSettingEnabled = mmkvDevSettingStore.get(
+    'onekey_developer_mode_enabled',
+  );
+  if (typeof devSettingEnabled === 'boolean') {
+    return devSettingEnabled;
+  }
+  return mmkvAppSettingStore.get('onekey_developer_mode_enabled') === true;
+};
+
+export const getSkipGPGVerification = (): boolean =>
+  mmkvDevSettingStore.get('onekey_bundle_skip_gpg_verification') === true;
 
 export const clearMmkvRecoveryKeys = () => {
   mmkvAppSettingStore.delete('onekey_pending_install_task');
   mmkvAppSettingStore.delete('onekey_whats_new_shown');
   mmkvAppSettingStore.delete('last_valid_server_time');
   mmkvAppSettingStore.delete('last_valid_local_time');
+};
+
+export const revokePendingSwitchForFailedBundle = (
+  appVersion: string,
+  bundleVersion: string,
+): boolean => {
+  try {
+    const taskJson = mmkvAppSettingStore.get('onekey_pending_install_task');
+    if (typeof taskJson !== 'string') return false;
+    const task = JSON.parse(taskJson) as {
+      status?: string;
+      type?: string;
+      action?: string;
+      targetAppVersion?: string;
+      targetBundleVersion?: string;
+      payload?: { appVersion?: string; bundleVersion?: string };
+    };
+    if (
+      task.status !== 'pending' ||
+      task.type !== 'jsbundle-switch' ||
+      task.action !== 'switch-bundle' ||
+      task.targetAppVersion !== appVersion ||
+      task.targetBundleVersion !== bundleVersion ||
+      task.payload?.appVersion !== appVersion ||
+      task.payload?.bundleVersion !== bundleVersion
+    ) {
+      return false;
+    }
+    mmkvAppSettingStore.delete('onekey_pending_install_task');
+    return true;
+  } catch {
+    return false;
+  }
+};
+
+export const recordFailedOtaBundle = (
+  appVersion: string,
+  bundleVersion: string,
+) => {
+  assertSafeBundleVersion(appVersion);
+  assertSafeBundleVersion(bundleVersion);
+  mmkvAppSettingStore.set(
+    'onekey_failed_ota_bundle',
+    JSON.stringify({ appVersion, bundleVersion }),
+  );
 };
 
 /**
@@ -405,6 +473,20 @@ export const processPreLaunchPendingTask = (): boolean => {
     // Extract payload
     const { appVersion, bundleVersion, signature } = task.payload || {};
     if (!appVersion || !bundleVersion || !signature) return false;
+    assertSafeBundleVersion(appVersion);
+    assertSafeBundleVersion(bundleVersion);
+    if (
+      !semver.valid(appVersion) ||
+      !semver.eq(appVersion, currentAppVersion)
+    ) {
+      logger.warn(
+        'processPreLaunchPendingTask: payload appVersion mismatch, clearing pending task',
+        appVersion,
+        currentAppVersion,
+      );
+      mmkvAppSettingStore.delete('onekey_pending_install_task');
+      return false;
+    }
 
     // Verify bundle directory and entry file exist
     const bundleDirName = path.join(app.getPath('userData'), 'onekey-bundle');

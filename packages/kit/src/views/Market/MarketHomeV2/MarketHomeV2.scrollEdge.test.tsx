@@ -1,33 +1,102 @@
 /** @jest-environment jsdom */
 import type { PropsWithChildren } from 'react';
 
-import { render } from '@testing-library/react';
+import { act, isInaccessible, render } from '@testing-library/react';
 
-import { MarketHomeWithProvider } from './MarketHomeV2';
+import { MarketHomeV2, MarketHomeWithProvider } from './MarketHomeV2';
 
 let mockBannerLoading = true;
 let mockCategoryLoading = false;
+let mockSplitViewType: 'main' | 'sub' | undefined;
+let mockIsSplitView = false;
+let mockIsNative = true;
+let mockIsFocused = true;
+let mockRootRoutersLength = 1;
 const mockSetSelection = jest.fn();
 const mockActions = { current: { refreshWatchListV2: jest.fn() } };
 let mockLayoutProps:
   | { externalTopOverlayTag?: number; externalTopOverlayHeight?: number }
   | undefined;
+let mockHeaderLayout:
+  | ((event: {
+      nativeEvent: { target: number; layout: { height: number } };
+    }) => void)
+  | undefined;
+let mockHeaderNode: HTMLDivElement | null = null;
+let mockNextTag = 200;
+const mockTags = new WeakMap<object, number>();
+let mockSearchInputProps: Record<string, unknown> | undefined;
 
 jest.mock('react-intl', () => ({
   useIntl: () => ({ formatMessage: ({ id }: { id: string }) => id }),
 }));
-jest.mock('@onekeyhq/components', () => ({
-  useMedia: () => ({ md: false }),
-  YStack: ({ children, pt }: PropsWithChildren<{ pt?: number }>) => (
-    <div data-padding-top={pt}>{children}</div>
-  ),
+jest.mock('react-native', () => ({
+  StyleSheet: { create: (styles: object) => styles },
+  findNodeHandle: (view: object | null) => (view ? mockTags.get(view) : null),
 }));
+jest.mock('@onekeyhq/components', () => {
+  const React = jest.requireActual<typeof import('react')>('react');
+  const { Freeze } =
+    jest.requireActual<typeof import('react-freeze')>('react-freeze');
+  const Wrapper = ({ children }: PropsWithChildren) => <div>{children}</div>;
+  return {
+    ESplitViewType: {
+      MAIN: 'main',
+      SUB: 'sub',
+    },
+    Icon: ({ name }: { name: string }) => <span data-testid={`icon-${name}`} />,
+    Page: Object.assign(Wrapper, {
+      Header: () => null,
+      Body: Wrapper,
+    }),
+    DelayedFreeze: Freeze,
+    XStack: Wrapper,
+    isLiquidGlassAvailable: () => true,
+    isNativeTablet: () => false,
+    useIsSplitView: () => mockIsSplitView,
+    useSplitViewType: () => mockSplitViewType,
+    useSafeAreaInsets: () => ({ top: 44 }),
+    useMedia: () => ({ md: false }),
+    YStack: React.forwardRef<
+      HTMLDivElement,
+      PropsWithChildren<{ pt?: number; onLayout?: typeof mockHeaderLayout }>
+    >(({ children, pt, onLayout }, ref) => {
+      if (onLayout) {
+        mockHeaderLayout = onLayout;
+      }
+      const handleRef = React.useCallback(
+        (node: HTMLDivElement | null) => {
+          if (ref) {
+            mockHeaderNode = node;
+            if (node && !mockTags.has(node)) {
+              mockNextTag += 1;
+              mockTags.set(node, mockNextTag);
+            }
+          }
+          if (typeof ref === 'function') ref(node);
+          else if (ref) ref.current = node;
+        },
+        [ref],
+      );
+      return (
+        <div ref={handleRef} data-padding-top={pt}>
+          {children}
+        </div>
+      );
+    }),
+  };
+});
 jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
-  isNative: true,
-  isNativeIOS: true,
+  get isNative() {
+    return mockIsNative;
+  },
+  get isNativeIOS() {
+    return mockIsNative;
+  },
 }));
 jest.mock('@onekeyhq/kit/src/hooks/useRouteIsFocused', () => ({
-  useRouteIsFocused: () => true,
+  useRouteIsFocused: () => mockIsFocused,
+  getRootRoutersLength: () => mockRootRoutersLength,
 }));
 jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => ({
   EJotaiContextStoreNames: {},
@@ -57,6 +126,15 @@ jest.mock('../../../components/LazyPageContainer', () => ({
 jest.mock('../../../components/TabPageHeader', () => ({
   TabPageHeader: () => null,
 }));
+jest.mock(
+  '../../../components/TabPageHeader/LegacyUniversalSearchInput',
+  () => ({
+    LegacyUniversalSearchInput: (props: Record<string, unknown>) => {
+      mockSearchInputProps = props;
+      return <span data-testid="market-search-input" />;
+    },
+  }),
+);
 jest.mock('../../../states/jotai/contexts/marketV2', () => ({
   useWatchListV2Actions: () => mockActions,
 }));
@@ -103,7 +181,9 @@ jest.mock('./hooks/useMarketHomeSelection', () => ({
     mockSetSelection,
   ],
 }));
-jest.mock('./layouts/DesktopLayout', () => ({ DesktopLayout: () => null }));
+jest.mock('./layouts/DesktopLayout', () => ({
+  DesktopLayout: () => <span data-testid="desktop-layout" />,
+}));
 jest.mock('./layouts/MobileLayout', () => ({
   MobileLayout: (props: typeof mockLayoutProps) => {
     mockLayoutProps = props;
@@ -115,6 +195,65 @@ jest.mock('./utils', () => ({
   getMarketHomeFallbackSpotCategories: () => [],
   isMarketStockCategory: () => false,
 }));
+
+beforeEach(() => {
+  mockIsNative = true;
+  mockIsFocused = true;
+  mockRootRoutersLength = 1;
+  mockIsSplitView = false;
+  mockSplitViewType = undefined;
+});
+
+it.each([false, true])(
+  'keeps desktop Market visible under search (mounted under a modal: %s)',
+  async (mountedUnderModal) => {
+    mockIsNative = false;
+    mockBannerLoading = false;
+    mockCategoryLoading = false;
+    mockIsFocused = !mountedUnderModal;
+    mockRootRoutersLength = mountedUnderModal ? 2 : 1;
+    const screen = render(<MarketHomeV2 />);
+
+    mockIsFocused = true;
+    mockRootRoutersLength = 1;
+    await act(async () => screen.rerender(<MarketHomeV2 />));
+    const layout = screen.getByTestId('desktop-layout');
+    expect(isInaccessible(layout)).toBe(false);
+
+    mockIsFocused = false;
+    mockRootRoutersLength = 2;
+    await act(async () => screen.rerender(<MarketHomeV2 />));
+    expect(isInaccessible(layout)).toBe(false);
+
+    mockIsFocused = true;
+    mockRootRoutersLength = 1;
+    await act(async () => screen.rerender(<MarketHomeV2 />));
+    expect(screen.getByTestId('desktop-layout')).toBe(layout);
+    expect(isInaccessible(layout)).toBe(false);
+  },
+);
+
+it('still freezes desktop Market when navigating away and restores it on return', async () => {
+  mockIsNative = false;
+  mockBannerLoading = false;
+  mockCategoryLoading = false;
+  const screen = render(<MarketHomeV2 />);
+  const layout = screen.getByTestId('desktop-layout');
+
+  mockIsFocused = false;
+  await act(async () => screen.rerender(<MarketHomeV2 />));
+  expect(isInaccessible(layout)).toBe(true);
+
+  mockRootRoutersLength = 2;
+  await act(async () => screen.rerender(<MarketHomeV2 />));
+  expect(isInaccessible(layout)).toBe(true);
+
+  mockRootRoutersLength = 1;
+  mockIsFocused = true;
+  await act(async () => screen.rerender(<MarketHomeV2 />));
+  expect(screen.getByTestId('desktop-layout')).toBe(layout);
+  expect(isInaccessible(layout)).toBe(false);
+});
 
 it.each(['banner', 'category'])(
   'reserves the external header during %s loading and passes geometry to the ready layout',
@@ -150,3 +289,80 @@ it.each(['banner', 'category'])(
     });
   },
 );
+
+it('renders the standalone native Market search header and forwards its measured overlay geometry to MobileLayout', () => {
+  mockBannerLoading = false;
+  mockCategoryLoading = false;
+  mockSplitViewType = undefined;
+  mockIsSplitView = false;
+  mockLayoutProps = undefined;
+  mockSearchInputProps = undefined;
+
+  const screen = render(<MarketHomeV2 />);
+  expect(screen.getByTestId('market-search-input')).toBeTruthy();
+  expect(mockSearchInputProps).toMatchObject({
+    initialTab: 'market',
+    tabRoute: 'Market',
+    glass: true,
+  });
+
+  const headerTag = mockTags.get(mockHeaderNode as object) as number;
+  expect(headerTag).toBeGreaterThan(200);
+  act(() => {
+    mockHeaderLayout?.({
+      nativeEvent: { target: headerTag, layout: { height: 108 } },
+    });
+  });
+
+  expect(mockLayoutProps).toMatchObject({
+    externalTopOverlayTag: headerTag,
+    externalTopOverlayHeight: 108,
+  });
+});
+
+it('controls tablet split-view panes across landscape entry, detail back return, and portrait/landscape rotation', () => {
+  mockBannerLoading = false;
+  mockCategoryLoading = false;
+
+  // 1. Landscape entry on MAIN pane: renders interactive search bar and market list
+  mockIsSplitView = true;
+  mockSplitViewType = 'main';
+  const mainScreen = render(<MarketHomeV2 />);
+  expect(mainScreen.getByTestId('market-search-input')).toBeTruthy();
+  expect(mainScreen.getByTestId('pager')).toBeTruthy();
+  expect(mainScreen.queryByTestId('icon-OnekeyLogoMonoIllus')).toBeNull();
+  mainScreen.unmount();
+
+  // 2. Landscape entry or detail back-return on SUB pane: renders placeholder instead of duplicate list
+  mockIsSplitView = true;
+  mockSplitViewType = 'sub';
+  const subScreen = render(<MarketHomeV2 />);
+  expect(subScreen.getByTestId('icon-OnekeyLogoMonoIllus')).toBeTruthy();
+  expect(subScreen.queryByTestId('market-search-input')).toBeNull();
+  expect(subScreen.queryByTestId('pager')).toBeNull();
+
+  // 3. Rotate to portrait on SUB pane: placeholder is replaced by full Market home
+  mockIsSplitView = false;
+  subScreen.rerender(<MarketHomeV2 />);
+  expect(subScreen.queryByTestId('icon-OnekeyLogoMonoIllus')).toBeNull();
+  expect(subScreen.getByTestId('market-search-input')).toBeTruthy();
+  expect(subScreen.getByTestId('pager')).toBeTruthy();
+
+  // 4. Rotate back to landscape on SUB pane: returns to placeholder
+  mockIsSplitView = true;
+  subScreen.rerender(<MarketHomeV2 />);
+  expect(subScreen.getByTestId('icon-OnekeyLogoMonoIllus')).toBeTruthy();
+  expect(subScreen.queryByTestId('market-search-input')).toBeNull();
+  expect(subScreen.queryByTestId('pager')).toBeNull();
+  subScreen.unmount();
+
+  // 5. Portrait on MAIN pane: returns null so only SUB renders Market home
+  mockIsSplitView = false;
+  mockSplitViewType = 'main';
+  const portraitMainScreen = render(<MarketHomeV2 />);
+  expect(portraitMainScreen.queryByTestId('market-search-input')).toBeNull();
+  expect(portraitMainScreen.queryByTestId('pager')).toBeNull();
+  expect(
+    portraitMainScreen.queryByTestId('icon-OnekeyLogoMonoIllus'),
+  ).toBeNull();
+});

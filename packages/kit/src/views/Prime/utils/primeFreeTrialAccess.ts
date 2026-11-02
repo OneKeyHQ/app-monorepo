@@ -1,6 +1,7 @@
 import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { EPrimeFeatures } from '@onekeyhq/shared/src/routes/prime';
 import type {
   IPrimeFreeTrialAtomData,
   IPrimeFreeTrialFeatureId,
@@ -45,6 +46,14 @@ export function getPrimeEntitlementSource(
     user.primeSubscription?.isActive
     ? 'prime'
     : 'freeTrial';
+}
+
+// Features used while browsing (translate): a rejection never leaves the
+// page (a toast with "Get Prime", no dashboard), and no remaining hint.
+export function isPrimeFreeTrialStayOnPageFeature(
+  featureId: IPrimeFreeTrialFeatureId,
+) {
+  return featureId === EPrimeFeatures.DAppTranslate;
 }
 
 export function isPrimeFreeTrialFeatureOpenInConfig({
