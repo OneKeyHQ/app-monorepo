@@ -12,6 +12,7 @@ import {
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
+import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import systemTimeUtils from '@onekeyhq/shared/src/utils/systemTimeUtils';
 import type { IApiClientResponse } from '@onekeyhq/shared/types/endpoint';
 import type {
@@ -135,8 +136,8 @@ function buildPossessionProof({
   if (accessToken) {
     payload.ath = toBase64url(sha256(Buffer.from(accessToken, 'utf8')));
   }
-  const input = `${toBase64url(JSON.stringify(header))}.${toBase64url(
-    JSON.stringify(payload),
+  const input = `${toBase64url(stringUtils.stableStringify(header))}.${toBase64url(
+    stringUtils.stableStringify(payload),
   )}`;
   const signature = p256.sign(
     sha256(Buffer.from(input, 'utf8')),
@@ -255,7 +256,9 @@ export function getHardwareCloudSyncDeviceKeyThumbprint(
   jwk: IHardwareCloudSyncDeviceKeyJwk,
 ): string {
   const { crv, kty, x, y } = jwk;
-  return toBase64url(sha256(Buffer.from(JSON.stringify({ crv, kty, x, y }))));
+  return toBase64url(
+    sha256(Buffer.from(stringUtils.stableStringify({ crv, kty, x, y }))),
+  );
 }
 
 const CHALLENGE_MAX_LIFETIME_MS = 15 * 60 * 1000;
@@ -525,7 +528,7 @@ function envelopeRecord(envelope: IKeyEnvelope) {
   return {
     key: `dek:${envelope.dekId}`,
     dataType: HARDWARE_CLOUD_SYNC_KEY_ENVELOPE_DATA_TYPE,
-    data: JSON.stringify(envelope),
+    data: stringUtils.stableStringify(envelope),
     dataTimestamp: envelope.createdAt,
     isDeleted: false,
   };
@@ -630,7 +633,7 @@ export async function bootstrapHardwareCloudSyncDataKey({
           lock: {
             key: 'lock',
             dataType: 'Lock',
-            data: JSON.stringify(envelope),
+            data: stringUtils.stableStringify(envelope),
             dataTimestamp: envelope.createdAt,
           },
           localData: [envelopeRecord(envelope)],
@@ -746,6 +749,8 @@ export async function rotateHardwareCloudSyncDataKey<
   current,
   localItems,
   savePending,
+  isCurrent = () => true,
+  beforeFlush,
   minGeneration = 0,
 }: {
   client: AxiosInstance;
@@ -756,12 +761,20 @@ export async function rotateHardwareCloudSyncDataKey<
   savePending: (
     next: IHardwareCloudSyncDataKey & { generation: number },
   ) => Promise<void>;
+  isCurrent?: () => boolean;
+  beforeFlush?: () => Promise<void>;
   minGeneration?: number;
 }): Promise<{
   next: IHardwareCloudSyncDataKey;
   items: T[];
   generation: number;
 }> {
+  const assertCurrent = () => {
+    if (!isCurrent()) {
+      throw new OneKeyLocalError('Hardware Cloud key operation was cancelled.');
+    }
+  };
+  assertCurrent();
   const existing = await readLockEnvelope({ client, session });
   // Nobody reset it meanwhile. The wallet itself was checked by its identity
   // before the device signs.
@@ -788,6 +801,7 @@ export async function rotateHardwareCloudSyncDataKey<
     deriveKek,
     existing.generation + 1,
   );
+  assertCurrent();
   const items = await reencryptHardwareCloudSyncItems({
     items: localItems,
     from: current,
@@ -817,7 +831,7 @@ export async function rotateHardwareCloudSyncDataKey<
     from: current,
     to: next,
   });
-  const envelopeData = JSON.stringify(envelope);
+  const envelopeData = stringUtils.stableStringify(envelope);
   // Keep every earlier envelope; they are tiny and help recovery.
   const envelopeItems = [
     ...envelopeRecords.map(({ key, dataType, data, dataTimestamp }) => ({
@@ -836,7 +850,11 @@ export async function rotateHardwareCloudSyncDataKey<
     },
   ];
 
+  assertCurrent();
   await savePending({ ...next, generation: envelope.generation });
+  assertCurrent();
+  await beforeFlush?.();
+  assertCurrent();
   await requestWithHardwareCloudSyncSession({
     client,
     session,
@@ -903,7 +921,7 @@ async function downloadAllForReset({
       data: {
         pwdHash,
         includeDeleted: true,
-        skip: page * RESET_DOWNLOAD_PAGE_SIZE,
+        start: page * RESET_DOWNLOAD_PAGE_SIZE,
         limit: RESET_DOWNLOAD_PAGE_SIZE,
       },
     });

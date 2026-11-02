@@ -648,15 +648,58 @@ describe('hardware Cloud sync session', () => {
         localItems: [],
         savePending: jest.fn(async () => undefined),
       });
-      expect(c.post.mock.calls[1][1]).toMatchObject({ skip: 0, limit: 1000 });
+      expect(c.post.mock.calls[1][1]).toMatchObject({ start: 0, limit: 1000 });
       expect(c.post.mock.calls[2][1]).toMatchObject({
-        skip: 1000,
+        start: 1000,
         limit: 1000,
       });
       const flushed = c.post.mock.calls[3][1].localData as unknown[];
       // 1002 records plus the new envelope.
       expect(flushed).toHaveLength(1003);
     });
+
+    test.each(['signature', 'download', 'pending'] as const)(
+      'cancellation during %s prevents the irreversible flush',
+      async (stage) => {
+        const { key, lock } = await firstDevice();
+        const c = fakeClient();
+        let current = true;
+        c.get.mockResolvedValue(ok({ lock }));
+        c.post.mockImplementation(async (url: string) => {
+          if (url.endsWith('/check')) return ok({ nonce: 3 });
+          if (stage === 'download') current = false;
+          return ok({ serverData: [] });
+        });
+        const deriveKek = wallet(WALLET);
+        const savePending = jest.fn(async () => {
+          if (stage === 'pending') current = false;
+        });
+        const beforeFlush = jest.fn(async () => undefined);
+        await expect(
+          rotateHardwareCloudSyncDataKey({
+            client: c.client,
+            session: session(),
+            deriveKek: async (salt) => {
+              const result = await deriveKek(salt);
+              if (stage === 'signature') current = false;
+              return result;
+            },
+            current: key,
+            localItems: [],
+            savePending,
+            beforeFlush,
+            isCurrent: () => current,
+          }),
+        ).rejects.toThrow('cancelled');
+        expect(
+          c.post.mock.calls.some(
+            ([url]) => typeof url === 'string' && url.endsWith('/flush'),
+          ),
+        ).toBe(false);
+        expect(beforeFlush).not.toHaveBeenCalled();
+        if (stage !== 'pending') expect(savePending).not.toHaveBeenCalled();
+      },
+    );
 
     test('refuses when the server key was already reset', async () => {
       const { key, lock } = await firstDevice();

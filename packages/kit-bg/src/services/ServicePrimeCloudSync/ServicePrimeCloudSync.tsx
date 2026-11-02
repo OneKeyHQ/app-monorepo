@@ -1220,6 +1220,18 @@ class ServicePrimeCloudSync extends ServiceBase {
     syncCredential: ICloudSyncCredential | undefined;
     serverPwdHash: string;
   }) {
+    const config = await primeCloudSyncPersistAtom.get();
+    if (
+      config.hardwareCloudSyncKeySource &&
+      (!config.isCloudSyncEnabledKeyless ||
+        syncCredential?.keylessCredential?.source?.credentialId !==
+          config.hardwareCloudSyncKeySource.credentialId ||
+        !syncCredential.keylessCredential.hardwareSession ||
+        syncCredential.keylessCredential.pwdHash !== serverPwdHash)
+    ) {
+      // Keep unsynced local data until the selected hardware key can decrypt it.
+      return;
+    }
     const localSyncItemsPromise: Promise<IDBCloudSyncItem>[] = serverItems
       .map(async (serverItem) =>
         this.convertServerItemToLocalItem({
@@ -1656,8 +1668,10 @@ class ServicePrimeCloudSync extends ServiceBase {
   ) {
     // Only Keyless and hardware keys can be switched under a running sync.
     // OneKey ID credentials may be briefly unavailable after an App lock.
-    const expectedKey = expected?.keylessCredential?.signingPublicKey;
-    if (!expectedKey) return;
+    const expectedCredential = expected?.keylessCredential;
+    const expectedKey = expectedCredential?.signingPublicKey;
+    const expectedHardware = expectedCredential?.source;
+    if (!expectedKey && !expectedHardware) return;
     const selected = await this.getSyncCredentialSafe();
     // No credential at all is a transient read failure, not a different key.
     if (!selected) {
@@ -1665,7 +1679,18 @@ class ServicePrimeCloudSync extends ServiceBase {
         'Cloud key is temporarily unavailable. Try syncing again.',
       );
     }
-    if (selected.keylessCredential?.signingPublicKey !== expectedKey) {
+    const selectedCredential = selected.keylessCredential;
+    const unchanged = expectedHardware
+      ? selectedCredential?.source?.credentialId ===
+          expectedHardware.credentialId &&
+        selectedCredential?.keylessWalletId ===
+          expectedCredential.keylessWalletId &&
+        selectedCredential?.pwdHash === expectedCredential.pwdHash &&
+        selectedCredential?.hardwareSession?.dekId ===
+          expectedCredential.hardwareSession?.dekId
+      : !selectedCredential?.source &&
+        selectedCredential?.signingPublicKey === expectedKey;
+    if (!unchanged) {
       throw new HardwareCloudSyncError(
         ETranslations.cloud_sync_key_selection_changed__msg,
         'The encryption method for Cloud sync changed. Your data will sync with the new one next time.',

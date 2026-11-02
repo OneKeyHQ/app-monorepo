@@ -14,7 +14,12 @@ import type { IBackgroundApi } from '../../apis/IBackgroundApi';
 
 jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
   __esModule: true,
-  default: { isDev: false, isDesktop: true, isNative: false },
+  default: {
+    isDev: false,
+    isDesktop: true,
+    isNative: false,
+    isExtension: false,
+  },
 }));
 
 jest.mock('@onekeyhq/shared/src/appCrypto', () => {
@@ -447,6 +452,24 @@ describe('hardware Cloud SDK adapter', () => {
         value: originalDesktop,
         configurable: true,
       });
+    }
+  });
+
+  test('extension generation stays blocked while its embedded SDK lacks log redaction', async () => {
+    const { backgroundApi, sdk } = buildBackgroundApi();
+    const extension = jest.replaceProperty(platformEnv, 'isExtension', true);
+    try {
+      await expect(
+        generateHardwareCloudSyncCredentialWithSdk({
+          unlock,
+          backgroundApi,
+          connectId: 'test-connect',
+          isCurrent: () => true,
+        }),
+      ).rejects.toThrow('not available here');
+      expect(sdk.openWalletSession).not.toHaveBeenCalled();
+    } finally {
+      extension.restore();
     }
   });
 

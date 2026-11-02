@@ -650,6 +650,77 @@ describe('ServicePrimeCloudSync local writes re-check the Cloud key', () => {
     expect(mockedLocalDb.addAndUpdateSyncItems).toHaveBeenCalledTimes(1);
     expect(syncToScene).toHaveBeenCalledTimes(1);
   });
+
+  const hardware: ICloudSyncCredential = {
+    ...keyA,
+    keylessCredential: {
+      ...keyA.keylessCredential!,
+      signingPublicKey: '',
+      source: {
+        type: 'hardware',
+        credentialId: 'hardware-cloud-v1-a',
+        derivationVersion: 1,
+        deviceName: 'OneKey Pro',
+        deviceType: EDeviceType.Pro,
+      },
+    },
+  };
+
+  test.each(['source', 'pwdHash', 'keylessWalletId'] as const)(
+    'a hardware %s change rejects the old response before writing',
+    async (field) => {
+      const current = hardware.keylessCredential!;
+      const selected: ICloudSyncCredential = {
+        ...hardware,
+        keylessCredential: {
+          ...current,
+          ...(field === 'source'
+            ? {
+                source: {
+                  ...current.source!,
+                  credentialId: 'hardware-cloud-v1-b',
+                },
+              }
+            : { [field]: 'different' }),
+        },
+      };
+      const { service } = build(() => selected);
+      await expect(
+        service.updateLocalItemsByServer({
+          localItems,
+          syncCredential: hardware,
+          shouldSyncToScene: true,
+        }),
+      ).rejects.toThrow('The encryption method for Cloud sync changed');
+      expect(mockedLocalDb.addAndUpdateSyncItems).not.toHaveBeenCalled();
+    },
+  );
+
+  test('an unchanged hardware key with no signing public key is accepted', async () => {
+    const { service } = build(() => hardware);
+    await expect(
+      service.assertSyncCredentialUnchanged(hardware),
+    ).resolves.toBeUndefined();
+  });
+
+  test('a push received without the selected hardware credential preserves local records', async () => {
+    jest.mocked(primeCloudSyncPersistAtom.get).mockResolvedValue({
+      isCloudSyncEnabled: false,
+      isCloudSyncEnabledKeyless: true,
+      hardwareCloudSyncKeySource: hardware.keylessCredential!.source,
+    });
+    const { service, syncToScene } = build(() => undefined);
+    const convert = jest.spyOn(service, 'convertServerItemToLocalItem');
+    await service.saveServerSyncItemsToLocal({
+      serverItems: [{ key: 'server-item' } as ICloudSyncServerItem],
+      syncCredential: undefined,
+      serverPwdHash: 'new-data-key',
+      shouldSyncToScene: true,
+    });
+    expect(convert).not.toHaveBeenCalled();
+    expect(mockedLocalDb.addAndUpdateSyncItems).not.toHaveBeenCalled();
+    expect(syncToScene).not.toHaveBeenCalled();
+  });
 });
 
 describe('ServicePrimeCloudSync App password with a hardware Cloud key', () => {

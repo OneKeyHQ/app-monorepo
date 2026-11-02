@@ -643,6 +643,9 @@ function AppDataSection() {
     }
     if (choice !== 'keyless') return;
     if (!kwExists) {
+      await backgroundApiProxy.serviceKeylessCloudSync.setPendingAutoEnableCloudSyncKeyless(
+        true,
+      );
       handleCreateKeylessWallet();
       return;
     }

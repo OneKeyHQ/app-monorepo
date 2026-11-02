@@ -271,6 +271,7 @@ export function useHardwareCloudSyncKey() {
   const resetWithDevice = useCallback(
     async (connectId: string) => {
       setPending(true);
+      let finished = false;
       const waiting = Dialog.show({
         showConfirmButton: false,
         dismissOnOverlayPress: false,
@@ -278,9 +279,16 @@ export function useHardwareCloudSyncKey() {
         renderContent: <DeviceConfirmWaiting />,
         onCancelText: intl.formatMessage({ id: ETranslations.global_cancel }),
         onClose: async () => {
-          await backgroundApiProxy.serviceKeylessCloudSync.cancelHardwareCloudKeyOperation();
+          if (!finished) {
+            await backgroundApiProxy.serviceKeylessCloudSync.cancelHardwareCloudKeyOperation();
+          }
         },
       });
+      const onSyncLoading = () => {
+        finished = true;
+        void waiting.close();
+      };
+      appEventBus.once(EAppEventBusNames.ShowDialogLoading, onSyncLoading);
       try {
         await backgroundApiProxy.serviceKeylessCloudSync.resetHardwareCloudSyncKey(
           { connectId },
@@ -292,6 +300,8 @@ export function useHardwareCloudSyncKey() {
           }),
         });
       } finally {
+        finished = true;
+        appEventBus.off(EAppEventBusNames.ShowDialogLoading, onSyncLoading);
         void waiting.close();
         setPending(false);
         void backgroundApiProxy.serviceHardware.clearForceTransportType();

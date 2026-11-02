@@ -64,15 +64,13 @@ export function getHardwareCloudSyncIdentityTagFromCredentialId(
   );
 }
 
-// Desktop and web use the patched hd-core over WebUSB. The extension uses the
-// hd-web-sdk bundle, whose own log redaction list gets btcSignMessage at build
-// time (development/rspack/loaders). Other runtimes fail closed.
+// Direct desktop/web and native transports use the patched hd-core. The
+// extension's bundled/remote iframe has its own SDK copy and is not covered by
+// that patch; keep generation disabled there until it also redacts signatures.
 export function isHardwareCloudSyncPlatformSupported(): boolean {
   return !!(
-    platformEnv.isDesktop ||
-    platformEnv.isNative ||
-    platformEnv.isWeb ||
-    platformEnv.isExtension
+    !platformEnv.isExtension &&
+    (platformEnv.isDesktop || platformEnv.isNative || platformEnv.isWeb)
   );
 }
 
