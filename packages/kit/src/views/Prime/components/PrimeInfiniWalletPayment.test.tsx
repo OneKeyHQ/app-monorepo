@@ -161,7 +161,7 @@ describe('Infini wallet loader creation gate', () => {
   it('never mounts payment content after the remote choice is cancelled', async () => {
     mockLookup.mockResolvedValue({
       authContext,
-      pendingPayment: { paymentId: 'remote-id' },
+      pendingPayment: { paymentId: 'remote-id', hasTransactions: false },
     });
     renderRoot(true);
     await waitFor(() => expect(mockClose).toHaveBeenCalledTimes(1));
