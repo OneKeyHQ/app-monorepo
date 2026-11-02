@@ -118,13 +118,28 @@ export function getDeviceStateIdentityRecoveryKeys({
   source?: string;
 }): string[] {
   if (
-    currentState?.protocol !== 'V1' ||
-    incomingState.protocol !== 'V1' ||
+    !currentState ||
+    (currentState.protocol !== 'V1' && currentState.protocol !== 'V2') ||
+    currentState.protocol !== incomingState.protocol ||
     incomingState.status.mode !== EOneKeyDeviceMode.normal ||
     source !== 'device-info' ||
-    !isConfirmedDeviceId(currentState.identity.deviceId) ||
-    currentState.identity.deviceId !== incomingState.identity.deviceId
+    hasDeviceStateIdentityMismatch({
+      currentDeviceId: currentState.identity.deviceId,
+      incomingDeviceId: incomingState.identity.deviceId,
+    }) ||
+    (currentState.identity.serialNo &&
+      incomingState.identity.serialNo &&
+      currentState.identity.serialNo !== incomingState.identity.serialNo)
   ) {
+    return [];
+  }
+  const matchesDeviceId =
+    isConfirmedDeviceId(currentState.identity.deviceId) &&
+    currentState.identity.deviceId === incomingState.identity.deviceId;
+  const matchesSerialNo =
+    currentState.identity.serialNo &&
+    currentState.identity.serialNo === incomingState.identity.serialNo;
+  if (!matchesDeviceId && !matchesSerialNo) {
     return [];
   }
   // A firmware read-back can restore identity omitted by the loader even when
@@ -249,15 +264,18 @@ export function mergeDeviceStateEvent({
     return mergedState;
   }
   if (
-    currentState.protocol === 'V1' &&
-    incomingState.protocol === 'V1' &&
+    (currentState.protocol === 'V1' || currentState.protocol === 'V2') &&
+    currentState.protocol === incomingState.protocol &&
     isLoaderMode(incomingState.status.mode)
   ) {
     if (
       !hasDeviceStateIdentityMismatch({
         currentDeviceId: currentState.identity.deviceId,
         incomingDeviceId: incomingState.identity.deviceId,
-      })
+      }) &&
+      (!currentState.identity.serialNo ||
+        !incomingState.identity.serialNo ||
+        currentState.identity.serialNo === incomingState.identity.serialNo)
     ) {
       // Loader firmware may omit these fields without erasing device identity.
       for (const field of ['serialNo', 'bleName'] as const) {
@@ -267,14 +285,16 @@ export function mergeDeviceStateEvent({
         }
       }
     }
-    // Loader snapshots omit application settings. Apply this after every
-    // merge form, including whole-section and wildcard replacements.
-    for (const [field, value] of Object.entries(currentState.settings)) {
-      if (
-        !isNil(value) &&
-        isNil((mergedState.settings as Record<string, unknown>)[field])
-      ) {
-        Object.assign(mergedState.settings, { [field]: value });
+    if (currentState.protocol === 'V1') {
+      // V1 loader snapshots omit application settings. Apply this after every
+      // merge form, including whole-section and wildcard replacements.
+      for (const [field, value] of Object.entries(currentState.settings)) {
+        if (
+          !isNil(value) &&
+          isNil((mergedState.settings as Record<string, unknown>)[field])
+        ) {
+          Object.assign(mergedState.settings, { [field]: value });
+        }
       }
     }
   }

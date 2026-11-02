@@ -278,22 +278,28 @@ describe('deviceStateUtils', () => {
     },
   );
 
-  it.each([
-    {
-      mode: 'bootloader',
-      changedKeys: ['identity.serialNo', 'identity.bleName'],
-    },
-    { mode: 'bootloader', changedKeys: ['identity'] },
-    { mode: 'romloader', changedKeys: ['*'] },
-  ] as const)(
-    'preserves missing V1 loader identity for $mode / $changedKeys',
-    ({ mode, changedKeys }) => {
+  it.each(
+    (['V1', 'V2'] as const).flatMap((protocol) =>
+      (
+        [
+          {
+            mode: 'bootloader',
+            changedKeys: ['identity.serialNo', 'identity.bleName'],
+          },
+          { mode: 'bootloader', changedKeys: ['identity'] },
+          { mode: 'romloader', changedKeys: ['*'] },
+        ] as const
+      ).map((entry) => ({ ...entry, protocol })),
+    ),
+  )(
+    'preserves missing $protocol loader identity for $mode / $changedKeys',
+    ({ protocol, mode, changedKeys }) => {
       const currentState = createState();
-      currentState.protocol = 'V1';
+      currentState.protocol = protocol;
       currentState.identity.serialNo = 'CLASSIC_SERIAL';
       currentState.identity.bleName = 'K3022';
       const incomingState = createState({ revision: 2, updatedAt: 2 });
-      incomingState.protocol = 'V1';
+      incomingState.protocol = protocol;
       incomingState.status.mode = mode;
       incomingState.identity.deviceId = null;
       incomingState.identity.serialNo = '';
@@ -317,11 +323,52 @@ describe('deviceStateUtils', () => {
     },
   );
 
-  it.each([false, true])(
-    'recovers missing V1 identity from a firmware read-back (equal metadata: %s)',
-    (equalMetadata) => {
+  it.each([
+    { protocol: 'V1', deviceId: 'OTHER_DEVICE_ID', serialNo: '' },
+    { protocol: 'V2', deviceId: 'OTHER_DEVICE_ID', serialNo: '' },
+    { protocol: 'V1', deviceId: null, serialNo: 'OTHER_SERIAL' },
+    { protocol: 'V2', deviceId: null, serialNo: 'OTHER_SERIAL' },
+  ] as const)(
+    'does not preserve identity from a conflicting loader ($protocol / $deviceId / $serialNo)',
+    ({ protocol, deviceId, serialNo }) => {
       const currentState = createState();
-      currentState.protocol = 'V1';
+      currentState.protocol = protocol;
+      const incomingState = createState({ revision: 2, updatedAt: 2 });
+      incomingState.protocol = protocol;
+      incomingState.status.mode = 'bootloader';
+      incomingState.identity.deviceId = deviceId;
+      incomingState.identity.serialNo = serialNo;
+      incomingState.identity.bleName = null;
+
+      const merged = mergeDeviceStateEvent({
+        currentState,
+        incomingState,
+        changedKeys: ['identity', 'status.mode'],
+        source: 'initialize',
+      });
+
+      expect(merged.identity.serialNo).toBe(serialNo);
+      expect(merged.identity.bleName).toBeNull();
+    },
+  );
+
+  it.each(
+    (
+      [
+        { protocol: 'V1', deviceType: EDeviceType.Classic1s },
+        { protocol: 'V1', deviceType: EDeviceType.Pro },
+        { protocol: 'V2', deviceType: EDeviceType.Pro2 },
+        { protocol: 'V2', deviceType: EDeviceType.Neo },
+      ] as const
+    ).flatMap((entry) =>
+      [false, true].map((equalMetadata) => ({ ...entry, equalMetadata })),
+    ),
+  )(
+    'recovers missing $deviceType identity from a firmware read-back (equal metadata: $equalMetadata)',
+    ({ protocol, deviceType, equalMetadata }) => {
+      const currentState = createState();
+      currentState.protocol = protocol;
+      currentState.identity.deviceType = deviceType;
       currentState.identity.serialNo = '';
       currentState.identity.bleName = null;
       currentState.settings.language = 'ja';
@@ -329,7 +376,8 @@ describe('deviceStateUtils', () => {
         revision: equalMetadata ? 1 : 2,
         updatedAt: equalMetadata ? 1 : 2,
       });
-      incomingState.protocol = 'V1';
+      incomingState.protocol = protocol;
+      incomingState.identity.deviceType = deviceType;
       incomingState.identity.serialNo = 'CLASSIC_SERIAL';
       incomingState.identity.bleName = 'K3022';
       incomingState.identity.label = 'Stale label';
@@ -358,18 +406,20 @@ describe('deviceStateUtils', () => {
   );
 
   it.each([
-    { protocol: 'V2', deviceId: 'PRO2_DEVICE_ID' },
-    { protocol: 'V1', deviceId: 'OTHER_DEVICE_ID' },
-    { protocol: 'V1', deviceId: null },
+    { protocol: 'V1', incomingProtocol: 'V2', deviceId: 'PRO2_DEVICE_ID' },
+    { protocol: 'V1', incomingProtocol: 'V1', deviceId: 'OTHER_DEVICE_ID' },
+    { protocol: 'V2', incomingProtocol: 'V2', deviceId: 'OTHER_DEVICE_ID' },
+    { protocol: 'V1', incomingProtocol: 'V1', deviceId: null },
+    { protocol: 'V2', incomingProtocol: 'V2', deviceId: null },
   ] as const)(
-    'does not recover identity without a matching confirmed V1 device ($protocol / $deviceId)',
-    ({ protocol, deviceId }) => {
+    'does not recover identity without a matching device ($protocol / $incomingProtocol / $deviceId)',
+    ({ protocol, incomingProtocol, deviceId }) => {
       const currentState = createState();
       currentState.protocol = protocol;
       currentState.identity.serialNo = '';
       currentState.identity.bleName = null;
       const incomingState = createState({ revision: 2, updatedAt: 2 });
-      incomingState.protocol = protocol;
+      incomingState.protocol = incomingProtocol;
       incomingState.identity.deviceId = deviceId;
 
       const merged = mergeDeviceStateEvent({
@@ -381,6 +431,57 @@ describe('deviceStateUtils', () => {
 
       expect(merged.identity.serialNo).toBe('');
       expect(merged.identity.bleName).toBeNull();
+    },
+  );
+
+  it.each([
+    {
+      protocol: 'V1',
+      deviceId: null,
+      serialNo: 'KNOWN_SERIAL',
+      accepted: true,
+    },
+    {
+      protocol: 'V2',
+      deviceId: null,
+      serialNo: 'KNOWN_SERIAL',
+      accepted: true,
+    },
+    {
+      protocol: 'V2',
+      deviceId: null,
+      serialNo: 'OTHER_SERIAL',
+      accepted: false,
+    },
+    {
+      protocol: 'V2',
+      deviceId: 'OTHER_DEVICE_ID',
+      serialNo: 'KNOWN_SERIAL',
+      accepted: false,
+    },
+  ] as const)(
+    'recovers only BLE name through a confirmed serial ($protocol / $deviceId / $serialNo)',
+    ({ protocol, deviceId, serialNo, accepted }) => {
+      const currentState = createState();
+      currentState.protocol = protocol;
+      currentState.identity.serialNo = 'KNOWN_SERIAL';
+      currentState.identity.bleName = null;
+      const incomingState = createState({ revision: 2, updatedAt: 2 });
+      incomingState.protocol = protocol;
+      incomingState.identity.deviceId = deviceId;
+      incomingState.identity.serialNo = serialNo;
+
+      const merged = mergeDeviceStateEvent({
+        currentState,
+        incomingState,
+        changedKeys: ['versions.firmware'],
+        source: 'device-info',
+      });
+
+      expect(merged.identity.serialNo).toBe('KNOWN_SERIAL');
+      expect(merged.identity.bleName).toBe(
+        accepted ? incomingState.identity.bleName : null,
+      );
     },
   );
 

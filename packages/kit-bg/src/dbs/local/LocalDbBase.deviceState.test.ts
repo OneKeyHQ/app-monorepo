@@ -526,26 +526,31 @@ describe('LocalDb DeviceState persistence', () => {
     },
   );
 
-  it.each([
-    { revision: 10, updatedAt: 300, accepted: true },
-    { revision: 9, updatedAt: 200, accepted: true },
-    { revision: 8, updatedAt: 200, accepted: false },
-    { revision: 10, updatedAt: 100, accepted: false },
-  ])(
-    'repairs missing V1 identity at $revision / $updatedAt without accepting older read-backs',
-    async ({ revision, updatedAt, accepted }) => {
+  it.each(
+    (['V1', 'V2'] as const).flatMap((protocol) =>
+      [
+        { revision: 10, updatedAt: 300, accepted: true },
+        { revision: 9, updatedAt: 200, accepted: true },
+        { revision: 8, updatedAt: 200, accepted: false },
+        { revision: 10, updatedAt: 100, accepted: false },
+      ].map((entry) => ({ ...entry, protocol })),
+    ),
+  )(
+    'repairs missing $protocol identity at $revision / $updatedAt without accepting older read-backs',
+    async ({ protocol, revision, updatedAt, accepted }) => {
       const current = createState({
         revision: 9,
         updatedAt: 200,
         label: 'Classic 1S',
         language: 'ja',
         firmware: '3.21.0',
-        deviceType: EDeviceType.Classic1s,
-        model: '1',
+        deviceType:
+          protocol === 'V1' ? EDeviceType.Classic1s : EDeviceType.Pro2,
+        model: protocol === 'V1' ? '1' : 'pro2',
         deviceId: 'CLASSIC_DEVICE_ID',
         bleName: '',
       });
-      current.protocol = 'V1';
+      current.protocol = protocol;
       const incoming: IOneKeyDeviceState = {
         ...current,
         revision,
