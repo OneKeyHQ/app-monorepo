@@ -2,12 +2,18 @@
 
 import { act, cleanup, render, screen } from '@testing-library/react';
 
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+
 import { IntercomSupportFrame } from './IntercomSupportFrame';
 
 const mockGetToken = jest.fn<Promise<string | undefined>, [string | null]>();
 
 jest.mock('@onekeyhq/shared/src/modules3rdParty/intercom/identity', () => ({
   getIntercomSessionToken: (userId: string | null) => mockGetToken(userId),
+}));
+
+jest.mock('react-intl', () => ({
+  useIntl: () => ({ formatMessage: ({ id }: { id: string }) => id }),
 }));
 
 const origin = 'https://intercom.onekey.so';
@@ -100,6 +106,13 @@ test('loads the support URL in a frame that cannot navigate the wallet', () => {
   expect(sandbox).toContain('allow-scripts');
   expect(sandbox).toContain('allow-same-origin');
   expect(sandbox).not.toContain('allow-top-navigation');
+});
+
+test('labels the frame with the translated support title', () => {
+  render(<IntercomSupportFrame url={url} userId="A" />);
+  expect(getFrame().getAttribute('title')).toBe(
+    ETranslations.settings_contact_us,
+  );
 });
 
 test('answers a verified handshake on the port of that document', async () => {

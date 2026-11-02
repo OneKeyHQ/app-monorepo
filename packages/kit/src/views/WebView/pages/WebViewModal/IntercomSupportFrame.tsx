@@ -1,5 +1,8 @@
 import { useEffect, useRef } from 'react';
 
+import { useIntl } from 'react-intl';
+
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   INTERCOM_SUPPORT_ORIGIN,
   createIntercomSessionMessage,
@@ -16,6 +19,7 @@ export function IntercomSupportFrame({
   url,
   userId,
 }: IIntercomSupportFrameProps) {
+  const intl = useIntl();
   const frameRef = useRef<HTMLIFrameElement>(null);
 
   useEffect(() => {
@@ -60,7 +64,7 @@ export function IntercomSupportFrame({
     <iframe
       ref={frameRef}
       data-testid="intercom-support-frame"
-      title="Support"
+      title={intl.formatMessage({ id: ETranslations.settings_contact_us })}
       src={url}
       // Messenger needs links and uploads; top navigation stays blocked so the
       // page can never replace the wallet UI around it.
