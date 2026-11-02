@@ -29,7 +29,7 @@ import {
   shell,
 } from 'electron';
 import contextMenu from 'electron-context-menu';
-import isDev from 'electron-is-dev';
+import electronIsDev from 'electron-is-dev';
 import logger from 'electron-log/main';
 
 import { CALL_DESKTOP_API_EVENT_NAME } from '@onekeyhq/kit-bg/src/desktopApis/base/consts';
@@ -51,10 +51,6 @@ import {
   APP_MENU_OFFICIAL_WEBSITE_URL,
   APP_MENU_X_URL,
 } from '@onekeyhq/shared/src/consts/appMenuConsts';
-import {
-  ONEKEY_APP_DEEP_LINK_NAME,
-  WALLET_CONNECT_DEEP_LINK_NAME,
-} from '@onekeyhq/shared/src/consts/deeplinkConsts';
 import { DESKTOP_WEBVIEW_OVERLAY_PARTITION } from '@onekeyhq/shared/src/consts/desktopWebviewPartitions';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { sanitizeTrezorThpModuleLogData } from '@onekeyhq/shared/src/hardware/trezorThpLogRedact';
@@ -79,9 +75,11 @@ import { ipcMessageKeys } from './config';
 import { ElectronTranslations, i18nText, initLocale } from './i18n';
 import { scheduleCrashDumpCleanup } from './libs/crashDumpCleanup';
 import {
+  DESKTOP_DEEP_LINK_PROTOCOLS,
   findAllowedDeepLinkArg,
   getDesktopProtocolClientArgs,
   isAllowedDeepLinkUrl,
+  resolveDesktopRuntimeFlags,
 } from './libs/deepLink';
 import {
   DESKTOP_API_ALLOWED_MODULES,
@@ -185,12 +183,16 @@ function makeIpcSafeResult(result: unknown): unknown {
 // pre-Sentry by construction; native crashes are still covered out-of-band.)
 process.nextTick(initSentry);
 
-// SECURITY: never allow PERF_CI_MODE in packaged builds; it enables unpacked
-// file loading (PERF_DESKTOP_INDEX_HTML) and skips production file:// hash/GPG checks.
-const isPerfCiMode = !app.isPackaged && process.env.PERF_CI_MODE === '1';
+// SECURITY: never allow development or unpacked modes (such as ELECTRON_IS_DEV=1
+// or PERF_CI_MODE=1) in packaged builds; they enable unpacked file/URL loading
+// and skip production file:// hash/GPG checks.
+const { isDev, isPerfCiMode, isDevServer, isLocalUnpacked } =
+  resolveDesktopRuntimeFlags({
+    isPackaged: app.isPackaged,
+    electronIsDev,
+    env: process.env,
+  });
 const isDesktopE2EMode = process.env.DESKTOP_E2E_MODE === 'true';
-const isDevServer = isDev && !isPerfCiMode;
-const isLocalUnpacked = isDev || isPerfCiMode;
 
 function isWhitelistedMediaOrigin(
   origin: string,
@@ -1119,12 +1121,12 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
   // renderer via sender-id checks in HttpServer.
   setMainWindowForHttpServer(browserWindow);
 
-  // Protocol handler for win32
+  // Protocol handler for cold startup command-line URLs
   // Skip on soft restart: process.argv is unchanged across an in-process
   // recreate, so replaying the launch deep link here would re-dispatch the
   // original cold-start URL (e.g. a WalletConnect pairing or send screen) after
   // every bundle update. Only a genuine cold boot should consume argv.
-  if ((isWin || isMac) && !isSoftRestart) {
+  if ((isWin || isMac || isLinux) && !isSoftRestart) {
     const deeplinkingUrl = findAllowedDeepLinkArg(process.argv);
     if (deeplinkingUrl) {
       handleDeepLinkUrl(null, deeplinkingUrl, process.argv, true);
@@ -3018,10 +3020,7 @@ if (!process.defaultApp || process.argv.length >= 2) {
     process.defaultApp,
     process.argv,
   );
-  for (const protocol of [
-    ONEKEY_APP_DEEP_LINK_NAME,
-    WALLET_CONNECT_DEEP_LINK_NAME,
-  ]) {
+  for (const protocol of DESKTOP_DEEP_LINK_PROTOCOLS) {
     if (
       !app.isDefaultProtocolClient(
         protocol,

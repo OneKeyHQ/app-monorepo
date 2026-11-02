@@ -5,10 +5,18 @@ import {
   WALLET_CONNECT_DEEP_LINK_NAME,
 } from '@onekeyhq/shared/src/consts/deeplinkConsts';
 
+export const ETHEREUM_DEEP_LINK_NAME = 'ethereum';
+
+export const DESKTOP_DEEP_LINK_PROTOCOLS = [
+  ONEKEY_APP_DEEP_LINK_NAME,
+  WALLET_CONNECT_DEEP_LINK_NAME,
+  ETHEREUM_DEEP_LINK_NAME,
+] as const;
+
 const ALLOWED_DEEP_LINK_SCHEMES = [
   `${ONEKEY_APP_DEEP_LINK_NAME}:`,
   `${WALLET_CONNECT_DEEP_LINK_NAME}:`,
-  'ethereum:',
+  `${ETHEREUM_DEEP_LINK_NAME}:`,
 ] as const;
 
 // Reject ASCII control characters (<= 0x20, 0x7f), raw whitespace, and raw double quotes (`"`, 0x22).
@@ -69,4 +77,43 @@ export function getDesktopProtocolClientArgs(
     return [path.resolve(argv[1]), '--'];
   }
   return ['--'];
+}
+
+export interface IDesktopRuntimeFlagsInput {
+  isPackaged: boolean;
+  electronIsDev?: boolean;
+  env?: Readonly<Record<string, string | undefined>>;
+}
+
+export interface IDesktopRuntimeFlags {
+  isDev: boolean;
+  isPerfCiMode: boolean;
+  isDevServer: boolean;
+  isLocalUnpacked: boolean;
+}
+
+export function resolveDesktopRuntimeFlags({
+  isPackaged,
+  electronIsDev,
+  env = process.env,
+}: IDesktopRuntimeFlagsInput): IDesktopRuntimeFlags {
+  let rawIsDev: boolean;
+  if (typeof electronIsDev === 'boolean') {
+    rawIsDev = electronIsDev;
+  } else if ('ELECTRON_IS_DEV' in env) {
+    rawIsDev = Number.parseInt(env.ELECTRON_IS_DEV ?? '', 10) === 1;
+  } else {
+    rawIsDev = !isPackaged;
+  }
+  const isDev = !isPackaged && rawIsDev;
+  const isPerfCiMode = !isPackaged && env.PERF_CI_MODE === '1';
+  const isDevServer = !isPackaged && isDev && !isPerfCiMode;
+  const isLocalUnpacked = !isPackaged && (isDev || isPerfCiMode);
+
+  return {
+    isDev,
+    isPerfCiMode,
+    isDevServer,
+    isLocalUnpacked,
+  };
 }
