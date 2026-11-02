@@ -852,7 +852,9 @@ function TokenDetailsHeaderContent({
             />
           </Stack>
         ) : null}
-        {isPrivatePool && !isPrivateSynced ? (
+        {/* Shown once the pool's state is read: a Preparing panel during loading would vanish again
+            for the usual synced account and shift the page. The balance shows loading meanwhile. */}
+        {isPrivatePool && isLocalWalletReady && !isPrivateSynced ? (
           <Stack px="$5" pt="$4" pb={isPrivatePoolDisabled ? '$5' : undefined}>
             {isPrivatePoolDisabled ? (
               <LocalWalletPoolStatus
