@@ -1721,7 +1721,10 @@ function RecipientQuickSelect({
     [activeTab, networkId, setActiveTab, trimmedSearchKey],
   );
 
-  const initialPagerIndex = Math.max(0, visibleTabKeys.indexOf(activeTab));
+  // Updating initialPage after a swipe makes iOS apply the page again.
+  const [initialPagerIndex] = useState(() =>
+    Math.max(0, visibleTabKeys.indexOf(activeTab)),
+  );
   const pagerSelectedIndexRef = useRef(initialPagerIndex);
   const pagerSelectedTabRef = useRef<IRecipientQuickSelectTab | undefined>(
     visibleTabKeys[initialPagerIndex],
