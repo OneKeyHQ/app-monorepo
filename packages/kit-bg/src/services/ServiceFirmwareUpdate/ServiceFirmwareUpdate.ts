@@ -3329,15 +3329,16 @@ class ServiceFirmwareUpdate extends ServiceBase {
     // fails must not leave the guard, and with it the blocked lock screen,
     // up for the rest of the session. Dropped only while this workflow is
     // still the current one: a newer start owns the shared guard by then.
-    await firmwareUpdateWorkflowRunningAtom.set(true);
     task.attemptId += 1;
     const attemptId = task.attemptId;
+    await firmwareUpdateWorkflowRunningAtom.set(true);
     let preparationTimedOut = false;
     const isCurrentPreparation = () =>
       !preparationTimedOut &&
       this.updateTasks[id] === task &&
       task.attemptId === attemptId &&
       this.isUpdateWorkflowCurrent(task.workflowId);
+    if (!isCurrentPreparation()) return;
     await this.runUpdateTask({
       id,
       preFn: makeTimeoutPromise({

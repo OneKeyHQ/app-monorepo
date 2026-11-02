@@ -3427,9 +3427,14 @@ describe('ServiceFirmwareUpdate workflow tracking', () => {
     );
   });
 
-  it.each(['resolve', 'reject'] as const)(
-    'ignores an old attempt that finishes with %s after Retry starts',
-    async (outcome) => {
+  it.each([
+    ['resolve', 'guard'],
+    ['reject', 'guard'],
+    ['resolve', 'task'],
+    ['reject', 'task'],
+  ] as const)(
+    'ignores an old attempt that finishes with %s after Retry reaches %s',
+    async (outcome, phase) => {
       jest
         .mocked(firmwareUpdateWorkflowRunningAtom.get)
         .mockResolvedValue(true);
@@ -3467,31 +3472,52 @@ describe('ServiceFirmwareUpdate workflow tracking', () => {
       jest.spyOn(service, 'waitDeviceRestart').mockResolvedValue(undefined);
       const resolveTask = jest
         .spyOn(service, 'updateTasksResolve')
-        .mockResolvedValue(undefined);
+        .mockImplementation(() => {
+          delete service.updateTasks[1];
+          return Promise.resolve();
+        });
       const rejectTask = jest
         .spyOn(service, 'updateTasksReject')
         .mockResolvedValue(undefined);
       const first = service.runUpdateTask({ id: 1 });
       await new Promise<void>((resolve) => setImmediate(resolve));
       expect(fn).toHaveBeenCalledTimes(1);
+      let releaseGuard: (() => void) | undefined;
+      if (phase === 'guard') {
+        jest
+          .mocked(firmwareUpdateWorkflowRunningAtom.set)
+          .mockImplementationOnce(
+            () =>
+              new Promise<void>((resolve) => {
+                releaseGuard = resolve;
+              }),
+          );
+      }
       const retry = service.retryUpdateTask({
         id: 1,
         connectId: 'same-device',
         releaseResult: undefined,
       });
-      await new Promise<void>((resolve) => setImmediate(resolve));
-      expect(fn).toHaveBeenCalledTimes(2);
-      jest.mocked(firmwareUpdateRetryAtom.set).mockClear();
+      try {
+        await new Promise<void>((resolve) => setImmediate(resolve));
+        expect(fn).toHaveBeenCalledTimes(phase === 'guard' ? 1 : 2);
+        jest.mocked(firmwareUpdateRetryAtom.set).mockClear();
 
-      if (outcome === 'resolve') resolveOld?.();
-      else rejectOld?.(new Error('old timeout'));
-      await first;
+        if (outcome === 'resolve') resolveOld?.();
+        else rejectOld?.(new Error('old timeout'));
+        await first;
 
-      expect(resolveTask).not.toHaveBeenCalled();
-      expect(rejectTask).not.toHaveBeenCalled();
-      expect(firmwareUpdateRetryAtom.set).not.toHaveBeenCalled();
-      resolveNew?.();
-      await retry;
+        expect(resolveTask).not.toHaveBeenCalled();
+        expect(rejectTask).not.toHaveBeenCalled();
+        expect(firmwareUpdateRetryAtom.set).not.toHaveBeenCalled();
+        releaseGuard?.();
+        await new Promise<void>((resolve) => setImmediate(resolve));
+        expect(fn).toHaveBeenCalledTimes(2);
+      } finally {
+        releaseGuard?.();
+        resolveNew?.();
+        await retry;
+      }
       expect(resolveTask).toHaveBeenCalledTimes(1);
     },
   );
