@@ -1,4 +1,4 @@
-import type { ReactElement } from 'react';
+import type { ComponentProps, ReactElement } from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
@@ -61,7 +61,14 @@ import type {
 } from './ManagePositionContent';
 import type { IManagePageV2ReceiveInputConfig } from '../../../components/ManagePageV2ReceiveInput';
 
-export const StakeSection = ({
+function isSameStakeAsset(a: IEarnTokenItem, b: IEarnTokenItem) {
+  return (
+    normalizeStakeTokenAddress(a.info) === normalizeStakeTokenAddress(b.info) &&
+    a.info.symbol.toLowerCase() === b.info.symbol.toLowerCase()
+  );
+}
+
+const StakeSectionContent = ({
   accountId,
   networkId,
   tokenInfo,
@@ -184,45 +191,60 @@ export const StakeSection = ({
     };
   }, [accountId, borrowApiCtx, networkId, protocolInfo?.borrowAllowance]);
 
-  const { result: stakeAssetsList } = usePromiseResult(
-    async () => {
-      if (
-        !hasRequiredData ||
-        !(isPendleProvider || isNativeProvider) ||
-        !accountId ||
-        !stakeAssetsSymbol
-      ) {
-        return undefined;
-      }
-      return backgroundApiProxy.serviceStaking.getEarnAssetsList({
+  const { result: stakeAssetsList, isLoading: isStakeAssetsLoading } =
+    usePromiseResult(
+      async () => {
+        if (
+          !hasRequiredData ||
+          !(isPendleProvider || isNativeProvider) ||
+          !accountId ||
+          !stakeAssetsSymbol
+        ) {
+          return undefined;
+        }
+        return backgroundApiProxy.serviceStaking.getEarnAssetsList({
+          accountId,
+          networkId,
+          provider: providerName,
+          symbol: stakeAssetsSymbol,
+          vault: protocolInfo?.vault || undefined,
+          action: 'stake',
+        });
+      },
+      [
+        hasRequiredData,
+        isPendleProvider,
+        isNativeProvider,
         accountId,
         networkId,
-        provider: providerName,
-        symbol: stakeAssetsSymbol,
-        vault: protocolInfo?.vault || undefined,
-        action: 'stake',
-      });
-    },
-    [
-      hasRequiredData,
-      isPendleProvider,
-      isNativeProvider,
-      accountId,
-      networkId,
-      providerName,
-      protocolInfo?.vault,
-      stakeAssetsSymbol,
-    ],
-    {
-      watchLoading: true,
-    },
-  );
+        providerName,
+        protocolInfo?.vault,
+        stakeAssetsSymbol,
+      ],
+      {
+        watchLoading: true,
+      },
+    );
 
   const selectableStakeAssets = useMemo(() => {
     return stakeAssetsList?.assets ?? [];
   }, [stakeAssetsList?.assets]);
+  const reconciledStakeAssetsRef = useRef(selectableStakeAssets);
+
+  const isWaitingForStakeAsset =
+    Boolean(hasRequiredData && accountId && stakeAssetsSymbol) &&
+    !isBorrowStake &&
+    (isPendleProvider || isNativeProvider) &&
+    ((!selectedStakeAsset && isStakeAssetsLoading !== false) ||
+      (selectableStakeAssets.length > 0 &&
+        (!selectedStakeAsset ||
+          (reconciledStakeAssetsRef.current !== selectableStakeAssets &&
+            !selectableStakeAssets.some((asset) =>
+              isSameStakeAsset(asset, selectedStakeAsset),
+            )))));
 
   useEffect(() => {
+    reconciledStakeAssetsRef.current = selectableStakeAssets;
     if (!selectableStakeAssets.length) {
       setSelectedStakeAsset(undefined);
       return;
@@ -230,20 +252,9 @@ export const StakeSection = ({
 
     setSelectedStakeAsset((prev) => {
       if (prev) {
-        const prevAddress = normalizeStakeTokenAddress({
-          address: prev.info.address,
-          isNative: prev.info.isNative,
-        });
-        const matchedPrev = selectableStakeAssets.find((asset) => {
-          const assetAddress = normalizeStakeTokenAddress({
-            address: asset.info.address,
-            isNative: asset.info.isNative,
-          });
-          return (
-            assetAddress === prevAddress &&
-            asset.info.symbol.toLowerCase() === prev.info.symbol.toLowerCase()
-          );
-        });
+        const matchedPrev = selectableStakeAssets.find((asset) =>
+          isSameStakeAsset(asset, prev),
+        );
         if (matchedPrev) {
           return matchedPrev;
         }
@@ -903,6 +914,7 @@ export const StakeSection = ({
             !effectiveStakeTokenInfo?.token && !fallbackTokenImageUri
           }
           tokenSymbol={effectiveStakeTokenInfo?.token.symbol}
+          isStakeAssetLoading={isWaitingForStakeAsset}
           providerLogo={protocolInfo?.providerDetail.logoURI}
           providerName={protocolInfo?.provider}
           onConfirm={onConfirm}
@@ -956,3 +968,25 @@ export const StakeSection = ({
     </>
   );
 };
+
+export function StakeSection(
+  props: ComponentProps<typeof StakeSectionContent>,
+) {
+  const provider = props.protocolInfo?.provider ?? '';
+  const needsAssetList =
+    !props.useBorrowApi &&
+    (earnUtils.isNativeProvider({ providerName: provider }) ||
+      earnUtils.isPendleProvider({ providerName: provider }));
+  const key = needsAssetList
+    ? JSON.stringify([
+        props.accountId,
+        props.networkId,
+        provider,
+        props.protocolInfo?.vault,
+        props.protocolInfo?.symbol,
+        Boolean(props.tokenInfo),
+      ])
+    : 'default';
+
+  return <StakeSectionContent key={key} {...props} />;
+}
