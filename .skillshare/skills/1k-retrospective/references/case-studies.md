@@ -1170,3 +1170,10 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries â€
 **Root Cause**: UTXO history rows render the server's `value`, which is the account's net change. When every input and output belongs to the account, the net is 0 even though an amount moved.
 **Fix**: `getUtxoHistoryDisplayValue` returns the sum of the owned outputs the server does not explicitly mark as change when the net value is 0 and both legs are the account's own; a change-only spend keeps the net value since it has no recipient. `VaultBase` uses it for `nativeAmount` and the action value. Unit tests cover the self-transfer, a non-zero value, an external leg, change-marked outputs, change-only outputs, and nothing to sum.
 **Catchable by**: Section 4: Business Logic & Regression â€” when displaying a server-aggregated field, test the degenerate input where the aggregation cancels out (self-transfer, round trip).
+
+## Case: Language picker modules missing native module IDs
+**Date**: 2026-11-02 | **Platforms**: iOS, Android (native union and production bundles)
+**Symptom**: Strict native bundling throws because SelectSearchableList.tsx, filterSelectItems.ts, localeSearch.ts, and translationKeys.ts are not in the module ID registry.
+**Root Cause**: The new language-picker files are imported by Select and the locale options, so they enter the native graph, but no stable IDs were committed.
+**Fix**: Register the four files in apps/mobile/bundle-registry/module-id-registry.json with the existing module ID allocator.
+**Catchable by**: Section 4: a new file that the native bundle imports must be added to module-id-registry.json before the release bundle runs.
