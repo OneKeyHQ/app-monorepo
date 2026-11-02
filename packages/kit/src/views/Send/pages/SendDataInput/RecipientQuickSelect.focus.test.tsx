@@ -14,6 +14,8 @@ import type {
 
 const mockScrollHeaderToOffset = jest.fn();
 const mockScrollHeaderBy = jest.fn();
+const mockSetPageWithoutAnimation = jest.fn();
+let mockInitialPage: number | undefined;
 let mockNativeRowAction: NativeListProps['onRowAction'];
 let mockHeaderLayout:
   | ((event: { nativeEvent: { layout: { height: number } } }) => void)
@@ -98,6 +100,7 @@ jest.mock('react-native-pager-view', () => {
         onPageSelected,
         onPageScrollStateChanged,
         nativeTabBar,
+        initialPage,
       }: {
         children?: React.ReactNode;
         header?: React.ReactNode;
@@ -105,16 +108,18 @@ jest.mock('react-native-pager-view', () => {
         onPageSelected?: typeof mockPageSelected;
         onPageScrollStateChanged?: typeof mockPageScrollStateChanged;
         nativeTabBar?: typeof mockNativeTabBar;
+        initialPage?: number;
       },
       ref,
     ) => {
       mockPageSelected = onPageSelected;
       mockPageScrollStateChanged = onPageScrollStateChanged;
       mockNativeTabBar = nativeTabBar;
+      mockInitialPage = initialPage;
       React.useImperativeHandle(ref, () => ({
         scrollHeaderToOffset: mockScrollHeaderToOffset,
         scrollHeaderBy: mockScrollHeaderBy,
-        setPageWithoutAnimation: jest.fn(),
+        setPageWithoutAnimation: mockSetPageWithoutAnimation,
       }));
       return React.createElement('div', null, header, stickyHeader, children);
     },
@@ -347,6 +352,8 @@ describe('RecipientQuickSelect keyboard focus visibility', () => {
     platformEnv.isNativeAndroid = false;
     mockScrollHeaderToOffset.mockClear();
     mockScrollHeaderBy.mockClear();
+    mockSetPageWithoutAnimation.mockClear();
+    mockInitialPage = undefined;
     mockKeyboardListeners.clear();
     mockRequestFocus = undefined;
     mockPageSelected = undefined;
@@ -475,6 +482,84 @@ describe('RecipientQuickSelect keyboard focus visibility', () => {
     expect(mockNativeTabBar?.items.map(({ key }) => key)).toEqual(['recent']);
     act(() => mockRecentMatchStatus?.(true, 7));
     expect(mockNativeTabBar?.items[0]?.title).toContain('(7)');
+  });
+
+  it.each(['iOS', 'Android'])(
+    'keeps initialPage stable on %s swipes while syncing external tab changes',
+    (platform) => {
+      platformEnv.isNativeIOS = platform === 'iOS';
+      platformEnv.isNativeAndroid = platform === 'Android';
+      const { rerender } = render(
+        <RecipientQuickSelect
+          networkId="xrp--0"
+          activeTab="recent"
+          pagerHeader={null}
+        />,
+      );
+      expect(mockSetPageWithoutAnimation).not.toHaveBeenCalled();
+      expect(mockInitialPage).toBe(0);
+
+      const tabKeys = ['recent', 'account', 'addressBook'] as const;
+      [1, 2, 1, 0].forEach((position) => {
+        act(() => mockPageSelected?.({ nativeEvent: { position } }));
+        rerender(
+          <RecipientQuickSelect
+            networkId="xrp--0"
+            activeTab={tabKeys[position]}
+            pagerHeader={null}
+          />,
+        );
+        expect(mockSetPageWithoutAnimation).not.toHaveBeenCalled();
+        expect(mockInitialPage).toBe(0);
+      });
+
+      rerender(
+        <RecipientQuickSelect
+          networkId="xrp--0"
+          activeTab="addressBook"
+          pagerHeader={null}
+        />,
+      );
+      expect(mockSetPageWithoutAnimation).toHaveBeenCalledTimes(1);
+      expect(mockSetPageWithoutAnimation).toHaveBeenLastCalledWith(2);
+      expect(mockInitialPage).toBe(0);
+
+      rerender(
+        <RecipientQuickSelect
+          networkId="xrp--0"
+          activeTab="addressBook"
+          hideTabs={['recent']}
+          pagerHeader={null}
+        />,
+      );
+      expect(mockSetPageWithoutAnimation).toHaveBeenCalledTimes(2);
+      expect(mockSetPageWithoutAnimation).toHaveBeenLastCalledWith(1);
+      expect(mockInitialPage).toBe(0);
+    },
+  );
+
+  it('initializes a new mount from its visible active tab', () => {
+    const { rerender } = render(
+      <RecipientQuickSelect
+        key="first"
+        networkId="xrp--0"
+        activeTab="addressBook"
+        pagerHeader={null}
+      />,
+    );
+    expect(mockInitialPage).toBe(2);
+
+    rerender(
+      <RecipientQuickSelect
+        key="second"
+        networkId="xrp--0"
+        activeTab="account"
+        hideTabs={['recent']}
+        pagerHeader={null}
+      />,
+    );
+    expect(mockInitialPage).toBe(0);
+    expect(mockSetPageWithoutAnimation).not.toHaveBeenCalled();
   });
 
   it('retains the focused field across touch and wheel invalidation', () => {
