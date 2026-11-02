@@ -11,6 +11,7 @@ import {
 } from '@onekeyhq/components';
 import type { IIconProps, IStackProps } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale/enum/translations';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 export interface IInfoIconProps {
   onPress?: () => void;
@@ -53,7 +54,8 @@ export function InfoIcon({
         ? tooltip.title
         : intl.formatMessage({ id: ETranslations.global_info });
 
-    if (!gtMd) {
+    // Native Tooltip returns only its trigger, so wide tablets still open Popover.
+    if (!gtMd || platformEnv.isNative) {
       return (
         <Popover
           placement="top"

@@ -131,7 +131,8 @@ function RewardScopesHint({
   );
   const content = <RewardScopeListContent items={items} />;
 
-  if (!gtMd) {
+  // Native Tooltip returns only its trigger, so wide tablets still open Popover.
+  if (!gtMd || platformEnv.isNative) {
     return (
       <Popover
         placement="top"
