@@ -88,3 +88,30 @@ export function formatRecipientExtra({
     trailingLength: 4,
   })}`;
 }
+
+// The second line of a recipient row: the full address while searching or
+// when it looks like another one, otherwise the details on one line with
+// `before` first, then the tag or note, then `after`, so what comes last is
+// what gets cut.
+export function getRecipientDetailText({
+  address,
+  extra,
+  showFullAddress,
+  before = [],
+  after = [],
+}: {
+  address: string;
+  extra?: string;
+  showFullAddress: boolean;
+  before?: (string | undefined)[];
+  after?: (string | undefined)[];
+}): { text: string | undefined; isFullAddress: boolean } {
+  if (showFullAddress && address) {
+    return {
+      text: extra ? `${address} · ${extra}` : address,
+      isFullAddress: true,
+    };
+  }
+  const text = [...before, extra, ...after].filter(Boolean).join(' · ');
+  return { text: text || undefined, isFullAddress: false };
+}

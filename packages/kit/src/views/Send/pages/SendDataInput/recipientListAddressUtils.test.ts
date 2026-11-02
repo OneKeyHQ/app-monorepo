@@ -1,6 +1,7 @@
 import {
   findLookalikeAddresses,
   formatRecipientExtra,
+  getRecipientDetailText,
   isLookalikeAddress,
   looksLikeListedAddress,
   shortenRecipientAddress,
@@ -168,5 +169,48 @@ describe('formatRecipientExtra', () => {
 
   it('returns nothing without a memo or note', () => {
     expect(formatRecipientExtra(labels)).toBeUndefined();
+  });
+});
+
+describe('getRecipientDetailText', () => {
+  it('lists the details on one line with the tag between the leading parts and the time', () => {
+    expect(
+      getRecipientDetailText({
+        address: EVM_REAL,
+        extra: 'Tag 104523',
+        showFullAddress: false,
+        before: ['0x9622...384F4f', 'BNB Chain'],
+        after: ['2d'],
+      }),
+    ).toEqual({
+      text: '0x9622...384F4f · BNB Chain · Tag 104523 · 2d',
+      isFullAddress: false,
+    });
+  });
+
+  it('skips the parts a row does not have', () => {
+    expect(
+      getRecipientDetailText({
+        address: EVM_REAL,
+        showFullAddress: false,
+        before: [undefined, 'Ethereum'],
+        after: [undefined],
+      }),
+    ).toEqual({ text: 'Ethereum', isFullAddress: false });
+    expect(
+      getRecipientDetailText({ address: EVM_REAL, showFullAddress: false }),
+    ).toEqual({ text: undefined, isFullAddress: false });
+  });
+
+  it('shows the full address with its tag while searching or for a lookalike', () => {
+    expect(
+      getRecipientDetailText({
+        address: EVM_FAKE,
+        extra: 'Note abc',
+        showFullAddress: true,
+        before: ['0x9622...384F4f'],
+        after: ['2d'],
+      }),
+    ).toEqual({ text: `${EVM_FAKE} · Note abc`, isFullAddress: true });
   });
 });

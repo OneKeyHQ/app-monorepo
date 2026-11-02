@@ -183,7 +183,7 @@ describe('RecentRecipients row press', () => {
     expect(firstOnSelect).not.toHaveBeenCalled();
   });
 
-  it('passes Recent network and time as separate plain title suffixes', () => {
+  it('puts Recent network and time on the one-line details of an unnamed row', () => {
     mockNativeSnapshots.length = 0;
     const previousName = mockRecentData.recentRecipients[0].walletAccountName;
     mockRecentData.recentRecipients[0].walletAccountName = '';
@@ -192,12 +192,16 @@ describe('RecentRecipients row press', () => {
     );
 
     const rows = mockNativeSnapshots.at(-1)?.rows as
-      | { titleSuffixes?: unknown[]; badges?: unknown[] }[]
+      | {
+          titleSuffixes?: unknown[];
+          badges?: unknown[];
+          subtitle?: string;
+          subtitleLines?: number;
+        }[]
       | undefined;
-    expect(rows?.[0]?.titleSuffixes).toEqual([
-      { text: 'Ethereum', tone: 'disabled', maxWidth: 96 },
-      { text: expect.any(String), tone: 'disabled' },
-    ]);
+    expect(rows?.[0]?.titleSuffixes).toBeUndefined();
+    expect(rows?.[0]?.subtitle).toMatch(/^Ethereum · .+/);
+    expect(rows?.[0]?.subtitleLines).toBe(1);
     expect(rows?.[0]?.badges).toBeUndefined();
     mockRecentData.recentRecipients[0].walletAccountName = previousName;
   });

@@ -16,7 +16,10 @@ import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
-import { formatRecipientExtra } from './recipientListAddressUtils';
+import {
+  formatRecipientExtra,
+  getRecipientDetailText,
+} from './recipientListAddressUtils';
 
 function AccountAvatarWithWallet({
   address,
@@ -149,17 +152,15 @@ function QuickSelectListSkeleton({ count = 3 }: { count?: number }) {
   );
 }
 
-// Second line of a recipient row. While searching, or when the address
-// looks like another one, it is the full address. Otherwise it is the
-// details on one line: `before`, the tag or note, then `after`, so what
-// comes last is what gets cut.
+// Second line of a recipient row; getRecipientDetailText decides what it
+// says, so the native list says the same.
 function RecipientDetailLine({
   address,
   memo: memoValue,
   note,
   showFullAddress,
-  before = [],
-  after = [],
+  before,
+  after,
 }: {
   address: string;
   memo?: string;
@@ -169,7 +170,7 @@ function RecipientDetailLine({
   after?: (string | undefined)[];
 }) {
   const intl = useIntl();
-  const extraText =
+  const extra =
     memoValue || note
       ? formatRecipientExtra({
           memo: memoValue,
@@ -178,25 +179,27 @@ function RecipientDetailLine({
           noteLabel: intl.formatMessage({ id: ETranslations.global_Note }),
         })
       : undefined;
-  if (showFullAddress && address) {
-    return (
-      <MatchSizeableText
-        size="$bodyMd"
-        color="$textSubdued"
-        wordWrap="break-word"
-      >
-        {extraText ? `${address} · ${extraText}` : address}
-      </MatchSizeableText>
-    );
-  }
-  const detailText = [...before, extraText, ...after]
-    .filter(Boolean)
-    .join(' · ');
-  return detailText ? (
+  const { text, isFullAddress } = getRecipientDetailText({
+    address,
+    extra,
+    showFullAddress,
+    before,
+    after,
+  });
+  if (!text) return null;
+  return isFullAddress ? (
+    <MatchSizeableText
+      size="$bodyMd"
+      color="$textSubdued"
+      wordWrap="break-word"
+    >
+      {text}
+    </MatchSizeableText>
+  ) : (
     <SizableText size="$bodyMd" color="$textSubdued" numberOfLines={1}>
-      {detailText}
+      {text}
     </SizableText>
-  ) : null;
+  );
 }
 
 export { MemoizedQuickSelectListItemFrame as QuickSelectListItemFrame };

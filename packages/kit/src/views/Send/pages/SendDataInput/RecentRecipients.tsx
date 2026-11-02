@@ -40,6 +40,8 @@ import {
   RecipientDetailLine,
 } from './QuickSelectListShared';
 import {
+  formatRecipientExtra,
+  getRecipientDetailText,
   isLookalikeAddress,
   shortenRecipientAddress,
 } from './recipientListAddressUtils';
@@ -47,6 +49,7 @@ import {
   recipientBlockieVisual,
   recipientIdentityRow,
   recipientSnapshot,
+  recipientWalletAccountTitle,
 } from './recipientNativeList';
 import {
   normalizeSearchKey,
@@ -93,6 +96,8 @@ type IQuickItem = {
   wallet?: IDBWallet;
   // Native rows: whether the row menu offers the address book.
   canAddToAddressBook?: boolean;
+  // Native rows: whether the wallet keeps its width over the account.
+  keepWalletName?: boolean;
 };
 
 // The address a row stands for, also what the lookalike check compares.
@@ -523,6 +528,34 @@ function RecentRecipients(props: IRecentRecipientsProps) {
     });
   });
 
+  // Account names shown more than once ("Account #1" in two wallets) need
+  // the wallet name in full to tell the rows apart.
+  const accountNameCounts = useMemo(() => {
+    const counts = new Map<string, number>();
+    filteredRecentRecipients.forEach((recipient) => {
+      if (
+        !recipient.isAddressBook &&
+        recipient.walletName &&
+        recipient.accountName
+      ) {
+        counts.set(
+          recipient.accountName,
+          (counts.get(recipient.accountName) ?? 0) + 1,
+        );
+      }
+    });
+    return counts;
+  }, [filteredRecentRecipients]);
+  // The wallet stays whole when it tells rows apart or says the keys are
+  // elsewhere (watch-only, connected).
+  const keepsWalletName = useCallback(
+    (recipient: IEnrichedRecentRecipient) =>
+      (accountNameCounts.get(recipient.accountName ?? '') ?? 0) > 1 ||
+      accountUtils.isWatchingWallet({ walletId: recipient.walletId }) ||
+      accountUtils.isExternalWallet({ walletId: recipient.walletId }),
+    [accountNameCounts],
+  );
+
   const isLightningNetwork =
     networkUtils.isLightningNetworkByNetworkId(networkId);
 
@@ -534,13 +567,17 @@ function RecentRecipients(props: IRecentRecipientsProps) {
             return {
               id: address,
               name:
-                recipient.addressBookName ?? recipient.walletAccountName ?? '',
+                recipient.addressBookItemName ??
+                recipient.walletAccountName ??
+                '',
               address,
               memo: recipient.recipientMemo,
               lastTransferTime: recipient.lastTransferTime,
               lastTransferNetworkName: recipient.lastTransferNetworkName,
               isAddressBook: recipient.isAddressBook,
               walletName: recipient.walletName,
+              accountName: recipient.accountName,
+              keepWalletName: keepsWalletName(recipient),
               walletId: recipient.walletId,
               wallet: recipient.walletId
                 ? recentWalletMap.get(recipient.walletId)
@@ -559,6 +596,7 @@ function RecentRecipients(props: IRecentRecipientsProps) {
       recentWalletMap,
       lookalikeAddresses,
       isLightningNetwork,
+      keepsWalletName,
     ],
   );
   const nativeItemByKey = useMemo(
@@ -575,37 +613,51 @@ function RecentRecipients(props: IRecentRecipientsProps) {
           const hasName = !!item.name;
           const isEvmNetwork = networkUtils.isEvmNetwork({ networkId });
           const showMenu = !!item.canAddToAddressBook;
-          const titleSuffixes: NonNullable<
-            Parameters<typeof recipientIdentityRow>[0]['titleSuffixes']
-          >[number][] = [];
-          if (item.isAddressBook && isEvmNetwork) {
-            titleSuffixes.push({
-              text: 'EVM',
-              tone: 'secondary',
-              maxWidth: 128,
+          // On EVM one address serves every chain: an unnamed address shows
+          // where it was last paid, and an address book entry saved for
+          // every EVM chain says so.
+          let networkText: string | undefined;
+          if (isEvmNetwork && item.isAddressBook) networkText = 'EVM';
+          else if (isEvmNetwork && !hasName)
+            networkText = item.lastTransferNetworkName;
+          const detail = getRecipientDetailText({
+            address: item.address,
+            extra: item.memo
+              ? formatRecipientExtra({
+                  memo: item.memo,
+                  tagLabel: intl.formatMessage({ id: ETranslations.send_tag }),
+                  noteLabel: intl.formatMessage({
+                    id: ETranslations.global_Note,
+                  }),
+                })
+              : undefined,
+            showFullAddress:
+              isSearchActive ||
+              isLookalikeAddress(lookalikeAddresses, item.address),
+            before: [
+              hasName ? shortenRecipientAddress(item.address) : undefined,
+              networkText,
+            ],
+            after: [
+              item.lastTransferTime
+                ? formatCompactTime(item.lastTransferTime)
+                : undefined,
+            ],
+          });
+          let title: Partial<Parameters<typeof recipientIdentityRow>[0]> = {
+            name: item.name,
+          };
+          if (item.isAddressBook)
+            title = {
+              name: item.name,
+              titleLeadingIcon: { name: 'BookOpenOutline' },
+            };
+          else if (item.walletName && item.accountName)
+            title = recipientWalletAccountTitle({
+              walletName: item.walletName,
+              accountName: item.accountName,
+              keepWalletName: !!item.keepWalletName,
             });
-          } else if (isEvmNetwork && !hasName) {
-            if (item.lastTransferNetworkName) {
-              titleSuffixes.push({
-                text: item.lastTransferNetworkName,
-                tone: 'disabled',
-                maxWidth: 96,
-              });
-            }
-          }
-          if (item.lastTransferTime) {
-            titleSuffixes.push({
-              text: formatCompactTime(item.lastTransferTime),
-              tone: 'disabled',
-            });
-          }
-          const note = item.memo
-            ? ` · ${accountUtils.shortenAddress({
-                address: item.memo,
-                leadingLength: 6,
-                trailingLength: 4,
-              })}`
-            : '';
           const blockie = recipientBlockieVisual(item.address);
           const walletVisual = item.wallet
             ? accountSelectorWalletVisualV2({
@@ -641,9 +693,9 @@ function RecentRecipients(props: IRecentRecipientsProps) {
             testID: `recent-item-${item.address}`,
             address: item.address,
             leading,
-            name: item.name,
-            secondary: `${item.address}${note}`,
-            titleSuffixes: titleSuffixes.length ? titleSuffixes : undefined,
+            ...title,
+            secondary: detail.text,
+            isFullAddress: detail.isFullAddress,
             longPressActionKey: showMenu ? 'menu' : undefined,
             trailing: showMenu
               ? [{ kind: 'menu', actionKey: 'menu' }]
@@ -652,7 +704,15 @@ function RecentRecipients(props: IRecentRecipientsProps) {
         }),
         nativeListTheme,
       ),
-    [nativeItems, networkId, formatCompactTime, nativeListTheme],
+    [
+      nativeItems,
+      networkId,
+      formatCompactTime,
+      nativeListTheme,
+      intl,
+      isSearchActive,
+      lookalikeAddresses,
+    ],
   );
   const showNativeMenu = useCallback(
     (item: IQuickItem, event: RowActionEvent) => {
@@ -697,25 +757,6 @@ function RecentRecipients(props: IRecentRecipientsProps) {
     );
   }, [filteredRecentRecipients.length, onMatchStatusChange, isDebouncing]);
 
-  // Account names shown more than once ("Account #1" in two wallets) need
-  // the wallet name in full to tell the rows apart.
-  const accountNameCounts = useMemo(() => {
-    const counts = new Map<string, number>();
-    filteredRecentRecipients.forEach((recipient) => {
-      if (
-        !recipient.isAddressBook &&
-        recipient.walletName &&
-        recipient.accountName
-      ) {
-        counts.set(
-          recipient.accountName,
-          (counts.get(recipient.accountName) ?? 0) + 1,
-        );
-      }
-    });
-    return counts;
-  }, [filteredRecentRecipients]);
-
   const renderContent = useCallback(() => {
     if (!filteredRecentRecipients.length && isLoadingRecent) {
       return <QuickSelectListSkeleton />;
@@ -754,11 +795,7 @@ function RecentRecipients(props: IRecentRecipientsProps) {
               isLookalike,
               isLightningNetwork,
             })}
-            keepWalletName={
-              (accountNameCounts.get(recipient.accountName ?? '') ?? 0) > 1 ||
-              accountUtils.isWatchingWallet({ walletId: recipient.walletId }) ||
-              accountUtils.isExternalWallet({ walletId: recipient.walletId })
-            }
+            keepWalletName={keepsWalletName(recipient)}
             intl={intl}
             networkId={networkId}
             formatRelativeTime={formatCompactTime}
@@ -791,7 +828,7 @@ function RecentRecipients(props: IRecentRecipientsProps) {
       />
     );
   }, [
-    accountNameCounts,
+    keepsWalletName,
     filteredRecentRecipients,
     formatCompactTime,
     intl,

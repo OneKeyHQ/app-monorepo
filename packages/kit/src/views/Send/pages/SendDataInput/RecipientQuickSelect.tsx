@@ -79,6 +79,8 @@ import {
 import RecentRecipients from './RecentRecipients';
 import {
   findLookalikeAddresses,
+  formatRecipientExtra,
+  getRecipientDetailText,
   isLookalikeAddress,
   shortenRecipientAddress,
 } from './recipientListAddressUtils';
@@ -792,21 +794,27 @@ function AccountRecipients({
         });
       } else if (!collapsedWallets[item.walletId]) {
         const account = item.account;
-        const currentAddress =
-          account.addressDetail?.displayAddress ??
-          account.address ??
-          account.addressDetail?.address ??
-          '';
-        const address = item.matchedAddress ?? currentAddress;
+        const address = item.matchedAddress ?? getAccountAddress(account);
         const key = `${account.id ?? 'no-id'}-${address}`;
         itemsByKey.set(key, item);
+        const name = account.name ?? '';
+        const detail = getRecipientDetailText({
+          address,
+          showFullAddress:
+            isSearchActive || isLookalikeAddress(lookalikeAddresses, address),
+          before: [name ? shortenRecipientAddress(address) : undefined],
+        });
         rows.push(
           recipientIdentityRow({
             key,
             testID: SendTestIDs.recipientItem(address),
             address: address || account.id || '',
-            name: account.name ?? '',
-            secondary: address,
+            name,
+            secondary: detail.text,
+            isFullAddress: detail.isFullAddress,
+            badges: item.deriveLabel
+              ? [{ key: 'deriveType', text: item.deriveLabel }]
+              : undefined,
             leading: accountSelectorAccountVisualV2({
               account,
               indexedAccount: item.indexedAccount,
@@ -825,6 +833,8 @@ function AccountRecipients({
     nativeListTheme,
     accountNetwork,
     showNetworkBadge,
+    isSearchActive,
+    lookalikeAddresses,
   ]);
 
   const handleNativeAccountAction = useCallback(
@@ -1213,23 +1223,42 @@ function AddressBookRecipients({
         note: item.note,
       };
       itemsByKey.set(key, quickItem);
-      const note = item.memo || item.note;
+      const detail = getRecipientDetailText({
+        address: item.address,
+        extra:
+          item.memo || item.note
+            ? formatRecipientExtra({
+                memo: item.memo,
+                note: item.note,
+                tagLabel: intl.formatMessage({ id: ETranslations.send_tag }),
+                noteLabel: intl.formatMessage({
+                  id: ETranslations.global_Note,
+                }),
+              })
+            : undefined,
+        showFullAddress:
+          isSearchActive ||
+          isLookalikeAddress(lookalikeAddresses, item.address),
+        before: [item.name ? shortenRecipientAddress(item.address) : undefined],
+      });
       return recipientIdentityRow({
         key,
         testID: SendTestIDs.recipientItem(item.address),
         address: item.address,
         name: item.name,
-        secondary: note
-          ? `${item.address} · ${accountUtils.shortenAddress({
-              address: note,
-              leadingLength: 6,
-              trailingLength: 4,
-            })}`
-          : item.address,
+        secondary: detail.text,
+        isFullAddress: detail.isFullAddress,
       });
     });
     return { snapshot: recipientSnapshot(rows, nativeListTheme), itemsByKey };
-  }, [nativeList, filteredItems, nativeListTheme]);
+  }, [
+    nativeList,
+    filteredItems,
+    nativeListTheme,
+    intl,
+    isSearchActive,
+    lookalikeAddresses,
+  ]);
 
   let nativeAddressBookEmpty = (
     <Empty
