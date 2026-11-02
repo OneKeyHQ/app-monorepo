@@ -57,6 +57,18 @@ const evmNamespace: ProposalTypes.RequiredNamespace = {
 
 const solanaChain = 'solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp';
 const algoChain = 'algorand:wGHE2Pwdvd7S12BL5FaOP20EGYesN73k';
+const unsupportedAlgoChain = 'algorand:unsupported';
+const algoAccount: IConnectionAccountInfo = {
+  ...evmAccount,
+  networkImpl: 'algo',
+  networkId: 'algo--4160',
+  address: 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAY5HFKQ',
+};
+const algoNamespace: ProposalTypes.RequiredNamespace = {
+  chains: [algoChain],
+  methods: ['algo_signTxn'],
+  events: ['accountsChanged', 'chainChanged'],
+};
 const inheritedNamespaceKeys = ['toString', 'constructor', '__proto__'];
 
 function createProposal(
@@ -256,22 +268,115 @@ describe('ServiceWalletConnect namespace approval', () => {
   });
 
   it.each([false, true])(
+    'omits optional Algorand when every chain is unsupported (account selected: %s)',
+    async (accountSelected) => {
+      const proposal = createProposal(
+        { algorand: { ...algoNamespace, chains: [unsupportedAlgoChain] } },
+        { eip155: evmNamespace },
+      );
+
+      expect(
+        isValidRequiredNamespaces(
+          proposal.params.optionalNamespaces,
+          'proposal()',
+          'optionalNamespaces',
+        ),
+      ).toBeNull();
+
+      const namespaces = await service.buildWalletConnectNamespace({
+        proposal,
+        accountsInfo: accountSelected
+          ? [evmAccount, algoAccount]
+          : [evmAccount],
+      });
+
+      expect(Object.keys(namespaces)).toEqual(['eip155']);
+      expect(isValidNamespaces(namespaces, 'approve()')).toBeNull();
+      expect(
+        isConformingNamespaces(
+          proposal.params.requiredNamespaces,
+          namespaces,
+          'approve()',
+        ),
+      ).toBeNull();
+    },
+  );
+
+  it('does not offer an optional account selector without supported networks', async () => {
+    const proposal = createProposal(
+      { algorand: { ...algoNamespace, chains: [unsupportedAlgoChain] } },
+      { eip155: evmNamespace },
+    );
+
+    await expect(
+      service.getSessionApprovalAccountInfo(proposal),
+    ).resolves.toEqual([
+      { impl: 'evm', accountSelectorNum: 1000, networkIds: ['evm--1'] },
+    ]);
+  });
+
+  it.each([
+    { name: 'missing', accountsInfo: [evmAccount] },
+    {
+      name: 'empty address',
+      accountsInfo: [evmAccount, { ...algoAccount, address: '' }],
+    },
+  ])(
+    'omits optional Algorand without a usable account ($name)',
+    async ({ accountsInfo }) => {
+      const proposal = createProposal(
+        { algorand: algoNamespace },
+        { eip155: evmNamespace },
+      );
+
+      const namespaces = await service.buildWalletConnectNamespace({
+        proposal,
+        accountsInfo,
+      });
+
+      expect(Object.keys(namespaces)).toEqual(['eip155']);
+      expect(isValidNamespaces(namespaces, 'approve()')).toBeNull();
+    },
+  );
+
+  it('preserves supported optional chains when other chains are unsupported', async () => {
+    const proposal = createProposal(
+      {
+        algorand: {
+          ...algoNamespace,
+          chains: [unsupportedAlgoChain, algoChain],
+        },
+      },
+      { eip155: evmNamespace },
+    );
+
+    await expect(
+      service.getSessionApprovalAccountInfo(proposal),
+    ).resolves.toEqual([
+      { impl: 'evm', accountSelectorNum: 1000, networkIds: ['evm--1'] },
+      { impl: 'algo', accountSelectorNum: 1001, networkIds: ['algo--4160'] },
+    ]);
+
+    const namespaces = await service.buildWalletConnectNamespace({
+      proposal,
+      accountsInfo: [evmAccount, algoAccount],
+    });
+
+    expect(Object.keys(namespaces)).toEqual(['eip155', 'algorand']);
+    expect(namespaces.algorand).toMatchObject({
+      chains: [algoChain],
+      accounts: [`${algoChain}:${algoAccount.address}`],
+    });
+    expect(isValidNamespaces(namespaces, 'approve()')).toBeNull();
+  });
+
+  it.each([false, true])(
     'preserves optional Algorand (EVM required: %s)',
     async (requiredEvm) => {
-      const algoAccount = {
-        ...evmAccount,
-        networkImpl: 'algo',
-        networkId: 'algo--4160',
-        address: 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAY5HFKQ',
-      };
       const proposal = createProposal(
         {
           ...(requiredEvm ? {} : { eip155: evmNamespace }),
-          algorand: {
-            chains: [algoChain],
-            methods: ['algo_signTxn'],
-            events: ['accountsChanged', 'chainChanged'],
-          },
+          algorand: algoNamespace,
         },
         requiredEvm ? { eip155: evmNamespace } : {},
       );

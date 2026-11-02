@@ -292,12 +292,15 @@ class ServiceWalletConnect extends ServiceBase {
             optionalNamespaces,
             namespace,
           );
-          supported.push({
-            impl,
-            accountSelectorNum: index + WalletConnectAccountSelectorNumStartAt,
-            networkIds,
-          });
-          index += 1;
+          if (networkIds.length > 0) {
+            supported.push({
+              impl,
+              accountSelectorNum:
+                index + WalletConnectAccountSelectorNumStartAt,
+              networkIds,
+            });
+            index += 1;
+          }
         }
       }
     }
@@ -319,6 +322,7 @@ class ServiceWalletConnect extends ServiceBase {
     const processNamespaces = async (
       namespaces: ProposalTypes.RequiredNamespaces,
       notSupportedChains: string[] = [],
+      isOptionalNamespace = false,
     ) => {
       for (const [key, value] of Object.entries(namespaces).filter(
         ([namespaceKey]) => getSupportedNamespaceImpl(namespaceKey),
@@ -342,13 +346,18 @@ class ServiceWalletConnect extends ServiceBase {
             ]
           : filteredChains;
 
-        supportedNamespaces[namespace] = {
-          chains: mergedChains,
-          methods: supportMethodsMap[namespace] ?? [],
-          events: supportEventsMap[namespace],
-          accounts:
-            mergedChains.map((c) => `${c}:${account?.address ?? ''}`) ?? [],
-        };
+        if (
+          !isOptionalNamespace ||
+          (mergedChains.length > 0 && account?.address)
+        ) {
+          supportedNamespaces[namespace] = {
+            chains: mergedChains,
+            methods: supportMethodsMap[namespace] ?? [],
+            events: supportEventsMap[namespace],
+            accounts:
+              mergedChains.map((c) => `${c}:${account?.address ?? ''}`) ?? [],
+          };
+        }
       }
     };
     // Process required namespaces
@@ -364,6 +373,7 @@ class ServiceWalletConnect extends ServiceBase {
       await processNamespaces(
         proposal.params.optionalNamespaces,
         notSupportedChains,
+        true,
       );
     }
 
