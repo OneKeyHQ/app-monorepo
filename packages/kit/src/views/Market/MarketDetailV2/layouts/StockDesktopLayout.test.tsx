@@ -19,6 +19,9 @@ let mockPreferPosition = false;
 let mockPortfolioData: IMarketAccountPortfolioDisplayItem[] = [];
 let mockIsPortfolioPending = false;
 let mockIsPortfolioIncomplete = false;
+let mockPriceMode: 'share' | 'token' = 'share';
+let mockPriceSourceReady = true;
+let mockSharePriceAvailable = false;
 const mockStockSimpleChart = jest.fn(
   (_props: { priceMode: 'share' | 'token'; range: string }) => (
     <div data-testid="stock-simple-chart" />
@@ -52,12 +55,19 @@ jest.mock('@onekeyhq/components', () => {
     children,
     onPress,
     testID,
+    variant,
   }: {
     children?: ReactNode;
     onPress?: () => void;
     testID?: string;
+    variant?: string;
   }) => (
-    <button data-testid={testID} onClick={onPress} type="button">
+    <button
+      data-testid={testID}
+      data-variant={variant}
+      onClick={onPress}
+      type="button"
+    >
       {children}
     </button>
   );
@@ -66,11 +76,14 @@ jest.mock('@onekeyhq/components', () => {
     Button,
     DashText: Stack,
     Empty: ({ testID }: { testID?: string }) => <div data-testid={testID} />,
-    Tooltip: Stack,
+    Tooltip: ({ renderTrigger }: { renderTrigger?: ReactNode }) => (
+      <>{renderTrigger}</>
+    ),
     Icon: Stack,
     NumberSizeableText: Stack,
     SizableText: Stack,
     Skeleton: Stack,
+    Spinner: Stack,
     Stack,
     XStack: Stack,
     YStack: Stack,
@@ -107,7 +120,7 @@ jest.mock('@onekeyhq/kit/src/hooks/useFormatDate', () => ({
   default: () => ({ formatDate: jest.fn() }),
 }));
 jest.mock('@onekeyhq/kit/src/views/Market/components/MarketTokenPrice', () => ({
-  MarketTokenPrice: () => null,
+  MarketTokenPrice: ({ price }: { price: string }) => <span>{price}</span>,
 }));
 jest.mock(
   '@onekeyhq/kit/src/views/Market/components/PriceChangePercentage',
@@ -146,7 +159,12 @@ jest.mock('../hooks/StockDetailContext', () => ({
   useStockDetail: () => ({
     stockId: 'AAPL',
     tokenVariants: [],
-    priceSource: { priceMode: 'share', sharePriceAvailable: false },
+    stockDetail: mockPriceSourceReady ? { price: '200' } : undefined,
+    priceSource: {
+      priceMode: mockPriceMode,
+      sharePriceAvailable: mockSharePriceAvailable,
+      isPriceSourceReady: mockPriceSourceReady,
+    },
   }),
 }));
 jest.mock('../hooks/useStockPortfolioData', () => ({
@@ -166,7 +184,10 @@ jest.mock('../hooks/useMarketDetailPositionTab', () => ({
   }),
 }));
 jest.mock('../hooks/useTokenDetail', () => ({
-  useTokenDetail: () => ({ networkId: 'evm--1' }),
+  useTokenDetail: () => ({
+    networkId: 'evm--1',
+    tokenDetail: { price: '190' },
+  }),
 }));
 jest.mock('./components/StockEventsSection', () => ({
   StockEventsSection: () => null,
@@ -331,6 +352,66 @@ describe('useStockDetailTab', () => {
     expect(result.current.activeTab).toBe('position');
     expect(mockRecordTabChange).toHaveBeenCalledWith(true);
   });
+});
+
+describe('StockDesktopLayout price source initialization', () => {
+  afterEach(() => {
+    mockPriceMode = 'share';
+    mockPriceSourceReady = true;
+    mockSharePriceAvailable = false;
+  });
+
+  it.each([
+    ['open', 'share', true],
+    ['closed', 'token', true],
+    ['failed', 'token', false],
+  ] as const)(
+    'waits for the %s market default before mounting the price and chart',
+    (_status, source, shareAvailable) => {
+      mockPriceSourceReady = false;
+      mockPriceMode = 'token';
+      mockSharePriceAvailable = true;
+      mockStockSimpleChart.mockClear();
+      const renderLayout = () => (
+        <StockDesktopLayout
+          marketTradingView={<div />}
+          swapToken={{
+            networkId: 'evm--1',
+            contractAddress: '0xaapl',
+            symbol: 'AAPL',
+            decimals: 18,
+          }}
+          swapInputDraftKey="stock-price-test"
+          chartMode="native"
+          showFavoriteButton={false}
+          isChartFullscreen={false}
+          chartFullscreenZIndex={1}
+          onChartSwitch={jest.fn()}
+          onEnterChartFullscreen={jest.fn()}
+        />
+      );
+      const view = render(renderLayout());
+      expect(view.queryByTestId('stock-price-header')).toBeNull();
+      expect(mockStockSimpleChart).not.toHaveBeenCalled();
+
+      mockPriceSourceReady = true;
+      mockPriceMode = source;
+      mockSharePriceAvailable = shareAvailable;
+      view.rerender(renderLayout());
+      expect(view.getByTestId('stock-price-header')).toBeTruthy();
+      expect(view.getByText(source === 'share' ? '200' : '190')).toBeTruthy();
+      expect(mockStockSimpleChart).toHaveBeenLastCalledWith(
+        expect.objectContaining({ priceMode: source }),
+      );
+      if (shareAvailable) {
+        expect(
+          view.getByTestId(`stock-price-mode-${source}`).dataset.variant,
+        ).toBe('secondary');
+      } else {
+        expect(view.queryByTestId('stock-price-mode-share')).toBeNull();
+      }
+    },
+  );
 });
 
 describe('StockDesktopLayout positions', () => {

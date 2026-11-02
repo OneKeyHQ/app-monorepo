@@ -10,6 +10,7 @@ import {
   NumberSizeableText,
   SizableText,
   Skeleton,
+  Spinner,
   Stack,
   Tooltip,
   XStack,
@@ -1453,8 +1454,12 @@ export function StockDesktopLayout({
     isPortfolioPending: isStockPortfolioPending,
     isPortfolioIncomplete: isStockPortfolioIncomplete,
   } = useStockPortfolioData();
-  const { priceMode, handlePriceModeChange, sharePriceAvailable } =
-    useStockPriceSource();
+  const {
+    priceMode,
+    handlePriceModeChange,
+    sharePriceAvailable,
+    isPriceSourceReady,
+  } = useStockPriceSource();
 
   return (
     <Stack
@@ -1479,30 +1484,38 @@ export function StockDesktopLayout({
             pb="$8"
             gap="$4"
           >
-            <StockPriceHeader
-              priceMode={priceMode}
-              sharePriceAvailable={sharePriceAvailable}
-              onPriceModeChange={handlePriceModeChange}
-            />
-            <StockChart
-              active={active}
-              chartContainerTestID="stock-token-detail-tradingview"
-              fullscreenZIndex={chartFullscreenZIndex}
-              fullscreenStyle={{
-                position: 'fixed',
-                left: 0,
-                top: 0,
-                right: 0,
-                bottom: platformEnv.isWeb ? 40 : 0,
-              }}
-              marketTradingView={marketTradingView}
-              priceMode={priceMode}
-              chartMode={chartMode}
-              isChartSwitchDisabled={isChartSwitchDisabled}
-              onChartSwitch={onChartSwitch}
-              isChartFullscreen={isChartFullscreen}
-              onEnterChartFullscreen={onEnterChartFullscreen}
-            />
+            {isPriceSourceReady ? (
+              <>
+                <StockPriceHeader
+                  priceMode={priceMode}
+                  sharePriceAvailable={sharePriceAvailable}
+                  onPriceModeChange={handlePriceModeChange}
+                />
+                <StockChart
+                  active={active}
+                  chartContainerTestID="stock-token-detail-tradingview"
+                  fullscreenZIndex={chartFullscreenZIndex}
+                  fullscreenStyle={{
+                    position: 'fixed',
+                    left: 0,
+                    top: 0,
+                    right: 0,
+                    bottom: platformEnv.isWeb ? 40 : 0,
+                  }}
+                  marketTradingView={marketTradingView}
+                  priceMode={priceMode}
+                  chartMode={chartMode}
+                  isChartSwitchDisabled={isChartSwitchDisabled}
+                  onChartSwitch={onChartSwitch}
+                  isChartFullscreen={isChartFullscreen}
+                  onEnterChartFullscreen={onEnterChartFullscreen}
+                />
+              </>
+            ) : (
+              <Stack flex={1} alignItems="center" justifyContent="center">
+                <Spinner size="large" />
+              </Stack>
+            )}
           </YStack>
           {/* The tab owns the whole lower region: Overview carries the stat
               grid and the editorial sections, My position replaces all of
