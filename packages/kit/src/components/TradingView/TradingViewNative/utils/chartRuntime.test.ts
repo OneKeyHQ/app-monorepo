@@ -5,6 +5,7 @@ import {
   getTradingViewNativeChartRuntimeVisiblePointRange,
   reduceTradingViewNativeChartRuntime,
 } from './chartRuntime';
+import { getTradingViewNativeCandleX } from './chartViewport';
 
 describe('TradingViewNative chart runtime', () => {
   it('starts at the newest candles with no active crosshair', () => {
@@ -108,7 +109,80 @@ describe('TradingViewNative chart runtime', () => {
     expect(nextState.viewport).toEqual({ offset: 36, zoomScale: 1 });
   });
 
-  it('clamps panning and hides the crosshair when requested', () => {
+  it.each([
+    {
+      initialRightOffset: { type: 'chartWidthPercentage', value: 100 } as const,
+      liveOffset: 6,
+    },
+    {
+      initialRightOffset: { type: 'pointCount', value: 20 } as const,
+      liveOffset: 26,
+    },
+  ])(
+    'follows appended candles at a clamped live offset of $liveOffset until panned',
+    ({ initialRightOffset, liveOffset }) => {
+      const chartWidth = 100;
+      let state = reduceTradingViewNativeChartRuntime(
+        createTradingViewNativeChartRuntimeState({ initialRightOffset }),
+        {
+          appendedPointCount: 0,
+          chartWidth,
+          pointCount: 20,
+          type: 'dataUpdated',
+        },
+      );
+      expect(state.viewport.offset).toBe(liveOffset);
+
+      for (const pointCount of [21, 22]) {
+        state = reduceTradingViewNativeChartRuntime(state, {
+          appendedPointCount: 1,
+          chartWidth,
+          pointCount,
+          type: 'dataUpdated',
+        });
+        expect(state.viewport.offset).toBe(liveOffset);
+        expect(
+          getTradingViewNativeCandleX({
+            ...state.viewport,
+            index: pointCount - 1,
+            pointCount,
+            priceAxisX: chartWidth,
+          }),
+        ).toBe(2.5);
+      }
+
+      const pannedState = reduceTradingViewNativeChartRuntime(state, {
+        chartWidth,
+        offset: liveOffset + 12,
+        pointCount: 22,
+        type: 'panMoved',
+      });
+      const nextState = reduceTradingViewNativeChartRuntime(pannedState, {
+        appendedPointCount: 1,
+        chartWidth,
+        pointCount: 23,
+        type: 'dataUpdated',
+      });
+      expect(nextState.viewport.offset).toBe(liveOffset + 18);
+      expect(
+        getTradingViewNativeCandleX({
+          ...nextState.viewport,
+          index: 21,
+          pointCount: 23,
+          priceAxisX: chartWidth,
+        }),
+      ).toBe(
+        getTradingViewNativeCandleX({
+          ...pannedState.viewport,
+          index: 21,
+          pointCount: 22,
+          priceAxisX: chartWidth,
+        }),
+      );
+    },
+  );
+
+  it('allows panning past the latest candle and hides the crosshair when requested', () => {
     const state = {
       crosshair: { visible: true, x: 20, y: 30 },
       viewport: { offset: 10, zoomScale: 1 },
@@ -125,7 +199,7 @@ describe('TradingViewNative chart runtime', () => {
 
     expect(nextState).toEqual({
       crosshair: { visible: false, x: 20, y: 30 },
-      viewport: { offset: 0, zoomScale: 2 },
+      viewport: { offset: -50, zoomScale: 2 },
     });
   });
 
@@ -224,5 +298,23 @@ describe('TradingViewNative chart runtime', () => {
       endIndex: 100,
       startIndex: 57,
     });
+  });
+});
+
+describe('crosshair beyond the data', () => {
+  it('keeps the crosshair visible in empty chart space', () => {
+    const state = {
+      crosshair: { visible: false, x: 0, y: 0 },
+      viewport: { offset: -1000, zoomScale: 1 },
+    };
+    const result = reduceTradingViewNativeChartRuntime(state, {
+      type: 'crosshairMoved',
+      chartWidth: 300,
+      height: 200,
+      pointCount: 3,
+      x: 150,
+      y: 100,
+    });
+    expect(result.crosshair).toEqual({ visible: true, x: 150, y: 100 });
   });
 });

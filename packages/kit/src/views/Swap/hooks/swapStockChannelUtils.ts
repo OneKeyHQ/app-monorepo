@@ -2,6 +2,7 @@ import BigNumber from 'bignumber.js';
 import { isEqual } from 'lodash';
 
 import type { IToken } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/SwapPanel/types';
+import { isMarketTokenDecimalsReady } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/utils/marketTokenIdentity';
 import type { IMarketToken } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketTokenList/MarketTokenData';
 import { USD_CURRENCY_ID } from '@onekeyhq/shared/src/consts/currencyConsts';
 import { equalsIgnoreCase } from '@onekeyhq/shared/src/utils/stringUtils';
@@ -159,6 +160,148 @@ export function getTokenIdentityKey(token?: Partial<ISwapTokenBase>) {
   }`;
 }
 
+// Stock token keys this app run has already settled against the default
+// issuer rule: checked once, picked by the user, or brought in by an explicit
+// entry such as Market's Buy/Sell. In memory only, so a cold start checks a
+// restored token again while tab switches keep the user's own picks.
+const settledSwapStockTokenKeys = new Set<string>();
+
+export function settleSwapStockTokenKey(key: string) {
+  if (key) settledSwapStockTokenKeys.add(key);
+}
+
+export function isSwapStockTokenKeySettled(key: string) {
+  return settledSwapStockTokenKeys.has(key);
+}
+
+export function resolveDisplayedStockToken({
+  coldStartStockToken,
+  controlledStockToken,
+  persistedStockToken,
+  stockPairToken,
+  stockTokenState,
+}: {
+  coldStartStockToken?: ISwapToken;
+  controlledStockToken?: ISwapToken;
+  persistedStockToken?: ISwapToken;
+  stockPairToken?: ISwapToken;
+  stockTokenState?: ISwapToken;
+}) {
+  const externalStockToken = controlledStockToken ?? persistedStockToken;
+  if (
+    externalStockToken &&
+    getTokenIdentityKey(externalStockToken) !==
+      getTokenIdentityKey(stockTokenState)
+  ) {
+    return externalStockToken;
+  }
+  return (
+    stockTokenState ??
+    externalStockToken ??
+    stockPairToken ??
+    coldStartStockToken
+  );
+}
+
+// Desktop and web keep the previous selection order. Mobile follows a stock
+// written by the market detail trade handoff when it differs from local state.
+export function resolvePlatformDisplayedStockToken({
+  isNative,
+  coldStartStockToken,
+  controlledStockToken,
+  persistedStockToken,
+  stockPairToken,
+  stockTokenState,
+}: {
+  isNative: boolean;
+  coldStartStockToken?: ISwapToken;
+  controlledStockToken?: ISwapToken;
+  persistedStockToken?: ISwapToken;
+  stockPairToken?: ISwapToken;
+  stockTokenState?: ISwapToken;
+}) {
+  if (!isNative) {
+    return (
+      stockTokenState ??
+      persistedStockToken ??
+      stockPairToken ??
+      coldStartStockToken
+    );
+  }
+  return resolveDisplayedStockToken({
+    coldStartStockToken,
+    controlledStockToken,
+    persistedStockToken,
+    stockPairToken,
+    stockTokenState,
+  });
+}
+
+export function resolveFollowedStockToken({
+  isNative,
+  controlledStockToken,
+  persistedStockToken,
+  stockPairToken,
+}: {
+  isNative: boolean;
+  controlledStockToken?: ISwapToken;
+  persistedStockToken?: ISwapToken;
+  stockPairToken?: ISwapToken;
+}) {
+  if (!isNative) {
+    return controlledStockToken ?? stockPairToken;
+  }
+  return controlledStockToken ?? persistedStockToken ?? stockPairToken;
+}
+
+// The mobile header can show a newly selected stock before local state catches
+// up. Commit that stock when the published state or execution pair is still
+// the previous one. Once local state matches, leave execution catch-up to the
+// selection call so a slow write cannot retrigger it.
+export function shouldCommitFollowedStockToken({
+  displayedStockToken,
+  executionStockToken,
+  followedStockToken,
+  stockTokenState,
+}: {
+  displayedStockToken?: ISwapToken;
+  executionStockToken?: ISwapToken;
+  followedStockToken?: ISwapToken;
+  stockTokenState?: ISwapToken;
+}) {
+  const followedKey = getTokenIdentityKey(followedStockToken);
+  if (!followedKey) {
+    return false;
+  }
+  const stateKey = getTokenIdentityKey(stockTokenState);
+  const executionKey = getTokenIdentityKey(executionStockToken);
+  if (stateKey && stateKey !== followedKey) {
+    return true;
+  }
+  if (!stateKey && executionKey && executionKey !== followedKey) {
+    return true;
+  }
+  if (!stateKey && !executionKey) {
+    return followedKey !== getTokenIdentityKey(displayedStockToken);
+  }
+  return false;
+}
+
+// A mounted stock page must follow the side requested by the Market entry.
+export function shouldResetStockTradeSideForMarketEntry({
+  isStockMarketJump,
+  tradeSide,
+  direction = 'to',
+}: {
+  isStockMarketJump: boolean;
+  tradeSide: ESwapStockTradeSide;
+  direction?: 'from' | 'to';
+}) {
+  const entrySide =
+    direction === 'from' ? ESwapStockTradeSide.Sell : ESwapStockTradeSide.Buy;
+  return isStockMarketJump && tradeSide !== entrySide;
+}
+
 export function shouldSyncControlledStockTokenMetadata({
   controlledStockToken,
   currentStockToken,
@@ -268,7 +411,10 @@ export function getMarketListTokenKey(token?: IMarketTokenListItem) {
 
 export function buildStockSwapTokenFromMarketToken(
   token: IMarketToken,
-): ISwapToken {
+): ISwapToken | undefined {
+  if (!isMarketTokenDecimalsReady(token)) {
+    return undefined;
+  }
   return {
     networkId: token.networkId,
     contractAddress: token.address,
@@ -308,6 +454,42 @@ function mergeStockExecutionMetadata({
   });
 
   return isEqual(mergedStock, currentStock) ? currentStock : mergedStock;
+}
+
+export function shouldSyncStockExecutionTokenMetadata({
+  token,
+  tokenDetail,
+}: {
+  token?: ISwapToken;
+  tokenDetail?: ISwapToken;
+}) {
+  if (
+    !token ||
+    !tokenDetail ||
+    !equalTokenNoCaseSensitive({ token1: token, token2: tokenDetail })
+  ) {
+    return false;
+  }
+  if (
+    token.decimals !== tokenDetail.decimals ||
+    token.isNative !== (tokenDetail.isNative ?? token.isNative) ||
+    !token.isStock
+  ) {
+    return true;
+  }
+  return (
+    [
+      'stockId',
+      'subtitle',
+      'source',
+      'underlyingAssetTicker',
+      'underlyingAssetName',
+      'tokenToAssetRatio',
+    ] as const
+  ).some((key) => {
+    const value = tokenDetail.stock?.[key];
+    return !!value?.trim() && value !== token.stock?.[key];
+  });
 }
 
 export function resolveStockExecutionTokenMetadata({
@@ -629,6 +811,7 @@ export type IStockBalanceSnapshot = {
   ownerScope: string;
   balance: string;
   tokenDetail?: ISwapToken;
+  unverified: boolean;
 };
 
 export function resolveStockBalanceSnapshot({
@@ -636,6 +819,7 @@ export function resolveStockBalanceSnapshot({
   authoritativeTokenDetail,
   ownerScope,
   previousSnapshot,
+  requestSettled = false,
   seededBalance,
   seededTokenDetail,
 }: {
@@ -643,6 +827,7 @@ export function resolveStockBalanceSnapshot({
   authoritativeTokenDetail?: ISwapToken;
   ownerScope: string;
   previousSnapshot?: IStockBalanceSnapshot;
+  requestSettled?: boolean;
   seededBalance?: string;
   seededTokenDetail?: ISwapToken;
 }): IStockBalanceSnapshot | undefined {
@@ -651,16 +836,21 @@ export function resolveStockBalanceSnapshot({
       ownerScope,
       balance: authoritativeBalance,
       tokenDetail: authoritativeTokenDetail,
+      unverified: false,
     };
   }
   if (previousSnapshot?.ownerScope === ownerScope) {
-    return previousSnapshot;
+    if (!requestSettled || previousSnapshot.unverified) {
+      return previousSnapshot;
+    }
+    return { ...previousSnapshot, unverified: true };
   }
   if (seededBalance !== undefined) {
     return {
       ownerScope,
       balance: seededBalance,
       tokenDetail: seededTokenDetail,
+      unverified: true,
     };
   }
   return undefined;

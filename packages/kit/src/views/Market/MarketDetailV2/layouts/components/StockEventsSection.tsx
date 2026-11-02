@@ -38,6 +38,8 @@ const STOCK_EVENT_DETAIL_VERTICAL_PADDING = 3;
 
 type IFormatDate = ReturnType<typeof useFormatDate>['formatDate'];
 
+type IStockEventsSectionVariant = 'desktop' | 'mobile';
+
 type IStockEventDetailLine = {
   key: string;
   text: string;
@@ -57,6 +59,7 @@ const STOCK_EVENT_METADATA_LABEL_IDS: Record<string, ETranslations> = {
   adjustedDividendPerShare:
     ETranslations.market_stock_event_adj_dividend_per_share,
   dividendYield: ETranslations.dexmarket_stock_dividend_yield,
+  exDate: ETranslations.market_stock_event_ex_dividend_date,
   declarationDate: ETranslations.market_stock_event_declaration_date,
   recordDate: ETranslations.market_stock_event_record_date,
   paymentDate: ETranslations.market_stock_event_payment_date,
@@ -76,11 +79,21 @@ const STOCK_EVENT_CURRENCY_METADATA_KEYS = new Set([
 const STOCK_EVENT_PERCENT_METADATA_KEYS = new Set(['dividendYield']);
 
 const STOCK_EVENT_DATE_METADATA_KEYS = new Set([
+  'exDate',
   'declarationDate',
   'recordDate',
   'paymentDate',
   'lastUpdated',
 ]);
+
+/**
+ * `frequency` arrives as an English word. Values without a translation are
+ * shown as sent.
+ */
+const STOCK_EVENT_FREQUENCY_VALUE_IDS: Record<string, ETranslations> = {
+  monthly: ETranslations.earn_monthly,
+  quarterly: ETranslations.market_stock_event_frequency_quarterly,
+};
 
 function getStockEventMetadataLabel(key: string, intl: IntlShape) {
   const labelId = STOCK_EVENT_METADATA_LABEL_IDS[key];
@@ -97,7 +110,12 @@ function formatStockEventMetadataValue(
   key: string,
   value: string | number,
   formatDate: IFormatDate,
+  intl: IntlShape,
 ) {
+  if (key === 'frequency' && typeof value === 'string') {
+    const frequencyId = STOCK_EVENT_FREQUENCY_VALUE_IDS[value.toLowerCase()];
+    return frequencyId ? intl.formatMessage({ id: frequencyId }) : value;
+  }
   if (STOCK_EVENT_CURRENCY_METADATA_KEYS.has(key)) {
     return formatCurrencyStatValue(value);
   }
@@ -127,6 +145,7 @@ function getStockEventDetailLines(
       key,
       value,
       formatDate,
+      intl,
     );
     return [{ key, text: `${label}: ${formattedValue}` }];
   });
@@ -151,7 +170,11 @@ function getStockEventTitle(event: IMarketStockEvent, intl: IntlShape) {
   return event.title;
 }
 
-function getStockEventDescription(event: IMarketStockEvent, intl: IntlShape) {
+function getStockEventDescription(
+  event: IMarketStockEvent,
+  formatDate: IFormatDate,
+  intl: IntlShape,
+) {
   const epsEstimate = event.metadata?.epsEstimated;
   if (
     event.type === 'earnings' &&
@@ -161,7 +184,26 @@ function getStockEventDescription(event: IMarketStockEvent, intl: IntlShape) {
     const label = intl.formatMessage({
       id: ETranslations.market_stock_event_eps_estimate,
     });
-    return `${label}: $${epsEstimate}`;
+    const value = formatStockEventMetadataValue(
+      'epsEstimated',
+      epsEstimate,
+      formatDate,
+      intl,
+    );
+    return `${label}: ${value}`;
+  }
+  // The backend's English "Eligibility cutoff: <date>" always carries the
+  // ex-dividend date, so it is rebuilt from that field in the reader's locale.
+  const exDate = event.metadata?.exDate;
+  if (event.type === 'cash_dividend' && exDate) {
+    const label = getStockEventMetadataLabel('exDate', intl);
+    const value = formatStockEventMetadataValue(
+      'exDate',
+      exDate,
+      formatDate,
+      intl,
+    );
+    return `${label}: ${value}`;
   }
   return event.description ?? STAT_FALLBACK_VALUE;
 }
@@ -169,22 +211,34 @@ function getStockEventDescription(event: IMarketStockEvent, intl: IntlShape) {
 function StockEventRow({
   event,
   isPast,
+  variant,
 }: {
   event: IMarketStockEvent;
   isPast: boolean;
+  variant: IStockEventsSectionVariant;
 }) {
   const intl = useIntl();
   const { format, formatDate } = useFormatDate();
   const [isExpanded, setIsExpanded] = useState(false);
   const detailLines = getStockEventDetailLines(event, formatDate, intl);
+  const isMobile = variant === 'mobile';
+  const chevron = (
+    <Icon
+      name={isExpanded ? 'ChevronTopSmallOutline' : 'ChevronDownSmallOutline'}
+      size="$5"
+      color="$iconSubdued"
+      flexShrink={0}
+    />
+  );
 
   return (
-    <YStack opacity={isPast ? 0.62 : 1}>
+    // A past event dims its calendar and mutes its title (Figma 25507:18206).
+    <YStack>
       <XStack
         testID={`stock-event-${event.id}`}
         minHeight={STOCK_EVENT_ROW_HEIGHT}
-        alignItems="flex-start"
-        gap="$4"
+        alignItems={isMobile ? 'center' : 'flex-start'}
+        gap={isMobile ? '$5' : '$4'}
         py="$2"
         cursor="pointer"
         hoverStyle={{ opacity: 0.8 }}
@@ -197,10 +251,17 @@ function StockEventRow({
           borderRadius="$2"
           bg="$bgSubdued"
           alignItems="center"
-          justifyContent="center"
+          // Figma pins the day 6pt from the top and lets the month overlap its
+          // line box by 2pt, leaving 8pt below.
+          justifyContent="flex-start"
+          pt="$1.5"
+          pb="$2"
           flexShrink={0}
+          opacity={isPast ? 0.5 : 1}
         >
-          <SizableText size="$headingMd">{format(event.date, 'd')}</SizableText>
+          <SizableText size="$headingMd" mb={-2}>
+            {format(event.date, 'd')}
+          </SizableText>
           <SizableText size="$bodyMdMedium" color="$textSubdued">
             {format(event.date, 'MMM')}
           </SizableText>
@@ -212,7 +273,10 @@ function StockEventRow({
           py={STOCK_EVENT_DETAIL_VERTICAL_PADDING}
         >
           <XStack alignItems="center" gap="$2">
-            <SizableText size="$headingLg">
+            <SizableText
+              size={isMobile ? '$headingMd' : '$headingLg'}
+              color={isPast ? '$textSubdued' : '$text'}
+            >
               {getStockEventTitle(event, intl)}
             </SizableText>
             {event.status === 'scheduled' ? (
@@ -232,18 +296,9 @@ function StockEventRow({
                 </SizableText>
               </Stack>
             ) : null}
-            {/* Per Figma, the chevron follows the title inline rather than
-            sitting at the row's far right. */}
-            <Icon
-              name={
-                isExpanded
-                  ? 'ChevronTopSmallOutline'
-                  : 'ChevronDownSmallOutline'
-              }
-              size="$5"
-              color="$iconSubdued"
-              flexShrink={0}
-            />
+            {/* Per the desktop Figma, the chevron follows the title inline; the
+            mobile design moves it to the row's far right. */}
+            {isMobile ? null : chevron}
           </XStack>
           {isExpanded && detailLines.length > 0 ? (
             detailLines.map((line) => (
@@ -253,10 +308,11 @@ function StockEventRow({
             ))
           ) : (
             <SizableText size="$bodyMd" color="$textSubdued" numberOfLines={1}>
-              {getStockEventDescription(event, intl)}
+              {getStockEventDescription(event, formatDate, intl)}
             </SizableText>
           )}
         </YStack>
+        {isMobile ? chevron : null}
       </XStack>
     </YStack>
   );
@@ -267,7 +323,11 @@ type IStockEventsRequestState = {
   status: 'pending' | 'success' | 'error';
 };
 
-export function StockEventsSection() {
+export function StockEventsSection({
+  variant = 'desktop',
+}: {
+  variant?: IStockEventsSectionVariant;
+} = {}) {
   const { stockId } = useStockDetail();
   const intl = useIntl();
   const {
@@ -353,7 +413,12 @@ export function StockEventsSection() {
       {events.length > 0 ? (
         <YStack gap="$2">
           {upcomingEvents.map((event) => (
-            <StockEventRow key={event.id} event={event} isPast={false} />
+            <StockEventRow
+              key={event.id}
+              event={event}
+              isPast={false}
+              variant={variant}
+            />
           ))}
           {pastEvents.length > 0 ? (
             <SizableText size="$bodyMd" color="$textSubdued" pt="$2">
@@ -363,7 +428,12 @@ export function StockEventsSection() {
             </SizableText>
           ) : null}
           {pastEvents.map((event) => (
-            <StockEventRow key={event.id} event={event} isPast />
+            <StockEventRow
+              key={event.id}
+              event={event}
+              isPast
+              variant={variant}
+            />
           ))}
         </YStack>
       ) : null}

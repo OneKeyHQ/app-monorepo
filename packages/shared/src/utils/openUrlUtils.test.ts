@@ -6,6 +6,8 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import {
   dismissNativeInAppBrowser,
+  getOneKeyStoreHandoffUrl,
+  handleOneKeyStoreLink,
   openUrlExternal,
   setForceSystemBrowserForDebug,
 } from './openUrlUtils';
@@ -17,6 +19,7 @@ jest.mock('@onekeyhq/shared/src/platformEnv', () => {
     isNativeAndroid: false,
     isNativeBackgroundThread: false,
     isDesktop: false,
+    isDesktopMac: false,
     isExtension: false,
   };
   return { __esModule: true, default: env };
@@ -45,6 +48,7 @@ const mockEnv = platformEnv as unknown as {
   isNative: boolean;
   isNativeIOS: boolean;
   isNativeBackgroundThread: boolean;
+  isDesktopMac: boolean;
 };
 const mockOpenURL = openURL as jest.Mock;
 const mockOpenBrowserAsync = openBrowserAsync as jest.Mock;
@@ -225,6 +229,212 @@ describe('openUrlExternal (native)', () => {
       appGlobals.$defaultLogger = undefined;
     }
   });
+
+  test.each([
+    // eslint-disable-next-line no-script-url
+    'javascript:alert(1)',
+    '  JAVASCRIPT:alert(1)',
+    'data:text/html,<script>alert(1)</script>',
+    'vbscript:msgbox(1)',
+    'file:///etc/passwd',
+    'blob:https://onekey.so/123',
+    'about:blank',
+    'chrome://settings',
+    'chrome-extension://abcdef/popup.html',
+    'intent://scan/#Intent;scheme=zxing;end',
+    // URL parsing removes embedded ASCII controls before interpreting the scheme.
+    'java\nscript:alert(1)',
+  ])('blocks dangerous external scheme on native: %s', async (url) => {
+    openUrlExternal(url);
+    await flushPromises();
+    expect(mockOpenBrowserAsync).not.toHaveBeenCalled();
+    expect(mockOpenURL).not.toHaveBeenCalled();
+  });
+
+  test.each([
+    // eslint-disable-next-line no-script-url
+    'javascript:alert(1)',
+    'data:text/html,<script>alert(1)</script>',
+    'file:///etc/passwd',
+    'java\nscript:alert(1)',
+    'wc:abc123@2?relay-protocol=irn',
+    'macappstore://itunes.apple.com/app/id1234567890',
+  ])('blocks dangerous external scheme on desktop/web: %s', async (url) => {
+    mockEnv.isNative = false;
+    const openSpy = jest.fn();
+    (globalThis as unknown as { window?: { open: jest.Mock } }).window = {
+      open: openSpy,
+    };
+    (mockEnv as unknown as { isDesktop: boolean }).isDesktop = true;
+    try {
+      openUrlExternal(url);
+      await flushPromises();
+      expect(openSpy).not.toHaveBeenCalled();
+      expect(mockOpenURL).not.toHaveBeenCalled();
+    } finally {
+      delete (globalThis as unknown as { window?: unknown }).window;
+      (mockEnv as unknown as { isDesktop: boolean }).isDesktop = false;
+    }
+  });
+
+  test.each([
+    { platform: 'web', isDesktop: false },
+    { platform: 'desktop', isDesktop: true },
+  ])('opens HTTP(S) and mailto URLs on $platform', ({ isDesktop }) => {
+    mockEnv.isNative = false;
+    (mockEnv as unknown as { isDesktop: boolean }).isDesktop = isDesktop;
+    const openSpy = jest.fn();
+    (globalThis as unknown as { window?: { open: jest.Mock } }).window = {
+      open: openSpy,
+    };
+    try {
+      openUrlExternal('https://onekey.so/path');
+      openUrlExternal('http://onekey.so/path');
+      openUrlExternal('mailto:hi@onekey.so');
+      expect(openSpy).toHaveBeenCalledTimes(3);
+      expect(openSpy).toHaveBeenCalledWith('mailto:hi@onekey.so', '_blank');
+    } finally {
+      delete (globalThis as unknown as { window?: unknown }).window;
+      (mockEnv as unknown as { isDesktop: boolean }).isDesktop = false;
+    }
+  });
+});
+
+describe('OneKey store deep links', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockEnv.isNative = true;
+    mockEnv.isNativeIOS = false;
+    mockEnv.isNativeBackgroundThread = false;
+    mockEnv.isDesktopMac = false;
+    setForceSystemBrowserForDebug(false);
+  });
+
+  const appleLinks = [
+    // onekey.so Mac App Store button (OK-64036)
+    'macappstore://itunes.apple.com/app/id1609559473?mt=12',
+    // App Store web page redirect in the iOS DApp browser (OK-63168)
+    'itms-appss://apps.apple.com/us/app/onekey-open-source-wallet/id1609559473',
+    'itms-apps://apps.apple.com/app/id1609559473',
+    'ITMS-APPS://APPS.APPLE.COM/cn/app/onekey/id1609559473?pt=1&ct=2',
+  ];
+
+  test.each(appleLinks)('maps %s to the Mac App Store on macOS', (url) => {
+    mockEnv.isNative = false;
+    mockEnv.isDesktopMac = true;
+    expect(getOneKeyStoreHandoffUrl(url)).toBe(
+      'macappstore://itunes.apple.com/app/id1609559473?mt=12',
+    );
+  });
+
+  test.each(appleLinks)('maps %s to the App Store app on iOS', (url) => {
+    mockEnv.isNativeIOS = true;
+    expect(getOneKeyStoreHandoffUrl(url)).toBe(
+      'itms-apps://apps.apple.com/app/id1609559473',
+    );
+  });
+
+  test.each(appleLinks)(
+    'maps %s to the App Store web page elsewhere',
+    (url) => {
+      expect(getOneKeyStoreHandoffUrl(url)).toBe(
+        'https://apps.apple.com/app/id1609559473',
+      );
+    },
+  );
+
+  test.each([
+    'market://details?id=so.onekey.app.wallet',
+    'market://details?id=so.onekey.app.wallet&referrer=utm_source%3Donekey.so',
+    'market://details?referrer=x&id=so.onekey.app.wallet',
+  ])('maps %s to the Play Store listing', (url) => {
+    expect(getOneKeyStoreHandoffUrl(url)).toBe(
+      'https://play.google.com/store/apps/details?id=so.onekey.app.wallet',
+    );
+  });
+
+  test.each([
+    'itms-apps://apps.apple.com/app/id1234567890',
+    'itms-apps://apps.apple.com/app/id16095594730',
+    'itms-apps://apps.apple.com/app/id1609559473abc',
+    'itms-apps://apps.apple.com.example.com/app/id1609559473',
+    'itms-apps://example.com@apps.apple.com/app/id1609559473',
+    'itms-apps://apps.apple.com/app/other?next=/id1609559473',
+    'https://apps.apple.com/app/id1609559473',
+    'macappstores://apps.apple.com/account/subscriptions',
+    'market://details?id=com.example.wallet',
+    'market://details?id=so.onekey.app.wallet.fake',
+    'market://details?xid=so.onekey.app.wallet',
+    'x-safari-https://redirect.x.com/OneKeyHQ',
+    'http://onekey.so',
+  ])('leaves %s to the existing policy', (url) => {
+    expect(getOneKeyStoreHandoffUrl(url)).toBeUndefined();
+  });
+
+  test('opens the canonical link, not the page-supplied one', () => {
+    mockEnv.isNativeIOS = true;
+    expect(
+      handleOneKeyStoreLink(
+        'itms-appss://apps.apple.com/us/app/onekey-open-source-wallet/id1609559473?ct=other',
+      ),
+    ).toBe(true);
+    expect(mockOpenBrowserAsync).not.toHaveBeenCalled();
+    expect(mockOpenURL).toHaveBeenCalledTimes(1);
+    expect(mockOpenURL).toHaveBeenCalledWith(
+      'itms-apps://apps.apple.com/app/id1609559473',
+    );
+  });
+
+  test('Mac App Store handoff opens only the fixed OneKey listing', () => {
+    mockEnv.isNative = false;
+    mockEnv.isDesktopMac = true;
+    const openSpy = jest.fn();
+    (globalThis as unknown as { window?: { open: jest.Mock } }).window = {
+      open: openSpy,
+    };
+    try {
+      expect(
+        handleOneKeyStoreLink(
+          'macappstore://itunes.apple.com/app/id1609559473?ct=untrusted',
+        ),
+      ).toBe(true);
+      expect(openSpy).toHaveBeenCalledWith(
+        'macappstore://itunes.apple.com/app/id1609559473?mt=12',
+        '_blank',
+      );
+      expect(
+        handleOneKeyStoreLink(
+          'macappstore://itunes.apple.com/app/id1234567890',
+        ),
+      ).toBe(false);
+      expect(openSpy).toHaveBeenCalledTimes(1);
+    } finally {
+      delete (globalThis as unknown as { window?: unknown }).window;
+    }
+  });
+
+  test('drops the link from an embedded frame without opening the store', () => {
+    mockEnv.isNativeIOS = true;
+    expect(
+      handleOneKeyStoreLink('itms-apps://apps.apple.com/app/id1609559473', {
+        isTopFrame: false,
+      }),
+    ).toBe(true);
+    expect(mockOpenBrowserAsync).not.toHaveBeenCalled();
+    expect(mockOpenURL).not.toHaveBeenCalled();
+  });
+
+  test.each([true, false])(
+    'leaves other links to the block page (isTopFrame: %s)',
+    (isTopFrame) => {
+      expect(
+        handleOneKeyStoreLink('itms-apps://apps.apple.com/app/id1234567890', {
+          isTopFrame,
+        }),
+      ).toBe(false);
+      expect(mockOpenURL).not.toHaveBeenCalled();
+    },
+  );
 });
 
 describe('dismissNativeInAppBrowser', () => {

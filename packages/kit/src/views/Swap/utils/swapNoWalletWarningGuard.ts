@@ -1,4 +1,5 @@
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import { ESwapDirectionType } from '@onekeyhq/shared/types/swap/types';
 import type { ISwapAlertState } from '@onekeyhq/shared/types/swap/types';
 
 export function shouldAllowSwapNoConnectWalletWarning({
@@ -39,6 +40,37 @@ export function shouldAllowSwapNoConnectWalletWarning({
 
 export function removeSwapNoConnectWalletAlerts(states: ISwapAlertState[]) {
   return states.filter((item) => !item.noConnectWallet);
+}
+
+export function isCurrentSwapAccountNetworkUnsupportedAlert({
+  alert,
+  accountId,
+  walletId,
+  networkId,
+  directionType,
+}: {
+  alert: ISwapAlertState;
+  accountId?: string;
+  walletId?: string;
+  networkId?: string;
+  directionType?: ESwapDirectionType;
+}) {
+  if (!alert.isAccountNetworkUnsupported) {
+    return false;
+  }
+  const context = alert.accountNetworkUnsupportedContext;
+  if (!context) {
+    return true;
+  }
+  const currentDirectionType = directionType ?? ESwapDirectionType.FROM;
+  if (context.directionType && context.directionType !== currentDirectionType) {
+    return false;
+  }
+  return (
+    context.accountId === accountId &&
+    context.walletId === walletId &&
+    context.networkId === networkId
+  );
 }
 
 export function shouldShowSwapLocalData({

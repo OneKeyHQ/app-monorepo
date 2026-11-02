@@ -43,6 +43,8 @@ export function ensureOneKeyOAuthState(
       reason: `OneKey OAuth redirect URL parsing failed: ${getSanitizedErrorLogText(
         error,
       )}`,
+      trigger: 'interactive',
+      error,
     });
     // If URL parsing fails, return original URL
     return redirectTo;

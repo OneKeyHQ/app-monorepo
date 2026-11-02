@@ -1,3 +1,4 @@
+import type { ITradingViewNativePriceScaleMode } from '../../types';
 import type {
   ITradingViewNativeIndicatorValues,
   ITradingViewNativeSubIndicator,
@@ -181,6 +182,14 @@ export interface ITradingViewNativeSubIndicatorResolvedInstance {
   settings: ITradingViewNativeSubIndicatorResolvedSettings;
 }
 
+export interface ITradingViewNativeSubIndicatorCalculationOptions {
+  /**
+   * Read a zero volume as "not reported" instead of "nothing traded". Stock
+   * charts get zero volume for bars their feed has no volume for.
+   */
+  zeroVolumeIsMissing?: boolean;
+}
+
 export interface ITradingViewNativeSubIndicatorCalculation {
   indicator: ITradingViewNativeSubIndicator;
   inputValues: Record<string, ITradingViewNativeSubIndicatorInputValue>;
@@ -224,6 +233,7 @@ export interface ITradingViewNativeSubIndicatorRenderFill {
 }
 
 export interface ITradingViewNativeSubIndicatorRenderPane {
+  priceScaleMode?: ITradingViewNativePriceScaleMode;
   preferredHeight?: number;
   bands: ITradingViewNativeSubIndicatorRenderBand[];
   fills: ITradingViewNativeSubIndicatorRenderFill[];
@@ -240,6 +250,7 @@ export interface ITradingViewNativeSubIndicatorRenderPane {
 }
 
 export interface ITradingViewNativeSubIndicatorValueRange {
+  mode?: ITradingViewNativePriceScaleMode;
   maxValue: number;
   minValue: number;
 }

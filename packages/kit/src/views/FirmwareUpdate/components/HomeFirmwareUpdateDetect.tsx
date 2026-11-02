@@ -1,5 +1,6 @@
 import { memo, useEffect, useMemo } from 'react';
 
+import { useNetInfo } from '@onekeyhq/components';
 import { useRouteIsFocused as useIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import { useAppIsLockedAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
@@ -15,6 +16,7 @@ function HomeFirmwareUpdateDetectCmp() {
   const connectId = activeAccount.device?.connectId;
 
   const isFocused = useIsFocused();
+  const { isRawInternetReachable } = useNetInfo();
 
   // const activeAccountRef = useRef(activeAccount);
   // activeAccountRef.current = activeAccount;
@@ -27,7 +29,12 @@ function HomeFirmwareUpdateDetectCmp() {
   );
 
   useEffect(() => {
-    if (!isHardware || !connectId || !isFocused) {
+    if (
+      !isHardware ||
+      !connectId ||
+      !isFocused ||
+      isRawInternetReachable !== true
+    ) {
       return undefined;
     }
 
@@ -42,7 +49,7 @@ function HomeFirmwareUpdateDetectCmp() {
     detector.start();
 
     return detector.cancel;
-  }, [isHardware, connectId, isFocused]);
+  }, [isHardware, connectId, isFocused, isRawInternetReachable]);
 
   return null;
 }

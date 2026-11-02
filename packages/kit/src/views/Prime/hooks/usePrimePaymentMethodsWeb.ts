@@ -14,8 +14,14 @@ import type { EPrimeFeatures } from '@onekeyhq/shared/src/routes/prime';
 import perfUtils from '@onekeyhq/shared/src/utils/debug/perfUtils';
 import type { IPrimeUserInfo } from '@onekeyhq/shared/types/prime/primeTypes';
 
+import { purchaseWithPrimeEmbeddedWebCheckout } from '../components/PrimeEmbeddedWebCheckout';
+import { getPrimeEmbeddedCheckoutFallbackTrigger } from '../purchasesSdk/primeEmbeddedCheckoutFallback';
 import purchaseSdkUtils from '../purchasesSdk/purchaseSdkUtils';
-import { loadPurchasesSdkWeb } from '../purchasesSdk/purchasesSdkWebLoader';
+import {
+  loadPurchasesSdkWeb,
+  loadPurchasesSdkWebForEmbeddedPurchase,
+} from '../purchasesSdk/purchasesSdkWebLoader';
+import { getStripePaymentElementState } from '../purchasesSdk/stripePaymentElementHealth';
 
 import { getPrimePaymentApiKey } from './getPrimePaymentApiKey';
 import primePaymentUtils from './primePaymentUtils';
@@ -179,7 +185,7 @@ export function usePrimePaymentMethodsWeb(): IUsePrimePayment {
       featureName?: EPrimeFeatures;
     }) => {
       const { isSandboxKey } = await initSdk({ loginRequired: true });
-      const { Purchases } = await loadPurchasesSdkWeb();
+      const { Purchases } = await loadPurchasesSdkWebForEmbeddedPurchase();
       try {
         if (!isReady) {
           throw new OneKeyLocalError('PrimeAuth Not ready');
@@ -224,8 +230,13 @@ export function usePrimePaymentMethodsWeb(): IUsePrimePayment {
         };
         // TODO check package user is Matched to id
         // TODO check if user has already purchased
-        const purchase =
-          await Purchases.getSharedInstance().purchase(purchaseParams);
+        const purchase = await purchaseWithPrimeEmbeddedWebCheckout(
+          (htmlTarget) =>
+            Purchases.getSharedInstance().purchase({
+              ...purchaseParams,
+              htmlTarget,
+            }),
+        );
 
         primePaymentUtils.trackPrimeSubscriptionSuccess({
           ...primePaymentUtils.extractWebPaywallPrice(paywallPackage),
@@ -233,6 +244,7 @@ export function usePrimePaymentMethodsWeb(): IUsePrimePayment {
           featureName,
           // purchases-js = RevenueCat web billing (Stripe embedded form)
           paymentMethod: 'stripe',
+          cardCheckoutFlow: 'embedded',
         });
 
         // test credit card
@@ -241,13 +253,23 @@ export function usePrimePaymentMethodsWeb(): IUsePrimePayment {
         // visa: 4242424242424242
         return purchase;
       } catch (error) {
+        const fallbackTrigger = getPrimeEmbeddedCheckoutFallbackTrigger({
+          error,
+          paymentElementState: getStripePaymentElementState(),
+        });
+        if (fallbackTrigger === 'userRequestedHostedCheckout') {
+          throw error;
+        }
         const { reason } = primePaymentUtils.trackPrimeSubscriptionFailed({
           error,
           paymentMethod: 'stripe',
           subscriptionPeriod,
           featureName,
+          cardCheckoutFlow: 'embedded',
         });
-        if (reason !== 'userCancelled') {
+        // The caller switches these failures to the hosted Purchase Link.
+        const willFallBack = Boolean(fallbackTrigger);
+        if (reason !== 'userCancelled' && !willFallBack) {
           errorToastUtils.toastIfError(error);
         }
         throw error;

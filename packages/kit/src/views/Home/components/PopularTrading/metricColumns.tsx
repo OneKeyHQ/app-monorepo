@@ -7,7 +7,6 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import type { ITableProps } from '@onekeyhq/components';
-import { CommunityRecognizedBadge } from '@onekeyhq/kit/src/views/Market/components/CommunityRecognizedBadge';
 import {
   StockSourceLogo,
   SubtitleBadge,
@@ -30,15 +29,14 @@ const EMPTY_MARKET_VALUE = '--';
 
 type ITextSize = ComponentProps<typeof NumberSizeableText>['size'];
 
-// Name cell shared with the Market list so the home widget matches the Market
-// page exactly:
-// - desktop (table): localized name (stock/perps) prefix + contract address,
-//   or just the address; native tokens (e.g. BTC) with no address show nothing.
-// - mobile (list): localized name + 24h volume
+// Desktop names reveal the copyable address on hover. Mobile keeps the
+// localized subtitle and volume, while perps retain their leverage/DEX labels.
 function renderPopularTradingTokenIdentity(
   record: IFavoriteTokenDisplay,
   { showVolume }: { showVolume: boolean },
 ) {
+  const name = record.perpsCoin ? record.perpsSubtitle : record.name;
+
   return (
     <TokenIdentityItem
       tokenLogoURI={record.logoUrl}
@@ -49,6 +47,7 @@ function renderPopularTradingTokenIdentity(
           : record.chainId
       }
       symbol={record.symbol}
+      name={!showVolume ? name : undefined}
       address={record.contractAddress}
       showVolume={showVolume}
       volume={record.volume24h}
@@ -76,10 +75,6 @@ function renderPopularTradingStockBadges(record: IFavoriteTokenDisplay) {
       ) : null}
     </>
   );
-}
-
-function renderPopularTradingCommunityBadge(record: IFavoriteTokenDisplay) {
-  return record.communityRecognized ? <CommunityRecognizedBadge /> : null;
 }
 
 // 24h change as colored text, shared by the mobile price cell and the desktop
@@ -212,6 +207,5 @@ export {
   HOME_MARKET_TABLE_HEADER_MIN_HEIGHT,
   HOME_MARKET_TABLE_ROW_MIN_HEIGHT,
   getPopularTradingColumns,
-  renderPopularTradingCommunityBadge,
   renderPopularTradingStockBadges,
 };

@@ -1,5 +1,3 @@
-import BigNumber from 'bignumber.js';
-
 import {
   SWAP_PRO_POSITIONS_CACHE_MAX_BYTES,
   SWAP_PRO_POSITIONS_CACHE_MAX_OWNERS,
@@ -9,6 +7,8 @@ import {
   pruneSwapProPositionsCacheValue,
 } from '@onekeyhq/shared/src/utils/coldStartCacheSnapshotUtils';
 import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
+
+import { compareTradePositionFiatValues } from './tradePositionUtils';
 
 export const SWAP_PRO_POSITIONS_RUNTIME_TTL_MS = 30_000;
 export {
@@ -33,10 +33,41 @@ export type ISwapProPositionsCache = {
 };
 
 export type ISwapProPositionsRuntimeEntry = {
-  status: 'loading' | 'success' | 'error';
+  status: 'loading' | 'refreshing' | 'success' | 'error';
   tokens: ISwapToken[];
+  resolvedNetworkIds?: string[];
+  accountScope?: string;
+  networkAccounts?: Record<string, { accountId: string; apiAddress: string }>;
+  // Leaving a non-default override changes the effective account set.
+  overriddenNetworkId?: string;
   updatedAt: number;
 };
+
+export function isSwapProPositionsAccountMatch({
+  entry,
+  accountScope,
+  networkAccount,
+  accountPending,
+}: {
+  entry?: ISwapProPositionsRuntimeEntry;
+  accountScope?: string;
+  networkAccount?: { networkId: string; accountId: string; apiAddress: string };
+  accountPending?: boolean;
+}) {
+  if (!entry || entry.accountScope !== accountScope) return false;
+  if (accountPending) return true;
+  if (
+    entry.overriddenNetworkId &&
+    entry.overriddenNetworkId !== networkAccount?.networkId
+  )
+    return false;
+  if (!networkAccount) return true;
+  const previousAccount = entry.networkAccounts?.[networkAccount.networkId];
+  return (
+    previousAccount?.accountId === networkAccount.accountId &&
+    previousAccount.apiAddress === networkAccount.apiAddress
+  );
+}
 
 export type ISwapProPositionsRuntimeData = Record<
   string,
@@ -82,11 +113,6 @@ function buildSwapProPositionsCacheToken(token: ISwapToken): ISwapToken {
   };
 }
 
-function getSwapProPositionFiatValue(token: ISwapToken) {
-  const fiatValue = new BigNumber(token.fiatValue ?? '0');
-  return fiatValue.isFinite() ? fiatValue : new BigNumber(0);
-}
-
 export function upsertSwapProPositionsCacheEntry({
   cache,
   entry,
@@ -96,9 +122,7 @@ export function upsertSwapProPositionsCacheEntry({
 }): ISwapProPositionsCache {
   const tokens = entry.tokens
     .toSorted((left, right) =>
-      getSwapProPositionFiatValue(right).comparedTo(
-        getSwapProPositionFiatValue(left),
-      ),
+      compareTradePositionFiatValues(left.fiatValue, right.fiatValue),
     )
     .map(buildSwapProPositionsCacheToken);
   const previousByOwner = getValidSwapProPositionsCache(cache).byOwner;

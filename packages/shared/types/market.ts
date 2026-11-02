@@ -353,6 +353,8 @@ export interface IMarketListingWatchlistQuote {
   priceChange24hPercent?: string;
   marketCap?: string;
   volume24h?: string;
+  // Stock listings only: the listing market badges (e.g. US / HK).
+  tags?: string[];
   // Stock listings only: the tokens issued against the stock, from the stocks
   // batch API. Drives the Stocks-style hover reveal in the watchlist.
   variants?: IMarketStockListVariant[];
@@ -363,6 +365,7 @@ export interface IMarketWatchListDataV2 {
 }
 
 export interface IMarketSearchV2Token {
+  assetId?: string;
   name: string;
   price: string;
   symbol: string;

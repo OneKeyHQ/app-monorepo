@@ -12,17 +12,23 @@ import {
   Stack,
   XStack,
   YStack,
+  switchTabAsync,
 } from '@onekeyhq/components';
 import { PageBody } from '@onekeyhq/components/src/layouts/Page/PageBody';
 import { PageHeader } from '@onekeyhq/components/src/layouts/Page/PageHeader';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { NotificationEnableAlert } from '@onekeyhq/kit/src/components/NotificationEnableAlert';
+import { usePerpTabConfig } from '@onekeyhq/kit/src/hooks/usePerpTabConfig';
+import { useHyperliquidActions } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
+import { usePerpsNavigation } from '@onekeyhq/kit/src/views/Market/hooks/usePerpsNavigation';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import {
   EModalPerpRoutes,
   type IModalPerpParamList,
   type IPerpHistoryTab,
 } from '@onekeyhq/shared/src/routes/perp';
+import { isSpotInstrument } from '@onekeyhq/shared/src/utils/perpsUtils';
 
 import {
   usePerpFundingHistoryViewAllUrl,
@@ -30,10 +36,12 @@ import {
   usePerpTwapHistoryViewAllUrl,
 } from '../../hooks/usePerpOrderInfoPanel';
 import { useUnifoldDepositTrackerAvailability } from '../../hooks/useShowDepositWithdrawModal';
+import { useTradeHistoryFilters } from '../../hooks/useTradeHistoryFilters';
 import { PerpsAccountSelectorProviderMirror } from '../../PerpsAccountSelectorProviderMirror';
 import { PerpsProviderMirror } from '../../PerpsProviderMirror';
 
 import { FundingHistoryFilterToolbar } from './Components/FundingHistoryFilterToolbar';
+import { TradesHistoryFilterToolbar } from './Components/TradesHistoryFilterToolbar';
 import {
   type IFundingHistoryMarketOption,
   type IFundingHistorySideFilter,
@@ -127,6 +135,23 @@ function TabHeader({
 
 export function PerpTradersHistoryListModal() {
   const intl = useIntl();
+  const { perpTabShowWeb } = usePerpTabConfig();
+  const actions = useHyperliquidActions();
+  const { navigateToPerps } = usePerpsNavigation();
+  const handleSwitchInstrument = useCallback(
+    (coin: string) => {
+      if (perpTabShowWeb) {
+        navigateToPerps(coin, { dismissOverlays: true });
+        return;
+      }
+      void switchTabAsync(ETabRoutes.Perp);
+      void actions.current.switchTradeInstrument({
+        mode: isSpotInstrument(coin) ? 'spot' : 'perp',
+        coin,
+      });
+    },
+    [actions, navigateToPerps, perpTabShowWeb],
+  );
   const navigation = useNavigation<IPageNavigationProp<IModalPerpParamList>>();
   const route =
     useRoute<
@@ -138,6 +163,7 @@ export function PerpTradersHistoryListModal() {
   const { onViewAllUrl: onViewAllFundingUrl } =
     usePerpFundingHistoryViewAllUrl();
   const [activeTab, setActiveTab] = useState<ITabName>(initialTab);
+  const tradeHistoryFilters = useTradeHistoryFilters();
   const [fundingHistorySideFilter, setFundingHistorySideFilter] =
     useState<IFundingHistorySideFilter>('all');
   const [fundingHistoryMarketFilter, setFundingHistoryMarketFilter] = useState<
@@ -188,7 +214,13 @@ export function PerpTradersHistoryListModal() {
     }
   }, [activeTab]);
 
+  const hasActiveTradeFilter =
+    tradeHistoryFilters.filters.type !== 'all' ||
+    tradeHistoryFilters.filters.side !== 'all' ||
+    tradeHistoryFilters.filters.market !== undefined;
+
   const headerRight = useCallback(() => {
+    if (activeTab === 'Trades' && hasActiveTradeFilter) return null;
     if (activeTab === 'Funding') {
       return (
         <Button
@@ -233,6 +265,7 @@ export function PerpTradersHistoryListModal() {
   }, [
     activeTab,
     handleViewCryptoDeposits,
+    hasActiveTradeFilter,
     intl,
     isUnifoldDepositTrackerAvailable,
     onViewAllFundingUrl,
@@ -251,14 +284,30 @@ export function PerpTradersHistoryListModal() {
       <PageBody>
         <YStack flex={1}>
           <TabHeader activeTab={activeTab} onTabChange={setActiveTab} />
-          <YStack flex={1} pt={activeTab === 'Trades' ? '$3' : '$0'}>
+          <YStack flex={1}>
             {activeTab === 'Trades' ? (
-              <PerpTradesHistoryList isMobile useTabsList={false} />
+              <YStack flex={1}>
+                <XStack mt="$2" px="$5" py="$1.5" alignItems="center">
+                  <TradesHistoryFilterToolbar
+                    isMobile
+                    {...tradeHistoryFilters}
+                  />
+                </XStack>
+                <PerpTradesHistoryList
+                  isMobile
+                  useTabsList={false}
+                  filters={tradeHistoryFilters.filters}
+                  onMarketOptionsChange={
+                    tradeHistoryFilters.onMarketOptionsChange
+                  }
+                />
+              </YStack>
             ) : null}
             {activeTab === 'Twap' ? (
               <PerpTwapList
                 isMobile
                 useTabsList={false}
+                onSwitchInstrument={handleSwitchInstrument}
                 initialTab="history"
                 enabledTabs={['history', 'fills']}
               />

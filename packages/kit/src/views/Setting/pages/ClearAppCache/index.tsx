@@ -199,11 +199,26 @@ export default function ClearAppCache() {
             // The native image disk cache (token logos, NFT full-res images,
             // dApp favicons, and DeFi/market icons) is not cleared by
             // clearCacheOnApp, which only clears DB/simpleDb.
-            if (values.tokenAndNFT && platformEnv.isNative) {
-              await Promise.all([
-                Image.clearDiskCache(),
-                Image.clearMemoryCache(),
-              ]).catch(() => undefined);
+            if (values.tokenAndNFT) {
+              const {
+                invalidateBorrowImagePrewarmCache,
+                waitForBorrowImagePrewarmIdle,
+              } =
+                (await import('@onekeyhq/kit/src/views/Borrow/components/borrowImagePrewarm')) as {
+                  invalidateBorrowImagePrewarmCache: () => void;
+                  waitForBorrowImagePrewarmIdle: () => Promise<boolean>;
+                };
+              try {
+                await waitForBorrowImagePrewarmIdle();
+                if (platformEnv.isNative) {
+                  await Promise.all([
+                    Image.clearDiskCache(),
+                    Image.clearMemoryCache(),
+                  ]).catch(() => undefined);
+                }
+              } finally {
+                invalidateBorrowImagePrewarmCache();
+              }
             }
             Toast.success({
               title: intl.formatMessage({

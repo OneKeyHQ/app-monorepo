@@ -154,7 +154,6 @@ export const uploadLogBundle = async ({
     const response = await globalThis.desktopApiProxy.dev.uploadLoggerBundle({
       uploadUrl,
       filePath: digest.bundle.filePath,
-      sizeBytes: digest.sizeBytes,
       headers,
     });
 

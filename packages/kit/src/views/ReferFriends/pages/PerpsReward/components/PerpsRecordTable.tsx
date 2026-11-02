@@ -330,7 +330,7 @@ function ScrollableHeaderContent({
       />
 
       <SortableHeader
-        label={intl.formatMessage({ id: ETranslations.earn_rewards })}
+        label={intl.formatMessage({ id: ETranslations.referral_order_reward })}
         field="reward"
         sortBy={sortBy}
         sortOrder={sortOrder}

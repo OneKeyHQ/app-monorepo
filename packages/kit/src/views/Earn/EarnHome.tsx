@@ -657,9 +657,9 @@ function BasicEarnHome({
   // call site, not here — see the prop below.
   const handleHeaderHorizontalSwipe = useCallback(
     (direction: 'left' | 'right') => {
-      if (direction === 'right') {
+      if (direction === 'left') {
         appEventBus.emit(EAppEventBusNames.SwitchDiscoveryTabInNative, {
-          tab: ETranslations.global_market,
+          tab: ETranslations.global_browser,
           switchType: 'swipe',
         });
       }

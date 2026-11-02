@@ -4,6 +4,12 @@ import type { IIpTableRemoteConfig } from '../types/ipTable';
 
 // ========== IP Table Service Configuration Constants ==========
 
+/**
+ * Master switch. When false, every request goes to the domain directly:
+ * no SNI/IP requests, no remote config fetch and no speed tests.
+ */
+export const IP_TABLE_ENABLED = false;
+
 export const CDN_SIGNER_ADDRESS = '0x3eaf57d1aD767CA3aFeDbF8D82C1De610c6F6519';
 
 /**
@@ -31,6 +37,21 @@ export const IP_TABLE_DOMAIN_FAILOVER_THRESHOLD = 3;
  */
 export const IP_TABLE_ADAPTER_FAILOVER_TTL_MS = timerUtils.getTimeDurationMs({
   minute: 5,
+});
+
+/**
+ * SNI Bypass Threshold
+ * After this many consecutive real-request failures on the selected IP, the
+ * adapter stops handing requests to the SNI transport for a short window and
+ * sends them over the domain, exactly as if no IP were selected. The service
+ * needs IP_TABLE_SNI_FAILURE_THRESHOLD failures plus a probing round before it
+ * can change the selection; this keeps a dead IP from costing every request a
+ * wasted attempt (or a non-idempotent request its only attempt) until then.
+ */
+export const IP_TABLE_SNI_BYPASS_THRESHOLD = 3;
+
+export const IP_TABLE_SNI_BYPASS_TTL_MS = timerUtils.getTimeDurationMs({
+  minute: 1,
 });
 
 /**
@@ -102,18 +123,6 @@ export const DEFAULT_IP_TABLE_CONFIG: IIpTableRemoteConfig = {
           'weight': 100,
         },
         {
-          'ip': '216.19.3.115',
-          'provider': 'volcengine',
-          'region': 'CN',
-          'weight': 100,
-        },
-        {
-          'ip': '216.19.2.116',
-          'provider': 'volcengine',
-          'region': 'CN',
-          'weight': 100,
-        },
-        {
           'ip': '216.19.4.106',
           'provider': 'volcengine',
           'region': 'CN',
@@ -121,6 +130,12 @@ export const DEFAULT_IP_TABLE_CONFIG: IIpTableRemoteConfig = {
         },
         {
           'ip': '43.168.19.96',
+          'provider': 'EdgeOne',
+          'region': 'CN',
+          'weight': 100,
+        },
+        {
+          'ip': '43.168.24.171',
           'provider': 'EdgeOne',
           'region': 'CN',
           'weight': 100,
@@ -156,9 +171,9 @@ export const DEFAULT_IP_TABLE_CONFIG: IIpTableRemoteConfig = {
       ],
     },
   },
-  'generated_at': '2026-09-18T06:39:56.839Z',
+  'generated_at': '2026-10-19T03:27:23.641Z',
   'signature':
-    '0xda46448865c48a3fd8ec9f9ae131c9ed22a433ed480232cf149883c621a9f53015acc0eb94cdf4c55542e88290c950a60602eff07e35b0f1e7cd4d06710f6ee51c',
+    '0x771ed708633015541efac160f010eff3ba118f2a2646fc42fef485568510d4b40c2fefae855d5844a0c7d68cadc07fdd76418bf1b3d353fa52bf0d1b14ade8671c',
   'ttl_sec': 86_400,
   'version': 1,
 };

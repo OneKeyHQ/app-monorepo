@@ -1,16 +1,9 @@
-import {
-  type SniConnectMethod,
-  type SniConnectBodylessMethod as SniConnectNoBodyMethod,
-  type SniConnectOptionalBodyMethod,
-  type SniConnectRequest,
-  type SniConnectRequiredBodyMethod,
-  isProxyActiveForUrl as nativeIsProxyActiveForUrl,
-  request as nativeSniRequest,
-} from '@onekeyfe/react-native-sni-connect';
 import { NativeModules, TurboModuleRegistry } from 'react-native';
 
 import { OneKeyLocalError } from '../../errors';
 import { defaultLogger } from '../../logger/logger';
+import platformEnv from '../../platformEnv';
+import { IP_TABLE_ENABLED } from '../constants/ipTableDefaults';
 
 import { safeSniLogValue } from './sniLogRedaction';
 import { executeSniRequestWithAbort } from './sniRequestAbort';
@@ -20,6 +13,17 @@ import type {
   ISniRequestOptions,
   ISniResponse,
 } from '../types/ipTable';
+import type {
+  SniConnectMethod,
+  SniConnectBodylessMethod as SniConnectNoBodyMethod,
+  SniConnectOptionalBodyMethod,
+  SniConnectRequest,
+  SniConnectRequiredBodyMethod,
+} from '@onekeyfe/react-native-sni-connect';
+
+const nativeSniConnect = platformEnv.isNativeIOSMacCatalyst
+  ? undefined
+  : (require('@onekeyfe/react-native-sni-connect') as typeof import('@onekeyfe/react-native-sni-connect'));
 
 const SNI_CONNECT_NO_BODY_METHODS = [
   'GET',
@@ -68,10 +72,14 @@ export async function sniRequest(
   config: ISniRequestConfig,
   options?: ISniRequestOptions,
 ): Promise<ISniResponse | null> {
+  if (!nativeSniConnect) {
+    return null;
+  }
   const response = await executeSniRequestWithAbort(
     config,
     options,
-    (requestConfig) => nativeSniRequest(buildNativeSniRequest(requestConfig)),
+    (requestConfig) =>
+      nativeSniConnect.request(buildNativeSniRequest(requestConfig)),
     (requestId) => cancelNativeSniRequest(requestId, config.hostname),
   );
   const multiValueHeaders = (
@@ -188,10 +196,11 @@ function normalizeSniMethod(method: string): SniConnectMethod {
 
 /**
  * Check if SNI is supported on current platform
- * @returns true for Native platforms (iOS/Android)
+ * The current native transport dependency has no Mac Catalyst binary slice.
+ * @returns true if IP_TABLE_ENABLED and the native SNI dependency is linked
  */
 export function isSniSupported(): boolean {
-  return true;
+  return IP_TABLE_ENABLED && !platformEnv.isNativeIOSMacCatalyst;
 }
 
 /**
@@ -202,7 +211,10 @@ export function isSniSupported(): boolean {
 export async function isProxyActiveForUrl(
   url: string,
 ): Promise<boolean | null> {
-  const preflight = nativeIsProxyActiveForUrl as unknown as
+  if (!nativeSniConnect) {
+    return null;
+  }
+  const preflight = nativeSniConnect.isProxyActiveForUrl as unknown as
     | ((targetUrl: string) => Promise<boolean>)
     | undefined;
 

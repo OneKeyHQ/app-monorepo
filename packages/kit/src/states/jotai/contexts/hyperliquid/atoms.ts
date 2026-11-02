@@ -251,6 +251,7 @@ export const {
 export interface ITradeRouteViewState {
   routeFocused: boolean;
   tokenSelectorOpen: boolean;
+  tradeHistoryDetailsOpen: boolean;
   tokenSelectorTab: string;
   infoPanelTab: string;
   favoritesBarSpotActive: boolean;
@@ -262,6 +263,7 @@ export const {
 } = contextAtom<ITradeRouteViewState>({
   routeFocused: false,
   tokenSelectorOpen: false,
+  tradeHistoryDetailsOpen: false,
   tokenSelectorTab: 'all',
   infoPanelTab: 'Positions',
   favoritesBarSpotActive: false,
@@ -320,6 +322,8 @@ export interface ITradingFormData {
   twapDurationMinutes?: string;
   twapRandomize?: boolean;
   twapReduceOnly?: boolean;
+  twapTriggerPrice?: string;
+  twapStopPrice?: string;
 }
 
 export const { atom: tradingFormAtom, use: useTradingFormAtom } =
@@ -358,6 +362,8 @@ export const { atom: tradingFormAtom, use: useTradingFormAtom } =
     twapDurationMinutes: '10',
     twapRandomize: true,
     twapReduceOnly: false,
+    twapTriggerPrice: '',
+    twapStopPrice: '',
   });
 
 export type ITradingFormOrderPriceParams = Pick<

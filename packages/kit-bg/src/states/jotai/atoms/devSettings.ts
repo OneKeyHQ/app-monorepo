@@ -62,6 +62,12 @@ export interface IDevSettings {
 
   showPrimeTest?: boolean;
   usePrimeSandboxPayment?: boolean;
+  // Skip the embedded Stripe card form and open the RevenueCat Purchase Link
+  // directly (web / desktop / extension). Needs a restart.
+  usePrimeHostedCardCheckout?: boolean;
+  // Load the pre-#13914 Stripe.js to reproduce its retired iframe resources.
+  // Web / desktop / extension only; needs a restart.
+  useFaultyPrimeStripeJs?: boolean;
   showWebviewDevTools?: boolean;
   // strict signature alert display
   strictSignatureAlert?: boolean;
@@ -82,6 +88,8 @@ export interface IDevSettings {
   useLocalTradingViewUrl?: boolean;
   // show the TradingViewNative event log panel
   showTradingViewNativeDebugPanel?: boolean;
+  // Show the Web-only Account Selector React Context inspector.
+  showAccountSelectorMirrorInspector?: boolean;
   showPerpsRenderStats?: boolean;
   // Route Unifold deposits to the Arbitrum USDC destination instead of
   // HyperCore, so the whole deposit pipeline can be exercised for source-chain
@@ -181,6 +189,8 @@ export const {
       enableBotWalletFeature: false,
       showPrimeTest: true,
       usePrimeSandboxPayment: platformEnv.isDev,
+      usePrimeHostedCardCheckout: false,
+      useFaultyPrimeStripeJs: false,
       showPerformanceMonitor: false,
       showPerformanceMonitorV2: false,
       autoNavigation: {

@@ -45,43 +45,38 @@ export function useReferralUrl(page: 'perps' | 'swap' = 'perps') {
 
   const useTestUrl =
     devSettings.enabled && devSettings.settings?.enableTestEndpoint;
+  const onekeyUserId =
+    primeUser?.isLoggedIn && primeUser.isLoggedInOnServer
+      ? primeUser.onekeyUserId
+      : undefined;
 
   const referralCacheKey = useMemo(() => {
-    if (!primeUser?.isLoggedInOnServer || !primeUser.onekeyUserId) {
+    if (!onekeyUserId) {
       return undefined;
     }
     const envKey = useTestUrl ? 'dev' : 'prod';
-    return `${primeUser.onekeyUserId}:${envKey}`;
-  }, [primeUser?.isLoggedInOnServer, primeUser?.onekeyUserId, useTestUrl]);
+    return `${onekeyUserId}:${envKey}`;
+  }, [onekeyUserId, useTestUrl]);
 
   const { result: summaryInfo, isLoading } = usePromiseResult(
     async () => {
-      if (referralCacheKey) {
+      if (referralCacheKey && onekeyUserId) {
         const primaryCode = await getPrimaryInviteCode(referralCacheKey);
         if (primaryCode) {
-          return { inviteCode: primaryCode };
+          return { inviteCode: primaryCode, referralCacheKey };
         }
         const localCode =
-          await backgroundApiProxy.serviceReferralCode.getMyReferralCode();
+          await backgroundApiProxy.serviceReferralCode.getMyReferralCode({
+            onekeyUserId,
+          });
         if (localCode) {
-          return { inviteCode: localCode };
+          return { inviteCode: localCode, referralCacheKey };
         }
         return null;
       }
-      const localCode =
-        await backgroundApiProxy.serviceReferralCode.getMyReferralCode();
-      if (localCode) {
-        return { inviteCode: localCode };
-      }
-
-      const isLoggedIn = await backgroundApiProxy.servicePrime.isLoggedIn();
-      if (!isLoggedIn) {
-        return null;
-      }
-
-      return backgroundApiProxy.serviceReferralCode.getSummaryInfo();
+      return null;
     },
-    [referralCacheKey],
+    [referralCacheKey, onekeyUserId],
     {
       initResult: undefined,
       watchLoading: true,
@@ -96,7 +91,10 @@ export function useReferralUrl(page: 'perps' | 'swap' = 'perps') {
   const cachedPrimaryCode = referralCacheKey
     ? primaryInviteCodeCache.get(referralCacheKey)
     : undefined;
-  const inviteCode = summaryInfo?.inviteCode || cachedPrimaryCode;
+  const inviteCode =
+    (referralCacheKey && summaryInfo?.referralCacheKey === referralCacheKey
+      ? summaryInfo.inviteCode
+      : undefined) || cachedPrimaryCode;
   const defaultReferralUrl = `${webAppUrl}/${page}`;
 
   const referralQrCodeUrl = useMemo(() => {

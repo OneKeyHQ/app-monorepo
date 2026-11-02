@@ -3,6 +3,7 @@ const path = require('path');
 function createBaseResolveOptions({
   basePath,
   enableSentryMinimalCompat,
+  excludeChainRuntimes,
   extensions,
 }) {
   return {
@@ -32,6 +33,12 @@ function createBaseResolveOptions({
         'react-native-web/dist/vendor/react-native/emitter/EventSubscriptionVendor',
       'react-native/Libraries/EventEmitter/NativeEventEmitter$':
         'react-native-web/dist/vendor/react-native/NativeEventEmitter',
+      // React Native 0.88 removed both asset registry paths below, but some
+      // third-party web entries (graphics and svg libraries) still import them.
+      'react-native/Libraries/Image/AssetRegistry$':
+        'react-native-web/dist/modules/AssetRegistry',
+      '@react-native/assets-registry/registry$':
+        'react-native-web/dist/modules/AssetRegistry',
       '@react-aria/focus': path.join(
         basePath,
         '../../node_modules/@react-aria/focus/src/index.ts',
@@ -56,12 +63,25 @@ function createBaseResolveOptions({
             ),
           }
         : {}),
+      // Empty modules: the chain wasm and its workers stay out of the bundle.
+      ...(excludeChainRuntimes
+        ? {
+            '@onekeyfe/zcash-runtime': false,
+            '@onekeyfe/zcash-keys': false,
+            '@onekeyfe/monero-runtime': false,
+          }
+        : {}),
       'bn.js$': require.resolve('bn.js'),
       // algosdk's browser field value ('.': 'dist/browser/algosdk.min.js') lacks
       // the './' prefix; rspack's strict resolver fails on it, so bare 'algosdk'
       // cannot resolve. Pin the entry to the ESM build (same file kit-bg imports
       // directly), keeping a single algosdk module graph in the bundle.
       'algosdk$': require.resolve('algosdk/dist/esm/index.js'),
+      // @walletconnect/pay (bundled into @reown/walletkit >=1.5) imports
+      // 'brotli/decompress' without an extension from an ESM context; brotli
+      // has no exports map, so strict fully-specified resolution fails. Pin
+      // the file directly.
+      'brotli/decompress$': require.resolve('brotli/decompress.js'),
     },
     fallback: {
       crypto:

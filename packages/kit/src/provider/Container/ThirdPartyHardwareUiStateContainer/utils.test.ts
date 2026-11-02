@@ -11,10 +11,35 @@ import {
   buildThirdPartyHardwareUiResponse,
   cancelThirdPartyHardwareUiRequest,
   clearThirdPartyHardwareUiStateIfCurrent,
-  createTrezorBleBindingDialogCallbacks,
+  createThirdPartyDeviceSelectionDialogCallbacks,
 } from './utils';
 
 describe('ThirdPartyHardwareUiStateContainer utils', () => {
+  it.each([undefined, 'operation-current'])(
+    'cancels only the operation explicitly owned by the request (%s)',
+    async (operationId) => {
+      const uiResponse = jest.fn(async () => undefined);
+      const cancel = jest.fn(async () => undefined);
+      const clearState = jest.fn(async () => undefined);
+      await cancelThirdPartyHardwareUiRequest({
+        state: {
+          vendor: EHardwareVendor.keystone,
+          action: EThirdPartyHardwareUiAction.requestKeystoneQrScan,
+          ...(operationId ? { operationId } : {}),
+        },
+        uiResponse,
+        cancel,
+        clearState,
+      });
+      expect(uiResponse).not.toHaveBeenCalled();
+      expect(cancel).toHaveBeenCalledWith({
+        vendor: EHardwareVendor.keystone,
+        ...(operationId ? { connectId: operationId } : {}),
+      });
+      expect(clearState).toHaveBeenCalledTimes(1);
+    },
+  );
+
   it('builds a declined device-connect response', () => {
     expect(
       buildThirdPartyHardwareUiResponse(
@@ -37,6 +62,69 @@ describe('ThirdPartyHardwareUiStateContainer utils', () => {
       type: UI_RESPONSE.RECEIVE_BTC_HIGH_INDEX_CONFIRM,
       payload: { confirmed: false },
     });
+  });
+
+  it.each([
+    [true, undefined],
+    [false, undefined],
+    [true, 'qr-fallback-current'],
+    [false, 'qr-fallback-current'],
+  ] as const)(
+    'builds the Keystone QR fallback answer (confirmed=%s, requestId=%s)',
+    (confirmed, requestId) => {
+      expect(
+        buildThirdPartyHardwareUiResponse(
+          EThirdPartyHardwareUiAction.requestKeystoneQrFallbackConfirm,
+          confirmed,
+          { requestId },
+        ),
+      ).toEqual({
+        type: UI_RESPONSE.RECEIVE_QR_FALLBACK_CONFIRM,
+        payload: { confirmed, ...(requestId ? { requestId } : {}) },
+      });
+    },
+  );
+
+  it('asks the SDK to look for the USB device again on a QR fallback retry', () => {
+    expect(
+      buildThirdPartyHardwareUiResponse(
+        EThirdPartyHardwareUiAction.requestKeystoneQrFallbackConfirm,
+        false,
+        { requestId: 'qr-fallback-current', retry: true },
+      ),
+    ).toEqual({
+      type: UI_RESPONSE.RECEIVE_QR_FALLBACK_CONFIRM,
+      payload: {
+        confirmed: false,
+        retry: true,
+        requestId: 'qr-fallback-current',
+      },
+    });
+  });
+
+  it('echoes the QR fallback request id when its prompt is dismissed', async () => {
+    const uiResponse = jest.fn(async () => undefined);
+    const cancel = jest.fn(async () => undefined);
+    const clearState = jest.fn(async () => undefined);
+    await cancelThirdPartyHardwareUiRequest({
+      state: {
+        vendor: EHardwareVendor.keystone,
+        action: EThirdPartyHardwareUiAction.requestKeystoneQrFallbackConfirm,
+        payload: { requestId: 'qr-fallback-current' },
+      },
+      uiResponse,
+      cancel,
+      clearState,
+    });
+    expect(uiResponse).toHaveBeenCalledWith({
+      vendor: EHardwareVendor.keystone,
+      response: {
+        type: UI_RESPONSE.RECEIVE_QR_FALLBACK_CONFIRM,
+        payload: { confirmed: false, requestId: 'qr-fallback-current' },
+      },
+    });
+    expect(cancel).not.toHaveBeenCalled();
+    expect(clearState).toHaveBeenCalledTimes(1);
   });
 
   it('builds a Trezor passphrase response without exposing it to logs', () => {
@@ -103,25 +191,54 @@ describe('ThirdPartyHardwareUiStateContainer utils', () => {
     ).toBeNull();
   });
 
+  it('builds a Keystone QR response with the scanned UR payload', () => {
+    expect(
+      buildThirdPartyHardwareUiResponse(
+        EThirdPartyHardwareUiAction.requestKeystoneQrScan,
+        true,
+        {
+          qrResponse: {
+            urType: 'crypto-response',
+            urData: 'a1b2',
+          },
+        },
+      ),
+    ).toEqual({
+      type: UI_RESPONSE.RECEIVE_QR_RESPONSE,
+      payload: {
+        urType: 'crypto-response',
+        urData: 'a1b2',
+      },
+    });
+  });
+
+  it('returns null when a Keystone QR request is cancelled', () => {
+    expect(
+      buildThirdPartyHardwareUiResponse(
+        EThirdPartyHardwareUiAction.requestKeystoneQrDisplay,
+        false,
+      ),
+    ).toBeNull();
+  });
+
   it('does not clear a newer Trezor UI request when an older request finishes', async () => {
     const passphraseState: IThirdPartyHardwareUiState = {
+      uiRequestId: 'old-prompt',
       action: EThirdPartyHardwareUiAction.requestTrezorPassphrase,
       vendor: EHardwareVendor.trezor,
       payload: { connectId: 'trezor-connect-id' },
     };
-    const confirmOnDeviceState: IThirdPartyHardwareUiState = {
-      action: EThirdPartyHardwareUiAction.confirmOnDevice,
-      vendor: EHardwareVendor.trezor,
-    };
-    const setState = jest.fn(async () => undefined);
+    const clearInBackground = jest.fn(async () => false);
 
-    await clearThirdPartyHardwareUiStateIfCurrent({
+    const cleared = await clearThirdPartyHardwareUiStateIfCurrent({
       expectedState: passphraseState,
-      getState: () => confirmOnDeviceState,
-      setState,
+      clearInBackground,
     });
 
-    expect(setState).not.toHaveBeenCalled();
+    expect(cleared).toBe(false);
+    expect(clearInBackground).toHaveBeenCalledWith({
+      expectedRequestId: 'old-prompt',
+    });
   });
 
   it('sends the declined UI response and clears state when a request dialog is cancelled', async () => {
@@ -175,54 +292,121 @@ describe('ThirdPartyHardwareUiStateContainer utils', () => {
     expect(clearState).toHaveBeenCalledTimes(1);
   });
 
-  it('resolves a Trezor BLE binding once and clears UI state', async () => {
-    const resolveCallback = jest.fn(async () => undefined);
+  it('returns an SDK target once for operation-first device selection', async () => {
+    const uiResponse = jest.fn(async () => undefined);
+    const cancel = jest.fn(async () => undefined);
     const clearState = jest.fn(async () => undefined);
     const dialogInstanceRef = { current: {} };
     const settledRef = { current: false };
-
-    const callbacks = createTrezorBleBindingDialogCallbacks({
-      promiseId: 123,
+    const callbacks = createThirdPartyDeviceSelectionDialogCallbacks({
+      vendor: EHardwareVendor.ledger,
+      requestId: 'selection-1',
       dialogInstanceRef,
       settledRef,
-      resolveCallback,
+      uiResponse,
+      cancel,
       clearState,
     });
 
-    callbacks.onBound('BLE_CONNECT_ID');
+    await callbacks.onSelected('ledger-target-b');
+    await callbacks.onSelected('ledger-target-c');
     await callbacks.onClose();
 
-    expect(resolveCallback).toHaveBeenCalledTimes(1);
-    expect(resolveCallback).toHaveBeenCalledWith({
-      id: 123,
-      data: 'BLE_CONNECT_ID',
+    expect(uiResponse).toHaveBeenCalledTimes(1);
+    expect(uiResponse).toHaveBeenCalledWith({
+      vendor: EHardwareVendor.ledger,
+      response: {
+        type: UI_RESPONSE.RECEIVE_SELECT_DEVICE,
+        payload: { sdkConnectId: 'ledger-target-b', requestId: 'selection-1' },
+      },
     });
-    expect(clearState).toHaveBeenCalledTimes(2);
+    expect(cancel).not.toHaveBeenCalled();
+    // The selection cleared the state; closing the dialog afterwards does not clear it again.
+    expect(clearState).toHaveBeenCalledTimes(1);
     expect(dialogInstanceRef.current).toBeNull();
   });
 
-  it('resolves null when the Trezor BLE binding dialog is closed before binding', async () => {
-    const resolveCallback = jest.fn(async () => undefined);
+  it('leaves the request alone when the host closed the dialog itself', async () => {
+    const uiResponse = jest.fn(async () => undefined);
+    const cancel = jest.fn(async () => undefined);
+    const clearState = jest.fn(async () => undefined);
+    const settledRef = { current: false };
+    const callbacks = createThirdPartyDeviceSelectionDialogCallbacks({
+      vendor: EHardwareVendor.ledger,
+      requestId: 'selection-1',
+      dialogInstanceRef: { current: {} },
+      settledRef,
+      uiResponse,
+      cancel,
+      clearState,
+    });
+
+    // The host's effect cleanup settles before closing, e.g. to reopen after a language change.
+    settledRef.current = true;
+    await callbacks.onClose();
+
+    expect(uiResponse).not.toHaveBeenCalled();
+    expect(cancel).not.toHaveBeenCalled();
+    expect(clearState).not.toHaveBeenCalled();
+  });
+
+  it('cancels the SDK wait when operation-first selection closes', async () => {
+    const uiResponse = jest.fn(async () => undefined);
+    const cancel = jest.fn(async () => undefined);
     const clearState = jest.fn(async () => undefined);
     const dialogInstanceRef = { current: {} };
     const settledRef = { current: false };
-
-    const callbacks = createTrezorBleBindingDialogCallbacks({
-      promiseId: 123,
+    const callbacks = createThirdPartyDeviceSelectionDialogCallbacks({
+      vendor: EHardwareVendor.ledger,
       dialogInstanceRef,
       settledRef,
-      resolveCallback,
+      uiResponse,
+      cancel,
       clearState,
     });
 
     await callbacks.onClose();
 
-    expect(resolveCallback).toHaveBeenCalledTimes(1);
-    expect(resolveCallback).toHaveBeenCalledWith({
-      id: 123,
-      data: null,
+    expect(uiResponse).not.toHaveBeenCalled();
+    expect(cancel).toHaveBeenCalledWith({
+      vendor: EHardwareVendor.ledger,
     });
     expect(clearState).toHaveBeenCalledTimes(1);
     expect(dialogInstanceRef.current).toBeNull();
+  });
+
+  it('closes only its correlated request without a vendor-wide cancel', async () => {
+    const uiResponse = jest.fn(async () => undefined);
+    const cancel = jest.fn(async () => undefined);
+    const callbacks = createThirdPartyDeviceSelectionDialogCallbacks({
+      vendor: EHardwareVendor.trezor,
+      requestId: 'selection-old',
+      dialogInstanceRef: { current: {} },
+      settledRef: { current: false },
+      uiResponse,
+      cancel,
+      clearState: jest.fn(async () => undefined),
+    });
+    await callbacks.onClose();
+    await callbacks.onClose();
+    expect(uiResponse).toHaveBeenCalledTimes(1);
+    expect(uiResponse).toHaveBeenCalledWith({
+      vendor: EHardwareVendor.trezor,
+      response: {
+        type: UI_RESPONSE.RECEIVE_SELECT_DEVICE,
+        payload: { requestId: 'selection-old', cancelled: true },
+      },
+    });
+    expect(cancel).not.toHaveBeenCalled();
+  });
+
+  it('does not issue an unconditional clear without an expected request', async () => {
+    const clearInBackground = jest.fn(async () => true);
+    const cleared = await clearThirdPartyHardwareUiStateIfCurrent({
+      expectedState: undefined,
+      clearInBackground,
+    });
+    expect(cleared).toBe(false);
+    expect(clearInBackground).not.toHaveBeenCalled();
   });
 });

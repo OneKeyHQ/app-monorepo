@@ -1,0 +1,38 @@
+diff --git a/node_modules/react-native-confirmation-code-field/esm/CodeField.d.ts b/node_modules/react-native-confirmation-code-field/esm/CodeField.d.ts
+index 6ee099d..34c7bbb 100644
+--- a/node_modules/react-native-confirmation-code-field/esm/CodeField.d.ts
++++ b/node_modules/react-native-confirmation-code-field/esm/CodeField.d.ts
+@@ -1,6 +1,7 @@
+ import { ComponentPropsWithoutRef, ComponentType, ElementType, FC, JSX, ReactNode, Ref } from 'react';
+ import type { StyleProp, TextInputProps, TextStyle, ViewProps } from 'react-native';
+-import { TextInput } from 'react-native';
++// OneKey patch: RN 0.87+ strict API types `TextInput` as a component; refs are instances.
++import type { TextInputInstance } from 'react-native';
+ export interface RenderCellOptions {
+     symbol: string;
+     index: number;
+@@ -13,7 +14,7 @@ export interface Props extends Omit<TextInputProps, 'style'> {
+     rootStyle?: ViewProps['style'];
+     textInputStyle?: StyleProp<TextStyle>;
+     cellCount?: number;
+-    ref?: Ref<TextInput>;
++    ref?: Ref<TextInputInstance>;
+ }
+ export interface CodeFieldOverridableComponent extends FC<Props> {
+     <TInput extends ElementType>(props: {
+diff --git a/node_modules/react-native-confirmation-code-field/esm/useBlurOnFulfill.d.ts b/node_modules/react-native-confirmation-code-field/esm/useBlurOnFulfill.d.ts
+index 9e884fe..095b8b0 100644
+--- a/node_modules/react-native-confirmation-code-field/esm/useBlurOnFulfill.d.ts
++++ b/node_modules/react-native-confirmation-code-field/esm/useBlurOnFulfill.d.ts
+@@ -1,8 +1,9 @@
+ import type { RefObject } from 'react';
+-import type { TextInput } from 'react-native';
++// OneKey patch: RN 0.87+ strict API types `TextInput` as a component; refs are instances.
++import type { TextInputInstance } from 'react-native';
+ interface Options {
+     value?: string;
+     cellCount: number;
+ }
+-export declare const useBlurOnFulfill: <TInput extends TextInput>({ value, cellCount, }: Options) => RefObject<TInput | null>;
++export declare const useBlurOnFulfill: <TInput extends TextInputInstance>({ value, cellCount, }: Options) => RefObject<TInput | null>;
+ export {};

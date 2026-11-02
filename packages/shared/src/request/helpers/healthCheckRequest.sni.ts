@@ -8,6 +8,7 @@
 
 import { OneKeyLocalError } from '../../errors';
 import { defaultLogger } from '../../logger/logger';
+import { withCustomUAHeaders } from '../customUA';
 
 import { getSelectedIpForHost } from './ipTableAdapter';
 import { isSniFailClosedError } from './sniFailClosedError';
@@ -220,7 +221,7 @@ export async function healthCheckRequest(
       ip: selectedIp,
       hostname,
       path,
-      headers,
+      headers: await withCustomUAHeaders(url, headers),
       method,
       body: null,
       timeout,

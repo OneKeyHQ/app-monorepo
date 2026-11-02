@@ -17,6 +17,7 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import type { ISegmentControlLabelState } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { MultipleClickStack } from '@onekeyhq/kit/src/components/MultipleClickStack';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
@@ -70,40 +71,40 @@ function ThemeRow() {
   const options = useMemo(
     () => [
       {
-        label: (
+        label: ({ active, hovered }: ISegmentControlLabelState) => (
           <Icon
             my="$0.5"
             name="LaptopOutline"
             size="$4"
-            color={theme === 'system' ? '$iconInverse' : '$icon'}
+            color={active || hovered ? '$iconStrong' : '$icon'}
           />
         ),
         value: 'system' as const,
       },
       {
-        label: (
+        label: ({ active, hovered }: ISegmentControlLabelState) => (
           <Icon
             my="$0.5"
             name="SunOutline"
             size="$4"
-            color={theme === 'light' ? '$iconInverse' : '$icon'}
+            color={active || hovered ? '$iconStrong' : '$icon'}
           />
         ),
         value: 'light' as const,
       },
       {
-        label: (
+        label: ({ active, hovered }: ISegmentControlLabelState) => (
           <Icon
             my="$0.5"
             name="MoonOutline"
             size="$4"
-            color={theme === 'dark' ? '$iconInverse' : '$icon'}
+            color={active || hovered ? '$iconStrong' : '$icon'}
           />
         ),
         value: 'dark' as const,
       },
     ],
-    [theme],
+    [],
   );
   const handleChange = useCallback(async (value: unknown) => {
     await backgroundApiProxy.serviceSetting.setTheme(
@@ -119,7 +120,11 @@ function ThemeRow() {
           options={options}
           value={theme}
           onChange={handleChange}
-          segmentControlItemStyleProps={{ px: '$2.5', py: '$1' }}
+          segmentControlItemStyleProps={{
+            px: '$2.5',
+            py: '$0',
+            justifyContent: 'center',
+          }}
           h={26}
         />
       }
@@ -618,6 +623,9 @@ function WebPerpsSpotDustingSetting() {
 
 function DataSection({ onRequestClose }: { onRequestClose: () => void }) {
   const intl = useIntl();
+  const {
+    activeAccount: { network, account, indexedAccount },
+  } = useActiveAccount({ num: 0 });
 
   // Mirror the settings ClearAppCache "Swap history" option behind a destructive
   // confirm: clearCacheOnApp({ swapHistory }) → serviceSwap.cleanSwapHistoryItems().
@@ -664,7 +672,15 @@ function DataSection({ onRequestClose }: { onRequestClose: () => void }) {
         tone: 'destructive',
         onConfirmText: intl.formatMessage({ id: ETranslations.global_clear }),
         onConfirm: async () => {
-          await backgroundApiProxy.serviceSetting.clearPendingTransaction();
+          await backgroundApiProxy.serviceSetting.clearPendingTransaction({
+            selectedAccount: network
+              ? {
+                  networkId: network.id,
+                  accountId: account?.id,
+                  indexedAccountId: indexedAccount?.id,
+                }
+              : undefined,
+          });
           appEventBus.emit(
             EAppEventBusNames.ClearLocalHistoryPendingTxs,
             undefined,
@@ -675,7 +691,7 @@ function DataSection({ onRequestClose }: { onRequestClose: () => void }) {
         },
       });
     }, 150);
-  }, [intl, onRequestClose]);
+  }, [account?.id, indexedAccount?.id, intl, network, onRequestClose]);
 
   return (
     <YStack w="100%">

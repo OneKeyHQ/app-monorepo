@@ -1,8 +1,12 @@
 import type { IMarketTokenKLineDataPoint } from '@onekeyhq/shared/types/marketV2';
 import type { ITradingViewNativeChartSettings } from '@onekeyhq/shared/types/tradingViewNative';
 
-import { TRADING_VIEW_NATIVE_DEFAULT_ZOOM_SCALE } from '../chartConstants';
+import {
+  TRADING_VIEW_NATIVE_DEFAULT_ZOOM_SCALE,
+  TRADING_VIEW_NATIVE_SUB_INDICATOR_PANE_HEIGHT,
+} from '../chartConstants';
 import { getTradingViewNativeChartWidth } from '../utils/chartLayout';
+import { getTradingViewNativeNavigationEvent } from '../utils/chartNavigation';
 import {
   type ITradingViewNativeChartRuntimeState,
   createTradingViewNativeChartRuntimeState,
@@ -11,13 +15,16 @@ import {
 import { getTradingViewNativeGestureStartOffsetAfterDataUpdate } from '../utils/chartViewport';
 
 import type {
+  ITradingViewNativeCandleTimeMode,
   ITradingViewNativeChartLeafComponent,
   ITradingViewNativeChartType,
   ITradingViewNativeInitialRightOffset,
   ITradingViewNativePriceScaleMode,
 } from '../types';
 import type { ITradingViewNativeIndicatorSeries } from '../utils/chartIndicators';
+import type { ITradingViewNativeNavigationAction } from '../utils/chartNavigation';
 import type { ITradingViewNativePriceRange } from '../utils/chartViewport';
+import type { ITradingViewNativeSubIndicatorPriceScales } from '../utils/subIndicatorPriceScale';
 import type { ITradingViewNativeSubIndicatorRenderPane } from '../utils/subIndicatorRender';
 
 export interface ITradingViewNativeChartSize {
@@ -27,6 +34,7 @@ export interface ITradingViewNativeChartSize {
 
 export interface ITradingViewNativeChartRuntime extends ITradingViewNativeChartRuntimeState {
   candleIntervalSeconds: number;
+  candleTimeMode: ITradingViewNativeCandleTimeMode;
   chartComponents: readonly ITradingViewNativeChartLeafComponent[];
   chartSettings: ITradingViewNativeChartSettings;
   chartType: ITradingViewNativeChartType;
@@ -48,14 +56,17 @@ export interface ITradingViewNativeChartRuntime extends ITradingViewNativeChartR
   pinnedPriceRange: ITradingViewNativePriceRange | null;
   priceAxisScaleGesture: {
     chartHeight: number;
+    paneId: string | null;
     startScale: number;
     startY: number;
+    top: number;
   };
   priceRangeScale: number;
   priceScaleMode: ITradingViewNativePriceScaleMode;
   points: IMarketTokenKLineDataPoint[];
   size: ITradingViewNativeChartSize;
   subIndicatorPanes: readonly ITradingViewNativeSubIndicatorRenderPane[];
+  subIndicatorPriceScales: ITradingViewNativeSubIndicatorPriceScales;
   timeAxisScaleGesture: {
     chartWidth: number;
     currentX: number;
@@ -64,6 +75,30 @@ export interface ITradingViewNativeChartRuntime extends ITradingViewNativeChartR
     startX: number;
     startZoomScale: number;
   };
+}
+
+// The container and the pane data resize in separate UI updates. A pane-sized
+// height mismatch means one side is still pending, so keep the runtime size
+// and the price pane stays put instead of stretching or squashing.
+export function shouldHoldTradingViewNativeSubIndicatorResize({
+  canvasSize,
+  enabled,
+  runtimeSize,
+}: {
+  canvasSize: ITradingViewNativeChartSize;
+  enabled: boolean;
+  runtimeSize: ITradingViewNativeChartSize;
+}) {
+  'worklet';
+
+  const heightDelta = canvasSize.height - runtimeSize.height;
+  return (
+    enabled &&
+    runtimeSize.height > 0 &&
+    canvasSize.width === runtimeSize.width &&
+    heightDelta !== 0 &&
+    heightDelta % TRADING_VIEW_NATIVE_SUB_INDICATOR_PANE_HEIGHT === 0
+  );
 }
 
 export function resizeTradingViewNativeChartRuntime(
@@ -127,8 +162,57 @@ export function resizeTradingViewNativeChartRuntime(
   };
 }
 
+export function navigateTradingViewNativeChartRuntime(
+  runtime: ITradingViewNativeChartRuntime,
+  action: ITradingViewNativeNavigationAction,
+  priceAxisWidth: number,
+): ITradingViewNativeChartRuntime {
+  'worklet';
+
+  const chartWidth = getTradingViewNativeChartWidth(
+    runtime.size.width,
+    priceAxisWidth,
+  );
+  const event = getTradingViewNativeNavigationEvent({
+    action,
+    chartWidth,
+    pointCount: runtime.points.length,
+    viewport: runtime.viewport,
+  });
+  if (!event) return runtime;
+
+  const nextState = reduceTradingViewNativeChartRuntime(runtime, event);
+  const { offset, zoomScale } = nextState.viewport;
+  return {
+    ...runtime,
+    ...nextState,
+    pinnedPriceRange: action === 'reset' ? null : runtime.pinnedPriceRange,
+    priceRangeScale: action === 'reset' ? 1 : runtime.priceRangeScale,
+    // Rebase any ongoing gesture so a second-finger button press cannot undo it.
+    panGesture: {
+      ...runtime.panGesture,
+      startOffset:
+        runtime.panGesture.startOffset + offset - runtime.viewport.offset,
+    },
+    pinchGesture: {
+      ...runtime.pinchGesture,
+      scaleBaseline: runtime.pinchGesture.currentScale,
+      startOffset: offset,
+      startZoomScale: zoomScale,
+    },
+    timeAxisScaleGesture: {
+      ...runtime.timeAxisScaleGesture,
+      chartWidth,
+      startOffset: offset,
+      startX: runtime.timeAxisScaleGesture.currentX,
+      startZoomScale: zoomScale,
+    },
+  };
+}
+
 export function createTradingViewNativeChartRuntime({
   candleIntervalSeconds,
+  candleTimeMode = 'calendar',
   chartComponents,
   chartSettings,
   chartType,
@@ -140,6 +224,7 @@ export function createTradingViewNativeChartRuntime({
   subIndicatorPanes,
 }: {
   candleIntervalSeconds: number;
+  candleTimeMode?: ITradingViewNativeCandleTimeMode;
   chartComponents: readonly ITradingViewNativeChartLeafComponent[];
   chartSettings: ITradingViewNativeChartSettings;
   chartType: ITradingViewNativeChartType;
@@ -153,6 +238,7 @@ export function createTradingViewNativeChartRuntime({
   return {
     ...createTradingViewNativeChartRuntimeState({ initialRightOffset }),
     candleIntervalSeconds,
+    candleTimeMode,
     chartComponents,
     chartSettings,
     chartType,
@@ -174,14 +260,17 @@ export function createTradingViewNativeChartRuntime({
     pinnedPriceRange: null,
     priceAxisScaleGesture: {
       chartHeight: 0,
+      paneId: null,
       startScale: 1,
       startY: 0,
+      top: 0,
     },
     priceRangeScale: 1,
     priceScaleMode: 'linear',
     points,
     size: { height: 0, width: 0 },
     subIndicatorPanes,
+    subIndicatorPriceScales: {},
     timeAxisScaleGesture: {
       chartWidth: 0,
       currentX: 0,

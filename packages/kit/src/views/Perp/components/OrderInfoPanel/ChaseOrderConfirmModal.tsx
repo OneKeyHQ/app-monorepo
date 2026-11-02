@@ -11,6 +11,7 @@ import {
 } from '@onekeyhq/components';
 import { usePerpsCustomSettingsAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   formatLocalizedNumberString,
   numberFormat,
@@ -130,23 +131,25 @@ function ChaseOrderConfirmContent({
           value={order.reduceOnly ? yesText : noText}
         />
       </YStack>
-      <Checkbox
-        testID="perp-chase-order-confirm-checkbox"
-        labelProps={{
-          fontSize: '$bodyMdMedium',
-          color: '$textSubdued',
-        }}
-        label={intl.formatMessage({
-          id: ETranslations.perp_confirm_not_show,
-        })}
-        value={perpsCustomSettings.skipOrderConfirm}
-        onChange={(checked) =>
-          setPerpsCustomSettings((previous) => ({
-            ...previous,
-            skipOrderConfirm: Boolean(checked),
-          }))
-        }
-      />
+      <YStack pt={platformEnv.isNative ? '$2' : 0}>
+        <Checkbox
+          testID="perp-chase-order-confirm-checkbox"
+          labelProps={{
+            fontSize: '$bodyMdMedium',
+            color: '$textSubdued',
+          }}
+          label={intl.formatMessage({
+            id: ETranslations.perp_confirm_not_show,
+          })}
+          value={perpsCustomSettings.skipOrderConfirm}
+          onChange={(checked) =>
+            setPerpsCustomSettings((previous) => ({
+              ...previous,
+              skipOrderConfirm: Boolean(checked),
+            }))
+          }
+        />
+      </YStack>
     </YStack>
   );
 }
@@ -175,6 +178,7 @@ export function showChaseOrderConfirmDialog({
         szDecimals={szDecimals}
       />
     ),
+    contentContainerProps: platformEnv.isNative ? undefined : { pb: '$2' },
     showFooter: true,
     showConfirmButton: true,
     showCancelButton: true,

@@ -8,23 +8,31 @@ import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 interface ISwapPopularTokenGroupProps {
   onSelectToken: (token: ISwapToken) => void;
   tokens: ISwapToken[];
+  variant?: 'default' | 'desktop';
 }
 
 const SwapPopularTokenGroup = ({
   onSelectToken,
   tokens,
+  variant = 'default',
 }: ISwapPopularTokenGroupProps) => (
-  <XStack pt="$1" pb="$3" gap="$1.5" flexWrap="wrap">
+  <XStack
+    pt={variant === 'desktop' ? '$1.5' : '$1'}
+    pb={variant === 'desktop' ? '$2' : '$3'}
+    gap={variant === 'desktop' ? '$2' : '$1.5'}
+    flexWrap="wrap"
+  >
     {tokens.map((token) => (
       <XStack
         key={token.contractAddress}
         role="button"
         userSelect="none"
         alignItems="center"
-        px="$1.5"
+        px={variant === 'desktop' ? '$2' : '$1.5'}
+        height={variant === 'desktop' ? 36 : undefined}
         py="$1"
         bg="$bg"
-        borderRadius="$4"
+        borderRadius={variant === 'desktop' ? '$full' : '$4'}
         borderWidth={StyleSheet.hairlineWidth}
         borderColor="$borderSubdued"
         hoverStyle={{
@@ -48,13 +56,16 @@ const SwapPopularTokenGroup = ({
         }}
       >
         <Image
-          size="$4.5"
+          size={variant === 'desktop' ? '$5' : '$4.5'}
           borderRadius="$full"
           source={{
             uri: token.logoURI,
           }}
         />
-        <SizableText pl="$1" size="$bodyLgMedium">
+        <SizableText
+          pl={variant === 'desktop' ? '$1.5' : '$1'}
+          size={variant === 'desktop' ? '$bodyMdMedium' : '$bodyLgMedium'}
+        >
           {token.symbol}
         </SizableText>
       </XStack>

@@ -2,6 +2,7 @@
 
 import { act, renderHook } from '@testing-library/react-native';
 
+import { swrCacheUtils } from '@onekeyhq/shared/src/utils/swrCacheUtils';
 import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 
 import { useSwapStockTokenDetail } from './useSwapStockTokenDetail';
@@ -20,6 +21,7 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
 
 jest.mock('@onekeyhq/kit/src/hooks/useRouteIsFocused', () => ({
   useRouteIsFocused: () => true,
+  useRouteIsFocusedWhenEnabled: () => true,
 }));
 
 jest.mock('@onekeyhq/kit/src/hooks/useLocaleVariant', () => ({
@@ -59,8 +61,11 @@ const tick = async (ms = 0) => {
 describe('useSwapStockTokenDetail', () => {
   beforeEach(() => {
     jest.useFakeTimers();
+    swrCacheUtils.clearAll();
+    swrCacheUtils.flushNow();
     mockFetchMarketTokenDetail.mockReset();
     mockFetchMarketTokenDetail.mockResolvedValue({
+      code: 0,
       data: {
         perpsInfo: {
           hlTicker: 'AAPL',
@@ -128,8 +133,73 @@ describe('useSwapStockTokenDetail', () => {
     unmount();
   });
 
+  it('retains only the asset relation and preserves token and issuer metadata', async () => {
+    const { result, unmount } = renderHook(() =>
+      useSwapStockTokenDetail({
+        token: {
+          ...stockToken,
+          stock: {
+            stockId: 'AAPL',
+            subtitle: 'Apple',
+            sourceLogoUri: 'https://example.com/ondo.png',
+          },
+        },
+      }),
+    );
+    await tick();
+    expect(result.current.tokenDetail?.stock).toMatchObject({
+      stockId: 'AAPL',
+      subtitle: 'Apple',
+      sourceLogoUri: '',
+    });
+    unmount();
+  });
+
+  it.each([
+    { address: '0xanother-token' },
+    { networkId: 'evm--56' },
+    {
+      stock: {
+        stockId: 'NVDA',
+        subtitle: 'NVIDIA',
+        sourceLogoUri: 'https://example.com/bstock.png',
+      },
+    },
+    { code: 1 },
+  ])(
+    'rejects an invalid response before it can seed a token-to-asset relation (%j)',
+    async (overrides) => {
+      const { code = 0, ...tokenOverrides } = overrides;
+      mockFetchMarketTokenDetail.mockResolvedValue({
+        code,
+        data: {
+          token: {
+            address: stockToken.contractAddress,
+            stock: {
+              subtitle: 'Apple',
+              sourceLogoUri: 'https://example.com/ondo.png',
+            },
+            ...tokenOverrides,
+          },
+        },
+      });
+      const { result, unmount } = renderHook(() =>
+        useSwapStockTokenDetail({
+          token: {
+            ...stockToken,
+            stock: { stockId: 'AAPL', subtitle: 'Apple', sourceLogoUri: '' },
+          },
+        }),
+      );
+      await tick();
+      expect(result.current.tokenDetail).toBeUndefined();
+      unmount();
+    },
+  );
+
   it('does not expose perps data for a non-stock token detail response', async () => {
     mockFetchMarketTokenDetail.mockResolvedValue({
+      code: 0,
       data: {
         perpsInfo: {
           hlTicker: 'NOT_STOCK',

@@ -6,8 +6,12 @@ import { useIntl } from 'react-intl';
 
 import { Empty, Page, SegmentControl, Stack } from '@onekeyhq/components';
 import { PagerView } from '@onekeyhq/components/src/composite/Carousel/pager';
-import { HeaderIconButton } from '@onekeyhq/components/src/layouts/Navigation/Header';
+import {
+  HeaderButtonGroup,
+  HeaderIconButton,
+} from '@onekeyhq/components/src/layouts/Navigation/Header';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useBotWalletDeactivatedStatus } from '@onekeyhq/kit/src/hooks/useBotWalletDeactivatedStatus';
 import { getBotWalletDisabledMessage } from '@onekeyhq/kit/src/utils/botWalletDisabledToast';
 import {
@@ -15,11 +19,10 @@ import {
   SELL_GUIDE_URL,
 } from '@onekeyhq/shared/src/config/appConfig';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import type {
-  EModalFiatCryptoRoutes,
-  IModalFiatCryptoParamList,
-} from '@onekeyhq/shared/src/routes';
+import { EModalFiatCryptoRoutes } from '@onekeyhq/shared/src/routes';
+import type { IModalFiatCryptoParamList } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import {
   openUrlExternal,
@@ -28,10 +31,16 @@ import {
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import { HomeTokenListProviderMirror } from '../../../Home/components/HomeTokenListProvider/HomeTokenListProviderMirror';
+import {
+  OrdersBanner,
+  getOrdersBannerTarget,
+} from '../../components/Headless/OrdersBanner';
 import { SellOrBuyContent } from '../../components/SellOrBuy';
 import { TokenDataContainer } from '../../components/TokenDataContainer';
+import { useHeadlessBuyOrders } from '../../hooks/useHeadlessBuyOrders';
 import { FiatCryptoTestIDs } from '../../testIDs';
 
+import type { IOrdersBannerTarget } from '../../components/Headless/OrdersBanner';
 import type { RouteProp } from '@react-navigation/core';
 import type NativePagerView from 'react-native-pager-view';
 
@@ -68,6 +77,38 @@ const BuyPage = () => {
     defaultTab,
   } = route.params;
   const intl = useIntl();
+  const navigation = useAppNavigation();
+  // Native buy orders (iOS only; empty elsewhere). Entering this page is one
+  // of the allowed status-lookup moments, hence refreshOnMount.
+  const { visibleOrders, processingOrders, unseenFailedOrder } =
+    useHeadlessBuyOrders({ refreshOnMount: true });
+  const bannerTarget = useMemo(
+    () => getOrdersBannerTarget({ processingOrders, unseenFailedOrder }),
+    [processingOrders, unseenFailedOrder],
+  );
+  const openOrders = useCallback(() => {
+    defaultLogger.fiatCrypto.onramper.ordersEntryPressed({
+      source: 'icon',
+      processingCount: processingOrders.length,
+    });
+    navigation.push(EModalFiatCryptoRoutes.HeadlessBuyOrders);
+  }, [navigation, processingOrders.length]);
+  const handleBannerPress = useCallback(
+    (target: IOrdersBannerTarget) => {
+      defaultLogger.fiatCrypto.onramper.ordersEntryPressed({
+        source: 'banner',
+        processingCount: processingOrders.length,
+      });
+      if (target.kind === 'order') {
+        navigation.push(EModalFiatCryptoRoutes.HeadlessBuyOrderDetail, {
+          transactionId: target.order.transactionId,
+        });
+      } else {
+        navigation.push(EModalFiatCryptoRoutes.HeadlessBuyOrders);
+      }
+    },
+    [navigation, processingOrders.length],
+  );
   const walletId = useMemo(
     () =>
       accountUtils.getWalletIdFromAccountId({
@@ -130,19 +171,29 @@ const BuyPage = () => {
 
   const headerRight = useCallback(
     () => (
-      <HeaderIconButton
-        icon="QuestionmarkOutline"
-        onPress={() => {
-          const url = TAB_GUIDE_URLS[activeTab];
-          if (platformEnv.isDesktop || platformEnv.isNative) {
-            openUrlInDiscovery({ url });
-          } else {
-            openUrlExternal(url);
-          }
-        }}
-      />
+      <HeaderButtonGroup>
+        {/* Order history entry, only once this device has an order. */}
+        {visibleOrders.length > 0 ? (
+          <HeaderIconButton
+            testID="fiat-crypto-orders-button"
+            icon="ClockTimeHistoryOutline"
+            onPress={openOrders}
+          />
+        ) : null}
+        <HeaderIconButton
+          icon="QuestionmarkOutline"
+          onPress={() => {
+            const url = TAB_GUIDE_URLS[activeTab];
+            if (platformEnv.isDesktop || platformEnv.isNative) {
+              openUrlInDiscovery({ url });
+            } else {
+              openUrlExternal(url);
+            }
+          }}
+        />
+      </HeaderButtonGroup>
     ),
-    [activeTab],
+    [activeTab, openOrders, visibleOrders.length],
   );
 
   const renderHeaderTitle = useCallback(
@@ -157,10 +208,20 @@ const BuyPage = () => {
     [activeTab, handleTabChange, segmentOptions],
   );
 
+  // Native iOS only (the only platform with native buy orders): a stable
+  // header element whose content follows the order state.
+  const buyListHeader = platformEnv.isNativeIOS ? (
+    <OrdersBanner target={bannerTarget} onPress={handleBannerPress} />
+  ) : undefined;
   const buyContent = isBuyBlockedByBotWallet ? (
     <BotWalletBuyBlockedPlaceholder />
   ) : (
-    <SellOrBuyContent type="buy" networkId={networkId} accountId={accountId} />
+    <SellOrBuyContent
+      type="buy"
+      networkId={networkId}
+      accountId={accountId}
+      listHeader={buyListHeader}
+    />
   );
 
   const activeTabContent =

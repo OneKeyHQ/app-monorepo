@@ -69,6 +69,7 @@ import {
   settingsAtomInitialValue,
   settingsPersistAtom,
 } from '../states/jotai/atoms';
+import { updateJotaiContextStoreRegistration as updateJotaiContextStoreRegistrationInBackground } from '../states/jotai/atoms/jotaiContextStoreMap';
 import {
   type IPasswordAtom,
   passwordAtomInitialValue,
@@ -79,10 +80,8 @@ import { jotaiInit } from '../states/jotai/jotaiInit';
 import {
   isBackgroundApiAtomWritable,
   isExtensionInternalCall,
-  isProviderApiPrivateAllowedKeylessOrigin,
-  isProviderApiPrivateAllowedMethod,
   isProviderApiPrivateAllowedOrigin,
-  isProviderApiPrivateKeylessMethod,
+  isProviderApiPrivateOriginDenied,
 } from './backgroundApiPermissions';
 import { travelModeCommandDispatcher } from './TravelModeCommandDispatcher';
 import { travelModeDappRequestIngress } from './TravelModeDappRequestIngress';
@@ -771,6 +770,16 @@ class BackgroundApiBase implements IBackgroundApiBridge {
     }
   }
 
+  @bindThis()
+  @backgroundMethod()
+  async updateJotaiContextStoreRegistration(
+    update: Parameters<
+      typeof updateJotaiContextStoreRegistrationInBackground
+    >[0],
+  ) {
+    return updateJotaiContextStoreRegistrationInBackground(update);
+  }
+
   @backgroundMethod()
   async emitEvent<T extends keyof IAppEventBusPayload>(
     type: T,
@@ -1007,19 +1016,15 @@ class BackgroundApiBase implements IBackgroundApiBridge {
       operation: async () => {
         const { scope, origin } = payload;
         const payloadData = payload?.data as IJsonRpcRequest;
-        const isKeylessPrivateMethod = isProviderApiPrivateKeylessMethod(
-          payloadData?.method,
-        );
         const provider: ProviderApiBase = await this.getProviderApi(
           scope as IInjectedProviderNames,
         );
         if (
           scope === IInjectedProviderNames.$private &&
-          ((isKeylessPrivateMethod &&
-            !isProviderApiPrivateAllowedKeylessOrigin(origin)) ||
-            (!isKeylessPrivateMethod &&
-              !isProviderApiPrivateAllowedOrigin(origin) &&
-              !isProviderApiPrivateAllowedMethod(payloadData?.method)))
+          isProviderApiPrivateOriginDenied({
+            method: payloadData?.method,
+            origin,
+          })
         ) {
           const error = new Error(
             `[${origin as string}] is not allowed to call $private methods: ${

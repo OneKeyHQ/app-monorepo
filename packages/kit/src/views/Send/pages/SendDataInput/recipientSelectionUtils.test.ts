@@ -88,7 +88,7 @@ describe('recipientSelectionUtils', () => {
     currentNetworkId: 'evm--1',
     supportNetworkId: 'evm--1',
     isSupported: true,
-    isPrimeUser: true,
+    canRunCheck: true,
     resolvedAddress: '0xabc',
   };
 
@@ -106,9 +106,14 @@ describe('recipientSelectionUtils', () => {
       'loading',
     ],
     [
-      'keeps the Prime upsell actionable without an address',
-      { isPrimeUser: false, resolvedAddress: undefined },
+      'keeps the dashboard upsell actionable without an address',
+      { canRunCheck: false, resolvedAddress: undefined },
       'enabled',
+    ],
+    [
+      'treats a free user the press checks for like Prime and disables without an address',
+      { canRunCheck: true, resolvedAddress: undefined },
+      'disabled',
     ],
     [
       'disables a Prime check without a resolved address',

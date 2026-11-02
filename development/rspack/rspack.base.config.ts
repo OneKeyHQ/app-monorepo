@@ -1,3 +1,4 @@
+import crypto from 'crypto';
 import fs from 'fs';
 import path from 'path';
 import { exit } from 'process';
@@ -7,6 +8,7 @@ import HtmlWebpackPlugin from 'html-webpack-plugin';
 import notifier from 'node-notifier';
 
 import { isDev, nodeEnv, onekeyProxy, publicUrl } from './constant';
+import { RELEASE_ENV_KEYS, getReleaseEnvSource } from './releaseEnv';
 import { createResolveExtensions } from './utils';
 
 import type {
@@ -93,10 +95,55 @@ const IS_EAS_BUILD = !!process.env.EAS_BUILD;
 
 const COMMIT_SHA = resolveCommitSha();
 
+function createReleaseEnvAssetPlugin(platform: string): RspackPluginInstance {
+  return {
+    apply(compiler: Compiler): void {
+      compiler.hooks.thisCompilation.tap(
+        'ReleaseEnvAssetPlugin',
+        (compilation) => {
+          const source = getReleaseEnvSource();
+          if (platform === 'web') {
+            const version = crypto
+              .createHash('sha256')
+              .update(source)
+              .digest('hex')
+              .slice(0, 16);
+            const baseUrl = (publicUrl || '/').replace(/\/?$/, '/');
+            HtmlWebpackPlugin.getHooks(
+              compilation as unknown as Parameters<
+                typeof HtmlWebpackPlugin.getHooks
+              >[0],
+            ).beforeAssetTagGeneration.tap('ReleaseEnvAssetPlugin', (data) => {
+              data.assets.js.unshift(`${baseUrl}release-meta.js?v=${version}`);
+              return data;
+            });
+          }
+          compilation.hooks.processAssets.tap(
+            {
+              name: 'ReleaseEnvAssetPlugin',
+              stage: rspack.Compilation.PROCESS_ASSETS_STAGE_ADDITIONAL,
+            },
+            () => {
+              compilation.emitAsset(
+                'release-meta.js',
+                new rspack.sources.RawSource(source),
+              );
+            },
+          );
+        },
+      );
+    },
+  };
+}
+
 const CANVASKIT_WASM_TEST =
   /canvaskit-wasm[\\/]bin[\\/](full[\\/])?canvaskit\.wasm$/;
 const ZXING_READER_WASM_TEST =
   /zxing-wasm[\\/]dist[\\/]reader[\\/]zxing_reader\.wasm$/;
+// Chain runtime wasm is wasm-pack `-t web` output whose `wbg` imports come from the JS glue; emit it as an asset.
+const ZCASH_WASM_TEST = /onekey_zcash_(runtime|keys)_bg\.wasm$/;
+const MONERO_WASM_TEST = /onekey_monero_runtime_bg\.wasm$/;
+const CHAIN_RUNTIME_WASM_TEST = [ZCASH_WASM_TEST, MONERO_WASM_TEST];
 const ICON_MODULE_TEST =
   /[\\/]packages[\\/]components[\\/]src[\\/]primitives[\\/]Icon[\\/]react[\\/]/;
 
@@ -150,6 +197,7 @@ const { createBaseResolveOptions } = require('./rspack.resolve.config.js') as {
   createBaseResolveOptions: (options: {
     basePath: string;
     enableSentryMinimalCompat: boolean;
+    excludeChainRuntimes?: boolean;
     extensions: string[];
   }) => RspackOptions['resolve'];
 };
@@ -163,6 +211,8 @@ const baseResolve = ({
   createBaseResolveOptions({
     basePath,
     enableSentryMinimalCompat,
+    // Web ships no Zcash/Monero (web-embed does).
+    excludeChainRuntimes: platform === 'web',
     extensions: createResolveExtensions({ platform, configName }),
   });
 
@@ -175,13 +225,21 @@ const baseResolve = ({
 function buildDefineMap(
   platform: string,
 ): ConstructorParameters<typeof rspack.DefinePlugin>[0] {
+  const releaseEnvKeys =
+    !isDev && ['web', 'desktop', 'ext', 'web-embed'].includes(platform)
+      ? new Set<string>(RELEASE_ENV_KEYS)
+      : null;
+  const defineEnv = (key: string, value: string | undefined) =>
+    releaseEnvKeys?.has(key)
+      ? `globalThis.__ONEKEY_RELEASE_ENV__.${key}`
+      : JSON.stringify(value);
   // (1) env vars — single source of truth = envExposedToClient.js
   const envKeys = envExposedToClient.buildEnvExposedToClientDangerously({
     platform,
   });
   const envDefines: Record<string, string> = {};
   for (const key of envKeys) {
-    envDefines[`process.env.${key}`] = JSON.stringify(process.env[key]);
+    envDefines[`process.env.${key}`] = defineEnv(key, process.env[key]);
   }
   // (2) platformEnv.* booleans are folded by babel-plugin-transform-define
   //     (see buildPlatformEnvDefineMap + the first-party babel-loader rule),
@@ -209,10 +267,16 @@ function buildDefineMap(
     'process.env.PERF_FUNCTION_WARN_MS': JSON.stringify(
       process.env.PERF_FUNCTION_WARN_MS || '',
     ),
-    'process.env.VERSION': JSON.stringify(process.env.VERSION),
-    'process.env.BUNDLE_VERSION': JSON.stringify(process.env.BUNDLE_VERSION),
-    'process.env.BUILD_NUMBER': JSON.stringify(process.env.BUILD_NUMBER),
-    'process.env.GITHUB_SHA': JSON.stringify(COMMIT_SHA),
+    'process.env.VERSION': defineEnv('VERSION', process.env.VERSION),
+    'process.env.BUNDLE_VERSION': defineEnv(
+      'BUNDLE_VERSION',
+      process.env.BUNDLE_VERSION,
+    ),
+    'process.env.BUILD_NUMBER': defineEnv(
+      'BUILD_NUMBER',
+      process.env.BUILD_NUMBER,
+    ),
+    'process.env.GITHUB_SHA': defineEnv('GITHUB_SHA', COMMIT_SHA),
     'process.env.EXPO_OS': JSON.stringify('web'),
   };
   return { ...envDefines, ...explicitDefines };
@@ -226,14 +290,34 @@ const buildBasePlugins: (
   basePath,
 ) => [
   new rspack.DefinePlugin(buildDefineMap(platform)),
+  !isDev &&
+    ['web', 'desktop', 'ext', 'web-embed'].includes(platform) &&
+    createReleaseEnvAssetPlugin(platform),
   new rspack.ProvidePlugin({
     Buffer: ['buffer', 'Buffer'],
     process: require.resolve('process/browser'),
   }),
-  !isDev &&
-    platform === 'web' &&
+  ['web-embed', 'web', 'desktop'].includes(platform) &&
     new rspack.NormalModuleReplacementPlugin(
-      /views[\\/]Developer[\\/]router$/,
+      /worker-rspack-loader[\\/]dist[\\/]runtime[\\/]inline\.js$/,
+      (resource) => {
+        // Both scanning chains keep their Worker entry in a `sdk` directory and need the page's release values.
+        if (
+          /[\\/](zcash[\\/]sdkZcash|xmr[\\/]sdkXmrRuntime)[\\/]sdk$/.test(
+            resource.context,
+          )
+        ) {
+          resource.request = path.join(
+            basePath,
+            '../../packages/core/src/chains/zcash/sdkZcash/sdk/inlineWorkerRuntime.js',
+          );
+        }
+      },
+    ),
+  !isDev &&
+    ['web', 'desktop', 'ext', 'web-embed'].includes(platform) &&
+    new rspack.NormalModuleReplacementPlugin(
+      /views[\\/]Developer[\\/](?:router$|pages[\\/]Gallery[\\/])/,
       path.join(
         basePath,
         '../../packages/kit/src/views/Developer/router.empty.ts',
@@ -421,6 +505,7 @@ export function createBaseConfig({
             platform,
           }),
           WEB_PUBLIC_URL: publicUrl || '/',
+          releaseMetaUrl: `${(publicUrl || (platform === 'web-embed' ? './' : '/')).replace(/\/?$/, '/')}release-meta.js`,
           WEB_TITLE: platform,
           NO_SCRIPT:
             '<form action="" style="background-color:#fff;position:fixed;top:0;left:0;right:0;bottom:0;z-index:9999;"><div style="font-size:18px;font-family:Helvetica,sans-serif;line-height:24px;margin:10%;width:80%;"> <p>Oh no! It looks like JavaScript is not enabled in your browser.</p> <p style="margin:20px 0;"> <button type="submit" style="background-color: #4630EB; border-radius: 100px; border: none; box-shadow: none; color: #fff; cursor: pointer; font-weight: bold; line-height: 20px; padding: 6px 16px;">Reload</button> </p> </div> </form>',
@@ -464,8 +549,22 @@ export function createBaseConfig({
           generator: { filename: 'static/zxing/[name].[contenthash:8][ext]' },
         },
         {
+          test: CHAIN_RUNTIME_WASM_TEST,
+          // file:// builds (web-embed iOS, desktop release) have no base URL for a Blob Worker; inline wasm as a data: URI.
+          ...(platform === 'web-embed' || platform === 'desktop'
+            ? { type: 'asset/inline' as const }
+            : {
+                type: 'asset/resource' as const,
+                generator: { filename: 'static/chain-wasm/[name][ext]' },
+              }),
+        },
+        {
           test: /\.wasm$/,
-          exclude: [CANVASKIT_WASM_TEST, ZXING_READER_WASM_TEST],
+          exclude: [
+            CANVASKIT_WASM_TEST,
+            ZXING_READER_WASM_TEST,
+            ...CHAIN_RUNTIME_WASM_TEST,
+          ],
           type: 'webassembly/async',
         },
         {
@@ -794,7 +893,16 @@ export function createBaseConfig({
           use: ['html-loader', 'template-ejs-loader'],
         },
         {
+          test: /SdkInline\.worker\.js$/,
+          use: {
+            loader: 'worker-rspack-loader',
+            // WKWebView's file-backed page needs a self-contained Blob Worker; skip the unused WASM assets.
+            options: { inline: 'no-fallback' },
+          },
+        },
+        {
           test: /\.worker\.(js|ts)$/,
+          exclude: /SdkInline\.worker\.js$/,
           use: {
             loader: 'worker-rspack-loader',
             options: {

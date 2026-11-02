@@ -1,4 +1,5 @@
-import { EFirmwareType } from '@onekeyfe/hd-shared';
+import { EDeviceType, EFirmwareType } from '@onekeyfe/hd-shared';
+import { DeviceSessionPinType } from '@onekeyfe/hd-transport';
 
 import {
   backgroundMethod,
@@ -7,6 +8,7 @@ import {
 import {
   OneKeyLocalError,
   OneKeyServerApiError,
+  UserCancelFromOutside,
 } from '@onekeyhq/shared/src/errors';
 import { convertDeviceResponse } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import {
@@ -20,6 +22,7 @@ import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
+import systemTimeUtils from '@onekeyhq/shared/src/utils/systemTimeUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EHardwareCallContext } from '@onekeyhq/shared/types/device';
 import type {
@@ -44,6 +47,7 @@ import type {
   IDBDevice,
   IDBUpdateFirmwareVerifiedParams,
 } from '../../dbs/local/types';
+import type { IOneKeyHardwareOperationLease } from '../ServiceHardwareUI/HardwareProcessingManager';
 import type {
   DeviceVerifySignature,
   IDeviceType,
@@ -58,6 +62,7 @@ export type IFirmwareAuthenticateParams = {
 };
 
 const deviceCheckingCodes = new Set([10_104, 10_105, 10_106, 10_107]);
+const PRO2_VERIFY_AFTER_UNLOCK_DELAY_MS = 500;
 
 type FirmwareVerifyPayload = {
   data: string;
@@ -72,13 +77,15 @@ type IHardwareVerifyV2Data = {
 
 function getFirmwareVerifyPayload({
   instanceId,
+  timestamp,
 }: {
   instanceId: string;
+  timestamp: number;
 }): FirmwareVerifyPayload {
   // Same challenge as Pro/Classic: wallet splits `data` on '_' and requires
   // a UUID v4 instanceId. Device gets the UTF-8 bytes; Pro2/Neo firmware
   // must accept this variable-length message the same way Pro does.
-  const data = `${instanceId}_${Date.now()}_${stringUtils.randomString(12)}`;
+  const data = `${instanceId}_${timestamp}_${stringUtils.randomString(12)}`;
   return {
     data,
     dataHex: bufferUtils.textToHex(data, 'utf-8'),
@@ -158,10 +165,12 @@ export class HardwareVerifyManager extends ServiceHardwareManagerBase {
       uuid: serialNo,
     });
     return this.backgroundApi.serviceHardwareUI.withHardwareProcessing(
-      async () => {
+      async (oneKeyOperationLease) => {
         const payload = await this.getFirmwareVerificationPayload({
           connectId,
           deviceType: device.deviceType,
+          oneKeyOperationLease,
+          unlockBeforeVerify: true,
         });
         const response = await this.requestFirmwareVerification(payload);
         const result = response.data;
@@ -203,12 +212,60 @@ export class HardwareVerifyManager extends ServiceHardwareManagerBase {
   private async getFirmwareVerificationPayload({
     connectId,
     deviceType,
+    oneKeyOperationLease,
+    unlockBeforeVerify,
   }: {
     connectId: string;
     deviceType: IDeviceType;
+    oneKeyOperationLease?: IOneKeyHardwareOperationLease;
+    unlockBeforeVerify?: boolean;
   }): Promise<IFirmwareVerifyResult['payload']> {
     const { instanceId } = await settingsPersistAtom.get();
-    const { data, dataHex } = getFirmwareVerifyPayload({ instanceId });
+    if (
+      unlockBeforeVerify &&
+      (deviceType === EDeviceType.Pro2 || deviceType === EDeviceType.Neo)
+    ) {
+      const state = await this.serviceHardware.getDeviceState({
+        connectId,
+        params: { scope: 'runtime' },
+        hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
+      });
+      // An uninitialized device (fresh or just wiped) has no PIN to unlock: the
+      // firmware refuses DeviceSessionAskPin while onboarding and hd-core itself
+      // skips its pre-unlock for it, so go straight to the attestation call.
+      // Mirrors the SDK guard (`initialized !== false`).
+      if (
+        state.status.initialized !== false &&
+        state.status.unlocked === false
+      ) {
+        await this.serviceHardware.getDeviceStateWithUnlock({
+          connectId,
+          params: { scope: 'runtime' },
+          oneKeyOperationLease,
+          pinType: DeviceSessionPinType.Any,
+        });
+        await timerUtils.wait(PRO2_VERIFY_AFTER_UNLOCK_DELAY_MS);
+      }
+    }
+    if (oneKeyOperationLease?.signal?.aborted) {
+      throw new UserCancelFromOutside();
+    }
+    const serverTime = await systemTimeUtils
+      .getHardwareVerificationTime()
+      .catch(() => undefined);
+    if (oneKeyOperationLease?.signal?.aborted) {
+      throw new UserCancelFromOutside();
+    }
+    if (serverTime === undefined) {
+      defaultLogger.hardware.sdkLog.log(
+        'Hardware verification server time unavailable; using local time',
+      );
+    }
+    const { data, dataHex } = getFirmwareVerifyPayload({
+      instanceId,
+      // The server still enforces expiry when local time is used as a fallback.
+      timestamp: serverTime ?? Date.now(),
+    });
     const { cert, signature } = await this.getDeviceCertWithSig({
       connectId,
       dataHex,
@@ -292,10 +349,12 @@ export class HardwareVerifyManager extends ServiceHardwareManagerBase {
       );
     }
     return this.backgroundApi.serviceHardwareUI.withHardwareProcessing(
-      async () => {
+      async (oneKeyOperationLease) => {
         const payload = await this.getFirmwareVerificationPayload({
           connectId,
           deviceType,
+          oneKeyOperationLease,
+          unlockBeforeVerify: true,
         });
         let result: NonNullable<IFirmwareVerifyResult['result']> = {};
         try {

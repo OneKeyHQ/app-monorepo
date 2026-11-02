@@ -1,8 +1,10 @@
+import { getDrawingAxisGeometry } from '../../drawings/axisGeometry';
 import { getDrawingGeometry } from '../../drawings/geometry';
 import {
-  DEFAULT_DRAWING_FONT_SIZE,
-  isFreehandTool,
-} from '../../drawings/model';
+  getDrawingLabelBackground,
+  getDrawingLabelLayout,
+} from '../../drawings/labelLayout';
+import { isFreehandTool } from '../../drawings/model';
 
 import type { IDrawing, IDrawingProjection } from '../../drawings/model';
 export * from '../../drawings/geometry';
@@ -36,7 +38,7 @@ export function drawChartDrawings(
       context.strokeStyle = path.color ?? drawing.color;
       context.fillStyle = path.color ?? drawing.color;
       context.lineWidth = path.width ?? drawing.width;
-      context.globalAlpha = path.opacity ?? 1;
+      context.globalAlpha = path.opacity ?? drawing.opacity ?? 1;
       let dash: number[] = [];
       if (path.dashed || drawing.dash === 'dashed') dash = [6, 4];
       else if (drawing.dash === 'dotted') dash = [1, 4];
@@ -48,26 +50,56 @@ export function drawChartDrawings(
       });
       if (path.fill) {
         context.closePath();
-        context.globalAlpha = 0.12;
+        context.fillStyle =
+          path.fillColor ?? path.color ?? drawing.fillColor ?? drawing.color;
+        context.globalAlpha *= path.fillOpacity ?? drawing.fillOpacity ?? 0.2;
         context.fill();
-        context.globalAlpha = 1;
+        context.globalAlpha = path.opacity ?? drawing.opacity ?? 1;
       }
-      context.stroke();
+      if (path.stroke !== false) context.stroke();
     }
     for (const label of geometry.labels) {
-      const fontSize = label.fontSize ?? DEFAULT_DRAWING_FONT_SIZE;
-      context.font = `${fontSize}px sans-serif`;
-      context.fillStyle = background;
-      context.globalAlpha = 0.9;
-      context.fillRect(
-        label.x - 3,
-        label.y - fontSize - 1,
-        context.measureText(label.text).width + 6,
-        fontSize + 6,
-      );
+      const layout = getDrawingLabelLayout(label, projection, (text, size) => {
+        context.font = `${size}px sans-serif`;
+        return context.measureText(text).width;
+      });
+      context.setLineDash([]);
+      context.globalAlpha = label.opacity ?? 1;
+      if (label.background || label.borderColor) {
+        context.beginPath();
+        getDrawingLabelBackground(label, layout).forEach((point, index) => {
+          if (index === 0) context.moveTo(point.x, point.y);
+          else context.lineTo(point.x, point.y);
+        });
+        context.closePath();
+        if (label.background) {
+          context.fillStyle = label.background;
+          context.fill();
+        }
+        if (label.borderColor) {
+          context.strokeStyle = label.borderColor;
+          context.lineWidth = label.borderWidth ?? 1;
+          context.stroke();
+        }
+      }
       context.globalAlpha = 1;
-      context.fillStyle = drawing.color;
-      context.fillText(label.text, label.x, label.y);
+      context.fillStyle = label.color ?? drawing.textColor ?? drawing.color;
+      context.font = `${layout.fontSize}px sans-serif`;
+      context.textAlign = label.align === 'center' ? 'center' : 'left';
+      const textX =
+        label.align === 'center'
+          ? layout.x + layout.width / 2
+          : layout.x + layout.padding;
+      layout.lines.forEach((line, index) => {
+        context.fillText(
+          line,
+          textX,
+          layout.y +
+            layout.padding +
+            layout.fontSize +
+            index * layout.lineHeight,
+        );
+      });
     }
     if (
       (drawing.id === selectedId || selectedIds.includes(drawing.id)) &&
@@ -76,7 +108,7 @@ export function drawChartDrawings(
       context.globalAlpha = 1;
       context.setLineDash([]);
       context.lineWidth = 1.5;
-      context.strokeStyle = drawing.color;
+      context.strokeStyle = '#2962FF';
       context.fillStyle = background;
       if (isFreehandTool(drawing.tool)) {
         const [a, , b] = geometry.handles;
@@ -93,4 +125,24 @@ export function drawChartDrawings(
     }
   }
   context.restore();
+  const axes = getDrawingAxisGeometry(
+    { drawings, selectedId, selectedIds },
+    projection,
+  );
+  if (axes.rectangles.length) {
+    context.save();
+    context.fillStyle = '#2962FF';
+    for (const rect of axes.rectangles) {
+      context.globalAlpha = rect.opacity;
+      context.fillRect(rect.x, rect.y, rect.width, rect.height);
+    }
+    context.globalAlpha = 1;
+    context.fillStyle = '#FFFFFF';
+    context.font = '11px sans-serif';
+    context.textAlign = 'left';
+    context.textBaseline = 'alphabetic';
+    for (const label of axes.labels)
+      context.fillText(label.text, label.x, label.y);
+    context.restore();
+  }
 }

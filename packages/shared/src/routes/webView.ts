@@ -13,6 +13,9 @@ export type IModalWebViewParamList = {
     hashRouteQueryParams?: Record<string, string>;
     redirectExternalNavigation?: boolean;
     hideHeaderRight?: boolean;
+    disableBridge?: boolean;
+    /** Internal support-session owner; null denotes anonymous support. */
+    intercomUserId?: string | null;
     /**
      * Inject the full dApp session features (account/network change events on
      * top of the inpage provider every WebView already carries). Opt-in: the
@@ -23,16 +26,13 @@ export type IModalWebViewParamList = {
 };
 
 // Root-level WebView overlay (separate from the modal-card webview above).
-// Reachable at ERootRoutes.WebView ('RootWebView') from in-app calls,
-// deeplinks, and notification taps.
+// Reachable at ERootRoutes.WebView ('RootWebView') from in-app calls and notification taps.
 export enum EWebViewRoutes {
   WebView = 'WebView',
 }
 
 export interface IWebViewPageParams {
   url: string;
-  /** Restricts an App Clip campaign handoff to official hosts and disables the wallet bridge. */
-  appClipCampaign?: boolean;
   title?: string;
   hideHeader?: boolean;
   /** Address bar is hidden by default — opt-in by passing `true`. */

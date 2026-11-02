@@ -17,10 +17,12 @@ import type {
 import type { ICoinSelectAlgorithm } from '@onekeyhq/core/src/utils/coinSelectUtils';
 import type { IAirGapAccount } from '@onekeyhq/qr-wallet-sdk';
 import type { IPbkdf2KdfParams } from '@onekeyhq/shared/src/appCrypto/modules/pbkdf2';
+import type { IOneKeyHardwareErrorPayload } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import type {
   ETranslations,
   ETranslationsMock,
 } from '@onekeyhq/shared/src/locale';
+import type { IWcPayPreBroadcastRecord } from '@onekeyhq/shared/src/walletConnect/payTypes';
 import type { IDappSourceInfo } from '@onekeyhq/shared/types';
 import type { IDBCustomRpc } from '@onekeyhq/shared/types/customRpc';
 import type {
@@ -43,6 +45,7 @@ import type {
 } from '@onekeyhq/shared/types/history';
 import type { ILNURLPaymentInfo } from '@onekeyhq/shared/types/lightning';
 import type { ENFTType } from '@onekeyhq/shared/types/nft';
+import type { IPrimeFreeTrialBroadcastUsage } from '@onekeyhq/shared/types/prime/primeFreeTrialTypes';
 import type { IPrimeInfiniBeforeBroadcastAction } from '@onekeyhq/shared/types/prime/primeTypes';
 import type { EUtxoSelectionStrategy } from '@onekeyhq/shared/types/send';
 import type { IStakingInfo } from '@onekeyhq/shared/types/staking';
@@ -71,6 +74,11 @@ import type {
   IAccountDeriveInfoMapKaspa,
   IAccountDeriveTypesKaspa,
 } from './impls/kaspa/settings';
+import type {
+  IAccountDeriveInfoMapXmr,
+  IAccountDeriveTypesXmr,
+} from './impls/xmr/settings';
+import type { ILocalWalletPoolDescriptor } from './localWallet/types';
 import type { IBackgroundApi } from '../apis/IBackgroundApi';
 import type { EDBAccountType } from '../dbs/local/consts';
 import type { IDBAccount, IDBWalletId } from '../dbs/local/types';
@@ -80,6 +88,18 @@ import type { HDNodeType } from '@onekeyfe/hd-transport';
 import type { ChainForFingerprint } from '@onekeyfe/hwk-adapter-core';
 import type { SignClientTypes } from '@walletconnect/types';
 import type { MessageDescriptor } from 'react-intl';
+
+// Whether a signed payload that left this runtime can still execute on chain
+// (OK-65147).
+export enum ESignedTxBroadcastStatus {
+  // The chain has seen the signature: it executed or is about to.
+  Broadcast = 'broadcast',
+  // The chain will never execute this payload: it was never seen and its
+  // validity expired, or it executed with an error.
+  NotBroadcast = 'notBroadcast',
+  // The vault cannot tell.
+  Unknown = 'unknown',
+}
 
 export enum EVaultKeyringTypes {
   hd = 'hd',
@@ -142,12 +162,14 @@ export type IAccountDeriveInfoMap =
   | IAccountDeriveInfoMapEvm
   | IAccountDeriveInfoMapBtc
   | IAccountDeriveInfoMapCosmos
-  | IAccountDeriveInfoMapKaspa;
+  | IAccountDeriveInfoMapKaspa
+  | IAccountDeriveInfoMapXmr;
 export type IAccountDeriveTypes =
   | 'default'
   | IAccountDeriveTypesEvm
   | IAccountDeriveTypesBtc
-  | IAccountDeriveTypesKaspa;
+  | IAccountDeriveTypesKaspa
+  | IAccountDeriveTypesXmr;
 
 export type INetworkDeriveInfo = {
   deriveType: IAccountDeriveTypes;
@@ -227,6 +249,54 @@ export type IVaultSettings = {
   allowZeroFee?: boolean;
 
   onChainHistoryDisabled?: boolean;
+  localWallet?: {
+    // 'account-opt-in': scanning is costly, so each account enables it.
+    activation: 'always' | 'account-opt-in';
+    balanceShape: 'single' | 'pooled';
+    // In this chain's blocks; block time differs per chain.
+    tipLagWarningBlocks: number;
+    // Display order is tab order. At most one backend pool.
+    pools: ILocalWalletPoolDescriptor[];
+    // Pools history may name but that have no tab, balance or address.
+    historyOnlyPools?: { id: number; label: string }[];
+    accountSetup: {
+      // Enabling asks the user for a recovery month or height.
+      requiresBirthday: boolean;
+      // The earliest start that can hold this chain's private funds: the
+      // floor of the month picker and the "scan from the beginning" choice.
+      earliestBirthday: { height: number; timestamp: number };
+    };
+    // No `publicLabel` (Monero): the receive page shows no public/private switch.
+    addressForms: {
+      publicLabel?: ETranslations;
+      privateLabel: ETranslations;
+    };
+    // RegExp sources, since settings cross the background bridge as JSON.
+    // Addresses that may appear in a public flow; absent: every address.
+    publicAddressPattern?: string;
+    // Formats of wallet-known private recipients; never a public-chain claim.
+    privateAddressPattern?: string;
+    // Names a history endpoint the chain keeps private when its pool is not
+    // known (an unknown counterparty). Absent: a generic "Shielded".
+    hiddenEndpointLabelId?: ETranslations | ETranslationsMock;
+    // Superset of valid addresses, to skip the runtime-backed validator for
+    // input that cannot match. Absent: always validate.
+    addressShapePattern?: string;
+    // Receive is the only place showing an address, as in Monero wallets.
+    hideAddressOnTokenDetails?: boolean;
+    // Turns a block lag into elapsed time for the sync status line.
+    blockTimeSeconds: number;
+    // Height ranges worth naming while the scanner is inside them.
+    scanRegionHints?: {
+      fromHeight: number;
+      toHeight: number;
+      labelId: ETranslations;
+    }[];
+    // Fee is fixed by protocol (ZIP-317), so fee >= amount is not an overpay.
+    feeSetByProtocol?: boolean;
+    // Address-scoped backend endpoints never receive this chain's addresses.
+    withholdAddressFromBackend?: boolean;
+  };
   saveConfirmedTxsEnabled?: boolean;
 
   cannotSendToSelf?: boolean;
@@ -287,6 +357,9 @@ export type IVaultSettings = {
 
   activateTokenRequired?: boolean;
   customRpcEnabled?: boolean;
+  // Shipped nodes for client-scanned chains, best first. [0] is the default
+  // unless an enabled custom RPC overrides it; the rest are failover.
+  builtInRpcUrls?: string[];
   mergeDeriveAssetsEnabled?: boolean;
   sendZeroWithZeroTokenBalanceDisabled?: boolean;
 
@@ -322,6 +395,11 @@ export type IVaultSettings = {
   enabledInternalSignAndVerify?: boolean;
 
   nativeBatchTransferEnabled?: boolean;
+
+  // Max recipients per OneToMany bulk send tx (contract call or native batch).
+  // Larger lists are split into multiple txs to stay under per-tx limits.
+  // Leave unset when the vault splits by other means (e.g. SOL tx size).
+  bulkSendMaxTransfersPerTx?: number;
 };
 
 export type IVaultFactoryOptions = {
@@ -376,7 +454,9 @@ export type IPrepareImportedAccountsParams = {
   debugCryptoProbeId?: string;
 } & IPbkdf2KdfParams;
 export type IPrepareHDOrHWAccountChainExtraParams = {
+  localWalletAddressForm?: 'public' | 'private';
   receiveAddressPath?: string;
+  expectedAddress?: string;
 };
 export type IPrepareHdAccountsParamsBase = {
   indexes: Array<number>;
@@ -449,7 +529,10 @@ export type INormalizeGetMultiAccountsPathParams = {
 
 export type IHwSdkNetwork = AllNetworkAddressParams['network'];
 
-type IHwAllNetworkPrepareAccountsItemErrorPayload = {
+type IHwAllNetworkPrepareAccountsItemErrorPayload = Pick<
+  IOneKeyHardwareErrorPayload,
+  'appName' | 'recovery'
+> & {
   error: string;
   code: number;
   errorCode: string | number; // TODO use code instead
@@ -470,8 +553,17 @@ export type IHwAllNetworkPrepareAccountsItem =
 
     payload?: IHwAllNetworkPrepareAccountsItemErrorPayload & {
       address?: string;
+      /** Keystone account selected from an explicit device-export scan. */
+      accountExport?: boolean;
       path?: string;
       rootFingerprint?: number;
+      /** Keystone: the unsigned account-level key the address was derived from. */
+      accountKey?: {
+        path: string;
+        publicKey: string;
+        chainCode?: string;
+        xpub?: string;
+      };
       deviceIdentity?:
         | {
             vendor: 'ledger';
@@ -482,6 +574,11 @@ export type IHwAllNetworkPrepareAccountsItem =
         | {
             vendor: 'trezor';
             type: 'deviceId';
+            value: string;
+          }
+        | {
+            vendor: 'keystone';
+            type: 'walletId';
             value: string;
           };
       chainFingerprint?: string;
@@ -502,6 +599,9 @@ export type IHwAllNetworkPrepareAccountsItem =
       stakeAddress?: string; // ada
 
       derivedPath?: string; // alph
+
+      ufvk?: string; // zcash
+      seedFingerprint?: string; // zcash
     };
 
     useTweak?: boolean; // kaspa
@@ -534,6 +634,12 @@ export type IBuildAccountAddressDetailParams = {
 };
 
 // Internal txInfo ----------------------------------------------
+// Scan start for a local-wallet rescan.
+export type IRescanLocalWalletFrom =
+  | { type: 'height'; height: number }
+  | { type: 'timestamp'; timestamp: number }
+  | { type: 'daysAgo'; daysAgo: number };
+
 export type ITransferInfo = {
   from: string;
   to: string;
@@ -550,6 +656,7 @@ export type ITransferInfo = {
   useCustomAddressesBalance?: boolean;
   opReturn?: string;
   coinSelectAlgorithm?: ICoinSelectAlgorithm;
+  zcashMemoHex?: string; // Canonical ZIP 302 field; never EVM call data.
   memo?: string; // Ripple chain destination tag, Cosmos chain memo
   keepAlive?: boolean; // Polkadot chain keep alive
 
@@ -559,6 +666,14 @@ export type ITransferInfo = {
   lnurl?: string;
 
   paymentId?: string; // Dynex chain paymentId
+
+  // Local-wallet chains; pool keys come from settings.localWallet.pools.
+  // Sweep the public balance into the account's own private pool.
+  localWalletShield?: boolean;
+  // Withdraw: restrict input selection to this private pool key.
+  localWalletSpendSource?: string;
+  // Pool key chosen on the pool screen or the send-pool picker.
+  localWalletSourcePool?: string;
 
   note?: string; // Algo chain note
 
@@ -663,6 +778,7 @@ export type INativeAmountInfo = {
 // Send ------------
 export interface IBuildEncodedTxParams {
   transfersInfo?: ITransferInfo[];
+  transferPayload?: ITransferPayload;
   approveInfo?: IApproveInfo;
   wrappedInfo?: IWrappedInfo;
   specifiedFeeRate?: string;
@@ -685,6 +801,13 @@ export interface IBuildUnsignedTxParams {
   stakingInfo?: IStakingInfo;
   specifiedFeeRate?: string;
   prevNonce?: number;
+  prefetchedOnChainNonce?: {
+    nonce: number;
+    fetchedAt: number;
+    accountId: string;
+    networkId: string;
+    accountAddress: string;
+  };
   feeInfo?: IFeeInfoUnit;
   transferPayload?: ITransferPayload;
   isInternalSwap?: boolean;
@@ -770,7 +893,12 @@ export interface IBatchSignTransactionParamsBase {
   sourceInfo?: IDappSourceInfo;
   replaceTxInfo?: IReplaceTxInfo;
   transferPayload: ITransferPayload | undefined;
-  successfullySentTxs?: string[];
+  // UI-generated id, stable across retries of one confirm screen. The
+  // background records broadcast tx uuids under it so a retry never broadcasts
+  // them again. It is an id rather than a mutable array because params are
+  // serialized on split runtimes (extension, native background thread), where
+  // background-side mutations never reach the UI.
+  sentTxsTrackingId?: string;
   tronResourceRentalInfo?: ITronResourceRentalInfo;
   gasAccountUiState?: IGasAccountUiState;
   // UI-generated token that identifies a single submit attempt. The background
@@ -779,7 +907,17 @@ export interface IBatchSignTransactionParamsBase {
   gasAccountSubmitId?: string;
   broadcastDeadline?: number;
   beforeBroadcastAction?: IPrimeInfiniBeforeBroadcastAction;
+  // WalletConnect Pay only: identity of the durable progress slot the
+  // background writes the txid into between signing and broadcast
+  // (duplicate-payment boundary, see ServiceSend.signAndSendTransaction)
+  wcPayPreBroadcastRecord?: IWcPayPreBroadcastRecord;
   useDefaultRpc?: boolean;
+  // Free-trial usage of a bulk tool; ServiceSend marks it consumed right
+  // after a broadcast succeeds. Omitted for Prime users and other callers.
+  freeTrialUsage?: IPrimeFreeTrialBroadcastUsage;
+  // When set, emits BatchSignTxProgress before signing each tx so the UI can
+  // show which tx of the batch is being signed.
+  progressEventId?: string;
 }
 
 export interface ISignMessageParams extends IPbkdf2KdfParams {

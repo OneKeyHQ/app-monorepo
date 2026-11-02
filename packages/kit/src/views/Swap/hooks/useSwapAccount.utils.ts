@@ -2,12 +2,86 @@ import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { equalsIgnoreCase } from '@onekeyhq/shared/src/utils/stringUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 import {
   ESwapDirectionType,
   ESwapTabSwitchType,
 } from '@onekeyhq/shared/types/swap/types';
 
 import type { IAccountSelectorActiveAccountInfo } from '../../../states/jotai/contexts/accountSelector';
+
+/**
+ * Builds the account info exposed to swap actions after an optional
+ * cross-network lookup. A missing target account keeps the active wallet
+ * identity for warnings and balance scoping, but never reuses the previous
+ * network account for the selected token.
+ */
+export function buildSwapAddressAccountInfo({
+  activeAccount,
+  shouldResolveTargetNetworkAccount,
+  targetNetworkAccount,
+}: {
+  activeAccount: IAccountSelectorActiveAccountInfo;
+  shouldResolveTargetNetworkAccount: boolean;
+  targetNetworkAccount?: INetworkAccount;
+}) {
+  if (shouldResolveTargetNetworkAccount && !targetNetworkAccount) {
+    return {
+      ...activeAccount,
+      account: undefined,
+    };
+  }
+
+  return {
+    ...activeAccount,
+    ...(targetNetworkAccount
+      ? {
+          account: {
+            ...targetNetworkAccount,
+          },
+        }
+      : undefined),
+  };
+}
+
+export async function resolveSwapBalanceAccount({
+  activeAccount,
+  networkId,
+  resolveNetworkAccount,
+}: {
+  activeAccount: IAccountSelectorActiveAccountInfo;
+  networkId: string;
+  resolveNetworkAccount: () => Promise<INetworkAccount | undefined>;
+}): Promise<INetworkAccount | undefined> {
+  if (
+    !activeAccount.ready ||
+    !networkId ||
+    (!activeAccount.indexedAccount?.id && !activeAccount.account?.id)
+  ) {
+    return undefined;
+  }
+  if (
+    !networkUtils.isAllNetwork({ networkId: activeAccount.network?.id }) &&
+    activeAccount.network?.id === networkId
+  ) {
+    return activeAccount.account;
+  }
+  return resolveNetworkAccount();
+}
+
+export function getSwapAccountNetworkWarningAccountId({
+  accountInfo,
+  activeAccount,
+}: {
+  accountInfo?: IAccountSelectorActiveAccountInfo;
+  activeAccount?: IAccountSelectorActiveAccountInfo;
+}) {
+  // A resolved accountInfo with no account means the target network lookup
+  // settled without an account. Keep that undefined identity when matching
+  // the unsupported-network warning instead of falling back to the old
+  // network account.
+  return accountInfo ? accountInfo.account?.id : activeAccount?.account?.id;
+}
 
 const SWAP_TARGET_DERIVE_TYPE_RETRY_DELAY_MS = 500;
 
@@ -435,4 +509,18 @@ export function shouldUseSwapAddressForTokenFetch({
     activeNetworkId === targetNetworkId &&
     resolvedAddressNetworkId === targetNetworkId
   );
+}
+
+// A cross-network account lookup still in flight is not a missing address:
+// verdicts keep their last value until it resolves, so swapping From/To does
+// not flash for a frame. A truly absent account is caught separately by the
+// connect-wallet state.
+export function hasSwapFromAddressForVerdict({
+  address,
+  isAddressInfoReady,
+}: {
+  address?: string;
+  isAddressInfoReady: boolean;
+}) {
+  return Boolean(address) || !isAddressInfoReady;
 }

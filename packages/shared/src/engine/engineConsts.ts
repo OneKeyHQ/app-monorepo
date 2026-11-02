@@ -57,6 +57,10 @@ const IMPL_BCH = 'bch';
 const COINTYPE_BCH = '145';
 export const COINNAME_BCH = 'BCH';
 
+const IMPL_ZCASH = 'zec';
+const COINTYPE_ZCASH = '133';
+export const COINNAME_ZCASH = 'ZCASH';
+
 const IMPL_XRP = 'xrp';
 const COINTYPE_XRP = '144';
 
@@ -155,6 +159,7 @@ const SUPPORTED_IMPLS = new Set([
   IMPL_ALPH,
   IMPL_NEO,
   IMPL_STELLAR,
+  IMPL_ZCASH,
   IMPL_ALLNETWORKS,
 ]);
 
@@ -190,6 +195,7 @@ const PRODUCTION_IMPLS = new Set([
   IMPL_ALPH,
   IMPL_NEO,
   IMPL_STELLAR,
+  IMPL_ZCASH,
   IMPL_ALLNETWORKS,
 ]);
 
@@ -205,9 +211,24 @@ export const HISTORY_CONSTS = {
 // Business error codes returned by the wallet send-transaction backend
 // (/wallet/v1/account/send-transaction). Surfaced as OneKeyServerApiError.code.
 export const SEND_TX_SERVER_ERROR_CODES = {
+  // Explicit node rejections; generic send/dependency errors stay uncertain.
+  INSUFFICIENT_BALANCE: 40_016,
   // Nonce already consumed on-chain (original tx confirmed or replaced);
   // a replace (speed up / cancel) using that nonce can no longer succeed.
   NONCE_ALREADY_USED: 40_024,
+  INCREASE_FEE: 40_025,
+  INTRINSIC_GAS_TOO_LOW: 40_026,
+  BAD_SIGNATURE: 40_030,
+  MAX_FEE_BELOW_BASE_FEE: 40_031,
+  EXECUTION_REVERTED: 40_034,
+  TRANSFER_AMOUNT_EXCEEDS_MAX: 40_035,
+  SLIPPAGE_TOO_LOW: 40_036,
+  ONE_INCH_SLIPPAGE_TOO_LOW: 40_037,
+  INSUFFICIENT_ALLOWANCE: 40_038,
+  INVALID_NONCE: 40_048,
+  INSUFFICIENT_FUNDS: 40_049,
+  NONCE_TOO_HIGH: 40_057,
+  PRIORITY_FEE_TOO_LOW: 40_059,
 };
 
 export enum EAppSocketEvents {
@@ -265,6 +286,7 @@ export {
   COINTYPE_BFC,
   COINTYPE_NEO,
   COINTYPE_STELLAR,
+  COINTYPE_ZCASH,
   COINTYPE_AGGREGATE,
   IMPL_ADA,
   IMPL_ALGO,
@@ -301,6 +323,7 @@ export {
   IMPL_BFC,
   IMPL_NEO,
   IMPL_STELLAR,
+  IMPL_ZCASH,
   IMPL_AGGREGATE,
   INDEX_PLACEHOLDER,
   SEPERATOR,

@@ -346,7 +346,14 @@ function findPackageRoot(filePath, root, cache, snapshot) {
       const contents = fs.readFileSync(packagePath, 'utf8');
       snapshot?.recordContents(packagePath, contents);
       const packageJson = JSON.parse(contents);
+      const parent = path.dirname(current);
+      // Bundled package manifests belong to the enclosing installed package.
+      const isInstalledPackage =
+        path.basename(parent) === 'node_modules' ||
+        (path.basename(parent).startsWith('@') &&
+          path.basename(path.dirname(parent)) === 'node_modules');
       if (
+        isInstalledPackage &&
         typeof packageJson.name === 'string' &&
         typeof packageJson.version === 'string'
       ) {

@@ -1,10 +1,13 @@
 import { useIntl } from 'react-intl';
 
 import {
+  Badge,
+  Button,
   Dialog,
   Divider,
   Icon,
   SizableText,
+  Stack,
   XStack,
 } from '@onekeyhq/components';
 import { NATIVE_HIT_SLOP } from '@onekeyhq/components/src/utils';
@@ -19,8 +22,11 @@ import { getTotalSecurityDisplayInfo } from './utils/utils';
 
 function TokenSecurityAlert({
   showLeadingDivider = false,
+  variant = 'default',
 }: {
   showLeadingDivider?: boolean;
+  // `badge`: the mobile price header. `overview`: the mobile overview links.
+  variant?: 'default' | 'badge' | 'overview';
 }) {
   const intl = useIntl();
   const { tokenAddress, networkId, tokenDetail } = useTokenDetail();
@@ -35,6 +41,8 @@ function TokenSecurityAlert({
     Dialog.show({
       title: intl.formatMessage({ id: ETranslations.dexmarket_audit }),
       showFooter: false,
+      sheetDragArea: 'header',
+      testID: 'market-token-security-dialog',
       renderContent: (
         <TokenSecurityAlertDialogContent
           securityData={securityData}
@@ -63,6 +71,52 @@ function TokenSecurityAlert({
     riskCount,
     cautionCount,
   );
+
+  const label = `${intl.formatMessage({
+    id: ETranslations.dexmarket_audit,
+  })} ${count}`;
+
+  if (variant === 'badge') {
+    return (
+      <Badge
+        testID="market-token-security-badge"
+        badgeType="default"
+        badgeSize="sm"
+        px="$2"
+        py="$1"
+        gap="$1.5"
+        borderRadius="$full"
+        cursor="pointer"
+        hitSlop={NATIVE_HIT_SLOP}
+        onPress={handlePress}
+      >
+        {/* A 12px slot the 16px glyph overhangs evenly, as the badge's
+            leading icon does in the design. */}
+        <Stack w="$3" h="$4" ai="center" jc="center">
+          <Icon name="BugOutline" size="$4" color={color} />
+        </Stack>
+        <Badge.Text size="$bodySm" color="$textSubdued">
+          {label}
+        </Badge.Text>
+      </Badge>
+    );
+  }
+
+  if (variant === 'overview') {
+    return (
+      <Button
+        testID="market-token-security-overview"
+        size="small"
+        variant="secondary"
+        icon="BugOutline"
+        iconColor={color}
+        color="$textSubdued"
+        onPress={handlePress}
+      >
+        {label}
+      </Button>
+    );
+  }
 
   return (
     <>

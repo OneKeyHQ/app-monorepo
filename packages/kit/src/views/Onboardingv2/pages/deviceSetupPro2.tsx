@@ -6,6 +6,7 @@ import { type IntlShape, defineMessages, useIntl } from 'react-intl';
 import { Anchor, Image, SizableText, YStack } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { HwWalletAvatarImages } from '@onekeyhq/shared/src/utils/avatarUtils';
+import type { IHwWalletAvatarImageNames } from '@onekeyhq/shared/src/utils/avatarUtils';
 import { isProtocolV2ProductType } from '@onekeyhq/shared/src/utils/hardwareDeviceTypes';
 
 import { SeedCardIllustration } from '../components/SeedCardIllustration';
@@ -20,8 +21,6 @@ import {
 
 import type { IPro2OnboardingStatus } from './pro2OnboardingStatus';
 import type { IDeviceType } from '@onekeyfe/hd-core';
-
-const pro2Avatar = HwWalletAvatarImages[EDeviceType.Pro];
 
 const pro2Messages = defineMessages({
   createPhraseDesc: {
@@ -432,8 +431,14 @@ const STEPPER_STEPS = [
 
 export function Pro2OnboardingStepper({
   status,
+  deviceType = EDeviceType.Pro2,
+  avatarImg,
 }: {
   status: IPro2OnboardingStatus;
+  /** The connected model, so the step cards wear its own avatar. */
+  deviceType?: IDeviceType;
+  /** The model's avatar in the device's own finish, when known. */
+  avatarImg?: IHwWalletAvatarImageNames;
 }) {
   const intl = useIntl();
   const viewState = mapPro2OnboardingStatus(status);
@@ -457,7 +462,11 @@ export function Pro2OnboardingStepper({
               content ? stepContentKey(def.step, viewState.setup) : undefined
             }
             instruction={content?.instruction}
-            deviceImage={content ? pro2Avatar : undefined}
+            deviceImage={
+              content
+                ? HwWalletAvatarImages[avatarImg ?? deviceType]
+                : undefined
+            }
             backgroundSlot={content?.background}
           >
             {content?.body}

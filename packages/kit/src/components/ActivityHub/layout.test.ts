@@ -1,21 +1,20 @@
-import {
-  ACTIVITY_HUB_SHORTCUT_ROW_PADDING,
-  getActivityHubLayout,
-} from './layout';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
-function getShortcutTileWidth(isWidePanel: boolean) {
-  const { panelWidth, shortcutColumns } = getActivityHubLayout(isWidePanel);
-  return (panelWidth - ACTIVITY_HUB_SHORTCUT_ROW_PADDING) / shortcutColumns;
-}
+import { getActivityHubTitleId } from './layout';
 
-describe('getActivityHubLayout', () => {
-  it('keeps the shortcut tiles the same size in both layouts', () => {
-    expect(getShortcutTileWidth(false)).toBe(getShortcutTileWidth(true));
+describe('getActivityHubTitleId', () => {
+  it('names the invite panel alone after inviting friends', () => {
+    expect(
+      getActivityHubTitleId({ hasCampaigns: false, showInvitePanel: true }),
+    ).toBe(ETranslations.referral_home__title);
   });
 
-  it('spans the whole row with the shortcuts in the narrow panel', () => {
-    const { shortcutBasis, shortcutColumns } = getActivityHubLayout(false);
-
-    expect(shortcutColumns * Number.parseFloat(shortcutBasis)).toBe(100);
+  it('keeps the activity hub name once campaigns are listed', () => {
+    expect(
+      getActivityHubTitleId({ hasCampaigns: true, showInvitePanel: true }),
+    ).toBe(ETranslations.perps_activity_hub);
+    expect(
+      getActivityHubTitleId({ hasCampaigns: true, showInvitePanel: false }),
+    ).toBe(ETranslations.perps_activity_hub);
   });
 });

@@ -23,6 +23,7 @@ jest.mock('@onekeyhq/kit/src/hooks/usePromiseResult', () => {
     scopeKey: string;
     eModeStatus: unknown;
     state: 'resolved' | 'error';
+    resolvedAt?: number;
   } | null;
   const state: {
     current: {
@@ -62,6 +63,7 @@ type IScopedResult = {
   scopeKey: string;
   eModeStatus: IBorrowEModeStatus | null;
   state: 'resolved' | 'error';
+  resolvedAt?: number;
 };
 
 const promiseResultMock = (
@@ -165,6 +167,7 @@ describe('useBorrowEModeStatus scope loading', () => {
         scopeKey: getScopeKey(),
         eModeStatus,
         state: 'resolved',
+        resolvedAt: Date.now(),
       },
       isLoading: false,
       run: jest.fn(),
@@ -191,6 +194,7 @@ describe('useBorrowEModeStatus scope loading', () => {
         scopeKey: getScopeKey(),
         eModeStatus,
         state: 'resolved',
+        resolvedAt: Date.now(),
       },
       isLoading: true,
       run: jest.fn(),
@@ -258,7 +262,7 @@ describe('useBorrowEModeStatus scope loading', () => {
     renderEModeStatus();
     serviceMock.mockRejectedValueOnce(new Error('initial request failed'));
 
-    await expect(promiseResultMock.method?.()).resolves.toEqual({
+    await expect(promiseResultMock.method?.()).resolves.toMatchObject({
       scopeKey: getScopeKey(),
       eModeStatus: null,
       state: 'error',
@@ -286,6 +290,7 @@ describe('useBorrowEModeStatus scope loading', () => {
         scopeKey: getScopeKey(),
         eModeStatus,
         state: 'resolved',
+        resolvedAt: Date.now(),
       },
       isLoading: false,
       run: jest.fn(),
@@ -293,7 +298,7 @@ describe('useBorrowEModeStatus scope loading', () => {
     renderEModeStatus();
     serviceMock.mockRejectedValueOnce(new Error('refresh failed'));
 
-    await expect(promiseResultMock.method?.()).resolves.toEqual({
+    await expect(promiseResultMock.method?.()).resolves.toMatchObject({
       scopeKey: getScopeKey(),
       eModeStatus,
       state: 'error',

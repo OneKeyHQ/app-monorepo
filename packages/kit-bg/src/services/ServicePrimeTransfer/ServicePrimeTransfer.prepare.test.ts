@@ -23,6 +23,7 @@ const mockSeed = {
 const mockImported = { privateKey: 'fixture-key' };
 const mockDecryptSeed = jest.fn(async (_params: unknown) => mockSeed);
 const mockDecryptImported = jest.fn(async (_params: unknown) => mockImported);
+const mockDecryptString = jest.fn<Promise<string>, [unknown]>();
 const mockKdfParams = jest.fn<IPbkdf2KdfParams, []>();
 const mockGetWallets = jest.fn<Promise<{ wallets: IDBWallet[] }>, []>();
 const mockGetAllAccounts = jest.fn<Promise<{ accounts: IDBAccount[] }>, []>();
@@ -69,6 +70,7 @@ jest.mock('@onekeyhq/core/src/secret', () => ({
   decryptRevealableSeed: (...args: [unknown]) => mockDecryptSeed(...args),
   decryptImportedCredential: (...args: [unknown]) =>
     mockDecryptImported(...args),
+  decryptStringAsync: (params: unknown) => mockDecryptString(params),
 }));
 jest.mock('@onekeyhq/shared/src/appCrypto', () => ({
   __esModule: true,
@@ -168,6 +170,7 @@ beforeEach(() => {
   mockPublishedPercentages.length = 0;
   mockDecryptSeed.mockClear();
   mockDecryptImported.mockClear();
+  mockDecryptString.mockReset().mockResolvedValue('{}');
   mockKdfParams.mockReset();
   mockGetWallets.mockReset().mockResolvedValue({ wallets: [walletFixture()] });
   mockGetAllAccounts.mockReset().mockResolvedValue({ accounts: [] });
@@ -232,7 +235,7 @@ test('password confirmation gates progress and preparation, and the verified pas
   expect(send).not.toHaveBeenCalled();
   password.resolve({ password: 'fixture-verified-password' });
   await authorization;
-  expect(mockState.preparationProgress).toEqual({ taskId, percentage: 40 });
+  expect(mockState.preparationProgress).toEqual({ taskId, percentage: 10 });
   await service.sendTransferData({
     transferData: fixture(),
     preparationTaskId: taskId,
@@ -242,6 +245,9 @@ test('password confirmation gates progress and preparation, and the verified pas
     expect.objectContaining({ password: 'fixture-verified-password' }),
   );
   expect(send).toHaveBeenCalledTimes(1);
+  // Encrypting the wrapped credential set has its own milestone.
+  expect(mockPublishedPercentages).toContain(80);
+  expect(mockPublishedPercentages.at(-1)).toBe(90);
   await service.cancelNetworkTransfer();
   const nextTaskId = await service.beginTransferPreparation();
   await expect(
@@ -462,7 +468,7 @@ test.each([
     });
     expect(prompt).toHaveBeenCalledTimes(1);
     expect(mockGetAllAccounts).toHaveBeenCalledTimes(1);
-    expect(mockState.preparationProgress).toEqual({ taskId, percentage: 40 });
+    expect(mockState.preparationProgress).toEqual({ taskId, percentage: 10 });
     await service.cancelNetworkTransfer();
   },
 );
@@ -659,13 +665,13 @@ test('reports credential work, then clears preparation on cancellation', async (
   await service.buildTransferData({ preparationTaskId });
   expect(mockState.preparationProgress).toEqual({
     taskId: preparationTaskId,
-    percentage: 40,
+    percentage: 10,
   });
   await service.decryptTransferDataCredentials({
     data: fixture(),
     preparationTaskId,
   });
-  expect(mockPublishedPercentages.at(-1)).toBe(75);
+  expect(mockPublishedPercentages.at(-1)).toBe(80);
   expect(mockPublishedPercentages).toEqual(
     [...mockPublishedPercentages].toSorted((a, b) => a - b),
   );
@@ -716,7 +722,7 @@ test('cancel during decryption stops remaining credentials and cannot overwrite 
   expect(mockDecryptImported).not.toHaveBeenCalled();
   expect(mockState.preparationProgress).toEqual({
     taskId: replacementTaskId,
-    percentage: 40,
+    percentage: 10,
   });
   await service.cancelTransfer({ taskId: preparationTaskId });
   expect(mockState.preparationProgress?.taskId).toBe(replacementTaskId);
@@ -859,3 +865,80 @@ test.each(['hd', 'imported'] as const)(
     );
   },
 );
+
+test('wrapped credential verification checks the payload before legacy credential fallbacks', async () => {
+  const kdfParams: IPbkdf2KdfParams = {
+    kdfBackend: 'webcrypto',
+    enablePbkdf2Cache: true,
+  };
+  mockKdfParams.mockReturnValue(kdfParams);
+  const service = new ServicePrimeTransfer({ backgroundApi: {} });
+  const params = {
+    password: 'fixture-source-password',
+    decryptedCredentialsHex: 'fixture-wrapped-credentials',
+    walletCredential: undefined,
+    importedAccountCredential: undefined,
+  };
+  await expect(service.verifyCredentialCanBeDecrypted(params)).resolves.toBe(
+    true,
+  );
+  expect(mockDecryptString).toHaveBeenCalledWith({
+    data: params.decryptedCredentialsHex,
+    password: params.password,
+    resultEncoding: 'utf8',
+    allowRawPassword: true,
+    ...kdfParams,
+  });
+
+  mockDecryptString.mockRejectedValueOnce(new Error('Incorrect password'));
+  await expect(
+    service.verifyCredentialCanBeDecrypted({
+      ...params,
+      walletCredential: 'fixture-legacy-credential',
+    }),
+  ).resolves.toBe(false);
+  expect(mockDecryptSeed).not.toHaveBeenCalled();
+  expect(mockDecryptImported).not.toHaveBeenCalled();
+
+  mockDecryptString.mockClear();
+  await expect(
+    service.verifyCredentialCanBeDecrypted({ ...params, password: '' }),
+  ).resolves.toBe(false);
+  expect(mockDecryptString).not.toHaveBeenCalled();
+});
+
+test('wrapped credential verification rejects invalid JSON without logging decrypted contents', async () => {
+  const errorLog = jest.spyOn(console, 'error').mockImplementation(() => {});
+  try {
+    const syntheticPlaintext = 'synthetic-private-payload-not-json';
+    mockDecryptString.mockResolvedValueOnce(syntheticPlaintext);
+    const service = new ServicePrimeTransfer({ backgroundApi: {} });
+    await expect(
+      service.verifyCredentialCanBeDecrypted({
+        password: 'fixture-source-password',
+        decryptedCredentialsHex: 'fixture-wrapped-credentials',
+        walletCredential: undefined,
+        importedAccountCredential: undefined,
+      }),
+    ).resolves.toBe(false);
+    expect(JSON.stringify(errorLog.mock.calls)).not.toContain(
+      syntheticPlaintext,
+    );
+  } finally {
+    errorLog.mockRestore();
+  }
+});
+
+test('verification without encrypted credentials does not require a source password', async () => {
+  const service = new ServicePrimeTransfer({ backgroundApi: {} });
+  await expect(
+    service.verifyCredentialCanBeDecrypted({
+      password: '',
+      walletCredential: undefined,
+      importedAccountCredential: undefined,
+    }),
+  ).resolves.toBe(true);
+  expect(mockDecryptString).not.toHaveBeenCalled();
+  expect(mockDecryptSeed).not.toHaveBeenCalled();
+  expect(mockDecryptImported).not.toHaveBeenCalled();
+});

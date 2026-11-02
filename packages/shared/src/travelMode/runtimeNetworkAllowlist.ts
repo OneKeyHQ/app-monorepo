@@ -20,6 +20,7 @@ const TRAVEL_MODE_ALLOWED_REQUESTS = new Set(
       ['swap', 'get', '/swap/v1/networks'],
       ['swap', 'get', '/swap/v1/native-token-config'],
       ['swap', 'get', '/swap/v1/providers/list'],
+      ['swap', 'get', '/swap/v1/provider/support-networks'],
       ['swap', 'get', '/swap/v1/speed-config'],
       ['swap', 'get', '/swap/v1/swap-config'],
       ['swap', 'get', '/swap/v1/token/detail'],

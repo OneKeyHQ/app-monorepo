@@ -1,189 +1,29 @@
+import { useMemo, useState } from 'react';
+
 import { useIntl } from 'react-intl';
 
 import {
-  Empty,
   Page,
-  SizableText,
-  Spinner,
-  Tabs,
-  XStack,
+  ScrollView,
+  SegmentControl,
   YStack,
   useMedia,
 } from '@onekeyhq/components';
-import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
-import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { TabPageHeader } from '@onekeyhq/kit/src/components/TabPageHeader';
-import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useRedirectWhenNotLoggedIn } from '@onekeyhq/kit/src/views/ReferFriends/hooks/useRedirectWhenNotLoggedIn';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
-import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import { BreadcrumbSection, ReferFriendsPageContainer } from '../../components';
-import { useNavigateToWalletAddresses } from '../YourReferredWalletAddresses/hooks/useNavigateToWalletAddresses';
+import { ReferFriendsTestIDs } from '../../testIDs';
 
-function EmptyData() {
-  const intl = useIntl();
-  return (
-    <Empty
-      illustration="ShakeHands"
-      title={intl.formatMessage({
-        id: ETranslations.referral_referred_empty,
-      })}
-      description={intl.formatMessage({
-        id: ETranslations.referral_reward_empty_desc,
-      })}
-    />
-  );
-}
-
-function HardwareSales() {
-  const intl = useIntl();
-  const { result, isLoading } = usePromiseResult(
-    () =>
-      backgroundApiProxy.serviceReferralCode.getHardwareSalesRewardHistory(),
-    [],
-    {
-      watchLoading: true,
-      initResult: {
-        total: 0,
-        items: [],
-      },
-    },
-  );
-
-  if (isLoading) {
-    return (
-      <YStack position="relative" mt="30%" ai="center" jc="center" flex={1}>
-        <Spinner size="large" />
-      </YStack>
-    );
-  }
-
-  const { total = 0, items } = result;
-
-  return (
-    <YStack pt="$5">
-      <YStack px="$5">
-        <SizableText size="$bodyLg">
-          {intl.formatMessage({
-            id: ETranslations.referral_referred_total_orders,
-          })}
-        </SizableText>
-        <SizableText size="$heading4xl">{total}</SizableText>
-      </YStack>
-      {total === 0 && !isLoading ? (
-        <EmptyData />
-      ) : (
-        <YStack px="$5" pt="$5" pb="$10">
-          <SizableText size="$headingSm" color="$textSubdued" py="$2">
-            {intl.formatMessage({ id: ETranslations.referral_order_info })}
-          </SizableText>
-          {items.map((item, key) => (
-            <XStack key={key} py="$3" ai="center" jc="space-between">
-              <YStack>
-                <SizableText size="$bodyLgMedium" numberOfLines={1}>
-                  {item.orderName}
-                </SizableText>
-                {item.source ? (
-                  <SizableText size="$bodyMd" color="$textSubdued">
-                    {item.source}
-                  </SizableText>
-                ) : null}
-              </YStack>
-              <SizableText size="$bodyMd" color="$textSubdued">
-                {item.createdAt
-                  ? formatDate(item.createdAt, {
-                      formatTemplate: 'yyyy-LL-dd HH:mm',
-                    })
-                  : ''}
-              </SizableText>
-            </XStack>
-          ))}
-        </YStack>
-      )}
-    </YStack>
-  );
-}
-
-function WalletList() {
-  const intl = useIntl();
-  const navigateToWalletAddresses = useNavigateToWalletAddresses();
-  const { result, isLoading } = usePromiseResult(
-    () => backgroundApiProxy.serviceReferralCode.getEarnWalletHistory(),
-    [],
-    {
-      watchLoading: true,
-      initResult: {
-        total: 0,
-        items: [],
-        networks: [],
-      },
-    },
-  );
-
-  if (isLoading) {
-    return (
-      <YStack position="relative" mt="30%" ai="center" jc="center" flex={1}>
-        <Spinner size="large" />
-      </YStack>
-    );
-  }
-
-  const { total = 0, items, networks } = result;
-
-  return (
-    <YStack pt="$5">
-      <YStack px="$5">
-        <SizableText size="$bodyLg">
-          {intl.formatMessage({
-            id: ETranslations.referral_referred_total_wallets,
-          })}
-        </SizableText>
-        <SizableText size="$heading4xl">{total}</SizableText>
-      </YStack>
-      {total === 0 && !isLoading ? (
-        <EmptyData />
-      ) : (
-        <YStack pt="$5" pb="$10">
-          <SizableText size="$headingSm" color="$textSubdued" px="$5" py="$2">
-            {intl.formatMessage({
-              id: ETranslations.referral_your_referred_wallets_details,
-            })}
-          </SizableText>
-          {items.map((item, index) => (
-            <ListItem
-              drillIn
-              py="$3"
-              key={index}
-              title={`Wallet ${index + 1}`}
-              onPress={() => {
-                navigateToWalletAddresses({
-                  items: item.items,
-                  networks,
-                });
-              }}
-            >
-              <SizableText size="$bodyMd" color="$textSubdued">
-                {intl.formatMessage(
-                  {
-                    id: ETranslations.referral_your_referred_wallets_more_address,
-                  },
-                  {
-                    amount: item.total > 999 ? '999+' : item.total,
-                  },
-                )}
-              </SizableText>
-            </ListItem>
-          ))}
-        </YStack>
-      )}
-    </YStack>
-  );
-}
+import {
+  ReferredHardwareOrders,
+  ReferredWalletList,
+} from './components/ReferredLists';
 
 function YourReferredPageWrapper() {
   // Redirect to ReferAFriend page if user is not logged in
@@ -191,9 +31,31 @@ function YourReferredPageWrapper() {
 
   const intl = useIntl();
   const { md } = useMedia();
+  // Named like the invite page's entry that opens it.
   const title = intl.formatMessage({
-    id: ETranslations.referral_your_referred,
+    id: ETranslations.referral_referral_list,
   });
+  const [activeList, setActiveList] = useState<string | number>('wallet');
+  // Built once, so switching tabs does not re-render the hidden list.
+  const lists = useMemo(
+    () => [
+      {
+        value: 'wallet',
+        label: intl.formatMessage({ id: ETranslations.global_wallet }),
+        testID: ReferFriendsTestIDs.referralListWalletTab,
+        content: <ReferredWalletList />,
+      },
+      {
+        value: 'hardware',
+        label: intl.formatMessage({
+          id: ETranslations.referral_referred_type_3,
+        }),
+        testID: ReferFriendsTestIDs.referralListHardwareTab,
+        content: <ReferredHardwareOrders />,
+      },
+    ],
+    [intl],
+  );
 
   return (
     <Page>
@@ -213,32 +75,36 @@ function YourReferredPageWrapper() {
               <BreadcrumbSection secondItemLabel={title} />
             </YStack>
           ) : null}
-          <Tabs.Container>
-            <Tabs.Tab
-              name={intl.formatMessage({
-                id: ETranslations.global_wallet,
-              })}
+          {/* A plain switch: two short lists have no header to collapse, so
+              they need no swipeable pager. Compact layouts fill the row;
+              wider layouts hug the two labels and stay left-aligned. */}
+          <YStack px="$pagePadding" pt="$3">
+            <SegmentControl
+              fullWidth={md}
+              value={activeList}
+              options={lists.map(({ value, label, testID }) => ({
+                value,
+                label,
+                testID,
+              }))}
+              onChange={setActiveList}
+            />
+          </YStack>
+          {/* Both lists stay mounted, so switching back keeps their data and
+              scroll position instead of loading again. */}
+          {lists.map((list) => (
+            <ScrollView
+              key={list.value}
+              flex={1}
+              display={list.value === activeList ? 'flex' : 'none'}
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={{ paddingBottom: 40 }}
             >
-              <Tabs.ScrollView
-                showsVerticalScrollIndicator={false}
-                contentContainerStyle={{ paddingBottom: 40 }}
-              >
-                <WalletList />
-              </Tabs.ScrollView>
-            </Tabs.Tab>
-            <Tabs.Tab
-              name={intl.formatMessage({
-                id: ETranslations.referral_referred_type_3,
-              })}
-            >
-              <Tabs.ScrollView
-                showsVerticalScrollIndicator={false}
-                contentContainerStyle={{ paddingBottom: 40 }}
-              >
-                <HardwareSales />
-              </Tabs.ScrollView>
-            </Tabs.Tab>
-          </Tabs.Container>
+              <YStack px="$pagePadding" pt="$5">
+                {list.content}
+              </YStack>
+            </ScrollView>
+          ))}
         </ReferFriendsPageContainer>
       </Page.Body>
     </Page>

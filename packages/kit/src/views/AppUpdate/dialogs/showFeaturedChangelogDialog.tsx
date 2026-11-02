@@ -16,6 +16,7 @@ import Animated, {
 
 import { Dialog, Toast } from '@onekeyhq/components';
 import type { IDialogInstance } from '@onekeyhq/components';
+import { acquireDeferredGuideBlocker } from '@onekeyhq/components/src/hooks/useDeferredGuideBlocker';
 import {
   appUpdatePersistAtom,
   useAppUpdatePersistAtom,
@@ -201,12 +202,22 @@ function useFeaturedCta({
         if (status === EAppUpdateStatus.notify) {
           void downloadPackage();
         }
-        await closeDialog();
+        const release = acquireDeferredGuideBlocker();
+        try {
+          await closeDialog();
+        } catch (error) {
+          release();
+          throw error;
+        }
         setTimeout(() => {
-          navigation.pushModal(EModalRoutes.AppUpdateModal, {
-            screen: EAppUpdateRoutes.DownloadVerify,
-            params: { isForceUpdate: isLocked },
-          });
+          try {
+            navigation.pushModal(EModalRoutes.AppUpdateModal, {
+              screen: EAppUpdateRoutes.DownloadVerify,
+              params: { isForceUpdate: isLocked },
+            });
+          } finally {
+            release();
+          }
         }, 300);
         return;
       }
@@ -282,8 +293,8 @@ function FeaturedChangelogContent({
     closeDialog,
   });
 
-  // Drive an explicit pixel height on the dialog content. The dialog frame on
-  // desktop (TMDialog.Content) doesn't transition auto-height when child layout
+  // Drive an explicit pixel height on the dialog content. The centered dialog
+  // card on desktop doesn't transition auto-height when child layout
   // changes, so we give it a single child with a Reanimated-driven height that
   // smoothly animates per frame, and the frame's natural height tracks it.
   const totalCarouselHeight = useSharedValue(0);

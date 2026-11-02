@@ -14,6 +14,7 @@ import {
 import type { ITableProps } from '@onekeyhq/components';
 import { ListLoading } from '@onekeyhq/kit/src/components/Loading';
 import { HomeTestIDs } from '@onekeyhq/kit/src/views/Home/testIDs';
+import { MARKET_TOKEN_ROW_GROUP_NAME } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketHoverRevealLine';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { RichTable } from '../RichTable';
@@ -139,7 +140,10 @@ function MarketCategoryTokenList({
           mx: '$2',
           px: '$3',
           ...(shouldUseTableLayout
-            ? { minHeight: HOME_MARKET_TABLE_ROW_MIN_HEIGHT }
+            ? {
+                minHeight: HOME_MARKET_TABLE_ROW_MIN_HEIGHT,
+                group: MARKET_TOKEN_ROW_GROUP_NAME,
+              }
             : undefined),
         }}
         headerRowProps={{

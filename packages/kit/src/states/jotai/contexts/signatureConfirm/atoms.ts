@@ -235,6 +235,7 @@ export const defaultGasAccountUiState = {
   lockedUserNonce: undefined as number | undefined,
   idempotencyKey: '',
   gasAccountScenarioReason: undefined as string | undefined,
+  gasAccountSkipReason: undefined as string | undefined,
   sponsorDisabledByCustomRpc: false,
 };
 
@@ -247,6 +248,9 @@ export const { atom: gasAccountUiStateAtom, use: useGasAccountUiStateAtom } =
     lockedUserNonce?: number;
     idempotencyKey: string;
     gasAccountScenarioReason?: string;
+    // Backend reason the estimate came back self-paid (OK-64746 member
+    // dimension); observational only, see IEstimateGasResp.
+    gasAccountSkipReason?: string;
     sponsorDisabledByCustomRpc: boolean;
   }>({ ...defaultGasAccountUiState });
 
@@ -254,6 +258,32 @@ export const {
   atom: gasAccountTemporarilyDisabledAtom,
   use: useGasAccountTemporarilyDisabledAtom,
 } = contextAtom<boolean>(false);
+
+// OK-64746: tx uuids whose Gas Account send failed with a result-unknown
+// code (the tx may already be on chain). Kept outside `gasAccountUiStateAtom`
+// because every estimate round resets that state, and keyed by tx uuid so
+// queue navigation to another tx and back cannot unlock the attempted one.
+// While a tx is latched the confirm page must neither re-estimate it (a new
+// nonce / quote) nor submit it again. Never cleared for the store's lifetime.
+export const {
+  atom: gasAccountSubmitResultUnknownAtom,
+  use: useGasAccountSubmitResultUnknownAtom,
+} = contextAtom<Record<string, true>>({});
+
+// Every unsigned tx built by VaultBase carries a uuid; a tx without one
+// falls back to a single page-wide key.
+export function getGasAccountSubmitResultUnknownKey(
+  txUuid: string | undefined,
+): string {
+  return txUuid ?? '';
+}
+
+export function useIsGasAccountSubmitResultUnknown(
+  txUuid: string | undefined,
+): boolean {
+  const [latched] = useGasAccountSubmitResultUnknownAtom();
+  return Boolean(latched[getGasAccountSubmitResultUnknownKey(txUuid)]);
+}
 
 export const defaultPayWithTokenInfo = {
   enabled: false,

@@ -1,0 +1,14 @@
+{
+  "close": "account-selector-mirror-inspector-close",
+  "copyAddressPrefix": "account-selector-mirror-inspector-copy-address-",
+  "findingsPrefix": "account-selector-mirror-inspector-findings-",
+  "findingsTogglePrefix": "account-selector-mirror-inspector-findings-toggle-",
+  "instancePrefix": "account-selector-mirror-inspector-instance-",
+  "list": "account-selector-mirror-inspector-list",
+  "revealAddressPrefix": "account-selector-mirror-inspector-reveal-address-",
+  "root": "account-selector-mirror-inspector",
+  "settingsSwitch": "setting-account-selector-mirror-inspector-switch",
+  "slotPrefix": "account-selector-mirror-inspector-slot-",
+  "summary": "account-selector-mirror-inspector-summary",
+  "toggle": "account-selector-mirror-inspector-toggle"
+}

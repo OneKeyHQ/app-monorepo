@@ -11,7 +11,8 @@ import {
   DEFAULT_MARKET_STOCK_SORT_TYPE,
   MARKET_STOCK_BATCH_MAX_IDS,
 } from '@onekeyhq/shared/src/consts/marketConsts';
-import { OneKeyError } from '@onekeyhq/shared/src/errors';
+import { OneKeyError, OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -20,6 +21,7 @@ import { getDefaultLocale } from '@onekeyhq/shared/src/locale/getDefaultLocale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import { normalizeMarketApiKLineInterval } from '@onekeyhq/shared/src/utils/marketKLineUtils';
+import { toMarketTokenBatchRequestItems } from '@onekeyhq/shared/src/utils/marketTokenBatchUtils';
 import { getMarketWatchlistKey } from '@onekeyhq/shared/src/utils/marketWatchlistIdentity';
 import { dedupeTokenSelectorFavoriteCoins } from '@onekeyhq/shared/src/utils/perpsTokenSelectorFavorites';
 import sortUtils from '@onekeyhq/shared/src/utils/sortUtils';
@@ -72,7 +74,9 @@ import type { INotificationWatchlistToken } from '@onekeyhq/shared/types/notific
 
 import { type IDBCloudSyncItem } from '../dbs/local/types';
 import {
+  type IMarketHomePreferences,
   devSettingsPersistAtom,
+  marketHomePreferencesAtom,
   settingsPersistAtom,
 } from '../states/jotai/atoms';
 import { perpTokenFavoritesPersistAtom } from '../states/jotai/atoms/perps';
@@ -109,6 +113,16 @@ type IFetchMarketTokenListOptions = {
 
 @backgroundClass()
 class ServiceMarketV2 extends ServiceBase {
+  @backgroundMethod()
+  async updateMarketHomePreferences(preferences: IMarketHomePreferences) {
+    await marketHomePreferencesAtom.set((prev) => ({
+      ...prev,
+      ...preferences,
+      revision: (prev.revision ?? 0) + 1,
+    }));
+    return (await marketHomePreferencesAtom.get()).revision ?? 0;
+  }
+
   constructor({ backgroundApi }: { backgroundApi: any }) {
     super({ backgroundApi });
     // Drop the in-memory market data cache + memoized batch fetchers on
@@ -334,7 +348,7 @@ class ServiceMarketV2 extends ServiceBase {
   }
 
   private memoizedFetchMarketBasicConfig = memoizee(
-    async () => {
+    async (autoHandleError?: boolean) => {
       const client = await this.getClient(EServiceEndpointEnum.Utility);
       const response = await client.get<IMarketBasicConfigResponse>(
         '/utility/v2/market/basic-config',
@@ -342,6 +356,7 @@ class ServiceMarketV2 extends ServiceBase {
           params: {
             configVersion: 2,
           },
+          ...(autoHandleError === false ? { autoHandleError: false } : {}),
         },
       );
       return response.data;
@@ -353,13 +368,17 @@ class ServiceMarketV2 extends ServiceBase {
   );
 
   @backgroundMethod()
-  async fetchMarketBasicConfig() {
+  async fetchMarketBasicConfig(options?: { autoHandleError?: boolean }) {
     try {
-      return await this.memoizedFetchMarketBasicConfig();
+      return await this.memoizedFetchMarketBasicConfig(
+        options?.autoHandleError,
+      );
     } catch (error) {
       // memoizee({ promise: true }) retains rejected promises. Drop the
       // failure so reconnect / retry can reach the network again.
-      void this.memoizedFetchMarketBasicConfig.clear();
+      void this.memoizedFetchMarketBasicConfig.delete(options?.autoHandleError);
+      if (options?.autoHandleError === false)
+        errorToastUtils.toastIfErrorDisable(error);
       throw error;
     }
   }
@@ -608,7 +627,7 @@ class ServiceMarketV2 extends ServiceBase {
     }>(
       '/utility/v2/market/token/list/batch',
       {
-        tokenAddressList: missingTokens,
+        tokenAddressList: toMarketTokenBatchRequestItems(missingTokens),
         currency: 'usd',
       },
       {
@@ -621,35 +640,45 @@ class ServiceMarketV2 extends ServiceBase {
 
     const { data } = response.data;
 
-    if (!data?.list) {
-      console.error(
-        '[ServiceMarketV2] fetchMarketTokenListBatch: unexpected empty response',
-        {
-          requestIds: missingTokens.map(
-            (t) => `${t.chainId}:${t.contractAddress}`,
-          ),
-        },
-      );
-      return { list: cachedResults };
+    if (!Array.isArray(data?.list)) {
+      throw new OneKeyLocalError('Invalid market token batch response');
     }
 
-    // Update cache and merge results using positional index (API preserves
-    // request order). Cache keys use the request-side chainId:contractAddress
-    // to stay consistent with the lookup keys built above.
-    data.list.forEach((item, apiIndex) => {
-      const token = missingTokens[apiIndex];
-      if (!token) return;
+    // The API omits unknown tokens, so response indices cannot identify requests.
+    data.list.forEach((item) => {
+      if (!item) return;
+      const itemNetworkId = item.networkId || item.chainId;
+      const itemAddress = (item.address ?? '').toLowerCase();
+      const matches = missingTokens.filter(
+        (token) =>
+          (!itemNetworkId || token.chainId === itemNetworkId) &&
+          (token.isNative && item.isNative !== false
+            ? item.isNative === true ||
+              itemAddress === '' ||
+              itemAddress === token.contractAddress.toLowerCase()
+            : itemAddress === token.contractAddress.toLowerCase()),
+      );
+      if (matches.length !== 1) return;
+      const token = matches[0];
       const cacheKey = `${cacheLocale}:${
         token.chainId
       }:${token.contractAddress.toLowerCase()}`;
       const originalIndex = tokenIndexMap.get(cacheKey);
 
       // Update cache
-      this._marketTokenBatchCache.set(cacheKey, { data: item, timestamp: now });
+      const matchedItem = {
+        ...item,
+        networkId: itemNetworkId || token.chainId,
+        isNative: item.isNative ?? token.isNative,
+      };
+      this._marketTokenBatchCache.set(cacheKey, {
+        data: matchedItem,
+        timestamp: now,
+      });
 
       // Place in correct position
       if (originalIndex !== undefined) {
-        cachedResults[originalIndex] = item;
+        cachedResults[originalIndex] = matchedItem;
       }
     });
 
@@ -1051,6 +1080,7 @@ class ServiceMarketV2 extends ServiceBase {
         error,
       );
       if (throwOnError) {
+        errorToastUtils.toastIfErrorDisable(error);
         throw error;
       }
       // Return empty list on error instead of throwing

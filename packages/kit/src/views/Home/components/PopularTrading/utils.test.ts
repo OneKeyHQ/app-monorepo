@@ -9,6 +9,7 @@ import type {
 
 import {
   buildHomeMarketCategories,
+  buildHomeRecommendAddSortIndexes,
   getMarketTokenDisplayPrice,
   getMarketTokenDisplayPriceChange24h,
   getMarketTokenDisplayVolume24h,
@@ -17,6 +18,7 @@ import {
   mapMarketPerpsTokenToDisplay,
   mapMarketStockToDisplay,
   mapMarketTokenToDisplay,
+  shouldShowHomeRecommendCards,
 } from './utils';
 
 function buildServerPerpsToken(name: string): IMarketPerpsTokenFromServer {
@@ -98,34 +100,44 @@ describe('PopularTrading market token display utils', () => {
     },
   );
 
-  test('maps Top Coins assets without inventing a token identity', () => {
-    const item: IMarketAssetListItem = {
-      assetId: 'bitcoin',
-      symbol: 'btc',
-      logoUrl: 'btc.png',
-      price: '100000',
-      priceChange24hPercent: '1.25',
-      priceChange7dPercent: '-',
-      marketCap: '2000000000000',
-      volume24h: '50000000000',
-      sparkline24h: [],
-    };
+  test.each<[string | undefined, string]>([
+    [' Bitcoin ', 'Bitcoin'],
+    [undefined, 'btc'],
+    ['', 'btc'],
+    ['   ', 'btc'],
+  ])(
+    'maps Top Coins name %p without inventing a token identity',
+    (name, expectedName) => {
+      const item: IMarketAssetListItem = {
+        assetId: 'bitcoin',
+        symbol: 'btc',
+        name,
+        logoUrl: 'btc.png',
+        price: '100000',
+        priceChange24hPercent: '1.25',
+        priceChange7dPercent: '-',
+        marketCap: '2000000000000',
+        volume24h: '50000000000',
+        sparkline24h: [],
+      };
 
-    const displayToken = mapMarketAssetToDisplay(item);
+      const displayToken = mapMarketAssetToDisplay(item);
 
-    expect(displayToken).toMatchObject({
-      chainId: '',
-      contractAddress: '',
-      isNative: false,
-      symbol: 'BTC',
-      price: 100_000,
-      priceChange24h: 1.25,
-      marketCap: 2_000_000_000_000,
-      volume24h: 50_000_000_000,
-      marketAsset: item,
-    });
-    expect(getTokenKey(displayToken)).toBe('asset:bitcoin');
-  });
+      expect(displayToken).toMatchObject({
+        chainId: '',
+        contractAddress: '',
+        isNative: false,
+        symbol: 'BTC',
+        name: expectedName,
+        price: 100_000,
+        priceChange24h: 1.25,
+        marketCap: 2_000_000_000_000,
+        volume24h: 50_000_000_000,
+        marketAsset: item,
+      });
+      expect(getTokenKey(displayToken)).toBe('asset:bitcoin');
+    },
+  );
 
   test('maps public stocks without inventing a token identity', () => {
     const item: IMarketStockPublicItem = {
@@ -223,6 +235,42 @@ describe('PopularTrading market token display utils', () => {
       perpsSubtitle: 'Unitree Robotics',
       perpsDexLabel: dexLabel,
     });
+  });
+
+  test('places home recommend adds above stored favorites in card order', () => {
+    expect(
+      buildHomeRecommendAddSortIndexes({
+        existingWatchlist: [],
+        count: 4,
+      }),
+    ).toEqual([996, 997, 998, 999]);
+    expect(
+      buildHomeRecommendAddSortIndexes({
+        existingWatchlist: [{ sortIndex: 0 }, { sortIndex: 1 }],
+        count: 4,
+      }),
+    ).toEqual([-4, -3, -2, -1]);
+  });
+
+  test('shows recommend cards when stored favorites have no visible rows', () => {
+    expect(
+      shouldShowHomeRecommendCards({
+        hasStoredFavorites: false,
+        visibleFavoriteCount: 0,
+      }),
+    ).toBe(true);
+    expect(
+      shouldShowHomeRecommendCards({
+        hasStoredFavorites: true,
+        visibleFavoriteCount: 0,
+      }),
+    ).toBe(true);
+    expect(
+      shouldShowHomeRecommendCards({
+        hasStoredFavorites: true,
+        visibleFavoriteCount: 2,
+      }),
+    ).toBe(false);
   });
 
   test('does not add a DEX source label to main DEX perps', () => {

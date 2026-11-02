@@ -31,6 +31,7 @@ export const DeviceManagementTestIDs = {
 
   // --- Device Connect Section ---
   forgetDeviceItem: 'device-mgmt-forget-device-item',
+  rebindBleItem: 'device-mgmt-rebind-ble-item',
 
   // --- Danger Zone Section ---
   switchFirmwareTypeItem: 'device-mgmt-switch-firmware-type-item',

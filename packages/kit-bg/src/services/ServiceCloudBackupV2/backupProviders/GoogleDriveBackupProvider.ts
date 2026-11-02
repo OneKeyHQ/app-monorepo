@@ -233,17 +233,33 @@ export class GoogleDriveBackupProvider implements IOneKeyBackupProvider {
     return `${GOOGLE_DRIVE_BACKUP_FILE_NAME_PREFIX}${stringUtils.generateUUID()}.json`;
   }
 
+  private async assertBackupAccountUnchanged(
+    expectedAccountId: string | undefined,
+  ): Promise<void> {
+    if (expectedAccountId === undefined) return;
+    const account = await this.getCloudAccountInfo();
+    if (!expectedAccountId || account.userId !== expectedAccountId) {
+      throw new OneKeyLocalError(
+        'Google Drive account changed or is unavailable. Please restart the backup.',
+      );
+    }
+  }
+
   async backupData(
     payload: IBackupDataEncryptedPayload,
+    options?: { expectedAccountId?: string },
   ): Promise<{ recordID: string; content: string }> {
     await this.checkAvailability();
     const fileName = this.buildBackupFileName();
     const content = stringUtils.stableStringify(payload);
+    await this.assertBackupAccountUnchanged(options?.expectedAccountId);
     const result = await googleDriveStorage.uploadFile({ fileName, content });
+    await this.assertBackupAccountUnchanged(options?.expectedAccountId);
     await this.appendToManifest({
       payload,
       fileID: result.fileId,
       fileName,
+      expectedAccountId: options?.expectedAccountId,
     });
     void this.backgroundApi.serviceCloudBackup.touchLegacyMetaDataFile();
     return { recordID: result.fileId, content };
@@ -294,15 +310,19 @@ export class GoogleDriveBackupProvider implements IOneKeyBackupProvider {
     payload,
     fileID,
     fileName,
+    expectedAccountId,
   }: {
     payload: IBackupDataEncryptedPayload;
     fileID: string;
     fileName: string;
+    expectedAccountId?: string;
   }) {
     if (!payload.publicData) {
       throw new OneKeyLocalError('Payload publicData not found');
     }
+    await this.assertBackupAccountUnchanged(expectedAccountId);
     const manifest = await this.getManifest();
+    await this.assertBackupAccountUnchanged(expectedAccountId);
     if (!manifest.items) {
       manifest.items = [];
     }
@@ -313,6 +333,7 @@ export class GoogleDriveBackupProvider implements IOneKeyBackupProvider {
     });
     manifest.total = manifest.items.length;
     await this.saveManifest(manifest);
+    await this.assertBackupAccountUnchanged(expectedAccountId);
   }
 
   async deleteFromManifest({ fileId }: { fileId: string }) {

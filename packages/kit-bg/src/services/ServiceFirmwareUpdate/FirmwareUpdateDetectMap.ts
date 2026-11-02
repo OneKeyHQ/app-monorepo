@@ -128,6 +128,7 @@ export class FirmwareUpdateDetectMap {
       toVersionBle: updateInfo.ble?.hasUpgrade
         ? updateInfo.ble.toVersion
         : undefined,
+      estimatedTransferBytes: updateInfo.estimatedTransferBytes,
     };
   }
 
@@ -267,6 +268,7 @@ export class FirmwareUpdateDetectMap {
     firmware,
     ble,
     targetsToUpdate,
+    estimatedTransferBytes,
   }: {
     connectId: string;
     usbConnectId?: string | null;
@@ -274,6 +276,7 @@ export class FirmwareUpdateDetectMap {
     firmware?: IFirmwareUpdateInfo;
     ble?: IBleFirmwareUpdateInfo;
     targetsToUpdate?: IPro2FirmwareUpdateTarget[];
+    estimatedTransferBytes?: number;
   }) {
     const hasUpgrade = Boolean(
       firmware?.hasUpgrade || ble?.hasUpgrade || targetsToUpdate?.length,
@@ -286,6 +289,7 @@ export class FirmwareUpdateDetectMap {
             firmware,
             ble,
             targetsToUpdate,
+            estimatedTransferBytes,
           }
         : undefined,
     };

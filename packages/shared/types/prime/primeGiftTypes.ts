@@ -23,7 +23,7 @@ export type IPrimeGiftPreparedRedemption = {
   verification: IPrimeGiftDeviceVerification;
 };
 
-// Normalized result; the code is passed only to the redemption dialog, never persisted.
+// Normalized result. The code stays in claim-page memory and is never persisted.
 export type IPrimeGiftVerifyV2Result = {
   code?: string;
   status?: string;

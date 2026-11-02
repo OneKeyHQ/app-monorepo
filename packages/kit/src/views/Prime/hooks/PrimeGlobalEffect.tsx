@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef } from 'react';
 
 import { noop } from 'lodash';
 
-import { useUpdateEffect } from '@onekeyhq/components';
+import { useNetInfo, useUpdateEffect } from '@onekeyhq/components';
 import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import type { IPrimeInitAtomData } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
@@ -16,6 +16,7 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { isPrimeStoreOnlyPayment } from '@onekeyhq/shared/src/prime/primePaymentCapabilities';
 import { getSanitizedErrorLogText } from '@onekeyhq/shared/src/utils/sensitiveErrorMessageUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type {
@@ -29,6 +30,7 @@ import { showOneKeyIdLegacyOAuthBindDialogAfterCredentialUpgrade } from '../comp
 
 import { logoutPurchasesSdk } from './purchasesSdkLogout';
 import { usePrimePaymentMethods } from './usePrimePaymentMethods';
+import { usePrimeWebCheckoutRecovery } from './usePrimeWebCheckoutRecovery';
 
 import type {
   IRevenueCatCustomerInfoNative,
@@ -106,6 +108,12 @@ function PrimeGlobalEffectAfterAuthReady() {
 
   const userRef = useRef<IPrimeUserInfo>(user);
   userRef.current = user;
+
+  // Store-only builds never open the hosted card checkout.
+  usePrimeWebCheckoutRecovery({
+    enabled: !isPrimeStoreOnlyPayment() && !isAppLocked,
+    onekeyUserId: user?.isLoggedIn ? user.onekeyUserId : undefined,
+  });
 
   const autoRefreshPrimeUserInfo = useCallback(async () => {
     try {
@@ -293,6 +301,22 @@ function PrimeGlobalEffectAfterAuthReady() {
   }, [setPrimeInitAtom, isSupabaseLoggedIn]);
 
   const isActive = primePersistAtom.primeSubscription?.isActive;
+
+  // Free trial: keep the display snapshot bound to the current user and
+  // subscription, and re-send pending usage reports of that user.
+  const freeTrialUserId = user?.isLoggedInOnServer
+    ? user?.onekeyUserId
+    : undefined;
+  useEffect(() => {
+    void backgroundApiProxy.servicePrimeFreeTrial.onPrimeUserStateChanged();
+  }, [freeTrialUserId, isActive]);
+  const { isInternetReachable } = useNetInfo();
+  useUpdateEffect(() => {
+    if (isInternetReachable) {
+      void backgroundApiProxy.servicePrimeFreeTrial.flushPendingReports();
+    }
+  }, [isInternetReachable]);
+
   useUpdateEffect(() => {
     console.log('primePersistAtom.primeSubscription?.isActive', {
       isActive,

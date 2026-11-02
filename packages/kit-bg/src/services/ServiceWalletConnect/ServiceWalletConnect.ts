@@ -1,4 +1,3 @@
-import { getSdkError } from '@walletconnect/utils';
 import { uniq } from 'lodash';
 
 import {
@@ -35,7 +34,9 @@ import type { IConnectionAccountInfo } from '@onekeyhq/shared/types/dappConnecti
 
 import ServiceBase from '../ServiceBase';
 
+import walletConnectClient from './walletConnectClient';
 import { WalletConnectDappSide } from './WalletConnectDappSide';
+import { walletConnectDiagnostics } from './WalletConnectDiagnostics';
 
 import type { WalletKitTypes } from '@reown/walletkit';
 import type { ProposalTypes, SessionTypes } from '@walletconnect/types';
@@ -50,6 +51,22 @@ class ServiceWalletConnect extends ServiceBase {
   dappSide = new WalletConnectDappSide({
     backgroundApi: this.backgroundApi,
   });
+
+  @backgroundMethod()
+  async getWalletSideDiagnostics() {
+    return walletConnectDiagnostics.getSnapshot();
+  }
+
+  @backgroundMethod()
+  async getDappSideConnectionProgress() {
+    // Read only: opening a progress UI must never initialize a client or socket.
+    return this.dappSide.getConnectionProgress();
+  }
+
+  @backgroundMethod()
+  async clearWalletSideDiagnosticEvents() {
+    walletConnectDiagnostics.clear();
+  }
 
   @backgroundMethod()
   async abortConnectPairing({ uri }: { uri: string }) {
@@ -389,7 +406,7 @@ class ServiceWalletConnect extends ServiceBase {
     // emit `session_delete` event to dapp
     return this.backgroundApi.walletConnect.web3Wallet?.disconnectSession({
       topic,
-      reason: getSdkError('USER_DISCONNECTED'),
+      reason: await walletConnectClient.getSdkErrorLazy('USER_DISCONNECTED'),
     });
   }
 

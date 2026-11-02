@@ -1,47 +1,61 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useReplaceToReferFriends } from '@onekeyhq/kit/src/hooks/useReferFriends';
 import { EOneKeyDeepLinkPath } from '@onekeyhq/shared/src/consts/deeplinkConsts';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import type { IInvitePostConfig } from '@onekeyhq/shared/src/referralCode/type';
+import type {
+  IPerksOpenEntry,
+  IReferralPageTab,
+} from '@onekeyhq/shared/src/routes';
 import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
+
+import { useInvitePostConfig } from '../../../hooks/useInvitePostConfig';
 
 import { useLoginStatusChange } from './useLoginStatusChange';
 
-export function useReferAFriendData() {
+export function useReferAFriendData(routeParams?: {
+  tab?: IReferralPageTab;
+  perksEntry?: IPerksOpenEntry;
+}) {
   const replaceToReferFriends = useReplaceToReferFriends();
-  const [postConfig, setPostConfig] = useState<IInvitePostConfig | undefined>(
-    undefined,
-  );
+  const routeParamsRef = useRef(routeParams);
+  routeParamsRef.current = routeParams;
+  // Logged-in users are redirected to InviteReward, so only load (and render)
+  // the poster once logout is confirmed; otherwise it flashes before navigation.
+  const [isLoggedOutConfirmed, setIsLoggedOutConfirmed] = useState(false);
+  const { postConfig } = useInvitePostConfig({
+    enabled: isLoggedOutConfirmed,
+  });
+  const redirectSignedIn = useCallback(() => {
+    const current = routeParamsRef.current;
+    void replaceToReferFriends({
+      isLoggedIn: true,
+      ...(current?.tab ? { tab: current.tab } : null),
+      ...(current?.perksEntry ? { perksEntry: current.perksEntry } : null),
+    });
+  }, [replaceToReferFriends]);
 
   // Monitor login status changes and auto-navigate when user logs in
   useLoginStatusChange(() => {
     // Pass isLoggedIn: true to skip redundant check since hook already confirmed login
-    void replaceToReferFriends({ isLoggedIn: true });
+    redirectSignedIn();
   });
 
   useEffect(() => {
-    async function loadPostConfig() {
-      const cachedConfig =
-        await backgroundApiProxy.serviceReferralCode.getPostConfig();
-      if (cachedConfig) {
-        setPostConfig(cachedConfig);
-      }
-      const freshConfig =
-        await backgroundApiProxy.serviceReferralCode.fetchPostConfig();
-      if (freshConfig) {
-        setPostConfig(freshConfig);
-      }
-    }
-
     async function checkLoginAndRedirect() {
-      const isLogin = await backgroundApiProxy.servicePrime.isLoggedIn();
+      let isLogin = false;
+      try {
+        isLogin = await backgroundApiProxy.servicePrime.isLoggedIn();
+      } catch {
+        // Fall back to the poster rather than leaving the page blank.
+      }
       if (isLogin) {
-        void replaceToReferFriends();
+        redirectSignedIn();
         return;
       }
+      setIsLoggedOutConfirmed(true);
 
       // Handle web-specific URL parameters
       if (
@@ -64,9 +78,8 @@ export function useReferAFriendData() {
       }
     }
 
-    void loadPostConfig();
     void checkLoginAndRedirect();
-  }, [replaceToReferFriends]);
+  }, [redirectSignedIn]);
 
   return {
     postConfig,

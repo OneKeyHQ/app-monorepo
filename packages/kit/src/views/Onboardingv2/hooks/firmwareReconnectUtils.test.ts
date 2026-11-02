@@ -112,4 +112,132 @@ describe('firmwareReconnectUtils', () => {
       }),
     ).toBeUndefined();
   });
+
+  it('returns a confirmed bootloader only when recovery is explicitly allowed', async () => {
+    const features = {
+      bootloader_mode: true,
+      device_id: normalDevice.deviceId,
+    } as IOneKeyDeviceFeatures;
+    const getFeatures = jest.fn().mockResolvedValue(features);
+    await expect(
+      resolveFirmwareReconnectDevice({
+        previousDevice: normalDevice,
+        devices: [normalDevice],
+        getFeatures,
+      }),
+    ).rejects.toThrow('still in bootloader');
+    await expect(
+      resolveFirmwareReconnectDevice({
+        previousDevice: normalDevice,
+        devices: [normalDevice],
+        getFeatures,
+        allowBootloaderRecovery: true,
+      }),
+    ).resolves.toEqual({ device: normalDevice, features });
+  });
+
+  it.each([true, false])(
+    'rejects a fresh identity mismatch in bootloader=%s',
+    async (bootloaderMode) => {
+      await expect(
+        resolveFirmwareReconnectDevice({
+          previousDevice: normalDevice,
+          devices: [normalDevice],
+          getFeatures: jest.fn().mockResolvedValue({
+            bootloader_mode: bootloaderMode,
+            device_id: 'other-device-id',
+          }),
+          allowBootloaderRecovery: true,
+        }),
+      ).rejects.toThrow('identity changed');
+    },
+  );
+
+  it('accepts stable search identity when bootloader omits device_id', async () => {
+    const device = createDevice({ deviceId: null, mode: 'bootloader' });
+    const features = { bootloader_mode: true } as IOneKeyDeviceFeatures;
+    await expect(
+      resolveFirmwareReconnectDevice({
+        previousDevice: normalDevice,
+        devices: [device],
+        getFeatures: jest.fn().mockResolvedValue(features),
+        allowBootloaderRecovery: true,
+      }),
+    ).resolves.toEqual({ device, features });
+  });
+
+  it('supports a unique bootloader with only zero-filled identity placeholders', async () => {
+    const features = { bootloader_mode: true } as IOneKeyDeviceFeatures;
+    await expect(
+      resolveFirmwareReconnectDevice({
+        previousDevice: normalDevice,
+        devices: [bootloaderDevice],
+        getFeatures: jest.fn().mockResolvedValue(features),
+        allowBootloaderRecovery: true,
+      }),
+    ).resolves.toEqual({ device: bootloaderDevice, features });
+  });
+
+  it('rejects a bootloader with conflicting search identity when device_id is unavailable', async () => {
+    await expect(
+      resolveFirmwareReconnectDevice({
+        previousDevice: normalDevice,
+        devices: [
+          createDevice({
+            mode: 'bootloader',
+            deviceId: null,
+            connectId: 'other-connect-id',
+            serialNo: 'other-serial',
+            uuid: 'other-uuid',
+          }),
+        ],
+        getFeatures: jest.fn().mockResolvedValue({ bootloader_mode: true }),
+        allowBootloaderRecovery: true,
+      }),
+    ).rejects.toThrow('bootloader identity was not confirmed');
+  });
+
+  it('fails closed for ambiguous bootloaders even when recovery is allowed', async () => {
+    await expect(
+      resolveFirmwareReconnectDevice({
+        previousDevice: normalDevice,
+        devices: [bootloaderDevice, { ...bootloaderDevice, connectId: '0000' }],
+        getFeatures: jest.fn(),
+        allowBootloaderRecovery: true,
+      }),
+    ).rejects.toThrow('not uniquely identified');
+  });
+
+  it('prefers the identified bootloader over another same-model application device for recovery', async () => {
+    const device = createDevice({ mode: 'bootloader' });
+    const otherDevice = createDevice({
+      deviceId: 'other-device-id',
+      serialNo: 'other-serial',
+      uuid: 'other-uuid',
+      connectId: 'other-connect-id',
+    });
+    const features = {
+      bootloader_mode: true,
+      device_id: normalDevice.deviceId,
+    } as IOneKeyDeviceFeatures;
+    await expect(
+      resolveFirmwareReconnectDevice({
+        previousDevice: normalDevice,
+        devices: [otherDevice, device],
+        getFeatures: jest.fn().mockResolvedValue(features),
+        allowBootloaderRecovery: true,
+      }),
+    ).resolves.toEqual({ device, features });
+  });
+
+  it('propagates a failed connection instead of returning a recovery device', async () => {
+    await expect(
+      resolveFirmwareReconnectDevice({
+        previousDevice: normalDevice,
+        devices: [normalDevice],
+        getFeatures: jest.fn().mockRejectedValue(new Error('Disconnected')),
+        allowBootloaderRecovery: true,
+      }),
+    ).rejects.toThrow('Disconnected');
+  });
 });

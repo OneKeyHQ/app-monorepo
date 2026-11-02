@@ -1,3 +1,4 @@
+import { markGasAccountSubmitResultUnknown } from '@onekeyhq/shared/src/errors/utils/gasAccountErrorUtils';
 import {
   ESwapStepStatus,
   ESwapStepType,
@@ -10,18 +11,23 @@ import type {
 } from '@onekeyhq/shared/types/swap/types';
 
 import {
+  type ISwapReviewState,
   NATIVE_BTC_MIN_SLIPPAGE_PERCENTAGE,
   buildCustomSlippageQuoteResultCtx,
   buildRebuiltSwapReviewQuoteResult,
+  buildSwapStepFailurePatch,
   calculateMinToAmountBySlippage,
   hasInFlightSwapReviewWork,
+  hasSwapStepSubmitResultUnknown,
   invalidateSwapReviewForSlippageChange,
   markSubmittedSwapApprovalsCompleted,
   resolveSwapReviewNeedFetchGasAfterRebuild,
+  resolveSwapReviewResultStep,
   shouldCloseSwapReviewOnFocusLoss,
   shouldFallbackSwapStep,
   shouldShowNativeBtcLowSlippageWarning,
   shouldShowSwapReviewToAmountSkeleton,
+  updateSwapReviewStep,
 } from './swapReviewState';
 
 describe('shouldFallbackSwapStep', () => {
@@ -513,6 +519,93 @@ describe('shouldCloseSwapReviewOnFocusLoss', () => {
   });
 });
 
+describe('updateSwapReviewStep', () => {
+  const buildReviewState = (steps: ISwapStep[]) => ({
+    steps,
+    preSwapData: {},
+  });
+
+  it('updates only the addressed step', () => {
+    const reviewState = buildReviewState([
+      { type: ESwapStepType.APPROVE_TX, status: ESwapStepStatus.SUCCESS },
+      { type: ESwapStepType.SEND_TX, status: ESwapStepStatus.READY },
+    ]);
+
+    const nextState = updateSwapReviewStep({
+      reviewState,
+      stepIndex: 1,
+      partialStep: { status: ESwapStepStatus.LOADING },
+    });
+
+    expect(nextState).not.toBe(reviewState);
+    expect(nextState.steps[1].status).toBe(ESwapStepStatus.LOADING);
+    expect(nextState.steps[0]).toBe(reviewState.steps[0]);
+    expect(nextState.preSwapData).toBe(reviewState.preSwapData);
+  });
+
+  it('drops a write to a step that was already cleared away', () => {
+    const clearedReviewState = buildReviewState([]);
+
+    const nextState = updateSwapReviewStep({
+      reviewState: clearedReviewState,
+      stepIndex: 1,
+      partialStep: { status: ESwapStepStatus.PENDING },
+    });
+
+    expect(nextState).toBe(clearedReviewState);
+    expect(nextState.steps).toHaveLength(0);
+  });
+
+  it('never grows the steps array with a hole', () => {
+    // A sparse step array materializes its holes as `undefined` entries on the
+    // next spread or deep clone, which crashes every `step.status` reader.
+    const reviewState = buildReviewState([
+      { type: ESwapStepType.APPROVE_TX, status: ESwapStepStatus.SUCCESS },
+    ]);
+
+    const nextState = updateSwapReviewStep({
+      reviewState,
+      stepIndex: 1,
+      partialStep: { status: ESwapStepStatus.PENDING },
+    });
+
+    expect(nextState).toBe(reviewState);
+    expect(nextState.steps).toHaveLength(1);
+    expect(Object.keys(nextState.steps)).toEqual(['0']);
+    expect([...nextState.steps].some((step) => !step)).toBe(false);
+  });
+
+  it('survives the close-during-swap sequence that used to white-screen the page', () => {
+    // Closing the review while the swap step was still building cleared the
+    // steps, and the late step writes used to rebuild a sparse array that the
+    // broadcast success write turned into an `undefined` step.
+    const clearedReviewState: ISwapReviewState = {
+      steps: [],
+      preSwapData: {},
+    };
+
+    const afterLateStepWrite = updateSwapReviewStep({
+      reviewState: clearedReviewState,
+      stepIndex: 1,
+      partialStep: { stepSubTitle: 'building' },
+    });
+    const afterBroadcastWrite = updateSwapReviewStep({
+      reviewState: afterLateStepWrite,
+      stepIndex: afterLateStepWrite.steps.length - 1,
+      partialStep: { status: ESwapStepStatus.PENDING },
+    });
+
+    expect(afterBroadcastWrite).toBe(clearedReviewState);
+    expect([...afterBroadcastWrite.steps]).toEqual([]);
+    expect(
+      hasInFlightSwapReviewWork({
+        steps: [...afterBroadcastWrite.steps],
+        preSwapData: afterBroadcastWrite.preSwapData,
+      }),
+    ).toBe(false);
+  });
+});
+
 describe('hasInFlightSwapReviewWork', () => {
   const step = (status: ESwapStepStatus) => ({ status }) as ISwapStep;
 
@@ -520,6 +613,29 @@ describe('hasInFlightSwapReviewWork', () => {
     expect(
       hasInFlightSwapReviewWork({
         steps: [step(ESwapStepStatus.READY)],
+        preSwapData: {},
+      }),
+    ).toBe(false);
+  });
+
+  it('tolerates a missing step entry instead of crashing the render', () => {
+    const stepsWithMissingEntry = [
+      undefined,
+      step(ESwapStepStatus.PENDING),
+    ] as unknown as ISwapStep[];
+
+    expect(
+      hasInFlightSwapReviewWork({
+        steps: stepsWithMissingEntry,
+        preSwapData: {},
+      }),
+    ).toBe(true);
+    expect(
+      hasInFlightSwapReviewWork({
+        steps: [
+          undefined,
+          step(ESwapStepStatus.READY),
+        ] as unknown as ISwapStep[],
         preSwapData: {},
       }),
     ).toBe(false);
@@ -577,5 +693,106 @@ describe('shouldShowSwapReviewToAmountSkeleton', () => {
         toTokenAmount: '',
       }),
     ).toBe(false);
+  });
+});
+
+describe('buildSwapStepFailurePatch', () => {
+  it('keeps an ordinary failure retryable with its own message', () => {
+    expect(
+      buildSwapStepFailurePatch({
+        error: new Error('rpc timeout'),
+        errorMessage: 'rpc timeout',
+        resultUnknownMessage: 'check activity',
+      }),
+    ).toEqual({
+      status: ESwapStepStatus.FAILED,
+      errorMessage: 'rpc timeout',
+    });
+  });
+
+  it('pins a result-unknown sponsored send as a terminal, non-retryable step', () => {
+    // OK-64746: the tx may already be on chain, so the step must never be
+    // restarted — not even for an approve step that is otherwise retryable.
+    const error = markGasAccountSubmitResultUnknown(new Error('server copy'));
+    expect(
+      buildSwapStepFailurePatch({
+        error,
+        errorMessage: 'server copy',
+        resultUnknownMessage: 'check activity',
+      }),
+    ).toEqual({
+      status: ESwapStepStatus.FAILED,
+      errorMessage: 'check activity',
+      canRetry: false,
+      submitResultUnknown: true,
+    });
+  });
+});
+
+describe('resolveSwapReviewResultStep', () => {
+  const approveStep: ISwapStep = {
+    type: ESwapStepType.APPROVE_TX,
+    status: ESwapStepStatus.SUCCESS,
+    canRetry: true,
+  };
+  const sendStep: ISwapStep = {
+    type: ESwapStepType.SEND_TX,
+    status: ESwapStepStatus.READY,
+  };
+
+  it('keeps the review form while the final step has not run', () => {
+    expect(resolveSwapReviewResultStep([approveStep, sendStep])).toEqual({
+      resultStep: sendStep,
+      showResultContent: false,
+    });
+    expect(resolveSwapReviewResultStep([])).toEqual({
+      resultStep: undefined,
+      showResultContent: false,
+    });
+  });
+
+  it('reports the final step once it settles', () => {
+    const failedSend = { ...sendStep, status: ESwapStepStatus.FAILED };
+    expect(resolveSwapReviewResultStep([approveStep, failedSend])).toEqual({
+      resultStep: failedSend,
+      showResultContent: true,
+    });
+  });
+
+  it('reports a nonfinal result-unknown step even though later steps are READY', () => {
+    // OK-64746: the sponsored approve may already be on chain; the review is
+    // over, so the user must see the check-activity result and Done rather
+    // than a confirm button that no longer does anything.
+    const unknownApprove: ISwapStep = {
+      ...approveStep,
+      status: ESwapStepStatus.FAILED,
+      canRetry: false,
+      submitResultUnknown: true,
+    };
+    expect(resolveSwapReviewResultStep([unknownApprove, sendStep])).toEqual({
+      resultStep: unknownApprove,
+      showResultContent: true,
+    });
+  });
+});
+
+describe('hasSwapStepSubmitResultUnknown', () => {
+  const sendStep: ISwapStep = {
+    type: ESwapStepType.SEND_TX,
+    status: ESwapStepStatus.FAILED,
+  };
+
+  it('is false for failed steps that may be retried', () => {
+    expect(hasSwapStepSubmitResultUnknown([sendStep])).toBe(false);
+    expect(hasSwapStepSubmitResultUnknown([])).toBe(false);
+  });
+
+  it('latches once any step ended result-unknown', () => {
+    expect(
+      hasSwapStepSubmitResultUnknown([
+        { type: ESwapStepType.APPROVE_TX, status: ESwapStepStatus.SUCCESS },
+        { ...sendStep, submitResultUnknown: true },
+      ]),
+    ).toBe(true);
   });
 });

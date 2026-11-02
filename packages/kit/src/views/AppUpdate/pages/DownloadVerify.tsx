@@ -14,6 +14,7 @@ import {
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { getAppUpdateProgressScope } from '@onekeyhq/shared/src/appUpdate';
 import { EAppUpdateStatus } from '@onekeyhq/shared/src/appUpdate/type';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { useDownloadProgress } from '@onekeyhq/shared/src/modules3rdParty/auto-update';
@@ -137,7 +138,7 @@ function DownloadVerify({
   const stepIndex = STEP_INDEX_MAP[data.status];
   const hasError = checkIsError(data.status);
 
-  const percent = useDownloadProgress();
+  const percent = useDownloadProgress(getAppUpdateProgressScope(data));
 
   // Self-heal stale failure UI: native progress events imply the download
   // is actually running. If the atom still says downloadPackageFailed

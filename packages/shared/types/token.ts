@@ -102,6 +102,15 @@ export type ICloudSyncCustomToken = ICloudSyncCustomTokenInfo & {
 };
 export type ICustomTokenItem = IAccountToken;
 
+export type IHomeTokenRequestInvalidation = {
+  mainRuntimeId: string;
+  generation: number;
+};
+
+export type IHomeTokenRequest = IHomeTokenRequestInvalidation & {
+  ownerKey: string;
+};
+
 export type IFetchAccountTokensParams = {
   accountId: string;
   networkId: string;
@@ -115,6 +124,7 @@ export type IFetchAccountTokensParams = {
   unblockedTokens?: string[];
   blockedTokens?: string[];
   flag?: string;
+  homeRequest?: IHomeTokenRequest;
   isAllNetworks?: boolean;
   isManualRefresh?: boolean;
 
@@ -139,6 +149,8 @@ export type ITokenData = {
 };
 
 export type IFetchAccountTokensResp = {
+  homeTokenRoundRef?: string;
+  mergeDeriveAssets?: boolean;
   allTokens?: ITokenData;
   tokens: ITokenData;
   riskTokens: ITokenData;
@@ -154,6 +166,24 @@ export type IFetchAccountTokensResp = {
   >;
   aggregateTokenMap?: Record<string, ITokenFiat>;
 };
+
+export type IAccountTokensCacheScope = {
+  accountId: string;
+  networkId: string;
+  accountAddress?: string;
+  xpub?: string;
+};
+
+/** Display seed only: neither query coverage nor spendable balances are guaranteed. */
+export type ICachedAccountTokens = IAccountTokensCacheScope &
+  Pick<
+    IFetchAccountTokensResp,
+    'tokens' | 'smallBalanceTokens' | 'riskTokens'
+  > & {
+    capturedAt?: number;
+    source: 'home-token-list' | 'dust-sweep' | 'persisted';
+    coverage: 'partial';
+  };
 
 export type IFetchTokenDetailParams = {
   accountId: string;

@@ -170,7 +170,9 @@ export function FoundDevicesFooter({
                 >
                   <WalletAvatar
                     wallet={undefined}
-                    img={item.device?.deviceType as IDeviceType}
+                    img={
+                      item.avatarImg ?? (item.device?.deviceType as IDeviceType)
+                    }
                   />
                   <ListItem.Text primary={item.device?.name} flex={1} />
                   {isSelected ? (

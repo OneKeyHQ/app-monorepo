@@ -4,6 +4,7 @@ import { isObject } from 'lodash';
 import type { IEncodedTx } from '@onekeyhq/core/src/types';
 import type { IApproveInfo } from '@onekeyhq/kit-bg/src/vaults/types';
 import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
+import { isGasAccountSubmitResultUnknownError } from '@onekeyhq/shared/src/errors/utils/gasAccountErrorUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type {
   ESwapNetworkFeeLevel,
@@ -21,6 +22,10 @@ import {
   ESwapTabSwitchType,
 } from '@onekeyhq/shared/types/swap/types';
 
+import type {
+  ISwapReviewAnalytics,
+  ISwapReviewPreparation,
+} from './swapReviewAnalytics';
 import type { ESwapReviewRebuildPhase } from './swapReviewRebuildStateMachine';
 
 export const NATIVE_BTC_MIN_SLIPPAGE_PERCENTAGE = 1;
@@ -71,6 +76,60 @@ export function shouldFallbackSwapStep({
     stepType !== ESwapStepType.SIGN_MESSAGE &&
     errorInfo.name !== 'buildSwapApi'
   );
+}
+
+// True once any step in this review ended result-unknown (OK-64746). The
+// review is then terminal: no step restarts and no second confirm.
+export function hasSwapStepSubmitResultUnknown(steps: ISwapStep[]) {
+  return steps.some((step) => step.submitResultUnknown);
+}
+
+// Which step the review result page reports and whether it shows at all. A
+// result-unknown sponsored send on any step ends the review (OK-64746): later
+// steps never run, so that step's check-activity result and the Done exit
+// must show instead of waiting for the final step to leave READY.
+export function resolveSwapReviewResultStep(steps: ISwapStep[]): {
+  resultStep: ISwapStep | undefined;
+  showResultContent: boolean;
+} {
+  const resultUnknownStep = steps.find((step) => step.submitResultUnknown);
+  if (resultUnknownStep) {
+    return { resultStep: resultUnknownStep, showResultContent: true };
+  }
+  const lastStep = steps[steps.length - 1];
+  return {
+    resultStep: lastStep,
+    showResultContent:
+      !!lastStep &&
+      lastStep.status !== ESwapStepStatus.READY &&
+      lastStep.status !== ESwapStepStatus.LOADING,
+  };
+}
+
+// Patch for a step whose send threw. A result-unknown sponsored send is
+// pinned as a non-retryable failure with the check-activity copy; every
+// other failure keeps its own message and retry rules.
+export function buildSwapStepFailurePatch({
+  error,
+  errorMessage,
+  resultUnknownMessage,
+}: {
+  error: unknown;
+  errorMessage?: string;
+  resultUnknownMessage: string;
+}): Partial<ISwapStep> {
+  if (isGasAccountSubmitResultUnknownError(error)) {
+    return {
+      status: ESwapStepStatus.FAILED,
+      errorMessage: resultUnknownMessage,
+      canRetry: false,
+      submitResultUnknown: true,
+    };
+  }
+  return {
+    status: ESwapStepStatus.FAILED,
+    errorMessage,
+  };
 }
 
 export function markSubmittedSwapApprovalsCompleted({
@@ -288,6 +347,41 @@ export function resolveSwapReviewNeedFetchGasAfterRebuild({
   return fallbackToSeparateTxConfirm || Boolean(previousNeedFetchGas);
 }
 
+/**
+ * Applies a partial update to one review step addressed by its index.
+ *
+ * Review steps are written from several asynchronous flows that may still be
+ * running after the review dialog was closed and the steps were cleared. Writing
+ * an index that no longer exists would turn the array into a sparse one, and the
+ * next spread or deep clone materializes those holes as real `undefined` entries,
+ * which then break every consumer reading `step.status`. Such stale writes are
+ * dropped instead of corrupting the review state.
+ */
+export function updateSwapReviewStep({
+  reviewState,
+  stepIndex,
+  partialStep,
+}: {
+  reviewState: ISwapReviewState;
+  stepIndex: number;
+  partialStep: Partial<ISwapStep>;
+}): ISwapReviewState {
+  const targetStep = reviewState.steps[stepIndex];
+  if (!targetStep) {
+    return reviewState;
+  }
+
+  const nextSteps = [...reviewState.steps];
+  nextSteps[stepIndex] = {
+    ...targetStep,
+    ...partialStep,
+  };
+  return {
+    ...reviewState,
+    steps: nextSteps,
+  };
+}
+
 export function hasInFlightSwapReviewWork({
   steps,
   preSwapData,
@@ -299,10 +393,12 @@ export function hasInFlightSwapReviewWork({
     preSwapData.swapBuildLoading ||
     preSwapData.estimateNetworkFeeLoading ||
     preSwapData.stepBeforeActionsLoading ||
+    // Steps are assembled by concurrent asynchronous flows, so a missing entry
+    // must not break this render-time check.
     steps.some(
       (step) =>
-        step.status === ESwapStepStatus.LOADING ||
-        step.status === ESwapStepStatus.PENDING,
+        step?.status === ESwapStepStatus.LOADING ||
+        step?.status === ESwapStepStatus.PENDING,
     ),
   );
 }
@@ -352,6 +448,8 @@ export type ISwapReviewApproveBroadcastResult = {
 
 export type ISwapReviewAdapter = {
   prepareReview: (params?: {
+    reviewAnalytics?: ISwapReviewAnalytics;
+    reviewPreparation?: ISwapReviewPreparation;
     fromAmount?: string;
     fromToken?: IFetchQuoteResult['fromTokenInfo'];
     toToken?: IFetchQuoteResult['toTokenInfo'];

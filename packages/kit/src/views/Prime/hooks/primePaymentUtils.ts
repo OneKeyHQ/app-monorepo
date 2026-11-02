@@ -1,10 +1,12 @@
 import { BigNumber } from 'bignumber.js';
 
+import { REVENUECAT_SANDBOX_OFFERING_ID } from '@onekeyhq/shared/src/consts/primeConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type {
+  IPrimeCardCheckoutFlow,
   IPrimePaymentMethod,
   IPrimeSubscribeFailedReason,
 } from '@onekeyhq/shared/src/logger/scopes/prime/scenes/subscription';
@@ -16,8 +18,6 @@ import type {
   ISubscriptionPeriod,
 } from './usePrimePaymentTypes';
 import type { Offerings, Purchases } from '@revenuecat/purchases-js';
-
-const SANDBOX_OFFERING_ID = 'Sandbox_testing';
 
 const FREE_TRIAL_PERIOD_UNITS: ReadonlySet<IPackageFreeTrial['periodUnit']> =
   new Set(['day', 'week', 'month', 'year']);
@@ -141,11 +141,11 @@ async function fetchWebTargetOffering({
   }
   const offerings = await purchases.getOfferings(getOfferingsParams);
   const targetOffering = isSandboxKey
-    ? offerings.all[SANDBOX_OFFERING_ID]
+    ? offerings.all[REVENUECAT_SANDBOX_OFFERING_ID]
     : offerings.current;
   if (isSandboxKey && !targetOffering) {
     throw new OneKeyLocalError(
-      `Sandbox offering not found: ${SANDBOX_OFFERING_ID}`,
+      `Sandbox offering not found: ${REVENUECAT_SANDBOX_OFFERING_ID}`,
     );
   }
   return { offerings, targetOffering, getOfferingsParams };
@@ -175,11 +175,15 @@ function trackPrimeSubscriptionSuccess({
   subscriptionPeriod,
   featureName,
   paymentMethod,
+  cardCheckoutFlow,
+  periodType,
 }: {
   amount: number;
   currency?: string;
   subscriptionPeriod: ISubscriptionPeriod;
   featureName?: EPrimeFeatures;
+  cardCheckoutFlow?: IPrimeCardCheckoutFlow;
+  periodType?: string;
   // Required so every success event carries its payment channel: the event
   // pairs with primeSubscribeIntent (logged per channel) to measure the
   // attempt → success rate per channel, which breaks if success events
@@ -193,6 +197,8 @@ function trackPrimeSubscriptionSuccess({
     currency: currency || 'USD',
     featureName,
     paymentMethod,
+    cardCheckoutFlow,
+    periodType,
   });
 }
 
@@ -252,17 +258,20 @@ function trackPrimeSubscriptionFailed({
   paymentMethod,
   subscriptionPeriod,
   featureName,
+  cardCheckoutFlow,
 }: {
   error: unknown;
   paymentMethod: IPrimePaymentMethod;
   subscriptionPeriod?: ISubscriptionPeriod;
   featureName?: EPrimeFeatures;
+  cardCheckoutFlow?: IPrimeCardCheckoutFlow;
 }): ReturnType<typeof classifyPurchaseError> {
   const classification = classifyPurchaseError(error);
   defaultLogger.prime.subscription.primeSubscribeFailed({
     paymentMethod,
     subscriptionPeriod,
     featureName,
+    cardCheckoutFlow,
     ...classification,
   });
   return classification;

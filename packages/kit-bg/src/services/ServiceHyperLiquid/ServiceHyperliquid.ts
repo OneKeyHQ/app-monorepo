@@ -68,6 +68,8 @@ import {
   updateTokenSelectorFavoriteCoins,
 } from '@onekeyhq/shared/src/utils/perpsTokenSelectorFavorites';
 import perpsUtils, {
+  buildPerpsCrossMarginByDex,
+  buildTokenAvailableAfterMaintenanceMap,
   calculateSpotBalancesTotalUsd,
   isHyperLiquidAbstractionModeEnabled,
   parseDexCoin,
@@ -103,6 +105,7 @@ import type {
   IPerpsActiveAssetDataRaw,
   IPerpsUniverse,
   IRecentTrade,
+  ISpotBalance,
   ISpotMetaAndAssetCtxsResponse,
   ISpotToken,
   ISpotUniverse,
@@ -119,7 +122,7 @@ import type {
   IWsActiveSpotAssetCtx,
   IWsAllDexsClearinghouseState,
   IWsSpotAssetCtxs,
-  IWsSpotState,
+  IWsSpotStateWithAvailability,
   IWsWebData2,
 } from '@onekeyhq/shared/types/hyperliquid/sdk';
 import type { IHyperLiquidSignatureRSV } from '@onekeyhq/shared/types/hyperliquid/webview';
@@ -146,6 +149,7 @@ import {
   perpsDepositTokensAtom,
   perpsFavoritesOrderPersistAtom,
   perpsLastUsedLeverageAtom,
+  perpsLiquidationRiskInputsAtom,
   perpsSpotBalancesAtom,
   perpsSpotDustingAtom,
   perpsTradesHistoryDataAtom,
@@ -165,6 +169,12 @@ import { resolvePerpsDepositSelectedToken } from '../ServiceWebviewPerp/utils/de
 
 import { hyperLiquidApiClients } from './hyperLiquidApiClients';
 import hyperLiquidCache from './hyperLiquidCache';
+import {
+  getLiquidationRiskGeneration,
+  invalidatePerpsLiquidationRiskInputs,
+  setPerpsAbstractionModeWithRiskInvalidation,
+  updatePerpsLiquidationRiskInputs,
+} from './liquidationRiskInputs';
 import { shouldRefreshMarketPerpsUniverse } from './marketPerpsUniverse';
 import {
   createFetchUserAbstractionRawWithCache,
@@ -515,6 +525,9 @@ export default class ServiceHyperliquid extends ServiceBase {
   // Avoids async atom reads in the hot path — written to atom on a throttled schedule
   private _spotPriceCache: Record<string, ISpotAssetCtxEntry> = {};
 
+  // The price cache also holds mids, so track which marks came from contexts.
+  private _spotContextPriceCoins = new Set<string>();
+
   private _spotPriceDirty = false;
 
   private _spotPriceFlushTimer: ReturnType<typeof setTimeout> | null = null;
@@ -599,6 +612,8 @@ export default class ServiceHyperliquid extends ServiceBase {
     | { coin: string; mode: ITradingMode }
     | undefined;
 
+  private _pendingInitialTradeInstrumentRequestId: string | undefined;
+
   constructor({ backgroundApi }: { backgroundApi: any }) {
     super({ backgroundApi });
     void this.init();
@@ -621,6 +636,7 @@ export default class ServiceHyperliquid extends ServiceBase {
   async setPendingInitialTradeInstrument(params: {
     coin: string;
     mode: ITradingMode;
+    requestId?: string;
   }): Promise<void> {
     if (!params.coin || this._initialSymbolSelectClaimed) {
       return;
@@ -629,6 +645,19 @@ export default class ServiceHyperliquid extends ServiceBase {
       coin: params.coin,
       mode: params.mode,
     };
+    this._pendingInitialTradeInstrumentRequestId = params.requestId;
+  }
+
+  @backgroundMethod()
+  async clearPendingInitialTradeInstrument({
+    requestId,
+  }: {
+    requestId: string;
+  }): Promise<void> {
+    if (this._pendingInitialTradeInstrumentRequestId === requestId) {
+      this._pendingInitialTradeInstrument = undefined;
+      this._pendingInitialTradeInstrumentRequestId = undefined;
+    }
   }
 
   // Three sequential proxy hops used to sit between the first Perp frame and
@@ -657,6 +686,7 @@ export default class ServiceHyperliquid extends ServiceBase {
       ? this._pendingInitialTradeInstrument
       : undefined;
     this._pendingInitialTradeInstrument = undefined;
+    this._pendingInitialTradeInstrumentRequestId = undefined;
     const instrumentTarget = await this.getActiveTradeInstrumentTarget();
     const tradingUniverse = claimed
       ? await this.getTradingUniverse()
@@ -864,6 +894,8 @@ export default class ServiceHyperliquid extends ServiceBase {
               ipDisablePerp: commonConfig.ipDisablePerp === true,
               unifoldDepositEnabled:
                 commonConfig.unifoldDepositEnabled === true,
+              withdrawChannel:
+                commonConfig.withdrawChannel === 'legacy' ? 'legacy' : 'cctp',
             }),
             perpBannerConfig: options?.fromServerConfig
               ? bannerConfig
@@ -947,8 +979,25 @@ export default class ServiceHyperliquid extends ServiceBase {
     await this.disposeExchangeClients();
   }
 
+  private _perpsConfigRequest:
+    | Promise<IApiClientResponse<IPerpServerConfigResponse>>
+    | undefined;
+
   @backgroundMethod()
   async updatePerpsConfigByServer() {
+    // Focus, modal polling and submission must share one request so an older
+    // response cannot overwrite a newer emergency withdrawal policy.
+    if (!this._perpsConfigRequest) {
+      this._perpsConfigRequest = this._fetchPerpsConfigByServer().finally(
+        () => {
+          this._perpsConfigRequest = undefined;
+        },
+      );
+    }
+    return this._perpsConfigRequest;
+  }
+
+  private async _fetchPerpsConfigByServer() {
     const client = await this.getClient(EServiceEndpointEnum.Utility);
     const resp = await client.get<
       IApiClientResponse<IPerpServerConfigResponse>
@@ -956,6 +1005,10 @@ export default class ServiceHyperliquid extends ServiceBase {
       params: { assetTypeVersion: PERPS_ASSET_TYPE_VERSION },
     });
     const resData = resp.data;
+
+    if (!resData?.data?.referrerConfig) {
+      throw new OneKeyLocalError('Invalid Perps configuration response');
+    }
 
     if (process.env.NODE_ENV !== 'production') {
       // TODO devSettings ignore server config 11
@@ -1495,6 +1548,17 @@ export default class ServiceHyperliquid extends ServiceBase {
   async getWebData2(params: IEventWebData2Parameters): Promise<IWsWebData2> {
     const { infoClient } = hyperLiquidApiClients;
     return infoClient.webData2(params);
+  }
+
+  @backgroundMethod()
+  async getTwapStates(
+    params: IEventWebData2Parameters,
+  ): Promise<Pick<IWsWebData2, 'user' | 'twapStates'>> {
+    const { infoClient } = hyperLiquidApiClients;
+    const data = await infoClient.webData2(params);
+    // TWAP loading does not consume the market/account snapshot. Project it
+    // before transport so main never deserializes those unrelated fields.
+    return data ? { user: data.user, twapStates: data.twapStates } : data;
   }
 
   @backgroundMethod()
@@ -2082,14 +2146,24 @@ export default class ServiceHyperliquid extends ServiceBase {
         };
       }
     });
+    Object.keys(map).forEach((coin) => this._spotContextPriceCoins.add(coin));
     this._flushSpotPrices(map);
     void this.recalculateSpotTotalUsd({ force: true });
   }
 
-  async extractSpotPricesFromAllMids(mids: Record<string, string>) {
+  async extractSpotPricesFromAllMids(
+    mids: Record<string, string>,
+    preferSpotContextPrices = false,
+  ) {
     const map: Record<string, ISpotAssetCtxEntry> = {};
     for (const [coin, price] of Object.entries(mids)) {
-      if (perpsUtils.isSpotInstrument(coin) && price) {
+      // While contexts are wanted, mids only fill coins without a context mark.
+      if (
+        perpsUtils.isSpotInstrument(coin) &&
+        price &&
+        !(preferSpotContextPrices && this._spotContextPriceCoins.has(coin))
+      ) {
+        this._spotContextPriceCoins.delete(coin);
         map[coin] = { markPx: price };
       }
     }
@@ -2240,6 +2314,7 @@ export default class ServiceHyperliquid extends ServiceBase {
   async updateActiveAccountSummaryFromClearinghouseState(
     data: IWsAllDexsClearinghouseState,
   ) {
+    const generation = getLiquidationRiskGeneration();
     const activeAccount = await perpsActiveAccountAtom.get();
     const activeAddress = activeAccount?.accountAddress?.toLowerCase();
     const dataUser = data?.user?.toLowerCase();
@@ -2258,6 +2333,13 @@ export default class ServiceHyperliquid extends ServiceBase {
     if (clearinghouseStates.length === 0) {
       return;
     }
+
+    const crossMarginByDex = buildPerpsCrossMarginByDex(clearinghouseStates);
+    await updatePerpsLiquidationRiskInputs({
+      generation,
+      accountAddress: activeAddress as IHex,
+      crossMarginByDex,
+    });
 
     // Aggregate all DEXs (HL perps + xyz) using BigNumber
     const aggregated = clearinghouseStates.reduce(
@@ -2351,7 +2433,8 @@ export default class ServiceHyperliquid extends ServiceBase {
     }
   }
 
-  async updateSpotBalances(spotStateData: IWsSpotState) {
+  async updateSpotBalances(spotStateData: IWsSpotStateWithAvailability) {
+    const generation = getLiquidationRiskGeneration();
     const activeAccount = await perpsActiveAccountAtom.get();
     const activeAddress = activeAccount?.accountAddress?.toLowerCase();
     const dataUser = spotStateData?.user?.toLowerCase();
@@ -2359,7 +2442,25 @@ export default class ServiceHyperliquid extends ServiceBase {
     // Active-account alignment: only process data for current account
     if (!activeAddress || activeAddress !== dataUser) return;
 
-    const balances = spotStateData?.spotState?.balances || [];
+    const tokenToAvailableAfterMaintenance =
+      buildTokenAvailableAfterMaintenanceMap(
+        spotStateData.spotState?.tokenToAvailableAfterMaintenance,
+      );
+    await updatePerpsLiquidationRiskInputs({
+      generation,
+      accountAddress: activeAddress as IHex,
+      tokenToAvailableAfterMaintenance,
+    });
+
+    const allBalances = spotStateData?.spotState?.balances || [];
+    const balances = allBalances.filter(
+      (balance): balance is ISpotBalance => 'token' in balance,
+    );
+    // Outcome holdings have no supported valuation path yet. Keep the known
+    // total usable, but carry its incompleteness through live and cached UI.
+    const hasUnsupportedBalances = allBalances.some(
+      (balance) => !('token' in balance) && new BigNumber(balance.total).gt(0),
+    );
 
     await spotBalancesAtom.set({ balances, isLoaded: true });
 
@@ -2395,6 +2496,7 @@ export default class ServiceHyperliquid extends ServiceBase {
         accountAddress: activeAddress as IHex,
         balances: normalizedBalances,
         spotTotalUsd: previousSpotTotalUsd,
+        hasUnsupportedBalances,
       });
       this._scheduleSpotTotalUsdFallback(activeAddress);
       return;
@@ -2406,6 +2508,7 @@ export default class ServiceHyperliquid extends ServiceBase {
       accountAddress: activeAddress as IHex,
       balances: normalizedBalances,
       spotTotalUsd,
+      hasUnsupportedBalances,
     });
     void this.cacheService
       .writePerpsAccountDisplaySnapshot({
@@ -2422,6 +2525,7 @@ export default class ServiceHyperliquid extends ServiceBase {
         accountAddress: activeAddress,
         balances: normalizedBalances,
         spotTotalUsd,
+        hasUnsupportedBalances,
       })
       .catch((error: unknown) => {
         console.warn(
@@ -2464,11 +2568,13 @@ export default class ServiceHyperliquid extends ServiceBase {
     // Functional updater: only write if spotTotalUsd is still undefined
     // (avoids overwriting fresher data from a concurrent SPOT_STATE event)
     let didWrite = false;
+    let hasUnsupportedBalances: boolean | undefined;
     await perpsSpotBalancesAtom.set((prev) => {
       if (!prev || (!force && prev.spotTotalUsd !== undefined)) return prev;
       if (prev.accountAddress?.toLowerCase() !== activeAddress) return prev;
       if (prev.spotTotalUsd === computed) return prev;
       didWrite = true;
+      hasUnsupportedBalances = prev.hasUnsupportedBalances;
       return { ...prev, spotTotalUsd: computed };
     });
     if (didWrite) {
@@ -2487,6 +2593,7 @@ export default class ServiceHyperliquid extends ServiceBase {
           accountAddress: activeAddress,
           balances,
           spotTotalUsd: computed,
+          hasUnsupportedBalances,
         })
         .catch((error: unknown) => {
           console.warn(
@@ -2542,6 +2649,7 @@ export default class ServiceHyperliquid extends ServiceBase {
     const mids = hyperLiquidCache.allMids?.mids;
     let computed: string | undefined;
     let balancesToPersist: ISpotBalanceItem[] | undefined;
+    let hasUnsupportedBalances: boolean | undefined;
     await perpsSpotBalancesAtom.set((prev) => {
       if (!prev || prev.accountAddress?.toLowerCase() !== accountAddress) {
         return prev;
@@ -2553,6 +2661,7 @@ export default class ServiceHyperliquid extends ServiceBase {
       });
       computed = spotTotal.totalUsd;
       balancesToPersist = prev.balances;
+      hasUnsupportedBalances = prev.hasUnsupportedBalances;
       return { ...prev, spotTotalUsd: computed };
     });
 
@@ -2572,6 +2681,7 @@ export default class ServiceHyperliquid extends ServiceBase {
           accountAddress,
           balances: balancesToPersist,
           spotTotalUsd: computed,
+          hasUnsupportedBalances,
         })
         .catch((error: unknown) => {
           console.warn(
@@ -2864,6 +2974,10 @@ export default class ServiceHyperliquid extends ServiceBase {
       previousAddress === newAddress;
 
     if (!isSameAddress) {
+      await invalidatePerpsLiquidationRiskInputs();
+      if (!this.isLatestActivePerpsAccountChange(requestId)) {
+        return undefined;
+      }
       await perpsAbstractionModeAtom.set((prev) =>
         this.isLatestActivePerpsAccountChange(requestId) ? undefined : prev,
       );
@@ -2877,6 +2991,12 @@ export default class ServiceHyperliquid extends ServiceBase {
         return undefined;
       }
       await perpsActiveAccountSummaryAtom.set((prev) =>
+        this.isLatestActivePerpsAccountChange(requestId) ? undefined : prev,
+      );
+      if (!this.isLatestActivePerpsAccountChange(requestId)) {
+        return undefined;
+      }
+      await perpsLiquidationRiskInputsAtom.set((prev) =>
         this.isLatestActivePerpsAccountChange(requestId) ? undefined : prev,
       );
       if (!this.isLatestActivePerpsAccountChange(requestId)) {
@@ -3204,7 +3324,7 @@ export default class ServiceHyperliquid extends ServiceBase {
         ) {
           return undefined;
         }
-        await perpsAbstractionModeAtom.set(undefined);
+        await setPerpsAbstractionModeWithRiskInvalidation(undefined);
         return undefined;
       }
 
@@ -3212,7 +3332,7 @@ export default class ServiceHyperliquid extends ServiceBase {
         userAddress,
         mode,
       );
-      await perpsAbstractionModeAtom.set({
+      await setPerpsAbstractionModeWithRiskInvalidation({
         accountAddress: lowerUserAddress,
         mode: mode as EHyperLiquidAbstractionMode,
         source: 'live',
@@ -3244,7 +3364,7 @@ export default class ServiceHyperliquid extends ServiceBase {
         return undefined;
       }
       if (cached) {
-        await perpsAbstractionModeAtom.set({
+        await setPerpsAbstractionModeWithRiskInvalidation({
           accountAddress: lowerUserAddress,
           mode: cached as EHyperLiquidAbstractionMode,
           source: 'cache',
@@ -3279,7 +3399,7 @@ export default class ServiceHyperliquid extends ServiceBase {
       lowerUserAddress,
       confirmedMode,
     );
-    await perpsAbstractionModeAtom.set({
+    await setPerpsAbstractionModeWithRiskInvalidation({
       accountAddress: lowerUserAddress,
       mode: confirmedMode as EHyperLiquidAbstractionMode,
       source: 'live',
@@ -3670,7 +3790,8 @@ export default class ServiceHyperliquid extends ServiceBase {
               });
               return null;
             }
-            if (agent.validUntil <= validThreshold) {
+            const validUntil = agent.validUntil ?? Number.MAX_SAFE_INTEGER;
+            if (validUntil <= validThreshold) {
               defaultLogger.perp.agentLifeCycle.trackReason({
                 reason: 'agent_near_expiry',
                 accountAddress,
@@ -3680,7 +3801,7 @@ export default class ServiceHyperliquid extends ServiceBase {
                   ...statusDetails,
                   agentName: agent.name,
                   agentAddress: agent.address,
-                  validUntil: agent.validUntil,
+                  validUntil: agent.validUntil ?? undefined,
                 },
               });
               return null;
@@ -3695,7 +3816,7 @@ export default class ServiceHyperliquid extends ServiceBase {
                   ...statusDetails,
                   agentName: agent.name,
                   agentAddress: agent.address,
-                  validUntil: agent.validUntil,
+                  validUntil: agent.validUntil ?? undefined,
                 },
               });
               return null;
@@ -3714,12 +3835,12 @@ export default class ServiceHyperliquid extends ServiceBase {
                   agentName: agent.name,
                   chainAgentAddress: agent.address,
                   localAgentAddress: credential.agentAddress,
-                  validUntil: agent.validUntil,
+                  validUntil: agent.validUntil ?? undefined,
                 },
               });
               return null;
             }
-            credential.validUntil = agent.validUntil;
+            credential.validUntil = validUntil;
             return credential;
           }),
         )
@@ -3769,7 +3890,11 @@ export default class ServiceHyperliquid extends ServiceBase {
           );
           const agentToRemove = (
             nonOneKeyAgents.length ? nonOneKeyAgents : extraAgents
-          ).toSorted((a, b) => a.validUntil - b.validUntil)?.[0];
+          ).toSorted(
+            (a, b) =>
+              (a.validUntil ?? Number.MAX_SAFE_INTEGER) -
+              (b.validUntil ?? Number.MAX_SAFE_INTEGER),
+          )?.[0];
           const agentNameToRemove = agentToRemove?.name as
             | EHyperLiquidAgentName
             | undefined;

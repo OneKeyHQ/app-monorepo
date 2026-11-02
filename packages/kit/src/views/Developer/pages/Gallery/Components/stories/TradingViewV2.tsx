@@ -3,6 +3,7 @@ import { useCallback, useState } from 'react';
 import {
   Button,
   Checkbox,
+  Dialog,
   Input,
   SizableText,
   Stack,
@@ -24,6 +25,7 @@ import { MarketWatchListProviderMirrorV2 } from '@onekeyhq/kit/src/views/Market/
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 
 import { Layout } from './utils/Layout';
+import { TradingViewNativeTradeMarksPreview } from './utils/TradingViewNativeTradeMarksPreview';
 
 const DISABLED_FEATURE_OPTIONS: {
   label: string;
@@ -77,13 +79,47 @@ const DEFAULT_STORAGE_NAMESPACE = 'tradingview-v2-demo';
 function TradingViewChartSettingsGalleryExample() {
   const [value, setValue] = useState(createTradingViewChartSettingsValue);
 
-  return <TradingViewChartSettings value={value} onConfirm={setValue} />;
+  return (
+    <Button
+      testID="gallery-chart-settings-trigger"
+      onPress={() =>
+        Dialog.show({
+          dialogContainer: ({ ref }) => (
+            <TradingViewChartSettings
+              dialogRef={ref}
+              value={value}
+              onConfirm={setValue}
+            />
+          ),
+        })
+      }
+    >
+      Chart settings
+    </Button>
+  );
 }
 
 function TradingViewIndicatorSettingsGalleryExample() {
   const [value, setValue] = useState(createTradingViewIndicatorSettingsValue);
 
-  return <TradingViewIndicatorSettings value={value} onConfirm={setValue} />;
+  return (
+    <Button
+      testID="gallery-indicator-settings-trigger"
+      onPress={() =>
+        Dialog.show({
+          dialogContainer: ({ ref }) => (
+            <TradingViewIndicatorSettings
+              dialogRef={ref}
+              value={value}
+              onConfirm={setValue}
+            />
+          ),
+        })
+      }
+    >
+      Indicators
+    </Button>
+  );
 }
 
 const TradingViewV2Gallery = () => {
@@ -130,11 +166,15 @@ const TradingViewV2Gallery = () => {
         componentName="TradingViewV2"
         elements={[
           {
-            title: 'OKX-style chart settings UI mock',
+            title: 'Native B/S markers (mock data)',
+            element: <TradingViewNativeTradeMarksPreview />,
+          },
+          {
+            title: 'Chart settings dialog',
             element: <TradingViewChartSettingsGalleryExample />,
           },
           {
-            title: 'OKX-style indicator settings UI mock',
+            title: 'Indicator settings dialog',
             element: <TradingViewIndicatorSettingsGalleryExample />,
           },
           {

@@ -1,3 +1,4 @@
+import { MAC_APP_STORE_DOWNLOAD_LINK } from '@onekeyhq/shared/src/config/appConfig';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
 import { openExternalUrl } from './openExternalUrl';
@@ -61,6 +62,17 @@ describe('desktop external URLs', () => {
     expect(mockOpenExternal).toHaveBeenCalledWith(url);
   });
 
+  it.each(['darwin', 'win32', 'linux'] as const)(
+    "opens OneKey's own Mac App Store listing on %s",
+    async (platform) => {
+      Object.defineProperty(process, 'platform', { value: platform });
+      await openExternalUrl(MAC_APP_STORE_DOWNLOAD_LINK);
+      expect(mockOpenExternal).toHaveBeenCalledWith(
+        MAC_APP_STORE_DOWNLOAD_LINK,
+      );
+    },
+  );
+
   it.each([
     'http://example.com',
     // eslint-disable-next-line no-script-url -- Regression fixture for blocked renderer URLs.
@@ -70,6 +82,8 @@ describe('desktop external URLs', () => {
     'not a URL',
     nativeUrl,
     'macappstores://example.com',
+    'macappstore://itunes.apple.com/app/id1?mt=12',
+    `${MAC_APP_STORE_DOWNLOAD_LINK}&ct=other`,
   ])('still blocks unapproved renderer URLs: %s', async (url) => {
     await openExternalUrl(url);
     expect(mockOpenExternal).not.toHaveBeenCalled();

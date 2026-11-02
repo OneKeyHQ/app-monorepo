@@ -1,8 +1,18 @@
 import BackgroundApiProxy from '@onekeyhq/kit-bg/src/apis/BackgroundApiProxy';
 import type { IBackgroundApi } from '@onekeyhq/kit-bg/src/apis/IBackgroundApi';
+import { initializeLogResetListener } from '@onekeyhq/kit-bg/src/services/logger/logReset';
 import appGlobals from '@onekeyhq/shared/src/appGlobals';
 
 let backgroundApiPromise: Promise<IBackgroundApi> | undefined;
+let logsReset = false;
+
+// Register before idle/dynamic initialization so an old tab cannot miss a reset.
+initializeLogResetListener(() => {
+  logsReset = true;
+  void backgroundApiPromise
+    ?.then((api) => api.serviceLogger.stopPersistenceForReset(false))
+    .catch(() => {});
+});
 
 const WEB_BACKGROUND_API_IDLE_TIMEOUT_BASE_MS = 1000;
 const WEB_BACKGROUND_API_IDLE_TIMEOUT_JITTER_MS = 2000;
@@ -154,7 +164,11 @@ const waitForWebBackgroundApiStart = () => {
 
 const loadBackgroundApi = () => {
   const promise = import('./backgroundApiInit')
-    .then(({ default: backgroundApiInit }) => backgroundApiInit())
+    .then(async ({ default: backgroundApiInit }) => {
+      const api = backgroundApiInit();
+      if (logsReset) await api.serviceLogger.stopPersistenceForReset(false);
+      return api;
+    })
     .catch((error: unknown) => {
       if (backgroundApiPromise === promise) {
         backgroundApiPromise = undefined;

@@ -368,7 +368,8 @@ function HistoryList() {
             title: labelFn(o.stakingInfo.label),
             direction: o.stakingInfo.send ? 'send' : 'receive',
             amount: action?.amount,
-            networkId: o.stakingInfo?.receive?.token?.networkId ?? '',
+            networkId:
+              o.stakingInfo?.receive?.token?.networkId ?? o.decodedTx.networkId,
             token: historyResp.tokens.find(
               (i) =>
                 i?.info?.address === o.stakingInfo?.receive?.token?.address &&

@@ -1,4 +1,11 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
@@ -41,6 +48,7 @@ import { EHomeTab } from '@onekeyhq/shared/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import NumberSizeableTextWrapper from '../../../components/NumberSizeableTextWrapper';
+import { HERO_BALANCE_FIT_PROPS } from '../../../components/NumberSizeableTextWrapper/heroBalanceFit';
 import { showResourceDetailsDialog } from '../../../components/Resource';
 import { useDebounce } from '../../../hooks/useDebounce';
 import {
@@ -57,7 +65,9 @@ import {
 import { buildOverviewOwnerKey } from '../../../states/jotai/contexts/accountOverview/atoms';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 import { convertFiat } from '../../../utils/fiatConvert';
+import { LocalWalletPasswordAlert } from '../../AssetDetails/pages/TokenDetails/LocalWalletPasswordAlert';
 import { showBalanceDetailsDialog } from '../components/BalanceDetailsDialog';
+import { roundPortfolioTotal } from '../components/DeFiListBlock/formatPortfolioTotal';
 import { useHomeWalletTabSupport } from '../hooks/useHomeWalletTabSupport';
 import { HomeTestIDs } from '../testIDs';
 
@@ -271,7 +281,13 @@ function HomeOverviewContainer() {
   }, []);
 
   const prevWalletIdRef = useRef<string | undefined>(undefined);
-  useEffect(() => {
+  // Layout effect, not a passive one (OK-63873): TokenListBlock restores the
+  // incoming owner's remembered worth in a layout effect of the pane subtree,
+  // which runs AFTER this header subtree's layout effects. As a passive effect
+  // this reset ran after that restore (and after the paint), wiping the
+  // restored worth back to `initialized: false` one frame later on every
+  // wallet switch and on every All Networks account switch.
+  useLayoutEffect(() => {
     if (account?.id && network?.id && wallet?.id) {
       const walletChanged =
         prevWalletIdRef.current !== undefined &&
@@ -890,10 +906,55 @@ function HomeOverviewContainer() {
           currencyMap,
         })
       : undefined;
+  // Single network, owner never confirmed this session (a cleared cache or a
+  // fresh account): the token worth is on screen from the switch frame (the
+  // owner replay / prewarm restored it) while the DeFi hook has not reported
+  // for the owner yet. Show the token worth as a provisional total instead of
+  // the zero placeholder; a DeFi position, when there is one, joins as an
+  // update. Never confirmed as the owner's balance (that still needs DeFi).
+  const provisionalTokenOnlyBalanceUsd = useMemo(() => {
+    if (
+      network?.isAllNetworks ||
+      !isCurrentAccountWorthReady ||
+      isCurrentAccountDeFiReady
+    ) {
+      return undefined;
+    }
+    const tokenWorth = calculateAccountTokensValue({
+      accountId: account?.id ?? '',
+      networkId: network?.id ?? '',
+      tokensWorth: accountWorth,
+      mergeDeriveAssetsEnabled: !!vaultSettings?.mergeDeriveAssetsEnabled,
+    });
+    const tokenWorthUsd = convertFiat({
+      value: tokenWorth,
+      sourceCurrency: accountWorth.currency ?? settings.currencyInfo.id,
+      targetCurrency: USD_CURRENCY_ID,
+      currencyMap,
+    });
+    const perpsWorthUsd = isPerpsEnabled ? (perpsNetWorthUsd ?? '0') : '0';
+    return calculateAccountTotalValue({
+      tokensValue: tokenWorthUsd,
+      deFiNetWorth: perpsWorthUsd,
+    });
+  }, [
+    account?.id,
+    accountWorth,
+    currencyMap,
+    isCurrentAccountDeFiReady,
+    isCurrentAccountWorthReady,
+    isPerpsEnabled,
+    network?.id,
+    network?.isAllNetworks,
+    perpsNetWorthUsd,
+    settings.currencyInfo.id,
+    vaultSettings?.mergeDeriveAssetsEnabled,
+  ]);
   const displayBalanceString = shouldHoldCurrentConfirmedBalance
     ? currentConfirmedBalance
     : (resolvedBalanceString ??
       currentConfirmedBalance ??
+      provisionalTokenOnlyBalanceUsd ??
       lastConfirmedLatestUsd);
 
   const balancePayload = useMemo(
@@ -921,6 +982,7 @@ function HomeOverviewContainer() {
     shouldHoldCurrentConfirmedBalance ||
     resolvedBalanceString !== undefined ||
     !!currentConfirmedBalance ||
+    provisionalTokenOnlyBalanceUsd !== undefined ||
     canReuseLatestDisplayedBalance;
 
   const shouldDisplayZeroBalancePlaceholder = useMemo(() => {
@@ -1035,7 +1097,9 @@ function HomeOverviewContainer() {
       });
     const deFiFiatUsd = hasKnownDeFi
       ? convertFiat({
-          value: accountDeFiOverview.netWorth ?? 0,
+          value: roundPortfolioTotal(
+            accountDeFiOverview.netWorth ?? 0,
+          ).toFixed(),
           sourceCurrency:
             accountDeFiOverview.currency || settings.currencyInfo.id,
           targetCurrency: USD_CURRENCY_ID,
@@ -1044,7 +1108,7 @@ function HomeOverviewContainer() {
       : undefined;
     let perpsFiatUsd: string | undefined;
     if (isLive) {
-      perpsFiatUsd = isPerpsEnabled ? perpsNetWorthUsd : '0';
+      perpsFiatUsd = isPerpsEnabled ? (perpsNetWorthUsd ?? '0') : '0';
     }
     const next = {
       ownerKey: isCurrentOwnerBalance ? currentOverviewOwnerKey : '',
@@ -1184,6 +1248,7 @@ function HomeOverviewContainer() {
                 // Large hero balance reads better with the font's natural
                 // proportional figures than equal-width tabular ones.
                 fontVariant={PROPORTIONAL_NUMS}
+                {...HERO_BALANCE_FIT_PROPS}
                 {...numberFormatter}
               >
                 {renderedBalanceStringDisplay ?? '0'}
@@ -1206,6 +1271,17 @@ function HomeOverviewContainer() {
           })}
         </Button>
       ) : undefined}
+      {vaultSettings?.localWallet &&
+      account?.id &&
+      network?.id &&
+      !network.isAllNetworks ? (
+        <YStack w="100%">
+          <LocalWalletPasswordAlert
+            networkId={network.id}
+            accountId={account.id}
+          />
+        </YStack>
+      ) : null}
       {isWalletNotBackedUp && vaultSettings?.hasResource ? (
         <Button
           testID="home-btn"

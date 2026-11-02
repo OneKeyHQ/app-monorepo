@@ -83,6 +83,7 @@ export function WalletActionCopy({ onClose }: { onClose: () => void }) {
           networkId: network?.id ?? '',
           accountId: account?.id ?? '',
           walletId: wallet?.id ?? '',
+          source: 'copyAddress',
         },
       });
     } else if (

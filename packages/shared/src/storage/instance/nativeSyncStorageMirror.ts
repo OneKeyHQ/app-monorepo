@@ -20,13 +20,19 @@ type IMirrorState = {
   mutationsBeforeBootstrap: INativeSyncStorageLocalMutation[];
 };
 
+type IMutationAcknowledgement = {
+  promise: Promise<void>;
+  resolve: () => void;
+};
+
 type ICompactedRemoteMutation = {
+  acknowledgements?: IMutationAcknowledgement[];
   mutation: INativeSyncStorageLocalMutation;
   request: INativeSyncStorageRequest;
-  supersededMutationIds?: number[];
 };
 
 type IPendingRemoteMutation = {
+  acknowledgements: IMutationAcknowledgement[];
   enqueuedAt: number;
   mutation: INativeSyncStorageLocalMutation;
   request: INativeSyncStorageRequest;
@@ -41,14 +47,11 @@ type IQueueDiagnostics = {
   maxOldestRequestAgeMs: number;
   maxQueueSize: number;
   nextStallThresholdIndex: number;
+  operation: INativeSyncStorageLocalMutation['operation'] | undefined;
   stallTimer: ReturnType<typeof setTimeout> | undefined;
 };
 
 type IRemoteMutationQueue = {
-  acknowledgementWaiters: Map<
-    number,
-    { promise: Promise<void>; resolve: () => void }
-  >;
   diagnostics: IQueueDiagnostics;
   drainActive: boolean;
   drainPromise: Promise<void>;
@@ -56,7 +59,6 @@ type IRemoteMutationQueue = {
   pending: Map<number, IPendingRemoteMutation>;
   retryAttempt: number;
   retryTimer: ReturnType<typeof setTimeout> | undefined;
-  supersededMutationIds: Map<number, number[]>;
 };
 
 const NATIVE_SYNC_STORAGE_NAMES: INativeSyncStorageName[] = [
@@ -69,6 +71,8 @@ const MUTATION_RETRY_MAX_DELAY_MS = 30_000;
 const MUTATION_RETRY_JITTER_RATIO = 0.2;
 const QUEUE_DIAGNOSTIC_EPISODE_COOLDOWN_MS = 10 * 60_000;
 const QUEUE_STALL_THRESHOLDS_MS = [30_000, 5 * 60_000, 30 * 60_000];
+const SNAPSHOT_DIAGNOSTIC_COOLDOWN_MS = 10 * 60_000;
+const SNAPSHOT_DIAGNOSTIC_MAX_LOGS = 12;
 
 function createMirrorState(): IMirrorState {
   return {
@@ -79,7 +83,6 @@ function createMirrorState(): IMirrorState {
 
 function createRemoteMutationQueue(): IRemoteMutationQueue {
   return {
-    acknowledgementWaiters: new Map(),
     diagnostics: {
       degradedAt: undefined,
       errorType: 'unknown',
@@ -89,6 +92,7 @@ function createRemoteMutationQueue(): IRemoteMutationQueue {
       maxOldestRequestAgeMs: 0,
       maxQueueSize: 0,
       nextStallThresholdIndex: 0,
+      operation: undefined,
       stallTimer: undefined,
     },
     drainActive: false,
@@ -97,7 +101,6 @@ function createRemoteMutationQueue(): IRemoteMutationQueue {
     pending: new Map(),
     retryAttempt: 0,
     retryTimer: undefined,
-    supersededMutationIds: new Map(),
   };
 }
 
@@ -114,7 +117,21 @@ const remoteMutationQueues: Record<
   devSettings: createRemoteMutationQueue(),
 };
 
-let bootstrapComplete = false;
+const snapshotDiagnosticStates = new Map<
+  'failed' | 'recovered',
+  {
+    eventCount: number;
+    lastLoggedAt?: number;
+    loggedCount: number;
+    maxPendingMutationCount: number;
+  }
+>();
+
+let hasBootstrapSnapshot = false;
+let collectBootstrapMutations = true;
+let bootstrapRetryTimer: ReturnType<typeof setTimeout> | undefined;
+let bootstrapFailedAttemptCount = 0;
+let bootstrapRetryNeeded = false;
 let bootstrapPromise: Promise<void> | undefined;
 let bootstrapGeneration = 0;
 let mutationSequence = 0;
@@ -166,6 +183,15 @@ function appendCompactedLocalMutation(
   mutations.push(mutation);
 }
 
+function recordBootstrapMutation(
+  state: IMirrorState,
+  mutation: INativeSyncStorageLocalMutation,
+) {
+  if (collectBootstrapMutations) {
+    appendCompactedLocalMutation(state.mutationsBeforeBootstrap, mutation);
+  }
+}
+
 function compactPendingRemoteMutations({
   mutation,
   queue,
@@ -176,14 +202,14 @@ function compactPendingRemoteMutations({
   request: INativeSyncStorageRequest;
 }): ICompactedRemoteMutation {
   if (mutation.operation === 'clear') {
-    const supersededMutationIds: number[] = [];
-    queue.pending.forEach((_pending, mutationId) => {
+    const acknowledgements: IMutationAcknowledgement[] = [];
+    queue.pending.forEach((pending, mutationId) => {
       if (mutationId !== queue.inFlightMutationId) {
-        supersededMutationIds.push(mutationId);
+        acknowledgements.push(...pending.acknowledgements);
         queue.pending.delete(mutationId);
       }
     });
-    return { mutation, request, supersededMutationIds };
+    return { acknowledgements, mutation, request };
   }
   let superseded: Array<[number, IPendingRemoteMutation]> = [];
   queue.pending.forEach((pending, mutationId) => {
@@ -219,44 +245,20 @@ function compactPendingRemoteMutations({
   }
   superseded.forEach(([mutationId]) => queue.pending.delete(mutationId));
   return {
+    acknowledgements: superseded.flatMap(
+      ([, pending]) => pending.acknowledgements,
+    ),
     mutation,
     request: compactedRequest,
-    supersededMutationIds: superseded.map(([mutationId]) => mutationId),
   };
 }
 
-function createMutationAcknowledgement(
-  queue: IRemoteMutationQueue,
-  mutationId: number,
-) {
+function createMutationAcknowledgement(): IMutationAcknowledgement {
   let resolveAcknowledgement: (() => void) | undefined;
   const promise = new Promise<void>((resolve) => {
     resolveAcknowledgement = resolve;
   });
-  queue.acknowledgementWaiters.set(mutationId, {
-    promise,
-    resolve: () => resolveAcknowledgement?.(),
-  });
-  return promise;
-}
-
-function resolveMutationAcknowledgements(
-  queue: IRemoteMutationQueue,
-  mutationId: number,
-) {
-  const pendingIds = [mutationId];
-  while (pendingIds.length > 0) {
-    const currentId = pendingIds.pop();
-    if (currentId !== undefined) {
-      const superseded = queue.supersededMutationIds.get(currentId);
-      queue.supersededMutationIds.delete(currentId);
-      if (superseded) {
-        pendingIds.push(...superseded);
-      }
-      queue.acknowledgementWaiters.get(currentId)?.resolve();
-      queue.acknowledgementWaiters.delete(currentId);
-    }
-  }
+  return { promise, resolve: () => resolveAcknowledgement?.() };
 }
 
 function getNativeStorageGlobal() {
@@ -286,6 +288,57 @@ function refreshQueueDiagnosticMeasurements(queue: IRemoteMutationQueue) {
     diagnostics.maxOldestRequestAgeMs,
     getOldestRequestAgeMs(queue),
   );
+  diagnostics.operation = getFirstPendingOperation(queue);
+}
+
+function getFirstPendingOperation(queue: IRemoteMutationQueue) {
+  const first = queue.pending.values().next().value as
+    | IPendingRemoteMutation
+    | undefined;
+  return first?.mutation.operation;
+}
+
+function reportSnapshotDiagnostic(
+  eventType: 'failed' | 'recovered',
+  failedAttemptCount: number,
+) {
+  const state = snapshotDiagnosticStates.get(eventType) ?? {
+    eventCount: 0,
+    loggedCount: 0,
+    maxPendingMutationCount: 0,
+  };
+  snapshotDiagnosticStates.set(eventType, state);
+  state.eventCount += 1;
+  state.maxPendingMutationCount = Math.max(
+    state.maxPendingMutationCount,
+    NATIVE_SYNC_STORAGE_NAMES.reduce(
+      (total, store) => total + remoteMutationQueues[store].pending.size,
+      0,
+    ),
+  );
+  const now = Date.now();
+  if (
+    state.loggedCount >= SNAPSHOT_DIAGNOSTIC_MAX_LOGS ||
+    (state.lastLoggedAt !== undefined &&
+      now - state.lastLoggedAt < SNAPSHOT_DIAGNOSTIC_COOLDOWN_MS)
+  ) {
+    return;
+  }
+  state.loggedCount += 1;
+  try {
+    defaultLogger.app.background.nativeStorageSnapshotState({
+      cooldownMs: SNAPSHOT_DIAGNOSTIC_COOLDOWN_MS,
+      eventCount: state.eventCount,
+      eventType,
+      failedAttemptCount,
+      pendingMutationCount: state.maxPendingMutationCount,
+    });
+  } catch {
+    // Diagnostics must never change storage persistence behavior.
+  }
+  state.lastLoggedAt = now;
+  state.eventCount = 0;
+  state.maxPendingMutationCount = 0;
 }
 
 function emitQueueDiagnostic(
@@ -309,6 +362,9 @@ function emitQueueDiagnostic(
           ? 0
           : Math.max(0, Date.now() - diagnostics.degradedAt),
       ...(stallThresholdMs === undefined ? {} : { stallThresholdMs }),
+      ...(diagnostics.operation === undefined
+        ? {}
+        : { operation: diagnostics.operation }),
       store,
     });
   } catch {
@@ -357,15 +413,20 @@ function scheduleQueueStallDiagnostic(store: INativeSyncStorageName) {
 function beginQueueDegradation({
   didFailRequest,
   errorType,
+  operation,
   store,
 }: {
   didFailRequest: boolean;
   errorType: string;
+  operation?: INativeSyncStorageLocalMutation['operation'];
   store: INativeSyncStorageName;
 }) {
   const queue = remoteMutationQueues[store];
   const diagnostics = queue.diagnostics;
   diagnostics.errorType = errorType;
+  if (operation !== undefined) {
+    diagnostics.operation = operation;
+  }
   if (didFailRequest) {
     diagnostics.failedAttemptCount += 1;
   }
@@ -430,6 +491,7 @@ function completeQueueDegradation(store: INativeSyncStorageName) {
   diagnostics.maxOldestRequestAgeMs = 0;
   diagnostics.maxQueueSize = 0;
   diagnostics.nextStallThresholdIndex = 0;
+  diagnostics.operation = undefined;
 }
 
 function getRemoteMutationRetryDelayMs(attempt: number) {
@@ -477,6 +539,7 @@ function drainRemoteMutations(store: INativeSyncStorageName) {
     beginQueueDegradation({
       didFailRequest: false,
       errorType: 'transport-not-ready',
+      operation: getFirstPendingOperation(queue),
       store,
     });
     return queue.drainPromise;
@@ -489,6 +552,7 @@ function drainRemoteMutations(store: INativeSyncStorageName) {
         beginQueueDegradation({
           didFailRequest: false,
           errorType: 'transport-not-ready',
+          operation: getFirstPendingOperation(queue),
           store,
         });
         return;
@@ -510,6 +574,7 @@ function drainRemoteMutations(store: INativeSyncStorageName) {
         beginQueueDegradation({
           didFailRequest: true,
           errorType: error instanceof Error ? error.name : typeof error,
+          operation: request.operation,
           store,
         });
         scheduleRemoteMutationRetry(store);
@@ -539,28 +604,28 @@ function enqueueRemoteMutation(
     request,
   });
   const mutationId = (mutationSequence += 1);
-  const acknowledgement = createMutationAcknowledgement(queue, mutationId);
+  // A write that supersedes queued ones joins their confirmation group, so
+  // repeated offline overwrites share one promise instead of retaining one
+  // per write until bg acknowledges the final value.
+  const acknowledgements = compacted.acknowledgements?.length
+    ? compacted.acknowledgements
+    : [createMutationAcknowledgement()];
   const requestWithMutationId: INativeSyncStorageRequest = {
     ...compacted.request,
     sourceMutationId: mutationId,
     sourceRuntimeId: mutationRuntimeId,
   };
   queue.pending.set(mutationId, {
+    acknowledgements,
     enqueuedAt: Date.now(),
     mutation: compacted.mutation,
     request: requestWithMutationId,
   });
-  if (compacted.supersededMutationIds?.length) {
-    queue.supersededMutationIds.set(
-      mutationId,
-      compacted.supersededMutationIds,
-    );
-  }
   if (queue.diagnostics.degradedAt !== undefined) {
     refreshQueueDiagnosticMeasurements(queue);
   }
   void drainRemoteMutations(store);
-  return acknowledgement;
+  return acknowledgements[0].promise;
 }
 
 function replayPendingRemoteMutations() {
@@ -572,12 +637,6 @@ function replayPendingRemoteMutations() {
 function replayPendingLocalMutations(store: INativeSyncStorageName) {
   const state = mirrors[store];
   remoteMutationQueues[store].pending.forEach((pending) => {
-    if (!bootstrapComplete) {
-      appendCompactedLocalMutation(
-        state.mutationsBeforeBootstrap,
-        pending.mutation,
-      );
-    }
     applyLocalMutation(state, pending.mutation);
   });
 }
@@ -604,9 +663,7 @@ function applyCanonicalMutation(
   } else {
     localMutation = { operation: 'clear' };
   }
-  if (!bootstrapComplete) {
-    appendCompactedLocalMutation(state.mutationsBeforeBootstrap, localMutation);
-  }
+  recordBootstrapMutation(state, localMutation);
   applyLocalMutation(state, localMutation);
   replayPendingLocalMutations(mutation.store);
   const durationMs = Math.round(perfNow() - startedAt);
@@ -640,8 +697,10 @@ function acknowledgeRemoteMutation(
       'Native sync storage returned an invalid mutation acknowledgement',
     );
   }
+  pending.acknowledgements.forEach((acknowledgement) =>
+    acknowledgement.resolve(),
+  );
   queue.pending.delete(mutationId);
-  resolveMutationAcknowledgements(queue, mutationId);
   applyCanonicalMutation(canonical, 'ack');
 }
 
@@ -650,11 +709,9 @@ function mutate(
   mutation: INativeSyncStorageLocalMutation,
   request: INativeSyncStorageRequest,
 ) {
-  const state = mirrors[store];
-  if (!bootstrapComplete) {
-    appendCompactedLocalMutation(state.mutationsBeforeBootstrap, mutation);
-  }
-  applyLocalMutation(state, mutation);
+  // Not recorded for snapshot replay: the write stays in its remote queue
+  // until bg acknowledges it, and primeMirror replays that queue.
+  applyLocalMutation(mirrors[store], mutation);
   return enqueueRemoteMutation(store, mutation, request);
 }
 
@@ -666,6 +723,7 @@ function applyBroadcastMutation(mutation: INativeSyncStorageMutation) {
   applyBroadcastMutation;
 
 getNativeStorageGlobal().__onekeyNativeSyncStorageTransportReady = () => {
+  scheduleBootstrapRetry();
   NATIVE_SYNC_STORAGE_NAMES.forEach((store) => {
     const queue = remoteMutationQueues[store];
     queue.retryAttempt = 0;
@@ -738,6 +796,7 @@ function primeMirror(
     applyLocalMutation(state, mutation);
   }
   state.mutationsBeforeBootstrap = [];
+  replayPendingLocalMutations(store);
 }
 
 /** What the blocking half of cold start actually spent, split into the wait
@@ -775,19 +834,40 @@ function logBootstrapTiming({
   }
 }
 
+function clearBootstrapRetryTimer() {
+  if (bootstrapRetryTimer !== undefined) {
+    clearTimeout(bootstrapRetryTimer);
+    bootstrapRetryTimer = undefined;
+  }
+}
+
+function scheduleBootstrapRetry() {
+  if (
+    !bootstrapRetryNeeded ||
+    bootstrapRetryTimer !== undefined ||
+    !isNativeStorageTransportReady()
+  ) {
+    return;
+  }
+  bootstrapRetryTimer = setTimeout(() => {
+    bootstrapRetryTimer = undefined;
+    if (!isNativeStorageTransportReady()) {
+      return;
+    }
+    void startBootstrap(true).catch(() => undefined);
+  }, getRemoteMutationRetryDelayMs(bootstrapFailedAttemptCount));
+}
+
 function startBootstrap(force: boolean) {
   if (!force && bootstrapPromise) {
     return bootstrapPromise;
   }
+  clearBootstrapRetryTimer();
+  bootstrapRetryNeeded = false;
+  collectBootstrapMutations = true;
   if (force) {
-    bootstrapComplete = false;
     NATIVE_SYNC_STORAGE_NAMES.forEach((store) => {
-      remoteMutationQueues[store].pending.forEach(({ mutation }) => {
-        appendCompactedLocalMutation(
-          mirrors[store].mutationsBeforeBootstrap,
-          mutation,
-        );
-      });
+      mirrors[store].mutationsBeforeBootstrap = [];
     });
   }
   const generation = (bootstrapGeneration += 1);
@@ -801,9 +881,14 @@ function startBootstrap(force: boolean) {
         return bootstrapPromise;
       }
       const receivedAt = Date.now();
+      collectBootstrapMutations = false;
       primeMirror('settings', snapshot.settings);
       primeMirror('devSettings', snapshot.devSettings);
-      bootstrapComplete = true;
+      hasBootstrapSnapshot = true;
+      if (bootstrapFailedAttemptCount > 0) {
+        reportSnapshotDiagnostic('recovered', bootstrapFailedAttemptCount);
+        bootstrapFailedAttemptCount = 0;
+      }
       replayPendingRemoteMutations();
       logBootstrapTiming({
         requestedAt,
@@ -812,12 +897,28 @@ function startBootstrap(force: boolean) {
       });
     })
     .catch((error: unknown) => {
-      if (generation !== bootstrapGeneration && bootstrapPromise) {
-        return bootstrapPromise;
+      if (generation !== bootstrapGeneration) {
+        if (bootstrapPromise) {
+          return bootstrapPromise;
+        }
+        throw error;
       }
-      if (generation === bootstrapGeneration) {
-        bootstrapPromise = undefined;
+      bootstrapPromise = undefined;
+      // End the replay window. The live mirror already holds every canonical
+      // mutation, and unacknowledged writes stay in their remote queues, so
+      // the next snapshot rebuilds from bg plus those queues.
+      collectBootstrapMutations = false;
+      NATIVE_SYNC_STORAGE_NAMES.forEach((store) => {
+        mirrors[store].mutationsBeforeBootstrap = [];
+      });
+      bootstrapFailedAttemptCount += 1;
+      // Initial startup keeps its caller-driven error UI. A running app keeps
+      // its last usable mirror and retries the refresh on its own.
+      if (hasBootstrapSnapshot) {
+        bootstrapRetryNeeded = true;
+        scheduleBootstrapRetry();
       }
+      reportSnapshotDiagnostic('failed', bootstrapFailedAttemptCount);
       throw error;
     });
   bootstrapPromise = nextPromise;
@@ -834,10 +935,11 @@ export function bootstrapNativeSyncStorageMirrors() {
  * Until they do they answer nothing, which is what a reader consults before
  * falling back to the file. Once they do they are authoritative and must be
  * preferred: they carry this runtime's own pending writes and deletions,
- * which the file has not seen.
+ * which the file has not seen. A later refresh, in flight or failed, does
+ * not reset this.
  */
 export function isNativeSyncStorageMirrorBootstrapped() {
-  return bootstrapComplete;
+  return hasBootstrapSnapshot;
 }
 
 export function refreshNativeSyncStorageMirrors() {

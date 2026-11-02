@@ -4,7 +4,7 @@ import type {
   LayoutChangeEvent,
   NativeScrollEvent,
   NativeSyntheticEvent,
-  ScrollView as ScrollViewType,
+  ScrollViewInstance,
 } from 'react-native';
 
 // Default layout constants for network filter scrolling
@@ -29,7 +29,7 @@ interface IUseNetworkFilterScrollReturn {
   contentWidth: number;
 
   // Refs
-  scrollViewRef: React.RefObject<ScrollViewType | null>;
+  scrollViewRef: React.RefObject<ScrollViewInstance | null>;
   itemLayoutsRef: {
     current: Record<string, { x: number; width: number }>;
   };
@@ -72,7 +72,7 @@ export function useNetworkFilterScroll(
   const [contentWidth, setContentWidth] = useState(0);
 
   // Refs
-  const scrollViewRef = useRef<ScrollViewType>(null);
+  const scrollViewRef = useRef<ScrollViewInstance>(null);
   const itemLayoutsRef = useRef<Record<string, { x: number; width: number }>>(
     {},
   );

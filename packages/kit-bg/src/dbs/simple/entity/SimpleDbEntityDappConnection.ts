@@ -1,3 +1,5 @@
+import { cloneDeep, isNumber } from 'lodash';
+
 import { backgroundMethod } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -90,6 +92,114 @@ export class SimpleDbEntityDappConnection extends SimpleDbEntityBase<IDappConnec
   entityName = 'dappConnection';
 
   override enableCache = true;
+
+  async commitConnectionApproval({
+    accountInfo,
+    accountSelectorNum,
+    afterPublish,
+    beforePublish,
+    imageURL,
+    mode,
+    origin,
+    shouldCommit,
+    storageType,
+  }: {
+    accountInfo: IConnectionAccountInfo;
+    accountSelectorNum?: number;
+    afterPublish: () => boolean;
+    beforePublish: (
+      accountsInfo: IConnectionAccountInfo[],
+    ) => Promise<boolean> | boolean;
+    imageURL?: string;
+    mode: 'save' | 'update';
+    origin: string;
+    shouldCommit: () => boolean;
+    storageType: 'injectedProvider';
+  }): Promise<{
+    committed: boolean;
+  }> {
+    const transaction = await this.setRawDataTransaction({
+      afterPublish,
+      beforePublish: (nextData) =>
+        beforePublish(
+          Object.values(
+            nextData.data.injectedProvider[origin]?.connectionMap ?? {},
+          ),
+        ),
+      build: (rawData) => {
+        const nextData = cloneDeep(rawData) || {
+          data: {
+            injectedProvider: {},
+            walletConnect: {},
+          },
+        };
+        nextData.data.injectedProvider ||= {};
+        nextData.data.walletConnect ||= {};
+
+        const storage = nextData.data[storageType];
+        if (mode === 'update') {
+          if (!isNumber(accountSelectorNum)) {
+            return undefined;
+          }
+          const connectionItem = storage[origin];
+          if (!connectionItem) {
+            return undefined;
+          }
+          const connectionMap = {
+            ...connectionItem.connectionMap,
+            [accountSelectorNum]: accountInfo,
+          };
+          const { networkImplMap, addressMap } = generateMaps(connectionMap);
+          storage[origin] = {
+            ...connectionItem,
+            addressMap,
+            connectionMap,
+            networkImplMap,
+            updatedAt: Date.now(),
+          };
+        } else {
+          let connectionItem = storage[origin];
+          if (!connectionItem) {
+            connectionItem = {
+              origin,
+              imageURL: imageURL || '',
+              connectionMap: {},
+              networkImplMap: {},
+              addressMap: {},
+              updatedAt: Date.now(),
+            };
+          } else {
+            connectionItem = {
+              ...connectionItem,
+              imageURL: imageURL || connectionItem.imageURL,
+              connectionMap: { ...connectionItem.connectionMap },
+              updatedAt: Date.now(),
+            };
+          }
+          // saveConnectionSession uses replaceExistAccount=true. Preserve that
+          // behavior if another connection appeared after the modal's initial
+          // lookup by allocating the next free selector slot.
+          const connectionNum = generateAccountSelectorNumber(
+            connectionItem.connectionMap,
+            storageType,
+          );
+          connectionItem.connectionMap[connectionNum] = accountInfo;
+          const { networkImplMap, addressMap } = generateMaps(
+            connectionItem.connectionMap,
+          );
+          connectionItem.addressMap = addressMap;
+          connectionItem.networkImplMap = networkImplMap;
+          storage[origin] = connectionItem;
+        }
+
+        return { data: nextData };
+      },
+      shouldCommit,
+    });
+    return {
+      committed: transaction.committed,
+    };
+  }
 
   @backgroundMethod()
   async upsertConnection({

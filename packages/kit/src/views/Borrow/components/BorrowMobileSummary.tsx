@@ -86,7 +86,8 @@ export function BorrowMobileSummary({
 }) {
   const intl = useIntl();
   const { reserves } = useBorrowContext();
-  const { borrowRewards, isRewardsLoading, requestRefresh } = overviewData;
+  const { borrowRewards, isRewardsLoading, isRewardsError, requestRefresh } =
+    overviewData;
 
   const supplied = reserves.data?.supplied;
   const borrowed = reserves.data?.borrowed;
@@ -110,7 +111,8 @@ export function BorrowMobileSummary({
   const showRewards =
     hasRewardItems(rewardsDetail?.claimable) ||
     hasRewardItems(rewardsDetail?.unclaimable) ||
-    isRewardsLoading;
+    isRewardsLoading ||
+    isRewardsError;
 
   // Otherwise the frame below is a rule drawn across the page with nothing
   // under it.
@@ -150,6 +152,7 @@ export function BorrowMobileSummary({
         {showRewards ? (
           <BorrowRewardsMetric
             borrowRewards={borrowRewards}
+            isError={isRewardsError}
             isLoading={isRewardsLoading}
             onClaimed={requestRefresh}
           />

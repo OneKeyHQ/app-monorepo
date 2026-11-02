@@ -477,4 +477,8 @@ function TxActionTokenApproveDetailView(props: ITxActionProps) {
   );
 }
 
-export { TxActionTokenApproveListView, TxActionTokenApproveDetailView };
+export {
+  TxActionTokenApproveListView,
+  TxActionTokenApproveDetailView,
+  getTxActionTokenApproveInfo,
+};

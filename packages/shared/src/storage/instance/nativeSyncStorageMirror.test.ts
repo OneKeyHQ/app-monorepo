@@ -1,5 +1,6 @@
 const mockCallNativeStorage = jest.fn();
 const mockNativeStorageQueueState = jest.fn();
+const mockNativeStorageSnapshotState = jest.fn();
 const mockSWRCacheSlowOp = jest.fn();
 
 jest.mock('../../logger/logger', () => ({
@@ -8,6 +9,9 @@ jest.mock('../../logger/logger', () => ({
       background: {
         nativeStorageQueueState: (params: unknown) => {
           mockNativeStorageQueueState(params);
+        },
+        nativeStorageSnapshotState: (params: unknown) => {
+          mockNativeStorageSnapshotState(params);
         },
       },
       perf: {
@@ -73,6 +77,7 @@ describe('nativeSyncStorageMirror', () => {
     jest.resetModules();
     mockCallNativeStorage.mockReset();
     mockNativeStorageQueueState.mockReset();
+    mockNativeStorageSnapshotState.mockReset();
     mockSWRCacheSlowOp.mockReset();
     delete (
       globalThis as typeof globalThis & {
@@ -261,6 +266,29 @@ describe('nativeSyncStorageMirror', () => {
     );
     expect(diagnosticPayload).not.toContain('sensitive-key');
     expect(diagnosticPayload).not.toContain('sensitive-value');
+  });
+
+  it('labels a failed request with its operation without logging its key or value', async () => {
+    jest.useFakeTimers();
+    mockCallNativeStorage.mockRejectedValueOnce(new Error('write failed'));
+    const { createNativeSyncStorageMirror, waitForNativeSyncStorageMutations } =
+      loadMirror();
+    const storage = createNativeSyncStorageMirror('settings');
+
+    void storage.remove('private-key');
+    await waitForNativeSyncStorageMutations();
+
+    expect(mockNativeStorageQueueState).toHaveBeenCalledWith(
+      expect.objectContaining({
+        eventType: 'degraded',
+        operation: 'remove',
+        store: 'settings',
+      }),
+    );
+    const diagnosticPayload = JSON.stringify(
+      mockNativeStorageQueueState.mock.calls,
+    );
+    expect(diagnosticPayload).not.toContain('private-key');
   });
 
   it('suppresses rapidly repeated failure episodes during the cooldown', async () => {

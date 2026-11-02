@@ -5,11 +5,15 @@ import {
 } from '@onekeyhq/shared/types/swap/types';
 
 import {
+  buildSwapAddressAccountInfo,
+  getSwapAccountNetworkWarningAccountId,
   getSwapAddressAccountSelectorNum,
   getSwapRecipientActionState,
   getSwapRecipientEditorAccountInfo,
   getSwapRecipientValidationAccountId,
+  hasSwapFromAddressForVerdict,
   resolveSettledSwapRecipientRequired,
+  resolveSwapBalanceAccount,
   resolveSwapTargetNetworkAccount,
   resolveSwapTargetNetworkAccountOnce,
   shouldResetSwapRecipientOnAccountNetworkSync,
@@ -43,6 +47,81 @@ function buildAccountInfo({
     deriveInfoItems: [],
   };
 }
+
+describe('buildSwapAddressAccountInfo', () => {
+  const activeAccount = {
+    ...buildAccountInfo({ accountId: 'account-evm-1' }),
+    indexedAccount: { id: 'indexed-1' } as NonNullable<
+      IAccountSelectorActiveAccountInfo['indexedAccount']
+    >,
+    dbAccount: { id: 'db-account-1' } as NonNullable<
+      IAccountSelectorActiveAccountInfo['dbAccount']
+    >,
+    wallet: { id: 'wallet-1' } as NonNullable<
+      IAccountSelectorActiveAccountInfo['wallet']
+    >,
+  };
+  const targetNetworkAccount = {
+    id: 'account-evm-56',
+  } as IAccountSelectorActiveAccountInfo['account'];
+
+  it('keeps identity context without exposing the active network account', () => {
+    expect(
+      buildSwapAddressAccountInfo({
+        activeAccount,
+        shouldResolveTargetNetworkAccount: true,
+      }),
+    ).toEqual({
+      ...activeAccount,
+      account: undefined,
+    });
+  });
+
+  it('replaces the account only after the target network account resolves', () => {
+    expect(
+      buildSwapAddressAccountInfo({
+        activeAccount,
+        shouldResolveTargetNetworkAccount: true,
+        targetNetworkAccount,
+      }),
+    ).toEqual(
+      expect.objectContaining({
+        account: targetNetworkAccount,
+        indexedAccount: activeAccount.indexedAccount,
+      }),
+    );
+  });
+
+  it('keeps the active account for same-network selections', () => {
+    expect(
+      buildSwapAddressAccountInfo({
+        activeAccount,
+        shouldResolveTargetNetworkAccount: false,
+      }),
+    ).toEqual(activeAccount);
+  });
+});
+
+describe('getSwapAccountNetworkWarningAccountId', () => {
+  it('does not reuse the previous network account after a target lookup settles without one', () => {
+    expect(
+      getSwapAccountNetworkWarningAccountId({
+        accountInfo: buildAccountInfo(),
+        activeAccount: buildAccountInfo({
+          accountId: 'previous-network-account',
+        }),
+      }),
+    ).toBeUndefined();
+  });
+
+  it('keeps the legacy active-account fallback when accountInfo is unavailable', () => {
+    expect(
+      getSwapAccountNetworkWarningAccountId({
+        activeAccount: buildAccountInfo({ accountId: 'active-account' }),
+      }),
+    ).toBe('active-account');
+  });
+});
 
 describe('getSwapRecipientEditorAccountInfo', () => {
   it('prefers ready recipient ownership information', () => {
@@ -687,5 +766,101 @@ describe('shouldShowSwapRecipientAddressInfo', () => {
         toAddressNetworkId: 'evm--1',
       }),
     ).toBe(false);
+  });
+});
+
+describe('hasSwapFromAddressForVerdict', () => {
+  it('holds the verdict while the cross-network lookup is pending', () => {
+    expect(
+      hasSwapFromAddressForVerdict({
+        address: undefined,
+        isAddressInfoReady: false,
+      }),
+    ).toBe(true);
+  });
+
+  it('reports a missing address only once the lookup has settled', () => {
+    expect(
+      hasSwapFromAddressForVerdict({
+        address: undefined,
+        isAddressInfoReady: true,
+      }),
+    ).toBe(false);
+    expect(
+      hasSwapFromAddressForVerdict({
+        address: '0xabc',
+        isAddressInfoReady: true,
+      }),
+    ).toBe(true);
+  });
+});
+
+describe('resolveSwapBalanceAccount', () => {
+  const networkId = 'sol--101';
+  const activeAccount = {
+    ...buildAccountInfo({ accountId: 'sol-selected' }),
+    network: { id: networkId } as NonNullable<
+      IAccountSelectorActiveAccountInfo['network']
+    >,
+    deriveType: 'default' as const,
+  };
+  const targetAccount = {
+    ...activeAccount.account,
+    id: 'sol-global',
+  } as NonNullable<IAccountSelectorActiveAccountInfo['account']>;
+
+  it('uses the actual active sending account on the same network', async () => {
+    const resolveNetworkAccount = jest.fn().mockResolvedValue(targetAccount);
+    await expect(
+      resolveSwapBalanceAccount({
+        activeAccount,
+        networkId,
+        resolveNetworkAccount,
+      }),
+    ).resolves.toBe(activeAccount.account);
+    expect(resolveNetworkAccount).not.toHaveBeenCalled();
+  });
+
+  it.each(['evm--1', 'all--0'])(
+    'uses the Swap target resolver from %s instead of a Market derive selection',
+    async (activeNetworkId) => {
+      const resolveNetworkAccount = jest.fn().mockResolvedValue(targetAccount);
+      await expect(
+        resolveSwapBalanceAccount({
+          activeAccount: {
+            ...activeAccount,
+            network: {
+              ...activeAccount.network,
+              id: activeNetworkId,
+            } as NonNullable<IAccountSelectorActiveAccountInfo['network']>,
+          },
+          networkId,
+          resolveNetworkAccount,
+        }),
+      ).resolves.toBe(targetAccount);
+      expect(resolveNetworkAccount).toHaveBeenCalledTimes(1);
+    },
+  );
+
+  it('does not publish an account before account selection is ready', async () => {
+    const resolveNetworkAccount = jest.fn().mockResolvedValue(targetAccount);
+    await expect(
+      resolveSwapBalanceAccount({
+        activeAccount: { ...activeAccount, ready: false },
+        networkId,
+        resolveNetworkAccount,
+      }),
+    ).resolves.toBeUndefined();
+    expect(resolveNetworkAccount).not.toHaveBeenCalled();
+  });
+
+  it('does not reuse the source account when target resolution finds no account', async () => {
+    await expect(
+      resolveSwapBalanceAccount({
+        activeAccount,
+        networkId: 'evm--1',
+        resolveNetworkAccount: jest.fn().mockResolvedValue(undefined),
+      }),
+    ).resolves.toBeUndefined();
   });
 });

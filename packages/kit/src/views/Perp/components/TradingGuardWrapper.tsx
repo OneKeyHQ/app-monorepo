@@ -3,7 +3,7 @@ import { memo, useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Button, SizableText, Spinner } from '@onekeyhq/components';
+import { Button, Spinner } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import {
   perpsActiveAccountStatusAtom,
@@ -26,6 +26,7 @@ import { getTradingButtonStyleProps } from '../utils/styleUtils';
 import { showEnableTradingStepsDialog } from './TradingPanel/modals/EnableTradingStepsDialog';
 
 interface ITradingGuardWrapperProps {
+  beforeDeposit?: () => void;
   children?: ReactNode;
   forceShowEnableTrading?: boolean;
   bypassEnableTradingGuard?: boolean;
@@ -34,6 +35,7 @@ interface ITradingGuardWrapperProps {
 }
 
 function TradingGuardWrapperInternal({
+  beforeDeposit,
   children,
   forceShowEnableTrading = false,
   bypassEnableTradingGuard = false,
@@ -94,6 +96,7 @@ function TradingGuardWrapperInternal({
         getEnableTradingDialogConfirmDecision(latestPerpsAccountStatus) ===
         'deposit'
       ) {
+        beforeDeposit?.();
         await showDepositWithdrawModal('deposit');
         return;
       }
@@ -109,7 +112,10 @@ function TradingGuardWrapperInternal({
             };
           }
           return requestEnableTradingWithDepositFallback({
-            beforeDeposit: closeDialog,
+            beforeDeposit: () => {
+              closeDialog();
+              beforeDeposit?.();
+            },
           });
         },
       });
@@ -121,8 +127,9 @@ function TradingGuardWrapperInternal({
       return;
     }
 
-    await requestEnableTradingWithDepositFallback();
+    await requestEnableTradingWithDepositFallback({ beforeDeposit });
   }, [
+    beforeDeposit,
     confirmHyperliquidTerms,
     disabled,
     isEnableTradingLoading,
@@ -154,14 +161,12 @@ function TradingGuardWrapperInternal({
         disabled
         disabledStyle={{ opacity: 1 }}
         bg="$bgDisabled"
-        childrenAsText={false}
+        color="$textDisabled"
         testID="perp-is-disabled-btn"
       >
-        <SizableText size="$bodyMdMedium" color="$textDisabled">
-          {intl.formatMessage({
-            id: ETranslations.perp_trade_button_account_unsupported,
-          })}
-        </SizableText>
+        {intl.formatMessage({
+          id: ETranslations.perp_trade_button_account_unsupported,
+        })}
       </Button>
     );
   }
@@ -178,13 +183,11 @@ function TradingGuardWrapperInternal({
         bg={buttonStyles.bg}
         hoverStyle={buttonStyles.hoverStyle}
         pressStyle={buttonStyles.pressStyle}
-        childrenAsText={false}
+        color={buttonStyles.textColor}
       >
-        <SizableText size="$bodyMdMedium" color={buttonStyles.textColor}>
-          {intl.formatMessage({
-            id: ETranslations.perp_trade_button_enable_trading,
-          })}
-        </SizableText>
+        {intl.formatMessage({
+          id: ETranslations.perp_trade_button_enable_trading,
+        })}
       </Button>
     );
   }

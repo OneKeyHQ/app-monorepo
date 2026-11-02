@@ -59,9 +59,11 @@ export default function PickYourDevice() {
   >(
     () => [
       {
-        name: 'OneKey Pro',
+        name: intl.formatMessage({
+          id: ETranslations.onekey_pro_series__title,
+        }),
         deviceType: [EDeviceType.Pro, EDeviceType.Pro2],
-        image: require('@onekeyhq/kit/assets/pick-pro.png'),
+        image: require('@onekeyhq/kit/assets/pick-pro-2.png'),
       },
       {
         name: 'OneKey Classic',
@@ -89,7 +91,7 @@ export default function PickYourDevice() {
           },
       {
         name: intl.formatMessage({ id: ETranslations.use_another_device }),
-        tags: ['Ledger', 'Trezor'],
+        tags: ['Ledger', 'Trezor', 'Keystone'],
         deviceType: [],
         image: require('@onekeyhq/kit/assets/pick-others.png'),
         colors: SHIMMER_NEUTRAL,
@@ -140,6 +142,7 @@ export default function PickYourDevice() {
         {DEVICES.map(({ name, tags, image, deviceType, colors, dialog }) => (
           <YStack
             key={name}
+            testID={`onboarding-device-card-${dialog ?? deviceType.join('-')}`}
             group="card"
             userSelect="none"
             $gtMd={{ flex: 1 }}
@@ -249,7 +252,14 @@ export default function PickYourDevice() {
                 >
                   {name}
                 </SizableText>
-                <XStack gap="$2" $gtMd={{ minHeight: '$6' }}>
+                {/* The narrow card's image fills its right half: the tags
+                    wrap before reaching it. */}
+                <XStack
+                  gap="$2"
+                  flexWrap="wrap"
+                  maxWidth="50%"
+                  $gtMd={{ minHeight: '$6', maxWidth: '100%' }}
+                >
                   {tags?.map((tag) => (
                     <YStack
                       key={tag}

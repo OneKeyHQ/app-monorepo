@@ -23,10 +23,7 @@ export function IndicatorPaneHandles({
   timeAxisHeight: number;
 }) {
   const [height, setHeight] = useState(0);
-  const [moving, setMoving] = useState<{ id: string; delta: number } | null>(
-    null,
-  );
-  const { panes, resize, move, ready } = controller;
+  const { panes, resize, ready } = controller;
   const layouts = useMemo(() => {
     const stack = getTradingViewNativeSubIndicatorPaneStackLayout({
       height,
@@ -98,43 +95,6 @@ export function IndicatorPaneHandles({
                   resize(heights, finished);
                 }}
               />
-              {layouts.length > 1 ? (
-                <PaneDragHandle
-                  mode="move"
-                  top={
-                    layout.top +
-                    5 +
-                    (moving?.id === layout.pane.instanceId ? moving.delta : 0)
-                  }
-                  title={layout.pane.shortTitle}
-                  label={`Move ${layout.pane.shortTitle} pane up or down`}
-                  testID={`indicator-pane-move-${layout.pane.indicator}`}
-                  onStart={start}
-                  onDrag={(delta, finished, cancelled) => {
-                    if (!finished) {
-                      setMoving({ id: layout.pane.instanceId, delta });
-                      return;
-                    }
-                    setMoving(null);
-                    if (cancelled) return;
-                    const before = initial.current;
-                    const item = before.find(
-                      (pane) => pane.pane.instanceId === layout.pane.instanceId,
-                    );
-                    if (!item) return;
-                    const center = (item.top + item.bottom) / 2 + delta;
-                    const target = before.reduce(
-                      (closest, pane) =>
-                        Math.abs((pane.top + pane.bottom) / 2 - center) <
-                        Math.abs((closest.top + closest.bottom) / 2 - center)
-                          ? pane
-                          : closest,
-                      item,
-                    );
-                    move(item.pane.instanceId, target.pane.instanceId);
-                  }}
-                />
-              ) : null}
             </Stack>
           ))
         : null}

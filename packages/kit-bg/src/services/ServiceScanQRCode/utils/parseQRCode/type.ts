@@ -68,6 +68,9 @@ export interface IWalletConnectValue extends IBaseValue {
   version: string;
   wcUri: string;
 }
+export interface IWalletConnectPayValue extends IBaseValue {
+  paymentLink: string;
+}
 export interface IUrlAccountValue extends IBaseValue {
   origin: string;
   networkId: string;

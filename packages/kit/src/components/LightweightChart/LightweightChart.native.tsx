@@ -1,216 +1,370 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 
-import { View } from 'react-native';
-import WebView from 'react-native-webview';
+import {
+  Canvas,
+  Circle,
+  Group,
+  Picture,
+  Skia,
+} from '@shopify/react-native-skia';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import {
+  cancelAnimation,
+  runOnJS,
+  useAnimatedReaction,
+  useDerivedValue,
+  useSharedValue,
+  withRepeat,
+  withTiming,
+} from 'react-native-reanimated';
 
 import { Stack } from '@onekeyhq/components';
+import { HeaderScrollGestureContext } from '@onekeyhq/components/src/composite/Tabs/HeaderScrollGestureContext';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
+import { TRADING_VIEW_NATIVE_CROSSHAIR_LONG_PRESS_DURATION } from '../TradingView/TradingViewNative/chartConstants';
+import {
+  createTradingViewNativeSkiaCommandPicture,
+  createTradingViewNativeSkiaFontForText,
+  createTradingViewNativeSkiaResources,
+} from '../TradingView/TradingViewNative/native/chartSkiaRenderer';
+import {
+  getTradingViewNativeSkiaDigitWidth,
+  getTradingViewNativeSkiaPriceAxisLabelWidth,
+} from '../TradingView/TradingViewNative/native/chartSkiaText';
 
 import { useChartConfig } from './hooks/useChartConfig';
-import { generateChartHTML } from './utils/htmlTemplate';
+import {
+  buildNativeChartCrosshair,
+  buildNativeChartScene,
+  getNativeChartHover,
+} from './native/chartScene';
+import { useChartTypeface } from './native/useChartTypeface';
 
-import type {
-  IChartMessage,
-  ILightweightChartConfig,
-  ILightweightChartProps,
-} from './types';
-import type { WebViewMessageEvent } from 'react-native-webview';
+import type { ILightweightChartProps } from './types';
 
-function buildStaticWebViewSource(config: ILightweightChartConfig) {
-  return {
-    html: generateChartHTML(config),
-  };
-}
+const FONT_FAMILY = platformEnv.isNativeAndroid ? 'sans-serif' : 'System';
 
-export function LightweightChart({
-  data,
-  height,
-  lineColor,
-  topColor,
-  bottomColor,
-  textSubduedColor,
-  secondaryLineData,
-  secondaryLineColor,
-  secondaryLineWidth,
-  lineWidth,
-  showPriceScale,
-  showHorzGridLines,
-  horzLineColor,
-  horzLineStyle,
-  priceScalePosition,
-  priceScaleMargins,
-  priceScaleEntireTextOnly,
-  crosshairVertLineColor,
-  crosshairVertLineStyle,
-  patternColor,
-  priceScaleMinimumWidth,
-  priceFormatter,
-  compactPriceMaxCharacters,
-  priceFormatterPrecision,
-  priceFormatterTickStep,
-  fontSize,
-  seriesType,
-  lineType,
-  baselineOptions,
-  histogramOptions,
-  referenceLine,
-  showLastValue,
-  showLastValuePriceLine,
-  lastValueLabelColor,
-  showLastPointMarker,
-  showTimeScale,
-  useTimeScaleTickMarkWithoutUnit,
-  timeScaleRightOffsetPixels,
-  timeZone,
-  locale,
-  hideCrosshairPriceLabel,
-  onHover,
-}: ILightweightChartProps) {
-  const webViewRef = useRef<WebView>(null);
-  const [webViewReady, setWebViewReady] = useState(false);
-
-  const chartConfig = useChartConfig({
-    data,
-    lineColor,
-    topColor,
-    bottomColor,
-    textSubduedColor,
-    secondaryLineData,
-    secondaryLineColor,
-    secondaryLineWidth,
-    lineWidth,
-    showPriceScale,
-    showHorzGridLines,
-    horzLineColor,
-    horzLineStyle,
-    priceScalePosition,
-    priceScaleMargins,
-    priceScaleEntireTextOnly,
-    crosshairVertLineColor,
-    crosshairVertLineStyle,
-    patternColor,
-    priceScaleMinimumWidth,
-    priceFormatter,
-    compactPriceMaxCharacters,
-    priceFormatterPrecision,
-    priceFormatterTickStep,
-    fontSize,
-    seriesType,
-    lineType,
-    baselineOptions,
-    histogramOptions,
-    referenceLine,
-    showLastValue,
-    showLastValuePriceLine,
-    lastValueLabelColor,
-    showLastPointMarker,
-    showTimeScale,
-    useTimeScaleTickMarkWithoutUnit,
-    timeScaleRightOffsetPixels,
-    timeZone,
-    locale,
-  });
-  const nativeConfig = useMemo(
+export function LightweightChart(props: ILightweightChartProps) {
+  const { height, onHover, nativeScrubOptions, pulseLastPoint } = props;
+  const [width, setWidth] = useState(0);
+  const chartConfig = useChartConfig(props);
+  const config = useMemo(
     () => ({
       ...chartConfig,
-      showLastValue: !!showLastValue,
-      hideCrosshairPriceLabel,
+      hideCrosshairPriceLabel: props.hideCrosshairPriceLabel,
     }),
-    [chartConfig, hideCrosshairPriceLabel, showLastValue],
+    [chartConfig, props.hideCrosshairPriceLabel],
   );
-  const [webViewSource, setWebViewSource] = useState(() =>
-    buildStaticWebViewSource(nativeConfig),
+  const fontSize = config.fontSize ?? 12;
+  const typeface = useChartTypeface();
+  const axisFont = useMemo(
+    () =>
+      typeface
+        ? Skia.Font(typeface, fontSize)
+        : createTradingViewNativeSkiaFontForText({
+            fontFamily: FONT_FAMILY,
+            fontSize,
+            locale: config.locale ?? 'en',
+            requiredText: '0123456789$%.₀₁₂₃₄₅₆₇₈₉',
+          }),
+    [typeface, fontSize, config.locale],
   );
-  const latestConfigRef = useRef(nativeConfig);
-  latestConfigRef.current = nativeConfig;
-  // Bumped on every recovery: it keys the WebView, so recovery is a remount.
-  // Android does not let a WebView whose renderer is gone be reused, so a new
-  // source on the old instance can stay blank; a fresh instance is the only
-  // reliable path there, and it serves iOS just as well.
-  const [webViewGeneration, setWebViewGeneration] = useState(0);
-
-  // The OS can kill the WebView's content process while the page sits idle
-  // (memory pressure on the phone), and react-native-webview does nothing
-  // about it: the chart area just goes blank until something injects script
-  // again, which is why switching the date range "repaired" it (OK-62409).
-  // Rebuild the source from the latest config so the reload paints the
-  // current data straight away; the ready handshake then resumes updates.
-  const handleContentProcessGone = useCallback(() => {
-    setWebViewReady(false);
-    setWebViewSource(buildStaticWebViewSource(latestConfigRef.current));
-    setWebViewGeneration((generation) => generation + 1);
-  }, []);
-
-  const handleMessage = useCallback(
-    (event: WebViewMessageEvent) => {
-      try {
-        const message = JSON.parse(event.nativeEvent.data) as IChartMessage;
-
-        if (message.type === 'ready') {
-          setWebViewReady(true);
-        } else if (message.type === 'hover' && onHover) {
-          onHover({
-            time: message.time !== undefined ? Number(message.time) : undefined,
-            price:
-              message.price !== undefined ? Number(message.price) : undefined,
-            secondaryPrice:
-              message.secondaryPrice !== undefined
-                ? Number(message.secondaryPrice)
-                : undefined,
-            x: message.x,
-            y: message.y,
-          });
-        }
-      } catch (error) {
-        console.error(
-          'LightweightChart: Error parsing WebView message:',
-          error,
-        );
+  const digitWidth = useMemo(
+    () => getTradingViewNativeSkiaDigitWidth(axisFont),
+    [axisFont],
+  );
+  const labelFontSize = nativeScrubOptions?.largePrice ? 16 : 14;
+  const labelCharacters = useMemo(() => {
+    const text = [
+      config.referenceLine?.title ?? '',
+      ...Object.values(nativeScrubOptions?.labels ?? {}).map(
+        (label) => `${label.time}${label.price ?? ''}`,
+      ),
+    ].join('');
+    return Array.from(new Set(text.replaceAll(/\s/g, '')))
+      .toSorted()
+      .join('');
+  }, [config.referenceLine?.title, nativeScrubOptions?.labels]);
+  const labelFont = useMemo(
+    () =>
+      createTradingViewNativeSkiaFontForText({
+        fontFamily: FONT_FAMILY,
+        fontSize: labelFontSize,
+        locale: config.locale ?? 'en',
+        requiredText: labelCharacters,
+      }),
+    [config.locale, labelFontSize, labelCharacters],
+  );
+  const timeFont = useMemo(
+    () =>
+      createTradingViewNativeSkiaFontForText({
+        fontFamily: FONT_FAMILY,
+        fontSize: 12,
+        locale: config.locale ?? 'en',
+        requiredText: config.referenceLine?.title ?? '',
+      }),
+    [config.locale, config.referenceLine?.title],
+  );
+  const timeAxisFont = useMemo(() => {
+    const locale =
+      config.locale ?? Intl.DateTimeFormat().resolvedOptions().locale;
+    return createTradingViewNativeSkiaFontForText({
+      fontFamily: FONT_FAMILY,
+      fontSize,
+      locale,
+      requiredText: new Intl.DateTimeFormat(locale, {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+      }).format(0),
+    });
+  }, [fontSize, config.locale]);
+  const referenceFont = useMemo(
+    () =>
+      createTradingViewNativeSkiaFontForText({
+        fontFamily: FONT_FAMILY,
+        fontSize,
+        locale: config.locale ?? 'en',
+        requiredText: config.referenceLine?.title ?? '',
+      }),
+    [fontSize, config.locale, config.referenceLine?.title],
+  );
+  const scene = useMemo(
+    () =>
+      buildNativeChartScene({
+        config,
+        width,
+        height,
+        measureText: (text, font) => {
+          if (font === 'priceAxis')
+            return getTradingViewNativeSkiaPriceAxisLabelWidth(
+              text,
+              axisFont,
+              digitWidth,
+            );
+          const measureFont =
+            font === 'referenceLineLabel' ? referenceFont : timeAxisFont;
+          return measureFont.measureText(text).width;
+        },
+      }),
+    [config, width, height, axisFont, digitWidth, referenceFont, timeAxisFont],
+  );
+  const { textSubduedColor, lineColor } = config.theme;
+  const gridColor = config.horzLineColor ?? '#E5E5EA';
+  const resources = useDerivedValue(
+    () =>
+      createTradingViewNativeSkiaResources({
+        colors: {
+          axisText: textSubduedColor,
+          background: 'transparent',
+          grid: gridColor,
+          line: lineColor,
+          up: lineColor,
+          down: lineColor,
+        },
+        fontFamily: FONT_FAMILY,
+        legendFont: labelFont,
+        priceAxisTypeface: typeface,
+        priceAxisFontSize: fontSize,
+        timeAxisFontSize: fontSize,
+        timeAxisFont,
+        tradingLineLabelFont: timeFont,
+        watermarkSvg: null,
+      }),
+    [
+      textSubduedColor,
+      lineColor,
+      gridColor,
+      labelFont,
+      typeface,
+      fontSize,
+      timeAxisFont,
+      timeFont,
+    ],
+  );
+  const active = useSharedValue(false);
+  const touch = useSharedValue({ x: 0, y: 0 });
+  const isScrubEnabled = Boolean(nativeScrubOptions);
+  const isScrubInPlot = useDerivedValue(
+    () =>
+      isScrubEnabled &&
+      active.value &&
+      getNativeChartHover(scene, touch.value.x, touch.value.y).time !==
+        undefined,
+    [scene, isScrubEnabled],
+  );
+  const picture = useDerivedValue(() => {
+    const commands = isScrubInPlot.value
+      ? scene.commands.filter(
+          (command) =>
+            command.kind !== 'polyline' ||
+            command.customPaintId !== 'secondary',
+        )
+      : scene.commands;
+    return createTradingViewNativeSkiaCommandPicture({
+      commands,
+      customPaintStyles: scene.customPaintStyles,
+      resources: resources.value,
+      width,
+      height,
+    });
+  }, [scene, width, height, isScrubInPlot]);
+  const crosshair = useDerivedValue(() => {
+    const overlay = active.value
+      ? buildNativeChartCrosshair(
+          scene,
+          touch.value.x,
+          touch.value.y,
+          nativeScrubOptions,
+          pulseLastPoint,
+        )
+      : { commands: [], customPaintStyles: scene.customPaintStyles };
+    return createTradingViewNativeSkiaCommandPicture({
+      ...overlay,
+      resources: resources.value,
+      width,
+      height,
+    });
+  }, [scene, width, height, nativeScrubOptions, pulseLastPoint]);
+  const onHoverRef = useRef(onHover);
+  onHoverRef.current = onHover;
+  const reportHover = useCallback(
+    (hover: Parameters<NonNullable<ILightweightChartProps['onHover']>>[0]) =>
+      onHoverRef.current?.(hover),
+    [],
+  );
+  useAnimatedReaction(
+    () =>
+      active.value
+        ? getNativeChartHover(scene, touch.value.x, touch.value.y)
+        : null,
+    (hover, previous) => {
+      if (!hover) {
+        if (previous) runOnJS(reportHover)({});
+        return;
       }
+      if (
+        !previous ||
+        hover.time !== previous.time ||
+        hover.price !== previous.price ||
+        hover.secondaryPrice !== previous.secondaryPrice ||
+        hover.x !== previous.x ||
+        hover.y !== previous.y
+      )
+        runOnJS(reportHover)(hover);
     },
-    [onHover],
+    [scene, reportHover],
   );
-
-  // Update chart when data changes
-  useEffect(() => {
-    if (webViewReady && webViewRef.current) {
-      const updateScript = `
-        (function() {
-          const newConfig = ${JSON.stringify(nativeConfig)};
-          if (typeof window.applyChartConfig === 'function') {
-            window.applyChartConfig(newConfig);
-          }
-        })();
-        true;
-      `;
-      webViewRef.current.injectJavaScript(updateScript);
+  useEffect(() => () => onHoverRef.current?.({}), []);
+  const { excludeStartEdgeWidth } = useContext(HeaderScrollGestureContext);
+  const { x: plotX, width: plotWidth, height: plotHeight } = scene.plot;
+  const isGestureEnabled = Boolean(onHover) || isScrubEnabled;
+  const gesture = useMemo(
+    () =>
+      Gesture.Pan()
+        .enabled(isGestureEnabled)
+        .activateAfterLongPress(
+          TRADING_VIEW_NATIVE_CROSSHAIR_LONG_PRESS_DURATION,
+        )
+        .maxPointers(1)
+        .onTouchesDown((event, manager) => {
+          'worklet';
+          const point = event.changedTouches[0];
+          if (
+            point &&
+            (point.x < Math.max(plotX, excludeStartEdgeWidth) ||
+              point.x > plotX + plotWidth ||
+              point.y > plotHeight)
+          )
+            manager.fail();
+        })
+        .onStart((event) => {
+          'worklet';
+          active.value = true;
+          touch.value = { x: event.x, y: event.y };
+        })
+        .onUpdate((event) => {
+          'worklet';
+          touch.value = { x: event.x, y: event.y };
+        })
+        .onFinalize(() => {
+          'worklet';
+          active.value = false;
+        }),
+    [
+      isGestureEnabled,
+      plotX,
+      plotWidth,
+      plotHeight,
+      excludeStartEdgeWidth,
+      active,
+      touch,
+    ],
+  );
+  // The pulse rides the point under the crosshair while scrubbing, and goes
+  // back to the tail once the touch ends.
+  const pulsePoint = useDerivedValue(() => {
+    if (active.value) {
+      const hover = getNativeChartHover(scene, touch.value.x, touch.value.y);
+      const point = scene.hoverPoints.find((p) => p.time === hover.time);
+      if (point) return { x: point.x, y: point.y };
     }
-  }, [nativeConfig, webViewReady]);
-
+    return scene.lastPoint ?? { x: 0, y: 0 };
+  }, [scene]);
+  const pulseX = useDerivedValue(() => pulsePoint.value.x);
+  const pulseY = useDerivedValue(() => pulsePoint.value.y);
+  const pulse = useSharedValue(0);
+  useEffect(() => {
+    if (pulseLastPoint)
+      pulse.value = withRepeat(withTiming(1, { duration: 1400 }), -1, false);
+    return () => {
+      cancelAnimation(pulse);
+      pulse.value = 0;
+    };
+  }, [pulseLastPoint, pulse]);
+  const ringRadius = useDerivedValue(() => 4 * (1 + 1.4 * pulse.value));
+  const ringOpacity = useDerivedValue(() => (1 - pulse.value) * 0.5);
+  const dotRadius = useDerivedValue(
+    () => 4 * (1 + 0.3 * Math.sin(Math.PI * pulse.value)),
+  );
   return (
-    <Stack position="relative" height={height} width="100%">
-      <View style={{ flex: 1 }}>
-        <WebView
-          key={webViewGeneration}
-          ref={webViewRef}
-          source={webViewSource}
-          onLoadStart={() => {
-            setWebViewReady(false);
-          }}
-          onContentProcessDidTerminate={handleContentProcessGone}
-          onRenderProcessGone={handleContentProcessGone}
-          onMessage={handleMessage}
-          scrollEnabled={false}
-          showsVerticalScrollIndicator={false}
-          showsHorizontalScrollIndicator={false}
-          bounces={false}
-          style={{ backgroundColor: 'transparent' }}
-          androidLayerType="hardware"
-          originWhitelist={['*']}
-          allowFileAccess={false}
-          allowUniversalAccessFromFileURLs={false}
-          mixedContentMode="never"
-        />
-      </View>
+    <Stack
+      testID="lightweight-chart-native"
+      height={height}
+      width="100%"
+      onLayout={({ nativeEvent }) => setWidth(nativeEvent.layout.width)}
+    >
+      <GestureDetector gesture={gesture}>
+        <Canvas testID="lightweight-chart-skia" style={{ flex: 1 }}>
+          <Picture picture={picture} />
+          {pulseLastPoint && scene.lastPoint ? (
+            <Group clip={scene.plot}>
+              <Circle
+                cx={pulseX}
+                cy={pulseY}
+                r={ringRadius}
+                opacity={ringOpacity}
+                color={props.pulseLastPointColor ?? config.theme.lineColor}
+              />
+              <Circle
+                cx={pulseX}
+                cy={pulseY}
+                r={dotRadius}
+                color={props.pulseLastPointColor ?? config.theme.lineColor}
+              />
+            </Group>
+          ) : null}
+          <Picture picture={crosshair} />
+        </Canvas>
+      </GestureDetector>
     </Stack>
   );
 }

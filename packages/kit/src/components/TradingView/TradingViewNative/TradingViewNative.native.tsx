@@ -29,9 +29,6 @@ function shouldUseCurrentAndroidWindowForFullscreen() {
 }
 
 function getDefaultOrientationLock(shouldUseCurrentAndroidWindow: boolean) {
-  if (platformEnv.isNativeIOSPad) {
-    return ScreenOrientation.OrientationLock.ALL;
-  }
   if (shouldUseCurrentAndroidWindow) {
     return ScreenOrientation.OrientationLock.DEFAULT;
   }
@@ -60,16 +57,17 @@ export function TradingViewNative(props: ITradingViewNativeProps) {
     isSpanningWindow: isAndroid && isSpanning(),
     width,
   });
-
   useLayoutEffect(() => {
     if (!isFullscreen) {
       return;
     }
 
     let isActive = true;
+    // The iOS fullscreen page owns its orientation through native-stack.
+    const shouldManageOrientation = platformEnv.isNativeAndroid;
     const shouldUseCurrentAndroidWindow =
       shouldUseCurrentAndroidWindowForFullscreen();
-    if (!shouldUseCurrentAndroidWindow) {
+    if (shouldManageOrientation && !shouldUseCurrentAndroidWindow) {
       void ScreenOrientation.lockAsync(
         ScreenOrientation.OrientationLock.LANDSCAPE,
       ).catch(() => {
@@ -91,9 +89,11 @@ export function TradingViewNative(props: ITradingViewNativeProps) {
     return () => {
       isActive = false;
       appStateSubscription.remove();
-      lockScreenOrientation(
-        getDefaultOrientationLock(shouldUseCurrentAndroidWindow),
-      );
+      if (shouldManageOrientation) {
+        lockScreenOrientation(
+          getDefaultOrientationLock(shouldUseCurrentAndroidWindow),
+        );
+      }
     };
   }, [isFullscreen]);
 

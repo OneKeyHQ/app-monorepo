@@ -5,12 +5,14 @@ adapts the real SDK, and `createOnramperClient()` returns the real client on a
 real device / the mock on the Simulator (no App Attest there). What's left is the
 native install + a couple of values, all below.
 
-Package: **`@onramper/onramper-react-native@1.1.1`** (already in
-`apps/mobile/package.json`).
+Package: **`@onramper/onramper-react-native@1.3.1`** (already in
+`apps/mobile/package.json`; bundles the iOS `OnramperSDK` of the same version —
+a JS-only bump never replaces the native SDK, run `yarn app:ios:pod-install`
+and rebuild after every version change).
 
 ## ⚠️ nitro bump — verify the OneKey Nitro modules
 
-`@onramper/onramper-react-native@1.1.1` peers: react ≥19 ✅, react-native ≥0.79 ✅,
+`@onramper/onramper-react-native@1.3.1` peers: react ≥19 ✅, react-native ≥0.79 ✅,
 react-native-nitro-modules ≥0.35.0. Already bumped **0.33.2 → 0.35.2** (see
 `patches/react-native-nitro-modules+0.35.2.patch`) in `apps/mobile/package.json`.
 

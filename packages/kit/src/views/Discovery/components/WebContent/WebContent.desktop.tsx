@@ -15,6 +15,7 @@ import {
   useBrowserTabActions,
 } from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
+import { handleOneKeyStoreLink } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
 import { EValidateUrlEnum } from '@onekeyhq/shared/types/dappConnection';
 
@@ -109,12 +110,21 @@ function WebContent({ id, url, customReceiveHandler }: IWebContentProps) {
     onNavigation({ id, loading: true });
   }, [id, onNavigation]);
   const onDidStartNavigation = useCallback(
-    ({ url: willNavigationUrl, isMainFrame }: DidStartNavigationEvent) => {
+    ({
+      url: willNavigationUrl,
+      isMainFrame,
+      isInPlace,
+    }: DidStartNavigationEvent) => {
       if (isMainFrame) {
         setNavigationBlockAccessView(false);
         setNavigationUrlValidateState(undefined);
         setNavigationBlockedUrl(undefined);
-        notifyTabNavigation(id);
+        // An in-page navigation (pushState / hash) keeps the document and
+        // the injected translate script, so the translate session goes on;
+        // no did-finish-load follows it either.
+        if (!isInPlace) {
+          notifyTabNavigation(id);
+        }
         onNavigation({
           id,
           url: willNavigationUrl,
@@ -177,6 +187,9 @@ function WebContent({ id, url, customReceiveHandler }: IWebContentProps) {
       }
       if (validateState === EValidateUrlEnum.ValidDeeplink) {
         handleDeepLinkUrl({ url: navUrl });
+        return false;
+      }
+      if (handleOneKeyStoreLink(navUrl, { isTopFrame })) {
         return false;
       }
       setNavigationBlockAccessView(true);

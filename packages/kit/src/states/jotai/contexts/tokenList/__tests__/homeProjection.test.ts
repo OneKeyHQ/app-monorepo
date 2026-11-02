@@ -444,6 +444,7 @@ describe('projectHomeDisplayIds — price tick does not change listStructure dep
       },
       smallBalanceFiatValue: '0',
       metaByKey: {},
+      balanceByKey: {},
     };
 
     // Round 1: a structure frame establishes ids + generation + cells.
@@ -504,6 +505,7 @@ describe('projectHomeDisplayIds — price tick does not change listStructure dep
         },
         smallBalanceFiatValue: '0',
         metaByKey: { a: makeToken('a'), b: makeToken('b') },
+        balanceByKey: round1.balanceByKey,
       },
     );
 

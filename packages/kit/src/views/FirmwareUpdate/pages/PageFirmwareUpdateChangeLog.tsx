@@ -10,6 +10,7 @@ import {
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { toPlainErrorObject } from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import { toUserFacingFirmwareUpdateError } from '@onekeyhq/shared/src/errors/utils/firmwareUpdateErrorUtils';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   EModalFirmwareUpdateRoutes,
   type IModalFirmwareUpdateParamList,
@@ -46,6 +47,7 @@ function PageFirmwareUpdateChangeLog() {
   const connectId = route?.params?.connectId;
   const firmwareType = route?.params?.firmwareType;
   const baseReleaseInfo = route?.params?.baseReleaseInfo;
+  const usbSuggestionAcknowledged = route?.params?.usbSuggestionAcknowledged;
   const [activeConnectId, setActiveConnectId] = useState(connectId);
 
   const [stepInfo, setStepInfo] = useFirmwareUpdateStepInfoAtom();
@@ -77,10 +79,10 @@ function PageFirmwareUpdateChangeLog() {
         const resolvedTransport =
           await backgroundApiProxy.serviceHardware.resolveHardwareTransport({
             connectId,
-            // Preserve anonymous USB/bootloader discovery from the legacy flow.
-            hardwareCallContext: connectId
-              ? EHardwareCallContext.USER_INTERACTION_NO_BLE_DIALOG
-              : EHardwareCallContext.UPDATE_FIRMWARE,
+            hardwareCallContext:
+              platformEnv.isDesktop || !connectId
+                ? EHardwareCallContext.UPDATE_FIRMWARE
+                : EHardwareCallContext.USER_INTERACTION_NO_BLE_DIALOG,
           });
         const compatibleConnectId = resolvedTransport.connectId;
         setActiveConnectId(compatibleConnectId);
@@ -190,6 +192,7 @@ function PageFirmwareUpdateChangeLog() {
         <FirmwareChangeLogView
           result={confirmUpdateResult.current}
           onRetryClick={retryInfo ? retryUpdate : undefined}
+          usbSuggestionAcknowledged={usbSuggestionAcknowledged}
         />
       );
     }
@@ -200,6 +203,7 @@ function PageFirmwareUpdateChangeLog() {
           onConfirmClick={() => {
             confirmUpdateResult.current = result;
           }}
+          usbSuggestionAcknowledged={usbSuggestionAcknowledged}
         />
       );
     }
@@ -215,6 +219,7 @@ function PageFirmwareUpdateChangeLog() {
     run,
     shouldShowChangeLog,
     stepInfo.payload,
+    usbSuggestionAcknowledged,
   ]);
 
   return (

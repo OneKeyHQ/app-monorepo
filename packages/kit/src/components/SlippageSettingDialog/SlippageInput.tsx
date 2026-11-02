@@ -13,6 +13,9 @@ type ISlippageInputSegmentItem = Omit<ISwapSlippageSegmentItem, 'value'> & {
   value?: number;
 };
 
+// Focused border color for inline slippage editors (Swap review, Dust Sweep).
+export const SLIPPAGE_INPUT_FOCUS_BORDER_COLOR = '#2f7cf6';
+
 export function formatSlippageInputDisplayValue(value?: number) {
   if (value === undefined) {
     return '';

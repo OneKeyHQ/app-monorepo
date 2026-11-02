@@ -3,6 +3,7 @@ import {
   GOOGLE_OAUTH_AUTHORIZE_URL,
   GOOGLE_OAUTH_CLIENT_IDS,
   GOOGLE_OAUTH_DEFAULT_SCOPES,
+  OAUTH_FLOW_TIMEOUT_ERROR_MESSAGE,
   OAUTH_FLOW_TIMEOUT_MS,
   OAUTH_POLL_INTERVAL_MS,
   OAUTH_POPUP_HEIGHT,
@@ -195,7 +196,7 @@ export class OAuthPopup extends OAuthPopupBase {
         }),
         new Promise<never>((_, reject) => {
           timeoutId = setTimeout(() => {
-            reject(new OneKeyLocalError('OAuth sign-in timed out'));
+            reject(new OneKeyLocalError(OAUTH_FLOW_TIMEOUT_ERROR_MESSAGE));
           }, OAUTH_FLOW_TIMEOUT_MS);
         }),
       ]);

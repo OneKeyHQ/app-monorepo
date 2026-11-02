@@ -582,7 +582,9 @@ describe('TradingViewNative data providers', () => {
     };
     const provider = createTradingViewNativeDataProvider(source);
 
+    expect(provider.getCandleTimeMode?.()).toBe('calendar');
     const fallbackResult = await provider.fetchHistory(request);
+    expect(provider.getCandleTimeMode?.()).toBe('fixed');
     expect(fallbackResult).toEqual({
       historySource: 'fallback',
       pointType: 'single',
@@ -605,6 +607,7 @@ describe('TradingViewNative data providers', () => {
       ...request,
       interval: getInterval('1D'),
     });
+    expect(provider.getCandleTimeMode?.()).toBe('fixed');
     expect(mocks?.marketFetchHistory).toHaveBeenNthCalledWith(
       2,
       expect.objectContaining({
@@ -981,9 +984,13 @@ describe('TradingViewNative data providers', () => {
     });
     const interval = getInterval('1M');
     expect(provider.getHistoryRequestCandleCount(interval)).toBe(5000);
+    expect(provider.getInitialHistoryRequestCandleCount?.(interval)).toBe(500);
     expect(
       provider.hasMoreHistory({ interval, receivedPointCount: 5000 }),
     ).toBe(true);
+    expect(provider.hasMoreHistory({ interval, receivedPointCount: 499 })).toBe(
+      false,
+    );
     const abortController = new AbortController();
 
     await provider.fetchHistory({

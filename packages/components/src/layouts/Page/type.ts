@@ -29,13 +29,6 @@ export type IBasicPageProps = PropsWithChildren<
      *  @default false
      */
     safeAreaEnabled?: boolean;
-    /** @platform native
-     * @description Lazy load. The default value is false.
-     * Mainly used to reduce stuttering when heavy rendering Native pages.
-     * If the page doesn't have much content on initial render, this doesn't need to be enabled.
-     * @default false
-     */
-    lazyLoad?: boolean;
     /** @platform cross-platform
      * @description ScrollEnabled. When false, the view cannot be scrolled via interaction.
      * Note: If there are other scroll containers within the page, it may cause scroll conflicts on Native platforms.

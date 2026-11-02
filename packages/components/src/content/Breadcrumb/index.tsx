@@ -41,7 +41,7 @@ const BreadcrumbItem = styled(XStack, {
   name: 'BreadcrumbItem',
   context: BreadcrumbContext,
   alignItems: 'center',
-  cursor: 'pointer',
+  cursor: 'default',
   userSelect: 'none',
   borderRadius: '$2',
   px: '$2',

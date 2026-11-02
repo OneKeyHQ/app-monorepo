@@ -20,7 +20,6 @@ import {
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
-import { EManagePositionType } from '@onekeyhq/kit/src/views/Staking/pages/ManagePosition/hooks/useManagePage';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EModalAssetDetailRoutes } from '@onekeyhq/shared/src/routes/assetDetails';
@@ -34,6 +33,7 @@ import {
   type IDeFiUnknownRecord,
   type IResolvedDeFiPositionAction,
 } from '@onekeyhq/shared/types/defi';
+import { EManagePositionType } from '@onekeyhq/shared/types/staking';
 import type { IBorrowMarketItem } from '@onekeyhq/shared/types/staking';
 
 import {
