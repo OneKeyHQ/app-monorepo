@@ -1150,6 +1150,27 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries �
 **Fix**: Record native selections to skip echoed commands, and capture `initialPage` once per `RecipientQuickSelect` mount. Keep external tab/index changes on the existing imperative synchronization path. Extend the focus suite to check stable initial props and no echoed commands across repeated iOS/Android selections, external tab changes, visible-tab index changes, and fresh mount initialization.
 **Catchable by**: Section 4: Business Logic & Regression — when removing a native synchronization command, trace both imperative commands and changing props through each platform's native implementation; assert mount-only props remain stable and controlled external updates still synchronize.
 
+## Case: Home token rows painted blank balances on first mount while All Networks loaded (OK-66042)
+**Date**: 2026-11-02 | **Platforms**: Android, iOS (native `main` UI runtime; NativeList rows; no bg state or cross-runtime copy involved)
+**Symptom**: On Android the Home token list showed `--` for balance and value on freshly mounted rows until the All Networks refresh finished, which could take several seconds.
+**Root Cause**: `NativeTokenSelectorList` builds its native list snapshot from per-row fiat that `HomeTokenCellMirror` components report through a layout effect. On a row's first mount the snapshot is built in the same render, before the mirror has reported, so the row carries no fiat. The follow-up render that would have filled it was held off by the All Networks load.
+**Fix**: When a row's mirror has not reported yet, `NativeTokenSelectorList` reads the row's cells synchronously from the token-list context store (`readHomeCellValue`, same resolution as `useTokenFiat` / `useAggregateSubTokenFiatMap`), so the first snapshot already carries the fiat. A test renders a first-mount row with an empty mirror map and asserts the balance, value, and price columns.
+**Catchable by**: Section 4: Data flow end-to-end: API → state → UI — when a list snapshot depends on values reported by child effects, verify the first frame on a slow data path, not only the settled state.
+
+## Case: Home hide-value toggle lagged behind the background round trip (OK-66089)
+**Date**: 2026-11-02 | **Platforms**: Android, iOS, extension (split runtimes: `main` UI writes `settingsValuePersistAtom`, `bg` owns it and echoes the accepted value back; desktop/web single runtime unaffected)
+**Symptom**: Tapping the eye icon on Home took seconds to mask or unmask balances on Android while All Networks was refreshing.
+**Root Cause**: On split runtimes a UI-side atom `set` only proxies the write to bg and the UI repaints when bg's echo returns, so the toggle queued behind every other bg write already in flight. Review of the optimistic replacement found two follow-ups: an echo of an older write could flip the UI back after the user had already toggled again, and a bg rejection (Travel Mode blocks this atom) left the UI showing a value bg never accepted.
+**Fix**: `JotaiCrossAtom.setOptimistic` applies the value on the UI runtime first, then forwards it; `settingsValuePersistAtom` uses `deepCompare` so the equal echo is a no-op. `optimisticAtomWrites` tracks pending forwards per atom: while any are in flight, `wrapAtomPro` drops bg echoes that do not carry the newest local value, and a rejected forward restores the last value bg accepted before the error propagates. Tests cover reordered echoes and every mix of resolved and rejected writes.
+**Catchable by**: Section 5: No race conditions in async operations — for optimistic UI over a round trip, enumerate reordered echoes and rejected writes, not only the happy path; Section 1: Error cases handled.
+
+## Case: BTC history showed 0 for a transfer between the account's own addresses (OK-66077)
+**Date**: 2026-11-02 | **Platforms**: All (bg `VaultBase` history decoding for UTXO chains; the UI renders the decoded value)
+**Symptom**: Sending BTC from one of the account's addresses to another of its own fresh receive addresses produced a history row with amount 0.
+**Root Cause**: UTXO history rows render the server's `value`, which is the account's net change. When every input and output belongs to the account, the net is 0 even though an amount moved.
+**Fix**: `getUtxoHistoryDisplayValue` returns the sum of the owned outputs the server does not explicitly mark as change when the net value is 0 and both legs are the account's own; a change-only spend keeps the net value since it has no recipient. `VaultBase` uses it for `nativeAmount` and the action value. Unit tests cover the self-transfer, a non-zero value, an external leg, change-marked outputs, change-only outputs, and nothing to sum.
+**Catchable by**: Section 4: Business Logic & Regression — when displaying a server-aggregated field, test the degenerate input where the aggregation cancels out (self-transfer, round trip).
+
 ## Case: Referral reward scopes silent on wide native
 **Date**: 2026-11-02 | **Platforms**: iOS, Android (main UI runtime; wide layout when `gtMd` is true, including tablets)
 **Symptom**: On a wide native device, tapping "Learn more" on the empty referral earnings card and the product-row info icons did nothing. The server-provided reward scope descriptions never appeared.
