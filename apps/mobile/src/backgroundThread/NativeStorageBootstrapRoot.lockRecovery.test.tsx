@@ -288,6 +288,63 @@ describe('locked app to public storage repair', () => {
         ),
       ).toBe(true);
     }
+    for (const result of ['failed', 'incomplete'] as const) {
+      fireEvent.click(screen.getByTestId('lock-storage-repair'));
+      await flush();
+      if (result === 'failed') {
+        mockStorageCall.mockRejectedValueOnce(
+          new OneKeyLocalError('prepare failed'),
+        );
+      } else {
+        mockStorageCall.mockResolvedValueOnce({
+          repairId: 'incomplete-return',
+          successfulCount: 0,
+          failedCount: 1,
+          preservedCount: 0,
+          recoveredCount: 0,
+          scanComplete: false,
+        });
+      }
+      fireEvent.click(
+        screen.queryByTestId('native-storage-migration-repair-attempt') ??
+          screen.getByTestId('native-storage-repair-retry'),
+      );
+      await flush();
+      const callsBeforeBack = mockCanonicalState.mock.calls.length;
+      const storageCallsBeforeBack = mockStorageCall.mock.calls.length;
+      // The normal mirror and canonical read can recover independently of the
+      // unsuccessful repair. Back must resume both under the new generation.
+      if (result === 'incomplete') {
+        mockCanonicalState
+          .mockResolvedValueOnce(undefined)
+          .mockResolvedValueOnce(undefined);
+      }
+      fireEvent.click(screen.getByTestId('native-storage-repair-back'));
+      await flush();
+      expect(mockCanonicalState).toHaveBeenCalledTimes(
+        callsBeforeBack + (result === 'failed' ? 1 : 2),
+      );
+      expect(
+        mockStorageCall.mock.calls
+          .slice(storageCallsBeforeBack)
+          .every(
+            ([request]) =>
+              request.scope === 'recovery' &&
+              request.operation === 'inspectAppStorageMigration',
+          ),
+      ).toBe(true);
+      expect(screen.getByTestId('retained-input')).toBe(input);
+      expect(input.value).toBe('unsaved test input');
+      expect(mockRestart).not.toHaveBeenCalled();
+      if (result === 'incomplete') {
+        const settledCalls = mockCanonicalState.mock.calls.length;
+        await act(async () => {
+          jest.advanceTimersByTime(20_000);
+        });
+        await flush();
+        expect(mockCanonicalState).toHaveBeenCalledTimes(settledCalls);
+      }
+    }
     fireEvent.click(screen.getByTestId('lock-storage-repair'));
     await flush();
     expect(
@@ -296,7 +353,8 @@ describe('locked app to public storage repair', () => {
         .getAttribute('aria-hidden'),
     ).toBe('true');
     expect(
-      screen.getByTestId('native-storage-migration-repair-attempt'),
+      screen.queryByTestId('native-storage-migration-repair-attempt') ??
+        screen.getByTestId('native-storage-repair-retry'),
     ).toBeTruthy();
     expect(screen.getByTestId('native-storage-repair-back')).toBeTruthy();
     let finishPrepare: (value: unknown) => void = () => {};
@@ -310,7 +368,8 @@ describe('locked app to public storage repair', () => {
     const systemBack = screen.getByTestId('system-back');
     act(() => {
       fireEvent.click(
-        screen.getByTestId('native-storage-migration-repair-attempt'),
+        screen.queryByTestId('native-storage-migration-repair-attempt') ??
+          screen.getByTestId('native-storage-repair-retry'),
       );
       // Same-frame Back callbacks still carry pre-repair props. The root must
       // check its synchronous operation state before detaching this request.

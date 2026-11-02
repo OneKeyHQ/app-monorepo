@@ -159,6 +159,8 @@ function withNativeBootstrapTimeout(promise: Promise<boolean>) {
 }
 
 const BACKGROUND_RECONCILIATION_RETRY_DELAYS_MS = [1000, 3000, 10_000];
+let backgroundReconciliationPending = false;
+let backgroundReconciliationGeneration: number | undefined;
 
 /**
  * The half of startup that needs bg, once it no longer holds the first frame.
@@ -175,6 +177,9 @@ function startBackgroundRuntimeReconciliation({
   force: boolean;
   generation: number;
 }) {
+  if (backgroundReconciliationGeneration === generation) return;
+  backgroundReconciliationPending = true;
+  backgroundReconciliationGeneration = generation;
   void (async () => {
     for (let attempt = 0; ; attempt += 1) {
       if (generation !== bootstrapGeneration) {
@@ -187,6 +192,8 @@ function startBackgroundRuntimeReconciliation({
           return;
         }
         await initializeJotaiFromBackground();
+        if (generation !== bootstrapGeneration) return;
+        backgroundReconciliationPending = false;
         logBootstrapStage('background runtime reconciled', startedAt);
         return;
       } catch (error) {
@@ -204,7 +211,11 @@ function startBackgroundRuntimeReconciliation({
         await new Promise((resolve) => setTimeout(resolve, delayMs));
       }
     }
-  })();
+  })().finally(() => {
+    if (backgroundReconciliationGeneration === generation) {
+      backgroundReconciliationGeneration = undefined;
+    }
+  });
 }
 
 function writeBootstrapError(
@@ -716,6 +727,15 @@ function returnFromStorageRecovery() {
   )
     return;
   dismissNativeStorageRecovery();
+  // Repair invalidates the old startup generation even if preparation fails.
+  // Resume only unfinished normal initialization; Back never requests repair,
+  // reset, force-refresh or restart, and an existing current run is reused.
+  if (backgroundReconciliationPending) {
+    startBackgroundRuntimeReconciliation({
+      force: false,
+      generation: bootstrapGeneration,
+    });
+  }
 }
 
 export function NativeStorageBootstrapRoot() {
