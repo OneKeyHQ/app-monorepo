@@ -1,4 +1,4 @@
-import { memo, useMemo } from 'react';
+import { memo, useEffect, useMemo } from 'react';
 import type { ReactElement, RefObject } from 'react';
 
 import { useIntl } from 'react-intl';
@@ -7,6 +7,7 @@ import { Button, Empty, ListView, Spinner, YStack } from '@onekeyhq/components';
 import { useMarketWatchListV2Atom } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { getMarketWatchlistKey } from '@onekeyhq/shared/src/utils/marketWatchlistIdentity';
 import type { IMarketSearchV2Token } from '@onekeyhq/shared/types/market';
 import type { IMarketTokenDetailPreview } from '@onekeyhq/shared/types/marketV2';
 
@@ -196,22 +197,44 @@ const WatchlistTokenSelectorList = memo(
     const intl = useIntl();
     const [{ data: watchListData, isMounted }] = useMarketWatchListV2Atom();
 
-    const { data, isLoading, isError, refetch } = useMarketWatchlistTokenList({
-      watchlist: watchListData ?? [],
-      pageSize: Math.max(watchListData?.length ?? 0, 1),
-      pollingInterval: pollingInterval ?? TOKEN_SELECTOR_POLLING_INTERVAL,
+    const { data, isLoading, isError, hasLoadedAllSources, refetch } =
+      useMarketWatchlistTokenList({
+        watchlist: watchListData ?? [],
+        pageSize: Math.max(watchListData?.length ?? 0, 1),
+        pollingInterval: pollingInterval ?? TOKEN_SELECTOR_POLLING_INTERVAL,
+        dataCacheRef,
+      });
+
+    const watchlistKey =
+      watchListData?.map(getMarketWatchlistKey).join('\n') ?? '';
+    const hasCachedEmptyResult =
+      dataCacheRef?.current?.emptyWatchlistKey === watchlistKey;
+    useEffect(() => {
+      if (isMounted && hasLoadedAllSources && dataCacheRef) {
+        dataCacheRef.current = {
+          ...dataCacheRef.current,
+          emptyWatchlistKey: data.length === 0 ? watchlistKey : undefined,
+        };
+      }
+    }, [
+      data.length,
       dataCacheRef,
-    });
+      hasLoadedAllSources,
+      isMounted,
+      watchlistKey,
+    ]);
 
     const groups = useWatchlistFilteredGroups(data);
     const filteredData = groups[watchlistFilter];
 
     // The recommendations are spot tokens, so only the crypto views fall back
-    // to them; Stocks and Perps read as an empty list.
+    // to them; Stocks and Perps read as an empty list. A successful empty
+    // result stays visible through polling and tab remounts, including when
+    // stored favorites no longer resolve to any market rows.
     if (
       isMounted &&
-      !isLoading &&
-      !isError &&
+      ((watchListData?.length ?? 0) === 0 ||
+        (!isError && (hasLoadedAllSources || hasCachedEmptyResult))) &&
       groups.all.length === 0 &&
       (watchlistFilter === 'all' || watchlistFilter === 'spot')
     ) {

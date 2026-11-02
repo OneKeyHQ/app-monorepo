@@ -12,6 +12,7 @@ import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes, EModalSwapRoutes } from '@onekeyhq/shared/src/routes';
+import type { IMarketAccountPortfolioDisplayItem } from '@onekeyhq/shared/types/marketV2';
 import {
   ESwapSource,
   ESwapTabSwitchType,
@@ -70,7 +71,7 @@ jest.mock('@onekeyhq/components', () => {
     ),
     Divider: Container,
     Icon: Container,
-    SizableText: Container,
+    SizableText: ({ children }: PropsWithChildren) => <span>{children}</span>,
     Skeleton: () => <span data-testid="position-loading" />,
     Spinner: Container,
     Stack: Container,
@@ -99,7 +100,7 @@ jest.mock(
   }),
 );
 jest.mock('@onekeyhq/kit/src/components/Currency', () => ({
-  Currency: ({ children }: PropsWithChildren) => <>{children}</>,
+  Currency: ({ children }: PropsWithChildren) => <span>{children}</span>,
 }));
 jest.mock('@onekeyhq/kit/src/hooks/useAppNavigation', () => ({
   __esModule: true,
@@ -119,6 +120,12 @@ jest.mock(
 jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
   __esModule: true,
   default: { isNative: true, isWeb: false },
+}));
+jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => ({
+  ...jest.requireActual<
+    typeof import('@onekeyhq/kit-bg/src/states/jotai/atoms')
+  >('@onekeyhq/kit-bg/src/states/jotai/atoms'),
+  useCurrencyPersistAtom: () => [{ currencyMap: {} }],
 }));
 jest.mock('./hooks/useSpeedSwapInit', () => ({
   ESpeedSwapConfigScope: { DEFAULT: 'default', MARKET: 'market' },
@@ -146,6 +153,214 @@ const token: ISwapToken = {
 };
 
 describe('Market mobile Buy / Sell modal entry', () => {
+  const stockPositions: IMarketAccountPortfolioDisplayItem[] = [
+    {
+      networkId: 'evm--56',
+      accountAddress: 'account-bnb',
+      tokenAddress: '0xNVDAon',
+      symbol: 'NVDAon',
+      amount: '1.25',
+      tokenPrice: '200',
+      totalPrice: '250',
+      pnl: {
+        isPnlSupported: true,
+        unrealizedPnlUsd: '25',
+        unrealizedPnlPercent: '11.11',
+        totalPnlUsd: '25',
+        totalPnlPercent: '11.11',
+      },
+    },
+    {
+      networkId: 'evm--1',
+      accountAddress: 'account-ethereum',
+      tokenAddress: '0xNVDAB',
+      symbol: 'NVDAB',
+      amount: '2.5',
+      tokenPrice: '200',
+      totalPrice: '500',
+      pnl: {
+        isPnlSupported: true,
+        unrealizedPnlUsd: '-50',
+        unrealizedPnlPercent: '-9.09',
+        totalPnlUsd: '-50',
+        totalPnlPercent: '-9.09',
+      },
+    },
+  ];
+
+  it('summarizes all stock variants and their combined cost basis regardless of the selected token', () => {
+    const stockToken: ISwapToken = {
+      ...token,
+      isStock: true,
+      networkId: stockPositions[0].networkId ?? '',
+      contractAddress: stockPositions[0].tokenAddress,
+    };
+    const { container, rerender } = render(
+      <SwapPanel
+        swapToken={stockToken}
+        detailKind="stock"
+        portfolioData={stockPositions}
+        mobileLayout
+      />,
+    );
+    expect(screen.getByText('750')).toBeTruthy();
+    expect(screen.getByText('25')).toBeTruthy();
+    expect(container.textContent).toContain('(-3.23%)');
+    rerender(
+      <SwapPanel
+        swapToken={{
+          ...stockToken,
+          networkId: stockPositions[1].networkId ?? '',
+          contractAddress: stockPositions[1].tokenAddress,
+        }}
+        detailKind="stock"
+        portfolioData={stockPositions}
+        mobileLayout
+      />,
+    );
+    expect(screen.getByText('750')).toBeTruthy();
+    expect(container.textContent).toContain('(-3.23%)');
+  });
+
+  it('hides PNL together with the position value while the current scope is pending', () => {
+    const { container } = render(
+      <SwapPanel
+        swapToken={{ ...token, isStock: true }}
+        detailKind="stock"
+        portfolioData={stockPositions}
+        isPortfolioPending
+        mobileLayout
+      />,
+    );
+    expect(screen.getByTestId('position-loading')).toBeTruthy();
+    expect(screen.queryByText('750')).toBeNull();
+    expect(screen.queryByText('25')).toBeNull();
+    expect(container.textContent).not.toContain('(-3.23%)');
+  });
+
+  it.each([true, false])(
+    'sums only visible stock holdings for value and PNL (dust PNL supported=%s)',
+    (dustPnlSupported) => {
+      const { container } = render(
+        <SwapPanel
+          swapToken={{ ...token, isStock: true }}
+          detailKind="stock"
+          portfolioData={[
+            stockPositions[0],
+            {
+              ...stockPositions[1],
+              amount: '0.000025',
+              totalPrice: '0.005',
+              pnl: dustPnlSupported ? stockPositions[1].pnl : undefined,
+            },
+            {
+              ...stockPositions[1],
+              tokenAddress: '0xBoundary',
+              amount: '0.00005',
+              totalPrice: '0.01',
+              pnl: {
+                isPnlSupported: true,
+                unrealizedPnlUsd: '0',
+                unrealizedPnlPercent: '0',
+                totalPnlUsd: '0',
+                totalPnlPercent: '0',
+              },
+            },
+          ]}
+          mobileLayout
+        />,
+      );
+      expect(screen.getByText('250.01')).toBeTruthy();
+      expect(screen.getByText('25')).toBeTruthy();
+      expect(container.textContent).toContain('(11.11%)');
+    },
+  );
+
+  it.each([
+    { name: 'no resolved variants', portfolioData: [] },
+    { name: 'one resolved variant', portfolioData: stockPositions.slice(0, 1) },
+  ])(
+    'shows an unavailable total and retries with $name',
+    ({ portfolioData }) => {
+      const onRefreshPortfolio = jest.fn();
+      const { container, rerender } = render(
+        <SwapPanel
+          swapToken={{ ...token, isStock: true }}
+          detailKind="stock"
+          portfolioData={portfolioData}
+          isPortfolioIncomplete
+          onRefreshPortfolio={onRefreshPortfolio}
+          mobileLayout
+        />,
+      );
+      expect(screen.getByText('—')).toBeTruthy();
+      expect(screen.queryByText('250')).toBeNull();
+      expect(screen.queryByText('0')).toBeNull();
+      expect(container.textContent).not.toContain('(11.11%)');
+      fireEvent.click(
+        screen.getByRole('button', { name: ETranslations.global_retry }),
+      );
+      expect(onRefreshPortfolio).toHaveBeenCalledTimes(1);
+
+      rerender(
+        <SwapPanel
+          swapToken={{ ...token, isStock: true }}
+          detailKind="stock"
+          portfolioData={stockPositions}
+          isPortfolioIncomplete={false}
+          onRefreshPortfolio={onRefreshPortfolio}
+          mobileLayout
+        />,
+      );
+      expect(screen.getByText('750')).toBeTruthy();
+      expect(container.textContent).toContain('(-3.23%)');
+      expect(
+        screen.queryByRole('button', { name: ETranslations.global_retry }),
+      ).toBeNull();
+    },
+  );
+
+  it('keeps the stock value but hides incomplete combined PNL', () => {
+    const { container } = render(
+      <SwapPanel
+        swapToken={{ ...token, isStock: true }}
+        detailKind="stock"
+        portfolioData={[
+          stockPositions[0],
+          { ...stockPositions[1], pnl: undefined },
+        ]}
+        mobileLayout
+      />,
+    );
+    expect(screen.getByText('750')).toBeTruthy();
+    expect(container.textContent).not.toContain('%');
+  });
+
+  it.each([
+    { isNative: true, detailKind: 'trending' as const },
+    { isNative: false, detailKind: 'stock' as const },
+  ])(
+    'preserves the selected-token summary for %p',
+    ({ isNative, detailKind }) => {
+      jest.replaceProperty(platformEnv, 'isNative', isNative);
+      const { container } = render(
+        <SwapPanel
+          swapToken={{
+            ...token,
+            networkId: stockPositions[0].networkId ?? '',
+            contractAddress: stockPositions[0].tokenAddress,
+          }}
+          detailKind={detailKind}
+          portfolioData={stockPositions}
+          mobileLayout
+        />,
+      );
+      expect(screen.getByText('250')).toBeTruthy();
+      expect(screen.queryByText('750')).toBeNull();
+      expect(container.textContent).toContain('(11.11%)');
+    },
+  );
+
   it('shows loading instead of a zero position until the first result arrives', () => {
     const { container, rerender } = render(
       <SwapPanel swapToken={token} mobileLayout isPortfolioPending />,

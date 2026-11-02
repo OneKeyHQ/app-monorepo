@@ -333,8 +333,7 @@ export default function BorrowTokenSelectModal() {
             <AssetWithAmountField
               token={item.token}
               amountLabel={{ text: balanceLabelWithColon }}
-              amount={balance.title}
-              amountDescription={balance.description}
+              balance={balance}
               platformBonusApy={item?.platformBonusApy}
             />
           );
@@ -378,12 +377,7 @@ export default function BorrowTokenSelectModal() {
           const balance = isBorrowAction
             ? (item.available ?? emptyBalance)
             : (item.walletBalance ?? item.balance ?? emptyBalance);
-          return (
-            <AmountField
-              title={balance.title}
-              description={balance.description}
-            />
-          );
+          return <AmountField balance={balance} />;
         },
         flex: 1,
       },
@@ -395,12 +389,7 @@ export default function BorrowTokenSelectModal() {
           const positionBalance = isBorrowAction
             ? (item.borrowed ?? emptyBalance)
             : (item.supplied ?? emptyBalance);
-          return (
-            <AmountField
-              title={positionBalance.title}
-              description={positionBalance.description}
-            />
-          );
+          return <AmountField balance={positionBalance} />;
         },
         flex: 1,
       },
@@ -456,7 +445,7 @@ export default function BorrowTokenSelectModal() {
         ) : (
           <BorrowTableList<IBorrowSelectAsset>
             data={assetsToRender}
-            isLoading={Boolean(isLoading)}
+            isLoading={isLoading ?? initialAssetsList === EMPTY_ASSETS_LIST}
             columns={columns}
             hideEmptyState={foldedAssets.length > 0}
             skeletonCount={6}

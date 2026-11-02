@@ -788,6 +788,9 @@ function getChartInitScript(): string {
       window.secondarySeries = null;
       var pulseElement = document.getElementById('pulse');
       var pulseFrameId = 0;
+      // Time of the point under the crosshair. While set, the pulse rides that
+      // point instead of the tail, like the web and native charts.
+      window.pulseHoverTime = undefined;
       // Placed on the next frame: autoscale and axis width settle after
       // setData, so reading coordinates right away lands on the old layout.
       window.updatePulseDot = function() {
@@ -796,7 +799,11 @@ function getChartInitScript(): string {
           pulseFrameId = 0;
           var nextConfig = window.latestChartConfig;
           var data = nextConfig && Array.isArray(nextConfig.data) ? nextConfig.data : [];
-          var lastPoint = data[data.length - 1];
+          var hoverTime = window.pulseHoverTime;
+          var hoverPoint = hoverTime === undefined
+            ? undefined
+            : data.find(function(point) { return Number(point.time) === hoverTime; });
+          var lastPoint = hoverPoint || data[data.length - 1];
           var x = lastPoint && window.chart
             ? window.chart.timeScale().timeToCoordinate(lastPoint.time)
             : null;
@@ -908,6 +915,11 @@ function getEventHandlers(): string {
           message = { type: 'hover', time: undefined, price: undefined, secondaryPrice: undefined, x: undefined, y: undefined };
         }
         updateNativeScrub(message);
+        var nextPulseTime = message.time === undefined ? undefined : Number(message.time);
+        if (nextPulseTime !== window.pulseHoverTime) {
+          window.pulseHoverTime = nextPulseTime;
+          window.updatePulseDot();
+        }
         if (!syntheticHover && window.latestChartConfig.notifyOnHover !== false) {
           window.ReactNativeWebView.postMessage(JSON.stringify(message));
         }

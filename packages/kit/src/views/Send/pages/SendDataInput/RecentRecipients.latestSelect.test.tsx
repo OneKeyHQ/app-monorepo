@@ -12,6 +12,8 @@
 import type { ReactNode } from 'react';
 
 type IBoxProps = { children?: ReactNode };
+const mockNativeSnapshots: NativeListProps['snapshot'][] = [];
+let mockNativeRowAction: NativeListProps['onRowAction'];
 
 const mockRecentData = {
   recentRecipients: [
@@ -22,6 +24,7 @@ const mockRecentData = {
       walletAccountName: 'Hidden #1 / Account #1',
       recipientMemo: '123456789',
       lastTransferTime: 1,
+      lastTransferNetworkName: 'Ethereum',
     },
   ],
   isLoadingRecent: false,
@@ -35,6 +38,19 @@ jest.mock('react-intl', () => ({
     locale: 'en',
   }),
 }));
+jest.mock('@onekeyfe/react-native-native-list', () => ({
+  NativeList: ({ snapshot, onRowAction }: NativeListProps) => {
+    mockNativeRowAction = onRowAction;
+    mockNativeSnapshots.push(snapshot);
+    return null;
+  },
+}));
+jest.mock(
+  '@onekeyhq/kit/src/views/AccountManagerStacks/pages/AccountSelectorStack/accountSelectorNativeListV2',
+  () => ({
+    useAccountSelectorNativeListThemeV2: () => ({}),
+  }),
+);
 jest.mock('@onekeyhq/components', () => {
   const Box = ({ children }: IBoxProps) => <>{children}</>;
   const Text = ({ children }: IBoxProps) => <span>{children}</span>;
@@ -107,15 +123,33 @@ jest.mock('./useRecentRecipientsData', () => ({
   useRecentRecipientsData: () => mockRecentData,
 }));
 
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from '@testing-library/react';
+
+import { ActionList } from '@onekeyhq/components';
 
 import RecentRecipients from './RecentRecipients';
+
+import type {
+  NativeListProps,
+  RowActionEvent,
+} from '@onekeyfe/react-native-native-list';
 
 /*
 yarn jest packages/kit/src/views/Send/pages/SendDataInput/RecentRecipients.latestSelect.test.tsx
 */
 
 describe('RecentRecipients row press', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockNativeRowAction = undefined;
+  });
+
   it('reaches the latest onSelect after the parent re-renders with a new handler', async () => {
     const firstOnSelect = jest.fn();
     const latestOnSelect = jest.fn();
@@ -148,4 +182,57 @@ describe('RecentRecipients row press', () => {
     );
     expect(firstOnSelect).not.toHaveBeenCalled();
   });
+
+  it('passes Recent network and time as separate plain title suffixes', () => {
+    mockNativeSnapshots.length = 0;
+    const previousName = mockRecentData.recentRecipients[0].walletAccountName;
+    mockRecentData.recentRecipients[0].walletAccountName = '';
+    render(
+      <RecentRecipients nativeList accountId="acc-1" networkId="evm--1" />,
+    );
+
+    const rows = mockNativeSnapshots.at(-1)?.rows as
+      | { titleSuffixes?: unknown[]; badges?: unknown[] }[]
+      | undefined;
+    expect(rows?.[0]?.titleSuffixes).toEqual([
+      { text: 'Ethereum', tone: 'disabled', maxWidth: 96 },
+      { text: expect.any(String), tone: 'disabled' },
+    ]);
+    expect(rows?.[0]?.badges).toBeUndefined();
+    mockRecentData.recentRecipients[0].walletAccountName = previousName;
+  });
+
+  it.each([true, false])(
+    'anchors the native-row menu with rect=%s and ignores a missing row',
+    (hasAnchor) => {
+      render(
+        <RecentRecipients nativeList accountId="acc-1" networkId="evm--1" />,
+      );
+      const event: RowActionEvent = {
+        actionKey: 'menu',
+        rowKey: '0-UQADDR',
+        windowPoint: { x: 300, y: 400 },
+        anchor: hasAnchor
+          ? {
+              token: 'recent-menu',
+              windowRect: { x: 100, y: 200, width: 40, height: 32 },
+              source: 'trailingAccessory',
+              generation: 1,
+              layoutDirection: 'ltr',
+            }
+          : undefined,
+      };
+      act(() => mockNativeRowAction?.(event));
+      expect(ActionList.show).toHaveBeenCalledWith(
+        expect.objectContaining({
+          triggerRect: event.anchor?.windowRect,
+          triggerPosition: hasAnchor ? undefined : event.windowPoint,
+        }),
+      );
+      act(() =>
+        mockNativeRowAction?.({ ...event, rowKey: 'missing-recipient' }),
+      );
+      expect(ActionList.show).toHaveBeenCalledTimes(1);
+    },
+  );
 });

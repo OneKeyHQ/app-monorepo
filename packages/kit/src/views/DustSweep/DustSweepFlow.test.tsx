@@ -135,6 +135,7 @@ function Button({
   );
 }
 jest.mock('@onekeyhq/components', () => ({
+  rootNavigationRef: { current: undefined },
   createStackNavigator: () => createTestStack(),
   useTheme: () => ({ bgApp: { val: '#fff' }, text: { val: '#000' } }),
   useIsOverlayPage: () => mockOverlay,
@@ -255,6 +256,9 @@ jest.mock('@onekeyhq/shared/src/tabBar/hideTabBarRequests', () => ({
   createHideTabBarOwnerId: (scope: string) => scope,
   requestHideTabBar: jest.fn(),
   releaseHideTabBar: jest.fn(),
+}));
+jest.mock('@onekeyhq/kit/src/hooks/useRouteIsFocused', () => ({
+  getRootRoutersLength: () => 1,
 }));
 jest.mock('@onekeyhq/kit/src/components/Token', () => ({ Token: () => null }));
 jest.mock('@onekeyhq/kit/src/components/Token/TokenGroup', () => ({

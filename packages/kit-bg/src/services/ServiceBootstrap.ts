@@ -263,6 +263,9 @@ class ServiceBootstrap extends ServiceBase {
         timedDeferred('serviceNotification.init', () =>
           this.backgroundApi.serviceNotification.init(),
         ),
+        timedDeferred('servicePrivacyChain.init', () =>
+          this.backgroundApi.servicePrivacyChain.init(),
+        ),
         timedDeferred('serviceToken.clearLastActiveTabNameData', () =>
           this.backgroundApi.serviceToken.clearLastActiveTabNameData(),
         ),

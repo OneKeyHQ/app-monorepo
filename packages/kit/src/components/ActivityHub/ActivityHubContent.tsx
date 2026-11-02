@@ -17,6 +17,7 @@ import {
 import GiftExpandOnDark from '@onekeyhq/kit/assets/animations/gift-expand-on-dark.json';
 import GiftExpandOnLight from '@onekeyhq/kit/assets/animations/gift-expand-on-light.json';
 import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
+import { usePrimePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/prime';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type { IActivityHubLayout } from '@onekeyhq/shared/src/logger/scopes/referral/scenes/activityHub';
@@ -188,6 +189,8 @@ export function ActivityHubContent({
   showTitle = true,
   menuLayout = false,
   menuPopoverLayout = false,
+  menuShortcuts,
+  renderMenuReferral,
   campaignFallbackIllustration,
   onOpenReferral,
   onOpenInvitePanel,
@@ -198,6 +201,8 @@ export function ActivityHubContent({
   showTitle?: boolean;
   menuLayout?: boolean;
   menuPopoverLayout?: boolean;
+  menuShortcuts?: ReactNode;
+  renderMenuReferral?: (referral: ReactNode) => ReactNode;
   campaignFallbackIllustration?: ReactNode;
   onOpenReferral: IActivityHubOpenReferral;
   // Set by hosts whose Referral row should open the invite panel in its own
@@ -207,6 +212,8 @@ export function ActivityHubContent({
   campaigns?: IActivityHubCampaign[];
 }) {
   const intl = useIntl();
+  const [user] = usePrimePersistAtom();
+  const isLoggedIn = Boolean(user.isLoggedIn && user.isLoggedInOnServer);
   const { gtMd } = useMedia();
   const isDesktop = gtMd;
   const themeVariant = useThemeVariant();
@@ -218,6 +225,8 @@ export function ActivityHubContent({
   const hasCampaigns = campaignCount > 0;
   // The Perps menu lists the entry like its other menu items.
   const showInvitePanel = shouldShowActivityHubInvitePanel() && !menuLayout;
+  const showHubTitle =
+    showTitle && (!showInvitePanel || isLoggedIn || hasCampaigns);
   // The invite panel shares the title's 20px inset (popover header and dialog
   // title alike) and keeps an even 16px above and below its content; the
   // Perks row's own 6px press padding counts toward the bottom.
@@ -249,9 +258,65 @@ export function ActivityHubContent({
     });
   }, [layout, source]);
 
+  // One entry for both sides of referrals; the page reopens its last tab.
+  const referralContent = (
+    <ActivityShortcutCard
+      testID="activity-hub-referral"
+      flexBasis={
+        menuLayout && menuPopoverLayout
+          ? '33.333333%'
+          : ACTIVITY_HUB_SHORTCUT_BASIS
+      }
+      showIconBackground={showIconBackground}
+      menuLayout={menuLayout}
+      listLayout={menuLayout && menuPopoverLayout}
+      iconName={menuLayout && !menuPopoverLayout ? 'GiftOutline' : undefined}
+      lottieSrc={menuLayout ? undefined : giftAnimation}
+      title={intl.formatMessage({
+        id:
+          menuLayout && menuPopoverLayout
+            ? ETranslations.referral_title
+            : ETranslations.sidebar_refer_a_friend,
+      })}
+      onPress={() => {
+        defaultLogger.referral.activityHub.activityHubActionPressed({
+          source,
+          action: onOpenInvitePanel ? 'open_invite_panel' : 'open_referral',
+        });
+        closeThenRun(
+          closePopover,
+          onOpenInvitePanel ?? (() => onOpenReferral()),
+        );
+      }}
+    />
+  );
+
+  let referralSection: ReactNode = (
+    <XStack
+      width="100%"
+      flexWrap="nowrap"
+      {...(menuLayout ? MENU_SHORTCUT_GRID_PROPS : {})}
+      {...(menuLayout && menuPopoverLayout
+        ? {
+            px: '$2',
+            pt: '$2.5',
+            flexDirection: 'column',
+            flexWrap: 'nowrap',
+            alignItems: 'stretch',
+          }
+        : {})}
+    >
+      {menuLayout ? menuShortcuts : null}
+      {referralContent}
+    </XStack>
+  );
+  if (menuLayout && menuPopoverLayout && renderMenuReferral) {
+    referralSection = renderMenuReferral(referralContent);
+  }
+
   return (
     <YStack mb={menuLayout || showInvitePanel ? '$0' : '$2'}>
-      {isDesktop && showTitle ? (
+      {isDesktop && showHubTitle ? (
         <XStack px="$5" pt="$4" pb="$1">
           <SizableText size="$headingMd" color="$text" userSelect="none">
             {hubTitle}
@@ -282,51 +347,7 @@ export function ActivityHubContent({
             />
           </YStack>
         ) : (
-          <XStack
-            width="100%"
-            flexWrap="nowrap"
-            {...(menuLayout ? MENU_SHORTCUT_GRID_PROPS : {})}
-            {...(menuLayout && menuPopoverLayout
-              ? {
-                  px: '$2',
-                  pt: '$2.5',
-                  flexDirection: 'column',
-                  flexWrap: 'nowrap',
-                  alignItems: 'stretch',
-                }
-              : {})}
-          >
-            {/* One entry for both sides of referrals, named like the page it
-                opens; the page reopens whichever tab was used last. */}
-            <ActivityShortcutCard
-              testID="activity-hub-referral"
-              flexBasis={
-                menuLayout && menuPopoverLayout
-                  ? '33.333333%'
-                  : ACTIVITY_HUB_SHORTCUT_BASIS
-              }
-              showIconBackground={showIconBackground}
-              menuLayout={menuLayout}
-              listLayout={menuLayout && menuPopoverLayout}
-              iconName={menuLayout ? 'GiftOutline' : undefined}
-              lottieSrc={menuLayout ? undefined : giftAnimation}
-              title={intl.formatMessage({
-                id: ETranslations.sidebar_refer_a_friend,
-              })}
-              onPress={() => {
-                defaultLogger.referral.activityHub.activityHubActionPressed({
-                  source,
-                  action: onOpenInvitePanel
-                    ? 'open_invite_panel'
-                    : 'open_referral',
-                });
-                closeThenRun(
-                  closePopover,
-                  onOpenInvitePanel ?? (() => onOpenReferral()),
-                );
-              }}
-            />
-          </XStack>
+          referralSection
         )}
         {hasCampaigns ? (
           <YStack
@@ -336,11 +357,24 @@ export function ActivityHubContent({
             {...(menuLayout && menuPopoverLayout ? { px: '$2' } : {})}
             pb={menuLayout ? '$2' : undefined}
           >
-            {menuLayout ? null : (
+            {menuLayout && !platformEnv.isWeb ? (
+              <SizableText
+                size={menuPopoverLayout ? '$headingXs' : '$headingSm'}
+                color={menuPopoverLayout ? '$textSubdued' : '$text'}
+                textTransform="none"
+                letterSpacing={0}
+                px={menuPopoverLayout ? '$3' : undefined}
+              >
+                {intl.formatMessage({
+                  id: ETranslations.perps_menu_campaign_center__title,
+                })}
+              </SizableText>
+            ) : null}
+            {!menuLayout ? (
               <SizableText size="$headingXs" color="$text">
                 {`${intl.formatMessage({ id: ETranslations.perps_ongoing_events })} (${campaignCount})`}
               </SizableText>
-            )}
+            ) : null}
             <YStack gap="$2">
               {campaignItems.map((item) => (
                 <ActivityCampaignCard

@@ -93,8 +93,14 @@ export function MarketDetailHeader({
   const { stockId: listingStockId, assetId: listingAssetId } = listingIdentity;
   const { handleBackPress } = useMarketDetailBackNavigation();
   const navigation = useAppNavigation();
-  const { tokenDetail, tokenDetailPreview, networkId, isNative, isStockToken } =
-    useMarketDetailHeaderDisplayData();
+  const {
+    tokenDetail,
+    tokenDetailPreview,
+    tokenAddress,
+    networkId,
+    isNative,
+    isStockToken,
+  } = useMarketDetailHeaderDisplayData();
   const { stockDetail, stockPreview } = useStockDetail();
   const { copyText } = useClipboard();
   const isOverlayPage = useIsOverlayPage();
@@ -364,18 +370,24 @@ export function MarketDetailHeader({
   });
 
   const { shareText } = useShare();
+  const shareAddress = isStockToken
+    ? (tokenDetail?.address ?? '')
+    : tokenAddress;
+  const canShare = Boolean(
+    networkId && (isStockToken || isNative || shareAddress),
+  );
 
   const handleShareNative = useCallback(() => {
-    if (!networkId) return;
+    if (!networkId || !canShare) return;
     const shortCode =
       networkUtils.getNetworkShortCode({ networkId }) || networkId;
     const url = buildMarketFullUrlV2({
       network: shortCode,
-      address: tokenDetail?.address ?? '',
+      address: shareAddress ?? '',
       isNative,
     });
     void shareText(url);
-  }, [networkId, tokenDetail?.address, isNative, shareText]);
+  }, [canShare, networkId, shareAddress, isNative, shareText]);
 
   const handleStarNative = useCallback(() => {
     void onStarPress();
@@ -394,10 +406,20 @@ export function MarketDetailHeader({
           ]
         : []),
       glassBarItem(
-        <HeaderIconButton icon="ShareOutline" onPress={handleShareNative} />,
+        <HeaderIconButton
+          icon="ShareOutline"
+          onPress={handleShareNative}
+          disabled={!canShare}
+        />,
       ),
     ],
-    [showFavoriteButton, starChecked, handleStarNative, handleShareNative],
+    [
+      showFavoriteButton,
+      starChecked,
+      handleStarNative,
+      handleShareNative,
+      canShare,
+    ],
   );
 
   // Drive the back button through useMarketDetailBackNavigation so the
@@ -552,13 +574,15 @@ export function MarketDetailHeader({
                   isNative={isNative}
                 />
               ) : null}
-              <ShareButton
-                networkId={networkId}
-                address={tokenDetail?.address ?? ''}
-                isNative={isNative}
-                useIconButton
-                size="large"
-              />
+              {canShare ? (
+                <ShareButton
+                  networkId={networkId}
+                  address={shareAddress ?? ''}
+                  isNative={isNative}
+                  useIconButton
+                  size="large"
+                />
+              ) : null}
             </XStack>
           ) : null}
         </TabPageHeaderContainer>

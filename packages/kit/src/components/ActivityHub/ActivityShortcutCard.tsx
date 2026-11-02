@@ -71,18 +71,20 @@ export function ActivityShortcutCard({
         cursor="pointer"
         userSelect="none"
       >
-        <Stack
-          w="$5"
-          h="$6"
-          alignItems="center"
-          justifyContent="center"
-          flexShrink={0}
-        >
-          {leadingContent ??
-            (iconName ? (
-              <Icon name={iconName} size="$5" color="$text" />
-            ) : null)}
-        </Stack>
+        {leadingContent || iconName ? (
+          <Stack
+            w="$5"
+            h="$6"
+            alignItems="center"
+            justifyContent="center"
+            flexShrink={0}
+          >
+            {leadingContent ??
+              (iconName ? (
+                <Icon name={iconName} size="$5" color="$text" />
+              ) : null)}
+          </Stack>
+        ) : null}
         <YStack flex={1} minWidth={0} gap="$0.5">
           <SizableText size="$bodyMdMedium">{title}</SizableText>
           {subtitle ? (
@@ -143,7 +145,7 @@ export function ActivityShortcutCard({
         ) : null}
       </Stack>
       <SizableText
-        size={menuLayout ? '$headingXxs' : defaultTitleSize}
+        size={menuLayout ? '$bodySm' : defaultTitleSize}
         fontWeight={menuLayout ? '400' : undefined}
         textTransform={menuLayout ? 'none' : undefined}
         letterSpacing={menuLayout ? 0 : undefined}

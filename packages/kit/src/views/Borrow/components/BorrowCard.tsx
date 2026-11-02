@@ -153,8 +153,7 @@ export const BorrowCard = () => {
           <AssetWithAmountField
             token={item.token}
             amountLabel={{ text: labels.balanceWithColon }}
-            amount={item.available.title}
-            amountDescription={item.available.description}
+            balance={item.available}
             platformBonusApy={item.platformBonusApy}
           />
         ),
@@ -197,10 +196,7 @@ export const BorrowCard = () => {
           return aFiatValue.comparedTo(bFiatValue);
         },
         render: (item: IBorrowAsset) => (
-          <AmountField
-            title={item.available.title}
-            description={item.available.description}
-          />
+          <AmountField balance={item.available} />
         ),
         flex: 1,
         minWidth: BORROW_TABLE_AMOUNT_COLUMN_MIN_WIDTH,

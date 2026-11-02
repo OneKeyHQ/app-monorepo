@@ -1078,3 +1078,67 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries �
 **Root Cause**: `SettingsSelect` passes an explicit `disabled={false}`. The default Select trigger renders a read-only `Input`, whose Tamagui `Group` forwards `disabled: false` to the inner TextInput, and `useInputProps` mapped it to `readOnly: false`. The native TextInput prefers a defined `readOnly` over `editable`, so Android's read-only `editable={false}` was overridden. RN Android hit testing only lets touches pass through disabled views, so the enabled EditText took the tap and the trigger never got `onPress`. Selects that omit `disabled` kept `readOnly` undefined and worked.
 **Fix**: On Android, `SettingsSelect` passes `disabled` only as `true` or `undefined`, preserving the default trigger's `editable={false}` when enabled. Disabled controls still receive `true`; other platforms keep their original props. Shared `Input` and `TextArea` behavior is unchanged. Verified all three chart selects and ordinary search input on an Android API 36 emulator.
 **Catchable by**: Section 8: Manual Verification (tap every Select on Android native); an explicit `false` overriding an omitted-prop default (`readOnly: false` beating `editable={false}`) is NEW — not covered
+
+## Case: Mobile browser top chrome missed gradient pages and copied a button color (OK-65819)
+**Date**: 2026-10-28 | **Platforms**: iOS, Android (in-app browser; Android/iPad bottom bar follows the top color)
+**Symptom**: On Tinyman the header stayed white, and after scroll it turned the yellow of the "Go to Tinyman v2" button. Android's bottom bar copied that color.
+**Root Cause**: The top sample was one point at the viewport center, then an ancestor walk for opaque background-color. The green is a full-width linear-gradient behind the content (not an ancestor, and background-color is transparent). A narrow button at that point won after it stuck.
+**Fix**: Sample the top edge at 25/50/75% width, ignore layers narrower than 80% of the viewport, and read a wide linear-gradient at the sample point. body/html and theme-color stay fallbacks. Bottom-edge sampling is unchanged.
+**Catchable by**: Section 6: jsdom script tests for gradient, narrow button, and disagreeing points. Device check that WebView elementsFromPoint includes z-index -1 is NEW — not covered.
+
+## Case: Inner scroll cancelled the mobile browser late top-color read (OK-65819)
+**Date**: 2026-10-28 | **Platforms**: iOS, Android (in-app browser)
+**Symptom**: A page with an auto-scrolling panel could keep the first-frame header color. The 800ms correction never ran.
+**Root Cause**: The scroll listener is on window in the capture phase so inner containers update the bottom color. That same handler cancelled the one late top read for every scroll event, including a panel that does not move the viewport.
+**Fix**: Cancel the late top read only when the scroll target is the document, documentElement, body, or window.
+**Catchable by**: Section 6: lifecycle test dispatches scroll on an inner element and still expects the late top color.
+
+## Case: Opaque body was skipped and a hidden negative-z color painted the header (OK-65819)
+**Date**: 2026-10-28 | **Platforms**: iOS, Android (in-app browser)
+**Symptom**: With an opaque html background and an opaque body, the header could take the color of a z-index -1 layer the body covers.
+**Root Cause**: The top walk skipped body whenever it had no background-image, then accepted the next wide layer. That is right only when the body background has propagated to the canvas, which requires html to paint nothing. Once html paints, the body background is drawn above negative z-index descendants.
+**Fix**: Stop at an opaque body when html paints any background. Keep looking through body when html is transparent, when body is transparent, or when body itself is a stacking context.
+**Catchable by**: Section 6: top-color tests for opaque html plus opaque body, translucent html, and a transformed body.
+
+## Case: Native Market search and recommendations did not share Top Coins favorites (OK-64236)
+**Date**: 2026-10-28 | **Platforms**: Desktop/Web single JS runtime; iOS/Android/extension background services and UI consumers, with separate JS heaps on those targets
+**Symptom**: A native coin favorited in Top Coins appeared unfavorited in search or recommendations, allowing another favorite for the same asset.
+**Root Cause**: Native results missing the backend asset ID used a chain/address favorite key while Top Coins used an asset key. A stalled metadata candidate could also leave the memoized identity lookup pending and prevent matching later candidates.
+**Fix**: Resolve missing native asset IDs using verified network variants, preserve backend identities, bound metadata and candidate requests, and share the result across search, trending, and fallback recommendations. Existing duplicate favorites are not migrated.
+**Catchable by**: Section 4: Data flow end-to-end: API → state → UI; Section 5: No race conditions in async operations
+
+## Case: Universal search hid the Market background and reset its scroll position (OK-65811)
+**Date**: 2026-10-28 | **Platforms**: Desktop/Web single JS runtime; native Market rendering is unchanged
+**Symptom**: Opening universal search blanked the Market page beneath the backdrop and reset its scroll position.
+**Root Cause**: The Market freeze guard treated modal coverage as leaving the page. React Freeze suspended to an empty fallback and hid the DOM. Comparing root depth alone also thawed an already inactive Market when another tab opened a modal.
+**Fix**: Retain the Market background only while it owns modal coverage, clear that ownership when leaving at the same root depth, and continue freezing genuinely inactive pages. Regression tests cover search coverage, returning from modals, and another tab opening a modal.
+**Catchable by**: Section 2: React Check; Section 4: Business Logic & Regression
+
+## Case: Desktop tray popover blank in production builds (OK-65749)
+**Date**: 2026-10-28 | **Platforms**: Desktop (macOS menu-bar tray renderer; production builds only)
+**Symptom**: On App 6.7.0 the menu-bar tray popover rendered as an empty white panel. 6.6.1 on the same machine worked, and the bug never reproduced in a dev session. Logs showed the tray renderer alive at ~0% CPU with no `did-fail-load`, `render-process-gone`, or Sentry events.
+**Root Cause**: The preload hardening in #13770 stopped exposing `$mmkvSync` to the tray window, but the tray shares the main renderer bundle. `dbPerfMonitor` reads `syncStorage.getBoolean()` at module evaluation time behind `platformEnv.isDev ||`, so only production builds reached `ipc()` in `syncStorageInstance.desktop.ts`, which called `globalThis.$mmkvSync(...)` unguarded. The resulting `TypeError` fired before React mounted and left the transparent window showing the white `index.html` body.
+**Fix**: The desktop syncStorage adapter looks up the bridge per call and degrades to an empty store when it is absent: reads return `undefined`, `getAllKeys` returns `[]`, writes are no-ops, and a single warning is logged. Unit tests cover the bridged and bridge-less paths; the bridge-less cases failed with the original TypeError before the fix.
+**Catchable by**: Section 4: Shared hook/utility modified → checked all consumers (the #13770 preload change removed a bridge without checking every renderer that loads the shared bundle); Section 1: Error cases handled (an unguarded global bridge call); NEW — a dev-only short-circuit (`isDev ||`) hides a production-only code path, so bridge/global access gated behind it must be verified with a production build or with the flag forced off
+
+## Case: Android crash when popping a screen with a mounted CollapsiblePagerView / ViewPager2
+**Date**: 2026-10-29 | **Platforms**: Android (main UI runtime and native `Screen` / `RecyclerView` / `ViewPager2` views)
+**Symptom**: Navigating back on Android from a screen containing a `CollapsiblePagerView` (such as DeFi Protocol Detail) crashed with `java.lang.IllegalArgumentException: Tmp detached view should be removed from RecyclerView before it can be recycled` in `RecyclerView$Recycler.recycleViewHolderInternal`.
+**Root Cause**: Upgrading `react-native-screens` from `4.26.0` to `4.30.0` regenerated `patches/react-native-screens+4.30.0.patch` from upstream `Screen.kt` and dropped the custom `RecyclerView` removal-transition suppression in `Screen.startRemovalTransition`. Without that suppression, `Screen.startTransitionRecursive` walked into `RecyclerView` (`ViewPager2.mRecyclerView`) and called `startViewTransition(holder.itemView)`, placing the `ViewHolder` root view into `mDisappearingChildren` (`isTmpDetached == true`). When `CollapsiblePagerHost` removed its React page children on unmount (`notifyItemRangeRemoved`) and ran `layoutPagerIfRequested()` on pre-draw, `RecyclerView` laid out against the empty adapter and tried to recycle the `TmpDetached` `ViewHolder`.
+**Fix**: Restore `RecyclerView` removal-transition suppression and reference-counted layout/animator restoration in `patches/react-native-screens+4.30.0.patch` (`Screen.kt`) so `startTransitionRecursive` stops at `RecyclerView.childViewHolder` boundaries, suppresses layout, and clears `itemAnimator` during screen removal transitions. Companion `app-modules` fix (`#179`) also disables `DefaultItemAnimator` on `CollapsiblePagerHost`'s internal `ViewPager2` `RecyclerView` and skips unmount-time empty-adapter layout passes.
+**Catchable by**: Section 4: Business Logic & Regression — when upgrading a patched third-party dependency (`patch-package`), diff every hunk of the previous `.patch` file against the regenerated patch to verify no custom files or behaviors were silently dropped.
+
+
+## Case: Desktop home token list header misaligned with NativeList table columns
+**Date**: 2026-10-29 | **Platforms**: Desktop, Web (single runtime)
+**Symptom**: On the desktop Home token list the "Balance" and "Price" header labels sat about 88px / 114px left of their columns while the rows themselves rendered correctly (OK-65944).
+**Root Cause**: #14122 moved Home token rows on every platform to NativeList `dataRow`s (icon slot, three `weight: 1` cells with a fixed 12px gap, trailing swap button, `horizontalPadding: 12`). `TokenListHeader` is a plain `ListItem` rendered through `NativeList.listHeader`; its web branch kept the pre-#14122 four-equal-column layout (`$3` gap, no leading slot, an empty fourth flex column, default `mx="$2"`), so each header cell was narrower and shifted left of the data cells. The native branch already hard-coded the native row geometry, so mobile looked fine.
+**Fix**: The header mirrors the row template per engine through `tokenListRowLayout.ts` / `tokenListRowLayout.native.ts` (`getTokenListHeaderLayout`), shares `getTokenRowIconSize` with the row config, reserves the trailing swap footprint from `withSwapAction`, and pins the geometry with `TokenListHeader.test.tsx`.
+**Catchable by**: Section 4: Business Logic & Regression — when a list migrates its rows to another rendering engine (NativeList), re-verify every sibling that hand-mirrors row geometry (headers, skeletons, footers) on each platform, not only the rows.
+
+## Case: Native chart previous-close tag drawn half a badge above its price badge
+**Date**: 2026-10-30 | **Platforms**: iOS, Android (native Skia chart, main UI runtime)
+**Symptom**: On the share 1D simple chart, the `Previous close` tag and the `$213.66` axis badge looked shifted up as a pair: the tag sat entirely above the dashed reference line while the price badge was centered on it.
+**Root Cause**: The Skia port in #14075 laid out the two halves of the reference-line label with different vertical anchors. `createPriceAxisLabelPainter` centered the axis badge on its label Y (`y - labelHeight / 2`), but `drawReferenceTitle` placed the tag at `yAtValue(price) - labelHeight`, so its bottom edge touched the line. It also used the raw line position, so the tag did not follow the badge when `getPriceAxisLabels` nudged it away from the last-price badge.
+**Fix**: `drawReferenceTitle` takes the computed price-axis labels and centers the tag on `referenceLabelY` (falling back to the clamped line position), matching the axis badge. A unit test pins equal `y` and `height` for the tag and badge, both at rest and when nudged.
+**Catchable by**: NEW — when one visual element is drawn as several shapes (tag + axis badge), derive every shape's position from one shared anchor and assert their alignment in a scene test, especially when porting a renderer (web lightweight-charts → native Skia).

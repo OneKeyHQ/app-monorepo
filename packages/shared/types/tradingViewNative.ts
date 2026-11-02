@@ -189,7 +189,7 @@ export function createTradingViewNativeChartSettings(): ITradingViewNativeChartS
       pastEvents: false,
       clickInteraction: false,
       crossLine: true,
-      navigationButtons: true,
+      navigationButtons: false,
     },
     latestPriceLine: {
       upColor: colors.positive,

@@ -923,6 +923,7 @@ function MobileMarketNativeWatchlistImpl({
   );
   const result = useMarketWatchlistTokenList({
     watchlist,
+    isWatchlistReady: watchlistState.isMounted,
     pageSize: 999,
     dataCacheRef,
   });

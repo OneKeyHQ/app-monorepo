@@ -21,7 +21,11 @@ import type { UseFormReturn } from 'react-hook-form';
 
 interface ICaptured {
   form: UseFormReturn<{ password: string; passCode: string }>;
-  input: { addOns: { onPress: () => void | Promise<void>; testID?: string }[] };
+  fields: Record<string, { hint?: string }>;
+  input: {
+    addOns: { onPress: () => void | Promise<void>; testID?: string }[];
+    onSubmitEditing?: () => void | Promise<void>;
+  };
   icon: { onPress: () => void };
   passCode: {
     onPinCodeChange: (value: string) => void;
@@ -56,13 +60,26 @@ jest.mock('@onekeyhq/components', () => {
     Host.displayName = name;
     return Host;
   };
-  const capture = {} as ICaptured;
+  const capture = { fields: {} } as unknown as ICaptured;
   const Form = Object.assign(
     ({ children, form }: { children?: ReactNode; form: ICaptured['form'] }) => {
       capture.form = form;
       return children ?? null;
     },
-    { Field: ({ children }: { children?: ReactNode }) => children ?? null },
+    {
+      Field: ({
+        children,
+        name,
+        hint,
+      }: {
+        children?: ReactNode;
+        name: string;
+        hint?: string;
+      }) => {
+        capture.fields[name] = { hint };
+        return children ?? null;
+      },
+    },
   );
   const dialogConfirm = jest.fn();
   return {
@@ -633,4 +650,192 @@ describe('PasswordVerify biometric safety guard', () => {
     });
     expect(onBiologyAuth).not.toHaveBeenCalled();
   });
+});
+
+describe('PasswordVerify retry feedback', () => {
+  const platformEnv = jest.requireMock<
+    typeof import('@onekeyhq/shared/src/platformEnv')
+  >('@onekeyhq/shared/src/platformEnv').default;
+  const nativeFlags = {
+    isNative: platformEnv.isNative,
+    isNativeIOS: platformEnv.isNativeIOS,
+  };
+  function onDesktop() {
+    Object.assign(platformEnv, { isNative: false, isNativeIOS: false });
+  }
+
+  beforeEach(() => {
+    jest.useFakeTimers({ doNotFake: ['queueMicrotask'] });
+    jest.clearAllMocks();
+    bgCheck().mockResolvedValue(false);
+  });
+  afterEach(() => {
+    Object.assign(platformEnv, nativeFlags);
+    jest.useRealTimers();
+  });
+
+  it('shows a retry as a hint without marking the field invalid', () => {
+    renderVerify({
+      isEnable: false,
+      status: {
+        value: EPasswordVerifyStatus.RETRY,
+        message: 'auth_passcode_retry__msg',
+      },
+    });
+    expect(captured().fields.password.hint).toBe('auth_passcode_retry__msg');
+    expect(captured().form.getFieldState('password').error).toBeUndefined();
+  });
+
+  it('keeps an error as a field error', () => {
+    renderVerify({
+      isEnable: false,
+      status: {
+        value: EPasswordVerifyStatus.ERROR,
+        message: 'auth_passcode_reset_warning__msg',
+      },
+    });
+    expect(captured().fields.password.hint).toBeUndefined();
+    expect(captured().form.getFieldState('password').error?.message).toBe(
+      'auth_passcode_reset_warning__msg',
+    );
+  });
+
+  it('ignores an empty submit', async () => {
+    const onInputPasswordAuth = jest.fn();
+    renderVerify({ isEnable: false, onInputPasswordAuth });
+    const submit = captured().input.addOns.find(
+      (item) => item.testID === 'verifying-password',
+    );
+    assert(submit, 'Password submission action is missing');
+    await act(async () => {
+      await submit.onPress();
+    });
+    expect(onInputPasswordAuth).not.toHaveBeenCalled();
+    expect(captured().form.getFieldState('password').error).toBeUndefined();
+  });
+
+  it('asks for biometrics when Enter is pressed on the empty field', async () => {
+    onDesktop();
+    const onBiologyAuth = jest.fn();
+    const onInputPasswordAuth = jest.fn();
+    // A dismissed prompt leaves RETRY, which blocks the automatic prompt.
+    renderVerify({
+      onBiologyAuth,
+      onInputPasswordAuth,
+      status: { value: EPasswordVerifyStatus.RETRY },
+    });
+    await flush();
+    expect(onBiologyAuth).not.toHaveBeenCalled();
+    await act(async () => {
+      await captured().input.onSubmitEditing?.();
+    });
+    await flush();
+    expect(onBiologyAuth).toHaveBeenCalledTimes(1);
+    expect(onInputPasswordAuth).not.toHaveBeenCalled();
+  });
+
+  it('leaves the phone return key on the empty field to closing the keyboard', async () => {
+    const onBiologyAuth = jest.fn();
+    const onInputPasswordAuth = jest.fn();
+    renderVerify({
+      onBiologyAuth,
+      onInputPasswordAuth,
+      status: { value: EPasswordVerifyStatus.RETRY },
+    });
+    await flush();
+    await act(async () => {
+      await captured().input.onSubmitEditing?.();
+    });
+    await flush();
+    expect(onBiologyAuth).not.toHaveBeenCalled();
+    expect(onInputPasswordAuth).not.toHaveBeenCalled();
+  });
+
+  it('asks for biometrics on Enter during a passcode cooldown', async () => {
+    onDesktop();
+    const onBiologyAuth = jest.fn();
+    renderVerify({
+      confirmBtnDisabled: true,
+      onBiologyAuth,
+      status: { value: EPasswordVerifyStatus.RETRY },
+    });
+    await flush();
+    await act(async () => {
+      await captured().input.onSubmitEditing?.();
+    });
+    await flush();
+    expect(onBiologyAuth).toHaveBeenCalledTimes(1);
+  });
+
+  it.each([
+    [false, 1],
+    [true, 0],
+  ])(
+    'submits a typed password on Enter when the cooldown is %s: %s time(s)',
+    async (confirmBtnDisabled, expectedCalls) => {
+      const onInputPasswordAuth = jest.fn();
+      renderVerify({
+        confirmBtnDisabled,
+        isEnable: false,
+        onInputPasswordAuth,
+      });
+      act(() => {
+        captured().form.setValue('password', 'typed');
+      });
+      await act(async () => {
+        await captured().input.onSubmitEditing?.();
+      });
+      expect(onInputPasswordAuth).toHaveBeenCalledTimes(expectedCalls);
+    },
+  );
+
+  it('clears the passcode digits after a retry', () => {
+    const props = {
+      authType: [],
+      isEnable: false,
+      passwordMode: EPasswordMode.PASSCODE,
+      onPasswordChange: () => {},
+      onBiologyAuth: () => {},
+      onInputPasswordAuth: () => {},
+    };
+    const view = render(
+      <PasswordVerify
+        {...props}
+        status={{ value: EPasswordVerifyStatus.VERIFYING }}
+      />,
+    );
+    act(() => {
+      captured().form.setValue('passCode', '123456');
+    });
+    view.rerender(
+      <PasswordVerify
+        {...props}
+        status={{
+          value: EPasswordVerifyStatus.RETRY,
+          message: 'auth_passcode_retry__msg',
+        }}
+      />,
+    );
+    expect(captured().form.getValues('passCode')).toBe('');
+  });
+
+  it.each([
+    [EPasswordVerifyStatus.RETRY, 1],
+    [EPasswordVerifyStatus.DEFAULT, 0],
+  ])(
+    'reports the first passcode digit after a %s status %s time(s)',
+    async (value, expectedCalls) => {
+      const onPasswordChange = jest.fn();
+      renderVerify({
+        isEnable: false,
+        passwordMode: EPasswordMode.PASSCODE,
+        status: { value, message: 'auth_passcode_retry__msg' },
+        onPasswordChange,
+      });
+      await act(async () => {
+        captured().passCode.onPinCodeChange('1');
+      });
+      expect(onPasswordChange).toHaveBeenCalledTimes(expectedCalls);
+    },
+  );
 });

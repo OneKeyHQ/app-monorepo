@@ -88,6 +88,7 @@ import { useMarketDetailDisplayData } from '../hooks/useMarketDetailDisplayData'
 import { useMarketKlineLivePrice } from '../hooks/useMarketKlineLivePrice';
 import { useMarketNativeChartLayout } from '../hooks/useMarketNativeChartLayout';
 import { useMarketNativeChartPriceUpdate } from '../hooks/useMarketNativeChartPriceUpdate';
+import { useStockPortfolioData } from '../hooks/useStockPortfolioData';
 import { useStockPriceSource } from '../hooks/useStockPriceSource';
 import { useMarketTradingViewParams } from '../hooks/useTokenDetail';
 import { useTradingViewSubIndicatorCount } from '../hooks/useTradingViewSubIndicatorCount';
@@ -110,7 +111,10 @@ import {
 } from '../utils/marketTradingViewSubIndicatorCount';
 import { buildMarketStockTokenMetadata } from '../utils/resolveIsStockToken';
 
-import { shouldShowMobileSimpleChart } from './mobileChartVisibility';
+import {
+  shouldShowMobileNativeChart,
+  shouldShowMobileSimpleChart,
+} from './mobileChartVisibility';
 import {
   MOBILE_SIMPLE_CHART_HEIGHT,
   MobileChartModeControl,
@@ -396,9 +400,6 @@ export function MobileLayout({
     stockId,
   } = useStockDetail();
   const { priceMode } = useStockPriceSource();
-  // The legacy token-only chart cannot render the selected share series.
-  const isTradingViewNative =
-    preferredIsTradingViewNative || priceMode === 'share';
   const detailKind = resolveMarketMobileDetailKind({
     isStockToken: Boolean(isStockToken || isStockRoute),
     marketTokenCategory,
@@ -463,6 +464,18 @@ export function MobileLayout({
     isNative,
     websocketConfig,
   });
+  const isTradingViewNative = shouldShowMobileNativeChart({
+    isNativeChartPreferred: preferredIsTradingViewNative,
+    hasTradingViewParams: Boolean(marketTradingViewParams),
+    isSharePrice: priceMode === 'share',
+  });
+  // Only the native chart has a fullscreen mode here. Leave it when
+  // TradingView takes over, e.g. once its chart params arrive.
+  useEffect(() => {
+    if (isChartFullscreen && !isTradingViewNative) {
+      onChartFullscreenChange(false);
+    }
+  }, [isChartFullscreen, isTradingViewNative, onChartFullscreenChange]);
   let marketTradingViewKey = 'v2';
   if (!isTradingViewNative && marketTradingViewParams) {
     marketTradingViewKey = [
@@ -591,13 +604,18 @@ export function MobileLayout({
     [accountAddress, networkId, tokenAddress],
   );
 
-  const { portfolioData, isRefreshing, isPortfolioPending } = usePortfolioData({
+  const isStockPortfolio = platformEnv.isNative && isStockRoute && !!stockId;
+  const tokenPortfolio = usePortfolioData({
     tokenAddress,
     networkId,
-    accountAddress,
+    accountAddress: isStockPortfolio ? undefined : accountAddress,
     xpub,
     isStock: Boolean(isStockToken || isStockRoute),
   });
+  const stockPortfolio = useStockPortfolioData({ enabled: isStockPortfolio });
+  const { portfolioData, isRefreshing, isPortfolioPending } = isStockPortfolio
+    ? stockPortfolio
+    : tokenPortfolio;
   const isModalPage = useIsOverlayPage();
   const inPageDialog = useInPageDialog(
     isModalPage ? EInPageDialogType.inModalPage : EInPageDialogType.inTabPages,
@@ -1206,6 +1224,10 @@ export function MobileLayout({
         portfolioData={portfolioData}
         onShowSwapDialog={showSwapDialog}
         isPortfolioPending={isPortfolioPending}
+        isPortfolioIncomplete={
+          isStockPortfolio && stockPortfolio.isPortfolioIncomplete
+        }
+        onRefreshPortfolio={stockPortfolio.fetchPortfolio}
         executionReady={isSwapTokenReady && isSwapExecutionReady}
         footerMode={footerMode}
         mobileLayout
@@ -1279,8 +1301,16 @@ export function MobileLayout({
               pendingHeader={informationHeader}
               scrollEnabled={!isChartFullscreen && !isTradingViewScrollLocked}
               portfolioData={portfolioData}
+              hasPortfolioAccount={
+                isStockPortfolio ? stockPortfolio.hasAccount : undefined
+              }
               isRefreshing={isRefreshing}
               isPortfolioPending={isPortfolioPending}
+              isPortfolioFailed={
+                isStockPortfolio
+                  ? stockPortfolio.isPortfolioIncomplete
+                  : tokenPortfolio.isPortfolioFailed
+              }
               tokenLogoUrl={tokenDetail?.logoUrl}
               detailKind={detailKind}
               marketAssetDetail={marketAssetDetail}

@@ -1,0 +1,77 @@
+import { XMR_TARGET_BLOCK_SECONDS } from '@onekeyhq/shared/src/config/xmr';
+
+import settings from './settings';
+
+describe('xmr vault settings', () => {
+  const localWallet = settings.localWallet;
+
+  it('declares a local wallet at all', () => {
+    expect(localWallet).toBeDefined();
+  });
+
+  // A publicLabel would make Receive offer a public side with no address.
+  it('exposes no public pool and therefore no public receive form', () => {
+    expect(localWallet?.pools).toHaveLength(1);
+    expect(localWallet?.pools[0].kind).toBe('private');
+    expect(localWallet?.pools[0].source).toBe('localScan');
+    expect(localWallet?.pools.some((pool) => pool.kind === 'public')).toBe(
+      false,
+    );
+    expect(localWallet?.addressForms.publicLabel).toBeUndefined();
+    expect(localWallet?.addressForms.privateLabel).toBeTruthy();
+  });
+
+  // As in mainstream Monero wallets, the address is only offered on Receive.
+  it('shows no address on the token page', () => {
+    expect(localWallet?.hideAddressOnTokenDetails).toBe(true);
+  });
+
+  it('turns the swap entry off', () => {
+    expect(settings.disabledSwapAction).toBe(true);
+  });
+
+  // Otherwise max-send confirms balance-minus-fee, not the amount signed.
+  it('keeps the confirm page on the amount the built transaction carries', () => {
+    expect(settings.ignoreUpdateNativeAmount).toBe(true);
+  });
+
+  it('reports a single balance shape', () => {
+    expect(localWallet?.balanceShape).toBe('single');
+  });
+
+  // Withholding the address from the backend only holds with no backend pool.
+  it('reads no pool from the backend', () => {
+    expect(localWallet?.withholdAddressFromBackend).toBe(true);
+    expect(localWallet?.pools.some((pool) => pool.source === 'backend')).toBe(
+      false,
+    );
+  });
+
+  it('requires an explicit per-account opt-in before scanning', () => {
+    expect(localWallet?.activation).toBe('account-opt-in');
+    expect(localWallet?.accountSetup.requiresBirthday).toBe(true);
+  });
+
+  it('derives the tip lag warning from Monero block time', () => {
+    expect(localWallet?.blockTimeSeconds).toBe(XMR_TARGET_BLOCK_SECONDS);
+    const warningMinutes =
+      ((localWallet?.tipLagWarningBlocks ?? 0) * XMR_TARGET_BLOCK_SECONDS) / 60;
+    expect(warningMinutes).toBeGreaterThanOrEqual(30);
+    expect(warningMinutes).toBeLessThanOrEqual(120);
+  });
+
+  it('keeps a frozen-balance channel for the unverifiable portion', () => {
+    expect(settings.hasFrozenBalance).toBe(true);
+  });
+
+  it('offers hardware accounts only on devices whose firmware has Monero', () => {
+    expect(settings.hardwareAccountEnabled).toBe(true);
+    expect(settings.supportedDeviceTypes).toEqual(['touch', 'pro']);
+  });
+
+  it('does not offer flows Monero cannot support yet', () => {
+    expect(settings.watchingAccountEnabled).toBe(false);
+    expect(settings.dappInteractionEnabled).toBe(false);
+    expect(settings.supportExportedSecretKeys).toEqual([]);
+  });
+});

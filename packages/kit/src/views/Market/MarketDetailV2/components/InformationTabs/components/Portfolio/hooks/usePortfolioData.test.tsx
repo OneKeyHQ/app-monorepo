@@ -247,12 +247,82 @@ describe('usePortfolioData', () => {
       }),
     );
     expect(result.current.isPortfolioPending).toBe(true);
+    expect(result.current.isPortfolioFailed).toBe(false);
 
     await act(async () => {
       await expect(mockCapturedMethod?.()).rejects.toThrow('offline');
     });
 
     expect(result.current.isPortfolioPending).toBe(false);
+    expect(result.current.isPortfolioFailed).toBe(true);
     expect(result.current.portfolioData).toEqual([]);
+  });
+
+  it.each([
+    ['succeeds', true],
+    ['fails', false],
+  ] as const)(
+    'keeps the selected token failed when an older request %s late',
+    async (_case, olderSucceeds) => {
+      let settleOlder: (() => void) | undefined;
+      mockFetchMarketAccountPortfolio.mockImplementationOnce(
+        () =>
+          new Promise((resolve, reject) => {
+            settleOlder = () =>
+              olderSucceeds ? resolve({ list: [] }) : reject(new Error('old'));
+          }),
+      );
+      const { result, rerender } = renderHook(
+        (props: { tokenAddress: string }) =>
+          usePortfolioData({
+            ...props,
+            networkId: 'evm--8453',
+            accountAddress: '0xaccount',
+          }),
+        { initialProps: { tokenAddress: '0xold' } },
+      );
+      const olderRequest = mockCapturedMethod?.();
+
+      rerender({ tokenAddress: '0xnew' });
+      mockFetchMarketAccountPortfolio.mockRejectedValueOnce(
+        new Error('offline'),
+      );
+      await act(async () => {
+        await expect(mockCapturedMethod?.()).rejects.toThrow('offline');
+      });
+      expect(result.current.isPortfolioFailed).toBe(true);
+
+      await act(async () => {
+        settleOlder?.();
+        await olderRequest?.catch(() => undefined);
+      });
+      expect(result.current.isPortfolioFailed).toBe(true);
+      expect(result.current.isPortfolioPending).toBe(false);
+    },
+  );
+
+  it('clears the failed state once a result for this token is back', async () => {
+    mockFetchMarketAccountPortfolio.mockRejectedValue(new Error('offline'));
+    const { result, rerender } = renderHook(() =>
+      usePortfolioData({
+        tokenAddress: '0xsame',
+        networkId: 'evm--8453',
+        accountAddress: '0xaccount',
+      }),
+    );
+    await act(async () => {
+      await expect(mockCapturedMethod?.()).rejects.toThrow('offline');
+    });
+    expect(result.current.isPortfolioFailed).toBe(true);
+
+    mockPortfolioResult = {
+      list: [],
+      networkId: 'evm--8453',
+      tokenAddress: '0xsame',
+      accountAddress: '0xaccount',
+    };
+    rerender();
+    expect(result.current.isPortfolioFailed).toBe(false);
+    expect(result.current.isPortfolioPending).toBe(false);
   });
 });

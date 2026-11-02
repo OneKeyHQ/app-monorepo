@@ -143,7 +143,7 @@ export type {
 export { PortalProvider } from '@tamagui/portal';
 
 // Switch
-export { Switch as TMSwitch } from '@tamagui/switch';
+export { Switch as TMSwitch, SwitchStyledContext } from '@tamagui/switch';
 
 // Slider
 export { Slider as TMSlider } from '@tamagui/slider';

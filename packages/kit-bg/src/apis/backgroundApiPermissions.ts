@@ -1,7 +1,9 @@
 import { INTERNAL_METHOD_PREFIX } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { TRADING_VIEW_LOCALHOST_ORIGIN } from '@onekeyhq/shared/src/config/appConfig';
+import { WEB_EMBED_ANDROID_LOCAL_ORIGIN } from '@onekeyhq/shared/src/consts/webEmbedConsts';
 import { KEYLESS_WEB_TAB_WHITE_LIST_ORIGIN } from '@onekeyhq/shared/src/keylessWallet/keylessWebTabUrlPatternsConstants';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { hasWebEmbedChannelMark } from '@onekeyhq/shared/src/utils/webEmbedChannelUtils';
 
 import { EAtomNames } from '../states/jotai/atomNames';
 
@@ -28,6 +30,9 @@ export const WEB_EMBED_API_WHITE_LIST_ORIGIN = [
   // - web:      new URL().origin return    "file://"
   'null',
   'file://',
+
+  // Android loads the same local page over a virtual https origin instead.
+  ...(platformEnv.isNativeAndroid ? [WEB_EMBED_ANDROID_LOCAL_ORIGIN] : []),
 
   ...(platformEnv.isDev
     ? [
@@ -130,7 +135,8 @@ export function isProviderApiPrivateAllowedOrigin(origin?: string) {
     (origin?.endsWith('.onekey.so') ||
       origin?.endsWith('.onekeytest.com') ||
       isDevLocalhostOrigin(origin) ||
-      PROVIDER_API_PRIVATE_WHITE_LIST_ORIGIN.includes(origin))
+      PROVIDER_API_PRIVATE_WHITE_LIST_ORIGIN.includes(origin) ||
+      isWebEmbedApiAllowedOrigin(origin))
   );
 }
 
@@ -153,8 +159,40 @@ export function isProviderApiPrivateOriginDenied({
   );
 }
 
+// Dev only: the Metro host loopback or Android emulator alias, on any session port.
+const DEV_SESSION_WEB_EMBED_HOSTS = new Set([
+  '127.0.0.1',
+  'localhost',
+  '10.0.2.2',
+]);
+
+function isDevSessionWebEmbedOrigin(origin: string): boolean {
+  if (!platformEnv.isDev) return false;
+  try {
+    const parsed = new URL(origin);
+    return (
+      parsed.protocol === 'http:' &&
+      DEV_SESSION_WEB_EMBED_HOSTS.has(parsed.hostname) &&
+      parsed.origin === origin
+    );
+  } catch {
+    return false;
+  }
+}
+
 export function isWebEmbedApiAllowedOrigin(origin?: string) {
-  return !!origin && WEB_EMBED_API_WHITE_LIST_ORIGIN.includes(origin);
+  return (
+    !!origin &&
+    (WEB_EMBED_API_WHITE_LIST_ORIGIN.includes(origin) ||
+      isDevSessionWebEmbedOrigin(origin))
+  );
+}
+
+export function isWebEmbedChannelRequest(payload?: IJsBridgeMessagePayload) {
+  return (
+    hasWebEmbedChannelMark(payload) &&
+    isWebEmbedApiAllowedOrigin(payload?.origin)
+  );
 }
 
 export function isExtensionInternalCall(payload: IJsBridgeMessagePayload) {

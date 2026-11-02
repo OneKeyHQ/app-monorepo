@@ -28,15 +28,18 @@ type IMenuPage = 'preferences' | 'layout' | 'positionActions';
 
 export function PerpMenu({
   isPopover = false,
+  hasCampaigns = false,
   layoutSettings,
   onOpenHistory,
   onOpenGuide,
   onOpenHelp,
   onOpenPortfolio,
   settingsContent,
+  popoverFooter,
   renderActivityCenter,
 }: {
   isPopover?: boolean;
+  hasCampaigns?: boolean;
   layoutSettings?: {
     renderContent: (onOpenPositionActions: () => void) => ReactNode;
     positionActionsContent: ReactNode;
@@ -46,7 +49,8 @@ export function PerpMenu({
   onOpenHelp?: () => void;
   onOpenPortfolio?: () => void;
   settingsContent: ReactNode;
-  renderActivityCenter?: () => ReactNode;
+  popoverFooter?: ReactNode;
+  renderActivityCenter?: (shortcuts?: ReactNode) => ReactNode;
 }) {
   const intl = useIntl();
   const { height } = useWindowDimensions();
@@ -197,48 +201,41 @@ export function PerpMenu({
           }
         >
           {isPopover ? (
-            <YStack pt="$3">
-              <SizableText
-                size="$headingXs"
-                textTransform="none"
-                letterSpacing={0}
-                px="$5"
-                color="$textSubdued"
-              >
-                {intl.formatMessage({
-                  id: ETranslations.perps_menu_features__title,
-                })}
-              </SizableText>
-              {settingsContent}
+            <YStack pt={hasCampaigns ? '$3' : '$0'}>
+              {hasCampaigns ? (
+                <SizableText
+                  size="$headingXs"
+                  textTransform="none"
+                  letterSpacing={0}
+                  px="$5"
+                  color="$textSubdued"
+                >
+                  {intl.formatMessage({
+                    id: ETranslations.perps_menu_features__title,
+                  })}
+                </SizableText>
+              ) : null}
+              {renderActivityCenter ? renderActivityCenter() : settingsContent}
+              {popoverFooter}
             </YStack>
           ) : (
             <YStack pt="$1">
-              <SizableText size="$headingSm" px="$5">
-                {intl.formatMessage({
-                  id: ETranslations.perps_menu_features__title,
-                })}
-              </SizableText>
-              <XStack {...MENU_SHORTCUT_GRID_PROPS} pb="$1.5">
-                {shortcutCards}
-              </XStack>
+              {hasCampaigns ? (
+                <SizableText size="$headingSm" px="$5">
+                  {intl.formatMessage({
+                    id: ETranslations.perps_menu_features__title,
+                  })}
+                </SizableText>
+              ) : null}
+              {renderActivityCenter ? (
+                renderActivityCenter(shortcutCards)
+              ) : (
+                <XStack {...MENU_SHORTCUT_GRID_PROPS} pb="$1.5">
+                  {shortcutCards}
+                </XStack>
+              )}
             </YStack>
           )}
-          {renderActivityCenter ? (
-            <YStack mt={isPopover ? '$1' : '$1.5'}>
-              <SizableText
-                size={isPopover ? '$headingXs' : '$headingSm'}
-                textTransform="none"
-                letterSpacing={0}
-                px="$5"
-                color={isPopover ? '$textSubdued' : '$text'}
-              >
-                {intl.formatMessage({
-                  id: ETranslations.perps_menu_campaign_center__title,
-                })}
-              </SizableText>
-              {renderActivityCenter()}
-            </YStack>
-          ) : null}
         </ScrollView>
       )}
     </YStack>

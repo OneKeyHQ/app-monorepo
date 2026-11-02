@@ -21,6 +21,7 @@ import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { BorrowNavigation } from '@onekeyhq/kit/src/views/Borrow/borrowUtils';
 import { BorrowInfoSectionSkeleton } from '@onekeyhq/kit/src/views/Borrow/components/ManagePosition/modules/InfoDisplaySection/BorrowInfoSectionSkeleton';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import type { ISupportedSymbol } from '@onekeyhq/shared/types/earn';
 import type { IStakeProtocolListItem } from '@onekeyhq/shared/types/staking';
@@ -382,9 +383,11 @@ const ManageSectionShell = ({
             onConfirmText={activeLabel}
             confirmButtonProps={{ disabled: true }}
           />
-          <PercentageStageOnKeyboard
-            reserveSpaceUntilKeyboardShown={reserveKeyboardAccessorySpace}
-          />
+          {platformEnv.isNativeIOSPhone ? null : (
+            <PercentageStageOnKeyboard
+              reserveSpaceUntilKeyboardShown={reserveKeyboardAccessorySpace}
+            />
+          )}
         </Page.Footer>
       ) : null}
     </YStack>
