@@ -413,6 +413,43 @@ function pressNativeTab(key: string) {
 }
 
 describe('native market home tab presses', () => {
+  it.each([
+    ['jumpToTab', true, 4, 'Perps', false],
+    ['setIndex', true, 4, 'Perps', false],
+    ['jumpToTab', true, 1, 'Trending', true],
+    ['jumpToTab', false, 4, 'Perps', true],
+    ['setIndex', false, 4, 'Perps', true],
+  ] as const)(
+    '%s keeps iOS=%s selection of tab %s (%s) animated=%s',
+    (command, isIOS, index, tabName, animated) => {
+      jest.replaceProperty(platformEnv, 'isNativeIOS', isIOS);
+      jest.replaceProperty(platformEnv, 'isNativeAndroid', !isIOS);
+      const tabsRef = createRef<IAppPagerRef>();
+      render(
+        <MobileLayout
+          filterBarProps={filterBarProps}
+          selectedNetworkId="evm--1"
+          onTabChange={jest.fn()}
+          tabsRef={tabsRef}
+        />,
+      );
+
+      act(() => {
+        if (command === 'jumpToTab') tabsRef.current?.jumpToTab(tabName);
+        else tabsRef.current?.setIndex(index);
+      });
+
+      expect(tabsRef.current?.getFocusedTab()).toBe(tabName);
+      if (animated) {
+        expect(mockSetPage).toHaveBeenCalledWith(index);
+        expect(mockSetPageWithoutAnimation).not.toHaveBeenCalled();
+      } else {
+        expect(mockSetPageWithoutAnimation).toHaveBeenCalledWith(index);
+        expect(mockSetPage).not.toHaveBeenCalled();
+      }
+    },
+  );
+
   it('commits a press immediately and ignores stale non-drag selection callbacks', () => {
     const tabsRef = createRef<IAppPagerRef>();
     render(
