@@ -93,6 +93,7 @@ jest.mock('../vaults/settings', () => ({
 }));
 
 const mockFetchAccountTokensMapMissingKeys = jest.fn<void, unknown[]>();
+const mockFetchAccountTokensMapMissingSymbols = jest.fn<void, unknown[]>();
 
 jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
   defaultLogger: {
@@ -102,6 +103,9 @@ jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
         fetchAccountTokensBlockedAllNetworkRequest: jest.fn(),
         fetchAccountTokensMapMissingKeys: (...args: unknown[]): void => {
           mockFetchAccountTokensMapMissingKeys(...args);
+        },
+        fetchAccountTokensMapMissingSymbols: (...args: unknown[]): void => {
+          mockFetchAccountTokensMapMissingSymbols(...args);
         },
       },
     },
@@ -676,11 +680,17 @@ describe('ServiceToken.fetchAccountTokens map / data mismatch diagnostic (OK-660
       saveToLocal: false,
     });
 
+    // The server-bound entry carries only counts; the symbols stay in the
+    // device log.
     expect(mockFetchAccountTokensMapMissingKeys).toHaveBeenCalledWith({
       networkId,
       flag: 'home-token-list',
       missingCount: 1,
       groups: { tokens: 1 },
+    });
+    expect(mockFetchAccountTokensMapMissingSymbols).toHaveBeenCalledWith({
+      networkId,
+      flag: 'home-token-list',
       symbols: [dappToken.symbol],
     });
   });
@@ -702,5 +712,6 @@ describe('ServiceToken.fetchAccountTokens map / data mismatch diagnostic (OK-660
     });
 
     expect(mockFetchAccountTokensMapMissingKeys).not.toHaveBeenCalled();
+    expect(mockFetchAccountTokensMapMissingSymbols).not.toHaveBeenCalled();
   });
 });

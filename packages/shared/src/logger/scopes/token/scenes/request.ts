@@ -59,8 +59,10 @@ export class RequestScene extends BaseScene {
   // The response listed rows whose $key has no fiat entry in the same group's
   // map. Home shows those rows with a "--" price and an empty balance / value
   // column (OK-66042); the client cannot synthesize the fiat, so record which
-  // network / symbols the server left unpriced. $keys carry the account
-  // address and stay out of the server payload.
+  // network / groups the server left unpriced. $keys carry the account
+  // address and token symbols are untrusted metadata, so the server payload
+  // carries only counts; fetchAccountTokensMapMissingSymbols keeps the
+  // symbols on the device.
   @LogToServer()
   @LogToLocal({ level: 'warn' })
   public fetchAccountTokensMapMissingKeys({
@@ -68,15 +70,28 @@ export class RequestScene extends BaseScene {
     flag,
     missingCount,
     groups,
-    symbols,
   }: {
     networkId?: string;
     flag: string;
     missingCount: number;
     groups: Record<string, number>;
+  }) {
+    return [{ networkId, flag, missingCount, groups }];
+  }
+
+  // Device-log companion of fetchAccountTokensMapMissingKeys: the symbols
+  // identify the unpriced rows in a log export but never leave the device.
+  @LogToLocal({ level: 'warn' })
+  public fetchAccountTokensMapMissingSymbols({
+    networkId,
+    flag,
+    symbols,
+  }: {
+    networkId?: string;
+    flag: string;
     symbols: string[];
   }) {
-    return [{ networkId, flag, missingCount, groups, symbols }];
+    return [{ networkId, flag, symbols }];
   }
 
   @LogToLocal({ level: 'error' })

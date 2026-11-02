@@ -700,6 +700,10 @@ class ServiceToken extends ServiceBase {
         flag: flag ?? '',
         missingCount: keysMissingFromMap.length,
         groups,
+      });
+      defaultLogger.token.request.fetchAccountTokensMapMissingSymbols({
+        networkId,
+        flag: flag ?? '',
         symbols: uniq(keysMissingFromMap.map((item) => item.symbol)).slice(
           0,
           10,
