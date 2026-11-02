@@ -182,7 +182,10 @@ export const openUrlInApp = (
   title?: string,
   options?: IOpenUrlInAppOptions,
 ) => {
-  if (platformEnv.isNative || platformEnv.isDesktop) {
+  // Extension support stays in the wallet UI so the wallet lock still covers it.
+  const isExtensionSupport =
+    platformEnv.isExtension && options?.intercomUserId !== undefined;
+  if (platformEnv.isNative || platformEnv.isDesktop || isExtensionSupport) {
     openUrlByWebview(url.trim(), title, options);
   } else {
     openUrlOutsideNative(url.trim());

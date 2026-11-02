@@ -1,4 +1,4 @@
-import { getCurrentIntercomIdentity } from './identity';
+import { getIntercomSessionToken } from './identity';
 
 let mockUserId: string | null = null;
 const mockApiGetCustomerJWT = jest.fn<Promise<{ token: string }>, []>();
@@ -31,20 +31,21 @@ describe('fallback Intercom identity', () => {
     mockApiGetCustomerJWT.mockReset();
   });
 
-  it('opens anonymously without requesting a token', async () => {
-    await expect(getCurrentIntercomIdentity()).resolves.toEqual({
-      userId: null,
-    });
+  it('stays anonymous without requesting a token', async () => {
+    await expect(getIntercomSessionToken(null)).resolves.toBeUndefined();
+    expect(mockApiGetCustomerJWT).not.toHaveBeenCalled();
+  });
+
+  it('aborts an anonymous session once a user has signed in', async () => {
+    mockUserId = 'A';
+    await expect(getIntercomSessionToken(null)).rejects.toThrow('user changed');
     expect(mockApiGetCustomerJWT).not.toHaveBeenCalled();
   });
 
   it('returns the token of the user who is still signed in', async () => {
     mockUserId = 'A';
     mockApiGetCustomerJWT.mockResolvedValue({ token: createToken('A') });
-    await expect(getCurrentIntercomIdentity()).resolves.toEqual({
-      userId: 'A',
-      token: createToken('A'),
-    });
+    await expect(getIntercomSessionToken('A')).resolves.toBe(createToken('A'));
   });
 
   it('aborts when the account changes while the token is requested', async () => {
@@ -53,6 +54,6 @@ describe('fallback Intercom identity', () => {
       mockUserId = 'B';
       return { token: createToken('A') };
     });
-    await expect(getCurrentIntercomIdentity()).rejects.toThrow('user changed');
+    await expect(getIntercomSessionToken('A')).rejects.toThrow('user changed');
   });
 });

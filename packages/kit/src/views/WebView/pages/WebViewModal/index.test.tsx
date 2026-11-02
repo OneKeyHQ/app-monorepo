@@ -18,6 +18,7 @@ type IHeaderProps = {
 };
 type IWebViewProps = {
   disableBridge?: boolean;
+  onLoadEnd?: () => void;
   onNavigationStateChange: (event: { title: string; url: string }) => void;
   onDidStartNavigation: (event: { url: string; isMainFrame: boolean }) => void;
 };
@@ -26,9 +27,16 @@ let mockLocked = false;
 let mockFocused = true;
 let mockUserId: string | null = 'A';
 const mockPop = jest.fn();
+const mockInjectJavaScript = jest.fn<void, [string]>();
+const mockGetIntercomSessionToken = jest.fn<
+  Promise<string | undefined>,
+  [string | null]
+>();
 
 const mockHeader = jest.fn<null, [IHeaderProps]>(() => null);
-const mockWebViewRef = { current: null };
+const mockWebViewRef = {
+  current: { innerRef: { injectJavaScript: mockInjectJavaScript } },
+};
 let mockWebViewProps: IWebViewProps;
 let mockParams: IModalWebViewParamList[EModalWebViewRoutes.WebView];
 
@@ -70,6 +78,17 @@ jest.mock('@onekeyhq/kit/src/components/WebView', () => ({
 
 jest.mock('@onekeyhq/kit/src/components/WebView/WebViewWithFeatures', () => ({
   WebViewWithFeatures: () => null,
+}));
+
+jest.mock('./IntercomSupportFrame', () => ({
+  IntercomSupportFrame: ({ userId }: { userId: string | null }) => (
+    <div data-testid="support-frame">{userId}</div>
+  ),
+}));
+
+jest.mock('@onekeyhq/shared/src/modules3rdParty/intercom/identity', () => ({
+  getIntercomSessionToken: (userId: string | null) =>
+    mockGetIntercomSessionToken(userId),
 }));
 
 jest.mock('@onekeyhq/kit/src/components/WebViewWebEmbed', () => ({
@@ -139,7 +158,12 @@ describe('WebViewModal menu', () => {
     mockLocked = false;
     mockFocused = true;
     mockUserId = 'A';
-    Object.assign(platformEnv, { isNative: false, isDesktop: false });
+    mockGetIntercomSessionToken.mockResolvedValue('intercom-token');
+    Object.assign(platformEnv, {
+      isNative: false,
+      isDesktop: false,
+      isExtension: false,
+    });
     mockParams = { title: 'WebView', url: '' };
   });
 
@@ -150,7 +174,7 @@ describe('WebViewModal menu', () => {
     (reason) => {
       mockParams = {
         title: 'Support',
-        url: 'https://intercom.onekey.so/?intercom_user_jwt=placeholder',
+        url: 'https://intercom.onekey.so/#bridge=injected-v1',
         hideHeaderRight: true,
         disableBridge: true,
         intercomUserId: 'A',
@@ -183,6 +207,108 @@ describe('WebViewModal menu', () => {
     const screen = render(<WebViewModal />);
     expect(screen.queryByTestId('support-webview')).toBeNull();
     expect(mockPop).toHaveBeenCalledTimes(1);
+  });
+
+  describe('support session delivery', () => {
+    const supportParams = {
+      title: 'Support',
+      url: 'https://intercom.onekey.so/#bridge=injected-v1',
+      intercomUserId: 'A',
+    };
+    const finishLoading = () =>
+      act(async () => {
+        mockWebViewProps.onLoadEnd?.();
+        await new Promise<void>((resolve) => {
+          setTimeout(resolve, 0);
+        });
+      });
+
+    test('injects a fresh token after each native page load', async () => {
+      Object.assign(platformEnv, { isNative: true });
+      mockParams = supportParams;
+      render(<WebViewModal />);
+      await finishLoading();
+      await finishLoading();
+      expect(mockGetIntercomSessionToken).toHaveBeenCalledTimes(2);
+      expect(mockGetIntercomSessionToken).toHaveBeenCalledWith('A');
+      expect(mockInjectJavaScript).toHaveBeenCalledTimes(2);
+      expect(mockInjectJavaScript.mock.calls[0][0]).toContain('intercom-token');
+    });
+
+    test('tells a native page explicitly when support is anonymous', async () => {
+      Object.assign(platformEnv, { isNative: true });
+      mockUserId = null;
+      mockGetIntercomSessionToken.mockResolvedValue(undefined);
+      mockParams = { ...supportParams, intercomUserId: null };
+      render(<WebViewModal />);
+      await finishLoading();
+      expect(mockGetIntercomSessionToken).toHaveBeenCalledWith(null);
+      expect(mockInjectJavaScript).toHaveBeenCalledTimes(1);
+      expect(mockInjectJavaScript.mock.calls[0][0]).not.toContain('"token"');
+    });
+
+    test('does not inject once the wallet locks during the token request', async () => {
+      Object.assign(platformEnv, { isNative: true });
+      let resolveToken: (token: string) => void = () => {};
+      mockGetIntercomSessionToken.mockReturnValue(
+        new Promise((resolve) => {
+          resolveToken = resolve;
+        }),
+      );
+      mockParams = supportParams;
+      const screen = render(<WebViewModal />);
+      mockWebViewProps.onLoadEnd?.();
+      mockLocked = true;
+      screen.rerender(<WebViewModal />);
+      await act(async () => {
+        resolveToken('intercom-token');
+        await new Promise<void>((resolve) => {
+          setTimeout(resolve, 0);
+        });
+      });
+      expect(mockInjectJavaScript).not.toHaveBeenCalled();
+    });
+
+    test('keeps a failed token request away from the page', async () => {
+      Object.assign(platformEnv, { isNative: true });
+      mockGetIntercomSessionToken.mockRejectedValue(new Error('network'));
+      mockParams = supportParams;
+      render(<WebViewModal />);
+      await finishLoading();
+      expect(mockInjectJavaScript).not.toHaveBeenCalled();
+    });
+
+    test('leaves ordinary pages without a session loader', () => {
+      Object.assign(platformEnv, { isNative: true });
+      mockParams = { title: 'Docs', url: 'https://example.com/' };
+      render(<WebViewModal />);
+      expect(mockWebViewProps.onLoadEnd).toBeUndefined();
+    });
+
+    test('renders the session frame for extension support', () => {
+      Object.assign(platformEnv, { isExtension: true });
+      mockParams = supportParams;
+      const screen = render(<WebViewModal />);
+      expect(screen.getByTestId('support-frame').textContent).toBe('A');
+      expect(screen.queryByTestId('support-webview')).toBeNull();
+    });
+
+    test('closes extension support when the wallet locks', () => {
+      Object.assign(platformEnv, { isExtension: true });
+      mockParams = supportParams;
+      const screen = render(<WebViewModal />);
+      mockLocked = true;
+      screen.rerender(<WebViewModal />);
+      expect(screen.queryByTestId('support-frame')).toBeNull();
+    });
+
+    test('keeps ordinary extension pages on the shared WebView', () => {
+      Object.assign(platformEnv, { isExtension: true });
+      mockParams = { title: 'Docs', url: 'https://example.com/' };
+      const screen = render(<WebViewModal />);
+      expect(screen.queryByTestId('support-frame')).toBeNull();
+      expect(screen.queryByTestId('support-webview')).not.toBeNull();
+    });
   });
 
   test.each([

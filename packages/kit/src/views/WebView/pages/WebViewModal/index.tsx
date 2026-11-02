@@ -31,6 +31,8 @@ import {
 } from '@onekeyhq/shared/src/consts/webEmbedConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import { createIntercomSessionScript } from '@onekeyhq/shared/src/modules3rdParty/intercom/bridge';
+import { getIntercomSessionToken } from '@onekeyhq/shared/src/modules3rdParty/intercom/identity';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type {
   EModalWebViewRoutes,
@@ -47,11 +49,14 @@ import {
 } from '../../utils/dappWebViewNavigationPolicy';
 import { shouldHideWebViewHeaderRight } from '../../utils/displayPolicy';
 
+import { IntercomSupportFrame } from './IntercomSupportFrame';
+
 import type {
   IJsBridgeMessagePayload,
   IJsonRpcRequest,
 } from '@onekeyfe/cross-inpage-provider-types';
 import type { RouteProp } from '@react-navigation/core';
+import type { WebView as IReactNativeWebView } from 'react-native-webview';
 
 export default function WebViewModal() {
   const { webviewRef, setWebViewRef } = useWebViewBridge();
@@ -96,6 +101,27 @@ export default function WebViewModal() {
 
   // Track if component is unmounting to prevent race conditions
   const isUnmounting = useRef(false);
+
+  const deliverSupportSession = useCallback(async () => {
+    if (intercomUserId === undefined) {
+      return;
+    }
+    try {
+      const token = await getIntercomSessionToken(intercomUserId);
+      // A lock or account switch during the request already closed support.
+      if (isUnmounting.current || supportSessionClosed.current) {
+        return;
+      }
+      const webview = webviewRef?.current?.innerRef as
+        | IReactNativeWebView
+        | undefined;
+      webview?.injectJavaScript(createIntercomSessionScript(token));
+    } catch {
+      // The hosted page times out and offers a retry rather than opening
+      // support without the session the user expects.
+      console.warn('Failed to deliver Intercom session');
+    }
+  }, [intercomUserId, webviewRef]);
 
   // Cleanup WebView before unmount to prevent native crashes
   useEffect(() => {
@@ -367,6 +393,11 @@ export default function WebViewModal() {
     return null;
   }
 
+  const extensionSupportFrame =
+    platformEnv.isExtension && intercomUserId !== undefined ? (
+      <IntercomSupportFrame url={url} userId={intercomUserId} />
+    ) : null;
+
   return (
     <Page>
       <Page.Header
@@ -389,28 +420,39 @@ export default function WebViewModal() {
             customReceiveHandler={webembedCustomReceiveHandler}
           />
         ) : (
-          <WebViewComponent
-            disableBridge={disableBridge}
-            onWebViewRef={(ref) => ref && setWebViewRef(ref)}
-            src={url}
-            mediaPermissionWhitelist={fiatPaySiteWhitelist}
-            allowpopups={!!redirectExternalNavigation}
-            onNavigationStateChange={onNavigationStateChange}
-            onDidStartNavigation={onDesktopDidStartNavigation}
-            onShouldStartLoadWithRequest={shouldStartLoadWithRequestHandler}
-            onOpenWindow={redirectExternalNavigation ? onOpenWindow : undefined}
-            {...(enableDappBridge
-              ? // important: without this the dApp is never told about the
-                // connected account, so it stays disconnected after the user
-                // approves (see PageWebviewPerpTrade). currentUrl keeps those
-                // notifications addressed to the page that is actually loaded
-                // after a cross-origin hop, without reloading the WebView.
-                {
-                  features: { notifyChangedEventsToDappOnFocus: true },
-                  currentUrl,
-                }
-              : undefined)}
-          />
+          (extensionSupportFrame ?? (
+            <WebViewComponent
+              disableBridge={disableBridge}
+              onWebViewRef={(ref) => ref && setWebViewRef(ref)}
+              src={url}
+              mediaPermissionWhitelist={fiatPaySiteWhitelist}
+              allowpopups={!!redirectExternalNavigation}
+              onNavigationStateChange={onNavigationStateChange}
+              onDidStartNavigation={onDesktopDidStartNavigation}
+              onShouldStartLoadWithRequest={shouldStartLoadWithRequestHandler}
+              onOpenWindow={
+                redirectExternalNavigation ? onOpenWindow : undefined
+              }
+              onLoadEnd={
+                platformEnv.isNative && intercomUserId !== undefined
+                  ? () => {
+                      void deliverSupportSession();
+                    }
+                  : undefined
+              }
+              {...(enableDappBridge
+                ? // important: without this the dApp is never told about the
+                  // connected account, so it stays disconnected after the user
+                  // approves (see PageWebviewPerpTrade). currentUrl keeps those
+                  // notifications addressed to the page that is actually loaded
+                  // after a cross-origin hop, without reloading the WebView.
+                  {
+                    features: { notifyChangedEventsToDappOnFocus: true },
+                    currentUrl,
+                  }
+                : undefined)}
+            />
+          ))
         )}
       </Page.Body>
     </Page>

@@ -1,5 +1,7 @@
 import appGlobals from '../../appGlobals';
 
+import type { EIntercomBridge } from './bridge';
+
 const INTERCOM_LANGUAGE_OVERRIDES: Record<string, string> = {
   bn: 'bn',
   de: 'de',
@@ -104,10 +106,13 @@ export type IIntercomLockPolicy = {
   lockAtMs: number;
 };
 
+// Credentials never belong here: URLs reach gateway logs, browser history,
+// Sentry and analytics. The JWT travels over the bridge named in the fragment.
 export const buildIntercomUrl = (
   baseUrl: string,
-  params?: {
-    token?: string;
+  params: {
+    bridge: EIntercomBridge;
+    parentOrigin?: string;
     instanceId?: string;
     requestId?: string;
     languageOverride?: string;
@@ -115,29 +120,28 @@ export const buildIntercomUrl = (
 ): string => {
   let url = baseUrl;
 
-  // Add token if provided
-  if (params?.token) {
-    const separator = url.includes('?') ? '&' : '?';
-    url += `${separator}intercom_user_jwt=${encodeURIComponent(params.token)}`;
-  }
-
   // Add instanceId if provided
-  if (params?.instanceId) {
+  if (params.instanceId) {
     const separator = url.includes('?') ? '&' : '?';
     url += `${separator}instanceId=${encodeURIComponent(params.instanceId)}`;
   }
 
   // Add requestId if provided
-  if (params?.requestId) {
+  if (params.requestId) {
     const separator = url.includes('?') ? '&' : '?';
     url += `${separator}requestId=${encodeURIComponent(params.requestId)}`;
   }
 
-  if (params?.languageOverride) {
+  if (params.languageOverride) {
     const separator = url.includes('?') ? '&' : '?';
     url += `${separator}language_override=${encodeURIComponent(
       params.languageOverride,
     )}`;
+  }
+
+  url += `#bridge=${params.bridge}`;
+  if (params.parentOrigin) {
+    url += `&parentOrigin=${encodeURIComponent(params.parentOrigin)}`;
   }
 
   return url;
