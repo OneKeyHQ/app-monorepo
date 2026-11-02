@@ -526,6 +526,68 @@ describe('LocalDb DeviceState persistence', () => {
     },
   );
 
+  it.each([
+    { revision: 10, updatedAt: 300, accepted: true },
+    { revision: 9, updatedAt: 200, accepted: true },
+    { revision: 8, updatedAt: 200, accepted: false },
+    { revision: 10, updatedAt: 100, accepted: false },
+  ])(
+    'repairs missing V1 identity at $revision / $updatedAt without accepting older read-backs',
+    async ({ revision, updatedAt, accepted }) => {
+      const current = createState({
+        revision: 9,
+        updatedAt: 200,
+        label: 'Classic 1S',
+        language: 'ja',
+        firmware: '3.21.0',
+        deviceType: EDeviceType.Classic1s,
+        model: '1',
+        deviceId: 'CLASSIC_DEVICE_ID',
+        bleName: '',
+      });
+      current.protocol = 'V1';
+      const incoming: IOneKeyDeviceState = {
+        ...current,
+        revision,
+        updatedAt,
+        identity: {
+          ...current.identity,
+          serialNo: 'CLASSIC_SERIAL',
+          bleName: 'K3022',
+          label: 'Stale label',
+        },
+        settings: { ...current.settings, language: 'en' },
+      };
+      const db = new DeviceStateTestLocalDb(current);
+      const event = {
+        connectId: 'ABC-DEF',
+        state: incoming,
+        revision,
+        source: 'device-info' as const,
+        changedKeys: ['versions.firmware'],
+      };
+
+      await expect(db.updateDeviceState(event)).resolves.toMatchObject({
+        kind: accepted ? 'updated' : 'ignored',
+      });
+      const persisted = JSON.parse(db.device.deviceState || '{}');
+      expect(persisted.identity).toMatchObject({
+        deviceId: 'CLASSIC_DEVICE_ID',
+        serialNo: accepted ? 'CLASSIC_SERIAL' : '',
+        bleName: accepted ? 'K3022' : '',
+        label: 'Classic 1S',
+      });
+      expect(persisted.settings.language).toBe('ja');
+      expect(db.device.featuresInfo?.onekey_serial_no).toBe(
+        accepted ? 'CLASSIC_SERIAL' : '',
+      );
+      await expect(db.updateDeviceState(event)).resolves.toEqual({
+        kind: 'ignored',
+        reason: 'stale',
+      });
+    },
+  );
+
   it('preserves V1 settings through the firmware bootloader event', async () => {
     const current = createState({
       revision: 8,

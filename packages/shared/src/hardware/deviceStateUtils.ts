@@ -108,6 +108,34 @@ export function getDeviceStateSettingsRecoveryKeys({
   );
 }
 
+export function getDeviceStateIdentityRecoveryKeys({
+  currentState,
+  incomingState,
+  source,
+}: {
+  currentState?: IOneKeyDeviceState;
+  incomingState: IOneKeyDeviceState;
+  source?: string;
+}): string[] {
+  if (
+    currentState?.protocol !== 'V1' ||
+    incomingState.protocol !== 'V1' ||
+    incomingState.status.mode !== EOneKeyDeviceMode.normal ||
+    source !== 'device-info' ||
+    !isConfirmedDeviceId(currentState.identity.deviceId) ||
+    currentState.identity.deviceId !== incomingState.identity.deviceId
+  ) {
+    return [];
+  }
+  // A firmware read-back can restore identity omitted by the loader even when
+  // the SDK already observed it and emits only version keys to the App.
+  return (['serialNo', 'bleName'] as const).flatMap((field) =>
+    !currentState.identity[field] && incomingState.identity[field]
+      ? [`identity.${field}`]
+      : [],
+  );
+}
+
 function sanitizeState(state: IOneKeyDeviceState) {
   const nextState = cloneDeep(state);
   delete (nextState as unknown as { raw?: unknown }).raw;
@@ -136,14 +164,21 @@ export function mergeDeviceStateEvent({
   }
 
   let mergedState = sanitizeState(currentState);
-  const settingsRecoveryKeys = getDeviceStateSettingsRecoveryKeys({
-    currentState,
-    incomingState,
-    source,
-  });
+  const recoveryKeys = [
+    ...getDeviceStateSettingsRecoveryKeys({
+      currentState,
+      incomingState,
+      source,
+    }),
+    ...getDeviceStateIdentityRecoveryKeys({
+      currentState,
+      incomingState,
+      source,
+    }),
+  ];
   // Equal-metadata read-backs may fill holes, but must not replay other fields.
-  const isSettingsRecoveryOnly =
-    settingsRecoveryKeys.length > 0 &&
+  const isRecoveryOnly =
+    recoveryKeys.length > 0 &&
     currentState.updatedAt === incomingState.updatedAt &&
     currentState.revision === incomingState.revision &&
     !hasAuthoritativeDeviceInfoVersionChange({
@@ -168,14 +203,10 @@ export function mergeDeviceStateEvent({
     ...(isAuthoritativeSettingsSnapshot ? ['settings'] : []),
     ...authoritativeVersionKeys,
   ];
-  const mergeKeys = isSettingsRecoveryOnly
-    ? settingsRecoveryKeys
+  const mergeKeys = isRecoveryOnly
+    ? recoveryKeys
     : Array.from(
-        new Set([
-          ...changedKeys,
-          ...authoritativeKeys,
-          ...settingsRecoveryKeys,
-        ]),
+        new Set([...changedKeys, ...authoritativeKeys, ...recoveryKeys]),
       );
   for (const changedKey of mergeKeys) {
     const isNonPersistedKey =
@@ -214,7 +245,7 @@ export function mergeDeviceStateEvent({
     }
   }
 
-  if (isSettingsRecoveryOnly) {
+  if (isRecoveryOnly) {
     return mergedState;
   }
   if (
@@ -222,6 +253,20 @@ export function mergeDeviceStateEvent({
     incomingState.protocol === 'V1' &&
     isLoaderMode(incomingState.status.mode)
   ) {
+    if (
+      !hasDeviceStateIdentityMismatch({
+        currentDeviceId: currentState.identity.deviceId,
+        incomingDeviceId: incomingState.identity.deviceId,
+      })
+    ) {
+      // Loader firmware may omit these fields without erasing device identity.
+      for (const field of ['serialNo', 'bleName'] as const) {
+        const value = currentState.identity[field];
+        if (value && !incomingState.identity[field]) {
+          mergedState.identity[field] = value;
+        }
+      }
+    }
     // Loader snapshots omit application settings. Apply this after every
     // merge form, including whole-section and wildcard replacements.
     for (const [field, value] of Object.entries(currentState.settings)) {
