@@ -302,6 +302,10 @@ type IWalletGroup = {
   wallet: IDBWallet;
 };
 
+// How long a send from a private pool holds the account list for its private
+// entries before showing the public ones.
+const PRIVATE_ENTRIES_WAIT_MS = 300;
+
 async function readLocalWalletAddressForms(networkId: string) {
   if (!networkUtils.isLocalWalletNetwork({ networkId })) return undefined;
   const settings = await backgroundApiProxy.serviceNetwork.getVaultSettings({
@@ -459,22 +463,43 @@ function AccountRecipients({
     [networkId, senderDeriveType, keylessWalletsOnly],
     { initResult: [], watchLoading: true, undefinedResultIfError: true },
   );
-  // Zcash private entries arrive on their own: the list never waits for them.
-  const { result: localWalletAddressForms } = usePromiseResult(
-    () => readLocalWalletAddressForms(networkId),
+  // Zcash private entries arrive on their own read. Only a send from a
+  // private pool waits for them, briefly, so it does not open on public
+  // addresses; every other list shows at once.
+  const { result: addressFormsRead } = usePromiseResult(
+    async () => ({
+      networkId,
+      forms: await readLocalWalletAddressForms(networkId),
+    }),
     [networkId],
     { undefinedResultIfError: true },
   );
-  const walletGroupsWithForms = useMemo(
-    () =>
-      localWalletAddressForms
-        ? splitLocalWalletAddressForms({
-            groups: walletGroupsRaw,
-            ...localWalletAddressForms,
-          })
-        : walletGroupsRaw,
-    [walletGroupsRaw, localWalletAddressForms],
-  );
+  const isAddressFormsRead = addressFormsRead?.networkId === networkId;
+  const localWalletAddressForms = isAddressFormsRead
+    ? addressFormsRead.forms
+    : undefined;
+  const [privateWaitOverFor, setPrivateWaitOverFor] = useState<string>();
+  useEffect(() => {
+    if (senderAddressForm !== 'private') return;
+    const timer = setTimeout(
+      () => setPrivateWaitOverFor(networkId),
+      PRIVATE_ENTRIES_WAIT_MS,
+    );
+    return () => clearTimeout(timer);
+  }, [networkId, senderAddressForm]);
+  const isWaitingForPrivateEntries =
+    senderAddressForm === 'private' &&
+    !isAddressFormsRead &&
+    privateWaitOverFor !== networkId;
+  const walletGroupsWithForms = useMemo(() => {
+    if (isWaitingForPrivateEntries) return [];
+    return localWalletAddressForms
+      ? splitLocalWalletAddressForms({
+          groups: walletGroupsRaw,
+          ...localWalletAddressForms,
+        })
+      : walletGroupsRaw;
+  }, [isWaitingForPrivateEntries, walletGroupsRaw, localWalletAddressForms]);
   const walletGroups = useDeferredValue(walletGroupsWithForms);
 
   // Bot wallet activate/deactivate emits WalletUpdate via
@@ -684,9 +709,14 @@ function AccountRecipients({
   );
 
   useEffect(() => {
-    if (isDebouncing) return;
+    if (isDebouncing || isWaitingForPrivateEntries) return;
     onMatchStatusChange?.(accountMatchCount > 0, accountMatchCount);
-  }, [accountMatchCount, onMatchStatusChange, isDebouncing]);
+  }, [
+    accountMatchCount,
+    onMatchStatusChange,
+    isDebouncing,
+    isWaitingForPrivateEntries,
+  ]);
 
   // Flatten sections for simple rendering with section headers
   type IFlatItem =
@@ -902,7 +932,9 @@ function AccountRecipients({
   const isDeferredStale =
     walletGroupsRaw !== walletGroups && walletGroupsRaw.length > 0;
   const isInitialLoading =
-    (isLoadingAccounts !== false || isDeferredStale) &&
+    (isLoadingAccounts !== false ||
+      isDeferredStale ||
+      isWaitingForPrivateEntries) &&
     walletGroups.length === 0;
   if (nativeList) {
     return (
