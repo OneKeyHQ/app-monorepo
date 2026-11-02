@@ -26589,6 +26589,7 @@
     "packages/kit/src/views/Staking/components/StakeProgress.tsx": 10423,
     "packages/kit/src/views/Staking/components/StakingActivityIndicator/index.tsx": 7212,
     "packages/kit/src/views/Staking/components/StakingAmountInput.tsx": 20677,
+    "packages/kit/src/views/Staking/components/StakingAmountInput/StakingAmountInputSkeleton.tsx": 8427,
     "packages/kit/src/views/Staking/components/StakingFormWrapper/index.tsx": 9820,
     "packages/kit/src/views/Staking/components/StakingSkeleton/index.tsx": 18455,
     "packages/kit/src/views/Staking/components/TradeOrBuy.tsx": 20098,
