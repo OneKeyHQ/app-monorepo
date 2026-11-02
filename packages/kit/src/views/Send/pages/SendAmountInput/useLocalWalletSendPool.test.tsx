@@ -280,6 +280,7 @@ describe('getEntryLocalWalletSendPools', () => {
       kind: 'private',
       source: 'localScan',
       label: 'Orchard',
+      receivesFunds: false,
     },
     {
       id: 0,
@@ -302,8 +303,12 @@ describe('getEntryLocalWalletSendPools', () => {
     expect(keys('ironwood')).toEqual(['ironwood', 'transparent']);
   });
 
-  it('offers every pool without an entry pool', () => {
-    expect(keys(undefined)).toEqual(['ironwood', 'orchard', 'transparent']);
+  it('offers every current pool without an entry pool', () => {
+    expect(keys(undefined)).toEqual(['ironwood', 'transparent']);
+  });
+
+  it('offers an old pool only from its own entry', () => {
+    expect(keys('orchard')).toEqual(['orchard', 'transparent']);
   });
 
   it('starts a TEX payment from the eligible public pool when its private entry is ineligible', () => {

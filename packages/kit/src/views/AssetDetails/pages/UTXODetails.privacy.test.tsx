@@ -5,6 +5,7 @@ import type { ReactNode } from 'react';
 
 import { render, waitFor } from '@testing-library/react';
 
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   buildLocalWalletHistoryAddressGate,
   gateLocalWalletHistoryDetail,
@@ -21,6 +22,9 @@ const OWN_T = `t1${'A'.repeat(33)}`;
 const OWN_UA = `u1${'q'.repeat(90)}`;
 const DIVERSIFIED = `u1${'d'.repeat(90)}`;
 const RECIPIENT = `u1${'z'.repeat(90)}`;
+// Pools go by their kind; the intl mock renders these ids as-is.
+const PRIVATE = ETranslations.private_send_private_option;
+const PUBLIC = ETranslations.privacy_balance_public__title;
 
 let mockNetworkId = 'zec--0';
 let mockDetails: Partial<IOnChainHistoryTx> = {};
@@ -181,14 +185,14 @@ it('names own notes by pool unless the note names the displayed address', async 
   const text = result.container.textContent ?? '';
   expect(text).not.toContain(DIVERSIFIED);
   expect(text).toContain(RECIPIENT);
-  expect(text).toContain('Sapling pool');
   expect(result.getAllByText(OWN_UA)).toHaveLength(1);
-  expect(result.getAllByText('Ironwood pool')).toHaveLength(2);
+  // The Ironwood spend, the hidden change and the Sapling note.
+  expect(result.getAllByText(PRIVATE)).toHaveLength(3);
 });
 
 it.each([
   [OWN_T, OWN_T],
-  [`t1${'C'.repeat(33)}`, 'Transparent pool'],
+  [`t1${'C'.repeat(33)}`, PUBLIC],
 ])(
   'shows our transparent input only when the displayed one is %s',
   async (displayed, expected) => {
@@ -237,7 +241,7 @@ it('names our transparent change output by pool', async () => {
   };
   const result = await renderPage();
   expect(result.queryByText(change)).toBeNull();
-  expect(result.getByText('Transparent pool')).toBeTruthy();
+  expect(result.getByText(PUBLIC)).toBeTruthy();
   expect(result.getByText(OWN_T)).toBeTruthy();
 });
 
@@ -254,7 +258,7 @@ it('marks shielded change under its pool name', async () => {
   const badges = result.getAllByText('wallet.change_address');
   expect(badges).toHaveLength(1);
   const changeRow = badges[0].parentElement?.parentElement;
-  expect(changeRow?.textContent).toContain('Ironwood pool');
+  expect(changeRow?.textContent).toContain(PRIVATE);
   expect(changeRow?.textContent).not.toContain(RECIPIENT);
 });
 

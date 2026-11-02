@@ -341,6 +341,9 @@ type IEndpointFixture = {
 };
 
 const OWN_UA = `u1${'q'.repeat(90)}`;
+// Pools go by their kind; the intl mock renders these ids as-is.
+const PRIVATE = ETranslations.private_send_private_option;
+const PUBLIC = ETranslations.privacy_balance_public__title;
 const OWN_T = `t1${'A'.repeat(33)}`;
 
 function setZcashEndpoints(from: IEndpointFixture, to: IEndpointFixture) {
@@ -387,9 +390,9 @@ it('names the known source and destination pools without treating change as the 
   const result = render(<HistoryDetails />);
   const from = within(result.getByTestId('history-details-from-pool'));
   const to = within(result.getByTestId('history-details-to-pool'));
-  expect(from.getByText('Orchard pool')).toBeTruthy();
-  expect(to.getByText('Ironwood pool')).toBeTruthy();
-  expect(to.queryByText('Orchard pool')).toBeNull();
+  expect(from.getByText(PRIVATE)).toBeTruthy();
+  // The change is not a second destination.
+  expect(to.getAllByText(PRIVATE)).toHaveLength(1);
   expect(from.queryByRole('button')).toBeNull();
   expect(to.queryByRole('button')).toBeNull();
 });
@@ -416,9 +419,7 @@ it('names the pool of a hidden sender', () => {
   };
   const result = render(<HistoryDetails />);
   const from = within(result.getByTestId('history-details-from-pool'));
-  expect(
-    from.getByText(ETranslations.privacy_history_shielded__title),
-  ).toBeTruthy();
+  expect(from.getByText(PRIVATE)).toBeTruthy();
   expect(
     from.getByText(ETranslations.privacy_history_sender_unknown__desc),
   ).toBeTruthy();
@@ -426,9 +427,7 @@ it('names the pool of a hidden sender', () => {
     result.getAllByText(ETranslations.privacy_history_sender_unknown__desc),
   ).toHaveLength(1);
   expect(
-    within(result.getByTestId('history-details-to-pool')).getByText(
-      'Ironwood pool',
-    ),
+    within(result.getByTestId('history-details-to-pool')).getByText(PRIVATE),
   ).toBeTruthy();
 });
 
@@ -477,10 +476,7 @@ it('does not infer a destination pool from change alone', () => {
   };
   const result = render(<HistoryDetails />);
   const to = within(result.getByTestId('history-details-to-pool'));
-  expect(
-    to.getByText(ETranslations.privacy_history_shielded__title),
-  ).toBeTruthy();
-  expect(to.queryByText('Orchard pool')).toBeNull();
+  expect(to.getAllByText(PRIVATE)).toHaveLength(1);
 });
 
 it.each([
@@ -503,7 +499,7 @@ it.each([
     };
     const result = render(<HistoryDetails />);
     const from = within(result.getByTestId('history-details-from-pool'));
-    expect(from.getByText('Ironwood pool')).toBeTruthy();
+    expect(from.getByText(PRIVATE)).toBeTruthy();
     expect(from.queryByRole('button')).toBeNull();
     expect(result.queryByText(DIVERSIFIED)).toBeNull();
     if (shown) {
@@ -513,7 +509,7 @@ it.each([
       expect(result.queryByTestId('history-details-to-pool')).toBeNull();
     } else {
       const to = within(result.getByTestId('history-details-to-pool'));
-      expect(to.getByText('Ironwood pool')).toBeTruthy();
+      expect(to.getByText(PRIVATE)).toBeTruthy();
       expect(to.queryByRole('button')).toBeNull();
       expect(result.queryByText(OWN_UA)).toBeNull();
     }
@@ -528,9 +524,7 @@ it('shows the pool name for our side while no private address is displayed', () 
   };
   const result = render(<HistoryDetails />);
   expect(
-    within(result.getByTestId('history-details-to-pool')).getByText(
-      'Ironwood pool',
-    ),
+    within(result.getByTestId('history-details-to-pool')).getByText(PRIVATE),
   ).toBeTruthy();
   expect(result.queryByTestId('history-details-to-own')).toBeNull();
 });
@@ -558,10 +552,10 @@ it('never shows a self-payment or change address that is not the displayed u1', 
   expect(result.queryByText(DIVERSIFIED)).toBeNull();
   expect(result.queryByText(`u1${'c'.repeat(90)}`)).toBeNull();
   const to = within(result.getByTestId('history-details-to-pool'));
-  expect(to.getByText('Ironwood pool')).toBeTruthy();
+  expect(to.getByText(PRIVATE)).toBeTruthy();
   expect(to.queryByRole('button')).toBeNull();
   const from = within(result.getByTestId('history-details-from-pool'));
-  expect(from.getByText('Ironwood pool')).toBeTruthy();
+  expect(from.getByText(PRIVATE)).toBeTruthy();
   expect(from.queryByRole('button')).toBeNull();
   expect(result.queryByText(OWN_UA)).toBeNull();
 });
@@ -585,7 +579,7 @@ it.each([
     } else {
       expect(result.queryByText(OWN_T)).toBeNull();
       const from = within(result.getByTestId('history-details-from-pool'));
-      expect(from.getByText('Transparent pool')).toBeTruthy();
+      expect(from.getByText(PUBLIC)).toBeTruthy();
       expect(from.queryByRole('button')).toBeNull();
     }
   },
@@ -604,7 +598,7 @@ it('names our sending side by pool and shows the recipient we recorded', () => {
   };
   const result = render(<HistoryDetails />);
   const from = within(result.getByTestId('history-details-from-pool'));
-  expect(from.getByText('Ironwood pool')).toBeTruthy();
+  expect(from.getByText(PRIVATE)).toBeTruthy();
   expect(from.queryByRole('button')).toBeNull();
   expect(result.queryByText(OWN_UA)).toBeNull();
   expect(
@@ -621,28 +615,23 @@ it('names the recipient pool when the recipient is unknown', () => {
   mockTxDetails = { receives: [shieldedOutput(4)] };
   const result = render(<HistoryDetails />);
   const to = within(result.getByTestId('history-details-to-pool'));
-  expect(to.getByText('Ironwood pool')).toBeTruthy();
-  expect(
-    to.queryByText(ETranslations.privacy_history_shielded__title),
-  ).toBeNull();
+  expect(to.getAllByText(PRIVATE)).toHaveLength(1);
 });
 
 it.each([
-  [{ address: OWN_T }, { poolId: 4, own: true }, [OWN_T, 'Ironwood pool']],
-  [{ poolId: 4, own: true }, { address: OWN_T }, ['Ironwood pool', OWN_T]],
-  [
-    { poolId: 3, own: true },
-    { poolId: 4, own: true },
-    ['Orchard pool', 'Ironwood pool'],
-  ],
+  [{ address: OWN_T }, { poolId: 4, own: true }, [OWN_T, PRIVATE]],
+  [{ poolId: 4, own: true }, { address: OWN_T }, [PRIVATE, OWN_T]],
+  [{ poolId: 3, own: true }, { poolId: 4, own: true }, [PRIVATE, PRIVATE]],
 ])('shows both sides of an internal move %j -> %j', (from, to, texts) => {
   mockAccountAddresses = { publicAddress: OWN_T, privateAddress: OWN_UA };
   setZcashEndpoints(from, to);
   mockHistory.decodedTx.owner = OWN_T;
   mockHistory.decodedTx.signer = OWN_T;
   const result = render(<HistoryDetails />);
-  for (const text of texts) {
-    expect(result.getAllByText(text)).toHaveLength(1);
+  for (const text of new Set(texts)) {
+    expect(result.getAllByText(text)).toHaveLength(
+      texts.filter((item) => item === text).length,
+    );
   }
 });
 
@@ -651,9 +640,7 @@ it('names a Sapling output although Sapling has no tab', () => {
   mockTxDetails = { receives: [shieldedOutput(2)] };
   const result = render(<HistoryDetails />);
   expect(
-    within(result.getByTestId('history-details-to-pool')).getByText(
-      'Sapling pool',
-    ),
+    within(result.getByTestId('history-details-to-pool')).getByText(PRIVATE),
   ).toBeTruthy();
 });
 
@@ -674,7 +661,7 @@ it('names our transparent change address by pool and shows the displayed t1', ()
   const result = render(<HistoryDetails />);
   expect(result.queryByText(change)).toBeNull();
   const pool = within(result.getByTestId('history-details-to-pool'));
-  expect(pool.getByText('Transparent pool')).toBeTruthy();
+  expect(pool.getByText(PUBLIC)).toBeTruthy();
   expect(pool.queryByRole('button')).toBeNull();
   expect(result.getAllByText(OWN_T)).toHaveLength(1);
   expect(result.getAllByText(external)).toHaveLength(1);
@@ -739,7 +726,7 @@ it.each([
       result.queryByText(ETranslations.privacy_history_sender_unknown__desc),
     ).toBeNull();
     const from = within(result.getByTestId('history-details-from-pool'));
-    expect(from.getByText('Transparent pool')).toBeTruthy();
+    expect(from.getByText(PUBLIC)).toBeTruthy();
     expect(from.queryByRole('button')).toBeNull();
     expect(result.getAllByText(external)).toHaveLength(1);
   },

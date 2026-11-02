@@ -49,6 +49,7 @@ import {
 } from '@onekeyhq/kit/src/hooks/useDeriveTypesCollapseState';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { openTokenDetailsUrl } from '@onekeyhq/kit/src/utils/explorerUtils';
+import { formatPrivacyChainPoolKindLabel } from '@onekeyhq/kit/src/utils/privacyChainEndpointLabel';
 import type {
   IAccountDeriveInfo,
   IAccountDeriveTypes,
@@ -766,12 +767,7 @@ function TokenDetailsView() {
         return getPrivacyChainMainPools(vaultSettings.localWallet.pools).map(
           (pool) => ({
             key: String(pool.id),
-            name: intl.formatMessage({
-              id:
-                pool.kind === 'public'
-                  ? ETranslations.privacy_balance_public__title
-                  : ETranslations.private_send_private_option,
-            }),
+            name: formatPrivacyChainPoolKindLabel({ intl, kind: pool.kind }),
             children: (
               <TokenDetailsViews
                 inTabList
