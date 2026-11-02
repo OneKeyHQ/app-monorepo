@@ -201,6 +201,19 @@ export type IVaultSettings = {
 
   softwareAccountDisabled?: boolean;
 
+  /**
+   * Hides the network from every hardware wallet. Network filtering does not
+   * read `hardwareAccountEnabled`, and an empty `supportedDeviceTypes` means
+   * every device.
+   */
+  hardwareAccountDisabled?: boolean;
+
+  /** Hides the network from Bot wallets, whose ids also start with `hd-`. */
+  botWalletAccountDisabled?: boolean;
+
+  /** Only a wallet's first indexed account (index 0) can hold an account. */
+  firstAccountOnly?: boolean;
+
   supportedDeviceTypes?: IDeviceType[];
 
   /**
@@ -216,6 +229,8 @@ export type IVaultSettings = {
 
   addressBookDisabled?: boolean;
   copyAddressDisabled?: boolean;
+  /** Skips the address badge request; the server has no interaction data. */
+  addressBadgeDisabled?: boolean;
 
   disabledSwapAction?: boolean;
   disabledSendAction?: boolean;

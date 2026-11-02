@@ -135,7 +135,7 @@ function ReceiveSelectorContent() {
 
   // Exchanges cannot withdraw to Lightning invoices, so the
   // "receive from exchange" section is hidden on Lightning networks
-  const isLightningNetwork = networkUtils.isLightningNetworkByNetworkId(
+  const isLightningNetwork = networkUtils.isAnyLightningNetworkByNetworkId(
     token?.networkId ?? networkId,
   );
 
@@ -212,7 +212,13 @@ function ReceiveSelectorContent() {
 
   const handleReceiveOnPress = useCallback(
     ({ onPress }: { onPress: () => void }) => {
-      if (token) {
+      // Lightning accounts have no address to show; they receive by invoice.
+      if (token && networkUtils.isAnyLightningNetworkByNetworkId(networkId)) {
+        navigation.push(EModalReceiveRoutes.CreateInvoice, {
+          networkId,
+          accountId,
+        });
+      } else if (token) {
         navigation.push(EModalReceiveRoutes.ReceiveToken, {
           networkId,
           accountId,

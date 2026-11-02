@@ -171,7 +171,7 @@ async function fetchReceiveNetworkListData(
     (network) =>
       !networkUtils.isAllNetwork({ networkId: network.id }) &&
       (mode === 'tab' ||
-        !networkUtils.isLightningNetworkByNetworkId(network.id)),
+        !networkUtils.isAnyLightningNetworkByNetworkId(network.id)),
   );
   return { networks, accountMap, allNetworksState };
 }
@@ -311,7 +311,7 @@ function ReceiveNetworkRow({
 }: IRowProps) {
   const intl = useIntl();
   const [loading, setLoading] = useState(false);
-  const isLightning = networkUtils.isLightningNetworkByNetworkId(network.id);
+  const isLightning = networkUtils.isAnyLightningNetworkByNetworkId(network.id);
 
   const subtitle = useMemo(() => {
     if (account) {
@@ -525,7 +525,7 @@ export function ReceiveNetworkList({
   const handleSelect = useCallback(
     async (selection: IReceiveNetworkSelection) => {
       const { network, createdAddress } = selection;
-      const isLightning = networkUtils.isLightningNetworkByNetworkId(
+      const isLightning = networkUtils.isAnyLightningNetworkByNetworkId(
         network.id,
       );
       if (mode === 'tab') {

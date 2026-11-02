@@ -15,6 +15,7 @@ import {
   COINTYPE_LIGHTNING_TESTNET,
   IMPL_EVM,
   IMPL_LIGHTNING,
+  IMPL_LIGHTNING_SPARK,
   IMPL_LIGHTNING_TESTNET,
   IMPL_SOL,
   IMPL_TRON,
@@ -99,6 +100,26 @@ function isLightningNetworkByNetworkId(networkId?: string) {
   return (
     networkId === networkIdsMap.lightning ||
     networkId === networkIdsMap.tlightning
+  );
+}
+
+function isLightningSparkNetworkByImpl(impl?: string) {
+  return impl === IMPL_LIGHTNING_SPARK;
+}
+
+function isLightningSparkNetworkByNetworkId(networkId?: string) {
+  return Boolean(
+    networkId && isLightningSparkNetworkByImpl(getNetworkImpl({ networkId })),
+  );
+}
+
+// Custodial Lightning or Lightning on Spark: both receive through invoices and
+// never show an account address. Custodial-only server calls keep using
+// isLightningNetworkByNetworkId.
+function isAnyLightningNetworkByNetworkId(networkId?: string) {
+  return (
+    isLightningNetworkByNetworkId(networkId) ||
+    isLightningSparkNetworkByNetworkId(networkId)
   );
 }
 
@@ -381,6 +402,9 @@ export default {
   isLightningNetwork,
   isLightningNetworkByImpl,
   isLightningNetworkByNetworkId,
+  isLightningSparkNetworkByImpl,
+  isLightningSparkNetworkByNetworkId,
+  isAnyLightningNetworkByNetworkId,
   isSolanaNetworkByNetworkId,
   isTronNetworkByNetworkId,
   isLocalWalletNetwork,

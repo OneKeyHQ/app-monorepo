@@ -149,6 +149,10 @@ const ZXING_READER_WASM_TEST =
 const ZCASH_WASM_TEST = /onekey_zcash_(runtime|keys)_bg\.wasm$/;
 const MONERO_WASM_TEST = /onekey_monero_runtime_bg\.wasm$/;
 const CHAIN_RUNTIME_WASM_TEST = [ZCASH_WASM_TEST, MONERO_WASM_TEST];
+const BREEZ_SDK_SPARK_WASM_TEST =
+  /breez-sdk-spark[\\/]web[\\/]breez_sdk_spark_wasm_bg\.wasm$/;
+const BREEZ_SDK_SPARK_GLUE_TEST =
+  /breez-sdk-spark[\\/]web[\\/]breez_sdk_spark_wasm\.js$/;
 const ICON_MODULE_TEST =
   /[\\/]packages[\\/]components[\\/]src[\\/]primitives[\\/]Icon[\\/]react[\\/]/;
 
@@ -554,6 +558,15 @@ export function createBaseConfig({
           type: 'asset/resource',
           generator: { filename: 'static/zxing/[name].[contenthash:8][ext]' },
         },
+        // cspell:ignore breez
+        // Breez SDK Spark's web entry fetches this wasm through
+        // `new URL(..., import.meta.url)` and instantiates it itself, so it
+        // must be emitted as a URL asset, not parsed as an async wasm module.
+        {
+          test: BREEZ_SDK_SPARK_WASM_TEST,
+          type: 'asset/resource',
+          generator: { filename: 'static/breez/[name].[contenthash:8][ext]' },
+        },
         {
           test: CHAIN_RUNTIME_WASM_TEST,
           // file:// builds (web-embed iOS, desktop release) have no base URL for a Blob Worker; inline wasm as a data: URI.
@@ -570,6 +583,7 @@ export function createBaseConfig({
             CANVASKIT_WASM_TEST,
             ZXING_READER_WASM_TEST,
             ...CHAIN_RUNTIME_WASM_TEST,
+            BREEZ_SDK_SPARK_WASM_TEST,
           ],
           type: 'webassembly/async',
         },
@@ -896,6 +910,17 @@ export function createBaseConfig({
               },
             ]
           : []),
+        // Sends every Breez SDK Spark request through the OneKey proxy.
+        {
+          test: BREEZ_SDK_SPARK_GLUE_TEST,
+          loader: path.resolve(
+            __dirname,
+            'loaders/breezSdkSparkNetworkLoader.js',
+          ),
+          // The glue is in a "type": "module" package; let the injected
+          // import resolve without a file extension.
+          resolve: { fullySpecified: false },
+        },
         {
           test: /\.(css)$/,
           use: buildCssLoaders(platform),

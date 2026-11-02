@@ -2390,8 +2390,31 @@ const stellarTestnet: IServerNetwork = {
   'defaultEnabled': true,
 };
 
+// Self-custodial Lightning on Spark (Breez SDK). Amounts are sats, as in the
+// Breez SDK and the custodial Lightning network.
+const lightningSpark: IServerNetwork = {
+  'chainId': '0',
+  'code': 'lightningspark',
+  'decimals': 0,
+  'id': 'lightningspark--0',
+  'impl': 'lightningspark',
+  'isTestnet': false,
+  'logoURI': 'https://uni.onekey-asset.com/static/chain/lnd.png',
+  'name': 'Lightning Self-Custody',
+  'shortcode': 'lightningspark',
+  'shortname': 'Lightning Self-Custody',
+  'symbol': 'sats',
+  'feeMeta': {
+    'decimals': 0,
+    'symbol': 'sats',
+  },
+  'defaultEnabled': false,
+  'status': ENetworkStatus.LISTED,
+};
+
 const chainsOnlyEnabledInDev = [
   tatom, // Cosmos Testnet
+  lightningSpark,
 ];
 
 // The Web app (not web-embed) does not support the client-scanned privacy chains.
@@ -2498,6 +2521,7 @@ export const presetNetworksMap = {
   neoN3,
   stellar,
   stellarTestnet,
+  lightningSpark,
 };
 
 export const getDefaultEnabledNetworksInAllNetworks = memoFn(

@@ -1276,6 +1276,11 @@ class ServiceNetwork extends ServiceBase {
       });
 
       if (isHwWallet) {
+        networkIdsIncompatible = networkIdsIncompatible.concat(
+          networkVaultSettings
+            .filter((o) => o.vaultSetting.hardwareAccountDisabled)
+            .map((o) => o.network.id),
+        );
         const walletDevice =
           await this.backgroundApi.serviceAccount.getWalletDeviceSafe({
             walletId,
@@ -1335,6 +1340,13 @@ class ServiceNetwork extends ServiceBase {
         networkIdsIncompatible = networkIdsIncompatible.concat(
           networksSoftwareAccountDisabled,
         );
+        if (accountUtils.isBotWallet({ walletId })) {
+          networkIdsIncompatible = networkIdsIncompatible.concat(
+            networkVaultSettings
+              .filter((o) => o.vaultSetting.botWalletAccountDisabled)
+              .map((o) => o.network.id),
+          );
+        }
       } else if (isWatchingWallet) {
         const networksWatchingWalletDisabled = networkVaultSettings
           .filter((o) => !o.vaultSetting.watchingAccountEnabled)

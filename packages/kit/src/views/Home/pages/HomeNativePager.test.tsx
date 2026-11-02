@@ -888,6 +888,7 @@ describe('HomePageView complete header authority', () => {
         '../../../components/WatchOnlyAlert',
         '../../../components/WebDapp/WebDappEmptyView',
         '../../../hooks/useAppNavigation',
+        '../../../hooks/useLightningSparkSession',
         '../../../hooks/usePromiseResult',
         '../../../hooks/useRunAfterTokensDone',
         '../../../hooks/useShortcutsOnRouteFocused',

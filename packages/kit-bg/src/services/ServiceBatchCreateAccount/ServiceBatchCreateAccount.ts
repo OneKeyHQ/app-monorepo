@@ -912,6 +912,11 @@ class ServiceBatchCreateAccount extends ServiceBase {
           if (settings.qrAccountEnabled) {
             networksParamsFiltered.push(p);
           }
+        } else if (accountUtils.isBotWallet({ walletId: params.walletId })) {
+          const settings = await getVaultSettings({ networkId: p.networkId });
+          if (!settings.botWalletAccountDisabled) {
+            networksParamsFiltered.push(p);
+          }
         } else {
           networksParamsFiltered.push(p);
         }
