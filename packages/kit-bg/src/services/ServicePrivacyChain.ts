@@ -4307,6 +4307,8 @@ class ServicePrivacyChain extends ServiceBase {
         ),
       );
     }
+    // The runtime delete may wait behind a running scan; Preparing goes now, not when it lands.
+    await this.clearAccountsPreparing({ networkId, accountIds });
     for (const request of requests) {
       void this.processPendingAccountDeletion(request, capability).catch(
         () => undefined,

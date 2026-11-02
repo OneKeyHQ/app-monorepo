@@ -296,6 +296,51 @@ describe('privacy chain lifecycle executor', () => {
     expect(state.preparingAccountKeys).toEqual(keeps ? [own, other] : [other]);
   });
 
+  // Deleting an account's data waits behind a running scan; its Preparing must not.
+  it('drops Preparing as soon as the user deletes an account’s data', async () => {
+    const own = `${networkId}:${accountId}`;
+    const other = `${networkId}:other`;
+    const processPendingAccountDeletion = jest.fn(
+      () => new Promise<void>(() => {}),
+    );
+    const service = Object.assign(
+      Object.create(ServicePrivacyChain.prototype) as IService,
+      {
+        backgroundApi: {
+          simpleDb: {
+            privacyChainState: {
+              requestAccountDeletion: async () => ({
+                networkId,
+                accountId,
+                requestId: 'r1',
+              }),
+            },
+          },
+        },
+        requireAccountCapability: async () => ({}),
+        isPersistenceMasked: async () => false,
+        listLocalWalletAccountTwins: async () => [],
+        processPendingAccountDeletion,
+        onLocalWalletAccountsChanged: jest.fn(async () => undefined),
+      },
+    );
+
+    await service.deleteLocalWalletAccountData({ networkId, accountId });
+
+    let preparing = [own, other];
+    for (const [update] of mockAtomSet.mock.calls) {
+      if (typeof update === 'function') {
+        preparing = (
+          update as (value: { preparingAccountKeys: string[] }) => {
+            preparingAccountKeys: string[];
+          }
+        )({ preparingAccountKeys: preparing }).preparingAccountKeys;
+      }
+    }
+    expect(processPendingAccountDeletion).toHaveBeenCalled();
+    expect(preparing).toEqual([other]);
+  });
+
   it('network pause saves the chain switch and touches no scan data', async () => {
     const { service, calls, backgroundApi } = createHarness();
     await service.runLocalWalletLifecycle({
