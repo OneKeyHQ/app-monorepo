@@ -287,7 +287,11 @@ function TokenDetailsHeaderContent({
     settings: vaultSettings?.localWallet,
     selectedPoolId: selectedPoolIdProp,
   });
-  const hasSelectedPool = privacyHistoryPoolId !== undefined;
+  // Monero has no pool tab, so its pool is only known once settings load;
+  // until then it already counts as a pool page instead of a plain token one.
+  const hasSelectedPool =
+    privacyHistoryPoolId !== undefined ||
+    (!vaultSettings && networkUtils.isLocalWalletNetwork({ networkId }));
   const selectedPool = vaultSettings?.localWallet?.pools.find(
     (pool) => pool.id === privacyHistoryPoolId,
   );

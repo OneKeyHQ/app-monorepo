@@ -908,6 +908,11 @@ function TokenDetailsView() {
     [isAllNetworks, intl, refreshAllNetworkState],
   );
 
+  // Settings decide pool tabs vs a single view; a privacy chain waits for
+  // them so it does not open as a plain token first.
+  const isPrivacyChainSettingsLoading =
+    !vaultSettings && networkUtils.isLocalWalletNetwork({ networkId });
+
   const tokenDetailsViewElement = useMemo(() => {
     if (
       // That loader only builds the type Tabs, which a collapsed account
@@ -915,6 +920,7 @@ function TokenDetailsView() {
       (isLoading && !collapsedNetworkAccount) ||
       isLoadingTokens ||
       !isCollapseStateReady ||
+      isPrivacyChainSettingsLoading ||
       // Keep aggregate tokens on the spinner until the group is resolved so
       // the aggregate descriptor never reaches the single-token fallback.
       (tokenInfo.isAggregateToken && isLoadingTokens !== false)
@@ -1007,6 +1013,7 @@ function TokenDetailsView() {
     isLoading,
     isLoadingTokens,
     isCollapseStateReady,
+    isPrivacyChainSettingsLoading,
     collapsedNetworkAccount,
     isAggregateTokenUnavailable,
     walletId,

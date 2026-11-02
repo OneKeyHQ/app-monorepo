@@ -29,6 +29,7 @@ import type { IVaultSettings } from '@onekeyhq/kit-bg/src/vaults/types';
 import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { EAppEventBusNames } from '@onekeyhq/shared/src/eventBus/appEventBusNames';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { getLocalWalletPoolDisplayAddress } from '@onekeyhq/shared/src/utils/privacyChainDisplayUtils';
 import { PRIVACY_CHAIN_TIP_POLL_MS } from '@onekeyhq/shared/src/utils/privacyChainSyncPolicy';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
@@ -574,7 +575,9 @@ export function useLocalWalletPool({
     [accountId, networkId, runBusy],
   );
   const isReady = (() => {
-    if (!hasPooledBalance) return true;
+    // A privacy chain whose settings are still loading is not "no pools" yet.
+    if (!hasPooledBalance)
+      return !networkUtils.isLocalWalletNetwork({ networkId });
     if (isWalletSupported === undefined) return false;
     if (!isWalletSupported) return true;
     if (state === undefined) return false;

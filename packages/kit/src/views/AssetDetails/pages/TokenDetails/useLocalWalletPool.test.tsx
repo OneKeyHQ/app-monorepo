@@ -551,6 +551,25 @@ describe('useLocalWalletPool with account data from the caller', () => {
   });
 });
 
+describe('useLocalWalletPool before the caller has settings', () => {
+  it.each([
+    ['privacy chain', 'xmr--0', false],
+    ['other chain', 'evm--1', true],
+  ])('%s: ready = %s', async (_name, networkId, isReady) => {
+    const { result } = renderHook(useLocalWalletPool, {
+      initialProps: {
+        ...props,
+        networkId,
+        poolId: undefined,
+        accountData: { account: undefined, vaultSettings: undefined },
+      },
+    });
+    await flushReads();
+    expect(result.current.hasPooledBalance).toBe(false);
+    expect(result.current.isReady).toBe(isReady);
+  });
+});
+
 describe('useLocalWalletPool on a device that cannot store the database', () => {
   const setStorageUnsupportedNetworkIds = (networkIds: string[]) =>
     setPublishedScanState({ storageUnsupportedNetworkIds: networkIds });
