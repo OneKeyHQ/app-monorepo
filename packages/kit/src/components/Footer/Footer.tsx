@@ -14,6 +14,7 @@ import { NetworkStatus } from '../NetworkStatus';
 import { FooterLink } from './components/FooterLink';
 import { FooterNavigation } from './components/FooterNavigation';
 import { useDesktopWebFooterRoute } from './desktopWebFooterRoute';
+import { perpFooterConfig } from './perpFooterConfig';
 
 const PERP_TELEGRAM_URL = 'https://t.me/OneKeyPerps';
 
@@ -110,7 +111,7 @@ export function PerpFooterActions() {
           })}
         </SizableText>
       </XStack>
-      {platformEnv.isDesktop ? null : (
+      {perpFooterConfig.showMoreMenu ? (
         <ActionList
           title={intl.formatMessage({ id: ETranslations.global_more })}
           renderTrigger={menuTrigger}
@@ -129,7 +130,7 @@ export function PerpFooterActions() {
             },
           ]}
         />
-      )}
+      ) : null}
     </XStack>
   );
 }
@@ -163,7 +164,7 @@ export function Footer() {
     <XStack
       width="100%"
       pl="$2"
-      pr={platformEnv.isDesktop && isInPerpRoute ? '$3' : '$6'}
+      pr={isInPerpRoute ? perpFooterConfig.paddingRight : '$6'}
       py="$2"
       borderTopWidth={1}
       borderTopColor="$borderSubdued"

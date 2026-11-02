@@ -2,6 +2,7 @@ import { Page, XStack, useMedia } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { PerpFooterActions } from '../../../components/Footer';
+import { perpFooterConfig } from '../../../components/Footer/perpFooterConfig';
 import { PerpRefreshButton } from '../../../components/PerpRefreshButton';
 
 import { PerpFooterTicker } from './FooterTicker/PerpFooterTicker';
@@ -20,7 +21,7 @@ export function PerpContentFooter() {
           h={40}
           alignItems="center"
           pl="$2"
-          pr={platformEnv.isDesktop ? '$3' : '$6'}
+          pr={perpFooterConfig.paddingRight}
           gap="$2"
         >
           <XStack alignItems="center" gap="$2" flexShrink={0}>
