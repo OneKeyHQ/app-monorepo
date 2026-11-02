@@ -69,7 +69,9 @@ let mockBusy = false;
 let mockNodeHealth:
   | { url: string; ok: boolean; latencyMs: number | null; atMs: number }
   | undefined;
-const mockGetIdentityId = jest.fn(async () => '3');
+const mockGetIdentityId = jest.fn(
+  async (_params?: { accountId: string }) => '3',
+);
 const mockGetRuntimeUuid = jest.fn(
   async (accountId: string): Promise<string | undefined> => `fp-${accountId}`,
 );
@@ -89,7 +91,8 @@ jest.mock('./runtime', () => ({
   deleteXmrDatabase: (network: string) => mockDeleteXmrDatabase(network),
   getXmrRuntime: () => mockOnlineRuntime(),
   getXmrLocalRuntime: () => mockLocalRuntime(),
-  getXmrIdentityId: () => mockGetIdentityId(),
+  getXmrIdentityId: (params: { accountId: string }) =>
+    mockGetIdentityId(params),
   getXmrRuntimeUuid: ({ accountId }: { accountId: string }) =>
     mockGetRuntimeUuid(accountId),
   getXmrChainTip: () => mockLiveTip(),
@@ -753,6 +756,68 @@ describe('xmr sync skips an account without its view key', () => {
       capability().syncGroup({ accountIds: ['keyless'], chainTip: 3_767_827 }),
     ).resolves.toEqual({ synced: false });
     expect(runtime.syncStep).not.toHaveBeenCalled();
+  });
+});
+
+// Several accounts share one 30s turn; a turn each would keep Zcash waiting for all of them.
+describe('xmr turn shared by its accounts', () => {
+  let clock = 1_000_000;
+  const stepTaking = (ms: number, done: boolean) => async () => {
+    clock += ms;
+    return JSON.stringify({ blocksScanned: 10, done, outputsFound: 0 });
+  };
+  const steppedIds = () => runtime.syncStep.mock.calls.map(([id]) => id);
+
+  beforeEach(() => {
+    clock = 1_000_000;
+    jest.spyOn(Date, 'now').mockImplementation(() => clock);
+    mockGetIdentityId.mockImplementation(
+      async (params) => `rt-${params?.accountId ?? ''}`,
+    );
+    runtime.syncStep.mockReset();
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+    mockGetIdentityId.mockReset().mockResolvedValue('3');
+    runtime.syncStep.mockReset().mockImplementation(stepTaking(0, false));
+  });
+
+  it('leaves an account the turn cannot reach to the next turn, which starts with it', async () => {
+    runtime.syncStep.mockImplementation(stepTaking(20_000, false));
+    const cap = capability();
+
+    const first = await cap.syncGroup({
+      accountIds: ['t1-a', 't1-b'],
+      chainTip: 3_767_827,
+    });
+    expect(steppedIds()).toEqual(['rt-t1-a']);
+    expect(first).toMatchObject({
+      synced: true,
+      backfillRemaining: true,
+      caughtUpAccountIds: [],
+    });
+
+    await cap.syncGroup({ accountIds: ['t1-a', 't1-b'], chainTip: 3_767_827 });
+    expect(steppedIds()).toEqual(['rt-t1-a', 'rt-t1-b']);
+  });
+
+  it('steps every account when the budget allows, starting over next turn', async () => {
+    runtime.syncStep.mockImplementation(stepTaking(1000, true));
+    const cap = capability();
+
+    const result = await cap.syncGroup({
+      accountIds: ['t2-a', 't2-b'],
+      chainTip: 3_767_827,
+    });
+    await cap.syncGroup({ accountIds: ['t2-a', 't2-b'], chainTip: 3_767_827 });
+
+    expect(result).toMatchObject({
+      synced: true,
+      backfillRemaining: false,
+      caughtUpAccountIds: ['t2-a', 't2-b'],
+    });
+    expect(steppedIds()).toEqual(['rt-t2-a', 'rt-t2-b', 'rt-t2-a', 'rt-t2-b']);
   });
 });
 

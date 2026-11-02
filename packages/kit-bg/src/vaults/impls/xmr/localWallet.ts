@@ -82,6 +82,10 @@ function toParsed(atomic: string | undefined): string | undefined {
 // and the scan may hold different capability objects.
 const xmrBalanceWanted = new Set<string>();
 
+// Per network: the account the last turn could not reach, where the next one starts. Module-level:
+// each turn may get a new capability object.
+const xmrTurnStartByNetwork = new Map<string, string>();
+
 export function buildXmrLocalWalletCapability(
   vault: Vault,
 ): ILocalWalletCapability {
@@ -794,8 +798,23 @@ export function buildXmrLocalWalletCapability(
         owner: IXmrAccountScanState;
       }[] = [];
       let skipped = 0;
+      // One budget for the whole turn, shared by its accounts, so several of them cannot hold up
+      // Zcash for a turn each.
+      const turnEndsAt = Date.now() + turn.budgetMs;
+      let lastStepMs = turn.expectedStepMs;
+      let firstUnreached: string | undefined;
+      const startIndex = accountIds.indexOf(
+        xmrTurnStartByNetwork.get(networkId) ?? '',
+      );
+      const orderedAccountIds =
+        startIndex > 0
+          ? [
+              ...accountIds.slice(startIndex),
+              ...accountIds.slice(0, startIndex),
+            ]
+          : accountIds;
 
-      for (const accountId of accountIds) {
+      for (const accountId of orderedAccountIds) {
         // An enabled account always has its key; without one the service turns it off (it checks
         // the account is still on, as this turn list may predate a delete).
         // eslint-disable-next-line no-await-in-loop
@@ -833,6 +852,16 @@ export function buildXmrLocalWalletCapability(
           // eslint-disable-next-line no-continue
           continue;
         }
+        // Too little left for a step: the next turn starts with this account. The first always runs.
+        if (
+          steppedRuntimeIds.size > 0 &&
+          turnEndsAt - Date.now() < lastStepMs
+        ) {
+          firstUnreached ??= accountId;
+          backfillRemaining = true;
+          // eslint-disable-next-line no-continue
+          continue;
+        }
         steppedRuntimeIds.add(runtimeId);
         // eslint-disable-next-line no-await-in-loop
         await lifecycleMutex.runExclusive(async () => {
@@ -842,8 +871,8 @@ export function buildXmrLocalWalletCapability(
         });
         // eslint-disable-next-line no-await-in-loop
         const result = await runBoundedSyncTurn({
-          budgetMs: turn.budgetMs,
-          expectedStepMs: turn.expectedStepMs,
+          budgetMs: Math.max(0, turnEndsAt - Date.now()),
+          expectedStepMs: lastStepMs,
           shouldStop: () =>
             vault.backgroundApi.servicePrivacyChain.isLocalWalletScanHeld(
               vault.networkId,
@@ -925,12 +954,19 @@ export function buildXmrLocalWalletCapability(
               };
             }),
         });
+        lastStepMs = result.lastStepMs;
         // eslint-disable-next-line no-await-in-loop, no-continue
         if (!(await isCurrentRequest(accountId, owner))) continue;
         synced = true;
         if (result.done) caughtUpRuntimeIds.add(runtimeId);
         if (result.stateChanged) stateChanged = true;
         if (!result.done) backfillRemaining = true;
+      }
+
+      if (firstUnreached) {
+        xmrTurnStartByNetwork.set(networkId, firstUnreached);
+      } else {
+        xmrTurnStartByNetwork.delete(networkId);
       }
 
       if (skipped) {
