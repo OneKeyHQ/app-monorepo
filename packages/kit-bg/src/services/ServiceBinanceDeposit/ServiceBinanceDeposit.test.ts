@@ -21,7 +21,7 @@ const mockClient = {
   post: jest.fn(),
 };
 
-jest.mock('./ServiceBase', () => ({
+jest.mock('../ServiceBase', () => ({
   __esModule: true,
   default: class ServiceBase {
     backgroundApi: any;
@@ -54,7 +54,7 @@ jest.mock(
   }),
 );
 
-jest.mock('../states/jotai/atoms', () => ({
+jest.mock('../../states/jotai/atoms', () => ({
   devSettingsPersistAtom: { get: async () => ({ enabled: false }) },
 }));
 
