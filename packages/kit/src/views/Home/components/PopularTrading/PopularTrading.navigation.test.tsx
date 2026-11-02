@@ -28,10 +28,14 @@ const mockRecord: IFavoriteTokenDisplay = {
 let mockShowFavorites = false;
 let mockRecommendationResult: IFavoriteTokenDisplay[] | undefined;
 let mockRefreshFavorites: () => Promise<void>;
+let mockUseRealPromiseResult = false;
 jest.mock('react-intl', () => ({
   useIntl: () => ({ formatMessage: ({ id }: { id: string }) => id }),
 }));
 jest.mock('@onekeyhq/components', () => {
+  const { useDeferredPromise } = jest.requireActual(
+    '../../../../../../components/src/hooks/useDeferredPromise',
+  ) as typeof import('@onekeyhq/components/src/hooks/useDeferredPromise');
   const Stack = ({
     children,
     minHeight,
@@ -53,6 +57,10 @@ jest.mock('@onekeyhq/components', () => {
     Toast: { error: jest.fn() },
     rootNavigationRef: { current: { navigate: jest.fn() } },
     getSharedButtonStyles: () => ({ sharedFrameStyles: {} }),
+    useDeferredPromise,
+    getCurrentVisibilityState: () => true,
+    onVisibilityStateChange: () => () => {},
+    useNetInfo: () => ({ isRawInternetReachable: true }),
   };
 });
 jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
@@ -106,12 +114,21 @@ jest.mock('@onekeyhq/kit/src/hooks/usePromiseResult', () => ({
     options?: { watchLoading?: boolean },
   ) => {
     if (options?.watchLoading) mockRefreshFavorites = method;
+    if (mockUseRealPromiseResult) {
+      const { usePromiseResult: actualImplementation } = jest.requireActual(
+        '@onekeyhq/kit/src/hooks/usePromiseResult',
+      ) as typeof import('@onekeyhq/kit/src/hooks/usePromiseResult');
+      return actualImplementation(method, _deps, options);
+    }
     return {
       isLoading: false,
       run: jest.fn(),
       result: options?.watchLoading ? undefined : mockRecommendationResult,
     };
   },
+}));
+jest.mock('@onekeyhq/kit/src/hooks/useRouteIsFocused', () => ({
+  useRouteIsFocusedWhenEnabled: () => true,
 }));
 jest.mock('../../../Market/hooks', () => ({
   useMarketBasicConfig: () => ({
@@ -208,6 +225,10 @@ beforeEach(() => {
   jest.clearAllMocks();
   mockShowFavorites = false;
   mockRecommendationResult = undefined;
+  mockUseRealPromiseResult = false;
+  getWatchList.mockReset().mockResolvedValue({ data: [] });
+  fetchRecommendations.mockReset();
+  fetchListingQuote.mockReset();
   openDetail.mockReset().mockResolvedValue(undefined);
   fetchAsset.mockReset().mockResolvedValue({
     selectedVariant: {
@@ -219,6 +240,10 @@ beforeEach(() => {
   } as Awaited<
     ReturnType<typeof backgroundApiProxy.serviceMarket.fetchMarketAssetDetail>
   >);
+});
+
+afterEach(() => {
+  jest.useRealTimers();
 });
 
 it.each([true, false])(
@@ -301,6 +326,88 @@ it('switches directly to preloaded recommendations when the last favorite is rem
   expect(screen.queryByTestId('favorite-list')).toBeNull();
   expect(screen.queryByText(ETranslations.global_no_data)).toBeNull();
   expect(screen.getByText('Ethereum')).toBeTruthy();
+});
+
+it('clears removed favorites even when recommendations fail before the preload succeeds', async () => {
+  mockShowFavorites = true;
+  getWatchList.mockResolvedValue({
+    data: [{ assetId: 'bitcoin', chainId: '', contractAddress: '' }],
+  });
+  fetchListingQuote.mockResolvedValue({
+    symbol: 'BTC',
+    name: 'Bitcoin',
+    logoUrl: '',
+  });
+  render(<PopularTrading tableLayout />);
+  await act(async () => mockRefreshFavorites());
+  expect(screen.getByTestId('favorite-list').textContent).toBe('BTC');
+
+  getWatchList.mockResolvedValue({ data: [] });
+  fetchRecommendations.mockRejectedValue(new Error('offline'));
+  await act(async () => mockRefreshFavorites());
+  expect(screen.queryByTestId('favorite-list')).toBeNull();
+  expect(screen.getByText(ETranslations.global_no_data)).toBeTruthy();
+});
+
+describe('recommendation refresh lifecycle', () => {
+  beforeEach(() => {
+    jest.useFakeTimers();
+    mockUseRealPromiseResult = true;
+    mockShowFavorites = true;
+    fetchRecommendations.mockResolvedValue({
+      data: { recommendTokens: [{ assetId: 'ethereum' }] },
+    } as IMarketBasicConfigResponse);
+    fetchListingQuote.mockResolvedValue({
+      symbol: 'ETH',
+      name: 'Ethereum',
+      logoUrl: '',
+    });
+  });
+
+  it('refreshes recommendations after preloading and retains them during a failed poll', async () => {
+    const view = render(<PopularTrading tableLayout />);
+    await act(async () => jest.advanceTimersByTimeAsync(0));
+    expect(screen.getByText('Ethereum')).toBeTruthy();
+
+    fetchListingQuote.mockResolvedValue({
+      symbol: 'SOL',
+      name: 'Solana',
+      logoUrl: '',
+    });
+    fetchRecommendations.mockResolvedValue({
+      data: { recommendTokens: [{ assetId: 'solana' }] },
+    } as IMarketBasicConfigResponse);
+    await act(async () => jest.advanceTimersByTimeAsync(30_000));
+    expect(screen.getByText('Solana')).toBeTruthy();
+    expect(screen.queryByText('Ethereum')).toBeNull();
+
+    fetchRecommendations.mockRejectedValue(new Error('offline'));
+    await act(async () => jest.advanceTimersByTimeAsync(30_000));
+    expect(screen.getByText('Solana')).toBeTruthy();
+    expect(screen.queryByText(ETranslations.global_no_data)).toBeNull();
+    view.unmount();
+  });
+
+  it('isolates failed optional preloads while showing favorites', async () => {
+    getWatchList.mockResolvedValue({
+      data: [{ assetId: 'bitcoin', chainId: '', contractAddress: '' }],
+    });
+    fetchListingQuote.mockResolvedValue({
+      symbol: 'BTC',
+      name: 'Bitcoin',
+      logoUrl: '',
+    });
+    const error = Object.assign(new Error('recommendations unavailable'), {
+      autoToast: true,
+    });
+    fetchRecommendations.mockRejectedValue(error);
+    const view = render(<PopularTrading tableLayout />);
+    await act(async () => jest.advanceTimersByTimeAsync(0));
+    expect(screen.getByTestId('favorite-list').textContent).toBe('BTC');
+    expect(error.autoToast).toBe(false);
+    expect(Toast.error).not.toHaveBeenCalled();
+    view.unmount();
+  });
 });
 
 it('resolves the asset before opening and reports an async extension open failure once', async () => {

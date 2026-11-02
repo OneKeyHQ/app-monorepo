@@ -21,6 +21,7 @@ import { Token } from '@onekeyhq/kit/src/components/Token';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { MARKET_TOP_COINS_CATEGORY_ID } from '@onekeyhq/shared/src/consts/marketConsts';
+import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -421,10 +422,25 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
 
   // Always show 4 tokens in empty state
   const displayCount = 4;
+  const loadRecommendations = useCallback(async () => {
+    try {
+      return await loadHomeRecommendDisplayTokens(displayCount);
+    } catch (error) {
+      // Optional background recommendations must not surface unrelated errors.
+      errorToastUtils.toastIfErrorDisable(error);
+      throw error;
+    }
+  }, [displayCount]);
   const { result: recommendedDisplayTokens } = usePromiseResult(
-    () => loadHomeRecommendDisplayTokens(displayCount),
-    [],
-    { resumeOnEffectReconnect: true },
+    loadRecommendations,
+    [loadRecommendations],
+    {
+      keepResultIfError: true,
+      resumeOnEffectReconnect: true,
+      pollingInterval: timerUtils.getTimeDurationMs({ seconds: 30 }),
+      revalidateOnFocus: true,
+      revalidateOnReconnect: true,
+    },
   );
 
   const marketTab = ETabRoutes.Market;
@@ -842,14 +858,14 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
         });
         const nextTokens = recommendInstead
           ? (recommendedDisplayTokens ??
-            (await loadHomeRecommendDisplayTokens(displayCount)))
+            (await loadRecommendations().catch(() => [])))
           : displayTokens;
         setFavoriteTokens(nextTokens);
         setShowRecommendCards(recommendInstead);
       } else {
         const nextTokens =
           recommendedDisplayTokens ??
-          (await loadHomeRecommendDisplayTokens(displayCount));
+          (await loadRecommendations().catch(() => []));
         setFavoriteTokens(nextTokens);
         setShowRecommendCards(false);
       }
@@ -859,7 +875,7 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
       setTotalFavoritesCount(watchList.data.length);
       initializedRef.current = true;
     },
-    [recommendedDisplayTokens],
+    [loadRecommendations, recommendedDisplayTokens],
     {
       watchLoading: true,
       resumeOnEffectReconnect: true,
