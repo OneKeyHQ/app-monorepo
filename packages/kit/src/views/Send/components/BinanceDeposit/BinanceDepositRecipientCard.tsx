@@ -8,7 +8,6 @@ import Animated, { FadeIn } from 'react-native-reanimated';
 import {
   Button,
   Divider,
-  HeightTransition,
   Image,
   SizableText,
   Spinner,
@@ -22,6 +21,7 @@ import {
   MOTION_EASE_OUT,
   MOTION_ENTER_MS,
 } from '@onekeyhq/kit/src/views/FiatCrypto/components/Headless/motionTokens';
+import { SendTestIDs } from '@onekeyhq/kit/src/views/Send/testIDs';
 import {
   EExchangeId,
   EXCHANGE_CONFIGS,
@@ -31,87 +31,13 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EBinanceDepositSessionStatus } from '@onekeyhq/shared/types/binanceDeposit';
 import type { IBinanceDepositSnapshot } from '@onekeyhq/shared/types/binanceDeposit';
 
-import type { ImageSourcePropType } from 'react-native';
-
-const BINANCE_LOGO: ImageSourcePropType = require('@onekeyhq/shared/src/assets/wallet/external/logo/logo_binance.png');
-// The artwork is black to its edge, so on a dark page only a ring keeps its
-// circle.
-const BINANCE_LOGO_RING = {
-  borderWidth: '$px',
-  borderColor: '$border',
-} as const;
+import {
+  BINANCE_LOGO,
+  BINANCE_LOGO_RING,
+  CARD_FRAME,
+} from './binanceDepositVisuals';
 
 const CARD_ENTERING = FadeIn.duration(MOTION_ENTER_MS).easing(MOTION_EASE_OUT);
-
-// The entry and every state of the recipient card, failures included,
-// share one frame: the border and corner radius of the large address input
-// these replace (the entry only shows on phones). The card, which holds a
-// whole step, rounds its corners further.
-const CARD_FRAME = {
-  p: '$4',
-  gap: '$3',
-  borderWidth: '$px',
-  borderColor: '$borderStrong',
-  borderRadius: '$3',
-  borderCurve: 'continuous',
-} as const;
-
-// Fades in when offered and pushes everything below down instead of
-// jumping; collapses the same way while an address is being typed. Its gap
-// to the input sits inside the transition, so it collapses too.
-export function BinanceDepositEntry({
-  hidden,
-  onPress,
-  onShown,
-}: {
-  hidden: boolean;
-  onPress: () => void;
-  // Called while the entry is on screen, for the impression.
-  onShown: () => void;
-}) {
-  const intl = useIntl();
-  useEffect(() => {
-    if (!hidden) {
-      onShown();
-    }
-  }, [hidden, onShown]);
-  return (
-    <HeightTransition hide={hidden}>
-      <ListItem
-        testID="send-binance-deposit-entry"
-        mx="$0"
-        mt="$3"
-        // The large address input's inner padding, so the logo lines up
-        // with the input's text.
-        px="$3.5"
-        py="$3"
-        gap="$3"
-        drillIn
-        onPress={onPress}
-        borderWidth={CARD_FRAME.borderWidth}
-        borderColor={CARD_FRAME.borderColor}
-        borderRadius={CARD_FRAME.borderRadius}
-        borderCurve={CARD_FRAME.borderCurve}
-        userSelect="none"
-      >
-        <Image
-          w="$6"
-          h="$6"
-          borderRadius="$full"
-          {...BINANCE_LOGO_RING}
-          source={BINANCE_LOGO}
-        />
-        <ListItem.Text
-          flex={1}
-          primary={intl.formatMessage({
-            id: ETranslations.binance_deposit_account__title,
-          })}
-          primaryTextProps={{ size: '$bodyLg' }}
-        />
-      </ListItem>
-    </HeightTransition>
-  );
-}
 
 function CardMessage({
   title,
@@ -260,7 +186,7 @@ export function BinanceDepositRecipientCard({
           />
           {isUnbound ? (
             <Button
-              testID="send-binance-deposit-enter-address"
+              testID={SendTestIDs.binanceDepositEnterAddress}
               size="large"
               onPress={onExit}
             >
@@ -268,7 +194,7 @@ export function BinanceDepositRecipientCard({
             </Button>
           ) : (
             <Button
-              testID="send-binance-deposit-open"
+              testID={SendTestIDs.binanceDepositOpen}
               size="large"
               variant="primary"
               loading={isBusy}
@@ -290,7 +216,7 @@ export function BinanceDepositRecipientCard({
       statusText = t(ETranslations.binance_deposit_confirmed__title);
       body = snapshot?.destination ? (
         <YStack gap="$2">
-          <XStack flexWrap="wrap" testID="send-binance-deposit-address">
+          <XStack flexWrap="wrap" testID={SendTestIDs.binanceDepositAddress}>
             <HighlightAddress
               address={snapshot.destination.address}
               size="$bodyLg"
@@ -336,11 +262,11 @@ export function BinanceDepositRecipientCard({
   if (failure) {
     statusText = failure.title;
     body = (
-      <YStack gap="$3" testID="send-binance-deposit-failure">
+      <YStack gap="$3" testID={SendTestIDs.binanceDepositFailure}>
         <CardMessage title={failure.title} isCritical={failure.isCritical} />
         <YStack gap="$2">
           <Button
-            testID="send-binance-deposit-try-again"
+            testID={SendTestIDs.binanceDepositTryAgain}
             size="large"
             variant="primary"
             loading={isBusy}
@@ -349,7 +275,7 @@ export function BinanceDepositRecipientCard({
             {intl.formatMessage({ id: ETranslations.global_try_again })}
           </Button>
           <Button
-            testID="send-binance-deposit-failure-exit"
+            testID={SendTestIDs.binanceDepositFailureExit}
             size="large"
             variant="secondary"
             onPress={onExit}
@@ -370,7 +296,7 @@ export function BinanceDepositRecipientCard({
 
   return (
     <Animated.View entering={CARD_ENTERING}>
-      <YStack gap="$1.5" testID={`send-binance-deposit-card-${phase}`}>
+      <YStack gap="$1.5" testID={SendTestIDs.binanceDepositCard(phase)}>
         {/* The way out sits at the right of the label in every state; a
             failure offers its own actions instead. */}
         <XStack alignItems="center" justifyContent="space-between" gap="$2">
@@ -379,7 +305,7 @@ export function BinanceDepositRecipientCard({
           </SizableText>
           {failure ? null : (
             <SizableText
-              testID="send-binance-deposit-exit"
+              testID={SendTestIDs.binanceDepositExit}
               role="button"
               size="$bodyMd"
               color="$textSubdued"

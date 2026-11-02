@@ -101,13 +101,11 @@ import {
 } from '../../../Prime/hooks/usePrimeFeatureAccess';
 import { getAccountIdOnNetwork } from '../../../ScanQrCode/utils/getAccountIdOnNetwork';
 import { parseOnChainAmount } from '../../../ScanQrCode/utils/parseOnChainAmount';
+import { BinanceDepositEntry } from '../../components/BinanceDeposit/BinanceDepositEntry';
+import { BinanceDepositRecipientCard } from '../../components/BinanceDeposit/BinanceDepositRecipientCard';
+import { useBinanceDepositRecipient } from '../../components/BinanceDeposit/useBinanceDepositRecipient';
 import { SendConfirmProviderMirror } from '../../components/SendConfirmProvider/SendConfirmProviderMirror';
 
-import {
-  BinanceDepositEntry,
-  BinanceDepositRecipientCard,
-} from './BinanceDeposit/BinanceDepositRecipient';
-import { useBinanceDepositRecipient } from './BinanceDeposit/useBinanceDepositRecipient';
 import { looksLikeListedAddress } from './recipientListAddressUtils';
 import RecipientQuickSelect from './RecipientQuickSelect';
 import {

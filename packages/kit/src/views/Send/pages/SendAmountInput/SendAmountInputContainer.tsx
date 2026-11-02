@@ -170,13 +170,13 @@ import { useSupportToken } from '../../../FiatCrypto/hooks';
 import { showBalanceDetailsDialog } from '../../../Home/components/BalanceDetailsDialog';
 import { HomeTokenListProviderMirror } from '../../../Home/components/HomeTokenListProvider/HomeTokenListProviderMirror';
 import { showSimilarAddressDialog } from '../../../SignatureConfirm/components/SimilarAddressDialog/SimilarAddressDialog';
+import { buildBinanceDepositSendHooks } from '../../components/BinanceDeposit/binanceDepositSendHooks';
 import CoinControlBadge from '../../components/CoinControlBadge';
 import {
   type ISendAmountAutoSizeInputRef,
   SendAutoSizeAmountInput,
 } from '../../components/SendAutoSizeAmountInput';
 import { SendConfirmProviderMirror } from '../../components/SendConfirmProvider/SendConfirmProviderMirror';
-import { buildBinanceDepositSendHooks } from '../SendDataInput/BinanceDeposit/binanceDepositSendHooks';
 
 import { AttentionPulse } from './components/AttentionPulse';
 import { showPrivateSendGuideDialog } from './components/PrivateSendGuideDialog';

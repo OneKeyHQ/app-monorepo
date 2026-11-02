@@ -5,16 +5,8 @@ import { AppState } from 'react-native';
 
 import { Toast } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { useIsEnableTransferAllowList } from '@onekeyhq/kit/src/components/AddressInput/hooks';
-import { canOpenExchangeApp } from '@onekeyhq/kit/src/hooks/useExchangeAppDetection';
 import { useHandleAppStateActive } from '@onekeyhq/kit/src/hooks/useHandleAppStateActive';
-import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
-import { EExchangeId } from '@onekeyhq/shared/src/consts/exchangeConsts';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { travelModeManager } from '@onekeyhq/shared/src/travelMode';
-import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { getBinanceDepositEventContext } from '@onekeyhq/shared/src/utils/binanceDepositUtils';
 import openUrlUtils from '@onekeyhq/shared/src/utils/openUrlUtils';
 import {
@@ -23,12 +15,13 @@ import {
 } from '@onekeyhq/shared/types/binanceDeposit';
 import type {
   IBinanceDepositAsset,
-  IBinanceDepositPhase,
   IBinanceDepositSnapshot,
 } from '@onekeyhq/shared/types/binanceDeposit';
-import type { IToken } from '@onekeyhq/shared/types/token';
 
-import type { IntlShape } from 'react-intl';
+import {
+  getBinanceDepositErrorCode,
+  getBinanceDepositErrorTitle,
+} from './binanceDepositErrors';
 
 // Local reads only; the service asks the server at its own pace.
 const SNAPSHOT_POLL_INTERVAL_MS = 1500;
@@ -58,24 +51,6 @@ function waitUntilAppLeaves(maxMs: number): Promise<void> {
   });
 }
 
-function getErrorCode(error: unknown): number | undefined {
-  return (error as { code?: number } | undefined)?.code;
-}
-
-function getErrorToastTitle(intl: IntlShape, error: unknown): string {
-  const t = (id: ETranslations) => intl.formatMessage({ id });
-  switch (getErrorCode(error)) {
-    case EBinanceDepositErrorCode.FeatureDisabled:
-    case EBinanceDepositErrorCode.DepositDisabled:
-    case EBinanceDepositErrorCode.CapabilityStale:
-      return t(ETranslations.binance_deposit_asset_unavailable__msg);
-    case EBinanceDepositErrorCode.RateLimited:
-      return t(ETranslations.global_request_limit);
-    default:
-      return t(ETranslations.binance_deposit_unavailable__msg);
-  }
-}
-
 function isSameSnapshot(
   a: IBinanceDepositSnapshot | null | undefined,
   b: IBinanceDepositSnapshot | undefined,
@@ -94,16 +69,16 @@ function isSameSnapshot(
   );
 }
 
-export function useBinanceDepositRecipient({
-  accountId,
-  networkId,
-  token,
-  isNFT,
+// The deposit session behind the recipient card: starting it, opening
+// Binance, noticing the return and following the session to its address.
+export function useBinanceDepositSession({
+  asset,
+  onAssetStale,
+  onAssetDisabled,
 }: {
-  accountId: string;
-  networkId: string;
-  token?: IToken | null;
-  isNFT: boolean;
+  asset: IBinanceDepositAsset | null | undefined;
+  onAssetStale: () => void;
+  onAssetDisabled: () => void;
 }) {
   const intl = useIntl();
   // null from the tap until the first server answer, so the card shows at
@@ -122,56 +97,6 @@ export function useBinanceDepositRecipient({
       attemptRef.current += 1;
     },
     [],
-  );
-
-  const isTransferAllowListEnabled = useIsEnableTransferAllowList();
-  // iOS / Android only: the authorization link only works in the Binance
-  // app, and only a phone gets the return deep link. Accounts that can't
-  // sign, allowlists that would block a fresh deposit address at the amount
-  // step, and Travel Mode, which keeps no session key, never get the entry.
-  const depositToken =
-    platformEnv.isNative &&
-    !isNFT &&
-    !isTransferAllowListEnabled &&
-    !accountUtils.isWatchingAccount({ accountId }) &&
-    travelModeManager.getRuntimeEnvironmentSync().profile.kind !== 'travel-mode'
-      ? token
-      : undefined;
-
-  // Both answers are cached so the entry is there when the page opens. A
-  // token Binance doesn't accept is cached as null: the cache never stores
-  // undefined, and a stale asset would flash the entry on every open. A
-  // failed fetch keeps what is there.
-  const {
-    result: asset,
-    setResult: setAsset,
-    run: refreshAsset,
-  } = usePromiseResult(
-    async () =>
-      depositToken
-        ? ((await backgroundApiProxy.serviceBinanceDeposit.getDepositAsset({
-            networkId,
-            symbol: depositToken.symbol,
-            contractAddress: depositToken.address,
-            isNative: !!depositToken.isNative,
-          })) ?? null)
-        : undefined,
-    [depositToken, networkId],
-    {
-      swrKey: depositToken
-        ? `binance-deposit-asset:${networkId}:${depositToken.address || 'native'}`
-        : undefined,
-      keepResultIfError: true,
-    },
-  );
-  // Asked again only when the asset comes or goes, not each time a fresh
-  // copy of it arrives.
-  const hasAsset = !!asset;
-  const { result: isBinanceInstalled } = usePromiseResult(
-    async () =>
-      hasAsset ? canOpenExchangeApp(EExchangeId.Binance) : undefined,
-    [hasAsset],
-    { swrKey: 'binance-deposit-app-installed' },
   );
 
   const runExclusive = useCallback(async (task: () => Promise<void>) => {
@@ -256,7 +181,7 @@ export function useBinanceDepositRecipient({
           );
           return;
         }
-        Toast.error({ title: getErrorToastTitle(intl, error) });
+        Toast.error({ title: getBinanceDepositErrorTitle(intl, error) });
       } finally {
         if (openingAttemptRef.current === attempt) {
           openingAttemptRef.current = undefined;
@@ -324,22 +249,20 @@ export function useBinanceDepositRecipient({
       if (attempt !== attemptRef.current) {
         return;
       }
-      Toast.error({ title: getErrorToastTitle(intl, error) });
-      const code = getErrorCode(error);
+      Toast.error({ title: getBinanceDepositErrorTitle(intl, error) });
+      const code = getBinanceDepositErrorCode(error);
       defaultLogger.transaction.send.binanceDepositFail({
         ...getBinanceDepositEventContext(failedAsset),
         reason: 'request_rejected',
         errorCode: code,
       });
       if (code === EBinanceDepositErrorCode.CapabilityStale) {
-        void refreshAsset();
+        onAssetStale();
       } else if (
         code === EBinanceDepositErrorCode.FeatureDisabled ||
         code === EBinanceDepositErrorCode.DepositDisabled
       ) {
-        // Turned off by Binance for now: the entry goes away on this page,
-        // and the next list fetched decides when it comes back.
-        setAsset(null);
+        onAssetDisabled();
       }
       const next = localId
         ? await backgroundApiProxy.serviceBinanceDeposit.getSnapshot(localId)
@@ -349,7 +272,7 @@ export function useBinanceDepositRecipient({
       }
       setSnapshot(next);
     },
-    [intl, refreshAsset, setAsset],
+    [intl, onAssetDisabled, onAssetStale],
   );
 
   // A start that picks up an address already released only waits for the
@@ -481,75 +404,9 @@ export function useBinanceDepositRecipient({
     };
   }, [localId, phase]);
 
-  const isEntryAvailable = !!asset && isBinanceInstalled === true;
-  // Called by the entry while it is on screen. Once per page for each
-  // asset, however often typing hides it.
-  const shownAssetKeyRef = useRef<string | undefined>(undefined);
-  const reportEntryShown = useCallback(() => {
-    const key = asset ? `${asset.networkId}:${asset.cryptoCurrency}` : '';
-    if (!asset || !isEntryAvailable || shownAssetKeyRef.current === key) {
-      return;
-    }
-    shownAssetKeyRef.current = key;
-    defaultLogger.transaction.send.binanceDepositEntryShow(
-      getBinanceDepositEventContext(asset),
-    );
-  }, [asset, isEntryAvailable]);
-
-  // Each state a session reaches is reported once. A session that already
-  // has its address when it first shows here was picked up again.
-  const reportedRef = useRef<{
-    localId?: string;
-    phase?: IBinanceDepositPhase;
-    isNotReturned?: boolean;
-  }>({});
-  useEffect(() => {
-    if (!snapshot) {
-      return;
-    }
-    const last = reportedRef.current;
-    const isSameSession = last.localId === snapshot.localId;
-    // Confirmed in Binance while no return has reached this phone; once one
-    // has, the session is confirming whatever status the server reports.
-    const isNotReturned =
-      snapshot.phase === 'awaiting' &&
-      snapshot.status === EBinanceDepositSessionStatus.AUTHORIZED_UNBOUND;
-    reportedRef.current = {
-      localId: snapshot.localId,
-      phase: snapshot.phase,
-      isNotReturned,
-    };
-    const context = getBinanceDepositEventContext(snapshot);
-    if (isNotReturned && !(isSameSession && last.isNotReturned)) {
-      defaultLogger.transaction.send.binanceDepositNotReturned(context);
-    }
-    if (isSameSession && last.phase === snapshot.phase) {
-      return;
-    }
-    if (snapshot.phase === 'authorized') {
-      defaultLogger.transaction.send.binanceDepositAddressReceived({
-        ...context,
-        isResumed: !isSameSession,
-      });
-    } else if (
-      snapshot.phase === 'failed' ||
-      snapshot.phase === 'create_failed'
-    ) {
-      defaultLogger.transaction.send.binanceDepositFail({
-        ...context,
-        reason: snapshot.failReason ?? 'create_failed',
-      });
-    }
-  }, [snapshot]);
-
   return {
-    isEntryAvailable,
-    reportEntryShown,
-    // The card takes over from the tap, before the server has answered.
-    isActive: snapshot !== undefined,
-    snapshot: snapshot ?? undefined,
+    snapshot,
     isBusy,
-    // Binance is being opened; the card holds its opening state till then.
     isOpening,
     isResuming,
     start,
