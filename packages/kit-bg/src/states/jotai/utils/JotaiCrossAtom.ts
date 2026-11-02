@@ -1,8 +1,13 @@
 import { isNil } from 'lodash';
 
 import { jotaiDefaultStore } from './jotaiDefaultStore';
+import { shouldProxyAtomUpdateFromUiToBg } from './wrapAtomPro';
 
-import type { IJotaiAtomPro, IJotaiWritableAtomPro } from '../types';
+import type {
+  IJotaiAtomPro,
+  IJotaiAtomSetWithoutProxy,
+  IJotaiWritableAtomPro,
+} from '../types';
 import type {
   ExtractAtomArgs,
   ExtractAtomResult,
@@ -46,6 +51,31 @@ export class JotaiCrossAtom<T extends () => any> {
       Result
     >;
     return jotaiDefaultStore.set(a, ...args);
+  };
+
+  // Apply `value` on this UI runtime first, then forward it to bg. A plain
+  // `set` on a split runtime only proxies the write and the UI repaints when
+  // the bg echo comes back, so any bg backlog (all-networks refresh on
+  // Android) shows up as input lag. Only for user-initiated writes whose next
+  // value the UI already knows; the bg echo then lands as an equal no-op.
+  setOptimistic = async <AtomValue extends ExtractAtomValue<ReturnType<T>>>(
+    value: AtomValue,
+  ) => {
+    const a = (await this.ready()) as IJotaiWritableAtomPro<
+      AtomValue,
+      [update: AtomValue | IJotaiAtomSetWithoutProxy],
+      unknown
+    >;
+    if (!shouldProxyAtomUpdateFromUiToBg()) {
+      return jotaiDefaultStore.set(a, value);
+    }
+    const localUpdate: IJotaiAtomSetWithoutProxy = {
+      $$isForceSetAtomWithoutProxy: true,
+      name: this.name,
+      payload: value,
+    };
+    await jotaiDefaultStore.set(a, localUpdate);
+    return jotaiDefaultStore.set(a, value);
   };
 
   sub = (callback: () => void): (() => void) => {

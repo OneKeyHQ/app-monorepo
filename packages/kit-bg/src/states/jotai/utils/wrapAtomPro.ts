@@ -16,6 +16,15 @@ import type {
   IJotaiWritableAtomPro,
 } from '../types';
 
+// UI runtimes that do not own the atom state (extension UI, native main with
+// the background thread) forward every write to bg and repaint on its echo.
+export function shouldProxyAtomUpdateFromUiToBg() {
+  return (
+    platformEnv.isExtensionUi ||
+    (platformEnv.isNativeMainThread && platformEnv.enableNativeBackgroundThread)
+  );
+}
+
 export function wrapAtomPro(
   name: EAtomNames,
   baseAtom: IJotaiWritableAtomPro<
@@ -24,10 +33,7 @@ export function wrapAtomPro(
     Promise<void> | undefined
   >,
 ) {
-  const shouldProxyStateUpdateFromUiToBg =
-    platformEnv.isExtensionUi ||
-    (platformEnv.isNativeMainThread &&
-      platformEnv.enableNativeBackgroundThread);
+  const shouldProxyStateUpdateFromUiToBg = shouldProxyAtomUpdateFromUiToBg();
   const shouldBroadcastStateUpdateFromBgToUi =
     platformEnv.isExtensionBackground ||
     (platformEnv.isNativeBackgroundThread &&
