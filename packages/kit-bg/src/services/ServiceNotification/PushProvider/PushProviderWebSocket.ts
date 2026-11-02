@@ -314,10 +314,18 @@ export class PushProviderWebSocket extends PushProviderBase {
     );
     const env = endpoint.includes('onekeytest') ? 'test' : 'prod';
     // TODO init timeout
+    // The sticky key rides on `query`, which engine.io appends to every
+    // transport's URL (WebSocket handshake included). Do not move it back to
+    // `extraHeaders`: the browser build of engine.io-client drops extra headers
+    // for WebSocket (websocket.ts calls `new WebSocket(uri)` when
+    // `usingBrowserWebSocket` is true), so Electron never sent the key and its
+    // polling fallback landed on random pods, answering 400 "Session ID unknown".
+    // The name is underscored because the gateway resolves it with nginx
+    // `$arg_`, whose variable names cannot contain a hyphen.
     this.socket = io(endpoint, {
       transports: ['websocket', 'polling'],
-      extraHeaders: {
-        'x-onekey-client-sticky-key': `${platformEnv.appPlatform ?? 'unknown'}:${env}:${this.instanceId}`,
+      query: {
+        x_onekey_client_sticky_key: `${platformEnv.appPlatform ?? 'unknown'}:${env}:${this.instanceId}`,
       },
       auth: {
         instanceId: this.instanceId,
