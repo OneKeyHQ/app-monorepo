@@ -13,7 +13,13 @@ const mockSocket = {
   emit: jest.fn(),
   timeout: jest.fn(),
 };
-const mockIo = jest.fn(() => mockSocket);
+type IMockIoOptions = {
+  query?: Record<string, string>;
+  extraHeaders?: Record<string, string>;
+};
+const mockIo = jest.fn(
+  (_endpoint: string, _options?: IMockIoOptions) => mockSocket,
+);
 const mockGetEndpointInfo = jest.fn<
   Promise<{ endpoint: string; name: EServiceEndpointEnum }>,
   [{ name: EServiceEndpointEnum }]
@@ -25,7 +31,7 @@ const mockOneKeyIdRemoteLogoutFlowLog = jest.fn();
 const mockNotificationStatusSet = jest.fn();
 
 jest.mock('socket.io-client', () => ({
-  io: () => mockIo(),
+  io: (...args: Parameters<typeof mockIo>) => mockIo(...args),
 }));
 
 jest.mock('../../../endpoints', () => ({
@@ -76,6 +82,7 @@ jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
 
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { EAppEventBusNames } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import { ENotificationPushMessageAckAction } from '@onekeyhq/shared/types/notification';
 import type { IIdentityExitPlanId } from '@onekeyhq/shared/types/prime/identityExitTypes';
@@ -461,5 +468,59 @@ describe('PushProviderWebSocket prime device logout', () => {
         messageId: 'pending-message',
       },
     );
+  });
+});
+
+describe('PushProviderWebSocket sticky key', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockSocketHandlers.clear();
+    mockGetEndpointInfo.mockResolvedValue({
+      endpoint: 'wss://notification.example.com',
+      name: EServiceEndpointEnum.NotificationWebSocket,
+    });
+  });
+
+  async function createProviderAndWaitForSocket() {
+    createFixture();
+    // initWebSocket awaits getEndpointInfo before calling io()
+    await new Promise((resolve) => {
+      setTimeout(resolve, 0);
+    });
+  }
+
+  test('sends the sticky key as an underscored query parameter', async () => {
+    await createProviderAndWaitForSocket();
+
+    expect(mockIo).toHaveBeenCalledTimes(1);
+    const [endpoint, options] = mockIo.mock.calls[0] ?? [];
+    expect(endpoint).toBe('wss://notification.example.com');
+    expect(options).toMatchObject({
+      query: {
+        x_onekey_client_sticky_key: `${
+          platformEnv.appPlatform ?? 'unknown'
+        }:prod:instance-1`,
+      },
+    });
+    // Reverting to extraHeaders would silently drop the key for WebSocket.
+    expect(options).not.toHaveProperty('extraHeaders');
+  });
+
+  test('labels the test environment in the sticky key', async () => {
+    mockGetEndpointInfo.mockResolvedValue({
+      endpoint: 'wss://notification.onekeytest.com',
+      name: EServiceEndpointEnum.NotificationWebSocket,
+    });
+
+    await createProviderAndWaitForSocket();
+
+    const [, options] = mockIo.mock.calls[0] ?? [];
+    expect(options).toMatchObject({
+      query: {
+        x_onekey_client_sticky_key: `${
+          platformEnv.appPlatform ?? 'unknown'
+        }:test:instance-1`,
+      },
+    });
   });
 });
