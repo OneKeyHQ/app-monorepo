@@ -967,8 +967,9 @@ class ServiceKeylessCloudSync extends ServiceBase {
       }
       // Reset can wait on the device while a normal request rotates the token.
       // Only the refresh operation itself may replace the stored token pair.
+      // Keep any recovery key saved while the refresh request was in flight.
       const updated = refreshedSession
-        ? credential
+        ? { ...stored, hardwareSession: credential.hardwareSession }
         : {
             ...credential,
             hardwareSession: {
@@ -1058,14 +1059,39 @@ class ServiceKeylessCloudSync extends ServiceBase {
       client,
       session,
     });
-    const pending = credential.pendingDataKey;
+    const stored = await keylessSyncCredentialStorage.getCredential(
+      credential.keylessWalletId,
+    );
+    const sameSession =
+      stored?.hardwareSession?.sessionId === session.sessionId;
+    if (
+      sameSession &&
+      stored.hardwareSession?.dekId === serverDekId &&
+      serverDekId !== session.dekId
+    ) {
+      // Another request already completed recovery while this one waited.
+      return stored;
+    }
+    // An in-flight request can predate the pending-key save. Recover from the
+    // durable credential when its session and pending key match the server.
+    const recoveryCredential =
+      sameSession && stored.pendingDataKey?.dekId === serverDekId
+        ? stored
+        : credential;
+    const pending = recoveryCredential.pendingDataKey;
     if (pending && serverDekId === pending.dekId) {
-      const updated = await this.commitHardwareDataKey(credential, pending);
+      const updated = await this.commitHardwareDataKey(
+        recoveryCredential,
+        pending,
+      );
       // The generation was computed here before the flush, not read back
       // from the server.
-      if (credential.source?.type === 'hardware' && pending.generation) {
+      if (
+        recoveryCredential.source?.type === 'hardware' &&
+        pending.generation
+      ) {
         await this.recordHardwareKeyGeneration(
-          credential.source.credentialId,
+          recoveryCredential.source.credentialId,
           pending.generation,
         );
       }

@@ -1690,6 +1690,78 @@ describe('hardware reset session and local data races', () => {
     expect(mockStored?.pendingDataKey?.dekId).toBe(next.dekId);
   });
 
+  test('a refresh preserves a concurrent reset recovery key for the next sync', async () => {
+    const { service } = setup();
+    const pending = { ...next, generation: 2 };
+    const refreshedSession = {
+      ...session,
+      accessToken: 'public-test-access-new',
+      refreshToken: 'public-test-refresh-new',
+    };
+    let finishRefresh: () => void = () => undefined;
+    let refreshEntered: () => void = () => undefined;
+    const entered = new Promise<void>((resolve) => {
+      refreshEntered = resolve;
+    });
+    const reply = new Promise<typeof session>((resolve) => {
+      finishRefresh = () => resolve(refreshedSession);
+    });
+    jest
+      .mocked(sessionApi.refreshHardwareCloudSyncSessionIfNeeded)
+      .mockImplementationOnce(async () => {
+        refreshEntered();
+        return reply;
+      });
+    const refreshing = service['getFreshHardwareCredential'](current, {
+      force: true,
+    });
+    await entered;
+    await service['saveHardwareCredential']({
+      ...current,
+      pendingDataKey: pending,
+    });
+    finishRefresh();
+    const fresh = await refreshing;
+    expect(fresh.pendingDataKey).toEqual(pending);
+    expect(mockStored?.pendingDataKey).toEqual(pending);
+    expect(mockStored?.hardwareSession?.refreshToken).toBe(
+      refreshedSession.refreshToken,
+    );
+
+    // The flush succeeded, but this device stopped before local commit. The
+    // following sync must finish with the saved recovery key, without signing.
+    jest
+      .mocked(sessionApi.getCurrentHardwareCloudSyncDataKeyId)
+      .mockResolvedValueOnce(next.dekId);
+    jest.spyOn(localDb, 'updateSyncItem').mockResolvedValue(undefined);
+    const recovered = await service['handleHardwareDataKeyRefused'](current);
+    expect(recovered?.encryptionKey).toBe(next.dek);
+    expect(mockStored?.hardwareSession?.dekId).toBe(next.dekId);
+    expect(mockStored?.pendingDataKey).toBeUndefined();
+    expect(
+      mockConfig.hardwareCloudSyncKeyGenerations?.[source.credentialId],
+    ).toBe(2);
+  });
+
+  test('a stale request keeps a data key another request already recovered', async () => {
+    const { service } = setup();
+    mockStored = {
+      ...current,
+      encryptionKey: next.dek,
+      pwdHash: next.pwdHash,
+      hardwareSession: { ...session, dekId: next.dekId },
+    };
+    jest
+      .mocked(sessionApi.getCurrentHardwareCloudSyncDataKeyId)
+      .mockResolvedValueOnce(next.dekId);
+    const recovered = await service['handleHardwareDataKeyRefused'](current);
+    expect(recovered).toBe(mockStored);
+    expect(mockStored.encryptionKey).toBe(next.dek);
+    expect(
+      keylessSyncCredentialStorage.removeAllCredentials,
+    ).not.toHaveBeenCalled();
+  });
+
   test('a late refresh cannot restore the data key retired by a reset', async () => {
     const { service } = setup();
     mockStored = {
