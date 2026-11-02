@@ -192,6 +192,41 @@ it('reuses the pending image request after the first-page prewarm times out', as
   expect(mockPreloadImages).toHaveBeenCalledTimes(1);
 });
 
+it('retries an expired prewarm without letting its late completion clear the replacement', async () => {
+  const oldImages = deferred<boolean>();
+  const newImages = deferred<boolean>();
+  mockPreloadImages
+    .mockReturnValueOnce(oldImages.promise)
+    .mockReturnValue(newImages.promise);
+  const response = {
+    items: [
+      { ...createStock('STALLED'), logoUrl: 'https://example.com/stalled.png' },
+    ],
+    total: 1,
+  };
+  fetchList.mockResolvedValue(response);
+  const first = renderHook(() => useMarketStockSelectorList({}));
+  await waitFor(() =>
+    expect(first.result.current.items).toEqual(response.items),
+  );
+  first.unmount();
+  const now = Date.now();
+  const clock = jest.spyOn(Date, 'now').mockReturnValue(now + 30_001);
+  try {
+    const second = renderHook(() => useMarketStockSelectorList({}));
+    await waitFor(() => expect(mockPreloadImages).toHaveBeenCalledTimes(2));
+    await act(async () => oldImages.resolve(false));
+    second.unmount();
+    const third = renderHook(() => useMarketStockSelectorList({}));
+    await waitFor(() => expect(fetchList).toHaveBeenCalledTimes(3));
+    expect(mockPreloadImages).toHaveBeenCalledTimes(2);
+    await act(async () => newImages.resolve(true));
+    third.unmount();
+  } finally {
+    clock.mockRestore();
+  }
+});
+
 it('loads selector pages and appends unique stocks', async () => {
   fetchList.mockImplementation(async (params) =>
     params?.cursor ? secondPage : firstPage,

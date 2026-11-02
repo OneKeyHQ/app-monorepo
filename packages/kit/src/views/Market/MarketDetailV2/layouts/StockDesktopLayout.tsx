@@ -1334,7 +1334,7 @@ function StockOverview({
   const { activeTab, selectTab } = useStockDetailTab(initialSection);
   const { stockId } = useStockDetail();
   const { ref, minHeight, preserveScrollPosition } =
-    useMarketDetailTabMinHeight();
+    useMarketDetailTabMinHeight(stockId);
   const handleTabChange = (tab: IStockDetailTab) => {
     preserveScrollPosition();
     selectTab(tab);

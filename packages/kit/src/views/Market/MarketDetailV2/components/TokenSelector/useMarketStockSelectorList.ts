@@ -32,6 +32,7 @@ const MARKET_STOCK_SELECTOR_CACHE_FRESH_MS = 5 * 60 * 1000;
 const MARKET_STOCK_SELECTOR_IMAGE_PREWARM_LIMIT = 6;
 const MARKET_STOCK_SELECTOR_IMAGE_RESIZE_WIDTH = getTokenImageResizeWidth('md');
 const STOCK_SELECTOR_IMAGE_PREWARM_TIMEOUT_MS = 500;
+const STOCK_SELECTOR_IMAGE_PREWARM_PENDING_TTL_MS = 30_000;
 // Keep the selector-side bookkeeping bounded to the same number of entries as
 // the web ImageV2 preload cache. Native uses its own image cache and does not
 // consult this set when rendering.
@@ -41,7 +42,7 @@ const UNINITIALIZED_STOCK_SELECTOR_QUERY_KEY = '__uninitialized__';
 const prewarmedStockSelectorImageUris = new Set<string>();
 const prewarmingStockSelectorImagePromises = new Map<
   string,
-  Promise<boolean>
+  { promise: Promise<boolean>; expiresAt: number }
 >();
 
 type IMarketStockSelectorListResult = {
@@ -132,6 +133,12 @@ function withTimeout(promise: Promise<boolean>, timeoutMs: number) {
 }
 
 async function prewarmStockSelectorImages(items: IMarketStockPublicItem[]) {
+  const now = Date.now();
+  // Discard expired entries on access without keeping timers alive for idle selectors.
+  for (const [uri, pending] of prewarmingStockSelectorImagePromises) {
+    if (pending.expiresAt <= now)
+      prewarmingStockSelectorImagePromises.delete(uri);
+  }
   const uris = getStockSelectorImageUris(items).filter(
     (uri) => !isStockSelectorImagePrewarmed(uri),
   );
@@ -169,11 +176,16 @@ async function prewarmStockSelectorImages(items: IMarketStockPublicItem[]) {
     newUris.forEach((uri) => {
       // The display deadline must not expire the underlying image request.
       const uriPromise = batchPromise.finally(() => {
-        if (prewarmingStockSelectorImagePromises.get(uri) === uriPromise) {
+        if (
+          prewarmingStockSelectorImagePromises.get(uri)?.promise === uriPromise
+        ) {
           prewarmingStockSelectorImagePromises.delete(uri);
         }
       });
-      prewarmingStockSelectorImagePromises.set(uri, uriPromise);
+      prewarmingStockSelectorImagePromises.set(uri, {
+        promise: uriPromise,
+        expiresAt: now + STOCK_SELECTOR_IMAGE_PREWARM_PENDING_TTL_MS,
+      });
     });
   }
 
@@ -181,7 +193,7 @@ async function prewarmStockSelectorImages(items: IMarketStockPublicItem[]) {
     Promise.all(
       uris.map(
         (uri) =>
-          prewarmingStockSelectorImagePromises.get(uri) ??
+          prewarmingStockSelectorImagePromises.get(uri)?.promise ??
           Promise.resolve(true),
       ),
     ).then((results) => results.every(Boolean)),

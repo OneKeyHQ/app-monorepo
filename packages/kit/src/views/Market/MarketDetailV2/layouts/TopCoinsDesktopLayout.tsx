@@ -113,7 +113,7 @@ function TopCoinsInformation({
   const intl = useIntl();
   const [tab, setTab] = useState<'overview' | 'portfolio'>('overview');
   const { ref, minHeight, preserveScrollPosition } =
-    useMarketDetailTabMinHeight();
+    useMarketDetailTabMinHeight(assetDetail?.asset.assetId);
   const handleTabChange = (nextTab: typeof tab) => {
     preserveScrollPosition();
     setTab(nextTab);

@@ -775,44 +775,59 @@ it('withholds a newly favorited listing while the previous batch is reused', asy
     expect.objectContaining({ id: 'stock:AAPL', name: 'Apple', price: 321 }),
   ]);
 });
-it('keeps cached rows and holds back only the uncovered listing', async () => {
-  mockStockBatch.mockResolvedValue([
-    stockItem('AAPL', { name: 'Apple', price: '321' }),
-  ]);
-  const dataCacheRef: RefObject<IMarketWatchlistDataCache | undefined> = {
-    current: undefined,
-  };
-  const first = renderHook(() =>
-    useMarketWatchlistTokenList({
-      watchlist: [
-        { stockId: 'AAPL', chainId: '', contractAddress: '', sortIndex: 0 },
-      ],
-      pollingInterval: 0,
-      dataCacheRef,
-    }),
-  );
-  await waitFor(() => expect(first.result.current.data).toHaveLength(1));
-  first.unmount();
-
-  // TSLA has no cached quote, so rendering it would show NaN metrics, while
-  // AAPL is still covered by the cache and renders straight away.
-  mockStockBatch.mockReturnValue(
-    new Promise<IMarketStockPublicItem[]>(() => {}),
-  );
-  const second = renderHook(() =>
-    useMarketWatchlistTokenList({
-      watchlist: [
-        { stockId: 'AAPL', chainId: '', contractAddress: '', sortIndex: 0 },
-        { stockId: 'TSLA', chainId: '', contractAddress: '', sortIndex: 1 },
-      ],
-      pollingInterval: 0,
-      dataCacheRef,
-    }),
-  );
-  expect(second.result.current.data).toEqual([
-    expect.objectContaining({ id: 'stock:AAPL', name: 'Apple', price: 321 }),
-  ]);
-});
+it.each([false, true])(
+  'waits for every current listing on remount, with empty spot cache=%s',
+  async (withSpot) => {
+    mockBatch.mockResolvedValue({ list: [] });
+    mockStockBatch.mockResolvedValue([stockItem('AAPL')]);
+    const dataCacheRef: RefObject<IMarketWatchlistDataCache | undefined> = {
+      current: undefined,
+    };
+    const watchlist: IMarketWatchListItemV2[] = [
+      { stockId: 'AAPL', chainId: '', contractAddress: '', sortIndex: 0 },
+      ...(withSpot
+        ? [{ chainId: 'evm--1', contractAddress: '0xunresolved', sortIndex: 1 }]
+        : []),
+    ];
+    const first = renderHook(() =>
+      useMarketWatchlistTokenList({
+        watchlist,
+        pollingInterval: 0,
+        dataCacheRef,
+      }),
+    );
+    await waitFor(() =>
+      expect(first.result.current.hasLoadedAllSources).toBe(true),
+    );
+    first.unmount();
+    const nextWatchlist = [
+      ...watchlist,
+      { stockId: 'TSLA', chainId: '', contractAddress: '', sortIndex: 2 },
+    ];
+    let resolveBatch: (items: IMarketStockPublicItem[]) => void = () => {};
+    mockStockBatch.mockReturnValue(
+      new Promise((resolve) => {
+        resolveBatch = resolve;
+      }),
+    );
+    const second = renderHook(() =>
+      useMarketWatchlistTokenList({
+        watchlist: nextWatchlist,
+        pollingInterval: 0,
+        dataCacheRef,
+      }),
+    );
+    expect(second.result.current.data).toEqual([]);
+    expect(second.result.current.isLoading).toBe(true);
+    await act(async () => resolveBatch([stockItem('AAPL'), stockItem('TSLA')]));
+    await waitFor(() =>
+      expect(second.result.current.data.map((item) => item.symbol)).toEqual([
+        'AAPL',
+        'TSLA',
+      ]),
+    );
+  },
+);
 
 it('reuses home quotes in the selector without restoring removed favorites', async () => {
   mockStockBatch.mockResolvedValue([stockItem('AAPL'), stockItem('MSFT')]);

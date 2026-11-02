@@ -174,7 +174,16 @@ function watchlistMountCacheCoversSources(
   ) {
     return false;
   }
-  if (needsListing && !cache.listing?.length) {
+  if (
+    needsListing &&
+    !items
+      .filter(isWatchlistListingItem)
+      .every((item) =>
+        cache.listing?.some(
+          (entry) => entry.key === getMarketWatchlistKey(item),
+        ),
+      )
+  ) {
     return false;
   }
   if (needsPerps && !cache.perps?.tokenListData) {
