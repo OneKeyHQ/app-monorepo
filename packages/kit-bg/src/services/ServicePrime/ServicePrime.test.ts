@@ -369,6 +369,7 @@ const REQUEST_TOKEN = 'request-token';
 
 function createService() {
   const simpleDbPrime = {
+    isInfiniPaymentRetired: jest.fn(async () => false),
     recordInfiniPaymentValidation: jest.fn(async () => undefined),
     getAuthSessionSource: jest.fn(async () => undefined as unknown),
     getAuthSessionCommitId: jest.fn(
@@ -1877,7 +1878,7 @@ describe('ServicePrime Infini payment APIs', () => {
   );
 
   it.each(['network failure', 'timeout'])(
-    'fails open on pending lookup %s with sanitized diagnostics',
+    'fails closed on pending lookup %s with sanitized diagnostics',
     async (message) => {
       const { service } = createInfiniService();
       service.getPrimeClient = jest.fn(async () => ({
@@ -1885,13 +1886,11 @@ describe('ServicePrime Infini payment APIs', () => {
           throw new OneKeyLocalError(`${message} secret-token private-address`);
         }),
       }));
-      expect(
-        (
-          await service.apiGetInfiniPendingPayment({
-            expectedOneKeyUserId: 'user-a',
-          })
-        ).pendingPayment,
-      ).toBeUndefined();
+      await expect(
+        service.apiGetInfiniPendingPayment({
+          expectedOneKeyUserId: 'user-a',
+        }),
+      ).rejects.toThrow('Infini pending payment lookup failed');
       expect(mockPrimeCryptoPaymentFlowLog).toHaveBeenCalledWith(
         expect.objectContaining({ reason: 'remotePendingLookupFailed' }),
       );
@@ -1900,6 +1899,57 @@ describe('ServicePrime Infini payment APIs', () => {
       ).not.toMatch(/secret-token|private-address/);
     },
   );
+
+  it.each([
+    undefined,
+    { data: {} },
+    { data: { data: false } },
+    { data: { data: [] } },
+  ])('fails closed on a malformed lookup response: %j', async (response) => {
+    const { service } = createInfiniService();
+    service.getPrimeClient = jest.fn(async () => ({
+      get: jest.fn(async () => response),
+    }));
+    await expect(
+      service.apiGetInfiniPendingPayment({ expectedOneKeyUserId: 'user-a' }),
+    ).rejects.toThrow('Infini pending payment lookup failed');
+  });
+
+  it('excludes a locally retired invoice still returned by the server', async () => {
+    const { service, simpleDbPrime } = createInfiniService();
+    simpleDbPrime.isInfiniPaymentRetired.mockResolvedValue(true);
+    service.getPrimeClient = jest.fn(async () => ({
+      get: jest.fn(async () => ({
+        data: { data: { ...payment, plan: 'monthly' } },
+      })),
+    }));
+    await expect(
+      service.apiGetInfiniPendingPayment({ expectedOneKeyUserId: 'user-a' }),
+    ).resolves.toEqual({
+      authContext: {
+        onekeyUserId: 'user-a',
+        authSessionSource: EPrimeAuthSessionSource.KeylessOAuth,
+        authStateGeneration: 3,
+      },
+    });
+    expect(simpleDbPrime.isInfiniPaymentRetired).toHaveBeenCalledWith({
+      onekeyUserId: 'user-a',
+      paymentId: payment.paymentId,
+    });
+  });
+
+  it('fails closed when local retirement state cannot be read', async () => {
+    const { service, simpleDbPrime } = createInfiniService();
+    simpleDbPrime.isInfiniPaymentRetired.mockRejectedValue(
+      new Error('storage unavailable'),
+    );
+    service.getPrimeClient = jest.fn(async () => ({
+      get: jest.fn(async () => ({ data: { data: payment } })),
+    }));
+    await expect(
+      service.apiGetInfiniPendingPayment({ expectedOneKeyUserId: 'user-a' }),
+    ).rejects.toThrow('Infini pending payment lookup failed');
+  });
 
   it.each([false, true])(
     'rejects auth generation changes even when discovery fails: %s',

@@ -182,7 +182,8 @@ export function usePrimeInfiniPaymentPolling({
       });
       if (
         hasPrimeInfiniPaymentProgressSnapshot(currentPayment) &&
-        (currentPayment.amountConfirmed !== frozenPayment.amountConfirmed ||
+        (currentPayment.hasTransactions !== frozenPayment.hasTransactions ||
+          currentPayment.amountConfirmed !== frozenPayment.amountConfirmed ||
           currentPayment.amountConfirming !== frozenPayment.amountConfirming)
       ) {
         const persistedSession =
@@ -211,8 +212,8 @@ export function usePrimeInfiniPaymentPolling({
         isPrimeInfiniPaymentExplicitlyFailed(currentPayment);
       const effectiveOutcome =
         currentOutcome === 'expired' &&
-        !hasExplicitTerminalStatus &&
-        hasConfirmingAmount
+        (currentPayment.hasTransactions ||
+          (!hasExplicitTerminalStatus && hasConfirmingAmount))
           ? 'pending'
           : currentOutcome;
       const nextData = {

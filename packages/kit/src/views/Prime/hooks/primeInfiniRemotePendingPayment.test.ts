@@ -98,8 +98,8 @@ describe('remote Infini pending payment recovery', () => {
           payment: { ...payment, expiresAt: 1 },
         },
         assets: [asset],
-      })?.sendStarted,
-    ).toBe(true);
+      }),
+    ).toMatchObject({ sendStarted: true, payment: { hasTransactions: true } });
   });
 });
 
@@ -131,6 +131,32 @@ describe('remote Infini pending payment consent', () => {
       createPrimeInfiniRemotePendingPaymentResolver()(params),
     ).resolves.toEqual({ type: 'new' });
     expect(params.choose).toHaveBeenCalledWith(false);
+  });
+
+  it.each([{ allowNewPayment: false }, { resumePaymentId: payment.paymentId }])(
+    'cancels a missing resume target instead of creating: %j',
+    async (intent) => {
+      const params = createParams();
+      await expect(
+        createPrimeInfiniRemotePendingPaymentResolver()({
+          ...params,
+          ...intent,
+          lookup: { authContext: lookup.authContext },
+        }),
+      ).resolves.toEqual({ type: 'cancelled' });
+      expect(params.choose).not.toHaveBeenCalled();
+    },
+  );
+
+  it('rejects an empty lookup after the auth lifecycle changes', async () => {
+    const params = createParams();
+    params.validateAuth.mockResolvedValue(false);
+    await expect(
+      createPrimeInfiniRemotePendingPaymentResolver()({
+        ...params,
+        lookup: { authContext: lookup.authContext },
+      }),
+    ).resolves.toEqual({ type: 'cancelled' });
   });
 
   it('restores only after continue was selected', async () => {

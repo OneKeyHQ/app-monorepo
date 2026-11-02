@@ -100,6 +100,7 @@ function isAnalyticsReportDue({
 
 type IPrimeInfiniPaymentCacheTombstone = IPrimeInfiniPaymentCacheKey & {
   retiredAt: number;
+  sendStarted?: boolean;
 };
 
 type IPrimeInfiniSupersededPaymentSession =
@@ -291,11 +292,13 @@ function retireInfiniPaymentCache({
   onekeyUserId,
   paymentCacheKey,
   now,
+  sendStarted,
 }: {
   rawData: ISimpleDBPrime | null | undefined;
   onekeyUserId: string;
   paymentCacheKey: IPrimeInfiniPaymentCacheKey;
   now: number;
+  sendStarted?: boolean;
 }): ISimpleDBPrime {
   const tombstones = getActiveInfiniPaymentCacheTombstones({
     rawData,
@@ -310,6 +313,7 @@ function retireInfiniPaymentCache({
     {
       ...paymentCacheKey,
       retiredAt: now,
+      ...(sendStarted ? { sendStarted: true } : undefined),
     },
   ].slice(-INFINI_PAYMENT_CACHE_TOMBSTONE_LIMIT);
   return {
@@ -1690,6 +1694,26 @@ export class SimpleDbEntityPrime extends SimpleDbEntityBase<ISimpleDBPrime> {
   }
 
   @backgroundMethod()
+  async isInfiniPaymentRetired({
+    onekeyUserId,
+    paymentId,
+  }: {
+    onekeyUserId: string;
+    paymentId: string;
+  }): Promise<boolean> {
+    const rawData = await this.getRawData();
+    const context = { rawData, onekeyUserId, now: Date.now() };
+    return (
+      getActiveInfiniPaymentCacheTombstones(context).some(
+        (tombstone) => tombstone.paymentId === paymentId,
+      ) ||
+      getActiveInfiniSupersededPaymentSessions(context).some(
+        (session) => session.payment.paymentId === paymentId,
+      )
+    );
+  }
+
+  @backgroundMethod()
   async setInfiniPendingPaymentSession({
     onekeyUserId,
     session,
@@ -1725,6 +1749,33 @@ export class SimpleDbEntityPrime extends SimpleDbEntityBase<ISimpleDBPrime> {
         currentSession,
         { onekeyUserId, now },
       );
+      // A new binding must not resurrect an invoice retired on this device.
+      // Check inside the write transaction so retirement racing discovery wins.
+      if (
+        !isCurrentSessionValid &&
+        (getActiveInfiniPaymentCacheTombstones({
+          rawData,
+          onekeyUserId,
+          now,
+        }).some(
+          (tombstone) =>
+            tombstone.sendStarted &&
+            tombstone.paymentId === session.payment.paymentId,
+        ) ||
+          getActiveInfiniSupersededPaymentSessions({
+            rawData,
+            onekeyUserId,
+            now,
+          }).some(
+            (superseded) =>
+              superseded.payment.paymentId === session.payment.paymentId,
+          ))
+      ) {
+        throw new OneKeyLocalError({
+          message: 'Infini payment cache is retired',
+          autoToast: false,
+        });
+      }
       if (
         isCurrentSessionValid &&
         currentSession &&
@@ -2042,6 +2093,7 @@ export class SimpleDbEntityPrime extends SimpleDbEntityBase<ISimpleDBPrime> {
         onekeyUserId,
         paymentCacheKey: currentSession.paymentCacheKey,
         now,
+        sendStarted: nextSupersededSession.sendStarted,
       });
       const activeSupersededSessions = getActiveInfiniSupersededPaymentSessions(
         {

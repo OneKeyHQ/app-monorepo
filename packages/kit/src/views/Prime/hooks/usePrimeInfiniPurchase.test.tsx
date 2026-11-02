@@ -258,6 +258,23 @@ describe('usePrimeInfiniPurchase internal wallet route', () => {
     expect(mockPushModal).not.toHaveBeenCalled();
   });
 
+  it('does not create or open checkout when remote discovery fails', async () => {
+    setupRemotePending();
+    mockApiGetInfiniPendingPayment.mockRejectedValue(
+      new Error('pending lookup unavailable'),
+    );
+    const { result } = renderHook(() => usePrimeInfiniPurchase());
+    await expect(
+      result.current.purchaseByExternalCheckout({
+        selectedSubscriptionPeriod: 'P1M',
+      }),
+    ).rejects.toThrow('pending lookup unavailable');
+    expect(mockApiGetInfiniCheckoutUrl).not.toHaveBeenCalled();
+    expect(mockOpenUrlExternal).not.toHaveBeenCalled();
+    expect(mockUnfinishedPaymentChoice).not.toHaveBeenCalled();
+    expect(isPrimeInfiniExternalCheckoutInFlight()).toBe(false);
+  });
+
   it('rejects auth changes while the remote warning is open', async () => {
     setupRemotePending();
     mockUnfinishedPaymentChoice.mockImplementation(async () => {

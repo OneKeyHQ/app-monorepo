@@ -60,7 +60,14 @@ export function getPrimeInfiniRemotePaymentRecovery({
   ) {
     return undefined;
   }
-  return { payment, asset, plan, sendStarted };
+  return {
+    payment: pendingPayment?.hasTransactions
+      ? { ...payment, hasTransactions: true }
+      : payment,
+    asset,
+    plan,
+    sendStarted,
+  };
 }
 
 export type IPrimeInfiniRemotePaymentDecision =
@@ -79,6 +86,7 @@ export function createPrimeInfiniRemotePendingPaymentResolver() {
     validateAuth,
     shouldContinue,
     resumePaymentId,
+    allowNewPayment = true,
   }: {
     lookup: IPrimeInfiniPendingPaymentLookup;
     assets: IPrimeInfiniPaymentAsset[];
@@ -88,13 +96,19 @@ export function createPrimeInfiniRemotePendingPaymentResolver() {
     validateAuth: () => Promise<boolean>;
     shouldContinue: () => boolean;
     resumePaymentId?: string;
+    allowNewPayment?: boolean;
   }): Promise<IPrimeInfiniRemotePaymentDecision> => {
     if (!shouldContinue()) {
       return { type: 'cancelled' };
     }
     const { pendingPayment, authContext } = lookup;
     if (!pendingPayment) {
-      return { type: 'new' };
+      return allowNewPayment &&
+        !resumePaymentId &&
+        (await validateAuth()) &&
+        shouldContinue()
+        ? { type: 'new' }
+        : { type: 'cancelled' };
     }
     const recovery = getPrimeInfiniRemotePaymentRecovery({
       pendingPayment,

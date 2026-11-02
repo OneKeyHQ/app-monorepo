@@ -4336,7 +4336,7 @@ function PrimeInfiniWalletPaymentContent({
   );
 }
 
-function PrimeInfiniWalletPaymentRoot({
+export function PrimeInfiniWalletPaymentRoot({
   plan,
   selectedSubscriptionPeriod,
   featureName,
@@ -4668,6 +4668,7 @@ function PrimeInfiniWalletPaymentRoot({
       let remoteRecovery: IPrimeInfiniRemotePaymentRecovery | undefined;
       let discoveryAuthContext: IPrimeInfiniCheckoutAuthContext | undefined;
       let remotePaymentCancelled = false;
+      let canPrepareRemotePayment = false;
       if (
         onekeyUserId &&
         !pendingSession &&
@@ -4700,7 +4701,9 @@ function PrimeInfiniWalletPaymentRoot({
               ),
             shouldContinue,
             resumePaymentId: remotePaymentResumeIntent?.paymentId,
+            allowNewPayment: shouldCreatePayment,
           });
+          canPrepareRemotePayment = decision.type !== 'cancelled';
           if (decision.type === 'resume') {
             remoteRecovery = decision.recovery;
             remoteResumedPaymentIdRef.current =
@@ -4709,7 +4712,7 @@ function PrimeInfiniWalletPaymentRoot({
             remotePaymentCancelled = true;
           }
         } catch (error) {
-          // Request failures already fail open in bg; identity failures do not.
+          // Discovery and identity failures both block invoice creation.
           sessionLoadFailed = true;
           sessionLoadError = error;
         }
@@ -4853,8 +4856,9 @@ function PrimeInfiniWalletPaymentRoot({
         completedPaymentId,
         contextError,
         shouldCreatePayment:
+          !hasError &&
           !remotePaymentCancelled &&
-          (shouldCreatePayment || Boolean(discoveryAuthContext)),
+          (shouldCreatePayment || canPrepareRemotePayment),
         remoteRecovery,
         discoveryAuthContext,
         remotePaymentCancelled,
@@ -5445,6 +5449,9 @@ function PrimeInfiniWalletPaymentRoot({
     if (!result) {
       return <PrimeInfiniPaymentSkeleton />;
     }
+    if (result.remotePaymentCancelled) {
+      return <PrimeInfiniPaymentSkeleton />;
+    }
     if (result.completedPaymentId) {
       return (
         <PrimeInfiniPaymentCompletionStatus
@@ -5539,8 +5546,7 @@ function PrimeInfiniWalletPaymentRoot({
         fallbackWarningMessages={fallbackWarningMessages}
         onEnableMockPaymentWarnings={handleEnableMockPaymentWarnings}
         shouldCreatePayment={
-          !paymentContextErrorTitle &&
-          (result.shouldCreatePayment || paymentCreationIntentRef.current)
+          !paymentContextErrorTitle && result.shouldCreatePayment
         }
       />
     );

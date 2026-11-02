@@ -2353,6 +2353,89 @@ describe('SimpleDbEntityPrime Infini pending payment session', () => {
     );
   });
 
+  test.each(['superseded', 'discarded'] as const)(
+    'excludes a %s invoice from discovery without fencing another user',
+    async (reason) => {
+      const { entity } = createSessionStore({
+        infiniPendingPaymentSessionByUserId: {
+          'user-1': { ...session, schemaVersion: 2, updatedAt: Date.now() },
+        },
+      });
+      if (reason === 'superseded') {
+        await entity.supersedeInfiniPendingPaymentSession({
+          onekeyUserId: 'user-1',
+          expectedPaymentCacheIdentity: session.paymentCacheKey,
+          latestPayment: session.payment,
+        });
+      } else {
+        await entity.discardUnsentInfiniPendingPaymentSession({
+          onekeyUserId: 'user-1',
+          expectedPaymentCacheIdentity: session.paymentCacheKey,
+        });
+      }
+      await expect(
+        entity.isInfiniPaymentRetired({
+          onekeyUserId: 'user-1',
+          paymentId: session.payment.paymentId,
+        }),
+      ).resolves.toBe(true);
+      await expect(
+        entity.isInfiniPaymentRetired({
+          onekeyUserId: 'user-2',
+          paymentId: session.payment.paymentId,
+        }),
+      ).resolves.toBe(false);
+      await expect(
+        entity.isInfiniPaymentRetired({
+          onekeyUserId: 'user-1',
+          paymentId: 'different-payment',
+        }),
+      ).resolves.toBe(false);
+    },
+  );
+
+  test.each([false, true])(
+    'rejects a new binding after a sent invoice is superseded (archive removed: %s)',
+    async (removeArchive) => {
+      const { entity, read } = createSessionStore({
+        infiniPendingPaymentSessionByUserId: {
+          'user-1': {
+            ...session,
+            schemaVersion: 2,
+            updatedAt: Date.now(),
+            sendStarted: true,
+          },
+        },
+      });
+      await entity.supersedeInfiniPendingPaymentSession({
+        onekeyUserId: 'user-1',
+        expectedPaymentCacheIdentity: session.paymentCacheKey,
+        latestPayment: session.payment,
+      });
+      if (removeArchive) {
+        await entity.setRawData((rawData) => ({
+          ...rawData,
+          infiniSupersededPaymentSessionsByUserId: {},
+        }));
+      }
+      await expect(
+        entity.setInfiniPendingPaymentSession({
+          onekeyUserId: 'user-1',
+          session: {
+            ...session,
+            paymentCacheKey: {
+              ...session.paymentCacheKey,
+              bindingId: 'remote-new-binding',
+            },
+          },
+        }),
+      ).rejects.toThrow('Infini payment cache is retired');
+      expect(
+        read().infiniPendingPaymentSessionByUserId?.['user-1'],
+      ).toBeUndefined();
+    },
+  );
+
   test('atomically archives a partially paid invoice before forced replacement', async () => {
     const entity = new SimpleDbEntityPrime();
     const persistedSession = {

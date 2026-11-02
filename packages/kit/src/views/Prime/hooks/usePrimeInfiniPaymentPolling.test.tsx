@@ -718,6 +718,72 @@ describe('usePrimeInfiniPaymentPolling', () => {
     unmount();
   });
 
+  it.each([undefined, 'expired'])(
+    'keeps tracking a transaction after quote expiry (status: %s) until credited',
+    async (status) => {
+      const payment = {
+        ...buildPayment('payment-a'),
+        hasTransactions: true,
+        amountConfirming: '0',
+        expiresAt: Date.now() - 1,
+        status,
+      };
+      const onTerminal = jest.fn();
+      const onSuccess = jest.fn();
+      servicePrime.apiGetInfiniPayment
+        .mockResolvedValueOnce(payment)
+        .mockResolvedValueOnce({
+          ...payment,
+          hasTransactions: false,
+        })
+        .mockResolvedValue({
+          ...payment,
+          status: 'confirmed',
+          amountConfirmed: payment.amountDue,
+        });
+      const { result, unmount } = renderHook(() =>
+        usePrimeInfiniPaymentPolling({
+          paymentCacheKey: buildPaymentCacheKey(payment),
+          payment: { ...payment, hasTransactions: undefined },
+          asset,
+          baseline,
+          enabled: true,
+          onSuccess,
+          onTerminal,
+          pollIntervalMs: 60_000,
+        }),
+      );
+      await waitFor(() => {
+        expect(result.current.latestPayment?.hasTransactions).toBe(true);
+        expect(result.current.outcome).toBe('pending');
+      });
+      act(() => result.current.refresh());
+      await waitFor(() =>
+        expect(servicePrime.apiGetInfiniPayment).toHaveBeenCalledTimes(2),
+      );
+      expect(result.current.latestPayment?.hasTransactions).toBe(true);
+      expect(
+        primeDb.latchInfiniPendingPaymentSessionProgress,
+      ).toHaveBeenCalledWith(
+        expect.objectContaining({
+          latestPayment: expect.objectContaining({ hasTransactions: true }),
+        }),
+      );
+      expect(onTerminal).not.toHaveBeenCalled();
+      servicePrime.apiGetInfiniPurchaseStatusSnapshot.mockResolvedValue({
+        onekeyUserId: baseline.onekeyUserId,
+        primeSubscription: {
+          isActive: true,
+          subscriptions: [{ channel: 'infini' }],
+        },
+      });
+      act(() => result.current.refresh());
+      await waitFor(() => expect(onSuccess).toHaveBeenCalledTimes(1));
+      expect(onTerminal).not.toHaveBeenCalled();
+      unmount();
+    },
+  );
+
   it.each(['expired', 'failed'] as const)(
     'terminates an explicitly %s payment even while funds are still confirming',
     async (status) => {

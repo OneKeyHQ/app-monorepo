@@ -6216,8 +6216,28 @@ class ServicePrime extends ServiceBase {
         ...this.getInfiniPurchaseRequestConfig(snapshot),
         timeout: 5000,
       });
+      if (
+        !result?.data ||
+        !Object.prototype.hasOwnProperty.call(result.data, 'data')
+      ) {
+        throw new OneKeyLocalError('Invalid Infini pending payment response');
+      }
       const pending = result?.data?.data;
-      if (pending) {
+      if (
+        pending !== null &&
+        pending !== undefined &&
+        (typeof pending !== 'object' || Array.isArray(pending))
+      ) {
+        throw new OneKeyLocalError('Invalid Infini pending payment response');
+      }
+      const isRetired =
+        pending &&
+        isString(pending.paymentId) &&
+        (await this.backgroundApi.simpleDb.prime.isInfiniPaymentRetired({
+          onekeyUserId: snapshot.expectedOneKeyUserId,
+          paymentId: pending.paymentId,
+        }));
+      if (pending && !isRetired) {
         let payment: IPrimeInfiniPayment | undefined;
         try {
           payment = validateInfiniPaymentResponse(pending);
@@ -6237,15 +6257,17 @@ class ServicePrime extends ServiceBase {
         };
       }
     } catch (error) {
-      // Discovery is advisory. Never log response bodies or request credentials.
+      // Never log response bodies or request credentials, including on failure.
       defaultLogger.prime.subscription.primeCryptoPaymentFlow({
         ...getPrimeInfiniPaymentSafeError(error),
         stage: 'paymentContext',
         status: 'failed',
         reason: 'remotePendingLookupFailed',
       });
+      await this.assertInfiniPurchaseAuthSnapshot(snapshot);
+      throw new OneKeyLocalError('Infini pending payment lookup failed');
     }
-    // A failed lookup may fail open only for the same authentication lifecycle.
+    // Only a successful lookup can authorize preparation in this lifecycle.
     await this.assertInfiniPurchaseAuthSnapshot(snapshot);
     return lookup;
   }
