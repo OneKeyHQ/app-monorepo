@@ -4318,6 +4318,36 @@ class ServicePrivacyChain extends ServiceBase {
     return addresses;
   }
 
+  // Private addresses of every scanning account on the network, in one call
+  // for account pickers. Only scanning accounts are read (a handful), under
+  // the same gate as getLocalWalletAccountAddresses.
+  @backgroundMethod()
+  async getLocalWalletPrivateAddresses({
+    networkId,
+  }: {
+    networkId: string;
+  }): Promise<Record<string, string>> {
+    const settings = await getVaultSettings({ networkId });
+    if (!settings.localWallet || this.boostPausedByNetwork[networkId]) {
+      return {};
+    }
+    const capability = await this.requireAccountCapability(networkId);
+    const accounts = await this.listScannableAccounts(capability);
+    const privateAddresses: Record<string, string> = {};
+    await Promise.all(
+      accounts.map(async ({ accountId }) => {
+        const addresses = await this.getLocalWalletAccountAddresses({
+          networkId,
+          accountId,
+        }).catch(() => undefined);
+        if (addresses?.privateAddress) {
+          privateAddresses[accountId] = addresses.privateAddress;
+        }
+      }),
+    );
+    return privateAddresses;
+  }
+
   @backgroundMethod()
   async getLocalWalletAccountBalance({
     networkId,

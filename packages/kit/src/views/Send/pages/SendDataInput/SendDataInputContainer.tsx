@@ -1798,6 +1798,11 @@ function SendDataInputContainer() {
             accountId={currentAccount.accountId}
             networkId={currentAccount.networkId}
             senderDeriveType={senderDeriveType}
+            senderAddressForm={
+              vaultSettings?.localWallet?.pools.find(
+                (pool) => pool.key === localWalletSourcePool,
+              )?.kind
+            }
             searchKey={toAddressRaw}
             isSearchMode={!!toAddressRaw?.trim()}
             activeTab={quickSelectActiveTab}

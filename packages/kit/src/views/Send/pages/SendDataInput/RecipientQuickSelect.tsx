@@ -81,6 +81,7 @@ import {
   type IRecipientTabMatchStatus,
   getAutoSwitchRecipientTab,
 } from './recipientQuickSelectTabUtils';
+import { splitLocalWalletAddressForms } from './recipientSelectionUtils';
 import {
   normalizeSearchKey,
   prioritizeNameThenAddressMatches,
@@ -149,6 +150,8 @@ type IRecipientQuickSelectProps = {
   accountId?: string;
   networkId: string;
   senderDeriveType?: string;
+  // Zcash: which receive form the picker opens on (the send's source kind).
+  senderAddressForm?: 'public' | 'private';
   searchKey?: string;
   isSearchMode?: boolean;
   activeTab?: IRecipientQuickSelectTab;
@@ -173,6 +176,7 @@ type IAccountRecipientsProps = {
   accountNetwork?: IRecipientAccountNetwork;
   networkId: string;
   senderDeriveType?: string;
+  senderAddressForm?: 'public' | 'private';
   lastUsedDeriveType?: string;
   searchKey?: string;
   debouncedSearchKey?: string;
@@ -284,6 +288,9 @@ type IAccountWithDeriveInfo = {
   // When set, the row displays this address instead of the account's current
   // rotating address so the user sees the value they actually typed.
   matchedAddress?: string;
+  // Zcash's public / private receive form, switched like a BTC address type;
+  // a private entry carries its own address.
+  addressForm?: { labelId: ETranslations; address?: string };
 };
 
 // Wallet account group type
@@ -294,6 +301,23 @@ type IWalletGroup = {
   accounts: IAccountWithDeriveInfo[];
   wallet: IDBWallet;
 };
+
+async function readLocalWalletAddressForms(networkId: string) {
+  if (!networkUtils.isLocalWalletNetwork({ networkId })) return undefined;
+  const settings = await backgroundApiProxy.serviceNetwork.getVaultSettings({
+    networkId,
+  });
+  const forms = settings.localWallet?.addressForms;
+  if (!forms?.publicLabel) return undefined;
+  const privateAddresses = await backgroundApiProxy.servicePrivacyChain
+    .getLocalWalletPrivateAddresses({ networkId })
+    .catch(() => ({}));
+  return {
+    publicLabel: forms.publicLabel,
+    privateLabel: forms.privateLabel,
+    privateAddresses,
+  };
+}
 
 // Collect every address an account should be searchable by. For BTC with
 // fresh-address mode (OK-52953) the currently-shown address is one of
@@ -343,11 +367,27 @@ function findMatchedAccountAddress(
   );
 }
 
+// A private entry is found only by its own address.
+function findMatchedItemAddress(
+  item: IAccountWithDeriveInfo,
+  searchValue: string,
+  extraAddresses?: string[],
+): string | undefined {
+  const formAddress = item.addressForm?.address;
+  if (formAddress) {
+    return formAddress.toLowerCase().includes(searchValue)
+      ? formAddress
+      : undefined;
+  }
+  return findMatchedAccountAddress(item.account, searchValue, extraAddresses);
+}
+
 function AccountRecipients({
   nativeList = false,
   accountNetwork,
   networkId,
   senderDeriveType,
+  senderAddressForm,
   lastUsedDeriveType: lastUsedDeriveTypeProp,
   searchKey,
   debouncedSearchKey: debouncedSearchKeyProp,
@@ -419,7 +459,23 @@ function AccountRecipients({
     [networkId, senderDeriveType, keylessWalletsOnly],
     { initResult: [], watchLoading: true, undefinedResultIfError: true },
   );
-  const walletGroups = useDeferredValue(walletGroupsRaw);
+  // Zcash private entries arrive on their own: the list never waits for them.
+  const { result: localWalletAddressForms } = usePromiseResult(
+    () => readLocalWalletAddressForms(networkId),
+    [networkId],
+    { undefinedResultIfError: true },
+  );
+  const walletGroupsWithForms = useMemo(
+    () =>
+      localWalletAddressForms
+        ? splitLocalWalletAddressForms({
+            groups: walletGroupsRaw,
+            ...localWalletAddressForms,
+          })
+        : walletGroupsRaw,
+    [walletGroupsRaw, localWalletAddressForms],
+  );
+  const walletGroups = useDeferredValue(walletGroupsWithForms);
 
   // Bot wallet activate/deactivate emits WalletUpdate via
   // ServiceAccount.scheduleWalletUpdateForBotMetadata. Re-fetch the
@@ -484,8 +540,8 @@ function AccountRecipients({
             isNameMatch: (item) =>
               (item.account?.name ?? '').toLowerCase().includes(searchValue),
             isAddressMatch: (item) =>
-              !!findMatchedAccountAddress(
-                item.account,
+              !!findMatchedItemAddress(
+                item,
                 searchValue,
                 item.account?.id
                   ? btcFreshAddressMap[item.account.id]
@@ -503,8 +559,8 @@ function AccountRecipients({
               .toLowerCase()
               .includes(searchValue);
             if (isNameHit) return item;
-            const matchedAddress = findMatchedAccountAddress(
-              item.account,
+            const matchedAddress = findMatchedItemAddress(
+              item,
               searchValue,
               item.account?.id
                 ? btcFreshAddressMap[item.account.id]
@@ -556,7 +612,12 @@ function AccountRecipients({
       >();
       for (const item of allAccounts) {
         const dt = item.deriveType;
-        if (dt && !deriveTypeMap.has(dt)) {
+        if (item.addressForm && dt && !deriveTypeMap.has(dt)) {
+          deriveTypeMap.set(dt, {
+            label: intl.formatMessage({ id: item.addressForm.labelId }),
+            deriveType: dt,
+          });
+        } else if (dt && !deriveTypeMap.has(dt)) {
           const label = item.deriveInfo?.labelKey
             ? intl.formatMessage({ id: item.deriveInfo.labelKey })
             : (item.deriveInfo?.label ?? dt);
@@ -576,6 +637,7 @@ function AccountRecipients({
       const walletId = group?.walletId ?? '';
       const rawDeriveType =
         walletDeriveType[walletId] ??
+        senderAddressForm ??
         lastUsedDeriveTypeProp ??
         senderDeriveType;
       // Validate against available options; fall back to first option if not found
@@ -608,6 +670,7 @@ function AccountRecipients({
   }, [
     filteredWalletGroups,
     walletDeriveType,
+    senderAddressForm,
     lastUsedDeriveTypeProp,
     senderDeriveType,
     intl,
@@ -645,6 +708,7 @@ function AccountRecipients({
         account: INetworkAccount;
         indexedAccount?: IDBIndexedAccount;
         matchedAddress?: string;
+        formAddress?: string;
         walletId: string;
         walletName: string;
         wallet?: IDBWallet;
@@ -673,6 +737,7 @@ function AccountRecipients({
             account: item.account,
             indexedAccount: item.indexedAccount,
             matchedAddress: item.matchedAddress,
+            formAddress: item.addressForm?.address,
             walletId: section.walletId,
             walletName: section.title,
             wallet: section.wallet,
@@ -740,6 +805,7 @@ function AccountRecipients({
       } else if (!collapsedWallets[item.walletId]) {
         const account = item.account;
         const currentAddress =
+          item.formAddress ??
           account.addressDetail?.displayAddress ??
           account.address ??
           account.addressDetail?.address ??
@@ -814,6 +880,7 @@ function AccountRecipients({
       if (actionKey !== 'press') return;
       const account = item.account;
       const currentAddress =
+        item.formAddress ??
         account.addressDetail?.displayAddress ??
         account.address ??
         account.addressDetail?.address ??
@@ -994,10 +1061,12 @@ function AccountRecipients({
           account,
           indexedAccount: itemIndexedAccount,
           matchedAddress,
+          formAddress,
           walletId,
           wallet,
         } = item;
         const currentAddress =
+          formAddress ??
           account.addressDetail?.displayAddress ??
           account.address ??
           account.addressDetail?.address ??
@@ -1295,6 +1364,7 @@ function RecipientQuickSelect({
   hideTabs,
   keylessWalletsOnly,
   senderDeriveType,
+  senderAddressForm,
 }: IRecipientQuickSelectProps) {
   const intl = useIntl();
   const theme = useTheme();
@@ -1903,6 +1973,7 @@ function RecipientQuickSelect({
                   networkId={networkId}
                   accountNetwork={accountNetwork}
                   senderDeriveType={senderDeriveType}
+                  senderAddressForm={senderAddressForm}
                   lastUsedDeriveType={lastUsedDeriveType}
                   searchKey={searchKey}
                   debouncedSearchKey={effectiveDebouncedSearchKey}
@@ -1978,6 +2049,7 @@ function RecipientQuickSelect({
             <AccountRecipients
               networkId={networkId}
               senderDeriveType={senderDeriveType}
+              senderAddressForm={senderAddressForm}
               lastUsedDeriveType={lastUsedDeriveType}
               searchKey={searchKey}
               debouncedSearchKey={effectiveDebouncedSearchKey}
