@@ -449,7 +449,9 @@ export function filterHistoryTxs({
  * account's net change, so it is `0` when every input and output belongs to
  * the account — a transfer between two of its own addresses (fresh receive
  * address to fresh receive address). Show what actually moved instead: the
- * owned outputs, minus the ones the server explicitly marks as change.
+ * owned outputs the server does not explicitly mark as change. A transaction
+ * whose owned outputs are all change has no recipient, so it keeps the net
+ * value rather than presenting the change as a payment.
  */
 export function getUtxoHistoryDisplayValue({
   value,
@@ -469,15 +471,12 @@ export function getUtxoHistoryDisplayValue({
   if (!isSelfTransfer) {
     return value;
   }
-  const nonChangeReceives = receives.filter(
-    (receive) => receive.isChange !== true,
-  );
-  const moved = (
-    nonChangeReceives.length ? nonChangeReceives : receives
-  ).reduce(
-    (sum, receive) => sum.plus(new BigNumber(receive.amount ?? 0)),
-    new BigNumber(0),
-  );
+  const moved = receives
+    .filter((receive) => receive.isChange !== true)
+    .reduce(
+      (sum, receive) => sum.plus(new BigNumber(receive.amount ?? 0)),
+      new BigNumber(0),
+    );
   if (moved.isNaN() || moved.isZero()) {
     return value;
   }

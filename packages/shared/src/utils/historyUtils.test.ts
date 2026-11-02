@@ -148,4 +148,22 @@ describe('getUtxoHistoryDisplayValue', () => {
       '0.00000000',
     );
   });
+
+  it('keeps a zero value when every owned output is change', () => {
+    // Change-only spend (consolidation into the change path): there is no
+    // recipient, so the change must not be presented as a payment.
+    expect(
+      getUtxoHistoryDisplayValue({
+        ...selfTransfer,
+        receives: [
+          transfer({
+            to: 'bc1q-a2',
+            amount: '0.00001000',
+            isOwn: true,
+            isChange: true,
+          }),
+        ],
+      }),
+    ).toBe('0.00000000');
+  });
 });
