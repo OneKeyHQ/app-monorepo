@@ -1,3 +1,18 @@
+diff --git a/node_modules/@onekeyfe/react-native-native-list/lib/module/validation.js b/node_modules/@onekeyfe/react-native-native-list/lib/module/validation.js
+index d7afcd7..47dd1e1 100644
+--- a/node_modules/@onekeyfe/react-native-native-list/lib/module/validation.js
++++ b/node_modules/@onekeyfe/react-native-native-list/lib/module/validation.js
+@@ -1392,7 +1392,9 @@ function isRecord(value) {
+   return value !== null && typeof value === 'object' && !Array.isArray(value);
+ }
+ function isAllowedImageUri(value) {
+-  return typeof value === 'string' && value.trim().length > 0 && (!/^[a-z][a-z\d+.-]*:/i.test(value) || /^(https?|file|content|ph|assets-library|asset|res|blob):/i.test(value) || /^data:image\//i.test(value));
++  // OneKey patch: preserve locally generated account avatar sources.
++  // return typeof value === 'string' && value.trim().length > 0 && (!/^[a-z][a-z\d+.-]*:/i.test(value) || /^(https?|file|content|ph|assets-library|asset|res|blob):/i.test(value) || /^data:image\//i.test(value));
++  return typeof value === 'string' && value.trim().length > 0 && (!/^[a-z][a-z\d+.-]*:/i.test(value) || /^(https?|file|content|ph|assets-library|asset|res|blob):/i.test(value) || /^onekey-avatar:\/\/blockie\/v1\/[^/?#]+$/.test(value) || /^data:image\//i.test(value));
+ }
+ const IMAGE_FIELDS = ['uri', 'width', 'height', 'headers', 'contentFit', 'cachePolicy', 'autoplay', 'optimizeTos', 'overscan', 'loadingStrategy', 'fallbackUri', 'fallbackUris', 'retryTimes'];
+ const ICON_FIELDS = ['name', 'tintColor', 'backgroundColor', 'size', 'accessibilityLabel', 'hoverActionKey'];
 diff --git a/node_modules/@onekeyfe/react-native-native-list/lib/typescript/src/NativeList.types.d.ts b/node_modules/@onekeyfe/react-native-native-list/lib/typescript/src/NativeList.types.d.ts
 index 1b49188..a75bff1 100644
 --- a/node_modules/@onekeyfe/react-native-native-list/lib/typescript/src/NativeList.types.d.ts
@@ -40,3 +55,16 @@ index 78adf10..8374216 100644
      /** Defaults to `none`. `interactive` behaves as `none` on Android. */
      keyboardDismissMode?: NativeListKeyboardDismissMode;
      /**
+diff --git a/node_modules/@onekeyfe/react-native-native-list/src/validation.ts b/node_modules/@onekeyfe/react-native-native-list/src/validation.ts
+index 26f8b56..b667c94 100644
+--- a/node_modules/@onekeyfe/react-native-native-list/src/validation.ts
++++ b/node_modules/@onekeyfe/react-native-native-list/src/validation.ts
+@@ -3084,6 +3084,8 @@ function isAllowedImageUri(value: unknown): value is string {
+     value.trim().length > 0 &&
+     (!/^[a-z][a-z\d+.-]*:/i.test(value) ||
+       /^(https?|file|content|ph|assets-library|asset|res|blob):/i.test(value) ||
++      // OneKey patch: preserve locally generated account avatar sources.
++      /^onekey-avatar:\/\/blockie\/v1\/[^/?#]+$/.test(value) ||
+       /^data:image\//i.test(value))
+   );
+ }
