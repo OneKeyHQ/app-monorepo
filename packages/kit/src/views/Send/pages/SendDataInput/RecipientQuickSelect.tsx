@@ -307,7 +307,6 @@ type IWalletGroup = {
 const PRIVATE_ENTRIES_WAIT_MS = 300;
 
 async function readLocalWalletAddressForms(networkId: string) {
-  if (!networkUtils.isLocalWalletNetwork({ networkId })) return undefined;
   const settings = await backgroundApiProxy.serviceNetwork.getVaultSettings({
     networkId,
   });
@@ -467,10 +466,11 @@ function AccountRecipients({
   // private pool waits for them, briefly, so it does not open on public
   // addresses; every other list shows at once.
   const { result: addressFormsRead } = usePromiseResult(
-    async () => ({
-      networkId,
-      forms: await readLocalWalletAddressForms(networkId),
-    }),
+    async () =>
+      // Other chains resolve to the initial undefined: no read, no re-render.
+      networkUtils.isLocalWalletNetwork({ networkId })
+        ? { networkId, forms: await readLocalWalletAddressForms(networkId) }
+        : undefined,
     [networkId],
     { undefinedResultIfError: true },
   );
