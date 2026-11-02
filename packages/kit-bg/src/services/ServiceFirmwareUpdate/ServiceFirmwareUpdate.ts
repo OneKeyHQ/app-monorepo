@@ -2754,6 +2754,13 @@ class ServiceFirmwareUpdate extends ServiceBase {
 
   @backgroundMethod()
   async clearHardwareUiStateBeforeStartUpdateWorkflow() {
+    await this.clearHardwareUiStateForFirmwareWorkflow();
+  }
+
+  private async clearHardwareUiStateForFirmwareWorkflow(
+    isCurrent: () => boolean = () => true,
+  ) {
+    if (!isCurrent()) return;
     // The stage leaves with the legacy state: the update page narrates
     // the update from here, and a burst still in flight takes nothing
     // down until its own end. The device's asks during the update (PIN,
@@ -2761,12 +2768,15 @@ class ServiceFirmwareUpdate extends ServiceBase {
     // scan the stage was hosting leaves with it, rejected, rather than
     // waiting invisibly for its expiry.
     await this.backgroundApi.serviceHardwareUI.silenceDeviceStageForFirmwareWorkflow();
+    if (!isCurrent()) return;
     await hardwareUiStateAtom.set({
       action: EHardwareUiStateAction.FIRMWARE_TIP,
       connectId: '',
       payload: {} as any,
     });
+    if (!isCurrent()) return;
     await hardwareUiStateCompletedAtom.set(undefined);
+    if (!isCurrent()) return;
     await firmwareUpdateResultVerifyAtom.set(undefined);
   }
 
@@ -3322,16 +3332,26 @@ class ServiceFirmwareUpdate extends ServiceBase {
     await firmwareUpdateWorkflowRunningAtom.set(true);
     task.attemptId += 1;
     const attemptId = task.attemptId;
+    let preparationTimedOut = false;
+    const isCurrentPreparation = () =>
+      !preparationTimedOut &&
+      this.updateTasks[id] === task &&
+      task.attemptId === attemptId &&
+      this.isUpdateWorkflowCurrent(task.workflowId);
     await this.runUpdateTask({
       id,
       preFn: makeTimeoutPromise({
         asyncFunc: async () => {
           // Preparation failures belong to this attempt and must expose Retry again.
-          await this.clearHardwareUiStateBeforeStartUpdateWorkflow();
+          await this.clearHardwareUiStateForFirmwareWorkflow(
+            isCurrentPreparation,
+          );
+          if (!isCurrentPreparation()) return;
           await this.waitDeviceRestart({
             releaseResult,
             actionType: 'retry',
           });
+          if (!isCurrentPreparation()) return;
           // make sure device is ready after reboot
           // TODO move to fn and re-checking release \ device \ version matched
           try {
@@ -3342,16 +3362,13 @@ class ServiceFirmwareUpdate extends ServiceBase {
                   allowEmptyConnectId: true,
                 },
               });
+            if (!isCurrentPreparation()) return;
             serviceHardwareUtils.hardwareLog('retryUpdateTask', {
               connectId,
               features,
             });
           } catch (error) {
-            if (
-              this.updateTasks[id] !== task ||
-              task.attemptId !== attemptId ||
-              !this.isUpdateWorkflowCurrent(task.workflowId)
-            ) {
+            if (!isCurrentPreparation()) {
               throw error;
             }
             await firmwareUpdateStepInfoAtom.set({
@@ -3372,6 +3389,9 @@ class ServiceFirmwareUpdate extends ServiceBase {
           seconds: 30,
         }),
         timeoutRejectError: new Error('Retry Timeout'),
+        onTimeout: () => {
+          preparationTimedOut = true;
+        },
       }),
     });
   }

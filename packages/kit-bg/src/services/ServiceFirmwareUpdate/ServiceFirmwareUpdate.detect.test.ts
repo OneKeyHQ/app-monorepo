@@ -26,6 +26,7 @@ import {
 
 import localDb from '../../dbs/local/localDb';
 import {
+  firmwareUpdateResultVerifyAtom,
   firmwareUpdateRetryAtom,
   firmwareUpdateStepInfoAtom,
   firmwareUpdateWorkflowRunningAtom,
@@ -3492,6 +3493,87 @@ describe('ServiceFirmwareUpdate workflow tracking', () => {
       resolveNew?.();
       await retry;
       expect(resolveTask).toHaveBeenCalledTimes(1);
+    },
+  );
+
+  it.each(['timeout', 'superseded'] as const)(
+    'does not reset a newer retry when old preparation resumes after %s',
+    async (outcome) => {
+      jest.useFakeTimers();
+      jest
+        .mocked(firmwareUpdateWorkflowRunningAtom.get)
+        .mockResolvedValue(true);
+      jest.mocked(firmwareUpdateRetryAtom.get).mockResolvedValue(undefined);
+      let releaseOldSilence: (() => void) | undefined;
+      let finishNewTask: (() => void) | undefined;
+      const silence = jest.fn().mockImplementationOnce(
+        () =>
+          new Promise<void>((resolve) => {
+            releaseOldSilence = resolve;
+          }),
+      );
+      const getFeatures = jest.fn().mockResolvedValue({});
+      const service = new ServiceFirmwareUpdate({
+        backgroundApi: {
+          serviceHardwareUI: {
+            silenceDeviceStageForFirmwareWorkflow: silence,
+            closeHardwareUiStateDialog: jest.fn(),
+          },
+          serviceHardware: { getFeaturesWithoutCache: getFeatures },
+        } as unknown as IBackgroundApi,
+      });
+      const workflowId = service.resetUpdateWorkflowTracking({
+        updateFlow: 'v1',
+        releaseResult: { updateInfos: {} } as ICheckAllFirmwareReleaseResult,
+      });
+      const fn = jest.fn(
+        () =>
+          new Promise<undefined>((resolve) => {
+            finishNewTask = () => resolve(undefined);
+          }),
+      );
+      service.updateTasks[1] = { attemptId: 0, workflowId, fn };
+      const wait = jest
+        .spyOn(service, 'waitDeviceRestart')
+        .mockResolvedValue(undefined);
+      jest.spyOn(service, 'updateTasksResolve').mockResolvedValue(undefined);
+      const params = {
+        id: 1,
+        connectId: 'same-device',
+        releaseResult: undefined,
+      };
+      let newer: Promise<void> | undefined;
+      try {
+        const older = service.retryUpdateTask(params);
+        await jest.advanceTimersByTimeAsync(0);
+        expect(silence).toHaveBeenCalledTimes(1);
+        if (outcome === 'timeout') {
+          await jest.advanceTimersByTimeAsync(30_001);
+          await older;
+        }
+        newer = service.retryUpdateTask(params);
+        await jest.advanceTimersByTimeAsync(0);
+        expect(fn).toHaveBeenCalledTimes(1);
+        jest.mocked(hardwareUiStateAtom.set).mockClear();
+        jest.mocked(hardwareUiStateCompletedAtom.set).mockClear();
+        jest.mocked(firmwareUpdateResultVerifyAtom.set).mockClear();
+        wait.mockClear();
+        getFeatures.mockClear();
+
+        releaseOldSilence?.();
+        await jest.advanceTimersByTimeAsync(0);
+        await older;
+
+        expect(hardwareUiStateAtom.set).not.toHaveBeenCalled();
+        expect(hardwareUiStateCompletedAtom.set).not.toHaveBeenCalled();
+        expect(firmwareUpdateResultVerifyAtom.set).not.toHaveBeenCalled();
+        expect(wait).not.toHaveBeenCalled();
+        expect(getFeatures).not.toHaveBeenCalled();
+      } finally {
+        finishNewTask?.();
+        await newer;
+        jest.useRealTimers();
+      }
     },
   );
 
