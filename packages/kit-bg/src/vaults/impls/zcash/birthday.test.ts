@@ -2,15 +2,20 @@ import { ZCASH_SAPLING_ACTIVATION_HEIGHT_MAINNET } from '@onekeyhq/core/src/chai
 import {
   ZCASH_IRONWOOD_ACTIVATION_HEIGHT_MAINNET,
   ZCASH_MIN_BIRTHDAY_HEIGHT_MAINNET,
+  ZCASH_NU7_ACTIVATION_TIMESTAMP_MS,
 } from '@onekeyhq/shared/src/config/zcash';
 
 import {
-  ZCASH_BIRTHDAY_SAFETY_BLOCKS,
-  ZCASH_BLOCKS_PER_DAY,
   clampZcashBirthdayHeight,
   estimateZcashBirthdayHeight,
   estimateZcashChainTipFromClock,
 } from './birthday';
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+// 75s blocks before NU7, 25s after.
+const ZCASH_BLOCKS_PER_DAY = 1152;
+const POST_NU7_BLOCKS_PER_DAY = 3456;
+const ZCASH_BIRTHDAY_SAFETY_BLOCKS = ZCASH_BLOCKS_PER_DAY;
 
 describe('estimateZcashBirthdayHeight', () => {
   const now = Date.UTC(2026, 7, 21);
@@ -66,6 +71,43 @@ describe('estimateZcashBirthdayHeight', () => {
         chainTip: 3_000_000,
       }),
     ).toBe(estimateZcashChainTipFromClock(now) - ZCASH_BIRTHDAY_SAFETY_BLOCKS);
+  });
+
+  it('counts 25s blocks after NU7', () => {
+    const later = ZCASH_NU7_ACTIVATION_TIMESTAMP_MS + 30 * DAY_MS;
+    const tip = estimateZcashChainTipFromClock(later) + 10_000;
+    expect(
+      estimateZcashBirthdayHeight({
+        birthdayTimestamp: later - 10 * DAY_MS,
+        now: later,
+        chainTip: tip,
+      }),
+    ).toBe(tip - 11 * POST_NU7_BLOCKS_PER_DAY);
+  });
+
+  it('splits a window that spans NU7 at the activation time', () => {
+    const later = ZCASH_NU7_ACTIVATION_TIMESTAMP_MS + 2 * DAY_MS;
+    const tip = estimateZcashChainTipFromClock(later) + 10_000;
+    expect(
+      estimateZcashBirthdayHeight({
+        birthdayTimestamp: later - 5 * DAY_MS,
+        now: later,
+        chainTip: tip,
+      }),
+    ).toBe(tip - 4 * ZCASH_BLOCKS_PER_DAY - 2 * POST_NU7_BLOCKS_PER_DAY);
+  });
+
+  it('advances the clock tip three times faster after NU7', () => {
+    const later = ZCASH_NU7_ACTIVATION_TIMESTAMP_MS + 10 * DAY_MS;
+    const before =
+      estimateZcashChainTipFromClock(ZCASH_NU7_ACTIVATION_TIMESTAMP_MS) -
+      estimateZcashChainTipFromClock(
+        ZCASH_NU7_ACTIVATION_TIMESTAMP_MS - DAY_MS,
+      );
+    const after =
+      estimateZcashChainTipFromClock(later + DAY_MS) -
+      estimateZcashChainTipFromClock(later);
+    expect(Math.abs(after - 3 * before)).toBeLessThanOrEqual(3);
   });
 
   it('keeps the product floor at Ironwood and above the unsupported Sapling era', () => {
