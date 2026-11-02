@@ -32,6 +32,8 @@ export class SimpleDbEntityEarnExtra extends SimpleDbEntityBase<IEarnExtraData> 
 
   override enableCache = false;
 
+  override readonly enableWriteProtection = false;
+
   @backgroundMethod()
   async getEthenaKycAddress() {
     const data = await this.getRawData();

@@ -13,6 +13,8 @@ export class SimpleDbEntityRiskTokenManagement extends SimpleDbEntityBase<IRiskT
 
   override enableCache = false;
 
+  override readonly enableWriteProtection = false;
+
   @backgroundMethod()
   async getUnblockedTokens({ networkId }: { networkId: string }) {
     const rawData = await this.getRawData();

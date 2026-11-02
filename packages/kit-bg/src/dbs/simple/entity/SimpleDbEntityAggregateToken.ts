@@ -60,6 +60,8 @@ export class SimpleDbEntityAggregateToken extends SimpleDbEntityBase<ISimpleDBAg
 
   override enableCache = false;
 
+  override readonly enableWriteProtection = false;
+
   @backgroundMethod()
   async getAggregateTokenConfigMap() {
     return (await this.getRawData())?.aggregateTokenConfigMap ?? {};

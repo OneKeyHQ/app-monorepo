@@ -8,6 +8,8 @@ export class SimpleDbEntityUniversalSearch extends SimpleDbEntityBase<IUniversal
 
   override enableCache = false;
 
+  override readonly enableWriteProtection = false;
+
   @backgroundMethod()
   async getData() {
     const data = await this.getRawData();

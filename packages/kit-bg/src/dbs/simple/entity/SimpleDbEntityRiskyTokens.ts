@@ -11,6 +11,8 @@ export class SimpleDbEntityRiskyTokens extends SimpleDbEntityBase<IRiskyTokens> 
 
   override enableCache = false;
 
+  override readonly enableWriteProtection = false;
+
   @backgroundMethod()
   async getConfirmedRiskTokens() {
     return (await this.getRawData())?.confirmedRiskTokens ?? [];

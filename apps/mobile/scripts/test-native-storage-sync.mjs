@@ -105,7 +105,7 @@ try {
   console.log(json);
   const tests = result.suites.flatMap((suite) => suite.tests);
   assert.equal(result.status, 'passed');
-  assert.equal(tests.length, 3);
+  assert.equal(tests.length, 4);
   assert(tests.every((test) => test.status === 'passed'));
 } finally {
   await dispose();

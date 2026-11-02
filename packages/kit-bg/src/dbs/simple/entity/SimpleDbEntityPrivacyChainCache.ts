@@ -36,6 +36,8 @@ export class SimpleDbEntityPrivacyChainCache extends SimpleDbEntityBase<IPrivacy
 
   override enableCache = false;
 
+  override readonly enableWriteProtection = false;
+
   async getLastSync({ accountId }: { accountId: string }) {
     return (await this.getRawData())?.lastSyncs?.[accountId];
   }

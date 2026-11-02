@@ -98,7 +98,8 @@ RCT_EXPORT_MODULE(OneKeyNativeStorageMigration)
   return [mmapID isEqualToString:@"onekey-app-storage-v1"] ||
          [mmapID isEqualToString:@"onekey-app-setting"] ||
          [mmapID isEqualToString:@"onekey-app-dev-setting"] ||
-         [mmapID isEqualToString:@"onekey-jotai-states"];
+         [mmapID isEqualToString:@"onekey-jotai-states"] ||
+         [mmapID isEqualToString:@"onekey-local-secret-envelope"];
 }
 
 - (unsigned long long)directorySizeAtPath:(NSString *)path

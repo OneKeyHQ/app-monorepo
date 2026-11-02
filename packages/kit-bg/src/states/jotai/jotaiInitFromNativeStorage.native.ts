@@ -3,7 +3,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IMMKVInstance } from '@onekeyhq/shared/src/storage/instance/createMMKVSyncStorage';
 import { travelModeManager } from '@onekeyhq/shared/src/travelMode';
 
-import { EAtomNames } from './atomNames';
+import { EAtomNames, isJotaiAtomWriteProtected } from './atomNames';
 import { jotaiInitFromUi } from './jotaiInitFromUi';
 import { buildJotaiStorageKey } from './jotaiStorage';
 import { MMKV_MIGRATION_COMPLETE_KEY } from './jotaiStorageConsts';
@@ -36,6 +36,7 @@ export async function hydrateJotaiFromNativeStorage(): Promise<IJotaiNativeStora
   }
 
   let mmkv: IMMKVInstance | undefined;
+  let snapshotMmkv: IMMKVInstance | undefined;
   try {
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     mmkv =
@@ -43,6 +44,14 @@ export async function hydrateJotaiFromNativeStorage(): Promise<IJotaiNativeStora
         .default as IMMKVInstance;
   } catch {
     mmkv = undefined;
+  }
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    snapshotMmkv =
+      require('@onekeyhq/shared/src/storage/instance/jotaiSnapshotMMKVStorageInstance')
+        .default as IMMKVInstance;
+  } catch {
+    snapshotMmkv = undefined;
   }
   if (!mmkv) {
     return { hydrated: false, atomCount: 0, reason: 'store-unavailable' };
@@ -62,7 +71,10 @@ export async function hydrateJotaiFromNativeStorage(): Promise<IJotaiNativeStora
   let atomCount = 0;
   Object.values(EAtomNames).forEach((name) => {
     try {
-      const raw = mmkv?.getString(buildJotaiStorageKey(name));
+      const key = buildJotaiStorageKey(name);
+      const raw = isJotaiAtomWriteProtected(name)
+        ? mmkv?.getString(key)
+        : (snapshotMmkv?.getString(key) ?? mmkv?.getString(key));
       if (raw === undefined) {
         return;
       }

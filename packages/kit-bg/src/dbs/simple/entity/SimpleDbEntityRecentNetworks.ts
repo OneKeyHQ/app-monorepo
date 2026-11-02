@@ -18,6 +18,8 @@ export class SimpleDbEntityRecentNetworks extends SimpleDbEntityBase<IRecentNetw
 
   override enableCache = false;
 
+  override readonly enableWriteProtection = false;
+
   @backgroundMethod()
   async getRecentNetworksMap() {
     const rawData = await this.getRawData();

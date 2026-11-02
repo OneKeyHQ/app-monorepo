@@ -1,8 +1,8 @@
 diff --git a/Android/MMKV/mmkv/src/main/cpp/native-bridge.cpp b/Android/MMKV/mmkv/src/main/cpp/native-bridge.cpp
-index d262652..9797817 100644
+index d262652..6a589b8 100644
 --- a/Android/MMKV/mmkv/src/main/cpp/native-bridge.cpp
 +++ b/Android/MMKV/mmkv/src/main/cpp/native-bridge.cpp
-@@ -802,6 +802,13 @@ MMKV_JNI void clearAll(JNIEnv *env, jobject instance) {
+@@ -802,10 +802,20 @@ MMKV_JNI void clearAll(JNIEnv *env, jobject instance) {
      }
  }
  
@@ -16,7 +16,14 @@ index d262652..9797817 100644
  MMKV_JNI void sync(JNIEnv *env, jobject instance, jboolean sync) {
      MMKV *kv = getMMKV(env, instance);
      if (kv) {
-@@ -1230,6 +1237,7 @@ static JNINativeMethod g_methods[] = {
+         kv->sync((SyncFlag) sync);
++        if ((SyncFlag) sync == MMKV_SYNC && MMKV::isWriteProtectedStorage(kv->mmapID())) {
++            MMKV::syncExisting(kv->mmapID());
++        }
+     }
+ }
+ 
+@@ -1230,6 +1240,7 @@ static JNINativeMethod g_methods[] = {
      {"close", "()V", (void *) mmkv::close},
      {"clearMemoryCache", "()V", (void *) mmkv::clearMemoryCache},
      {"sync", "(Z)V", (void *) mmkv::sync},
@@ -46,7 +53,7 @@ index 5955d6c..f8ef82e 100644
  
      /**
 diff --git a/Core/MMKV.cpp b/Core/MMKV.cpp
-index fb20d9e..e2ac48e 100755
+index fb20d9e..22ed411 100755
 --- a/Core/MMKV.cpp
 +++ b/Core/MMKV.cpp
 @@ -41,6 +41,9 @@
@@ -59,10 +66,67 @@ index fb20d9e..e2ac48e 100755
  
  #if defined(__aarch64__) && defined(__linux__) && !defined (MMKV_OHOS)
  #    include <asm/hwcap.h>
-@@ -1216,6 +1219,59 @@ void MMKV::sync(SyncFlag flag) {
-     m_metaFile->msync(flag);
+@@ -67,6 +70,9 @@ size_t mmkv::DEFAULT_MMAP_SIZE;
+ 
+ MMKV_NAMESPACE_BEGIN
+ 
++void traceAppStorageIntegrity(const string &, const MMKVPath_t &, const char *, const MMKVMetaInfo &,
++                              size_t, uint32_t, size_t, size_t, int, bool) noexcept;
++
+ static MMKVPath_t encodeFilePath(const string &mmapID, const MMKVPath_t &rootDir);
+ bool endsWith(const MMKVPath_t &str, const MMKVPath_t &suffix);
+ MMKVPath_t filename(const MMKVPath_t &path);
+@@ -242,6 +248,7 @@ MMKV *MMKV::getMMKVWithID(const std::string &mmapID, const MMKVConfig &config) {
+     if (mmapID.empty() || !g_instanceLock) {
+         return nullptr;
+     }
++    if (isWriteProtectedStorage(mmapID) && (config.mode & MMKV_MULTI_PROCESS)) { return nullptr; }
+     SCOPED_LOCK(g_instanceLock);
+ 
+     auto rootPath = config.rootPath;
+@@ -249,6 +256,10 @@ MMKV *MMKV::getMMKVWithID(const std::string &mmapID, const MMKVConfig &config) {
+     auto itr = g_instanceDic->find(mmapKey);
+     if (itr != g_instanceDic->end()) {
+         MMKV *kv = itr->second;
++        if (isWriteProtectedStorage(mmapID) && (config.mode & MMKV_READ_ONLY)) {
++            SCOPED_LOCK(kv->m_lock);
++            if (kv->m_appStorageTransaction || kv->m_appStorageTransactionError) { return nullptr; }
++        }
+         return kv;
+     }
+ 
+@@ -262,6 +273,9 @@ MMKV *MMKV::getMMKVWithID(const std::string &mmapID, const MMKVConfig &config) {
+     const auto &theRoot = MMKVPath_t2String(*theRootDir);
+     MMKVInfo("prepare to load %s (id %s) from rootPath %s", mmapID.c_str(), mmapKey.c_str(), theRoot.c_str());
+ 
++    if (!recoverAppStorageTransaction(mmapID, config)) {
++        return nullptr;
++    }
+     auto kv = new MMKV(mmapID, config);
+     kv->m_mmapKey = mmapKey;
+     (*g_instanceDic)[mmapKey] = kv;
+@@ -429,7 +443,7 @@ void MMKV::checkReSetCryptKey(const string *cryptKey, bool aes256) {
+ #endif // MMKV_DISABLE_CRYPT
+ 
+ bool MMKV::isFileValid() {
+-    return m_file->isFileValid();
++    return !m_appStorageTransactionError && m_file->isFileValid();
  }
  
+ // crc
+@@ -1212,9 +1226,83 @@ void MMKV::sync(SyncFlag flag) {
+     }
+     SCOPED_LOCK(m_exclusiveProcessLock);
+ 
+-    m_file->msync(flag);
+-    m_metaFile->msync(flag);
++    const bool dataSynced = m_file->msync(flag);
++    const bool metaSynced = m_metaFile->msync(flag);
++    if (!dataSynced || !metaSynced) {
++        failAppStorageTransaction(EIO);
++    }
++}
++
 +#ifndef MMKV_WIN32
 +int MMKV::syncExisting(const std::string &mmapID) {
 +    if (mmapID.empty() || !g_instanceLock) {
@@ -96,34 +160,104 @@ index fb20d9e..e2ac48e 100755
 +    // removeStorage takes its process lock before close acquires the instance
 +    // lock. Acquire both here before handing off registry ownership.
 +    registryLock.unlock();
-+    int error = kv->m_file->validateMappedPath();
-+    if (!error) {
-+        error = kv->m_metaFile->validateMappedPath();
-+    }
-+    if (!error) {
-+        error = kv->m_file->syncChecked();
-+    }
-+    if (!error) {
-+        error = kv->m_metaFile->syncChecked();
-+    }
++    const char *failurePhase = "sync-error-data-path";
++    int error = kv->m_appStorageTransactionError;
 +    if (!error) {
 +        error = kv->m_file->validateMappedPath();
 +    }
 +    if (!error) {
++        failurePhase = "sync-error-meta-path";
 +        error = kv->m_metaFile->validateMappedPath();
 +    }
++    if (!error) {
++        failurePhase = "sync-error-data-flush";
++        error = kv->m_file->syncChecked();
++    }
++    if (!error) {
++        failurePhase = "sync-error-meta-flush";
++        error = kv->m_metaFile->syncChecked();
++    }
++    if (!error) {
++        failurePhase = "sync-error-data-recheck";
++        error = kv->m_file->validateMappedPath();
++    }
++    if (!error) {
++        failurePhase = "sync-error-meta-recheck";
++        error = kv->m_metaFile->validateMappedPath();
++    }
++    if (!error) {
++        failurePhase = "sync-error-transaction-commit";
++        error = kv->finishAppStorageTransaction();
++    }
++    if (error) {
++        kv->failAppStorageTransaction(error);
++    }
++    traceAppStorageIntegrity(kv->m_mmapID, kv->m_path, error ? failurePhase : "sync-ok", *kv->m_metaInfo,
++                             kv->m_actualSize, kv->m_crcDigest, kv->m_file->getFileSize(), 0, error, error != 0);
 +    return error;
-+}
+ }
 +#endif
-+
+ 
  void MMKV::lock() {
      SCOPED_LOCK(m_lock);
-     m_exclusiveProcessLock->lock();
+@@ -1275,6 +1363,13 @@ bool MMKV::backupOneToDirectory(const string &mmapKey, const MMKVPath_t &dstPath
+     }
+     // we have to lock the creation of MMKV instance, regardless of in cache or not
+     SCOPED_LOCK(g_instanceLock);
++    for (const auto &entry : *g_instanceDic) {
++        if (isWriteProtectedStorage(entry.second->m_mmapID) && entry.second->m_path == dstPath) {
++            // A backup destination must not replace a live protected store's inode.
++            return false;
++        }
++    }
++    if (appStoragePathHasTransaction(srcPath) || appStoragePathHasTransaction(dstPath)) { return false; }
+     MMKV *kv = nullptr;
+     if (!compareFullPath) {
+         auto itr = g_instanceDic->find(mmapKey);
+@@ -1299,7 +1394,9 @@ bool MMKV::backupOneToDirectory(const string &mmapKey, const MMKVPath_t &dstPath
+         SCOPED_LOCK(kv->m_lock);
+         SCOPED_LOCK(kv->m_sharedProcessLock);
+ 
++        if (kv->m_appStorageTransaction || kv->m_appStorageTransactionError) { return false; }
+         kv->sync();
++        if (kv->m_appStorageTransactionError) { return false; }
+         auto ret = copyFile(kv->m_path, dstPath);
+         if (ret) {
+             auto dstCRCPath = dstPath + CRC_SUFFIX;
+@@ -1447,6 +1544,9 @@ bool MMKV::restoreOneFromDirectory(const string &mmapKey, const MMKVPath_t &srcP
+     }
+     // we have to lock the creation of MMKV instance, regardless of in cache or not
+     SCOPED_LOCK(g_instanceLock);
++    // Generic restore does not participate in the app-storage transaction protocol.
++    if (isWriteProtectedStorage(MMKVPath_t2String(filename(dstPath))) ||
++        appStoragePathHasTransaction(srcPath) || appStoragePathHasTransaction(dstPath)) { return false; }
+     MMKV *kv = nullptr;
+     if (!compareFullPath) {
+         auto itr = g_instanceDic->find(mmapKey);
 diff --git a/Core/MMKV.h b/Core/MMKV.h
-index 0b2d8d2..77b1d5a 100755
+index 0b2d8d2..b9b2dfa 100755
 --- a/Core/MMKV.h
 +++ b/Core/MMKV.h
-@@ -620,6 +620,12 @@ public:
+@@ -171,6 +171,18 @@ class MMKV_EXPORT MMKV {
+ 
+     uint32_t m_itemSizeLimit = 0;
+ 
++    // Transaction ownership survives cache eviction; only checked sync commits it.
++    bool m_appStorageTransaction = false;
++    uint64_t m_appStorageJournalDevice = 0;
++    uint64_t m_appStorageJournalInode = 0;
++    int m_appStorageTransactionError = 0;
++    bool beginAppStorageTransaction();
++    int finishAppStorageTransaction();
++    void failAppStorageTransaction(int error);
++    static bool appStoragePathHasTransaction(const MMKVPath_t &path);
++    static bool recoverAppStorageTransaction(const std::string &mmapID, const MMKVConfig &config);
++
++
+ #ifdef MMKV_APPLE
+ #ifdef __OBJC__
+     using MMKVKey_t = NSString *__unsafe_unretained;
+@@ -620,6 +632,14 @@ public:
      // unless you worry about running out of battery
      void sync(SyncFlag flag = MMKV_SYNC);
  
@@ -132,10 +266,921 @@ index 0b2d8d2..77b1d5a 100755
 +    // reloading it. Returns 0 on success, otherwise a POSIX error number.
 +    static int syncExisting(const std::string &mmapID);
 +#endif
++    static bool isWriteProtectedStorage(const std::string &mmapID);
++    static void setWriteProtectedStorage(const std::string &mmapID, bool enabled);
 +
      // get exclusive access
      void lock();
      void unlock();
+diff --git a/Core/MMKV_Android.cpp b/Core/MMKV_Android.cpp
+index aba40b3..cb86298 100644
+--- a/Core/MMKV_Android.cpp
++++ b/Core/MMKV_Android.cpp
+@@ -225,12 +225,17 @@ MMKV *MMKV::getMMKVWithID(const string &mmapID, const MMKVConfig &config) {
+     if (mmapID.empty() || !g_instanceLock) {
+         return nullptr;
+     }
++    if (isWriteProtectedStorage(mmapID) && (config.mode & (MMKV_MULTI_PROCESS | MMKV_ASHMEM))) { return nullptr; }
+     SCOPED_LOCK(g_instanceLock);
+ 
+     auto mmapKey = mmapedKVKey(mmapID, config.rootPath, true);
+     auto itr = g_instanceDic->find(mmapKey);
+     if (itr != g_instanceDic->end()) {
+         MMKV *kv = itr->second;
++        if (isWriteProtectedStorage(mmapID) && (config.mode & MMKV_READ_ONLY)) {
++            SCOPED_LOCK(kv->m_lock);
++            if (kv->m_appStorageTransaction || kv->m_appStorageTransactionError) { return nullptr; }
++        }
+         return kv;
+     }
+     auto rootPath = config.rootPath;
+@@ -243,6 +248,10 @@ MMKV *MMKV::getMMKVWithID(const string &mmapID, const MMKVConfig &config) {
+         MMKVInfo("prepare to load %s (id %s) from rootPath %s", mmapID.c_str(), mmapKey.c_str(), rootPath->c_str());
+     }
+ 
++    if (!recoverAppStorageTransaction(mmapID, config)) {
++        return nullptr;
++    }
++
+     MMKV *kv = nullptr;
+     auto migrateStatus = (mode & MMKV_ASHMEM) ? MigrateStatus::NoneExist : tryMigrateLegacyMMKVFile(mmapID, rootPath, true);
+     switch (migrateStatus) {
+@@ -273,6 +282,7 @@ MMKV *MMKV::mmkvWithAshmemFD(const std::string &mmapID, int fd, int metaFD, cons
+ }
+ 
+ MMKV *MMKV::mmkvWithAshmemFD(const string &mmapID, int fd, int metaFD, const MMKVConfig &config) {
++    if (isWriteProtectedStorage(mmapID)) { return nullptr; }
+     if (fd < 0 || !g_instanceLock) {
+         return nullptr;
+     }
+diff --git a/Core/MMKV_IO.cpp b/Core/MMKV_IO.cpp
+index eb26319..32d6cd4 100755
+--- a/Core/MMKV_IO.cpp
++++ b/Core/MMKV_IO.cpp
+@@ -39,8 +39,18 @@
+ #include <cstring>
+ #include <ctime>
+ #include <filesystem>
++#include <chrono>
++#include <cstdio>
++#include <cerrno>
++#include <mutex>
++#include <thread>
++#ifndef MMKV_WIN32
++#    include <fcntl.h>
++#    include <sys/stat.h>
++#endif
+ 
+ #ifdef MMKV_IOS
++#    include <TargetConditionals.h>
+ #    include "MMKV_OSX.h"
+ #endif
+ 
+@@ -64,8 +74,464 @@ extern MMKVPath_t g_realRootDir;
+ 
+ MMKV_NAMESPACE_BEGIN
+ 
++// Temporary local diagnostics. No keys or values may be written here.
++void traceAppStorageIntegrity(const string &mmapID, const MMKVPath_t &dataPath, const char *phase,
++                              const MMKVMetaInfo &meta, size_t actualSize, uint32_t computedCRC,
++                              size_t fileSize, size_t targetSize, int error, bool durable) noexcept {
++#if defined(DEBUG) && DEBUG && !defined(MMKV_WIN32)
++    if (!MMKV::isWriteProtectedStorage(mmapID)) {
++        return;
++    }
++    const int savedErrno = errno;
++    int fd = -1;
++    try {
++        static mutex traceLock;
++        static string lastFingerprint;
++        lock_guard<mutex> lock(traceLock);
++        char payload[512];
++        const int count = snprintf(payload, sizeof(payload),
++            "phase=%s seq=%u version=%u flags=%llu actual=%zu metaActual=%u expectedCRC=%u computedCRC=%u "
++            "checkpoint=%u checkpointCRC=%u fileBytes=%zu targetBytes=%zu error=%d",
++            phase, meta.m_sequence, meta.m_version, static_cast<unsigned long long>(meta.m_flags), actualSize,
++            meta.m_actualSize, meta.m_crcDigest, computedCRC,
++            meta.m_lastConfirmedMetaInfo.lastActualSize, meta.m_lastConfirmedMetaInfo.lastCRCDigest,
++            fileSize, targetSize, error);
++        if (count > 0 && static_cast<size_t>(count) < sizeof(payload)) {
++            const string path = dataPath + ".integrity.trace";
++            const string previousPath = path + ".previous";
++            const string fingerprint = path + '\n' + payload;
++            if (fingerprint != lastFingerprint) {
++                fd = open(path.c_str(), O_WRONLY | O_APPEND | O_CREAT | O_CLOEXEC | O_NOFOLLOW, 0600);
++                struct stat status = {};
++                bool usable = fd >= 0 && fstat(fd, &status) == 0 && S_ISREG(status.st_mode) && status.st_nlink == 1;
++                if (usable && status.st_size >= 128 * 1024) {
++                    close(fd);
++                    fd = -1;
++                    if (rename(path.c_str(), previousPath.c_str()) == 0) {
++                        fd = open(path.c_str(), O_WRONLY | O_APPEND | O_CREAT | O_CLOEXEC | O_NOFOLLOW, 0600);
++                    }
++                    usable = fd >= 0 && fstat(fd, &status) == 0 && S_ISREG(status.st_mode) && status.st_nlink == 1;
++                }
++                if (usable) {
++                    usable = fchmod(fd, 0600) == 0;
++#ifdef MMKV_IOS
++                    if (status.st_size == 0) {
++                        @autoreleasepool {
++                            NSString *name = [NSString stringWithUTF8String:path.c_str()];
++                            NSURL *url = name ? [NSURL fileURLWithPath:name] : nil;
++                            usable = usable && url && [url setResourceValue:@YES forKey:NSURLIsExcludedFromBackupKey error:nullptr];
++                        }
++                    }
++#endif
++                    if (usable) {
++                        const auto time = chrono::duration_cast<chrono::milliseconds>(
++                            chrono::system_clock::now().time_since_epoch()).count();
++                        const auto thread = hash<thread::id>{}(this_thread::get_id());
++                        char line[640];
++                        const int length = snprintf(line, sizeof(line),
++                            "[STORAGE-CRC] v=1 timeMs=%lld pid=%d thread=%llu %s\n",
++                            static_cast<long long>(time), getpid(), static_cast<unsigned long long>(thread), payload);
++                        if (length > 0 && static_cast<size_t>(length) < sizeof(line)) {
++                            ssize_t written;
++                            do { written = write(fd, line, static_cast<size_t>(length)); } while (written < 0 && errno == EINTR);
++                            if (written == length) {
++                                int result = 0;
++                                if (durable) {
++                                    do { result = fsync(fd); } while (result < 0 && errno == EINTR);
++                                }
++                                if (result == 0) {
++                                    lastFingerprint = fingerprint;
++                                }
++                            }
++                        }
++                    }
++                }
++            }
++        }
++    } catch (...) {
++        // Diagnostic failures must never change storage behavior.
++    }
++    if (fd >= 0) {
++        close(fd);
++    }
++    errno = savedErrno;
++#else
++    (void) mmapID; (void) dataPath; (void) phase; (void) meta; (void) actualSize;
++    (void) computedCRC; (void) fileSize; (void) targetSize; (void) error; (void) durable;
++#endif
++}
++
++namespace {
++mutex &writeProtectedStorageMutex() {
++    static auto *lock = new mutex();
++    return *lock;
++}
++unordered_map<string, bool> &writeProtectedStorageMap() {
++    static auto *ids = new unordered_map<string, bool>{
++        {"onekey-app-storage-v1", true},
++        {"onekey-jotai-states", true},
++        {"onekey-app-setting", true},
++        {"onekey-local-secret-envelope", true},
++    };
++    return *ids;
++}
++} // namespace
++
++bool MMKV::isWriteProtectedStorage(const string &mmapID) {
++    if (mmapID.empty()) { return false; }
++    lock_guard<mutex> guard(writeProtectedStorageMutex());
++    const auto &ids = writeProtectedStorageMap();
++    auto itr = ids.find(mmapID);
++    return itr != ids.end() && itr->second;
++}
++
++void MMKV::setWriteProtectedStorage(const string &mmapID, bool enabled) {
++    if (mmapID.empty()) { return; }
++    lock_guard<mutex> guard(writeProtectedStorageMutex());
++    auto &ids = writeProtectedStorageMap();
++    if (enabled) {
++        ids[mmapID] = true;
++    } else {
++        ids.erase(mmapID);
++    }
++}
++
++#ifndef MMKV_WIN32
++namespace {
++constexpr char AppStorageJournalSuffix[] = ".onekey-undo";
++struct AppStorageJournalHeader {
++    char magic[16] = {'O', 'N', 'E', 'K', 'E', 'Y', '-', 'M', 'M', 'K', 'V', '-', 'U', 'N', 'D', 'O'};
++    uint32_t version = 1;
++    uint32_t headerSize = sizeof(AppStorageJournalHeader);
++    uint64_t dataDevice = 0, dataInode = 0, metaDevice = 0, metaInode = 0;
++    uint64_t dataFileSize = 0, metaFileSize = 0, dataLength = 0;
++    uint32_t checksum = 0;
++    uint32_t reserved = 0;
++};
++struct JournalFD {
++    int fd = -1;
++    explicit JournalFD(int value) : fd(value) {}
++    ~JournalFD() { if (fd >= 0) { close(fd); } }
++    JournalFD(const JournalFD &) = delete;
++    JournalFD &operator=(const JournalFD &) = delete;
++};
++int journalError() { return errno ? errno : EIO; }
++bool journalSync(int fd) {
++    int result;
++    do { result = fsync(fd); } while (result < 0 && errno == EINTR);
++    return result == 0;
++}
++int journalOpen(const string &path, int flags, mode_t mode = 0600) {
++    int fd;
++    do { fd = open(path.c_str(), flags | O_CLOEXEC | O_NOFOLLOW, mode); } while (fd < 0 && errno == EINTR);
++    return fd;
++}
++bool journalRegular(int fd, struct stat &status) {
++    if (fstat(fd, &status) != 0) { return false; }
++    if (!S_ISREG(status.st_mode) || status.st_nlink != 1 || status.st_size < 0) {
++        errno = EINVAL;
++        return false;
++    }
++    return true;
++}
++bool journalTransfer(int fd, void *bytes, size_t length, bool writing) {
++    auto ptr = static_cast<uint8_t *>(bytes);
++    size_t offset = 0;
++    while (offset < length) {
++        ssize_t count = writing ? pwrite(fd, ptr + offset, length - offset, static_cast<off_t>(offset)) :
++                                  pread(fd, ptr + offset, length - offset, static_cast<off_t>(offset));
++        if (count < 0 && errno == EINTR) { continue; }
++        if (count <= 0) { if (count == 0) { errno = EIO; } return false; }
++        offset += static_cast<size_t>(count);
++    }
++    return true;
++}
++bool journalDirectorySync(const string &path) {
++    auto slash = path.rfind('/');
++    JournalFD directory(journalOpen(slash == string::npos ? "." : path.substr(0, slash), O_RDONLY | O_DIRECTORY));
++    return directory.fd >= 0 && journalSync(directory.fd);
++}
++bool journalPathExists(const string &path, bool &exists) {
++    struct stat status = {};
++    if (lstat(path.c_str(), &status) == 0) { exists = true; return true; }
++    exists = false;
++    return errno == ENOENT;
++}
++bool journalHealthy(const void *data, size_t dataSize, const void *meta, size_t metaSize, size_t &prefixLength) {
++    if (dataSize < Fixed32Size || metaSize < sizeof(MMKVMetaInfo)) { errno = EILSEQ; return false; }
++    MMKVMetaInfo info;
++    info.read(meta);
++    uint32_t actual = info.m_actualSize;
++    if (info.m_version < MMKVVersionActualSize) { memcpy(&actual, data, Fixed32Size); }
++    if (info.m_version >= MMKVVersionHolder || actual > dataSize - Fixed32Size ||
++        CRC32(0, static_cast<const uint8_t *>(data) + Fixed32Size, actual) != info.m_crcDigest) {
++        errno = EILSEQ;
++        return false;
++    }
++    prefixLength = static_cast<size_t>(actual) + Fixed32Size;
++    return true;
++}
++bool journalProtect(const string &temporary, const string &dataPath, const string &metaPath) {
++#ifdef MMKV_IOS
++    @autoreleasepool {
++        NSString *name = [NSString stringWithUTF8String:temporary.c_str()];
++#if TARGET_OS_SIMULATOR
++        // Simulator files do not expose hardware Data Protection attributes.
++        if (!name) { errno = EACCES; return false; }
++        (void) dataPath; (void) metaPath;
++#else
++        auto manager = [NSFileManager defaultManager];
++        NSString *dataName = [NSString stringWithUTF8String:dataPath.c_str()];
++        NSString *metaName = [NSString stringWithUTF8String:metaPath.c_str()];
++        auto dataAttributes = [manager attributesOfItemAtPath:dataName error:nullptr];
++        auto metaAttributes = [manager attributesOfItemAtPath:metaName error:nullptr];
++        NSString *dataProtection = [dataAttributes objectForKey:NSFileProtectionKey];
++        NSString *metaProtection = [metaAttributes objectForKey:NSFileProtectionKey];
++        if (!name || !dataProtection || !metaProtection) { errno = EACCES; return false; }
++        // Complete is at least as restrictive when the two source classes differ.
++        NSString *protection = [dataProtection isEqualToString:metaProtection] ? dataProtection : NSFileProtectionComplete;
++        if (![manager setAttributes:@{NSFileProtectionKey: protection} ofItemAtPath:name error:nullptr]) {
++            errno = EACCES;
++            return false;
++        }
++#endif
++        NSURL *url = [NSURL fileURLWithPath:name];
++        if (![url setResourceValue:@YES forKey:NSURLIsExcludedFromBackupKey error:nullptr]) {
++            errno = EACCES;
++            return false;
++        }
++        return true;
++    }
++#else
++    (void) temporary; (void) dataPath; (void) metaPath;
++    return true;
++#endif
++}
++
++bool journalValidateCanonical(const string &mmapID, const string &path) {
++    bool dataExists, metaExists;
++    if (!journalPathExists(path, dataExists) || !journalPathExists(path + ".crc", metaExists)) { return false; }
++    if (!dataExists && !metaExists) { return true; }
++    if (!dataExists || !metaExists) { errno = ENOENT; return false; }
++    JournalFD data(journalOpen(path, O_RDONLY)), meta(journalOpen(path + ".crc", O_RDONLY));
++    struct stat dataStatus = {}, metaStatus = {};
++    if (data.fd < 0 || meta.fd < 0 || !journalRegular(data.fd, dataStatus) || !journalRegular(meta.fd, metaStatus) ||
++        dataStatus.st_size < Fixed32Size || metaStatus.st_size < static_cast<off_t>(sizeof(MMKVMetaInfo))) { return false; }
++    MMKVMetaInfo info;
++    uint32_t actual;
++    if (!journalTransfer(meta.fd, &info, sizeof(info), false) || !journalTransfer(data.fd, &actual, sizeof(actual), false)) { return false; }
++    if (info.m_version >= MMKVVersionActualSize) { actual = info.m_actualSize; }
++    if (actual > uint64_t(dataStatus.st_size) - Fixed32Size) { errno = EILSEQ; return false; }
++    vector<uint8_t> prefix(static_cast<size_t>(actual) + Fixed32Size);
++    size_t prefixLength;
++    if (!journalTransfer(data.fd, prefix.data(), prefix.size(), false)) { return false; }
++    const bool healthy = journalHealthy(prefix.data(), prefix.size(), &info, sizeof(info), prefixLength);
++    if (!healthy) {
++        const auto computed = CRC32(0, prefix.data() + Fixed32Size, actual);
++        traceAppStorageIntegrity(mmapID, path, "load-rejected", info, actual, computed,
++                                 dataStatus.st_size, 0, EILSEQ, true);
++    }
++    return healthy;
++}
++
++bool journalRecover(const string &mmapID, const string &path, bool readOnly) {
++    const auto pending = path + AppStorageJournalSuffix;
++    bool exists;
++    if (!journalPathExists(pending, exists)) { return false; }
++    if (!exists) { return journalValidateCanonical(mmapID, path); }
++    if (readOnly) { errno = EROFS; return false; }
++    JournalFD journal(journalOpen(pending, O_RDONLY));
++    struct stat journalStatus = {};
++    if (journal.fd < 0 || !journalRegular(journal.fd, journalStatus) ||
++        journalStatus.st_size < static_cast<off_t>(sizeof(AppStorageJournalHeader))) { return false; }
++    AppStorageJournalHeader header;
++    if (!journalTransfer(journal.fd, &header, sizeof(header), false)) { return false; }
++    const AppStorageJournalHeader expected;
++    if (memcmp(header.magic, expected.magic, sizeof(header.magic)) != 0 || header.version != 1 ||
++        header.headerSize != sizeof(header) || header.reserved != 0 || header.dataLength < Fixed32Size ||
++        header.dataLength > header.dataFileSize || header.dataLength > UINT32_MAX + uint64_t(Fixed32Size) ||
++        header.metaFileSize < sizeof(MMKVMetaInfo) || header.metaFileSize > 1024 * 1024 ||
++        header.dataFileSize > INT64_MAX || header.metaFileSize + header.dataLength + sizeof(header) != uint64_t(journalStatus.st_size)) {
++        errno = EILSEQ;
++        return false;
++    }
++    vector<uint8_t> bytes(static_cast<size_t>(journalStatus.st_size));
++    if (!journalTransfer(journal.fd, bytes.data(), bytes.size(), false)) { return false; }
++    const auto checksum = header.checksum;
++    auto unchecked = header;
++    unchecked.checksum = 0;
++    memcpy(bytes.data(), &unchecked, sizeof(unchecked));
++    if (CRC32(0, bytes.data(), bytes.size()) != checksum) { errno = EILSEQ; return false; }
++    auto meta = bytes.data() + sizeof(header);
++    auto data = meta + header.metaFileSize;
++    size_t prefixLength;
++    if (!journalHealthy(data, header.dataLength, meta, header.metaFileSize, prefixLength) || prefixLength != header.dataLength) {
++        errno = EILSEQ;
++        return false;
++    }
++    JournalFD dataFile(journalOpen(path, O_RDWR));
++    JournalFD metaFile(journalOpen(path + ".crc", O_RDWR));
++    struct stat dataStatus = {}, metaStatus = {};
++    if (dataFile.fd < 0 || metaFile.fd < 0 || !journalRegular(dataFile.fd, dataStatus) || !journalRegular(metaFile.fd, metaStatus)) { return false; }
++    if (uint64_t(dataStatus.st_dev) != header.dataDevice || uint64_t(dataStatus.st_ino) != header.dataInode ||
++        uint64_t(metaStatus.st_dev) != header.metaDevice || uint64_t(metaStatus.st_ino) != header.metaInode) {
++        errno = ESTALE;
++        return false;
++    }
++    // Keep the journal throughout both in-place restores, including a second crash.
++    if (ftruncate(dataFile.fd, static_cast<off_t>(header.dataFileSize)) != 0 ||
++        !journalTransfer(dataFile.fd, data, header.dataLength, true) || !journalSync(dataFile.fd) ||
++        ftruncate(metaFile.fd, static_cast<off_t>(header.metaFileSize)) != 0 ||
++        !journalTransfer(metaFile.fd, meta, header.metaFileSize, true) || !journalSync(metaFile.fd)) { return false; }
++    vector<uint8_t> restoredData(header.dataLength), restoredMeta(header.metaFileSize);
++    if (!journalTransfer(dataFile.fd, restoredData.data(), restoredData.size(), false) ||
++        !journalTransfer(metaFile.fd, restoredMeta.data(), restoredMeta.size(), false) ||
++        restoredData != vector<uint8_t>(data, data + header.dataLength) ||
++        restoredMeta != vector<uint8_t>(meta, meta + header.metaFileSize)) { errno = EIO; return false; }
++    struct stat dataPathStatus = {}, metaPathStatus = {}, pendingStatus = {};
++    if (lstat(path.c_str(), &dataPathStatus) != 0 || lstat((path + ".crc").c_str(), &metaPathStatus) != 0 ||
++        lstat(pending.c_str(), &pendingStatus) != 0 ||
++        dataPathStatus.st_dev != dataStatus.st_dev || dataPathStatus.st_ino != dataStatus.st_ino ||
++        metaPathStatus.st_dev != metaStatus.st_dev || metaPathStatus.st_ino != metaStatus.st_ino ||
++        pendingStatus.st_dev != journalStatus.st_dev || pendingStatus.st_ino != journalStatus.st_ino) { errno = ESTALE; return false; }
++    return unlink(pending.c_str()) == 0 && journalDirectorySync(path);
++}
++} // namespace
++#endif
++
++bool MMKV::appStoragePathHasTransaction(const MMKVPath_t &path) {
++#ifndef MMKV_WIN32
++    bool exists;
++    return !journalPathExists(path + AppStorageJournalSuffix, exists) || exists;
++#else
++    (void) path;
++    return false;
++#endif
++}
++
++void MMKV::failAppStorageTransaction(int error) {
++    if (isWriteProtectedStorage(m_mmapID) && !m_appStorageTransactionError) {
++        m_appStorageTransactionError = error ? error : EIO;
++    }
++}
++
++bool MMKV::recoverAppStorageTransaction(const string &mmapID, const MMKVConfig &config) {
++    if (!isWriteProtectedStorage(mmapID)) { return true; }
++#ifndef MMKV_WIN32
++    if (config.mode & MMKV_MULTI_PROCESS) { errno = ENOTSUP; return false; }
++#ifdef MMKV_ANDROID
++    if (config.mode & MMKV_ASHMEM) { errno = ENOTSUP; return false; }
++    auto path = mappedKVPathWithID(mmapID, config.rootPath, config.mode, true);
++#else
++    auto path = mappedKVPathWithID(mmapID, config.rootPath, true);
++#endif
++    try { return journalRecover(mmapID, path, config.mode & MMKV_READ_ONLY); }
++    catch (...) { errno = ENOMEM; return false; }
++#else
++    return true;
++#endif
++}
++
++bool MMKV::beginAppStorageTransaction() {
++    if (!isWriteProtectedStorage(m_mmapID)) { return true; }
++    if (m_appStorageTransactionError) { return false; }
++#ifndef MMKV_WIN32
++    if (isReadOnly() || isMultiProcess()) { failAppStorageTransaction(EROFS); return false; }
++    if (m_appStorageTransaction) { return true; }
++    try {
++        int error = m_file->validateMappedPath();
++        if (!error) { error = m_metaFile->validateMappedPath(); }
++        if (error) { failAppStorageTransaction(error); return false; }
++        size_t prefixLength;
++        if (!journalHealthy(m_file->getMemory(), m_file->getFileSize(), m_metaFile->getMemory(), m_metaFile->getFileSize(), prefixLength)) {
++            failAppStorageTransaction(journalError());
++            return false;
++        }
++        const auto pending = m_path + AppStorageJournalSuffix;
++        const auto temporary = pending + ".tmp";
++        bool exists;
++        if (!journalPathExists(pending, exists) || exists) { failAppStorageTransaction(EEXIST); return false; }
++        // An unpublished temporary can only predate canonical mutation. Never follow links.
++        if (!journalPathExists(temporary, exists)) { failAppStorageTransaction(journalError()); return false; }
++        if (exists) {
++            JournalFD stale(journalOpen(temporary, O_RDONLY));
++            struct stat status = {};
++            if (stale.fd < 0 || !journalRegular(stale.fd, status) || unlink(temporary.c_str()) != 0) {
++                failAppStorageTransaction(journalError()); return false;
++            }
++        }
++        JournalFD file(journalOpen(temporary, O_RDWR | O_CREAT | O_EXCL));
++        struct stat fileStatus = {};
++        if (file.fd < 0 || !journalRegular(file.fd, fileStatus) || fchmod(file.fd, 0600) != 0 ||
++            !journalProtect(temporary, m_path, m_crcPath)) { failAppStorageTransaction(journalError()); return false; }
++        JournalFD dataFile(journalOpen(m_path, O_RDONLY)), metaFile(journalOpen(m_crcPath, O_RDONLY));
++        struct stat dataStatus = {}, metaStatus = {};
++        if (dataFile.fd < 0 || metaFile.fd < 0 || !journalRegular(dataFile.fd, dataStatus) || !journalRegular(metaFile.fd, metaStatus)) {
++            failAppStorageTransaction(journalError()); return false;
++        }
++        AppStorageJournalHeader header;
++        header.dataDevice = dataStatus.st_dev; header.dataInode = dataStatus.st_ino;
++        header.metaDevice = metaStatus.st_dev; header.metaInode = metaStatus.st_ino;
++        header.dataFileSize = m_file->getFileSize(); header.metaFileSize = m_metaFile->getFileSize(); header.dataLength = prefixLength;
++        vector<uint8_t> bytes(sizeof(header) + header.metaFileSize + prefixLength);
++        memcpy(bytes.data(), &header, sizeof(header));
++        memcpy(bytes.data() + sizeof(header), m_metaFile->getMemory(), header.metaFileSize);
++        memcpy(bytes.data() + sizeof(header) + header.metaFileSize, m_file->getMemory(), prefixLength);
++        header.checksum = CRC32(0, bytes.data(), bytes.size());
++        memcpy(bytes.data(), &header, sizeof(header));
++        if (!journalTransfer(file.fd, bytes.data(), bytes.size(), true) || !journalSync(file.fd) ||
++            m_file->validateMappedPath() || m_metaFile->validateMappedPath() ||
++            rename(temporary.c_str(), pending.c_str()) != 0 || !journalDirectorySync(m_path)) {
++            failAppStorageTransaction(journalError()); return false;
++        }
++        m_appStorageJournalDevice = fileStatus.st_dev;
++        m_appStorageJournalInode = fileStatus.st_ino;
++        m_appStorageTransaction = true;
++    } catch (...) { failAppStorageTransaction(ENOMEM); return false; }
++#endif
++    return true;
++}
++
++int MMKV::finishAppStorageTransaction() {
++    if (m_appStorageTransactionError) { return m_appStorageTransactionError; }
++#ifndef MMKV_WIN32
++    if (isWriteProtectedStorage(m_mmapID)) {
++        size_t prefixLength;
++        if (!journalHealthy(m_file->getMemory(), m_file->getFileSize(), m_metaFile->getMemory(), m_metaFile->getFileSize(), prefixLength)) {
++            failAppStorageTransaction(journalError());
++            return m_appStorageTransactionError;
++        }
++    }
++    if (m_appStorageTransaction) {
++        struct stat status = {};
++        const auto pending = m_path + AppStorageJournalSuffix;
++        if (lstat(pending.c_str(), &status) != 0 || !S_ISREG(status.st_mode) || status.st_nlink != 1 ||
++            uint64_t(status.st_dev) != m_appStorageJournalDevice || uint64_t(status.st_ino) != m_appStorageJournalInode) {
++            failAppStorageTransaction(ESTALE);
++            return m_appStorageTransactionError;
++        }
++        if (unlink(pending.c_str()) != 0 || !journalDirectorySync(m_path)) {
++            failAppStorageTransaction(journalError());
++            return m_appStorageTransactionError;
++        }
++        m_appStorageTransaction = false;
++    }
++#endif
++    return 0;
++}
++
+ void MMKV::loadFromFile() {
++    const bool preserveAppStorage = isWriteProtectedStorage(m_mmapID);
++    auto invalidateAppStorageLoad = [this] {
++        // Some reload callers already marked the cache as unloaded.
++        m_needLoadFromFile = false;
++        clearMemoryCache();
++    };
+     loadMetaInfoAndCheck();
++    if (preserveAppStorage && !m_metaFile->isFileValid()) {
++        invalidateAppStorageLoad();
++        return;
++    }
+ #ifndef MMKV_DISABLE_CRYPT
+     if (m_crypter) {
+         if (m_metaInfo->m_version >= MMKVVersionRandomIV) {
+@@ -85,10 +551,30 @@ void MMKV::loadFromFile() {
+     }
+     if (!m_file->isFileValid()) {
+         MMKVError("file [%s] not valid", m_path.c_str());
++        if (preserveAppStorage) {
++            invalidateAppStorageLoad();
++            return;
++        }
+     } else {
+         // error checking
+         bool loadFromFile = false, needFullWriteback = false;
+         checkDataValid(loadFromFile, needFullWriteback);
++        if (preserveAppStorage && !loadFromFile) {
++            // Do not erase durable records or their CRC evidence on a failed read.
++            // The app's independent migration ledger will report the unavailable store.
++            MMKVError("app-storage integrity validation failed; original files preserved: size=%zu crc=%u "
++                      "version=%u checkpointSize=%u checkpointCRC=%u", m_actualSize, m_metaInfo->m_crcDigest,
++                      m_metaInfo->m_version, m_metaInfo->m_lastConfirmedMetaInfo.lastActualSize,
++                      m_metaInfo->m_lastConfirmedMetaInfo.lastCRCDigest);
++            const int validationError = m_metaInfo->m_version >= MMKVVersionHolder ? EINVAL :
++                (m_actualSize >= m_file->getFileSize() || m_actualSize + Fixed32Size > m_file->getFileSize() ? EINVAL : EILSEQ);
++            traceAppStorageIntegrity(m_mmapID, m_path, "load-rejected", *m_metaInfo, m_actualSize, m_crcDigest,
++                                     m_file->getFileSize(), 0, validationError, true);
++            invalidateAppStorageLoad();
++            return;
++        }
++        traceAppStorageIntegrity(m_mmapID, m_path, "load-ok", *m_metaInfo, m_actualSize, m_crcDigest,
++                                 m_file->getFileSize(), 0, 0, false);
+         MMKVInfo("loading [%s] with %zu actual size, file size %zu, InterProcess %d, meta info "
+                  "version:%u",
+                  m_mmapID.c_str(), m_actualSize, m_file->getFileSize(), isMultiProcess(), m_metaInfo->m_version);
+@@ -137,7 +623,7 @@ void MMKV::loadFromFile() {
+             } else if (m_actualSize > 0) {
+                 writeActualSize(0, 0, nullptr, IncreaseSequence);
+                 sync(MMKV_SYNC);
+-            } else {
++            } else if (!preserveAppStorage) {
+                 writeActualSize(0, 0, nullptr, KeepSequence);
+             }
+         }
+@@ -251,7 +737,7 @@ void MMKV::loadMetaInfoAndCheck() {
+         return;
+     }
+ 
+-    if (checkFileHasDiskError()) {
++    if (!isWriteProtectedStorage(m_mmapID) && checkFileHasDiskError()) {
+         // let user know?
+     }
+ 
+@@ -267,6 +753,11 @@ void MMKV::loadMetaInfoAndCheck() {
+         return;
+     }
+ 
++    // Preserve unsupported metadata instead of normalizing it before validation.
++    if (isWriteProtectedStorage(m_mmapID) && m_metaInfo->m_version >= MMKVVersionHolder) {
++        return;
++    }
++
+     // the meta file is in specious status
+     if (m_metaInfo->m_version >= MMKVVersionHolder) {
+         MMKVWarning("meta file [%s] in specious state, version %u, flags 0x%llx", m_mmapID.c_str(),
+@@ -286,7 +777,7 @@ void MMKV::loadMetaInfoAndCheck() {
+         }
+         MMKVInfo("meta file [%s] has flag [%llu]", m_mmapID.c_str(), m_metaInfo->m_flags);
+     } else {
+-        if (m_metaInfo->m_flags != 0) {
++        if (m_metaInfo->m_flags != 0 && !isWriteProtectedStorage(m_mmapID)) {
+             m_metaInfo->m_flags = 0;
+             m_metaInfo->write(m_metaFile->getMemory());
+         }
+@@ -335,6 +826,16 @@ void MMKV::checkDataValid(bool &loadFromFile, bool &needFullWriteback) {
+ 
+     m_actualSize = readActualSize();
+ 
++    if (isWriteProtectedStorage(m_mmapID)) {
++        // A CRC-valid empty/old checkpoint is not proof that migrated data may be discarded.
++        // Never roll back, greedily rewrite, or zero this durable store during a read.
++        if (m_metaInfo->m_version < MMKVVersionHolder && m_actualSize < fileSize &&
++            (m_actualSize + Fixed32Size) <= fileSize) {
++            loadFromFile = checkFileCRCValid(m_actualSize, m_metaInfo->m_crcDigest);
++        }
++        return;
++    }
++
+     if (m_actualSize < fileSize && (m_actualSize + Fixed32Size) <= fileSize) {
+         if (checkFileCRCValid(m_actualSize, m_metaInfo->m_crcDigest)) {
+             loadFromFile = true;
+@@ -371,6 +872,16 @@ void MMKV::checkDataValid(bool &loadFromFile, bool &needFullWriteback) {
+ }
+ 
+ void MMKV::checkLoadData() {
++    if (m_appStorageTransactionError) {
++        // Defer cache invalidation to the next API boundary, outside writer iterators.
++        clearDictionary(m_dic);
++#ifndef MMKV_DISABLE_CRYPT
++        clearDictionary(m_dicCrypt);
++#endif
++        m_actualSize = 0;
++        return;
++    }
++
+     if (m_needLoadFromFile) {
+         SCOPED_LOCK(m_sharedProcessLock);
+ 
+@@ -487,6 +998,8 @@ bool MMKV::ensureMemorySize(size_t newSize) {
+         // try a full rewrite to make space
+         auto preparedData = m_crypter ? prepareEncode(*m_dicCrypt) : prepareEncode(*m_dic);
+         // dic.empty() means inserting key-value for the first time, no need to call msync()
++        traceAppStorageIntegrity(m_mmapID, m_path, "rewrite-for-space", *m_metaInfo, m_actualSize, m_crcDigest,
++                                 m_file->getFileSize(), newSize, 0, false);
+         return expandAndWriteBack(newSize, std::move(preparedData), m_crypter ? !m_dicCrypt->empty() : !m_dic->empty());
+     }
+     return true;
+@@ -511,6 +1024,7 @@ bool MMKV::checkSizeLimit(size_t size, const MMBuffer &keyData, uint32_t originK
+ 
+ // try a full rewrite to make space
+ bool MMKV::expandAndWriteBack(size_t newSize, std::pair<mmkv::MMBuffer, size_t> preparedData, bool needSync) {
++    if (!beginAppStorageTransaction()) { return false; }
+     auto fileSize = m_file->getFileSize();
+     auto sizeOfDic = preparedData.second;
+     size_t lenNeeded = sizeOfDic + Fixed32Size + newSize;
+@@ -532,6 +1046,7 @@ bool MMKV::expandAndWriteBack(size_t newSize, std::pair<mmkv::MMBuffer, size_t>
+         // if we can't extend size, rollback to old state
+         // this is a good place to mock enlarging file failure
+         if (!m_file->truncate(fileSize)) {
++            failAppStorageTransaction(EIO);
+             return false;
+         }
+ 
+@@ -666,6 +1181,7 @@ bool MMKV::setDataForKey(MMBuffer &&data, MMKVKey_t key, bool isDataHolder) {
+     SCOPED_LOCK(m_lock);
+     SCOPED_LOCK(m_exclusiveProcessLock);
+     checkLoadData();
++    if (m_appStorageTransactionError) { return false; }
+ 
+ #ifndef MMKV_DISABLE_CRYPT
+     if (m_crypter) {
+@@ -828,6 +1344,7 @@ static void eraseHelper(T& container, std::string_view key) {
+ }
+ 
+ bool MMKV::removeDataForKey(MMKVKey_t key) {
++    if (m_appStorageTransactionError) { return false; }
+     if (isKeyEmpty(key)) {
+         return false;
+     }
+@@ -917,8 +1434,10 @@ MMKV::doAppendDataWithKey(const MMBuffer &data, const MMBuffer &keyData, bool is
+     if (!checkSizeLimit(size, keyData, originKeyLength)) {
+         return make_pair(false, KeyValueHolder());
+     }
++    if (!beginAppStorageTransaction()) { return make_pair(false, KeyValueHolder()); }
+     bool hasEnoughSize = ensureMemorySize(size);
+     if (!hasEnoughSize || !isFileValid()) {
++        failAppStorageTransaction(EIO);
+         return make_pair(false, KeyValueHolder());
+     }
+ 
+@@ -941,9 +1460,11 @@ MMKV::doAppendDataWithKey(const MMBuffer &data, const MMBuffer &keyData, bool is
+         m_output->writeData(data); // note: write size of data
+     } catch (std::exception &e) {
+         MMKVError("%s", e.what());
++        failAppStorageTransaction(EIO);
+         return make_pair(false, KeyValueHolder());
+     } catch (...) {
+         MMKVError("append fail");
++        failAppStorageTransaction(EIO);
+         return make_pair(false, KeyValueHolder());
+     }
+ 
+@@ -983,6 +1504,8 @@ KVHolderRet_t MMKV::doOverrideDataWithKey(const MMBuffer &data,
+         return doAppendDataWithKey(data, keyData, isDataHolder, originKeyLength);
+     }
+ 
++    if (!beginAppStorageTransaction()) { return make_pair(false, KeyValueHolder()); }
++
+     // we don't not support override in multi-process mode
+     // SCOPED_LOCK(m_exclusiveProcessLock);
+ 
+@@ -1020,9 +1543,11 @@ KVHolderRet_t MMKV::doOverrideDataWithKey(const MMBuffer &data,
+         m_output->writeData(data); // note: write size of data
+     } catch (std::exception &e) {
+         MMKVError("%s", e.what());
++        failAppStorageTransaction(EIO);
+         return make_pair(false, KeyValueHolder());
+     } catch (...) {
+         MMKVError("append fail");
++        failAppStorageTransaction(EIO);
+         return make_pair(false, KeyValueHolder());
+     }
+ 
+@@ -1133,6 +1658,7 @@ KVHolderRet_t MMKV::overrideDataWithKey(const MMBuffer &data, const KeyValueHold
+ }
+ 
+ bool MMKV::fullWriteback(AESCrypt *newCrypter, bool onlyWhileExpire) {
++    if (m_appStorageTransactionError) { return false; }
+     if (m_hasFullWriteback) {
+         return true;
+     }
+@@ -1148,6 +1674,8 @@ bool MMKV::fullWriteback(AESCrypt *newCrypter, bool onlyWhileExpire) {
+         return false;
+     }
+ 
++    if (!beginAppStorageTransaction()) { return false; }
++
+     if (mmkv_unlikely(m_enableKeyExpire)) {
+         auto expiredCount = filterExpiredKeys();
+         if (onlyWhileExpire && expiredCount == 0) {
+@@ -1343,8 +1871,11 @@ static void fullWriteBackWholeData(MMBuffer allData, size_t totalSize, CodedOutp
+ 
+ #ifndef MMKV_DISABLE_CRYPT
+ bool MMKV::doFullWriteBack(pair<MMBuffer, size_t> prepared, AESCrypt *newCrypter, bool needSync) {
++    if (!beginAppStorageTransaction()) { return false; }
+     auto ptr = (uint8_t *) m_file->getMemory();
+     auto totalSize = prepared.second;
++    traceAppStorageIntegrity(m_mmapID, m_path, "rewrite-begin", *m_metaInfo, m_actualSize, m_crcDigest,
++                             m_file->getFileSize(), totalSize, 0, true);
+ 
+     uint8_t newIV[AES_IV_LEN];
+     auto encrypter = (newCrypter == InvalidCryptPtr) ? nullptr : (newCrypter ? newCrypter : m_crypter);
+@@ -1379,14 +1910,19 @@ bool MMKV::doFullWriteBack(pair<MMBuffer, size_t> prepared, AESCrypt *newCrypter
+     if (needSync) {
+         sync(MMKV_SYNC);
+     }
+-    return true;
++    traceAppStorageIntegrity(m_mmapID, m_path, "rewrite-return", *m_metaInfo, m_actualSize, m_crcDigest,
++                             m_file->getFileSize(), totalSize, 0, false);
++    return !m_appStorageTransactionError;
+ }
+ 
+ #else // MMKV_DISABLE_CRYPT
+ 
+ bool MMKV::doFullWriteBack(pair<MMBuffer, size_t> prepared, AESCrypt *, bool needSync) {
++    if (!beginAppStorageTransaction()) { return false; }
+     auto ptr = (uint8_t *) m_file->getMemory();
+     auto totalSize = prepared.second;
++    traceAppStorageIntegrity(m_mmapID, m_path, "rewrite-begin", *m_metaInfo, m_actualSize, m_crcDigest,
++                             m_file->getFileSize(), totalSize, 0, true);
+ 
+     delete m_output;
+     m_output = new CodedOutputData(ptr + Fixed32Size, m_file->getFileSize() - Fixed32Size);
+@@ -1405,7 +1941,9 @@ bool MMKV::doFullWriteBack(pair<MMBuffer, size_t> prepared, AESCrypt *, bool nee
+     if (needSync) {
+         sync(MMKV_SYNC);
+     }
+-    return true;
++    traceAppStorageIntegrity(m_mmapID, m_path, "rewrite-return", *m_metaInfo, m_actualSize, m_crcDigest,
++                             m_file->getFileSize(), totalSize, 0, false);
++    return !m_appStorageTransactionError;
+ }
+ #endif // MMKV_DISABLE_CRYPT
+ 
+@@ -1423,6 +1961,8 @@ bool MMKV::reKey(const string &cryptKey, bool aes256) {
+         return false;
+     }
+ 
++    if (!beginAppStorageTransaction()) { return false; }
++
+     bool ret = false;
+     if (m_crypter) {
+         if (cryptKey.length() > 0) {
+@@ -1477,6 +2017,11 @@ bool MMKV::reKey(const string &cryptKey, bool aes256) {
+     // m_dic or m_dicCrypt is not valid after reKey
+     if (ret) {
+         clearMemoryCache();
++        if (isWriteProtectedStorage(m_mmapID)) {
++            // The new crypter is installed and no writer iterator remains alive.
++            loadFromFile();
++            if (!isFileValid()) { failAppStorageTransaction(EIO); ret = false; }
++        }
+     }
+     return ret;
+ }
+@@ -1503,7 +2048,12 @@ void MMKV::trim() {
+         return;
+     }
+ 
+-    fullWriteback();
++    traceAppStorageIntegrity(m_mmapID, m_path, "rewrite-for-trim", *m_metaInfo, m_actualSize, m_crcDigest,
++                             m_file->getFileSize(), 0, 0, false);
++    if (!beginAppStorageTransaction() || !fullWriteback()) {
++        failAppStorageTransaction(EIO);
++        return;
++    }
+     auto oldSize = m_file->getFileSize();
+     auto fileSize = oldSize;
+     while (fileSize > (m_actualSize + Fixed32Size) * 2) {
+@@ -1518,6 +2068,7 @@ void MMKV::trim() {
+     MMKVInfo("trimming %s from %zu to %zu, actualSize %zu", m_mmapID.c_str(), oldSize, fileSize, m_actualSize);
+ 
+     if (!m_file->truncate(fileSize)) {
++        failAppStorageTransaction(EIO);
+         return;
+     }
+     fileSize = m_file->getFileSize();
+@@ -1548,8 +2099,10 @@ void MMKV::clearAll(bool keepSpace) {
+         return;
+     }
+ 
+-    if (!keepSpace) {
+-        m_file->truncate(m_expectedCapacity);
++    if (!beginAppStorageTransaction()) { return; }
++    if (!keepSpace && !m_file->truncate(m_expectedCapacity)) {
++        failAppStorageTransaction(EIO);
++        return;
+     }
+ 
+ #ifndef MMKV_DISABLE_CRYPT
+@@ -1563,7 +2116,7 @@ void MMKV::clearAll(bool keepSpace) {
+     writeActualSize(0, 0, nullptr, IncreaseSequence);
+ #endif
+ 
+-    m_metaFile->msync(MMKV_SYNC);
++    if (!m_metaFile->msync(MMKV_SYNC)) { failAppStorageTransaction(EIO); return; }
+ 
+     clearMemoryCache(keepSpace);
+     loadFromFile();
+@@ -1705,6 +2258,8 @@ bool MMKV::removeStorage(const std::string &mmapID, const MMKVPath_t *relatePath
+     }
+     SCOPED_LOCK(g_instanceLock);
+ 
++    // Generic physical removal cannot preserve a concurrent app-storage transaction.
++    if (isWriteProtectedStorage(mmapID)) { return false; }
+     std::string realID, mmapKey;
+     auto [kvPath, crcPath] = getStorage(mmapID, relatePath, realID, mmapKey);
+     if (kvPath.empty() && crcPath.empty()) {
+@@ -1757,6 +2312,7 @@ uint32_t MMKV::getCurrentTimeInSecond() {
+ }
+ 
+ bool MMKV::doFullWriteBack(MMKVVector &&vec) {
++    if (!beginAppStorageTransaction()) { return false; }
+     auto preparedData = prepareEncode(std::move(vec));
+ 
+     // must clean before write-back and after prepareEncode()
+@@ -1778,6 +2334,11 @@ bool MMKV::doFullWriteBack(MMKVVector &&vec) {
+     }
+ 
+     clearMemoryCache();
++    if (ret && isWriteProtectedStorage(m_mmapID)) {
++        // The vector rewrite has finished; restore its mapping before checked sync.
++        loadFromFile();
++        if (!isFileValid()) { failAppStorageTransaction(EIO); ret = false; }
++    }
+     return ret;
+ }
+ 
+@@ -1827,6 +2388,8 @@ bool MMKV::enableAutoKeyExpire(uint32_t expiredInSeconds) {
+         return false;
+     }
+ 
++    if (!beginAppStorageTransaction()) { return false; }
++
+     if (m_enableCompareBeforeSet) {
+         MMKVError("enableCompareBeforeSet will be invalid when Expiration is on");
+         m_enableCompareBeforeSet = false;
+@@ -1850,7 +2413,7 @@ bool MMKV::enableAutoKeyExpire(uint32_t expiredInSeconds) {
+     if (m_file->getFileSize() == m_expectedCapacity && m_actualSize == 0) {
+         MMKVInfo("file is new, don't need a full writeback [%s], just update meta file", m_mmapID.c_str());
+         writeActualSize(0, 0, nullptr, IncreaseSequence);
+-        m_metaFile->msync(MMKV_SYNC);
++        if (!m_metaFile->msync(MMKV_SYNC)) { failAppStorageTransaction(EIO); return false; }
+         return true;
+     }
+ 
+@@ -1899,6 +2462,8 @@ bool MMKV::disableAutoKeyExpire() {
+         return false;
+     }
+ 
++    if (!beginAppStorageTransaction()) { return false; }
++
+     m_expiredInSeconds = 0;
+     m_enableKeyExpire = false;
+     if (!m_metaInfo->hasFlag(MMKVMetaInfo::EnableKeyExipre)) {
+@@ -1912,7 +2477,7 @@ bool MMKV::disableAutoKeyExpire() {
+     if (m_file->getFileSize() == m_expectedCapacity && m_actualSize == 0) {
+         MMKVInfo("file is new, don't need a full write-back [%s], just update meta file", m_mmapID.c_str());
+         writeActualSize(0, 0, nullptr, IncreaseSequence);
+-        m_metaFile->msync(MMKV_SYNC);
++        if (!m_metaFile->msync(MMKV_SYNC)) { failAppStorageTransaction(EIO); return false; }
+         return true;
+     }
+ 
 diff --git a/Core/MemoryFile.cpp b/Core/MemoryFile.cpp
 index 8e08858..7038f35 100644
 --- a/Core/MemoryFile.cpp
@@ -278,10 +1323,10 @@ index 00100a9..28352ac 100644
  - (void)async;
  
 diff --git a/iOS/MMKV/MMKV/libMMKV.mm b/iOS/MMKV/MMKV/libMMKV.mm
-index 4589879..0454aad 100644
+index 4589879..253f337 100644
 --- a/iOS/MMKV/MMKV/libMMKV.mm
 +++ b/iOS/MMKV/MMKV/libMMKV.mm
-@@ -841,6 +841,10 @@ - (void)removeValuesForKeys:(NSArray *)arrKeys {
+@@ -841,8 +841,15 @@ - (void)removeValuesForKeys:(NSArray *)arrKeys {
      m_mmkv->removeValuesForKeys(arrKeys);
  }
  
@@ -291,4 +1336,9 @@ index 4589879..0454aad 100644
 +
  - (void)sync {
      m_mmkv->sync(mmkv::MMKV_SYNC);
++    if (mmkv::MMKV::isWriteProtectedStorage(m_mmkv->mmapID())) {
++        mmkv::MMKV::syncExisting(m_mmkv->mmapID());
++    }
  }
+ 
+ - (void)async {

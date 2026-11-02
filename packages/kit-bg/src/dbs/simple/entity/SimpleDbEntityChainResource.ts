@@ -16,6 +16,8 @@ export class SimpleDbEntityChainResource extends SimpleDbEntityBase<IChainResour
 
   override enableCache = false;
 
+  override readonly enableWriteProtection = false;
+
   @backgroundMethod()
   async getTronClaimResourceInfo({
     accountAddress,

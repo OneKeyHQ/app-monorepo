@@ -56,7 +56,8 @@ public final class OneKeyNativeStorageMigrationModule extends ReactContextBaseJa
         "onekey-app-storage-v1",
         "onekey-app-setting",
         "onekey-app-dev-setting",
-        "onekey-jotai-states"
+        "onekey-jotai-states",
+        "onekey-local-secret-envelope"
     );
 
     private final ExecutorService executor = Executors.newSingleThreadExecutor();

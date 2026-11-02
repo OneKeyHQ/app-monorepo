@@ -32,6 +32,8 @@ export const FEATURE_SNAPSHOT_CACHE_NAMESPACES = [
   'tokenlist-owner-slim',
   'tokenlist-owner-worth',
   'home-header-layout',
+  'simple-db-cache',
+  'jotai-cache',
 ] as const;
 
 export type ISnapshotCacheNamespace =

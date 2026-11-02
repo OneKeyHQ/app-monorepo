@@ -21,6 +21,8 @@ export class SimpleDbEntityFeeInfo extends SimpleDbEntityBase<IFeeInfoDb> {
 
   override enableCache = false;
 
+  override readonly enableWriteProtection = false;
+
   @backgroundMethod()
   async updatePresetIndex({
     networkId,

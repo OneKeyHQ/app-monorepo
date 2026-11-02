@@ -30,6 +30,8 @@ export class SimpleDbEntityDeFi extends SimpleDbEntityBase<IDeFiDBStruct> {
 
   override enableCache = false;
 
+  override readonly enableWriteProtection = false;
+
   @backgroundMethod()
   async updateEnabledNetworksMap({
     merge,

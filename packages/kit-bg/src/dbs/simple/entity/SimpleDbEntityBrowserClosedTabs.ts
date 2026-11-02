@@ -10,4 +10,6 @@ export class SimpleDbEntityBrowserClosedTabs extends SimpleDbEntityBase<IBrowser
   entityName = 'browserCloseTabs';
 
   override enableCache = false;
+
+  override readonly enableWriteProtection = false;
 }

@@ -10,4 +10,6 @@ export class SimpleDbEntityBrowserHistory extends SimpleDbEntityBase<IBrowserHis
   entityName = 'browserHistory';
 
   override enableCache = false;
+
+  override readonly enableWriteProtection = false;
 }

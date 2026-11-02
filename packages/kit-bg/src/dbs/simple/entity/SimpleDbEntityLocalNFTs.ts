@@ -19,6 +19,8 @@ export class SimpleDbEntityLocalNFTs extends SimpleDbEntityBase<ILocalNFTs> {
 
   override enableCache = false;
 
+  override readonly enableWriteProtection = false;
+
   @backgroundMethod()
   async updateAccountNFTs({
     networkId,

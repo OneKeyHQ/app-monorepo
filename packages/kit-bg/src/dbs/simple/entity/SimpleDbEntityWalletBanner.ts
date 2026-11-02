@@ -12,6 +12,8 @@ export class SimpleDbEntityWalletBanner extends SimpleDbEntityBase<IWalletBanner
 
   override enableCache = false;
 
+  override readonly enableWriteProtection = false;
+
   async getClosedForeverBanners() {
     const data = await this.getRawData();
     return data?.closedForever ?? {};

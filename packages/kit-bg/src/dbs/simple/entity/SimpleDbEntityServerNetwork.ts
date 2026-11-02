@@ -22,6 +22,8 @@ export class SimpleDbEntityServerNetwork extends SimpleDbEntityBase<IServerNetwo
 
   override enableCache = false;
 
+  override readonly enableWriteProtection = false;
+
   @backgroundMethod()
   async upsertServerNetworks(params: {
     networkInfos: IServerNetwork[];

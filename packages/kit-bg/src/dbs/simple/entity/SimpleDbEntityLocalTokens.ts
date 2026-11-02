@@ -59,6 +59,8 @@ export class SimpleDbEntityLocalTokens extends SimpleDbEntityBase<ISimpleDBLocal
 
   override enableCache = false;
 
+  override readonly enableWriteProtection = false;
+
   // Responses for the same account/network can resolve out of request order
   // (e.g. A -> B -> A where the first A request is slow). Writes carry the
   // order in which their request started; one older than the newest committed

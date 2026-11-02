@@ -148,4 +148,54 @@ describe('SimpleDb lazy entities', () => {
       'simpleDb@customTokens.getRawData',
     );
   });
+
+  test('aligns SimpleDbEntity enableWriteProtection with SIMPLE_DB_SNAPSHOT_CACHE_ENTITY_NAMES', async () => {
+    jest.dontMock('../entity/SimpleDbEntityPerp');
+    jest.dontMock('../entity/SimpleDbEntityCustomTokens');
+    jest.dontMock('../entity/SimpleDbEntityAppStatus');
+
+    const {
+      SIMPLE_DB_SNAPSHOT_CACHE_ENTITY_NAMES,
+      isSimpleDbSnapshotCacheEntityName,
+    } = await import('@onekeyhq/shared/src/storage/simpleDbSnapshotEntities');
+    const fs = await import('fs');
+    const path = await import('path');
+    const entityDir = path.resolve(__dirname, '../entity');
+    const entityFiles = fs
+      .readdirSync(entityDir)
+      .filter(
+        (file) =>
+          file.startsWith('SimpleDbEntity') &&
+          file.endsWith('.ts') &&
+          !file.endsWith('.test.ts') &&
+          !file.endsWith('.d.ts'),
+      );
+
+    const discoveredUnprotectedEntityNames = new Set<string>();
+    for (const file of entityFiles) {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const mod = require(`../entity/${file.replace(/\.ts$/, '')}`) as Record<
+        string,
+        new () => { entityName: string; enableWriteProtection: boolean }
+      >;
+      const EntityClass = Object.values(mod).find(
+        (exported) =>
+          typeof exported === 'function' &&
+          exported.name.startsWith('SimpleDbEntity'),
+      );
+      if (EntityClass) {
+        const instance = new EntityClass();
+        expect(instance.enableWriteProtection).toBe(
+          !isSimpleDbSnapshotCacheEntityName(instance.entityName),
+        );
+        if (!instance.enableWriteProtection) {
+          discoveredUnprotectedEntityNames.add(instance.entityName);
+        }
+      }
+    }
+
+    expect([...discoveredUnprotectedEntityNames].toSorted()).toEqual(
+      [...SIMPLE_DB_SNAPSHOT_CACHE_ENTITY_NAMES].toSorted(),
+    );
+  });
 });

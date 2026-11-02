@@ -24,6 +24,7 @@ import {
   createNativeStorageMigrationInconsistentErrorMessage,
 } from './nativeStorageTypes';
 import { broadcastNativeSyncStorageMutation } from './nativeSyncStorageBroadcast';
+import { isSimpleDbSnapshotCacheKey } from './simpleDbSnapshotEntities';
 import { EAppSyncStorageKeys } from './syncStorageKeys';
 
 import type { ILegacyAsyncStorageNativeModule } from './legacyAsyncStorageMigration';
@@ -201,6 +202,21 @@ function assertBackgroundRuntime() {
 function getAppStorageMMKV(): IMMKVInstance {
   // eslint-disable-next-line @typescript-eslint/no-require-imports
   return require('./instance/appStorageMMKVInstance').default as IMMKVInstance;
+}
+
+function getSimpleDbSnapshotMMKV(): IMMKVInstance {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  return require('./instance/simpleDbSnapshotMMKVInstance')
+    .default as IMMKVInstance;
+}
+
+function getTargetMMKVForAppStorageKey(
+  key: string,
+  appStorageMmkv: IMMKVInstance,
+): IMMKVInstance {
+  return isSimpleDbSnapshotCacheKey(key)
+    ? getSimpleDbSnapshotMMKV()
+    : appStorageMmkv;
 }
 
 function getSyncStorageMMKV(store: INativeSyncStorageName): IMMKVInstance {
@@ -452,11 +468,12 @@ async function writeAppStorageKeyWithRetry({
 }) {
   const keyLabel = getLegacyKeyDiagnosticLabel(key);
   const sourceBytes = getUtf8ByteLength(value);
+  const targetMmkv = getTargetMMKVForAppStorageKey(key, mmkv);
   const result = await retryLegacyAsyncStorageOperation({
     operation: async () => {
       const targetKey = encodeAppStorageKey(key);
-      mmkv.set(targetKey, value);
-      const copiedValue = mmkv.getString(targetKey);
+      targetMmkv.set(targetKey, value);
+      const copiedValue = targetMmkv.getString(targetKey);
       if (copiedValue !== value) {
         throw new OneKeyLocalError(
           'AsyncStorage migration target value verification failed',
@@ -475,7 +492,7 @@ async function writeAppStorageKeyWithRetry({
 
   if (!result.ok) {
     try {
-      mmkv.remove(encodeAppStorageKey(key));
+      targetMmkv.remove(encodeAppStorageKey(key));
     } catch {
       // The exact target set is verified after every key has been attempted.
     }
@@ -584,11 +601,18 @@ async function copyLegacyAppStorageKeys({
     }
   }
 
-  const targetKeys = mmkv
-    .getAllKeys()
-    .filter((key) => key.startsWith(APP_STORAGE_KEY_PREFIX))
-    .map(decodeAppStorageKey)
-    .toSorted();
+  const targetKeys = [
+    ...new Set([
+      ...mmkv
+        .getAllKeys()
+        .filter((key) => key.startsWith(APP_STORAGE_KEY_PREFIX))
+        .map(decodeAppStorageKey),
+      ...getSimpleDbSnapshotMMKV()
+        .getAllKeys()
+        .filter((key) => key.startsWith(APP_STORAGE_KEY_PREFIX))
+        .map(decodeAppStorageKey),
+    ]),
+  ].toSorted();
   const expectedTargetKeys = migratedKeys.toSorted();
   const exactTargetSet =
     targetKeys.length === expectedTargetKeys.length &&
@@ -598,9 +622,12 @@ async function copyLegacyAppStorageKeys({
       `target key-set mismatch expected=${expectedTargetKeys.length} actual=${targetKeys.length}; falling back to empty MMKV app-storage`,
     );
     clearAppStorageUserKeys(mmkv);
-    const remainingTargetKeyCount = mmkv
-      .getAllKeys()
-      .filter((key) => key.startsWith(APP_STORAGE_KEY_PREFIX)).length;
+    const remainingTargetKeyCount =
+      mmkv.getAllKeys().filter((key) => key.startsWith(APP_STORAGE_KEY_PREFIX))
+        .length +
+      getSimpleDbSnapshotMMKV()
+        .getAllKeys()
+        .filter((key) => key.startsWith(APP_STORAGE_KEY_PREFIX)).length;
     if (remainingTargetKeyCount > 0) {
       throw new OneKeyLocalError(
         'MMKV app-storage could not establish a safe fallback target',
@@ -634,6 +661,41 @@ function clearAppStorageUserKeys(mmkv: IMMKVInstance) {
       mmkv.remove(key);
     }
   }
+  const snapshotMmkv = getSimpleDbSnapshotMMKV();
+  for (const key of snapshotMmkv.getAllKeys()) {
+    if (key.startsWith(APP_STORAGE_KEY_PREFIX)) {
+      snapshotMmkv.remove(key);
+    }
+  }
+}
+
+async function evictSnapshotCacheKeysFromAppStorage(mmkv: IMMKVInstance) {
+  const snapshotKeys = mmkv
+    .getAllKeys()
+    .filter(
+      (key) =>
+        key.startsWith(APP_STORAGE_KEY_PREFIX) &&
+        isSimpleDbSnapshotCacheKey(key),
+    );
+  if (snapshotKeys.length === 0) {
+    return;
+  }
+  const snapshotMmkv = getSimpleDbSnapshotMMKV();
+  for (const targetKey of snapshotKeys) {
+    const value = mmkv.getString(targetKey);
+    if (
+      value !== undefined &&
+      snapshotMmkv.getString(targetKey) === undefined
+    ) {
+      snapshotMmkv.set(targetKey, value);
+    }
+    mmkv.remove(targetKey);
+  }
+  mmkv.trim();
+  await syncNativeStorageMMKV(APP_STORAGE_MMKV_ID);
+  logMigration(
+    `evicted snapshot cache keys from app-storage count=${snapshotKeys.length}`,
+  );
 }
 
 type IAppStorageTransactionJournal = {
@@ -830,6 +892,7 @@ async function migrateAppStorageFromLegacy() {
   if (targetMarkerComplete) {
     await syncNativeStorageMMKV(APP_STORAGE_MMKV_ID);
     await recoverInterruptedAppStorageBatch(mmkv);
+    await evictSnapshotCacheKeysFromAppStorage(mmkv);
     if (ledger !== NATIVE_STORAGE_MIGRATION_LEDGER_COMPLETE) {
       await setNativeStorageMigrationLedgerComplete(
         APP_STORAGE_MIGRATION_LEDGER_KEY,
@@ -1179,22 +1242,43 @@ async function executeAsyncStorageRequest(request: INativeAsyncStorageRequest) {
   await recoverInterruptedAppStorageBatch(mmkv);
 
   switch (request.operation) {
-    case 'getItem':
-      return mmkv.getString(encodeAppStorageKey(request.key)) ?? null;
+    case 'getItem': {
+      const targetMmkv = getTargetMMKVForAppStorageKey(request.key, mmkv);
+      return targetMmkv.getString(encodeAppStorageKey(request.key)) ?? null;
+    }
     case 'setItem': {
       if (typeof request.value !== 'string') {
         throw new OneKeyLocalError('AsyncStorage value must be a string');
       }
-      mmkv.set(encodeAppStorageKey(request.key), request.value);
+      const targetKey = encodeAppStorageKey(request.key);
+      if (isSimpleDbSnapshotCacheKey(request.key)) {
+        getSimpleDbSnapshotMMKV().set(targetKey, request.value);
+        return undefined;
+      }
+      mmkv.set(targetKey, request.value);
       await syncNativeStorageMMKV(APP_STORAGE_MMKV_ID);
       return undefined;
     }
-    case 'removeItem':
-      mmkv.remove(encodeAppStorageKey(request.key));
+    case 'removeItem': {
+      const targetKey = encodeAppStorageKey(request.key);
+      if (isSimpleDbSnapshotCacheKey(request.key)) {
+        getSimpleDbSnapshotMMKV().remove(targetKey);
+        return undefined;
+      }
+      mmkv.remove(targetKey);
       await syncNativeStorageMMKV(APP_STORAGE_MMKV_ID);
       return undefined;
+    }
     case 'mergeItem': {
       const key = encodeAppStorageKey(request.key);
+      if (isSimpleDbSnapshotCacheKey(request.key)) {
+        const snapshotMmkv = getSimpleDbSnapshotMMKV();
+        snapshotMmkv.set(
+          key,
+          mergeAppStorageValue(snapshotMmkv.getString(key), request.value),
+        );
+        return undefined;
+      }
       mmkv.set(key, mergeAppStorageValue(mmkv.getString(key), request.value));
       await syncNativeStorageMMKV(APP_STORAGE_MMKV_ID);
       return undefined;
@@ -1203,45 +1287,95 @@ async function executeAsyncStorageRequest(request: INativeAsyncStorageRequest) {
       await clearAppStorageAndLegacyData(mmkv);
       return undefined;
     case 'getAllKeys':
-      return mmkv
-        .getAllKeys()
-        .filter((key) => key.startsWith(APP_STORAGE_KEY_PREFIX))
-        .map(decodeAppStorageKey);
+      return [
+        ...new Set([
+          ...mmkv
+            .getAllKeys()
+            .filter((key) => key.startsWith(APP_STORAGE_KEY_PREFIX))
+            .map(decodeAppStorageKey),
+          ...getSimpleDbSnapshotMMKV()
+            .getAllKeys()
+            .filter((key) => key.startsWith(APP_STORAGE_KEY_PREFIX))
+            .map(decodeAppStorageKey),
+        ]),
+      ];
     case 'multiGet':
-      return request.keys.map(
-        (key) =>
-          [key, mmkv.getString(encodeAppStorageKey(key)) ?? null] as const,
-      );
-    case 'multiSet':
-      await applyAppStorageChanges(
-        mmkv,
-        request.entries.map(([key, value]) => {
-          const targetKey = encodeAppStorageKey(key);
-          if (typeof value !== 'string') {
-            throw new OneKeyLocalError('AsyncStorage value must be a string');
-          }
-          return { key: targetKey, value };
-        }),
-      );
+      return request.keys.map((key) => {
+        const targetMmkv = getTargetMMKVForAppStorageKey(key, mmkv);
+        return [
+          key,
+          targetMmkv.getString(encodeAppStorageKey(key)) ?? null,
+        ] as const;
+      });
+    case 'multiSet': {
+      const protectedChanges: Array<{ key: string; value: string }> = [];
+      const snapshotChanges: Array<{ key: string; value: string }> = [];
+      request.entries.forEach(([key, value]) => {
+        const targetKey = encodeAppStorageKey(key);
+        if (typeof value !== 'string') {
+          throw new OneKeyLocalError('AsyncStorage value must be a string');
+        }
+        if (isSimpleDbSnapshotCacheKey(key)) {
+          snapshotChanges.push({ key: targetKey, value });
+        } else {
+          protectedChanges.push({ key: targetKey, value });
+        }
+      });
+      await applyAppStorageChanges(mmkv, protectedChanges);
+      if (snapshotChanges.length > 0) {
+        const snapshotMmkv = getSimpleDbSnapshotMMKV();
+        snapshotChanges.forEach(({ key, value }) => {
+          snapshotMmkv.set(key, value);
+        });
+      }
       return undefined;
-    case 'multiRemove':
-      await applyAppStorageChanges(
-        mmkv,
-        request.keys.map((key) => ({ key: encodeAppStorageKey(key) })),
-      );
+    }
+    case 'multiRemove': {
+      const protectedChanges: Array<{ key: string }> = [];
+      const snapshotKeys: string[] = [];
+      request.keys.forEach((key) => {
+        const targetKey = encodeAppStorageKey(key);
+        if (isSimpleDbSnapshotCacheKey(key)) {
+          snapshotKeys.push(targetKey);
+        } else {
+          protectedChanges.push({ key: targetKey });
+        }
+      });
+      await applyAppStorageChanges(mmkv, protectedChanges);
+      if (snapshotKeys.length > 0) {
+        const snapshotMmkv = getSimpleDbSnapshotMMKV();
+        snapshotKeys.forEach((key) => {
+          snapshotMmkv.remove(key);
+        });
+      }
       return undefined;
+    }
     case 'multiMerge': {
       const pendingValues = new Map<string, string | undefined>();
-      const changes = request.entries.map(([entryKey, value]) => {
+      const protectedChanges: Array<{ key: string; value: string }> = [];
+      const snapshotChanges: Array<{ key: string; value: string }> = [];
+      request.entries.forEach(([entryKey, value]) => {
         const key = encodeAppStorageKey(entryKey);
+        const isSnapshot = isSimpleDbSnapshotCacheKey(entryKey);
+        const targetMmkv = isSnapshot ? getSimpleDbSnapshotMMKV() : mmkv;
         const current = pendingValues.has(key)
           ? pendingValues.get(key)
-          : mmkv.getString(key);
+          : targetMmkv.getString(key);
         const merged = mergeAppStorageValue(current, value);
         pendingValues.set(key, merged);
-        return { key, value: merged };
+        if (isSnapshot) {
+          snapshotChanges.push({ key, value: merged });
+        } else {
+          protectedChanges.push({ key, value: merged });
+        }
       });
-      await applyAppStorageChanges(mmkv, changes);
+      await applyAppStorageChanges(mmkv, protectedChanges);
+      if (snapshotChanges.length > 0) {
+        const snapshotMmkv = getSimpleDbSnapshotMMKV();
+        snapshotChanges.forEach(({ key, value }) => {
+          snapshotMmkv.set(key, value);
+        });
+      }
       return undefined;
     }
     default: {
