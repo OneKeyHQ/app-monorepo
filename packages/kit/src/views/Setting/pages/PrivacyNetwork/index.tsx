@@ -91,10 +91,14 @@ function SectionTitle({ children }: { children: string }) {
 async function getEarliestBirthday(
   networkId: string,
 ): Promise<IEarliestBirthday | undefined> {
+  return (await getAccountSetup(networkId))?.earliestBirthday;
+}
+
+async function getAccountSetup(networkId: string) {
   const settings = await backgroundApiProxy.serviceNetwork.getVaultSettings({
     networkId,
   });
-  return settings.localWallet?.accountSetup.earliestBirthday;
+  return settings.localWallet?.accountSetup;
 }
 
 function formatBytes(bytes: number): string {
@@ -607,7 +611,9 @@ export default function PrivacyNetworkSettings({
         await enableWith(twinBirthday);
         return;
       }
-      const earliestBirthday = await getEarliestBirthday(entry.networkId);
+      // Read once on enabling, not for every listed account.
+      const accountSetup = await getAccountSetup(entry.networkId);
+      const earliestBirthday = accountSetup?.earliestBirthday;
       const formRef = createEnableBirthdayForm(
         entry.birthdayHintTimestamp,
         earliestBirthday,
@@ -618,6 +624,7 @@ export default function PrivacyNetworkSettings({
           <YStack gap="$4">
             <PrivacyEnableDisclosure
               accountId={entry.accountId}
+              deviceExportsViewKey={accountSetup?.deviceExportsViewKey}
               hasRecommendedMonth={
                 typeof entry.birthdayHintTimestamp === 'number'
               }

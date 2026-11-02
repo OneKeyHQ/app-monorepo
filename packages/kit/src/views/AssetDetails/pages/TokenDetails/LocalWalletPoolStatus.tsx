@@ -130,6 +130,9 @@ export function LocalWalletPoolStatus({
         <YStack gap="$4">
           <PrivacyEnableDisclosure
             accountId={accountId}
+            deviceExportsViewKey={
+              lw.settings?.accountSetup.deviceExportsViewKey
+            }
             hasRecommendedMonth={typeof hintTimestamp === 'number'}
           />
           <BirthdayDialogForm

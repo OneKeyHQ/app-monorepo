@@ -145,9 +145,11 @@ export function getBirthdayInputError(mode: IBirthdayFormState['mode']) {
 // account is already scanning by then.
 export function PrivacyEnableDisclosure({
   accountId,
+  deviceExportsViewKey,
   hasRecommendedMonth,
 }: {
   accountId: string;
+  deviceExportsViewKey?: boolean;
   hasRecommendedMonth: boolean;
 }) {
   const intl = useIntl();
@@ -156,8 +158,7 @@ export function PrivacyEnableDisclosure({
       <SizableText size="$bodyMd">
         {intl.formatMessage({ id: ETranslations.privacy_enable__desc })}
       </SizableText>
-      {/* Enabling asks the device for the view key. */}
-      {accountUtils.isHwAccount({ accountId }) ? (
+      {deviceExportsViewKey && accountUtils.isHwAccount({ accountId }) ? (
         <SizableText size="$bodyMd">
           {intl.formatMessage({
             id: ETranslations.privacy_enable_device_view_key__msg,

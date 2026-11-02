@@ -267,6 +267,9 @@ export type IVaultSettings = {
       requiresBirthday: boolean;
       // The first supported date and height, also used for a full scan.
       earliestBirthday: { height: number; timestamp: number };
+      // Enabling a hardware account asks its device for the view key (Monero);
+      // otherwise the device gave it when the account was created.
+      deviceExportsViewKey?: boolean;
     };
     // No `publicLabel` (Monero): the receive page shows no public/private switch.
     addressForms: {

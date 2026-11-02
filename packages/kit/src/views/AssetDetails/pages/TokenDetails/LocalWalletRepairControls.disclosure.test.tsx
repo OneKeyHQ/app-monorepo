@@ -22,18 +22,24 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   default: {},
 }));
 
-// Enabling a hardware account asks its device for the view key.
+// Only where enabling asks the device (Monero); Zcash's device gave the key
+// when the account was created.
 it.each([
-  ['hw-1--m/44/128/0', true],
-  ['hd-1--m/44/128/0', false],
-])('explains the view key export for %s: %s', (accountId, shown) => {
-  const result = render(
-    <PrivacyEnableDisclosure
-      accountId={accountId}
-      hasRecommendedMonth={false}
-    />,
-  );
-  expect(
-    !!result.queryByText(ETranslations.privacy_enable_device_view_key__msg),
-  ).toBe(shown);
-});
+  ['hw-1--m/44/128/0', true, true],
+  ['hw-1--m/44/128/0', false, false],
+  ['hd-1--m/44/128/0', true, false],
+])(
+  'explains the view key export for %s (device asked: %s): %s',
+  (accountId, deviceExportsViewKey, shown) => {
+    const result = render(
+      <PrivacyEnableDisclosure
+        accountId={accountId}
+        deviceExportsViewKey={deviceExportsViewKey}
+        hasRecommendedMonth={false}
+      />,
+    );
+    expect(
+      !!result.queryByText(ETranslations.privacy_enable_device_view_key__msg),
+    ).toBe(shown);
+  },
+);

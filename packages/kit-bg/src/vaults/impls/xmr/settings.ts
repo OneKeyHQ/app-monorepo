@@ -126,6 +126,7 @@ const settings: IVaultSettings = {
         height: XMR_EARLIEST_SCAN_HEIGHT,
         timestamp: XMR_EARLIEST_SCAN_TIMESTAMP_MS,
       },
+      deviceExportsViewKey: true,
     },
     // No `publicLabel`: no public pool to produce that address form.
     addressForms: {
