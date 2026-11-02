@@ -2,6 +2,7 @@ import {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
   useRef,
   useState,
@@ -34,6 +35,7 @@ import type {
 } from '@onekeyhq/shared/src/appUpdate';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EAppUpdateRoutes, EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { parseNotificationPayload } from '@onekeyhq/shared/src/utils/notificationsUtils';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
@@ -45,6 +47,10 @@ import useAppNavigation from '../../../hooks/useAppNavigation';
 import { handleDeepLinkUrl } from '../../../routes/config/deeplink';
 import { FeaturedCarousel } from '../components/FeaturedCarousel';
 import { FeaturedFooter } from '../components/FeaturedFooter';
+import {
+  markPendingContactSupportHandoff,
+  useForceUpdateContactSupport,
+} from '../hooks/useForceUpdateContactSupport';
 
 import type { IFeaturedCarouselRef } from '../components/FeaturedCarousel';
 
@@ -265,15 +271,30 @@ function useFeatures(): IFeaturedItem[] {
 function FeaturedChangelogContent({
   isPreInstall,
   isLocked,
+  onLockChange,
   closeDialog,
 }: {
   isPreInstall: boolean;
   isLocked: boolean;
+  onLockChange?: (locked: boolean) => void;
   closeDialog: () => Promise<void>;
 }) {
   const intl = useIntl();
+  const navigation = useAppNavigation();
   const isPreview = useContext(FeaturedChangelogPreviewContext) !== undefined;
   const features = useFeatures();
+  const {
+    updateInfo,
+    isForceUpdate: isLiveLocked,
+    handleContactSupport,
+  } = useForceUpdateContactSupport({
+    initialForceUpdate: isLocked,
+    enabled: isPreInstall && !isPreview,
+  });
+
+  useEffect(() => {
+    onLockChange?.(isLiveLocked);
+  }, [isLiveLocked, onLockChange]);
 
   const [activeIndex, setActiveIndex] = useState(0);
   const activeFeature = features[activeIndex] ?? features[0];
@@ -286,12 +307,47 @@ function FeaturedChangelogContent({
 
   const { ctaText, onCtaPress } = useFeaturedCta({
     isPreInstall,
-    isLocked,
+    isLocked: isLiveLocked,
     activeFeature,
     hasNext: activeIndex < features.length - 1,
     onNext,
     closeDialog,
   });
+
+  const handleContactSupportPress = useCallback(async () => {
+    if (platformEnv.isNative) {
+      // On Native, Dialog.show renders inside FULL_WINDOW_OVERLAY_PORTAL above
+      // React Navigation. Hand the force-update lock and support-polling state
+      // off to UpdatePreview so the WebViewModal opened by showIntercom()
+      // renders on top and UpdatePreview continues polling while Intercom is open.
+      markPendingContactSupportHandoff();
+      const release = acquireDeferredGuideBlocker();
+      try {
+        await closeDialog();
+        navigation.pushModal(EModalRoutes.AppUpdateModal, {
+          screen: EAppUpdateRoutes.UpdatePreview,
+          params: {
+            latestVersion: updateInfo?.latestVersion,
+            isForceUpdate: isLiveLocked,
+          },
+        });
+      } finally {
+        release();
+      }
+      // Allow the AppUpdateModal -> UpdatePreview stack to commit before
+      // openUrlByWebview navigates to WebViewModal inside ERootRoutes.Modal.
+      await new Promise<void>((resolve) => {
+        setTimeout(resolve, 50);
+      });
+    }
+    await handleContactSupport();
+  }, [
+    closeDialog,
+    handleContactSupport,
+    isLiveLocked,
+    navigation,
+    updateInfo?.latestVersion,
+  ]);
 
   // Drive an explicit pixel height on the dialog content. The dialog frame on
   // desktop (TMDialog.Content) doesn't transition auto-height when child layout
@@ -335,7 +391,7 @@ function FeaturedChangelogContent({
         ref={carouselRef}
         features={features}
         badgeText={badgeText}
-        showCloseButton={!isLocked}
+        showCloseButton={!isLiveLocked}
         onClose={() => void closeDialog()}
         onActiveFeatureChange={onActiveFeatureChange}
         totalHeight={totalCarouselHeight}
@@ -343,7 +399,9 @@ function FeaturedChangelogContent({
       <FeaturedFooter
         ctaText={ctaText}
         onCtaPress={() => void onCtaPress()}
-        showFullChangelog={Boolean(!isLocked && !isPreview)}
+        showFullChangelog={Boolean(!isLiveLocked && !isPreview)}
+        showContactSupport={Boolean(isLiveLocked && !isPreview)}
+        onContactSupportPress={() => void handleContactSupportPress()}
         isPreInstall={isPreInstall}
         closeDialog={closeDialog}
         onLayout={(e) => setFooterHeight(e.nativeEvent.layout.height)}
@@ -375,6 +433,7 @@ export function showFeaturedChangelogDialog(
     : !!atomInfo &&
       isForceUpdateStrategy(atomInfo.updateStrategy) &&
       isPreInstall;
+  const isLockedRef = { current: isLocked };
 
   const mountTime = Date.now();
 
@@ -383,21 +442,30 @@ export function showFeaturedChangelogDialog(
     current: undefined,
   };
   const closeDialog = async () => {
-    await instanceRef.current?.close();
+    await instanceRef.current?.close({ flag: 'programmatic' });
   };
 
   const dialogInstance = Dialog.show({
     showFooter: false,
     showHeader: false,
+    trapFocus: false,
+    // Block dismissal at the source while locked: on native the sheet animates
+    // closed before onBeforeClose runs, so the guard alone cannot keep it open.
+    // Once support unlocks the device, the close button reappears instead.
     dismissOnOverlayPress: !isLocked,
     disableDrag: isLocked,
     disableSystemClose: isLocked,
+    onBeforeClose: (extra) =>
+      extra?.flag === 'programmatic' || !isLockedRef.current,
     floatingPanelProps: { width: 480, overflow: 'hidden' },
     renderContent: (
       <FeaturedChangelogPreviewContext.Provider value={previewData}>
         <FeaturedChangelogContent
           isPreInstall={isPreInstall}
           isLocked={isLocked}
+          onLockChange={(nextLocked) => {
+            isLockedRef.current = nextLocked;
+          }}
           closeDialog={closeDialog}
         />
       </FeaturedChangelogPreviewContext.Provider>
