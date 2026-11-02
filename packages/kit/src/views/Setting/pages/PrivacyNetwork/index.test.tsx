@@ -44,6 +44,10 @@ const mockGetVaultSettings = jest.fn(
     localWallet: { accountSetup: mockBirthdaySettings },
   }),
 );
+// eslint-disable-next-line no-var, vars-on-top
+var mockAllowCellular: boolean | undefined;
+// eslint-disable-next-line no-var, vars-on-top
+var mockIsNative = false;
 const mockDelete = jest.fn<
   Promise<void>,
   [{ accountId: string; networkId: string }]
@@ -131,9 +135,23 @@ jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => ({
       storageUnsupportedNetworkIds: mockUnsupportedNetworks,
       syncErrorByNetworkId: {},
       progress: mockProgress,
+      allowCellularSync: mockAllowCellular,
     },
   ],
 }));
+
+// Only phones have mobile data: the row shows on native alone.
+jest.mock('@onekeyhq/shared/src/platformEnv', () => {
+  const actual = jest.requireActual<{
+    default: Record<string, unknown>;
+  }>('@onekeyhq/shared/src/platformEnv').default;
+  return {
+    __esModule: true,
+    default: Object.create(actual, {
+      isNative: { get: () => mockIsNative },
+    }) as Record<string, unknown>,
+  };
+});
 
 jest.mock('@onekeyhq/kit/src/components/LazyLoadPage', () => ({
   LazyLoadPage: () => () => null,
@@ -265,8 +283,8 @@ jest.mock('@onekeyhq/components', () => {
     SizableText: Wrapper,
     Spinner: () => null,
     Stack: Wrapper,
-    Switch: ({ testID }: { testID?: string }) => (
-      <input type="checkbox" data-testid={testID} />
+    Switch: ({ testID, value }: { testID?: string; value?: boolean }) => (
+      <input type="checkbox" data-testid={testID} checked={!!value} readOnly />
     ),
     Toast: { error: jest.fn() },
     XStack: Wrapper,
@@ -549,6 +567,29 @@ describe('Privacy network settings for a temp wallet', () => {
       ).disabled,
     ).toBe(false);
     consoleError.mockRestore();
+  });
+
+  // Use mobile data pressed on the light or the token page shows here at once.
+  it('shows mobile data consent given elsewhere', async () => {
+    mockIsNative = true;
+    mockAllowCellular = false;
+    mockAccounts = [listItem({})];
+    mockAccountStates = { 'hd-1--0': { enabled: true, paused: false } };
+    try {
+      const { rerender } = render(<PrivacyNetworkSettings />);
+      const consent = () =>
+        screen.getByTestId(
+          'privacy-sync-allow-cellular-switch',
+        ) as HTMLInputElement;
+      await waitFor(() => expect(consent().checked).toBe(false));
+
+      mockAllowCellular = true;
+      rerender(<PrivacyNetworkSettings />);
+      expect(consent().checked).toBe(true);
+    } finally {
+      mockIsNative = false;
+      mockAllowCellular = undefined;
+    }
   });
 
   it('shows the slowest active account using the same figures as the float', async () => {
