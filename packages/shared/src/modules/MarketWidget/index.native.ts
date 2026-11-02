@@ -20,6 +20,7 @@ type IOneKeyMarketWidgetNativeModule = {
   getWidgetEditorState?: (session: string) => Promise<string>;
   refreshWidgetEditorState?: (session: string) => Promise<string>;
   searchWidgetStocks?: (session: string, query: string) => Promise<string>;
+  searchStocks?: (query: string) => Promise<string>;
   saveWidgetSettings?: (session: string, settings: string) => Promise<string>;
   finishWidgetEditing?: (session: string, saved: boolean) => Promise<void>;
 };
@@ -108,17 +109,21 @@ const marketWidget: IMarketWidgetModule = {
       await nativeModule.refreshEditorState(),
     ) as IMarketWidgetEditorState;
   },
-  searchStocks: platformEnv.isNativeAndroid
-    ? async (query, editorSession) => {
-        const nativeModule = getNativeModule();
-        if (!nativeModule?.searchWidgetStocks) {
-          return marketWidget.getEditorState(editorSession);
-        }
-        return JSON.parse(
-          await nativeModule.searchWidgetStocks(editorSession, query),
-        ) as IMarketWidgetEditorState;
+  async searchStocks(query, editorSession) {
+    const nativeModule = getNativeModule();
+    if (platformEnv.isNativeAndroid) {
+      if (!editorSession || !nativeModule?.searchWidgetStocks) {
+        return marketWidget.getEditorState(editorSession);
       }
-    : undefined,
+      return JSON.parse(
+        await nativeModule.searchWidgetStocks(editorSession, query),
+      ) as IMarketWidgetEditorState;
+    }
+    if (!nativeModule?.searchStocks) return marketWidget.getEditorState();
+    return JSON.parse(
+      await nativeModule.searchStocks(query),
+    ) as IMarketWidgetEditorState;
+  },
   async saveProfile(profile) {
     const nativeModule = getNativeModule();
     if (!marketWidget.supportsProfileEditing() || !nativeModule?.saveProfile) {

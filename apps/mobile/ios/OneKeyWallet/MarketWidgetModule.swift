@@ -56,15 +56,46 @@ final class MarketWidgetModule: NSObject {
   @objc(getEditorState:rejecter:)
   func getEditorState(_ resolve: @escaping RCTPromiseResolveBlock,
                       rejecter reject: @escaping RCTPromiseRejectBlock) {
+    let requested = ProcessInfo.processInfo.systemUptime
+    MarketWidgetDiagnostics.event("editor.read_started")
     Task {
       do {
+        let started = ProcessInfo.processInfo.systemUptime
         let store = MarketWidgetStore()
         let state = try store.editorState()
-        MarketWidgetDiagnostics.event("editor.read_succeeded")
-        resolve(String(decoding: try JSONEncoder().encode(state), as: UTF8.self))
+        let read = ProcessInfo.processInfo.systemUptime
+        let json = String(decoding: try JSONEncoder().encode(state), as: UTF8.self)
+        let finished = ProcessInfo.processInfo.systemUptime
+        MarketWidgetDiagnostics.event("editor.read_succeeded", ["durationMs": Int((finished - requested) * 1000),
+          "queueMs": Int((started - requested) * 1000), "readMs": Int((read - started) * 1000),
+          "encodeMs": Int((finished - read) * 1000)])
+        resolve(json)
       } catch {
         MarketWidgetDiagnostics.event("editor.read_failed", error: error)
         reject("MARKET_WIDGET_EDITOR_FAILED", "Unable to load widget configurations.", error)
+      }
+    }
+  }
+
+  @objc(searchStocks:resolver:rejecter:)
+  func searchStocks(_ query: String, resolver resolve: @escaping RCTPromiseResolveBlock,
+                    rejecter reject: @escaping RCTPromiseRejectBlock) {
+    let started = ProcessInfo.processInfo.systemUptime
+    MarketWidgetDiagnostics.event("editor.search_started")
+    Task {
+      do {
+        let store = MarketWidgetStore()
+        guard let configuration = store.configuration().configuration, configuration.privacyMasked != true else {
+          throw MarketWidgetError.privacyMasked
+        }
+        let assets = try await MarketWidgetService.shared.search(query: query, locale: configuration.locale, stocksOnly: true)
+        let state = try store.editorState()
+        MarketWidgetDiagnostics.event("editor.search_succeeded", ["resultCount": assets.count,
+          "durationMs": Int((ProcessInfo.processInfo.systemUptime - started) * 1000)])
+        resolve(String(decoding: try JSONEncoder().encode(state), as: UTF8.self))
+      } catch {
+        MarketWidgetDiagnostics.event("editor.search_failed", error: error)
+        reject("MARKET_WIDGET_SEARCH_FAILED", "Unable to search stocks.", error)
       }
     }
   }

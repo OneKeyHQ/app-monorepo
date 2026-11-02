@@ -69,17 +69,21 @@ struct MarketWidgetAsset: Codable, Hashable, Identifiable {
     }
   }
 
+  private static let addressCharacters = CharacterSet(charactersIn:
+    "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789._:/~-")
+  private static let identifierCharacters = CharacterSet(charactersIn:
+    "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_.:")
+
   private static func validAddress(_ value: String) -> Bool {
     value.count <= 256 && value.unicodeScalars.allSatisfy {
-      CharacterSet(charactersIn: "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789._:/~-").contains($0)
+      addressCharacters.contains($0)
     }
   }
 
   private static func validIdentifier(_ value: String?, maximum: Int) -> Bool {
     guard let value, !value.isEmpty, value.count <= maximum else { return false }
     return value.unicodeScalars.allSatisfy {
-      CharacterSet(charactersIn: "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_.:")
-        .contains($0)
+      identifierCharacters.contains($0)
     }
   }
 
@@ -266,6 +270,7 @@ struct MarketWidgetEditorState: Codable {
   let watchlist: [MarketWidgetAsset]
   let hot: [MarketWidgetAsset]
   let privacyMasked: Bool
+  var searchAssets: [MarketWidgetAsset]? = nil
   static let masked = MarketWidgetEditorState(profiles: [], settings: [], watchlist: [], hot: [], privacyMasked: true)
 }
 
@@ -401,6 +406,7 @@ struct MarketWidgetStore {
           throw MarketWidgetError.invalidProfile
         }
         let candidates = desktopAssets(for: .watchlist) + desktopAssets(for: .hot)
+          + storedLockScreenAssets(filename: "lock-screen-catalog-v1.json").filter { $0.kind == .stock }
           + (previous?.assets ?? []) + (previous?.asset.map { [$0] } ?? [])
         canonicalAssets = try requested.map { requested in
           guard let asset = candidates.first(where: { $0.id == requested.id }) else {
@@ -441,28 +447,66 @@ struct MarketWidgetStore {
         state = .masked
         return
       }
-      let profiles = profiles().map { profile -> MarketWidgetProfile in
+      // All caches below live only for this coordinated read. Cross-process writes and privacy
+      // changes must be observed again on the next read rather than retained in a process cache.
+      let rawProfiles = (try? storedProfiles()) ?? []
+      let storedSettings = (try? storedDesktopSettings()) ?? []
+      let catalog = trending()?.assets ?? []
+      let hot = catalog.isEmpty ? MarketWidgetAsset.defaults : catalog
+      let settings = [MarketWidgetKind.single, .list].map { kind in
+        storedSettings.first { $0.kind == kind } ?? rawProfiles.last { $0.kind == kind }
+          ?? MarketWidgetProfile(id: Self.desktopSettingsID(kind: kind), kind: kind,
+            name: kind == .single ? "Single coin" : "Market list", source: .hot,
+            asset: kind == .single ? MarketWidgetAsset.defaults[0] : nil)
+      }
+      let selected = storedLockScreenAssets(filename: "lock-screen-assets-v1.json")
+      let candidates = storedLockScreenAssets(filename: "lock-screen-catalog-v1.json")
+      let desktop = settings.flatMap { settings -> [MarketWidgetAsset] in
+        if let assets = settings.assets { return assets }
+        guard settings.source == .hot else { return [] }
+        return settings.kind == .single ? settings.asset.map { [$0] } ?? [] : Array(hot.prefix(3))
+      }
+      let permitted = Set((configuration.assets + catalog + savedHotSelections()
+        + rawProfiles.filter { $0.source == .hot }.compactMap(\.asset) + desktop + selected).map(\.id))
+      func index(_ assets: [MarketWidgetAsset]) -> [String: MarketWidgetAsset] {
+        Dictionary(assets.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
+      }
+      let catalogIndex = index(catalog)
+      let selectedIndex = index(selected)
+      let candidateIndex = index(candidates)
+      let defaultsIndex = index(MarketWidgetAsset.defaults)
+      var cached: [String: (quote: MarketWidgetAsset?, metadata: MarketWidgetAsset?)] = [:]
+      func enrich(_ asset: MarketWidgetAsset) -> MarketWidgetAsset {
+        if cached[asset.id] == nil {
+          cached[asset.id] = (quote(for: asset)?.asset,
+            metadata(for: asset, permitted: permitted.contains(asset.id)))
+        }
+        let values = [cached[asset.id]?.quote, cached[asset.id]?.metadata, asset,
+          permitted.contains(asset.id) ? catalogIndex[asset.id] : nil,
+          selectedIndex[asset.id], candidateIndex[asset.id], defaultsIndex[asset.id]].compactMap { $0 }
+        return editorAsset(mergingMetadata(asset, candidates: values))
+      }
+      let profiles = rawProfiles.map { profile -> MarketWidgetProfile in
         var enriched = profile
-        if let asset = profile.asset { enriched.asset = editorAsset(asset) }
+        if let asset = profile.asset { enriched.asset = enrich(asset) }
         return enriched
       }
-      let settings = [MarketWidgetKind.single, .list].compactMap { kind -> MarketWidgetProfile? in
-        guard var settings = desktopSettings(kind: kind) else { return nil }
-        if let asset = settings.asset { settings.asset = editorAsset(asset) }
-        settings.assets = settings.assets?.map(editorAsset)
+      let enrichedSettings = settings.map { saved -> MarketWidgetProfile in
+        var settings = saved
+        if let asset = settings.asset { settings.asset = enrich(asset) }
+        settings.assets = settings.assets?.map(enrich)
         return settings
       }
-      state = MarketWidgetEditorState(profiles: profiles, settings: settings,
-        watchlist: assets(for: .watchlist).map(editorAsset),
-        hot: desktopAssets(for: .hot).map(editorAsset), privacyMasked: false)
+      state = MarketWidgetEditorState(profiles: profiles, settings: enrichedSettings,
+        watchlist: configuration.assets.map(enrich), hot: hot.map(enrich), privacyMasked: false,
+        searchAssets: candidates.filter { $0.kind == .stock })
     }
     if let error { throw error }
     guard let state else { throw MarketWidgetError.invalidConfiguration }
     return state
   }
 
-  private func editorAsset(_ asset: MarketWidgetAsset) -> MarketWidgetAsset {
-    let enriched = assetWithMetadata(asset)
+  private func editorAsset(_ enriched: MarketWidgetAsset) -> MarketWidgetAsset {
     return MarketWidgetAsset(kind: enriched.kind, assetId: enriched.assetId, chainId: enriched.chainId,
       contractAddress: enriched.contractAddress, isNative: enriched.isNative,
       requestTokenAddress: enriched.requestTokenAddress,
@@ -476,6 +520,10 @@ struct MarketWidgetStore {
     let candidates = [quote(for: asset)?.asset, metadata(for: asset), asset, catalogAsset,
       lockScreenAsset(id: asset.id), storedLockScreenAssets(filename: "lock-screen-catalog-v1.json").first { $0.id == asset.id },
       MarketWidgetAsset.defaults.first { $0.id == asset.id }].compactMap { $0 }
+    return mergingMetadata(asset, candidates: candidates)
+  }
+
+  private func mergingMetadata(_ asset: MarketWidgetAsset, candidates: [MarketWidgetAsset]) -> MarketWidgetAsset {
     func value(_ keyPath: KeyPath<MarketWidgetAsset, String>) -> String {
       candidates.map { $0[keyPath: keyPath] }.first {
         !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
@@ -492,7 +540,11 @@ struct MarketWidgetStore {
   }
 
   func metadata(for asset: MarketWidgetAsset) -> MarketWidgetAsset? {
-    guard let directory, permitsRequests(for: asset),
+    metadata(for: asset, permitted: permitsRequests(for: asset))
+  }
+
+  private func metadata(for asset: MarketWidgetAsset, permitted: Bool) -> MarketWidgetAsset? {
+    guard let directory, permitted,
           let data = try? Data(contentsOf: directory.appendingPathComponent("metadata-\(digest(asset.id)).json")),
           data.count <= 8192,
           let decoded = try? JSONDecoder().decode(MarketWidgetAsset.self, from: data),

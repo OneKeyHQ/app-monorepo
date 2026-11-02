@@ -101,6 +101,30 @@ describe('market widget editor bridge availability', () => {
     );
   });
 
+  it('uses the iOS stock search bridge without a widget session', async () => {
+    const searchStocks = jest.fn(async () => nativeModule.getEditorState());
+    NativeModules.OneKeyMarketWidget = { ...nativeModule, searchStocks };
+    await marketWidget.searchStocks?.('QQQ');
+    expect(searchStocks).toHaveBeenCalledWith('QQQ');
+    platformEnv.isNativeBackgroundThread = true;
+    await expect(marketWidget.searchStocks?.('AAPL')).rejects.toThrow(
+      'unavailable',
+    );
+    expect(searchStocks).toHaveBeenCalledTimes(1);
+  });
+
+  it('retains Android session validation for stock search', async () => {
+    platformEnv.isNativeIOS = false;
+    platformEnv.isNativeAndroid = true;
+    const searchWidgetStocks = jest.fn(async () =>
+      nativeModule.getEditorState(),
+    );
+    NativeModules.OneKeyMarketWidget = { ...nativeModule, searchWidgetStocks };
+    await expect(marketWidget.searchStocks?.('QQQ')).rejects.toThrow('session');
+    await marketWidget.searchStocks?.('AAPL', 'session');
+    expect(searchWidgetStocks).toHaveBeenCalledWith('session', 'AAPL');
+  });
+
   it('saves type settings without requiring a configuration identity', async () => {
     expect(marketWidget.supportsSettingsEditing()).toBe(true);
     const input = {
