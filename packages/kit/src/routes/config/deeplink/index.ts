@@ -730,8 +730,11 @@ export const tryHandleOneKeyUniversalLink = async (
 };
 
 export const handleDeepLinkUrl = (data: IDesktopOpenUrlEventData) => {
-  const urls = [data.url, ...(data.argv ?? [])].filter(
-    (item) => !!item && isString(item),
+  // Prefer the validated `data.url` from the main process; only fall back to
+  // `data.argv` if `data.url` is absent, and deduplicate to avoid double execution.
+  const candidates = data.url ? [data.url] : (data.argv ?? []);
+  const urls = Array.from(
+    new Set(candidates.filter((item) => !!item && isString(item))),
   );
   urls.forEach((url) => {
     console.log('processDeepLinkUrl >>>>>> ', url);

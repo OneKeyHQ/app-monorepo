@@ -78,7 +78,11 @@ import {
 import { ipcMessageKeys } from './config';
 import { ElectronTranslations, i18nText, initLocale } from './i18n';
 import { scheduleCrashDumpCleanup } from './libs/crashDumpCleanup';
-import { findAllowedDeepLinkArg, isAllowedDeepLinkUrl } from './libs/deepLink';
+import {
+  findAllowedDeepLinkArg,
+  getDesktopProtocolClientArgs,
+  isAllowedDeepLinkUrl,
+} from './libs/deepLink';
 import {
   DESKTOP_API_ALLOWED_MODULES,
   isDesktopApiMethodAllowed,
@@ -181,7 +185,9 @@ function makeIpcSafeResult(result: unknown): unknown {
 // pre-Sentry by construction; native crashes are still covered out-of-band.)
 process.nextTick(initSentry);
 
-const isPerfCiMode = process.env.PERF_CI_MODE === '1';
+// SECURITY: never allow PERF_CI_MODE in packaged builds; it enables unpacked
+// file loading (PERF_DESKTOP_INDEX_HTML) and skips production file:// hash/GPG checks.
+const isPerfCiMode = !app.isPackaged && process.env.PERF_CI_MODE === '1';
 const isDesktopE2EMode = process.env.DESKTOP_E2E_MODE === 'true';
 const isDevServer = isDev && !isPerfCiMode;
 const isLocalUnpacked = isDev || isPerfCiMode;
@@ -689,15 +695,17 @@ function handleDeepLinkUrl(
   argv?: string[],
   isColdStartup?: boolean,
 ) {
-  // Validate deep link scheme before forwarding to renderer
-  if (url && !isAllowedDeepLinkUrl(url)) {
+  // Validate deep link scheme and syntax before forwarding to renderer
+  if (!url || !isAllowedDeepLinkUrl(url)) {
     logger.warn('[DeepLink] Rejected URL with unknown scheme:', url);
     return;
   }
 
+  // Only forward the validated deep link URL; never pass raw process.argv
+  // (which contains executable paths, Electron switches, or untrusted args).
   const eventData: IDesktopOpenUrlEventData = {
     url,
-    argv,
+    argv: argv ? [url] : undefined,
     isColdStartup,
     platform: process.platform,
   };
@@ -3001,26 +3009,33 @@ if (isDevServer && !app.isPackaged) {
 
 // register deeplink for desktop
 //  https://www.electronjs.org/docs/latest/tutorial/launch-app-from-url-in-another-app
-if (process.defaultApp) {
-  if (process.argv.length >= 2) {
-    app.setAsDefaultProtocolClient(
-      ONEKEY_APP_DEEP_LINK_NAME,
-      process.execPath,
-      // reassign args to argv[1]  ?
-      [path.resolve(process.argv[1])],
-    );
+// Always include `'--'` before `"%1"` on Windows so Chromium option parsing
+// terminates before the external URL argument (prevents switch injection).
+// Passing `process.execPath` and `protocolClientArgs` to `isDefaultProtocolClient`
+// also ensures legacy bare `"%1"` registry entries are upgraded automatically.
+if (!process.defaultApp || process.argv.length >= 2) {
+  const protocolClientArgs = getDesktopProtocolClientArgs(
+    process.defaultApp,
+    process.argv,
+  );
+  for (const protocol of [
+    ONEKEY_APP_DEEP_LINK_NAME,
+    WALLET_CONNECT_DEEP_LINK_NAME,
+  ]) {
+    if (
+      !app.isDefaultProtocolClient(
+        protocol,
+        process.execPath,
+        protocolClientArgs,
+      )
+    ) {
+      app.setAsDefaultProtocolClient(
+        protocol,
+        process.execPath,
+        protocolClientArgs,
+      );
+    }
   }
-} else {
-  app.setAsDefaultProtocolClient(ONEKEY_APP_DEEP_LINK_NAME);
-}
-if (!app.isDefaultProtocolClient(WALLET_CONNECT_DEEP_LINK_NAME)) {
-  // Define custom protocol handler. Deep linking works on packaged versions of the application!
-  app.setAsDefaultProtocolClient(WALLET_CONNECT_DEEP_LINK_NAME);
-}
-// also define `protocols` at apps/desktop/electron-builder.config.js
-if (!app.isDefaultProtocolClient(ONEKEY_APP_DEEP_LINK_NAME)) {
-  // Define custom protocol handler. Deep linking works on packaged versions of the application!
-  app.setAsDefaultProtocolClient(ONEKEY_APP_DEEP_LINK_NAME);
 }
 
 if (isWin) {
