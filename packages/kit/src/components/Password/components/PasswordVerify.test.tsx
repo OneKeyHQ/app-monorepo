@@ -7,6 +7,10 @@ import type { ReactNode } from 'react';
 import { act, render } from '@testing-library/react';
 
 import {
+  dismissNativeStorageRecovery,
+  requestNativeStorageRecovery,
+} from '@onekeyhq/shared/src/storage/nativeStorageRecovery';
+import {
   EPasswordMode,
   EPasswordVerifyStatus,
 } from '@onekeyhq/shared/types/password';
@@ -14,6 +18,8 @@ import {
 import { inAppStateLockDialogProps } from '../../../views/Setting/hooks';
 
 import PasswordVerify from './PasswordVerify';
+
+let mockOnActive: (() => void) | undefined;
 
 jest.mock('react-intl', () => ({
   useIntl: () => ({
@@ -125,7 +131,9 @@ jest.mock('../../../hooks/useBiometricAuthInfo', () => ({
 }));
 
 jest.mock('../../../hooks/useHandleAppStateActive', () => ({
-  useHandleAppStateActive: () => {},
+  useHandleAppStateActive: (handler?: () => void) => {
+    mockOnActive = handler;
+  },
 }));
 
 jest.mock('../../../views/Setting/hooks/useLanguageSelector', () => ({}));
@@ -163,7 +171,10 @@ async function flush() {
   });
 }
 
-function renderVerify(props?: { inAppStateLock?: boolean }) {
+function renderVerify(props?: {
+  inAppStateLock?: boolean;
+  onBiologyAuth?: () => void;
+}) {
   return render(
     <PasswordVerify
       authType={[]}
@@ -185,9 +196,11 @@ describe('PasswordVerify biometric-changed warning', () => {
     // burn its one-shot "act without await" warning on a false positive.
     jest.useFakeTimers({ doNotFake: ['queueMicrotask'] });
     jest.clearAllMocks();
+    dismissNativeStorageRecovery();
   });
 
   afterEach(() => {
+    dismissNativeStorageRecovery();
     jest.useRealTimers();
   });
 
@@ -222,5 +235,43 @@ describe('PasswordVerify biometric-changed warning', () => {
     // is — no window overlay of its own, which on iOS would also put it
     // above the lock screen and the toast layer.
     expect(props.isOverTopAllViews).toBeUndefined();
+  });
+
+  it('does not start hidden mount/foreground biometrics or write biometric settings during recovery', async () => {
+    requestNativeStorageRecovery('appStorage');
+    const onBiologyAuth = jest.fn();
+    renderVerify({ inAppStateLock: true, onBiologyAuth });
+    await flush();
+    act(() => mockOnActive?.());
+    await flush();
+    expect(onBiologyAuth).not.toHaveBeenCalled();
+    expect(getMocks().setBiologyAuthEnable).not.toHaveBeenCalled();
+    expect(getMocks().dialogConfirm).not.toHaveBeenCalled();
+  });
+
+  it('discards a biometric-change check that finishes after repair opens', async () => {
+    const { checkBiometricAuthChanged } = jest.requireMock(
+      '@onekeyhq/shared/src/modules3rdParty/check-biometric-auth-changed',
+    ) as { checkBiometricAuthChanged: jest.Mock };
+    let finishCheck: (changed: boolean) => void = () => {};
+    checkBiometricAuthChanged.mockImplementationOnce(
+      () =>
+        new Promise<boolean>((resolve) => {
+          finishCheck = resolve;
+        }),
+    );
+    const onBiologyAuth = jest.fn();
+    renderVerify({ inAppStateLock: true, onBiologyAuth });
+    await act(async () => {
+      await Promise.resolve();
+    });
+    requestNativeStorageRecovery('appStorage');
+    await act(async () => {
+      finishCheck(true);
+    });
+    await flush();
+    expect(onBiologyAuth).not.toHaveBeenCalled();
+    expect(getMocks().setBiologyAuthEnable).not.toHaveBeenCalled();
+    expect(getMocks().dialogConfirm).not.toHaveBeenCalled();
   });
 });
