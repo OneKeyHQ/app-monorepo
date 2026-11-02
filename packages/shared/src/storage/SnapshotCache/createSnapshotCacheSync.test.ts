@@ -356,4 +356,32 @@ describe('createSnapshotCacheSync', () => {
     expect(records.has('d:stale')).toBe(false);
     expect(records.has('d:fresh')).toBe(false);
   });
+
+  it('evicts the stale record and compacts when an update exceeds maxRecordBytes', () => {
+    const { storage, records, compactCalls } = createFakeStorage();
+    const boundedStorage: IDisplaySnapshotStorageSync = {
+      ...storage,
+      commit(input) {
+        if (input.entries.some((entry) => entry.value.length > 64)) {
+          throw new OneKeyLocalError(
+            'Display snapshot record exceeds 64 bytes',
+          );
+        }
+        storage.commit(input);
+      },
+    };
+    const cache = createSnapshotCacheSync<string>({
+      storage: boundedStorage,
+      retention,
+    });
+
+    cache.set('k', 'small');
+    expect(cache.get('k')?.data).toBe('small');
+    expect(records.has('d:k')).toBe(true);
+
+    cache.set('k', 'x'.repeat(128));
+    expect(cache.get('k')).toBeUndefined();
+    expect(records.has('d:k')).toBe(false);
+    expect(compactCalls.count).toBe(1);
+  });
 });

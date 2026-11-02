@@ -165,7 +165,23 @@ export function createSnapshotCacheSync<T>({
             entries,
             removeKeys: plan.removeKeys,
           });
-        } catch {
+        } catch (error) {
+          if (
+            error instanceof Error &&
+            error.message.includes('Display snapshot record exceeds')
+          ) {
+            if (manifest.e[key] !== undefined) {
+              const { [key]: _removed, ...rest } = manifest.e;
+              commitManifest({
+                raw,
+                manifest: { ...manifest, e: rest },
+                entries: [],
+                removeKeys: [key],
+              });
+              storage.compact();
+            }
+            return;
+          }
           // A concurrent writer moved the marker; re-read and try again.
           if (attempt < MAX_COMMIT_ATTEMPTS - 1) {
             write(attempt + 1);

@@ -124,4 +124,68 @@ describe('createNamespacedSnapshotCache (native)', () => {
     expect(masked.get('b')).toBeUndefined();
     expect(ops()).not.toContain('set:d:b');
   });
+
+  it('isolates SimpleDb cache entities into per-entity snapshot namespaces and compacts on remove/shrink', () => {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const simpleDbSnapshot = require('../instance/simpleDbSnapshotMMKVInstance')
+      .default as typeof import('../instance/simpleDbSnapshotMMKVInstance').default;
+
+    simpleDbSnapshot.set('app:simple_db_v5:localTokens', '{"tokens":[1,2]}');
+    simpleDbSnapshot.set('app:simple_db_v5:perp', '{"universe":[]}');
+
+    expect(mockCreateMMKV).toHaveBeenCalledWith({
+      id: 'onekey-display-snapshot-sdb-local-tokens',
+    });
+    expect(mockCreateMMKV).toHaveBeenCalledWith({
+      id: 'onekey-display-snapshot-sdb-perp',
+    });
+    expect(simpleDbSnapshot.getString('app:simple_db_v5:localTokens')).toBe(
+      '{"tokens":[1,2]}',
+    );
+    expect(simpleDbSnapshot.getString('app:simple_db_v5:perp')).toBe(
+      '{"universe":[]}',
+    );
+    expect(
+      mockStores
+        .get('onekey-display-snapshot-sdb-local-tokens')
+        ?.has('manifest'),
+    ).toBe(true);
+    expect(
+      mockStores
+        .get('onekey-display-snapshot-sdb-local-tokens')
+        ?.has('d:app:simple_db_v5:localTokens'),
+    ).toBe(true);
+
+    simpleDbSnapshot.remove('app:simple_db_v5:localTokens');
+    simpleDbSnapshot.remove('app:simple_db_v5:perp');
+    expect(
+      simpleDbSnapshot.getString('app:simple_db_v5:localTokens'),
+    ).toBeUndefined();
+    expect(simpleDbSnapshot.getString('app:simple_db_v5:perp')).toBeUndefined();
+    expect(ops()).toContain('trim');
+  });
+
+  it('persists Jotai cache atoms through the jotai-cache snapshot namespace with manifest and TTL', () => {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const jotaiSnapshot =
+      require('../instance/jotaiSnapshotMMKVStorageInstance')
+        .default as typeof import('../instance/jotaiSnapshotMMKVStorageInstance').default;
+
+    jotaiSnapshot.set(
+      'g_states_v5:perpsAccountDisplaySnapshotAtom',
+      '{"entries":{}}',
+    );
+    expect(mockCreateMMKV).toHaveBeenCalledWith({
+      id: 'onekey-display-snapshot-jotai-cache',
+    });
+    expect(
+      jotaiSnapshot.getString('g_states_v5:perpsAccountDisplaySnapshotAtom'),
+    ).toBe('{"entries":{}}');
+    expect(
+      mockStores.get('onekey-display-snapshot-jotai-cache')?.has('manifest'),
+    ).toBe(true);
+    expect(jotaiSnapshot.getAllKeys()).toEqual([
+      'g_states_v5:perpsAccountDisplaySnapshotAtom',
+    ]);
+  });
 });
