@@ -99,6 +99,8 @@ import type {
 } from '@onekeyhq/shared/types/tx';
 
 import { vaultFactory } from '../vaults/factory';
+import { isLocalWalletNetwork } from '../vaults/localWallet/isLocalWalletNetwork';
+import { getVaultSettings } from '../vaults/settings';
 import { ESignedTxBroadcastStatus } from '../vaults/types';
 
 import ServiceBase from './ServiceBase';
@@ -545,7 +547,10 @@ class ServiceSend extends ServiceBase {
       saveToLocalHistory,
     });
 
-    if (feeInfo) {
+    const isLocalWallet = await isLocalWalletNetwork({
+      networkId,
+    });
+    if (feeInfo && !isLocalWallet) {
       decodedTx.totalFeeInNative =
         feeInfo.totalNativeForDisplay ?? feeInfo.totalNative;
       decodedTx.totalFeeFiatValue =
@@ -571,6 +576,7 @@ class ServiceSend extends ServiceBase {
       prevNonce,
       feeInfo,
       swapInfo,
+      transferPayload,
     } = params;
     const vault = await vaultFactory.getVault({ networkId, accountId });
     return vault.buildUnsignedTx({
@@ -582,6 +588,7 @@ class ServiceSend extends ServiceBase {
       prevNonce,
       feeInfo,
       swapInfo,
+      transferPayload,
     });
   }
 
@@ -757,6 +764,31 @@ class ServiceSend extends ServiceBase {
       return true;
     }
 
+    if (
+      await isLocalWalletNetwork({
+        networkId: params.networkId,
+      })
+    ) {
+      try {
+        const tx =
+          await this.backgroundApi.servicePrivacyChain.reviewLocalWalletTransaction(
+            { networkId: params.networkId, encodedTx: params.encodedTx },
+          );
+        const fee = new BigNumber(tx.fee);
+        const { localWallet } = await getVaultSettings({
+          networkId: params.networkId,
+        });
+        // Checked locally until the backend pre-send check supports privacy chains; a mismatched fee or one at least
+        // as large as the payment needs review, unless the protocol sets it.
+        return (
+          !fee.shiftedBy(-tx.decimals).eq(params.feeAmount) ||
+          (!localWallet?.feeSetByProtocol && fee.gte(tx.amount))
+        );
+      } catch {
+        return true;
+      }
+    }
+
     try {
       const isCustomNetwork =
         await this.backgroundApi.serviceNetwork.isCustomNetwork({
@@ -840,6 +872,25 @@ class ServiceSend extends ServiceBase {
           params.diagnosticSendState.context = activeDiagnostic;
         }
       }
+      // Privacy-chain signed txs embed viewing material; log the review instead.
+      let signedTxForLog: (signedTx: ISignedTxPro) => unknown = (signedTx) =>
+        signedTx;
+      if (await isLocalWalletNetwork({ networkId })) {
+        const { encodedTx, to, amount, fee } =
+          await this.backgroundApi.servicePrivacyChain.reviewLocalWalletTransaction(
+            { networkId, encodedTx: diagnosticUnsignedTx.encodedTx },
+          );
+        diagnosticUnsignedTx = {
+          ...cloneDeep(diagnosticUnsignedTx),
+          encodedTx,
+        };
+        signedTxForLog = (signedTx) => ({
+          txid: signedTx.txid,
+          to,
+          amount,
+          fee,
+        });
+      }
       const { password, deviceParams } =
         params.prefetchedCredentials ??
         (await this.backgroundApi.servicePassword.promptPasswordVerifyByAccount(
@@ -888,7 +939,10 @@ class ServiceSend extends ServiceBase {
               signOnly,
             });
             if (process.env.NODE_ENV !== 'production') {
-              console.log('signTx@vault.signTransaction', signedTx);
+              console.log(
+                'signTx@vault.signTransaction',
+                signedTxForLog(signedTx),
+              );
             }
             return signedTx;
           },
@@ -903,7 +957,7 @@ class ServiceSend extends ServiceBase {
         );
 
       if (process.env.NODE_ENV !== 'production') {
-        console.log('signTx@serviceSend.signTransaction', tx);
+        console.log('signTx@serviceSend.signTransaction', signedTxForLog(tx));
       }
 
       tx.swapInfo = unsignedTx.swapInfo;
@@ -1860,12 +1914,17 @@ class ServiceSend extends ServiceBase {
       // Persist the signed payload before the broadcast leaves: if the
       // request fails ambiguously the node may still have it, and a retry
       // must ask the chain for this signature instead of signing a fresh tx.
-      await this.rememberBroadcastAttempt({
-        unsignedTx,
-        signedTx,
-        networkId,
-        accountId,
-      });
+      // Local-scan chains keep none at rest: their payload carries view keys
+      // and spend details. A retry signs again and the chain refuses the
+      // duplicate spend.
+      if (!vaultSettings.localWallet) {
+        await this.rememberBroadcastAttempt({
+          unsignedTx,
+          signedTx,
+          networkId,
+          accountId,
+        });
+      }
       const { txid } = await runBroadcast().catch(async (error) => {
         // A node that evaluated and refused the payload never held it, so
         // the retry may sign at once instead of waiting for a chain verdict.
@@ -1955,6 +2014,14 @@ class ServiceSend extends ServiceBase {
         signedTx: broadcastedTx,
         isSettled: isSettledOnAccept,
       });
+      if (vaultSettings.localWallet) {
+        void this.backgroundApi.servicePrivacyChain
+          .onLocalWalletTransactionBroadcast({
+            networkId,
+            encodedTx: unsignedTx.encodedTx,
+          })
+          .catch(() => undefined);
+      }
       diagnosticState.status = 'succeeded';
       return broadcastedTx;
     }
@@ -2786,6 +2853,7 @@ class ServiceSend extends ServiceBase {
       encodedTx,
       approveInfo,
       transfersInfo,
+      transferPayload,
       wrappedInfo,
       swapInfo,
       stakingInfo,
@@ -2815,6 +2883,7 @@ class ServiceSend extends ServiceBase {
         encodedTx,
         approveInfo,
         transfersInfo,
+        transferPayload,
         wrappedInfo,
         swapInfo,
         specifiedFeeRate,
@@ -2956,9 +3025,11 @@ class ServiceSend extends ServiceBase {
   async getRawTransactions({
     networkId,
     txids,
+    retries = 5,
   }: {
     networkId: string;
     txids: string[];
+    retries?: number;
   }) {
     const client = await this.getClient(EServiceEndpointEnum.Wallet);
 
@@ -2990,9 +3061,9 @@ class ServiceSend extends ServiceBase {
         return resp.data.data.transactionMap;
       };
 
-      // Retry configuration: 5 retries with 3s interval
+      // Retry configuration: 5 retries (by default) with 3s interval
       return pRetry(run, {
-        retries: 5,
+        retries,
         minTimeout: timerUtils.getTimeDurationMs({ seconds: 3 }),
         onFailedAttempt: (error) => {
           defaultLogger.transaction.send.rawTxFetchFailed({
@@ -3072,6 +3143,22 @@ class ServiceSend extends ServiceBase {
   }
 
   @backgroundMethod()
+  async releaseUnsignedTxs({
+    networkId,
+    accountId,
+    unsignedTxs,
+  }: {
+    networkId: string;
+    accountId: string;
+    unsignedTxs: IUnsignedTxPro[];
+  }): Promise<void> {
+    const vault = await vaultFactory.getVault({ networkId, accountId });
+    await Promise.all(
+      unsignedTxs.map((unsignedTx) => vault.releaseUnsignedTx({ unsignedTx })),
+    );
+  }
+
+  @backgroundMethod()
   @toastIfError()
   async precheckUnsignedTxs(params: {
     networkId: string;
@@ -3104,6 +3191,15 @@ class ServiceSend extends ServiceBase {
     accountAddress?: string;
   }) {
     const { networkId, accountId, encodedTx } = params;
+    if (
+      await isLocalWalletNetwork({
+        networkId,
+      })
+    ) {
+      throw new OneKeyLocalError(
+        'Privacy transactions must be reviewed locally',
+      );
+    }
     const vault = await vaultFactory.getVault({
       networkId,
       accountId,

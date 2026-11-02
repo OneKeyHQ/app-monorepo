@@ -119,8 +119,13 @@ const mockActions = {
 const mockAccountInfo = { indexedAccount: { id: 'loading-test-account' } };
 const originalDesktop = platformEnv.isDesktop;
 const originalWeb = platformEnv.isWeb;
+const originalExtension = platformEnv.isExtension;
+let mockGtMd = true;
 
-jest.mock('@onekeyhq/components', () => ({ useIsOverlayPage: () => false }));
+jest.mock('@onekeyhq/components', () => ({
+  useIsOverlayPage: () => false,
+  useMedia: () => ({ gtMd: mockGtMd }),
+}));
 jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
   defaultLogger: {
     swap: { tokenSelectorSearch: { swapTokenSelectorSearch: jest.fn() } },
@@ -447,6 +452,8 @@ function getDisplayedTokens(result: ReturnType<typeof useSwapTokenList>) {
 
 describe('useSwapTokenList loading lifecycle', () => {
   beforeEach(() => {
+    platformEnv.isExtension = false;
+    mockGtMd = true;
     appEventBus.emit(EAppEventBusNames.GlobalDeriveTypeUpdate, {
       networkImpl: 'evm',
     });
@@ -465,12 +472,13 @@ describe('useSwapTokenList loading lifecycle', () => {
       supportAccountsFetchFailed: false,
       swapSupportAccounts: [],
     });
-    mockLoadAllNetworks.mockResolvedValue(undefined);
+    mockLoadAllNetworks.mockReset().mockResolvedValue(undefined);
   });
 
   afterEach(() => {
     platformEnv.isDesktop = originalDesktop;
     platformEnv.isWeb = originalWeb;
+    platformEnv.isExtension = originalExtension;
   });
 
   it.each([
@@ -527,11 +535,13 @@ describe('useSwapTokenList loading lifecycle', () => {
   it.each([
     { platform: 'desktop', isDesktop: true, isWeb: false },
     { platform: 'web', isDesktop: false, isWeb: true },
+    { platform: 'wide extension', isDesktop: false, isWeb: false },
   ])(
     'keeps the $platform skeleton when the full chain snapshot was evicted but aggregate holdings remain',
     async ({ isDesktop, isWeb }) => {
       platformEnv.isDesktop = isDesktop;
       platformEnv.isWeb = isWeb;
+      platformEnv.isExtension = !isDesktop && !isWeb;
       cacheAllNetworks([token]);
       // Other chain snapshots can outlive the selected chain's LRU entry.
       cacheScopedTokens(
@@ -569,11 +579,13 @@ describe('useSwapTokenList loading lifecycle', () => {
   it.each([
     { platform: 'desktop', isDesktop: true, isWeb: false },
     { platform: 'web', isDesktop: false, isWeb: true },
+    { platform: 'wide extension', isDesktop: false, isWeb: false },
   ])(
     'does not promote aggregate holdings to a full $platform snapshot after a failed request',
     async ({ isDesktop, isWeb }) => {
       platformEnv.isDesktop = isDesktop;
       platformEnv.isWeb = isWeb;
+      platformEnv.isExtension = !isDesktop && !isWeb;
       cacheAllNetworks([token]);
       const request = deferred();
       mockFetchTokenList.mockImplementation(async () => {
@@ -631,6 +643,147 @@ describe('useSwapTokenList loading lifecycle', () => {
       unmount();
     },
   );
+
+  it.each([
+    {
+      platform: 'wide extension',
+      extension: true,
+      gtMd: true,
+      protocol: ESwapTabSwitchType.SWAP,
+      expected: 1,
+    },
+    {
+      platform: 'narrow extension',
+      extension: true,
+      gtMd: false,
+      protocol: ESwapTabSwitchType.SWAP,
+      expected: 0,
+    },
+    {
+      platform: 'extension stock',
+      extension: true,
+      gtMd: true,
+      protocol: ESwapTabSwitchType.STOCK,
+      expected: 0,
+    },
+    {
+      platform: 'native',
+      extension: false,
+      gtMd: true,
+      protocol: ESwapTabSwitchType.SWAP,
+      expected: 0,
+    },
+  ])(
+    'refreshes the concrete-chain wallet only for $platform wide ordinary selection',
+    async ({ extension, gtMd, protocol, expected }) => {
+      platformEnv.isDesktop = false;
+      platformEnv.isWeb = false;
+      platformEnv.isExtension = extension;
+      mockGtMd = gtMd;
+      mockFetchTokenList.mockImplementation(async (params) => {
+        cacheScopedTokens(params, [token]);
+        return [token];
+      });
+      const { result, unmount } = renderHook(() =>
+        useSwapTokenList(
+          ESwapDirectionType.FROM,
+          network.networkId,
+          undefined,
+          protocol,
+          false,
+        ),
+      );
+      await waitFor(() => expect(result.current.fetchLoading).toBe(false));
+      expect(mockLoadAllNetworks).toHaveBeenCalledTimes(expected);
+      unmount();
+    },
+  );
+
+  it.each(['completed', 'inflight'] as const)(
+    'starts a full sweep when a %s compact extension session becomes wide',
+    async (state) => {
+      platformEnv.isDesktop = false;
+      platformEnv.isWeb = false;
+      platformEnv.isExtension = true;
+      mockGtMd = false;
+      mockNetworks = [allNetwork, network];
+      const compact = deferred();
+      mockLoadAllNetworks.mockImplementationOnce(() => compact.promise);
+      const { rerender, unmount } = renderList(allNetwork.networkId);
+      await waitFor(() => expect(mockLoadAllNetworks).toHaveBeenCalledTimes(1));
+      expect(mockLoadAllNetworks).toHaveBeenLastCalledWith(
+        'loading-test-account',
+        undefined,
+        false,
+        'usd',
+        { policy: 'revalidate', fullChainLists: false },
+      );
+      if (state === 'completed') await act(async () => compact.resolve());
+      mockGtMd = true;
+      rerender();
+      try {
+        await waitFor(() =>
+          expect(mockLoadAllNetworks).toHaveBeenCalledTimes(2),
+        );
+        expect(mockLoadAllNetworks).toHaveBeenLastCalledWith(
+          'loading-test-account',
+          undefined,
+          false,
+          'usd',
+          { policy: 'revalidate', fullChainLists: true },
+        );
+      } finally {
+        await act(async () => compact.resolve());
+        unmount();
+      }
+    },
+  );
+
+  it('replaces a warm wide-extension chain snapshot through the wallet refresh', async () => {
+    platformEnv.isDesktop = false;
+    platformEnv.isWeb = false;
+    platformEnv.isExtension = true;
+    const account: IAllNetworkAccountInfo = {
+      networkId: network.networkId,
+      accountId: 'wide-account',
+      apiAddress: '0xwide',
+      accountXpub: undefined,
+      pub: undefined,
+      dbAccount: undefined,
+      isNftEnabled: true,
+      isBackendIndexed: true,
+      deriveType: undefined,
+      deriveInfo: undefined,
+      isTestnet: false,
+    };
+    mockGetSupportAccounts.mockResolvedValue({
+      supportAccountsFetchFailed: false,
+      swapSupportAccounts: [account],
+    });
+    const params: IFetchTokensParams = {
+      networkId: network.networkId,
+      accountNetworkId: account.networkId,
+      accountAddress: account.apiAddress,
+      accountId: account.accountId,
+      protocol: ESwapTabSwitchType.SWAP,
+      lpToken: false,
+      currency: 'usd',
+    };
+    cacheScopedTokens(params, [token]);
+    const refresh = deferred();
+    const updated = { ...token, balanceParsed: '2' };
+    mockLoadAllNetworks.mockImplementationOnce(async () => {
+      await refresh.promise;
+      cacheScopedTokens(params, [updated]);
+    });
+    const { result, unmount } = renderList();
+    await waitFor(() => expect(result.current.currentTokens).toEqual([token]));
+    expect(mockLoadAllNetworks).toHaveBeenCalledTimes(1);
+    expect(mockFetchTokenList).not.toHaveBeenCalled();
+    await act(async () => refresh.resolve());
+    expect(result.current.currentTokens).toEqual([updated]);
+    unmount();
+  });
 
   it.each<{ holdings: ISwapToken[] }>([
     { holdings: [] },

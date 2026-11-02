@@ -104,6 +104,8 @@ export function buildThirdPartyHardwareUiResponse(
     save?: boolean;
     pin?: string;
     qrResponse?: { urType: string; urData: string; accountExport?: boolean };
+    /** QR fallback: look for the USB device again instead of answering. */
+    retry?: boolean;
   },
 ): IAdapterUiResponse | null {
   switch (action) {
@@ -122,6 +124,7 @@ export function buildThirdPartyHardwareUiResponse(
         type: UI_RESPONSE.RECEIVE_QR_FALLBACK_CONFIRM,
         payload: {
           confirmed,
+          ...(extras?.retry ? { retry: true } : {}),
           ...(extras?.requestId ? { requestId: extras.requestId } : {}),
         },
       };

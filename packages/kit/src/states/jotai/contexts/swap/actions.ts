@@ -2619,13 +2619,30 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
 
     const walletId = addressInfo.accountInfo?.wallet?.id;
     const accountId = addressInfo.accountInfo?.account?.id;
+    const sourceAccount = addressInfo.activeAccount?.dbAccount;
+    const activeAccountId = addressInfo.activeAccount?.account?.id;
+    const isWatchingAccountNetworkUnsupported = Boolean(
+      directionType === ESwapDirectionType.FROM &&
+      addressInfo.isAddressInfoReady &&
+      !addressInfo.address &&
+      addressInfo.activeAccount?.ready &&
+      accountUtils.isWatchingWallet({ walletId }) &&
+      sourceAccount &&
+      accountUtils.isWatchingAccount({ accountId: sourceAccount.id }) &&
+      (!activeAccountId || activeAccountId === sourceAccount.id) &&
+      !accountUtils.isAccountCompatibleWithNetwork({
+        account: sourceAccount,
+        networkId: activeNetworkId,
+      }),
+    );
 
     const accountNetworkNotSupported =
-      await backgroundApiProxy.serviceAccount.checkAccountNetworkNotSupported({
+      isWatchingAccountNetworkUnsupported ||
+      (await backgroundApiProxy.serviceAccount.checkAccountNetworkNotSupported({
         walletId,
         accountId,
         activeNetworkId,
-      });
+      }));
     if (accountNetworkNotSupported) {
       let unsupportedMessage = message;
       if (!unsupportedMessage) {
@@ -3623,7 +3640,9 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       options?: ISwapTokenSelectorLoadOptions,
     ) => {
       if (
-        (platformEnv.isDesktop || platformEnv.isWeb) &&
+        (platformEnv.isDesktop ||
+          platformEnv.isWeb ||
+          (platformEnv.isExtension && options?.fullChainLists)) &&
         !isStockProtocol(protocol)
       ) {
         const network = get(swapNetworks()).find(
@@ -3688,6 +3707,11 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       )
         return;
       const swapTypeSwitchValue = get(swapTypeSwitchAtom());
+      const fullChainLists =
+        !isStockProtocol(swapTypeSwitchValue) &&
+        (platformEnv.isDesktop ||
+          platformEnv.isWeb ||
+          (platformEnv.isExtension && options?.fullChainLists === true));
       const tokenListCacheKey = buildSwapAllNetworkTokenListCacheKey({
         accountId:
           indexedAccountId ?? otherWalletTypeAccountId ?? 'noAccountId',
@@ -3719,6 +3743,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
           requestKey: JSON.stringify([
             buildSwapNetworkReadyKey(tokenListSupportNetworks),
             getSwapTokenSelectorCacheEpoch(),
+            fullChainLists,
           ]),
           epoch: getSwapTokenSelectorCacheEpoch(),
           tokenListSupportNetworks,
@@ -3763,8 +3788,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         | undefined;
       if (
         preload &&
-        (platformEnv.isDesktop || platformEnv.isWeb) &&
-        !isStockProtocol(swapTypeSwitchValue) &&
+        fullChainLists &&
         !cacheStore.get(swapAllNetworkActionLockAtom())[tokenListCacheKey]
       ) {
         // Inspect complete per-chain snapshots without taking the refresh lock:
@@ -3812,7 +3836,9 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
               cacheStore.get(swapAllNetworkTokenListMapAtom())[
                 tokenListCacheKey
               ] === undefined ||
-              previousStatus?.identityVersion !== requestContext.epoch.identity
+              previousStatus?.identityVersion !==
+                requestContext.epoch.identity ||
+              previousStatus?.dataReady !== true
             ) {
               const tokens = snapshots
                 .flatMap((snapshot) => snapshot?.data ?? [])
@@ -3828,6 +3854,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
                 [tokenListCacheKey]: {
                   requestKey: requestContext.requestKey,
                   status: 'partial',
+                  dataReady: true,
                   updatedAt: 0,
                   identityVersion: requestContext.epoch.identity,
                   refreshVersion: requestContext.epoch.refresh,
@@ -3934,6 +3961,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
               swapAllNetworkTokenListStatusAtom(),
             )[tokenListCacheKey];
             let dataIdentityVersion = previousStatus?.identityVersion ?? 0;
+            let dataReady = previousStatus?.dataReady;
             let status: 'success' | 'partial' | 'error' = 'error';
             if (!supportAccountsFetchFailed && isCurrentIdentity()) {
               let previousTokens =
@@ -3950,7 +3978,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
                   !networkUtils.isAllNetwork({ networkId: item.networkId }),
               );
               const parallelDesktop =
-                platformEnv.isDesktop || platformEnv.isWeb;
+                platformEnv.isDesktop || platformEnv.isWeb || fullChainLists;
               if (
                 parallelDesktop &&
                 !isStockProtocol(swapTypeSwitchValue) &&
@@ -3972,6 +4000,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
                       new BigNumber(token.balanceParsed ?? 0).gt(0),
                     );
                   dataIdentityVersion = runContext.epoch.identity;
+                  dataReady = true;
                   const seededTokens = previousTokens;
                   cacheStore.set(swapAllNetworkTokenListMapAtom(), (value) => ({
                     ...value,
@@ -3984,6 +4013,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
                       [tokenListCacheKey]: {
                         requestKey: runContext.requestKey,
                         status: 'partial',
+                        dataReady: true,
                         updatedAt: 0,
                         identityVersion: runContext.epoch.identity,
                         refreshVersion: runContext.epoch.refresh,
@@ -4014,6 +4044,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
                       previousSnapshotTokens === undefined &&
                       isCurrentRun()
                     ) {
+                      dataReady = false;
                       cacheStore.set(
                         swapAllNetworkTokenListMapAtom(),
                         (value) => {
@@ -4049,6 +4080,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
                           [tokenListCacheKey]: {
                             requestKey: runContext.requestKey,
                             status: 'partial',
+                            dataReady: false,
                             updatedAt: Date.now(),
                             identityVersion: runContext.epoch.identity,
                             refreshVersion: runContext.epoch.refresh,
@@ -4076,6 +4108,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
               else if (successful) status = 'partial';
               if (successful && isCurrentRun()) {
                 dataIdentityVersion = runContext.epoch.identity;
+                dataReady = true;
                 const refreshedTokens = results.flatMap((result, index) =>
                   result.status === 'fulfilled' &&
                   !failedNetworkIds.has(accountAddressList[index].networkId)
@@ -4101,6 +4134,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
                 [tokenListCacheKey]: {
                   requestKey: runContext.requestKey,
                   status,
+                  dataReady,
                   updatedAt: Date.now(),
                   identityVersion: dataIdentityVersion,
                   refreshVersion: runContext.epoch.refresh,

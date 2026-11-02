@@ -1,5 +1,3 @@
-import BigNumber from 'bignumber.js';
-
 import {
   SWAP_PRO_POSITIONS_CACHE_MAX_BYTES,
   SWAP_PRO_POSITIONS_CACHE_MAX_OWNERS,
@@ -9,6 +7,8 @@ import {
   pruneSwapProPositionsCacheValue,
 } from '@onekeyhq/shared/src/utils/coldStartCacheSnapshotUtils';
 import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
+
+import { compareTradePositionFiatValues } from './tradePositionUtils';
 
 export const SWAP_PRO_POSITIONS_RUNTIME_TTL_MS = 30_000;
 export {
@@ -113,11 +113,6 @@ function buildSwapProPositionsCacheToken(token: ISwapToken): ISwapToken {
   };
 }
 
-function getSwapProPositionFiatValue(token: ISwapToken) {
-  const fiatValue = new BigNumber(token.fiatValue ?? '0');
-  return fiatValue.isFinite() ? fiatValue : new BigNumber(0);
-}
-
 export function upsertSwapProPositionsCacheEntry({
   cache,
   entry,
@@ -127,9 +122,7 @@ export function upsertSwapProPositionsCacheEntry({
 }): ISwapProPositionsCache {
   const tokens = entry.tokens
     .toSorted((left, right) =>
-      getSwapProPositionFiatValue(right).comparedTo(
-        getSwapProPositionFiatValue(left),
-      ),
+      compareTradePositionFiatValues(left.fiatValue, right.fiatValue),
     )
     .map(buildSwapProPositionsCacheToken);
   const previousByOwner = getValidSwapProPositionsCache(cache).byOwner;

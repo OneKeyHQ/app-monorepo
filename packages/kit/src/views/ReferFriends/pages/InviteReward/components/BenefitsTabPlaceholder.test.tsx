@@ -13,6 +13,10 @@ let mockStatusResult: IStatusResult;
 let mockWalletId: string | undefined = 'hd-1';
 const mockBindWalletInviteCode = jest.fn();
 
+jest.mock('@onekeyhq/components', () => ({
+  Skeleton: { BodyMd: () => <i data-testid="description-skeleton" /> },
+}));
+
 jest.mock('react-intl', () => ({
   useIntl: () => ({
     formatMessage: ({ id }: { id: string }) => id,
@@ -48,7 +52,7 @@ jest.mock('../../../components/ReferralCardEmpty', () => ({
     buttonProps,
   }: {
     title: string;
-    description?: string;
+    description?: ReactNode;
     buttonProps?: { children: ReactNode; testID?: string };
   }) => (
     <div data-testid="empty">
@@ -71,7 +75,14 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { ReferFriendsTestIDs } from '../../../testIDs';
 
-import { BenefitsTabPlaceholder } from './BenefitsTabPlaceholder';
+import {
+  BenefitsTabPlaceholder,
+  useBenefitsBindStatus,
+} from './BenefitsTabPlaceholder';
+
+function Subject() {
+  return <BenefitsTabPlaceholder bindStatus={useBenefitsBindStatus()} />;
+}
 
 function getText() {
   return screen.getByTestId('empty').textContent;
@@ -85,7 +96,7 @@ describe('BenefitsTabPlaceholder', () => {
 
   it('asks for a code when the wallet can still take one', () => {
     mockStatusResult = { walletId: 'hd-1', status: 'bind' };
-    render(<BenefitsTabPlaceholder />);
+    render(<Subject />);
     expect(getText()).toContain('referral_perks_empty__desc');
     expect(
       screen.getByTestId(ReferFriendsTestIDs.benefitsBindBtn),
@@ -94,7 +105,7 @@ describe('BenefitsTabPlaceholder', () => {
 
   it('keeps the code button when the bind check failed', () => {
     mockStatusResult = { walletId: 'hd-1', status: 'unknown' };
-    render(<BenefitsTabPlaceholder />);
+    render(<Subject />);
     expect(
       screen.getByTestId(ReferFriendsTestIDs.benefitsBindBtn),
     ).toBeTruthy();
@@ -102,7 +113,7 @@ describe('BenefitsTabPlaceholder', () => {
 
   it('drops the code prompt for a wallet that is already bound', () => {
     mockStatusResult = { walletId: 'hd-1', status: 'bound' };
-    render(<BenefitsTabPlaceholder />);
+    render(<Subject />);
     expect(getText()).toContain(ETranslations.referral_no_reward);
     expect(getText()).not.toContain('referral_perks_empty__desc');
     expect(
@@ -112,7 +123,7 @@ describe('BenefitsTabPlaceholder', () => {
 
   it('explains why a wallet past the bind window cannot take a code', () => {
     mockStatusResult = { walletId: 'hd-1', status: 'notApplicable' };
-    render(<BenefitsTabPlaceholder />);
+    render(<Subject />);
     expect(getText()).toContain(ETranslations.referral_not_applicable_desc);
     expect(
       screen.queryByTestId(ReferFriendsTestIDs.benefitsBindBtn),
@@ -121,7 +132,7 @@ describe('BenefitsTabPlaceholder', () => {
 
   it('says a wallet that cannot take codes is not applicable', () => {
     mockStatusResult = { walletId: 'hd-1', status: 'unsupported' };
-    render(<BenefitsTabPlaceholder />);
+    render(<Subject />);
     expect(getText()).toBe(ETranslations.referral_not_applicable);
     expect(
       screen.queryByTestId(ReferFriendsTestIDs.benefitsBindBtn),
@@ -131,7 +142,7 @@ describe('BenefitsTabPlaceholder', () => {
   it('offers nothing when the wallet and its status are both missing', () => {
     mockWalletId = undefined;
     mockStatusResult = undefined;
-    render(<BenefitsTabPlaceholder />);
+    render(<Subject />);
     expect(getText()).toBe('referral_perks_empty__title');
     expect(
       screen.queryByTestId(ReferFriendsTestIDs.benefitsBindBtn),
@@ -140,8 +151,10 @@ describe('BenefitsTabPlaceholder', () => {
 
   it('offers nothing while the status is loading or from another wallet', () => {
     mockStatusResult = { walletId: 'hd-2', status: 'bind' };
-    render(<BenefitsTabPlaceholder />);
+    render(<Subject />);
     expect(getText()).toBe('referral_perks_empty__title');
+    // The description line is held so the card keeps its height.
+    expect(screen.getByTestId('description-skeleton')).toBeTruthy();
     expect(
       screen.queryByTestId(ReferFriendsTestIDs.benefitsBindBtn),
     ).toBeNull();

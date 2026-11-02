@@ -427,6 +427,13 @@ export function NativeHistoryList(
                   history.decodedTx.accountId,
                 ])
               ]?.vault?.isUtxo,
+            localWallet:
+              networkData?.[
+                JSON.stringify([
+                  history.decodedTx.networkId,
+                  history.decodedTx.accountId,
+                ])
+              ]?.vault?.localWallet,
             hideValue: effectiveHideValue,
             currency: settings.currencyInfo.symbol,
             isAllNetworks,

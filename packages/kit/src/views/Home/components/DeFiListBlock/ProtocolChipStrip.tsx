@@ -244,6 +244,8 @@ type IProtocolChipStripProps = {
   isAllNetworks?: boolean;
   activeKey: string | null;
   onPressChip: (protocol: IDeFiProtocol) => void;
+  onPageScrollIntent?: () => void;
+  getPageScroller?: () => HTMLElement | null;
   onHeightChange?: (height: number) => void;
   // 0 = strip hidden + offset upward, 1 = fully visible + at rest.
   // Written by the page's pin tracker each scroll frame so the emergence
@@ -267,6 +269,8 @@ function ProtocolChipStripBase({
   isAllNetworks,
   activeKey,
   onPressChip,
+  onPageScrollIntent,
+  getPageScroller,
   onHeightChange,
   revealProgress,
 }: IProtocolChipStripProps) {
@@ -349,8 +353,10 @@ function ProtocolChipStripBase({
       if (absDeltaY <= Math.abs(event.deltaX) || absDeltaY === 0) return;
 
       const pageScroller =
+        getPageScroller?.() ??
         findScrollableAncestorFromLocalNode(wheelForwardNode);
       if (!pageScroller) return;
+      onPageScrollIntent?.();
 
       const deltaY = getWheelDeltaYInPixels(event, pageScroller);
       const maxScrollTop = Math.max(
@@ -372,7 +378,7 @@ function ProtocolChipStripBase({
     return () => {
       wheelForwardNode.removeEventListener('wheel', onWheel);
     };
-  }, [wheelForwardNode]);
+  }, [getPageScroller, onPageScrollIntent, wheelForwardNode]);
 
   const updateArrows = useCallback(() => {
     const el = getScrollEl();

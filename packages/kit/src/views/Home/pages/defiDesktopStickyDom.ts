@@ -47,24 +47,89 @@ export type IStickyProtocolCandidate = {
   width: number;
 };
 
-// Scroll-spy: returns the protocol whose top has most recently scrolled
-// past (or sits exactly at) the sticky line. Stays valid through inter-
-// protocol gaps and after scrolling beyond the last protocol's bottom.
-// `<=` (not `<`) so a chip click landing a protocol exactly on the line
-// also qualifies.
-//
-// Single-pass max-finder rather than `filter().toSorted()`: this runs
-// once per rAF on the page scroller, so on a 50-protocol wallet the old
-// version allocated two throwaway arrays + an O(n log n) sort every frame
-// for one return value. The pass below is O(n), zero allocations.
+export function isProtocolVisible({
+  top,
+  bottom,
+  width,
+  stickyLine,
+  viewportBottom,
+}: IStickyProtocolCandidate & {
+  stickyLine: number;
+  viewportBottom: number;
+}): boolean {
+  return width > 0 && top < viewportBottom && bottom > stickyLine;
+}
+
+// Select the latest card crossing the sticky line, including short tail
+// cards that cannot scroll far enough to reach it.
 export function findActiveProtocolKey({
   stickyLine,
   candidates,
+  scrollMetrics,
 }: {
   stickyLine: number;
   candidates: IStickyProtocolCandidate[];
+  scrollMetrics?: {
+    scrollTop: number;
+    maxScroll: number;
+    viewportBottom: number;
+  };
 }): string | undefined {
   if (candidates.length === 0) return undefined;
+  if (scrollMetrics && scrollMetrics.maxScroll > 1) {
+    const { scrollTop, maxScroll, viewportBottom } = scrollMetrics;
+    let hasUnreachable = false;
+    let firstTop = Number.POSITIVE_INFINITY;
+    let lastReachableTop = Number.NEGATIVE_INFINITY;
+    for (const item of candidates) {
+      if (item.width > 0) {
+        firstTop = Math.min(firstTop, item.top);
+        if (scrollTop + item.top - stickyLine > maxScroll + 1) {
+          hasUnreachable = true;
+        } else {
+          lastReachableTop = Math.max(lastReachableTop, item.top);
+        }
+      }
+    }
+    if (hasUnreachable) {
+      const hasReachable = Number.isFinite(lastReachableTop);
+      // If no card can reach the line, begin when the first card enters the
+      // viewport rather than clamping its unreachable line position to the end.
+      const anchorTop = hasReachable ? lastReachableTop : firstTop;
+      const anchorLine = hasReachable ? stickyLine : viewportBottom;
+      const start = Math.max(
+        0,
+        Math.min(maxScroll, scrollTop + anchorTop - anchorLine),
+      );
+      if (scrollTop >= start - 1) {
+        const ordered = candidates
+          .filter((item) => item.width > 0)
+          .toSorted((a, b) => a.top - b.top);
+        const firstUnreachable = ordered.findIndex(
+          (item) => scrollTop + item.top - stickyLine > maxScroll + 1,
+        );
+        const anchorIndex = Math.max(0, firstUnreachable - 1);
+        // Distribute the remaining scroll across cards that cannot reach the
+        // sticky line, while never selecting a card outside the visible area.
+        const count = ordered.length - anchorIndex;
+        const span = maxScroll - start;
+        let progress = 0;
+        if (maxScroll - scrollTop <= 1) {
+          progress = 1;
+        } else if (span > 1) {
+          progress = Math.max(0, Math.min(1, (scrollTop - start) / span));
+        }
+        const targetIndex =
+          anchorIndex + Math.min(Math.floor(progress * count), count - 1);
+        for (let i = targetIndex; i >= anchorIndex; i -= 1) {
+          const item = ordered[i];
+          if (isProtocolVisible({ ...item, stickyLine, viewportBottom })) {
+            return item.key;
+          }
+        }
+      }
+    }
+  }
   let bestTop = Number.NEGATIVE_INFINITY;
   let bestKey: string | undefined;
   for (const c of candidates) {
@@ -74,26 +139,6 @@ export function findActiveProtocolKey({
     }
   }
   return bestKey;
-}
-
-// Decision for the chip-click pin lock: release iff the latest
-// pin-tracker candidate has caught up to the click target. Time-based
-// releases are unsafe — Chrome scales smooth-scroll duration with
-// distance, and a fixed timeout that fires mid-scroll briefly highlights
-// the protocol the scroll is crossing (the one immediately above the
-// target) before the scroll lands, which the user sees as a flicker
-// through the previous protocol and back.
-//
-// `target` being null means "no lock"; the helper is safe to call
-// unconditionally and will return false in that case.
-export function shouldReleasePinLock({
-  candidate,
-  target,
-}: {
-  candidate: string | null | undefined;
-  target: string | null;
-}): boolean {
-  return target !== null && candidate === target;
 }
 
 export function shouldQueueProtocolNavigation({

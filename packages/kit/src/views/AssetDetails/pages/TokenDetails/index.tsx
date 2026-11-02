@@ -64,6 +64,7 @@ import type {
 } from '@onekeyhq/shared/src/routes/assetDetails';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+import { getPrivacyChainMainPools } from '@onekeyhq/shared/src/utils/privacyChainDisplayUtils';
 import { waitAsync } from '@onekeyhq/shared/src/utils/promiseUtils';
 import {
   buildTokenListMapKey,
@@ -118,6 +119,7 @@ export type IProps = {
     enabledNetworks: Record<string, boolean>;
   };
   refreshAllNetworkState?: () => void;
+  privacyHistoryPoolId?: number;
 } & IStackProps;
 function TokenDetailsView() {
   const intl = useIntl();
@@ -757,6 +759,38 @@ function TokenDetailsView() {
     }
 
     if (networkId && walletId) {
+      if (
+        vaultSettings?.localWallet?.balanceShape === 'pooled' &&
+        vaultSettings.localWallet.pools
+      ) {
+        return getPrivacyChainMainPools(vaultSettings.localWallet.pools).map(
+          (pool) => ({
+            key: String(pool.id),
+            name: intl.formatMessage({
+              id:
+                pool.kind === 'public'
+                  ? ETranslations.privacy_balance_public__title
+                  : ETranslations.private_send_private_option,
+            }),
+            children: (
+              <TokenDetailsViews
+                inTabList
+                isTabView
+                accountId={tokenInfo.accountId ?? ''}
+                networkId={tokenInfo.networkId ?? ''}
+                walletId={walletId}
+                tokenInfo={tokenInfo}
+                tokenMap={tokenMap}
+                isAllNetworks={isAllNetworks}
+                listViewContentContainerStyle={listViewContentContainerStyle}
+                indexedAccountId={indexedAccountId}
+                privacyHistoryPoolId={pool.id}
+              />
+            ),
+          }),
+        );
+      }
+
       if (vaultSettings?.mergeDeriveAssetsEnabled) {
         return (
           result?.networkAccounts.map((item, index) => ({
@@ -817,6 +851,8 @@ function TokenDetailsView() {
     allNetworksState,
     refreshAllNetworkState,
     vaultSettings?.mergeDeriveAssetsEnabled,
+    vaultSettings?.localWallet?.balanceShape,
+    vaultSettings?.localWallet?.pools,
     tokenInfo,
     tokenMap,
     result?.networkAccounts,
@@ -928,9 +964,12 @@ function TokenDetailsView() {
         />
       );
     }
+    // Pooled privacy chains get tabs for every wallet type: pools belong to
+    // the balance, so `isOthersWallet` must not gate them.
     if (
       (!accountUtils.isOthersWallet({ walletId }) &&
         vaultSettings?.mergeDeriveAssetsEnabled) ||
+      vaultSettings?.localWallet?.balanceShape === 'pooled' ||
       tokens.length > 1
     ) {
       if (tabs.length > 1) {
@@ -972,6 +1011,7 @@ function TokenDetailsView() {
     isAggregateTokenUnavailable,
     walletId,
     vaultSettings?.mergeDeriveAssetsEnabled,
+    vaultSettings?.localWallet?.balanceShape,
     tokens,
     tokenInfo,
     effectiveTokenInfo,
