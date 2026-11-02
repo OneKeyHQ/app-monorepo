@@ -181,6 +181,9 @@ function makeService({
     },
     serviceNetwork: {
       isCustomNetwork: jest.fn(async () => false),
+      getVaultSettings: jest.fn(
+        async (): Promise<{ addressBadgeDisabled?: boolean }> => ({}),
+      ),
     },
     serviceAccount: {
       getAccount:
@@ -428,5 +431,23 @@ describe('ServiceAccountProfile.queryAddress address book on a privacy chain', (
     expect(
       backgroundApi.serviceAddressBook.getItemsByNetwork,
     ).not.toHaveBeenCalled();
+  });
+});
+
+describe('ServiceAccountProfile.getAddressAccountBadge', () => {
+  it('skips the badges request when the network disables address badges', async () => {
+    const { service, backgroundApi, clientGet } = makeService();
+    backgroundApi.serviceNetwork.getVaultSettings.mockResolvedValueOnce({
+      addressBadgeDisabled: true,
+    });
+
+    const result = await service.getAddressAccountBadge({
+      networkId: NETWORK_ID,
+      toAddress: RECIPIENT,
+    });
+
+    expect(clientGet).not.toHaveBeenCalled();
+    expect(result.badges).toEqual([]);
+    expect(result.interacted).toBe(EAddressInteractionStatus.UNKNOWN);
   });
 });

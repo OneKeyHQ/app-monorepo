@@ -41,6 +41,9 @@ function buildEnvExposedToClientDangerously({ platform }) {
     // Supabase (publishable)
     'SUPABASE_PROJECT_URL',
     'SUPABASE_PUBLIC_API_KEY',
+    // Breez SDK partner key for Lightning on Spark (publishable: the SDK runs
+    // in the client and sends it to Breez services)
+    'BREEZ_API_KEY',
     // Native background thread split-bundle feature flag
     'ENABLE_NATIVE_BACKGROUND_THREAD',
   ];

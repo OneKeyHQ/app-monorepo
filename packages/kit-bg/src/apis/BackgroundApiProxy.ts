@@ -56,6 +56,7 @@ import type ServiceIpTable from '../services/ServiceIpTable';
 import type ServiceKeylessCloudSync from '../services/ServiceKeylessCloudSync';
 import type ServiceKeylessWallet from '../services/ServiceKeylessWallet/ServiceKeylessWallet';
 import type ServiceLightning from '../services/ServiceLightning';
+import type ServiceLightningSpark from '../services/ServiceLightningSpark/ServiceLightningSpark';
 import type ServiceLiteCardMnemonic from '../services/ServiceLiteCardMnemonic';
 import type ServiceLiveActivity from '../services/ServiceLiveActivity';
 import type ServiceLogger from '../services/ServiceLogger';
@@ -423,6 +424,10 @@ class BackgroundApiProxy
 
   get serviceLightning(): ServiceLightning {
     return this.getProxyService<ServiceLightning>('serviceLightning');
+  }
+
+  get serviceLightningSpark(): ServiceLightningSpark {
+    return this.getProxyService<ServiceLightningSpark>('serviceLightningSpark');
   }
 
   get serviceLogger(): ServiceLogger {

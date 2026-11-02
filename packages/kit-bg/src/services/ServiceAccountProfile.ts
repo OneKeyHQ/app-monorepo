@@ -279,6 +279,11 @@ class ServiceAccountProfile extends ServiceBase {
     ) {
       return emptyAccountBadgeResult();
     }
+    const { addressBadgeDisabled } =
+      await this.backgroundApi.serviceNetwork.getVaultSettings({ networkId });
+    if (addressBadgeDisabled) {
+      return emptyAccountBadgeResult();
+    }
     const client = await this.getClient(EServiceEndpointEnum.Wallet);
     try {
       const resp = await client.get<{

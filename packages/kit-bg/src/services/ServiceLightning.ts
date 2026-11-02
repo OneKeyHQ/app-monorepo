@@ -7,6 +7,7 @@ import {
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { OneKeyError, OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import type {
@@ -54,6 +55,9 @@ class ServiceLightning extends ServiceBase {
 
   @backgroundMethod()
   async getInvoiceConfig({ networkId }: { networkId: string }) {
+    if (networkUtils.isLightningSparkNetworkByNetworkId(networkId)) {
+      return this.backgroundApi.serviceLightningSpark.getInvoiceConfig();
+    }
     const { isTestnet } = await this.backgroundApi.serviceNetwork.getNetwork({
       networkId,
     });
@@ -90,6 +94,14 @@ class ServiceLightning extends ServiceBase {
     amount: string;
     description?: string;
   }) {
+    if (networkUtils.isLightningSparkNetworkByNetworkId(networkId)) {
+      return this.backgroundApi.serviceLightningSpark.createInvoice({
+        accountId,
+        networkId,
+        amount,
+        description,
+      });
+    }
     const { serviceNetwork } = this.backgroundApi;
     const { isTestnet } = await serviceNetwork.getNetwork({ networkId });
     const client = await this.getLnClient(isTestnet);

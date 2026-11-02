@@ -72,6 +72,7 @@ import { TabPageHeader } from '../../../components/TabPageHeader';
 import { WatchOnlyAlert } from '../../../components/WatchOnlyAlert';
 import { WebDappEmptyView } from '../../../components/WebDapp/WebDappEmptyView';
 import useAppNavigation from '../../../hooks/useAppNavigation';
+import { useLightningSparkSession } from '../../../hooks/useLightningSparkSession';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { runAfterTokensDone } from '../../../hooks/useRunAfterTokensDone';
 import { useShortcutsOnRouteFocused } from '../../../hooks/useShortcutsOnRouteFocused';
@@ -294,6 +295,7 @@ function BaseHomePageView({
     indexedAccount,
     vaultSettings: cachedVaultSettings,
   } = activeAccount;
+  useLightningSparkSession({ accountId: account?.id, networkId: network?.id });
   const { showUnifiedNetworkSelector } = useUnifiedNetworkSelectorTrigger({
     num: 0,
   });

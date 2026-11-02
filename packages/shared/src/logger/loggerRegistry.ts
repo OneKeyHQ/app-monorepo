@@ -11,6 +11,7 @@ import type { DiscoveryScope } from './scopes/discovery';
 import type { FiatCryptoScope } from './scopes/fiatCrypto';
 import type { HardwareScope } from './scopes/hardware';
 import type { IpTableScope } from './scopes/ipTable';
+import type { LightningScope } from './scopes/lightning';
 import type { MarketScope } from './scopes/market';
 import type { NetworkDoctorScope } from './scopes/networkDoctor';
 import type { NotificationScope } from './scopes/notification/notification';
@@ -48,6 +49,7 @@ export type ILoggerScopeMap = {
   fiatCrypto: FiatCryptoScope;
   hardware: HardwareScope;
   ipTable: IpTableScope;
+  lightning: LightningScope;
   market: MarketScope;
   networkDoctor: NetworkDoctorScope;
   notification: NotificationScope;
@@ -181,6 +183,13 @@ const loggerScopeFactories: ILoggerScopeFactoryMap = {
         IpTableScope: IScopeConstructor<IpTableScope>;
       },
     'IpTableScope',
+  ),
+  lightning: createScopeFactory(
+    () =>
+      require('./scopes/lightning') as {
+        LightningScope: IScopeConstructor<LightningScope>;
+      },
+    'LightningScope',
   ),
   market: createScopeFactory(
     () =>

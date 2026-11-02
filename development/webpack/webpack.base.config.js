@@ -30,6 +30,10 @@ const ZXING_READER_WASM_TEST =
 const ZCASH_WASM_TEST = /onekey_zcash_(runtime|keys)_bg\.wasm$/;
 const MONERO_WASM_TEST = /onekey_monero_runtime_bg\.wasm$/;
 const CHAIN_RUNTIME_WASM_TEST = [ZCASH_WASM_TEST, MONERO_WASM_TEST];
+const BREEZ_SDK_SPARK_WASM_TEST =
+  /breez-sdk-spark[\\/]web[\\/]breez_sdk_spark_wasm_bg\.wasm$/;
+const BREEZ_SDK_SPARK_GLUE_TEST =
+  /breez-sdk-spark[\\/]web[\\/]breez_sdk_spark_wasm\.js$/;
 
 class BuildDoneNotifyPlugin {
   apply(compiler) {
@@ -326,6 +330,16 @@ module.exports = ({ platform, basePath, configName }) => {
                 filename: 'static/zxing/[name].[contenthash:8][ext]',
               },
             },
+            // cspell:ignore breez
+            // Breez SDK Spark wasm, fetched by its web entry; mirrors the
+            // rule in rspack.base.config.ts.
+            {
+              test: BREEZ_SDK_SPARK_WASM_TEST,
+              type: 'asset/resource',
+              generator: {
+                filename: 'static/breez/[name].[contenthash:8][ext]',
+              },
+            },
             {
               test: CHAIN_RUNTIME_WASM_TEST,
               type: 'asset/resource',
@@ -337,6 +351,7 @@ module.exports = ({ platform, basePath, configName }) => {
                 CANVASKIT_WASM_TEST,
                 ZXING_READER_WASM_TEST,
                 ...CHAIN_RUNTIME_WASM_TEST,
+                BREEZ_SDK_SPARK_WASM_TEST,
               ],
               type: 'webassembly/async',
             },
@@ -468,6 +483,15 @@ module.exports = ({ platform, basePath, configName }) => {
         {
           test: /@polkadot/,
           loader: require.resolve('@open-wc/webpack-import-meta-loader'),
+        },
+        // Mirrors the Breez SDK Spark network rule in rspack.base.config.ts.
+        {
+          test: BREEZ_SDK_SPARK_GLUE_TEST,
+          loader: path.resolve(
+            __dirname,
+            '../rspack/loaders/breezSdkSparkNetworkLoader.js',
+          ),
+          resolve: { fullySpecified: false },
         },
         {
           test: /\.mjs$/,
