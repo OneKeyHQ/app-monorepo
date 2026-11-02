@@ -467,7 +467,7 @@ describe('ServiceSignatureConfirm.buildDecodedTx', () => {
           },
         },
       ];
-      (vaultFactory.getVault as unknown as jest.Mock).mockResolvedValue({
+      mockGetVault.mockResolvedValue({
         buildDecodedTx: jest.fn().mockResolvedValue(localDecodedTx),
       });
 
