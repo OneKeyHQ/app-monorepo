@@ -118,7 +118,7 @@ actor MarketWidgetService {
     return enriched
   }
 
-  func search(query: String, locale: String) async throws -> [MarketWidgetAsset] {
+  func search(query: String, locale: String, stocksOnly: Bool = false) async throws -> [MarketWidgetAsset] {
     try Task.checkCancellation()
     guard permitsCatalogRequests else { clearSearches(); throw MarketWidgetError.privacyMasked }
     let query = query.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -126,7 +126,7 @@ actor MarketWidgetService {
     guard query.count <= 200, !query.unicodeScalars.contains(where: CharacterSet.controlCharacters.contains) else {
       throw MarketWidgetError.invalidConfiguration
     }
-    let key = locale + "|" + query
+    let key = (stocksOnly ? "stocks|" : "") + locale + "|" + query
     searchCache = searchCache.filter { Date().timeIntervalSince($0.value.fetchedAt) < 300 }
     if let cached = searchCache[key] {
       try store.cacheLockScreenCandidates(cached.assets)
@@ -143,6 +143,10 @@ actor MarketWidgetService {
     if let pending = searchRequests[key] { request = pending }
     else {
       request = (UUID(), Task {
+        if stocksOnly {
+          return try Self.decodeStockSearch(await Self.response(
+            for: Self.searchRequest(query: query, locale: locale, stocks: true), session: session))
+        }
         async let tokens = try? Self.decodeSearch(await Self.response(
           for: Self.searchRequest(query: query, locale: locale), session: session))
         async let stocks = try? Self.decodeStockSearch(await Self.response(

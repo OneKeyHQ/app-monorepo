@@ -15,6 +15,79 @@ struct MarketWidgetDataTests {
 
   static func json(_ value: String) -> Data { Data(value.utf8) }
 
+  private static func testDesktopStockSearchCandidates() throws {
+    let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+    defer { try? FileManager.default.removeItem(at: directory) }
+    let store = MarketWidgetStore(directory: directory)
+    try store.saveConfiguration(json: #"{"schemaVersion":1,"assets":[],"greenUp":true,"locale":"en-US"}"#)
+    let stocks = try MarketWidgetService.decodeStockSearch(json(#"{"code":0,"data":{"items":[{"stockId":"QQQ","symbol":"QQQ","name":"Invesco QQQ Trust","currency":"USD"},{"stockId":"AAPL","symbol":"AAPL","name":"Apple","currency":"USD"}]}}"#))
+    rejects("A stock identity from JS alone cannot be selected") {
+      _ = try store.saveSettings(json: settingsJSON(asset: stocks[0], assets: [stocks[0]]))
+    }
+    let unrelated = MarketWidgetAsset(kind: .asset, assetId: "unselected", chainId: nil, contractAddress: nil,
+      isNative: nil, symbol: "UNSELECTED", name: "Unselected", logoURL: nil)
+    try store.cacheLockScreenCandidates(stocks + [unrelated])
+    let snapshot = try store.editorState()
+    expect(snapshot.searchAssets?.map(\.stockId) == stocks.map(\.stockId), "Desktop stock search exposes native stock candidates only")
+    expect(snapshot.watchlist.isEmpty, "Searching stocks does not add them to the watchlist")
+    expect(!store.permitsRequests(for: stocks[0]), "Search metadata alone cannot authorize quote requests")
+    _ = try store.saveSettings(json: settingsJSON(asset: stocks[0], assets: [stocks[0]]))
+    let mixed = [MarketWidgetAsset.defaults[0], stocks[1], stocks[0]]
+    _ = try store.saveSettings(json: settingsJSON(kind: .list, assets: mixed))
+    let reopened = MarketWidgetStore(directory: directory)
+    expect(reopened.selection(kind: .single).assets.first?.stockId == "QQQ", "Selected QQQ survives reopening")
+    expect(reopened.selection(kind: .list).assets.map(\.id) == mixed.map(\.id), "Token and searched stocks keep their slot order")
+    for start in stride(from: 0, to: 200, by: 100) {
+      try store.cacheLockScreenCandidates((start..<(start + 100)).map { index in
+        MarketWidgetAsset(kind: .stock, assetId: nil, chainId: nil, contractAddress: nil,
+          isNative: nil, symbol: "STOCK\(index)", name: "Stock \(index)", logoURL: nil, stockId: "STOCK\(index)")
+      })
+    }
+    try store.cacheLockScreenCandidates(stocks)
+    let populated = try store.editorState()
+    expect(populated.searchAssets?.contains { $0.stockId == "QQQ" } == true,
+      "An unchanged search result remains selectable beyond the first hundred cached candidates")
+    rejects("A non-stock catalog candidate cannot bypass desktop selection validation") {
+      _ = try store.saveSettings(json: settingsJSON(asset: unrelated, assets: [unrelated]))
+    }
+    try store.saveConfiguration(json: #"{"schemaVersion":1,"assets":[],"greenUp":true,"locale":"en-US","privacyMasked":true}"#)
+    let hidden = try store.editorState()
+    expect(hidden.privacyMasked && hidden.searchAssets == nil, "Privacy masking hides all search candidates")
+    rejects("Cached stock candidates cannot bypass privacy masking") {
+      _ = try store.saveSettings(json: settingsJSON(asset: stocks[0], assets: [stocks[0]]))
+    }
+  }
+
+  private static func testDesktopStockSearchNetwork() async throws {
+    let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+    defer { try? FileManager.default.removeItem(at: directory) }
+    let store = MarketWidgetStore(directory: directory)
+    try store.saveConfiguration(json: #"{"schemaVersion":1,"assets":[],"greenUp":true,"locale":"en-US"}"#)
+    let configuration = URLSessionConfiguration.ephemeral
+    configuration.protocolClasses = [MarketWidgetTestURLProtocol.self]
+    let session = URLSession(configuration: configuration)
+    MarketWidgetTestURLProtocol.configure { request in
+      precondition(request.url?.path == "/utility/v1/stocks/search")
+      let query = URLComponents(url: request.url!, resolvingAgainstBaseURL: false)?.queryItems?.first { $0.name == "query" }?.value ?? ""
+      return json("{\"code\":0,\"data\":{\"items\":[{\"stockId\":\"\(query)\",\"symbol\":\"\(query)\",\"name\":\"Stock\",\"currency\":\"USD\"}]}}")
+    }
+    let service = MarketWidgetService(store: store, session: session)
+    for query in ["QQQ", "AAPL", "QQQ"] {
+      let result = try await service.search(query: query, locale: "en-US", stocksOnly: true)
+      expect(result.first?.stockId == query, "Desktop stock search resolves \(query)")
+    }
+    expect(MarketWidgetTestURLProtocol.recordedPaths.count == 2, "Stock search reuses cached results and avoids token search requests")
+    let discovered = try store.editorState().searchAssets?.compactMap(\.stockId) ?? []
+    expect(Set(discovered) == Set(["QQQ", "AAPL"]),
+      "Network results become native-validated desktop stock candidates")
+    try store.saveConfiguration(json: #"{"schemaVersion":1,"assets":[],"greenUp":true,"locale":"en-US","privacyMasked":true}"#)
+    do {
+      _ = try await service.search(query: "QQQ", locale: "en-US", stocksOnly: true)
+      preconditionFailure("Masked stock searches must reject cached results")
+    } catch { checks += 1 }
+    expect(MarketWidgetTestURLProtocol.recordedPaths.count == 2, "Masking prevents additional search requests")
+  }
+
   private static func testManualSlots() throws {
     let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
     defer { try? FileManager.default.removeItem(at: directory) }
@@ -118,6 +191,8 @@ struct MarketWidgetDataTests {
   }
 
   static func main() async throws {
+    try testDesktopStockSearchCandidates()
+    try await testDesktopStockSearchNetwork()
     try testAppQuoteSync()
     try testStocks()
     let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)

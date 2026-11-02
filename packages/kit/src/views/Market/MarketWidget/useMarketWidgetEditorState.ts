@@ -33,7 +33,6 @@ export function useMarketWidgetEditorState(editorSession?: string) {
   const searchStocks = useCallback(
     async (query: string) => {
       if (
-        !editorSession ||
         !marketWidget.searchStocks ||
         !focusedRef.current ||
         !activeRef.current
@@ -84,6 +83,7 @@ export function useMarketWidgetEditorState(editorSession?: string) {
     requestRef.current += 1;
     const request = requestRef.current;
     if (!focusedRef.current) return;
+    const started = Date.now();
     logMarketWidgetEvent('editor.read_started', { request }, editorSession);
     setIsLoading(true);
     setHasError(false);
@@ -95,7 +95,11 @@ export function useMarketWidgetEditorState(editorSession?: string) {
     }
     try {
       const next = await marketWidget.getEditorState(editorSession);
-      logMarketWidgetEvent('editor.read_succeeded', { request }, editorSession);
+      logMarketWidgetEvent(
+        'editor.read_succeeded',
+        { request, durationMs: Date.now() - started },
+        editorSession,
+      );
       if (!focusedRef.current || request !== requestRef.current) return;
       const masked =
         next.privacyMasked || travelModeManager.isMaskingDataSync();
@@ -149,8 +153,10 @@ export function useMarketWidgetEditorState(editorSession?: string) {
       const subscription = AppState.addEventListener('change', (appState) => {
         logMarketWidgetEvent('editor.app_state', { appState }, editorSession);
         if (appState === 'active') {
-          activeRef.current = true;
-          void refresh();
+          if (!activeRef.current) {
+            activeRef.current = true;
+            void refresh();
+          }
         } else {
           cancelSearch();
           activeRef.current = false;

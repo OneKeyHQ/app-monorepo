@@ -10,7 +10,7 @@ const mockGetEditorState = jest.fn<Promise<IMarketWidgetEditorState>, []>();
 const mockRefreshEditorState = jest.fn<Promise<IMarketWidgetEditorState>, []>();
 const mockSearchStocks = jest.fn<
   Promise<IMarketWidgetEditorState>,
-  [string, string]
+  [string, string | undefined]
 >();
 const mockRemoveListener = jest.fn();
 let mockMasked = false;
@@ -45,7 +45,7 @@ jest.mock('@onekeyhq/shared/src/modules/MarketWidget', () => ({
   __esModule: true,
   default: {
     getEditorState: () => mockGetEditorState(),
-    searchStocks: (query: string, session: string) =>
+    searchStocks: (query: string, session?: string) =>
       mockSearchStocks(query, session),
     get refreshEditorState() {
       return mockBackgroundRefreshSupported
@@ -95,6 +95,44 @@ describe('market widget editor native snapshot lifecycle', () => {
     mockFocusCleanup = undefined;
   });
   afterEach(cleanup);
+
+  it('keeps the focus read when duplicate active events arrive during foreground entry', async () => {
+    const pending = createPendingState();
+    mockGetEditorState.mockReturnValue(pending.promise);
+    const { result } = renderHook(useMarketWidgetEditorState);
+    act(() => {
+      mockAppStateChanged?.('active');
+      mockAppStateChanged?.('active');
+    });
+    expect(mockGetEditorState).toHaveBeenCalledTimes(1);
+    await act(async () => pending.resolve(createState('ready')));
+    expect(result.current.state?.profiles[0].name).toBe('ready');
+    act(() => mockAppStateChanged?.('active'));
+    expect(mockGetEditorState).toHaveBeenCalledTimes(1);
+    expect(result.current.isLoading).toBe(false);
+  });
+
+  it('searches iOS stocks without an Android editor session', async () => {
+    mockGetEditorState.mockResolvedValue(createState('local'));
+    mockSearchStocks.mockResolvedValue({
+      ...createState('searched'),
+      searchAssets: [
+        {
+          kind: 'stock',
+          stockId: 'QQQ',
+          symbol: 'QQQ',
+          name: 'Invesco QQQ Trust',
+        },
+      ],
+    });
+    const { result } = renderHook(useMarketWidgetEditorState);
+    await waitFor(() => expect(result.current.state).toBeDefined());
+    await act(async () => result.current.searchStocks('QQQ'));
+    expect(mockSearchStocks).toHaveBeenCalledWith('QQQ', undefined);
+    expect(result.current.state?.searchAssets?.[0]).toMatchObject({
+      stockId: 'QQQ',
+    });
+  });
 
   it('accepts stock candidates only from the current search and ignores canceled results', async () => {
     mockGetEditorState.mockResolvedValue(createState('local'));

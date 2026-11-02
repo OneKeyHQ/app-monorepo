@@ -87,7 +87,7 @@ export type IMarketWidgetModule = {
   ) => Promise<IMarketWidgetEditorState>;
   searchStocks?: (
     query: string,
-    editorSession: string,
+    editorSession?: string,
   ) => Promise<IMarketWidgetEditorState>;
   finishEditing?: (editorSession: string, saved: boolean) => Promise<void>;
   saveProfile: (
