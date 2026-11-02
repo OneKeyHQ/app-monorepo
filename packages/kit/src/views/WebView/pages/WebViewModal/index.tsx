@@ -31,7 +31,10 @@ import {
 } from '@onekeyhq/shared/src/consts/webEmbedConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
-import { createIntercomSessionScript } from '@onekeyhq/shared/src/modules3rdParty/intercom/bridge';
+import {
+  createIntercomSessionScript,
+  isIntercomNativeHandshake,
+} from '@onekeyhq/shared/src/modules3rdParty/intercom/bridge';
 import { getIntercomSessionToken } from '@onekeyhq/shared/src/modules3rdParty/intercom/identity';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type {
@@ -56,7 +59,10 @@ import type {
   IJsonRpcRequest,
 } from '@onekeyfe/cross-inpage-provider-types';
 import type { RouteProp } from '@react-navigation/core';
-import type { WebView as IReactNativeWebView } from 'react-native-webview';
+import type {
+  WebView as IReactNativeWebView,
+  WebViewMessageEvent,
+} from 'react-native-webview';
 
 export default function WebViewModal() {
   const { webviewRef, setWebViewRef } = useWebViewBridge();
@@ -122,6 +128,15 @@ export default function WebViewModal() {
       console.warn('Failed to deliver Intercom session');
     }
   }, [intercomUserId, webviewRef]);
+
+  const onSupportMessage = useCallback(
+    ({ nativeEvent }: WebViewMessageEvent) => {
+      if (isIntercomNativeHandshake(nativeEvent)) {
+        void deliverSupportSession();
+      }
+    },
+    [deliverSupportSession],
+  );
 
   // Cleanup WebView before unmount to prevent native crashes
   useEffect(() => {
@@ -433,11 +448,9 @@ export default function WebViewModal() {
               onOpenWindow={
                 redirectExternalNavigation ? onOpenWindow : undefined
               }
-              onLoadEnd={
+              onMessage={
                 platformEnv.isNative && intercomUserId !== undefined
-                  ? () => {
-                      void deliverSupportSession();
-                    }
+                  ? onSupportMessage
                   : undefined
               }
               {...(enableDappBridge

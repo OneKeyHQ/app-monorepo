@@ -6,6 +6,7 @@ import WebViewModal from '.';
 
 import { act, cleanup, render } from '@testing-library/react';
 
+import { INTERCOM_SUPPORT_URL } from '@onekeyhq/shared/src/modules3rdParty/intercom/bridge';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type {
   EModalWebViewRoutes,
@@ -18,7 +19,7 @@ type IHeaderProps = {
 };
 type IWebViewProps = {
   disableBridge?: boolean;
-  onLoadEnd?: () => void;
+  onMessage?: (event: { nativeEvent: { data: string; url: string } }) => void;
   onNavigationStateChange: (event: { title: string; url: string }) => void;
   onDidStartNavigation: (event: { url: string; isMainFrame: boolean }) => void;
 };
@@ -212,23 +213,47 @@ describe('WebViewModal menu', () => {
   describe('support session delivery', () => {
     const supportParams = {
       title: 'Support',
-      url: 'https://intercom.onekey.so/#bridge=injected-v1',
+      url: `${INTERCOM_SUPPORT_URL}#bridge=injected-v1`,
       intercomUserId: 'A',
     };
-    const finishLoading = () =>
+    const handshake = {
+      data: JSON.stringify({ type: 'onekey-intercom-bridge', version: 1 }),
+      url: supportParams.url,
+    };
+    const flushEvents = () =>
+      new Promise<void>((resolve) => {
+        setTimeout(resolve, 0);
+      });
+    const sendFromPage = (nativeEvent = handshake) =>
       act(async () => {
-        mockWebViewProps.onLoadEnd?.();
-        await new Promise<void>((resolve) => {
-          setTimeout(resolve, 0);
-        });
+        mockWebViewProps.onMessage?.({ nativeEvent });
+        await flushEvents();
       });
 
-    test('injects a fresh token after each native page load', async () => {
+    test('does not push a session before the page asks for it', async () => {
       Object.assign(platformEnv, { isNative: true });
       mockParams = supportParams;
       render(<WebViewModal />);
-      await finishLoading();
-      await finishLoading();
+      await act(flushEvents);
+      expect(mockGetIntercomSessionToken).not.toHaveBeenCalled();
+      expect(mockInjectJavaScript).not.toHaveBeenCalled();
+    });
+
+    test('ignores a handshake from another page', async () => {
+      Object.assign(platformEnv, { isNative: true });
+      mockParams = supportParams;
+      render(<WebViewModal />);
+      await sendFromPage({ ...handshake, url: 'https://evil.test/' });
+      expect(mockGetIntercomSessionToken).not.toHaveBeenCalled();
+      expect(mockInjectJavaScript).not.toHaveBeenCalled();
+    });
+
+    test('injects a fresh token for each document that asks', async () => {
+      Object.assign(platformEnv, { isNative: true });
+      mockParams = supportParams;
+      render(<WebViewModal />);
+      await sendFromPage();
+      await sendFromPage();
       expect(mockGetIntercomSessionToken).toHaveBeenCalledTimes(2);
       expect(mockGetIntercomSessionToken).toHaveBeenCalledWith('A');
       expect(mockInjectJavaScript).toHaveBeenCalledTimes(2);
@@ -241,7 +266,7 @@ describe('WebViewModal menu', () => {
       mockGetIntercomSessionToken.mockResolvedValue(undefined);
       mockParams = { ...supportParams, intercomUserId: null };
       render(<WebViewModal />);
-      await finishLoading();
+      await sendFromPage();
       expect(mockGetIntercomSessionToken).toHaveBeenCalledWith(null);
       expect(mockInjectJavaScript).toHaveBeenCalledTimes(1);
       expect(mockInjectJavaScript.mock.calls[0][0]).not.toContain('"token"');
@@ -257,7 +282,7 @@ describe('WebViewModal menu', () => {
       );
       mockParams = supportParams;
       const screen = render(<WebViewModal />);
-      mockWebViewProps.onLoadEnd?.();
+      mockWebViewProps.onMessage?.({ nativeEvent: handshake });
       mockLocked = true;
       screen.rerender(<WebViewModal />);
       await act(async () => {
@@ -274,15 +299,15 @@ describe('WebViewModal menu', () => {
       mockGetIntercomSessionToken.mockRejectedValue(new Error('network'));
       mockParams = supportParams;
       render(<WebViewModal />);
-      await finishLoading();
+      await sendFromPage();
       expect(mockInjectJavaScript).not.toHaveBeenCalled();
     });
 
-    test('leaves ordinary pages without a session loader', () => {
+    test('leaves ordinary pages without a session listener', () => {
       Object.assign(platformEnv, { isNative: true });
       mockParams = { title: 'Docs', url: 'https://example.com/' };
       render(<WebViewModal />);
-      expect(mockWebViewProps.onLoadEnd).toBeUndefined();
+      expect(mockWebViewProps.onMessage).toBeUndefined();
     });
 
     test('renders the session frame for extension support', () => {

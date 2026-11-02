@@ -2,9 +2,11 @@ import { runInNewContext } from 'node:vm';
 
 import {
   INTERCOM_SUPPORT_ORIGIN,
+  INTERCOM_SUPPORT_URL,
   createIntercomSessionMessage,
   createIntercomSessionScript,
   isIntercomBridgeHandshake,
+  isIntercomNativeHandshake,
 } from './bridge';
 
 function runSessionScript(
@@ -74,5 +76,27 @@ describe('Intercom bridge', () => {
     expect(isIntercomBridgeHandshake({ version: 1 })).toBe(false);
     expect(isIntercomBridgeHandshake('onekey-intercom-bridge')).toBe(false);
     expect(isIntercomBridgeHandshake(null)).toBe(false);
+  });
+
+  describe('native handshake', () => {
+    const data = JSON.stringify({ type: 'onekey-intercom-bridge', version: 1 });
+    const url = `${INTERCOM_SUPPORT_URL}#bridge=injected-v1`;
+
+    it('accepts the handshake from the support page', () => {
+      expect(isIntercomNativeHandshake({ data, url })).toBe(true);
+    });
+
+    it('rejects the same handshake from any other page', () => {
+      expect(
+        isIntercomNativeHandshake({ data, url: 'https://evil.test/' }),
+      ).toBe(false);
+    });
+
+    it('rejects other WebView messages', () => {
+      expect(isIntercomNativeHandshake({ data: 'ready', url })).toBe(false);
+      expect(isIntercomNativeHandshake({ data: '{"type":1}', url })).toBe(
+        false,
+      );
+    });
   });
 });

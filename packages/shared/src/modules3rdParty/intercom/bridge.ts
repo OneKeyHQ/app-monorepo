@@ -51,3 +51,22 @@ export const isIntercomBridgeHandshake = (data: unknown): boolean => {
   const { type, version } = data as { type?: unknown; version?: unknown };
   return type === HANDSHAKE_MESSAGE_TYPE && version === BRIDGE_VERSION;
 };
+
+// Only the page knows when its listener exists, so native hosts wait for this
+// instead of pushing on load, which can land before the listener is attached.
+export const isIntercomNativeHandshake = ({
+  data,
+  url,
+}: {
+  data: string;
+  url: string;
+}): boolean => {
+  try {
+    return (
+      new URL(url).origin === INTERCOM_SUPPORT_ORIGIN &&
+      isIntercomBridgeHandshake(JSON.parse(data))
+    );
+  } catch {
+    return false;
+  }
+};
