@@ -20612,6 +20612,8 @@
     "packages/kit/src/provider/Container/AppStateLockContainer/components/AppStateSignal/index.tsx": 15809,
     "packages/kit/src/provider/Container/AppStateLockContainer/components/AppStateUpdater/index.tsx": 18880,
     "packages/kit/src/provider/Container/AppStateLockContainer/components/NativeSheetRoot/index.native.tsx": 21486,
+    "packages/kit/src/provider/Container/AppStateLockContainer/components/NativeStorageLockRecovery.native.tsx": 10847,
+    "packages/kit/src/provider/Container/AppStateLockContainer/components/NativeStorageLockRecovery.tsx": 2636,
     "packages/kit/src/provider/Container/AppStateLockContainer/index.tsx": 4215,
     "packages/kit/src/provider/Container/CloudBackupContainer/index.tsx": 20027,
     "packages/kit/src/provider/Container/ColdStartByNotification.tsx": 18519,
