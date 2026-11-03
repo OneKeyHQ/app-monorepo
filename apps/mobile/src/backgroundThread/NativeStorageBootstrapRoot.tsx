@@ -690,7 +690,8 @@ const RECOVERY_ANIMATION = {
 
 const styles = StyleSheet.create({
   app: { flex: 1 },
-  hiddenApp: { display: 'none' },
+  // Keep Fabric hosts attached: display:none closes their native overlay windows.
+  hiddenApp: { flex: 1, opacity: 0 },
   container: { alignItems: 'center', flex: 1, justifyContent: 'center' },
   waitingDark: { backgroundColor: '#000' },
   waitingLight: { backgroundColor: '#fff' },
@@ -851,6 +852,8 @@ export function NativeStorageBootstrapRoot() {
     <>
       {App ? (
         <View
+          // Keep Fabric's stacking context stable when inert/hidden props change.
+          collapsable={false}
           style={showError ? styles.hiddenApp : styles.app}
           pointerEvents={showError ? 'none' : 'auto'}
           accessibilityElementsHidden={showError}
