@@ -1955,14 +1955,22 @@ let pendingWebEmbedRecovery: Promise<void> | undefined;
 
 function ensureMainThreadWebEmbedReady(): Promise<void> {
   if (isMainThreadWebEmbedReady()) return Promise.resolve();
+  if (pendingWebEmbedRecovery) return pendingWebEmbedRecovery;
   if (
     mainThreadBridgeMap.webEmbed &&
     connectedWebEmbedMountId === expectedWebEmbedMountId &&
     timedOutWebEmbedMountId !== expectedWebEmbedMountId
   ) {
-    return awaitWebEmbedReady(WEBEMBED_BRIDGE_READY_TIMEOUT_MS);
+    const wait = awaitWebEmbedReady(WEBEMBED_BRIDGE_READY_TIMEOUT_MS).finally(
+      () => {
+        if (pendingWebEmbedRecovery === wait) {
+          pendingWebEmbedRecovery = undefined;
+        }
+      },
+    );
+    pendingWebEmbedRecovery = wait;
+    return wait;
   }
-  if (pendingWebEmbedRecovery) return pendingWebEmbedRecovery;
 
   let mountRequested = false;
   const onMountRequested = (payload: { mountId: string }) => {

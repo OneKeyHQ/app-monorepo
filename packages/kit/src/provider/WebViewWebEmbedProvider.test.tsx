@@ -648,7 +648,7 @@ describe('WebEmbed API startup request', () => {
     await pending;
   });
 
-  it('coalesces an unkeyed main-thread Load event into an in-flight background mount without remounting', async () => {
+  it('rebuilds an in-flight background mount when an unowned recovery Load event arrives and coalesces the subsequent replay', async () => {
     render(<WebViewWebEmbedProvider />);
 
     let pending: Promise<void> | undefined;
@@ -657,43 +657,29 @@ describe('WebEmbed API startup request', () => {
       await Promise.resolve();
     });
     expect(mockWebViewMount).toHaveBeenCalledTimes(1);
-    const initialMountId = mockCurrentMountId;
+    const rejectedMountId = mockCurrentMountId;
     const initialRequestId = mockCurrentRequestId;
 
-    const mountRequestedEvents: Array<{
-      mountId: string;
-      mountSequence: number;
-    }> = [];
-    const onMountRequested = (payload: {
-      mountId: string;
-      mountSequence: number;
-    }) => {
-      mountRequestedEvents.push(payload);
-    };
-    appEventBus.on(
-      EAppEventBusNames.WebEmbedWebViewMountRequested,
-      onMountRequested,
-    );
-
+    // Simulate adoptWebEmbedMainRuntime or background restart emitting an unowned Load rebuild
     act(() => {
       appEventBus.emit(EAppEventBusNames.LoadWebEmbedWebView, undefined);
     });
+    expect(mockWebViewMount).toHaveBeenCalledTimes(2);
+    expect(mockWebViewUnmount).toHaveBeenCalledTimes(1);
+    const rebuiltMountId = mockCurrentMountId;
+    expect(rebuiltMountId).not.toBe(rejectedMountId);
 
-    appEventBus.off(
-      EAppEventBusNames.WebEmbedWebViewMountRequested,
-      onMountRequested,
-    );
-
-    expect(mockWebViewMount).toHaveBeenCalledTimes(1);
-    expect(mockWebViewUnmount).not.toHaveBeenCalled();
-    expect(mockCurrentMountId).toBe(initialMountId);
+    // Subsequent ProviderReady replay from background Proxy coalesces into the rebuilt mount
+    act(() => {
+      appEventBus.emit(
+        EAppEventBusNames.WebEmbedWebViewProviderReady,
+        undefined,
+      );
+    });
+    expect(mockWebViewMount).toHaveBeenCalledTimes(2);
+    expect(mockWebViewUnmount).toHaveBeenCalledTimes(1);
+    expect(mockCurrentMountId).toBe(rebuiltMountId);
     expect(mockCurrentRequestId).toBe(initialRequestId);
-    expect(mountRequestedEvents).toEqual([
-      {
-        mountId: initialMountId,
-        mountSequence: mockCurrentMountSequence,
-      },
-    ]);
 
     completeCurrent();
     await pending;

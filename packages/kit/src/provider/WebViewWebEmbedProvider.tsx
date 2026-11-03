@@ -35,7 +35,6 @@ function BasicWebViewWebEmbedProvider() {
     requestId?: string;
   }>();
   const currentMountIdRef = useRef<string | undefined>(undefined);
-  const currentMountSequenceRef = useRef(0);
   const isMountPendingRef = useRef(false);
   const mountRequestedAtRef = useRef(0);
   const isCurrentMount = useCallback(
@@ -61,33 +60,24 @@ function BasicWebViewWebEmbedProvider() {
         setIsShow(true);
         return;
       }
-      if (!replaceMountId && currentMountIdRef.current) {
-        if (requestId && lastRequestIdRef.current === requestId) {
+      if (!replaceMountId && currentMountIdRef.current && requestId) {
+        if (lastRequestIdRef.current === requestId) {
           return;
         }
         const isPendingWithinWindow =
           isMountPendingRef.current &&
           Date.now() - mountRequestedAtRef.current <
             WEB_EMBED_PENDING_MOUNT_COALESCE_WINDOW_MS;
-        if (isPendingWithinWindow) {
-          if (requestId && !lastRequestIdRef.current) {
-            lastRequestIdRef.current = requestId;
-            pendingRequestIdRef.current = requestId;
-            const currentMountId = currentMountIdRef.current;
-            setMount((prev) =>
-              prev && prev.mountId === currentMountId
-                ? { ...prev, requestId }
-                : prev,
-            );
-            return;
-          }
-          if (!requestId && lastRequestIdRef.current) {
-            appEventBus.emit(EAppEventBusNames.WebEmbedWebViewMountRequested, {
-              mountId: currentMountIdRef.current,
-              mountSequence: currentMountSequenceRef.current,
-            });
-            return;
-          }
+        if (isPendingWithinWindow && !lastRequestIdRef.current) {
+          lastRequestIdRef.current = requestId;
+          pendingRequestIdRef.current = requestId;
+          const currentMountId = currentMountIdRef.current;
+          setMount((prev) =>
+            prev && prev.mountId === currentMountId
+              ? { ...prev, requestId }
+              : prev,
+          );
+          return;
         }
       }
       lastRequestIdRef.current = requestId;
@@ -95,7 +85,6 @@ function BasicWebViewWebEmbedProvider() {
       const mountSequence = webEmbedMountSequence;
       const mountId = `${webEmbedMainRuntimeId || appEventBus.nodeId}-${mountSequence}`;
       currentMountIdRef.current = mountId;
-      currentMountSequenceRef.current = mountSequence;
       isMountPendingRef.current = true;
       mountRequestedAtRef.current = Date.now();
       appEventBus.emit(EAppEventBusNames.WebEmbedWebViewMountRequested, {
