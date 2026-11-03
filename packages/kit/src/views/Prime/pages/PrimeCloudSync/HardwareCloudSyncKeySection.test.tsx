@@ -233,6 +233,19 @@ test('closing the connect window does not turn sync on', async () => {
   expect(mockClearForceTransport).toHaveBeenCalled();
 });
 
+test('a connection that completes after dismissal does not reopen the signing flow', async () => {
+  const { result } = renderHook(() => useHardwareCloudSyncKey());
+  await act(async () => result.current.openPicker());
+  const dialog = lastDialog();
+  render(<>{dialog.renderContent}</>);
+  await act(async () => dialog.onClose?.());
+  await act(async () => {
+    fireEvent.click(screen.getByTestId('mock-device-picker'));
+  });
+  expect(mockEnable).not.toHaveBeenCalled();
+  expect(mockDialogShow).toHaveBeenCalledTimes(1);
+});
+
 test('the extension popup connects in a full tab, as onboarding does', async () => {
   jest.replaceProperty(platformEnv, 'isExtensionUiPopup', true);
   const { result } = renderHook(() => useHardwareCloudSyncKey());

@@ -22,6 +22,10 @@ import type {
   IHardwareCloudKeyIdentity,
 } from './hardwareCloudSyncCredential';
 
+jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
+  defaultLogger: { app: { error: { log: jest.fn() } } },
+}));
+
 jest.mock('@onekeyhq/shared/src/appCrypto', () => {
   const { createHash: hash } =
     jest.requireActual<typeof import('crypto')>('crypto');
@@ -53,7 +57,7 @@ const TEST_PUBLIC_KEY =
   '0279be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798';
 const TEST_ADDRESS = '1BgGZ9tcN4rm9KBzDn7KprQz87SZ26SAMH';
 const TEST_XFP = `1234--xpub${'A'.repeat(107)}`;
-const EXPECTED_FAILURE = 'Hardware Cloud key could not be unlocked';
+const EXPECTED_FAILURE = "Couldn't get the encryption key";
 
 class MockHardwareCloudKeyAdapter implements IHardwareCloudKeyAdapter {
   identity: IHardwareCloudKeyIdentity = {
@@ -267,7 +271,7 @@ describe('hardware Cloud key credential provider', () => {
       current = false;
     };
     await expect(derive(adapter, () => current)).rejects.toThrow(
-      EXPECTED_FAILURE,
+      'Operation canceled',
     );
   });
 
