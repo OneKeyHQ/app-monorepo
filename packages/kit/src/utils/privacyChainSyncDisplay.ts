@@ -1,4 +1,9 @@
 import type { IPrivacyChainScanState } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  getLocalWalletBlockSeconds,
+  getLocalWalletTimeWindowBlocks,
+} from '@onekeyhq/kit-bg/src/vaults/localWallet/blockTime';
+import type { ILocalWalletBlockTime } from '@onekeyhq/kit-bg/src/vaults/localWallet/blockTime';
 import { getLocalWalletNetworkSyncStatus } from '@onekeyhq/kit-bg/src/vaults/localWallet/syncStatus';
 import type {
   ILocalWalletSyncStatus,
@@ -174,6 +179,7 @@ export function getPrivacyChainNetworkSyncDisplay({
   state,
   networkId,
   syncedBelowBlocks,
+  blockTime,
   accountIds,
   accountPaused = false,
   unavailable = false,
@@ -181,6 +187,7 @@ export function getPrivacyChainNetworkSyncDisplay({
   state: IPrivacyChainScanState;
   networkId: string;
   syncedBelowBlocks: number;
+  blockTime?: ILocalWalletBlockTime;
   accountIds?: string[];
   accountPaused?: boolean;
   unavailable?: boolean;
@@ -196,6 +203,7 @@ export function getPrivacyChainNetworkSyncDisplay({
       networkId,
       accountIds,
       syncedBelowBlocks,
+      blockTime,
     });
   }
   return {
@@ -298,11 +306,16 @@ export function formatPrivacyChainSyncDetail({
   });
   const lag = progress.tipLag;
   const behind =
+    settings &&
     isTipLagWorthMentioning(
       lag,
-      settings?.tipLagWarningBlocks ?? Number.MAX_SAFE_INTEGER,
-    ) && settings
-      ? ` · ${formatPrivacyChainDuration(-(lag ?? 0) * settings.blockTimeSeconds, true)}`
+      getLocalWalletTimeWindowBlocks(
+        settings,
+        settings.tipLagWarningBlocks,
+        progress.chainTip,
+      ),
+    )
+      ? ` · ${formatPrivacyChainDuration(-(lag ?? 0) * getLocalWalletBlockSeconds(settings, progress.chainTip), true)}`
       : '';
   return heights
     ? `${heights}${behind}`

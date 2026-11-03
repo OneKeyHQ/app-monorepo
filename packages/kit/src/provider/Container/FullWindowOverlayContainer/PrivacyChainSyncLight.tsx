@@ -34,6 +34,7 @@ import {
   usePrivacyChainAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { IPrivacyChainScanState } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import type { ILocalWalletBlockTime } from '@onekeyhq/kit-bg/src/vaults/localWallet/blockTime';
 import { FLOAT_NAV_BAR_Z_INDEX } from '@onekeyhq/shared/src/consts/zIndexConsts';
 import {
   EAppEventBusNames,
@@ -117,6 +118,7 @@ function PrivacyChainSyncNetwork({
     state,
     networkId,
     syncedBelowBlocks: localWalletSettings?.syncedBelowBlocks ?? 1,
+    blockTime: localWalletSettings,
   });
   const isSyncing = status === 'syncing';
   const isHeldByData = status === 'waitingWifi';
@@ -226,7 +228,10 @@ function PrivacyChainSyncNetwork({
 }
 
 // Each chain's synced threshold from its settings, kept across mounts so a remount knows it at once.
-const syncedBelowBlocksCache = new Map<string, number>();
+const syncedBelowBlocksCache = new Map<
+  string,
+  { syncedBelowBlocks: number; blockTime?: ILocalWalletBlockTime }
+>();
 
 function BasicPrivacyChainSyncLight() {
   const [state] = usePrivacyChainAtom();
@@ -265,7 +270,10 @@ function BasicPrivacyChainSyncLight() {
                 await backgroundApiProxy.serviceNetwork.getVaultSettings({
                   networkId: id,
                 });
-              const value = settings.localWallet?.syncedBelowBlocks ?? 1;
+              const value = {
+                syncedBelowBlocks: settings.localWallet?.syncedBelowBlocks ?? 1,
+                blockTime: settings.localWallet,
+              };
               syncedBelowBlocksCache.set(id, value);
               return [id, value] as const;
             }),
@@ -278,17 +286,19 @@ function BasicPrivacyChainSyncLight() {
   // known it counts as synced: a chain a few blocks behind would otherwise flash on.
   const visibleNetworkIds = useMemo(
     () =>
-      activeNetworkIds.filter(
-        (id) =>
+      activeNetworkIds.filter((id) => {
+        const threshold =
+          syncedBelowBlocksByNetwork?.[id] ?? syncedBelowBlocksCache.get(id);
+        return (
           getPrivacyChainNetworkSyncDisplay({
             state,
             networkId: id,
             syncedBelowBlocks:
-              syncedBelowBlocksByNetwork?.[id] ??
-              syncedBelowBlocksCache.get(id) ??
-              Number.POSITIVE_INFINITY,
-          }).status !== 'synced',
-      ),
+              threshold?.syncedBelowBlocks ?? Number.POSITIVE_INFINITY,
+            blockTime: threshold?.blockTime,
+          }).status !== 'synced'
+        );
+      }),
     [activeNetworkIds, state, syncedBelowBlocksByNetwork],
   );
   const networkId = pickSlowestPrivacyChainNetwork(visibleNetworkIds, progress);

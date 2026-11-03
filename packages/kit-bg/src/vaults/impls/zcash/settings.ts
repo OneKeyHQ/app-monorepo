@@ -11,6 +11,8 @@ import { EAddressEncodings } from '@onekeyhq/core/src/types';
 import {
   ZCASH_IRONWOOD_ACTIVATION_HEIGHT_MAINNET,
   ZCASH_IRONWOOD_ACTIVATION_TIMESTAMP_MS,
+  ZCASH_NU7_ACTIVATION_HEIGHT_MAINNET,
+  ZCASH_POST_NU7_TARGET_BLOCK_SECONDS,
   ZCASH_SPAM_REGION_END_MAINNET,
   ZCASH_SPAM_REGION_START_MAINNET,
   ZCASH_TARGET_BLOCK_SECONDS,
@@ -103,6 +105,10 @@ const settings: IVaultSettings = {
       privateLabel: ETranslations.private_send_private_option,
     },
     blockTimeSeconds: ZCASH_TARGET_BLOCK_SECONDS,
+    blockTimeChange: {
+      fromHeight: ZCASH_NU7_ACTIVATION_HEIGHT_MAINNET,
+      blockTimeSeconds: ZCASH_POST_NU7_TARGET_BLOCK_SECONDS,
+    },
     scanRegionHints: [
       {
         fromHeight: ZCASH_SPAM_REGION_START_MAINNET,

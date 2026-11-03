@@ -253,10 +253,10 @@ export type IVaultSettings = {
     // 'account-opt-in': scanning is costly, so each account enables it.
     activation: 'always' | 'account-opt-in';
     balanceShape: 'single' | 'pooled';
-    // In this chain's blocks; block time differs per chain.
+    // In this chain's blocks at `blockTimeSeconds`; `blockTimeChange` scales it to keep its time.
     tipLagWarningBlocks: number;
     // Fewer blocks left than this is Synced everywhere: the status, the light closing, a send
-    // gated on sync.
+    // gated on sync. Scaled like `tipLagWarningBlocks`.
     syncedBelowBlocks: number;
     // Display order is tab order. At most one backend pool.
     pools: ILocalWalletPoolDescriptor[];
@@ -291,6 +291,9 @@ export type IVaultSettings = {
     hideAddressOnTokenDetails?: boolean;
     // Turns a block lag into elapsed time for the sync status line.
     blockTimeSeconds: number;
+    // From this height the target block interval is `blockTimeSeconds` here instead (Zcash NU7:
+    // 75s to 25s). Block counts that stand for time keep their time, as ZIP 218 does.
+    blockTimeChange?: { fromHeight: number; blockTimeSeconds: number };
     // Height ranges worth naming while the scanner is inside them.
     scanRegionHints?: {
       fromHeight: number;

@@ -464,6 +464,7 @@ export function useLocalWalletPool({
         unavailable: isUnsupportedWallet,
         progress: canRead ? readProgress : undefined,
         syncedBelowBlocks: settings?.syncedBelowBlocks ?? 1,
+        blockTime: settings,
       })
     : undefined;
   const syncStatus = syncView?.status;

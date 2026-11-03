@@ -48,8 +48,8 @@ import { parseZcashTransaction } from './transactionReview';
 import { forgetZcashTransparentDisplayReads } from './vaultBalance';
 import { forgetZcashTransparentHistorySnapshots } from './vaultHistory';
 import {
-  ZCASH_TRANSPARENT_DROP_MARGIN_BLOCKS,
   forgetZcashChainHeights,
+  getZcashTransparentDropMarginBlocks,
   noteZcashChainHeight,
   zcashTransparentExpiryTip,
 } from './vaultTransparent';
@@ -124,7 +124,7 @@ async function clearZcashPendingSends(
       expiredBeforeHeight:
         tip === undefined
           ? undefined
-          : tip - ZCASH_TRANSPARENT_DROP_MARGIN_BLOCKS,
+          : tip - getZcashTransparentDropMarginBlocks(tip),
       scope,
     },
   );

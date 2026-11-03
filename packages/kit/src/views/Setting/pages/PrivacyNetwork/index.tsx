@@ -404,6 +404,7 @@ function PrivacyChainSettingsProgress({
     state,
     networkId,
     syncedBelowBlocks: localWalletSettings?.syncedBelowBlocks ?? 1,
+    blockTime: localWalletSettings,
     accountIds: accounts
       .filter((account) => account.enabled)
       .map((account) => account.accountId),

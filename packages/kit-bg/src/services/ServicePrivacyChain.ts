@@ -37,6 +37,7 @@ import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 
 import { privacyChainAtom } from '../states/jotai/atoms';
 import { vaultFactory } from '../vaults/factory';
+import { getLocalWalletTimeWindowBlocks } from '../vaults/localWallet/blockTime';
 import { planLocalWalletLifecycle } from '../vaults/localWallet/lifecycle';
 import { localWalletText } from '../vaults/localWallet/messages';
 import {
@@ -4767,6 +4768,7 @@ class ServicePrivacyChain extends ServiceBase {
       account,
       progress,
       syncedBelowBlocks: settings.localWallet?.syncedBelowBlocks ?? 1,
+      blockTime: settings.localWallet,
     });
   }
 
@@ -5129,20 +5131,29 @@ class ServicePrivacyChain extends ServiceBase {
     // and one account that cannot send yet is enough to say so.
     let mostRemaining: number | null = null;
     let hasUnknownProgress = false;
+    let chainTip: number | null = null;
     for (const { accountId } of accounts) {
-      const remaining = getPrivacyChainBlocksLeft(
-        progress[`${networkId}:${accountId}`],
-      );
+      const entry = progress[`${networkId}:${accountId}`];
+      const remaining = getPrivacyChainBlocksLeft(entry);
       if (remaining !== null) {
         mostRemaining = Math.max(mostRemaining ?? 0, remaining);
       } else {
         hasUnknownProgress = true;
       }
+      const entryTip = entry?.chainTip;
+      if (typeof entryTip === 'number') {
+        chainTip = Math.max(chainTip ?? entryTip, entryTip);
+      }
     }
     // Once on, the light stays until the chain counts as synced.
     const isNearlyDone =
       !hasUnknownProgress &&
-      (mostRemaining ?? 0) < (settings.localWallet?.syncedBelowBlocks ?? 1);
+      (mostRemaining ?? 0) <
+        getLocalWalletTimeWindowBlocks(
+          settings.localWallet,
+          settings.localWallet?.syncedBelowBlocks ?? 1,
+          chainTip,
+        );
     const wanted = wasRequested
       ? !isNearlyDone
       : shouldStartBoost({
