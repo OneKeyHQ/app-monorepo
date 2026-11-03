@@ -9,7 +9,10 @@ import {
   EModalStakingRoutes,
   ETabEarnRoutes,
 } from '@onekeyhq/shared/src/routes';
-import type { IModalStakingParamList } from '@onekeyhq/shared/src/routes';
+import type {
+  IBorrowReserveFormTab,
+  IModalStakingParamList,
+} from '@onekeyhq/shared/src/routes';
 import { EEarnLabels } from '@onekeyhq/shared/types/staking';
 
 import { safePushToEarnRoute } from '../Earn/earnUtils';
@@ -77,6 +80,8 @@ export const BorrowNavigation = {
       isModal?: boolean;
       accountId?: string;
       indexedAccountId?: string;
+      tab?: IBorrowReserveFormTab;
+      amount?: string;
     },
   ) {
     const routeParams = {
@@ -88,6 +93,8 @@ export const BorrowNavigation = {
       logoURI: params.logoURI,
       accountId: params.accountId,
       indexedAccountId: params.indexedAccountId,
+      tab: params.tab,
+      amount: params.amount,
     };
 
     if (params.isModal) {

@@ -1,3 +1,6 @@
+// The sides of a lending market reserve's form (demo 11-03)
+export type IBorrowReserveFormTab = 'supply' | 'withdraw' | 'borrow' | 'repay';
+
 export enum ETabEarnRoutes {
   EarnHome = 'EarnHome',
   BorrowHome = 'BorrowHome',
@@ -43,6 +46,9 @@ export type ITabEarnParamList = {
         focusProtocols?: string[];
         // The home's "+N" reward pill opens the Rewards tab (demo 10-29)
         focusTab?: 'rewards';
+        // A Your loans card (demo 11-03): the page scrolls to that lending
+        // market's card; the key buildBorrowMarketKey writes
+        focusMarket?: string;
         focusAt?: number;
       };
   // Tokens home (OK-58505): full token list (with in-page All/Stable/Non-Stable categories)
@@ -115,6 +121,10 @@ export type ITabEarnParamList = {
     logoURI?: string;
     accountId?: string;
     indexedAccountId?: string;
+    // Opened from the Loans window (demo 11-03): the form opens on this
+    // side, with what was typed there
+    tab?: IBorrowReserveFormTab;
+    amount?: string;
   };
   [ETabEarnRoutes.BorrowReserveDetailsShare]: {
     networkId: string;

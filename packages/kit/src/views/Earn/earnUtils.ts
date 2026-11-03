@@ -333,15 +333,18 @@ export const EarnNavigation = {
       focusProtocols?: string[];
       // The tab it opens on
       focusTab?: 'rewards';
+      // The lending market whose card the page scrolls to
+      focusMarket?: string;
     },
   ) {
     void safePushToEarnRoute(
       navigation,
       ETabEarnRoutes.EarnPositions,
-      params?.focusProtocols?.length || params?.focusTab
+      params?.focusProtocols?.length || params?.focusTab || params?.focusMarket
         ? {
             focusProtocols: params.focusProtocols,
             focusTab: params.focusTab,
+            focusMarket: params.focusMarket,
             focusAt: Date.now(),
           }
         : undefined,

@@ -1,4 +1,5 @@
 import type { EModalSwapRoutes, IModalSwapParamList } from './swap';
+import type { IBorrowReserveFormTab } from './tabEarn';
 import type {
   EAvailableAssetsTypeEnum,
   IEarnAvailableAsset,
@@ -258,6 +259,8 @@ export type IModalStakingParamList = {
     logoURI?: string;
     accountId?: string;
     indexedAccountId?: string;
+    tab?: IBorrowReserveFormTab;
+    amount?: string;
   };
   [EModalStakingRoutes.Stake]: IDetailPageInfoParams & {
     currentAllowance: string;
