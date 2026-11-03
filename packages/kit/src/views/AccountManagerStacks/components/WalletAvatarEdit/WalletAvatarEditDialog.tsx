@@ -32,7 +32,7 @@ export function WalletAvatarEditDialog({ wallet }: { wallet: IDBWallet }) {
             key={index}
             justifyContent="center"
             alignItems="center"
-            flexBasis="25%"
+            flexBasis="16.666%"
             py="$2"
             transition="quick"
             animateOnly={ANIMATE_ONLY_TRANSFORM}
@@ -46,38 +46,44 @@ export function WalletAvatarEditDialog({ wallet }: { wallet: IDBWallet }) {
               setSelectedAvatar(img);
             }}
           >
-            <WalletAvatar size="$12" img={img} wallet={undefined} />
-            <AnimatePresence>
-              {selectedAvatar === img ? (
-                <Stack
-                  position="absolute"
-                  zIndex="$1"
-                  right="$4"
-                  bottom="$1"
-                  p="$px"
-                  bg="$bg"
-                  borderRadius="$full"
-                  enterStyle={
-                    platformEnv.isNativeAndroid
-                      ? undefined
-                      : {
-                          opacity: 0,
-                          scale: 0,
-                        }
-                  }
-                  exitStyle={
-                    platformEnv.isNativeAndroid
-                      ? undefined
-                      : {
-                          opacity: 0,
-                          scale: 0,
-                        }
-                  }
-                >
-                  <Icon size="$5" color="$iconActive" name="CheckRadioSolid" />
-                </Stack>
-              ) : null}
-            </AnimatePresence>
+            <Stack>
+              <WalletAvatar size="$11" img={img} wallet={undefined} />
+              <AnimatePresence>
+                {selectedAvatar === img ? (
+                  <Stack
+                    position="absolute"
+                    zIndex="$1"
+                    right={-4}
+                    bottom={-4}
+                    p="$px"
+                    bg="$bg"
+                    borderRadius="$full"
+                    enterStyle={
+                      platformEnv.isNativeAndroid
+                        ? undefined
+                        : {
+                            opacity: 0,
+                            scale: 0,
+                          }
+                    }
+                    exitStyle={
+                      platformEnv.isNativeAndroid
+                        ? undefined
+                        : {
+                            opacity: 0,
+                            scale: 0,
+                          }
+                    }
+                  >
+                    <Icon
+                      size="$5"
+                      color="$iconActive"
+                      name="CheckRadioSolid"
+                    />
+                  </Stack>
+                ) : null}
+              </AnimatePresence>
+            </Stack>
           </Stack>
         ))}
       </XStack>
@@ -109,7 +115,7 @@ export function showWalletAvatarEditDialog({ wallet }: { wallet: IDBWallet }) {
     title: appLocale.intl.formatMessage({
       id: ETranslations.global_edit_avatar,
     }),
-    estimatedContentHeight: 276,
+    estimatedContentHeight: 380,
     renderContent: <WalletAvatarEditDialog wallet={wallet} />,
   });
 }
