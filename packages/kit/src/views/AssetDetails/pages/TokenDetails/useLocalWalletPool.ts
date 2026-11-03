@@ -23,6 +23,7 @@ import { getLocalWalletAccountSyncStatus } from '@onekeyhq/kit-bg/src/vaults/loc
 import type {
   ILocalWalletAccountAddresses,
   ILocalWalletAccountState,
+  ILocalWalletAccountSupport,
   ILocalWalletPoolBalance,
 } from '@onekeyhq/kit-bg/src/vaults/localWallet/types';
 import type { IVaultSettings } from '@onekeyhq/kit-bg/src/vaults/types';
@@ -40,6 +41,7 @@ type ILocalWalletSettings = NonNullable<IVaultSettings['localWallet']>;
 const lastSeenByAccount = new Map<
   string,
   {
+    support?: ILocalWalletAccountSupport;
     state?: ILocalWalletAccountState;
     addresses?: ILocalWalletAccountAddresses | null;
   }
@@ -47,6 +49,33 @@ const lastSeenByAccount = new Map<
 
 export function resetLocalWalletPoolLastSeen() {
   lastSeenByAccount.clear();
+}
+
+// Reads what decides the token page's layout before it mounts, so it opens
+// on the right one instead of switching once these reads land.
+export async function preloadLocalWalletPool({
+  networkId,
+  accountId,
+}: {
+  networkId: string;
+  accountId: string;
+}) {
+  const [support, state] = await Promise.all([
+    backgroundApiProxy.servicePrivacyChain.getLocalWalletAccountSupport({
+      networkId,
+      accountId,
+    }),
+    backgroundApiProxy.servicePrivacyChain.getLocalWalletAccountState({
+      networkId,
+      accountId,
+    }),
+  ]);
+  const key = `${networkId}:${accountId}`;
+  lastSeenByAccount.set(key, {
+    ...lastSeenByAccount.get(key),
+    support,
+    state,
+  });
 }
 type ILocalWalletReadScope = {
   accountScope: { networkId: string; accountId: string; revision: number };
@@ -109,6 +138,9 @@ export function useLocalWalletPool({
     [poolId, settings?.pools],
   );
 
+  const lastSeenKey = `${networkId}:${accountId}`;
+  const lastSeen = lastSeenByAccount.get(lastSeenKey);
+
   // Read from the chain rather than inferred from the account id: Monero has no hardware
   // keyring, so a hardware account there can never scan despite looking scannable. Read again on
   // every change notice (a temp wallet kept), keeping this account's last answer meanwhile.
@@ -122,11 +154,12 @@ export function useLocalWalletPool({
         ),
     };
   }, [hasPooledBalance, accountScope, accountId, networkId]);
-  const accountSupport =
+  const freshSupport =
     accountSupportResult?.scope.networkId === networkId &&
     accountSupportResult.scope.accountId === accountId
       ? accountSupportResult.support
       : undefined;
+  const accountSupport = freshSupport ?? lastSeen?.support;
   const isWalletSupported =
     accountSupport === undefined ? undefined : accountSupport === 'supported';
   const isUnsupportedWallet = isWalletSupported === false;
@@ -185,8 +218,6 @@ export function useLocalWalletPool({
       overrideIsFocused: (isPageFocused) => isPageFocused && isActive,
     },
   );
-  const lastSeenKey = `${networkId}:${accountId}`;
-  const lastSeen = lastSeenByAccount.get(lastSeenKey);
   const freshState =
     stateResult?.scope === accountScope ? stateResult.state : undefined;
   const state = freshState ?? lastSeen?.state;
@@ -295,13 +326,20 @@ export function useLocalWalletPool({
     ? (freshAddresses ?? lastSeen?.addresses)
     : undefined;
   useEffect(() => {
-    if (freshState === undefined && freshAddresses === undefined) return;
+    if (
+      freshSupport === undefined &&
+      freshState === undefined &&
+      freshAddresses === undefined
+    ) {
+      return;
+    }
     const previous = lastSeenByAccount.get(lastSeenKey);
     lastSeenByAccount.set(lastSeenKey, {
+      support: freshSupport ?? previous?.support,
       state: freshState ?? previous?.state,
       addresses: freshAddresses ?? previous?.addresses,
     });
-  }, [freshAddresses, freshState, lastSeenKey]);
+  }, [freshAddresses, freshState, freshSupport, lastSeenKey]);
 
   // This account's slice of the published scan state, so other accounts' progress does not
   // re-render it. The scheduler publishes after each pass; the read below covers an account it

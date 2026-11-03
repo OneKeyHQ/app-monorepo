@@ -53,6 +53,7 @@ import { formatPrivacyChainPoolKindLabel } from '@onekeyhq/kit/src/utils/privacy
 import type {
   IAccountDeriveInfo,
   IAccountDeriveTypes,
+  IVaultSettings,
 } from '@onekeyhq/kit-bg/src/vaults/types';
 import {
   EAppEventBusNames,
@@ -66,7 +67,10 @@ import type {
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { getPrivacyChainMainPools } from '@onekeyhq/shared/src/utils/privacyChainDisplayUtils';
-import { waitAsync } from '@onekeyhq/shared/src/utils/promiseUtils';
+import {
+  createTimeoutPromise,
+  waitAsync,
+} from '@onekeyhq/shared/src/utils/promiseUtils';
 import {
   buildTokenListMapKey,
   sortTokensCommon,
@@ -92,6 +96,7 @@ import TokenDetailsOverview from './TokenDetailsOverview';
 import { TokenDetailsPager } from './TokenDetailsPager';
 import TokenDetailsTabToolbar from './TokenDetailsTabToolbar';
 import TokenDetailsViews from './TokenDetailsView';
+import { preloadLocalWalletPool } from './useLocalWalletPool';
 
 import type { ITokenDetailsContextValue } from './TokenDetailsContext';
 import type { RouteProp } from '@react-navigation/core';
@@ -121,7 +126,14 @@ export type IProps = {
   };
   refreshAllNetworkState?: () => void;
   privacyHistoryPoolId?: number;
+  // The page's own settings, so a privacy chain's header lays out from its
+  // first frame instead of after its own read.
+  privacyChainVaultSettings?: IVaultSettings;
 } & IStackProps;
+
+// How long a privacy chain's page holds its spinner for whether privacy is on.
+const PRIVACY_CHAIN_LAYOUT_WAIT_MS = 300;
+
 function TokenDetailsView() {
   const intl = useIntl();
 
@@ -157,6 +169,33 @@ function TokenDetailsView() {
   const [activeTabKey, setActiveTabKey] = useState<string>();
 
   const { vaultSettings, network } = useAccountData({ networkId });
+
+  // Settings decide pool tabs vs a single view; a privacy chain waits for
+  // them so it does not open as a plain token first, and briefly for whether
+  // privacy is on, so it opens as the balance or the enable card, not both.
+  const isPrivacyChain = networkUtils.isLocalWalletNetwork({ networkId });
+  const privacyChainAccountId = isPrivacyChain
+    ? (tokenInfo.accountId ?? accountId)
+    : undefined;
+  const { result: preloadedPrivacyChainAccountId } =
+    usePromiseResult(async () => {
+      if (!privacyChainAccountId) return undefined;
+      await createTimeoutPromise({
+        asyncFunc: () =>
+          preloadLocalWalletPool({
+            networkId,
+            accountId: privacyChainAccountId,
+          }).catch(() => undefined),
+        timeout: PRIVACY_CHAIN_LAYOUT_WAIT_MS,
+        timeoutResult: undefined,
+      });
+      return privacyChainAccountId;
+    }, [networkId, privacyChainAccountId]);
+  const isPrivacyChainLoading =
+    isPrivacyChain &&
+    (!vaultSettings ||
+      preloadedPrivacyChainAccountId !== privacyChainAccountId);
+  const privacyChainVaultSettings = isPrivacyChain ? vaultSettings : undefined;
 
   const {
     result: { tokens },
@@ -781,6 +820,7 @@ function TokenDetailsView() {
                 listViewContentContainerStyle={listViewContentContainerStyle}
                 indexedAccountId={indexedAccountId}
                 privacyHistoryPoolId={pool.id}
+                privacyChainVaultSettings={privacyChainVaultSettings}
               />
             ),
           }),
@@ -849,6 +889,7 @@ function TokenDetailsView() {
     vaultSettings?.mergeDeriveAssetsEnabled,
     vaultSettings?.localWallet?.balanceShape,
     vaultSettings?.localWallet?.pools,
+    privacyChainVaultSettings,
     tokenInfo,
     tokenMap,
     result?.networkAccounts,
@@ -904,11 +945,6 @@ function TokenDetailsView() {
     [isAllNetworks, intl, refreshAllNetworkState],
   );
 
-  // Settings decide pool tabs vs a single view; a privacy chain waits for
-  // them so it does not open as a plain token first.
-  const isPrivacyChainSettingsLoading =
-    !vaultSettings && networkUtils.isLocalWalletNetwork({ networkId });
-
   const tokenDetailsViewElement = useMemo(() => {
     if (
       // That loader only builds the type Tabs, which a collapsed account
@@ -916,7 +952,7 @@ function TokenDetailsView() {
       (isLoading && !collapsedNetworkAccount) ||
       isLoadingTokens ||
       !isCollapseStateReady ||
-      isPrivacyChainSettingsLoading ||
+      isPrivacyChainLoading ||
       // Keep aggregate tokens on the spinner until the group is resolved so
       // the aggregate descriptor never reaches the single-token fallback.
       (tokenInfo.isAggregateToken && isLoadingTokens !== false)
@@ -1003,13 +1039,15 @@ function TokenDetailsView() {
         isAllNetworks={isAllNetworks}
         indexedAccountId={indexedAccountId}
         listViewContentContainerStyle={listViewContentContainerStyle}
+        privacyChainVaultSettings={privacyChainVaultSettings}
       />
     );
   }, [
     isLoading,
     isLoadingTokens,
     isCollapseStateReady,
-    isPrivacyChainSettingsLoading,
+    isPrivacyChainLoading,
+    privacyChainVaultSettings,
     collapsedNetworkAccount,
     isAggregateTokenUnavailable,
     walletId,

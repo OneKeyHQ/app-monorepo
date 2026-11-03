@@ -261,6 +261,7 @@ function TokenDetailsHeaderContent({
     deriveInfo,
     deriveType,
     privacyHistoryPoolId: selectedPoolIdProp,
+    privacyChainVaultSettings,
   } = props;
   const navigation = useAppNavigation();
   const { navigationToTxConfirm } = useSignatureConfirm({
@@ -278,11 +279,17 @@ function TokenDetailsHeaderContent({
 
   const [settings] = useSettingsPersistAtom();
 
-  const { network, wallet, account, vaultSettings } = useAccountData({
+  const {
+    network,
+    wallet,
+    account,
+    vaultSettings: accountVaultSettings,
+  } = useAccountData({
     accountId,
     networkId,
     walletId,
   });
+  const vaultSettings = accountVaultSettings ?? privacyChainVaultSettings;
   const privacyHistoryPoolId = resolveSelectedPoolId({
     settings: vaultSettings?.localWallet,
     selectedPoolId: selectedPoolIdProp,
@@ -318,6 +325,10 @@ function TokenDetailsHeaderContent({
   const isLocalWalletEnabled = localWalletPool.enabled;
   const isPrivatePoolDisabled =
     isPrivatePool && isLocalWalletReady && !isLocalWalletEnabled;
+  // Off swaps the balance and actions for the enable card, so a private pool
+  // shows neither until it knows which.
+  const shouldShowOverview =
+    !isPrivatePool || (isLocalWalletReady && !isPrivatePoolDisabled);
 
   // Scoped per tab; ownerKey guards an account switch inside one mounted tab.
   const [privacyChainPoolDisplay] = usePrivacyChainPoolDisplayAtom();
@@ -514,8 +525,6 @@ function TokenDetailsHeaderContent({
   let isBalanceLoading = showLoadingState;
   if (shouldShowPoolBalance) {
     isBalanceLoading = !poolDisplay?.balanceSettled;
-  } else if (isPrivatePool) {
-    isBalanceLoading = !isLocalWalletReady;
   }
   const tokenLogoURI = tokenDetails?.info?.logoURI ?? tokenInfo.logoURI;
 
@@ -857,7 +866,7 @@ function TokenDetailsHeaderContent({
           </Stack>
         ) : null}
         {/* Shown once the pool's state is read: a Preparing panel during loading would vanish again
-            for the usual synced account and shift the page. The balance shows loading meanwhile. */}
+            for the usual synced account and shift the page. */}
         {isPrivatePool && isLocalWalletReady && !isPrivateSynced ? (
           <Stack px="$5" pt="$4" pb={isPrivatePoolDisabled ? '$5' : undefined}>
             {isPrivatePoolDisabled ? (
@@ -873,7 +882,7 @@ function TokenDetailsHeaderContent({
           </Stack>
         ) : null}
         {/* Overview */}
-        {!isPrivatePoolDisabled ? (
+        {shouldShowOverview ? (
           <Stack px="$5" py="$5">
             <TokenDetailsBalanceHero
               isLoading={isBalanceLoading}

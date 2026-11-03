@@ -198,6 +198,7 @@ jest.mock('@onekeyhq/shared/src/utils/privacyChainSyncPolicy', () => ({
 }));
 
 import {
+  preloadLocalWalletPool,
   resetLocalWalletPoolLastSeen,
   resolveSelectedPoolId,
   useLocalWalletPool,
@@ -567,6 +568,34 @@ describe('useLocalWalletPool before the caller has settings', () => {
     await flushReads();
     expect(result.current.hasPooledBalance).toBe(false);
     expect(result.current.isReady).toBe(isReady);
+  });
+});
+
+describe('useLocalWalletPool after the page preloaded the account', () => {
+  it.each([true, false])(
+    'knows on its first render whether privacy is on (on: %s)',
+    async (enabled) => {
+      mockEnabled = enabled;
+      await act(async () => {
+        await preloadLocalWalletPool({
+          networkId: props.networkId,
+          accountId: props.accountId,
+        });
+      });
+      // The page's own reads have not landed yet.
+      mockGetState.mockImplementation(() => new Promise(() => {}));
+      const { result } = renderHook(useLocalWalletPool, {
+        initialProps: props,
+      });
+      expect(result.current.isReady).toBe(true);
+      expect(result.current.enabled).toBe(enabled);
+    },
+  );
+
+  it('waits for its own reads without a preload', () => {
+    mockGetState.mockImplementation(() => new Promise(() => {}));
+    const { result } = renderHook(useLocalWalletPool, { initialProps: props });
+    expect(result.current.isReady).toBe(false);
   });
 });
 
