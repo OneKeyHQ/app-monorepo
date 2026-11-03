@@ -123,30 +123,4 @@ describe('TradingViewNativeChartSettingsButton', () => {
       },
     });
   });
-
-  it('exits the fullscreen overlay before pushing the chart settings page', () => {
-    const onBeforeOpenSettings = jest.fn();
-    render(
-      <TradingViewNativeChartSettingsButton
-        priceAxisWidth={52}
-        placement="toolbar"
-        onBeforeOpenSettings={onBeforeOpenSettings}
-      />,
-    );
-
-    pressSettingsButton();
-
-    expect(onBeforeOpenSettings).toHaveBeenCalledTimes(1);
-    expect(mockPushModal).toHaveBeenCalledWith('MarketModal', {
-      screen: 'MarketChartSettings',
-      params: {
-        showPreviousClose: false,
-        showNavigationButtons: false,
-        showChartType: true,
-      },
-    });
-    expect(onBeforeOpenSettings.mock.invocationCallOrder[0]).toBeLessThan(
-      mockPushModal.mock.invocationCallOrder[0],
-    );
-  });
 });

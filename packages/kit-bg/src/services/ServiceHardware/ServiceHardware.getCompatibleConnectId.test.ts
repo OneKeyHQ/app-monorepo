@@ -925,7 +925,10 @@ describe('ServiceHardware.getCompatibleConnectId', () => {
           service.checkDeviceReachableForFirmwareUpdate({
             connectId: 'SELECTED_DEVICE',
           }),
-        ).resolves.toBe('LIVE_USB_PATH');
+        ).resolves.toEqual({
+          connectId: 'LIVE_USB_PATH',
+          transportType: EHardwareTransportType.WEBUSB,
+        });
       } else {
         resolve.mockRejectedValue(new Error('USB required'));
         await expect(
@@ -2511,7 +2514,10 @@ describe('ServiceHardware.getCompatibleConnectId', () => {
           connectId: selected ?? path,
         });
         if (mode === 'bootloader' && !selected) {
-          await expect(result).resolves.toBe(path);
+          await expect(result).resolves.toEqual({
+            connectId: path,
+            transportType: EHardwareTransportType.WEBUSB,
+          });
           expect(read).toHaveBeenCalledWith(
             expect.objectContaining({
               connectId: path,
@@ -2571,7 +2577,10 @@ describe('ServiceHardware.getCompatibleConnectId', () => {
             connectId: 'LOADER_BLE_ID',
             features,
           }),
-        ).resolves.toBe(path);
+        ).resolves.toEqual({
+          connectId: path,
+          transportType: EHardwareTransportType.WEBUSB,
+        });
         await expect(
           service.checkDeviceReachableForFirmwareUpdate({
             connectId: 'LOADER_BLE_ID',

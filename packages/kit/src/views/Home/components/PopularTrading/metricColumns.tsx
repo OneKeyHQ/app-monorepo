@@ -2,6 +2,7 @@ import type { ComponentProps, ReactNode } from 'react';
 
 import {
   NumberSizeableText,
+  Skeleton,
   Stack,
   XStack,
   YStack,
@@ -124,6 +125,7 @@ function getPopularTradingDesktopMetricColumns(
   return [
     {
       dataIndex: 'price',
+      renderSkeleton: () => <Skeleton h="$4" w="$20" />,
       title: intl.formatMessage({ id: ETranslations.global_price }),
       render: (_: unknown, record: IFavoriteTokenDisplay) => (
         <NumberSizeableText
@@ -137,12 +139,14 @@ function getPopularTradingDesktopMetricColumns(
     },
     {
       dataIndex: 'priceChange24h',
+      renderSkeleton: () => <Skeleton h="$4" w="$16" />,
       title: intl.formatMessage({ id: ETranslations.market_change_24h }),
       render: (_: unknown, record: IFavoriteTokenDisplay) =>
         renderPopularTradingChangeText(record, '$bodyLgMedium'),
     },
     {
       dataIndex: 'volume24h',
+      renderSkeleton: () => <Skeleton h="$4" w="$16" />,
       title: intl.formatMessage({ id: ETranslations.market_24h_turnover }),
       render: (_: unknown, record: IFavoriteTokenDisplay) => (
         <NumberSizeableText
@@ -171,6 +175,15 @@ function getPopularTradingColumns({
 }): NonNullable<ITableProps<IFavoriteTokenDisplay>['columns']> {
   const nameColumn = {
     dataIndex: 'symbol',
+    renderSkeleton: () => (
+      <XStack alignItems="center" gap="$2">
+        <Stack width="$7" />
+        <XStack alignItems="center" gap="$3">
+          <Skeleton w="$8" h="$8" radius="round" />
+          <Skeleton w="$20" h="$4" />
+        </XStack>
+      </XStack>
+    ),
     title: intl.formatMessage({ id: ETranslations.global_name }),
     columnProps: shouldUseTableLayout
       ? { minWidth: POPULAR_TRADING_NAME_COLUMN_MIN_WIDTH }
@@ -195,6 +208,7 @@ function getPopularTradingColumns({
     nameColumn,
     {
       dataIndex: 'price',
+      renderSkeleton: () => <Skeleton h="$4" w="$20" />,
       title: intl.formatMessage({ id: ETranslations.global_price }),
       columnProps: { flex: 0.85, flexBasis: 0, minWidth: 0 },
       render: (_: unknown, record: IFavoriteTokenDisplay) =>
