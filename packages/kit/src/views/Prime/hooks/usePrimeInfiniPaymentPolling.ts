@@ -241,7 +241,8 @@ export function usePrimeInfiniPaymentPolling({
         isPrimeInfiniPaymentExplicitlyFailed(currentPayment);
       const effectiveOutcome =
         currentOutcome === 'expired' &&
-        (currentPayment.hasTransactions ||
+        (currentPayment.remoteTrackingOnly ||
+          currentPayment.hasTransactions ||
           (!hasExplicitTerminalStatus && hasConfirmingAmount))
           ? 'pending'
           : currentOutcome;

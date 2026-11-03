@@ -159,66 +159,69 @@ describe('usePrimeInfiniPaymentPolling', () => {
     });
   });
 
-  it('tracks a remote transfer with pinned auth and no local payer or cache binding', async () => {
-    const payment = {
-      ...buildPayment('remote-payment'),
-      hasTransactions: true,
-      expiresAt: 1,
-      status: 'expired',
-    };
-    const authContext = {
-      onekeyUserId: baseline.onekeyUserId,
-      authSessionSource: EPrimeAuthSessionSource.KeylessOAuth,
-      authStateGeneration: 3,
-    };
-    servicePrime.apiGetInfiniPayment.mockResolvedValue({
-      ...payment,
-      hasTransactions: undefined,
-    });
-    const onSuccess = jest.fn();
-    const onTerminal = jest.fn();
-    const { result, unmount } = renderHook(() =>
-      usePrimeInfiniPaymentPolling({
-        payment,
-        authContext,
-        asset,
-        baseline,
-        enabled: true,
-        onSuccess,
-        onTerminal,
-        pollIntervalMs: 60_000,
-      }),
-    );
-    await waitFor(() =>
-      expect(servicePrime.apiGetInfiniPayment).toHaveBeenCalledWith(
-        expect.objectContaining({
-          paymentId: payment.paymentId,
-          expectedOneKeyUserId: baseline.onekeyUserId,
+  it.each([{ hasTransactions: true }, { remoteTrackingOnly: true }])(
+    'tracks a remote transfer with pinned auth and no local payer or cache binding: %j',
+    async (evidence) => {
+      const payment = {
+        ...buildPayment('remote-payment'),
+        ...evidence,
+        expiresAt: 1,
+        status: 'expired',
+      };
+      const authContext = {
+        onekeyUserId: baseline.onekeyUserId,
+        authSessionSource: EPrimeAuthSessionSource.KeylessOAuth,
+        authStateGeneration: 3,
+      };
+      servicePrime.apiGetInfiniPayment.mockResolvedValue({
+        ...payment,
+        hasTransactions: undefined,
+      });
+      const onSuccess = jest.fn();
+      const onTerminal = jest.fn();
+      const { result, unmount } = renderHook(() =>
+        usePrimeInfiniPaymentPolling({
+          payment,
           authContext,
+          asset,
+          baseline,
+          enabled: true,
+          onSuccess,
+          onTerminal,
+          pollIntervalMs: 60_000,
         }),
-      ),
-    );
-    expect(result.current.outcome).toBe('pending');
-    expect(
-      primeDb.latchInfiniPendingPaymentSessionProgress,
-    ).not.toHaveBeenCalled();
-    servicePrime.apiGetInfiniPayment.mockResolvedValue({
-      ...payment,
-      status: 'confirmed',
-      amountConfirmed: payment.amountDue,
-    });
-    servicePrime.apiGetInfiniPurchaseStatusSnapshot.mockResolvedValue({
-      onekeyUserId: baseline.onekeyUserId,
-      primeSubscription: {
-        isActive: true,
-        subscriptions: [{ channel: 'infini' }],
-      },
-    });
-    act(() => result.current.refresh());
-    await waitFor(() => expect(onSuccess).toHaveBeenCalledTimes(1));
-    expect(onTerminal).not.toHaveBeenCalled();
-    unmount();
-  });
+      );
+      await waitFor(() =>
+        expect(servicePrime.apiGetInfiniPayment).toHaveBeenCalledWith(
+          expect.objectContaining({
+            paymentId: payment.paymentId,
+            expectedOneKeyUserId: baseline.onekeyUserId,
+            authContext,
+          }),
+        ),
+      );
+      expect(result.current.outcome).toBe('pending');
+      expect(
+        primeDb.latchInfiniPendingPaymentSessionProgress,
+      ).not.toHaveBeenCalled();
+      servicePrime.apiGetInfiniPayment.mockResolvedValue({
+        ...payment,
+        status: 'confirmed',
+        amountConfirmed: payment.amountDue,
+      });
+      servicePrime.apiGetInfiniPurchaseStatusSnapshot.mockResolvedValue({
+        onekeyUserId: baseline.onekeyUserId,
+        primeSubscription: {
+          isActive: true,
+          subscriptions: [{ channel: 'infini' }],
+        },
+      });
+      act(() => result.current.refresh());
+      await waitFor(() => expect(onSuccess).toHaveBeenCalledTimes(1));
+      expect(onTerminal).not.toHaveBeenCalled();
+      unmount();
+    },
+  );
 
   it('stops remote tracking when the pinned auth lifecycle changes during a request', async () => {
     const payment = {

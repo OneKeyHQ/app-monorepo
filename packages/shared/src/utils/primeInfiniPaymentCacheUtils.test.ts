@@ -251,6 +251,15 @@ describe('mergePrimeInfiniPaymentProgressSnapshot', () => {
     expect(hasPrimeInfiniPaymentProgressSnapshot(merged)).toBe(true);
   });
 
+  test('retains a durable remote tracking fence when all server progress is omitted', () => {
+    const merged = mergePrimeInfiniPaymentProgressSnapshot({
+      previous: { ...payment, remoteTrackingOnly: true },
+      latest: payment,
+    });
+    expect(merged.remoteTrackingOnly).toBe(true);
+    expect(hasPrimeInfiniPaymentProgressSnapshot(merged)).toBe(true);
+  });
+
   test.each(['signed', 'confirming', 'processing'])(
     'treats %s status as transfer activity even before amounts arrive',
     (status) => {

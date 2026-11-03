@@ -174,6 +174,9 @@ export type IPrimeInfiniPayment = {
   warningMessages?: string[];
   // Only activity is retained; remote transaction payloads and IDs stay out of storage.
   hasTransactions?: boolean;
+  // Local, durable evidence that this remote invoice must never become a new
+  // transfer again. This field is not accepted from payment API responses.
+  remoteTrackingOnly?: boolean;
 };
 
 export type IPrimeInfiniPendingPaymentLookup = {

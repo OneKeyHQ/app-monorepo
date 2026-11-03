@@ -79,6 +79,7 @@ describe('remote Infini pending payment recovery', () => {
     { ...payment, amountConfirmed: '1' },
     { ...payment, amountConfirming: '1' },
     { ...payment, hasTransactions: true },
+    { ...payment, remoteTrackingOnly: true },
     { ...payment, status: undefined },
   ])('keeps transfer activity tracking only: %j', (remotePayment) => {
     expect(

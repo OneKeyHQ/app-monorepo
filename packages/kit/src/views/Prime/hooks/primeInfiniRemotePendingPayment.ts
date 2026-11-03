@@ -1,4 +1,5 @@
 /* cspell:ignore Infini */
+import { isPrimeInfiniRemotePaymentTrackingOnlySnapshot } from '@onekeyhq/shared/src/utils/primeInfiniPaymentCacheUtils';
 import { getPrimeInfiniPaymentValidationFailure } from '@onekeyhq/shared/src/utils/primeInfiniPaymentValidation';
 import type {
   IPrimeInfiniPayment,
@@ -7,10 +8,7 @@ import type {
   IPrimeInfiniSubscriptionPlan,
 } from '@onekeyhq/shared/types/prime/primeTypes';
 
-import {
-  hasPrimeInfiniPaymentProgress,
-  isPrimeInfiniPaymentForAsset,
-} from './primeInfiniPaymentUtils';
+import { isPrimeInfiniPaymentForAsset } from './primeInfiniPaymentUtils';
 
 export type IPrimeInfiniUnfinishedPaymentChoice =
   | 'replace'
@@ -39,16 +37,10 @@ export function getPrimeInfiniRemotePaymentRecovery({
   const asset = assets.find((item) =>
     isPrimeInfiniPaymentForAsset({ payment, asset: item }),
   );
-  const status = payment.status?.trim().toLowerCase();
-  const infiniStatus = payment.infiniStatus?.trim().toLowerCase();
   // Only a clearly unsent invoice can become a transfer on this device.
-  const unsentStatuses = new Set(['pending', 'created', 'unpaid']);
   const sendStarted = Boolean(
     pendingPayment?.hasTransactions ||
-    hasPrimeInfiniPaymentProgress(payment) ||
-    (!status && !infiniStatus) ||
-    (status && !unsentStatuses.has(status)) ||
-    (infiniStatus && !unsentStatuses.has(infiniStatus)),
+    isPrimeInfiniRemotePaymentTrackingOnlySnapshot(payment),
   );
   if (
     !asset ||

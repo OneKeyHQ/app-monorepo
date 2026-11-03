@@ -180,6 +180,12 @@ export interface ISimpleDBPrime {
     string,
     IPrimeInfiniPendingPaymentSession
   >;
+  // Independent of payer bindings and expiring sessions. Forgetting observed
+  // remote transfers could authorize sending the same invoice a second time.
+  infiniRemotePaymentTrackingByUserId?: Record<
+    string,
+    Record<string, IPrimeInfiniPayment>
+  >;
   infiniPaymentCacheTombstonesByUserId?: Record<
     string,
     IPrimeInfiniPaymentCacheTombstone[]
@@ -1647,6 +1653,112 @@ export class SimpleDbEntityPrime extends SimpleDbEntityBase<ISimpleDBPrime> {
       });
     }
     return undefined;
+  }
+
+  @backgroundMethod()
+  async mergeInfiniRemotePaymentTracking({
+    onekeyUserId,
+    payment,
+    trackingOnly = false,
+  }: {
+    onekeyUserId: string;
+    payment: IPrimeInfiniPayment;
+    trackingOnly?: boolean;
+  }): Promise<IPrimeInfiniPayment> {
+    const failure = getPrimeInfiniPaymentValidationFailure({
+      payment,
+      validateQuote: false,
+    });
+    if (!onekeyUserId || failure) {
+      throw createPrimeInfiniPaymentValidationError(
+        failure ?? 'invalidResponse',
+      );
+    }
+    const rawData = await this.getRawData();
+    const previous =
+      rawData?.infiniRemotePaymentTrackingByUserId?.[onekeyUserId]?.[
+        payment.paymentId
+      ];
+    if (
+      !previous &&
+      !trackingOnly &&
+      !hasPrimeInfiniPaymentProgressSnapshot(payment)
+    ) {
+      return payment;
+    }
+    let mergedPayment = payment;
+    const persisted = await this.setRawData((latestRawData) => {
+      const current =
+        latestRawData?.infiniRemotePaymentTrackingByUserId?.[onekeyUserId]?.[
+          payment.paymentId
+        ];
+      if (
+        current &&
+        (!current.remoteTrackingOnly ||
+          getPrimeInfiniPaymentValidationFailure({
+            payment: current,
+            validateQuote: false,
+          }) ||
+          !isSamePrimeInfiniPaymentTransferSnapshot({
+            first: current,
+            second: payment,
+            networkId: '',
+          }))
+      ) {
+        throw createPrimeInfiniPaymentValidationError(
+          'transferSnapshotChanged',
+        );
+      }
+      mergedPayment = {
+        ...(current
+          ? mergePrimeInfiniPaymentProgressSnapshot({
+              previous: current,
+              latest: payment,
+            })
+          : payment),
+        remoteTrackingOnly: true,
+      };
+      // Persist only the invoice identity and coarse progress, never transaction
+      // payloads, payer details, credentials, or arbitrary response properties.
+      const durablePayment: IPrimeInfiniPayment = {
+        paymentId: mergedPayment.paymentId,
+        address: mergedPayment.address,
+        chain: mergedPayment.chain,
+        token: mergedPayment.token,
+        amountDue: mergedPayment.amountDue,
+        expiresAt: mergedPayment.expiresAt,
+        status: mergedPayment.status,
+        infiniStatus: mergedPayment.infiniStatus,
+        amountConfirmed: mergedPayment.amountConfirmed,
+        amountConfirming: mergedPayment.amountConfirming,
+        hasTransactions: mergedPayment.hasTransactions,
+        remoteTrackingOnly: true,
+      };
+      return {
+        ...latestRawData,
+        infiniRemotePaymentTrackingByUserId: {
+          ...latestRawData?.infiniRemotePaymentTrackingByUserId,
+          [onekeyUserId]: {
+            ...latestRawData?.infiniRemotePaymentTrackingByUserId?.[
+              onekeyUserId
+            ],
+            [payment.paymentId]: durablePayment,
+          },
+        },
+      };
+    }).catch((error: unknown) => {
+      this.clearRawDataCache();
+      throw toPrimeInfiniPaymentPersistenceError(error);
+    });
+    if (
+      !persisted?.infiniRemotePaymentTrackingByUserId?.[onekeyUserId]?.[
+        payment.paymentId
+      ]?.remoteTrackingOnly
+    ) {
+      this.clearRawDataCache();
+      throw createPrimeInfiniPaymentValidationError('localPersistenceFailed');
+    }
+    return mergedPayment;
   }
 
   @backgroundMethod()

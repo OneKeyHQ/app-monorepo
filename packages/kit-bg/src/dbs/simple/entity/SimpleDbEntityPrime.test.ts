@@ -1317,6 +1317,124 @@ describe('SimpleDbEntityPrime Infini pending payment session', () => {
     return { entity, read: () => stored };
   }
 
+  test('keeps remote transfer evidence across reopening without a payer binding', async () => {
+    const { entity, read } = createSessionStore();
+    const observed = {
+      ...session.payment,
+      status: 'pending',
+      amountConfirmed: '0',
+      amountConfirming: '0',
+      hasTransactions: true,
+      transactions: [{ txId: 'must-not-persist' }],
+    };
+    await expect(
+      entity.mergeInfiniRemotePaymentTracking({
+        onekeyUserId: 'user-1',
+        payment: observed,
+      }),
+    ).resolves.toMatchObject({
+      remoteTrackingOnly: true,
+      hasTransactions: true,
+    });
+    expect(read().infiniPendingPaymentSessionByUserId).toBeUndefined();
+    expect(JSON.stringify(read())).not.toContain('must-not-persist');
+    expect(JSON.stringify(read())).not.toMatch(/payer|bindingId/);
+
+    const reopened = createSessionStore(
+      JSON.parse(JSON.stringify(read())) as ISimpleDBPrime,
+    );
+    const later = {
+      ...session.payment,
+      status: 'pending',
+      amountConfirmed: '0',
+      amountConfirming: '0',
+    };
+    await expect(
+      reopened.entity.mergeInfiniRemotePaymentTracking({
+        onekeyUserId: 'user-1',
+        payment: later,
+      }),
+    ).resolves.toMatchObject({
+      remoteTrackingOnly: true,
+      hasTransactions: true,
+      status: 'pending',
+    });
+    await expect(
+      reopened.entity.mergeInfiniRemotePaymentTracking({
+        onekeyUserId: 'other-user',
+        payment: later,
+      }),
+    ).resolves.toEqual(later);
+    const otherInvoice = { ...later, paymentId: 'other-invoice' };
+    await expect(
+      reopened.entity.mergeInfiniRemotePaymentTracking({
+        onekeyUserId: 'user-1',
+        payment: otherInvoice,
+      }),
+    ).resolves.toEqual(otherInvoice);
+  });
+
+  test('persists a tracking-only handoff even without reported transactions or amounts', async () => {
+    const { entity, read } = createSessionStore();
+    await entity.mergeInfiniRemotePaymentTracking({
+      onekeyUserId: 'user-1',
+      payment: session.payment,
+      trackingOnly: true,
+    });
+    const reopened = createSessionStore(read());
+    await expect(
+      reopened.entity.mergeInfiniRemotePaymentTracking({
+        onekeyUserId: 'user-1',
+        payment: { ...session.payment, status: 'created' },
+      }),
+    ).resolves.toMatchObject({ remoteTrackingOnly: true });
+  });
+
+  test('does not merge progress onto changed remote invoice transfer details', async () => {
+    const { entity } = createSessionStore();
+    await entity.mergeInfiniRemotePaymentTracking({
+      onekeyUserId: 'user-1',
+      payment: session.payment,
+      trackingOnly: true,
+    });
+    await expect(
+      entity.mergeInfiniRemotePaymentTracking({
+        onekeyUserId: 'user-1',
+        payment: { ...session.payment, address: 'changed-recipient' },
+      }),
+    ).rejects.toMatchObject({
+      data: { paymentValidationFailure: 'transferSnapshotChanged' },
+    });
+  });
+
+  test('fails closed if remote tracking evidence cannot be persisted', async () => {
+    const { entity } = createSessionStore();
+    jest
+      .spyOn(entity, 'setRawData')
+      .mockRejectedValueOnce(new Error('disk failure'));
+    await expect(
+      entity.mergeInfiniRemotePaymentTracking({
+        onekeyUserId: 'user-1',
+        payment: { ...session.payment, hasTransactions: true },
+      }),
+    ).rejects.toMatchObject({
+      data: { paymentValidationFailure: 'localPersistenceFailed' },
+    });
+  });
+
+  test('fails closed if storage declines a remote tracking write', async () => {
+    const { entity } = createSessionStore();
+    jest.spyOn(entity, 'setRawData').mockResolvedValueOnce(undefined);
+    await expect(
+      entity.mergeInfiniRemotePaymentTracking({
+        onekeyUserId: 'user-1',
+        payment: { ...session.payment, hasTransactions: true },
+      }),
+    ).rejects.toMatchObject({
+      data: { paymentValidationFailure: 'localPersistenceFailed' },
+    });
+  });
+
   function createNativePaymentSession() {
     const asset = { ...session.asset, token: 'ETH', contractAddress: '' };
     asset.key = getPrimeInfiniPaymentAssetKey(asset);
