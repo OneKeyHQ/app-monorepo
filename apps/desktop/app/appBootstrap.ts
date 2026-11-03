@@ -24,6 +24,15 @@ if (harnessOutputFile) {
     app.exit(3);
   });
 } else {
+  // Capture native crashes before app dependencies or renderer startup.
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const { startNativeCrashCapture } =
+    require('./libs/nativeCrashCapture') as typeof import('./libs/nativeCrashCapture');
+  startNativeCrashCapture();
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const { startNativeCrashCollection } =
+    require('./libs/nativeCrash') as typeof import('./libs/nativeCrash');
+  startNativeCrashCollection();
   // eslint-disable-next-line @typescript-eslint/no-require-imports
   require('./app');
 }
