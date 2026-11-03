@@ -364,6 +364,7 @@
 				13B07F871A680F5B00A75B9A /* Sources */,
 				13B07F8C1A680F5B00A75B9A /* Frameworks */,
 				13B07F8E1A680F5B00A75B9A /* Resources */,
+				A1C000000000000000000091 /* Generate OneKey Icon Resources */,
 				07B1C3AA2F08000000E00006 /* Inject Native Sentry Configuration */,
 				EA7958392B70B02A00E0382F /* Bundle React Native code and images */,
 				F14A4B1031B7C10000000001 /* Bundle Background React Native code */,
@@ -519,6 +520,19 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXShellScriptBuildPhase section */
+		A1C000000000000000000091 /* Generate OneKey Icon Resources */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = ();
+			inputPaths = ();
+			name = "Generate OneKey Icon Resources";
+			outputPaths = ("$(TARGET_BUILD_DIR)/$(UNLOCALIZED_RESOURCES_FOLDER_PATH)/OneKeyIcons.bundle/manifest.json");
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "set -e\nif [ -f \"$SRCROOT/.xcode.env\" ]; then . \"$SRCROOT/.xcode.env\"; fi\nif [ -f \"$SRCROOT/.xcode.env.local\" ]; then . \"$SRCROOT/.xcode.env.local\"; fi\nNODE_BINARY=\"${NODE_BINARY:-node}\"\n\"$NODE_BINARY\" \"$SRCROOT/../../../development/onekey-icons/generate-icons.mjs\" --ios-bundle \"$TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH/OneKeyIcons.bundle\"\n";
+		};
+
 		0288C121D3EE8444D1801CDC /* [OneKey] Assert App Attest environment */ = {
 			isa = PBXShellScriptBuildPhase;
 			alwaysOutOfDate = 1;

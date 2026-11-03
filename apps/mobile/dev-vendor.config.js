@@ -245,7 +245,7 @@ const shellInputDirectories = {
     'apps/mobile/ios/zh-Hans.lproj',
     'apps/mobile/ios/zh-Hant.lproj',
   ],
-  shared: [],
+  shared: ['packages/components/svg', 'development/onekey-icons'],
 };
 
 const shellInputFiles = {

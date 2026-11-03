@@ -14,6 +14,7 @@ def useDevShell = System.getenv('ONEKEY_DEV_SHELL') == 'true'
 def useDevBackgroundHmr = useDevShell && System.getenv('ONEKEY_DEV_BG_HMR') == 'true'
 def generatedDevShellAssetsDir = file("${buildDir}/generated/assets/onekeyDevShell/debug")
 def bip39EnglishWordList = new File(repositoryRoot, "node_modules/bip39/src/wordlists/english.json")
+def generatedOneKeyIconsDir = file("${buildDir}/generated/assets/onekeyIcons")
 def generatedSentryAssetsDir = file("${buildDir}/generated/assets/onekeySentry/main")
 def easBuildEnv = System.getenv('EAS_BUILD')
 def isEasAndroidBuild =
@@ -310,6 +311,7 @@ android {
 
     sourceSets {
         main.assets.srcDir(generatedSentryAssetsDir)
+        main.assets.srcDir(new File(generatedOneKeyIconsDir, "native"))
         debug.assets.srcDir(generatedDevShellAssetsDir)
         if (isDetoxBuild) {
             // Allow only the local Detox server in instrumented Release builds.
@@ -337,6 +339,14 @@ android {
             }
         }
     }
+}
+
+def prepareOneKeyIconAssets = tasks.register("prepareOneKeyIconAssets", Exec) {
+    inputs.dir(new File(repositoryRoot, "packages/components/svg"))
+    inputs.dir(new File(repositoryRoot, "development/onekey-icons"))
+    outputs.dir(new File(generatedOneKeyIconsDir, "native"))
+    workingDir(repositoryRoot)
+    commandLine("node", "development/onekey-icons/generate-icons.mjs", "--native-only", "--output-root", generatedOneKeyIconsDir.absolutePath)
 }
 
 def prepareSentryNativeAssets = tasks.register("prepareSentryNativeAssets") {
@@ -389,7 +399,7 @@ def prepareDevShellDebugAssets = tasks.register("prepareDevShellDebugAssets") {
 android.applicationVariants.configureEach { variant ->
     def targetName = capitalizeVariantName(variant.name)
     tasks.named("merge${targetName}Assets").configure {
-        dependsOn(prepareSentryNativeAssets)
+        dependsOn(prepareSentryNativeAssets, prepareOneKeyIconAssets)
     }
     if (variant.buildType?.name?.equalsIgnoreCase("release")) {
         variant.preBuildProvider.configure {
