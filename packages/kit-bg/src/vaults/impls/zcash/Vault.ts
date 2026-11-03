@@ -21,7 +21,7 @@ import type {
   ISignedTxPro,
   IUnsignedTxPro,
 } from '@onekeyhq/core/src/types';
-import { ZCASH_ORCHARD_ACTIVATION_HEIGHT_MAINNET } from '@onekeyhq/shared/src/config/zcash';
+import { ZCASH_MIN_BIRTHDAY_HEIGHT_MAINNET } from '@onekeyhq/shared/src/config/zcash';
 import {
   OneKeyInternalError,
   OneKeyLocalError,
@@ -77,6 +77,7 @@ import {
   markZcashBackendShieldedCounterparty,
   normalizeZcashBackendHistoryTx,
 } from './backendHistory';
+import { clampZcashBirthdayHeight } from './birthday';
 import { KeyringHardware } from './KeyringHardware';
 import { KeyringHd } from './KeyringHd';
 import { KeyringImported } from './KeyringImported';
@@ -191,7 +192,7 @@ export default class Vault extends VaultBtc {
         return { ok: false, reason: 'unreachable' };
       }
       // Only catches a stale or very young chain: testnet is already past this height.
-      if (tip < ZCASH_ORCHARD_ACTIVATION_HEIGHT_MAINNET) {
+      if (tip < ZCASH_MIN_BIRTHDAY_HEIGHT_MAINNET) {
         return { ok: false, chainTip: tip, reason: 'wrong-chain' };
       }
       if (options?.validateChain) {
@@ -470,7 +471,9 @@ export default class Vault extends VaultBtc {
   }): Promise<{ queued: boolean; fromHeight: number; toHeight: number }> {
     const account = await this.zcashGetWalletAccount({ accountId });
     const api = await this.zcashGetApi();
-    return api.queueRescanFrom(account, { fromHeight });
+    return api.queueRescanFrom(account, {
+      fromHeight: clampZcashBirthdayHeight({ birthdayHeight: fromHeight }),
+    });
   }
 
   async zcashRetryLocalWalletSetup(params: {

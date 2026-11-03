@@ -133,3 +133,38 @@ it.each(
     expect(detail.confirmations).toBe(pending ? undefined : 11);
   },
 );
+
+it.each([2, 3])(
+  'does not expose unsupported private-only history pool %s',
+  async (poolId) => {
+    const getTxDetails = jest.fn();
+    const backendHistory = jest.fn();
+    const vault = Object.assign(Object.create(Vault.prototype) as Vault, {
+      accountId: 'synthetic-account',
+      networkId: 'zec--0',
+      backgroundApi: {
+        simpleDb: {
+          privacyChainState: {
+            getZcashPrivacyModeState: async () => ({ intent: 'on' }),
+          },
+        },
+      },
+      zcashFetchBackendHistoryDetail: backendHistory,
+      zcashGetWalletAccount: async () => ({}),
+      zcashGetApi: async () => ({
+        getHistory: async () => [{ txid: 'unsupported-tx', poolIds: [poolId] }],
+        getTxDetails,
+      }),
+    });
+    await expect(
+      vault.fetchAccountHistoryDetail({
+        accountId: 'synthetic-account',
+        networkId: 'zec--0',
+        txid: 'unsupported-tx',
+        privacyChainPoolId: poolId,
+      }),
+    ).rejects.toThrow('unsupported pool');
+    expect(getTxDetails).not.toHaveBeenCalled();
+    expect(backendHistory).not.toHaveBeenCalled();
+  },
+);
