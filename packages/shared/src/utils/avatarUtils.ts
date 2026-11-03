@@ -48,7 +48,7 @@ export const HdWalletAvatarImages = {
   crab: require('../assets/wallet/avatar/Crab.png'),
   tropicalFish: require('../assets/wallet/avatar/TropicalFish.png'),
   blowfish: require('../assets/wallet/avatar/Blowfish.png'),
-  turtle: require('../assets/wallet/avatar/Turtle.png'),
+  dinosaur: require('../assets/wallet/avatar/Dinosaur.png'),
   butterfly: require('../assets/wallet/avatar/Butterfly.png'),
   ladybug: require('../assets/wallet/avatar/Ladybug.png'),
   bee: require('../assets/wallet/avatar/Bee.png'),
