@@ -5,6 +5,7 @@ import {
   assertHardwareCloudSyncAuthMessage,
   buildHardwareCloudSyncMessage,
 } from '@onekeyhq/shared/src/consts/hardwareCloudSyncConsts';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import systemTimeUtils from '@onekeyhq/shared/src/utils/systemTimeUtils';
 import type { IHardwareCloudSyncSession } from '@onekeyhq/shared/types/keylessCloudSync';
 
@@ -24,6 +25,22 @@ import {
 } from './hardwareCloudSyncSession';
 
 import type { AxiosInstance } from 'axios';
+
+jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
+  defaultLogger: {
+    app: { error: { log: jest.fn() } },
+    account: {
+      secretPerf: {
+        decodePassword: jest.fn(),
+        decodePasswordDone: jest.fn(),
+        keyFromPasswordAndSalt: jest.fn(),
+        keyFromPasswordAndSaltDone: jest.fn(),
+        decryptAES: jest.fn(),
+        decryptAESDone: jest.fn(),
+      },
+    },
+  },
+}));
 
 const BASE_URL = 'http://localhost:7001';
 
@@ -425,7 +442,7 @@ describe('hardware Cloud sync session', () => {
         session: session(),
         deriveKek,
       }),
-    ).rejects.toThrow('Invalid Cloud sync key envelope');
+    ).rejects.toMatchObject({ reason: 'Invalid Cloud sync key envelope' });
     expect(deriveKek).not.toHaveBeenCalled();
     expect(c.post).not.toHaveBeenCalled();
   });
@@ -455,7 +472,9 @@ describe('hardware Cloud sync session', () => {
         deriveKek,
         minGeneration: 2,
       }),
-    ).rejects.toThrow('older than this device has seen');
+    ).rejects.toMatchObject({
+      reason: expect.stringContaining('older than this device has seen'),
+    });
     expect(deriveKek).not.toHaveBeenCalled();
   });
 
@@ -500,7 +519,7 @@ describe('hardware Cloud sync session', () => {
           jwk,
           now,
         }),
-      ).toThrow('Invalid Cloud sync sign-in challenge');
+      ).toThrow("Couldn't read Cloud sync data");
     }
   });
 
@@ -747,7 +766,9 @@ describe('hardware Cloud sync session', () => {
             beforeFlush,
             isCurrent: () => current,
           }),
-        ).rejects.toThrow('cancelled');
+        ).rejects.toMatchObject({
+          key: ETranslations.update_operation_canceled,
+        });
         expect(
           c.post.mock.calls.some(
             ([url]) => typeof url === 'string' && url.endsWith('/flush'),
@@ -771,7 +792,9 @@ describe('hardware Cloud sync session', () => {
           localItems: [],
           savePending: jest.fn(),
         }),
-      ).rejects.toThrow('Cloud sync key changed');
+      ).rejects.toMatchObject({
+        key: ETranslations.cloud_sync_key_changed_sync_again__msg,
+      });
       expect(c.post).not.toHaveBeenCalled();
     });
 
