@@ -53,6 +53,7 @@ import {
 } from '../../states/jotai/atoms';
 import ServiceBase from '../ServiceBase';
 import keylessSyncCredentialStorage from '../ServiceKeylessWallet/utils/keylessSyncCredentialStorage';
+import { isSupportedCloudSyncDataType } from '../ServicePrimeCloudSync/cloudSyncCheckUtils';
 import cloudSyncItemBuilder from '../ServicePrimeCloudSync/cloudSyncItemBuilder';
 import { keylessCloudSyncApi } from '../ServicePrimeCloudSync/keylessCloudSyncApi';
 import keylessCloudSyncUtils from '../ServicePrimeCloudSync/keylessCloudSyncUtils';
@@ -151,6 +152,25 @@ class ServiceKeylessCloudSync extends ServiceBase {
     return this.cloudSyncKeyMutex.runExclusive(operation);
   }
 
+  private assertUnknownSyncItemsCanMigrate(
+    items: IDBCloudSyncItem[],
+    availablePwdHashes: string[],
+  ) {
+    if (
+      items.some(
+        (item) =>
+          !isSupportedCloudSyncDataType(item.dataType) &&
+          item.pwdHash &&
+          !availablePwdHashes.includes(item.pwdHash),
+      )
+    ) {
+      throw new HardwareCloudSyncError(
+        ETranslations.cloud_sync_key_change_migration_unavailable__msg,
+        "Your data is already synced with another encryption method, and switching isn't available yet. Your existing data has been kept.",
+      );
+    }
+  }
+
   private async assertCloudKeySelectionCanChange(
     targetId?: string,
     {
@@ -180,6 +200,14 @@ class ServiceKeylessCloudSync extends ServiceBase {
         'Turn off Cloud sync before changing how your data is encrypted.',
       );
     }
+    const { items } =
+      await this.backgroundApi.servicePrimeCloudSync.getAllLocalSyncItems({
+        includeUnsupportedDataTypes: true,
+      });
+    if (rebuildsLocalItems) {
+      // Unknown records cannot be rebuilt by this client's business sync.
+      this.assertUnknownSyncItemsCanMigrate(items, []);
+    }
     if (
       rebuildsLocalItems ||
       (targetId &&
@@ -188,8 +216,6 @@ class ServiceKeylessCloudSync extends ServiceBase {
     ) {
       return;
     }
-    const { items } =
-      await this.backgroundApi.servicePrimeCloudSync.getAllLocalSyncItems();
     if (items.some((item) => !!item.pwdHash)) {
       throw new HardwareCloudSyncError(
         ETranslations.cloud_sync_key_change_migration_unavailable__msg,
@@ -322,7 +348,9 @@ class ServiceKeylessCloudSync extends ServiceBase {
       rebuildsLocalItems,
     });
     const { items: localItems } =
-      await this.backgroundApi.servicePrimeCloudSync.getAllLocalSyncItems();
+      await this.backgroundApi.servicePrimeCloudSync.getAllLocalSyncItems({
+        includeUnsupportedDataTypes: true,
+      });
     // Records encrypted with the selected key can only be unlocked by the same
     // recovery phrase, so another one is rejected before the device signs.
     const expectedCredentialId =
@@ -414,7 +442,12 @@ class ServiceKeylessCloudSync extends ServiceBase {
           );
           assertCurrent();
           const { items } =
-            await this.backgroundApi.servicePrimeCloudSync.getAllLocalSyncItems();
+            await this.backgroundApi.servicePrimeCloudSync.getAllLocalSyncItems(
+              {
+                includeUnsupportedDataTypes: true,
+              },
+            );
+          this.assertUnknownSyncItemsCanMigrate(items, [credential.pwdHash]);
           const existing =
             current.currentCloudSyncKeylessWalletId === source.credentialId
               ? await keylessSyncCredentialStorage.getCredential(
@@ -1013,7 +1046,13 @@ class ServiceKeylessCloudSync extends ServiceBase {
       // Read after the device and network waits, so account edits made while
       // confirming the reset are carried forward instead of an old snapshot.
       const { items: originalItems } =
-        await this.backgroundApi.servicePrimeCloudSync.getAllLocalSyncItems();
+        await this.backgroundApi.servicePrimeCloudSync.getAllLocalSyncItems({
+          includeUnsupportedDataTypes: true,
+        });
+      this.assertUnknownSyncItemsCanMigrate(originalItems, [
+        credential.pwdHash,
+        next.pwdHash,
+      ]);
       const items = await reencryptHardwareCloudSyncItems({
         items: originalItems,
         from: {
@@ -1229,6 +1268,11 @@ class ServiceKeylessCloudSync extends ServiceBase {
           "This hardware wallet can't unlock your synced data. Your existing data has been kept.",
         );
       }
+      const { items } =
+        await this.backgroundApi.servicePrimeCloudSync.getAllLocalSyncItems({
+          includeUnsupportedDataTypes: true,
+        });
+      this.assertUnknownSyncItemsCanMigrate(items, [credential.pwdHash]);
       rotated = await rotateHardwareCloudSyncDataKey({
         client,
         session,
@@ -1239,8 +1283,11 @@ class ServiceKeylessCloudSync extends ServiceBase {
           dekId: session.dekId,
           pwdHash: credential.pwdHash,
         },
-        // Local data is re-read at commit, after the server switched keys.
-        localItems: [],
+        // Preflight opaque local ciphertext before replacing the server key.
+        // Commit re-reads local data so edits during the reset are preserved.
+        localItems: items.filter(
+          (item) => !isSupportedCloudSyncDataType(item.dataType),
+        ),
         isCurrent,
         beforeFlush: async () => {
           if (
