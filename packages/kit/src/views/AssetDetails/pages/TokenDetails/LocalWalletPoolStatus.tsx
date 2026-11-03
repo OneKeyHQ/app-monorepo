@@ -129,7 +129,7 @@ export function LocalWalletPoolStatus({
     }
     const hintTimestamp = lw.state?.birthdayHintTimestamp;
     const earliestBirthday = lw.settings?.accountSetup.earliestBirthday;
-    const formRef = createEnableBirthdayForm(hintTimestamp);
+    const formRef = createEnableBirthdayForm(hintTimestamp, earliestBirthday);
     Dialog.confirm({
       title: intl.formatMessage({
         id: ETranslations.privacy_enable__title,
