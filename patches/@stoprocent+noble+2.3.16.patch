@@ -182,10 +182,21 @@ index f62c39f..8bb5f03 100644
  }
 
 diff --git a/node_modules/@stoprocent/noble/lib/noble.js b/node_modules/@stoprocent/noble/lib/noble.js
-index 94b4dc7..80ce70e 100644
+index 94b4dc7..756ebbc 100644
 --- a/node_modules/@stoprocent/noble/lib/noble.js
 +++ b/node_modules/@stoprocent/noble/lib/noble.js
-@@ -430,7 +430,13 @@ class Noble extends NobleEventEmitter {
+@@ -402,6 +402,10 @@ class Noble extends NobleEventEmitter {
+       // Also emit the general 'connect' event for a peripheral
+       peripheral.emit('connect', error);
+     } else {
++      // OneKey patch: a direct connect can fail before discovery creates a peripheral.
++      if (error) {
++        this.emit(`connect:${peripheralId}`, error);
++      }
+       this.emit('warning', `unknown peripheral ${peripheralId} connected!`);
+     }
+   }
+@@ -430,7 +434,13 @@ class Noble extends NobleEventEmitter {
      const peripheral = this._peripherals.get(peripheralId);
  
      if (peripheral) {
