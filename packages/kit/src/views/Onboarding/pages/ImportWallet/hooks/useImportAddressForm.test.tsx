@@ -1,6 +1,6 @@
 /** @jest-environment jsdom */
 
-import { act, renderHook, waitFor } from '@testing-library/react';
+import { act, renderHook } from '@testing-library/react';
 import { useController } from 'react-hook-form';
 
 import type { IAddressInputValue } from '@onekeyhq/kit/src/components/AddressInput';
@@ -78,6 +78,8 @@ jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
 
 describe('useImportAddressForm effective import method', () => {
   beforeEach(() => {
+    // Drive debounce time explicitly so CI load cannot exhaust assertion timeouts.
+    jest.useFakeTimers();
     mockAddWatchingAccount.mockReset();
     mockValidatePublicKey.mockReset();
     mockValidatePublicKey.mockResolvedValue({ isValid: false });
@@ -124,9 +126,8 @@ describe('useImportAddressForm effective import method', () => {
       result.current.setMethod(EImportMethod.PublicKey);
       result.current.form.setValue('publicKeyValue', 'invalid-public-key');
     });
-    await waitFor(() => {
-      expect(result.current.validateResult?.isValid).toBe(false);
-    });
+    await act(async () => jest.advanceTimersByTimeAsync(600));
+    expect(result.current.validateResult?.isValid).toBe(false);
 
     await act(async () => {
       result.current.setMethod(EImportMethod.Address);
@@ -155,7 +156,8 @@ describe('useImportAddressForm effective import method', () => {
       result.current.setMethod(EImportMethod.PublicKey);
       result.current.form.setValue('publicKeyValue', 'fixture-public-key');
     });
-    await waitFor(() => expect(mockValidatePublicKey).toHaveBeenCalledTimes(1));
+    await act(async () => jest.advanceTimersByTimeAsync(600));
+    expect(mockValidatePublicKey).toHaveBeenCalledTimes(1);
 
     await act(async () => {
       result.current.form.setValue('networkId', networkIds.eth);
@@ -165,9 +167,7 @@ describe('useImportAddressForm effective import method', () => {
       });
       await result.current.form.trigger();
     });
-    await waitFor(() => {
-      expect(result.current.validateResult?.isValid).toBe(false);
-    });
+    expect(result.current.validateResult?.isValid).toBe(false);
 
     await act(async () => resolvePublicKey({ isValid: true }));
     expect(result.current.validateResult?.isValid).toBe(false);
@@ -191,18 +191,17 @@ describe('useImportAddressForm effective import method', () => {
       result.current.setMethod(EImportMethod.PublicKey);
       result.current.form.setValue('publicKeyValue', 'first-key');
     });
-    await waitFor(() => expect(result.current.isEnable).toBe(true));
+    await act(async () => jest.advanceTimersByTimeAsync(600));
+    expect(result.current.isEnable).toBe(true);
     mockValidatePublicKey.mockResolvedValue({ isValid: false });
     act(() => result.current.form.setValue('publicKeyValue', 'invalid-key'));
     expect(result.current.isEnable).toBe(false);
     expect(result.current.validateResult).toBeUndefined();
-    await waitFor(() =>
-      expect(result.current.validateResult?.isValid).toBe(false),
-    );
+    await act(async () => jest.advanceTimersByTimeAsync(600));
+    expect(result.current.validateResult?.isValid).toBe(false);
   });
 
   it('ignores an older successful request after a newer invalid key completes', async () => {
-    jest.useFakeTimers();
     let resolveOld!: (value: IGeneralInputValidation) => void;
     mockValidatePublicKey.mockReturnValueOnce(
       new Promise((resolve) => {
@@ -234,16 +233,16 @@ describe('useImportAddressForm effective import method', () => {
       result.current.setMethod(EImportMethod.PublicKey);
       result.current.form.setValue('publicKeyValue', 'first-key');
     });
-    await waitFor(() => expect(result.current.isEnable).toBe(true));
+    await act(async () => jest.advanceTimersByTimeAsync(600));
+    expect(result.current.isEnable).toBe(true);
     act(() => result.current.form.setValue('deriveType', 'default'));
     mockValidatePublicKey.mockResolvedValue({ isValid: false });
     act(() => result.current.form.setValue('networkId', networkIds.ltc));
     expect(result.current.isPublicKeyImport).toBe(true);
     expect(result.current.isEnable).toBe(false);
     expect(result.current.form.getValues('deriveType')).toBeUndefined();
-    await waitFor(() =>
-      expect(result.current.validateResult?.isValid).toBe(false),
-    );
+    await act(async () => jest.advanceTimersByTimeAsync(600));
+    expect(result.current.validateResult?.isValid).toBe(false);
   });
 
   it('rejects submission of a key changed before React commits', async () => {
@@ -253,7 +252,8 @@ describe('useImportAddressForm effective import method', () => {
       result.current.setMethod(EImportMethod.PublicKey);
       result.current.form.setValue('publicKeyValue', 'first-key');
     });
-    await waitFor(() => expect(result.current.isEnable).toBe(true));
+    await act(async () => jest.advanceTimersByTimeAsync(600));
+    expect(result.current.isEnable).toBe(true);
     await act(async () => {
       result.current.form.setValue('publicKeyValue', 'unvalidated-key');
       await result.current.form.submit?.();
@@ -272,7 +272,8 @@ describe('useImportAddressForm effective import method', () => {
         message: 'Invalid address',
       });
     });
-    await waitFor(() => expect(result.current.isEnable).toBe(true));
+    await act(async () => jest.advanceTimersByTimeAsync(600));
+    expect(result.current.isEnable).toBe(true);
 
     act(() => {
       result.current.form.setError('accountName', {
@@ -283,7 +284,6 @@ describe('useImportAddressForm effective import method', () => {
   });
 
   it('re-enables an address import once a blurred duplicate account name is edited', async () => {
-    jest.useFakeTimers();
     mockEnsureAccountNameNotDuplicate.mockImplementation(async ({ name }) => {
       if (name === 'U') {
         throw new OneKeyLocalError('Duplicate name');
