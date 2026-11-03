@@ -177,15 +177,6 @@ export async function listLocalWalletSendPools(
       partialScanHint,
     ),
     pool(
-      'orchard',
-      'Orchard',
-      balance?.poolsDetail.orchard.spendable,
-      shieldedDefault('orchard'),
-      undefined,
-      !texRecipient,
-      partialScanHint,
-    ),
-    pool(
       'transparent',
       'Transparent',
       transparentSpendable,
@@ -566,23 +557,19 @@ export async function getLocalWalletAccountBalance(
       balance?.poolsDetail.ironwood,
       [],
     ),
-    privatePool(
-      'orchard',
-      balance?.orchardBalance,
-      balance?.poolsDetail.orchard,
-      [],
-    ),
   ];
   return {
     total: balance?.isComplete
-      ? transparentTotal?.plus(balance.shielded).toFixed(0)
+      ? transparentTotal?.plus(balance.ironwoodBalance).toFixed(0)
       : undefined,
     totalParsed:
       !balance?.isComplete || transparentTotal === undefined
         ? undefined
-        : parsed(transparentTotal.plus(balance.shielded).toFixed(0)),
+        : parsed(transparentTotal.plus(balance.ironwoodBalance).toFixed(0)),
     spendable: balance
-      ? transparentSpendable?.plus(balance.shieldedSpendable).toFixed(0)
+      ? transparentSpendable
+          ?.plus(balance.poolsDetail.ironwood.spendable)
+          .toFixed(0)
       : undefined,
     pools,
     frozen: sumLocalWalletFrozen(pools),
@@ -894,7 +881,7 @@ export async function zcashFetchTransparentTokenDetails(
   return serverResponse;
 }
 
-// Backend supplies the transparent side and pricing; the runtime supplies every shielded pool and the real spendable figure.
+// Backend supplies transparent funds and pricing; the product supports only Ironwood private funds.
 export async function fetchTokenDetails(
   vault: Vault,
   params: IFetchServerTokenDetailParams,
@@ -1015,11 +1002,11 @@ export async function zcashGetComposedBalanceSafe(
   // total would read as lost funds.
   if (!balance) throw localWalletBalanceUnavailableError('zcash');
   return composePrivacyChainBalance({
-    privateSide: balance.shielded,
+    privateSide: balance.ironwoodBalance,
     privateSideComplete: balance.isComplete,
     publicSideIndexer: publicSideBackend,
     spendable: transparent.spendable
-      ?.plus(balance.shieldedSpendable)
+      ?.plus(balance.poolsDetail.ironwood.spendable)
       .toFixed(0),
   });
 }

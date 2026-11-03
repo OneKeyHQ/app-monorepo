@@ -75,6 +75,7 @@ export async function zcashCreatePczt(
     memoHex?: string;
   },
 ): Promise<IZcashCreatedPczt> {
+  zcashSpendSourceFromKey(params.spendSource);
   // Pending sends don't block new ones: their stored transactions already spend their notes, so the proposer can't reuse them.
   const account = await vault.zcashGetWalletAccount({
     accountId: params.accountId,
@@ -233,14 +234,15 @@ export async function buildEncodedTx(
       },
     );
   const sourcePool = transferInfo.localWalletSourcePool;
+  if (sourcePool !== undefined && sourcePool !== 'transparent') {
+    zcashSpendSourceFromKey(sourcePool);
+  }
   const requestedSpendSource = zcashSpendSourceFromKey(
     transferInfo.localWalletSpendSource,
   );
   if (
     privacyMode.intent !== 'on' &&
-    (sourcePool === 'orchard' ||
-      sourcePool === 'ironwood' ||
-      requestedSpendSource !== undefined)
+    (sourcePool === 'ironwood' || requestedSpendSource !== undefined)
   ) {
     throw zcashTransparentError(
       'PRIVACY_MODE_DISABLED',
@@ -271,7 +273,7 @@ export async function buildEncodedTx(
     .toFixed(0, BigNumber.ROUND_DOWN);
   // Only an explicit Max request may change the entered amount; ordinary transfers reach the proposer unchanged.
   const spendSource: IZcashSpendSource =
-    sourcePool === 'orchard' || sourcePool === 'ironwood'
+    sourcePool === 'ironwood'
       ? sourcePool
       : (requestedSpendSource ?? ZCASH_CURRENT_SHIELDED_POOL);
   if (params.transferPayload?.isMaxSend === true) {

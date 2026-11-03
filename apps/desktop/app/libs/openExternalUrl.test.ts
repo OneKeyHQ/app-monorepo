@@ -84,8 +84,16 @@ describe('desktop external URLs', () => {
     'macappstores://example.com',
     'macappstore://itunes.apple.com/app/id1?mt=12',
     `${MAC_APP_STORE_DOWNLOAD_LINK}&ct=other`,
+    'https://example.com/" --gpu-launcher=calc',
+    'https://example.com/path with spaces',
   ])('still blocks unapproved renderer URLs: %s', async (url) => {
     await openExternalUrl(url);
+    expect(mockOpenExternal).not.toHaveBeenCalled();
+  });
+
+  it('blocks external URLs containing control characters', async () => {
+    await openExternalUrl('https://example.com/\u0000null');
+    await openExternalUrl('https://example.com/\r\n');
     expect(mockOpenExternal).not.toHaveBeenCalled();
   });
 });

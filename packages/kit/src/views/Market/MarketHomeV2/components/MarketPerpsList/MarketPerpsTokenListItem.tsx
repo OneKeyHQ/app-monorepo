@@ -19,6 +19,7 @@ import { MARKET_CELL_LINE_GAP, MARKET_CELL_LOGO_GAP } from '../MarketListCell';
 import { PriceChangeBadge } from '../PriceChangeBadge';
 
 import type { IMarketPerpsToken } from './hooks/useMarketPerpsTokenList';
+import type { IBannerDetailColumnMode } from '../../../MarketBannerDetail/BannerDetailListColumnHeader';
 
 // Same frame as the other mobile Market rows (`TokenListItem`): a fixed 72px
 // height inside 20px / 12px padding, 14px from the logo to the text, 4px
@@ -28,11 +29,13 @@ const MARKET_PERPS_LIST_ITEM_HEIGHT = 72;
 interface IMarketPerpsTokenListItemProps {
   item: IMarketPerpsToken;
   onPress: () => void;
+  bannerColumnMode?: IBannerDetailColumnMode;
 }
 
 const BasicMarketPerpsTokenListItem: FC<IMarketPerpsTokenListItemProps> = ({
   item,
   onPress,
+  bannerColumnMode = 'compact',
 }) => {
   const hasRealTimeData = item.markPrice !== undefined;
 
@@ -48,7 +51,7 @@ const BasicMarketPerpsTokenListItem: FC<IMarketPerpsTokenListItemProps> = ({
     >
       {/* Left side: Token Icon + Name + Badges + Volume */}
       <XStack
-        flexGrow={1}
+        flexGrow={bannerColumnMode === 'compact' ? 1 : 2}
         flexBasis={0}
         alignItems="center"
         gap={MARKET_CELL_LOGO_GAP}
@@ -85,39 +88,85 @@ const BasicMarketPerpsTokenListItem: FC<IMarketPerpsTokenListItemProps> = ({
             height={16}
           >
             {item.subtitle ? <SubtitleText subtitle={item.subtitle} /> : null}
-            <SkeletonContainer isLoading={!hasRealTimeData}>
-              <NumberSizeableText
-                size="$bodySm"
-                color="$textSubdued"
-                numberOfLines={1}
-                flexShrink={0}
-                formatter="marketCap"
-                formatterOptions={{ currency: '$' }}
-                userSelect="none"
-              >
-                {item.volume24h ?? '0'}
-              </NumberSizeableText>
-            </SkeletonContainer>
+            {bannerColumnMode === 'three' ? null : (
+              <SkeletonContainer isLoading={!hasRealTimeData}>
+                <NumberSizeableText
+                  size="$bodySm"
+                  color="$textSubdued"
+                  numberOfLines={1}
+                  flexShrink={0}
+                  formatter="marketCap"
+                  formatterOptions={{ currency: '$' }}
+                  userSelect="none"
+                >
+                  {item.volume24h ?? '0'}
+                </NumberSizeableText>
+              </SkeletonContainer>
+            )}
           </XStack>
         </YStack>
       </XStack>
 
       {/* Right side: Price + Change */}
-      <SkeletonContainer isLoading={!hasRealTimeData}>
-        <XStack alignItems="center" gap="$2" flexShrink={0}>
-          <NumberSizeableText
-            userSelect="none"
-            flexShrink={1}
-            numberOfLines={1}
-            size="$bodyLgMedium"
-            formatter="price"
-            formatterOptions={{ currency: '$' }}
-          >
-            {item.markPrice ?? '0'}
-          </NumberSizeableText>
-          <PriceChangeBadge change={item.change24hPercent ?? 0} />
-        </XStack>
-      </SkeletonContainer>
+      {bannerColumnMode === 'compact' ? (
+        <SkeletonContainer isLoading={!hasRealTimeData}>
+          <XStack alignItems="center" gap="$2" flexShrink={0}>
+            <NumberSizeableText
+              userSelect="none"
+              flexShrink={1}
+              numberOfLines={1}
+              size="$bodyLgMedium"
+              formatter="price"
+              formatterOptions={{ currency: '$' }}
+            >
+              {item.markPrice ?? '0'}
+            </NumberSizeableText>
+            <PriceChangeBadge change={item.change24hPercent ?? 0} />
+          </XStack>
+        </SkeletonContainer>
+      ) : (
+        <>
+          <XStack flex={1} jc="flex-end" minWidth={0}>
+            <SkeletonContainer isLoading={!hasRealTimeData}>
+              <NumberSizeableText
+                textAlign="right"
+                numberOfLines={1}
+                size="$bodyLgMedium"
+                formatter="price"
+                formatterOptions={{ currency: '$' }}
+              >
+                {item.markPrice ?? '0'}
+              </NumberSizeableText>
+            </SkeletonContainer>
+          </XStack>
+          <XStack flex={1} jc="flex-end" minWidth={0}>
+            <SkeletonContainer isLoading={!hasRealTimeData}>
+              <PriceChangeBadge change={item.change24hPercent ?? 0} />
+            </SkeletonContainer>
+          </XStack>
+          {bannerColumnMode === 'three' ? (
+            <XStack flex={1} jc="flex-end" minWidth={0}>
+              <SkeletonContainer isLoading={!hasRealTimeData}>
+                {item.volume24h && Number.isFinite(Number(item.volume24h)) ? (
+                  <NumberSizeableText
+                    textAlign="right"
+                    numberOfLines={1}
+                    size="$bodyMd"
+                    formatter="marketCap"
+                    formatterOptions={{ currency: '$' }}
+                  >
+                    {item.volume24h}
+                  </NumberSizeableText>
+                ) : (
+                  <SizableText size="$bodyMd" color="$textSubdued">
+                    --
+                  </SizableText>
+                )}
+              </SkeletonContainer>
+            </XStack>
+          ) : null}
+        </>
+      )}
     </XStack>
   );
 };

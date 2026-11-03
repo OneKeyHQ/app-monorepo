@@ -29,7 +29,7 @@ import {
   shell,
 } from 'electron';
 import contextMenu from 'electron-context-menu';
-import isDev from 'electron-is-dev';
+import electronIsDev from 'electron-is-dev';
 import logger from 'electron-log/main';
 
 import { CALL_DESKTOP_API_EVENT_NAME } from '@onekeyhq/kit-bg/src/desktopApis/base/consts';
@@ -51,10 +51,6 @@ import {
   APP_MENU_OFFICIAL_WEBSITE_URL,
   APP_MENU_X_URL,
 } from '@onekeyhq/shared/src/consts/appMenuConsts';
-import {
-  ONEKEY_APP_DEEP_LINK_NAME,
-  WALLET_CONNECT_DEEP_LINK_NAME,
-} from '@onekeyhq/shared/src/consts/deeplinkConsts';
 import { DESKTOP_WEBVIEW_OVERLAY_PARTITION } from '@onekeyhq/shared/src/consts/desktopWebviewPartitions';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { sanitizeTrezorThpModuleLogData } from '@onekeyhq/shared/src/hardware/trezorThpLogRedact';
@@ -78,7 +74,13 @@ import {
 import { ipcMessageKeys } from './config';
 import { ElectronTranslations, i18nText, initLocale } from './i18n';
 import { scheduleCrashDumpCleanup } from './libs/crashDumpCleanup';
-import { findAllowedDeepLinkArg, isAllowedDeepLinkUrl } from './libs/deepLink';
+import {
+  DESKTOP_DEEP_LINK_PROTOCOLS,
+  findAllowedDeepLinkArg,
+  getDesktopProtocolClientArgs,
+  isAllowedDeepLinkUrl,
+  resolveDesktopRuntimeFlags,
+} from './libs/deepLink';
 import {
   DESKTOP_API_ALLOWED_MODULES,
   isDesktopApiMethodAllowed,
@@ -181,10 +183,15 @@ function makeIpcSafeResult(result: unknown): unknown {
 // pre-Sentry by construction; native crashes are still covered out-of-band.)
 process.nextTick(initSentry);
 
-const isPerfCiMode = process.env.PERF_CI_MODE === '1';
-const isDesktopE2EMode = process.env.DESKTOP_E2E_MODE === 'true';
-const isDevServer = isDev && !isPerfCiMode;
-const isLocalUnpacked = isDev || isPerfCiMode;
+// SECURITY: never allow development or unpacked modes (such as ELECTRON_IS_DEV=1
+// or PERF_CI_MODE=1) in packaged builds; they enable unpacked file/URL loading
+// and skip production file:// hash/GPG checks.
+const { isDev, isPerfCiMode, isDevServer, isLocalUnpacked, isDesktopE2EMode } =
+  resolveDesktopRuntimeFlags({
+    isPackaged: app.isPackaged,
+    electronIsDev,
+    env: process.env,
+  });
 
 function isWhitelistedMediaOrigin(
   origin: string,
@@ -689,15 +696,18 @@ function handleDeepLinkUrl(
   argv?: string[],
   isColdStartup?: boolean,
 ) {
-  // Validate deep link scheme before forwarding to renderer
-  if (url && !isAllowedDeepLinkUrl(url)) {
-    logger.warn('[DeepLink] Rejected URL with unknown scheme:', url);
+  // Validate deep link scheme and syntax before forwarding to renderer.
+  // Never log raw deep link URLs as they may contain pairing keys or tokens.
+  if (!url || !isAllowedDeepLinkUrl(url)) {
+    logger.warn('[DeepLink] Rejected URL with unknown or unsafe scheme');
     return;
   }
 
+  // Only forward the validated deep link URL; never pass raw process.argv
+  // (which contains executable paths, Electron switches, or untrusted args).
   const eventData: IDesktopOpenUrlEventData = {
     url,
-    argv,
+    argv: argv ? [url] : undefined,
     isColdStartup,
     platform: process.platform,
   };
@@ -1111,12 +1121,12 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
   // renderer via sender-id checks in HttpServer.
   setMainWindowForHttpServer(browserWindow);
 
-  // Protocol handler for win32
+  // Protocol handler for cold startup command-line URLs
   // Skip on soft restart: process.argv is unchanged across an in-process
   // recreate, so replaying the launch deep link here would re-dispatch the
   // original cold-start URL (e.g. a WalletConnect pairing or send screen) after
   // every bundle update. Only a genuine cold boot should consume argv.
-  if ((isWin || isMac) && !isSoftRestart) {
+  if ((isWin || isMac || isLinux) && !isSoftRestart) {
     const deeplinkingUrl = findAllowedDeepLinkArg(process.argv);
     if (deeplinkingUrl) {
       handleDeepLinkUrl(null, deeplinkingUrl, process.argv, true);
@@ -1592,7 +1602,7 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
         ) => {
           if (isAllowedWebViewUrl(url)) return;
           navigationEvent.preventDefault();
-          logger.info('overlay pre-navigation block (main process):', url);
+          logger.info('overlay pre-navigation block (main process)');
         };
         contents.on('will-redirect', guardOverlayPreNavigation);
         contents.on('will-navigate', guardOverlayPreNavigation);
@@ -1617,16 +1627,13 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
         );
         if (action === uriUtils.EDAppOpenActionEnum.DENY) {
           e.preventDefault();
-          logger.info(
-            'reject navigate main process will-frame-navigate: ',
-            url,
-          );
+          logger.info('reject navigate main process will-frame-navigate');
           return false;
         }
 
         if (uriUtils.isValidDeepLink(url)) {
           e.preventDefault();
-          logger.info('reject deeplink in main process:', url);
+          logger.info('reject deeplink in main process');
           return false;
         }
       });
@@ -2139,9 +2146,12 @@ if (!singleInstance && !process.mas) {
   app.quit();
 } else {
   app.on('second-instance', (e, argv) => {
+    const deeplinkingUrl = findAllowedDeepLinkArg(argv);
+    // Omit raw `argv` and `deeplinkingUrl` from logs so sensitive deep-link
+    // parameters (e.g. WalletConnect `symKey` or voucher codes) are not persisted.
     logger.info('Second instance launched, focusing existing window', {
-      argv,
       platform: process.platform,
+      hasDeepLink: Boolean(deeplinkingUrl),
     });
 
     const safelyMainWindow = getSafelyMainWindow();
@@ -2152,8 +2162,6 @@ if (!singleInstance && !process.mas) {
       }
 
       // Handle deep link arguments for all platforms
-      // argv: An array of the second instance's (command line / deep linked) arguments
-      const deeplinkingUrl = findAllowedDeepLinkArg(argv);
       if (deeplinkingUrl) {
         // handleDeepLinkUrl internally calls showMainWindow(), so we don't need to call it separately
         handleDeepLinkUrl(null, deeplinkingUrl, argv, false); // isColdStartup=false for second instance
@@ -3001,26 +3009,30 @@ if (isDevServer && !app.isPackaged) {
 
 // register deeplink for desktop
 //  https://www.electronjs.org/docs/latest/tutorial/launch-app-from-url-in-another-app
-if (process.defaultApp) {
-  if (process.argv.length >= 2) {
-    app.setAsDefaultProtocolClient(
-      ONEKEY_APP_DEEP_LINK_NAME,
-      process.execPath,
-      // reassign args to argv[1]  ?
-      [path.resolve(process.argv[1])],
-    );
+// Always include `'--'` before `"%1"` on Windows so Chromium option parsing
+// terminates before the external URL argument (prevents switch injection).
+// Passing `process.execPath` and `protocolClientArgs` to `isDefaultProtocolClient`
+// also ensures legacy bare `"%1"` registry entries are upgraded automatically.
+if (!process.defaultApp || process.argv.length >= 2) {
+  const protocolClientArgs = getDesktopProtocolClientArgs(
+    process.defaultApp,
+    process.argv,
+  );
+  for (const protocol of DESKTOP_DEEP_LINK_PROTOCOLS) {
+    if (
+      !app.isDefaultProtocolClient(
+        protocol,
+        process.execPath,
+        protocolClientArgs,
+      )
+    ) {
+      app.setAsDefaultProtocolClient(
+        protocol,
+        process.execPath,
+        protocolClientArgs,
+      );
+    }
   }
-} else {
-  app.setAsDefaultProtocolClient(ONEKEY_APP_DEEP_LINK_NAME);
-}
-if (!app.isDefaultProtocolClient(WALLET_CONNECT_DEEP_LINK_NAME)) {
-  // Define custom protocol handler. Deep linking works on packaged versions of the application!
-  app.setAsDefaultProtocolClient(WALLET_CONNECT_DEEP_LINK_NAME);
-}
-// also define `protocols` at apps/desktop/electron-builder.config.js
-if (!app.isDefaultProtocolClient(ONEKEY_APP_DEEP_LINK_NAME)) {
-  // Define custom protocol handler. Deep linking works on packaged versions of the application!
-  app.setAsDefaultProtocolClient(ONEKEY_APP_DEEP_LINK_NAME);
 }
 
 if (isWin) {

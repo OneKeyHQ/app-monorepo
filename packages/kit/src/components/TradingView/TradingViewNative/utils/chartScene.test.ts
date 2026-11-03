@@ -263,11 +263,41 @@ describe('TradingViewNative shared chart scene', () => {
     },
   );
 
+  it('formats the crosshair price with the axis display precision', () => {
+    const getCrosshairText = (priceAxisDecimalPlaces?: number) =>
+      buildTradingViewNativeChartScene({
+        candleIntervalSeconds: 3600,
+        chartType: 'candlestick',
+        crosshair: { visible: true, x: 120, y: 83 },
+        hasVolume: false,
+        height: 240,
+        measureTextWidth: (text) => text.length * 6,
+        candleLabels: CANDLE_LABELS,
+        points: POINTS,
+        priceAxisDecimalPlaces,
+        priceDecimalPlaces: 3,
+        viewport: { offset: 0, zoomScale: 1 },
+        watermarkOpacity: 0,
+        width: 320,
+      }).commands.flatMap((command) =>
+        command.kind === 'text' && command.paint === 'crosshairLabelText'
+          ? [command.text]
+          : [],
+      );
+
+    const [axisPrecisionText] = getCrosshairText(2);
+    const [fullPrecisionText] = getCrosshairText();
+    expect(axisPrecisionText?.split('.')[1]?.length ?? 0).toBeLessThanOrEqual(
+      2,
+    );
+    expect(fullPrecisionText?.split('.')[1]?.length).toBe(3);
+  });
+
   it('describes the complete chart without a Canvas or Skia dependency', () => {
     const scene = buildTradingViewNativeChartScene({
       candleIntervalSeconds: 3600,
       chartType: 'candlestick',
-      crosshair: { visible: true, x: 264.5, y: 80 },
+      crosshair: { visible: true, x: 259.5, y: 80 },
       hasVolume: true,
       height: 240,
       measureTextWidth: (text) => text.length * 6,

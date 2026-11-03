@@ -18,6 +18,8 @@ interface IFeaturedFooterProps {
   ctaText: string;
   onCtaPress: () => void;
   showFullChangelog?: boolean;
+  showContactSupport?: boolean;
+  onContactSupportPress?: () => void;
   isPreInstall: boolean;
   closeDialog: () => Promise<void>;
   onLayout?: (event: LayoutChangeEvent) => void;
@@ -27,6 +29,8 @@ function FeaturedFooter({
   ctaText,
   onCtaPress,
   showFullChangelog = true,
+  showContactSupport = false,
+  onContactSupportPress,
   isPreInstall,
   closeDialog,
   onLayout,
@@ -60,6 +64,34 @@ function FeaturedFooter({
     });
   }, [navigation, closeDialog, isPreInstall]);
 
+  const renderSecondaryAction = (size: 'small' | 'medium') => {
+    if (showFullChangelog) {
+      return (
+        <Button
+          testID={AppUpdateTestIDs.featuredFooterViewChangelogBtn}
+          size={size}
+          variant="tertiary"
+          onPress={handleViewChangelog}
+        >
+          {intl.formatMessage({ id: ETranslations.view_full_changelog })}
+        </Button>
+      );
+    }
+    if (showContactSupport) {
+      return (
+        <Button
+          testID={AppUpdateTestIDs.contactUsBtn}
+          size={size}
+          variant="tertiary"
+          onPress={onContactSupportPress}
+        >
+          {intl.formatMessage({ id: ETranslations.swap_review_tx_failed_2 })}
+        </Button>
+      );
+    }
+    return size === 'small' ? <Stack /> : null;
+  };
+
   if (md) {
     return (
       <YStack px="$5" gap="$4" pb="$5" onLayout={onLayout}>
@@ -71,16 +103,7 @@ function FeaturedFooter({
         >
           {ctaText}
         </Button>
-        {showFullChangelog ? (
-          <Button
-            testID={AppUpdateTestIDs.featuredFooterViewChangelogBtn}
-            size="medium"
-            variant="tertiary"
-            onPress={handleViewChangelog}
-          >
-            {intl.formatMessage({ id: ETranslations.view_full_changelog })}
-          </Button>
-        ) : null}
+        {renderSecondaryAction('medium')}
       </YStack>
     );
   }
@@ -93,18 +116,7 @@ function FeaturedFooter({
       alignItems="center"
       onLayout={onLayout}
     >
-      {showFullChangelog ? (
-        <Button
-          testID={AppUpdateTestIDs.featuredFooterViewChangelogBtn}
-          size="small"
-          variant="tertiary"
-          onPress={handleViewChangelog}
-        >
-          {intl.formatMessage({ id: ETranslations.view_full_changelog })}
-        </Button>
-      ) : (
-        <Stack />
-      )}
+      {renderSecondaryAction('small')}
       <Button
         testID={AppUpdateTestIDs.featuredFooterCtaBtn}
         size="medium"

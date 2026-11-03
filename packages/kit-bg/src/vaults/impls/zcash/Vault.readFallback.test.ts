@@ -130,7 +130,8 @@ describe('Zcash private history when the runtime read fails', () => {
   });
 
   it('uses a late private result on the next refresh', async () => {
-    let finish: (rows: { txid: string }[]) => void = () => undefined;
+    let finish: (rows: { txid: string; poolIds: number[] }[]) => void = () =>
+      undefined;
     const getHistory = jest
       .fn()
       .mockImplementationOnce(
@@ -150,7 +151,7 @@ describe('Zcash private history when the runtime read fails', () => {
     await expect(vault.fetchAccountHistoryFromLocal(params)).resolves.toEqual(
       [],
     );
-    finish([{ txid: 'late-private' }]);
+    finish([{ txid: 'late-private', poolIds: [4] }]);
     for (let turn = 0; turn < 20; turn += 1) await Promise.resolve();
     const rows = await vault.fetchAccountHistoryFromLocal(params);
     expect(rows?.map((row) => row.decodedTx.txid)).toEqual(['late-private']);
@@ -159,7 +160,7 @@ describe('Zcash private history when the runtime read fails', () => {
   it('does not return a cached private snapshot after lifecycle clearing', async () => {
     const getHistory = jest
       .fn()
-      .mockResolvedValueOnce([{ txid: 'removed-private' }])
+      .mockResolvedValueOnce([{ txid: 'removed-private', poolIds: [4] }])
       .mockImplementationOnce(() => new Promise(() => undefined));
     const vault = createVault(getHistory);
     Object.assign(vault, {
@@ -178,8 +179,28 @@ describe('Zcash private history when the runtime read fails', () => {
     await expect(pending).resolves.toEqual([]);
   });
 
+  it('excludes old-pool-only history while retaining Ironwood and transparent activity', async () => {
+    const vault = createVault(
+      jest.fn().mockResolvedValue([
+        { txid: 'sapling', poolIds: [2] },
+        { txid: 'orchard', poolIds: [3] },
+        { txid: 'ironwood', poolIds: [4] },
+        { txid: 'transparent', poolIds: [0] },
+        { txid: 'migration-to-ironwood', poolIds: [3, 4] },
+      ]),
+    );
+    const rows = await vault.fetchAccountHistoryFromLocal(params);
+    expect(rows?.map((tx) => tx.decodedTx.txid).toSorted()).toEqual([
+      'ironwood',
+      'migration-to-ironwood',
+      'transparent',
+    ]);
+  });
+
   it('still returns history when the tip read fails', async () => {
-    const getHistory = jest.fn().mockResolvedValue([{ txid: 'tx-private' }]);
+    const getHistory = jest
+      .fn()
+      .mockResolvedValue([{ txid: 'tx-private', poolIds: [4] }]);
     const vault = createVault(
       getHistory,
       jest.fn().mockRejectedValue(new Error('tip down')),
@@ -193,7 +214,7 @@ describe('Zcash private history when the runtime read fails', () => {
     async (paused) => {
       const getHistory = jest
         .fn()
-        .mockResolvedValue([{ txid: 'paused-private-tx' }]);
+        .mockResolvedValue([{ txid: 'paused-private-tx', poolIds: [4] }]);
       const vault = createVault(getHistory);
       Object.assign(vault.backgroundApi.simpleDb.privacyChainState, {
         getZcashPrivacyModeState: async () => ({
@@ -282,7 +303,7 @@ describe('Zcash private balance when the runtime read fails', () => {
       const balance = await vault.getLocalWalletAccountBalance({
         accountId: 'balance-acc',
       });
-      for (const key of ['ironwood', 'orchard']) {
+      for (const key of ['ironwood']) {
         expect(balance?.pools.find((item) => item.key === key)).toMatchObject({
           total: undefined,
           spendable: undefined,
@@ -295,9 +316,8 @@ describe('Zcash private balance when the runtime read fails', () => {
       expect(
         sendPools?.find((item) => item.key === 'ironwood')?.spendable,
       ).toBeUndefined();
-      expect(
-        sendPools?.find((item) => item.key === 'orchard')?.spendable,
-      ).toBeUndefined();
+      expect(sendPools?.some((item) => item.key === 'orchard')).toBe(false);
+      expect(balance?.pools.some((item) => item.key === 'orchard')).toBe(false);
       expect(repair).not.toHaveBeenCalled();
     } finally {
       jest.useRealTimers();
