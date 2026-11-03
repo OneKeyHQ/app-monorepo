@@ -1143,6 +1143,13 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries �
 **Fix**: `drawReferenceTitle` takes the computed price-axis labels and centers the tag on `referenceLabelY` (falling back to the clamped line position), matching the axis badge. A unit test pins equal `y` and `height` for the tag and badge, both at rest and when nudged.
 **Catchable by**: NEW — when one visual element is drawn as several shapes (tag + axis badge), derive every shape's position from one shared anchor and assert their alignment in a scene test, especially when porting a renderer (web lightweight-charts → native Skia).
 
+## Case: Native chart settings button left fullscreen on mobile
+**Date**: 2026-11-02 | **Platforms**: iOS, Android (main UI runtime), mobile web (single runtime)
+**Symptom**: With a native chart fullscreen on mobile, the toolbar settings button sat right next to exit fullscreen, so a near miss left fullscreen (OK-65712). On Android and mobile web, pressing settings itself also left fullscreen.
+**Root Cause**: `TradingViewNativeContainer` hid only the in-chart settings button with `!isNativeChartFullscreen`. The toolbar placement built in `mobileSettingsControl` had no such check, so it kept rendering in fullscreen. Only iOS can push a modal over its fullscreen page; `pushTradingViewNativeFullscreenModal` returns `false` on Android and web, so those platforms fell through to `onBeforeOpenSettings`, which exited fullscreen before opening settings.
+**Fix**: Hide only the button inside the `mobileSettingsControl` wrapper while fullscreen, and remove `onBeforeOpenSettings`. The wrapper stays because a truthy control keeps the chart type and indicator actions out of the toolbar, and `mobileToolbarExtra` stays because it carries the mobile web fullscreen toggle. A `TradingViewNativeContainer` test pins the hidden button and the retained control and extras.
+**Catchable by**: NEW — when a control has several placements, apply its visibility rule to every placement, and check what else reads a prop's truthiness before clearing it. A workaround that leaves the current mode (such as exiting fullscreen to open a page) should be checked against the user's flow on each platform.
+
 ## Case: Recipient pager selection echoed through native commands and initialPage
 **Date**: 2026-11-02 | **Platforms**: iOS, Android (main UI runtime and its per-view native pager instance; no bg state or cross-runtime deserialization)
 **Symptom**: On Android, swiping between recipient tabs left the segmented indicator partway between tabs. Removing the echoed page command also exposed an iOS path that reapplied the selected page and detached/rebuilt its scroll observation after each swipe.
