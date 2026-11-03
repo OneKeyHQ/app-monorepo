@@ -33,6 +33,15 @@ const mockAuthState = jest.fn<Promise<'loggedIn' | 'loggedOut'>, []>();
 const mockAuthSessionSource = jest.fn<Promise<string | undefined>, []>();
 const mockBumpRevision = jest.fn<Promise<number>, []>();
 const mockKeylessWallet = jest.fn<Promise<{ id: string } | undefined>, []>();
+const mockSimulateRealMarker = jest.fn<
+  Promise<{ restartRequired: true }>,
+  unknown[]
+>();
+
+jest.mock('@onekeyhq/shared/src/storage/nativeStorageExecutor', () => ({
+  simulateNativeAppStorageMissingMarker: (...args: unknown[]) =>
+    mockSimulateRealMarker(...args),
+}));
 
 jest.mock('./ServiceBase', () => ({
   __esModule: true,
@@ -79,7 +88,12 @@ jest.mock('@onekeyhq/shared/src/modules3rdParty/auto-update', () => ({
 }));
 jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
   __esModule: true,
-  default: { isNative: false, isDesktop: false, isJest: true },
+  default: {
+    isNative: false,
+    isDesktop: false,
+    isJest: true,
+    isNativeBackgroundThread: false,
+  },
 }));
 jest.mock('@onekeyhq/shared/src/storage/appStorage', () => ({
   __esModule: true,
@@ -158,6 +172,33 @@ describe('OneKey ID environment switching', () => {
     resetIdentityRecoveryStateForTest('ready');
     jest.clearAllTimers();
     jest.useRealTimers();
+  });
+
+  it('rejects direct real-marker simulation RPC outside native bg or developer mode', async () => {
+    const service = createService();
+    await expect(
+      service.simulateRealAppStorageMissingMarker(
+        'REMOVE MARKER ON MY TEST DEVICE',
+      ),
+    ).rejects.toThrow('developer mode');
+    jest.replaceProperty(platformEnv, 'isNativeBackgroundThread', true);
+    mockSettings.enabled = false;
+    await expect(
+      service.simulateRealAppStorageMissingMarker(
+        'REMOVE MARKER ON MY TEST DEVICE',
+      ),
+    ).rejects.toThrow('developer mode');
+    expect(mockSimulateRealMarker).not.toHaveBeenCalled();
+    mockSettings.enabled = true;
+    mockSimulateRealMarker.mockResolvedValueOnce({ restartRequired: true });
+    await expect(
+      service.simulateRealAppStorageMissingMarker(
+        'REMOVE MARKER ON MY TEST DEVICE',
+      ),
+    ).resolves.toEqual({ restartRequired: true });
+    expect(mockSimulateRealMarker).toHaveBeenCalledWith(
+      'REMOVE MARKER ON MY TEST DEVICE',
+    );
   });
 
   test.each(['prod-to-test', 'test-to-prod', 'disable-dev'] as const)(

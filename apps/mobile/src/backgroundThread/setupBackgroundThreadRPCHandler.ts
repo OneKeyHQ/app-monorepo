@@ -236,7 +236,7 @@ let handleWebEmbedBridgeResponse: (
   value: string | number | boolean,
 ) => void = () => {};
 
-function buildErrorPayload(error: unknown) {
+function buildErrorPayload(error: unknown, request: IBackgroundThreadRequest) {
   const runtimeError = error as
     | { $isHardwareError?: unknown; params?: unknown; detail?: unknown }
     | null
@@ -255,7 +255,10 @@ function buildErrorPayload(error: unknown) {
   if (runtimeError?.$isHardwareError === true) {
     errorPayload.$isHardwareError = true;
   }
-  const safeData = buildSafeBackgroundThreadErrorData(data);
+  const safeData = buildSafeBackgroundThreadErrorData(data, {
+    request,
+    message: errorPayload.message,
+  });
   if (safeData) {
     errorPayload.data = safeData;
   }
@@ -636,7 +639,7 @@ async function handleRequest(callId: string, value: string | number | boolean) {
     writeBackgroundThreadResponse({
       sharedRPC,
       responseKey,
-      buildResponse: () => buildErrorPayload(error),
+      buildResponse: () => buildErrorPayload(error, request),
       callId,
       requestLabel,
     });
