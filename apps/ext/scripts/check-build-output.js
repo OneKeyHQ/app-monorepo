@@ -257,7 +257,9 @@ function main() {
   );
   if (
     [
-      ...hardwareIframeHtml.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script>/gi),
+      ...hardwareIframeHtml.matchAll(
+        /<script\b[^>]*>([\s\S]*?)<\/script(?=[\t\n\f\r />])[^>]*>/gi,
+      ),
     ].some((match) => match[1].trim())
   ) {
     throw new Error('Hardware SDK iframe must not contain inline scripts.');

@@ -152,9 +152,15 @@ describe('Firefox background entrypoint budget', () => {
     );
   });
 
-  it('rejects the SDK inline bootstrap that extension CSP would block', () => {
+  it.each([
+    '</script>',
+    '</script >',
+    '</script\n>',
+    '</SCRIPT\t>',
+    '</script/>',
+  ])('rejects the SDK inline bootstrap with closing tag %s', (closingTag) => {
     const { sources } = createOutput();
-    sources.set('hardware-sdk/iframe.html', '<script>bootstrap()</script>');
+    sources.set('hardware-sdk/iframe.html', `<script>bootstrap()${closingTag}`);
     expect(() => runCheck(sources, 1_000_000)).toThrow(
       'Hardware SDK iframe must not contain inline scripts.',
     );
