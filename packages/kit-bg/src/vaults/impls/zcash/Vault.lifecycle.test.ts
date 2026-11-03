@@ -3,7 +3,10 @@ import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
 import { SimpleDbEntityPrivacyChainState } from '../../../dbs/simple/entity/SimpleDbEntityPrivacyChainState';
 
-import { placeZcashBirthdayHeight } from './birthday';
+import {
+  noteZcashBirthdayPlacement,
+  placeZcashBirthdayHeight,
+} from './birthday';
 import { getZcashSyncMutex } from './lifecycle';
 import Vault from './Vault';
 import {
@@ -310,7 +313,10 @@ describe('Zcash local lifecycle operations do not depend on pending history', ()
       return f;
     }
 
-    beforeEach(() => placeBirthday.mockReset());
+    beforeEach(() => {
+      placeBirthday.mockReset();
+      noteZcashBirthdayPlacement('synthetic-account', true);
+    });
 
     it('rewinds the runtime to the height the node placed', async () => {
       const f = dateFixture();
@@ -354,6 +360,20 @@ describe('Zcash local lifecycle operations do not depend on pending history', ()
       expect(f.rescanWallet).not.toHaveBeenCalled();
       expect(f.saveAccountMeta).not.toHaveBeenCalled();
       expect(f.removePendingRescan).not.toHaveBeenCalled();
+    });
+
+    // A node that keeps failing to place the date is reported, not waited on in silence.
+    it('reports the node unreachable after repeated placement failures', async () => {
+      const f = dateFixture();
+      placeBirthday.mockResolvedValue(null);
+      const errors = jest.spyOn(console, 'error').mockImplementation(() => {});
+      await f.vault.zcashResumePendingRescans();
+      await f.vault.zcashResumePendingRescans();
+      await expect(f.vault.zcashResumePendingRescans()).rejects.toMatchObject({
+        code: 'NETWORK_ERROR',
+      });
+      errors.mockRestore();
+      expect(f.rescanWallet).not.toHaveBeenCalled();
     });
 
     it.each([
@@ -782,7 +802,10 @@ describe('registering an account whose birthday is a date estimate', () => {
     return { db, vault, prepareWalletAccounts };
   }
 
-  beforeEach(() => placeBirthday.mockReset());
+  beforeEach(() => {
+    placeBirthday.mockReset();
+    noteZcashBirthdayPlacement('hd-1--dated', true);
+  });
 
   it('places and saves the height before registering', async () => {
     const { db, vault, prepareWalletAccounts } = await setup();
@@ -836,5 +859,18 @@ describe('registering an account whose birthday is a date estimate', () => {
       birthdayHeight: 3_440_000,
       birthdayHeightEstimated: true,
     });
+  });
+
+  it('reports the node unreachable when placement keeps failing', async () => {
+    const { vault } = await setup();
+    placeBirthday.mockResolvedValue(null);
+    const register = () =>
+      vault.zcashPrepareAccounts({
+        accountIds: ['hd-1--dated', 'hd-1--fixed'],
+        chainTip: 3_700_000,
+      });
+    await register();
+    await register();
+    await expect(register()).rejects.toMatchObject({ code: 'NETWORK_ERROR' });
   });
 });

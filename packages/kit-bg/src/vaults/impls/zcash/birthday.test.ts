@@ -10,6 +10,7 @@ import {
   clampZcashBirthdayHeight,
   estimateZcashBirthdayHeight,
   estimateZcashChainTipFromClock,
+  noteZcashBirthdayPlacement,
   placeZcashBirthdayHeight,
 } from './birthday';
 
@@ -230,5 +231,18 @@ describe('placeZcashBirthdayHeight', () => {
         chainTip: 3_700_000,
       }),
     ).resolves.toBeNull();
+  });
+});
+
+describe('noteZcashBirthdayPlacement', () => {
+  // The node is reported unreachable on the third failure in a row, not waited on.
+  it('reports the node after repeated failures and starts over once placed', () => {
+    const fail = () => noteZcashBirthdayPlacement('account', false);
+    expect(fail).not.toThrow();
+    expect(fail).not.toThrow();
+    expect(fail).toThrow(expect.objectContaining({ code: 'NETWORK_ERROR' }));
+    noteZcashBirthdayPlacement('account', true);
+    expect(fail).not.toThrow();
+    noteZcashBirthdayPlacement('account', true);
   });
 });

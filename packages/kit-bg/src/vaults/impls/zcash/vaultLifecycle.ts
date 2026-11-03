@@ -30,8 +30,10 @@ import {
 import { getLocalWalletRemoteConfig } from '../../localWallet/remoteConfig';
 
 import {
+  ZCASH_BIRTHDAY_PLACEMENT_FAILED_MESSAGE,
   clampZcashBirthdayHeight,
   estimateZcashBirthdayHeight,
+  noteZcashBirthdayPlacement,
   placeZcashBirthdayHeight,
 } from './birthday';
 import { KeyringHardware } from './KeyringHardware';
@@ -750,6 +752,7 @@ async function placeZcashAccountBirthday(
     birthdayTimestamp,
     chainTip,
   });
+  noteZcashBirthdayPlacement(accountId, placed !== null);
   if (placed === null) return undefined;
   const placedMeta: IZcashAccountMeta = {
     ...meta,
@@ -1494,6 +1497,7 @@ export async function applyPendingRescan(
       const placed = await placeZcashEstimatedBirthday(vault, {
         birthdayTimestamp: repair.birthdayTimestamp,
       });
+      noteZcashBirthdayPlacement(accountId, placed !== null);
       // The journal stays and is retried once the node answers.
       if (placed === null) {
         throw new OneKeyLocalError('zcash: rescan start not placed yet');
@@ -1568,8 +1572,12 @@ export async function zcashResumePendingRescans(
       // eslint-disable-next-line no-await-in-loop
       await vault.applyPendingRescan({ accountId, repair });
     } catch (e) {
-      if (accountId === requiredAccountId) {
-        // Admission cannot finish while this identity's recovery is pending.
+      const nodeCannotPlace =
+        e instanceof Error &&
+        e.message === ZCASH_BIRTHDAY_PLACEMENT_FAILED_MESSAGE;
+      // Admission cannot finish while this identity's recovery is pending, and a node that
+      // keeps failing to place a date is reported rather than waited on.
+      if (accountId === requiredAccountId || nodeCannotPlace) {
         throw e;
       }
       // Keep the journal intact; a later scheduler tick can retry without the user reopening the repair dialog.

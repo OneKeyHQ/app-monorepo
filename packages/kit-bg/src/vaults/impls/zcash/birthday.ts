@@ -6,6 +6,7 @@ import {
   ZCASH_POST_NU7_TARGET_BLOCK_SECONDS,
   ZCASH_TARGET_BLOCK_SECONDS,
 } from '@onekeyhq/shared/src/config/zcash';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 // Extra history scanned before the requested date.
@@ -107,4 +108,30 @@ export async function placeZcashBirthdayHeight({
   return height === null
     ? null
     : clampZcashBirthdayHeight({ birthdayHeight: height, chainTip });
+}
+
+// After this many turns in a row in which the node cannot place a dated birthday, the turn
+// reports the node unreachable instead of waiting without a word.
+const ZCASH_BIRTHDAY_PLACEMENT_ATTEMPTS = 3;
+export const ZCASH_BIRTHDAY_PLACEMENT_FAILED_MESSAGE =
+  'zcash: the node cannot place a birthday by date';
+const zcashBirthdayPlacementFailures = new Map<string, number>();
+
+// Counts the account's failed placements; a placed one starts the count over.
+export function noteZcashBirthdayPlacement(
+  accountId: string,
+  placed: boolean,
+): void {
+  if (placed) {
+    zcashBirthdayPlacementFailures.delete(accountId);
+    return;
+  }
+  const failures = (zcashBirthdayPlacementFailures.get(accountId) ?? 0) + 1;
+  zcashBirthdayPlacementFailures.set(accountId, failures);
+  if (failures >= ZCASH_BIRTHDAY_PLACEMENT_ATTEMPTS) {
+    throw Object.assign(
+      new OneKeyLocalError(ZCASH_BIRTHDAY_PLACEMENT_FAILED_MESSAGE),
+      { code: 'NETWORK_ERROR' },
+    );
+  }
 }
