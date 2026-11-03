@@ -10519,17 +10519,17 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@onekeyfe/zcash-keys@npm:0.1.0-alpha.12":
-  version: 0.1.0-alpha.12
-  resolution: "@onekeyfe/zcash-keys@npm:0.1.0-alpha.12"
-  checksum: 10/8c6c9b4cdd84e5ee1b6353f5a86ed1d1ce4e77edf512758bb96420703980bad2542154bc3e1ea6ea7434771bf6a19391983641ea7c7df5e9a32642d6841fb86d
+"@onekeyfe/zcash-keys@npm:0.1.0-alpha.14":
+  version: 0.1.0-alpha.14
+  resolution: "@onekeyfe/zcash-keys@npm:0.1.0-alpha.14"
+  checksum: 10/7d595859894cb13b6f3c033de023d39fbb5a004697aebf61ef79d1605b26c2528e6a277cc1f2126ee51bfe279f710fbba9780059f07fd9bec7941b8e7d8f72d2
   languageName: node
   linkType: hard
 
-"@onekeyfe/zcash-runtime@npm:0.1.0-alpha.12":
-  version: 0.1.0-alpha.12
-  resolution: "@onekeyfe/zcash-runtime@npm:0.1.0-alpha.12"
-  checksum: 10/6bad782f54218e36445bcded04461904a346035e3790cf534ef60b07399642aeb346590a8a7754a8fbc6d57659a5683b64618c8469a102f9d698dd85bc9916b3
+"@onekeyfe/zcash-runtime@npm:0.1.0-alpha.14":
+  version: 0.1.0-alpha.14
+  resolution: "@onekeyfe/zcash-runtime@npm:0.1.0-alpha.14"
+  checksum: 10/5db06d4dfa56b582e00b960535d507b0f8a63dc8b9d0eb782c5cc17f6cd86ab4060a58b4c91c770d80fe528ee419db9ce4d2bd5869a47c566ae8b06b6d277eab
   languageName: node
   linkType: hard
 
@@ -10862,8 +10862,8 @@ __metadata:
     "@onekeyfe/kaspa-core-lib": "npm:^1.0.2"
     "@onekeyfe/kaspa-wasm": "npm:^1.0.2"
     "@onekeyfe/monero-runtime": "npm:0.1.0-alpha.12"
-    "@onekeyfe/zcash-keys": "npm:0.1.0-alpha.12"
-    "@onekeyfe/zcash-runtime": "npm:0.1.0-alpha.12"
+    "@onekeyfe/zcash-keys": "npm:0.1.0-alpha.14"
+    "@onekeyfe/zcash-runtime": "npm:0.1.0-alpha.14"
     "@solana/spl-token": "npm:^0.4.8"
     "@solana/web3.js": "npm:1.98.2"
     "@starcoin/starcoin": "npm:^2.3.7"
