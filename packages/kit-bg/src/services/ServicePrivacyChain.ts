@@ -802,16 +802,19 @@ class ServicePrivacyChain extends ServiceBase {
     this.clearSyncFailureBackoff(networkId);
     await this.publishSyncError(networkId, undefined);
     await this.setChainPaused(networkId, false);
-    await this.setAccountsPreparing({
-      networkId,
-      accountIds: accountId
-        ? [accountId]
-        : (
-            await this.listScannableAccounts(
-              await this.requireAccountCapability(networkId),
-            )
-          ).map((account) => account.accountId),
-    });
+    // Held by metered data, no pass would run to clear Preparing; the light offers the data choice.
+    if (!(await this.isScanHeldByMeteredData())) {
+      await this.setAccountsPreparing({
+        networkId,
+        accountIds: accountId
+          ? [accountId]
+          : (
+              await this.listScannableAccounts(
+                await this.requireAccountCapability(networkId),
+              )
+            ).map((account) => account.accountId),
+      });
+    }
     void this.recoverQuarantinedNetwork(networkId).catch((error: unknown) => {
       console.error('[privacy-chain] quarantine recovery failed', {
         networkId,
@@ -821,15 +824,19 @@ class ServicePrivacyChain extends ServiceBase {
     await this.requestForegroundScan(networkId);
   }
 
+  private async isScanHeldByMeteredData(): Promise<boolean> {
+    return (
+      this.deviceIsCellular !== false &&
+      !(await this.isPrivacySyncOnCellularAllowed())
+    );
+  }
+
   // Wants the foreground pace. Held by metered data, the request stands so the light can offer the
   // data choice.
   private async requestForegroundScan(networkId: string): Promise<void> {
     this.foregroundBoostRequestedByNetwork[networkId] = true;
     await this.publishBoostingNetworks();
-    if (
-      this.deviceIsCellular !== false &&
-      !(await this.isPrivacySyncOnCellularAllowed())
-    ) {
+    if (await this.isScanHeldByMeteredData()) {
       return;
     }
     await this.init();

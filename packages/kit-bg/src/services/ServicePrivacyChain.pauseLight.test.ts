@@ -317,6 +317,24 @@ describe('Privacy sync light pause state', () => {
     ]);
   });
 
+  // No pass runs on metered data without consent, so Preparing would never clear.
+  it('shows no Preparing for a manual sync held by metered data', async () => {
+    const service = Object.assign(createService({ cellularBlocked: true }), {
+      runtimeSyncState: new Map(),
+      getLocalWalletNetworkIds: async () => [networkId],
+    });
+    Object.assign(service.backgroundApi.simpleDb.privacyChainState, {
+      getAllowCellularSync: async () => false,
+    });
+    await service.startForegroundBoost({
+      networkId,
+      accountId: 'account',
+      trigger: 'manual-sync',
+    });
+    expect(mockPublished.preparingAccountKeys).toEqual([]);
+    expect(mockPublished.dataBlockedNetworkIds).toEqual([networkId]);
+  });
+
   // Pausing from Settings or after the boost request cleared must still publish, or the light stays
   // hidden.
   it('publishes a pause even when no boost was ever requested', async () => {
