@@ -155,6 +155,10 @@ export interface IManagePositionContentProps {
   // A modal showing one side draws the History and quote controls in its
   // own header
   onHeaderRightChange?: (view: IHeaderRightViewProps | null) => void;
+  // The caller draws the line the tabs sit on (the Borrow reserve page's
+  // switch over its four sides): the form draws none, and hands its controls
+  // up through onHeaderRightChange
+  hidesTabLine?: boolean;
 
   // Optional callbacks
   onCreateAddress?: () => Promise<void>;
@@ -190,6 +194,7 @@ export const ManageSectionShell = ({
   hasPayWith,
   offerSwitch,
   liftsHeaderControls,
+  hidesTabLine,
   rewardTokens,
   confirmWordId,
 }: {
@@ -206,6 +211,8 @@ export const ManageSectionShell = ({
   offerSwitch?: ReactNode;
   // A one-side modal has its controls in its header and no tab line
   liftsHeaderControls?: boolean;
+  // The caller draws the tab line, as the loaded form leaves it to it
+  hidesTabLine?: boolean;
   depositOnly?: boolean;
   withdrawOnly?: boolean;
   fallbackTokenImageUri?: string;
@@ -304,11 +311,9 @@ export const ManageSectionShell = ({
   // exactly and doesn't jump on load.
   const reserveKeyboardAccessorySpace = type === EManagePositionType.Staking;
 
-  const showsTabLine = !(
-    isInModalContext &&
-    liftsHeaderControls &&
-    tabLabels.length === 1
-  );
+  const showsTabLine =
+    !hidesTabLine &&
+    !(isInModalContext && liftsHeaderControls && tabLabels.length === 1);
   // The loaded deposit form shows "Not enough X?" only without Pay with, and
   // the withdraw form never; its Details row waits for an amount
   const showsTradeOrBuy = !hasPayWith && activeIndex === 0;
@@ -650,6 +655,7 @@ export function ManagePositionContent({
   offerSwitch,
   onAmountChange,
   onHeaderRightChange,
+  hidesTabLine,
   onCreateAddress,
   onStakeWithdrawSuccess,
   onWithdrawn,
@@ -1157,6 +1163,7 @@ export function ManagePositionContent({
         hasPayWith={Boolean(payWith)}
         offerSwitch={offerSwitch}
         liftsHeaderControls={Boolean(onHeaderRightChange)}
+        hidesTabLine={hidesTabLine}
         rewardTokens={readRewardTokens({
           networkId,
           providerName: provider,
@@ -1326,6 +1333,7 @@ export function ManagePositionContent({
       offerSwitch={offerSwitch}
       onAmountChange={onAmountChange}
       onHeaderRightChange={onHeaderRightChange}
+      hidesTabLine={hidesTabLine}
     />
   );
 }

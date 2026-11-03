@@ -25,6 +25,11 @@ import type {
   IEarnText,
 } from '@onekeyhq/shared/types/staking';
 
+import {
+  hidesPositionNotHeld,
+  useBorrowReserveFormScope,
+} from '../../reserveFormScope';
+
 import { CollateralInfo } from './CollateralInfo';
 import { FeeInfo } from './FeeInfo';
 
@@ -38,7 +43,7 @@ const rowText = (text?: IEarnText): IEarnText | undefined => {
 };
 
 // "10.0345 → 15.0345": what it is now, quieter, then what the supply makes it
-function BeforeAfter({
+export function BeforeAfter({
   current: currentText,
   latest: latestText,
 }: {
@@ -80,6 +85,12 @@ const isHealthFigure = (text?: IEarnText) => {
 // read one
 const readHealthTone = (text?: IEarnText): ILoanLtvTone | undefined =>
   isHealthFigure(text) ? getLoanHealthTone(readHealthFigure(text)) : undefined;
+
+// The factor in its band's color, the Borrow page's own
+export const withHealthTone = (text?: IEarnText): IEarnText | undefined => {
+  const tone = readHealthTone(text);
+  return text && tone ? { ...text, color: LOAN_HEALTH_TEXT_COLOR[tone] } : text;
+};
 
 /**
  * A lending supply's part under the amount, as the Earn forms show it: what a
@@ -133,13 +144,7 @@ export function EarnLendingSummary({
   keepsFiguresWhenEmptied?: boolean;
 }) {
   const intl = useIntl();
-  // The factor in its band's color, the Borrow page's own
-  const withHealthTone = (text?: IEarnText): IEarnText | undefined => {
-    const tone = readHealthTone(text);
-    return text && tone
-      ? { ...text, color: LOAN_HEALTH_TEXT_COLOR[tone] }
-      : text;
-  };
+  const reservePosition = useBorrowReserveFormScope()?.position;
   // While a new amount's rows load, the last ones stay in place
   const lastConfirmationRef = useRef<
     IBorrowTransactionConfirmation | undefined
@@ -275,9 +280,15 @@ export function EarnLendingSummary({
   }
 
   const rows: ReactElement[] = [];
+  // A page that knows the account supplies none of the reserve leaves the
+  // row out while nothing is typed rather than list a zero
+  const hidesMySupply = hidesPositionNotHeld({
+    holds: reservePosition?.hasSupply,
+    hasAmount: isPositiveAmount,
+  });
   // Before the first answer: a supply always has this one, so it holds its
   // place with a dash and the button doesn't move when it lands
-  if (!confirmation) {
+  if (!confirmation && !hidesMySupply) {
     rows.push(
       <EarnFormRow
         key="my-supply"
@@ -285,7 +296,7 @@ export function EarnLendingSummary({
       />,
     );
   }
-  if (confirmation?.mySupply) {
+  if (confirmation?.mySupply && !hidesMySupply) {
     rows.push(
       <EarnFormRow
         key="my-supply"

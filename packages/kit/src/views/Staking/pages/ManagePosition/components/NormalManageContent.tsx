@@ -302,6 +302,9 @@ interface INormalManageContentProps {
   // A modal showing one side takes the History and quote controls for its
   // own header, as the tab line they sit on isn't there
   onHeaderRightChange?: (view: IHeaderRightViewProps | null) => void;
+  // The caller draws the tab line (the Borrow reserve page's own switch):
+  // none here, and the controls go up through onHeaderRightChange
+  hidesTabLine?: boolean;
 }
 
 export function NormalManageContent({
@@ -346,6 +349,7 @@ export function NormalManageContent({
   offerSwitch,
   onAmountChange,
   onHeaderRightChange,
+  hidesTabLine,
 }: INormalManageContentProps) {
   const intl = useIntl();
   const useBorrowApi = useMemo(
@@ -970,11 +974,11 @@ export function NormalManageContent({
   ]);
 
   // A modal showing one side draws the controls in its header, so the line
-  // they share with the tabs goes
+  // they share with the tabs goes; so does a caller with a line of its own
   const liftsHeaderControls =
-    isInModalContext &&
-    visibleTabNames.length === 1 &&
-    Boolean(onHeaderRightChange);
+    Boolean(onHeaderRightChange) &&
+    (Boolean(hidesTabLine) ||
+      (isInModalContext && visibleTabNames.length === 1));
   const headerRight = (
     <HeaderRight
       accountId={indicatorAccountId || earnAccount?.accountId}

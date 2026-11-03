@@ -2,6 +2,10 @@ import { StyleSheet } from 'react-native';
 
 import { Divider, Skeleton, XStack, YStack } from '@onekeyhq/components';
 
+import { useBorrowReserveFormScope } from '../../reserveFormScope';
+
+import { ReserveFormRowsSkeleton } from './ReserveBorrowSummary';
+
 import type { IBorrowActionType } from '../../types';
 
 function InfoRowSkeleton({
@@ -43,6 +47,18 @@ export function BorrowInfoSectionSkeleton({
 }: {
   action: IBorrowActionType;
 }) {
+  const formScope = useBorrowReserveFormScope();
+  // A reserve's own page lists every side's rows plainly, so its loading
+  // does too
+  if (formScope) {
+    return (
+      <ReserveFormRowsSkeleton
+        action={action}
+        hidesMySupply={formScope.position?.hasSupply === false}
+        hidesMyBorrow={formScope.position?.hasBorrow === false}
+      />
+    );
+  }
   const primaryRowCount = action === 'borrow' || action === 'repay' ? 2 : 1;
   let secondaryRowCount = 1;
   if (action === 'supply') {

@@ -5,6 +5,7 @@ import { useBorrowHealthFactor } from '@onekeyhq/kit/src/views/Borrow/hooks/useB
 import { useBorrowMarketLabel } from '@onekeyhq/kit/src/views/Borrow/hooks/useBorrowMarketLabel';
 
 import { useManagePositionContext } from '../../ManagePositionContext';
+import { useBorrowReserveFormScope } from '../../reserveFormScope';
 
 import { ApyInfo } from './ApyInfo';
 import { BorrowInfoSectionSkeleton } from './BorrowInfoSectionSkeleton';
@@ -13,6 +14,7 @@ import { EarnLendingSummary } from './EarnLendingSummary';
 import { FeeInfo } from './FeeInfo';
 import { HealthFactorInfo } from './HealthFactorInfo';
 import { PositionInfo } from './PositionInfo';
+import { ReserveBorrowSummary } from './ReserveBorrowSummary';
 import { SwapOrBridgeInfo } from './SwapOrBridgeInfo';
 
 import type {
@@ -191,6 +193,7 @@ export function InfoDisplaySection({
   showSwapOrBridge = true,
 }: IInfoDisplaySectionProps) {
   const { state, actionResult } = useManagePositionContext();
+  const formScope = useBorrowReserveFormScope();
   // The Earn form shows the position's health factor before an amount: the
   // market's answer for an empty amount doesn't carry it
   const { healthFactorData } = useBorrowHealthFactor({
@@ -222,6 +225,30 @@ export function InfoDisplaySection({
         transactionConfirmationLoading={
           actionResult.transactionConfirmationLoading
         }
+      />
+    );
+  }
+
+  // On a reserve's own page a loan's side lists its rows as the supply side
+  // does, without the card's outline and dividers
+  if (formScope && (state.action === 'borrow' || state.action === 'repay')) {
+    if (state.isDisabled) {
+      return null;
+    }
+    return (
+      <ReserveBorrowSummary
+        action={state.action}
+        amountValue={state.amountValue}
+        token={state.token}
+        accountId={state.accountId}
+        networkId={state.networkId}
+        showApyDetail={showApyDetailProp ?? state.showApyDetail}
+        showSwapOrBridge={showSwapOrBridge}
+        transactionConfirmation={actionResult.transactionConfirmation}
+        transactionConfirmationLoading={
+          actionResult.transactionConfirmationLoading
+        }
+        position={formScope.position}
       />
     );
   }
