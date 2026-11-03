@@ -1,7 +1,7 @@
 import { useState } from 'react';
 
 import { useIntl } from 'react-intl';
-import { Dimensions, useWindowDimensions } from 'react-native';
+import { useWindowDimensions } from 'react-native';
 
 import {
   AnimatePresence,
@@ -131,15 +131,9 @@ export function showWalletAvatarEditDialog({ wallet }: { wallet: IDBWallet }) {
     title: appLocale.intl.formatMessage({
       id: ETranslations.global_edit_avatar,
     }),
-    // Native gives the content this fixed height (the grid plus its $5
-    // bottom padding). On web it would only be a minimum height that keeps
-    // the grid from shrinking with the window.
-    estimatedContentHeight: platformEnv.isNative
-      ? getAvatarGridHeight({
-          avatarCount: HdWalletAvatarImageNames.length,
-          windowHeight: Dimensions.get('window').height,
-        }) + 20
-      : undefined,
+    // No estimatedContentHeight: native would fix the content at its height
+    // on open, so shrinking the window would push the footer out of the
+    // sheet. Without it the content follows the grid.
     renderContent: <WalletAvatarEditDialog wallet={wallet} />,
   });
 }
