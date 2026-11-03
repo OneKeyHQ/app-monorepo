@@ -909,14 +909,28 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
     }
   }, [shouldHideCategorySelector]);
 
-  // Initialize selected tokens when favorites load (for empty state)
+  const previousRecommendationKeysRef = useRef<Set<string> | undefined>(
+    undefined,
+  );
+
+  // Keep user choices across quote refreshes; newly recommended tokens start selected.
   useEffect(() => {
-    if (
-      (!hasUserFavorites || showRecommendCards) &&
-      favoriteTokens.length > 0
-    ) {
-      setSelectedTokens(favoriteTokens);
+    if (hasUserFavorites && !showRecommendCards) {
+      previousRecommendationKeysRef.current = undefined;
+      return;
     }
+
+    const previousKeys = previousRecommendationKeysRef.current;
+    previousRecommendationKeysRef.current = new Set(
+      favoriteTokens.map(getTokenKey),
+    );
+    setSelectedTokens((prev) => {
+      const selectedKeys = new Set(prev.map(getTokenKey));
+      return favoriteTokens.filter((token) => {
+        const key = getTokenKey(token);
+        return !previousKeys?.has(key) || selectedKeys.has(key);
+      });
+    });
   }, [favoriteTokens, hasUserFavorites, showRecommendCards]);
 
   const handleRecommendItemChange = useCallback(

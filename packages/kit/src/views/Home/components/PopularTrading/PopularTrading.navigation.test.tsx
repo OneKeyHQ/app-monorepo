@@ -40,21 +40,42 @@ jest.mock('@onekeyhq/components', () => {
     children,
     minHeight,
     testID,
-  }: PropsWithChildren<{ minHeight?: number; testID?: string }>) => (
-    <div data-testid={testID} style={{ minHeight }}>
-      {children}
-    </div>
-  );
+    onPress,
+    disabled,
+  }: PropsWithChildren<{
+    minHeight?: number;
+    testID?: string;
+    onPress?: () => void;
+    disabled?: boolean;
+  }>) =>
+    onPress ? (
+      <button
+        type="button"
+        data-testid={testID}
+        style={{ minHeight }}
+        onClick={onPress}
+        disabled={disabled}
+      >
+        {children}
+      </button>
+    ) : (
+      <div data-testid={testID} style={{ minHeight }}>
+        {children}
+      </div>
+    );
   return {
     Stack,
     XStack: Stack,
     YStack: Stack,
     SizableText: Stack,
     Button: Stack,
-    Icon: () => null,
+    Icon: ({ name }: { name: string }) =>
+      name === 'CheckRadioSolid' ? (
+        <span data-testid="recommend-selected" />
+      ) : null,
     IconButton: () => null,
     useMedia: () => ({ md: false }),
-    Toast: { error: jest.fn() },
+    Toast: { error: jest.fn(), success: jest.fn() },
     rootNavigationRef: { current: { navigate: jest.fn() } },
     getSharedButtonStyles: () => ({ sharedFrameStyles: {} }),
     useDeferredPromise,
@@ -74,7 +95,9 @@ jest.mock('@onekeyhq/shared/src/utils/networkUtils', () => ({
 jest.mock('@onekeyhq/shared/src/utils/perpsUtils', () => ({
   getTokenSubtitle: jest.fn(),
 }));
-jest.mock('@onekeyhq/shared/src/logger/logger', () => ({ defaultLogger: {} }));
+jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
+  defaultLogger: { dex: { watchlist: { dexAddToWatchlist: jest.fn() } } },
+}));
 jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   __esModule: true,
   default: {
@@ -84,6 +107,7 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
       getMarketWatchListV2: jest.fn(),
       fetchMarketBasicConfig: jest.fn(),
       fetchMarketListingWatchlistQuote: jest.fn(),
+      addMarketWatchListV2: jest.fn(),
     },
   },
 }));
@@ -183,6 +207,7 @@ jest.mock('./utils', () => ({
       ? [favoritesCategory]
       : [{ id: 'top_coins', name: 'Top Coins' }],
   getTokenKey: (token: IFavoriteTokenDisplay) => token.assetId,
+  buildHomeRecommendAddSortIndexes: () => [1000, 1001, 1002, 1003],
   shouldShowHomeRecommendCards: ({
     visibleFavoriteCount,
   }: {
@@ -221,6 +246,10 @@ const fetchListingQuote = jest.spyOn(
   backgroundApiProxy.serviceMarketV2,
   'fetchMarketListingWatchlistQuote',
 );
+const addWatchList = jest.spyOn(
+  backgroundApiProxy.serviceMarketV2,
+  'addMarketWatchListV2',
+);
 beforeEach(() => {
   jest.clearAllMocks();
   mockShowFavorites = false;
@@ -229,6 +258,7 @@ beforeEach(() => {
   getWatchList.mockReset().mockResolvedValue({ data: [] });
   fetchRecommendations.mockReset();
   fetchListingQuote.mockReset();
+  addWatchList.mockReset().mockResolvedValue(undefined);
   openDetail.mockReset().mockResolvedValue(undefined);
   fetchAsset.mockReset().mockResolvedValue({
     selectedVariant: {
@@ -406,6 +436,93 @@ describe('recommendation refresh lifecycle', () => {
     expect(screen.getByTestId('favorite-list').textContent).toBe('BTC');
     expect(error.autoToast).toBe(false);
     expect(Toast.error).not.toHaveBeenCalled();
+    view.unmount();
+  });
+});
+
+describe('recommendation selection during refresh', () => {
+  beforeEach(() => {
+    jest.useFakeTimers();
+    mockUseRealPromiseResult = true;
+    mockShowFavorites = true;
+    fetchRecommendations.mockResolvedValue({
+      data: {
+        recommendTokens: [{ assetId: 'ethereum' }, { assetId: 'solana' }],
+      },
+    } as IMarketBasicConfigResponse);
+    fetchListingQuote.mockImplementation(async ({ assetId }) => ({
+      symbol: assetId === 'ethereum' ? 'ETH' : 'SOL',
+      name: assetId === 'ethereum' ? 'Ethereum' : 'Solana',
+      logoUrl: '',
+      price: '1',
+    }));
+  });
+
+  it.each([true, false])(
+    'keeps a deselected recommendation out of Add after polling in table layout %p',
+    async (tableLayout) => {
+      const view = render(<PopularTrading tableLayout={tableLayout} />);
+      await act(async () => jest.advanceTimersByTimeAsync(0));
+      expect(screen.getAllByTestId('recommend-selected')).toHaveLength(2);
+      fireEvent.click(screen.getByText('Ethereum'));
+      expect(screen.getAllByTestId('recommend-selected')).toHaveLength(1);
+
+      await act(async () => jest.advanceTimersByTimeAsync(30_000));
+      expect(screen.getAllByTestId('recommend-selected')).toHaveLength(1);
+      await act(async () =>
+        fireEvent.click(screen.getByTestId('home-header-actions-btn')),
+      );
+      expect(addWatchList).toHaveBeenCalledTimes(1);
+      expect(addWatchList).toHaveBeenCalledWith({
+        callerName: 'PopularTrading',
+        watchList: [expect.objectContaining({ assetId: 'solana' })],
+      });
+      expect(Toast.error).not.toHaveBeenCalled();
+      view.unmount();
+    },
+  );
+
+  it('keeps all recommendations deselected after polling', async () => {
+    const view = render(<PopularTrading tableLayout />);
+    await act(async () => jest.advanceTimersByTimeAsync(0));
+    fireEvent.click(screen.getByText('Ethereum'));
+    fireEvent.click(screen.getByText('Solana'));
+    expect(screen.queryAllByTestId('recommend-selected')).toHaveLength(0);
+    await act(async () => jest.advanceTimersByTimeAsync(30_000));
+    expect(screen.queryAllByTestId('recommend-selected')).toHaveLength(0);
+    expect(
+      screen.getByTestId('home-header-actions-btn').hasAttribute('disabled'),
+    ).toBe(true);
+    await act(async () =>
+      fireEvent.click(screen.getByTestId('home-header-actions-btn')),
+    );
+    expect(addWatchList).not.toHaveBeenCalled();
+    view.unmount();
+  });
+
+  it('selects newly recommended tokens while preserving deselections and dropping removed tokens', async () => {
+    const view = render(<PopularTrading tableLayout />);
+    await act(async () => jest.advanceTimersByTimeAsync(0));
+    fireEvent.click(screen.getByText('Ethereum'));
+    fetchRecommendations.mockResolvedValue({
+      data: {
+        recommendTokens: [{ assetId: 'ethereum' }, { assetId: 'bitcoin' }],
+      },
+    } as IMarketBasicConfigResponse);
+    fetchListingQuote.mockImplementation(async ({ assetId }) => ({
+      symbol: assetId ?? '',
+      name: assetId ?? '',
+      logoUrl: '',
+    }));
+    await act(async () => jest.advanceTimersByTimeAsync(30_000));
+    expect(screen.getAllByTestId('recommend-selected')).toHaveLength(1);
+    await act(async () =>
+      fireEvent.click(screen.getByTestId('home-header-actions-btn')),
+    );
+    expect(addWatchList).toHaveBeenCalledWith({
+      callerName: 'PopularTrading',
+      watchList: [expect.objectContaining({ assetId: 'bitcoin' })],
+    });
     view.unmount();
   });
 });
