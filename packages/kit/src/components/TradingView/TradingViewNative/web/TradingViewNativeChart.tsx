@@ -396,10 +396,12 @@ export const TradingViewNativeChart = memo(
     );
     const isLogScaleAvailable =
       isTradingViewNativeLogPriceScaleAvailable(autoPriceRange);
+    // Ticks, the crosshair, and the latest close all fit the axis display precision.
+    const axisLabelDecimalPlaces = priceAxisDecimalPlaces ?? priceDecimalPlaces;
     const priceAxisLabels = useMemo<ITradingViewNativeCanvasPriceAxisLabels>(
       () => ({
         autoPriceRange,
-        priceDecimalPlaces,
+        priceDecimalPlaces: axisLabelDecimalPlaces,
         subIndicatorPanes,
         subIndicatorPriceScales,
         chartComponentPrice: getTradingViewNativeChartComponentPriceAxisLabel(
@@ -413,7 +415,7 @@ export const TradingViewNativeChart = memo(
           getTradingViewNativeIndicatorPriceAxisLabel(indicatorSeries),
         widestPrice: getTradingViewNativePriceAxisLabel(
           points,
-          priceDecimalPlaces,
+          axisLabelDecimalPlaces,
         ),
         widestSubIndicator:
           getTradingViewNativeSubIndicatorAxisLabel(subIndicatorPanes),
@@ -428,6 +430,7 @@ export const TradingViewNativeChart = memo(
         chartSettings.options.latestPrice,
         chartSettings.options.yAxis,
         currentPriceLabel,
+        axisLabelDecimalPlaces,
         priceDecimalPlaces,
         hasVolume,
         indicatorSeries,

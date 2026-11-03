@@ -224,3 +224,48 @@ export function buildTradingViewNativeSubIndicatorRenderPanes(
 ): ITradingViewNativeSubIndicatorRenderPane[] {
   return entries.map(buildTradingViewNativeSubIndicatorRenderPane);
 }
+
+const LARGE_VOLUME_PANE_MIN_ABSOLUTE_VALUE = 1000;
+const LARGE_VOLUME_PANE_FRACTION_DIGITS = 2;
+
+function hasLargeVolumePaneValue(
+  pane: ITradingViewNativeSubIndicatorRenderPane,
+) {
+  return pane.series.some((series) =>
+    series.values.some(
+      (value) =>
+        value !== null &&
+        Math.abs(value) >= LARGE_VOLUME_PANE_MIN_ABSOLUTE_VALUE,
+    ),
+  );
+}
+
+// Like TradingView's `format.inherit`, inherited panes use the main price axis
+// precision when the source provides one. Volume panes that reach K units drop
+// the six significant digits kept for tiny volumes below one unit.
+export function applyTradingViewNativeSubIndicatorDisplayPrecision(
+  panes: readonly ITradingViewNativeSubIndicatorRenderPane[],
+  pricePrecision: number | undefined,
+): readonly ITradingViewNativeSubIndicatorRenderPane[] {
+  const hasPricePrecision =
+    pricePrecision !== undefined && Number.isFinite(pricePrecision);
+  let changed = false;
+  const resolvedPanes = panes.map((pane) => {
+    let precision: number | undefined;
+    if (pane.format.type === 'inherit' && hasPricePrecision) {
+      precision = pricePrecision;
+    } else if (
+      pane.format.type === 'volume' &&
+      pane.format.precision === undefined &&
+      hasLargeVolumePaneValue(pane)
+    ) {
+      precision = LARGE_VOLUME_PANE_FRACTION_DIGITS;
+    }
+    if (precision === undefined) {
+      return pane;
+    }
+    changed = true;
+    return { ...pane, format: { ...pane.format, precision } };
+  });
+  return changed ? resolvedPanes : panes;
+}

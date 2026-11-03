@@ -731,6 +731,8 @@ export function buildTradingViewNativeChartScene({
   const resolvedCurrentPriceLabel =
     currentPriceLabel ??
     getTradingViewNativeCurrentPriceLabel(points, priceDecimalPlaces);
+  // Ticks, the crosshair, and the latest close all fit the axis display precision.
+  const axisLabelDecimalPlaces = priceAxisDecimalPlaces ?? priceDecimalPlaces;
   let resolvedPriceAxisWidth = showYAxis ? Math.max(priceAxisWidth ?? 0, 0) : 0;
   if (showYAxis && !Number.isFinite(priceAxisWidth)) {
     const volumeAxisLabel = hasVolume
@@ -754,13 +756,13 @@ export function buildTradingViewNativeChartScene({
           ? ''
           : getTradingViewNativeCurrentPriceAxisLabel(
               resolvedCurrentPriceLabel,
-              priceDecimalPlaces,
+              axisLabelDecimalPlaces,
             ),
         'priceAxis',
       ),
       widestPriceLabelWidth: Math.max(
         measureTextWidth(
-          getTradingViewNativePriceAxisLabel(points, priceDecimalPlaces),
+          getTradingViewNativePriceAxisLabel(points, axisLabelDecimalPlaces),
           'priceAxis',
         ),
         measureTextWidth(chartComponentPriceAxisLabel, 'priceAxis'),
@@ -1518,7 +1520,7 @@ export function buildTradingViewNativeChartScene({
       crosshairValueText = formatTradingViewNativePriceTick(
         crosshairPrice,
         4,
-        priceDecimalPlaces,
+        axisLabelDecimalPlaces,
       );
     } else if (crosshairVolume !== null) {
       crosshairValueText = formatTradingViewNativeVolume(crosshairVolume);

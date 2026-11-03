@@ -100,7 +100,10 @@ import {
   buildTradingViewNativeIndicatorSeries,
 } from './utils/chartIndicators';
 import { isTradingViewNativeAnyIndicator } from './utils/chartIndicators/indicatorCatalog';
-import { getTradingViewNativeCurrentPriceLabel } from './utils/chartLayout';
+import {
+  getTradingViewNativeCurrentPriceLabel,
+  getTradingViewNativeDefaultPriceDecimalPlaces,
+} from './utils/chartLayout';
 import {
   resolveTradingViewNativeChartThemeColors,
   resolveTradingViewNativeMainIndicatorThemeColors,
@@ -111,6 +114,7 @@ import {
   resolveTradingViewNativeChartType,
 } from './utils/chartType';
 import {
+  applyTradingViewNativeSubIndicatorDisplayPrecision,
   buildTradingViewNativeSubIndicatorRenderPanes,
   calculateTradingViewNativeSubIndicatorsWithCache,
   createTradingViewNativeSubIndicatorCalculationCache,
@@ -511,7 +515,7 @@ const TradingViewNativeContent = memo(
         visibleSubIndicatorInstances,
       ],
     );
-    const subIndicatorPanes = useMemo(
+    const builtSubIndicatorPanes = useMemo(
       () =>
         buildTradingViewNativeSubIndicatorRenderPanes(
           subIndicatorCalculationEntries,
@@ -555,6 +559,19 @@ const TradingViewNativeContent = memo(
         getDisplayPriceScaleDecimals(latestPrice),
       );
     }, [latestPrice, priceDecimalPlaces, source.kind, sourceCoin]);
+    // Inherited panes follow whatever precision the main axis formats with.
+    const subIndicatorPricePrecision =
+      priceAxisDecimalPlaces ??
+      priceDecimalPlaces ??
+      getTradingViewNativeDefaultPriceDecimalPlaces(latestPrice);
+    const subIndicatorPanes = useMemo(
+      () =>
+        applyTradingViewNativeSubIndicatorDisplayPrecision(
+          builtSubIndicatorPanes,
+          subIndicatorPricePrecision,
+        ),
+      [builtSubIndicatorPanes, subIndicatorPricePrecision],
+    );
     const latestPriceTimestamp = latestPoint?.t;
     const sourceEnvironment =
       source.kind === 'hyperliquid' ? source.environment : undefined;
