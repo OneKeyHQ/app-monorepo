@@ -95,6 +95,9 @@ function ConnectionIndicatorTitle({ children }: { children: ReactNode }) {
 }
 
 function ConnectionIndicatorFooter({ children }: { children: ReactNode }) {
+  if (useIsDialogVariant()) {
+    return <YStack>{children}</YStack>;
+  }
   return (
     <YStack pt="$5" pb="$2" gap="$2">
       {children}
