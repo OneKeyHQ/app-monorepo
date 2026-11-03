@@ -240,6 +240,13 @@ describe('useMarketTokenList initial data', () => {
   });
 
   describe('desktop initial cached ranking', () => {
+    const query = {
+      networkId: 'evm--1',
+      type: 'trending' as const,
+      pollingInterval: 0,
+    };
+    const rowSymbols = (data: { symbol: string }[]) =>
+      data.map((item) => item.symbol);
     function ranking(
       symbols: string[],
       change = '1',
@@ -252,13 +259,12 @@ describe('useMarketTokenList initial data', () => {
         total: 100,
       };
     }
-
     beforeEach(() => {
       mutablePlatformEnv.isWeb = false;
       mutablePlatformEnv.isDesktop = true;
     });
 
-    it('paints cache immediately, updates quotes without moving rows, then adopts the next poll ranking', async () => {
+    it('paints cache immediately, refreshes quotes in place, then adopts the next poll ranking', async () => {
       const cached = ranking(['A', 'B', 'C']);
       const remote = ranking(['B', 'D', 'A'], '2');
       const first = createDeferred<IMarketTokenListResponse>();
@@ -268,164 +274,86 @@ describe('useMarketTokenList initial data', () => {
         .mockReturnValueOnce(first.promise)
         .mockReturnValueOnce(second.promise);
       const { result, unmount } = renderHook(() =>
-        useMarketTokenList({
-          networkId: 'evm--1',
-          type: 'trending',
-          pollingInterval: 100,
-        }),
+        useMarketTokenList({ ...query, pollingInterval: 100 }),
       );
-      expect(result.current.data.map((item) => item.symbol)).toEqual([
-        'A',
-        'B',
-        'C',
-      ]);
+      expect(rowSymbols(result.current.data)).toEqual(['A', 'B', 'C']);
       await act(async () => {
         first.resolve(remote);
         await first.promise;
       });
       await waitFor(() => expect(result.current.data[0].change24h).toBe(2));
-      expect(result.current.data.map((item) => item.symbol)).toEqual([
-        'A',
-        'B',
-        'C',
-      ]);
+      expect(rowSymbols(result.current.data)).toEqual(['A', 'B', 'C']);
       expect(result.current.data[2].change24h).toBe(1);
       expect(swrCacheUtils.get(cacheKey)).toMatchObject(remote);
-      await waitFor(() =>
-        expect(mockFetchMarketTokenList).toHaveBeenCalledTimes(2),
-      );
       await act(async () => {
         second.resolve(remote);
         await second.promise;
       });
       await waitFor(() =>
-        expect(result.current.data.map((item) => item.symbol)).toEqual([
-          'B',
-          'D',
-          'A',
-        ]),
+        expect(rowSymbols(result.current.data)).toEqual(['B', 'D', 'A']),
       );
       unmount();
     });
 
-    it('honors a user refetch while the initial request is pending', async () => {
-      swrCacheUtils.set(cacheKey, ranking(['A', 'B']));
-      const first = createDeferred<IMarketTokenListResponse>();
-      mockFetchMarketTokenList
-        .mockReturnValueOnce(first.promise)
-        .mockResolvedValueOnce(ranking(['B', 'D']));
-      const { result } = renderHook(() =>
-        useMarketTokenList({
-          networkId: 'evm--1',
-          type: 'trending',
-          pollingInterval: 0,
-        }),
-      );
-      await waitFor(() =>
-        expect(mockFetchMarketTokenList).toHaveBeenCalledTimes(1),
-      );
-      await act(async () => {
-        await result.current.refetch();
-      });
-      expect(result.current.data.map((item) => item.symbol)).toEqual([
-        'B',
-        'D',
-      ]);
-      await act(async () => {
-        first.resolve(ranking(['C', 'A']));
-        await first.promise;
-      });
-      expect(result.current.data.map((item) => item.symbol)).toEqual([
-        'B',
-        'D',
-      ]);
-    });
-
-    it('does not preserve the initial ranking after the query changes', async () => {
-      swrCacheUtils.set(cacheKey, ranking(['A', 'B']));
-      const first = createDeferred<IMarketTokenListResponse>();
-      mockFetchMarketTokenList
-        .mockReturnValueOnce(first.promise)
-        .mockResolvedValueOnce(ranking(['D', 'C']));
-      const { result, rerender } = renderHook(
-        ({ networkId }) =>
-          useMarketTokenList({
-            networkId,
-            type: 'trending',
-            pollingInterval: 0,
-          }),
-        { initialProps: { networkId: 'evm--1' } },
-      );
-      await waitFor(() =>
-        expect(mockFetchMarketTokenList).toHaveBeenCalledTimes(1),
-      );
-      rerender({ networkId: 'evm--56' });
-      await waitFor(() =>
-        expect(result.current.data.map((item) => item.symbol)).toEqual([
-          'D',
-          'C',
-        ]),
-      );
-      await act(async () => {
-        first.resolve(ranking(['B', 'A']));
-        await first.promise;
-      });
-      expect(result.current.data.map((item) => item.symbol)).toEqual([
-        'D',
-        'C',
-      ]);
-    });
+    it.each(['refetch', 'network change'])(
+      'adopts the latest ranking after %s and ignores the pending initial result',
+      async (action) => {
+        swrCacheUtils.set(cacheKey, ranking(['A', 'B']));
+        const first = createDeferred<IMarketTokenListResponse>();
+        mockFetchMarketTokenList
+          .mockReturnValueOnce(first.promise)
+          .mockResolvedValueOnce(ranking(['B', 'D']));
+        const { result, rerender } = renderHook(
+          ({ networkId }) => useMarketTokenList({ ...query, networkId }),
+          { initialProps: { networkId: query.networkId } },
+        );
+        await waitFor(() =>
+          expect(mockFetchMarketTokenList).toHaveBeenCalledTimes(1),
+        );
+        if (action === 'refetch') {
+          await act(async () => result.current.refetch());
+        } else {
+          rerender({ networkId: 'evm--56' });
+        }
+        await waitFor(() =>
+          expect(rowSymbols(result.current.data)).toEqual(['B', 'D']),
+        );
+        await act(async () => {
+          first.resolve(ranking(['C', 'A']));
+          await first.promise;
+        });
+        expect(rowSymbols(result.current.data)).toEqual(['B', 'D']);
+      },
+    );
 
     it.each([false, true])(
-      'shows the remote ranking when there are no cached rows (empty entry=%s)',
+      'shows the remote ranking with no cached rows (empty entry=%s)',
       async (emptyEntry) => {
         if (emptyEntry) swrCacheUtils.set(cacheKey, ranking([]));
         mockFetchMarketTokenList.mockResolvedValueOnce(ranking(['B', 'A']));
-        const { result } = renderHook(() =>
-          useMarketTokenList({
-            networkId: 'evm--1',
-            type: 'trending',
-            pollingInterval: 0,
-          }),
-        );
+        const { result } = renderHook(() => useMarketTokenList(query));
         expect(result.current.data).toEqual([]);
         await waitFor(() =>
-          expect(result.current.data.map((item) => item.symbol)).toEqual([
-            'B',
-            'A',
-          ]),
+          expect(rowSymbols(result.current.data)).toEqual(['B', 'A']),
         );
       },
     );
 
-    it('reconciles page one before loading more from the refreshed ranking', async () => {
+    it('reconciles page one before appending the refreshed next page', async () => {
       swrCacheUtils.set(cacheKey, ranking(['A', 'B']));
       mockFetchMarketTokenList
         .mockResolvedValueOnce(ranking(['B', 'D']))
         .mockResolvedValueOnce(ranking(['E']));
-      const { result } = renderHook(() =>
-        useMarketTokenList({
-          networkId: 'evm--1',
-          type: 'trending',
-          pollingInterval: 0,
-        }),
-      );
+      const { result } = renderHook(() => useMarketTokenList(query));
       await waitFor(() =>
         expect(result.current.isProvisionalFirstPageResult).toBe(false),
       );
-      expect(result.current.data.map((item) => item.symbol)).toEqual([
-        'A',
-        'B',
-      ]);
+      expect(rowSymbols(result.current.data)).toEqual(['A', 'B']);
       await act(async () => {
         await result.current.loadMore();
       });
       expect(mockFetchMarketTokenList.mock.calls[1][0].page).toBe(2);
-      expect(result.current.data.map((item) => item.symbol)).toEqual([
-        'B',
-        'D',
-        'E',
-      ]);
+      expect(rowSymbols(result.current.data)).toEqual(['B', 'D', 'E']);
     });
   });
 

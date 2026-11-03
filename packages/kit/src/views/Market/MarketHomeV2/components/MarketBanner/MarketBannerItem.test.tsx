@@ -174,14 +174,14 @@ describe('Market theme banner', () => {
     },
   );
 
-  it('shows at most three supplied tokens in numeric gain order without mutating the response', () => {
+  it('sorts the top three without mutating the response or remounting retained rows', () => {
     const tokens = [
       makeToken('LOW', '2'),
       makeToken('TOP', '10'),
       makeToken('LOSS', '-1'),
       makeToken('SECOND', '3'),
     ];
-    render(<MarketBannerItem item={makeBanner(tokens)} />);
+    const { rerender } = render(<MarketBannerItem item={makeBanner(tokens)} />);
     const rows = screen.getAllByTestId('market-banner-token-row');
     expect(rows).toHaveLength(3);
     expect(rows.map((row) => row.textContent)).toEqual([
@@ -195,6 +195,14 @@ describe('Market theme banner', () => {
       'LOSS',
       'SECOND',
     ]);
+    const refreshed = tokens.map((token) =>
+      token.symbol === 'TOP' ? { ...token, priceChange24hPercent: '0' } : token,
+    );
+    rerender(<MarketBannerItem item={makeBanner(refreshed)} />);
+    const reordered = screen.getAllByTestId('market-banner-token-row');
+    expect(reordered[0]).toBe(rows[1]);
+    expect(reordered[1]).toBe(rows[2]);
+    expect(reordered[2]).toBe(rows[0]);
   });
 
   it('keeps missing quotes behind losses and preserves actual zero values', () => {
@@ -323,27 +331,4 @@ it('does not infer index semantics from a translated title alone', () => {
   );
   fireEvent.click(screen.getByTestId('market-banner-item'));
   expect(onPress).toHaveBeenCalledTimes(1);
-});
-
-it('retains quote row nodes when their ranking changes', () => {
-  const a = makeToken('A', '3', '1');
-  const b = makeToken('B', '2', '2');
-  const { rerender } = render(<MarketBannerItem item={makeBanner([a, b])} />);
-  const rowA = screen
-    .getByText('A')
-    .closest('[data-testid="market-banner-token-row"]');
-  const rowB = screen
-    .getByText('B')
-    .closest('[data-testid="market-banner-token-row"]');
-  rerender(
-    <MarketBannerItem
-      item={makeBanner([{ ...a, priceChange24hPercent: '0' }, b])}
-    />,
-  );
-  expect(
-    screen.getByText('A').closest('[data-testid="market-banner-token-row"]'),
-  ).toBe(rowA);
-  expect(
-    screen.getByText('B').closest('[data-testid="market-banner-token-row"]'),
-  ).toBe(rowB);
 });
