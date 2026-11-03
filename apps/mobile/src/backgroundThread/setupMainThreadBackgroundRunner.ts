@@ -1130,6 +1130,7 @@ function handleRuntimeSignal() {
       // are the special case that owns a request-status fence and retry loop.
       rejectQueuedCalls(reason);
       rejectPendingRemoteCalls(reason);
+      resetWebEmbedAfterBackgroundRestart();
       notifyNativeSyncStorageTransportReady();
       refreshNativeSyncStorageMirrorsAfterBackgroundRestart();
     }
@@ -1158,6 +1159,7 @@ function handleRuntimeSignal() {
   resolveReadyWaiters();
   notifyNativeSyncStorageTransportReady();
   if (bootIdChanged) {
+    resetWebEmbedAfterBackgroundRestart();
     refreshNativeSyncStorageMirrorsAfterBackgroundRestart();
   }
 }
@@ -1408,7 +1410,7 @@ async function handleWebEmbedBridgeRequest(
 
   try {
     const data = typeof value === 'string' ? JSON.parse(value) : undefined;
-    await awaitWebEmbedReady(WEBEMBED_BRIDGE_READY_TIMEOUT_MS);
+    await ensureMainThreadWebEmbedReady();
     const bridge = mainThreadBridgeMap.webEmbed;
 
     if (!bridge || !isMainThreadWebEmbedReady()) {
@@ -1930,26 +1932,68 @@ async function awaitWebEmbedReady(timeoutMs: number): Promise<void> {
   });
 }
 
-let webEmbedRecoveryRequested = false;
+function resetWebEmbedAfterBackgroundRestart() {
+  if (!expectedWebEmbedMountId) return;
+  webEmbedReady = false;
+  webEmbedMountGeneration += 1;
+  webEmbedBgFallbackEnabled = false;
+  void appEventBus.emit(EAppEventBusNames.LoadWebEmbedWebView, undefined);
+}
+
+let pendingWebEmbedRecovery: Promise<void> | undefined;
+
+function ensureMainThreadWebEmbedReady(): Promise<void> {
+  if (isMainThreadWebEmbedReady()) return Promise.resolve();
+  if (
+    mainThreadBridgeMap.webEmbed &&
+    connectedWebEmbedMountId === expectedWebEmbedMountId
+  ) {
+    return awaitWebEmbedReady(WEBEMBED_BRIDGE_READY_TIMEOUT_MS);
+  }
+  if (pendingWebEmbedRecovery) return pendingWebEmbedRecovery;
+
+  let mountRequested = false;
+  const onMountRequested = (payload: { mountId: string }) => {
+    if (payload.mountId === expectedWebEmbedMountId) mountRequested = true;
+  };
+  const requestMount = () => {
+    if (!mountRequested) {
+      void appEventBus.emit(EAppEventBusNames.LoadWebEmbedWebView, undefined);
+    }
+  };
+  appEventBus.on(
+    EAppEventBusNames.WebEmbedWebViewMountRequested,
+    onMountRequested,
+  );
+  const onProviderReady = (payload?: { probeId?: string }) => {
+    if (!payload?.probeId) requestMount();
+  };
+  appEventBus.on(
+    EAppEventBusNames.WebEmbedWebViewProviderReady,
+    onProviderReady,
+  );
+  const recovery = awaitWebEmbedReady(WEBEMBED_BRIDGE_READY_TIMEOUT_MS).finally(
+    () => {
+      appEventBus.off(
+        EAppEventBusNames.WebEmbedWebViewMountRequested,
+        onMountRequested,
+      );
+      appEventBus.off(
+        EAppEventBusNames.WebEmbedWebViewProviderReady,
+        onProviderReady,
+      );
+      if (pendingWebEmbedRecovery === recovery)
+        pendingWebEmbedRecovery = undefined;
+    },
+  );
+  // Publish before emitting: a provider may synchronously request a mount or another call.
+  pendingWebEmbedRecovery = recovery;
+  requestMount();
+  return recovery;
+}
 
 async function ensureMainThreadWebEmbedBridge(): Promise<JsBridgeBase> {
-  if (!isMainThreadWebEmbedReady()) {
-    // A stale bridge can outlive its owner while the next activation fails.
-    // Calls waiting for the current page handshake must not rebuild it again.
-    if (
-      !webEmbedRecoveryRequested &&
-      (!mainThreadBridgeMap.webEmbed ||
-        connectedWebEmbedMountId !== expectedWebEmbedMountId)
-    ) {
-      webEmbedRecoveryRequested = true;
-      appEventBus.emit(EAppEventBusNames.LoadWebEmbedWebView, undefined);
-    }
-    try {
-      await awaitWebEmbedReady(WEBEMBED_BRIDGE_READY_TIMEOUT_MS);
-    } finally {
-      webEmbedRecoveryRequested = false;
-    }
-  }
+  await ensureMainThreadWebEmbedReady();
   const bridge = mainThreadBridgeMap.webEmbed;
   if (!bridge || !isMainThreadWebEmbedReady()) {
     throw new OneKeyLocalError('webEmbed bridge not available on main thread');

@@ -6,10 +6,16 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { getHomeTokenMainRuntimeId } from '@onekeyhq/shared/src/utils/homeTokenRequest';
 
 import { WebViewWebEmbedSingleton } from '../components/WebViewWebEmbed';
 
 let webEmbedMountSequence = 0;
+const webEmbedMainRuntimeId =
+  platformEnv.isNative && platformEnv.enableNativeBackgroundThread
+    ? getHomeTokenMainRuntimeId()
+    : undefined;
 
 function BasicWebViewWebEmbedProvider() {
   const [devSettings] = useDevSettingsPersistAtom();
@@ -62,7 +68,7 @@ function BasicWebViewWebEmbedProvider() {
       lastRequestIdRef.current = requestId;
       webEmbedMountSequence += 1;
       const mountSequence = webEmbedMountSequence;
-      const mountId = `${appEventBus.nodeId}-${mountSequence}`;
+      const mountId = `${webEmbedMainRuntimeId || appEventBus.nodeId}-${mountSequence}`;
       currentMountIdRef.current = mountId;
       appEventBus.emit(EAppEventBusNames.WebEmbedWebViewMountRequested, {
         mountId,
@@ -119,10 +125,35 @@ function BasicWebViewWebEmbedProvider() {
         requestId: payload?.requestId,
       });
     };
+    const onRuntimeProbe = ({ probeId }: { probeId: string }) => {
+      if (webEmbedMainRuntimeId) {
+        void appEventBus.emit(EAppEventBusNames.WebEmbedWebViewProviderReady, {
+          mainRuntimeId: webEmbedMainRuntimeId,
+          probeId,
+        });
+      }
+    };
     appEventBus.on(EAppEventBusNames.LoadWebEmbedWebView, fn);
-    appEventBus.emit(EAppEventBusNames.WebEmbedWebViewProviderReady, undefined);
+    if (webEmbedMainRuntimeId) {
+      appEventBus.on(
+        EAppEventBusNames.WebEmbedWebViewRuntimeProbe,
+        onRuntimeProbe,
+      );
+    }
+    appEventBus.emit(
+      EAppEventBusNames.WebEmbedWebViewProviderReady,
+      webEmbedMainRuntimeId
+        ? { mainRuntimeId: webEmbedMainRuntimeId }
+        : undefined,
+    );
     return () => {
       appEventBus.off(EAppEventBusNames.LoadWebEmbedWebView, fn);
+      if (webEmbedMainRuntimeId) {
+        appEventBus.off(
+          EAppEventBusNames.WebEmbedWebViewRuntimeProbe,
+          onRuntimeProbe,
+        );
+      }
     };
   }, [showWebEmbedWebView]);
   if (disabled && isShow) {

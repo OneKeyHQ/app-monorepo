@@ -343,7 +343,10 @@ export interface IAppEventBusPayload {
     mountId: string;
     mountSequence: number;
   };
-  [EAppEventBusNames.WebEmbedWebViewProviderReady]: undefined;
+  [EAppEventBusNames.WebEmbedWebViewProviderReady]:
+    | { mainRuntimeId: string; probeId?: string }
+    | undefined;
+  [EAppEventBusNames.WebEmbedWebViewRuntimeProbe]: { probeId: string };
   [EAppEventBusNames.WebEmbedWebViewNotReady]: { mountId: string };
   [EAppEventBusNames.LoadWebEmbedWebViewComplete]: {
     mountId: string;

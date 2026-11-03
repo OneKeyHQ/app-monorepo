@@ -56,6 +56,7 @@ export enum EAppEventBusNames {
   WebEmbedWebViewMountRequested = 'WebEmbedWebViewMountRequested',
   WebEmbedWebViewNotReady = 'WebEmbedWebViewNotReady',
   WebEmbedWebViewProviderReady = 'WebEmbedWebViewProviderReady',
+  WebEmbedWebViewRuntimeProbe = 'WebEmbedWebViewRuntimeProbe',
   LoadWebEmbedWebViewComplete = 'LoadWebEmbedWebViewComplete',
   HardwareVerifyAfterDeviceConfirm = 'HardwareVerifyAfterDeviceConfirm',
   DeviceStageAuthAction = 'DeviceStageAuthAction',

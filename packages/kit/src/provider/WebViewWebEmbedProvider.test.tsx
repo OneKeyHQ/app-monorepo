@@ -56,6 +56,7 @@ jest.mock('@onekeyhq/shared/src/platformEnv', () => {
     },
     default: {
       isNative: true,
+      enableNativeBackgroundThread: true,
       isJest: true,
       runtimeRole: 'main',
     },
@@ -550,5 +551,75 @@ describe('WebEmbed API startup request', () => {
     });
     expect(mockWebViewMount).toHaveBeenCalledTimes(2);
     expect(mockWebViewUnmount).toHaveBeenCalledTimes(1);
+  });
+
+  it('acknowledges a replayed early demand synchronously before another provider-ready event', () => {
+    let acknowledged = false;
+    let loads = 0;
+    const onMount = () => {
+      acknowledged = true;
+    };
+    const requestMount = () => {
+      if (!acknowledged) {
+        loads += 1;
+        void appEventBus.emit(EAppEventBusNames.LoadWebEmbedWebView, undefined);
+      }
+    };
+    appEventBus.on(EAppEventBusNames.WebEmbedWebViewMountRequested, onMount);
+    appEventBus.on(
+      EAppEventBusNames.WebEmbedWebViewProviderReady,
+      requestMount,
+    );
+    requestMount();
+    expect(mockWebViewMount).not.toHaveBeenCalled();
+    render(<WebViewWebEmbedProvider />);
+    expect(acknowledged).toBe(true);
+    expect(mockWebViewMount).toHaveBeenCalledTimes(1);
+    act(() => {
+      void appEventBus.emit(
+        EAppEventBusNames.WebEmbedWebViewProviderReady,
+        undefined,
+      );
+    });
+    expect(loads).toBe(2);
+    expect(mockWebViewMount).toHaveBeenCalledTimes(1);
+    appEventBus.off(EAppEventBusNames.WebEmbedWebViewMountRequested, onMount);
+    appEventBus.off(
+      EAppEventBusNames.WebEmbedWebViewProviderReady,
+      requestMount,
+    );
+  });
+
+  it('answers a runtime probe without mounting a page', async () => {
+    const view = render(<WebViewWebEmbedProvider />);
+    const initialReady = jest
+      .mocked(appEventBus)
+      .emit.mock.calls.find(
+        ([name]) => name === EAppEventBusNames.WebEmbedWebViewProviderReady,
+      )?.[1] as { mainRuntimeId: string };
+    const runtimeId = initialReady.mainRuntimeId;
+    expect(runtimeId).toEqual(expect.any(String));
+    act(() => {
+      void backgroundBus.emit(EAppEventBusNames.WebEmbedWebViewRuntimeProbe, {
+        probeId: 'boot-probe-1',
+      });
+    });
+    expect(jest.mocked(appEventBus).emit.mock.calls).toContainEqual([
+      EAppEventBusNames.WebEmbedWebViewProviderReady,
+      { mainRuntimeId: runtimeId, probeId: 'boot-probe-1' },
+    ]);
+    expect(mockWebViewMount).not.toHaveBeenCalled();
+    expect(mockReserveWebEmbedRequest).not.toHaveBeenCalled();
+    const repliesBeforeUnmount =
+      jest.mocked(appEventBus).emit.mock.calls.length;
+    view.unmount();
+    act(() => {
+      void backgroundBus.emit(EAppEventBusNames.WebEmbedWebViewRuntimeProbe, {
+        probeId: 'boot-probe-2',
+      });
+    });
+    expect(jest.mocked(appEventBus).emit.mock.calls).toHaveLength(
+      repliesBeforeUnmount,
+    );
   });
 });

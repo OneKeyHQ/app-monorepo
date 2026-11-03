@@ -19,6 +19,10 @@ let mockInboundMessageHandler:
   | ((key: string, value: string | number | boolean) => void)
   | undefined;
 const mockAppEventHandlers: Record<string, (payload: any) => void> = {};
+const mockAppEventListeners: Record<
+  string,
+  Set<(payload: unknown) => void>
+> = {};
 
 const mockReadyPayload = JSON.stringify({
   runtime: 'background',
@@ -27,6 +31,7 @@ const mockReadyPayload = JSON.stringify({
   bootId: 'test-boot-id',
   ts: 1,
 });
+let mockReadySignalPayload = mockReadyPayload;
 
 jest.mock('@onekeyfe/react-native-background-thread', () => ({
   getSharedRPC: () => ({
@@ -39,7 +44,7 @@ jest.mock('@onekeyfe/react-native-background-thread', () => ({
     registerReadinessKey: mockSharedRPCRegisterReadinessKey,
   }),
   getSharedStore: () => ({
-    get: () => mockReadyPayload,
+    get: () => mockReadySignalPayload,
     keys: () => [],
     set: mockSharedStoreSet,
   }),
@@ -106,12 +111,20 @@ jest.mock('@onekeyhq/shared/src/eventBus/appEventBus', () => ({
     LoadWebEmbedWebViewComplete: 'LoadWebEmbedWebViewComplete',
     WebEmbedWebViewMountRequested: 'WebEmbedWebViewMountRequested',
     WebEmbedWebViewNotReady: 'WebEmbedWebViewNotReady',
+    WebEmbedWebViewProviderReady: 'WebEmbedWebViewProviderReady',
   },
   appEventBus: {
     dispatchInboundFromBackground: jest.fn(),
     emit: mockAppEventEmit,
-    on: jest.fn((name: string, handler: (payload: any) => void) => {
-      mockAppEventHandlers[name] = handler;
+    on: jest.fn((name: string, handler: (payload: unknown) => void) => {
+      mockAppEventListeners[name] ??= new Set();
+      mockAppEventListeners[name].add(handler);
+      mockAppEventHandlers[name] = (payload: unknown) => {
+        mockAppEventListeners[name].forEach((listener) => listener(payload));
+      };
+    }),
+    off: jest.fn((name: string, handler: (payload: unknown) => void) => {
+      mockAppEventListeners[name]?.delete(handler);
     }),
   },
 }));
@@ -139,6 +152,11 @@ jest.mock('@onekeyhq/kit-bg/src/states/jotai/jotaiInitFromUi', () => ({
   jotaiUpdateFromUiByBgBroadcast: (params: IGlobalStatesSyncBroadcastParams) =>
     mockJotaiUpdateFromUiByBgBroadcast(params),
 }));
+
+jest.mock(
+  '@onekeyhq/shared/src/storage/instance/nativeSyncStorageMirror',
+  () => ({ refreshNativeSyncStorageMirrors: jest.fn() }),
+);
 
 jest.mock('./runtimeState', () => ({
   setBackgroundThreadReadyPayload: jest.fn(),
@@ -780,5 +798,253 @@ describe('main thread background runner', () => {
         ([params]) => params.name,
       ),
     ).toEqual(['firstAtom', 'secondAtom', 'thirdAtom']);
+  });
+
+  async function createRecoveryHarness(sequence: number) {
+    await import('./setupMainThreadBackgroundRunner');
+    const { registerImageEmbedBridge } =
+      await import('@onekeyhq/shared/src/utils/imageUtils.embedBridge');
+    const imageBridge = jest
+      .mocked(registerImageEmbedBridge)
+      .mock.calls.at(-1)![0];
+    const transport = (
+      globalThis as typeof globalThis & {
+        __onekeyNativeBackgroundThreadTransport: {
+          syncBridgeConnection: (
+            params: {
+              channel: 'webEmbed';
+              bridge: unknown;
+              mountId: string;
+              mountSequence: number;
+            },
+            fallback: () => Promise<unknown>,
+          ) => Promise<unknown>;
+        };
+      }
+    ).__onekeyNativeBackgroundThreadTransport;
+    const request = jest.fn().mockResolvedValue('recovered-image');
+    const mount = (mountSequence: number) => {
+      const mountId = `recovery-${mountSequence}`;
+      mockAppEventHandlers.WebEmbedWebViewMountRequested({
+        mountId,
+        mountSequence,
+      });
+      void transport.syncBridgeConnection(
+        {
+          channel: 'webEmbed',
+          bridge: { request, globalOnMessageEnabled: true },
+          mountId,
+          mountSequence,
+        },
+        async () => undefined,
+      );
+      return mountId;
+    };
+    const previousMount = mount(sequence);
+    mockAppEventHandlers.LoadWebEmbedWebViewComplete({
+      mountId: previousMount,
+    });
+    void transport.syncBridgeConnection(
+      {
+        channel: 'webEmbed',
+        bridge: null,
+        mountId: previousMount,
+        mountSequence: sequence,
+      },
+      async () => undefined,
+    );
+    mockAppEventEmit.mockClear();
+    const settle = async () => {
+      for (let i = 0; i < 8; i += 1) await Promise.resolve();
+    };
+    const cleanup = async () => {
+      await settle();
+      mockSharedRPCWrite.mock.calls
+        .filter(
+          ([key]) =>
+            typeof key === 'string' && key.startsWith('onekey:bg:req:'),
+        )
+        .forEach(([key]) => {
+          mockInboundMessageHandler?.(
+            `onekey:bg:res:${(key as string).slice('onekey:bg:req:'.length)}`,
+            JSON.stringify({ ok: true }),
+          );
+        });
+      mockAppEventEmit.mockReset();
+      mockSharedRPCWrite.mockClear();
+    };
+    return { imageBridge, request, mount, settle, cleanup };
+  }
+
+  it('replays an early image and reverse demand once when the provider subscribes', async () => {
+    const { imageBridge, request, mount, settle, cleanup } =
+      await createRecoveryHarness(1000);
+    const first = imageBridge.convertToBlackAndWhiteImageBase64(
+      'image',
+      'image/png',
+    );
+    const second = imageBridge.convertToBlackAndWhiteImageBase64(
+      'image',
+      'image/png',
+    );
+    mockInboundMessageHandler?.('onekey:webembed:req:early-reverse', '{}');
+    await settle();
+    expect(mockAppEventEmit).toHaveBeenCalledTimes(1);
+    let receivedMountId: string | undefined;
+    mockAppEventEmit.mockImplementation((name: string) => {
+      if (name === 'LoadWebEmbedWebView') receivedMountId = mount(1001);
+    });
+    mockAppEventHandlers.WebEmbedWebViewProviderReady?.({
+      mainRuntimeId: 'live',
+      probeId: 'passive-proof',
+    });
+    expect(mockAppEventEmit).toHaveBeenCalledTimes(1);
+    mockAppEventHandlers.WebEmbedWebViewProviderReady?.(undefined);
+    mockAppEventHandlers.WebEmbedWebViewProviderReady?.(undefined);
+    const replayCount = mockAppEventEmit.mock.calls.length;
+    const providerReceived = receivedMountId;
+    receivedMountId ??= mount(1001);
+    const third = imageBridge.convertToBlackAndWhiteImageBase64(
+      'image',
+      'image/png',
+    );
+    await settle();
+    expect(request).not.toHaveBeenCalled();
+    mockAppEventHandlers.LoadWebEmbedWebViewComplete({
+      mountId: receivedMountId,
+    });
+    await expect(first).resolves.toBe('recovered-image');
+    await expect(second).resolves.toBe('recovered-image');
+    await expect(third).resolves.toBe('recovered-image');
+    await settle();
+    const response = mockSharedRPCWrite.mock.calls.find(
+      ([key]) => key === 'onekey:webembed:resp:early-reverse',
+    )?.[1];
+    const readyListeners =
+      mockAppEventListeners.WebEmbedWebViewProviderReady?.size ?? 0;
+    await cleanup();
+    expect(providerReceived).toBe('recovery-1001');
+    expect(replayCount).toBe(2);
+    expect(request).toHaveBeenCalledTimes(4);
+    expect(JSON.parse(response as string)).toEqual({
+      ok: true,
+      result: 'recovered-image',
+    });
+    expect(readyListeners).toBe(0);
+  });
+
+  it('cleans up an early recovery timeout so a later image demand can retry', async () => {
+    jest.useFakeTimers();
+    try {
+      const { imageBridge, mount, settle, cleanup } =
+        await createRecoveryHarness(2000);
+      const first = imageBridge.convertToBlackAndWhiteImageBase64(
+        'image',
+        'image/png',
+      );
+      const firstRejection = first.catch((error: unknown) => error);
+      mockInboundMessageHandler?.('onekey:webembed:req:early-timeout', '{}');
+      await jest.advanceTimersByTimeAsync(30_000);
+      await expect(firstRejection).resolves.toMatchObject({
+        message: 'webEmbed not ready after 30s',
+      });
+      const listenersAfterTimeout =
+        mockAppEventListeners.WebEmbedWebViewProviderReady?.size ?? 0;
+      const reverseResponse = mockSharedRPCWrite.mock.calls.find(
+        ([key]) => key === 'onekey:webembed:resp:early-timeout',
+      )?.[1];
+      mockAppEventEmit.mockClear();
+      const retry = imageBridge.convertToBlackAndWhiteImageBase64(
+        'image',
+        'image/png',
+      );
+      await settle();
+      let mounted: string | undefined;
+      mockAppEventEmit.mockImplementation((name: string) => {
+        if (name === 'LoadWebEmbedWebView') mounted = mount(2001);
+      });
+      mockAppEventHandlers.WebEmbedWebViewProviderReady?.(undefined);
+      const replayedMount = mounted;
+      mounted ??= mount(2001);
+      mockAppEventHandlers.LoadWebEmbedWebViewComplete({ mountId: mounted });
+      await expect(retry).resolves.toBe('recovered-image');
+      await cleanup();
+      expect(listenersAfterTimeout).toBe(0);
+      expect(replayedMount).toBe('recovery-2001');
+      expect(JSON.parse(reverseResponse as string)).toMatchObject({
+        ok: false,
+        error: { message: 'webEmbed not ready after 30s' },
+      });
+    } finally {
+      jest.clearAllTimers();
+      jest.useRealTimers();
+    }
+  });
+
+  it('rebuilds an owned page once after a real background restart and waits for its new handshake', async () => {
+    const { imageBridge, request, mount, settle, cleanup } =
+      await createRecoveryHarness(3000);
+    const oldMount = mount(3001);
+    mockAppEventHandlers.LoadWebEmbedWebViewComplete({ mountId: oldMount });
+    await cleanup();
+    let replacement: string | undefined;
+    mockAppEventEmit.mockImplementation((name: string) => {
+      if (name === 'LoadWebEmbedWebView') replacement = mount(3002);
+    });
+    mockReadySignalPayload = JSON.stringify({
+      ...JSON.parse(mockReadyPayload),
+      bootId: 'new-background',
+    });
+    mockInboundMessageHandler?.(
+      '@onekey/mobile/background-thread/runtime-ready-wake',
+      '1',
+    );
+    mockInboundMessageHandler?.(
+      '@onekey/mobile/background-thread/runtime-ready-wake',
+      '1',
+    );
+    const loads = mockAppEventEmit.mock.calls.filter(
+      ([name]) => name === 'LoadWebEmbedWebView',
+    ).length;
+    const pending = imageBridge.convertToBlackAndWhiteImageBase64(
+      'image',
+      'image/png',
+    );
+    mockAppEventHandlers.LoadWebEmbedWebViewComplete({ mountId: oldMount });
+    await settle();
+    expect(request).not.toHaveBeenCalled();
+    replacement ??= mount(3002);
+    mockAppEventHandlers.LoadWebEmbedWebViewComplete({ mountId: replacement });
+    await expect(pending).resolves.toBe('recovered-image');
+    await cleanup();
+    expect(loads).toBe(1);
+  });
+
+  it('does not mount an undemanded page at cold startup or on background heartbeats', async () => {
+    mockAppEventEmit.mockReset();
+    await jest.isolateModulesAsync(async () => {
+      await import('./setupMainThreadBackgroundRunner');
+      mockInboundMessageHandler?.(
+        '@onekey/mobile/background-thread/runtime-ready-wake',
+        '1',
+      );
+      mockReadySignalPayload = JSON.stringify({
+        ...JSON.parse(mockReadyPayload),
+        bootId: 'idle-background',
+      });
+      mockInboundMessageHandler?.(
+        '@onekey/mobile/background-thread/runtime-ready-wake',
+        '1',
+      );
+      mockInboundMessageHandler?.(
+        '@onekey/mobile/background-thread/runtime-ready-wake',
+        '1',
+      );
+    });
+    expect(
+      mockAppEventEmit.mock.calls.filter(
+        ([name]) => name === 'LoadWebEmbedWebView',
+      ),
+    ).toHaveLength(0);
   });
 });
