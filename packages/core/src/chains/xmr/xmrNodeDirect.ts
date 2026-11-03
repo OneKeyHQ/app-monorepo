@@ -23,16 +23,32 @@ export function normalizeXmrNodeBase(nodeBase: string): string {
   return nodeBase.trim().replace(/\/+$/, '');
 }
 
-// Null when the node answers with an error status; a failed connection throws.
+const XMR_NODE_DIRECT_TIMEOUT_MS = 10_000;
+
+// Null when the node answers with an error status; a failed connection or a timeout throws.
 async function postXmrNode(url: string, body = ''): Promise<string | null> {
-  const response = await privacyChainNodeFetch(url, {
-    method: 'POST',
-    ...(body ? { body, headers: { 'content-type': 'application/json' } } : {}),
-  });
-  if (!response.ok) {
-    return null;
+  const controller = new AbortController();
+  const timer = setTimeout(
+    () => controller.abort(),
+    XMR_NODE_DIRECT_TIMEOUT_MS,
+  );
+  try {
+    const response = await privacyChainNodeFetch(url, {
+      method: 'POST',
+      ...(body
+        ? { body, headers: { 'content-type': 'application/json' } }
+        : {}),
+      signal: controller.signal,
+    });
+    if (!response.ok) {
+      return null;
+    }
+    return await response.text();
+  } finally {
+    clearTimeout(timer);
+    // An unread body holds a desktop host stream until it is cancelled.
+    controller.abort();
   }
-  return response.text();
 }
 
 /** The top block's number, as the runtime reports its tip (`/get_height` counts blocks), without opening the scanner wallet; a failed connection throws. */

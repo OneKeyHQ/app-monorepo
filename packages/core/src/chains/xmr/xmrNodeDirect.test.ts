@@ -37,6 +37,37 @@ describe('xmrNodeDirect', () => {
     ).resolves.toBeNull();
   });
 
+  // An unread error body would hold a desktop host stream until it idles out.
+  it('cancels the request once an error status is read', async () => {
+    nodeFetch.mockResolvedValue(new Response('busy', { status: 429 }));
+    await fetchXmrNodeHeightDirect({ nodeBase: 'https://node.example' });
+    expect(nodeFetch.mock.calls[0][1]?.signal?.aborted).toBe(true);
+  });
+
+  it('gives up on a node that never answers', async () => {
+    jest.useFakeTimers();
+    try {
+      nodeFetch.mockImplementation(
+        (_url, init) =>
+          new Promise((_resolve, reject) => {
+            init?.signal?.addEventListener('abort', () =>
+              reject(new Error('aborted')),
+            );
+          }),
+      );
+      const outcome = fetchXmrNodeHeightDirect({
+        nodeBase: 'https://node.example',
+      }).then(
+        () => 'answered',
+        (error: unknown) => (error instanceof Error ? error.message : ''),
+      );
+      await jest.advanceTimersByTimeAsync(10_000);
+      await expect(outcome).resolves.toBe('aborted');
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
   // `/get_height` counts blocks; the runtime's tip is the top block's number.
   it('reads the top block number from get_height', async () => {
     nodeFetch.mockResolvedValue(
