@@ -8,6 +8,7 @@ import {
   isPrimeInfiniPaymentFullyConfirmedSnapshot,
   isPrimeInfiniPaymentPreBroadcastSnapshotSendable,
   isPrimeInfiniPaymentTransferClaimForSession,
+  isPrimeInfiniRemotePaymentTrackingOnlySnapshot,
   isValidPrimeInfiniPaymentContract,
   mergePrimeInfiniPaymentProgressSnapshot,
 } from './primeInfiniPaymentCacheUtils';
@@ -259,6 +260,27 @@ describe('mergePrimeInfiniPaymentProgressSnapshot', () => {
     expect(merged.remoteTrackingOnly).toBe(true);
     expect(hasPrimeInfiniPaymentProgressSnapshot(merged)).toBe(true);
   });
+
+  test.each(['expired', 'failed', 'cancelled'])(
+    'does not treat a closed unpaid %s status as remote transfer activity',
+    (status) => {
+      expect(
+        isPrimeInfiniRemotePaymentTrackingOnlySnapshot({
+          ...payment,
+          status,
+          amountConfirmed: '0',
+          amountConfirming: '0',
+        }),
+      ).toBe(false);
+      expect(
+        isPrimeInfiniRemotePaymentTrackingOnlySnapshot({
+          ...payment,
+          status,
+          hasTransactions: true,
+        }),
+      ).toBe(true);
+    },
+  );
 
   test.each(['signed', 'confirming', 'processing'])(
     'treats %s status as transfer activity even before amounts arrive',

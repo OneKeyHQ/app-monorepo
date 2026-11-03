@@ -73,6 +73,21 @@ describe('remote Infini pending payment recovery', () => {
     ).toBeUndefined();
   });
 
+  it.each(['expired', 'failed', 'cancelled'])(
+    'does not resume a closed unpaid %s invoice',
+    (status) => {
+      expect(
+        getPrimeInfiniRemotePaymentRecovery({
+          pendingPayment: {
+            ...lookup.pendingPayment!,
+            payment: { ...payment, status },
+          },
+          assets: [asset],
+        }),
+      ).toBeUndefined();
+    },
+  );
+
   it.each([
     { ...payment, status: 'confirming' },
     { ...payment, status: 'signed' },

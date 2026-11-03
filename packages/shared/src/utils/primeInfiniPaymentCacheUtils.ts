@@ -519,6 +519,7 @@ export function hasPrimeInfiniPaymentProgressSnapshot(
 export function isPrimeInfiniRemotePaymentTrackingOnlySnapshot(
   payment: IPrimeInfiniPayment,
 ) {
+  if (isPrimeInfiniPaymentClosedUnpaidSnapshot(payment)) return false;
   const status = normalizePaymentStatus(payment.status);
   const infiniStatus = normalizePaymentStatus(payment.infiniStatus);
   const unsentStatuses = new Set(['pending', 'created', 'unpaid']);

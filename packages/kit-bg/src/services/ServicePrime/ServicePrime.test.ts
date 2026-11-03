@@ -2102,6 +2102,28 @@ describe('ServicePrime Infini payment APIs', () => {
     },
   );
 
+  it.each(['expired', 'failed', 'cancelled'])(
+    'does not mark a closed unpaid %s invoice as transferred during discovery',
+    async (status) => {
+      const { service, simpleDbPrime } = createInfiniService();
+      const unpaid = { ...payment, status };
+      service.getPrimeClient = jest.fn(async () => ({
+        get: jest.fn(async () => ({
+          data: { data: { ...unpaid, plan: 'monthly' } },
+        })),
+      }));
+      const lookup = await service.apiGetInfiniPendingPayment({
+        expectedOneKeyUserId: 'user-a',
+      });
+      expect(
+        simpleDbPrime.mergeInfiniRemotePaymentTracking,
+      ).toHaveBeenCalledWith({ onekeyUserId: 'user-a', payment: unpaid });
+      expect(
+        lookup.pendingPayment?.payment?.remoteTrackingOnly,
+      ).toBeUndefined();
+    },
+  );
+
   it('fails closed when remote tracking evidence cannot be saved', async () => {
     const { service, simpleDbPrime } = createInfiniService();
     simpleDbPrime.mergeInfiniRemotePaymentTracking.mockRejectedValue(

@@ -58,7 +58,6 @@ import {
 } from '@onekeyhq/shared/src/utils/primeGiftVerifyError';
 import {
   hasPrimeInfiniPaymentProgressSnapshot,
-  isPrimeInfiniRemotePaymentTrackingOnlySnapshot,
   isValidPrimeInfiniPaymentContract,
 } from '@onekeyhq/shared/src/utils/primeInfiniPaymentCacheUtils';
 import { getPrimeInfiniPaymentSafeError } from '@onekeyhq/shared/src/utils/primeInfiniPaymentDiagnostics';
@@ -6177,18 +6176,15 @@ class ServicePrime extends ServiceBase {
   private async mergeInfiniRemotePaymentTracking({
     authSnapshot,
     payment,
-    trackingOnly,
   }: {
     authSnapshot: IOneKeyIdAuthSnapshot;
     payment: IPrimeInfiniPayment;
-    trackingOnly?: boolean;
   }): Promise<IPrimeInfiniPayment> {
     await this.assertInfiniPurchaseAuthSnapshot(authSnapshot);
     const merged =
       await this.backgroundApi.simpleDb.prime.mergeInfiniRemotePaymentTracking({
         onekeyUserId: authSnapshot.expectedOneKeyUserId,
         payment,
-        trackingOnly,
       });
     await this.assertInfiniPurchaseAuthSnapshot(authSnapshot);
     return merged;
@@ -6286,8 +6282,6 @@ class ServicePrime extends ServiceBase {
           payment = await this.mergeInfiniRemotePaymentTracking({
             authSnapshot: snapshot,
             payment,
-            trackingOnly:
-              isPrimeInfiniRemotePaymentTrackingOnlySnapshot(payment),
           });
         }
         const hasTransactions =

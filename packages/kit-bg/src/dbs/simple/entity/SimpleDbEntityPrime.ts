@@ -1659,11 +1659,9 @@ export class SimpleDbEntityPrime extends SimpleDbEntityBase<ISimpleDBPrime> {
   async mergeInfiniRemotePaymentTracking({
     onekeyUserId,
     payment,
-    trackingOnly = false,
   }: {
     onekeyUserId: string;
     payment: IPrimeInfiniPayment;
-    trackingOnly?: boolean;
   }): Promise<IPrimeInfiniPayment> {
     const failure = getPrimeInfiniPaymentValidationFailure({
       payment,
@@ -1679,11 +1677,7 @@ export class SimpleDbEntityPrime extends SimpleDbEntityBase<ISimpleDBPrime> {
       rawData?.infiniRemotePaymentTrackingByUserId?.[onekeyUserId]?.[
         payment.paymentId
       ];
-    if (
-      !previous &&
-      !trackingOnly &&
-      !hasPrimeInfiniPaymentProgressSnapshot(payment)
-    ) {
+    if (!previous && !hasPrimeInfiniPaymentProgressSnapshot(payment)) {
       return payment;
     }
     let mergedPayment = payment;

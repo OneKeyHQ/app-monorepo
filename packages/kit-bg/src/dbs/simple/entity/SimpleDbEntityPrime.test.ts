@@ -1374,12 +1374,11 @@ describe('SimpleDbEntityPrime Infini pending payment session', () => {
     ).resolves.toEqual(otherInvoice);
   });
 
-  test('persists a tracking-only handoff even without reported transactions or amounts', async () => {
+  test('persists signed transfer evidence even without reported transactions or amounts', async () => {
     const { entity, read } = createSessionStore();
     await entity.mergeInfiniRemotePaymentTracking({
       onekeyUserId: 'user-1',
-      payment: session.payment,
-      trackingOnly: true,
+      payment: { ...session.payment, status: 'signed' },
     });
     const reopened = createSessionStore(read());
     await expect(
@@ -1394,8 +1393,7 @@ describe('SimpleDbEntityPrime Infini pending payment session', () => {
     const { entity } = createSessionStore();
     await entity.mergeInfiniRemotePaymentTracking({
       onekeyUserId: 'user-1',
-      payment: session.payment,
-      trackingOnly: true,
+      payment: { ...session.payment, status: 'signed' },
     });
     await expect(
       entity.mergeInfiniRemotePaymentTracking({
@@ -1421,6 +1419,49 @@ describe('SimpleDbEntityPrime Infini pending payment session', () => {
       data: { paymentValidationFailure: 'localPersistenceFailed' },
     });
   });
+
+  test.each(['expired', 'failed', 'cancelled', 'pending', undefined])(
+    'does not invent durable transfer evidence from unpaid status %s',
+    async (status) => {
+      const { entity, read } = createSessionStore();
+      const persist = jest.spyOn(entity, 'setRawData');
+      const unpaid = {
+        ...session.payment,
+        status,
+        amountConfirmed: '0',
+        amountConfirming: '0',
+      };
+      await expect(
+        entity.mergeInfiniRemotePaymentTracking({
+          onekeyUserId: 'user-1',
+          payment: unpaid,
+        }),
+      ).resolves.toEqual(unpaid);
+      expect(persist).not.toHaveBeenCalled();
+      expect(read().infiniRemotePaymentTrackingByUserId).toBeUndefined();
+    },
+  );
+
+  test.each(['expired', 'failed'])(
+    'retains actual transfer evidence when a later response is %s',
+    async (status) => {
+      const { entity, read } = createSessionStore();
+      await entity.mergeInfiniRemotePaymentTracking({
+        onekeyUserId: 'user-1',
+        payment: { ...session.payment, hasTransactions: true },
+      });
+      const reopened = createSessionStore(read());
+      await expect(
+        reopened.entity.mergeInfiniRemotePaymentTracking({
+          onekeyUserId: 'user-1',
+          payment: { ...session.payment, status },
+        }),
+      ).resolves.toMatchObject({
+        remoteTrackingOnly: true,
+        hasTransactions: true,
+      });
+    },
+  );
 
   test('fails closed if storage declines a remote tracking write', async () => {
     const { entity } = createSessionStore();
