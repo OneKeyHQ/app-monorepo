@@ -3,6 +3,7 @@ import semver from 'semver';
 
 import { appApiClient } from '@onekeyhq/shared/src/appApiClient/appApiClient';
 import type {
+  IAppUpdateInfo,
   IFeaturedChangelog,
   IPendingInstallTask,
   IResponseAppUpdateInfo,
@@ -41,6 +42,7 @@ import {
 import {
   EUpdateErrorCode,
   type IUpdateErrorDTO,
+  getUpdateError,
   getUpdateErrorI18nKey,
   isRetryableUpdateError,
   normalizeUpdateErrorDTO,
@@ -157,6 +159,111 @@ function normalizeOptionalString(value: unknown): string | undefined {
   return String(value);
 }
 
+// ---------------------------------------------------------------------------
+// OTA funnel telemetry (fire-and-forget, never blocks the update flow)
+// ---------------------------------------------------------------------------
+type IOtaTelemetryEvent =
+  | 'DOWNLOAD_START'
+  | 'DOWNLOAD_SUCCESS'
+  | 'DOWNLOAD_FAILED'
+  | 'VERIFY_SUCCESS'
+  | 'VERIFY_FAILED'
+  | 'INSTALL_SUCCESS'
+  | 'INSTALL_FAILED';
+
+// Must match the server-side OtaErrorCode whitelist
+type IOtaTelemetryErrorCode =
+  | 'NETWORK_TIMEOUT'
+  | 'DOWNLOAD_HTTP_ERROR'
+  | 'DISK_SPACE_INSUFFICIENT'
+  | 'SHA256_MISMATCH'
+  | 'UNZIP_OR_FILE_CORRUPT'
+  | 'SIGNATURE_INVALID'
+  | 'INSTALL_OR_APPLY_ERROR'
+  | 'STARTUP_ROLLBACK'
+  | 'UNKNOWN_ERROR';
+
+const OTA_TELEMETRY_TIMEOUT_MS = 3000;
+const OTA_TELEMETRY_SAMPLE_MAX_LENGTH = 180;
+
+function mapDownloadErrorToOtaCode(
+  error?: IUpdateErrorDTO,
+): IOtaTelemetryErrorCode {
+  switch (error?.code) {
+    case EUpdateErrorCode.timeout:
+      return 'NETWORK_TIMEOUT';
+    case EUpdateErrorCode.networkError:
+    case EUpdateErrorCode.httpError:
+    case EUpdateErrorCode.packageMissing:
+      return 'DOWNLOAD_HTTP_ERROR';
+    case EUpdateErrorCode.storageError:
+      return 'DISK_SPACE_INSUFFICIENT';
+    case EUpdateErrorCode.integrityFailed:
+      return 'UNZIP_OR_FILE_CORRUPT';
+    default:
+      return 'UNKNOWN_ERROR';
+  }
+}
+
+export function resolveVerifyErrorCode(
+  error: unknown,
+  defaultCode: 'SIGNATURE_INVALID' | 'SHA256_MISMATCH',
+): IOtaTelemetryErrorCode {
+  let rawCode = '';
+  if (typeof error === 'object' && error !== null && 'code' in error) {
+    rawCode = String((error as { code?: unknown }).code ?? '');
+  } else if (typeof error === 'string') {
+    rawCode = error;
+  }
+  switch (rawCode) {
+    case EUpdateErrorCode.packageMissing:
+    case 'packageMissing':
+      return 'UNZIP_OR_FILE_CORRUPT';
+    case EUpdateErrorCode.httpError:
+    case EUpdateErrorCode.networkError:
+    case 'responseNot200':
+    case 'RESPONSE_NOT_200':
+      return 'DOWNLOAD_HTTP_ERROR';
+    case EUpdateErrorCode.storageError:
+    case 'storageError':
+      return 'DISK_SPACE_INSUFFICIENT';
+    case EUpdateErrorCode.timeout:
+    case 'downloadTimeout':
+    case 'DOWNLOAD_TIMEOUT':
+    case 'timeout':
+      return 'NETWORK_TIMEOUT';
+    case EUpdateErrorCode.integrityFailed:
+    case 'sha256Mismatch':
+    case 'SHA256_MISMATCH':
+      return 'SHA256_MISMATCH';
+    case EUpdateErrorCode.securityRejected:
+    case 'ascVerifyFailed':
+    case 'ASC_VERIFY_FAILED':
+      return 'SIGNATURE_INVALID';
+    default:
+      return defaultCode;
+  }
+}
+
+function extractUpdateErrorDTO(
+  error: unknown,
+  step: 'verifyASC' | 'verifyPackage' | 'install',
+): IUpdateErrorDTO {
+  const normalized = normalizeUpdateErrorDTO(error, step);
+  if (normalized.code !== EUpdateErrorCode.unknown) {
+    return normalized;
+  }
+  return getUpdateError(error, step);
+}
+
+// Structured, PII-free error sample: normalized code/step/httpStatus only
+function buildOtaErrorSample(error?: IUpdateErrorDTO): string | undefined {
+  if (!error) return undefined;
+  return [error.code, error.step, error.httpStatus]
+    .filter((part) => part !== undefined && part !== null)
+    .join(':');
+}
+
 function normalizeOptionalNumber(value: unknown): number | undefined {
   if (value === null || value === undefined || value === '') {
     return undefined;
@@ -172,6 +279,150 @@ class ServiceAppUpdate extends ServiceBase {
   }
 
   private isResetting = false;
+
+  // Session-level dedupe: one report per target + event + errorCode per runtime
+  private reportedOtaTelemetryKeys = new Set<string>();
+
+  private async postOtaTelemetry(params: {
+    event: IOtaTelemetryEvent;
+    appInfo?: IAppUpdateInfo;
+    category?: 'fullUpdate' | 'hotUpdate';
+    targetVersion?: string;
+    bundleVersion?: number;
+    errorCode?: IOtaTelemetryErrorCode;
+    errorSample?: string;
+  }): Promise<void> {
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    let dedupeKey: string | undefined;
+    try {
+      let category = params.category;
+      let targetVersion = params.targetVersion;
+      let bundleVersion = params.bundleVersion;
+
+      if (!category || !targetVersion) {
+        const info = params.appInfo ?? (await appUpdatePersistAtom.get());
+        targetVersion = targetVersion ?? info.latestVersion;
+        if (!targetVersion) return;
+        const bundleVersionNum = normalizeOptionalNumber(info.jsBundleVersion);
+        // Skip reporting upgrade funnel completion when the launch is actually
+        // completing a rollback (either to built-in bundle 0 or to an older
+        // positive hot-update bundle), avoiding false upgrade completion noise.
+        if (
+          params.event === 'INSTALL_SUCCESS' &&
+          (info.isRollbackTarget ||
+            (info.jsBundleVersion !== undefined && bundleVersionNum === 0))
+        ) {
+          return;
+        }
+        // On first launch after a hot update is applied, APP_BUNDLE_VERSION
+        // equals info.jsBundleVersion so getUpdateFileType(info) returns
+        // appShell; check persisted jsBundleVersion > 0 when latestVersion matches
+        // current app version to keep hotUpdate classification.
+        const isHot =
+          getUpdateFileType(info) === EUpdateFileType.jsBundle ||
+          (Boolean(bundleVersionNum && bundleVersionNum > 0) &&
+            info.latestVersion === platformEnv.version);
+        bundleVersion = isHot ? bundleVersionNum : undefined;
+        category = isHot ? 'hotUpdate' : 'fullUpdate';
+      } else {
+        bundleVersion =
+          category === 'hotUpdate'
+            ? normalizeOptionalNumber(bundleVersion)
+            : undefined;
+      }
+
+      dedupeKey = [
+        category,
+        targetVersion,
+        bundleVersion ?? 0,
+        params.event,
+        params.errorCode ?? '',
+      ].join(':');
+      if (this.reportedOtaTelemetryKeys.has(dedupeKey)) return;
+      this.reportedOtaTelemetryKeys.add(dedupeKey);
+
+      const client = await this.getRawDataClient(EServiceEndpointEnum.Utility);
+      const controller = new AbortController();
+      timer = setTimeout(() => controller.abort(), OTA_TELEMETRY_TIMEOUT_MS);
+      await client.post(
+        '/utility/v1/app-update/telemetry',
+        {
+          category,
+          targetVersion,
+          bundleVersion,
+          event: params.event,
+          errorCode: params.errorCode,
+          errorSample: params.errorSample?.slice(
+            0,
+            OTA_TELEMETRY_SAMPLE_MAX_LENGTH,
+          ),
+        },
+        { signal: controller.signal, timeout: OTA_TELEMETRY_TIMEOUT_MS },
+      );
+    } catch {
+      if (dedupeKey) {
+        this.reportedOtaTelemetryKeys.delete(dedupeKey);
+      }
+      // Telemetry must never affect the update flow
+    } finally {
+      if (timer) clearTimeout(timer);
+    }
+  }
+
+  private reportOtaTelemetry(params: {
+    event: IOtaTelemetryEvent;
+    appInfo?: IAppUpdateInfo;
+    category?: 'fullUpdate' | 'hotUpdate';
+    targetVersion?: string;
+    bundleVersion?: number;
+    errorCode?: IOtaTelemetryErrorCode;
+    errorSample?: string;
+  }): void {
+    void this.postOtaTelemetry(params);
+  }
+
+  @backgroundMethod()
+  public async reportOtaInstallFailure(
+    paramsOrAppInfo?:
+      | {
+          category: 'fullUpdate' | 'hotUpdate';
+          targetVersion: string;
+          bundleVersion?: number;
+          errorCode?: 'INSTALL_OR_APPLY_ERROR' | 'STARTUP_ROLLBACK';
+          errorSample?: string;
+        }
+      | IAppUpdateInfo,
+    error?: unknown,
+  ): Promise<void> {
+    if (
+      paramsOrAppInfo &&
+      typeof paramsOrAppInfo === 'object' &&
+      'category' in paramsOrAppInfo &&
+      'targetVersion' in paramsOrAppInfo
+    ) {
+      await this.postOtaTelemetry({
+        event: 'INSTALL_FAILED',
+        category: paramsOrAppInfo.category,
+        targetVersion: paramsOrAppInfo.targetVersion,
+        bundleVersion: paramsOrAppInfo.bundleVersion,
+        errorCode: paramsOrAppInfo.errorCode ?? 'INSTALL_OR_APPLY_ERROR',
+        errorSample: paramsOrAppInfo.errorSample,
+      });
+      return;
+    }
+    const appInfo = paramsOrAppInfo as IAppUpdateInfo | undefined;
+    const safeError =
+      error !== undefined ? extractUpdateErrorDTO(error, 'install') : undefined;
+    if (safeError?.code === EUpdateErrorCode.cancelled) {
+      return;
+    }
+    await this.postOtaTelemetry({
+      event: 'INSTALL_FAILED',
+      appInfo,
+      errorCode: 'INSTALL_OR_APPLY_ERROR',
+      errorSample: buildOtaErrorSample(safeError),
+    });
+  }
 
   updateAt = 0;
 
@@ -991,6 +1242,8 @@ class ServiceAppUpdate extends ServiceBase {
       defaultLogger.app.appUpdate.log(
         'refreshUpdateStatus: first launch after updated, resetting to done',
       );
+      // Snapshot before the reset below clears jsBundleVersion
+      this.reportOtaTelemetry({ event: 'INSTALL_SUCCESS', appInfo });
       await appUpdatePersistAtom.set((prev) => ({
         ...prev,
         updateAt: 0,
@@ -1000,6 +1253,7 @@ class ServiceAppUpdate extends ServiceBase {
         status: EAppUpdateStatus.done,
         jsBundleVersion: undefined,
         jsBundle: undefined,
+        isRollbackTarget: undefined,
         downloadedEvent: undefined,
       }));
     } else if (
@@ -1120,6 +1374,7 @@ class ServiceAppUpdate extends ServiceBase {
       downloadedEvent: undefined,
       status: EAppUpdateStatus.downloadPackage,
     }));
+    this.reportOtaTelemetry({ event: 'DOWNLOAD_START' });
     return true;
   }
 
@@ -1212,6 +1467,11 @@ class ServiceAppUpdate extends ServiceBase {
     clearTimeout(downloadTimeoutId);
     clearTimeout(failedRecoveryTimerId);
     this.updateErrorText(EAppUpdateStatus.downloadPackageFailed, safeError);
+    this.reportOtaTelemetry({
+      event: 'DOWNLOAD_FAILED',
+      errorCode: mapDownloadErrorToOtaCode(safeError),
+      errorSample: buildOtaErrorSample(safeError),
+    });
     if (isRetryableUpdateError(safeError)) this.startFailedRecoveryTimer();
   }
 
@@ -1578,7 +1838,8 @@ class ServiceAppUpdate extends ServiceBase {
 
   @backgroundMethod()
   public async verifyPackage() {
-    const { status } = await appUpdatePersistAtom.get();
+    const appInfo = await appUpdatePersistAtom.get();
+    const { status } = appInfo;
     if (
       status !== EAppUpdateStatus.verifyASC &&
       status !== EAppUpdateStatus.verifyPackage &&
@@ -1594,11 +1855,17 @@ class ServiceAppUpdate extends ServiceBase {
       ...prev,
       status: EAppUpdateStatus.verifyPackage,
     }));
+    // Entering verification means the package download has completed;
+    // skip when Desktop appShell enters verifyPackage without a downloadedEvent during missing-package recovery.
+    if (!platformEnv.isDesktop || appInfo.downloadedEvent) {
+      this.reportOtaTelemetry({ event: 'DOWNLOAD_SUCCESS', appInfo });
+    }
   }
 
   @backgroundMethod()
   public async verifyASC() {
-    const { status } = await appUpdatePersistAtom.get();
+    const appInfo = await appUpdatePersistAtom.get();
+    const { status } = appInfo;
     if (
       status !== EAppUpdateStatus.downloadASC &&
       status !== EAppUpdateStatus.verifyASC &&
@@ -1614,6 +1881,11 @@ class ServiceAppUpdate extends ServiceBase {
       ...prev,
       status: EAppUpdateStatus.verifyASC,
     }));
+    // Entering verification means the package download has completed;
+    // skip when Desktop appShell enters verifyASC without a downloadedEvent during missing-package recovery.
+    if (!platformEnv.isDesktop || appInfo.downloadedEvent) {
+      this.reportOtaTelemetry({ event: 'DOWNLOAD_SUCCESS', appInfo });
+    }
   }
 
   @backgroundMethod()
@@ -1660,6 +1932,14 @@ class ServiceAppUpdate extends ServiceBase {
       updateError: safeError,
       status: EAppUpdateStatus.verifyASCFailed,
     }));
+    this.reportOtaTelemetry({
+      event: 'VERIFY_FAILED',
+      errorCode: resolveVerifyErrorCode(
+        error ?? safeError,
+        'SIGNATURE_INVALID',
+      ),
+      errorSample: buildOtaErrorSample(safeError),
+    });
     if (isRetryableUpdateError(safeError)) this.startFailedRecoveryTimer();
   }
 
@@ -1682,6 +1962,11 @@ class ServiceAppUpdate extends ServiceBase {
       updateError: safeError,
       status: EAppUpdateStatus.verifyPackageFailed,
     }));
+    this.reportOtaTelemetry({
+      event: 'VERIFY_FAILED',
+      errorCode: resolveVerifyErrorCode(error ?? safeError, 'SHA256_MISMATCH'),
+      errorSample: buildOtaErrorSample(safeError),
+    });
     if (isRetryableUpdateError(safeError)) this.startFailedRecoveryTimer();
   }
 
@@ -1698,6 +1983,11 @@ class ServiceAppUpdate extends ServiceBase {
     }
     clearTimeout(failedRecoveryTimerId);
     this.updateErrorText(EAppUpdateStatus.downloadASCFailed, safeError);
+    this.reportOtaTelemetry({
+      event: 'DOWNLOAD_FAILED',
+      errorCode: mapDownloadErrorToOtaCode(safeError),
+      errorSample: buildOtaErrorSample(safeError),
+    });
     if (isRetryableUpdateError(safeError)) this.startFailedRecoveryTimer();
   }
 
@@ -1785,6 +2075,7 @@ class ServiceAppUpdate extends ServiceBase {
       stage: 'ready_to_install',
       appInfo: latest,
     });
+    let reachedReady = false;
     await appUpdatePersistAtom.set((prev) => {
       const isSameVerifiedPackage =
         (prev.status === EAppUpdateStatus.verifyPackage ||
@@ -1808,11 +2099,18 @@ class ServiceAppUpdate extends ServiceBase {
       if (!isSameVerifiedPackage) {
         return prev;
       }
+      reachedReady = true;
       return {
         ...prev,
         status: EAppUpdateStatus.ready,
       };
     });
+    if (reachedReady) {
+      this.reportOtaTelemetry({ event: 'DOWNLOAD_SUCCESS', appInfo: latest });
+      if (status === EAppUpdateStatus.verifyPackage) {
+        this.reportOtaTelemetry({ event: 'VERIFY_SUCCESS', appInfo: latest });
+      }
+    }
   }
 
   @backgroundMethod()
@@ -2198,6 +2496,17 @@ class ServiceAppUpdate extends ServiceBase {
           decision.decision === 'jsBundleRollback' ||
           (releaseInfo.jsBundleCount ?? 1) === 0;
         if (isPendingTaskSameTarget && !isForceUpdate && !isRollback) {
+          if (releaseInfo.updateStrategy !== undefined) {
+            await appUpdatePersistAtom.set((prev) =>
+              prev.updateStrategy !== releaseInfo.updateStrategy
+                ? {
+                    ...prev,
+                    updateStrategy: releaseInfo.updateStrategy,
+                    updateAt: Date.now(),
+                  }
+                : prev,
+            );
+          }
           const latest = await appUpdatePersistAtom.get();
           defaultLogger.app.appUpdate.appUpdateFetchResult({
             traceId,
@@ -2296,8 +2605,17 @@ class ServiceAppUpdate extends ServiceBase {
             prevBundleVersion: prev.jsBundleVersion ?? null,
             nextBundleVersion: prev.jsBundleVersion ?? null,
           });
+          const shouldDowngradeForceStrategy =
+            prev.updateStrategy === EUpdateStrategy.force &&
+            releaseInfo.updateStrategy !== undefined &&
+            releaseInfo.updateStrategy !== EUpdateStrategy.force &&
+            decision.decision !== 'invalidRemote' &&
+            decision.decision !== 'invalidLocal';
           return {
             ...prev,
+            ...(shouldDowngradeForceStrategy
+              ? { updateStrategy: releaseInfo.updateStrategy }
+              : null),
             updateAt: Date.now(),
           };
         }
@@ -2332,6 +2650,8 @@ class ServiceAppUpdate extends ServiceBase {
             prevBundleVersion: prev.jsBundleVersion ?? null,
             nextBundleVersion: prev.jsBundleVersion ?? null,
           });
+          // Keep prev.updateStrategy: the response describes another target,
+          // so it cannot unlock the mandatory package still in flight.
           return {
             ...prev,
             updateAt: Date.now(),
