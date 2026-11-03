@@ -1062,7 +1062,13 @@ function EarnLoanRouterPage() {
       symbol: boxSymbol,
       price: boxPrice,
     };
-    if (last.key === boxTokenKey || !toBigNumber(collateralAmount).gt(0)) {
+    // A box whose token wasn't known yet (the markets still loading, as when
+    // the window reopens with its amount) keeps that amount
+    if (
+      last.key === boxTokenKey ||
+      !last.symbol ||
+      !toBigNumber(collateralAmount).gt(0)
+    ) {
       return;
     }
     if (isSameLoanAsset(last.symbol, boxSymbol)) {
