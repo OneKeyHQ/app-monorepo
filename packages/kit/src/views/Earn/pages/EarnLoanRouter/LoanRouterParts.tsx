@@ -1166,16 +1166,20 @@ function LoanPickHalf({
   side,
   networkLogoURI,
   isTrailing,
+  hasArrow,
 }: {
   side: ILoanPickSide;
   // The token carries its chain, as the amount box's token does
   networkLogoURI?: string;
-  // The right half, past the arrow
+  // The right half, past the seam
   isTrailing: boolean;
+  // The arrow sits on the seam: the text keeps clear of it
+  hasArrow: boolean;
 }) {
   const intl = useIntl();
   const { testID, caption, pick, tokens, purpose, fallbackLogoURI, onPress } =
     side;
+  const seamPadding = hasArrow ? PICK_ARROW_CLEARANCE : '$3.5';
   const kindLogos = useMemo(
     () =>
       pick.kind === 'class'
@@ -1207,8 +1211,8 @@ function LoanPickHalf({
       minWidth={0}
       gap="$0.5"
       py="$2.5"
-      pl={isTrailing ? PICK_ARROW_CLEARANCE : '$3.5'}
-      pr={isTrailing ? '$3.5' : PICK_ARROW_CLEARANCE}
+      pl={isTrailing ? seamPadding : '$3.5'}
+      pr={isTrailing ? '$3.5' : seamPadding}
       bg="$bgSubdued"
       hoverStyle={{ bg: '$bgHover' }}
       pressStyle={{ bg: '$bgActive' }}
@@ -1256,7 +1260,8 @@ function LoanPickHalf({
  * The two picks heading the Loans form, as a flight search's from and to: what
  * is supplied on the left, what is borrowed on the right, an arrow on the
  * seam. Each half says its role over its token and opens its own list; one
- * row at every width, a long name cut short
+ * row at every width, a long name cut short. At phone width the halves meet
+ * without the arrow, their captions alone saying which side is which
  */
 export function LoanPickBar({
   supply,
@@ -1267,40 +1272,49 @@ export function LoanPickBar({
   borrow: ILoanPickSide;
   networkLogoURI?: string;
 }) {
+  const { gtMd } = useMedia();
   return (
     <XStack testID="earn-loan-pick-bar" gap={PICK_SEAM} position="relative">
       <LoanPickHalf
         side={supply}
         networkLogoURI={networkLogoURI}
         isTrailing={false}
+        hasArrow={gtMd}
       />
-      <LoanPickHalf side={borrow} networkLogoURI={networkLogoURI} isTrailing />
-      <Stack
-        position="absolute"
-        top="50%"
-        left="50%"
-        mt={-PICK_ARROW_SIZE / 2}
-        ml={-PICK_ARROW_SIZE / 2}
-        w={PICK_ARROW_SIZE}
-        h={PICK_ARROW_SIZE}
-        ai="center"
-        jc="center"
-        borderRadius="$full"
-        bg="$bgApp"
-        pointerEvents="none"
-        aria-hidden
-      >
+      <LoanPickHalf
+        side={borrow}
+        networkLogoURI={networkLogoURI}
+        isTrailing
+        hasArrow={gtMd}
+      />
+      {gtMd ? (
         <Stack
-          w="$6"
-          h="$6"
+          position="absolute"
+          top="50%"
+          left="50%"
+          mt={-PICK_ARROW_SIZE / 2}
+          ml={-PICK_ARROW_SIZE / 2}
+          w={PICK_ARROW_SIZE}
+          h={PICK_ARROW_SIZE}
           ai="center"
           jc="center"
           borderRadius="$full"
-          bg="$bgSubdued"
+          bg="$bgApp"
+          pointerEvents="none"
+          aria-hidden
         >
-          <Icon name="ArrowRightOutline" size="$3.5" color="$iconSubdued" />
+          <Stack
+            w="$6"
+            h="$6"
+            ai="center"
+            jc="center"
+            borderRadius="$full"
+            bg="$bgSubdued"
+          >
+            <Icon name="ArrowRightOutline" size="$3.5" color="$iconSubdued" />
+          </Stack>
         </Stack>
-      </Stack>
+      ) : null}
     </XStack>
   );
 }
