@@ -291,6 +291,55 @@ describe('UpdatePreview first-frame force lock', () => {
     expect(usePreventRemove.mock.calls.at(-1)?.[0]).toBe(false);
   });
 
+  test('ignores an older refresh that resolves after a newer one', async () => {
+    let appStateHandler: ((state: string) => void) | undefined;
+    appStateAddEventListener.mockImplementation(
+      (_type: string, handler: (state: string) => void) => {
+        appStateHandler = handler;
+        return { remove: jest.fn() };
+      },
+    );
+    let resolveOlder: (value: unknown) => void = () => undefined;
+    let resolveNewer: (value: unknown) => void = () => undefined;
+    fetchAppUpdateInfo
+      .mockReturnValueOnce(
+        new Promise((resolve) => {
+          resolveOlder = resolve;
+        }),
+      )
+      .mockReturnValueOnce(
+        new Promise((resolve) => {
+          resolveNewer = resolve;
+        }),
+      );
+
+    renderPreview({ isForceUpdate: true, latestVersion: '2.0.0' });
+    await act(async () => {
+      appStateHandler?.('active');
+      await Promise.resolve();
+    });
+    expect(fetchAppUpdateInfo).toHaveBeenCalledTimes(2);
+
+    await act(async () => {
+      resolveNewer({
+        status: 'notify',
+        updateStrategy: 1,
+        latestVersion: '2.0.0',
+      });
+      await Promise.resolve();
+    });
+    await act(async () => {
+      resolveOlder({
+        status: 'notify',
+        updateStrategy: 2,
+        latestVersion: '2.0.0',
+      });
+      await Promise.resolve();
+    });
+
+    expect(usePreventRemove.mock.calls.at(-1)?.[0]).toBe(true);
+  });
+
   test('continues polling after FeaturedChangelogDialog handoff via markPendingContactSupportHandoff', async () => {
     jest.useFakeTimers();
     try {
