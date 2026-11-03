@@ -6,6 +6,7 @@ import { IncorrectPinError } from '@onekeyhq/shared/src/errors/errors/appErrors'
 import { DeviceNotFound } from '@onekeyhq/shared/src/errors/errors/hardwareErrors';
 import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { createNativeStorageMigrationInconsistentErrorMessage } from '@onekeyhq/shared/src/storage/nativeStorageTypes';
 
 const mockSharedRPCWrite = jest.fn();
 const mockSharedRPCRegisterReadinessKey = jest.fn();
@@ -17,13 +18,17 @@ let mockInboundMessageHandler:
   | ((key: string, value: string | number | boolean) => void)
   | undefined;
 
-function dispatchServiceRequest(callId: string) {
+function dispatchServiceRequest(
+  callId: string,
+  method = 'servicePrime.apiRedeemPrimeCode',
+  params: unknown[] = ['OK61451-INVALID-CODE'],
+) {
   mockInboundMessageHandler?.(
     `onekey:bg:req:${callId}`,
     JSON.stringify({
       type: 'service-call',
-      method: 'servicePrime.apiRedeemPrimeCode',
-      params: ['OK61451-INVALID-CODE'],
+      method,
+      params,
       sync: false,
     }),
   );
@@ -378,6 +383,45 @@ describe('background thread RPC handler', () => {
         message: 'Unknown empty error',
       },
     });
+  });
+
+  it('carries only the isolated Home test ID through the real RPC handler and JSON wire', async () => {
+    const { setBackgroundThreadRequestExecutor } =
+      await import('./setupBackgroundThreadRPCHandler');
+    const sessionId = 'storage-repair-test-123456789-test';
+    const error = Object.assign(
+      new OneKeyLocalError(
+        createNativeStorageMigrationInconsistentErrorMessage('appStorage'),
+      ),
+      {
+        data: {
+          nativeStorageRecoveryTestSessionId: sessionId,
+          privateDetails: 'must-not-cross-runtimes',
+        },
+      },
+    );
+    setBackgroundThreadRequestExecutor(() => Promise.reject(error));
+    mockSharedRPCWrite.mockClear();
+    dispatchServiceRequest(
+      'home-test',
+      'serviceDevSetting.nativeStorageRecoveryTest',
+      [{ action: 'homeRead' }],
+    );
+    await flushRequest();
+    expect(getResponse('home-test')).toMatchObject({
+      ok: false,
+      error: { data: { nativeStorageRecoveryTestSessionId: sessionId } },
+    });
+    expect(JSON.stringify(getResponse('home-test'))).not.toContain(
+      'privateDetails',
+    );
+    expect(JSON.stringify(getResponse('home-test'))).not.toContain(
+      'must-not-cross-runtimes',
+    );
+
+    dispatchServiceRequest('unrelated');
+    await flushRequest();
+    expect(getResponse('unrelated')).not.toHaveProperty('error.data');
   });
 
   it('retries a failed response write with the minimal error response', async () => {

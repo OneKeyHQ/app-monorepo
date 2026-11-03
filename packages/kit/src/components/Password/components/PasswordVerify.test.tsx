@@ -9,6 +9,10 @@ import assert from 'node:assert/strict';
 import { act, render } from '@testing-library/react';
 
 import {
+  dismissNativeStorageRecovery,
+  requestNativeStorageRecovery,
+} from '@onekeyhq/shared/src/storage/nativeStorageRecovery';
+import {
   EPasswordMode,
   EPasswordVerifyStatus,
 } from '@onekeyhq/shared/types/password';
@@ -246,9 +250,12 @@ describe('PasswordVerify biometric-changed warning', () => {
     jest.useFakeTimers({ doNotFake: ['queueMicrotask'] });
     jest.clearAllMocks();
     bgCheck().mockResolvedValue(true);
+    dismissNativeStorageRecovery();
   });
 
   afterEach(() => {
+    dismissNativeStorageRecovery();
+    dismissNativeStorageRecovery();
     jest.useRealTimers();
   });
 
@@ -283,6 +290,36 @@ describe('PasswordVerify biometric-changed warning', () => {
     >;
     expect(props.overlayLevel).toBe('secure');
     expect(props.sheetProps).toBeUndefined();
+  });
+
+  it('pauses mount, foreground and manual biometrics while recovery is open', async () => {
+    requestNativeStorageRecovery('appStorage');
+    const onBiologyAuth = jest.fn();
+    renderVerify({ inAppStateLock: true, onBiologyAuth });
+    await flush();
+    await act(async () => {
+      captured().active?.();
+      captured().visibility?.(true);
+      await captured().input.addOns[0].onPress();
+    });
+    await flush();
+    expect(bgCheck()).not.toHaveBeenCalled();
+    expect(onBiologyAuth).not.toHaveBeenCalled();
+    expect(getMocks().dialogConfirm).not.toHaveBeenCalled();
+  });
+
+  it('ignores a biometric check that finishes while recovery is open', async () => {
+    const check = deferred<boolean>();
+    bgCheck().mockReturnValueOnce(check.promise);
+    const onBiologyAuth = jest.fn();
+    renderVerify({ inAppStateLock: true, onBiologyAuth });
+    requestNativeStorageRecovery('appStorage');
+    await act(async () => {
+      check.resolve(true);
+    });
+    await flush();
+    expect(onBiologyAuth).not.toHaveBeenCalled();
+    expect(getMocks().dialogConfirm).not.toHaveBeenCalled();
   });
 
   it('does not register Windows reactivation as an automatic Hello retry', async () => {
@@ -327,10 +364,12 @@ describe('PasswordVerify biometric safety guard', () => {
     jest.useFakeTimers({ doNotFake: ['queueMicrotask'] });
     jest.clearAllMocks();
     bgCheck().mockResolvedValue(false);
+    dismissNativeStorageRecovery();
 
     jest.spyOn(console, 'error').mockImplementation(() => {});
   });
   afterEach(() => {
+    dismissNativeStorageRecovery();
     jest.restoreAllMocks();
     jest.useRealTimers();
   });
@@ -670,6 +709,7 @@ describe('PasswordVerify retry feedback', () => {
     bgCheck().mockResolvedValue(false);
   });
   afterEach(() => {
+    dismissNativeStorageRecovery();
     Object.assign(platformEnv, nativeFlags);
     jest.useRealTimers();
   });
