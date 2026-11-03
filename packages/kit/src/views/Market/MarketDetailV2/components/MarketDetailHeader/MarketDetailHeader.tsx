@@ -44,7 +44,10 @@ import {
 } from '../../../components/MarketStarV2';
 import { TokenTagsPopover } from '../../../components/TokenTagsPopover';
 import { getTokenAgeLabel } from '../../../MarketHomeV2/components/MarketTokenList/hooks/useMarketTokenColumns/tokenAgeLabel';
-import { buildMarketFullUrlV2 } from '../../../marketUtils';
+import {
+  buildMarketFullUrlV2,
+  buildMarketStockFullUrlV2,
+} from '../../../marketUtils';
 import { EModalMarketRoutes } from '../../../router/types';
 import { useStockDetail } from '../../hooks/StockDetailContext';
 import { useMarketDetailBackNavigation } from '../../hooks/useMarketDetailBackNavigation';
@@ -374,10 +377,14 @@ export function MarketDetailHeader({
     ? (tokenDetail?.address ?? '')
     : tokenAddress;
   const canShare = Boolean(
-    networkId && (isStockToken || isNative || shareAddress),
+    listingStockId || (networkId && (isStockToken || isNative || shareAddress)),
   );
 
   const handleShareNative = useCallback(() => {
+    if (listingStockId) {
+      void shareText(buildMarketStockFullUrlV2({ stockId: listingStockId }));
+      return;
+    }
     if (!networkId || !canShare) return;
     const shortCode =
       networkUtils.getNetworkShortCode({ networkId }) || networkId;
@@ -387,7 +394,7 @@ export function MarketDetailHeader({
       isNative,
     });
     void shareText(url);
-  }, [canShare, networkId, shareAddress, isNative, shareText]);
+  }, [listingStockId, canShare, networkId, shareAddress, isNative, shareText]);
 
   const handleStarNative = useCallback(() => {
     void onStarPress();
@@ -576,6 +583,7 @@ export function MarketDetailHeader({
               ) : null}
               {canShare ? (
                 <ShareButton
+                  stockId={listingStockId}
                   networkId={networkId}
                   address={shareAddress ?? ''}
                   isNative={isNative}
