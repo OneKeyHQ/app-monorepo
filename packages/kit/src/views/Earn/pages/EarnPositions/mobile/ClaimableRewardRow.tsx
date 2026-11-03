@@ -16,10 +16,6 @@ import { usePortfolioTableLayout } from './portfolioTableLayout';
 
 import type { IPositionTableColumns } from '../desktop/positionTableLayout';
 
-// A rewards table's second column names the position (or the payout date):
-// wider than an amount where the placement fixes it
-const REWARD_EDGE_SECOND_COLUMN_WIDTH = 240;
-
 /**
  * A group's rewards table columns, as the holdings tables place a row's
  * action (demo 11-03); the values end under the group's total
@@ -28,14 +24,13 @@ export function rewardTableColumns(hasActions: boolean): IPositionTableColumns {
   return positionTableColumns({
     hasActions,
     endInset: TOTAL_CHEVRON_SLOT,
-    edgeSecondWidth: REWARD_EDGE_SECOND_COLUMN_WIDTH,
   });
 }
 
 /**
  * The header strip over a group's rewards table, the holdings tables'
  * strip: three labels in the table's columns. No room held for the rows'
- * actions; where they go is the placement's
+ * actions, which sit beside the name
  */
 export function RewardTableStrip({
   columns,
@@ -109,9 +104,8 @@ export function RewardTableHeader({
 }
 
 /**
- * A rewards table line in the table's columns: the token and amount, the
- * second column, the value, and the row's action where the placement puts
- * it (beside the amount, or at the card's edge)
+ * A rewards table line in the table's columns: the token and amount with
+ * the row's action beside it, the second column, the value
  */
 export function RewardTableLine({
   columns,
@@ -141,7 +135,7 @@ export function RewardTableLine({
         <Stack flex={1} minWidth={0}>
           {title}
         </Stack>
-        {columns.placement === 'name' && action ? (
+        {action ? (
           <XStack flexShrink={0} ml="$1">
             {action}
           </XStack>
@@ -149,9 +143,6 @@ export function RewardTableLine({
       </XStack>
       <Stack {...columns.second}>{second}</Stack>
       <Stack {...columns.value}>{value}</Stack>
-      {columns.trailing && action ? (
-        <XStack {...columns.trailing}>{action}</XStack>
-      ) : null}
     </XStack>
   );
 }

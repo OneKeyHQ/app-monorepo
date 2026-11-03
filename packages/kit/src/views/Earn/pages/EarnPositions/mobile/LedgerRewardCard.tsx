@@ -72,8 +72,8 @@ export function ledgerRewardTableColumns(
  * The wide layout's header strip over a group's ledger rewards, in the
  * holdings tables' columns: the amount, the payout date the stage is
  * about (or, when no reward has one, the Position column the other groups
- * have) and the value; a paid reward's transaction goes where the
- * placement puts a row's action.
+ * have) and the value; a paid reward's transaction goes where a row's
+ * action does, beside its name.
  */
 export function LedgerRewardTableHeader({
   stage,

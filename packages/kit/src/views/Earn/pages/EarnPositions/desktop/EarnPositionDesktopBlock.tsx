@@ -62,7 +62,7 @@ const TABULAR_NUMS: ['tabular-nums'] = ['tabular-nums'];
 // lines hung under a row start here
 const ROW_TEXT_INSET = '$8';
 
-/** The row's button or Pending badge, where the table's placement puts it */
+/** The row's button or Pending badge, at the end of its first column */
 function HoldingRowAction({
   asset,
   action,
@@ -121,7 +121,7 @@ function HoldingTableRow({
           >
             {asset.symbol}
           </SizableText>
-          {columns.placement === 'name' && actionNode ? (
+          {actionNode ? (
             <XStack flexShrink={0} ml="$1">
               {actionNode}
             </XStack>
@@ -147,18 +147,13 @@ function HoldingTableRow({
               priceUnavailableLabel={priceUnavailableLabel}
               isUnavailable={isProtocolAssetValueUnavailable(asset)}
               size="$bodyMdMedium"
-              textAlign={columns.placement === 'name' ? 'right' : 'left'}
-              justifyContent={
-                columns.placement === 'name' ? 'flex-end' : 'flex-start'
-              }
+              textAlign="right"
+              justifyContent="flex-end"
               numberOfLines={1}
               fontVariant={TABULAR_NUMS}
             />
           )}
         </Stack>
-        {columns.trailing && actionNode ? (
-          <XStack {...columns.trailing}>{actionNode}</XStack>
-        ) : null}
       </XStack>
       <LendingCollateralLine asset={asset} pl={ROW_TEXT_INSET} />
     </YStack>
@@ -168,8 +163,8 @@ function HoldingTableRow({
 /**
  * A holding's panels as the wallet DeFi Portfolio's sectioned table: a
  * subdued header strip per panel (its title, Amount, Value), then a line
- * per token, the row's own action where the placement puts it (demo 11-03:
- * beside the name, or at the card's edge) and no room held for rows
+ * per token, the row's own action beside its name (demo 11-03) and no room
+ * held for rows
  * without one. The effective deposit hangs under the deposit rows'
  * balances, a lending supply's collateral switch under its name. The wide
  * detail page shows its holding with the same table
