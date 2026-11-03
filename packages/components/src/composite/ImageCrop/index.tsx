@@ -1,22 +1,23 @@
-/* eslint-disable camelcase */
-/* eslint-disable onekey/no-app-locale-main-thread -- low-level cropper utility consumed via callbacks */
 import {
-  type ChangeEvent,
-  useCallback,
-  useMemo,
-  useRef,
-  useState,
-} from 'react';
+  openCropper as nativeOpenCropper,
+  openPicker as nativeOpenPicker,
+} from '@onekeyfe/react-native-image-crop-picker';
 
-import { Cropper } from 'react-mobile-cropper';
-import 'react-mobile-cropper/dist/style.css';
-
-import { withStaticProperties } from '@onekeyhq/components/src/shared/tamagui';
+import {
+  getTokenValue,
+  withStaticProperties,
+} from '@onekeyhq/components/src/shared/tamagui';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { Stack } from '../../primitives';
-import { Dialog } from '../Dialog';
+import {
+  BRAND_FONT_NATIVE_FAMILY,
+  BRAND_FONT_WEB_FAMILY,
+} from '../../hocs/Provider/fonts/brandFont';
+import { getAppThemeVariant } from '../../hocs/Provider/hooks/useAppearanceTheme';
+import { uiScale } from '../../utils/scale';
 
 import {
   type IOpenPickerFunc,
@@ -24,209 +25,140 @@ import {
   RESULT_MINE_TYPE,
 } from './type';
 
-import type { IStackStyle } from '../../primitives';
-import type { CropperRef } from 'react-mobile-cropper';
-import type { LayoutChangeEvent } from 'react-native';
+import type {
+  ImageCropPickerOptions,
+  ImageCropperAppearance,
+} from '@onekeyfe/react-native-image-crop-picker';
 
-const cropGtMdStyle = { height: 'calc(100vh - 180px)' };
-
-const MINE_TYPE = RESULT_MINE_TYPE;
-const resizeImage = (
-  imgSrc: string,
-  width: number,
-  height: number,
-): Promise<string> =>
-  new Promise((resolve) => {
-    const img = document.createElement('img');
-
-    img.addEventListener('load', () => {
-      const canvas = document.createElement('canvas');
-      const ctx = canvas.getContext('2d');
-
-      canvas.width = width;
-      canvas.height = height;
-
-      if (ctx) {
-        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-        const dataURI = canvas.toDataURL(MINE_TYPE, 1.0);
-        resolve(dataURI);
-      }
-    });
-    img.src = imgSrc;
-  });
-
-function BasicImageCrop({
-  src,
-  onConfirm,
-  onCancel,
-  defaultSize,
-}: {
-  src: string;
-  defaultSize: {
-    height: number;
-    width: number;
-  };
-  onConfirm: (data: IPickerImage) => void;
-  onCancel?: () => void;
-}) {
-  const cropperRef = useRef<CropperRef>(null);
-
-  const cropRectRef = useRef({
-    x: 0,
-    y: 0,
-    height: 0,
-    width: 0,
-  });
-
-  useState<IStackStyle['width']>('100%');
-  const onStackLayout = useCallback(({ nativeEvent }: LayoutChangeEvent) => {
-    if (nativeEvent.layout.width) {
-      setTimeout(() => {
-        cropperRef.current?.reset();
-      }, 300);
-    }
-  }, []);
-
-  const onChange = useCallback((cropper: CropperRef) => {
-    const coodrdinates = cropper.getCoordinates();
-    if (coodrdinates) {
-      const { top: y, width, height, left: x } = coodrdinates;
-      cropRectRef.current = {
-        x,
-        y,
-        height,
-        width,
-      };
-    }
-  }, []);
-
-  const stencilProps = useMemo(
-    () => ({
-      aspectRatio: defaultSize.width / defaultSize.height,
-    }),
-    [defaultSize.width, defaultSize.height],
-  );
-
-  const handleConfirm = useCallback(async () => {
-    if (cropperRef.current && cropperRef.current.getCanvas()) {
-      const canvas = cropperRef.current.getCanvas();
-      if (canvas) {
-        const { width, height } = defaultSize;
-        const imageWidth = cropRectRef.current.width;
-        const imageHeight = cropRectRef.current.height;
-        let base64String = canvas.toDataURL(MINE_TYPE, 1.0);
-        if (imageHeight > height || imageWidth > width) {
-          base64String = await resizeImage(base64String, width, height);
-        }
-        onConfirm({
-          data: base64String,
-          cropRect: cropRectRef.current,
-          path: '',
-          size: base64String.length,
-          width: Math.min(imageWidth, width),
-          height: Math.min(imageHeight, height),
-          mime: MINE_TYPE,
-        });
-      }
-    }
-  }, [defaultSize, onConfirm]);
-
-  return (
-    <>
-      <Stack
-        onLayout={onStackLayout}
-        $gtMd={cropGtMdStyle}
-        height="calc(100vh - 172px)"
-      >
-        <Cropper
-          src={src}
-          onChange={onChange}
-          ref={cropperRef}
-          stencilProps={stencilProps}
-          className="onekey-img-cropper"
-        />
-      </Stack>
-      <Dialog.Footer onCancel={onCancel} onConfirm={handleConfirm} />
-    </>
-  );
+function BasicImageCrop() {
+  return null;
 }
 
-const openPicker: IOpenPickerFunc = ({ width, height }) =>
-  new Promise((resolve) => {
-    if (typeof document === 'undefined') {
-      return;
-    }
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = 'image/*';
-    input.onchange = (e: Event) => {
-      const event = e as unknown as ChangeEvent<HTMLInputElement>;
-      // getting a hold of the file reference
-      if (event.target.files && event.target?.files.length > 0) {
-        const reader = new FileReader();
-        reader.addEventListener('load', () => {
-          const imageSrc = reader.result?.toString();
-          if (imageSrc) {
-            Dialog.show({
-              // eslint-disable-next-line onekey/no-app-locale-main-thread
-              title: appLocale.intl.formatMessage({
-                id: ETranslations.global_crop_image,
-              }),
-              sheetProps: {
-                disableDrag: true,
-              },
-              renderContent: (
-                <BasicImageCrop
-                  src={imageSrc}
-                  // eslint-disable-next-line react-perf/jsx-no-new-object-as-prop
-                  defaultSize={{
-                    width,
-                    height,
-                  }}
-                  onConfirm={resolve as any}
-                />
-              ),
-            });
-          }
-        });
-        reader.readAsDataURL(event.target.files[0]);
-      }
-    };
-    input.click();
-  });
+// One implementation for every platform: the module draws the same cropper
+// screen natively on iOS / Android and with the DOM on web, desktop and the
+// extension (its web entry), with the same options and results.
 
-const openCropImage = (
+// A fixed JPEG prefix is always correct: the module decodes every picked or
+// cropped image, HEIC and PNG included, and re-encodes it as JPEG on every
+// platform, so `data` is JPEG and `mime` is always image/jpeg.
+// That is also why `forceJpg` is no longer passed.
+const BASE64_PREFIX = `data:${RESULT_MINE_TYPE};base64,`;
+
+// The page background, header and footer Button tokens, so the cropper
+// looks like an app page in either theme.
+const CROPPER_COLOR_TOKENS = {
+  light: {
+    backgroundColor: '$bgAppLight',
+    titleColor: '$textLight',
+    iconColor: '$iconLight',
+    cancelButtonColor: '$bgStrongLight',
+    cancelButtonPressedColor: '$bgStrongActiveLight',
+    cancelButtonTextColor: '$textLight',
+    confirmButtonColor: '$bgPrimaryLight',
+    confirmButtonPressedColor: '$bgPrimaryActiveLight',
+    confirmButtonTextColor: '$textInverseLight',
+  },
+  dark: {
+    backgroundColor: '$bgAppDark',
+    titleColor: '$textDark',
+    iconColor: '$iconDark',
+    cancelButtonColor: '$bgStrongDark',
+    cancelButtonPressedColor: '$bgStrongActiveDark',
+    cancelButtonTextColor: '$textDark',
+    confirmButtonColor: '$bgPrimaryDark',
+    confirmButtonPressedColor: '$bgPrimaryActiveDark',
+    confirmButtonTextColor: '$textInverseDark',
+  },
+} as const;
+
+function getCropperAppearance(): ImageCropperAppearance {
+  const appearance: ImageCropperAppearance = {
+    // $headingLg and $bodyLgMedium. Web picks the weight from one family.
+    titleFontFamily: platformEnv.isNative
+      ? BRAND_FONT_NATIVE_FAMILY.semibold
+      : BRAND_FONT_WEB_FAMILY,
+    buttonFontFamily: platformEnv.isNative
+      ? BRAND_FONT_NATIVE_FAMILY.medium
+      : BRAND_FONT_WEB_FAMILY,
+    scale: uiScale,
+  };
+  const variant = getAppThemeVariant();
+  if (!variant) {
+    // The cropper falls back to the system appearance.
+    return appearance;
+  }
+  const tokens = CROPPER_COLOR_TOKENS[variant];
+  const color = (token: (typeof tokens)[keyof typeof tokens]) =>
+    getTokenValue(token, 'color') as string;
+  return {
+    ...appearance,
+    colorScheme: variant,
+    backgroundColor: color(tokens.backgroundColor),
+    titleColor: color(tokens.titleColor),
+    iconColor: color(tokens.iconColor),
+    cancelButtonColor: color(tokens.cancelButtonColor),
+    cancelButtonPressedColor: color(tokens.cancelButtonPressedColor),
+    cancelButtonTextColor: color(tokens.cancelButtonTextColor),
+    confirmButtonColor: color(tokens.confirmButtonColor),
+    confirmButtonPressedColor: color(tokens.confirmButtonPressedColor),
+    confirmButtonTextColor: color(tokens.confirmButtonTextColor),
+  };
+}
+
+function getCropperOptions(): ImageCropPickerOptions {
+  return {
+    // eslint-disable-next-line onekey/no-app-locale-main-thread
+    cropperToolbarTitle: appLocale.intl.formatMessage({
+      id: ETranslations.global_crop_image,
+    }),
+    // eslint-disable-next-line onekey/no-app-locale-main-thread
+    cropperChooseText: appLocale.intl.formatMessage({
+      id: ETranslations.global_confirm,
+    }),
+    // eslint-disable-next-line onekey/no-app-locale-main-thread
+    cropperCancelText: appLocale.intl.formatMessage({
+      id: ETranslations.global_cancel,
+    }),
+    cropperAppearance: getCropperAppearance(),
+  };
+}
+
+const openPicker: IOpenPickerFunc = async (params) => {
+  const response = await nativeOpenPicker({
+    cropping: true,
+    includeBase64: true,
+    ...getCropperOptions(),
+    ...params,
+  });
+  if (response.data) {
+    response.data = `${BASE64_PREFIX}${response.data}`;
+  }
+  return response;
+};
+
+const openCropImage = async (
   image: string,
   width: number,
   height: number,
-): Promise<IPickerImage> =>
-  new Promise((resolve, reject) => {
-    const dialog = Dialog.show({
-      // eslint-disable-next-line onekey/no-app-locale-main-thread
-      title: appLocale.intl.formatMessage({
-        id: ETranslations.global_crop_image,
-      }),
-      sheetProps: {
-        disableDrag: true,
-      },
-      renderContent: (
-        <BasicImageCrop
-          src={image}
-          // eslint-disable-next-line react-perf/jsx-no-new-object-as-prop
-          defaultSize={{
-            width,
-            height,
-          }}
-          onConfirm={resolve as any}
-          // eslint-disable-next-line react-perf/jsx-no-new-function-as-prop
-          onCancel={() => {
-            void dialog?.close();
-            reject(new Error('User cancelled'));
-          }}
-        />
-      ),
-    });
+): Promise<IPickerImage> => {
+  if (!image) {
+    throw new OneKeyLocalError('image.nativeUri is empty:');
+  }
+
+  const response = await nativeOpenCropper({
+    path: image,
+    width,
+    height,
+    includeBase64: true,
+    ...getCropperOptions(),
   });
+
+  if (response.data) {
+    response.data = `${BASE64_PREFIX}${response.data}`;
+  }
+
+  return response;
+};
 
 export const ImageCrop = withStaticProperties(BasicImageCrop, {
   openPicker,
