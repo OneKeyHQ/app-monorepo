@@ -21,6 +21,7 @@ const mockSetNetwork = jest.fn(
 const mockResume = jest.fn(
   async (_params: { networkId: string; trigger: string }) => undefined,
 );
+let mockVaultSettings: { localWallet?: { syncedBelowBlocks?: number } } = {};
 jest.mock('@onekeyfe/react-native-native-overlay', () => ({
   OverlayView: (props: IOverlayViewProps) => {
     mockOverlayProps = props;
@@ -65,7 +66,7 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
       getNetworkSafe: async ({ networkId }: { networkId: string }) => ({
         name: networkId === 'xmr--0' ? 'Monero' : 'Zcash',
       }),
-      getVaultSettings: async () => ({}),
+      getVaultSettings: async () => mockVaultSettings,
     },
   },
 }));
@@ -200,7 +201,9 @@ it('expands both networks, and pauses all of them', async () => {
   mockState.progress['zec--0:account'] = scanProgress(107);
   mockState.progress['xmr--0:account'] = scanProgress(400);
   render(<PrivacyChainSyncLight />);
-  expect(screen.getByTestId('privacy-chain-sync-network-zec--0')).toBeTruthy();
+  expect(
+    await screen.findByTestId('privacy-chain-sync-network-zec--0'),
+  ).toBeTruthy();
   expect(screen.queryByTestId('privacy-chain-sync-network-xmr--0')).toBeNull();
   await act(async () => {
     fireEvent.click(screen.getByTestId('privacy-chain-sync-light-details-btn'));
@@ -267,6 +270,26 @@ it('shows nothing for a chain that has caught up', async () => {
   };
   render(<PrivacyChainSyncLight />);
   expect(screen.queryByTestId('privacy-chain-sync-light')).toBeNull();
+});
+
+// Zcash trails its tip by a few blocks when synced; read against a default of 1 it would flash on.
+it('does not flash for a chain within its synced threshold before the threshold is read', async () => {
+  mockVaultSettings = { localWallet: { syncedBelowBlocks: 48 } };
+  try {
+    mockState.boostingNetworkIds = ['zec--flash'];
+    mockState.progress['zec--flash:account'] = {
+      ...scanProgress(990),
+      backfillProgress: 1,
+      isBackfillComplete: true,
+      tipLag: 10,
+    };
+    render(<PrivacyChainSyncLight />);
+    expect(screen.queryByTestId('privacy-chain-sync-light')).toBeNull();
+    await act(async () => undefined);
+    expect(screen.queryByTestId('privacy-chain-sync-light')).toBeNull();
+  } finally {
+    mockVaultSettings = {};
+  }
 });
 
 it('prepares after an explicit start, without that account figures', async () => {

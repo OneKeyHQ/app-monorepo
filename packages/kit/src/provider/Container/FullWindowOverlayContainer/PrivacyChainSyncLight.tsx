@@ -225,6 +225,9 @@ function PrivacyChainSyncNetwork({
   );
 }
 
+// Each chain's synced threshold from its settings, kept across mounts so a remount knows it at once.
+const syncedBelowBlocksCache = new Map<string, number>();
+
 function BasicPrivacyChainSyncLight() {
   const [state] = usePrivacyChainAtom();
   const {
@@ -262,14 +265,17 @@ function BasicPrivacyChainSyncLight() {
                 await backgroundApiProxy.serviceNetwork.getVaultSettings({
                   networkId: id,
                 });
-              return [id, settings.localWallet?.syncedBelowBlocks] as const;
+              const value = settings.localWallet?.syncedBelowBlocks ?? 1;
+              syncedBelowBlocksCache.set(id, value);
+              return [id, value] as const;
             }),
         ),
       ),
     [activeNetworkKey],
     { checkIsFocused: false },
   );
-  // A synced chain only follows the tip, so it has nothing to show.
+  // A synced chain only follows the tip, so it has nothing to show. Until a chain's threshold is
+  // known it counts as synced: a chain a few blocks behind would otherwise flash on.
   const visibleNetworkIds = useMemo(
     () =>
       activeNetworkIds.filter(
@@ -277,7 +283,10 @@ function BasicPrivacyChainSyncLight() {
           getPrivacyChainNetworkSyncDisplay({
             state,
             networkId: id,
-            syncedBelowBlocks: syncedBelowBlocksByNetwork?.[id] ?? 1,
+            syncedBelowBlocks:
+              syncedBelowBlocksByNetwork?.[id] ??
+              syncedBelowBlocksCache.get(id) ??
+              Number.POSITIVE_INFINITY,
           }).status !== 'synced',
       ),
     [activeNetworkIds, state, syncedBelowBlocksByNetwork],
