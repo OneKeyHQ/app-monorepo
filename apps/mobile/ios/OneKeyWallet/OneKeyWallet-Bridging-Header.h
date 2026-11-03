@@ -2,10 +2,16 @@
 //  Use this file to import your target's public headers that you would like to expose to Swift.
 //
 
+#include <TargetConditionals.h>
+#import <Foundation/Foundation.h>
+
+#if !TARGET_OS_MACCATALYST
 #import "JPUSHService.h"
 #import "RCTJPushModule.h"
+#endif
 
 BOOL OneKeyIsTravelModeMaskingData(void);
+void OneKeyInitializeIntercom(void);
 BOOL OneKeyForceDisableTravelModeForRecovery(void);
 void OneKeyConfigureNativeSentryCrashDiagnostics(id options);
 void OneKeyFlushNativeCrashDiagnostics(NSTimeInterval timeout);

@@ -1,5 +1,10 @@
 import type { ILiveActivitySubscriptionTransport } from '@onekeyhq/shared/types/liveActivity';
 
+// Enable only when the ActivityKit transport and server tracking are integrated.
+export const liveActivityRemoteTracking = {
+  isReady: (): boolean => false,
+};
+
 // A missing server capability must never look like an acknowledged subscription.
 export const pendingServerSubscriptionTransport: ILiveActivitySubscriptionTransport =
   {

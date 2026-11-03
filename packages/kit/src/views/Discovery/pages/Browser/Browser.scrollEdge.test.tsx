@@ -125,7 +125,6 @@ jest.mock('../../components/OuterTabPagerView', () => ({
     </div>
   ),
 }));
-jest.mock('../../components/CustomHeaderTitle', () => () => null);
 jest.mock('../../components/HandleData/HandleRebuildBrowserTabData', () => ({
   HandleRebuildBrowserData: () => null,
 }));
@@ -134,10 +133,14 @@ jest.mock(
   '../../components/MobileBrowser/MobileBrowserBottomBar',
   () => () => null,
 );
+jest.mock(
+  '../../components/MobileBrowser/MobileBrowserHeader',
+  () => () => null,
+);
 jest.mock('../../hooks/useDAppNotifyChanges', () => ({
   useDAppNotifyChanges: jest.fn(),
 }));
-jest.mock('../../hooks/useMobileBottomBarAnimation', () => () => ({}));
+jest.mock('../../hooks/useMobileBrowserChromeAnimation', () => () => ({}));
 jest.mock('../../hooks/useWebTabs', () => ({
   useWebTabs: () => ({ tabs: mockTabs }),
   useActiveTabId: () => ({}),

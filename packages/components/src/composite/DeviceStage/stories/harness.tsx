@@ -15,10 +15,10 @@ import {
   useDeviceStageEscapeOwner,
   useDeviceStageExitPolicy,
 } from '@onekeyhq/components/src/composite/DeviceStage/useDeviceStageExitPolicy';
-import { Portal } from '@onekeyhq/components/src/hocs/Portal';
 import { useSafeAreaInsets } from '@onekeyhq/components/src/hooks/useLayout';
 import { Button } from '@onekeyhq/components/src/primitives/Button';
 import { Stack, XStack } from '@onekeyhq/components/src/primitives/Stack';
+import { ImperativeOverlayMountBody } from '@onekeyhq/components/src/shared/imperativeOverlayMount';
 
 /**
  * The stage stories' shared scaffolding: one demo state machine (the
@@ -350,9 +350,9 @@ export function StageHost({
   return (
     <Stack minHeight={height - 190}>
       <DeviceStage {...props} {...driver.stageProps} />
-      <Portal.Body container={Portal.Constant.HARDWARE_UI_STATE_DIALOG}>
+      <ImperativeOverlayMountBody target="hardware-stage">
         {bar}
-      </Portal.Body>
+      </ImperativeOverlayMountBody>
     </Stack>
   );
 }

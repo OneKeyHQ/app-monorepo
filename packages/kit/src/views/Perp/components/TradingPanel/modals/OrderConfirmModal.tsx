@@ -1,5 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
+import {
+  OverlayPageHostScope,
+  OverlayPageOwnerScope,
+} from '@onekeyfe/react-native-native-overlay';
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
@@ -25,6 +29,7 @@ import {
   usePerpsActiveAccountAtom,
   usePerpsCustomSettingsAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors/errors/localError';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
@@ -66,6 +71,7 @@ import { AggressiveLimitPriceWarning } from './AggressiveLimitPriceWarning';
 
 import type { IEnableTradingWithDepositFallbackResult } from '../../../hooks/useEnableTradingWithDepositFallback';
 import type { IAggressiveLimitPriceWarning } from '../../../utils/aggressiveLimitPrice';
+import type { IOverlayPageScope } from '@onekeyfe/react-native-native-overlay';
 import type { IntlShape } from 'react-intl';
 
 const SAVED_FEE_BENCHMARK_RATE = 0.0004;
@@ -87,6 +93,7 @@ function formatOrderPriceDisplay({
 
 interface IOrderConfirmContentProps {
   onClose?: () => void;
+  beforeDeposit?: () => void;
   overrideSide?: 'long' | 'short';
   enableTradingBeforeConfirm?: (
     context: IOrderConfirmEnableTradingBeforeConfirmContext,
@@ -125,6 +132,7 @@ function getOrderConfirmAccountKey(account: IOrderConfirmAccountForKey) {
 
 function OrderConfirmContent({
   onClose,
+  beforeDeposit,
   overrideSide,
   enableTradingBeforeConfirm,
   enableTradingAccountKey,
@@ -147,6 +155,10 @@ function OrderConfirmContent({
     isDialogClosedRef.current = true;
     onClose?.();
   }, [onClose]);
+  const closeBeforeDeposit = useCallback(() => {
+    closeDialog();
+    beforeDeposit?.();
+  }, [beforeDeposit, closeDialog]);
   const shouldIgnoreEnableTradingResult = useCallback(() => {
     return Boolean(
       isDialogClosedRef.current ||
@@ -991,6 +1003,7 @@ function OrderConfirmContent({
         <TradingGuardWrapper
           bypassEnableTradingGuard={Boolean(enableTradingBeforeConfirm)}
           buttonSize={PERP_DIALOG_BUTTON_SIZE}
+          beforeDeposit={closeBeforeDeposit}
         >
           <Button
             testID="perp-btn"
@@ -1011,6 +1024,8 @@ function OrderConfirmContent({
 }
 
 export function showOrderConfirmDialog({
+  sourcePage,
+  beforeDeposit,
   overrideSide,
   intl,
   enableTradingBeforeConfirm,
@@ -1021,6 +1036,8 @@ export function showOrderConfirmDialog({
   aggressiveLimitPriceWarning,
   onConfirmSuccess,
 }: {
+  sourcePage?: IOverlayPageScope;
+  beforeDeposit?: () => void;
   overrideSide?: 'long' | 'short';
   intl: IntlShape;
   enableTradingBeforeConfirm?: (
@@ -1037,28 +1054,37 @@ export function showOrderConfirmDialog({
   // Fired only after a successful override submit (chart popover closes itself).
   onConfirmSuccess?: () => void;
 }) {
+  const { hostKey, ownerKey } = sourcePage ?? {};
+  if (!hostKey || !ownerKey) {
+    throw new OneKeyLocalError('Order confirmation requires a source page');
+  }
   const dialogInstance = Dialog.show({
     title: intl.formatMessage({
       id: ETranslations.perp_confirm_order,
     }),
     renderContent: (
-      <PerpsAccountSelectorProviderMirror>
-        <PerpsProviderMirror>
-          <OrderConfirmContent
-            onClose={() => {
-              void dialogInstance.close();
-            }}
-            overrideSide={overrideSide}
-            enableTradingBeforeConfirm={enableTradingBeforeConfirm}
-            enableTradingAccountKey={enableTradingAccountKey}
-            formDataOverride={formData}
-            priceOverride={price}
-            expectedCoin={expectedCoin}
-            aggressiveLimitPriceWarning={aggressiveLimitPriceWarning}
-            onConfirmSuccess={onConfirmSuccess}
-          />
-        </PerpsProviderMirror>
-      </PerpsAccountSelectorProviderMirror>
+      <OverlayPageHostScope hostKey={hostKey}>
+        <OverlayPageOwnerScope ownerKey={ownerKey}>
+          <PerpsAccountSelectorProviderMirror>
+            <PerpsProviderMirror>
+              <OrderConfirmContent
+                onClose={() => {
+                  void dialogInstance.close();
+                }}
+                beforeDeposit={beforeDeposit}
+                overrideSide={overrideSide}
+                enableTradingBeforeConfirm={enableTradingBeforeConfirm}
+                enableTradingAccountKey={enableTradingAccountKey}
+                formDataOverride={formData}
+                priceOverride={price}
+                expectedCoin={expectedCoin}
+                aggressiveLimitPriceWarning={aggressiveLimitPriceWarning}
+                onConfirmSuccess={onConfirmSuccess}
+              />
+            </PerpsProviderMirror>
+          </PerpsAccountSelectorProviderMirror>
+        </OverlayPageOwnerScope>
+      </OverlayPageHostScope>
     ),
     contentContainerProps: PERP_MOBILE_DIALOG_CONTENT_CONTAINER_PROPS,
     showFooter: false,

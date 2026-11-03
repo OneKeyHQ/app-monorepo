@@ -11,7 +11,10 @@ import {
   REVENUECAT_API_KEY_WEB,
   REVENUECAT_API_KEY_WEB_SANDBOX,
 } from '@onekeyhq/shared/src/consts/primeConsts';
-import { EWebEmbedRoutePath } from '@onekeyhq/shared/src/consts/webEmbedConsts';
+import {
+  EWebEmbedRoutePath,
+  WEB_EMBED_ANDROID_LOCAL_ORIGIN,
+} from '@onekeyhq/shared/src/consts/webEmbedConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { BundleUpdate } from '@onekeyhq/shared/src/modules3rdParty/auto-update';
@@ -61,6 +64,28 @@ function getDevSessionWebEmbedUrl() {
   } catch {
     return undefined;
   }
+}
+
+// Mirrors the handlers registered by WebEmbedLocalOrigin (apps/mobile/android).
+const ANDROID_LOCAL_BUNDLE_DIR_MARKER = '/onekey-bundle/';
+
+function getAndroidLocalOriginWebEmbedUrl(webEmbedPath: string) {
+  const markerIndex = webEmbedPath.indexOf(ANDROID_LOCAL_BUNDLE_DIR_MARKER);
+  if (webEmbedPath && markerIndex >= 0) {
+    const relativePath = webEmbedPath.slice(
+      markerIndex + ANDROID_LOCAL_BUNDLE_DIR_MARKER.length,
+    );
+    return `${WEB_EMBED_ANDROID_LOCAL_ORIGIN}/bundle/${relativePath}/index.html`;
+  }
+  if (webEmbedPath) {
+    // A hot-update dir outside the mapped root would silently lose the update.
+    defaultLogger.app.webembed.webViewOnError({
+      code: 0,
+      description: 'web-embed hot-update path is outside onekey-bundle',
+      url: webEmbedPath,
+    });
+  }
+  return `${WEB_EMBED_ANDROID_LOCAL_ORIGIN}/web-embed/index.html`;
 }
 
 // /onboarding/auto_typing
@@ -177,18 +202,15 @@ export function WebViewWebEmbed({
       return undefined;
     }
     const webEmbedPath = BundleUpdate.getWebEmbedPath();
+    // Android serves local files from a virtual https origin (file:// is opaque and cannot use OPFS), so storage survives updates.
+    if (platformEnv.isNativeAndroid) {
+      const nativeUri = getAndroidLocalOriginWebEmbedUrl(webEmbedPath);
+      defaultLogger.app.webembed.webEmbedWebViewSource({ nativeUri });
+      return { uri: nativeUri };
+    }
     if (webEmbedPath) {
       return {
         uri: `file://${webEmbedPath}/index.html`,
-      };
-    }
-    // Android
-    if (platformEnv.isNativeAndroid) {
-      defaultLogger.app.webembed.webEmbedWebViewSource({
-        nativeUri: 'file:///android_asset/web-embed/index.html',
-      });
-      return {
-        uri: 'file:///android_asset/web-embed/index.html',
       };
     }
     // iOS
@@ -267,6 +289,9 @@ export function WebViewWebEmbed({
   }, []);
 
   const allowFileAccessByUrl = useMemo(() => {
+    if (platformEnv.isNativeAndroid) {
+      return undefined;
+    }
     const webEmbedPath = BundleUpdate.getWebEmbedPath();
     return !!webEmbedPath || undefined;
   }, []);
@@ -312,12 +337,14 @@ export function WebViewWebEmbed({
         pullToRefreshEnabled={false}
         useGeckoView={false}
         useInjectedNativeCode={false}
+        recreateOnContentProcessTerminate
         // *** use remote url
         src={remoteUrl || ''}
         // *** use web-embed local html file
         nativeWebviewSource={nativeWebviewSource}
         onWebViewRef={onWebViewRef}
         customReceiveHandler={customReceiveHandler}
+        isWebEmbedChannel={!!isSingleton}
         onMessage={handleMessage}
         onError={handleError}
         nativeInjectedJavaScriptBeforeContentLoaded={`
@@ -355,6 +382,7 @@ export function WebViewWebEmbed({
     nativeWebviewSource,
     onWebViewRef,
     customReceiveHandler,
+    isSingleton,
     handleMessage,
     handleError,
   ]);
@@ -381,6 +409,10 @@ export function WebViewWebEmbed({
       return;
     }
     jsBridge.globalOnMessageEnabled = true;
+    // Only the singleton carries webembedApi calls; other instances (Prime modal) use their own handler and must not take over or drop the bridge.
+    if (!isSingleton) {
+      return;
+    }
     backgroundApiProxy.connectWebEmbedBridge(
       jsBridge as unknown as JsBridgeBase,
     );
@@ -391,7 +423,7 @@ export function WebViewWebEmbed({
       void backgroundApiProxy.serviceDApp.markWebEmbedApiNotReady();
       backgroundApiProxy.connectWebEmbedBridge(null);
     };
-  }, [webviewRef, webview, webEmbedAppSettings]);
+  }, [webviewRef, webview, webEmbedAppSettings, isSingleton]);
 
   const webviewUrlOrUri = useMemo(() => {
     if (remoteUrl) {

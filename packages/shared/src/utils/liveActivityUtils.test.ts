@@ -12,6 +12,7 @@ import {
   getLiveActivityStatus,
   getLiveActivityTimeProjection,
   getSwapLiveActivityOrderKey,
+  isLiveActivityTerminal,
   normalizeLiveActivityDuration,
 } from './liveActivityUtils';
 
@@ -146,10 +147,14 @@ describe('Live Activity order projection', () => {
     ).toBe(1_030_000);
   });
 
-  it.each([undefined, 0, -10, 'invalid', Infinity])(
+  it.each([undefined, 0, -10, 'invalid', Infinity, 1e308])(
     'falls back to ten minutes for %s',
     (value) => expect(normalizeLiveActivityDuration(value)).toBe(600),
   );
+
+  it('preserves valid estimates longer than the activity lifetime', () => {
+    expect(normalizeLiveActivityDuration(9 * 60 * 60)).toBe(9 * 60 * 60);
+  });
 
   it('uses the provider refund meaning before its coarse success/failed state', () => {
     expect(
@@ -186,6 +191,8 @@ describe('Live Activity order projection', () => {
     expect(canAdvanceLiveActivityStatus('refunded', 'done')).toBe(false);
     expect(canAdvanceLiveActivityStatus('failed', 'refunding')).toBe(true);
     expect(canAdvanceLiveActivityStatus('refunding', 'confirming')).toBe(false);
+    expect(isLiveActivityTerminal('failed')).toBe(false);
+    expect(isLiveActivityTerminal('refunded')).toBe(true);
   });
 
   it('rounds minutes up, caps time progress, and only finishes on order truth', () => {
@@ -209,5 +216,11 @@ describe('Live Activity order projection', () => {
       almostDone: false,
       progress: 1,
     });
+    expect(
+      getLiveActivityTimeProjection(order, 'failed', 400_000).almostDone,
+    ).toBe(false);
+    expect(
+      getLiveActivityTimeProjection(order, 'refunding', 400_000).almostDone,
+    ).toBe(false);
   });
 });

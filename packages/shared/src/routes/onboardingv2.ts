@@ -113,6 +113,8 @@ export type IOnboardingParamListV2 = {
     deviceData: IConnectYourDeviceItem;
     tabValue: EConnectDeviceChannel;
     isFirmwareVerified?: boolean;
+    /** Serial from the connected device's features (BLE scans carry none). */
+    connectedSerialNo?: string;
   };
   [EOnboardingPagesV2.ImportPhraseOrPrivateKey]: {
     defaultTab: EOnboardingV2ImportPhraseOrPrivateKeyTab;

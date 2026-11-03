@@ -4,13 +4,13 @@ import {
   createElement,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
+  useRef,
 } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { useMedia } from '@onekeyhq/components';
-import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
@@ -37,20 +37,20 @@ export function isDustSweepNetworkSupported({
 
 type IDustSweepEntryCapabilities = {
   supportedNetworkIds?: ReadonlySet<string>;
-  isRefreshing: boolean;
+  isFocused: boolean;
 };
 
 const DustSweepEntryCapabilitiesContext =
   createContext<IDustSweepEntryCapabilities>({
     supportedNetworkIds: undefined,
-    isRefreshing: false,
+    isFocused: true,
   });
 
 export function DustSweepEntryCapabilitiesProvider({
   children,
   isFocused,
 }: PropsWithChildren<{ isFocused: boolean }>) {
-  const { result, isLoading } = usePromiseResult(
+  const { result } = usePromiseResult(
     async () => {
       const { loadDustSweepEntryCapabilities } =
         await import('../utils/loadNetworks');
@@ -74,11 +74,9 @@ export function DustSweepEntryCapabilitiesProvider({
   const capabilities = useMemo(
     () => ({
       supportedNetworkIds,
-      // Keep the existing entry mounted while capabilities revalidate, but
-      // prevent navigation until the destination rules are current.
-      isRefreshing: Boolean(result && isLoading),
+      isFocused,
     }),
-    [isLoading, result, supportedNetworkIds],
+    [isFocused, supportedNetworkIds],
   );
   return createElement(
     DustSweepEntryCapabilitiesContext.Provider,
@@ -88,37 +86,60 @@ export function DustSweepEntryCapabilitiesProvider({
 }
 
 export function useNavigateToDustSweep() {
-  const navigation = useAppNavigation();
-  const media = useMedia();
   const intl = useIntl();
 
   return useCallback(
     async (
       params: Omit<IDustSweepRouteParams, 'walletId'> & { walletId?: string },
+      isCurrent?: () => boolean,
     ) => {
       const { navigateToDustSweep } =
         await import('../utils/navigateToDustSweep');
-      await navigateToDustSweep({
-        params,
-        intl,
-        navigation,
-        isLargeScreen: media.gtMd,
-      });
+      if (isCurrent && !isCurrent()) return;
+      await navigateToDustSweep({ params, intl });
     },
-    [intl, media.gtMd, navigation],
+    [intl],
   );
 }
 
 // Entry points that open Dust Sweep for the active Home account.
 export function useActiveAccountDustSweep() {
   const navigateToDustSweep = useNavigateToDustSweep();
-  const { supportedNetworkIds, isRefreshing } = useContext(
+  const { supportedNetworkIds, isFocused } = useContext(
     DustSweepEntryCapabilitiesContext,
   );
   const {
     activeAccount: { account, wallet, network, indexedAccount },
   } = useActiveAccount({ num: 0 });
   const walletId = wallet?.id;
+  const scopeKey = JSON.stringify([
+    walletId,
+    account?.id,
+    indexedAccount?.id,
+    network?.id,
+  ]);
+  const scopeRef = useRef({ scopeKey, isFocused, generation: 0 });
+  if (
+    scopeRef.current.scopeKey !== scopeKey ||
+    scopeRef.current.isFocused !== isFocused
+  ) {
+    scopeRef.current = {
+      scopeKey,
+      isFocused,
+      generation: scopeRef.current.generation + 1,
+    };
+  }
+  const mountedRef = useRef(true);
+  const openingRef = useRef<{
+    generation: number;
+    promise: Promise<void>;
+  } | null>(null);
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
   // Mirrors the navigation handler's guards so entries never lead to the
   // "account does not support swap" dialog.
   const canDustSweep =
@@ -133,31 +154,51 @@ export function useActiveAccountDustSweep() {
       isAllNetworks: network?.isAllNetworks,
       supportedNetworkIds,
     });
-  const openDustSweep = useCallback(
-    (entry: IDustSweepEntry) => {
-      if (!canDustSweep || isRefreshing) return undefined;
-      return navigateToDustSweep({
-        accountId: account?.id,
-        walletId,
-        indexedAccountId: indexedAccount?.id,
-        networkId: network?.isAllNetworks ? undefined : network?.id,
-        entry,
-      });
-    },
+  const canDustSweepRef = useRef(canDustSweep);
+  canDustSweepRef.current = canDustSweep;
+  const navigate = useCallback(
+    (entry: IDustSweepEntry, generation: number) =>
+      navigateToDustSweep(
+        {
+          accountId: account?.id,
+          walletId,
+          indexedAccountId: indexedAccount?.id,
+          networkId: network?.isAllNetworks ? undefined : network?.id,
+          entry,
+        },
+        () =>
+          mountedRef.current &&
+          scopeRef.current.isFocused &&
+          canDustSweepRef.current &&
+          scopeRef.current.generation === generation &&
+          scopeRef.current.scopeKey === scopeKey,
+      ),
     [
-      canDustSweep,
-      isRefreshing,
       navigateToDustSweep,
       account?.id,
       walletId,
       indexedAccount?.id,
       network?.id,
       network?.isAllNetworks,
+      scopeKey,
     ],
+  );
+  const openDustSweep = useCallback(
+    (entry: IDustSweepEntry) => {
+      if (!canDustSweep) return undefined;
+      const { generation } = scopeRef.current;
+      if (openingRef.current?.generation === generation)
+        return openingRef.current.promise;
+      const pending = navigate(entry, generation).finally(() => {
+        if (openingRef.current?.promise === pending) openingRef.current = null;
+      });
+      openingRef.current = { generation, promise: pending };
+      return pending;
+    },
+    [canDustSweep, navigate],
   );
   return {
     canDustSweep,
-    isDustSweepRefreshing: isRefreshing,
     openDustSweep,
   };
 }

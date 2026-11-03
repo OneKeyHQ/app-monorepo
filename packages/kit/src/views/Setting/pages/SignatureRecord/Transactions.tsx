@@ -385,8 +385,8 @@ export const Transactions = () => {
       sections={sections}
       windowSize={platformEnv.isNativeAndroid ? 3 : undefined}
       // estimatedItemSize={158}
-      ItemSeparatorComponent={null}
-      SectionSeparatorComponent={null}
+      ItemSeparatorComponent={undefined}
+      SectionSeparatorComponent={undefined}
       renderSectionHeader={({ section }) => (
         <SectionList.SectionHeader
           px={SETTINGS_PAGE_CONTENT_PADDING_X}

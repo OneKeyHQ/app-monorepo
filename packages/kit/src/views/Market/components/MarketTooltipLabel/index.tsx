@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 
 import { DashText, SizableText, Stack, Tooltip } from '@onekeyhq/components';
 import type { ISizableTextProps, ITooltipProps } from '@onekeyhq/components';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 // A step darker than DashText's own `$borderStrong` (neutral7) default, which
 // reads too faint under the small subdued labels these sit beneath. Both
@@ -13,7 +14,7 @@ const MARKET_TOOLTIP_DASH_COLOR = '$neutral8';
  * A label whose dashed underline is the whole hover affordance, matching the
  * stock list's Price column and the Perps rows.
  *
- * DashText's own `tooltip` prop is deliberately not used: it forces
+ * On desktop, DashText's own `tooltip` prop is deliberately not used: it forces
  * `cursor: help`, a question mark the design does not use anywhere. Buttons
  * take their tooltip from the button instead — they have their own hover
  * treatment and must not carry dashes.
@@ -60,6 +61,8 @@ export function MarketTooltipLabel({
         triggerAsChild="except-style"
         renderTrigger={
           <DashText
+            // Native Tooltip is trigger-only; DashText opens the press sheet.
+            tooltip={platformEnv.isNative ? tooltip : undefined}
             testID={testID}
             size={size}
             color={color}

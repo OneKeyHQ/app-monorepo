@@ -13,7 +13,7 @@ enum SwapLiveActivityStatus: String, Codable {
   case confirming, swapping, receiving, refunding, done, failed, refunded, canceled
 
   var isTerminal: Bool {
-    [.done, .failed, .refunded, .canceled].contains(self)
+    [.done, .refunded, .canceled].contains(self)
   }
 
   var isRefund: Bool {
@@ -36,6 +36,21 @@ struct SwapLiveActivityToken: Codable, Hashable {
   let symbol: String
   let iconUrl: String
   let networkName: String
+}
+
+struct SwapLiveActivityStrings: Codable, Hashable {
+  let done: String
+  let failed: String
+  let refunded: String
+  let canceled: String
+  let refunding: String
+  let almostDone: String
+  let confirmingFrom: String
+  let confirmingTo: String
+  let pending: String
+  let swapFailed: String
+  let etaTemplate: String
+  let lastUpdated: String
 }
 
 struct SwapLiveActivityOrder: Codable, Hashable {
@@ -74,13 +89,15 @@ struct SwapLiveActivityAttributes: ActivityAttributes {
     var almostDone: Bool
     var imageRevision: Int?
     var progressStoppedAtMs: Double?
+    var strings: SwapLiveActivityStrings?
 
     static func make(
       order: SwapLiveActivityOrder,
       status: SwapLiveActivityStatus,
       revision: Int64,
       updatedAtMs: Double,
-      displayPhase: String = "eta"
+      displayPhase: String = "eta",
+      strings: SwapLiveActivityStrings? = nil
     ) -> Self {
       let remaining = max(0, order.estimatedEndAt.timeIntervalSinceNow)
       return Self(
@@ -89,9 +106,10 @@ struct SwapLiveActivityAttributes: ActivityAttributes {
         revision: revision,
         displayPhase: displayPhase,
         etaMinutes: Int(ceil(remaining / 60)),
-        almostDone: !status.isTerminal && remaining < 10,
+        almostDone: !status.isTerminal && !status.isError && remaining < 10,
         imageRevision: 0,
-        progressStoppedAtMs: status.isError ? updatedAtMs : nil
+        progressStoppedAtMs: status.isError ? updatedAtMs : nil,
+        strings: strings
       )
     }
   }
@@ -106,7 +124,14 @@ struct SwapLiveActivityRequest: Decodable {
     let status: SwapLiveActivityStatus
     let updatedAtMs: Double
     let revision: Int64
+    let strings: SwapLiveActivityStrings?
   }
   let order: SwapLiveActivityOrder
   let content: Content
+}
+
+struct SwapLiveActivityStringsRequest: Decodable {
+  let orderKey: String
+  let revision: Int64
+  let strings: SwapLiveActivityStrings
 }

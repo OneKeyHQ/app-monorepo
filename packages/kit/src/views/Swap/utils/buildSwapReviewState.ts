@@ -1,4 +1,5 @@
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type { ICurrencyItem } from '@onekeyhq/shared/types';
 import type {
   ESwapTabSwitchType,
@@ -211,6 +212,7 @@ export type IBuildSwapReviewStateInput = {
   batchApproveAndSwapEnabled?: boolean;
   fromToken?: ISwapToken;
   toToken?: ISwapToken;
+  stockReviewToken?: ISwapToken;
   fromTokenAmount?: string;
   toTokenAmount?: string;
   quoteResult?: IFetchQuoteResult;
@@ -249,6 +251,7 @@ export function buildSwapReviewState({
   batchApproveAndSwapEnabled,
   fromToken,
   toToken,
+  stockReviewToken,
   fromTokenAmount,
   toTokenAmount,
   quoteResult,
@@ -344,10 +347,26 @@ export function buildSwapReviewState({
     (step) => step.type !== ESwapStepType.SIGN_MESSAGE,
   );
 
+  const withStockReviewMetadata = (token?: ISwapToken) =>
+    token?.isStock &&
+    stockReviewToken?.isStock &&
+    equalTokenNoCaseSensitive({ token1: token, token2: stockReviewToken })
+      ? {
+          ...token,
+          stock: {
+            subtitle: '',
+            sourceLogoUri: '',
+            ...token.stock,
+            tokenToAssetRatio: stockReviewToken.stock?.tokenToAssetRatio,
+            underlyingAssetTicker:
+              stockReviewToken.stock?.underlyingAssetTicker,
+          },
+        }
+      : token;
   const preSwapData: ISwapPreSwapData = {
     swapType,
-    fromToken,
-    toToken,
+    fromToken: withStockReviewMetadata(fromToken),
+    toToken: withStockReviewMetadata(toToken),
     shouldFallback,
     fromTokenAmount,
     toTokenAmount,

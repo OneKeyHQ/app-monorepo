@@ -9,7 +9,6 @@ import {
   DebugRenderTracker,
   IconButton,
   RefreshControl,
-  SizableText,
   XStack,
   YStack,
   useIsSplitMainActive,
@@ -51,6 +50,7 @@ import {
   PerpMobileChartPanel,
 } from '../components/PerpMobileChartPanel';
 import { PerpMobileNetworkAlert } from '../components/PerpMobileNetworkAlert';
+import { PerpMobileTabBarItem } from '../components/PerpMobileTabBarItem';
 import {
   PerpMobileTopChartContent,
   PerpMobileTopChartProvider,
@@ -119,22 +119,11 @@ export const TabBarItem = memo(
         position="bottom-center"
         name={`PerpMobileLayout_TabBarItem_${name}`}
       >
-        <XStack
-          py="$2"
-          borderBottomWidth={1.5}
-          borderBottomColor={isFocused ? '$borderActive' : 'transparent'}
+        <PerpMobileTabBarItem
+          label={displayTitle}
+          isFocused={isFocused}
           onPress={() => onPress(name)}
-        >
-          <SizableText
-            size="$headingXs"
-            textTransform="none"
-            letterSpacing={0}
-            color={isFocused ? '$text' : '$textSubdued'}
-            pr="$0.5"
-          >
-            {displayTitle}
-          </SizableText>
-        </XStack>
+        />
       </DebugRenderTracker>
     );
   },

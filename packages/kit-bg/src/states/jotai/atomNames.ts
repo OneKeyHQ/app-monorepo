@@ -43,6 +43,7 @@ export enum EAtomNames {
   onboardingCloudBackupListRefreshAtom = 'onboardingCloudBackupListRefreshAtom',
   isOnBoardingOpenAtom = 'isOnBoardingOpenAtom',
   inAppNotificationAtom = 'inAppNotificationAtom',
+  privacyChainAtom = 'privacyChainAtom',
   swapLimitOrdersLoadingAtom = 'swapLimitOrdersLoadingAtom',
   v4migrationAtom = 'v4migrationAtom',
   v4migrationPersistAtom = 'v4migrationPersistAtom',
@@ -145,6 +146,7 @@ export enum EAtomNames {
 
   // swap
   dustSweepPreferencesPersistAtom = 'dustSweepPreferencesPersistAtom',
+  swapStockIssuerPreferencePersistAtom = 'swapStockIssuerPreferencePersistAtom',
   swapProJumpTokenAtom = 'swapProJumpTokenAtom',
   swapFromMarketJumpTokenAtom = 'swapFromMarketJumpTokenAtom',
   swapTradingViewChartSettingsPersistAtom = 'swapTradingViewChartSettingsPersistAtom',
@@ -159,7 +161,9 @@ export enum EAtomNames {
   marketTradingViewIndicatorSettingsPersistAtom = 'marketTradingViewIndicatorSettingsPersistAtom',
   marketTradingViewSubIndicatorCountPersistAtom = 'marketTradingViewSubIndicatorCountPersistAtom',
   marketDetailChartDisplayModePersistAtom = 'marketDetailChartDisplayModePersistAtom',
+  marketDetailChartModePersistAtom = 'marketDetailChartModePersistAtom',
   marketDetailPositionTabPersistAtom = 'marketDetailPositionTabPersistAtom',
+  marketDetailWatchlistSidebarPersistAtom = 'marketDetailWatchlistSidebarPersistAtom',
   marketPriceSourceAtom = 'marketPriceSourceAtom',
   marketCurrentTokenLiveDataAtom = 'marketCurrentTokenLiveDataAtom',
 
@@ -175,6 +179,11 @@ export const atomsConfig: Partial<
   Record<IAtomNameKeys, { deepCompare?: boolean; mergeInitialValue?: boolean }>
 > = {
   [EAtomNames.notificationsAtom]: {
+    deepCompare: true,
+  },
+  // The hide-value toggle is applied on the UI runtime before the bg echo
+  // arrives; an equal echo must not re-render every masked number again.
+  [EAtomNames.settingsValuePersistAtom]: {
     deepCompare: true,
   },
   [EAtomNames.primePersistAtom]: {

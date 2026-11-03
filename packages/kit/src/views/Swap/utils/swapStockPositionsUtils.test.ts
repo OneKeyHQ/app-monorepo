@@ -26,7 +26,7 @@ const buildMarketItem = (
 });
 
 describe('swapStockPositionsUtils', () => {
-  it('keeps only position tokens with complete authoritative Stock metadata', () => {
+  it('keeps returned Stock positions when another token has no metadata', () => {
     const stock = { isOpen: true } as NonNullable<ISwapToken['stock']>;
 
     expect(
@@ -37,10 +37,16 @@ describe('swapStockPositionsUtils', () => {
     ).toEqual([{ ...stockToken, isStock: true, stock }]);
     expect(
       buildStockPositionTokens({
-        marketItems: [buildMarketItem(stock)],
+        marketItems: [undefined, buildMarketItem(stock)],
         tokens: [ethToken, stockToken],
       }),
-    ).toBeUndefined();
+    ).toEqual([{ ...stockToken, isStock: true, stock }]);
+    expect(
+      buildStockPositionTokens({
+        marketItems: [],
+        tokens: [ethToken, stockToken],
+      }),
+    ).toEqual([]);
   });
 
   it('keeps the market identity from the batch list item', () => {

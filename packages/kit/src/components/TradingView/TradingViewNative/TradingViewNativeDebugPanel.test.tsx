@@ -10,8 +10,6 @@ import {
   waitFor,
 } from '@testing-library/react';
 
-import { DEV_OVERLAY_FLOAT_BUTTON_Z_INDEX } from '@onekeyhq/shared/src/consts/zIndexConsts';
-
 import {
   clearTradingViewNativeDebugEvents,
   emitTradingViewNativeDebugEvent,
@@ -76,7 +74,7 @@ describe('TradingViewNativeDebugPanel', () => {
     globalThis.ResizeObserver = originalResizeObserver;
   });
 
-  it('shows chart events at the highest development overlay layer', () => {
+  it('shows chart events', () => {
     emitTradingViewNativeDebugEvent({
       details: {
         historySource: 'fallback',
@@ -88,10 +86,7 @@ describe('TradingViewNativeDebugPanel', () => {
 
     render(<TradingViewNativeDebugPanel onClose={mockOnClose} />);
 
-    const panel = screen.getByTestId('trading-view-native-debug-panel');
-    expect(panel.style.zIndex).toBe(
-      DEV_OVERLAY_FLOAT_BUTTON_Z_INDEX.toString(),
-    );
+    expect(screen.getByTestId('trading-view-native-debug-panel')).toBeTruthy();
     expect(screen.getByText(/history\.response/)).toBeTruthy();
     expect(screen.getByText(/historySource=fallback/)).toBeTruthy();
     expect(screen.getByText(/points=120/)).toBeTruthy();

@@ -34,7 +34,7 @@ Source: [formal node 26563:99086](https://www.figma.com/design/S2GLhYwpGWI9Z5BFX
 ## Remaining verification / integration
 
 - Two synthetic activities were created successfully, but this simulator selected Compact rather than displaying Minimal. Minimal code and assets compile; a native Minimal screenshot is still required on an OS-selected multi-app surface.
-- Exact one-second presentation timing, minute updates after suspension, app termination/cold-unlock routing, physical-device alerts, APNs/JPush delivery and iPhone-to-Mac mirroring have not been certified. Server-driven updates are required for dependable suspended/terminated behavior.
+- Exact three-second presentation timing, minute updates after suspension, app termination/cold-unlock routing, physical-device alerts, APNs/JPush delivery and iPhone-to-Mac mirroring have not been certified. Server-driven updates are required for dependable suspended/terminated behavior.
 - Physical signing, token rotation, production subscription authorization, effective APNs environment, invalid-token cleanup, eight-hour expiry and full retention timing require server/device integration. No production readiness or complete Figma pixel/motion parity is claimed.
 - Current App minimum iOS deployment version remains16.4; this change does not lower it to the older Jira16.1 request.
 

@@ -31,11 +31,27 @@ export type ILiveActivityOrder = {
   isMock: boolean;
 };
 
+export type ILiveActivityStrings = {
+  done: string;
+  failed: string;
+  refunded: string;
+  canceled: string;
+  refunding: string;
+  almostDone: string;
+  confirmingFrom: string;
+  confirmingTo: string;
+  pending: string;
+  swapFailed: string;
+  etaTemplate: string;
+  lastUpdated: string;
+};
+
 // Minimal App-to-native request. The native manager derives presentation fields.
 export type ILiveActivityContent = {
   status: ILiveActivityStatus;
   updatedAtMs: number;
   revision: number;
+  strings?: ILiveActivityStrings;
 };
 
 // Complete ActivityKit ContentState; APNs must send every required field.
@@ -57,6 +73,7 @@ export type ILiveActivityInstance = ILiveActivitySnapshot & {
   activityId: string;
   activityState: string;
   pushRegistration: 'notRequested' | 'pending' | 'registered' | 'failed';
+  ownershipStatus?: 'needsConfirmation';
 };
 
 export type ILiveActivitySystemStatus = {
@@ -111,5 +128,11 @@ export type ILiveActivityModule = {
   update: (
     snapshot: ILiveActivitySnapshot,
   ) => Promise<ILiveActivitySystemStatus>;
+  updateStrings: (request: {
+    orderKey: string;
+    revision: number;
+    strings: ILiveActivityStrings;
+  }) => Promise<ILiveActivitySystemStatus>;
   end: (orderKey: string) => Promise<ILiveActivitySystemStatus>;
+  clearTracking: () => Promise<ILiveActivitySystemStatus>;
 };

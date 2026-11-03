@@ -3,6 +3,10 @@ import { fireEvent, render, screen } from '@testing-library/react';
 
 import { EMarketBannerType } from '@onekeyhq/shared/types/marketV2';
 
+import {
+  BannerDetailListColumnHeader,
+  resolveBannerDetailColumnMode,
+} from './BannerDetailListColumnHeader';
 import { MarketBannerDetail } from './MarketBannerDetail';
 import { useMarketBannerDetail } from './useMarketBannerDetail';
 
@@ -12,6 +16,28 @@ let mockTokenListId = 'composite';
 let mockStockTokens = false;
 let mockIncludeNonStockToken = false;
 let mockIsWeb = true;
+let mockIsNative = false;
+
+it('chooses banner metric columns from the list width', () => {
+  expect(resolveBannerDetailColumnMode(767)).toBe('compact');
+  expect(resolveBannerDetailColumnMode(768)).toBe('two');
+  expect(resolveBannerDetailColumnMode(1023)).toBe('two');
+  expect(resolveBannerDetailColumnMode(1024)).toBe('three');
+});
+
+it('moves volume out of the identity header in three-column mode', () => {
+  const props = {
+    primaryColumnTitle: 'Name / Volume',
+    change24hColumnTitle: 'Change',
+    onChangeSortPress: jest.fn(),
+  };
+  const { rerender } = render(
+    <BannerDetailListColumnHeader {...props} columnMode="two" />,
+  );
+  expect(screen.getByText('Name / Volume')).toBeTruthy();
+  rerender(<BannerDetailListColumnHeader {...props} columnMode="three" />);
+  expect(screen.queryByText('Name / Volume')).toBeNull();
+});
 jest.mock('@react-navigation/core', () => ({
   useRoute: () => ({
     params: {
@@ -68,6 +94,7 @@ jest.mock('@onekeyhq/components', () => {
     XStack: Container,
     YStack: Frame,
     SizableText: Container,
+    Icon: () => null,
     NavBackButton: () => null,
     HeaderButtonGroup: () => null,
     useMedia: () => ({ gtMd: mockWide }),
@@ -91,6 +118,9 @@ jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
   default: {
     get isWeb() {
       return mockIsWeb;
+    },
+    get isNative() {
+      return mockIsNative;
     },
   },
 }));
@@ -199,6 +229,7 @@ beforeEach(() => {
   mockIncludeNonStockToken = false;
   mockWide = false;
   mockIsWeb = true;
+  mockIsNative = false;
   mockType = EMarketBannerType.Mixed;
 });
 
@@ -275,6 +306,17 @@ it('keeps the compact token list for a ticker banner on narrow layouts', () => {
   expect(screen.getByTestId('mobile-list')).toBeTruthy();
   expect(screen.queryByTestId('mobile-stock-list')).toBeNull();
   expect(screen.queryByTestId('tokens')).toBeNull();
+});
+
+it('keeps the original FlatList row path on a wide native banner', () => {
+  mockIsWeb = false;
+  mockIsNative = true;
+  mockWide = true;
+  mockType = EMarketBannerType.Stock;
+  mockStockTokens = true;
+  render(<MarketBannerDetail />);
+  expect(screen.getByTestId('mobile-stock-list')).toBeTruthy();
+  expect(screen.queryByTestId('stocks')).toBeNull();
 });
 
 it.each([

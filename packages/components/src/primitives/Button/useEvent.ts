@@ -4,6 +4,8 @@ import { debounce } from 'lodash';
 
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 
+import { OverlayCloseCancelledError } from '../../shared/overlayCloseCancellation';
+
 import type { IButtonProps } from '..';
 import type { GestureResponderEvent } from 'react-native';
 
@@ -16,13 +18,23 @@ function debounceEventHandler(
   if (!onPress) {
     return undefined;
   }
+  const invokePress = (event: GestureResponderEvent) => {
+    const result: unknown = onPress(event);
+    if (result instanceof Promise) {
+      return result.catch((error: unknown) => {
+        if (error instanceof OverlayCloseCancelledError) return;
+        throw error;
+      });
+    }
+    return result;
+  };
   const debounced =
     onPressDebounce > 0
-      ? debounce(onPress, onPressDebounce, {
+      ? debounce(invokePress, onPressDebounce, {
           leading: true,
           trailing: false,
         })
-      : debounce(onPress, onPressDebounce);
+      : debounce(invokePress, onPressDebounce);
   return function (e: GestureResponderEvent) {
     if (stopPropagation) {
       e.stopPropagation();

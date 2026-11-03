@@ -18,6 +18,7 @@ import {
   useMedia,
 } from '@onekeyhq/components';
 import type { IKeyOfIcons } from '@onekeyhq/components';
+import useFormatDate from '@onekeyhq/kit/src/hooks/useFormatDate';
 import { useInterval } from '@onekeyhq/kit/src/hooks/useInterval';
 import { useUSMarketStatus } from '@onekeyhq/kit/src/hooks/useUSMarketStatus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -275,6 +276,7 @@ function TradingHoursContent({
   dense?: boolean;
 }) {
   const intl = useIntl();
+  const { format, formatDate } = useFormatDate();
   const pagePx = dense ? '$4' : '$5';
   const detailTextSize = dense ? '$bodySm' : '$bodyMd';
 
@@ -318,13 +320,10 @@ function TradingHoursContent({
     activeRow === 'closed' && stock.isOpen === true && !stock.isUSListing;
 
   const weekendSpanText = useMemo(() => {
-    const formatWeekendBoundary = (instant: number) =>
-      intl.formatDate(new Date(instant), {
-        weekday: 'short',
-        hour: '2-digit',
-        minute: '2-digit',
-        hour12: false,
-      });
+    const formatWeekendBoundary = (instant: number) => {
+      const date = new Date(instant);
+      return `${format(date, 'EEE')} ${formatDate(date, { onlyTime: true })}`;
+    };
     return intl.formatMessage(
       { id: ETranslations.trading_hours_market_closed_time },
       {
@@ -332,7 +331,7 @@ function TradingHoursContent({
         end: formatWeekendBoundary(tradingHours.weekendEndInstant),
       },
     );
-  }, [intl, tradingHours]);
+  }, [intl, tradingHours, format, formatDate]);
 
   // The badge used to surface `stock.description` via a hover tooltip; the
   // panel replaces that tooltip, so re-surface the note here. Only the first
@@ -562,11 +561,13 @@ function getNodeRect(node: unknown): DOMRect | null {
 function TradingHoursHoverPopover({
   stock,
   renderTrigger,
+  defaultOpen = false,
 }: {
   stock: IMarketStockInfo;
   renderTrigger: ReactNode;
+  defaultOpen?: boolean;
 }) {
-  const [isOpen, setIsOpen] = useState(false);
+  const [isOpen, setIsOpen] = useState(defaultOpen);
   const triggerRef = useRef<unknown>(null);
   const contentRef = useRef<unknown>(null);
 
@@ -697,12 +698,26 @@ function TradingHoursHoverPopover({
 export function TradingHoursTrigger({
   stock,
   renderTrigger,
+  defaultOpen = false,
+  onDefaultOpenConsumed,
 }: {
   stock: IMarketStockInfo;
   renderTrigger: ReactNode;
+  defaultOpen?: boolean;
+  onDefaultOpenConsumed?: () => void;
 }) {
   const media = useMedia();
   const useSheetDialog = platformEnv.isNative || media.md;
+  const openOnLoad = useRef(defaultOpen);
+  useEffect(() => {
+    if (openOnLoad.current) {
+      openOnLoad.current = false;
+      if (useSheetDialog && stock.isUSListing !== false) {
+        showTradingHoursDialog(stock);
+      }
+      onDefaultOpenConsumed?.();
+    }
+  }, [onDefaultOpenConsumed, stock, useSheetDialog]);
 
   // US trading hours describe nothing about a non-US listing.
   if (stock.isUSListing === false) {
@@ -726,6 +741,10 @@ export function TradingHoursTrigger({
   }
 
   return (
-    <TradingHoursHoverPopover stock={stock} renderTrigger={renderTrigger} />
+    <TradingHoursHoverPopover
+      stock={stock}
+      renderTrigger={renderTrigger}
+      defaultOpen={openOnLoad.current}
+    />
   );
 }

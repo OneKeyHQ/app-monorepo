@@ -111,7 +111,24 @@ function BaseBulkSendReview({
   const transferTxCount = unsignedTxs.length - approvesInfo.length;
   const isTransferSplit = transferTxCount > 1;
 
-  const receiverGroups = useMemo(() => {
+  // Chunks the background has already broadcast, by unsignedTx uuid. The
+  // batch call rejects without a partial result when a later chunk fails
+  // (and its sent list never crosses the bridge on extension / native), so
+  // this event is what tells the user which transactions a retry will skip.
+  const [sentTxUuids, setSentTxUuids] = useState<string[]>([]);
+  useEffect(() => {
+    const handler = ({
+      uuid,
+    }: IAppEventBusPayload[EAppEventBusNames.BatchSendTxBroadcasted]) => {
+      setSentTxUuids((prev) => (prev.includes(uuid) ? prev : [...prev, uuid]));
+    };
+    appEventBus.on(EAppEventBusNames.BatchSendTxBroadcasted, handler);
+    return () => {
+      appEventBus.off(EAppEventBusNames.BatchSendTxBroadcasted, handler);
+    };
+  }, []);
+
+  const receiverGroupTxs = useMemo(() => {
     if (
       bulkSendMode !== EBulkSendMode.OneToMany ||
       !isTransferSplit ||
@@ -119,11 +136,24 @@ function BaseBulkSendReview({
     ) {
       return undefined;
     }
-    const txBatches = unsignedTxs
-      .map((tx) => tx.transfersInfo ?? [])
-      .filter((batch) => batch.length > 0);
+    const txBatches = unsignedTxs.filter(
+      (tx) => (tx.transfersInfo ?? []).length > 0,
+    );
     return txBatches.length > 1 ? txBatches : undefined;
   }, [bulkSendMode, isTransferSplit, unsignedTxs]);
+
+  const receiverGroups = useMemo(
+    () => receiverGroupTxs?.map((tx) => tx.transfersInfo ?? []),
+    [receiverGroupTxs],
+  );
+
+  const sentReceiverGroups = useMemo(
+    () =>
+      receiverGroupTxs?.map((tx) =>
+        Boolean(tx.uuid && sentTxUuids.includes(tx.uuid)),
+      ),
+    [receiverGroupTxs, sentTxUuids],
+  );
 
   // Use fee estimation hook
   const { feeLabel, handleFeeChange, vaultSettings, forceRefreshFee } =
@@ -452,23 +482,28 @@ function BaseBulkSendReview({
       allowReuse,
     }: {
       allowReuse: boolean;
-    }): Promise<{ prepared: boolean; usageId?: string }> => {
+    }): Promise<{
+      prepared: boolean;
+      usageId?: string;
+      analyticsRetryAttemptId?: string;
+    }> => {
       if (platformEnv.isE2E) {
         return { prepared: true };
       }
-      const { proceed, usageId, isNewUsage } = await prepareRetryUsage({
-        usageId: allowReuse ? reviewUsageIdRef.current : undefined,
-        succeededLocally: false,
-        networkId,
-        isCallerGone: () => isUnmountedRef.current,
-      });
+      const { proceed, usageId, isNewUsage, analyticsRetryAttemptId } =
+        await prepareRetryUsage({
+          usageId: allowReuse ? reviewUsageIdRef.current : undefined,
+          succeededLocally: false,
+          networkId,
+          isCallerGone: () => isUnmountedRef.current,
+        });
       if (!proceed) {
         return { prepared: false };
       }
       if (isNewUsage) {
         reviewUsageIdRef.current = usageId;
       }
-      return { prepared: true, usageId };
+      return { prepared: true, usageId, analyticsRetryAttemptId };
     },
     [networkId, prepareRetryUsage],
   );
@@ -476,11 +511,19 @@ function BaseBulkSendReview({
   // Settles a round that ended with an error. Ignored by the background
   // when a broadcast of this usage already succeeded.
   const settleFreeTrialRoundError = useCallback(
-    async (usageId: string | undefined, error: unknown) => {
+    async (
+      usageId: string | undefined,
+      error: unknown,
+      analyticsRetryAttemptId?: string,
+    ) => {
       const isCancelled =
         isPrimeFreeTrialUserCancelError(error) ||
         (error instanceof Error && error.message === 'User cancelled');
-      await settleUsage(usageId, isCancelled ? 'cancelled' : 'failed');
+      await settleUsage(
+        usageId,
+        isCancelled ? 'cancelled' : 'failed',
+        analyticsRetryAttemptId,
+      );
     },
     [settleUsage],
   );
@@ -732,7 +775,11 @@ function BaseBulkSendReview({
     const freeTrialUsageId = freeTrialPrepared.usageId;
     const freeTrialUsage: IPrimeFreeTrialBroadcastUsage | undefined =
       freeTrialUsageId
-        ? { featureId: EPrimeFeatures.BulkSend, usageId: freeTrialUsageId }
+        ? {
+            featureId: EPrimeFeatures.BulkSend,
+            usageId: freeTrialUsageId,
+            analyticsRetryAttemptId: freeTrialPrepared.analyticsRetryAttemptId,
+          }
         : undefined;
 
     // Step 3.5: ManyToMany/ManyToOne — navigate to BulkSendProcess
@@ -754,6 +801,7 @@ function BaseBulkSendReview({
         totalFiatAmount,
         intervalSettings,
         freeTrialUsageId,
+        freeTrialRetryAttemptId: freeTrialPrepared.analyticsRetryAttemptId,
         onSuccess,
         onFail,
       };
@@ -801,7 +849,11 @@ function BaseBulkSendReview({
         // by a failed send still broadcasts with this usage, and a settled
         // usage would not count that broadcast.
         void tronConfirmPageExitRef.current.then(() =>
-          settleFreeTrialRoundError(freeTrialUsageId, e),
+          settleFreeTrialRoundError(
+            freeTrialUsageId,
+            e,
+            freeTrialPrepared.analyticsRetryAttemptId,
+          ),
         );
         if (e instanceof Error && e.message === 'User cancelled') {
           return;
@@ -836,7 +888,11 @@ function BaseBulkSendReview({
         if (accountUtils.isQrAccount({ accountId })) {
           navigation.popStack();
         }
-        await settleFreeTrialRoundError(freeTrialUsageId, e);
+        await settleFreeTrialRoundError(
+          freeTrialUsageId,
+          e,
+          freeTrialPrepared.analyticsRetryAttemptId,
+        );
         setIsSubmitting(false);
         onFail?.(e as Error);
         throw e;
@@ -860,7 +916,11 @@ function BaseBulkSendReview({
       // A resubmit that only finished broadcasts of an earlier attempt
       // (replayed through sentTxsTrackingId) used nothing, so this round's
       // usage is released. One a broadcast already marked stays charged.
-      void settleUsage(freeTrialUsageId, 'cancelled');
+      void settleUsage(
+        freeTrialUsageId,
+        'cancelled',
+        freeTrialPrepared.analyticsRetryAttemptId,
+      );
 
       // Step 6: Show success toast
       Toast.success({
@@ -886,7 +946,11 @@ function BaseBulkSendReview({
       if (accountUtils.isQrAccount({ accountId })) {
         navigation.popStack();
       }
-      await settleFreeTrialRoundError(freeTrialUsageId, e);
+      await settleFreeTrialRoundError(
+        freeTrialUsageId,
+        e,
+        freeTrialPrepared.analyticsRetryAttemptId,
+      );
       setIsSubmitting(false);
       await settleAfterFailure(newUnsignedTxs);
       onFail?.(e as Error);
@@ -996,6 +1060,7 @@ function BaseBulkSendReview({
             transfersInfo={transfersInfo}
             bulkSendMode={bulkSendMode}
             receiverGroups={receiverGroups}
+            sentReceiverGroups={sentReceiverGroups}
             containerProps={TX_DETAILS_CONTAINER_PROPS}
           />
         </YStack>

@@ -2,6 +2,7 @@ import BigNumber from 'bignumber.js';
 import { isEqual } from 'lodash';
 
 import type { IToken } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/SwapPanel/types';
+import { isMarketTokenDecimalsReady } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/utils/marketTokenIdentity';
 import type { IMarketToken } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketTokenList/MarketTokenData';
 import { USD_CURRENCY_ID } from '@onekeyhq/shared/src/consts/currencyConsts';
 import { equalsIgnoreCase } from '@onekeyhq/shared/src/utils/stringUtils';
@@ -157,6 +158,20 @@ export function getTokenIdentityKey(token?: Partial<ISwapTokenBase>) {
   return `${token.networkId}:${token.contractAddress ?? ''}:${
     token.isNative ? 'native' : 'token'
   }`;
+}
+
+// Stock token keys this app run has already settled against the default
+// issuer rule: checked once, picked by the user, or brought in by an explicit
+// entry such as Market's Buy/Sell. In memory only, so a cold start checks a
+// restored token again while tab switches keep the user's own picks.
+const settledSwapStockTokenKeys = new Set<string>();
+
+export function settleSwapStockTokenKey(key: string) {
+  if (key) settledSwapStockTokenKeys.add(key);
+}
+
+export function isSwapStockTokenKeySettled(key: string) {
+  return settledSwapStockTokenKeys.has(key);
 }
 
 export function resolveDisplayedStockToken({
@@ -396,7 +411,10 @@ export function getMarketListTokenKey(token?: IMarketTokenListItem) {
 
 export function buildStockSwapTokenFromMarketToken(
   token: IMarketToken,
-): ISwapToken {
+): ISwapToken | undefined {
+  if (!isMarketTokenDecimalsReady(token)) {
+    return undefined;
+  }
   return {
     networkId: token.networkId,
     contractAddress: token.address,

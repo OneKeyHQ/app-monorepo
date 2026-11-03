@@ -25,7 +25,6 @@ import {
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ERootRoutes } from '@onekeyhq/shared/src/routes/root';
 
-import { Portal } from '../../../hocs';
 import { useBackHandler } from '../../../hooks';
 import {
   ModalNavigatorContext,
@@ -602,7 +601,6 @@ function WebModalNavigator({
               />
             </Stack>
           </Stack>
-          <Portal.Container name={contextValue.portalId} />
         </>
       </ModalNavigatorContext.Provider>
     </NavigationContent>

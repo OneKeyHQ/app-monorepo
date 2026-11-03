@@ -7,7 +7,6 @@ import type { EPrimeFeatures } from '@onekeyhq/shared/src/routes/prime';
 
 import {
   fallbackToPrimeHostedCardCheckout,
-  resumePendingPrimeHostedCardCheckout,
   startPrimeHostedCardCheckout,
 } from './primeHostedCardCheckout';
 
@@ -47,14 +46,8 @@ export function usePrimeWebCheckoutPurchase() {
     [email, intl, onekeyUserId],
   );
 
-  const resumePendingHostedCheckout = useCallback(
-    () => resumePendingPrimeHostedCardCheckout(onekeyUserId),
-    [onekeyUserId],
-  );
-
   return {
     purchaseByHostedLink,
     fallbackToHostedLink,
-    resumePendingHostedCheckout,
   };
 }

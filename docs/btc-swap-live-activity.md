@@ -1,6 +1,6 @@
 # OK-60951 App / server Live Activity contract
 
-Status: App-local implementation and mock transport; all HTTP routes below are **proposals**, not deployed endpoints. No synthetic order or token is sent to production. Scope: native Bitcoin mainnet BTC outflow through Swap/Bridge, iOS only. Figma governs presentation; Jira governs remaining business rules.
+Status: App-local implementation and mock transport; all HTTP routes and payloads below are **unapproved proposals**, not deployed endpoints or a contract to implement without service-owner review. The example includes fields that must be minimized after server-side order resolution is verified. No synthetic order or token is sent to production. Scope: native Bitcoin mainnet BTC outflow through Swap/Bridge, iOS only. Figma governs presentation; Jira governs remaining business rules.
 
 ## Existing capabilities and boundaries
 
@@ -9,8 +9,8 @@ Status: App-local implementation and mock transport; all HTTP routes below are *
 | Successful deposit broadcast | useSwapBuiltTx → swapBroadcastSuccess → generateSwapHistoryItemForContext → ServiceSwap.addSwapHistoryItem | Reused. Signed-but-not-broadcast and broadcast failure never start a card. |
 | Authoritative order state | ServiceSwap.fetchTxState → POST /swap/v1/state-tx | Reused while the App runs. Request: txId, networkId, provider, protocol, orderId, ctx, toTokenAddress, receivedAddress. `swapInfo.orderId` is the service order identity; `txInfo.orderId` can be a provider identity. |
 | ETA | build result `estTime` minutes or `estimatedTime` seconds | Persist seconds in swap history. Freeze startedAtMs + estimatedEndAtMs in native attributes. Nonpositive/missing estimate becomes 600 seconds. |
-| Activity target / profiles / CI | Imported PR #14021, four feature commits | Reused Widget target, App Group, shared model, profile mapping, extension embedding and version sync. Simulator builds require no signing profile. Physical-device/APNs certification is separate. |
-| Push token binding | JPush iOS 5.9.0 `registerLiveActivity(activity.id,pushToken,completion,seq)` | Native manager reuses SDK, observes token rotation and unregisters ended/dismissed activities. Completion success means SDK binding acknowledgement, not successful server subscription or APNs delivery. |
+| Activity target / signing | Imported PR #14021 and App target configuration | Widget target, App Group and extension embedding are present. The iOS release workflow is intentionally identical to x and does not explicitly prepare the Live Activity profile or sync its version. Simulator builds do not prove signed release packaging. |
+| Push token binding | JPush iOS 5.9.0 supports `registerLiveActivity(activity.id,pushToken,completion,seq)` | App-only activities do not request or register a push token. Enabling the remote path requires an agreed subscription and single-writer handoff. |
 | Server tracking + notification subscription | Not verified in current server APIs | Replaceable `ILiveActivitySubscriptionTransport`. Real path returns `awaitingServer`; mock returns `mocked`. Neither claims production registration. |
 | Closed/suspended App | JS polling cannot supply dependable updates | Server must track the order and send ActivityKit update/end pushes through configured JPush/APNs. Native local tasks are best-effort only. |
 | macOS | Apple system mirroring | No custom Electron notification code. Simulator evidence does not prove physical iPhone-to-Mac mirroring. |
@@ -28,7 +28,7 @@ Current App implementation entry points:
 
 Native attributes freeze order start/end, original deposit txId, tokens and identity. `tracking.currentDepositTxId` carries the current replacement deposit to the subscription upsert. A backend must use an authoritative order record when available; otherwise explicitly resolve the supplied provider/state-tx context. Never guess by token ticker, amount or latest order.
 
-Order timestamps and ContentState timestamps use epoch **milliseconds**; APNs `aps.timestamp`, `stale-date`, `dismissal-date` use epoch **seconds**. All numeric revisions must be safe nonnegative integers and monotonically increasing for an activity. Native accepts newer legal states, preserves done/refunded/canceled, and permits failed → refunding/refunded. A refunding coarse FAILED state continues through the existing App poller, including restart, for at most eight hours.
+Order timestamps and ContentState timestamps use epoch **milliseconds**; APNs `aps.timestamp`, `stale-date`, `dismissal-date` use epoch **seconds**. All numeric revisions must be safe nonnegative integers and monotonically increasing for an activity. Native accepts newer legal states, preserves done/refunded/canceled, and permits failed → refunding/refunded. A refunding coarse FAILED state continues through the existing App poller, including restart, for at most eight hours. Whether a plain FAILED can later become refunding has not been established; existing polling does not guarantee that transition will be detected.
 
 ## Existing request identity and authentication
 
@@ -86,7 +86,7 @@ The production HTTP adapter must only return registered after server acknowledge
 
 Repeat same activity/order is idempotent. Same activity with a different order returns 409; a replacement deposit for the same stable order updates tracking while preserving start/end and identity. App upserts again when currentDepositTxId changes. Server must tolerate subscription arriving before JPush token binding: retain pending binding, reconcile without creating a second order, and publish latest authoritative snapshot once ready.
 
-`DELETE /notification/v1/live-activities/subscriptions/<activityId>` is idempotent, body `{orderKey,reason}` with reason dismissed|terminal|expired. 204 for already absent. Current App reconciles missing native activities on the next lifecycle/status read and clears local mock timers/subscriptions. Native unbind occurs immediately on system state observation. Server must independently handle invalid/unregistered push tokens and TTL; App callbacks are not guaranteed after termination.
+`DELETE /notification/v1/live-activities/subscriptions/<activityId>` is idempotent, body `{orderKey,reason}` with reason dismissed|terminal|expired. 204 for already absent. Current App reconciles missing native activities on the next lifecycle/status read and clears local mock timers/subscriptions. When future remote registration is enabled, native unbinding and server-side invalid-token cleanup must be implemented and verified. Server must independently handle TTL; App callbacks are not guaranteed after termination.
 
 Suggested errors: 400 schema/unsupported native-BTC scope; 401 existing auth invalid; 403 ownership; 404 authoritative order missing; 409 identity conflict; 422 unresolvable provider context; 429 retry-after; 5xx retriable. Retry upsert with bounded exponential backoff/jitter and same idempotency key; fail silently to the trade. Stop on hard validation/ownership errors, user dismissal, invalid token or expiresAt. Never start/resurrect an Activity from server push in this version.
 
@@ -142,21 +142,21 @@ For direct APNs, use `apns-push-type: liveactivity`, app topic `so.onekey.wallet
 
 Status enum: confirming, swapping, receiving, refunding, done, failed, refunded, canceled. Refunding is nonterminal even if the legacy state is FAILED; refunded overrides provider coarse SUCCESS/FAILED. CANCELING + confirmed cancellation reconciles to canceled. FROM_SUCCESS/BRIDGE_PENDING/BRIDGE_SUCCESS → swapping; TO_PENDING → receiving; authoritative SUCCESS/TO_SUCCESS → done. Unknown/partial-fill never invents success. Preserve terminal truth over countdown.
 
-`etaMinutes = ceil(max(0, estimatedEndAtMs-nowMs)/60000)`; `almostDone` when nonterminal and remaining <10000ms; `stale-date=(estimatedEndAtMs-10000)/1000`. ETA never resets per step. App utility `buildLiveActivityPushContent` produces the initial ETA shape. For a presentation-only follow-up, the server adapter must replace displayPhase with ring, recompute ETA/Almost done at send time and allocate a newer revision, without inventing a business transition; preserve native imageRevision on remote updates when known. `displayPhase=eta` for a changed business state; ring for follow-up snapshots. Native local ETA→ring one-second work is not guaranteed when suspended; the server must schedule a low-priority follow-up presentation update if strict timing is required, subject to OS push budgeting. Prefer authoritative business changes over cosmetic pushes.
+`etaMinutes = ceil(max(0, estimatedEndAtMs-nowMs)/60000)`; `almostDone` when nonterminal and remaining <10000ms; `stale-date` is based on the last trusted update, not the estimated completion time. ETA never resets per step. App utility `buildLiveActivityPushContent` produces the initial ETA shape. For a presentation-only follow-up, the server adapter must replace displayPhase with ring, recompute ETA/Almost done at send time and allocate a newer revision, without inventing a business transition; preserve native imageRevision on remote updates when known. `displayPhase=eta` for a changed business state; ring for follow-up snapshots. Native local ETA→ring three-second work is not guaranteed when suspended. APNs delivery and system execution are discretionary; a cosmetic push cannot guarantee exact timing. Prefer authoritative business changes over cosmetic pushes.
 
-Terminal policy: publish the terminal state as an update immediately, keep it on the island for 30 seconds, then send end with 180 seconds of further lock-screen retention. The native App uses the same policy best-effort while executable; the server owns dependable scheduling when suspended/terminated. Both paths must preserve the first terminal timestamp so replayed updates do not extend the window.
+Proposed terminal policy for confirmed done/refunded/canceled: publish the terminal state as an update immediately, keep it on the island for 30 seconds, then send end with 180 seconds of further lock-screen retention. Plain failure is not treated as a confirmed final state until provider behavior is agreed. The native App uses the same policy best-effort while executable; the server owns dependable scheduling when suspended/terminated. Both paths must preserve the first terminal timestamp so replayed updates do not extend the window.
 
 At terminalTimeSeconds+30, send `event:end`, final content-state and `dismissal-date=terminalTimeSeconds+210`. Add alert title/body/sound only for the agreed meaningful transition, avoid repeated alerts for replayed revisions. Treat refund initiation as update, not end. Coalesce same-second provider changes to latest truth and set an accurate increasing APNs timestamp; verify behavior for rapid changes and stale pushes. Server must end or expire tracking at eight hours even if the App never returns.
 
 ## Mock and acceptance handoff
 
-Developer Settings → BTC Swap Live Activity runs deterministic success, refund, failed, canceled, Almost done and long ticker scenarios. Automatic steps are ten seconds apart while the App runtime can run; manual controls produce the same native start/update payloads. Mock does not request an APNs token, write swap history, call a production provider or simulate production registration acknowledgement. A native system card is genuine; its data source is synthetic. Only mock detail resolution requires a development build. Real cards route to the exact locally stored order after unlock in production as well. Compact/Minimal tap opens the App, and long press expands the card; the user explicitly accepted this system behavior instead of Figma tap-to-toggle.
+Developer Settings → BTC Swap Live Activity runs deterministic success, refund, failed, canceled, Almost done and long ticker scenarios. Automatic steps are ten seconds apart while the App runtime can run; manual controls produce the same native start/update payloads. Mock does not request an APNs token, write swap history, call a production provider or simulate production registration acknowledgement. A native system card is genuine; its data source is synthetic. Only mock detail resolution requires a development build. A real-card deep link would resolve a local order after unlock; exact matching depends on the unverified order-key uniqueness contract, and real-card creation is currently disabled. Compact/Minimal tap opens the App, and long press expands the card; the user explicitly accepted this system behavior instead of Figma tap-to-toggle.
 
 Before production: notification owner implements/approves endpoint and JPush wire mapping, verifies token binding and rotation on a signed physical build, tests App suspended/terminated, refunds and replacement deposits, validates ownership/anonymous-installation scope, invalid-token cleanup, eight-hour deadline, explicit unsubscription and terminal retention. Confirm on-device minute rounding and the OS-governed Compact gesture/animation constraints. Native simulator success is not APNs delivery or release certification.
 
 Apple references: [ActivityKit push schema](https://developer.apple.com/documentation/ActivityKit/starting-and-updating-live-activities-with-activitykit-push-notifications), [Widget interaction](https://developer.apple.com/documentation/widgetkit/adding-interactivity-to-widgets-and-live-activities), [Dynamic Island URL behavior](https://developer.apple.com/documentation/widgetkit/dynamicisland).
 
-`etaMinutes` is a preformatted snapshot. The native minute-boundary task runs only while iOS grants the App execution time. After suspension or termination, changing the minute label requires server presentation updates. `stale-date` switches the stale / Almost done fallback; it does not advance the minute countdown. Expanded is adapted to the OS maximum height of 160pt; the 182pt Figma frame cannot be enforced as an ActivityKit expanded island height.
+`etaMinutes` is a preformatted snapshot. The native minute-boundary task runs only while iOS grants the App execution time. After suspension or termination, changing the minute label requires server presentation updates. `stale-date` marks that the last trusted snapshot may be outdated; it does not advance the minute countdown or prove the transaction is almost complete. Expanded is adapted to the OS maximum height of 160pt; the 182pt Figma frame cannot be enforced as an ActivityKit expanded island height.
 
 ## Integration decisions that remain external
 
@@ -168,3 +168,106 @@ The DTO and App transport are implementable proposals; these server deployment d
 - Continuous arrows/ring animations remain constrained by WidgetKit rendering/update budgets; the current card has state-change transitions and a static indeterminate arc. This does not prove continuous Figma motion parity.
 
 Figma source: live local MCP export on 2026-10-22, formal node 26563:99086. Bundled artwork and ring paths come from those exported SVGs; Compact ETA is 13pt Heavy / 11pt Regular, 22pt status ring, and Minimal is a 30pt orange ring around the 18pt source token. Expanded uses a 160pt system adaptation; continuous indeterminate animation is not yet proven.
+
+## Server contract follow-up (source checked 2026-11-03)
+
+The app cannot determine from coarse `FAILED` alone whether a provider can later
+report a refund. Before changing failed-activity lifetime or polling, the Swap
+owner should confirm each supported provider's status transitions and the
+production version. At server-service-swap commit
+`c00b5e31199cbe9c2bf9e41b1154d565257312b6`, LI.FI can report
+`FAILED` together with `REFUNDING`, while SWFT reports pending with
+`REFUNDING`. HIFI preserves refund-wait details without mapping those states to
+`REFUNDING`. The source does not establish whether a provider can first report
+plain failure and only later initiate a refund. Thor/NEAR map both partial and
+full refund outcomes to `REFUNDED`; that status alone does not prove a full
+refund. The `/state-tx` path queries the provider again; the `order-detail`
+path can return a stored terminal state. Production deployment and provider
+behavior need separate confirmation.
+
+The notification owner should implement and test a dedicated JPush Live Activity
+sender. The existing JPush channel at server-service-notification commit
+`2e911a7b5774be46ebf15ea2cfe1909adb0fbd7e` sends ordinary notification payloads
+using registration IDs, not the Live Activity `live_activity_id` audience and
+payload. Confirm P8 token authentication, app and extension signing profiles,
+APNs sandbox/production routing, activity token registration and rotation,
+subscription authorization, tracking TTL, retry, invalid-token cleanup, and
+update/end delivery with a signed physical device. Neither the client-side SDK
+binding nor source inspection proves that the service is deployed or that an
+APNs update was delivered.
+
+## Ownership and rollout boundary
+
+The current production transport is a placeholder, not an authorization or
+subscription implementation. Real order creation is disabled until remote
+tracking, authorization and the writer handoff are implemented and verified;
+the developer mock remains available. App-local ActivityKit updates are best effort and
+can become stale when iOS suspends the app. Do not advertise the App-only path
+as reliable background tracking. Mock cards demonstrate presentation only.
+
+For the proposed remote phase, agree on a single authoritative writer and an
+explicit handoff before enabling token registration. Local app history polling
+may continue for the in-app screen, but it must not race remote ActivityKit
+updates. A client-side `revision` does not by itself order APNs updates, which
+bypass the local merge. Confirm timestamp semantics, token rotation and the
+actual JPush-to-APNs wire payload before claiming an ordering guarantee.
+
+The Swap service currently has order records and provider state queries; its
+existing hourly Houdini scan is not a general BTC activity tracker. Confirm
+that each target provider can be queried from recoverable server-side order
+context. Add bounded, deduplicated tracking, RBF identity reconciliation,
+provider-specific refund and terminal rules, expiry, retry and monitoring. Use
+a verified provider event where available, with reconciliation for missed or
+duplicate events. One activity per device can subscribe to the same tracked
+order without creating one provider polling loop per activity.
+
+An installation identifier, order identifier, activity identifier and JPush
+registration ID are identifiers, not proof of authorization. The server owners
+must design and validate anonymous-wallet order authorization and revocation.
+Limit persisted and transmitted data to the fields proven necessary; avoid
+logging addresses, provider context and push tokens.
+
+The notification owner should verify JPush ActivityKit support, Apple P8
+credentials, signed entitlements and development/production environment
+routing; bind and rotate per-activity tokens; send update/end payloads and
+handle invalid tokens and delivery failures. JPush acceptance, APNs acceptance
+and a device showing the update are separate observations. A signed physical
+iPhone and test server are required for end-to-end acceptance.
+
+ActivityKit cards created with `pushType: nil` cannot be assumed to gain a
+push token later. Before enabling the remote feature, define how to handle
+existing local-only cards and migration while respecting user dismissal.
+
+The optional `content-state.strings` object carries display strings formatted in
+the App-selected language. If supplied, all fields in `ILiveActivityStrings`
+are required; omit the whole object for legacy decoding, never send a partial
+object. A future server sender must agree how to receive and update the current
+App language, include any required strings within the ActivityKit payload limit,
+and verify ordering across a locale change. The App's current local refresh is
+not an implementation of server-side localization.
+
+Legacy version-1 activities do not contain a reliable wallet ID. The App marks
+all such existing activities as `ownershipStatus: needsConfirmation` when
+reading system status; this classification is reconstructed after restart from
+the version-1 schema, so an unknown card is not guessed to belong to a deleted
+wallet. It is an internal status, not a user-facing confirmation workflow.
+Precise ownership, selective end on deletion and interrupted-deletion recovery
+still require a durable ownership model across all wallet and account deletion
+paths before enabling real orders.
+
+Before opening the real-order gate, verify the uniqueness and scope of service
+order IDs and quote-ID fallbacks across providers, accounts and repeated orders.
+The current key must not be assumed globally unique. A new local identifier
+must be created or reused inside the same durable history mutation, before
+presenting a card; simply generating a UUID at every broadcast callback can
+split duplicate callbacks from the persisted order and break deep links.
+
+## iOS release packaging when the x workflow is retained
+
+The iOS release workflow is intentionally unchanged from x. It does not
+explicitly prepare the LiveActivity extension provisioning profile or inject
+the extension's EAS local credentials mapping. The extension is still embedded,
+and its Info.plist version is not synchronized by that workflow. The release
+owner must verify the actual credentials and profile, App Group, signing, and
+matching App/extension versions in signed internal and App Store builds before
+release. Secret names alone and simulator builds do not establish readiness.

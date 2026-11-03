@@ -245,7 +245,10 @@ export const useTabRouterConfig = (params?: IGetTabRouterParams) => {
       !platformEnv.isNative ? referFriendsTabConfig : undefined,
       isShowMDDiscover ? getDiscoverRouterConfig(params) : undefined,
       isShowDesktopDiscover ? getDiscoverRouterConfig(params) : undefined,
-      platformEnv.isDev
+      platformEnv.isDev &&
+      !platformEnv.isNative &&
+      !platformEnv.isDesktop &&
+      !platformEnv.isExtension
         ? {
             name: ETabRoutes.Developer,
             tabBarIcon: (focused?: boolean) =>

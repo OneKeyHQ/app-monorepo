@@ -67,9 +67,13 @@ jest.mock('../../../components/ListItem', () => {
     ),
   };
 });
-jest.mock('../../../components/WalletAvatar', () => ({
-  WalletAvatar: () => null,
-}));
+jest.mock('../../../components/WalletAvatar', () => {
+  const React = jest.requireActual<typeof import('react')>('react');
+  return {
+    WalletAvatar: ({ img }: { img?: string }) =>
+      React.createElement('span', { 'data-testid': 'wallet-avatar' }, img),
+  };
+});
 
 function device(connectId: string): IConnectYourDeviceItem {
   return {
@@ -85,6 +89,25 @@ function device(connectId: string): IConnectYourDeviceItem {
     },
   };
 }
+
+describe('FoundDevicesFooter device avatar', () => {
+  it('wears the finish the scan row resolved, else the model default', () => {
+    render(
+      <FoundDevicesFooter
+        devices={[
+          { ...device('device-a'), avatarImg: 'pro2Orange' },
+          device('device-b'),
+        ]}
+        isScanning
+        onConnect={jest.fn()}
+      />,
+    );
+
+    expect(
+      screen.getAllByTestId('wallet-avatar').map((node) => node.textContent),
+    ).toEqual(['pro2Orange', EDeviceType.Pro]);
+  });
+});
 
 describe('FoundDevicesFooter connection actions', () => {
   const first = device('device-a');

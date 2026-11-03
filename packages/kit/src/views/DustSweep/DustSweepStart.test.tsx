@@ -10,12 +10,14 @@ import type {
 } from '@onekeyhq/shared/types/swap/dustSweep';
 
 import { DustSweepProvider, useDustSweep } from './DustSweepProvider';
+import { DustSweepError } from './utils/DustSweepError';
 import { DustSweepPaused, executeDustSweepItem } from './utils/execution';
 import {
   loadDustSweepNetworks,
   refreshDustSweepNetwork,
+  validateDustSweepNetworkContexts,
 } from './utils/loadNetworks';
-import { DustSweepSkip } from './utils/quote';
+import { invalidateDustSweepNetworksCache } from './utils/networkCache';
 
 function useMockPreferences() {
   return useState<{ threshold: IDustSweepThreshold }>({ threshold: 10 });
@@ -46,16 +48,7 @@ jest.mock('@onekeyhq/kit/src/views/Swap/hooks/useSwapTxHistory', () => ({
 jest.mock('./utils/loadNetworks', () => ({
   loadDustSweepNetworks: jest.fn(),
   refreshDustSweepNetwork: jest.fn(),
-}));
-jest.mock('./utils/quote', () => ({
-  DustSweepSkip: class extends Error {
-    reason: string;
-
-    constructor(reason: string) {
-      super(reason);
-      this.reason = reason;
-    }
-  },
+  validateDustSweepNetworkContexts: jest.fn(),
 }));
 jest.mock('./utils/execution', () => ({
   executeDustSweepItem: jest.fn(),
@@ -91,7 +84,11 @@ const bnb: IDustSweepNetwork = {
   balanceUsd: '5',
 };
 
-beforeEach(() => jest.resetAllMocks());
+beforeEach(() => {
+  invalidateDustSweepNetworksCache('w');
+  jest.resetAllMocks();
+  jest.mocked(validateDustSweepNetworkContexts).mockResolvedValue([bnb]);
+});
 
 it('skips a token that gets no quote on submit and settles the sweep', async () => {
   jest.mocked(loadDustSweepNetworks).mockResolvedValue({
@@ -100,7 +97,7 @@ it('skips a token that gets no quote on submit and settles the sweep', async () 
   });
   jest
     .mocked(executeDustSweepItem)
-    .mockRejectedValue(new DustSweepSkip('noQuote'));
+    .mockRejectedValue(new DustSweepError('noQuote'));
   function Wrapper({ children }: PropsWithChildren) {
     return (
       <DustSweepProvider
@@ -159,7 +156,14 @@ it.each(['success', 'approval'] as const)(
     jest
       .mocked(executeDustSweepItem)
       .mockImplementationOnce(
-        async ({ onSigning, onBroadcast, onApprovalBroadcast, onPrepared }) => {
+        async ({
+          onBuilding,
+          onSigning,
+          onBroadcast,
+          onApprovalBroadcast,
+          onPrepared,
+        }) => {
+          onBuilding();
           onSigning();
           if (outcome === 'success') onBroadcast('tx-confirming');
           else {
@@ -196,7 +200,7 @@ it.each(['success', 'approval'] as const)(
     });
     expect(refreshDustSweepNetwork).not.toHaveBeenCalled();
     expect(result.current.session.state.items[0].status).toBe(
-      outcome === 'success' ? 'broadcasted' : 'preparing',
+      outcome === 'success' ? 'broadcasted' : 'building',
     );
     await act(async () => {
       settle();

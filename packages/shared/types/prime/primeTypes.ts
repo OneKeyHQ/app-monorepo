@@ -22,6 +22,7 @@ export type IPrimeUserInfo = {
   displayEmail: string | undefined; // update by server api
   nickname: string | undefined; // update by server api
   avatar: string | undefined; // update by server api
+  inviteProfilePublic: boolean | undefined;
   onekeyUserId: string | undefined;
   onekeyAccount: IOneKeyIdAccount | undefined;
   subscriptionManageUrl: string | undefined; // update by local revenuecat sdk: Purchases.getCustomerInfo()
@@ -121,6 +122,9 @@ export type IOneKeyIdOAuthLoginPrimeUserInfo = {
   inviteCode?: string;
   customInviteCode?: string;
   kytEnabled?: boolean;
+  // Only a real true is consent. Omitted means the login payload did not
+  // include a decision.
+  inviteProfilePublic?: boolean;
 };
 
 export type IOneKeyIdOAuthLoginResponse = IOneKeyIdOAuthLoginPrimeUserInfo & {
@@ -427,6 +431,8 @@ export type IPrimeServerUserInfo = {
   // Whether the user has enabled KYT (receive risk monitoring) on the server.
   // Used as the source of truth for the KYT switch and the intro dialog gate.
   kytEnabled?: boolean;
+
+  inviteProfilePublic?: boolean;
 };
 
 export enum ESecurityPasswordType {

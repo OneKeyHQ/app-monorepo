@@ -2,6 +2,7 @@ import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { EAppRestartMode } from '@onekeyhq/shared/src/modules3rdParty/appRestart/types';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { travelModeManager } from '@onekeyhq/shared/src/travelMode';
@@ -18,6 +19,26 @@ import { TravelModeTransitionController } from './ServiceTravelMode/TravelModeTr
 
 const PAGE_ADMISSION_TTL_MS = 60_000;
 const TRAVEL_MODE_RESTART_LOADING_DURATION_MS = 3000;
+const LIVE_ACTIVITY_CLEANUP_TIMEOUT_MS = 5000;
+
+async function waitForLiveActivityCleanup(
+  cleanup: Promise<void>,
+): Promise<void> {
+  let timeout: ReturnType<typeof setTimeout> | undefined;
+  try {
+    await Promise.race([
+      cleanup,
+      new Promise<never>((_resolve, reject) => {
+        timeout = setTimeout(
+          () => reject(new OneKeyLocalError('Live Activity cleanup timed out')),
+          LIVE_ACTIVITY_CLEANUP_TIMEOUT_MS,
+        );
+      }),
+    ]);
+  } finally {
+    if (timeout !== undefined) clearTimeout(timeout);
+  }
+}
 
 @backgroundClass()
 export default class ServiceTravelMode extends ServiceBase {
@@ -47,7 +68,19 @@ export default class ServiceTravelMode extends ServiceBase {
     verifyPassword: (password) =>
       localDb.verifyPassword({ password, skipLazyUpgrade: true }),
     waitBeforeRestart: async () => {
-      await timerUtils.wait(TRAVEL_MODE_RESTART_LOADING_DURATION_MS);
+      await Promise.all([
+        timerUtils.wait(TRAVEL_MODE_RESTART_LOADING_DURATION_MS),
+        ...(platformEnv.isNativeIOS
+          ? [
+              waitForLiveActivityCleanup(
+                this.backgroundApi.serviceLiveActivity.stopForPrivacyTransition(),
+              ),
+            ]
+          : []),
+        this.backgroundApi.servicePrivacyChain
+          .haltLocalWalletForTravelMode()
+          .catch(() => undefined),
+      ]);
     },
   });
 

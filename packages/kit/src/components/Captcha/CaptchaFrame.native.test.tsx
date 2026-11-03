@@ -110,6 +110,34 @@ function nativeEvent<T>(payload: { nativeEvent: T }): NativeSyntheticEvent<T> {
 afterEach(() => jest.useRealTimers());
 
 describe('native CAPTCHA page loading', () => {
+  test('preserves provider load-error code and strips spoofed host source', () => {
+    const { props, onResult } = renderFrame();
+    act(() =>
+      props.onMessage?.(
+        nativeEvent({
+          nativeEvent: {
+            ...navigation(origin, true),
+            data: JSON.stringify({
+              type: 'onekey-test-captcha',
+              requestId,
+              status: 'load-error',
+              code: '110100',
+              source: 'host_watchdog',
+              token: 'private-token',
+              message: 'private-message',
+            }),
+          },
+        }),
+      ),
+    );
+    expect(onResult).toHaveBeenCalledWith({
+      type: 'onekey-test-captcha',
+      requestId,
+      status: 'load-error',
+      code: '110100',
+      source: 'provider_message',
+    });
+  });
   test('keeps loading beneath the transparent page after the provider bridge starts', () => {
     const { props } = renderFrame();
     expect(screen.getByText('Loading CAPTCHA…')).toBeTruthy();
@@ -177,7 +205,15 @@ describe('native CAPTCHA page loading', () => {
       );
     });
     expect(onResult.mock.calls).toEqual([
-      [{ type: 'onekey-test-captcha', requestId, status: 'load-error' }],
+      [
+        {
+          type: 'onekey-test-captcha',
+          requestId,
+          status: 'load-error',
+          code: undefined,
+          source: 'host_load_error',
+        },
+      ],
     ]);
     expect(
       jest.mocked(WebView).mock.calls.at(-1)?.[0].containerStyle,
@@ -216,7 +252,15 @@ describe('native CAPTCHA page loading', () => {
         jest.advanceTimersByTime(30_000);
       });
       expect(onResult.mock.calls).toEqual([
-        [{ type: 'onekey-test-captcha', requestId, status: 'load-error' }],
+        [
+          {
+            type: 'onekey-test-captcha',
+            requestId,
+            status: 'load-error',
+            code: undefined,
+            source: 'host_load_error',
+          },
+        ],
       ]);
       expect(
         jest.mocked(WebView).mock.calls.at(-1)?.[0].containerStyle,
@@ -232,6 +276,8 @@ describe('native CAPTCHA page loading', () => {
       type: 'onekey-test-captcha',
       requestId,
       status: 'load-error',
+      code: undefined,
+      source: 'host_watchdog',
     });
   });
 

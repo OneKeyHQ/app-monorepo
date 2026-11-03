@@ -1,3 +1,4 @@
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IMarketTokenKLineDataPoint } from '@onekeyhq/shared/types/marketV2';
 
 import {
@@ -8,56 +9,257 @@ import { getTradingViewNativePriceY } from '../utils/chartLayout';
 import { getTradingViewNativeCandleX } from '../utils/chartViewport';
 import { getTradingViewNativePriceAtProgress } from '../utils/priceScale';
 
+import { ADDITIONAL_DRAWING_TOOLS } from './additionalTools';
+
+import type { IDrawingCanvasText } from './drawingText';
 import type { ITradingViewNativeChartLayout } from '../utils/chartLayout';
 import type { ITradingViewNativeChartRuntimeViewport } from '../utils/chartRuntime';
 
 export const DRAWING_TOOLS = {
-  trend: { label: 'Trend Line', group: 'Lines', points: 2 },
-  ray: { label: 'Ray', group: 'Lines', points: 2 },
-  extended: { label: 'Extended Line', group: 'Lines', points: 2 },
-  horizontal: { label: 'Horizontal Line', group: 'Lines', points: 1 },
-  horizontalRay: { label: 'Horizontal Ray', group: 'Lines', points: 1 },
-  vertical: { label: 'Vertical Line', group: 'Lines', points: 1 },
-  cross: { label: 'Cross Line', group: 'Lines', points: 1 },
-  arrow: { label: 'Arrow', group: 'Lines', points: 2 },
-  info: { label: 'Info Line', group: 'Lines', points: 2 },
-  angle: { label: 'Trend Angle', group: 'Lines', points: 2 },
-  channel: { label: 'Parallel Channel', group: 'Lines', points: 3 },
-  fib: { label: 'Fib Retracement', group: 'Fibonacci', points: 2 },
+  trend: {
+    labelId: ETranslations.market_drawing_tool_trend__title,
+    group: 'Lines',
+    points: 2,
+  },
+  ray: {
+    labelId: ETranslations.market_drawing_tool_ray__title,
+    group: 'Lines',
+    points: 2,
+  },
+  extended: {
+    labelId: ETranslations.market_drawing_tool_extended__title,
+    group: 'Lines',
+    points: 2,
+  },
+  horizontal: {
+    labelId: ETranslations.market_drawing_tool_horizontal__title,
+    group: 'Lines',
+    points: 1,
+  },
+  horizontalRay: {
+    labelId: ETranslations.market_drawing_tool_horizontal_ray__title,
+    group: 'Lines',
+    points: 1,
+  },
+  vertical: {
+    labelId: ETranslations.market_drawing_tool_vertical__title,
+    group: 'Lines',
+    points: 1,
+  },
+  cross: {
+    labelId: ETranslations.market_drawing_tool_cross__title,
+    group: 'Lines',
+    points: 1,
+  },
+  arrow: {
+    labelId: ETranslations.market_drawing_tool_arrow__title,
+    group: 'Lines',
+    points: 2,
+  },
+  info: {
+    labelId: ETranslations.market_drawing_tool_info__title,
+    group: 'Lines',
+    points: 2,
+  },
+  angle: {
+    labelId: ETranslations.market_drawing_tool_angle__title,
+    group: 'Lines',
+    points: 2,
+  },
+  channel: {
+    labelId: ETranslations.market_drawing_tool_channel__title,
+    group: 'Lines',
+    points: 3,
+  },
+  fib: {
+    labelId: ETranslations.market_drawing_tool_fib__title,
+    group: 'Fibonacci',
+    points: 2,
+  },
   fibExtension: {
-    label: 'Trend-Based Fib Extension',
+    labelId: ETranslations.market_drawing_tool_fib_extension__title,
     group: 'Fibonacci',
     points: 3,
   },
-  fibChannel: { label: 'Fib Channel', group: 'Fibonacci', points: 3 },
-  fibFan: { label: 'Fib Speed Resistance Fan', group: 'Fibonacci', points: 2 },
-  fibTime: { label: 'Fib Time Zone', group: 'Fibonacci', points: 2 },
-  rectangle: { label: 'Rectangle', group: 'Shapes', points: 2 },
-  ellipse: { label: 'Ellipse', group: 'Shapes', points: 2 },
-  triangle: { label: 'Triangle', group: 'Shapes', points: 3 },
-  brush: { label: 'Brush', group: 'Brushes', points: 2 },
-  highlighter: { label: 'Highlighter', group: 'Brushes', points: 2 },
-  text: { label: 'Text', group: 'Text', points: 1 },
-  callout: { label: 'Callout', group: 'Text', points: 2 },
-  priceLabel: { label: 'Price Label', group: 'Text', points: 1 },
-  priceRange: { label: 'Price Range', group: 'Measure', points: 2 },
-  dateRange: { label: 'Date Range', group: 'Measure', points: 2 },
-  datePriceRange: {
-    label: 'Date and Price Range',
+  fibChannel: {
+    labelId: ETranslations.market_drawing_tool_fib_channel__title,
+    group: 'Fibonacci',
+    points: 3,
+  },
+  fibFan: {
+    labelId: ETranslations.market_drawing_tool_fib_fan__title,
+    group: 'Fibonacci',
+    points: 2,
+  },
+  fibTime: {
+    labelId: ETranslations.market_drawing_tool_fib_time__title,
+    group: 'Fibonacci',
+    points: 2,
+  },
+  rectangle: {
+    labelId: ETranslations.market_drawing_tool_rectangle__title,
+    group: 'Shapes',
+    points: 2,
+  },
+  ellipse: {
+    labelId: ETranslations.market_drawing_tool_ellipse__title,
+    group: 'Shapes',
+    points: 2,
+  },
+  triangle: {
+    labelId: ETranslations.market_drawing_tool_triangle__title,
+    group: 'Shapes',
+    points: 3,
+  },
+  brush: {
+    labelId: ETranslations.market_drawing_tool_brush__title,
+    group: 'Brushes',
+    points: 2,
+  },
+  highlighter: {
+    labelId: ETranslations.market_drawing_tool_highlighter__title,
+    group: 'Brushes',
+    points: 2,
+  },
+  text: {
+    labelId: ETranslations.market_drawing_tool_text__title,
+    group: 'Text',
+    points: 1,
+  },
+  callout: {
+    labelId: ETranslations.market_drawing_tool_callout__title,
+    group: 'Text',
+    points: 2,
+  },
+  priceLabel: {
+    labelId: ETranslations.market_drawing_tool_price_label__title,
+    group: 'Text',
+    points: 1,
+  },
+  measure: {
+    labelId: ETranslations.market_drawing_tool_measure__title,
     group: 'Measure',
     points: 2,
   },
+  priceRange: {
+    labelId: ETranslations.market_drawing_tool_price_range__title,
+    group: 'Measure',
+    points: 2,
+  },
+  dateRange: {
+    labelId: ETranslations.market_drawing_tool_date_range__title,
+    group: 'Measure',
+    points: 2,
+  },
+  datePriceRange: {
+    labelId: ETranslations.market_drawing_tool_date_price_range__title,
+    group: 'Measure',
+    points: 2,
+  },
+  ...ADDITIONAL_DRAWING_TOOLS,
 } as const;
 
 export type IDrawingTool = keyof typeof DRAWING_TOOLS;
+
+export const DRAWING_TOOLBAR_GROUPS = [
+  'Lines',
+  'Fibonacci',
+  'Patterns',
+  'Forecasting',
+  'Shapes',
+  'Text',
+  'Icons',
+  'Measure',
+] as const;
+
+export type IDrawingToolbarGroup = (typeof DRAWING_TOOLBAR_GROUPS)[number];
+
+export const DRAWING_TOOLBAR_GROUP_LABEL_IDS: Record<
+  IDrawingToolbarGroup,
+  ETranslations
+> = {
+  Lines: ETranslations.market_drawing_lines__title,
+  Fibonacci: ETranslations.market_drawing_fibonacci__title,
+  Patterns: ETranslations.market_drawing_patterns__title,
+  Forecasting: ETranslations.market_drawing_forecasting__title,
+  Shapes: ETranslations.market_drawing_shapes__title,
+  Text: ETranslations.market_drawing_tool_text__title,
+  Icons: ETranslations.market_drawing_tool_icon__title,
+  Measure: ETranslations.market_drawing_tool_measure__title,
+};
+
+export function getDrawingToolbarGroup(
+  tool: IDrawingTool,
+): IDrawingToolbarGroup {
+  const group = DRAWING_TOOLS[tool].group;
+  if (group === 'Pitchforks') return 'Lines';
+  if (group === 'Gann') return 'Fibonacci';
+  if (group === 'Elliott Waves' || group === 'Cycles') return 'Patterns';
+  if (
+    group === 'Projection' ||
+    group === 'Volume' ||
+    (group === 'Measure' && tool !== 'measure')
+  )
+    return 'Forecasting';
+  if (group === 'Brushes') return 'Shapes';
+  return group;
+}
 export type IDrawingPoint = { time: number; price: number };
 export type IScreenPoint = { x: number; y: number };
+export type IDrawingLevel = { value: number; color: string; visible: boolean };
 export type IDrawingStyle = {
   color: string;
   width: number;
   dash: 'solid' | 'dashed' | 'dotted';
   fontSize?: number;
+  opacity?: number;
+  fillOpacity?: number;
+  fillColor?: string;
+  textColor?: string;
+  showBackground?: boolean;
+  showBorder?: boolean;
+  extendLeft?: boolean;
+  extendRight?: boolean;
+  showLabels?: boolean;
+  showPrices?: boolean;
+  showVolume?: boolean;
+  showMiddleLine?: boolean;
+  showFans?: boolean;
+  showArcs?: boolean;
+  reverse?: boolean;
+  labelPosition?: 'left' | 'center' | 'right';
+  levels?: IDrawingLevel[];
+  deviation?: number;
+  candleRange?: number;
+  candleVariance?: number;
+  accountSize?: number;
+  riskPercent?: number;
+  profileRows?: number;
+  valueAreaPercent?: number;
+  stamp?:
+    | 'smile'
+    | 'heart'
+    | 'star'
+    | 'check'
+    | 'cross'
+    | 'arrowUp'
+    | 'arrowDown';
 };
+export const DRAWING_DASH_LABEL_IDS: Record<
+  IDrawingStyle['dash'],
+  ETranslations
+> = {
+  solid: ETranslations.market_chart_settings__solid_line,
+  dashed: ETranslations.market_chart_indicator_dashed_line__label,
+  dotted: ETranslations.market_chart_settings__dotted_line,
+};
+export type IDrawingVolumeBin = {
+  low: number;
+  high: number;
+  up: number;
+  down: number;
+};
+
 export type IDrawing = IDrawingStyle & {
   id: string;
   tool: IDrawingTool;
@@ -66,12 +268,22 @@ export type IDrawing = IDrawingStyle & {
   text?: string;
   name?: string;
   hidden?: boolean;
+  anchor?: IScreenPoint;
+  source?: IMarketTokenKLineDataPoint[];
+  sourceInterval?: number;
+  // Computed from finer history for rendering; never persisted with the drawing.
+  volumeProfile?: { bins: IDrawingVolumeBin[]; interval: number };
 };
 export type IDrawingProjection = {
   layout: ITradingViewNativeChartLayout;
   points: IMarketTokenKLineDataPoint[];
   interval: number;
   viewport: ITradingViewNativeChartRuntimeViewport;
+  priceDecimalPlaces?: number;
+  size?: { width: number; height: number };
+  showPriceAxis?: boolean;
+  // Canvas copy is translated on the JS thread; native labels render in worklets.
+  text?: IDrawingCanvasText;
 };
 
 export const DEFAULT_DRAWING_FONT_SIZE = 12;
@@ -88,10 +300,78 @@ export const DEFAULT_DRAWING_STYLE: IDrawingStyle = {
 export const MAX_DRAWINGS = 200;
 export const MAX_DRAWING_POINTS = 2000;
 
+export function isFibonacciTool(tool: IDrawingTool | 'cursor') {
+  'worklet';
+  return tool.startsWith('fib');
+}
+
+export function isRangeTool(tool: IDrawingTool | 'cursor') {
+  'worklet';
+  return (
+    tool === 'measure' ||
+    tool === 'priceRange' ||
+    tool === 'dateRange' ||
+    tool === 'datePriceRange'
+  );
+}
+
+export function getDrawingDefaultStyle(tool: IDrawingTool): IDrawingStyle {
+  'worklet';
+  const style: IDrawingStyle = { ...DEFAULT_DRAWING_STYLE };
+  if (tool === 'measure') style.width = 1;
+  if (tool === 'text') style.fontSize = 20;
+  if (tool === 'anchoredText') style.fontSize = 20;
+  if (['note', 'priceNote', 'pin', 'comment', 'signpost'].includes(tool)) {
+    style.fontSize = 14;
+    style.textColor = '#FFFFFF';
+    style.fillOpacity = 1;
+  }
+  if (['icon', 'emoji', 'sticker'].includes(tool)) style.fontSize = 32;
+  if (tool === 'callout' || tool === 'priceLabel') {
+    style.textColor = '#FFFFFF';
+    style.fillOpacity = 1;
+    style.fontSize = 14;
+  }
+  if (tool === 'highlighter') {
+    style.color = '#FFEB3B';
+    style.width = 4;
+    style.opacity = 0.5;
+  }
+  if (
+    [
+      'xabcd',
+      'cypher',
+      'abcd',
+      'trianglePattern',
+      'headShoulders',
+      'threeDrives',
+    ].includes(tool)
+  )
+    style.color = '#9C27B0';
+  return style;
+}
+
 export function isTextDrawingTool(tool: IDrawingTool | 'cursor') {
   'worklet';
 
-  return tool === 'text' || tool === 'callout' || tool === 'priceLabel';
+  return [
+    'text',
+    'callout',
+    'priceLabel',
+    'anchoredText',
+    'note',
+    'priceNote',
+    'pin',
+    'table',
+    'comment',
+    'signpost',
+    'flag',
+  ].includes(tool);
+}
+
+export function isPathTool(tool: IDrawingTool | 'cursor') {
+  'worklet';
+  return tool === 'path' || tool === 'polyline' || tool === 'ghostFeed';
 }
 
 export function isFreehandTool(tool: IDrawingTool) {
@@ -124,7 +404,10 @@ export function constrainDrawingPoint(
   };
 }
 
-function timeAtIndex(index: number, { points, interval }: IDrawingProjection) {
+export function timeAtIndex(
+  index: number,
+  { points, interval }: Pick<IDrawingProjection, 'points' | 'interval'>,
+) {
   'worklet';
 
   const lastIndex = points.length - 1;
@@ -138,7 +421,10 @@ function timeAtIndex(index: number, { points, interval }: IDrawingProjection) {
   );
 }
 
-function indexAtTime(time: number, { points, interval }: IDrawingProjection) {
+export function indexAtTime(
+  time: number,
+  { points, interval }: Pick<IDrawingProjection, 'points' | 'interval'>,
+) {
   'worklet';
 
   const lastIndex = points.length - 1;
@@ -261,6 +547,137 @@ export function moveDrawing(
 ): IDrawing {
   'worklet';
 
+  if (drawing.anchor)
+    return {
+      ...drawing,
+      anchor: {
+        x: drawing.anchor.x + delta.x / projection.layout.priceAxisX,
+        y: drawing.anchor.y + delta.y / projection.layout.mainChartBottom,
+      },
+    };
+
+  if (
+    drawing.tool === 'channel' &&
+    drawing.points.length >= 3 &&
+    handle !== null
+  ) {
+    const [a, b, c] = drawing.points.map((point) =>
+      drawingPointToScreen(point, projection),
+    );
+    const slope = b.x === a.x ? 0 : (b.y - a.y) / (b.x - a.x);
+    let offset = c.y - a.y - slope * (c.x - a.x);
+    if (handle === 0 || handle === 1) {
+      const point = handle === 0 ? a : b;
+      point.x += delta.x;
+      point.y += delta.y;
+    } else if (handle === 2 || handle === 3) {
+      const point = handle === 2 ? a : b;
+      point.x += delta.x;
+      point.y += slope * delta.x;
+      offset += delta.y - slope * delta.x;
+    } else if (handle === 4) {
+      a.x += delta.x;
+      b.x += delta.x;
+      a.y += delta.y;
+      b.y += delta.y;
+      offset -= delta.y - slope * delta.x;
+    } else if (handle === 5) offset += delta.y - slope * delta.x;
+    return {
+      ...drawing,
+      points: [a, b, { x: a.x, y: a.y + offset }].map((point) =>
+        screenToDrawingPoint(point, projection, magnet),
+      ),
+    };
+  }
+  if (
+    (drawing.tool === 'longPosition' || drawing.tool === 'shortPosition') &&
+    drawing.points.length >= 3 &&
+    handle !== null
+  ) {
+    if (handle === 0)
+      return moveDrawing(drawing, delta, projection, null, magnet);
+    const [entry, target, stop] = drawing.points;
+    const direction = drawing.tool === 'longPosition' ? 1 : -1;
+    const tick = 10 ** -(projection.priceDecimalPlaces ?? 8);
+    const targetScreen = drawingPointToScreen(target, projection);
+    const stopScreen = drawingPointToScreen(stop, projection);
+    const changedTarget = screenToDrawingPoint(
+      {
+        x: targetScreen.x + (handle === 1 ? delta.x : 0),
+        y: targetScreen.y + (handle === 2 ? delta.y : 0),
+      },
+      projection,
+      magnet,
+    );
+    const changedStop = screenToDrawingPoint(
+      { x: stopScreen.x, y: stopScreen.y + (handle === 3 ? delta.y : 0) },
+      projection,
+      magnet,
+    );
+    return {
+      ...drawing,
+      points: [
+        entry,
+        {
+          time: Math.max(entry.time + projection.interval, changedTarget.time),
+          price:
+            direction *
+            Math.max(
+              direction * changedTarget.price,
+              direction * entry.price + tick,
+            ),
+        },
+        {
+          time: entry.time,
+          price:
+            direction *
+            Math.min(
+              direction * changedStop.price,
+              direction * entry.price - tick,
+            ),
+        },
+      ],
+    };
+  }
+
+  if (
+    drawing.tool === 'projection' &&
+    drawing.points.length >= 3 &&
+    handle !== null
+  ) {
+    if (handle === 0)
+      return moveDrawing(drawing, delta, projection, null, magnet);
+    const [a, b, c] = drawing.points.map((point) =>
+      drawingPointToScreen(point, projection),
+    );
+    const radius = Math.hypot(b.x - a.x, b.y - a.y);
+    const angle = Math.atan2(c.y - a.y, c.x - a.x);
+    const target = {
+      x: a.x + radius * Math.cos(angle),
+      y: a.y + radius * Math.sin(angle),
+    };
+    if (handle === 1) {
+      b.x += delta.x;
+      b.y += delta.y;
+    } else {
+      target.x += delta.x;
+      target.y += delta.y;
+    }
+    const nextRadius = Math.hypot(b.x - a.x, b.y - a.y);
+    const nextAngle = Math.atan2(target.y - a.y, target.x - a.x);
+    return {
+      ...drawing,
+      points: [
+        a,
+        b,
+        {
+          x: a.x + nextRadius * Math.cos(nextAngle),
+          y: a.y + nextRadius * Math.sin(nextAngle),
+        },
+      ].map((point) => screenToDrawingPoint(point, projection, magnet)),
+    };
+  }
+
   if (isFreehandTool(drawing.tool) && handle !== null) {
     const bounds = getFreehandBounds(drawing, projection);
     const anchor = bounds[handle];
@@ -292,7 +709,13 @@ export function moveDrawing(
   return {
     ...drawing,
     points: drawing.points.map((point, index) => {
-      if (drawing.tool === 'rectangle' && handle !== null && handle >= 2) {
+      if (
+        (drawing.tool === 'rectangle' ||
+          drawing.tool === 'ellipse' ||
+          isRangeTool(drawing.tool)) &&
+        handle !== null &&
+        handle >= 2
+      ) {
         const screen = drawingPointToScreen(point, projection);
         const moveX = handle === 2 ? index === 0 : index === 1;
         return screenToDrawingPoint(
@@ -339,6 +762,101 @@ export function parseDrawings(value: string | null): IDrawing[] {
           (drawing.fontSize !== undefined &&
             !DRAWING_FONT_SIZES.includes(drawing.fontSize)) ||
           !['solid', 'dashed', 'dotted'].includes(drawing.dash ?? '') ||
+          ![drawing.opacity, drawing.fillOpacity].every(
+            (opacity) =>
+              opacity === undefined ||
+              (typeof opacity === 'number' &&
+                Number.isFinite(opacity) &&
+                opacity >= 0 &&
+                opacity <= 1),
+          ) ||
+          ![drawing.fillColor, drawing.textColor].every(
+            (color) =>
+              color === undefined ||
+              (typeof color === 'string' && /^#[\da-f]{6}$/i.test(color)),
+          ) ||
+          ![
+            drawing.deviation,
+            drawing.candleRange,
+            drawing.candleVariance,
+            drawing.sourceInterval,
+            drawing.accountSize,
+            drawing.riskPercent,
+            drawing.profileRows,
+            drawing.valueAreaPercent,
+          ].every(
+            (number) =>
+              number === undefined ||
+              (typeof number === 'number' &&
+                Number.isFinite(number) &&
+                number >= 0 &&
+                number <= 1e12),
+          ) ||
+          (drawing.stamp !== undefined &&
+            ![
+              'smile',
+              'heart',
+              'star',
+              'check',
+              'cross',
+              'arrowUp',
+              'arrowDown',
+            ].includes(drawing.stamp)) ||
+          (drawing.anchor !== undefined &&
+            (!drawing.anchor ||
+              !Number.isFinite(drawing.anchor.x) ||
+              !Number.isFinite(drawing.anchor.y))) ||
+          (drawing.source !== undefined &&
+            (!Array.isArray(drawing.source) ||
+              drawing.source.length > MAX_DRAWING_POINTS ||
+              !drawing.source.every(
+                (point) =>
+                  point &&
+                  ['t', 'o', 'h', 'l', 'c', 'v'].every((key) =>
+                    Number.isFinite(
+                      point[key as keyof IMarketTokenKLineDataPoint],
+                    ),
+                  ),
+              ))) ||
+          ![
+            drawing.showBackground,
+            drawing.showBorder,
+            drawing.extendLeft,
+            drawing.extendRight,
+            drawing.showLabels,
+            drawing.showPrices,
+            drawing.showVolume,
+            drawing.showMiddleLine,
+            drawing.showFans,
+            drawing.showArcs,
+            drawing.reverse,
+          ].every((flag) => flag === undefined || typeof flag === 'boolean') ||
+          (drawing.labelPosition !== undefined &&
+            !['left', 'center', 'right'].includes(drawing.labelPosition)) ||
+          (drawing.levels !== undefined &&
+            (!Array.isArray(drawing.levels) ||
+              drawing.levels.length > 24 ||
+              !drawing.levels.every((level: unknown) => {
+                if (!level || typeof level !== 'object') return false;
+                const entry = level as Partial<IDrawingLevel>;
+                return (
+                  typeof entry.value === 'number' &&
+                  Number.isFinite(entry.value) &&
+                  Math.abs(entry.value) <= 1000 &&
+                  typeof entry.visible === 'boolean' &&
+                  typeof entry.color === 'string' &&
+                  /^#[\da-f]{6}$/i.test(entry.color)
+                );
+              }))) ||
+          (drawing.sourceInterval !== undefined &&
+            drawing.sourceInterval <= 0) ||
+          (drawing.profileRows !== undefined &&
+            (drawing.profileRows < 1 ||
+              drawing.profileRows > 100 ||
+              !Number.isInteger(drawing.profileRows))) ||
+          (drawing.valueAreaPercent !== undefined &&
+            (drawing.valueAreaPercent < 1 || drawing.valueAreaPercent > 100)) ||
+          (drawing.riskPercent !== undefined && drawing.riskPercent > 100) ||
           typeof drawing.locked !== 'boolean' ||
           (drawing.hidden !== undefined &&
             typeof drawing.hidden !== 'boolean') ||
@@ -364,7 +882,12 @@ export function parseDrawings(value: string | null): IDrawing[] {
         ids.add(drawing.id);
         return true;
       })
-      .slice(0, MAX_DRAWINGS);
+      .slice(0, MAX_DRAWINGS)
+      .map((drawing) => {
+        const restored = { ...drawing };
+        delete restored.volumeProfile;
+        return restored;
+      });
   } catch {
     return [];
   }

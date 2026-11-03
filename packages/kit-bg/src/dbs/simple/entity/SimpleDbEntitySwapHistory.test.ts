@@ -121,6 +121,75 @@ const swapSuccess = createHistoryItem({
   fromToken: usdc,
   toToken: createToken('ETH'),
 });
+
+describe('guarded swap status persistence', () => {
+  it('matches the requested tx when the status response supplies a different txId', async () => {
+    const entity = new SimpleDbEntitySwapHistory();
+    let stored = JSON.stringify({
+      data: { histories: [swapPending] },
+      updatedAt: 1,
+    });
+    entity.appStorage = {
+      ...entity.appStorage,
+      getItem: jest.fn(async () => stored),
+      setItem: jest.fn(async (_key, value) => {
+        stored = typeof value === 'string' ? value : JSON.stringify(value);
+      }),
+    };
+    const updated = {
+      ...swapPending,
+      status: ESwapTxHistoryStatus.SUCCESS,
+      txInfo: { ...swapPending.txInfo, txId: 'server-deposit' },
+    };
+    await expect(
+      entity.updateSwapHistoryItemIfCurrent(
+        updated,
+        () => true,
+        undefined,
+        swapPending.txInfo.txId,
+      ),
+    ).resolves.toEqual(updated);
+    expect(JSON.parse(stored).data.histories).toEqual([updated]);
+  });
+
+  it('rolls back an in-flight write when a replacement invalidates it', async () => {
+    const entity = new SimpleDbEntitySwapHistory();
+    const original = { histories: [swapPending] };
+    let stored = JSON.stringify({ data: original, updatedAt: 1 });
+    let signalWrite: () => void = () => {};
+    let releaseWrite: () => void = () => {};
+    const started = new Promise<void>((resolve) => {
+      signalWrite = resolve;
+    });
+    const resume = new Promise<void>((resolve) => {
+      releaseWrite = resolve;
+    });
+    let writes = 0;
+    entity.appStorage = {
+      ...entity.appStorage,
+      getItem: jest.fn(async () => stored),
+      setItem: jest.fn(async (_key, value) => {
+        writes += 1;
+        stored = typeof value === 'string' ? value : JSON.stringify(value);
+        if (writes === 1) {
+          signalWrite();
+          await resume;
+        }
+      }),
+    };
+    let current = true;
+    const pending = entity.updateSwapHistoryItemIfCurrent(
+      { ...swapPending, status: ESwapTxHistoryStatus.FAILED },
+      () => current,
+    );
+    await started;
+    current = false;
+    releaseWrite();
+    await expect(pending).resolves.toBeUndefined();
+    expect(JSON.parse(stored).data).toEqual(original);
+    expect(await entity.getRawData()).toEqual(original);
+  });
+});
 // A stock token traded through a non-market channel: isStock is true, but the
 // row lives in the limit / private-send surfaces and is hidden from the stock
 // Order History list, so a stock "Clear" must not delete it.
@@ -329,6 +398,153 @@ describe('SimpleDbEntitySwapHistory durable mutations', () => {
       resolved,
     );
     expect(written?.histories).toEqual([resolved, swapSuccess]);
+  });
+
+  it.each(['SwapQuickeXPrivateSend', 'SwapRocketXPrivateSend'])(
+    'preserves fees learned after the status snapshot for %s',
+    async (provider) => {
+      const stale = createHistoryItem({
+        id: 'private-send-fees',
+        protocol: EProtocolOfExchange.PRIVATE_SEND,
+        status: ESwapTxHistoryStatus.PENDING,
+      });
+      stale.swapInfo.provider = { provider, providerName: provider };
+      const latest = {
+        ...stale,
+        txInfo: {
+          ...stale.txInfo,
+          gasFeeInNative: '0.000004020049614',
+          gasFeeFiatValue: '0.00939618256429062',
+        },
+      };
+      const written = await runUpdate({ histories: [latest] }, stale);
+
+      expect(written?.histories[0].txInfo).toEqual(latest.txInfo);
+    },
+  );
+
+  it('uses the latest fees inside the storage mutation when a detail update races the snapshot read', async () => {
+    const stale = createHistoryItem({
+      id: 'private-send-fee-race',
+      protocol: EProtocolOfExchange.PRIVATE_SEND,
+      status: ESwapTxHistoryStatus.PENDING,
+    });
+    const latest = {
+      ...stale,
+      txInfo: {
+        ...stale.txInfo,
+        gasFeeInNative: '0.000004',
+        gasFeeFiatValue: '0.01',
+      },
+    };
+    const entity = new SimpleDbEntitySwapHistory();
+    jest.spyOn(entity, 'getRawData').mockResolvedValue({ histories: [stale] });
+    let stored: ISwapTxHistoryPersistList = { histories: [latest] };
+    jest
+      .spyOn(entity, 'setRawData')
+      .mockImplementation(async (dataOrBuilder) => {
+        stored =
+          typeof dataOrBuilder === 'function'
+            ? await dataOrBuilder(stored)
+            : dataOrBuilder;
+        return stored;
+      });
+
+    const result = await entity.updateSwapHistoryItem(stale);
+    expect(stored.histories[0].txInfo).toEqual(latest.txInfo);
+    expect(result).toEqual(stored.histories[0]);
+  });
+
+  it('accepts authoritative zero fees instead of retaining an earlier estimate', async () => {
+    const latest = createHistoryItem({
+      id: 'private-send-zero',
+      protocol: EProtocolOfExchange.PRIVATE_SEND,
+      status: ESwapTxHistoryStatus.PENDING,
+    });
+    latest.txInfo.gasFeeInNative = '0.001';
+    latest.txInfo.gasFeeFiatValue = '2';
+    const written = await runUpdate(
+      { histories: [latest] },
+      latest,
+      undefined,
+      { gasFeeInNative: '0', gasFeeFiatValue: '0' },
+    );
+    expect(written?.histories[0].txInfo).toEqual({
+      ...latest.txInfo,
+      gasFeeInNative: '0',
+      gasFeeFiatValue: '0',
+    });
+  });
+
+  it('keeps confirmed fees when an old estimated snapshot has no new fee in its status response', async () => {
+    const stale = createHistoryItem({
+      id: 'private-send-estimate',
+      protocol: EProtocolOfExchange.PRIVATE_SEND,
+      status: ESwapTxHistoryStatus.PENDING,
+    });
+    stale.txInfo.gasFeeInNative = '0.000004583250252';
+    stale.txInfo.gasFeeFiatValue = '0.01071256831150716';
+    const latest = {
+      ...stale,
+      txInfo: {
+        ...stale.txInfo,
+        gasFeeInNative: '0.000004020049614',
+        gasFeeFiatValue: '0.00939618256429062',
+      },
+    };
+    const written = await runUpdate(
+      { histories: [latest] },
+      stale,
+      undefined,
+      {},
+    );
+    expect(written?.histories[0].txInfo).toEqual(latest.txInfo);
+  });
+
+  it('does not carry a fee across deposit transaction replacement', async () => {
+    const latest = createHistoryItem({
+      id: 'old-deposit',
+      protocol: EProtocolOfExchange.PRIVATE_SEND,
+      status: ESwapTxHistoryStatus.PENDING,
+    });
+    latest.txInfo.gasFeeInNative = '0.001';
+    const incoming = {
+      ...latest,
+      txInfo: {
+        ...latest.txInfo,
+        txId: 'new-deposit',
+        gasFeeInNative: undefined,
+      },
+    };
+    const written = await runUpdate(
+      { histories: [latest] },
+      incoming,
+      'old-deposit',
+    );
+    expect(written?.histories[0].txInfo.gasFeeInNative).toBeUndefined();
+  });
+
+  it('does not preserve a fiat fee in a different denomination', async () => {
+    const latest = createHistoryItem({
+      id: 'private-send-currency',
+      protocol: EProtocolOfExchange.PRIVATE_SEND,
+      status: ESwapTxHistoryStatus.PENDING,
+    });
+    latest.currencyId = 'usd';
+    latest.txInfo.gasFeeInNative = '0.001';
+    latest.txInfo.gasFeeFiatValue = '2';
+    const incoming = {
+      ...latest,
+      currencyId: 'eur',
+      txInfo: {
+        ...latest.txInfo,
+        gasFeeInNative: undefined,
+        gasFeeFiatValue: undefined,
+      },
+    };
+    const written = await runUpdate({ histories: [latest] }, incoming);
+    expect(written?.histories[0].txInfo.gasFeeInNative).toBe('0.001');
+    expect(written?.histories[0].txInfo.gasFeeFiatValue).toBeUndefined();
   });
 
   it('promotes a durably staged pending write', async () => {

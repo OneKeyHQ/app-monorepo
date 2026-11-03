@@ -10,6 +10,10 @@ import type { IFetchUSMarketStatusResult } from '@onekeyhq/shared/types/swap/typ
 
 let mockStatus: IFetchUSMarketStatusResult | undefined;
 
+jest.mock('@onekeyhq/kit/src/hooks/useLocaleVariant', () => ({
+  useLocaleVariant: () => 'en',
+}));
+
 jest.mock('react-intl', () => ({
   useIntl: () => ({
     formatMessage: ({ id }: { id: string }) => id,
@@ -42,7 +46,17 @@ jest.mock('@onekeyhq/components', () => {
     YStack: Frame,
     SizableText: Frame,
     Icon: () => null,
-    Popover: ({ renderContent }: { renderContent: ReactNode }) => renderContent,
+    Popover: ({
+      renderContent,
+      open,
+    }: {
+      renderContent: ReactNode;
+      open?: boolean;
+    }) => (
+      <div data-testid="trading-hours-popover" data-open={open}>
+        {renderContent}
+      </div>
+    ),
     useMedia: () => ({ md: false }),
   };
 });
@@ -152,4 +166,23 @@ it('opens no US trading hours for a non-US listing', () => {
 
   expect(screen.getByText('status')).toBeTruthy();
   expect(screen.queryByTestId('trading-hours-panel')).toBeNull();
+});
+
+it('opens the desktop popover for a press received while loading', () => {
+  render(
+    <TradingHoursTrigger
+      stock={{
+        title: 'AAPL',
+        subtitle: 'Apple',
+        source: 'ondo',
+        sourceLogoUri: '',
+      }}
+      renderTrigger={<span>status</span>}
+      defaultOpen
+    />,
+  );
+
+  expect(
+    screen.getByTestId('trading-hours-popover').getAttribute('data-open'),
+  ).toBe('true');
 });

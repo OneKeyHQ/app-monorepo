@@ -1,0 +1,465 @@
+import { Mutex } from 'async-mutex';
+
+import {
+  getXmrRuntimeApi,
+  hasXmrRuntimeApiLoader,
+  readXmrRuntimeError,
+} from '@onekeyhq/core/src/chains/xmr/sdkXmrRuntime';
+import type { IXmrRuntimeApi } from '@onekeyhq/core/src/chains/xmr/sdkXmrRuntime';
+import { XMR_RUNTIME_METHODS } from '@onekeyhq/core/src/chains/xmr/sdkXmrRuntime/methods';
+import { installXmrCarrier } from '@onekeyhq/core/src/chains/xmr/sdkXmrRuntime/sdk/install';
+import type { IXmrNetwork } from '@onekeyhq/core/src/chains/xmr/sdkXmrRuntime/types';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+
+import { getLastLocalWalletChainTip } from '../../localWallet/privacyChainCacheStore';
+import { getLocalWalletViewingKey } from '../../localWallet/viewingKeyStore';
+
+import type Vault from './Vault';
+
+/** The only place that opens the runtime database and node; opening the database twice fails like corruption. */
+
+// Installed on import so the chain cannot end up half-wired.
+installXmrCarrier();
+
+export function xmrDbNameForNetwork(network: IXmrNetwork): string {
+  return `xmr-${network}`;
+}
+
+type ISession = {
+  api: IXmrRuntimeApi;
+  raw: IXmrRuntimeApi;
+  network: IXmrNetwork;
+  dbName: string;
+  /** The node the runtime is connected to; `''` while it is not. */
+  nodeUrl: string;
+  /** Last failed connect, so an unreachable node is not retried every call. */
+  nodeAttempt?: { url: string; at: number };
+};
+
+const NODE_RETRY_MS = 30_000;
+
+// The Worker's database/node client was torn down while this cached session
+// survived (e.g. the extension offscreen document was recreated).
+const LOST_STATE_CODES = new Set([
+  'WALLET_NOT_OPEN',
+  'NODE_NOT_CONFIGURED',
+  'NOT_INITIALIZED',
+]);
+
+const NODE_METHODS = new Set<(typeof XMR_RUNTIME_METHODS)[number]>([
+  'chainTip',
+  'syncStep',
+  'prepareTransaction',
+  'prepareDeviceTransaction',
+  'broadcastTransaction',
+]);
+
+function readLostStateCode(error: unknown): string | undefined {
+  const runtime = readXmrRuntimeError(error);
+  if (runtime && LOST_STATE_CODES.has(runtime.code)) {
+    return runtime.code;
+  }
+  return undefined;
+}
+
+let session: ISession | undefined;
+
+// The last chain tip any caller fetched; at most a turn old.
+let lastKnownChainTip: number | undefined;
+
+// Health shown in settings comes from the tip fetches scanning already makes,
+// not a separate probe. Keyed by url so a switch never shows the old node's.
+export type IXmrNodeHealth = {
+  url: string;
+  ok: boolean;
+  latencyMs: number | null;
+  atMs: number;
+};
+let nodeHealth: IXmrNodeHealth | undefined;
+let opening: Promise<ISession> | undefined;
+
+// One runtime call at a time: a read landing mid-step would otherwise fail as
+// "not open", indistinguishable from the real error.
+const runtimeCallLock = new Mutex();
+
+// Tests and carrier teardown only; during a live scan it would reopen a held database.
+export function resetXmrRuntimeSession() {
+  session = undefined;
+  opening = undefined;
+  lastKnownChainTip = undefined;
+  nodeHealth = undefined;
+}
+
+async function openSession(params: {
+  network: IXmrNetwork;
+  nodeUrl: string;
+}): Promise<ISession> {
+  const { network, nodeUrl } = params;
+  const api = await getXmrRuntimeApi();
+  const dbName = xmrDbNameForNetwork(network);
+  await api.openWallet(dbName, network);
+  let connectedUrl = '';
+  let nodeAttempt: ISession['nodeAttempt'];
+  if (nodeUrl) {
+    try {
+      await api.setNodeUrl(nodeUrl);
+      connectedUrl = nodeUrl;
+    } catch (error) {
+      console.warn('[xmr] node unreachable; local operations only', { error });
+      nodeAttempt = { url: nodeUrl, at: Date.now() };
+    }
+  }
+  const opened: ISession = {
+    api,
+    raw: api,
+    network,
+    dbName,
+    nodeUrl: connectedUrl,
+    nodeAttempt,
+  };
+  // Mutual recursion by design: healing reopens, reopening wraps for healing.
+  // eslint-disable-next-line @typescript-eslint/no-use-before-define
+  opened.api = withSelfHealing(opened);
+  return opened;
+}
+
+function openSessionSingleFlight(params: {
+  network: IXmrNetwork;
+  nodeUrl: string;
+}): Promise<ISession> {
+  if (!opening) {
+    opening = openSession(params)
+      .then((next) => {
+        session = next;
+        return next;
+      })
+      .finally(() => {
+        opening = undefined;
+      });
+  }
+  return opening;
+}
+
+function healingMethod(
+  current: ISession,
+  method: (typeof XMR_RUNTIME_METHODS)[number],
+): (...args: unknown[]) => Promise<unknown> {
+  const call = (target: IXmrRuntimeApi, args: unknown[]) =>
+    (target[method] as (...a: unknown[]) => Promise<unknown>)(...args);
+  return (...args: unknown[]) =>
+    runtimeCallLock.runExclusive(async () => {
+      try {
+        return await call(current.raw, args);
+      } catch (error) {
+        const code = readLostStateCode(error);
+        if (!code) throw error;
+        console.warn('[xmr] runtime lost its state; reopening', {
+          method,
+          code,
+        });
+        if (session === current) {
+          session = undefined;
+        }
+        const next = await openSessionSingleFlight({
+          network: current.network,
+          nodeUrl: NODE_METHODS.has(method) ? current.nodeUrl : '',
+        });
+        return call(next.raw, args);
+      }
+    });
+}
+
+function withSelfHealing(current: ISession): IXmrRuntimeApi {
+  const api: Record<string, unknown> = {};
+  for (const method of XMR_RUNTIME_METHODS) {
+    api[method] = healingMethod(current, method);
+  }
+  return api as unknown as IXmrRuntimeApi;
+}
+
+// Whether a scan step holds the lock; UI reads then answer from their last snapshot.
+export function isXmrRuntimeBusy(): boolean {
+  return runtimeCallLock.isLocked();
+}
+
+// An entry remembers its account epoch; one from another epoch describes destroyed data.
+type IXmrStaleFirstEntry = { value: unknown; epoch?: string };
+const staleFirstCache = new Map<string, IXmrStaleFirstEntry>();
+const staleFirstQueued = new Set<string>();
+// Bumped when the whole database goes, so a queued read finishing later
+// cannot restore results for keys no epoch covers (storage size).
+let staleFirstGeneration = 0;
+
+export function resetXmrStaleFirstCache() {
+  staleFirstCache.clear();
+  staleFirstQueued.clear();
+  staleFirstGeneration += 1;
+}
+
+type IXmrStaleFirstEpoch = {
+  epoch: string | undefined;
+  isCurrent: () => Promise<boolean>;
+};
+
+async function storeXmrStaleFirst({
+  key,
+  value,
+  generation,
+  owner,
+  onlyIfEmpty = false,
+}: {
+  key: string;
+  value: unknown;
+  generation: number;
+  owner?: IXmrStaleFirstEpoch;
+  onlyIfEmpty?: boolean;
+}) {
+  if (owner && !(await owner.isCurrent())) return;
+  if (
+    generation !== staleFirstGeneration ||
+    (onlyIfEmpty && staleFirstCache.has(key))
+  ) {
+    return;
+  }
+  staleFirstCache.set(key, { value, epoch: owner?.epoch });
+}
+
+// Cold start: one read per key waits behind the current step and fills the
+// cache for the next poll.
+function queueXmrStaleFirstRead<T>(
+  key: string,
+  read: () => Promise<T>,
+  owner: IXmrStaleFirstEpoch | undefined,
+) {
+  if (staleFirstQueued.has(key)) return;
+  staleFirstQueued.add(key);
+  const generation = staleFirstGeneration;
+  void runtimeCallLock
+    .runExclusive(() => undefined)
+    .then(read)
+    .then((value) =>
+      storeXmrStaleFirst({
+        key,
+        value,
+        generation,
+        owner,
+        onlyIfEmpty: true,
+      }),
+    )
+    .catch((error) => {
+      console.warn('[xmr] queued read failed', { key, error });
+    })
+    .finally(() => {
+      staleFirstQueued.delete(key);
+    });
+}
+
+// Busy returns the last-seen value (or fallback) instead of queueing. The busy
+// check is a snapshot: a step can still start between it and the read.
+export async function readXmrStaleFirst<T>({
+  key,
+  read,
+  fallback,
+  queueWhenUncached = false,
+  owner,
+}: {
+  key: string;
+  read: () => Promise<T>;
+  fallback: T;
+  queueWhenUncached?: boolean;
+  owner?: IXmrStaleFirstEpoch;
+}): Promise<T> {
+  if (isXmrRuntimeBusy()) {
+    const entry = staleFirstCache.get(key);
+    if (entry && entry.epoch === owner?.epoch) {
+      return entry.value as T;
+    }
+    if (entry) {
+      staleFirstCache.delete(key);
+    }
+    if (queueWhenUncached) {
+      queueXmrStaleFirstRead(key, read, owner);
+    }
+    return fallback;
+  }
+  const generation = staleFirstGeneration;
+  const value = await read();
+  await storeXmrStaleFirst({ key, value, generation, owner });
+  return value;
+}
+
+// After scanned data is removed or rewound, remembered answers are wrong,
+// not just old. Every account when none is named.
+export function forgetXmrStaleFirst(accountIds?: string[]) {
+  if (!accountIds) {
+    staleFirstCache.clear();
+  } else {
+    for (const accountId of accountIds) {
+      for (const kind of ['history', 'progress']) {
+        staleFirstCache.delete(`${kind}:${accountId}`);
+      }
+    }
+  }
+  staleFirstGeneration += 1;
+}
+
+// Deletes the database without opening it: a database that cannot be opened must still be removable.
+export async function deleteXmrDatabase(network: IXmrNetwork): Promise<void> {
+  await runtimeCallLock.runExclusive(async () => {
+    const api = await getXmrRuntimeApi();
+    await api.deleteWallet(xmrDbNameForNetwork(network));
+    session = undefined;
+    forgetXmrStaleFirst();
+  });
+}
+
+async function connectNode(target: ISession, url: string) {
+  const { nodeAttempt } = target;
+  if (nodeAttempt?.url === url && Date.now() - nodeAttempt.at < NODE_RETRY_MS) {
+    return;
+  }
+  // The runtime drops the previous node first, so a switch never falls back to it.
+  target.nodeUrl = '';
+  try {
+    await target.api.setNodeUrl(url);
+    target.nodeUrl = url;
+    target.nodeAttempt = undefined;
+  } catch (error) {
+    console.warn('[xmr] node unreachable; local operations only', { error });
+    target.nodeAttempt = { url, at: Date.now() };
+  }
+}
+
+export async function getXmrRuntime(vault: Vault): Promise<IXmrRuntimeApi> {
+  if (!hasXmrRuntimeApiLoader()) {
+    throw new OneKeyLocalError(
+      'xmr: this carrier has no runtime; scanning and sending are unavailable here',
+    );
+  }
+  const network = await vault.getXmrNetwork();
+  const nodeUrl = await vault.resolveXmrNodeUrl().catch(() => '');
+  const dbName = xmrDbNameForNetwork(network);
+
+  const current =
+    session?.dbName === dbName
+      ? session
+      : await openSessionSingleFlight({ network, nodeUrl });
+  if (current.nodeUrl !== nodeUrl) {
+    await connectNode(current, nodeUrl);
+  }
+  return current.api;
+}
+
+// Local reads and data management need only the database. Scanning and
+// sending go through getXmrRuntime, which connects.
+export async function getXmrLocalRuntime(
+  vault: Vault,
+): Promise<IXmrRuntimeApi> {
+  if (!hasXmrRuntimeApiLoader()) {
+    throw new OneKeyLocalError(
+      'xmr: this carrier has no runtime; scanning and sending are unavailable here',
+    );
+  }
+  const network = await vault.getXmrNetwork();
+  const current =
+    session?.dbName === xmrDbNameForNetwork(network)
+      ? session
+      : await openSessionSingleFlight({ network, nodeUrl: '' });
+  return current.api;
+}
+
+// The runtime names an identity by its viewing key fingerprint (vkFp), so
+// accounts sharing a key share one identity. Only a stored key names it: a
+// lookup never derives one.
+export async function getXmrRuntimeUuid({
+  vault,
+  accountId,
+}: {
+  vault: Vault;
+  accountId: string;
+}): Promise<string | undefined> {
+  const key = await getLocalWalletViewingKey({
+    backgroundApi: vault.backgroundApi,
+    networkId: vault.networkId,
+    accountId,
+  });
+  return key?.vkFp;
+}
+
+export async function getXmrIdentityId(params: {
+  api: IXmrRuntimeApi;
+  vault: Vault;
+  accountId: string;
+}): Promise<string> {
+  const { api, vault, accountId } = params;
+  const uuid = await getXmrRuntimeUuid({ vault, accountId });
+  const listed = JSON.parse(await api.listAccounts()) as {
+    items: { accountId: number; uuid: string }[];
+  };
+  const row =
+    uuid === undefined
+      ? undefined
+      : listed.items.find((item) => item.uuid === uuid);
+  if (!row) {
+    throw new OneKeyLocalError(
+      `xmr: account ${accountId} is not registered in the runtime; turn scanning on for it first`,
+    );
+  }
+  return String(row.accountId);
+}
+
+function recordXmrNodeHealth(sample: {
+  url: string | undefined;
+  ok: boolean;
+  latencyMs: number | null;
+}) {
+  const { url, ok } = sample;
+  if (!url) return;
+  nodeHealth = {
+    url,
+    ok,
+    latencyMs:
+      sample.latencyMs ??
+      (nodeHealth?.url === url ? nodeHealth.latencyMs : null),
+    atMs: Date.now(),
+  };
+}
+
+export function getXmrNodeHealth(): IXmrNodeHealth | undefined {
+  return nodeHealth;
+}
+
+export async function getXmrChainTip(api: IXmrRuntimeApi): Promise<number> {
+  // A failed connect leaves nodeUrl empty; the failure still belongs to the node tried.
+  const url = session?.nodeUrl || session?.nodeAttempt?.url;
+  const timed = !isXmrRuntimeBusy();
+  const startedAt = Date.now();
+  let tip: { height: number };
+  try {
+    tip = JSON.parse(await api.chainTip()) as { height: number };
+  } catch (error) {
+    recordXmrNodeHealth({ url, ok: false, latencyMs: null });
+    throw error;
+  }
+  recordXmrNodeHealth({
+    url,
+    ok: true,
+    latencyMs: timed ? Date.now() - startedAt : null,
+  });
+  lastKnownChainTip = tip.height;
+  return tip.height;
+}
+
+// Last observed tip for display and local scan-data management. Sending and
+// normal sync fetch a fresh tip through getXmrChainTip instead.
+export async function getXmrLastKnownChainTip(
+  vault: Vault,
+): Promise<number | undefined> {
+  return (
+    lastKnownChainTip ??
+    getLastLocalWalletChainTip({
+      backgroundApi: vault.backgroundApi,
+      networkId: vault.networkId,
+    })
+  );
+}

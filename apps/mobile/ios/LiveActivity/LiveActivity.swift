@@ -116,20 +116,26 @@ private struct SwapActivityETA: View {
   var compact = false
 
   private var status: SwapLiveActivityStatus { context.state.status }
+  private var strings: SwapLiveActivityStrings? { context.state.strings }
 
   var body: some View {
     Group {
       switch status {
-      case .done: Text("Done")
-      case .failed: Text("Failed")
-      case .refunded: Text("Refunded")
-      case .canceled: Text("Order canceled")
-      case .refunding: Text("Failed")
+      case .done: Text(strings?.done ?? "Done")
+      case .failed: Text(strings?.failed ?? "Failed")
+      case .refunded: Text(strings?.refunded ?? "Refunded")
+      case .canceled: Text(strings?.canceled ?? "Order canceled")
+      case .refunding: Text(strings?.refunding ?? "Refunding")
       default:
-        if context.isStale || context.state.almostDone {
-          Text("~Almost done")
+        if context.isStale {
+          Text(compact ? "—" : (strings?.lastUpdated ?? "—"))
+            .accessibilityLabel(Text(strings?.lastUpdated ?? "—"))
+        } else if context.state.almostDone {
+          Text(strings?.almostDone ?? "~Almost done")
         } else {
-          if compact {
+          if let template = strings?.etaTemplate {
+            Text(template.replacingOccurrences(of: "{number}", with: String(context.state.etaMinutes)))
+          } else if compact {
             VStack(spacing: -4) {
               Text("\(context.state.etaMinutes)")
                 .font(.system(size: 13, weight: .heavy))
@@ -163,8 +169,8 @@ private struct SwapActivityProgress: View {
         Capsule().fill(.white.opacity(0.2))
         if context.state.status.isTerminal {
           Capsule().fill(context.state.status.isError ? swapRed : swapGreen)
-        } else if context.state.status.isRefund {
-          Capsule().fill(swapRed)
+        } else if context.state.status.isError || context.isStale {
+          Capsule().fill(context.state.status.isError ? swapRed : swapOrange)
             .frame(width: geometry.size.width * min(0.95, max(0,
               ((context.state.progressStoppedAtMs ?? context.state.updatedAtMs) - context.attributes.order.startedAtMs)
                 / (context.attributes.order.estimatedEndAtMs - context.attributes.order.startedAtMs)
@@ -196,14 +202,15 @@ private struct SwapActivityDetails: View {
   }
 
   private var stepText: String? {
+    let strings = context.state.strings
     switch context.state.status {
     case .confirming:
-      return "Confirming on \(context.attributes.order.fromToken.networkName) network"
-    case .swapping: return "Swap in progress"
+      return strings?.confirmingFrom ?? "Confirming on \(context.attributes.order.fromToken.networkName) network"
+    case .swapping: return strings?.pending ?? "Swap in progress"
     case .receiving:
-      return "Confirming on \(context.attributes.order.toToken.networkName) network"
-    case .refunding: return "Swap failed · Refund initiated"
-    case .failed: return "Swap failed"
+      return strings?.confirmingTo ?? "Confirming on \(context.attributes.order.toToken.networkName) network"
+    case .refunding: return strings?.refunding ?? "Swap failed · Refund initiated"
+    case .failed: return strings?.swapFailed ?? "Swap failed"
     default: return nil
     }
   }
@@ -249,11 +256,11 @@ private struct SwapCompactStatus: View {
   let context: ActivityViewContext<SwapLiveActivityAttributes>
 
   var body: some View {
-    if context.state.status.isTerminal {
+    if context.state.status.isTerminal || context.state.status == .failed {
       Image(context.state.status == .done ? "SwapDone" : "SwapFailed")
         .renderingMode(.original).resizable().scaledToFit()
         .frame(width: 22, height: 22)
-    } else if context.state.displayPhase == "eta" {
+    } else if (context.isStale && !context.state.status.isError) || context.state.displayPhase == "eta" {
       SwapActivityETA(context: context, compact: true)
     } else {
       Image(context.state.status.isRefund ? "SwapRefundRing" : "SwapPendingRing")

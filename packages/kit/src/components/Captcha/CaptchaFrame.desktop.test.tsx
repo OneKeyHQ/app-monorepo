@@ -111,6 +111,23 @@ async function mount() {
   return { ...rendered, frame, onResult, getURL, stop, send, dispatch };
 }
 
+test('preserves provider load-error code and strips spoofed host source', async () => {
+  const { send, onResult } = await mount();
+  send('load-error', {
+    code: '110100',
+    source: 'host_watchdog',
+    token: 'private-token',
+    message: 'private-message',
+  });
+  expect(onResult).toHaveBeenCalledWith({
+    type: 'onekey-test-captcha',
+    requestId: 'current',
+    status: 'load-error',
+    code: '110100',
+    source: 'provider_message',
+  });
+});
+
 test('loads the HTTPS page directly, using the existing verified guest preload', async () => {
   const { frame, send, onResult } = await mount();
   expect(frame.getAttribute('preload')).toBe(preloadPath);

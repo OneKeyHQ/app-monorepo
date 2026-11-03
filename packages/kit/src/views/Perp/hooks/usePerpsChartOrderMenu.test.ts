@@ -7,6 +7,8 @@ import { ActionList, Toast } from '@onekeyhq/components';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
+import { showLimitOrderDialog } from '../components/TradingPanel/panels/LimitOrderForm';
+
 import { usePerpsChartOrderMenu } from './usePerpsChartOrderMenu';
 
 let mockMid: string | undefined = '82000';
@@ -16,6 +18,11 @@ const mockAssetCtxAtom = atom<
 let mockSize = '1';
 const mockShowTpsl = jest.fn<undefined, unknown[]>();
 const mockCloseMenu = jest.fn();
+const mockSourcePage = { hostKey: 'main', ownerKey: 'perps' };
+
+jest.mock('@onekeyfe/react-native-native-overlay', () => ({
+  useOverlayPageScope: () => mockSourcePage,
+}));
 
 jest.mock('react-intl', () => ({
   useIntl: () => ({ formatMessage: ({ id }: { id: string }) => id }),
@@ -172,4 +179,15 @@ describe('Perps chart order menu', () => {
       });
     },
   );
+
+  it('passes the source page when opening a limit order', async () => {
+    const { result } = renderHook(() => usePerpsChartOrderMenu(true));
+    const limitItem = selectPrice(result, 83_000)[0];
+    await act(async () => {
+      await limitItem.onPress?.(mockCloseMenu);
+    });
+    expect(showLimitOrderDialog).toHaveBeenCalledWith(
+      expect.objectContaining({ sourcePage: mockSourcePage }),
+    );
+  });
 });

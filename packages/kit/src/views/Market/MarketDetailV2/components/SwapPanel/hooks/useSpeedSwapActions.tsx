@@ -1334,6 +1334,8 @@ export function useSpeedSwapActions(props: {
           router: JSON.stringify(routes ?? ''),
           isFirstTime: settingsAtom.isFirstTimeSwap,
           createFrom: 'marketDex',
+          // The Market panel has no "Recent trades" chips.
+          fromRecentTokenPair: false,
           ...getStockTradeAnalyticsPayload({
             protocol: result?.protocol,
             fromToken: result?.fromTokenInfo,

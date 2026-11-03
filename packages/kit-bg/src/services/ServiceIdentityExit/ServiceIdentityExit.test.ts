@@ -793,14 +793,14 @@ describe('ServiceIdentityExit', () => {
       expectReadyPlan(plan);
       expect(plan.presentation).toEqual({ type: 'switchEnvironment' });
       expect(plan.confirmation).toEqual({
-        type: 'keylessRemovalAcknowledgement',
+        type: wallet ? 'keylessRemovalAcknowledgement' : 'normal',
       });
       expect(fixture.commitIdentityExitLocalState).not.toHaveBeenCalled();
 
       await expect(
         fixture.service.executeIdentityExit({
           planId: plan.planId,
-          acknowledgement: 'keylessWalletRemoval',
+          acknowledgement: wallet ? 'keylessWalletRemoval' : 'oneKeyIdLogout',
         }),
       ).resolves.toMatchObject({
         status: 'completed',

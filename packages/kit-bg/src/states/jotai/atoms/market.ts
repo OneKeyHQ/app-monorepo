@@ -16,6 +16,7 @@ export interface IMarketHomePreferences {
   selectedStockCategory?: string;
   selectedTopCoinsCategory?: string;
   watchlistFilter?: 'all' | 'spot' | 'stocks' | 'perps';
+  detailWatchlistSidebarFilter?: 'all' | 'spot' | 'stocks' | 'perps';
 }
 
 export interface IMarketHomePreferencesAtom extends IMarketHomePreferences {
@@ -152,6 +153,22 @@ export const {
   initialValue: { mode: 'simple' },
 });
 
+export interface IMarketDetailChartModePersistAtom {
+  chartMode: 'native' | 'tradingView';
+}
+
+// Whether the detail pages draw the native chart or TradingView. It is a
+// viewing preference rather than a per-asset choice, so one value covers every
+// token and stock detail page.
+export const {
+  target: marketDetailChartModePersistAtom,
+  use: useMarketDetailChartModePersistAtom,
+} = globalAtom<IMarketDetailChartModePersistAtom>({
+  persist: true,
+  name: EAtomNames.marketDetailChartModePersistAtom,
+  initialValue: { chartMode: 'native' },
+});
+
 export interface IMarketDetailPositionTabPersistAtom {
   preferPosition: boolean;
 }
@@ -166,6 +183,24 @@ export const {
   persist: true,
   name: EAtomNames.marketDetailPositionTabPersistAtom,
   initialValue: { preferPosition: false },
+});
+
+export interface IMarketDetailWatchlistSidebarPersistAtom {
+  // Unset until the user first opens or closes the sidebar; until then it
+  // opens only for users who have favorites.
+  open?: boolean;
+}
+
+// Whether the desktop detail pages dock the favorites sidebar. It only applies
+// where the window is wide enough to dock it; narrower windows open it as an
+// overlay that always starts closed.
+export const {
+  target: marketDetailWatchlistSidebarPersistAtom,
+  use: useMarketDetailWatchlistSidebarPersistAtom,
+} = globalAtom<IMarketDetailWatchlistSidebarPersistAtom>({
+  persist: true,
+  name: EAtomNames.marketDetailWatchlistSidebarPersistAtom,
+  initialValue: {},
 });
 
 export type IMarketPriceSource = 'share' | 'token';

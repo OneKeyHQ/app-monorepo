@@ -2,6 +2,12 @@
 // eslint-disable-next-line @typescript-eslint/consistent-type-imports
 import type { ISubscriptionPeriod } from '@onekeyhq/kit/src/views/Prime/hooks/usePrimePaymentTypes';
 import type { EPrimeFeatures } from '@onekeyhq/shared/src/routes/prime';
+import { sanitizeCaptchaDiagnostic } from '@onekeyhq/shared/src/utils/captchaDiagnostics';
+import type { ICaptchaDiagnostic } from '@onekeyhq/shared/src/utils/captchaDiagnostics';
+import type {
+  IPrimeFreeTrialAttemptParams,
+  IPrimeFreeTrialResultParams,
+} from '@onekeyhq/shared/src/utils/primeFreeTrialAnalytics';
 import { getPrimeInfiniPaymentSafeLogParams } from '@onekeyhq/shared/src/utils/primeInfiniPaymentDiagnostics';
 import {
   getOneKeyIdAuthFailureServerParams,
@@ -241,6 +247,11 @@ export type IPrimeGiftStageParams =
     };
 
 export class PrimeSubscriptionScene extends BaseScene {
+  @LogToLocal()
+  public emailOtpCaptchaDiagnostic(params: ICaptchaDiagnostic) {
+    return sanitizeCaptchaDiagnostic(params) ?? NO_LOG_OUTPUT;
+  }
+
   /**
    * Prime feature entry click
    * Triggered when a user clicks on any Prime feature entry point.
@@ -366,6 +377,22 @@ export class PrimeSubscriptionScene extends BaseScene {
     featureName: EPrimeFeatures;
     featureId: EPrimeFeatures;
   }) {
+    return params;
+  }
+
+  /** Client attempts, including requests blocked before any server call. */
+  @LogToServer()
+  public primeFreeTrialAttempt(
+    params: IPrimeFreeTrialAttemptParams & { source: 'client' },
+  ) {
+    return params;
+  }
+
+  /** Access grants are distinct from completed business execution. */
+  @LogToServer()
+  public primeFreeTrialResult(
+    params: IPrimeFreeTrialResultParams & { source: 'client' },
+  ) {
     return params;
   }
 

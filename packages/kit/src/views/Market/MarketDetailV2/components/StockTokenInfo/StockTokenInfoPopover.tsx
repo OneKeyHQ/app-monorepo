@@ -13,6 +13,7 @@ import {
   Tooltip,
   XStack,
   YStack,
+  runAfterActionListClose,
   useClipboard,
   usePopoverContext,
 } from '@onekeyhq/components';
@@ -115,10 +116,11 @@ function StockTokenInfoContent({
   const website = variant.website?.trim();
   const handleOpenIssuerWebsite = useCallback(() => {
     if (!website) return;
-    void (async () => {
-      await closePopover?.();
-      openUrlExternal(website);
-    })();
+    void runAfterActionListClose(
+      () => closePopover?.(),
+      () => openUrlExternal(website),
+      { waitForAnimation: false },
+    );
   }, [closePopover, website]);
 
   const handleCopyContractAddress = useCallback(() => {
@@ -262,7 +264,6 @@ export function StockTokenInfoPopover({ label }: { label: ReactNode }) {
       title={intl.formatMessage({
         id: ETranslations.trade_stocks_token_details,
       })}
-      nativeSheet
       placement="bottom-end"
       floatingPanelProps={{ width: POPOVER_WIDTH }}
       renderTrigger={

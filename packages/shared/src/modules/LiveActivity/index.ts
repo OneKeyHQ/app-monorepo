@@ -10,7 +10,9 @@ const liveActivity: ILiveActivityModule = {
   getStatus,
   start: getStatus,
   update: getStatus,
+  updateStrings: getStatus,
   end: getStatus,
+  clearTracking: getStatus,
 };
 
 export default liveActivity;

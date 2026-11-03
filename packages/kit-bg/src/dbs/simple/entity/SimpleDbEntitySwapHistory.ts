@@ -81,6 +81,48 @@ function findSwapHistoryItemIndex(
   return histories.findIndex((history) => isSameSwapHistoryItem(history, item));
 }
 
+type ISwapHistoryFeeUpdate = Pick<
+  ISwapTxHistory['txInfo'],
+  'gasFeeInNative' | 'gasFeeFiatValue'
+>;
+
+function mergePrivateSendHistoryFees(
+  existing: ISwapTxHistory,
+  incoming: ISwapTxHistory,
+  feeUpdate?: ISwapHistoryFeeUpdate,
+): ISwapTxHistory {
+  if (
+    !isPrivateSendSwapHistoryItem(existing) ||
+    !isPrivateSendSwapHistoryItem(incoming) ||
+    !incoming.txInfo.txId ||
+    incoming.txInfo.txId !== existing.txInfo.txId ||
+    incoming.baseInfo.fromToken.networkId !==
+      existing.baseInfo.fromToken.networkId
+  ) {
+    return incoming;
+  }
+  const sameCurrency =
+    (incoming.currencyId ?? incoming.currency) ===
+    (existing.currencyId ?? existing.currency);
+  // A poll owns only the fees returned by its response, not those captured
+  // in its old request snapshot. Merge against the current row atomically.
+  const incomingFees = feeUpdate ?? incoming.txInfo;
+  return {
+    ...incoming,
+    txInfo: {
+      ...incoming.txInfo,
+      gasFeeInNative:
+        incomingFees.gasFeeInNative ??
+        existing.txInfo.gasFeeInNative ??
+        incoming.txInfo.gasFeeInNative,
+      gasFeeFiatValue:
+        incomingFees.gasFeeFiatValue ??
+        (sameCurrency ? existing.txInfo.gasFeeFiatValue : undefined) ??
+        incoming.txInfo.gasFeeFiatValue,
+    },
+  };
+}
+
 function addSwapHistoryToList(
   histories: ISwapTxHistory[],
   item: ISwapTxHistory,
@@ -174,7 +216,11 @@ export class SimpleDbEntitySwapHistory extends SimpleDbEntityBase<ISwapTxHistory
   }
 
   @backgroundMethod()
-  async updateSwapHistoryItem(item: ISwapTxHistory, oldTxId?: string) {
+  async updateSwapHistoryItem(
+    item: ISwapTxHistory,
+    oldTxId?: string,
+    feeUpdate?: ISwapHistoryFeeUpdate,
+  ): Promise<ISwapTxHistory | undefined> {
     const snapshot = await this.getRawData();
     const snapshotHistories = snapshot?.histories ?? [];
     const snapshotPendingWrites = snapshot?.pendingWrites ?? [];
@@ -185,29 +231,82 @@ export class SimpleDbEntitySwapHistory extends SimpleDbEntityBase<ISwapTxHistory
       return;
     }
 
+    let updatedItem: ISwapTxHistory | undefined;
     await this.setRawData((currentData) => {
-      let histories = [...(currentData?.histories ?? [])];
-      const pendingWrites = [...(currentData?.pendingWrites ?? [])];
-      const historyIndex = findSwapHistoryItemIndex(histories, item, oldTxId);
-      const pendingIndex = findSwapHistoryItemIndex(
-        pendingWrites,
+      const result = this.buildHistoryUpdate(
+        currentData,
         item,
         oldTxId,
+        feeUpdate,
       );
-      if (historyIndex !== -1) {
-        histories[historyIndex] = item;
-      } else if (pendingIndex !== -1) {
-        histories = addSwapHistoryToList(histories, item);
-      }
-      if (pendingIndex !== -1) {
-        pendingWrites.splice(pendingIndex, 1);
-      }
-      return {
+      updatedItem = result.updatedItem;
+      return result.data;
+    });
+    return updatedItem;
+  }
+
+  // This callback is used only within the background runtime; it must not be
+  // exposed as a cross-runtime RPC argument.
+  async updateSwapHistoryItemIfCurrent(
+    item: ISwapTxHistory,
+    shouldCommit: () => boolean,
+    feeUpdate?: ISwapHistoryFeeUpdate,
+    sourceTxId?: string,
+  ): Promise<ISwapTxHistory | undefined> {
+    let updatedItem: ISwapTxHistory | undefined;
+    const result = await this.setRawDataTransaction({
+      build: (currentData) => {
+        const update = this.buildHistoryUpdate(
+          currentData,
+          item,
+          sourceTxId,
+          feeUpdate,
+        );
+        updatedItem = update.updatedItem;
+        return updatedItem ? { data: update.data } : undefined;
+      },
+      shouldCommit,
+    });
+    return result.committed ? updatedItem : undefined;
+  }
+
+  private buildHistoryUpdate(
+    currentData: ISwapTxHistoryPersistList | null | undefined,
+    item: ISwapTxHistory,
+    oldTxId?: string,
+    feeUpdate?: ISwapHistoryFeeUpdate,
+  ) {
+    let updatedItem: ISwapTxHistory | undefined;
+    let histories = [...(currentData?.histories ?? [])];
+    const pendingWrites = [...(currentData?.pendingWrites ?? [])];
+    const historyIndex = findSwapHistoryItemIndex(histories, item, oldTxId);
+    const pendingIndex = findSwapHistoryItemIndex(pendingWrites, item, oldTxId);
+    if (historyIndex !== -1) {
+      updatedItem = mergePrivateSendHistoryFees(
+        histories[historyIndex],
+        item,
+        feeUpdate,
+      );
+      histories[historyIndex] = updatedItem;
+    } else if (pendingIndex !== -1) {
+      updatedItem = mergePrivateSendHistoryFees(
+        pendingWrites[pendingIndex],
+        item,
+        feeUpdate,
+      );
+      histories = addSwapHistoryToList(histories, updatedItem);
+    }
+    if (pendingIndex !== -1) {
+      pendingWrites.splice(pendingIndex, 1);
+    }
+    return {
+      updatedItem,
+      data: {
         ...currentData,
         histories,
         pendingWrites,
-      };
-    });
+      },
+    };
   }
 
   @backgroundMethod()

@@ -35,6 +35,11 @@ type IStockNewsRequestState = {
 const NEWS_VISIBLE_COUNT = 3;
 const NEWS_DIALOG_LIST_MAX_HEIGHT = 480;
 const NEWS_META_DIVIDER_HEIGHT = 10;
+// Mobile rows drop the summary: 16pt meta + 8pt gap + two 24pt title lines.
+const NEWS_MOBILE_SKELETON_HEIGHT = 72;
+const NEWS_DESKTOP_SKELETON_HEIGHT = 96;
+
+type IStockNewsSectionVariant = 'desktop' | 'mobile';
 // Dialog defaults to MAX_CONTENT_WIDTH (400) on desktop, which truncates the
 // single-line headlines. Reuse the wide panel width already used by the stock
 // token selector popover on this page (MarketTokenSelector.tsx).
@@ -44,11 +49,19 @@ const NEWS_DIALOG_FLOATING_PANEL_PROPS = {
   maxWidth: '90%',
 } as const;
 
-function StockNewsRow({ item }: { item: IMarketStockNewsItem }) {
+function StockNewsRow({
+  item,
+  variant,
+}: {
+  item: IMarketStockNewsItem;
+  variant: IStockNewsSectionVariant;
+}) {
   const { formatDate } = useFormatDate();
+  const isMobile = variant === 'mobile';
   return (
     <XStack
-      height={112}
+      height={isMobile ? undefined : 112}
+      minHeight={isMobile ? 48 : undefined}
       alignItems="center"
       justifyContent="space-between"
       gap="$4"
@@ -58,7 +71,7 @@ function StockNewsRow({ item }: { item: IMarketStockNewsItem }) {
       pressStyle={{ opacity: 0.8 }}
       onPress={() => openUrlExternal(item.url)}
     >
-      <YStack flex={1} minWidth={0} height={96} gap="$2">
+      <YStack flex={1} minWidth={0} height={isMobile ? undefined : 96} gap="$2">
         <XStack gap="$2" alignItems="center">
           <SizableText size="$bodySm" color="$textSubdued">
             {item.source}
@@ -73,12 +86,14 @@ function StockNewsRow({ item }: { item: IMarketStockNewsItem }) {
             {formatDate(item.publishedAt, { hideTimeForever: true })}
           </SizableText>
         </XStack>
-        <SizableText size="$bodyLgMedium" numberOfLines={1}>
+        <SizableText size="$bodyLgMedium" numberOfLines={isMobile ? 2 : 1}>
           {item.title}
         </SizableText>
-        <SizableText size="$bodyMd" color="$textSubdued" numberOfLines={2}>
-          {item.summary ?? STAT_FALLBACK_VALUE}
-        </SizableText>
+        {isMobile ? null : (
+          <SizableText size="$bodyMd" color="$textSubdued" numberOfLines={2}>
+            {item.summary ?? STAT_FALLBACK_VALUE}
+          </SizableText>
+        )}
       </YStack>
       <Icon
         name="ChevronRightSmallOutline"
@@ -92,8 +107,10 @@ function StockNewsRow({ item }: { item: IMarketStockNewsItem }) {
 
 function StockNewsListDialogContent({
   items,
+  variant,
 }: {
   items: IMarketStockNewsItem[];
+  variant: IStockNewsSectionVariant;
 }) {
   return (
     <ScrollView
@@ -102,14 +119,18 @@ function StockNewsListDialogContent({
     >
       <YStack>
         {items.map((item) => (
-          <StockNewsRow key={item.id} item={item} />
+          <StockNewsRow key={item.id} item={item} variant={variant} />
         ))}
       </YStack>
     </ScrollView>
   );
 }
 
-export function StockNewsSection() {
+export function StockNewsSection({
+  variant = 'desktop',
+}: {
+  variant?: IStockNewsSectionVariant;
+} = {}) {
   const { stockId } = useStockDetail();
   const intl = useIntl();
   const {
@@ -149,12 +170,14 @@ export function StockNewsSection() {
   const handleShowMore = useCallback(() => {
     Dialog.show({
       title: intl.formatMessage({ id: ETranslations.market_stock_news }),
-      renderContent: <StockNewsListDialogContent items={allNews} />,
+      renderContent: (
+        <StockNewsListDialogContent items={allNews} variant={variant} />
+      ),
       showFooter: false,
       disableDrag: true,
       floatingPanelProps: NEWS_DIALOG_FLOATING_PANEL_PROPS,
     });
-  }, [allNews, intl]);
+  }, [allNews, intl, variant]);
 
   // A stock with no headlines hides the section; a failed request keeps it so
   // the reader can retry.
@@ -170,7 +193,15 @@ export function StockNewsSection() {
         </SizableText>
         {isLoading && news.length === 0
           ? Array.from({ length: 3 }).map((_, index) => (
-              <Skeleton key={index} width="100%" height={96} />
+              <Skeleton
+                key={index}
+                width="100%"
+                height={
+                  variant === 'mobile'
+                    ? NEWS_MOBILE_SKELETON_HEIGHT
+                    : NEWS_DESKTOP_SKELETON_HEIGHT
+                }
+              />
             ))
           : null}
         {!isLoading && result.status === 'error' ? (
@@ -196,7 +227,7 @@ export function StockNewsSection() {
           </YStack>
         ) : null}
         {news.map((item) => (
-          <StockNewsRow key={item.id} item={item} />
+          <StockNewsRow key={item.id} item={item} variant={variant} />
         ))}
         {allNews.length > NEWS_VISIBLE_COUNT ? (
           <Button

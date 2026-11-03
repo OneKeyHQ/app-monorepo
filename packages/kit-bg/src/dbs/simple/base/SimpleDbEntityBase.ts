@@ -2,6 +2,7 @@ import { Semaphore } from 'async-mutex';
 import { isFunction, isNil, isString } from 'lodash';
 
 import { backgroundMethod } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { storageHub } from '@onekeyhq/shared/src/storage/appStorage';
 import type { ITravelModeAwareAsyncStorage } from '@onekeyhq/shared/src/storage/appStorageTypes';
@@ -64,6 +65,10 @@ abstract class SimpleDbEntityBase<T> {
   // retries + write-overlap veto still avoid transient-IO deletes
   // (OK-59997 / OK-61648). Opt out only for diagnostic loud-fail entities.
   protected readonly enableUnreadableRecordSelfHeal: boolean = true;
+
+  protected readonly rejectInvalidStoredData: boolean = false;
+
+  protected validateStoredData(_data: unknown): void {}
 
   get entityKey() {
     return getSimpleDbEntityKey(this.entityName);
@@ -199,6 +204,12 @@ abstract class SimpleDbEntityBase<T> {
           data = savedData?.data;
           updatedAt = savedData?.updatedAt;
         } catch (err) {
+          if (this.rejectInvalidStoredData) {
+            // Parser errors can contain fragments of the persisted secrets.
+            throw new OneKeyLocalError(
+              `simpledb: invalid persisted data (${this.entityName})`,
+            );
+          }
           console.error(err);
           data = null;
         }
@@ -216,6 +227,9 @@ abstract class SimpleDbEntityBase<T> {
         } else {
           data = savedDataObj as any;
         }
+      }
+      if (savedDataStr !== null && savedDataStr !== undefined) {
+        this.validateStoredData(data);
       }
       this.updatedAt = updatedAt ?? 0;
       // Skip the cache when clearRawData ran while this read was in flight,
@@ -265,6 +279,8 @@ abstract class SimpleDbEntityBase<T> {
           } else {
             data = dataOrBuilder;
           }
+
+          this.validateStoredData(data);
 
           // The lock, read and builder can all yield after the caller's check.
           // Admit the write only while its owner is still current.

@@ -14,12 +14,7 @@ import { throttle } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import type { IDialogInstance, IDialogShowProps } from '@onekeyhq/components';
-import {
-  Dialog,
-  DialogContainer,
-  Portal,
-  SizableText,
-} from '@onekeyhq/components';
+import { Dialog, DialogContainer, SizableText } from '@onekeyhq/components';
 import type { IShowToasterInstance } from '@onekeyhq/components/src/actions/Toast/ShowCustom';
 import { ShowCustom } from '@onekeyhq/components/src/actions/Toast/ShowCustom';
 import { useBackHandler } from '@onekeyhq/components/src/hooks';
@@ -448,6 +443,7 @@ function HardwareSingletonDialogCmp(
   return open ? (
     <DialogContainer
       ref={ref}
+      overlayLevel="hardware"
       // title change will not re-render, so we need to use key to force update, but the closing animation will be lost
       key={dialogKey}
       title={result.title}
@@ -852,6 +848,7 @@ function HardwareUiStateContainerCmpControlled() {
           isTrezorHardwareErrorDialogPayload(errorDialogPayload);
 
         hardwareErrorDialogInstanceRef.current = Dialog.show({
+          overlayLevel: 'hardware',
           title: intl.formatMessage({
             id: isTrezorError
               ? ETranslations.hardware_third_party_device_not_found_title
@@ -938,7 +935,10 @@ function HardwareUiStateContainerCmpControlled() {
         }
         if (dialogProps) {
           setTimeout(() => {
-            instanceRef.current = Dialog.show(dialogProps);
+            instanceRef.current = Dialog.show({
+              ...dialogProps,
+              overlayLevel: 'hardware',
+            });
           }, 200);
         }
       },
@@ -953,12 +953,8 @@ function HardwareUiStateContainerCmpControlled() {
 
   return (
     <>
-      <Portal.Body container={Portal.Constant.FULL_WINDOW_OVERLAY_PORTAL}>
-        {dialogElement}
-      </Portal.Body>
-      <Portal.Body container={Portal.Constant.TOASTER_OVERLAY_PORTAL}>
-        {toastElement}
-      </Portal.Body>
+      <>{dialogElement}</>
+      <>{toastElement}</>
     </>
   );
 }

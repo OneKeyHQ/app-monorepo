@@ -1,7 +1,7 @@
 import { createMedia } from '@tamagui/react-native-media-driver';
 import { shorthands } from '@tamagui/shorthands';
 import { createFont, createTokens } from '@tamagui/web';
-import { createTamagui } from 'tamagui';
+import { createTamagui } from 'tamagui/createTamagui';
 
 import {
   amber,

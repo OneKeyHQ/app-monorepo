@@ -1,5 +1,6 @@
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { travelModeManager } from '@onekeyhq/shared/src/travelMode';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
@@ -132,6 +133,9 @@ describe('ServiceTravelMode authentication boundary', () => {
     const promptPasswordVerify = jest.fn(async () => ({
       password: 'encoded-password',
     }));
+    const haltLocalWalletForTravelMode = jest.fn(async () => {
+      throw new OneKeyLocalError('privacy runtime unavailable');
+    });
     const service = new ServiceTravelMode({
       backgroundApi: {
         serviceApp: {
@@ -140,6 +144,7 @@ describe('ServiceTravelMode authentication boundary', () => {
           }),
         },
         servicePassword: { promptPasswordVerify },
+        servicePrivacyChain: { haltLocalWalletForTravelMode },
       },
     });
     const { admissionId } = await service.requestPageAdmission();
@@ -159,5 +164,53 @@ describe('ServiceTravelMode authentication boundary', () => {
       skipLazyUpgrade: true,
     });
     expect(timerUtils.wait).toHaveBeenCalledWith(3000);
+    expect(haltLocalWalletForTravelMode).toHaveBeenCalledTimes(1);
+  });
+
+  it('enters recovery without restarting when Live Activity cleanup hangs', async () => {
+    const originalIOS = platformEnv.isNativeIOS;
+    platformEnv.isNativeIOS = true;
+    jest.useFakeTimers();
+    try {
+      const restartApp = jest.fn();
+      const stopForPrivacyTransition = jest.fn(
+        () => new Promise<void>(() => {}),
+      );
+      const service = new ServiceTravelMode({
+        backgroundApi: {
+          serviceApp: { restartApp },
+          servicePassword: {
+            promptPasswordVerify: jest.fn(async () => ({
+              password: 'encoded-password',
+            })),
+          },
+          servicePrivacyChain: {
+            haltLocalWalletForTravelMode: jest
+              .fn()
+              .mockResolvedValue(undefined),
+          },
+          serviceLiveActivity: { stopForPrivacyTransition },
+        },
+      });
+      const { admissionId } = await service.requestPageAdmission();
+      const transition = service.setEnabled({ admissionId, enabled: false });
+      const result = transition.then(
+        () => undefined,
+        (error: unknown) => error,
+      );
+      await jest.advanceTimersByTimeAsync(4999);
+      expect(stopForPrivacyTransition).toHaveBeenCalledTimes(1);
+      expect(restartApp).not.toHaveBeenCalled();
+      expect(travelModeManager.markRestartFailed).not.toHaveBeenCalled();
+      await jest.advanceTimersByTimeAsync(1);
+      await expect(result).resolves.toEqual(
+        expect.objectContaining({ message: 'Live Activity cleanup timed out' }),
+      );
+      expect(travelModeManager.markRestartFailed).toHaveBeenCalledTimes(1);
+      expect(restartApp).not.toHaveBeenCalled();
+    } finally {
+      jest.useRealTimers();
+      platformEnv.isNativeIOS = originalIOS;
+    }
   });
 });

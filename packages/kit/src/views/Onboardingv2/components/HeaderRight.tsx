@@ -1,6 +1,10 @@
 import { useIntl } from 'react-intl';
 
-import { Button, Select } from '@onekeyhq/components';
+import {
+  Button,
+  SELECT_SEARCHABLE_PANEL_HEIGHT,
+  Select,
+} from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { useLanguageSelector } from '../../Setting/hooks/useLanguageSelector';
@@ -18,7 +22,8 @@ function HeaderRightLanguageSelector() {
       value={value}
       onChange={onChange}
       placement="bottom-end"
-      floatingPanelProps={{ maxHeight: 280 }}
+      searchable
+      floatingPanelProps={{ maxHeight: SELECT_SEARCHABLE_PANEL_HEIGHT }}
       sheetProps={{ snapPoints: [80], snapPointsMode: 'percent' }}
       renderTrigger={({ label }) => (
         <Button

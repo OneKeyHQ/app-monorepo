@@ -131,6 +131,16 @@ class ServiceSetting extends ServiceBase {
     const locale = await this.getCurrentLocale();
     const messages = await getLocaleMessages(locale);
     appLocale.setLocale(locale, messages as any);
+    void this.backgroundApi.serviceLiveActivity
+      .refreshLanguage()
+      .catch((error: unknown) => {
+        defaultLogger.setting.page.consoleError(
+          'Live Activity language refresh failed',
+          {
+            errorType: error instanceof Error ? error.name : 'UnknownError',
+          },
+        );
+      });
   }
 
   @backgroundMethod()
@@ -150,7 +160,6 @@ class ServiceSetting extends ServiceBase {
     }
     await settingsPersistAtom.set((prev) => ({ ...prev, locale }));
     await this.refreshLocaleMessages();
-
     // clear i18nText cache
     await this.backgroundApi.serviceReferralCode.resetPostConfig();
   }
@@ -325,6 +334,11 @@ class ServiceSetting extends ServiceBase {
       await this.backgroundApi.simpleDb.localHistory.clearRawData();
       await this.backgroundApi.simpleDb.addressInfo.clearRawData();
       await this.backgroundApi.simpleDb.transferRecipientsCache.clear();
+      appEventBus.emit(EAppEventBusNames.RefreshHistoryList, undefined);
+    }
+    if (values.tokenAndNFT || values.transactionHistory) {
+      // Only saved balances and in-memory copies: scan data is not cache, clearing it means a rescan from the birthday.
+      await this.backgroundApi.servicePrivacyChain.clearLocalWalletCaches();
     }
     if (values.swapHistory) {
       // clear swap history
@@ -384,12 +398,27 @@ class ServiceSetting extends ServiceBase {
   }
 
   @backgroundMethod()
-  public async clearPendingTransaction() {
+  public async clearPendingTransaction(params?: {
+    selectedAccount?: {
+      networkId: string;
+      accountId?: string;
+      indexedAccountId?: string;
+    };
+  }) {
     await this.backgroundApi.serviceHistory.clearLocalHistoryPendingTxs();
     await this.backgroundApi.serviceSwap.cleanSwapHistoryItems([
       ESwapTxHistoryStatus.CANCELING,
       ESwapTxHistoryStatus.PENDING,
     ]);
+    if (params?.selectedAccount) {
+      try {
+        await this.backgroundApi.servicePrivacyChain.clearSelectedAccountLocalWalletPendingSends(
+          params.selectedAccount,
+        );
+      } catch (error) {
+        console.error('Failed to clear local wallet pending sends:', error);
+      }
+    }
     defaultLogger.setting.page.clearData({ action: 'Pending txn' });
   }
 

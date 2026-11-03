@@ -24,6 +24,7 @@ import {
   getAppUpdateProgressScope,
 } from '@onekeyhq/shared/src/appUpdate';
 import { useDownloadProgress } from '@onekeyhq/shared/src/modules3rdParty/auto-update';
+import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
 
 // ---------------------------------------------------------------------------
 // Pipeline step types
@@ -43,7 +44,7 @@ interface IPipelineStep {
 // ---------------------------------------------------------------------------
 function formatTs(ts: number | undefined): string {
   if (!ts) return '-';
-  return new Date(ts).toLocaleString();
+  return formatDate(new Date(ts));
 }
 
 const strategyLabel: Record<EUpdateStrategy, string> = {

@@ -477,7 +477,11 @@ async function processDeepLinkUrlAccount(
       scheme === ONEKEY_APP_DEEP_LINK ||
       scheme === ONEKEY_APP_DEEP_LINK_NAME
     ) {
-      console.log('processDeepLinkUrlAccount: >>>>> ', parsedUrl);
+      if (
+        getOneKeyDeepLinkPath(parsedUrl) !== EOneKeyDeepLinkPath.swap_activity
+      ) {
+        console.log('processDeepLinkUrlAccount: >>>>> ', parsedUrl);
+      }
       const navigation = appGlobals.$rootAppNavigation;
       if (!navigation) {
         setTimeout(() => {
@@ -720,15 +724,20 @@ const processDeepLinkUrl = memoizee(
       // An open SFSafariViewController would cover any navigation this deep
       // link triggers; close it first (iOS-only, no-op elsewhere).
       dismissNativeInAppBrowser();
-      console.log('processDeepLinkUrl: >>>>> ', url);
+      const parsedUrl = Linking.parse(url);
+      const isSwapActivity =
+        getOneKeyDeepLinkPath(parsedUrl) === EOneKeyDeepLinkPath.swap_activity;
+      console.log(
+        'processDeepLinkUrl: >>>>> ',
+        isSwapActivity ? 'swap_activity' : url,
+      );
       captureAndReportLoggerUtmParamsFromUrl(url);
       if (await handleReferralLandingUrl({ url })) {
         return;
       }
 
-      const parsedUrl = Linking.parse(url);
       const { hostname, path, queryParams, scheme } = parsedUrl;
-      if (process.env.NODE_ENV !== 'production') {
+      if (process.env.NODE_ENV !== 'production' && !isSwapActivity) {
         console.log('processDeepLinkUrl details >>>> ', {
           url,
           hostname,
@@ -782,7 +791,6 @@ export const handleDeepLinkUrl = (data: IDesktopOpenUrlEventData) => {
     (item) => !!item && isString(item),
   );
   urls.forEach((url) => {
-    console.log('processDeepLinkUrl >>>>>> ', url);
     void processDeepLinkUrl(url);
   });
 };

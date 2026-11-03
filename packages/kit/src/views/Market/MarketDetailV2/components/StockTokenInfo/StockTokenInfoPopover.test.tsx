@@ -16,6 +16,9 @@ const useStockDetailMock = jest.fn<
 >();
 
 jest.mock('@onekeyhq/components', () => {
+  const { runAfterActionListClose } = jest.requireActual<
+    typeof import('../../../../../../../components/src/actions/ActionList/runAfterClose')
+  >('../../../../../../../components/src/actions/ActionList/runAfterClose');
   const Stack = ({
     children,
     testID,
@@ -53,6 +56,7 @@ jest.mock('@onekeyhq/components', () => {
     },
     usePopoverContext: () => ({ closePopover: mockClosePopover }),
     useClipboard: () => ({ copyText: jest.fn() }),
+    runAfterActionListClose,
   };
 });
 
@@ -188,5 +192,25 @@ describe('StockTokenInfoPopover issuer link', () => {
       expect(mockOpenUrlExternal).toHaveBeenCalledWith('https://ondo.finance');
     });
     expect(interactionOrder).toEqual(['close', 'open']);
+  });
+
+  it('does not open the issuer website when closing is cancelled', async () => {
+    const { OverlayCloseCancelledError } = jest.requireActual<
+      typeof import('../../../../../../../components/src/shared/overlayCloseCancellation')
+    >('../../../../../../../components/src/shared/overlayCloseCancellation');
+    mockClosePopover.mockRejectedValue(new OverlayCloseCancelledError());
+    useStockDetailMock.mockReturnValue({
+      selectedTokenVariant: {
+        ...variant,
+        website: 'https://ondo.finance',
+      },
+      stockId: 'AAPL',
+    });
+
+    render(<StockTokenInfoPopover label="$319.97" />);
+    fireEvent.click(screen.getByTestId('stock-token-info-issuer-link'));
+
+    await waitFor(() => expect(mockClosePopover).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(mockOpenUrlExternal).not.toHaveBeenCalled());
   });
 });

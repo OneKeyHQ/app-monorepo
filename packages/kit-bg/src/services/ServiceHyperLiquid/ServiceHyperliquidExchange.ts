@@ -13,6 +13,7 @@ import {
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import {
+  DEFAULT_PERPS_SLIPPAGE,
   DISABLE_PERPS_WALLET_BIND,
   type EHyperLiquidAgentName,
   PERPS_EMPTY_ADDRESS,
@@ -212,7 +213,7 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
     | undefined = undefined;
 
   // TODO: Apply to all trades and allow user configuration
-  public slippage = 0.08;
+  public slippage = DEFAULT_PERPS_SLIPPAGE;
 
   private get exchangeClient(): ExchangeClient {
     if (!this._account || !this._exchangeClient) {
@@ -309,7 +310,11 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
           ? '0'
           : formatHlSize(order.s, precision.szDecimals);
       if (!price) {
-        throw new OneKeyLocalError('Order price is too small for HL tick size');
+        throw new OneKeyLocalError(
+          appLocale.intl.formatMessage({
+            id: ETranslations.perp_order_price_too_small__msg,
+          }),
+        );
       }
       if (!size) {
         throw new OneKeyLocalError('Order size is too small for HL lot size');
@@ -2048,6 +2053,9 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
       );
       return response;
     } catch (error) {
+      if (error instanceof OneKeyLocalError) {
+        throw error;
+      }
       throw new OneKeyLocalError(
         `Failed to set position TP/SL: ${String(error)}`,
       );

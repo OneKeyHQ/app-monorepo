@@ -54,18 +54,36 @@ jest.mock('@onekeyhq/components', () => {
       children,
       onPress,
       testID,
+      pressStyle,
     }: {
       children?: ReactNode;
       onPress?: () => void;
       testID?: string;
+      pressStyle?: object;
     }) =>
       React.createElement(
         'div',
-        { onClick: onPress, 'data-testid': testID },
+        {
+          onClick: onPress,
+          'data-testid': testID,
+          'data-press': pressStyle ? '1' : '0',
+        },
         children,
       ),
-    YStack: ({ children }: { children?: ReactNode }) =>
-      React.createElement('div', null, children),
+    YStack: ({
+      children,
+      onLayout,
+    }: {
+      children?: ReactNode;
+      onLayout?: (event: {
+        nativeEvent: { layout: { height: number } };
+      }) => void;
+    }) => {
+      React.useEffect(() => {
+        onLayout?.({ nativeEvent: { layout: { height: 140 } } });
+      }, [onLayout]);
+      return React.createElement('div', null, children);
+    },
     useCarouselPressSuppressor: () => () => false,
   };
 });
@@ -150,5 +168,19 @@ describe('PerksCampaignBanner', () => {
     view.unmount();
     render(<PerksCampaignBanner items={slides} compact />);
     expect(mockPerksBannerShown).toHaveBeenCalledTimes(2);
+  });
+
+  it('does not press-highlight a compact slide, which flashes while swiping', () => {
+    render(<PerksCampaignBanner items={slides} compact />);
+    expect(
+      screen.getByTestId('perks-banner-btc-reward').getAttribute('data-press'),
+    ).toBe('0');
+  });
+
+  it('keeps the press highlight on pointer layouts', () => {
+    render(<PerksCampaignBanner items={slides} compact={false} />);
+    expect(
+      screen.getByTestId('perks-banner-btc-reward').getAttribute('data-press'),
+    ).toBe('1');
   });
 });

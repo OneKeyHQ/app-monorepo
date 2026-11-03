@@ -3,9 +3,10 @@
 
 import type { ReactNode } from 'react';
 
-import { fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 
 const mockReloadOverview = jest.fn();
+const mockSetOverviewResult = jest.fn();
 const mockShowDialog = jest.fn();
 const mockCopyText = jest.fn();
 let mockIsCompact = false;
@@ -21,11 +22,16 @@ let mockEarnAccountResult: {
 let mockEarnAccountIdentity:
   | { accountId?: string; indexedAccountId?: string }
   | undefined;
+type IMockOverview = Record<
+  'perps' | 'swap' | 'earn',
+  { status: 'success'; data: unknown } | { status: 'error' }
+>;
+// `result` is what the fetcher returns; `cached` is what the SWR cache
+// paints, under `cachedAddress`, before that fetch lands.
 let mockOverviewResult: {
-  result?: Record<
-    'perps' | 'swap' | 'earn',
-    { status: 'success'; data: unknown } | { status: 'error' }
-  >;
+  result?: IMockOverview;
+  cached?: IMockOverview;
+  cachedAddress?: string;
   isLoading: boolean;
 };
 
@@ -87,9 +93,11 @@ jest.mock('@onekeyhq/components', () => {
 });
 
 // The account resolver depends on account ids; the overview only on the
-// resolved address, so the dependency count tells the two calls apart.
+// resolved address, so the dependency count tells the two calls apart. The
+// overview runs its real fetcher, so the component sees the object it
+// fetched, after a cached one when the test seeds one.
 jest.mock('@onekeyhq/kit/src/hooks/usePromiseResult', () => ({
-  usePromiseResult: (_fn: unknown, deps: unknown[]) => {
+  usePromiseResult: (fn: () => Promise<unknown>, deps: unknown[]) => {
     if (deps.length !== 1) {
       const raw = mockEarnAccountResult.isLoading
         ? undefined
@@ -111,21 +119,49 @@ jest.mock('@onekeyhq/kit/src/hooks/usePromiseResult', () => ({
               },
       };
     }
+    const React = jest.requireActual<typeof import('react')>('react');
     const address = mockEarnAccountResult.result?.accountAddress;
+    const fetchedResult = mockOverviewResult.result;
+    // Hook order is stable: this branch always runs second in a render.
+    // oxlint-disable-next-line react-hooks/rules-of-hooks
+    const [fetched, setFetched] = React.useState<unknown>(undefined);
+    // oxlint-disable-next-line react-hooks/rules-of-hooks
+    React.useEffect(() => {
+      let alive = true;
+      void fn().then((r) => {
+        if (alive) {
+          setFetched(r);
+        }
+      });
+      return () => {
+        alive = false;
+      };
+      // A test swaps `result` to stand for a refetch.
+      // oxlint-disable-next-line react-hooks/exhaustive-deps
+    }, [...deps, fetchedResult]);
+    const cached =
+      mockOverviewResult.cached && address
+        ? {
+            address: mockOverviewResult.cachedAddress ?? address,
+            overview: mockOverviewResult.cached,
+          }
+        : undefined;
     return {
       isLoading: mockOverviewResult.isLoading,
       run: mockReloadOverview,
-      result:
-        mockOverviewResult.result && address
-          ? { address, overview: mockOverviewResult.result }
-          : undefined,
+      setResult: mockSetOverviewResult,
+      result: fetched ?? cached,
     };
   },
 }));
 
 jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   __esModule: true,
-  default: {},
+  default: {
+    serviceReferralCode: {
+      getInviteeRewardsOverview: async () => mockOverviewResult.result,
+    },
+  },
 }));
 
 jest.mock('@onekeyhq/kit/src/components/AccountSelector', () => ({
@@ -201,6 +237,7 @@ jest.mock('../../components/ReferralCardEmpty', () => ({
 
 jest.mock('../InviteReward/components/BenefitsTabPlaceholder', () => ({
   BenefitsTabPlaceholder: () => <div data-testid="perks-placeholder" />,
+  useBenefitsBindStatus: () => ({}),
 }));
 
 jest.mock('../InviteReward/components/getInviteRewardRows', () => ({
@@ -245,9 +282,22 @@ jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
 
 import { MyRewardsContent } from './MyRewardsContent';
 
+// Renders, then lets the overview fetch land.
+async function renderMyRewards() {
+  const view = render(<MyRewardsContent />);
+  await act(async () => {});
+  return view;
+}
+
+async function rerenderMyRewards(view: ReturnType<typeof render>) {
+  view.rerender(<MyRewardsContent />);
+  await act(async () => {});
+}
+
 describe('MyRewardsContent', () => {
   beforeEach(() => {
     mockReloadOverview.mockReset();
+    mockSetOverviewResult.mockReset();
     mockShowDialog.mockReset();
     mockCopyText.mockReset();
     mockPerksHomeShown.mockReset();
@@ -289,9 +339,9 @@ describe('MyRewardsContent', () => {
     };
   });
 
-  it('shows onboarding when there is no wallet', () => {
+  it('shows onboarding when there is no wallet', async () => {
     mockActiveAccount = {};
-    render(<MyRewardsContent />);
+    await renderMyRewards();
     expect(screen.getByTestId('no-wallet')).toBeTruthy();
     expect(mockPerksHomeShown).toHaveBeenCalledWith({
       status: 'no_wallet',
@@ -299,9 +349,9 @@ describe('MyRewardsContent', () => {
     });
   });
 
-  it('shows the unsupported state when the account has no EVM address', () => {
+  it('shows the unsupported state when the account has no EVM address', async () => {
     mockEarnAccountResult = { result: null, isLoading: false };
-    render(<MyRewardsContent />);
+    await renderMyRewards();
     const header = screen.getByTestId('my-rewards-summary-card');
     expect(header.textContent).toContain('referral_perks_no_evm__title');
     // No address to count means no total either.
@@ -315,13 +365,31 @@ describe('MyRewardsContent', () => {
     });
   });
 
-  it('shows the counted address shortened and copies it in full', () => {
+  it.each([false, true])(
+    'explains when unpaid rewards are paid at the Unpaid figure (compact: %s)',
+    async (compact) => {
+      mockIsCompact = compact;
+      mockEarnAccountResult = {
+        result: { accountId: 'evm-account', accountAddress: '0xabc' },
+        isLoading: false,
+      };
+      await renderMyRewards();
+      const unpaidInfo = screen.getByTestId('my-rewards-unpaid-info');
+      expect(unpaidInfo).toBeTruthy();
+      // The schedule is told once, at the Unpaid figure, not by the address.
+      expect(
+        screen.getAllByText('referral_perks_payout_schedule__desc'),
+      ).toHaveLength(1);
+    },
+  );
+
+  it('shows the counted address shortened and copies it in full', async () => {
     const address = '0x4EF8800000000000000000000000000000A296e';
     mockEarnAccountResult = {
       result: { accountId: 'evm-account', accountAddress: address },
       isLoading: false,
     };
-    render(<MyRewardsContent />);
+    await renderMyRewards();
     const copyCell = screen.getByTestId('my-rewards-copy-address');
     expect(copyCell.textContent).toBe('0x4EF8...296e');
     expect(screen.getByTestId('my-rewards-payout-info')).toBeTruthy();
@@ -335,14 +403,14 @@ describe('MyRewardsContent', () => {
     });
   });
 
-  it('leaves the desktop total unknown while a product failed', () => {
-    render(<MyRewardsContent />);
+  it('leaves the desktop total unknown while a product failed', async () => {
+    await renderMyRewards();
     const summary = screen.getByTestId('my-rewards-summary-card');
     expect(summary.querySelectorAll('[data-source-currency]')).toHaveLength(0);
     expect(summary.textContent).toContain('--');
   });
 
-  it('adds every product into the desktop total and its parts', () => {
+  it('adds every product into the desktop total and its parts', async () => {
     mockOverviewResult = {
       ...mockOverviewResult,
       result: {
@@ -353,7 +421,7 @@ describe('MyRewardsContent', () => {
         },
       },
     };
-    render(<MyRewardsContent />);
+    await renderMyRewards();
     const figures = Array.from(
       screen
         .getByTestId('my-rewards-summary-card')
@@ -362,7 +430,7 @@ describe('MyRewardsContent', () => {
     expect(figures).toEqual(['18', '14', '4']);
   });
 
-  it('shows the total, its parts and the payout address on compact layouts', () => {
+  it('shows the total, its parts and the payout address on compact layouts', async () => {
     mockIsCompact = true;
     mockOverviewResult = {
       ...mockOverviewResult,
@@ -374,7 +442,7 @@ describe('MyRewardsContent', () => {
         },
       },
     };
-    render(<MyRewardsContent />);
+    await renderMyRewards();
     const summary = screen.getByTestId('my-rewards-summary-card');
     const figures = Array.from(
       summary.querySelectorAll('[data-source-currency="usd"]'),
@@ -387,7 +455,7 @@ describe('MyRewardsContent', () => {
     expect(summary.textContent).toContain('referral_perks_paid_to__title');
   });
 
-  it('keeps a non-USDC Perps amount in token units and leaves the total unknown', () => {
+  it('keeps a non-USDC Perps amount in token units and out of the total', async () => {
     mockOverviewResult = {
       ...mockOverviewResult,
       result: {
@@ -407,7 +475,7 @@ describe('MyRewardsContent', () => {
         },
       },
     };
-    render(<MyRewardsContent />);
+    await renderMyRewards();
     const perps = screen.getByTestId('my-rewards-module-perps');
     expect(perps.textContent).toContain('2 ETH');
     expect(perps.textContent).toContain('0.5 ETH');
@@ -418,13 +486,17 @@ describe('MyRewardsContent', () => {
     expect(swap.querySelectorAll('[data-source-currency="usd"]')).toHaveLength(
       2,
     );
-    expect(screen.getByTestId('my-rewards-summary-card').textContent).toContain(
-      '--',
-    );
+    // ETH is left out of the dollar summary; Swap's USDC still adds up.
+    const figures = Array.from(
+      screen
+        .getByTestId('my-rewards-summary-card')
+        .querySelectorAll('[data-source-currency="usd"]'),
+    ).map((node) => node.textContent);
+    expect(figures).toEqual(['12', '9', '3']);
   });
 
-  it('splits each product into paid and unpaid and isolates a failure', () => {
-    render(<MyRewardsContent />);
+  it('splits each product into paid and unpaid and isolates a failure', async () => {
+    await renderMyRewards();
     const perps = screen.getByTestId('my-rewards-module-perps');
     expect(
       Array.from(perps.querySelectorAll('[data-source-currency="usd"]')).map(
@@ -456,6 +528,7 @@ describe('MyRewardsContent', () => {
 
     fireEvent.click(screen.getByTestId('my-rewards-module-earn'));
     expect(mockPerksProductOpened).toHaveBeenCalledTimes(1);
+    expect(mockSetOverviewResult).toHaveBeenCalledWith(undefined);
     expect(mockReloadOverview).toHaveBeenCalledTimes(1);
     expect(mockPerksHomeShown).toHaveBeenCalledWith({
       status: 'partial',
@@ -463,7 +536,7 @@ describe('MyRewardsContent', () => {
     });
   });
 
-  it('shows DeFi token amounts as wallet currency', () => {
+  it('shows DeFi token amounts as wallet currency', async () => {
     const empty = {
       totalBonus: '0',
       undistributed: '0',
@@ -498,7 +571,7 @@ describe('MyRewardsContent', () => {
       },
       isLoading: false,
     };
-    render(<MyRewardsContent />);
+    await renderMyRewards();
     const earn = screen.getByTestId('my-rewards-module-earn');
     expect(earn.textContent).toContain('0.3976');
     expect(earn.textContent).toContain('0.03');
@@ -509,7 +582,7 @@ describe('MyRewardsContent', () => {
     );
   });
 
-  it('keeps a non-USDC Earn amount in token units and leaves the total unknown', () => {
+  it('keeps a non-USDC Earn amount in token units and out of the total', async () => {
     const empty = {
       totalBonus: '0',
       undistributed: '0',
@@ -532,18 +605,22 @@ describe('MyRewardsContent', () => {
       },
       isLoading: false,
     };
-    render(<MyRewardsContent />);
+    await renderMyRewards();
     const earn = screen.getByTestId('my-rewards-module-earn');
     expect(earn.textContent).toContain('0.5 ETH');
     expect(earn.querySelectorAll('[data-source-currency="usd"]')).toHaveLength(
       0,
     );
-    expect(screen.getByTestId('my-rewards-summary-card').textContent).toContain(
-      '--',
-    );
+    // ETH is left out of the dollar summary.
+    const figures = Array.from(
+      screen
+        .getByTestId('my-rewards-summary-card')
+        .querySelectorAll('[data-source-currency="usd"]'),
+    ).map((node) => node.textContent);
+    expect(figures).toEqual(['0', '0', '0']);
   });
 
-  it('does not add mixed Earn tokens together', () => {
+  it('does not add mixed Earn tokens together but totals their USDC part', async () => {
     const empty = {
       totalBonus: '0',
       undistributed: '0',
@@ -567,20 +644,309 @@ describe('MyRewardsContent', () => {
       },
       isLoading: false,
     };
-    render(<MyRewardsContent />);
+    await renderMyRewards();
     const earn = screen.getByTestId('my-rewards-module-earn');
     expect(earn.textContent).toContain('0.02 USDC');
     expect(earn.textContent).toContain('referral_perks_more_tokens__desc');
     expect(earn.querySelectorAll('[data-source-currency="usd"]')).toHaveLength(
       0,
     );
-    expect(screen.getByTestId('my-rewards-summary-card').textContent).toContain(
-      '--',
-    );
+    // Only the USDC part counts toward the dollar summary.
+    const figures = Array.from(
+      screen
+        .getByTestId('my-rewards-summary-card')
+        .querySelectorAll('[data-source-currency="usd"]'),
+    ).map((node) => node.textContent);
+    expect(figures).toEqual(['0.02', '0.02', '0']);
   });
 
-  it('counts each address once when the wallet switches away and back', () => {
-    const { rerender } = render(<MyRewardsContent />);
+  it('adds server USD values, including non-stable tokens, into the total', async () => {
+    const empty = {
+      totalBonus: '0',
+      undistributed: '0',
+      token: { symbol: 'USDC', logoURI: '' },
+      history: [],
+    };
+    mockOverviewResult = {
+      result: {
+        perps: { status: 'success', data: empty },
+        swap: { status: 'success', data: empty },
+        earn: {
+          status: 'success',
+          data: {
+            distributed: [
+              {
+                amount: '0.3976',
+                usdValue: '0.3976',
+                title: { text: '0.3976 USDC' },
+                token: { symbol: 'USDC' },
+              },
+            ],
+            undistributed: [
+              {
+                amount: '0.032725',
+                usdValue: '0.032713971675',
+                title: { text: '0.03273 USDC' },
+                token: { symbol: 'USDC' },
+              },
+              {
+                amount: '0.000002709740566314',
+                usdValue: '0.00649855402094556108',
+                title: { text: '0.0<subscripts>5</subscripts>2709 WETH' },
+                token: { symbol: 'WETH' },
+              },
+              {
+                amount: '0.00633',
+                usdValue: '0.00632434731',
+                title: { text: '0.00633 USDT' },
+                token: { symbol: 'USDT' },
+              },
+              {
+                amount: '0.000002910440905558',
+                usdValue: '0.000002910429263794377768',
+                title: { text: '0.0<subscripts>5</subscripts>291 DAI' },
+                token: { symbol: 'DAI' },
+              },
+            ],
+          },
+        },
+      },
+      isLoading: false,
+    };
+    await renderMyRewards();
+    const earn = screen.getByTestId('my-rewards-module-earn');
+    expect(earn.textContent).not.toContain('WETH');
+    expect(earn.textContent).not.toContain('referral_perks_more_tokens__desc');
+    const figures = Array.from(
+      screen
+        .getByTestId('my-rewards-summary-card')
+        .querySelectorAll('[data-source-currency="usd"]'),
+    ).map((node) => node.textContent);
+    expect(figures).toEqual([
+      '0.443139783435209355457768',
+      '0.3976',
+      '0.045539783435209355457768',
+    ]);
+  });
+
+  it('keeps an unpriced Earn token out of the dollar total', async () => {
+    const empty = {
+      totalBonus: '0',
+      undistributed: '0',
+      token: { symbol: 'USDC', logoURI: '' },
+      history: [],
+    };
+    mockOverviewResult = {
+      result: {
+        perps: { status: 'success', data: empty },
+        swap: { status: 'success', data: empty },
+        earn: {
+          status: 'success',
+          data: {
+            distributed: [
+              {
+                usdValue: null,
+                title: { text: '0.5 ETH' },
+                token: { symbol: 'ETH' },
+              },
+              {
+                // Different from the title. The known server price stays
+                // in the total; the rounded title must not replace it.
+                usdValue: '0.0199',
+                title: { text: '0.02 USDC' },
+                token: { symbol: 'USDC' },
+              },
+            ],
+            undistributed: [],
+          },
+        },
+      },
+      isLoading: false,
+    };
+    await renderMyRewards();
+    const earn = screen.getByTestId('my-rewards-module-earn');
+    expect(earn.textContent).toContain('0.5 ETH');
+    expect(earn.textContent).toContain('referral_perks_more_tokens__desc');
+    expect(earn.querySelectorAll('[data-source-currency="usd"]')).toHaveLength(
+      0,
+    );
+    const figures = Array.from(
+      screen
+        .getByTestId('my-rewards-summary-card')
+        .querySelectorAll('[data-source-currency="usd"]'),
+    ).map((node) => node.textContent);
+    expect(figures).toEqual(['0.0199', '0.0199', '0']);
+  });
+
+  it('keeps a stablecoin server price beside an unpriced token', async () => {
+    const empty = {
+      totalBonus: '0',
+      undistributed: '0',
+      token: { symbol: 'USDC', logoURI: '' },
+      history: [],
+    };
+    mockOverviewResult = {
+      result: {
+        perps: { status: 'success', data: empty },
+        swap: { status: 'success', data: empty },
+        earn: {
+          status: 'success',
+          data: {
+            distributed: [
+              { title: { text: '0.5 ETH' }, token: { symbol: 'ETH' } },
+              {
+                usdValue: '0.0199',
+                title: { text: '0.02 USDC' },
+                token: { symbol: 'USDC' },
+              },
+            ],
+            undistributed: [],
+          },
+        },
+      },
+      isLoading: false,
+    };
+    await renderMyRewards();
+    const earn = screen.getByTestId('my-rewards-module-earn');
+    expect(earn.textContent).toContain('0.5 ETH');
+    const figures = Array.from(
+      screen
+        .getByTestId('my-rewards-summary-card')
+        .querySelectorAll('[data-source-currency="usd"]'),
+    ).map((node) => node.textContent);
+    expect(figures).toEqual(['0.0199', '0.0199', '0']);
+  });
+
+  it('keeps priced WETH when another Earn token has no price', async () => {
+    const empty = {
+      totalBonus: '0',
+      undistributed: '0',
+      token: { symbol: 'USDC', logoURI: '' },
+      history: [],
+    };
+    mockOverviewResult = {
+      result: {
+        perps: { status: 'success', data: empty },
+        swap: { status: 'success', data: empty },
+        earn: {
+          status: 'success',
+          data: {
+            distributed: [
+              {
+                amount: '0.02',
+                usdValue: '50',
+                title: { text: '0.02 WETH' },
+                token: { symbol: 'WETH' },
+              },
+              {
+                amount: '1',
+                usdValue: null,
+                title: { text: '1 ARB' },
+                token: { symbol: 'ARB' },
+              },
+            ],
+            undistributed: [],
+          },
+        },
+      },
+      isLoading: false,
+    };
+    await renderMyRewards();
+    const earn = screen.getByTestId('my-rewards-module-earn');
+    expect(earn.textContent).toContain('0.02 WETH');
+    expect(earn.textContent).toContain('referral_perks_more_tokens__desc');
+    expect(earn.querySelectorAll('[data-source-currency="usd"]')).toHaveLength(
+      0,
+    );
+    const figures = Array.from(
+      screen
+        .getByTestId('my-rewards-summary-card')
+        .querySelectorAll('[data-source-currency="usd"]'),
+    ).map((node) => node.textContent);
+    expect(figures).toEqual(['50', '50', '0']);
+  });
+
+  it('uses a stablecoin amount when the server omits usdValue', async () => {
+    const empty = {
+      totalBonus: '0',
+      undistributed: '0',
+      token: { symbol: 'USDC', logoURI: '' },
+      history: [],
+    };
+    mockOverviewResult = {
+      result: {
+        perps: { status: 'success', data: empty },
+        swap: { status: 'success', data: empty },
+        earn: {
+          status: 'success',
+          data: {
+            distributed: [
+              {
+                amount: '1.25',
+                title: { text: '1 USDC' },
+                token: { symbol: 'USDC' },
+              },
+            ],
+            undistributed: [],
+          },
+        },
+      },
+      isLoading: false,
+    };
+    await renderMyRewards();
+    const figures = Array.from(
+      screen
+        .getByTestId('my-rewards-summary-card')
+        .querySelectorAll('[data-source-currency="usd"]'),
+    ).map((node) => node.textContent);
+    expect(figures).toEqual(['1.25', '1.25', '0']);
+  });
+
+  it('adds mixed stablecoin Earn rewards into the dollar total', async () => {
+    const empty = {
+      totalBonus: '0',
+      undistributed: '0',
+      token: { symbol: 'USDC', logoURI: '' },
+      history: [],
+    };
+    mockOverviewResult = {
+      result: {
+        perps: { status: 'success', data: empty },
+        swap: { status: 'success', data: empty },
+        earn: {
+          status: 'success',
+          data: {
+            distributed: [
+              { title: { text: '0.25 USDC' }, token: { symbol: 'USDC' } },
+            ],
+            undistributed: [
+              { title: { text: '0.5 USDC' }, token: { symbol: 'USDC' } },
+              { title: { text: '0.25 DAI' }, token: { symbol: 'DAI' } },
+              { title: { text: '1 USDT' }, token: { symbol: 'USDT' } },
+              // 0.000003, in the server's subscript form.
+              {
+                title: { text: '0.0<subscripts>5</subscripts>3 USDT' },
+                token: { symbol: 'USDT' },
+              },
+            ],
+          },
+        },
+      },
+      isLoading: false,
+    };
+    await renderMyRewards();
+    const earn = screen.getByTestId('my-rewards-module-earn');
+    expect(earn.textContent).not.toContain('referral_perks_more_tokens__desc');
+    const figures = Array.from(
+      screen
+        .getByTestId('my-rewards-summary-card')
+        .querySelectorAll('[data-source-currency="usd"]'),
+    ).map((node) => node.textContent);
+    expect(figures).toEqual(['2.000003', '0.25', '1.750003']);
+  });
+
+  it('counts each address once when the wallet switches away and back', async () => {
+    const view = await renderMyRewards();
     expect(mockPerksHomeShown).toHaveBeenCalledTimes(1);
 
     mockActiveAccount = {
@@ -591,7 +957,7 @@ describe('MyRewardsContent', () => {
       result: { accountId: 'evm-2', accountAddress: '0xbbb' },
       isLoading: false,
     };
-    rerender(<MyRewardsContent />);
+    await rerenderMyRewards(view);
     expect(mockPerksHomeShown).toHaveBeenCalledTimes(2);
 
     mockActiveAccount = {
@@ -602,12 +968,12 @@ describe('MyRewardsContent', () => {
       result: { accountId: 'evm-account', accountAddress: '0xabc' },
       isLoading: false,
     };
-    rerender(<MyRewardsContent />);
+    await rerenderMyRewards(view);
     expect(mockPerksHomeShown).toHaveBeenCalledTimes(2);
   });
 
-  it('hides the previous account while the next one is still resolving', () => {
-    const { rerender } = render(<MyRewardsContent />);
+  it('hides the previous account while the next one is still resolving', async () => {
+    const view = await renderMyRewards();
     expect(screen.getByTestId('my-rewards-copy-address')).toBeTruthy();
 
     mockActiveAccount = {
@@ -618,7 +984,7 @@ describe('MyRewardsContent', () => {
       accountId: 'hd-1--account',
       indexedAccountId: 'hd-1--0',
     };
-    rerender(<MyRewardsContent />);
+    await rerenderMyRewards(view);
     expect(screen.queryByTestId('my-rewards-copy-address')).toBeNull();
     expect(
       screen.getByTestId('my-rewards-module-perps').textContent,
@@ -626,16 +992,16 @@ describe('MyRewardsContent', () => {
     expect(mockPerksHomeShown).toHaveBeenCalledTimes(1);
   });
 
-  it('waits for saved accounts before showing the empty-wallet state', () => {
+  it('waits for saved accounts before showing the empty-wallet state', async () => {
     mockActiveAccount = { ready: false };
     mockEarnAccountResult = { result: null, isLoading: true };
-    const { rerender } = render(<MyRewardsContent />);
+    const view = await renderMyRewards();
     expect(screen.queryByTestId('no-wallet')).toBeNull();
     expect(screen.getByTestId('my-rewards-summary-card')).toBeTruthy();
     expect(mockPerksHomeShown).not.toHaveBeenCalled();
 
     mockActiveAccount = { ready: true };
-    rerender(<MyRewardsContent />);
+    await rerenderMyRewards(view);
     expect(screen.getByTestId('no-wallet')).toBeTruthy();
     expect(mockPerksHomeShown).toHaveBeenCalledWith({
       status: 'no_wallet',
@@ -643,7 +1009,7 @@ describe('MyRewardsContent', () => {
     });
   });
 
-  it('names a payout token only when every product pays that same token', () => {
+  it('names a payout token only when every product pays that same token', async () => {
     const usdc = {
       totalBonus: '1',
       undistributed: '0',
@@ -669,7 +1035,7 @@ describe('MyRewardsContent', () => {
       },
       isLoading: false,
     };
-    const { rerender } = render(<MyRewardsContent />);
+    const view = await renderMyRewards();
     expect(screen.getByTestId('my-rewards-summary-card').textContent).toMatch(
       /referral_perks_paid_in/,
     );
@@ -692,14 +1058,14 @@ describe('MyRewardsContent', () => {
         },
       },
     };
-    rerender(<MyRewardsContent />);
+    await rerenderMyRewards(view);
     const summary = screen.getByTestId('my-rewards-summary-card').textContent;
     expect(summary).toContain('referral_perks_paid_to_address__desc');
     expect(summary).not.toContain('referral_perks_paid_in__desc');
     expect(summary).not.toContain('referral_perks_paid_in_network__desc');
   });
 
-  it('does not name a payout token when one product has no symbol', () => {
+  it('does not name a payout token when one product has no symbol', async () => {
     const usdc = {
       totalBonus: '1',
       undistributed: '0',
@@ -725,14 +1091,14 @@ describe('MyRewardsContent', () => {
       },
       isLoading: false,
     };
-    render(<MyRewardsContent />);
+    await renderMyRewards();
     const summary = screen.getByTestId('my-rewards-summary-card').textContent;
     expect(summary).toContain('referral_perks_paid_to_address__desc');
     expect(summary).not.toContain('referral_perks_paid_in__desc');
     expect(summary).not.toContain('referral_perks_paid_in_network__desc');
   });
 
-  it('falls back to the perks placeholder when no module has rewards', () => {
+  it('falls back to the perks placeholder when no module has rewards', async () => {
     const empty = {
       totalBonus: '0',
       undistributed: '0',
@@ -750,7 +1116,7 @@ describe('MyRewardsContent', () => {
       },
       isLoading: false,
     };
-    render(<MyRewardsContent />);
+    await renderMyRewards();
     expect(screen.getByTestId('perks-placeholder')).toBeTruthy();
     expect(screen.queryByTestId('my-rewards-module-perps')).toBeNull();
     expect(mockPerksHomeShown).toHaveBeenCalledWith({
@@ -759,7 +1125,60 @@ describe('MyRewardsContent', () => {
     });
   });
 
-  it('keeps an unpaid Perps reward out of the empty state', () => {
+  it('paints a cached overview but reports only the fetched one', async () => {
+    const empty = {
+      totalBonus: '0',
+      undistributed: '0',
+      token: { symbol: 'USDC', logoURI: '' },
+      history: [],
+    };
+    // Last visit had no rewards; this one has some, with Earn failing.
+    mockOverviewResult = {
+      ...mockOverviewResult,
+      cached: {
+        perps: { status: 'success', data: empty },
+        swap: { status: 'success', data: empty },
+        earn: {
+          status: 'success',
+          data: { distributed: [], undistributed: [] },
+        },
+      },
+      isLoading: false,
+    };
+    // First commit only: the cache is on screen, the fetch has not landed.
+    render(<MyRewardsContent />);
+    expect(screen.getByTestId('perks-placeholder')).toBeTruthy();
+    expect(mockPerksHomeShown).not.toHaveBeenCalled();
+
+    await act(async () => {});
+    expect(screen.queryByTestId('perks-placeholder')).toBeNull();
+    expect(screen.getByTestId('my-rewards-module-perps')).toBeTruthy();
+    expect(mockPerksHomeShown).toHaveBeenCalledTimes(1);
+    expect(mockPerksHomeShown).toHaveBeenCalledWith({
+      status: 'partial',
+      entry: 'route',
+    });
+  });
+
+  it('paints a cached overview saved under another casing of the address', async () => {
+    mockEarnAccountResult = {
+      result: { accountId: 'evm-account', accountAddress: '0xAbC' },
+      isLoading: false,
+    };
+    mockOverviewResult = {
+      ...mockOverviewResult,
+      cached: mockOverviewResult.result,
+      cachedAddress: '0xabc',
+    };
+    // Before the fetch lands, the cache is what is on screen.
+    render(<MyRewardsContent />);
+    expect(screen.getByTestId('my-rewards-module-perps').textContent).toContain(
+      '5',
+    );
+    await act(async () => {});
+  });
+
+  it('keeps an unpaid Perps reward out of the empty state', async () => {
     const empty = {
       totalBonus: '0',
       undistributed: '0',
@@ -780,7 +1199,7 @@ describe('MyRewardsContent', () => {
       },
       isLoading: false,
     };
-    render(<MyRewardsContent />);
+    await renderMyRewards();
     expect(screen.queryByTestId('perks-placeholder')).toBeNull();
     const perps = screen.getByTestId('my-rewards-module-perps');
     expect(

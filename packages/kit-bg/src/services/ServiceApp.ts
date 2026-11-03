@@ -1,4 +1,4 @@
-import { Semaphore } from 'async-mutex';
+import { Mutex, Semaphore } from 'async-mutex';
 
 import appGlobals from '@onekeyhq/shared/src/appGlobals';
 import {
@@ -83,6 +83,24 @@ type IExtensionPrimeWebCheckoutContext = {
 // Only the background owns this critical section; extension UIs have separate
 // heaps. Persist the chosen tab before letting another surface look it up.
 const extensionPrimeWebCheckoutTabMutex = new Semaphore(1);
+const LIVE_ACTIVITY_RESET_TIMEOUT_MS = 3000;
+
+async function waitForLiveActivityReset(cleanup: Promise<void>): Promise<void> {
+  let timeout: ReturnType<typeof setTimeout> | undefined;
+  try {
+    await Promise.race([
+      cleanup,
+      new Promise<never>((_resolve, reject) => {
+        timeout = setTimeout(
+          () => reject(new OneKeyLocalError('Live Activity cleanup timed out')),
+          LIVE_ACTIVITY_RESET_TIMEOUT_MS,
+        );
+      }),
+    ]);
+  } finally {
+    if (timeout !== undefined) clearTimeout(timeout);
+  }
+}
 
 function getExtensionCheckoutTab(tabId: number) {
   return new Promise<chrome.tabs.Tab | undefined>((resolve) => {
@@ -186,6 +204,17 @@ class ServiceApp extends ServiceBase {
     // const v4migrationAutoStartDisabled =
     //   v4migrationPersistData?.v4migrationAutoStartDisabled;
     // ----------------------------------------------
+
+    // Client-scanned chains keep state in their own databases, outside every store cleared below; failures
+    // come back as networks to retry and must not take App Reset down.
+    let privacyChainDropFailed: string[] = [];
+    try {
+      privacyChainDropFailed =
+        await this.backgroundApi.servicePrivacyChain.dropAllLocalWalletData();
+    } catch {
+      console.error('servicePrivacyChain.dropAllLocalWalletData() error');
+    }
+    defaultLogger.setting.page.clearDataStep('privacyChain-dropLocalData');
 
     // clean app storage
     try {
@@ -392,6 +421,18 @@ class ServiceApp extends ServiceBase {
         }
       }
     }
+    // Written last: the stores above are cleared, including the IndexedDB holding this marker, while the scan
+    // databases (OPFS) survive and the next reset must retry them.
+    if (privacyChainDropFailed.length > 0) {
+      try {
+        await this.backgroundApi.servicePrivacyChain.markLocalDataDropPending({
+          networkIds: privacyChainDropFailed,
+        });
+      } catch {
+        console.error('markLocalDataDropPending error');
+      }
+    }
+
     if (appStorageClearError) {
       return Promise.reject(
         appStorageClearError instanceof Error
@@ -404,8 +445,46 @@ class ServiceApp extends ServiceBase {
     }
   }
 
+  private resetAppMutex = new Mutex();
+
   @backgroundMethod()
-  async resetApp() {
+  async resetApp(options: { preserveBackupRecovery?: boolean } = {}) {
+    return this.resetAppMutex.runExclusive(async () => {
+      try {
+        await this.resetAppInternal(options);
+      } catch (error) {
+        await this.backgroundApi.serviceCloudBackupV2.finishLocalRecoveryReset();
+        throw error;
+      }
+    });
+  }
+
+  private async resetAppInternal({
+    preserveBackupRecovery = false,
+  }: { preserveBackupRecovery?: boolean } = {}) {
+    let recoveryErasureFailed = false;
+    let liveActivityCleanupFailed = false;
+    if (platformEnv.isNativeIOS) {
+      try {
+        await waitForLiveActivityReset(
+          this.backgroundApi.serviceLiveActivity.stopForPrivacyTransition(),
+        );
+      } catch {
+        // Continue erasing wallet data even if the system card could not close.
+        liveActivityCleanupFailed = true;
+      }
+    }
+    // Unknown/programmatic callers retain the existing secure-erasure default.
+    try {
+      await this.backgroundApi.serviceCloudBackupV2.prepareLocalRecoveryForReset(
+        {
+          preserve: preserveBackupRecovery,
+        },
+      );
+    } catch {
+      // Still erase wallet secrets if recovery storage is unavailable.
+      recoveryErasureFailed = true;
+    }
     defaultLogger.prime.subscription.onekeyIdLogout({
       reason: 'ServiceApp.resetApp',
     });
@@ -435,6 +514,12 @@ class ServiceApp extends ServiceBase {
       defaultLogger.setting.page.clearDataStep('resetData-start');
       await this.resetData();
       defaultLogger.setting.page.clearDataStep('resetData-end');
+      if (recoveryErasureFailed) {
+        throw new OneKeyLocalError('Recovery cache erasure failed');
+      }
+      if (liveActivityCleanupFailed) {
+        throw new OneKeyLocalError('Live Activity cleanup failed');
+      }
     } catch (error) {
       console.error('resetData error', error);
       throw error;
@@ -673,8 +758,6 @@ class ServiceApp extends ServiceBase {
     from?: EEnterWay;
     showFavoriteButton?: boolean;
     marketTokenCategory?: string;
-    marketTokenSymbol?: string;
-    resolveMarketAsset?: boolean;
     tokenDetailPreview?: IMarketTokenDetailPreview;
   }) {
     const {
@@ -688,8 +771,6 @@ class ServiceApp extends ServiceBase {
       from,
       showFavoriteButton,
       marketTokenCategory,
-      marketTokenSymbol,
-      resolveMarketAsset,
       tokenDetailPreview,
     } = params;
     const routeParams: IOpenUrlRouteInfo['params'] = {};
@@ -712,12 +793,6 @@ class ServiceApp extends ServiceBase {
     }
     if (marketTokenCategory) {
       routeParams.marketTokenCategory = marketTokenCategory;
-    }
-    if (marketTokenSymbol) {
-      routeParams.marketTokenSymbol = marketTokenSymbol;
-    }
-    if (resolveMarketAsset) {
-      routeParams.resolveMarketAsset = true;
     }
     if (marketTokenId) {
       routeParams.marketTokenId = marketTokenId;

@@ -460,6 +460,19 @@ describe('terminal / delayed / failure kind', () => {
       getHeadlessBuyFailureKind(order({ timedOut: true, statusReason: 'x' })),
     ).toBe('unknown');
     expect(getHeadlessBuyFailureKind(order())).toBe('unknown');
+    // SDK 1.3 `providerFailed`: the payment surface failed without confirming
+    // the outcome. A later backend failure reason must not turn that into
+    // "you were not charged"; the refund reason still wins.
+    expect(
+      getHeadlessBuyFailureKind(
+        order({ statusReason: 'Card declined', paymentOutcomeUnknown: true }),
+      ),
+    ).toBe('unknown');
+    expect(
+      getHeadlessBuyFailureKind(
+        order({ statusReason: 'Refund issued', paymentOutcomeUnknown: true }),
+      ),
+    ).toBe('refund');
   });
 });
 

@@ -31,11 +31,25 @@ const LAYOUT_EPSILON = 0.1;
 
 type IItemStyleProps = Omit<GetProps<typeof YStack>, 'onChange'>;
 
+export interface ISegmentControlLabelState {
+  active: boolean;
+  hovered: boolean;
+  // The color a string label would get in this state.
+  color: string;
+}
+
+// An element label paints its own colors, so it never gets the hover color.
+// Pass a function to style icons or custom text from the item state.
+export type ISegmentControlLabel =
+  | string
+  | ReactElement
+  | ((state: ISegmentControlLabelState) => ReactElement);
+
 export interface ISegmentControlProps extends Omit<IXStackProps, 'onChange'> {
   fullWidth?: boolean;
   value: string | number;
   options: {
-    label: string | ReactElement;
+    label: ISegmentControlLabel;
     value: string | number;
     testID?: string;
     disabled?: boolean;
@@ -76,7 +90,7 @@ function SegmentControlItem({
   onLayout,
   ...rest
 }: {
-  label: string | ReactElement;
+  label: ISegmentControlLabel;
   value: string | number;
   index: number;
   active: boolean;
@@ -125,11 +139,30 @@ function SegmentControlItem({
     [index, onItemLayout, onLayout],
   );
 
+  const showHover = hovered && !disabled;
   let textColor = inactiveTextColor ?? (floating ? '$textSubdued' : '$text');
   if (active) {
     textColor = activeTextColor ?? '$text';
-  } else if (floating && hovered && !disabled) {
+  } else if (floating && showHover) {
     textColor = '$text';
+  }
+
+  let content: ReactElement;
+  if (typeof label === 'string') {
+    content = (
+      <SizableText
+        size="$bodyMdMedium"
+        textAlign="center"
+        numberOfLines={1}
+        color={textColor}
+      >
+        {label}
+      </SizableText>
+    );
+  } else if (typeof label === 'function') {
+    content = label({ active, hovered: showHover, color: textColor });
+  } else {
+    content = label;
   }
 
   return (
@@ -158,18 +191,7 @@ function SegmentControlItem({
       {...rest}
       onLayout={handleLayout}
     >
-      {typeof label === 'string' ? (
-        <SizableText
-          size="$bodyMdMedium"
-          textAlign="center"
-          numberOfLines={1}
-          color={textColor}
-        >
-          {label}
-        </SizableText>
-      ) : (
-        label
-      )}
+      {content}
     </YStack>
   );
 }

@@ -23,7 +23,9 @@ export const LIVE_ACTIVITY_TERMINAL_RETENTION_SECONDS = 180;
 
 export function normalizeLiveActivityDuration(value: unknown) {
   const seconds = Number(value);
-  return Number.isFinite(seconds) && seconds > 0
+  return Number.isFinite(seconds) &&
+    seconds > 0 &&
+    seconds <= Math.floor(Number.MAX_SAFE_INTEGER / 2000)
     ? seconds
     : LIVE_ACTIVITY_DEFAULT_DURATION_SECONDS;
 }
@@ -77,7 +79,7 @@ export function getLiveActivityStatus(
 }
 
 export function isLiveActivityTerminal(status: ILiveActivityStatus) {
-  return ['done', 'failed', 'refunded', 'canceled'].includes(status);
+  return ['done', 'refunded', 'canceled'].includes(status);
 }
 
 export function canAdvanceLiveActivityStatus(
@@ -105,7 +107,9 @@ export function getLiveActivityTimeProjection(
   const durationMs = Math.max(1, order.estimatedEndAtMs - order.startedAtMs);
   return {
     minutes: Math.ceil(remainingMs / 60_000),
-    almostDone: !isLiveActivityTerminal(status) && remainingMs < 10_000,
+    almostDone:
+      ['confirming', 'swapping', 'receiving'].includes(status) &&
+      remainingMs < 10_000,
     progress:
       status === 'done'
         ? 1
@@ -131,6 +135,8 @@ export function buildSwapLiveActivitySnapshot(
   const durationSeconds = normalizeLiveActivityDuration(
     history.swapInfo.estimatedTimeSeconds,
   );
+  const displayName = (value: string) =>
+    Array.from(value).slice(0, 64).join('');
   return {
     order: {
       schemaVersion: 1,
@@ -140,14 +146,14 @@ export function buildSwapLiveActivitySnapshot(
       networkId: fromToken.networkId,
       provider: history.swapInfo.provider.provider,
       fromToken: {
-        symbol: fromToken.symbol,
-        iconUrl: fromToken.logoURI ?? '',
-        networkName: fromNetwork?.name ?? 'Bitcoin',
+        symbol: displayName(fromToken.symbol),
+        iconUrl: '',
+        networkName: displayName(fromNetwork?.name ?? 'Bitcoin'),
       },
       toToken: {
-        symbol: toToken.symbol,
-        iconUrl: toToken.logoURI ?? '',
-        networkName: toNetwork?.name ?? toToken.symbol,
+        symbol: displayName(toToken.symbol),
+        iconUrl: '',
+        networkName: displayName(toNetwork?.name ?? toToken.symbol),
       },
       startedAtMs,
       estimatedEndAtMs: startedAtMs + durationSeconds * 1000,

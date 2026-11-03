@@ -13,6 +13,8 @@ import {
   useCheckAddressRisk,
 } from './useCheckAddressRisk';
 
+const mockTrialAttempt = jest.fn();
+const mockTrialResult = jest.fn();
 const mockPush = jest.fn();
 const mockPop = jest.fn();
 const mockPopStack = jest.fn();
@@ -97,6 +99,14 @@ jest.mock('@onekeyhq/shared/src/utils/timerUtils', () => ({
 jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
   defaultLogger: {
     prime: {
+      subscription: {
+        primeFreeTrialAttempt: (params: unknown) => {
+          mockTrialAttempt(params);
+        },
+        primeFreeTrialResult: (params: unknown) => {
+          mockTrialResult(params);
+        },
+      },
       usage: {
         addressRiskCheckSuccess: (params: unknown) =>
           mockAddressRiskCheckSuccess(params),
@@ -562,5 +572,56 @@ describe('useAddressRiskCheckRequest', () => {
 
     expect(mockPop).not.toHaveBeenCalled();
     expect(mockHandleFreeTrialError).not.toHaveBeenCalled();
+  });
+});
+
+describe('address-risk free-trial analytics', () => {
+  const request = {
+    networkId: 'evm--1',
+    address: 'private-address',
+    entryPoint: 'inputManual' as const,
+    entitlementSource: 'freeTrial' as const,
+  };
+  it.each([90_600, 90_601])(
+    'records server rejection %s before a history fallback without claiming success',
+    async (code) => {
+      mockCheckAddressRisk.mockRejectedValueOnce(buildFreeTrialError(code));
+      mockGetCheck.mockResolvedValueOnce({ result: historyResult });
+      await executeAddressRiskCheckWithHistory(request);
+      expect(mockTrialAttempt).toHaveBeenCalledTimes(1);
+      expect(mockTrialResult).toHaveBeenCalledWith(
+        expect.objectContaining({
+          result: code === 90_600 ? 'exhausted' : 'notOpen',
+          rejectionSource: 'server',
+        }),
+      );
+      expect(mockTrialResult).not.toHaveBeenCalledWith(
+        expect.objectContaining({ result: 'success' }),
+      );
+      expect(JSON.stringify(mockTrialAttempt.mock.calls)).not.toContain(
+        request.address,
+      );
+    },
+  );
+  it('records failure and a successful user retry as two attempts', async () => {
+    mockCheckAddressRisk
+      .mockRejectedValueOnce(new Error('offline'))
+      .mockResolvedValueOnce(riskResult);
+    await expect(executeAddressRiskCheck(request)).rejects.toThrow('offline');
+    await executeAddressRiskCheck(request);
+    expect(mockTrialAttempt).toHaveBeenCalledTimes(2);
+    expect(
+      mockTrialResult.mock.calls.map(
+        ([params]: [{ result: string }]) => params.result,
+      ),
+    ).toEqual(['failed', 'success']);
+  });
+  it('deduplicates rapid identical requests and records the actual success once', async () => {
+    const first = executeAddressRiskCheck(request);
+    const second = executeAddressRiskCheck(request);
+    await Promise.all([first, second]);
+    expect(mockTrialAttempt).toHaveBeenCalledTimes(1);
+    expect(mockTrialResult).toHaveBeenCalledTimes(1);
+    expect(mockCheckAddressRisk).toHaveBeenCalledTimes(1);
   });
 });

@@ -52,11 +52,7 @@ import { createLazySdkLoader } from '@onekeyhq/shared/src/utils/lazySdkLoader';
 import { applyCustomPriorityFeeToGasInfo } from '@onekeyhq/shared/src/utils/marketPresetFeeUtils';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
-import type { INumberFormatProps } from '@onekeyhq/shared/src/utils/numberUtils';
-import {
-  numberFormat,
-  toBigIntHex,
-} from '@onekeyhq/shared/src/utils/numberUtils';
+import { toBigIntHex } from '@onekeyhq/shared/src/utils/numberUtils';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 import type {
   IEstimateFeeParams,
@@ -117,6 +113,7 @@ import type {
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useSignatureConfirm } from '../../../hooks/useSignatureConfirm';
 import {
+  type ISwapTokenPair,
   useSwapBuildTxFetchingAtom,
   useSwapFromTokenAmountAtom,
   useSwapLimitExpirationTimeAtom,
@@ -127,6 +124,7 @@ import {
   useSwapQuoteActionLockAtom,
   useSwapQuoteEventTotalCountAtom,
   useSwapQuoteListAtom,
+  useSwapRecentTokenPairAttribution,
   useSwapStepNetFeeLevelAtom,
   useSwapStepsAtom,
   useSwapToTokenAmountAtom,
@@ -154,12 +152,14 @@ import {
   getSwapRequiredNativeBalanceAmount,
   validateSwapBtcOutputs,
 } from '../utils/swapBalanceUtils';
+import { getSwapBalanceInsufficientMessage } from '../utils/swapErrorUtils';
 import {
   applyEvmThorSwapGasLimit,
   canReuseSwapReviewGasInfo,
   isSwapGasSponsored,
   shouldRequestSwapGasAccount,
 } from '../utils/swapGasUtils';
+import { getSwapBuildOrderId } from '../utils/swapHistoryIdentity';
 import { buildSwapRateDifference } from '../utils/swapRateDifferenceUtils';
 import {
   type ISwapReviewAnalytics,
@@ -201,10 +201,6 @@ import {
 import { useSwapTxHistoryActions } from './useSwapTxHistory';
 
 const getEthers = createLazySdkLoader(() => import('ethers'));
-
-const formatter: INumberFormatProps = {
-  formatter: 'balance',
-};
 
 type ISwapGasFeeInfo = {
   encodeTx: IEncodedTx;
@@ -350,6 +346,11 @@ export function useSwapBuildTx({
   const [, setInAppNotificationAtom] = useInAppNotificationAtom();
   const [quoteActionLock] = useSwapQuoteActionLockAtom();
   const [swapTypeSwitch] = useSwapTypeSwitchAtom();
+  const { getRecentTokenPairSelectionFor, clearRecentTokenPairSelection } =
+    useSwapRecentTokenPairAttribution().current;
+  // The "Recent trades" pick each logged order was attributed to, keyed by
+  // order id, so a sent order clears exactly that pick and not a newer one.
+  const recentPairPickByOrderIdRef = useRef(new Map<string, ISwapTokenPair>());
   const swapFromAddressInfo = useSwapAddressInfo(ESwapDirectionType.FROM);
   const swapToAddressInfo = useSwapAddressInfo(ESwapDirectionType.TO);
   const swapProAccount = useSwapProAccount();
@@ -627,6 +628,37 @@ export function useSwapBuildTx({
     }
   }, []);
 
+  // Binds the current "Recent trades" pick to the order built for it, so the
+  // pick is released when that order (fresh or cached) is sent.
+  const bindRecentTokenPairAttribution = useCallback(
+    (buildSwapRes: IFetchBuildTxResponse) => {
+      const pick = getRecentTokenPairSelectionFor({
+        fromToken: buildSwapRes.result?.fromTokenInfo,
+        toToken: buildSwapRes.result?.toTokenInfo,
+      });
+      const orderId = getSwapBuildOrderId(buildSwapRes);
+      if (pick && orderId) {
+        recentPairPickByOrderIdRef.current.set(orderId, pick);
+      }
+      return pick;
+    },
+    [getRecentTokenPairSelectionFor],
+  );
+
+  const releaseRecentTokenPairAttribution = useCallback(
+    (swapInfo: ISwapTxInfo) => {
+      const orderId = getSwapBuildOrderId(swapInfo.swapBuildResData);
+      const pick = orderId
+        ? recentPairPickByOrderIdRef.current.get(orderId)
+        : undefined;
+      if (orderId && pick) {
+        recentPairPickByOrderIdRef.current.delete(orderId);
+        clearRecentTokenPairSelection(pick);
+      }
+    },
+    [clearRecentTokenPairSelection],
+  );
+
   const onBuildTxSuccess = useCallback(
     async (
       txId: string,
@@ -638,6 +670,8 @@ export function useSwapBuildTx({
       reviewGuard?: ISwapReviewRequestGuard,
     ) => {
       if (swapInfo) {
+        // A recent-pair tap attributes one sent order, not every later one.
+        releaseRecentTokenPairAttribution(swapInfo);
         if (reviewGuard?.execution) {
           reviewGuard.execution.consumeInput();
         } else if (!reviewGuard || reviewGuard.isCurrent()) {
@@ -692,6 +726,7 @@ export function useSwapBuildTx({
       goBackQrCodeModal,
       generateSwapHistoryItem,
       setSwapSteps,
+      releaseRecentTokenPairAttribution,
       fromAccountId,
     ],
   );
@@ -707,6 +742,7 @@ export function useSwapBuildTx({
       swapInfo: ISwapTxInfo;
     }) => {
       if (swapInfo) {
+        releaseRecentTokenPairAttribution(swapInfo);
         if (reviewGuard?.execution) {
           reviewGuard.execution.consumeInput();
         } else if (!reviewGuard || reviewGuard.isCurrent()) {
@@ -741,7 +777,13 @@ export function useSwapBuildTx({
         });
       }
     },
-    [clearQuoteData, generateSwapHistoryItem, setSwapSteps, fromAccountId],
+    [
+      clearQuoteData,
+      generateSwapHistoryItem,
+      setSwapSteps,
+      releaseRecentTokenPairAttribution,
+      fromAccountId,
+    ],
   );
 
   const getSwapBalanceInsufficientToast = useCallback(
@@ -754,31 +796,12 @@ export function useSwapBuildTx({
       tokenSymbol: string;
       reserveAmount?: string;
     }) => {
-      const isBtcNetwork = networkUtils.isBTCNetwork(networkId);
-      return {
-        title: isBtcNetwork
-          ? intl.formatMessage({
-              id: ETranslations.send_toast_btc_fork_insufficient_fund,
-            })
-          : intl.formatMessage(
-              {
-                id: ETranslations.swap_page_toast_insufficient_balance_title,
-              },
-              { token: tokenSymbol },
-            ),
-        message:
-          !isBtcNetwork && reserveAmount
-            ? intl.formatMessage(
-                {
-                  id: ETranslations.swap_page_toast_insufficient_balance_content,
-                },
-                {
-                  token: tokenSymbol,
-                  number: numberFormat(reserveAmount, formatter),
-                },
-              )
-            : undefined,
-      };
+      return getSwapBalanceInsufficientMessage({
+        intl,
+        networkId,
+        tokenSymbol,
+        reserveAmount,
+      });
     },
     [intl],
   );
@@ -1402,7 +1425,7 @@ export function useSwapBuildTx({
       status: ESwapEventAPIStatus,
       networkId: string,
       accountId: string,
-      message?: string,
+      error?: unknown,
       encodedTx?: string,
       swapInfo?: ISwapTxInfo,
       quoteResult?: IFetchQuoteResult,
@@ -1414,10 +1437,7 @@ export function useSwapBuildTx({
         fromAddress: fromUserAddress ?? '',
         toAddress: toUserAddress ?? '',
         status,
-        message:
-          message === undefined
-            ? undefined
-            : getSwapReviewErrorMessage(message),
+        error,
         ...swapInfo?.reviewAnalyticsContext,
         quoteId:
           swapInfo?.reviewAnalyticsContext?.quoteId ??
@@ -1551,8 +1571,14 @@ export function useSwapBuildTx({
           );
         }
       }
+      // An approval may come first; the swap carries the attribution to release.
+      const sentSwapInfo = res?.find((item) => item.signedTx.swapInfo)?.signedTx
+        .swapInfo;
+      if (sentSwapInfo) {
+        releaseRecentTokenPairAttribution(sentSwapInfo);
+      }
     },
-    [onBuildTxSuccess],
+    [onBuildTxSuccess, releaseRecentTokenPairAttribution],
   );
 
   const handleBuildTxFallbackOnCancel = useCallback(
@@ -1860,14 +1886,13 @@ export function useSwapBuildTx({
                 } else {
                   void onApproveTxSuccess(reviewGuard);
                 }
-              } catch (e: any) {
+              } catch (e) {
                 if (!isApprove && i === unsignedTxArr.length - 1) {
                   void swapSendTxEvent(
                     ESwapEventAPIStatus.FAIL,
                     networkId,
                     accountId,
-                    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-                    e?.message ?? 'unknown error',
+                    e,
                     JSON.stringify(unsignedTxItem.encodedTx ?? ''),
                     swapInfo,
                     quoteResult,
@@ -1940,14 +1965,13 @@ export function useSwapBuildTx({
                 } else {
                   void onApproveTxSuccess(reviewGuard);
                 }
-              } catch (e: any) {
+              } catch (e) {
                 if (!isApprove && i === unsignedTxArr.length - 1) {
                   void swapSendTxEvent(
                     ESwapEventAPIStatus.FAIL,
                     networkId,
                     accountId,
-                    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-                    e?.message ?? 'unknown error',
+                    e,
                     JSON.stringify(unsignedTxItem.encodedTx ?? ''),
                     swapInfo,
                     quoteResult,
@@ -2015,14 +2039,13 @@ export function useSwapBuildTx({
                 } else {
                   void onApproveTxSuccess(reviewGuard);
                 }
-              } catch (e: any) {
+              } catch (e) {
                 if (!isApprove && i === unsignedTxArr.length - 1) {
                   void swapSendTxEvent(
                     ESwapEventAPIStatus.FAIL,
                     networkId,
                     accountId,
-                    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-                    e?.message ?? 'unknown error',
+                    e,
                     JSON.stringify(unsignedTxItem.encodedTx ?? ''),
                     swapInfo,
                     quoteResult,
@@ -2183,14 +2206,13 @@ export function useSwapBuildTx({
               unsignedTxItem: unsignedTx,
               gasInfo: gasInfoFinal,
             });
-          } catch (e: any) {
+          } catch (e) {
             if (!isApprove) {
               void swapSendTxEvent(
                 ESwapEventAPIStatus.FAIL,
                 networkId,
                 accountId,
-                // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-                e?.message ?? 'unknown error',
+                e,
                 JSON.stringify(unsignedTx.encodedTx ?? ''),
                 swapInfo,
                 quoteResult,
@@ -2256,14 +2278,13 @@ export function useSwapBuildTx({
               unsignedTxItem: unsignedTx,
               gasInfo: gasParseInfo,
             });
-          } catch (e: any) {
+          } catch (e) {
             if (!isApprove) {
               void swapSendTxEvent(
                 ESwapEventAPIStatus.FAIL,
                 networkId,
                 accountId,
-                // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-                e?.message ?? 'unknown error',
+                e,
                 JSON.stringify(unsignedTx.encodedTx ?? ''),
                 swapInfo,
                 quoteResult,
@@ -2456,6 +2477,7 @@ export function useSwapBuildTx({
           !buildRoutes?.length && quoteRoutes?.length
             ? quoteRoutes
             : buildRoutes;
+        const recentPairPick = bindRecentTokenPairAttribution(buildSwapRes);
         defaultLogger.swap.createSwapOrder.swapCreateOrder({
           ...reviewAnalyticsContext,
           quoteId: reviewAnalyticsContext?.quoteId ?? quoteResult?.quoteId,
@@ -2484,6 +2506,7 @@ export function useSwapBuildTx({
             isSwapPro: focusSwapPro,
             isModalPage,
           }),
+          fromRecentTokenPair: !!recentPairPick,
           orderId: buildSwapRes?.orderId ?? '',
           orderType: getSwapAnalyticsCategoryFromSwapType(swapType),
           ...getStockTradeAnalyticsPayload({
@@ -2504,6 +2527,7 @@ export function useSwapBuildTx({
       isFirstTimeSwap,
       focusSwapPro,
       isModalPage,
+      bindRecentTokenPairAttribution,
     ],
   );
 
@@ -2639,6 +2663,11 @@ export function useSwapBuildTx({
           if (reviewPreparation) {
             reviewPreparation.timings.buildTxMs ??= 0;
           }
+          if (cachedBuildResult.swapInfo) {
+            bindRecentTokenPairAttribution(
+              cachedBuildResult.swapInfo.swapBuildResData,
+            );
+          }
           return {
             ...cachedBuildResult,
             swapInfo: cachedBuildResult.swapInfo
@@ -2687,6 +2716,10 @@ export function useSwapBuildTx({
               createFrom: getSwapCreateFrom({
                 isSwapPro: focusSwapPro,
                 isModalPage,
+              }),
+              fromRecentTokenPair: !!getRecentTokenPairSelectionFor({
+                fromToken: data?.fromTokenInfo,
+                toToken: data?.toTokenInfo,
               }),
               orderId: buildSwapRes?.orderId ?? '',
               orderType: getSwapAnalyticsCategoryFromSwapType(swapType),
@@ -2985,16 +3018,7 @@ export function useSwapBuildTx({
               },
             },
           };
-          const orderId =
-            // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-            buildSwapRes?.ctx?.cowSwapOrderId ??
-            // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-            buildSwapRes?.ctx?.oneInchFusionOrderHash ??
-            // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-            buildSwapRes?.ctx?.changeHeroOrderId ??
-            buildSwapRes.orderId ??
-            buildSwapRes.result.quoteId ??
-            '';
+          const orderId = getSwapBuildOrderId(buildSwapRes);
           // A signed-order build may already have submitted the order. Keep
           // its history even after closing, while guarded UI writes stay inert.
           if (!canExecuteSwapReview(reviewGuard) && !skipSendTransAction) {
@@ -3084,6 +3108,8 @@ export function useSwapBuildTx({
       toAccountId,
       swapBuildFinish,
       logSwapBuildResult,
+      getRecentTokenPairSelectionFor,
+      bindRecentTokenPairAttribution,
       intl,
       persistSettings.currencyInfo.id,
       currencyMap,
@@ -3558,6 +3584,9 @@ export function useSwapBuildTx({
             orderId: data.quoteId ?? '',
           },
         };
+        // Wrapped sends skip the build log, so bind the pick here for the
+        // shared success path to release it.
+        bindRecentTokenPairAttribution(swapInfo.swapBuildResData);
 
         const sendTxRes = await sendTxActions(
           false,
@@ -3605,6 +3634,7 @@ export function useSwapBuildTx({
       sendTxActions,
       syncRecentTokenPairs,
       onBuildTxSuccess,
+      bindRecentTokenPairAttribution,
     ],
   );
 

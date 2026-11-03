@@ -41,30 +41,19 @@ const MarketSelectorDesktop = ({
 }) => {
   const intl = useIntl();
 
-  const options = useMemo(() => {
-    const renderLabel = (value: IEarnHomeMode, messageId: ETranslations) => {
-      const isActive = mode === value;
-      return (
-        <SizableText
-          size="$bodyMdMedium"
-          textAlign="center"
-          color={isActive ? '$text' : '$textSubdued'}
-        >
-          {intl.formatMessage({ id: messageId })}
-        </SizableText>
-      );
-    };
-    return [
+  const options = useMemo(
+    () => [
       {
-        label: renderLabel('earn', ETranslations.earn_title),
+        label: intl.formatMessage({ id: ETranslations.earn_title }),
         value: 'earn' as const,
       },
       {
-        label: renderLabel('borrow', ETranslations.global_borrow),
+        label: intl.formatMessage({ id: ETranslations.global_borrow }),
         value: 'borrow' as const,
       },
-    ];
-  }, [intl, mode]);
+    ],
+    [intl],
+  );
 
   const itemStyleProps = useMemo(() => {
     const baseProps = {

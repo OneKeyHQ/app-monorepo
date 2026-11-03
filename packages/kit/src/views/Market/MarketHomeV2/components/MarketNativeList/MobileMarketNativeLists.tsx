@@ -18,8 +18,8 @@ import {
   useTheme,
 } from '@onekeyhq/components';
 import { LazyPopover } from '@onekeyhq/components/src/actions/LazyPopover';
-import { Portal } from '@onekeyhq/components/src/hocs';
 import type { IPortalManager } from '@onekeyhq/components/src/hocs/Portal';
+import { mountImperativeOverlay } from '@onekeyhq/components/src/shared/imperativeOverlayMount';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
 import {
@@ -76,7 +76,10 @@ import {
   buildTopCoinMarketRow,
 } from './marketNativeListRows';
 
-import type { IMarketNativeListPresentation } from './marketNativeListRows';
+import type {
+  IMarketNativeListPresentation,
+  IResponsiveMarketRow,
+} from './marketNativeListRows';
 import type { IMarketTimeRangeValue } from '../../types';
 import type {
   IMarketPerpsDataCache,
@@ -93,11 +96,24 @@ import type {
   NativeListSnapshot,
   RowActionEvent,
 } from '@onekeyfe/react-native-native-list';
-import type { View } from 'react-native';
+import type { LayoutChangeEvent, ViewInstance } from 'react-native';
 
 const NATIVE_LIST_STYLE = StyleSheet.create({
   fill: { flex: 1 },
 });
+
+export type IMarketColumnMode = 'compact' | 'two' | 'three';
+
+export function resolveMarketColumnMode(
+  width: number,
+  hasLeadingAction: boolean,
+): IMarketColumnMode {
+  const fixedWidth = 40 + 32 + 14 + (hasLeadingAction ? 41 : 0);
+  if (width >= 1024 && width - fixedWidth - 3 * 8 >= 256 + 3 * 104)
+    return 'three';
+  if (width >= 768 && width - fixedWidth - 2 * 8 >= 256 + 2 * 104) return 'two';
+  return 'compact';
+}
 
 function useMarketNativeListPresentation(): IMarketNativeListPresentation {
   const intl = useIntl();
@@ -215,6 +231,8 @@ type INativeMarketListProps = {
   onRowAction: (event: RowActionEvent) => void;
   onActionAnchorInvalidated?: (event: ActionAnchorInvalidatedEvent) => void;
   onEndReached?: () => void;
+  changeColumnTitle?: string;
+  onColumnModeChange?: (mode: IMarketColumnMode) => void;
 };
 
 function NativeMarketList({
@@ -233,9 +251,45 @@ function NativeMarketList({
   onRowAction,
   onActionAnchorInvalidated,
   onEndReached,
+  changeColumnTitle,
+  onColumnModeChange,
 }: INativeMarketListProps) {
   const intl = useIntl();
   const presentation = useMarketNativeListPresentation();
+  const [listWidth, setListWidth] = useState(0);
+  const hasLeadingAction = rows.some((row) => Boolean(row.leadingAction));
+  const columnMode = platformEnv.isNative
+    ? resolveMarketColumnMode(listWidth, hasLeadingAction)
+    : 'compact';
+  const responsiveRows = useMemo(
+    () =>
+      rows.map((row) => {
+        const { metrics, volumeSubtitle, ...compactRow } =
+          row as IResponsiveMarketRow;
+        if (columnMode === 'compact' || !metrics) return compactRow;
+        if (columnMode === 'three' && volumeSubtitle) {
+          const {
+            subtitle: _subtitle,
+            subtitleSegments: _subtitleSegments,
+            ...identityRow
+          } = compactRow;
+          return { ...identityRow, metrics };
+        }
+        return {
+          ...compactRow,
+          metrics: metrics.slice(0, columnMode === 'two' ? 2 : 3),
+        };
+      }),
+    [columnMode, rows],
+  );
+  const onListLayout = useCallback(
+    (event: LayoutChangeEvent) => {
+      const width = event.nativeEvent.layout.width;
+      setListWidth(width);
+      onColumnModeChange?.(resolveMarketColumnMode(width, hasLeadingAction));
+    },
+    [hasLeadingAction, onColumnModeChange],
+  );
   const structuralIdentity = `${rows.map((row) => row.key).join('|')}:${
     loading && rows.length === 0
   }:${Boolean(errorMessage && rows.length === 0)}:${Boolean(
@@ -247,7 +301,7 @@ function NativeMarketList({
   const snapshot = useMemo(
     () =>
       buildMarketNativeSnapshot({
-        rows,
+        rows: responsiveRows,
         generation,
         presentation,
         loading,
@@ -276,17 +330,67 @@ function NativeMarketList({
       loading,
       loadingMore,
       presentation,
-      rows,
+      responsiveRows,
       showEnd,
     ],
   );
   const nativeSnapshot = usePatchedMarketSnapshot({ snapshot, listRef });
+  const listHeader =
+    columnMode !== 'compact' ? (
+      <XStack px={20} py="$2">
+        <Stack width={hasLeadingAction ? 87 : 46} />
+        <XStack flex={1} gap="$2">
+          <SizableText flex={2} size="$bodySmMedium" color="$textSubdued">
+            {columnMode === 'three'
+              ? intl.formatMessage({ id: ETranslations.global_name })
+              : `${intl.formatMessage({
+                  id: ETranslations.global_name,
+                })} / ${intl.formatMessage({
+                  id: ETranslations.market_stock_volume__title,
+                })}`}
+          </SizableText>
+          <SizableText
+            flex={1}
+            textAlign="right"
+            size="$bodySmMedium"
+            color="$textSubdued"
+          >
+            {intl.formatMessage({ id: ETranslations.global_price })}
+          </SizableText>
+          <SizableText
+            flex={1}
+            textAlign="right"
+            size="$bodySmMedium"
+            color="$textSubdued"
+          >
+            {changeColumnTitle ??
+              intl.formatMessage({
+                id: ETranslations.dexmarket_banner_token_24hchange,
+              })}
+          </SizableText>
+          {columnMode === 'three' ? (
+            <SizableText
+              flex={1}
+              textAlign="right"
+              size="$bodySmMedium"
+              color="$textSubdued"
+            >
+              {intl.formatMessage({
+                id: ETranslations.market_stock_volume__title,
+              })}
+            </SizableText>
+          ) : null}
+        </XStack>
+      </XStack>
+    ) : undefined;
   return (
     <NativeList
       ref={listRef}
       style={NATIVE_LIST_STYLE.fill}
       snapshot={nativeSnapshot}
+      listHeader={listHeader}
       testID={testID}
+      onLayout={onListLayout}
       onRowAction={onRowAction}
       onActionAnchorInvalidated={onActionAnchorInvalidated}
       onEndReached={onEndReached}
@@ -449,7 +553,7 @@ function NativeMarketBadgeInfo({
 }
 
 function useNativeMarketBadgeInfo(listRef: RefObject<NativeListRef | null>) {
-  const containerRef = useRef<View>(null);
+  const containerRef = useRef<ViewInstance>(null);
   const [info, setInfo] = useState<IMarketBadgeInfo>();
 
   const close = useCallback(() => {
@@ -690,20 +794,22 @@ function useNativeFavoriteMenu(listRef: RefObject<NativeListRef | null>) {
         });
       }
       Haptics.impact(ImpactFeedbackStyle.Medium);
-      portalRef.current = Portal.Render(
-        Portal.Constant.FULL_WINDOW_OVERLAY_PORTAL,
-        <InlineActionBar
-          isInWatchlist={isInWatchlist}
-          anchor={getFavoriteMenuAnchorPoint(anchor)}
-          onToggleWatchlist={() => {
-            close();
-            // Travel mode can switch on while the bar is open.
-            if (!isFavoriteMenuEnabled()) return;
-            void toggleFavorite(target, isInWatchlist);
-          }}
-          onDismiss={() => close()}
-        />,
-      );
+      portalRef.current = mountImperativeOverlay({
+        target: 'global',
+        node: (
+          <InlineActionBar
+            isInWatchlist={isInWatchlist}
+            anchor={getFavoriteMenuAnchorPoint(anchor)}
+            onToggleWatchlist={() => {
+              close();
+              // Travel mode can switch on while the bar is open.
+              if (!isFavoriteMenuEnabled()) return;
+              void toggleFavorite(target, isInWatchlist);
+            }}
+            onDismiss={() => close()}
+          />
+        ),
+      });
     },
     [close, listRef, toggleFavorite],
   );
@@ -728,6 +834,7 @@ type ISharedListProps = {
     paddingBottom: number;
   };
   shouldSuppressItemPress?: () => boolean;
+  onColumnModeChange?: (mode: IMarketColumnMode) => void;
 };
 
 export type IMobileMarketNativeTokenListProps = ISharedListProps & {
@@ -745,6 +852,7 @@ function MobileMarketNativeTokenListImpl({
   timeRange,
   onStockDataChange,
   listContainerProps,
+  onColumnModeChange,
   shouldSuppressItemPress,
 }: IMobileMarketNativeTokenListProps) {
   const intl = useIntl();
@@ -779,6 +887,7 @@ function MobileMarketNativeTokenListImpl({
           item,
           presentation,
           favoriteMenu: isFavoriteMenuOn,
+          responsive: true,
         }),
       ),
     [isFavoriteMenuOn, presentation, result.data],
@@ -843,7 +952,11 @@ function MobileMarketNativeTokenListImpl({
     <Stack ref={badgeInfo.containerRef} flex={1}>
       <NativeMarketList
         listRef={listRef}
+        onColumnModeChange={onColumnModeChange}
         rows={rows}
+        changeColumnTitle={intl.formatMessage({
+          id: ETranslations.dexmarket_token_change,
+        })}
         loading={showSkeleton}
         errorMessage={
           result.isError
@@ -886,6 +999,7 @@ function MobileMarketNativeWatchlistImpl({
   selectedFilter = DEFAULT_WATCHLIST_FILTER,
   dataCacheRef,
   listContainerProps,
+  onColumnModeChange,
   shouldSuppressItemPress,
 }: IMobileMarketNativeWatchlistProps) {
   const intl = useIntl();
@@ -921,6 +1035,7 @@ function MobileMarketNativeWatchlistImpl({
   );
   const result = useMarketWatchlistTokenList({
     watchlist,
+    isWatchlistReady: watchlistState.isMounted,
     pageSize: 999,
     dataCacheRef,
   });
@@ -929,7 +1044,12 @@ function MobileMarketNativeWatchlistImpl({
   const rows = useMemo(
     () =>
       filteredData.map((item) =>
-        buildTokenMarketRow({ item, presentation, watchlist: true }),
+        buildTokenMarketRow({
+          item,
+          presentation,
+          watchlist: true,
+          responsive: true,
+        }),
       ),
     [filteredData, presentation],
   );
@@ -977,59 +1097,61 @@ function MobileMarketNativeWatchlistImpl({
         });
       }
       Haptics.impact(ImpactFeedbackStyle.Medium);
-      portalRef.current = Portal.Render(
-        Portal.Constant.FULL_WINDOW_OVERLAY_PORTAL,
-        <InlineActionBar
-          isFirstItem={index === 0}
-          anchor={
-            anchor
-              ? {
-                  x: Dimensions.get('window').width * 0.48,
-                  y:
-                    (anchor.windowPoint?.y ??
-                      anchor.windowRect.y + anchor.windowRect.height / 2) - 4,
-                }
-              : undefined
-          }
-          onMoveToTop={async () => {
-            closeMenu();
-            try {
-              await actions.current.moveToTopV2(tokenToWatchListItem(item));
-              Toast.success({
-                title: intl.formatMessage({
-                  id: ETranslations.market_move_to_top,
-                }),
-              });
-            } catch {
-              // Errors are handled by the watchlist service.
+      portalRef.current = mountImperativeOverlay({
+        target: 'global',
+        node: (
+          <InlineActionBar
+            isFirstItem={index === 0}
+            anchor={
+              anchor
+                ? {
+                    x: Dimensions.get('window').width * 0.48,
+                    y:
+                      (anchor.windowPoint?.y ??
+                        anchor.windowRect.y + anchor.windowRect.height / 2) - 4,
+                  }
+                : undefined
             }
-          }}
-          onToggleWatchlist={async () => {
-            closeMenu();
-            try {
-              if (item.perpsCoin) {
-                await actions.current.removePerpsFromWatchListV2(
-                  item.perpsCoin,
-                );
-              } else {
-                await actions.current.removeFromWatchListV2(
-                  item.networkId,
-                  item.address,
-                  { assetId: item.assetId, stockId: item.stockId },
-                );
+            onMoveToTop={async () => {
+              closeMenu();
+              try {
+                await actions.current.moveToTopV2(tokenToWatchListItem(item));
+                Toast.success({
+                  title: intl.formatMessage({
+                    id: ETranslations.market_move_to_top,
+                  }),
+                });
+              } catch {
+                // Errors are handled by the watchlist service.
               }
-              Toast.success({
-                title: intl.formatMessage({
-                  id: ETranslations.market_remove_from_watchlist,
-                }),
-              });
-            } catch {
-              // Errors are handled by the watchlist service.
-            }
-          }}
-          onDismiss={() => closeMenu()}
-        />,
-      );
+            }}
+            onToggleWatchlist={async () => {
+              closeMenu();
+              try {
+                if (item.perpsCoin) {
+                  await actions.current.removePerpsFromWatchListV2(
+                    item.perpsCoin,
+                  );
+                } else {
+                  await actions.current.removeFromWatchListV2(
+                    item.networkId,
+                    item.address,
+                    { assetId: item.assetId, stockId: item.stockId },
+                  );
+                }
+                Toast.success({
+                  title: intl.formatMessage({
+                    id: ETranslations.market_remove_from_watchlist,
+                  }),
+                });
+              } catch {
+                // Errors are handled by the watchlist service.
+              }
+            }}
+            onDismiss={() => closeMenu()}
+          />
+        ),
+      });
     },
     [actions, closeMenu, intl, tokenToWatchListItem],
   );
@@ -1104,6 +1226,8 @@ function MobileMarketNativeWatchlistImpl({
         contentInsetAdjustmentBehavior="never"
         testID="market-favorites-empty-scroll"
         contentContainerStyle={{
+          // Keep blank-area touches inside the iOS scroll view's content.
+          flexGrow: platformEnv.isNativeIOS ? 1 : undefined,
           paddingTop: listContainerProps.emptyContentPaddingTop ?? 16,
           minHeight: listContainerProps.emptyScrollContentMinHeight,
         }}
@@ -1122,6 +1246,7 @@ function MobileMarketNativeWatchlistImpl({
     <Stack ref={badgeInfo.containerRef} flex={1}>
       <NativeMarketList
         listRef={listRef}
+        onColumnModeChange={onColumnModeChange}
         rows={rows}
         loading={showSkeleton}
         errorMessage={
@@ -1152,6 +1277,7 @@ export type IMobileMarketNativeStockListProps = ISharedListProps & {
 function MobileMarketNativeStockListImpl({
   selectedCategoryId,
   listContainerProps,
+  onColumnModeChange,
   shouldSuppressItemPress,
 }: IMobileMarketNativeStockListProps) {
   const intl = useIntl();
@@ -1169,6 +1295,7 @@ function MobileMarketNativeStockListImpl({
           item,
           presentation,
           favoriteMenu: isFavoriteMenuOn,
+          responsive: true,
         }),
       ),
     [isFavoriteMenuOn, presentation, result.items],
@@ -1225,7 +1352,11 @@ function MobileMarketNativeStockListImpl({
   return (
     <NativeMarketList
       listRef={listRef}
+      onColumnModeChange={onColumnModeChange}
       rows={rows}
+      changeColumnTitle={intl.formatMessage({
+        id: ETranslations.market_stock_change__title,
+      })}
       loading={result.isLoading}
       loadingMore={
         result.isLoadingMore || (result.isRefreshing && result.isRefreshError)
@@ -1270,6 +1401,7 @@ function MobileMarketNativeTopCoinsListImpl({
   dataCacheRef,
   selectedCategoryId,
   listContainerProps,
+  onColumnModeChange,
   shouldSuppressItemPress,
 }: IMobileMarketNativeTopCoinsListProps) {
   const intl = useIntl();
@@ -1285,6 +1417,7 @@ function MobileMarketNativeTopCoinsListImpl({
           item,
           presentation,
           favoriteMenu: isFavoriteMenuOn,
+          responsive: true,
         }),
       ),
     [isFavoriteMenuOn, data, presentation],
@@ -1330,6 +1463,7 @@ function MobileMarketNativeTopCoinsListImpl({
   return (
     <NativeMarketList
       listRef={listRef}
+      onColumnModeChange={onColumnModeChange}
       rows={rows}
       loading={isLoading !== false && data.length === 0}
       errorMessage={
@@ -1359,6 +1493,7 @@ function MobileMarketNativePerpsListImpl({
   dataCacheRef,
   selectedCategoryId,
   listContainerProps,
+  onColumnModeChange,
   shouldSuppressItemPress,
 }: IMobileMarketNativePerpsListProps) {
   const intl = useIntl();
@@ -1377,6 +1512,7 @@ function MobileMarketNativePerpsListImpl({
           item,
           presentation,
           favoriteMenu: isFavoriteMenuOn,
+          responsive: true,
         }),
       ),
     [isFavoriteMenuOn, presentation, tokens],
@@ -1437,6 +1573,7 @@ function MobileMarketNativePerpsListImpl({
     <Stack ref={badgeInfo.containerRef} flex={1}>
       <NativeMarketList
         listRef={listRef}
+        onColumnModeChange={onColumnModeChange}
         rows={rows}
         loading={Boolean(isLoading) && tokens.length === 0}
         errorMessage={

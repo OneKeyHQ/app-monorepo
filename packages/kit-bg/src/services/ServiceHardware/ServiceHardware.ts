@@ -51,6 +51,7 @@ import {
   getValidDeviceStateVersionKeys,
   projectLegacyDeviceFeaturesFromState,
 } from '@onekeyhq/shared/src/hardware/deviceStateUtils';
+import { HardwareCloudKeyPrerequisiteError } from '@onekeyhq/shared/src/hardware/hardwareCloudSyncErrors';
 import {
   CoreSDKLoader,
   getHardwareSDKInstance,
@@ -110,6 +111,7 @@ import { getFirmwareManifestSnapshot } from '../ServiceFirmwareUpdate/FirmwareMa
 
 import { DeviceSettingsManager } from './DeviceSettingsManager';
 import { HardwareConnectionManager } from './HardwareConnectionManager';
+import { getHardwareTelemetry } from './HardwareTelemetry';
 import {
   HardwareUiEventQueue,
   createHardwareUiEventState,
@@ -476,6 +478,26 @@ class ServiceHardware extends ServiceBase {
   private connectProtocolMigrationPromise: Promise<void> | undefined;
 
   private activeHardwareSDKInstance: IProtocolAwareCoreApi | undefined;
+
+  private sensitiveCloudKeyOperationDepth = 0;
+
+  // Internal background scope only. Never expose raw Cloud-key signatures over
+  // the bridge or copy SDK log payloads into application logs during this scope.
+  async runWithSensitiveCloudKeyOperation<T>(operation: () => Promise<T>) {
+    const debug =
+      await this.backgroundApi.serviceDevSetting.getFirmwareUpdateDevSettings(
+        'showDeviceDebugLogs',
+      );
+    if (debug) {
+      throw new HardwareCloudKeyPrerequisiteError('logging');
+    }
+    this.sensitiveCloudKeyOperationDepth += 1;
+    try {
+      return await operation();
+    } finally {
+      this.sensitiveCloudKeyOperationDepth -= 1;
+    }
+  }
 
   private activeHardwareTransportType: EHardwareTransportType | undefined;
 
@@ -1188,6 +1210,9 @@ class ServiceHardware extends ServiceBase {
       await this.backgroundApi.serviceDevSetting.getFirmwareUpdateDevSettings(
         'showDeviceDebugLogs',
       );
+    if (this.sensitiveCloudKeyOperationDepth > 0 && debugMode) {
+      throw new HardwareCloudKeyPrerequisiteError('logging');
+    }
     const showSdkDebugLogs =
       platformEnv.isDev === true &&
       (platformEnv.isNative === true || platformEnv.isDesktop === true) &&
@@ -1249,6 +1274,15 @@ class ServiceHardware extends ServiceBase {
       effectiveForceTransportType ??
       options.hardwareTransportType ??
       currentTransportType;
+    if (
+      this.sensitiveCloudKeyOperationDepth > 0 &&
+      (platformEnv.isDesktop || platformEnv.isWeb || platformEnv.isExtension) &&
+      hardwareTransportType !== EHardwareTransportType.WEBUSB &&
+      hardwareTransportType !== EHardwareTransportType.DesktopWebBle
+    ) {
+      // Bridge relays the signature through a separate process with its own logs.
+      throw new HardwareCloudKeyPrerequisiteError('transport');
+    }
 
     // connectionManager 会在 UI 展示前提交选路结果，因此不能再用它的
     // currentTransportType 判断 SDK 是否需要重建。单独记录实际 SDK transport，
@@ -1496,13 +1530,17 @@ class ServiceHardware extends ServiceBase {
         totalBytes,
         rateBytesPerSecond,
         elapsedMs,
-      } = originEvent.payload;
+        retryCount,
+      } = originEvent.payload as typeof originEvent.payload & {
+        retryCount?: number;
+      };
       newPayload.deviceProgress = {
         progress,
         transferredBytes,
         totalBytes,
         rateBytesPerSecond,
         elapsedMs,
+        retryCount,
       };
     }
 
@@ -2078,9 +2116,48 @@ class ServiceHardware extends ServiceBase {
       instance.on(
         LOG_EVENT,
         (messages: { event: string; type: string; payload: string[] }) => {
+          if (this.sensitiveCloudKeyOperationDepth > 0) {
+            return;
+          }
           const messageType =
             messages.payload.length > 0 ? messages.payload[0] : '';
           const message = messages.payload.join(' ');
+          const transfer = serviceHardwareUtils.parseBleFileWriteLogPayload(
+            messages.payload,
+          );
+          if (transfer) {
+            const deviceKey =
+              this.backgroundApi.serviceHardwareUI?.hardwareProcessingManager?.getActiveOneKeyOperationLease()
+                ?.deviceKey;
+            void (async () => {
+              const { devices } = await localDb.getAllDevices();
+              const device = deviceKey
+                ? devices.find((item) =>
+                    [
+                      item.id,
+                      item.deviceId,
+                      item.uuid,
+                      item.connectId,
+                      item.usbConnectId,
+                      item.bleConnectId,
+                    ].includes(deviceKey),
+                  )
+                : undefined;
+              getHardwareTelemetry().report({
+                kind: 'ble',
+                params: {
+                  ...transfer,
+                  deviceType: device?.deviceType,
+                  firmwareVersion:
+                    device?.deviceStateInfo?.versions?.firmware ?? undefined,
+                  bleVersion:
+                    device?.deviceStateInfo?.versions?.ble ?? undefined,
+                },
+              });
+            })().catch(() => {
+              // Telemetry must never affect the SDK event handler.
+            });
+          }
 
           if (showSdkDebugLogs) {
             try {
@@ -2090,10 +2167,18 @@ class ServiceHardware extends ServiceBase {
             }
           }
 
+          // Method logs are noisy, but FirmwareUpdateV4 ones carry the failed
+          // install target and per-file transfer timing.
+          const isFirmwareUpdateLog =
+            messageType === '[Method]' &&
+            typeof messages.payload[1] === 'string' &&
+            messages.payload[1].startsWith('[FirmwareUpdateV4]');
           if (
-            messageType.includes('@onekey/hd-core') ||
-            messageType.includes('@onekey/hd-transport') ||
-            messageType.includes('@onekey/hd-ble-transport')
+            !transfer &&
+            (messageType.includes('@onekey/hd-core') ||
+              messageType.includes('@onekey/hd-transport') ||
+              messageType.includes('@onekey/hd-ble-transport') ||
+              isFirmwareUpdateLog)
           ) {
             defaultLogger.hardware.sdkLog.log(messages.event, message);
           }
@@ -2124,6 +2209,8 @@ class ServiceHardware extends ServiceBase {
 
   @backgroundMethod()
   async init() {
+    if (platformEnv.isNative || platformEnv.isDesktop)
+      void getHardwareTelemetry().flush();
     await this.getSDKInstance({
       hardwareCallContext: EHardwareCallContext.SDK_INITIALIZATION,
       connectId: undefined,
@@ -2380,6 +2467,18 @@ class ServiceHardware extends ServiceBase {
         'searchDevices response: ',
         JSON.stringify(response),
       );
+      if (response?.success) {
+        for (const device of response.payload) {
+          if (deviceUtils.isBluetoothSearchDevice(device)) {
+            defaultLogger.hardware.sdkLog.bleSearchDevicesColor({
+              connectId: device.connectId,
+              name: device.name,
+              deviceType: device.deviceType,
+              bleColorCode: device.bleColorCode,
+            });
+          }
+        }
+      }
 
       // Linux may surface missing udev rules either through libusb or Chromium
       // WebUSB errors, depending on the active transport path.
@@ -3497,14 +3596,12 @@ class ServiceHardware extends ServiceBase {
   }) {
     if (platformEnv.isDesktop) {
       return this.backgroundApi.serviceHardwareUI.runExclusiveOneKeyOperation(
-        async () => {
-          const transport = await this.resolveHardwareTransport({
+        () =>
+          this.resolveHardwareTransport({
             connectId: params.connectId,
             features: params.features,
             hardwareCallContext: EHardwareCallContext.UPDATE_FIRMWARE,
-          });
-          return transport.connectId;
-        },
+          }),
         { deviceKey: params.connectId },
       );
     }
@@ -3514,7 +3611,10 @@ class ServiceHardware extends ServiceBase {
     if (!dbDevice) {
       // 首次连接或 Bootloader 模式下，本地数据库可能还没有设备记录。
       // 此时跳过预检，把新发现的连接 ID 原样交给升级流程。
-      return params.connectId;
+      return {
+        connectId: params.connectId,
+        transportType: await this.getCurrentTransportType(),
+      };
     }
     const resolvedTransport = await this.resolveHardwareTransport({
       connectId: params.connectId,
@@ -3543,7 +3643,7 @@ class ServiceHardware extends ServiceBase {
         },
       },
     );
-    return compatibleConnectId;
+    return resolvedTransport;
   }
 
   @backgroundMethod()

@@ -1,3 +1,5 @@
+import { withCustomUAHeaders } from '../customUA';
+
 import { healthCheckRequest } from './healthCheckRequest.sni';
 import { getSelectedIpForHost } from './ipTableAdapter';
 import { isProxyActiveForUrl, isSniSupported, sniRequest } from './sniRequest';
@@ -24,6 +26,12 @@ jest.mock('./sniRequest', () => ({
   sniRequest: jest.fn(),
 }));
 
+jest.mock('../customUA', () => ({
+  withCustomUAHeaders: jest.fn(
+    async (_url: string, headers: Record<string, string>) => headers,
+  ),
+}));
+
 const mockedLogger = jest.requireMock('../../logger/logger') as {
   defaultLogger: {
     ipTable: {
@@ -39,6 +47,7 @@ const mockedGetSelectedIpForHost = getSelectedIpForHost as unknown as jest.Mock;
 const mockedIsProxyActiveForUrl = isProxyActiveForUrl as jest.Mock;
 const mockedIsSniSupported = isSniSupported as jest.Mock;
 const mockedSniRequest = sniRequest as jest.Mock;
+const mockedWithCustomUAHeaders = withCustomUAHeaders as jest.Mock;
 
 describe('healthCheckRequest.sni proxy preflight and fail-closed behavior', () => {
   const fetchMock = jest.fn();
@@ -111,6 +120,30 @@ describe('healthCheckRequest.sni proxy preflight and fail-closed behavior', () =
     expect(mockedSniRequest).toHaveBeenCalledWith(
       expect.objectContaining({
         headers: { valid: 'value' },
+      }),
+    );
+  });
+
+  test('injects the OneKey User-Agent into SNI health probes', async () => {
+    mockedWithCustomUAHeaders.mockImplementationOnce(
+      async (_url: string, headers: Record<string, string>) => ({
+        ...headers,
+        'User-Agent': 'OneKey iOS 6.6.1',
+      }),
+    );
+
+    await healthCheckRequest({
+      url: 'https://api.example.com/health',
+      headers: { valid: 'value' },
+    });
+
+    expect(mockedWithCustomUAHeaders).toHaveBeenCalledWith(
+      'https://api.example.com/health',
+      { valid: 'value' },
+    );
+    expect(mockedSniRequest).toHaveBeenCalledWith(
+      expect.objectContaining({
+        headers: { valid: 'value', 'User-Agent': 'OneKey iOS 6.6.1' },
       }),
     );
   });

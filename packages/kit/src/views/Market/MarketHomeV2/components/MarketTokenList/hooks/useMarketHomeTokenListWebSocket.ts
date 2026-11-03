@@ -52,6 +52,8 @@ type IMarketHomeTokenListWebSocketParams = {
   onSubscriptionCountChange?: (count: number) => void;
 };
 
+// The most token subscriptions one Market list keeps open at a time.
+export const MARKET_HOME_WS_MAX_SUBSCRIPTIONS = 80;
 const DEFAULT_MARKET_HOME_WS_CHART_TYPE = '1m';
 const DEFAULT_MARKET_HOME_WS_CURRENCY = 'usd';
 

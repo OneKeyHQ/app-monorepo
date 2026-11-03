@@ -1,4 +1,5 @@
 export type IPortfolioSyncRequestPhase =
+  | 'preparing'
   | 'queued'
   | 'refreshing'
   | 'settled'
@@ -6,6 +7,7 @@ export type IPortfolioSyncRequestPhase =
 
 export interface IPortfolioSyncRequest {
   id: number;
+  categoryRequestId?: number;
   minimumAllNetworksGeneration?: number;
   phase: IPortfolioSyncRequestPhase;
   targetKey: string;

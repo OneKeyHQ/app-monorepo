@@ -3,8 +3,8 @@ import { memo, useMemo } from 'react';
 import { useIntl } from 'react-intl';
 
 import { Stack, useMedia } from '@onekeyhq/components';
-import { useFocusedTab } from '@onekeyhq/components/src/composite/Tabs/useFocusedTab';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import {
   type IMarketMobileDetailKind,
@@ -23,6 +23,8 @@ import {
   TransactionsHeaderSmall,
 } from '../components/TransactionsHistory';
 
+import { useMarketDetailFocusedTab } from './MarketDetailScroll';
+
 function BaseStickyHeader({
   detailKind = 'trending',
 }: {
@@ -30,15 +32,18 @@ function BaseStickyHeader({
 }) {
   const intl = useIntl();
   const { gtLg, gtXl } = useMedia();
-  const focusedTab = useFocusedTab();
+  const focusedTab = useMarketDetailFocusedTab();
 
   const transactionsHeader = useMemo(() => {
     return gtXl ? <TransactionsHeaderNormal /> : <TransactionsHeaderSmall />;
   }, [gtXl]);
 
   const portfolioHeader = useMemo(() => {
+    if (platformEnv.isNative && detailKind === 'stock') {
+      return <PortfolioHeaderSmall isStock />;
+    }
     return gtLg ? <PortfolioHeaderNormal /> : <PortfolioHeaderSmall />;
-  }, [gtLg]);
+  }, [detailKind, gtLg]);
 
   const holdersHeader = useMemo(() => {
     return gtLg ? <HoldersHeaderNormal /> : <HoldersHeaderSmall />;

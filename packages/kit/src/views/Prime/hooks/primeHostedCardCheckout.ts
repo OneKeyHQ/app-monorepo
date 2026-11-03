@@ -94,9 +94,41 @@ async function handOffCardCheckoutToExpandTab({
   closeExtensionPopupAfterExpandTabOpen();
 }
 
+const lastCheckoutStarts = new Map<string | undefined, Promise<void>>();
+
+// Every call is a new payment for the plan, currency and environment the user
+// just selected (OK-65674), the same as clicking the embedded card checkout
+// again. Do not resume, reuse or de-duplicate an earlier attempt here, not
+// even for rapid repeated clicks: each of those can open the plan of an
+// earlier click instead of the one the user picked last.
+// - Starts only run in click order, none is skipped: the last click's page
+//   opens last (in front) and its record is the one kept.
+// - An earlier hosted page the user left open stays payable; the client
+//   cannot cancel it. That is accepted product behavior. On the extension the
+//   new checkout reuses the old checkout's tab while it still shows that page.
+// - The pending record written below only lets the waiting dialog and the
+//   recovery hook detect this attempt's result after the user leaves the app.
+//   It never decides what a click does; the next attempt replaces it.
+export function startPrimeHostedCardCheckout(
+  params: IPrimeHostedCardCheckoutParams,
+): Promise<void> {
+  const previous = lastCheckoutStarts.get(params.onekeyUserId);
+  const completion = (previous ?? Promise.resolve())
+    // An earlier start never stops this one.
+    .catch(() => undefined)
+    .then(() => openPrimeHostedCardCheckout(params))
+    .finally(() => {
+      if (lastCheckoutStarts.get(params.onekeyUserId) === completion) {
+        lastCheckoutStarts.delete(params.onekeyUserId);
+      }
+    });
+  lastCheckoutStarts.set(params.onekeyUserId, completion);
+  return completion;
+}
+
 // Opens the RevenueCat hosted card checkout (Web Purchase Link) and waits for
 // RevenueCat to confirm the purchase. Errors end in a toast, never a throw.
-export async function startPrimeHostedCardCheckout({
+async function openPrimeHostedCardCheckout({
   intl,
   onekeyUserId,
   email,
@@ -187,7 +219,7 @@ export async function startPrimeHostedCardCheckout({
     if (!(await isPrimeWebCheckoutUserCurrent(onekeyUserId))) {
       throw new OneKeyLocalError('Prime purchase user changed');
     }
-    const candidate: IPrimeWebCheckoutPendingSession = {
+    const session: IPrimeWebCheckoutPendingSession = {
       checkoutId: generateUUID(),
       onekeyUserId,
       subscriptionPeriod: selectedSubscriptionPeriod,
@@ -201,16 +233,15 @@ export async function startPrimeHostedCardCheckout({
       checkoutUrl,
       startedAt: Date.now(),
     };
-    // Independent extension surfaces must acquire the same payable session.
-    const { session, reused, replacedSession } =
+    const { replacedSession } =
       await backgroundApiProxy.simpleDb.prime.acquireWebCheckoutPendingSession({
-        session: candidate,
+        session,
       });
     if (!(await isPrimeWebCheckoutUserCurrent(onekeyUserId))) {
       throw new OneKeyLocalError('Prime purchase user changed');
     }
-    // Another surface may already be opening this session. Keep it recoverable
-    // even when this caller fails to open or record its checkout tab.
+    // The record stays even if opening fails: the page may already be open in
+    // the browser, so its payment must still be detected.
     const openResult = await openPrimeWebCheckoutPage(session, {
       email,
       replacedSession,
@@ -218,7 +249,6 @@ export async function startPrimeHostedCardCheckout({
     logPrimeWebCheckoutFlow({
       stage: 'open',
       status: 'succeeded',
-      reason: reused ? 'reusedCheckout' : undefined,
       isSandbox: isSandboxKey,
       subscriptionPeriod: selectedSubscriptionPeriod,
       featureName,
@@ -292,28 +322,6 @@ export async function fallbackToPrimeHostedCardCheckout({
     return;
   }
   await startPrimeHostedCardCheckout({ ...params, fallbackFrom: trigger });
-}
-
-// A hosted page may still accept payment after its waiting dialog closes.
-// Resume that checkout instead of losing its monitor or starting a second one.
-export async function resumePendingPrimeHostedCardCheckout(
-  onekeyUserId: string | undefined,
-): Promise<boolean> {
-  if (!onekeyUserId) {
-    return false;
-  }
-  const session =
-    await backgroundApiProxy.simpleDb.prime.getWebCheckoutPendingSession({
-      onekeyUserId,
-    });
-  if (!session) {
-    return false;
-  }
-  if (!(await isPrimeWebCheckoutUserCurrent(onekeyUserId))) {
-    throw new OneKeyLocalError('Prime purchase user changed');
-  }
-  showPrimeWebCheckoutWaitingDialog({ session });
-  return true;
 }
 
 const FALLBACK_TRIGGERS = new Set<string>([
