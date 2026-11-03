@@ -13,6 +13,7 @@ import {
   getTradingViewNativeSkiaPaintStyleSignature,
 } from './chartSkiaRenderer';
 import {
+  getTradingViewNativeSkiaDigitMetrics,
   getTradingViewNativeSkiaDigitWidth,
   getTradingViewNativeSkiaPriceAxisLabelWidth,
   getTradingViewNativeSkiaTextFont,
@@ -296,10 +297,47 @@ describe('TradingViewNative Skia scene renderer', () => {
     mockSystemFontFamilies = [];
   });
 
+  it('reserves rounded-out digit ink once instead of per digit', () => {
+    // Skia returns single-glyph ink bounds rounded out to whole points.
+    const font = {
+      getGlyphIDs: (text: string) =>
+        Array.from(text, (character) => character.charCodeAt(0)),
+      getGlyphWidths: (glyphs: number[]) =>
+        glyphs.map((glyph) => {
+          if (glyph === 52) return 8;
+          if (glyph === 46) return 3;
+          return 7;
+        }),
+      measureText: (text: string) =>
+        text === '888.888'
+          ? { x: -1, y: -10, height: 12, width: 46 }
+          : { x: -1, y: -10, height: 12, width: 10 },
+    };
+    const digitMetrics = getTradingViewNativeSkiaDigitMetrics(font);
+
+    expect(digitMetrics).toEqual({ advance: 8, inkRight: 9 });
+    // Six 8pt digit slots and the dot, plus 1pt of ink past the last slot.
+    expect(
+      getTradingViewNativeSkiaPriceAxisLabelWidth(
+        '888.888',
+        font,
+        digitMetrics,
+      ),
+    ).toBe(52);
+    // A single digit width keeps reserving it for every digit slot.
+    expect(
+      getTradingViewNativeSkiaPriceAxisLabelWidth(
+        '888.888',
+        font,
+        getTradingViewNativeSkiaDigitWidth(font),
+      ),
+    ).toBe(57);
+  });
+
   it.each([
     { fourAdvance: 8, fourRight: 8, eightAdvance: 8, expectedWidth: 59 },
     { fourAdvance: 8, fourRight: 8, eightAdvance: 7, expectedWidth: 59 },
-    { fourAdvance: 8, fourRight: 9, eightAdvance: 8, expectedWidth: 66 },
+    { fourAdvance: 8, fourRight: 9, eightAdvance: 8, expectedWidth: 60 },
   ])(
     'reserves numeric label width for proportional advances and ink: %j',
     ({ fourAdvance, fourRight, eightAdvance, expectedWidth }) => {
@@ -319,11 +357,11 @@ describe('TradingViewNative Skia scene renderer', () => {
           return { x: 0, y: -8, height: 8, width };
         },
       };
-      const digitWidth = getTradingViewNativeSkiaDigitWidth(font);
+      const digitMetrics = getTradingViewNativeSkiaDigitMetrics(font);
       const reservedWidth = getTradingViewNativeSkiaPriceAxisLabelWidth(
         '88888.88',
         font,
-        digitWidth,
+        digitMetrics,
       );
 
       for (const [price, decimals] of [
@@ -337,7 +375,7 @@ describe('TradingViewNative Skia scene renderer', () => {
               decimals,
             ),
             font,
-            digitWidth,
+            digitMetrics,
           );
         expect(widthFor(price)).toBe(widthFor(price + 10 ** -decimals));
       }

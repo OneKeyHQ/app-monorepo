@@ -6,45 +6,74 @@ type ITradingViewNativeSkiaMeasurementFont = Pick<
   'getGlyphIDs' | 'getGlyphWidths' | 'measureText'
 >;
 
+export interface ITradingViewNativeSkiaDigitMetrics {
+  // Widest digit advance, reserved for every digit slot.
+  advance: number;
+  // Rightmost digit ink, which can only overflow from the last slot.
+  inkRight: number;
+}
+
+export function getTradingViewNativeSkiaDigitMetrics(
+  font: ITradingViewNativeSkiaMeasurementFont,
+): ITradingViewNativeSkiaDigitMetrics {
+  'worklet';
+
+  const digits = '0123456789';
+  const advances = font.getGlyphWidths(font.getGlyphIDs(digits));
+  let advance = 0;
+  let inkRight = 0;
+  for (let index = 0; index < digits.length; index += 1) {
+    const bounds = font.measureText(digits[index]);
+    advance = Math.max(advance, advances[index]);
+    inkRight = Math.max(inkRight, bounds.x + bounds.width);
+  }
+  return { advance, inkRight };
+}
+
 export function getTradingViewNativeSkiaDigitWidth(
   font: ITradingViewNativeSkiaMeasurementFont,
 ): number {
   'worklet';
 
-  const digits = '0123456789';
-  const advances = font.getGlyphWidths(font.getGlyphIDs(digits));
-  let width = 0;
-  for (let index = 0; index < digits.length; index += 1) {
-    const bounds = font.measureText(digits[index]);
-    width = Math.max(width, advances[index], bounds.x + bounds.width);
-  }
-  return width;
+  const { advance, inkRight } = getTradingViewNativeSkiaDigitMetrics(font);
+  return Math.max(advance, inkRight);
 }
 
 export function getTradingViewNativeSkiaPriceAxisLabelWidth(
   text: string,
   font: ITradingViewNativeSkiaMeasurementFont,
-  digitWidth: number,
+  // A single width reserves it for every digit slot, as LightweightChart does.
+  digitWidthOrMetrics: number | ITradingViewNativeSkiaDigitMetrics,
 ): number {
   'worklet';
 
+  const digitMetrics =
+    typeof digitWidthOrMetrics === 'number'
+      ? { advance: digitWidthOrMetrics, inkRight: digitWidthOrMetrics }
+      : digitWidthOrMetrics;
   const bounds = font.measureText(text);
   const advances = font.getGlyphWidths(font.getGlyphIDs(text));
   let reservedAdvance = 0;
   let extraDigitWidth = 0;
+  let lastDigitInkOverflow = 0;
   let glyphIndex = 0;
   for (const character of text) {
     const advance = advances[glyphIndex];
     const code = character.charCodeAt(0);
-    const extra =
-      code >= 48 && code <= 57 ? Math.max(digitWidth - advance, 0) : 0;
+    const isDigit = code >= 48 && code <= 57;
+    const extra = isDigit ? Math.max(digitMetrics.advance - advance, 0) : 0;
     reservedAdvance += advance + extra;
     extraDigitWidth += extra;
+    // Earlier ink overlaps the next slot. Skia also rounds single-glyph bounds
+    // out to whole points, so adding this per digit over-reserves the axis.
+    lastDigitInkOverflow = isDigit
+      ? Math.max(digitMetrics.inkRight - (advance + extra), 0)
+      : 0;
     glyphIndex += 1;
   }
   // Candidate labels use "8", but proportional digits can have wider advances or ink.
   return Math.max(
-    reservedAdvance,
+    reservedAdvance + lastDigitInkOverflow,
     bounds.x + bounds.width + extraDigitWidth,
     0,
   );

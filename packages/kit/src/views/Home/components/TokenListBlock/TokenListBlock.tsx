@@ -529,7 +529,6 @@ function TokenListBlock({
   const refreshPortfolioCategoriesRef = useRef<
     (force?: boolean, sources?: ('defi' | 'perps')[]) => Promise<boolean>
   >(async () => false);
-  const lastPortfolioCategoryAttemptRef = useRef(0);
   const [{ currencyMap }] = useCurrencyPersistAtom();
   const [, setOverviewTokenCacheState] = useOverviewTokenCacheStateAtom();
 
@@ -631,7 +630,6 @@ function TokenListBlock({
     network?.id,
   );
   useLayoutEffect(() => {
-    lastPortfolioCategoryAttemptRef.current = 0;
     portfolioCategoryTaskRef.current = undefined;
     partialPortfolioCategoriesRef.current = undefined;
     portfolioCategoryRequestIdRef.current += 1;
@@ -3587,7 +3585,6 @@ function TokenListBlock({
       }
       portfolioCategoryRequestIdRef.current += 1;
       const requestId = portfolioCategoryRequestIdRef.current;
-      lastPortfolioCategoryAttemptRef.current = Date.now();
       setPortfolioCategoryRefresh((previous) => ({
         ...(previous.ownerKey === portfolioCategoryOwnerKey ? previous : {}),
         ownerKey: portfolioCategoryOwnerKey,
@@ -3620,17 +3617,28 @@ function TokenListBlock({
             partialPortfolioCategoriesRef.current?.scope === scope
               ? partialPortfolioCategoriesRef.current.data
               : undefined;
+          const knownHome =
+            homePortfolioDisplay.isLive &&
+            homePortfolioDisplay.ownerKey === portfolioCategoryOwnerKey
+              ? homePortfolioDisplay
+              : undefined;
           const merged = {
             ...result,
-            ...(!sources.includes('defi') && previous
+            ...(!sources.includes('defi')
               ? {
-                  defiFiat: previous.defiFiat,
-                  deFiSource: previous.deFiSource,
-                  deFiOverview: previous.deFiOverview,
+                  defiFiat: knownHome?.defiFiatUsd ?? previous?.defiFiat,
+                  deFiSource:
+                    knownHome?.defiFiatUsd !== undefined
+                      ? ('live' as const)
+                      : previous?.deFiSource,
+                  deFiOverview:
+                    knownHome?.defiFiatUsd !== undefined
+                      ? undefined
+                      : previous?.deFiOverview,
                 }
               : {}),
-            ...(!sources.includes('perps') && previous
-              ? { perpsFiat: previous.perpsFiat }
+            ...(!sources.includes('perps')
+              ? { perpsFiat: knownHome?.perpsFiatUsd ?? previous?.perpsFiat }
               : {}),
           };
           const failedSources: ('defi' | 'perps')[] = [];
@@ -3657,7 +3665,7 @@ function TokenListBlock({
                     ? {
                         retry: () => {
                           void refreshPortfolioCategoriesRef.current(
-                            true,
+                            false,
                             failedSources,
                           );
                         },
@@ -3680,7 +3688,10 @@ function TokenListBlock({
                     isRefreshing: false,
                     failedSources: sources,
                     retry: () => {
-                      void refreshPortfolioCategoriesRef.current(true, sources);
+                      void refreshPortfolioCategoriesRef.current(
+                        false,
+                        sources,
+                      );
                     },
                   },
             );
@@ -3707,26 +3718,6 @@ function TokenListBlock({
     ],
   );
   refreshPortfolioCategoriesRef.current = refreshPortfolioCategories;
-
-  useEffect(() => {
-    if (!canRefreshPortfolioCategories || !isFocused) return undefined;
-    const refreshIfNeeded = () => {
-      if (
-        Date.now() - lastPortfolioCategoryAttemptRef.current < 60_000 ||
-        getCurrentPortfolioSyncRequest()
-      )
-        return;
-      void refreshPortfolioCategoriesRef.current();
-    };
-    refreshIfNeeded();
-    const timer = setInterval(refreshIfNeeded, 60_000);
-    return () => clearInterval(timer);
-  }, [
-    canRefreshPortfolioCategories,
-    getCurrentPortfolioSyncRequest,
-    isFocused,
-    portfolioCategoryScope,
-  ]);
 
   const buildCurrentHomePortfolioSyncPayload = useCallback(() => {
     const totalFiatCurrency = accountTokensWorth.currency ?? currencyInfo?.id;
@@ -3997,28 +3988,52 @@ function TokenListBlock({
       }, 30_000);
       if (!hasCurrentHomePortfolioSnapshot)
         refreshWalletTokenListRef.current?.();
-      void refreshPortfolioCategories(true, sources).then((complete) => {
-        if (getCurrentPortfolioSyncRequest()?.id !== request.id) return;
-        if (!complete) {
-          finishPortfolioSyncRequest(request.id);
-          setPortfolioCategoryRefresh((current) => ({
-            ...current,
-            retry: () => manualPortfolioSyncRef.current(current.failedSources),
-          }));
-          return;
-        }
-        request.categoryRequestId = portfolioCategoryRequestIdRef.current;
-        setPortfolioSyncPreparedRevision(request.categoryRequestId);
-        // The header publishes this revision after committing the refreshed amounts.
+      const missingSources = sources.filter((source) => {
+        const value =
+          source === 'defi'
+            ? homePortfolioDisplay.defiFiatUsd
+            : homePortfolioDisplay.perpsFiatUsd;
+        return (
+          !homePortfolioDisplay.isLive ||
+          homePortfolioDisplay.ownerKey !== portfolioCategoryOwnerKey ||
+          value === undefined ||
+          !new BigNumber(value).isFinite()
+        );
       });
+      if (!missingSources.length) {
+        const eventPayload = buildCurrentHomePortfolioSyncPayload();
+        if (eventPayload) communicatePortfolio(request, eventPayload);
+        return;
+      }
+      void refreshPortfolioCategories(false, missingSources).then(
+        (complete) => {
+          if (getCurrentPortfolioSyncRequest()?.id !== request.id) return;
+          if (!complete) {
+            finishPortfolioSyncRequest(request.id);
+            setPortfolioCategoryRefresh((current) => ({
+              ...current,
+              retry: () =>
+                manualPortfolioSyncRef.current(current.failedSources),
+            }));
+            return;
+          }
+          request.categoryRequestId = portfolioCategoryRequestIdRef.current;
+          setPortfolioSyncPreparedRevision(request.categoryRequestId);
+          // The header publishes this revision after committing the refreshed amounts.
+        },
+      );
     },
     [
+      buildCurrentHomePortfolioSyncPayload,
       canRefreshPortfolioCategories,
       clearPortfolioSyncFallbackTimer,
+      communicatePortfolio,
       finishPortfolioSyncRequest,
       getCurrentPortfolioSyncRequest,
       hasCurrentHomePortfolioSnapshot,
+      homePortfolioDisplay,
       intl,
+      portfolioCategoryOwnerKey,
       portfolioSyncTargetKey,
       refreshPortfolioCategories,
       setPortfolioCategoryRefresh,
@@ -4030,9 +4045,15 @@ function TokenListBlock({
     const request = getCurrentPortfolioSyncRequest();
     if (
       request?.phase !== 'preparing' ||
-      request.categoryRequestId === undefined ||
+      portfolioCategoryTaskRef.current ||
       !homePortfolioDisplay.isLive ||
-      homePortfolioDisplay.categoryRevision !== request.categoryRequestId
+      homePortfolioDisplay.ownerKey !== portfolioCategoryOwnerKey ||
+      homePortfolioDisplay.defiFiatUsd === undefined ||
+      !new BigNumber(homePortfolioDisplay.defiFiatUsd).isFinite() ||
+      homePortfolioDisplay.perpsFiatUsd === undefined ||
+      !new BigNumber(homePortfolioDisplay.perpsFiatUsd).isFinite() ||
+      (request.categoryRequestId !== undefined &&
+        homePortfolioDisplay.categoryRevision !== request.categoryRequestId)
     )
       return;
     const eventPayload = buildCurrentHomePortfolioSyncPayload();
@@ -4042,6 +4063,7 @@ function TokenListBlock({
     communicatePortfolio,
     getCurrentPortfolioSyncRequest,
     homePortfolioDisplay,
+    portfolioCategoryOwnerKey,
     portfolioSyncPreparedRevision,
     portfolioSyncRequestPhase,
   ]);
@@ -4376,9 +4398,6 @@ function TokenListBlock({
     const fn = () => {
       if (isFocused) {
         refresh(undefined);
-        if (canRefreshPortfolioCategories) {
-          void refreshPortfolioCategoriesRef.current();
-        }
       }
     };
     appEventBus.on(EAppEventBusNames.NetworkDeriveTypeChanged, fn);
@@ -4393,7 +4412,6 @@ function TokenListBlock({
     handleRefreshAllNetworkData,
     handleRefreshAllNetworkDataByAccounts,
     isFocused,
-    canRefreshPortfolioCategories,
     network?.isAllNetworks,
     run,
     runAllNetworksRequests,

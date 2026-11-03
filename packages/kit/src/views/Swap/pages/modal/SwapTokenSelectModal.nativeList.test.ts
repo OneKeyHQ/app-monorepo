@@ -51,6 +51,41 @@ function rows(
 }
 
 describe('Swap NativeList row adapter', () => {
+  it.each([true, false])(
+    'keeps menu bounds inside the row and token columns aligned for desktop=%s',
+    (isDesktopSelector) => {
+      const built = buildSwapTokenNativeListSnapshot({
+        tokens: [token('USDC', 'evm--1', '0x1234')],
+        theme,
+        disabledNetworkIds: [],
+        isMediumScreen: false,
+        isDesktopSelector,
+        currencySymbol: '$',
+        otherNetworkStartIndex: -1,
+        warningIndex: -1,
+        warningText: 'Unknown token',
+        warningBorderWidth: 1,
+        searchSectionTitles: {
+          selectedNetwork: 'Tokens on Ethereum',
+          otherNetworks: 'Tokens on other networks',
+        },
+      });
+      const [row] = rows(built.snapshot);
+      const padding = row?.style?.horizontalPadding ?? 0;
+      const contentInset = built.snapshot.layout?.contentPaddingHorizontal ?? 0;
+      // Reserve the tertiary button's 7px overhang and its 2px focus ring.
+      expect(padding).toBeGreaterThanOrEqual(9);
+      expect(contentInset + padding).toBe(20);
+      const section = built.snapshot.rows.find(
+        (item) => item.type === 'sectionHeader',
+      );
+      expect(section?.style?.horizontalPadding).toBe(padding);
+      expect(row?.style?.container?.cornerRadius).toBe(
+        isDesktopSelector ? 12 : undefined,
+      );
+    },
+  );
+
   it('keeps result sections, Fuse highlighting, balances, and disabled network actions', () => {
     const selected = token('USDC', 'evm--1', '0x12345678901234567890');
     const other = token('ETH', 'evm--137', '0xabcdefabcdefabcdef');

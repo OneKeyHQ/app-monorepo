@@ -11,6 +11,7 @@ import {
   TRADING_VIEW_NATIVE_CHART_TOP_PADDING,
   TRADING_VIEW_NATIVE_CURRENT_PRICE_LABEL_HORIZONTAL_PADDING,
   TRADING_VIEW_NATIVE_MOBILE_WATERMARK_WIDTH_RATIO,
+  TRADING_VIEW_NATIVE_PRICE_AXIS_EXTRA_WIDTH,
   TRADING_VIEW_NATIVE_PRICE_AXIS_LABEL_LEFT_PADDING,
   TRADING_VIEW_NATIVE_PRICE_AXIS_LABEL_RIGHT_PADDING,
   TRADING_VIEW_NATIVE_PRICE_AXIS_MIN_TICK_SPACING,
@@ -282,6 +283,15 @@ function roundTradingViewNativeSubOnePrice(
       : `${sign}${digits}${'0'.repeat(integerLength - digits.length)}`;
   }
   return `${sign}0.${'0'.repeat(-exponent - 1)}${digits}`;
+}
+
+// Decimals the axis uses for a price when the source provides no precision.
+export function getTradingViewNativeDefaultPriceDecimalPlaces(
+  price: number | undefined,
+) {
+  return price !== undefined && Number.isFinite(price) && Math.abs(price) >= 1
+    ? PRICE_INTEGER_FRACTION_DIGITS
+    : undefined;
 }
 
 export function formatTradingViewNativePriceTick(
@@ -661,17 +671,19 @@ export function getTradingViewNativePriceAxisWidth({
   const normalizedMinimumWidth = Number.isFinite(minimumWidth)
     ? Math.max(Math.ceil(minimumWidth), 0)
     : 0;
-  return Math.max(
-    normalizedMinimumWidth,
+  return (
     Math.max(
-      normalizedWidestPriceLabelWidth,
-      normalizedWidestVolumeLabelWidth,
-    ) +
-      TRADING_VIEW_NATIVE_PRICE_AXIS_LABEL_LEFT_PADDING +
-      TRADING_VIEW_NATIVE_PRICE_AXIS_LABEL_RIGHT_PADDING,
-    normalizedCurrentPriceLabelWidth +
-      TRADING_VIEW_NATIVE_PRICE_AXIS_LABEL_LEFT_PADDING +
-      TRADING_VIEW_NATIVE_CURRENT_PRICE_LABEL_HORIZONTAL_PADDING,
+      normalizedMinimumWidth,
+      Math.max(
+        normalizedWidestPriceLabelWidth,
+        normalizedWidestVolumeLabelWidth,
+      ) +
+        TRADING_VIEW_NATIVE_PRICE_AXIS_LABEL_LEFT_PADDING +
+        TRADING_VIEW_NATIVE_PRICE_AXIS_LABEL_RIGHT_PADDING,
+      normalizedCurrentPriceLabelWidth +
+        TRADING_VIEW_NATIVE_PRICE_AXIS_LABEL_LEFT_PADDING +
+        TRADING_VIEW_NATIVE_CURRENT_PRICE_LABEL_HORIZONTAL_PADDING,
+    ) + TRADING_VIEW_NATIVE_PRICE_AXIS_EXTRA_WIDTH
   );
 }
 

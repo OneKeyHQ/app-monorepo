@@ -9,7 +9,13 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { subscribeNativeStorageContractViolations } from '@onekeyhq/shared/src/storage/nativeStorageContractViolationSubscription';
+import {
+  getNativeAppStorageEmergencyStatus,
+  subscribeNativeAppStorageEmergencyStatus,
+} from '@onekeyhq/shared/src/storage/nativeStorageRecovery';
+import { getNativeStorageRecoveryToastTarget } from '@onekeyhq/shared/src/storage/nativeStorageTypes';
 
 import { getErrorAction } from './ErrorToasts';
 import {
@@ -64,6 +70,32 @@ const MAIN_THREAD_HARDWARE_ERROR_I18N_KEYS = new Set<ETranslations>([
 export function ErrorToastContainer() {
   const intl = useIntl();
 
+  useEffect(() => {
+    if (!platformEnv.isNative) return;
+    let warnedEpoch: string | undefined;
+    const showEmergencyWarning = () => {
+      const status = getNativeAppStorageEmergencyStatus();
+      if (!status) {
+        warnedEpoch = undefined;
+        return;
+      }
+      if (warnedEpoch === status.epoch) return;
+      warnedEpoch = status.epoch;
+      Toast.warning({
+        title: 'Emergency storage mode',
+        duration: 10_000,
+        message:
+          'Using current MMKV data, which may be incomplete. Legacy data and old transaction evidence are retained. Migration is not complete. Back up your wallets; future recovery must explicitly choose which snapshot to keep.',
+      });
+    };
+    // Locale/provider startup may mount this consumer after the bg snapshot.
+    // Subscribe before reading, and repeat the warning on a new app mount.
+    const unsubscribe =
+      subscribeNativeAppStorageEmergencyStatus(showEmergencyWarning);
+    showEmergencyWarning();
+    return unsubscribe;
+  }, []);
+
   useEffect(
     () =>
       subscribeNativeStorageContractViolations((violation) => {
@@ -114,6 +146,10 @@ export function ErrorToastContainer() {
       });
 
       const canLocalizeError =
+        !(
+          platformEnv.isNative &&
+          getNativeStorageRecoveryToastTarget(p.title, p.message)
+        ) &&
         p.i18nKey &&
         ((p.isHardwareError &&
           hasLoadedTranslation(intl.messages, p.i18nKey)) ||
@@ -135,6 +171,8 @@ export function ErrorToastContainer() {
         toastId,
         actions,
         duration: p.duration,
+        nativeStorageRecoveryTestSessionId:
+          p.nativeStorageRecoveryTestSessionId,
       });
     };
     appEventBus.on(EAppEventBusNames.ShowToast, fn);
