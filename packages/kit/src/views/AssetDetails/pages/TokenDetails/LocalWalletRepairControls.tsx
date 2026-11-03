@@ -230,6 +230,9 @@ export function BirthdayDialogForm({
   const showHeightError =
     displayedMode === 'height' && heightTouched && invalidHeight;
   const minHeight = Math.max(1, earliestBirthday?.height ?? 1);
+  // A defined `disabled`, even false, reaches the input through Tamagui Group
+  // and makes the read-only field editable on Android.
+  const dateDisabled = locked ? true : undefined;
   let editor: React.ReactNode = null;
   if (displayedMode === 'date') {
     editor = (
@@ -243,7 +246,7 @@ export function BirthdayDialogForm({
           })}
           minDate={minDate}
           maxDate={new Date()}
-          disabled={locked}
+          disabled={dateDisabled}
           showTodayShortcut={false}
           value={locked ? earliestDate : date}
           onChange={(value) => {
