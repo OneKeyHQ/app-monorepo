@@ -37,13 +37,14 @@ describe('xmrNodeDirect', () => {
     ).resolves.toBeNull();
   });
 
-  it('reads height from get_height', async () => {
+  // `/get_height` counts blocks; the runtime's tip is the top block's number.
+  it('reads the top block number from get_height', async () => {
     nodeFetch.mockResolvedValue(
       new Response(JSON.stringify({ height: 3_512_327 }), { status: 200 }),
     );
     await expect(
       fetchXmrNodeHeightDirect({ nodeBase: 'https://node.example/' }),
-    ).resolves.toBe(3_512_327);
+    ).resolves.toBe(3_512_326);
     expect(nodeFetch).toHaveBeenCalledWith(
       'https://node.example/get_height',
       expect.objectContaining({ method: 'POST' }),

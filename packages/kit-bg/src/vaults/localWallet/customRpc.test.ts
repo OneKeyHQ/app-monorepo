@@ -49,6 +49,8 @@ const requestedUrls = () => nodeFetch.mock.calls.map(([url]) => String(url));
 const lightdInfo = jest.mocked(fetchZcashLightdInfoDirect);
 const directTip = jest.mocked(fetchZcashChainTipDirect);
 const HEIGHT = 3_512_327;
+// `/get_height` counts blocks; the app reports the top block's number.
+const TOP_BLOCK = HEIGHT - 1;
 
 beforeEach(() => setLocalWalletRemoteConfigs({}));
 
@@ -285,7 +287,7 @@ describe('XMR custom RPC', () => {
         rpcUrl: ' https://node.example/proxy/// ',
         validateChainId: true,
       }),
-    ).resolves.toMatchObject({ bestBlockNumber: HEIGHT });
+    ).resolves.toMatchObject({ bestBlockNumber: TOP_BLOCK });
     expect(requestedUrls()).toEqual([
       'https://node.example/proxy/get_height',
       'https://node.example/proxy/json_rpc',
@@ -391,7 +393,7 @@ describe('XMR custom RPC', () => {
             rpcUrl: 'https://node.example',
             validateChainId: true,
           }),
-        ).resolves.toMatchObject({ bestBlockNumber: HEIGHT });
+        ).resolves.toMatchObject({ bestBlockNumber: TOP_BLOCK });
       },
     );
 
@@ -437,7 +439,7 @@ describe('XMR custom RPC', () => {
         createMainnetVault().getCustomRpcEndpointStatus({
           rpcUrl: 'https://node.example',
         }),
-      ).resolves.toMatchObject({ bestBlockNumber: HEIGHT });
+      ).resolves.toMatchObject({ bestBlockNumber: TOP_BLOCK });
       expect(nodeFetch).toHaveBeenCalledTimes(1);
     });
   });
@@ -455,7 +457,7 @@ describe('XMR custom RPC', () => {
       nodeFetch.mockResolvedValue(jsonReply({ height: HEIGHT }));
       await expect(
         createNodeVault().getLocalWalletLatestHeight(),
-      ).resolves.toBe(HEIGHT);
+      ).resolves.toBe(TOP_BLOCK);
       expect(requestedUrls()).toEqual(['https://node.example/get_height']);
     });
 

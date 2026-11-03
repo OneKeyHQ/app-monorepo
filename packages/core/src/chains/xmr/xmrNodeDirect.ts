@@ -35,7 +35,7 @@ async function postXmrNode(url: string, body = ''): Promise<string | null> {
   return response.text();
 }
 
-/** Height from `/get_height` without opening the scanner wallet; a failed connection throws. */
+/** The top block's number, as the runtime reports its tip (`/get_height` counts blocks), without opening the scanner wallet; a failed connection throws. */
 export async function fetchXmrNodeHeightDirect({
   nodeBase,
 }: {
@@ -49,7 +49,7 @@ export async function fetchXmrNodeHeightDirect({
   try {
     const body = JSON.parse(text) as { height?: unknown };
     return typeof body.height === 'number' && body.height > 0
-      ? body.height
+      ? body.height - 1
       : null;
   } catch {
     return null;
