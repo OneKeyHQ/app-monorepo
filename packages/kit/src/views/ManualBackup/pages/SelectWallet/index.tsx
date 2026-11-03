@@ -4,13 +4,13 @@ import { useIntl } from 'react-intl';
 
 import { Empty, Page, SizableText } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { getManualBackupMnemonic } from '@onekeyhq/kit/src/components/WalletBackup/getManualBackupMnemonic';
 import { WalletListView } from '@onekeyhq/kit/src/components/WalletListView';
 import { navigateToBackupWalletReminderPage } from '@onekeyhq/kit/src/hooks/usePageNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { shouldShowMnemonicBackupEntryForWallet } from '@onekeyhq/kit/src/utils/botWalletStatusUtils';
 import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 
 import { ManualBackupTestIDs } from '../../testIDs';
 
@@ -27,19 +27,20 @@ export default function ManualBackupSelectWalletPage() {
     return hdWalletList;
   }, []).result;
 
-  const onPick = useCallback(async (item: IDBWallet) => {
-    const { mnemonic } =
-      await backgroundApiProxy.serviceAccount.getHDAccountMnemonic({
-        walletId: item.id,
-        reason: EReasonForNeedPassword.Security,
-      });
+  const onPick = useCallback(
+    async (item: IDBWallet) => {
+      const result = await getManualBackupMnemonic(item.id, intl);
+      if (!result) return;
+      const { mnemonic } = result;
 
-    navigateToBackupWalletReminderPage({
-      walletId: item.id,
-      isWalletBackedUp: item.backuped,
-      mnemonic,
-    });
-  }, []);
+      navigateToBackupWalletReminderPage({
+        walletId: item.id,
+        isWalletBackedUp: item.backuped,
+        mnemonic,
+      });
+    },
+    [intl],
+  );
 
   return (
     <Page>

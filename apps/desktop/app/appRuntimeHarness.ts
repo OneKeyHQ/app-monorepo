@@ -83,6 +83,10 @@ export async function runAppRuntimeHarness(outputFile: string): Promise<void> {
   };
   app.on('web-contents-created', onWebContentsCreated);
 
+  if (app?.isPackaged) {
+    delete process.env.ELECTRON_IS_DEV;
+  }
+
   // The full application graph loads only after the pristine runtime snapshot.
   // eslint-disable-next-line @typescript-eslint/no-require-imports
   require('./app');

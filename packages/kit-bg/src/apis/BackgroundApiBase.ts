@@ -813,6 +813,9 @@ class BackgroundApiBase implements IBackgroundApiBridge {
   async nativeStorage(request: INativeStorageRequest): Promise<unknown> {
     await travelModeManager.ready;
     if (travelModeManager.isMaskingDataSync() && request.scope === 'recovery') {
+      if (request.operation === 'inspectAppStorageMigration') {
+        return { errorMessage: null };
+      }
       return undefined;
     }
     if (
