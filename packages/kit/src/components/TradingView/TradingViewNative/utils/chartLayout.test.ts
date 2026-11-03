@@ -19,6 +19,7 @@ import {
   getTradingViewNativeChartWidth,
   getTradingViewNativeCurrentPriceLabel,
   getTradingViewNativeCurrentPriceLayout,
+  getTradingViewNativeDefaultPriceDecimalPlaces,
   getTradingViewNativeMaxVolume,
   getTradingViewNativePriceAtY,
   getTradingViewNativePriceAxisLabel,
@@ -320,8 +321,8 @@ describe('TradingViewNative chart layout', () => {
       ),
     });
 
-    expect(regularAxisWidth).toBe(46);
-    expect(tinyAxisWidth).toBe(64);
+    expect(regularAxisWidth).toBe(51);
+    expect(tinyAxisWidth).toBe(69);
     expect(tinyAxisWidth).toBeGreaterThan(regularAxisWidth);
     expect(getTradingViewNativePriceAxisLabel(regularPoints)).toBe('88.88');
 
@@ -366,7 +367,7 @@ describe('TradingViewNative chart layout', () => {
         currentPriceLabelWidth: labelWidth,
         widestPriceLabelWidth: labelWidth,
       }),
-    ).toBe(64);
+    ).toBe(69);
     expect(getTradingViewNativeCurrentPriceLabel([])).toBe('');
   });
 
@@ -377,7 +378,7 @@ describe('TradingViewNative chart layout', () => {
         widestPriceLabelWidth: 30,
         widestVolumeLabelWidth: 42,
       }),
-    ).toBe(50);
+    ).toBe(55);
   });
 
   it('reserves the requested minimum axis width for price-scale controls', () => {
@@ -387,7 +388,7 @@ describe('TradingViewNative chart layout', () => {
         minimumWidth: 52,
         widestPriceLabelWidth: 0,
       }),
-    ).toBe(52);
+    ).toBe(57);
   });
 
   it('includes labels created by a manually expanded price range', () => {
@@ -606,11 +607,11 @@ describe('TradingViewNative chart layout', () => {
     if (!layout) {
       return;
     }
-    expect(getTradingViewNativeChartWidth(width, priceAxisWidth)).toBe(358);
+    expect(getTradingViewNativeChartWidth(width, priceAxisWidth)).toBe(353);
     expect(layout).toMatchObject({
       maxPrice: 2,
       maxVolume: 10,
-      priceAxisX: 358,
+      priceAxisX: 353,
       timeAxisY: 276,
       volumeBottom: 276,
       volumeTop: 225.6,
@@ -1540,5 +1541,17 @@ describe('TradingViewNative chart layout', () => {
         startIndex: 0,
       }),
     ).toEqual({ ticks: [], unit: null });
+  });
+});
+
+describe('getTradingViewNativeDefaultPriceDecimalPlaces', () => {
+  it.each([
+    [91.98, 2],
+    [1, 2],
+    [0.5, undefined],
+    [undefined, undefined],
+    [Number.NaN, undefined],
+  ])('returns %s decimals as %s', (price, expected) => {
+    expect(getTradingViewNativeDefaultPriceDecimalPlaces(price)).toBe(expected);
   });
 });

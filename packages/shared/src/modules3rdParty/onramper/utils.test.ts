@@ -88,6 +88,15 @@ describe('getErrorMessageForLog', () => {
     expect(getErrorMessageForLog(null)).toBeUndefined();
     expect(getErrorMessageForLog({ message: '' })).toBeUndefined();
   });
+
+  it('never stringifies an object that carries no message', () => {
+    // goWebFallback passes { code } without a message; String({}) would log
+    // "[object Object]" instead of leaving the field empty.
+    expect(
+      getErrorMessageForLog({ code: 'initializationFailed' }),
+    ).toBeUndefined();
+    expect(getErrorMessageForLog({})).toBeUndefined();
+  });
 });
 
 describe('getOnramperErrorFieldsForLog', () => {

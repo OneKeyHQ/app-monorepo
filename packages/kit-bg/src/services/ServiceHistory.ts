@@ -2488,7 +2488,11 @@ class ServiceHistory extends ServiceBase {
       allConfirmedTxsToSave,
       allMergedOnChainHistoryTxs,
       allNonceHasBeenUsedTxs,
-      allFinalPendingTxs,
+      // The per-account loop above concatenates each account's pending rows in
+      // account order, while the local store (and so the list's first paint)
+      // orders pending rows by time. Restore the time order here so an All
+      // Networks refresh does not shuffle the pending section (OK-66004).
+      allFinalPendingTxs: sortHistoryTxsByTime({ txs: allFinalPendingTxs }),
     };
   }
 

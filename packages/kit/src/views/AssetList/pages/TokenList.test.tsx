@@ -237,6 +237,9 @@ describe('TokenList route recovery', () => {
         type: 'identity',
         title: 'LOW',
         height: 60,
+        // Explicit heights opt out of Android's legacy sub-400dp 0.9 row
+        // scale, which clipped unscaled text metrics (OK-66072).
+        heightRounding: 'nearest',
       }),
     );
     const row = props.snapshot.rows[0];

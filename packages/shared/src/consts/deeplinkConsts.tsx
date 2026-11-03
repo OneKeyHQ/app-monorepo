@@ -79,3 +79,15 @@ export const WalletConnectUniversalLinkPath = 'wc/connect/wc';
 export const WalletConnectUniversalLinkPathSchema = `/wc/connect/wc`; // do not add ? at the end (which meaning optional)
 // use /wc/connect but not /wc/connect/wc, the last /wc will be added by WalletConnect SDK
 export const WalletConnectUniversalLinkFull = `https://${ONEKEY_UNIVERSAL_LINK_HOST}/wc/connect`;
+
+// Reject ASCII control characters (<= 0x20, 0x7f), raw whitespace, and raw double quotes (`"`, 0x22).
+// Prevents quote-splitting command injection on Windows (`"%1"`) and malformed URL smuggling across platforms.
+export function hasUnsafeUrlChars(value: string): boolean {
+  for (let i = 0; i < value.length; i += 1) {
+    const code = value.charCodeAt(i);
+    if (code <= 0x20 || code === 0x22 || code === 0x7f) {
+      return true;
+    }
+  }
+  return false;
+}

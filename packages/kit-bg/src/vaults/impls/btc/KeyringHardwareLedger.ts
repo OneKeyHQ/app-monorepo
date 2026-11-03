@@ -22,6 +22,7 @@ import { ThirdPartyMethodNotSupported } from '@onekeyhq/shared/src/errors/errors
 import { convertThirdPartyDeviceError } from '@onekeyhq/shared/src/errors/utils/thirdPartyDeviceErrorUtils';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
+import { assertNoHardwareCloudSyncSigningRequest } from '@onekeyhq/shared/src/utils/hardwareCloudSyncGuards';
 import {
   EConfirmOnDeviceType,
   EHardwareVendor,
@@ -637,6 +638,10 @@ export class KeyringHardwareLedger extends KeyringHardwareBtcBase {
   override async signMessage(
     params: ISignMessageParams,
   ): Promise<ISignedMessagePro> {
+    for (const message of params.messages) {
+      if ('message' in message)
+        assertNoHardwareCloudSyncSigningRequest(message.message);
+    }
     const { deviceParams } = params;
     const checkedDeviceParams = checkIsDefined(deviceParams);
     const { dbDevice } = checkedDeviceParams;
@@ -663,6 +668,7 @@ export class KeyringHardwareLedger extends KeyringHardwareBtcBase {
       }
 
       const messageHex = Buffer.from(payload.message).toString('hex');
+      assertNoHardwareCloudSyncSigningRequest(messageHex, 'hex');
 
       const res =
         // eslint-disable-next-line no-await-in-loop

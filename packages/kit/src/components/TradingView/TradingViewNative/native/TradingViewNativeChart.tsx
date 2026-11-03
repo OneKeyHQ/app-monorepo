@@ -103,7 +103,7 @@ import {
   getTradingViewNativeSkiaLegendText,
 } from './chartSkiaRenderer';
 import {
-  getTradingViewNativeSkiaDigitWidth,
+  getTradingViewNativeSkiaDigitMetrics,
   getTradingViewNativeSkiaPriceAxisLabelWidth,
 } from './chartSkiaText';
 import { NativeDrawingToolbar } from './NativeDrawingToolbar';
@@ -368,9 +368,11 @@ export const TradingViewNativeChart = memo(
     );
     const isLogScaleAvailable =
       isTradingViewNativeLogPriceScaleAvailable(autoPriceRange);
+    // Ticks, the crosshair, and the latest close all fit the axis display precision.
+    const axisLabelDecimalPlaces = priceAxisDecimalPlaces ?? priceDecimalPlaces;
     const widestPriceLabel = useMemo(
-      () => getTradingViewNativePriceAxisLabel(points, priceDecimalPlaces),
-      [points, priceDecimalPlaces],
+      () => getTradingViewNativePriceAxisLabel(points, axisLabelDecimalPlaces),
+      [axisLabelDecimalPlaces, points],
     );
     const widestChartComponentPriceLabel = useMemo(
       () =>
@@ -460,8 +462,8 @@ export const TradingViewNativeChart = memo(
         watermarkSvg,
       ],
     );
-    const priceAxisDigitWidth = useDerivedValue(() =>
-      getTradingViewNativeSkiaDigitWidth(resources.value.fonts.priceAxis),
+    const priceAxisDigitMetrics = useDerivedValue(() =>
+      getTradingViewNativeSkiaDigitMetrics(resources.value.fonts.priceAxis),
     );
     const priceAxisWidth = useDerivedValue(() => {
       if (!chartSettings.options.yAxis) {
@@ -474,7 +476,7 @@ export const TradingViewNativeChart = memo(
         return getTradingViewNativeSkiaPriceAxisLabelWidth(
           label,
           measuredPriceAxisFont,
-          priceAxisDigitWidth.value,
+          priceAxisDigitMetrics.value,
         );
       };
       const priceRange = chartRuntime.value.pinnedPriceRange ?? autoPriceRange;
@@ -483,7 +485,7 @@ export const TradingViewNativeChart = memo(
           ? getTradingViewNativeScaledPriceAxisLabel({
               autoPriceRange: priceRange,
               baseLabel: widestPriceLabel,
-              priceDecimalPlaces,
+              priceDecimalPlaces: axisLabelDecimalPlaces,
               priceRangeScale: chartRuntime.value.priceRangeScale,
               priceScaleMode: chartRuntime.value.priceScaleMode,
             })
@@ -500,7 +502,7 @@ export const TradingViewNativeChart = memo(
           chartSettings.options.latestPrice
             ? getTradingViewNativeCurrentPriceAxisLabel(
                 currentPriceLabel,
-                priceDecimalPlaces,
+                axisLabelDecimalPlaces,
               )
             : '',
         ),
@@ -520,12 +522,12 @@ export const TradingViewNativeChart = memo(
       });
     }, [
       autoPriceRange,
+      axisLabelDecimalPlaces,
       chartRuntime,
       chartSettings.options.latestPrice,
       chartSettings.options.yAxis,
       currentPriceLabel,
-      priceAxisDigitWidth,
-      priceDecimalPlaces,
+      priceAxisDigitMetrics,
       resources,
       widestChartComponentPriceLabel,
       widestIndicatorPriceLabel,
