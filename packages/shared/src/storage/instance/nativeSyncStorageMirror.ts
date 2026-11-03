@@ -2,6 +2,7 @@ import { OneKeyLocalError } from '../../errors';
 import { defaultLogger } from '../../logger/logger';
 import { SWR_CACHE_SLOW_OP_LOG_THRESHOLD_MS } from '../../utils/swrCacheLimits';
 import { callNativeStorage } from '../nativeStorageBridge';
+import { setNativeAppStorageEmergencyStatus } from '../nativeStorageRecovery';
 import { parseNativeSyncStorageMutation } from '../nativeStorageTypes';
 
 import type {
@@ -803,6 +804,7 @@ function startBootstrap(force: boolean) {
       const receivedAt = Date.now();
       primeMirror('settings', snapshot.settings);
       primeMirror('devSettings', snapshot.devSettings);
+      setNativeAppStorageEmergencyStatus(snapshot.appStorageEmergency);
       bootstrapComplete = true;
       replayPendingRemoteMutations();
       logBootstrapTiming({

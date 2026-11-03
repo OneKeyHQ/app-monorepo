@@ -30,6 +30,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { checkBiometricAuthChanged } from '@onekeyhq/shared/src/modules3rdParty/check-biometric-auth-changed';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { getRequestedNativeStorageRecovery } from '@onekeyhq/shared/src/storage/nativeStorageRecovery';
 import {
   EPasswordMode,
   EPasswordVerifyStatus,
@@ -119,7 +120,11 @@ function PasswordVerify({
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
     timeoutRef.current = setTimeout(() => {
-      if (!isEnableRef.current && !disableInputRef.current) {
+      if (
+        !getRequestedNativeStorageRecovery() &&
+        !isEnableRef.current &&
+        !disableInputRef.current
+      ) {
         form.setFocus(
           passwordMode === EPasswordMode.PASSWORD ? 'password' : 'passCode',
         );
@@ -196,7 +201,7 @@ function PasswordVerify({
       }
       if (!disableInputRef.current) {
         setTimeout(() => {
-          form.setFocus(fieldName);
+          if (!getRequestedNativeStorageRecovery()) form.setFocus(fieldName);
         }, 150);
       }
     } else {
@@ -205,6 +210,7 @@ function PasswordVerify({
   }, [form, passwordMode, status]);
 
   const checkAuthChanged = useCallback(async () => {
+    if (getRequestedNativeStorageRecovery()) return false;
     const isSupport = await biologyAuth.isSupportBiologyAuth();
     // TODO(biologyAuth-debug): temporary log to diagnose iOS biometric disappearing
     defaultLogger.setting.page.biologyAuthDebug('checkAuthChanged:start', {
@@ -216,6 +222,7 @@ function PasswordVerify({
     }
     try {
       const changed = await checkBiometricAuthChanged();
+      if (getRequestedNativeStorageRecovery()) return false;
       // TODO(biologyAuth-debug): temporary log — `changed: true` silently turns off
       // isBiologyAuthSwitchOn, hiding the biometric button on lock screen.
       defaultLogger.setting.page.biologyAuthDebug('checkAuthChanged:result', {
@@ -225,6 +232,7 @@ function PasswordVerify({
       if (changed) {
         await backgroundApiProxy.servicePassword.setBiologyAuthEnable(false);
         setTimeout(() => {
+          if (getRequestedNativeStorageRecovery()) return;
           Dialog.confirm({
             icon: 'ErrorOutline',
             tone: 'warning',
@@ -276,6 +284,7 @@ function PasswordVerify({
       // bound to Google Password Manager, and sidepanel lacks the popup
       // focus-loss escape that lets users recover. See PR #11125.
       if (
+        !getRequestedNativeStorageRecovery() &&
         !platformEnv.isExtensionUiSidePanel &&
         isEnable &&
         !passwordInput &&
@@ -303,6 +312,7 @@ function PasswordVerify({
   // Perform biology verification upon returning to the backend after a 1-second interval.
   // Same sidepanel carve-out as the mount-time effect above.
   const onActive = useCallback(() => {
+    if (getRequestedNativeStorageRecovery()) return;
     const now = Date.now();
     if (now - lastTime.current > 1000) {
       lastTime.current = now;
@@ -322,6 +332,7 @@ function PasswordVerify({
 
   const onPassCodeComplete = useCallback(() => {
     setTimeout(() => {
+      if (getRequestedNativeStorageRecovery()) return;
       void form.handleSubmit(onInputPasswordAuth)();
     });
   }, [form, onInputPasswordAuth]);

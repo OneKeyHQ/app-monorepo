@@ -3,6 +3,7 @@ import {
   LOCAL_SECRET_ENVELOPE_CREDENTIAL_ERROR_DATA_TYPE,
   LOCAL_SECRET_ENVELOPE_ERROR_DATA_TYPE_FIELD,
 } from '@onekeyhq/shared/src/errors/utils/localSecretEnvelopeErrorData';
+import { getNativeStorageMigrationRecoveryTarget } from '@onekeyhq/shared/src/storage/nativeStorageTypes';
 
 import type {
   IInjectedProviderNamesStrings,
@@ -278,7 +279,10 @@ export function serializeBackgroundThreadResponse(
   return JSON.stringify(payload);
 }
 
-export function buildSafeBackgroundThreadErrorData(data: unknown) {
+export function buildSafeBackgroundThreadErrorData(
+  data: unknown,
+  context?: { request: IBackgroundThreadRequest; message: string },
+) {
   if (
     data &&
     typeof data === 'object' &&
@@ -291,6 +295,29 @@ export function buildSafeBackgroundThreadErrorData(data: unknown) {
       [LOCAL_SECRET_ENVELOPE_ERROR_DATA_TYPE_FIELD]:
         LOCAL_SECRET_ENVELOPE_CREDENTIAL_ERROR_DATA_TYPE,
     };
+  }
+
+  // Only the isolated developer Home test needs this opaque identifier. Never
+  // forward arbitrary error data from wallet services or real storage errors.
+  const request = context?.request;
+  if (
+    request?.type === 'service-call' &&
+    request.method === 'serviceDevSetting.nativeStorageRecoveryTest' &&
+    request.params.length === 1 &&
+    request.params[0]?.action === 'homeRead' &&
+    getNativeStorageMigrationRecoveryTarget(context) === 'appStorage' &&
+    data &&
+    typeof data === 'object' &&
+    !Array.isArray(data) &&
+    'nativeStorageRecoveryTestSessionId' in data
+  ) {
+    const sessionId = data.nativeStorageRecoveryTestSessionId;
+    if (
+      typeof sessionId === 'string' &&
+      /^storage-repair-test-\d{1,16}-[a-z0-9]{0,32}$/.test(sessionId)
+    ) {
+      return { nativeStorageRecoveryTestSessionId: sessionId };
+    }
   }
 
   return undefined;

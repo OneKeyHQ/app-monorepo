@@ -24,6 +24,7 @@ import { dismissKeyboard } from '@onekeyhq/shared/src/keyboard';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { getRequestedNativeStorageRecovery } from '@onekeyhq/shared/src/storage/nativeStorageRecovery';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import {
   BIOLOGY_AUTH_ATTEMPTS_FACE,
@@ -319,6 +320,7 @@ const PasswordVerifyContainer = ({
 
   const onBiologyAuthenticate = useCallback(
     async (isExtLockNoCachePassword: boolean) => {
+      if (getRequestedNativeStorageRecovery()) return;
       if (
         passwordVerifyStatus.value === EPasswordVerifyStatus.VERIFYING ||
         (!pageMode &&
@@ -520,6 +522,7 @@ const PasswordVerifyContainer = ({
 
   const onInputPasswordAuthenticate = useCallback(
     async (data: IPasswordVerifyForm) => {
+      if (getRequestedNativeStorageRecovery()) return;
       if (
         isProtectionTime ||
         passwordVerifyStatus.value === EPasswordVerifyStatus.VERIFYING ||
@@ -732,6 +735,7 @@ const PasswordVerifyContainer = ({
     void (async () => {
       try {
         await timerUtils.wait(600);
+        if (getRequestedNativeStorageRecovery()) return;
         // Warm up the password encryptor early so the first verification on
         // low-end devices does not race against an unready encryptor. (OK-56875)
         await backgroundApiProxy.servicePassword.waitPasswordEncryptorReady();

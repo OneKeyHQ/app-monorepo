@@ -1,4 +1,5 @@
 import type { IGlobalStatesSyncBroadcastParams } from '@onekeyhq/shared/src/background/backgroundUtils';
+import type { INativeStorageGlobal } from '@onekeyhq/shared/src/storage/nativeStorageTypes';
 
 const mockSharedRPCWrite = jest.fn();
 const mockSharedRPCRegisterReadinessKey = jest.fn();
@@ -15,7 +16,7 @@ let mockInboundMessageHandler:
   | ((key: string, value: string | number | boolean) => void)
   | undefined;
 
-const mockReadyPayload = JSON.stringify({
+let mockReadyPayload = JSON.stringify({
   runtime: 'background',
   status: 'ready',
   protocolVersion: '1',
@@ -471,4 +472,55 @@ describe('main thread background runner', () => {
       ),
     ).toEqual(['firstAtom', 'secondAtom', 'thirdAtom']);
   });
+
+  it.each(['ready', 'queued'])(
+    'bounds an unanswered read-only inspection to 15 seconds when %s',
+    async (state) => {
+      jest.useFakeTimers();
+      const readyPayload = mockReadyPayload;
+      try {
+        jest.resetModules();
+        if (state === 'queued') mockReadyPayload = '';
+        await import('./setupMainThreadBackgroundRunner');
+        const call = (globalThis as INativeStorageGlobal)
+          .__onekeyNativeStorageCall;
+        expect(call).toBeDefined();
+        let settled = false;
+        const outcome = call!({
+          scope: 'recovery',
+          operation: 'inspectAppStorageMigration',
+        }).catch((error: unknown) => {
+          settled = true;
+          return error;
+        });
+        jest.advanceTimersByTime(14_999);
+        await Promise.resolve();
+        expect(settled).toBe(false);
+        jest.advanceTimersByTime(1);
+        await expect(outcome).resolves.toMatchObject({
+          message: expect.stringContaining('Background request timeout (15s)'),
+        });
+        if (state === 'ready') {
+          // A single lost response does not break later probes or reuse its id.
+          const retry = call!({
+            scope: 'recovery',
+            operation: 'inspectAppStorageMigration',
+          });
+          const calls = mockSharedRPCWrite.mock.calls.filter(
+            ([key]) =>
+              typeof key === 'string' && key.startsWith('onekey:bg:req:'),
+          );
+          const key = calls[calls.length - 1][0] as string;
+          mockInboundMessageHandler?.(
+            key.replace('onekey:bg:req:', 'onekey:bg:res:'),
+            JSON.stringify({ ok: true, result: { errorMessage: null } }),
+          );
+          await expect(retry).resolves.toEqual({ errorMessage: null });
+        }
+      } finally {
+        mockReadyPayload = readyPayload;
+        jest.useRealTimers();
+      }
+    },
+  );
 });
