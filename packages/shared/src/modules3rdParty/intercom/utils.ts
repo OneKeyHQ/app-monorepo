@@ -148,8 +148,7 @@ export function createIntercomOpenGuard(onError: (error: unknown) => void) {
         .then(() =>
           open(
             () =>
-              state === current &&
-              current.conversationRevision === revision,
+              state === current && current.conversationRevision === revision,
           ),
         )
         .then((opened) => {
