@@ -22,6 +22,19 @@ import type {
   RowPatch,
 } from '@onekeyfe/react-native-native-list';
 
+// Mirrors NativeList patch semantics: a null change clears the field.
+function mergeRowChanges<TRow extends object>(
+  row: TRow,
+  changes: { [K in keyof TRow]?: TRow[K] | null },
+): TRow {
+  const next: Partial<Record<keyof TRow, unknown>> = { ...row };
+  for (const key of Object.keys(changes) as (keyof TRow)[]) {
+    if (changes[key] === null) delete next[key];
+    else next[key] = changes[key];
+  }
+  return next as TRow;
+}
+
 let mockSnapshot: NativeListSnapshot | undefined;
 let mockListSidecar: ReactNode;
 let mockExpandedContent: ReactNode;
@@ -37,10 +50,10 @@ const mockApplyPatches = jest.fn((patches: readonly RowPatch[]) => {
         (item) => item.key === row.key && item.type === row.type,
       );
       if (patch?.type === 'dataRow' && row.type === 'dataRow') {
-        return { ...row, ...patch.changes };
+        return mergeRowChanges(row, patch.changes);
       }
       if (patch?.type === 'identity' && row.type === 'identity') {
-        return { ...row, ...patch.changes };
+        return mergeRowChanges(row, patch.changes);
       }
       return row;
     }),
