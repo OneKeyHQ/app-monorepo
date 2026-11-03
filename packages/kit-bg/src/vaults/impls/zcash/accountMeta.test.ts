@@ -1,4 +1,5 @@
 import { ZCASH_ADDRESS_SCHEME_VERSION } from '@onekeyhq/core/src/chains/zcash/sdkZcash/constants';
+import { ZCASH_MIN_BIRTHDAY_HEIGHT_MAINNET } from '@onekeyhq/shared/src/config/zcash';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { createMemoryStorage } from '@onekeyhq/shared/src/test-utils/mocks/memoryStorage';
 
@@ -200,7 +201,7 @@ describe('Zcash viewing metadata derivation lifecycle', () => {
     const meta = await zcash.getZcashAccountMeta({ accountId: account.id });
     expect(meta).toMatchObject({
       vkFp,
-      birthdayHeight: 3_000_000,
+      birthdayHeight: ZCASH_MIN_BIRTHDAY_HEIGHT_MAINNET,
       addressSchemeVersion: ZCASH_ADDRESS_SCHEME_VERSION,
     });
     expect(JSON.stringify(await zcash.getRawData())).not.toContain(
@@ -316,7 +317,7 @@ describe('Zcash viewing metadata derivation lifecycle', () => {
       zcash.getZcashAccountMeta({ accountId: account.id }),
     ).resolves.toMatchObject({
       vkFp: getViewingKeyFingerprint({ networkId, viewingKey: 'another-ufvk' }),
-      birthdayHeight: 3_000_000,
+      birthdayHeight: ZCASH_MIN_BIRTHDAY_HEIGHT_MAINNET,
     });
   });
 

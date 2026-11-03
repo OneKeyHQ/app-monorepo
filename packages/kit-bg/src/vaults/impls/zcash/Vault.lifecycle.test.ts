@@ -1,3 +1,4 @@
+import { ZCASH_MIN_BIRTHDAY_HEIGHT_MAINNET } from '@onekeyhq/shared/src/config/zcash';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
 import { SimpleDbEntityPrivacyChainState } from '../../../dbs/simple/entity/SimpleDbEntityPrivacyChainState';
@@ -16,7 +17,7 @@ describe('Zcash local lifecycle operations do not depend on pending history', ()
     const accountId = 'synthetic-account';
     const account = { ufvk: 'synthetic-ufvk', vkFp: 'synthetic-fp' };
     const repair = {
-      birthdayHeight: 2_000_000,
+      birthdayHeight: 3_500_000,
       requestedAt: 1,
       birthdaySource: 'manual-height' as const,
     };
@@ -182,15 +183,15 @@ describe('Zcash local lifecycle operations do not depend on pending history', ()
       listZcashAccountMetas: async () => [
         {
           accountId: f.accountId,
-          meta: { vkFp: 'shared', birthdayHeight: 2_500_000 },
+          meta: { vkFp: 'shared', birthdayHeight: 3_600_000 },
         },
         {
           accountId: 'alias',
-          meta: { vkFp: 'shared', birthdayHeight: 1_900_000 },
+          meta: { vkFp: 'shared', birthdayHeight: 3_490_000 },
         },
         {
           accountId: 'other',
-          meta: { vkFp: 'other', birthdayHeight: 1_000_000 },
+          meta: { vkFp: 'other', birthdayHeight: 3_450_000 },
         },
       ],
     });
@@ -202,9 +203,56 @@ describe('Zcash local lifecycle operations do not depend on pending history', ()
       repair: f.repair,
     });
     expect(f.rescanWallet.mock.calls).toEqual([
-      [{ ...f.account, birthdayHeight: 1_900_000 }],
-      [{ ...f.account, birthdayHeight: 1_900_000 }],
+      [{ ...f.account, birthdayHeight: 3_490_000 }],
+      [{ ...f.account, birthdayHeight: 3_490_000 }],
     ]);
+  });
+
+  it('clamps a saved pre-Ironwood alias birthday before rewinding the shared wallet', async () => {
+    const f = fixture('pending');
+    Object.assign(f.vault.backgroundApi.simpleDb.privacyChainState, {
+      listZcashAccountMetas: async () => [
+        {
+          accountId: f.accountId,
+          meta: { vkFp: 'shared', birthdayHeight: 3_500_000 },
+        },
+        {
+          accountId: 'alias',
+          meta: { vkFp: 'shared', birthdayHeight: 2_000_000 },
+        },
+      ],
+    });
+    await f.vault
+      .getLocalWalletCapability()
+      .rewindAccount({ accountId: f.accountId });
+    expect(f.rescanWallet).toHaveBeenCalledWith({
+      ...f.account,
+      birthdayHeight: ZCASH_MIN_BIRTHDAY_HEIGHT_MAINNET,
+    });
+  });
+
+  it('persists the supported height when replaying a pre-Ironwood repair', async () => {
+    const f = fixture('pending');
+    f.repair.birthdayHeight = 2_000_000;
+    await f.vault.applyPendingRescan({
+      accountId: f.accountId,
+      repair: f.repair,
+    });
+    expect(f.rescanWallet).toHaveBeenCalledWith({
+      ...f.account,
+      birthdayHeight: ZCASH_MIN_BIRTHDAY_HEIGHT_MAINNET,
+    });
+    expect(f.saveAccountMeta).toHaveBeenCalledWith(
+      expect.objectContaining({
+        meta: expect.objectContaining({
+          birthdayHeight: ZCASH_MIN_BIRTHDAY_HEIGHT_MAINNET,
+        }),
+      }),
+    );
+    expect(f.removePendingRescan).toHaveBeenCalledWith({
+      accountId: f.accountId,
+      expectedRepair: f.repair,
+    });
   });
 
   it('keeps the saved birthday, epochs and journal when the runtime refuses the rescan', async () => {
@@ -245,7 +293,7 @@ describe('Zcash local lifecycle operations do not depend on pending history', ()
 
     await zcashRescanFromHeight(f.vault, {
       accountId: f.accountId,
-      birthdayHeight: 2_500_000,
+      birthdayHeight: 3_600_000,
       birthdaySource: 'manual-height',
     });
 
@@ -253,7 +301,7 @@ describe('Zcash local lifecycle operations do not depend on pending history', ()
     expect(saveRepair).toHaveBeenCalledWith(
       expect.objectContaining({
         accountId: f.accountId,
-        repair: expect.objectContaining({ birthdayHeight: 2_500_000 }),
+        repair: expect.objectContaining({ birthdayHeight: 3_600_000 }),
       }),
     );
   });
@@ -270,18 +318,74 @@ describe('Zcash local lifecycle operations do not depend on pending history', ()
     await expect(
       f.vault.rescanLocalWallet({
         accountId: f.accountId,
-        from: { type: 'height', height: 2_500_000 },
+        from: { type: 'height', height: 3_600_000 },
       }),
-    ).resolves.toEqual({ fromHeight: 2_500_000 });
+    ).resolves.toEqual({ fromHeight: 3_600_000 });
     expect(save).toHaveBeenCalledWith(
       expect.objectContaining({
         accountId: f.accountId,
-        repair: expect.objectContaining({ birthdayHeight: 2_500_000 }),
+        repair: expect.objectContaining({ birthdayHeight: 3_600_000 }),
       }),
     );
     expect(apply).not.toHaveBeenCalled();
     expect(f.rescanWallet).not.toHaveBeenCalled();
     expect(f.purgeWallet).not.toHaveBeenCalled();
+  });
+
+  it.each([false, true])(
+    'returns the supported rescan height for an older manual input (dry run: %s)',
+    async (dryRun) => {
+      const f = fixture('pending');
+      const save = jest.fn(async () => undefined);
+      Object.assign(f.vault.backgroundApi.simpleDb.privacyChainState, {
+        saveZcashPendingRescan: save,
+      });
+      await expect(
+        f.vault.rescanLocalWallet({
+          accountId: f.accountId,
+          from: { type: 'height', height: 2_000_000 },
+          dryRun,
+        }),
+      ).resolves.toEqual({ fromHeight: ZCASH_MIN_BIRTHDAY_HEIGHT_MAINNET });
+      if (dryRun) {
+        expect(save).not.toHaveBeenCalled();
+      } else {
+        expect(save).toHaveBeenCalledWith(
+          expect.objectContaining({
+            repair: expect.objectContaining({
+              birthdayHeight: ZCASH_MIN_BIRTHDAY_HEIGHT_MAINNET,
+            }),
+          }),
+        );
+      }
+    },
+  );
+
+  it('queues a saved recovery cursor no earlier than Ironwood', async () => {
+    const f = fixture('pending');
+    const queueRescanFrom = jest.fn(
+      async (_account: unknown, { fromHeight }: { fromHeight: number }) => ({
+        queued: true,
+        fromHeight,
+        toHeight: 3_700_000,
+      }),
+    );
+    Object.assign(f.vault, {
+      zcashGetApi: async () => ({ queueRescanFrom }),
+    });
+    await expect(
+      f.vault.queueLocalWalletRescanFrom({
+        accountId: f.accountId,
+        fromHeight: 2_000_000,
+      }),
+    ).resolves.toEqual({
+      queued: true,
+      fromHeight: ZCASH_MIN_BIRTHDAY_HEIGHT_MAINNET,
+      toHeight: 3_700_000,
+    });
+    expect(queueRescanFrom).toHaveBeenCalledWith(f.account, {
+      fromHeight: ZCASH_MIN_BIRTHDAY_HEIGHT_MAINNET,
+    });
   });
 
   it('waits for an active scan to finish before deleting its runtime rows', async () => {
@@ -349,7 +453,7 @@ describe('automatic Zcash repair uses the original account snapshot', () => {
         transparentAddress: 't1',
         seedFingerprintHex: 'd'.repeat(64),
         hdIndex: 0,
-        birthdayHeight: 2_000_000,
+        birthdayHeight: 3_500_000,
         birthdaySource: 'manual-height' as const,
         createdAt: 1,
       };
@@ -400,7 +504,7 @@ describe('automatic Zcash repair uses the original account snapshot', () => {
           getSyncProgress: async () => {
             entered();
             await progressGate;
-            return { birthdayHeight: 2_500_000 };
+            return { birthdayHeight: 3_600_000 };
           },
           rescanWallet,
         }),
@@ -408,7 +512,7 @@ describe('automatic Zcash repair uses the original account snapshot', () => {
       const preparing = vault.zcashPrepareAccounts({ accountIds: [accountId] });
       await progressEntered;
       const repair = {
-        birthdayHeight: 3_000_000,
+        birthdayHeight: 3_700_000,
         birthdaySource: 'manual-height' as const,
         requestedAt: 2,
       };
@@ -430,7 +534,7 @@ describe('automatic Zcash repair uses the original account snapshot', () => {
         ]);
       if (change === 'applied')
         expect(await db.getZcashAccountMeta({ accountId })).toMatchObject({
-          birthdayHeight: 3_000_000,
+          birthdayHeight: 3_700_000,
         });
     },
   );
@@ -456,7 +560,7 @@ it('heals only the surviving account after filtering a pending deletion', async 
     createdAt: 1,
   };
   for (const [accountId, birthdayHeight] of [
-    ['hd-1--a', 2_000_000],
+    ['hd-1--a', 3_500_000],
     ['hd-1--b', 4_000_000],
   ] as const) {
     // eslint-disable-next-line no-await-in-loop
@@ -493,15 +597,15 @@ it('heals only the surviving account after filtering a pending deletion', async 
   });
   await vault.zcashPrepareAccounts({
     accountIds: ['hd-1--a', 'hd-1--b'],
-    chainTip: 3_000_000,
+    chainTip: 3_700_000,
   });
   expect(await db.getZcashAccountMeta({ accountId: 'hd-1--a' })).toMatchObject({
-    birthdayHeight: 2_000_000,
+    birthdayHeight: 3_500_000,
   });
   expect(await db.getZcashAccountMeta({ accountId: 'hd-1--b' })).toMatchObject({
-    birthdayHeight: 3_000_000,
+    birthdayHeight: 3_700_000,
   });
   expect(prepareWalletAccounts).toHaveBeenCalledWith([
-    expect.objectContaining({ ufvk: 'hd-1--b', birthdayHeight: 3_000_000 }),
+    expect.objectContaining({ ufvk: 'hd-1--b', birthdayHeight: 3_700_000 }),
   ]);
 });
