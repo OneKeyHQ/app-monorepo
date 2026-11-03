@@ -175,6 +175,7 @@ function createHarness() {
   const backgroundApi = {
     servicePrivacyChain: {
       publishLocalWalletSyncProgress: jest.fn(async () => undefined),
+      isLocalWalletScanHeld: jest.fn(async () => false),
       onLocalWalletAccountsChanged: jest.fn(async () => undefined),
       turnOffLocalWalletAccountWithoutKey: jest.fn(async () => undefined),
     },

@@ -106,6 +106,7 @@ jest.mock('./runtime', () => ({
 }));
 
 const mockPublish = jest.fn(async () => undefined);
+let mockScanHeld = false;
 let mockHasAnyAccountState = true;
 
 function memoryCache() {
@@ -138,7 +139,7 @@ function capability(intent: 'on' | 'off' = 'on', birthdayHeight?: number) {
     backgroundApi: {
       servicePrivacyChain: {
         publishLocalWalletSyncProgress: mockPublish,
-        isLocalWalletScanHeld: jest.fn(async () => false),
+        isLocalWalletScanHeld: jest.fn(async () => mockScanHeld),
         onLocalWalletAccountsChanged: jest.fn(async () => undefined),
         turnOffLocalWalletAccountWithoutKey: mockTurnOffWithoutKey,
       },
@@ -779,8 +780,33 @@ describe('xmr turn shared by its accounts', () => {
 
   afterEach(() => {
     jest.restoreAllMocks();
+    mockScanHeld = false;
     mockGetIdentityId.mockReset().mockResolvedValue('3');
     runtime.syncStep.mockReset().mockImplementation(stepTaking(0, false));
+  });
+
+  it('steps no further account once the chain is paused mid-turn', async () => {
+    runtime.syncStep.mockImplementation(async () => {
+      mockScanHeld = true;
+      return JSON.stringify({
+        blocksScanned: 10,
+        done: false,
+        outputsFound: 0,
+      });
+    });
+    const cap = capability();
+
+    const result = await cap.syncGroup({
+      accountIds: ['t3-a', 't3-b'],
+      chainTip: 3_767_827,
+    });
+
+    expect(steppedIds()).toEqual(['rt-t3-a']);
+    expect(result.backfillRemaining).toBe(true);
+
+    mockScanHeld = false;
+    await cap.syncGroup({ accountIds: ['t3-a', 't3-b'], chainTip: 3_767_827 });
+    expect(steppedIds()[1]).toBe('rt-t3-b');
   });
 
   it('leaves an account the turn cannot reach to the next turn, which starts with it', async () => {

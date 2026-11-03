@@ -852,10 +852,15 @@ export function buildXmrLocalWalletCapability(
           // eslint-disable-next-line no-continue
           continue;
         }
-        // Too little left for a step: the next turn starts with this account. The first always runs.
+        // Too little left for a step, or a pause / lost data consent since the last account: the
+        // next turn starts with this account. The first always runs.
         if (
           steppedRuntimeIds.size > 0 &&
-          turnEndsAt - Date.now() < lastStepMs
+          (turnEndsAt - Date.now() < lastStepMs ||
+            // eslint-disable-next-line no-await-in-loop
+            (await vault.backgroundApi.servicePrivacyChain.isLocalWalletScanHeld(
+              vault.networkId,
+            )))
         ) {
           firstUnreached ??= accountId;
           backfillRemaining = true;
