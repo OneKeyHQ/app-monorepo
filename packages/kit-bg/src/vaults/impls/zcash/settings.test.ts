@@ -4,8 +4,8 @@
 jest.mock('../../../dbs/local/localDbInstance');
 
 import {
-  ZCASH_ORCHARD_ACTIVATION_HEIGHT_MAINNET,
-  ZCASH_ORCHARD_ACTIVATION_TIMESTAMP_MS,
+  ZCASH_IRONWOOD_ACTIVATION_HEIGHT_MAINNET,
+  ZCASH_IRONWOOD_ACTIVATION_TIMESTAMP_MS,
 } from '@onekeyhq/shared/src/config/zcash';
 import { PRIVACY_CHAIN_PUBLIC_POOL_ID } from '@onekeyhq/shared/src/utils/privacyChainHistoryUtils';
 
@@ -65,8 +65,8 @@ describe('zcash vault settings invariants', () => {
         accountSetup: {
           requiresBirthday: true,
           earliestBirthday: {
-            height: ZCASH_ORCHARD_ACTIVATION_HEIGHT_MAINNET,
-            timestamp: ZCASH_ORCHARD_ACTIVATION_TIMESTAMP_MS,
+            height: ZCASH_IRONWOOD_ACTIVATION_HEIGHT_MAINNET,
+            timestamp: ZCASH_IRONWOOD_ACTIVATION_TIMESTAMP_MS,
           },
         },
       }),
@@ -78,7 +78,7 @@ describe('zcash vault settings invariants', () => {
     expect(settings.onChainHistoryDisabled).toBeFalsy();
   });
 
-  it('declares one backend pool and local-scan shielded pools', () => {
+  it('exposes only transparent funds and Ironwood shielded history', () => {
     const localWallet = settings.localWallet;
     const pools = localWallet?.pools ?? [];
     expect(
@@ -86,12 +86,12 @@ describe('zcash vault settings invariants', () => {
     ).toEqual([
       { key: 'transparent', kind: 'public', source: 'backend' },
       { key: 'ironwood', kind: 'private', source: 'localScan' },
-      { key: 'orchard', kind: 'private', source: 'localScan' },
     ]);
     const backendPools = pools.filter((pool) => pool.source === 'backend');
     expect(backendPools.map((pool) => pool.id)).toEqual([
       PRIVACY_CHAIN_PUBLIC_POOL_ID,
     ]);
     expect(localWallet?.withholdAddressFromBackend).toBeFalsy();
+    expect(localWallet?.historyOnlyPools).toBeUndefined();
   });
 });

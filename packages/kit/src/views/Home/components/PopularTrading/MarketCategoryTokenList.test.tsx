@@ -18,7 +18,15 @@ jest.mock('@onekeyhq/components', () => {
     YStack: Stack,
     SizableText: Stack,
     useMedia: () => ({ md: false }),
-    Button: Stack,
+    Button: ({
+      children,
+      onPress,
+      disabled,
+    }: PropsWithChildren<{ onPress?: () => void; disabled?: boolean }>) => (
+      <button type="button" onClick={onPress} disabled={disabled}>
+        {children}
+      </button>
+    ),
     IconButton: ({
       title,
       onPress,
@@ -54,7 +62,7 @@ jest.mock('../RichTable', () => ({
   }) => {
     mockRichTableProps(props);
     return (
-      <div>
+      <div data-testid="category-table">
         {props.dataSource.map((record) => (
           <div key={record.symbol}>{props.columns[0].render(record)}</div>
         ))}
@@ -63,54 +71,105 @@ jest.mock('../RichTable', () => ({
   },
 }));
 
-it('renders and toggles Home Top Coins without a Market provider', () => {
-  const record: IFavoriteTokenDisplay = {
-    assetId: 'bitcoin',
-    chainId: '',
-    contractAddress: '',
-    isNative: false,
-    symbol: 'BTC',
-    name: 'Bitcoin',
-    logoUrl: '',
-    price: 1,
-    priceChange24h: 0,
-    marketCap: 1,
-    volume24h: 1,
-    marketAsset: {
+it.each([true, false])(
+  'renders and toggles Home Top Coins with stable rows in table layout %p',
+  (tableLayout) => {
+    const record: IFavoriteTokenDisplay = {
       assetId: 'bitcoin',
+      chainId: '',
+      contractAddress: '',
+      isNative: false,
       symbol: 'BTC',
+      name: 'Bitcoin',
       logoUrl: '',
-      price: '1',
-      priceChange24hPercent: '0',
-      priceChange7dPercent: '0',
-      marketCap: '1',
-      volume24h: '1',
-      sparkline24h: [],
-    },
-  };
-  const isTokenInWatchList = jest.fn(() => true);
-  const onStarPress = jest.fn();
-  render(
-    <MarketCategoryTokenList
-      tokens={[record]}
-      tableLayout
-      isLoading={false}
-      isTokenInWatchList={isTokenInWatchList}
-      onStarPress={onStarPress}
-      onTokenPress={jest.fn()}
-      onViewMore={jest.fn()}
-    />,
-  );
-  const star = screen.getByRole('button', {
-    name: 'market.remove_from_favorites',
-  });
-  expect(isTokenInWatchList).toHaveBeenCalledWith(record);
-  fireEvent.click(star);
-  expect(onStarPress).toHaveBeenCalledWith(record);
-  expect(mockRichTableProps).toHaveBeenCalledWith(
-    expect.objectContaining({
-      rowProps: expect.objectContaining({ minHeight: 68 }),
-      headerRowProps: expect.objectContaining({ minHeight: 0 }),
-    }),
-  );
-});
+      price: 1,
+      priceChange24h: 0,
+      marketCap: 1,
+      volume24h: 1,
+      marketAsset: {
+        assetId: 'bitcoin',
+        symbol: 'BTC',
+        logoUrl: '',
+        price: '1',
+        priceChange24hPercent: '0',
+        priceChange7dPercent: '0',
+        marketCap: '1',
+        volume24h: '1',
+        sparkline24h: [],
+      },
+    };
+    const isTokenInWatchList = jest.fn(() => true);
+    const onStarPress = jest.fn();
+    render(
+      <MarketCategoryTokenList
+        tokens={[record]}
+        tableLayout={tableLayout}
+        isLoading={false}
+        isTokenInWatchList={isTokenInWatchList}
+        onStarPress={onStarPress}
+        onTokenPress={jest.fn()}
+        onViewMore={jest.fn()}
+      />,
+    );
+    const star = screen.getByRole('button', {
+      name: 'market.remove_from_favorites',
+    });
+    expect(isTokenInWatchList).toHaveBeenCalledWith(record);
+    fireEvent.click(star);
+    expect(onStarPress).toHaveBeenCalledWith(record);
+    expect(mockRichTableProps).toHaveBeenCalledWith(
+      expect.objectContaining({
+        rowProps: expect.objectContaining({ minHeight: 68 }),
+        ...(tableLayout
+          ? { headerRowProps: expect.objectContaining({ minHeight: 0 }) }
+          : {}),
+      }),
+    );
+  },
+);
+
+it.each([true, false])(
+  'keeps the footer mounted and disabled while category data loads in table layout %p',
+  (tableLayout) => {
+    const onViewMore = jest.fn();
+    const props = {
+      tableLayout,
+      isTokenInWatchList: () => false,
+      onStarPress: jest.fn(),
+      onTokenPress: jest.fn(),
+      onViewMore,
+    };
+    const view = render(
+      <MarketCategoryTokenList {...props} tokens={[]} isLoading />,
+    );
+    const table = screen.getByTestId('category-table');
+    const button = screen.getByRole('button', {
+      name: 'global.view_more',
+    }) as HTMLButtonElement;
+    expect(button.disabled).toBe(true);
+    fireEvent.click(button);
+    expect(onViewMore).not.toHaveBeenCalled();
+    const token: IFavoriteTokenDisplay = {
+      chainId: 'btc--0',
+      contractAddress: '',
+      isNative: true,
+      symbol: 'BTC',
+      name: 'Bitcoin',
+      logoUrl: '',
+      price: 1,
+      priceChange24h: 0,
+      marketCap: 1,
+      volume24h: 1,
+    };
+    view.rerender(
+      <MarketCategoryTokenList {...props} tokens={[token]} isLoading={false} />,
+    );
+    expect(screen.getByRole('button', { name: 'global.view_more' })).toBe(
+      button,
+    );
+    expect(screen.getByTestId('category-table')).toBe(table);
+    expect(button.disabled).toBe(false);
+    fireEvent.click(button);
+    expect(onViewMore).toHaveBeenCalledTimes(1);
+  },
+);

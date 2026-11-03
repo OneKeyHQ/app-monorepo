@@ -77,11 +77,13 @@ function OverviewStatLabel({
     );
   }
   return (
-    <Tooltip
-      placement="top"
-      renderTrigger={trigger}
-      renderContent={<SizableText size="$bodySm">{item.tooltip}</SizableText>}
-    />
+    <XStack alignSelf="flex-start">
+      <Tooltip
+        placement="top"
+        renderTrigger={trigger}
+        renderContent={<SizableText size="$bodySm">{item.tooltip}</SizableText>}
+      />
+    </XStack>
   );
 }
 
