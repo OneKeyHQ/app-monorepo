@@ -32,3 +32,31 @@ export class HardwareCloudSyncDataError extends OneKeyLocalError {
     this.reason = reason;
   }
 }
+
+// The operation was cancelled or superseded by a newer one.
+export class HardwareCloudSyncCancelledError extends OneKeyLocalError {
+  constructor() {
+    super(
+      normalizeErrorProps(
+        { key: ETranslations.update_operation_canceled },
+        { defaultMessage: 'Operation canceled' },
+      ),
+    );
+  }
+}
+
+// The hardware wallet could not provide the Cloud key. The specific reason is
+// logged where the failure happened, never carried on this error.
+export class HardwareCloudSyncUnlockError extends OneKeyLocalError {
+  constructor() {
+    super(
+      normalizeErrorProps(
+        { key: ETranslations.cloud_sync_hardware_unlock_failed__msg },
+        {
+          defaultMessage:
+            "Couldn't get the encryption key. Switch to the standard wallet.",
+        },
+      ),
+    );
+  }
+}

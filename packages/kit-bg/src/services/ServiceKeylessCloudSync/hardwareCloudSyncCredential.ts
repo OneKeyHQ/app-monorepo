@@ -9,15 +9,12 @@ import {
   HARDWARE_CLOUD_SYNC_PATH,
   buildHardwareCloudSyncMessage,
 } from '@onekeyhq/shared/src/consts/hardwareCloudSyncConsts';
-import { HardwareCloudKeyDeviceRejectedError } from '@onekeyhq/shared/src/hardware/hardwareCloudKeyDeviceRejectedError';
-import { HardwareCloudSyncLocalError } from '@onekeyhq/shared/src/hardware/hardwareCloudSyncError';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { HardwareCloudSyncCancelledError } from '@onekeyhq/shared/src/hardware/hardwareCloudSyncError';
 import type { IKeylessCloudSyncCredential } from '@onekeyhq/shared/types/keylessCloudSync';
 
 import {
   HardwareCloudSyncCheckError,
-  isHardwareCloudSyncUserFacingError,
-  logHardwareCloudSyncFailure,
+  rethrowAsHardwareCloudSyncUnlockError,
 } from './hardwareCloudSyncLog';
 
 export type IHardwareCloudKeyIdentity = {
@@ -172,10 +169,7 @@ export async function deriveHardwareCloudSyncKek({
   let second: Buffer | undefined;
   const assertCurrent = () => {
     if (!isCurrent() || !credentialId) {
-      throw new HardwareCloudSyncLocalError(
-        ETranslations.update_operation_canceled,
-        'Operation canceled',
-      );
+      throw new HardwareCloudSyncCancelledError();
     }
   };
   try {
@@ -239,22 +233,9 @@ export async function deriveHardwareCloudSyncKek({
       kek.fill(0);
     }
   } catch (error) {
-    // A firmware rejection carries only its failure text, so the user sees it.
-    // Cancels and data errors already say what happened.
-    if (
-      error instanceof HardwareCloudKeyDeviceRejectedError ||
-      isHardwareCloudSyncUserFacingError(error)
-    ) {
-      throw error;
-    }
-    // SDK errors may carry request/response objects. Do not propagate them into
-    // ordinary RPC error logging, analytics, or the message-signing UI; the log
-    // keeps only the reason text.
-    logHardwareCloudSyncFailure('Unlock failed', error);
-    throw new HardwareCloudSyncLocalError(
-      ETranslations.cloud_sync_hardware_unlock_failed__msg,
-      "Couldn't get the encryption key. Switch to the standard wallet.",
-    );
+    // SDK errors may carry request/response objects; they must not reach RPC
+    // error logging, analytics, or the message-signing UI.
+    rethrowAsHardwareCloudSyncUnlockError('Unlock failed', error);
   } finally {
     first?.fill(0);
     second?.fill(0);

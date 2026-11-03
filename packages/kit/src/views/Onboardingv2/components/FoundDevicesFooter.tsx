@@ -27,6 +27,7 @@ import {
 } from './foundDevicesFooterUtils';
 
 import type { IConnectionIndicatorVariant } from '../pages/ConnectionIndicator';
+import type { IDialogConfirmProps } from '@onekeyhq/components';
 import type { IDeviceType } from '@onekeyfe/hd-core';
 
 function FoundDevicesStatus({
@@ -201,6 +202,37 @@ export function FoundDevicesFooter({
     [devices, onConnect, variant],
   );
 
+  const connectLabel = intl.formatMessage({
+    id: isConnecting
+      ? ETranslations.device_stage_connecting__title
+      : ETranslations.global_connect,
+  });
+  // Scan rounds rebuild `selected` and `handleConnect`; the dialog footer reads
+  // them at press time so it only re-renders when what it shows changes.
+  const latestConnectRef = useRef({ selected, handleConnect });
+  useEffect(() => {
+    latestConnectRef.current = { selected, handleConnect };
+  }, [selected, handleConnect]);
+  const onConfirmFooter = useCallback<
+    NonNullable<IDialogConfirmProps['onConfirm']>
+  >(async (dialog) => {
+    const { selected: current, handleConnect: connect } =
+      latestConnectRef.current;
+    // Let failures reach the dialog's error handler before preventing its
+    // default close; the picker owns the successful hand-off.
+    if (current) await connect(current);
+    dialog.preventClose();
+  }, []);
+  const hasSelection = !!selected;
+  const footerConfirmButtonProps = useMemo(
+    () => ({
+      testID: OnboardingTestIDs.connectYourDeviceConnectBtn,
+      disabled: !hasSelection,
+      loading: isConnecting,
+    }),
+    [hasSelection, isConnecting],
+  );
+
   const deviceList =
     visibleDevices.length > 0 ? (
       <YStack gap="$2">
@@ -252,11 +284,7 @@ export function FoundDevicesFooter({
             loading={isConnecting}
             onPress={() => (selected ? handleConnect(selected) : undefined)}
           >
-            {intl.formatMessage({
-              id: isConnecting
-                ? ETranslations.device_stage_connecting__title
-                : ETranslations.global_connect,
-            })}
+            {connectLabel}
           </Button>
         ) : null}
       </YStack>
@@ -287,22 +315,9 @@ export function FoundDevicesFooter({
       <Dialog.Footer
         showFooter={visibleDevices.length > 0}
         showCancelButton={false}
-        onConfirmText={intl.formatMessage({
-          id: isConnecting
-            ? ETranslations.device_stage_connecting__title
-            : ETranslations.global_connect,
-        })}
-        confirmButtonProps={{
-          testID: OnboardingTestIDs.connectYourDeviceConnectBtn,
-          disabled: !selected,
-          loading: isConnecting,
-        }}
-        onConfirm={async (dialog) => {
-          // Let failures reach the dialog's error handler before preventing
-          // its default close; the picker owns the successful hand-off.
-          if (selected) await handleConnect(selected);
-          dialog.preventClose();
-        }}
+        onConfirmText={connectLabel}
+        confirmButtonProps={footerConfirmButtonProps}
+        onConfirm={onConfirmFooter}
       />
     </>
   ) : (

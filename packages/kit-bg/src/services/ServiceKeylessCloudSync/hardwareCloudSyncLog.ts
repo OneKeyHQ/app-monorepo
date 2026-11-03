@@ -5,8 +5,14 @@ import {
   UserCancel,
 } from '@onekeyhq/shared/src/errors/errors/hardwareErrors';
 import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
-import { HardwareCloudSyncDataError } from '@onekeyhq/shared/src/hardware/hardwareCloudSyncError';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
+import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
+import { HardwareCloudKeyDeviceRejectedError } from '@onekeyhq/shared/src/hardware/hardwareCloudKeyDeviceRejectedError';
+import {
+  HardwareCloudSyncCancelledError,
+  HardwareCloudSyncDataError,
+  HardwareCloudSyncUnlockError,
+} from '@onekeyhq/shared/src/hardware/hardwareCloudSyncError';
+import { HardwareCloudKeyPrerequisiteError } from '@onekeyhq/shared/src/hardware/hardwareCloudSyncErrors';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 
 const MAX_REASON_LENGTH = 200;
@@ -74,8 +80,28 @@ export function isHardwareCloudSyncUserFacingError(error: unknown): boolean {
   return (
     error instanceof UserCancel ||
     error instanceof PinCancelled ||
+    error instanceof HardwareCloudSyncCancelledError ||
     error instanceof HardwareCloudSyncDataError ||
-    (error as IOneKeyError | undefined)?.key ===
-      ETranslations.update_operation_canceled
+    errorToastUtils.isUserCancelStyleError(error)
   );
+}
+
+// The one place that decides what a device-step failure shows: errors that
+// already say what happened (including an unlock error logged further down)
+// pass through; anything else is logged once and becomes the unlock error,
+// so SDK request or response data never travels with it.
+export function rethrowAsHardwareCloudSyncUnlockError(
+  stage: string,
+  error: unknown,
+): never {
+  if (
+    isHardwareCloudSyncUserFacingError(error) ||
+    error instanceof HardwareCloudSyncUnlockError ||
+    error instanceof HardwareCloudKeyDeviceRejectedError ||
+    error instanceof HardwareCloudKeyPrerequisiteError
+  ) {
+    throw error;
+  }
+  logHardwareCloudSyncFailure(stage, error);
+  throw new HardwareCloudSyncUnlockError();
 }

@@ -17,7 +17,10 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
-import { HardwareCloudSyncError } from '@onekeyhq/shared/src/hardware/hardwareCloudSyncError';
+import {
+  HardwareCloudSyncCancelledError,
+  HardwareCloudSyncError,
+} from '@onekeyhq/shared/src/hardware/hardwareCloudSyncError';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -85,6 +88,28 @@ import type { AxiosInstance } from 'axios';
 const HARDWARE_SESSION_CHECK_INTERVAL_MS = timerUtils.getTimeDurationMs({
   minute: 5,
 });
+
+// Repeated user-facing failures of the hardware Cloud sync flow.
+function hardwareSignedOutError() {
+  return new HardwareCloudSyncError(
+    ETranslations.cloud_sync_hardware_signed_out__msg,
+    'Cloud sync is signed out. Reconnect your hardware wallet.',
+  );
+}
+
+function keyChangeInProgressError() {
+  return new HardwareCloudSyncError(
+    ETranslations.cloud_sync_key_change_in_progress__msg,
+    'The encryption key is being changed. Try again once it finishes.',
+  );
+}
+
+function settingsChangedError() {
+  return new HardwareCloudSyncError(
+    ETranslations.cloud_sync_settings_changed__msg,
+    'Cloud sync settings changed. Try again.',
+  );
+}
 
 @backgroundClass()
 class ServiceKeylessCloudSync extends ServiceBase {
@@ -300,20 +325,14 @@ class ServiceKeylessCloudSync extends ServiceBase {
       );
     }
     if (this.hardwareCloudKeyCommitting) {
-      throw new HardwareCloudSyncError(
-        ETranslations.cloud_sync_key_change_in_progress__msg,
-        'The encryption key is being changed. Try again once it finishes.',
-      );
+      throw keyChangeInProgressError();
     }
     this.hardwareCloudKeyGeneration += 1;
     const generation = this.hardwareCloudKeyGeneration;
     const isCurrent = () => this.hardwareCloudKeyGeneration === generation;
     const assertCurrent = () => {
       if (!isCurrent()) {
-        throw new HardwareCloudSyncError(
-          ETranslations.update_operation_canceled,
-          'Operation canceled',
-        );
+        throw new HardwareCloudSyncCancelledError();
       }
     };
     // A newer request supersedes a device prompt still owned by an older one.
@@ -767,10 +786,7 @@ class ServiceKeylessCloudSync extends ServiceBase {
     { force }: { force?: boolean } = {},
   ): Promise<IKeylessCloudSyncCredential> {
     if (this.hardwareSessionEnding) {
-      throw new HardwareCloudSyncError(
-        ETranslations.cloud_sync_settings_changed__msg,
-        'Cloud sync settings changed. Try again.',
-      );
+      throw settingsChangedError();
     }
     if (this.hardwareSessionRefresh) return this.hardwareSessionRefresh;
     const session = credential.hardwareSession;
@@ -1011,10 +1027,7 @@ class ServiceKeylessCloudSync extends ServiceBase {
       return updated;
     });
     if (!saved) {
-      throw new HardwareCloudSyncError(
-        ETranslations.cloud_sync_settings_changed__msg,
-        'Cloud sync settings changed. Try again.',
-      );
+      throw settingsChangedError();
     }
     this.setKeylessCloudSyncCredentialCache(saved);
     await this.backgroundApi.servicePrimeCloudSync.clearCachedSyncCredential();
@@ -1029,10 +1042,7 @@ class ServiceKeylessCloudSync extends ServiceBase {
     return this.runWithCloudSyncKeyLock(async () => {
       const session = credential.hardwareSession;
       if (!session) {
-        throw new HardwareCloudSyncError(
-          ETranslations.cloud_sync_hardware_signed_out__msg,
-          'Cloud sync is signed out. Reconnect your hardware wallet.',
-        );
+        throw hardwareSignedOutError();
       }
       // Read after the device and network waits, so account edits made while
       // confirming the reset are carried forward instead of an old snapshot.
@@ -1179,10 +1189,7 @@ class ServiceKeylessCloudSync extends ServiceBase {
     const client = await this.getHardwareSyncClient();
     const send = (current: IKeylessCloudSyncCredential) => {
       if (!current.hardwareSession) {
-        throw new HardwareCloudSyncError(
-          ETranslations.cloud_sync_hardware_signed_out__msg,
-          'Cloud sync is signed out. Reconnect your hardware wallet.',
-        );
+        throw hardwareSignedOutError();
       }
       return requestRawWithHardwareCloudSyncSession<T>({
         client,
@@ -1214,10 +1221,7 @@ class ServiceKeylessCloudSync extends ServiceBase {
   @toastIfError()
   async resetHardwareCloudSyncKey({ connectId }: { connectId: string }) {
     if (this.hardwareCloudKeyCommitting) {
-      throw new HardwareCloudSyncError(
-        ETranslations.cloud_sync_key_change_in_progress__msg,
-        'The encryption key is being changed. Try again once it finishes.',
-      );
+      throw keyChangeInProgressError();
     }
     const config = await primeCloudSyncPersistAtom.get();
     const source = config.hardwareCloudSyncKeySource;
@@ -1243,17 +1247,11 @@ class ServiceKeylessCloudSync extends ServiceBase {
     const credential = await this.getFreshHardwareCredential(stored);
     const session = credential.hardwareSession;
     if (!session) {
-      throw new HardwareCloudSyncError(
-        ETranslations.cloud_sync_hardware_signed_out__msg,
-        'Cloud sync is signed out. Reconnect your hardware wallet.',
-      );
+      throw hardwareSignedOutError();
     }
     const client = await this.getHardwareSyncClient();
     if (this.hardwareCloudKeyCommitting) {
-      throw new HardwareCloudSyncError(
-        ETranslations.cloud_sync_key_change_in_progress__msg,
-        'The encryption key is being changed. Try again once it finishes.',
-      );
+      throw keyChangeInProgressError();
     }
     this.hardwareCloudKeyGeneration += 1;
     const generation = this.hardwareCloudKeyGeneration;
@@ -1288,20 +1286,10 @@ class ServiceKeylessCloudSync extends ServiceBase {
         localItems: [],
         isCurrent,
         beforeFlush: async () => {
-          if (
-            !isCurrent() ||
-            !(await this.isStoredHardwareSession(credential))
-          ) {
-            throw new HardwareCloudSyncError(
-              ETranslations.update_operation_canceled,
-              'Operation canceled',
-            );
-          }
-          if (!isCurrent()) {
-            throw new HardwareCloudSyncError(
-              ETranslations.update_operation_canceled,
-              'Operation canceled',
-            );
+          // Re-read after the await: the operation may have been superseded.
+          const stored = await this.isStoredHardwareSession(credential);
+          if (!isCurrent() || !stored) {
+            throw new HardwareCloudSyncCancelledError();
           }
           this.hardwareCloudKeyCommitting = true;
           committing = true;
@@ -1342,10 +1330,7 @@ class ServiceKeylessCloudSync extends ServiceBase {
         unlock,
       });
       if (!rotated) {
-        throw new HardwareCloudSyncError(
-          ETranslations.update_operation_canceled,
-          'Operation canceled',
-        );
+        throw new HardwareCloudSyncCancelledError();
       }
       const updated = await this.commitHardwareDataKey(
         credential,
@@ -1407,10 +1392,7 @@ class ServiceKeylessCloudSync extends ServiceBase {
       credential.source?.type === 'hardware' ||
       (await primeCloudSyncPersistAtom.get()).hardwareCloudSyncKeySource
     ) {
-      throw new HardwareCloudSyncError(
-        ETranslations.cloud_sync_hardware_signed_out__msg,
-        'Cloud sync is signed out. Reconnect your hardware wallet.',
-      );
+      throw hardwareSignedOutError();
     }
     return undefined;
   }

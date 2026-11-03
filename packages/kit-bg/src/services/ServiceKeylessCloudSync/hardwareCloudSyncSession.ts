@@ -9,7 +9,10 @@ import {
   isHardwareCloudSyncKekSalt,
 } from '@onekeyhq/shared/src/consts/hardwareCloudSyncConsts';
 import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
-import { HardwareCloudSyncLocalError } from '@onekeyhq/shared/src/hardware/hardwareCloudSyncError';
+import {
+  HardwareCloudSyncCancelledError,
+  HardwareCloudSyncLocalError,
+} from '@onekeyhq/shared/src/hardware/hardwareCloudSyncError';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
@@ -459,7 +462,11 @@ export function computeHardwareCloudSyncPwdHash(dekId: string): string {
 
 // Only well-formed v1 envelopes are signed for: the salt is shown on the
 // device, so the server must not choose arbitrary text there.
-function parseEnvelope(data: string | undefined): IKeyEnvelope | undefined {
+// Null for a malformed or legacy envelope, so callers that skip those do not
+// log them as data check failures.
+function readEnvelope(
+  data: string | undefined,
+): IKeyEnvelope | undefined | null {
   if (!data) return undefined;
   let envelope: Partial<IKeyEnvelope> | undefined;
   try {
@@ -478,9 +485,17 @@ function parseEnvelope(data: string | undefined): IKeyEnvelope | undefined {
     typeof envelope.wrappedDek !== 'string' ||
     !envelope.wrappedDek
   ) {
-    throw createHardwareCloudSyncDataError('Invalid Cloud sync key envelope');
+    return null;
   }
   return envelope as IKeyEnvelope;
+}
+
+function parseEnvelope(data: string | undefined): IKeyEnvelope | undefined {
+  const envelope = readEnvelope(data);
+  if (envelope === null) {
+    throw createHardwareCloudSyncDataError('Invalid Cloud sync key envelope');
+  }
+  return envelope;
 }
 
 async function readLockEnvelope({
@@ -569,15 +584,12 @@ async function listPreviousPwdHashes({
     isHardwareCloudSyncKeyEnvelopeItem(item),
   );
   for (const item of envelopes) {
-    try {
-      const envelope = parseEnvelope(item.data);
-      const hash = envelope
-        ? computeHardwareCloudSyncPwdHash(envelope.dekId)
-        : undefined;
-      if (hash && hash !== pwdHash) hashes.push(hash);
-    } catch {
-      // Malformed or legacy envelope: not a key version of this wallet.
-    }
+    // A malformed or legacy envelope is not a key version of this wallet.
+    const envelope = readEnvelope(item.data);
+    const hash = envelope
+      ? computeHardwareCloudSyncPwdHash(envelope.dekId)
+      : undefined;
+    if (hash && hash !== pwdHash) hashes.push(hash);
   }
   return hashes;
 }
@@ -782,10 +794,7 @@ export async function rotateHardwareCloudSyncDataKey<
 }> {
   const assertCurrent = () => {
     if (!isCurrent()) {
-      throw new HardwareCloudSyncLocalError(
-        ETranslations.update_operation_canceled,
-        'Operation canceled',
-      );
+      throw new HardwareCloudSyncCancelledError();
     }
   };
   assertCurrent();

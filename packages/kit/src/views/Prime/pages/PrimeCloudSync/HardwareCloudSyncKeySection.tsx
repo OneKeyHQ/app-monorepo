@@ -10,6 +10,7 @@ import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms'
 import { usePrimeCloudSyncPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/prime';
 import { isHardwareCloudSyncPlatformSupported } from '@onekeyhq/shared/src/consts/hardwareCloudSyncConsts';
 import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
+import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -356,7 +357,14 @@ export function useHardwareCloudSyncKey() {
               if (dismissed) return;
               picked = true;
               await dialog.close();
-              await onPick(connectId);
+              try {
+                await onPick(connectId);
+              } catch (error) {
+                // The flow already reports its own failures (service toasts or
+                // the switch dialog); stop them here so they do not surface as
+                // unhandled rejections from the picker's Connect button.
+                errorUtils.autoPrintErrorIgnore(error);
+              }
             }}
           />
         ),

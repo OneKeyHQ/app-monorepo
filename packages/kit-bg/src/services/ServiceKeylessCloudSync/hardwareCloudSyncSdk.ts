@@ -13,9 +13,11 @@ import {
   UserCancel,
 } from '@onekeyhq/shared/src/errors/errors/hardwareErrors';
 import { HardwareCloudKeyDeviceRejectedError } from '@onekeyhq/shared/src/hardware/hardwareCloudKeyDeviceRejectedError';
-import { HardwareCloudSyncLocalError } from '@onekeyhq/shared/src/hardware/hardwareCloudSyncError';
+import {
+  HardwareCloudSyncCancelledError,
+  HardwareCloudSyncUnlockError,
+} from '@onekeyhq/shared/src/hardware/hardwareCloudSyncError';
 import { HardwareCloudKeyPrerequisiteError } from '@onekeyhq/shared/src/hardware/hardwareCloudSyncErrors';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { getDeviceAvatarImage } from '@onekeyhq/shared/src/utils/avatarUtils';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import { EHardwareCallContext } from '@onekeyhq/shared/types/device';
@@ -30,8 +32,8 @@ import {
 } from './hardwareCloudSyncCredential';
 import {
   assertHardwareCloudSyncAuthTemplate,
-  isHardwareCloudSyncUserFacingError,
   logHardwareCloudSyncFailure,
+  rethrowAsHardwareCloudSyncUnlockError,
 } from './hardwareCloudSyncLog';
 
 import type {
@@ -43,10 +45,7 @@ import type { IBackgroundApi } from '../../apis/IBackgroundApi';
 import type { Success, Unsuccessful } from '@onekeyfe/hd-core';
 
 function unlockError() {
-  return new HardwareCloudSyncLocalError(
-    ETranslations.cloud_sync_hardware_unlock_failed__msg,
-    "Couldn't get the encryption key. Switch to the standard wallet.",
-  );
+  return new HardwareCloudSyncUnlockError();
 }
 
 // Device steps run inside the caller's unlock, whose own errors pass through;
@@ -55,14 +54,7 @@ async function sanitizeDeviceError<T>(run: () => Promise<T>): Promise<T> {
   try {
     return await run();
   } catch (error) {
-    if (
-      error instanceof HardwareCloudKeyDeviceRejectedError ||
-      isHardwareCloudSyncUserFacingError(error)
-    ) {
-      throw error;
-    }
-    logHardwareCloudSyncFailure('Device step failed', error);
-    throw unlockError();
+    rethrowAsHardwareCloudSyncUnlockError('Device step failed', error);
   }
 }
 
@@ -136,10 +128,7 @@ export async function generateHardwareCloudSyncCredentialWithSdk({
   let callbackError: unknown;
   try {
     if (!isCurrent()) {
-      throw new HardwareCloudSyncLocalError(
-        ETranslations.update_operation_canceled,
-        'Operation canceled',
-      );
+      throw new HardwareCloudSyncCancelledError();
     }
     if (!selectedConnectId) throw unlockError();
     return await backgroundApi.serviceHardwareUI.runExclusiveOneKeyOperation(
@@ -159,10 +148,7 @@ export async function generateHardwareCloudSyncCredentialWithSdk({
         try {
           const assertCurrent = () => {
             if (!isCurrent() || lease.signal?.aborted) {
-              throw new HardwareCloudSyncLocalError(
-                ETranslations.update_operation_canceled,
-                'Operation canceled',
-              );
+              throw new HardwareCloudSyncCancelledError();
             }
           };
           const call = async <T>(operation: () => Promise<T>): Promise<T> => {
@@ -370,15 +356,7 @@ export async function generateHardwareCloudSyncCredentialWithSdk({
       { deviceKey: selectedConnectId },
     );
   } catch (error) {
-    if (
-      error instanceof HardwareCloudKeyPrerequisiteError ||
-      error instanceof HardwareCloudKeyDeviceRejectedError ||
-      isHardwareCloudSyncUserFacingError(error) ||
-      (callbackError !== undefined && error === callbackError)
-    ) {
-      throw error;
-    }
-    logHardwareCloudSyncFailure('Hardware session failed', error);
-    throw unlockError();
+    if (callbackError !== undefined && error === callbackError) throw error;
+    rethrowAsHardwareCloudSyncUnlockError('Hardware session failed', error);
   }
 }
