@@ -517,38 +517,40 @@ export function showFeaturedChangelogDialog(
   };
 
   const dialogInstance = Dialog.show({
-    showFooter: false,
-    showHeader: false,
     // Block dismissal at the source while locked: on native the sheet animates
     // closed before onBeforeClose runs, so the guard alone cannot keep it open.
     // Once support unlocks the device, the close button reappears instead.
+    // A custom container gets only the mount wiring (close, exit, guard) from
+    // Dialog.show, so every presentational prop is passed to it directly.
     dialogContainer: ({ ref }) => (
-      // onClose is replaced by Dialog.show's own close forwarder.
       <FeaturedChangelogDialogContainer
         ref={ref}
         store={dialogStore}
+        showFooter={false}
+        showHeader={false}
+        floatingPanelProps={{ width: 480, overflow: 'hidden' }}
+        renderContent={
+          <FeaturedChangelogPreviewContext.Provider value={previewData}>
+            <FeaturedChangelogContent
+              isPreInstall={isPreInstall}
+              isLocked={isLocked}
+              onLockChange={(nextLocked) => {
+                isLockedRef.current = nextLocked;
+                dialogStore.set({ isLocked: nextLocked });
+              }}
+              onSupportOpen={() => {
+                dialogStore.set({ isSupportOpen: true });
+              }}
+              closeDialog={closeDialog}
+            />
+          </FeaturedChangelogPreviewContext.Provider>
+        }
+        // Dialog.show's close forwarder runs alongside this no-op.
         onClose={async () => undefined}
       />
     ),
     onBeforeClose: (extra) =>
       extra?.flag === 'programmatic' || !isLockedRef.current,
-    floatingPanelProps: { width: 480, overflow: 'hidden' },
-    renderContent: (
-      <FeaturedChangelogPreviewContext.Provider value={previewData}>
-        <FeaturedChangelogContent
-          isPreInstall={isPreInstall}
-          isLocked={isLocked}
-          onLockChange={(nextLocked) => {
-            isLockedRef.current = nextLocked;
-            dialogStore.set({ isLocked: nextLocked });
-          }}
-          onSupportOpen={() => {
-            dialogStore.set({ isSupportOpen: true });
-          }}
-          closeDialog={closeDialog}
-        />
-      </FeaturedChangelogPreviewContext.Provider>
-    ),
     onClose: async () => {
       // Preview mode must stay side-effect-free: whatsNewClosed is
       // @LogToServer (a real analytics event), so skipping it keeps ops
