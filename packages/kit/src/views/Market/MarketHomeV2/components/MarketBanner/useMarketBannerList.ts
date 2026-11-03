@@ -16,6 +16,7 @@ import type {
 } from '@onekeyhq/shared/types/marketV2';
 
 import {
+  findMatchingMarketBannerToken,
   getMarketBannerTopTokens,
   isMarketIndexQuoteBanner,
   isMarketStockPerpsBanner,
@@ -26,12 +27,6 @@ import {
   fetchMarketBannerStockTokenListForPlatform,
   fetchMarketBannerTokenListForPlatform,
 } from './marketBannerListPlatformApi';
-
-function bannerPreviewLogos(
-  tokens: IMarketBannerTokenPreview[] | undefined,
-): Map<string, string> {
-  return new Map(tokens?.map((token) => [token.symbol, token.logo]));
-}
 
 function canReuseBannerQuotes(
   banner: IMarketBannerItem,
@@ -49,29 +44,36 @@ function canReuseBannerQuotes(
 
 function applyPreviewLogos(
   tokens: IMarketBannerTokenPreview[],
-  previewLogos: Map<string, string>,
+  previews: IMarketBannerTokenPreview[] | undefined,
 ): IMarketBannerTokenPreview[] {
-  if (previewLogos.size === 0) return tokens;
+  if (!previews?.length) return tokens;
   return tokens.map((token) => {
-    const logo = previewLogos.get(token.symbol) || token.logo;
+    const preview = findMatchingMarketBannerToken(token, tokens, previews);
+    const logo = preview?.logo || token.logo;
     return logo === token.logo ? token : { ...token, logo };
   });
 }
 
 function mapBannerQuoteToken({
+  stockId,
+  networkId,
+  address,
   logo,
   name,
   symbol,
   price,
   priceChange24hPercent,
-}: {
-  logo: string;
-  name: string;
-  symbol: string;
-  price?: string;
-  priceChange24hPercent?: string;
-}): IMarketBannerTokenPreview {
-  return { logo, name, symbol, price, priceChange24hPercent };
+}: IMarketBannerTokenPreview): IMarketBannerTokenPreview {
+  return {
+    stockId,
+    networkId,
+    address,
+    logo,
+    name,
+    symbol,
+    price,
+    priceChange24hPercent,
+  };
 }
 
 async function hydrateMarketBannerQuote(
@@ -93,7 +95,6 @@ async function hydrateMarketBannerQuote(
   }
 
   try {
-    const previewLogos = bannerPreviewLogos(banner.tokens);
     if (isStockBanner || banner.type === EMarketBannerType.Stock) {
       const assets = await fetchMarketBannerStockTokenListForPlatform(
         banner.tokenListId,
@@ -102,14 +103,18 @@ async function hydrateMarketBannerQuote(
       // can provide a different rendition of the same company's logo.
       return {
         ...banner,
-        tokens: assets.map((asset) =>
-          mapBannerQuoteToken({
-            logo: previewLogos.get(asset.symbol) || asset.logoUrl,
-            name: asset.name,
-            symbol: asset.symbol,
-            price: asset.price,
-            priceChange24hPercent: asset.priceChange24hPercent,
-          }),
+        tokens: applyPreviewLogos(
+          assets.map((asset) =>
+            mapBannerQuoteToken({
+              stockId: asset.stockId,
+              logo: asset.logoUrl,
+              name: asset.name,
+              symbol: asset.symbol,
+              price: asset.price,
+              priceChange24hPercent: asset.priceChange24hPercent,
+            }),
+          ),
+          banner.tokens,
         ),
       };
     }
@@ -121,18 +126,19 @@ async function hydrateMarketBannerQuote(
 
     return {
       ...banner,
-      tokens: tokens.map((token) =>
-        mapBannerQuoteToken({
-          logo:
-            previewLogos.get(token.symbol) ||
-            token.logoUrl ||
-            token.logoUrls?.[0] ||
-            '',
-          name: token.name,
-          symbol: token.symbol,
-          price: token.price,
-          priceChange24hPercent: token.priceChange24hPercent,
-        }),
+      tokens: applyPreviewLogos(
+        tokens.map((token) =>
+          mapBannerQuoteToken({
+            networkId: token.networkId,
+            address: token.address,
+            logo: token.logoUrl || token.logoUrls?.[0] || '',
+            name: token.name,
+            symbol: token.symbol,
+            price: token.price,
+            priceChange24hPercent: token.priceChange24hPercent,
+          }),
+        ),
+        banner.tokens,
       ),
     };
   } catch {
@@ -140,10 +146,7 @@ async function hydrateMarketBannerQuote(
     if (canReuseBannerQuotes(banner, cached)) {
       return {
         ...banner,
-        tokens: applyPreviewLogos(
-          cached.tokens,
-          bannerPreviewLogos(banner.tokens),
-        ),
+        tokens: applyPreviewLogos(cached.tokens, banner.tokens),
       };
     }
     return banner;
@@ -180,10 +183,7 @@ function mergeBannerQuotes(
     if (canReuseBannerQuotes(banner, cached)) {
       return {
         ...banner,
-        tokens: applyPreviewLogos(
-          cached.tokens,
-          bannerPreviewLogos(banner.tokens),
-        ),
+        tokens: applyPreviewLogos(cached.tokens, banner.tokens),
       };
     }
     return banner;
@@ -315,18 +315,19 @@ export function useMarketBannerList(): {
               !isMarketIndexQuoteBanner(hydrated) &&
               hydrated.type !== EMarketBannerType.Perps
             ) {
-              const preview = getMarketBannerTopTokens(
-                previews.get(hydrated._id)?.tokens,
-              );
-              const quotes = new Map(
-                hydrated.tokens?.map((token) => [token.symbol, token]),
-              );
+              const previewTokens = previews.get(hydrated._id)?.tokens ?? [];
+              const preview = getMarketBannerTopTokens(previewTokens);
+              const quotes = hydrated.tokens;
               updated = {
                 ...hydrated,
                 tokens:
                   preserveInitialRows && preview.length
                     ? preview.map((token) => {
-                        const quote = quotes.get(token.symbol);
+                        const quote = findMatchingMarketBannerToken(
+                          token,
+                          previewTokens,
+                          quotes,
+                        );
                         return quote
                           ? {
                               ...token,

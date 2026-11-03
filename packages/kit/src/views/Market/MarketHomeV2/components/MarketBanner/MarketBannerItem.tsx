@@ -27,6 +27,7 @@ import {
 } from '@onekeyhq/shared/types/marketV2';
 
 import {
+  getMarketBannerTokenIdentity,
   getMarketBannerTopTokens,
   isMarketIndexQuoteBanner,
 } from '../../../utils/marketBannerUtils';
@@ -444,9 +445,18 @@ function MarketBannerItemComponent(props: IMarketBannerItemProps) {
         }
       >
         {tokens.length ? (
-          tokens.map((token) => (
+          tokens.map((token, index) => (
             <BannerQuoteRow
-              key={token.symbol}
+              key={
+                // Keep unique legacy keys stable when quotes add asset IDs.
+                tokens.some(
+                  (other, otherIndex) =>
+                    otherIndex !== index && other.symbol === token.symbol,
+                )
+                  ? (getMarketBannerTokenIdentity(token) ??
+                    `${token.symbol}:${index}`)
+                  : token.symbol
+              }
               token={token}
               isIndex={isIndexBanner}
             />

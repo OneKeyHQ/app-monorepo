@@ -788,7 +788,7 @@ export function useMarketTokenList({
         prev.queryKey === currentQueryKey
           ? new Map(transformed.map((item) => [marketTokenKey(item), item]))
           : undefined;
-      const next = nextByKey
+      const next = nextByKey?.size
         ? prev.data.map((item) => nextByKey.get(marketTokenKey(item)) ?? item)
         : transformed;
       return {

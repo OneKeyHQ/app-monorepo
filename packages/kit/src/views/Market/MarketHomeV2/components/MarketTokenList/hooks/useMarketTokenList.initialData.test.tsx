@@ -339,6 +339,16 @@ describe('useMarketTokenList initial data', () => {
       },
     );
 
+    it('clears cached rows when the first response is an authoritative empty ranking', async () => {
+      swrCacheUtils.set(cacheKey, ranking(['A', 'B']));
+      const empty = { list: [], total: 0 };
+      mockFetchMarketTokenList.mockResolvedValueOnce(empty);
+      const { result } = renderHook(() => useMarketTokenList(query));
+      expect(rowSymbols(result.current.data)).toEqual(['A', 'B']);
+      await waitFor(() => expect(result.current.data).toEqual([]));
+      expect(swrCacheUtils.get(cacheKey)).toMatchObject(empty);
+    });
+
     it('reconciles page one before appending the refreshed next page', async () => {
       swrCacheUtils.set(cacheKey, ranking(['A', 'B']));
       mockFetchMarketTokenList

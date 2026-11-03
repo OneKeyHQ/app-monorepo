@@ -229,6 +229,7 @@ it('keeps stock-backed index assets on the stock list endpoint', async () => {
           logo: '',
           name: 'Index Asset',
           symbol: 'INDEX',
+          stockId: 'stock-index',
           price: '100',
           priceChange24hPercent: '1',
         },
@@ -812,6 +813,63 @@ describe('desktop banner quote updates', () => {
   beforeEach(() => {
     (platformEnv as { isDesktop: boolean }).isDesktop = true;
   });
+
+  it.each(['stock', 'token', 'legacy'])(
+    'does not mix quotes for duplicate symbols (%s identity)',
+    async (kind) => {
+      const tokens = ['2', '1'].map((change, index) => ({
+        ...preview('SAME', change),
+        stockId: kind === 'stock' ? String(index) : undefined,
+        networkId: kind === 'token' ? 'sol--101' : undefined,
+        address: kind === 'token' ? String(index) : undefined,
+        logo: `preview-${index}.png`,
+      }));
+      const quotes = tokens.map((token, index) => ({
+        ...asset('SAME', token.priceChange24hPercent, String((index + 1) * 10)),
+        stockId: String(index),
+        networkId: 'sol--101',
+        address: String(index),
+        decimals: 9,
+        logoUrl: `quote-${index}.png`,
+      }));
+      mockResult = [
+        makeBanner({
+          type:
+            kind === 'token'
+              ? EMarketBannerType.Ticker
+              : EMarketBannerType.Stock,
+          tokens,
+        }),
+      ];
+      jest
+        .mocked(fetchMarketBannerStockTokenListForPlatform)
+        .mockResolvedValue(quotes);
+      jest
+        .mocked(fetchMarketBannerTokenListForPlatform)
+        .mockResolvedValue(quotes);
+      const { result, rerender } = renderHook(() => useMarketBannerList());
+      await act(async () => {
+        await mockHydrate();
+      });
+      expect(result.current.bannerList[0].tokens).toMatchObject(
+        tokens.map((token, index) => ({
+          logo: token.logo,
+          price: kind === 'legacy' ? '1' : String((index + 1) * 10),
+        })),
+      );
+      mockResult = [{ ...mockResult[0] }];
+      rerender();
+      await act(async () => {
+        await mockHydrate();
+      });
+      expect(result.current.bannerList[0].tokens).toMatchObject(
+        quotes.map((token, index) => ({
+          price: token.price,
+          logo: kind === 'legacy' ? token.logoUrl : tokens[index].logo,
+        })),
+      );
+    },
+  );
 
   it('updates fast cards independently, preserving first rows until the next refresh', async () => {
     const fast = stock('fast', [

@@ -53,3 +53,31 @@ export function getMarketBannerTopTokens(
     })
     .slice(0, 3);
 }
+
+export function getMarketBannerTokenIdentity(token: IMarketBannerTokenPreview) {
+  if (token.stockId) return `stock:${token.stockId}`;
+  if (token.networkId && token.address !== undefined)
+    return `token:${token.networkId}:${token.address}`;
+  return undefined;
+}
+
+export function findMatchingMarketBannerToken(
+  token: IMarketBannerTokenPreview,
+  source: IMarketBannerTokenPreview[],
+  candidates: IMarketBannerTokenPreview[],
+) {
+  const identity = getMarketBannerTokenIdentity(token);
+  const exact = identity
+    ? candidates.find(
+        (candidate) => getMarketBannerTokenIdentity(candidate) === identity,
+      )
+    : undefined;
+  if (exact) return exact;
+  // Legacy previews omit identity. Only an unambiguous symbol may bridge them.
+  if (source.filter((item) => item.symbol === token.symbol).length !== 1)
+    return undefined;
+  const matches = candidates.filter((item) => item.symbol === token.symbol);
+  if (matches.length !== 1) return undefined;
+  const match = matches[0];
+  return identity && getMarketBannerTokenIdentity(match) ? undefined : match;
+}

@@ -176,8 +176,8 @@ describe('Market theme banner', () => {
 
   it('sorts the top three without mutating the response or remounting retained rows', () => {
     const tokens = [
-      makeToken('LOW', '2'),
-      makeToken('TOP', '10'),
+      { ...makeToken('SAME', '2'), stockId: 'low' },
+      { ...makeToken('SAME', '10'), stockId: 'top' },
       makeToken('LOSS', '-1'),
       makeToken('SECOND', '3'),
     ];
@@ -185,18 +185,20 @@ describe('Market theme banner', () => {
     const rows = screen.getAllByTestId('market-banner-token-row');
     expect(rows).toHaveLength(3);
     expect(rows.map((row) => row.textContent)).toEqual([
-      'TOP--10',
+      'SAME--10',
       'SECOND--3',
-      'LOW--2',
+      'SAME--2',
     ]);
     expect(tokens.map((token) => token.symbol)).toEqual([
-      'LOW',
-      'TOP',
+      'SAME',
+      'SAME',
       'LOSS',
       'SECOND',
     ]);
     const refreshed = tokens.map((token) =>
-      token.symbol === 'TOP' ? { ...token, priceChange24hPercent: '0' } : token,
+      token.stockId === 'top'
+        ? { ...token, priceChange24hPercent: '0' }
+        : token,
     );
     rerender(<MarketBannerItem item={makeBanner(refreshed)} />);
     const reordered = screen.getAllByTestId('market-banner-token-row');
