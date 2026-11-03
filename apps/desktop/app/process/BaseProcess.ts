@@ -1,12 +1,15 @@
 import { spawn } from 'child_process';
 import path from 'path';
 
-import isDev from 'electron-is-dev';
+import { app } from 'electron';
+import electronIsDev from 'electron-is-dev';
 import logger from 'electron-log/main';
 
 import { getAppStaticResourcesPath } from '../resoucePath';
 
 import type { ChildProcess } from 'child_process';
+
+const isDev = !app?.isPackaged && electronIsDev;
 
 export type IStatus = {
   service: boolean;
