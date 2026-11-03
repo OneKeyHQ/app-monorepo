@@ -201,6 +201,11 @@ describe('TxFeeEditor precision readiness', () => {
     ['negative precision', { common: { feeDecimals: -1 } }],
     ['fractional precision', { common: { feeDecimals: 0.5 } }],
     ['unsafe precision', { common: { feeDecimals: 1e20 } }],
+    ['precision above the supported maximum', { common: { feeDecimals: 25 } }],
+    [
+      'large safe-integer precision with NeoN3 fees',
+      { ...neoFee, common: { ...common, feeDecimals: 1_000_000 } },
+    ],
   ])('does not mount form or save for %s', async (_, fee) => {
     const unsafeProps = props(fee as IFeeInfoUnit | undefined);
     let tree: ReturnType<typeof create> | undefined;
@@ -242,6 +247,32 @@ describe('TxFeeEditor precision readiness', () => {
           gas: expect.objectContaining({ gasLimit: '21000', gasPrice: '2' }),
         }),
       }),
+    );
+  });
+
+  it('accepts the maximum supported precision and preserves base units', async () => {
+    const maxPrecisionFee: IFeeInfoUnit = {
+      common: { ...common, feeDecimals: 24 },
+      feeNeoN3: {
+        systemFee: '1000000000000000000000000',
+        networkFee: '2000000000000000000000000',
+        priorityFee: '3000000000000000000000000',
+      },
+    };
+    const editorProps = props(maxPrecisionFee);
+    let tree: ReturnType<typeof create> | undefined;
+    await act(async () => {
+      tree = create(<TxFeeEditor {...editorProps} />);
+    });
+    const formDefaults = latestForm().watch();
+    expect(formDefaults.neoN3SystemFee).toBe('1');
+    expect(formDefaults.neoN3NetworkFee).toBe('2');
+    expect(formDefaults.neoN3PriorityFee).toBe('3');
+    await act(async () => {
+      if (tree) await pressSave(tree);
+    });
+    expect(editorProps.onApplyFeeInfo).toHaveBeenCalledWith(
+      expect.objectContaining({ customFeeInfo: maxPrecisionFee }),
     );
   });
 

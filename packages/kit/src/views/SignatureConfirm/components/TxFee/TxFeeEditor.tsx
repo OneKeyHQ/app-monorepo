@@ -89,6 +89,8 @@ type IProps = {
 };
 
 const DEFAULT_GAS_LIMIT_MIN = 21_000;
+// NEAR has the highest fee precision among the supported preset networks.
+const MAX_FEE_DECIMALS = 24;
 const _DEFAULT_GAS_LIMIT_MAX = 15_000_000;
 const DEFAULT_FEER_ATE_MIN = 0;
 const DEFAULT_FEE_RATE_MAX = 1_000_000; // shared cross multi-networks
@@ -2191,7 +2193,8 @@ function TxFeeEditor(props: IProps) {
   if (
     typeof feeDecimals !== 'number' ||
     !Number.isSafeInteger(feeDecimals) ||
-    feeDecimals < 0
+    feeDecimals < 0 ||
+    feeDecimals > MAX_FEE_DECIMALS
   ) {
     return (
       <YStack gap="$4">
