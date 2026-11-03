@@ -588,7 +588,11 @@ function HomeOverviewContainer() {
 
   const handleBalanceOnPress = useCallback(async () => {
     const settingsValue = await settingsValuePersistAtom.get();
-    await settingsValuePersistAtom.set({ hideValue: !settingsValue.hideValue });
+    // Apply on the UI runtime first: a plain `set` waits for the bg round
+    // trip, which queues behind other bg work on Android (OK-66089).
+    await settingsValuePersistAtom.setOptimistic({
+      hideValue: !settingsValue.hideValue,
+    });
   }, []);
 
   const handleBalanceDetailsOnPress = useCallback(() => {

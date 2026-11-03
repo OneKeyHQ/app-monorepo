@@ -29,6 +29,10 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
+import {
+  getDisplayPriceScaleDecimals,
+  isSpotInstrument,
+} from '@onekeyhq/shared/src/utils/perpsUtils';
 import { stableStringify } from '@onekeyhq/shared/src/utils/stringUtils';
 import { TRADING_VIEW_NATIVE_THEME_COLORS } from '@onekeyhq/shared/types/tradingViewNative';
 
@@ -242,6 +246,7 @@ const TradingViewNativeContent = memo(
     testID,
     source,
     priceDecimalPlaces,
+    isPricePrecisionLoading,
     onPriceSelect,
     priceSelectionLabel,
     onInteractionChange,
@@ -257,7 +262,6 @@ const TradingViewNativeContent = memo(
     enablePreviousClose = false,
     enableNativeChartSettings,
     enableDrawings = false,
-    enableNavigationControls = false,
     prioritizePageScroll = false,
     nativeChartSettingsInToolbar = false,
     mobileToolbarExtra,
@@ -531,10 +535,27 @@ const TradingViewNativeContent = memo(
       }),
       [intl],
     );
+    const sourceCoin = source.kind === 'hyperliquid' ? source.coin : undefined;
     const latestPoint = points[points.length - 1];
     const latestPrice = latestPoint?.c;
+    const priceAxisDecimalPlaces = useMemo(() => {
+      if (source.kind !== 'hyperliquid') return undefined;
+      if (
+        priceDecimalPlaces === undefined ||
+        latestPrice === undefined ||
+        !Number.isFinite(latestPrice) ||
+        latestPrice < 1 ||
+        isSpotInstrument(sourceCoin)
+      ) {
+        // Preserve spot and sub-dollar precision instead of applying the perp display scale.
+        return priceDecimalPlaces;
+      }
+      return Math.min(
+        priceDecimalPlaces,
+        getDisplayPriceScaleDecimals(latestPrice),
+      );
+    }, [latestPrice, priceDecimalPlaces, source.kind, sourceCoin]);
     const latestPriceTimestamp = latestPoint?.t;
-    const sourceCoin = source.kind === 'hyperliquid' ? source.coin : undefined;
     const sourceEnvironment =
       source.kind === 'hyperliquid' ? source.environment : undefined;
     const sourceNetworkId =
@@ -1028,7 +1049,8 @@ const TradingViewNativeContent = memo(
       onNativeChartFullscreenChange?.(!isNativeChartFullscreen);
     }, [isNativeChartFullscreen, onNativeChartFullscreenChange]);
     const showChartLoadingMask =
-      points.length === 0 && dataState.status !== 'error';
+      isPricePrecisionLoading ||
+      (points.length === 0 && dataState.status !== 'error');
     const priceAxisWidth =
       chartWidth > 0 ? Math.max(chartAreaWidth - chartWidth, 0) : 0;
     const mobileSettingsControl = useMemo(
@@ -1036,25 +1058,30 @@ const TradingViewNativeContent = memo(
         isMobileControlsLayout &&
         enableNativeChartSettings &&
         nativeChartSettingsInToolbar ? (
+          // The wrapper stays in fullscreen: without a toolbar control the chart
+          // type and indicator actions would take over the toolbar.
           <XStack alignItems="center" gap="$1" flexShrink={0}>
-            <TradingViewNativeChartSettingsButton
-              storageNamespace={storageNamespace}
-              placement="toolbar"
-              priceAxisWidth={priceAxisWidth}
-              enablePreviousClose={enablePreviousClose}
-              isChartSwitchDisabled={isChartSwitchDisabled}
-              onChartSwitch={onChartSwitch}
-              onBeforeOpenSettings={handleExitFullscreen}
-            />
+            {isNativeChartFullscreen ? null : (
+              <TradingViewNativeChartSettingsButton
+                storageNamespace={storageNamespace}
+                placement="toolbar"
+                priceAxisWidth={priceAxisWidth}
+                enablePreviousClose={enablePreviousClose}
+                enableNavigationButtons={!isCompactDisplayMode}
+                isChartSwitchDisabled={isChartSwitchDisabled}
+                onChartSwitch={onChartSwitch}
+              />
+            )}
             {mobileToolbarExtra}
           </XStack>
         ) : undefined,
       [
         enableNativeChartSettings,
         enablePreviousClose,
-        handleExitFullscreen,
         isChartSwitchDisabled,
+        isCompactDisplayMode,
         isMobileControlsLayout,
+        isNativeChartFullscreen,
         mobileToolbarExtra,
         nativeChartSettingsInToolbar,
         onChartSwitch,
@@ -1088,9 +1115,7 @@ const TradingViewNativeContent = memo(
             enableNativeChartSettings={enableNativeChartSettings}
             mobileSettingsControl={mobileSettingsControl}
             enablePreviousClose={enablePreviousClose}
-            enableNavigationButtons={
-              enableNavigationControls && !isCompactDisplayMode
-            }
+            enableNavigationButtons={!isCompactDisplayMode}
             intervalConfig={intervalConfig}
             activeIndicatorValues={activeIndicatorValues}
             maxSelectableSubIndicatorCount={maxSelectableSubIndicatorCount}
@@ -1123,9 +1148,7 @@ const TradingViewNativeContent = memo(
                 !isCompactDisplayMode &&
                 storageNamespace !== 'swap'
               }
-              enableNavigationControls={
-                enableNavigationControls && !isCompactDisplayMode
-              }
+              enableNavigationControls={!isCompactDisplayMode}
               drawingStorageKey={drawingSourceKey}
               loadDrawingHistory={loadDrawingHistory}
               prioritizePageScroll={
@@ -1140,6 +1163,7 @@ const TradingViewNativeContent = memo(
               chartType={forcedChartType ?? chartType}
               chartPictureVersion={chartPictureVersion}
               currentPriceLabel={currentPriceLabel}
+              priceAxisDecimalPlaces={priceAxisDecimalPlaces}
               priceDecimalPlaces={priceDecimalPlaces}
               onPriceSelect={onPriceSelect}
               priceSelectionLabel={priceSelectionLabel}
@@ -1225,6 +1249,7 @@ const TradingViewNativeContent = memo(
                 storageNamespace={storageNamespace}
                 priceAxisWidth={priceAxisWidth}
                 enablePreviousClose={enablePreviousClose}
+                enableNavigationButtons={!isCompactDisplayMode}
                 isChartSwitchDisabled={isChartSwitchDisabled}
                 onChartSwitch={onChartSwitch}
               />

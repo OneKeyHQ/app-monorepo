@@ -44,6 +44,8 @@ export interface IPopoverProps {
     trapFocus?: boolean;
   };
   sheetProps?: ISheetOptions;
+  /** Disable when sheet content owns its bounded scrolling region. */
+  sheetContentScrollable?: boolean;
   /**
    * Native only. `auto` (default) anchors the panel to `renderTrigger` in
    * expanded windows (>= 768 wide) and uses a sheet below that, like web;

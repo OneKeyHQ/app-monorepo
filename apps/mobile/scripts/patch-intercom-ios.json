@@ -1,0 +1,584 @@
+{
+  "version": "19.9.1",
+  "schemaVersion": 1,
+  "upstreamLicense": "Apache-2.0",
+  "imports": [
+    "_AVAudioSessionCategoryPlayAndRecord",
+    "_AVAudioSessionModeDefault",
+    "_AVEncoderAudioQualityKey",
+    "_AVFormatIDKey",
+    "_AVMediaTypeAudio",
+    "_AVNumberOfChannelsKey",
+    "_AVSampleRateKey",
+    "_OBJC_CLASS_$_AVAudioEngine",
+    "_OBJC_CLASS_$_AVAudioFile",
+    "_OBJC_CLASS_$_AVAudioSession"
+  ],
+  "selectors": [
+    "channelCount",
+    "initForWriting:settings:error:",
+    "inputNode",
+    "installTapOnBus:bufferSize:format:block:",
+    "outputFormatForBus:",
+    "recordPermission",
+    "removeTapOnBus:",
+    "requestRecordPermission:",
+    "sampleRate",
+    "setActive:withOptions:error:",
+    "setCategory:mode:options:error:",
+    "startAndReturnError:",
+    "writeFromBuffer:error:"
+  ],
+  "slices": {
+    "device": {
+      "cpu": 16777228,
+      "inputSha256": "3673aa7343bdb0d242c662d064b0d4c30ca5ce8b14fda82ccb36c0fe36949543",
+      "outputSha256": "4cb0e76cacc21c678a109ba6d282877bca1c0da4fd80171e78494b25cf253fab",
+      "patches": [
+        {
+          "label": "Disable voice UI policy",
+          "start": 1005212,
+          "end": 1005584,
+          "hex": "00008052c0035fd6"
+        },
+        {
+          "label": "Remove permission status and branch",
+          "start": 1700792,
+          "end": 1700832,
+          "hex": ""
+        },
+        {
+          "label": "Return permission denied",
+          "start": 1700852,
+          "end": 1700856,
+          "hex": "00008052"
+        },
+        {
+          "label": "permission unreachable block",
+          "start": 1700884,
+          "end": 1701208,
+          "hex": ""
+        },
+        {
+          "label": "Remove engine prewarm, resume void continuation",
+          "start": 1701464,
+          "end": 1701796,
+          "hex": "c80640f900011fd6"
+        },
+        {
+          "label": "Select start early cleanup",
+          "start": 1702036,
+          "end": 1702048,
+          "hex": ""
+        },
+        {
+          "label": "start unreachable block",
+          "start": 1702104,
+          "end": 1703520,
+          "hex": ""
+        },
+        {
+          "label": "start unreachable block",
+          "start": 1703552,
+          "end": 1703844,
+          "hex": ""
+        },
+        {
+          "label": "Remove engine input/tap/stop/reset dispatches",
+          "start": 1703932,
+          "end": 1703996,
+          "hex": ""
+        },
+        {
+          "label": "Select write no-file continuation",
+          "start": 1705076,
+          "end": 1705080,
+          "hex": "19000014"
+        },
+        {
+          "label": "write unreachable block",
+          "start": 1705080,
+          "end": 1705176,
+          "hex": ""
+        },
+        {
+          "label": "Select finish inactive empty-Data continuation",
+          "start": 1706040,
+          "end": 1706044,
+          "hex": "47000014"
+        },
+        {
+          "label": "finish unreachable block",
+          "start": 1706044,
+          "end": 1706324,
+          "hex": ""
+        },
+        {
+          "label": "finish unreachable block",
+          "start": 1706420,
+          "end": 1706812,
+          "hex": ""
+        },
+        {
+          "label": "Select cancel inactive continuation",
+          "start": 1707020,
+          "end": 1707024,
+          "hex": "23000014"
+        },
+        {
+          "label": "cancel unreachable block",
+          "start": 1707024,
+          "end": 1707160,
+          "hex": ""
+        },
+        {
+          "label": "Retire unreachable recording-file initializer",
+          "start": 1708640,
+          "end": 1708976,
+          "hex": "200020d4"
+        },
+        {
+          "label": "Remove AVAudioSession singleton creation",
+          "start": 2266908,
+          "end": 2266936,
+          "hex": "150080d2"
+        },
+        {
+          "label": "Initialize removed session field as empty reserved slot",
+          "start": 1709280,
+          "end": 1709284,
+          "hex": "7f6a28f8"
+        },
+        {
+          "label": "Remove session argument retain",
+          "start": 1709296,
+          "end": 1709304,
+          "hex": ""
+        },
+        {
+          "label": "Describe reserved pointer as Optional<AnyObject>",
+          "start": 4062836,
+          "end": 4062856,
+          "hex": "79586c5367000000000000000000000000000000",
+          "padding": "zero"
+        },
+        {
+          "label": "Describe retired recording storage as Optional<AnyObject>",
+          "start": 4062782,
+          "end": 4062803,
+          "hex": "79586c536700000000000000000000000000000000",
+          "padding": "zero"
+        },
+        {
+          "label": "Describe retired recording storage as Optional<AnyObject>",
+          "start": 4062804,
+          "end": 4062823,
+          "hex": "79586c53670000000000000000000000000000",
+          "padding": "zero"
+        },
+        {
+          "label": "Keep camera image-only mediaTypes default",
+          "start": 1464424,
+          "end": 1464428,
+          "hex": "1f2003d5"
+        },
+        {
+          "label": "Disable microphone Carousel action",
+          "start": 156692,
+          "end": 156696,
+          "hex": "34008052"
+        },
+        {
+          "label": "Disable microphone Carousel permission factory",
+          "start": 384044,
+          "end": 384048,
+          "hex": "a0030054"
+        },
+        {
+          "label": "Reject audio media queries, preserve photo video authorization",
+          "start": 117540,
+          "end": 117572,
+          "hex": "620000b5000080d2c0035fd6c821009008d141f9000140f9173d0c14"
+        },
+        {
+          "label": "Reject audio capture manager before preserving photo setters",
+          "start": 115984,
+          "end": 116040,
+          "hex": "930000b5983e0c94140080d20b000014e20313aaef960c94e00314aae20313aa14490c94e20300aae00314aa51950c94"
+        }
+      ]
+    },
+    "sim": {
+      "cpu": 16777228,
+      "inputSha256": "93bf25a59e5ee387e35223983390eccf15d6de412658fb7c4238623a683297da",
+      "outputSha256": "5a165055f75aad1f108c67fc6657e83b30d258cd5e0acee5e08b35c3c398d1be",
+      "patches": [
+        {
+          "label": "Disable voice UI policy",
+          "start": 996432,
+          "end": 996804,
+          "hex": "00008052c0035fd6"
+        },
+        {
+          "label": "Remove permission status and branch",
+          "start": 1681980,
+          "end": 1682020,
+          "hex": ""
+        },
+        {
+          "label": "Return permission denied",
+          "start": 1682040,
+          "end": 1682044,
+          "hex": "00008052"
+        },
+        {
+          "label": "permission unreachable block",
+          "start": 1682072,
+          "end": 1682396,
+          "hex": ""
+        },
+        {
+          "label": "Remove engine prewarm, resume void continuation",
+          "start": 1682652,
+          "end": 1682984,
+          "hex": "c80640f900011fd6"
+        },
+        {
+          "label": "Select start early cleanup",
+          "start": 1683224,
+          "end": 1683236,
+          "hex": ""
+        },
+        {
+          "label": "start unreachable block",
+          "start": 1683292,
+          "end": 1684708,
+          "hex": ""
+        },
+        {
+          "label": "start unreachable block",
+          "start": 1684740,
+          "end": 1685032,
+          "hex": ""
+        },
+        {
+          "label": "Remove engine input/tap/stop/reset dispatches",
+          "start": 1685120,
+          "end": 1685184,
+          "hex": ""
+        },
+        {
+          "label": "Select write no-file continuation",
+          "start": 1686252,
+          "end": 1686256,
+          "hex": "19000014"
+        },
+        {
+          "label": "write unreachable block",
+          "start": 1686256,
+          "end": 1686352,
+          "hex": ""
+        },
+        {
+          "label": "Select finish inactive empty-Data continuation",
+          "start": 1687216,
+          "end": 1687220,
+          "hex": "47000014"
+        },
+        {
+          "label": "finish unreachable block",
+          "start": 1687220,
+          "end": 1687500,
+          "hex": ""
+        },
+        {
+          "label": "finish unreachable block",
+          "start": 1687596,
+          "end": 1687988,
+          "hex": ""
+        },
+        {
+          "label": "Select cancel inactive continuation",
+          "start": 1688196,
+          "end": 1688200,
+          "hex": "23000014"
+        },
+        {
+          "label": "cancel unreachable block",
+          "start": 1688200,
+          "end": 1688336,
+          "hex": ""
+        },
+        {
+          "label": "Retire unreachable recording-file initializer",
+          "start": 1689824,
+          "end": 1690160,
+          "hex": "200020d4"
+        },
+        {
+          "label": "Remove AVAudioSession singleton creation",
+          "start": 2244644,
+          "end": 2244672,
+          "hex": "150080d2"
+        },
+        {
+          "label": "Initialize removed session field as empty reserved slot",
+          "start": 1690420,
+          "end": 1690424,
+          "hex": "7f6a28f8"
+        },
+        {
+          "label": "Remove session argument retain",
+          "start": 1690436,
+          "end": 1690444,
+          "hex": ""
+        },
+        {
+          "label": "Describe reserved pointer as Optional<AnyObject>",
+          "start": 4034868,
+          "end": 4034888,
+          "hex": "79586c5367000000000000000000000000000000",
+          "padding": "zero"
+        },
+        {
+          "label": "Describe retired recording storage as Optional<AnyObject>",
+          "start": 4034814,
+          "end": 4034835,
+          "hex": "79586c536700000000000000000000000000000000",
+          "padding": "zero"
+        },
+        {
+          "label": "Describe retired recording storage as Optional<AnyObject>",
+          "start": 4034836,
+          "end": 4034855,
+          "hex": "79586c53670000000000000000000000000000",
+          "padding": "zero"
+        },
+        {
+          "label": "Keep camera image-only mediaTypes default",
+          "start": 1449272,
+          "end": 1449276,
+          "hex": "1f2003d5"
+        },
+        {
+          "label": "Disable microphone Carousel action",
+          "start": 149708,
+          "end": 149712,
+          "hex": "34008052"
+        },
+        {
+          "label": "Disable microphone Carousel permission factory",
+          "start": 377060,
+          "end": 377064,
+          "hex": "a0030054"
+        },
+        {
+          "label": "Reject audio media queries, preserve photo video authorization",
+          "start": 110556,
+          "end": 110588,
+          "hex": "620000b5000080d2c0035fd6682100d008d541f9000140f971290c14"
+        },
+        {
+          "label": "Reject audio capture manager before preserving photo setters",
+          "start": 109000,
+          "end": 109056,
+          "hex": "930000b5f22a0c94140080d20b000014e20313aa51830c94e00314aae20313aa76350c94e20300aae00314aab3810c94"
+        }
+      ]
+    },
+    "intel": {
+      "cpu": 16777223,
+      "inputSha256": "3cffa1207d89ea9b28bf0121cb53c50ba8be98bb70c556dd6c22af3cffaa00d0",
+      "outputSha256": "be2ce8eec846d017be060b314fc0bd2da2bd83dbb207dc7c1de971766aaa4e0b",
+      "patches": [
+        {
+          "label": "Disable voice UI policy",
+          "start": 1176512,
+          "end": 1176928,
+          "hex": "31c0c3"
+        },
+        {
+          "label": "Remove permission status and branch",
+          "start": 1932202,
+          "end": 1932243,
+          "hex": ""
+        },
+        {
+          "label": "Return permission denied",
+          "start": 1932274,
+          "end": 1932279,
+          "hex": "bf00000000"
+        },
+        {
+          "label": "permission unreachable block",
+          "start": 1932300,
+          "end": 1932704,
+          "hex": ""
+        },
+        {
+          "label": "Remove engine prewarm, resume void continuation",
+          "start": 1932960,
+          "end": 1933344,
+          "hex": "41ff6608"
+        },
+        {
+          "label": "Select start early cleanup",
+          "start": 1933595,
+          "end": 1933608,
+          "hex": ""
+        },
+        {
+          "label": "start unreachable block",
+          "start": 1933667,
+          "end": 1935682,
+          "hex": ""
+        },
+        {
+          "label": "start unreachable block",
+          "start": 1935706,
+          "end": 1935897,
+          "hex": ""
+        },
+        {
+          "label": "Remove input/tap/stop sends, retain original object release",
+          "start": 1935987,
+          "end": 1936089,
+          "hex": "e961000000"
+        },
+        {
+          "label": "Select write no-file continuation",
+          "start": 1937126,
+          "end": 1937131,
+          "hex": "e970000000"
+        },
+        {
+          "label": "write unreachable block",
+          "start": 1937131,
+          "end": 1937243,
+          "hex": ""
+        },
+        {
+          "label": "Select finish inactive empty-Data continuation",
+          "start": 1938128,
+          "end": 1938134,
+          "hex": "e94d010000"
+        },
+        {
+          "label": "finish unreachable block",
+          "start": 1938133,
+          "end": 1938466,
+          "hex": ""
+        },
+        {
+          "label": "finish unreachable block",
+          "start": 1938534,
+          "end": 1938659,
+          "hex": ""
+        },
+        {
+          "label": "finish unreachable block",
+          "start": 1938680,
+          "end": 1938974,
+          "hex": ""
+        },
+        {
+          "label": "Select cancel inactive continuation",
+          "start": 1939177,
+          "end": 1939183,
+          "hex": "e998000000"
+        },
+        {
+          "label": "cancel unreachable block",
+          "start": 1939182,
+          "end": 1939334,
+          "hex": ""
+        },
+        {
+          "label": "Retire unreachable recording-file initializer",
+          "start": 1940976,
+          "end": 1941280,
+          "hex": "0f0b"
+        },
+        {
+          "label": "Remove AVAudioSession singleton creation",
+          "start": 2577492,
+          "end": 2577530,
+          "hex": "4531f6"
+        },
+        {
+          "label": "Initialize removed session field as empty reserved slot",
+          "start": 1941300,
+          "end": 1941303,
+          "hex": "4531ed"
+        },
+        {
+          "label": "Remove session argument retain",
+          "start": 1941568,
+          "end": 1941574,
+          "hex": ""
+        },
+        {
+          "label": "Describe reserved pointer as Optional<AnyObject>",
+          "start": 4280056,
+          "end": 4280076,
+          "hex": "79586c5367000000000000000000000000000000",
+          "padding": "zero"
+        },
+        {
+          "label": "Describe retired recording storage as Optional<AnyObject>",
+          "start": 4280002,
+          "end": 4280023,
+          "hex": "79586c536700000000000000000000000000000000",
+          "padding": "zero"
+        },
+        {
+          "label": "Describe retired recording storage as Optional<AnyObject>",
+          "start": 4280024,
+          "end": 4280043,
+          "hex": "79586c53670000000000000000000000000000",
+          "padding": "zero"
+        },
+        {
+          "label": "Keep camera image-only mediaTypes default",
+          "start": 1676355,
+          "end": 1676360,
+          "hex": "9090909090"
+        },
+        {
+          "label": "Disable microphone Carousel action",
+          "start": 172815,
+          "end": 172821,
+          "hex": "41bf01000000"
+        },
+        {
+          "label": "Disable microphone Carousel permission factory",
+          "start": 440763,
+          "end": 440789,
+          "hex": "31c0e942000000"
+        },
+        {
+          "label": "Return no media type for audio",
+          "start": 128362,
+          "end": 128371,
+          "hex": "31ff5de9be703700"
+        },
+        {
+          "label": "Reject audio capture manager before preserving photo setters",
+          "start": 126667,
+          "end": 126747,
+          "hex": "4885db744b4d85f6750d4889dfff15a23d470031dbeb39488b3587e74b004889df4c89f2e800773700488b357de74b004889df4c89f2e8ee7637004889c2488b3570e74b004889dfe8dc763700"
+        }
+      ]
+    }
+  },
+  "binaries": {
+    "ios-arm64": {
+      "inputSha256": "3673aa7343bdb0d242c662d064b0d4c30ca5ce8b14fda82ccb36c0fe36949543",
+      "outputSha256": "4cb0e76cacc21c678a109ba6d282877bca1c0da4fd80171e78494b25cf253fab"
+    },
+    "ios-arm64_x86_64-simulator": {
+      "inputSha256": "570a62daf245801b76291c74703c98bfebdd0eadfe24e210c0468999814a9e0b",
+      "outputSha256": "29b14c256bd3ae2214c79b56b98254b36ef2115cc11727558146b164fb08d511"
+    }
+  }
+}

@@ -68,9 +68,11 @@ jest.mock('@onekeyhq/components', () => ({
 
 function renderControls({
   isVisible = false,
+  isMobileLayout = false,
   onAction = jest.fn(),
 }: {
   isVisible?: boolean;
+  isMobileLayout?: boolean;
   onAction?: jest.Mock;
 } = {}) {
   render(
@@ -78,6 +80,7 @@ function renderControls({
       backgroundColor="#ffffff"
       chartWidth={600}
       isVisible={isVisible}
+      isMobileLayout={isMobileLayout}
       onAction={onAction}
       timeAxisHeight={24}
       testID="chart"
@@ -162,5 +165,49 @@ describe('Web TradingViewNativeNavigationControls', () => {
     fireEvent.click(screen.getByTestId('chart-navigation-scrollLeft'));
 
     expect(onAction).toHaveBeenCalledWith('scrollLeft');
+  });
+
+  it('keeps mobile controls visible without hover or keyboard focus and uses touch sizes', () => {
+    const { onAction } = renderControls({
+      isMobileLayout: true,
+      isVisible: true,
+    });
+    const zoomIn = screen.getByTestId('chart-navigation-zoomIn');
+    jest.spyOn(zoomIn, 'matches').mockReturnValue(false);
+
+    fireEvent.pointerDown(zoomIn);
+    fireEvent.focus(zoomIn);
+    fireEvent.click(zoomIn);
+    fireEvent.blur(zoomIn);
+
+    expect(onAction).toHaveBeenCalledTimes(1);
+    expect(onAction).toHaveBeenCalledWith('zoomIn');
+    expect(mockXStack.mock.lastCall?.[0]).toEqual(
+      expect.objectContaining({
+        opacity: 1,
+        pointerEvents: 'box-none',
+        gap: 8,
+      }),
+    );
+    for (const [props] of mockStack.mock.calls) {
+      expect(props).toEqual(
+        expect.objectContaining({
+          width: 36,
+          height: 36,
+          pointerEvents: 'auto',
+        }),
+      );
+    }
+  });
+
+  it('retains compact desktop buttons while visible', () => {
+    renderControls({ isVisible: true });
+
+    expect(mockXStack.mock.lastCall?.[0]).toEqual(
+      expect.objectContaining({ gap: 6 }),
+    );
+    for (const [props] of mockStack.mock.calls) {
+      expect(props).toEqual(expect.objectContaining({ width: 25, height: 25 }));
+    }
   });
 });

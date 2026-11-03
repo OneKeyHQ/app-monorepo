@@ -112,6 +112,44 @@ function createService(tokens: IMarketSearchV2Token[] = [bitcoin]) {
   return { service, list, detail };
 }
 
+it.each(['list', 'search'] as const)(
+  'mutes optional %s request failures in the background',
+  async (method) => {
+    const service = new ServiceMarket({ backgroundApi: {} });
+    const error = Object.assign(new Error('offline'), { autoToast: true });
+    mockGet.mockRejectedValueOnce(error);
+    const request =
+      method === 'list'
+        ? service.fetchMarketAssetList({ autoHandleError: false })
+        : service.searchV2Token('BTC', { autoHandleError: false });
+    await expect(request).rejects.toBe(error);
+    expect(error.autoToast).toBe(false);
+    expect(mockGet.mock.calls[0]?.[1]).toEqual(
+      expect.objectContaining({ autoHandleError: false }),
+    );
+  },
+);
+
+it('mutes an async search enrichment failure', async () => {
+  const service = new ServiceMarket({ backgroundApi: {} });
+  const error = Object.assign(new Error('offline'), { autoToast: true });
+  mockGet.mockResolvedValueOnce({ data: { data: [bitcoin] } });
+  jest.spyOn(service, 'resolveSearchTokenAssets').mockRejectedValueOnce(error);
+  await expect(
+    service.searchV2Token('BTC', { autoHandleError: false }),
+  ).rejects.toBe(error);
+  expect(error.autoToast).toBe(false);
+});
+
+it('can skip native identity enrichment for a caller that resolves list identities itself', async () => {
+  const { service, list, detail } = createService();
+  expect(
+    await service.searchV2Token('BTC', { resolveNativeAssetId: false }),
+  ).toEqual([bitcoin]);
+  expect(list).not.toHaveBeenCalled();
+  expect(detail).not.toHaveBeenCalled();
+});
+
 it.each(['search', 'trending'] as const)(
   '%s shares the Top Coins favorite identity for native BTC without an assetId',
   async (entry) => {

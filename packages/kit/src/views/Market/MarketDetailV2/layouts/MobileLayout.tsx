@@ -399,7 +399,7 @@ export function MobileLayout({
     stockPreview,
     stockId,
   } = useStockDetail();
-  const { priceMode } = useStockPriceSource();
+  const { priceMode, isPriceSourceReady } = useStockPriceSource();
   const detailKind = resolveMarketMobileDetailKind({
     isStockToken: Boolean(isStockToken || isStockRoute),
     marketTokenCategory,
@@ -454,7 +454,11 @@ export function MobileLayout({
   const handleNativeChartPriceUpdate = useMarketNativeChartPriceUpdate({
     networkId,
     tokenAddress,
-    enabled: active !== false && !isSimpleChart && priceMode === 'token',
+    enabled:
+      active !== false &&
+      isPriceSourceReady &&
+      !isSimpleChart &&
+      priceMode === 'token',
   });
   const marketTradingViewParams = useMarketTradingViewParams({
     tokenAddress,
@@ -589,7 +593,7 @@ export function MobileLayout({
     enabled: resolveMarketNativeChartFallbackQuoteEnabled({
       active,
       isTradingViewNative,
-      isNativeChartMounted: !isSimpleChart,
+      isNativeChartMounted: isPriceSourceReady && !isSimpleChart,
       source: tradingViewNativeSource,
       isNative,
       networkId,
@@ -907,7 +911,22 @@ export function MobileLayout({
           position="relative"
           pb={isChartFullscreen ? 0 : MOBILE_CHART_BOTTOM_SPACING}
         >
-          {isSimpleChart ? (
+          {!isPriceSourceReady ? (
+            <YStack
+              h={
+                isSimpleChart
+                  ? MOBILE_SIMPLE_CHART_HEIGHT +
+                    TRADING_VIEW_NATIVE_CHART_CONTROLS_HEIGHT
+                  : tradingViewHeight
+              }
+            >
+              <ChartControlsSkeleton />
+              <Stack flex={1} position="relative">
+                <TradingViewChartLoadingMask />
+              </Stack>
+            </YStack>
+          ) : null}
+          {isPriceSourceReady && isSimpleChart ? (
             <MarketDetailHeaderGesture
               disabled={isChartFullscreen}
               panActiveOffsetY={[-4, 4]}
@@ -919,7 +938,7 @@ export function MobileLayout({
               <MobileSimpleChart marketAssetId={marketTokenId} />
             </MarketDetailHeaderGesture>
           ) : null}
-          {isSimpleChart ? null : (
+          {!isPriceSourceReady || isSimpleChart ? null : (
             <MarketDetailHeaderGesture
               disabled={isChartFullscreen || isTradingViewScrollLocked}
               panActiveOffsetY={isTradingViewNative ? [-12, 12] : [-4, 4]}
@@ -1079,8 +1098,11 @@ export function MobileLayout({
             </MarketDetailHeaderGesture>
           )}
           {/* Reserve the async quick bar until its availability is known. */}
-          {isSimpleChart ? null : nativeIndicatorQuickBarContent}
+          {!isPriceSourceReady || isSimpleChart
+            ? null
+            : nativeIndicatorQuickBarContent}
           {platformEnv.isNativeIOS &&
+          isPriceSourceReady &&
           !isTradingViewNative &&
           !isChartFullscreen &&
           !isSimpleChart ? (
@@ -1111,6 +1133,7 @@ export function MobileLayout({
     handleNativeSubIndicatorCountChange,
     intl,
     isChartFullscreen,
+    isPriceSourceReady,
     isSimpleChart,
     isStockDetailChart,
     isTradingViewScrollLocked,
@@ -1129,6 +1152,7 @@ export function MobileLayout({
     priceMode,
     tradingViewNativeSource,
     tradingViewChartHeight,
+    tradingViewHeight,
   ]);
 
   const renderInformationHeader = useCallback(

@@ -52,6 +52,13 @@ import so.onekey.app.wallet.sentry.OneKeyNativeCrashDiagnostics;
 import so.onekey.app.wallet.travelmode.OneKeyTravelModeLaunchEpochPackage;
 
 public class BaseMainApplication extends Application implements ReactApplication {
+  final IntercomMessengerLockGuard intercomLockGuard = new IntercomMessengerLockGuard();
+  private volatile boolean intercomInitialized = false;
+
+  boolean isIntercomInitialized() {
+    return intercomInitialized;
+  }
+
   public boolean isTravelModeMaskingData() {
     MMKV mmkv = MMKV.mmkvWithID("onekey-app-setting");
     if (mmkv == null) {
@@ -113,6 +120,7 @@ public class BaseMainApplication extends Application implements ReactApplication
 
         List<ReactPackage> packages = new PackageList(this).getPackages();
         packages.add(new OneKeyTravelModeLaunchEpochPackage());
+        packages.add(new OneKeyIntercomPackage());
         return packages;
       }
 
@@ -187,6 +195,7 @@ public class BaseMainApplication extends Application implements ReactApplication
           BuildVariantBundleInfo bundleInfo = getBuildVariantBundleInfo();
           List<ReactPackage> mainPackages = new PackageList(this).getPackages();
           mainPackages.add(new OneKeyTravelModeLaunchEpochPackage());
+          mainPackages.add(new OneKeyIntercomPackage());
           mReactHost =
             ExpoReactHostFactory.getDefaultReactHost(
               this.getApplicationContext(),
@@ -394,6 +403,30 @@ public class BaseMainApplication extends Application implements ReactApplication
       });
     }
 
+    // Intercom requires Application.onCreate initialization: after process
+    // death Android may recreate a Messenger Activity before any JS runs.
+    private void initializeIntercom() {
+      String apiKey = BuildConfig.INTERCOM_ANDROID_API_KEY;
+      if (apiKey == null || apiKey.isEmpty()) {
+        return;
+      }
+      try {
+        com.intercom.reactnative.IntercomModule.initialize(this, apiKey, "vbbj4ssb");
+        // A restored session can receive messages before JS applies visibility.
+        io.intercom.android.sdk.Intercom.client().setInAppMessageVisibility(
+            io.intercom.android.sdk.Intercom.Visibility.GONE);
+        io.intercom.android.sdk.Intercom.client().setLauncherVisibility(
+            io.intercom.android.sdk.Intercom.Visibility.GONE);
+        io.intercom.android.sdk.Intercom.client().suppressProactiveContent(
+            java.util.Arrays.asList(
+                io.intercom.android.sdk.Intercom.ContentType.CAROUSEL,
+                io.intercom.android.sdk.Intercom.ContentType.SURVEY));
+        intercomInitialized = true;
+      } catch (Throwable error) {
+        OneKeyLog.error("Intercom", "Native initialization failed");
+      }
+    }
+
     private void setupBackgroundThreadBootstrap() {
       if (!isNativeBackgroundThreadEnabled()) {
         OneKeyLog.info(
@@ -492,6 +525,8 @@ public class BaseMainApplication extends Application implements ReactApplication
     // Single-process app: every WebView lives here. A future android:process
     // component that hosts a WebView would need its own install() call.
     so.onekey.app.wallet.webview.WebEmbedLocalOrigin.install(this);
+    initializeIntercom();
+    registerActivityLifecycleCallbacks(intercomLockGuard);
 
     initializeNativeSentry();
 

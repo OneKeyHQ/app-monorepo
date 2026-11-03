@@ -8,15 +8,19 @@ import { pathToFileURL } from 'node:url';
 
 import { planNativeListPatches } from '@onekeyfe/react-native-native-list';
 import { fireEvent, render } from '@testing-library/react';
+import { createStore } from 'jotai';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETokenSelectorSyntheticRowType } from '@onekeyhq/shared/src/utils/tokenSelectorCrossNetworkUtils';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 import type { IAccountToken, ITokenFiat } from '@onekeyhq/shared/types/token';
 
+import { cell } from '../../states/jotai/contexts/tokenList/cells/projection';
+
 import { formatNativeSelectorAmount } from './nativeSelectorFormat';
 import { NativeTokenSelectorList } from './NativeTokenSelectorList';
 
+import type { IJotaiContextStore } from '../../states/jotai/utils/createJotaiContext';
 import type {
   NativeListSnapshot,
   RowPatch,
@@ -28,6 +32,21 @@ let mockExpandedContent: ReactNode;
 let mockStructureToggle: ReactNode;
 const mockSnapshotProps: NativeListSnapshot[] = [];
 const getMockSnapshot = () => mockSnapshot;
+// Mirrors the library's patch semantics: a `null` change removes the field
+// from the row (6.7.0-alpha.402 "resilient updates"), any other value replaces it.
+function applyRowChanges<T extends object>(
+  row: T,
+  changes: Record<string, unknown>,
+): T {
+  const merged: Record<string, unknown> = Object.fromEntries(
+    Object.entries(row),
+  );
+  Object.entries(changes).forEach(([key, value]) => {
+    if (value === null) delete merged[key];
+    else merged[key] = value;
+  });
+  return merged as T;
+}
 const mockApplyPatches = jest.fn((patches: readonly RowPatch[]) => {
   if (!mockSnapshot) return;
   mockSnapshot = {
@@ -37,10 +56,10 @@ const mockApplyPatches = jest.fn((patches: readonly RowPatch[]) => {
         (item) => item.key === row.key && item.type === row.type,
       );
       if (patch?.type === 'dataRow' && row.type === 'dataRow') {
-        return { ...row, ...patch.changes };
+        return applyRowChanges(row, patch.changes);
       }
       if (patch?.type === 'identity' && row.type === 'identity') {
-        return { ...row, ...patch.changes };
+        return applyRowChanges(row, patch.changes);
       }
       return row;
     }),
@@ -69,6 +88,7 @@ let mockProcessingTokenState: {
 } = { isProcessing: false, token: null };
 const mockEmptySubFiatMap = {};
 const mockSwap = jest.fn();
+let mockHomeCellStore: IJotaiContextStore | undefined;
 
 jest.mock('@onekeyfe/react-native-native-list', () => {
   const React = jest.requireActual<typeof import('react')>('react');
@@ -187,6 +207,7 @@ jest.mock('./nativeSelectorFormat', () => {
 jest.mock('../../states/jotai/contexts/tokenList', () => ({
   useCreateAccountStateAtom: () => [mockCreateAccountState],
   useProcessingTokenStateAtom: () => [mockProcessingTokenState],
+  useTokenListContextData: () => ({ store: mockHomeCellStore }),
 }));
 
 jest.mock('../Loading', () => ({ ListLoading: () => null }));
@@ -329,6 +350,9 @@ it('keeps cross-network badges scoped and dispatches the selected token and retr
   if (ethRow?.type === 'identity' && arbRow?.type === 'identity') {
     expect(ethRow.badges).toEqual([]);
     expect(arbRow.badges).toEqual([{ key: 'network', text: 'Arbitrum' }]);
+    // The 60dp row must round to the nearest pixel: Android's legacy sub-400dp
+    // 0.9 row scale clipped the subtitle under the unscaled line boxes (OK-66072).
+    expect(ethRow).toMatchObject({ height: 60, heightRounding: 'nearest' });
   }
   fireEvent.click(getByTestId(arbToken.$key));
   expect(onPressToken).toHaveBeenCalledWith(arbToken);
@@ -524,6 +548,7 @@ it('publishes Home cell values into separate table columns and routes the Swap a
   const first = mockSnapshot?.rows[0];
   expect(first?.type).toBe('dataRow');
   if (first?.type === 'dataRow') {
+    expect(first).toMatchObject({ height: 60, heightRounding: 'nearest' });
     expect(first.columns.map((column) => column.key)).toEqual([
       'asset',
       'balance',
@@ -861,5 +886,55 @@ it('invalidates selector rows for owner, presentation, and processing changes', 
     mockCurrencyId = 'usd';
     mockIntl = { formatMessage: ({ id }: { id: string }) => id };
     mockTheme = { ...mockTheme, background: '#FFFFFF' };
+  }
+});
+
+it('fills a first-mount Home row from its cell before the mirror reports', () => {
+  // The mirrors publish cell values from a layout effect, so the snapshot
+  // built in the same render as a row's first mount used to carry no fiat
+  // (OK-66042). The row must read its cell directly on that first pass.
+  const store = createStore() as unknown as IJotaiContextStore;
+  const fiat = {
+    balanceParsed: '0.414',
+    balanceMultiplier: '1000',
+    fiatValue: '0.41',
+    price: 1.5,
+    price24h: 5.5,
+    currency: 'usd',
+  } as ITokenFiat;
+  store.set(cell(store, ethToken.$key), fiat);
+  mockHomeCellStore = store;
+  // Mirrors report nothing for this key (no cell hook value), so only the
+  // direct store read can fill the first snapshot.
+  mockHomeFiatMap = {};
+  const firstIndex = mockSnapshotProps.length;
+  try {
+    render(
+      <NativeTokenSelectorList
+        rows={[ethToken]}
+        networkId="evm--1"
+        ownerKey="owner-A"
+        crossNetworkGroupingActive={false}
+        zeroFillMissingFiat={false}
+        showProcessingState={false}
+        isSearching={false}
+        currentNetworkName="Ethereum"
+        empty={<div />}
+        homeCellSeam
+        tableLayout
+        withPrice
+        withSwapAction
+      />,
+    );
+    const first = mockSnapshotProps[firstIndex]?.rows[0];
+    expect(first?.type).toBe('dataRow');
+    if (first?.type === 'dataRow') {
+      expect(first.columns[1].text).toBe('414');
+      expect(first.columns[1].secondaryText).toContain('0.41');
+      expect(first.columns[2].text).toContain('1.5');
+    }
+  } finally {
+    mockHomeCellStore = undefined;
+    mockHomeFiatMap = {};
   }
 });

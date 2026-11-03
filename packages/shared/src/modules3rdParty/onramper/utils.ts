@@ -77,8 +77,10 @@ export function getErrorMessageForLog(error: unknown): string | undefined {
   if (error === undefined || error === null) {
     return undefined;
   }
+  // Objects without a `message` (e.g. a bare { code }) must not fall through
+  // to String(), which would log "[object Object]".
   const message =
-    typeof error === 'object' && 'message' in error
+    typeof error === 'object'
       ? String((error as { message?: unknown }).message ?? '')
       : String(error);
   // Cap the free-form SDK text first, then annotate: the appended case names
