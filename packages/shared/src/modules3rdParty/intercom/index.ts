@@ -1,3 +1,4 @@
+import { defaultColorScheme } from '../../config/appConfig';
 import { OneKeyLocalError } from '../../errors';
 
 import { getCurrentIntercomUserId, getIntercomCredentials } from './identity';
@@ -5,6 +6,7 @@ import { notifyIntercomOpenFailed } from './openFailure';
 import {
   type IIntercomLockPolicy,
   type IShowIntercomParams,
+  createIntercomOpenGuard,
   getInstanceId,
   getIntercomLanguageOverride,
 } from './utils';
@@ -25,6 +27,8 @@ let hasBooted = false;
 let sdkInitialized = false;
 let inAppMessagesVisible = false;
 let messengerLocked = false;
+let currentTheme: 'light' | 'dark' = defaultColorScheme;
+const intercomOpenGuard = createIntercomOpenGuard(notifyIntercomOpenFailed);
 const unreadCountListeners = new Set<() => void>();
 
 export const setIntercomInAppMessageVisibility = async (visible: boolean) => {
@@ -36,10 +40,6 @@ export const setIntercomInAppMessageVisibility = async (visible: boolean) => {
       | undefined;
     intercom?.('hideNotifications', !inAppMessagesVisible);
   }
-};
-
-export const setIntercomTheme = async (_theme: 'light' | 'dark') => {
-  // Only the native SDK supports this theme override.
 };
 
 function setUnreadCount(count: number) {
@@ -59,6 +59,16 @@ export const subscribeToIntercomUnreadCount = (listener: () => void) => {
 const loadIntercomSdk = () => {
   intercomSdkPromise ||= import('@intercom/messenger-js-sdk');
   return intercomSdkPromise;
+};
+
+export const setIntercomTheme = async (theme: 'light' | 'dark') => {
+  currentTheme = theme;
+  if (hasBooted) {
+    const sdk = await loadIntercomSdk();
+    if (hasBooted) {
+      sdk.update({ theme_mode: currentTheme });
+    }
+  }
 };
 
 export const setIntercomMessengerLocked = async (
@@ -156,6 +166,7 @@ async function bootSession(userId: string | null, generation: number) {
     vertical_padding: 55,
     ...(languageOverride ? { language_override: languageOverride } : {}),
     hide_notifications: !inAppMessagesVisible,
+    theme_mode: currentTheme,
     ...(credentials ? { intercom_user_jwt: credentials.token } : {}),
   };
   setGlobalIntercomSettings(bootSettings);
@@ -203,6 +214,7 @@ async function bootSession(userId: string | null, generation: number) {
 
 export const initIntercom = async () => {
   const userId = await getCurrentIntercomUserId();
+  intercomOpenGuard.setIdentity(userId);
   if (intercomInitPromise && requestedUserId === userId) {
     return intercomInitPromise;
   }
@@ -228,11 +240,21 @@ export const initIntercom = async () => {
   }
 };
 
-const openIntercom = async (params?: IShowIntercomParams) => {
+const openIntercom = async (
+  params: IShowIntercomParams | undefined,
+  expectedUserId: string | null,
+  canPresent: () => boolean,
+): Promise<boolean> => {
+  if ((await getCurrentIntercomUserId()) !== expectedUserId) {
+    throw new OneKeyLocalError('Intercom user changed; please try again');
+  }
   await initIntercom();
   const userId = activeUserId;
   const generation = activeGeneration;
-  if (userId === undefined || !(await isCurrentSession(userId, generation))) {
+  if (
+    userId !== expectedUserId ||
+    !(await isCurrentSession(userId, generation))
+  ) {
     throw new OneKeyLocalError('Intercom user changed; please try again');
   }
   const {
@@ -251,12 +273,11 @@ const openIntercom = async (params?: IShowIntercomParams) => {
     throw new OneKeyLocalError('Intercom user changed; please try again');
   }
 
-  if (languageOverride || credentials) {
-    updateIntercom({
-      ...(languageOverride ? { language_override: languageOverride } : {}),
-      ...(credentials ? { intercom_user_jwt: credentials.token } : {}),
-    });
-  }
+  updateIntercom({
+    theme_mode: currentTheme,
+    ...(languageOverride ? { language_override: languageOverride } : {}),
+    ...(credentials ? { intercom_user_jwt: credentials.token } : {}),
+  });
 
   trackEvent('client info', {
     instanceId: instanceIdValue,
@@ -264,19 +285,23 @@ const openIntercom = async (params?: IShowIntercomParams) => {
   });
 
   // A lock during the awaits above already hid the Messenger; do not reopen.
-  if (messengerLocked) {
-    return;
+  if (messengerLocked || !canPresent()) {
+    return false;
   }
   if (params?.conversationId) {
     showConversation(params.conversationId);
   } else {
     show();
   }
+  return true;
 };
 
 export const showIntercom = async (params?: IShowIntercomParams) => {
   try {
-    await openIntercom(params);
+    const userId = await getCurrentIntercomUserId();
+    await intercomOpenGuard.run(userId, params, (canPresent) =>
+      openIntercom(params, userId, canPresent),
+    );
   } catch (error) {
     notifyIntercomOpenFailed(error);
   }
@@ -286,5 +311,5 @@ export const showIntercom = async (params?: IShowIntercomParams) => {
 export const update = async (...args: Parameters<IIntercomSdk['update']>) => {
   await initIntercom();
   const sdk = await loadIntercomSdk();
-  return sdk.update(...args);
+  return sdk.update({ ...args[0], theme_mode: currentTheme });
 };

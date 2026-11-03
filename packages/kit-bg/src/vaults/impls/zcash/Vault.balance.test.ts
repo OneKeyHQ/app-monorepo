@@ -39,13 +39,13 @@ const balance: IZcashBalance = {
   shielded: '100',
   spendable: '100',
   shieldedSpendable: '100',
-  orchardBalance: '100',
-  ironwoodBalance: '0',
+  orchardBalance: '0',
+  ironwoodBalance: '100',
   pendingChange: '0',
   pendingSpendable: '0',
   poolsDetail: {
-    orchard: pool('100'),
-    ironwood: pool('0'),
+    orchard: pool('0'),
+    ironwood: pool('100'),
   },
 };
 
@@ -89,9 +89,9 @@ describe('Zcash independent transparent balance availability', () => {
       const display = await vault.getLocalWalletAccountBalance({
         accountId: 'paused-account',
       });
-      expect(display?.pools.find((item) => item.key === 'orchard')?.total).toBe(
-        paused ? '100' : undefined,
-      );
+      expect(
+        display?.pools.find((item) => item.key === 'ironwood')?.total,
+      ).toBe(paused ? '100' : undefined);
       expect(readPrivate).toHaveBeenCalledTimes(paused ? 1 : 0);
       const sendPools = await vault.listLocalWalletSendPools({
         accountId: 'paused-account',
@@ -257,6 +257,13 @@ describe('Zcash independent transparent balance availability', () => {
   });
 
   it('includes usable transparent funds in account availability without changing private pool spendability', async () => {
+    const withUnsupportedFunds = {
+      ...balance,
+      shielded: '1000100',
+      shieldedSpendable: '1000100',
+      orchardBalance: '1000000',
+      poolsDetail: { ...balance.poolsDetail, orchard: pool('1000000') },
+    };
     const fresh = jest.fn().mockResolvedValue({ utxos: [{ valueZat: '50' }] });
     const vault = Object.create(Vault.prototype) as Vault;
     Object.assign(vault, {
@@ -271,7 +278,7 @@ describe('Zcash independent transparent balance availability', () => {
         },
       },
       getAccount: jest.fn().mockResolvedValue({ id: 'account' }),
-      zcashGetBalanceSafe: jest.fn().mockResolvedValue(balance),
+      zcashGetBalanceSafe: jest.fn().mockResolvedValue(withUnsupportedFunds),
       zcashFetchFreshTransparentUtxos: fresh,
     });
     expect(await vault.zcashGetComposedBalanceSafe('80')).toMatchObject({
@@ -279,7 +286,7 @@ describe('Zcash independent transparent balance availability', () => {
       spendable: '150',
       frozen: '30',
     });
-    expect(balance.poolsDetail.orchard.spendable).toBe('100');
+    expect(balance.poolsDetail.ironwood.spendable).toBe('100');
     expect(await vault.zcashGetComposedBalanceSafe('20')).toMatchObject({
       total: '150',
       spendable: '150',
@@ -386,6 +393,23 @@ describe('Zcash dust change', () => {
           accountId: 'account',
         });
 
+        if (poolKey === 'orchard') {
+          expect(before).toMatchObject({
+            total: '0',
+            spendable: '0',
+            frozen: [],
+          });
+          expect(after).toMatchObject({
+            total: '0',
+            spendable: '0',
+            frozen: [],
+          });
+          expect(after?.pools.map((item) => item.key)).toEqual([
+            'transparent',
+            'ironwood',
+          ]);
+          return;
+        }
         expect(before?.total).toBe(String(amount + fee + change));
         expect(after).toMatchObject({
           total: String(change),
@@ -839,7 +863,7 @@ describe('Zcash send pools read the private balance fresh', () => {
       ? jest.fn().mockRejectedValue(new OneKeyLocalError('scanner busy'))
       : jest.fn().mockResolvedValue({
           ...balance,
-          poolsDetail: { ...balance.poolsDetail, orchard: pool('70') },
+          poolsDetail: { ...balance.poolsDetail, ironwood: pool('70') },
         });
     return Object.assign(Object.create(Vault.prototype) as Vault, {
       networkId: 'zec--0',
@@ -871,7 +895,7 @@ describe('Zcash send pools read the private balance fresh', () => {
     const pools = await vault.listLocalWalletSendPools({
       accountId: 'send-fails',
     });
-    expect(pools?.find((item) => item.key === 'orchard')?.spendable).toBe(
+    expect(pools?.find((item) => item.key === 'ironwood')?.spendable).toBe(
       undefined,
     );
     await expect(
@@ -884,7 +908,9 @@ describe('Zcash send pools read the private balance fresh', () => {
     const pools = await vault.listLocalWalletSendPools({
       accountId: 'send-live',
     });
-    expect(pools?.find((item) => item.key === 'orchard')?.spendable).toBe('70');
+    expect(pools?.find((item) => item.key === 'ironwood')?.spendable).toBe(
+      '70',
+    );
     expect(pools?.find((item) => item.key === 'transparent')?.spendable).toBe(
       '50',
     );
