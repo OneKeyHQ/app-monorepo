@@ -9230,9 +9230,9 @@ __metadata:
     "@babel/parser": "npm:7.27.2"
     "@babel/traverse": "npm:7.27.1"
     "@napi-rs/keyring": "npm:^1.3.0"
-    "@onekeyfe/hd-common-connect-sdk": "npm:1.2.8-alpha.131"
-    "@onekeyfe/hd-core": "npm:1.2.8-alpha.131"
-    "@onekeyfe/hd-transport-usb": "npm:1.2.8-alpha.131"
+    "@onekeyfe/hd-common-connect-sdk": "npm:1.2.8-alpha.132"
+    "@onekeyfe/hd-core": "npm:1.2.8-alpha.132"
+    "@onekeyfe/hd-transport-usb": "npm:1.2.8-alpha.132"
     "@onekeyhq/core": "workspace:*"
     "@onekeyhq/shared": "workspace:*"
     "@types/proper-lockfile": "npm:^4"
@@ -9443,21 +9443,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@onekeyfe/hd-common-connect-sdk@npm:1.2.8-alpha.131":
-  version: 1.2.8-alpha.131
-  resolution: "@onekeyfe/hd-common-connect-sdk@npm:1.2.8-alpha.131"
-  dependencies:
-    "@onekeyfe/hd-core": "npm:1.2.8-alpha.131"
-    "@onekeyfe/hd-shared": "npm:1.2.8-alpha.131"
-    "@onekeyfe/hd-transport-emulator": "npm:1.2.8-alpha.131"
-    "@onekeyfe/hd-transport-http": "npm:1.2.8-alpha.131"
-    "@onekeyfe/hd-transport-lowlevel": "npm:1.2.8-alpha.131"
-    "@onekeyfe/hd-transport-usb": "npm:1.2.8-alpha.131"
-    "@onekeyfe/hd-transport-web-device": "npm:1.2.8-alpha.131"
-  checksum: 10/32433ac9442ea86f59e8201abc0a53705fd910612e310ca3656d5bfb840b80b60188b973eddc588614ec53476fb34047a9021bec122b5ae6a405821d16ce40fa
-  languageName: node
-  linkType: hard
-
 "@onekeyfe/hd-common-connect-sdk@npm:1.2.8-alpha.132":
   version: 1.2.8-alpha.132
   resolution: "@onekeyfe/hd-common-connect-sdk@npm:1.2.8-alpha.132"
@@ -9516,18 +9501,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@onekeyfe/hd-transport-emulator@npm:1.2.8-alpha.131":
-  version: 1.2.8-alpha.131
-  resolution: "@onekeyfe/hd-transport-emulator@npm:1.2.8-alpha.131"
-  dependencies:
-    "@onekeyfe/hd-shared": "npm:1.2.8-alpha.131"
-    "@onekeyfe/hd-transport": "npm:1.2.8-alpha.131"
-    axios: "npm:1.15.2"
-    secure-json-parse: "npm:^4.0.0"
-  checksum: 10/a16e612f317d149972630b5125964edc887a8394772c67976344676517286ea2c3f0c1f31bf93a31f21203e7c2fc3abffcf2218311c9f40b81b69b09310c4fbd
-  languageName: node
-  linkType: hard
-
 "@onekeyfe/hd-transport-emulator@npm:1.2.8-alpha.132":
   version: 1.2.8-alpha.132
   resolution: "@onekeyfe/hd-transport-emulator@npm:1.2.8-alpha.132"
@@ -9552,16 +9525,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@onekeyfe/hd-transport-lowlevel@npm:1.2.8-alpha.131":
-  version: 1.2.8-alpha.131
-  resolution: "@onekeyfe/hd-transport-lowlevel@npm:1.2.8-alpha.131"
-  dependencies:
-    "@onekeyfe/hd-shared": "npm:1.2.8-alpha.131"
-    "@onekeyfe/hd-transport": "npm:1.2.8-alpha.131"
-  checksum: 10/a21a203bd92e1356cc822e33c3302814b3113edc9f7cd82db3a74ca58c6d70d7cd180c8ad210c7296ac03b2447318b07e5659e292e00111c2a0a785a018ce363
-  languageName: node
-  linkType: hard
-
 "@onekeyfe/hd-transport-lowlevel@npm:1.2.8-alpha.132":
   version: 1.2.8-alpha.132
   resolution: "@onekeyfe/hd-transport-lowlevel@npm:1.2.8-alpha.132"
@@ -9582,18 +9545,6 @@ __metadata:
     "@onekeyfe/react-native-ble-utils": "npm:0.1.9"
     react-native-ble-plx: "npm:3.5.1"
   checksum: 10/d7328a3199fe145bc530959abb49ad6090395476b69d13b0e3cb92955cf0aa9fef9ab6c7cc75a057a41ae3ec1f8499d497f268cf73a2d7fa0b205c100c87c5d8
-  languageName: node
-  linkType: hard
-
-"@onekeyfe/hd-transport-usb@npm:1.2.8-alpha.131":
-  version: 1.2.8-alpha.131
-  resolution: "@onekeyfe/hd-transport-usb@npm:1.2.8-alpha.131"
-  dependencies:
-    "@onekeyfe/hd-shared": "npm:1.2.8-alpha.131"
-    "@onekeyfe/hd-transport": "npm:1.2.8-alpha.131"
-    bytebuffer: "npm:^5.0.1"
-    usb: "npm:^2.14.0"
-  checksum: 10/ac7fbad8274e0c474c9f4f0f2fbd5950b9e3394f58663af48e658f1175e6ffc42c237a881bdd2ed46ac9dfde810ecc229f778f11ad2661d9fcef3b99abdb89ab
   languageName: node
   linkType: hard
 
