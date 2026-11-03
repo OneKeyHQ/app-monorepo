@@ -30,6 +30,11 @@ jest.mock('@onekeyhq/kit/src/hooks/usePromiseResult', () => ({
   usePromiseResult: jest.fn(),
 }));
 
+let mockLocale = 'en';
+jest.mock('@onekeyhq/kit/src/hooks/useLocaleVariant', () => ({
+  useLocaleVariant: () => mockLocale,
+}));
+
 const mockUsePromiseResult = usePromiseResult as jest.Mock;
 const serviceMarket = backgroundApiProxy.serviceMarket as jest.Mocked<
   typeof backgroundApiProxy.serviceMarket
@@ -56,6 +61,7 @@ const bitcoin: IMarketAssetListItem = {
 describe('useHomeMarketCategoryTokens', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockLocale = 'en';
     mockUsePromiseResult.mockReturnValue({
       isLoading: false,
       result: undefined,
@@ -94,7 +100,7 @@ describe('useHomeMarketCategoryTokens', () => {
     ]);
     expect(serviceMarketV2.fetchMarketTokenList.mock.calls).toHaveLength(0);
     expect(result).toMatchObject({
-      requestKey: 'top_coins:5000',
+      requestKey: 'top_coins:5000:en',
       tokens: [
         {
           symbol: 'BTC',
@@ -142,7 +148,7 @@ describe('useHomeMarketCategoryTokens', () => {
     ]);
     expect(serviceMarketV2.fetchMarketTokenList.mock.calls).toHaveLength(0);
     expect(result).toMatchObject({
-      requestKey: 'stocks:5000',
+      requestKey: 'stocks:5000:en',
       tokens: [
         {
           stockId: 'AAPL',
@@ -208,3 +214,61 @@ describe('useHomeMarketCategoryTokens', () => {
     ]);
   });
 });
+
+it.each([false, true])(
+  'keeps a visited category visible during refresh, including an empty result %p',
+  (empty) => {
+    mockLocale = 'en';
+    const cachedTokens = empty ? [] : [{ symbol: 'BTC' }];
+    mockUsePromiseResult.mockReturnValue({
+      result: { requestKey: 'top_coins:5000:en', tokens: cachedTokens },
+    });
+    const { result, rerender } = renderHook(
+      ({ category }) =>
+        useHomeMarketCategoryTokens({
+          minLiquidity: 5000,
+          selectedMarketCategoryId: category,
+        }),
+      { initialProps: { category: 'top_coins' } },
+    );
+    rerender({ category: 'stocks' });
+    expect(result.current.isCategoryLoading).toBe(true);
+    expect(result.current.categoryTokens).toEqual([]);
+    mockUsePromiseResult.mockReturnValue({
+      result: { requestKey: 'stocks:5000:en', tokens: [{ symbol: 'AAPL' }] },
+    });
+    rerender({ category: 'stocks' });
+    rerender({ category: 'top_coins' });
+    expect(result.current.isCategoryLoading).toBe(false);
+    expect(result.current.categoryTokens).toEqual(cachedTokens);
+    const freshTokens = [{ symbol: 'ETH' }];
+    mockUsePromiseResult.mockReturnValue({
+      result: { requestKey: 'top_coins:5000:en', tokens: freshTokens },
+    });
+    rerender({ category: 'top_coins' });
+    expect(result.current.categoryTokens).toEqual(freshTokens);
+    expect(result.current.isCategoryLoading).toBe(false);
+  },
+);
+
+it.each(['locale', 'liquidity'])(
+  'does not reuse a category from a different %s scope',
+  (scope) => {
+    mockLocale = 'en';
+    mockUsePromiseResult.mockReturnValue({
+      result: { requestKey: 'top_coins:5000:en', tokens: [{ symbol: 'BTC' }] },
+    });
+    const { result, rerender } = renderHook(
+      ({ minLiquidity }) =>
+        useHomeMarketCategoryTokens({
+          minLiquidity,
+          selectedMarketCategoryId: 'top_coins',
+        }),
+      { initialProps: { minLiquidity: 5000 } },
+    );
+    if (scope === 'locale') mockLocale = 'zh-CN';
+    rerender({ minLiquidity: scope === 'liquidity' ? 6000 : 5000 });
+    expect(result.current.isCategoryLoading).toBe(true);
+    expect(result.current.categoryTokens).toEqual([]);
+  },
+);

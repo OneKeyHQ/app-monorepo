@@ -1,6 +1,24 @@
+import { TRADING_VIEW_NATIVE_SUB_INDICATOR_PANE_HEIGHT } from '@onekeyhq/kit/src/components/TradingView/TradingViewNative/chartConstants';
 import type { IMobilePerpMarketTab } from '@onekeyhq/shared/src/routes/perp';
 
 export type { IMobilePerpMarketTab };
+
+export function getMobilePerpMarketChartHeight({
+  isNativeChart,
+  isNative,
+  subIndicatorCount,
+}: {
+  isNativeChart: boolean;
+  isNative: boolean;
+  subIndicatorCount: number;
+}) {
+  return (
+    500 +
+    (isNative && isNativeChart
+      ? subIndicatorCount * TRADING_VIEW_NATIVE_SUB_INDICATOR_PANE_HEIGHT
+      : 0)
+  );
+}
 
 export function getMobilePerpMarketPagerHeight({
   activeTab,

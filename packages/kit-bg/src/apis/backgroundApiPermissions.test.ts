@@ -51,6 +51,31 @@ describe('isProviderApiPrivateOriginDenied', () => {
   });
 });
 
+describe('isWebEmbedApiAllowedOrigin', () => {
+  it.each([true, false])(
+    'allows the Android Metro origin only in development (isDev=%s)',
+    async (isDev) => {
+      jest.resetModules();
+      jest.doMock('@onekeyhq/shared/src/platformEnv', () => ({
+        __esModule: true,
+        default: { isDev },
+      }));
+      try {
+        const { isWebEmbedApiAllowedOrigin } =
+          await import('./backgroundApiPermissions');
+        expect(isWebEmbedApiAllowedOrigin('http://127.0.0.1:8081')).toBe(isDev);
+        expect(
+          isWebEmbedApiAllowedOrigin('http://127.0.0.1:8081.evil.example'),
+        ).toBe(false);
+        expect(isWebEmbedApiAllowedOrigin('https://evil.example')).toBe(false);
+      } finally {
+        jest.dontMock('@onekeyhq/shared/src/platformEnv');
+        jest.resetModules();
+      }
+    },
+  );
+});
+
 describe('web-embed channel mark', () => {
   const page = (origin: string, extra: Record<string, unknown> = {}) =>
     ({

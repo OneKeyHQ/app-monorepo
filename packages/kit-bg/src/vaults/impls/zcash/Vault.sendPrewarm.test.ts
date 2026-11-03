@@ -48,7 +48,7 @@ describe('Zcash send public-parameter warm-up', () => {
     jest.clearAllMocks();
   });
 
-  it.each(['orchard', 'ironwood'])(
+  it.each(['ironwood'])(
     'warms an active %s source before signing',
     async (sourcePool) => {
       const { vault, prewarmPczt } = createVault(true);
@@ -61,6 +61,20 @@ describe('Zcash send public-parameter warm-up', () => {
         network: 'main',
         targetHeight: 3_500_000,
       });
+    },
+  );
+
+  it.each(['orchard', 'sapling'])(
+    'does not warm the unsupported %s source',
+    async (sourcePool) => {
+      const { vault, api, tip } = createVault(true);
+      await vault.prewarmLocalWalletSend({
+        accountId,
+        sourcePool,
+        toAddress: 'u1-recipient',
+      });
+      expect(tip).not.toHaveBeenCalled();
+      expect(api).not.toHaveBeenCalled();
     },
   );
 

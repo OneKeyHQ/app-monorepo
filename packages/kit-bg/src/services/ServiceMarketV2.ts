@@ -348,7 +348,7 @@ class ServiceMarketV2 extends ServiceBase {
   }
 
   private memoizedFetchMarketBasicConfig = memoizee(
-    async () => {
+    async (autoHandleError?: boolean) => {
       const client = await this.getClient(EServiceEndpointEnum.Utility);
       const response = await client.get<IMarketBasicConfigResponse>(
         '/utility/v2/market/basic-config',
@@ -356,6 +356,7 @@ class ServiceMarketV2 extends ServiceBase {
           params: {
             configVersion: 2,
           },
+          ...(autoHandleError === false ? { autoHandleError: false } : {}),
         },
       );
       return response.data;
@@ -367,13 +368,17 @@ class ServiceMarketV2 extends ServiceBase {
   );
 
   @backgroundMethod()
-  async fetchMarketBasicConfig() {
+  async fetchMarketBasicConfig(options?: { autoHandleError?: boolean }) {
     try {
-      return await this.memoizedFetchMarketBasicConfig();
+      return await this.memoizedFetchMarketBasicConfig(
+        options?.autoHandleError,
+      );
     } catch (error) {
       // memoizee({ promise: true }) retains rejected promises. Drop the
       // failure so reconnect / retry can reach the network again.
-      void this.memoizedFetchMarketBasicConfig.clear();
+      void this.memoizedFetchMarketBasicConfig.delete(options?.autoHandleError);
+      if (options?.autoHandleError === false)
+        errorToastUtils.toastIfErrorDisable(error);
       throw error;
     }
   }

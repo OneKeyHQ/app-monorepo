@@ -38,7 +38,7 @@
   },
   "scripts": {
     "icon:build": "node src/primitives/Icon/script.js",
-    "icon:check": "node src/primitives/Icon/script.js --check",
+    "icon:check": "yarn icon:build && node src/primitives/Icon/checkGenerated.js",
     "lint": "tsc --noEmit && eslint . --ext .ts,.tsx",
     "lint:fix": "tsc --noEmit && eslint . --ext .ts,.tsx --fix"
   }
