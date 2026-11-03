@@ -373,7 +373,10 @@ class ServicePendingInstallTask {
         now,
       );
       if (failedTargetKey) {
-        isNewQuarantine = !ignoredTargets[failedTargetKey];
+        // A target ignored for another reason (e.g. retry exhaustion) has not
+        // been reported as a startup rollback yet.
+        isNewQuarantine =
+          ignoredTargets[failedTargetKey]?.reason !== 'BOOT_FAILED';
         // Keep a crashed target quarantined for this native app version.
         ignoredTargets[failedTargetKey] = {
           reason: 'BOOT_FAILED',

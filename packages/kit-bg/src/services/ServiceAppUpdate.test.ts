@@ -5610,6 +5610,35 @@ describe('OTA funnel telemetry reporting', () => {
     ]);
   });
 
+  test('reports STARTUP_ROLLBACK for a target already ignored for another reason', async () => {
+    resetAtom({
+      ignoredTargets: {
+        '1.0.0:5': {
+          reason: 'DOWNLOAD_RETRY_EXHAUSTED',
+          createdAt: Date.now(),
+          expiresAt: Date.now() + 60 * 60 * 1000,
+        },
+      },
+    });
+    syncStorageBackingMap.set(FAILED_OTA_BUNDLE_KEY, {
+      appVersion: '1.0.0',
+      bundleVersion: '5',
+    });
+    const pendingTaskService = (service as any).backgroundApi
+      .servicePendingInstallTask;
+
+    await pendingTaskService.cleanupUpdateControlState();
+    await flushTelemetry();
+
+    expect(telemetryBodies()).toEqual([
+      expect.objectContaining({
+        bundleVersion: 5,
+        event: 'INSTALL_FAILED',
+        errorCode: 'STARTUP_ROLLBACK',
+      }),
+    ]);
+  });
+
   test('reports INSTALL_OR_APPLY_ERROR when a bundle switch task reaches a terminal failure', async () => {
     const task = {
       taskId: 'task-1',
