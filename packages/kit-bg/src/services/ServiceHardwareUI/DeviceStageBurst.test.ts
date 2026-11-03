@@ -22,6 +22,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   EFirmwareUpdateTipMessages,
   EHardwareVendor,
+  EOneKeyDeviceMode,
 } from '@onekeyhq/shared/types/device';
 
 import {
@@ -1860,6 +1861,41 @@ describe('DeviceStageBurstScope', () => {
     releaseAskRead?.();
     await ask;
     expect(stage?.step).toBe('off');
+  });
+
+  it('drops completed transfer progress when a later processing step has no payload', async () => {
+    const scope = new DeviceStageBurstScope();
+    await scope.begin({ connectId: CONNECT_ID });
+    await paintOpeningBeat();
+    const payload: IHardwareUiPayload = {
+      uiRequestType: EHardwareUiStateAction.DEVICE_PROGRESS,
+      eventType: 'ui',
+      deviceType: EDeviceType.Pro2,
+      deviceId: 'stage-test-device',
+      connectId: CONNECT_ID,
+      deviceMode: EOneKeyDeviceMode.normal,
+      rawPayload: undefined,
+      requestPinType: 'PinEntry',
+      deviceProgress: {
+        progress: 100,
+        totalBytes: 1024,
+        transferredBytes: 1024,
+      },
+    };
+    await scope.noteStep('processing', { payload });
+    expect(stage?.payload?.deviceProgress?.progress).toBe(100);
+
+    await scope.noteStep('processing');
+    expect(stage?.payload?.deviceProgress).toBeUndefined();
+    expect(stage?.payload?.requestPinType).toBe('PinEntry');
+
+    await scope.noteStep('processing', {
+      payload: {
+        ...payload,
+        deviceProgress: { progress: 50, totalBytes: 1024 },
+      },
+    });
+    expect(stage?.payload?.deviceProgress?.progress).toBe(50);
   });
 
   it('keeps an ask on stage when a detached wait note lands after it', async () => {

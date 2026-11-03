@@ -214,15 +214,20 @@ export function useSettingsDraftValue<TValue>({
   );
   const committedValue = value ?? innerCommittedValue;
   const committedValueRef = useRef(committedValue);
+  // Last external value mirrored into the draft. Tracked apart from
+  // committedValueRef so a commit keeps showing its value until the caller's
+  // `value` actually changes, which can arrive after onConfirm resolves.
+  const syncedValueRef = useRef(committedValue);
   const draftValueRef = useRef(committedValue);
   const [isDraftDirty, setIsDraftDirty] = useState(false);
   const [draftValue, setDraftValue] = useState(committedValue);
 
   useEffect(() => {
-    if (isDraftDirty || Object.is(committedValueRef.current, committedValue)) {
+    if (isDraftDirty || Object.is(syncedValueRef.current, committedValue)) {
       return;
     }
 
+    syncedValueRef.current = committedValue;
     committedValueRef.current = committedValue;
     draftValueRef.current = committedValue;
     setDraftValue(committedValue);
