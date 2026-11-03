@@ -56,6 +56,8 @@ export class SimpleDbEntityApproval extends SimpleDbEntityBase<ISimpleDbApproval
 
   override enableCache = false;
 
+  override readonly enableWriteProtection = false;
+
   @backgroundMethod()
   async getRiskApprovalsRevokeSuggestionConfig({
     accountId,

@@ -1,4 +1,4 @@
-# Checked MMKV sync
+# Checked MMKV sync and App-storage integrity
 
 The native migration bridges use `syncExisting` to report flush failures through
 the existing `MMKV_SYNC_FAILED` Promise rejection. Both native JS runtimes share
@@ -21,6 +21,119 @@ identify why earlier data was lost, prove that an earlier write succeeded, or
 guarantee survival of arbitrary power loss. It cannot infer deletion followed by
 recreation that happened before this call. Existing JS migration markers, ledger
 transitions and legacy data retention remain necessary and unchanged.
+
+## App-storage integrity
+
+For `onekey-app-storage-v1`, the factory checks an existing data/CRC pair before
+constructing memory mappings, because mapping initialization can extend files.
+A CRC/length validation failure, unsupported metadata or an incomplete existing
+pair rejects opening without rewriting the records or CRC metadata. Core does
+not fall back to an older checkpoint, greedily decode or discard this durable
+store. The existing independent migration ledger and bridge error handling
+remain necessary. No C++ exception is thrown from reads, because NitroMmkv also
+reads sizes from a `noexcept` memory callback.
+
+A valid empty store and healthy explicit clearing remain supported. Other MMKV
+IDs retain upstream recovery behavior. Corruption without a valid native undo
+journal remains unavailable until explicitly repaired; the policy cannot recover
+already zeroed metadata, explicit deletion or media failure. Never reset an
+existing wallet to exercise it. Regression fixtures contain only synthetic data.
+
+### Native app-storage transactions
+
+Before the first mutation after a successful business `syncExisting`, Core writes
+one `.onekey-undo.tmp` container next to the canonical data file. It contains the
+original allocated lengths and inode identities, the complete CRC metadata file,
+and the active data prefix including its original four-byte header. The format
+has a version and a checksum covering its header, metadata and data. The native
+journal contains sensitive store contents: it is a regular, single-link file
+created with mode 0600. On iOS it receives protection at least as restrictive as
+both canonical files and is excluded from device backups before publication.
+No journal values or keys are logged. iOS Simulator does not expose hardware
+Data Protection attributes, so its compile-time branch skips only those attribute
+reads and writes. File permissions, link rejection and successful backup exclusion
+remain required. Simulator tests do not validate hardware Data Protection.
+
+Core fully writes and fsyncs the container, renames it to `.onekey-undo`, then
+fsyncs its parent directory before changing either canonical file. Append,
+single-key overwrite, full rewrite, growth, trim, clear, rekey and expiry metadata
+changes share that same pending group. The canonical files retain their inodes.
+The transaction owner and sticky I/O error state survive `clearMemoryCache`.
+Publication or later mutation failures stop subsequent mutations and prevent a
+successful checked sync; an inner writer never reloads a dictionary while its
+callers still hold iterators.
+
+Only the existing business `syncExisting` boundary commits the group: checked
+flushes and path checks for both canonical files succeed, the matching published
+journal is removed, and its parent directory is fsynced before returning success.
+An ordinary `sync`, `close`, cache eviction, snapshot read or backup does not
+commit. A flush or cleanup failure cannot be ACKed later by retrying that failed
+instance. Close/reopen or a new process performs recovery. A trim after an ACK
+starts a new group whose baseline already contains every previously ACKed value.
+
+Before constructing a new instance, a valid pending journal is rolled back even
+if the current canonical pair happens to pass CRC validation: the process could
+have stopped between mutations in an unacknowledged group. Recovery restores the
+active prefix, metadata and original allocated lengths in place, flushes both
+files, verifies the result and removes the journal durably. The journal remains
+available until both restores complete, so another interruption can retry.
+Unused data-file slack is outside the recorded active prefix and need not return
+to its previous byte pattern. Unknown, truncated, corrupted or identity-mismatched
+published journals fail closed and preserve the files. An unpublished temporary
+can be replaced only after validating the healthy canonical baseline.
+
+This protocol supports the App's single-process native Core instance, shared by
+the independently initialized main and background JS runtimes. The background
+storage executor owns business writes. Multi-process and ashmem modes are
+rejected for this ID. Read-only opening cannot recover or commit a pending group.
+Backup refuses a pending/error group and cannot replace another live protected
+instance as its destination. The generic native `removeStorage`,
+`restoreOneFromDirectory` and `restoreAllFromDirectory` APIs refuse this protected
+ID: physical removal can race a writer and the two-file restore copy does not
+implement this protocol. These APIs are separate from the App's wallet
+delete/backup/import/reset flows, which are unchanged.
+
+A first-ever process interruption between creating the two empty files can leave
+an incomplete pair with no previously ACKed data; opening that unknown pair
+fails closed rather than guessing it is empty. External file replacement,
+concurrent old native binaries and downgrading while a journal is pending are
+unsupported. A clean committed pair keeps the upstream on-disk format. An OTA
+JavaScript update cannot add this protection to an older native binary.
+The guarantee relies on successful filesystem fsync semantics; host process-kill
+tests do not establish survival of arbitrary physical power loss or media damage.
+
+The initial implementation copies the current active prefix and metadata once per
+dirty business group. Clean checked sync calls create no journal. Measure dirty
+group counts, snapshot bytes and latency on devices before release readiness;
+repeated sync calls alone are not a measure of copied bytes.
+
+### Temporary local diagnostics
+
+The current diagnostic patch writes `[STORAGE-CRC]` records only when `DEBUG=1`.
+Non-Debug builds do not create a trace. Only `onekey-app-storage-v1` is traced;
+records contain fixed phase names, timestamps, process/thread numbers, sequence,
+version/flags, sizes, CRCs and error numbers. Keys and values are excluded.
+
+The files are next to the store, with `.integrity.trace` and
+`.integrity.trace.previous` suffixes. Each is bounded to 128 KiB plus one line,
+uses mode 0600, and is excluded from iOS backups when created. Symbolic/hard
+links are rejected. Repeated identical records are suppressed. Diagnostic
+failures do not change the storage result or the caller's errno.
+
+A durable `rewrite-begin` is written before in-place changes. There is no
+additional diagnostic I/O between rewriting records and updating CRC metadata.
+`rewrite-return` means the native operation returned, not that arbitrary power
+loss is safe. `sync-ok` follows the checked data/metadata flush and path checks;
+`sync-error-*` identifies the failed stage. `load-rejected` preserves the expected
+and computed CRC/length evidence before the in-memory cache is invalidated.
+Space-triggered and trim-triggered rewrites have separate entry records.
+
+This is temporary investigation code: remove the helper and its call sites
+before publishing a general fix. Do not manufacture faults in a user's store.
+For host trace tests, configure CMake with `-DCMAKE_BUILD_TYPE=Debug
+-DCMAKE_CXX_FLAGS=-DDEBUG=1`; the normal non-Debug test also verifies no trace is
+created. Fault, privacy, bounded rotation, symlink/hardlink and write/sync
+continuity checks all use synthetic stores.
 
 ## Source and integration
 
@@ -78,6 +191,17 @@ initialization, writer exclusion, matching data/CRC snapshots, unrelated cached
 lookups during a paused flush, and concurrent creation/close. Host tests do not
 replace platform App builds or device tests,
 and captured syscall snapshots do not simulate a physical power cut.
+
+`transaction_regression` forks isolated synthetic workers and kills them at
+journal publication, canonical flush, commit cleanup and recovery boundaries. It
+checks rollback of acknowledged active bytes, all active keys, full metadata and
+allocated lengths; publication failures preserve both complete canonical files.
+It also covers failed void/bulk mutations, sticky errors, cache ownership,
+unsupported modes, damaged journals, replaced inodes, read-only opening,
+short writes/EINTR and dirty-group copying costs. No test signals the App or a
+user's device. The original mmap-rewrite-before-CRC window additionally requires
+an independent test-source build with test-only interruption points; product
+sources contain no fault hook.
 
 `apps/mobile/e2e/native-storage-sync.native-harness.ts` exercises the real NitroMmkv
 instance and native Promise on a dedicated empty simulator/emulator. It checks

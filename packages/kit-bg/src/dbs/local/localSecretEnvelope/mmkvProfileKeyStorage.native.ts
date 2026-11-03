@@ -1,6 +1,6 @@
-import { createMMKV } from 'react-native-mmkv';
-
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import { createOneKeyMMKV } from '@onekeyhq/shared/src/storage/instance/createOneKeyMMKV';
+import { syncNativeStorageMMKVIfAvailable } from '@onekeyhq/shared/src/storage/nativeStorageMigrationModule';
 import { travelModeManager } from '@onekeyhq/shared/src/travelMode';
 
 import type { ILocalSecretEnvelopeMmkvProfileKeyStorage } from './mmkvProfileKeyLayerAdapter';
@@ -8,11 +8,14 @@ import type { ILocalSecretEnvelopeMmkvProfileKeyStorage } from './mmkvProfileKey
 // Keep the LSE profile key outside the general app-settings MMKV instance so
 // generic settings cleanup cannot orphan Realm ciphertext. Explicit App Reset
 // removes this key in a dedicated crypto-erasure step immediately before Realm.
-let mmkvProfileKeyStorageInstance: ReturnType<typeof createMMKV> | undefined;
+let mmkvProfileKeyStorageInstance:
+  | ReturnType<typeof createOneKeyMMKV>
+  | undefined;
 
 function getMMKVProfileKeyStorageInstance() {
-  mmkvProfileKeyStorageInstance ??= createMMKV({
+  mmkvProfileKeyStorageInstance ??= createOneKeyMMKV({
     id: 'onekey-local-secret-envelope',
+    enableWriteProtection: true,
   });
   return mmkvProfileKeyStorageInstance;
 }
@@ -45,6 +48,7 @@ const mmkvProfileKeyStorage: ILocalSecretEnvelopeMmkvProfileKeyStorage = {
             'Local secret envelope MMKV profile key persist failed',
           );
         }
+        await syncNativeStorageMMKVIfAvailable('onekey-local-secret-envelope');
         return persistedKeyHex;
       },
       onBlocked: () => {
@@ -59,6 +63,7 @@ const mmkvProfileKeyStorage: ILocalSecretEnvelopeMmkvProfileKeyStorage = {
     return environment.persistence.run({
       operation: async () => {
         getMMKVProfileKeyStorageInstance().remove(keyRef);
+        await syncNativeStorageMMKVIfAvailable('onekey-local-secret-envelope');
       },
       onBlocked: () => undefined,
     });
@@ -74,6 +79,7 @@ const mmkvProfileKeyStorage: ILocalSecretEnvelopeMmkvProfileKeyStorage = {
             'Local secret envelope MMKV profile key persist failed',
           );
         }
+        await syncNativeStorageMMKVIfAvailable('onekey-local-secret-envelope');
       },
       onBlocked: () => undefined,
     });

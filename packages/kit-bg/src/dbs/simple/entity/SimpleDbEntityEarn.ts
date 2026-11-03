@@ -52,6 +52,8 @@ export class SimpleDbEntityEarn extends SimpleDbEntityBase<IEarnAtomData> {
 
   override enableCache = false;
 
+  override readonly enableWriteProtection = false;
+
   @backgroundMethod()
   async getEarnData() {
     const data = await this.getRawData();

@@ -1,4 +1,10 @@
 import { swrCacheNamespaces } from '../../utils/swrCacheNamespaceNames';
+import {
+  SIMPLE_DB_SNAPSHOT_CACHE_ENTITY_NAMES,
+  simpleDbSnapshotNamespaceName,
+} from '../simpleDbSnapshotEntities';
+
+import type { ISimpleDbSnapshotNamespace } from '../simpleDbSnapshotEntities';
 
 /**
  * Every UI snapshot namespace the app can hold.
@@ -32,14 +38,18 @@ export const FEATURE_SNAPSHOT_CACHE_NAMESPACES = [
   'tokenlist-owner-slim',
   'tokenlist-owner-worth',
   'home-header-layout',
+  'simple-db-cache',
+  'jotai-cache',
 ] as const;
 
 export type ISnapshotCacheNamespace =
   | (typeof FEATURE_SNAPSHOT_CACHE_NAMESPACES)[number]
+  | ISimpleDbSnapshotNamespace
   | `swr-${string}`;
 
 export const SNAPSHOT_CACHE_NAMESPACES: readonly ISnapshotCacheNamespace[] = [
   ...FEATURE_SNAPSHOT_CACHE_NAMESPACES,
+  ...SIMPLE_DB_SNAPSHOT_CACHE_ENTITY_NAMES.map(simpleDbSnapshotNamespaceName),
   SWR_CACHE_FALLBACK_NAMESPACE,
   ...Object.values(swrCacheNamespaces).map(swrCacheNamespaceName),
 ];

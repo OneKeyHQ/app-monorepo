@@ -10,4 +10,6 @@ export class SimpleDbEntitySwapNetworksSort extends SimpleDbEntityBase<ISwapNetw
   entityName = 'swapNetworksSort';
 
   override enableCache = false;
+
+  override readonly enableWriteProtection = false;
 }

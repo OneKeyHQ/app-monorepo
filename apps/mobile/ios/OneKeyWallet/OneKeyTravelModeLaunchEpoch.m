@@ -120,6 +120,9 @@ static BOOL OneKeyForceDisableTravelModeControl(BOOL *didChange)
     }
   }
   [mmkv sync];
+  if ([MMKV syncExisting:OneKeyTravelModeMMKVID] != 0) {
+    return NO;
+  }
 
   NSString *persistedValue = [mmkv getStringForKey:OneKeyTravelModeControlKey];
   if (persistedValue.length == 0) {

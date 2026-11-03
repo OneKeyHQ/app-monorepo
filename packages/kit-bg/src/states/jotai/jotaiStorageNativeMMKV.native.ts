@@ -33,6 +33,7 @@ import {
   travelModeManager,
 } from '@onekeyhq/shared/src/travelMode';
 
+import { isJotaiAtomWriteProtected } from './atomNames';
 import {
   CURRENCY_REFERENCE_STORAGE_KEY,
   MANUAL_LOCK_CONTROL_STORAGE_KEY,
@@ -82,12 +83,25 @@ export class JotaiStorageNativeMMKV implements AsyncStorage<any> {
   /** Safe MMKV wrapper — null/undefined guarded via createMMKVSyncStorage */
   private storeInstance: ISyncStorage<string> | undefined;
 
+  private snapshotStoreInstance: ISyncStorage<string> | undefined;
+
   private mmkvInstance:
     | {
         getString(key: string): string | undefined;
         getAllKeys(): string[];
         clearAll(): void;
         set(key: string, value: string): void;
+        trim?(): void;
+      }
+    | undefined;
+
+  private snapshotMmkvInstance:
+    | {
+        getString(key: string): string | undefined;
+        getAllKeys(): string[];
+        clearAll(): void;
+        set(key: string, value: string): void;
+        trim?(): void;
       }
     | undefined;
 
@@ -112,12 +126,22 @@ export class JotaiStorageNativeMMKV implements AsyncStorage<any> {
     const { default: instance } =
       require('@onekeyhq/shared/src/storage/instance/jotaiMMKVStorageInstance') as typeof import('@onekeyhq/shared/src/storage/instance/jotaiMMKVStorageInstance');
     // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { default: snapshotInstance } =
+      require('@onekeyhq/shared/src/storage/instance/jotaiSnapshotMMKVStorageInstance') as typeof import('@onekeyhq/shared/src/storage/instance/jotaiSnapshotMMKVStorageInstance');
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
     const { createMMKVSyncStorage } =
       require('@onekeyhq/shared/src/storage/instance/syncStorageInstance') as typeof import('@onekeyhq/shared/src/storage/instance/syncStorageInstance');
     this.storeInstance = createMMKVSyncStorage<string>(instance, {
       checkResetting: true,
     });
+    this.snapshotStoreInstance = createMMKVSyncStorage<string>(
+      snapshotInstance,
+      {
+        checkResetting: true,
+      },
+    );
     this.mmkvInstance = instance;
+    this.snapshotMmkvInstance = snapshotInstance;
   }
 
   private get store(): ISyncStorage<string> {
@@ -125,11 +149,31 @@ export class JotaiStorageNativeMMKV implements AsyncStorage<any> {
     return this.storeInstance as ISyncStorage<string>;
   }
 
+  private get snapshotStore(): ISyncStorage<string> {
+    this.initializeStorageBackend();
+    return this.snapshotStoreInstance as ISyncStorage<string>;
+  }
+
   private get mmkv() {
     this.initializeStorageBackend();
     return this.mmkvInstance as NonNullable<
       JotaiStorageNativeMMKV['mmkvInstance']
     >;
+  }
+
+  private get snapshotMmkv() {
+    this.initializeStorageBackend();
+    return this.snapshotMmkvInstance as NonNullable<
+      JotaiStorageNativeMMKV['snapshotMmkvInstance']
+    >;
+  }
+
+  private isSnapshotStorageKey(key: string): boolean {
+    if (!key.startsWith(JOTAI_STORAGE_KEY_PREFIX)) {
+      return false;
+    }
+    const atomName = key.slice(JOTAI_STORAGE_KEY_PREFIX.length);
+    return !isJotaiAtomWriteProtected(atomName);
   }
 
   private log(msg: string) {
@@ -204,7 +248,7 @@ export class JotaiStorageNativeMMKV implements AsyncStorage<any> {
   }
 
   private getBusinessKeys() {
-    return this.mmkv
+    const protectedKeys = this.mmkv
       .getAllKeys()
       .filter(
         (key) =>
@@ -213,6 +257,32 @@ export class JotaiStorageNativeMMKV implements AsyncStorage<any> {
           key !== JOTAI_LEGACY_RETENTION_POLICY_KEY &&
           key !== JOTAI_MIGRATION_REPORT_KEY,
       );
+    const snapshotKeys = this.snapshotMmkv.getAllKeys();
+    return [...new Set([...protectedKeys, ...snapshotKeys])];
+  }
+
+  private async evictSnapshotKeysFromProtectedStore() {
+    const snapshotKeysInProtectedStore = this.mmkv
+      .getAllKeys()
+      .filter((key) => this.isSnapshotStorageKey(key));
+    if (snapshotKeysInProtectedStore.length === 0) {
+      return;
+    }
+    for (const key of snapshotKeysInProtectedStore) {
+      const value = this.mmkv.getString(key);
+      if (
+        value !== undefined &&
+        this.snapshotMmkv.getString(key) === undefined
+      ) {
+        void this.snapshotStore.set(key as any, value);
+      }
+      void this.store.delete(key as any);
+    }
+    this.mmkv.trim?.();
+    await syncNativeStorageMMKV('onekey-jotai-states');
+    this.log(
+      `evicted snapshot cache keys from jotai-states count=${snapshotKeysInProtectedStore.length}`,
+    );
   }
 
   private getLegacyKeyDiagnosticLabel(key: string) {
@@ -356,10 +426,13 @@ export class JotaiStorageNativeMMKV implements AsyncStorage<any> {
     value: string;
   }) {
     const keyLabel = this.getLegacyKeyDiagnosticLabel(key);
+    const isSnapshot = this.isSnapshotStorageKey(key);
+    const targetStore = isSnapshot ? this.snapshotStore : this.store;
+    const targetMmkv = isSnapshot ? this.snapshotMmkv : this.mmkv;
     const result = await retryLegacyAsyncStorageOperation({
       operation: async () => {
-        void this.store.set(key as any, value);
-        if (this.mmkv.getString(key) !== value) {
+        void targetStore.set(key as any, value);
+        if (targetMmkv.getString(key) !== value) {
           throw new OneKeyLocalError(
             'Jotai migration target value verification failed',
           );
@@ -374,7 +447,7 @@ export class JotaiStorageNativeMMKV implements AsyncStorage<any> {
       },
     });
     if (!result.ok) {
-      void this.store.delete(key as any);
+      void targetStore.delete(key as any);
       this.log(
         `target key result=skipped index=${index} key=${keyLabel} stage=write attempts=${result.attemptCount} sourceChars=${value.length} errorType=${this.getLegacyOperationErrorType(
           result.error,
@@ -427,6 +500,7 @@ export class JotaiStorageNativeMMKV implements AsyncStorage<any> {
   private async finishInterruptedReset(): Promise<void> {
     await this.clearLegacyJotaiData();
     this.mmkv.clearAll();
+    this.snapshotMmkv.clearAll();
     this.mmkv.set(MMKV_MIGRATION_COMPLETE_KEY, '1');
     this.mmkv.set(JOTAI_LEGACY_CLEANUP_COMPLETE_KEY, '1');
     if (this.mmkv.getString(MMKV_MIGRATION_COMPLETE_KEY) !== '1') {
@@ -448,7 +522,10 @@ export class JotaiStorageNativeMMKV implements AsyncStorage<any> {
     const environment = await travelModeManager.getRuntimeEnvironment();
     const read = async () => {
       this.assertMigrated();
-      const raw = this.mmkv.getString(key);
+      const targetMmkv = this.isSnapshotStorageKey(key)
+        ? this.snapshotMmkv
+        : this.mmkv;
+      const raw = targetMmkv.getString(key);
       if (raw !== undefined) {
         try {
           const parsed = JSON.parse(raw);
@@ -474,6 +551,14 @@ export class JotaiStorageNativeMMKV implements AsyncStorage<any> {
     const environment = await travelModeManager.getRuntimeEnvironment();
     const write = async () => {
       this.assertMigrated();
+      if (this.isSnapshotStorageKey(key)) {
+        if (newValue === undefined || newValue === null) {
+          void this.snapshotStore.delete(key);
+        } else {
+          void this.snapshotStore.set(key, JSON.stringify(newValue));
+        }
+        return;
+      }
       if (newValue === undefined || newValue === null) {
         void this.store.delete(key);
       } else {
@@ -491,6 +576,10 @@ export class JotaiStorageNativeMMKV implements AsyncStorage<any> {
     const environment = await travelModeManager.getRuntimeEnvironment();
     const remove = async () => {
       this.assertMigrated();
+      if (this.isSnapshotStorageKey(key)) {
+        void this.snapshotStore.delete(key);
+        return;
+      }
       void this.store.delete(key);
       await syncNativeStorageMMKV('onekey-jotai-states');
     };
@@ -682,6 +771,7 @@ export class JotaiStorageNativeMMKV implements AsyncStorage<any> {
         this.mmkv.getString(MMKV_MIGRATION_COMPLETE_KEY) === '1';
       if (targetMarkerComplete) {
         await syncNativeStorageMMKV('onekey-jotai-states');
+        await this.evictSnapshotKeysFromProtectedStore();
         if (ledger !== NATIVE_STORAGE_MIGRATION_LEDGER_COMPLETE) {
           await setNativeStorageMigrationLedgerComplete(
             JOTAI_MIGRATION_LEDGER_KEY,
@@ -730,6 +820,7 @@ export class JotaiStorageNativeMMKV implements AsyncStorage<any> {
         // these values are orphaned and safe to remove before rebuilding.
         existingTargetKeys.forEach((key) => {
           void this.store.delete(key as any);
+          void this.snapshotStore.delete(key as any);
         });
         this.log(
           `target cleanup result=cleared targetKeyCount=${existingTargetKeys.length} sourceEnumeration=complete`,
@@ -874,7 +965,10 @@ export class JotaiStorageNativeMMKV implements AsyncStorage<any> {
         const map = new Map<string, any>();
         const keys = this.getBusinessKeys();
         for (const key of keys) {
-          const raw = this.mmkv.getString(key);
+          const targetMmkv = this.isSnapshotStorageKey(key)
+            ? this.snapshotMmkv
+            : this.mmkv;
+          const raw = targetMmkv.getString(key);
           if (raw !== undefined) {
             try {
               map.set(key, JSON.parse(raw));

@@ -4204,8 +4204,8 @@ DEPENDENCIES:
   - JPushRN (from `../../../node_modules/jpush-react-native`)
   - "KeychainModule (from `../../../node_modules/@onekeyfe/react-native-keychain-module`)"
   - lottie-react-native (from `../../../node_modules/lottie-react-native`)
-  - MMKV (from `../../../node_modules/.cache/onekey-mmkv-native/4007cba64e697a153127daa7578c13666f34525e-b4c0dcafcbcb`)
-  - MMKVCore (from `../../../node_modules/.cache/onekey-mmkv-native/4007cba64e697a153127daa7578c13666f34525e-b4c0dcafcbcb`)
+  - MMKV (from `../../../node_modules/.cache/onekey-mmkv-native/4007cba64e697a153127daa7578c13666f34525e-5cf028e26751`)
+  - MMKVCore (from `../../../node_modules/.cache/onekey-mmkv-native/4007cba64e697a153127daa7578c13666f34525e-5cf028e26751`)
   - "NativeOverlay (from `../../../node_modules/@onekeyfe/react-native-native-overlay`)"
   - NetworkInfo (from `../../../node_modules/react-native-network-info`)
   - NitroMmkv (from `../../../node_modules/react-native-mmkv`)
@@ -4499,9 +4499,9 @@ EXTERNAL SOURCES:
   lottie-react-native:
     :path: "../../../node_modules/lottie-react-native"
   MMKV:
-    :path: "../../../node_modules/.cache/onekey-mmkv-native/4007cba64e697a153127daa7578c13666f34525e-b4c0dcafcbcb"
+    :path: "../../../node_modules/.cache/onekey-mmkv-native/4007cba64e697a153127daa7578c13666f34525e-5cf028e26751"
   MMKVCore:
-    :path: "../../../node_modules/.cache/onekey-mmkv-native/4007cba64e697a153127daa7578c13666f34525e-b4c0dcafcbcb"
+    :path: "../../../node_modules/.cache/onekey-mmkv-native/4007cba64e697a153127daa7578c13666f34525e-5cf028e26751"
   NativeOverlay:
     :path: "../../../node_modules/@onekeyfe/react-native-native-overlay"
   NetworkInfo:

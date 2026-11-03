@@ -25,6 +25,8 @@ export class SimpleDbEntityAllNetworks extends SimpleDbEntityBase<IAllNetworksDB
 
   override enableCache = true;
 
+  override readonly enableWriteProtection = false;
+
   @backgroundMethod()
   async getAllNetworksState(): Promise<IAllNetworksDBStruct> {
     const data = await this.getRawData();

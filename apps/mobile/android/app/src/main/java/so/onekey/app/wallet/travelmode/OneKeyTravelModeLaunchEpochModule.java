@@ -153,6 +153,10 @@ public final class OneKeyTravelModeLaunchEpochModule extends ReactContextBaseJav
                 }
             }
             mmkv.sync();
+            int syncError = MMKV.syncExisting(TRAVEL_MODE_MMKV_ID);
+            if (syncError != 0) {
+                throw new IllegalStateException("Travel Mode MMKV sync failed; errno=" + syncError);
+            }
             String persistedValue = mmkv.decodeString(TRAVEL_MODE_CONTROL_KEY);
             if (persistedValue != null && !persistedValue.isEmpty()) {
                 try {

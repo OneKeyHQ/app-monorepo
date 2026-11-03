@@ -48,6 +48,7 @@ class FakeMMKV {
 }
 
 const mockAppMMKV = new FakeMMKV();
+const mockSimpleDbSnapshotMMKV = new FakeMMKV();
 const mockSettingsMMKV = new FakeMMKV();
 const mockColdStartMMKV = new FakeMMKV();
 const mockDevSettingsMMKV = new FakeMMKV();
@@ -142,6 +143,10 @@ jest.mock('./instance/appStorageMMKVInstance', () => ({
   __esModule: true,
   default: mockAppMMKV,
 }));
+jest.mock('./instance/simpleDbSnapshotMMKVInstance', () => ({
+  __esModule: true,
+  default: mockSimpleDbSnapshotMMKV,
+}));
 jest.mock('./instance/mmkvStorageInstance', () => ({
   __esModule: true,
   default: mockSettingsMMKV,
@@ -178,6 +183,8 @@ describe('nativeStorageExecutor', () => {
     jest.resetModules();
     mockAppMMKV.clearAll();
     mockAppMMKV.failOnSetKey = undefined;
+    mockSimpleDbSnapshotMMKV.clearAll();
+    mockSimpleDbSnapshotMMKV.failOnSetKey = undefined;
     mockSettingsMMKV.clearAll();
     mockColdStartMMKV.clearAll();
     mockDevSettingsMMKV.clearAll();
@@ -1418,5 +1425,83 @@ describe('nativeStorageExecutor', () => {
     await executeNativeStorageRequest(requests[requests.length - 1]);
     expect(setSpy).toHaveBeenCalledTimes(34);
     setSpy.mockRestore();
+  });
+
+  it('routes pure-cache SimpleDb keys to snapshot MMKV without syncing appStorage', async () => {
+    markAppStorageMigrated();
+    const { ensureNativeAppStorageMigrated, executeNativeStorageRequest } =
+      loadExecutor();
+    await ensureNativeAppStorageMigrated();
+    mockSyncNativeStorageMMKV.mockClear();
+
+    await executeNativeStorageRequest({
+      scope: 'asyncStorage',
+      operation: 'setItem',
+      key: 'simple_db_v5:localTokens',
+      value: '{"tokens":[1,2,3]}',
+    });
+
+    expect(
+      mockSimpleDbSnapshotMMKV.getString('app:simple_db_v5:localTokens'),
+    ).toBe('{"tokens":[1,2,3]}');
+    expect(
+      mockAppMMKV.getString('app:simple_db_v5:localTokens'),
+    ).toBeUndefined();
+    expect(mockSyncNativeStorageMMKV).not.toHaveBeenCalledWith(
+      'onekey-app-storage-v1',
+    );
+
+    await expect(
+      executeNativeStorageRequest({
+        scope: 'asyncStorage',
+        operation: 'getItem',
+        key: 'simple_db_v5:localTokens',
+      }),
+    ).resolves.toBe('{"tokens":[1,2,3]}');
+
+    await executeNativeStorageRequest({
+      scope: 'asyncStorage',
+      operation: 'removeItem',
+      key: 'simple_db_v5:localTokens',
+    });
+    expect(
+      mockSimpleDbSnapshotMMKV.getString('app:simple_db_v5:localTokens'),
+    ).toBeUndefined();
+    expect(mockSyncNativeStorageMMKV).not.toHaveBeenCalledWith(
+      'onekey-app-storage-v1',
+    );
+  });
+
+  it('evicts existing pure-cache SimpleDb keys from appStorage into snapshot MMKV on startup', async () => {
+    markAppStorageMigrated();
+    mockAppMMKV.set('app:simple_db_v5:localTokens', '{"cached":true}');
+    mockAppMMKV.set('app:simple_db_v5:perp', '{"tradingUniverse":[]}');
+    mockAppMMKV.set('app:simple_db_v5:localHistory', '{"pending":[]}');
+    const { executeNativeStorageRequest } = loadExecutor();
+
+    await expect(
+      executeNativeStorageRequest({
+        scope: 'asyncStorage',
+        operation: 'getItem',
+        key: 'simple_db_v5:localTokens',
+      }),
+    ).resolves.toBe('{"cached":true}');
+
+    expect(
+      mockSimpleDbSnapshotMMKV.getString('app:simple_db_v5:localTokens'),
+    ).toBe('{"cached":true}');
+    expect(mockSimpleDbSnapshotMMKV.getString('app:simple_db_v5:perp')).toBe(
+      '{"tradingUniverse":[]}',
+    );
+    expect(
+      mockAppMMKV.getString('app:simple_db_v5:localTokens'),
+    ).toBeUndefined();
+    expect(mockAppMMKV.getString('app:simple_db_v5:perp')).toBeUndefined();
+    expect(mockAppMMKV.getString('app:simple_db_v5:localHistory')).toBe(
+      '{"pending":[]}',
+    );
+    expect(mockSyncNativeStorageMMKV).toHaveBeenCalledWith(
+      'onekey-app-storage-v1',
+    );
   });
 });

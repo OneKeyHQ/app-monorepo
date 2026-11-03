@@ -45,6 +45,8 @@ export class SimpleDbEntityTransferRecipientsCache extends SimpleDbEntityBase<IT
 
   override enableCache = false;
 
+  override readonly enableWriteProtection = false;
+
   async getEntry({
     accountId,
     networkId,

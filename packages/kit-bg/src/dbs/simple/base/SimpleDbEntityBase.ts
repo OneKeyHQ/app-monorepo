@@ -59,6 +59,8 @@ abstract class SimpleDbEntityBase<T> {
 
   abstract readonly enableCache: boolean;
 
+  readonly enableWriteProtection: boolean = true;
+
   // Default on: this Chromium signature means the record is already
   // unreadable, and builder setRawData cannot repair it. Leaving the dead
   // key blocks the whole entity (and often the app). Matcher + 50/500/1000ms

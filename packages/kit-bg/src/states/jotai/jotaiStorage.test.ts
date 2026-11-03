@@ -6,6 +6,9 @@ import { ELockDuration } from '@onekeyhq/shared/src/consts/appAutoLockConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
 const mmkvInstance = createMMKV({ id: 'onekey-jotai-states-test' });
+const snapshotMmkvInstance = createMMKV({
+  id: 'onekey-display-snapshot-jotai-cache-test',
+});
 const appStorageMMKVInstance = createMMKV({
   id: 'onekey-app-storage-snapshot-test',
 });
@@ -35,6 +38,10 @@ const legacyStorage = {
 jest.mock(
   '@onekeyhq/shared/src/storage/instance/jotaiMMKVStorageInstance',
   () => ({ __esModule: true, default: mmkvInstance }),
+);
+jest.mock(
+  '@onekeyhq/shared/src/storage/instance/jotaiSnapshotMMKVStorageInstance',
+  () => ({ __esModule: true, default: snapshotMmkvInstance }),
 );
 jest.mock(
   '@onekeyhq/shared/src/storage/instance/appStorageMMKVInstance',
@@ -115,6 +122,7 @@ describe('JotaiStorageNativeMMKV migration barrier', () => {
     legacyData.clear();
     migrationLedger.clear();
     mmkvInstance.clearAll();
+    snapshotMmkvInstance.clearAll();
     appStorageMMKVInstance.clearAll();
     legacyStorage.multiGet.mockImplementation(async (keys: string[]) =>
       keys.map(
@@ -827,6 +835,71 @@ describe('JotaiStorageNativeMMKV migration barrier', () => {
       manualLocking: false,
     });
     environmentSpy.mockRestore();
+  });
+
+  it('routes pure-cache Jotai atoms to snapshot MMKV without syncing onekey-jotai-states', async () => {
+    markJotaiStorageMigrated();
+    const storage = createStorage();
+    await storage.migrateFromAsyncStorage([], PROBE_KEY);
+    mockSyncNativeStorageMMKV.mockClear();
+
+    const snapshotAtomKey = 'g_states_v5:perpsAccountDisplaySnapshotAtom';
+    const giftSnapshotKey = 'g_states_v5:primeGiftEligibilityPersistAtom';
+    const commonConfigKey = 'g_states_v5:perpsCommonConfigPersistAtom';
+    await storage.setItem(snapshotAtomKey, {
+      snapshots: { a: { balance: '1' } },
+    });
+    await storage.setItem(giftSnapshotKey, { status: 'eligible' });
+    await storage.setItem(commonConfigKey, { maxLeverage: 20 });
+
+    expect(snapshotMmkvInstance.getString(snapshotAtomKey)).toBe(
+      JSON.stringify({ snapshots: { a: { balance: '1' } } }),
+    );
+    expect(snapshotMmkvInstance.getString(giftSnapshotKey)).toBe(
+      JSON.stringify({ status: 'eligible' }),
+    );
+    expect(snapshotMmkvInstance.getString(commonConfigKey)).toBe(
+      JSON.stringify({ maxLeverage: 20 }),
+    );
+    expect(mmkvInstance.getString(snapshotAtomKey)).toBeUndefined();
+    expect(mmkvInstance.getString(giftSnapshotKey)).toBeUndefined();
+    expect(mmkvInstance.getString(commonConfigKey)).toBeUndefined();
+    expect(mockSyncNativeStorageMMKV).not.toHaveBeenCalledWith(
+      'onekey-jotai-states',
+    );
+
+    await expect(storage.getItem(snapshotAtomKey, null)).resolves.toEqual({
+      snapshots: { a: { balance: '1' } },
+    });
+
+    await storage.removeItem(snapshotAtomKey);
+    expect(snapshotMmkvInstance.getString(snapshotAtomKey)).toBeUndefined();
+    expect(mockSyncNativeStorageMMKV).not.toHaveBeenCalledWith(
+      'onekey-jotai-states',
+    );
+  });
+
+  it('evicts existing pure-cache Jotai atoms from onekey-jotai-states into snapshot MMKV on startup', async () => {
+    markJotaiStorageMigrated();
+    const snapshotAtomKey = 'g_states_v5:perpsAccountDisplaySnapshotAtom';
+    const protectedKey = 'g_states_v5:settingsPersistAtom';
+    mmkvInstance.set(snapshotAtomKey, '{"snapshots":{}}');
+    mmkvInstance.set(protectedKey, '{"theme":"dark"}');
+
+    const storage = createStorage();
+    await storage.migrateFromAsyncStorage(
+      [snapshotAtomKey, protectedKey],
+      PROBE_KEY,
+    );
+
+    expect(snapshotMmkvInstance.getString(snapshotAtomKey)).toBe(
+      '{"snapshots":{}}',
+    );
+    expect(mmkvInstance.getString(snapshotAtomKey)).toBeUndefined();
+    expect(mmkvInstance.getString(protectedKey)).toBe('{"theme":"dark"}');
+    expect(mockSyncNativeStorageMMKV).toHaveBeenCalledWith(
+      'onekey-jotai-states',
+    );
   });
 });
 

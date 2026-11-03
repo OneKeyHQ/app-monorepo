@@ -43,6 +43,8 @@ export class SimpleDbEntityAddressRiskCheck extends SimpleDbEntityBase<IAddressR
 
   override enableCache = false;
 
+  override readonly enableWriteProtection = false;
+
   @backgroundMethod()
   async getRecentChecks({
     limit = RECENT_CHECKS_CAP,

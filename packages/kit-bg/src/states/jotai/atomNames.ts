@@ -176,7 +176,14 @@ export enum EAtomNames {
 }
 export type IAtomNameKeys = keyof typeof EAtomNames;
 export const atomsConfig: Partial<
-  Record<IAtomNameKeys, { deepCompare?: boolean; mergeInitialValue?: boolean }>
+  Record<
+    IAtomNameKeys,
+    {
+      deepCompare?: boolean;
+      mergeInitialValue?: boolean;
+      enableWriteProtection?: boolean;
+    }
+  >
 > = {
   [EAtomNames.notificationsAtom]: {
     deepCompare: true,
@@ -191,6 +198,7 @@ export const atomsConfig: Partial<
   },
   [EAtomNames.primeGiftEligibilityPersistAtom]: {
     mergeInitialValue: false,
+    enableWriteProtection: false,
   },
   // Nested force-target arrays must replace, not lodash-merge. merge({},
   // {targets:['boot']}, {targets:[]}) keeps ['boot'], so the Pro2 switches
@@ -219,6 +227,7 @@ export const atomsConfig: Partial<
   },
   [EAtomNames.perpsAccountDisplaySnapshotAtom]: {
     mergeInitialValue: false,
+    enableWriteProtection: false,
   },
   [EAtomNames.spotActiveAssetAtom]: {
     mergeInitialValue: false,
@@ -231,6 +240,7 @@ export const atomsConfig: Partial<
   },
   [EAtomNames.perpsCommonConfigPersistAtom]: {
     mergeInitialValue: false,
+    enableWriteProtection: false,
   },
   [EAtomNames.perpTokenFavoritesPersistAtom]: {
     mergeInitialValue: false,
@@ -248,3 +258,8 @@ export const atomsConfig: Partial<
     mergeInitialValue: false,
   },
 };
+
+export function isJotaiAtomWriteProtected(atomName: string): boolean {
+  const config = atomsConfig[atomName as IAtomNameKeys];
+  return config?.enableWriteProtection ?? true;
+}

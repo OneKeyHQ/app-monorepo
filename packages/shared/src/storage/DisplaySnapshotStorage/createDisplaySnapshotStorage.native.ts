@@ -1,6 +1,6 @@
-import { createMMKV } from 'react-native-mmkv';
-
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+
+import { createOneKeyMMKV } from '../instance/createOneKeyMMKV';
 
 import { createDisplaySnapshotStorageSyncCore } from './createDisplaySnapshotStorageCore';
 
@@ -13,8 +13,9 @@ export function createDisplaySnapshotStorage(
   config: IDisplaySnapshotStorageConfig,
 ): IDisplaySnapshotStorageSync {
   return createDisplaySnapshotStorageSyncCore(config, () => {
-    const storage = createMMKV({
+    const storage = createOneKeyMMKV({
       id: `onekey-display-snapshot-${config.namespace}`,
+      enableWriteProtection: false,
     });
     return {
       read(key) {

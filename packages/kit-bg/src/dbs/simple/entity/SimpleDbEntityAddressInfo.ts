@@ -15,6 +15,8 @@ export class SimpleDbEntityAddressInfo extends SimpleDbEntityBase<IAddressInfoDa
 
   override enableCache = false;
 
+  override readonly enableWriteProtection = false;
+
   async updateAddressesInfo({
     data,
     merge,

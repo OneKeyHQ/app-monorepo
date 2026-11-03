@@ -22,7 +22,8 @@ export type INativeStorageMMKVId =
   | 'onekey-app-storage-v1'
   | 'onekey-app-setting'
   | 'onekey-app-dev-setting'
-  | 'onekey-jotai-states';
+  | 'onekey-jotai-states'
+  | 'onekey-local-secret-envelope';
 
 interface INativeStorageMigrationModule {
   acknowledgeRecoveryAction(
@@ -134,6 +135,21 @@ export function acknowledgeNativeStorageRecoveryAction(
 
 export function syncNativeStorageMMKV(mmapId: INativeStorageMMKVId) {
   return getNativeStorageMigrationModule().syncMMKV(mmapId);
+}
+
+export async function syncNativeStorageMMKVIfAvailable(
+  mmapId: INativeStorageMMKVId,
+): Promise<void> {
+  if (!platformEnv.isNative) {
+    return;
+  }
+  const module = NativeModules.OneKeyNativeStorageMigration as
+    | INativeStorageMigrationModule
+    | undefined;
+  if (!module?.syncMMKV) {
+    return;
+  }
+  await module.syncMMKV(mmapId);
 }
 
 export function setNativeTravelModePushSuppressed(suppressed: boolean) {

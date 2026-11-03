@@ -197,6 +197,8 @@ export class SimpleDbEntityPerp extends SimpleDbEntityBase<ISimpleDbPerpData> {
 
   override enableCache = true;
 
+  override readonly enableWriteProtection = false;
+
   private _isCacheEntryFresh(updatedAt: number | undefined, maxAgeMs: number) {
     if (!updatedAt || maxAgeMs <= 0) {
       return false;

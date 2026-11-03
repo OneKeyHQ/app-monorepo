@@ -38,6 +38,8 @@ export class SimpleDbEntityIpTable extends SimpleDbEntityBase<ISimpleDbIpTableDa
 
   override enableCache = false;
 
+  override readonly enableWriteProtection = false;
+
   @backgroundMethod()
   async getStorageData(): Promise<ISimpleDbIpTableData | null | undefined> {
     return this.getRawData();

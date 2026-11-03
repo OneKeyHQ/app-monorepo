@@ -1,4 +1,7 @@
-import { createMMKV } from 'react-native-mmkv';
+import { createOneKeyMMKV } from './createOneKeyMMKV';
 
-const jotaiMMKVStorageInstance = createMMKV({ id: 'onekey-jotai-states' });
+const jotaiMMKVStorageInstance = createOneKeyMMKV({
+  id: 'onekey-jotai-states',
+  enableWriteProtection: true,
+});
 export default jotaiMMKVStorageInstance;

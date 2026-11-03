@@ -75,6 +75,8 @@ export class SimpleDbEntityAccountValue extends SimpleDbEntityBase<IAccountValue
 
   override enableCache = false;
 
+  override readonly enableWriteProtection = false;
+
   private buildSingleKey({
     networkId,
     accountAddress,
