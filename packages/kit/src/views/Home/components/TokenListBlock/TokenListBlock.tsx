@@ -3626,19 +3626,17 @@ function TokenListBlock({
             ...result,
             ...(!sources.includes('defi')
               ? {
-                  defiFiat: knownHome?.defiFiatUsd ?? previous?.defiFiat,
+                  defiFiat: previous?.defiFiat ?? knownHome?.defiFiatUsd,
                   deFiSource:
-                    knownHome?.defiFiatUsd !== undefined
+                    previous?.deFiSource ??
+                    (knownHome?.defiFiatUsd !== undefined
                       ? ('live' as const)
-                      : previous?.deFiSource,
-                  deFiOverview:
-                    knownHome?.defiFiatUsd !== undefined
-                      ? undefined
-                      : previous?.deFiOverview,
+                      : undefined),
+                  deFiOverview: previous?.deFiOverview,
                 }
               : {}),
             ...(!sources.includes('perps')
-              ? { perpsFiat: knownHome?.perpsFiatUsd ?? previous?.perpsFiat }
+              ? { perpsFiat: previous?.perpsFiat ?? knownHome?.perpsFiatUsd }
               : {}),
           };
           const failedSources: ('defi' | 'perps')[] = [];
@@ -3960,10 +3958,10 @@ function TokenListBlock({
   );
 
   const manualPortfolioSyncRef = useRef<
-    (sources?: ('defi' | 'perps')[]) => void
+    (sources?: ('defi' | 'perps')[], force?: boolean) => void
   >(() => undefined);
   const handleSyncPortfolio = useCallback(
-    (sources: ('defi' | 'perps')[] = ['defi', 'perps']) => {
+    (sources: ('defi' | 'perps')[] = ['defi', 'perps'], force = true) => {
       if (getCurrentPortfolioSyncRequest() || !canRefreshPortfolioCategories)
         return;
       portfolioSyncRequestIdRef.current += 1;
@@ -3988,52 +3986,29 @@ function TokenListBlock({
       }, 30_000);
       if (!hasCurrentHomePortfolioSnapshot)
         refreshWalletTokenListRef.current?.();
-      const missingSources = sources.filter((source) => {
-        const value =
-          source === 'defi'
-            ? homePortfolioDisplay.defiFiatUsd
-            : homePortfolioDisplay.perpsFiatUsd;
-        return (
-          !homePortfolioDisplay.isLive ||
-          homePortfolioDisplay.ownerKey !== portfolioCategoryOwnerKey ||
-          value === undefined ||
-          !new BigNumber(value).isFinite()
-        );
+      void refreshPortfolioCategories(force, sources).then((complete) => {
+        if (getCurrentPortfolioSyncRequest()?.id !== request.id) return;
+        if (!complete) {
+          finishPortfolioSyncRequest(request.id);
+          setPortfolioCategoryRefresh((current) => ({
+            ...current,
+            retry: () =>
+              manualPortfolioSyncRef.current(current.failedSources, false),
+          }));
+          return;
+        }
+        request.categoryRequestId = portfolioCategoryRequestIdRef.current;
+        setPortfolioSyncPreparedRevision(request.categoryRequestId);
+        // The header publishes this revision after committing the refreshed amounts.
       });
-      if (!missingSources.length) {
-        const eventPayload = buildCurrentHomePortfolioSyncPayload();
-        if (eventPayload) communicatePortfolio(request, eventPayload);
-        return;
-      }
-      void refreshPortfolioCategories(false, missingSources).then(
-        (complete) => {
-          if (getCurrentPortfolioSyncRequest()?.id !== request.id) return;
-          if (!complete) {
-            finishPortfolioSyncRequest(request.id);
-            setPortfolioCategoryRefresh((current) => ({
-              ...current,
-              retry: () =>
-                manualPortfolioSyncRef.current(current.failedSources),
-            }));
-            return;
-          }
-          request.categoryRequestId = portfolioCategoryRequestIdRef.current;
-          setPortfolioSyncPreparedRevision(request.categoryRequestId);
-          // The header publishes this revision after committing the refreshed amounts.
-        },
-      );
     },
     [
-      buildCurrentHomePortfolioSyncPayload,
       canRefreshPortfolioCategories,
       clearPortfolioSyncFallbackTimer,
-      communicatePortfolio,
       finishPortfolioSyncRequest,
       getCurrentPortfolioSyncRequest,
       hasCurrentHomePortfolioSnapshot,
-      homePortfolioDisplay,
       intl,
-      portfolioCategoryOwnerKey,
       portfolioSyncTargetKey,
       refreshPortfolioCategories,
       setPortfolioCategoryRefresh,
@@ -4045,6 +4020,7 @@ function TokenListBlock({
     const request = getCurrentPortfolioSyncRequest();
     if (
       request?.phase !== 'preparing' ||
+      request.categoryRequestId === undefined ||
       portfolioCategoryTaskRef.current ||
       !homePortfolioDisplay.isLive ||
       homePortfolioDisplay.ownerKey !== portfolioCategoryOwnerKey ||
@@ -4052,8 +4028,7 @@ function TokenListBlock({
       !new BigNumber(homePortfolioDisplay.defiFiatUsd).isFinite() ||
       homePortfolioDisplay.perpsFiatUsd === undefined ||
       !new BigNumber(homePortfolioDisplay.perpsFiatUsd).isFinite() ||
-      (request.categoryRequestId !== undefined &&
-        homePortfolioDisplay.categoryRevision !== request.categoryRequestId)
+      homePortfolioDisplay.categoryRevision !== request.categoryRequestId
     )
       return;
     const eventPayload = buildCurrentHomePortfolioSyncPayload();

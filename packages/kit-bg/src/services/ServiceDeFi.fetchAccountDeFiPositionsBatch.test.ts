@@ -265,6 +265,30 @@ describe('complete Portfolio refresh responses', () => {
     expect(updateAccountDeFiOverview).not.toHaveBeenCalled();
   });
 
+  it.each(['missing positions', 'empty bucket', 'unrepresented value'])(
+    'rejects single-network %s before cache writes',
+    async (mode) => {
+      const { service, post, updateAccountDeFiOverview } = makeService();
+      const response = multiChainResponse(['evm--1']);
+      response.data.data.data.positions =
+        mode === 'unrepresented value'
+          ? { 'evm--1': response.data.data.data.positions['evm--1'] }
+          : {};
+      if (mode === 'empty bucket')
+        response.data.data.data.positions['evm--1'] = [];
+      if (mode === 'unrepresented value')
+        Object.assign(response.data.data.data.totals, {
+          unrepresentedValue: 1,
+        });
+      post.mockResolvedValue(response);
+      await expect(service.fetchAccountDeFiPositions(params)).rejects.toThrow(
+        'Incomplete DeFi',
+      );
+      expect(post).toHaveBeenCalledTimes(1);
+      expect(updateAccountDeFiOverview).not.toHaveBeenCalled();
+    },
+  );
+
   it('accepts a complete empty result and requests the explicit USD basis', async () => {
     const { service, post, updateAccountDeFiOverview } = makeService();
     const response = multiChainResponse(['evm--1']);
@@ -337,7 +361,17 @@ describe('complete Portfolio batch queries', () => {
       }),
     );
   });
-  it.each(['degraded', 'unqueried', 'invalid totals', 'foreign network'])(
+  it.each([
+    'degraded',
+    'unqueried',
+    'invalid totals',
+    'foreign network',
+    'missing positions',
+    'missing network positions',
+    'empty position buckets',
+    'missing positions and network metadata',
+    'unrepresented value',
+  ])(
     'rejects %s data without cache writes or request fan-out',
     async (mode) => {
       const { service, post, updateAccountDeFiOverview } = makeService();
@@ -355,6 +389,19 @@ describe('complete Portfolio batch queries', () => {
           'evm--8453',
           'evm--999',
         ];
+      if (mode.startsWith('missing positions')) {
+        response.data.data.data.positions = {};
+        if (mode === 'missing positions and network metadata')
+          response.data.data.meta.networkIds = [];
+      }
+      if (mode === 'missing network positions')
+        delete response.data.data.data.positions['evm--8453'];
+      if (mode === 'empty position buckets')
+        response.data.data.data.positions = { 'evm--1': [], 'evm--8453': [] };
+      if (mode === 'unrepresented value')
+        Object.assign(response.data.data.data.totals, {
+          unrepresentedValue: 1,
+        });
       post.mockResolvedValue(response);
       await expect(
         service.fetchAccountDeFiPositionsBatch(params),
@@ -373,6 +420,15 @@ describe('complete Portfolio batch queries', () => {
       error,
     );
     expect(post).toHaveBeenCalledTimes(1);
+  });
+  it('accepts fully represented positions removed by the low-value filter', async () => {
+    const { service, post } = makeService();
+    post.mockResolvedValue(multiChainResponse(params.networkIds));
+    const result = await service.fetchAccountDeFiPositionsBatch({
+      ...params,
+      lowValueProtocolsThresholdUsd: 200,
+    });
+    expect(result.map((value) => value?.overview.netWorth)).toEqual([0, 0]);
   });
   it('accepts a complete queried empty result', async () => {
     const { service, post } = makeService();

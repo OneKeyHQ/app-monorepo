@@ -169,6 +169,7 @@ const PORTFOLIO_SYNC_RESUME_AFTER_INTERACTION_MS = 5000;
 const DESKTOP_BLE_IDLE_DELAY_MS = 30_000;
 const DESKTOP_BLE_REUSE_WINDOW_MS = 150_000;
 const DESKTOP_BLE_TRANSFER_COOLDOWN_MS = 5 * 60_000;
+const PORTFOLIO_FORCE_REFRESH_COOLDOWN_MS = 5 * 60_000;
 const PORTFOLIO_PACKAGE_MAX_BYTES = PORTFOLIO_ARCHIVE_MAX_BYTES * 2;
 const PORTFOLIO_PACKAGE_MAX_BASE64_LENGTH =
   Math.ceil(PORTFOLIO_PACKAGE_MAX_BYTES / 3) * 4;
@@ -341,7 +342,10 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
     Promise<IPortfolioCategoryRefreshResult>
   >();
 
-  private failedDeFiRefreshRetries = new Map<string, number>();
+  private portfolioCategoryForceRefreshCooldownByKey = new Map<
+    string,
+    number
+  >();
 
   private pendingCooldownPayloadByConnectId = new Map<
     string,
@@ -2120,6 +2124,25 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
     const pending = this.portfolioCategoryRefreshes.get(key);
     if (pending) return pending;
 
+    let shouldForce = force;
+    if (force) {
+      const now = Date.now();
+      for (const [refreshKey, expiresAt] of this
+        .portfolioCategoryForceRefreshCooldownByKey) {
+        if (expiresAt <= now)
+          this.portfolioCategoryForceRefreshCooldownByKey.delete(refreshKey);
+      }
+      if (this.portfolioCategoryForceRefreshCooldownByKey.has(key)) {
+        shouldForce = false;
+      } else {
+        // Limit force attempts, including failures, without caching old balances.
+        this.portfolioCategoryForceRefreshCooldownByKey.set(
+          key,
+          now + PORTFOLIO_FORCE_REFRESH_COOLDOWN_MS,
+        );
+      }
+    }
+
     const controller = new AbortController();
     let timer: ReturnType<typeof setTimeout> | undefined;
     const request = (async () => {
@@ -2129,7 +2152,7 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
             { accountId, indexedAccountId, networkId },
             controller.signal,
             undefined,
-            { force, sources },
+            { force: shouldForce, sources },
           ),
           new Promise<never>((_resolve, reject) => {
             timer = setTimeout(() => {
@@ -2281,7 +2304,6 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
         return netWorth;
       };
       let deFiOverview: IPortfolioCategoryFiatResult['deFiOverview'];
-      let forceRefreshRetry: { key: string; expiresAt: number } | undefined;
       const emptyOverview = {
         totalValue: 0,
         totalDebt: 0,
@@ -2335,32 +2357,9 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
           return { source: 'empty', value: '0' };
         }
         if (refresh?.force) {
-          const now = Date.now();
-          for (const [key, expiresAt] of this.failedDeFiRefreshRetries) {
-            if (expiresAt <= now) this.failedDeFiRefreshRetries.delete(key);
-          }
-          const retryKey = stringUtils.stableStringify({
-            accountId,
-            indexedAccountId,
-            networkId,
-            deriveType,
-            allNetworksState,
-            enabledNetworksMap,
-            accounts: accountsInfo
-              .map((account) => `${account.networkId}:${account.apiAddress}`)
-              .toSorted(),
-          });
-          // A failed paid refresh permits one retry within its original cooldown.
-          // Delete before awaiting anything so concurrent callers cannot reuse it.
-          if (!this.failedDeFiRefreshRetries.delete(retryKey)) {
-            const quota =
-              await this.backgroundApi.serviceDeFi.consumeManualDeFiForceRefreshQuota();
-            if (!quota.allowed) return { source: 'unknown', value: undefined };
-            forceRefreshRetry = {
-              key: retryKey,
-              expiresAt: quota.lastForcedAt + quota.minIntervalMs,
-            };
-          }
+          const quota =
+            await this.backgroundApi.serviceDeFi.consumeManualDeFiForceRefreshQuota();
+          if (!quota.allowed) return { source: 'unknown', value: undefined };
         }
         const client = await this.getClient(EServiceEndpointEnum.Wallet);
         let total = new BigNumber(0);
@@ -2584,16 +2583,6 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
         fetchPerps(),
       ]);
       const deFiResult = defi.status === 'fulfilled' ? defi.value : undefined;
-      if (
-        forceRefreshRetry &&
-        deFiResult?.value === undefined &&
-        forceRefreshRetry.expiresAt > Date.now()
-      ) {
-        this.failedDeFiRefreshRetries.set(
-          forceRefreshRetry.key,
-          forceRefreshRetry.expiresAt,
-        );
-      }
       const value = {
         defiFiat: deFiResult?.value,
         deFiSource: deFiResult?.source ?? 'unknown',

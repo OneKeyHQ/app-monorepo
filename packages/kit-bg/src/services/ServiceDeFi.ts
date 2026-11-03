@@ -697,7 +697,10 @@ class ServiceDeFi extends ServiceBase {
         this._getNotQueriedNetworkIds({ networkIds: [networkId], resp: result })
           .length > 0 ||
         !totals ||
-        fields.some((field) => !new BigNumber(totals[field]).isFinite())
+        fields.some((field) => !new BigNumber(totals[field]).isFinite()) ||
+        !new BigNumber(totals.unrepresentedValue ?? 0).isZero() ||
+        (fields.some((field) => !new BigNumber(totals[field]).isZero()) &&
+          !result.data.positions?.[networkId]?.length)
       ) {
         throw new OneKeyLocalError('Incomplete DeFi portfolio response');
       }
@@ -993,7 +996,11 @@ class ServiceDeFi extends ServiceBase {
           ([id, positions]) => !requested.has(id) && positions.length > 0,
         ) ||
         !data?.totals ||
-        fields.some((field) => !new BigNumber(data.totals[field]).isFinite())
+        fields.some((field) => !new BigNumber(data.totals[field]).isFinite()) ||
+        !new BigNumber(data.totals.unrepresentedValue ?? 0).isZero() ||
+        (fields.some((field) => !new BigNumber(data.totals[field]).isZero()) &&
+          (!networkIds.some((id) => data.positions?.[id]?.length) ||
+            meta.networkIds.some((id) => !data.positions?.[id]?.length)))
       ) {
         throw new OneKeyLocalError('Incomplete DeFi portfolio response');
       }

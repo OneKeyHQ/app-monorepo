@@ -458,62 +458,60 @@ describe('Portfolio v2 category retrieval', () => {
   });
 
   test.each([false, true])(
-    'allows exactly one immediate forced DeFi retry (retry fails: %s)',
-    async (retryFails) => {
-      const mocks = prepare();
-      mocks.consumeManualDeFiForceRefreshQuota
-        .mockResolvedValueOnce({
-          allowed: true,
-          minIntervalMs: 15_000,
-          lastForcedAt: Date.now(),
-        })
-        .mockResolvedValue({ allowed: false });
-      mocks.fetchAccountDeFiPositions.mockRejectedValueOnce(
-        new Error('offline'),
-      );
-      if (retryFails)
-        mocks.fetchAccountDeFiPositions.mockRejectedValueOnce(
-          new Error('still offline'),
+    'uses normal queries during the force cooldown (failure: %s)',
+    async (fails) => {
+      const now = Date.now();
+      const clock = jest.spyOn(Date, 'now').mockReturnValue(now);
+      try {
+        const mocks = prepare();
+        if (fails)
+          mocks.fetchAccountDeFiPositions.mockRejectedValueOnce(
+            new Error('Force refresh is rate limited'),
+          );
+        const params = {
+          accountId: 'account-1',
+          indexedAccountId: 'indexed-account-1',
+          networkId: getNetworkIdsMap().onekeyall,
+          force: true,
+        };
+        await mocks.service.refreshPortfolioCategories(params);
+        clock.mockReturnValue(now + 299_999);
+        await expect(
+          mocks.service.refreshPortfolioCategories(params),
+        ).resolves.toMatchObject({ failedSources: [] });
+        expect(mocks.fetchAccountDeFiPositions).toHaveBeenCalledTimes(2);
+        expect(mocks.fetchAccountDeFiPositions).toHaveBeenLastCalledWith(
+          expect.objectContaining({ isForceRefresh: false }),
         );
-      const params = {
-        accountId: 'account-1',
-        indexedAccountId: 'indexed-account-1',
-        networkId: getNetworkIdsMap().onekeyall,
-        force: true,
-      };
-      await expect(
-        mocks.service.refreshPortfolioCategories(params),
-      ).resolves.toMatchObject({
-        failedSources: ['defi'],
-      });
-      const retryParams = { ...params, sources: ['defi'] as 'defi'[] };
-      await expect(
-        mocks.service.refreshPortfolioCategories(retryParams),
-      ).resolves.toMatchObject(
-        retryFails
-          ? { failedSources: ['defi'] }
-          : { defiFiat: '20', failedSources: [] },
-      );
-      expect(mocks.fetchAccountDeFiPositions).toHaveBeenCalledTimes(2);
-      expect(mocks.consumeManualDeFiForceRefreshQuota).toHaveBeenCalledTimes(1);
-      await expect(
-        mocks.service.refreshPortfolioCategories(retryParams),
-      ).resolves.toMatchObject({
-        failedSources: ['defi'],
-      });
-      expect(mocks.fetchAccountDeFiPositions).toHaveBeenCalledTimes(2);
-      expect(mocks.consumeManualDeFiForceRefreshQuota).toHaveBeenCalledTimes(2);
+        expect(mocks.getHyperliquidPortfolioSnapshot).toHaveBeenCalledTimes(2);
+        expect(mocks.getHyperliquidPortfolioSnapshot).toHaveBeenLastCalledWith({
+          address: '0x3333',
+        });
+        expect(mocks.consumeManualDeFiForceRefreshQuota).toHaveBeenCalledTimes(
+          1,
+        );
+        clock.mockReturnValue(now + 300_000);
+        await expect(
+          mocks.service.refreshPortfolioCategories(params),
+        ).resolves.toMatchObject({ failedSources: [] });
+        expect(mocks.fetchAccountDeFiPositions).toHaveBeenCalledTimes(3);
+        expect(mocks.fetchAccountDeFiPositions).toHaveBeenLastCalledWith(
+          expect.objectContaining({ isForceRefresh: true }),
+        );
+        expect(mocks.getHyperliquidPortfolioSnapshot).toHaveBeenCalledTimes(3);
+        expect(mocks.consumeManualDeFiForceRefreshQuota).toHaveBeenCalledTimes(
+          2,
+        );
+      } finally {
+        clock.mockRestore();
+      }
     },
   );
 
-  test('does not reuse a failed refresh allowance for a different account', async () => {
+  test('retries failed DeFi normally without bypassing the force quota', async () => {
     const mocks = prepare();
     mocks.consumeManualDeFiForceRefreshQuota
-      .mockResolvedValueOnce({
-        allowed: true,
-        minIntervalMs: 15_000,
-        lastForcedAt: Date.now(),
-      })
+      .mockResolvedValueOnce({ allowed: true })
       .mockResolvedValue({ allowed: false });
     mocks.fetchAccountDeFiPositions.mockRejectedValueOnce(new Error('offline'));
     const params = {
@@ -521,62 +519,48 @@ describe('Portfolio v2 category retrieval', () => {
       indexedAccountId: 'indexed-account-1',
       networkId: getNetworkIdsMap().onekeyall,
       force: true,
-      sources: ['defi'] as 'defi'[],
     };
-    await mocks.service.refreshPortfolioCategories(params);
+    await expect(
+      mocks.service.refreshPortfolioCategories(params),
+    ).resolves.toMatchObject({ failedSources: ['defi'] });
+    await expect(
+      mocks.service.refreshPortfolioCategories({
+        ...params,
+        force: false,
+        sources: ['defi'],
+      }),
+    ).resolves.toMatchObject({ defiFiat: '20', failedSources: [] });
+    expect(mocks.fetchAccountDeFiPositions).toHaveBeenLastCalledWith(
+      expect.objectContaining({ isForceRefresh: false }),
+    );
+    expect(mocks.getHyperliquidPortfolioSnapshot).toHaveBeenCalledTimes(1);
+    expect(mocks.consumeManualDeFiForceRefreshQuota).toHaveBeenCalledTimes(1);
     await expect(
       mocks.service.refreshPortfolioCategories({
         ...params,
         accountId: 'account-2',
       }),
-    ).resolves.toMatchObject({
-      failedSources: ['defi'],
-    });
-    expect(mocks.fetchAccountDeFiPositions).toHaveBeenCalledTimes(1);
-    await expect(
-      mocks.service.refreshPortfolioCategories(params),
-    ).resolves.toMatchObject({
-      defiFiat: '20',
-      failedSources: [],
-    });
+    ).resolves.toMatchObject({ failedSources: ['defi'] });
     expect(mocks.fetchAccountDeFiPositions).toHaveBeenCalledTimes(2);
     expect(mocks.consumeManualDeFiForceRefreshQuota).toHaveBeenCalledTimes(2);
   });
 
-  test('expires the one-time retry at the original quota cooldown boundary', async () => {
-    const now = Date.now();
-    const clock = jest.spyOn(Date, 'now').mockReturnValue(now);
-    try {
-      const mocks = prepare();
-      mocks.consumeManualDeFiForceRefreshQuota
-        .mockResolvedValueOnce({
-          allowed: true,
-          minIntervalMs: 15_000,
-          lastForcedAt: now,
-        })
-        .mockResolvedValue({ allowed: false });
-      mocks.fetchAccountDeFiPositions.mockRejectedValueOnce(
-        new Error('offline'),
-      );
-      const params = {
-        accountId: 'account-1',
-        indexedAccountId: 'indexed-account-1',
-        networkId: getNetworkIdsMap().onekeyall,
-        force: true,
-        sources: ['defi'] as 'defi'[],
-      };
-      await mocks.service.refreshPortfolioCategories(params);
-      clock.mockReturnValue(now + 15_000);
-      await expect(
-        mocks.service.refreshPortfolioCategories(params),
-      ).resolves.toMatchObject({
-        failedSources: ['defi'],
-      });
-      expect(mocks.fetchAccountDeFiPositions).toHaveBeenCalledTimes(1);
-      expect(mocks.consumeManualDeFiForceRefreshQuota).toHaveBeenCalledTimes(2);
-    } finally {
-      clock.mockRestore();
-    }
+  test('also bounds Perps-only forced refreshes without spending a DeFi quota', async () => {
+    const mocks = prepare();
+    const params = {
+      accountId: 'account-1',
+      indexedAccountId: 'indexed-account-1',
+      networkId: getNetworkIdsMap().onekeyall,
+      force: true,
+      sources: ['perps'] as 'perps'[],
+    };
+    await mocks.service.refreshPortfolioCategories(params);
+    await mocks.service.refreshPortfolioCategories(params);
+    expect(mocks.getHyperliquidPortfolioSnapshot).toHaveBeenCalledTimes(2);
+    expect(mocks.getHyperliquidPortfolioSnapshot).toHaveBeenLastCalledWith({
+      address: '0x3333',
+    });
+    expect(mocks.consumeManualDeFiForceRefreshQuota).not.toHaveBeenCalled();
   });
 
   test('accepts confirmed zero values as complete data', async () => {

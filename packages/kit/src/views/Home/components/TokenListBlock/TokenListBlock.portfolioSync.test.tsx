@@ -510,14 +510,18 @@ describe('Home automatic Portfolio sync', () => {
     }
   });
 
-  it('syncs a complete Home snapshot without querying categories', async () => {
+  it('refreshes categories once before explicit sync while reusing the Home token snapshot', async () => {
+    mockPublishRefreshedHeader = true;
     render(<TokenListBlock />);
     await refresh();
     const request = mockUpdateSyncUi.mock.calls.at(-1)?.[0]
       .request as () => void;
     await act(async () => request());
     await waitFor(() => expect(mockSyncPortfolio).toHaveBeenCalledTimes(1));
-    expect(mockRefreshCategories).not.toHaveBeenCalled();
+    expect(mockRefreshCategories).toHaveBeenCalledTimes(1);
+    expect(mockRefreshCategories).toHaveBeenCalledWith(
+      expect.objectContaining({ force: true, sources: ['defi', 'perps'] }),
+    );
     expect(mockFetchTokens).toHaveBeenCalledTimes(1);
     expect(mockSyncPortfolio).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -530,7 +534,7 @@ describe('Home automatic Portfolio sync', () => {
   });
 
   it.each(['defi', 'perps'] as const)(
-    'only queries the missing %s category without forcing refresh',
+    'refreshes both categories before explicit sync when %s is missing',
     async (source) => {
       mockPublishRefreshedHeader = true;
       mockHomeDisplay = {
@@ -539,18 +543,15 @@ describe('Home automatic Portfolio sync', () => {
         perpsFiatUsd: source === 'perps' ? undefined : '20',
       };
       mockRefreshCategories.mockResolvedValueOnce({
-        defiFiat: source === 'defi' ? '40' : undefined,
-        perpsFiat: source === 'perps' ? '20' : undefined,
-        deFiSource: source === 'defi' ? 'live' : undefined,
-        deFiOverview:
-          source === 'defi'
-            ? {
-                totalValue: 40,
-                totalDebt: 0,
-                totalReward: 0,
-                netWorth: 40,
-              }
-            : undefined,
+        defiFiat: '40',
+        perpsFiat: '20',
+        deFiSource: 'live',
+        deFiOverview: {
+          totalValue: 40,
+          totalDebt: 0,
+          totalReward: 0,
+          netWorth: 40,
+        },
         fetchedAt: Date.now(),
         failedSources: [],
       });
@@ -562,7 +563,7 @@ describe('Home automatic Portfolio sync', () => {
       await waitFor(() => expect(mockSyncPortfolio).toHaveBeenCalledTimes(1));
       expect(mockRefreshCategories).toHaveBeenCalledTimes(1);
       expect(mockRefreshCategories).toHaveBeenCalledWith(
-        expect.objectContaining({ force: false, sources: [source] }),
+        expect.objectContaining({ force: true, sources: ['defi', 'perps'] }),
       );
       expect(mockSyncPortfolio).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -697,11 +698,6 @@ describe('Home automatic Portfolio sync', () => {
   });
 
   it('keeps the previous snapshot on failure and retries only the failed source', async () => {
-    mockHomeDisplay = {
-      ...mockHomeDisplay,
-      defiFiatUsd: undefined,
-      perpsFiatUsd: undefined,
-    };
     mockPublishRefreshedHeader = true;
     render(<TokenListBlock />);
     await waitFor(() => expect(mockCategoryState.isRefreshing).toBe(false));
