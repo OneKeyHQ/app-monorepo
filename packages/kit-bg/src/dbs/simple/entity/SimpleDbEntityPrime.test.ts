@@ -2895,6 +2895,56 @@ describe('SimpleDbEntityPrime Infini pending payment session', () => {
     expect(getStoredSession().sendStarted).toBe(true);
   });
 
+  test('persists transaction-only evidence on an already sent session across reopening', async () => {
+    const payment = {
+      ...session.payment,
+      amountConfirmed: '0',
+      amountConfirming: '0',
+      status: 'pending',
+      expiresAt: 1,
+    };
+    const { entity, read } = createSessionStore({
+      infiniPendingPaymentSessionByUserId: {
+        'user-1': {
+          ...session,
+          payment,
+          sendStarted: true,
+          schemaVersion: 2,
+          updatedAt: Date.now(),
+        },
+      },
+    });
+    await entity.latchInfiniPendingPaymentSessionProgress({
+      onekeyUserId: 'user-1',
+      paymentCacheKey: session.paymentCacheKey,
+      latestPayment: { ...payment, hasTransactions: true },
+    });
+    expect(
+      read().infiniPendingPaymentSessionByUserId?.['user-1']?.payment
+        .hasTransactions,
+    ).toBe(true);
+    const reopened = createSessionStore(read());
+    const restored = await reopened.entity.getInfiniPendingPaymentSession({
+      onekeyUserId: 'user-1',
+    });
+    expect(restored?.payment.hasTransactions).toBe(true);
+    if (!restored) throw new OneKeyLocalError('Missing reopened session');
+    const latestPayment = { ...payment, status: 'expired', expiresAt: 1 };
+    await expect(
+      reopened.entity.discardTerminalInfiniPendingPaymentSession({
+        onekeyUserId: 'user-1',
+        expectedPaymentCacheIdentity: session.paymentCacheKey,
+        expectedUpdatedAt: restored.updatedAt,
+        expectedSendStarted: true,
+        latestPayment,
+      }),
+    ).resolves.toBe(false);
+    expect(
+      reopened.read().infiniPendingPaymentSessionByUserId?.['user-1']?.payment
+        .hasTransactions,
+    ).toBe(true);
+  });
+
   test('does not refresh the session when no new progress is observed', async () => {
     const { entity, getStoredSession } = makeLatchEntity();
     const updatedAtBefore = getStoredSession().updatedAt;

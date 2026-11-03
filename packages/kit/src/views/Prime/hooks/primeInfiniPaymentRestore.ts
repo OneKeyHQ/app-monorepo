@@ -218,6 +218,8 @@ export async function resolvePrimeInfiniPaymentRestore({
   const hasSessionChanged =
     nextSession.asset.key !== session.asset.key ||
     nextSession.sendStarted !== session.sendStarted ||
+    Boolean(nextSession.payment.hasTransactions) !==
+      Boolean(session.payment.hasTransactions) ||
     nextSession.payment.amountConfirmed !== session.payment.amountConfirmed ||
     nextSession.payment.amountConfirming !== session.payment.amountConfirming ||
     nextSession.payment.status !== session.payment.status ||

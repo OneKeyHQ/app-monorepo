@@ -4403,6 +4403,7 @@ export function PrimeInfiniWalletPaymentRoot({
   // exactly the duplicate-transfer risk the choice screen warns about.
   const hasPersistedPaymentSessionRef = useRef(false);
   const remoteResumedPaymentIdRef = useRef('');
+  const remoteTrackingHandoffRef = useRef('');
   const [handledPaymentBindingIds, setHandledPaymentBindingIds] = useState<
     ReadonlySet<string>
   >(() => new Set());
@@ -5186,6 +5187,67 @@ export function PrimeInfiniWalletPaymentRoot({
       setResult,
     ],
   );
+  useEffect(() => {
+    const recovery = result?.remoteRecovery;
+    const authContext = result?.discoveryAuthContext;
+    if (!result || !recovery?.sendStarted || !authContext || result.hasError)
+      return;
+    const key = `${recovery.payment.paymentId}:${authContext.authSessionSource}:${authContext.authStateGeneration}`;
+    if (remoteTrackingHandoffRef.current === key) return;
+    remoteTrackingHandoffRef.current = key;
+    let didClose = false;
+    void (async () => {
+      const isAuthCurrent =
+        await backgroundApiProxy.servicePrime.isInfiniCheckoutAuthContextCurrent(
+          { context: authContext },
+        );
+      if (!rootMountedRef.current || remoteTrackingHandoffRef.current !== key)
+        return;
+      didClose = true;
+      onExitPreventedChange(false);
+      onClose();
+      if (!isAuthCurrent) return;
+      await timerUtils.setTimeoutPromised(
+        undefined,
+        PRIME_PAYMENT_MODAL_CLOSE_DELAY_MS,
+      );
+      if (
+        !(await backgroundApiProxy.servicePrime.isInfiniCheckoutAuthContextCurrent(
+          { context: authContext },
+        ))
+      )
+        return;
+      showPrimeInfiniWaitingDialog({
+        context: {
+          checkoutType: 'internalWallet',
+          session: {
+            flowId: flowContextRef.current?.flowId,
+            payment: recovery.payment,
+            asset: recovery.asset,
+            plan: recovery.plan,
+            selectedSubscriptionPeriod:
+              recovery.plan === 'monthly' ? 'P1M' : 'P1Y',
+            baseline: {
+              ...result.baseline,
+              onekeyUserId: authContext.onekeyUserId,
+            },
+            featureName,
+            authContext,
+          },
+        },
+      });
+    })().catch((error) => {
+      if (remoteTrackingHandoffRef.current !== key) return;
+      if (!didClose && rootMountedRef.current) onClose();
+      handlePaymentContextRunError(error, 'remoteTrackingHandoffFailed');
+    });
+  }, [
+    featureName,
+    handlePaymentContextRunError,
+    onClose,
+    onExitPreventedChange,
+    result,
+  ]);
   const handleDiscardPaymentSession = useCallback(
     (bindingId: string) => {
       paymentCreationIntentRef.current = true;
@@ -5519,7 +5581,7 @@ export function PrimeInfiniWalletPaymentRoot({
     if (!result) {
       return <PrimeInfiniPaymentSkeleton />;
     }
-    if (result.remotePaymentCancelled) {
+    if (result.remotePaymentCancelled || result.remoteRecovery?.sendStarted) {
       return <PrimeInfiniPaymentSkeleton />;
     }
     if (result.completedPaymentId) {
@@ -5621,6 +5683,10 @@ export function PrimeInfiniWalletPaymentRoot({
       />
     );
   })();
+
+  if (!result || result.remoteRecovery?.sendStarted) {
+    return <PrimeInfiniPaymentSkeleton />;
+  }
 
   return (
     <AccountSelectorProviderMirror

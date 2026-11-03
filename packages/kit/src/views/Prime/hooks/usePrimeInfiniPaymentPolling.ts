@@ -12,6 +12,7 @@ import {
   getPrimeInfiniPaymentValidationFailure,
 } from '@onekeyhq/shared/src/utils/primeInfiniPaymentValidation';
 import type {
+  IPrimeInfiniCheckoutAuthContext,
   IPrimeInfiniPayment,
   IPrimeInfiniPaymentAsset,
   IPrimeInfiniPaymentCacheKey,
@@ -64,6 +65,8 @@ export function usePrimeInfiniPaymentPolling({
   flowId,
   payment,
   paymentCacheKey,
+  authContext,
+  onAuthChanged,
   asset,
   baseline,
   enabled,
@@ -74,7 +77,9 @@ export function usePrimeInfiniPaymentPolling({
 }: {
   flowId?: string;
   payment: IPrimeInfiniPayment | undefined;
-  paymentCacheKey: IPrimeInfiniPaymentCacheKey;
+  paymentCacheKey?: IPrimeInfiniPaymentCacheKey;
+  authContext?: IPrimeInfiniCheckoutAuthContext;
+  onAuthChanged?: () => void | Promise<void>;
   asset: IPrimeInfiniPaymentAsset;
   baseline: IPrimeInfiniPurchaseBaseline;
   enabled: boolean;
@@ -99,6 +104,27 @@ export function usePrimeInfiniPaymentPolling({
         };
       }
 
+      if (!paymentCacheKey && !authContext) {
+        throw new OneKeyLocalError(
+          'Infini payment monitor context is unavailable',
+        );
+      }
+      const isAuthCurrent = async () =>
+        !authContext ||
+        (authContext.onekeyUserId === baseline.onekeyUserId &&
+          (await backgroundApiProxy.servicePrime.isInfiniCheckoutAuthContextCurrent(
+            { context: authContext },
+          )));
+      const stopForAuthChange = async () => {
+        await onAuthChanged?.();
+        return {
+          status: 'terminal' as const,
+          reason: 'failed' as const,
+          data: { payment: frozenPayment, outcome: 'failed' as const },
+        };
+      };
+      if (!(await isAuthCurrent())) return stopForAuthChange();
+
       const [paymentResult, purchaseStatusResult] = await Promise.allSettled([
         backgroundApiProxy.servicePrime.apiGetInfiniPayment({
           flowContext: flowIdRef.current
@@ -113,11 +139,13 @@ export function usePrimeInfiniPaymentPolling({
             : undefined,
           paymentId: frozenPayment.paymentId,
           expectedOneKeyUserId: baseline.onekeyUserId ?? '',
+          ...(authContext ? { authContext } : {}),
         }),
         backgroundApiProxy.servicePrime.apiGetInfiniPurchaseStatusSnapshot({
           expectedOneKeyUserId: baseline.onekeyUserId ?? '',
         }),
       ]);
+      if (!(await isAuthCurrent())) return stopForAuthChange();
       const validationFailure =
         paymentResult.status === 'fulfilled'
           ? getPrimeInfiniPaymentValidationFailure({
@@ -181,6 +209,7 @@ export function usePrimeInfiniPaymentPolling({
         latest: paymentResult.value,
       });
       if (
+        paymentCacheKey &&
         hasPrimeInfiniPaymentProgressSnapshot(currentPayment) &&
         (currentPayment.hasTransactions !== frozenPayment.hasTransactions ||
           currentPayment.amountConfirmed !== frozenPayment.amountConfirmed ||
@@ -251,7 +280,7 @@ export function usePrimeInfiniPaymentPolling({
         issue,
       };
     },
-    [asset, baseline, payment, paymentCacheKey],
+    [asset, authContext, baseline, onAuthChanged, payment, paymentCacheKey],
   );
 
   const handleSuccess = useCallback(
@@ -335,7 +364,9 @@ export function usePrimeInfiniPaymentPolling({
   );
 
   const sessionKey = [
-    paymentCacheKey.bindingId,
+    paymentCacheKey?.bindingId ?? 'remote',
+    authContext?.authSessionSource ?? '',
+    authContext?.authStateGeneration ?? '',
     payment?.paymentId ?? '',
     asset.key,
     asset.networkId,

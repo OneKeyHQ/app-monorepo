@@ -4,8 +4,11 @@ import type { ReactElement, ReactNode } from 'react';
 
 import { act, cleanup, render, waitFor } from '@testing-library/react';
 
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EPrimeAuthSessionSource } from '@onekeyhq/shared/types/prime/primeTypes';
 import type { IPrimeInfiniPendingPaymentLookup } from '@onekeyhq/shared/types/prime/primeTypes';
+
+import { showPrimeInfiniPaymentErrorToast } from '../primeInfiniPaymentError';
 
 import { PrimeInfiniWalletPaymentRoot } from './PrimeInfiniWalletPayment';
 
@@ -19,6 +22,7 @@ const mockLookup = jest.fn<
   unknown[]
 >();
 const mockClose = jest.fn();
+const mockWaitingDialog = jest.fn<void, unknown[]>();
 const mockIntl = { formatMessage: ({ id }: { id: string }) => id };
 const mockUser = { onekeyUserId: 'user-1' };
 const authContext = {
@@ -28,9 +32,17 @@ const authContext = {
 };
 
 jest.mock('react-intl', () => ({ useIntl: () => mockIntl }));
-jest.mock('@onekeyhq/components', () => ({
-  getFontVariantStyle: () => ({}),
-}));
+jest.mock('@onekeyhq/components', () => {
+  const Stack = ({ children }: { children?: ReactNode }) => children ?? null;
+  return {
+    getFontVariantStyle: () => ({}),
+    Page: { Footer: Stack },
+    Stack,
+    YStack: Stack,
+    XStack: Stack,
+    Skeleton: () => null,
+  };
+});
 jest.mock('@onekeyhq/kit/src/components/AccountSelector', () => ({
   AccountSelectorProviderMirror: ({ children }: { children: ReactNode }) => {
     // Inspect the parent's creation gate without running wallet preparation.
@@ -109,7 +121,10 @@ jest.mock('../primeInfiniPaymentLogger', () => ({
 jest.mock('@onekeyhq/shared/src/logger/logger', () => ({ defaultLogger: {} }));
 jest.mock('../primeSubscriptionPurchaseSuccess', () => ({}));
 jest.mock('../primePurchaseEligibility', () => ({}));
-jest.mock('./PrimeInfiniWaitingDialog', () => ({}));
+jest.mock('./PrimeInfiniWaitingDialog', () => ({
+  showPrimeInfiniWaitingDialog: (...args: unknown[]) =>
+    mockWaitingDialog(...args),
+}));
 jest.mock('./PrimeInfiniPaymentWarnings', () => ({}));
 jest.mock('../hooks/usePrimeInfiniPurchase', () => ({}));
 jest.mock(
@@ -247,5 +262,46 @@ describe('Infini wallet loader creation gate', () => {
     await waitFor(() => expect(mockClose).toHaveBeenCalledTimes(1));
     expect(mockChoose).not.toHaveBeenCalled();
     expect(mockContent?.props.shouldCreatePayment).toBeUndefined();
+  });
+
+  it('hands a sent remote invoice to tracking without mounting or selecting a payer wallet', async () => {
+    const wait = jest
+      .spyOn(timerUtils, 'setTimeoutPromised')
+      .mockResolvedValue(undefined);
+    mockLookup.mockResolvedValue({
+      authContext,
+      pendingPayment: {
+        paymentId: 'remote-id',
+        plan: 'monthly',
+        hasTransactions: true,
+        payment: {
+          paymentId: 'remote-id',
+          chain: 'ETHEREUM',
+          token: 'USDC',
+          address: '0xrecipient',
+          amountDue: '29.99',
+          expiresAt: 1,
+          status: 'expired',
+        },
+      },
+    });
+    mockChoose.mockResolvedValue('resume');
+    renderRoot(false, 'remote-id');
+    await waitFor(() => {
+      expect(showPrimeInfiniPaymentErrorToast).not.toHaveBeenCalled();
+      expect(mockWaitingDialog).toHaveBeenCalledTimes(1);
+    });
+    expect(mockClose).toHaveBeenCalledTimes(1);
+    expect(mockContent?.props.shouldCreatePayment).toBeUndefined();
+    const waiting = mockWaitingDialog.mock.calls[0][0] as {
+      context: { session: Record<string, unknown> };
+    };
+    expect(waiting.context.session).toMatchObject({
+      authContext,
+      payment: { paymentId: 'remote-id', hasTransactions: true },
+    });
+    expect(waiting.context.session.paymentCacheKey).toBeUndefined();
+    expect(waiting.context.session.payerAccountId).toBeUndefined();
+    wait.mockRestore();
   });
 });

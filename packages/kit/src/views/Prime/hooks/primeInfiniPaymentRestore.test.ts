@@ -410,6 +410,55 @@ describe('resolvePrimeInfiniPaymentRestore', () => {
     expect(persistRestoredSession).toHaveBeenCalledTimes(1);
   });
 
+  it('persists transaction-only evidence and restores it when the next response omits it after expiry', async () => {
+    let saved = buildSession({
+      sendStarted: true,
+      paymentOverride: {
+        status: 'pending',
+        amountConfirmed: '0',
+        amountConfirming: '0',
+        expiresAt: 1,
+      },
+    });
+    const persistRestoredSession = jest.fn(
+      async (next: IPrimeInfiniPendingPaymentSession) => {
+        saved = next;
+        return next;
+      },
+    );
+    await resolvePrimeInfiniPaymentRestore({
+      ...baseParams,
+      session: saved,
+      persistRestoredSession,
+      fetchLatestPayment: async () => ({
+        ...saved.payment,
+        hasTransactions: true,
+      }),
+      discardPaymentSession: jest.fn(),
+    });
+    expect(persistRestoredSession).toHaveBeenCalledTimes(1);
+    expect(saved.payment.hasTransactions).toBe(true);
+    const discardTerminalPaymentSession = jest.fn(async () => true);
+    const result = await resolvePrimeInfiniPaymentRestore({
+      ...baseParams,
+      session: saved,
+      persistRestoredSession,
+      discardTerminalPaymentSession,
+      fetchLatestPayment: async () => ({
+        ...saved.payment,
+        hasTransactions: undefined,
+        expiresAt: 1,
+        status: 'expired',
+      }),
+      discardPaymentSession: jest.fn(),
+    });
+    expect(result).toMatchObject({
+      type: 'restore',
+      session: { sendStarted: true, payment: { hasTransactions: true } },
+    });
+    expect(discardTerminalPaymentSession).not.toHaveBeenCalled();
+  });
+
   it('fails closed when the fresh purchase status cannot be verified', async () => {
     const persistRestoredSession = jest.fn(
       async (nextSession: IPrimeInfiniPendingPaymentSession) => nextSession,

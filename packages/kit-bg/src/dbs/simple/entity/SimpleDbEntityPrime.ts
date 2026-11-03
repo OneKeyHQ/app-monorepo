@@ -2396,6 +2396,8 @@ export class SimpleDbEntityPrime extends SimpleDbEntityBase<ISimpleDBPrime> {
         hasPrimeInfiniPaymentProgressSnapshot(paymentWithDurableProgress);
       const hasNewDurableProgress =
         sendStarted !== currentSession.sendStarted ||
+        Boolean(paymentWithDurableProgress.hasTransactions) !==
+          Boolean(currentSession.payment.hasTransactions) ||
         paymentWithDurableProgress.amountConfirmed !==
           currentSession.payment.amountConfirmed ||
         paymentWithDurableProgress.amountConfirming !==
