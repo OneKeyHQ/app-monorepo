@@ -1165,6 +1165,18 @@ export default class ServicePassword extends ServiceBase {
     }
   }
 
+  // BG-only: the wallet-bound manual recovery RPC owns admission checks.
+  // Match the ordinary manual mnemonic prompt (no lock-screen attempt policy)
+  // without Jotai, password caching, global unlock or post-verification work.
+  async verifyPasswordForManualMnemonicRecovery(password: string) {
+    await this.validatePasswordValidRules({
+      password,
+      passwordMode: EPasswordMode.PASSWORD,
+      skipLengthCheck: true,
+    });
+    await localDb.verifyPassword({ password, skipLazyUpgrade: true });
+  }
+
   @backgroundMethod()
   async verifyPassword(params: IVerifyPasswordParams): Promise<string> {
     const shouldEnforcePasswordErrorProtection =
