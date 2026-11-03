@@ -21791,6 +21791,7 @@
     "packages/kit-bg/src/services/ServiceIpTable.ts": 22044,
     "packages/kit-bg/src/services/ServiceKeylessCloudSync/ServiceKeylessCloudSync.ts": 1857,
     "packages/kit-bg/src/services/ServiceKeylessCloudSync/hardwareCloudSyncCredential.ts": 6566,
+    "packages/kit-bg/src/services/ServiceKeylessCloudSync/hardwareCloudSyncLog.ts": 17913,
     "packages/kit-bg/src/services/ServiceKeylessCloudSync/hardwareCloudSyncSdk.ts": 16428,
     "packages/kit-bg/src/services/ServiceKeylessCloudSync/hardwareCloudSyncSession.ts": 14401,
     "packages/kit-bg/src/services/ServiceKeylessCloudSync/hardwareCloudSyncSoftwareKey.ts": 14062,
