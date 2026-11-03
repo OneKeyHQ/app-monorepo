@@ -18,6 +18,7 @@ import {
 } from '@onekeyhq/shared/types/notification';
 import type { IIdentityExitPlanId } from '@onekeyhq/shared/types/prime/identityExitTypes';
 import type {
+  IHardwareSyncSessionRevokedInfo,
   IPrimeConfigChangedInfo,
   IPrimeConfigFlushInfo,
   IPrimeDeviceLogoutInfo,
@@ -29,6 +30,7 @@ import { EAppSocketEventNames } from '@onekeyhq/shared/types/socket';
 
 import { getEndpointInfo } from '../../../endpoints';
 import { notificationStatusAtom } from '../../../states/jotai/atoms/notifications';
+import { isHardwareCloudSyncKeyEnvelopeItem } from '../../ServiceKeylessCloudSync/hardwareCloudSyncSession';
 
 import { PushProviderBase } from './PushProviderBase';
 
@@ -471,11 +473,30 @@ export class PushProviderWebSocket extends PushProviderBase {
           await this.backgroundApi.servicePrimeCloudSync.getSyncCredentialSafe();
         await this.backgroundApi.servicePrimeCloudSync.saveServerSyncItemsToLocal(
           {
-            serverItems: payload.serverData,
+            // A hardware Cloud key's wrapped data key is not App data.
+            serverItems: (payload.serverData ?? []).filter(
+              (item) => !isHardwareCloudSyncKeyEnvelopeItem(item),
+            ),
             shouldSyncToScene: true,
             syncCredential,
             serverPwdHash: payload?.pwdHash,
           },
+        );
+      },
+    );
+
+    this.socket.on(
+      EAppSocketEventNames.hardwareSyncSessionRevoked,
+      (payload: IHardwareSyncSessionRevokedInfo) => {
+        defaultLogger.notification.websocket.consoleLog(
+          'WebSocket 收到 hardwareSyncSessionRevoked 消息',
+        );
+        void this.backgroundApi.serviceNotification.ackNotificationMessage({
+          msgId: payload?.msgId,
+          action: ENotificationPushMessageAckAction.arrived,
+        });
+        void this.backgroundApi.serviceKeylessCloudSync.onHardwareSessionRevokedPush(
+          { sessionId: payload?.sessionId },
         );
       },
     );
