@@ -54,6 +54,10 @@ export const isIntercomBridgeHandshake = (data: unknown): boolean => {
 
 // Only the page knows when its listener exists, so native hosts wait for this
 // instead of pushing on load, which can land before the listener is attached.
+// It does not authenticate the sender: on Android WebViews without
+// WEB_MESSAGE_LISTENER, messages from any frame carry the top-level URL. A
+// handshake only triggers delivery; createIntercomSessionScript decides which
+// document receives the session.
 export const isIntercomNativeHandshake = ({
   data,
   url,

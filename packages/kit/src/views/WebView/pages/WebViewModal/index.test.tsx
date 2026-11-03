@@ -6,7 +6,10 @@ import WebViewModal from '.';
 
 import { act, cleanup, render } from '@testing-library/react';
 
-import { INTERCOM_SUPPORT_URL } from '@onekeyhq/shared/src/modules3rdParty/intercom/bridge';
+import {
+  INTERCOM_SUPPORT_URL,
+  createIntercomSessionScript,
+} from '@onekeyhq/shared/src/modules3rdParty/intercom/bridge';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type {
   EModalWebViewRoutes,
@@ -246,6 +249,19 @@ describe('WebViewModal menu', () => {
       await sendFromPage({ ...handshake, url: 'https://evil.test/' });
       expect(mockGetIntercomSessionToken).not.toHaveBeenCalled();
       expect(mockInjectJavaScript).not.toHaveBeenCalled();
+    });
+
+    // Android's addJavascriptInterface fallback reports the top-level URL for
+    // every frame, so an iframe's handshake looks exactly like this one.
+    test('answers a handshake only through the main-frame script', async () => {
+      Object.assign(platformEnv, { isNative: true });
+      mockParams = supportParams;
+      render(<WebViewModal />);
+      await sendFromPage();
+      expect(mockInjectJavaScript).toHaveBeenCalledTimes(1);
+      expect(mockInjectJavaScript).toHaveBeenCalledWith(
+        createIntercomSessionScript('intercom-token'),
+      );
     });
 
     test('injects a fresh token for each document that asks', async () => {
