@@ -27,6 +27,8 @@ export interface ISelectItem {
   value: string | number | boolean | undefined;
   leading?: ListItemProps['icon'];
   description?: string;
+  /** Extra strings matched when `searchable` is set. `label` stays the visible name. */
+  searchKeywords?: string[];
   disabled?: boolean;
 }
 
@@ -64,4 +66,7 @@ export type ISelectProps<
   testID?: string;
   offset?: IPopoverProps['offset'];
   usingPercentSnapPoints?: boolean;
+  /** Pins a search field above the list and filters `items`. */
+  searchable?: boolean;
+  searchPlaceholder?: string;
 }>;
