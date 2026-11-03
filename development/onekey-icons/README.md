@@ -1,6 +1,36 @@
 # SVG 图标使用与新增
 
-`packages/components/svg/` 是 App 图标的唯一源文件目录。业务代码通过图标名称使用资源；生成脚本负责名称注册、Web SVG symbol 和原生 SVG 资源打包。
+`packages/components/svg/` 是 App 静态可复用图标的唯一源文件目录。业务代码通过图标名称使用资源；生成脚本负责名称注册、Web SVG symbol 和原生 SVG 资源打包。运行时绘制的图表、二维码等使用下面的选型规则。
+
+## 选型：Icon 注册表还是 react-native-svg
+
+**固定的图形资源优先使用 Icon 注册表；需要在运行时控制内部图形节点时使用 `react-native-svg`。** 判断依据是图形如何变化，不是图标大小、是否彩色或是否有渐变。
+
+| 场景 | 选择 | 原因 |
+| --- | --- | --- |
+| 搜索、返回、状态图标、品牌 Logo、固定插画 | Icon 注册表：`<Icon name="..." />` | 图形预先确定，只需按名称复用及调整尺寸、主题颜色。 |
+| 多色、渐变、裁剪、遮罩的静态图形 | Icon 注册表，前提是通过生成器校验 | 这些特性本身不要求 JSX 绘制；固定颜色可保留，主题色部分使用 `currentColor`。 |
+| 根据状态切换已知图标，例如成功 / 失败或选中 / 未选中 | Icon 注册表，切换 `name` / `color` | 状态变化不等于图形几何变化，不需要重新实现 SVG。 |
+| 整个图标的旋转、缩放、位移或透明度动画 | 优先 Icon 注册表配合外层布局 / 动画容器 | 图标内部路径不变，无需逐节点绘制。 |
+| 二维码、数据图表、进度环、仪表盘指针、根据布局尺寸计算的连线 | `react-native-svg` | 路径、坐标、弧长、节点数量或内部变换由运行时数据决定。 |
+| 逐路径动画、内部节点交互、分别控制多个区域的动态颜色 | `react-native-svg`，并验证目标平台能力 | 需要访问具体的 `Path` / `Circle` / `G` 等节点，注册表的名称与统一颜色接口不覆盖这些行为。 |
+| 必须与二维码等内容在同一个 `<Svg>` 内组合绘制或参与截图导出 | 复用已有绘图组件，必要时使用 `react-native-svg` | `<Icon>` 是独立资源视图，不能当成同一 SVG 场景里的路径节点，也不保证原生首帧同步加载完成。 |
+| NativeList、原生 BottomTabs 的图标 | Icon 注册表名称 | 这些原生接口消费已打包的命名资源，不接收 `react-native-svg` 的 React 节点。 |
+
+仓库中的实际例子：
+
+- [Icon](../../packages/components/src/primitives/Icon/index.tsx)：通过 `name` 选择资源，`size` 和 `color` 控制展示；适合列表、按钮和导航等常规图标。
+- [SwapOrderProgress](../../packages/kit/src/views/Swap/components/SwapOrderProgress.tsx)：成功 / 失败状态使用注册表图标；按实际布局宽度绘制的连接线使用 `react-native-svg`。同一组件可以同时使用两种方式。
+- [CircleProgress](../../packages/kit/src/views/Borrow/components/CircleProgress.tsx)：根据百分比计算 `strokeDashoffset`，属于动态绘图，使用 `react-native-svg`。
+- [PerpsMarginRatioGauge](../../packages/kit/src/views/Perp/components/TradingPanel/components/PerpsMarginRatioGauge.tsx)：根据保证金比例计算指针角度并改变内部 `<G>` 的变换，使用 `react-native-svg`。
+- [QRCode](../../packages/components/src/content/QRCode/index.tsx)：根据内容生成二维码路径，并在同一 SVG 内组合图形。二维码品牌标记和截图场景优先复用已有 `brandMark` / `onRenderReady` 能力，不要用异步加载的 `<Icon>` 替代内部路径后假定首帧已就绪。
+
+使用边界：
+
+- 使用 `react-native-svg` 不代表可以直接导入 `packages/components/svg/**`。该目录仍只走注册表与资源生成流程；动态绘图的 JSX 和计算逻辑放在对应业务组件中。
+- 不要为普通静态图标复制一份逐图标 TSX，也不要把每个进度值、业务数据或任意 SVG 字符串生成一个注册表条目。注册表资源在构建时确定，新增原生资源需要重新构建安装。
+- 如果静态 SVG 因节点不受生成器支持而失败，先尝试保持视觉一致的路径转换。确实需要生成器无法表达、且 `react-native-svg` 在目标平台支持的绘图能力时，再封装专用组件；不要绕过生成器的安全校验。
+- 自定义 SVG 中的渐变、裁剪和遮罩 ID 要按组件实例保持唯一，避免同屏多个实例的引用冲突；尺寸、主题、RTL、交互和截图就绪时机由绘图组件自行处理。
 
 ## 新增 SVG
 
