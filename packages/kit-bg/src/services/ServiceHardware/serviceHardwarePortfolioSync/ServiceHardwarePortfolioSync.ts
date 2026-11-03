@@ -341,6 +341,8 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
     Promise<IPortfolioCategoryRefreshResult>
   >();
 
+  private failedDeFiRefreshRetries = new Map<string, number>();
+
   private pendingCooldownPayloadByConnectId = new Map<
     string,
     IPortfolioSyncSettledPayload
@@ -2279,6 +2281,7 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
         return netWorth;
       };
       let deFiOverview: IPortfolioCategoryFiatResult['deFiOverview'];
+      let forceRefreshRetry: { key: string; expiresAt: number } | undefined;
       const emptyOverview = {
         totalValue: 0,
         totalDebt: 0,
@@ -2321,9 +2324,32 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
           return { source: 'empty', value: '0' };
         }
         if (refresh?.force) {
-          const { allowed } =
-            await this.backgroundApi.serviceDeFi.consumeManualDeFiForceRefreshQuota();
-          if (!allowed) return { source: 'unknown', value: undefined };
+          const now = Date.now();
+          for (const [key, expiresAt] of this.failedDeFiRefreshRetries) {
+            if (expiresAt <= now) this.failedDeFiRefreshRetries.delete(key);
+          }
+          const retryKey = stringUtils.stableStringify({
+            accountId,
+            indexedAccountId,
+            networkId,
+            deriveType,
+            allNetworksState,
+            enabledNetworksMap,
+            accounts: accountsInfo
+              .map((account) => `${account.networkId}:${account.apiAddress}`)
+              .toSorted(),
+          });
+          // A failed paid refresh permits one retry within its original cooldown.
+          // Delete before awaiting anything so concurrent callers cannot reuse it.
+          if (!this.failedDeFiRefreshRetries.delete(retryKey)) {
+            const quota =
+              await this.backgroundApi.serviceDeFi.consumeManualDeFiForceRefreshQuota();
+            if (!quota.allowed) return { source: 'unknown', value: undefined };
+            forceRefreshRetry = {
+              key: retryKey,
+              expiresAt: quota.lastForcedAt + quota.minIntervalMs,
+            };
+          }
         }
         const client = await this.getClient(EServiceEndpointEnum.Wallet);
         let total = new BigNumber(0);
@@ -2513,6 +2539,16 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
         fetchPerps(),
       ]);
       const deFiResult = defi.status === 'fulfilled' ? defi.value : undefined;
+      if (
+        forceRefreshRetry &&
+        deFiResult?.value === undefined &&
+        forceRefreshRetry.expiresAt > Date.now()
+      ) {
+        this.failedDeFiRefreshRetries.set(
+          forceRefreshRetry.key,
+          forceRefreshRetry.expiresAt,
+        );
+      }
       const value = {
         defiFiat: deFiResult?.value,
         deFiSource: deFiResult?.source ?? 'unknown',

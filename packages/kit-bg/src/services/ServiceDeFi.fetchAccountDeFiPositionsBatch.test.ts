@@ -295,6 +295,23 @@ describe('complete Portfolio refresh responses', () => {
     );
     expect(updateAccountDeFiOverview).toHaveBeenCalled();
   });
+
+  it.each([false, true])(
+    'rejects explicitly unqueried networks even with a positions key (nonempty: %s)',
+    async (nonempty) => {
+      const { service, post, updateAccountDeFiOverview } = makeService();
+      const response = multiChainResponse(['evm--1']);
+      response.data.data.meta.queriedNetworkIds = [];
+      response.data.data.data.positions = {
+        'evm--1': nonempty ? response.data.data.data.positions['evm--1'] : [],
+      };
+      post.mockResolvedValue(response);
+      await expect(service.fetchAccountDeFiPositions(params)).rejects.toThrow(
+        'Incomplete DeFi',
+      );
+      expect(updateAccountDeFiOverview).not.toHaveBeenCalled();
+    },
+  );
 });
 
 function singleResult({

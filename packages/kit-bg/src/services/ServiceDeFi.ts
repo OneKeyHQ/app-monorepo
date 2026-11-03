@@ -688,6 +688,8 @@ class ServiceDeFi extends ServiceBase {
         !result.success ||
         result.meta?.degraded !== false ||
         !result.meta.requestedNetworkIds?.includes(networkId) ||
+        (Array.isArray(result.meta.queriedNetworkIds) &&
+          !result.meta.queriedNetworkIds.includes(networkId)) ||
         result.meta.networkIds.some((id) => id !== networkId) ||
         Object.entries(result.data.positions ?? {}).some(
           ([id, positions]) => id !== networkId && positions.length > 0,
