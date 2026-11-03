@@ -994,6 +994,7 @@ function AppDataSection() {
                   })}
                   drillIn={!hardwareKey.keyMissing}
                   disabled={hardwareKey.pending}
+                  nativePressableStyle={listItemNativePressableStyle}
                   onPress={onPress}
                 >
                   <Stack flexDirection="row" alignItems="center" gap="$1.5">
