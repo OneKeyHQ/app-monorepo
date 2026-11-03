@@ -1,6 +1,7 @@
 import type { IMarketTokenKLineDataPoint } from '@onekeyhq/shared/types/marketV2';
 
 import {
+  formatTradingViewNativeSubIndicatorReadoutValue,
   formatTradingViewNativeSubIndicatorValue,
   getTradingViewNativeSubIndicatorAxisLabel,
   getTradingViewNativeSubIndicatorValueAtY,
@@ -226,6 +227,19 @@ describe('TradingViewNative sub-indicator coordinates', () => {
         type: 'volume',
       }),
     ).toBe(expected);
+  });
+
+  it.each([
+    [0.0034, { precision: 2, type: 'inherit' } as const, '0.0034'],
+    [-0.0034, { precision: 0, type: 'inherit' } as const, '-0.0034'],
+    [1.2345, { precision: 2, type: 'inherit' } as const, '1.23'],
+    [0, { precision: 2, type: 'inherit' } as const, '0.00'],
+    [0.0034, { precision: 2, type: 'volume' } as const, '0.0034'],
+    [147_912, { precision: 2, type: 'volume' } as const, '147.9K'],
+  ])('keeps the readout of %s nonzero with %j', (value, format, expected) => {
+    expect(formatTradingViewNativeSubIndicatorReadoutValue(value, format)).toBe(
+      expected,
+    );
   });
 
   it('sizes a zero-crossing K-unit volume pane by its unit labels', () => {

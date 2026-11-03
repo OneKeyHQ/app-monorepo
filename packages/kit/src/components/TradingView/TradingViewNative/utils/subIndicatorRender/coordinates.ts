@@ -81,6 +81,25 @@ export function formatTradingViewNativeSubIndicatorValue(
   return formatTradingViewNativePriceTick(value);
 }
 
+// Legend and crosshair readouts never show a nonzero value as zero. Axis ticks
+// keep the fixed precision so the reserved axis width stays bounded.
+export function formatTradingViewNativeSubIndicatorReadoutValue(
+  value: number,
+  format: ITradingViewNativeSubIndicatorFormat,
+) {
+  'worklet';
+
+  const text = formatTradingViewNativeSubIndicatorValue(value, format);
+  if (
+    value === 0 ||
+    getNormalizedPrecision(format.precision) === undefined ||
+    Number(text) !== 0
+  ) {
+    return text;
+  }
+  return formatTradingViewNativeSubIndicatorValue(value, { type: format.type });
+}
+
 export function getTradingViewNativeSubIndicatorY({
   bottom,
   range,
