@@ -5,6 +5,7 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
@@ -24,6 +25,10 @@ import type { AxiosInstance } from 'axios';
 
 let mockConfig: IPrimeCloudSyncPersistAtomData;
 let mockStored: IKeylessCloudSyncCredential | undefined;
+
+jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
+  defaultLogger: { app: { error: { log: jest.fn() } } },
+}));
 
 jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
   __esModule: true,
@@ -495,7 +500,9 @@ describe('hardware Cloud key source lifecycle', () => {
     try {
       await expect(
         service.enableHardwareCloudSync({ connectId }),
-      ).rejects.toThrow('not available here');
+      ).rejects.toMatchObject({
+        key: ETranslations.cloud_sync_hardware_unavailable__msg,
+      });
     } finally {
       unsupported.restore();
     }
@@ -569,7 +576,7 @@ describe('hardware Cloud key source lifecycle', () => {
       });
     await expect(
       service.enableHardwareCloudSync({ connectId }),
-    ).rejects.toThrow('cancelled');
+    ).rejects.toMatchObject({ key: ETranslations.update_operation_canceled });
     expect(keylessSyncCredentialStorage.saveCredential).not.toHaveBeenCalled();
     jest
       .mocked(generateHardwareCloudSyncCredentialWithSdk)
@@ -632,7 +639,9 @@ describe('hardware Cloud key source lifecycle', () => {
     const activation = service.enableHardwareCloudSync({ connectId });
     await device.reached;
     expect(await service.cancelHardwareCloudKeyOperation()).toBe(true);
-    await expect(activation).rejects.toThrow('cancelled');
+    await expect(activation).rejects.toMatchObject({
+      key: ETranslations.update_operation_canceled,
+    });
     expect(device.deviceCancel).toHaveBeenCalledTimes(1);
     expect(keylessSyncCredentialStorage.saveCredential).not.toHaveBeenCalled();
     expect(mockConfig.hardwareCloudSyncKeySource).toBeUndefined();
@@ -648,7 +657,9 @@ describe('hardware Cloud key source lifecycle', () => {
     const first = service.enableHardwareCloudSync({ connectId });
     await device.reached;
     const second = service.enableHardwareCloudSync({ connectId });
-    await expect(first).rejects.toThrow('cancelled');
+    await expect(first).rejects.toMatchObject({
+      key: ETranslations.update_operation_canceled,
+    });
     await second;
     expect(device.deviceCancel).toHaveBeenCalledTimes(1);
     expect(mockStored).toEqual(expect.objectContaining(credential));

@@ -1,15 +1,21 @@
+import { HardwareErrorCode } from '@onekeyfe/hd-shared';
+
 import appCrypto from '@onekeyhq/shared/src/appCrypto';
 import {
   HARDWARE_CLOUD_SYNC_AUTH_PATH,
   HARDWARE_CLOUD_SYNC_CREDENTIAL_ID_PREFIX,
   HARDWARE_CLOUD_SYNC_DERIVATION_VERSION,
   HARDWARE_CLOUD_SYNC_PATH,
-  assertHardwareCloudSyncAuthMessage,
   isHardwareCloudSyncPlatformSupported,
 } from '@onekeyhq/shared/src/consts/hardwareCloudSyncConsts';
-import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import {
+  PinCancelled,
+  UserCancel,
+} from '@onekeyhq/shared/src/errors/errors/hardwareErrors';
 import { HardwareCloudKeyDeviceRejectedError } from '@onekeyhq/shared/src/hardware/hardwareCloudKeyDeviceRejectedError';
+import { HardwareCloudSyncLocalError } from '@onekeyhq/shared/src/hardware/hardwareCloudSyncError';
 import { HardwareCloudKeyPrerequisiteError } from '@onekeyhq/shared/src/hardware/hardwareCloudSyncErrors';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { getDeviceAvatarImage } from '@onekeyhq/shared/src/utils/avatarUtils';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import { EHardwareCallContext } from '@onekeyhq/shared/types/device';
@@ -22,6 +28,11 @@ import {
   deriveHardwareCloudSyncKek,
   normalizeHardwareCloudWalletXfp,
 } from './hardwareCloudSyncCredential';
+import {
+  assertHardwareCloudSyncAuthTemplate,
+  isHardwareCloudSyncUserFacingError,
+  logHardwareCloudSyncFailure,
+} from './hardwareCloudSyncLog';
 
 import type {
   IHardwareCloudKeyAdapter,
@@ -32,8 +43,9 @@ import type { IBackgroundApi } from '../../apis/IBackgroundApi';
 import type { Success, Unsuccessful } from '@onekeyfe/hd-core';
 
 function unlockError() {
-  return new OneKeyLocalError(
-    'Hardware Cloud key could not be unlocked. Check the standard wallet and try again.',
+  return new HardwareCloudSyncLocalError(
+    ETranslations.cloud_sync_hardware_unlock_failed__msg,
+    "Couldn't get the encryption key. Switch to the standard wallet.",
   );
 }
 
@@ -43,7 +55,13 @@ async function sanitizeDeviceError<T>(run: () => Promise<T>): Promise<T> {
   try {
     return await run();
   } catch (error) {
-    if (error instanceof HardwareCloudKeyDeviceRejectedError) throw error;
+    if (
+      error instanceof HardwareCloudKeyDeviceRejectedError ||
+      isHardwareCloudSyncUserFacingError(error)
+    ) {
+      throw error;
+    }
+    logHardwareCloudSyncFailure('Device step failed', error);
     throw unlockError();
   }
 }
@@ -55,6 +73,24 @@ function assertSdkSuccess<T>(
 ): asserts response is Success<T> {
   if (response.success) return;
   const deviceError = String(response.payload?.error ?? '');
+  const code = Number(response.payload?.code);
+  if (
+    code === HardwareErrorCode.ActionCancelled ||
+    code === HardwareErrorCode.CallQueueActionCancelled
+  ) {
+    throw new UserCancel();
+  }
+  if (code === HardwareErrorCode.PinCancelled) {
+    throw new PinCancelled();
+  }
+  // Firmware failure text is already shown to the user; other SDK errors keep
+  // only their code in the log.
+  logHardwareCloudSyncFailure(
+    'Device request failed',
+    `code ${String(response.payload?.code ?? 'none')}${
+      deviceError.startsWith('Failure_') ? ` ${deviceError.slice(0, 120)}` : ''
+    }`,
+  );
   if (deviceError.startsWith('Failure_')) {
     throw new HardwareCloudKeyDeviceRejectedError(
       HARDWARE_CLOUD_SYNC_PATH,
@@ -99,9 +135,13 @@ export async function generateHardwareCloudSyncCredentialWithSdk({
   // The caller's own errors (server responses, envelope checks) pass through.
   let callbackError: unknown;
   try {
-    if (!isCurrent() || !selectedConnectId) {
-      throw unlockError();
+    if (!isCurrent()) {
+      throw new HardwareCloudSyncLocalError(
+        ETranslations.update_operation_canceled,
+        'Operation canceled',
+      );
     }
+    if (!selectedConnectId) throw unlockError();
     return await backgroundApi.serviceHardwareUI.runExclusiveOneKeyOperation(
       async (lease) => {
         // Same path as closing a device prompt: abort the lease and cancel the
@@ -119,7 +159,10 @@ export async function generateHardwareCloudSyncCredentialWithSdk({
         try {
           const assertCurrent = () => {
             if (!isCurrent() || lease.signal?.aborted) {
-              throw unlockError();
+              throw new HardwareCloudSyncLocalError(
+                ETranslations.update_operation_canceled,
+                'Operation canceled',
+              );
             }
           };
           const call = async <T>(operation: () => Promise<T>): Promise<T> => {
@@ -269,7 +312,7 @@ export async function generateHardwareCloudSyncCredentialWithSdk({
                   credentialId,
                   signAuth: (message) =>
                     sanitizeDeviceError(async () => {
-                      assertHardwareCloudSyncAuthMessage(message);
+                      assertHardwareCloudSyncAuthTemplate(message);
                       onDeviceSign?.();
                       const response = await call(() =>
                         sdk.btcSignMessage(connectId, deviceId, {
@@ -330,10 +373,12 @@ export async function generateHardwareCloudSyncCredentialWithSdk({
     if (
       error instanceof HardwareCloudKeyPrerequisiteError ||
       error instanceof HardwareCloudKeyDeviceRejectedError ||
+      isHardwareCloudSyncUserFacingError(error) ||
       (callbackError !== undefined && error === callbackError)
     ) {
       throw error;
     }
+    logHardwareCloudSyncFailure('Hardware session failed', error);
     throw unlockError();
   }
 }

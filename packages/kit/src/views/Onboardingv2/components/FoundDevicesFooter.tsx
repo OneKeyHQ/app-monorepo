@@ -4,6 +4,7 @@ import { useIntl } from 'react-intl';
 
 import {
   Button,
+  Dialog,
   HeightTransition,
   Icon,
   SizableText,
@@ -25,18 +26,65 @@ import {
   resolveSelectedFoundDevice,
 } from './foundDevicesFooterUtils';
 
+import type { IConnectionIndicatorVariant } from '../pages/ConnectionIndicator';
 import type { IDeviceType } from '@onekeyfe/hd-core';
 
 function FoundDevicesStatus({
   hasDevices,
   isScanning,
+  isPreparing,
+  isConnecting,
+  variant,
+  searchDescription,
 }: {
   hasDevices: boolean;
   isScanning: boolean;
+  isPreparing: boolean;
+  isConnecting: boolean;
+  variant: IConnectionIndicatorVariant;
+  searchDescription?: string;
 }) {
   const intl = useIntl();
 
   if (!hasDevices) {
+    if (variant === 'dialog') {
+      if (!isPreparing && !isScanning) return null;
+      return (
+        <YStack
+          testID="hardware-cloud-sync-device-search"
+          width="100%"
+          alignSelf="stretch"
+          minHeight={200}
+          px="$5"
+          py="$6"
+          gap="$5"
+          alignItems="center"
+          justifyContent="center"
+        >
+          <Spinner
+            testID="hardware-cloud-sync-device-search-spinner"
+            size="large"
+            alignSelf="center"
+          />
+          <YStack width="100%" gap="$2" alignItems="center">
+            <SizableText size="$bodyLgMedium" textAlign="center">
+              {intl.formatMessage({
+                id: ETranslations.onboarding_bluetooth_connect_help_text,
+              })}
+            </SizableText>
+            {searchDescription ? (
+              <SizableText
+                size="$bodyMd"
+                color="$textSubdued"
+                textAlign="center"
+              >
+                {searchDescription}
+              </SizableText>
+            ) : null}
+          </YStack>
+        </YStack>
+      );
+    }
     return (
       <XStack px="$5" alignItems="center" gap="$2">
         {isScanning ? <Spinner size="small" /> : null}
@@ -53,7 +101,9 @@ function FoundDevicesStatus({
   return (
     <SizableText px="$5" color="$textSubdued">
       {intl.formatMessage({
-        id: ETranslations.select_device_to_connect__desc,
+        id: isConnecting
+          ? ETranslations.connecting_your_device
+          : ETranslations.select_device_to_connect__desc,
       })}
     </SizableText>
   );
@@ -66,17 +116,27 @@ export function FoundDevicesFooter({
   devices,
   isScanning,
   onConnect,
+  isPreparing = false,
+  variant = 'embedded',
+  searchDescription,
 }: {
   devices: IConnectYourDeviceItem[];
   // Only an active scan earns the spinner; the idle "start connection" states
   // keep the plain status line.
   isScanning: boolean;
   onConnect: (item: IConnectYourDeviceItem) => Promise<void> | void;
+  isPreparing?: boolean;
+  variant?: IConnectionIndicatorVariant;
+  searchDescription?: string;
 }) {
   const intl = useIntl();
   const { gtMd } = useMedia();
   const [pickedKey, setPickedKey] = useState<string | undefined>();
   const [isConnecting, setIsConnecting] = useState(false);
+  const [connectionAttempt, setConnectionAttempt] = useState<{
+    device: IConnectYourDeviceItem;
+    devices: IConnectYourDeviceItem[];
+  }>();
   // Closes the gap between a press and the isConnecting re-render so rapid
   // taps cannot start two connections.
   const connectingRef = useRef(false);
@@ -109,9 +169,12 @@ export function FoundDevicesFooter({
     }
   }, [devices, pickedKey]);
 
+  const visibleDevices = connectionAttempt?.devices ?? devices;
   const selected = useMemo(
-    () => resolveSelectedFoundDevice(devices, pickedKey),
-    [devices, pickedKey],
+    () =>
+      connectionAttempt?.device ??
+      resolveSelectedFoundDevice(devices, pickedKey),
+    [connectionAttempt, devices, pickedKey],
   );
   const selectedKey = selected ? getFoundDeviceKey(selected) : undefined;
 
@@ -121,95 +184,128 @@ export function FoundDevicesFooter({
         return;
       }
       connectingRef.current = true;
+      if (variant === 'dialog') {
+        // Keep late scan rounds from replacing the list with the search state
+        // while the selected device is already being connected.
+        setConnectionAttempt({ device: item, devices: [...devices] });
+      }
       setIsConnecting(true);
       try {
         await onConnect(item);
       } finally {
         connectingRef.current = false;
+        if (variant === 'dialog') setConnectionAttempt(undefined);
         setIsConnecting(false);
       }
     },
-    [onConnect],
+    [devices, onConnect, variant],
   );
 
-  return (
+  const deviceList =
+    visibleDevices.length > 0 ? (
+      <YStack gap="$2">
+        {visibleDevices.map((item) => {
+          const key = getFoundDeviceKey(item);
+          const isSelected = key === selectedKey;
+          return (
+            <ListItem
+              key={key}
+              testID={OnboardingTestIDs.connectYourDeviceItem(key)}
+              userSelect="none"
+              // Keep the native Pressable mounted while connecting.
+              onPress={() => {
+                if (connectingRef.current) return;
+                isExplicitPickRef.current = true;
+                setPickedKey(key);
+                if (visibleDevices.length === 1) return handleConnect(item);
+              }}
+            >
+              <WalletAvatar
+                wallet={undefined}
+                img={item.avatarImg ?? (item.device?.deviceType as IDeviceType)}
+              />
+              <ListItem.Text primary={item.device?.name} flex={1} />
+              {isSelected ? (
+                <Icon name="CheckRadioSolid" color="$iconActive" />
+              ) : (
+                <Stack
+                  w="$5"
+                  h="$5"
+                  mx="$0.5"
+                  borderRadius="$full"
+                  borderWidth={1.5}
+                  borderColor="$borderStrong"
+                />
+              )}
+            </ListItem>
+          );
+        })}
+        {variant !== 'dialog' ? (
+          <Button
+            testID={OnboardingTestIDs.connectYourDeviceConnectBtn}
+            variant="primary"
+            size={gtMd ? 'medium' : 'large'}
+            mx="$5"
+            mt="$1"
+            mb="$3"
+            disabled={!selected}
+            loading={isConnecting}
+            onPress={() => (selected ? handleConnect(selected) : undefined)}
+          >
+            {intl.formatMessage({
+              id: isConnecting
+                ? ETranslations.device_stage_connecting__title
+                : ETranslations.global_connect,
+            })}
+          </Button>
+        ) : null}
+      </YStack>
+    ) : null;
+
+  const content = (
     <>
       <FoundDevicesStatus
-        hasDevices={devices.length > 0}
+        hasDevices={visibleDevices.length > 0}
         isScanning={isScanning}
+        isPreparing={isPreparing}
+        isConnecting={variant === 'dialog' && isConnecting}
+        variant={variant}
+        searchDescription={searchDescription}
       />
-      <HeightTransition initialHeight={0}>
-        {devices.length > 0 ? (
-          <YStack gap="$2">
-            {devices.map((item) => {
-              const key = getFoundDeviceKey(item);
-              const isSelected = key === selectedKey;
-              return (
-                <ListItem
-                  key={key}
-                  testID={OnboardingTestIDs.connectYourDeviceItem(key)}
-                  userSelect="none"
-                  // Not `disabled` while connecting: on native, ListItem
-                  // drops its Pressable wrapper when disabled, which
-                  // remounts every row at once and reads as the list
-                  // flickering (OK-62078). The rows stay as they are — the
-                  // legacy list never greyed its siblings either — and the
-                  // pick is simply ignored while a connect is in flight.
-                  onPress={() => {
-                    if (connectingRef.current) {
-                      return;
-                    }
-                    // Every press is an explicit choice, including one on
-                    // the row that is already selected by default.
-                    isExplicitPickRef.current = true;
-                    setPickedKey(key);
-                    if (devices.length === 1) {
-                      return handleConnect(item);
-                    }
-                  }}
-                >
-                  <WalletAvatar
-                    wallet={undefined}
-                    img={
-                      item.avatarImg ?? (item.device?.deviceType as IDeviceType)
-                    }
-                  />
-                  <ListItem.Text primary={item.device?.name} flex={1} />
-                  {isSelected ? (
-                    <Icon name="CheckRadioSolid" color="$iconActive" />
-                  ) : (
-                    <Stack
-                      w="$5"
-                      h="$5"
-                      mx="$0.5"
-                      borderRadius="$full"
-                      borderWidth={1.5}
-                      borderColor="$borderStrong"
-                    />
-                  )}
-                </ListItem>
-              );
-            })}
-            <Button
-              testID={OnboardingTestIDs.connectYourDeviceConnectBtn}
-              variant="primary"
-              size={gtMd ? 'medium' : 'large'}
-              mx="$5"
-              mt="$1"
-              mb="$3"
-              disabled={!selected}
-              loading={isConnecting}
-              onPress={() => (selected ? handleConnect(selected) : undefined)}
-            >
-              {intl.formatMessage({
-                id: isConnecting
-                  ? ETranslations.device_stage_connecting__title
-                  : ETranslations.global_connect,
-              })}
-            </Button>
-          </YStack>
-        ) : null}
-      </HeightTransition>
+      {variant === 'dialog' ? (
+        deviceList
+      ) : (
+        <HeightTransition initialHeight={0}>{deviceList}</HeightTransition>
+      )}
     </>
+  );
+  return variant === 'dialog' ? (
+    <>
+      <YStack alignSelf="stretch" gap="$2">
+        {content}
+      </YStack>
+      <Dialog.Footer
+        showFooter={visibleDevices.length > 0}
+        showCancelButton={false}
+        onConfirmText={intl.formatMessage({
+          id: isConnecting
+            ? ETranslations.device_stage_connecting__title
+            : ETranslations.global_connect,
+        })}
+        confirmButtonProps={{
+          testID: OnboardingTestIDs.connectYourDeviceConnectBtn,
+          disabled: !selected,
+          loading: isConnecting,
+        }}
+        onConfirm={async (dialog) => {
+          // Let failures reach the dialog's error handler before preventing
+          // its default close; the picker owns the successful hand-off.
+          if (selected) await handleConnect(selected);
+          dialog.preventClose();
+        }}
+      />
+    </>
+  ) : (
+    content
   );
 }

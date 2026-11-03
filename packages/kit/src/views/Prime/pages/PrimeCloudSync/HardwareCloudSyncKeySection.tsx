@@ -48,10 +48,10 @@ export function chooseCloudSyncKey(
         <YStack>
           <ListItem
             testID="cloud-sync-key-keyless"
-            icon="CloudOutline"
+            icon="Wallet4Outline"
             title={intl.formatMessage({ id: ETranslations.keyless_wallet })}
             subtitle={intl.formatMessage({
-              id: ETranslations.create_keyless_wallet_first__desc,
+              id: ETranslations.cloud_sync_keyless_option__desc,
             })}
             drillIn
             onPress={() => pick('keyless')}
@@ -340,14 +340,20 @@ export function useHardwareCloudSyncKey() {
         return;
       }
       let picked = false;
+      let dismissed = false;
       const dialog = Dialog.show({
         title: intl.formatMessage({
-          id: ETranslations.onboarding_connect_your_device,
+          id: ETranslations.global_connect_hardware_wallet,
         }),
         showFooter: false,
+        boundedSheetLayout: true,
+        sheetDragArea: 'header',
+        contentContainerProps: { pt: '$3', pb: '$5' },
         renderContent: (
           <HardwareCloudSyncDevicePicker
             onPick={async (connectId) => {
+              // A connection can finish after the user dismisses the picker.
+              if (dismissed) return;
               picked = true;
               await dialog.close();
               await onPick(connectId);
@@ -355,6 +361,7 @@ export function useHardwareCloudSyncKey() {
           />
         ),
         onClose: () => {
+          dismissed = true;
           if (!picked) {
             void backgroundApiProxy.serviceHardware.clearForceTransportType();
           }
@@ -373,7 +380,9 @@ export function useHardwareCloudSyncKey() {
       description: intl.formatMessage({
         id: ETranslations.change_sync_key__desc,
       }),
-      onConfirmText: intl.formatMessage({ id: ETranslations.global_confirm }),
+      onConfirmText: intl.formatMessage({
+        id: ETranslations.change_sync_key__action,
+      }),
     });
     if (!confirmed) return;
     await pickDevice(resetWithDevice);

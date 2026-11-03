@@ -11,13 +11,28 @@ import { OnboardingTestIDs } from '../testIDs';
 
 import { FoundDevicesFooter } from './FoundDevicesFooter';
 
+const mockPreventClose = jest.fn();
+let mockFooterConfirm:
+  | ((dialog: { preventClose: () => void }) => Promise<void>)
+  | undefined;
+
+beforeEach(() => {
+  mockPreventClose.mockClear();
+  mockFooterConfirm = undefined;
+});
+
 jest.mock('react-intl', () => ({
   useIntl: () => ({ formatMessage: ({ id }: { id: string }) => id }),
 }));
 jest.mock('@onekeyhq/components', () => {
   const React = jest.requireActual<typeof import('react')>('react');
-  const Container = ({ children }: { children?: ReactNode }) =>
-    React.createElement('div', null, children);
+  const Container = ({
+    children,
+    testID,
+  }: {
+    children?: ReactNode;
+    testID?: string;
+  }) => React.createElement('div', { 'data-testid': testID }, children);
   return {
     Button: ({
       children,
@@ -42,6 +57,34 @@ jest.mock('@onekeyhq/components', () => {
     YStack: Container,
     Icon: () => null,
     Spinner: () => null,
+    Dialog: {
+      Footer: ({
+        showFooter,
+        onConfirm,
+        onConfirmText,
+        confirmButtonProps,
+      }: {
+        showFooter?: boolean;
+        onConfirm?: (dialog: { preventClose: () => void }) => Promise<void>;
+        onConfirmText?: string;
+        confirmButtonProps?: { testID?: string; disabled?: boolean };
+      }) => {
+        mockFooterConfirm = onConfirm;
+        return showFooter
+          ? React.createElement(
+              'button',
+              {
+                'data-testid': confirmButtonProps?.testID,
+                disabled: confirmButtonProps?.disabled,
+                onClick: () => {
+                  void onConfirm?.({ preventClose: mockPreventClose });
+                },
+              },
+              onConfirmText,
+            )
+          : null;
+      },
+    },
     useMedia: () => ({ gtMd: true }),
   };
 });
@@ -171,5 +214,125 @@ describe('FoundDevicesFooter connection actions', () => {
     await act(async () => fireEvent.click(row('device-a')));
     expect(onConnect).toHaveBeenCalledTimes(1);
     expect(onConnect).toHaveBeenCalledWith(first);
+  });
+});
+
+describe('Cloud connection dialog', () => {
+  it('keeps one search view through preparation and scanning', () => {
+    const { rerender } = render(
+      <FoundDevicesFooter
+        variant="dialog"
+        devices={[]}
+        isPreparing
+        isScanning={false}
+        searchDescription="Keep the wallet nearby"
+        onConnect={jest.fn()}
+      />,
+    );
+    const search = screen.getByTestId('hardware-cloud-sync-device-search');
+    expect(screen.getByText('Keep the wallet nearby')).toBeDefined();
+    expect(
+      screen.queryByTestId(OnboardingTestIDs.connectYourDeviceConnectBtn),
+    ).toBeNull();
+    rerender(
+      <FoundDevicesFooter
+        variant="dialog"
+        devices={[]}
+        isScanning
+        searchDescription="Keep the wallet nearby"
+        onConnect={jest.fn()}
+      />,
+    );
+    expect(screen.getByTestId('hardware-cloud-sync-device-search')).toBe(
+      search,
+    );
+  });
+
+  it('does not claim to search before a required manual start', () => {
+    render(
+      <FoundDevicesFooter
+        variant="dialog"
+        devices={[]}
+        isScanning={false}
+        onConnect={jest.fn()}
+      />,
+    );
+    expect(
+      screen.queryByTestId('hardware-cloud-sync-device-search'),
+    ).toBeNull();
+    expect(
+      screen.queryByText('onboarding.bluetooth_connect_help_text'),
+    ).toBeNull();
+  });
+
+  it('keeps the chosen devices visible when a late scan round empties during connection', async () => {
+    let finish = () => {};
+    const pending = new Promise<void>((resolve) => {
+      finish = resolve;
+    });
+    const onConnect = jest.fn(() => pending);
+    const first = device('device-a');
+    const second = device('device-b');
+    const { rerender } = render(
+      <FoundDevicesFooter
+        variant="dialog"
+        devices={[first, second]}
+        isScanning
+        onConnect={onConnect}
+      />,
+    );
+    fireEvent.click(
+      screen.getByTestId(OnboardingTestIDs.connectYourDeviceItem('device-b')),
+    );
+    fireEvent.click(
+      screen.getByTestId(OnboardingTestIDs.connectYourDeviceConnectBtn),
+    );
+    rerender(
+      <FoundDevicesFooter
+        variant="dialog"
+        devices={[]}
+        isScanning
+        onConnect={onConnect}
+      />,
+    );
+    expect(screen.getByText('device-a')).toBeDefined();
+    expect(screen.getByText('device-b')).toBeDefined();
+    expect(
+      screen.queryByTestId('hardware-cloud-sync-device-search'),
+    ).toBeNull();
+    fireEvent.click(
+      screen.getByTestId(OnboardingTestIDs.connectYourDeviceConnectBtn),
+    );
+    expect(onConnect).toHaveBeenCalledTimes(1);
+    expect(onConnect).toHaveBeenCalledWith(second);
+    await act(async () => finish());
+    expect(mockPreventClose).toHaveBeenCalled();
+  });
+
+  it('lets connection errors reach the standard footer and permits a retry', async () => {
+    const failure = new Error('Connection failed');
+    const onConnect = jest
+      .fn<Promise<void>, [IConnectYourDeviceItem]>()
+      .mockRejectedValueOnce(failure)
+      .mockResolvedValueOnce(undefined);
+    render(
+      <FoundDevicesFooter
+        variant="dialog"
+        devices={[device('device-a')]}
+        isScanning
+        onConnect={onConnect}
+      />,
+    );
+    const confirm = mockFooterConfirm;
+    expect(confirm).toBeDefined();
+    await act(async () => {
+      await expect(confirm?.({ preventClose: mockPreventClose })).rejects.toBe(
+        failure,
+      );
+    });
+    expect(mockPreventClose).not.toHaveBeenCalled();
+    await act(async () => confirm?.({ preventClose: mockPreventClose }));
+    expect(onConnect).toHaveBeenCalledTimes(2);
+    expect(mockPreventClose).toHaveBeenCalledTimes(1);
   });
 });
