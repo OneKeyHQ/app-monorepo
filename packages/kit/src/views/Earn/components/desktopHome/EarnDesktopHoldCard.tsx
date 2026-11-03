@@ -9,7 +9,6 @@ import {
   Accordion,
   Badge,
   Button,
-  Icon,
   SizableText,
   Skeleton,
   Stack,
@@ -18,7 +17,6 @@ import {
   getFontSize,
   useMedia,
 } from '@onekeyhq/components';
-import type { IElement } from '@onekeyhq/components';
 import { ANIMATE_ONLY_OPACITY } from '@onekeyhq/components/src/utils/animationConstants';
 import { Currency } from '@onekeyhq/kit/src/components/Currency';
 import { NetworkAvatar } from '@onekeyhq/kit/src/components/NetworkAvatar/NetworkAvatar';
@@ -49,7 +47,7 @@ import {
   buildKeyboardPressProps,
   usePressableSurface,
 } from './earnDesktopPressable';
-import { useEarnDesktopScrollPin } from './useEarnDesktopScrollPin';
+import { EarnMoreToggle } from './EarnMoreToggle';
 import { useEarnDesktopSurfaces } from './useEarnDesktopSurfaces';
 
 import type {
@@ -434,62 +432,6 @@ function HeaderLabel({
   );
 }
 
-function MoreToggle({
-  count,
-  isExpanded,
-  onPress,
-}: {
-  count: number;
-  isExpanded: boolean;
-  onPress: () => void;
-}) {
-  const intl = useIntl();
-  // Subdued until hovered, the way the tile titles brighten
-  const [isHovered, setIsHovered] = useState(false);
-  // Show less keeps the control where it was pressed: the page scrolls up
-  // with the rows folding above it
-  const toggleRef = useRef<IElement>(null);
-  const pinScroll = useEarnDesktopScrollPin();
-  const handlePress = () => {
-    if (isExpanded) {
-      pinScroll(toggleRef.current);
-    }
-    onPress();
-  };
-  return (
-    <XStack
-      ref={toggleRef}
-      testID="earn-desktop-hold-more"
-      role="button"
-      aria-expanded={isExpanded}
-      alignSelf="flex-start"
-      ai="center"
-      gap="$0.5"
-      h={44}
-      cursor="pointer"
-      userSelect="none"
-      onHoverIn={() => setIsHovered(true)}
-      onHoverOut={() => setIsHovered(false)}
-      onPress={handlePress}
-      {...buildKeyboardPressProps(handlePress, 2)}
-    >
-      <SizableText
-        size="$bodyMdMedium"
-        color={isHovered ? '$text' : '$textSubdued'}
-      >
-        {isExpanded
-          ? intl.formatMessage({ id: ETranslations.global_show_less })
-          : EARN_DESKTOP_DEMO_COPY.showMore(count)}
-      </SizableText>
-      <Icon
-        name={isExpanded ? 'ChevronTopSmallOutline' : 'ChevronDownSmallOutline'}
-        size="$4"
-        color={isHovered ? '$icon' : '$iconSubdued'}
-      />
-    </XStack>
-  );
-}
-
 // The column labels, on the page over the tiles' content
 function HoldLabels() {
   const intl = useIntl();
@@ -677,7 +619,8 @@ function BasicEarnDesktopHoldCard({
       {moreCount > 0 ? (
         // On the tiles' content edge, under the token icons
         <XStack pl="$4">
-          <MoreToggle
+          <EarnMoreToggle
+            testID="earn-desktop-hold-more"
             count={moreCount}
             isExpanded={isExpanded}
             onPress={() => setIsExpanded((prev) => !prev)}

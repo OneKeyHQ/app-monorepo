@@ -154,6 +154,7 @@ export default function EarnPositions() {
   const route = useAppRoute<ITabEarnParamList, ETabEarnRoutes.EarnPositions>();
   const focusProtocols = route.params?.focusProtocols;
   const focusTab = route.params?.focusTab;
+  const focusMarket = route.params?.focusMarket;
   const focusAt = route.params?.focusAt;
   const focusRequest = useMemo(
     () =>
@@ -161,6 +162,14 @@ export default function EarnPositions() {
         ? { protocols: focusProtocols, at: focusAt }
         : undefined,
     [focusAt, focusProtocols],
+  );
+  // A Your loans card asks for its market's card
+  const marketRequest = useMemo(
+    () =>
+      focusMarket && focusAt
+        ? { marketKey: focusMarket, at: focusAt }
+        : undefined,
+    [focusAt, focusMarket],
   );
   const tabRequest = useMemo(
     () => (focusTab && focusAt ? { tab: focusTab, at: focusAt } : undefined),
@@ -179,6 +188,7 @@ export default function EarnPositions() {
           <MyPortfolioPage
             tableLayout={gtMd}
             focusRequest={focusRequest}
+            marketRequest={marketRequest}
             tabRequest={tabRequest}
           />
         ) : (

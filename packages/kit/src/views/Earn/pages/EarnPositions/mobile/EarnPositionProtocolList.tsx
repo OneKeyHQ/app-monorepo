@@ -23,6 +23,8 @@ import type { IGroupExpansion } from './GroupRow';
 export function EarnPositionProtocolList({
   protocols,
   expansion,
+  registerAnchor,
+  flashKeys,
   pendingCountByProvider,
   onManage,
   onRedeem,
@@ -30,6 +32,10 @@ export function EarnPositionProtocolList({
 }: {
   protocols: IEarnProtocolView[];
   expansion: IGroupExpansion;
+  /** the rows a request scrolls to (useCardFocus) */
+  registerAnchor?: (key: string, node: HTMLElement | null) => void;
+  /** the rows lit for a moment once scrolled to */
+  flashKeys?: ReadonlySet<string>;
   pendingCountByProvider?: Record<string, number>;
 } & IEarnPositionCardHandlers) {
   const intl = useIntl();
@@ -51,6 +57,12 @@ export function EarnPositionProtocolList({
           pendingCount={pendingCountByProvider?.[protocol.protocol] ?? 0}
           expanded={expansion.isExpanded(protocol.key)}
           onToggle={() => expansion.toggle(protocol.key)}
+          anchorRef={
+            registerAnchor
+              ? (node) => registerAnchor(protocol.key, node)
+              : undefined
+          }
+          isHighlighted={flashKeys?.has(protocol.key)}
           testID={EarnTestIDs.portfolioItem(protocol.name)}
           total={
             <ProtocolValueCell

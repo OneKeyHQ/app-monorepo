@@ -1,9 +1,12 @@
 import type { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IEarnPortfolioPositionsResponse } from '@onekeyhq/shared/types/earn/portfolioPositions';
 import type {
+  IBorrowEModeStatus,
   IBorrowHealthFactor,
   IBorrowMarketItem,
   IBorrowReserveItem,
+  IEarnRepayActionData,
+  IEarnWithdrawActionData,
 } from '@onekeyhq/shared/types/staking';
 
 import {
@@ -16,8 +19,19 @@ import {
   sumEarnDefiAssets,
 } from './earnPositionModel';
 import { position, token } from './earnPositionModel.fixtures';
-import { findLoanMarketOf, holdingRowActionOf } from './myPortfolio.utils';
+import {
+  findLendingMarketCardKey,
+  findLoanMarketOf,
+  holdingRowActionOf,
+  lendingCollateralOf,
+  lendingEModeLabelOf,
+  lendingMarketOf,
+} from './myPortfolio.utils';
 
+import type {
+  IEarnPositionSectionKind,
+  IEarnPositionView,
+} from './earnPositionModel';
 import type { IEarnDesktopAccountMarket } from '../../../components/desktopHome/useEarnDesktopHomeData';
 
 const AAVE_CORE: IBorrowMarketItem = {
@@ -300,5 +314,225 @@ describe('lendingSupplyPositionOf', () => {
     expect(
       holdingRowActionOf({ kind: 'supplied', asset: row, redeemable: false }),
     ).toBeUndefined();
+  });
+});
+
+describe("a market's rows read from the market (demo 11-03)", () => {
+  const ACCOUNT_ID = "hd-1--m/44'/60'/0'/0/0";
+  const INDEXED_ACCOUNT_ID = 'hd-1--0';
+  const offButton = { disabled: true, text: { text: '' } };
+  // The account's Aave Core rows: ETH backs the cbBTC loan, DAI is supplied
+  // with its switch off, GHO the market never takes as collateral
+  const entry = (): IEarnDesktopAccountMarket => {
+    const read = reserves({
+      supplied: [
+        ['ETH', '0.001214', '2.84'],
+        ['DAI', '0.7527', '0.75'],
+        ['GHO', '1', '1'],
+      ],
+      borrowed: [['cbBTC', '0.00001847', '1.49']],
+    });
+    const [eth, dai, gho] = read.supplied.assets;
+    eth.usageAsCollateral = true;
+    eth.canBeCollateral = true;
+    dai.usageAsCollateral = false;
+    dai.canBeCollateral = true;
+    gho.usageAsCollateral = false;
+    gho.canBeCollateral = false;
+    return {
+      market: AAVE_CORE,
+      accountId: ACCOUNT_ID,
+      reserves: read,
+      healthFactor: HEALTH,
+    };
+  };
+  const viewOf = (
+    entries: IEarnDesktopAccountMarket[],
+    indexedAccountId?: string,
+  ) =>
+    buildEarnPortfolioView({
+      response: withLendingMarketPositions({
+        response: EMPTY,
+        entries,
+        indexedAccountId,
+      }),
+      translate,
+    });
+  const cardOf = (
+    entries: IEarnDesktopAccountMarket[],
+    indexedAccountId?: string,
+  ): IEarnPositionView => {
+    const [card] = viewOf(entries, indexedAccountId).protocols.flatMap(
+      (protocol) => protocol.positions,
+    );
+    return card;
+  };
+  const rowsOf = (card: IEarnPositionView, kind: IEarnPositionSectionKind) =>
+    card.sections.find((section) => section.kind === kind)?.assets ?? [];
+  const actionOf = (
+    card: IEarnPositionView,
+    kind: IEarnPositionSectionKind,
+    symbol: string,
+  ) => {
+    const asset = rowsOf(card, kind).find((row) => row.symbol === symbol);
+    return asset
+      ? holdingRowActionOf({ kind, asset, redeemable: false })
+      : undefined;
+  };
+
+  it("carries each row's reserve and the account the market was read for", () => {
+    const card = cardOf([entry()], INDEXED_ACCOUNT_ID);
+    const read = (kind: IEarnPositionSectionKind) =>
+      rowsOf(card, kind).map((row) => [
+        row.symbol,
+        row.lending?.side,
+        row.lending?.reserve.reserveAddress,
+      ]);
+    expect(read('supplied')).toEqual([
+      ['ETH', 'supplied', '0xeth'],
+      ['DAI', 'supplied', '0xdai'],
+      ['GHO', 'supplied', '0xgho'],
+    ]);
+    expect(read('borrowed')).toEqual([['cbBTC', 'borrowed', '0xcbbtc']]);
+    expect(lendingMarketOf(card)).toEqual({
+      market: AAVE_CORE,
+      accountId: ACCOUNT_ID,
+      indexedAccountId: INDEXED_ACCOUNT_ID,
+    });
+  });
+
+  it('gives no market controls where the market was read without an account', () => {
+    const { accountId: _accountId, ...withoutAccount } = entry();
+    const card = cardOf([withoutAccount]);
+    expect(
+      card.sections.flatMap((section) =>
+        section.assets.map((asset) => asset.lending),
+      ),
+    ).toEqual([undefined, undefined, undefined, undefined]);
+    expect(lendingMarketOf(card)).toBeUndefined();
+    expect(actionOf(card, 'supplied', 'ETH')).toBeUndefined();
+    expect(actionOf(card, 'borrowed', 'cbBTC')).toBeUndefined();
+  });
+
+  it('withdraws a supply and repays a loan through the market', () => {
+    const card = cardOf([entry()]);
+    expect(actionOf(card, 'supplied', 'ETH')).toMatchObject({
+      kind: 'lending',
+      disabled: false,
+      lending: { side: 'supplied', reserve: { reserveAddress: '0xeth' } },
+    });
+    expect(actionOf(card, 'borrowed', 'cbBTC')).toMatchObject({
+      kind: 'lending',
+      disabled: false,
+      lending: { side: 'borrowed', reserve: { reserveAddress: '0xcbbtc' } },
+    });
+  });
+
+  it('turns Withdraw and Repay off where the market page has them off', () => {
+    const read = entry();
+    const reserve = read.reserves as IBorrowReserveItem;
+    reserve.supplied.assets[0].withdrawButton =
+      offButton as unknown as IEarnWithdrawActionData;
+    reserve.borrowed.assets[0].repayButton =
+      offButton as unknown as IEarnRepayActionData;
+    const card = cardOf([read]);
+    expect(actionOf(card, 'supplied', 'ETH')).toMatchObject({
+      kind: 'lending',
+      disabled: true,
+    });
+    expect(actionOf(card, 'supplied', 'DAI')).toMatchObject({
+      kind: 'lending',
+      disabled: false,
+    });
+    expect(actionOf(card, 'borrowed', 'cbBTC')).toMatchObject({
+      kind: 'lending',
+      disabled: true,
+    });
+  });
+
+  it("turns them off on Aave's own coin where its market has no gateway for it", () => {
+    const onNetwork = (networkId: string) => {
+      const read = entry();
+      const market = { ...AAVE_CORE, networkId };
+      const reserve = read.reserves as IBorrowReserveItem;
+      // Aave lists a network's own coin without an address
+      reserve.supplied.assets[0].reserveAddress = '';
+      reserve.borrowed.assets[0].reserveAddress = '';
+      return cardOf([{ ...read, market }]);
+    };
+    // Polygon has no gateway; Ethereum has one
+    expect(actionOf(onNetwork('evm--137'), 'supplied', 'ETH')).toMatchObject({
+      disabled: true,
+    });
+    expect(actionOf(onNetwork('evm--137'), 'borrowed', 'cbBTC')).toMatchObject({
+      disabled: true,
+    });
+    expect(actionOf(onNetwork('evm--1'), 'supplied', 'ETH')).toMatchObject({
+      disabled: false,
+    });
+  });
+
+  it('hangs the collateral switch under a supply the market says counts or not, and the mark where it never can', () => {
+    const card = cardOf([entry()]);
+    const collateral = rowsOf(card, 'supplied').map((row) => [
+      row.symbol,
+      lendingCollateralOf(row)?.state,
+    ]);
+    expect(collateral).toEqual([
+      ['ETH', 'switch'],
+      ['DAI', 'switch'],
+      ['GHO', 'unavailable'],
+    ]);
+    // A loan's row has none, and a market that doesn't say (Kamino) none
+    expect(lendingCollateralOf(rowsOf(card, 'borrowed')[0])).toBeUndefined();
+    const kamino = entry();
+    (kamino.reserves as IBorrowReserveItem).supplied.assets.forEach((asset) => {
+      delete asset.usageAsCollateral;
+    });
+    expect(
+      rowsOf(cardOf([kamino]), 'supplied').map((row) =>
+        lendingCollateralOf(row),
+      ),
+    ).toEqual([undefined, undefined, undefined]);
+  });
+
+  it("finds the card a Your loans card opens, by the market's key", () => {
+    const { protocols } = viewOf([entry()]);
+    expect(
+      findLendingMarketCardKey(
+        protocols,
+        `aave:evm--1:${AAVE_CORE.marketAddress}`,
+      ),
+    ).toBe(protocols[0].key);
+    expect(
+      findLendingMarketCardKey(protocols, 'aave:evm--42161:0xother'),
+    ).toBeUndefined();
+  });
+});
+
+describe('lendingEModeLabelOf', () => {
+  const status = (eModeId: number): IBorrowEModeStatus =>
+    ({
+      eModeId,
+      originalLtv: '80',
+      categories: [
+        { eModeId: 1, label: 'ETH_correlated', ltv: '93', disabled: false },
+        { eModeId: 2, label: 'Stablecoins', ltv: '90', disabled: false },
+      ],
+    }) as unknown as IBorrowEModeStatus;
+
+  it('names the category on, or Off, as the market page does', () => {
+    expect(lendingEModeLabelOf(status(0), 'Off')).toBe('Off');
+    expect(lendingEModeLabelOf(status(1), 'Off')).toBe('ETH correlated');
+    // A category the market no longer lists reads Off
+    expect(lendingEModeLabelOf(status(9), 'Off')).toBe('Off');
+  });
+
+  it('has nothing where the market has no categories or nothing is read', () => {
+    expect(
+      lendingEModeLabelOf({ ...status(0), categories: [] }, 'Off'),
+    ).toBeUndefined();
+    expect(lendingEModeLabelOf(null, 'Off')).toBeUndefined();
+    expect(lendingEModeLabelOf(undefined, 'Off')).toBeUndefined();
   });
 });

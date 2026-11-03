@@ -13,6 +13,7 @@ import type {
 import type {
   IBorrowBalance,
   IBorrowMarketItem,
+  IBorrowReserveItem,
   IBorrowToken,
 } from '@onekeyhq/shared/types/staking';
 
@@ -22,6 +23,41 @@ import type {
  */
 export const EARN_LENDING_MARKET_SOURCE = 'onekey-lending-markets';
 
+export type IEarnLendingSuppliedReserve =
+  IBorrowReserveItem['supplied']['assets'][number];
+export type IEarnLendingBorrowedReserve =
+  IBorrowReserveItem['borrowed']['assets'][number];
+
+/** The market a lending card was read from, and the account it was read for */
+export type IEarnLendingMarketRef = {
+  market: IBorrowMarketItem;
+  /** The account's own account on the market's network */
+  accountId: string;
+  indexedAccountId?: string;
+};
+
+/**
+ * A lending row's reserve as its market reads it (demo 11-03): what the
+ * row's Withdraw or Repay and its collateral switch act on, the market
+ * page's own row
+ */
+export type IEarnLendingReserveRef =
+  | {
+      side: 'supplied';
+      reserve: IEarnLendingSuppliedReserve;
+      market: IEarnLendingMarketRef;
+    }
+  | {
+      side: 'borrowed';
+      reserve: IEarnLendingBorrowedReserve;
+      market: IEarnLendingMarketRef;
+    };
+
+/** A position's token, with its reserve where the row was read from a market */
+export type IEarnLendingDeFiAsset = IDeFiAsset & {
+  lending?: IEarnLendingReserveRef;
+};
+
 const toBigNumber = (value?: string) => {
   const parsed = new BigNumber(value ?? 0);
   return parsed.isFinite() ? parsed : new BigNumber(0);
@@ -30,10 +66,12 @@ const toBigNumber = (value?: string) => {
 function toDeFiAsset({
   token,
   balance,
+  lending,
 }: {
   token: IBorrowToken;
   balance: IBorrowBalance;
-}): IDeFiAsset {
+  lending?: IEarnLendingReserveRef;
+}): IEarnLendingDeFiAsset {
   // The raw amount where the server sends it; the title is display text
   const amount = toBigNumber(balance.number ?? balance.amount);
   const value = toBigNumber(balance.fiatValue);
@@ -49,6 +87,7 @@ function toDeFiAsset({
       logoUrl: token.logoURI,
       isVerified: true,
     },
+    ...(lending ? { lending } : {}),
   };
 }
 
@@ -135,21 +174,30 @@ function buildLendingPosition({
  * leaves out, one per market, as the DeFi home's Net Worth counts them: what
  * the account supplies there that no position reports, and what it borrows,
  * with the market's health factor as the Borrow page reads it. Merged into
- * the response, they total, group and filter as the API's own (demo 10-29)
+ * the response, they total, group and filter as the API's own (demo 10-29).
+ * Each row carries its reserve and the account it was read for, so the card
+ * withdraws, repays and switches collateral as the market page does (demo
+ * 11-03)
  */
 export function withLendingMarketPositions({
   response,
   entries,
+  indexedAccountId,
 }: {
   response: IEarnPortfolioPositionsResponse;
   entries: IEarnDesktopAccountMarket[];
+  /** The account the markets were read for, for the windows the rows open */
+  indexedAccountId?: string;
 }): IEarnPortfolioPositionsResponse {
   const reported = Object.values(response.positions).flat();
   const added: IEarnPortfolioPosition[] = [];
-  entries.forEach(({ market, reserves, healthFactor }) => {
+  entries.forEach(({ market, accountId, reserves, healthFactor }) => {
     if (!reserves) {
       return;
     }
+    const marketRef: IEarnLendingMarketRef | undefined = accountId
+      ? { market, accountId, indexedAccountId }
+      : undefined;
     const own = reported.filter(
       (position) =>
         position.networkId === market.networkId &&
@@ -176,14 +224,26 @@ export function withLendingMarketPositions({
           !reportedSymbols.has(asset.token.symbol.toUpperCase()),
       )
       .map((asset) =>
-        toDeFiAsset({ token: asset.token, balance: asset.suppliedAmount }),
+        toDeFiAsset({
+          token: asset.token,
+          balance: asset.suppliedAmount,
+          lending: marketRef
+            ? { side: 'supplied', reserve: asset, market: marketRef }
+            : undefined,
+        }),
       );
     const debts = isLoanReported
       ? []
       : (reserves.borrowed?.assets ?? [])
           .filter((asset) => toBigNumber(asset.borrowedAmount?.fiatValue).gt(0))
           .map((asset) =>
-            toDeFiAsset({ token: asset.token, balance: asset.borrowedAmount }),
+            toDeFiAsset({
+              token: asset.token,
+              balance: asset.borrowedAmount,
+              lending: marketRef
+                ? { side: 'borrowed', reserve: asset, market: marketRef }
+                : undefined,
+            }),
           );
     if (!assets.length && !debts.length) {
       return;

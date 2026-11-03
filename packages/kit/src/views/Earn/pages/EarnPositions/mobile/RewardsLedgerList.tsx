@@ -9,6 +9,7 @@ import { GroupRow } from './GroupRow';
 import {
   LedgerRewardCard,
   LedgerRewardTableHeader,
+  ledgerRewardTableColumns,
   ledgerTimeOf,
 } from './LedgerRewardCard';
 import { usePortfolioTableLayout } from './portfolioTableLayout';
@@ -87,12 +88,14 @@ export function RewardsLedgerList({
                 hasTime={group.items.some((item) =>
                   Boolean(ledgerTimeOf(item)),
                 )}
+                columns={ledgerRewardTableColumns(group.items)}
               />
               {group.items.map((item, itemIndex) => (
                 <LedgerRewardCard
                   key={`${item.token.info.symbol}-${item.vault ?? ''}-${item.txHash ?? itemIndex}`}
                   item={item}
                   group={group}
+                  columns={ledgerRewardTableColumns(group.items)}
                 />
               ))}
             </YStack>

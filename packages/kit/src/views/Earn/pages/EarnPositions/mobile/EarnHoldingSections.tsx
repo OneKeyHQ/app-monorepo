@@ -25,6 +25,7 @@ import {
   getRewardButtonText,
 } from '../../../components/PortfolioTabContent';
 import { EarnTestIDs } from '../../../testIDs';
+import { LendingCollateralLine, LendingRowButton } from '../EarnLendingActions';
 
 import { isCheckRow } from './earnPositionModel';
 import { holdingRowActionOf } from './myPortfolio.utils';
@@ -112,13 +113,25 @@ export function PendingBadge({ asset }: { asset: IEarnPositionSectionAsset }) {
 
 export type IRowButton = Extract<
   IEarnHoldingRowAction,
-  { kind: 'redeem' | 'button' }
+  { kind: 'redeem' | 'button' | 'lending' }
 >;
 
+/** The row's button, if its action is one (a Pending badge isn't) */
+export function rowButtonOf(
+  action: IEarnHoldingRowAction | undefined,
+): IRowButton | undefined {
+  return action?.kind === 'redeem' ||
+    action?.kind === 'button' ||
+    action?.kind === 'lending'
+    ? action
+    : undefined;
+}
+
 /**
- * A row's Redeem, Claim, Check or Cancel: the app's small secondary button,
- * the same for every action. Several rows of a panel can read "Claim", so a
- * screen reader hears the token as well.
+ * A row's Redeem, Claim, Check or Cancel, or a lending row's Withdraw or
+ * Repay: the app's small secondary button, the same for every action.
+ * Several rows of a panel can read "Claim", so a screen reader hears the
+ * token as well.
  */
 export function RowAction({
   action,
@@ -154,6 +167,15 @@ export function RowAction({
       }
     });
   }, [redeem]);
+  if (action.kind === 'lending') {
+    return (
+      <LendingRowButton
+        lending={action.lending}
+        disabled={action.disabled}
+        hitSlop={ROW_ACTION_HIT_SLOP}
+      />
+    );
+  }
   if (action.kind === 'redeem') {
     if (!redeem) {
       return null;
@@ -271,10 +293,10 @@ function EffectiveDepositRow({
  * its value on the left, and the row's one button, or its Pending badge,
  * alone on the right. With every number on the left, a button never pushes
  * a number aside. The logo and the button center on the amount and value;
- * a withdrawal's days left hang under them, so a taller row keeps that
- * alignment, and the same padding on every row keeps rows apart however
- * many lines they have. Lista's reward is unknown until Check reveals it,
- * so that row shows the name alone.
+ * a withdrawal's days left, or a lending supply's collateral switch, hang
+ * under them, so a taller row keeps that alignment, and the same padding on
+ * every row keeps rows apart however many lines they have. Lista's reward
+ * is unknown until Check reveals it, so that row shows the name alone.
  */
 function PositionRow({
   asset,
@@ -291,8 +313,7 @@ function PositionRow({
   const currencyInfo = useCurrency();
   const isCheck = isCheckRow(asset);
   const days = daysLeftOf(asset.unlockAt);
-  const button =
-    action?.kind === 'redeem' || action?.kind === 'button' ? action : undefined;
+  const button = rowButtonOf(action);
   return (
     <YStack py="$1">
       <XStack ai="center" gap="$3" minHeight={36}>
@@ -350,6 +371,7 @@ function PositionRow({
           <DaysLeftText days={days} />
         </Stack>
       ) : null}
+      <LendingCollateralLine asset={asset} pl={ROW_TEXT_INSET} />
     </YStack>
   );
 }

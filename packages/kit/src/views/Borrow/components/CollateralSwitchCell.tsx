@@ -37,6 +37,7 @@ import {
   EEarnLabels,
 } from '@onekeyhq/shared/types/staking';
 import type {
+  IBorrowMarketItem,
   IBorrowReserveItem,
   IBorrowTransactionConfirmation,
 } from '@onekeyhq/shared/types/staking';
@@ -56,6 +57,8 @@ import {
   shouldReleaseCollateralSubmission,
 } from './collateralControls.utils';
 import { HealthFactorInfo } from './ManagePosition/modules/InfoDisplaySection/HealthFactorInfo';
+
+import type { IStakePendingTx } from '../../Earn/hooks/useStakingPendingTxs';
 
 type ISuppliedAsset = IBorrowReserveItem['supplied']['assets'][number];
 type ICollateralSettlementStatus = 'idle' | 'confirming' | 'success';
@@ -187,22 +190,36 @@ function showCollateralConfirmDialog(params: {
 // responder claimant on native.
 const noop = () => {};
 
-// Self-contained on purpose: TableList's memo comparator stringifies column
-// defs (functions dropped), so render-time state must live in the mounted
-// cell, never in column-def closures.
-export function CollateralSwitchCell({
-  item,
-  eModeId,
-  size = ESwitchSize.extraSmall,
-}: {
+export type ICollateralSwitchProps = {
+  market: IBorrowMarketItem | null;
+  /** The account's own account on the market's network */
+  accountId: string;
   item: ISuppliedAsset;
   eModeId?: number;
+  /** The account's in-flight transactions; a collateral change locks its row */
+  pendingTxs: IStakePendingTx[];
+  /** Reads the market's reserves again, until they show the confirmed state */
+  refreshAllBorrowData: () => Promise<void>;
   size?: ISwitchProps['size'];
-}) {
+};
+
+/**
+ * The collateral switch and its whole flow (eligibility, the preview, the
+ * confirm dialog with the health factor before and after, the transaction
+ * and its settlement), with the market, the account, the pending txs and the
+ * refresh handed in: the market page reads them from its Borrow context, My
+ * portfolio from the account's markets.
+ */
+export function CollateralSwitch({
+  market,
+  accountId,
+  item,
+  eModeId,
+  pendingTxs,
+  refreshAllBorrowData,
+  size = ESwitchSize.extraSmall,
+}: ICollateralSwitchProps) {
   const intl = useIntl();
-  const { market, earnAccount, pendingTxs, refreshAllBorrowData } =
-    useBorrowContext();
-  const accountId = getBorrowEarnAccountId(earnAccount.data) ?? '';
   const setCollateral = useUniversalBorrowSetCollateral({
     networkId: market?.networkId || '',
     accountId,
@@ -713,5 +730,32 @@ export function CollateralSwitchCell({
         </Stack>
       ) : null}
     </Stack>
+  );
+}
+
+// Self-contained on purpose: TableList's memo comparator stringifies column
+// defs (functions dropped), so render-time state must live in the mounted
+// cell, never in column-def closures.
+export function CollateralSwitchCell({
+  item,
+  eModeId,
+  size = ESwitchSize.extraSmall,
+}: {
+  item: ISuppliedAsset;
+  eModeId?: number;
+  size?: ISwitchProps['size'];
+}) {
+  const { market, earnAccount, pendingTxs, refreshAllBorrowData } =
+    useBorrowContext();
+  return (
+    <CollateralSwitch
+      market={market}
+      accountId={getBorrowEarnAccountId(earnAccount.data) ?? ''}
+      item={item}
+      eModeId={eModeId}
+      pendingTxs={pendingTxs}
+      refreshAllBorrowData={refreshAllBorrowData}
+      size={size}
+    />
   );
 }

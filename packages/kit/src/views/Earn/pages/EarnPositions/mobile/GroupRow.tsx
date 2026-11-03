@@ -69,9 +69,9 @@ type IGroupRowProps = {
   pendingCount?: number;
   expanded: boolean;
   onToggle: () => void;
-  /** the wide layout's card, for the page to scroll to */
+  /** the group, for the page to scroll to */
   anchorRef?: (node: HTMLElement | null) => void;
-  /** a tile scrolled the page to it: the header lights up for a moment */
+  /** a tile or a request scrolled the page to it: the header lights up for a moment */
   isHighlighted?: boolean;
   testID?: string;
   children: React.ReactNode;
@@ -314,21 +314,29 @@ export function GroupRow(props: IGroupRowProps) {
     pendingCount = 0,
     expanded,
     onToggle,
+    anchorRef,
+    isHighlighted = false,
     testID,
     children,
   } = props;
+  const reduceMotion = useReducedMotion();
   const { hasToggled, toggle } = useFoldToggle(onToggle);
   if (isTableLayout) {
     return <GroupCard {...props} />;
   }
   return (
-    <YStack>
+    <YStack ref={(node) => anchorRef?.(node as unknown as HTMLElement | null)}>
       <XStack
         ai="center"
         jc="space-between"
         gap="$3"
         minHeight={44}
         px="$5"
+        // Lit for a moment where a request scrolled the page to it, as the
+        // wide layout's card header is
+        bg={isHighlighted ? '$gray3' : '$transparent'}
+        transition={reduceMotion ? undefined : 'quick'}
+        animateOnly={ANIMATE_ONLY_BG_COLOR}
         cursor="pointer"
         userSelect="none"
         role="button"

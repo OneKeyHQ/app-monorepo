@@ -26,11 +26,13 @@ import { warmWithdrawWaysOut } from '@onekeyhq/kit/src/views/Staking/components/
 import {
   buildEarnProtocolInfo,
   buildEarnTokenInfo,
+  isBorrowTag,
 } from '@onekeyhq/kit/src/views/Staking/utils/utils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes, EModalStakingRoutes } from '@onekeyhq/shared/src/routes';
 import defiUtils from '@onekeyhq/shared/src/utils/defiUtils';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IEarnPositionManageTarget } from '@onekeyhq/shared/types/earn/portfolioPositions';
 import { EEarnLabels } from '@onekeyhq/shared/types/staking';
 import type {
@@ -51,6 +53,7 @@ import {
   useStakingPendingTxsByInfo,
 } from '../../../hooks/useStakingPendingTxs';
 import { DeFiAssetsDesktopTab } from '../desktop/DeFiAssetsDesktopTab';
+import { PortfolioLendingActionsProvider } from '../EarnLendingActions';
 
 import { DeFiAssetsTab } from './DeFiAssetsTab';
 import { withLendingMarketPositions } from './earnLendingPositions';
@@ -65,6 +68,7 @@ import {
   sumEarnPendingRewards,
 } from './earnPositionModel';
 import {
+  findLendingMarketCardKey,
   findLoanMarketOf,
   positionPendingTag,
   sumRewardsHeaderFiat,
@@ -78,6 +82,7 @@ import { useRewardsPortfolio } from './useRewardsPortfolio';
 
 import type { IRefreshOptions } from '../../../hooks/useEarnPortfolio';
 import type { IStakePendingTx } from '../../../hooks/useStakingPendingTxs';
+import type { IPortfolioLendingActions } from '../EarnLendingActions';
 import type { NativeScrollEvent, NativeSyntheticEvent } from 'react-native';
 
 type IPrimaryTab = 'assets' | 'rewards';
@@ -85,6 +90,14 @@ type IPrimaryTab = 'assets' | 'rewards';
 // One stable empty selection: the rewards request keys on the array.
 const ALL_NETWORKS: string[] = [];
 const NO_MARKETS: IBorrowMarketItem[] = [];
+const NO_PENDING_TXS: IStakePendingTx[] = [];
+// A lending transaction's market reads again this long after it settles, as
+// the market page waits
+const LENDING_TX_SETTLE_DELAY_MS = timerUtils.getTimeDurationMs({
+  seconds: 3,
+});
+const isLendingTxTag = (tag: string) =>
+  isBorrowTag(tag) || tag === EEarnLabels.Borrow;
 // The lending markets the positions API leaves out (Aave, Kamino) are read
 // here as the DeFi home reads them for its Net Worth, so the two totals
 // agree (web; the phone app keeps the API's list)
@@ -109,10 +122,13 @@ const TABLE_LAYOUT_MAX_WIDTH = 1140;
 export function MyPortfolioPage({
   tableLayout = false,
   focusRequest,
+  marketRequest,
   tabRequest,
 }: {
   /** The wide layout scrolls to these protocols' cards (the home's split) */
   focusRequest?: { protocols: string[]; at: number };
+  /** Scrolls to this lending market's card (a Your loans card), both layouts */
+  marketRequest?: { marketKey: string; at: number };
   /** Opens on this tab, its Claimable rewards (the home's "+N" pill) */
   tabRequest?: { tab: 'rewards'; at: number };
   /**
@@ -245,6 +261,10 @@ export function MyPortfolioPage({
   // second. A refresh keeps the rows on screen as before
   const isFirstLoad =
     isPositionsLoading || (READS_LENDING_MARKETS && !lendingMarkets.isLoaded);
+  // The account the lending rows' windows open for, the one their markets
+  // were read for
+  const lendingIndexedAccountId =
+    selectedAccount.indexedAccountId || activeAccount.indexedAccount?.id;
   const response = useMemo(() => {
     if (isFirstLoad) {
       return EMPTY_POSITIONS_RESPONSE;
@@ -253,9 +273,15 @@ export function MyPortfolioPage({
       ? withLendingMarketPositions({
           response: loadedResponse,
           entries: lendingMarkets.entries,
+          indexedAccountId: lendingIndexedAccountId,
         })
       : loadedResponse;
-  }, [isFirstLoad, lendingMarkets.entries, loadedResponse]);
+  }, [
+    isFirstLoad,
+    lendingIndexedAccountId,
+    lendingMarkets.entries,
+    loadedResponse,
+  ]);
   const {
     rewards,
     isLoading: isRewardsLoading,
@@ -279,6 +305,65 @@ export function MyPortfolioPage({
       ]);
     },
     [refreshLendingMarkets, refreshPositions, refreshRewards],
+  );
+
+  // The lending cards' own transactions (Withdraw, Repay, collateral,
+  // E-Mode), which the Earn filter below never sees: it reads Earn's stake
+  // tags only. Each settled one reads the markets and their E-Mode again
+  const lendingNetworkIds = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          lendingMarkets.entries
+            .filter((entry) => entry.accountId)
+            .map((entry) => entry.market.networkId),
+        ),
+      ),
+    [lendingMarkets.entries],
+  );
+  const [lendingSettledCount, setLendingSettledCount] = useState(0);
+  const refreshLendingCards = useCallback(async () => {
+    setLendingSettledCount((count) => count + 1);
+    await refreshLendingMarkets();
+  }, [refreshLendingMarkets]);
+  const { filteredTxs: lendingPendingTxs = NO_PENDING_TXS } =
+    useStakingPendingTxsByInfo({
+      networkIds: lendingNetworkIds,
+      tagMatcher: isLendingTxTag,
+      onRefresh: refreshLendingCards,
+      onRefreshDelayMs: LENDING_TX_SETTLE_DELAY_MS,
+      isActive: READS_LENDING_MARKETS,
+    });
+  // A lending window (Withdraw, Repay) closes on its transaction's final
+  // state, so the page may never see it pending: the cards read their
+  // markets again once the page is back from one (their E-Mode reads itself
+  // again as the page comes back)
+  const lendingWindowOpenedRef = useRef(false);
+  const handleLendingWindowOpen = useCallback(() => {
+    lendingWindowOpenedRef.current = true;
+  }, []);
+  useEffect(() => {
+    if (!isFocused || !lendingWindowOpenedRef.current) {
+      return;
+    }
+    lendingWindowOpenedRef.current = false;
+    void refreshLendingMarkets();
+  }, [isFocused, refreshLendingMarkets]);
+  const lendingActions = useMemo<IPortfolioLendingActions>(
+    () => ({
+      pendingTxs: lendingPendingTxs,
+      refresh: async () => {
+        await refreshLendingMarkets();
+      },
+      settledCount: lendingSettledCount,
+      onOpenWindow: handleLendingWindowOpen,
+    }),
+    [
+      handleLendingWindowOpen,
+      lendingPendingTxs,
+      lendingSettledCount,
+      refreshLendingMarkets,
+    ],
   );
 
   const translate = useCallback(
@@ -362,6 +447,16 @@ export function MyPortfolioPage({
     () => filterEarnProtocolsByNetworks(view.protocols, selectedNetworkIds),
     [view.protocols, selectedNetworkIds],
   );
+  // A Your loans card asks for its market: the card of that market's
+  // protocol on its network, once the market's rows are in
+  const focusCardRequest = useMemo(() => {
+    const cardKey = marketRequest
+      ? findLendingMarketCardKey(visibleProtocols, marketRequest.marketKey)
+      : undefined;
+    return marketRequest && cardKey
+      ? { cardKeys: [cardKey], at: marketRequest.at }
+      : undefined;
+  }, [marketRequest, visibleProtocols]);
   const claimableGroups = useMemo(
     () => buildEarnClaimableRewardGroups(visibleProtocols),
     [visibleProtocols],
@@ -706,29 +801,33 @@ export function MyPortfolioPage({
                     display={tabDisplay('assets')}
                     {...tabMotion('assets')}
                   >
-                    {tableLayout ? (
-                      <DeFiAssetsDesktopTab
-                        focusRequest={focusRequest}
-                        protocols={visibleProtocols}
-                        deFiProtocols={visibleDeFiProtocols}
-                        protocolMap={view.protocolMap}
-                        isLoading={isFirstLoad}
-                        pendingCountByProvider={pendingCountByProvider}
-                        onManage={handleManage}
-                        onRedeem={handleRedeem}
-                        onWarmRedeem={handleWarmRedeem}
-                      />
-                    ) : (
-                      <DeFiAssetsTab
-                        protocols={visibleProtocols}
-                        isLoading={isFirstLoad}
-                        pendingCountByProvider={pendingCountByProvider}
-                        networkFilter={networkFilter}
-                        onManage={handleManage}
-                        onRedeem={handleRedeem}
-                        onWarmRedeem={handleWarmRedeem}
-                      />
-                    )}
+                    <PortfolioLendingActionsProvider value={lendingActions}>
+                      {tableLayout ? (
+                        <DeFiAssetsDesktopTab
+                          focusRequest={focusRequest}
+                          focusCardRequest={focusCardRequest}
+                          protocols={visibleProtocols}
+                          deFiProtocols={visibleDeFiProtocols}
+                          protocolMap={view.protocolMap}
+                          isLoading={isFirstLoad}
+                          pendingCountByProvider={pendingCountByProvider}
+                          onManage={handleManage}
+                          onRedeem={handleRedeem}
+                          onWarmRedeem={handleWarmRedeem}
+                        />
+                      ) : (
+                        <DeFiAssetsTab
+                          focusCardRequest={focusCardRequest}
+                          protocols={visibleProtocols}
+                          isLoading={isFirstLoad}
+                          pendingCountByProvider={pendingCountByProvider}
+                          networkFilter={networkFilter}
+                          onManage={handleManage}
+                          onRedeem={handleRedeem}
+                          onWarmRedeem={handleWarmRedeem}
+                        />
+                      )}
+                    </PortfolioLendingActionsProvider>
                   </YStack>
                 ) : null}
                 {isTabMounted('rewards') ? (

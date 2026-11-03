@@ -5,6 +5,7 @@ import { useIntl } from 'react-intl';
 import { useReducedMotion } from 'react-native-reanimated';
 
 import {
+  Accordion,
   Badge,
   Icon,
   SizableText,
@@ -15,9 +16,11 @@ import {
   useMedia,
 } from '@onekeyhq/components';
 import type { ColorTokens } from '@onekeyhq/components';
+import { ANIMATE_ONLY_OPACITY } from '@onekeyhq/components/src/utils/animationConstants';
 import { useCurrency } from '@onekeyhq/kit/src/components/Currency';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import type { IBorrowMarketItem } from '@onekeyhq/shared/types/staking';
 
@@ -26,10 +29,16 @@ import { buildBorrowMarketKey } from '../../../Borrow/borrowMarketKey';
 import { BorrowNavigation } from '../../../Borrow/borrowUtils';
 import { resolveHealthFactorValueColor } from '../../../Borrow/components/healthFactorValueColor';
 import { ProtocolImage } from '../../../Staking/components/ProtocolDisplayShared';
+import { EarnNavigation } from '../../earnUtils';
 import {
   LOAN_HEALTH_TEXT_COLOR,
   getLoanHealthTone,
 } from '../../pages/EarnLoanRouter/loanRouter.utils';
+import {
+  LIST_HIDDEN_STYLE,
+  getListHeightTransition,
+  getListRowMotion,
+} from '../../utils/earnListMotion';
 
 import { ANIMATE_ONLY_BG_COLOR } from './earnDesktopColorEase';
 import {
@@ -41,11 +50,15 @@ import { EARN_DESKTOP_DEMO_COPY } from './earnDesktopHomeCopy';
 import { buildKeyboardPressProps } from './earnDesktopPressable';
 import { EasedSection } from './EarnEasedSection';
 import { EarnLoanAssetLogos } from './EarnLoanAssetLogos';
+import { EarnMoreToggle } from './EarnMoreToggle';
 
 import type { IEarnDesktopAccountMarket } from './useEarnDesktopHomeData';
 
 // Wide, the cards share a row three to a row, as the offer cards do
 const CARDS_PER_ROW = 3;
+// Three cards, the first row wide; the rest open in place (demo 11-03)
+const CARD_LIMIT = 3;
+const MORE_CARDS_VALUE = 'more';
 const HOVER_MOTION = {
   transition: 'quick',
   animateOnly: ANIMATE_ONLY_BG_COLOR,
@@ -169,7 +182,7 @@ function BasicLoanCard({
             {market.network.name}
           </SizableText>
         </YStack>
-        {/* The market's own page opens */}
+        {/* The market's card on My portfolio opens */}
         <Icon
           name="ChevronRightSmallOutline"
           size="$5"
@@ -250,9 +263,10 @@ function LoanCardSkeleton() {
  * The account's loans above the Loans list, one card per market it borrows
  * in, the riskiest first: the market, then what backs its loans, what is
  * borrowed and the health factor, written as the Loans window writes the
- * position, the health factor in the Borrow page's words. A card opens that
- * market's Borrow page, where repaying, collateral and borrowing more are.
- * Nothing shows without a loan
+ * position, the health factor in the Borrow page's words. Three cards, then
+ * "Show N more" opens the rest in place (demo 11-03). A card opens that
+ * market's card on My portfolio, where its rows withdraw, repay and set
+ * collateral (useEarnDesktopOpenYourLoan). Nothing shows without a loan
  */
 export type IEarnDesktopYourLoansProps = {
   loans: IEarnDesktopAccountMarket[];
@@ -270,6 +284,8 @@ function BasicEarnDesktopYourLoans({
 }: IEarnDesktopYourLoansProps) {
   const media = useMedia();
   const isWide = media.gtMd;
+  const reduceMotion = useReducedMotion();
+  const [isExpanded, setIsExpanded] = useState(false);
 
   useEffect(() => {
     if (isLoaded) {
@@ -296,17 +312,35 @@ function BasicEarnDesktopYourLoans({
         ));
   }
 
-  let grid: ReactNode = null;
-  if (cards.length && isWide) {
-    // Rows of three; a short row keeps the cards a third wide
-    const rows: ReactNode[][] = [];
-    for (let index = 0; index < cards.length; index += CARDS_PER_ROW) {
-      rows.push(cards.slice(index, index + CARDS_PER_ROW));
+  // Wide, rows of three; a short row keeps the cards a third wide
+  const layOut = (list: ReactNode[], isFold: boolean) => {
+    if (!isWide) {
+      return (
+        <YStack gap="$2">
+          {list.map((card, index) =>
+            isFold ? (
+              <YStack key={index} {...getListRowMotion(index, reduceMotion)}>
+                {card}
+              </YStack>
+            ) : (
+              card
+            ),
+          )}
+        </YStack>
+      );
     }
-    grid = (
+    const rows: ReactNode[][] = [];
+    for (let index = 0; index < list.length; index += CARDS_PER_ROW) {
+      rows.push(list.slice(index, index + CARDS_PER_ROW));
+    }
+    return (
       <YStack gap="$3">
         {rows.map((row, rowIndex) => (
-          <XStack key={rowIndex} gap="$3">
+          <XStack
+            key={rowIndex}
+            gap="$3"
+            {...(isFold ? getListRowMotion(rowIndex, reduceMotion) : undefined)}
+          >
             {row.map((card, index) => (
               <Stack key={index} flex={1} flexBasis={0} minWidth={0}>
                 {card}
@@ -321,9 +355,50 @@ function BasicEarnDesktopYourLoans({
         ))}
       </YStack>
     );
-  } else if (cards.length) {
-    grid = <YStack gap="$2">{cards}</YStack>;
-  }
+  };
+  const moreCards = cards.slice(CARD_LIMIT);
+  const grid: ReactNode = cards.length ? (
+    <YStack>
+      {layOut(cards.slice(0, CARD_LIMIT), false)}
+      {/* The rest unfold under the first cards as the holdings list's rows
+          do, and fade as they fold */}
+      {moreCards.length ? (
+        <Accordion
+          type="single"
+          collapsible
+          value={isExpanded ? MORE_CARDS_VALUE : ''}
+        >
+          <Accordion.Item value={MORE_CARDS_VALUE}>
+            <Accordion.HeightAnimator
+              transition={getListHeightTransition(isExpanded, reduceMotion)}
+            >
+              <Accordion.Content
+                unstyled
+                transition="quick"
+                animateOnly={ANIMATE_ONLY_OPACITY}
+                exitStyle={LIST_HIDDEN_STYLE}
+              >
+                <YStack pt={isWide ? '$3' : '$2'}>
+                  {layOut(moreCards, true)}
+                </YStack>
+              </Accordion.Content>
+            </Accordion.HeightAnimator>
+          </Accordion.Item>
+        </Accordion>
+      ) : null}
+      {moreCards.length ? (
+        // On the cards' content edge
+        <XStack pl="$4">
+          <EarnMoreToggle
+            testID="earn-desktop-your-loans-more"
+            count={moreCards.length}
+            isExpanded={isExpanded}
+            onPress={() => setIsExpanded((prev) => !prev)}
+          />
+        </XStack>
+      ) : null}
+    </YStack>
+  ) : null;
 
   return (
     // The cards come and go with the room under them, easing the list below
@@ -342,12 +417,24 @@ function BasicEarnDesktopYourLoans({
 
 export const EarnDesktopYourLoans = memo(BasicEarnDesktopYourLoans);
 
-/** A loan's market opens on the Borrow page, the market's own page */
-export function useEarnDesktopOpenBorrowMarket() {
+/**
+ * A Your loans card opens My portfolio on its market's card (demo 11-03),
+ * where the market's rows withdraw, repay and set collateral. The apps'
+ * My portfolio reads no lending market of its own, so there the card opens
+ * the market's Borrow page, as before
+ */
+export function useEarnDesktopOpenYourLoan() {
   const navigation = useAppNavigation();
   return useCallback(
-    (market: IBorrowMarketItem) =>
-      BorrowNavigation.pushToBorrowHome(navigation, market),
+    (market: IBorrowMarketItem) => {
+      if (platformEnv.isNative) {
+        BorrowNavigation.pushToBorrowHome(navigation, market);
+        return;
+      }
+      EarnNavigation.pushToEarnPositions(navigation, {
+        focusMarket: buildBorrowMarketKey(market),
+      });
+    },
     [navigation],
   );
 }

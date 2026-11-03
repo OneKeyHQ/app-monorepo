@@ -33,6 +33,8 @@ import type {
   IEarnTooltip,
 } from '@onekeyhq/shared/types/staking';
 
+import type { IEarnLendingReserveRef } from './earnLendingPositions';
+
 /**
  * View model of the phone "My portfolio" DeFi Assets tab (OK-61377).
  *
@@ -79,6 +81,13 @@ export type IEarnPositionSectionAsset = IDeFiAsset & {
   status?: 'pending';
   /** reward rows: the detail row's explanation, opened from the Pending badge */
   tooltip?: IEarnTooltip;
+  /**
+   * Supplied and Borrowed rows the client read from a lending market (web,
+   * demo 11-03): the row's reserve, what its Withdraw or Repay and its
+   * collateral switch act on. It comes in with the token itself
+   * (withLendingMarketPositions); the API's rows have none
+   */
+  lending?: IEarnLendingReserveRef;
 };
 
 /** A reward the card can collect: the reward row with the claim the server attached. */

@@ -1,4 +1,4 @@
-import { Fragment, memo, useState } from 'react';
+import { Fragment, memo, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -16,16 +16,16 @@ import { ProtocolValueCell } from '@onekeyhq/kit/src/components/DeFi/ProtocolVal
 import { isProtocolAssetValueUnavailable } from '@onekeyhq/kit/src/components/DeFi/protocolValueUtils';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { ProtocolAssetBalanceText } from '@onekeyhq/kit/src/views/Home/components/DeFiListBlock/ProtocolAssetBalanceText';
-import {
-  BALANCE_FLEX_WITHOUT_REWARDS,
-  POSITION_COLUMN_WIDTH,
-  PROTOCOL_TABLE_COLUMN_GAP,
-  USD_FLEX_WITHOUT_REWARDS,
-} from '@onekeyhq/kit/src/views/Home/components/DeFiListBlock/ProtocolUnifiedTable';
+import { PROTOCOL_TABLE_COLUMN_GAP } from '@onekeyhq/kit/src/views/Home/components/DeFiListBlock/ProtocolUnifiedTable';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { buildKeyboardPressProps } from '../../../components/desktopHome/earnDesktopPressable';
 import { EarnTestIDs } from '../../../testIDs';
+import {
+  LendingCardScope,
+  LendingCollateralLine,
+  LendingHealthLine,
+} from '../EarnLendingActions';
 import { EarnPositionHealthFactorRow } from '../EarnPositionHealthFactorRow';
 import {
   DaysLeftText,
@@ -33,33 +33,68 @@ import {
   PendingBadge,
   RowAction,
   daysLeftOf,
+  rowButtonOf,
 } from '../mobile/EarnHoldingSections';
 import { PositionPnlLine, useHoldingRedeem } from '../mobile/EarnPositionCard';
 import { isCheckRow } from '../mobile/earnPositionModel';
 import {
   hasPositionDetailPage,
   holdingRowActionOf,
+  lendingMarketOf,
 } from '../mobile/myPortfolio.utils';
 
+import {
+  TOTAL_CHEVRON_SLOT,
+  positionTableColumns,
+} from './positionTableLayout';
+
+import type { IPositionTableColumns } from './positionTableLayout';
 import type { IEarnHoldingRedeem } from '../mobile/EarnHoldingSections';
 import type { IEarnPositionCardHandlers } from '../mobile/EarnPositionCard';
 import type {
   IEarnPositionSectionAsset,
-  IEarnPositionSectionView,
   IEarnPositionView,
 } from '../mobile/earnPositionModel';
+import type { IEarnHoldingRowAction } from '../mobile/myPortfolio.utils';
 
 const TABULAR_NUMS: ['tabular-nums'] = ['tabular-nums'];
-// Wide enough for the longest row action ("Sell Early") or the Pending badge
-const ACTION_COLUMN_WIDTH = 112;
+// Where a row's text starts past its token (sm, $6) and their gap ($2): the
+// lines hung under a row start here
+const ROW_TEXT_INSET = '$8';
 
-function HoldingTableRow({
+/** The row's button or Pending badge, where the table's placement puts it */
+function HoldingRowAction({
   asset,
-  section,
+  action,
   redeem,
 }: {
   asset: IEarnPositionSectionAsset;
-  section: IEarnPositionSectionView;
+  action: IEarnHoldingRowAction | undefined;
+  redeem?: IEarnHoldingRedeem;
+}) {
+  const button = rowButtonOf(action);
+  if (button) {
+    return (
+      <RowAction
+        action={button}
+        symbol={asset.symbol}
+        tokenAddress={asset.address}
+        redeem={redeem}
+      />
+    );
+  }
+  return action?.kind === 'pending' ? <PendingBadge asset={asset} /> : null;
+}
+
+function HoldingTableRow({
+  asset,
+  action,
+  columns,
+  redeem,
+}: {
+  asset: IEarnPositionSectionAsset;
+  action: IEarnHoldingRowAction | undefined;
+  columns: IPositionTableColumns;
   redeem?: IEarnHoldingRedeem;
 }) {
   const intl = useIntl();
@@ -67,108 +102,112 @@ function HoldingTableRow({
   const priceUnavailableLabel = intl.formatMessage({
     id: ETranslations.wallet_price_unavailable,
   });
-  const action = holdingRowActionOf({
-    kind: section.kind,
-    asset,
-    redeemable: Boolean(redeem),
-  });
-  const button =
-    action?.kind === 'redeem' || action?.kind === 'button' ? action : undefined;
   // Lista's reward is unknown until Check reveals it: the name alone
   const isCheck = isCheckRow(asset);
   const days = daysLeftOf(asset.unlockAt);
+  const actionNode = action ? (
+    <HoldingRowAction asset={asset} action={action} redeem={redeem} />
+  ) : null;
   return (
-    <XStack
-      px="$2"
-      py="$2"
-      ai="center"
-      minHeight={52}
-      gap={PROTOCOL_TABLE_COLUMN_GAP}
-    >
-      <XStack
-        width={POSITION_COLUMN_WIDTH}
-        flexShrink={0}
-        minWidth={0}
-        ai="center"
-        gap="$2"
-      >
-        <Token size="sm" tokenImageUri={asset.meta?.logoUrl} />
-        <SizableText
-          size="$bodyMdMedium"
-          numberOfLines={1}
-          flex={1}
-          minWidth={0}
-        >
-          {asset.symbol}
-        </SizableText>
-      </XStack>
-      <YStack
-        flex={BALANCE_FLEX_WITHOUT_REWARDS}
-        flexBasis={0}
-        minWidth={0}
-        gap="$0.5"
-      >
-        {isCheck ? null : (
-          // The amount alone: the Value column beside it has the figure
-          <ProtocolAssetBalanceText
-            asset={asset}
-            currencySymbol={currencyInfo.symbol}
-            priceUnavailableLabel={priceUnavailableLabel}
-            showFiatValue={false}
-          />
-        )}
-        {days ? <DaysLeftText days={days} /> : null}
-      </YStack>
-      <Stack
-        flex={USD_FLEX_WITHOUT_REWARDS}
-        flexBasis={0}
-        minWidth={0}
-        ai="flex-end"
-      >
-        {isCheck ? null : (
-          <ProtocolValueCell
-            value={asset.value}
-            currencySymbol={currencyInfo.symbol}
-            priceUnavailableLabel={priceUnavailableLabel}
-            isUnavailable={isProtocolAssetValueUnavailable(asset)}
+    <YStack {...columns.inset} py="$2" gap="$1">
+      <XStack ai="center" minHeight={36} gap={PROTOCOL_TABLE_COLUMN_GAP}>
+        <XStack {...columns.first} ai="center" gap="$2">
+          <Token size="sm" tokenImageUri={asset.meta?.logoUrl} />
+          <SizableText
             size="$bodyMdMedium"
-            textAlign="right"
             numberOfLines={1}
-            fontVariant={TABULAR_NUMS}
-          />
-        )}
-      </Stack>
-      <XStack width={ACTION_COLUMN_WIDTH} flexShrink={0} jc="flex-end">
-        {button ? (
-          <RowAction
-            action={button}
-            symbol={asset.symbol}
-            tokenAddress={asset.address}
-            redeem={redeem}
-          />
+            flex={1}
+            minWidth={0}
+          >
+            {asset.symbol}
+          </SizableText>
+          {columns.placement === 'name' && actionNode ? (
+            <XStack flexShrink={0} ml="$1">
+              {actionNode}
+            </XStack>
+          ) : null}
+        </XStack>
+        <YStack {...columns.second} gap="$0.5">
+          {isCheck ? null : (
+            // The amount alone: the Value column beside it has the figure
+            <ProtocolAssetBalanceText
+              asset={asset}
+              currencySymbol={currencyInfo.symbol}
+              priceUnavailableLabel={priceUnavailableLabel}
+              showFiatValue={false}
+            />
+          )}
+          {days ? <DaysLeftText days={days} /> : null}
+        </YStack>
+        <Stack {...columns.value}>
+          {isCheck ? null : (
+            <ProtocolValueCell
+              value={asset.value}
+              currencySymbol={currencyInfo.symbol}
+              priceUnavailableLabel={priceUnavailableLabel}
+              isUnavailable={isProtocolAssetValueUnavailable(asset)}
+              size="$bodyMdMedium"
+              textAlign={columns.placement === 'name' ? 'right' : 'left'}
+              justifyContent={
+                columns.placement === 'name' ? 'flex-end' : 'flex-start'
+              }
+              numberOfLines={1}
+              fontVariant={TABULAR_NUMS}
+            />
+          )}
+        </Stack>
+        {columns.trailing && actionNode ? (
+          <XStack {...columns.trailing}>{actionNode}</XStack>
         ) : null}
-        {action?.kind === 'pending' ? <PendingBadge asset={asset} /> : null}
       </XStack>
-    </XStack>
+      <LendingCollateralLine asset={asset} pl={ROW_TEXT_INSET} />
+    </YStack>
   );
 }
 
 /**
  * A holding's panels as the wallet DeFi Portfolio's sectioned table: a
- * subdued header strip per panel (its title, Balance, Value), then a line
- * per token with the row's own action at the end, where the phone puts it.
- * The effective deposit hangs under the deposit rows' balances. The wide
+ * subdued header strip per panel (its title, Amount, Value), then a line
+ * per token, the row's own action where the placement puts it (demo 11-03:
+ * beside the name, or at the card's edge) and no room held for rows
+ * without one. The effective deposit hangs under the deposit rows'
+ * balances, a lending supply's collateral switch under its name. The wide
  * detail page shows its holding with the same table
  */
 export function HoldingSectionsTable({
   position,
   redeem,
+  endInset,
 }: {
   position: IEarnPositionView;
   redeem?: IEarnHoldingRedeem;
+  /** the room kept at the right: the chevron after the total above it */
+  endInset?: number;
 }) {
   const intl = useIntl();
   const { effectiveDeposit } = position;
+  // Every row's action once, so the table knows whether it has any
+  const sections = useMemo(
+    () =>
+      position.sections.map((section) => ({
+        section,
+        rows: section.assets.map((asset) => ({
+          asset,
+          action: holdingRowActionOf({
+            kind: section.kind,
+            asset,
+            redeemable: Boolean(redeem),
+          }),
+        })),
+      })),
+    [position.sections, redeem],
+  );
+  const columns = positionTableColumns({
+    hasActions: sections.some(({ rows }) =>
+      rows.some(({ action }) => Boolean(action)),
+    ),
+    endInset,
+  });
   // The first column names what the tokens are (Deposited, Supplied); this
   // one says how many: never a bare "Balance", which elsewhere is the
   // wallet's (demo 10-29)
@@ -178,17 +217,17 @@ export function HoldingSectionsTable({
   const valueLabel = intl.formatMessage({ id: ETranslations.global_value });
   return (
     <YStack>
-      {position.sections.map((section, sectionIndex) => (
+      {sections.map(({ section, rows }, sectionIndex) => (
         <Fragment key={section.key}>
           <XStack
-            px="$2"
+            {...columns.inset}
             py="$2"
             mt={sectionIndex === 0 ? '$0' : '$2'}
             ai="center"
             bg="$bgSubdued"
             gap={PROTOCOL_TABLE_COLUMN_GAP}
           >
-            <Stack width={POSITION_COLUMN_WIDTH} flexShrink={0} minWidth={0}>
+            <Stack {...columns.first}>
               <SizableText
                 size="$bodySmMedium"
                 color="$textSubdued"
@@ -197,45 +236,40 @@ export function HoldingSectionsTable({
                 {section.title}
               </SizableText>
             </Stack>
-            <Stack
-              flex={BALANCE_FLEX_WITHOUT_REWARDS}
-              flexBasis={0}
-              minWidth={0}
-            >
-              <SizableText size="$bodySmMedium" color="$textSubdued">
+            <Stack {...columns.second}>
+              <SizableText
+                size="$bodySmMedium"
+                color="$textSubdued"
+                numberOfLines={1}
+              >
                 {balanceLabel}
               </SizableText>
             </Stack>
-            <Stack
-              flex={USD_FLEX_WITHOUT_REWARDS}
-              flexBasis={0}
-              minWidth={0}
-              ai="flex-end"
-            >
-              <SizableText size="$bodySmMedium" color="$textSubdued">
+            <Stack {...columns.value}>
+              <SizableText
+                size="$bodySmMedium"
+                color="$textSubdued"
+                numberOfLines={1}
+              >
                 {valueLabel}
               </SizableText>
             </Stack>
-            <Stack width={ACTION_COLUMN_WIDTH} flexShrink={0} />
           </XStack>
-          {section.assets.map((asset, index) => (
+          {rows.map(({ asset, action }, index) => (
             <HoldingTableRow
               key={`${section.key}-${asset.symbol}-${index}`}
               asset={asset}
-              section={section}
+              action={action}
+              columns={columns}
               redeem={redeem}
             />
           ))}
           {effectiveDeposit &&
           (section.kind === 'deposited' || section.kind === 'supplied') ? (
-            <XStack px="$2" pb="$2" gap={PROTOCOL_TABLE_COLUMN_GAP}>
-              <Stack width={POSITION_COLUMN_WIDTH} flexShrink={0} />
-              {/* The line has the Value column too, empty on it, so it
-                  keeps to one line where the table is narrow (the wide
-                  detail page) */}
+            <XStack {...columns.inset} pb="$2" gap={PROTOCOL_TABLE_COLUMN_GAP}>
+              <Stack {...columns.first} />
               <XStack
-                flex={BALANCE_FLEX_WITHOUT_REWARDS + USD_FLEX_WITHOUT_REWARDS}
-                flexBasis={0}
+                flex={1}
                 minWidth={0}
                 ai="center"
                 columnGap="$2"
@@ -243,7 +277,6 @@ export function HoldingSectionsTable({
               >
                 <EffectiveDepositText effectiveDeposit={effectiveDeposit} />
               </XStack>
-              <Stack width={ACTION_COLUMN_WIDTH} flexShrink={0} />
             </XStack>
           ) : null}
         </Fragment>
@@ -257,7 +290,8 @@ export function HoldingSectionsTable({
  * (badge and name, then the PnL, the value and the way to the detail page,
  * the whole line opening it), the health factor of a loan, and the panels
  * as a table. The same view, the same Redeem and the same row actions as
- * the phone card.
+ * the phone card. A lending market's card read from the market also has
+ * the market's E-Mode on its Health Factor line (demo 11-03).
  */
 function EarnPositionDesktopBlockCmp({
   position,
@@ -273,6 +307,15 @@ function EarnPositionDesktopBlockCmp({
   const openDetail =
     canOpen && action ? () => onManage?.(action.target) : undefined;
   const redeem = useHoldingRedeem(position, onRedeem, onWarmRedeem);
+  const lendingMarket = lendingMarketOf(position);
+  // The values end under the header's own, its chevron's room kept
+  const table = (
+    <HoldingSectionsTable
+      position={position}
+      redeem={redeem}
+      endInset={TOTAL_CHEVRON_SLOT}
+    />
+  );
   // The name and chevron brighten on hover, as the DeFi home's tile titles do
   const [isHovered, setIsHovered] = useState(false);
   const isLit = Boolean(openDetail) && isHovered;
@@ -348,10 +391,19 @@ function EarnPositionDesktopBlockCmp({
           </XStack>
         </XStack>
       </XStack>
-      {meta?.kind === 'healthFactor' ? (
-        <EarnPositionHealthFactorRow meta={meta} />
-      ) : null}
-      <HoldingSectionsTable position={position} redeem={redeem} />
+      {lendingMarket ? (
+        <LendingCardScope market={lendingMarket}>
+          <LendingHealthLine meta={meta} />
+          {table}
+        </LendingCardScope>
+      ) : (
+        <>
+          {meta?.kind === 'healthFactor' ? (
+            <EarnPositionHealthFactorRow meta={meta} />
+          ) : null}
+          {table}
+        </>
+      )}
     </YStack>
   );
 }

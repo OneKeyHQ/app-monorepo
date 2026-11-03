@@ -25,6 +25,7 @@ import type {
 
 import { buildKeyboardPressProps } from '../../../components/desktopHome/earnDesktopPressable';
 import { EarnTestIDs } from '../../../testIDs';
+import { LendingCardScope, LendingHealthLine } from '../EarnLendingActions';
 import { EarnPositionHealthFactorRow } from '../EarnPositionHealthFactorRow';
 
 import { EarnHoldingSections } from './EarnHoldingSections';
@@ -32,6 +33,7 @@ import {
   canRedeemFromCard,
   hasPositionDetailPage,
   isPositiveAmountText,
+  lendingMarketOf,
   sellsEarly,
 } from './myPortfolio.utils';
 
@@ -212,6 +214,7 @@ function EarnPositionCardCmp({
   const openDetail =
     canOpen && action ? () => onManage?.(action.target) : undefined;
   const redeem = useHoldingRedeem(position, onRedeem, onWarmRedeem);
+  const lendingMarket = lendingMarketOf(position);
 
   return (
     <YStack gap="$3" testID={EarnTestIDs.portfolioItem(source.protocolName)}>
@@ -286,11 +289,21 @@ function EarnPositionCardCmp({
         ) : null}
       </YStack>
 
-      {meta?.kind === 'healthFactor' ? (
-        <EarnPositionHealthFactorRow meta={meta} />
-      ) : null}
-
-      <EarnHoldingSections position={position} redeem={redeem} />
+      {lendingMarket ? (
+        // A lending market's card read from the market: its E-Mode under
+        // the Health Factor (demo 11-03)
+        <LendingCardScope market={lendingMarket}>
+          <LendingHealthLine meta={meta} stacked />
+          <EarnHoldingSections position={position} redeem={redeem} />
+        </LendingCardScope>
+      ) : (
+        <>
+          {meta?.kind === 'healthFactor' ? (
+            <EarnPositionHealthFactorRow meta={meta} />
+          ) : null}
+          <EarnHoldingSections position={position} redeem={redeem} />
+        </>
+      )}
     </YStack>
   );
 }

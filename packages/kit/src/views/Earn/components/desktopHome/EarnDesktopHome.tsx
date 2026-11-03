@@ -17,9 +17,7 @@ import type {
   IEarnPageBannerListItem,
 } from '@onekeyhq/shared/types/earn';
 import { EAvailableAssetsTypeEnum } from '@onekeyhq/shared/types/earn';
-import type { IBorrowMarketItem } from '@onekeyhq/shared/types/staking';
 
-import { BorrowNavigation } from '../../../Borrow/borrowUtils';
 import { EarnNavigation } from '../../earnUtils';
 import { mergeSimpleEarnWithStakingAssets } from '../../utils/availableAssetsUtils';
 import { EarnHomeBanner } from '../EarnHomeBanner';
@@ -46,6 +44,7 @@ import {
 import { buildKeyboardPressProps } from './earnDesktopPressable';
 import { EarnDesktopRewardPills } from './EarnDesktopRewardPills';
 import { EarnDesktopTiles } from './EarnDesktopTiles';
+import { useEarnDesktopOpenYourLoan } from './EarnDesktopYourLoans';
 import { publishHomeNetWorth } from './earnNetWorthStore';
 import { EarnPhoneHome } from './EarnPhoneHome';
 import { useContentStable } from './useContentStable';
@@ -526,26 +525,22 @@ export function EarnDesktopHome({
     }
   }, [openRequest]);
   const handleOpenHoldRow = useEarnDesktopOpenHoldRow();
-  const handleOpenBorrow = useCallback(
-    (market?: IBorrowMarketItem) => {
-      BorrowNavigation.pushToBorrowHome(navigation, market);
-    },
-    [navigation],
-  );
+  const handleOpenYourLoan = useEarnDesktopOpenYourLoan();
   const handleOpenLoanPair = useEarnDesktopOpenLoanPair();
-  // The account's loans over the Loans list, each opening its market's page
+  // The account's loans over the Loans list, each opening its market's card
+  // on My portfolio
   const yourLoans = useMemo(
     () => ({
       loans: accountMarkets.loans,
       isLoaded: accountMarkets.isLoaded,
       accountScope: accountMarkets.accountScope,
-      onOpenMarket: handleOpenBorrow,
+      onOpenMarket: handleOpenYourLoan,
     }),
     [
       accountMarkets.accountScope,
       accountMarkets.isLoaded,
       accountMarkets.loans,
-      handleOpenBorrow,
+      handleOpenYourLoan,
     ],
   );
 

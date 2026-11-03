@@ -18,7 +18,7 @@ import {
   EarnDesktopBorrowTab,
   useEarnDesktopOpenLoanPair,
 } from '../../components/desktopHome/EarnDesktopBorrowTab';
-import { useEarnDesktopOpenBorrowMarket } from '../../components/desktopHome/EarnDesktopYourLoans';
+import { useEarnDesktopOpenYourLoan } from '../../components/desktopHome/EarnDesktopYourLoans';
 import {
   useEarnDesktopAccountMarkets,
   useEarnDesktopMarkets,
@@ -44,7 +44,8 @@ function EarnLoansContent() {
     isListReady,
     isActive,
   });
-  const handleOpenMarket = useEarnDesktopOpenBorrowMarket();
+  // A loan's card opens its market's card on My portfolio
+  const handleOpenMarket = useEarnDesktopOpenYourLoan();
   const yourLoans = useMemo(
     () => ({
       loans: accountMarkets.loans,

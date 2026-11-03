@@ -1,7 +1,6 @@
-import { memo, useCallback, useEffect, useRef, useState } from 'react';
+import { memo, useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
-import { useReducedMotion } from 'react-native-reanimated';
 
 import { Empty, Spinner, Stack, YStack } from '@onekeyhq/components';
 import { useCurrency } from '@onekeyhq/kit/src/components/Currency';
@@ -16,6 +15,7 @@ import type {
 import { EarnTestIDs } from '../../../testIDs';
 import { GroupRow, useGroupExpansion } from '../mobile/GroupRow';
 import { useRepeatedProtocolNetworkNames } from '../mobile/useRepeatedProtocolNetworkNames';
+import { useCardFocus, useFocusRequestOnce } from '../useCardFocus';
 
 import { EarnPortfolioOverview } from './EarnPortfolioOverview';
 import { EarnPositionDesktopBlock } from './EarnPositionDesktopBlock';
@@ -24,51 +24,6 @@ import type { IEarnPositionCardHandlers } from '../mobile/EarnPositionCard';
 import type { IEarnProtocolView } from '../mobile/earnPositionModel';
 
 const TABULAR_NUMS: ['tabular-nums'] = ['tabular-nums'];
-// The gap between the cards ($4)
-const CARD_SCROLL_MARGIN_TOP = 16;
-// The scroll to a card counts as done once the card has held still this
-// many frames where the scroll was taking it. Time alone can't tell: a long
-// first render holds the smooth scroll back past any short wait
-const SETTLE_FRAMES = 4;
-// A scroll that never gets there (the page reflowed under it) flashes anyway
-const SETTLE_TIMEOUT_MS = 2000;
-// The card's header lights up a step for about 600 ms in all: 150 ms in,
-// held, 150 ms back
-const HEADER_FLASH_MS = 450;
-// A request from the home's split waits this long for its cards to load
-const FOCUS_REQUEST_TTL_MS = 10_000;
-
-const NO_KEYS: ReadonlySet<string> = new Set();
-
-function findScrollParent(node: HTMLElement): HTMLElement | null {
-  let parent = node.parentElement;
-  while (parent) {
-    const { overflowY } = getComputedStyle(parent);
-    if (overflowY === 'auto' || overflowY === 'scroll') {
-      return parent;
-    }
-    parent = parent.parentElement;
-  }
-  return null;
-}
-
-// The card's top at the page's top, its gap above it; or as near as the page
-// goes, the last cards stopping short with the page at its end
-function isAtScrollTarget(node: HTMLElement, scroller: HTMLElement) {
-  const offset =
-    node.getBoundingClientRect().top -
-    scroller.getBoundingClientRect().top -
-    CARD_SCROLL_MARGIN_TOP;
-  if (Math.abs(offset) < 2) {
-    return true;
-  }
-  if (offset > 0) {
-    return (
-      scroller.scrollTop + scroller.clientHeight >= scroller.scrollHeight - 1
-    );
-  }
-  return scroller.scrollTop <= 0;
-}
 
 /**
  * DeFi Assets in the wide layout, the way the wallet DeFi Portfolio reads on
@@ -78,6 +33,7 @@ function isAtScrollTarget(node: HTMLElement, scroller: HTMLElement) {
  */
 function BasicDeFiAssetsDesktopTab({
   focusRequest,
+  focusCardRequest,
   protocols,
   deFiProtocols,
   protocolMap,
@@ -89,6 +45,8 @@ function BasicDeFiAssetsDesktopTab({
 }: {
   /** A share of the home's split: its protocols' cards, once they are in */
   focusRequest?: { protocols: string[]; at: number };
+  /** A Your loans card: its market's one card, once it is in */
+  focusCardRequest?: { cardKeys: string[]; at: number };
   protocols: IEarnProtocolView[];
   deFiProtocols: IDeFiProtocol[];
   protocolMap: Record<string, IProtocolSummary>;
@@ -98,90 +56,18 @@ function BasicDeFiAssetsDesktopTab({
   const intl = useIntl();
   const currencyInfo = useCurrency();
   const expansion = useGroupExpansion();
-  const { open } = expansion;
-  const reduceMotion = useReducedMotion();
   const networkNames = useRepeatedProtocolNetworkNames(protocols);
-  const anchorsRef = useRef(new Map<string, HTMLElement>());
-  // The cards a tile or a share scrolled to, marked once the page stops
-  const [flashKeys, setFlashKeys] = useState<ReadonlySet<string>>(NO_KEYS);
-  const flashCleanupRef = useRef<(() => void) | undefined>(undefined);
-  useEffect(() => () => flashCleanupRef.current?.(), []);
-  const flashWhenSettled = useCallback((keys: string[], node: HTMLElement) => {
-    flashCleanupRef.current?.();
-    setFlashKeys(NO_KEYS);
-    const scroller = findScrollParent(node);
-    const startedAt = Date.now();
-    let lastTop = Number.NaN;
-    let stillFrames = 0;
-    let frame: number | undefined;
-    let timer: ReturnType<typeof setTimeout> | undefined;
-    const watch = () => {
-      const top = node.getBoundingClientRect().top;
-      stillFrames = Math.abs(top - lastTop) < 0.5 ? stillFrames + 1 : 0;
-      lastTop = top;
-      const isThere = !scroller || isAtScrollTarget(node, scroller);
-      if (
-        (isThere && stillFrames >= SETTLE_FRAMES) ||
-        Date.now() - startedAt > SETTLE_TIMEOUT_MS
-      ) {
-        frame = undefined;
-        setFlashKeys(new Set(keys));
-        timer = setTimeout(() => setFlashKeys(NO_KEYS), HEADER_FLASH_MS);
-        return;
-      }
-      frame = requestAnimationFrame(watch);
-    };
-    frame = requestAnimationFrame(watch);
-    flashCleanupRef.current = () => {
-      if (frame !== undefined) {
-        cancelAnimationFrame(frame);
-      }
-      clearTimeout(timer);
-    };
-  }, []);
+  // The cards a tile or a request scrolls to, as the wallet's tiles do
+  const { flashKeys, registerAnchor, scrollToCards } = useCardFocus({
+    isOpen: expansion.isExpanded,
+    open: expansion.open,
+  });
   const positionsLabel = intl.formatMessage({
     id: ETranslations.earn_positions,
   });
   const priceUnavailableLabel = intl.formatMessage({
     id: ETranslations.wallet_price_unavailable,
   });
-
-  const registerAnchor = useCallback(
-    (key: string, node: HTMLElement | null) => {
-      if (node) {
-        anchorsRef.current.set(key, node);
-      } else {
-        anchorsRef.current.delete(key);
-      }
-    },
-    [],
-  );
-  // Opens the cards and scrolls the page to the first, as the wallet's tiles
-  // do, leaving the cards' gap above it. Where the page can't bring it to
-  // the top (the last cards), the headers' flash still shows which they are
-  const scrollToCards = useCallback(
-    (keys: string[]) => {
-      const node = keys.length ? anchorsRef.current.get(keys[0]) : undefined;
-      if (!node || typeof node.scrollIntoView !== 'function') {
-        return false;
-      }
-      keys.forEach((key) => open(key));
-      node.style.scrollMarginTop = `${CARD_SCROLL_MARGIN_TOP}px`;
-      node.scrollIntoView({
-        behavior: reduceMotion ? 'auto' : 'smooth',
-        block: 'start',
-      });
-      // Focus goes to the card, so Tab goes on from there (its header next)
-      // and not from what was pressed: the home's split stays under this
-      // page. The card takes it without a ring; the header's flash marks it
-      node.tabIndex = -1;
-      node.style.outline = 'none';
-      node.focus({ preventScroll: true });
-      flashWhenSettled(keys, node);
-      return true;
-    },
-    [open, flashWhenSettled, reduceMotion],
-  );
   const handlePressProtocol = useCallback(
     (protocol: IDeFiProtocol) => {
       scrollToCards([
@@ -208,19 +94,22 @@ function BasicDeFiAssetsDesktopTab({
   );
   // The home's split asked for a protocol: done once its cards are in, or
   // dropped if they don't come
-  const doneFocusAtRef = useRef<number | undefined>(undefined);
-  useEffect(() => {
-    if (
-      !focusRequest ||
-      doneFocusAtRef.current === focusRequest.at ||
-      Date.now() - focusRequest.at > FOCUS_REQUEST_TTL_MS
-    ) {
-      return;
-    }
-    if (handleOpenSplitProtocols(focusRequest.protocols)) {
-      doneFocusAtRef.current = focusRequest.at;
-    }
-  }, [focusRequest, handleOpenSplitProtocols]);
+  useFocusRequestOnce(
+    focusRequest,
+    useCallback(
+      (request: { protocols: string[] }) =>
+        handleOpenSplitProtocols(request.protocols),
+      [handleOpenSplitProtocols],
+    ),
+  );
+  // A Your loans card asked for its market's card, the same way
+  useFocusRequestOnce(
+    focusCardRequest,
+    useCallback(
+      (request: { cardKeys: string[] }) => scrollToCards(request.cardKeys),
+      [scrollToCards],
+    ),
+  );
 
   let placeholder: React.ReactNode = null;
   if (protocols.length === 0) {
