@@ -164,11 +164,39 @@ index b82f1e9..da93805 100644
  }
  
  #pragma mark - Descriptors
+diff --git a/node_modules/@stoprocent/noble/lib/mac/src/noble_mac.mm b/node_modules/@stoprocent/noble/lib/mac/src/noble_mac.mm
+index f62c39f..8bb5f03 100644
+--- a/node_modules/@stoprocent/noble/lib/mac/src/noble_mac.mm
++++ b/node_modules/@stoprocent/noble/lib/mac/src/noble_mac.mm
+@@ -76,7 +76,11 @@ Napi::Value NobleMac::Connect(const Napi::CallbackInfo& info)
+     CHECK_MANAGER()
+     ARG1(String)
+     auto uuid = napiToUuidString(info[0].As<Napi::String>());
+-    [manager connect:uuid];
++    // OneKey patch: fail unavailable IDs instead of leaving connectAsync pending.
++    // [manager connect:uuid];
++    if (![manager connect:uuid]) {
++        Napi::Error::New(info.Env(), "Peripheral could not be retrieved for connection").ThrowAsJavaScriptException();
++    }
+     return info.Env().Undefined();
+ }
+
 diff --git a/node_modules/@stoprocent/noble/lib/noble.js b/node_modules/@stoprocent/noble/lib/noble.js
-index 94b4dc7..80ce70e 100644
+index 94b4dc7..756ebbc 100644
 --- a/node_modules/@stoprocent/noble/lib/noble.js
 +++ b/node_modules/@stoprocent/noble/lib/noble.js
-@@ -430,7 +430,13 @@ class Noble extends NobleEventEmitter {
+@@ -402,6 +402,10 @@ class Noble extends NobleEventEmitter {
+       // Also emit the general 'connect' event for a peripheral
+       peripheral.emit('connect', error);
+     } else {
++      // OneKey patch: a direct connect can fail before discovery creates a peripheral.
++      if (error) {
++        this.emit(`connect:${peripheralId}`, error);
++      }
+       this.emit('warning', `unknown peripheral ${peripheralId} connected!`);
+     }
+   }
+@@ -430,7 +434,13 @@ class Noble extends NobleEventEmitter {
      const peripheral = this._peripherals.get(peripheralId);
  
      if (peripheral) {
