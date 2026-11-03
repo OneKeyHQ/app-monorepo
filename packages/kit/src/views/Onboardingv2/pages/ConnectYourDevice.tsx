@@ -749,7 +749,13 @@ function USBOrBLEConnectionIndicator({
       platformEnv.isNative ? 120 : 0,
     );
     return () => clearTimeout(timeoutId);
-  }, [canAutoStartListing, listingDevice, tabValue, startBLEConnection, vendor]);
+  }, [
+    canAutoStartListing,
+    listingDevice,
+    tabValue,
+    startBLEConnection,
+    vendor,
+  ]);
 
   useEffect(
     () => () => {

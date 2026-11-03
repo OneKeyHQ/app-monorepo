@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
+import type { IDialogConfirmProps } from '@onekeyhq/components';
 import {
   Button,
   Dialog,
@@ -27,7 +28,6 @@ import {
 } from './foundDevicesFooterUtils';
 
 import type { IConnectionIndicatorVariant } from '../pages/ConnectionIndicator';
-import type { IDialogConfirmProps } from '@onekeyhq/components';
 import type { IDeviceType } from '@onekeyfe/hd-core';
 
 function FoundDevicesStatus({

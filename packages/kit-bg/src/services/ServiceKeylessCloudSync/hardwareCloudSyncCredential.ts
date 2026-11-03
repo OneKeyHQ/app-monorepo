@@ -235,7 +235,7 @@ export async function deriveHardwareCloudSyncKek({
   } catch (error) {
     // SDK errors may carry request/response objects; they must not reach RPC
     // error logging, analytics, or the message-signing UI.
-    rethrowAsHardwareCloudSyncUnlockError('Unlock failed', error);
+    return rethrowAsHardwareCloudSyncUnlockError('Unlock failed', error);
   } finally {
     first?.fill(0);
     second?.fill(0);

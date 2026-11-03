@@ -1287,8 +1287,9 @@ class ServiceKeylessCloudSync extends ServiceBase {
         isCurrent,
         beforeFlush: async () => {
           // Re-read after the await: the operation may have been superseded.
-          const stored = await this.isStoredHardwareSession(credential);
-          if (!isCurrent() || !stored) {
+          const sessionIsStored =
+            await this.isStoredHardwareSession(credential);
+          if (!isCurrent() || !sessionIsStored) {
             throw new HardwareCloudSyncCancelledError();
           }
           this.hardwareCloudKeyCommitting = true;
