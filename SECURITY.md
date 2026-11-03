@@ -303,22 +303,35 @@ The same fingerprint is published in several independent places. Before trusting
 - [keys.openpgp.org](https://keys.openpgp.org/vks/v1/by-fingerprint/EB68AE544F1FDD8CD264624FB369A67A90BF387B)
 - The OneKey Help Center: [Verify OneKey App Packages with GPG Signatures](https://help.onekey.so/en/articles/11461184-verify-onekey-app-packages-with-gpg-signatures)
 
-Steps:
+Download the installer and its matching `*.SHA256SUMS.asc` file into the same directory. Run the following steps one at a time, replacing the example filename with the file you downloaded.
 
 ```bash
 # 1. Import the key (from this repository, or from keys.openpgp.org)
 gpg --import docs/onekey-release-signing-key.asc
 # gpg --keyserver hkps://keys.openpgp.org --recv-keys EB68AE544F1FDD8CD264624FB369A67A90BF387B
 
-# 2. Confirm the fingerprint matches the one above
-gpg --fingerprint dev@onekey.so
+# 2. Confirm the imported key's fingerprint matches the one above
+gpg --fingerprint EB68AE544F1FDD8CD264624FB369A67A90BF387B
 
-# 3. Verify the signature on the checksum file
-gpg --verify OneKey-Wallet-<version>-<platform>.SHA256SUMS.asc
-
-# 4. Check the installer against the signed checksum
-shasum -a 256 --check OneKey-Wallet-<version>-<platform>.SHA256SUMS.asc
-# Windows: certutil -hashfile <installer> SHA256, then compare with the value in the .asc file
+# 3. Verify the signature and extract only the signed checksum text
+gpg --output signed-checksums.txt --decrypt "OneKey-Wallet-<version>-<platform>.SHA256SUMS.asc"
 ```
 
-Step 3 must report `Good signature from "onekeyhq developer <dev@onekey.so>"` with the primary key fingerprint above. If any step fails or the fingerprint differs, do not install the package, and contact <security@onekey.so>.
+Step 3 must succeed and report `Good signature from "onekeyhq developer <dev@onekey.so>"` with the primary key fingerprint above. The name or email alone is not proof of the signer's identity. If the command fails or the fingerprint differs, discard `signed-checksums.txt` and do not continue. When repeating the verification, remove any previous `signed-checksums.txt` first; never reuse output from an earlier or failed attempt.
+
+Only after confirming step 3, check the installer against the extracted signed text:
+
+```bash
+# 4. macOS / Linux: the intended installer must be listed and report OK
+shasum -a 256 --check signed-checksums.txt
+```
+
+On Windows, calculate the installer's hash:
+
+```cmd
+certutil -hashfile "OneKey-Wallet-<version>-<platform>.exe" SHA256
+```
+
+Compare it with the checksum for that exact installer filename in `signed-checksums.txt`.
+
+Never check the installer against the original `.asc` file directly: text before or after its signed message is not authenticated by GPG, but checksum tools or manual comparison can still accept it. If any step fails, the installer is not listed in the signed text, or a checksum or fingerprint differs, do not install the package, and contact <security@onekey.so>.
