@@ -182,23 +182,28 @@ index f62c39f..8bb5f03 100644
  }
 
 diff --git a/node_modules/@stoprocent/noble/lib/noble.js b/node_modules/@stoprocent/noble/lib/noble.js
-index 94b4dc7..756ebbc 100644
+index 94b4dc7b..dce0f2cf 100644
 --- a/node_modules/@stoprocent/noble/lib/noble.js
 +++ b/node_modules/@stoprocent/noble/lib/noble.js
-@@ -402,6 +402,10 @@ class Noble extends NobleEventEmitter {
-       // Also emit the general 'connect' event for a peripheral
-       peripheral.emit('connect', error);
+@@ -384,3 +384,9 @@ class Noble extends NobleEventEmitter {
+     // Proceed to initiate the connection
+-    this._bindings.connect(identifier, parameters);
++    // OneKey patch: settle synchronous native failures through normal connection cleanup.
++    // this._bindings.connect(identifier, parameters);
++    try {
++      this._bindings.connect(identifier, parameters);
++    } catch (error) {
++      this._onConnect(identifier, error);
++    }
+   }
+@@ -404,2 +410,6 @@ class Noble extends NobleEventEmitter {
      } else {
 +      // OneKey patch: a direct connect can fail before discovery creates a peripheral.
 +      if (error) {
 +        this.emit(`connect:${peripheralId}`, error);
 +      }
        this.emit('warning', `unknown peripheral ${peripheralId} connected!`);
-     }
-   }
-@@ -430,7 +434,13 @@ class Noble extends NobleEventEmitter {
-     const peripheral = this._peripherals.get(peripheralId);
- 
+@@ -432,3 +442,9 @@ class Noble extends NobleEventEmitter {
      if (peripheral) {
 +      const wasConnecting = peripheral.state === 'connecting';
        peripheral.state = 'disconnected';
@@ -208,5 +213,3 @@ index 94b4dc7..756ebbc 100644
 +        peripheral.emit('connect', connectError);
 +      }
        peripheral.emit('disconnect', reason);
-       this.emit(`disconnect:${peripheralId}`, reason);
-     } else {
