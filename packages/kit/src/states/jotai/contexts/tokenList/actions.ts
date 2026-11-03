@@ -93,6 +93,7 @@ class ContextJotaiActionsTokenList extends ContextJotaiActionsBase {
       payload: {
         disabled?: boolean;
         visible?: boolean;
+        loading?: boolean;
         request?: () => void;
       },
     ) => {

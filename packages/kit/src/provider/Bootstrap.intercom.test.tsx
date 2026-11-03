@@ -149,6 +149,9 @@ describe('Intercom startup identity synchronization', () => {
       () => ({ notifyIntercomOpenFailed: jest.fn() }),
     );
     jest.doMock('@onekeyhq/shared/src/modules3rdParty/intercom/utils', () => ({
+      ...jest.requireActual<
+        typeof import('@onekeyhq/shared/src/modules3rdParty/intercom/utils')
+      >('@onekeyhq/shared/src/modules3rdParty/intercom/utils'),
       getInstanceId: async () => 'test-instance',
       getIntercomLanguageOverride: async () => 'en',
     }));

@@ -18,10 +18,7 @@ import {
 } from '@onekeyhq/components';
 import { DOWNLOAD_DESKTOP_APP_URL } from '@onekeyhq/shared/src/config/appConfig';
 import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
-import { ECustomOneKeyHardwareError } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import { isHardwareErrorByCode } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
-import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
-import { isFirmwareUpdateCancellationError } from '@onekeyhq/shared/src/errors/utils/firmwareUpdateErrorUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
@@ -253,12 +250,15 @@ export function useFirmwareUpdateActions() {
       }
 
       let resolvedConnectId = connectId;
-      if (resolvedConnectId) {
+      // Desktop checks run inside the changelog page so navigation does not
+      // wait for USB discovery and repeat the same identity checks on entry.
+      if (resolvedConnectId && !platformEnv.isDesktop) {
         try {
-          resolvedConnectId =
+          const transport =
             await backgroundApiProxy.serviceHardware.checkDeviceReachableForFirmwareUpdate(
               { connectId: resolvedConnectId },
             );
+          resolvedConnectId = transport.connectId;
         } catch (error) {
           let errorTitle = ETranslations.firmware_update_install_page__title;
           let errorDescription: ETranslations | undefined;
@@ -270,33 +270,6 @@ export function useFirmwareUpdateActions() {
           ) {
             errorTitle = ETranslations.hardware_hardware_device_not_find_error;
             errorDescription = ETranslations.hardware_device_not_find_error;
-          } else if (
-            platformEnv.isDesktop &&
-            isHardwareErrorByCode({
-              error: error as IOneKeyError,
-              code: ECustomOneKeyHardwareError.FirmwareUpdateRequiresUsbTransport,
-            })
-          ) {
-            errorTitle = ETranslations.upgrade_use_usb;
-            errorDescription = ETranslations.upgrade_recommend_usb;
-          } else if (
-            platformEnv.isDesktop &&
-            isHardwareErrorByCode({
-              error: error as IOneKeyError,
-              code: HardwareErrorCode.FirmwareUpdateLimitOneDevice,
-            })
-          ) {
-            errorDescription =
-              ETranslations.update_only_one_usb_device_supported_for_upgrade;
-          } else if (
-            platformEnv.isDesktop &&
-            isHardwareErrorByCode({
-              error: error as IOneKeyError,
-              code: HardwareErrorCode.DeviceCheckDeviceIdError,
-            })
-          ) {
-            errorDescription =
-              ETranslations.hardware_device_information_is_inconsistent_it_may_be_caused_by_device_reset;
           }
           if (errorDescription) {
             (dialogHost ?? Dialog).show({
@@ -320,12 +293,6 @@ export function useFirmwareUpdateActions() {
               code: HardwareErrorCode.BleUnavailableWhileUsbConnected,
             })
           ) {
-            if (
-              platformEnv.isDesktop &&
-              !isFirmwareUpdateCancellationError(error as IOneKeyError)
-            ) {
-              errorToastUtils.showToastOfError(error);
-            }
             return;
           }
         }
