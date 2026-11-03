@@ -424,19 +424,25 @@ export class JotaiStorageNativeMMKV implements AsyncStorage<any> {
     }
   }
 
-  private async finishInterruptedReset(): Promise<void> {
-    await this.clearLegacyJotaiData();
+  private async finishInterruptedReset(retainLegacy = false): Promise<void> {
+    if (!retainLegacy) await this.clearLegacyJotaiData();
     this.mmkv.clearAll();
     this.mmkv.set(MMKV_MIGRATION_COMPLETE_KEY, '1');
-    this.mmkv.set(JOTAI_LEGACY_CLEANUP_COMPLETE_KEY, '1');
+    const legacyStateKey = retainLegacy
+      ? JOTAI_LEGACY_RETENTION_POLICY_KEY
+      : JOTAI_LEGACY_CLEANUP_COMPLETE_KEY;
+    const legacyStateValue = retainLegacy
+      ? JOTAI_LEGACY_RETENTION_POLICY_RETAINED
+      : '1';
+    this.mmkv.set(legacyStateKey, legacyStateValue);
     if (this.mmkv.getString(MMKV_MIGRATION_COMPLETE_KEY) !== '1') {
       throw new OneKeyLocalError(
         'Jotai reset migration marker verification failed',
       );
     }
-    if (this.mmkv.getString(JOTAI_LEGACY_CLEANUP_COMPLETE_KEY) !== '1') {
+    if (this.mmkv.getString(legacyStateKey) !== legacyStateValue) {
       throw new OneKeyLocalError(
-        'Jotai reset legacy cleanup marker verification failed',
+        'Jotai reset legacy state verification failed',
       );
     }
     await syncNativeStorageMMKV('onekey-jotai-states');
@@ -863,7 +869,13 @@ export class JotaiStorageNativeMMKV implements AsyncStorage<any> {
         'Jotai migration repair is no longer applicable',
       );
     }
-    await this.clearAllForReset();
+    this.migrationReady = false;
+    this.migrationPromise = undefined;
+    // Keep the complete ledger so interrupted manual repair is never resumed
+    // as an explicit user erase. A missing marker keeps storage blocked until
+    // another manual repair; its legacy source must remain available.
+    await this.finishInterruptedReset(true);
+    this.migrationPromise = Promise.resolve();
   }
 
   async getAllEntries(): Promise<Map<string, any> | null> {
