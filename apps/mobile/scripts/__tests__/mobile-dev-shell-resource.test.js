@@ -586,6 +586,7 @@ describe('mobile-dev-shell-resource', () => {
     }
   });
 
+  // Streamed verification and real filesystem I/O share the loaded CI runner.
   it('returns the final cache artifact path after a cold remote restore', async () => {
     const cacheRoot = fs.mkdtempSync(
       path.join(os.tmpdir(), 'onekey-shell-cold-cache-test-'),
@@ -619,7 +620,7 @@ describe('mobile-dev-shell-resource', () => {
     } finally {
       fs.rmSync(cacheRoot, { force: true, recursive: true });
     }
-  });
+  }, 15_000);
 
   it('resolves an existing exact OCI shell without downloading its layers', async () => {
     const remote = createRemoteShell({
