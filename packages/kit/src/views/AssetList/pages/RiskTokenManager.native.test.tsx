@@ -221,13 +221,21 @@ it('serializes Risk geometry and gates stale button actions after edit closes', 
   const onToggle = jest.fn();
   const view = renderRisk(true, onToggle);
   const rows = mockSnapshot!.rows;
+  // Explicit heights opt out of Android's legacy sub-400dp 0.9 row scale,
+  // which clipped unscaled text metrics (OK-66072).
   expect(rows.find((row) => row.key === 'gap:risk:collapsed')).toMatchObject({
     type: 'system',
     height: 20,
+    heightRounding: 'nearest',
+  });
+  expect(rows.find((row) => row.type === 'sectionHeader')).toMatchObject({
+    height: 36,
+    heightRounding: 'nearest',
   });
   const identity = rows.find((row) => row.type === 'identity')!;
   expect(identity).toMatchObject({
     height: 56,
+    heightRounding: 'nearest',
     leading: {
       fallbackIcon: {
         name: 'CryptoCoinOutline',

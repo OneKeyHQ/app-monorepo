@@ -92,12 +92,21 @@ jest.mock('../vaults/settings', () => ({
   getVaultSettings: jest.fn(),
 }));
 
+const mockFetchAccountTokensMapMissingKeys = jest.fn<void, unknown[]>();
+const mockFetchAccountTokensMapMissingSymbols = jest.fn<void, unknown[]>();
+
 jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
   defaultLogger: {
     token: {
       request: {
         fetchAccountTokenAccountAddressAndXpubBothEmpty: jest.fn(),
         fetchAccountTokensBlockedAllNetworkRequest: jest.fn(),
+        fetchAccountTokensMapMissingKeys: (...args: unknown[]): void => {
+          mockFetchAccountTokensMapMissingKeys(...args);
+        },
+        fetchAccountTokensMapMissingSymbols: (...args: unknown[]): void => {
+          mockFetchAccountTokensMapMissingSymbols(...args);
+        },
       },
     },
   },
@@ -633,5 +642,76 @@ describe('ServiceToken.fetchAccountTokens saved has-assets flag', () => {
         hasAssets: true,
       }),
     );
+  });
+});
+
+describe('ServiceToken.fetchAccountTokens map / data mismatch diagnostic (OK-66042)', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  function buildResponse(
+    dropKeyFromTokensMap: boolean,
+  ): IFetchAccountTokensResp {
+    const tokens = buildTokenData();
+    if (dropKeyFromTokensMap) {
+      delete tokens.map[dappToken.$key];
+    }
+    return {
+      tokens,
+      riskTokens: { data: [], keys: '', map: {} },
+      smallBalanceTokens: { data: [], keys: '', map: {} },
+    };
+  }
+
+  it('logs the rows the response lists without a map entry', async () => {
+    const fetchTokenList = jest.fn(async () => ({
+      data: { data: buildResponse(true) },
+    }));
+    getVaultMock.mockResolvedValue({ fetchTokenList });
+    const service = new ServiceToken({
+      backgroundApi: buildBackgroundApiStub(),
+    });
+
+    await service.fetchAccountTokens({
+      accountId: "hd-1--m/44'/60'/0'/0/0",
+      networkId,
+      flag: 'home-token-list',
+      saveToLocal: false,
+    });
+
+    // The server-bound entry carries only counts; the symbols stay in the
+    // device log.
+    expect(mockFetchAccountTokensMapMissingKeys).toHaveBeenCalledWith({
+      networkId,
+      flag: 'home-token-list',
+      missingCount: 1,
+      groups: { tokens: 1 },
+    });
+    expect(mockFetchAccountTokensMapMissingSymbols).toHaveBeenCalledWith({
+      networkId,
+      flag: 'home-token-list',
+      symbols: [dappToken.symbol],
+    });
+  });
+
+  it('stays silent when every row has a map entry', async () => {
+    const fetchTokenList = jest.fn(async () => ({
+      data: { data: buildResponse(false) },
+    }));
+    getVaultMock.mockResolvedValue({ fetchTokenList });
+    const service = new ServiceToken({
+      backgroundApi: buildBackgroundApiStub(),
+    });
+
+    await service.fetchAccountTokens({
+      accountId: "hd-1--m/44'/60'/0'/0/0",
+      networkId,
+      flag: 'home-token-list',
+      saveToLocal: false,
+    });
+
+    expect(mockFetchAccountTokensMapMissingKeys).not.toHaveBeenCalled();
+    expect(mockFetchAccountTokensMapMissingSymbols).not.toHaveBeenCalled();
   });
 });

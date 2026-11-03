@@ -713,8 +713,10 @@ function MobileLayoutComponent({
   useImperativeHandle(
     resolvedTabsRef,
     () => ({
-      jumpToTab: (tabName: string) => jumpToTab(tabName, true),
-      setIndex: (index: number) => setPagerIndex(index, true),
+      jumpToTab: (tabName: string) =>
+        jumpToTab(tabName, platformEnv.isNativeIOS ? undefined : true),
+      setIndex: (index: number) =>
+        setPagerIndex(index, platformEnv.isNativeIOS ? undefined : true),
       getFocusedTab: getFocusedTab,
       getCurrentIndex: getCurrentIndex,
       syncCurrentPage: () => {

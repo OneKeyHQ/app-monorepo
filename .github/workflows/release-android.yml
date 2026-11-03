@@ -96,6 +96,7 @@ jobs:
           additional_env: |
             NO_FLIPPER=1
             SENTRY_DISABLE_AUTO_UPLOAD=false
+            INTERCOM_ANDROID_API_KEY=${{ secrets.INTERCOM_ANDROID_API_KEY }}
           env_file_name: '.env.expo'
           sentry_project: ''
           covalent_key: ${{ secrets.COVALENT_KEY }}
