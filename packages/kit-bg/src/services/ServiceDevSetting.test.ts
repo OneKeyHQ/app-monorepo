@@ -136,6 +136,16 @@ function createService() {
   });
 }
 
+test('CipherKeyValue diagnostics require developer mode before accessing hardware', async () => {
+  mockSettings = { enabled: false, settings: {} };
+  await expect(
+    createService().testHardwareCipherKeyValue({
+      connectId: 'test-device',
+      key: 'OneKey DEV TEST',
+    }),
+  ).rejects.toThrow('Developer mode is required.');
+});
+
 describe('OneKey ID environment switching', () => {
   beforeEach(() => {
     jest.useFakeTimers();

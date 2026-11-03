@@ -161,6 +161,12 @@ const LazyAsyncStorageDevSettings = LazyLoad(async () => {
   return { default: AsyncStorageDevSettings };
 });
 
+const LazyCipherKeyValueDevSettings = LazyLoad(async () => {
+  const { CipherKeyValueDevSettings } =
+    await import('./CipherKeyValueDevSettings');
+  return { default: CipherKeyValueDevSettings };
+});
+
 export { showDevOnlyPasswordDialog } from './showDevOnlyPasswordDialog';
 
 type ILocalSecretEnvelopeSimulatedKeyLossResult = {
@@ -2004,6 +2010,21 @@ const BaseDevSettingsSection = () => {
                           navigation.push(
                             EModalSettingRoutes.SettingDevFirmwareUpdateModal,
                           );
+                        }}
+                      />
+                      <SectionPressItem
+                        icon="OnekeyDeviceCustom"
+                        title="CipherKeyValue hardware test"
+                        subtitle="Test device confirmation, repeatability and decryption"
+                        testID="dev-settings-cipher-key-value"
+                        searchKeywords="SLIP-0011 cipher encrypt decrypt hardware 硬件 加密 解密"
+                        onPress={() => {
+                          Dialog.show({
+                            title: 'CipherKeyValue hardware test',
+                            showConfirmButton: false,
+                            dismissOnOverlayPress: false,
+                            renderContent: <LazyCipherKeyValueDevSettings />,
+                          });
                         }}
                       />
                       <SectionPressItem
