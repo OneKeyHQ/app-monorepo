@@ -34,13 +34,19 @@ import {
   isPrimeStoreOnlyPayment,
   isPrimeStorePayment,
 } from '@onekeyhq/shared/src/prime/primePaymentCapabilities';
-import type { EPrimeFeatures } from '@onekeyhq/shared/src/routes/prime';
+import type {
+  EPrimeFeatures,
+  EPrimePages,
+  IPrimeParamList,
+} from '@onekeyhq/shared/src/routes/prime';
 
 import { getPrimeCardCheckoutMode } from '../../hooks/primeCardCheckoutMode';
 import {
   getPrimeInfiniPaymentEntryGuard,
   getPrimeInfiniPendingPaymentContext,
 } from '../../hooks/primeInfiniExternalCheckoutGuard';
+import { getPrimeInfiniPaymentAssets } from '../../hooks/primeInfiniPaymentUtils';
+import { createPrimeInfiniRemotePendingPaymentResolver } from '../../hooks/primeInfiniRemotePendingPayment';
 import { retirePrimeWebCheckout } from '../../hooks/retirePrimeWebCheckout';
 import { usePrimeInfiniPurchase } from '../../hooks/usePrimeInfiniPurchase';
 import { usePrimePayment } from '../../hooks/usePrimePayment';
@@ -444,16 +450,87 @@ export function usePrimePurchaseCallback({
       const startCryptoPayment = async ({
         subscriptionPeriod,
         createNewPayment = true,
+        remotePaymentResumeIntent,
       }: {
         subscriptionPeriod: ISubscriptionPeriod;
         createNewPayment?: boolean;
+        remotePaymentResumeIntent?: IPrimeParamList[EPrimePages.PrimeInfiniPayment]['remotePaymentResumeIntent'];
       }) => {
         try {
           await purchaseByCryptoUnchecked({
             selectedSubscriptionPeriod: subscriptionPeriod,
             featureName,
             createNewPayment,
+            ...(remotePaymentResumeIntent ? { remotePaymentResumeIntent } : {}),
           });
+        } catch (error) {
+          showPrimeInfiniPaymentErrorToast({
+            error,
+            fallbackMessage: intl.formatMessage({
+              id: ETranslations.global_failed,
+            }),
+          });
+          throw error;
+        }
+      };
+      const resolveRemotePendingPayment =
+        createPrimeInfiniRemotePendingPaymentResolver();
+      const continueRemotePendingPayment = async (
+        expectedOneKeyUserId: string | undefined,
+        beforeContinue: () => void | Promise<void>,
+      ): Promise<'continuePurchase' | 'resumed' | 'cancelled'> => {
+        if (
+          !expectedOneKeyUserId ||
+          expectedOneKeyUserId !== user?.onekeyUserId
+        ) {
+          throw new OneKeyLocalError('Infini purchase user changed');
+        }
+        try {
+          const authContext =
+            await backgroundApiProxy.servicePrime.getInfiniCheckoutAuthContext();
+          if (authContext.onekeyUserId !== expectedOneKeyUserId) {
+            throw new OneKeyLocalError('Infini purchase user changed');
+          }
+          const validateAuth = () =>
+            backgroundApiProxy.servicePrime.isInfiniCheckoutAuthContextCurrent({
+              context: authContext,
+            });
+          const lookup =
+            await backgroundApiProxy.servicePrime.apiGetInfiniPendingPayment({
+              expectedOneKeyUserId,
+              authContext,
+            });
+          const options = lookup.pendingPayment
+            ? await backgroundApiProxy.servicePrime
+                .apiGetInfiniPaymentOptions()
+                .catch(() => [])
+            : [];
+          const decision = await resolveRemotePendingPayment({
+            lookup,
+            assets: getPrimeInfiniPaymentAssets(options),
+            choose: (canResume) =>
+              showPrimeInfiniUnfinishedPaymentDialog({
+                intl,
+                canResume: canResume && !isPrimeStoreOnlyPayment(),
+              }),
+            validateAuth,
+            shouldContinue: () => true,
+          });
+          if (decision.type === 'cancelled') return 'cancelled';
+          if (decision.type === 'new') return 'continuePurchase';
+          if (isPrimeStoreOnlyPayment()) return 'cancelled';
+          await beforeContinue();
+          if (!(await validateAuth())) return 'cancelled';
+          await startCryptoPayment({
+            subscriptionPeriod:
+              decision.recovery.plan === 'monthly' ? 'P1M' : 'P1Y',
+            createNewPayment: false,
+            remotePaymentResumeIntent: {
+              paymentId: decision.recovery.payment.paymentId,
+              authContext,
+            },
+          });
+          return 'resumed';
         } catch (error) {
           showPrimeInfiniPaymentErrorToast({
             error,
@@ -511,12 +588,18 @@ export function usePrimePurchaseCallback({
           };
         }
         if (!entryGuard.hasPendingPayment) {
-          return 'continuePurchase';
+          return continueRemotePendingPayment(
+            entryGuard.onekeyUserId,
+            beforeContinue,
+          );
         }
         pendingContext ??= await getPrimeInfiniPendingPaymentContext();
         const { pendingPaymentSession, onekeyUserId } = pendingContext;
         if (!pendingPaymentSession) {
-          return 'continuePurchase';
+          return continueRemotePendingPayment(
+            entryGuard.onekeyUserId,
+            beforeContinue,
+          );
         }
         if (!onekeyUserId || onekeyUserId !== entryGuard.onekeyUserId) {
           throw new OneKeyLocalError('Infini purchase user changed');

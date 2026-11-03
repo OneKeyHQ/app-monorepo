@@ -2436,6 +2436,64 @@ describe('SimpleDbEntityPrime Infini pending payment session', () => {
     },
   );
 
+  test.each(['superseded', 'discarded'] as const)(
+    'restores a %s invoice under a new binding only for tracking remote transfers',
+    async (reason) => {
+      const { entity } = createSessionStore({
+        infiniPendingPaymentSessionByUserId: {
+          'user-1': {
+            ...session,
+            schemaVersion: 2,
+            updatedAt: Date.now(),
+            sendStarted: reason === 'superseded',
+          },
+        },
+      });
+      if (reason === 'superseded') {
+        await entity.supersedeInfiniPendingPaymentSession({
+          onekeyUserId: 'user-1',
+          expectedPaymentCacheIdentity: session.paymentCacheKey,
+          latestPayment: session.payment,
+        });
+      } else {
+        await entity.discardUnsentInfiniPendingPaymentSession({
+          onekeyUserId: 'user-1',
+          expectedPaymentCacheIdentity: session.paymentCacheKey,
+        });
+      }
+      const trackedPayment = { ...session.payment, hasTransactions: true };
+      const tracked = await entity.setInfiniPendingPaymentSession({
+        onekeyUserId: 'user-1',
+        session: {
+          ...session,
+          payment: trackedPayment,
+          sendStarted: true,
+          paymentCacheKey: {
+            ...session.paymentCacheKey,
+            bindingId: 'remote-tracking-binding',
+          },
+        },
+      });
+      expect(tracked.sendStarted).toBe(true);
+      expect(tracked.payment.hasTransactions).toBe(true);
+      await expect(
+        entity.setInfiniPendingPaymentSession({
+          onekeyUserId: 'user-1',
+          session: { ...tracked, sendStarted: false, payment: session.payment },
+        }),
+      ).resolves.toMatchObject({
+        sendStarted: true,
+        payment: { hasTransactions: true },
+      });
+      await expect(
+        entity.setInfiniPendingPaymentSession({
+          onekeyUserId: 'user-1',
+          session: { ...session, payment: trackedPayment, sendStarted: true },
+        }),
+      ).rejects.toThrow('Infini payment cache is retired');
+    },
+  );
+
   test('atomically archives a partially paid invoice before forced replacement', async () => {
     const entity = new SimpleDbEntityPrime();
     const persistedSession = {

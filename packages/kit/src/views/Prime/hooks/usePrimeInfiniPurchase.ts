@@ -403,10 +403,12 @@ export function usePrimeInfiniPurchase({
       selectedSubscriptionPeriod,
       featureName,
       createNewPayment = true,
+      remotePaymentResumeIntent,
     }: {
       selectedSubscriptionPeriod: ISubscriptionPeriod;
       featureName?: EPrimeFeatures;
       createNewPayment?: boolean;
+      remotePaymentResumeIntent?: IPrimeParamList[EPrimePages.PrimeInfiniPayment]['remotePaymentResumeIntent'];
     }) => {
       const flowId = generateUUID();
       const plan: IPrimeInfiniSubscriptionPlan =
@@ -459,6 +461,7 @@ export function usePrimeInfiniPurchase({
             featureName,
             createNewPayment,
             networkId,
+            ...(remotePaymentResumeIntent ? { remotePaymentResumeIntent } : {}),
           },
         });
         logPrimeInfiniPaymentFlow({

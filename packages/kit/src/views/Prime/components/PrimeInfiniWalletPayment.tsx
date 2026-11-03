@@ -4383,6 +4383,9 @@ export function PrimeInfiniWalletPaymentRoot({
     }
   }, [devSettings.enabled]);
   const [selectedAssetKey, setSelectedAssetKey] = useState('');
+  const [isRemoteReplacementPending, setIsRemoteReplacementPending] =
+    useState(false);
+  const remoteReplacementPendingRef = useRef(false);
   const [discardedPaymentBindingIds, setDiscardedPaymentBindingIds] = useState<
     ReadonlySet<string>
   >(() => new Set());
@@ -4455,7 +4458,7 @@ export function PrimeInfiniWalletPaymentRoot({
       forcedReplacementGenerationRef.current += 1;
     };
   }, []);
-  const { result, isLoading, run } = usePromiseResult<ILoadPaymentOptionsState>(
+  const paymentContext = usePromiseResult<ILoadPaymentOptionsState>(
     async () => {
       const loadAttempt = paymentContextLoadAttemptRef.current + 1;
       paymentContextLoadAttemptRef.current = loadAttempt;
@@ -4886,6 +4889,8 @@ export function PrimeInfiniWalletPaymentRoot({
     { watchLoading: true, undefinedResultIfReRun: false },
   );
 
+  const { result, isLoading, run, setResult } = paymentContext;
+
   useEffect(() => {
     if (result?.remotePaymentCancelled) {
       onClose();
@@ -5115,6 +5120,71 @@ export function PrimeInfiniWalletPaymentRoot({
       });
     },
     [featureName, intl, plan, selectedSubscriptionPeriod],
+  );
+  const handleSelectedAssetChange = useCallback(
+    async (assetKey: string) => {
+      if (!result?.remoteRecovery || hasPersistedPaymentSessionRef.current) {
+        setSelectedAssetKey(assetKey);
+        return;
+      }
+      if (
+        remoteReplacementPendingRef.current ||
+        !createNewPayment ||
+        remotePaymentResumeIntent ||
+        !result.discoveryAuthContext
+      )
+        return;
+      const context = result.discoveryAuthContext;
+      const loadAttempt = result.loadAttempt;
+      const isCurrent = () =>
+        rootMountedRef.current &&
+        paymentContextLoadAttemptRef.current === loadAttempt &&
+        currentPurchaseUserIdRef.current === context.onekeyUserId &&
+        !hasPersistedPaymentSessionRef.current;
+      remoteReplacementPendingRef.current = true;
+      setIsRemoteReplacementPending(true);
+      try {
+        const choice = await showPrimeInfiniUnfinishedPaymentDialog({
+          intl,
+          canResume: true,
+        });
+        if (
+          choice !== 'replace' ||
+          !isCurrent() ||
+          !(await backgroundApiProxy.servicePrime.isInfiniCheckoutAuthContextCurrent(
+            { context },
+          )) ||
+          !isCurrent()
+        )
+          return;
+        // The asset change is a new payment attempt; the old remote invoice
+        // remains recoverable only after another explicit discovery decision.
+        remoteResolverRef.current =
+          createPrimeInfiniRemotePendingPaymentResolver();
+        remoteResumedPaymentIdRef.current = '';
+        paymentCreationIntentRef.current = true;
+        setResult((current) =>
+          current?.loadAttempt === loadAttempt
+            ? { ...current, remoteRecovery: undefined }
+            : current,
+        );
+        setSelectedAssetKey(assetKey);
+        setPaymentSessionGeneration((value) => value + 1);
+      } catch (error) {
+        handlePaymentContextRunError(error, 'remoteAssetReplacementFailed');
+      } finally {
+        remoteReplacementPendingRef.current = false;
+        if (rootMountedRef.current) setIsRemoteReplacementPending(false);
+      }
+    },
+    [
+      createNewPayment,
+      handlePaymentContextRunError,
+      intl,
+      remotePaymentResumeIntent,
+      result,
+      setResult,
+    ],
   );
   const handleDiscardPaymentSession = useCallback(
     (bindingId: string) => {
@@ -5529,7 +5599,7 @@ export function PrimeInfiniWalletPaymentRoot({
         pendingSession={effectivePendingSession}
         remoteRecovery={result.remoteRecovery}
         discoveryAuthContext={result.discoveryAuthContext}
-        onSelectedAssetChange={setSelectedAssetKey}
+        onSelectedAssetChange={handleSelectedAssetChange}
         onDiscardPaymentSession={handleDiscardPaymentSession}
         onReplacePaymentSession={handleReplacePaymentSession}
         onReloadPaymentSession={handleReloadPaymentSession}
@@ -5539,7 +5609,7 @@ export function PrimeInfiniWalletPaymentRoot({
         onClose={onClose}
         onExitPreventedChange={onExitPreventedChange}
         initialAccountSyncPromiseRef={initialAccountSyncPromiseRef}
-        isOptionsRefreshing={Boolean(isLoading)}
+        isOptionsRefreshing={Boolean(isLoading) || isRemoteReplacementPending}
         paymentContextErrorTitle={paymentContextErrorTitle}
         isPaymentContextRetrying={Boolean(isLoading)}
         onRetryPaymentContext={handleRetryPaymentContext}

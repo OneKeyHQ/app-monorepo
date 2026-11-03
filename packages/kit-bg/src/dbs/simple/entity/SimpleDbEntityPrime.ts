@@ -1749,10 +1749,14 @@ export class SimpleDbEntityPrime extends SimpleDbEntityBase<ISimpleDBPrime> {
         currentSession,
         { onekeyUserId, now },
       );
-      // A new binding must not resurrect an invoice retired on this device.
+      // A new binding may only track a retired invoice with transfer evidence.
       // Check inside the write transaction so retirement racing discovery wins.
       if (
         !isCurrentSessionValid &&
+        !(
+          session.sendStarted &&
+          hasPrimeInfiniPaymentProgressSnapshot(session.payment)
+        ) &&
         (getActiveInfiniPaymentCacheTombstones({
           rawData,
           onekeyUserId,

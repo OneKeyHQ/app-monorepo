@@ -1951,6 +1951,29 @@ describe('ServicePrime Infini payment APIs', () => {
     ).rejects.toThrow('Infini pending payment lookup failed');
   });
 
+  it.each([
+    { transactions: [{ txId: 'remote-transaction' }] },
+    { status: 'confirming' },
+    { amountConfirming: '1' },
+    { amountConfirmed: '1' },
+  ])(
+    'still discovers a retired invoice with cross-device activity: %j',
+    async (activity) => {
+      const { service, simpleDbPrime } = createInfiniService();
+      simpleDbPrime.isInfiniPaymentRetired.mockResolvedValue(true);
+      service.getPrimeClient = jest.fn(async () => ({
+        get: jest.fn(async () => ({
+          data: { data: { ...payment, plan: 'monthly', ...activity } },
+        })),
+      }));
+      const result = await service.apiGetInfiniPendingPayment({
+        expectedOneKeyUserId: 'user-a',
+      });
+      expect(result.pendingPayment?.paymentId).toBe(payment.paymentId);
+      expect(JSON.stringify(result)).not.toContain('remote-transaction');
+    },
+  );
+
   it.each([false, true])(
     'rejects auth generation changes even when discovery fails: %s',
     async (fails) => {

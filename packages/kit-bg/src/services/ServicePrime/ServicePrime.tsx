@@ -56,7 +56,10 @@ import {
   getPrimeGiftVerifyFailureLogPayload,
   isPrimeGiftVerifyCancellationError,
 } from '@onekeyhq/shared/src/utils/primeGiftVerifyError';
-import { isValidPrimeInfiniPaymentContract } from '@onekeyhq/shared/src/utils/primeInfiniPaymentCacheUtils';
+import {
+  hasPrimeInfiniPaymentProgressSnapshot,
+  isValidPrimeInfiniPaymentContract,
+} from '@onekeyhq/shared/src/utils/primeInfiniPaymentCacheUtils';
 import { getPrimeInfiniPaymentSafeError } from '@onekeyhq/shared/src/utils/primeInfiniPaymentDiagnostics';
 import {
   createPrimeInfiniPaymentValidationError,
@@ -6237,24 +6240,33 @@ class ServicePrime extends ServiceBase {
           onekeyUserId: snapshot.expectedOneKeyUserId,
           paymentId: pending.paymentId,
         }));
-      if (pending && !isRetired) {
+      if (pending) {
         let payment: IPrimeInfiniPayment | undefined;
         try {
           payment = validateInfiniPaymentResponse(pending);
         } catch {
           // Existence still requires consent even when recovery is unavailable.
         }
-        lookup.pendingPayment = {
-          paymentId: isString(pending.paymentId)
-            ? pending.paymentId
-            : undefined,
-          payment,
-          plan: normalizeInfiniPendingPaymentPlan(pending.plan),
-          hasTransactions:
-            pending.transactions !== undefined &&
-            (!Array.isArray(pending.transactions) ||
-              pending.transactions.length > 0),
-        };
+        const hasTransactions =
+          pending.transactions !== undefined &&
+          (!Array.isArray(pending.transactions) ||
+            pending.transactions.length > 0);
+        // Retirement only suppresses an unsent quote. Another device may have
+        // started paying it since this device discarded its local binding.
+        if (
+          !isRetired ||
+          hasTransactions ||
+          (payment && hasPrimeInfiniPaymentProgressSnapshot(payment))
+        ) {
+          lookup.pendingPayment = {
+            paymentId: isString(pending.paymentId)
+              ? pending.paymentId
+              : undefined,
+            payment,
+            plan: normalizeInfiniPendingPaymentPlan(pending.plan),
+            hasTransactions,
+          };
+        }
       }
     } catch (error) {
       // Never log response bodies or request credentials, including on failure.

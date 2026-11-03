@@ -159,6 +159,39 @@ describe('remote Infini pending payment consent', () => {
     ).resolves.toEqual({ type: 'cancelled' });
   });
 
+  it.each([
+    { allowNewPayment: false },
+    { allowNewPayment: false, resumePaymentId: 'different-payment' },
+    { resumePaymentId: 'different-payment' },
+  ])(
+    'never replaces an existing invoice on a resume-only intent: %j',
+    async (intent) => {
+      const params = createParams();
+      await expect(
+        createPrimeInfiniRemotePendingPaymentResolver()({
+          ...params,
+          ...intent,
+        }),
+      ).resolves.toEqual({ type: 'cancelled' });
+    },
+  );
+
+  it('cancels an unrecoverable resume target without offering a new invoice', async () => {
+    const params = createParams();
+    await expect(
+      createPrimeInfiniRemotePendingPaymentResolver()({
+        ...params,
+        allowNewPayment: false,
+        resumePaymentId: payment.paymentId,
+        lookup: {
+          ...lookup,
+          pendingPayment: { ...lookup.pendingPayment!, plan: undefined },
+        },
+      }),
+    ).resolves.toEqual({ type: 'cancelled' });
+    expect(params.choose).not.toHaveBeenCalled();
+  });
+
   it('restores only after continue was selected', async () => {
     const params = {
       ...createParams(),
@@ -200,6 +233,22 @@ describe('remote Infini pending payment consent', () => {
     });
     await expect(
       createPrimeInfiniRemotePendingPaymentResolver()(params),
+    ).resolves.toEqual({ type: 'cancelled' });
+  });
+
+  it('asks again when another device starts paying a previously replaced quote', async () => {
+    const params = createParams();
+    const resolve = createPrimeInfiniRemotePendingPaymentResolver();
+    await expect(resolve(params)).resolves.toEqual({ type: 'new' });
+    await expect(
+      resolve({
+        ...params,
+        choose: jest.fn(async () => 'cancel' as const),
+        lookup: {
+          ...lookup,
+          pendingPayment: { ...lookup.pendingPayment!, hasTransactions: true },
+        },
+      }),
     ).resolves.toEqual({ type: 'cancelled' });
   });
 

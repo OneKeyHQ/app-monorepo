@@ -2,7 +2,7 @@
 /* cspell:ignore Infini */
 import type { ReactElement, ReactNode } from 'react';
 
-import { cleanup, render, waitFor } from '@testing-library/react';
+import { act, cleanup, render, waitFor } from '@testing-library/react';
 
 import { EPrimeAuthSessionSource } from '@onekeyhq/shared/types/prime/primeTypes';
 import type { IPrimeInfiniPendingPaymentLookup } from '@onekeyhq/shared/types/prime/primeTypes';
@@ -46,7 +46,10 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
         {
           chain: 'ETHEREUM',
           networkId: 'evm--1',
-          tokens: [{ symbol: 'USDC', contract: '0xa0b8' }],
+          tokens: [
+            { symbol: 'USDC', contract: '0xa0b8' },
+            { symbol: 'USDT', contract: '0xdac' },
+          ],
         },
       ],
       apiGetInfiniPurchaseStatusSnapshot: async () => ({
@@ -83,7 +86,7 @@ jest.mock('@onekeyhq/kit/src/hooks/usePromiseResult', () => {
       React.useEffect(() => {
         void run();
       }, [run]);
-      return { result, isLoading, run };
+      return { result, isLoading, run, setResult };
     },
   };
 });
@@ -127,12 +130,17 @@ jest.mock(
 );
 jest.mock('@onekeyhq/kit/src/utils/fiatConvert', () => ({}));
 
-function renderRoot(createNewPayment: boolean) {
+function renderRoot(createNewPayment: boolean, resumePaymentId?: string) {
   return render(
     <PrimeInfiniWalletPaymentRoot
       plan="monthly"
       selectedSubscriptionPeriod="P1M"
       createNewPayment={createNewPayment}
+      remotePaymentResumeIntent={
+        resumePaymentId
+          ? { paymentId: resumePaymentId, authContext }
+          : undefined
+      }
       hasValidRouteParams
       onPayWithExternalWallet={jest.fn()}
       onClose={mockClose}
@@ -144,6 +152,7 @@ function renderRoot(createNewPayment: boolean) {
 describe('Infini wallet loader creation gate', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockChoose.mockReset();
     mockContent = undefined;
     mockLookup.mockResolvedValue({ authContext });
     mockChoose.mockResolvedValue('cancel');
@@ -184,5 +193,59 @@ describe('Infini wallet loader creation gate', () => {
     expect(mockContent?.props.onRetryPaymentContext).toEqual(
       expect.any(Function),
     );
+  });
+
+  it.each(['replace', 'resume', 'cancel'] as const)(
+    'requires replacement consent before changing a remote recovery asset: %s',
+    async (choice) => {
+      mockLookup.mockResolvedValue({
+        authContext,
+        pendingPayment: {
+          paymentId: 'remote-id',
+          payment: {
+            paymentId: 'remote-id',
+            chain: 'ETHEREUM',
+            token: 'USDC',
+            address: '0xrecipient',
+            amountDue: '29.99',
+            expiresAt: Date.now() + 3_600_000,
+            status: 'created',
+          },
+          plan: 'monthly',
+          hasTransactions: false,
+        },
+      });
+      mockChoose.mockResolvedValueOnce('resume').mockResolvedValueOnce(choice);
+      renderRoot(true);
+      await waitFor(() =>
+        expect(mockContent?.props.remoteRecovery).toBeTruthy(),
+      );
+      const changeAsset = mockContent?.props.onSelectedAssetChange as (
+        key: string,
+      ) => Promise<void>;
+      const nextAsset = (mockContent?.props.assets as { key: string }[])[1];
+      const previousAsset = mockContent?.props.selectedAsset;
+      await act(async () => changeAsset(nextAsset.key));
+      expect(mockChoose).toHaveBeenCalledTimes(2);
+      expect(Boolean(mockContent?.props.remoteRecovery)).toBe(
+        choice !== 'replace',
+      );
+      expect(mockContent?.props.shouldCreatePayment).toBe(true);
+      expect(mockContent?.props.selectedAsset).toEqual(
+        choice === 'replace' ? nextAsset : previousAsset,
+      );
+    },
+  );
+
+  it('closes a resume-only entry when the server returns a different pending invoice', async () => {
+    mockLookup.mockResolvedValue({
+      authContext,
+      pendingPayment: { paymentId: 'different-id', hasTransactions: false },
+    });
+    mockChoose.mockResolvedValue('replace');
+    renderRoot(false, 'original-id');
+    await waitFor(() => expect(mockClose).toHaveBeenCalledTimes(1));
+    expect(mockChoose).not.toHaveBeenCalled();
+    expect(mockContent?.props.shouldCreatePayment).toBeUndefined();
   });
 });

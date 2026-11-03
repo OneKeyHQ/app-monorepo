@@ -14,7 +14,11 @@ import {
 
 import type { IListItemTextProps } from '@onekeyhq/kit/src/components/ListItem';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import type { IPrimeInfiniPendingPaymentSession } from '@onekeyhq/shared/types/prime/primeTypes';
+import { EPrimeAuthSessionSource } from '@onekeyhq/shared/types/prime/primeTypes';
+import type {
+  IPrimeInfiniPendingPaymentLookup,
+  IPrimeInfiniPendingPaymentSession,
+} from '@onekeyhq/shared/types/prime/primeTypes';
 
 import {
   PrimePurchaseDialog,
@@ -60,6 +64,16 @@ const mockGetPrimeInfiniPaymentEntryGuard = jest.fn<
   []
 >();
 const mockPurchaseByCrypto = jest.fn(async () => undefined);
+const mockAuthContext = {
+  onekeyUserId: 'user-1',
+  authSessionSource: EPrimeAuthSessionSource.KeylessOAuth,
+  authStateGeneration: 3,
+};
+const mockRemoteLookup = jest.fn<
+  Promise<IPrimeInfiniPendingPaymentLookup>,
+  unknown[]
+>();
+const mockValidateRemoteAuth = jest.fn(async () => true);
 const mockShowPrimeInfiniWaitingDialog = jest.fn<void, unknown[]>();
 const mockPurchasePackageNative = jest.fn(async () => undefined);
 const mockPendingSession: IPrimeInfiniPendingPaymentSession = {
@@ -173,7 +187,20 @@ let mockPackagesResult:
 jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   __esModule: true,
   default: {
-    servicePrime: { getLocalUserInfo: () => mockGetLocalUserInfo() },
+    servicePrime: {
+      getLocalUserInfo: () => mockGetLocalUserInfo(),
+      getInfiniCheckoutAuthContext: async () => mockAuthContext,
+      isInfiniCheckoutAuthContextCurrent: () => mockValidateRemoteAuth(),
+      apiGetInfiniPendingPayment: (...args: unknown[]) =>
+        mockRemoteLookup(...args),
+      apiGetInfiniPaymentOptions: async () => [
+        {
+          chain: 'ETHEREUM',
+          networkId: 'evm--1',
+          tokens: [{ symbol: 'USDC', contract: '0xa0b8' }],
+        },
+      ],
+    },
     simpleDb: {
       prime: {
         getWebCheckoutPendingSession: () => mockGetHostedPendingSession(),
@@ -407,6 +434,8 @@ describe('usePrimePurchaseCallback pending payment entry guard', () => {
     mockClearHostedPendingSession.mockResolvedValue(true);
     mockGooglePlayIsAvailable.mockResolvedValue(false);
     mockPendingChoice = 'resume';
+    mockRemoteLookup.mockResolvedValue({ authContext: mockAuthContext });
+    mockValidateRemoteAuth.mockResolvedValue(true);
     mockGetPrimeInfiniPendingPaymentContext.mockResolvedValue({
       isLoggedIn: true,
       onekeyUserId: 'user-1',
@@ -430,6 +459,139 @@ describe('usePrimePurchaseCallback pending payment entry guard', () => {
   afterEach(() => {
     cleanup();
   });
+
+  it.each(['replace', 'resume', 'cancel'] as const)(
+    'checks remote pending before exposing any payment channel: %s',
+    async (choice) => {
+      mockGetPrimeInfiniPaymentEntryGuard.mockResolvedValue({
+        isLoggedIn: true,
+        hasPendingPayment: false,
+        onekeyUserId: 'user-1',
+      });
+      mockRemoteLookup.mockResolvedValue({
+        authContext: mockAuthContext,
+        pendingPayment: {
+          paymentId: 'remote-id',
+          payment: { ...mockPendingSession.payment, paymentId: 'remote-id' },
+          plan: 'monthly',
+          hasTransactions: true,
+        },
+      });
+      mockPendingChoice = choice;
+      const { result } = renderHook(() => usePrimePurchaseCallback());
+      await act(async () =>
+        result.current.purchase({ selectedSubscriptionPeriod: 'P1Y' }),
+      );
+      expect(mockRemoteLookup).toHaveBeenCalledWith({
+        expectedOneKeyUserId: 'user-1',
+        authContext: mockAuthContext,
+      });
+      const picker = mockDialogShow.mock.calls.find(
+        ([config]) =>
+          config.title === ETranslations.prime_payment_method__title,
+      );
+      expect(Boolean(picker)).toBe(choice === 'replace');
+      if (choice === 'resume') {
+        expect(mockPurchaseByCrypto).toHaveBeenCalledWith({
+          selectedSubscriptionPeriod: 'P1M',
+          featureName: undefined,
+          createNewPayment: false,
+          remotePaymentResumeIntent: {
+            paymentId: 'remote-id',
+            authContext: mockAuthContext,
+          },
+        });
+      } else expect(mockPurchaseByCrypto).not.toHaveBeenCalled();
+      expect(mockPurchasePackageWeb).not.toHaveBeenCalled();
+      expect(mockPurchasePackageNative).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each(['lookup failure', 'auth change'] as const)(
+    'blocks all payment channels on remote %s',
+    async (failure) => {
+      mockGetPrimeInfiniPaymentEntryGuard.mockResolvedValue({
+        isLoggedIn: true,
+        hasPendingPayment: false,
+        onekeyUserId: 'user-1',
+      });
+      if (failure === 'lookup failure')
+        mockRemoteLookup.mockRejectedValueOnce(new Error('lookup unavailable'));
+      else mockValidateRemoteAuth.mockResolvedValue(false);
+      const { result } = renderHook(() => usePrimePurchaseCallback());
+      await act(async () => {
+        if (failure === 'lookup failure')
+          await expect(
+            result.current.purchase({ selectedSubscriptionPeriod: 'P1Y' }),
+          ).rejects.toThrow('lookup unavailable');
+        else
+          await result.current.purchase({ selectedSubscriptionPeriod: 'P1Y' });
+      });
+      expect(mockDialogShow).not.toHaveBeenCalled();
+      expect(mockPurchaseByCrypto).not.toHaveBeenCalled();
+      expect(mockPurchasePackageWeb).not.toHaveBeenCalled();
+      expect(mockPurchasePackageNative).not.toHaveBeenCalled();
+    },
+  );
+
+  it('checks remote pending again before the chosen card channel starts', async () => {
+    mockGetPrimeInfiniPaymentEntryGuard.mockResolvedValue({
+      isLoggedIn: true,
+      hasPendingPayment: false,
+      onekeyUserId: 'user-1',
+    });
+    mockRemoteLookup
+      .mockResolvedValueOnce({ authContext: mockAuthContext })
+      .mockResolvedValue({
+        authContext: mockAuthContext,
+        pendingPayment: { paymentId: 'remote-id', hasTransactions: true },
+      });
+    mockPendingChoice = 'cancel';
+    const { result } = renderHook(() => usePrimePurchaseCallback());
+    await act(async () =>
+      result.current.purchase({ selectedSubscriptionPeriod: 'P1Y' }),
+    );
+    const config = mockDialogShow.mock.calls.find(
+      ([dialog]) => dialog.title === ETranslations.prime_payment_method__title,
+    )?.[0];
+    const content = config?.renderContent as IPaymentMethodDialogContent;
+    await act(async () => {
+      await expect(
+        content.props.children.props.onSelect('webStripe'),
+      ).resolves.toBe(false);
+    });
+    expect(mockRemoteLookup).toHaveBeenCalledTimes(2);
+    expect(mockPurchasePackageWeb).not.toHaveBeenCalled();
+    expect(mockPurchasePackageNative).not.toHaveBeenCalled();
+    expect(mockPurchaseByCrypto).not.toHaveBeenCalled();
+  });
+
+  it.each(['isNativeIOS', 'isMas', 'isNativeAndroidGooglePlay'] as const)(
+    'requires remote pending consent before starting IAP on %s',
+    async (platform) => {
+      mockPlatformEnv[platform] = true;
+      mockGetPrimeInfiniPaymentEntryGuard.mockResolvedValue({
+        isLoggedIn: true,
+        hasPendingPayment: false,
+        onekeyUserId: 'user-1',
+      });
+      mockRemoteLookup.mockResolvedValue({
+        authContext: mockAuthContext,
+        pendingPayment: { paymentId: 'remote-id', hasTransactions: true },
+      });
+      mockPendingChoice = 'cancel';
+      const { result } = renderHook(() => usePrimePurchaseCallback());
+      await act(async () =>
+        result.current.purchase({ selectedSubscriptionPeriod: 'P1Y' }),
+      );
+      expect(mockDialogShow).toHaveBeenCalledTimes(1);
+      expect(mockDialogShow.mock.calls[0][0].title).toBe(
+        ETranslations.prime_unfinished_payment__title,
+      );
+      expect(mockPurchasePackageNative).not.toHaveBeenCalled();
+      expect(mockPurchaseByCrypto).not.toHaveBeenCalled();
+    },
+  );
 
   it('resumes the crypto flow when the user chooses to keep waiting', async () => {
     mockGetPrimeInfiniPaymentEntryGuard.mockResolvedValue({

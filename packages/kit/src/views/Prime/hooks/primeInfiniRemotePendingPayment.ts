@@ -114,12 +114,23 @@ export function createPrimeInfiniRemotePendingPaymentResolver() {
       pendingPayment,
       assets,
     });
+    // A resume intent authorizes only its original invoice, never a new one.
+    if (
+      (resumePaymentId && resumePaymentId !== recovery?.payment.paymentId) ||
+      (!allowNewPayment && !recovery)
+    ) {
+      return { type: 'cancelled' };
+    }
     const key = JSON.stringify([
       authContext.onekeyUserId,
       authContext.authSessionSource,
       authContext.authStateGeneration,
       pendingPayment.paymentId,
       Boolean(recovery),
+      pendingPayment.hasTransactions,
+      recovery?.sendStarted,
+      allowNewPayment,
+      resumePaymentId,
     ]);
     // Loader retries share one prompt and one consent for this order/lifecycle.
     if (previousChoice?.key !== key) {
@@ -136,7 +147,9 @@ export function createPrimeInfiniRemotePendingPaymentResolver() {
       return { type: 'cancelled' };
     }
     if (choice === 'replace') {
-      return { type: 'new' };
+      return allowNewPayment && !resumePaymentId
+        ? { type: 'new' }
+        : { type: 'cancelled' };
     }
     if (choice === 'resume' && recovery) {
       return { type: 'resume', recovery };
