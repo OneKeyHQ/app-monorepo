@@ -412,6 +412,15 @@ function useHyperliquidEventBusListener() {
             break;
 
           case ESubscriptionType.BBO:
+            if (data === null) {
+              if (bboTimerRef.current) {
+                clearTimeout(bboTimerRef.current);
+                bboTimerRef.current = null;
+              }
+              bboDirtyRef.current = null;
+              void actions.current.updateBbo(null);
+              break;
+            }
             scheduleThrottledDispatch(
               bboDirtyRef,
               bboTimerRef,

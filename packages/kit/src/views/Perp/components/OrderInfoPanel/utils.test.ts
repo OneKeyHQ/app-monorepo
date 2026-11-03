@@ -75,13 +75,16 @@ function makeOpenOrder(
 }
 
 describe('canChasePerpsOrder', () => {
-  it('allows a partially filled ordinary perp Gtc order', () => {
-    expect(canChasePerpsOrder(makeOpenOrder())).toBe(true);
-  });
+  it.each(['Gtc', 'Alo'] as const)(
+    'allows a partially filled perp %s order',
+    (tif) => {
+      expect(canChasePerpsOrder(makeOpenOrder({ tif }))).toBe(true);
+    },
+  );
 
   it.each([
     ['spot', { coin: '@107' }],
-    ['Alo', { tif: 'Alo' }],
+    ['Ioc', { tif: 'Ioc' }],
     ['null TIF', { tif: null }],
     ['trigger', { isTrigger: true }],
     ['position TP/SL', { isPositionTpsl: true }],
