@@ -40,6 +40,7 @@ jest.mock('./openFailure', () => ({
   notifyIntercomOpenFailed: (error: unknown) => mockNotifyOpenFailed(error),
 }));
 jest.mock('./utils', () => ({
+  ...jest.requireActual<typeof import('./utils')>('./utils'),
   getInstanceId: async () => 'test-instance',
   getIntercomLanguageOverride: async () => 'en',
 }));

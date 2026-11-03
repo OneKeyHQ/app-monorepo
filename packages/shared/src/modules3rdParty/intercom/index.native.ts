@@ -1,5 +1,6 @@
 import { NativeEventEmitter, NativeModules } from 'react-native';
 
+import { defaultColorScheme } from '../../config/appConfig';
 import { OneKeyLocalError } from '../../errors';
 import platformEnv from '../../platformEnv';
 import appStorage from '../../storage/appStorage';
@@ -10,6 +11,7 @@ import { notifyIntercomOpenFailed } from './openFailure';
 import {
   type IIntercomLockPolicy,
   type IShowIntercomParams,
+  createIntercomOpenGuard,
   getInstanceId,
   getIntercomLanguageOverride,
 } from './utils';
@@ -26,8 +28,9 @@ let activeSessionGeneration = 0;
 let sessionGeneration = 0;
 let unreadRequestId = 0;
 let unreadCount = 0;
-let currentTheme: 'light' | 'dark' | undefined;
+let currentTheme: 'light' | 'dark' = defaultColorScheme;
 let messengerLocked = false;
+const intercomOpenGuard = createIntercomOpenGuard(notifyIntercomOpenFailed);
 const unreadListeners = new Set<() => void>();
 
 type IOneKeyIntercom = {
@@ -97,9 +100,7 @@ async function loadSdk() {
       // Native initialization (BaseMainApplication / OneKeyIntercom.mm) owns
       // the keys and already hides the launcher, in-app messages and proactive
       // content before either JS runtime starts.
-      if (currentTheme) {
-        await sdk.default.setThemeMode(toSdkThemeMode(sdk, currentTheme));
-      }
+      await sdk.default.setThemeMode(toSdkThemeMode(sdk, currentTheme));
       // The SDK requires its Android listener before app-owned emitters.
       sdk.default.bootstrapEventListeners();
       const emitter = new NativeEventEmitter(
@@ -151,15 +152,18 @@ export async function setIntercomMessengerLocked(
 }
 
 export async function setIntercomTheme(theme: 'light' | 'dark') {
-  if (!platformEnv.isNativeMainThread || !canUseNativeSdk()) {
+  if (!platformEnv.isNativeMainThread) {
     return;
   }
   currentTheme = theme;
+  if (!canUseNativeSdk()) {
+    return;
+  }
   // Keep theme changes from eagerly initializing the native SDK; loadSdk
   // applies the latest theme once it initializes.
   if (sdkPromise) {
     const sdk = await sdkPromise;
-    await sdk.default.setThemeMode(toSdkThemeMode(sdk, theme));
+    await sdk.default.setThemeMode(toSdkThemeMode(sdk, currentTheme));
   }
 }
 
@@ -250,6 +254,7 @@ function hasOpenedNativeSupport() {
 }
 
 async function syncCurrentSession(userId: IUserId) {
+  intercomOpenGuard.setIdentity(userId);
   if (sessionPromise && requestedUserId === userId) {
     return sessionPromise;
   }
@@ -283,10 +288,14 @@ async function syncCurrentSession(userId: IUserId) {
 }
 
 export async function initIntercom() {
-  if (!platformEnv.isNativeMainThread || !canUseNativeSdk()) {
+  if (!platformEnv.isNativeMainThread) {
     return;
   }
   const userId = await getCurrentIntercomUserId();
+  intercomOpenGuard.setIdentity(userId);
+  if (!canUseNativeSdk()) {
+    return;
+  }
   // Anonymous users only need the SDK after they have contacted support;
   // a loaded SDK still syncs so sign-out clears the previous identity.
   if (userId === null && !sdkPromise && !hasOpenedNativeSupport()) {
@@ -295,17 +304,30 @@ export async function initIntercom() {
   await syncCurrentSession(userId);
 }
 
-async function openIntercom(params?: IShowIntercomParams) {
+async function openIntercom(
+  params: IShowIntercomParams | undefined,
+  expectedUserId: IUserId,
+  canPresent: () => boolean,
+): Promise<boolean> {
   if (!platformEnv.isNativeMainThread) {
     throw new OneKeyLocalError('Intercom must be opened in the main runtime');
   }
   if (!canUseNativeSdk()) {
-    return showWebIntercom(params);
+    return showWebIntercom(
+      params,
+      (userId) => userId === expectedUserId && !messengerLocked && canPresent(),
+    );
   }
-  await syncCurrentSession(await getCurrentIntercomUserId());
+  if ((await getCurrentIntercomUserId()) !== expectedUserId) {
+    throw new OneKeyLocalError('Intercom user changed; please try again');
+  }
+  await syncCurrentSession(expectedUserId);
   const generation = activeSessionGeneration;
   const userId = activeUserId;
-  if (userId === undefined || !(await isCurrentSession(userId, generation))) {
+  if (
+    userId !== expectedUserId ||
+    !(await isCurrentSession(userId, generation))
+  ) {
     throw new OneKeyLocalError('Intercom user changed; please try again');
   }
   const sdk = await loadSdk();
@@ -316,29 +338,47 @@ async function openIntercom(params?: IShowIntercomParams) {
       ...(params?.requestId ? { requestId: params.requestId } : {}),
     });
   }
-  if (!(await isCurrentSession(userId, generation))) {
-    throw new OneKeyLocalError('Intercom user changed; please try again');
-  }
+  let appliedTheme: 'light' | 'dark';
+  do {
+    appliedTheme = currentTheme;
+    await sdk.default.setThemeMode(toSdkThemeMode(sdk, appliedTheme));
+    if (!(await isCurrentSession(userId, generation))) {
+      throw new OneKeyLocalError('Intercom user changed; please try again');
+    }
+    // Theme application is asynchronous and can outlive identity or lock changes.
+    if (messengerLocked || !canPresent()) {
+      return false;
+    }
+  } while (appliedTheme !== currentTheme);
   void appStorage.syncStorage.set(
     EAppSyncStorageKeys.onekey_intercom_native_support_opened,
     true,
   );
   // A lock during the awaits above already hid the Messenger; do not reopen.
   if (messengerLocked) {
-    return;
+    return false;
   }
   if (params?.conversationId) {
-    await sdk.default.presentContent(
-      sdk.IntercomContent.conversationWithConversationId(params.conversationId),
+    return (
+      (await sdk.default.presentContent(
+        sdk.IntercomContent.conversationWithConversationId(
+          params.conversationId,
+        ),
+      )) !== false
     );
-  } else {
-    await sdk.default.present();
   }
+  return (await sdk.default.present()) !== false;
 }
 
 export async function showIntercom(params?: IShowIntercomParams) {
   try {
-    await openIntercom(params);
+    if (!platformEnv.isNativeMainThread) {
+      throw new OneKeyLocalError('Intercom must be opened in the main runtime');
+    }
+    const userId = await getCurrentIntercomUserId();
+    await intercomOpenGuard.run(userId, params, (canPresent) =>
+      openIntercom(params, userId, canPresent),
+    );
   } catch (error) {
     notifyIntercomOpenFailed(error);
   }
