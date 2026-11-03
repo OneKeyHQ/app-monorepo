@@ -302,6 +302,29 @@ describe('Zcash native timeout recovery', () => {
   });
 });
 
+// Timed retries must not keep remounting a WebEmbed that XMR and the secret helpers share.
+it('keeps the WebEmbed when a retry may not remount it', async () => {
+  jest.replaceProperty(platformEnv, 'isNative', true);
+  const vault = Object.create(Vault.prototype) as Vault;
+  jest
+    .spyOn(vault, 'resetLocalWalletCarrier')
+    .mockRejectedValue(new Error('bridge dead'));
+  const emit = jest.spyOn(appEventBus, 'emit');
+  try {
+    await expect(
+      vault
+        .getLocalWalletCapability()
+        .recoverFromTimeout({ remountCarrier: false }),
+    ).rejects.toThrow('WebEmbed kept');
+    expect(emit).not.toHaveBeenCalledWith(
+      EAppEventBusNames.LoadWebEmbedWebView,
+      undefined,
+    );
+  } finally {
+    jest.restoreAllMocks();
+  }
+});
+
 describe('Zcash queued rescan deletion boundary', () => {
   it('does not restore metadata removed while waiting for the lifecycle lock', async () => {
     const accountId = 'synthetic-rescan-account';

@@ -201,6 +201,30 @@ describe('Privacy sync timeout recovery', () => {
 
     await jest.advanceTimersByTimeAsync(10 * 60_000);
     expect(recover).toHaveBeenCalledTimes(3);
+    // Only the first attempt may replace the carrier other features share.
+    expect(recover.mock.calls).toEqual([
+      [{ remountCarrier: true }],
+      [{ remountCarrier: false }],
+      [{ remountCarrier: false }],
+    ]);
+  });
+
+  // A paused chain is not scanning; its Continue starts the recovery again.
+  it('stops retrying a failed recovery while the chain is paused', async () => {
+    jest.spyOn(console, 'error').mockImplementation(() => undefined);
+    const recover = jest
+      .fn<Promise<boolean>, [{ remountCarrier?: boolean }?]>()
+      .mockRejectedValue(new Error('WebEmbed did not answer reset'));
+    const { service } = createService(false, recover);
+    const tick = service.backgroundSyncTick();
+    await jest.advanceTimersByTimeAsync(11);
+    await tick;
+    expect(recover).toHaveBeenCalledTimes(1);
+
+    Object.assign(service, { boostPausedByNetwork: { [networkId]: true } });
+    await jest.advanceTimersByTimeAsync(10 * 60_000);
+    expect(recover).toHaveBeenCalledTimes(1);
+    expect(service.quarantinedSyncs.has(stateKey)).toBe(true);
   });
 
   it.each([

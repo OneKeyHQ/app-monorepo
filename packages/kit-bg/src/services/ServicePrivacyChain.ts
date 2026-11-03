@@ -2179,15 +2179,18 @@ class ServicePrivacyChain extends ServiceBase {
     }
     // A failed recovery leaves the remote writer possibly running, so the runtime stays
     // quarantined; only a later recovery or a restart frees it.
+    const [networkId] = runtimeStateKey.split('|');
     let failures = 0;
     let retryTimer: ReturnType<typeof setTimeout> | undefined;
     let running: Promise<void> | undefined;
     // Resolves true when the attempt failed and the runtime is still ours to recover.
-    const attempt = async (): Promise<boolean> => {
+    const attempt = async (remountCarrier: boolean): Promise<boolean> => {
       clearTimeout(retryTimer);
       if (!isCurrent()) return false;
       try {
-        if (await capability.recoverFromTimeout()) clearQuarantine();
+        if (await capability.recoverFromTimeout({ remountCarrier })) {
+          clearQuarantine();
+        }
         return false;
       } catch (resetErr) {
         console.error('[privacy-chain] carrier timeout recovery failed', {
@@ -2199,20 +2202,21 @@ class ServicePrivacyChain extends ServiceBase {
         return isCurrent();
       }
     };
-    const recoverNow = (): Promise<void> => {
-      running ??= attempt().then((failed) => {
+    // Only the first attempt and one the user starts may replace a carrier other features share;
+    // timed retries restart this chain alone. A paused chain waits for Continue, which recovers it.
+    const recoverNow = (remountCarrier: boolean): Promise<void> => {
+      running ??= attempt(remountCarrier).then((failed) => {
         running = undefined;
-        if (!failed) return;
+        if (!failed || this.boostPausedByNetwork[networkId]) return;
         failures += 1;
-        retryTimer = setTimeout(
-          () => void recoverNow(),
-          getQuarantineRecoveryDelayMs(failures),
-        );
+        retryTimer = setTimeout(() => {
+          if (!this.boostPausedByNetwork[networkId]) void recoverNow(false);
+        }, getQuarantineRecoveryDelayMs(failures));
       });
       return running;
     };
-    this.quarantineRecoveries.set(runtimeStateKey, recoverNow);
-    void recoverNow();
+    this.quarantineRecoveries.set(runtimeStateKey, () => recoverNow(true));
+    void recoverNow(true);
   }
 
   // A Sync on a stuck runtime asks for it to be replaced now. Still stuck afterwards, the chain

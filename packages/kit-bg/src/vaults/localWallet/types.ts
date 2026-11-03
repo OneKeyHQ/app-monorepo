@@ -321,7 +321,11 @@ export type ILocalWalletCapability = {
   syncCompletionIsAuthoritative?: boolean;
   // True only when the carrier can prove the timed-out execution was
   // terminated; otherwise quarantine requires authoritative sync completion.
-  recoverFromTimeout: () => Promise<boolean>;
+  // `remountCarrier: false` restarts only this chain's own execution, never a carrier other features
+  // share.
+  recoverFromTimeout: (options?: {
+    remountCarrier?: boolean;
+  }) => Promise<boolean>;
   // A user operation (a send) holds the runtime: the sync it delays is not
   // stuck, and recovering would kill the send.
   isUserOperationActive?: () => boolean;

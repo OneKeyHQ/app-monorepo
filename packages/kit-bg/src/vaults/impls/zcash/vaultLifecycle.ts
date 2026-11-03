@@ -294,7 +294,8 @@ export function getLocalWalletCapability(vault: Vault): ILocalWalletCapability {
         forgetZcashChainHeights(vault.networkId);
       }
     },
-    recoverFromTimeout: () => recoverLocalWalletFromTimeout(vault),
+    recoverFromTimeout: (options) =>
+      recoverLocalWalletFromTimeout(vault, options),
     isUserOperationActive: zcashUserOperationsActive,
     getStorageUsage: async () => {
       // Diagnostics checks existence first, so this can't create a database for an account that never enabled privacy.
@@ -769,6 +770,7 @@ export async function zcashHealOutOfRangeBirthdays(
 
 export async function recoverLocalWalletFromTimeout(
   vault: Vault,
+  options?: { remountCarrier?: boolean },
 ): Promise<boolean> {
   if (platformEnv.isNative) {
     // The WebView is shared across chains (XMR, secret, ...); restart only this Worker before remounting the whole thing.
@@ -793,6 +795,11 @@ export async function recoverLocalWalletFromTimeout(
       });
     } finally {
       clearTimeout(resetTimer);
+    }
+    if (options?.remountCarrier === false) {
+      throw new OneKeyLocalError(
+        'zcash: Worker reset failed; WebEmbed kept for a later remount',
+      );
     }
     const { default: webembedApiProxy } =
       await import('../../../webembeds/instance/webembedApiProxy');
