@@ -2180,6 +2180,8 @@ function TxFeeEditorContent(props: IProps) {
 }
 
 function TxFeeEditor(props: IProps) {
+  const intl = useIntl();
+  const dialog = useDialogInstance();
   const feeDecimals = (props.originalCustomFee ?? props.selectedFee?.feeInfo)
     ?.common?.feeDecimals;
 
@@ -2188,7 +2190,23 @@ function TxFeeEditor(props: IProps) {
     !Number.isSafeInteger(feeDecimals) ||
     feeDecimals < 0
   ) {
-    return null;
+    return (
+      <YStack gap="$4">
+        <Alert
+          type="critical"
+          description={intl.formatMessage({
+            id: ETranslations.feedback_failed_to_fetch_fee_rate,
+          })}
+        />
+        <Button
+          testID="signature-confirm-fee-error-close"
+          size="large"
+          onPress={() => dialog.close()}
+        >
+          {intl.formatMessage({ id: ETranslations.global_close })}
+        </Button>
+      </YStack>
+    );
   }
 
   return <TxFeeEditorContent {...props} />;

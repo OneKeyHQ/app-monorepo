@@ -1,4 +1,4 @@
-import React from 'react';
+import type { PropsWithChildren } from 'react';
 
 import { act, create } from 'react-test-renderer';
 
@@ -8,13 +8,18 @@ import type { IFeeInfoUnit } from '@onekeyhq/shared/types/fee';
 
 import { TxFeeEditor } from './TxFeeEditor';
 
-jest.mock('@onekeyhq/components', () => {
-  const React = jest.requireActual<typeof import('react')>('react');
+const mockDialogClose = jest.fn(async () => {});
+
+// The repository mapper aliases the components barrel and its subpaths to one
+// module, so the direct hook mock also supplies the UI stubs.
+jest.mock('@onekeyhq/components/src/hooks/useForm', () => {
+  const { createElement, useState } =
+    jest.requireActual<typeof import('react')>('react');
   const Host = ({
     children,
     ...hostProps
-  }: React.PropsWithChildren<Record<string, unknown>>) =>
-    React.createElement('mock-view', hostProps, children);
+  }: PropsWithChildren<Record<string, unknown>>) =>
+    createElement('mock-view', hostProps, children);
   const Form = Object.assign(Host, { Field: Host });
   return {
     Alert: Host,
@@ -29,10 +34,10 @@ jest.mock('@onekeyhq/components', () => {
     Stack: Host,
     XStack: Host,
     YStack: Host,
-    useDialogInstance: () => ({ close: async () => {} }),
+    useDialogInstance: () => ({ close: mockDialogClose }),
     useForm: jest.fn(
       ({ defaultValues }: { defaultValues: Record<string, string> }) => {
-        const [values, setValues] = React.useState(defaultValues);
+        const [values, setValues] = useState(defaultValues);
         return {
           watch: () => values,
           setValue: (name: string, value: string) =>
@@ -151,6 +156,21 @@ async function pressSave(tree: ReturnType<typeof create>) {
   await onPress();
 }
 
+function expectFeeError(tree: ReturnType<typeof create> | undefined) {
+  expect(
+    tree?.root.findByProps({
+      description: 'feedback_failed_to_fetch_fee_rate',
+    }),
+  ).toBeDefined();
+  expect(
+    tree?.root.findByProps({ testID: 'signature-confirm-fee-error-close' })
+      .props.children,
+  ).toBe('global_close');
+  expect(
+    tree?.root.findAllByProps({ testID: 'signature-confirm-btn' }),
+  ).toHaveLength(0);
+}
+
 describe('TxFeeEditor precision readiness', () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -174,8 +194,16 @@ describe('TxFeeEditor precision readiness', () => {
     await act(async () => {
       tree = create(<TxFeeEditor {...unsafeProps} />);
     });
-    expect(tree?.toJSON()).toBeNull();
+    expectFeeError(tree);
     expect(useForm).not.toHaveBeenCalled();
+    await act(async () => {
+      const close = tree?.root.findByProps({
+        testID: 'signature-confirm-fee-error-close',
+      });
+      const onPress = close?.props.onPress as () => Promise<void>;
+      await onPress();
+    });
+    expect(mockDialogClose).toHaveBeenCalledTimes(1);
     expect(unsafeProps.onApplyFeeInfo).not.toHaveBeenCalled();
   });
 
@@ -251,7 +279,7 @@ describe('TxFeeEditor precision readiness', () => {
     await act(async () => {
       tree = create(<TxFeeEditor {...invalid} />);
     });
-    expect(tree?.toJSON()).toBeNull();
+    expectFeeError(tree);
     await act(async () => {
       tree?.update(<TxFeeEditor {...valid} />);
     });
@@ -269,7 +297,7 @@ describe('TxFeeEditor precision readiness', () => {
     await act(async () => {
       tree?.update(<TxFeeEditor {...invalid} />);
     });
-    expect(tree?.toJSON()).toBeNull();
+    expectFeeError(tree);
     await act(async () => {
       tree?.update(<TxFeeEditor {...updated} />);
     });
@@ -310,6 +338,6 @@ describe('TxFeeEditor precision readiness', () => {
         />,
       );
     });
-    expect(tree?.toJSON()).toBeNull();
+    expectFeeError(tree);
   });
 });
