@@ -1,4 +1,7 @@
+import { useEffect, useRef } from 'react';
+
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { useLocaleVariant } from '@onekeyhq/kit/src/hooks/useLocaleVariant';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { MARKET_TOP_COINS_CATEGORY_ID } from '@onekeyhq/shared/src/consts/marketConsts';
 import { getTokenSubtitle } from '@onekeyhq/shared/src/utils/perpsUtils';
@@ -40,11 +43,13 @@ type ICategoryTokensResult = {
 function getMarketCategoryTokensRequestKey({
   minLiquidity,
   selectedMarketCategoryId,
+  locale,
 }: {
   minLiquidity: number;
   selectedMarketCategoryId?: string;
+  locale: string;
 }) {
-  return `${selectedMarketCategoryId ?? ''}:${minLiquidity}`;
+  return `${selectedMarketCategoryId ?? ''}:${minLiquidity}:${locale}`;
 }
 
 function useHomeMarketCategoryTokens({
@@ -56,9 +61,12 @@ function useHomeMarketCategoryTokens({
   selectedMarketCategoryId?: string;
   marketCategories?: IMarketCategoryItem[];
 }) {
+  const locale = useLocaleVariant();
+  const categoryCacheRef = useRef(new Map<string, ICategoryTokensResult>());
   const requestKey = getMarketCategoryTokensRequestKey({
     minLiquidity,
     selectedMarketCategoryId,
+    locale,
   });
 
   const { result: categoryTokensResult } =
@@ -67,6 +75,7 @@ function useHomeMarketCategoryTokens({
         const currentRequestKey = getMarketCategoryTokensRequestKey({
           minLiquidity,
           selectedMarketCategoryId,
+          locale,
         });
 
         if (!selectedMarketCategoryId) {
@@ -148,25 +157,38 @@ function useHomeMarketCategoryTokens({
             .slice(0, HOME_MARKET_CATEGORY_REQUEST_LIMIT),
         };
       },
-      [marketCategories, minLiquidity, selectedMarketCategoryId],
+      [marketCategories, minLiquidity, selectedMarketCategoryId, locale],
       {
         pollingInterval: HOME_MARKET_CATEGORY_POLLING_INTERVAL,
         revalidateOnFocus: true,
         revalidateOnReconnect: true,
         undefinedResultIfReRun: false,
+        // Home keeps its state when React reconnects effects after an update.
+        resumeOnEffectReconnect: true,
       },
     );
 
-  const hasCurrentCategoryTokens =
-    categoryTokensResult?.requestKey === requestKey;
+  useEffect(() => {
+    if (categoryTokensResult) {
+      categoryCacheRef.current.set(
+        categoryTokensResult.requestKey,
+        categoryTokensResult,
+      );
+    }
+  }, [categoryTokensResult]);
+
+  // Returning to a category keeps its rows visible while the next request runs.
+  const currentCategoryResult =
+    categoryTokensResult?.requestKey === requestKey
+      ? categoryTokensResult
+      : categoryCacheRef.current.get(requestKey);
   const hasSelectedMarketCategory = Boolean(selectedMarketCategoryId);
 
   return {
-    categoryTokens:
-      hasCurrentCategoryTokens && categoryTokensResult
-        ? categoryTokensResult.tokens
-        : EMPTY_DISPLAY_TOKENS,
-    isCategoryLoading: hasSelectedMarketCategory && !hasCurrentCategoryTokens,
+    categoryTokens: currentCategoryResult
+      ? currentCategoryResult.tokens
+      : EMPTY_DISPLAY_TOKENS,
+    isCategoryLoading: hasSelectedMarketCategory && !currentCategoryResult,
   };
 }
 

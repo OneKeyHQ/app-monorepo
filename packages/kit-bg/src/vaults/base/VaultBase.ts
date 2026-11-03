@@ -31,6 +31,7 @@ import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
 import {
   getOnChainHistoryTxAssetInfo,
   getOnChainHistoryTxStatus,
+  getUtxoHistoryDisplayValue,
 } from '@onekeyhq/shared/src/utils/historyUtils';
 import { resolveKytDisplayLevel } from '@onekeyhq/shared/src/utils/kytUtils';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
@@ -879,6 +880,11 @@ export abstract class VaultBase extends VaultBaseChainOnly {
       const isPrivateSendHistory =
         onChainHistoryTx.isPrivateSend === true ||
         onChainHistoryTx.type === EOnChainHistoryTxType.PrivateSend;
+      // UTXO rows render the server's net `value`; a transfer between the
+      // account's own addresses nets to 0, so resolve the moved amount instead.
+      const historyValue = vaultSettings.isUtxo
+        ? getUtxoHistoryDisplayValue(onChainHistoryTx)
+        : onChainHistoryTx.value;
 
       const decodedTx: IDecodedTx = {
         txid: onChainHistoryTx.tx,
@@ -904,7 +910,7 @@ export abstract class VaultBase extends VaultBaseChainOnly {
 
         totalFeeFiatValue: onChainHistoryTx.gasFeeFiatValue,
 
-        nativeAmount: vaultSettings.isUtxo ? onChainHistoryTx.value : undefined,
+        nativeAmount: vaultSettings.isUtxo ? historyValue : undefined,
 
         extraInfo: await this.buildOnChainHistoryTxExtraInfo({
           onChainHistoryTx,
@@ -913,7 +919,7 @@ export abstract class VaultBase extends VaultBaseChainOnly {
           type: isPrivateSendHistory
             ? EOnChainHistoryTxType.PrivateSend
             : onChainHistoryTx.type,
-          value: onChainHistoryTx.value,
+          value: historyValue,
           label: isPrivateSendHistory
             ? EOnChainHistoryTxType.PrivateSend
             : onChainHistoryTx.label,
