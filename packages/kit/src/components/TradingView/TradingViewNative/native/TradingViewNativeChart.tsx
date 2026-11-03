@@ -158,7 +158,10 @@ function loadOneKeyWatermarkSvg(): Promise<SkSVG | null> {
         cachedWatermarkSvg = Skia.SVG.MakeFromString(svgXml);
         return cachedWatermarkSvg;
       })
-      .catch(() => null);
+      .catch(() => null)
+      .finally(() => {
+        watermarkSvgLoadPromise = null;
+      });
   }
   return watermarkSvgLoadPromise;
 }
