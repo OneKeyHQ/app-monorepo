@@ -773,6 +773,17 @@ export class SimpleDbEntityPrivacyChainState extends SimpleDbEntityBase<IPrivacy
     });
   }
 
+  async hasWalletAccountRecords({
+    walletId,
+  }: {
+    walletId: string;
+  }): Promise<boolean> {
+    const raw = await this.getRawData();
+    return Object.values(raw?.accounts ?? {}).some(
+      (record) => rawRecordWalletId(record) === walletId,
+    );
+  }
+
   async listWalletStateIds(): Promise<string[]> {
     const raw = await this.getRawData();
     return Object.keys(raw?.wallets ?? {});

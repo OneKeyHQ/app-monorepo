@@ -450,11 +450,16 @@ describe('a temp wallet kept or no longer kept', () => {
     jest.restoreAllMocks();
   });
 
-  function createKeepService(networkIds: string[]) {
+  function createKeepService(networkIds: string[], hasRecords = true) {
     return Object.assign(
       Object.create(ServicePrivacyChain.prototype) as IService,
       {
         backgroundApi: {
+          simpleDb: {
+            privacyChainState: {
+              hasWalletAccountRecords: async () => hasRecords,
+            },
+          },
           serviceAccount: {
             getAllAccounts: async () => ({
               accounts: [
@@ -490,6 +495,23 @@ describe('a temp wallet kept or no longer kept', () => {
     );
     expect(service.shortenStartupQuietWindow).toHaveBeenCalled();
     expect(service.scheduleBackgroundSync).toHaveBeenCalledWith(0);
+  });
+
+  // Its pages still read again: a kept temp wallet can now enable privacy.
+  it('schedules no pass for a wallet with no privacy state', async () => {
+    const emit = jest.spyOn(appEventBus, 'emit');
+    const service = createKeepService(['zec--0'], false);
+
+    await service.onWalletTempStatusChanged({ walletId: tempWalletId });
+
+    expect(
+      emit.mock.calls.filter(
+        ([name]) => name === EAppEventBusNames.LocalWalletAccountsChanged,
+      ),
+    ).toHaveLength(1);
+    expect(service.init).not.toHaveBeenCalled();
+    expect(service.shortenStartupQuietWindow).not.toHaveBeenCalled();
+    expect(service.scheduleBackgroundSync).not.toHaveBeenCalled();
   });
 
   it('does nothing without a privacy network', async () => {

@@ -3415,6 +3415,14 @@ class ServicePrivacyChain extends ServiceBase {
         accountIds,
       });
     }
+    // Only accounts that already hold privacy state can start or stop scanning.
+    if (
+      !(await this.backgroundApi.simpleDb.privacyChainState.hasWalletAccountRecords(
+        { walletId },
+      ))
+    ) {
+      return;
+    }
     await this.init();
     this.shortenStartupQuietWindow();
     this.scheduleBackgroundSync(0);
