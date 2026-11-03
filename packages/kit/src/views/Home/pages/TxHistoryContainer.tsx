@@ -901,7 +901,9 @@ function TxHistoryListContainer(
         networkId={network?.id}
         indexedAccountId={indexedAccount?.id}
         initialized={historyState.initialized}
-        tableLayout={tableLayout ?? media.gtMd}
+        tableLayout={
+          platformEnv.isNative ? tableLayout : (tableLayout ?? media.gtMd)
+        }
         listViewStyleProps={{
           contentContainerStyle: {
             mt: '$3',

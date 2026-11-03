@@ -2034,6 +2034,7 @@ describe('ServiceHardware SDK DeviceState synchronization', () => {
         totalBytes: 1000,
         rateBytesPerSecond: 210,
         elapsedMs: 2000,
+        retryCount: 1,
       },
     });
 
@@ -2048,6 +2049,7 @@ describe('ServiceHardware SDK DeviceState synchronization', () => {
           totalBytes: 1000,
           rateBytesPerSecond: 210,
           elapsedMs: 2000,
+          retryCount: 1,
         },
       },
     });

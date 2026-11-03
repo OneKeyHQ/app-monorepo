@@ -11,7 +11,10 @@ import {
   getIntercomLanguageOverride,
 } from './utils';
 
-export const showIntercom = async (params?: IShowIntercomParams) => {
+export const showIntercom = async (
+  params?: IShowIntercomParams,
+  canPresent: (userId: string | null) => boolean = () => true,
+): Promise<boolean> => {
   const { userId, token } = await getCurrentIntercomIdentity();
   const [instanceId, languageOverride] = await Promise.all([
     getInstanceId(),
@@ -29,10 +32,14 @@ export const showIntercom = async (params?: IShowIntercomParams) => {
 
   // The metadata awaits above can outlive the identity check.
   await assertIntercomUserUnchanged(userId);
+  if (!canPresent(userId)) {
+    return false;
+  }
   openUrlUtils.openUrlInApp(url, 'Support', {
     hideHeaderRight: true,
     redirectExternalNavigation: true,
     disableBridge: true,
     intercomUserId: userId,
   });
+  return true;
 };

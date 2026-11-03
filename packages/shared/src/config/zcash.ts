@@ -1,14 +1,15 @@
-// Lowest height the low-level wallet registration flow accepts. Keep
-// separate from the product scan floor below, which starts at Orchard
-// since this wallet cannot spend Sapling.
-export const ZCASH_MIN_BIRTHDAY_HEIGHT_MAINNET = 419_201;
-
-// NU5 / Orchard activation, mainnet (zcash_protocol consensus.rs). Deepest
-// product scan: this wallet cannot spend Sapling (no proving parameters).
+// NU5 / Orchard activation, mainnet (zcash_protocol consensus.rs).
 export const ZCASH_ORCHARD_ACTIVATION_HEIGHT_MAINNET = 1_687_104;
-// Wall-clock time of that activation block; paired with the block interval
-// to estimate a chain tip when the network is unreachable.
 export const ZCASH_ORCHARD_ACTIVATION_TIMESTAMP_MS = Date.UTC(2022, 4, 31);
+
+// NU6.3 / Ironwood activation, mainnet.
+export const ZCASH_IRONWOOD_ACTIVATION_HEIGHT_MAINNET = 3_428_143;
+export const ZCASH_IRONWOOD_ACTIVATION_TIMESTAMP_MS = Date.UTC(2026, 6, 28);
+
+// The first release supports Ironwood history. Both custom birthdays and
+// full scans must start at or above this product floor.
+export const ZCASH_MIN_BIRTHDAY_HEIGHT_MAINNET =
+  ZCASH_IRONWOOD_ACTIVATION_HEIGHT_MAINNET;
 
 export const ZCASH_SPAM_REGION_START_MAINNET = 1_710_000;
 export const ZCASH_SPAM_REGION_END_MAINNET = 1_960_000;

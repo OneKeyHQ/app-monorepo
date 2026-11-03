@@ -262,8 +262,7 @@ export type IVaultSettings = {
     accountSetup: {
       // Enabling asks the user for a recovery month or height.
       requiresBirthday: boolean;
-      // The earliest start that can hold this chain's private funds: the
-      // floor of the month picker and the "scan from the beginning" choice.
+      // The first supported date and height, also used for a full scan.
       earliestBirthday: { height: number; timestamp: number };
     };
     // No `publicLabel` (Monero): the receive page shows no public/private switch.

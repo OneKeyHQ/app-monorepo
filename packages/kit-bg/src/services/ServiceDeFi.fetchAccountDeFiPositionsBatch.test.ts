@@ -228,6 +228,92 @@ const baseParams = {
   excludeLowValueProtocols: true,
 };
 
+describe('complete Portfolio refresh responses', () => {
+  const params = {
+    accountId: 'hd-1--evm',
+    indexedAccountId: 'idx-1',
+    networkId: 'evm--1',
+    accountAddress: '0xabc',
+    sourceCurrencyInfo: usd,
+    targetCurrencyInfo: usd,
+    saveToLocal: true,
+    requireComplete: true,
+    isForceRefresh: true,
+    timeoutMs: 20_000,
+  };
+
+  it('rejects degraded data before replacing the last cached overview', async () => {
+    const { service, post, updateAccountDeFiOverview } = makeService();
+    const response = multiChainResponse(['evm--1']);
+    response.data.data.meta.degraded = true;
+    post.mockResolvedValue(response);
+    await expect(service.fetchAccountDeFiPositions(params)).rejects.toThrow(
+      'Incomplete DeFi',
+    );
+    expect(updateAccountDeFiOverview).not.toHaveBeenCalled();
+  });
+
+  it('rejects a network which the backend did not query', async () => {
+    const { service, post, updateAccountDeFiOverview } = makeService();
+    const response = multiChainResponse(['evm--1']);
+    response.data.data.meta.queriedNetworkIds = [];
+    response.data.data.data.positions = {};
+    post.mockResolvedValue(response);
+    await expect(service.fetchAccountDeFiPositions(params)).rejects.toThrow(
+      'Incomplete DeFi',
+    );
+    expect(updateAccountDeFiOverview).not.toHaveBeenCalled();
+  });
+
+  it('accepts a complete empty result and requests the explicit USD basis', async () => {
+    const { service, post, updateAccountDeFiOverview } = makeService();
+    const response = multiChainResponse(['evm--1']);
+    response.data.data.data.positions = {};
+    response.data.data.data.protocolSummaries = [];
+    response.data.data.data.totals = {
+      ...response.data.data.data.totals,
+      totalValue: 0,
+      totalDebt: 0,
+      totalReward: 0,
+      netWorth: 0,
+    };
+    response.data.data.meta.networkIds = [];
+    post.mockResolvedValue(response);
+    await expect(
+      service.fetchAccountDeFiPositions(params),
+    ).resolves.toMatchObject({
+      isNetworkQueried: true,
+      overview: { netWorth: 0 },
+    });
+    expect(post).toHaveBeenCalledWith(
+      '/wallet/v1/portfolio/positions',
+      expect.objectContaining({ isForceRefresh: true }),
+      expect.objectContaining({
+        headers: { 'x-wallet-type': 'hd', 'x-onekey-request-currency': 'usd' },
+        timeout: 20_000,
+      }),
+    );
+    expect(updateAccountDeFiOverview).toHaveBeenCalled();
+  });
+
+  it.each([false, true])(
+    'rejects explicitly unqueried networks even with a positions key (nonempty: %s)',
+    async (nonempty) => {
+      const { service, post, updateAccountDeFiOverview } = makeService();
+      const response = multiChainResponse(['evm--1']);
+      response.data.data.meta.queriedNetworkIds = [];
+      response.data.data.data.positions = {
+        'evm--1': nonempty ? response.data.data.data.positions['evm--1'] : [],
+      };
+      post.mockResolvedValue(response);
+      await expect(service.fetchAccountDeFiPositions(params)).rejects.toThrow(
+        'Incomplete DeFi',
+      );
+      expect(updateAccountDeFiOverview).not.toHaveBeenCalled();
+    },
+  );
+});
+
 function singleResult({
   networkId,
   netWorth,

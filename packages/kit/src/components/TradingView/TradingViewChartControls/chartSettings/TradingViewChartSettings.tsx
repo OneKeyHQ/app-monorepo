@@ -406,8 +406,8 @@ export function TradingViewChartSettings({
   });
   const [selectedAppearanceSectionId, setSelectedAppearanceSectionId] =
     useState<ITradingViewSettingsMockAppearanceSectionId>('candles');
-  const [isConfirming, setIsConfirming] = useState(false);
-  const submitInProgress = isSubmitting || isConfirming;
+  const [isCommitting, setIsCommitting] = useState(false);
+  const submitInProgress = isSubmitting || isCommitting;
 
   const isAppearanceSectionVisible = useCallback(
     (sectionId: ITradingViewSettingsMockAppearanceSectionId) =>
@@ -436,10 +436,6 @@ export function TradingViewChartSettings({
   );
   const effectiveSelectedAppearanceSectionId =
     selectedAppearanceSection?.id ?? 'candles';
-
-  const handleReset = useCallback(() => {
-    updateSettingsValue(() => createTradingViewChartSettingsValue());
-  }, [updateSettingsValue]);
 
   const handleOptionChange = useCallback(
     (key: keyof ITradingViewChartSettingsOptions, checked: boolean) => {
@@ -508,32 +504,47 @@ export function TradingViewChartSettings({
     onClose?.();
   };
 
+  const commitValue = async (nextValue: ITradingViewChartSettingsValue) => {
+    setIsCommitting(true);
+    try {
+      await onConfirm?.(nextValue);
+      commitSettingsValue();
+      return true;
+    } catch (error) {
+      onConfirmError?.(error);
+      return false;
+    } finally {
+      setIsCommitting(false);
+    }
+  };
+
+  const handleReset = async () => {
+    if (submitInProgress) {
+      return;
+    }
+    const resetValue = createTradingViewChartSettingsValue();
+    updateSettingsValue(() => resetValue);
+    // Reset is a sibling action of Confirm rather than a pending edit, so the
+    // defaults are applied right away while the settings stay open.
+    await commitValue(resetValue);
+  };
+
   const handleConfirm = async () => {
     if (submitInProgress) {
       return false;
     }
 
-    let didConfirm = false;
-    setIsConfirming(true);
-    try {
-      await onConfirm?.(settingsValue);
-      commitSettingsValue();
-      didConfirm = true;
-    } catch (error) {
-      onConfirmError?.(error);
-    } finally {
-      setIsConfirming(false);
+    if (!(await commitValue(settingsValue))) {
+      return false;
     }
 
-    if (didConfirm) {
-      try {
-        await onConfirmSuccess?.();
-      } catch (error) {
-        onConfirmError?.(error);
-        return false;
-      }
+    try {
+      await onConfirmSuccess?.();
+    } catch (error) {
+      onConfirmError?.(error);
+      return false;
     }
-    return didConfirm;
+    return true;
   };
 
   const chartDisplayLeadingRow = renderChartDisplayLeadingRow?.({
@@ -965,7 +976,7 @@ export function TradingViewChartSettings({
       size="medium"
       variant="secondary"
       disabled={submitInProgress}
-      onPress={handleReset}
+      onPress={() => void handleReset()}
     >
       {intl.formatMessage({ id: ETranslations.global_reset })}
     </Button>
@@ -1077,7 +1088,7 @@ export function TradingViewChartSettings({
       testIDPrefix="trading-view-settings"
       title={intl.formatMessage({ id: ETranslations.market_chart_settings })}
       isSubmitting={submitInProgress}
-      onReset={handleReset}
+      onReset={() => void handleReset()}
       onCancel={handleCancel}
       onClose={handleClose}
       onConfirm={handleConfirm}
