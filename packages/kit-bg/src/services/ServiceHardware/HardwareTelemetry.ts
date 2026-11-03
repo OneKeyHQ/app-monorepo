@@ -19,12 +19,20 @@ type IEventInput = IHardwareTelemetryEvent extends infer T
     : never
   : never;
 
+type IBleSummary = Extract<IEventInput, { kind: 'ble' }>['params'];
+
 export class HardwareTelemetry {
   private flushing: Promise<void> | undefined;
 
   private retryTimer: ReturnType<typeof setTimeout> | undefined;
 
   private flushRequested = false;
+
+  private pendingBleSummary: IBleSummary | undefined;
+
+  private bleSummaryTimer: ReturnType<typeof setTimeout> | undefined;
+
+  private persistenceWarningReported = false;
 
   constructor(
     private store?: IStore,
@@ -55,27 +63,114 @@ export class HardwareTelemetry {
   }
 
   report(input: IEventInput): void {
+    if (input.kind === 'ble') {
+      if (input.params.status === 'success') {
+        this.collectBleSummary(input.params);
+        return;
+      }
+      this.flushBleSummary();
+      this.record({
+        ...input,
+        params: { ...input.params, callCount: input.params.callCount ?? 1 },
+      });
+      return;
+    }
+    this.record(input);
+  }
+
+  private collectBleSummary(params: IBleSummary): void {
+    const previous = this.pendingBleSummary;
+    const identityFields = [
+      'deviceType',
+      'firmwareVersion',
+      'bleVersion',
+      'platform',
+      'mode',
+    ] as const;
+    if (
+      previous &&
+      identityFields.some((field) => previous[field] !== params[field])
+    ) {
+      this.flushBleSummary();
+    }
+    const pending = this.pendingBleSummary;
+    if (pending) {
+      const durationMs = pending.durationMs + params.durationMs;
+      const bytes = pending.bytes + params.bytes;
+      const total = (a?: number, b?: number) =>
+        a === undefined && b === undefined ? undefined : (a ?? 0) + (b ?? 0);
+      this.pendingBleSummary = {
+        ...pending,
+        callCount: (pending.callCount ?? 1) + (params.callCount ?? 1),
+        frames: pending.frames + params.frames,
+        packets: pending.packets + params.packets,
+        bytes,
+        durationMs,
+        effectiveTransferRateBytesPerSecond:
+          durationMs > 0 ? (bytes * 1000) / durationMs : undefined,
+        writeDurationMs: total(pending.writeDurationMs, params.writeDurationMs),
+        readWaitDurationMs: total(
+          pending.readWaitDurationMs,
+          params.readWaitDurationMs,
+        ),
+      };
+    } else {
+      this.pendingBleSummary = { ...params, callCount: params.callCount ?? 1 };
+    }
+    // FileWrite pipelines can finish many times per second. Persist one scalar
+    // success summary per window; failures bypass the window below.
+    this.bleSummaryTimer ??= setTimeout(() => this.flushBleSummary(), 10_000);
+  }
+
+  private flushBleSummary(): void {
+    if (this.bleSummaryTimer !== undefined) clearTimeout(this.bleSummaryTimer);
+    this.bleSummaryTimer = undefined;
+    const params = this.pendingBleSummary;
+    this.pendingBleSummary = undefined;
+    if (params) this.record({ kind: 'ble', params });
+  }
+
+  private record(input: IEventInput): void {
     const event: IHardwareTelemetryEvent = {
       ...input,
       id: generateUUID(),
       timestamp: Date.now(),
     };
+    try {
+      const metadata = { $insertId: event.id, $timestamp: event.timestamp };
+      if (event.kind === 'download' && event.params.phase === 'finished') {
+        defaultLogger.update.firmware.artifactDownloadRecorded({
+          ...event.params,
+          ...metadata,
+        });
+      } else if (event.kind === 'ble') {
+        defaultLogger.hardware.connection.bleCommunicationRecorded({
+          ...event.params,
+          ...metadata,
+        });
+      }
+    } catch {
+      // Local output must not affect durable server delivery.
+    }
     void this.getStore()
       .then((store) => store.enqueue(event))
       .then(() => this.flush())
       .catch(() => {
         // Diagnostics must never interrupt downloads or hardware calls.
-        console.warn('[HardwareTelemetry] Unable to persist pending event');
+        if (!this.persistenceWarningReported) {
+          this.persistenceWarningReported = true;
+          console.warn('[HardwareTelemetry] Unable to persist pending event');
+        }
       });
   }
 
   flush(): Promise<void> {
+    if (this.retryTimer !== undefined)
+      return this.flushing ?? Promise.resolve();
     if (this.flushing) {
       this.flushRequested = true;
       return this.flushing;
     }
-    if (this.retryTimer) clearTimeout(this.retryTimer);
-    this.retryTimer = undefined;
     this.flushing = this.flushPending().finally(() => {
       this.flushing = undefined;
       if (this.flushRequested && !this.retryTimer) {

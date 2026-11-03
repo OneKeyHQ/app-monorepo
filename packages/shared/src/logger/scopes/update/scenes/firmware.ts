@@ -29,7 +29,6 @@ export { parseFirmwareVersions } from './firmwareVersions';
 
 export class FirmwareScene extends BaseScene {
   @LogToServer({ level: 'info', waitForServer: true })
-  @LogToLocal({ level: 'info' })
   private firmwareArtifactDownload(params: IFirmwareArtifactDownloadTelemetry) {
     return params;
   }
@@ -38,6 +37,11 @@ export class FirmwareScene extends BaseScene {
     params: IFirmwareArtifactDownloadTelemetry,
   ): Promise<void> {
     return this.firmwareArtifactDownload(params) as unknown as Promise<void>;
+  }
+
+  @LogToLocal({ level: 'info' })
+  public artifactDownloadRecorded(params: IFirmwareArtifactDownloadTelemetry) {
+    return params;
   }
 
   @LogToLocal({ level: 'info' })

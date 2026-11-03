@@ -2952,154 +2952,174 @@ class ServiceFirmwareUpdate extends ServiceBase {
     workflowId: number,
   ) {
     try {
-      await this.backgroundApi.serviceHardwareUI.withHardwareProcessing(
-        async () => {
-          let shouldClearForceTransportType = false;
+      // Bind telemetry to the connection without activating device interaction hooks.
+      await this.backgroundApi.serviceHardwareUI.runExclusiveOneKeyOperation(
+        async (lease) =>
+          this.backgroundApi.serviceHardwareUI.withHardwareProcessing(
+            async () => {
+              let shouldClearForceTransportType = false;
 
-          try {
-            appEventBus.emit(EAppEventBusNames.BeginFirmwareUpdate, undefined);
-            // await other hardware task stop processing
-            await timerUtils.wait(3000);
-
-            // Desktop firmware updates must use the same USB-only product flow as x.
-            // Resolve again at execution time so Pro2 and Neo cannot retain a BLE route.
-            let currentTransportType = await this.getActiveTransportType();
-            if (platformEnv.isDesktop) {
-              const resolvedTransport =
-                await this.backgroundApi.serviceHardware.resolveHardwareTransport(
-                  {
-                    connectId:
-                      params.releaseResult.originalConnectId ??
-                      params.releaseResult.updatingConnectId,
-                    features: params.releaseResult.features,
-                    hardwareCallContext: EHardwareCallContext.UPDATE_FIRMWARE,
-                  },
+              try {
+                appEventBus.emit(
+                  EAppEventBusNames.BeginFirmwareUpdate,
+                  undefined,
                 );
-              currentTransportType = resolvedTransport.transportType;
-              params.releaseResult.updatingConnectId =
-                deviceUtils.getUpdatingConnectId({
-                  connectId: resolvedTransport.connectId,
-                  currentTransportType,
-                });
-              if (
-                currentTransportType === EHardwareTransportType.DesktopWebBle
-              ) {
-                throw new FirmwareUpdateRequiresUsbTransport();
-              }
-            }
-            this.recordUpdateWorkflowTransportType(
-              workflowId,
-              currentTransportType,
-            );
-            defaultLogger.update.firmware.firmwareUpdateStarted({
-              deviceType: params.releaseResult.deviceType,
-              transportType: currentTransportType,
-              updateFlow: 'v2',
-              firmwareVersions: parseFirmwareVersions(params.releaseResult),
-            });
-            await this.backgroundApi.serviceHardware.setForceTransportType({
-              forceTransportType: currentTransportType,
-            });
-            shouldClearForceTransportType = true;
-            serviceHardwareUtils.hardwareLog(
-              'startUpdateWorkflowV2: locked transport type',
-              currentTransportType,
-            );
+                // await other hardware task stop processing
+                await timerUtils.wait(3000);
 
-            // pre checking
-            await this.validateMnemonicBackuped(params);
-            await this.validateUSBConnection(params);
-            // must before validateMinVersionAllowed, go to https://help.onekey.so/
-            await this.validateShouldUpdateFullResource(params);
-            // go to https://firmware.onekey.so/
-            await this.validateMinVersionAllowed(params);
-            await this.validateDeviceBattery(params);
-            await this.validateShouldUpdateBridge(params);
-
-            await this.setFirmwareArtifactDownloadState(true);
-            try {
-              const runtimeHost = await this.getFirmwareUpdateRuntimeHost();
-              await runtimeHost.artifacts.withWorkflowArtifacts(
-                params.releaseResult,
-                async (firmwareArtifacts) => {
-                  await this.setFirmwareArtifactDownloadState(false);
-                  // ** clear all retry tasks
-                  await this.updateTasksClear('startUpdateWorkflow');
-
-                  await this.cancelUpdateWorkflowIfExit();
-
-                  const deviceType = params?.releaseResult?.deviceType;
-                  if (!supportsFirmwareUpdateWorkflowV2(deviceType)) {
-                    serviceHardwareUtils.hardwareLog(
-                      'startUpdateWorkflowV2: unsupported device type',
+                // Desktop firmware updates must use the same USB-only product flow as x.
+                // Resolve again at execution time so Pro2 and Neo cannot retain a BLE route.
+                let currentTransportType = await this.getActiveTransportType();
+                if (platformEnv.isDesktop) {
+                  const resolvedTransport =
+                    await this.backgroundApi.serviceHardware.resolveHardwareTransport(
                       {
-                        deviceType: deviceType ?? 'unknown',
-                        isProtocolV2Product:
-                          isProtocolV2ProductType(deviceType),
+                        connectId:
+                          params.releaseResult.originalConnectId ??
+                          params.releaseResult.updatingConnectId,
+                        features: params.releaseResult.features,
+                        hardwareCallContext:
+                          EHardwareCallContext.UPDATE_FIRMWARE,
                       },
                     );
-                    throw new FirmwareUpdateUnsupportedDevice();
-                  }
-                  const updateResult =
-                    await this.startUpdateFirmwareTaskForNewBootVersion(
-                      params,
-                      firmwareArtifacts,
-                    );
-                  console.log(
-                    'startUpdateFirmwareTaskForNewBootVersion result: ===> ',
-                    updateResult,
-                  );
-
-                  const { deviceName: _deviceName, ...releaseResultForLog } =
-                    params.releaseResult;
-                  serviceHardwareUtils.hardwareLog('startUpdateWorkflow DONE', {
-                    ...params,
-                    releaseResult: releaseResultForLog,
-                  });
-
-                  await firmwareUpdateRetryAtom.set(undefined);
-                  if (params.releaseResult.originalConnectId) {
-                    await this.waitDeviceRestart({
-                      actionType: 'done',
-                      releaseResult: params.releaseResult,
+                  currentTransportType = resolvedTransport.transportType;
+                  params.releaseResult.updatingConnectId =
+                    deviceUtils.getUpdatingConnectId({
+                      connectId: resolvedTransport.connectId,
+                      currentTransportType,
                     });
-                    await this.deleteFirmwareUpdateDetectInfo(
-                      params.releaseResult.originalConnectId,
-                    );
-                    await this.backgroundApi.serviceHardware.updateDeviceVersionAfterFirmwareUpdate(
-                      params,
-                    );
-                    await this.clearOnceUpdateDevSettings();
-                    appEventBus.emit(
-                      EAppEventBusNames.FinishFirmwareUpdate,
-                      undefined,
-                    );
+                  if (
+                    currentTransportType ===
+                    EHardwareTransportType.DesktopWebBle
+                  ) {
+                    throw new FirmwareUpdateRequiresUsbTransport();
                   }
-                  // wait verify
-                  await timerUtils.wait(2000);
-                },
-              );
-            } finally {
-              await this.setFirmwareArtifactDownloadState(false);
-            }
-          } finally {
-            if (shouldClearForceTransportType) {
-              // Always clear transport type lock when firmware update completes
-              await this.backgroundApi.serviceHardware.clearForceTransportType();
-              serviceHardwareUtils.hardwareLog(
-                'startUpdateWorkflowV2: cleared transport type lock',
-              );
-            }
-          }
-        },
+                }
+                this.recordUpdateWorkflowTransportType(
+                  workflowId,
+                  currentTransportType,
+                );
+                defaultLogger.update.firmware.firmwareUpdateStarted({
+                  deviceType: params.releaseResult.deviceType,
+                  transportType: currentTransportType,
+                  updateFlow: 'v2',
+                  firmwareVersions: parseFirmwareVersions(params.releaseResult),
+                });
+                await this.backgroundApi.serviceHardware.setForceTransportType({
+                  forceTransportType: currentTransportType,
+                });
+                shouldClearForceTransportType = true;
+                serviceHardwareUtils.hardwareLog(
+                  'startUpdateWorkflowV2: locked transport type',
+                  currentTransportType,
+                );
+
+                // pre checking
+                await this.validateMnemonicBackuped(params);
+                await this.validateUSBConnection(params);
+                // must before validateMinVersionAllowed, go to https://help.onekey.so/
+                await this.validateShouldUpdateFullResource(params);
+                // go to https://firmware.onekey.so/
+                await this.validateMinVersionAllowed(params);
+                await this.validateDeviceBattery(params);
+                await this.validateShouldUpdateBridge(params);
+
+                await this.setFirmwareArtifactDownloadState(true);
+                try {
+                  const runtimeHost = await this.getFirmwareUpdateRuntimeHost();
+                  await runtimeHost.artifacts.withWorkflowArtifacts(
+                    params.releaseResult,
+                    async (firmwareArtifacts) => {
+                      await this.setFirmwareArtifactDownloadState(false);
+                      // ** clear all retry tasks
+                      await this.updateTasksClear('startUpdateWorkflow');
+
+                      await this.cancelUpdateWorkflowIfExit();
+
+                      const deviceType = params?.releaseResult?.deviceType;
+                      if (!supportsFirmwareUpdateWorkflowV2(deviceType)) {
+                        serviceHardwareUtils.hardwareLog(
+                          'startUpdateWorkflowV2: unsupported device type',
+                          {
+                            deviceType: deviceType ?? 'unknown',
+                            isProtocolV2Product:
+                              isProtocolV2ProductType(deviceType),
+                          },
+                        );
+                        throw new FirmwareUpdateUnsupportedDevice();
+                      }
+                      const updateResult =
+                        await this.startUpdateFirmwareTaskForNewBootVersion(
+                          params,
+                          firmwareArtifacts,
+                        );
+                      console.log(
+                        'startUpdateFirmwareTaskForNewBootVersion result: ===> ',
+                        updateResult,
+                      );
+
+                      const {
+                        deviceName: _deviceName,
+                        ...releaseResultForLog
+                      } = params.releaseResult;
+                      serviceHardwareUtils.hardwareLog(
+                        'startUpdateWorkflow DONE',
+                        {
+                          ...params,
+                          releaseResult: releaseResultForLog,
+                        },
+                      );
+
+                      await firmwareUpdateRetryAtom.set(undefined);
+                      if (params.releaseResult.originalConnectId) {
+                        await this.waitDeviceRestart({
+                          actionType: 'done',
+                          releaseResult: params.releaseResult,
+                        });
+                        await this.deleteFirmwareUpdateDetectInfo(
+                          params.releaseResult.originalConnectId,
+                        );
+                        await this.backgroundApi.serviceHardware.updateDeviceVersionAfterFirmwareUpdate(
+                          params,
+                        );
+                        await this.clearOnceUpdateDevSettings();
+                        appEventBus.emit(
+                          EAppEventBusNames.FinishFirmwareUpdate,
+                          undefined,
+                        );
+                      }
+                      // wait verify
+                      await timerUtils.wait(2000);
+                    },
+                  );
+                } finally {
+                  await this.setFirmwareArtifactDownloadState(false);
+                }
+              } finally {
+                if (shouldClearForceTransportType) {
+                  // Always clear transport type lock when firmware update completes
+                  await this.backgroundApi.serviceHardware.clearForceTransportType();
+                  serviceHardwareUtils.hardwareLog(
+                    'startUpdateWorkflowV2: cleared transport type lock',
+                  );
+                }
+              }
+            },
+            {
+              deviceParams: {
+                dbDevice: {} as IDBDevice,
+              },
+              oneKeyOperationLease: lease,
+              allowDuringFirmwareUpdate: true,
+              skipDeviceCancel: true,
+              hideCheckingDeviceLoading: true,
+              debugMethodName: 'startUpdateWorkflowV2',
+            },
+          ),
         {
-          deviceParams: {
-            dbDevice: {} as any,
-          },
-          allowDuringFirmwareUpdate: true,
-          skipDeviceCancel: true,
-          hideCheckingDeviceLoading: true,
-          debugMethodName: 'startUpdateWorkflowV2',
+          deviceKey:
+            params.releaseResult.originalConnectId ??
+            params.releaseResult.updatingConnectId,
         },
       );
     } finally {

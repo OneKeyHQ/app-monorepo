@@ -50,6 +50,14 @@ import ServiceFirmwareUpdate, {
 import type { IUpdateFirmwareWorkflowParams } from './ServiceFirmwareUpdate';
 import type { IBackgroundApi } from '../../apis/IBackgroundApi';
 import type { IDBDevice } from '../../dbs/local/types';
+import type { IOneKeyHardwareOperationLease } from '../ServiceHardwareUI/HardwareProcessingManager';
+
+const runExclusiveOneKeyOperation = jest.fn(
+  async (
+    callback: (lease: IOneKeyHardwareOperationLease) => Promise<void>,
+    { deviceKey }: { deviceKey?: string } = {},
+  ) => callback({ deviceKey, owner: Symbol('firmware-update') }),
+);
 
 jest.mock('@onekeyhq/shared/src/background/backgroundDecorators', () => ({
   backgroundClass: () => (target: unknown) => target,
@@ -431,6 +439,7 @@ describe('ServiceFirmwareUpdate desktop USB target validation', () => {
     backgroundApi.serviceHardware.clearForceTransportType =
       clearForceTransportType;
     backgroundApi.serviceHardwareUI = {
+      runExclusiveOneKeyOperation,
       withHardwareProcessing: jest.fn(async (callback: () => Promise<void>) =>
         callback(),
       ),
@@ -2826,6 +2835,9 @@ describe('ServiceFirmwareUpdate Protocol V2 desktop transport', () => {
   });
 
   it('resolves Desktop BLE to USB before locking the firmware transport', async () => {
+    const withHardwareProcessing = jest.fn(
+      async (callback: () => Promise<void>) => callback(),
+    );
     const startedSpy = jest
       .spyOn(defaultLogger.update.firmware, 'firmwareUpdateStarted')
       .mockImplementation((params) => params);
@@ -2839,9 +2851,8 @@ describe('ServiceFirmwareUpdate Protocol V2 desktop transport', () => {
       backgroundApi: {
         serviceHardwareUI: {
           silenceDeviceStageForFirmwareWorkflow: jest.fn(),
-          withHardwareProcessing: jest.fn(
-            async (callback: () => Promise<void>) => callback(),
-          ),
+          withHardwareProcessing,
+          runExclusiveOneKeyOperation,
         },
         serviceHardware: {
           getCurrentTransportType: jest
@@ -2877,6 +2888,16 @@ describe('ServiceFirmwareUpdate Protocol V2 desktop transport', () => {
         workflowId,
       ),
     ).rejects.toThrow('stop after transport lock');
+
+    expect(withHardwareProcessing).toHaveBeenCalledWith(
+      expect.any(Function),
+      expect.objectContaining({
+        deviceParams: { dbDevice: {} },
+        oneKeyOperationLease: expect.objectContaining({
+          deviceKey: 'PRO2_BLE_ID',
+        }),
+      }),
+    );
 
     expect(resolveHardwareTransport).toHaveBeenCalledWith({
       connectId: 'PRO2_BLE_ID',
@@ -3022,6 +3043,7 @@ describe('ServiceFirmwareUpdate workflow tracking', () => {
     const service = new ServiceFirmwareUpdate({
       backgroundApi: {
         serviceHardwareUI: {
+          runExclusiveOneKeyOperation,
           withHardwareProcessing: jest.fn(
             () =>
               new Promise<void>((_resolve, reject) => {

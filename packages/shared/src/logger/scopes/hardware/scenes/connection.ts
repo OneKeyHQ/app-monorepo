@@ -20,6 +20,9 @@ export type IBleCommunicationTelemetry = {
   method: 'FilesystemFileWrite';
   status: 'success' | 'failed';
   mode: 'native-frame' | 'per-packet';
+  // Success summaries combine calls over a ten-second window; older events
+  // without this field represent one FileWrite call.
+  callCount?: number;
   frames: number;
   packets: number;
   bytes: number;
@@ -31,7 +34,6 @@ export type IBleCommunicationTelemetry = {
 
 export class HardwareConnectionScene extends BaseScene {
   @LogToServer({ level: 'info', waitForServer: true })
-  @LogToLocal({ level: 'info' })
   private bleCommunicationResult(params: IBleCommunicationTelemetry) {
     return params;
   }
@@ -40,6 +42,11 @@ export class HardwareConnectionScene extends BaseScene {
     params: IBleCommunicationTelemetry,
   ): Promise<void> {
     return this.bleCommunicationResult(params) as unknown as Promise<void>;
+  }
+
+  @LogToLocal({ level: 'info' })
+  public bleCommunicationRecorded(params: IBleCommunicationTelemetry) {
+    return params;
   }
 
   @LogToServer()

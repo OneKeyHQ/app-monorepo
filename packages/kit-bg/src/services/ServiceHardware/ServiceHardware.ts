@@ -2138,10 +2138,11 @@ class ServiceHardware extends ServiceBase {
             typeof messages.payload[1] === 'string' &&
             messages.payload[1].startsWith('[FirmwareUpdateV4]');
           if (
-            messageType.includes('@onekey/hd-core') ||
-            messageType.includes('@onekey/hd-transport') ||
-            messageType.includes('@onekey/hd-ble-transport') ||
-            isFirmwareUpdateLog
+            !transfer &&
+            (messageType.includes('@onekey/hd-core') ||
+              messageType.includes('@onekey/hd-transport') ||
+              messageType.includes('@onekey/hd-ble-transport') ||
+              isFirmwareUpdateLog)
           ) {
             defaultLogger.hardware.sdkLog.log(messages.event, message);
           }
