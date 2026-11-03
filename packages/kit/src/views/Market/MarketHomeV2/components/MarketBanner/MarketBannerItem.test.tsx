@@ -324,3 +324,26 @@ it('does not infer index semantics from a translated title alone', () => {
   fireEvent.click(screen.getByTestId('market-banner-item'));
   expect(onPress).toHaveBeenCalledTimes(1);
 });
+
+it('retains quote row nodes when their ranking changes', () => {
+  const a = makeToken('A', '3', '1');
+  const b = makeToken('B', '2', '2');
+  const { rerender } = render(<MarketBannerItem item={makeBanner([a, b])} />);
+  const rowA = screen
+    .getByText('A')
+    .closest('[data-testid="market-banner-token-row"]');
+  const rowB = screen
+    .getByText('B')
+    .closest('[data-testid="market-banner-token-row"]');
+  rerender(
+    <MarketBannerItem
+      item={makeBanner([{ ...a, priceChange24hPercent: '0' }, b])}
+    />,
+  );
+  expect(
+    screen.getByText('A').closest('[data-testid="market-banner-token-row"]'),
+  ).toBe(rowA);
+  expect(
+    screen.getByText('B').closest('[data-testid="market-banner-token-row"]'),
+  ).toBe(rowB);
+});

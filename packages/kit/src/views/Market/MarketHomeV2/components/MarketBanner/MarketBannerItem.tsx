@@ -26,7 +26,10 @@ import {
   type IMarketBannerTokenPreview,
 } from '@onekeyhq/shared/types/marketV2';
 
-import { isMarketIndexQuoteBanner } from '../../../utils/marketBannerUtils';
+import {
+  getMarketBannerTopTokens,
+  isMarketIndexQuoteBanner,
+} from '../../../utils/marketBannerUtils';
 import { MarketTestIDs } from '../../testIDs';
 
 import {
@@ -352,20 +355,9 @@ function MarketBannerItemComponent(props: IMarketBannerItemProps) {
         })
         .slice(0, 3);
     }
-    return bannerTokens
-      .toSorted((left, right) => {
-        const leftChange = Number(
-          normalizeMarketValue(left.priceChange24hPercent),
-        );
-        const rightChange = Number(
-          normalizeMarketValue(right.priceChange24hPercent),
-        );
-        if (!Number.isFinite(leftChange))
-          return Number.isFinite(rightChange) ? 1 : 0;
-        if (!Number.isFinite(rightChange)) return -1;
-        return rightChange - leftChange;
-      })
-      .slice(0, 3);
+    return platformEnv.isDesktop
+      ? bannerTokens.slice(0, 3)
+      : getMarketBannerTopTokens(bannerTokens);
   }, [isIndexBanner, item.tokens]);
   const handlePress = useCallback(() => onPress?.(item), [item, onPress]);
 
@@ -452,9 +444,9 @@ function MarketBannerItemComponent(props: IMarketBannerItemProps) {
         }
       >
         {tokens.length ? (
-          tokens.map((token, index) => (
+          tokens.map((token) => (
             <BannerQuoteRow
-              key={`${token.symbol}-${index}`}
+              key={token.symbol}
               token={token}
               isIndex={isIndexBanner}
             />

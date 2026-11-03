@@ -1,4 +1,7 @@
-import { EMarketBannerType } from '@onekeyhq/shared/types/marketV2';
+import {
+  EMarketBannerType,
+  type IMarketBannerTokenPreview,
+} from '@onekeyhq/shared/types/marketV2';
 
 export function isMarketIndexQuoteBanner({
   type,
@@ -30,4 +33,23 @@ export function isMarketMixedBanner(type?: EMarketBannerType): boolean {
   return (
     isMarketStockPerpsBanner(type) || type === EMarketBannerType.TickerPerps
   );
+}
+
+export function getMarketBannerTopTokens(
+  tokens: IMarketBannerTokenPreview[] = [],
+) {
+  return tokens
+    .toSorted((left, right) => {
+      const leftChange = Number(
+        left.priceChange24hPercent?.trim() || Number.NaN,
+      );
+      const rightChange = Number(
+        right.priceChange24hPercent?.trim() || Number.NaN,
+      );
+      if (!Number.isFinite(leftChange))
+        return Number.isFinite(rightChange) ? 1 : 0;
+      if (!Number.isFinite(rightChange)) return -1;
+      return rightChange - leftChange;
+    })
+    .slice(0, 3);
 }
