@@ -1,14 +1,23 @@
 /** @jest-environment jsdom */
 
 import type { ReactElement, ReactNode } from 'react';
+import { StrictMode } from 'react';
 
 import WebViewModal from '.';
 
-import { act, cleanup, render } from '@testing-library/react';
+import { act, cleanup, fireEvent, render } from '@testing-library/react';
 
-import type { IActionListProps } from '@onekeyhq/components/src/actions/ActionList';
+import type {
+  IActionListItemProps,
+  IActionListProps,
+} from '@onekeyhq/components/src/actions/ActionList';
+import type { IPopoverProps } from '@onekeyhq/components/src/actions/Popover/type';
 import { handlePrimeHostedCardCheckoutFallbackRequest } from '@onekeyhq/kit/src/views/Prime/hooks/primeHostedCardCheckout';
-import { EWebEmbedRoutePath } from '@onekeyhq/shared/src/consts/webEmbedConsts';
+import { handlePrimePurchaseSuccessCloseRequest } from '@onekeyhq/kit/src/views/Prime/primeSubscriptionPurchaseSuccess';
+import {
+  EWebEmbedPrivateRequestMethod,
+  EWebEmbedRoutePath,
+} from '@onekeyhq/shared/src/consts/webEmbedConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   INTERCOM_SUPPORT_URL,
@@ -21,6 +30,10 @@ import type {
   IModalWebViewParamList,
 } from '@onekeyhq/shared/src/routes/webView';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
+
+import { WebViewTestIDs } from '../../testIDs';
+
+import type { IJsBridgeMessagePayload } from '@onekeyfe/cross-inpage-provider-types';
 
 type IHeaderProps = {
   headerRight?: () => ReactNode;
@@ -48,17 +61,96 @@ const mockWebViewRef = {
   current: { innerRef: { injectJavaScript: mockInjectJavaScript } },
 };
 let mockWebViewProps: IWebViewProps;
+let mockWebEmbedProps: {
+  customReceiveHandler: (payload: IJsBridgeMessagePayload) => void;
+};
 let mockParams: IModalWebViewParamList[EModalWebViewRoutes.WebView];
 
 jest.mock('@onekeyhq/components', () => {
+  const { cloneElement, useState } =
+    jest.requireActual<typeof import('react')>('react');
   const Passthrough = ({ children }: { children?: ReactNode }) => children;
+  const Item = ({ label, onPress, onClose, testID }: IActionListItemProps) => (
+    <button
+      type="button"
+      data-testid={testID}
+      onClick={() => {
+        void onPress?.(onClose ?? jest.fn());
+        if (!onPress?.length) onClose?.();
+      }}
+    >
+      {label}
+    </button>
+  );
   return {
     Page: Object.assign(Passthrough, {
-      Header: (props: IHeaderProps) => mockHeader(props),
+      Header: (props: IHeaderProps) => {
+        mockHeader(props);
+        return props.headerRight?.() ?? null;
+      },
       Body: Passthrough,
     }),
-    HeaderIconButton: () => null,
-    ActionList: () => null,
+    HeaderIconButton: ({
+      testID,
+      onPress,
+      accessibilityLabel,
+    }: {
+      testID: string;
+      onPress?: () => void;
+      accessibilityLabel?: string;
+    }) => (
+      <button
+        type="button"
+        data-testid={testID}
+        aria-label={accessibilityLabel ?? testID}
+        onClick={onPress}
+      />
+    ),
+    LazyPopover: ({
+      open,
+      onOpenChange,
+      renderContent,
+      renderTrigger,
+    }: IPopoverProps) => {
+      const Content = renderContent as () => ReactNode;
+      return (
+        <>
+          {cloneElement(
+            renderTrigger as ReactElement<{ onPress: () => void }>,
+            {
+              onPress: () => onOpenChange?.(!open),
+            },
+          )}
+          {open ? <Content /> : null}
+        </>
+      );
+    },
+    ActionList: Object.assign(
+      ({ renderTrigger, sections }: IActionListProps) => {
+        const [open, setOpen] = useState(false);
+        return (
+          <>
+            {cloneElement(
+              renderTrigger as ReactElement<{ onPress: () => void }>,
+              { onPress: () => setOpen(true) },
+            )}
+            {open
+              ? sections?.flatMap((section) =>
+                  section.items.map((item) => (
+                    <Item
+                      key={item.label}
+                      {...item}
+                      onClose={() => setOpen(false)}
+                    />
+                  )),
+                )
+              : null}
+          </>
+        );
+      },
+      { Item },
+    ),
+    YStack: Passthrough,
     useClipboard: () => ({ copyText: jest.fn() }),
   };
 });
@@ -103,7 +195,10 @@ jest.mock('@onekeyhq/shared/src/modules3rdParty/intercom/identity', () => ({
 }));
 
 jest.mock('@onekeyhq/kit/src/components/WebViewWebEmbed', () => ({
-  WebViewWebEmbed: () => null,
+  WebViewWebEmbed: (props: typeof mockWebEmbedProps) => {
+    mockWebEmbedProps = props;
+    return null;
+  },
 }));
 
 jest.mock('@onekeyhq/kit/src/hooks/useAppNavigation', () => ({
@@ -164,6 +259,16 @@ jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
 const lastHeader = () => mockHeader.mock.calls.at(-1)?.[0];
 const menuProps = () =>
   (lastHeader()?.headerRight?.() as ReactElement<IActionListProps>).props;
+const primeMenuProps = () =>
+  (lastHeader()?.headerRight?.() as ReactElement<IPopoverProps>).props;
+const primeMenuItem = () => {
+  const item = menuProps().sections?.[0].items[0];
+  if (item) return item;
+  const Content = primeMenuProps().renderContent as () => ReactElement<{
+    children: ReactElement<IActionListItemProps>;
+  }>;
+  return Content().props.children.props;
+};
 
 describe('WebViewModal menu', () => {
   beforeEach(() => {
@@ -171,6 +276,9 @@ describe('WebViewModal menu', () => {
     mockLocked = false;
     mockFocused = true;
     mockUserId = 'A';
+    jest
+      .mocked(handlePrimePurchaseSuccessCloseRequest)
+      .mockImplementation(({ pop }) => pop());
     mockGetIntercomSessionToken.mockResolvedValue('intercom-token');
     Object.assign(platformEnv, {
       isNative: false,
@@ -194,9 +302,18 @@ describe('WebViewModal menu', () => {
       isWebEmbed: true,
       hashRoutePath: EWebEmbedRoutePath.primePurchase,
     };
-    render(<WebViewModal />);
+    const view = render(
+      <StrictMode>
+        <WebViewModal />
+      </StrictMode>,
+    );
 
-    const menu = menuProps();
+    const menu = primeMenuProps();
+    expect(view.queryByTestId(WebViewTestIDs.openInBrowserBtn)).toBeNull();
+    fireEvent.click(view.getByTestId(WebViewTestIDs.optionsMenuBtn));
+    expect(
+      view.getAllByText(ETranslations.explore_open_in_browser),
+    ).toHaveLength(1);
     expect(menu.title).toBe(ETranslations.explore_options);
     expect(menu.renderTrigger).toMatchObject({
       props: {
@@ -204,14 +321,12 @@ describe('WebViewModal menu', () => {
         accessibilityLabel: ETranslations.explore_options,
       },
     });
-    expect(menu.sections).toHaveLength(1);
-    expect(menu.sections?.[0].items).toHaveLength(1);
-    expect(menu.sections?.[0].items[0]).toMatchObject({
+    expect(primeMenuItem()).toMatchObject({
       label: ETranslations.explore_open_in_browser,
       icon: 'GlobusOutline',
       onPress: expect.any(Function),
     });
-    expect(menu.sections?.[0].items[0].disabled).toBeFalsy();
+    expect(primeMenuItem().disabled).toBeFalsy();
   });
 
   test.each(['P1M', 'P1Y'])(
@@ -233,8 +348,9 @@ describe('WebViewModal menu', () => {
             featureName: EPrimeFeatures.OneKeyCloud,
           },
         };
-        render(<WebViewModal />);
-        void menuProps().sections?.[0].items[0].onPress?.(jest.fn());
+        const view = render(<WebViewModal />);
+        fireEvent.click(view.getByTestId(WebViewTestIDs.optionsMenuBtn));
+        fireEvent.click(view.getByTestId(WebViewTestIDs.openInBrowserBtn));
         expect(mockPop).toHaveBeenCalledTimes(1);
         expect(
           handlePrimeHostedCardCheckoutFallbackRequest,
@@ -266,6 +382,96 @@ describe('WebViewModal menu', () => {
       }
     },
   );
+
+  describe('Prime checkout menu lifetime', () => {
+    beforeEach(() => {
+      Object.assign(platformEnv, { isNative: true, isNativeAndroid: true });
+      mockParams = {
+        title: 'Prime',
+        url: '',
+        isWebEmbed: true,
+        hashRoutePath: EWebEmbedRoutePath.primePurchase,
+        hashRouteQueryParams: {
+          primeUserId: 'test-user',
+          subscriptionPeriod: 'P1Y',
+        },
+      };
+    });
+
+    test.each([
+      EWebEmbedPrivateRequestMethod.closeWebViewModal,
+      EWebEmbedPrivateRequestMethod.closeWebViewModalAfterPrimePurchaseSuccess,
+      EWebEmbedPrivateRequestMethod.fallbackToPrimeHostedCheckout,
+    ])(
+      'closes an open menu and invalidates its action on %s',
+      async (method) => {
+        jest.useFakeTimers();
+        try {
+          const view = render(<WebViewModal />);
+          fireEvent.click(view.getByTestId(WebViewTestIDs.optionsMenuBtn));
+          expect(
+            view.getByTestId(WebViewTestIDs.openInBrowserBtn),
+          ).not.toBeNull();
+          const staleAction = primeMenuItem().onPress;
+          act(() => {
+            mockWebEmbedProps.customReceiveHandler({
+              data: {
+                id: 1,
+                jsonrpc: '2.0',
+                method,
+                params: {
+                  trigger: 'checkoutError',
+                  onekeyUserId: 'test-user',
+                  subscriptionPeriod: 'P1Y',
+                },
+              },
+            } as IJsBridgeMessagePayload);
+          });
+          expect(
+            view.queryByTestId(WebViewTestIDs.openInBrowserBtn),
+          ).toBeNull();
+          act(() => {
+            void staleAction?.(jest.fn());
+          });
+          await jest.advanceTimersByTimeAsync(350);
+          expect(mockPop).toHaveBeenCalledTimes(1);
+          expect(
+            handlePrimeHostedCardCheckoutFallbackRequest,
+          ).toHaveBeenCalledTimes(
+            method ===
+              EWebEmbedPrivateRequestMethod.fallbackToPrimeHostedCheckout
+              ? 1
+              : 0,
+          );
+        } finally {
+          jest.useRealTimers();
+        }
+      },
+    );
+
+    test('removes an open menu on unmount and ignores retained callbacks', async () => {
+      jest.useFakeTimers();
+      try {
+        const view = render(<WebViewModal />);
+        fireEvent.click(view.getByTestId(WebViewTestIDs.optionsMenuBtn));
+        const staleAction = primeMenuItem().onPress;
+        const staleOpenChange = primeMenuProps().onOpenChange;
+        view.unmount();
+        act(() => {
+          staleOpenChange?.(true);
+          void staleAction?.(jest.fn());
+        });
+        await jest.advanceTimersByTimeAsync(350);
+        expect(view.queryByTestId(WebViewTestIDs.openInBrowserBtn)).toBeNull();
+        expect(mockPop).not.toHaveBeenCalled();
+        expect(
+          handlePrimeHostedCardCheckoutFallbackRequest,
+        ).not.toHaveBeenCalled();
+      } finally {
+        jest.useRealTimers();
+      }
+    });
+  });
 
   test.each([
     {

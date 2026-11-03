@@ -11,8 +11,10 @@ import {
   Dialog,
   Page,
   Toast,
+  YStack,
   useClipboard,
 } from '@onekeyhq/components';
+import { LazyPopover } from '@onekeyhq/components/src/actions/LazyPopover';
 import { HeaderIconButton } from '@onekeyhq/components/src/layouts/Navigation/Header';
 import WebView from '@onekeyhq/kit/src/components/WebView';
 import { WebViewWithFeatures } from '@onekeyhq/kit/src/components/WebView/WebViewWithFeatures';
@@ -65,6 +67,12 @@ import type {
   WebViewMessageEvent,
 } from 'react-native-webview';
 
+const PRIME_CHECKOUT_MENU_CONTENT_PROPS = {
+  p: '$1',
+  $md: { p: '$3', pt: '$0' },
+} as const;
+const PRIME_CHECKOUT_MENU_PANEL_PROPS = { width: '$56' } as const;
+
 export default function WebViewModal() {
   const { webviewRef, setWebViewRef } = useWebViewBridge();
   const route =
@@ -114,6 +122,23 @@ export default function WebViewModal() {
 
   // Track if component is unmounting to prevent race conditions
   const isUnmounting = useRef(false);
+  const [primeCheckoutMenuOpen, setPrimeCheckoutMenuOpen] = useState(false);
+  const closePrimeCheckoutMenu = useCallback(() => {
+    if (!isUnmounting.current) {
+      setPrimeCheckoutMenuOpen(false);
+    }
+  }, []);
+  const onPrimeCheckoutMenuOpenChange = useCallback((open: boolean) => {
+    if (!isUnmounting.current) {
+      setPrimeCheckoutMenuOpen(open);
+    }
+  }, []);
+  const popWebView = useCallback(() => {
+    closePrimeCheckoutMenu();
+    // Header callbacks become stale as soon as this route starts closing.
+    isUnmounting.current = true;
+    navigation.pop();
+  }, [closePrimeCheckoutMenu, navigation]);
 
   const deliverSupportSession = useCallback(async () => {
     if (intercomUserId === undefined) {
@@ -147,6 +172,7 @@ export default function WebViewModal() {
 
   // Cleanup WebView before unmount to prevent native crashes
   useEffect(() => {
+    isUnmounting.current = false;
     // Capture webview ref in effect scope to satisfy exhaustive-deps
     const webview = webviewRef?.current;
 
@@ -291,7 +317,8 @@ export default function WebViewModal() {
   );
   const openPrimeHostedCheckout = useCallback(
     async (params: unknown) => {
-      navigation.pop();
+      if (isUnmounting.current) return;
+      popWebView();
       // Let the WebView modal close before the checkout dialogs show.
       await timerUtils.wait(350);
       await handlePrimeHostedCardCheckoutFallbackRequest({
@@ -303,7 +330,7 @@ export default function WebViewModal() {
         intl,
       });
     },
-    [navigation, hashRouteQueryParams, intl],
+    [popWebView, hashRouteQueryParams, intl],
   );
   const webembedCustomReceiveHandler = useCallback(
     (payload: IJsBridgeMessagePayload) => {
@@ -312,7 +339,7 @@ export default function WebViewModal() {
 
       const data = payload.data as IJsonRpcRequest;
       if (data.method === EWebEmbedPrivateRequestMethod.closeWebViewModal) {
-        navigation.pop();
+        popWebView();
       }
       if (
         data.method ===
@@ -323,7 +350,7 @@ export default function WebViewModal() {
           hashRoutePath,
           routePrimeUserId: hashRouteQueryParams?.primeUserId,
           isWebEmbed,
-          pop: () => navigation.pop(),
+          pop: popWebView,
         });
       }
       if (
@@ -360,15 +387,43 @@ export default function WebViewModal() {
       hashRoutePath,
       hashRouteQueryParams?.primeUserId,
       isWebEmbed,
-      navigation,
       openPrimeHostedCheckout,
+      popWebView,
     ],
   );
 
+  const openPrimeHostedCheckoutFromMenu = useCallback(() => {
+    void openPrimeHostedCheckout({
+      trigger: 'userRequestedHostedCheckout',
+      onekeyUserId: hashRouteQueryParams?.primeUserId,
+      subscriptionPeriod: hashRouteQueryParams?.subscriptionPeriod,
+      featureName: hashRouteQueryParams?.featureName,
+    });
+  }, [openPrimeHostedCheckout, hashRouteQueryParams]);
+  const renderPrimeCheckoutMenu = useCallback(
+    () => (
+      <YStack {...PRIME_CHECKOUT_MENU_CONTENT_PROPS}>
+        <ActionList.Item
+          label={intl.formatMessage({
+            id: ETranslations.explore_open_in_browser,
+          })}
+          icon="GlobusOutline"
+          testID={WebViewTestIDs.openInBrowserBtn}
+          onPress={openPrimeHostedCheckoutFromMenu}
+          onClose={closePrimeCheckoutMenu}
+        />
+      </YStack>
+    ),
+    [intl, openPrimeHostedCheckoutFromMenu, closePrimeCheckoutMenu],
+  );
   const primeCheckoutHeaderRight = useCallback(
     () => (
-      <ActionList
+      <LazyPopover
         title={intl.formatMessage({ id: ETranslations.explore_options })}
+        open={primeCheckoutMenuOpen}
+        onOpenChange={onPrimeCheckoutMenuOpenChange}
+        renderContent={renderPrimeCheckoutMenu}
+        floatingPanelProps={PRIME_CHECKOUT_MENU_PANEL_PROPS}
         renderTrigger={
           <HeaderIconButton
             icon="DotHorOutline"
@@ -378,31 +433,14 @@ export default function WebViewModal() {
             })}
           />
         }
-        sections={[
-          {
-            items: [
-              {
-                label: intl.formatMessage({
-                  id: ETranslations.explore_open_in_browser,
-                }),
-                icon: 'GlobusOutline',
-                testID: WebViewTestIDs.openInBrowserBtn,
-                onPress: () => {
-                  void openPrimeHostedCheckout({
-                    trigger: 'userRequestedHostedCheckout',
-                    onekeyUserId: hashRouteQueryParams?.primeUserId,
-                    subscriptionPeriod:
-                      hashRouteQueryParams?.subscriptionPeriod,
-                    featureName: hashRouteQueryParams?.featureName,
-                  });
-                },
-              },
-            ],
-          },
-        ]}
       />
     ),
-    [intl, openPrimeHostedCheckout, hashRouteQueryParams],
+    [
+      intl,
+      primeCheckoutMenuOpen,
+      onPrimeCheckoutMenuOpenChange,
+      renderPrimeCheckoutMenu,
+    ],
   );
 
   const { onShouldStartLoadWithRequest, onOpenWindow } = useCrossDomainRedirect(
