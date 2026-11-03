@@ -22,7 +22,7 @@ it.each([false, true])(
     await entity.beginZcashPrivacyModeEnable({
       networkId,
       accountId,
-      birthdayHeight: 2_000_000,
+      birthdayHeight: 3_500_000,
     });
     await entity.saveZcashAccountMeta({
       accountId,
@@ -32,18 +32,18 @@ it.each([false, true])(
         transparentAddress: 't1',
         seedFingerprintHex: '00'.repeat(32),
         hdIndex: 0,
-        birthdayHeight: 2_000_000,
+        birthdayHeight: 3_500_000,
         createdAt: 1,
       },
     });
     await entity.completeZcashPrivacyModeEnable({ accountId });
     await entity.markZcashScanExcluded({
       accountId,
-      fromHeight: 2_000_000,
+      fromHeight: 3_500_000,
     });
     await entity.beginZcashPrivacyModeDisable({
       accountId,
-      resumeFromHeight: 2_500_000,
+      resumeFromHeight: 3_600_000,
     });
     await entity.completeZcashPrivacyModeDisable({ accountId });
     const birthdayTimestamp = Date.now() - 90 * 24 * 60 * 60 * 1000;
@@ -61,7 +61,7 @@ it.each([false, true])(
         entity.listZcashPendingRescans({ networkId }),
       ]);
       expect(account.birthdayHeight).toBe(pending[0].repair.birthdayHeight);
-      expect(meta?.birthdayHeight).toBe(2_000_000);
+      expect(meta?.birthdayHeight).toBe(3_500_000);
       if (interrupt && purge.mock.calls.length === 1)
         throw new OneKeyLocalError('synthetic process interruption');
     });
@@ -82,7 +82,7 @@ it.each([false, true])(
         network: 'main',
       }),
       zcashGetApi: async () => ({ rescanWallet: purge }),
-      getLocalWalletChainTip: async () => 3_000_000,
+      getLocalWalletChainTip: async () => 3_700_000,
       zcashPrepareAccounts: async () => {
         registered = true;
         return [{ accountId, account: { ufvk: 'birthday-fixture' } }];
@@ -105,7 +105,7 @@ it.each([false, true])(
     );
     const first = vault.zcashPreparePrivacyModeAccount({
       accountId,
-      fromHeight: 2_500_000,
+      fromHeight: 3_600_000,
       birthday: { type: 'timestamp', timestamp: birthdayTimestamp },
       onPrepared,
     });
@@ -147,7 +147,7 @@ it.each([false, true])(
       await first;
     }
     const meta = await entity.getZcashAccountMeta({ accountId });
-    expect(meta?.birthdayHeight).not.toBe(2_000_000);
+    expect(meta?.birthdayHeight).not.toBe(3_500_000);
     expect(requests).toEqual([meta?.birthdayHeight]);
     expect(await entity.listZcashPendingRescans({ networkId })).toEqual([]);
     expect(await entity.getZcashPrivacyModeState({ accountId })).toMatchObject({

@@ -6,20 +6,30 @@ import { useSharedValue } from 'react-native-reanimated';
 import {
   Badge,
   Button,
+  Dialog,
   Divider,
   Icon,
   Page,
   ScrollView,
   SizableText,
   Tabs,
+  Toast,
   XStack,
   YStack,
 } from '@onekeyhq/components';
 import { Token } from '@onekeyhq/kit/src/components/Token';
+import {
+  BirthdayDialogForm,
+  createEnableBirthdayForm,
+  getBirthdayInputError,
+  readEnableBirthday,
+} from '@onekeyhq/kit/src/views/AssetDetails/pages/TokenDetails/LocalWalletRepairControls';
 import TokenDetailsBalanceHero from '@onekeyhq/kit/src/views/AssetDetails/pages/TokenDetails/TokenDetailsBalanceHero';
 import { TokenPrivacyPanel } from '@onekeyhq/kit/src/views/AssetDetails/pages/TokenDetails/TokenPrivacyPanel';
 import type { ITokenPrivacyPanelState } from '@onekeyhq/kit/src/views/AssetDetails/pages/TokenDetails/TokenPrivacyPanel';
 import { RawActions } from '@onekeyhq/kit/src/views/Home/components/WalletActions/RawActions';
+import xmrSettings from '@onekeyhq/kit-bg/src/vaults/impls/xmr/settings';
+import zcashSettings from '@onekeyhq/kit-bg/src/vaults/impls/zcash/settings';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 type IPreviewChain = 'zec' | 'xmr';
@@ -69,6 +79,41 @@ function PrivacyTokenDetailsPreview() {
   const [lastSyncedAt, setLastSyncedAt] = useState(() =>
     new Date(2026, 9, 27, 14, 17, 28).getTime(),
   );
+  const openEnablePreview = useCallback(() => {
+    const networkId = chain === 'zec' ? 'zec--0' : 'xmr--0';
+    const earliestBirthday = (chain === 'zec' ? zcashSettings : xmrSettings)
+      .localWallet?.accountSetup.earliestBirthday;
+    const formRef = createEnableBirthdayForm(undefined, earliestBirthday);
+    Dialog.show({
+      title: intl.formatMessage({
+        id: ETranslations.privacy_sync_start__title,
+      }),
+      renderContent: (
+        <BirthdayDialogForm
+          networkId={networkId}
+          formRef={formRef}
+          allowSavedBirthday={false}
+          earliestBirthday={earliestBirthday}
+        />
+      ),
+      showConfirmButton: true,
+      showCancelButton: true,
+      onConfirmText: intl.formatMessage({ id: ETranslations.global_enable }),
+      onConfirm: ({ preventClose }) => {
+        if (!readEnableBirthday(formRef.current, earliestBirthday, networkId)) {
+          Toast.error({
+            title: intl.formatMessage({
+              id: getBirthdayInputError(formRef.current.mode),
+            }),
+          });
+          preventClose();
+          return;
+        }
+        handleTabPress('Private');
+        setState('preparing');
+      },
+    });
+  }, [chain, handleTabPress, intl]);
 
   useEffect(() => {
     setIsRefreshing(false);
@@ -120,6 +165,16 @@ function PrivacyTokenDetailsPreview() {
             {PREVIEW_NETWORKS[item].name}
           </Button>
         ))}
+        <Button
+          testID="privacy-preview-sync-start"
+          size="small"
+          variant="secondary"
+          onPress={openEnablePreview}
+        >
+          {intl.formatMessage({
+            id: ETranslations.privacy_sync_start__title,
+          })}
+        </Button>
       </XStack>
 
       {isPrivate ? (
@@ -192,7 +247,7 @@ function PrivacyTokenDetailsPreview() {
               detail={
                 state === 'error' ? 'Unable to connect. Try again.' : undefined
               }
-              onEnable={() => setState('preparing')}
+              onEnable={openEnablePreview}
               onSync={() => setState('syncing')}
             />
           ) : null}

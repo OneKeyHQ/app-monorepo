@@ -313,7 +313,6 @@ type IPrivacyAccountEntry = {
   birthdayTimestamp?: number;
   birthdayHintTimestamp?: number;
   birthdayHeight?: number;
-  earliestBirthdayHeight?: number;
   // Never scannable: privacy cannot be enabled for a temporary wallet.
   walletIsTemp: boolean;
   deriveLabel?: string;
@@ -332,10 +331,7 @@ function groupByDeriveLabel(entries: IPrivacyAccountEntry[]) {
 function formatShownBirthday(
   entry: Pick<
     IPrivacyAccountEntry,
-    | 'birthdayTimestamp'
-    | 'birthdayHintTimestamp'
-    | 'birthdayHeight'
-    | 'earliestBirthdayHeight'
+    'birthdayTimestamp' | 'birthdayHintTimestamp' | 'birthdayHeight'
   >,
   intl: IntlShape,
 ): string | undefined {
@@ -345,19 +341,11 @@ function formatShownBirthday(
     });
   }
   if (entry.birthdayHeight !== undefined) {
-    if (
-      entry.earliestBirthdayHeight !== undefined &&
-      entry.birthdayHeight <= entry.earliestBirthdayHeight
-    ) {
-      return intl.formatMessage({
-        id: ETranslations.privacy_sync_start_earliest__title,
-      });
-    }
     return intl.formatMessage(
       {
         id: ETranslations.privacy_sync_start_block__title,
       },
-      { height: entry.birthdayHeight },
+      { height: intl.formatNumber(entry.birthdayHeight) },
     );
   }
   return entry.birthdayHintTimestamp === undefined
@@ -475,15 +463,13 @@ export default function PrivacyNetworkSettings({
               !networkIdFilter || account.networkId === networkIdFilter,
           )
           .map(async (account) => {
-            const [state, earliestBirthday] = await Promise.all([
-              backgroundApiProxy.servicePrivacyChain.getLocalWalletAccountState(
+            const state =
+              await backgroundApiProxy.servicePrivacyChain.getLocalWalletAccountState(
                 {
                   networkId: account.networkId,
                   accountId: account.accountId,
                 },
-              ),
-              getEarliestBirthday(account.networkId),
-            ]);
+              );
             return {
               accountId: account.accountId,
               accountName: account.accountName,
@@ -495,7 +481,6 @@ export default function PrivacyNetworkSettings({
               birthdayTimestamp: state.birthdayTimestamp,
               birthdayHintTimestamp: state.birthdayHintTimestamp,
               birthdayHeight: state.birthdayHeight,
-              earliestBirthdayHeight: earliestBirthday?.height,
               walletIsTemp: account.walletIsTemp,
               deriveLabel: account.deriveLabel,
             };
@@ -587,7 +572,10 @@ export default function PrivacyNetworkSettings({
         return;
       }
       const earliestBirthday = await getEarliestBirthday(entry.networkId);
-      const formRef = createEnableBirthdayForm(entry.birthdayHintTimestamp);
+      const formRef = createEnableBirthdayForm(
+        entry.birthdayHintTimestamp,
+        earliestBirthday,
+      );
       Dialog.confirm({
         title: entry.accountName,
         renderContent: (
