@@ -6,11 +6,14 @@ import {
   HARDWARE_CLOUD_SYNC_DEK_PWDHASH_PREFIX,
   HARDWARE_CLOUD_SYNC_KEK_VERSION,
   HARDWARE_CLOUD_SYNC_KEY_ENVELOPE_DATA_TYPE,
-  assertHardwareCloudSyncAuthMessage,
   isHardwareCloudSyncKekSalt,
 } from '@onekeyhq/shared/src/consts/hardwareCloudSyncConsts';
-import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
+import {
+  HardwareCloudSyncCancelledError,
+  HardwareCloudSyncLocalError,
+} from '@onekeyhq/shared/src/hardware/hardwareCloudSyncError';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import systemTimeUtils from '@onekeyhq/shared/src/utils/systemTimeUtils';
@@ -21,6 +24,11 @@ import type {
 } from '@onekeyhq/shared/types/keylessCloudSync';
 
 import keylessCloudSyncUtils from '../ServicePrimeCloudSync/keylessCloudSyncUtils';
+
+import {
+  assertHardwareCloudSyncAuthTemplate,
+  createHardwareCloudSyncDataError,
+} from './hardwareCloudSyncLog';
 
 import type { AxiosInstance, AxiosRequestConfig, AxiosResponse } from 'axios';
 
@@ -274,16 +282,22 @@ export function assertHardwareCloudSyncChallengeFor({
   jwk: IHardwareCloudSyncDeviceKeyJwk;
   now?: number;
 }): void {
-  assertHardwareCloudSyncAuthMessage(message);
+  assertHardwareCloudSyncAuthTemplate(message);
   const device = /\nDevice: (\S+)\n/.exec(message)?.[1];
   const expiresAt = Date.parse(/\nExpires: (\S+)$/.exec(message)?.[1] ?? '');
+  if (device !== getHardwareCloudSyncDeviceKeyThumbprint(jwk).slice(0, 8)) {
+    throw createHardwareCloudSyncDataError(
+      'Invalid Cloud sync sign-in challenge: device key does not match',
+    );
+  }
   if (
-    device !== getHardwareCloudSyncDeviceKeyThumbprint(jwk).slice(0, 8) ||
     !Number.isFinite(expiresAt) ||
     expiresAt <= now ||
     expiresAt > now + CHALLENGE_MAX_LIFETIME_MS
   ) {
-    throw new OneKeyLocalError('Invalid Cloud sync sign-in challenge');
+    throw createHardwareCloudSyncDataError(
+      'Invalid Cloud sync sign-in challenge: expired or outside the local clock window',
+    );
   }
 }
 
@@ -433,7 +447,7 @@ async function unwrapDek({
     dataType: HARDWARE_CLOUD_SYNC_KEY_ENVELOPE_DATA_TYPE,
   });
   if (!/^[0-9a-f]{64}$/.test(dek)) {
-    throw new OneKeyLocalError('Invalid Cloud sync data key');
+    throw createHardwareCloudSyncDataError('Invalid Cloud sync data key');
   }
   return dek;
 }
@@ -448,7 +462,11 @@ export function computeHardwareCloudSyncPwdHash(dekId: string): string {
 
 // Only well-formed v1 envelopes are signed for: the salt is shown on the
 // device, so the server must not choose arbitrary text there.
-function parseEnvelope(data: string | undefined): IKeyEnvelope | undefined {
+// Null for a malformed or legacy envelope, so callers that skip those do not
+// log them as data check failures.
+function readEnvelope(
+  data: string | undefined,
+): IKeyEnvelope | undefined | null {
   if (!data) return undefined;
   let envelope: Partial<IKeyEnvelope> | undefined;
   try {
@@ -467,9 +485,17 @@ function parseEnvelope(data: string | undefined): IKeyEnvelope | undefined {
     typeof envelope.wrappedDek !== 'string' ||
     !envelope.wrappedDek
   ) {
-    throw new OneKeyLocalError('Invalid Cloud sync key envelope');
+    return null;
   }
   return envelope as IKeyEnvelope;
+}
+
+function parseEnvelope(data: string | undefined): IKeyEnvelope | undefined {
+  const envelope = readEnvelope(data);
+  if (envelope === null) {
+    throw createHardwareCloudSyncDataError('Invalid Cloud sync key envelope');
+  }
+  return envelope;
 }
 
 async function readLockEnvelope({
@@ -518,7 +544,7 @@ async function createEnvelope(
 // rollback to a key a reset was meant to retire.
 function assertNotRolledBack(envelope: IKeyEnvelope, minGeneration: number) {
   if (envelope.generation < minGeneration) {
-    throw new OneKeyLocalError(
+    throw createHardwareCloudSyncDataError(
       'Cloud sync key on the server is older than this device has seen',
     );
   }
@@ -558,15 +584,12 @@ async function listPreviousPwdHashes({
     isHardwareCloudSyncKeyEnvelopeItem(item),
   );
   for (const item of envelopes) {
-    try {
-      const envelope = parseEnvelope(item.data);
-      const hash = envelope
-        ? computeHardwareCloudSyncPwdHash(envelope.dekId)
-        : undefined;
-      if (hash && hash !== pwdHash) hashes.push(hash);
-    } catch {
-      // Malformed or legacy envelope: not a key version of this wallet.
-    }
+    // A malformed or legacy envelope is not a key version of this wallet.
+    const envelope = readEnvelope(item.data);
+    const hash = envelope
+      ? computeHardwareCloudSyncPwdHash(envelope.dekId)
+      : undefined;
+    if (hash && hash !== pwdHash) hashes.push(hash);
   }
   return hashes;
 }
@@ -650,7 +673,7 @@ export async function bootstrapHardwareCloudSyncDataKey({
       }
     }
   }
-  throw new OneKeyLocalError('Cloud sync data key is unavailable');
+  throw createHardwareCloudSyncDataError('Cloud sync data key is unavailable');
 }
 
 export type IHardwareCloudSyncDataKey = {
@@ -771,7 +794,7 @@ export async function rotateHardwareCloudSyncDataKey<
 }> {
   const assertCurrent = () => {
     if (!isCurrent()) {
-      throw new OneKeyLocalError('Hardware Cloud key operation was cancelled.');
+      throw new HardwareCloudSyncCancelledError();
     }
   };
   assertCurrent();
@@ -779,7 +802,10 @@ export async function rotateHardwareCloudSyncDataKey<
   // Nobody reset it meanwhile. The wallet itself was checked by its identity
   // before the device signs.
   if (!existing || existing.dekId !== current.dekId) {
-    throw new OneKeyLocalError('Cloud sync key changed. Sync again first.');
+    throw new HardwareCloudSyncLocalError(
+      ETranslations.cloud_sync_key_changed_sync_again__msg,
+      'Encryption key changed. Sync again.',
+    );
   }
   assertNotRolledBack(existing, minGeneration);
   // The data version the re-encrypted copy is built from. The flush is
@@ -794,7 +820,9 @@ export async function rotateHardwareCloudSyncDataKey<
     data: { pwdHash: current.pwdHash, nonce: 0, localData: [] },
   });
   if (!Number.isSafeInteger(serverNonce)) {
-    throw new OneKeyLocalError('Cloud sync data version is unavailable');
+    throw createHardwareCloudSyncDataError(
+      'Cloud sync data version is unavailable',
+    );
   }
   // New salt and data key: signatures taken for the old envelope stop working.
   const { dataKey: next, envelope } = await createEnvelope(
@@ -929,7 +957,10 @@ async function downloadAllForReset({
     all.push(...items);
     if (items.length < RESET_DOWNLOAD_PAGE_SIZE) return all;
   }
-  throw new OneKeyLocalError('Too much Cloud sync data to reset at once');
+  throw new HardwareCloudSyncLocalError(
+    ETranslations.cloud_sync_key_change_too_much_data__msg,
+    'Too much synced data to change the encryption key.',
+  );
 }
 
 // Stale data version: the server's nonce moved since it was read.
