@@ -728,11 +728,11 @@ export function buildTradingViewNativeChartScene({
     chartSettings === undefined ||
     chartSettings.grid.style === 'both' ||
     chartSettings.grid.style === 'vertical';
+  // Ticks, the crosshair, and the latest price all use the axis display precision.
+  const axisLabelDecimalPlaces = priceAxisDecimalPlaces ?? priceDecimalPlaces;
   const resolvedCurrentPriceLabel =
     currentPriceLabel ??
-    getTradingViewNativeCurrentPriceLabel(points, priceDecimalPlaces);
-  // Ticks, the crosshair, and the latest close all fit the axis display precision.
-  const axisLabelDecimalPlaces = priceAxisDecimalPlaces ?? priceDecimalPlaces;
+    getTradingViewNativeCurrentPriceLabel(points, axisLabelDecimalPlaces);
   let resolvedPriceAxisWidth = showYAxis ? Math.max(priceAxisWidth ?? 0, 0) : 0;
   if (showYAxis && !Number.isFinite(priceAxisWidth)) {
     const volumeAxisLabel = hasVolume

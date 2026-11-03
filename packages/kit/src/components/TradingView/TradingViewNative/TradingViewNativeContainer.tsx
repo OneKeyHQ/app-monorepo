@@ -582,13 +582,17 @@ const TradingViewNativeContent = memo(
     const sourceSymbol = source.kind === 'market' ? source.symbol : undefined;
     const sourceTokenAddress =
       source.kind === 'market' ? source.tokenAddress : undefined;
+    // Averaged candle closes can carry more decimals than a traded price, so the
+    // latest price uses the same precision as the axis.
+    const currentPriceLabelDecimalPlaces =
+      priceAxisDecimalPlaces ?? priceDecimalPlaces;
     const currentPriceLabel = useMemo(
       () =>
         getTradingViewNativeCurrentPriceLabel(
           primarySeriesPoints,
-          priceDecimalPlaces,
+          currentPriceLabelDecimalPlaces,
         ),
-      [primarySeriesPoints, priceDecimalPlaces],
+      [currentPriceLabelDecimalPlaces, primarySeriesPoints],
     );
     const accountMarks = useTradingViewNativeAccountMarks({
       context: accountMarksContext,
