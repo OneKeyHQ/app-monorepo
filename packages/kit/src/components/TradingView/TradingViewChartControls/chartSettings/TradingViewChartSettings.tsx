@@ -171,8 +171,6 @@ function SettingsColorPair({
       <XStack
         gap="$4"
         alignItems="center"
-        flexWrap="wrap"
-        flexShrink={1}
         opacity={item.enabled ? 1 : 0.5}
         pointerEvents={item.enabled && !disabled ? 'auto' : 'none'}
       >
@@ -652,8 +650,6 @@ export function TradingViewChartSettings({
               <XStack
                 gap="$3"
                 alignItems="center"
-                flexWrap="wrap"
-                flexShrink={1}
                 opacity={settingsValue.options.latestPrice ? 1 : 0.5}
               >
                 <SettingsColorField
@@ -903,8 +899,6 @@ export function TradingViewChartSettings({
             <XStack
               gap="$3"
               alignItems="center"
-              flexWrap="wrap"
-              flexShrink={1}
               opacity={settingsValue.options.crossLine ? 1 : 0.5}
             >
               <SettingsSelect
