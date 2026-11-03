@@ -4,6 +4,10 @@ jest.mock('child_process', () => ({
   spawn: jest.fn(),
 }));
 
+jest.mock('electron', () => ({
+  app: { isPackaged: true },
+}));
+
 jest.mock('electron-is-dev', () => false);
 
 jest.mock('electron-log/main', () => ({
