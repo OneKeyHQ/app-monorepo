@@ -1,7 +1,7 @@
 import { useState } from 'react';
 
 import { useIntl } from 'react-intl';
-import { Dimensions } from 'react-native';
+import { Dimensions, useWindowDimensions } from 'react-native';
 
 import {
   AnimatePresence,
@@ -20,35 +20,23 @@ import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { HdWalletAvatarImageNames } from '@onekeyhq/shared/src/utils/avatarUtils';
 
-const AVATAR_COLUMNS = 6;
-const AVATAR_ROW_HEIGHT = 60;
-const AVATAR_GRID_HEIGHT =
-  Math.ceil(HdWalletAvatarImageNames.length / AVATAR_COLUMNS) *
-  AVATAR_ROW_HEIGHT;
-// Title, footer and paddings around the grid, with a little to spare.
-const DIALOG_CHROME_HEIGHT = 180;
+import {
+  AVATAR_COLUMNS,
+  AVATAR_ROW_HEIGHT,
+  getAvatarGridHeight,
+} from './walletAvatarGridLayout';
 
-// The dialog stops at 90% of the window, so in a short window the grid
-// scrolls and the footer stays on screen.
-function getAvatarGridHeight() {
-  const available =
-    Dimensions.get('window').height * 0.9 - DIALOG_CHROME_HEIGHT;
-  return Math.min(
-    AVATAR_GRID_HEIGHT,
-    Math.max(AVATAR_ROW_HEIGHT * 2, available),
-  );
-}
-
-export function WalletAvatarEditDialog({
-  wallet,
-  gridHeight,
-}: {
-  wallet: IDBWallet;
-  gridHeight: number;
-}) {
+export function WalletAvatarEditDialog({ wallet }: { wallet: IDBWallet }) {
   const intl = useIntl();
   const { serviceAccount } = backgroundApiProxy;
   const [selectedAvatar, setSelectedAvatar] = useState(wallet?.avatarInfo?.img);
+  // Follows the window, so resizing it with the dialog open keeps the
+  // footer on screen.
+  const { height: windowHeight } = useWindowDimensions();
+  const gridHeight = getAvatarGridHeight({
+    avatarCount: HdWalletAvatarImageNames.length,
+    windowHeight,
+  });
 
   return (
     <>
@@ -138,16 +126,20 @@ export function WalletAvatarEditDialog({
 }
 
 export function showWalletAvatarEditDialog({ wallet }: { wallet: IDBWallet }) {
-  const gridHeight = getAvatarGridHeight();
   Dialog.show({
     // eslint-disable-next-line onekey/no-app-locale-main-thread
     title: appLocale.intl.formatMessage({
       id: ETranslations.global_edit_avatar,
     }),
-    // The grid plus the content's $5 bottom padding.
-    estimatedContentHeight: gridHeight + 20,
-    renderContent: (
-      <WalletAvatarEditDialog wallet={wallet} gridHeight={gridHeight} />
-    ),
+    // Native gives the content this fixed height (the grid plus its $5
+    // bottom padding). On web it would only be a minimum height that keeps
+    // the grid from shrinking with the window.
+    estimatedContentHeight: platformEnv.isNative
+      ? getAvatarGridHeight({
+          avatarCount: HdWalletAvatarImageNames.length,
+          windowHeight: Dimensions.get('window').height,
+        }) + 20
+      : undefined,
+    renderContent: <WalletAvatarEditDialog wallet={wallet} />,
   });
 }

@@ -23693,6 +23693,7 @@
     "packages/kit/src/views/AccountManagerStacks/components/AccountEdit/index.tsx": 17599,
     "packages/kit/src/views/AccountManagerStacks/components/WalletAvatarEdit/WalletAvatarEditDialog.tsx": 12292,
     "packages/kit/src/views/AccountManagerStacks/components/WalletAvatarEdit/index.tsx": 1427,
+    "packages/kit/src/views/AccountManagerStacks/components/WalletAvatarEdit/walletAvatarGridLayout.ts": 19563,
     "packages/kit/src/views/AccountManagerStacks/components/WalletEdit/AddHiddenWalletButton.tsx": 12429,
     "packages/kit/src/views/AccountManagerStacks/components/WalletEdit/BatchCreateAccountButton.tsx": 15476,
     "packages/kit/src/views/AccountManagerStacks/components/WalletEdit/BulkCopyAddressesButton.tsx": 11705,
