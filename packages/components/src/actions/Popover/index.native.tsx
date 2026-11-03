@@ -64,6 +64,7 @@ import type { LayoutChangeEvent, ViewInstance } from 'react-native';
 const FIT_SHEET_MAX_HEIGHT_RATIO = 0.92;
 // Matches the `$5` fallback margin under the sheet ScrollView.
 const SHEET_BOTTOM_MARGIN = 20;
+const FIXED_SHEET_CONTENT_STYLE = { flex: 1 } as const;
 // Matches the `$-0.5` overlap between the header and content card.
 const SHEET_HEADER_CONTENT_OVERLAP = 2;
 
@@ -152,6 +153,7 @@ function RawPopover({
   renderContent,
   floatingPanelProps,
   sheetProps,
+  sheetContentScrollable = true,
   onOpenChange,
   openPopover,
   closePopover,
@@ -499,7 +501,12 @@ function RawPopover({
         ) : null}
         <ScrollView
           flex={isFitSheet ? undefined : 1}
+          scrollEnabled={sheetContentScrollable}
+          contentContainerStyle={
+            sheetContentScrollable ? undefined : FIXED_SHEET_CONTENT_STYLE
+          }
           nestedScrollEnabled
+          keyboardShouldPersistTaps="handled"
           flexShrink={1}
           minHeight={0}
           marginTop="$-0.5"
@@ -762,6 +769,7 @@ function AnchoredPopover({
               flexGrow={0}
               flexShrink={1}
               nestedScrollEnabled
+              keyboardShouldPersistTaps="handled"
               showsVerticalScrollIndicator={false}
             >
               <ModalPortalProvider>

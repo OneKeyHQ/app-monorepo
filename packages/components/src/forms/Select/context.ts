@@ -26,5 +26,7 @@ export type IContextType = {
   selectedItemRef: MutableRefObject<ISelectItem>;
   offset?: IPopoverProps['offset'];
   usingPercentSnapPoints?: boolean;
+  searchable?: boolean;
+  searchPlaceholder?: string;
 };
 export const SelectContext = createContext<IContextType>({} as IContextType);

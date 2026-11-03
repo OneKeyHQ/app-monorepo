@@ -1171,6 +1171,20 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries â€
 **Fix**: `getUtxoHistoryDisplayValue` returns the sum of the owned outputs the server does not explicitly mark as change when the net value is 0 and both legs are the account's own; a change-only spend keeps the net value since it has no recipient. `VaultBase` uses it for `nativeAmount` and the action value. Unit tests cover the self-transfer, a non-zero value, an external leg, change-marked outputs, change-only outputs, and nothing to sum.
 **Catchable by**: Section 4: Business Logic & Regression â€” when displaying a server-aggregated field, test the degenerate input where the aggregation cancels out (self-transfer, round trip).
 
+## Case: Language picker modules missing native module IDs
+**Date**: 2026-11-02 | **Platforms**: iOS, Android (native union and production bundles)
+**Symptom**: Strict native bundling throws because SelectSearchableList.tsx, filterSelectItems.ts, localeSearch.ts, and translationKeys.ts are not in the module ID registry.
+**Root Cause**: The new language-picker files are imported by Select and the locale options, so they enter the native graph, but no stable IDs were committed.
+**Fix**: Register the four files in apps/mobile/bundle-registry/module-id-registry.json with the existing module ID allocator.
+**Catchable by**: Section 4: a new file that the native bundle imports must be added to module-id-registry.json before the release bundle runs.
+
+## Case: Wide iPad language search used the anchored layout inside a sheet
+**Date**: 2026-11-02 | **Platforms**: iPad Settings (native main UI). Phone sheets and triggered wide panels are unchanged.
+**Symptom**: On iPad Settings the language picker is a sheet, but the search field autofocused at the small size and the list used a fixed 360-point height, leaving empty sheet space.
+**Root Cause**: Search layout followed window width. iPad Settings clamps Tamagui `md`, so Select passes no popover trigger and the native popover stays a sheet even when the window is at least 768 points wide.
+**Fix**: Treat the search UI as a sheet unless a popover trigger exists and the window is expanded, matching native anchoring. Include that flag in the open content memo so a web resize does not keep the previous layout.
+**Catchable by**: Section 3: a layout mode must follow the presentation the host actually mounts, not only the window width; Section 4: logic moved into a memo must keep the condition that changes while the memo stays mounted.
+
 ## Case: Mobile stock sharing used the selected token URL (OK-66105)
 **Date**: 2026-11-02 | **Platforms**: iOS/Android main UI runtime and compact Web/Desktop headers; verified on iOS and Desktop
 **Symptom**: Sharing a stock detail page produced `/market/token/bsc/<contract>` instead of `/market/stock/AAPL`, including chain parameters and tying the link to one token variant.
@@ -1191,3 +1205,10 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries â€
 **Root Cause**: Both entry points render `Tooltip` when `gtMd` is true. Native `Tooltip` returns only `renderTrigger` and never shows `renderContent`, so the descriptions were unreachable on tablets and other wide native layouts. Narrow native already used `Popover`.
 **Fix**: Use `Popover` on native at every width for the Learn more hint and for `InfoIcon` (product-row icons and the other info icons that share it). Web and desktop wide layouts still use `Tooltip`. Regression tests cover native and non-native, wide and compact, for both entry points.
 **Catchable by**: Section 3: Cross-Platform Impact â€” a `gtMd` Tooltip branch must be checked against the native Tooltip implementation, which does not display content.
+
+## Case: Language search pulled the translations enum into the web startup graph
+**Date**: 2026-11-02 | **Platforms**: Web (single JS runtime, cold startup graph). Desktop, extension, and native bundles do not use this forbidden-module check.
+**Symptom**: The Web CI job failed because `packages/shared/src/locale/enum/translations.ts` was in the cold startup graph.
+**Root Cause**: Select's search filter imported `localeSearch.ts`, and the web locale barrel re-exported that module plus `isKnownTranslationKey`. `isKnownTranslationKey` calls `Object.values(ETranslations)`, which the web inline-translations transform cannot erase. The error toast container is mounted at startup and was that call's sync importer.
+**Fix**: Move text normalization into `normalizeSearchText.ts` and point Select at that file. Stop re-exporting `localeSearch` and `isKnownTranslationKey` from the web locale barrel. The startup toast checks the active catalog instead of the enum. Register `normalizeSearchText.ts` for the native bundle.
+**Catchable by**: Section 3: a module imported by startup UI must not import `translations.ts` unless every member access is a static `ETranslations.*` that the web inline transform removes; Section 4: a new shared helper used by Select or the app shell has to be checked against the web startup graph, not only the screen that owns the feature.
