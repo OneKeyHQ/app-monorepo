@@ -201,6 +201,10 @@ export const useDownloadPackage = () => {
             errorCode: error.code,
             httpStatus: error.httpStatus,
           });
+          void backgroundApiProxy.serviceAppUpdate.reportOtaInstallFailure?.(
+            data,
+            error,
+          );
           const recoveredStatus = await recoverAppShellPackage({
             fileType,
             error,
@@ -687,6 +691,12 @@ export const useDownloadPackage = () => {
         defaultLogger.app.appUpdate.endManualInstallPackage(
           false,
           createUpdateError(error),
+        );
+        const appUpdateInfo =
+          await backgroundApiProxy.serviceAppUpdate.getUpdateInfo();
+        void backgroundApiProxy.serviceAppUpdate.reportOtaInstallFailure?.(
+          appUpdateInfo,
+          error,
         );
         const recoveredStatus = await recoverAppShellPackage({
           fileType,
