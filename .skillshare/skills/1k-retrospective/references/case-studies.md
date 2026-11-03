@@ -1206,6 +1206,13 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries �
 **Fix**: Wait for price-source readiness before mounting desktop price/chart content or either mobile chart mode, reserve a loading area, and keep mobile token chart price updates inactive during the wait. Preserve the existing resolved market defaults, error fallback, and manual selections. Tests cover open, closed, and failed responses across Simple, native Pro, and WebView Pro paths; delayed real responses on Desktop and iOS confirmed the first mounted chart used Share Price.
 **Catchable by**: Section 4: Shared hook/utility modified → checked all consumers; Section 5: Distinguish unresolved asynchronous state from a valid default; Section 6: Assert that dependent charts do not mount before readiness, then mount with the resolved source; Section 8: Verify cold-cache transitions on the real platforms, including both mobile chart modes.
 
+## Case: Referral reward scopes silent on wide native
+**Date**: 2026-11-02 | **Platforms**: iOS, Android (main UI runtime; wide layout when `gtMd` is true, including tablets)
+**Symptom**: On a wide native device, tapping "Learn more" on the empty referral earnings card and the product-row info icons did nothing. The server-provided reward scope descriptions never appeared.
+**Root Cause**: Both entry points render `Tooltip` when `gtMd` is true. Native `Tooltip` returns only `renderTrigger` and never shows `renderContent`, so the descriptions were unreachable on tablets and other wide native layouts. Narrow native already used `Popover`.
+**Fix**: Use `Popover` on native at every width for the Learn more hint and for `InfoIcon` (product-row icons and the other info icons that share it). Web and desktop wide layouts still use `Tooltip`. Regression tests cover native and non-native, wide and compact, for both entry points.
+**Catchable by**: Section 3: Cross-Platform Impact — a `gtMd` Tooltip branch must be checked against the native Tooltip implementation, which does not display content.
+
 ## Case: Language search pulled the translations enum into the web startup graph
 **Date**: 2026-11-02 | **Platforms**: Web (single JS runtime, cold startup graph). Desktop, extension, and native bundles do not use this forbidden-module check.
 **Symptom**: The Web CI job failed because `packages/shared/src/locale/enum/translations.ts` was in the cold startup graph.
