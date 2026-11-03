@@ -6,7 +6,10 @@ import { spawnSync } from 'node:child_process';
 import { dirname, join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
-import { planNativeListPatches } from '@onekeyfe/react-native-native-list';
+import {
+  applyRowPatches,
+  planNativeListPatches,
+} from '@onekeyfe/react-native-native-list';
 import { fireEvent, render } from '@testing-library/react';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -30,21 +33,7 @@ const mockSnapshotProps: NativeListSnapshot[] = [];
 const getMockSnapshot = () => mockSnapshot;
 const mockApplyPatches = jest.fn((patches: readonly RowPatch[]) => {
   if (!mockSnapshot) return;
-  mockSnapshot = {
-    ...mockSnapshot,
-    rows: mockSnapshot.rows.map((row) => {
-      const patch = patches.find(
-        (item) => item.key === row.key && item.type === row.type,
-      );
-      if (patch?.type === 'dataRow' && row.type === 'dataRow') {
-        return { ...row, ...patch.changes };
-      }
-      if (patch?.type === 'identity' && row.type === 'identity') {
-        return { ...row, ...patch.changes };
-      }
-      return row;
-    }),
-  };
+  mockSnapshot = applyRowPatches(mockSnapshot, patches);
 });
 let mockHomeFiatMap: Record<string, ITokenFiat | undefined> = {};
 let mockCurrencyId = 'usd';
@@ -73,11 +62,19 @@ const mockSwap = jest.fn();
 jest.mock('@onekeyfe/react-native-native-list', () => {
   const React = jest.requireActual<typeof import('react')>('react');
   const path = jest.requireActual<typeof import('node:path')>('node:path');
-  const { planNativeListPatches: actualPlanner } = jest.requireActual<
+  const {
+    applyValidatedRowPatches: actualApplyRowPatches,
+    planNativeListPatches: actualPlanner,
+  } = jest.requireActual<
     Pick<
       typeof import('@onekeyfe/react-native-native-list'),
       'planNativeListPatches'
-    >
+    > & {
+      applyValidatedRowPatches: (
+        snapshot: NativeListSnapshot,
+        patches: readonly RowPatch[],
+      ) => { snapshot: NativeListSnapshot };
+    }
   >(
     path.join(
       path.dirname(
@@ -87,6 +84,10 @@ jest.mock('@onekeyfe/react-native-native-list', () => {
     ),
   );
   return {
+    applyRowPatches: (
+      snapshot: NativeListSnapshot,
+      patches: readonly RowPatch[],
+    ) => actualApplyRowPatches(snapshot, patches).snapshot,
     planNativeListPatches: actualPlanner,
     NativeList: React.forwardRef(
       (
