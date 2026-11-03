@@ -1,3 +1,4 @@
+import { createContext, useContext } from 'react';
 import type { ReactNode } from 'react';
 
 import { StyleSheet } from 'react-native';
@@ -6,7 +7,22 @@ import type { IYStackProps } from '@onekeyhq/components';
 import { SizableText, YStack } from '@onekeyhq/components';
 import { ANIMATE_ONLY_OPACITY_TRANSFORM } from '@onekeyhq/components/src/utils/animationConstants';
 
+// 'embedded' is the onboarding card. 'dialog' lays the same parts out as
+// plain dialog content: no cover, card chrome or slide-in, since the dialog
+// is already the container and already animates in.
+export type IConnectionIndicatorVariant = 'embedded' | 'dialog';
+
+const ConnectionIndicatorVariantContext =
+  createContext<IConnectionIndicatorVariant>('embedded');
+
+function useIsDialogVariant() {
+  return useContext(ConnectionIndicatorVariantContext) === 'dialog';
+}
+
 function ConnectionIndicatorCard({ children }: { children: ReactNode }) {
+  if (useIsDialogVariant()) {
+    return <YStack>{children}</YStack>;
+  }
   return (
     <YStack
       borderRadius={10}
@@ -29,6 +45,9 @@ function ConnectionIndicatorCard({ children }: { children: ReactNode }) {
 }
 
 function ConnectionIndicatorAnimation({ children }: { children: ReactNode }) {
+  if (useIsDialogVariant()) {
+    return null;
+  }
   return (
     <YStack
       h={320}
@@ -47,6 +66,13 @@ function ConnectionIndicatorContent({
 }: {
   children: ReactNode;
 } & IYStackProps) {
+  if (useIsDialogVariant()) {
+    return (
+      <YStack px="$5" {...rest}>
+        {children}
+      </YStack>
+    );
+  }
   return (
     <YStack
       px="$5"
@@ -76,7 +102,21 @@ function ConnectionIndicatorFooter({ children }: { children: ReactNode }) {
   );
 }
 
-function ConnectionIndicatorRoot({ children }: { children: ReactNode }) {
+function ConnectionIndicatorRoot({
+  children,
+  variant = 'embedded',
+}: {
+  children: ReactNode;
+  variant?: IConnectionIndicatorVariant;
+}) {
+  if (variant === 'dialog') {
+    return (
+      <ConnectionIndicatorVariantContext.Provider value={variant}>
+        {/* The parts keep their $5 inset, so cancel the dialog's padding. */}
+        <YStack mx="$-5">{children}</YStack>
+      </ConnectionIndicatorVariantContext.Provider>
+    );
+  }
   return (
     <YStack
       $platform-web={{

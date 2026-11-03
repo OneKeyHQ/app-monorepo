@@ -30,6 +30,8 @@ export enum EAppEventBusNames {
   WalletConnectConnectError = 'WalletConnectConnectError',
   ShowDialogLoading = 'ShowDialogLoading',
   HideDialogLoading = 'HideDialogLoading',
+  HardwareCloudKeySignProgress = 'HardwareCloudKeySignProgress',
+  HardwareCloudKeyDropped = 'HardwareCloudKeyDropped',
   ShowToast = 'ShowToast',
   NativeStorageContractViolation = 'NativeStorageContractViolation',
   ShowLocalSecretEnvelopeErrorDialog = 'ShowLocalSecretEnvelopeErrorDialog',

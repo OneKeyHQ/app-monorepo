@@ -679,8 +679,8 @@ export async function zcashPrepareAccounts(
   );
 }
 
-// Clamping a birthday only ever costs scan time, never funds. Left
-// unclamped, one out-of-range birthday throws and stalls the whole batch.
+// Keep registration within the supported Ironwood history and the live tip.
+// An out-of-range birthday can otherwise stall the whole account batch.
 export async function zcashHealOutOfRangeBirthdays(
   vault: Vault,
   {
@@ -724,7 +724,7 @@ export async function zcashHealOutOfRangeBirthdays(
         continue;
       }
       // eslint-disable-next-line no-await-in-loop
-      await persist(i, clamped, 'below-sapling');
+      await persist(i, clamped, 'below-product-scan-floor');
     }
   }
 
@@ -847,7 +847,7 @@ export async function prewarmLocalWalletSend(
     toAddress: string;
   },
 ): Promise<void> {
-  const privateSource = sourcePool === 'orchard' || sourcePool === 'ironwood';
+  const privateSource = sourcePool === 'ironwood';
   const shielding = sourcePool === 'transparent' && toAddress.startsWith('u1');
   if (!privateSource && !shielding) return;
   if (privateSource && !(await vault.zcashPrivacyModeIsActive(accountId)))
@@ -1192,7 +1192,9 @@ async function zcashSharedRescanAccount(
   ].filter((height): height is number => height !== undefined);
   return {
     ...account,
-    birthdayHeight: heights.length ? Math.min(...heights) : undefined,
+    birthdayHeight: heights.length
+      ? clampZcashBirthdayHeight({ birthdayHeight: Math.min(...heights) })
+      : undefined,
   };
 }
 
@@ -1425,9 +1427,12 @@ export async function applyPendingRescan(
       return;
     }
     // The runtime moves first; until it succeeds the saved birthday stays and the journal is retried.
+    const birthdayHeight = clampZcashBirthdayHeight({
+      birthdayHeight: repair.birthdayHeight,
+    });
     const account = await zcashSharedRescanAccount(vault, {
       accountId,
-      birthdayHeight: repair.birthdayHeight,
+      birthdayHeight,
     });
     const api = await vault.zcashGetApi();
     await api.rescanWallet(account);
@@ -1436,7 +1441,7 @@ export async function applyPendingRescan(
       expectedMeta: currentMeta,
       meta: {
         ...currentMeta,
-        birthdayHeight: repair.birthdayHeight,
+        birthdayHeight,
         birthdaySource: repair.birthdaySource,
         birthdayTimestamp: repair.birthdayTimestamp,
       },
@@ -1557,7 +1562,7 @@ export async function rescanLocalWallet(
   let birthdaySource: IZcashBirthdaySource = 'manual-height';
   let birthdayTimestamp: number | undefined;
   if (from.type === 'height') {
-    birthdayHeight = from.height;
+    birthdayHeight = clampZcashBirthdayHeight({ birthdayHeight: from.height });
   } else {
     birthdayTimestamp =
       from.type === 'timestamp'

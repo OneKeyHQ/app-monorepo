@@ -12,6 +12,7 @@ export enum EAppSocketEventNames {
   primeDeviceLogout = 'DEVICE_LOGOUT',
   primeConfigFlush = 'CONFIG_FLUSH',
   primeLockChanged = 'LOCK_CHANGE',
+  hardwareSyncSessionRevoked = 'HW_SYNC_SESSION_REVOKED',
   setBadge = 'SET_BADGE',
   userInfoUpdated = 'USER_INFO_UPDATED',
 }
@@ -60,6 +61,13 @@ export type IPrimeLockChangedInfo = {
     pwdHash: string;
   };
   pwdHash: string;
+};
+
+// A hardware Cloud sync session was revoked, e.g. by a key reset on another
+// device. Only the revoked session's own id.
+export type IHardwareSyncSessionRevokedInfo = {
+  msgId: string;
+  sessionId: string;
 };
 
 export type ISetBadgeInfo = {

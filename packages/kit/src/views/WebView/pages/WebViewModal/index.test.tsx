@@ -17,9 +17,15 @@ type IHeaderProps = {
   headerShown?: boolean;
 };
 type IWebViewProps = {
+  disableBridge?: boolean;
   onNavigationStateChange: (event: { title: string; url: string }) => void;
   onDidStartNavigation: (event: { url: string; isMainFrame: boolean }) => void;
 };
+
+let mockLocked = false;
+let mockFocused = true;
+let mockUserId: string | null = 'A';
+const mockPop = jest.fn();
 
 const mockHeader = jest.fn<null, [IHeaderProps]>(() => null);
 const mockWebViewRef = { current: null };
@@ -47,6 +53,7 @@ jest.mock('@onekeyfe/onekey-cross-webview', () => ({
 
 jest.mock('@react-navigation/core', () => ({
   useRoute: () => ({ params: mockParams }),
+  useIsFocused: () => mockFocused,
 }));
 
 jest.mock('react-intl', () => ({
@@ -57,7 +64,7 @@ jest.mock('@onekeyhq/kit/src/components/WebView', () => ({
   __esModule: true,
   default: (props: IWebViewProps) => {
     mockWebViewProps = props;
-    return null;
+    return <div data-testid="support-webview" />;
   },
 }));
 
@@ -71,7 +78,7 @@ jest.mock('@onekeyhq/kit/src/components/WebViewWebEmbed', () => ({
 
 jest.mock('@onekeyhq/kit/src/hooks/useAppNavigation', () => ({
   __esModule: true,
-  default: () => ({ pop: jest.fn() }),
+  default: () => ({ pop: mockPop }),
 }));
 
 jest.mock('@onekeyhq/kit/src/hooks/useCrossDomainRedirect', () => ({
@@ -95,6 +102,15 @@ jest.mock(
     handlePrimePurchaseSuccessCloseRequest: jest.fn(),
   }),
 );
+
+jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms/passwordLock', () => ({
+  useAppIsLockedAtom: () => [mockLocked],
+}));
+jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms/prime', () => ({
+  usePrimePersistAtom: () => [
+    { isLoggedIn: mockUserId !== null, onekeyUserId: mockUserId },
+  ],
+}));
 
 jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms/settings', () => ({
   useSettingsFiatPaySiteWhitelistPersistAtom: () => [
@@ -120,11 +136,54 @@ const lastHeader = () => mockHeader.mock.calls.at(-1)?.[0];
 describe('WebViewModal menu', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockLocked = false;
+    mockFocused = true;
+    mockUserId = 'A';
     Object.assign(platformEnv, { isNative: false, isDesktop: false });
     mockParams = { title: 'WebView', url: '' };
   });
 
   afterEach(cleanup);
+
+  test.each(['lock', 'switch', 'logout'])(
+    'unmounts support on %s and never restores it after invalidation',
+    (reason) => {
+      mockParams = {
+        title: 'Support',
+        url: 'https://intercom.onekey.so/?intercom_user_jwt=placeholder',
+        hideHeaderRight: true,
+        disableBridge: true,
+        intercomUserId: 'A',
+      };
+      const screen = render(<WebViewModal />);
+      expect(lastHeader()?.headerRight).toBeUndefined();
+      expect(mockWebViewProps.disableBridge).toBe(true);
+      expect(screen.queryByTestId('support-webview')).not.toBeNull();
+      if (reason === 'lock') mockLocked = true;
+      else mockUserId = reason === 'switch' ? 'B' : null;
+      mockFocused = false;
+      screen.rerender(<WebViewModal />);
+      expect(screen.queryByTestId('support-webview')).toBeNull();
+      expect(mockPop).not.toHaveBeenCalled();
+      mockLocked = false;
+      mockUserId = 'A';
+      mockFocused = true;
+      screen.rerender(<WebViewModal />);
+      expect(screen.queryByTestId('support-webview')).toBeNull();
+      expect(mockPop).toHaveBeenCalledTimes(1);
+    },
+  );
+
+  test('does not load a support URL if it arrives after lock or identity change', () => {
+    mockParams = {
+      title: 'Support',
+      url: 'https://intercom.onekey.so/',
+      intercomUserId: 'B',
+    };
+    const screen = render(<WebViewModal />);
+    expect(screen.queryByTestId('support-webview')).toBeNull();
+    expect(mockPop).toHaveBeenCalledTimes(1);
+  });
 
   test.each([
     {

@@ -1,5 +1,8 @@
 import { ZCASH_SAPLING_ACTIVATION_HEIGHT_MAINNET } from '@onekeyhq/core/src/chains/zcash/sdkZcash/constants';
-import { ZCASH_ORCHARD_ACTIVATION_HEIGHT_MAINNET } from '@onekeyhq/shared/src/config/zcash';
+import {
+  ZCASH_IRONWOOD_ACTIVATION_HEIGHT_MAINNET,
+  ZCASH_MIN_BIRTHDAY_HEIGHT_MAINNET,
+} from '@onekeyhq/shared/src/config/zcash';
 
 import {
   ZCASH_BIRTHDAY_SAFETY_BLOCKS,
@@ -33,19 +36,19 @@ describe('estimateZcashBirthdayHeight', () => {
     ).toBe(chainTip - 10 * ZCASH_BLOCKS_PER_DAY - ZCASH_BIRTHDAY_SAFETY_BLOCKS);
   });
 
-  it('never estimates below Orchard activation', () => {
+  it('never estimates below Ironwood activation', () => {
     expect(
       estimateZcashBirthdayHeight({
         birthdayTimestamp: Date.UTC(2010, 0, 1),
         now,
         chainTip,
       }),
-    ).toBe(ZCASH_ORCHARD_ACTIVATION_HEIGHT_MAINNET);
+    ).toBe(ZCASH_MIN_BIRTHDAY_HEIGHT_MAINNET);
   });
 
   it('estimates the tip from the clock when the network tip is missing', () => {
     const clockTip = estimateZcashChainTipFromClock(now);
-    expect(clockTip).toBeGreaterThan(ZCASH_ORCHARD_ACTIVATION_HEIGHT_MAINNET);
+    expect(clockTip).toBeGreaterThan(ZCASH_MIN_BIRTHDAY_HEIGHT_MAINNET);
     expect(
       estimateZcashBirthdayHeight({
         birthdayTimestamp: now,
@@ -65,30 +68,67 @@ describe('estimateZcashBirthdayHeight', () => {
     ).toBe(estimateZcashChainTipFromClock(now) - ZCASH_BIRTHDAY_SAFETY_BLOCKS);
   });
 
-  it('keeps the product floor above the unsupported Sapling era', () => {
-    expect(ZCASH_ORCHARD_ACTIVATION_HEIGHT_MAINNET).toBeGreaterThan(
+  it('keeps the product floor at Ironwood and above the unsupported Sapling era', () => {
+    expect(ZCASH_MIN_BIRTHDAY_HEIGHT_MAINNET).toBe(3_428_143);
+    expect(ZCASH_MIN_BIRTHDAY_HEIGHT_MAINNET).toBeGreaterThan(
       ZCASH_SAPLING_ACTIVATION_HEIGHT_MAINNET,
     );
+  });
+
+  it('never moves an offline estimate below Ironwood when the clock is stale', () => {
+    const beforeActivation = Date.UTC(2026, 6, 27);
+    expect(estimateZcashChainTipFromClock(beforeActivation)).toBe(
+      ZCASH_MIN_BIRTHDAY_HEIGHT_MAINNET,
+    );
+    expect(
+      estimateZcashBirthdayHeight({
+        birthdayTimestamp: beforeActivation,
+        now: beforeActivation,
+        chainTip: 3_000_000,
+      }),
+    ).toBe(ZCASH_MIN_BIRTHDAY_HEIGHT_MAINNET);
   });
 });
 
 describe('clampZcashBirthdayHeight', () => {
-  it('keeps an explicit scan-from-start choice at the Orchard floor', () => {
+  it('keeps a full scan at the Ironwood floor', () => {
     expect(
       clampZcashBirthdayHeight({
-        birthdayHeight: ZCASH_ORCHARD_ACTIVATION_HEIGHT_MAINNET,
-        chainTip: 3_000_000,
+        birthdayHeight: ZCASH_MIN_BIRTHDAY_HEIGHT_MAINNET,
+        chainTip: 3_700_000,
       }),
-    ).toBe(ZCASH_ORCHARD_ACTIVATION_HEIGHT_MAINNET);
+    ).toBe(ZCASH_MIN_BIRTHDAY_HEIGHT_MAINNET);
+  });
+
+  it('clamps unsupported pre-Ironwood birthdays to the product floor', () => {
+    const chainTip = ZCASH_IRONWOOD_ACTIVATION_HEIGHT_MAINNET + 1000;
+    expect(
+      clampZcashBirthdayHeight({
+        birthdayHeight: ZCASH_IRONWOOD_ACTIVATION_HEIGHT_MAINNET,
+        chainTip,
+      }),
+    ).toBe(ZCASH_IRONWOOD_ACTIVATION_HEIGHT_MAINNET);
+    expect(
+      clampZcashBirthdayHeight({ birthdayHeight: 2_000_000, chainTip }),
+    ).toBe(ZCASH_MIN_BIRTHDAY_HEIGHT_MAINNET);
   });
 
   it('does not move an in-range birthday', () => {
     expect(
       clampZcashBirthdayHeight({
-        birthdayHeight: 2_000_000,
+        birthdayHeight: 3_500_000,
+        chainTip: 3_700_000,
+      }),
+    ).toBe(3_500_000);
+  });
+
+  it('does not lower the product floor for a stale pre-Ironwood chain tip', () => {
+    expect(
+      clampZcashBirthdayHeight({
+        birthdayHeight: ZCASH_MIN_BIRTHDAY_HEIGHT_MAINNET,
         chainTip: 3_000_000,
       }),
-    ).toBe(2_000_000);
+    ).toBe(ZCASH_MIN_BIRTHDAY_HEIGHT_MAINNET);
   });
 
   it('clamps unsupported history and future heights', () => {
@@ -96,12 +136,12 @@ describe('clampZcashBirthdayHeight', () => {
       clampZcashBirthdayHeight({
         birthdayHeight: ZCASH_SAPLING_ACTIVATION_HEIGHT_MAINNET,
       }),
-    ).toBe(ZCASH_ORCHARD_ACTIVATION_HEIGHT_MAINNET);
+    ).toBe(ZCASH_MIN_BIRTHDAY_HEIGHT_MAINNET);
     expect(
       clampZcashBirthdayHeight({
-        birthdayHeight: 3_100_000,
-        chainTip: 3_000_000,
+        birthdayHeight: 3_800_000,
+        chainTip: 3_700_000,
       }),
-    ).toBe(3_000_000);
+    ).toBe(3_700_000);
   });
 });

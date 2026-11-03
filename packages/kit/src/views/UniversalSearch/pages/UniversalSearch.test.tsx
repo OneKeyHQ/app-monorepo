@@ -29,6 +29,8 @@ const mockFetchAssetDetail = jest.fn<
   [{ assetId: string; autoHandleError: boolean }]
 >();
 let mockGtMd = true;
+let mockIsNative = false;
+let mockBodyWidth = 0;
 const mockIntl = { formatMessage: ({ id }: { id: string }) => id };
 const mockEmptyTokens = {
   tokens: [],
@@ -60,8 +62,28 @@ jest.mock('@onekeyhq/components', () => {
   const Container = ({ children }: { children?: ReactNode }) => (
     <div>{children}</div>
   );
+  const Body = ({
+    children,
+    onLayout,
+  }: {
+    children?: ReactNode;
+    onLayout?: (event: { nativeEvent: { layout: { width: number } } }) => void;
+  }) => (
+    <div>
+      <button
+        type="button"
+        data-testid="search-body-layout"
+        onClick={() =>
+          onLayout?.({ nativeEvent: { layout: { width: mockBodyWidth } } })
+        }
+      >
+        Layout
+      </button>
+      {children}
+    </div>
+  );
   return {
-    Page: Object.assign(Container, { Header: () => null, Body: Container }),
+    Page: Object.assign(Container, { Header: () => null, Body }),
     View: Container,
     YStack: Container,
     XStack: Container,
@@ -214,7 +236,22 @@ jest.mock('./components/RecentSearched', () => ({
   RecentSearched: () => null,
 }));
 jest.mock('../components/MarketTableHeader', () => ({
-  MarketTableHeader: () => null,
+  MarketTableHeader: ({
+    metric,
+    changeTitle,
+    showRank,
+  }: {
+    metric?: string;
+    changeTitle?: string;
+    showRank?: boolean;
+  }) => (
+    <span
+      data-testid="market-table-header"
+      data-metric={metric}
+      data-change-title={changeTitle}
+      data-show-rank={String(showRank)}
+    />
+  ),
 }));
 jest.mock('../hooks/useSettingsSearch', () => ({
   useSettingsSearch: () => () => [],
@@ -275,16 +312,37 @@ jest.mock(
     MobileMarketSearchAllList: ({
       sections,
     }: {
-      sections: { key: string; body: ReactNode }[];
+      sections: { key: string; header?: ReactNode; body: ReactNode }[];
     }) => (
       <div>
         {sections.map((section) => (
-          <div key={section.key}>{section.body}</div>
+          <div key={section.key}>
+            {section.header}
+            {section.body}
+          </div>
         ))}
       </div>
     ),
-    MobileMarketSearchStockRows: () => null,
-    MobileMarketSearchTokenRows: () => null,
+    MobileMarketSearchStockRows: ({
+      tableLayout,
+    }: {
+      tableLayout?: boolean;
+    }) => (
+      <div
+        data-testid="mobile-stock-rows"
+        data-table-layout={String(tableLayout)}
+      />
+    ),
+    MobileMarketSearchTokenRows: ({
+      tableLayout,
+    }: {
+      tableLayout?: boolean;
+    }) => (
+      <div
+        data-testid="mobile-token-rows"
+        data-table-layout={String(tableLayout)}
+      />
+    ),
     MobileMarketSearchSectionTitle: () => null,
     MobileMarketSearchShowMoreButton: () => null,
   }),
@@ -314,7 +372,13 @@ jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => ({
 }));
 jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
   __esModule: true,
-  default: { isWeb: true, isWebDappMode: false },
+  default: {
+    isWeb: true,
+    isWebDappMode: false,
+    get isNative() {
+      return mockIsNative;
+    },
+  },
 }));
 jest.mock('@onekeyhq/shared/src/travelMode', () => ({
   travelModeManager: {
@@ -345,6 +409,8 @@ async function search(filterTypes?: EUniversalSearchType[]) {
 
 beforeEach(() => {
   mockGtMd = true;
+  mockIsNative = false;
+  mockBodyWidth = 0;
   mockWatchlistItems = [];
   mockStocks = [];
   mockResults = {};
@@ -356,6 +422,42 @@ beforeEach(() => {
   mockStockResult.isError = false;
   mockStockResult.loadMore.mockReset();
   mockStockResult.refresh.mockReset();
+});
+
+it('uses native search body width for mobile list columns without changing the list owner', async () => {
+  mockIsNative = true;
+  mockGtMd = true;
+  mockStocks = [
+    {
+      stockId: 'AAPL',
+      symbol: 'AAPL',
+      name: 'Apple',
+      logoUrl: '',
+      assetType: 'stock',
+      currency: 'USD',
+    },
+  ];
+  await search();
+  const layout = screen.getByTestId('search-body-layout');
+  for (const [width, expected] of [
+    [767, 'false'],
+    [768, 'true'],
+    [767, 'false'],
+  ] as const) {
+    mockBodyWidth = width;
+    fireEvent.click(layout);
+    expect(screen.getByTestId('mobile-stock-rows').dataset.tableLayout).toBe(
+      expected,
+    );
+    if (expected === 'true') {
+      expect(
+        screen.getByTestId('market-table-header').dataset.changeTitle,
+      ).toBe('change');
+      expect(screen.getByTestId('market-table-header').dataset.showRank).toBe(
+        'false',
+      );
+    }
+  }
 });
 
 describe.each([

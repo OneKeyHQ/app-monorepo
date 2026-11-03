@@ -114,7 +114,7 @@ export interface IMarketWatchlistDataCache {
     ReturnType<
       typeof backgroundApiProxy.serviceMarketV2.fetchMarketTokenListBatch
     >
-  >;
+  > & { requestKey?: string };
   listing?: IMarketWatchlistListingQuoteEntry[];
   perps?: {
     tokenListData: Awaited<
@@ -162,10 +162,28 @@ function watchlistMountCacheCoversSources(
   const needsSpot = items.some(isWatchlistSpotItem);
   const needsListing = items.some(isWatchlistListingItem);
   const needsPerps = items.some(isWatchlistPerpsItem);
-  if (needsSpot && !cache.spot?.list?.length) {
+  // An empty successful response still covers the same unresolved favorites.
+  const spotRequestKey = items
+    .filter(isWatchlistSpotItem)
+    .map(getMarketWatchlistKey)
+    .join('\n');
+  if (
+    needsSpot &&
+    !cache.spot?.list?.length &&
+    cache.spot?.requestKey !== spotRequestKey
+  ) {
     return false;
   }
-  if (needsListing && !cache.listing?.length) {
+  if (
+    needsListing &&
+    !items
+      .filter(isWatchlistListingItem)
+      .every((item) =>
+        cache.listing?.some(
+          (entry) => entry.key === getMarketWatchlistKey(item),
+        ),
+      )
+  ) {
     return false;
   }
   if (needsPerps && !cache.perps?.tokenListData) {
@@ -305,8 +323,7 @@ export function useMarketWatchlistTokenList({
 
   // Listing rows are synthesized from the local watchlist record, so unlike
   // spot rows they can render before any quote exists. Reusing the previous
-  // batch keeps a remount — the token selector drops this list on every tab
-  // switch — from falling back to that quote-less state.
+  // batch keeps a selector reopen from falling back to that quote-less state.
   const lastListingQuotesRef = useRef<
     IMarketWatchlistListingQuoteEntry[] | undefined
   >(dataCacheRef?.current?.listing);
@@ -431,7 +448,10 @@ export function useMarketWatchlistTokenList({
       if (dataCacheRef && spotResult.list)
         dataCacheRef.current = {
           ...dataCacheRef.current,
-          spot: { list: [...spotResult.list] },
+          spot: {
+            list: [...spotResult.list],
+            requestKey: spotResult.requestKey,
+          },
         };
     }
   }, [dataCacheRef, spotResult]);

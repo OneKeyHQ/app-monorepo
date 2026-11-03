@@ -2,6 +2,7 @@ import { useCallback, useContext, useMemo, useRef, useState } from 'react';
 
 import { Keyboard } from 'react-native';
 
+import { useOverlayWidthClass } from '@onekeyhq/components/src/hooks/useOverlayWidthClass';
 import { useMedia } from '@onekeyhq/components/src/hooks/useStyle';
 import { withStaticProperties } from '@onekeyhq/components/src/shared/tamagui';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -14,6 +15,11 @@ import { assertOverlayProps } from '../../shared/assertOverlayProps';
 import { Input } from '../Input';
 
 import { SelectContext } from './context';
+import {
+  SELECT_SEARCHABLE_PANEL_HEIGHT,
+  SelectSearchableList,
+} from './SelectSearchableList';
+import { isSelectSearchSheet } from './selectSearchPresentation';
 
 import type { IContextType } from './context';
 import type {
@@ -271,6 +277,8 @@ function SelectContent() {
     waitForChangeBeforeClose,
     usingPercentSnapPoints: usingPercentSnapPointsFromContext,
     offset,
+    searchable,
+    searchPlaceholder,
   } = useContext(SelectContext);
   const isSelectingRef = useRef(false);
   const selectionGenerationRef = useRef(0);
@@ -351,12 +359,32 @@ function SelectContent() {
   );
 
   const sectionSeparator = useMemo(() => <Stack h="$2" />, []);
+  const popoverTrigger = useRenderPopoverTrigger();
+  const isExpandedWindow = useOverlayWidthClass() === 'expanded';
+  const isSearchSheet = isSelectSearchSheet({
+    hasPopoverTrigger: Boolean(popoverTrigger),
+    isExpandedWindow,
+  });
   const renderContentVersion = waitForChangeBeforeClose
     ? `${String(isOpen)}-${String((value as ISelectItem)?.value ?? value)}`
     : isOpen;
 
   const renderContent = useMemo(
     () => {
+      if (searchable && !sections) {
+        if (!isOpen) {
+          return null;
+        }
+        return (
+          <SelectSearchableList
+            items={items}
+            renderItem={renderItem}
+            extraData={value}
+            searchPlaceholder={searchPlaceholder}
+            isSheet={isSearchSheet}
+          />
+        );
+      }
       const listProps = {
         keyExtractor,
         estimatedItemSize: '$6',
@@ -386,14 +414,16 @@ function SelectContent() {
     },
     // Select lists are normally frozen while open. The wait mode is the one
     // exception: its selected check must follow the value that settles before
-    // the sheet closes.
+    // the sheet closes. isSearchSheet still updates so a resize that swaps the
+    // open web panel and sheet does not keep the previous search layout.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [renderContentVersion],
+    [renderContentVersion, isSearchSheet],
   );
 
-  const popoverTrigger = useRenderPopoverTrigger();
   const usingPercentSnapPoints =
-    usingPercentSnapPointsFromContext || (items?.length && items?.length > 10);
+    usingPercentSnapPointsFromContext ||
+    Boolean(searchable) ||
+    Boolean(items?.length && items.length > 10);
   const mergedSheetProps = useMemo(
     () => ({
       dismissOnSnapToBottom: true,
@@ -409,9 +439,15 @@ function SelectContent() {
     () => ({
       maxHeight: platformEnv.isNative ? undefined : '60vh',
       width: '$56',
+      ...(searchable && !isSearchSheet
+        ? {
+            height: SELECT_SEARCHABLE_PANEL_HEIGHT,
+            maxHeight: SELECT_SEARCHABLE_PANEL_HEIGHT,
+          }
+        : null),
       ...floatingPanelProps,
     }),
-    [floatingPanelProps],
+    [floatingPanelProps, isSearchSheet, searchable],
   );
   return (
     <Popover
@@ -421,6 +457,7 @@ function SelectContent() {
       keepChildrenMounted={!platformEnv.isNative}
       mountNativePortalBeforeOpen
       sheetProps={mergedSheetProps}
+      sheetContentScrollable={!searchable || Boolean(sections)}
       floatingPanelProps={mergedFloatingPanelProps}
       placement={placement}
       renderTrigger={popoverTrigger}
@@ -452,6 +489,8 @@ function SelectFrame<
     placement = platformEnv.isNative ? 'bottom-start' : undefined,
     usingPercentSnapPoints,
     waitForChangeBeforeClose,
+    searchable,
+    searchPlaceholder,
   } = props;
   const [isOpenInternal, setIsOpenInternal] = useState(false);
   const isControlled = openProp !== undefined;
@@ -488,6 +527,8 @@ function SelectFrame<
       offset,
       usingPercentSnapPoints,
       waitForChangeBeforeClose,
+      searchable,
+      searchPlaceholder,
     }),
     [
       isOpen,
@@ -506,6 +547,8 @@ function SelectFrame<
       offset,
       usingPercentSnapPoints,
       waitForChangeBeforeClose,
+      searchable,
+      searchPlaceholder,
     ],
   );
   return (
@@ -586,6 +629,8 @@ function BasicSelect<
     </SelectFrame>
   );
 }
+
+export { SELECT_SEARCHABLE_PANEL_HEIGHT };
 
 export const Select = withStaticProperties(BasicSelect, {
   Frame: SelectFrame,

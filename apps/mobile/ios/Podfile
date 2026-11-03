@@ -151,6 +151,15 @@ target 'OneKeyWallet' do
   # pod 'RNGoogleSignin', :path => '../../../node_modules/@react-native-google-signin/google-signin'
 
   post_install do |installer|
+    unless mac_catalyst_enabled
+      # Remove recording code and voice UI from the exact reviewed SDK bytes.
+      intercom_framework = File.join(installer.sandbox.root.to_s, 'Intercom', 'Intercom.xcframework')
+      intercom_patch = File.join(__dir__, '..', 'scripts', 'patch-intercom-ios.py')
+      unless system('python3', '-B', intercom_patch, intercom_framework)
+        raise '[Intercom] Failed to remove recording capabilities from the pinned iOS SDK'
+      end
+    end
+
     # Copy custom fonts from components package and add to Xcode Resources.
     # Fonts are registered via Info.plist UIAppFonts so iOS manages them natively,
     # making them resilient to background memory purge.

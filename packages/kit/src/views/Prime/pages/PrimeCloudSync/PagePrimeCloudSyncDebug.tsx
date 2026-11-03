@@ -946,6 +946,20 @@ function ScenarioPanel() {
       >
         Toggle isCloudSyncEnabledKeyless (KW)
       </Button>
+      <Button
+        size="small"
+        onPress={async () => {
+          const removed =
+            await backgroundApiProxy.serviceKeylessCloudSync.debugRemoveSelectedHardwareCloudKey();
+          Toast.message({
+            title: removed
+              ? 'Hardware key removed; reopen Cloud sync to see the prompt'
+              : 'No hardware key on this device',
+          });
+        }}
+      >
+        Remove hardware key (keep selection)
+      </Button>
     </YStack>
   );
 }
