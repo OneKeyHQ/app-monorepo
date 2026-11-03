@@ -16,11 +16,13 @@ import {
   useHyperliquidActions,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import {
+  useGetBboForOrderPrice,
   useOrderFilterByCurrentTokenAtom,
   usePerpsActiveOpenOrdersAtom,
   usePerpsActiveTwapOrdersAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/atoms';
 import {
+  perpsWebSocketConnectedAtom,
   usePerpsActiveAccountAtom,
   usePerpsCustomSettingsAtom,
   useSpotActiveOpenOrdersAtom,
@@ -215,6 +217,7 @@ function PerpOpenOrdersList({
   const [filterByCurrentToken] = useOrderFilterByCurrentTokenAtom();
   const [activeTradeInstrument] = useActiveTradeInstrumentAtom();
   const actions = useHyperliquidActions();
+  const getBbo = useGetBboForOrderPrice();
   const ensureTradingEnabled = useEnsureTradingEnabled();
   const [currentListPage, setCurrentListPage] = useState(1);
   const { chasingOrderIds, isChasingOrder, runChasingOrderTask } =
@@ -498,19 +501,24 @@ function PerpOpenOrdersList({
         );
       }
 
-      const book =
-        await backgroundApiProxy.serviceHyperliquid.fetchL2BookByCoin({
-          coin: order.coin,
-        });
-      const bid = book?.levels[0]?.[0]?.px;
-      const ask = book?.levels[1]?.[0]?.px;
+      const bbo = (await perpsWebSocketConnectedAtom.get()) ? getBbo() : null;
+      let bid = bbo?.coin === order.coin ? bbo.bbo[0]?.px : undefined;
+      let ask = bbo?.coin === order.coin ? bbo.bbo[1]?.px : undefined;
+      if (!bid || !ask) {
+        const book =
+          await backgroundApiProxy.serviceHyperliquid.fetchL2BookByCoin({
+            coin: order.coin,
+          });
+        bid = book?.levels[0]?.[0]?.px;
+        ask = book?.levels[1]?.[0]?.px;
+      }
       const nextPrice =
         bid && ask
           ? resolveBboOrderPrice({
               bid,
               ask,
               side: order.side === 'B' ? 'long' : 'short',
-              type: 'counterparty',
+              type: 'queue',
               offsetTicks: 0,
               szDecimals,
             })
@@ -528,11 +536,11 @@ function PerpOpenOrdersList({
         szDecimals,
       };
     },
-    [intl],
+    [getBbo, intl],
   );
 
   const handleChaseOrder = useCallback(
-    async (order: IPerpsFrontendOrder, preparedTargetPrice?: string) => {
+    async (order: IPerpsFrontendOrder) => {
       if (
         !canMutateScopedOrders ||
         !canChasePerpsOrder(order) ||
@@ -556,8 +564,7 @@ function PerpOpenOrdersList({
       await runChasingOrderTask(order.oid, async () => {
         try {
           await ensureTradingEnabled();
-          const targetPrice =
-            preparedTargetPrice ?? (await resolveChaseTargetPrice(order)).price;
+          const { price: targetPrice } = await resolveChaseTargetPrice(order);
 
           const latestAccountAddress = normalizePerpsAccountAddress(
             activeAccountAddressRef.current,
@@ -662,7 +669,7 @@ function PerpOpenOrdersList({
             targetPrice: price,
             szDecimals,
             intl,
-            onConfirm: () => handleChaseOrder(order, price),
+            onConfirm: () => handleChaseOrder(order),
           });
         } catch (error) {
           Toast.error({
