@@ -89,7 +89,6 @@ function BasicQRCode({
   logoSvg,
   logoBackgroundColor: logoBGColor,
   logoBorderRadius,
-  logoSvgColor = '$text',
   logoMargin = DEFAULT_LOGO_MARGIN,
   logoSize = DEFAULT_LOGO_SIZE,
   brandMark,
@@ -198,14 +197,6 @@ function BasicQRCode({
                 href={href}
                 preserveAspectRatio="xMidYMid slice"
                 width={logoSize}
-              />
-            ) : null}
-            {logoSvg ? (
-              <Icon
-                name="OnekeyBrand"
-                width={logoSize}
-                height={logoSize}
-                color={logoSvgColor}
               />
             ) : null}
             {brandMark ? (
@@ -378,6 +369,23 @@ export function QRCode({
           logoSize={scaledLogoSize}
           logoMargin={scaledLogoMargin}
         />
+        {props.logoSvg ? (
+          <Stack
+            position="absolute"
+            left={(canvasSize - scaledLogoSize) / 2}
+            top={(canvasSize - scaledLogoSize) / 2}
+            width={scaledLogoSize}
+            height={scaledLogoSize}
+            pointerEvents="none"
+          >
+            <Icon
+              name="OnekeyBrand"
+              width={scaledLogoSize}
+              height={scaledLogoSize}
+              color={props.logoSvgColor ?? '$text'}
+            />
+          </Stack>
+        ) : null}
       </Stack>
     </Theme>
   );

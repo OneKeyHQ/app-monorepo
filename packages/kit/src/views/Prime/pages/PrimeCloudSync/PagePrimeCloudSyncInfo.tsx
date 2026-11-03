@@ -15,6 +15,7 @@ import {
 import type { IIconProps, ISizableTextProps } from '@onekeyhq/components';
 import { Section } from '@onekeyhq/kit/src/components/Section';
 import { usePrimeCloudSyncPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/prime';
+import { isHardwareCloudSyncPlatformSupported } from '@onekeyhq/shared/src/consts/hardwareCloudSyncConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import openUrlUtils from '@onekeyhq/shared/src/utils/openUrlUtils';
 
@@ -198,6 +199,22 @@ function SecurityContent() {
   const isKeylessMode =
     !config.isCloudSyncEnabled &&
     (hasUsedKeylessSyncBefore || !hasUsedOneKeyIdSyncBefore);
+  // A selected hardware key stands in for the Keyless wallet, so its data is
+  // encrypted with a key from the hardware wallet instead.
+  const isHardwareKeyMode =
+    isKeylessMode &&
+    isHardwareCloudSyncPlatformSupported() &&
+    !!config.hardwareCloudSyncKeySource;
+  let keyDescriptionId =
+    ETranslations.prime_end_to_end_encryption_protection_description;
+  let keyWarningId = ETranslations.prime_password_as_key_warning;
+  if (isHardwareKeyMode) {
+    keyDescriptionId = ETranslations.hardware_e2e_encryption__desc;
+    keyWarningId = ETranslations.hardware_wallet_is_encryption_key__msg;
+  } else if (isKeylessMode) {
+    keyDescriptionId = ETranslations.keyless_e2e_encryption__desc;
+    keyWarningId = ETranslations.keyless_wallet_is_encryption_key__msg;
+  }
 
   const defaultItemProps = {
     icon: 'CheckRadioSolid' as IIconProps['name'],
@@ -213,7 +230,9 @@ function SecurityContent() {
     {
       title: isKeylessMode
         ? intl.formatMessage({
-            id: ETranslations.keyless_security_key_derivation__title,
+            id: isHardwareKeyMode
+              ? ETranslations.hardware_security_key_derivation__title
+              : ETranslations.keyless_security_key_derivation__title,
           })
         : intl.formatMessage({
             id: ETranslations.prime_cloud_sync_security_feature_two,
@@ -251,9 +270,7 @@ function SecurityContent() {
 
         <SizableText color="$textSubdued">
           {intl.formatMessage({
-            id: isKeylessMode
-              ? ETranslations.keyless_e2e_encryption__desc
-              : ETranslations.prime_end_to_end_encryption_protection_description,
+            id: keyDescriptionId,
           })}
         </SizableText>
       </YStack>
@@ -262,9 +279,7 @@ function SecurityContent() {
         type={isKeylessMode ? 'info' : 'warning'}
         icon="MessageExclamationOutline"
         description={intl.formatMessage({
-          id: isKeylessMode
-            ? ETranslations.keyless_wallet_is_encryption_key__msg
-            : ETranslations.prime_password_as_key_warning,
+          id: keyWarningId,
         })}
       />
 
