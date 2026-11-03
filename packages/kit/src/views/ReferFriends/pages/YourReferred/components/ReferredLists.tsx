@@ -194,7 +194,7 @@ export function ReferredHardwareOrders() {
           <SizableText size="$bodySm" color="$textSubdued">
             {item.createdAt
               ? formatDate(item.createdAt, {
-                  formatTemplate: 'yyyy-LL-dd HH:mm',
+                  hideSeconds: true,
                 })
               : ''}
           </SizableText>

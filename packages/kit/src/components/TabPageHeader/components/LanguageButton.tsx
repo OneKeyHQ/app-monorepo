@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Select } from '@onekeyhq/components';
+import { SELECT_SEARCHABLE_PANEL_HEIGHT, Select } from '@onekeyhq/components';
 import type { IIconButtonProps } from '@onekeyhq/components';
 import { HeaderIconButton } from '@onekeyhq/components/src/layouts/Navigation/Header';
 import { useLanguageSelector } from '@onekeyhq/kit/src/views/Setting/hooks/useLanguageSelector';
@@ -27,7 +27,9 @@ export function LanguageButton({ size, iconSize }: ILanguageButtonProps) {
       value={value}
       onChange={onChange}
       placement="bottom-end"
-      floatingPanelProps={{ maxHeight: 280 }}
+      searchable
+      floatingPanelProps={{ maxHeight: SELECT_SEARCHABLE_PANEL_HEIGHT }}
+      sheetProps={{ snapPoints: [80], snapPointsMode: 'percent' }}
       renderTrigger={() => (
         <HeaderIconButton
           size={size}

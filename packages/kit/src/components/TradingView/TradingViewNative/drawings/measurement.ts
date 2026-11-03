@@ -1,6 +1,11 @@
 import { formatTradingViewNativePriceTick } from '../utils/chartLayout';
 import { formatTradingViewNativeVolume } from '../utils/chartLegend';
 
+import {
+  formatDrawingText,
+  getDrawingBarsTemplate,
+  getDrawingCanvasText,
+} from './drawingText';
 import { indexAtTime, timeAtIndex } from './model';
 
 import type { IDrawing, IDrawingProjection } from './model';
@@ -73,12 +78,21 @@ export function getDrawingMeasurement(
   }
   const precision = getDrawingPricePrecision(projection);
   const ticks = ` ${formatDrawingNumber(Math.round(delta * 10 ** precision), 0)}`;
+  const text = getDrawingCanvasText(projection.text);
+  const bars = endIndex - startIndex;
   return {
     delta,
-    bars: endIndex - startIndex,
+    bars,
     volume,
     priceText: `${formatDrawingNumber(delta, precision)} (${percent.toFixed(2).replace('-', '−')}%)${ticks}`,
-    timeText: `${endIndex - startIndex} bars, ${formatDrawingDuration(timeAtIndex(endIndex, projection) - timeAtIndex(startIndex, projection))}`,
-    volumeText: `Vol ${formatTradingViewNativeVolume(volume)}`,
+    timeText: formatDrawingText(getDrawingBarsTemplate(text, bars), {
+      count: String(bars),
+      duration: formatDrawingDuration(
+        timeAtIndex(endIndex, projection) - timeAtIndex(startIndex, projection),
+      ),
+    }),
+    volumeText: formatDrawingText(text.volume, {
+      volume: formatTradingViewNativeVolume(volume),
+    }),
   };
 }

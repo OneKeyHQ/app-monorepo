@@ -9,7 +9,7 @@ import { jotaiContextStore } from '../../../states/jotai/utils/jotaiContextStore
 
 import { SWAP_COLD_START_HOME_SCENE_NAME } from './swapColdStartTokenCacheUtils';
 
-function getHomeSelectedAccountInfoFromContextStore() {
+export function getHomeSelectedAccountInfoFromContextStore() {
   const homeAccountSelectorStore = jotaiContextStore.getStore({
     storeName: EJotaiContextStoreNames.accountSelector,
     accountSelectorInfo: {

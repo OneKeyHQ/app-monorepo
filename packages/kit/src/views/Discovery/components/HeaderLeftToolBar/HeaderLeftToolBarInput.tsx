@@ -21,7 +21,7 @@ import { DappInfoPopoverContent } from '../DappInfoPopoverContent';
 import { SearchResultContent } from '../SearchResultContent';
 
 import type { ISearchResultContentRef } from '../SearchResultContent';
-import type { TextInput } from 'react-native';
+import type { TextInputInstance } from 'react-native';
 
 interface IHeaderLeftToolBarInputProps {
   iconConfig: {
@@ -74,7 +74,7 @@ function HeaderLeftToolBarInput({
   const [internalValue, setInternalValue] = useState('');
   const scrollViewRef = useRef<IScrollViewRef>(null);
   const searchResultRef = useRef<ISearchResultContentRef>(null);
-  const inputRef = useRef<TextInput>(null);
+  const inputRef = useRef<TextInputInstance>(null);
   const { hiddenHttpsUrl } = formatHiddenHttpsUrl(url);
   const searchPopoverShortcutsFeatureFlag =
     useSearchPopoverShortcutsFeatureFlag();

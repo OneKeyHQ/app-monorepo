@@ -1,6 +1,7 @@
 import type { MutableRefObject, ReactElement } from 'react';
-import { useMemo, useState } from 'react';
+import { memo, useMemo, useState } from 'react';
 
+import { NativeList } from '@onekeyfe/react-native-native-list';
 import { useIntl } from 'react-intl';
 
 import {
@@ -27,19 +28,35 @@ import type {
 
 import SwapPopularTokenGroup from '../SwapPopularTokenGroup';
 
-import { buildSwapTokenSelectorNetworkGroups } from './SwapTokenSelectorDesktop.utils';
+import {
+  getSwapTokenSelectorTokenKey,
+  resolveSwapTokenSelectorAssetNetworks,
+  resolveSwapTokenSelectorNetworkGroups,
+  updateSwapTokenSelectorNetworkSnapshot,
+} from './SwapTokenSelectorDesktop.utils';
 
-import type { ISwapNetworkAsset } from './SwapTokenSelectorDesktop.utils';
+import type {
+  ISwapNetworkAsset,
+  ISwapTokenSelectorNetworkSnapshot,
+} from './SwapTokenSelectorDesktop.utils';
+import type {
+  ActionAnchorInvalidatedEvent,
+  NativeListRef,
+  NativeListSnapshot,
+  RowActionEvent,
+} from '@onekeyfe/react-native-native-list';
 import type { FlatList } from 'react-native';
 
 type ISwapTokenItem = ISwapToken | IFuseResult<ISwapToken>;
 
 type ISwapTokenSelectorDesktopProps = {
+  sessionScopeKey: string;
+  networksReady: boolean;
   allNetwork: ISwapNetwork;
   networks: ISwapNetwork[];
   sameChainNetwork?: ISwapNetwork;
   selectedNetwork?: ISwapNetwork;
-  assetNetworks: ISwapNetworkAsset[];
+  assetNetworks?: ISwapNetworkAsset[];
   disableNetworks: string[];
   networkSearchValue: string;
   tokenSearchValue: string;
@@ -52,6 +69,11 @@ type ISwapTokenSelectorDesktopProps = {
   onDisableNetworksClick: () => void;
   onSelectToken: (token: ISwapToken) => void;
   listViewRef?: MutableRefObject<FlatList<ISwapTokenItem> | null>;
+  nativeListRef?: MutableRefObject<NativeListRef | null>;
+  nativeListSnapshot: NativeListSnapshot;
+  onNativeRowAction: (event: RowActionEvent) => void;
+  onNativeAnchorInvalidated: (event: ActionAnchorInvalidatedEvent) => void;
+  useNativeTokenRows: boolean;
   popularTokens: ISwapToken[];
   showPopularTokens: boolean;
   showLpTokenFilterSwitch: boolean;
@@ -66,17 +88,18 @@ type ISwapTokenSelectorDesktopProps = {
   tokenListEmptyComponent?: ReactElement | null;
 };
 
-function NetworkLogo({ network }: { network: ISwapNetwork }) {
-  if (network.isAllNetworks) {
+const NetworkLogo = memo(function NetworkLogo({
+  logoURI,
+  isAllNetworks,
+}: Pick<ISwapNetwork, 'logoURI' | 'isAllNetworks'>) {
+  if (isAllNetworks) {
     return <Icon name="AllNetworksSolid" size="$6" color="$iconActive" />;
   }
-  if (network.logoURI) {
-    return (
-      <Image size="$6" borderRadius="$full" source={{ uri: network.logoURI }} />
-    );
+  if (logoURI) {
+    return <Image size="$6" borderRadius="$full" src={logoURI} />;
   }
   return <Icon name="GlobusOutline" size="$6" color="$iconSubdued" />;
-}
+});
 
 // Sections of the network column that may list the same network.
 type INetworkSection = 'sameChain' | 'assets' | 'all';
@@ -127,7 +150,10 @@ function NetworkRow({
       }}
       onPress={onPress}
     >
-      <NetworkLogo network={network} />
+      <NetworkLogo
+        logoURI={network.logoURI}
+        isAllNetworks={network.isAllNetworks}
+      />
       <SizableText size="$bodyMdMedium" flex={1} minWidth={0} numberOfLines={1}>
         {network.name}
       </SizableText>
@@ -236,12 +262,14 @@ function NetworkSectionLabel({
 }
 
 export function SwapTokenSelectorDesktop({
-  allNetwork,
+  sessionScopeKey,
+  networksReady,
+  allNetwork: latestAllNetwork,
   networks,
-  sameChainNetwork,
+  sameChainNetwork: latestSameChainNetwork,
   selectedNetwork,
-  assetNetworks,
-  disableNetworks,
+  assetNetworks: latestAssetNetworks,
+  disableNetworks: latestDisableNetworks,
   networkSearchValue,
   tokenSearchValue,
   tokenSearchPlaceholder,
@@ -260,22 +288,86 @@ export function SwapTokenSelectorDesktop({
   onLpTokenFilterChange,
   tokens,
   renderToken,
+  nativeListRef,
+  nativeListSnapshot,
+  onNativeRowAction,
+  onNativeAnchorInvalidated,
+  useNativeTokenRows,
   currencySymbol,
   tokenListEmptyComponent,
 }: ISwapTokenSelectorDesktopProps) {
   const intl = useIntl();
+  const [networkSnapshot, setNetworkSnapshot] =
+    useState<ISwapTokenSelectorNetworkSnapshot>({ scopeKey: sessionScopeKey });
+  const currentSnapshot = updateSwapTokenSelectorNetworkSnapshot({
+    snapshot: networkSnapshot,
+    scopeKey: sessionScopeKey,
+    networksReady,
+    allNetwork: latestAllNetwork,
+    sameChainNetwork: latestSameChainNetwork,
+    networks,
+    assetNetworks: latestAssetNetworks,
+  });
+  if (currentSnapshot !== networkSnapshot) {
+    setNetworkSnapshot(currentSnapshot);
+  }
+  const networkMap = useMemo(
+    () =>
+      new Map(
+        [
+          latestAllNetwork,
+          ...networks,
+          ...(latestSameChainNetwork ? [latestSameChainNetwork] : []),
+        ].map((network) => [network.networkId, network]),
+      ),
+    [latestAllNetwork, latestSameChainNetwork, networks],
+  );
+  const allNetwork = currentSnapshot.structure?.allNetwork ?? latestAllNetwork;
+  const snapshotSameChainNetwork = currentSnapshot.structure?.sameChainNetwork;
+  const sameChainNetwork = snapshotSameChainNetwork
+    ? (networkMap.get(snapshotSameChainNetwork.networkId) ??
+      snapshotSameChainNetwork)
+    : undefined;
   const networkGroups = useMemo(
     () =>
-      buildSwapTokenSelectorNetworkGroups({
-        networks: [
-          allNetwork,
-          ...networks,
-          ...(sameChainNetwork ? [sameChainNetwork] : []),
-        ],
+      resolveSwapTokenSelectorNetworkGroups({
+        groups: currentSnapshot.structure?.groups ?? [],
+        networkMap,
         searchValue: networkSearchValue,
       }),
-    [allNetwork, networkSearchValue, networks, sameChainNetwork],
+    [currentSnapshot.structure, networkMap, networkSearchValue],
   );
+  const assetNetworks = useMemo(
+    () =>
+      resolveSwapTokenSelectorAssetNetworks({
+        snapshot: currentSnapshot.assetNetworks,
+        assetNetworks: latestAssetNetworks,
+        networkMap,
+      }),
+    [currentSnapshot.assetNetworks, latestAssetNetworks, networkMap],
+  );
+  const disableNetworks = useMemo(() => {
+    const snapshotNetworks = [
+      ...networkGroups.flatMap(({ network, children }) => [
+        network,
+        ...children,
+      ]),
+      ...assetNetworks.map(({ network }) => network),
+      ...(sameChainNetwork ? [sameChainNetwork] : []),
+    ];
+    return [
+      ...latestDisableNetworks,
+      ...snapshotNetworks
+        .filter((network) => !networkMap.has(network.networkId))
+        .map((network) => network.networkId),
+    ];
+  }, [
+    assetNetworks,
+    latestDisableNetworks,
+    networkGroups,
+    networkMap,
+    sameChainNetwork,
+  ]);
   const hasNetworkSearch = networkSearchValue.trim().length > 0;
   const normalizedNetworkSearch = networkSearchValue.trim().toLowerCase();
   const allNetworkMatches =
@@ -580,24 +672,49 @@ export function SwapTokenSelectorDesktop({
           </XStack>
         ) : null}
         <YStack flex={1} minHeight={0}>
-          <ListView
-            ref={listViewRef}
-            data={tokens}
-            renderItem={renderToken}
-            estimatedItemSize={60}
-            ListEmptyComponent={
-              tokenListEmptyComponent ?? (
-                <TokenSearchEmpty
-                  title={intl.formatMessage({
-                    id: ETranslations.empty_no_tokens_found,
-                  })}
-                  description={intl.formatMessage({
-                    id: ETranslations.description_check_spelling_or_paste_contract_address,
-                  })}
-                />
-              )
-            }
-          />
+          {useNativeTokenRows ? (
+            <NativeList
+              ref={nativeListRef}
+              style={{ flex: 1 }}
+              snapshot={nativeListSnapshot}
+              keyboardDismissMode="on-drag"
+              keyboardShouldPersistTaps="handled"
+              onRowAction={onNativeRowAction}
+              onActionAnchorInvalidated={onNativeAnchorInvalidated}
+              listEmpty={
+                tokenListEmptyComponent ?? (
+                  <TokenSearchEmpty
+                    title={intl.formatMessage({
+                      id: ETranslations.empty_no_tokens_found,
+                    })}
+                    description={intl.formatMessage({
+                      id: ETranslations.description_check_spelling_or_paste_contract_address,
+                    })}
+                  />
+                )
+              }
+            />
+          ) : (
+            <ListView
+              ref={listViewRef}
+              data={tokens}
+              keyExtractor={getSwapTokenSelectorTokenKey}
+              renderItem={renderToken}
+              estimatedItemSize={60}
+              ListEmptyComponent={
+                tokenListEmptyComponent ?? (
+                  <TokenSearchEmpty
+                    title={intl.formatMessage({
+                      id: ETranslations.empty_no_tokens_found,
+                    })}
+                    description={intl.formatMessage({
+                      id: ETranslations.description_check_spelling_or_paste_contract_address,
+                    })}
+                  />
+                )
+              }
+            />
+          )}
         </YStack>
       </YStack>
     </XStack>

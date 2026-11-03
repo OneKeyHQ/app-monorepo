@@ -293,6 +293,7 @@ const SwapHeaderContainer = ({
         syncRouteTabParam(newType);
         await swapTypeSwitchAction(newType, networkId, {
           carryTargetToken: true,
+          initializeSwapDefaultsFromHome: pageType !== 'modal',
           ...swapProTokenCarryOptions,
         });
         return;
@@ -336,6 +337,7 @@ const SwapHeaderContainer = ({
       fromToken?.networkId,
       updateSelectedAccountNetworkAction,
       enterFrom,
+      pageType,
       isSwapProCategory,
       swapProTokenCarryOptions,
     ],
@@ -427,10 +429,9 @@ const SwapHeaderContainer = ({
     gtLg &&
     !platformEnv.isNative &&
     !platformEnv.isExtensionUiSidePanel;
-  const hideWalletHomeTokenListStockKLine = Boolean(
+  const hideDesktopModalStockKLine = Boolean(
     platformEnv.isDesktop &&
     pageType === 'modal' &&
-    enterFrom === ESwapSource.WALLET_HOME_TOKEN_LIST &&
     swapTypeSwitch === ESwapTabSwitchType.STOCK,
   );
   const tabs = (
@@ -537,7 +538,7 @@ const SwapHeaderContainer = ({
           marketPresetSettings={marketPresetSettings}
           routeSwapType={defaultSwapType}
           compact={Boolean(isCompactLayout && !useDesktopModalHeaderActions)}
-          hideKLine={hideWalletHomeTokenListStockKLine}
+          hideKLine={hideDesktopModalStockKLine}
         />
       ) : null}
     </XStack>

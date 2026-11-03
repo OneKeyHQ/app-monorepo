@@ -667,7 +667,6 @@ export function useSwapStockAmountInputState({
   const isStockTradeChannelInitializing =
     stockChannel.isStockTokenChanging ||
     stockChannel.channelStage === ESwapStockChannelStage.InitializingStock ||
-    stockChannel.channelStage === ESwapStockChannelStage.CheckingMarketStatus ||
     stockChannel.channelStage === ESwapStockChannelStage.InitializingPayToken;
   const stockInputTokenBalance = useStockInputTokenBalance({
     enabled: inputTokenReady,

@@ -266,7 +266,7 @@ function MobileMarketTokenFlatListBase({
       windowSize={platformEnv.isNativeAndroid ? 7 : 3}
       removeClippedSubviews={platformEnv.isNativeIOS}
       updateCellsBatchingPeriod={platformEnv.isNativeAndroid ? 50 : 100}
-      ListFooterComponent={ListFooterComponent}
+      ListFooterComponent={ListFooterComponent ?? undefined}
       ListEmptyComponent={ListEmptyComponent}
       contentContainerStyle={{
         ...(platformEnv.isNative

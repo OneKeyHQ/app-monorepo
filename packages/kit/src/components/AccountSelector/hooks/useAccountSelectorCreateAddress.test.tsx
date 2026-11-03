@@ -6,6 +6,7 @@ import { act, renderHook } from '@testing-library/react';
 import { Toast } from '@onekeyhq/components';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { useAccountSelectorCreateAddress } from './useAccountSelectorCreateAddress';
 
@@ -128,6 +129,26 @@ describe('useAccountSelectorCreateAddress', () => {
       title: 'feedback.hw_create_unsupported_address_title:Bitcoin:Taproot',
       message: 'Path not supported',
     });
+  });
+
+  it('stays quiet about Bitcoin past Keystone account #1 when filling all networks', async () => {
+    mockIsThirdPartyHwByWalletId.mockResolvedValue(true);
+    mockAddDefaultNetworkAccounts.mockResolvedValue({
+      addedAccounts: [{ networkId: 'evm--1', deriveType: 'default' }],
+      failedAccounts: [
+        {
+          ...pathForbidden,
+          error: {
+            ...pathForbidden.error,
+            key: ETranslations.hardware_third_party_keystone_btc_account_one_only__msg,
+          },
+        },
+      ],
+    });
+
+    await createAllNetworkAddress();
+
+    expect(Toast.error).not.toHaveBeenCalled();
   });
 
   it('keeps the OneKey toast as the raw failure message', async () => {

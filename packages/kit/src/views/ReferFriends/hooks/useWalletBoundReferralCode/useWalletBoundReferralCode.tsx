@@ -37,7 +37,7 @@ import {
   getReferralBindDisplayStatus,
   isBindWindowExpiredError,
 } from './referralBindStatusUtils';
-import { useGetReferralCodeWalletInfo } from './useGetReferralCodeWalletInfo';
+import { lookupReferralCodeWallet } from './useGetReferralCodeWalletInfo';
 
 import type { IReferralCodeWalletInfo } from './types';
 
@@ -52,7 +52,6 @@ export function useWalletBoundReferralCode({
   const [shouldBondReferralCode, setShouldBondReferralCode] = useState<
     boolean | undefined
   >(undefined);
-  const getReferralCodeWalletInfo = useGetReferralCodeWalletInfo();
 
   const getReferralCodeBindDisplayStatus = useCallback(
     async ({
@@ -63,14 +62,25 @@ export function useWalletBoundReferralCode({
       skipIfTimeout?: boolean;
     }): Promise<IReferralBindDisplayStatus> => {
       if (mnemonicType === EMnemonicType.TON) {
-        return 'unknown';
+        return 'unsupported';
       }
 
-      const walletInfo = await getReferralCodeWalletInfo(walletId);
-      if (!walletInfo) {
+      // A wallet or account that cannot be read yet is not a wallet that
+      // can never take a code. Only the latter is unsupported. A failed
+      // lookup stays unknown so Perks can still offer Enter Code.
+      let lookup: Awaited<ReturnType<typeof lookupReferralCodeWallet>>;
+      try {
+        lookup = await lookupReferralCodeWallet(walletId);
+      } catch {
         return 'unknown';
       }
-      const { address, networkId } = walletInfo;
+      if (lookup.status === 'unsupported') {
+        return 'unsupported';
+      }
+      if (lookup.status !== 'ready') {
+        return 'unknown';
+      }
+      const { address, networkId } = lookup.walletInfo;
 
       let serverStatus: ICheckWalletBindStatusResponse | undefined;
       let isTimeout = false;
@@ -125,7 +135,7 @@ export function useWalletBoundReferralCode({
 
       return getReferralBindDisplayStatus(bindStatus);
     },
-    [mnemonicType, getReferralCodeWalletInfo],
+    [mnemonicType],
   );
 
   const getReferralCodeBondStatus = useCallback(

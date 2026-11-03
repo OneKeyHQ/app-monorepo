@@ -25,6 +25,9 @@ const mockResult = jest.fn();
 const mockTxState: jest.MockedFunction<
   typeof backgroundApiProxy.serviceSwap.fetchTxState
 > = jest.fn();
+const mockFetchQuote = jest.fn(async (token: IDustSweepToken) =>
+  mockQuote(token),
+);
 const mockBuild = jest.fn(
   async ({ fromToken }: { fromToken: IDustSweepToken }) => ({
     result: mockQuote(fromToken),
@@ -45,7 +48,8 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
 }));
 jest.mock('../utils/quote', () => ({
   ...jest.requireActual<typeof import('../utils/quote')>('../utils/quote'),
-  fetchDustSweepQuote: async (token: IDustSweepToken) => mockQuote(token),
+  fetchDustSweepQuote: (...args: Parameters<typeof mockFetchQuote>) =>
+    mockFetchQuote(...args),
 }));
 jest.mock(
   '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/SwapPanel/hooks/marketBuildExecutionUtils',
@@ -155,6 +159,9 @@ async function broadcast(
 
 beforeEach(() => {
   jest.clearAllMocks();
+  mockFetchQuote
+    .mockReset()
+    .mockImplementation(async (token) => mockQuote(token));
   mockBuild.mockReset().mockImplementation(async ({ fromToken }) => ({
     result: mockQuote(fromToken),
   }));
@@ -163,6 +170,44 @@ beforeEach(() => {
     dealReceiveAmount: '0.01',
   });
   mockHistory.mockResolvedValue(undefined);
+});
+
+it('skips quote errors, fails build errors and completes the next token', async () => {
+  mockFetchQuote.mockRejectedValueOnce({
+    ...rejection(),
+    message: 'Quote unavailable',
+  });
+  mockBuild.mockRejectedValueOnce({
+    ...rejection(),
+    message: 'API build failed',
+  });
+  mockSend.mockImplementation(async (params) => {
+    await params.onBeforeSignAndSend?.();
+    return broadcast(params);
+  });
+  const { result } = renderHook(() => useDustSweepSession([], { minRunMs: 0 }));
+  await act(async () => result.current.start(snapshot));
+  expect(result.current.state.phase).toBe('completed');
+  expect(result.current.state.items.map((item) => item.status)).toEqual([
+    'skipped',
+    'failed',
+    'success',
+  ]);
+  expect(result.current.state.items[0].providerErrorMessage).toBe(
+    'Quote unavailable',
+  );
+  expect(result.current.state.items[1].providerErrorMessage).toBe(
+    'API build failed',
+  );
+  expect(mockBuild).toHaveBeenCalledTimes(2);
+  expect(mockSend).toHaveBeenCalledTimes(1);
+  expect(mockResult).toHaveBeenCalledWith(
+    expect.objectContaining({
+      successCount: 1,
+      failedCount: 1,
+      skippedCount: 1,
+    }),
+  );
 });
 
 it('preserves a bridge API build failure through the real executor and session', async () => {
@@ -175,47 +220,109 @@ it('preserves a bridge API build failure through the real executor and session',
     result.current.start({ ...snapshot, tokens: [snapshot.tokens[0]] }),
   );
   expect(result.current.state.items[0]).toMatchObject({
-    status: 'skipped',
+    status: 'failed',
     reason: 'unknown',
     providerErrorMessage: 'API build failed',
   });
   expect(mockSend).not.toHaveBeenCalled();
 });
 
-it.each([0, 1, 2])(
-  'settles a rejection at index %s and continues the real executor/session through the final result',
-  async (failedIndex) => {
+it('discounts only missing receipts in a batch with actual amounts including zero', async () => {
+  mockTxState
+    .mockResolvedValueOnce({
+      state: ESwapTxHistoryStatus.SUCCESS,
+      dealReceiveAmount: '0.012',
+    })
+    .mockResolvedValueOnce({ state: ESwapTxHistoryStatus.SUCCESS })
+    .mockResolvedValueOnce({
+      state: ESwapTxHistoryStatus.SUCCESS,
+      dealReceiveAmount: '0',
+    });
+  mockSend.mockImplementation(async (params) => {
+    await params.onBeforeSignAndSend?.();
+    return broadcast(params);
+  });
+  const { result } = renderHook(() => useDustSweepSession([], { minRunMs: 0 }));
+  await act(async () => result.current.start(snapshot));
+  expect(result.current.state.items.map((item) => item.receivedAmount)).toEqual(
+    ['0.012', '0.0095', '0'],
+  );
+  expect(
+    result.current.state.items.map((item) => item.receivedAmountEstimated),
+  ).toEqual([undefined, true, undefined]);
+  expect(getDustSweepPresentation(result.current.state)).toMatchObject({
+    outcome: 'success',
+    totals: {
+      receivedAmount: '0.0215',
+      receivedAmountEstimated: true,
+      receiptUnavailable: false,
+      successCount: 3,
+    },
+  });
+  expect(mockResult).toHaveBeenCalledWith(
+    expect.objectContaining({
+      receiptAvailable: false,
+      receivedAmount: null,
+      receivedUsd: null,
+    }),
+  );
+});
+
+it.each(['preparation', 'submission', 'confirmation'] as const)(
+  'collects a %s request failure and completes the remaining tokens',
+  async (phase) => {
+    const error = Object.assign(new Error('Request rejected'), rejection(), {
+      code: 40_024,
+      message: 'Request rejected',
+    });
     mockSend.mockImplementation(async (params) => {
+      const first = mockSend.mock.calls.length === 1;
+      if (first && phase === 'preparation') throw error;
       await params.onBeforeSignAndSend?.();
-      if (mockSend.mock.calls.length - 1 === failedIndex) throw rejection();
+      if (first && phase === 'submission') throw error;
       return broadcast(params);
     });
+    if (phase === 'confirmation') mockTxState.mockRejectedValueOnce(error);
     const { result } = renderHook(() =>
       useDustSweepSession([], { minRunMs: 0 }),
     );
     await act(async () => result.current.start(snapshot));
     expect(result.current.state.phase).toBe('completed');
-    expect(result.current.state.items.map((item) => item.status)).toEqual(
-      snapshot.tokens.map((_, index) =>
-        index === failedIndex ? 'failed' : 'success',
-      ),
-    );
-    expect(result.current.state.items[failedIndex]).toMatchObject({
-      message,
-      providerErrorMessage: message,
-      reason: 'txFailed',
+    expect(result.current.state.items.map((item) => item.status)).toEqual([
+      'failed',
+      'success',
+      'success',
+    ]);
+    expect(result.current.state.items[0]).toMatchObject({
+      providerErrorMessage: error.message,
+      reason: 'unknown',
     });
-    expect(result.current.state.items[failedIndex].txId).toBeUndefined();
+    expect(result.current.state.items[0].txId).toBe(
+      phase === 'confirmation' ? 'tx-1' : undefined,
+    );
     expect(mockSend).toHaveBeenCalledTimes(3);
-    expect(mockHistory).toHaveBeenCalledTimes(2);
-    expect(mockTxState).toHaveBeenCalledTimes(2);
+    expect(mockHistory).toHaveBeenCalledTimes(phase === 'confirmation' ? 3 : 2);
     expect(getDustSweepPresentation(result.current.state)).toMatchObject({
       outcome: 'partial',
-      totals: { settledCount: 3, successCount: 2, failedCount: 1 },
+      totals: {
+        settledCount: 3,
+        successCount: 2,
+        failedCount: 1,
+        skippedCount: 0,
+      },
     });
-    expect(mockResult).toHaveBeenCalledTimes(1);
+    if (phase === 'confirmation')
+      expect(mockResult).toHaveBeenCalledWith(
+        expect.objectContaining({
+          receiptAvailable: false,
+          receivedAmount: null,
+          receivedUsd: null,
+        }),
+      );
     await act(async () => result.current.resume());
     expect(mockSend).toHaveBeenCalledTimes(3);
+    await act(async () => result.current.leave());
+    expect(result.current.state.phase).toBe('left');
   },
 );
 
@@ -229,14 +336,14 @@ it('settles all rejected tokens without waiting, history writes or a resume acti
   expect(result.current.state.phase).toBe('completed');
   expect(getDustSweepPresentation(result.current.state)).toMatchObject({
     outcome: 'failed',
-    totals: { settledCount: 3, failedCount: 3 },
+    totals: { settledCount: 3, failedCount: 3, skippedCount: 0 },
   });
   expect(mockSend).toHaveBeenCalledTimes(3);
   expect(mockHistory).not.toHaveBeenCalled();
   expect(mockTxState).not.toHaveBeenCalled();
 });
 
-it('retains an acknowledged Solana broadcast even if later work reports a slippage error', async () => {
+it('collects a sender failure after broadcast without losing transaction identity', async () => {
   mockSend.mockImplementation(async (params) => {
     await params.onBeforeSignAndSend?.();
     await broadcast(params);
@@ -246,13 +353,24 @@ it('retains an acknowledged Solana broadcast even if later work reports a slippa
   await act(async () => result.current.start(snapshot));
   expect(result.current.state.phase).toBe('completed');
   expect(result.current.state.items.map((item) => item.status)).toEqual([
-    'success',
-    'success',
-    'success',
+    'failed',
+    'failed',
+    'failed',
   ]);
   expect(mockSend).toHaveBeenCalledTimes(3);
   expect(mockHistory).toHaveBeenCalledTimes(3);
-  expect(mockTxState).toHaveBeenCalledTimes(3);
+  expect(mockTxState).not.toHaveBeenCalled();
+  expect(result.current.state.items.every((item) => item.txId)).toBe(true);
+  expect(
+    result.current.state.items.every(
+      (item) => item.providerErrorMessage === message,
+    ),
+  ).toBe(true);
+  expect(mockResult).toHaveBeenCalledWith(
+    expect.objectContaining({ receiptAvailable: false }),
+  );
+  await act(async () => result.current.leave());
+  expect(result.current.state.phase).toBe('left');
 });
 
 it('honors a pause while the rejected submission is outstanding, then continues only the next token', async () => {
@@ -302,35 +420,7 @@ it('exposes the confirmed provider failure detail in the final result', async ()
   });
 });
 
-it.each([
-  { message: 'timeout', code: 'ETIMEDOUT' },
-  { code: 40_036, message },
-  { ...rejection(), code: 40_005 },
-])(
-  'keeps an ambiguous response blocked without resending: %j',
-  async (error) => {
-    mockSend.mockImplementation(async (params) => {
-      await params.onBeforeSignAndSend?.();
-      throw error;
-    });
-    const { result } = renderHook(() =>
-      useDustSweepSession([], { minRunMs: 0 }),
-    );
-    await act(async () => result.current.start(snapshot));
-    expect(result.current.state.phase).toBe('blocked');
-    expect(result.current.state.items[0].providerErrorMessage).toBeUndefined();
-    expect(result.current.state.items.map((item) => item.status)).toEqual([
-      'unknown',
-      'waiting',
-      'waiting',
-    ]);
-    await act(async () => result.current.resume());
-    expect(mockSend).toHaveBeenCalledTimes(1);
-    expect(mockHistory).not.toHaveBeenCalled();
-  },
-);
-
-it('preserves a localized signing error while keeping an unknown submission blocked', async () => {
+it('preserves localized signing errors in the existing collector and finishes', async () => {
   mockSend.mockImplementation(async (params) => {
     await params.onBeforeSignAndSend?.();
     throw new OneKeyLocalError({
@@ -340,14 +430,14 @@ it('preserves a localized signing error while keeping an unknown submission bloc
   });
   const { result } = renderHook(() => useDustSweepSession([], { minRunMs: 0 }));
   await act(async () => result.current.start(snapshot));
-  expect(result.current.state.phase).toBe('blocked');
+  expect(result.current.state.phase).toBe('completed');
   expect(result.current.state.items[0]).toMatchObject({
-    status: 'unknown',
+    status: 'failed',
     localError: {
       key: ETranslations.swap_page_toast_insufficient_balance_title,
       values: { token: 'SOL' },
     },
   });
   await act(async () => result.current.resume());
-  expect(mockSend).toHaveBeenCalledTimes(1);
+  expect(mockSend).toHaveBeenCalledTimes(3);
 });

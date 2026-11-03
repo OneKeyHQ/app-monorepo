@@ -36,7 +36,11 @@ function CosmosEnigmaUnlockModal() {
     setContinueOperate,
     riskLevel,
     urlSecurityInfo,
-  } = useRiskDetection({ origin: $sourceInfo?.origin ?? '' });
+  } = useRiskDetection({
+    origin: $sourceInfo?.origin ?? '',
+    walletConnectVerifyContext: $sourceInfo?.walletConnectVerifyContext,
+    isWalletConnectRequest: $sourceInfo?.isWalletConnectRequest,
+  });
 
   const intl = useIntl();
   const [isLoading, setIsLoading] = useState(false);
@@ -70,6 +74,7 @@ function CosmosEnigmaUnlockModal() {
         <Page.Header headerShown={false} />
         <Page.Body>
           <DAppRequestLayout
+            sourceInfo={$sourceInfo}
             title={intl.formatMessage({
               id: ETranslations.dapp_connect_encrypted_request,
             })}

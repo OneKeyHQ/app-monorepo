@@ -80,6 +80,13 @@ export const PerpTestIDs = {
   PositionShareButton: 'perp-position-share-button',
   PositionShareRetryButton: 'perp-position-share-retry-button',
   PositionAdjustMarginButton: 'perp-position-adjust-margin-button',
+  PositionReverseButton: 'perp-position-reverse-button',
+  ReversePositionDialog: 'perp-reverse-position-dialog',
+  ReversePositionConfirmButton: 'perp-reverse-position-confirm-button',
+  PositionActionsSettingsButton: 'perp-position-actions-settings-button',
+  PositionActionsSettingsDialog: 'perp-position-actions-settings-dialog',
+  PositionActionSwitch: (action: string) =>
+    `perp-position-action-switch-${action}`,
   PositionAddButton: 'perp-position-add-button',
   CloseAllPositionsButton: 'perp-close-all-positions-button',
 

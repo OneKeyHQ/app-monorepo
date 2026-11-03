@@ -96,6 +96,10 @@ jest.mock(
   }),
 );
 jest.mock(
+  '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketTokenList/components/TokenIdentityItem',
+  () => ({ TokenIdentityItem: () => null }),
+);
+jest.mock(
   '@onekeyhq/kit/src/views/Perp/components/OrderInfoPanel/utils',
   () => ({
     isSpotHoldingVisible: () => true,

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import type { ReactElement } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -464,6 +465,7 @@ export function TranslatePopoverTrigger({
   size = 'medium',
   open,
   onOpenChange,
+  trigger,
 }: {
   isTranslated: boolean;
   onTranslate: () => void;
@@ -473,6 +475,9 @@ export function TranslatePopoverTrigger({
   size?: 'small' | 'medium' | 'large';
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
+  // Replaces the default icon button, e.g. a hidden anchor when the popover
+  // is opened from a menu item via `open`.
+  trigger?: ReactElement;
 }) {
   const intl = useIntl();
   const [showSettings, setShowSettings] = useState(false);
@@ -496,14 +501,16 @@ export function TranslatePopoverTrigger({
       open={open}
       onOpenChange={handleOpenChange}
       renderTrigger={
-        <IconButton
-          variant="tertiary"
-          size={size}
-          icon={isTranslated ? 'TranslateSolid' : 'TranslateOutline'}
-          // Highlighted while the page is in translate mode.
-          iconProps={isTranslated ? { color: '$iconSuccess' } : undefined}
-          testID="browser-bar-translate"
-        />
+        trigger ?? (
+          <IconButton
+            variant="tertiary"
+            size={size}
+            icon={isTranslated ? 'TranslateSolid' : 'TranslateOutline'}
+            // Highlighted while the page is in translate mode.
+            iconProps={isTranslated ? { color: '$iconSuccess' } : undefined}
+            testID="browser-bar-translate"
+          />
+        )
       }
       renderContent={
         <TranslatePopoverContent

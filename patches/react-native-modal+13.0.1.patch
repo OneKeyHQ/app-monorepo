@@ -1,8 +1,69 @@
 diff --git a/node_modules/react-native-modal/dist/modal.js b/node_modules/react-native-modal/dist/modal.js
-index 80f4e75..b4b359e 100644
+index 80f4e75..9c2bbdc 100644
 --- a/node_modules/react-native-modal/dist/modal.js
 +++ b/node_modules/react-native-modal/dist/modal.js
-@@ -453,10 +453,10 @@ export class ReactNativeModal extends React.Component {
+@@ -1,5 +1,5 @@
+ import * as React from 'react';
+-import { Animated, DeviceEventEmitter, Dimensions, InteractionManager, KeyboardAvoidingView, Modal, PanResponder, BackHandler, Platform, TouchableWithoutFeedback, View, } from 'react-native';
++import { Animated, DeviceEventEmitter, Dimensions, KeyboardAvoidingView, Modal, PanResponder, BackHandler, Platform, TouchableWithoutFeedback, View, } from 'react-native';
+ import * as PropTypes from 'prop-types';
+ import * as animatable from 'react-native-animatable';
+ import { initializeAnimations, buildAnimations, reversePercentage, } from './utils';
+@@ -316,17 +316,19 @@ export class ReactNativeModal extends React.Component {
+             }
+             if (this.contentRef) {
+                 this.props.onModalWillShow && this.props.onModalWillShow();
+-                if (this.interactionHandle == null) {
+-                    this.interactionHandle = InteractionManager.createInteractionHandle();
+-                }
++                // OneKey patch: RN 0.88 removed the legacy interaction handles.
++                // if (this.interactionHandle == null) {
++                //     this.interactionHandle = InteractionManager.createInteractionHandle();
++                // }
+                 this.contentRef
+                     .animate(this.animationIn, this.props.animationInTiming)
+                     .then(() => {
+                     this.isTransitioning = false;
+-                    if (this.interactionHandle) {
+-                        InteractionManager.clearInteractionHandle(this.interactionHandle);
+-                        this.interactionHandle = null;
+-                    }
++                    // OneKey patch: RN 0.88 removed the legacy interaction handles.
++                    // if (this.interactionHandle) {
++                    //     InteractionManager.clearInteractionHandle(this.interactionHandle);
++                    //     this.interactionHandle = null;
++                    // }
+                     if (!this.props.isVisible) {
+                         this.close();
+                     }
+@@ -362,17 +364,19 @@ export class ReactNativeModal extends React.Component {
+             }
+             if (this.contentRef) {
+                 this.props.onModalWillHide && this.props.onModalWillHide();
+-                if (this.interactionHandle == null) {
+-                    this.interactionHandle = InteractionManager.createInteractionHandle();
+-                }
++                // OneKey patch: RN 0.88 removed the legacy interaction handles.
++                // if (this.interactionHandle == null) {
++                //     this.interactionHandle = InteractionManager.createInteractionHandle();
++                // }
+                 this.contentRef
+                     .animate(animationOut, this.props.animationOutTiming)
+                     .then(() => {
+                     this.isTransitioning = false;
+-                    if (this.interactionHandle) {
+-                        InteractionManager.clearInteractionHandle(this.interactionHandle);
+-                        this.interactionHandle = null;
+-                    }
++                    // OneKey patch: RN 0.88 removed the legacy interaction handles.
++                    // if (this.interactionHandle) {
++                    //     InteractionManager.clearInteractionHandle(this.interactionHandle);
++                    //     this.interactionHandle = null;
++                    // }
+                     if (this.props.isVisible) {
+                         this.open();
+                     }
+@@ -453,17 +457,18 @@ export class ReactNativeModal extends React.Component {
          if (this.state.isVisible) {
              this.open();
          }
@@ -15,3 +76,15 @@ index 80f4e75..b4b359e 100644
          if (this.didUpdateDimensionsEmitter) {
              this.didUpdateDimensionsEmitter.remove();
          }
+-        if (this.interactionHandle) {
+-            InteractionManager.clearInteractionHandle(this.interactionHandle);
+-            this.interactionHandle = null;
+-        }
++        // OneKey patch: RN 0.88 removed the legacy interaction handles.
++        // if (this.interactionHandle) {
++        //     InteractionManager.clearInteractionHandle(this.interactionHandle);
++        //     this.interactionHandle = null;
++        // }
+     }
+     componentDidUpdate(prevProps) {
+         // If the animations have been changed then rebuild them to make sure we're

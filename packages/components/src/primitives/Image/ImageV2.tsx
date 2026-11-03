@@ -15,6 +15,7 @@ import {
   type ImageStyle,
   type ImageURISource,
   Image as ReactNativeImage,
+  type StyleProp,
   StyleSheet,
 } from 'react-native';
 
@@ -32,7 +33,11 @@ import {
   isPreloadedImageUri,
   markPreloadedImageUri,
 } from './preloadedImageUris';
-import { isEmptyResolvedSource, useResetError } from './utils';
+import {
+  isEmptyResolvedSource,
+  isImageSourceArray,
+  useResetError,
+} from './utils';
 
 import type {
   IImageContentFit,
@@ -59,9 +64,10 @@ function resolveSource(
     return { uri: source.trim() };
   }
   if (typeof source === 'number') {
-    return ReactNativeImage.resolveAssetSource(source);
+    // Resolves to `null` (never `undefined`) for unknown assets at runtime.
+    return ReactNativeImage.resolveAssetSource(source) ?? null;
   }
-  if (Array.isArray(source)) {
+  if (source && isImageSourceArray(source)) {
     return source[0] ?? null;
   }
   return source ?? null;
@@ -110,7 +116,10 @@ export function ImageV2({ style: defaultStyle, ...props }: IImageV2Props) {
 
   const style = useMemo(() => {
     return defaultStyle
-      ? (StyleSheet.flatten([defaultStyle, restStyle]) as typeof restStyle)
+      ? (StyleSheet.flatten([
+          defaultStyle,
+          restStyle,
+        ] as StyleProp<ImageStyle>) as typeof restStyle)
       : restStyle;
   }, [defaultStyle, restStyle]);
 
@@ -140,11 +149,9 @@ export function ImageV2({ style: defaultStyle, ...props }: IImageV2Props) {
     ...imageProps
   } = restProps;
   const [hasError, setHasError] = useState(false);
-  const [isImageLoaded, setIsImageLoaded] = useState(false);
   const [retryNonce, setRetryNonce] = useState(0);
   const retryCountRef = useRef(0);
   const retryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const [isPlaceholderVisible, setIsPlaceholderVisible] = useState(false);
   const placeholderTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
     null,
   );
@@ -199,6 +206,40 @@ export function ImageV2({ style: defaultStyle, ...props }: IImageV2Props) {
   // URI alone identifies the web request.
   const resolvedSourceIdentity = resolvedSource?.uri ?? '';
   useResetError(resolvedSourceIdentity, hasError, setHasError);
+  const imageRequest = useMemo(
+    () => ({ uri: resolvedSourceIdentity, recyclingKey, retryNonce }),
+    [resolvedSourceIdentity, recyclingKey, retryNonce],
+  );
+  const [loadingState, setLoadingState] = useState({
+    request: imageRequest,
+    loaded: false,
+    placeholderVisible: false,
+  });
+  const isImageLoaded =
+    loadingState.request === imageRequest && loadingState.loaded;
+  const isPlaceholderVisible =
+    loadingState.request === imageRequest && loadingState.placeholderVisible;
+  const clearPlaceholderTimer = useCallback(() => {
+    if (placeholderTimerRef.current) {
+      clearTimeout(placeholderTimerRef.current);
+      placeholderTimerRef.current = null;
+    }
+  }, []);
+  const hasDisplayableImage = useCallback(() => {
+    // RNW renders this img alongside its background image before onLoad's
+    // extra decode finishes. Prefetch hints alone cannot prove it is ready.
+    const image = imageContainerRef.current?.querySelector('img');
+    const displayUri = resolvedSourceIdentity.replace(
+      /^(data:image\/svg\+xml;utf8,)(.*)/,
+      (_, prefix: string, svg: string) => `${prefix}${encodeURIComponent(svg)}`,
+    );
+    return Boolean(
+      image &&
+      image.getAttribute('src') === displayUri &&
+      image.complete &&
+      image.naturalWidth > 0,
+    );
+  }, [resolvedSourceIdentity]);
 
   // A prefetched URI is in react-native-web's own cache, so passing it at
   // mount lets the image start LOADED and paint in the first commit. Holding
@@ -278,12 +319,14 @@ export function ImageV2({ style: defaultStyle, ...props }: IImageV2Props) {
   // react-native-web aborts a superseded request from a passive effect, and it
   // cannot abort the `decode()` that follows a completed load at all, so the
   // previous source's callbacks can still arrive after a swap. Tracking the
-  // displayed URI in a layout effect keeps that marker on committed renders
-  // only, so a discarded concurrent render cannot silence a live callback.
-  const displayedSourceIdentityRef = useRef(resolvedSourceIdentity);
+  // displayed request in a layout effect keeps that marker on committed renders
+  // only. A new source, retry or recycled row invalidates the previous callbacks.
+  const displayedRequestRef = useRef(imageRequest);
   useLayoutEffect(() => {
-    displayedSourceIdentityRef.current = resolvedSourceIdentity;
-  }, [resolvedSourceIdentity]);
+    displayedRequestRef.current = imageRequest;
+    clearPlaceholderTimer();
+    loadStartedAtRef.current = 0;
+  }, [clearPlaceholderTimer, imageRequest]);
 
   const retryLimit = Number.isFinite(retryTimes)
     ? Math.max(0, Math.floor(retryTimes))
@@ -312,41 +355,65 @@ export function ImageV2({ style: defaultStyle, ...props }: IImageV2Props) {
     return true;
   }, [canRetry, clearRetryTimer, retryLimit]);
 
-  const clearPlaceholderTimer = useCallback(() => {
-    if (placeholderTimerRef.current) {
-      clearTimeout(placeholderTimerRef.current);
-      placeholderTimerRef.current = null;
-    }
-  }, []);
-
   useEffect(() => clearPlaceholderTimer, [clearPlaceholderTimer]);
 
   const handleLoadStart = useCallback(() => {
+    if (imageRequest !== displayedRequestRef.current) {
+      return;
+    }
     clearPlaceholderTimer();
-    setIsImageLoaded(false);
-    loadStartedAtRef.current =
+    const loaded = hasDisplayableImage();
+    setLoadingState({
+      request: imageRequest,
+      loaded,
+      placeholderVisible: false,
+    });
+    const now =
       typeof performance === 'undefined' ? Date.now() : performance.now();
-    setIsPlaceholderVisible(false);
+    loadStartedAtRef.current = loaded ? 0 : now;
     if (
-      (placeholder !== null && placeholder !== undefined) ||
-      loadingStrategy === 'skeleton'
+      !loaded &&
+      ((placeholder !== null && placeholder !== undefined) ||
+        loadingStrategy === 'skeleton')
     ) {
       placeholderTimerRef.current = setTimeout(() => {
-        setIsPlaceholderVisible(true);
+        placeholderTimerRef.current = null;
+        if (imageRequest !== displayedRequestRef.current) {
+          return;
+        }
+        const displayable = hasDisplayableImage();
+        if (displayable) {
+          loadStartedAtRef.current = 0;
+        }
+        setLoadingState({
+          request: imageRequest,
+          loaded: displayable,
+          placeholderVisible: !displayable,
+        });
       }, IMAGE_LOADING_DELAY_MS);
     }
     onLoadStart?.();
-  }, [clearPlaceholderTimer, loadingStrategy, onLoadStart, placeholder]);
+  }, [
+    clearPlaceholderTimer,
+    hasDisplayableImage,
+    imageRequest,
+    loadingStrategy,
+    onLoadStart,
+    placeholder,
+  ]);
 
   const handleLoad = useCallback(
     (event: ImageLoadEvent) => {
-      if (resolvedSourceIdentity !== displayedSourceIdentityRef.current) {
+      if (imageRequest !== displayedRequestRef.current) {
         return;
       }
       clearPlaceholderTimer();
       setHasError(false);
-      setIsImageLoaded(true);
-      setIsPlaceholderVisible(false);
+      setLoadingState({
+        request: imageRequest,
+        loaded: true,
+        placeholderVisible: false,
+      });
       // react-native-web only seeds its ImageUriCache from `prefetch`; a
       // displayed image never enters it, so every later mount of the same URI
       // (a list that remounts its rows) starts IDLE and paints one load later.
@@ -410,6 +477,7 @@ export function ImageV2({ style: defaultStyle, ...props }: IImageV2Props) {
     },
     [
       clearPlaceholderTimer,
+      imageRequest,
       onDisplay,
       onLoad,
       resolvedSource?.uri,
@@ -418,17 +486,21 @@ export function ImageV2({ style: defaultStyle, ...props }: IImageV2Props) {
   );
 
   const handleLoadEnd = useCallback(() => {
-    if (resolvedSourceIdentity !== displayedSourceIdentityRef.current) {
+    if (imageRequest !== displayedRequestRef.current) {
       return;
     }
     clearPlaceholderTimer();
-    setIsPlaceholderVisible(false);
+    setLoadingState((current) =>
+      current.request === imageRequest
+        ? { ...current, placeholderVisible: false }
+        : current,
+    );
     onLoadEnd?.();
-  }, [clearPlaceholderTimer, onLoadEnd, resolvedSourceIdentity]);
+  }, [clearPlaceholderTimer, imageRequest, onLoadEnd]);
 
   const handleError = useCallback(
     (event: ImageErrorEvent) => {
-      if (resolvedSourceIdentity !== displayedSourceIdentityRef.current) {
+      if (imageRequest !== displayedRequestRef.current) {
         return;
       }
       if (
@@ -443,17 +515,20 @@ export function ImageV2({ style: defaultStyle, ...props }: IImageV2Props) {
         return;
       }
       clearPlaceholderTimer();
-      setIsImageLoaded(false);
-      setIsPlaceholderVisible(false);
+      setLoadingState({
+        request: imageRequest,
+        loaded: false,
+        placeholderVisible: false,
+      });
       setHasError(true);
       onError?.({ error: String(event.nativeEvent.error) });
     },
     [
       clearPlaceholderTimer,
+      imageRequest,
       onError,
       optimizedSourceResult.optimized,
       optimizedSourceResult.rawUri,
-      resolvedSourceIdentity,
       scheduleRetry,
       shouldUseRawSourceFallback,
     ],

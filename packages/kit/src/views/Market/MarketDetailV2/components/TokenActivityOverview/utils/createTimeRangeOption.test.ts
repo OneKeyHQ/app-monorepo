@@ -19,7 +19,13 @@ describe('createTimeRangeOption', () => {
   it('signs and separates the way the other percentages do', () => {
     expect(option('1.05')?.percentageChange).toBe('+1.05%');
     expect(option('-6.72')?.percentageChange).toBe('-6.72%');
-    expect(option('1234.5')?.percentageChange).toBe('+1,234.50%');
+  });
+
+  it('drops the decimals from 1,000% so four cells fit one row', () => {
+    expect(option('999.99')?.percentageChange).toBe('+999.99%');
+    expect(option('1234.5')?.percentageChange).toBe('+1,235%');
+    expect(option('17146.27')?.percentageChange).toBe('+17,146%');
+    expect(option('-1000')?.percentageChange).toBe('-1,000%');
   });
 
   it('shares the 99,999% ceiling instead of clamping at 999.99%', () => {

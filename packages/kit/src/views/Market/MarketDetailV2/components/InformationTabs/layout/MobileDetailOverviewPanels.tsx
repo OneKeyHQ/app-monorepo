@@ -43,7 +43,12 @@ export function MobileTrendingOverviewPanel({
         <TokenOverview />
       ) : (
         <>
-          <TokenActivityOverview desktopRedesign summaryLayout="stacked" />
+          {/* Starts 32pt below the tabs, matching the other overviews. */}
+          <TokenActivityOverview
+            desktopRedesign
+            summaryLayout="stacked"
+            pt="$8"
+          />
           <TokenSupplementaryInfo variant="overview" columns={2} />
         </>
       )}
@@ -94,7 +99,7 @@ export function MobileStockFinancialsPanel({
   }
   return (
     <OverviewScroll scrollEnabled={scrollEnabled}>
-      <StockFinancials stockId={stockId} />
+      <StockFinancials stockId={stockId} showTitle={false} />
     </OverviewScroll>
   );
 }

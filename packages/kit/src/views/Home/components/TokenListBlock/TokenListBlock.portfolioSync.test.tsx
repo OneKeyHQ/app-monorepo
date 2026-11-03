@@ -1,6 +1,7 @@
 /** @jest-environment jsdom */
 import { act, render, waitFor } from '@testing-library/react';
 
+import type { IPortfolioCategoryRefreshResult } from '@onekeyhq/kit-bg/src/services/ServiceHardware/serviceHardwarePortfolioSync/ServiceHardwarePortfolioSync';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -10,21 +11,45 @@ import type {
   IFetchAccountTokensResp,
 } from '@onekeyhq/shared/types/token';
 
+import type { IHomePortfolioSnapshot } from '../../pages/homeOverviewBalanceHold';
+
+type ICategoryState = {
+  ownerKey: string;
+  requestId: number;
+  isRefreshing: boolean;
+  failedSources: ('defi' | 'perps')[];
+  data?: IPortfolioCategoryRefreshResult;
+  dataRequestId?: number;
+  heldTotalFiatUsd?: string;
+  retry?: () => void;
+};
+let mockPublishRefreshedHeader = false;
+let mockCategoryState: ICategoryState;
+const mockRefreshCategories = jest.fn<
+  Promise<IPortfolioCategoryRefreshResult>,
+  [unknown]
+>();
+
 const mockNotifySettled = jest.fn<Promise<void>, unknown[]>(
   async () => undefined,
 );
+const mockSyncPortfolio = jest.fn(async (_payload: unknown) => true);
+const mockUpdateSyncUi = jest.fn();
 const mockFetchTokens = jest.fn<Promise<IFetchAccountTokensResp>, []>();
 const mockNoop = jest.fn();
 const mockAsyncNoop = jest.fn(async () => undefined);
 const mockCustomTokens: ICustomTokenItem[] = [];
 const mockCurrencyMap = {};
 let mockEpoch = 0;
+let mockTokenWorth = '125';
+let mockTapTokenMap: IFetchAccountTokensResp['tokens']['map'] = {};
 const mockAccount = {
   id: 'hw-account-1',
   address: '0x123',
   indexedAccountId: 'hw-indexed-1',
 };
 const mockIndexedAccount = { id: 'hw-indexed-1', index: 0, name: 'Account #1' };
+let mockIndexedAccountReady = true;
 let mockNetwork = { id: 'evm--1', isAllNetworks: false };
 const mockWallet = {
   id: 'hw-wallet-1',
@@ -37,7 +62,7 @@ const mockWallet = {
 };
 const mockActiveAccount = () => ({
   account: mockAccount,
-  indexedAccount: mockIndexedAccount,
+  indexedAccount: mockIndexedAccountReady ? mockIndexedAccount : undefined,
   network: mockNetwork,
   wallet: mockWallet,
   accountName: 'Account #1',
@@ -58,16 +83,18 @@ const mockSelectorStore = {
     ];
   },
 };
-const mockTokenStore = { get: mockNoop };
+const mockTokenStore = {
+  get: jest.fn(() => tokenResponse().tokens.data[0]),
+};
 const mockStructure = {
   ownerKey: 'home-owner',
   generation: 0,
-  orderedIds: [],
+  orderedIds: [] as string[],
   smallBalanceIds: [],
   aggMembership: {},
   ownedAggregateTokenListMap: {},
 };
-let mockHomeDisplay = {
+let mockHomeDisplay: IHomePortfolioSnapshot = {
   ownerKey: 'hw-account-1__evm--1',
   totalFiatUsd: '125',
   tokenFiatUsd: '125',
@@ -94,7 +121,7 @@ const mockActions = {
 const mockTokenActions = {
   updateTokenListState: mockNoop,
   updateSearchKey: mockNoop,
-  updatePortfolioSyncUiState: mockNoop,
+  updatePortfolioSyncUiState: mockUpdateSyncUi,
 };
 const mockPipeline = {
   reset: mockNoop,
@@ -107,6 +134,15 @@ const mockPipeline = {
 
 jest.mock('react-intl', () => ({
   useIntl: () => ({ formatMessage: ({ id }: { id: string }) => id }),
+}));
+jest.mock('../../hooks/useHomeNativeRefresh', () => ({
+  useHomeNativeRefresh: () => ({
+    refreshing: false,
+    onRefresh: mockNoop,
+    onScrollBeginDrag: mockNoop,
+    onScroll: mockNoop,
+    onScrollEndDrag: mockNoop,
+  }),
 }));
 jest.mock('@onekeyhq/components', () => ({
   Stack: () => null,
@@ -187,13 +223,56 @@ jest.mock('@onekeyhq/kit/src/states/jotai/contexts/accountSelector', () => ({
   useActiveAccount: () => ({ activeAccount: mockActiveAccount() }),
 }));
 jest.mock('@onekeyhq/kit/src/states/jotai/contexts/accountOverview', () => ({
+  usePortfolioCategoryRefreshAtom: () => {
+    const { useState, useRef, useCallback } =
+      jest.requireActual<typeof import('react')>('react');
+    const [state, setState] = useState<ICategoryState>({
+      ownerKey: '',
+      requestId: 0,
+      isRefreshing: false,
+      failedSources: [],
+    });
+    const latest = useRef(state);
+    latest.current = state;
+    mockCategoryState = state;
+    const set = useCallback(
+      (update: ICategoryState | ((old: ICategoryState) => ICategoryState)) => {
+        const next =
+          typeof update === 'function' ? update(latest.current) : update;
+        if (
+          mockPublishRefreshedHeader &&
+          next.data &&
+          next.dataRequestId !== latest.current.dataRequestId
+        ) {
+          mockHomeDisplay = {
+            ownerKey: next.ownerKey,
+            isLive: true,
+            tokenFiatUsd: mockTokenWorth,
+            defiFiatUsd: next.data.defiFiat,
+            perpsFiatUsd: next.data.perpsFiat,
+            totalFiatUsd: String(
+              Number(mockTokenWorth) +
+                Number(next.data.defiFiat) +
+                Number(next.data.perpsFiat),
+            ),
+            categoryRevision: next.dataRequestId,
+          };
+        }
+        latest.current = next;
+        mockCategoryState = next;
+        setState(next);
+      },
+      [],
+    );
+    return [state, set];
+  },
   useAccountOverviewActions: () => ({ current: mockActions }),
   useAccountWorthAtom: () => [
     {
       accountId: mockAccount.id,
       initialized: true,
       currency: 'usd',
-      worth: { [`hw-account-1_${mockNetwork.id}`]: '125' },
+      worth: { [`hw-account-1_${mockNetwork.id}`]: mockTokenWorth },
       updateAll: true,
     },
   ],
@@ -223,11 +302,11 @@ jest.mock('@onekeyhq/kit/src/states/jotai/contexts/tokenList/cells', () => ({
 }));
 jest.mock(
   '@onekeyhq/kit/src/states/jotai/contexts/tokenList/cells/projection',
-  () => ({}),
+  () => ({ meta: (_store: unknown, key: string) => key }),
 );
 jest.mock(
   '@onekeyhq/kit/src/states/jotai/contexts/tokenList/cells/tapTimeHomeMap',
-  () => ({ buildTapTimeHomeTokenMap: () => ({}) }),
+  () => ({ buildTapTimeHomeTokenMap: () => mockTapTokenMap }),
 );
 jest.mock('@onekeyhq/kit/src/views/AssetList/hooks/useTokenManagement', () => ({
   useTokenManagement: () => ({ customTokens: mockCustomTokens }),
@@ -308,6 +387,8 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   __esModule: true,
   default: {
     serviceHardwarePortfolioSync: {
+      refreshPortfolioCategories: mockRefreshCategories,
+      syncPortfolio: mockSyncPortfolio,
       notifyAllNetworksTokenListSettled: (...args: unknown[]) =>
         mockNotifySettled(...args),
     },
@@ -380,6 +461,24 @@ describe('Home automatic Portfolio sync', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockEpoch = 0;
+    mockIndexedAccountReady = true;
+    mockPublishRefreshedHeader = false;
+    mockRefreshCategories.mockImplementation(async () => ({
+      defiFiat: mockHomeDisplay.defiFiatUsd ?? '0',
+      perpsFiat: mockHomeDisplay.perpsFiatUsd ?? '0',
+      deFiSource: 'live',
+      deFiOverview: {
+        netWorth: Number(mockHomeDisplay.defiFiatUsd ?? 0),
+        totalValue: Number(mockHomeDisplay.defiFiatUsd ?? 0),
+        totalDebt: 0,
+        totalReward: 0,
+      },
+      fetchedAt: Date.now(),
+      failedSources: [],
+    }));
+    mockTokenWorth = '125';
+    mockTapTokenMap = {};
+    mockStructure.orderedIds = [];
     mockNetwork = { id: 'evm--1', isAllNetworks: false };
     mockHomeDisplay = {
       ownerKey: 'hw-account-1__evm--1',
@@ -391,6 +490,21 @@ describe('Home automatic Portfolio sync', () => {
     };
     mockAllNetworkResult = undefined;
     mockFetchTokens.mockResolvedValue(tokenResponse());
+  });
+
+  it('starts automatic category refresh as soon as account metadata is hydrated', async () => {
+    mockIndexedAccountReady = false;
+    const { rerender } = render(<TokenListBlock />);
+    expect(mockRefreshCategories).not.toHaveBeenCalled();
+    mockIndexedAccountReady = true;
+    rerender(<TokenListBlock />);
+    await waitFor(() => expect(mockRefreshCategories).toHaveBeenCalledTimes(1));
+    expect(mockRefreshCategories).toHaveBeenCalledWith(
+      expect.objectContaining({
+        indexedAccountId: mockIndexedAccount.id,
+        force: false,
+      }),
+    );
   });
 
   it('automatically syncs the current single-network snapshot after a live refresh', async () => {
@@ -410,6 +524,194 @@ describe('Home automatic Portfolio sync', () => {
         ],
       }),
     );
+  });
+
+  it('refreshes categories before syncing the newly committed Home snapshot and token rows', async () => {
+    mockPublishRefreshedHeader = true;
+    mockHomeDisplay = {
+      ...mockHomeDisplay,
+      totalFiatUsd: '160',
+      tokenFiatUsd: '100',
+      defiFiatUsd: '40',
+      perpsFiatUsd: '20',
+      isLive: true,
+    };
+    const heldResponse = tokenResponse();
+    heldResponse.tokens.fiatValue = '100';
+    heldResponse.tokens.map.eth = {
+      balance: '1',
+      balanceParsed: '1',
+      fiatValue: '100',
+      price: 100,
+    };
+    mockTokenWorth = '100';
+    mockTapTokenMap = heldResponse.tokens.map;
+    mockStructure.orderedIds = ['eth'];
+    mockFetchTokens.mockResolvedValue(heldResponse);
+    const { rerender } = render(<TokenListBlock />);
+    await refresh();
+    await waitFor(() => expect(mockNotifySettled).toHaveBeenCalledTimes(1));
+
+    mockHomeDisplay = { ...mockHomeDisplay, isLive: false };
+    mockTokenWorth = '125';
+    mockTapTokenMap = tokenResponse().tokens.map;
+    rerender(<TokenListBlock />);
+    mockFetchTokens.mockResolvedValue(tokenResponse());
+    await act(async () => {
+      appEventBus.emit(EAppEventBusNames.RefreshTokenList, undefined);
+    });
+    expect(mockFetchTokens).toHaveBeenCalledTimes(2);
+    expect(mockNotifySettled).toHaveBeenCalledTimes(1);
+    const { request, disabled } = mockUpdateSyncUi.mock.calls.at(-1)?.[0] as {
+      request: () => void;
+      disabled: boolean;
+    };
+    expect(disabled).toBe(false);
+    await act(async () => request());
+    await waitFor(() => expect(mockSyncPortfolio).toHaveBeenCalledTimes(1));
+    expect(mockSyncPortfolio).toHaveBeenCalledWith(
+      expect.objectContaining({
+        eventPayload: expect.objectContaining({
+          totalFiat: '125',
+          homeTotalFiatUsd: '185',
+          homeCategoryFiatUsd: { defiFiat: '40', perpsFiat: '20' },
+          tokenMap: tokenResponse().tokens.map,
+          tokens: [expect.objectContaining({ symbol: 'ETH' })],
+        }),
+      }),
+    );
+    expect(mockFetchTokens).toHaveBeenCalledTimes(2);
+  });
+
+  it('waits for matching token rows when only the held balance is available', async () => {
+    mockHomeDisplay = {
+      ...mockHomeDisplay,
+      tokenFiatUsd: '100',
+      isLive: false,
+    };
+    render(<TokenListBlock />);
+    await waitFor(() => expect(mockCategoryState.isRefreshing).toBe(false));
+    const { request, disabled } = mockUpdateSyncUi.mock.calls.at(-1)?.[0] as {
+      request: () => void;
+      disabled: boolean;
+    };
+    expect(disabled).toBe(false);
+    await act(async () => request());
+    expect(mockSyncPortfolio).not.toHaveBeenCalled();
+    expect(mockFetchTokens).not.toHaveBeenCalled();
+  });
+
+  it('refreshes missing categories before replacing a cached total and syncing', async () => {
+    mockPublishRefreshedHeader = true;
+    mockHomeDisplay = {
+      ownerKey: 'hw-account-1__evm--1',
+      totalFiatUsd: '160',
+      isLive: false,
+    };
+    render(<TokenListBlock />);
+    await waitFor(() => expect(mockCategoryState.isRefreshing).toBe(false));
+    const { request, disabled } = mockUpdateSyncUi.mock.calls.at(-1)?.[0] as {
+      request: () => void;
+      disabled: boolean;
+    };
+    expect(disabled).toBe(false);
+    await act(async () => request());
+    await waitFor(() => expect(mockSyncPortfolio).toHaveBeenCalledTimes(1));
+    expect(mockFetchTokens).not.toHaveBeenCalled();
+    expect(mockSyncPortfolio).toHaveBeenCalledWith(
+      expect.objectContaining({
+        eventPayload: expect.objectContaining({
+          homeTotalFiatUsd: '125',
+          homeCategoryFiatUsd: { defiFiat: '0', perpsFiat: '0' },
+        }),
+      }),
+    );
+  });
+
+  it('keeps the previous snapshot on failure and retries only the failed source', async () => {
+    mockPublishRefreshedHeader = true;
+    render(<TokenListBlock />);
+    await waitFor(() => expect(mockCategoryState.isRefreshing).toBe(false));
+    const complete = await mockRefreshCategories.mock.results[0].value;
+    mockRefreshCategories.mockResolvedValueOnce({
+      ...complete,
+      defiFiat: undefined,
+      deFiSource: undefined,
+      deFiOverview: undefined,
+      perpsFiat: '20',
+      failedSources: ['defi'],
+    });
+    const request = mockUpdateSyncUi.mock.calls.at(-1)?.[0]
+      .request as () => void;
+    await act(async () => request());
+    expect(mockCategoryState.failedSources).toEqual(['defi']);
+    expect(mockCategoryState.isRefreshing).toBe(false);
+    expect(mockHomeDisplay.totalFiatUsd).toBe('125');
+    expect(mockCategoryState.heldTotalFiatUsd).toBe('125');
+    expect(mockSyncPortfolio).not.toHaveBeenCalled();
+    mockRefreshCategories.mockResolvedValueOnce({
+      ...complete,
+      defiFiat: '40',
+      deFiOverview: {
+        totalValue: 40,
+        totalDebt: 0,
+        totalReward: 0,
+        netWorth: 40,
+      },
+      perpsFiat: undefined,
+    });
+    await act(async () => mockCategoryState.retry?.());
+    await waitFor(() => expect(mockSyncPortfolio).toHaveBeenCalledTimes(1));
+    expect(mockRefreshCategories).toHaveBeenLastCalledWith(
+      expect.objectContaining({ force: true, sources: ['defi'] }),
+    );
+    expect(mockSyncPortfolio).toHaveBeenCalledWith(
+      expect.objectContaining({
+        eventPayload: expect.objectContaining({ homeTotalFiatUsd: '185' }),
+      }),
+    );
+  });
+
+  it('waits for the header to commit the refreshed revision before communicating', async () => {
+    const { rerender } = render(<TokenListBlock />);
+    await waitFor(() => expect(mockCategoryState.isRefreshing).toBe(false));
+    const request = mockUpdateSyncUi.mock.calls.at(-1)?.[0]
+      .request as () => void;
+    await act(async () => request());
+    expect(mockSyncPortfolio).not.toHaveBeenCalled();
+    expect(mockUpdateSyncUi.mock.calls.at(-1)?.[0].loading).toBe(true);
+    mockHomeDisplay = {
+      ...mockHomeDisplay,
+      categoryRevision: mockCategoryState.dataRequestId,
+    };
+    rerender(<TokenListBlock />);
+    await waitFor(() => expect(mockSyncPortfolio).toHaveBeenCalledTimes(1));
+  });
+
+  it('ignores a refresh response superseded by account selection', async () => {
+    const { rerender } = render(<TokenListBlock />);
+    await waitFor(() => expect(mockCategoryState.isRefreshing).toBe(false));
+    const complete = await mockRefreshCategories.mock.results[0].value;
+    let resolveRefresh: (
+      result: IPortfolioCategoryRefreshResult,
+    ) => void = () => undefined;
+    mockRefreshCategories.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          resolveRefresh = resolve;
+        }),
+    );
+    const request = mockUpdateSyncUi.mock.calls.at(-1)?.[0]
+      .request as () => void;
+    await act(async () => request());
+    const oldRequestId = mockCategoryState.requestId;
+    mockEpoch += 1;
+    rerender(<TokenListBlock />);
+    await act(async () => resolveRefresh({ ...complete, defiFiat: '999' }));
+    expect(mockCategoryState.requestId).toBeGreaterThan(oldRequestId);
+    expect(mockCategoryState.data?.defiFiat).not.toBe('999');
+    expect(mockCategoryState.isRefreshing).toBe(false);
+    expect(mockSyncPortfolio).not.toHaveBeenCalled();
   });
 
   it('continues automatically syncing the all-networks snapshot', async () => {

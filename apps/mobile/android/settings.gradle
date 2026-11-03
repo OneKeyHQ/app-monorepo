@@ -51,6 +51,9 @@ include ':app'
 includeBuild(expoAutolinking.reactNativeGradlePlugin)
 includeBuild("build-logic")
 
+// Use prebuilt React Native and Hermes AARs to avoid source builds.
+// RN native source patches will be included in OneKey's own AARs once published.
+
 // Stub module for @onekeyfe/react-native-app-update flavor isolation
 include ':app-update-noop'
 

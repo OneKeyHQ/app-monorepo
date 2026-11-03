@@ -63,7 +63,18 @@ export const {
 } = globalAtom<ITradingViewNativeIndicatorSettings>({
   persist: true,
   name: EAtomNames.perpsTradingViewIndicatorSettingsPersistAtom,
-  initialValue: createTradingViewNativeIndicatorSettings(),
+  initialValue: {
+    ...createTradingViewNativeIndicatorSettings(),
+    subIndicators: [
+      {
+        active: true,
+        id: 'VOL',
+        lines: {},
+        parameters: {},
+        transparency: 50,
+      },
+    ],
+  },
 });
 
 // Shared by Market entries and Web Perps, including expanded extension windows.
@@ -1179,6 +1190,9 @@ export type IPerpsLastAdvancedOrderType = ETriggerOrderType | 'scale' | 'twap';
 export type IPerpsChartPosition = 'top' | 'bottom' | 'hidden';
 
 export interface IPerpsCustomSettings {
+  positionActionVisibility?: Partial<
+    Record<'add' | 'tpsl' | 'close' | 'reverse', boolean>
+  >;
   skipOrderConfirm: boolean;
   showTradeMarks: boolean;
   showChartLines: boolean;

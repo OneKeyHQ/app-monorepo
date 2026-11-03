@@ -3,12 +3,24 @@ import type { PropsWithChildren } from 'react';
 import { act, create } from 'react-test-renderer';
 
 import { useForm } from '@onekeyhq/components/src/hooks/useForm';
+import type { IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import { EFeeType } from '@onekeyhq/shared/types/fee';
-import type { IFeeInfoUnit } from '@onekeyhq/shared/types/fee';
+import type {
+  IFeeInfoUnit,
+  IFeeSelectorItem,
+} from '@onekeyhq/shared/types/fee';
 
 import { TxFeeEditor } from './TxFeeEditor';
 
 const mockDialogClose = jest.fn(async () => {});
+
+type ISegmentControlProps = {
+  value: string | number;
+  options: { value: string | number; type: EFeeType }[];
+  onChange: (value: string | number) => void;
+};
+
+const mockSegmentControl = jest.fn<null, [ISegmentControlProps]>(() => null);
 
 // The repository mapper aliases the components barrel and its subpaths to one
 // module, so the direct hook mock also supplies the UI stubs.
@@ -29,7 +41,8 @@ jest.mock('@onekeyhq/components/src/hooks/useForm', () => {
     Input: Host,
     NumberSizeableText: Host,
     ScrollView: Host,
-    SegmentControl: Host,
+    SegmentControl: (segmentProps: ISegmentControlProps) =>
+      mockSegmentControl(segmentProps),
     SizableText: Host,
     Stack: Host,
     XStack: Host,
@@ -339,5 +352,88 @@ describe('TxFeeEditor precision readiness', () => {
       );
     });
     expectFeeError(tree);
+  });
+});
+
+// TxFeeInfo gives the only base-fee fallback item value 1, and Custom,
+// appended after it, gets value items.length, which is 1 too.
+const fallbackFeeSelectorItems: IFeeSelectorItem[] = [
+  {
+    label: 'Normal',
+    icon: '',
+    value: 1,
+    feeInfo: { common: evmFee.common },
+    type: EFeeType.Standard,
+  },
+  {
+    label: 'Custom',
+    icon: '',
+    value: 1,
+    feeInfo: { common: evmFee.common },
+    type: EFeeType.Custom,
+  },
+];
+
+function getSegmentControlProps() {
+  const segmentProps = mockSegmentControl.mock.lastCall?.[0];
+  expect(segmentProps).toBeDefined();
+  return segmentProps as ISegmentControlProps;
+}
+
+function getSelectedFeeTypes() {
+  const { value, options } = getSegmentControlProps();
+  return options.filter((option) => option.value === value).map((o) => o.type);
+}
+
+function pressOption(index: number) {
+  const { options, onChange } = getSegmentControlProps();
+  act(() => {
+    onChange(options[index].value);
+  });
+}
+
+describe('TxFeeEditor fee type selector with only the base-fee fallback', () => {
+  let tree: ReturnType<typeof create> | undefined;
+
+  beforeEach(async () => {
+    jest.clearAllMocks();
+    jest
+      .mocked(useForm)
+      .mockImplementation(
+        jest.requireActual<typeof import('react-hook-form')>('react-hook-form')
+          .useForm,
+      );
+    // The real form validates on mount and settles its state a tick later.
+    await act(async () => {
+      tree = create(
+        <TxFeeEditor
+          networkId="evm--1"
+          feeSelectorItems={fallbackFeeSelectorItems}
+          sendSelectedFee={{ feeType: EFeeType.Standard, presetIndex: 0 }}
+          originalCustomFee={{ common: evmFee.common }}
+          selectedFee={undefined}
+          unsignedTxs={[{} as IUnsignedTxPro]}
+          onApplyFeeInfo={jest.fn()}
+        />,
+      );
+    });
+  });
+
+  afterEach(async () => {
+    await act(async () => {
+      tree?.unmount();
+    });
+  });
+
+  it('selects the fallback item, and only it, on open', () => {
+    expect(getSelectedFeeTypes()).toEqual([EFeeType.Standard]);
+  });
+
+  it('selects the item that was pressed', () => {
+    pressOption(1);
+    expect(getSelectedFeeTypes()).toEqual([EFeeType.Custom]);
+
+    pressOption(0);
+    expect(getSelectedFeeTypes()).toEqual([EFeeType.Standard]);
   });
 });

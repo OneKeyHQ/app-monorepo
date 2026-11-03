@@ -20,6 +20,7 @@ import {
   LightweightChart,
 } from '@onekeyhq/kit/src/components/LightweightChart';
 import { useDeviceTimeZone } from '@onekeyhq/kit/src/hooks/useDeviceTimeZone';
+import useFormatDate from '@onekeyhq/kit/src/hooks/useFormatDate';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import {
@@ -64,6 +65,7 @@ const ApyChartComponent = ({
   controlsPlacement = 'top',
 }: IApyChartProps) => {
   const intl = useIntl();
+  const { formatDate } = useFormatDate();
   const timeZone = useDeviceTimeZone();
 
   const resolvedPrimaryLabel =
@@ -153,19 +155,9 @@ const ApyChartComponent = ({
   const formatPopoverDate = useCallback(
     (timestamp: number) => {
       const date = new Date(timestamp * 1000);
-      const dateString = intl.formatDate(date, {
-        year: 'numeric',
-        month: '2-digit',
-        day: '2-digit',
-      });
-      const timeString = intl.formatTime(date, {
-        hour: '2-digit',
-        minute: '2-digit',
-        hour12: false,
-      });
-      return `${dateString} ${timeString}`;
+      return formatDate(date, { hideSeconds: true });
     },
-    [intl],
+    [formatDate],
   );
 
   const filteredApyHistory = useMemo(

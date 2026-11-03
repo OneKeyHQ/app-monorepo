@@ -1328,10 +1328,12 @@ export default class ServiceHyperliquid extends ServiceBase {
   async getHyperliquidPortfolioSnapshot({
     address,
     force,
+    requireFresh,
     skipCacheWriteIfEmpty,
   }: {
     address: string;
     force?: boolean;
+    requireFresh?: boolean;
     skipCacheWriteIfEmpty?: boolean;
   }): Promise<IHyperliquidPortfolioSnapshot | undefined> {
     const normalized = address?.toLowerCase();
@@ -1354,7 +1356,7 @@ export default class ServiceHyperliquid extends ServiceBase {
       );
       allowCachedFallback = !isCachedModeStale;
     }
-    if (!force && cached && allowCachedFallback) {
+    if (!force && !requireFresh && cached && allowCachedFallback) {
       if (isHyperliquidPortfolioSnapshotFresh(cached)) {
         return cached;
       }
@@ -1379,7 +1381,7 @@ export default class ServiceHyperliquid extends ServiceBase {
         return cached;
       }
     }
-    if (force) {
+    if (force || requireFresh) {
       // force must hit the network, so drop the 5s in-flight micro-cache too.
       void this._fetchHlPortfolioMemo.delete(normalized);
     }
@@ -1394,7 +1396,8 @@ export default class ServiceHyperliquid extends ServiceBase {
     } catch {
       // Don't cache the failure; fall back only while the snapshot is still fresh.
       void this._fetchHlPortfolioMemo.delete(normalized);
-      return allowCachedFallback &&
+      return !requireFresh &&
+        allowCachedFallback &&
         cached &&
         isHyperliquidPortfolioSnapshotFresh(cached)
         ? cached

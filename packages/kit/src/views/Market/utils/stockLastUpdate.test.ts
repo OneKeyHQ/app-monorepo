@@ -37,7 +37,7 @@ describe('formatStockLastUpdateTime', () => {
     mockTimeZone(8 * 60);
 
     expect(formatStockLastUpdateTime('2026-09-15T23:58:00.007Z')).toBe(
-      '09/16, 07:58 UTC+8',
+      '09/16 07:58 UTC+8',
     );
   });
 
@@ -45,7 +45,7 @@ describe('formatStockLastUpdateTime', () => {
     mockTimeZone(5 * 60 + 30);
 
     expect(formatStockLastUpdateTime('2026-09-15T23:58:00.007Z')).toBe(
-      '09/16, 05:28 UTC+5:30',
+      '09/16 05:28 UTC+5:30',
     );
   });
 
@@ -53,7 +53,7 @@ describe('formatStockLastUpdateTime', () => {
     mockTimeZone(0);
 
     expect(formatStockLastUpdateTime('2026-09-15T23:58:00.007Z')).toBe(
-      '09/15, 23:58 UTC',
+      '09/15 23:58 UTC',
     );
   });
 
@@ -61,7 +61,7 @@ describe('formatStockLastUpdateTime', () => {
     mockTimeZone(-4 * 60);
 
     expect(formatStockLastUpdateTime('2026-09-15T23:58:00.007Z')).toBe(
-      '09/15, 19:58 UTC-4',
+      '09/15 19:58 UTC-4',
     );
   });
 

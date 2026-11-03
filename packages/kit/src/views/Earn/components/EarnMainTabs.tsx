@@ -32,6 +32,7 @@ import { PortfolioTabContent } from './PortfolioTabContent';
 import { ProtocolsTabContent } from './ProtocolsTabContent';
 
 import type { IUseEarnPortfolioReturn } from '../hooks/useEarnPortfolio';
+import type { StyleProp, ViewStyle } from 'react-native';
 import type {
   CollapsibleProps,
   TabBarProps,
@@ -313,7 +314,7 @@ const EarnMainTabsComponent = ({
     Partial<CollapsibleProps> | undefined
   >(() => {
     const mergedHeaderContainerStyle = StyleSheet.flatten(
-      containerProps?.headerContainerStyle,
+      containerProps?.headerContainerStyle as StyleProp<ViewStyle>,
     );
     const headerContainerStyle = {
       backgroundColor: theme.bgApp.val,

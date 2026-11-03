@@ -12,7 +12,9 @@ import {
 import { StyleSheet, View } from 'react-native';
 
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import { useSafeAreaInsets } from '../../../hooks/useLayout';
 import { Spinner, Stack } from '../../../primitives';
 
 import { TabSceneContext } from './TabSceneContext';
@@ -36,6 +38,9 @@ const styles = StyleSheet.create({
   hiddenTabBarScene: {
     width: '100%',
     height: '100%',
+  },
+  sceneContent: {
+    flex: 1,
   },
   activationSignal: {
     position: 'absolute',
@@ -62,6 +67,22 @@ function SceneLoadingView() {
       <Spinner size="large" />
     </Stack>
   );
+}
+
+// iPhone Duo places the status bar, camera and vertical tab bar in a side
+// strip and reports it as a horizontal safe area inset. Tab pages only handle
+// top/bottom insets, so keep their content out of that strip here. Regular
+// iPhones are portrait-locked, where these insets are always 0.
+const shouldApplyHorizontalSafeArea =
+  platformEnv.isNativeIOS && !platformEnv.isNativeIOSPad;
+
+function HorizontalSafeAreaSceneContent({ children }: { children: ReactNode }) {
+  const { left, right } = useSafeAreaInsets();
+  const style = useMemo(
+    () => [styles.sceneContent, { paddingLeft: left, paddingRight: right }],
+    [left, right],
+  );
+  return <View style={style}>{children}</View>;
 }
 
 function SceneWithActivationPlaceholder({
@@ -97,7 +118,13 @@ function SceneWithActivationPlaceholder({
   return (
     <View style={styles.scene}>
       <TabSceneContext.Provider value={sceneInfo}>
-        {children}
+        {shouldApplyHorizontalSafeArea ? (
+          <HorizontalSafeAreaSceneContent>
+            {children}
+          </HorizontalSafeAreaSceneContent>
+        ) : (
+          children
+        )}
       </TabSceneContext.Provider>
       {/* A preloaded scene is laid out while still blurred, so let every
           scene that has not been activated yet raise the signal. Gating this

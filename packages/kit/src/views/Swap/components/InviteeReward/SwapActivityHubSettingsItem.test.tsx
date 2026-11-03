@@ -25,6 +25,15 @@ const mockShowActivityHub = jest.fn();
 
 jest.mock('@onekeyhq/kit/src/components/ActivityHub', () => ({
   useShowActivityHub: () => mockShowActivityHub,
+  shouldShowActivityHubInvitePanel: () =>
+    !jest.requireMock<{ default: { isNative: boolean } }>(
+      '@onekeyhq/shared/src/platformEnv',
+    ).default.isNative,
+}));
+
+jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
+  __esModule: true,
+  default: { isNative: false },
 }));
 
 jest.mock('@onekeyhq/kit/src/components/ListItem', () => ({
@@ -44,6 +53,7 @@ jest.mock('@onekeyhq/kit/src/components/ListItem', () => ({
 }));
 
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { SwapTestIDs } from '../../testIDs';
 
@@ -56,32 +66,51 @@ function getCloseMock() {
 describe('SwapActivityHubSettingsItem', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    platformEnv.isNative = false;
   });
 
-  it('closes the settings sheet before opening the activity hub', async () => {
+  it('closes the settings sheet before opening the hub on pointer layouts', async () => {
     const close = getCloseMock();
-    const onOpenInviteeReward = jest.fn();
+    const onOpenReferral = jest.fn();
 
-    render(
-      <SwapActivityHubSettingsItem onOpenInviteeReward={onOpenInviteeReward} />,
-    );
+    render(<SwapActivityHubSettingsItem onOpenReferral={onOpenReferral} />);
 
     const entry = screen.getByTestId(SwapTestIDs.activityHubSettingsItem);
-    expect(entry.textContent).toBe(ETranslations.perps_activity_hub);
+    expect(entry.textContent).toBe(ETranslations.sidebar_refer_a_friend);
 
     fireEvent.click(entry);
 
     await waitFor(() => {
-      expect(mockShowActivityHub).toHaveBeenCalledTimes(1);
+      expect(mockShowActivityHub).toHaveBeenCalledWith({
+        source: 'Swap',
+        onOpenReferral,
+      });
     });
-    expect(mockShowActivityHub).toHaveBeenCalledWith({
-      source: 'Swap',
-      copyAsUrl: true,
-      onOpenInviteeReward,
-    });
-    expect(close).toHaveBeenCalledTimes(1);
     expect(close.mock.invocationCallOrder[0]).toBeLessThan(
       mockShowActivityHub.mock.invocationCallOrder[0],
+    );
+    expect(onOpenReferral).not.toHaveBeenCalled();
+  });
+
+  it('closes the settings sheet before opening the referral page on native', async () => {
+    platformEnv.isNative = true;
+    const close = getCloseMock();
+    const onOpenReferral = jest.fn();
+
+    render(<SwapActivityHubSettingsItem onOpenReferral={onOpenReferral} />);
+
+    const entry = screen.getByTestId(SwapTestIDs.activityHubSettingsItem);
+    expect(entry.textContent).toBe(ETranslations.sidebar_refer_a_friend);
+
+    fireEvent.click(entry);
+
+    await waitFor(() => {
+      expect(onOpenReferral).toHaveBeenCalledTimes(1);
+    });
+    expect(mockShowActivityHub).not.toHaveBeenCalled();
+    expect(close).toHaveBeenCalledTimes(1);
+    expect(close.mock.invocationCallOrder[0]).toBeLessThan(
+      onOpenReferral.mock.invocationCallOrder[0],
     );
   });
 });

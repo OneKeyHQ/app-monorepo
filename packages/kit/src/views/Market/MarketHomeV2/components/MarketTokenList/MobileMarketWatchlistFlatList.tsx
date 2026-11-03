@@ -76,7 +76,7 @@ function MobileMarketWatchlistFlatListImpl({
   shouldSuppressItemPress,
 }: IMobileMarketWatchlistFlatListProps) {
   const intl = useIntl();
-  const toMarketDetailPage = useToDetailPage({ resolveMarketAsset: true });
+  const toMarketDetailPage = useToDetailPage();
   const { navigateToPerps } = usePerpsNavigation();
 
   // Watchlist data

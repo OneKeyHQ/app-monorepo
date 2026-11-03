@@ -1,3 +1,4 @@
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IMarketTokenKLineDataPoint } from '@onekeyhq/shared/types/marketV2';
 
 import type { ITradingViewNativeIndicatorSeries } from '../utils/chartIndicators';
@@ -6,7 +7,12 @@ import type { ITradingViewNativeSubIndicatorRenderPane } from '../utils/subIndic
 export type IDataWindowSnapshot = {
   time: number;
   historical: boolean;
-  groups: { name: string; rows: { name: string; value: number | null }[] }[];
+  // `name` stays stable for keys and test IDs; `labelId` is the display copy.
+  groups: {
+    name: string;
+    labelId?: ETranslations;
+    rows: { name: string; labelId?: ETranslations; value: number | null }[];
+  }[];
 };
 
 export function getDataWindowSnapshot({
@@ -30,19 +36,45 @@ export function getDataWindowSnapshot({
     groups: [
       {
         name: 'Price',
+        labelId: ETranslations.global_price,
         rows: [
-          { name: 'Open', value: point.o },
-          { name: 'High', value: point.h },
-          { name: 'Low', value: point.l },
-          { name: 'Close', value: point.c },
-          { name: 'Change', value: previous ? point.c - previous.c : null },
+          {
+            name: 'Open',
+            labelId: ETranslations.market_chart_indicator_source_open__option,
+            value: point.o,
+          },
+          {
+            name: 'High',
+            labelId: ETranslations.market_drawing_high__title,
+            value: point.h,
+          },
+          {
+            name: 'Low',
+            labelId: ETranslations.market_drawing_low__title,
+            value: point.l,
+          },
+          {
+            name: 'Close',
+            labelId: ETranslations.market_chart_indicator_source_close__option,
+            value: point.c,
+          },
+          {
+            name: 'Change',
+            labelId: ETranslations.market_stock_change__title,
+            value: previous ? point.c - previous.c : null,
+          },
           {
             name: 'Change %',
+            labelId: ETranslations.market_drawing_change_percent__title,
             value: previous?.c
               ? ((point.c - previous.c) / previous.c) * 100
               : null,
           },
-          { name: 'Volume', value: point.v ?? null },
+          {
+            name: 'Volume',
+            labelId: ETranslations.market_chart_indicator_vol__title,
+            value: point.v ?? null,
+          },
         ],
       },
       ...indicatorSeries

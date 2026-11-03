@@ -19,10 +19,12 @@ import {
   YStack,
   useTheme,
 } from '@onekeyhq/components';
+import type { ISegmentControlLabelState } from '@onekeyhq/components';
 import { LightweightChart } from '@onekeyhq/kit/src/components/LightweightChart';
 import { getChartColorWithAlpha } from '@onekeyhq/kit/src/components/LightweightChart/utils/chartColor';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { useDeviceTimeZone } from '@onekeyhq/kit/src/hooks/useDeviceTimeZone';
+import useFormatDate from '@onekeyhq/kit/src/hooks/useFormatDate';
 import { deferHeavyWorkUntilUIIdle } from '@onekeyhq/kit/src/utils/deferHeavyWork';
 import {
   usePerpsActiveAccountAtom,
@@ -260,6 +262,7 @@ function PerpPortfolioContentComponent({
   initialChartType = 'accountValue',
 }: IPerpPortfolioContentProps) {
   const intl = useIntl();
+  const { formatDate } = useFormatDate();
   const theme = useTheme();
   const timeZone = useDeviceTimeZone();
   const { showDepositWithdrawModal, isDepositDisabled } =
@@ -399,11 +402,11 @@ function PerpPortfolioContentComponent({
     () =>
       chartTypeOptions.map((option) => ({
         ...option,
-        label: (
+        label: ({ color }: ISegmentControlLabelState) => (
           <XStack height={20} alignItems="center" justifyContent="center">
             <SizableText
               size="$bodySmMedium"
-              color={chartType === option.value ? '$text' : '$textSubdued'}
+              color={color}
               textAlign="center"
               numberOfLines={1}
             >
@@ -412,7 +415,7 @@ function PerpPortfolioContentComponent({
           </XStack>
         ),
       })),
-    [chartType, chartTypeOptions],
+    [chartTypeOptions],
   );
   const mobileTimePeriodOptions = useMemo(
     () =>
@@ -720,15 +723,12 @@ function PerpPortfolioContentComponent({
 
   const formatHoverDate = useCallback(
     (ts: number) =>
-      intl.formatDate(new Date(ts * 1000), {
-        month: 'short',
-        day: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
-        hour12: false,
+      formatDate(new Date(ts * 1000), {
+        hideYear: true,
+        hideSeconds: true,
         timeZone,
       }),
-    [intl, timeZone],
+    [formatDate, timeZone],
   );
 
   // ─── Chart ──────────────────────────────────────────────────────────────────

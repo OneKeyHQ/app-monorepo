@@ -24,7 +24,9 @@ export function createOnramperClient(
   // during render (reachable via the dev Gallery, which bypasses
   // canUseHeadless); the Simulator has no App Attest. Both use the mock.
   // See ./NATIVE_SETUP.md.
-  return platformEnv.isNativeIOS && ExpoDevice.isDevice
+  return platformEnv.isNativeIOS &&
+    !platformEnv.isNativeIOSMacCatalyst &&
+    ExpoDevice.isDevice
     ? createRealOnramperClient(params)
     : createMockOnramperClient(params);
 }

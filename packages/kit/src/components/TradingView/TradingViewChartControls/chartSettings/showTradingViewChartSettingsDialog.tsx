@@ -10,6 +10,7 @@ import {
 import type { ITradingViewSettingsDialogRef } from './TradingViewSettingsDialog';
 const TRADING_VIEW_WEBVIEW_HIDDEN_OPTION_IDS = [
   'previousClose',
+  'navigationButtons',
 ] as const satisfies NonNullable<
   ITradingViewChartSettingsProps['hiddenOptionIds']
 >;

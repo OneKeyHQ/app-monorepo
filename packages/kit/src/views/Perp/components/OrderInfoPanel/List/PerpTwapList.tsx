@@ -28,7 +28,7 @@ import {
   useSpotPairDisplayNameMapAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { formatTime } from '@onekeyhq/shared/src/utils/dateUtils';
+import { formatDate, formatTime } from '@onekeyhq/shared/src/utils/dateUtils';
 import {
   formatTwapPriceForDisplay,
   getActiveTwapRuntimeStatus,
@@ -57,6 +57,7 @@ import type {
 import { useEnsureTradingEnabled } from '../../../hooks/useEnableTradingWithDepositFallback';
 import { usePerpTwapHistoryViewAllUrl } from '../../../hooks/usePerpOrderInfoPanel';
 import { usePerpsAccountScopedActiveTwapOrders } from '../../../hooks/usePerpsAccountScopedActiveTwapOrders';
+import { PERP_TEXT_ACTION_HOVER_STYLE } from '../../../utils/styleUtils';
 import { OrderInfoSubTabs } from '../Components/OrderInfoSubTabs';
 import { PerpDesktopEmptyState } from '../Components/PerpDesktopEmptyState';
 import { PerpMobileEmptyState } from '../Components/PerpMobileEmptyState';
@@ -125,7 +126,7 @@ const TWAP_EMPTY_STATE_MAP: Record<ITwapPanelTab, { titleId: ETranslations }> =
 
 function formatTwapDateTime(timestamp: number) {
   const timeDate = new Date(timestamp);
-  const date = formatTime(timeDate, { formatTemplate: 'yyyy-LL-dd' });
+  const date = formatDate(timeDate, { hideTimeForever: true });
   const time = formatTime(timeDate, { formatTemplate: 'HH:mm:ss' });
   return {
     date,
@@ -404,6 +405,13 @@ function TwapActiveRow({
 }) {
   const intl = useIntl();
   const { state } = order;
+  const actions = useHyperliquidActions();
+  const handleSwitchInstrument = useCallback(() => {
+    void actions.current.switchTradeInstrument({
+      mode: isSpotInstrument(state.coin) ? 'spot' : 'perp',
+      coin: state.coin,
+    });
+  }, [actions, state.coin]);
   const sideInfo = useMemo(() => getTwapSideInfo(state, intl), [intl, state]);
   const baseInfo = useMemo(
     () =>
@@ -458,6 +466,9 @@ function TwapActiveRow({
               size="$bodySmMedium"
               fontWeight={600}
               color={sideInfo.color}
+              maxWidth="100%"
+              onPress={handleSwitchInstrument}
+              cursor="pointer"
             >
               {baseInfo.assetSymbol}
             </SizableText>
@@ -555,7 +566,7 @@ function TwapActiveRow({
         >
           <SizableText
             color="$bgCriticalStrong"
-            hoverStyle={{ size: '$bodySmMedium', fontWeight: 600 }}
+            hoverStyle={PERP_TEXT_ACTION_HOVER_STYLE}
             size="$bodySm"
             fontWeight={400}
             onPress={onTerminate}
@@ -583,6 +594,7 @@ function TwapHistoryRow({
   spotDisplayMap,
   spotPairDisplayNameMap,
   isMobile,
+  onSwitchInstrument,
 }: {
   record: ITwapHistoryRecord;
   activatedAt?: number;
@@ -596,9 +608,21 @@ function TwapHistoryRow({
   spotDisplayMap: Record<string, string>;
   spotPairDisplayNameMap: Record<string, string>;
   isMobile?: boolean;
+  onSwitchInstrument?: (coin: string) => void;
 }) {
   const intl = useIntl();
   const { state } = record;
+  const actions = useHyperliquidActions();
+  const handleSwitchInstrument = useCallback(() => {
+    if (onSwitchInstrument) {
+      onSwitchInstrument(state.coin);
+      return;
+    }
+    void actions.current.switchTradeInstrument({
+      mode: isSpotInstrument(state.coin) ? 'spot' : 'perp',
+      coin: state.coin,
+    });
+  }, [actions, onSwitchInstrument, state.coin]);
   const statusValue = record.status.status;
   const isActivated = record.status.status === 'activated';
   const isWaitingForTrigger = record.status.status === 'waitingForTrigger';
@@ -697,7 +721,13 @@ function TwapHistoryRow({
         >
           <YStack flex={1} gap="$1">
             <XStack gap="$2" alignItems="center" flexWrap="wrap">
-              <SizableText size="$bodyMdMedium" numberOfLines={1}>
+              <SizableText
+                size="$bodyMdMedium"
+                numberOfLines={1}
+                maxWidth="100%"
+                onPress={handleSwitchInstrument}
+                cursor="pointer"
+              >
                 {baseInfo.assetSymbol}
               </SizableText>
               <SizableText
@@ -827,7 +857,13 @@ function TwapHistoryRow({
             justifyContent="center"
             alignItems={calcCellAlign(columnConfigs[1].align)}
           >
-            <SizableText size="$bodySmMedium" color={sideInfo.color}>
+            <SizableText
+              size="$bodySmMedium"
+              color={sideInfo.color}
+              maxWidth="100%"
+              onPress={handleSwitchInstrument}
+              cursor="pointer"
+            >
               {baseInfo.assetSymbol}
             </SizableText>
           </YStack>
@@ -936,6 +972,7 @@ function TwapFillRow({
   spotPairDisplayNameMap,
   builderFeeRate,
   isMobile,
+  onSwitchInstrument,
 }: {
   record: ITwapSliceFill;
   cellMinWidth: number;
@@ -948,9 +985,21 @@ function TwapFillRow({
   spotPairDisplayNameMap: Record<string, string>;
   builderFeeRate?: number;
   isMobile?: boolean;
+  onSwitchInstrument?: (coin: string) => void;
 }) {
   const intl = useIntl();
   const { fill } = record;
+  const actions = useHyperliquidActions();
+  const handleSwitchInstrument = useCallback(() => {
+    if (onSwitchInstrument) {
+      onSwitchInstrument(fill.coin);
+      return;
+    }
+    void actions.current.switchTradeInstrument({
+      mode: isSpotInstrument(fill.coin) ? 'spot' : 'perp',
+      coin: fill.coin,
+    });
+  }, [actions, fill.coin, onSwitchInstrument]);
   const dateInfo = useMemo(() => formatTwapDateTime(fill.time), [fill.time]);
   const assetSymbol = useMemo(
     () =>
@@ -1053,7 +1102,13 @@ function TwapFillRow({
         >
           <YStack gap="$1">
             <XStack gap="$2" alignItems="center">
-              <SizableText size="$bodyMdMedium">{assetSymbol}</SizableText>
+              <SizableText
+                size="$bodyMdMedium"
+                onPress={handleSwitchInstrument}
+                cursor="pointer"
+              >
+                {assetSymbol}
+              </SizableText>
               <SizableText size="$bodySm" color={directionInfo.color}>
                 {directionInfo.text}
               </SizableText>
@@ -1168,7 +1223,14 @@ function TwapFillRow({
             justifyContent={calcCellAlign(columnConfigs[1].align)}
             alignItems="center"
           >
-            <SizableText size="$bodySmMedium">{assetSymbol}</SizableText>
+            <SizableText
+              size="$bodySmMedium"
+              maxWidth="100%"
+              onPress={handleSwitchInstrument}
+              cursor="pointer"
+            >
+              {assetSymbol}
+            </SizableText>
           </XStack>
           <XStack
             {...getColumnStyle(columnConfigs[2])}
@@ -1243,6 +1305,7 @@ function TwapFillRow({
 
 interface IPerpTwapListProps {
   isMobile?: boolean;
+  onSwitchInstrument?: (coin: string) => void;
   useTabsList?: boolean;
   disableListScroll?: boolean;
   initialTab?: ITwapPanelTab;
@@ -1251,6 +1314,7 @@ interface IPerpTwapListProps {
 
 function PerpTwapList({
   isMobile,
+  onSwitchInstrument,
   useTabsList,
   disableListScroll,
   initialTab = 'active',
@@ -1783,6 +1847,7 @@ function PerpTwapList({
           spotDisplayMap={spotDisplayMap}
           spotPairDisplayNameMap={spotPairDisplayNameMap}
           isMobile={isMobile}
+          onSwitchInstrument={onSwitchInstrument}
         />
       );
     },
@@ -1791,6 +1856,7 @@ function PerpTwapList({
       historyColumns,
       historyMinWidth,
       isMobile,
+      onSwitchInstrument,
       now,
       spotDisplayMap,
       spotPairDisplayNameMap,
@@ -1817,6 +1883,7 @@ function PerpTwapList({
         spotPairDisplayNameMap={spotPairDisplayNameMap}
         builderFeeRate={builderFeeRate}
         isMobile={isMobile}
+        onSwitchInstrument={onSwitchInstrument}
       />
     ),
     [
@@ -1824,6 +1891,7 @@ function PerpTwapList({
       fillColumns,
       fillMinWidth,
       isMobile,
+      onSwitchInstrument,
       spotDisplayMap,
       spotPairDisplayNameMap,
     ],

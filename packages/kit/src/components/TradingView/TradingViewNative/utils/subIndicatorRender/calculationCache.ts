@@ -4,6 +4,7 @@ import { calculateTradingViewNativeSubIndicator } from './calculators';
 
 import type {
   ITradingViewNativeSubIndicatorCalculation,
+  ITradingViewNativeSubIndicatorCalculationOptions,
   ITradingViewNativeSubIndicatorResolvedInstance,
 } from './types';
 
@@ -28,15 +29,21 @@ export function createTradingViewNativeSubIndicatorCalculationCache(): ITradingV
 
 function getCalculationInputKey(
   instance: ITradingViewNativeSubIndicatorResolvedInstance,
+  zeroVolumeIsMissing: boolean,
 ) {
-  return JSON.stringify([instance.indicator, instance.settings.inputs]);
+  return JSON.stringify([
+    instance.indicator,
+    instance.settings.inputs,
+    zeroVolumeIsMissing,
+  ]);
 }
 
 export function calculateTradingViewNativeSubIndicatorsWithCache({
   cache,
   instances,
   points,
-}: {
+  zeroVolumeIsMissing = false,
+}: ITradingViewNativeSubIndicatorCalculationOptions & {
   cache: ITradingViewNativeSubIndicatorCalculationCache;
   instances: readonly ITradingViewNativeSubIndicatorResolvedInstance[];
   points: readonly IMarketTokenKLineDataPoint[];
@@ -44,12 +51,14 @@ export function calculateTradingViewNativeSubIndicatorsWithCache({
   const activeInstanceIds = new Set<string>();
   const entries = instances.map((instance) => {
     activeInstanceIds.add(instance.id);
-    const inputKey = getCalculationInputKey(instance);
+    const inputKey = getCalculationInputKey(instance, zeroVolumeIsMissing);
     const cachedEntry = cache.entries.get(instance.id);
     const calculation =
       cachedEntry?.points === points && cachedEntry.inputKey === inputKey
         ? cachedEntry.calculation
-        : calculateTradingViewNativeSubIndicator(instance, points);
+        : calculateTradingViewNativeSubIndicator(instance, points, {
+            zeroVolumeIsMissing,
+          });
     if (calculation !== cachedEntry?.calculation) {
       cache.entries.set(instance.id, { calculation, inputKey, points });
     }

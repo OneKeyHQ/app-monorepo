@@ -10,7 +10,10 @@ import type {
 } from '@onekeyhq/shared/types/swap/dustSweep';
 import { ESwapTxHistoryStatus } from '@onekeyhq/shared/types/swap/types';
 
-import { loadDustSweepNetworks } from '../utils/loadNetworks';
+import {
+  loadDustSweepNetworks,
+  validateDustSweepNetworkContexts,
+} from '../utils/loadNetworks';
 import {
   getDustSweepNetworksCache,
   invalidateDustSweepNetworksCache,
@@ -27,6 +30,7 @@ import type { IDustSweepNetworksResult } from '../utils/loadNetworks';
 
 jest.mock('../utils/loadNetworks', () => ({
   loadDustSweepNetworks: jest.fn(),
+  validateDustSweepNetworkContexts: jest.fn(),
 }));
 jest.mock('@onekeyhq/shared/src/eventBus/appEventBus', () => {
   const { EventEmitter } =
@@ -35,6 +39,7 @@ jest.mock('@onekeyhq/shared/src/eventBus/appEventBus', () => {
 });
 
 const mockLoad = jest.mocked(loadDustSweepNetworks);
+const mockValidate = jest.mocked(validateDustSweepNetworkContexts);
 const params: IDustSweepRouteParams = {
   walletId: 'hook-wallet',
   accountId: 'hook-account',
@@ -102,8 +107,9 @@ function useModel({ scope = params, focused = true, enabled = true } = {}) {
 }
 
 beforeEach(() => {
-  invalidateDustSweepNetworksCache(params.walletId);
+  act(() => invalidateDustSweepNetworksCache(params.walletId));
   mockLoad.mockReset();
+  mockValidate.mockReset();
 });
 afterEach(() => jest.useRealTimers());
 
@@ -111,6 +117,10 @@ it('loads without data, then displays Home cache while fresh data is pending', a
   const request = deferred();
   mockLoad.mockReturnValue(request.promise);
   const { result } = renderHook(() => useModel());
+  expect(mockLoad.mock.calls[0][3]).toMatchObject({
+    isManualRefresh: false,
+    forceFresh: true,
+  });
   expect(result.current.loadStatus).toBe('loading');
   expect(result.current.timerActive).toBe(false);
   act(() => mockLoad.mock.calls[0][2]?.([network]));
@@ -132,6 +142,8 @@ it('prefers Dust cache on re-entry and ignores Home cache even if it arrives lat
   expect(mockLoad.mock.calls[0][3]).toEqual({
     isManualRefresh: true,
     skipCache: true,
+    forceFresh: true,
+    onContexts: expect.any(Function),
   });
   act(() => mockLoad.mock.calls[0][2]?.([{ ...network, address: 'obsolete' }]));
   expect(result.current.networks).toEqual([network]);
@@ -319,6 +331,42 @@ it('does not duplicate a manual refresh when the existing 15-second deadline fir
   expect(mockLoad).toHaveBeenCalledTimes(2);
   expect(mockLoad.mock.calls[1][1].aborted).toBe(false);
   await settle(second);
+});
+
+it('keeps retrying a failed initial load on the existing timer until data recovers', async () => {
+  jest.useFakeTimers();
+  const first = deferred();
+  const second = deferred();
+  const third = deferred();
+  mockLoad
+    .mockReturnValueOnce(first.promise)
+    .mockReturnValueOnce(second.promise)
+    .mockReturnValueOnce(third.promise);
+  const { result } = renderHook(() => useModel());
+  await act(async () => {
+    first.reject(new Error('Offline'));
+    await first.promise.catch(() => undefined);
+  });
+  expect(result.current.hasData).toBe(false);
+  expect(result.current.loadFailed).toBe(true);
+  expect(result.current.timerActive).toBe(true);
+
+  await act(async () => jest.advanceTimersByTime(DUST_SWEEP_REFRESH_INTERVAL));
+  expect(mockLoad).toHaveBeenCalledTimes(2);
+  expect(result.current.loadFailed).toBe(true);
+  expect(result.current.loadStatus).toBe('error');
+  expect(result.current.timerActive).toBe(false);
+  await act(async () => {
+    second.reject(new Error('Still offline'));
+    await second.promise.catch(() => undefined);
+  });
+  expect(result.current.timerActive).toBe(true);
+  await act(async () => jest.advanceTimersByTime(DUST_SWEEP_REFRESH_INTERVAL));
+  expect(mockLoad).toHaveBeenCalledTimes(3);
+  await settle(third);
+  expect(result.current.loadFailed).toBe(false);
+  expect(result.current.networks).toEqual([network]);
+  expect(result.current.timerActive).toBe(true);
 });
 
 it('coalesces events during a pending request into one follow-up round', async () => {
@@ -524,4 +572,62 @@ it('rejects another consumer writing pre-trade balances after execution invalida
   expect(getDustSweepNetworksCache(params)?.networks[1].balanceUsd).toBe('0');
   olderConsumer.unmount();
   executingConsumer.unmount();
+});
+
+it('updates another mounted consumer when the wallet cache revision changes', async () => {
+  mockLoad.mockResolvedValue(data);
+  const first = renderHook(() => {
+    const model = useDustSweepNetworks(params);
+    const entry = model.networks[0];
+    return { model, canUse: !!entry && model.isNetworkVerified(entry) };
+  });
+  const second = renderHook(() => useDustSweepNetworks(params));
+  const otherParams = { ...params, walletId: 'other-wallet' };
+  const other = renderHook(() => {
+    const model = useDustSweepNetworks(otherParams);
+    const entry = model.networks[0];
+    return { model, canUse: !!entry && model.isNetworkVerified(entry) };
+  });
+  await act(async () => {});
+  expect(first.result.current.canUse).toBe(true);
+  expect(other.result.current.canUse).toBe(true);
+  act(() => {
+    second.result.current.suspend();
+  });
+  expect(first.result.current.canUse).toBe(false);
+  expect(other.result.current.canUse).toBe(true);
+  first.unmount();
+  second.unmount();
+  other.unmount();
+});
+
+it('rejects capability validation from before another wallet invalidation and recovers on retry', async () => {
+  const first = deferred();
+  const retry = deferred();
+  mockLoad
+    .mockReturnValueOnce(first.promise)
+    .mockReturnValueOnce(retry.promise);
+  let finishValidation!: (entries: IDustSweepNetwork[]) => void;
+  const validation = new Promise<IDustSweepNetwork[]>((resolve) => {
+    finishValidation = resolve;
+  });
+  mockValidate.mockReturnValueOnce(validation);
+  const { result } = renderHook(() => useDustSweepNetworks(params));
+  await settle(first);
+  expect(result.current.isNetworkVerified(network)).toBe(true);
+  act(() => {
+    result.current.suspend();
+    result.current.resume();
+    result.current.revalidate();
+  });
+  expect(result.current.isNetworkVerified(network)).toBe(false);
+  act(() => invalidateDustSweepNetworksCache(params.walletId));
+  await act(async () => {
+    finishValidation([network]);
+    await validation;
+  });
+  expect(result.current.isNetworkVerified(network)).toBe(false);
+  act(() => result.current.refresh());
+  await settle(retry);
+  expect(result.current.isNetworkVerified(network)).toBe(true);
 });

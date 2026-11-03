@@ -55,7 +55,35 @@ it.each([true, false])(
   },
 );
 
-it('keeps the existing perps subtitle path on desktop', () => {
+it.each([true, false])(
+  'uses the localized perps name only for desktop layout %p',
+  (desktop) => {
+    const columns = getPopularTradingColumns({
+      intl,
+      shouldUseTableLayout: desktop,
+      renderStarButton: () => null,
+    });
+    render(
+      <>
+        {columns[0].render?.(
+          undefined,
+          {
+            ...record,
+            name: 'TSM',
+            perpsCoin: 'xyz:TSM',
+            perpsSubtitle: '台积电',
+          },
+          0,
+        )}
+      </>,
+    );
+
+    expect(Boolean(screen.queryByText('台积电'))).toBe(desktop);
+    expect(screen.queryByText('TSM')).toBeNull();
+  },
+);
+
+it('does not repeat the perps symbol when there is no localized name', () => {
   const columns = getPopularTradingColumns({
     intl,
     shouldUseTableLayout: true,

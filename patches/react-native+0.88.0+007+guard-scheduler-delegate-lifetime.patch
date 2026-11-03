@@ -1,0 +1,64 @@
+diff --git a/node_modules/react-native/ReactCommon/react/renderer/scheduler/Scheduler.cpp b/node_modules/react-native/ReactCommon/react/renderer/scheduler/Scheduler.cpp
+index e74e802..e552789 100644
+--- a/node_modules/react-native/ReactCommon/react/renderer/scheduler/Scheduler.cpp
++++ b/node_modules/react-native/ReactCommon/react/renderer/scheduler/Scheduler.cpp
+@@ -178,6 +178,7 @@ Scheduler::Scheduler(
+ }
+ 
+ Scheduler::~Scheduler() {
++  delegateInvalidated_->store(true);
+   LOG(WARNING) << "Scheduler::~Scheduler() was called (address: " << this
+                << ").";
+ 
+@@ -270,6 +271,11 @@ Scheduler::findComponentDescriptorByHandle_DO_NOT_USE_THIS_IS_BROKEN(
+ #pragma mark - Delegate
+ 
+ void Scheduler::setDelegate(SchedulerDelegate* delegate) {
++  if (delegate_ != delegate) {
++    // OneKey patch: invalidate queued work before detaching or replacing its delegate.
++    delegateInvalidated_->store(true);
++    delegateInvalidated_ = std::make_shared<std::atomic<bool>>(false);
++  }
+   delegate_ = delegate;
+ }
+ 
+@@ -304,7 +310,11 @@ void Scheduler::uiManagerDidFinishTransaction(
+       runtimeScheduler_->scheduleRenderingUpdate(
+           surfaceId,
+           [delegate = delegate_,
++           invalidated = delegateInvalidated_,
+            mountingCoordinator = std::move(mountingCoordinator)]() {
++            if (invalidated->load()) {
++              return;
++            }
+             delegate->schedulerShouldRenderTransactions(mountingCoordinator);
+           });
+     } else {
+@@ -330,9 +340,13 @@ void Scheduler::uiManagerDidDispatchCommand(
+     runtimeScheduler_->scheduleRenderingUpdate(
+         shadowNode->getSurfaceId(),
+         [delegate = delegate_,
++         invalidated = delegateInvalidated_,
+          shadowView = std::move(shadowView),
+          commandName,
+          args]() {
++          if (invalidated->load()) {
++            return;
++          }
+           delegate->schedulerDidDispatchCommand(shadowView, commandName, args);
+         });
+   }
+diff --git a/node_modules/react-native/ReactCommon/react/renderer/scheduler/Scheduler.h b/node_modules/react-native/ReactCommon/react/renderer/scheduler/Scheduler.h
+index 1f5a59d..13a742c 100644
+--- a/node_modules/react-native/ReactCommon/react/renderer/scheduler/Scheduler.h
++++ b/node_modules/react-native/ReactCommon/react/renderer/scheduler/Scheduler.h
+@@ -126,6 +126,9 @@ class Scheduler final : public UIManagerDelegate {
+   friend class SurfaceHandler;
+ 
+   SchedulerDelegate *delegate_;
++  // OneKey patch: queued callbacks retain their delegate generation's lifetime token.
++  std::shared_ptr<std::atomic<bool>> delegateInvalidated_{
++      std::make_shared<std::atomic<bool>>(false)};
+   SharedComponentDescriptorRegistry componentDescriptorRegistry_;
+   RuntimeExecutor runtimeExecutor_;
+   std::shared_ptr<UIManager> uiManager_;

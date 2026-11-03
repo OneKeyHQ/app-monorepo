@@ -1,3 +1,4 @@
+import { getDrawingCanvasText } from './drawingText';
 import { formatDrawingNumber } from './measurement';
 import { drawingArrowHead } from './pathUtils';
 
@@ -204,7 +205,8 @@ export function appendGeometricTools(
         };
         geometry.handles = [anchor];
       }
-      const content = drawing.text ?? 'Text';
+      const content =
+        drawing.text ?? getDrawingCanvasText(projection.text).defaultText;
       if (drawing.tool === 'table') {
         const rows = content.split('\n').map((row) => row.split('\t'));
         const columns = Math.max(...rows.map((row) => row.length));

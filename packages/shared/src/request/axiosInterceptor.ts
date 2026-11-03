@@ -34,6 +34,7 @@ import {
   reportApiAvailabilityError,
   reportApiAvailabilityResponse,
 } from './availabilityMetrics';
+import { withCustomUAHeaders } from './customUA';
 import {
   HEADER_REQUEST_ID_KEY,
   checkRequestIsOneKeyDomain,
@@ -321,6 +322,18 @@ axios.interceptors.request.use(async (config) => {
     }
     config.headers[key] = val;
   });
+
+  const callerUA = config.headers.get('User-Agent');
+  // Axios permits false to disable a header; preserve that opt-out as well.
+  if (!config.headers.has('User-Agent') || typeof callerUA === 'string') {
+    config.headers.set(
+      await withCustomUAHeaders(
+        axios.getUri(config),
+        typeof callerUA === 'string' ? { 'User-Agent': callerUA } : {},
+        { browserTransport: true },
+      ),
+    );
+  }
 
   if (isEnableLogNetwork(config.url)) {
     defaultLogger.app.network.start(

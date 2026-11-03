@@ -258,7 +258,15 @@ async function getLatestPerpsMarketDataFreshness() {
 // `useLiquidationPrice` subscription, so a price tick re-renders ONLY this
 // text node instead of the whole side button. Value is debounced (~10Hz).
 const EstLiqPriceLeaf = memo(
-  ({ side, size }: { side: 'long' | 'short'; size: BigNumber }) => {
+  ({
+    side,
+    size,
+    textSize = '$bodySmMedium',
+  }: {
+    side: 'long' | 'short';
+    size: BigNumber;
+    textSize?: '$bodySmMedium' | '$bodyXsMedium';
+  }) => {
     const liquidationPrice = useDebounce(
       useLiquidationPrice({ side, size }),
       100,
@@ -266,7 +274,7 @@ const EstLiqPriceLeaf = memo(
     if (liquidationPrice) {
       return (
         <NumberSizeableText
-          size="$bodySmMedium"
+          size={textSize}
           fontFamily="$body"
           color="$text"
           formatter="price"
@@ -277,7 +285,7 @@ const EstLiqPriceLeaf = memo(
       );
     }
     return (
-      <SizableText size="$bodySmMedium" fontFamily="$body" color="$text">
+      <SizableText size={textSize} fontFamily="$body" color="$text">
         --
       </SizableText>
     );
@@ -1730,7 +1738,7 @@ function SideButtonInternal({
   const desktopCostTooltipTrigger = useMemo(
     () => (
       <DashText
-        size="$bodySm"
+        size="$bodyXs"
         color="$textSubdued"
         cursor="default"
         dashThickness={0.5}
@@ -1752,7 +1760,7 @@ function SideButtonInternal({
   const desktopLiqPriceTooltipTrigger = useMemo(
     () => (
       <DashText
-        size="$bodySm"
+        size="$bodyXs"
         color="$textSubdued"
         cursor="default"
         dashThickness={0.5}
@@ -1887,7 +1895,7 @@ function SideButtonInternal({
     );
   }
   return (
-    <YStack gap="$2" flex={1} onLayout={handleLayout}>
+    <YStack gap="$2" flex={1} minWidth={0} onLayout={handleLayout}>
       {actionButton}
       {shouldShowCostAndLiqPrice ? (
         <YStack gap="$1.5">
@@ -1906,7 +1914,12 @@ function SideButtonInternal({
             </NumberSizeableText>
           </XStack> */}
 
-          <XStack gap="$2" justifyContent={justifyContent}>
+          <XStack
+            gap="$2"
+            rowGap="$1"
+            flexWrap="wrap"
+            justifyContent={justifyContent}
+          >
             <Tooltip
               placement="top"
               triggerAsChild="except-style"
@@ -1915,8 +1928,10 @@ function SideButtonInternal({
             />
 
             <NumberSizeableText
-              size="$bodySm"
+              size="$bodyXs"
               color="$text"
+              maxWidth="100%"
+              textAlign={isLong ? 'left' : 'right'}
               formatter="value"
               formatterOptions={{ currency: '$' }}
             >
@@ -1924,7 +1939,12 @@ function SideButtonInternal({
             </NumberSizeableText>
           </XStack>
 
-          <XStack gap="$2" justifyContent={justifyContent}>
+          <XStack
+            gap="$2"
+            rowGap="$1"
+            flexWrap="wrap"
+            justifyContent={justifyContent}
+          >
             <Tooltip
               placement="top"
               triggerAsChild="except-style"
@@ -1932,7 +1952,11 @@ function SideButtonInternal({
               renderTrigger={desktopLiqPriceTooltipTrigger}
             />
 
-            <EstLiqPriceLeaf side={side} size={computedSizeForSide} />
+            <EstLiqPriceLeaf
+              side={side}
+              size={computedSizeForSide}
+              textSize="$bodyXsMedium"
+            />
           </XStack>
         </YStack>
       ) : null}
@@ -2433,11 +2457,16 @@ function EmptySizeSideButton({
   }
 
   return (
-    <YStack gap="$2" flex={1} onLayout={handleLayout}>
+    <YStack gap="$2" flex={1} minWidth={0} onLayout={handleLayout}>
       {button}
       {isSpot ? null : (
         <YStack gap="$1.5">
-          <XStack gap="$2" justifyContent={justifyContent}>
+          <XStack
+            gap="$2"
+            rowGap="$1"
+            flexWrap="wrap"
+            justifyContent={justifyContent}
+          >
             <Tooltip
               placement="top"
               renderContent={intl.formatMessage({
@@ -2445,7 +2474,7 @@ function EmptySizeSideButton({
               })}
               renderTrigger={
                 <DashText
-                  size="$bodySm"
+                  size="$bodyXs"
                   color="$textSubdued"
                   cursor="default"
                   dashThickness={0.5}
@@ -2457,9 +2486,11 @@ function EmptySizeSideButton({
               }
             />
             <NumberSizeableText
-              size="$bodySmMedium"
+              size="$bodyXsMedium"
               fontFamily="$body"
               color="$text"
+              maxWidth="100%"
+              textAlign={isLong ? 'left' : 'right'}
               formatter="value"
               formatterOptions={{ currency: '$' }}
             >
@@ -2467,7 +2498,12 @@ function EmptySizeSideButton({
             </NumberSizeableText>
           </XStack>
 
-          <XStack gap="$2" justifyContent={justifyContent}>
+          <XStack
+            gap="$2"
+            rowGap="$1"
+            flexWrap="wrap"
+            justifyContent={justifyContent}
+          >
             <Tooltip
               placement="top"
               renderContent={intl.formatMessage({
@@ -2475,7 +2511,7 @@ function EmptySizeSideButton({
               })}
               renderTrigger={
                 <DashText
-                  size="$bodySm"
+                  size="$bodyXs"
                   color="$textSubdued"
                   cursor="default"
                   dashThickness={0.5}
@@ -2486,7 +2522,7 @@ function EmptySizeSideButton({
                 </DashText>
               }
             />
-            <SizableText size="$bodySmMedium" fontFamily="$body" color="$text">
+            <SizableText size="$bodyXsMedium" fontFamily="$body" color="$text">
               --
             </SizableText>
           </XStack>
@@ -2590,7 +2626,7 @@ function TradingButtonGroupLive({
     }
     return (
       <XStack gap="$2.5" mt="$4">
-        <XStack flexBasis="50%" flexShrink={1} overflow="hidden">
+        <XStack flex={1} flexBasis={0} minWidth={0}>
           <SideButtonLive
             onRequestSizeInputFocus={onRequestSizeInputFocus}
             minimumOrderActionRef={minimumOrderActionRef}
@@ -2603,7 +2639,7 @@ function TradingButtonGroupLive({
             justifyContent="flex-start"
           />
         </XStack>
-        <XStack flexBasis="50%" flexShrink={1} overflow="hidden">
+        <XStack flex={1} flexBasis={0} minWidth={0}>
           <SideButtonLive
             onRequestSizeInputFocus={onRequestSizeInputFocus}
             minimumOrderActionRef={minimumOrderActionRef}
@@ -2687,7 +2723,7 @@ function TradingButtonGroupEmptySize({
     }
     return (
       <XStack gap="$2.5" mt="$4">
-        <XStack flexBasis="50%" flexShrink={1} overflow="hidden">
+        <XStack flex={1} flexBasis={0} minWidth={0}>
           <SideButtonEmptySize
             onRequestSizeInputFocus={onRequestSizeInputFocus}
             minimumOrderActionRef={minimumOrderActionRef}
@@ -2698,7 +2734,7 @@ function TradingButtonGroupEmptySize({
             justifyContent="flex-start"
           />
         </XStack>
-        <XStack flexBasis="50%" flexShrink={1} overflow="hidden">
+        <XStack flex={1} flexBasis={0} minWidth={0}>
           <SideButtonEmptySize
             onRequestSizeInputFocus={onRequestSizeInputFocus}
             minimumOrderActionRef={minimumOrderActionRef}

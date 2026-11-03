@@ -3,6 +3,10 @@ import BigNumber from 'bignumber.js';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import type { IMarketTokenDetail } from '@onekeyhq/shared/types/marketV2';
 
+// From here the cell drops its decimals: four of these share one row, and
+// `+17,146.27%` no longer fits on a phone while the cents add nothing.
+const WHOLE_PERCENT_THRESHOLD = 1000;
+
 export type IPriceChangeKey =
   | 'priceChange1hPercent'
   | 'priceChange4hPercent'
@@ -38,7 +42,12 @@ export function createTimeRangeOption(
     // a negative value keeps its sign either way.
     const percentageChange = numberFormat(safeValue, {
       formatter: 'priceChangeCapped',
-      formatterOptions: { showPlusMinusSigns: !isZero },
+      formatterOptions: {
+        showPlusMinusSigns: !isZero,
+        fractionDigits: rounded.abs().gte(WHOLE_PERCENT_THRESHOLD)
+          ? 0
+          : undefined,
+      },
     });
 
     return {

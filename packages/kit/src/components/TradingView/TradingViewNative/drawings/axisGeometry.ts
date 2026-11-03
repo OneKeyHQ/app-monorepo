@@ -147,6 +147,7 @@ export function getDrawingAxisGeometry(
       const text = formatTradingViewNativeCrosshairTime(
         time,
         projection.interval,
+        projection.layout.dateFormatTemplate,
       );
       if (point.x >= 0 && point.x <= priceAxisX && !times.has(text)) {
         times.add(text);

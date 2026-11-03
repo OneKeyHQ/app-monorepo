@@ -316,8 +316,7 @@ export const SupplyCard = () => {
             token={item.token}
             canBeCollateral={item.canBeCollateral}
             amountLabel={{ text: `${labels.balance}:` }}
-            amount={item.walletBalance.title}
-            amountDescription={item.walletBalance.description}
+            balance={item.walletBalance}
             platformBonusApy={item.platformBonusApy}
           />
         ),
@@ -363,10 +362,7 @@ export const SupplyCard = () => {
           return aFiatValue.comparedTo(bFiatValue);
         },
         render: (item: ISupplyAsset) => (
-          <AmountField
-            title={item.walletBalance.title}
-            description={item.walletBalance.description}
-          />
+          <AmountField balance={item.walletBalance} />
         ),
         flex: 1,
         minWidth: BORROW_TABLE_AMOUNT_COLUMN_MIN_WIDTH,

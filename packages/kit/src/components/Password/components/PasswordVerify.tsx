@@ -175,9 +175,21 @@ function PasswordVerify({
   useEffect(() => {
     const fieldName =
       passwordMode === EPasswordMode.PASSWORD ? 'password' : 'passCode';
-    if (status.value === EPasswordVerifyStatus.ERROR) {
-      form.setError(fieldName, { message: status.message });
+    if (
+      status.value === EPasswordVerifyStatus.ERROR ||
+      status.value === EPasswordVerifyStatus.RETRY
+    ) {
+      // A retry shows its message as the field hint; only an error marks the
+      // field as invalid.
+      if (status.value === EPasswordVerifyStatus.ERROR) {
+        form.setError(fieldName, { message: status.message });
+      } else {
+        form.clearErrors(fieldName);
+      }
       if (passwordMode === EPasswordMode.PASSCODE) {
+        // Form.Field passes the form value to PassCodeInput, which makes it a
+        // controlled input, so clearing its own state alone keeps the digits.
+        form.setValue('passCode', '');
         setPassCodeClear(true);
       }
       if (!disableInputRef.current) {
@@ -359,6 +371,34 @@ function PasswordVerify({
     isEnable && !platformEnv.isDesktopWin ? onActive : undefined,
   );
 
+  const showBiologyAuthAction =
+    isEnable &&
+    biometricCheckResult !== 'changed' &&
+    biometricCheckResult !== 'unavailable';
+
+  const submitPassword = useCallback(async () => {
+    if (!form.getValues('password')) {
+      // An empty submit is not an attempt. Like 1Password, Enter on the empty
+      // field runs the biometric action shown in its place instead, also
+      // during a passcode cooldown, when that action stays available. On
+      // phones the return key mostly just closes the keyboard, so it doesn't.
+      if (showBiologyAuthAction && !platformEnv.isNative) {
+        await guardedBiologyAuth();
+      }
+      return;
+    }
+    if (confirmBtnDisabled) {
+      return;
+    }
+    await form.handleSubmit(onInputPasswordAuth)();
+  }, [
+    confirmBtnDisabled,
+    form,
+    guardedBiologyAuth,
+    onInputPasswordAuth,
+    showBiologyAuthAction,
+  ]);
+
   const rightActions = useMemo(() => {
     const actions: IPropsWithTestId<{
       iconName?: IKeyOfIcons;
@@ -367,12 +407,7 @@ function PasswordVerify({
       disabled?: boolean;
       tabIndex?: number;
     }>[] = [];
-    if (
-      isEnable &&
-      !passwordInput &&
-      biometricCheckResult !== 'changed' &&
-      biometricCheckResult !== 'unavailable'
-    ) {
+    if (showBiologyAuthAction && !passwordInput) {
       actions.push({
         iconName: biologyAuthIconName,
         onPress: () => {
@@ -389,9 +424,9 @@ function PasswordVerify({
       });
       actions.push({
         iconName: 'ArrowRightOutline',
-        onPress: form.handleSubmit(onInputPasswordAuth),
+        onPress: submitPassword,
         loading: status.value === EPasswordVerifyStatus.VERIFYING,
-        disabled: confirmBtnDisabled,
+        disabled: confirmBtnDisabled || !passwordInput,
         testID: 'verifying-password',
         tabIndex: 0,
       });
@@ -399,15 +434,13 @@ function PasswordVerify({
 
     return actions;
   }, [
-    isEnable,
+    showBiologyAuthAction,
     passwordInput,
     biologyAuthIconName,
     guardedBiologyAuth,
-    biometricCheckResult,
     status.value,
     secureEntry,
-    form,
-    onInputPasswordAuth,
+    submitPassword,
     confirmBtnDisabled,
   ]);
 
@@ -417,6 +450,9 @@ function PasswordVerify({
     });
   }, [form, onInputPasswordAuth]);
 
+  const retryHint =
+    status.value === EPasswordVerifyStatus.RETRY ? status.message : undefined;
+
   return (
     <Stack ref={formContainerRef as any}>
       <Form form={form}>
@@ -424,15 +460,8 @@ function PasswordVerify({
           <>
             <Form.Field
               name="password"
-              rules={{
-                required: {
-                  value: true,
-                  message: intl.formatMessage({
-                    id: ETranslations.auth_error_passcode_incorrect,
-                  }),
-                },
-                onChange: onPasswordChange,
-              }}
+              hint={retryHint}
+              rules={{ onChange: onPasswordChange }}
             >
               <Input
                 selectTextOnFocus
@@ -449,11 +478,7 @@ function PasswordVerify({
                 // fix Keyboard Flickering on TextInput with secureTextEntry #39411
                 // https://github.com/facebook/react-native/issues/39411
                 textContentType="oneTimeCode"
-                onSubmitEditing={
-                  confirmBtnDisabled
-                    ? undefined
-                    : form.handleSubmit(onInputPasswordAuth)
-                }
+                onSubmitEditing={submitPassword}
                 addOns={rightActions}
                 testID="password-input"
               />
@@ -464,6 +489,7 @@ function PasswordVerify({
           <>
             <Form.Field
               name="passCode"
+              hint={retryHint}
               errorMessageAlign="center"
               rules={{
                 validate: {
@@ -482,7 +508,12 @@ function PasswordVerify({
                   form.setValue('passCode', pin);
                   form.clearErrors('passCode');
                   setPassCodeClear(false);
-                  if (pageMode) {
+                  // The first digit after a retry also clears its hint, as
+                  // typing does in password mode.
+                  if (
+                    pageMode ||
+                    statusRef.current === EPasswordVerifyStatus.RETRY
+                  ) {
                     onPasswordChange(pin);
                   }
                 }}
@@ -500,9 +531,7 @@ function PasswordVerify({
                 </SizableText>
               </XStack>
             ) : null}
-            {isEnable &&
-            biometricCheckResult !== 'changed' &&
-            biometricCheckResult !== 'unavailable' ? (
+            {showBiologyAuthAction ? (
               <YStack alignSelf="center" pt="$6" scale={1.5}>
                 <IconButton
                   testID="password-icon-btn"
@@ -520,7 +549,7 @@ function PasswordVerify({
         )}
       </Form>
       {isEnable && biometricCheckResult === 'unavailable' ? (
-        <SizableText size="$bodyMd" color="$textCritical">
+        <SizableText size="$bodyMd" color="$textSubdued">
           {intl.formatMessage(
             { id: ETranslations.auth_biometric_failed },
             { biometric: authTitle },

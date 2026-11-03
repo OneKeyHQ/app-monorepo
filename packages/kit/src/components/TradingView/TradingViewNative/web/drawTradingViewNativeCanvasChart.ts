@@ -28,6 +28,7 @@ import type {
 import type { ITradingViewNativeSubIndicatorRenderPane } from '../utils/subIndicatorRender';
 
 interface IDrawTradingViewNativeCanvasChartOptions {
+  dateFormatTemplate?: string;
   autoScalePointRange?: ITradingViewNativeVisiblePointRange;
   candleIntervalSeconds: number;
   candleTimeMode?: ITradingViewNativeCandleTimeMode;
@@ -41,6 +42,7 @@ interface IDrawTradingViewNativeCanvasChartOptions {
   hasVolume: boolean;
   candleLabels: ITradingViewNativeCandleLabels;
   currentPriceLabel: string;
+  priceAxisDecimalPlaces?: number;
   priceDecimalPlaces?: number;
   indicatorSeries: ITradingViewNativeIndicatorSeries[];
   isMobileLayout: boolean;
@@ -75,6 +77,7 @@ export function drawTradingViewNativeCanvasChart({
   hasVolume,
   candleLabels,
   currentPriceLabel,
+  priceAxisDecimalPlaces,
   priceDecimalPlaces,
   indicatorSeries,
   isMobileLayout,
@@ -93,6 +96,7 @@ export function drawTradingViewNativeCanvasChart({
   timeAxisBorderWidth,
   watermarkImage,
   watermarkOpacity,
+  dateFormatTemplate,
 }: IDrawTradingViewNativeCanvasChartOptions) {
   const context = canvas.getContext('2d');
   if (!context) {
@@ -114,6 +118,7 @@ export function drawTradingViewNativeCanvasChart({
   context.clearRect(0, 0, width, height);
 
   const scene = buildTradingViewNativeChartScene({
+    dateFormatTemplate,
     autoScalePointRange,
     candleIntervalSeconds,
     candleTimeMode,
@@ -133,10 +138,16 @@ export function drawTradingViewNativeCanvasChart({
         priceAxisFontSize,
         timeAxisFontSize,
       );
-      return context.measureText(text).width;
+      // Reserve price digits so kerning cannot move or rewrap the open/high/low/close fields.
+      const measuredText =
+        font === 'legend' && /^[0-9₀-₉.+-]+$/.test(text)
+          ? text.replace(/[0-9]/g, '8')
+          : text;
+      return context.measureText(measuredText).width;
     },
     candleLabels,
     currentPriceLabel,
+    priceAxisDecimalPlaces,
     priceDecimalPlaces,
     points,
     pinnedPriceRange,

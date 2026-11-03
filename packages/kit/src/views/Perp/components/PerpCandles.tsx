@@ -54,24 +54,25 @@ function PerpNativeCandles({
   const metadata = usePerpsNativeChartMetadata();
   const orderMenu = usePerpsChartOrderMenu(enableTradingUi);
   const chartComponents = useMemo(() => [...lines, ...marks], [lines, marks]);
-  const { baseName, coin, mode } = useActiveTradeDisplay();
+  const { baseName, coin, displayName, mode } = useActiveTradeDisplay();
   const fullscreenHeader = useMemo(
     () =>
       platformEnv.isNative ? (
         <TradingViewNativeTokenHeader
-          name={baseName}
+          name={mode === 'spot' ? displayName : `${displayName}USDC`}
           {...(mode === 'spot'
             ? { tokenImageUri: getHyperliquidTokenImageUrl(baseName) }
             : { tokenImageUris: getHyperliquidTokenImageUris(coin) })}
         />
       ) : undefined,
-    [baseName, coin, mode],
+    [baseName, coin, displayName, mode],
   );
   return (
     <TradingViewNative
       {...props}
       {...metadata}
       {...orderMenu}
+      isPricePrecisionLoading={metadata.priceDecimalPlaces === undefined}
       nativeChartFullscreenHeader={fullscreenHeader}
       chartComponents={chartComponents}
       onReferenceLineAction={
@@ -86,10 +87,12 @@ export function PerpCandles({
   collapseChartExpandSignal,
   onTouchScroll,
   onInteractionOverlayOpenChange,
+  nativeChartGrowsWithSubIndicators,
 }: {
   // The workspace owns the selector when it supplies a chart mode.
   chartMode?: ITradingViewChartMode;
   collapseChartExpandSignal?: number;
+  nativeChartGrowsWithSubIndicators?: boolean;
   onTouchScroll?: (deltaY: number) => void;
   onInteractionOverlayOpenChange?: (isOpen: boolean) => void;
 }) {
@@ -223,9 +226,11 @@ export function PerpCandles({
           onInteractionChange={setIsChartInteracting}
           enableNativeChartSettings
           enableDrawings={!platformEnv.isNative}
+          prioritizePageScroll={platformEnv.isNativeIOS}
           nativeControlsLayoutMode={isDesktopLayout ? 'desktop' : 'mobile'}
           nativeChartSettingsInToolbar={platformEnv.isNative}
           showNativeIndicatorQuickBar={platformEnv.isNative}
+          nativeChartGrowsWithSubIndicators={nativeChartGrowsWithSubIndicators}
           onChartSwitch={showChartModeSelect ? handleChartSwitch : undefined}
           isNativeChartFullscreen={
             isDesktopLayout ? chartExpanded : isMobileChartFullscreen

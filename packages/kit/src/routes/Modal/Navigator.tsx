@@ -108,6 +108,9 @@ function TravelModeOnboardingRedirect() {
   );
 }
 
+const ONBOARDING_SYSTEM_BARS_OWNER = 'onboarding';
+const ONBOARDING_SYSTEM_BARS = { variant: 'dark' } as const;
+
 function StandardOnboardingNavigator() {
   const isFocused = useIsFocused();
   // Tamagui's native useMedia subscribes in a passive effect, so screens that
@@ -154,7 +157,10 @@ function StandardOnboardingNavigator() {
   // theme change mid-onboarding repaints through the same effective
   // value instead of racing this write (no stale-capture ref needed).
   if (platformEnv.isNativeAndroid) {
-    setSystemBarsOverride(isFocused ? 'dark' : null);
+    setSystemBarsOverride(
+      ONBOARDING_SYSTEM_BARS_OWNER,
+      isFocused ? ONBOARDING_SYSTEM_BARS : null,
+    );
   }
   // The render-time write above already handles focus AND blur (useIsFocused
   // re-renders on both, relinquishing to appGlassStyle when not focused). The
@@ -181,7 +187,7 @@ function StandardOnboardingNavigator() {
       return undefined;
     }
     return () => {
-      setSystemBarsOverride(null);
+      setSystemBarsOverride(ONBOARDING_SYSTEM_BARS_OWNER, null);
     };
   }, []);
   const navigator = isMediaReady ? (

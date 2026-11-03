@@ -486,15 +486,16 @@ const SwapProActionButton = ({
       variant={buttonVariant}
       size="small"
       childrenAsText={false}
-      height={50}
+      minHeight={50}
       py={5}
     >
       {showButtonLoading ? null : (
-        <YStack alignItems="center">
+        <YStack alignItems="center" width="100%" minWidth={0} flexShrink={1}>
           <SizableText
             size="$bodyMdMedium"
             color={labelColor}
             textAlign="center"
+            width="100%"
           >
             {actionButtonText.plainText || (
               <>
@@ -520,6 +521,7 @@ const SwapProActionButton = ({
               size="$bodyMdMedium"
               color={labelColor}
               textAlign="center"
+              width="100%"
             >
               {actionButtonText.subValue}
             </SizableText>
