@@ -518,6 +518,7 @@ describe('Home automatic Portfolio sync', () => {
     await act(async () => request());
     await waitFor(() => expect(mockSyncPortfolio).toHaveBeenCalledTimes(1));
     expect(mockRefreshCategories).not.toHaveBeenCalled();
+    expect(mockFetchTokens).toHaveBeenCalledTimes(1);
     expect(mockSyncPortfolio).toHaveBeenCalledWith(
       expect.objectContaining({
         eventPayload: expect.objectContaining({

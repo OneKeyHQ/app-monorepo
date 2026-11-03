@@ -314,6 +314,85 @@ describe('complete Portfolio refresh responses', () => {
   );
 });
 
+describe('complete Portfolio batch queries', () => {
+  const params = {
+    ...baseParams,
+    networkIds: ['evm--1', 'evm--8453'],
+    accountAddress: '0xabc',
+    requireComplete: true,
+    timeoutMs: 20_000,
+  };
+  it('honors the existing currency and timeout options', async () => {
+    const { service, post } = makeService();
+    post.mockResolvedValue(multiChainResponse(params.networkIds));
+    await expect(
+      service.fetchAccountDeFiPositionsBatch(params),
+    ).resolves.toHaveLength(2);
+    expect(post).toHaveBeenCalledWith(
+      '/wallet/v1/portfolio/positions',
+      expect.objectContaining({ networkId: params.networkIds }),
+      expect.objectContaining({
+        timeout: 20_000,
+        headers: { 'x-wallet-type': 'hd', 'x-onekey-request-currency': 'usd' },
+      }),
+    );
+  });
+  it.each(['degraded', 'unqueried', 'invalid totals', 'foreign network'])(
+    'rejects %s data without cache writes or request fan-out',
+    async (mode) => {
+      const { service, post, updateAccountDeFiOverview } = makeService();
+      const response = multiChainResponse(params.networkIds);
+      if (mode === 'degraded') response.data.data.meta.degraded = true;
+      if (mode === 'unqueried') {
+        response.data.data.meta.queriedNetworkIds = ['evm--1'];
+        response.data.data.data.positions['evm--8453'] = [];
+      }
+      if (mode === 'invalid totals')
+        response.data.data.data.totals.netWorth = NaN;
+      if (mode === 'foreign network')
+        response.data.data.meta.networkIds = [
+          'evm--1',
+          'evm--8453',
+          'evm--999',
+        ];
+      post.mockResolvedValue(response);
+      await expect(
+        service.fetchAccountDeFiPositionsBatch(params),
+      ).rejects.toThrow('Incomplete DeFi');
+      expect(post).toHaveBeenCalledTimes(1);
+      expect(updateAccountDeFiOverview).not.toHaveBeenCalled();
+    },
+  );
+  it('does not expand a failed complete query into more requests', async () => {
+    const { service, post } = makeService();
+    const error = Object.assign(new Error('Force refresh is rate limited'), {
+      code: 429,
+    });
+    post.mockRejectedValue(error);
+    await expect(service.fetchAccountDeFiPositionsBatch(params)).rejects.toBe(
+      error,
+    );
+    expect(post).toHaveBeenCalledTimes(1);
+  });
+  it('accepts a complete queried empty result', async () => {
+    const { service, post } = makeService();
+    const response = multiChainResponse(params.networkIds);
+    response.data.data.data.positions = {};
+    response.data.data.data.protocolSummaries = [];
+    response.data.data.data.totals = {
+      ...response.data.data.data.totals,
+      totalValue: 0,
+      totalDebt: 0,
+      totalReward: 0,
+      netWorth: 0,
+    };
+    response.data.data.meta.networkIds = [];
+    post.mockResolvedValue(response);
+    const result = await service.fetchAccountDeFiPositionsBatch(params);
+    expect(result.map((value) => value?.overview.netWorth)).toEqual([0, 0]);
+  });
+});
+
 function singleResult({
   networkId,
   netWorth,

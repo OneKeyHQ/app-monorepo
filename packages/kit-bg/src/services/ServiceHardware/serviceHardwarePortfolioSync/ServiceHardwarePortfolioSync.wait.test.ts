@@ -7,6 +7,7 @@ import { PERPS_NETWORK_ID } from '@onekeyhq/shared/src/consts/perp';
 import {
   BluetoothUnavailableWhileUsbConnectedError,
   DeviceNotSame,
+  OneKeyLocalError,
 } from '@onekeyhq/shared/src/errors';
 import {
   EAppEventBusNames,
@@ -179,10 +180,26 @@ describe('Portfolio v2 category retrieval', () => {
       netWorthUsd: '30',
       isDegraded: false,
     });
-    const fetchAccountDeFiPositions = jest.fn().mockResolvedValue({
-      overview: { totalValue: 20, totalDebt: 0, totalReward: 0, netWorth: 20 },
-      isNetworkQueried: true,
-    });
+    const fetchAccountDeFiPositions = jest.fn(
+      async (_params: { networkId: string }) => ({
+        overview: {
+          totalValue: 20,
+          totalDebt: 0,
+          totalReward: 0,
+          netWorth: 20,
+        },
+        isNetworkQueried: true,
+      }),
+    );
+    const fetchAccountDeFiPositionsBatch = jest.fn(
+      async (params: { networkIds: string[] }) =>
+        Promise.all(
+          params.networkIds.map(async (networkId) => ({
+            ...(await fetchAccountDeFiPositions({ ...params, networkId })),
+            networkId,
+          })),
+        ),
+    );
     const consumeManualDeFiForceRefreshQuota = jest.fn().mockResolvedValue({
       allowed: true,
       minIntervalMs: 15_000,
@@ -194,6 +211,7 @@ describe('Portfolio v2 category retrieval', () => {
           getDeFiEnabledNetworksMapState,
           getAccountTotalDeFiNetWorth,
           fetchAccountDeFiPositions,
+          fetchAccountDeFiPositionsBatch,
           consumeManualDeFiForceRefreshQuota,
         },
         serviceNetwork: {
@@ -220,6 +238,7 @@ describe('Portfolio v2 category retrieval', () => {
     return {
       service,
       fetchAccountDeFiPositions,
+      fetchAccountDeFiPositionsBatch,
       consumeManualDeFiForceRefreshQuota,
       internals,
       post,
@@ -232,6 +251,140 @@ describe('Portfolio v2 category retrieval', () => {
       getHyperliquidPortfolioSnapshot,
     };
   }
+
+  test('uses supported-network batches even when a single-chain provider rejects a chain', async () => {
+    const mocks = prepare();
+    const networkIds = [
+      'evm--1329',
+      ...Array.from({ length: 10 }, (_, i) => `evm--${i + 1}`),
+    ];
+    mocks.getDeFiEnabledNetworksMapState.mockResolvedValue({
+      isReady: true,
+      enabledNetworksMap: Object.fromEntries(
+        networkIds.map((id) => [id, true]),
+      ),
+    });
+    mocks.getAllNetworksState.mockResolvedValue({
+      enabledNetworks: Object.fromEntries(networkIds.map((id) => [id, true])),
+      disabledNetworks: {},
+    });
+    mocks.getAllNetworks.mockResolvedValue({
+      networks: networkIds.map((id) => ({ id, isTestnet: false })),
+    });
+    mocks.getAllNetworkAccounts.mockResolvedValue({
+      accountsInfo: [...networkIds, 'evm--unsupported'].map((networkId) => ({
+        accountId: 'eth-account-1',
+        networkId,
+        apiAddress: '0x1111',
+      })),
+    });
+    mocks.fetchAccountDeFiPositions.mockImplementation(
+      async ({ networkId }: { networkId: string }) => {
+        if (networkId === 'evm--1329')
+          throw new OneKeyLocalError('DeBank: ChainID not supported');
+        return {
+          overview: {
+            totalValue: 20,
+            totalDebt: 0,
+            totalReward: 0,
+            netWorth: 20,
+          },
+          isNetworkQueried: true,
+        };
+      },
+    );
+    mocks.fetchAccountDeFiPositionsBatch.mockImplementation(
+      async ({ networkIds: ids }) =>
+        ids.map((networkId) => ({
+          networkId,
+          overview: {
+            totalValue: 20,
+            totalDebt: 0,
+            totalReward: 0,
+            netWorth: 20,
+          },
+          isNetworkQueried: true,
+        })),
+    );
+    await expect(
+      mocks.service.refreshPortfolioCategories({
+        accountId: 'account-1',
+        indexedAccountId: 'indexed-account-1',
+        networkId: getNetworkIdsMap().onekeyall,
+        sources: ['defi'],
+      }),
+    ).resolves.toMatchObject({ defiFiat: '220', failedSources: [] });
+    expect(mocks.fetchAccountDeFiPositions).not.toHaveBeenCalled();
+    expect(mocks.fetchAccountDeFiPositionsBatch).toHaveBeenCalledTimes(2);
+    expect(
+      mocks.fetchAccountDeFiPositionsBatch.mock.calls.map(
+        ([params]) => params.networkIds,
+      ),
+    ).toEqual([
+      networkIds.toSorted().slice(0, 10),
+      networkIds.toSorted().slice(10),
+    ]);
+    expect(mocks.fetchAccountDeFiPositionsBatch).toHaveBeenCalledWith(
+      expect.objectContaining({
+        requireComplete: true,
+        timeoutMs: 20_000,
+        isForceRefresh: false,
+      }),
+    );
+  });
+
+  test('keeps different addresses separate and deduplicates matching network addresses', async () => {
+    const mocks = prepare();
+    mocks.getAllNetworkAccounts.mockResolvedValue({
+      accountsInfo: [
+        {
+          accountId: 'eth-account-1',
+          networkId: 'evm--1',
+          apiAddress: '0x1111',
+        },
+        {
+          accountId: 'eth-account-1',
+          networkId: 'evm--1',
+          apiAddress: '0x1111',
+        },
+        {
+          accountId: 'eth-account-2',
+          networkId: 'evm--1',
+          apiAddress: '0x2222',
+        },
+      ],
+    });
+    await expect(
+      mocks.service.refreshPortfolioCategories({
+        accountId: 'account-1',
+        indexedAccountId: 'indexed-account-1',
+        networkId: getNetworkIdsMap().onekeyall,
+        sources: ['defi'],
+      }),
+    ).resolves.toMatchObject({ defiFiat: '40', failedSources: [] });
+    expect(mocks.fetchAccountDeFiPositionsBatch).toHaveBeenCalledTimes(2);
+    for (const accountAddress of ['0x1111', '0x2222'])
+      expect(mocks.fetchAccountDeFiPositionsBatch).toHaveBeenCalledWith(
+        expect.objectContaining({ accountAddress, networkIds: ['evm--1'] }),
+      );
+  });
+
+  test('uses the regular Perps cache path for an ordinary Portfolio lookup', async () => {
+    const mocks = prepare();
+    await expect(
+      mocks.service.refreshPortfolioCategories({
+        accountId: 'account-1',
+        indexedAccountId: 'indexed-account-1',
+        networkId: getNetworkIdsMap().onekeyall,
+        sources: ['perps'],
+      }),
+    ).resolves.toMatchObject({ perpsFiat: '30', failedSources: [] });
+    expect(mocks.getHyperliquidPortfolioSnapshot).toHaveBeenCalledWith({
+      address: '0x3333',
+    });
+    expect(mocks.fetchAccountDeFiPositionsBatch).not.toHaveBeenCalled();
+    expect(mocks.fetchAccountDeFiPositions).not.toHaveBeenCalled();
+  });
 
   test('forces complete category refreshes and merges simultaneous requests', async () => {
     const mocks = prepare();
@@ -748,6 +901,20 @@ describe('Portfolio v2 category retrieval', () => {
 
   test('does not send a partial DeFi live total when some networks fail', async () => {
     const mocks = prepare();
+    mocks.getDeFiEnabledNetworksMapState.mockResolvedValue({
+      isReady: true,
+      enabledNetworksMap: { 'evm--1': true, 'btc--0': true },
+    });
+    mocks.getAllNetworksState.mockResolvedValue({
+      enabledNetworks: { 'evm--1': true, 'btc--0': true },
+      disabledNetworks: {},
+    });
+    mocks.getAllNetworks.mockResolvedValue({
+      networks: [
+        { id: 'evm--1', isTestnet: false },
+        { id: 'btc--0', isTestnet: false },
+      ],
+    });
     mocks.getAllNetworkAccounts.mockResolvedValue({
       accountsInfo: [
         {
@@ -890,6 +1057,20 @@ describe('Portfolio v2 category retrieval', () => {
 
   test('does not use a partial Home DeFi cache as a complete total', async () => {
     const mocks = prepare();
+    mocks.getDeFiEnabledNetworksMapState.mockResolvedValue({
+      isReady: true,
+      enabledNetworksMap: { 'evm--1': true, 'btc--0': true },
+    });
+    mocks.getAllNetworksState.mockResolvedValue({
+      enabledNetworks: { 'evm--1': true, 'btc--0': true },
+      disabledNetworks: {},
+    });
+    mocks.getAllNetworks.mockResolvedValue({
+      networks: [
+        { id: 'evm--1', isTestnet: false },
+        { id: 'btc--0', isTestnet: false },
+      ],
+    });
     mocks.getAllNetworkAccounts.mockResolvedValue({
       accountsInfo: [
         {
@@ -935,6 +1116,20 @@ describe('Portfolio v2 category retrieval', () => {
 
   test('does not use cache when multiple DeFi addresses share a network', async () => {
     const mocks = prepare();
+    mocks.getDeFiEnabledNetworksMapState.mockResolvedValue({
+      isReady: true,
+      enabledNetworksMap: { 'evm--1': true, 'btc--0': true },
+    });
+    mocks.getAllNetworksState.mockResolvedValue({
+      enabledNetworks: { 'evm--1': true, 'btc--0': true },
+      disabledNetworks: {},
+    });
+    mocks.getAllNetworks.mockResolvedValue({
+      networks: [
+        { id: 'evm--1', isTestnet: false },
+        { id: 'btc--0', isTestnet: false },
+      ],
+    });
     mocks.getAllNetworkAccounts.mockResolvedValue({
       accountsInfo: [
         {

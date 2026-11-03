@@ -1,7 +1,7 @@
 import { EDeviceType, HardwareErrorCode } from '@onekeyfe/hd-shared';
 import { DeviceSessionPinType } from '@onekeyfe/hd-transport';
 import BigNumber from 'bignumber.js';
-import { chunk, debounce, uniq, uniqBy } from 'lodash';
+import { chunk, debounce, groupBy, uniq, uniqBy } from 'lodash';
 
 import {
   backgroundClass,
@@ -2309,7 +2309,7 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
           deFiOverview = emptyOverview;
           return { source: 'empty', value: '0' };
         }
-        const { accountsInfo } =
+        const { accountsInfo: cachedAccountsInfo } =
           await this.backgroundApi.serviceAllNetwork.getAllNetworkAccounts({
             accountId,
             indexedAccountId,
@@ -2319,6 +2319,17 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
             networksEnabledOnly: true,
             excludeTestNetwork: true,
           });
+        const accountsInfo = cachedAccountsInfo.filter(
+          (account) =>
+            enabledNetworksMap[account.networkId] &&
+            (!isAllNetwork ||
+              isEnabledNetworksInAllNetworks({
+                networkId: account.networkId,
+                isTestnet: !!account.isTestnet,
+                enabledNetworks: allNetworksState.enabledNetworks,
+                disabledNetworks: allNetworksState.disabledNetworks,
+              })),
+        );
         if (!accountsInfo.length) {
           deFiOverview = emptyOverview;
           return { source: 'empty', value: '0' };
@@ -2364,21 +2375,41 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
           accountsInfo,
           (account) => `${account.networkId}:${account.apiAddress}`,
         );
-        for (const batch of chunk(accounts, 4)) {
+        const groups = refresh
+          ? Object.values(
+              groupBy(
+                accounts,
+                (account) =>
+                  `${account.accountId}|${account.apiAddress}|${account.accountXpub ?? ''}`,
+              ),
+            ).flatMap((group) =>
+              chunk(
+                group.toSorted((left, right) => {
+                  if (left.networkId < right.networkId) return -1;
+                  if (left.networkId > right.networkId) return 1;
+                  return 0;
+                }),
+                10,
+              ),
+            )
+          : accounts.map((account) => [account]);
+        for (const batch of chunk(groups, 4)) {
           const values = await Promise.all(
-            batch.map(async (account) => {
+            batch.map(async (group) => {
+              const account = group[0];
               try {
                 if (refresh) {
                   const { currencyMap } = await currencyPersistAtom.get();
                   const usd = currencyMap.usd;
                   if (!usd || signal?.aborted) return undefined;
-                  const response =
-                    await this.backgroundApi.serviceDeFi.fetchAccountDeFiPositions(
+                  const responses =
+                    await this.backgroundApi.serviceDeFi.fetchAccountDeFiPositionsBatch(
                       {
                         accountId: account.accountId,
                         indexedAccountId,
-                        networkId: account.networkId,
+                        networkIds: group.map((item) => item.networkId),
                         accountAddress: account.apiAddress,
+                        xpub: account.accountXpub,
                         saveToLocal: true,
                         excludeLowValueProtocols: true,
                         sourceCurrencyInfo: usd,
@@ -2389,25 +2420,39 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
                         timeoutMs: 20_000,
                       },
                     );
+                  const completeResponses = responses.filter(
+                    (response): response is NonNullable<typeof response> =>
+                      response !== undefined,
+                  );
                   const fields = Object.keys(
                     overviewTotals,
                   ) as (keyof typeof overviewTotals)[];
                   if (
-                    !response.isNetworkQueried ||
                     signal?.aborted ||
-                    fields.some(
-                      (field) =>
-                        !new BigNumber(response.overview[field]).isFinite(),
+                    completeResponses.length !== group.length ||
+                    completeResponses.some(
+                      (response, index) =>
+                        response.networkId !== group[index].networkId ||
+                        !response.isNetworkQueried ||
+                        fields.some(
+                          (field) =>
+                            !new BigNumber(response.overview[field]).isFinite(),
+                        ),
                     )
-                  ) {
+                  )
                     return undefined;
-                  }
-                  fields.forEach((field) => {
-                    overviewTotals[field] = overviewTotals[field].plus(
-                      response.overview[field],
-                    );
-                  });
-                  return new BigNumber(response.overview.netWorth);
+                  completeResponses.forEach((response) =>
+                    fields.forEach((field) => {
+                      overviewTotals[field] = overviewTotals[field].plus(
+                        response.overview[field],
+                      );
+                    }),
+                  );
+                  return BigNumber.sum(
+                    ...completeResponses.map(
+                      (response) => response.overview.netWorth,
+                    ),
+                  );
                 }
                 const response = await client.post<{
                   data: IFetchAccountDeFiPositionsResp;
@@ -2471,7 +2516,7 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
             total = total.plus(BigNumber.sum(...completeValues));
           }
         }
-        if (completeCount === accounts.length) {
+        if (completeCount === groups.length) {
           if (refresh) {
             deFiOverview = {
               totalValue: overviewTotals.totalValue.toNumber(),
@@ -2527,7 +2572,7 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
           await this.backgroundApi.serviceHyperliquid.getHyperliquidPortfolioSnapshot(
             {
               address,
-              ...(refresh ? { force: true, requireFresh: true } : {}),
+              ...(refresh?.force ? { force: true, requireFresh: true } : {}),
             },
           );
         return snapshot && !snapshot.isDegraded

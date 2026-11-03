@@ -917,10 +917,17 @@ class ServiceDeFi extends ServiceBase {
         },
         {
           signal: controller.signal,
-          headers:
-            await this.backgroundApi.serviceAccountProfile._getWalletTypeHeader(
+          ...(params.timeoutMs !== undefined
+            ? { timeout: params.timeoutMs }
+            : {}),
+          headers: {
+            ...(await this.backgroundApi.serviceAccountProfile._getWalletTypeHeader(
               { accountId },
-            ),
+            )),
+            ...(params.requireComplete && sourceCurrencyInfo
+              ? { 'x-onekey-request-currency': sourceCurrencyInfo.id }
+              : {}),
+          },
         },
       );
     } catch (error) {
@@ -949,6 +956,8 @@ class ServiceDeFi extends ServiceBase {
         }
         return this._fetchAccountDeFiPositionsPerNetwork(resolvedParams);
       }
+      // Complete Portfolio queries must not amplify rate limits or partial failures.
+      if (params.requireComplete) throw error;
       if (networkIds.length > 1 && !controller.signal.aborted) {
         // Any other failure of the array request (timeout, 5xx, another
         // business code) would drop every network of the batch at once.
@@ -962,6 +971,33 @@ class ServiceDeFi extends ServiceBase {
 
     const body = resp.data.data;
     const data = body.data;
+    if (params.requireComplete) {
+      const meta = body.meta;
+      const queriedNetworkIds = meta?.queriedNetworkIds;
+      const requested = new Set(networkIds);
+      const fields = [
+        'totalValue',
+        'totalDebt',
+        'totalReward',
+        'netWorth',
+      ] as const;
+      if (
+        !body.success ||
+        meta?.degraded !== false ||
+        networkIds.some((id) => !meta.requestedNetworkIds?.includes(id)) ||
+        (Array.isArray(queriedNetworkIds) &&
+          networkIds.some((id) => !queriedNetworkIds.includes(id))) ||
+        !Array.isArray(meta.networkIds) ||
+        meta.networkIds.some((id) => !requested.has(id)) ||
+        Object.entries(data?.positions ?? {}).some(
+          ([id, positions]) => !requested.has(id) && positions.length > 0,
+        ) ||
+        !data?.totals ||
+        fields.some((field) => !new BigNumber(data.totals[field]).isFinite())
+      ) {
+        throw new OneKeyLocalError('Incomplete DeFi portfolio response');
+      }
+    }
     const notQueriedNetworkIds = this._getNotQueriedNetworkIds({
       networkIds,
       resp: body,
@@ -1006,6 +1042,23 @@ class ServiceDeFi extends ServiceBase {
         };
       });
 
+    if (params.requireComplete) {
+      const fields = [
+        'totalValue',
+        'totalDebt',
+        'totalReward',
+        'netWorth',
+      ] as const;
+      if (
+        results.some((result) =>
+          fields.some(
+            (field) => !new BigNumber(result.overview[field]).isFinite(),
+          ),
+        )
+      ) {
+        throw new OneKeyLocalError('Incomplete DeFi portfolio response');
+      }
+    }
     const persistedResults = results.filter(
       (result) => !notQueried.has(result.networkId),
     );
