@@ -88,7 +88,10 @@ import {
 import ServiceBase from '../ServiceBase';
 
 import { filterBotWalletRecordsByCurrentKeylessSyncScope } from './botWalletCloudSyncUtils';
-import { buildOnlyCheckLocalDataTypes } from './cloudSyncCheckUtils';
+import {
+  buildOnlyCheckLocalDataTypes,
+  isSupportedCloudSyncDataType,
+} from './cloudSyncCheckUtils';
 import { CloudSyncFlowManagerAccount } from './CloudSyncFlowManager/CloudSyncFlowManagerAccount';
 import { CloudSyncFlowManagerAddressBook } from './CloudSyncFlowManager/CloudSyncFlowManagerAddressBook';
 import { CloudSyncFlowManagerBotWallet } from './CloudSyncFlowManager/CloudSyncFlowManagerBotWallet';
@@ -807,6 +810,7 @@ class ServicePrimeCloudSync extends ServiceBase {
   }) => {
     const now = await this.getCloudSyncDataTime();
     const localData: ICloudSyncServerItem[] = localItems
+      .filter((item) => isSupportedCloudSyncDataType(item.dataType))
       .map((item) => {
         let dataTimestamp = item.dataTime;
         if (setUndefinedTimeToNow && isNil(dataTimestamp)) {
@@ -1045,6 +1049,7 @@ class ServicePrimeCloudSync extends ServiceBase {
     const addressBookItems: IDBCloudSyncItem[] = [];
 
     for (const item of items) {
+      if (!isSupportedCloudSyncDataType(item.dataType)) continue;
       switch (item.dataType) {
         case EPrimeCloudSyncDataType.Wallet:
           walletItems.push(item);
@@ -1233,6 +1238,9 @@ class ServicePrimeCloudSync extends ServiceBase {
       return;
     }
     const localSyncItemsPromise: Promise<IDBCloudSyncItem>[] = serverItems
+      // The server stores opaque records, including key envelopes and types
+      // introduced by newer clients. Only import supported business records.
+      .filter((item) => isSupportedCloudSyncDataType(item.dataType))
       .map(async (serverItem) =>
         this.convertServerItemToLocalItem({
           serverItem,
@@ -1287,7 +1295,7 @@ class ServicePrimeCloudSync extends ServiceBase {
   }
 
   async updateLocalItemsByServer({
-    localItems,
+    localItems: incomingItems,
     syncCredential,
     shouldSyncToScene,
   }: {
@@ -1295,6 +1303,10 @@ class ServicePrimeCloudSync extends ServiceBase {
     syncCredential: ICloudSyncCredential | undefined;
     shouldSyncToScene: boolean;
   }) {
+    const localItems = incomingItems.filter((item) =>
+      isSupportedCloudSyncDataType(item.dataType),
+    );
+    if (!localItems.length) return;
     console.log('updateLocalItemsByServer', localItems);
     await this.backgroundApi.serviceKeylessCloudSync.runWithCloudSyncKeyLock(
       async () => {
@@ -2649,9 +2661,21 @@ class ServicePrimeCloudSync extends ServiceBase {
     };
   }
 
-  async getAllLocalSyncItems() {
+  async getAllLocalSyncItems({
+    includeUnsupportedDataTypes = false,
+  }: {
+    includeUnsupportedDataTypes?: boolean;
+  } = {}) {
     const { syncItems } = await localDb.getAllSyncItems();
-    return { items: syncItems };
+    // Preserve unknown records already stored by older clients, but keep them
+    // out of business sync and uploads. Key safety checks need the full view.
+    return {
+      items: includeUnsupportedDataTypes
+        ? syncItems
+        : syncItems.filter((item) =>
+            isSupportedCloudSyncDataType(item.dataType),
+          ),
+    };
   }
 
   @backgroundMethod()
