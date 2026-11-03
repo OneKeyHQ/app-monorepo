@@ -491,6 +491,23 @@ describe('TradingViewNativeContainer', () => {
     },
   );
 
+  it('formats a derived latest price with the axis display precision', () => {
+    mockDataState = { status: 'live' };
+    // An averaged candle close can carry more decimals than a traded price.
+    mockPoints = [{ c: 1278.4567, h: 1279, l: 1278, o: 1278.2, t: 1, v: 10 }];
+    render(
+      <TradingViewNativeContainer
+        source={{ kind: 'hyperliquid', coin: 'ZEC', environment: 'mainnet' }}
+        priceDecimalPlaces={4}
+      />,
+    );
+
+    expect(mockTradingViewNativeChart.mock.lastCall?.[0]).toMatchObject({
+      priceAxisDecimalPlaces: 1,
+      currentPriceLabel: '1278.5',
+    });
+  });
+
   it('restores retained inline dimensions and ignores a closing fullscreen layout', () => {
     const onSizeChange = jest.fn();
     const area = (isActive: boolean) => (

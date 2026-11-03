@@ -126,6 +126,8 @@ export type ITradingViewNativeSubIndicatorScale =
   | ITradingViewNativeSubIndicatorFixedScale;
 
 export interface ITradingViewNativeSubIndicatorFormat {
+  // Fixed decimals for price and inherit formats. For volume, the maximum
+  // decimals of values below one K unit.
   precision?: number;
   type: 'inherit' | 'price' | 'volume';
 }
