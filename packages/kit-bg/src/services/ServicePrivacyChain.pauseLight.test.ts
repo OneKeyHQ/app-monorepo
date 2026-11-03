@@ -523,6 +523,91 @@ describe('Privacy data consent publish', () => {
   });
 });
 
+describe('Privacy connection failures after a network change', () => {
+  const networkId = 'zec--0';
+  const runtimeStateKey = `${networkId}|main`;
+
+  beforeEach(() => {
+    mockPublished = mockEmptyState();
+  });
+
+  function createFailedService({
+    deviceIsCellular,
+  }: {
+    deviceIsCellular: boolean | undefined;
+  }) {
+    mockPublished.syncErrorByNetworkId = { [networkId]: 'nodeUnreachable' };
+    const scheduleBackgroundSync = jest.fn();
+    const service = Object.assign(
+      Object.create(ServicePrivacyChain.prototype) as {
+        setAllowCellularSync: (params: { allow: boolean }) => Promise<void>;
+        setDeviceNetworkState: (params: {
+          isCellular: boolean | undefined;
+        }) => Promise<void>;
+        syncFailureBackoff: Map<string, unknown>;
+      },
+      {
+        allowCellularSyncCache: false,
+        boostPausedByNetwork: {} as Record<string, boolean>,
+        foregroundBoostRequestedByNetwork: {} as Record<string, boolean>,
+        deviceIsCellular,
+        syncFailureBackoff: new Map([
+          [runtimeStateKey, { failures: 4, untilMs: Date.now() + 60_000 }],
+        ]),
+        scheduleBackgroundSync,
+        getLocalWalletNetworkIds: async () => [networkId],
+        backgroundApi: {
+          simpleDb: {
+            privacyChainState: {
+              setAllowCellularSync: async () => undefined,
+            },
+          },
+        },
+      },
+    );
+    return { service, scheduleBackgroundSync };
+  }
+
+  // A failure from before the user chose mobile data must not hold the retry it asked for.
+  it('retries at once when mobile data is allowed', async () => {
+    const { service, scheduleBackgroundSync } = createFailedService({
+      deviceIsCellular: true,
+    });
+    await service.setAllowCellularSync({ allow: true });
+    expect(service.syncFailureBackoff.has(runtimeStateKey)).toBe(false);
+    expect(mockPublished.syncErrorByNetworkId).toEqual({});
+    expect(scheduleBackgroundSync).toHaveBeenCalledWith(0);
+  });
+
+  it.each([
+    [false, true],
+    [true, false],
+  ])('retries at once on a switch from cellular %s to %s', async (from, to) => {
+    const { service, scheduleBackgroundSync } = createFailedService({
+      deviceIsCellular: from,
+    });
+    await service.setDeviceNetworkState({ isCellular: to });
+    expect(service.syncFailureBackoff.has(runtimeStateKey)).toBe(false);
+    expect(mockPublished.syncErrorByNetworkId).toEqual({});
+    expect(scheduleBackgroundSync).toHaveBeenCalledWith(0);
+  });
+
+  it.each([
+    ['the same network reported again', true, true],
+    ['losing the network', true, undefined],
+  ])('keeps the failure for %s', async (_case, from, to) => {
+    const { service, scheduleBackgroundSync } = createFailedService({
+      deviceIsCellular: from,
+    });
+    await service.setDeviceNetworkState({ isCellular: to });
+    expect(service.syncFailureBackoff.has(runtimeStateKey)).toBe(true);
+    expect(mockPublished.syncErrorByNetworkId).toEqual({
+      [networkId]: 'nodeUnreachable',
+    });
+    expect(scheduleBackgroundSync).not.toHaveBeenCalled();
+  });
+});
+
 describe('Privacy progress forgotten for a rescan', () => {
   beforeEach(() => {
     mockPublished = mockEmptyState();

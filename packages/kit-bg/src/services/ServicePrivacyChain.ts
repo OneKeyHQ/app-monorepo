@@ -936,10 +936,24 @@ class ServicePrivacyChain extends ServiceBase {
   }: {
     isCellular: boolean | undefined;
   }): Promise<void> {
+    const changed = this.deviceIsCellular !== isCellular;
+    const onKnownNetwork = isCellular !== undefined;
     this.deviceIsCellular = isCellular;
     await this.publishBoostingNetworks();
-    if (isCellular === false) {
+    if (changed && onKnownNetwork) {
+      await this.clearSyncFailures(await this.getLocalWalletNetworkIds());
       this.scheduleBackgroundSync(0);
+    } else if (isCellular === false) {
+      this.scheduleBackgroundSync(0);
+    }
+  }
+
+  // Failures seen on an earlier node, network or data choice say nothing about the current one.
+  private async clearSyncFailures(networkIds: string[]): Promise<void> {
+    for (const networkId of networkIds) {
+      this.clearSyncFailureBackoff(networkId);
+      // eslint-disable-next-line no-await-in-loop
+      await this.publishSyncError(networkId, undefined);
     }
   }
 
@@ -953,6 +967,7 @@ class ServicePrivacyChain extends ServiceBase {
     await this.publishAllowCellularSync();
     await this.publishBoostingNetworks();
     if (allow) {
+      await this.clearSyncFailures(await this.getLocalWalletNetworkIds());
       this.scheduleBackgroundSync(0);
     }
   }
@@ -987,11 +1002,7 @@ class ServicePrivacyChain extends ServiceBase {
       localWalletNetworkIds.includes(networkId),
     );
     if (!changed.length) return;
-    for (const networkId of changed) {
-      this.clearSyncFailureBackoff(networkId);
-      // eslint-disable-next-line no-await-in-loop
-      await this.publishSyncError(networkId, undefined);
-    }
+    await this.clearSyncFailures(changed);
     this.scheduleBackgroundSync(0);
   }
 
