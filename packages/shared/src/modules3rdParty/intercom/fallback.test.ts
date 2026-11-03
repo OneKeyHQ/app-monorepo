@@ -8,6 +8,10 @@ const mockOpenUrlInApp = jest.fn(
 const mockNotifyOpenFailed = jest.fn((_error: unknown) => {});
 const mockWindowOpen = jest.fn();
 const mockOpenUrlExternal = jest.fn((_url: string): void => {});
+const mockApiGetCustomerJWT = jest.fn(async () => ({
+  token: 'intercom-token',
+}));
+const EXTENSION_ORIGIN = 'chrome-extension://onekey-test';
 
 jest.mock('../../appGlobals', () => ({
   __esModule: true,
@@ -18,7 +22,7 @@ jest.mock('../../appGlobals', () => ({
           isLoggedIn: mockUserId !== null,
           onekeyUserId: mockUserId,
         }),
-        apiGetCustomerJWT: async () => ({ token: createToken('intercom-A') }),
+        apiGetCustomerJWT: () => mockApiGetCustomerJWT(),
       },
     },
   },
@@ -46,12 +50,6 @@ jest.mock('./utils', () => ({
   getIntercomLanguageOverride: async () => 'en',
 }));
 
-function createToken(userId: string) {
-  return `header.${Buffer.from(JSON.stringify({ user_id: userId })).toString(
-    'base64url',
-  )}.signature`;
-}
-
 function deferred<T>() {
   let resolve!: (value: T) => void;
   const promise = new Promise<T>((resolver) => {
@@ -75,9 +73,13 @@ describe('fallback support URLs', () => {
       configurable: true,
       value: { open: mockWindowOpen },
     });
+    Object.defineProperty(globalThis, 'location', {
+      configurable: true,
+      value: { origin: EXTENSION_ORIGIN },
+    });
   });
 
-  it('opens WebView home with the token of the user still signed in', async () => {
+  it('opens WebView home bound to the signed-in user with no JWT', async () => {
     const { showIntercom } = await import('./webView.native');
     await showIntercom({ conversationId: 'conversation-1' });
     expect(mockOpenUrlInApp).toHaveBeenCalledTimes(1);
@@ -87,10 +89,12 @@ describe('fallback support URLs', () => {
       redirectExternalNavigation: true,
       intercomUserId: 'A',
     });
-    expect(mockOpenUrlInApp.mock.calls[0][0]).toContain(
-      encodeURIComponent(createToken('intercom-A')),
-    );
-    expect(mockOpenUrlInApp.mock.calls[0][0]).not.toContain('conversationId');
+    const [url] = mockOpenUrlInApp.mock.calls[0];
+    expect(url).toMatch(/^https:\/\/intercom\.onekey\.so\/\?/);
+    expect(url).toMatch(/#bridge=injected-v1$/);
+    expect(url).not.toContain('intercom_user_jwt');
+    expect(url).not.toContain('conversationId');
+    expect(mockApiGetCustomerJWT).not.toHaveBeenCalled();
   });
 
   it('does not open the WebView when the account changes during metadata loading', async () => {
@@ -105,17 +109,34 @@ describe('fallback support URLs', () => {
     expect(mockOpenUrlInApp).not.toHaveBeenCalled();
   });
 
-  it('opens extension support home with the external URL opener', async () => {
+  it('embeds extension support like mobile, with no JWT and no website jump', async () => {
     const { showIntercom } = await import('./index.ext');
     await showIntercom({ conversationId: 'conversation-1' });
-    expect(mockOpenUrlExternal).toHaveBeenCalledTimes(1);
-    expect(mockOpenUrlExternal.mock.calls[0][0]).not.toContain(
-      'conversationId',
+    expect(mockOpenUrlInApp).toHaveBeenCalledTimes(1);
+    const [url, title, options] = mockOpenUrlInApp.mock.calls[0];
+    expect(title).toBe('Support');
+    expect(options).toEqual({
+      hideHeaderRight: true,
+      disableBridge: true,
+      intercomUserId: 'A',
+    });
+    expect(url).toMatch(/^https:\/\/intercom\.onekey\.so\/\?/);
+    expect(url).toContain('language_override=en');
+    expect(url).toMatch(
+      new RegExp(
+        `#bridge=message-channel-v1&parentOrigin=${encodeURIComponent(
+          EXTENSION_ORIGIN,
+        )}$`,
+      ),
     );
+    expect(url).not.toContain('intercom_user_jwt');
+    expect(url).not.toContain('conversationId');
+    expect(mockApiGetCustomerJWT).not.toHaveBeenCalled();
+    expect(mockOpenUrlExternal).not.toHaveBeenCalled();
     expect(mockWindowOpen).not.toHaveBeenCalled();
   });
 
-  it('does not open the extension tab when the account changes during metadata loading', async () => {
+  it('does not open extension support when the account changes during metadata loading', async () => {
     const { showIntercom } = await import('./index.ext');
     const instanceId = deferred<string | undefined>();
     mockInstanceId = instanceId.promise;
@@ -125,6 +146,7 @@ describe('fallback support URLs', () => {
     instanceId.resolve('instance');
     await opening;
     expect(mockWindowOpen).not.toHaveBeenCalled();
+    expect(mockOpenUrlInApp).not.toHaveBeenCalled();
     expect(mockOpenUrlExternal).not.toHaveBeenCalled();
     expect(mockNotifyOpenFailed).toHaveBeenLastCalledWith(
       expect.objectContaining({ message: expect.stringContaining('changed') }),

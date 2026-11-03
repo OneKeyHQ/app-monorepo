@@ -121,12 +121,16 @@ function useDeviceConnection({
   tabValue,
   onDeviceSelect,
   vendor,
+  autoStart = false,
 }: {
   tabValue: EConnectDeviceChannel;
   onDeviceSelect?: (item: IConnectYourDeviceItem) => Promise<void> | void;
   vendor?: EHardwareVendor;
+  autoStart?: boolean;
 }) {
-  const [connectStatus, setConnectStatus] = useState(EConnectionStatus.init);
+  const [connectStatus, setConnectStatus] = useState(
+    autoStart ? EConnectionStatus.searching : EConnectionStatus.init,
+  );
   const [searchedDevices, setSearchedDevices] = useState<SearchDevice[]>([]);
   const [isCheckingDeviceLoading, setIsChecking] = useState(false);
 
@@ -296,13 +300,19 @@ function useDeviceConnection({
       // stopScanning 回调完成，再把已发现的 peripheral 交给连接流程。
       const scanStopped = await ensureStopScan();
       if (!scanStopped) {
+        if (autoStart) setConnectStatus(EConnectionStatus.init);
         return;
       }
       if (onDeviceSelect) {
-        await onDeviceSelect(item);
+        try {
+          await onDeviceSelect(item);
+        } catch (error) {
+          if (autoStart) setConnectStatus(EConnectionStatus.init);
+          throw error;
+        }
       }
     },
-    [ensureStopScan, onDeviceSelect],
+    [autoStart, ensureStopScan, onDeviceSelect],
   );
 
   return useMemo(
@@ -336,12 +346,17 @@ function useDeviceConnection({
 function TroubleShootingButton({
   type: _type,
   variant,
+  hasDevices = false,
 }: {
   type: 'usb' | 'bluetooth';
   variant?: IConnectionIndicatorVariant;
+  hasDevices?: boolean;
 }) {
   const [showHelper, setShowHelper] = useState(false);
   const intl = useIntl();
+  const { gtMd } = useMedia();
+  // In the mobile dialog these sit with its large Connect and footer buttons.
+  const buttonSize = variant === 'dialog' && !gtMd ? 'large' : undefined;
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -351,7 +366,9 @@ function TroubleShootingButton({
     return () => clearTimeout(timer);
   }, [showHelper]);
 
-  if (!showHelper) {
+  // In the dialog the helper is for a scan that finds nothing; once a device
+  // is listed it would only push the Connect button down.
+  if (!showHelper || (variant === 'dialog' && hasDevices)) {
     return null;
   }
   const troubleshootingContent = (
@@ -365,6 +382,7 @@ function TroubleShootingButton({
         <Button
           testID={OnboardingTestIDs.connectYourDeviceTroubleshootingBtn}
           icon="OpenOutline"
+          size={buttonSize}
           onPress={() => {
             openUrlExternal(HARDWARE_TROUBLESHOOTING_URL);
           }}
@@ -374,6 +392,7 @@ function TroubleShootingButton({
         <Button
           testID={OnboardingTestIDs.connectYourDeviceContactUsBtn}
           icon="HelpSupportOutline"
+          size={buttonSize}
           onPress={() => {
             void showIntercom();
           }}
@@ -384,7 +403,12 @@ function TroubleShootingButton({
     </>
   );
   if (variant === 'dialog') {
-    return <YStack gap="$4">{troubleshootingContent}</YStack>;
+    // Spaced off the scan status line above it.
+    return (
+      <YStack gap="$4" pt="$3">
+        {troubleshootingContent}
+      </YStack>
+    );
   }
   return (
     <YStack
@@ -416,11 +440,24 @@ function TroubleShootingButton({
 function BluetoothCard({
   onConnect,
   connectStatus,
+  hasDevices = false,
+  variant,
 }: {
   onConnect?: () => Promise<void>;
   connectStatus?: EConnectionStatus;
+  hasDevices?: boolean;
+  variant?: IConnectionIndicatorVariant;
 }) {
   const intl = useIntl();
+  const { gtMd } = useMedia();
+  // The dialog shows this card only to start a scan; the search state and the
+  // device list carry the rest.
+  if (
+    variant === 'dialog' &&
+    (hasDevices || connectStatus !== EConnectionStatus.init)
+  ) {
+    return null;
+  }
   return (
     <ConnectionIndicator.Card>
       <ConnectionIndicator.Animation>
@@ -472,14 +509,17 @@ function BluetoothCard({
         </ConnectionIndicator.Title>
         {connectStatus === EConnectionStatus.init ? (
           <>
-            <SizableText color="$textSubdued">
-              {intl.formatMessage({
-                id: ETranslations.device_select_device_popup,
-              })}
-            </SizableText>
+            {variant !== 'dialog' ? (
+              <SizableText color="$textSubdued">
+                {intl.formatMessage({
+                  id: ETranslations.device_select_device_popup,
+                })}
+              </SizableText>
+            ) : null}
             <Button
               testID={OnboardingTestIDs.connectYourDeviceBluetoothConnectBtn}
               variant="primary"
+              size={variant === 'dialog' && !gtMd ? 'large' : undefined}
               mt="$2"
               onPress={onConnect}
             >
@@ -564,12 +604,18 @@ function USBOrBLEConnectionIndicator({
   const intl = useIntl();
   const isFocused = useIsFocused();
   const [{ hardwareTransportType }] = useSettingsPersistAtom();
+  // Web WebUSB needs a user gesture to pick a device; elsewhere listing starts
+  // on its own.
+  const canAutoStartListing =
+    hardwareTransportType !== EHardwareTransportType.WEBUSB ||
+    platformEnv.isDesktop;
 
   // Use the shared device connection logic
   const deviceConnection = useDeviceConnection({
     tabValue,
     onDeviceSelect: async (item) => connectDevice(item, tabValue),
     vendor,
+    autoStart: variant === 'dialog' && canAutoStartListing,
   });
 
   const {
@@ -615,12 +661,18 @@ function USBOrBLEConnectionIndicator({
   );
 
   const startBLEConnection = useCallback(async () => {
+    if (variant === 'dialog') setConnectStatus(EConnectionStatus.searching);
     setIsChecking(true);
+    // Back to the start button once a permission or settings prompt closes.
+    const onPromptClose = () => {
+      setIsChecking(false);
+      if (variant === 'dialog') setConnectStatus(EConnectionStatus.init);
+    };
     const isGranted = await checkBLEPermissions();
     if (!isGranted) {
       Dialog.show({
         dialogContainer: RequireBlePermissionDialogRender,
-        onClose: () => setIsChecking(false),
+        onClose: onPromptClose,
       });
       return;
     }
@@ -629,7 +681,7 @@ function USBOrBLEConnectionIndicator({
     if (!checkState) {
       Dialog.show({
         dialogContainer: OpenBleSettingsDialogRender,
-        onClose: async () => setIsChecking(false),
+        onClose: onPromptClose,
       });
       return;
     }
@@ -642,6 +694,8 @@ function USBOrBLEConnectionIndicator({
     checkBLEState,
     listingDevice,
     setIsChecking,
+    setConnectStatus,
+    variant,
   ]);
 
   // web-usb connect
@@ -683,10 +737,7 @@ function USBOrBLEConnectionIndicator({
   }, [onWebDeviceConnected, promptWebUsbDeviceAccess, setIsChecking, tabValue]);
 
   useEffect(() => {
-    if (
-      hardwareTransportType === EHardwareTransportType.WEBUSB &&
-      !platformEnv.isDesktop
-    ) {
+    if (!canAutoStartListing) {
       return;
     }
 
@@ -699,8 +750,8 @@ function USBOrBLEConnectionIndicator({
     );
     return () => clearTimeout(timeoutId);
   }, [
+    canAutoStartListing,
     listingDevice,
-    hardwareTransportType,
     tabValue,
     startBLEConnection,
     vendor,
@@ -729,41 +780,46 @@ function USBOrBLEConnectionIndicator({
           <BluetoothCard
             onConnect={startBLEConnection}
             connectStatus={connectStatus}
+            hasDevices={sortedDevicesData.length > 0}
+            variant={variant}
           />
         ) : (
           <ConnectionIndicator.Card>
             <ConnectionIndicator.Animation>
               <DeviceVideo deviceTypeItems={deviceTypeItems} />
             </ConnectionIndicator.Animation>
-            <ConnectionIndicator.Content gap="$2">
-              <ConnectionIndicator.Title>
-                {intl.formatMessage(
-                  {
-                    id: ETranslations.connect_device_to_computer_via_usb,
-                  },
-                  { deviceLabel },
-                )}
-              </ConnectionIndicator.Title>
-              {connectStatus === EConnectionStatus.init ? (
-                <>
-                  <SizableText color="$textSubdued">
-                    {intl.formatMessage({
-                      id: ETranslations.device_select_device_popup,
-                    })}
-                  </SizableText>
-                  <Button
-                    testID={OnboardingTestIDs.connectYourDeviceUSBConnectBtn}
-                    variant="primary"
-                    mt="$2"
-                    onPress={onConnectWebDevice}
-                  >
-                    {intl.formatMessage({
-                      id: ETranslations.global_start_connection,
-                    })}
-                  </Button>
-                </>
-              ) : null}
-            </ConnectionIndicator.Content>
+            {variant !== 'dialog' ||
+            connectStatus === EConnectionStatus.init ? (
+              <ConnectionIndicator.Content gap="$2">
+                <ConnectionIndicator.Title>
+                  {intl.formatMessage(
+                    {
+                      id: ETranslations.connect_device_to_computer_via_usb,
+                    },
+                    { deviceLabel },
+                  )}
+                </ConnectionIndicator.Title>
+                {connectStatus === EConnectionStatus.init ? (
+                  <>
+                    <SizableText color="$textSubdued">
+                      {intl.formatMessage({
+                        id: ETranslations.device_select_device_popup,
+                      })}
+                    </SizableText>
+                    <Button
+                      testID={OnboardingTestIDs.connectYourDeviceUSBConnectBtn}
+                      variant="primary"
+                      mt="$2"
+                      onPress={onConnectWebDevice}
+                    >
+                      {intl.formatMessage({
+                        id: ETranslations.global_start_connection,
+                      })}
+                    </Button>
+                  </>
+                ) : null}
+              </ConnectionIndicator.Content>
+            ) : null}
           </ConnectionIndicator.Card>
         )}
 
@@ -771,11 +827,25 @@ function USBOrBLEConnectionIndicator({
           <FoundDevicesFooter
             devices={sortedDevicesData}
             isScanning={connectStatus === EConnectionStatus.listing}
+            isPreparing={connectStatus === EConnectionStatus.searching}
+            variant={variant}
+            searchDescription={intl.formatMessage(
+              {
+                id: isBLE
+                  ? ETranslations.onboarding_bluetooth_prepare_to_connect
+                  : ETranslations.connect_device_to_computer_via_usb,
+              },
+              { deviceLabel },
+            )}
             onConnect={handleDeviceSelect}
           />
         </ConnectionIndicator.Footer>
       </ConnectionIndicator>
-      <TroubleShootingButton type="usb" variant={variant} />
+      <TroubleShootingButton
+        type="usb"
+        variant={variant}
+        hasDevices={sortedDevicesData.length > 0}
+      />
     </>
   );
 }
@@ -798,6 +868,7 @@ function BluetoothConnectionIndicator({
     tabValue,
     onDeviceSelect: async (item) => connectDevice(item, tabValue),
     vendor,
+    autoStart: variant === 'dialog',
   });
 
   const {
@@ -871,59 +942,55 @@ function BluetoothConnectionIndicator({
     [handleDeviceSelect, setBluetoothConnecting],
   );
 
-  if (bluetoothStatus === EBluetoothStatus.disabledInApp) {
-    return (
-      <Empty
-        title={intl.formatMessage({ id: ETranslations.bluetooth_disabled })}
-        description={intl.formatMessage({
-          id: ETranslations.bluetooth_enable_in_app_settings,
-        })}
-        buttonProps={{
-          variant: 'primary',
-          children: intl.formatMessage({
-            id: ETranslations.onboarding_enable_bluetooth,
-          }),
-          onPress: handleAppEnableDesktopBluetooth,
-        }}
-      />
-    );
-  }
+  const unavailableStates: Partial<
+    Record<
+      EBluetoothStatus,
+      {
+        title: ETranslations;
+        description: ETranslations;
+        action: ETranslations;
+        onPress: () => unknown;
+      }
+    >
+  > = {
+    [EBluetoothStatus.disabledInApp]: {
+      title: ETranslations.bluetooth_disabled,
+      description: ETranslations.bluetooth_enable_in_app_settings,
+      action: ETranslations.onboarding_enable_bluetooth,
+      onPress: handleAppEnableDesktopBluetooth,
+    },
+    [EBluetoothStatus.noSystemPermission]: {
+      title: ETranslations.onboarding_bluetooth_permission_needed,
+      description: ETranslations.bluetooth_permission_prompt,
+      action: ETranslations.global_go_to_settings,
+      onPress: handleOpenPrivacySettings,
+    },
+    [EBluetoothStatus.disabledInSystem]: {
+      title: ETranslations.bluetooth_disabled,
+      description: ETranslations.bluetooth_enable_in_system_settings,
+      action: ETranslations.onboarding_enable_bluetooth,
+      onPress: handleOpenBleSettings,
+    },
+  };
+  const unavailableState = unavailableStates[bluetoothStatus];
 
-  if (bluetoothStatus === EBluetoothStatus.noSystemPermission) {
+  if (unavailableState) {
     return (
-      <Empty
-        title={intl.formatMessage({
-          id: ETranslations.onboarding_bluetooth_permission_needed,
-        })}
-        description={intl.formatMessage({
-          id: ETranslations.bluetooth_permission_prompt,
-        })}
-        buttonProps={{
-          variant: 'primary',
-          children: intl.formatMessage({
-            id: ETranslations.global_go_to_settings,
-          }),
-          onPress: handleOpenPrivacySettings,
-        }}
-      />
-    );
-  }
-
-  if (bluetoothStatus === EBluetoothStatus.disabledInSystem) {
-    return (
-      <Empty
-        title={intl.formatMessage({ id: ETranslations.bluetooth_disabled })}
-        description={intl.formatMessage({
-          id: ETranslations.bluetooth_enable_in_system_settings,
-        })}
-        buttonProps={{
-          variant: 'primary',
-          children: intl.formatMessage({
-            id: ETranslations.onboarding_enable_bluetooth,
-          }),
-          onPress: handleOpenBleSettings,
-        }}
-      />
+      <>
+        {/* The dialog's Connect footer belongs to the device list. */}
+        {variant === 'dialog' ? <Dialog.Footer showFooter={false} /> : null}
+        <Empty
+          title={intl.formatMessage({ id: unavailableState.title })}
+          description={intl.formatMessage({
+            id: unavailableState.description,
+          })}
+          buttonProps={{
+            variant: 'primary',
+            children: intl.formatMessage({ id: unavailableState.action }),
+            onPress: unavailableState.onPress,
+          }}
+        />
+      </>
     );
   }
 
@@ -933,16 +1000,27 @@ function BluetoothConnectionIndicator({
         <BluetoothCard
           onConnect={listingDevice}
           connectStatus={connectStatus}
+          hasDevices={sortedDevicesData.length > 0}
+          variant={variant}
         />
         <ConnectionIndicator.Footer>
           <FoundDevicesFooter
             devices={sortedDevicesData}
             isScanning={connectStatus === EConnectionStatus.listing}
+            isPreparing={connectStatus === EConnectionStatus.searching}
+            variant={variant}
+            searchDescription={intl.formatMessage({
+              id: ETranslations.bluetooth_keep_near,
+            })}
             onConnect={handleConnectFoundDevice}
           />
         </ConnectionIndicator.Footer>
       </ConnectionIndicator>
-      <TroubleShootingButton type="bluetooth" variant={variant} />
+      <TroubleShootingButton
+        type="bluetooth"
+        variant={variant}
+        hasDevices={sortedDevicesData.length > 0}
+      />
     </>
   );
 }
