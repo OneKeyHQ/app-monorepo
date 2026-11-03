@@ -1476,6 +1476,96 @@ describe('SimpleDbEntityPrime Infini pending payment session', () => {
     });
   });
 
+  test.each(['initial', 'speedUp'] as const)(
+    'rejects a stale %s send claim after remote transfer evidence is persisted',
+    async (mode) => {
+      const { entity, read } = createSessionStore();
+      const saved = await entity.setInfiniPendingPaymentSession({
+        onekeyUserId: 'user-1',
+        session: { ...session, sendStarted: mode === 'speedUp' },
+      });
+      const stalePreflight = { ...saved.payment };
+      await entity.mergeInfiniRemotePaymentTracking({
+        onekeyUserId: 'user-1',
+        payment: { ...saved.payment, hasTransactions: true },
+      });
+      await expect(
+        entity.markInfiniPendingPaymentSessionSendStarted({
+          onekeyUserId: 'user-1',
+          paymentCacheKey: saved.paymentCacheKey,
+          transferClaim,
+          latestPayment: stalePreflight,
+          purchaseStatusSnapshot,
+          mode,
+        }),
+      ).rejects.toThrow('unavailable before broadcast');
+      expect(read().infiniPendingPaymentSessionByUserId?.['user-1']).toEqual(
+        saved,
+      );
+    },
+  );
+
+  test('reads a concurrent remote fence inside the final send-claim transaction', async () => {
+    const { entity, read } = createSessionStore();
+    const saved = await entity.setInfiniPendingPaymentSession({
+      onekeyUserId: 'user-1',
+      session,
+    });
+    const persist = jest.spyOn(entity, 'setRawData');
+    const originalPersist = persist.getMockImplementation();
+    if (!originalPersist) throw new OneKeyLocalError('Missing test store');
+    persist.mockImplementationOnce(async (updater) => {
+      // The remote write commits after admission starts but before its builder
+      // reads the serialized state, as with two extension UIs sharing the DB.
+      await entity.mergeInfiniRemotePaymentTracking({
+        onekeyUserId: 'user-1',
+        payment: { ...saved.payment, hasTransactions: true },
+      });
+      return originalPersist(updater);
+    });
+    await expect(
+      entity.markInfiniPendingPaymentSessionSendStarted({
+        onekeyUserId: 'user-1',
+        paymentCacheKey: saved.paymentCacheKey,
+        transferClaim,
+        latestPayment: saved.payment,
+        purchaseStatusSnapshot,
+      }),
+    ).rejects.toThrow('unavailable before broadcast');
+    expect(
+      read().infiniPendingPaymentSessionByUserId?.['user-1']?.sendStarted,
+    ).toBe(false);
+  });
+
+  test.each(['other-user', 'other-invoice'])(
+    'does not apply the %s remote fence to a different payment claim',
+    async (scope) => {
+      const { entity } = createSessionStore();
+      const saved = await entity.setInfiniPendingPaymentSession({
+        onekeyUserId: 'user-1',
+        session,
+      });
+      await entity.mergeInfiniRemotePaymentTracking({
+        onekeyUserId: scope === 'other-user' ? scope : 'user-1',
+        payment: {
+          ...saved.payment,
+          paymentId:
+            scope === 'other-invoice' ? scope : saved.payment.paymentId,
+          hasTransactions: true,
+        },
+      });
+      await expect(
+        entity.markInfiniPendingPaymentSessionSendStarted({
+          onekeyUserId: 'user-1',
+          paymentCacheKey: saved.paymentCacheKey,
+          transferClaim,
+          latestPayment: saved.payment,
+          purchaseStatusSnapshot,
+        }),
+      ).resolves.toMatchObject({ sendStarted: true });
+    },
+  );
+
   function createNativePaymentSession() {
     const asset = { ...session.asset, token: 'ETH', contractAddress: '' };
     asset.key = getPrimeInfiniPaymentAssetKey(asset);

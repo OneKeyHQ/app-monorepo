@@ -2756,7 +2756,14 @@ export class SimpleDbEntityPrime extends SimpleDbEntityBase<ISimpleDBPrime> {
               latest: latestPayment,
             })
           : latestPayment;
+      // A different UI may have persisted remote transfer evidence after the
+      // preflight query. Check it under this same final send-claim transaction.
+      const remoteTrackingFence =
+        rawData?.infiniRemotePaymentTrackingByUserId?.[onekeyUserId]?.[
+          paymentCacheKey.paymentId
+        ];
       if (
+        remoteTrackingFence ||
         !currentSession ||
         !isCurrentSessionValid ||
         !isSamePrimeInfiniPaymentCacheKey(
