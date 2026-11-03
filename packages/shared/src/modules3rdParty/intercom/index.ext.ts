@@ -10,11 +10,15 @@ import {
   type IIntercomLockPolicy,
   type IShowIntercomParams,
   buildIntercomUrl,
+  createIntercomOpenGuard,
   getInstanceId,
   getIntercomLanguageOverride,
 } from './utils';
 
+const intercomOpenGuard = createIntercomOpenGuard(notifyIntercomOpenFailed);
+
 export const initIntercom = async () => {
+  intercomOpenGuard.setIdentity(await getCurrentIntercomUserId());
   console.log('initIntercom');
 };
 
@@ -33,12 +37,20 @@ export const setIntercomInAppMessageVisibility = async (_visible: boolean) => {
   // The extension does not embed the Messenger in its wallet UI.
 };
 
-const openIntercom = async (params?: IShowIntercomParams) => {
-  const userId = await getCurrentIntercomUserId();
-  const [instanceId, languageOverride] = await Promise.all([
+const openIntercom = async (
+  params: IShowIntercomParams | undefined,
+  expectedUserId: string | null,
+  canPresent: () => boolean,
+): Promise<boolean> => {
+  const [userId, instanceId, languageOverride] = await Promise.all([
+    getCurrentIntercomUserId(),
     getInstanceId(),
     getIntercomLanguageOverride(),
   ]);
+  if (userId !== expectedUserId) {
+    await assertIntercomUserUnchanged(expectedUserId);
+    return false;
+  }
 
   const url = buildIntercomUrl(INTERCOM_SUPPORT_URL, {
     bridge: EIntercomBridge.MessageChannel,
@@ -50,16 +62,23 @@ const openIntercom = async (params?: IShowIntercomParams) => {
 
   // The metadata awaits above can outlive the identity check.
   await assertIntercomUserUnchanged(userId);
+  if (!canPresent()) {
+    return false;
+  }
   openUrlUtils.openUrlInApp(url, 'Support', {
     hideHeaderRight: true,
     disableBridge: true,
     intercomUserId: userId,
   });
+  return true;
 };
 
 export const showIntercom = async (params?: IShowIntercomParams) => {
   try {
-    await openIntercom(params);
+    const userId = await getCurrentIntercomUserId();
+    await intercomOpenGuard.run(userId, params, (canPresent) =>
+      openIntercom(params, userId, canPresent),
+    );
   } catch (error) {
     notifyIntercomOpenFailed(error);
   }

@@ -100,7 +100,10 @@ import {
   buildTradingViewNativeIndicatorSeries,
 } from './utils/chartIndicators';
 import { isTradingViewNativeAnyIndicator } from './utils/chartIndicators/indicatorCatalog';
-import { getTradingViewNativeCurrentPriceLabel } from './utils/chartLayout';
+import {
+  getTradingViewNativeCurrentPriceLabel,
+  getTradingViewNativeDefaultPriceDecimalPlaces,
+} from './utils/chartLayout';
 import {
   resolveTradingViewNativeChartThemeColors,
   resolveTradingViewNativeMainIndicatorThemeColors,
@@ -111,6 +114,7 @@ import {
   resolveTradingViewNativeChartType,
 } from './utils/chartType';
 import {
+  applyTradingViewNativeSubIndicatorDisplayPrecision,
   buildTradingViewNativeSubIndicatorRenderPanes,
   calculateTradingViewNativeSubIndicatorsWithCache,
   createTradingViewNativeSubIndicatorCalculationCache,
@@ -511,7 +515,7 @@ const TradingViewNativeContent = memo(
         visibleSubIndicatorInstances,
       ],
     );
-    const subIndicatorPanes = useMemo(
+    const builtSubIndicatorPanes = useMemo(
       () =>
         buildTradingViewNativeSubIndicatorRenderPanes(
           subIndicatorCalculationEntries,
@@ -555,6 +559,19 @@ const TradingViewNativeContent = memo(
         getDisplayPriceScaleDecimals(latestPrice),
       );
     }, [latestPrice, priceDecimalPlaces, source.kind, sourceCoin]);
+    // Inherited panes follow whatever precision the main axis formats with.
+    const subIndicatorPricePrecision =
+      priceAxisDecimalPlaces ??
+      priceDecimalPlaces ??
+      getTradingViewNativeDefaultPriceDecimalPlaces(latestPrice);
+    const subIndicatorPanes = useMemo(
+      () =>
+        applyTradingViewNativeSubIndicatorDisplayPrecision(
+          builtSubIndicatorPanes,
+          subIndicatorPricePrecision,
+        ),
+      [builtSubIndicatorPanes, subIndicatorPricePrecision],
+    );
     const latestPriceTimestamp = latestPoint?.t;
     const sourceEnvironment =
       source.kind === 'hyperliquid' ? source.environment : undefined;
@@ -565,13 +582,17 @@ const TradingViewNativeContent = memo(
     const sourceSymbol = source.kind === 'market' ? source.symbol : undefined;
     const sourceTokenAddress =
       source.kind === 'market' ? source.tokenAddress : undefined;
+    // Averaged candle closes can carry more decimals than a traded price, so the
+    // latest price uses the same precision as the axis.
+    const currentPriceLabelDecimalPlaces =
+      priceAxisDecimalPlaces ?? priceDecimalPlaces;
     const currentPriceLabel = useMemo(
       () =>
         getTradingViewNativeCurrentPriceLabel(
           primarySeriesPoints,
-          priceDecimalPlaces,
+          currentPriceLabelDecimalPlaces,
         ),
-      [primarySeriesPoints, priceDecimalPlaces],
+      [currentPriceLabelDecimalPlaces, primarySeriesPoints],
     );
     const accountMarks = useTradingViewNativeAccountMarks({
       context: accountMarksContext,
@@ -1058,27 +1079,30 @@ const TradingViewNativeContent = memo(
         isMobileControlsLayout &&
         enableNativeChartSettings &&
         nativeChartSettingsInToolbar ? (
+          // The wrapper stays in fullscreen: without a toolbar control the chart
+          // type and indicator actions would take over the toolbar.
           <XStack alignItems="center" gap="$1" flexShrink={0}>
-            <TradingViewNativeChartSettingsButton
-              storageNamespace={storageNamespace}
-              placement="toolbar"
-              priceAxisWidth={priceAxisWidth}
-              enablePreviousClose={enablePreviousClose}
-              enableNavigationButtons={!isCompactDisplayMode}
-              isChartSwitchDisabled={isChartSwitchDisabled}
-              onChartSwitch={onChartSwitch}
-              onBeforeOpenSettings={handleExitFullscreen}
-            />
+            {isNativeChartFullscreen ? null : (
+              <TradingViewNativeChartSettingsButton
+                storageNamespace={storageNamespace}
+                placement="toolbar"
+                priceAxisWidth={priceAxisWidth}
+                enablePreviousClose={enablePreviousClose}
+                enableNavigationButtons={!isCompactDisplayMode}
+                isChartSwitchDisabled={isChartSwitchDisabled}
+                onChartSwitch={onChartSwitch}
+              />
+            )}
             {mobileToolbarExtra}
           </XStack>
         ) : undefined,
       [
         enableNativeChartSettings,
         enablePreviousClose,
-        handleExitFullscreen,
         isChartSwitchDisabled,
         isCompactDisplayMode,
         isMobileControlsLayout,
+        isNativeChartFullscreen,
         mobileToolbarExtra,
         nativeChartSettingsInToolbar,
         onChartSwitch,

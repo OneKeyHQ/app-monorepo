@@ -7,7 +7,7 @@ import {
 } from '../../chartConstants';
 import { getTradingViewNativeChartLegendRowLayout } from '../chartLegend';
 
-import { formatTradingViewNativeSubIndicatorValue } from './coordinates';
+import { formatTradingViewNativeSubIndicatorReadoutValue } from './coordinates';
 import {
   getTradingViewNativeSubIndicatorPaneLayouts,
   getTradingViewNativeSubIndicatorPaneStackLayout,
@@ -91,7 +91,7 @@ function getTradingViewNativeSubIndicatorLegendLayout({
       },
       ...visibleSeriesEntries.map(({ series, value }) => ({
         label: series.title,
-        value: formatTradingViewNativeSubIndicatorValue(
+        value: formatTradingViewNativeSubIndicatorReadoutValue(
           value,
           paneLayout.pane.format,
         ),

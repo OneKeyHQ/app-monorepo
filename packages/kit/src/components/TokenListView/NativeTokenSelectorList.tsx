@@ -25,6 +25,7 @@ import {
   useSettingsPersistAtom,
   useSettingsValuePersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { isAgg } from '@onekeyhq/kit-bg/src/states/jotai/contexts/tokenList/cellsPure/pure';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
@@ -48,7 +49,14 @@ import type { IAccountToken, ITokenFiat } from '@onekeyhq/shared/types/token';
 import {
   useCreateAccountStateAtom,
   useProcessingTokenStateAtom,
+  useTokenListContextData,
 } from '../../states/jotai/contexts/tokenList';
+import {
+  aggCell,
+  cell,
+  meta,
+  subcell,
+} from '../../states/jotai/contexts/tokenList/cells/projection';
 import { useAggregateSubTokenFiatMap } from '../../states/jotai/contexts/tokenList/cells/useAggregateSubTokenFiatMap';
 import { useTokenFiat } from '../../states/jotai/contexts/tokenList/cells/useTokenFiat';
 import { convertFiat } from '../../utils/fiatConvert';
@@ -60,6 +68,7 @@ import { resolveMapTokenFiat } from './resolveMapTokenFiat';
 import TokenActionsView from './TokenActionsView';
 import { getTokenRowIconSize } from './tokenListRowLayoutShared';
 
+import type { IJotaiContextStore } from '../../states/jotai/utils/createJotaiContext';
 import type {
   DataRow,
   IdentityRow,
@@ -78,6 +87,31 @@ type IHomeCellValue = {
   memberFiatMap: Record<string, ITokenFiat>;
 };
 const EMPTY_HOME_CELL_VALUES: Record<string, IHomeCellValue> = {};
+
+// Synchronous, non-reactive read of a row's cells (same resolution as
+// `useTokenFiat` / `useAggregateSubTokenFiatMap`). The mirrors below report
+// cell values through a layout effect, so the snapshot built in the same
+// render as a row's first mount would otherwise carry no fiat for it: the
+// native list then shows `--` until the follow-up render, which an
+// all-networks load can hold off for seconds (OK-66042).
+function readHomeCellValue(
+  store: IJotaiContextStore,
+  key: string,
+  members: IAccountToken[] | undefined,
+): IHomeCellValue {
+  const aggregate = isAgg(key, store.get(meta(store, key)));
+  const fiat = store.get(aggregate ? aggCell(store, key) : cell(store, key));
+  const memberFiatMap: Record<string, ITokenFiat> = {};
+  if (aggregate && members?.length) {
+    for (const member of members) {
+      const memberFiat = store.get(subcell(store, key, member.networkId ?? ''));
+      if (memberFiat) {
+        memberFiatMap[member.$key] = memberFiat;
+      }
+    }
+  }
+  return { fiat, memberFiatMap };
+}
 const EMPTY_SWAP_DISABLED: Record<string, boolean> = {};
 
 function HomeTokenCellMirror({
@@ -232,6 +266,7 @@ export function NativeTokenSelectorList({
   const [{ currencyMap }] = useCurrencyPersistAtom();
   const [createAccountState] = useCreateAccountStateAtom();
   const [processingTokenState] = useProcessingTokenStateAtom();
+  const { store: homeCellStore } = useTokenListContextData();
   const hostAnchorRef = useRef<HTMLElement | null>(null);
   const listRef = useRef<NativeListRef>(null);
   const activeTooltipToken = useRef<string | undefined>(undefined);
@@ -443,8 +478,16 @@ export function NativeTokenSelectorList({
             !homeCellSeam && members?.length
               ? members.map((member) => tokenListMap?.[member.$key])
               : undefined;
+          // A row whose mirror has not reported yet (first mount) reads its
+          // cells directly so the first snapshot already carries its fiat.
+          const homeCellValue = homeCellSeam
+            ? (homeCellValues[key] ??
+              (homeCellStore
+                ? readHomeCellValue(homeCellStore, key, members)
+                : undefined))
+            : undefined;
           const fiat = homeCellSeam
-            ? homeCellValues[key]?.fiat
+            ? homeCellValue?.fiat
             : resolveMapTokenFiat({
                 $key: key,
                 networkId: token.networkId,
@@ -475,7 +518,7 @@ export function NativeTokenSelectorList({
             const resolvedMembers = members ?? [];
             const resolvedAllMembers = allMembers ?? [];
             const memberFiatMap = homeCellSeam
-              ? (homeCellValues[key]?.memberFiatMap ?? {})
+              ? (homeCellValue?.memberFiatMap ?? {})
               : Object.fromEntries(
                   resolvedMembers.flatMap((member) => {
                     const memberFiat = tokenListMap?.[member.$key];
@@ -943,6 +986,7 @@ export function NativeTokenSelectorList({
     tokenItemTestIDPrefix,
     homeCellSeam,
     homeCellValues,
+    homeCellStore,
     rowKeys,
     tableLayout,
     withPrice,

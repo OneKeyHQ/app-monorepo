@@ -83,6 +83,7 @@ export type IHardwareUiPayload = {
     totalBytes?: number;
     rateBytesPerSecond?: number;
     elapsedMs?: number;
+    retryCount?: number;
   };
   rawPayload: any;
   // request pin type

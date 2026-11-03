@@ -36,9 +36,11 @@ import type { SimpleDbEntityEarn } from '../entity/SimpleDbEntityEarn';
 import type { SimpleDbEntityEarnExtra } from '../entity/SimpleDbEntityEarnExtra';
 import type { SimpleDbEntityEarnOrders } from '../entity/SimpleDbEntityEarnOrders';
 import type { SimpleDbEntityFeeInfo } from '../entity/SimpleDbEntityFeeInfo';
+import type { SimpleDbEntityFirmwareArtifactCache } from '../entity/SimpleDbEntityFirmwareArtifactCache';
 import type { SimpleDbEntityFloatingIconDomainBlockList } from '../entity/SimpleDbEntityFloatingIconDomainBlockList';
 import type { SimpleDbEntityFloatingIconSettings } from '../entity/SimpleDbEntityFloatingIconSettings';
 import type { SimpleDbEntityHardwarePortfolioSync } from '../entity/SimpleDbEntityHardwarePortfolioSync';
+import type { SimpleDbEntityHardwareTelemetry } from '../entity/SimpleDbEntityHardwareTelemetry';
 import type { SimpleDbEntityHeadlessBuyOrders } from '../entity/SimpleDbEntityHeadlessBuyOrders';
 import type { SimpleDbEntityIpTable } from '../entity/SimpleDbEntityIpTable';
 import type { SimpleDbEntityLegacyWalletNames } from '../entity/SimpleDbEntityLegacyWalletNames';
@@ -288,6 +290,14 @@ export class SimpleDbProxy
   hardwarePortfolioSync = this._createProxyService(
     'hardwarePortfolioSync',
   ) as SimpleDbEntityHardwarePortfolioSync;
+
+  hardwareTelemetry = this._createProxyService(
+    'hardwareTelemetry',
+  ) as SimpleDbEntityHardwareTelemetry;
+
+  firmwareArtifactCache = this._createProxyService(
+    'firmwareArtifactCache',
+  ) as SimpleDbEntityFirmwareArtifactCache;
 
   appStatus = this._createProxyService('appStatus') as SimpleDbEntityAppStatus;
 

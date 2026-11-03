@@ -354,7 +354,7 @@ function MarketBannerDetailContent({ title }: { title: string }) {
     });
     // Narrow layouts use the mobile home lists' rows: the desktop table's
     // intrinsic width would overflow the viewport.
-    if (!gtMd) {
+    if (platformEnv.isNative || !gtMd) {
       if (isStock) {
         return (
           <BannerDetailStockFlatList

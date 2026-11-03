@@ -98,6 +98,7 @@ import {
   resolvePersistentConnectIdCapability,
 } from '@onekeyhq/shared/src/hardware/config/vendorProfile';
 import {
+  getDeviceStateIdentityRecoveryKeys,
   getDeviceStateSettingsRecoveryKeys,
   hasAuthoritativeDeviceInfoVersionChange,
   hasDeviceStateIdentityMismatch,
@@ -6050,6 +6051,12 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
               incomingState: state,
               source,
             }).length > 0;
+          const hasEqualMetadataIdentityRecovery =
+            getDeviceStateIdentityRecoveryKeys({
+              currentState,
+              incomingState: state,
+              source,
+            }).length > 0;
           const isStaleSdkEvent = Boolean(
             hasSdkEventOrder &&
             currentEventOrder &&
@@ -6065,7 +6072,8 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
                 (state.revision < currentState.revision ||
                   (state.revision === currentState.revision &&
                     !hasEqualMetadataVersionChange &&
-                    !hasEqualMetadataSettingsRecovery)))),
+                    !hasEqualMetadataSettingsRecovery &&
+                    !hasEqualMetadataIdentityRecovery)))),
           );
           if (isStaleSdkEvent || isStaleLegacyEvent) {
             return item;

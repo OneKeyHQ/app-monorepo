@@ -1104,6 +1104,18 @@ describe('KeyringHardwareKeystone.signMessage', () => {
     );
   });
 
+  it('rejects a non-string message before the vendor SDK can coerce it', async () => {
+    const { keyring, btcSignMessage } = buildKeyring(signatureFor(accountPath));
+    await expect(
+      keyring.signMessage({
+        ...params,
+        // A wrapped string checks as other bytes than an SDK may sign.
+        messages: [{ message: ['hello'], type: 'ecdsa' }],
+      } as never),
+    ).rejects.toThrow('Bitcoin message must be a string');
+    expect(btcSignMessage).not.toHaveBeenCalled();
+  });
+
   it('preserves legacy ECDSA message signing from a Taproot account path', async () => {
     const path = "m/86'/0'/0'";
     const signature = signatureFor(`${path}/0/0`);

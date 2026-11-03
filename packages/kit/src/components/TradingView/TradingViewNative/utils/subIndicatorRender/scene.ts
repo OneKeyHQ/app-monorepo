@@ -8,6 +8,7 @@ import {
 import { getTradingViewNativePriceAtProgress } from '../priceScale';
 
 import {
+  formatTradingViewNativeSubIndicatorReadoutValue,
   formatTradingViewNativeSubIndicatorValue,
   getTradingViewNativeSubIndicatorValueAtY,
   getTradingViewNativeSubIndicatorY,
@@ -903,5 +904,8 @@ export function getTradingViewNativeSubIndicatorCrosshairValueText({
   });
   return value === null
     ? null
-    : formatTradingViewNativeSubIndicatorValue(value, layout.pane.format);
+    : formatTradingViewNativeSubIndicatorReadoutValue(
+        value,
+        layout.pane.format,
+      );
 }

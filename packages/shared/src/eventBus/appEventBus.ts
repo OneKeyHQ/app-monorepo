@@ -119,6 +119,7 @@ export type IEventBusPayloadShowToast = {
   i18nInfo?: IOneKeyErrorI18nInfo;
   requestId?: string;
   diagnosticText?: string;
+  nativeStorageRecoveryTestSessionId?: string;
 };
 
 export type ILinuxUdevGuideReason =
@@ -171,6 +172,13 @@ export interface IAppEventBusPayload {
   };
   [EAppEventBusNames.ShowDialogLoading]: IDialogLoadingProps;
   [EAppEventBusNames.HideDialogLoading]: undefined;
+  // The device is asking for confirmation `current` of `total`.
+  [EAppEventBusNames.HardwareCloudKeySignProgress]: {
+    current: number;
+    total: number;
+  };
+  // Another device reset the key or signed this one out; it must sign again.
+  [EAppEventBusNames.HardwareCloudKeyDropped]: undefined;
   [EAppEventBusNames.WalletClear]: undefined;
   [EAppEventBusNames.WalletUpdate]: undefined;
   [EAppEventBusNames.SwapApprovingSuccess]: {

@@ -2,6 +2,10 @@ import { IInjectedProviderNames } from '@onekeyfe/cross-inpage-provider-types';
 import { EDeviceType, HardwareErrorCode } from '@onekeyfe/hd-shared';
 
 import {
+  HARDWARE_CLOUD_SYNC_PATH,
+  buildHardwareCloudSyncMessage,
+} from '@onekeyhq/shared/src/consts/hardwareCloudSyncConsts';
+import {
   UnknownMethod,
   UserCancel,
 } from '@onekeyhq/shared/src/errors/errors/hardwareErrors';
@@ -308,5 +312,38 @@ describe('BTC deriveContextHash hardware integration', () => {
     expect(
       h.backgroundApi.serviceDApp.stageDeriveContextHashRequest,
     ).not.toHaveBeenCalled();
+  });
+
+  it('does not confuse a domain-separated context derivation with BTC message signing', async () => {
+    const h = createHarness();
+    const nonce = await h.service.stageDeriveContextHashRequest({
+      accountId: h.accountId,
+      networkId: 'btc--0',
+      walletId: 'hw-test',
+      address: 'test-address',
+      appName: 'onekey-cloud-key-v1',
+      context: Buffer.from(
+        buildHardwareCloudSyncMessage(
+          '0123456789abcdef',
+          '0123456789abcdef0123456789abcdef',
+        ),
+      ).toString('hex'),
+    });
+    expect(await h.service.peekDeriveContextHashRequest(nonce)).toMatchObject({
+      appName: 'onekey-cloud-key-v1',
+    });
+    expect(h.openModal).not.toHaveBeenCalled();
+    expect(h.btcDeriveContextHash).not.toHaveBeenCalled();
+  });
+
+  it('retains ordinary context derivation for a BTC Legacy account at index 100', async () => {
+    const h = createHarness();
+    await h.provider.deriveContextHash(REQUEST, PARAMS);
+    const { nonce } = h.openModal.mock.calls[0][0];
+    h.account.path = HARDWARE_CLOUD_SYNC_PATH;
+    await expect(h.service.executeDeriveContextHash({ nonce })).resolves.toBe(
+      SECRET,
+    );
+    expect(h.btcDeriveContextHash).toHaveBeenCalledTimes(1);
   });
 });
