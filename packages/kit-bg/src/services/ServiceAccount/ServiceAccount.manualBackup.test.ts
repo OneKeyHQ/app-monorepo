@@ -10,6 +10,8 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import appStorage from '@onekeyhq/shared/src/storage/appStorage';
+import { isNativeAppStorageEmergencyModeActive } from '@onekeyhq/shared/src/storage/nativeStorageExecutor';
+import { invalidateNativeStorageRecoverySessions } from '@onekeyhq/shared/src/storage/nativeStorageRecoveryInvalidation';
 import { createNativeStorageMigrationInconsistentErrorMessage } from '@onekeyhq/shared/src/storage/nativeStorageTypes';
 import { travelModeManager } from '@onekeyhq/shared/src/travelMode';
 import { EHardwareCallContext } from '@onekeyhq/shared/types/device';
@@ -160,6 +162,7 @@ describe('isolated manual mnemonic recovery', () => {
   beforeEach(() => {
     jest.useFakeTimers();
     jest.clearAllMocks();
+    jest.mocked(isNativeAppStorageEmergencyModeActive).mockReturnValue(false);
     jest.replaceProperty(platformEnv, 'isNative', true);
     jest
       .spyOn(appStorage, 'getItem')
@@ -231,7 +234,7 @@ describe('isolated manual mnemonic recovery', () => {
       await import('@onekeyhq/shared/src/storage/nativeStorageExecutor');
     jest
       .mocked(owner.isNativeAppStorageEmergencyModeActive)
-      .mockReturnValueOnce(true);
+      .mockReturnValue(true);
     jest.mocked(appStorage.getItem).mockResolvedValue(null);
     const {
       service,
@@ -272,7 +275,7 @@ describe('isolated manual mnemonic recovery', () => {
     ).resolves.toEqual({ mnemonic: 'encoded-test-result' });
     expect(passwordPersistAtom.get).not.toHaveBeenCalled();
     expect(appIsLocked.get).not.toHaveBeenCalled();
-    expect(appStorage.getItem).toHaveBeenCalledTimes(1);
+    expect(appStorage.getItem).toHaveBeenCalledTimes(4);
     expect(getAtomStates).toHaveBeenCalledWith();
   });
 
@@ -290,6 +293,137 @@ describe('isolated manual mnemonic recovery', () => {
     expect(getAtomStates).toHaveBeenCalledWith();
     expect(localDb.getCredentialRaw).not.toHaveBeenCalled();
     expect(localDb.getWallet).not.toHaveBeenCalled();
+  });
+
+  it.each(['before password', 'after password', 'before output'])(
+    'revokes a recovery session when storage becomes healthy %s',
+    async (stage) => {
+      const {
+        service,
+        verifyPasswordForManualMnemonicRecovery,
+        encodeSensitiveText,
+      } = createService();
+      const info = await service.getManualMnemonicRecoveryInfo({
+        walletId: 'hd-1',
+      });
+      const request = {
+        sessionId: info!.sessionId,
+        password: 'encoded-test-password',
+      };
+      const recoverStorage = () =>
+        jest.mocked(appStorage.getItem).mockResolvedValue(null);
+      if (stage === 'before password') recoverStorage();
+      if (stage === 'after password') {
+        verifyPasswordForManualMnemonicRecovery.mockImplementation(async () => {
+          recoverStorage();
+          return 'encoded-test-password';
+        });
+      }
+      if (stage === 'before output') {
+        encodeSensitiveText.mockImplementation(async () => {
+          recoverStorage();
+          return 'encoded-test-result';
+        });
+      }
+      await expect(service.getManualRecoveryMnemonic(request)).rejects.toThrow(
+        'no longer',
+      );
+      if (stage === 'before password') {
+        expect(verifyPasswordForManualMnemonicRecovery).not.toHaveBeenCalled();
+      }
+      if (stage !== 'before output') {
+        expect(localDb.getCredentialInner).not.toHaveBeenCalled();
+        expect(mnemonicFromEntropy).not.toHaveBeenCalled();
+      }
+      // A later fault must require a new admission, not revive a revoked session.
+      jest
+        .mocked(appStorage.getItem)
+        .mockRejectedValue(
+          new OneKeyLocalError(
+            createNativeStorageMigrationInconsistentErrorMessage('appStorage'),
+          ),
+        );
+      await expect(service.getManualRecoveryMnemonic(request)).rejects.toThrow(
+        'expired',
+      );
+    },
+  );
+
+  it.each(['canonical snapshot', 'emergency fence'])(
+    'revokes admission when the background %s recovers',
+    async (source) => {
+      const {
+        service,
+        getAtomStates,
+        verifyPasswordForManualMnemonicRecovery,
+      } = createService();
+      jest.mocked(appStorage.getItem).mockResolvedValue(null);
+      const owner =
+        await import('@onekeyhq/shared/src/storage/nativeStorageExecutor');
+      jest.replaceProperty(platformEnv, 'isNativeBackgroundThread', true);
+      jest
+        .mocked(owner.isNativeAppStorageEmergencyModeActive)
+        .mockReturnValue(source === 'emergency fence');
+      if (source === 'canonical snapshot')
+        getAtomStates.mockRejectedValue(
+          new Error('Canonical Jotai read failed'),
+        );
+      const info = await service.getManualMnemonicRecoveryInfo({
+        walletId: 'hd-1',
+      });
+      getAtomStates.mockResolvedValue({ states: {} });
+      jest
+        .mocked(owner.isNativeAppStorageEmergencyModeActive)
+        .mockReturnValue(false);
+      await expect(
+        service.getManualRecoveryMnemonic({
+          sessionId: info!.sessionId,
+          password: 'encoded-test-password',
+        }),
+      ).rejects.toThrow('no longer');
+      expect(verifyPasswordForManualMnemonicRecovery).not.toHaveBeenCalled();
+      expect(mnemonicFromEntropy).not.toHaveBeenCalled();
+    },
+  );
+
+  it('revokes the session at an owner recovery mutation even if a fault recurs', async () => {
+    const { service, verifyPasswordForManualMnemonicRecovery } =
+      createService();
+    const info = await service.getManualMnemonicRecoveryInfo({
+      walletId: 'hd-1',
+    });
+    invalidateNativeStorageRecoverySessions();
+    await expect(
+      service.getManualRecoveryMnemonic({
+        sessionId: info!.sessionId,
+        password: 'encoded-test-password',
+      }),
+    ).rejects.toThrow('expired');
+    expect(verifyPasswordForManualMnemonicRecovery).not.toHaveBeenCalled();
+    expect(mnemonicFromEntropy).not.toHaveBeenCalled();
+  });
+
+  it('revokes the session when a new fault probe cannot establish recovery eligibility', async () => {
+    const { service, verifyPasswordForManualMnemonicRecovery } =
+      createService();
+    const info = await service.getManualMnemonicRecoveryInfo({
+      walletId: 'hd-1',
+    });
+    const request = {
+      sessionId: info!.sessionId,
+      password: 'encoded-test-password',
+    };
+    jest
+      .mocked(appStorage.getItem)
+      .mockRejectedValueOnce(new Error('Unexpected read failure'));
+    await expect(service.getManualRecoveryMnemonic(request)).rejects.toThrow(
+      'Unexpected read failure',
+    );
+    await expect(service.getManualRecoveryMnemonic(request)).rejects.toThrow(
+      'expired',
+    );
+    expect(verifyPasswordForManualMnemonicRecovery).not.toHaveBeenCalled();
+    expect(mnemonicFromEntropy).not.toHaveBeenCalled();
   });
 
   it.each(['cold owner', 'atom read'])(
@@ -584,10 +718,15 @@ describe('isolated manual mnemonic recovery', () => {
     const { service, verifyPasswordForManualMnemonicRecovery } =
       createService();
     let release!: (value: string) => void;
+    let verificationStarted!: () => void;
+    const started = new Promise<void>((resolve) => {
+      verificationStarted = resolve;
+    });
     verifyPasswordForManualMnemonicRecovery.mockImplementation(
       () =>
         new Promise<string>((resolve) => {
           release = resolve;
+          verificationStarted();
         }),
     );
     const info = await service.getManualMnemonicRecoveryInfo({
@@ -598,7 +737,7 @@ describe('isolated manual mnemonic recovery', () => {
       password: 'encoded-test-password',
     };
     const first = service.getManualRecoveryMnemonic(request);
-    for (let i = 0; i < 12; i += 1) await Promise.resolve();
+    await started;
     expect(verifyPasswordForManualMnemonicRecovery).toHaveBeenCalledTimes(1);
     await expect(service.getManualRecoveryMnemonic(request)).rejects.toThrow(
       'in progress',

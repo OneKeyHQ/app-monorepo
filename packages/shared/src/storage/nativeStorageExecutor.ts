@@ -19,6 +19,7 @@ import {
   setNativeStorageMigrationLedgerComplete,
   syncNativeStorageMMKV,
 } from './nativeStorageMigrationModule';
+import { invalidateNativeStorageRecoverySessions } from './nativeStorageRecoveryInvalidation';
 import {
   NATIVE_STORAGE_REAL_MARKER_TEST_CONFIRMATION,
   NATIVE_STORAGE_RECOVERY_TEST_LEGACY_KEY_PREFIX,
@@ -78,6 +79,8 @@ const APP_STORAGE_REPAIR_REPORT_KEY =
   '__onekey_internal_app_storage_repair_report_v1__';
 const APP_STORAGE_REPAIR_PROBE_KEY =
   '__onekey_internal_app_storage_repair_probe_v1__';
+const APP_STORAGE_REPAIR_TRANSACTION_KEY =
+  '__onekey_internal_app_storage_repair_transaction_v1__';
 const APP_STORAGE_REPAIR_JOURNAL_BACKUP_PREFIX =
   '__onekey_internal_app_storage_repair_journal_backup_v1__:';
 const APP_STORAGE_JOURNAL_TRIM_THRESHOLD_CHARS = 1024 * 1024;
@@ -238,6 +241,7 @@ export function isNativeAppStorageEmergencyModeActive() {
 }
 
 async function ensureNativeAppStorageUsable() {
+  await recoverPendingAppStorageRepair();
   if (hasEmergencyControl()) {
     const status = await (
       await getEmergencyController()
@@ -269,14 +273,133 @@ export type INativeAppStorageRepairDependencies = {
 
 type IAppStorageRepairContext = INativeAppStorageRepairDependencies & {
   sequence: number;
+  pendingTransaction?: string;
   // Only the storage owner retains keys and checksums; UI receives counts.
   pending?: {
     summary: INativeAppStorageRepairSummary;
     verifiedKeys: Map<string, string>;
     failedKeys: Map<string, string | undefined>;
     markerWasComplete: boolean;
+    currentKeys: Set<string>;
+    recoveredValues: Map<string, string>;
+    journal: string | undefined;
+    pendingRecovery: string | undefined;
   };
 };
+
+type IAppStorageRepairTransaction = {
+  version: 1;
+  repairId: string;
+  phase: 'applying' | 'committed';
+  previousValues: Array<[string, INativeStorageScalar | null]>;
+};
+
+const APP_STORAGE_REPAIR_METADATA_KEYS = [
+  APP_STORAGE_MIGRATION_COMPLETE_KEY,
+  APP_STORAGE_REPAIR_REPORT_KEY,
+  APP_STORAGE_LEGACY_RETENTION_POLICY_KEY,
+  APP_STORAGE_LEGACY_CLEANUP_COMPLETE_KEY,
+  APP_STORAGE_TRANSACTION_JOURNAL_KEY,
+  APP_STORAGE_REPAIR_PROBE_KEY,
+];
+
+function readAppStorageRepairScalar(
+  mmkv: IMMKVInstance,
+  key: string,
+  existingKeys: Set<string>,
+) {
+  if (!existingKeys.has(key)) return null;
+  const value =
+    mmkv.getString(key) ?? mmkv.getNumber(key) ?? mmkv.getBoolean(key);
+  if (value === undefined)
+    throw new OneKeyLocalError(
+      'Storage repair cannot preserve an unreadable record',
+    );
+  return value;
+}
+
+function parseAppStorageRepairTransaction(raw: string) {
+  const value: unknown = JSON.parse(raw);
+  if (!isPlainObject(value))
+    throw new OneKeyLocalError('Storage repair transaction is invalid');
+  const transaction = value as Partial<IAppStorageRepairTransaction>;
+  if (
+    transaction.version !== 1 ||
+    typeof transaction.repairId !== 'string' ||
+    !/^\d{1,16}-\d+$/.test(transaction.repairId) ||
+    !['applying', 'committed'].includes(transaction.phase ?? '') ||
+    !Array.isArray(transaction.previousValues)
+  )
+    throw new OneKeyLocalError('Storage repair transaction is invalid');
+  const keys = new Set<string>();
+  for (const entry of transaction.previousValues) {
+    if (
+      !Array.isArray(entry) ||
+      entry.length !== 2 ||
+      typeof entry[0] !== 'string' ||
+      (!entry[0].startsWith(APP_STORAGE_KEY_PREFIX) &&
+        !APP_STORAGE_REPAIR_METADATA_KEYS.includes(entry[0])) ||
+      keys.has(entry[0]) ||
+      (entry[1] !== null &&
+        typeof entry[1] !== 'string' &&
+        typeof entry[1] !== 'boolean' &&
+        !(typeof entry[1] === 'number' && Number.isFinite(entry[1])))
+    )
+      throw new OneKeyLocalError('Storage repair transaction is invalid');
+    keys.add(entry[0]);
+  }
+  if (APP_STORAGE_REPAIR_METADATA_KEYS.some((key) => !keys.has(key)))
+    throw new OneKeyLocalError(
+      'Storage repair transaction metadata is incomplete',
+    );
+  return transaction as IAppStorageRepairTransaction;
+}
+
+async function recoverAppStorageRepairTransaction(
+  context: IAppStorageRepairContext,
+) {
+  const mmkv = context.getMMKV();
+  const raw =
+    context.pendingTransaction ??
+    mmkv.getString(APP_STORAGE_REPAIR_TRANSACTION_KEY);
+  if (raw === undefined) {
+    if (
+      mmkv.getNumber(APP_STORAGE_REPAIR_TRANSACTION_KEY) !== undefined ||
+      mmkv.getBoolean(APP_STORAGE_REPAIR_TRANSACTION_KEY) !== undefined
+    )
+      throw new OneKeyLocalError('Storage repair transaction is unreadable');
+    return;
+  }
+  const transaction = parseAppStorageRepairTransaction(raw);
+  context.pendingTransaction = raw;
+  // Re-establish the owner's last acknowledged intent before any rollback.
+  // A failed sync may have changed the mmap to committed or removed the key.
+  mmkv.set(APP_STORAGE_REPAIR_TRANSACTION_KEY, raw);
+  await context.sync();
+  if (mmkv.getString(APP_STORAGE_REPAIR_TRANSACTION_KEY) !== raw)
+    throw new OneKeyLocalError('Storage repair transaction persistence failed');
+  if (transaction.phase === 'applying') {
+    for (const [key, previous] of transaction.previousValues) {
+      if (previous === null) mmkv.remove(key);
+      else mmkv.set(key, previous);
+    }
+    await context.sync();
+    const restoredKeys = new Set(mmkv.getAllKeys());
+    for (const [key, previous] of transaction.previousValues) {
+      if (readAppStorageRepairScalar(mmkv, key, restoredKeys) !== previous)
+        throw new OneKeyLocalError(
+          'Storage repair rollback verification failed',
+        );
+    }
+  }
+  mmkv.remove(APP_STORAGE_REPAIR_TRANSACTION_KEY);
+  await context.sync();
+  if (mmkv.getAllKeys().includes(APP_STORAGE_REPAIR_TRANSACTION_KEY))
+    throw new OneKeyLocalError('Storage repair transaction cleanup failed');
+  context.pendingTransaction = undefined;
+  context.pending = undefined;
+  context.onComplete();
+}
 let recoveryActionPromise: Promise<void> | undefined;
 let asyncStorageRequestChain: Promise<void> = Promise.resolve();
 // Main drains one request at a time per store, so only the latest acknowledgement
@@ -1213,7 +1336,8 @@ export function ensureNativeAppStorageMigrated() {
   assertBackgroundRuntime();
   const environment = travelModeManager.getRuntimeEnvironmentSync();
   return environment.persistence.run({
-    operation: () => {
+    operation: async () => {
+      await recoverPendingAppStorageRepair();
       if (appStorageRepairActive) {
         throw new OneKeyLocalError(
           createNativeStorageMigrationInconsistentErrorMessage('appStorage'),
@@ -1235,6 +1359,10 @@ export function ensureNativeAppStorageMigrated() {
 }
 
 async function resetAppStorageAfterMigrationMismatch() {
+  emergencyGuard()();
+  invalidateNativeStorageRecoverySessions();
+  await recoverPendingAppStorageRepair();
+  await discardPreparedAppStorageRepair();
   if (hasEmergencyControl())
     throw new OneKeyLocalError(
       'Emergency data requires an explicit future snapshot-selection flow',
@@ -1288,8 +1416,19 @@ async function prepareAppStorageRepairWithContext(
   }
   let scanComplete = true;
   const mmkv = context.getMMKV();
+  let journal: string | undefined;
+  const pendingRecovery = context.getPendingRecovery?.();
   try {
-    await context.recoverJournal(mmkv);
+    journal = mmkv.getString(APP_STORAGE_TRANSACTION_JOURNAL_KEY);
+    if (
+      journal !== undefined ||
+      pendingRecovery !== undefined ||
+      mmkv.getAllKeys().includes(APP_STORAGE_TRANSACTION_JOURNAL_KEY)
+    ) {
+      // Preview must preserve the exact current snapshot. Choosing it over an
+      // unfinished transaction requires explicit emergency continuation.
+      scanComplete = false;
+    }
   } catch {
     scanComplete = false;
     context.log('repair stage=journal result=failed');
@@ -1329,6 +1468,7 @@ async function prepareAppStorageRepairWithContext(
   }
   const candidates = new Set([...currentKeys, ...(enumeration?.keys ?? [])]);
   const verifiedKeys = new Map<string, string>();
+  const recoveredValues = new Map<string, string>();
   const failedKeys = new Map<string, string | undefined>();
   // Transient checksums detect changed records without retaining a second
   // copy of every value in bg. They are never logged or sent to main.
@@ -1348,6 +1488,8 @@ async function prepareAppStorageRepairWithContext(
         verifiedKeys.set(key, checksum(current));
         preservedCount += 1;
         succeeded = true;
+      } else if (currentKeys.has(key)) {
+        currentReadFailed = true;
       }
     } catch {
       // Preserve an unreadable current value until explicit confirmation.
@@ -1365,17 +1507,10 @@ async function prepareAppStorageRepairWithContext(
         absentProbe = true;
       }
       if (read?.value !== null && read?.value !== undefined) {
-        succeeded = await writeAppStorageKeyWithRetry({
-          index,
-          key,
-          mmkv,
-          value: read.value,
-          log: context.log,
-        });
-        if (succeeded) {
-          verifiedKeys.set(key, checksum(read.value));
-          recoveredCount += 1;
-        }
+        recoveredValues.set(key, read.value);
+        verifiedKeys.set(key, checksum(read.value));
+        recoveredCount += 1;
+        succeeded = true;
       }
     }
     if (!succeeded && !absentProbe) {
@@ -1410,6 +1545,10 @@ async function prepareAppStorageRepairWithContext(
     verifiedKeys,
     failedKeys,
     markerWasComplete: !needsLegacyRecovery,
+    currentKeys,
+    recoveredValues,
+    journal,
+    pendingRecovery,
   };
   context.log(
     `repair phase=prepared successful=${summary.successfulCount} failed=${failedCount} scanComplete=${scanComplete} legacyBackup=retained awaitingConfirmation=true`,
@@ -1511,13 +1650,47 @@ async function completeAppStorageRepairWithContext(
       }
     }
   };
-  let markerWasComplete = pending.markerWasComplete;
-  let removedFailedRecords = false;
   try {
+    if (
+      (await context.getLedger()) !==
+        NATIVE_STORAGE_MIGRATION_LEDGER_COMPLETE ||
+      (mmkv.getString(APP_STORAGE_MIGRATION_COMPLETE_KEY) === '1') !==
+        pending.markerWasComplete
+    )
+      throw new OneKeyLocalError(
+        'Storage repair results changed. Please run repair again.',
+      );
+    const currentKeys = mmkv
+      .getAllKeys()
+      .filter((key) => key.startsWith(APP_STORAGE_KEY_PREFIX));
+    if (
+      currentKeys.length !== pending.currentKeys.size ||
+      currentKeys.some(
+        (key) => !pending.currentKeys.has(decodeAppStorageKey(key)),
+      ) ||
+      mmkv.getString(APP_STORAGE_TRANSACTION_JOURNAL_KEY) !== pending.journal ||
+      context.getPendingRecovery?.() !== pending.pendingRecovery
+    ) {
+      throw new OneKeyLocalError(
+        'Storage repair results changed. Please run repair again.',
+      );
+    }
+    for (const [key, expected] of pending.verifiedKeys) {
+      if (!pending.recoveredValues.has(key)) {
+        const value = mmkv.getString(encodeAppStorageKey(key));
+        if (
+          typeof value !== 'string' ||
+          `${value.length}:${getLegacyKeyDiagnosticFingerprint(value)}` !==
+            expected
+        )
+          throw new OneKeyLocalError(
+            'Recovered storage record verification failed',
+          );
+      }
+    }
     await archiveAppStorageRepairJournal(context, mmkv, repairId);
-    markerWasComplete =
-      mmkv.getString(APP_STORAGE_MIGRATION_COMPLETE_KEY) === '1';
     const targetKeys = mmkv.getAllKeys();
+    const targetKeySet = new Set(targetKeys);
     for (const key of targetKeys) {
       if (
         key.startsWith(APP_STORAGE_KEY_PREFIX) &&
@@ -1532,18 +1705,45 @@ async function completeAppStorageRepairWithContext(
         );
       }
     }
+    const changedKeys = new Set([
+      ...APP_STORAGE_REPAIR_METADATA_KEYS,
+      ...[...pending.recoveredValues.keys()].map(encodeAppStorageKey),
+      ...targetKeys.filter(
+        (key) =>
+          key.startsWith(APP_STORAGE_KEY_PREFIX) &&
+          pending.failedKeys.has(decodeAppStorageKey(key)),
+      ),
+    ]);
+    const transaction: IAppStorageRepairTransaction = {
+      version: 1,
+      repairId,
+      phase: 'applying',
+      previousValues: [...changedKeys].map((key) => [
+        key,
+        readAppStorageRepairScalar(mmkv, key, targetKeySet),
+      ]),
+    };
+    const raw = JSON.stringify(transaction);
+    context.pendingTransaction = raw;
+    mmkv.set(APP_STORAGE_REPAIR_TRANSACTION_KEY, raw);
+    await context.sync();
+    if (mmkv.getString(APP_STORAGE_REPAIR_TRANSACTION_KEY) !== raw)
+      throw new OneKeyLocalError(
+        'Storage repair transaction persistence failed',
+      );
+    for (const [key, value] of pending.recoveredValues) {
+      mmkv.set(encodeAppStorageKey(key), value);
+    }
     for (const key of targetKeys) {
       if (
         key.startsWith(APP_STORAGE_KEY_PREFIX) &&
         pending.failedKeys.has(decodeAppStorageKey(key))
       ) {
-        removedFailedRecords = true;
         mmkv.remove(key);
       }
     }
     mmkv.remove(APP_STORAGE_TRANSACTION_JOURNAL_KEY);
     verifyKeys();
-    context.clearPendingRecovery();
     mmkv.set(APP_STORAGE_REPAIR_PROBE_KEY, '1');
     if (mmkv.getString(APP_STORAGE_REPAIR_PROBE_KEY) !== '1') {
       throw new OneKeyLocalError('MMKV storage write verification failed');
@@ -1573,16 +1773,27 @@ async function completeAppStorageRepairWithContext(
         'Storage repair completion verification failed',
       );
     }
+    // Admission requires an already completed ledger. Rewriting that same
+    // value cannot introduce a new ledger state that rollback must undo.
     await context.completeLedger();
+    const committed = JSON.stringify({ ...transaction, phase: 'committed' });
+    mmkv.set(APP_STORAGE_REPAIR_TRANSACTION_KEY, committed);
+    await context.sync();
+    if (mmkv.getString(APP_STORAGE_REPAIR_TRANSACTION_KEY) !== committed)
+      throw new OneKeyLocalError('Storage repair commit verification failed');
+    context.pendingTransaction = committed;
+    context.clearPendingRecovery();
+    mmkv.remove(APP_STORAGE_REPAIR_TRANSACTION_KEY);
+    await context.sync();
+    if (mmkv.getAllKeys().includes(APP_STORAGE_REPAIR_TRANSACTION_KEY))
+      throw new OneKeyLocalError('Storage repair transaction cleanup failed');
+    context.pendingTransaction = undefined;
   } catch (error) {
-    // Preserve a healthy marker only when no failed business records were
-    // removed. A failed destructive attempt must stay blocked after restart.
-    if (!markerWasComplete || removedFailedRecords) {
+    if (context.pendingTransaction !== undefined) {
       try {
-        mmkv.remove(APP_STORAGE_MIGRATION_COMPLETE_KEY);
-        await context.sync();
+        await recoverAppStorageRepairTransaction(context);
       } catch {
-        context.log('repair phase=marker-rollback result=failed');
+        context.log('repair phase=transaction-recovery result=deferred');
       }
     }
     throw error;
@@ -1606,8 +1817,19 @@ export function createNativeAppStorageRepairController(
     return result;
   };
   return {
+    recover: () => enqueue(() => recoverAppStorageRepairTransaction(context)),
+    discardPrepared: () =>
+      enqueue(async () => {
+        if (context.pendingTransaction !== undefined)
+          throw new OneKeyLocalError(
+            'Storage repair transaction still requires recovery',
+          );
+        context.pending = undefined;
+        context.onComplete();
+      }),
     prepare: () =>
       enqueue(async () => {
+        await recoverAppStorageRepairTransaction(context);
         try {
           return await prepareAppStorageRepairWithContext(context);
         } catch (error) {
@@ -1617,9 +1839,10 @@ export function createNativeAppStorageRepairController(
         }
       }),
     complete: (repairId: string, force: boolean) =>
-      enqueue(() =>
-        completeAppStorageRepairWithContext(context, repairId, force),
-      ),
+      enqueue(async () => {
+        await recoverAppStorageRepairTransaction(context);
+        return completeAppStorageRepairWithContext(context, repairId, force);
+      }),
   };
 }
 
@@ -1639,6 +1862,7 @@ const appStorageRepairController = createNativeAppStorageRepairController({
     appStorageMigrationPromise = undefined;
   },
   onComplete: () => {
+    invalidateNativeStorageRecoverySessions();
     appStorageRepairActive = false;
     appStorageMigrationPromise = undefined;
   },
@@ -1647,7 +1871,17 @@ const appStorageRepairController = createNativeAppStorageRepairController({
   },
 });
 
+function recoverPendingAppStorageRepair() {
+  return appStorageRepairController.recover();
+}
+
+function discardPreparedAppStorageRepair() {
+  return appStorageRepairController.discardPrepared();
+}
+
 function prepareAppStorageRepair() {
+  emergencyGuard()();
+  invalidateNativeStorageRecoverySessions();
   if (hasEmergencyControl())
     throw new OneKeyLocalError(
       'Emergency mode preserves current data; legacy recovery requires an explicit future snapshot selection',
@@ -1656,6 +1890,8 @@ function prepareAppStorageRepair() {
 }
 
 function completeAppStorageRepair(repairId: string, force: boolean) {
+  emergencyGuard()();
+  invalidateNativeStorageRecoverySessions();
   if (force)
     throw new OneKeyLocalError(
       'Incomplete recovery cannot be marked complete. Use emergency continuation to retain current records.',
@@ -1794,17 +2030,20 @@ async function clearLegacyAppStorageData() {
 }
 
 async function clearAppStorageAndLegacyData(mmkv: IMMKVInstance) {
+  emergencyGuard()();
+  invalidateNativeStorageRecoverySessions();
+  await appStorageRepairController.discardPrepared();
   clearAppStorageUserKeys(mmkv);
-  for (const key of mmkv.getAllKeys()) {
-    if (key.startsWith(APP_STORAGE_REPAIR_JOURNAL_BACKUP_PREFIX))
-      mmkv.remove(key);
-  }
-  mmkv.remove(APP_STORAGE_MIGRATION_REPORT_KEY);
   await syncNativeStorageMMKV(APP_STORAGE_MMKV_ID);
 
   // clear() is used by the explicit app-reset flow. Remove the legacy copy as
   // well so clearing MMKV cannot be followed by stale-data resurrection.
   await clearLegacyAppStorageData();
+  for (const key of mmkv.getAllKeys()) {
+    if (key.startsWith(APP_STORAGE_REPAIR_JOURNAL_BACKUP_PREFIX))
+      mmkv.remove(key);
+  }
+  mmkv.remove(APP_STORAGE_MIGRATION_REPORT_KEY);
   mmkv.set(APP_STORAGE_LEGACY_CLEANUP_COMPLETE_KEY, '1');
   mmkv.set(
     APP_STORAGE_LEGACY_RETENTION_POLICY_KEY,
@@ -2291,11 +2530,15 @@ async function executeRealNativeStorageRequest(
             'Emergency continuation requires explicit confirmation',
           );
         return enqueueAppStorageOperation(async () => {
+          const guard = emergencyGuard();
+          guard();
+          invalidateNativeStorageRecoverySessions();
+          await appStorageRepairController.recover();
+          await appStorageRepairController.discardPrepared();
           const wasRepairActive = appStorageRepairActive;
           appStorageRepairActive = true;
           appStorageMigrationPromise = undefined;
           try {
-            const guard = emergencyGuard();
             const status = await (
               await getEmergencyController()
             ).activate(guard);

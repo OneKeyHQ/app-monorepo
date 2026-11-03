@@ -1,4 +1,9 @@
-import { useCallback, useImperativeHandle, useState } from 'react';
+import {
+  useCallback,
+  useImperativeHandle,
+  useState,
+  useSyncExternalStore,
+} from 'react';
 import type { ReactNode, Ref } from 'react';
 
 import {
@@ -9,6 +14,8 @@ import {
   Text,
 } from 'react-native';
 
+import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
+import { ETranslations } from '@onekeyhq/shared/src/locale/enum/translations';
 import type {
   INativeAppStorageRepairSummary,
   INativeStorageMigrationRecoveryTarget,
@@ -82,6 +89,10 @@ const styles = StyleSheet.create({
   restartText: { color: '#fff', fontWeight: '600' },
 });
 
+const subscribeLocale = (listener: () => void) =>
+  appLocale.onLocaleChange(listener);
+const getLocaleIntl = () => appLocale.intl;
+
 export function NativeStorageBootstrapErrorScreen({
   bootstrapErrorMessage,
   bootstrapErrorTitle,
@@ -102,6 +113,10 @@ export function NativeStorageBootstrapErrorScreen({
   onBack,
   backRequestRef,
 }: INativeStorageBootstrapErrorScreenProps) {
+  // This screen can precede AppIntlProvider or outlive failed atom hydration.
+  const intl = useSyncExternalStore(subscribeLocale, getLocaleIntl);
+  const formatControl = (id: ETranslations, fallback: string) =>
+    intl.messages[id] ? intl.formatMessage({ id }) : fallback;
   const [repairConfirmationTarget, setRepairConfirmationTarget] = useState<
     INativeStorageMigrationRecoveryTarget | undefined
   >();
@@ -206,7 +221,9 @@ export function NativeStorageBootstrapErrorScreen({
           style={styles.restartButton}
           testID="native-storage-emergency-cancel"
         >
-          <Text style={styles.restartText}>Cancel</Text>
+          <Text style={styles.restartText}>
+            {formatControl(ETranslations.global_cancel, 'Cancel')}
+          </Text>
         </Pressable>
       </>
     );
@@ -218,7 +235,9 @@ export function NativeStorageBootstrapErrorScreen({
         style={styles.retryButton}
         testID="native-storage-repair-close"
       >
-        <Text style={styles.retryText}>Close</Text>
+        <Text style={styles.retryText}>
+          {formatControl(ETranslations.global_close, 'Close')}
+        </Text>
       </Pressable>
     );
   } else if (!recoveryTarget && bootstrapFailureStage === 'runtime-launch') {
@@ -246,7 +265,9 @@ export function NativeStorageBootstrapErrorScreen({
           style={styles.retryButton}
           testID="native-storage-migration-retry"
         >
-          <Text style={styles.retryText}>Retry</Text>
+          <Text style={styles.retryText}>
+            {formatControl(ETranslations.global_retry, 'Retry')}
+          </Text>
         </Pressable>
         <Pressable
           accessibilityRole="button"
@@ -292,7 +313,9 @@ export function NativeStorageBootstrapErrorScreen({
           style={styles.retryButton}
           testID="native-storage-migration-repair-cancel"
         >
-          <Text style={styles.retryText}>Cancel</Text>
+          <Text style={styles.retryText}>
+            {formatControl(ETranslations.global_cancel, 'Cancel')}
+          </Text>
         </Pressable>
       </>
     );
@@ -435,7 +458,9 @@ export function NativeStorageBootstrapErrorScreen({
           accessibilityState={{ disabled: storageRepairInProgress }}
           onPress={handleBack}
         >
-          <Text style={styles.restartText}>Back</Text>
+          <Text style={styles.restartText}>
+            {formatControl(ETranslations.global_back, 'Back')}
+          </Text>
         </Pressable>
       ) : null}
     </ScrollView>

@@ -168,7 +168,8 @@ let backgroundReconciliationGeneration: number | undefined;
  * Both steps still matter after the mount: the mirrors are how this runtime's
  * writes reach the settings store, and the RPC hydration is canonical — it
  * carries anything bg changed while it was booting. Failing them silently
- * would leave writes queued forever, so they retry and then say so.
+ * would leave writes queued forever, so retry with capped backoff until bg
+ * becomes ready or a new bootstrap generation supersedes this one.
  */
 function startBackgroundRuntimeReconciliation({
   force,
@@ -197,17 +198,18 @@ function startBackgroundRuntimeReconciliation({
         logBootstrapStage('background runtime reconciled', startedAt);
         return;
       } catch (error) {
-        const delayMs = BACKGROUND_RECONCILIATION_RETRY_DELAYS_MS[attempt];
+        const delayMs =
+          BACKGROUND_RECONCILIATION_RETRY_DELAYS_MS[
+            Math.min(
+              attempt,
+              BACKGROUND_RECONCILIATION_RETRY_DELAYS_MS.length - 1,
+            )
+          ];
         writeBootstrapError(
           `[StartupTiming] background runtime reconciliation failed (attempt ${
             attempt + 1
-          }): ${error instanceof Error ? error.message : String(error)}${
-            delayMs === undefined ? '; giving up' : `; retrying in ${delayMs}ms`
-          }`,
+          }): ${error instanceof Error ? error.message : String(error)}; retrying in ${delayMs}ms`,
         );
-        if (delayMs === undefined) {
-          return;
-        }
         await new Promise((resolve) => setTimeout(resolve, delayMs));
       }
     }

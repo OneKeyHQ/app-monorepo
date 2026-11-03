@@ -110,6 +110,7 @@ import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import appStorage from '@onekeyhq/shared/src/storage/appStorage';
+import { subscribeNativeStorageRecoveryInvalidation } from '@onekeyhq/shared/src/storage/nativeStorageRecoveryInvalidation';
 import { getNativeStorageMigrationRecoveryTarget } from '@onekeyhq/shared/src/storage/nativeStorageTypes';
 import { travelModeManager } from '@onekeyhq/shared/src/travelMode';
 import type { IRuntimeEnvironment } from '@onekeyhq/shared/src/travelMode/runtimeEnvironment';
@@ -6197,18 +6198,7 @@ class ServiceAccount extends ServiceBase {
     return environment;
   }
 
-  @backgroundMethod()
-  async getManualMnemonicRecoveryInfo({ walletId }: { walletId: string }) {
-    if (!platformEnv.isNative) return undefined;
-    if (typeof walletId !== 'string' || !walletId) {
-      throw new OneKeyLocalError('Invalid manual mnemonic recovery wallet');
-    }
-    const probeEnvironment = await travelModeManager.getRuntimeEnvironment();
-    if (probeEnvironment.commands.isBlocked) {
-      throw new OneKeyLocalError(
-        'Manual mnemonic recovery is unavailable in this runtime',
-      );
-    }
+  private async hasManualMnemonicRecoveryFault() {
     const probe = async () => {
       try {
         await appStorage.getItem('$$manualMnemonicRecoveryProbe');
@@ -6247,7 +6237,7 @@ class ServiceAccount extends ServiceBase {
       return false;
     };
     let probeTimer: ReturnType<typeof setTimeout> | undefined;
-    const hasBackgroundFault = await new Promise<boolean>((resolve, reject) => {
+    return new Promise<boolean>((resolve, reject) => {
       probeTimer = setTimeout(
         () =>
           reject(
@@ -6257,6 +6247,21 @@ class ServiceAccount extends ServiceBase {
       );
       void probe().then(resolve, reject);
     }).finally(() => clearTimeout(probeTimer));
+  }
+
+  @backgroundMethod()
+  async getManualMnemonicRecoveryInfo({ walletId }: { walletId: string }) {
+    if (!platformEnv.isNative) return undefined;
+    if (typeof walletId !== 'string' || !walletId) {
+      throw new OneKeyLocalError('Invalid manual mnemonic recovery wallet');
+    }
+    const probeEnvironment = await travelModeManager.getRuntimeEnvironment();
+    if (probeEnvironment.commands.isBlocked) {
+      throw new OneKeyLocalError(
+        'Manual mnemonic recovery is unavailable in this runtime',
+      );
+    }
+    const hasBackgroundFault = await this.hasManualMnemonicRecoveryFault();
     if (!hasBackgroundFault) return undefined;
     const environment = await this.assertManualMnemonicWallet(walletId);
     if (environment !== probeEnvironment || environment.commands.isBlocked) {
@@ -6278,10 +6283,16 @@ class ServiceAccount extends ServiceBase {
       if (this.manualMnemonicRecovery?.id === id)
         this.manualMnemonicRecovery.cleanup();
     }, 5 * 60_000);
+    const unsubscribeRecoveryInvalidation =
+      subscribeNativeStorageRecoveryInvalidation(() => {
+        if (this.manualMnemonicRecovery?.id === id)
+          this.manualMnemonicRecovery.cleanup();
+      });
     const cancel = () => {
       if (this.manualMnemonicRecovery?.id === id)
         this.manualMnemonicRecovery = undefined;
       appEventBus.off(EAppEventBusNames.LockApp, cancel);
+      unsubscribeRecoveryInvalidation();
       clearTimeout(timer);
     };
     appEventBus.on(EAppEventBusNames.LockApp, cancel);
@@ -6342,6 +6353,17 @@ class ServiceAccount extends ServiceBase {
         throw new OneKeyLocalError(
           'Wallet credential changed during manual mnemonic recovery',
         );
+      }
+      try {
+        if (!(await this.hasManualMnemonicRecoveryFault())) {
+          throw new OneKeyLocalError(
+            'Manual mnemonic recovery is no longer available',
+          );
+        }
+      } catch (error) {
+        // Revoke admission when bg is healthy or its fault cannot be verified.
+        session.cleanup();
+        throw error;
       }
       if (
         this.manualMnemonicRecovery !== session ||
