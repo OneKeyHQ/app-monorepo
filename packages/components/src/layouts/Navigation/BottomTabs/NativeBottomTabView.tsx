@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/naming-convention */
 import { useCallback, useMemo, useState } from 'react';
-import type { ComponentProps, ReactNode } from 'react';
+import type { ReactNode } from 'react';
 
 import BottomTabs from '@onekeyfe/react-native-bottom-tabs';
 import {
@@ -24,8 +24,6 @@ import type {
   NativeBottomTabNavigationConfig,
   NativeBottomTabNavigationHelpers,
 } from './types';
-
-type BottomTabsProps = ComponentProps<typeof BottomTabs>;
 
 type Props = NativeBottomTabNavigationConfig & {
   state: TabNavigationState<ParamListBase>;
@@ -340,9 +338,7 @@ export function NativeBottomTabView({
   return (
     <BottomTabs
       {...rest}
-      sideAccessoryIcon={
-        sideAccessoryIcon as unknown as BottomTabsProps['sideAccessoryIcon']
-      }
+      sideAccessoryIcon={sideAccessoryIcon}
       tabBarHidden={tabBarHidden}
       navigationState={state}
       renderScene={renderScene}
@@ -356,7 +352,7 @@ export function NativeBottomTabView({
       getTestID={getTestID}
       getRole={getRole}
       tabBar={tabBar ? tabBarCallback : undefined}
-      getIcon={getIcon as unknown as BottomTabsProps['getIcon']}
+      getIcon={getIcon}
       getLazy={getLazy}
       getFreezeOnBlur={getFreezeOnBlur}
       getSceneStyle={getSceneStyle}
