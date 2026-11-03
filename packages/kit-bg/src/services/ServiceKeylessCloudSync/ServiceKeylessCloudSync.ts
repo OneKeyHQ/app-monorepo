@@ -7,7 +7,10 @@ import {
   backgroundMethod,
   toastIfError,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
-import { isHardwareCloudSyncPlatformSupported } from '@onekeyhq/shared/src/consts/hardwareCloudSyncConsts';
+import {
+  getHardwareCloudSyncIdentityTagFromCredentialId,
+  isHardwareCloudSyncPlatformSupported,
+} from '@onekeyhq/shared/src/consts/hardwareCloudSyncConsts';
 import { EPrimeCloudSyncDataType } from '@onekeyhq/shared/src/consts/primeConsts';
 import { OneKeyError } from '@onekeyhq/shared/src/errors';
 import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
@@ -58,9 +61,11 @@ import { keylessCloudSyncApi } from '../ServicePrimeCloudSync/keylessCloudSyncAp
 import keylessCloudSyncUtils from '../ServicePrimeCloudSync/keylessCloudSyncUtils';
 
 import {
+  assertHardwareCloudSyncChallengeFor,
   bootstrapHardwareCloudSyncDataKey,
   createHardwareCloudSyncDeviceKey,
   getCurrentHardwareCloudSyncDataKeyId,
+  getHardwareCloudSyncDeviceKeyThumbprint,
   isHardwareCloudSyncKeyEnvelopeItem,
   isHardwareCloudSyncNonceInvalidError,
   isHardwareCloudSyncPwdHashInvalidError,
@@ -198,6 +203,18 @@ class ServiceKeylessCloudSync extends ServiceBase {
     }
   }
 
+  private async getHardwareCloudSyncEnvironment(): Promise<'prod' | 'test'> {
+    if (platformEnv.isWebEmbed) {
+      return globalThis.WEB_EMBED_ONEKEY_APP_SETTINGS?.enableTestEndpoint
+        ? 'test'
+        : 'prod';
+    }
+    const config = await devSettingsPersistAtom.get();
+    return config.enabled && config.settings?.enableTestEndpoint
+      ? 'test'
+      : 'prod';
+  }
+
   // Sign-in uses its own path and a server nonce, never the key path.
   private async signInHardwareCloudSync({
     client,
@@ -207,17 +224,48 @@ class ServiceKeylessCloudSync extends ServiceBase {
     device: IHardwareCloudKeyDevice;
   }): Promise<IHardwareCloudSyncSession> {
     const deviceKeyJwk = createHardwareCloudSyncDeviceKey();
+    const identityTag = getHardwareCloudSyncIdentityTagFromCredentialId(
+      device.credentialId,
+    );
+    const env = await this.getHardwareCloudSyncEnvironment();
+    const assertEnvironmentUnchanged = async () => {
+      if (env !== (await this.getHardwareCloudSyncEnvironment())) {
+        throw new OneKeyError('Cloud sync environment changed. Try again.');
+      }
+    };
     const { challengeId, message } = await requestHardwareCloudSyncChallenge({
       client,
       jwk: deviceKeyJwk,
+      identityTag,
+      env,
     });
-    const signature = await device.signAuth(message);
-    return verifyHardwareCloudSyncChallenge({
+    await assertEnvironmentUnchanged();
+    assertHardwareCloudSyncChallengeFor({
+      message,
+      jwk: deviceKeyJwk,
+      identityTag,
+      env,
+    });
+    const signature = await device.signAuth(message, {
+      identityTag,
+      env,
+      jkt: getHardwareCloudSyncDeviceKeyThumbprint(deviceKeyJwk),
+    });
+    await assertEnvironmentUnchanged();
+    assertHardwareCloudSyncChallengeFor({
+      message,
+      jwk: deviceKeyJwk,
+      identityTag,
+      env,
+    });
+    const session = await verifyHardwareCloudSyncChallenge({
       client,
       jwk: deviceKeyJwk,
       challengeId,
       signature,
     });
+    await assertEnvironmentUnchanged();
+    return session;
   }
 
   // The device prompt can wait indefinitely, so callers run it outside the

@@ -9,10 +9,12 @@ import {
   HARDWARE_CLOUD_SYNC_CREDENTIAL_ID_PREFIX,
   HARDWARE_CLOUD_SYNC_DERIVATION_VERSION,
   HARDWARE_CLOUD_SYNC_PATH,
-  assertHardwareCloudSyncAuthMessage,
+  assertHardwareCloudSyncAuthContext,
+  getHardwareCloudSyncIdentityTagFromCredentialId,
 } from '@onekeyhq/shared/src/consts/hardwareCloudSyncConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import systemTimeUtils from '@onekeyhq/shared/src/utils/systemTimeUtils';
 import type {
   IHardwareCloudSyncKeySource,
   IKeylessCloudSyncCredential,
@@ -89,8 +91,20 @@ export async function generateHardwareCloudSyncCredentialWithSoftwareKey({
   // Same order as a device: sign in, then the salted key message.
   const credential = await unlock({
     credentialId,
-    signAuth: async (message) => {
-      assertHardwareCloudSyncAuthMessage(message);
+    signAuth: async (message, expected) => {
+      if (!isCurrent()) {
+        throw new OneKeyLocalError('Hardware Cloud key operation expired');
+      }
+      const identityTag =
+        getHardwareCloudSyncIdentityTagFromCredentialId(credentialId);
+      if (expected.identityTag !== identityTag) {
+        throw new OneKeyLocalError('Hardware Cloud key identity changed');
+      }
+      assertHardwareCloudSyncAuthContext(
+        message,
+        { ...expected, identityTag },
+        systemTimeUtils.getEstimatedServerTime() ?? Date.now(),
+      );
       return signBip137(
         HARDWARE_CLOUD_SYNC_AUTH_PATH,
         Buffer.from(message, 'utf8'),

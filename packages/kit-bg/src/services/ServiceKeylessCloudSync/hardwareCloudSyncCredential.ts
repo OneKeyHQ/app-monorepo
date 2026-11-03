@@ -9,6 +9,7 @@ import {
   HARDWARE_CLOUD_SYNC_PATH,
   buildHardwareCloudSyncMessage,
 } from '@onekeyhq/shared/src/consts/hardwareCloudSyncConsts';
+import type { IHardwareCloudSyncAuthContext } from '@onekeyhq/shared/src/consts/hardwareCloudSyncConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { HardwareCloudKeyDeviceRejectedError } from '@onekeyhq/shared/src/hardware/hardwareCloudKeyDeviceRejectedError';
 import type { IKeylessCloudSyncCredential } from '@onekeyhq/shared/types/keylessCloudSync';
@@ -38,7 +39,10 @@ export type IHardwareCloudKeyAdapter = {
 
 // Signs a server sign-in challenge on HARDWARE_CLOUD_SYNC_AUTH_PATH; returns a
 // base64 BIP-137 signature.
-export type IHardwareCloudSyncAuthSigner = (message: string) => Promise<string>;
+export type IHardwareCloudSyncAuthSigner = (
+  message: string,
+  expected: IHardwareCloudSyncAuthContext,
+) => Promise<string>;
 
 type IExpectedIdentity = Pick<
   IHardwareCloudKeyIdentity,

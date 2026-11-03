@@ -1,4 +1,4 @@
-import { createHmac } from 'crypto';
+import { createHash, createHmac } from 'crypto';
 
 import { payments } from 'bitcoinjs-lib';
 import bitcoinMessage from 'bitcoinjs-message';
@@ -159,10 +159,10 @@ describe('hardware Cloud key credential provider', () => {
       getHardwareCloudSyncIdentityTag(TEST_XFP),
       TEST_SALT,
     );
-    expect(message.length).toBe(185);
-    expect(message).toMatch(/^[\x20-\x7e\n]+$/);
-    expect(message).toContain('Unlock ALL OneKey Cloud data');
-    expect(message.endsWith(`\nKey: ${TEST_SALT}`)).toBe(true);
+    expect(message.length).toBe(199);
+    expect(message).toMatch(/^[\x20-\x7e]+$/);
+    expect(message).toContain('Signing unlocks ALL your OneKey Cloud data.');
+    expect(message.endsWith(`;salt=${TEST_SALT}`)).toBe(true);
     const expectedMaterial = normalizeHardwareCloudSignature(
       bitcoinMessage.sign(message, TEST_PRIVATE_KEY, true).toString('hex'),
     );
@@ -213,6 +213,18 @@ describe('hardware Cloud key credential provider', () => {
     );
     expect(getHardwareCloudSyncIdentityTag(TEST_XFP)).toBe(
       getHardwareCloudSyncIdentityTag(`00001234--xpub${'A'.repeat(107)}`),
+    );
+  });
+
+  test('hashes the complete normalized wallet identity, including the Taproot xpub', () => {
+    expect(getHardwareCloudSyncIdentityTag(TEST_XFP)).toBe(
+      createHash('sha256')
+        .update(`00001234--xpub${'A'.repeat(107)}`, 'utf8')
+        .digest('hex')
+        .slice(0, 16),
+    );
+    expect(getHardwareCloudSyncIdentityTag(TEST_XFP)).not.toBe(
+      getHardwareCloudSyncIdentityTag(`00001234--xpub${'B'.repeat(107)}`),
     );
   });
 

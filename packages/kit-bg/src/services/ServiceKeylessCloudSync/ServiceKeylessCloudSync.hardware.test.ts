@@ -1,5 +1,6 @@
 import { EDeviceType } from '@onekeyfe/hd-shared';
 
+import { buildHardwareCloudSyncAuthMessage } from '@onekeyhq/shared/src/consts/hardwareCloudSyncConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import {
   EAppEventBusNames,
@@ -16,12 +17,18 @@ import { primeCloudSyncPersistAtom } from '../../states/jotai/atoms';
 import keylessSyncCredentialStorage from '../ServiceKeylessWallet/utils/keylessSyncCredentialStorage';
 
 import { generateHardwareCloudSyncCredentialWithSdk } from './hardwareCloudSyncSdk';
+import {
+  bootstrapHardwareCloudSyncDataKey,
+  requestHardwareCloudSyncChallenge,
+  verifyHardwareCloudSyncChallenge,
+} from './hardwareCloudSyncSession';
 import ServiceKeylessCloudSync from './ServiceKeylessCloudSync';
 
 import type { IDBCloudSyncItem } from '../../dbs/local/types';
 import type { IPrimeCloudSyncPersistAtomData } from '../../states/jotai/atoms/prime';
 import type { AxiosInstance } from 'axios';
 
+let mockUseTestEndpoint = false;
 let mockConfig: IPrimeCloudSyncPersistAtomData;
 let mockStored: IKeylessCloudSyncCredential | undefined;
 
@@ -43,6 +50,12 @@ jest.mock('@onekeyhq/shared/src/background/backgroundDecorators', () => {
   };
 });
 jest.mock('../../states/jotai/atoms', () => ({
+  devSettingsPersistAtom: {
+    get: jest.fn(async () => ({
+      enabled: true,
+      settings: { enableTestEndpoint: mockUseTestEndpoint },
+    })),
+  },
   primeCloudSyncPersistAtom: {
     get: jest.fn(async () => mockConfig),
     set: jest.fn(
@@ -61,49 +74,70 @@ jest.mock('./hardwareCloudSyncSdk', () => ({
 }));
 // Sign-in and the data key need the server; the key under test stays the
 // device-derived one, as if this device created the data key.
-jest.mock('./hardwareCloudSyncSession', () => ({
-  createHardwareCloudSyncDeviceKey: jest.fn(() => ({
-    kty: 'EC',
-    crv: 'P-256',
-    x: 'public-test-x',
-    y: 'public-test-y',
-    d: 'public-test-d',
-  })),
-  requestHardwareCloudSyncChallenge: jest.fn(async () => ({
-    challengeId: 'public-test-challenge',
-    message: 'public-test-message',
-  })),
-  verifyHardwareCloudSyncChallenge: jest.fn(async () => ({
-    accessToken: 'public-test-access',
-    accessTokenExpiresAt: Number.MAX_SAFE_INTEGER,
-    refreshToken: 'public-test-refresh',
-    sessionId: 'public-test-session',
-    dekId: '',
-  })),
-  bootstrapHardwareCloudSyncDataKey: jest.fn(
-    async ({
-      deriveKek,
-    }: {
-      deriveKek: (kekSalt: string) => Promise<string>;
-    }) => ({
-      dek: await deriveKek('00'.repeat(16)),
-      dekId: 'public-test-dek',
-      pwdHash: 'keyless-test-hardware',
-      previousPwdHashes: [],
-    }),
-  ),
-  getCurrentHardwareCloudSyncDataKeyId: jest.fn(),
-  isHardwareCloudSyncKeyEnvelopeItem: jest.fn(() => false),
-  isHardwareCloudSyncUnauthorizedError: jest.fn(() => false),
-  revokeHardwareCloudSyncSession: jest.fn(async () => undefined),
-  refreshHardwareCloudSyncSessionIfNeeded: jest.fn(async () => undefined),
-  requestRawWithHardwareCloudSyncSession: jest.fn(),
-  rotateHardwareCloudSyncDataKey: jest.fn(),
-  reencryptHardwareCloudSyncItems: jest.fn(
-    async ({ items }: { items: unknown[] }) => items,
-  ),
-  isHardwareCloudSyncNonceInvalidError: jest.fn(() => false),
-}));
+jest.mock('./hardwareCloudSyncSession', () => {
+  const actual = jest.requireActual<
+    typeof import('./hardwareCloudSyncSession')
+  >('./hardwareCloudSyncSession');
+  return {
+    assertHardwareCloudSyncChallengeFor:
+      actual.assertHardwareCloudSyncChallengeFor,
+    getHardwareCloudSyncDeviceKeyThumbprint:
+      actual.getHardwareCloudSyncDeviceKeyThumbprint,
+    createHardwareCloudSyncDeviceKey: jest.fn(() => ({
+      kty: 'EC',
+      crv: 'P-256',
+      x: 'public-test-x',
+      y: 'public-test-y',
+      d: 'public-test-d',
+    })),
+    requestHardwareCloudSyncChallenge: jest.fn(
+      async ({
+        jwk,
+        identityTag,
+        env,
+      }: Parameters<typeof actual.requestHardwareCloudSyncChallenge>[0]) => ({
+        challengeId: 'public-test-challenge',
+        message: buildHardwareCloudSyncAuthMessage({
+          identityTag,
+          env,
+          jkt: actual.getHardwareCloudSyncDeviceKeyThumbprint(jwk),
+          nonce: 'ab'.repeat(32),
+          expires: new Date(Date.now() + 5 * 60 * 1000).toISOString(),
+        }),
+      }),
+    ),
+    verifyHardwareCloudSyncChallenge: jest.fn(async () => ({
+      accessToken: 'public-test-access',
+      accessTokenExpiresAt: Number.MAX_SAFE_INTEGER,
+      refreshToken: 'public-test-refresh',
+      sessionId: 'public-test-session',
+      dekId: '',
+    })),
+    bootstrapHardwareCloudSyncDataKey: jest.fn(
+      async ({
+        deriveKek,
+      }: {
+        deriveKek: (kekSalt: string) => Promise<string>;
+      }) => ({
+        dek: await deriveKek('00'.repeat(16)),
+        dekId: 'public-test-dek',
+        pwdHash: 'keyless-test-hardware',
+        previousPwdHashes: [],
+      }),
+    ),
+    getCurrentHardwareCloudSyncDataKeyId: jest.fn(),
+    isHardwareCloudSyncKeyEnvelopeItem: jest.fn(() => false),
+    isHardwareCloudSyncUnauthorizedError: jest.fn(() => false),
+    revokeHardwareCloudSyncSession: jest.fn(async () => undefined),
+    refreshHardwareCloudSyncSessionIfNeeded: jest.fn(async () => undefined),
+    requestRawWithHardwareCloudSyncSession: jest.fn(),
+    rotateHardwareCloudSyncDataKey: jest.fn(),
+    reencryptHardwareCloudSyncItems: jest.fn(
+      async ({ items }: { items: unknown[] }) => items,
+    ),
+    isHardwareCloudSyncNonceInvalidError: jest.fn(() => false),
+  };
+});
 
 type IDeviceParams = Pick<
   Parameters<typeof generateHardwareCloudSyncCredentialWithSdk>[0],
@@ -112,7 +146,7 @@ type IDeviceParams = Pick<
 // Runs the service's unlock (sign-in, then the data key) as the SDK does.
 const signIn = async ({ unlock }: IDeviceParams) => {
   await unlock({
-    credentialId: 'hardware-cloud-v1-test',
+    credentialId: `hardware-cloud-v1-${'a'.repeat(64)}`,
     signAuth: async () => 'public-test-signature',
     deriveKek: async () => 'public-test-kek',
   });
@@ -142,7 +176,7 @@ jest.mock('../ServiceKeylessWallet/utils/keylessSyncCredentialStorage', () => ({
 const connectId = 'public-test-connect';
 const source = {
   type: 'hardware' as const,
-  credentialId: 'hardware-cloud-v1-test',
+  credentialId: `hardware-cloud-v1-${'a'.repeat(64)}`,
   derivationVersion: 1 as const,
   deviceName: 'OneKey Pro',
   deviceType: EDeviceType.Pro,
@@ -161,6 +195,7 @@ const servicesToClear = new Set<ServiceKeylessCloudSync>();
 // The post-activation sync keeps its dialog up for a second.
 beforeEach(() => {
   jest.spyOn(timerUtils, 'wait').mockResolvedValue(undefined);
+  mockUseTestEndpoint = false;
 });
 
 function setup(items: Array<{ pwdHash?: string }> = []) {
@@ -226,6 +261,89 @@ describe('hardware Cloud key source lifecycle', () => {
     jest
       .mocked(generateHardwareCloudSyncCredentialWithSdk)
       .mockImplementation(withSignIn({ credential, source }));
+  });
+
+  test.each(['challenge', 'hardware signature', 'verification'] as const)(
+    'aborts when the trusted environment switches during %s',
+    async (phase) => {
+      const { service } = setup();
+      const signAuth = jest.fn(async () => {
+        if (phase === 'hardware signature') mockUseTestEndpoint = true;
+        return 'public-test-signature';
+      });
+      jest
+        .mocked(generateHardwareCloudSyncCredentialWithSdk)
+        .mockImplementationOnce(async ({ unlock }) => {
+          await unlock({
+            credentialId: source.credentialId,
+            signAuth,
+            deriveKek: async () => 'public-test-kek',
+          });
+          return { credential, source };
+        });
+      if (phase === 'challenge') {
+        const request = jest
+          .mocked(requestHardwareCloudSyncChallenge)
+          .getMockImplementation();
+        if (!request) throw new OneKeyLocalError('Missing challenge fixture');
+        jest
+          .mocked(requestHardwareCloudSyncChallenge)
+          .mockImplementationOnce(async (params) => {
+            const result = await request(params);
+            mockUseTestEndpoint = true;
+            return result;
+          });
+      }
+      if (phase === 'verification') {
+        const verify = jest
+          .mocked(verifyHardwareCloudSyncChallenge)
+          .getMockImplementation();
+        if (!verify) throw new OneKeyLocalError('Missing verification fixture');
+        jest
+          .mocked(verifyHardwareCloudSyncChallenge)
+          .mockImplementationOnce(async (params) => {
+            const result = await verify(params);
+            mockUseTestEndpoint = true;
+            return result;
+          });
+      }
+      await expect(
+        service.enableHardwareCloudSync({ connectId }),
+      ).rejects.toThrow('Cloud sync environment changed');
+      expect(signAuth).toHaveBeenCalledTimes(phase === 'challenge' ? 0 : 1);
+      expect(verifyHardwareCloudSyncChallenge).toHaveBeenCalledTimes(
+        phase === 'verification' ? 1 : 0,
+      );
+      expect(bootstrapHardwareCloudSyncDataKey).not.toHaveBeenCalled();
+      expect(
+        keylessSyncCredentialStorage.saveCredential,
+      ).not.toHaveBeenCalled();
+    },
+  );
+
+  test('rejects an old server template before hardware signing or session creation', async () => {
+    const { service } = setup();
+    const signAuth = jest.fn(async () => 'public-test-signature');
+    jest.mocked(requestHardwareCloudSyncChallenge).mockResolvedValueOnce({
+      challengeId: 'legacy',
+      message: 'OneKey Cloud Sync sign-in\nNonce: abc',
+    });
+    jest
+      .mocked(generateHardwareCloudSyncCredentialWithSdk)
+      .mockImplementationOnce(async ({ unlock }) => {
+        await unlock({
+          credentialId: source.credentialId,
+          signAuth,
+          deriveKek: async () => 'public-test-kek',
+        });
+        return { credential, source };
+      });
+    await expect(
+      service.enableHardwareCloudSync({ connectId }),
+    ).rejects.toThrow('Invalid Cloud sync sign-in challenge');
+    expect(signAuth).not.toHaveBeenCalled();
+    expect(verifyHardwareCloudSyncChallenge).not.toHaveBeenCalled();
+    expect(keylessSyncCredentialStorage.saveCredential).not.toHaveBeenCalled();
   });
 
   test('activates one source using the existing credential storage and cache', async () => {

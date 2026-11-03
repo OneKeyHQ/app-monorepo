@@ -4,7 +4,8 @@ import {
   HARDWARE_CLOUD_SYNC_CREDENTIAL_ID_PREFIX,
   HARDWARE_CLOUD_SYNC_DERIVATION_VERSION,
   HARDWARE_CLOUD_SYNC_PATH,
-  assertHardwareCloudSyncAuthMessage,
+  assertHardwareCloudSyncAuthContext,
+  getHardwareCloudSyncIdentityTagFromCredentialId,
   isHardwareCloudSyncPlatformSupported,
 } from '@onekeyhq/shared/src/consts/hardwareCloudSyncConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
@@ -12,6 +13,7 @@ import { HardwareCloudKeyDeviceRejectedError } from '@onekeyhq/shared/src/hardwa
 import { HardwareCloudKeyPrerequisiteError } from '@onekeyhq/shared/src/hardware/hardwareCloudSyncErrors';
 import { getDeviceAvatarImage } from '@onekeyhq/shared/src/utils/avatarUtils';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
+import systemTimeUtils from '@onekeyhq/shared/src/utils/systemTimeUtils';
 import { EHardwareCallContext } from '@onekeyhq/shared/types/device';
 import type {
   IHardwareCloudSyncKeySource,
@@ -267,9 +269,35 @@ export async function generateHardwareCloudSyncCredentialWithSdk({
               try {
                 unlocked = await unlock({
                   credentialId,
-                  signAuth: (message) =>
+                  signAuth: (message, expectedContext) =>
                     sanitizeDeviceError(async () => {
-                      assertHardwareCloudSyncAuthMessage(message);
+                      const identityTag =
+                        getHardwareCloudSyncIdentityTagFromCredentialId(
+                          credentialId,
+                        );
+                      if (expectedContext.identityTag !== identityTag) {
+                        throw unlockError();
+                      }
+                      const expected = Object.freeze({ ...expectedContext });
+                      const assertChallengeCurrent = () =>
+                        assertHardwareCloudSyncAuthContext(
+                          message,
+                          expected,
+                          systemTimeUtils.getEstimatedServerTime() ??
+                            Date.now(),
+                        );
+                      assertChallengeCurrent();
+                      const assertWalletUnchanged = async () => {
+                        const { walletXfp } = await readStandardWallet();
+                        if (
+                          normalizeHardwareCloudWalletXfp(walletXfp) !==
+                          canonicalXfp
+                        ) {
+                          throw unlockError();
+                        }
+                      };
+                      await assertWalletUnchanged();
+                      assertChallengeCurrent();
                       onDeviceSign?.();
                       const response = await call(() =>
                         sdk.btcSignMessage(connectId, deviceId, {
@@ -282,6 +310,8 @@ export async function generateHardwareCloudSyncCredentialWithSdk({
                         }),
                       );
                       assertSdkSuccess(response);
+                      await assertWalletUnchanged();
+                      assertChallengeCurrent();
                       return Buffer.from(
                         response.payload.signature,
                         'hex',

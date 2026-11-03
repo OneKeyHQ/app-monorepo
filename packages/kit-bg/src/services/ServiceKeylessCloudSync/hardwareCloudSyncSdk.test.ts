@@ -3,8 +3,11 @@ import { createHash } from 'crypto';
 import {
   HARDWARE_CLOUD_SYNC_AUTH_PATH,
   HARDWARE_CLOUD_SYNC_PATH,
+  buildHardwareCloudSyncAuthMessage,
+  getHardwareCloudSyncIdentityTagFromCredentialId,
 } from '@onekeyhq/shared/src/consts/hardwareCloudSyncConsts';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import systemTimeUtils from '@onekeyhq/shared/src/utils/systemTimeUtils';
 
 import { deriveHardwareCloudSyncKek } from './hardwareCloudSyncCredential';
 import { generateHardwareCloudSyncCredentialWithSdk } from './hardwareCloudSyncSdk';
@@ -46,6 +49,11 @@ jest.mock('@onekeyhq/shared/src/utils/deviceUtils', () => ({
   },
 }));
 
+jest.mock('@onekeyhq/shared/src/utils/systemTimeUtils', () => ({
+  __esModule: true,
+  default: { getEstimatedServerTime: jest.fn() },
+}));
+
 jest.mock('./hardwareCloudSyncCredential', () => ({
   deriveHardwareCloudSyncKek: jest.fn(),
   normalizeHardwareCloudWalletXfp: (xfp: string) => xfp,
@@ -55,6 +63,18 @@ const walletXfp = `00001234--xpub${'A'.repeat(107)}`;
 const standardCredentialId = `hardware-cloud-v1-${createHash('sha256')
   .update(walletXfp, 'utf8')
   .digest('hex')}`;
+const AUTH_NOW = Date.parse('2030-01-01T00:00:00.000Z');
+const authContext = {
+  identityTag:
+    getHardwareCloudSyncIdentityTagFromCredentialId(standardCredentialId),
+  env: 'prod' as const,
+  jkt: '0ZcOCORZNYy-DWpqq30jZyJGHTN0d2HglBV3uiguA4I',
+};
+const authMessage = buildHardwareCloudSyncAuthMessage({
+  ...authContext,
+  nonce: 'ab'.repeat(32),
+  expires: '2030-01-01T00:05:00.000Z',
+});
 const mockCredential = {
   keylessWalletId: 'placeholder',
   signingPrivateKey: '',
@@ -137,6 +157,9 @@ function buildBackgroundApi() {
 
 beforeEach(() => {
   jest.clearAllMocks();
+  jest
+    .spyOn(systemTimeUtils, 'getEstimatedServerTime')
+    .mockReturnValue(AUTH_NOW);
   jest
     .mocked(deriveHardwareCloudSyncKek)
     .mockImplementation(async ({ adapter }) => {
@@ -475,7 +498,6 @@ describe('hardware Cloud SDK adapter', () => {
 
   test('signs in on P_auth before the KEK, in one device session', async () => {
     const { backgroundApi, sdk, ui } = buildBackgroundApi();
-    const nonce = 'ab'.repeat(32);
     const order: string[] = [];
     sdk.btcSignMessage.mockImplementation(async (...args: unknown[]) => {
       order.push((args[2] as { path: string }).path);
@@ -489,8 +511,8 @@ describe('hardware Cloud SDK adapter', () => {
     });
     await generateHardwareCloudSyncCredentialWithSdk({
       unlock: async (device) => {
-        await device.signAuth(
-          `OneKey Cloud Sync sign-in\nOnly confirm this inside the OneKey App.\nNonce: ${nonce}\nDevice: abcd1234\nExpires: 2030-01-01T00:00:00.000Z`,
+        expect(await device.signAuth(authMessage, authContext)).toBe(
+          Buffer.from('aa'.repeat(65), 'hex').toString('base64'),
         );
         await device.deriveKek(TEST_SALT);
         return { ...mockCredential, keylessWalletId: device.credentialId };
@@ -508,6 +530,17 @@ describe('hardware Cloud SDK adapter', () => {
       HARDWARE_CLOUD_SYNC_PATH,
     ]);
     expect(ui.runExclusiveOneKeyOperation).toHaveBeenCalledTimes(1);
+    expect(sdk.btcSignMessage).toHaveBeenNthCalledWith(
+      1,
+      'test-connect',
+      'test-device',
+      {
+        path: HARDWARE_CLOUD_SYNC_AUTH_PATH,
+        coin: 'Bitcoin',
+        useEmptyPassphrase: true,
+        messageHex: Buffer.from(authMessage, 'utf8').toString('hex'),
+      },
+    );
   });
 
   test('refuses to sign a challenge that is not a sign-in message', async () => {
@@ -515,7 +548,7 @@ describe('hardware Cloud SDK adapter', () => {
     await expect(
       generateHardwareCloudSyncCredentialWithSdk({
         unlock: async (device) => {
-          await device.signAuth('Sign anything');
+          await device.signAuth('Sign anything', authContext);
           return mockCredential;
         },
         backgroundApi,
@@ -525,6 +558,142 @@ describe('hardware Cloud SDK adapter', () => {
     ).rejects.toThrow('Hardware Cloud key could not be unlocked');
     expect(sdk.btcSignMessage).not.toHaveBeenCalled();
   });
+
+  test.each(['before', 'during'] as const)(
+    'rejects a full wallet identity change %s auth signing',
+    async (phase) => {
+      const { backgroundApi, sdk, hardware } = buildBackgroundApi();
+      const switchWallet = () =>
+        hardware.buildHwWalletXfp.mockResolvedValue(
+          `00001234--xpub${'B'.repeat(107)}`,
+        );
+      sdk.btcSignMessage.mockImplementation(async () => {
+        switchWallet();
+        return {
+          success: true,
+          payload: { signature: 'aa'.repeat(65), address: 'test-address' },
+        };
+      });
+      await expect(
+        generateHardwareCloudSyncCredentialWithSdk({
+          unlock: async (device) => {
+            if (phase === 'before') switchWallet();
+            await device.signAuth(authMessage, authContext);
+            return mockCredential;
+          },
+          backgroundApi,
+          connectId: 'test-connect',
+          isCurrent: () => true,
+        }),
+      ).rejects.toThrow('Hardware Cloud key could not be unlocked');
+      expect(sdk.btcSignMessage).toHaveBeenCalledTimes(
+        phase === 'before' ? 0 : 1,
+      );
+      expect(deriveHardwareCloudSyncKek).not.toHaveBeenCalled();
+    },
+  );
+
+  test.each(['before', 'during'] as const)(
+    'rejects a device change %s auth signing',
+    async (phase) => {
+      const { backgroundApi, sdk, hardware } = buildBackgroundApi();
+      const switchDevice = () =>
+        hardware.getDeviceState.mockResolvedValue({
+          identity: {
+            deviceId: 'replacement-device',
+            label: 'Other',
+            deviceType: 'pro',
+          },
+          status: { unlocked: true, unlockedAttachPin: false },
+        });
+      sdk.btcSignMessage.mockImplementation(async () => {
+        switchDevice();
+        return {
+          success: true,
+          payload: { signature: 'aa'.repeat(65), address: 'test-address' },
+        };
+      });
+      await expect(
+        generateHardwareCloudSyncCredentialWithSdk({
+          unlock: async (device) => {
+            if (phase === 'before') switchDevice();
+            await device.signAuth(authMessage, authContext);
+            return mockCredential;
+          },
+          backgroundApi,
+          connectId: 'test-connect',
+          isCurrent: () => true,
+        }),
+      ).rejects.toThrow('Hardware Cloud key could not be unlocked');
+      expect(sdk.btcSignMessage).toHaveBeenCalledTimes(
+        phase === 'before' ? 0 : 1,
+      );
+    },
+  );
+
+  test.each(['identity read', 'device confirmation'] as const)(
+    'rejects a challenge expiring during %s',
+    async (phase) => {
+      const { backgroundApi, sdk, hardware } = buildBackgroundApi();
+      const expire = () =>
+        jest
+          .spyOn(systemTimeUtils, 'getEstimatedServerTime')
+          .mockReturnValue(AUTH_NOW + 5 * 60 * 1000);
+      if (phase === 'identity read') {
+        hardware.buildHwWalletXfp
+          .mockResolvedValueOnce(walletXfp)
+          .mockImplementation(async () => {
+            expire();
+            return walletXfp;
+          });
+      } else {
+        sdk.btcSignMessage.mockImplementation(async () => {
+          expire();
+          return {
+            success: true,
+            payload: { signature: 'aa'.repeat(65), address: 'test-address' },
+          };
+        });
+      }
+      await expect(
+        generateHardwareCloudSyncCredentialWithSdk({
+          unlock: async (device) => {
+            await device.signAuth(authMessage, authContext);
+            return mockCredential;
+          },
+          backgroundApi,
+          connectId: 'test-connect',
+          isCurrent: () => true,
+        }),
+      ).rejects.toThrow('Hardware Cloud key could not be unlocked');
+      expect(sdk.btcSignMessage).toHaveBeenCalledTimes(
+        phase === 'identity read' ? 0 : 1,
+      );
+    },
+  );
+
+  test.each([
+    { ...authContext, identityTag: 'fedcba9876543210' },
+    { ...authContext, env: 'test' as const },
+    { ...authContext, jkt: `${authContext.jkt.slice(0, 8)}${'a'.repeat(35)}` },
+  ])(
+    'rejects mismatched local auth context %j before SDK signing',
+    async (expected) => {
+      const { backgroundApi, sdk } = buildBackgroundApi();
+      await expect(
+        generateHardwareCloudSyncCredentialWithSdk({
+          unlock: async (device) => {
+            await device.signAuth(authMessage, expected);
+            return mockCredential;
+          },
+          backgroundApi,
+          connectId: 'test-connect',
+          isCurrent: () => true,
+        }),
+      ).rejects.toThrow('Hardware Cloud key could not be unlocked');
+      expect(sdk.btcSignMessage).not.toHaveBeenCalled();
+    },
+  );
 
   test("passes the caller's own errors through unchanged", async () => {
     const { backgroundApi } = buildBackgroundApi();

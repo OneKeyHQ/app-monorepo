@@ -6,9 +6,10 @@ import {
   HARDWARE_CLOUD_SYNC_DEK_PWDHASH_PREFIX,
   HARDWARE_CLOUD_SYNC_KEK_VERSION,
   HARDWARE_CLOUD_SYNC_KEY_ENVELOPE_DATA_TYPE,
-  assertHardwareCloudSyncAuthMessage,
+  assertHardwareCloudSyncAuthContext,
   isHardwareCloudSyncKekSalt,
 } from '@onekeyhq/shared/src/consts/hardwareCloudSyncConsts';
+import type { IHardwareCloudSyncAuthContext } from '@onekeyhq/shared/src/consts/hardwareCloudSyncConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
@@ -229,10 +230,17 @@ function toSession(
 export async function requestHardwareCloudSyncChallenge({
   client,
   jwk,
+  identityTag,
+  env,
 }: {
   client: AxiosInstance;
   jwk: IHardwareCloudSyncDeviceKeyJwk;
+  identityTag: string;
+  env: IHardwareCloudSyncAuthContext['env'];
 }) {
+  if (identityTag.length !== 16 || !/^[0-9a-f]{16}$/.test(identityTag)) {
+    throw new OneKeyLocalError('Invalid standard wallet identity');
+  }
   // Measured fresh: the challenge's expiry is checked against this clock
   // before the user is asked to sign it.
   const clockOffsetMs = await measureServerClockOffsetMs({ force: true });
@@ -241,13 +249,23 @@ export async function requestHardwareCloudSyncChallenge({
     IApiClientResponse<{ challengeId: string; message: string }>
   >(`${AUTH_BASE}/challenge`, {
     deviceKeyJwk: getHardwareCloudSyncDevicePublicJwk(jwk),
+    identityTag,
   });
   const challenge = response.data.data;
   assertHardwareCloudSyncChallengeFor({
     message: challenge?.message,
     jwk,
+    identityTag,
+    env,
     now: Date.now() + clockOffsetMs,
   });
+  if (
+    typeof challenge?.challengeId !== 'string' ||
+    !challenge.challengeId ||
+    challenge.challengeId.length > 256
+  ) {
+    throw new OneKeyLocalError('Invalid Cloud sync sign-in challenge');
+  }
   return challenge;
 }
 
@@ -261,30 +279,26 @@ export function getHardwareCloudSyncDeviceKeyThumbprint(
   );
 }
 
-const CHALLENGE_MAX_LIFETIME_MS = 15 * 60 * 1000;
-
 // A challenge is signed only for this request's own device key and while it is
 // fresh, so a replayed or foreign challenge never reaches the device.
 export function assertHardwareCloudSyncChallengeFor({
   message,
   jwk,
-  now = Date.now(),
+  identityTag,
+  env,
+  now = Date.now() + getServerClockOffsetMs(),
 }: {
   message: string;
   jwk: IHardwareCloudSyncDeviceKeyJwk;
+  identityTag: string;
+  env: IHardwareCloudSyncAuthContext['env'];
   now?: number;
 }): void {
-  assertHardwareCloudSyncAuthMessage(message);
-  const device = /\nDevice: (\S+)\n/.exec(message)?.[1];
-  const expiresAt = Date.parse(/\nExpires: (\S+)$/.exec(message)?.[1] ?? '');
-  if (
-    device !== getHardwareCloudSyncDeviceKeyThumbprint(jwk).slice(0, 8) ||
-    !Number.isFinite(expiresAt) ||
-    expiresAt <= now ||
-    expiresAt > now + CHALLENGE_MAX_LIFETIME_MS
-  ) {
-    throw new OneKeyLocalError('Invalid Cloud sync sign-in challenge');
-  }
+  assertHardwareCloudSyncAuthContext(
+    message,
+    { identityTag, env, jkt: getHardwareCloudSyncDeviceKeyThumbprint(jwk) },
+    now,
+  );
 }
 
 export async function verifyHardwareCloudSyncChallenge({

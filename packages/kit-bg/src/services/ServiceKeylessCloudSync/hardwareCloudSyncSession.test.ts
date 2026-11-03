@@ -3,6 +3,7 @@ import { createHash, createPublicKey, verify } from 'crypto';
 import {
   HARDWARE_CLOUD_SYNC_KEY_ENVELOPE_DATA_TYPE,
   assertHardwareCloudSyncAuthMessage,
+  buildHardwareCloudSyncAuthMessage,
   buildHardwareCloudSyncMessage,
 } from '@onekeyhq/shared/src/consts/hardwareCloudSyncConsts';
 import systemTimeUtils from '@onekeyhq/shared/src/utils/systemTimeUtils';
@@ -34,6 +35,8 @@ function wallet(secret: string) {
   );
 }
 const WALLET = 'wallet-a';
+const identityTag = '0123456789abcdef';
+const env = 'test' as const;
 
 function fakeClient() {
   const get = jest.fn();
@@ -161,18 +164,19 @@ describe('hardware Cloud sync session', () => {
       measuredClockOffsetMs = -10 * MINUTE;
       const jwk = createHardwareCloudSyncDeviceKey();
       const expires = new Date(Date.now() - 10 * MINUTE + 2 * MINUTE);
-      const message = `OneKey Cloud Sync sign-in\nOnly confirm this inside the OneKey App.\nNonce: ${'ab'.repeat(
-        32,
-      )}\nDevice: ${getHardwareCloudSyncDeviceKeyThumbprint(jwk).slice(
-        0,
-        8,
-      )}\nExpires: ${expires.toISOString()}`;
+      const message = buildHardwareCloudSyncAuthMessage({
+        identityTag,
+        env,
+        nonce: 'ab'.repeat(32),
+        jkt: getHardwareCloudSyncDeviceKeyThumbprint(jwk),
+        expires: expires.toISOString(),
+      });
       const { client, post } = fakeClient();
       post.mockResolvedValue(
         ok({ challengeId: 'public-test-challenge', message }),
       );
       await expect(
-        requestHardwareCloudSyncChallenge({ client, jwk }),
+        requestHardwareCloudSyncChallenge({ client, jwk, identityTag, env }),
       ).resolves.toMatchObject({ challengeId: 'public-test-challenge' });
       expect(refreshServerTime).toHaveBeenCalledTimes(1);
     });
@@ -349,36 +353,24 @@ describe('hardware Cloud sync session', () => {
     expect(adopted).toEqual(won);
   });
 
-  test('sign-in challenges must not be the data key message', () => {
-    const nonce = 'ab'.repeat(32);
-    expect(() =>
-      assertHardwareCloudSyncAuthMessage(
-        `OneKey Cloud Sync sign-in\nOnly confirm this inside the OneKey App.\nNonce: ${nonce}\nDevice: abcd1234\nExpires: 2030-01-01T00:00:00.000Z`,
-      ),
-    ).not.toThrow();
-    // Extra server-chosen text is never shown on the device.
-    expect(() =>
-      assertHardwareCloudSyncAuthMessage(
-        `OneKey Cloud Sync sign-in\nOnly confirm this inside the OneKey App.\nNonce: ${nonce}\nDevice: abcd1234\nExpires: 2030-01-01T00:00:00.000Z\nSend 1 BTC to approve`,
-      ),
-    ).toThrow();
-    expect(() =>
-      assertHardwareCloudSyncAuthMessage(
-        buildHardwareCloudSyncMessage(
-          '0123456789abcdef',
-          '0123456789abcdef0123456789abcdef',
-        ),
-      ),
-    ).toThrow();
-    expect(() =>
-      assertHardwareCloudSyncAuthMessage(
-        `OneKey Cloud Sync sign-in\n${buildHardwareCloudSyncMessage(
-          '0123456789abcdef',
-          '0123456789abcdef0123456789abcdef',
-        )}\nNonce: ${nonce}\n`,
-      ),
-    ).toThrow();
-    expect(() => assertHardwareCloudSyncAuthMessage('Sign anything')).toThrow();
+  test('sign-in accepts final v1 bytes, but never legacy or key messages', () => {
+    const jwk = createHardwareCloudSyncDeviceKey();
+    const message = buildHardwareCloudSyncAuthMessage({
+      identityTag,
+      env,
+      nonce: 'ab'.repeat(32),
+      jkt: getHardwareCloudSyncDeviceKeyThumbprint(jwk),
+      expires: '2030-01-01T00:05:00.000Z',
+    });
+    expect(() => assertHardwareCloudSyncAuthMessage(message)).not.toThrow();
+    for (const invalid of [
+      `${message}\nSend 1 BTC to approve`,
+      'OneKey Cloud Sync sign-in\nOnly confirm this inside the OneKey App.\nNonce: abcdef',
+      buildHardwareCloudSyncMessage(identityTag, '01'.repeat(16)),
+      'Sign anything',
+    ]) {
+      expect(() => assertHardwareCloudSyncAuthMessage(invalid)).toThrow();
+    }
   });
 
   test.each([
@@ -476,32 +468,91 @@ describe('hardware Cloud sync session', () => {
     ).rejects.toThrow();
   });
 
-  test('signs only a fresh challenge for this request device key', () => {
+  test('signs only a fresh challenge bound to the complete local context', () => {
     const jwk = createHardwareCloudSyncDeviceKey();
-    const tag = getHardwareCloudSyncDeviceKeyThumbprint(jwk).slice(0, 8);
+    const jkt = getHardwareCloudSyncDeviceKeyThumbprint(jwk);
     const now = Date.parse('2030-01-01T00:00:00.000Z');
-    const message = (device: string, expires: string) =>
-      `OneKey Cloud Sync sign-in\nOnly confirm this inside the OneKey App.\nNonce: ${'ab'.repeat(32)}\nDevice: ${device}\nExpires: ${expires}`;
-    expect(() =>
+    const fields = {
+      identityTag,
+      env,
+      nonce: 'ab'.repeat(32),
+      jkt,
+      expires: '2030-01-01T00:05:00.000Z',
+    };
+    const check = (message: string) =>
       assertHardwareCloudSyncChallengeFor({
-        message: message(tag, '2030-01-01T00:05:00.000Z'),
+        message,
         jwk,
+        identityTag,
+        env,
         now,
-      }),
+      });
+    expect(() =>
+      check(buildHardwareCloudSyncAuthMessage(fields)),
     ).not.toThrow();
-    for (const [device, expires] of [
-      ['zzzzzzzz', '2030-01-01T00:05:00.000Z'],
-      [tag, '2029-12-31T23:59:59.000Z'],
-      [tag, '2030-01-02T00:00:00.000Z'],
+    for (const patch of [
+      { jkt: `${jkt.slice(0, 8)}${'a'.repeat(35)}` },
+      { identityTag: 'fedcba9876543210' },
+      { env: 'prod' as const },
+      { expires: '2029-12-31T23:59:59.000Z' },
+      { expires: '2030-01-02T00:00:00.000Z' },
     ]) {
       expect(() =>
-        assertHardwareCloudSyncChallengeFor({
-          message: message(device, expires),
-          jwk,
-          now,
-        }),
+        check(buildHardwareCloudSyncAuthMessage({ ...fields, ...patch })),
       ).toThrow('Invalid Cloud sync sign-in challenge');
     }
+  });
+
+  test('matches the RFC 9449 public JWK thumbprint, excluding private and optional fields', () => {
+    // RFC 9449 Figure 5 public key and Figure 9 thumbprint.
+    const publicJwk = {
+      kty: 'EC' as const,
+      crv: 'P-256' as const,
+      x: 'l8tFrhx-34tV3hRICRDY9zCkDlpBhF42UQUfWVAWBFs',
+      y: '9VE4jf_Ok_o64zbTTlcuNJajHmt6v9TDVrU0CdvGRDA',
+    };
+    const jwk = { ...publicJwk, d: 'public-test-placeholder', kid: 'ignored' };
+    const expected = '0ZcOCORZNYy-DWpqq30jZyJGHTN0d2HglBV3uiguA4I';
+    expect(getHardwareCloudSyncDeviceKeyThumbprint(jwk)).toBe(expected);
+    const canonical = `{"crv":"P-256","kty":"EC","x":"${publicJwk.x}","y":"${publicJwk.y}"}`;
+    expect(createHash('sha256').update(canonical).digest('base64url')).toBe(
+      expected,
+    );
+    expect(getHardwareCloudSyncDevicePublicJwk(jwk)).toEqual(publicJwk);
+  });
+
+  test('challenge request sends only the public key and wallet tag, preserving server bytes', async () => {
+    const jwk = createHardwareCloudSyncDeviceKey();
+    const message = buildHardwareCloudSyncAuthMessage({
+      identityTag,
+      env,
+      nonce: 'ab'.repeat(32),
+      jkt: getHardwareCloudSyncDeviceKeyThumbprint(jwk),
+      expires: new Date(Date.now() + 5 * MINUTE).toISOString(),
+    });
+    const { client, post } = fakeClient();
+    post.mockResolvedValue(ok({ challengeId: 'challenge-1', message }));
+    await expect(
+      requestHardwareCloudSyncChallenge({ client, jwk, identityTag, env }),
+    ).resolves.toEqual({ challengeId: 'challenge-1', message });
+    expect(post).toHaveBeenCalledWith('/prime/v1/hw-sync/auth/challenge', {
+      deviceKeyJwk: getHardwareCloudSyncDevicePublicJwk(jwk),
+      identityTag,
+    });
+    expect(post.mock.calls[0][1].deviceKeyJwk.d).toBeUndefined();
+    post.mockResolvedValue(ok({ challengeId: '', message }));
+    await expect(
+      requestHardwareCloudSyncChallenge({ client, jwk, identityTag, env }),
+    ).rejects.toThrow();
+    post.mockResolvedValue(
+      ok({
+        challengeId: 'legacy',
+        message: 'OneKey Cloud Sync sign-in\nNonce: abc',
+      }),
+    );
+    await expect(
+      requestHardwareCloudSyncChallenge({ client, jwk, identityTag, env }),
+    ).rejects.toThrow();
   });
 
   describe('data key reset', () => {
