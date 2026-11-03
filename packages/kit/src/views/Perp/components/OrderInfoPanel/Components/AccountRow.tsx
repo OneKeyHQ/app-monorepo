@@ -9,7 +9,11 @@ import { usePerpsActiveAccountAtom } from '@onekeyhq/kit-bg/src/states/jotai/ato
 import { ETranslations } from '@onekeyhq/shared/src/locale/enum/translations';
 import { formatDate, formatTime } from '@onekeyhq/shared/src/utils/dateUtils';
 import type { INumberFormatProps } from '@onekeyhq/shared/src/utils/numberUtils';
-import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
+import {
+  formatLocalizedNumberString,
+  numberFormat,
+} from '@onekeyhq/shared/src/utils/numberUtils';
+import { getSpotTokenDisplayName } from '@onekeyhq/shared/src/utils/perpsUtils';
 import type { IUserNonFundingLedgerUpdate } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
 import { calcCellAlign, getColumnStyle } from '../utils';
@@ -344,6 +348,15 @@ const AccountRow = memo(
       return amount;
     }, [amount, fee, isMobile, typeConfig.isIncrease]);
 
+    const sendAmount =
+      delta.type === 'send'
+        ? `${formatLocalizedNumberString(delta.amount)} ${getSpotTokenDisplayName(delta.token)}`
+        : undefined;
+    const sendFee =
+      delta.type === 'send' && new BigNumber(delta.fee).gt(0)
+        ? `${formatLocalizedNumberString(delta.fee)} ${getSpotTokenDisplayName(delta.feeToken)}`
+        : undefined;
+
     const statusInfo = useMemo(() => {
       const isPending = 'status' in delta && delta.status === 'pending';
       return {
@@ -395,9 +408,18 @@ const AccountRow = memo(
               <SizableText size="$bodyMdMedium">{typeConfig.text}</SizableText>
               <SizableText size="$bodyMdMedium" color={textColor}>
                 {signPrefix}
-                {numberFormat(totalAmount, balanceFormatter)}
+                {sendAmount ?? numberFormat(totalAmount, balanceFormatter)}
               </SizableText>
             </XStack>
+            {sendFee ? (
+              <SizableText
+                size="$bodySm"
+                color="$textSubdued"
+                textAlign="right"
+              >
+                {intl.formatMessage({ id: ETranslations.fee_fee })}: {sendFee}
+              </SizableText>
+            ) : null}
             <XStack justifyContent="space-between" alignItems="center">
               <SizableText size="$bodySm" color={statusInfo.color}>
                 {statusInfo.text}
@@ -483,7 +505,7 @@ const AccountRow = memo(
             color={textColor}
           >
             {signPrefix}
-            {numberFormat(amount, balanceFormatter)}
+            {sendAmount ?? numberFormat(amount, balanceFormatter)}
           </SizableText>
         </XStack>
 
@@ -500,7 +522,7 @@ const AccountRow = memo(
             color={fee && Number(fee) !== 0 ? '$red11' : undefined}
           >
             {fee && Number(fee) !== 0
-              ? numberFormat(fee, balanceFormatter)
+              ? (sendFee ?? numberFormat(fee, balanceFormatter))
               : '-'}
           </SizableText>
         </XStack>

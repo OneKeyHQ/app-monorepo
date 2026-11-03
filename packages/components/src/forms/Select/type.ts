@@ -24,6 +24,8 @@ export interface ISelectItem {
   label: string;
   /** Visual label for the trigger and options; label remains accessible text. */
   labelComponent?: ReactNode;
+  /** Hide the selection icon and its reserved space for action-like options. */
+  showSelectionIndicator?: boolean;
   value: string | number | boolean | undefined;
   leading?: ListItemProps['icon'];
   description?: string;

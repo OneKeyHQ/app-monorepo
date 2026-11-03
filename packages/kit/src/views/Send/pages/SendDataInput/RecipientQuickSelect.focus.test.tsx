@@ -5,7 +5,9 @@ import { act, fireEvent, render, screen } from '@testing-library/react';
 import { ActionList } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import RecipientQuickSelect from './RecipientQuickSelect';
+import RecipientQuickSelect, {
+  AccountRecipients,
+} from './RecipientQuickSelect';
 
 import type {
   NativeListProps,
@@ -421,6 +423,36 @@ describe('RecipientQuickSelect keyboard focus visibility', () => {
       expect(mockScrollHeaderBy).not.toHaveBeenCalled();
     },
   );
+
+  it('excludes the sender and returns the selected wallet account name', () => {
+    mockShowWalletAccounts = true;
+    const onSelect = jest.fn();
+    render(
+      <AccountRecipients
+        nativeList
+        networkId="btc--0"
+        excludedAddress="1ABC"
+        onSelect={onSelect}
+      />,
+    );
+    act(() =>
+      mockNativeRowAction?.({
+        actionKey: 'press',
+        rowKey: 'account-legacy-1abc',
+      }),
+    );
+    expect(onSelect).not.toHaveBeenCalled();
+    act(() =>
+      mockNativeRowAction?.({
+        actionKey: 'press',
+        rowKey: 'account-segwit-bc1abc',
+      }),
+    );
+    expect(onSelect).toHaveBeenCalledWith({
+      address: 'bc1abc',
+      name: 'Segwit',
+    });
+  });
 
   it.each([true, false])(
     'anchors an account derive menu with rect=%s and ignores a missing row',

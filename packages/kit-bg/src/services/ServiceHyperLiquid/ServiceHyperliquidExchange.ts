@@ -1,4 +1,5 @@
 import {
+  ApiRequestError,
   ExchangeClient,
   HttpRequestError,
   HttpTransport,
@@ -37,6 +38,7 @@ import type {
   IHyperLiquidOrderRequestPayload,
 } from '@onekeyhq/shared/src/logger/scopes/perp/scenes/hyperliquid';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import cacheUtils from '@onekeyhq/shared/src/utils/cacheUtils';
 import { convertHyperLiquidResponse } from '@onekeyhq/shared/src/utils/hyperLiquidErrorResolver';
 import { isUnifiedPortfolioMode } from '@onekeyhq/shared/src/utils/hyperliquidPortfolioUtils';
 import {
@@ -53,6 +55,12 @@ import {
 } from '@onekeyhq/shared/src/utils/hyperliquidTwapUtils';
 import { normalizeDexCoin } from '@onekeyhq/shared/src/utils/perpsDexUtils';
 import {
+  buildInternalTransferTokens,
+  getInternalTransferAddressError,
+  getInternalTransferRecentRecipients,
+  isInternalTransferAmountValid,
+} from '@onekeyhq/shared/src/utils/perpsInternalTransferUtils';
+import {
   MAX_DECIMALS_PERP,
   formatHlPrice,
   formatHlSize,
@@ -62,6 +70,14 @@ import {
   mapTriggerOrderType,
   parseSignatureToRSV,
 } from '@onekeyhq/shared/src/utils/perpsUtils';
+import type {
+  IInternalTransferAccount,
+  IInternalTransferParams,
+  IInternalTransferQuote,
+  IInternalTransferQuoteParams,
+  IInternalTransferSource,
+  IInternalTransferTokenParams,
+} from '@onekeyhq/shared/types/hyperliquid/internalTransfer';
 import {
   HYPEREVM_SYSTEM_ADDRESS,
   SPOT_ASSET_ID_OFFSET,
@@ -2105,6 +2121,408 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
     const route = await getUsdcWithdrawRoute(params);
     // A normal lookup may still be in flight when the emergency switch arrives.
     return (await this._isLegacyUsdcWithdrawForced()) ? 'bridge' : route;
+  }
+
+  @backgroundMethod()
+  async getInternalTransferRecentRecipients(params: IInternalTransferAccount) {
+    await this._assertInternalTransferAccount(params);
+    const user = params.expectedAccountAddress.toLowerCase() as IHex;
+    const [updates, subAccounts] = await Promise.all([
+      this.backgroundApi.serviceHyperliquid.getUserNonFundingLedgerUpdates(
+        user,
+      ),
+      hyperLiquidApiClients.infoClient.subAccounts({ user }),
+    ]);
+    await this._assertInternalTransferAccount(params);
+    return getInternalTransferRecentRecipients(
+      updates,
+      user,
+      (subAccounts ?? []).map((account) => account.subAccountUser),
+    );
+  }
+
+  private internalTransfersInFlight = new Set<string>();
+
+  private async _assertInternalTransferAccount(
+    params: IInternalTransferAccount,
+  ) {
+    const account = await perpsActiveAccountAtom.get();
+    if (
+      !params.userAccountId ||
+      !params.expectedAccountAddress ||
+      account.accountId !== params.userAccountId ||
+      account.accountAddress?.toLowerCase() !==
+        params.expectedAccountAddress.toLowerCase()
+    ) {
+      throw new OneKeyLocalError(
+        'The active account changed. Reopen the transfer form.',
+      );
+    }
+    if (accountUtils.isWatchingAccount({ accountId: params.userAccountId })) {
+      throw new WatchedAccountTradeError();
+    }
+    const wallet =
+      await this.backgroundApi.serviceHyperliquidWallet.getOnekeyWallet(params);
+    const address = await wallet.getAddress();
+    if (address.toLowerCase() !== params.expectedAccountAddress.toLowerCase()) {
+      throw new OneKeyLocalError(
+        'The signing account changed. Reopen the transfer form.',
+      );
+    }
+    const latest = await perpsActiveAccountAtom.get();
+    if (
+      latest.accountId !== params.userAccountId ||
+      latest.accountAddress?.toLowerCase() !== address.toLowerCase()
+    ) {
+      throw new OneKeyLocalError(
+        'The active account changed. Reopen the transfer form.',
+      );
+    }
+    return wallet;
+  }
+
+  @backgroundMethod()
+  async getInternalTransferSources(
+    params: IInternalTransferAccount,
+  ): Promise<IInternalTransferSource[]> {
+    return this._getInternalTransferSources(params);
+  }
+
+  private _internalTransferModePreview = cacheUtils.memoizee(
+    (user: IHex) => hyperLiquidApiClients.infoClient.userAbstraction({ user }),
+    { promise: true, maxAge: 5000, max: 20 },
+  );
+
+  // Preview data is shared briefly; both signing checks always fetch fresh data.
+  private _internalTransferTokensPreview = cacheUtils.memoizee(
+    (
+      userAccountId: string,
+      expectedAccountAddress: string,
+      source: IInternalTransferSource,
+    ) =>
+      this._fetchInternalTransferTokens({
+        userAccountId,
+        expectedAccountAddress,
+        source,
+      }),
+    { promise: true, maxAge: 5000, max: 20 },
+  );
+
+  private async _getInternalTransferSources(
+    params: IInternalTransferAccount,
+    fresh = false,
+  ): Promise<IInternalTransferSource[]> {
+    await this._assertInternalTransferAccount(params);
+    const user = params.expectedAccountAddress.toLowerCase() as IHex;
+    const mode = fresh
+      ? await hyperLiquidApiClients.infoClient.userAbstraction({ user })
+      : await this._internalTransferModePreview(user);
+    if (
+      !['default', 'disabled', 'unifiedAccount', 'portfolioMargin'].includes(
+        mode,
+      )
+    ) {
+      throw new OneKeyLocalError(
+        'Unable to determine the source account. Try again.',
+      );
+    }
+    await this._assertInternalTransferAccount(params);
+    return isUnifiedPortfolioMode(mode) ? ['trading'] : ['perps', 'spot'];
+  }
+
+  private async _loadInternalTransferTokens(
+    params: IInternalTransferTokenParams,
+    fresh = false,
+  ) {
+    await this._assertInternalTransferAccount(params);
+    const tokens = fresh
+      ? await this._fetchInternalTransferTokens(params, true)
+      : await this._internalTransferTokensPreview(
+          params.userAccountId,
+          params.expectedAccountAddress.toLowerCase(),
+          params.source,
+        );
+    await this._assertInternalTransferAccount(params);
+    return tokens;
+  }
+
+  private async _fetchInternalTransferTokens(
+    params: IInternalTransferTokenParams,
+    fresh = false,
+  ) {
+    const sources = await this._getInternalTransferSources(params, fresh);
+    if (!sources.includes(params.source)) {
+      throw new OneKeyLocalError(
+        'The source account changed. Select an account and review the transfer again.',
+      );
+    }
+    const { infoClient } = hyperLiquidApiClients;
+    const user = params.expectedAccountAddress as IHex;
+    const [metadata, state] = await Promise.all([
+      infoClient.spotMetaAndAssetCtxs(),
+      params.source === 'perps'
+        ? infoClient.clearinghouseState({ user, dex: '' })
+        : infoClient.spotClearinghouseState({ user }),
+    ]);
+    await this._assertInternalTransferAccount(params);
+    if ('withdrawable' in state) {
+      const usdc = metadata[0].tokens.find((token) => token.index === 0);
+      if (!usdc)
+        throw new OneKeyLocalError('USDC metadata is unavailable. Try again.');
+      return [
+        {
+          id: usdc.tokenId,
+          index: 0,
+          token: 'USDC',
+          symbol: usdc.name,
+          decimals: 2,
+          balance: state.withdrawable,
+          usdValue: state.withdrawable,
+        },
+      ];
+    }
+    return buildInternalTransferTokens(metadata, state);
+  }
+
+  @backgroundMethod()
+  async getInternalTransferTokens(params: IInternalTransferTokenParams) {
+    const tokens = await this._loadInternalTransferTokens(params);
+    const selected =
+      params.selectedTokenId ?? tokens.find((token) => token.index === 0)?.id;
+    return tokens
+      .filter(
+        (token) => new BigNumber(token.usdValue).gt(0) || token.id === selected,
+      )
+      .toSorted(
+        (a, b) => new BigNumber(b.usdValue).comparedTo(a.usdValue) ?? 0,
+      );
+  }
+
+  @backgroundMethod()
+  async getInternalTransferQuote(
+    params: IInternalTransferQuoteParams,
+  ): Promise<IInternalTransferQuote> {
+    return this._getInternalTransferQuote(params);
+  }
+
+  private async _getInternalTransferQuote(
+    params: IInternalTransferQuoteParams,
+    fresh = false,
+  ): Promise<IInternalTransferQuote> {
+    await this._assertInternalTransferAccount(params);
+    const addressError = getInternalTransferAddressError(
+      params.destination,
+      params.expectedAccountAddress,
+    );
+    if (addressError) throw new OneKeyLocalError(addressError);
+    const user = params.expectedAccountAddress as IHex;
+    const { infoClient } = hyperLiquidApiClients;
+    const [tokens, check] = await Promise.all([
+      this._loadInternalTransferTokens(params, fresh),
+      infoClient.preTransferCheck({
+        source: user,
+        user: params.destination as IHex,
+      }),
+    ]);
+    const asset = tokens.find((token) => token.id === params.tokenId);
+    if (!asset || !Number.isSafeInteger(asset.decimals) || asset.decimals < 0) {
+      throw new OneKeyLocalError(
+        'The selected token is unavailable. Select a token and try again.',
+      );
+    }
+    if (
+      check.isSanctioned !== false ||
+      typeof check.fee !== 'string' ||
+      !/^\d+(\.\d+)?$/.test(check.fee) ||
+      !new BigNumber(check.fee).isFinite()
+    ) {
+      throw new OneKeyLocalError(
+        'This recipient is restricted or could not be verified.',
+      );
+    }
+    const sourceDex = params.source === 'perps' ? '' : 'spot';
+    const available = new BigNumber(asset.balance);
+    if (!available.isFinite() || available.lt(0)) {
+      throw new OneKeyLocalError(
+        'Unable to determine the available balance. Try again.',
+      );
+    }
+    await this._assertInternalTransferAccount(params);
+    return {
+      ...params,
+      sourceDex,
+      destinationDex: sourceDex,
+      fee: check.fee,
+      userHasSentTx:
+        typeof check.userHasSentTx === 'boolean'
+          ? check.userHasSentTx
+          : undefined,
+      asset,
+      // Activation fees are separate stablecoin charges, not units of the selected asset.
+      maxAmount: available
+        .decimalPlaces(asset.decimals, BigNumber.ROUND_DOWN)
+        .toFixed(),
+    };
+  }
+
+  private async _validateInternalTransfer(params: IInternalTransferParams) {
+    const quote = await this._getInternalTransferQuote(params, true);
+    if (
+      quote.userHasSentTx === false &&
+      params.expectedUserHasSentTx !== false
+    ) {
+      throw new OneKeyLocalError(
+        'The recipient account status changed. Review the transfer again.',
+      );
+    }
+    if (
+      quote.asset.token !== params.expectedToken ||
+      quote.sourceDex !== params.expectedSourceDex ||
+      quote.destinationDex !== params.expectedDestinationDex ||
+      !new BigNumber(quote.fee).eq(params.expectedFee)
+    ) {
+      throw new OneKeyLocalError(
+        'The token, source account or fee changed. Review the transfer again.',
+      );
+    }
+    if (
+      !isInternalTransferAmountValid(
+        params.amount,
+        quote.maxAmount,
+        quote.asset.decimals,
+      )
+    ) {
+      throw new OneKeyLocalError(
+        `Enter an amount within the available balance, with up to ${quote.asset.decimals} decimal places.`,
+      );
+    }
+    return quote;
+  }
+
+  @backgroundMethod()
+  async transferAssetInternally(
+    params: IInternalTransferParams,
+  ): Promise<'confirmed' | 'pending'> {
+    const key = params.expectedAccountAddress.toLowerCase();
+    if (this.internalTransfersInFlight.has(key)) {
+      throw new OneKeyLocalError('A transfer is already in progress.');
+    }
+    this.internalTransfersInFlight.add(key);
+    let signed = false;
+    let signedNonce: number | undefined;
+    const db = this.backgroundApi.simpleDb.perp;
+    try {
+      const wallet = await this._assertInternalTransferAccount(params);
+      if (await db.getInternalTransferPending(key)) {
+        throw new OneKeyLocalError(
+          'Check the previous transfer before sending again.',
+        );
+      }
+      const quote = await this._validateInternalTransfer(params);
+      const exchangeClient = new ExchangeClient({
+        transport: new HttpTransport(),
+        signatureChainId: PERPS_EVM_CHAIN_ID_HEX,
+        wallet: {
+          getAddress: () => wallet.getAddress(),
+          // The SDK identifies ethers signers by signTypedData.length === 3.
+          signTypedData: async (
+            domain: Parameters<typeof wallet.signTypedData>[0],
+            types: Parameters<typeof wallet.signTypedData>[1],
+            value: Parameters<typeof wallet.signTypedData>[2],
+          ) => {
+            const signature = await wallet.signTypedData(domain, types, value);
+            await this._validateInternalTransfer(params);
+            const nonce = value.nonce;
+            if (typeof nonce !== 'number' || !Number.isSafeInteger(nonce)) {
+              throw new OneKeyLocalError('Invalid transfer nonce.');
+            }
+            // Persist before the SDK sends; an interrupted response must survive remount/restart.
+            await db.setInternalTransferPending(key, {
+              nonce,
+              token: quote.asset.token,
+              symbol: quote.asset.symbol,
+              destination: params.destination,
+              amount: params.amount,
+              sourceDex: params.expectedSourceDex,
+              destinationDex: params.expectedDestinationDex,
+            });
+            try {
+              await this._assertInternalTransferAccount(params);
+            } catch (error) {
+              await db.setInternalTransferPending(key, undefined, nonce);
+              throw error;
+            }
+            signedNonce = nonce;
+            signed = true;
+            return signature;
+          },
+        },
+      });
+      await exchangeClient.sendAsset({
+        destination: params.destination as IHex,
+        sourceDex: params.expectedSourceDex,
+        destinationDex: params.expectedDestinationDex,
+        token: quote.asset.token,
+        amount: params.amount,
+        fromSubAccount: '',
+      });
+      await db.setInternalTransferPending(key, undefined, signedNonce);
+      this._refreshAfterInternalTransfer(key);
+      return 'confirmed';
+    } catch (error) {
+      if (signed && !(error instanceof ApiRequestError)) return 'pending';
+      if (signed)
+        await db.setInternalTransferPending(key, undefined, signedNonce);
+      throw error;
+    } finally {
+      this.internalTransfersInFlight.delete(key);
+      this._internalTransferModePreview.clear();
+      this._internalTransferTokensPreview.clear();
+    }
+  }
+
+  private _refreshAfterInternalTransfer(address: string) {
+    this._internalTransferModePreview.clear();
+    this._internalTransferTokensPreview.clear();
+    // Refresh failures cannot turn an accepted transfer into a retryable failure.
+    void Promise.allSettled([
+      this.backgroundApi.serviceHyperliquid.invalidateHyperliquidPortfolio(
+        address,
+      ),
+      this.backgroundApi.serviceHyperliquidSubscription.enableLedgerUpdatesSubscription(),
+    ]);
+  }
+
+  @backgroundMethod()
+  async checkInternalTransfer(params: IInternalTransferAccount) {
+    await this._assertInternalTransferAccount(params);
+    const key = params.expectedAccountAddress.toLowerCase();
+    const db = this.backgroundApi.simpleDb.perp;
+    const pending = await db.getInternalTransferPending(key);
+    if (!pending) return { status: 'none' as const };
+    const updates =
+      await hyperLiquidApiClients.infoClient.userNonFundingLedgerUpdates({
+        user: key as IHex,
+        startTime: pending.nonce - 60_000,
+      });
+    const confirmed = updates.some(
+      ({ delta }) =>
+        delta.type === 'send' &&
+        delta.nonce === pending.nonce &&
+        delta.user.toLowerCase() === key &&
+        delta.destination.toLowerCase() === pending.destination.toLowerCase() &&
+        delta.sourceDex === pending.sourceDex &&
+        delta.destinationDex === (pending.destinationDex ?? 'spot') &&
+        (delta.token === (pending.symbol ?? 'USDC') ||
+          delta.token === pending.token) &&
+        new BigNumber(delta.amount).eq(pending.amount),
+    );
+    if (confirmed) {
+      await db.setInternalTransferPending(key, undefined, pending.nonce);
+      this._refreshAfterInternalTransfer(key);
+      return { status: 'confirmed' as const };
+    }
+    return { status: 'pending' as const, pending };
   }
 
   private async _isLegacyUsdcWithdrawForced() {

@@ -26,6 +26,8 @@ import {
   isUnifoldDepositAccountDisabled,
 } from '../utils/unifoldRecipient';
 
+import { useShowInternalTransfer } from './useShowInternalTransfer';
+
 type IPerpsDepositWithdrawActionType = 'deposit' | 'withdraw';
 
 function isUnifoldDepositFeatureEnabled(remoteEnabled: boolean | undefined) {
@@ -112,6 +114,8 @@ export function useShowDepositWithdrawModal(
   entrySource: TPerpDepositEntrySource,
 ) {
   const intl = useIntl();
+  const { showInternalTransfer, isTransferDisabled } =
+    useShowInternalTransfer();
   const navigation = useAppNavigation();
   const { gtMd } = useMedia();
   const dialogInTab = useInTabDialog();
@@ -158,7 +162,20 @@ export function useShowDepositWithdrawModal(
         return;
       }
       if (actionType !== 'deposit') {
-        await openDepositWithdrawForm(actionType);
+        const { showWithdrawMethodDialog } =
+          await import('../components/TradingPanel/modals/WithdrawMethodDialog');
+        showWithdrawMethodDialog({
+          walletName: accountUtils.isExternalAccount({
+            accountId:
+              jotaiDefaultStore.get(perpsActiveAccountAtom.atom()).accountId ??
+              '',
+          })
+            ? 'Connected Wallet'
+            : 'OneKey Wallet',
+          onWithdraw: () => openDepositWithdrawForm('withdraw'),
+          onSend: showInternalTransfer,
+          isTransferDisabled,
+        });
         return;
       }
 
@@ -256,6 +273,8 @@ export function useShowDepositWithdrawModal(
     },
     [
       getLatestDepositDisabled,
+      showInternalTransfer,
+      isTransferDisabled,
       openDepositWithdrawForm,
       entrySource,
       gtMd,

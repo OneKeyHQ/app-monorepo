@@ -157,6 +157,7 @@ function SelectItem({
   labelComponent,
   leading,
   selectedValue,
+  showSelectionIndicator = true,
   description,
   disabled,
   testID = '',
@@ -199,23 +200,24 @@ function SelectItem({
             description={description}
           />
         </Stack>
-        {selectedValue === value ? (
-          <Icon
-            flexShrink={0}
-            ml="$2"
-            alignSelf="center"
-            name="CheckLargeOutline"
-            size="$4"
-            color="$iconActive"
-            {...(md && {
-              name: 'CheckRadioSolid',
-              size: '$6',
-              mr: '$0.5',
-            })}
-          />
-        ) : (
-          <Stack w={labelComponent && !md ? '$6' : '$8'} h={1} />
-        )}
+        {showSelectionIndicator &&
+          (selectedValue === value ? (
+            <Icon
+              flexShrink={0}
+              ml="$2"
+              alignSelf="center"
+              name="CheckLargeOutline"
+              size="$4"
+              color="$iconActive"
+              {...(md && {
+                name: 'CheckRadioSolid',
+                size: '$6',
+                mr: '$0.5',
+              })}
+            />
+          ) : (
+            <Stack w={labelComponent && !md ? '$6' : '$8'} h={1} />
+          ))}
       </XStack>
     ),
     [
@@ -227,6 +229,7 @@ function SelectItem({
       leading,
       md,
       selectedValue,
+      showSelectionIndicator,
       testID,
       value,
     ],
@@ -566,8 +569,6 @@ function BasicSelect<
   defaultTriggerInputProps,
   ...props
 }: ISelectProps<T>) {
-  const media = useMedia();
-  const defaultChevronTop = media.gtMd ? '$2' : '$3';
   const isSmallTrigger = defaultTriggerInputProps?.size === 'small';
   const defaultRenderTrigger = useCallback(
     ({
@@ -585,7 +586,7 @@ function BasicSelect<
           value={labelComponent ? '' : label}
           accessibilityLabel={labelComponent ? label : undefined}
           disabled={disabled}
-          placeholder={placeholder}
+          placeholder={labelComponent ? undefined : placeholder}
           readonly
           flex={1}
           testID={`${testID}-input`}
@@ -594,7 +595,7 @@ function BasicSelect<
         {labelComponent ? (
           <Stack
             position="absolute"
-            left="$3"
+            left={defaultTriggerInputProps?.size === 'large' ? '$3.5' : '$3'}
             right="$8"
             top={0}
             bottom={0}
@@ -604,23 +605,23 @@ function BasicSelect<
             {labelComponent}
           </Stack>
         ) : null}
-        {/* <Icon
-          name="ChevronBottomSolid"
+        <Stack
           position="absolute"
           right="$3"
-          top="$2"
-        /> */}
-        <Icon
-          name="ChevronDownSmallOutline"
-          color="$iconSubdued"
-          size={isSmallTrigger ? '$4.5' : undefined}
-          position="absolute"
-          right="$3"
-          top={isSmallTrigger ? 5 : defaultChevronTop}
-        />
+          top={0}
+          bottom={0}
+          justifyContent="center"
+          pointerEvents="none"
+        >
+          <Icon
+            name="ChevronDownSmallOutline"
+            color="$iconSubdued"
+            size={isSmallTrigger ? '$4.5' : undefined}
+          />
+        </Stack>
       </Stack>
     ),
-    [defaultChevronTop, defaultTriggerInputProps, isSmallTrigger, testID],
+    [defaultTriggerInputProps, isSmallTrigger, testID],
   );
   return (
     <SelectFrame {...props}>
