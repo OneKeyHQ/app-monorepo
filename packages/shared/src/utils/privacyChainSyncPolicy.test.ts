@@ -3,6 +3,8 @@ import {
   PRIVACY_CHAIN_TIP_POLL_MS,
   getPrivacyChainBackfillBlocksLeft,
   getPrivacyChainBlocksLeft,
+  getPrivacyChainBlocksSeconds,
+  getPrivacyChainTimeWindowBlocks,
   isTipLagWorthMentioning as isTipLagWorthMentioningWithPolicy,
   nextPrivacyChainScanRate,
   shouldStartBoost,
@@ -280,5 +282,45 @@ describe('nextPrivacyChainScanRate', () => {
         now: 10 * 60 * 1000,
       })?.blocksPerSec,
     ).toBeNull();
+  });
+});
+
+describe('block time across an interval change', () => {
+  // Zcash NU7: 75s blocks become 25s from this height.
+  const NU7 = 3_543_405;
+  const zcash = {
+    blockTimeSeconds: 75,
+    blockTimeChange: { fromHeight: NU7, blockTimeSeconds: 25 },
+  };
+
+  it('times each block at its own height', () => {
+    expect(getPrivacyChainBlocksSeconds(zcash, 48, NU7 - 1)).toBe(3600);
+    expect(getPrivacyChainBlocksSeconds(zcash, 48, NU7 + 100)).toBe(1200);
+    // 20 blocks before the change, 10 after.
+    expect(getPrivacyChainBlocksSeconds(zcash, 30, NU7 + 9)).toBe(1750);
+    expect(getPrivacyChainBlocksSeconds(zcash, 48, null)).toBe(3600);
+    expect(
+      getPrivacyChainBlocksSeconds({ blockTimeSeconds: 120 }, 2, NU7),
+    ).toBe(240);
+  });
+
+  // ZIP 218: a block count that stands for time keeps its time.
+  it('keeps the time a block window stands for', () => {
+    expect(getPrivacyChainTimeWindowBlocks(zcash, 48, NU7 - 1)).toBe(48);
+    expect(getPrivacyChainTimeWindowBlocks(zcash, 48, NU7 + 200)).toBe(144);
+    expect(getPrivacyChainTimeWindowBlocks(zcash, 10, NU7 + 30)).toBe(30);
+    // 30 blocks after the change (750s) leave 2850s at 75s: 38 more.
+    expect(getPrivacyChainTimeWindowBlocks(zcash, 48, NU7 + 29)).toBe(68);
+    expect(getPrivacyChainTimeWindowBlocks(zcash, 48, null)).toBe(48);
+    expect(getPrivacyChainTimeWindowBlocks(undefined, 48, NU7)).toBe(48);
+  });
+
+  it('moves a window start forward as the tip moves', () => {
+    let previousStart = -Infinity;
+    for (let tip = NU7 - 20; tip <= NU7 + 40; tip += 1) {
+      const start = tip - getPrivacyChainTimeWindowBlocks(zcash, 10, tip);
+      expect(start).toBeGreaterThan(previousStart);
+      previousStart = start;
+    }
   });
 });

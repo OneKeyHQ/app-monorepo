@@ -50,6 +50,7 @@ const statusOf = (
     accountId: 'a',
     account,
     syncedBelowBlocks,
+    blockTime: undefined,
     ...extra,
   }).status;
 
@@ -169,6 +170,7 @@ describe('getLocalWalletNetworkSyncStatus', () => {
       networkId,
       accountIds,
       syncedBelowBlocks,
+      blockTime: undefined,
     });
 
   it('follows the account furthest behind', () => {
@@ -217,5 +219,37 @@ describe('getLocalWalletNetworkSyncStatus', () => {
     );
     expect(view.status).toBe('syncing');
     expect(view.progress).toEqual(position(0));
+  });
+});
+
+describe('synced window across a block interval change', () => {
+  // Zcash NU7: 75s blocks become 25s from this height.
+  const NU7 = 3_543_405;
+  const zcash = {
+    blockTimeSeconds: 75,
+    blockTimeChange: { fromHeight: NU7, blockTimeSeconds: 25 },
+  };
+
+  it('counts the window in time', () => {
+    const statusAt = (chainTip: number) => {
+      const progress: ILocalWalletSyncProgress = {
+        ...position(100),
+        backfillScannedHeight: chainTip - 100,
+        backfillTargetHeight: chainTip,
+        tipScannedHeight: chainTip,
+        chainTip,
+      };
+      return getLocalWalletAccountSyncStatus({
+        scan: scanState({ progress: { [`zec--0:a`]: progress } }),
+        networkId: 'zec--0',
+        accountId: 'a',
+        account: { enabled: true, paused: false },
+        syncedBelowBlocks: 48,
+        blockTime: zcash,
+      }).status;
+    };
+    // 100 blocks: over an hour at 75s, about 42 minutes at 25s.
+    expect(statusAt(NU7 - 200)).toBe('syncing');
+    expect(statusAt(NU7 + 200)).toBe('synced');
   });
 });

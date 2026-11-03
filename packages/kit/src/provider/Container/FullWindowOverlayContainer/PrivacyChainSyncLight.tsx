@@ -34,7 +34,6 @@ import {
   usePrivacyChainAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { IPrivacyChainScanState } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import type { ILocalWalletBlockTime } from '@onekeyhq/kit-bg/src/vaults/localWallet/blockTime';
 import { FLOAT_NAV_BAR_Z_INDEX } from '@onekeyhq/shared/src/consts/zIndexConsts';
 import {
   EAppEventBusNames,
@@ -42,6 +41,7 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import type { IPrivacyChainBlockTime } from '@onekeyhq/shared/src/utils/privacyChainSyncPolicy';
 
 import type { IOverlayAnimation } from '@onekeyfe/react-native-native-overlay';
 
@@ -230,7 +230,7 @@ function PrivacyChainSyncNetwork({
 // Each chain's synced threshold from its settings, kept across mounts so a remount knows it at once.
 const syncedBelowBlocksCache = new Map<
   string,
-  { syncedBelowBlocks: number; blockTime?: ILocalWalletBlockTime }
+  { syncedBelowBlocks: number; blockTime?: IPrivacyChainBlockTime }
 >();
 
 function BasicPrivacyChainSyncLight() {

@@ -22,6 +22,7 @@ import type {
   ETranslations,
   ETranslationsMock,
 } from '@onekeyhq/shared/src/locale';
+import type { IPrivacyChainBlockTime } from '@onekeyhq/shared/src/utils/privacyChainSyncPolicy';
 import type { IWcPayPreBroadcastRecord } from '@onekeyhq/shared/src/walletConnect/payTypes';
 import type { IDappSourceInfo } from '@onekeyhq/shared/types';
 import type { IDBCustomRpc } from '@onekeyhq/shared/types/customRpc';
@@ -293,7 +294,7 @@ export type IVaultSettings = {
     blockTimeSeconds: number;
     // From this height the target block interval is `blockTimeSeconds` here instead (Zcash NU7:
     // 75s to 25s). Block counts that stand for time keep their time, as ZIP 218 does.
-    blockTimeChange?: { fromHeight: number; blockTimeSeconds: number };
+    blockTimeChange?: IPrivacyChainBlockTime['blockTimeChange'];
     // Height ranges worth naming while the scanner is inside them.
     scanRegionHints?: {
       fromHeight: number;

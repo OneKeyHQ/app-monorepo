@@ -6,6 +6,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import {
   PRIVACY_CHAIN_SYNC_STATUS_LABELS,
+  formatPrivacyChainSyncDetail,
   formatPrivacyChainSyncError,
   formatPrivacyChainSyncProgress,
   formatPrivacyChainSyncSummary,
@@ -107,6 +108,7 @@ describe('chain status shared by settings and the floating control', () => {
       state,
       networkId: 'xmr--0',
       syncedBelowBlocks: 100,
+      blockTime: undefined,
     });
   beforeEach(() => {
     state = {
@@ -177,6 +179,7 @@ describe('chain status shared by settings and the floating control', () => {
         state,
         networkId: 'xmr--0',
         syncedBelowBlocks: 100,
+        blockTime: undefined,
         accountIds: ['mine'],
       }).status,
     ).toBe('synced');
@@ -185,6 +188,7 @@ describe('chain status shared by settings and the floating control', () => {
         state,
         networkId: 'xmr--0',
         syncedBelowBlocks: 100,
+        blockTime: undefined,
         accountPaused: true,
       }).status,
     ).toBe('accountPaused');
@@ -369,4 +373,35 @@ describe('formatPrivacyChainSyncError', () => {
       ETranslations.privacy_sync_failed_retrying__msg,
     );
   });
+});
+
+// Zcash NU7: 75s blocks become 25s; a lag across it is timed block by block.
+it('times a tip lag across a block interval change', () => {
+  const NU7 = 3_543_405;
+  const settings = {
+    blockTimeSeconds: 75,
+    blockTimeChange: { fromHeight: NU7, blockTimeSeconds: 25 },
+    tipLagWarningBlocks: 48,
+  } as Parameters<typeof formatPrivacyChainSyncDetail>[0]['settings'];
+  const caughtUp = (chainTip: number, tipLag: number) =>
+    formatPrivacyChainSyncDetail({
+      progress: {
+        birthdayHeight: 0,
+        backfillScannedHeight: chainTip - tipLag,
+        backfillTargetHeight: chainTip - tipLag,
+        backfillProgress: 1,
+        isBackfillComplete: true,
+        tipScannedHeight: chainTip - tipLag,
+        chainTip,
+        tipLag,
+        isTipCaughtUp: false,
+        isSyncing: false,
+      },
+      settings,
+      intl: createIntl({ locale: 'en' }),
+    });
+  // 200 blocks at 25s and 200 at 75s: about 5.6 hours, not 2.8.
+  expect(caughtUp(NU7 + 199, 400)).toMatch(/ · 6 hours/);
+  // An hour of 25s blocks is 144, so 100 behind is not worth a word.
+  expect(caughtUp(NU7 + 1000, 100)).not.toContain(' · ');
 });

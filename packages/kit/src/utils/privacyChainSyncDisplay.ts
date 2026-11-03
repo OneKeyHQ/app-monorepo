@@ -1,9 +1,4 @@
 import type { IPrivacyChainScanState } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import {
-  getLocalWalletBlockSeconds,
-  getLocalWalletTimeWindowBlocks,
-} from '@onekeyhq/kit-bg/src/vaults/localWallet/blockTime';
-import type { ILocalWalletBlockTime } from '@onekeyhq/kit-bg/src/vaults/localWallet/blockTime';
 import { getLocalWalletNetworkSyncStatus } from '@onekeyhq/kit-bg/src/vaults/localWallet/syncStatus';
 import type {
   ILocalWalletSyncStatus,
@@ -18,8 +13,11 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { formatDistanceStrict } from '@onekeyhq/shared/src/utils/dateUtils';
 import {
   getPrivacyChainBackfillBlocksLeft,
+  getPrivacyChainBlocksSeconds,
+  getPrivacyChainTimeWindowBlocks,
   isTipLagWorthMentioning,
 } from '@onekeyhq/shared/src/utils/privacyChainSyncPolicy';
+import type { IPrivacyChainBlockTime } from '@onekeyhq/shared/src/utils/privacyChainSyncPolicy';
 
 import type { IntlShape } from 'react-intl';
 
@@ -187,7 +185,7 @@ export function getPrivacyChainNetworkSyncDisplay({
   state: IPrivacyChainScanState;
   networkId: string;
   syncedBelowBlocks: number;
-  blockTime?: ILocalWalletBlockTime;
+  blockTime: IPrivacyChainBlockTime | undefined;
   accountIds?: string[];
   accountPaused?: boolean;
   unavailable?: boolean;
@@ -305,18 +303,25 @@ export function formatPrivacyChainSyncDetail({
     target: progress.chainTip,
   });
   const lag = progress.tipLag;
-  const behind =
+  let behind = '';
+  if (
     settings &&
     isTipLagWorthMentioning(
       lag,
-      getLocalWalletTimeWindowBlocks(
+      getPrivacyChainTimeWindowBlocks(
         settings,
         settings.tipLagWarningBlocks,
         progress.chainTip,
       ),
     )
-      ? ` · ${formatPrivacyChainDuration(-(lag ?? 0) * getLocalWalletBlockSeconds(settings, progress.chainTip), true)}`
-      : '';
+  ) {
+    const lagSeconds = getPrivacyChainBlocksSeconds(
+      settings,
+      lag,
+      progress.chainTip,
+    );
+    behind = ` · ${formatPrivacyChainDuration(-lagSeconds, true)}`;
+  }
   return heights
     ? `${heights}${behind}`
     : intl.formatMessage({ id: PRIVACY_CHAIN_SYNC_STATUS_LABELS.synced });

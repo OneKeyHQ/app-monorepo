@@ -23,9 +23,9 @@ import { EAddressEncodings } from '@onekeyhq/core/src/types';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import { LRUCache } from '@onekeyhq/shared/src/utils/cacheUtils';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
+import { getPrivacyChainTimeWindowBlocks } from '@onekeyhq/shared/src/utils/privacyChainSyncPolicy';
 import type { IAccountHistoryTx } from '@onekeyhq/shared/types/history';
 
-import { getLocalWalletTimeWindowBlocks } from '../../localWallet/blockTime';
 import { loadCachedLocalWalletHistory } from '../../localWallet/cachedHistory';
 import { getLastLocalWalletChainTip } from '../../localWallet/privacyChainCacheStore';
 
@@ -45,11 +45,11 @@ import type { IDBUtxoAccount } from '../../../dbs/local/types';
 import type { IBuildEncodedTxParams } from '../../types';
 
 // Blocks past expiry before an unmined send is dropped; covers indexer lag and shallow reorgs.
-// It stands for time, so it triples at NU7 like the expiry window (ZIP 218).
+// It stands for time, so it keeps its time across NU7 like the expiry window (ZIP 218).
 const ZCASH_TRANSPARENT_DROP_MARGIN_BLOCKS = 10;
 
 export function getZcashTransparentDropMarginBlocks(tip: number): number {
-  return getLocalWalletTimeWindowBlocks(
+  return getPrivacyChainTimeWindowBlocks(
     settings.localWallet,
     ZCASH_TRANSPARENT_DROP_MARGIN_BLOCKS,
     tip,

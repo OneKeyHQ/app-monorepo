@@ -22,6 +22,7 @@ import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import {
   PRIVACY_CHAIN_TIP_POLL_MS,
   getPrivacyChainBlocksLeft,
+  getPrivacyChainTimeWindowBlocks,
   nextPrivacyChainScanRate,
   shouldStartBoost,
 } from '@onekeyhq/shared/src/utils/privacyChainSyncPolicy';
@@ -37,7 +38,6 @@ import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 
 import { privacyChainAtom } from '../states/jotai/atoms';
 import { vaultFactory } from '../vaults/factory';
-import { getLocalWalletTimeWindowBlocks } from '../vaults/localWallet/blockTime';
 import { planLocalWalletLifecycle } from '../vaults/localWallet/lifecycle';
 import { localWalletText } from '../vaults/localWallet/messages';
 import {
@@ -5130,29 +5130,27 @@ class ServicePrivacyChain extends ServiceBase {
     // The account furthest behind decides: the light means "not usable yet",
     // and one account that cannot send yet is enough to say so.
     let mostRemaining: number | null = null;
+    // Scales the synced window at the same height the status row uses.
+    let mostRemainingTip: number | null = null;
     let hasUnknownProgress = false;
-    let chainTip: number | null = null;
     for (const { accountId } of accounts) {
       const entry = progress[`${networkId}:${accountId}`];
       const remaining = getPrivacyChainBlocksLeft(entry);
-      if (remaining !== null) {
-        mostRemaining = Math.max(mostRemaining ?? 0, remaining);
-      } else {
+      if (remaining === null) {
         hasUnknownProgress = true;
-      }
-      const entryTip = entry?.chainTip;
-      if (typeof entryTip === 'number') {
-        chainTip = Math.max(chainTip ?? entryTip, entryTip);
+      } else if (mostRemaining === null || remaining > mostRemaining) {
+        mostRemaining = remaining;
+        mostRemainingTip = entry?.chainTip ?? null;
       }
     }
     // Once on, the light stays until the chain counts as synced.
     const isNearlyDone =
       !hasUnknownProgress &&
       (mostRemaining ?? 0) <
-        getLocalWalletTimeWindowBlocks(
+        getPrivacyChainTimeWindowBlocks(
           settings.localWallet,
           settings.localWallet?.syncedBelowBlocks ?? 1,
-          chainTip,
+          mostRemainingTip,
         );
     const wanted = wasRequested
       ? !isNearlyDone

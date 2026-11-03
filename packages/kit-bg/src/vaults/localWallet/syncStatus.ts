@@ -1,8 +1,9 @@
-import { getPrivacyChainBlocksLeft } from '@onekeyhq/shared/src/utils/privacyChainSyncPolicy';
+import {
+  getPrivacyChainBlocksLeft,
+  getPrivacyChainTimeWindowBlocks,
+} from '@onekeyhq/shared/src/utils/privacyChainSyncPolicy';
+import type { IPrivacyChainBlockTime } from '@onekeyhq/shared/src/utils/privacyChainSyncPolicy';
 
-import { getLocalWalletTimeWindowBlocks } from './blockTime';
-
-import type { ILocalWalletBlockTime } from './blockTime';
 import type {
   ILocalWalletAccountState,
   ILocalWalletSyncErrorKind,
@@ -60,7 +61,8 @@ function getScanStatus({
   progresses: ILocalWalletSyncProgress[];
   preparing: boolean;
   syncedBelowBlocks: number;
-  blockTime?: ILocalWalletBlockTime;
+  // Scales `syncedBelowBlocks` across a block interval change.
+  blockTime: IPrivacyChainBlockTime | undefined;
 }): ILocalWalletSyncStatusView {
   // An account still queued (no position yet) must not hide work already advancing beside it.
   let progress: ILocalWalletSyncProgress | undefined;
@@ -85,7 +87,7 @@ function getScanStatus({
     progress !== undefined &&
     !hasUnknown &&
     mostBlocksLeft <
-      getLocalWalletTimeWindowBlocks(
+      getPrivacyChainTimeWindowBlocks(
         blockTime,
         syncedBelowBlocks,
         progress.chainTip,
@@ -125,7 +127,7 @@ export function getLocalWalletAccountSyncStatus({
   unavailable?: boolean;
   progress?: ILocalWalletSyncProgress;
   syncedBelowBlocks: number;
-  blockTime?: ILocalWalletBlockTime;
+  blockTime: IPrivacyChainBlockTime | undefined;
 }): ILocalWalletSyncStatusView {
   const key = `${networkId}:${accountId}`;
   const published = scan.progress[key] ?? progress;
@@ -155,7 +157,7 @@ export function getLocalWalletNetworkSyncStatus({
   networkId: string;
   accountIds?: string[];
   syncedBelowBlocks: number;
-  blockTime?: ILocalWalletBlockTime;
+  blockTime: IPrivacyChainBlockTime | undefined;
 }): ILocalWalletSyncStatusView {
   const prefix = `${networkId}:`;
   const isIncluded = (key: string) =>
