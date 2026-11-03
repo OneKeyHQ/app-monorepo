@@ -47,9 +47,8 @@ import {
   EReferralPageTab,
   type IReferralPageTab,
   IS_BENEFITS_TAB_ENABLED,
-  resolveReferralPageTab,
 } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/referralPageTab';
-import { useReferralTabCopy } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/referralTabCopy';
+import { useReferralPageTab } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/useReferralPageTab';
 import { useReferralTabSwitch } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/useReferralTabSwitch';
 import {
   getInviteCodeStepImageHeight,
@@ -396,7 +395,6 @@ const InviteShareFooter = memo(function InviteShareFooter({
 });
 
 function InviteRewardPage() {
-  const tabCopy = useReferralTabCopy();
   const intl = useIntl();
   const { md } = useMedia();
   const pageCanvas = useInvitePageCanvas();
@@ -408,7 +406,7 @@ function InviteRewardPage() {
     params?: IInviteRewardRouteParams;
   }>();
   const isCompactHeader = platformEnv.isNative || md;
-  const activeTab = resolveReferralPageTab(route.params?.tab);
+  const activeTab = useReferralPageTab(route.params?.tab);
   const isInviteTab = activeTab === EReferralPageTab.invite;
   const { setActiveTab, openPerks, openInvite } =
     useReferralTabSwitch(activeTab);
@@ -621,6 +619,8 @@ function InviteRewardPage() {
                   })}
                 </SizableText>
               )}
+              {/* Perks says whose rewards these are beside its rewards
+                  section title, not here. */}
               {isInviteTab ? (
                 <XStack ai="center" gap="$2" flexShrink={1} jc="flex-end">
                   {summaryInfo ? (
@@ -635,18 +635,7 @@ function InviteRewardPage() {
                     {platformEnv.isWeb ? <LogoutButton /> : null}
                   </XStack>
                 </XStack>
-              ) : (
-                // Perks says whose rewards these are where the invite tab
-                // keeps its level and rules.
-                <SizableText
-                  size="$bodyMd"
-                  color="$textSubdued"
-                  numberOfLines={1}
-                  flexShrink={1}
-                >
-                  {tabCopy.perksIntro}
-                </SizableText>
-              )}
+              ) : null}
             </XStack>
           </Page.Container>
         )}

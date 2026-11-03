@@ -349,7 +349,7 @@ describe('market native list rows', () => {
     expect(withoutName.subtitlePrefix).toBeUndefined();
   });
 
-  it('names a favorited stock listing by its company, but not an asset listing', () => {
+  it('names a favorited stock listing by its company alone, without a volume', () => {
     const listing: IMarketToken = {
       ...token,
       id: 'stock:AAPL',
@@ -366,13 +366,8 @@ describe('market native list rows', () => {
       presentation,
       watchlist: true,
     });
-    expect(stockRow.subtitle).toBe('$123.46K');
-    expect(stockRow.subtitlePrefix).toMatchObject({
-      text: 'Apple',
-      gap: 6,
-      maxWidth: 66,
-      style: { fontSize: 12, lineHeight: 16 },
-    });
+    expect(stockRow.subtitle).toBe('Apple');
+    expect(stockRow.subtitlePrefix).toBeUndefined();
     const assetRow = buildTokenMarketRow({
       item: {
         ...listing,
@@ -384,7 +379,43 @@ describe('market native list rows', () => {
       presentation,
       watchlist: true,
     });
+    expect(assetRow.subtitle).toBe('$123.46K');
     expect(assetRow.subtitlePrefix).toBeUndefined();
+  });
+
+  it('shows only the volume on every other favorited row', () => {
+    const perpItem: IMarketToken = {
+      ...token,
+      stock: undefined,
+      name: 'BTC',
+      symbol: 'BTC',
+      address: '',
+      networkId: '',
+      perpsCoin: 'BTC',
+      perpsSubtitle: 'Bitcoin',
+      maxLeverage: 40,
+    };
+    const rows = [
+      // Spot token
+      { ...token, stock: undefined },
+      // Tokenized stock
+      token,
+      perpItem,
+    ].map((item) =>
+      buildTokenMarketRow({ item, presentation, watchlist: true }),
+    );
+    for (const row of rows) {
+      expect(row.subtitle).toBe('$123.46K');
+      expect(row.subtitlePrefix).toBeUndefined();
+    }
+    // Outside Favorites, a tokenized stock and a perp still lead with a name.
+    expect(
+      buildTokenMarketRow({ item: token, presentation }).subtitlePrefix?.text,
+    ).toBe('Tiny Corp');
+    expect(
+      buildTokenMarketRow({ item: perpItem, presentation }).subtitlePrefix
+        ?.text,
+    ).toBe('Bitcoin');
   });
 
   it('gives standalone and watchlist perpetual rows the same row frame', () => {
@@ -815,5 +846,58 @@ describe('market native list rows', () => {
         changes: { change: { text: '1.2342', tone: 'positive' }, webTable },
       },
     ]);
+  });
+
+  it('patches quote metrics but uses a full snapshot when visible columns change', () => {
+    const row = buildTokenMarketRow({
+      item: token,
+      presentation,
+      responsive: true,
+    });
+    const snapshot = (metrics?: typeof row.metrics) =>
+      buildMarketNativeSnapshot({
+        rows: [Object.assign({}, row, { metrics })],
+        generation: 1,
+        presentation,
+        loading: false,
+        noDataMessage: 'No data',
+        retryMessage: 'Retry',
+        contentPaddingBottom: 20,
+      });
+    const two = snapshot(row.metrics?.slice(0, 2));
+    const quoteTick = snapshot(
+      row.metrics
+        ?.slice(0, 2)
+        .map((metric) =>
+          metric.key === 'price' ? { ...metric, text: '$2' } : metric,
+        ),
+    );
+    expect(buildMarketNativeRowPatches(two, quoteTick)).toEqual([
+      expect.objectContaining({
+        type: 'market',
+        key: row.key,
+        changes: expect.objectContaining({
+          metrics: (quoteTick.rows[0] as typeof row).metrics,
+        }),
+      }),
+    ]);
+    expect(
+      buildMarketNativeRowPatches(two, snapshot(row.metrics)),
+    ).toBeUndefined();
+    expect(buildMarketNativeRowPatches(two, snapshot())).toBeUndefined();
+    expect(row.pressActionKey).toBe('open-detail');
+    expect(row.pressInActionKey).toBe('prewarm-detail');
+    expect(row.volumeSubtitle).toBe(true);
+    const webRow = buildTokenMarketRow({ item: token, presentation });
+    expect(webRow.metrics).toBeUndefined();
+    expect(webRow.volumeSubtitle).toBeUndefined();
+    expect(
+      buildTokenMarketRow({
+        item: { ...token, stockId: 'AAPL', address: '', networkId: '' },
+        presentation,
+        watchlist: true,
+        responsive: true,
+      }).volumeSubtitle,
+    ).toBe(false);
   });
 });

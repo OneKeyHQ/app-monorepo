@@ -302,7 +302,16 @@ export interface ISwapToken extends ISwapTokenBase {
 export interface ISwapTokenCatch {
   data: ISwapToken[];
   updatedAt: number;
+  refreshVersion?: number;
+  identityVersion?: number;
+  persisted?: boolean;
 }
+
+export type ISwapTokenListSnapshotMap = {
+  version?: number;
+  updatedAt: number;
+  tokenCatch?: Record<string, ISwapTokenCatch>;
+};
 
 interface IFetchSwapQuoteBaseParams {
   fromNetworkId: string;
@@ -316,7 +325,7 @@ interface IFetchSwapQuoteBaseParams {
 export interface IFetchTokensParams {
   protocol?: string;
   networkId?: string;
-  contractSearchNetworkId?: string;
+  searchRequestId?: string;
   keywords?: string;
   limit?: number;
   accountAddress?: string;
@@ -326,6 +335,8 @@ export interface IFetchTokensParams {
   onlySwapTokens?: boolean;
   isAllNetworkFetchAccountTokens?: boolean;
   throwOnError?: boolean;
+  isTokenListPrefetch?: boolean;
+  tokenListPriority?: 'foreground' | 'background';
   lpToken?: boolean;
   currency?: string;
 }

@@ -101,7 +101,10 @@ export function StockSelectorPopover({
     requestedHeight === undefined
       ? undefined
       : Math.max(1, Math.min(requestedHeight, maxHeight));
-  const bottomPadding = Math.max(0, bottom - systemBottomInset);
+  // Fixed-height native sheet surfaces extend into the bottom system inset.
+  const contentHeight = height === undefined ? undefined : height + bottom;
+  const bottomPadding =
+    height === undefined ? Math.max(0, bottom - systemBottomInset) : 0;
   const popoverContext = useMemo(
     () => ({ open: isOpen, closePopover }),
     [closePopover, isOpen],
@@ -137,8 +140,8 @@ export function StockSelectorPopover({
           <PopoverContext.Provider value={popoverContext}>
             <YStack
               width="100%"
-              height={height}
-              maxHeight={maxHeight}
+              height={contentHeight}
+              maxHeight={height === undefined ? maxHeight : maxHeight + bottom}
               pb={bottomPadding}
               bg="$bg"
               overflow="hidden"

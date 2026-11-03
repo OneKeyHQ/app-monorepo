@@ -5,6 +5,16 @@ import { act, fireEvent, render, screen } from '@testing-library/react';
 import { NativeWebView } from './NativeWebView';
 import { WEBVIEW_LOAD_TIMEOUT_MS } from './utils';
 
+let mockNativeProps:
+  | {
+      onRenderProcessGone?: (event: {
+        nativeEvent: { didCrash: boolean };
+      }) => void;
+      onContentProcessDidTerminate?: () => void;
+    }
+  | undefined;
+let mockNativeMounts = 0;
+
 jest.mock('@onekeyfe/onekey-cross-webview', () => ({
   JsBridgeNativeHost: class MockJsBridgeNativeHost {
     webviewWrapper: unknown;
@@ -42,6 +52,10 @@ jest.mock('react-native-webview', () => {
 
   interface IMockWebViewProps {
     onLoadStart: (event: IMockNavigationEvent) => void;
+    onRenderProcessGone?: (event: {
+      nativeEvent: { didCrash: boolean };
+    }) => void;
+    onContentProcessDidTerminate?: () => void;
   }
 
   interface IMockWebViewRef {
@@ -54,6 +68,10 @@ jest.mock('react-native-webview', () => {
   return {
     WebView: React.forwardRef<IMockWebViewRef, IMockWebViewProps>(
       (props, ref) => {
+        mockNativeProps = props;
+        React.useEffect(() => {
+          mockNativeMounts += 1;
+        }, []);
         React.useImperativeHandle(ref, () => ({
           injectJavaScript: jest.fn(),
           loadUrl: jest.fn(),
@@ -153,6 +171,14 @@ jest.mock('./ErrorView', () => {
   };
 });
 
+it('resolves the connection error code from the executable WebView package', () => {
+  const { ERROR_CODE } = jest.requireActual<
+    typeof import('react-native-webview/src/WebViewShared')
+  >('react-native-webview/src/WebViewShared');
+
+  expect(ERROR_CODE.CONNECTION_FAILED).toBe(-1_001_000);
+});
+
 describe('NativeWebView loading timeout', () => {
   beforeEach(() => {
     jest.useFakeTimers();
@@ -204,5 +230,80 @@ describe('NativeWebView loading timeout', () => {
     act(() => jest.advanceTimersByTime(WEBVIEW_LOAD_TIMEOUT_MS));
 
     expect(screen.getByTestId('webview-error')).toBeTruthy();
+  });
+});
+
+describe('NativeWebView renderer replacement', () => {
+  beforeEach(() => {
+    mockNativeMounts = 0;
+    mockNativeProps = undefined;
+  });
+
+  it.each(['ios', 'android'])(
+    'delegates %s process death to its owner without an internal remount',
+    (platform) => {
+      const replace = jest.fn();
+      const view = render(
+        <NativeWebView
+          src="https://app.onekey.so"
+          pullToRefreshEnabled={false}
+          recreateOnContentProcessTerminate={replace}
+        />,
+      );
+      act(() => {
+        if (platform === 'ios')
+          mockNativeProps?.onContentProcessDidTerminate?.();
+        else
+          mockNativeProps?.onRenderProcessGone?.({
+            nativeEvent: { didCrash: true },
+          });
+      });
+      expect(replace).toHaveBeenCalledTimes(1);
+      expect(mockNativeMounts).toBe(1);
+      const staleCallback =
+        platform === 'ios'
+          ? mockNativeProps?.onContentProcessDidTerminate
+          : () =>
+              mockNativeProps?.onRenderProcessGone?.({
+                nativeEvent: { didCrash: true },
+              });
+      view.unmount();
+      act(() => staleCallback?.());
+      expect(replace).toHaveBeenCalledTimes(1);
+    },
+  );
+
+  it('retains local renderer replacement for ordinary Android and opted-in iOS WebViews', () => {
+    render(
+      <NativeWebView
+        src="https://app.onekey.so"
+        pullToRefreshEnabled={false}
+        recreateOnContentProcessTerminate
+      />,
+    );
+    act(() => mockNativeProps?.onContentProcessDidTerminate?.());
+    expect(mockNativeMounts).toBe(2);
+    act(() =>
+      mockNativeProps?.onRenderProcessGone?.({
+        nativeEvent: { didCrash: true },
+      }),
+    );
+    expect(mockNativeMounts).toBe(3);
+  });
+
+  it('keeps ordinary iOS process death opt-in', () => {
+    render(
+      <NativeWebView
+        src="https://app.onekey.so"
+        pullToRefreshEnabled={false}
+      />,
+    );
+    expect(mockNativeProps?.onContentProcessDidTerminate).toBeUndefined();
+    act(() =>
+      mockNativeProps?.onRenderProcessGone?.({
+        nativeEvent: { didCrash: true },
+      }),
+    );
+    expect(mockNativeMounts).toBe(2);
   });
 });

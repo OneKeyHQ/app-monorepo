@@ -77,7 +77,7 @@ export function useNativePortalLifecycle({
   }, [clearCloseFallbackTimer, isOpen]);
 
   useEffect(() => {
-    if (!isOpen || !isNativePortalMounted) {
+    if (!isOpen || !isNativePortalMounted || isNativeSheetOpen) {
       return;
     }
     const frame = requestAnimationFrame(() => {
@@ -87,7 +87,7 @@ export function useNativePortalLifecycle({
       }
     });
     return () => cancelAnimationFrame(frame);
-  }, [isNativePortalMounted, isOpen]);
+  }, [isNativePortalMounted, isNativeSheetOpen, isOpen]);
 
   useEffect(
     () => () => {
@@ -100,14 +100,19 @@ export function useNativePortalLifecycle({
     (info: { open: boolean }) => {
       if (
         renderCycle !== openCycleRef.current ||
-        info.open !== desiredOpenRef.current ||
+        (info.open && !desiredOpenRef.current) ||
         (!info.open && !hadOpenAttemptRef.current)
       ) {
         return;
       }
-      if (!info.open && !desiredOpenRef.current) {
+      if (!info.open) {
         clearCloseFallbackTimer();
         hasOpenedNativeSheetRef.current = false;
+        setIsNativeSheetOpen(false);
+        // Native completion can precede the owner's close commit or arrive
+        // through the latest callback after a reopen. Reconcile with the owner:
+        // keep the portal and present again while it still requests open.
+        if (desiredOpenRef.current) return;
         hadOpenAttemptRef.current = false;
         setIsNativePortalMounted(false);
       }

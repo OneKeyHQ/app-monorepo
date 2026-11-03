@@ -358,7 +358,9 @@ export function TradingViewMobileIndicatorEditor({
               justifyContent="space-between"
               px="$0"
               m="$0"
-              iconAfter={advanced ? 'ChevronTopOutline' : 'ChevronDownOutline'}
+              iconAfter={
+                advanced ? 'ChevronTopOutline' : 'ChevronBottomOutline'
+              }
               accessibilityState={{ expanded: advanced }}
               onPress={() => setAdvanced((current) => !current)}
             >

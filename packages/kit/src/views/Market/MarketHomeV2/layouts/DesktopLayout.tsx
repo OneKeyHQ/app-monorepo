@@ -259,7 +259,9 @@ export function DesktopLayout({
         ensureTabActivated(name);
         setActiveTabNameRef.current(name);
         handleTabChangeRef.current(name);
-        tabBarProps.onTabPress?.(name);
+        // Switch instantly on click; the slide reads as a glitch on desktop.
+        // Swipe gestures still animate through the pager itself.
+        tabBarProps.onTabPress?.(name, false);
       };
       const currentFilterBarProps = filterBarPropsRef.current;
       const currentActiveTabName = activeTabNameRef.current;

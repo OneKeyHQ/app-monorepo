@@ -40,6 +40,15 @@ jest.mock('./useAccountSelectorAvailableNetworks', () => ({
   }),
 }));
 
+// The real hook imports backgroundApiProxy, which drags the whole
+// BackgroundApi (and ESM-only wagmi) into this focused trigger test.
+jest.mock(
+  '../../../views/ChainSelector/components/useRecentNetworksCacheSync',
+  () => ({
+    useRecentNetworksCacheSync: jest.fn(),
+  }),
+);
+
 describe('useUnifiedNetworkSelectorTrigger', () => {
   beforeEach(() => {
     jest.clearAllMocks();

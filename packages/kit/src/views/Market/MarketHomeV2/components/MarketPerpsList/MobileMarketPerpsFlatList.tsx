@@ -120,7 +120,7 @@ function MobileMarketPerpsFlatListImpl({
       windowSize={platformEnv.isNativeAndroid ? 7 : 3}
       removeClippedSubviews={platformEnv.isNativeIOS}
       ListEmptyComponent={ListEmptyComponent}
-      ListFooterComponent={ListFooterComponent}
+      ListFooterComponent={ListFooterComponent ?? undefined}
       contentContainerStyle={{
         // Same 4px lead under the column header as the other mobile home lists.
         ...(platformEnv.isNative ? {} : { paddingTop: 4 }),

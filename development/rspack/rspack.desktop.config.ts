@@ -163,6 +163,8 @@ export function createDesktopConfig({
         commonDesktopConfig,
         {
           optimization: {
+            // The wasm glue and its .wasm URL reference each other; RealContentHashPlugin cannot order the cycle.
+            realContentHash: false,
             runtimeChunk: 'single',
           },
           output: {
@@ -188,6 +190,17 @@ export function createDesktopConfig({
           devtool: 'cheap-module-source-map',
           devServer: {
             open: false,
+            proxy: [
+              {
+                context: (pathname: string) =>
+                  /^\/__onekey_firmware_config\/(?:pre-)?config\.json$/.test(
+                    pathname,
+                  ),
+                target: 'https://data.onekey.so',
+                changeOrigin: true,
+                pathRewrite: { '^/__onekey_firmware_config': '' },
+              },
+            ],
             historyApiFallback: {
               rewrites: [
                 { from: /^\/market\/stock\/[^/]+\/?$/, to: '/index.html' },

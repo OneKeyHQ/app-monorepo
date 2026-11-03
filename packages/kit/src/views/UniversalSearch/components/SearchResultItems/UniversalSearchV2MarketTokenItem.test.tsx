@@ -366,7 +366,7 @@ describe('UniversalSearchV2MarketTokenItem', () => {
     );
   });
 
-  it('keeps a chain token on its own chain even when it has an asset id', () => {
+  it('opens a contract token with its chain identity even when an asset id is returned', () => {
     const item: IUniversalSearchV2MarketToken = {
       type: EUniversalSearchType.V2MarketToken,
       payload: {

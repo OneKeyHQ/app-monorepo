@@ -56,6 +56,7 @@ import {
   type IBackgroundThreadServiceCallRequest,
   type IBackgroundThreadTransportState,
   WEBEMBED_BRIDGE_REQUEST_KEY_PREFIX,
+  buildBackgroundThreadErrorResponse,
   buildBackgroundThreadRequestKey,
   buildWebEmbedBridgeResponseKey,
   parseBackgroundThreadAppEventBroadcastPayload,
@@ -66,6 +67,7 @@ import {
   parseBackgroundThreadResponse,
   serializeBackgroundThreadMainCapabilitiesPayload,
   serializeBackgroundThreadRequest,
+  serializeBackgroundThreadResponse,
 } from './rpcProtocol';
 import {
   BACKGROUND_THREAD_READY_KEY,
@@ -139,6 +141,7 @@ function getAsyncStorageWriteArgSummary(
 }
 
 const OBSERVER_RETRY_MS = 50;
+// Warn only: in dev the background bundle compiles on demand and can take minutes.
 const READY_OBSERVATION_WARN_MS = 10_000;
 const ASYNC_STORAGE_FORWARDER_RETRY_MS = 100;
 const ASYNC_STORAGE_FORWARDER_REQUEST_TIMEOUT_MS = 15_000;
@@ -294,6 +297,9 @@ const backgroundThreadErrorMetadataValidators: {
   info: (value) => value !== undefined,
   payload: (value) => value !== undefined,
   reconnect: (value) => typeof value === 'boolean',
+  params: (value) =>
+    typeof value === 'object' && value !== null && !Array.isArray(value),
+  detail: (value) => typeof value === 'string',
 };
 
 function rehydrateTransportError({
@@ -1114,6 +1120,9 @@ function handleRuntimeSignal() {
         `background runtime bootId changed while transport ready: ${previousBootId} -> ${runtimePayload.bootId}`,
       );
       setBackgroundThreadReadyPayload(runtimePayload);
+      appEventBus.emit(EAppEventBusNames.BackgroundThreadReady, {
+        bootId: runtimePayload.bootId,
+      });
       // The new bg runtime has already signaled ready, so keep the transport
       // ready for new calls. Old in-flight calls belonged to the previous bg
       // JS heap and cannot receive a reliable response anymore. Do not replay
@@ -1142,6 +1151,9 @@ function handleRuntimeSignal() {
   );
   clearReadyObservationTimer();
   setBackgroundThreadReadyPayload(runtimePayload);
+  appEventBus.emit(EAppEventBusNames.BackgroundThreadReady, {
+    bootId: runtimePayload.bootId,
+  });
   dispatchQueuedCallsToRemote();
   resolveReadyWaiters();
   notifyNativeSyncStorageTransportReady();
@@ -1370,6 +1382,22 @@ function handleBackgroundThreadBridgeSend(value: string | number | boolean) {
 
 const WEBEMBED_BRIDGE_READY_TIMEOUT_MS = 30 * 1000;
 
+export function serializeWebEmbedBridgeError(error: unknown): string {
+  try {
+    return serializeBackgroundThreadResponse(
+      buildBackgroundThreadErrorResponse(error),
+    );
+  } catch {
+    return JSON.stringify({
+      ok: false,
+      error: {
+        name: 'WebEmbedBridgeResponseError',
+        message: 'WebEmbed bridge response could not be serialized',
+      },
+    });
+  }
+}
+
 async function handleWebEmbedBridgeRequest(
   sharedRPC: ISharedRPC,
   key: string,
@@ -1397,13 +1425,7 @@ async function handleWebEmbedBridgeRequest(
     const result = await bridge.request({ scope: '$private', data });
     sharedRPC.write(responseKey, JSON.stringify({ ok: true, result }));
   } catch (error) {
-    sharedRPC.write(
-      responseKey,
-      JSON.stringify({
-        ok: false,
-        error: { message: String((error as Error)?.message || error) },
-      }),
-    );
+    sharedRPC.write(responseKey, serializeWebEmbedBridgeError(error));
   }
 }
 
@@ -1670,6 +1692,7 @@ let webEmbedReady = false;
 let expectedWebEmbedMountId: string | undefined;
 let expectedWebEmbedMountSequence = 0;
 let connectedWebEmbedMountId: string | undefined;
+let connectedWebEmbedMountSequence: number | undefined;
 // Bumped on every webEmbed teardown (null bridge sync). Used by
 // `checkBackgroundWebEmbedReady` to discard a BG `true` read whose RPC was
 // in flight across the unmount → next-mount boundary, so the stale flag
@@ -1721,9 +1744,11 @@ function syncBridgeConnection(
   }
   if (params.channel === 'webEmbed' && params.mountId) {
     if (
-      params.mountId !== expectedWebEmbedMountId ||
-      params.mountSequence !== expectedWebEmbedMountSequence ||
-      (!params.bridge && connectedWebEmbedMountId !== params.mountId)
+      params.bridge
+        ? params.mountId !== expectedWebEmbedMountId ||
+          params.mountSequence !== expectedWebEmbedMountSequence
+        : params.mountId !== connectedWebEmbedMountId ||
+          params.mountSequence !== connectedWebEmbedMountSequence
     ) {
       return Promise.resolve(false);
     }
@@ -1731,6 +1756,9 @@ function syncBridgeConnection(
   mainThreadBridgeMap[params.channel] = params.bridge;
   if (params.channel === 'webEmbed') {
     connectedWebEmbedMountId = params.bridge ? params.mountId : undefined;
+    connectedWebEmbedMountSequence = params.bridge
+      ? params.mountSequence
+      : undefined;
     if (params.bridge) {
       // A bridge effect can reconnect the same mounted page without another
       // page-ready message. Recheck the canonical owner after reconnecting.
@@ -1809,6 +1837,15 @@ appEventBus.on(EAppEventBusNames.WebEmbedWebViewMountRequested, (payload) => {
   }
   expectedWebEmbedMountSequence = payload.mountSequence;
   expectedWebEmbedMountId = payload.mountId;
+  webEmbedReady = false;
+  webEmbedMountGeneration += 1;
+  webEmbedBgFallbackEnabled = false;
+});
+
+appEventBus.on(EAppEventBusNames.WebEmbedWebViewNotReady, (payload) => {
+  if (payload.mountId !== expectedWebEmbedMountId) {
+    return;
+  }
   webEmbedReady = false;
   webEmbedMountGeneration += 1;
   webEmbedBgFallbackEnabled = false;
@@ -1893,15 +1930,25 @@ async function awaitWebEmbedReady(timeoutMs: number): Promise<void> {
   });
 }
 
+let webEmbedRecoveryRequested = false;
+
 async function ensureMainThreadWebEmbedBridge(): Promise<JsBridgeBase> {
   if (!isMainThreadWebEmbedReady()) {
-    // Trigger WebView mount if it hasn't been requested yet — bridge being
-    // unset is a strong hint, but emit unconditionally because the event
-    // handler in WebViewWebEmbedProvider is idempotent.
-    if (!mainThreadBridgeMap.webEmbed) {
+    // A stale bridge can outlive its owner while the next activation fails.
+    // Calls waiting for the current page handshake must not rebuild it again.
+    if (
+      !webEmbedRecoveryRequested &&
+      (!mainThreadBridgeMap.webEmbed ||
+        connectedWebEmbedMountId !== expectedWebEmbedMountId)
+    ) {
+      webEmbedRecoveryRequested = true;
       appEventBus.emit(EAppEventBusNames.LoadWebEmbedWebView, undefined);
     }
-    await awaitWebEmbedReady(WEBEMBED_BRIDGE_READY_TIMEOUT_MS);
+    try {
+      await awaitWebEmbedReady(WEBEMBED_BRIDGE_READY_TIMEOUT_MS);
+    } finally {
+      webEmbedRecoveryRequested = false;
+    }
   }
   const bridge = mainThreadBridgeMap.webEmbed;
   if (!bridge || !isMainThreadWebEmbedReady()) {

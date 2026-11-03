@@ -47,6 +47,9 @@ if (typeof process === 'undefined') {
     }
   }
 }
+// Must run right after `process` exists and before anything else loads:
+// `next-tick` (memoizee) captures `process.nextTick` by reference at load time.
+require('./processNextTickShim').installAndroidBackgroundProcessNextTick();
 
 if (platformEnv.isNative) {
   const useJsBundle =

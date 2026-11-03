@@ -253,7 +253,7 @@ export function ImportWalletOptions() {
             },
             testID: 'import-recovery-phrase',
           },
-          ...(platformEnv.isNative
+          ...(platformEnv.isNative && !platformEnv.isNativeIOSMacCatalyst
             ? [
                 {
                   title: intl.formatMessage({

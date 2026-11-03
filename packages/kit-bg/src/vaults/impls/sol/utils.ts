@@ -279,6 +279,15 @@ export function canRefreshSolTxBlockhash(nativeTx: INativeTxSol): boolean {
   return !isDurableNonceSolTx(nativeTx);
 }
 
+export function getSolTxRecentBlockhash(
+  nativeTx: INativeTxSol,
+): string | undefined {
+  if (nativeTx instanceof VersionedTransaction) {
+    return nativeTx.message.recentBlockhash;
+  }
+  return nativeTx.recentBlockhash;
+}
+
 export function serializeSolTx(nativeTx: INativeTxSol): IEncodedTxSol {
   if (nativeTx instanceof VersionedTransaction) {
     return bs58.encode(Buffer.from(nativeTx.serialize()));

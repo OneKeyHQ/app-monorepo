@@ -2,6 +2,7 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { markWebEmbedChannelPayload } from '@onekeyhq/shared/src/utils/webEmbedChannelUtils';
 
 import ProviderApiPrivate from './ProviderApiPrivate';
 
@@ -16,11 +17,16 @@ jest.mock('@onekeyhq/shared/src/logger/logger', () => {
 });
 
 function callReady(provider: ProviderApiPrivate, mountId: string) {
-  return provider.handleMethods({
-    scope: '$private',
-    origin: 'file:///web-embed/index.html',
-    data: { method: 'webEmbedApiReady', params: [{ mountId }] },
-  } as IJsBridgeMessagePayload);
+  return provider.handleMethods(
+    markWebEmbedChannelPayload(
+      {
+        scope: '$private',
+        origin: 'null',
+        data: { method: 'webEmbedApiReady', params: [{ mountId }] },
+      } as IJsBridgeMessagePayload,
+      true,
+    ),
+  );
 }
 
 describe('WebEmbed page readiness ownership', () => {
@@ -42,7 +48,7 @@ describe('WebEmbed page readiness ownership', () => {
     const provider = new ProviderApiPrivate({ backgroundApi: {} });
     const emitSpy = jest.spyOn(appEventBus, 'emit');
 
-    await provider.webEmbedApiNotReady();
+    await provider.setWebEmbedApiNotReady();
     await callReady(provider, 'old-mount');
 
     expect(provider.isWebEmbedApiReady).toBe(false);
@@ -111,7 +117,36 @@ describe('WebEmbed page readiness ownership', () => {
       }),
     ).toBe(true);
     expect(provider.isWebEmbedApiReady).toBe(true);
-    await provider.webEmbedApiNotReady();
+    await provider.setWebEmbedApiNotReady();
+    expect(provider.isWebEmbedApiReady).toBe(true);
+  });
+
+  it('only accepts not-ready from the active page and broadcasts its owner', async () => {
+    const provider = new ProviderApiPrivate({ backgroundApi: {} });
+    const emitSpy = jest.spyOn(appEventBus, 'emit');
+    const request = markWebEmbedChannelPayload(
+      {
+        scope: '$private',
+        origin: 'null',
+        data: { method: 'webEmbedApiNotReady' },
+      } as IJsBridgeMessagePayload,
+      true,
+    );
+    provider.activateWebEmbedMount({ mountId: 'current', mountSequence: 2 });
+    await callReady(provider, 'current');
+    await provider.webEmbedApiNotReady(request, { mountId: 'old' });
+    expect(provider.isWebEmbedApiReady).toBe(true);
+    expect(emitSpy).not.toHaveBeenCalledWith(
+      EAppEventBusNames.WebEmbedWebViewNotReady,
+      expect.anything(),
+    );
+    await provider.webEmbedApiNotReady(request, { mountId: 'current' });
+    expect(provider.isWebEmbedApiReady).toBe(false);
+    expect(emitSpy).toHaveBeenCalledWith(
+      EAppEventBusNames.WebEmbedWebViewNotReady,
+      { mountId: 'current' },
+    );
+    await callReady(provider, 'current');
     expect(provider.isWebEmbedApiReady).toBe(true);
   });
 

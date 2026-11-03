@@ -38,6 +38,7 @@ import {
   EOnboardingPagesV2,
   EOnboardingV2OneKeyIDLoginMode,
 } from '@onekeyhq/shared/src/routes/onboardingv2';
+import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import extUtils from '@onekeyhq/shared/src/utils/extUtils';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import { waitForDataLoaded } from '@onekeyhq/shared/src/utils/promiseUtils';
@@ -49,6 +50,10 @@ import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EHostSecurityLevel } from '@onekeyhq/shared/types/discovery';
 import type { IEndpointEnv } from '@onekeyhq/shared/types/endpoint';
 import type {
+  IFetchStreamRequest,
+  IFetchStreamResult,
+} from '@onekeyhq/shared/types/fetchStream';
+import type {
   IRookieGuideInfo,
   IRookieShareData,
 } from '@onekeyhq/shared/types/rookieGuide';
@@ -56,8 +61,14 @@ import type {
 import {
   isProviderApiPrivateAllowedKeylessOrigin,
   isWebEmbedApiAllowedOrigin,
+  isWebEmbedChannelRequest,
 } from '../apis/backgroundApiPermissions';
 import { devSettingsPersistAtom } from '../states/jotai/atoms/devSettings';
+import {
+  createPrivacyChainFetchStreamRelay,
+  relayPrivacyChainNodeRequest,
+} from '../utils/privacyChainNodeRelay';
+import { createPrivacyChainRelayTargetSource } from '../utils/privacyChainRelayTargets';
 
 import ProviderApiBase from './ProviderApiBase';
 
@@ -624,10 +635,68 @@ class ProviderApiPrivate extends ProviderApiBase {
     });
   }
 
+  // Only the app's own web-embed page may use these; on native any frame can claim its origin, so the host's channel mark is required too.
+  private assertWebEmbedChannel(
+    request: IJsBridgeMessagePayload,
+    name: string,
+  ) {
+    if (!isWebEmbedChannelRequest(request)) {
+      throw new OneKeyLocalError(`${name}: not allowed`);
+    }
+  }
+
   @providerApiMethod()
-  async getSensitiveEncodeKey(): Promise<string> {
+  async getSensitiveEncodeKey(
+    request: IJsBridgeMessagePayload,
+  ): Promise<string> {
+    if (platformEnv.isNative) {
+      this.assertWebEmbedChannel(request, 'getSensitiveEncodeKey');
+    }
     defaultLogger.app.webembed.getSensitiveEncodeKey();
     return getBgSensitiveTextEncodeKey();
+  }
+
+  private relayTargets = createPrivacyChainRelayTargetSource(
+    this.backgroundApi,
+  );
+
+  // Relays the web-embed's node requests (native networking ignores CORS). Web-embed page and configured
+  // nodes only, otherwise it is a POST-anywhere proxy.
+  @providerApiMethod()
+  async privacyChainNodeRequest(
+    request: IJsBridgeMessagePayload,
+    {
+      url,
+      contentType,
+      b64,
+    }: { url: string; contentType: string; b64: string },
+  ): Promise<{ ok: true; b64: string } | { ok: false; error: string }> {
+    if (!platformEnv.isNative) {
+      throw new OneKeyLocalError('privacyChainNodeRequest: not allowed');
+    }
+    this.assertWebEmbedChannel(request, 'privacyChainNodeRequest');
+    return relayPrivacyChainNodeRequest({
+      url,
+      contentType,
+      body: new Uint8Array(bufferUtils.base64ToBytes(b64)),
+      targets: this.relayTargets,
+    });
+  }
+
+  private fetchStreamRequest = createPrivacyChainFetchStreamRelay(
+    this.relayTargets,
+  );
+
+  @providerApiMethod()
+  async fetchStream(
+    request: IJsBridgeMessagePayload,
+    params: IFetchStreamRequest,
+  ): Promise<IFetchStreamResult> {
+    if (!platformEnv.isNative) {
+      throw new OneKeyLocalError('fetchStream: not allowed');
+    }
+    this.assertWebEmbedChannel(request, 'fetchStream');
+    return this.fetchStreamRequest(params);
   }
 
   isWebEmbedApiReady = false;
@@ -688,9 +757,12 @@ class ProviderApiPrivate extends ProviderApiBase {
 
   @providerApiMethod()
   async webEmbedApiReady(
-    _payload: IJsBridgeMessagePayload,
+    request: IJsBridgeMessagePayload,
     params?: { mountId?: string },
   ): Promise<void> {
+    if (platformEnv.isNative) {
+      this.assertWebEmbedChannel(request, 'webEmbedApiReady');
+    }
     if (!params?.mountId || params.mountId !== this.webEmbedMountId) {
       return;
     }
@@ -703,12 +775,25 @@ class ProviderApiPrivate extends ProviderApiBase {
   }
 
   @providerApiMethod()
-  async webEmbedApiNotReady(): Promise<void> {
-    if (this.webEmbedMountId) {
+  async webEmbedApiNotReady(
+    request: IJsBridgeMessagePayload,
+    params?: { mountId?: string },
+  ): Promise<void> {
+    if (platformEnv.isNative) {
+      this.assertWebEmbedChannel(request, 'webEmbedApiNotReady');
+    }
+    return this.setWebEmbedApiNotReady(params?.mountId);
+  }
+
+  async setWebEmbedApiNotReady(mountId?: string): Promise<void> {
+    if (mountId !== this.webEmbedMountId) {
       return;
     }
     defaultLogger.app.webembed.webembedApiNotReady();
     this.isWebEmbedApiReady = false;
+    if (mountId) {
+      appEventBus.emit(EAppEventBusNames.WebEmbedWebViewNotReady, { mountId });
+    }
     return Promise.resolve();
   }
 

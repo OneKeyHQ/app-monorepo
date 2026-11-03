@@ -76,7 +76,7 @@ function HoldersBase({
         item.accountAddress + item.fiatValue + item.amount
       }
       windowSize={platformEnv.isNativeAndroid ? 3 : undefined}
-      ListFooterComponent={ListFooterComponent}
+      ListFooterComponent={ListFooterComponent ?? undefined}
       ListEmptyComponent={
         isRefreshing || isInitialPending ? (
           <HoldersSkeleton />

@@ -8,7 +8,9 @@ import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 
-import type { ICaptchaMessage } from './captchaMessage';
+import { createCaptchaDiagnostic } from './captchaDiagnostic';
+
+import type { ICaptchaFrameResult } from './captchaMessage';
 
 export type ICaptchaToken = { value: string; expiresAt: number };
 
@@ -23,6 +25,7 @@ type IPendingCaptcha = {
   resolve: (token: string) => void;
   reject: (error: Error) => void;
   timer: ReturnType<typeof setTimeout>;
+  diagnostic: ReturnType<typeof createCaptchaDiagnostic>;
 };
 
 // Only codes explicitly marked "Retry: No" may replace the provider's UI.
@@ -79,15 +82,24 @@ export function useEmailOtpCaptcha({
     [mounted],
   );
 
-  const cancelCaptcha = useCallback(() => {
-    generation.current += 1;
-    cachedToken.current = undefined;
-    settle(new EmailOtpCaptchaCancelledError());
-    if (mounted.current) {
-      setChallenge(undefined);
-      setErrorKey(undefined);
-    }
-  }, [mounted, settle]);
+  const cancelPending = useCallback(
+    (source: 'app_cancel' | 'app_cleanup') => {
+      generation.current += 1;
+      cachedToken.current = undefined;
+      pending.current?.diagnostic('cancel', source, undefined, true);
+      settle(new EmailOtpCaptchaCancelledError());
+      if (mounted.current) {
+        setChallenge(undefined);
+        setErrorKey(undefined);
+      }
+    },
+    [mounted, settle],
+  );
+
+  const cancelCaptcha = useCallback(
+    () => cancelPending('app_cancel'),
+    [cancelPending],
+  );
 
   // Locale updates must not cancel an active challenge or reset its deadline.
   const createCaptchaError = useCallback(
@@ -114,8 +126,8 @@ export function useEmailOtpCaptcha({
 
   useEffect(() => {
     setChallenge(undefined);
-    return cancelCaptcha;
-  }, [active, email, enabled, pageUrl, revision, cancelCaptcha]);
+    return () => cancelPending('app_cleanup');
+  }, [active, email, enabled, pageUrl, revision, cancelPending]);
 
   useEffect(() => {
     cachedToken.current = initialToken;
@@ -136,6 +148,7 @@ export function useEmailOtpCaptcha({
       throw createCaptchaError(ETranslations.auth_captcha_in_progress__msg);
 
     const requestId = generateUUID();
+    const diagnostic = createCaptchaDiagnostic(requestId);
     const url = new URL(pageUrl);
     url.hash = new URLSearchParams({
       requestId,
@@ -148,13 +161,16 @@ export function useEmailOtpCaptcha({
     });
     pending.current = {
       requestId,
+      diagnostic,
       resolve,
       reject,
-      timer: setTimeout(
-        () => failCaptcha(ETranslations.auth_captcha_timeout__msg),
-        120_000,
-      ),
+      timer: setTimeout(() => {
+        if (pending.current?.requestId !== requestId) return;
+        diagnostic('timeout', 'app_watchdog', undefined, true);
+        failCaptcha(ETranslations.auth_captcha_timeout__msg);
+      }, 120_000),
     };
+    diagnostic('start', 'app_request');
     setIsWaiting(true);
     setErrorKey(undefined);
     setChallenge({ url: url.toString(), requestId });
@@ -162,8 +178,22 @@ export function useEmailOtpCaptcha({
   }, [active, enabled, pageUrl, failCaptcha, createCaptchaError]);
 
   const onResult = useCallback(
-    (message: ICaptchaMessage) => {
+    (message: ICaptchaFrameResult) => {
       if (message.requestId !== pending.current?.requestId) return;
+      const terminal = Boolean(
+        (message.status === 'success' && message.token) ||
+        message.status === 'load-error' ||
+        message.status === 'timeout' ||
+        (message.status === 'error' &&
+          message.code &&
+          TERMINAL_ERROR_CODES.has(message.code)),
+      );
+      pending.current.diagnostic(
+        message.status,
+        message.source ?? 'provider_message',
+        message.code,
+        terminal,
+      );
       if (message.status === 'success' && message.token) {
         settle(message.token);
       } else if (message.status === 'load-error') {

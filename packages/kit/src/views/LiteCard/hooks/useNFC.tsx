@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 import type { ComponentProps } from 'react';
 
-import LiteCard, { CardErrors } from '@onekeyfe/react-native-lite-card';
 import { useIntl } from 'react-intl';
 import { Alert } from 'react-native';
 
@@ -18,6 +17,17 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import type { LiteCardNFCAnimation } from '../components/LiteCardNFCAnimation';
 import type { CallbackError, CardInfo } from '@onekeyfe/react-native-lite-card';
+
+type ILiteCardModule = typeof import('@onekeyfe/react-native-lite-card');
+
+const liteCardModule: ILiteCardModule | undefined =
+  platformEnv.isNativeIOSMacCatalyst
+    ? undefined
+    : (require('@onekeyfe/react-native-lite-card') as ILiteCardModule);
+
+export const LiteCard = liteCardModule?.default as ILiteCardModule['default'];
+export const CardErrors =
+  liteCardModule?.CardErrors as ILiteCardModule['CardErrors'];
 
 // NFC dialog animations are not needed by the Home backup entry at startup.
 const LazyLiteCardNFCAnimation = LazyLoad<
@@ -83,6 +93,10 @@ export default function useNFC() {
   const checkNFCEnabledPermission = useCallback(
     () =>
       new Promise<void>((resolve, reject) => {
+        if (!liteCardModule) {
+          reject(new Error('OneKey Lite is unavailable on Mac Catalyst'));
+          return;
+        }
         void LiteCard.checkNFCPermission().then(({ error }) => {
           if (!error) {
             resolve();

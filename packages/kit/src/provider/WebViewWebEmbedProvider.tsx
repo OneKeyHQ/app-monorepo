@@ -1,5 +1,6 @@
 import { memo, useCallback, useEffect, useRef, useState } from 'react';
 
+import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -11,6 +12,13 @@ import { WebViewWebEmbedSingleton } from '../components/WebViewWebEmbed';
 let webEmbedMountSequence = 0;
 
 function BasicWebViewWebEmbedProvider() {
+  const [devSettings] = useDevSettingsPersistAtom();
+  const disabled = !!(
+    devSettings.enabled && devSettings.settings?.disableWebEmbedApi
+  );
+  const disabledRef = useRef(disabled);
+  disabledRef.current = disabled;
+  const pendingRequestIdRef = useRef<string | undefined>(undefined);
   const [isShow, setIsShow] = useState(false);
   const isShowRef = useRef<boolean>(isShow);
   isShowRef.current = isShow;
@@ -26,8 +34,29 @@ function BasicWebViewWebEmbedProvider() {
   );
   const lastRequestIdRef = useRef<string | undefined>(undefined);
   const showWebEmbedWebView = useCallback(
-    ({ reason, requestId }: { reason?: string; requestId?: string }) => {
-      if (requestId && lastRequestIdRef.current === requestId) {
+    ({
+      reason,
+      requestId,
+      replaceMountId,
+    }: {
+      reason?: string;
+      requestId?: string;
+      replaceMountId?: string;
+    }) => {
+      if (replaceMountId && replaceMountId !== currentMountIdRef.current) {
+        return;
+      }
+      pendingRequestIdRef.current = requestId;
+      if (disabledRef.current) {
+        setIsShow(true);
+        return;
+      }
+      if (
+        !replaceMountId &&
+        currentMountIdRef.current &&
+        requestId &&
+        lastRequestIdRef.current === requestId
+      ) {
         return;
       }
       lastRequestIdRef.current = requestId;
@@ -47,6 +76,29 @@ function BasicWebViewWebEmbedProvider() {
       setMount({ mountId, mountSequence, requestId });
     },
     [],
+  );
+
+  useEffect(() => {
+    if (disabled) {
+      currentMountIdRef.current = undefined;
+      setMount(undefined);
+    } else if (isShowRef.current && !currentMountIdRef.current) {
+      showWebEmbedWebView({
+        reason: 'enableWebEmbedApi',
+        requestId: pendingRequestIdRef.current,
+      });
+    }
+  }, [disabled, showWebEmbedWebView]);
+
+  const handleContentProcessTerminate = useCallback(
+    (mountId: string) => {
+      showWebEmbedWebView({
+        reason: 'contentProcessTerminated',
+        requestId: pendingRequestIdRef.current,
+        replaceMountId: mountId,
+      });
+    },
+    [showWebEmbedWebView],
   );
 
   // useEffect(() => {
@@ -73,6 +125,9 @@ function BasicWebViewWebEmbedProvider() {
       appEventBus.off(EAppEventBusNames.LoadWebEmbedWebView, fn);
     };
   }, [showWebEmbedWebView]);
+  if (disabled && isShow) {
+    return <WebViewWebEmbedSingleton key="disabled" />;
+  }
   return isShow && mount ? (
     <WebViewWebEmbedSingleton
       key={mount.mountId}
@@ -80,6 +135,7 @@ function BasicWebViewWebEmbedProvider() {
       mountSequence={mount.mountSequence}
       requestId={mount.requestId}
       isCurrentMount={isCurrentMount}
+      onContentProcessTerminate={handleContentProcessTerminate}
     />
   ) : null;
 }

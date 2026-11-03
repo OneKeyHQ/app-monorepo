@@ -26,6 +26,10 @@ const mockControlsProps = jest.fn<
   void,
   [ComponentProps<typeof TradingViewV2ChartControlsContainer>]
 >();
+const mockQuickBarProps = jest.fn<
+  void,
+  [{ onIndicatorsDialogPress?: () => void; splitSections?: boolean }]
+>();
 
 jest.mock('@onekeyhq/shared/src/storage/appStorage', () => ({
   __esModule: true,
@@ -99,8 +103,16 @@ jest.mock('../TradingViewV2ChartControls', () => ({
     mockControlsProps(props);
     return null;
   },
+  TradingViewNativeIndicatorQuickBar: (props: {
+    onIndicatorsDialogPress?: () => void;
+    splitSections?: boolean;
+  }) => {
+    mockQuickBarProps(props);
+    return null;
+  },
   getTradingViewNativeSubIndicatorCountForSnapshot: () => 0,
   useNativeIndicatorActiveValues: () => ({}),
+  useShowNativeIndicatorsDialog: () => jest.fn(),
 }));
 jest.mock('./TradingViewRuntimeView', () => {
   const React = jest.requireActual<typeof import('react')>('react');
@@ -162,6 +174,41 @@ describe('TradingViewV2 interval message integration', () => {
     mockStorage.clear();
   });
   afterEach(() => jest.useRealTimers());
+
+  it.each<{
+    nativeControlsLayoutMode?: 'mobile' | 'desktop';
+    expectedTrigger: boolean;
+  }>([
+    // Mobile web renders TradingViewV2 without a layout mode or quick bar flag.
+    { nativeControlsLayoutMode: undefined, expectedTrigger: true },
+    { nativeControlsLayoutMode: 'mobile', expectedTrigger: true },
+    { nativeControlsLayoutMode: 'desktop', expectedTrigger: false },
+  ])(
+    'exposes the quick bar indicators trigger for layout $nativeControlsLayoutMode: $expectedTrigger',
+    async ({ nativeControlsLayoutMode, expectedTrigger }) => {
+      render(
+        <TradingViewV2
+          symbol="TEST"
+          decimal={18}
+          intervalStorageNamespace="token"
+          enableNativeChartControls
+          enableNativeChartSettings
+          nativeControlsLayoutMode={nativeControlsLayoutMode}
+        />,
+      );
+      await receive('tradingview_nativeChartControlsConfig', {
+        intervals,
+        activeInterval: '15',
+      });
+
+      const quickBarProps = mockQuickBarProps.mock.lastCall?.[0];
+      expect(quickBarProps).toBeDefined();
+      expect(typeof quickBarProps?.onIndicatorsDialogPress === 'function').toBe(
+        expectedTrigger,
+      );
+      expect(quickBarProps?.splitSections).toBe(false);
+    },
+  );
 
   it('does not acknowledge a matching control snapshot before a delayed layout interval', async () => {
     await saveTradingViewNativeActiveInterval({

@@ -76,6 +76,8 @@ jest.mock('./swrCacheNamespaceStorage', () => {
   };
   return {
     swrKeyPrefix: prefixOfKey,
+    readSwrCacheKeysByPrefix: (prefix: string) =>
+      [...store().keys()].filter((key) => key.startsWith(prefix)),
     readSwrCacheEntry: (key: string) => {
       const global = globalThis as { __swrNamespaceReadCount?: number };
       global.__swrNamespaceReadCount =
@@ -310,6 +312,42 @@ describe('SWR cache persistence', () => {
     expect(cache.get('marketTokenDetail:a')).toBe('from-disk');
     // Nothing was loaded before the key was asked for.
     expect(diskGlobal.__swrNamespaceReadCount).toBe(1);
+  });
+
+  it('discovers persisted and unflushed keys without reading payloads', () => {
+    disk().set('marketStockVariants:v1:SPCX:en-us', {
+      d: 'siblings',
+      t: 1000,
+    });
+    disk().set('marketStockDetail:v1:SPCX:en-us', { d: 'parent', t: 1000 });
+    const cache = loadFreshRuntime();
+    cache.set('marketStockVariants:v1:AAPL:en-us', 'local');
+    const readsBeforeDiscovery = diskGlobal.__swrNamespaceReadCount;
+
+    expect(cache.keysByPrefix('marketStockVariants:v1:')).toEqual(
+      expect.arrayContaining([
+        'marketStockVariants:v1:SPCX:en-us',
+        'marketStockVariants:v1:AAPL:en-us',
+      ]),
+    );
+    expect(cache.keysByPrefix('marketStockVariants:v1:')).toHaveLength(2);
+    expect(diskGlobal.__swrNamespaceReadCount).toBe(readsBeforeDiscovery);
+    expect(cache.get('marketStockVariants:v1:SPCX:en-us')).toBe('siblings');
+    cache.flushNow();
+  });
+
+  it('does not revive a deleted persisted candidate during discovery', () => {
+    const key = 'marketStockVariants:v1:SPCX:en-us';
+    disk().set(key, { d: 'siblings', t: 1000 });
+    const cache = loadFreshRuntime();
+    cache.removeByPrefix('marketStockVariants:');
+
+    const candidates = cache.keysByPrefix('marketStockVariants:v1:');
+    expect(
+      candidates.flatMap((candidate) => cache.get(candidate) ?? []),
+    ).toEqual([]);
+    cache.flushNow();
+    expect(cache.keysByPrefix('marketStockVariants:v1:')).toEqual([]);
   });
 
   it('keeps what it read, instead of going back for every read', () => {

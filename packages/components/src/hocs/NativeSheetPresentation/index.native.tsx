@@ -8,6 +8,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import { OVERLAY_SHEET_MAX_WIDTH } from '../../hooks/useOverlayWidthClass';
 import { useTheme } from '../../hooks/useStyle';
 
 import type { INativeSheetPresentationProps } from './types';
@@ -39,9 +40,14 @@ export function NativeSheetPresentation({
   const theme = useTheme();
   const openRef = useRef(open);
   openRef.current = open;
+  const previousOpenRef = useRef(open);
+  const closePendingRef = useRef(false);
+  if (previousOpenRef.current && !open) closePendingRef.current = true;
+  previousOpenRef.current = open;
 
   const requestClose = useCallback(() => {
     if (openRef.current) {
+      closePendingRef.current = true;
       onOpenChange?.(false);
     }
   }, [onOpenChange]);
@@ -63,6 +69,7 @@ export function NativeSheetPresentation({
     () => ({
       height,
       maxHeight,
+      maxWidth: OVERLAY_SHEET_MAX_WIDTH,
       cornerRadius,
       showHandle,
       backgroundColor: backgroundColor ?? String(theme.bg.val),
@@ -86,7 +93,10 @@ export function NativeSheetPresentation({
     [onAnimationComplete],
   );
   const onClose = useCallback(() => {
-    requestClose();
+    // The SDK delivers exits through the latest props. A pending exit must
+    // not issue another close request against a sheet that has since reopened.
+    if (!closePendingRef.current) requestClose();
+    closePendingRef.current = false;
     onAnimationComplete?.({ open: false });
   }, [onAnimationComplete, requestClose]);
 

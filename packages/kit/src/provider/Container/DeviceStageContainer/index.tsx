@@ -116,6 +116,14 @@ function DeviceStageContainerCmp() {
   const [settings, setSettings] = useSettingsPersistAtom();
 
   const step: IDeviceStageStep = (stage?.step as IDeviceStageStep) ?? 'off';
+  const deviceProgress = stage?.payload?.deviceProgress;
+  // File writes carry byte counts; address scans only report a percentage.
+  const transferProgress =
+    !stage?.vendor &&
+    typeof deviceProgress?.totalBytes === 'number' &&
+    deviceProgress.totalBytes > 0
+      ? deviceProgress.progress
+      : undefined;
   const isPro2NeoPassphraseCreation =
     stage?.passphraseMode === 'create' &&
     isProtocolV2ProductType(stage?.deviceType);
@@ -166,7 +174,7 @@ function DeviceStageContainerCmp() {
       const response = buildThirdPartyHardwareUiResponse(
         current.thirdPartyAction,
         confirmed,
-        extras,
+        { ...extras, requestId: current.thirdPartyRequestId },
       );
       if (response) {
         void serviceThirdPartyHardware
@@ -526,6 +534,16 @@ function DeviceStageContainerCmp() {
     void serviceHardwareUI.deviceStageNoteInputSubmitted();
   }, [sendVendorUiResponse, serviceHardwareUI]);
 
+  const handleQrFallbackConfirm = useCallback(() => {
+    sendVendorUiResponse(true);
+    void serviceHardwareUI.deviceStageNoteInputSubmitted();
+  }, [sendVendorUiResponse, serviceHardwareUI]);
+
+  const handleQrFallbackRetry = useCallback(() => {
+    sendVendorUiResponse(false, { retry: true });
+    void serviceHardwareUI.deviceStageNoteInputSubmitted();
+  }, [sendVendorUiResponse, serviceHardwareUI]);
+
   const handleInstallConfirm = useCallback(() => {
     const current = stageRef.current;
     if (!current?.vendor) {
@@ -588,11 +606,15 @@ function DeviceStageContainerCmp() {
       vendorModel={stage?.vendorModel}
       vendorModelName={stage?.vendorModelName}
       appName={stage?.appName}
+      transferProgress={transferProgress}
+      transferMetrics={deviceProgress}
       installProgress={stage?.installProgress}
       installQueue={stage?.installQueue}
       installActiveIndex={stage?.installActiveIndex}
       btcHighIndexPath={stage?.btcHighIndexPath}
       btcHighIndexAccountIndex={stage?.btcHighIndexAccountIndex}
+      qrFallbackReason={stage?.qrFallbackReason}
+      openAppReason={stage?.openAppReason}
       errorReason={stage?.errorReason}
       errorMessage={stage?.errorMessage}
       errorI18n={stage?.errorI18n}
@@ -625,6 +647,7 @@ function DeviceStageContainerCmp() {
       confirmDescriptionDanger={stage?.confirmDescriptionDanger}
       confirmCount={stage?.confirmCount}
       qrValueUr={stage?.qrValueUr}
+      qrNoticeI18n={stage?.qrNoticeI18n}
       qrSessionId={stage?.qrSessionId}
       qrRenderKey={
         stage?.qrDiagnostic
@@ -633,12 +656,17 @@ function DeviceStageContainerCmp() {
       }
       qrScannerView={
         step === 'scanQr' ? (
-          <DeviceStageQrScanner sessionId={stage?.qrSessionId} />
+          // Keyed by session: a scan that supersedes another on this step
+          // mounts a fresh scanner, so the decoder resets.
+          <DeviceStageQrScanner
+            key={stage?.qrSessionId}
+            sessionId={stage?.qrSessionId}
+          />
         ) : undefined
       }
       onQrNext={handleQrNext}
       onQrRenderReady={handleQrRenderReady}
-      onQrBack={handleQrBack}
+      onQrBack={stage?.qrValueUr ? handleQrBack : undefined}
       onClose={closable ? handleClose : undefined}
       onErrorNoticeExpire={retireErrorOutcome}
       errorNoticeKey={
@@ -685,6 +713,8 @@ function DeviceStageContainerCmp() {
         stage?.vendor ? undefined : handleDeviceNotFoundSupport
       }
       onBtcHighIndexConfirm={handleBtcHighIndexConfirm}
+      onQrFallbackConfirm={handleQrFallbackConfirm}
+      onQrFallbackRetry={handleQrFallbackRetry}
       onInstallConfirm={handleInstallConfirm}
     />
   );

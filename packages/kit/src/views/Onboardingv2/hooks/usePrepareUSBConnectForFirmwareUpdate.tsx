@@ -77,10 +77,11 @@ export function usePrepareUSBConnectForFirmwareUpdate() {
           features &&
           usbPreflightParams.bootloaderRecoveryDeviceType
         ) {
-          resolvedConnectId =
+          const transport =
             await backgroundApiProxy.serviceHardware.checkDeviceReachableForFirmwareUpdate(
               { connectId: connectIdToUse, features },
             );
+          resolvedConnectId = transport.connectId;
         }
       } catch (error) {
         if (

@@ -1287,6 +1287,7 @@ class ServicePendingInstallTask {
       IPendingInstallTask,
       { type: EPendingInstallTaskType.jsBundleSwitch }
     >,
+    onRestartRequested: (isBuiltinFallback: boolean) => void,
   ) {
     const payload = task.payload;
     const { appVersion, bundleVersion, signature } = payload;
@@ -1331,7 +1332,15 @@ class ServicePendingInstallTask {
         // re-persist the task as appliedWaitingVerify) is skipped.
         await clearPendingInstallTask();
         await BundleUpdate.resetToBuiltInBundle();
-        BundleUpdate.restart();
+        onRestartRequested(true);
+        try {
+          await BundleUpdate.restart();
+        } catch (error) {
+          if (!(await getPendingInstallTask())) {
+            await setPendingInstallTask(task);
+          }
+          throw error;
+        }
         // restart schedules app relaunch after 2.5s on native / app.exit(0)
         // on desktop, so the throw below is a safety net for unexpected
         // survival.
@@ -1376,6 +1385,7 @@ class ServicePendingInstallTask {
       status: EPendingInstallTaskStatus.appliedWaitingVerify,
       lastError: undefined,
     });
+    onRestartRequested(false);
     try {
       await BundleUpdate.switchBundle({
         appVersion,
@@ -1454,9 +1464,12 @@ class ServicePendingInstallTask {
     });
   }
 
-  private async executePendingInstallTask(task: IPendingInstallTask) {
+  private async executePendingInstallTask(
+    task: IPendingInstallTask,
+    onRestartRequested: (isBuiltinFallback: boolean) => void,
+  ) {
     if (task.type === EPendingInstallTaskType.jsBundleSwitch) {
-      await this.executeBundleSwitchTask(task);
+      await this.executeBundleSwitchTask(task, onRestartRequested);
       return true;
     }
     if (task.type === EPendingInstallTaskType.appInstall) {
@@ -1862,8 +1875,21 @@ class ServicePendingInstallTask {
       });
 
       try {
-        const installStarted =
-          await this.executePendingInstallTask(runningTask);
+        const installStarted = await this.executePendingInstallTask(
+          runningTask,
+          (isBuiltinFallback) => {
+            // A successful restart destroys this runtime before the await returns.
+            defaultLogger.app.appUpdate.pendingSwitchResult({
+              traceId,
+              requestSeq,
+              result: isBuiltinFallback
+                ? 'builtin_fallback_restart_requested'
+                : 'restart_requested',
+              durationMs: Date.now() - startedAt,
+              ...this.buildTaskLogFields(runningTask),
+            });
+          },
+        );
         if (!installStarted) {
           const currentTask = await getPendingInstallTask();
           if (
@@ -1887,6 +1913,9 @@ class ServicePendingInstallTask {
           return;
         }
         shouldEmitProcessFinishedEvent = false;
+        if (runningTask.type === EPendingInstallTaskType.jsBundleSwitch) {
+          return true;
+        }
         const durationMs = Date.now() - startedAt;
         await setPendingInstallTask({
           ...runningTask,
@@ -1918,16 +1947,15 @@ class ServicePendingInstallTask {
         ) {
           shouldEmitProcessFinishedEvent =
             message !== 'BUILTIN_FALLBACK_RELAUNCH';
-          defaultLogger.app.appUpdate.pendingSwitchResult({
-            traceId,
-            requestSeq,
-            result:
-              message === 'BUILTIN_ALREADY_ACTIVE'
-                ? 'builtin_already_active'
-                : 'builtin_fallback',
-            durationMs,
-            ...this.buildTaskLogFields(runningTask),
-          });
+          if (message === 'BUILTIN_ALREADY_ACTIVE') {
+            defaultLogger.app.appUpdate.pendingSwitchResult({
+              traceId,
+              requestSeq,
+              result: 'builtin_already_active',
+              durationMs,
+              ...this.buildTaskLogFields(runningTask),
+            });
+          }
         } else {
           defaultLogger.app.appUpdate.pendingSwitchResult(
             {
@@ -1947,6 +1975,8 @@ class ServicePendingInstallTask {
             updateError,
             traceId,
             undefined,
+            runningTask.type === EPendingInstallTaskType.jsBundleSwitch &&
+              updateError.code === EUpdateErrorCode.installFailed,
           );
           if (reachedTerminalState) {
             shouldRunPostRefresh = false;

@@ -1,4 +1,5 @@
 import { appendAdvancedLevels } from './advancedLevels';
+import { getDrawingCanvasText } from './drawingText';
 import { appendFibonacciGeometry } from './fibonacci';
 import { appendGeometricTools } from './geometricTools';
 import {
@@ -226,7 +227,7 @@ export function getDrawingGeometry(
         x: a.x,
         y: a.y,
         verticalAlign: 'top',
-        text: drawing.text ?? 'Text',
+        text: drawing.text ?? getDrawingCanvasText(projection.text).defaultText,
         fontSize: drawing.fontSize ?? 12,
         color: drawing.textColor ?? drawing.color,
         background: drawing.showBackground
@@ -251,7 +252,7 @@ export function getDrawingGeometry(
               drawing.points[0].price,
               projection.priceDecimalPlaces,
             )
-          : (drawing.text ?? 'Text'),
+          : (drawing.text ?? getDrawingCanvasText(projection.text).defaultText),
         fontSize: drawing.fontSize,
         color: drawing.textColor ?? '#FFFFFF',
         background:

@@ -1,6 +1,7 @@
 import type { IGlobalStatesSyncBroadcastParams } from '@onekeyhq/shared/src/background/backgroundUtils';
 
 const mockSharedRPCWrite = jest.fn();
+const mockAppEventEmit = jest.fn();
 const mockGetWebEmbedApiReadyState = jest
   .fn<Promise<{ ready: boolean; mountId?: string }>, []>()
   .mockResolvedValue({ ready: false });
@@ -104,10 +105,11 @@ jest.mock('@onekeyhq/shared/src/eventBus/appEventBus', () => ({
     LoadWebEmbedWebView: 'LoadWebEmbedWebView',
     LoadWebEmbedWebViewComplete: 'LoadWebEmbedWebViewComplete',
     WebEmbedWebViewMountRequested: 'WebEmbedWebViewMountRequested',
+    WebEmbedWebViewNotReady: 'WebEmbedWebViewNotReady',
   },
   appEventBus: {
     dispatchInboundFromBackground: jest.fn(),
-    emit: jest.fn(),
+    emit: mockAppEventEmit,
     on: jest.fn((name: string, handler: (payload: any) => void) => {
       mockAppEventHandlers[name] = handler;
     }),
@@ -285,6 +287,169 @@ describe('main thread background runner', () => {
         );
       });
     mockSharedRPCWrite.mockClear();
+  });
+
+  it('recovers after an owner change, coalesces rebuilds, and fences not-ready calls', async () => {
+    await import('./setupMainThreadBackgroundRunner');
+    const { registerImageEmbedBridge } =
+      await import('@onekeyhq/shared/src/utils/imageUtils.embedBridge');
+    const imageBridge = jest
+      .mocked(registerImageEmbedBridge)
+      .mock.calls.at(-1)?.[0];
+    const transport = (
+      globalThis as typeof globalThis & {
+        __onekeyNativeBackgroundThreadTransport: {
+          syncBridgeConnection: (
+            params: {
+              channel: 'webEmbed';
+              bridge: unknown;
+              mountId: string;
+              mountSequence: number;
+            },
+            fallback: () => Promise<unknown>,
+          ) => Promise<unknown>;
+        };
+      }
+    ).__onekeyNativeBackgroundThreadTransport;
+    const oldRequest = jest.fn().mockResolvedValue('old');
+    const oldBridge = { request: oldRequest, globalOnMessageEnabled: true };
+    const currentRequest = jest.fn().mockResolvedValue('current');
+    const currentBridge = {
+      request: currentRequest,
+      globalOnMessageEnabled: true,
+    };
+    const settle = async () => {
+      for (let i = 0; i < 8; i += 1) await Promise.resolve();
+    };
+    mockAppEventHandlers.WebEmbedWebViewMountRequested({
+      mountId: 'retired',
+      mountSequence: 200,
+    });
+    void transport.syncBridgeConnection(
+      {
+        channel: 'webEmbed',
+        bridge: oldBridge,
+        mountId: 'retired',
+        mountSequence: 200,
+      },
+      async () => undefined,
+    );
+    mockAppEventHandlers.LoadWebEmbedWebViewComplete({ mountId: 'retired' });
+    mockAppEventHandlers.WebEmbedWebViewMountRequested({
+      mountId: 'failed',
+      mountSequence: 201,
+    });
+    const disconnect = transport.syncBridgeConnection(
+      {
+        channel: 'webEmbed',
+        bridge: null,
+        mountId: 'retired',
+        mountSequence: 200,
+      },
+      async () => undefined,
+    );
+    await settle();
+    mockSharedRPCWrite.mock.calls
+      .filter(
+        ([key]) => typeof key === 'string' && key.startsWith('onekey:bg:req:'),
+      )
+      .forEach(([key]) => {
+        mockInboundMessageHandler?.(
+          `onekey:bg:res:${(key as string).slice('onekey:bg:req:'.length)}`,
+          JSON.stringify({ ok: true, result: true }),
+        );
+      });
+    await expect(disconnect).resolves.toBe(true);
+    mockAppEventEmit.mockClear();
+    const first = imageBridge?.convertToBlackAndWhiteImageBase64(
+      'image',
+      'image/png',
+    );
+    const second = imageBridge?.convertToBlackAndWhiteImageBase64(
+      'image',
+      'image/png',
+    );
+    await settle();
+    expect(mockAppEventEmit).toHaveBeenCalledTimes(1);
+    expect(oldRequest).not.toHaveBeenCalled();
+    mockAppEventHandlers.WebEmbedWebViewMountRequested({
+      mountId: 'recovered',
+      mountSequence: 202,
+    });
+    void transport.syncBridgeConnection(
+      {
+        channel: 'webEmbed',
+        bridge: currentBridge,
+        mountId: 'recovered',
+        mountSequence: 202,
+      },
+      async () => undefined,
+    );
+    await expect(
+      transport.syncBridgeConnection(
+        {
+          channel: 'webEmbed',
+          bridge: null,
+          mountId: 'retired',
+          mountSequence: 200,
+        },
+        async () => undefined,
+      ),
+    ).resolves.toBe(false);
+    mockAppEventHandlers.LoadWebEmbedWebViewComplete({ mountId: 'retired' });
+    await settle();
+    expect(currentRequest).not.toHaveBeenCalled();
+    mockAppEventHandlers.LoadWebEmbedWebViewComplete({ mountId: 'recovered' });
+    await expect(first).resolves.toBe('current');
+    await expect(second).resolves.toBe('current');
+    mockAppEventHandlers.WebEmbedWebViewNotReady({ mountId: 'retired' });
+    await expect(
+      imageBridge?.convertToBlackAndWhiteImageBase64('image', 'image/png'),
+    ).resolves.toBe('current');
+    mockGetWebEmbedApiReadyState.mockResolvedValue({
+      ready: true,
+      mountId: 'recovered',
+    });
+    mockAppEventHandlers.WebEmbedWebViewNotReady({ mountId: 'recovered' });
+    const pending = imageBridge?.convertToBlackAndWhiteImageBase64(
+      'image',
+      'image/png',
+    );
+    await settle();
+    expect(currentRequest).toHaveBeenCalledTimes(3);
+    expect(mockAppEventEmit).toHaveBeenCalledTimes(1);
+    mockAppEventHandlers.LoadWebEmbedWebViewComplete({ mountId: 'recovered' });
+    await expect(pending).resolves.toBe('current');
+    mockSharedRPCWrite.mock.calls
+      .filter(
+        ([key]) => typeof key === 'string' && key.startsWith('onekey:bg:req:'),
+      )
+      .forEach(([key]) => {
+        mockInboundMessageHandler?.(
+          `onekey:bg:res:${(key as string).slice('onekey:bg:req:'.length)}`,
+          JSON.stringify({ ok: true }),
+        );
+      });
+    mockSharedRPCWrite.mockClear();
+  });
+
+  it('falls back to a serializable WebEmbed error response', async () => {
+    const { serializeWebEmbedBridgeError } =
+      await import('./setupMainThreadBackgroundRunner');
+    const circular: { self?: unknown } = {};
+    circular.self = circular;
+    const error = Object.assign(new Error('runtime failed'), {
+      params: { amount: 1n },
+      payload: circular,
+    });
+
+    expect(JSON.parse(serializeWebEmbedBridgeError(error))).toEqual({
+      ok: false,
+      error: {
+        name: 'WebEmbedBridgeResponseError',
+        message: 'WebEmbed bridge response could not be serialized',
+      },
+    });
   });
 
   it('rejects a remote call when a legacy error contains constructorName', async () => {

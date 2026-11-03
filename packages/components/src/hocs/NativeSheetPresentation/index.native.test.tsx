@@ -1,7 +1,7 @@
 /** @jest-environment jsdom */
 import type { ReactNode } from 'react';
 
-import { render } from '@testing-library/react';
+import { act, render } from '@testing-library/react';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -95,4 +95,42 @@ it('keeps non-Android sheet content unwrapped', () => {
     <NativeSheetPresentation {...sheetProps} open />,
   );
   expect(queryByTestId('sheet-gesture-root')).toBeNull();
+});
+
+it('does not request another close when a programmatic exit completes after reopening', () => {
+  const onOpenChange = jest.fn();
+  const onAnimationComplete = jest.fn();
+  const props = { ...sheetProps, onOpenChange, onAnimationComplete };
+  const { rerender } = render(<NativeSheetPresentation {...props} open />);
+  rerender(<NativeSheetPresentation {...props} open={false} />);
+  rerender(<NativeSheetPresentation {...props} open />);
+  act(() => mockOverlayProps.onClose?.('system'));
+  expect(onOpenChange).not.toHaveBeenCalled();
+  expect(onAnimationComplete).toHaveBeenCalledWith({ open: false });
+});
+
+it('does not repeat a native dismiss request through the latest reopened callback', () => {
+  const onOpenChange = jest.fn();
+  const props = { ...sheetProps, onOpenChange };
+  const { rerender } = render(<NativeSheetPresentation {...props} open />);
+  act(() => mockOverlayProps.onRequestDismiss?.('pan'));
+  expect(onOpenChange).toHaveBeenCalledTimes(1);
+  rerender(<NativeSheetPresentation {...props} open={false} />);
+  rerender(<NativeSheetPresentation {...props} open />);
+  act(() => mockOverlayProps.onClose?.('pan'));
+  expect(onOpenChange).toHaveBeenCalledTimes(1);
+});
+
+it('requests a close when native removes an open sheet without a prior request', () => {
+  const onOpenChange = jest.fn();
+  render(
+    <NativeSheetPresentation
+      {...sheetProps}
+      open
+      onOpenChange={onOpenChange}
+    />,
+  );
+  act(() => mockOverlayProps.onClose?.('system'));
+  expect(onOpenChange).toHaveBeenCalledTimes(1);
+  expect(onOpenChange).toHaveBeenCalledWith(false);
 });

@@ -200,8 +200,13 @@ export function WebMarketTokenList({
         ? node
         : null;
   }, []);
+  const sticky = useContext(DesktopStickyHeaderContext);
+  const [stickyInset, setStickyInset] = useState(0);
   const registeredHeight = Math.max(
     400,
+    // Removing a favorite must not shorten the visible page and clamp the
+    // outer scroll offset, which would move all remaining rows downward.
+    watchlistMode ? (scrollElement?.clientHeight ?? 0) - stickyInset : 0,
     data.length * 72 +
       contentPaddingBottom +
       (footer ? 132 : 0) +
@@ -212,8 +217,6 @@ export function WebMarketTokenList({
     if (!element) return undefined;
     return registerContent?.(element, registeredHeight);
   }, [registerContent, registeredHeight]);
-  const sticky = useContext(DesktopStickyHeaderContext);
-  const [stickyInset, setStickyInset] = useState(0);
   useEffect(() => {
     const element = sticky?.portalTarget?.parentElement;
     if (!element) return undefined;
@@ -241,6 +244,8 @@ export function WebMarketTokenList({
     anchor: NativeListActionAnchor;
     actionKey: string;
     rowKey: string;
+    left: number;
+    top: number;
   }>();
   const stockPresentation = stockRows !== undefined;
   const webColumns = useMemo<WebMarketTableColumn[]>(
@@ -1207,10 +1212,15 @@ export function WebMarketTokenList({
           token: event.anchor.token,
           open: true,
         });
+        // The pager and scroll host are transformed, which turns them into
+        // the containing block of `position: fixed`; anchor relative to root.
+        const rootRect = rootRef.current?.getBoundingClientRect();
         setTooltip({
           anchor: event.anchor,
           actionKey: event.actionKey,
           rowKey: item.id,
+          left: event.anchor.windowRect.x - (rootRect?.left ?? 0),
+          top: event.anchor.windowRect.y - (rootRect?.top ?? 0),
         });
         return;
       }
@@ -1399,9 +1409,9 @@ export function WebMarketTokenList({
       />
       {tooltip ? (
         <Stack
-          position="fixed"
-          left={tooltip.anchor.windowRect.x}
-          top={tooltip.anchor.windowRect.y}
+          position="absolute"
+          left={tooltip.left}
+          top={tooltip.top}
           width={tooltip.anchor.windowRect.width}
           height={tooltip.anchor.windowRect.height}
           pointerEvents="none"

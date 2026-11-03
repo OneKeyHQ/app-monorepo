@@ -138,6 +138,9 @@ async function registerThirdPartyDevicePermissionHandler(
 export type IThirdPartyHardwareAdapterFactory =
   () => Promise<IThirdPartyHardwareAdapter>;
 
+/** Account paths per Keystone QR key request where the platform has no USB. */
+const KEYSTONE_QR_ONLY_KEY_REQUEST_LIMIT = 10;
+
 /**
  * Registry of third-party vendor → adapter factory. Single source of truth;
  * ServiceHardware iterates this, never hard-codes vendor names. Add a vendor
@@ -297,7 +300,15 @@ export const thirdPartyHardwareAdapterRegistry = {
         usbConnector = await createKeystoneUsbConnector();
       }
     }
-    const hw = new HwkKeystoneAdapter({ origin: 'OneKey', usbConnector });
+    const hw = new HwkKeystoneAdapter({
+      origin: 'OneKey',
+      usbConnector,
+      // With no USB to fall back on, a QR key request stays at a size the
+      // device has been seen to handle.
+      ...(usbConnector
+        ? {}
+        : { qrKeyRequestLimit: KEYSTONE_QR_ONLY_KEY_REQUEST_LIMIT }),
+    });
     defaultLogger.hardware.sdkLog.log(
       '[3rdPartyHW][Registry] keystone adapter ready',
     );

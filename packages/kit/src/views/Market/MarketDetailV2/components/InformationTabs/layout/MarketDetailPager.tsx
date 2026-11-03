@@ -14,10 +14,14 @@ export type IMarketDetailPagerProps = {
   renderTabBar: (props: IAppPagerTabBarProps) => ReactElement;
   onTabChange: (event: IAppPagerChange) => void;
   scrollEnabled?: boolean;
+  initialHeaderHeight?: number;
+  initialStickyHeaderHeight?: number;
 };
 
 export function MarketDetailPager({
   scrollEnabled: _scrollEnabled,
+  initialHeaderHeight: _initialHeaderHeight,
+  initialStickyHeaderHeight: _initialStickyHeaderHeight,
   ...props
 }: IMarketDetailPagerProps) {
   return (

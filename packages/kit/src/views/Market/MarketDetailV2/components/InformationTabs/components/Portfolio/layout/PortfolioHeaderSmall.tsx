@@ -2,13 +2,22 @@ import { memo } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { DashText, SizableText, XStack } from '@onekeyhq/components';
+import { DashText, SizableText, Stack, XStack } from '@onekeyhq/components';
+import SwapProPositionListHeader from '@onekeyhq/kit/src/views/Swap/components/SwapProPositionListHeader';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 const commonTextProps = { size: '$bodySm', color: '$textSubdued' } as const;
 
-function PortfolioHeaderSmallBase() {
+function PortfolioHeaderSmallBase({ isStock = false }: { isStock?: boolean }) {
   const intl = useIntl();
+
+  if (isStock) {
+    return (
+      <Stack px="$5" py="$2">
+        <SwapProPositionListHeader stockLayout />
+      </Stack>
+    );
+  }
 
   return (
     <XStack px="$5" py="$2" alignItems="center">
