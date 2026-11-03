@@ -1934,6 +1934,81 @@ describe('hardware reset session and local data races', () => {
     expect(newer.dataTime).toBe(2);
   });
 
+  test('reset waits for an admitted server write before reading and committing local data', async () => {
+    const { service, backgroundApi } = setup();
+    const record = {
+      id: 'account',
+      dataType: 'IndexedAccount',
+      pwdHash: current.pwdHash,
+      rawData: 'local-new-edit',
+      data: 'ciphertext-A',
+      dataTime: 200,
+    } as IDBCloudSyncItem;
+    backgroundApi.servicePrimeCloudSync.getAllLocalSyncItems.mockResolvedValue({
+      items: [record],
+    });
+    jest.spyOn(localDb, 'updateSyncItem').mockResolvedValue(undefined);
+    let resumeWrite = () => {};
+    let writeEntered = () => {};
+    const paused = new Promise<void>((resolve) => {
+      resumeWrite = resolve;
+    });
+    const entered = new Promise<void>((resolve) => {
+      writeEntered = resolve;
+    });
+    const writing = service.runWithCloudSyncKeyLock(async () => {
+      writeEntered();
+      await paused;
+      record.rawData = 'server-write-completed';
+    });
+    await entered;
+    const committing = service['commitHardwareDataKey'](current, next);
+    await new Promise<void>((resolve) => setTimeout(resolve, 0));
+    const storedWhilePaused = mockStored;
+    const readsWhilePaused =
+      backgroundApi.servicePrimeCloudSync.getAllLocalSyncItems.mock.calls
+        .length;
+    resumeWrite();
+    await Promise.all([writing, committing]);
+    expect(storedWhilePaused?.pwdHash).toBe(current.pwdHash);
+    expect(readsWhilePaused).toBe(0);
+    expect(sessionApi.reencryptHardwareCloudSyncItems).toHaveBeenCalledWith(
+      expect.objectContaining({
+        items: [expect.objectContaining({ rawData: 'server-write-completed' })],
+        to: next,
+      }),
+    );
+    expect(mockStored?.pwdHash).toBe(next.pwdHash);
+  });
+
+  test('reset keeps the key lock until local re-encryption has been written', async () => {
+    const { service } = setup();
+    let resumeWrite = () => {};
+    let writeEntered = () => {};
+    const paused = new Promise<void>((resolve) => {
+      resumeWrite = resolve;
+    });
+    const entered = new Promise<void>((resolve) => {
+      writeEntered = resolve;
+    });
+    jest.spyOn(localDb, 'updateSyncItem').mockImplementationOnce(async () => {
+      writeEntered();
+      await paused;
+    });
+    const committing = service['commitHardwareDataKey'](current, next);
+    await entered;
+    let nextOperationStarted = false;
+    const switching = service.runWithCloudSyncKeyLock(async () => {
+      nextOperationStarted = true;
+    });
+    await new Promise<void>((resolve) => setTimeout(resolve, 0));
+    const overtookCommit = nextOperationStarted;
+    resumeWrite();
+    await Promise.all([committing, switching]);
+    expect(overtookCommit).toBe(false);
+    expect(nextOperationStarted).toBe(true);
+  });
+
   test('a cancelled reset cannot clear another operation committing state', async () => {
     const { service } = setup();
     jest

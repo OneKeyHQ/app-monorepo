@@ -1,6 +1,7 @@
 import { EDeviceType } from '@onekeyfe/hd-shared';
 import { Semaphore } from 'async-mutex';
 
+import appGlobals from '@onekeyhq/shared/src/appGlobals';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import { ECloudSyncMode } from '@onekeyhq/shared/types/keylessCloudSync';
@@ -10,6 +11,8 @@ import type {
   ICloudSyncServerItem,
 } from '@onekeyhq/shared/types/prime/primeCloudSyncTypes';
 
+import { LocalDbBase } from '../../dbs/local/LocalDbBase';
+import { MaskedLocalDbAgent } from '../../dbs/local/MaskedLocalDbAgent';
 import {
   primeCloudSyncPersistAtom,
   primeMasterPasswordPersistAtom,
@@ -92,6 +95,36 @@ jest.mock('./CloudSyncFlowManager/CloudSyncFlowManagerWallet', () => ({
 jest.mock('../../dbs/local/localDb', () => ({
   __esModule: true,
   default: {},
+}));
+
+jest.mock('@onekeyhq/shared/src/appGlobals', () => ({
+  __esModule: true,
+  default: {
+    $backgroundApiProxy: {
+      serviceKeylessCloudSync: {
+        hydrateKeylessSyncCredentialFromStorageIfNeeded: jest.fn(),
+      },
+    },
+  },
+}));
+
+jest.mock('@onekeyhq/shared/src/travelMode', () => ({
+  ...jest.requireActual<typeof import('@onekeyhq/shared/src/travelMode')>(
+    '@onekeyhq/shared/src/travelMode',
+  ),
+  travelModeManager: {
+    getRuntimeEnvironmentSync: () => ({
+      persistence: {
+        runSync: ({ operation }: { operation: () => unknown }) => operation(),
+      },
+    }),
+    getRuntimeEnvironment: async () => ({
+      persistence: {
+        run: ({ operation }: { operation: () => Promise<unknown> }) =>
+          operation(),
+      },
+    }),
+  },
 }));
 
 jest.mock('../../dbs/simple/simpleDb', () => ({
@@ -582,13 +615,16 @@ describe('ServicePrimeCloudSync local writes re-check the Cloud key', () => {
   }>('../../dbs/local/localDb').default;
 
   function build(readSelected: () => ICloudSyncCredential | undefined) {
+    const mutex = new Semaphore(1);
+    const runWithCloudSyncKeyLock = <T>(operation: () => Promise<T>) =>
+      mutex.runExclusive(operation);
     mockedLocalDb.addAndUpdateSyncItems = jest.fn(async () => undefined);
     mockedLocalDb.getRecordsByIds = jest.fn(async () => ({
       records: localItems,
     }));
     mockedLocalDb.removeCloudSyncPoolItems = jest.fn(async () => undefined);
     const service = new ServicePrimeCloudSync({
-      backgroundApi: { serviceKeylessCloudSync: {} },
+      backgroundApi: { serviceKeylessCloudSync: { runWithCloudSyncKeyLock } },
     });
     jest
       .spyOn(service, 'getSyncCredentialSafe')
@@ -597,7 +633,7 @@ describe('ServicePrimeCloudSync local writes re-check the Cloud key', () => {
       .spyOn(service, 'syncToSceneWithLocalSyncItems')
       .mockResolvedValue(undefined);
     jest.spyOn(service, 'updateLastSyncTime').mockResolvedValue(undefined);
-    return { service, syncToScene };
+    return { service, syncToScene, runWithCloudSyncKeyLock };
   }
 
   afterEach(() => {
@@ -665,6 +701,129 @@ describe('ServicePrimeCloudSync local writes re-check the Cloud key', () => {
       },
     },
   };
+
+  test.each(['source', 'data key'] as const)(
+    'a hardware %s change cannot overtake a server write paused at DB credential warm-up',
+    async (change) => {
+      // Exercise real transaction warm-up with a storage-free agent.
+      // eslint-disable-next-line max-classes-per-file
+      class SyncWriteDb extends LocalDbBase {
+        private agent = new MaskedLocalDbAgent();
+
+        get readyDb() {
+          return Promise.resolve(this.agent);
+        }
+
+        async reset(): Promise<void> {}
+      }
+      const db = new SyncWriteDb();
+      const record: IDBCloudSyncItem = {
+        ...localItems[0],
+        pwdHash: 'A',
+        rawData: 'local-before-switch',
+        data: 'ciphertext-A',
+        dataTime: 100,
+      };
+      const switched: ICloudSyncCredential = {
+        ...hardware,
+        keylessCredential: {
+          ...hardware.keylessCredential!,
+          ...(change === 'source'
+            ? {
+                source: {
+                  ...hardware.keylessCredential!.source!,
+                  credentialId: 'hardware-cloud-v1-b',
+                },
+              }
+            : { pwdHash: 'B' }),
+        },
+      };
+      let selected = hardware;
+      const { service, runWithCloudSyncKeyLock } = build(() => selected);
+      let resumeWarmup = () => {};
+      let warmupEntered = () => {};
+      const paused = new Promise<void>((resolve) => {
+        resumeWarmup = resolve;
+      });
+      const entered = new Promise<void>((resolve) => {
+        warmupEntered = resolve;
+      });
+      jest
+        .spyOn(
+          appGlobals.$backgroundApiProxy.serviceKeylessCloudSync,
+          'hydrateKeylessSyncCredentialFromStorageIfNeeded',
+        )
+        .mockImplementationOnce(async () => {
+          warmupEntered();
+          await paused;
+        });
+      jest
+        .spyOn(db, 'txAddAndUpdateSyncItems')
+        .mockImplementation(async ({ items }) => {
+          db._updateCloudSyncPoolItemFn({ item: record, updateItem: items[0] });
+        });
+      mockedLocalDb.addAndUpdateSyncItems?.mockImplementation(
+        db.addAndUpdateSyncItems.bind(db),
+      );
+      const writing = service.updateLocalItemsByServer({
+        localItems: [{ ...record, rawData: '' }],
+        syncCredential: hardware,
+        shouldSyncToScene: false,
+      });
+      await entered;
+      const switching = runWithCloudSyncKeyLock(async () => {
+        selected = switched;
+        Object.assign(record, {
+          pwdHash: 'B',
+          rawData: 'local-new-edit',
+          data: 'ciphertext-B',
+          dataTime: 200,
+        });
+      });
+      // Drain queued work while the actual transaction warm-up is suspended.
+      await new Promise<void>((resolve) => setTimeout(resolve, 0));
+      const selectedWhilePaused = selected;
+      resumeWarmup();
+      await Promise.all([writing, switching]);
+      expect(record).toMatchObject({
+        pwdHash: 'B',
+        rawData: 'local-new-edit',
+        data: 'ciphertext-B',
+        dataTime: 200,
+      });
+      expect(selectedWhilePaused).toBe(hardware);
+    },
+  );
+
+  test('a response queued behind a key change checks the selection after acquiring the lock', async () => {
+    let selected = keyA;
+    const { service, runWithCloudSyncKeyLock } = build(() => selected);
+    let finishSwitch = () => {};
+    const paused = new Promise<void>((resolve) => {
+      finishSwitch = resolve;
+    });
+    const switching = runWithCloudSyncKeyLock(async () => {
+      await paused;
+      selected = keyB;
+    });
+    const writing = service.updateLocalItemsByServer({
+      localItems,
+      syncCredential: keyA,
+      shouldSyncToScene: true,
+    });
+    const result = writing.catch((error: unknown) => error);
+    await new Promise<void>((resolve) => setTimeout(resolve, 0));
+    finishSwitch();
+    await switching;
+    expect(await result).toEqual(
+      expect.objectContaining({
+        message: expect.stringContaining(
+          'The encryption method for Cloud sync changed',
+        ),
+      }),
+    );
+    expect(mockedLocalDb.addAndUpdateSyncItems).not.toHaveBeenCalled();
+  });
 
   test.each(['source', 'pwdHash', 'keylessWalletId'] as const)(
     'a hardware %s change rejects the old response before writing',

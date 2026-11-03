@@ -1296,13 +1296,18 @@ class ServicePrimeCloudSync extends ServiceBase {
     shouldSyncToScene: boolean;
   }) {
     console.log('updateLocalItemsByServer', localItems);
-    // Checked again right at the write: the sync flow does not hold the key lock.
-    await this.assertSyncCredentialUnchanged(syncCredential);
-    await localDb.addAndUpdateSyncItems({
-      items: localItems,
-      // the data is already from the server, so it doesn't need to be uploaded back to the server
-      skipUploadToServer: true,
-    });
+    await this.backgroundApi.serviceKeylessCloudSync.runWithCloudSyncKeyLock(
+      async () => {
+        // DB warm-up can await before the transaction starts. Keep the key
+        // selected by this check until the write has actually committed.
+        await this.assertSyncCredentialUnchanged(syncCredential);
+        await localDb.addAndUpdateSyncItems({
+          items: localItems,
+          // Server data does not need to be uploaded again.
+          skipUploadToServer: true,
+        });
+      },
+    );
     console.log('updateLocalItemsByServer sucess', localItems);
 
     if (shouldSyncToScene && syncCredential) {

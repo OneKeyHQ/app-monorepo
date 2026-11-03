@@ -1007,56 +1007,60 @@ class ServiceKeylessCloudSync extends ServiceBase {
     credential: IKeylessCloudSyncCredential,
     next: IHardwareCloudSyncDataKey,
   ): Promise<IKeylessCloudSyncCredential> {
-    const session = credential.hardwareSession;
-    if (!session) throw new OneKeyError('Cloud sync sign-in is missing.');
-    // Read after the device and network waits, so account edits made while
-    // confirming the reset are carried forward instead of an old snapshot.
-    const { items: originalItems } =
-      await this.backgroundApi.servicePrimeCloudSync.getAllLocalSyncItems();
-    const items = await reencryptHardwareCloudSyncItems({
-      items: originalItems,
-      from: {
-        dek: credential.encryptionKey,
-        dekId: session.dekId,
-        pwdHash: credential.pwdHash,
-      },
-      to: next,
+    return this.runWithCloudSyncKeyLock(async () => {
+      const session = credential.hardwareSession;
+      if (!session) throw new OneKeyError('Cloud sync sign-in is missing.');
+      // Read after the device and network waits, so account edits made while
+      // confirming the reset are carried forward instead of an old snapshot.
+      const { items: originalItems } =
+        await this.backgroundApi.servicePrimeCloudSync.getAllLocalSyncItems();
+      const items = await reencryptHardwareCloudSyncItems({
+        items: originalItems,
+        from: {
+          dek: credential.encryptionKey,
+          dekId: session.dekId,
+          pwdHash: credential.pwdHash,
+        },
+        to: next,
+      });
+      const updated: IKeylessCloudSyncCredential = {
+        ...credential,
+        encryptionKey: next.dek,
+        pwdHash: next.pwdHash,
+        hardwareSession: { ...session, dekId: next.dekId },
+        pendingDataKey: undefined,
+      };
+      const saved = await this.saveHardwareCredential(updated, {
+        expected: credential,
+      });
+      const originalsById = new Map(
+        originalItems.map((item) => [item.id, item]),
+      );
+      const replacementsById = new Map(items.map((item) => [item.id, item]));
+      await localDb.updateSyncItem({
+        ids: items.map((item) => item.id),
+        updater: (record) => {
+          const original = originalsById.get(record.id);
+          const replacement = replacementsById.get(record.id);
+          // A later edit must keep its raw data; the following full sync rebuilds
+          // it with the selected key. Compare inside the database transaction.
+          if (
+            original &&
+            replacement &&
+            record.pwdHash === original.pwdHash &&
+            record.data === original.data &&
+            record.rawData === original.rawData &&
+            record.dataTime === original.dataTime &&
+            record.isDeleted === original.isDeleted
+          ) {
+            record.data = replacement.data;
+            record.pwdHash = replacement.pwdHash;
+          }
+          return record;
+        },
+      });
+      return saved;
     });
-    const updated: IKeylessCloudSyncCredential = {
-      ...credential,
-      encryptionKey: next.dek,
-      pwdHash: next.pwdHash,
-      hardwareSession: { ...session, dekId: next.dekId },
-      pendingDataKey: undefined,
-    };
-    const saved = await this.saveHardwareCredential(updated, {
-      expected: credential,
-    });
-    const originalsById = new Map(originalItems.map((item) => [item.id, item]));
-    const replacementsById = new Map(items.map((item) => [item.id, item]));
-    await localDb.updateSyncItem({
-      ids: items.map((item) => item.id),
-      updater: (record) => {
-        const original = originalsById.get(record.id);
-        const replacement = replacementsById.get(record.id);
-        // A later edit must keep its raw data; the following full sync rebuilds
-        // it with the selected key. Compare inside the database transaction.
-        if (
-          original &&
-          replacement &&
-          record.pwdHash === original.pwdHash &&
-          record.data === original.data &&
-          record.rawData === original.rawData &&
-          record.dataTime === original.dataTime &&
-          record.isDeleted === original.isDeleted
-        ) {
-          record.data = replacement.data;
-          record.pwdHash = replacement.pwdHash;
-        }
-        return record;
-      },
-    });
-    return saved;
   }
 
   // The server refused a stale data key: finish this device's interrupted
