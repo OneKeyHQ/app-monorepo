@@ -111,6 +111,7 @@ import { getFirmwareManifestSnapshot } from '../ServiceFirmwareUpdate/FirmwareMa
 
 import { DeviceSettingsManager } from './DeviceSettingsManager';
 import { HardwareConnectionManager } from './HardwareConnectionManager';
+import { getHardwareTelemetry } from './HardwareTelemetry';
 import {
   HardwareUiEventQueue,
   createHardwareUiEventState,
@@ -1529,13 +1530,17 @@ class ServiceHardware extends ServiceBase {
         totalBytes,
         rateBytesPerSecond,
         elapsedMs,
-      } = originEvent.payload;
+        retryCount,
+      } = originEvent.payload as typeof originEvent.payload & {
+        retryCount?: number;
+      };
       newPayload.deviceProgress = {
         progress,
         transferredBytes,
         totalBytes,
         rateBytesPerSecond,
         elapsedMs,
+        retryCount,
       };
     }
 
@@ -2117,6 +2122,42 @@ class ServiceHardware extends ServiceBase {
           const messageType =
             messages.payload.length > 0 ? messages.payload[0] : '';
           const message = messages.payload.join(' ');
+          const transfer = serviceHardwareUtils.parseBleFileWriteLogPayload(
+            messages.payload,
+          );
+          if (transfer) {
+            const deviceKey =
+              this.backgroundApi.serviceHardwareUI?.hardwareProcessingManager?.getActiveOneKeyOperationLease()
+                ?.deviceKey;
+            void (async () => {
+              const { devices } = await localDb.getAllDevices();
+              const device = deviceKey
+                ? devices.find((item) =>
+                    [
+                      item.id,
+                      item.deviceId,
+                      item.uuid,
+                      item.connectId,
+                      item.usbConnectId,
+                      item.bleConnectId,
+                    ].includes(deviceKey),
+                  )
+                : undefined;
+              getHardwareTelemetry().report({
+                kind: 'ble',
+                params: {
+                  ...transfer,
+                  deviceType: device?.deviceType,
+                  firmwareVersion:
+                    device?.deviceStateInfo?.versions?.firmware ?? undefined,
+                  bleVersion:
+                    device?.deviceStateInfo?.versions?.ble ?? undefined,
+                },
+              });
+            })().catch(() => {
+              // Telemetry must never affect the SDK event handler.
+            });
+          }
 
           if (showSdkDebugLogs) {
             try {
@@ -2133,10 +2174,11 @@ class ServiceHardware extends ServiceBase {
             typeof messages.payload[1] === 'string' &&
             messages.payload[1].startsWith('[FirmwareUpdateV4]');
           if (
-            messageType.includes('@onekey/hd-core') ||
-            messageType.includes('@onekey/hd-transport') ||
-            messageType.includes('@onekey/hd-ble-transport') ||
-            isFirmwareUpdateLog
+            !transfer &&
+            (messageType.includes('@onekey/hd-core') ||
+              messageType.includes('@onekey/hd-transport') ||
+              messageType.includes('@onekey/hd-ble-transport') ||
+              isFirmwareUpdateLog)
           ) {
             defaultLogger.hardware.sdkLog.log(messages.event, message);
           }
@@ -2167,6 +2209,8 @@ class ServiceHardware extends ServiceBase {
 
   @backgroundMethod()
   async init() {
+    if (platformEnv.isNative || platformEnv.isDesktop)
+      void getHardwareTelemetry().flush();
     await this.getSDKInstance({
       hardwareCallContext: EHardwareCallContext.SDK_INITIALIZATION,
       connectId: undefined,
@@ -3552,14 +3596,12 @@ class ServiceHardware extends ServiceBase {
   }) {
     if (platformEnv.isDesktop) {
       return this.backgroundApi.serviceHardwareUI.runExclusiveOneKeyOperation(
-        async () => {
-          const transport = await this.resolveHardwareTransport({
+        () =>
+          this.resolveHardwareTransport({
             connectId: params.connectId,
             features: params.features,
             hardwareCallContext: EHardwareCallContext.UPDATE_FIRMWARE,
-          });
-          return transport.connectId;
-        },
+          }),
         { deviceKey: params.connectId },
       );
     }
@@ -3569,7 +3611,10 @@ class ServiceHardware extends ServiceBase {
     if (!dbDevice) {
       // 首次连接或 Bootloader 模式下，本地数据库可能还没有设备记录。
       // 此时跳过预检，把新发现的连接 ID 原样交给升级流程。
-      return params.connectId;
+      return {
+        connectId: params.connectId,
+        transportType: await this.getCurrentTransportType(),
+      };
     }
     const resolvedTransport = await this.resolveHardwareTransport({
       connectId: params.connectId,
@@ -3598,7 +3643,7 @@ class ServiceHardware extends ServiceBase {
         },
       },
     );
-    return compatibleConnectId;
+    return resolvedTransport;
   }
 
   @backgroundMethod()
