@@ -114,6 +114,7 @@ jest.mock('./webView.native', () => ({
   showIntercom: (params?: IShowIntercomParams) => mockWebIntercom(params),
 }));
 jest.mock('./utils', () => ({
+  ...jest.requireActual<typeof import('./utils')>('./utils'),
   getInstanceId: async () => 'test-instance',
   getIntercomLanguageOverride: async () => 'zh-CN',
 }));
