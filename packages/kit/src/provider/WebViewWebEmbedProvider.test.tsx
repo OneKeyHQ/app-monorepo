@@ -713,4 +713,34 @@ describe('WebEmbed API startup request', () => {
     completeCurrent();
     await pending;
   });
+
+  it('clears stale requestId on an unowned rebuild so subsequent renderer termination does not replay the old requestId', async () => {
+    render(<WebViewWebEmbedProvider />);
+
+    let pending: Promise<void> | undefined;
+    await act(async () => {
+      pending = backgroundProxy.waitRemoteApiReady();
+      await Promise.resolve();
+    });
+    expect(mockWebViewMount).toHaveBeenCalledTimes(1);
+    expect(mockCurrentRequestId).toEqual(expect.any(String));
+    completeCurrent();
+    await pending;
+
+    // Background restarts and emits an unowned LoadWebEmbedWebView rebuild
+    act(() => {
+      appEventBus.emit(EAppEventBusNames.LoadWebEmbedWebView, undefined);
+    });
+    expect(mockWebViewMount).toHaveBeenCalledTimes(2);
+    expect(mockCurrentRequestId).toBeUndefined();
+    const unownedMountId = mockCurrentMountId;
+
+    // Renderer termination on the unowned mount must keep requestId undefined
+    act(() => {
+      mockTerminate?.();
+    });
+    expect(mockWebViewMount).toHaveBeenCalledTimes(3);
+    expect(mockCurrentMountId).not.toBe(unownedMountId);
+    expect(mockCurrentRequestId).toBeUndefined();
+  });
 });

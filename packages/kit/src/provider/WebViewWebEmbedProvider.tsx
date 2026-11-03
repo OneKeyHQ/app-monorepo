@@ -55,7 +55,7 @@ function BasicWebViewWebEmbedProvider() {
       if (replaceMountId && replaceMountId !== currentMountIdRef.current) {
         return;
       }
-      pendingRequestIdRef.current = requestId ?? lastRequestIdRef.current;
+      pendingRequestIdRef.current = requestId;
       if (disabledRef.current) {
         setIsShow(true);
         return;

@@ -707,6 +707,8 @@ class ProviderApiPrivate extends ProviderApiBase {
 
   private webEmbedMountId: string | undefined;
 
+  private webEmbedMountRequestId: string | undefined;
+
   private webEmbedMountPending = false;
 
   private webEmbedMountSequence = 0;
@@ -720,6 +722,7 @@ class ProviderApiPrivate extends ProviderApiBase {
     if (runtimeId !== this.webEmbedMainRuntimeId) {
       this.webEmbedMainRuntimeId = runtimeId;
       this.webEmbedMountId = undefined;
+      this.webEmbedMountRequestId = undefined;
       this.webEmbedMountPending = false;
       this.webEmbedMountSequence = 0;
       this.isWebEmbedApiReady = false;
@@ -732,12 +735,15 @@ class ProviderApiPrivate extends ProviderApiBase {
       return { ready: true };
     }
     const canAdoptPendingMount =
-      !this.webEmbedRequestId &&
+      !this.webEmbedMountRequestId &&
       Boolean(this.webEmbedMountId) &&
       this.webEmbedMountPending;
     this.webEmbedRequestId = requestId;
-    if (!canAdoptPendingMount) {
+    if (canAdoptPendingMount) {
+      this.webEmbedMountRequestId = requestId;
+    } else {
       this.webEmbedMountId = undefined;
+      this.webEmbedMountRequestId = undefined;
       this.webEmbedMountPending = false;
     }
     this.isWebEmbedApiReady = false;
@@ -782,10 +788,17 @@ class ProviderApiPrivate extends ProviderApiBase {
       return false;
     }
     if (mountSequence === this.webEmbedMountSequence) {
-      return mountId === this.webEmbedMountId;
+      if (mountId !== this.webEmbedMountId) {
+        return false;
+      }
+      if (requestId) {
+        this.webEmbedMountRequestId = requestId;
+      }
+      return true;
     }
     this.webEmbedMountSequence = mountSequence;
     this.webEmbedMountId = mountId;
+    this.webEmbedMountRequestId = requestId;
     this.webEmbedMountPending = true;
     this.isWebEmbedApiReady = false;
     return true;
@@ -795,6 +808,7 @@ class ProviderApiPrivate extends ProviderApiBase {
     this.syncWebEmbedMainRuntime();
     if (this.webEmbedMountId === mountId) {
       this.webEmbedMountId = undefined;
+      this.webEmbedMountRequestId = undefined;
       this.webEmbedMountPending = false;
       this.isWebEmbedApiReady = false;
     }

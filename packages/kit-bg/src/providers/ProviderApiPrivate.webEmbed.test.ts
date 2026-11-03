@@ -178,7 +178,7 @@ describe('WebEmbed page readiness ownership', () => {
     );
   });
 
-  it('adopts an in-flight unowned mount when a background request reserves after activation', async () => {
+  it('adopts an in-flight unowned mount when a background request reserves after activation, including after an earlier request', async () => {
     const provider = new ProviderApiPrivate({ backgroundApi: {} });
     const emitSpy = jest.spyOn(appEventBus, 'emit');
 
@@ -196,6 +196,24 @@ describe('WebEmbed page readiness ownership', () => {
     expect(emitSpy).toHaveBeenCalledWith(
       EAppEventBusNames.LoadWebEmbedWebViewComplete,
       { mountId: 'unowned-in-flight', requestId: 'request-1' },
+    );
+
+    // A subsequent unowned replacement mount (e.g. Zcash replacement flow)
+    // must also be adopted by the next background request reservation.
+    expect(
+      provider.activateWebEmbedMount({
+        mountId: 'unowned-replacement',
+        mountSequence: 2,
+      }),
+    ).toBe(true);
+    expect(provider.reserveWebEmbedRequest('request-2')).toEqual({
+      ready: false,
+    });
+    await callReady(provider, 'unowned-replacement');
+
+    expect(emitSpy).toHaveBeenCalledWith(
+      EAppEventBusNames.LoadWebEmbedWebViewComplete,
+      { mountId: 'unowned-replacement', requestId: 'request-2' },
     );
   });
 
