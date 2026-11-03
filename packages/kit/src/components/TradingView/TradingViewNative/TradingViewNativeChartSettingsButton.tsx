@@ -33,7 +33,6 @@ export function TradingViewNativeChartSettingsButton({
   enableNavigationButtons = false,
   isChartSwitchDisabled = false,
   onChartSwitch,
-  onBeforeOpenSettings,
   placement = 'chart',
 }: {
   storageNamespace?: ITradingViewNativeStorageNamespace;
@@ -42,7 +41,6 @@ export function TradingViewNativeChartSettingsButton({
   enableNavigationButtons?: boolean;
   isChartSwitchDisabled?: boolean;
   onChartSwitch?: () => void;
-  onBeforeOpenSettings?: () => void;
   placement?: 'chart' | 'toolbar';
 }) {
   const isToolbar = placement === 'toolbar';
@@ -67,14 +65,12 @@ export function TradingViewNativeChartSettingsButton({
     };
     if (pushTradingViewNativeFullscreenModal(EModalRoutes.MarketModal, params))
       return;
-    onBeforeOpenSettings?.();
     navigation.pushModal(EModalRoutes.MarketModal, params);
   }, [
     enableNavigationButtons,
     enablePreviousClose,
     isChartSwitchDisabled,
     navigation,
-    onBeforeOpenSettings,
     onChartSwitch,
     storageNamespace,
   ]);

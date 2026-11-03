@@ -1143,6 +1143,13 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries �
 **Fix**: `drawReferenceTitle` takes the computed price-axis labels and centers the tag on `referenceLabelY` (falling back to the clamped line position), matching the axis badge. A unit test pins equal `y` and `height` for the tag and badge, both at rest and when nudged.
 **Catchable by**: NEW — when one visual element is drawn as several shapes (tag + axis badge), derive every shape's position from one shared anchor and assert their alignment in a scene test, especially when porting a renderer (web lightweight-charts → native Skia).
 
+## Case: Native chart settings button left fullscreen on mobile
+**Date**: 2026-11-02 | **Platforms**: iOS, Android (main UI runtime), mobile web (single runtime)
+**Symptom**: With a native chart fullscreen on mobile, the toolbar settings button sat right next to exit fullscreen, so a near miss left fullscreen (OK-65712). On Android and mobile web, pressing settings itself also left fullscreen.
+**Root Cause**: `TradingViewNativeContainer` hid only the in-chart settings button with `!isNativeChartFullscreen`. The toolbar placement built in `mobileSettingsControl` had no such check, so it kept rendering in fullscreen. Only iOS can push a modal over its fullscreen page; `pushTradingViewNativeFullscreenModal` returns `false` on Android and web, so those platforms fell through to `onBeforeOpenSettings`, which exited fullscreen before opening settings.
+**Fix**: Hide only the button inside the `mobileSettingsControl` wrapper while fullscreen, and remove `onBeforeOpenSettings`. The wrapper stays because a truthy control keeps the chart type and indicator actions out of the toolbar, and `mobileToolbarExtra` stays because it carries the mobile web fullscreen toggle. A `TradingViewNativeContainer` test pins the hidden button and the retained control and extras.
+**Catchable by**: NEW — when a control has several placements, apply its visibility rule to every placement, and check what else reads a prop's truthiness before clearing it. A workaround that leaves the current mode (such as exiting fullscreen to open a page) should be checked against the user's flow on each platform.
+
 ## Case: Recipient pager selection echoed through native commands and initialPage
 **Date**: 2026-11-02 | **Platforms**: iOS, Android (main UI runtime and its per-view native pager instance; no bg state or cross-runtime deserialization)
 **Symptom**: On Android, swiping between recipient tabs left the segmented indicator partway between tabs. Removing the echoed page command also exposed an iOS path that reapplied the selected page and detached/rebuilt its scroll observation after each swipe.
@@ -1198,6 +1205,13 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries �
 **Root Cause**: The shared price-source state temporarily returned token mode while the stock status request was pending and already exposed `isPriceSourceReady`. Desktop price/chart content and mobile Simple/Pro chart owners ignored that readiness flag. Guarding only the mobile price header did not prevent chart children from mounting with the temporary source. On native, this readiness belongs to the main UI runtime while responses arrive asynchronously from the isolated bg runtime.
 **Fix**: Wait for price-source readiness before mounting desktop price/chart content or either mobile chart mode, reserve a loading area, and keep mobile token chart price updates inactive during the wait. Preserve the existing resolved market defaults, error fallback, and manual selections. Tests cover open, closed, and failed responses across Simple, native Pro, and WebView Pro paths; delayed real responses on Desktop and iOS confirmed the first mounted chart used Share Price.
 **Catchable by**: Section 4: Shared hook/utility modified → checked all consumers; Section 5: Distinguish unresolved asynchronous state from a valid default; Section 6: Assert that dependent charts do not mount before readiness, then mount with the resolved source; Section 8: Verify cold-cache transitions on the real platforms, including both mobile chart modes.
+
+## Case: Referral reward scopes silent on wide native
+**Date**: 2026-11-02 | **Platforms**: iOS, Android (main UI runtime; wide layout when `gtMd` is true, including tablets)
+**Symptom**: On a wide native device, tapping "Learn more" on the empty referral earnings card and the product-row info icons did nothing. The server-provided reward scope descriptions never appeared.
+**Root Cause**: Both entry points render `Tooltip` when `gtMd` is true. Native `Tooltip` returns only `renderTrigger` and never shows `renderContent`, so the descriptions were unreachable on tablets and other wide native layouts. Narrow native already used `Popover`.
+**Fix**: Use `Popover` on native at every width for the Learn more hint and for `InfoIcon` (product-row icons and the other info icons that share it). Web and desktop wide layouts still use `Tooltip`. Regression tests cover native and non-native, wide and compact, for both entry points.
+**Catchable by**: Section 3: Cross-Platform Impact — a `gtMd` Tooltip branch must be checked against the native Tooltip implementation, which does not display content.
 
 ## Case: Language search pulled the translations enum into the web startup graph
 **Date**: 2026-11-02 | **Platforms**: Web (single JS runtime, cold startup graph). Desktop, extension, and native bundles do not use this forbidden-module check.
