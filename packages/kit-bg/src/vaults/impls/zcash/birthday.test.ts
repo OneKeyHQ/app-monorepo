@@ -1,4 +1,5 @@
 import { ZCASH_SAPLING_ACTIVATION_HEIGHT_MAINNET } from '@onekeyhq/core/src/chains/zcash/sdkZcash/constants';
+import { findZcashHeightAtTimeDirect } from '@onekeyhq/core/src/chains/zcash/sdkZcash/impl/chainTipDirect';
 import {
   ZCASH_IRONWOOD_ACTIVATION_HEIGHT_MAINNET,
   ZCASH_MIN_BIRTHDAY_HEIGHT_MAINNET,
@@ -9,7 +10,15 @@ import {
   clampZcashBirthdayHeight,
   estimateZcashBirthdayHeight,
   estimateZcashChainTipFromClock,
+  placeZcashBirthdayHeight,
 } from './birthday';
+
+jest.mock(
+  '@onekeyhq/core/src/chains/zcash/sdkZcash/impl/chainTipDirect',
+  () => ({
+    findZcashHeightAtTimeDirect: jest.fn(),
+  }),
+);
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 // 75s blocks before NU7, 25s after.
@@ -185,5 +194,41 @@ describe('clampZcashBirthdayHeight', () => {
         chainTip: 3_700_000,
       }),
     ).toBe(3_700_000);
+  });
+});
+
+describe('placeZcashBirthdayHeight', () => {
+  const findHeight = jest.mocked(findZcashHeightAtTimeDirect);
+  const birthdayTimestamp = Date.UTC(2026, 9, 1);
+  const lightwalletdUrl = 'https://lightwalletd.test';
+
+  beforeEach(() => findHeight.mockReset());
+
+  it('searches a day before the date between the floor and the tip', async () => {
+    findHeight.mockResolvedValue(3_480_000);
+    await expect(
+      placeZcashBirthdayHeight({
+        lightwalletdUrl,
+        birthdayTimestamp,
+        chainTip: 3_700_000,
+      }),
+    ).resolves.toBe(3_480_000);
+    expect(findHeight).toHaveBeenCalledWith({
+      lightwalletdUrl,
+      timeSeconds: (birthdayTimestamp - DAY_MS) / 1000,
+      lowHeight: ZCASH_MIN_BIRTHDAY_HEIGHT_MAINNET,
+      highHeight: 3_700_000,
+    });
+  });
+
+  it('returns null while the node cannot answer', async () => {
+    findHeight.mockResolvedValue(null);
+    await expect(
+      placeZcashBirthdayHeight({
+        lightwalletdUrl,
+        birthdayTimestamp,
+        chainTip: 3_700_000,
+      }),
+    ).resolves.toBeNull();
   });
 });

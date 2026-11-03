@@ -20,6 +20,8 @@ export type IZcashPendingRescan = {
   birthdayHeight: number;
   birthdaySource: IZcashBirthdaySource;
   birthdayTimestamp?: number;
+  // The height is a clock estimate for `birthdayTimestamp`; the node places it before the rescan runs.
+  birthdayHeightEstimated?: boolean;
   requestedAt: number;
 };
 
@@ -68,6 +70,8 @@ export interface IZcashAccountMeta {
   birthdaySource?: IZcashBirthdaySource;
   // Diagnostic only; birthdayHeight is the sole scanner authority.
   birthdayTimestamp?: number;
+  // The height is a clock estimate for `birthdayTimestamp`; registration replaces it with one the node places.
+  birthdayHeightEstimated?: boolean;
   createdAt: number;
 }
 
@@ -93,6 +97,8 @@ const birthdaySchema = z.object({
   height: finiteNumber,
   source: z.string().min(1).optional(),
   timestamp: finiteNumber.optional(),
+  // Zcash: `height` is a clock estimate for `timestamp`, still to be placed by the node.
+  estimated: z.boolean().optional(),
 });
 
 const accountRecordSchema = z.object({
@@ -386,6 +392,7 @@ function buildZcashMetaView(
       | IZcashBirthdaySource
       | undefined,
     birthdayTimestamp: record.scan.birthday?.timestamp,
+    birthdayHeightEstimated: record.scan.birthday?.estimated,
     createdAt: record.createdAt,
   });
 }
@@ -397,6 +404,7 @@ function buildZcashPendingRescan(
     birthdayHeight: rescan.birthday.height,
     birthdaySource: rescan.birthday.source as IZcashBirthdaySource,
     birthdayTimestamp: rescan.birthday.timestamp,
+    birthdayHeightEstimated: rescan.birthday.estimated,
     requestedAt: rescan.requestedAt,
   });
 }
@@ -1577,6 +1585,7 @@ export class SimpleDbEntityPrivacyChainState extends SimpleDbEntityBase<IPrivacy
                   height: meta.birthdayHeight,
                   source: meta.birthdaySource,
                   timestamp: meta.birthdayTimestamp,
+                  estimated: meta.birthdayHeightEstimated,
                 },
           birthdayRequest: undefined,
         },
@@ -1660,6 +1669,7 @@ export class SimpleDbEntityPrivacyChainState extends SimpleDbEntityBase<IPrivacy
               height: repair.birthdayHeight,
               source: repair.birthdaySource,
               timestamp: repair.birthdayTimestamp,
+              estimated: repair.birthdayHeightEstimated,
             },
             requestedAt: repair.requestedAt,
           },

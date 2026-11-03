@@ -32,6 +32,7 @@ import { getLocalWalletRemoteConfig } from '../../localWallet/remoteConfig';
 import {
   clampZcashBirthdayHeight,
   estimateZcashBirthdayHeight,
+  placeZcashBirthdayHeight,
 } from './birthday';
 import { KeyringHardware } from './KeyringHardware';
 import {
@@ -581,6 +582,29 @@ export async function zcashPrepareAccounts(
     // eslint-disable-next-line no-await-in-loop
     accounts.push(await vault.zcashGetWalletAccount({ accountId }));
   }
+  // A date chosen while offline only has a clock estimate; the node places it
+  // before the account registers. Until then the account waits rather than
+  // register at a guess that may start too late.
+  for (let index = accounts.length - 1; index >= 0; index -= 1) {
+    const { meta } = owners[index];
+    if (meta?.birthdayHeightEstimated && meta.birthdayTimestamp !== undefined) {
+      // eslint-disable-next-line no-await-in-loop
+      const placedMeta = await placeZcashAccountBirthday(vault, {
+        accountId: eligibleIds[index],
+        meta,
+        birthdayTimestamp: meta.birthdayTimestamp,
+        chainTip,
+      });
+      if (placedMeta) {
+        owners[index] = { ...owners[index], meta: placedMeta };
+        accounts[index].birthdayHeight = placedMeta.birthdayHeight;
+      } else {
+        accounts.splice(index, 1);
+        eligibleIds.splice(index, 1);
+        owners.splice(index, 1);
+      }
+    }
+  }
   if (!accounts.length) return [];
   await vault.zcashHealOutOfRangeBirthdays({
     accountIds: eligibleIds,
@@ -686,6 +710,66 @@ export async function zcashPrepareAccounts(
       ? [{ accountId: eligibleIds[index], account }]
       : [],
   );
+}
+
+// Places a date-based birthday by the node's block times; null when the node
+// cannot answer yet.
+async function placeZcashEstimatedBirthday(
+  vault: Vault,
+  {
+    birthdayTimestamp,
+    chainTip,
+  }: { birthdayTimestamp: number; chainTip?: number | null },
+): Promise<number | null> {
+  const tip = chainTip ?? (await vault.getLocalWalletChainTip());
+  if (!tip) return null;
+  return placeZcashBirthdayHeight({
+    lightwalletdUrl: await vault.zcashResolveLightwalletdUrl(),
+    birthdayTimestamp,
+    chainTip: tip,
+  });
+}
+
+// Saves the node-placed birthday of an account whose height was a clock
+// estimate. Undefined while the node cannot answer or the meta changed under it.
+async function placeZcashAccountBirthday(
+  vault: Vault,
+  {
+    accountId,
+    meta,
+    birthdayTimestamp,
+    chainTip,
+  }: {
+    accountId: string;
+    meta: IZcashAccountMeta;
+    birthdayTimestamp: number;
+    chainTip?: number | null;
+  },
+): Promise<IZcashAccountMeta | undefined> {
+  const placed = await placeZcashEstimatedBirthday(vault, {
+    birthdayTimestamp,
+    chainTip,
+  });
+  if (placed === null) return undefined;
+  const placedMeta: IZcashAccountMeta = {
+    ...meta,
+    birthdayHeight: placed,
+    birthdayHeightEstimated: undefined,
+  };
+  try {
+    await vault.backgroundApi.simpleDb.privacyChainState.saveZcashAccountMeta({
+      accountId,
+      expectedMeta: meta,
+      meta: placedMeta,
+    });
+  } catch (e) {
+    console.warn('[zcash] birthday placed but not saved', {
+      accountId,
+      ...zcashDescribeError(e),
+    });
+    return undefined;
+  }
+  return placedMeta;
 }
 
 // Keep registration within the supported Ironwood history and the live tip.
@@ -1402,9 +1486,23 @@ export async function applyPendingRescan(
     ) {
       return;
     }
+    let requestedHeight = repair.birthdayHeight;
+    if (
+      repair.birthdayHeightEstimated &&
+      repair.birthdayTimestamp !== undefined
+    ) {
+      const placed = await placeZcashEstimatedBirthday(vault, {
+        birthdayTimestamp: repair.birthdayTimestamp,
+      });
+      // The journal stays and is retried once the node answers.
+      if (placed === null) {
+        throw new OneKeyLocalError('zcash: rescan start not placed yet');
+      }
+      requestedHeight = placed;
+    }
     // The runtime moves first; until it succeeds the saved birthday stays and the journal is retried.
     const birthdayHeight = clampZcashBirthdayHeight({
-      birthdayHeight: repair.birthdayHeight,
+      birthdayHeight: requestedHeight,
     });
     const account = await zcashSharedRescanAccount(vault, {
       accountId,
@@ -1420,6 +1518,7 @@ export async function applyPendingRescan(
         birthdayHeight,
         birthdaySource: repair.birthdaySource,
         birthdayTimestamp: repair.birthdayTimestamp,
+        birthdayHeightEstimated: undefined,
       },
     });
     // Aliases share the scan state that was just requeued.
@@ -1491,12 +1590,14 @@ export async function zcashRescanFromHeight(
     birthdayHeight,
     birthdaySource,
     birthdayTimestamp,
+    birthdayHeightEstimated,
     deferApply = false,
   }: {
     accountId: string;
     birthdayHeight: number;
     birthdaySource: IZcashBirthdaySource;
     birthdayTimestamp?: number;
+    birthdayHeightEstimated?: boolean;
     deferApply?: boolean;
   },
 ): Promise<void> {
@@ -1512,6 +1613,7 @@ export async function zcashRescanFromHeight(
     birthdayHeight: effectiveHeight,
     birthdaySource,
     birthdayTimestamp,
+    birthdayHeightEstimated,
     requestedAt: Date.now(),
   };
   await vault.backgroundApi.simpleDb.privacyChainState.saveZcashPendingRescan({
@@ -1537,6 +1639,8 @@ export async function rescanLocalWallet(
   let birthdayHeight: number;
   let birthdaySource: IZcashBirthdaySource = 'manual-height';
   let birthdayTimestamp: number | undefined;
+  // A date's height is only provisional here; the node places it when the rescan runs.
+  let birthdayHeightEstimated: boolean | undefined;
   if (from.type === 'height') {
     birthdayHeight = clampZcashBirthdayHeight({ birthdayHeight: from.height });
   } else {
@@ -1554,6 +1658,7 @@ export async function rescanLocalWallet(
       now: Date.now(),
       chainTip: tip,
     });
+    birthdayHeightEstimated = true;
   }
   if (!dryRun) {
     await zcashRescanFromHeight(vault, {
@@ -1561,6 +1666,7 @@ export async function rescanLocalWallet(
       birthdayHeight,
       birthdaySource,
       birthdayTimestamp,
+      birthdayHeightEstimated,
       deferApply: true,
     });
   }

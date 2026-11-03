@@ -1,3 +1,4 @@
+import { findZcashHeightAtTimeDirect } from '@onekeyhq/core/src/chains/zcash/sdkZcash/impl/chainTipDirect';
 import {
   ZCASH_IRONWOOD_ACTIVATION_TIMESTAMP_MS,
   ZCASH_MIN_BIRTHDAY_HEIGHT_MAINNET,
@@ -81,4 +82,29 @@ export function estimateZcashBirthdayHeight({
     ZCASH_MIN_BIRTHDAY_HEIGHT_MAINNET,
     tip - Math.ceil(estimateZcashBlocksBetween(scanFrom, now)),
   );
+}
+
+// A date's scan start placed by the chain's own block times: the last block a
+// day before it, kept within the product floor and the tip. Unlike the clock
+// estimate it cannot land late. Null when the node cannot answer.
+export async function placeZcashBirthdayHeight({
+  lightwalletdUrl,
+  birthdayTimestamp,
+  chainTip,
+}: {
+  lightwalletdUrl: string;
+  birthdayTimestamp: number;
+  chainTip: number;
+}): Promise<number | null> {
+  const height = await findZcashHeightAtTimeDirect({
+    lightwalletdUrl,
+    timeSeconds: Math.floor(
+      (birthdayTimestamp - ZCASH_BIRTHDAY_SAFETY_MS) / 1000,
+    ),
+    lowHeight: ZCASH_MIN_BIRTHDAY_HEIGHT_MAINNET,
+    highHeight: chainTip,
+  });
+  return height === null
+    ? null
+    : clampZcashBirthdayHeight({ birthdayHeight: height, chainTip });
 }
