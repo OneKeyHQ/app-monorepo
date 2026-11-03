@@ -1189,6 +1189,19 @@ describe('Cloud sync records from opaque server storage', () => {
     expect(db.removeCloudSyncPoolItems).not.toHaveBeenCalled();
   });
 
+  test('key safety checks can read unsupported local records without exposing them to business sync', async () => {
+    const service = build();
+    expect(
+      (
+        await service.getAllLocalSyncItems({
+          includeUnsupportedDataTypes: true,
+        })
+      ).items,
+    ).toEqual([valid, ...unsupported]);
+    expect((await service.getAllLocalSyncItems()).items).toEqual([valid]);
+    expect(db.removeCloudSyncPoolItems).not.toHaveBeenCalled();
+  });
+
   test('mixed check, download or push data applies supported records without importing unknown records', async () => {
     const service = build();
     const convert = jest

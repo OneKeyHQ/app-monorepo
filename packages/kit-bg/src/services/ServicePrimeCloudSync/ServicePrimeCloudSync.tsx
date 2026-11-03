@@ -2661,14 +2661,20 @@ class ServicePrimeCloudSync extends ServiceBase {
     };
   }
 
-  async getAllLocalSyncItems() {
+  async getAllLocalSyncItems({
+    includeUnsupportedDataTypes = false,
+  }: {
+    includeUnsupportedDataTypes?: boolean;
+  } = {}) {
     const { syncItems } = await localDb.getAllSyncItems();
     // Preserve unknown records already stored by older clients, but keep them
-    // out of business sync and uploads until a client supports their type.
+    // out of business sync and uploads. Key safety checks need the full view.
     return {
-      items: syncItems.filter((item) =>
-        isSupportedCloudSyncDataType(item.dataType),
-      ),
+      items: includeUnsupportedDataTypes
+        ? syncItems
+        : syncItems.filter((item) =>
+            isSupportedCloudSyncDataType(item.dataType),
+          ),
     };
   }
 
