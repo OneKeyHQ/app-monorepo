@@ -599,7 +599,9 @@ export class FirmwareArtifactCache {
             state.slots[entry.slot]?.sha256 === entry.artifact.expectedSha256,
         )
       )
-        return;
+        throw new OneKeyLocalError(
+          'Firmware prefetch cache pins are incomplete',
+        );
       const slots = { ...state.slots };
       const desired = new Set(artifacts.map((entry) => entry.slot));
       const prefix = `${deviceType}:${releaseChannel}:`;

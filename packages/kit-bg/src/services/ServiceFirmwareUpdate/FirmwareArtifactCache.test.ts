@@ -213,10 +213,23 @@ describe('Firmware model cache', () => {
       });
       (getFirmwareManifestSnapshot as jest.Mock).mockResolvedValue(manifest());
       const { cache } = setup();
-      const download = jest
+      const operation = jest
         .fn()
         .mockRejectedValueOnce(new Error('offline'))
         .mockResolvedValue(receipt);
+      const download = jest.fn(
+        (
+          input: Parameters<
+            Parameters<FirmwareArtifactCache['prefetch']>[2]
+          >[0],
+        ) =>
+          cache.download(
+            input.artifact,
+            input.leaseRef,
+            input.downloadContext ?? context,
+            operation,
+          ),
+      );
       await cache.prefetch(['pro2', 'pro2'], false, download);
       await cache.prefetch(['pro2'], false, download);
       await cache.prefetch(['pro2'], false, download);
@@ -229,6 +242,41 @@ describe('Firmware model cache', () => {
       expect(download.mock.calls[0][0]).not.toHaveProperty('serialNo');
     },
   );
+
+  it('retries prefetch after a failed pin save and only cools down after pins are persisted', async () => {
+    (getFirmwareManifestSnapshot as jest.Mock).mockResolvedValue(manifest());
+    const { cache, store } = setup();
+    store.saveState.mockRejectedValueOnce(new Error('disk unavailable'));
+    const download = jest.fn().mockResolvedValue(receipt);
+    const prefetch = () =>
+      cache.prefetch(
+        ['pro2'],
+        false,
+        ({ artifact: requestedArtifact, leaseRef, downloadContext }) =>
+          cache.download(
+            requestedArtifact,
+            leaseRef,
+            downloadContext ?? context,
+            download,
+          ),
+      );
+
+    await prefetch();
+    expect((await store.getState()).slots).toEqual({});
+    expect(download).toHaveBeenCalledTimes(1);
+
+    await prefetch();
+    expect(download).toHaveBeenCalledTimes(2);
+    expect(
+      (await store.getState()).slots[context.cacheSlot ?? ''],
+    ).toMatchObject({
+      artifactRef: receipt.artifactRef,
+      sha256: hash,
+    });
+
+    await prefetch();
+    expect(download).toHaveBeenCalledTimes(2);
+  });
 
   it('restores latest pins when native leases were lost after an app restart', async () => {
     const previous = {
