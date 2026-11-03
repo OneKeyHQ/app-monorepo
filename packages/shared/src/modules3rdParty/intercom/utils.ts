@@ -115,6 +115,9 @@ export function createIntercomOpenGuard(onError: (error: unknown) => void) {
 
   return {
     setIdentity,
+    reset() {
+      state = undefined;
+    },
     run(
       userId: string | null,
       params: IShowIntercomParams | undefined,

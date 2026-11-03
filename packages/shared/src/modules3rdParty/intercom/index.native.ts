@@ -136,6 +136,10 @@ export async function setIntercomMessengerLocked(
     return;
   }
   messengerLocked = locked;
+  if (locked) {
+    // Cancel pre-lock opens and allow an immediate deliberate reopen after unlock.
+    intercomOpenGuard.reset();
+  }
   if (platformEnv.isNativeAndroid && policy) {
     await nativeIntercom?.updateLockPolicy?.(
       locked,
