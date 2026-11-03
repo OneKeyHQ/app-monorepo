@@ -28,11 +28,6 @@ jest.mock('react-intl', () => ({
   }),
 }));
 
-jest.mock('@onekeyhq/shared/src/locale/translationKeys', () => ({
-  isKnownTranslationKey: (key: string) =>
-    key === 'language_name_ja_jp__desc' || key === 'language_name_zh_cn__desc',
-}));
-
 describe('useLocaleOptions', () => {
   it('keeps Auto first and searches by native name, English name, and code', () => {
     const { result } = renderHook(() => useLocaleOptions());
@@ -49,7 +44,7 @@ describe('useLocaleOptions', () => {
     );
   });
 
-  it('omits the subtitle for the current app language and for keys that are not generated yet', () => {
+  it('omits the current language subtitle and falls back to English for missing messages', () => {
     const { result } = renderHook(() => useLocaleOptions());
     const simplifiedChinese = result.current.find(
       (option) => option.value === 'zh-CN',
@@ -60,7 +55,7 @@ describe('useLocaleOptions', () => {
     expect(simplifiedChinese?.searchKeywords).toEqual(
       expect.arrayContaining(['简体中文']),
     );
-    expect(german?.description).toBeUndefined();
+    expect(german?.description).toBe('German');
     expect(german?.searchKeywords).toEqual(
       expect.arrayContaining(['German', 'de']),
     );

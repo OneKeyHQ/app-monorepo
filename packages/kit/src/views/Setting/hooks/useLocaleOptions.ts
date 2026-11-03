@@ -10,7 +10,6 @@ import {
   getLocaleEnglishName,
   normalizeSelectableLocale,
 } from '@onekeyhq/shared/src/locale/localeSearch';
-import { isKnownTranslationKey } from '@onekeyhq/shared/src/locale/translationKeys';
 
 const SKIPPED_LANGUAGE_SEARCH_VALUES = new Set(['system', 'en-US']);
 
@@ -32,7 +31,7 @@ function getTranslatedLocaleName(
     LOCALE_DISPLAY_NAME_MESSAGE_IDS[
       localeValue as keyof typeof LOCALE_DISPLAY_NAME_MESSAGE_IDS
     ];
-  if (!messageId || !isKnownTranslationKey(messageId)) {
+  if (!messageId) {
     return undefined;
   }
   return translate({

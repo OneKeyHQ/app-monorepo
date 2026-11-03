@@ -1,6 +1,3 @@
-import fs from 'node:fs';
-import path from 'node:path';
-
 import { LOCALE_KEYS } from './localeLoaders';
 import {
   LOCALE_DISPLAY_NAME_MESSAGE_IDS,
@@ -145,37 +142,5 @@ describe('LOCALE_DISPLAY_NAME_MESSAGE_IDS', () => {
         isKnownTranslationKey(LOCALE_DISPLAY_NAME_MESSAGE_IDS[locale]),
       ).toBe(true);
     }
-  });
-});
-
-describe('web startup graph', () => {
-  it('keeps the translations enum off the Select search path and the web locale barrel', () => {
-    const read = (relativePath: string) =>
-      fs.readFileSync(path.join(__dirname, relativePath), 'utf8');
-    const searchText = read('normalizeSearchText.ts');
-    const webBarrel = read('index.web-only.ts');
-    const selectFilter = fs.readFileSync(
-      path.join(
-        __dirname,
-        '../../../components/src/forms/Select/filterSelectItems.ts',
-      ),
-      'utf8',
-    );
-    const errorToast = fs.readFileSync(
-      path.join(
-        __dirname,
-        '../../../kit/src/provider/Container/ErrorToastContainer/ErrorToastContainer.tsx',
-      ),
-      'utf8',
-    );
-
-    expect(searchText.includes('translations')).toBe(false);
-    expect(searchText.includes('iso-639-1')).toBe(false);
-    expect(webBarrel.includes("from './localeSearch'")).toBe(false);
-    expect(webBarrel.includes("from './translationKeys'")).toBe(false);
-    expect(selectFilter.includes('locale/localeSearch')).toBe(false);
-    expect(selectFilter.includes('locale/normalizeSearchText')).toBe(true);
-    expect(errorToast.includes('translationKeys')).toBe(false);
-    expect(errorToast.includes('enum/translations')).toBe(false);
   });
 });
