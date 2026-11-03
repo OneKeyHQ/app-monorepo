@@ -79,7 +79,7 @@ jobs:
         run: |
           yarn icon:build
           yarn workspace @onekeyhq/components icon:check
-          node --test development/onekey-icons/generate-icons.test.mjs packages/components/src/primitives/Icon/script.test.js
+          node --test development/onekey-icons/generate-icons.test.mjs packages/components/src/primitives/Icon/script.node-test.js
           git diff --exit-code -- packages/components/src/primitives/Icon/Icons.tsx
 
       - name: Check third-party native storage compatibility
