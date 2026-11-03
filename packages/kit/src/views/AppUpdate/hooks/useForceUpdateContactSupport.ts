@@ -28,9 +28,11 @@ type IMountedForceUpdateListener = {
 const mountedForceUpdateListeners = new Set<IMountedForceUpdateListener>();
 let pendingContactSupportHandoffAt = 0;
 // Shared across hook instances because every response is broadcast to all
-// mounted listeners: only the most recently started refresh may apply, so an
-// older response that resolves late cannot overwrite a newer lock decision.
-let latestRefreshGeneration = 0;
+// mounted listeners. A response is dropped only when a newer one has already
+// been applied: a late older response cannot overwrite a newer lock decision,
+// while a newer request that fails does not discard an older success.
+let lastStartedRefreshGeneration = 0;
+let lastAppliedRefreshGeneration = 0;
 
 export function markPendingContactSupportHandoff(): void {
   pendingContactSupportHandoffAt = Date.now();
@@ -135,15 +137,16 @@ export function useForceUpdateContactSupport({
     if (!enabled) {
       return undefined;
     }
-    latestRefreshGeneration += 1;
-    const generation = latestRefreshGeneration;
+    lastStartedRefreshGeneration += 1;
+    const generation = lastStartedRefreshGeneration;
     try {
       const response =
         await backgroundApiProxy.serviceAppUpdate.fetchAppUpdateInfo(true);
-      if (generation !== latestRefreshGeneration) {
+      if (generation < lastAppliedRefreshGeneration) {
         return undefined;
       }
       if (response) {
+        lastAppliedRefreshGeneration = generation;
         if (mountedRef.current) {
           applyRemoteResponse(response);
         }
