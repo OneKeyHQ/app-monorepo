@@ -1,6 +1,7 @@
 import BigNumber from 'bignumber.js';
 
 import type { ColorTokens } from '@onekeyhq/components';
+import { EOnChainHistoryTxStatus } from '@onekeyhq/shared/types/history';
 import type { IBorrowMarketItem } from '@onekeyhq/shared/types/staking';
 
 import { getBorrowMarketLabel } from '../../../Borrow/borrowMarketDisplayName';
@@ -16,6 +17,7 @@ import {
   toLoanPositionNetApy,
   toLtvFraction,
 } from '../../components/desktopHome/earnDesktopHome.utils';
+import { EARN_DESKTOP_DEMO_COPY } from '../../components/desktopHome/earnDesktopHomeCopy';
 import {
   EARN_ASSET_CLASS_ORDER,
   isInAssetPick,
@@ -692,6 +694,7 @@ export function getLoanRouteMetrics({
   collateralAmount,
   borrowAmount,
   ltvStage,
+  comparesPair = false,
 }: {
   route: ILoanRoute;
   facts?: ILoanRouteFacts;
@@ -699,6 +702,10 @@ export function getLoanRouteMetrics({
   borrowAmount: string;
   // The chosen LTV, a fraction; none once the loan is typed by hand
   ltvStage?: number;
+  // Comparing markets with nothing typed: the pair's own Net APY at the
+  // stage's LTV where the account holds a position too, as the Loans list
+  // works it out
+  comparesPair?: boolean;
 }): ILoanRouteMetrics {
   const collateral = toNumber(collateralAmount);
   const loan = toNumber(borrowAmount);
@@ -739,7 +746,7 @@ export function getLoanRouteMetrics({
     if (collateralValue > 0) {
       metrics.ltv = loanValue / collateralValue;
     }
-  } else if (hasPositionYield) {
+  } else if (hasPositionYield && !comparesPair) {
     // Nothing typed: the position as it is
     metrics.netApy = metrics.netApyBefore;
   } else {
@@ -823,6 +830,68 @@ export function getLoanRouteMetrics({
     }
   }
   return metrics;
+}
+
+/**
+ * A market's card. Until a loan is typed (or the bar moved) the markets
+ * compare the pair at a reference loan, half the collateral's value as the
+ * Loans list compares pairs: the collateral typed with that loan, or with
+ * nothing typed the pair's own Net APY at that LTV. Once there is a loan,
+ * the plan as typed
+ */
+export function getLoanCardMetrics({
+  route,
+  facts,
+  collateralAmount,
+  borrowAmount,
+  ltvStage,
+  isReference,
+}: {
+  route: ILoanRoute;
+  facts?: ILoanRouteFacts;
+  collateralAmount: string;
+  borrowAmount: string;
+  ltvStage?: number;
+  isReference: boolean;
+}): ILoanRouteMetrics {
+  if (!isReference) {
+    return getLoanRouteMetrics({
+      route,
+      facts,
+      collateralAmount,
+      borrowAmount,
+      ltvStage,
+    });
+  }
+  return getLoanRouteMetrics({
+    route,
+    facts,
+    collateralAmount,
+    borrowAmount: getLoanForLtv({
+      collateralAmount,
+      ltv: EARN_DESKTOP_LOAN_LTV,
+      collateralPrice: facts?.collateralPrice,
+      borrowPrice: facts?.borrowPrice,
+      decimals: route.borrow.decimals,
+    }),
+    ltvStage: EARN_DESKTOP_LOAN_LTV,
+    comparesPair: true,
+  });
+}
+
+/**
+ * Whether a market's reason stops the plan as typed. A supply alone goes in
+ * wherever the account can use the network: why the market can't lend then
+ * only informs
+ */
+export function isLoanPlanStopped(
+  block: ILoanRouteBlock | undefined,
+  isSupplyAlone: boolean,
+) {
+  if (!block) {
+    return false;
+  }
+  return !isSupplyAlone || block.kind === 'account';
 }
 
 /**
@@ -1039,6 +1108,124 @@ export function getLoanForLtv({
       decimals,
     }),
   );
+}
+
+// ---------- What a press runs ----------
+
+export type ILoanStep = 'swap' | 'approve' | 'supply' | 'borrow';
+
+/**
+ * The steps one press runs, in the button's order: the swap where another
+ * token pays, the approval once the run finds the collateral needs one, the
+ * supply where collateral is typed, the loan where one is. With nothing typed
+ * yet, the window's own: a supply, then a loan
+ */
+export function getLoanSteps({
+  hasCollateral,
+  hasLoan,
+  isSwapping,
+  hasApproval,
+}: {
+  hasCollateral: boolean;
+  hasLoan: boolean;
+  // Another token pays: a swap brings the collateral first
+  isSwapping: boolean;
+  hasApproval: boolean;
+}): ILoanStep[] {
+  if (!hasCollateral && !hasLoan) {
+    return isSwapping ? ['swap', 'supply', 'borrow'] : ['supply', 'borrow'];
+  }
+  const steps: ILoanStep[] = [];
+  if (hasCollateral) {
+    // The allowance is read once the swap has brought the collateral
+    if (isSwapping) {
+      steps.push('swap');
+    } else if (hasApproval) {
+      steps.push('approve');
+    }
+    steps.push('supply');
+  }
+  if (hasLoan) {
+    steps.push('borrow');
+  }
+  return steps;
+}
+
+/** The done view's line: what went in, the supply and the loan as they did */
+export function getLoanDoneLine({
+  plan,
+  supplied,
+  formatAmount,
+}: {
+  plan: { route: ILoanRoute; collateralAmount: string; borrowAmount: string };
+  // Collateral went in on this press
+  supplied: boolean;
+  formatAmount: (amount: string, symbol: string) => string;
+}) {
+  const { route } = plan;
+  const suppliedText = supplied
+    ? formatAmount(plan.collateralAmount, route.collateral.symbol)
+    : undefined;
+  if (suppliedText && toNumber(plan.borrowAmount) <= 0) {
+    return EARN_DESKTOP_DEMO_COPY.loanSupplyDone(
+      suppliedText,
+      route.marketLabel,
+    );
+  }
+  return EARN_DESKTOP_DEMO_COPY.loanDone(
+    formatAmount(plan.borrowAmount, route.borrow.symbol),
+    route.marketLabel,
+    suppliedText,
+  );
+}
+
+// What came of a sent transaction: final either way, or still pending once
+// the wait for it ran out
+export type ILoanTxOutcome = 'landed' | 'failed' | 'pending';
+
+export function toLoanTxOutcome(
+  status: EOnChainHistoryTxStatus | undefined,
+): ILoanTxOutcome {
+  if (status === EOnChainHistoryTxStatus.Success) {
+    return 'landed';
+  }
+  return status === EOnChainHistoryTxStatus.Failed ? 'failed' : 'pending';
+}
+
+// A press's supply: turned down at the wallet's confirm, or sent and then
+// as its transaction came out
+export type ILoanSupplyOutcome = 'rejected' | ILoanTxOutcome;
+
+export type ILoanRunAfterSupply =
+  | 'idle'
+  | 'failed'
+  | 'done'
+  | 'borrowReady'
+  | 'borrow';
+
+/**
+ * Where a press goes once its supply is settled. A rejected or failed supply
+ * put nothing in: the form is back with its amounts, a failure says so. A
+ * supply alone is done once it went out; a plan's loan follows a landed
+ * supply and is left to the form while the supply is still pending
+ */
+export function getLoanRunAfterSupply({
+  outcome,
+  hasLoan,
+}: {
+  outcome: ILoanSupplyOutcome;
+  hasLoan: boolean;
+}): ILoanRunAfterSupply {
+  if (outcome === 'rejected') {
+    return 'idle';
+  }
+  if (outcome === 'failed') {
+    return 'failed';
+  }
+  if (!hasLoan) {
+    return 'done';
+  }
+  return outcome === 'pending' ? 'borrowReady' : 'borrow';
 }
 
 /** A server figure such as "79,594.7677" or "73.00%" as a number */

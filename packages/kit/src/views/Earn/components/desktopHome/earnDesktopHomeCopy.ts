@@ -131,6 +131,8 @@ export const EARN_DESKTOP_DEMO_COPY = {
   loanNoMarket: (collateral: string, borrow: string) =>
     `No market lends ${borrow} against ${collateral}`,
   loanLanding: 'Supply sent. The loan follows once it is confirmed.',
+  // A supply alone (no loan typed): the press ends once it is confirmed
+  loanSupplyLanding: 'Supply sent. Waiting for confirmation.',
   loanSupplied: (amount: string, market: string) =>
     `${amount} is supplied to ${market}. Borrow when you're ready.`,
   // The routers' token selector (10-29): a kind's row names its first
@@ -147,4 +149,8 @@ export const EARN_DESKTOP_DEMO_COPY = {
     supplied
       ? `${supplied} supplied and ${borrowed} borrowed on ${market}`
       : `${borrowed} borrowed on ${market}`,
+  loanSupplyDone: (supplied: string, market: string) =>
+    `${supplied} supplied to ${market}`,
+  // The picked market's links to its two reserve pages (demo 11-03)
+  loanAssetOn: (symbol: string, market: string) => `${symbol} on ${market}`,
 };

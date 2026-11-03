@@ -1,16 +1,24 @@
+import { EOnChainHistoryTxStatus } from '@onekeyhq/shared/types/history';
+
 import {
   buildLoanRoutes,
   getLoanBorrowOptions,
+  getLoanCardMetrics,
+  getLoanDoneLine,
   getLoanForLtv,
   getLoanForPositionLtv,
   getLoanHealthTone,
   getLoanLtvBar,
   getLoanPlaces,
   getLoanRouteMetrics,
+  getLoanRunAfterSupply,
+  getLoanSteps,
+  isLoanPlanStopped,
   parseLoanFigure,
   rankLoanRoutes,
   snapLoanLtv,
   stepLoanLtv,
+  toLoanTxOutcome,
 } from './loanRouter.utils';
 
 import type { ILoanRoute, ILoanRouteFacts } from './loanRouter.utils';
@@ -623,6 +631,267 @@ describe('getLoanLtvBar', () => {
       liquidation: 0.78,
       isPreview: true,
     });
+  });
+});
+
+describe('a plan without a loan', () => {
+  const [core, prime] = buildLoanRoutes({
+    markets: MARKETS,
+    collateralSymbol: 'WBTC',
+    borrowSymbol: 'USDC',
+  });
+
+  it('meets no loan limit and earns the supply rate', () => {
+    const metrics = getLoanRouteMetrics({
+      route: prime,
+      facts: facts({ liquidity: 10, maxLtv: 0.1 }),
+      collateralAmount: '1',
+      borrowAmount: '',
+    });
+    expect(metrics.block).toBeUndefined();
+    expect(metrics.netApy).toBeCloseTo(0.1);
+    // 80,000 x 0.1%
+    expect(metrics.annualNet).toBeCloseTo(80);
+    expect(metrics.healthFactor).toBeUndefined();
+    expect(metrics.liquidationPrice).toBeUndefined();
+  });
+
+  it('is stopped only where the account can not use the network', () => {
+    const blocks = [
+      { kind: 'borrowable' },
+      { kind: 'liquidity', liquidity: 10 },
+      { kind: 'maxLtv', maxLtv: 0.4, ltv: 0.5 },
+    ] as const;
+    blocks.forEach((block) => {
+      expect(isLoanPlanStopped(block, true)).toBe(false);
+      expect(isLoanPlanStopped(block, false)).toBe(true);
+    });
+    expect(isLoanPlanStopped({ kind: 'account' }, true)).toBe(true);
+    expect(isLoanPlanStopped({ kind: 'account' }, false)).toBe(true);
+    expect(isLoanPlanStopped(undefined, false)).toBe(false);
+  });
+
+  it("keeps the card's reason where the reference loan doesn't fit", () => {
+    const metrics = getLoanCardMetrics({
+      route: core,
+      facts: facts({ liquidity: 10 }),
+      collateralAmount: '1',
+      borrowAmount: '',
+      ltvStage: 0,
+      isReference: true,
+    });
+    // 40,000 at 50% LTV, past the 10 left
+    expect(metrics.block).toEqual({ kind: 'liquidity', liquidity: 10 });
+    expect(isLoanPlanStopped(metrics.block, true)).toBe(false);
+  });
+});
+
+describe('getLoanCardMetrics', () => {
+  const [highSupply, lowBorrow] = buildLoanRoutes({
+    markets: [
+      market(
+        'Steep',
+        '0xsteep',
+        [supplyAsset('WBTC', { apy: '2' })],
+        [borrowAsset('USDC', { apy: '10' })],
+      ),
+      market(
+        'Cheap',
+        '0xcheap',
+        [supplyAsset('WBTC', { apy: '1' })],
+        [borrowAsset('USDC', { apy: '2' })],
+      ),
+    ],
+    collateralSymbol: 'WBTC',
+    borrowSymbol: 'USDC',
+  });
+
+  const rank = (isReference: boolean, collateralAmount = '1') =>
+    rankLoanRoutes(
+      [highSupply, lowBorrow].map((route) => ({
+        route,
+        metrics: getLoanCardMetrics({
+          route,
+          facts: facts(),
+          collateralAmount,
+          borrowAmount: '',
+          ltvStage: 0,
+          isReference,
+        }),
+      })),
+    ).map((item) => item.route.marketLabel);
+
+  it('compares the markets at half the collateral until a loan is typed', () => {
+    const steep = getLoanCardMetrics({
+      route: highSupply,
+      facts: facts(),
+      collateralAmount: '1',
+      borrowAmount: '',
+      ltvStage: 0,
+      isReference: true,
+    });
+    expect(steep.ltv).toBeCloseTo(0.5);
+    // (2 - 10 x 0.5) / 0.5
+    expect(steep.netApy).toBeCloseTo(-6);
+    // The pair at 50% LTV: the cheaper loan wins, as on the Loans list
+    expect(rank(true)).toEqual([lowBorrow.marketLabel, highSupply.marketLabel]);
+    expect(rank(true, '')).toEqual([
+      lowBorrow.marketLabel,
+      highSupply.marketLabel,
+    ]);
+    // A supply alone would put the higher supply rate first
+    expect(rank(false)).toEqual([
+      highSupply.marketLabel,
+      lowBorrow.marketLabel,
+    ]);
+  });
+
+  it("gives the pair's own rate with nothing typed, a position or not", () => {
+    const position = facts({
+      collateralPrice: 1,
+      weightedCollateral: 100_000,
+      collateralValue: 125_000,
+      borrowableNow: 50_000,
+      positionNetValue: 10_000,
+      positionAnnualNet: 300,
+    });
+    const reference = getLoanCardMetrics({
+      route: lowBorrow,
+      facts: position,
+      collateralAmount: '',
+      borrowAmount: '',
+      ltvStage: 0,
+      isReference: true,
+    });
+    // (1 - 2 x 0.5) / 0.5
+    expect(reference.netApy).toBeCloseTo(0);
+    expect(reference.netApyBefore).toBeCloseTo(3);
+    const asTyped = getLoanCardMetrics({
+      route: lowBorrow,
+      facts: position,
+      collateralAmount: '',
+      borrowAmount: '',
+      ltvStage: 0,
+      isReference: false,
+    });
+    expect(asTyped.netApy).toBeCloseTo(3);
+  });
+
+  it('follows the loan once one is typed', () => {
+    const metrics = getLoanCardMetrics({
+      route: lowBorrow,
+      facts: facts(),
+      collateralAmount: '1',
+      borrowAmount: '20000',
+      isReference: false,
+    });
+    expect(metrics.ltv).toBeCloseTo(0.25);
+  });
+});
+
+describe('getLoanSteps', () => {
+  const steps = (
+    hasCollateral: boolean,
+    hasLoan: boolean,
+    isSwapping = false,
+    hasApproval = false,
+  ) => getLoanSteps({ hasCollateral, hasLoan, isSwapping, hasApproval });
+
+  it("names the window's own steps before anything is typed", () => {
+    expect(steps(false, false)).toEqual(['supply', 'borrow']);
+    expect(steps(false, false, true)).toEqual(['swap', 'supply', 'borrow']);
+  });
+
+  it('runs a supply alone in one step, after a swap or an approval', () => {
+    expect(steps(true, false)).toEqual(['supply']);
+    expect(steps(true, false, true)).toEqual(['swap', 'supply']);
+    expect(steps(true, false, false, true)).toEqual(['approve', 'supply']);
+  });
+
+  it('runs the loan after the supply, or alone', () => {
+    expect(steps(true, true)).toEqual(['supply', 'borrow']);
+    expect(steps(true, true, false, true)).toEqual([
+      'approve',
+      'supply',
+      'borrow',
+    ]);
+    // The allowance is read once the swap is in
+    expect(steps(true, true, true, true)).toEqual(['swap', 'supply', 'borrow']);
+    expect(steps(false, true, true)).toEqual(['borrow']);
+  });
+});
+
+describe('getLoanDoneLine', () => {
+  const [core] = buildLoanRoutes({
+    markets: MARKETS,
+    collateralSymbol: 'WBTC',
+    borrowSymbol: 'USDC',
+  });
+  const formatAmount = (amount: string, symbol: string) =>
+    `${amount} ${symbol}`;
+  const line = (
+    collateralAmount: string,
+    borrowAmount: string,
+    supplied: boolean,
+  ) =>
+    getLoanDoneLine({
+      plan: { route: core, collateralAmount, borrowAmount },
+      supplied,
+      formatAmount,
+    });
+
+  it('says a supply alone went in, without a loan', () => {
+    expect(line('0.001', '', true)).toBe(
+      `0.001 WBTC supplied to ${core.marketLabel}`,
+    );
+    expect(line('0.001', '0', true)).toBe(
+      `0.001 WBTC supplied to ${core.marketLabel}`,
+    );
+  });
+
+  it('says what was supplied and borrowed, or borrowed alone', () => {
+    expect(line('0.001', '40', true)).toBe(
+      `0.001 WBTC supplied and 40 USDC borrowed on ${core.marketLabel}`,
+    );
+    expect(line('0', '40', false)).toBe(
+      `40 USDC borrowed on ${core.marketLabel}`,
+    );
+  });
+});
+
+describe('after the supply', () => {
+  it('reads the final status as what came of the supply', () => {
+    expect(toLoanTxOutcome(EOnChainHistoryTxStatus.Success)).toBe('landed');
+    expect(toLoanTxOutcome(EOnChainHistoryTxStatus.Failed)).toBe('failed');
+    // The wait ran out
+    expect(toLoanTxOutcome(EOnChainHistoryTxStatus.Pending)).toBe('pending');
+    expect(toLoanTxOutcome(undefined)).toBe('pending');
+  });
+
+  it('never ends a failed supply as supplied, with a loan or without', () => {
+    [false, true].forEach((hasLoan) => {
+      expect(getLoanRunAfterSupply({ outcome: 'failed', hasLoan })).toBe(
+        'failed',
+      );
+      expect(getLoanRunAfterSupply({ outcome: 'rejected', hasLoan })).toBe(
+        'idle',
+      );
+    });
+  });
+
+  it('ends a supply alone once sent; a loan follows a landed supply', () => {
+    expect(getLoanRunAfterSupply({ outcome: 'landed', hasLoan: false })).toBe(
+      'done',
+    );
+    expect(getLoanRunAfterSupply({ outcome: 'pending', hasLoan: false })).toBe(
+      'done',
+    );
+    expect(getLoanRunAfterSupply({ outcome: 'landed', hasLoan: true })).toBe(
+      'borrow',
+    );
+    expect(getLoanRunAfterSupply({ outcome: 'pending', hasLoan: true })).toBe(
+      'borrowReady',
+    );
   });
 });
 

@@ -1,5 +1,4 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import type { ReactNode } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
@@ -8,6 +7,7 @@ import { useReducedMotion } from 'react-native-reanimated';
 
 import {
   Badge,
+  HeightTransition,
   Icon,
   Image,
   ScrollView,
@@ -29,13 +29,16 @@ import { ANIMATE_ONLY_OPACITY } from '@onekeyhq/components/src/utils/animationCo
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import type { IBorrowReserveFormTab } from '@onekeyhq/shared/src/routes';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 
 import { ProtocolImage } from '../../../Staking/components/ProtocolDisplayShared';
 import { ANIMATE_ONLY_BG_COLOR } from '../../components/desktopHome/earnDesktopColorEase';
 import { EARN_DESKTOP_DEMO_COPY } from '../../components/desktopHome/earnDesktopHomeCopy';
 import { buildKeyboardPressProps } from '../../components/desktopHome/earnDesktopPressable';
+import { getEarnAssetClassLabel } from '../EarnAssetSelect/earnAssetClassLabel';
 import { EarnAssetLogos } from '../EarnAssetSelect/EarnAssetLogos';
+import { sortAssetSelectTokens } from '../EarnAssetSelect/earnAssetSelect.utils';
 
 import { useLoanToneColors } from './loanToneColors';
 
@@ -47,6 +50,11 @@ import type {
   ILoanRouterNetwork,
   ILoanRouterOption,
 } from './loanRouter.utils';
+import type {
+  IEarnAssetPick,
+  IEarnAssetSelectPurpose,
+  IEarnAssetSelectToken,
+} from '../EarnAssetSelect/earnAssetSelect.utils';
 
 export const formatLoanPercent = (value?: number) =>
   value === undefined || !Number.isFinite(value)
@@ -387,7 +395,16 @@ export type ILoanRouteItem = {
   pairLabel?: string;
   // The wallet doesn't hold this collateral there: a swap buys it first
   needsSwap?: boolean;
+  // The market can't take the plan as typed, so it can't be picked. Without
+  // it, any reason the market has stops it
+  isBlocked?: boolean;
 };
+
+// A reserve page of the picked market: its supplied token's or its loan's
+export type ILoanReserveSide = Extract<
+  IBorrowReserveFormTab,
+  'supply' | 'borrow'
+>;
 
 // Under the market's name, past its logo
 const FIGURES_INDENT = '$12';
@@ -754,19 +771,81 @@ function RouteRowSkeleton() {
   );
 }
 
+// The picked card's links fold out under its figures as fast as its reason
+// line does
+const RESERVE_LINKS_MS = 200;
+
+// A way from the picked market to one of its reserve pages, under its
+// figures. It doesn't pick the card it sits in
+function ReserveLink({
+  testID,
+  token,
+  marketLabel,
+  isShown,
+  onPress,
+}: {
+  testID: string;
+  token: { symbol: string; logoURI: string };
+  marketLabel: string;
+  // Folded away, it takes no focus
+  isShown: boolean;
+  onPress: () => void;
+}) {
+  return (
+    <XStack
+      testID={testID}
+      role="link"
+      alignSelf="flex-start"
+      maxWidth="100%"
+      ai="center"
+      gap="$1.5"
+      // The logo keeps the figures' edge; the pressed fill reaches past it
+      mx="$-1.5"
+      px="$1.5"
+      py="$0.5"
+      borderRadius="$2"
+      borderCurve="continuous"
+      userSelect="none"
+      cursor="pointer"
+      hoverStyle={{ bg: '$bgHover' }}
+      pressStyle={{ bg: '$bgActive' }}
+      onPress={(event: { stopPropagation: () => void }) => {
+        event.stopPropagation();
+        onPress();
+      }}
+      {...buildKeyboardPressProps(isShown ? onPress : undefined, 2)}
+    >
+      <Token size="xs" tokenImageUri={token.logoURI} />
+      <SizableText size="$bodyMdMedium" numberOfLines={1} flexShrink={1}>
+        {EARN_DESKTOP_DEMO_COPY.loanAssetOn(token.symbol, marketLabel)}
+      </SizableText>
+      <Icon
+        name="ChevronRightSmallOutline"
+        size="$4"
+        color="$iconSubdued"
+        flexShrink={0}
+      />
+    </XStack>
+  );
+}
+
 function RouteRow({
   item,
   isSelected,
   isSettled,
   currency,
+  netApyLabel,
   onSelect,
+  onOpenReserve,
   nodeRef,
 }: {
   item: ILoanRouteItem;
   isSelected: boolean;
   isSettled: boolean;
   currency: string;
+  netApyLabel: string;
   onSelect: (key: string) => void;
+  onOpenReserve?: (route: ILoanRoute, side: ILoanReserveSide) => void;
   // The card's element on web, for the list to slide it to a new place
   nodeRef: (node: unknown) => void;
 }) {
@@ -774,8 +853,10 @@ function RouteRow({
   const reduceMotion = useReducedMotion();
   const { route, metrics } = item;
   const { block } = metrics;
-  const isBlocked = Boolean(block);
+  const isBlocked = item.isBlocked ?? Boolean(block);
   const select = () => onSelect(route.key);
+  // The picked card opens on the market's pages for its two tokens
+  const isOpen = isSelected && isSettled;
   // Until every market's figures are in, nothing can be picked: one that
   // looks open may turn out not to lend the token
   const pressProps =
@@ -791,7 +872,9 @@ function RouteRow({
           ...buildKeyboardPressProps(select, 2),
         };
   const textColor = isBlocked ? '$textDisabled' : undefined;
-  const isLit = isSelected && isSettled && !isLendingClosed(block);
+  // Unlit where the market doesn't lend the token and the plan needs it to
+  const isLit =
+    isSelected && isSettled && !(isBlocked && isLendingClosed(block));
   const cardColor: IColorTokens = isLit ? '$bgActive' : '$bgSubdued';
   // A kind of token on a side: the pair's logos lead, the figures and the
   // reason line start under the market's name past them
@@ -844,9 +927,7 @@ function RouteRow({
               : formatLoanPercent(metrics.netApy)}
           </SizableText>
           <SizableText size="$bodySm" color="$textSubdued" numberOfLines={1}>
-            {yearly !== undefined
-              ? EARN_DESKTOP_DEMO_COPY.aYear
-              : intl.formatMessage({ id: ETranslations.defi_net_apy })}
+            {yearly !== undefined ? EARN_DESKTOP_DEMO_COPY.aYear : netApyLabel}
           </SizableText>
         </YStack>
         <RouteCheck
@@ -885,6 +966,32 @@ function RouteRow({
         indent={indent}
         testID={`earn-loan-route-block-${route.key}`}
       />
+      {onOpenReserve ? (
+        // Folded, the card's gap above them goes too
+        <YStack mt={-CARD_GAP}>
+          <HeightTransition
+            hide={!isOpen}
+            duration={reduceMotion ? 0 : RESERVE_LINKS_MS}
+          >
+            <YStack pt={CARD_GAP} pl={indent} gap="$1" aria-hidden={!isOpen}>
+              <ReserveLink
+                testID={`earn-loan-route-reserve-supply-${route.key}`}
+                token={route.collateral}
+                marketLabel={route.marketLabel}
+                isShown={isOpen}
+                onPress={() => onOpenReserve(route, 'supply')}
+              />
+              <ReserveLink
+                testID={`earn-loan-route-reserve-borrow-${route.key}`}
+                token={route.borrow}
+                marketLabel={route.marketLabel}
+                isShown={isOpen}
+                onPress={() => onOpenReserve(route, 'borrow')}
+              />
+            </YStack>
+          </HeightTransition>
+        </YStack>
+      ) : null}
     </YStack>
   );
 }
@@ -892,7 +999,8 @@ function RouteRow({
 /**
  * Every market for the pair, as the deposit modal lists its protocols: each
  * a card, the one picked lighter with a check. Those that can't take the
- * loan come last, with why, and can't be picked
+ * loan come last, with why, and can't be picked unless the plan is a supply
+ * alone they take
  */
 export function LoanRouteList({
   items,
@@ -901,7 +1009,9 @@ export function LoanRouteList({
   isSettled,
   currency,
   emptyText,
+  netApyLabel,
   onSelect,
+  onOpenReserve,
 }: {
   items: ILoanRouteItem[];
   selectedKey?: string;
@@ -910,7 +1020,10 @@ export function LoanRouteList({
   isSettled: boolean;
   currency: string;
   emptyText: string;
+  // What the cards' rate is worked out for: the plan, or a reference loan
+  netApyLabel: string;
   onSelect: (key: string) => void;
+  onOpenReserve?: (route: ILoanRoute, side: ILoanReserveSide) => void;
 }) {
   const intl = useIntl();
   const reduceMotion = useReducedMotion();
@@ -1018,7 +1131,9 @@ export function LoanRouteList({
           isSelected={item.route.key === selectedKey}
           isSettled={isSettled}
           currency={currency}
+          netApyLabel={netApyLabel}
           onSelect={onSelect}
+          onOpenReserve={onOpenReserve}
           nodeRef={getNodeRef(item.route.key)}
         />
       ))}
@@ -1026,44 +1141,180 @@ export function LoanRouteList({
   );
 }
 
-// ---------- The pair's title ----------
+// ---------- The picks ----------
 
-/**
- * The two picks heading the Loans form, read in the loan's order: what is
- * supplied, an arrow, what is borrowed. Each pill says its role, so the pair
- * isn't read as a trading pair. Where the row can't hold both, the borrow
- * pick goes to the next line with its arrow
- */
-export function LoanPickPills({
-  collateral,
-  borrow,
+// Between the two halves, as between the amount boxes under them
+const PICK_SEAM = 8;
+// The arrow on the seam, in a ring of the window's color as the one between
+// the amount boxes; a half's text keeps clear of it
+const PICK_ARROW_SIZE = 28;
+const PICK_ARROW_CLEARANCE = 20;
+
+export type ILoanPickSide = {
+  testID: string;
+  // The side's role in the steps' words: "Supply", "Borrow"
+  caption: string;
+  pick: IEarnAssetPick;
+  tokens: IEarnAssetSelectToken[];
+  purpose: IEarnAssetSelectPurpose;
+  // The token's logo before the list is in
+  fallbackLogoURI?: string;
+  onPress: () => void;
+};
+
+function LoanPickHalf({
+  side,
+  networkLogoURI,
+  isTrailing,
 }: {
-  collateral: ReactNode;
-  borrow: ReactNode;
+  side: ILoanPickSide;
+  // The token carries its chain, as the amount box's token does
+  networkLogoURI?: string;
+  // The right half, past the arrow
+  isTrailing: boolean;
 }) {
+  const intl = useIntl();
+  const { testID, caption, pick, tokens, purpose, fallbackLogoURI, onPress } =
+    side;
+  const kindLogos = useMemo(
+    () =>
+      pick.kind === 'class'
+        ? sortAssetSelectTokens(
+            tokens.filter((token) => token.type === pick.assetClass),
+            purpose,
+          ).map((token) => token.logoURI)
+        : [],
+    [pick, purpose, tokens],
+  );
+  const token =
+    pick.kind === 'token'
+      ? tokens.find(
+          (item) => item.symbol.toUpperCase() === pick.symbol.toUpperCase(),
+        )
+      : undefined;
+  const label =
+    pick.kind === 'class'
+      ? getEarnAssetClassLabel(intl, pick.assetClass)
+      : (token?.symbol ?? pick.symbol);
   return (
-    <XStack ai="center" flexWrap="wrap" gap="$2" minWidth={0}>
-      {collateral}
-      <XStack ai="center" gap="$2" minWidth={0} maxWidth="100%" flexShrink={1}>
+    <YStack
+      testID={testID}
+      role="button"
+      // The logos' rings follow its color as it is hovered
+      group
+      flex={1}
+      flexBasis={0}
+      minWidth={0}
+      gap="$0.5"
+      py="$2.5"
+      pl={isTrailing ? PICK_ARROW_CLEARANCE : '$3.5'}
+      pr={isTrailing ? '$3.5' : PICK_ARROW_CLEARANCE}
+      bg="$bgSubdued"
+      hoverStyle={{ bg: '$bgHover' }}
+      pressStyle={{ bg: '$bgActive' }}
+      borderRadius="$3"
+      borderCurve="continuous"
+      userSelect="none"
+      cursor="pointer"
+      onPress={onPress}
+      {...buildKeyboardPressProps(onPress, 2)}
+    >
+      <SizableText size="$bodySm" color="$textSubdued" numberOfLines={1}>
+        {caption}
+      </SizableText>
+      <XStack ai="center" gap="$2" minWidth={0}>
+        {pick.kind === 'class' ? (
+          <EarnAssetLogos
+            logos={kindLogos}
+            size="xs"
+            ringColor="$bgSubdued"
+            groupHoverRingColor="$bgHover"
+          />
+        ) : (
+          <Token
+            size="sm"
+            tokenImageUri={token?.logoURI || fallbackLogoURI}
+            networkImageUri={networkLogoURI}
+          />
+        )}
+        <SizableText size="$bodyLgMedium" numberOfLines={1} flexShrink={1}>
+          {label}
+        </SizableText>
         <Icon
-          name="ArrowRightOutline"
-          size="$4"
+          name="ChevronDownSmallOutline"
+          size="$5"
           color="$iconSubdued"
           flexShrink={0}
+          ml="$-1"
         />
-        {borrow}
       </XStack>
+    </YStack>
+  );
+}
+
+/**
+ * The two picks heading the Loans form, as a flight search's from and to: what
+ * is supplied on the left, what is borrowed on the right, an arrow on the
+ * seam. Each half says its role over its token and opens its own list; one
+ * row at every width, a long name cut short
+ */
+export function LoanPickBar({
+  supply,
+  borrow,
+  networkLogoURI,
+}: {
+  supply: ILoanPickSide;
+  borrow: ILoanPickSide;
+  networkLogoURI?: string;
+}) {
+  return (
+    <XStack testID="earn-loan-pick-bar" gap={PICK_SEAM} position="relative">
+      <LoanPickHalf
+        side={supply}
+        networkLogoURI={networkLogoURI}
+        isTrailing={false}
+      />
+      <LoanPickHalf side={borrow} networkLogoURI={networkLogoURI} isTrailing />
+      <Stack
+        position="absolute"
+        top="50%"
+        left="50%"
+        mt={-PICK_ARROW_SIZE / 2}
+        ml={-PICK_ARROW_SIZE / 2}
+        w={PICK_ARROW_SIZE}
+        h={PICK_ARROW_SIZE}
+        ai="center"
+        jc="center"
+        borderRadius="$full"
+        bg="$bgApp"
+        pointerEvents="none"
+        aria-hidden
+      >
+        <Stack
+          w="$6"
+          h="$6"
+          ai="center"
+          jc="center"
+          borderRadius="$full"
+          bg="$bgSubdued"
+        >
+          <Icon name="ArrowRightOutline" size="$3.5" color="$iconSubdued" />
+        </Stack>
+      </Stack>
     </XStack>
   );
 }
 
-// The done view's title: the pair that went in, written as the picks were
+// ---------- The pair's title ----------
+
+// The done view's title: what went in, written as the picks are. A supply
+// alone names its token only
 export function LoanPairTitle({
   collateral,
   borrow,
 }: {
   collateral: { symbol: string; logoURI?: string };
-  borrow: { symbol: string; logoURI?: string };
+  borrow?: { symbol: string; logoURI?: string };
 }) {
   const intl = useIntl();
   const side = (role: string, token: { symbol: string; logoURI?: string }) => (
@@ -1080,13 +1331,20 @@ export function LoanPairTitle({
   return (
     <XStack gap="$2" ai="center" minWidth={0}>
       {side(intl.formatMessage({ id: ETranslations.defi_supply }), collateral)}
-      <Icon
-        name="ArrowRightOutline"
-        size="$4"
-        color="$iconSubdued"
-        flexShrink={0}
-      />
-      {side(intl.formatMessage({ id: ETranslations.global_borrow }), borrow)}
+      {borrow ? (
+        <>
+          <Icon
+            name="ArrowRightOutline"
+            size="$4"
+            color="$iconSubdued"
+            flexShrink={0}
+          />
+          {side(
+            intl.formatMessage({ id: ETranslations.global_borrow }),
+            borrow,
+          )}
+        </>
+      ) : null}
     </XStack>
   );
 }

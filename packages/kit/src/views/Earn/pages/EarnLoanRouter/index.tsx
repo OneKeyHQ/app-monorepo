@@ -85,7 +85,6 @@ import { EarnProviderMirror } from '../../EarnProviderMirror';
 import { EarnNavigation } from '../../earnUtils';
 import { leaveEarnWindowFor } from '../../earnWindowReturn';
 import { getEarnAssetClassLabel } from '../EarnAssetSelect/earnAssetClassLabel';
-import { EarnAssetPickTrigger } from '../EarnAssetSelect/EarnAssetPickTrigger';
 import {
   EarnDoneHeader,
   formatDoneAmount,
@@ -100,18 +99,21 @@ import {
   LOAN_HEALTH_TEXT_COLOR,
   buildLoanRoutesForPicks,
   buildLoanSelectTokens,
-  getLoanForLtv,
+  getLoanCardMetrics,
+  getLoanDoneLine,
   getLoanForPositionLtv,
   getLoanHealthTone,
   getLoanLtvBar,
   getLoanRouteMetrics,
+  getLoanSteps,
+  isLoanPlanStopped,
   pickLoanBorrowPick,
   rankLoanRoutes,
 } from './loanRouter.utils';
 import { EARN_LOAN_MODAL_SIZE } from './loanRouterModal';
 import {
   LoanPairTitle,
-  LoanPickPills,
+  LoanPickBar,
   LoanRouteList,
   formatLoanFiat,
   formatLoanLtv,
@@ -127,8 +129,13 @@ import { useLoanRouterAccount, useLoanRouterFacts } from './useLoanRouterFacts';
 import { useLoanRouterRun } from './useLoanRouterRun';
 
 import type { ILoanLtvTone } from './loanLtvBar.types';
-import type { ILoanPositionAsset, ILoanRoute } from './loanRouter.utils';
-import type { ILoanRouteItem } from './LoanRouterParts';
+import type {
+  ILoanPositionAsset,
+  ILoanRoute,
+  ILoanRouteBlock,
+  ILoanStep,
+} from './loanRouter.utils';
+import type { ILoanReserveSide, ILoanRouteItem } from './LoanRouterParts';
 import type { ILoanRunDone, ILoanRunPlan } from './useLoanRouterRun';
 import type { IHealthFactorDetail } from '../../../Borrow/components/healthFactorValueColor';
 import type { IEarnOutcome } from '../../../Staking/components/UniversalStake/EarnFormSummary';
@@ -162,6 +169,14 @@ const noop = () => undefined;
 
 // The line under the Pay with box grows in this long, as the deposit modal's
 const SUPPLY_LINE_MS = 200;
+
+// Each step's word over the button, the one the button itself uses
+const LOAN_STEP_WORDS: Record<ILoanStep, ETranslations> = {
+  swap: ETranslations.global_swap,
+  approve: ETranslations.global_approve,
+  supply: ETranslations.defi_supply,
+  borrow: ETranslations.global_borrow,
+};
 
 // A pick's name: the token, or the kind's ("Stable Tokens", "BTC")
 const usePickLabel = () => {
@@ -497,8 +512,8 @@ function EarnLoanRouterPage() {
   const [typedBorrow, setTypedBorrow] = useState<string | undefined>(
     startBorrowAmount,
   );
-  // The market position's LTV the bar was dragged to. Until then the loan is
-  // half the collateral's value, as the Loans list works its Net APY out
+  // The market position's LTV the bar was dragged to. Until the bar moves or
+  // a loan is typed there is none: borrowing is up to the user
   const [draggedLtv, setDraggedLtv] = useState<number | undefined>(startLtv);
   // The loan an LTV gives where there is collateral to hold one (in the
   // market already, or typed), else none
@@ -721,6 +736,8 @@ function EarnLoanRouterPage() {
     ],
   );
   const newCollateralValue = typedValue;
+  // The loan as typed, or as the bar was moved to; none otherwise, a supply
+  // alone
   const borrowAmount =
     typedBorrow ??
     (draggedLtv !== undefined
@@ -732,13 +749,13 @@ function EarnLoanRouterPage() {
           borrowPrice: priceRoute?.facts.borrowPrice,
           decimals: borrowDecimals,
         })
-      : getLoanForLtv({
-          collateralAmount: supplyAmountOf(priceRoute?.route),
-          ltv: EARN_DESKTOP_LOAN_LTV,
-          collateralPrice: priceRoute?.facts.collateralPrice,
-          borrowPrice: priceRoute?.facts.borrowPrice,
-          decimals: borrowDecimals,
-        }));
+      : '');
+  const hasCollateral = toBigNumber(collateralAmount).gt(0);
+  const hasLoan = toBigNumber(borrowAmount).gt(0);
+  const isSupplyAlone = hasCollateral && !hasLoan;
+  // Until a loan is typed or the bar moved, the markets compare the pair at
+  // the Loans list's reference loan, not at none
+  const isReferencePlan = !hasLoan && draggedLtv === undefined;
   // The loan a let-go of the bar writes in the box: the amount it showed
   // while held
   const positionCollateralValue = priceRoute?.facts.collateralValue ?? 0;
@@ -756,8 +773,10 @@ function EarnLoanRouterPage() {
             decimals: borrowDecimals,
           })
       : undefined;
-  // Before amounts are typed, every market is worked out at the bar's LTV
-  const previewLtv = draggedLtv ?? EARN_DESKTOP_LOAN_LTV;
+  // Before amounts are typed the plan sits at the bar's LTV: none until it
+  // is moved
+  const previewLtv = draggedLtv ?? 0;
+  const ltvStage = typedBorrow ? undefined : previewLtv;
 
   const rankedItems = useMemo<ILoanRouteItem[]>(
     () =>
@@ -767,17 +786,18 @@ function EarnLoanRouterPage() {
           return {
             route: item,
             facts,
-            metrics: getLoanRouteMetrics({
+            metrics: getLoanCardMetrics({
               route: item,
               facts,
               collateralAmount: supplyAmountOf(item),
               borrowAmount,
-              ltvStage: typedBorrow ? undefined : previewLtv,
+              ltvStage,
+              isReference: isReferencePlan,
             }),
           };
         }),
       ),
-    [borrowAmount, byRoute, previewLtv, routes, supplyAmountOf, typedBorrow],
+    [borrowAmount, byRoute, isReferencePlan, ltvStage, routes, supplyAmountOf],
   );
   // A drag re-ranks the markets once it ends, not under the pointer
   const items = useMemo(() => {
@@ -792,18 +812,29 @@ function EarnLoanRouterPage() {
     return rankedItems.toSorted((a, b) => at(a.route.key) - at(b.route.key));
   }, [isSliding, rankedItems]);
   const pickedItem = items.find((item) => item.route.key === pickedKey);
+  // What a market's reason stops: any loan, and a supply alone only where
+  // the account can't use the network
+  const stopsPlan = (block?: ILoanRouteBlock) =>
+    isLoanPlanStopped(block, isSupplyAlone);
+  const holdsCollateral = (item: ILoanRouteItem) =>
+    toBigNumber(item.facts?.walletBalance).gt(0);
   // Unpicked, the check goes to the best market whose collateral the wallet
-  // holds there (no swap first), else to the best one
+  // holds there (no swap first), else to the best one: one that lends the
+  // pair first, then one that takes a supply alone
   const usableItem =
+    items.find((item) => !item.metrics.block && holdsCollateral(item)) ??
+    items.find((item) => !item.metrics.block) ??
     items.find(
-      (item) =>
-        !item.metrics.block && toBigNumber(item.facts?.walletBalance).gt(0),
-    ) ?? items.find((item) => !item.metrics.block);
+      (item) => !stopsPlan(item.metrics.block) && holdsCollateral(item),
+    ) ??
+    items.find((item) => !stopsPlan(item.metrics.block));
   // The market of the row the modal opened from (or one picked while the
   // figures loaded) that doesn't lend the token to the account at all gives
-  // way to the best one that can take the loan
+  // way to the best one that can take the plan. A supply alone stays
   const isPickClosed =
-    isFactsLoaded && isLendingClosed(pickedItem?.metrics.block);
+    isFactsLoaded &&
+    isLendingClosed(pickedItem?.metrics.block) &&
+    stopsPlan(pickedItem?.metrics.block);
   const selected =
     (isPickClosed ? usableItem : undefined) ??
     pickedItem ??
@@ -825,7 +856,24 @@ function EarnLoanRouterPage() {
   }, [autoPickKey]);
   const selectedRoute = selected?.route;
   const selectedFacts = selected?.facts;
-  const selectedMetrics = selected?.metrics;
+  // What the plan as typed does in the picked market: the form's own
+  // figures, whatever loan the cards compare at
+  const planMetrics = selectedRoute
+    ? getLoanRouteMetrics({
+        route: selectedRoute,
+        facts: selectedFacts,
+        collateralAmount: supplyAmountOf(selectedRoute),
+        borrowAmount,
+        ltvStage,
+      })
+    : undefined;
+  const planBlock = planMetrics?.block;
+  // The market doesn't lend the token to the account (or the account can't
+  // use the network): no loan to plan there, the bar holds still
+  const isLendClosed = isLendingClosed(planBlock);
+  // Nothing to show of the plan: it can't go in at all. A supply alone
+  // still goes in where only the loan is closed
+  const isClosed = isLendClosed && stopsPlan(planBlock);
 
   const handleDone = useCallback((info: ILoanRunDone) => {
     setSuppliedNote(undefined);
@@ -933,15 +981,15 @@ function EarnLoanRouterPage() {
         : shareOf(boxBalance, 100, boxDecimals),
     );
   }, [boxBalance, boxDecimals, isSwapping, payWith.payMax]);
-  // A token changed starts the loan over: half the collateral's value
+  // A token changed starts the loan over: none
   const resetLoan = useCallback(() => {
     setTypedBorrow(undefined);
     setDraggedLtv(undefined);
   }, []);
-  // An emptied box stays empty: no loan until one is typed or the bar is
-  // moved. Handed back to the bar, it filled itself again at once
+  // A typed loan is the plan, an emptied box none: the bar follows either
   const handleBorrowChange = useCallback((value: string) => {
     setTypedBorrow(value);
+    setDraggedLtv(undefined);
   }, []);
   // Where the bar starts (what is borrowed in the market already), read at
   // the press
@@ -1076,7 +1124,7 @@ function EarnLoanRouterPage() {
           purpose: isSupply ? 'loanSupply' : 'loanBorrow',
           title: intl.formatMessage({
             id: isSupply
-              ? ETranslations.defi_collateral
+              ? ETranslations.defi_supply
               : ETranslations.global_borrow,
           }),
           tokens: isSupply ? supplyTokens : borrowTokens,
@@ -1115,8 +1163,6 @@ function EarnLoanRouterPage() {
     });
   }, [payWith, resetLoan]);
 
-  const hasCollateral = toBigNumber(collateralAmount).gt(0);
-  const hasLoan = toBigNumber(borrowAmount).gt(0);
   const isInsufficient =
     hasCollateral &&
     boxBalance !== undefined &&
@@ -1132,9 +1178,9 @@ function EarnLoanRouterPage() {
     );
     if (
       !selectedRoute ||
-      (!hasMarketCollateral && !toBigNumber(collateralAmount).gt(0)) ||
-      selectedMetrics?.maxBorrow === undefined ||
-      isLendingClosed(selectedMetrics.block) ||
+      (!hasMarketCollateral && !hasCollateral) ||
+      planMetrics?.maxBorrow === undefined ||
+      isLendClosed ||
       !selectedFacts?.borrowPrice
     ) {
       return undefined;
@@ -1144,7 +1190,7 @@ function EarnLoanRouterPage() {
         ? selectedFacts.liquidity / selectedFacts.borrowPrice
         : Number.POSITIVE_INFINITY;
     return new BigNumber(
-      Math.max(0, Math.min(selectedMetrics.maxBorrow, byLiquidity)),
+      Math.max(0, Math.min(planMetrics.maxBorrow, byLiquidity)),
     )
       .decimalPlaces(
         Math.min(selectedRoute.borrow.decimals, 8),
@@ -1166,12 +1212,13 @@ function EarnLoanRouterPage() {
     <YStack>
       <StakingAmountInput
         boxTestID="earn-loan-collateral"
-        // Paid with the collateral itself the box is the collateral; paid
-        // with another token it is what leaves the wallet
+        // Paid with the collateral itself the box is the supply, in the
+        // picks' and the steps' word; paid with another token it is what
+        // leaves the wallet
         title={
           isSwapping
             ? EARN_DESKTOP_DEMO_COPY.payWith
-            : intl.formatMessage({ id: ETranslations.defi_collateral })
+            : intl.formatMessage({ id: ETranslations.defi_supply })
         }
         disabled={isLocked}
         hasError={isInsufficient}
@@ -1270,20 +1317,19 @@ function EarnLoanRouterPage() {
   const selectedLoanValue = selectedFacts?.borrowPrice
     ? toBigNumber(borrowAmount).times(selectedFacts.borrowPrice).toNumber()
     : 0;
-  const isClosed = isLendingClosed(selectedMetrics?.block);
   const ltvBar =
     selectedRoute && selectedFacts
       ? getLoanLtvBar({
           route: selectedRoute,
           facts: selectedFacts,
-          maxLtv: isClosed ? undefined : selectedMetrics?.maxLtv,
+          maxLtv: isLendClosed ? undefined : planMetrics?.maxLtv,
           newCollateralValue: selectedNewCollateralValue,
           loanValue: selectedLoanValue,
           previewLtv,
         })
       : undefined;
   ltvStartRef.current = ltvBar && !ltvBar.isPreview ? ltvBar.used : 0;
-  ltvCapRef.current = isClosed ? undefined : ltvBar?.cap;
+  ltvCapRef.current = isLendClosed ? undefined : ltvBar?.cap;
   availableRef.current = availableToBorrow;
   // Until the picked market's own figures are in (and the markets, while
   // they load), the form holds their places: the LTV's, the Net APY's and
@@ -1297,7 +1343,7 @@ function EarnLoanRouterPage() {
   // the page
   const serverHealth = selectedFacts?.healthFactorDetail;
   const serverHealthValue = serverHealth ? Number(serverHealth.value) : NaN;
-  const ownHealthBefore = selectedMetrics?.healthFactorBefore;
+  const ownHealthBefore = planMetrics?.healthFactorBefore;
   const healthScale =
     Number.isFinite(serverHealthValue) && ownHealthBefore
       ? serverHealthValue / ownHealthBefore
@@ -1313,13 +1359,19 @@ function EarnLoanRouterPage() {
       ? selectedFacts.debtValue / selectedFacts.collateralValue
       : undefined;
   // A market that doesn't lend the token here (or no market at all) has no
-  // plan to draw: the bar keeps only what is borrowed there already
-  const isBarInert = !isFiguresLoading && (isClosed || !selectedRoute);
+  // loan to draw: the bar keeps only what is borrowed there already, at the
+  // LTV a supply alone leaves it
+  const isBarInert = !isFiguresLoading && (isLendClosed || !selectedRoute);
   let barShown = ltvBar;
   if (isClosed) {
     barShown =
       currentLtv !== undefined
         ? { used: currentLtv, value: currentLtv, isPreview: false }
+        : undefined;
+  } else if (isLendClosed) {
+    barShown =
+      ltvBar && !ltvBar.isPreview
+        ? { used: ltvBar.value, value: ltvBar.value, isPreview: false }
         : undefined;
   }
   // A fresh pair before any amount: the bar is the plan's LTV, and what the
@@ -1379,7 +1431,7 @@ function EarnLoanRouterPage() {
         bar={barShown}
         isInert={isBarInert}
         tone={barTone}
-        disabled={isLocked || isClosed}
+        disabled={isLocked || isLendClosed}
         onChange={handleLtvChange}
         onSlideStart={handleSlideStart}
         onSlideEnd={handleSlideEnd}
@@ -1406,7 +1458,7 @@ function EarnLoanRouterPage() {
 
   let healthAfter = scaleHealth(ownHealthBefore, healthScale);
   if (isChanging) {
-    healthAfter = scaleHealth(selectedMetrics?.healthFactor, healthScale);
+    healthAfter = scaleHealth(planMetrics?.healthFactor, healthScale);
   } else if (planPreview) {
     healthAfter = planPreview.health;
   }
@@ -1448,11 +1500,11 @@ function EarnLoanRouterPage() {
     ),
   );
   // The plan's, once amounts are typed; before, a fresh pair's at the bar's
-  // LTV. None where the market doesn't lend
+  // LTV. None where the market doesn't lend, or with nothing borrowed
   let liquidationPrice: number | undefined;
   if (!isClosed) {
     liquidationPrice = isChanging
-      ? selectedMetrics?.liquidationPrice
+      ? planMetrics?.liquidationPrice
       : planPreview?.liquidationPrice;
   }
   const liquidationRow =
@@ -1505,11 +1557,11 @@ function EarnLoanRouterPage() {
 
   // The position's Net APY in the market, as its page reads it: as it is,
   // then with the plan in it, the way LTV and Health Factor read. A fresh
-  // market's is the plan's own. Always a rate (demo 10-29). A market that
-  // doesn't lend the token has no result: a dash
+  // market's is the plan's own (a supply alone's is its supply APY). Always
+  // a rate (demo 10-29). A plan the market can't take has no result: a dash
   const netApyLabel = intl.formatMessage({ id: ETranslations.defi_net_apy });
-  const netApyAfter = isClosed ? undefined : selectedMetrics?.netApy;
-  const netApyBefore = isClosed ? undefined : selectedMetrics?.netApyBefore;
+  const netApyAfter = isClosed ? undefined : planMetrics?.netApy;
+  const netApyBefore = isClosed ? undefined : planMetrics?.netApyBefore;
   let outcome: IEarnOutcome;
   if (isFiguresLoading) {
     outcome = { label: netApyLabel, values: [] };
@@ -1538,54 +1590,104 @@ function EarnLoanRouterPage() {
       <EarnFormSummary outcome={outcome} isOutcomeLoading={isFiguresLoading} />
     ) : null;
 
-  // The window closes and the market's own page opens, the whole position
-  // there
-  const positionMarket = selectedRoute?.market;
-  // Back from that page opens the window again as it was left: the pair
-  // or kinds, the market, the amounts and Pay with's token (demo 10-30)
+  // The window closes for one of the market's pages. Back from that page
+  // opens the window again as it was left: the pair or kinds, the market,
+  // the amounts and Pay with's token (demo 10-30)
   const payPickedKey = payWith.pickedKey;
+  const leaveWindowFor = useCallback(
+    (page: ETabEarnRoutes, marketRouteKey?: string) => {
+      leaveEarnWindowFor(page, {
+        screen: EModalStakingRoutes.EarnLoanRouter,
+        params: {
+          collateral:
+            collateralPick.kind === 'token'
+              ? collateralPick.symbol
+              : routeCollateral,
+          collateralClass:
+            collateralPick.kind === 'class'
+              ? collateralPick.assetClass
+              : undefined,
+          borrow: borrowPick.kind === 'token' ? borrowPick.symbol : routeBorrow,
+          borrowClass:
+            borrowPick.kind === 'class' ? borrowPick.assetClass : undefined,
+          routeKey: marketRouteKey,
+          wide,
+          collateralAmount: collateralAmount || undefined,
+          borrowAmount: typedBorrow,
+          ltv: draggedLtv,
+          payKey: payPickedKey,
+        },
+      });
+      navigation.popStack();
+    },
+    [
+      borrowPick,
+      collateralAmount,
+      collateralPick,
+      draggedLtv,
+      navigation,
+      payPickedKey,
+      routeBorrow,
+      routeCollateral,
+      typedBorrow,
+      wide,
+    ],
+  );
+  // The market's own page, the whole position there
+  const positionMarket = selectedRoute?.market;
   const handleManagePosition = useCallback(() => {
     if (!positionMarket) {
       return;
     }
-    leaveEarnWindowFor(ETabEarnRoutes.BorrowHome, {
-      screen: EModalStakingRoutes.EarnLoanRouter,
-      params: {
-        collateral:
-          collateralPick.kind === 'token'
-            ? collateralPick.symbol
-            : routeCollateral,
-        collateralClass:
-          collateralPick.kind === 'class'
-            ? collateralPick.assetClass
-            : undefined,
-        borrow: borrowPick.kind === 'token' ? borrowPick.symbol : routeBorrow,
-        borrowClass:
-          borrowPick.kind === 'class' ? borrowPick.assetClass : undefined,
-        routeKey: selectedRoute?.key,
-        wide,
-        collateralAmount: collateralAmount || undefined,
-        borrowAmount: typedBorrow,
-        ltv: draggedLtv,
-        payKey: payPickedKey,
-      },
-    });
-    navigation.popStack();
+    leaveWindowFor(ETabEarnRoutes.BorrowHome, selectedRoute?.key);
     BorrowNavigation.pushToBorrowHome(navigation, positionMarket);
-  }, [
-    borrowPick,
-    collateralAmount,
-    collateralPick,
-    draggedLtv,
-    navigation,
-    payPickedKey,
-    positionMarket,
-    routeBorrow,
-    routeCollateral,
-    selectedRoute?.key,
-    typedBorrow,
-    wide,
-  ]);
+  }, [leaveWindowFor, navigation, positionMarket, selectedRoute?.key]);
+  // The picked market's page for one of its tokens, its form on that side
+  // with the amount typed here. Paid with another token, the supply isn't
+  // the collateral yet: that form opens empty
+  const indexedAccountId = loanAccount.indexedAccountId;
+  const handleOpenReserve = useCallback(
+    (loanRoute: ILoanRoute, side: ILoanReserveSide) => {
+      const isSupply = side === 'supply';
+      const token = isSupply ? loanRoute.collateral : loanRoute.borrow;
+      let amount: string | undefined;
+      if (isSupply) {
+        amount =
+          hasCollateral && !isSwapping
+            ? supplyAmountOf(loanRoute) || undefined
+            : undefined;
+      } else if (hasLoan && loanRoute.key === selectedRoute?.key) {
+        amount = borrowAmount;
+      }
+      const { market } = loanRoute;
+      leaveWindowFor(ETabEarnRoutes.BorrowReserveDetails, loanRoute.key);
+      BorrowNavigation.pushToBorrowReserveDetails(navigation, {
+        networkId: market.networkId,
+        provider: market.provider,
+        marketAddress: market.marketAddress,
+        // A native token's is empty, as the market page's own rows pass it
+        reserveAddress: token.reserveAddress,
+        symbol: token.symbol,
+        logoURI: token.logoURI,
+        accountId: byRoute.get(loanRoute.key)?.networkAccountId,
+        indexedAccountId,
+        tab: side,
+        amount,
+      });
+    },
+    [
+      borrowAmount,
+      byRoute,
+      hasCollateral,
+      hasLoan,
+      indexedAccountId,
+      isSwapping,
+      leaveWindowFor,
+      navigation,
+      selectedRoute?.key,
+      supplyAmountOf,
+    ],
+  );
 
   // Where the account already has a position, the loan joins it: what backs
   // every loan there, what is borrowed, and the health factor, before and
@@ -1667,24 +1769,36 @@ function EarnLoanRouterPage() {
 
   // ---------- The press ----------
 
-  // Why the market can't take the loan shows under its card only; here it
-  // holds the button
+  // Why the market can't take the plan shows under its card only; here it
+  // holds the button. A supply alone goes in where only a loan can't
   const blockText =
-    selectedRoute && selectedMetrics?.block
+    selectedRoute && planBlock && stopsPlan(planBlock)
       ? getLoanBlockText({
-          block: selectedMetrics.block,
+          block: planBlock,
           route: selectedRoute,
           currency,
         })
       : undefined;
-  // A loan typed with no collateral borrows against what the market already
-  // holds; otherwise the press supplies, then borrows. Paid with another
-  // token, a swap brings the collateral first
-  let actionLabel = EARN_DESKTOP_DEMO_COPY.supplyAndBorrow;
-  if (!hasCollateral && hasLoan) {
+  // The steps the press runs and the button names. A loan typed with no
+  // collateral borrows against what the market already holds; a supply
+  // with no loan typed is all a press does. Paid with another token, a swap
+  // brings the collateral first
+  const pressSteps = getLoanSteps({
+    hasCollateral,
+    hasLoan,
+    isSwapping,
+    hasApproval: false,
+  });
+  const supplyWord = intl.formatMessage({ id: ETranslations.defi_supply });
+  let actionLabel = isSwapping
+    ? EARN_DESKTOP_DEMO_COPY.swapSupplyAndBorrow
+    : EARN_DESKTOP_DEMO_COPY.supplyAndBorrow;
+  if (!pressSteps.includes('supply')) {
     actionLabel = intl.formatMessage({ id: ETranslations.global_borrow });
-  } else if (isSwapping) {
-    actionLabel = EARN_DESKTOP_DEMO_COPY.swapSupplyAndBorrow;
+  } else if (!pressSteps.includes('borrow')) {
+    actionLabel = isSwapping
+      ? EARN_DESKTOP_DEMO_COPY.swapAnd(supplyWord)
+      : supplyWord;
   }
   const buttonText = isInsufficient
     ? intl.formatMessage({ id: ETranslations.earn_insufficient_balance })
@@ -1699,7 +1813,7 @@ function EarnLoanRouterPage() {
       !payWith.hasNoRoute);
   const canStart =
     Boolean(selectedRoute && selectedFacts?.networkAccountId) &&
-    hasLoan &&
+    (hasLoan || hasCollateral) &&
     !blockText &&
     !isInsufficient &&
     isSwapReady;
@@ -1723,7 +1837,8 @@ function EarnLoanRouterPage() {
   const { swap } = payWith;
   // One press: the market's risk notice, then the swap; once what it bought
   // is in the wallet the box holds it as the collateral and the press goes
-  // on by itself (supply, then the loan). A rejected swap changes nothing
+  // on by itself (the supply, then any loan). A rejected swap changes
+  // nothing
   const startSwapPlan = useCallback(async () => {
     if (!selectedRoute) {
       return;
@@ -1783,28 +1898,24 @@ function EarnLoanRouterPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [handoffStartKey]);
 
-  const progressStep = (() => {
-    if (run.hasApprovalStep) {
-      if (run.phase === 'approving') return 1;
-      if (run.phase === 'supplying' || run.phase === 'landing') return 2;
-      return 3;
-    }
-    if (run.phase === 'supplying' || run.phase === 'landing') return 1;
-    return 2;
-  })();
-  const showsProgress =
-    hasCollateral &&
-    (run.phase === 'approving' ||
-      run.phase === 'supplying' ||
-      run.phase === 'landing' ||
-      run.phase === 'borrowing');
+  // The step a running press is at
+  let runStep: ILoanStep | undefined;
+  if (run.phase === 'approving') {
+    runStep = 'approve';
+  } else if (run.phase === 'supplying' || run.phase === 'landing') {
+    runStep = 'supply';
+  } else if (run.phase === 'borrowing') {
+    runStep = 'borrow';
+  }
 
   // What the press leads to, over the button: the steps show in the footer
   const notes = (() => {
     const lines = [
       run.phase === 'landing' ? (
         <SizableText key="landing" size="$bodyMd" color="$textSubdued">
-          {EARN_DESKTOP_DEMO_COPY.loanLanding}
+          {hasLoan
+            ? EARN_DESKTOP_DEMO_COPY.loanLanding
+            : EARN_DESKTOP_DEMO_COPY.loanSupplyLanding}
         </SizableText>
       ) : null,
       suppliedNote && !isLocked ? (
@@ -1820,59 +1931,56 @@ function EarnLoanRouterPage() {
     ].filter(isElement);
     return lines.length ? <YStack gap="$3">{lines}</YStack> : null;
   })();
-  // While the swap runs: its step, then the two after it. Once it is in,
-  // the supply's own steps take over (an approval among them where needed).
+  // The steps over the button where a press runs more than one (one step is
+  // the button's own word)
+  const renderSteps = (
+    steps: ILoanStep[],
+    currentStep: number,
+    isRunning: boolean,
+  ) => {
+    const [first, second, third] = steps;
+    if (!first || !second) {
+      return null;
+    }
+    return (
+      <StakeProgress
+        currentStep={currentStep}
+        step1Label={intl.formatMessage({ id: LOAN_STEP_WORDS[first] })}
+        step2Label={intl.formatMessage({ id: LOAN_STEP_WORDS[second] })}
+        step3LabelId={third ? LOAN_STEP_WORDS[third] : undefined}
+        isRunning={isRunning}
+      />
+    );
+  };
+  // While the swap runs: its step, then those after it. Once it is in, the
+  // supply's own steps take over (an approval among them where needed).
   // Before the press, the steps it will run
-  let progress: ReactElement | null = null;
+  let progress: ReactElement | null;
   if (payWith.isSwapRunning) {
-    progress = (
-      <StakeProgress
-        currentStep={1}
-        step1Label={intl.formatMessage({ id: ETranslations.global_swap })}
-        step2Label={intl.formatMessage({ id: ETranslations.defi_supply })}
-        step3LabelId={ETranslations.global_borrow}
-        isRunning
-      />
+    progress = renderSteps(
+      getLoanSteps({
+        hasCollateral: true,
+        hasLoan,
+        isSwapping: true,
+        hasApproval: false,
+      }),
+      1,
+      true,
     );
-  } else if (showsProgress) {
-    progress = (
-      <StakeProgress
-        currentStep={progressStep}
-        step1Label={
-          run.hasApprovalStep
-            ? intl.formatMessage({ id: ETranslations.global_approve })
-            : intl.formatMessage({ id: ETranslations.defi_supply })
-        }
-        step2Label={
-          run.hasApprovalStep
-            ? intl.formatMessage({ id: ETranslations.defi_supply })
-            : intl.formatMessage({ id: ETranslations.global_borrow })
-        }
-        step3LabelId={
-          run.hasApprovalStep ? ETranslations.global_borrow : undefined
-        }
-        isRunning
-      />
+  } else if (runStep) {
+    const runSteps = getLoanSteps({
+      hasCollateral,
+      hasLoan,
+      isSwapping,
+      hasApproval: run.hasApprovalStep,
+    });
+    progress = renderSteps(
+      runSteps,
+      Math.max(1, runSteps.indexOf(runStep) + 1),
+      true,
     );
-  } else if (hasCollateral || !hasLoan) {
-    // Before the press: the steps it runs, as the button names them (a loan
-    // alone is one step, its button "Borrow")
-    progress = (
-      <StakeProgress
-        currentStep={1}
-        step1Label={intl.formatMessage({
-          id: isSwapping
-            ? ETranslations.global_swap
-            : ETranslations.defi_supply,
-        })}
-        step2Label={intl.formatMessage({
-          id: isSwapping
-            ? ETranslations.defi_supply
-            : ETranslations.global_borrow,
-        })}
-        step3LabelId={isSwapping ? ETranslations.global_borrow : undefined}
-      />
-    );
+  } else {
+    progress = renderSteps(pressSteps, 1, false);
   }
 
   // ---------- Done ----------
@@ -1892,22 +2000,17 @@ function EarnLoanRouterPage() {
   const doneView = done ? (
     <YStack testID="earn-loan-done" py="$6">
       <EarnDoneHeader
-        line={EARN_DESKTOP_DEMO_COPY.loanDone(
-          formatDoneAmount(
-            done.plan.borrowAmount,
-            done.plan.route.borrow.symbol,
-          ),
-          done.plan.route.marketLabel,
-          done.supplied
-            ? formatDoneAmount(
-                done.plan.collateralAmount,
-                done.plan.route.collateral.symbol,
-              )
-            : undefined,
-        )}
+        line={getLoanDoneLine({
+          plan: done.plan,
+          supplied: done.supplied,
+          formatAmount: formatDoneAmount,
+        })}
       />
     </YStack>
   ) : null;
+  // A press with no loan supplied alone
+  const isDoneSupplyAlone =
+    done !== undefined && !toBigNumber(done.plan.borrowAmount).gt(0);
 
   // ---------- The modal ----------
 
@@ -1926,8 +2029,8 @@ function EarnLoanRouterPage() {
     EARN_LOAN_MODAL_SIZE.height,
     Boolean(done),
   );
-  // The done view names the pair that went in; the form is the Loans
-  // window, its picks heading the form
+  // The done view names what went in (a supply alone, its token only); the
+  // form is the Loans window, its picks heading the form
   const renderDoneTitle = useCallback(
     () =>
       done ? (
@@ -1936,43 +2039,40 @@ function EarnLoanRouterPage() {
             symbol: done.plan.route.collateral.symbol,
             logoURI: done.plan.route.collateral.logoURI,
           }}
-          borrow={{
-            symbol: done.plan.route.borrow.symbol,
-            logoURI: done.plan.route.borrow.logoURI,
-          }}
+          borrow={
+            isDoneSupplyAlone
+              ? undefined
+              : {
+                  symbol: done.plan.route.borrow.symbol,
+                  logoURI: done.plan.route.borrow.logoURI,
+                }
+          }
         />
       ) : null,
-    [done],
+    [done, isDoneSupplyAlone],
   );
+  // Each half in the steps' word, so the bar reads as the press runs
   const pickRow = (
-    <LoanPickPills
-      collateral={
-        <EarnAssetPickTrigger
-          variant="pill"
-          testID="earn-loan-collateral-pick"
-          // The steps' words, so the row reads as the loan runs
-          lead={intl.formatMessage({ id: ETranslations.defi_supply })}
-          pick={collateralPick}
-          tokens={supplyTokens}
-          purpose="loanSupply"
-          fallbackLogoURI={collateralLogo}
-          networkLogoURI={networkLogoURI}
-          onPress={openCollateralSelect}
-        />
-      }
-      borrow={
-        <EarnAssetPickTrigger
-          variant="pill"
-          testID="earn-loan-borrow-pick"
-          lead={intl.formatMessage({ id: ETranslations.global_borrow })}
-          pick={borrowPick}
-          tokens={borrowTokens}
-          purpose="loanBorrow"
-          fallbackLogoURI={borrowLogo}
-          networkLogoURI={networkLogoURI}
-          onPress={openBorrowSelect}
-        />
-      }
+    <LoanPickBar
+      supply={{
+        testID: 'earn-loan-collateral-pick',
+        caption: supplyWord,
+        pick: collateralPick,
+        tokens: supplyTokens,
+        purpose: 'loanSupply',
+        fallbackLogoURI: collateralLogo,
+        onPress: openCollateralSelect,
+      }}
+      borrow={{
+        testID: 'earn-loan-borrow-pick',
+        caption: intl.formatMessage({ id: ETranslations.global_borrow }),
+        pick: borrowPick,
+        tokens: borrowTokens,
+        purpose: 'loanBorrow',
+        fallbackLogoURI: borrowLogo,
+        onPress: openBorrowSelect,
+      }}
+      networkLogoURI={networkLogoURI}
     />
   );
 
@@ -2002,9 +2102,18 @@ function EarnLoanRouterPage() {
             : undefined,
           needsSwap:
             needsSwap && !(handoff && item.route.key === handoff.routeKey),
+          isBlocked: isLoanPlanStopped(item.metrics.block, isSupplyAlone),
         };
       }),
-    [handoff, isClassMode, items, payRoute, payToken, payWith.isPicked],
+    [
+      handoff,
+      isClassMode,
+      isSupplyAlone,
+      items,
+      payRoute,
+      payToken,
+      payWith.isPicked,
+    ],
   );
 
   const routeList = (
@@ -2018,7 +2127,16 @@ function EarnLoanRouterPage() {
         pickLabel(collateralPick),
         pickLabel(borrowPick),
       )}
+      // Named for the loan it is worked out at, as the Loans list's column
+      netApyLabel={
+        isReferencePlan
+          ? EARN_DESKTOP_DEMO_COPY.loanNetApyHeader(
+              `${EARN_DESKTOP_LOAN_LTV * 100}%`,
+            )
+          : netApyLabel
+      }
       onSelect={isLocked ? noop : handlePickRoute}
+      onOpenReserve={isLocked ? noop : handleOpenReserve}
     />
   );
   // The button, as Swap's: under the form in a wide window, else the modal's
@@ -2050,9 +2168,10 @@ function EarnLoanRouterPage() {
   );
   const form = doneView ?? (
     <YStack gap="$5">
-      {/* Beside the markets it heads both columns instead */}
-      {isBeside ? null : pickRow}
+      {/* The picks top the boxes' stack; beside the markets they head both
+          columns instead */}
       <YStack gap="$2">
+        {isBeside ? null : pickRow}
         {collateralBox}
         {/* The loan comes out of the collateral above it */}
         <XStack jc="center" my="$-4" zIndex={1}>
@@ -2136,12 +2255,16 @@ function EarnLoanRouterPage() {
         <YStack ref={fitModalRef} flex={isBeside ? 1 : undefined}>
           {isBeside && !done ? (
             // The picks head both columns, so the markets start level with
-            // the Supply box. Each column scrolls by itself: the markets move
-            // under the pointer while the form and its button stay
+            // the Supply box, over the form's own width as the top of its
+            // stack. Each column scrolls by itself: the markets move under
+            // the pointer while the form and its button stay
             <YStack flex={1}>
-              <YStack px="$5" pt="$2.5">
-                {pickRow}
-              </YStack>
+              <XStack px="$5" pt="$2.5">
+                <YStack flex={1} minWidth={0}>
+                  {pickRow}
+                </YStack>
+                <Stack w={EARN_OFFER_ROUTES_COLUMN_WIDTH} flexShrink={0} />
+              </XStack>
               <XStack testID="earn-loan-router" flex={1} ai="stretch">
                 <ScrollView
                   flex={1}
@@ -2150,7 +2273,7 @@ function EarnLoanRouterPage() {
                   keyboardShouldPersistTaps="handled"
                 >
                   <EarnFormActionPlacementContext.Provider value="inline">
-                    <YStack px="$5" pt="$5" pb="$5">
+                    <YStack px="$5" pt="$2" pb="$5">
                       {form}
                     </YStack>
                   </EarnFormActionPlacementContext.Provider>
@@ -2160,7 +2283,7 @@ function EarnLoanRouterPage() {
                   w={EARN_OFFER_ROUTES_COLUMN_WIDTH}
                   flexShrink={0}
                 >
-                  <YStack pt="$5" pb="$5" pr="$5">
+                  <YStack pt="$2" pb="$5" pr="$5">
                     {routeList}
                   </YStack>
                 </ScrollView>

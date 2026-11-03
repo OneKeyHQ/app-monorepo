@@ -11,7 +11,6 @@ import { waitForTxFinalStatus } from '@onekeyhq/kit/src/utils/waitForTxFinalStat
 import type { IApproveInfo } from '@onekeyhq/kit-bg/src/vaults/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
-import { EOnChainHistoryTxStatus } from '@onekeyhq/shared/types/history';
 import { EEarnLabels } from '@onekeyhq/shared/types/staking';
 import type { IStakingInfo } from '@onekeyhq/shared/types/staking';
 import type { IToken } from '@onekeyhq/shared/types/token';
@@ -28,15 +27,22 @@ import {
 import { useEarnRiskWarningGate } from '../../../Staking/components/EarnRiskWarningDialog';
 import { buildBorrowTag } from '../../../Staking/utils/utils';
 
+import { getLoanRunAfterSupply, toLoanTxOutcome } from './loanRouter.utils';
 import { readLoanRoutePosition } from './useLoanRouterFacts';
 
-import type { ILoanRoute, ILoanRouterToken } from './loanRouter.utils';
+import type {
+  ILoanRoute,
+  ILoanRouterToken,
+  ILoanSupplyOutcome,
+  ILoanTxOutcome,
+} from './loanRouter.utils';
 
 // One press: the collateral's approval when it needs one, the supply, a wait
 // for the supply to land, then the loan (after the delegation an ETH loan
 // needs on Aave). Each step is a confirm of the wallet's own. Rejecting the
-// supply leaves everything as it was; rejecting the loan leaves the
-// collateral supplied, and the form offers the loan alone
+// supply, or its failing on chain, leaves everything as it was; rejecting
+// the loan leaves the collateral supplied, and the form offers the loan
+// alone. A plan without a loan ends once its supply has gone out
 
 export type ILoanRunPhase =
   | 'idle'
@@ -178,10 +184,16 @@ export function useLoanRouterRun({
     [navigationToTxConfirm],
   );
 
+  // A send the confirm gave no txid for can't be followed: it counts as
+  // landed, as before
   const waitForFinal = useCallback(
-    async (plan: ILoanRunPlan, txid: string, signal: AbortSignal) => {
+    async (
+      plan: ILoanRunPlan,
+      txid: string,
+      signal: AbortSignal,
+    ): Promise<ILoanTxOutcome> => {
       if (!txid || txid === 'sent') {
-        return true;
+        return 'landed';
       }
       const status = await waitForTxFinalStatus({
         accountId: plan.networkAccountId,
@@ -192,7 +204,7 @@ export function useLoanRouterRun({
       if (signal.aborted) {
         throw new LoanRunStopped();
       }
-      return status === EOnChainHistoryTxStatus.Success;
+      return toLoanTxOutcome(status);
     },
     [],
   );
@@ -271,7 +283,7 @@ export function useLoanRouterRun({
       if (!txid) {
         return false;
       }
-      return waitForFinal(plan, txid, signal);
+      return (await waitForFinal(plan, txid, signal)) === 'landed';
     },
     [confirm, waitForFinal],
   );
@@ -310,7 +322,7 @@ export function useLoanRouterRun({
             plan,
             encodedTx: parseBorrowEncodedTx(resp.tx),
           });
-          if (!txid || !(await waitForFinal(plan, txid, signal))) {
+          if (!txid || (await waitForFinal(plan, txid, signal)) !== 'landed') {
             return false;
           }
         }
@@ -338,7 +350,10 @@ export function useLoanRouterRun({
 
   // The supply out and final, then the market's figures caught up with it
   const supplyCollateral = useCallback(
-    async (plan: ILoanRunPlan, signal: AbortSignal) => {
+    async (
+      plan: ILoanRunPlan,
+      signal: AbortSignal,
+    ): Promise<ILoanSupplyOutcome> => {
       const { route: planRoute } = plan;
       const { market } = planRoute;
       const before = await readLoanRoutePosition({
@@ -366,14 +381,15 @@ export function useLoanRouterRun({
         orderId: resp.orderId,
       });
       if (!txid) {
-        return 'rejected' as const;
+        return 'rejected';
       }
-      // From here the collateral is on its way: whatever happens next, the
-      // loan is what's left, never a second supply
+      // From here the collateral is on its way: unless it fails on chain,
+      // the loan is what's left, never a second supply
       pendingPlanRef.current = plan;
       setPhase('landing');
-      if (!(await waitForFinal(plan, txid, signal))) {
-        return 'pending' as const;
+      const outcome = await waitForFinal(plan, txid, signal);
+      if (outcome !== 'landed') {
+        return outcome;
       }
       const expected = new BigNumber(before?.collateralSupplied ?? 0).plus(
         new BigNumber(plan.collateralAmount).times(0.999),
@@ -391,7 +407,7 @@ export function useLoanRouterRun({
           throw new LoanRunStopped();
         }
       }
-      return 'landed' as const;
+      return 'landed';
     },
     [buildStakingInfo, confirm, waitForFinal],
   );
@@ -410,6 +426,21 @@ export function useLoanRouterRun({
     [intl],
   );
 
+  // A transaction that went out and failed on chain
+  const showTxFailed = useCallback(() => {
+    Toast.error({
+      title: intl.formatMessage({
+        id: ETranslations.swap_review_transaction_failed,
+      }),
+    });
+  }, [intl]);
+
+  const finish = useCallback((plan: ILoanRunPlan, supplied: boolean) => {
+    pendingPlanRef.current = undefined;
+    setPhase('done');
+    onDoneRef.current({ plan, supplied });
+  }, []);
+
   const borrowAlone = useCallback(
     async (plan: ILoanRunPlan, supplied: boolean) => {
       const controller = new AbortController();
@@ -417,9 +448,7 @@ export function useLoanRouterRun({
       abortRef.current = controller;
       try {
         if (await sendLoan(plan, controller.signal)) {
-          pendingPlanRef.current = undefined;
-          setPhase('done');
-          onDoneRef.current({ plan, supplied });
+          finish(plan, supplied);
           return;
         }
         pendingPlanRef.current = plan;
@@ -430,7 +459,7 @@ export function useLoanRouterRun({
         showError(error);
       }
     },
-    [sendLoan, showError],
+    [finish, sendLoan, showError],
   );
 
   const start = useCallback(
@@ -439,6 +468,7 @@ export function useLoanRouterRun({
         return;
       }
       const hasCollateral = new BigNumber(plan.collateralAmount).gt(0);
+      const hasLoan = new BigNumber(plan.borrowAmount).gt(0);
       const riskAccepted = await ensureRiskAccepted({
         provider: plan.route.market.provider,
         symbol: hasCollateral
@@ -467,19 +497,37 @@ export function useLoanRouterRun({
           return;
         }
         const supply = await supplyCollateral(plan, signal);
-        if (supply === 'rejected') {
+        const next = getLoanRunAfterSupply({ outcome: supply, hasLoan });
+        if (next === 'idle') {
           setPhase('idle');
           return;
         }
-        if (supply === 'pending') {
+        if (next === 'failed') {
+          pendingPlanRef.current = undefined;
+          setPhase('idle');
+          showTxFailed();
+          return;
+        }
+        if (next === 'done') {
+          finish(plan, true);
+          return;
+        }
+        if (next === 'borrowReady') {
           setPhase('borrowReady');
           return;
         }
         await borrowAlone(plan, true);
       } catch (error) {
         // Before the supply went out nothing changed; after it, the loan is
-        // what's left
-        setPhase(pendingPlanRef.current === plan ? 'borrowReady' : 'idle');
+        // what's left, and a supply alone is done
+        const isOut = pendingPlanRef.current === plan;
+        if (isOut && !hasLoan) {
+          if (!(error instanceof LoanRunStopped)) {
+            finish(plan, true);
+          }
+          return;
+        }
+        setPhase(isOut ? 'borrowReady' : 'idle');
         showError(error);
       }
     },
@@ -487,8 +535,10 @@ export function useLoanRouterRun({
       approveCollateral,
       borrowAlone,
       ensureRiskAccepted,
+      finish,
       phase,
       showError,
+      showTxFailed,
       supplyCollateral,
     ],
   );
