@@ -25,7 +25,16 @@ import { assertSafeBundleVersion } from './bundlePaths';
 // OneKey.json is frozen: do not add fields. Put new state in a dedicated store.
 // Keep existing preferences, encrypted data, and instance metadata here.
 // Native upgrades invalidate old bundles; disposable legacy state starts fresh.
-const store = new Store<IDesktopStoreMap>({ name: 'OneKey' });
+// This module loads before app.ts redirects userData for desktop E2E runs, so
+// isolated instances would otherwise share one store (and secure items).
+const e2eUserDataDir =
+  process.env.DESKTOP_E2E_MODE === 'true'
+    ? process.env.DESKTOP_E2E_USER_DATA_DIR
+    : undefined;
+const store = new Store<IDesktopStoreMap>({
+  name: 'OneKey',
+  ...(e2eUserDataDir ? { cwd: e2eUserDataDir } : {}),
+});
 const updateStateStore = new Store<IDesktopStoreMap>({
   name: 'OneKey-update-state',
   clearInvalidConfig: true,

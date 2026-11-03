@@ -33,6 +33,7 @@ import { CoreSDKLoader } from '@onekeyhq/shared/src/hardware/instance';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
+import { assertNoHardwareCloudSyncSigningRequest } from '@onekeyhq/shared/src/utils/hardwareCloudSyncGuards';
 import type { IDeriveContextHashKeyringParams } from '@onekeyhq/shared/types/ProviderApis/ProviderApiBtc.type';
 
 import { KeyringHardwareBase } from '../../base/KeyringHardwareBase';
@@ -466,6 +467,8 @@ export abstract class KeyringHardwareBtcBase extends KeyringHardwareBase {
   }
 
   async signMessage(params: ISignMessageParams): Promise<ISignedMessagePro> {
+    for (const { message } of params.messages as IUnsignedMessageBtc[])
+      assertNoHardwareCloudSyncSigningRequest(message);
     const network = await this.getNetwork();
     const coinName = await checkIsDefined(this.coreApi).getCoinName({
       network,
@@ -498,13 +501,15 @@ export abstract class KeyringHardwareBtcBase extends KeyringHardwareBase {
             }
           }
 
+          const messageHex = Buffer.from(message).toString('hex');
+          assertNoHardwareCloudSyncSigningRequest(messageHex, 'hex');
           const response = await sdk.btcSignMessage(connectId, deviceId, {
             ...params.deviceParams?.deviceCommonParams,
             path:
               receiveAddressPath ??
               `${dbAccount.path}/${dbAccount.relPath ?? '0/0'}`,
             coin: coinName,
-            messageHex: Buffer.from(message).toString('hex'),
+            messageHex,
             dAppSignType:
               !isFromDapp && dAppSignType === 'ecdsa'
                 ? undefined

@@ -1,0 +1,26 @@
+diff --git a/node_modules/@onekeyfe/hd-core/dist/index.js b/node_modules/@onekeyfe/hd-core/dist/index.js
+index 480d76a..39e84e2 100644
+--- a/node_modules/@onekeyfe/hd-core/dist/index.js
++++ b/node_modules/@onekeyfe/hd-core/dist/index.js
+@@ -2440,6 +2440,8 @@ const LogBlockEvent = new Set([
+ ]);
+ const LogPayloadBlockMethod = new Set([
+     'btcDeriveContextHash',
++    // OneKey patch: Cloud key signatures are secret key derivation material.
++    'btcSignMessage',
+     'deviceUploadNft',
+     'deviceUploadWallpaper',
+     'uploadPortfolio',
+diff --git a/node_modules/@onekeyfe/hd-core/src/events/logBlockEvent.ts b/node_modules/@onekeyfe/hd-core/src/events/logBlockEvent.ts
+index 81d63e4..7be7356 100644
+--- a/node_modules/@onekeyfe/hd-core/src/events/logBlockEvent.ts
++++ b/node_modules/@onekeyfe/hd-core/src/events/logBlockEvent.ts
+@@ -12,6 +12,8 @@ export const LogBlockEvent: Set<string> = new Set([
+ // or log events can retain them, regardless of whether debug output is enabled.
+ const LogPayloadBlockMethod: Set<string> = new Set([
+   'btcDeriveContextHash',
++  // OneKey patch: Cloud key signatures are secret key derivation material.
++  'btcSignMessage',
+   'deviceUploadNft',
+   'deviceUploadWallpaper',
+   'uploadPortfolio',
