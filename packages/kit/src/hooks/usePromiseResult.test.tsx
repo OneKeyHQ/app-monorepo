@@ -659,6 +659,50 @@ describe('usePromiseResult', () => {
       });
     };
 
+    it.each([false, true])(
+      'preserves one polling chain with immediate mount enabled=%s',
+      async (runImmediatelyOnMount) => {
+        const method = jest.fn(async () => 'ok');
+        const { unmount } = renderHook(() =>
+          usePromiseResult(method, [], {
+            pollingInterval: POLLING_MS,
+            runImmediatelyOnMount,
+          }),
+        );
+
+        expect(method).toHaveBeenCalledTimes(runImmediatelyOnMount ? 1 : 0);
+        await tick(0);
+        expect(method).toHaveBeenCalledTimes(1);
+        await tick(POLLING_MS);
+        expect(method).toHaveBeenCalledTimes(2);
+        await tick(POLLING_MS);
+        expect(method).toHaveBeenCalledTimes(3);
+        unmount();
+      },
+    );
+
+    it('keeps interval-change scheduling after an immediate mount', async () => {
+      const method = jest.fn(() => new Promise<string>(() => undefined));
+      const { rerender, unmount } = renderHook<
+        ReturnType<typeof usePromiseResult<string>>,
+        { pollingInterval: number }
+      >(
+        ({ pollingInterval }) =>
+          usePromiseResult(method, [], {
+            pollingInterval,
+            runImmediatelyOnMount: true,
+          }),
+        { initialProps: { pollingInterval: POLLING_MS } },
+      );
+      expect(method).toHaveBeenCalledTimes(1);
+      rerender({ pollingInterval: POLLING_MS * 2 });
+      await tick(POLLING_MS * 2 - 1);
+      expect(method).toHaveBeenCalledTimes(1);
+      await tick(1);
+      expect(method).toHaveBeenCalledTimes(2);
+      unmount();
+    });
+
     it('skips the next polling tick once setStopPolling(true) is called', async () => {
       const method = jest.fn(async () => 'ok');
 

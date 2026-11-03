@@ -153,6 +153,14 @@ jest.mock('./ErrorView', () => {
   };
 });
 
+it('resolves the connection error code from the executable WebView package', () => {
+  const { ERROR_CODE } = jest.requireActual<
+    typeof import('react-native-webview/src/WebViewShared')
+  >('react-native-webview/src/WebViewShared');
+
+  expect(ERROR_CODE.CONNECTION_FAILED).toBe(-1_001_000);
+});
+
 describe('NativeWebView loading timeout', () => {
   beforeEach(() => {
     jest.useFakeTimers();

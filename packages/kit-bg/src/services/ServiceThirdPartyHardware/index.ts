@@ -1,4 +1,6 @@
 import { isHardwareOperationId } from '@onekeyfe/hwk-adapter-core';
+import { HardwareErrorCode as ThirdPartyHwErrorCode } from '@onekeyfe/hwk-adapter-core/errors';
+import { UI_RESPONSE } from '@onekeyfe/hwk-adapter-core/ui-events';
 
 import {
   backgroundClass,
@@ -9,6 +11,7 @@ import { BTC_FIRST_TAPROOT_PATH } from '@onekeyhq/shared/src/consts/chainConsts'
 import { IMPL_BTC } from '@onekeyhq/shared/src/engine/engineConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ThirdPartyDeviceMismatch } from '@onekeyhq/shared/src/errors/errors/thirdPartyHardwareErrors';
+import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import { convertThirdPartyDeviceError } from '@onekeyhq/shared/src/errors/utils/thirdPartyDeviceErrorUtils';
 import {
   EAppEventBusNames,
@@ -20,6 +23,7 @@ import { getVendorProfile } from '@onekeyhq/shared/src/hardware/config/vendorPro
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
@@ -30,7 +34,10 @@ import {
 } from '@onekeyhq/shared/types/device';
 
 import localDb from '../../dbs/local/localDb';
-import { thirdPartyHardwareUiStateAtom } from '../../states/jotai/atoms';
+import {
+  EThirdPartyHardwareUiAction,
+  thirdPartyHardwareUiStateAtom,
+} from '../../states/jotai/atoms';
 import { pinKeystoneAccountKeys } from '../../vaults/base/keystoneAccountKeyUtils';
 import {
   thirdPartyCommonCallParamsForCreateScene,
@@ -60,7 +67,9 @@ import type {
   IDBIndexedAccount,
   IDBWallet,
 } from '../../dbs/local/types';
+import type { IThirdPartyHardwareUiState } from '../../states/jotai/atoms';
 import type {
+  IAccountDeriveTypes,
   IHwAllNetworkPrepareAccountsItem,
   IHwSdkNetwork,
 } from '../../vaults/types';
@@ -73,6 +82,7 @@ import type {
 import type { AllNetworkAddressParams, SearchDevice } from '@onekeyfe/hd-core';
 import type {
   BindBleDeviceParams,
+  DeviceInfo,
   ICommonCallParams,
 } from '@onekeyfe/hwk-adapter-core';
 
@@ -106,6 +116,10 @@ type IThirdPartyConnectDeviceParams = {
   vendor: EHardwareVendor;
   searchTargetId: string;
   deviceId?: string;
+};
+
+type IKeystoneOnboardingDevice = Omit<SearchDevice, 'commType'> & {
+  usbConnectId?: string;
 };
 
 type IThirdPartyAllNetworkGetAddressHw = {
@@ -186,6 +200,138 @@ function summarizeThirdPartySearchDevice(
 class ServiceThirdPartyHardware extends ServiceBase {
   constructor({ backgroundApi }: { backgroundApi: IBackgroundApi }) {
     super({ backgroundApi });
+  }
+
+  private keystoneQrRequestId: string | undefined;
+
+  /** UI callers only wake this bg-owned job; closing their bridge cannot discard its answer. */
+  @backgroundMethod()
+  async handleKeystoneQrRequest({ uiRequestId }: { uiRequestId: string }) {
+    const state = await thirdPartyHardwareUiStateAtom.get();
+    if (
+      !uiRequestId ||
+      state?.uiRequestId !== uiRequestId ||
+      state.vendor !== EHardwareVendor.keystone ||
+      (state.action !== EThirdPartyHardwareUiAction.requestKeystoneQrDisplay &&
+        state.action !== EThirdPartyHardwareUiAction.requestKeystoneQrScan)
+    ) {
+      return;
+    }
+    if (this.keystoneQrRequestId === uiRequestId) {
+      this.backgroundApi.serviceQrWallet.notifyLegacyAirGapScan({
+        owner: uiRequestId,
+      });
+      return;
+    }
+    this.keystoneQrRequestId = uiRequestId;
+    void this.runKeystoneQrRequest(state, uiRequestId)
+      .finally(() => {
+        if (this.keystoneQrRequestId === uiRequestId) {
+          this.keystoneQrRequestId = undefined;
+        }
+      })
+      .catch(() => {
+        defaultLogger.hardware.sdkLog.log(
+          'keystone-qr-request',
+          'Unable to settle the QR request',
+        );
+      });
+  }
+
+  private async runKeystoneQrRequest(
+    state: IThirdPartyHardwareUiState,
+    uiRequestId: string,
+  ) {
+    const { serviceQrWallet } = this.backgroundApi;
+    let stopped = false;
+    let scanPending = false;
+    const cancelIfReplaced = async () => {
+      const current = await thirdPartyHardwareUiStateAtom.get();
+      if (!stopped && current?.uiRequestId !== uiRequestId) {
+        stopped = true;
+        if (scanPending) {
+          await serviceQrWallet.cancelStageAirGapScan({ owner: uiRequestId });
+        }
+      }
+    };
+    const unsubscribe = thirdPartyHardwareUiStateAtom.sub(() => {
+      void cancelIfReplaced().catch(() => undefined);
+    });
+    const cancelParams = {
+      vendor: EHardwareVendor.keystone,
+      ...(state.operationId ? { connectId: state.operationId } : {}),
+    };
+    try {
+      await cancelIfReplaced();
+      if (stopped) return;
+      const accountExport = Boolean(state.payload?.allowAccountExport);
+      let answer: { type: string; cbor: string } | null;
+      try {
+        if (
+          state.action === EThirdPartyHardwareUiAction.requestKeystoneQrScan
+        ) {
+          scanPending = true;
+          answer = await serviceQrWallet.scanAirGap({ owner: uiRequestId });
+        } else if (state.payload?.urData) {
+          scanPending = true;
+          answer = await serviceQrWallet.startTwoWayAirGapScan(
+            { type: state.payload.urType ?? '', cbor: state.payload.urData },
+            {
+              owner: uiRequestId,
+              ...(accountExport
+                ? {
+                    notice: {
+                      key: ETranslations.keystone_account_export__desc,
+                    },
+                  }
+                : {}),
+            },
+          );
+        } else {
+          answer = null;
+        }
+      } catch (error) {
+        const className = (error as { className?: unknown } | undefined)
+          ?.className;
+        answer =
+          className === EOneKeyErrorClassNames.SecureQRCodeDialogCancel ||
+          className === EOneKeyErrorClassNames.OneKeyErrorScanQrCodeCancel
+            ? null
+            : { type: '', cbor: '' };
+      } finally {
+        scanPending = false;
+      }
+      if (stopped) return;
+      stopped = true;
+      if (
+        !(await this.clearThirdPartyHardwareUiStateIfCurrent({
+          expectedRequestId: uiRequestId,
+        }))
+      ) {
+        return;
+      }
+      if (!answer) {
+        await this.thirdPartyHardwareCancel(cancelParams);
+        return;
+      }
+      try {
+        await this.thirdPartyHardwareUiResponse({
+          vendor: EHardwareVendor.keystone,
+          response: {
+            type: UI_RESPONSE.RECEIVE_QR_RESPONSE,
+            payload: {
+              urType: answer.type,
+              urData: answer.cbor,
+              ...(accountExport ? { accountExport: true } : {}),
+            },
+          },
+        });
+      } catch {
+        await this.thirdPartyHardwareCancel(cancelParams);
+      }
+    } finally {
+      unsubscribe();
+    }
   }
 
   // Third-party hardware adapters — vendor → adapter via
@@ -433,19 +579,19 @@ class ServiceThirdPartyHardware extends ServiceBase {
     const device = await localDb.getDevice(dbDeviceId);
     const { vendor } = device;
     let identity: BindBleDeviceParams['identity'];
+    let fallbackIdentities: BindBleDeviceParams['fallbackIdentities'];
     if (vendor === EHardwareVendor.trezor && device.deviceId) {
       identity = { vendor, type: 'deviceId', value: device.deviceId };
     } else if (vendor === EHardwareVendor.ledger) {
       // A recorded fingerprint must match the picked device; without one the
-      // pick is bound as-is.
-      const chain = LEDGER_FINGERPRINT_CHAINS.find(
-        (candidate) => device.settings?.chainFingerprints?.[candidate],
-      );
-      const value = chain && device.settings?.chainFingerprints?.[chain];
-      identity =
-        chain && value
-          ? { vendor, type: 'chainFingerprint', chain, value }
-          : undefined;
+      // pick is bound as-is. Later chains are checked only when an earlier app is missing.
+      const recorded = LEDGER_FINGERPRINT_CHAINS.flatMap((chain) => {
+        const value = device.settings?.chainFingerprints?.[chain];
+        return value
+          ? [{ vendor, type: 'chainFingerprint' as const, chain, value }]
+          : [];
+      });
+      [identity, ...fallbackIdentities] = recorded;
     } else {
       throw new OneKeyLocalError({
         message: appLocale.intl.formatMessage({
@@ -461,10 +607,13 @@ class ServiceThirdPartyHardware extends ServiceBase {
         }),
       });
     }
-    const result = await adapter.hw.bindBleDevice({
-      identity,
-      extra: { dbDeviceId },
-    });
+    const bindBleDevice = adapter.hw.bindBleDevice.bind(adapter.hw);
+    const bind = () =>
+      bindBleDevice({ identity, fallbackIdentities, extra: { dbDeviceId } });
+    const result =
+      identity?.type === 'chainFingerprint' && adapter.runWalletMatchCheck
+        ? await adapter.runWalletMatchCheck(bind)
+        : await bind();
     if (!result.success) {
       throw convertThirdPartyDeviceError(result.payload, {
         vendor: getVendorProfile(vendor).presentation.defaultName || vendor,
@@ -947,9 +1096,10 @@ class ServiceThirdPartyHardware extends ServiceBase {
    * exists. BTC uses the account-level path, other chains the index-0 leaf
    * path, matching the vendor keyrings.
    */
-  private async buildThirdPartyDefaultNetworkBundle(): Promise<
-    IThirdPartyAllNetworkAddressParams[]
-  > {
+  private async buildKeystoneDefaultAccountPlan(): Promise<{
+    bundle: IThirdPartyAllNetworkAddressParams[];
+    networks: { networkId: string; deriveType: IAccountDeriveTypes }[];
+  }> {
     const networks = await buildAddAccountsNetworks({
       backgroundApi: this.backgroundApi,
       includingNetworkWithGlobalDeriveType: true,
@@ -986,7 +1136,7 @@ class ServiceThirdPartyHardware extends ServiceBase {
         showOnOneKey: false,
       });
     }
-    return normalizeThirdPartyAllNetworkBundle(bundle);
+    return { bundle: normalizeThirdPartyAllNetworkBundle(bundle), networks };
   }
 
   /**
@@ -998,7 +1148,7 @@ class ServiceThirdPartyHardware extends ServiceBase {
   async createKeystoneWalletWithDefaultAccounts(params: {
     usb?: {
       operationId: string;
-      device: Omit<SearchDevice, 'commType'>;
+      device: IKeystoneOnboardingDevice;
     };
   }): Promise<{
     wallet: IDBWallet;
@@ -1015,7 +1165,33 @@ class ServiceThirdPartyHardware extends ServiceBase {
     const hw = adapter.hw as unknown as IThirdPartyAllNetworkGetAddressHw;
     const { usb } = params;
 
-    const bundle = await this.buildThirdPartyDefaultNetworkBundle();
+    let usbDeviceInfo: DeviceInfo | undefined;
+    if (usb) {
+      const infoResult = await adapter.hw.getDeviceInfo(
+        usb.operationId,
+        usb.device.deviceId ?? '',
+      );
+      if (!infoResult.success) {
+        throw convertThirdPartyDeviceError(infoResult.payload, {
+          vendor: vendorName,
+        });
+      }
+      usbDeviceInfo = infoResult.payload;
+      if (
+        usbDeviceInfo.connectionType !== 'usb' ||
+        usbDeviceInfo.deviceId !== usb.device.deviceId
+      ) {
+        throw new ThirdPartyDeviceMismatch({
+          vendor: vendorName,
+          autoToast: true,
+          payload: {},
+        });
+      }
+    }
+    const { bundle, networks } = await this.buildKeystoneDefaultAccountPlan();
+    if (!bundle.length) {
+      throw new OneKeyLocalError('Keystone has no supported default accounts');
+    }
     const response = await hw.allNetworkGetAddress(
       usb?.operationId ?? '',
       usb?.device.deviceId ?? '',
@@ -1032,8 +1208,28 @@ class ServiceThirdPartyHardware extends ServiceBase {
         vendor: vendorName,
       });
     }
-    const items = normalizeAllNetworkInstallCancelErrors(response.payload);
-    const failedItem = items.find((item) => !item.success);
+    let items = normalizeAllNetworkInstallCancelErrors(response.payload);
+    const accountExport = items.some(
+      (item) => item.success && item.payload?.accountExport === true,
+    );
+    // Accounts the device did not export, or whose chain its QR firmware cannot use.
+    const isUnavailableItem = (item: (typeof items)[number]) => {
+      if (item.success) return false;
+      const code = Number(item.payload?.code);
+      const notExported =
+        accountExport &&
+        code === ThirdPartyHwErrorCode.DevicePathForbidden &&
+        item.payload?.params?.reason === 'account-not-exported';
+      const qrChainNotSupported =
+        !usb && code === ThirdPartyHwErrorCode.ChainNotSupported;
+      return notExported || qrChainNotSupported;
+    };
+    // With nothing to create, the first failure is the reason.
+    const hasCreatableItem = items.some((item) => item.success);
+    const failedItem = items.find(
+      (item) =>
+        !item.success && (!hasCreatableItem || !isUnavailableItem(item)),
+    );
     if (failedItem) {
       throw convertThirdPartyDeviceError(
         {
@@ -1043,6 +1239,28 @@ class ServiceThirdPartyHardware extends ServiceBase {
         },
         { vendor: vendorName },
       );
+    }
+    let bundleForCreation = bundle;
+    let networksForCreation = networks;
+    if (accountExport || items.some(isUnavailableItem)) {
+      // Unavailable accounts are skipped; real failures still reject above.
+      if (
+        items.length !== bundle.length ||
+        networks.length !== bundle.length ||
+        items.some(
+          (item, index) =>
+            item.network !== bundle[index].network ||
+            item.path !== bundle[index].path,
+        )
+      ) {
+        throw new OneKeyLocalError(
+          'Keystone response does not match the requested account plan',
+        );
+      }
+      const selected = items.map((item) => item.success);
+      bundleForCreation = bundle.filter((_, index) => selected[index]);
+      networksForCreation = networks.filter((_, index) => selected[index]);
+      items = items.filter((item) => item.success);
     }
     const walletIds = new Set(
       items.map((item) =>
@@ -1067,9 +1285,12 @@ class ServiceThirdPartyHardware extends ServiceBase {
       });
     }
 
-    let device: Omit<SearchDevice, 'commType'>;
-    if (usb) {
-      device = usb.device;
+    let device: IKeystoneOnboardingDevice;
+    if (usbDeviceInfo) {
+      device = {
+        ...mapThirdPartyDeviceToSearchDevice({ device: usbDeviceInfo }),
+        usbConnectId: usb?.device.usbConnectId,
+      };
     } else {
       const infoResult = await adapter.hw.getDeviceInfo(walletId, '');
       const info = infoResult.success ? infoResult.payload : undefined;
@@ -1135,7 +1356,8 @@ class ServiceThirdPartyHardware extends ServiceBase {
       });
     }
     const prepared = new HardwareAllNetworkGetAddressResponse();
-    prepared.bundleLength = bundle.length;
+    prepared.vendor = EHardwareVendor.keystone;
+    prepared.bundleLength = bundleForCreation.length;
     prepared.onSdkResponse({ items, completed: true });
     const index = created.indexedAccount
       ? accountUtils.parseIndexedAccountId({
@@ -1150,7 +1372,8 @@ class ServiceThirdPartyHardware extends ServiceBase {
           toIndex: index,
           excludedIndexes: {},
           saveToDb: true,
-          customNetworks: [],
+          includingDefaultNetworks: false,
+          customNetworks: networksForCreation,
           isCreateWallet: true,
           isAutoCreateMultiNetwork: true,
           // Account creation must succeed before the UI finalizes this wallet.
@@ -1258,6 +1481,47 @@ class ServiceThirdPartyHardware extends ServiceBase {
       ) => Promise<{ success: boolean; payload: unknown }>;
     };
     return hw.listInstalledApps(params.connectId);
+  }
+
+  // Dev-only probe for the Ledger Zcash app (viewing key + shielded address).
+  @backgroundMethod()
+  async thirdPartyHardwareZcashProbe(params: {
+    vendor: EHardwareVendor;
+    connectId: string;
+    path: string;
+    showOnDevice?: boolean;
+  }) {
+    if (!platformEnv.isDev) {
+      throw new OneKeyLocalError(
+        'Zcash diagnostics are only available in development',
+      );
+    }
+    await this.ensureAdaptersInitialized(params.vendor);
+    const adapter = this.getThirdPartyAdapter(params.vendor);
+    if (!adapter) {
+      throw createThirdPartyAdapterNotRegisteredError(params.vendor);
+    }
+    const hw = adapter.hw as unknown as {
+      zcashGetFullViewingKey: (
+        connectId: string,
+        deviceId: string | null,
+        params: { path: string },
+      ) => Promise<{ success: boolean; payload: unknown }>;
+      zcashGetShieldedAddress: (
+        connectId: string,
+        deviceId: string | null,
+        params: { path: string; showOnDevice?: boolean },
+      ) => Promise<{ success: boolean; payload: unknown }>;
+    };
+    const viewingKey = await hw.zcashGetFullViewingKey(params.connectId, null, {
+      path: params.path,
+    });
+    const shieldedAddress = await hw.zcashGetShieldedAddress(
+      params.connectId,
+      null,
+      { path: params.path, showOnDevice: params.showOnDevice },
+    );
+    return { viewingKey, shieldedAddress };
   }
 
   @backgroundMethod()

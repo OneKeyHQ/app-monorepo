@@ -89,6 +89,7 @@ export const OnboardingTestIDs = {
 
   // iCloud backup details
   iCloudBackupDetailsPage: 'onboarding-icloud-backup-details-page',
+  iCloudBackupDetailsRetryBtn: 'onboarding-icloud-backup-details-retry-btn',
   iCloudBackupDetailsBackupNowBtn:
     'onboarding-icloud-backup-details-backup-now-btn',
   iCloudBackupDetailsSettingsBtn:

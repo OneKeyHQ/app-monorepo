@@ -17,7 +17,6 @@ import { useHyperliquidActions } from '@onekeyhq/kit/src/states/jotai/contexts/h
 import {
   usePerpsActiveOpenOrdersAtom,
   usePerpsActivePositionAtom,
-  usePerpsActiveTwapOrdersAtom,
   useTradeRouteViewStateAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/atoms';
 import {
@@ -35,6 +34,7 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { isSpotInstrument } from '@onekeyhq/shared/src/utils/perpsUtils';
 
+import { usePerpsAccountScopedActiveTwapOrders } from '../../hooks/usePerpsAccountScopedActiveTwapOrders';
 import { usePerpsAccountScopedCacheAddress } from '../../hooks/usePerpsAccountScopedCacheAddress';
 import { useShowUnifoldDepositTracker } from '../../hooks/useShowDepositWithdrawModal';
 import { useTradeHistoryFilters } from '../../hooks/useTradeHistoryFilters';
@@ -135,8 +135,9 @@ function TabBarItem({
   const [perpOpenOrdersState] = usePerpsActiveOpenOrdersAtom();
   const [spotOpenOrdersState] = useSpotActiveOpenOrdersAtom();
   const [positionsState] = usePerpsActivePositionAtom();
-  const [twapOrdersState] = usePerpsActiveTwapOrdersAtom();
   const accountScopedAddress = usePerpsAccountScopedCacheAddress();
+  const { twapOrders } =
+    usePerpsAccountScopedActiveTwapOrders(accountScopedAddress);
   const currentAccountAddress = accountScopedAddress;
   const positionsLength = getPerpsAccountScopedListData({
     activeAccountAddress: currentAccountAddress,
@@ -156,11 +157,7 @@ function TabBarItem({
       dataAccountAddress: spotOpenOrdersState.accountAddress,
       data: spotOpenOrdersState.openOrders,
     }).length;
-  const twapOrdersLength = getPerpsAccountScopedListData({
-    activeAccountAddress: currentAccountAddress,
-    dataAccountAddress: twapOrdersState.accountAddress,
-    data: twapOrdersState.twapOrders,
-  }).length;
+  const twapOrdersLength = twapOrders.length;
 
   const tabCount = useMemo(() => {
     if (name === 'Trades History') {

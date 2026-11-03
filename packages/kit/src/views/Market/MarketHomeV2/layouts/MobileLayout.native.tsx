@@ -27,6 +27,7 @@ import {
   useThemeName,
 } from '@onekeyhq/components';
 import { TabBar } from '@onekeyhq/components/src/composite/TabBar';
+import { BRAND_FONT_NATIVE_FAMILY } from '@onekeyhq/components/src/hocs/Provider/fonts/brandFont';
 import { useTabBarHeight } from '@onekeyhq/components/src/layouts/Page/hooks';
 import type { IAppPagerRef } from '@onekeyhq/kit/src/components/AppPager/types';
 import { useAppPagerController } from '@onekeyhq/kit/src/components/AppPager/useAppPagerController';
@@ -52,7 +53,7 @@ import {
 import { useSyncedMarketPerpsCategory } from '../components/MarketPerpsList/hooks/useSyncedMarketPerpsCategory';
 import { MarketPerpsCategorySelector } from '../components/MarketPerpsList/MarketPerpsCategorySelector';
 import {
-  type IMarketWatchlistDataCache,
+  marketWatchlistDataCacheRef,
   useIsWatchlistTokenCacheReady,
 } from '../components/MarketTokenList/hooks/useMarketWatchlistTokenList';
 import { MarketStockCategorySelector } from '../components/MarketTokenList/MarketStockCategorySelector';
@@ -337,17 +338,29 @@ function MarketHomeTabBar({
           position="relative"
         >
           {showWatchlistSubHeader ? (
-            <YStack height="100%" bg="$bgApp" justifyContent="flex-end">
+            <YStack
+              height="100%"
+              bg={scrollEdgeEnabled ? undefined : '$bgApp'}
+              justifyContent="flex-end"
+            >
               {renderWatchlistSubHeaderContent()}
             </YStack>
           ) : null}
           {showSpotSubHeader ? (
-            <YStack height="100%" bg="$bgApp" justifyContent="flex-end">
+            <YStack
+              height="100%"
+              bg={scrollEdgeEnabled ? undefined : '$bgApp'}
+              justifyContent="flex-end"
+            >
               {renderSpotSubHeaderContent()}
             </YStack>
           ) : null}
           {showPerpsSubHeader ? (
-            <YStack height="100%" bg="$bgApp" justifyContent="flex-end">
+            <YStack
+              height="100%"
+              bg={scrollEdgeEnabled ? undefined : '$bgApp'}
+              justifyContent="flex-end"
+            >
               {renderPerpsSubHeaderContent()}
             </YStack>
           ) : null}
@@ -401,9 +414,6 @@ function MobileLayoutComponent({
   );
   const pagerRef = useRef<CollapsiblePagerView>(null);
   // Keep successful data when the pager unmounts a distant page.
-  const watchlistDataCacheRef = useRef<IMarketWatchlistDataCache | undefined>(
-    undefined,
-  );
   const topCoinsDataCacheRef = useRef<IMarketTopCoinsDataCache | undefined>(
     undefined,
   );
@@ -484,7 +494,7 @@ function MobileLayoutComponent({
               contentPaddingHorizontal: 12,
               itemSpacing: 8,
               fontSize: 16,
-              fontFamily: 'Roobert-Medium',
+              fontFamily: BRAND_FONT_NATIVE_FAMILY.medium,
               backgroundColor: scrollEdgeEnabled
                 ? 'transparent'
                 : theme.bgApp.val,
@@ -664,8 +674,10 @@ function MobileLayoutComponent({
   useImperativeHandle(
     resolvedTabsRef,
     () => ({
-      jumpToTab: (tabName: string) => jumpToTab(tabName, true),
-      setIndex: (index: number) => setPagerIndex(index, true),
+      jumpToTab: (tabName: string) =>
+        jumpToTab(tabName, platformEnv.isNativeIOS ? undefined : true),
+      setIndex: (index: number) =>
+        setPagerIndex(index, platformEnv.isNativeIOS ? undefined : true),
       getFocusedTab: getFocusedTab,
       getCurrentIndex: getCurrentIndex,
       syncCurrentPage: () => {
@@ -809,9 +821,8 @@ function MobileLayoutComponent({
       : 0;
   const listContainerProps = useMemo(
     () => ({
-      emptyContentPaddingTop:
-        16 +
-        (platformEnv.isNativeAndroid ? headerHeight + stickyHeaderHeight : 0),
+      // The native pager already offsets the empty ScrollView below its headers.
+      emptyContentPaddingTop: 16,
       paddingBottom: contentPaddingBottom,
       emptyContentHeight: Math.max(
         0,
@@ -953,7 +964,7 @@ function MobileLayoutComponent({
           {showWatchlistTab ? (
             <YStack key="watchlist" flex={1} bg="$bgApp">
               <MobileMarketNativeWatchlist
-                dataCacheRef={watchlistDataCacheRef}
+                dataCacheRef={marketWatchlistDataCacheRef}
                 selectedFilter={watchlistFilter}
                 listContainerProps={listContainerProps}
                 shouldSuppressItemPress={shouldSuppressItemPress}

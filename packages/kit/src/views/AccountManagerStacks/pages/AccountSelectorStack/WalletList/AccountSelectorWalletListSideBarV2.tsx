@@ -10,7 +10,7 @@ import {
 } from '@onekeyfe/react-native-native-list';
 import { debounce, noop } from 'lodash';
 import { useIntl } from 'react-intl';
-import { StyleSheet, type View } from 'react-native';
+import { StyleSheet } from 'react-native';
 
 import {
   Page,
@@ -65,6 +65,7 @@ import {
 } from './walletListUtils';
 
 import type { IAccountSelectorWalletInfo } from '../../../type';
+import type { ViewInstance } from 'react-native';
 
 interface IWalletListProps {
   num: number;
@@ -310,7 +311,7 @@ export function AccountSelectorWalletListSideBarV2({
   const { md } = useMedia();
   const listRef = useRef<NativeListRef | null>(null);
   const didInitialScrollRef = useRef(false);
-  const containerRef = useRef<View>(null);
+  const containerRef = useRef<ViewInstance>(null);
   const tooltipTokenRef = useRef<string | undefined>(undefined);
   const [walletTooltip, setWalletTooltip] = useState<{
     anchor: NativeListActionAnchor;

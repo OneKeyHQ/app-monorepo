@@ -5,6 +5,7 @@ import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { onHomePageRefresh } from '../components/PullToRefresh';
+import { debugHomeVisual } from '../pages/homeVisualTrace';
 
 import type { NativeScrollEvent, NativeSyntheticEvent } from 'react-native';
 
@@ -14,10 +15,12 @@ export function useHomeNativeRefresh(refresh?: () => void) {
   useEffect(() => () => clearTimeout(timer.current), []);
   const onRefresh = useCallback(() => {
     if (timer.current !== undefined) return;
+    debugHomeVisual('refresh-trigger', { threshold: 65 });
     setRefreshing(true);
     timer.current = setTimeout(() => {
       timer.current = undefined;
       setRefreshing(false);
+      debugHomeVisual('refresh-reset', { elapsedMs: 1200 });
     }, 1200);
     Haptics.impact(ImpactFeedbackStyle.Medium);
     (refresh ?? onHomePageRefresh)();
@@ -44,7 +47,12 @@ export function useHomeNativeRefresh(refresh?: () => void) {
     (event: NativeSyntheticEvent<NativeScrollEvent>) => {
       onScroll(event);
       dragging.current = false;
-      if (platformEnv.isNativeIOS && minOverscroll.current <= -65) onRefresh();
+      if (platformEnv.isNativeIOS && minOverscroll.current <= -65) {
+        debugHomeVisual('refresh-pull-release', {
+          deepestOverscroll: -minOverscroll.current,
+        });
+        onRefresh();
+      }
       minOverscroll.current = 0;
     },
     [onRefresh, onScroll],

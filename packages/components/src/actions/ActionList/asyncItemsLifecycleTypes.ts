@@ -1,9 +1,9 @@
 import type { ReactNode, RefObject } from 'react';
 
-import type { SheetProps } from '../../shared/tamagui';
+import type { ISheetOptions } from '../../hocs/NativeSheetPresentation/types';
 
 export type IActionListRenderItemsParams = {
-  handleActionListClose: () => void;
+  handleActionListClose: () => void | Promise<void>;
   handleActionListOpen: () => void;
 };
 
@@ -18,15 +18,16 @@ export type IResolvedAsyncItems = {
 
 export type IUseAsyncItemsLifecycleProps = {
   isOpen: boolean;
-  nativeSheet?: boolean;
+  /** The list presents as an overlay sheet (native). */
+  sheetPresentation?: boolean;
   renderItemsAsync?: IActionListRenderItemsAsync;
-  handleActionListCloseRef: RefObject<() => void>;
+  handleActionListCloseRef: RefObject<() => void | Promise<void>>;
   handleActionListOpenRef: RefObject<() => void>;
-  sheetProps?: SheetProps;
+  sheetProps?: ISheetOptions;
 };
 
 export type IUseAsyncItemsLifecycleResult = {
   asyncItems?: IResolvedAsyncItems;
   handleAsyncItemsOpenChange: (openStatus: boolean) => void;
-  resolvedSheetProps?: SheetProps;
+  resolvedSheetProps?: ISheetOptions;
 };

@@ -1,5 +1,6 @@
 import type { IModalFlowNavigatorConfig } from '@onekeyhq/components/src/layouts/Navigation/Navigator';
 import { LazyLoadPage } from '@onekeyhq/kit/src/components/LazyLoadPage';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type {
   EModalAddressBookRoutes,
   IModalAddressBookParamList,
@@ -56,6 +57,16 @@ const SettingDAppConnectionListModal = LazyLoadPage(
 
 const FloatingIconModal = LazyLoadPage(
   () => import('@onekeyhq/kit/src/views/Setting/pages/FloatingIcon'),
+);
+
+const PrivacySettings = LazyLoadPage(() => import('../pages/Privacy'));
+const PrivacyNetworkSettings = LazyLoadPage(
+  () => import('../pages/PrivacyNetwork'),
+);
+
+const DevZcashRuntime = LazyLoadPage(
+  () =>
+    import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/ZcashWasmGallery'),
 );
 
 const FirmwareUpdateDevSettings = LazyLoadPage(
@@ -303,30 +314,34 @@ export const BasicModalSettingStack: IModalFlowNavigatorConfig<
     name: EModalSettingRoutes.SettingDevSniRequestQa,
     component: SniRequestQa,
   },
-  {
-    name: EModalSettingRoutes.SettingDevPerpGalleryModal,
-    component: PerpGallery,
-  },
-  {
-    name: EModalSettingRoutes.SettingDevCryptoGalleryModal,
-    component: CryptoGallery,
-  },
-  {
-    name: EModalSettingRoutes.SettingDevCloudBackupGalleryModal,
-    component: CloudBackupGallery,
-  },
-  {
-    name: EModalSettingRoutes.SettingDevAuthGalleryModal,
-    component: AuthGallery,
-  },
-  {
-    name: EModalSettingRoutes.SettingDevKeylessWalletGallery,
-    component: KeylessWalletGallery,
-  },
-  {
-    name: EModalSettingRoutes.SettingDevStorageGalleryModal,
-    component: StorageGallery,
-  },
+  ...(process.env.NODE_ENV !== 'production' && platformEnv.isDev
+    ? [
+        {
+          name: EModalSettingRoutes.SettingDevPerpGalleryModal,
+          component: PerpGallery,
+        },
+        {
+          name: EModalSettingRoutes.SettingDevCryptoGalleryModal,
+          component: CryptoGallery,
+        },
+        {
+          name: EModalSettingRoutes.SettingDevCloudBackupGalleryModal,
+          component: CloudBackupGallery,
+        },
+        {
+          name: EModalSettingRoutes.SettingDevAuthGalleryModal,
+          component: AuthGallery,
+        },
+        {
+          name: EModalSettingRoutes.SettingDevKeylessWalletGallery,
+          component: KeylessWalletGallery,
+        },
+        {
+          name: EModalSettingRoutes.SettingDevStorageGalleryModal,
+          component: StorageGallery,
+        },
+      ]
+    : []),
   {
     name: EModalSettingRoutes.SettingDevLocalSecretEnvelopeSelfTestModal,
     component: LocalSecretEnvelopeSelfTest,
@@ -358,6 +373,18 @@ export const BasicModalSettingStack: IModalFlowNavigatorConfig<
   {
     name: EModalSettingRoutes.SettingFloatingIconModal,
     component: FloatingIconModal,
+  },
+  {
+    name: EModalSettingRoutes.SettingPrivacy,
+    component: PrivacySettings,
+  },
+  {
+    name: EModalSettingRoutes.SettingPrivacyNetwork,
+    component: PrivacyNetworkSettings,
+  },
+  {
+    name: EModalSettingRoutes.SettingDevZcashRuntimeModal,
+    component: DevZcashRuntime,
   },
   // OneKey ID sub-pages
   {

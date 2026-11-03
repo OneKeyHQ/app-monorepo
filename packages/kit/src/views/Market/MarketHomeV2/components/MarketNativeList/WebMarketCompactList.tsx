@@ -34,6 +34,8 @@ type ICompactHelp = {
   anchor: NativeListActionAnchor;
   text: string;
   community: boolean;
+  left: number;
+  top: number;
 };
 
 function WebCompactEndObserver({
@@ -355,7 +357,16 @@ export function WebMarketCompactList<T>({
         token: event.anchor.token,
         open: true,
       });
-      setHelp({ anchor: event.anchor, text, community });
+      // The pager and scroll host are transformed, which turns them into
+      // the containing block of `position: fixed`; anchor relative to root.
+      const rootRect = rootRef.current?.getBoundingClientRect();
+      setHelp({
+        anchor: event.anchor,
+        text,
+        community,
+        left: event.anchor.windowRect.x - (rootRect?.left ?? 0),
+        top: event.anchor.windowRect.y - (rootRect?.top ?? 0),
+      });
     },
     [rows, data, onPress, onPressIn, onLongPress, intl],
   );
@@ -399,9 +410,9 @@ export function WebMarketCompactList<T>({
         />
         {help ? (
           <Stack
-            position="fixed"
-            left={help.anchor.windowRect.x}
-            top={help.anchor.windowRect.y}
+            position="absolute"
+            left={help.left}
+            top={help.top}
             width={help.anchor.windowRect.width}
             height={help.anchor.windowRect.height}
             pointerEvents="none"

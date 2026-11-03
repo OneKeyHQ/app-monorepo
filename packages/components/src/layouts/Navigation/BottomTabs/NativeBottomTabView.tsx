@@ -2,17 +2,19 @@
 import { useCallback, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
 
-import TabView from '@onekeyfe/react-native-tab-view';
+import BottomTabs from '@onekeyfe/react-native-bottom-tabs';
 import {
   CommonActions,
   type ParamListBase,
   type Route,
   type TabNavigationState,
 } from '@react-navigation/native';
-import { Platform, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import { useSafeAreaInsets } from '../../../hooks/useLayout';
 import { Spinner, Stack } from '../../../primitives';
 
 import { TabSceneContext } from './TabSceneContext';
@@ -33,9 +35,12 @@ const styles = StyleSheet.create({
   scene: {
     flex: 1,
   },
-  androidHiddenTabBarScene: {
+  hiddenTabBarScene: {
     width: '100%',
     height: '100%',
+  },
+  sceneContent: {
+    flex: 1,
   },
   activationSignal: {
     position: 'absolute',
@@ -62,6 +67,22 @@ function SceneLoadingView() {
       <Spinner size="large" />
     </Stack>
   );
+}
+
+// iPhone Duo places the status bar, camera and vertical tab bar in a side
+// strip and reports it as a horizontal safe area inset. Tab pages only handle
+// top/bottom insets, so keep their content out of that strip here. Regular
+// iPhones are portrait-locked, where these insets are always 0.
+const shouldApplyHorizontalSafeArea =
+  platformEnv.isNativeIOS && !platformEnv.isNativeIOSPad;
+
+function HorizontalSafeAreaSceneContent({ children }: { children: ReactNode }) {
+  const { left, right } = useSafeAreaInsets();
+  const style = useMemo(
+    () => [styles.sceneContent, { paddingLeft: left, paddingRight: right }],
+    [left, right],
+  );
+  return <View style={style}>{children}</View>;
 }
 
 function SceneWithActivationPlaceholder({
@@ -97,7 +118,13 @@ function SceneWithActivationPlaceholder({
   return (
     <View style={styles.scene}>
       <TabSceneContext.Provider value={sceneInfo}>
-        {children}
+        {shouldApplyHorizontalSafeArea ? (
+          <HorizontalSafeAreaSceneContent>
+            {children}
+          </HorizontalSafeAreaSceneContent>
+        ) : (
+          children
+        )}
       </TabSceneContext.Provider>
       {/* A preloaded scene is laid out while still blurred, so let every
           scene that has not been activated yet raise the signal. Gating this
@@ -247,24 +274,21 @@ export function NativeBottomTabView({
   const getSceneStyle = useCallback(
     ({ route }: { route: Route<string> }) => [
       descriptors[route.key]?.options.sceneStyle,
-      // Android can report the old scene height once after its native tab bar
-      // becomes GONE. Fill the expanded holder immediately so a screen pushed
-      // during that frame does not inherit the stale tab-bar viewport.
-      Platform.OS === 'android' && tabBarHidden
-        ? styles.androidHiddenTabBarScene
-        : undefined,
+      // Hidden-tab scenes follow the native holder through bar changes and
+      // rotation without waiting for JS to receive its new dimensions.
+      tabBarHidden ? styles.hiddenTabBarScene : undefined,
     ],
     [descriptors, tabBarHidden],
   );
-  const onTabLongPress = useCallback(
+  const onTabDoublePress = useCallback(
     (index: number) => {
       const route = state.routes[index];
       if (!route) {
-        return false;
+        return;
       }
 
       navigation.emit({
-        type: 'tabLongPress',
+        type: 'tabDoublePress',
         target: route.key,
       });
     },
@@ -311,7 +335,7 @@ export function NativeBottomTabView({
   );
 
   return (
-    <TabView
+    <BottomTabs
       {...rest}
       tabBarHidden={tabBarHidden}
       navigationState={state}
@@ -330,7 +354,7 @@ export function NativeBottomTabView({
       getLazy={getLazy}
       getFreezeOnBlur={getFreezeOnBlur}
       getSceneStyle={getSceneStyle}
-      onTabLongPress={onTabLongPress}
+      onTabDoublePress={onTabDoublePress}
       getPreventsDefault={getPreventsDefault}
       onIndexChange={onIndexChange}
     />

@@ -14,10 +14,7 @@ import { localizeTradingViewNativeIndicatorSettingsValue } from './indicatorSett
 
 import type { IIndicatorSettingsIntl } from './indicatorSettingsLocalization';
 import type { ITradingViewNativeAnyIndicator } from './utils/chartIndicators';
-
-// Full mode matches the chart settings dialog (`$160`, 640px); focused mode
-// fills its sheet.
-const TRADING_VIEW_NATIVE_INDICATOR_SETTINGS_DIALOG_WIDTH = '$160';
+import type { ITradingViewSettingsDialogRef } from '../TradingViewChartControls/chartSettings/TradingViewSettingsDialog';
 
 export function showTradingViewNativeIndicatorSettingsDialog({
   displayMode = 'full',
@@ -42,68 +39,55 @@ export function showTradingViewNativeIndicatorSettingsDialog({
   };
   const closeDialog = () => dialogInstanceRef.current?.close();
 
-  const dialogInstance = Dialog.show({
-    title: isFocused
-      ? value.indicators.find(
-          (indicator) => indicator.id === initialIndicatorId,
-        )?.title
-      : undefined,
-    showHeader: isFocused,
-    showFooter: false,
-    testID: 'trading-view-native-indicator-settings-dialog',
-    onOpenAutoFocus: (event) => {
-      const container = event.currentTarget;
-      if (
-        typeof HTMLElement !== 'undefined' &&
-        container instanceof HTMLElement
-      ) {
-        event.preventDefault();
-        container.tabIndex = -1;
-        container.focus({ preventScroll: true });
+  const renderContent = (dialogRef?: ITradingViewSettingsDialogRef) => (
+    <TradingViewIndicatorSettings
+      dialogRef={dialogRef}
+      displayMode={displayMode}
+      mobileLayout={isFocused}
+      initialIndicatorId={initialIndicatorId}
+      value={value}
+      createDefaultValue={() =>
+        localizeTradingViewNativeIndicatorSettingsValue(
+          createTradingViewNativeIndicatorSettingsValue(),
+          intl,
+        )
       }
-    },
-    contentContainerProps: isFocused ? undefined : { p: '$0' },
-    floatingPanelProps: {
-      width: isFocused
-        ? '100%'
-        : TRADING_VIEW_NATIVE_INDICATOR_SETTINGS_DIALOG_WIDTH,
-      maxWidth: isFocused
-        ? '100%'
-        : TRADING_VIEW_NATIVE_INDICATOR_SETTINGS_DIALOG_WIDTH,
-      ...(isFocused
-        ? {}
-        : {
-            overflow: 'visible',
-            borderRadius: 0,
-            outlineWidth: 0,
-            bg: 'transparent',
-          }),
-    },
-    renderContent: (
-      <TradingViewIndicatorSettings
-        displayMode={displayMode}
-        mobileLayout={isFocused}
-        initialIndicatorId={initialIndicatorId}
-        value={value}
-        createDefaultValue={() =>
-          localizeTradingViewNativeIndicatorSettingsValue(
-            createTradingViewNativeIndicatorSettingsValue(),
-            intl,
-          )
+      maxActiveSubIndicatorCount={null}
+      onClose={() => {
+        void closeDialog();
+      }}
+      onConfirm={async (nextValue) => {
+        await onConfirm(getTradingViewNativeIndicatorSettings(nextValue));
+      }}
+      onConfirmSuccess={async () => {
+        await closeDialog();
+      }}
+    />
+  );
+  const dialogInstance = Dialog.show(
+    isFocused
+      ? {
+          title: value.indicators.find(
+            (indicator) => indicator.id === initialIndicatorId,
+          )?.title,
+          showFooter: false,
+          testID: 'trading-view-native-indicator-settings-dialog',
+          floatingPanelProps: { width: '100%', maxWidth: '100%' },
+          onOpenAutoFocus: (event) => {
+            const container = event.currentTarget;
+            if (
+              typeof HTMLElement !== 'undefined' &&
+              container instanceof HTMLElement
+            ) {
+              event.preventDefault();
+              container.tabIndex = -1;
+              container.focus({ preventScroll: true });
+            }
+          },
+          renderContent: renderContent(),
         }
-        maxActiveSubIndicatorCount={null}
-        onClose={() => {
-          void closeDialog();
-        }}
-        onConfirm={async (nextValue) => {
-          await onConfirm(getTradingViewNativeIndicatorSettings(nextValue));
-        }}
-        onConfirmSuccess={async () => {
-          await closeDialog();
-        }}
-      />
-    ),
-  });
+      : { dialogContainer: ({ ref }) => renderContent(ref) },
+  );
   dialogInstanceRef.current = dialogInstance;
 
   return dialogInstance;

@@ -92,6 +92,46 @@ export function resolveSwapProAccountIdentity({
   };
 }
 
+export function getSwapProPositionsAccountScope({
+  indexedAccountId,
+  accountId,
+  activeAccount,
+  selectedDeriveType,
+}: {
+  indexedAccountId?: string;
+  accountId?: string;
+  selectedDeriveType?: string;
+  activeAccount: {
+    ready?: boolean;
+    deriveType?: string;
+    indexedAccount?: { id: string };
+    account?: { id: string; address?: string };
+    dbAccount?: { id: string };
+    network?: { id: string };
+  };
+}) {
+  const activeDeriveType = activeAccount.deriveType ?? 'default';
+  const matchesAccount = indexedAccountId
+    ? indexedAccountId === activeAccount.indexedAccount?.id
+    : Boolean(
+        accountId &&
+        (accountId === activeAccount.account?.id ||
+          accountId === activeAccount.dbAccount?.id),
+      );
+  if (
+    !activeAccount.ready ||
+    !matchesAccount ||
+    (selectedDeriveType && selectedDeriveType !== activeDeriveType)
+  )
+    return undefined;
+  return JSON.stringify([
+    activeAccount.network?.id,
+    activeDeriveType,
+    activeAccount.account?.id,
+    activeAccount.account?.address,
+  ]);
+}
+
 export function resolveSwapProAccountStatus({
   hasConnectedAccount,
   accountScope,

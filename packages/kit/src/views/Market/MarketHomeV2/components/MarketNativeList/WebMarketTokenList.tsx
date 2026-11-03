@@ -241,6 +241,8 @@ export function WebMarketTokenList({
     anchor: NativeListActionAnchor;
     actionKey: string;
     rowKey: string;
+    left: number;
+    top: number;
   }>();
   const stockPresentation = stockRows !== undefined;
   const webColumns = useMemo<WebMarketTableColumn[]>(
@@ -1207,10 +1209,15 @@ export function WebMarketTokenList({
           token: event.anchor.token,
           open: true,
         });
+        // The pager and scroll host are transformed, which turns them into
+        // the containing block of `position: fixed`; anchor relative to root.
+        const rootRect = rootRef.current?.getBoundingClientRect();
         setTooltip({
           anchor: event.anchor,
           actionKey: event.actionKey,
           rowKey: item.id,
+          left: event.anchor.windowRect.x - (rootRect?.left ?? 0),
+          top: event.anchor.windowRect.y - (rootRect?.top ?? 0),
         });
         return;
       }
@@ -1399,9 +1406,9 @@ export function WebMarketTokenList({
       />
       {tooltip ? (
         <Stack
-          position="fixed"
-          left={tooltip.anchor.windowRect.x}
-          top={tooltip.anchor.windowRect.y}
+          position="absolute"
+          left={tooltip.left}
+          top={tooltip.top}
           width={tooltip.anchor.windowRect.width}
           height={tooltip.anchor.windowRect.height}
           pointerEvents="none"

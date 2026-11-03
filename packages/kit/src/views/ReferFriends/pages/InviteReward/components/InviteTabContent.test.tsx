@@ -30,16 +30,22 @@ let mockMd = false;
 
 jest.mock('@onekeyhq/components', () => {
   const React = jest.requireActual<typeof import('react')>('react');
+  // description and renderTrigger are the visible slots of Empty and
+  // Popover. The mock has to paint them or those surfaces disappear.
   const createComponent = (): unknown =>
     new Proxy(
       ({
         children,
         testID,
         onPress,
+        renderTrigger,
+        description,
       }: {
         children?: ReactNode;
         testID?: string;
         onPress?: (e: { stopPropagation: () => void }) => void;
+        renderTrigger?: ReactNode;
+        description?: ReactNode;
       }) =>
         React.createElement(
           'div',
@@ -49,6 +55,8 @@ jest.mock('@onekeyhq/components', () => {
               ? (e: { stopPropagation: () => void }) => onPress(e)
               : undefined,
           },
+          description,
+          renderTrigger,
           children,
         ),
       {
@@ -113,15 +121,17 @@ jest.mock('@onekeyhq/kit/src/components/ListItem', () => ({
     subtitle,
     children,
     onPress,
+    renderItemText,
   }: {
     testID?: string;
     title?: string;
     subtitle?: ReactNode;
     children?: ReactNode;
     onPress?: () => void;
+    renderItemText?: ReactNode;
   }) => (
     <button type="button" data-testid={testID} onClick={onPress}>
-      {title}
+      {renderItemText ?? title}
       {subtitle}
       {children}
     </button>
@@ -424,7 +434,55 @@ describe('InviteTabContent entry points', () => {
     } as unknown as IInviteSummary);
 
     expect(screen.queryByText(ETranslations.perps_perps)).toBeNull();
+    expect(screen.queryByText(ETranslations.global_learn_more)).toBeNull();
   });
+
+  it.each([false, true])(
+    'shows server reward scope without opening the product (compact: %s)',
+    (md) => {
+      mockMd = md;
+      renderTab({
+        ...SUMMARY,
+        rewardScopes: [
+          { subject: 'Swap', description: 'Swap providers' },
+          { subject: 'Earn', description: 'DeFi venues' },
+        ],
+      } as IInviteSummary);
+
+      expect(
+        screen.getByTestId(`info-${ETranslations.global_swap}`),
+      ).toBeTruthy();
+      expect(
+        screen.getByTestId(`info-${ETranslations.referral_referred_type_2}`),
+      ).toBeTruthy();
+
+      fireEvent.click(screen.getByTestId(`info-${ETranslations.global_swap}`));
+      expect(mockNavigateToSwapReward).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each([false, true])(
+    'offers reward scope from the empty earnings card (compact: %s)',
+    (md) => {
+      mockMd = md;
+      renderTab({
+        ...SUMMARY,
+        rewardScopes: [
+          { subject: 'Swap', description: 'Swap providers' },
+          { subject: 'Earn', description: 'DeFi venues' },
+        ],
+        HardwareSales: { ...SUMMARY.HardwareSales, available: [], pending: [] },
+        Perp: { ...SUMMARY.Perp, available: [] },
+        Onchain: { ...SUMMARY.Onchain, available: [], swap: [] },
+      } as IInviteSummary);
+
+      expect(screen.getByText(ETranslations.global_learn_more)).toBeTruthy();
+      expect(screen.queryByText(ETranslations.global_swap)).toBeNull();
+      expect(
+        screen.queryByText(ETranslations.referral_referred_type_2),
+      ).toBeNull();
+    },
+  );
 
   it('explains hardware pending rewards without repeating the payout date', () => {
     renderTab();

@@ -30,6 +30,7 @@ import { EarnText } from '../../Staking/components/ProtocolDetails/EarnText';
 
 import { BorrowAssetToken } from './BorrowAssetToken';
 import { ApyTextV2 } from './BorrowTableList/ApyTextV2';
+import { BorrowBalanceText } from './BorrowTableList/BorrowBalanceText';
 
 const ACCESSIBILITY_ACTIVATE = [{ name: 'activate' }] as const;
 const ACTIONS_ACCORDION_VALUE = 'actions';
@@ -47,6 +48,7 @@ export type IBorrowPositionCardAction = {
 export type IBorrowPositionCardProps = {
   token: IBorrowToken;
   tokenAmount?: IEarnText;
+  amountValue?: string;
   fiatValue?: IEarnText;
   apyDetail?: IBorrowApy;
   statusLabel: string;
@@ -122,6 +124,7 @@ function BorrowPositionCardActions({
 export function BorrowPositionCard({
   token,
   tokenAmount,
+  amountValue,
   fiatValue,
   apyDetail,
   statusLabel,
@@ -243,7 +246,8 @@ export function BorrowPositionCard({
           <XStack ai="center" gap="$2" flexShrink={0}>
             <YStack ai="flex-end">
               {fiatValue ? (
-                <EarnText
+                <BorrowBalanceText
+                  kind="fiat"
                   text={fiatValue}
                   size="$bodyLgMedium"
                   color="$text"
@@ -252,8 +256,10 @@ export function BorrowPositionCard({
               ) : null}
               {tokenAmount ? (
                 <XStack ai="center" gap="$1">
-                  <EarnText
+                  <BorrowBalanceText
+                    kind="balance"
                     text={tokenAmount}
+                    value={amountValue}
                     size={amountSize}
                     color={amountColor}
                     numberOfLines={1}

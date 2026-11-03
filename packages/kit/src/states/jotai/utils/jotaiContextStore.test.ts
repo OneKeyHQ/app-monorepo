@@ -20,13 +20,29 @@ import {
   contextAtomBase,
   contextAtomSnapshotRegistry,
   hydrateContextColdStartCacheForProvider,
+  purgeOldColdStartRuntimeKeys,
+  writeContextAtomColdStartCacheValues,
 } from '@onekeyhq/kit-bg/src/states/jotai/utils';
 import { CONTEXT_ATOM_COLD_START_CACHE_KEYS } from '@onekeyhq/shared/src/consts/jotaiConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { normalizeSwapColdStartCacheSnapshot } from '@onekeyhq/shared/src/utils/swapColdStartCacheSnapshotUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
+import { ESwapTabSwitchType } from '@onekeyhq/shared/types/swap/types';
 
-import { swapProSelectTokenAtom } from '../contexts/swap/atoms';
+import {
+  swapAllNetworkTokenListMapAtom,
+  swapProSelectTokenAtom,
+  swapSelectFromTokenAtom,
+  swapSelectToTokenAtom,
+  swapSelectedTokensColdStartContextAtom,
+  swapTokenMapAtom,
+  swapTypeSwitchAtom,
+} from '../contexts/swap/atoms';
+import {
+  SWAP_TOKEN_SELECTOR_SCOPE,
+  getSwapTokenSelectorStore,
+} from '../contexts/swap/tokenSelectorData';
 
 import {
   buildJotaiContextStoreId,
@@ -201,6 +217,7 @@ describe('jotaiContextStore reset flow', () => {
     jest.spyOn(console, 'log').mockImplementation(jest.fn());
     jest.spyOn(console, 'error').mockImplementation(jest.fn());
     jest.clearAllMocks();
+    mockReadContextAtomSnapshotRaw.mockReset();
     mockUpdateJotaiContextStoreRegistration.mockResolvedValue({
       map: {},
       mapChanged: false,
@@ -215,6 +232,12 @@ describe('jotaiContextStore reset flow', () => {
     jotaiContextStore.storeCache.clear();
     jotaiContextStore.storeResetRequests.clear();
     clearJotaiContextTrackerMap();
+    purgeOldColdStartRuntimeKeys(
+      CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapTokenMapAtom,
+    );
+    purgeOldColdStartRuntimeKeys(
+      CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapAllNetworkTokenListMapAtom,
+    );
   });
 
   afterEach(() => {
@@ -704,6 +727,276 @@ describe('jotaiContextStore reset flow', () => {
       }
     }
   });
+
+  describe.each(['desktop', 'web'])(
+    '%s partial cold-start snapshot',
+    (target) => {
+      const scopeKey = `store:${EJotaiContextStoreNames.swapModal}`;
+      const selectorKey = `${scopeKey}::${CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapTokenMapAtom}`;
+      const queryKey = JSON.stringify({ networkId: 'evm--1', keywords: '' });
+      const cachedSelector = {
+        version: 1,
+        updatedAt: 1,
+        tokenCatch: {
+          [queryKey]: {
+            data: [
+              {
+                networkId: 'evm--1',
+                contractAddress: '',
+                symbol: 'ETH',
+                decimals: 18,
+              },
+            ],
+            updatedAt: 1,
+            identityVersion: 0,
+            persisted: true,
+          },
+        },
+      };
+      const originalWeb = platformEnv.isWeb;
+
+      beforeEach(() => {
+        platformEnv.isDesktop = target === 'desktop';
+        platformEnv.isWeb = target === 'web';
+        mockReadContextAtomSnapshotRaw.mockReturnValue(
+          JSON.stringify({ [selectorKey]: cachedSelector }),
+        );
+      });
+
+      afterEach(() => {
+        platformEnv.isWeb = originalWeb;
+        purgeOldColdStartRuntimeKeys(selectorKey);
+      });
+
+      it('restores a legacy selector snapshot into the shared owner without hydrating form stores', () => {
+        (globalThis as IGlobalColdStartSnapshot).__ONEKEY_CTX_ATOM_SNAPSHOT__ =
+          {
+            'store:unrelated::ctx:value': { updatedAt: 2 },
+          };
+        const forms = [
+          EJotaiContextStoreNames.swap,
+          EJotaiContextStoreNames.swapModal,
+          EJotaiContextStoreNames.marketSwap,
+          EJotaiContextStoreNames.marketSwapReview,
+        ].map((storeName) =>
+          jotaiContextStore.prepareStoreForImmediateUse({ storeName }),
+        );
+        for (const form of forms) {
+          expect(form.get(swapTokenMapAtom()).tokenCatch).toBeUndefined();
+        }
+        const store = getSwapTokenSelectorStore();
+
+        expect(store.get(swapTokenMapAtom())).toEqual(cachedSelector);
+        expect(getSwapTokenSelectorStore()).toBe(store);
+        forms[0].set(swapTypeSwitchAtom(), ESwapTabSwitchType.BRIDGE);
+        expect(forms[1].get(swapTypeSwitchAtom())).toBe(
+          ESwapTabSwitchType.SWAP,
+        );
+        expect(forms[2].get(swapTypeSwitchAtom())).toBe(
+          ESwapTabSwitchType.SWAP,
+        );
+        expect(forms[3].get(swapTypeSwitchAtom())).toBe(
+          ESwapTabSwitchType.SWAP,
+        );
+      });
+
+      it('does not restore execution state removed by owner normalization from the unnormalized disk snapshot', () => {
+        const swapScopeKey = `store:${EJotaiContextStoreNames.swap}`;
+        const executionKeys = [
+          CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapSelectFromTokenAtom,
+          CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapSelectToTokenAtom,
+          CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapSelectedTokensColdStartContextAtom,
+          CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapTypeSwitchAtom,
+        ].map((key) => `${swapScopeKey}::${key}`);
+        const storedSnapshot = {
+          [`store:accountSelector@home::${CONTEXT_ATOM_COLD_START_CACHE_KEYS.activeAccountsAtom}`]:
+            {
+              0: {
+                ready: true,
+                wallet: { id: 'current-wallet' },
+                indexedAccount: { id: 'current-account' },
+                network: { id: 'evm--1' },
+              },
+            },
+          [executionKeys[0]]: { networkId: 'evm--1', symbol: 'ETH' },
+          [executionKeys[1]]: { networkId: 'evm--42161', symbol: 'ETH' },
+          [executionKeys[2]]: {
+            accountKey: 'previous-wallet|previous-account|',
+            networkId: 'evm--1',
+            swapType: ESwapTabSwitchType.BRIDGE,
+            updatedAt: 1,
+          },
+          [executionKeys[3]]: ESwapTabSwitchType.BRIDGE,
+        };
+        const normalizedSnapshot = normalizeSwapColdStartCacheSnapshot({
+          ...storedSnapshot,
+        });
+        executionKeys.forEach((key) => {
+          expect(Object.hasOwn(normalizedSnapshot, key)).toBe(false);
+          purgeOldColdStartRuntimeKeys(key);
+        });
+        (globalThis as IGlobalColdStartSnapshot).__ONEKEY_CTX_ATOM_SNAPSHOT__ =
+          normalizedSnapshot;
+        mockReadContextAtomSnapshotRaw.mockReturnValue(
+          JSON.stringify(storedSnapshot),
+        );
+
+        try {
+          const store = jotaiContextStore.prepareStoreForImmediateUse({
+            storeName: EJotaiContextStoreNames.swap,
+          });
+
+          expect(store.get(swapSelectFromTokenAtom())).toBeUndefined();
+          expect(store.get(swapSelectToTokenAtom())).toBeUndefined();
+          expect(
+            store.get(swapSelectedTokensColdStartContextAtom()),
+          ).toBeUndefined();
+          expect(store.get(swapTypeSwitchAtom())).toBe(ESwapTabSwitchType.SWAP);
+        } finally {
+          executionKeys.forEach((key) => purgeOldColdStartRuntimeKeys(key));
+        }
+      });
+
+      it('respects an explicitly cleared global entry instead of reviving stored data', () => {
+        (globalThis as IGlobalColdStartSnapshot).__ONEKEY_CTX_ATOM_SNAPSHOT__ =
+          {
+            [selectorKey]: undefined,
+          };
+        const store = getSwapTokenSelectorStore();
+
+        expect(store.get(swapTokenMapAtom()).tokenCatch).toEqual({});
+      });
+
+      it('prefers a newer global selector value over the stored snapshot', () => {
+        const latestSelector = {
+          ...cachedSelector,
+          updatedAt: 2,
+          tokenCatch: {
+            [queryKey]: {
+              ...cachedSelector.tokenCatch[queryKey],
+              data: [],
+              updatedAt: 2,
+            },
+          },
+        };
+        (globalThis as IGlobalColdStartSnapshot).__ONEKEY_CTX_ATOM_SNAPSHOT__ =
+          {
+            [selectorKey]: latestSelector,
+          };
+        const store = getSwapTokenSelectorStore();
+
+        expect(store.get(swapTokenMapAtom())).toEqual(latestSelector);
+      });
+
+      it('restores canonical token and holdings snapshots before any form provider mounts', () => {
+        const canonicalSelector = {
+          ...cachedSelector,
+          updatedAt: 2,
+          tokenCatch: {
+            [queryKey]: {
+              ...cachedSelector.tokenCatch[queryKey],
+              data: [],
+              updatedAt: 2,
+            },
+          },
+        };
+        const holdings = {
+          'wallet__account__Swap__USD':
+            cachedSelector.tokenCatch[queryKey].data,
+        };
+        mockReadContextAtomSnapshotRaw.mockReturnValue(
+          JSON.stringify({
+            [selectorKey]: cachedSelector,
+            [`${SWAP_TOKEN_SELECTOR_SCOPE}::${CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapTokenMapAtom}`]:
+              canonicalSelector,
+            [`${SWAP_TOKEN_SELECTOR_SCOPE}::${CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapAllNetworkTokenListMapAtom}`]:
+              holdings,
+          }),
+        );
+        const store = getSwapTokenSelectorStore();
+
+        expect(store.get(swapTokenMapAtom())).toEqual(canonicalSelector);
+        expect(store.get(swapAllNetworkTokenListMapAtom())).toEqual(holdings);
+        expect(
+          jotaiContextStore.getStore({
+            storeName: EJotaiContextStoreNames.swap,
+          }),
+        ).toBeUndefined();
+        expect(
+          jotaiContextStore.getStore({
+            storeName: EJotaiContextStoreNames.swapModal,
+          }),
+        ).toBeUndefined();
+      });
+
+      it('does not revive a legacy snapshot when the canonical owner was explicitly cleared', () => {
+        (globalThis as IGlobalColdStartSnapshot).__ONEKEY_CTX_ATOM_SNAPSHOT__ =
+          {
+            [`${SWAP_TOKEN_SELECTOR_SCOPE}::${CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapTokenMapAtom}`]:
+              undefined,
+          };
+
+        expect(
+          getSwapTokenSelectorStore().get(swapTokenMapAtom()).tokenCatch,
+        ).toEqual({});
+      });
+
+      it.each([true, false])(
+        'does not revive a runtime clear when the global snapshot is partial=%s',
+        async (partialGlobal) => {
+          const globalCache = globalThis as IGlobalColdStartSnapshot;
+          if (partialGlobal) {
+            globalCache.__ONEKEY_CTX_ATOM_SNAPSHOT__ = {
+              'store:unrelated::ctx:value': { updatedAt: 2 },
+            };
+          }
+          await writeContextAtomColdStartCacheValues({
+            entries: [
+              {
+                coldStartScopeKey: scopeKey,
+                coldStartCacheKey:
+                  CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapTokenMapAtom,
+                value: undefined,
+              },
+            ],
+          });
+          expect(
+            Object.hasOwn(
+              globalCache.__ONEKEY_CTX_ATOM_SNAPSHOT__ ?? {},
+              selectorKey,
+            ),
+          ).toBe(false);
+
+          const store = getSwapTokenSelectorStore();
+
+          expect(store.get(swapTokenMapAtom()).tokenCatch).toEqual({});
+        },
+      );
+    },
+  );
+
+  it.each(['native', 'extension'])(
+    'does not add storage fallback for a partial global snapshot on %s',
+    (target) => {
+      const originalWeb = platformEnv.isWeb;
+      platformEnv.isWeb = false;
+      platformEnv.isNative = target === 'native';
+      platformEnv.isExtension = target === 'extension';
+      (globalThis as IGlobalColdStartSnapshot).__ONEKEY_CTX_ATOM_SNAPSHOT__ = {
+        'store:unrelated::ctx:value': {},
+      };
+      try {
+        const store = jotaiContextStore.prepareStoreForImmediateUse({
+          storeName: EJotaiContextStoreNames.swapModal,
+        });
+
+        expect(store.get(swapTokenMapAtom()).tokenCatch).toBeUndefined();
+        expect(mockReadContextAtomSnapshotRaw).not.toHaveBeenCalled();
+      } finally {
+        platformEnv.isWeb = originalWeb;
+      }
+    },
+  );
 
   it('removes runtime snapshot values when a cold-start atom is cleared through the normal setter path', () => {
     const coldStartScopeKey = 'test:runtime-snapshot';

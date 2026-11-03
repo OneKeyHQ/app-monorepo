@@ -32,6 +32,7 @@ import { BorrowHealthFactorSummary } from './BorrowHealthFactorSummary';
 import { withNetApySignColor } from './borrowOverview.utils';
 import { BorrowRefreshButton } from './BorrowRefreshButton';
 import { BorrowRewardsMetric } from './BorrowRewardsMetric';
+import { BorrowBalanceText } from './BorrowTableList/BorrowBalanceText';
 import { Markets } from './Markets';
 import { OverviewMetric } from './OverviewMetric';
 
@@ -261,6 +262,20 @@ export const Overview = ({
             testID={BorrowTestIDs.overviewNetWorth}
             title={{ text: labels.netWorth }}
             text={netWorthText}
+            valueText={
+              platformEnv.isNative ? (
+                <BorrowBalanceText
+                  kind="fiat"
+                  text={netWorthText}
+                  size="$bodyLgMedium"
+                  color="$text"
+                  flexShrink={1}
+                  numberOfLines={1}
+                  adjustsFontSizeToFit
+                  minimumFontScale={0.75}
+                />
+              ) : undefined
+            }
             isLoading={isNetWorthLoading}
             widthMode="equal"
           />

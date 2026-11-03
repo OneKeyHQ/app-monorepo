@@ -1,7 +1,7 @@
 import type { Dispatch, SetStateAction } from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import { Progress, Stack, useBackHandler } from '@onekeyhq/components';
+import { Stack, useBackHandler } from '@onekeyhq/components';
 import WebView from '@onekeyhq/kit/src/components/WebView';
 import {
   notifyTabNavigation,
@@ -23,9 +23,20 @@ import {
   BITREFILL_BRIDGE_SCRIPT,
   isBitrefillEmbedUrl,
 } from '../../utils/bitrefillUtils';
-import { webviewRefs } from '../../utils/explorerUtils';
+import { getWebviewWrapperRef, webviewRefs } from '../../utils/explorerUtils';
+import {
+  PAGE_THEME_COLOR_SCRIPT,
+  applyCachedPageThemeColor,
+  clearPageColors,
+  documentUrlOf,
+  isNewDocumentLoad,
+  tryDispatchPageThemeMessage,
+} from '../../utils/pageThemeColor';
 import { showTabBar } from '../../utils/tabBarUtils';
 import BlockAccessView from '../BlockAccessView';
+import { PAGE_DRAWS_UNDER_BROWSER_BAR } from '../MobileBrowser/browserChrome';
+
+import BrowserLoadingBar from './BrowserLoadingBar';
 
 import type { IWebTab } from '../../types';
 import type { IJsBridgeReceiveHandler } from '@onekeyfe/cross-inpage-provider-types';
@@ -47,6 +58,17 @@ type IWebContentProps = IWebTab &
     setForwardEnabled: Dispatch<SetStateAction<boolean>>;
     customReceiveHandler?: IJsBridgeReceiveHandler;
   };
+
+// Best-effort script injection into a tab's WebView.
+function injectScript(tabId: string, script: string) {
+  try {
+    (
+      getWebviewWrapperRef(tabId)?.innerRef as ReactNativeWebview | undefined
+    )?.injectJavaScript?.(script);
+  } catch {
+    // best-effort injection
+  }
+}
 
 function WebContent({
   id,
@@ -78,8 +100,30 @@ function WebContent({
     setForwardEnabled(siteInfo.canGoForward);
   };
 
+  // Ask the page for its color (once per URL) so the browser chrome can tint
+  // itself to match, like Safari.
+  const lastThemeUrlRef = useRef('');
+  // The document last loaded here, ignoring its hash: a different document is
+  // what makes the bottom color stale (see applyCachedPageThemeColor).
+  const lastDocumentUrlRef = useRef('');
+
   const onLoadStart = ({ nativeEvent }: WebViewNavigationEvent) => {
     notifyTabNavigation(id);
+    // A hash change, or Android's same-document history update, reloads
+    // nothing: the document keeps its colors.
+    const isNewDocument = isNewDocumentLoad({
+      url: nativeEvent.url ?? '',
+      previousDocumentUrl: lastDocumentUrlRef.current,
+      loading: nativeEvent.loading,
+      isAndroid: !!platformEnv.isNativeAndroid,
+    });
+    lastDocumentUrlRef.current = documentUrlOf(nativeEvent.url ?? '');
+    applyCachedPageThemeColor(id, nativeEvent.url, isNewDocument);
+    // A full load runs the theme script itself (injectedJavaScript); only
+    // SPA navigations need it injected again.
+    // Android also reports SPA changes here without loading a new document.
+    // Keep those URLs pending until requestPageThemeColor re-injects the script.
+    if (isNewDocument) lastThemeUrlRef.current = nativeEvent.url;
 
     if (
       nativeEvent.url !== url &&
@@ -90,6 +134,17 @@ function WebContent({
     }
   };
 
+  const requestPageThemeColor = useCallback(
+    (pageUrl: string) => {
+      if (!pageUrl || pageUrl === lastThemeUrlRef.current) {
+        return;
+      }
+      lastThemeUrlRef.current = pageUrl;
+      injectScript(id, PAGE_THEME_COLOR_SCRIPT);
+    },
+    [id],
+  );
+
   const onLoadEnd = ({ nativeEvent }: WebViewNavigationEvent) => {
     if (nativeEvent.loading) {
       return;
@@ -98,14 +153,7 @@ function WebContent({
     changeNavigationInfo({ ...nativeEvent });
     // Inject Bitrefill bridge for raw postMessage → JSBridge forwarding.
     if (isBitrefillEmbedUrl(nativeEvent.url)) {
-      const webview = webviewRefs[id]?.innerRef as
-        | ReactNativeWebview
-        | undefined;
-      try {
-        webview?.injectJavaScript?.(BITREFILL_BRIDGE_SCRIPT);
-      } catch {
-        // best-effort injection
-      }
+      injectScript(id, BITREFILL_BRIDGE_SCRIPT);
     }
   };
 
@@ -135,8 +183,18 @@ function WebContent({
         loading,
         id,
       });
+      // In-page (SPA) navigations don't fire onLoadEnd.
+      if (!loading) {
+        // iOS reports pushState/replaceState through the history shim as a
+        // load-finish, so no load-start ever updated the document baseline. Sync
+        // it here, or a later anchor jump on this route compares its URL with
+        // the previous route's and counts as a new document, dropping the bottom
+        // color for good.
+        lastDocumentUrlRef.current = documentUrlOf(navUrl ?? '');
+        requestPageThemeColor(navUrl);
+      }
     },
-    [id, onNavigation],
+    [id, onNavigation, requestPageThemeColor],
   );
 
   const onShouldStartLoadWithRequest = useCallback(
@@ -168,6 +226,15 @@ function WebContent({
 
   const handleMessage = useCallback(
     (event: WebViewMessageEvent) => {
+      if (
+        tryDispatchPageThemeMessage(
+          id,
+          event.nativeEvent.data,
+          event.nativeEvent.url,
+        )
+      ) {
+        return;
+      }
       tryDispatchTranslateMessage(id, event.nativeEvent.data);
     },
     [id],
@@ -191,6 +258,7 @@ function WebContent({
       if (id !== homeTab.id) {
         delete webviewRefs[id];
       }
+      clearPageColors(id);
     },
     [id],
   );
@@ -204,6 +272,7 @@ function WebContent({
         pullToRefreshEnabled={!platformEnv.isNativeAndroid}
         src={url}
         mediaPermissionWhitelist={fiatPaySiteWhitelist}
+        scrollViewClipsToBounds={!PAGE_DRAWS_UNDER_BROWSER_BAR}
         customReceiveHandler={customReceiveHandler}
         onWebViewRef={(ref) => {
           if (ref && ref.innerRef) {
@@ -238,6 +307,9 @@ function WebContent({
         allowpopups
         onMessage={handleMessage}
         onLoadStart={onLoadStart}
+        // Read the page color as soon as the document is parsed (document
+        // end), rather than waiting for onLoadEnd and every subresource.
+        injectedJavaScript={PAGE_THEME_COLOR_SCRIPT}
         onLoadEnd={onLoadEnd as any}
         onScroll={onScroll}
         displayProgressBar={false}
@@ -256,24 +328,6 @@ function WebContent({
       customReceiveHandler,
     ],
   );
-
-  const progressBar = useMemo(() => {
-    if (progress < 100) {
-      return (
-        <Progress
-          value={progress}
-          width="100%"
-          position="absolute"
-          left={0}
-          top={0}
-          right={0}
-          zIndex={10}
-          borderRadius={0}
-        />
-      );
-    }
-    return null;
-  }, [progress]);
 
   const blockAccessView = useMemo(
     () => (
@@ -299,7 +353,7 @@ function WebContent({
 
   return (
     <>
-      {progressBar}
+      <BrowserLoadingBar progress={progress} />
       {webview}
       {showBlockAccessView ? blockAccessView : null}
     </>

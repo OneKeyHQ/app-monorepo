@@ -97,5 +97,6 @@ export function buildSwapNetworkReadyKey(networks: ISwapNetwork[]) {
         network.isDeFiEnabled,
       ].join(':'),
     )
+    .toSorted()
     .join('|');
 }

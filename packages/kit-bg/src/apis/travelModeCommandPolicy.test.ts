@@ -114,6 +114,7 @@ describe('travelModeCommandPolicy', () => {
     ['serviceSwap', 'fetchSwapConfigs'],
     ['serviceSwap', 'fetchSwapNativeTokenConfig'],
     ['serviceSwap', 'fetchSwapNetworks'],
+    ['serviceSwap', 'fetchSwapProviderSupportNetworks'],
     ['serviceSwap', 'fetchSpeedSwapConfig'],
     ['serviceSwap', 'fetchSwapTokenDetails'],
     ['serviceSwap', 'fetchSwapTokens'],

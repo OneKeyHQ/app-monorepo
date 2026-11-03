@@ -349,6 +349,7 @@ class ServiceHardwareUI extends ServiceBase {
     connectId,
     deviceType,
     deviceName,
+    deviceColor,
   }: {
     connectId: string;
     /** What the caller already knows about the device. A scan result
@@ -357,6 +358,9 @@ class ServiceHardwareUI extends ServiceBase {
      * named the device (OK-59934). */
     deviceType?: IDeviceType;
     deviceName?: string;
+    /** The finish the scan result names, so the replica opens in it
+     * instead of the default before features arrive. */
+    deviceColor?: IDeviceStageState['deviceColor'];
   }) {
     await hardwareUiStateAtom.set({
       action: EHardwareUiStateAction.DeviceChecking,
@@ -376,6 +380,7 @@ class ServiceHardwareUI extends ServiceBase {
         deviceName,
       }),
       deviceName,
+      deviceColor,
     });
   }
 

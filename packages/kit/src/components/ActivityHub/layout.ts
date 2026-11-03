@@ -1,26 +1,31 @@
-// Shortcut tiles sit in a 4-column grid because the campaign cards underneath
-// are what set the panel width. A panel without campaign cards shrinks to the
-// two tiles, so the basis has to grow by the same factor to keep the tile size —
-// hence the paired values.
-export const ACTIVITY_HUB_SHORTCUT_ROW_PADDING = 32;
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
+// Pointer layouts list Referral in the sidebar, so their hub shows the invite
+// panel (code and link to copy). Native has no Referral tab, so its entries go
+// to the referral page itself.
+export function shouldShowActivityHubInvitePanel() {
+  return !platformEnv.isNative;
+}
+
+// The floating hub panel is wide enough for the invite link and the campaign
+// cards; shortcut tiles sit four to a row.
+export const ACTIVITY_HUB_PANEL_WIDTH = 384;
 
 export type IActivityHubShortcutBasis = `${number}%`;
 
-const ACTIVITY_HUB_LAYOUTS = {
-  wide: {
-    panelWidth: 384,
-    shortcutBasis: '25%',
-    shortcutColumns: 4,
-  },
-  narrow: {
-    panelWidth: 208,
-    shortcutBasis: '50%',
-    shortcutColumns: 2,
-  },
-} as const;
+export const ACTIVITY_HUB_SHORTCUT_BASIS: IActivityHubShortcutBasis = '25%';
 
-// Wide is the default: campaign cards, native sheets, and in-panel embeds all
-// have the 4-column room. Only the desktop 208px floating host is compact.
-export function getActivityHubLayout(isWidePanel: boolean) {
-  return isWidePanel ? ACTIVITY_HUB_LAYOUTS.wide : ACTIVITY_HUB_LAYOUTS.narrow;
+// The hub is named after what it holds: with campaigns it is the activity
+// hub; the invite panel alone is about inviting friends.
+export function getActivityHubTitleId({
+  hasCampaigns,
+  showInvitePanel,
+}: {
+  hasCampaigns: boolean;
+  showInvitePanel: boolean;
+}): ETranslations {
+  return showInvitePanel && !hasCampaigns
+    ? ETranslations.referral_home__title
+    : ETranslations.perps_activity_hub;
 }

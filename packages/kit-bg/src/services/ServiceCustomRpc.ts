@@ -14,6 +14,8 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { ENetworkStatus, type IServerNetwork } from '@onekeyhq/shared/types';
 import type { IChainListItem } from '@onekeyhq/shared/types/customNetwork';
@@ -27,8 +29,16 @@ import type { IToken } from '@onekeyhq/shared/types/token';
 
 import { type IDBCloudSyncItem } from '../dbs/local/types';
 import { vaultFactory } from '../vaults/factory';
+import {
+  getLocalWalletRemoteConfig,
+  parseLocalWalletRemoteConfig,
+  setLocalWalletRemoteConfigs,
+} from '../vaults/localWallet/remoteConfig';
+import { getVaultSettings } from '../vaults/settings';
 
 import ServiceBase from './ServiceBase';
+
+import type { ILocalWalletRemoteConfig } from '../vaults/localWallet/remoteConfig';
 
 @backgroundClass()
 class ServiceCustomRpc extends ServiceBase {
@@ -136,6 +146,9 @@ class ServiceCustomRpc extends ServiceBase {
     await this.backgroundApi.localDb.addAndUpdateFreshSyncItems({
       items: syncItems,
       fn,
+    });
+    appEventBus.emit(EAppEventBusNames.CustomRpcChanged, {
+      networkIds: customRpcItems.map((item) => item.networkId),
     });
   }
 
@@ -261,6 +274,26 @@ class ServiceCustomRpc extends ServiceBase {
     return itemsWithNetwork.toSorted((a, b) =>
       (a.network?.name ?? '').localeCompare(b.network?.name ?? ''),
     );
+  }
+
+  // Read-only: a chain with its own node uses it unless an enabled row overrides it; the built-in node is never written as a row.
+  // A server-delivered default replaces the built-in one, never a custom row.
+  public async resolveRpcUrlWithBuiltIn({
+    networkId,
+  }: {
+    networkId: string;
+  }): Promise<string | undefined> {
+    const record = await this.getCustomRpcForNetwork(networkId);
+    if (record?.rpc && record.enabled) {
+      return record.rpc;
+    }
+    await this.ensureLocalWalletRemoteConfigLoaded();
+    const remoteUrl = getLocalWalletRemoteConfig(networkId)?.nodeUrls?.[0];
+    if (remoteUrl) {
+      return remoteUrl;
+    }
+    const settings = await getVaultSettings({ networkId });
+    return settings.builtInRpcUrls?.[0];
   }
 
   @backgroundMethod()
@@ -501,10 +534,27 @@ class ServiceCustomRpc extends ServiceBase {
    *============================== */
   @backgroundMethod()
   public async getServerNetworks(): Promise<IServerNetwork[]> {
+    const { networks } = await this.getServerNetworkState();
+    return networks;
+  }
+
+  // Cached server networks plus the preset networks the server delisted.
+  @backgroundMethod()
+  public async getServerNetworkState(): Promise<{
+    networks: IServerNetwork[];
+    delistedPresetNetworkIds: string[];
+  }> {
     return this.semaphore.runExclusive(async () => {
       try {
-        const { networks, lastFetchTime } =
+        const {
+          networks,
+          lastFetchTime,
+          delistedPresetNetworkIds,
+          localWalletConfigs,
+        } =
           await this.backgroundApi.simpleDb.serverNetwork.getAllServerNetworks();
+        setLocalWalletRemoteConfigs(localWalletConfigs);
+        this.localWalletRemoteConfigLoaded = true;
         const now = Date.now();
 
         if (
@@ -516,12 +566,27 @@ class ServiceCustomRpc extends ServiceBase {
           });
         }
         defaultLogger.account.wallet.getServerNetworks(networks);
-        return networks || [];
+        return {
+          networks: networks || [],
+          delistedPresetNetworkIds: delistedPresetNetworkIds || [],
+        };
       } catch (error) {
         defaultLogger.account.wallet.getServerNetworksError(error);
-        return [];
+        return { networks: [], delistedPresetNetworkIds: [] };
       }
     });
+  }
+
+  localWalletRemoteConfigLoaded = false;
+
+  // Vault code reads the privacy-chain settings synchronously, so callers that
+  // may run before the network list load them first.
+  @backgroundMethod()
+  public async ensureLocalWalletRemoteConfigLoaded(): Promise<void> {
+    if (this.localWalletRemoteConfigLoaded) {
+      return;
+    }
+    await this.getServerNetworkState();
   }
 
   // Resolves once the server-network cache has been filled at least once.
@@ -595,27 +660,84 @@ class ServiceCustomRpc extends ServiceBase {
     // LISTED and later delisted would keep its stale LISTED snapshot in the DB
     // forever. Instead we store the real status and let the read/merge layer
     // (ServiceNetwork.getAllNetworks) filter TRASH out.
+    // The list may carry non-EVM preset entries (to delist them), but only EVM
+    // networks are ever added from it.
     const usedNetworks = serverNetworks.filter(
-      (n) => !presetNetworkIds.includes(n.id),
+      (n) =>
+        !presetNetworkIds.includes(n.id) &&
+        networkUtils.isEvmNetwork({ networkId: n.id }),
     );
+    // Only local-wallet presets read their entry: TRASH hides the preset,
+    // LISTED or no entry keeps it. Every other preset ignores the server.
+    const delisted: string[] = [];
+    const localWalletConfigs: Record<string, ILocalWalletRemoteConfig> = {};
+    for (const n of serverNetworks) {
+      const isPreset = presetNetworkIds.includes(n.id);
+      const isTrash = n.status === ENetworkStatus.TRASH;
+      const config = parseLocalWalletRemoteConfig(n.extensions?.localWallet);
+      const hasEffect = isTrash || config !== undefined;
+      if (
+        isPreset &&
+        hasEffect &&
+        // eslint-disable-next-line no-await-in-loop
+        (await getVaultSettings({ networkId: n.id })).localWallet
+      ) {
+        if (isTrash) {
+          delisted.push(n.id);
+        }
+        if (config) {
+          localWalletConfigs[n.id] = config;
+        }
+      }
+    }
+    const delistedPresetNetworkIds = delisted.toSorted();
 
     // Snapshot the previous server-network set so the refresh event below is only
     // fanned out when the set actually changed (id added/removed or status
     // flipped), instead of on every hourly fetch.
-    const { networks: prevServerNetworks } =
-      await this.backgroundApi.simpleDb.serverNetwork.getAllServerNetworks();
+    const {
+      networks: prevServerNetworks,
+      delistedPresetNetworkIds: prevDelistedPresetNetworkIds,
+      localWalletConfigs: prevLocalWalletConfigs,
+    } = await this.backgroundApi.simpleDb.serverNetwork.getAllServerNetworks();
     const serverNetworkSignature = (list: IServerNetwork[]) =>
       list
         .map((n) => `${n.id}:${n.status}`)
         .toSorted()
         .join(',');
-    const serverNetworkListChanged =
+    const serverNetworkSetChanged =
       serverNetworkSignature(prevServerNetworks ?? []) !==
       serverNetworkSignature(usedNetworks);
+    const delistedPresetNetworksChanged =
+      (prevDelistedPresetNetworkIds ?? []).toSorted().join(',') !==
+      delistedPresetNetworkIds.join(',');
+    const localWalletConfigsChanged =
+      stringUtils.stableStringify(prevLocalWalletConfigs ?? {}) !==
+      stringUtils.stableStringify(localWalletConfigs);
+    const serverNetworkListChanged =
+      serverNetworkSetChanged ||
+      delistedPresetNetworksChanged ||
+      localWalletConfigsChanged;
+    const nodeChangedNetworkIds = Object.keys({
+      ...prevLocalWalletConfigs,
+      ...localWalletConfigs,
+    }).filter(
+      (networkId) =>
+        stringUtils.stableStringify(
+          prevLocalWalletConfigs?.[networkId]?.nodeUrls ?? [],
+        ) !==
+        stringUtils.stableStringify(
+          localWalletConfigs[networkId]?.nodeUrls ?? [],
+        ),
+    );
 
     await this.backgroundApi.simpleDb.serverNetwork.upsertServerNetworks({
       networkInfos: usedNetworks,
+      delistedPresetNetworkIds,
+      localWalletConfigs,
     });
+    setLocalWalletRemoteConfigs(localWalletConfigs);
+    this.localWalletRemoteConfigLoaded = true;
 
     // delete custom networks
     const customNetworks = await this.getAllCustomNetworks();
@@ -643,6 +765,12 @@ class ServiceCustomRpc extends ServiceBase {
       // server-network set, so let the next syncWalletConfigIfNeeded rebuild
       // them instead of waiting for the config TTL.
       await this.backgroundApi.simpleDb.aggregateToken.clearConfigSyncMeta();
+    }
+    // A new default node is handled like a node edit (retry now, fresh status).
+    if (nodeChangedNetworkIds.length) {
+      appEventBus.emit(EAppEventBusNames.CustomRpcChanged, {
+        networkIds: nodeChangedNetworkIds,
+      });
     }
 
     defaultLogger.account.wallet.insertServerNetwork(usedNetworks);

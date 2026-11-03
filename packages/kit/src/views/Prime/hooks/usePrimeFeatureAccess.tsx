@@ -15,6 +15,10 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { travelModeManager } from '@onekeyhq/shared/src/travelMode';
 import {
+  createPrimeFreeTrialAttempt,
+  getPrimeFreeTrialAccessDeniedResult,
+} from '@onekeyhq/shared/src/utils/primeFreeTrialAnalytics';
+import {
   getPrimeFreeTrialError,
   getPrimeFreeTrialHeldReservationEnd,
   hasPrimeFreeTrialReservationInfo,
@@ -445,18 +449,24 @@ export function usePrimeFeatureAccess() {
    *   in, to read the history; the check button judges the quota.
    * Translate never leaves its page: a toast with "Get Prime" instead.
    */
-  const ensureFeatureAccess = useCallback(
+  const ensureFeatureAccessImpl = useCallback(
     async ({
       featureId,
       networkId,
       isContextValid,
       extPopup,
       onDenied,
+      onAttemptDenied,
       showLoading = true,
       loginOnly = false,
     }: {
       featureId: IPrimeFreeTrialFeatureId;
       networkId?: string;
+      // Continuations and page-mount checks are not new user attempts.
+      trackAttempt?: boolean;
+      onAttemptDenied?: (
+        reason: IPrimeFeatureAccessDeniedReason | 'loginFailed',
+      ) => void;
       // false when the caller already shows its own loading, e.g. on the
       // pressed button that stays on screen. Only a logged-out user waits
       // (for the public config).
@@ -474,6 +484,10 @@ export function usePrimeFeatureAccess() {
         reason: IPrimeFeatureAccessDeniedReason,
       ) => void | Promise<void>;
     }): Promise<IPrimeFeatureAccessResult> => {
+      const deny = async (reason: IPrimeFeatureAccessDeniedReason) => {
+        onAttemptDenied?.(reason);
+        await onDenied?.(reason);
+      };
       if (isPrimeSubscriptionActive) {
         return { granted: true, entitlementSource: 'prime' };
       }
@@ -487,14 +501,14 @@ export function usePrimeFeatureAccess() {
         result: Extract<IPrimeFeatureAccessResult, { granted: true }>,
       ): Promise<IPrimeFeatureAccessResult> => {
         if (await isContextGone()) {
-          await onDenied?.('contextChanged');
+          await deny('contextChanged');
           return { granted: false };
         }
         return result;
       };
       const afterPageExit = Boolean(onDenied);
       if (isPrimeFreeTrialTravelMode()) {
-        await onDenied?.('notOpen');
+        await deny('notOpen');
         openPrimeDashboard({ featureId, networkId, afterPageExit });
         return { granted: false };
       }
@@ -506,7 +520,7 @@ export function usePrimeFeatureAccess() {
           getPublicConfigWithRetry,
         );
         if (await isContextGone()) {
-          await onDenied?.('contextChanged');
+          await deny('contextChanged');
           return { granted: false };
         }
         const loggedOutAccess = resolvePrimeFreeTrialAccess({
@@ -517,7 +531,7 @@ export function usePrimeFeatureAccess() {
           quota: undefined,
         });
         if (loggedOutAccess.status === 'notOpen') {
-          await onDenied?.('notOpen');
+          await deny('notOpen');
           showActiveRejectedFeedback({
             featureId,
             reason: 'notOpen',
@@ -547,7 +561,7 @@ export function usePrimeFeatureAccess() {
         } catch (error) {
           if (error instanceof PrimeLoginHandedOffToExtExpandTabError) {
             // The expand tab continues the saved action after login.
-            await onDenied?.('handedOffToExpandTab');
+            await deny('handedOffToExpandTab');
             return { granted: false };
           }
           defaultLogger.prime.subscription.primeFreeTrialLoginResult({
@@ -558,7 +572,9 @@ export function usePrimeFeatureAccess() {
                 ? 'cancelled'
                 : 'failed',
           });
-          await onDenied?.('loginCancelled');
+          if (!(error instanceof PrimeLoginDialogCancelError))
+            onAttemptDenied?.('loginFailed');
+          await deny('loginCancelled');
           return { granted: false };
         }
         defaultLogger.prime.subscription.primeFreeTrialLoginResult({
@@ -570,7 +586,7 @@ export function usePrimeFeatureAccess() {
           (await isContextGone()) ||
           !(await backgroundApiProxy.servicePrime.isLoggedIn())
         ) {
-          await onDenied?.('contextChanged');
+          await deny('contextChanged');
           return { granted: false };
         }
       }
@@ -588,14 +604,14 @@ export function usePrimeFeatureAccess() {
       // remaining hint refreshes the snapshot.
       const access = getCachedAccess(featureId);
       if (await isContextGone()) {
-        await onDenied?.('contextChanged');
+        await deny('contextChanged');
         return { granted: false };
       }
       if (loginOnly) {
         return { granted: true, entitlementSource: 'freeTrial' };
       }
       if (access.status === 'notOpen') {
-        await onDenied?.('notOpen');
+        await deny('notOpen');
         showActiveRejectedFeedback({
           featureId,
           reason: 'notOpen',
@@ -614,7 +630,7 @@ export function usePrimeFeatureAccess() {
           (hasPrimeFreeTrialReservationInfo(access.featureQuota) &&
             !(Number(access.featureQuota.reserved) > 0)))
       ) {
-        await onDenied?.('exhausted');
+        await deny('exhausted');
         showActiveRejectedFeedback({
           featureId,
           reason: 'exhausted',
@@ -635,6 +651,52 @@ export function usePrimeFeatureAccess() {
       runWithEntryLoading,
       showActiveRejectedFeedback,
     ],
+  );
+
+  const ensureFeatureAccess = useCallback(
+    (
+      params: Parameters<typeof ensureFeatureAccessImpl>[0],
+    ): Promise<IPrimeFeatureAccessResult> => {
+      if (
+        params.trackAttempt === false ||
+        isPrimeSubscriptionActive ||
+        isPrimeFreeTrialTravelMode()
+      ) {
+        return ensureFeatureAccessImpl(params);
+      }
+      const attempt = createPrimeFreeTrialAttempt({
+        featureId: params.featureId,
+        stage: 'access',
+      });
+      const promise = (async () => {
+        try {
+          const access = await ensureFeatureAccessImpl({
+            ...params,
+            onAttemptDenied: (reason) => {
+              attempt.finish(
+                getPrimeFreeTrialAccessDeniedResult(reason),
+                reason === 'exhausted' || reason === 'notOpen'
+                  ? 'client'
+                  : undefined,
+              );
+            },
+          });
+          if (access.granted) {
+            let result: 'handedOffToExpandTab' | 'unlimited' | 'granted' =
+              'granted';
+            if (access.deferredToExpandTab) result = 'handedOffToExpandTab';
+            else if (access.entitlementSource === 'prime') result = 'unlimited';
+            attempt.finish(result);
+          }
+          return access;
+        } catch (error) {
+          attempt.finish('failed');
+          throw error;
+        }
+      })();
+      return promise;
+    },
+    [ensureFeatureAccessImpl, isPrimeSubscriptionActive],
   );
 
   return useMemo(

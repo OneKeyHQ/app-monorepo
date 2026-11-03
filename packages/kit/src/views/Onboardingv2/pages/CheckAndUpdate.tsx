@@ -410,7 +410,8 @@ function CheckAndUpdatePage({
     const activeDevice = (getActiveDevice() ??
       currentDevice ??
       deviceData.device) as SearchDevice;
-    const activeFeaturesProtocol = getActiveDeviceFeatures()?.protocol;
+    const activeFeatures = getActiveDeviceFeatures();
+    const activeFeaturesProtocol = activeFeatures?.protocol;
     const confirmedConnectProtocol =
       activeFeaturesProtocol === 'V1' || activeFeaturesProtocol === 'V2'
         ? activeFeaturesProtocol
@@ -426,6 +427,8 @@ function CheckAndUpdatePage({
       },
       tabValue,
       isFirmwareVerified: isFirmwareVerifiedRef.current,
+      connectedSerialNo:
+        deviceUtils.getDeviceSerialNoFromFeatures(activeFeatures),
     });
   }, [
     connectProtocol,
@@ -850,6 +853,7 @@ function CheckAndUpdatePage({
         connectId: burstDevice?.connectId ?? undefined,
         deviceType: burstDevice?.deviceType,
         deviceName: burstDevice?.name ?? undefined,
+        deviceColor: deviceUtils.getDeviceColorFromSearchDevice(burstDevice),
       });
 
       setSteps((prev) => {

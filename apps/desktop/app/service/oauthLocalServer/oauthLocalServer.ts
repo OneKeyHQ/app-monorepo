@@ -4,6 +4,7 @@ import { createServer } from 'http';
 import { app, shell } from 'electron';
 
 import {
+  DESKTOP_BROWSER_COMPLETION_URL,
   KEYLESS_SUPABASE_PROJECT_URL,
   OAUTH_CALLBACK_DESKTOP_CHANNEL,
   OAUTH_CALLBACK_DESKTOP_PATH,
@@ -201,7 +202,7 @@ export async function startOAuthServer(): Promise<{ port: number }> {
 
         // Get current locale and redirect to login page
         const locale = getLocale();
-        const redirectUrl = `https://login.onekeytest.com/?locale=${encodeURIComponent(
+        const redirectUrl = `${DESKTOP_BROWSER_COMPLETION_URL}?locale=${encodeURIComponent(
           locale,
         )}`;
 

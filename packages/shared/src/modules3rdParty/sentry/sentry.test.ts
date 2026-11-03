@@ -1,6 +1,10 @@
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { buildBasicOptions, testUtils } from './basicOptions';
+import {
+  buildBasicOptions,
+  sanitizeSensitiveNavigationBreadcrumb,
+  testUtils,
+} from './basicOptions';
 
 const {
   checkPrivateKey,
@@ -501,6 +505,40 @@ describe('isFilterErrorAndSkipSentry', () => {
         }),
       ).toBe(false);
     });
+  });
+});
+
+describe('sanitizeSensitiveNavigationBreadcrumb', () => {
+  test('drops the query of the hosted checkout return route', () => {
+    expect(
+      sanitizeSensitiveNavigationBreadcrumb({
+        category: 'navigation',
+        data: {
+          from: '/prime/purchase-complete?app_user_id=user-1',
+          to: 'https://app.onekey.so/prime/purchase-complete/?app_user_id=u#x',
+        },
+      }).data,
+    ).toEqual({
+      from: '/prime/purchase-complete',
+      to: 'https://app.onekey.so/prime/purchase-complete/',
+    });
+  });
+
+  test('keeps other navigation and non-navigation breadcrumbs', () => {
+    const navigation = {
+      category: 'navigation',
+      data: { from: '/market?tab=1', to: '/prime/redeem?code=1' },
+    };
+    expect(sanitizeSensitiveNavigationBreadcrumb(navigation).data).toEqual(
+      navigation.data,
+    );
+    const fetchBreadcrumb = {
+      category: 'fetch',
+      data: { url: '/prime/purchase-complete?app_user_id=user-1' },
+    };
+    expect(sanitizeSensitiveNavigationBreadcrumb(fetchBreadcrumb)).toBe(
+      fetchBreadcrumb,
+    );
   });
 });
 

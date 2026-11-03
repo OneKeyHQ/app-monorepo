@@ -79,6 +79,46 @@ describe('ServiceHyperliquidSubscription Fast L2 lifecycle', () => {
   });
 });
 
+describe('ServiceHyperliquidSubscription ping measurement', () => {
+  it('cancels the old measurement and measures immediately on the same reconnected client', async () => {
+    const service = createService();
+    const internals = service as unknown as {
+      _client: { ping: (signal: AbortSignal) => Promise<void> };
+      _measurePing: () => Promise<void>;
+      _stopPingLoop: () => void;
+    };
+    const complete: (() => void)[] = [];
+    const signals: AbortSignal[] = [];
+    const ping = jest.fn((signal: AbortSignal) => {
+      signals.push(signal);
+      return new Promise<void>((resolve) => complete.push(resolve));
+    });
+    const publish = jest
+      .spyOn(perpsNetworkStatusAtom, 'set')
+      .mockResolvedValue(undefined);
+    try {
+      internals._client = { ping };
+      const oldMeasurement = internals._measurePing();
+      await internals._measurePing();
+      expect(ping).toHaveBeenCalledTimes(1);
+      internals._stopPingLoop();
+      expect(signals[0].aborted).toBe(true);
+      const newMeasurement = internals._measurePing();
+      expect(ping).toHaveBeenCalledTimes(2);
+      complete[0]();
+      await oldMeasurement;
+      expect(publish).not.toHaveBeenCalled();
+      await internals._measurePing();
+      expect(ping).toHaveBeenCalledTimes(2);
+      complete[1]();
+      await newMeasurement;
+      expect(publish).toHaveBeenCalledTimes(1);
+    } finally {
+      publish.mockRestore();
+    }
+  });
+});
+
 describe('ServiceHyperliquidSubscription resume stream liveness', () => {
   type IResumeInternals = {
     _lastMessageAt: number | null;
@@ -114,6 +154,60 @@ describe('ServiceHyperliquidSubscription resume stream liveness', () => {
       g.WebSocket = { CONNECTING: 0, OPEN: 1, CLOSING: 2, CLOSED: 3 };
     }
   });
+
+  it.each([0, 1, 3])(
+    'resumes a CONNECTING socket with retryCount=%s',
+    async (retryCount) => {
+      const { service, internals, force, reconcile } = setupOpenSocketService();
+      jest.spyOn(internals, 'getWebSocketClient').mockResolvedValue({
+        transport: { socket: { readyState: WebSocket.CONNECTING, retryCount } },
+      });
+
+      await service.resumeSubscriptions();
+
+      expect(force).toHaveBeenCalledTimes(retryCount > 0 ? 1 : 0);
+      expect(reconcile).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each([false, true])(
+    'recovers only the current retrying socket: replaced=%s',
+    async (replaced) => {
+      const { service, force, reconcile } = setupOpenSocketService();
+      const internals = service as unknown as {
+        _client: unknown;
+        _recoverNotOpenSocketBeforeSubscriptionUpdate: (params: {
+          client: unknown;
+          reason: string;
+        }) => Promise<void>;
+        _waitForOpenSocket: () => Promise<boolean>;
+      };
+      const client = {
+        transport: {
+          socket: { readyState: WebSocket.CONNECTING, retryCount: 1 },
+        },
+      };
+      const currentClient = replaced
+        ? {
+            transport: {
+              socket: { readyState: WebSocket.OPEN, retryCount: 0 },
+            },
+          }
+        : client;
+      internals._client = currentClient;
+      const wait = jest.spyOn(internals, '_waitForOpenSocket');
+
+      await internals._recoverNotOpenSocketBeforeSubscriptionUpdate({
+        client,
+        reason: 'test',
+      });
+
+      expect(force).toHaveBeenCalledTimes(replaced ? 0 : 1);
+      expect(wait).not.toHaveBeenCalled();
+      expect(reconcile).not.toHaveBeenCalled();
+      expect(internals._client).toBe(currentClient);
+    },
+  );
 
   it('forces a reconnect when the open socket stream went stale', async () => {
     const { service, internals, force, reconcile } = setupOpenSocketService();
@@ -340,13 +434,12 @@ describe('ServiceHyperliquidSubscription liveness recovery', () => {
 
 describe('ServiceHyperliquidSubscription public trades', () => {
   const unsubscribe = jest.fn<Promise<void>, []>();
-  const close = jest.fn<Promise<void>, []>();
+  const close = jest.fn<void, []>();
   const trades = jest.fn();
 
   beforeEach(() => {
     jest.clearAllMocks();
     unsubscribe.mockResolvedValue(undefined);
-    close.mockResolvedValue(undefined);
     trades.mockResolvedValue({ unsubscribe });
     jest.mocked(WebSocketTransport).mockImplementation(
       () =>

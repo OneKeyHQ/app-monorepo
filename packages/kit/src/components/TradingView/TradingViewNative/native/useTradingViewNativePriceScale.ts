@@ -1,8 +1,18 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 
+import { I18nManager, useWindowDimensions } from 'react-native';
 import { Gesture } from 'react-native-gesture-handler';
 import { cancelAnimation, useSharedValue } from 'react-native-reanimated';
 import { scheduleOnRN, scheduleOnUI } from 'react-native-worklets';
+
+import { HeaderScrollGestureContext } from '@onekeyhq/components/src/composite/Tabs/HeaderScrollGestureContext';
 
 import { TRADING_VIEW_NATIVE_CHART_HORIZONTAL_PADDING } from '../chartConstants';
 import { getTradingViewNativeChartWidth } from '../utils/chartLayout';
@@ -168,6 +178,11 @@ export function useTradingViewNativePriceScale({
   const handleAutoScaleStateChange = useCallback((nextIsAuto: boolean) => {
     setIsAutoScale(nextIsAuto);
   }, []);
+
+  const handleMainPriceScaleReset = useCallback(() => {
+    // Navigation resets the main axis without changing the selected indicator.
+    if (activePaneId === null) setIsAutoScale(true);
+  }, [activePaneId]);
 
   const restoreControls = useCallback(
     (isAuto: boolean, priceScaleMode: ITradingViewNativePriceScaleMode) => {
@@ -372,7 +387,20 @@ export function useTradingViewNativePriceScale({
     showForTouch,
   ]);
 
+  const { excludeStartEdgeWidth } = useContext(HeaderScrollGestureContext);
+  const { width: windowWidth } = useWindowDimensions();
+  const isRTL = I18nManager.isRTL;
+
   const gestures = useMemo(() => {
+    const isNavigationEdgeTouch = (absoluteX: number) => {
+      'worklet';
+      return (
+        excludeStartEdgeWidth > 0 &&
+        (isRTL
+          ? windowWidth - absoluteX < excludeStartEdgeWidth
+          : absoluteX < excludeStartEdgeWidth)
+      );
+    };
     const getPriceAxisTarget = (
       x: number,
       y: number,
@@ -414,7 +442,10 @@ export function useTradingViewNativePriceScale({
         'worklet';
 
         const touch = event.changedTouches[0];
-        const target = touch ? getPriceAxisTarget(touch.x, touch.y) : null;
+        const target =
+          touch && !isNavigationEdgeTouch(touch.absoluteX)
+            ? getPriceAxisTarget(touch.x, touch.y)
+            : null;
         if (
           !target ||
           (resetTarget.value && resetTarget.value.paneId !== target.paneId)
@@ -469,7 +500,10 @@ export function useTradingViewNativePriceScale({
         'worklet';
 
         const touch = event.changedTouches[0];
-        scaleTarget.value = touch ? getPriceAxisTarget(touch.x, touch.y) : null;
+        scaleTarget.value =
+          touch && !isNavigationEdgeTouch(touch.absoluteX)
+            ? getPriceAxisTarget(touch.x, touch.y)
+            : null;
         if (!scaleTarget.value) {
           stateManager.fail();
         }
@@ -607,6 +641,9 @@ export function useTradingViewNativePriceScale({
     isEnabled,
     priceAxisWidth,
     resetTarget,
+    excludeStartEdgeWidth,
+    isRTL,
+    windowWidth,
     restoreControls,
     scaleTarget,
     timeAxisHeight,
@@ -709,6 +746,7 @@ export function useTradingViewNativePriceScale({
     activePaneId,
     handleAutoScalePress,
     handleLogScalePress,
+    handleMainPriceScaleReset,
     handlePointerLeave,
     handlePointerMove,
     handleTouchStart,

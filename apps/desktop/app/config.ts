@@ -93,6 +93,8 @@ export const ipcMessageKeys = {
   // webview — channel name lives in `shared/src/consts/desktopIpcChannels`
   // so non-app packages can subscribe without importing from `apps/desktop`.
   WEBVIEW_NEW_WINDOW: EDesktopIpcChannel.WEBVIEW_NEW_WINDOW,
+  PRIME_STRIPE_RESOURCE_FORBIDDEN:
+    EDesktopIpcChannel.PRIME_STRIPE_RESOURCE_FORBIDDEN,
 
   // notification
   NOTIFICATION_SET_BADGE_WINDOWS: 'notification/setBadge/windows',
@@ -102,6 +104,8 @@ export const ipcMessageKeys = {
 
   // System Resources
   SYSTEM_GET_CPU_USAGE: 'system/getCpuUsage',
+  PRIVACY_CHAIN_NODE_REQUEST: 'privacyChain/nodeRequest',
+  FETCH_STREAM: 'fetch/stream',
   SYSTEM_GET_MEMORY_USAGE: 'system/getMemoryUsage',
 
   // Boot Recovery

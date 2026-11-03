@@ -634,9 +634,7 @@ function SyncItemTable({ activeTab }: { activeTab: ITabType }) {
             }}
           >
             <SizableText style={{ fontWeight: 'bold' }} color="$textSuccess">
-              {dateUtils.formatDate(new Date(text), {
-                formatTemplate: 'yyyy/LL/dd, HH:mm:ss',
-              })}
+              {dateUtils.formatDate(new Date(text))}
             </SizableText>
             <SizableText color="$textSubdued">{record.rawKey}</SizableText>
             <SizableText color="$textSubdued">
@@ -947,6 +945,20 @@ function ScenarioPanel() {
         }}
       >
         Toggle isCloudSyncEnabledKeyless (KW)
+      </Button>
+      <Button
+        size="small"
+        onPress={async () => {
+          const removed =
+            await backgroundApiProxy.serviceKeylessCloudSync.debugRemoveSelectedHardwareCloudKey();
+          Toast.message({
+            title: removed
+              ? 'Hardware key removed; reopen Cloud sync to see the prompt'
+              : 'No hardware key on this device',
+          });
+        }}
+      >
+        Remove hardware key (keep selection)
       </Button>
     </YStack>
   );

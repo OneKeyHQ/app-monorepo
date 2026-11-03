@@ -3,6 +3,8 @@ import ServiceThirdPartyHardware from '.';
 import { EDeviceType } from '@onekeyfe/hd-shared';
 import { HardwareErrorCode } from '@onekeyfe/hwk-adapter-core';
 
+import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
+import { INDEX_PLACEHOLDER } from '@onekeyhq/shared/src/engine/engineConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
 import localDb from '../../dbs/local/localDb';
@@ -10,6 +12,7 @@ import ServiceBatchCreateAccount from '../ServiceBatchCreateAccount/ServiceBatch
 import { HardwareAllNetworkGetAddressResponse } from '../ServiceHardware/HardwareAllNetworkGetAddressResponse';
 
 import type { IBackgroundApi } from '../../apis/IBackgroundApi';
+import type { IAccountDeriveTypes } from '../../vaults/types';
 
 jest.mock('@onekeyhq/shared/src/background/backgroundDecorators', () => ({
   backgroundClass: () => (target: unknown) => target,
@@ -30,15 +33,41 @@ jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
   },
 }));
 
-function buildService() {
+function buildService({ realAccountPlan = false } = {}) {
   jest.spyOn(localDb, 'getExistingDevice').mockResolvedValue(undefined);
   const walletIdentity = 'ab'.repeat(32);
   const created = { wallet: { id: 'hw-keystone-test', isTemp: true } };
   const createHWWallet = jest.fn().mockResolvedValue(created);
+  const networkIds = getNetworkIdsMap();
   const backgroundApi = {
     serviceAccount: {
       createHWWallet,
       getWalletDeviceParams: jest.fn().mockResolvedValue(undefined),
+    },
+    serviceNetwork: {
+      getGlobalDeriveTypeOfNetwork: jest.fn().mockResolvedValue(undefined),
+      getDeriveInfoOfNetwork: jest.fn(
+        async ({
+          networkId,
+          deriveType,
+        }: {
+          networkId: string;
+          deriveType: IAccountDeriveTypes;
+        }) => {
+          const btcPurpose = { default: 49, BIP44: 44, BIP84: 84, BIP86: 86 };
+          const templates = {
+            [networkIds.eth]: `m/44'/60'/0'/0/${INDEX_PLACEHOLDER}`,
+            [networkIds.trx]: `m/44'/195'/0'/0/${INDEX_PLACEHOLDER}`,
+            [networkIds.sol]: `m/44'/501'/${INDEX_PLACEHOLDER}'/0'`,
+          };
+          return {
+            template:
+              networkId === networkIds.btc
+                ? `m/${btcPurpose[deriveType as keyof typeof btcPurpose]}'/0'/${INDEX_PLACEHOLDER}'/0/0`
+                : templates[networkId],
+          };
+        },
+      ),
     },
     serviceHardwareUI: {
       withHardwareProcessing: async (
@@ -57,11 +86,18 @@ function buildService() {
   const batchBuildAccounts = jest
     .fn()
     .mockResolvedValue({ accountsForCreate: [] });
+  const buildBatchNetworks = jest.fn(
+    async (params: {
+      walletId: string;
+      customNetworks: { networkId: string; deriveType: IAccountDeriveTypes }[];
+    }) =>
+      params.customNetworks.map((item) => ({
+        ...item,
+        walletId: params.walletId,
+      })),
+  );
   Object.assign(batchService, {
-    buildBatchCreateAccountsNetworksParams: jest.fn().mockResolvedValue([
-      { networkId: 'evm--1', deriveType: 'default' },
-      { networkId: 'btc--0', deriveType: 'default' },
-    ]),
+    buildBatchCreateAccountsNetworksParams: buildBatchNetworks,
     batchBuildAccounts,
     recordPrimeTransferImportBatchCreateTrace: jest.fn(),
     emitBatchCreateDoneEvents: jest.fn(),
@@ -88,17 +124,33 @@ function buildService() {
       },
     ],
   });
+  const getDeviceInfo = jest.fn().mockResolvedValue({
+    success: true,
+    payload: {
+      vendor: 'keystone',
+      model: 'Keystone',
+      deviceId: walletIdentity,
+      connectId: 'keystone-connection',
+      connectionType: 'usb',
+      firmwareVersion: '3.1.4',
+    },
+  });
   Object.assign(service, {
-    buildThirdPartyDefaultNetworkBundle: jest
-      .fn()
-      .mockResolvedValue([{ network: 'evm', path }]),
+    ...(!realAccountPlan
+      ? {
+          buildKeystoneDefaultAccountPlan: jest.fn().mockResolvedValue({
+            bundle: [{ network: 'evm', path }],
+            networks: [
+              { networkId: networkIds.eth, deriveType: 'default' },
+              { networkId: networkIds.btc, deriveType: 'default' },
+            ],
+          }),
+        }
+      : {}),
     getAdapterForVendor: jest.fn().mockResolvedValue({
       hw: {
         allNetworkGetAddress,
-        getDeviceInfo: jest.fn().mockResolvedValue({
-          success: true,
-          payload: { model: 'Keystone' },
-        }),
+        getDeviceInfo,
       },
     }),
   });
@@ -107,7 +159,9 @@ function buildService() {
     created,
     createHWWallet,
     batchBuildAccounts,
+    buildBatchNetworks,
     allNetworkGetAddress,
+    getDeviceInfo,
     walletIdentity,
   };
 }
@@ -130,6 +184,7 @@ describe('Keystone default account creation', () => {
               device: {
                 connectId: 'keystone-connection',
                 deviceId: fixture.walletIdentity,
+                usbConnectId: 'keystone-usb-serial',
                 name: 'Keystone',
                 deviceType: EDeviceType.Unknown,
                 uuid: '',
@@ -145,6 +200,17 @@ describe('Keystone default account creation', () => {
       expect(fixture.createHWWallet).toHaveBeenCalledWith(
         expect.objectContaining({ defaultIsTemp: true }),
       );
+      if (usb) {
+        expect(fixture.createHWWallet).toHaveBeenCalledWith(
+          expect.objectContaining({
+            device: expect.objectContaining({
+              connectId: null,
+              deviceId: fixture.walletIdentity,
+              usbConnectId: 'keystone-usb-serial',
+            }),
+          }),
+        );
+      }
       expect(destroy).toHaveBeenCalled();
     },
   );
@@ -160,6 +226,281 @@ describe('Keystone default account creation', () => {
         }),
       }),
     );
+  });
+
+  function withDeviceExport(
+    accountExport = true,
+    failureCode = HardwareErrorCode.DevicePathForbidden,
+  ) {
+    const fixture = buildService({ realAccountPlan: true });
+    const path = "m/84'/0'/0'";
+    Object.assign(fixture.created.wallet, {
+      associatedDevice: 'export-device',
+    });
+    const pin = jest
+      .spyOn(localDb, 'pinDeviceKeystoneAccountKeys')
+      .mockResolvedValue([]);
+    fixture.allNetworkGetAddress.mockImplementation(
+      async (
+        _operation: string,
+        _device: string,
+        params: { bundle: { network: string; path: string }[] },
+      ) => ({
+        success: true,
+        payload: params.bundle.map((item) =>
+          item.network === 'btc' && item.path === path
+            ? {
+                ...item,
+                success: true,
+                payload: {
+                  accountExport,
+                  deviceIdentity: {
+                    type: 'walletId',
+                    value: fixture.walletIdentity,
+                  },
+                  accountKey: { path, publicKey: '02aa', chainCode: 'cc' },
+                },
+              }
+            : {
+                ...item,
+                success: false,
+                payload: {
+                  code: failureCode,
+                  error: 'Account not exported',
+                  params: { reason: 'account-not-exported' },
+                },
+              },
+        ),
+      }),
+    );
+    return { ...fixture, pin };
+  }
+
+  it('creates only exported QR accounts and pins keys without saving a scan preference', async () => {
+    const fixture = withDeviceExport();
+    await expect(
+      fixture.service.createKeystoneWalletWithDefaultAccounts({}),
+    ).resolves.toMatchObject(fixture.created);
+    expect(fixture.batchBuildAccounts).toHaveBeenCalledTimes(1);
+    expect(fixture.buildBatchNetworks).toHaveBeenCalledWith(
+      expect.objectContaining({
+        customNetworks: [
+          { networkId: getNetworkIdsMap().btc, deriveType: 'BIP84' },
+        ],
+        includingDefaultNetworks: false,
+      }),
+    );
+    expect(fixture.pin).toHaveBeenCalledWith({
+      dbDeviceId: 'export-device',
+      keys: { "btc:m/84'/0'/0'": '02aa:cc' },
+    });
+  });
+
+  it('retains complete-response validation without explicit export selection', async () => {
+    const fixture = withDeviceExport(false);
+    await expect(
+      fixture.service.createKeystoneWalletWithDefaultAccounts({}),
+    ).rejects.toBeDefined();
+    expect(fixture.createHWWallet).not.toHaveBeenCalled();
+  });
+
+  it('skips chains the firmware cannot use in a normal QR response', async () => {
+    const fixture = withDeviceExport(
+      false,
+      HardwareErrorCode.ChainNotSupported,
+    );
+    await expect(
+      fixture.service.createKeystoneWalletWithDefaultAccounts({}),
+    ).resolves.toMatchObject(fixture.created);
+    expect(fixture.buildBatchNetworks).toHaveBeenCalledWith(
+      expect.objectContaining({
+        customNetworks: [
+          { networkId: getNetworkIdsMap().btc, deriveType: 'BIP84' },
+        ],
+        includingDefaultNetworks: false,
+      }),
+    );
+    expect(fixture.pin).toHaveBeenCalledWith({
+      dbDeviceId: 'export-device',
+      keys: { "btc:m/84'/0'/0'": '02aa:cc' },
+    });
+  });
+
+  function answerBundle(
+    fixture: ReturnType<typeof buildService>,
+    failureCodeFor: (network: string) => number | undefined,
+  ) {
+    fixture.allNetworkGetAddress.mockImplementation(
+      async (
+        _operationId: string,
+        _deviceId: string,
+        params: { bundle: { network: string; path: string }[] },
+      ) => ({
+        success: true,
+        payload: params.bundle.map((item) => {
+          const code = failureCodeFor(item.network);
+          return code === undefined
+            ? {
+                ...item,
+                success: true,
+                payload: {
+                  deviceIdentity: {
+                    type: 'walletId',
+                    value: fixture.walletIdentity,
+                  },
+                },
+              }
+            : {
+                ...item,
+                success: false,
+                payload: { code, error: 'Keystone item failed' },
+              };
+        }),
+      }),
+    );
+  }
+
+  it('still rejects a chain the device reports as unsupported over USB', async () => {
+    const fixture = buildService({ realAccountPlan: true });
+    answerBundle(fixture, (network) =>
+      network === 'tron' ? HardwareErrorCode.ChainNotSupported : undefined,
+    );
+    await expect(
+      fixture.service.createKeystoneWalletWithDefaultAccounts({
+        usb: {
+          operationId: 'keystone-operation',
+          device: {
+            deviceId: fixture.walletIdentity,
+            connectId: 'keystone-connection',
+            name: 'Keystone',
+            deviceType: EDeviceType.Unknown,
+            uuid: '',
+          },
+        },
+      }),
+    ).rejects.toMatchObject({ code: HardwareErrorCode.ChainNotSupported });
+    expect(fixture.createHWWallet).not.toHaveBeenCalled();
+  });
+
+  it('does not skip other failures mixed with unsupported chains', async () => {
+    const fixture = buildService({ realAccountPlan: true });
+    answerBundle(fixture, (network) => {
+      if (network === 'tron') return HardwareErrorCode.ChainNotSupported;
+      if (network === 'sol') return HardwareErrorCode.DeviceMismatch;
+      return undefined;
+    });
+    await expect(
+      fixture.service.createKeystoneWalletWithDefaultAccounts({}),
+    ).rejects.toMatchObject({ code: HardwareErrorCode.DeviceMismatch });
+    expect(fixture.createHWWallet).not.toHaveBeenCalled();
+  });
+
+  it('reports the unsupported chain when no account can be created', async () => {
+    const fixture = buildService({ realAccountPlan: true });
+    answerBundle(fixture, () => HardwareErrorCode.ChainNotSupported);
+    await expect(
+      fixture.service.createKeystoneWalletWithDefaultAccounts({}),
+    ).rejects.toMatchObject({ code: HardwareErrorCode.ChainNotSupported });
+    expect(fixture.createHWWallet).not.toHaveBeenCalled();
+  });
+
+  it('does not skip wallet mismatch errors in an account-export response', async () => {
+    const fixture = withDeviceExport(true, HardwareErrorCode.DeviceMismatch);
+    await expect(
+      fixture.service.createKeystoneWalletWithDefaultAccounts({}),
+    ).rejects.toMatchObject({ code: HardwareErrorCode.DeviceMismatch });
+    expect(fixture.createHWWallet).not.toHaveBeenCalled();
+    expect(fixture.pin).not.toHaveBeenCalled();
+  });
+
+  it('creates the default multi-network account plan for a USB connection', async () => {
+    const fixture = buildService({ realAccountPlan: true });
+    fixture.allNetworkGetAddress.mockImplementation(
+      async (
+        _operationId: string,
+        _deviceId: string,
+        params: { bundle: { network: string; path: string }[] },
+      ) => ({
+        success: true,
+        payload: params.bundle.map(
+          (item: { network: string; path: string }) => ({
+            ...item,
+            success: true,
+            payload: {
+              deviceIdentity: {
+                type: 'walletId',
+                value: fixture.walletIdentity,
+              },
+            },
+          }),
+        ),
+      }),
+    );
+    await fixture.service.createKeystoneWalletWithDefaultAccounts({
+      usb: {
+        operationId: 'keystone-operation',
+        device: {
+          deviceId: fixture.walletIdentity,
+          connectId: 'keystone-connection',
+          name: 'Keystone',
+          deviceType: EDeviceType.Unknown,
+          uuid: '',
+        },
+      },
+    });
+    expect(fixture.getDeviceInfo).toHaveBeenCalledWith(
+      'keystone-operation',
+      fixture.walletIdentity,
+    );
+    const bundle = fixture.allNetworkGetAddress.mock.calls[0][2].bundle as {
+      network: string;
+    }[];
+    expect(bundle).toHaveLength(7);
+    expect(new Set(bundle.map((item) => item.network))).toEqual(
+      new Set(['btc', 'evm', 'tron', 'sol']),
+    );
+    expect(fixture.buildBatchNetworks).toHaveBeenCalledWith(
+      expect.objectContaining({
+        includingDefaultNetworks: false,
+        customNetworks: expect.arrayContaining([
+          { networkId: getNetworkIdsMap().btc, deriveType: 'default' },
+          { networkId: getNetworkIdsMap().btc, deriveType: 'BIP86' },
+          { networkId: getNetworkIdsMap().btc, deriveType: 'BIP84' },
+          { networkId: getNetworkIdsMap().btc, deriveType: 'BIP44' },
+          { networkId: getNetworkIdsMap().eth, deriveType: 'default' },
+          { networkId: getNetworkIdsMap().trx, deriveType: 'default' },
+          { networkId: getNetworkIdsMap().sol, deriveType: 'default' },
+        ]),
+      }),
+    );
+    expect(fixture.batchBuildAccounts).toHaveBeenCalledTimes(7);
+  });
+
+  it('stops before exporting when the USB operation has ended', async () => {
+    const fixture = buildService();
+    fixture.getDeviceInfo.mockResolvedValue({
+      success: false,
+      payload: {
+        code: HardwareErrorCode.OperationEnded,
+        error: 'Operation ended',
+      },
+    });
+    await expect(
+      fixture.service.createKeystoneWalletWithDefaultAccounts({
+        usb: {
+          operationId: 'keystone-operation',
+          device: {
+            deviceId: fixture.walletIdentity,
+            connectId: 'keystone-connection',
+            name: 'Keystone',
+            deviceType: EDeviceType.Unknown,
+            uuid: '',
+          },
+        },
+      }),
+    ).rejects.toBeDefined();
+    expect(fixture.allNetworkGetAddress).not.toHaveBeenCalled();
+    expect(fixture.createHWWallet).not.toHaveBeenCalled();
   });
 
   it.each([0, 1])(

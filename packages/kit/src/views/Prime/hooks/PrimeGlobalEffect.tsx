@@ -2,7 +2,11 @@ import { useCallback, useEffect, useRef } from 'react';
 
 import { noop } from 'lodash';
 
-import { useNetInfo, useUpdateEffect } from '@onekeyhq/components';
+import {
+  useNetInfo,
+  useUpdateEffect,
+  useVisibilityChange,
+} from '@onekeyhq/components';
 import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import type { IPrimeInitAtomData } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
@@ -16,6 +20,7 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { isPrimeStoreOnlyPayment } from '@onekeyhq/shared/src/prime/primePaymentCapabilities';
 import { getSanitizedErrorLogText } from '@onekeyhq/shared/src/utils/sensitiveErrorMessageUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type {
@@ -29,6 +34,7 @@ import { showOneKeyIdLegacyOAuthBindDialogAfterCredentialUpgrade } from '../comp
 
 import { logoutPurchasesSdk } from './purchasesSdkLogout';
 import { usePrimePaymentMethods } from './usePrimePaymentMethods';
+import { usePrimeWebCheckoutRecovery } from './usePrimeWebCheckoutRecovery';
 
 import type {
   IRevenueCatCustomerInfoNative,
@@ -106,6 +112,12 @@ function PrimeGlobalEffectAfterAuthReady() {
 
   const userRef = useRef<IPrimeUserInfo>(user);
   userRef.current = user;
+
+  // Store-only builds never open the hosted card checkout.
+  usePrimeWebCheckoutRecovery({
+    enabled: !isPrimeStoreOnlyPayment() && !isAppLocked,
+    onekeyUserId: user?.isLoggedIn ? user.onekeyUserId : undefined,
+  });
 
   const autoRefreshPrimeUserInfo = useCallback(async () => {
     try {
@@ -339,6 +351,15 @@ function PrimeGlobalEffectAfterAuthReady() {
 
 function PrimeGlobalEffectView() {
   const { isReady } = useOneKeyAuth();
+
+  // Back in the foreground: another device may have reset the hardware Cloud
+  // key or signed this one out meanwhile. Throttled in the background.
+  const onVisibilityChange = useCallback((visible: boolean) => {
+    if (visible) {
+      void backgroundApiProxy.serviceKeylessCloudSync.checkHardwareCloudSyncSessionThrottled();
+    }
+  }, []);
+  useVisibilityChange(onVisibilityChange);
 
   useEffect(() => {
     // Main-runtime handler NEVER mutates the shared session storage: every

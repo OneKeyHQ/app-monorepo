@@ -47,6 +47,8 @@ import type {
 import type {
   IDeviceStageConfirmContent,
   IDeviceStageErrorReasonValue,
+  IDeviceStageOpenAppReasonValue,
+  IDeviceStageQrFallbackReasonValue,
   IDeviceStageStepValue,
 } from '@onekeyhq/shared/types/deviceStage';
 
@@ -172,6 +174,7 @@ const THIRD_PARTY_ACTION_TO_STEP: Partial<
   [EThirdPartyHardwareUiAction.requestTrezorThpPairing]: 'pairingCode',
   [EThirdPartyHardwareUiAction.requestDeviceNotFound]: 'deviceNotFound',
   [EThirdPartyHardwareUiAction.requestBtcHighIndexConfirm]: 'btcHighIndex',
+  [EThirdPartyHardwareUiAction.requestKeystoneQrFallbackConfirm]: 'qrFallback',
 };
 
 /** The third-party rail's asks — the beats the device is waiting on the
@@ -186,7 +189,40 @@ const THIRD_PARTY_ASK_STEPS: ReadonlySet<IDeviceStageStepValue> = new Set([
   'pairingCode',
   'deviceNotFound',
   'btcHighIndex',
+  'qrFallback',
 ]);
+
+const QR_FALLBACK_REASONS: readonly IDeviceStageQrFallbackReasonValue[] = [
+  'payload-too-large',
+  'wallet-mismatch',
+  'device-locked',
+  'usb-unavailable',
+];
+
+/** The Keystone QR-fallback ask's reason, when it is one the card knows. */
+function qrFallbackReasonOf(
+  ui: IThirdPartyHardwareUiState,
+): IDeviceStageQrFallbackReasonValue | undefined {
+  if (
+    ui.action !== EThirdPartyHardwareUiAction.requestKeystoneQrFallbackConfirm
+  ) {
+    return undefined;
+  }
+  return QR_FALLBACK_REASONS.find((reason) => reason === ui.payload?.reason);
+}
+
+/** The app a Ledger openApp ask names while checking this wallet. */
+function walletMatchAppNameOf(
+  ui: IThirdPartyHardwareUiState,
+): string | undefined {
+  if (
+    ui.action !== EThirdPartyHardwareUiAction.openApp ||
+    ui.payload?.openAppReason !== 'walletMatch'
+  ) {
+    return undefined;
+  }
+  return ui.payload.appName || undefined;
+}
 
 /** How long the ✓ `done` beat rests before the exit. */
 const DONE_HOLD_MS = 1600;
@@ -408,6 +444,29 @@ export function pickIdentityText(
   prev: string | undefined,
 ): string | undefined {
   return next || prev;
+}
+
+/**
+ * A finish names one device. News that names no color keeps the current
+ * one while it is about the same device, but never lends it to another:
+ * a stage or opening still holding the last device's finish must not
+ * dress the next one in it.
+ */
+export function pickDeviceColor(
+  next: Pick<IDeviceStageState, 'connectId' | 'deviceColor'>,
+  current: Pick<IDeviceStageState, 'connectId' | 'deviceColor'> | undefined,
+): IDeviceStageState['deviceColor'] {
+  if (next.deviceColor) {
+    return next.deviceColor;
+  }
+  if (
+    next.connectId &&
+    current?.connectId &&
+    next.connectId !== current.connectId
+  ) {
+    return undefined;
+  }
+  return current?.deviceColor;
 }
 
 export type IDeviceStageBurstBeginParams = {
@@ -1533,11 +1592,17 @@ export class DeviceStageBurstScope {
         return;
       }
       this.clearOffTimer();
+      const walletMatchAppName = walletMatchAppNameOf(ui);
       await this.setStep(step, {
         vendor: ui.vendor,
         thirdPartyAction: ui.action,
+        thirdPartyRequestId: ui.payload?.requestId,
         btcHighIndexPath: ui.payload?.path,
         btcHighIndexAccountIndex: ui.payload?.accountIndex,
+        qrFallbackReason: qrFallbackReasonOf(ui),
+        ...(walletMatchAppName
+          ? { appName: walletMatchAppName, openAppReason: 'walletMatch' }
+          : {}),
       });
       return;
     }
@@ -1723,9 +1788,11 @@ export class DeviceStageBurstScope {
     valueUr,
     sessionId,
     diagnostic,
+    notice,
   }: {
     valueUr: IAirGapUrJson;
     diagnostic?: IDeviceStageState['qrDiagnostic'];
+    notice?: IDeviceStageState['qrNoticeI18n'];
     /** The session's tag, echoed back by the viewfinder's submit — a
      * stale frame must never answer a newer request (see ServiceQrWallet
      * stageAirGapSession). */
@@ -1736,6 +1803,18 @@ export class DeviceStageBurstScope {
       qrValueUr: valueUr,
       qrSessionId: sessionId,
       qrDiagnostic: diagnostic,
+      qrNoticeI18n: notice,
+    });
+  }
+
+  /** A device export needs only the camera, with no request code to return to. */
+  async qrStartScan({ sessionId }: { sessionId: number }) {
+    this.clearOffTimer();
+    await this.setStep('scanQr', {
+      qrValueUr: undefined,
+      qrSessionId: sessionId,
+      qrDiagnostic: undefined,
+      qrNoticeI18n: undefined,
     });
   }
 
@@ -1760,7 +1839,7 @@ export class DeviceStageBurstScope {
    * container's skipReject, in stage form). */
   async qrBackToShow() {
     const prev = await deviceStageAtom.get();
-    if (prev?.step !== 'scanQr') {
+    if (prev?.step !== 'scanQr' || !prev.qrValueUr) {
       return;
     }
     this.clearOffTimer();
@@ -1887,7 +1966,7 @@ export class DeviceStageBurstScope {
           this.pendingOpen.connectId,
         ),
         deviceType: params.deviceType ?? this.pendingOpen.deviceType,
-        deviceColor: params.deviceColor ?? this.pendingOpen.deviceColor,
+        deviceColor: pickDeviceColor(params, this.pendingOpen),
         deviceName: pickIdentityText(
           params.deviceName,
           this.pendingOpen.deviceName,
@@ -1930,7 +2009,7 @@ export class DeviceStageBurstScope {
             : prev.activitySeq,
         connectId: pickIdentityText(params.connectId, prev.connectId),
         deviceType: pickDeviceType(params.deviceType, prev.deviceType),
-        deviceColor: params.deviceColor ?? prev.deviceColor,
+        deviceColor: pickDeviceColor(params, prev),
         deviceName: pickIdentityText(params.deviceName, prev.deviceName),
         vendor: params.vendor ?? prev.vendor,
         vendorModel: pickIdentityText(params.vendorModel, prev.vendorModel),
@@ -2068,15 +2147,19 @@ export class DeviceStageBurstScope {
       vendorModel?: string;
       vendorModelName?: string;
       thirdPartyAction?: IDeviceStageState['thirdPartyAction'];
+      thirdPartyRequestId?: string;
       appName?: string;
       installProgress?: number;
       installQueue?: string[];
       installActiveIndex?: number;
       btcHighIndexPath?: string;
       btcHighIndexAccountIndex?: number;
+      qrFallbackReason?: IDeviceStageQrFallbackReasonValue;
+      openAppReason?: IDeviceStageOpenAppReasonValue;
       qrValueUr?: IDeviceStageState['qrValueUr'];
       qrSessionId?: number;
       qrDiagnostic?: IDeviceStageState['qrDiagnostic'];
+      qrNoticeI18n?: IDeviceStageState['qrNoticeI18n'];
       resetOutcome?: boolean;
     },
   ) {
@@ -2150,8 +2233,8 @@ export class DeviceStageBurstScope {
         connectId: pickIdentityText(mergedExtras.connectId, base?.connectId),
         deviceType: pickDeviceType(mergedExtras.deviceType, base?.deviceType),
         // Sticky like the model: a step that names no color keeps the one
-        // the device row gave, never blanks it.
-        deviceColor: mergedExtras.deviceColor ?? base?.deviceColor,
+        // the device row gave, never blanks it — for that device only.
+        deviceColor: pickDeviceColor(mergedExtras, base),
         deviceName: pickIdentityText(mergedExtras.deviceName, base?.deviceName),
         // Device/vendor identity is sticky within the burst (base), never
         // across bursts; the per-step extras (install / btc / action)
@@ -2166,12 +2249,15 @@ export class DeviceStageBurstScope {
           base?.vendorModelName,
         ),
         thirdPartyAction: mergedExtras.thirdPartyAction,
+        thirdPartyRequestId: mergedExtras.thirdPartyRequestId,
         appName: mergedExtras.appName,
         installProgress: mergedExtras.installProgress,
         installQueue: mergedExtras.installQueue,
         installActiveIndex: mergedExtras.installActiveIndex,
         btcHighIndexPath: mergedExtras.btcHighIndexPath,
         btcHighIndexAccountIndex: mergedExtras.btcHighIndexAccountIndex,
+        qrFallbackReason: mergedExtras.qrFallbackReason,
+        openAppReason: mergedExtras.openAppReason,
         // The checklist survives the whole authenticity run (the ask, the
         // wait, the landing, the unofficial-firmware failure card).
         authChecklist: AUTH_STEPS.has(step)
@@ -2187,7 +2273,11 @@ export class DeviceStageBurstScope {
         errorMessage: step === 'error' ? mergedExtras.errorMessage : undefined,
         errorI18n: step === 'error' ? mergedExtras.errorI18n : undefined,
         doneI18n: step === 'done' ? mergedExtras.doneI18n : undefined,
-        qrValueUr: pickQrScoped(step, mergedExtras.qrValueUr, base?.qrValueUr),
+        qrValueUr: pickQrScoped(
+          step,
+          mergedExtras.qrValueUr,
+          'qrValueUr' in mergedExtras ? undefined : base?.qrValueUr,
+        ),
         // qrShowCode always names the key, so a session without a trace
         // clears the superseded one instead of inheriting it; only the
         // showQr/scanQr hops within one session carry it.
@@ -2200,6 +2290,12 @@ export class DeviceStageBurstScope {
           step,
           mergedExtras.qrSessionId,
           base?.qrSessionId,
+        ),
+        // Like the trace: a new code names its own note, or clears the old one.
+        qrNoticeI18n: pickQrScoped(
+          step,
+          mergedExtras.qrNoticeI18n,
+          'qrNoticeI18n' in mergedExtras ? undefined : base?.qrNoticeI18n,
         ),
         inputError: mergedExtras.inputError,
         passphraseMode: mergedExtras.passphraseMode ?? base?.passphraseMode,

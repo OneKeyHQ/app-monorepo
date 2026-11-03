@@ -49,7 +49,11 @@ describe('buildMarketEmbeddedSwapInitParams', () => {
   it('seeds both sides before shared Swap mounts', () => {
     expect(
       buildMarketEmbeddedSwapInitParams({
-        defaultTokens: [bnb, marketToken],
+        defaultTokens: [
+          bnb,
+          swapDefaultSetTokens[marketToken.networkId].toToken as ISwapToken,
+          marketToken,
+        ],
         swapToken: marketToken,
       }),
     ).toMatchObject({

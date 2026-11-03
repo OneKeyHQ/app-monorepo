@@ -7,6 +7,7 @@ import {
   __resetSwrCacheNamespaceStorageForTests,
   clearAllSwrCacheNamespaces,
   readSwrCacheEntry,
+  readSwrCacheKeysByPrefix,
   removeSwrCacheByPrefix,
   removeSwrCacheEntries,
   writeSwrCacheEntries,
@@ -41,6 +42,23 @@ describeIfIndexedDB('swrCacheNamespaceStorage', () => {
       d: 'plain',
       t: 1,
     });
+  });
+
+  it('discovers readable keys in the requested namespace after reopening', () => {
+    writeSwrCacheEntries([
+      ['marketStockVariants:v1:SPCX:en-us', { d: 'siblings', t: 1 }],
+      ['marketStockVariants:v1:AAPL:zh-cn', { d: 'other asset', t: 1 }],
+      ['marketStockDetail:v1:SPCX:en-us', { d: 'parent', t: 1 }],
+    ]);
+    __resetSwrCacheNamespaceStorageForTests();
+
+    expect(readSwrCacheKeysByPrefix('marketStockVariants:v1:')).toEqual(
+      expect.arrayContaining([
+        'marketStockVariants:v1:SPCX:en-us',
+        'marketStockVariants:v1:AAPL:zh-cn',
+      ]),
+    );
+    expect(readSwrCacheKeysByPrefix('marketStockVariants:v1:')).toHaveLength(2);
   });
 
   it('round-trips a key the record store would refuse', () => {

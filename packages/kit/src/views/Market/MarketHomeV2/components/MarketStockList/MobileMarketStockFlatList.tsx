@@ -184,7 +184,7 @@ function MobileMarketStockFlatListImpl({
       maxToRenderPerBatch={20}
       windowSize={platformEnv.isNativeAndroid ? 7 : 3}
       removeClippedSubviews={platformEnv.isNativeIOS}
-      ListFooterComponent={ListFooterComponent}
+      ListFooterComponent={ListFooterComponent ?? undefined}
       ListEmptyComponent={ListEmptyComponent}
       contentContainerStyle={{
         ...(platformEnv.isNative

@@ -6,13 +6,17 @@ import { useIntl } from 'react-intl';
 
 import {
   Button,
+  EVideoResizeMode,
   HeightTransition,
+  type IVideoSource,
   Icon,
   SegmentControl,
   SizableText,
   Stack,
   Toast,
+  Video,
   YStack,
+  useThemeName,
 } from '@onekeyhq/components';
 import { usePromptWebDeviceAccess } from '@onekeyhq/kit/src/hooks/usePromptWebDeviceAccess';
 import { isWebUsbNoDeviceSelectedError } from '@onekeyhq/kit/src/hooks/usePromptWebDeviceAccessUtils';
@@ -42,9 +46,7 @@ import { ConnectionIndicator } from './ConnectionIndicator';
 
 import type { SearchDevice } from '@onekeyfe/hd-core';
 
-// Use the neutral external-wallet artwork until a licensed Keystone asset is
-// available. Showing a copied Trezor image here is actively misleading.
-const keystoneLogo = require('@onekeyhq/kit/assets/pick-others.png');
+const keystoneLogo = require('@onekeyhq/kit/assets/pick-keystone.png');
 
 // Same cadence as ConnectionFlowLedger: fixed 1.5s poll, ~90s window.
 const KEYSTONE_SCAN_POLL_INTERVAL_MS = 1500;
@@ -114,19 +116,42 @@ enum EConnectionStatus {
 }
 
 function DevicePlaceholder({ isUsb }: { isUsb: boolean }) {
+  // Onboarding overrides the app theme, so artwork must follow this page.
+  const themeVariant = useThemeName();
+  const videoSource = useMemo<IVideoSource>(
+    () =>
+      themeVariant === 'dark'
+        ? (require('@onekeyhq/kit/assets/onboarding/Connect-Keystone-D.mp4') as IVideoSource)
+        : (require('@onekeyhq/kit/assets/onboarding/Connect-Keystone-L.mp4') as IVideoSource),
+    [themeVariant],
+  );
+
   return (
     <Stack
+      testID={
+        isUsb ? 'onboarding-keystone-usb-guide' : 'onboarding-keystone-qr-guide'
+      }
       w="100%"
       h="100%"
       alignItems="center"
       justifyContent="center"
       bg="$bgSubdued"
     >
-      <Icon
-        name={isUsb ? 'UsbOutline' : 'QrCodeOutline'}
-        size="$16"
-        color="$iconSubdued"
-      />
+      {isUsb ? (
+        <Video
+          muted
+          autoPlay
+          repeat
+          w="100%"
+          h="100%"
+          controls={false}
+          playInBackground={false}
+          resizeMode={EVideoResizeMode.COVER}
+          source={videoSource}
+        />
+      ) : (
+        <Icon name="QrCodeOutline" size="$16" color="$iconSubdued" />
+      )}
     </Stack>
   );
 }
@@ -160,12 +185,14 @@ function ConnectKeystoneDevicePage() {
               // Same untranslated label as the Ledger/Trezor connect page.
               label: 'USB',
               value: EConnectDeviceChannel.usbOrBle,
+              testID: 'onboarding-keystone-tab-usb',
             },
             {
               label: intl.formatMessage({
                 id: ETranslations.global_qr_code,
               }),
               value: EConnectDeviceChannel.qr,
+              testID: 'onboarding-keystone-tab-qr',
             },
           ]
         : [

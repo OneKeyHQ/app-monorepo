@@ -13,6 +13,7 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import useFormatDate from '@onekeyhq/kit/src/hooks/useFormatDate';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { HEADER_ICON_BUTTON_STYLE_PROPS } from '../utils/NativeChartControlsShared';
@@ -205,13 +206,13 @@ function DateField({
   testID,
 }: {
   value: Date;
-  dateFormatter: Intl.DateTimeFormat;
+  dateFormatter: (date: Date) => string;
   isActive?: boolean;
   onPress?: () => void;
   testID: string;
 }) {
   const formattedDate = useMemo(
-    () => dateFormatter.format(value),
+    () => dateFormatter(value),
     [dateFormatter, value],
   );
 
@@ -330,7 +331,7 @@ function CalendarGrid({
   goToDate: Date;
   rangeStartDate: Date;
   rangeEndDate: Date;
-  monthYearFormatter: Intl.DateTimeFormat;
+  monthYearFormatter: (date: Date) => string;
   weekdayLabels: readonly string[];
   onDatePress: (date: Date) => void;
   onMonthChange: (date: Date) => void;
@@ -339,7 +340,7 @@ function CalendarGrid({
   const rangeStartTime = startOfDay(rangeStartDate).getTime();
   const rangeEndTime = startOfDay(rangeEndDate).getTime();
   const monthYearLabel = useMemo(
-    () => monthYearFormatter.format(monthDate),
+    () => monthYearFormatter(monthDate),
     [monthDate, monthYearFormatter],
   );
   const previousMonthDate = addMonths(monthDate, -1);
@@ -478,6 +479,7 @@ export function CalendarPanelPopover({
   onControlInteraction?: () => void;
 }) {
   const intl = useIntl();
+  const { formatDate, formatMonth } = useFormatDate();
   const rangeMaximumTimestamp = availableTimeRange?.to;
   const rangeMinimumTimestamp = availableTimeRange?.from;
   const [calendarNowTimestamp, setCalendarNowTimestamp] = useState(() =>
@@ -500,24 +502,15 @@ export function CalendarPanelPopover({
   );
   const dateFormatters = useMemo(
     () => ({
-      date: createDateTimeFormatter(intl.locale, {
-        ...CALENDAR_DISPLAY_SYSTEM_OPTIONS,
-        year: 'numeric',
-        month: '2-digit',
-        day: '2-digit',
-      }),
-      monthYear: createDateTimeFormatter(intl.locale, {
-        ...CALENDAR_DISPLAY_SYSTEM_OPTIONS,
-        year: 'numeric',
-        month: 'long',
-      }),
+      date: (date: Date) => formatDate(date, { hideTimeForever: true }),
+      monthYear: (date: Date) => formatMonth(date),
       weekday: createDateTimeFormatter(intl.locale, {
         calendar: CALENDAR_DISPLAY_SYSTEM_OPTIONS.calendar,
         weekday: 'short',
         timeZone: 'UTC',
       }),
     }),
-    [intl.locale],
+    [intl.locale, formatDate, formatMonth],
   );
   const weekdayLabels = useMemo(
     () =>

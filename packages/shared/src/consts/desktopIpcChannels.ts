@@ -13,6 +13,7 @@
 
 export const EDesktopIpcChannel = {
   WEBVIEW_NEW_WINDOW: 'webview/newWindow',
+  PRIME_STRIPE_RESOURCE_FORBIDDEN: 'prime/stripeResourceForbidden',
 } as const;
 
 export type EDesktopIpcChannel =

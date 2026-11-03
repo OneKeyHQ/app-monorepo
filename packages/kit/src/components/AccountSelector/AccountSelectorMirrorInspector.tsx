@@ -7,9 +7,7 @@ import {
 } from 'react';
 import type { CSSProperties } from 'react';
 
-import { createPortal } from 'react-dom';
-
-import { DEV_OVERLAY_FLOAT_BUTTON_Z_INDEX } from '@onekeyhq/shared/src/consts/zIndexConsts';
+import { OverlayView } from '@onekeyfe/react-native-native-overlay';
 
 import {
   getAccountSelectorMirrorInspectorSnapshot,
@@ -305,7 +303,7 @@ function BasicAccountSelectorMirrorInspector({
     return [...result.entries()];
   }, [snapshot.reports]);
 
-  return createPortal(
+  return (
     <div
       data-testid={AccountSelectorMirrorInspectorTestIDs.root}
       style={{
@@ -326,7 +324,6 @@ function BasicAccountSelectorMirrorInspector({
         position: 'fixed',
         right: 12,
         width: 'min(520px, calc(100vw - 24px))',
-        zIndex: DEV_OVERLAY_FLOAT_BUTTON_Z_INDEX,
       }}
     >
       <div
@@ -420,13 +417,32 @@ function BasicAccountSelectorMirrorInspector({
           )}
         </div>
       )}
-    </div>,
-    globalThis.document.body,
+    </div>
+  );
+}
+
+const DEBUG_OVERLAY_ANIMATION = { enter: { type: 'none' } } as const;
+
+function AccountSelectorMirrorInspectorOverlay(
+  props: IAccountSelectorMirrorInspectorProps,
+) {
+  return (
+    <OverlayView
+      visible
+      level="debug"
+      presentation="fullscreen"
+      blocking={false}
+      backdrop={false}
+      dismissOnBackPress={false}
+      animation={DEBUG_OVERLAY_ANIMATION}
+    >
+      <BasicAccountSelectorMirrorInspector {...props} />
+    </OverlayView>
   );
 }
 
 export const AccountSelectorMirrorInspector = memo(
-  BasicAccountSelectorMirrorInspector,
+  AccountSelectorMirrorInspectorOverlay,
 );
 
 export default AccountSelectorMirrorInspector;

@@ -97,6 +97,8 @@ describe('ServiceThirdPartyHardware Trezor BLE binding', () => {
                   value: 'ledger-identity',
                 }
               : { vendor, type: 'deviceId', value: 'trezor-identity' },
+          fallbackIdentities:
+            vendor === EHardwareVendor.ledger ? [] : undefined,
           extra: { dbDeviceId: 'db-device' },
         });
         expect(db.updateDeviceConnectId.mock.calls).toHaveLength(0);
@@ -136,8 +138,113 @@ describe('ServiceThirdPartyHardware Trezor BLE binding', () => {
       await service.rebindBleDevice({ dbDeviceId: 'db-device' });
       expect(bindBleDevice).toHaveBeenCalledWith({
         identity: undefined,
+        fallbackIdentities: [],
         extra: { dbDeviceId: 'db-device' },
       });
+    } finally {
+      adapterLookup.mockRestore();
+    }
+  });
+
+  it('offers every recorded Ledger chain so a missing app can fall back to the next', async () => {
+    db.getDevice.mockResolvedValueOnce({
+      id: 'db-device',
+      name: 'Device',
+      uuid: 'test-device',
+      deviceType: EDeviceType.Unknown,
+      features: '{}',
+      settingsRaw: '{}',
+      createdAt: 1,
+      updatedAt: 1,
+      vendor: EHardwareVendor.ledger,
+      deviceId: '',
+      connectId: '',
+      settings: {
+        chainFingerprints: { sol: 'sol-fp', evm: 'evm-fp', btc: 'btc-fp' },
+      },
+    });
+    const bindBleDevice = jest
+      .fn()
+      .mockResolvedValue({ success: true, payload: 'new-ble' });
+    const service = new ServiceThirdPartyHardware({
+      backgroundApi: {} as IBackgroundApi,
+    });
+    const adapterLookup = jest
+      .spyOn(service, 'getAdapterForVendor')
+      .mockResolvedValue({
+        hw: { bindBleDevice },
+      } as unknown as IThirdPartyHardwareAdapter);
+    const ledgerIdentity = (chain: string, value: string) => ({
+      vendor: EHardwareVendor.ledger,
+      type: 'chainFingerprint',
+      chain,
+      value,
+    });
+    try {
+      await service.rebindBleDevice({ dbDeviceId: 'db-device' });
+      expect(bindBleDevice).toHaveBeenCalledWith({
+        identity: ledgerIdentity('evm', 'evm-fp'),
+        fallbackIdentities: [
+          ledgerIdentity('btc', 'btc-fp'),
+          ledgerIdentity('sol', 'sol-fp'),
+        ],
+        extra: { dbDeviceId: 'db-device' },
+      });
+    } finally {
+      adapterLookup.mockRestore();
+    }
+  });
+
+  it('runs a Ledger rebind as a wallet-match check only when a fingerprint is recorded', async () => {
+    const service = new ServiceThirdPartyHardware({
+      backgroundApi: {} as IBackgroundApi,
+    });
+    let checking = false;
+    const checkedBinds: boolean[] = [];
+    const bindBleDevice = jest.fn(async () => {
+      checkedBinds.push(checking);
+      return { success: true, payload: 'new-ble' };
+    });
+    const runWalletMatchCheck = jest.fn(
+      async <T>(check: () => Promise<T>): Promise<T> => {
+        checking = true;
+        try {
+          return await check();
+        } finally {
+          checking = false;
+        }
+      },
+    );
+    const adapterLookup = jest
+      .spyOn(service, 'getAdapterForVendor')
+      .mockResolvedValue({
+        hw: { bindBleDevice },
+        runWalletMatchCheck,
+      } as unknown as IThirdPartyHardwareAdapter);
+    const ledgerDevice = (settings: IDBDevice['settings']) => ({
+      id: 'db-device',
+      name: 'Device',
+      uuid: 'test-device',
+      deviceType: EDeviceType.Unknown,
+      features: '{}',
+      settingsRaw: '{}',
+      createdAt: 1,
+      updatedAt: 1,
+      vendor: EHardwareVendor.ledger,
+      deviceId: '',
+      connectId: '',
+      settings,
+    });
+    try {
+      db.getDevice.mockResolvedValueOnce(
+        ledgerDevice({ chainFingerprints: { evm: 'evm-fp' } }),
+      );
+      await service.rebindBleDevice({ dbDeviceId: 'db-device' });
+      db.getDevice.mockResolvedValueOnce(ledgerDevice({}));
+      await service.rebindBleDevice({ dbDeviceId: 'db-device' });
+
+      expect(checkedBinds).toEqual([true, false]);
+      expect(runWalletMatchCheck).toHaveBeenCalledTimes(1);
     } finally {
       adapterLookup.mockRestore();
     }

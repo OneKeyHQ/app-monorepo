@@ -43,6 +43,7 @@ export type IDeviceStageStepValue =
   | 'pairingCode'
   | 'deviceNotFound'
   | 'btcHighIndex'
+  | 'qrFallback'
   | 'installConfirm'
   | 'installing'
   | 'installBatch';
@@ -62,6 +63,19 @@ export type IDeviceStageExitViaValue =
 
 /** The transport a burst rides — what the capsule's channel badge reads. */
 export type IDeviceStageConnectionTypeValue = 'bluetooth' | 'usb';
+
+/** Why a Keystone request is offered as a QR (the SDK's QrFallbackReason).
+ * Every reason but payload-too-large comes from a connected device the
+ * wallet cannot use, so the card also offers a retry. */
+export type IDeviceStageQrFallbackReasonValue =
+  | 'payload-too-large'
+  | 'wallet-mismatch'
+  | 'device-locked'
+  | 'usb-unavailable';
+
+/** Why the device is opening an app, when the app knows: `walletMatch`
+ * is a check that the connected Ledger holds this wallet. */
+export type IDeviceStageOpenAppReasonValue = 'walletMatch';
 
 export type IDeviceStageErrorReasonValue =
   | 'rejected'

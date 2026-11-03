@@ -33,6 +33,7 @@ export function resolveSwapTokenSearchNetworkId({
 export function buildSwapTokenFetchParams({
   currentNetworkId,
   currentSelectNetworkId,
+  searchNetworkId,
   keywords,
   swapType,
   lpToken,
@@ -45,6 +46,7 @@ export function buildSwapTokenFetchParams({
 }: {
   currentNetworkId?: string;
   currentSelectNetworkId?: string;
+  searchNetworkId?: string;
   keywords?: string;
   swapType?: ESwapTabSwitchType;
   lpToken?: boolean;
@@ -55,7 +57,8 @@ export function buildSwapTokenFetchParams({
   currentAccountNetworkId?: string;
   currentAccountId?: string;
 }): IFetchTokensParams {
-  const targetNetworkId = currentSelectNetworkId ?? currentNetworkId;
+  const selectedNetworkId = currentSelectNetworkId ?? currentNetworkId;
+  const targetNetworkId = searchNetworkId ?? selectedNetworkId;
   const baseParams: IFetchTokensParams = {
     protocol: swapType,
     networkId: targetNetworkId,

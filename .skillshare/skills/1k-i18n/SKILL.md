@@ -12,6 +12,8 @@ The model selects scope, judges reuse, writes copy and translates.
 ## Rules
 
 - Never manually edit generated locale JSON, `translations.ts` or `localeJsonMap.ts`.
+- Before writing or reviewing English source copy, read
+  `.skillshare/skills/ui-copy/SKILL.md` and follow its rules.
 - Runtime translations come from bundled locale JSON (`localeLoaders.ts`), not live
   Lokalise requests. Remote deletion leaves existing released app bundles unchanged;
   subsequent pulls and builds receive the deletion.

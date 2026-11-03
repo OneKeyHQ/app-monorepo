@@ -16,6 +16,7 @@ import type { SimpleDbEntityApproval } from '../entity/SimpleDbEntityApproval';
 import type { SimpleDbEntityAppStatus } from '../entity/SimpleDbEntityAppStatus';
 import type { SimpleDbEntityBabylonSync } from '../entity/SimpleDbEntityBabylonSync';
 import type { SimpleDbEntityBotWallet } from '../entity/SimpleDbEntityBotWallet';
+import type { SimpleDbEntityBroadcastRecords } from '../entity/SimpleDbEntityBroadcastRecords';
 import type { SimpleDbEntityBrowserBookmarks } from '../entity/SimpleDbEntityBrowserBookmarks';
 import type { SimpleDbEntityBrowserClosedTabs } from '../entity/SimpleDbEntityBrowserClosedTabs';
 import type { SimpleDbEntityBrowserHistory } from '../entity/SimpleDbEntityBrowserHistory';
@@ -38,6 +39,7 @@ import type { SimpleDbEntityFeeInfo } from '../entity/SimpleDbEntityFeeInfo';
 import type { SimpleDbEntityFloatingIconDomainBlockList } from '../entity/SimpleDbEntityFloatingIconDomainBlockList';
 import type { SimpleDbEntityFloatingIconSettings } from '../entity/SimpleDbEntityFloatingIconSettings';
 import type { SimpleDbEntityHardwarePortfolioSync } from '../entity/SimpleDbEntityHardwarePortfolioSync';
+import type { SimpleDbEntityHeadlessBuyOrders } from '../entity/SimpleDbEntityHeadlessBuyOrders';
 import type { SimpleDbEntityIpTable } from '../entity/SimpleDbEntityIpTable';
 import type { SimpleDbEntityLegacyWalletNames } from '../entity/SimpleDbEntityLegacyWalletNames';
 import type { SimpleDbEntityLightning } from '../entity/SimpleDbEntityLightning';
@@ -54,6 +56,12 @@ import type { SimpleDbEntityPerp } from '../entity/SimpleDbEntityPerp';
 import type { SimpleDbEntityPrime } from '../entity/SimpleDbEntityPrime';
 import type { SimpleDbEntityPrimeFreeTrial } from '../entity/SimpleDbEntityPrimeFreeTrial';
 import type { SimpleDbEntityPrimeTransfer } from '../entity/SimpleDbEntityPrimeTransfer';
+import type { SimpleDbEntityPrivacyChainCache } from '../entity/SimpleDbEntityPrivacyChainCache';
+import type { SimpleDbEntityPrivacyChainJournal } from '../entity/SimpleDbEntityPrivacyChainJournal';
+import type { SimpleDbEntityPrivacyChainKeys } from '../entity/SimpleDbEntityPrivacyChainKeys';
+import type { SimpleDbEntityPrivacyChainState } from '../entity/SimpleDbEntityPrivacyChainState';
+import type { SimpleDbEntityPrivacyChainXmrSent } from '../entity/SimpleDbEntityPrivacyChainXmrSent';
+import type { SimpleDbEntityPrivacyChainZcashSent } from '../entity/SimpleDbEntityPrivacyChainZcashSent';
 import type { SimpleDbEntityReceiveArrivalConfig } from '../entity/SimpleDbEntityReceiveArrivalConfig';
 import type { SimpleDbEntityRecentNetworks } from '../entity/SimpleDbEntityRecentNetworks';
 import type { SimpleDbEntityReferralCode } from '../entity/SimpleDbEntityReferralCode';
@@ -173,7 +181,35 @@ export class SimpleDbProxy
 
   lightning = this._createProxyService('lightning') as SimpleDbEntityLightning;
 
+  privacyChainState = this._createProxyService(
+    'privacyChainState',
+  ) as SimpleDbEntityPrivacyChainState;
+
+  privacyChainCache = this._createProxyService(
+    'privacyChainCache',
+  ) as SimpleDbEntityPrivacyChainCache;
+
+  privacyChainKeys = this._createProxyService(
+    'privacyChainKeys',
+  ) as SimpleDbEntityPrivacyChainKeys;
+
+  privacyChainJournal = this._createProxyService(
+    'privacyChainJournal',
+  ) as SimpleDbEntityPrivacyChainJournal;
+
+  privacyChainXmrSent = this._createProxyService(
+    'privacyChainXmrSent',
+  ) as SimpleDbEntityPrivacyChainXmrSent;
+
+  privacyChainZcashSent = this._createProxyService(
+    'privacyChainZcashSent',
+  ) as SimpleDbEntityPrivacyChainZcashSent;
+
   feeInfo = this._createProxyService('feeInfo') as SimpleDbEntityFeeInfo;
+
+  broadcastRecords = this._createProxyService(
+    'broadcastRecords',
+  ) as SimpleDbEntityBroadcastRecords;
 
   marketTokenPreference = this._createProxyService(
     'marketTokenPreference',
@@ -236,6 +272,10 @@ export class SimpleDbProxy
   earnOrders = this._createProxyService(
     'earnOrders',
   ) as SimpleDbEntityEarnOrders;
+
+  headlessBuyOrders = this._createProxyService(
+    'headlessBuyOrders',
+  ) as SimpleDbEntityHeadlessBuyOrders;
 
   localNFTs = this._createProxyService('localNFTs') as SimpleDbEntityLocalNFTs;
 

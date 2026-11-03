@@ -50,8 +50,9 @@ export type IOnramperCheckoutRequest = {
 // fields are always present. There is no ETA field. Fees are denominated in the
 // source fiat. `rate` is crypto-per-fiat and equals payout/amount exactly
 // (device-verified 2026-07-17, coinbasepay: payout 0.05116585 / $100 →
-// rate 0.0005116585) — it carries no information beyond the quote itself, so
-// never use it to price the payout in fiat; use OneKey's own market feed.
+// rate 0.0005116585) — it carries no information beyond the quote itself. To
+// price the payout in fiat use getOnramperQuotePricing ((amount − fees) /
+// payout): that is the provider's own conversion rate, spread included.
 export type IOnramperQuote = {
   quoteId: string;
   ramp: string; // provider slug, e.g. 'coinbase'
@@ -68,7 +69,7 @@ export type IOnramperCheckoutRequirements = {
   quote: IOnramperQuote;
 };
 
-// Mirrors the SDK's `CheckoutEvent['type']` union (1.2.2) minus
+// Mirrors the SDK's `CheckoutEvent['type']` union (1.3.1) minus
 // `stateChanged`, which is exposed through `addStateListener` instead.
 export type IOnramperEventName =
   | 'checkoutStarted'
@@ -84,6 +85,13 @@ export type IOnramperEventName =
   | 'providerReady'
   | 'paymentAuthorized'
   | 'paymentProcessing'
+  // SDK 1.3: the payment was accepted but is not settled yet. The checkout
+  // ENDS here instead of `completed`; the order is tracked by transactionId.
+  | 'paymentPending'
+  // SDK 1.3 provider progress (3-D Secure challenge, MoonPay onboarding).
+  | 'challengeStarted'
+  | 'challengeCompleted'
+  | 'customerOnboardingRequired'
   | 'paymentCancelled'
   | 'providerError';
 
@@ -100,6 +108,10 @@ export const ONRAMPER_EVENT_NAMES: IOnramperEventName[] = [
   'providerReady',
   'paymentAuthorized',
   'paymentProcessing',
+  'paymentPending',
+  'challengeStarted',
+  'challengeCompleted',
+  'customerOnboardingRequired',
   'paymentCancelled',
   'providerError',
 ];
@@ -120,6 +132,10 @@ export type IOnramperEvent = {
   errorCode?: string;
   message?: string;
   info?: Record<string, unknown>;
+  // failed (SDK 1.3+): customer-safe copy and the short code the SDK logs
+  // alongside, for support. Absent on older payloads.
+  userMessage?: string;
+  supportCode?: string;
   // checkoutStarted
   intentId?: string;
   // loginRequired — requirement `type` values (tos / amount_limit / …).
@@ -136,7 +152,7 @@ export type IOnramperEvent = {
   reason?: string;
 };
 
-// Mirrors the SDK's `OnramperState['kind']` union (1.2.2).
+// Mirrors the SDK's `OnramperState['kind']` union (1.3.1).
 export type IOnramperStateKind =
   | 'idle'
   | 'initializing'
@@ -147,6 +163,7 @@ export type IOnramperStateKind =
   | 'readyToCheckout'
   | 'finalizing'
   | 'rendering'
+  | 'paymentPending'
   | 'completed'
   | 'failed';
 
@@ -165,6 +182,20 @@ export type IOnramperError = {
   code?: string;
   message?: string;
   info?: Record<string, unknown>;
+  // SDK 1.3+ (see IOnramperEvent).
+  userMessage?: string;
+  supportCode?: string;
+};
+
+// Mirrors the SDK's `OnramperLogRecord` (1.3.1): one sanitized native SDK
+// diagnostic. `timestamp` is Unix milliseconds; `context` values are strings.
+export type IOnramperLogRecord = {
+  timestamp: number;
+  level: 'off' | 'error' | 'info' | 'debug';
+  category: string;
+  event: string;
+  context: Record<string, string>;
+  message: string;
 };
 
 export type IOnramperEventListener = (event: IOnramperEvent) => void;
@@ -172,6 +203,9 @@ export type IOnramperEventListener = (event: IOnramperEvent) => void;
 export type IOnramperClient = {
   // True for the mock client used on Simulator / non-device dev builds.
   isMock?: boolean;
+  // Version of the native iOS SDK actually loaded (SDK 1.3.1+). Undefined on
+  // the mock and on older native SDKs.
+  sdkVersion?: string;
   initialize: (session: IOnramperSession) => Promise<void>;
   getCheckoutRequirements: (
     request: IOnramperCheckoutRequest,
@@ -193,6 +227,12 @@ export type ICreateOnramperClientParams = IOnramperConfig & {
   // Invoked by the SDK when the partner session is about to expire; must return
   // a freshly minted pair (from the OneKey backend) without user interaction.
   onSessionExpired: () => Promise<IOnramperSession>;
+  // Receives the native SDK's structured log records (SDK 1.3+) — in dev
+  // builds only, since production keeps the native log level off (the bridge
+  // also writes every record to the iOS system log, see realClient). Must
+  // stay cheap and must not throw; provider messages can still carry
+  // personal data, so persist only format-checked fields (sanitizeOnramperLogRecord).
+  onLog?: (record: IOnramperLogRecord) => void;
 };
 
 export type ICanUseHeadless = () => boolean;

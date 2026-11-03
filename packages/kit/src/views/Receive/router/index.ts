@@ -56,6 +56,18 @@ const FiatCryptoBuyModal = LazyLoadPage(
   () => import('@onekeyhq/kit/src/views/FiatCrypto/pages/Buy'),
 );
 
+// The Buy page's order entry points (header icon, banner) push these by
+// name; without them here the taps are dropped when Buy was entered from
+// the Receive selector.
+const FiatCryptoHeadlessBuyOrdersModal = LazyLoadPage(
+  () => import('@onekeyhq/kit/src/views/FiatCrypto/pages/HeadlessBuy/Orders'),
+);
+
+const FiatCryptoHeadlessBuyOrderDetailModal = LazyLoadPage(
+  () =>
+    import('@onekeyhq/kit/src/views/FiatCrypto/pages/HeadlessBuy/OrderDetail'),
+);
+
 export const ModalReceiveStack: IModalFlowNavigatorConfig<
   EModalReceiveRoutes,
   IModalReceiveParamList
@@ -107,6 +119,14 @@ export const ModalReceiveStack: IModalFlowNavigatorConfig<
   {
     name: EModalReceiveRoutes.BuyModal,
     component: FiatCryptoBuyModal,
+  },
+  {
+    name: EModalReceiveRoutes.HeadlessBuyOrders,
+    component: FiatCryptoHeadlessBuyOrdersModal,
+  },
+  {
+    name: EModalReceiveRoutes.HeadlessBuyOrderDetail,
+    component: FiatCryptoHeadlessBuyOrderDetailModal,
   },
   {
     name: EModalReceiveRoutes.DeriveTypesAddress,

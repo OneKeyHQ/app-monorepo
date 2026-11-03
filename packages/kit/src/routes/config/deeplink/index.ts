@@ -513,6 +513,14 @@ async function processDeepLinkUrlAccount(
         case EOneKeyDeepLinkPath.prime_subscription:
           await openPrimeInfiniSubscriptionFromDeepLink({ navigation });
           break;
+        case EOneKeyDeepLinkPath.prime_purchase_complete: {
+          // Return from the hosted card checkout. Only a hint to re-check
+          // RevenueCat; the purchase is never confirmed from the link.
+          const { notifyPrimeWebCheckoutReturned } =
+            await import('../../../views/Prime/hooks/primeHostedCardCheckout');
+          await notifyPrimeWebCheckoutReturned();
+          break;
+        }
         case EOneKeyDeepLinkPath.cross_device_transfer:
           console.log('TODO implement cross_device_transfer deeplink');
           break;

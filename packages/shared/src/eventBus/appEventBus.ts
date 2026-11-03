@@ -32,7 +32,11 @@ import platformEnv, { ERuntimeRole } from '../platformEnv';
 
 import { EAppEventBusNames } from './appEventBusNames';
 
-import type { EAccountSelectorSceneName, EHomeTab } from '../../types';
+import type {
+  EAccountSelectorSceneName,
+  EHomeTab,
+  IServerNetwork,
+} from '../../types';
 import type {
   IDeFiProtocol,
   IFetchAccountDeFiPositionsResp,
@@ -146,6 +150,8 @@ export type IEventBusPayloadAccountDataUpdate =
 export type IEventBusPayloadAccountUpdate = {
   /** Whether account-scoped network data changed. */
   isAccountDataChanged?: boolean;
+  /** Indexed owners that were committed by an explicit creation operation. */
+  createdIndexedAccountIds?: string[];
 };
 
 // The item shape is owned by kit's settings config; it stays opaque here so
@@ -165,6 +171,13 @@ export interface IAppEventBusPayload {
   };
   [EAppEventBusNames.ShowDialogLoading]: IDialogLoadingProps;
   [EAppEventBusNames.HideDialogLoading]: undefined;
+  // The device is asking for confirmation `current` of `total`.
+  [EAppEventBusNames.HardwareCloudKeySignProgress]: {
+    current: number;
+    total: number;
+  };
+  // Another device reset the key or signed this one out; it must sign again.
+  [EAppEventBusNames.HardwareCloudKeyDropped]: undefined;
   [EAppEventBusNames.WalletClear]: undefined;
   [EAppEventBusNames.WalletUpdate]: undefined;
   [EAppEventBusNames.SwapApprovingSuccess]: {
@@ -195,8 +208,17 @@ export interface IAppEventBusPayload {
   [EAppEventBusNames.WalletRename]: {
     walletId: string;
   };
+  // Fires once a new HD wallet is persisted. isFreshlyGeneratedMnemonic is
+  // true only for a mnemonic generateMnemonic() just handed out -- the one
+  // case provably free of prior on-chain history.
+  [EAppEventBusNames.WalletAdded]: {
+    walletId: string;
+    isFreshlyGeneratedMnemonic: boolean;
+  };
   [EAppEventBusNames.AccountUpdate]: IEventBusPayloadAccountUpdate | undefined;
-  [EAppEventBusNames.AccountRemove]: undefined;
+  [EAppEventBusNames.AccountRemove]:
+    | { accountId?: string; indexedAccountId?: string }
+    | undefined;
   [EAppEventBusNames.AddDBAccountsToWallet]: {
     walletId: string;
     accounts: IDBAccount[];
@@ -275,6 +297,12 @@ export interface IAppEventBusPayload {
   [EAppEventBusNames.HideAirGapQrcode]: {
     flag?: string; // close toast should skipReject: flag=skipReject
   };
+  [EAppEventBusNames.ScanAirGapQrcode]: {
+    promiseId: number;
+  };
+  [EAppEventBusNames.CancelAirGapQrcodeScan]: {
+    promiseId: number;
+  };
   [EAppEventBusNames.RealmInit]: undefined;
   [EAppEventBusNames.V4RealmInit]: undefined;
   [EAppEventBusNames.SyncDeviceLabelToWalletName]: {
@@ -341,6 +369,7 @@ export interface IAppEventBusPayload {
   };
   [EAppEventBusNames.RefreshMarketWatchList]: undefined;
   [EAppEventBusNames.RefreshCustomRpcList]: undefined;
+  [EAppEventBusNames.CustomRpcChanged]: { networkIds: string[] };
   [EAppEventBusNames.ClearLocalHistoryPendingTxs]: undefined;
   [EAppEventBusNames.TxFeeInfoChanged]: {
     feeSelectorItems: IFeeSelectorItem[];
@@ -367,6 +396,7 @@ export interface IAppEventBusPayload {
     accountId: string;
     indexedAccountId?: string;
     networkId: string;
+    overviewRequestRevision?: number;
     overview: IFetchAccountDeFiPositionsResp['data']['totals'];
     protocols: IDeFiProtocol[];
     protocolMap: Record<string, IProtocolSummary>;
@@ -445,6 +475,15 @@ export interface IAppEventBusPayload {
           networkId: string;
         }[];
       };
+  [EAppEventBusNames.LocalWalletAccountsChanged]: {
+    networkId: string;
+    accountIds: string[];
+  };
+  // A display read gave up and showed a saved balance; the live one is in.
+  [EAppEventBusNames.LocalWalletBalanceLanded]: {
+    networkId: string;
+    accountId: string;
+  };
   [EAppEventBusNames.RefreshHistoryList]: undefined;
   [EAppEventBusNames.RefreshApprovalList]: undefined;
   [EAppEventBusNames.RefreshBookmarkList]: undefined;
@@ -491,11 +530,18 @@ export interface IAppEventBusPayload {
     toToken?: ISwapToken;
   };
   [EAppEventBusNames.RefreshSwapHistoryList]: undefined;
+  [EAppEventBusNames.HeadlessBuyOrdersChanged]: undefined;
   // De-facto "network list changed, refresh" signal. Emitted not only when a
   // custom network is added/removed, but also after a server-network sync that
   // changes the set (e.g. a network delisted to TRASH). All network selectors
   // listen to it to re-pull their network list.
   [EAppEventBusNames.AddedCustomNetwork]: undefined;
+  // Emitted by bg whenever a network is recorded as recently used, so the
+  // UI can keep its selector cache slot exact for writers it does not see.
+  [EAppEventBusNames.RecentNetworkRecorded]: { network: IServerNetwork };
+  // Emitted by bg when the recently-used list is cleared, so UI cache writers
+  // can drop results of lookups that were still in flight.
+  [EAppEventBusNames.RecentNetworksCleared]: undefined;
   [EAppEventBusNames.SyncDappAccountToHomeAccount]: {
     expectedSelectedAccount: IAccountSelectorSelectedAccount;
     selectedAccount: IAccountSelectorSelectedAccount;
@@ -551,6 +597,9 @@ export interface IAppEventBusPayload {
     // state, preventing another Extension Home runtime from winning the race.
     claimId?: string;
   };
+  // Emitted by the extension background when the hosted card checkout page
+  // returns, so the waiting surface re-checks RevenueCat immediately.
+  [EAppEventBusNames.PrimeWebCheckoutReturned]: { checkoutId: string };
   [EAppEventBusNames.PrimeGiftRedeemed]: { serialNo: string };
   [EAppEventBusNames.PrimeExceedDeviceLimit]: undefined;
   [EAppEventBusNames.PrimeDeviceLogout]: {
@@ -569,6 +618,15 @@ export interface IAppEventBusPayload {
   [EAppEventBusNames.CheckAddressBeforeSending]: {
     promiseId: number;
     type: 'scam' | 'contract';
+  };
+  // One chunk of a batch send left the device. The batch call rejects with
+  // no partial result when a later chunk fails, so this is how the confirm
+  // page learns which chunks are already on chain before the user retries.
+  [EAppEventBusNames.BatchSendTxBroadcasted]: {
+    uuid: string;
+    txid: string;
+    networkId: string;
+    accountId: string;
   };
   [EAppEventBusNames.HideTabBar]: boolean;
   [EAppEventBusNames.RequestHardwareUIDialog]: {
@@ -663,6 +721,7 @@ export interface IAppEventBusPayload {
     decision: string;
   };
   [EAppEventBusNames.ShowAppUpdateIncompleteDialog]: undefined;
+  [EAppEventBusNames.BundleUpdateRestartFailed]: undefined;
   [EAppEventBusNames.PendingInstallTaskProcessFinished]: undefined;
   [EAppEventBusNames.ShowNotificationViewDialog]: {
     payload: INotificationViewDialogPayload;
@@ -756,6 +815,7 @@ export interface IAppEventBusPayload {
     params: any;
   };
   [EAppEventBusNames.HomePageReady]: undefined;
+  [EAppEventBusNames.BackgroundThreadReady]: { bootId: string };
   [EAppEventBusNames.ModalNavigatorMounted]: undefined;
   [EAppEventBusNames.TrayActionWillNavigate]: undefined;
   [EAppEventBusNames.MemoryPressureWarning]: {

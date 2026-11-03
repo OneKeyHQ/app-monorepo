@@ -2,8 +2,6 @@ import { useMemo, useRef } from 'react';
 
 import { withStaticProperties } from '@onekeyhq/components/src/shared/tamagui';
 
-import { Portal } from '../../hocs';
-
 import { PageBody } from './PageBody';
 import { PageBackButton, PageClose, PageCloseButton } from './PageClose';
 import { PageContainer } from './PageContainer';
@@ -18,6 +16,7 @@ import {
 } from './PageFooterActions';
 import { PageHeader } from './PageHeader';
 import { PageLifeCycle } from './PageLifeCycle';
+import { PageOverlayOwner } from './PageOverlayOwner';
 
 import type { IPageFooterRef } from './PageContext';
 import type { IPageProps } from './type';
@@ -31,15 +30,10 @@ export type {
   IPageContentContainerLayout,
 } from './type';
 
-function PagePortal({ pagePortalId }: { pagePortalId: string }) {
-  return pagePortalId ? <Portal.Container name={pagePortalId} /> : null;
-}
-
 const DEFAULT_SCROLL_PROPS = { showsVerticalScrollIndicator: false };
 
 function PageProvider({
   children,
-  lazyLoad = false,
   scrollEnabled = false,
   scrollProps = DEFAULT_SCROLL_PROPS,
   safeAreaEnabled = true,
@@ -80,17 +74,15 @@ function PageProvider({
     <>
       {redirect ? null : (
         <PageContext.Provider value={value}>
-          <>
+          <PageOverlayOwner>
             <PageContainer
-              lazyLoad={lazyLoad}
               fullPage={fullPage}
               testID={testID}
               backgroundColor={backgroundColor}
             >
               {children}
             </PageContainer>
-            <PagePortal pagePortalId={pagePortalId} />
-          </>
+          </PageOverlayOwner>
         </PageContext.Provider>
       )}
       {isEnablePageLifeCycle ? (

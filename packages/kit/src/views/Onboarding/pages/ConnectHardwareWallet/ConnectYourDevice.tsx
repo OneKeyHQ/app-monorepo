@@ -72,7 +72,7 @@ import type { IOnboardingParamList } from '@onekeyhq/shared/src/routes';
 import { EOnboardingPages } from '@onekeyhq/shared/src/routes';
 import {
   HwWalletAvatarImages,
-  getDeviceAvatarImage,
+  getSearchDeviceAvatarImage,
 } from '@onekeyhq/shared/src/utils/avatarUtils';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
@@ -501,7 +501,7 @@ function useDeviceConnection({
     () =>
       searchedDevices.map((item) => ({
         title: item.name,
-        src: HwWalletAvatarImages[getDeviceAvatarImage(item.deviceType)],
+        src: HwWalletAvatarImages[getSearchDeviceAvatarImage(item)],
         device: item,
         onPress: async () => {
           // Ensure device scanning is completely stopped before connecting
@@ -1429,6 +1429,11 @@ export function ConnectYourDevicePage() {
           features: connectedFeatures,
           fallbackName: device.name,
         }),
+        deviceColor:
+          deviceUtils.getDeviceColorFromFeatures({
+            deviceType: device.deviceType,
+            features: connectedFeatures,
+          }) ?? deviceUtils.getDeviceColorFromSearchDevice(device),
       });
       try {
         const showDeviceProcessLoadingDialog = () =>
@@ -1532,6 +1537,7 @@ export function ConnectYourDevicePage() {
           connectId: device.connectId ?? '',
           deviceType: device.deviceType ?? undefined,
           deviceName: device.name ?? undefined,
+          deviceColor: deviceUtils.getDeviceColorFromSearchDevice(device),
         });
 
         const handleBootloaderMode = async (existsFirmware: boolean) => {

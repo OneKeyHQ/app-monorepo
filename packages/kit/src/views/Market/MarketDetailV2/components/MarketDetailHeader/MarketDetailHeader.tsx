@@ -44,7 +44,10 @@ import {
 } from '../../../components/MarketStarV2';
 import { TokenTagsPopover } from '../../../components/TokenTagsPopover';
 import { getTokenAgeLabel } from '../../../MarketHomeV2/components/MarketTokenList/hooks/useMarketTokenColumns/tokenAgeLabel';
-import { buildMarketFullUrlV2 } from '../../../marketUtils';
+import {
+  buildMarketFullUrlV2,
+  buildMarketStockFullUrlV2,
+} from '../../../marketUtils';
 import { EModalMarketRoutes } from '../../../router/types';
 import { useStockDetail } from '../../hooks/StockDetailContext';
 import { useMarketDetailBackNavigation } from '../../hooks/useMarketDetailBackNavigation';
@@ -58,6 +61,19 @@ import { resolveMarketDetailHeaderIdentity } from './marketDetailHeaderIdentity'
 import { TabPageHeaderContainer } from './TabPageHeaderContainer';
 
 import type { NativeStackHeaderItem } from '@react-navigation/native-stack';
+
+function getMobileSelectorDefaultCategory(listingIdentity: {
+  stockId?: string;
+  assetId?: string;
+}): 'stocks' | 'top_coins' | 'trending' {
+  if (listingIdentity.stockId) {
+    return 'stocks';
+  }
+  if (listingIdentity.assetId) {
+    return 'top_coins';
+  }
+  return 'trending';
+}
 
 // Holds the address line while a stock route resolves its token, so the
 // title does not re-center when the address arrives.
@@ -77,10 +93,17 @@ export function MarketDetailHeader({
   const { width: windowWidth } = useWindowDimensions();
   const { left: safeAreaLeft, right: safeAreaRight } = useSafeAreaInsets();
   const listingIdentity = useMarketDetailWatchlistIdentity();
+  const { stockId: listingStockId, assetId: listingAssetId } = listingIdentity;
   const { handleBackPress } = useMarketDetailBackNavigation();
   const navigation = useAppNavigation();
-  const { tokenDetail, tokenDetailPreview, networkId, isNative, isStockToken } =
-    useMarketDetailHeaderDisplayData();
+  const {
+    tokenDetail,
+    tokenDetailPreview,
+    tokenAddress,
+    networkId,
+    isNative,
+    isStockToken,
+  } = useMarketDetailHeaderDisplayData();
   const { stockDetail, stockPreview } = useStockDetail();
   const { copyText } = useClipboard();
   const isOverlayPage = useIsOverlayPage();
@@ -120,9 +143,13 @@ export function MarketDetailHeader({
       screen: EModalMarketRoutes.MobileTokenSelector,
       params: {
         showFavoriteButton,
+        defaultCategory: getMobileSelectorDefaultCategory({
+          stockId: listingStockId,
+          assetId: listingAssetId,
+        }),
       },
     });
-  }, [navigation, showFavoriteButton]);
+  }, [listingAssetId, listingStockId, navigation, showFavoriteButton]);
 
   const handleCopyAddress = useCallback(() => {
     const address = tokenDetail?.address;
@@ -188,7 +215,7 @@ export function MarketDetailHeader({
       <XStack
         testID="market-detail-native-header-title"
         ai="center"
-        gap="$2"
+        gap="$3"
         flexShrink={1}
         minWidth={0}
         // Android's custom row must fill the space between the back and action
@@ -210,7 +237,7 @@ export function MarketDetailHeader({
         <YStack flexShrink={1} minWidth={0}>
           <XStack
             ai="center"
-            gap="$1"
+            gap="$1.5"
             flexShrink={1}
             {...(!isOverlayPage && {
               onPress: onPressTokenSelector,
@@ -240,7 +267,7 @@ export function MarketDetailHeader({
             {!isOverlayPage ? (
               <Icon
                 name="ChevronDownSmallOutline"
-                size="$4"
+                size="$5"
                 color="$iconSubdued"
               />
             ) : null}
@@ -346,18 +373,28 @@ export function MarketDetailHeader({
   });
 
   const { shareText } = useShare();
+  const shareAddress = isStockToken
+    ? (tokenDetail?.address ?? '')
+    : tokenAddress;
+  const canShare = Boolean(
+    listingStockId || (networkId && (isStockToken || isNative || shareAddress)),
+  );
 
   const handleShareNative = useCallback(() => {
-    if (!networkId) return;
+    if (listingStockId) {
+      void shareText(buildMarketStockFullUrlV2({ stockId: listingStockId }));
+      return;
+    }
+    if (!networkId || !canShare) return;
     const shortCode =
       networkUtils.getNetworkShortCode({ networkId }) || networkId;
     const url = buildMarketFullUrlV2({
       network: shortCode,
-      address: tokenDetail?.address ?? '',
+      address: shareAddress ?? '',
       isNative,
     });
     void shareText(url);
-  }, [networkId, tokenDetail?.address, isNative, shareText]);
+  }, [listingStockId, canShare, networkId, shareAddress, isNative, shareText]);
 
   const handleStarNative = useCallback(() => {
     void onStarPress();
@@ -376,10 +413,20 @@ export function MarketDetailHeader({
           ]
         : []),
       glassBarItem(
-        <HeaderIconButton icon="ShareOutline" onPress={handleShareNative} />,
+        <HeaderIconButton
+          icon="ShareOutline"
+          onPress={handleShareNative}
+          disabled={!canShare}
+        />,
       ),
     ],
-    [showFavoriteButton, starChecked, handleStarNative, handleShareNative],
+    [
+      showFavoriteButton,
+      starChecked,
+      handleStarNative,
+      handleShareNative,
+      canShare,
+    ],
   );
 
   // Drive the back button through useMarketDetailBackNavigation so the
@@ -522,7 +569,7 @@ export function MarketDetailHeader({
           )}
 
           {networkId || listingIdentity.assetId || listingIdentity.stockId ? (
-            <XStack gap="$3" ai="center">
+            <XStack gap={isMobileWebLayout ? '$6' : '$3'} ai="center">
               {showFavoriteButton ? (
                 <MarketStarV2
                   {...listingIdentity}
@@ -534,13 +581,16 @@ export function MarketDetailHeader({
                   isNative={isNative}
                 />
               ) : null}
-              <ShareButton
-                networkId={networkId}
-                address={tokenDetail?.address ?? ''}
-                isNative={isNative}
-                useIconButton
-                size="large"
-              />
+              {canShare ? (
+                <ShareButton
+                  stockId={listingStockId}
+                  networkId={networkId}
+                  address={shareAddress ?? ''}
+                  isNative={isNative}
+                  useIconButton
+                  size="large"
+                />
+              ) : null}
             </XStack>
           ) : null}
         </TabPageHeaderContainer>

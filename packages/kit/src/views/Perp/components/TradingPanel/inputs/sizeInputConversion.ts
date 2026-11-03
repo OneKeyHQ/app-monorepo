@@ -1,6 +1,9 @@
 import BigNumber from 'bignumber.js';
 
-import { formatHlSize } from '@onekeyhq/shared/src/utils/perpsUtils';
+import {
+  formatHlSize,
+  getMinimumOrderSize,
+} from '@onekeyhq/shared/src/utils/perpsUtils';
 
 /**
  * Whether a reference-price change can be ignored because nothing needs
@@ -62,4 +65,39 @@ export function convertPerpsSizeDisplayValueToToken({
       ? displayValueBN.multipliedBy(leverage || 1)
       : displayValueBN;
   return formatHlSize(notionalValue.dividedBy(referencePriceBN), szDecimals);
+}
+
+export function getPerpsMinimumOrderSuggestion({
+  price,
+  szDecimals,
+  minimumNotional,
+  inputMode,
+  leverage,
+  symbol,
+}: {
+  price: BigNumber.Value;
+  szDecimals: number;
+  minimumNotional: number;
+  inputMode: 'token' | 'usd' | 'margin';
+  leverage: number;
+  symbol: string;
+}) {
+  const tokenValue = getMinimumOrderSize({
+    price,
+    szDecimals,
+    minimumNotional,
+  })?.toFixed(szDecimals);
+  if (!tokenValue) return undefined;
+  if (inputMode === 'token') {
+    return {
+      displayValue: tokenValue,
+      label: `${tokenValue} ${symbol}`.trim(),
+    };
+  }
+
+  const orderValue = new BigNumber(tokenValue).multipliedBy(price);
+  const displayValue = (
+    inputMode === 'margin' ? orderValue.dividedBy(leverage || 1) : orderValue
+  ).toFixed(2, BigNumber.ROUND_CEIL);
+  return { displayValue, label: `$${displayValue}` };
 }

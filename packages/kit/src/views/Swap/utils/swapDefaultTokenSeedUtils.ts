@@ -1,5 +1,6 @@
 import type { IAccountSelectorSelectedAccount } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAccountSelector';
 import type { ISwapSelectedTokensColdStartContext } from '@onekeyhq/shared/src/utils/swapColdStartCacheSnapshotUtils';
+import { getSwapNetworkDefaultTokenPair } from '@onekeyhq/shared/src/utils/swapEntryUtils';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type {
   ISwapNetwork,
@@ -11,7 +12,7 @@ import {
   buildSwapDefaultSelectedTokensForNetwork,
   buildSwapDefaultSelectedTokensFromHomeAccount,
   buildSwapSelectedTokensColdStartAccountKeyFromSelectedAccount,
-  getSwapNetworkDefaultTokenPair,
+  getSwapDefaultTokenConfigNetworkId,
   isSelectedAccountOwnerMatched,
   isSelectedAccountOwnerMatchedIgnoringDeriveType,
   isSwapColdStartAllNetworkContextNetworkId,
@@ -19,6 +20,8 @@ import {
   isSwapSelectedTokensColdStartContextMatchedWithSelectedAccount,
   isSwapSelectedTokensColdStartOwnerMatchedWithSelectedAccountIgnoringDeriveType,
   shouldResetSelectedTokensForAllNetworkHome,
+  shouldSyncSwapAutomaticDefaultNetwork,
+  shouldSyncSwapAutomaticEmptyDefaults,
 } from './swapColdStartTokenCacheUtils';
 
 import type { ISwapDefaultConfigStatus } from './swapColdStartTokenCacheUtils';
@@ -125,6 +128,10 @@ export function getSwapBackendDefaultTokensForSeed({
   defaultConfigStatus?: ISwapDefaultConfigStatus;
 }) {
   const seed = cachedContext?.defaultTokenSeed;
+  const configNetworkId = getSwapDefaultTokenConfigNetworkId({
+    networkId: currentContext?.networkId,
+    swapType: cachedContext?.swapType,
+  });
   if (
     defaultConfigStatus !== 'success' ||
     !seed ||
@@ -143,9 +150,7 @@ export function getSwapBackendDefaultTokensForSeed({
     !equalTokenNoCaseSensitive({ token1: seed.fromToken, token2: fromToken }) ||
     !equalTokenNoCaseSensitive({ token1: seed.toToken, token2: toToken }) ||
     !getSwapNetworkDefaultTokenPair(
-      swapNetworks.find(
-        (network) => network.networkId === currentContext.networkId,
-      ),
+      swapNetworks.find((network) => network.networkId === configNetworkId),
     )
   ) {
     return undefined;
@@ -165,6 +170,7 @@ export function shouldClearSwapSelectedTokensBeforeHomeAccountSync({
   initialSelectedTokensSynced,
   preserveSelectedTokens,
   swapSelectedAccount,
+  swapType,
 }: {
   cachedContext?: ISwapSelectedTokensColdStartContext;
   hasSelectedTokens: boolean;
@@ -172,13 +178,32 @@ export function shouldClearSwapSelectedTokensBeforeHomeAccountSync({
   initialSelectedTokensSynced?: boolean;
   preserveSelectedTokens?: boolean;
   swapSelectedAccount?: IAccountSelectorSelectedAccount;
+  swapType?: ESwapTabSwitchType;
 }) {
   if (!hasSelectedTokens) {
-    return false;
+    return (
+      !preserveSelectedTokens &&
+      shouldSyncSwapAutomaticEmptyDefaults({
+        cachedContext,
+        hasSelectedTokens,
+        selectedAccount: homeSelectedAccount,
+        swapType,
+      })
+    );
   }
 
   if (preserveSelectedTokens) {
     return false;
+  }
+
+  if (
+    shouldSyncSwapAutomaticDefaultNetwork({
+      cachedContext,
+      selectedAccount: homeSelectedAccount,
+      swapType,
+    })
+  ) {
+    return true;
   }
 
   if (
@@ -286,6 +311,7 @@ export function getSwapSelectedTokensHomeAccountSyncAction({
       initialSelectedTokensSynced,
       preserveSelectedTokens,
       swapSelectedAccount,
+      swapType,
     });
   if (!shouldClearSelectedTokens) {
     return { type: 'preserve' };

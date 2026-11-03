@@ -103,15 +103,8 @@ export function WalletAvatarEditDialog({ wallet }: { wallet: IDBWallet }) {
   );
 }
 
-export function showWalletAvatarEditDialog({
-  wallet,
-  nativeSheet = false,
-}: {
-  wallet: IDBWallet;
-  nativeSheet?: boolean;
-}) {
+export function showWalletAvatarEditDialog({ wallet }: { wallet: IDBWallet }) {
   Dialog.show({
-    nativeSheet,
     // eslint-disable-next-line onekey/no-app-locale-main-thread
     title: appLocale.intl.formatMessage({
       id: ETranslations.global_edit_avatar,

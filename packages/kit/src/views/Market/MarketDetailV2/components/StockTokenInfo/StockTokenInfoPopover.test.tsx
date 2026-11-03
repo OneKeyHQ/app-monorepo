@@ -1,6 +1,6 @@
 /** @jest-environment jsdom */
 
-import type { ReactNode } from 'react';
+import type { ComponentType, ReactElement, ReactNode } from 'react';
 
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 
@@ -16,6 +16,9 @@ const useStockDetailMock = jest.fn<
 >();
 
 jest.mock('@onekeyhq/components', () => {
+  const { runAfterActionListClose } = jest.requireActual<
+    typeof import('../../../../../../../components/src/actions/ActionList/runAfterClose')
+  >('../../../../../../../components/src/actions/ActionList/runAfterClose');
   const Stack = ({
     children,
     testID,
@@ -43,10 +46,17 @@ jest.mock('@onekeyhq/components', () => {
     Popover: ({
       renderContent,
     }: {
-      renderContent: (props: unknown) => ReactNode;
-    }) => renderContent({ closePopover: mockClosePopover }),
+      renderContent: ReactElement | ComponentType;
+    }) => {
+      if (typeof renderContent === 'function') {
+        const Content = renderContent;
+        return <Content />;
+      }
+      return renderContent;
+    },
     usePopoverContext: () => ({ closePopover: mockClosePopover }),
     useClipboard: () => ({ copyText: jest.fn() }),
+    runAfterActionListClose,
   };
 });
 
@@ -69,13 +79,23 @@ jest.mock('../../hooks/StockDetailContext', () => ({
 jest.mock('../TokenSelector/StockTokenVariantSelector', () => ({
   getIssuerLabel: (issuer: string) => issuer,
 }));
-// The dashed label pulls in Tooltip and DashText, neither of which this
-// file's component mock provides. The row only has to render its label here.
-jest.mock('../../../components/MarketTooltipLabel', () => ({
-  MarketTooltipLabel: ({ children }: { children?: ReactNode }) => (
-    <span>{children}</span>
-  ),
-}));
+jest.mock('../../../components/MarketTooltipLabel', () => {
+  const { useState } = jest.requireActual<typeof import('react')>('react');
+  return {
+    MarketTooltipLabel: ({ children }: { children?: ReactNode }) => {
+      const [open, setOpen] = useState(false);
+      return (
+        <span
+          data-testid="shares-tooltip-trigger"
+          onMouseEnter={() => setOpen(true)}
+        >
+          {children}
+          {open ? <span role="tooltip">Shares explanation</span> : null}
+        </span>
+      );
+    },
+  };
+});
 
 const variant: IMarketStockTokenVariant = {
   tokenId: 'apple',
@@ -94,6 +114,27 @@ beforeEach(() => {
 });
 
 describe('StockTokenInfoPopover shares', () => {
+  it('preserves the hovered explanation across quote and variant refreshes', () => {
+    useStockDetailMock.mockReturnValue({
+      selectedTokenVariant: { ...variant, tokenToAssetRatio: '1' },
+      stockId: 'AAPL',
+    });
+    const { rerender } = render(<StockTokenInfoPopover label="$319.97" />);
+    fireEvent.mouseEnter(screen.getByTestId('shares-tooltip-trigger'));
+    expect(screen.getByRole('tooltip')).toBeTruthy();
+
+    useStockDetailMock.mockReturnValue({
+      selectedTokenVariant: { ...variant, tokenToAssetRatio: '0.9985' },
+      stockId: 'AAPL',
+    });
+    rerender(<StockTokenInfoPopover label="$320.01" />);
+
+    expect(screen.getByRole('tooltip')).toBeTruthy();
+    expect(screen.getByTestId('stock-token-info-shares').textContent).toContain(
+      '0.9985 AAPL',
+    );
+  });
+
   it.each([undefined, '', '  ', '0', '-1', 'NaN', 'Infinity', 'invalid'])(
     'hides unavailable conversion ratio %p while retaining other token details',
     (ratio) => {
@@ -151,5 +192,25 @@ describe('StockTokenInfoPopover issuer link', () => {
       expect(mockOpenUrlExternal).toHaveBeenCalledWith('https://ondo.finance');
     });
     expect(interactionOrder).toEqual(['close', 'open']);
+  });
+
+  it('does not open the issuer website when closing is cancelled', async () => {
+    const { OverlayCloseCancelledError } = jest.requireActual<
+      typeof import('../../../../../../../components/src/shared/overlayCloseCancellation')
+    >('../../../../../../../components/src/shared/overlayCloseCancellation');
+    mockClosePopover.mockRejectedValue(new OverlayCloseCancelledError());
+    useStockDetailMock.mockReturnValue({
+      selectedTokenVariant: {
+        ...variant,
+        website: 'https://ondo.finance',
+      },
+      stockId: 'AAPL',
+    });
+
+    render(<StockTokenInfoPopover label="$319.97" />);
+    fireEvent.click(screen.getByTestId('stock-token-info-issuer-link'));
+
+    await waitFor(() => expect(mockClosePopover).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(mockOpenUrlExternal).not.toHaveBeenCalled());
   });
 });

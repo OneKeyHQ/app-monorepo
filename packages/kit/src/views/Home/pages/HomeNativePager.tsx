@@ -14,6 +14,7 @@ export type IHomeNativePagerProps = {
   tabs: { id: EHomeWalletTab; name: string; component: ReactNode }[];
   initialTabName?: string;
   headerHeightHint?: number;
+  topOverlayHeightHint?: number;
   renderHeader: () => ReactNode;
   renderSubHeader?: () => ReactNode;
   topOverlay?: ReactNode;

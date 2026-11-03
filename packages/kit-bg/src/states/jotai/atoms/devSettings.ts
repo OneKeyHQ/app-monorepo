@@ -62,6 +62,12 @@ export interface IDevSettings {
 
   showPrimeTest?: boolean;
   usePrimeSandboxPayment?: boolean;
+  // Skip the embedded Stripe card form and open the RevenueCat Purchase Link
+  // directly (web / desktop / extension). Needs a restart.
+  usePrimeHostedCardCheckout?: boolean;
+  // Load the pre-#13914 Stripe.js to reproduce its retired iframe resources.
+  // Web / desktop / extension only; needs a restart.
+  useFaultyPrimeStripeJs?: boolean;
   showWebviewDevTools?: boolean;
   // strict signature alert display
   strictSignatureAlert?: boolean;
@@ -135,6 +141,9 @@ export interface IDevSettings {
   // regardless of its value. Default off; only honored while dev mode is
   // enabled.
   ignoreReviewControl?: boolean;
+  // Dev builds only: turning on hardware Cloud sync signs with a fixed test
+  // key instead of a device, so end-to-end runs need no hardware.
+  hardwareCloudSyncSoftwareKey?: boolean;
 }
 
 export type IDevSettingsKeys = keyof IDevSettings;
@@ -183,6 +192,8 @@ export const {
       enableBotWalletFeature: false,
       showPrimeTest: true,
       usePrimeSandboxPayment: platformEnv.isDev,
+      usePrimeHostedCardCheckout: false,
+      useFaultyPrimeStripeJs: false,
       showPerformanceMonitor: false,
       showPerformanceMonitorV2: false,
       autoNavigation: {

@@ -220,11 +220,11 @@ jobs:
         run: echo "dir=${{ github.workspace }}/.yarn" >> "$GITHUB_OUTPUT"
 
       - name: Install Dep
+        id: dependencies
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NODE_OPTIONS: '--max_old_space_size=8192'
-        run: |
-          yarn install --immutable
+        uses: ./.github/actions/install-dependencies
 
       - name: Restore web-embed prebundle
         uses: ./.github/actions/restore-web-embed
@@ -300,3 +300,7 @@ jobs:
           large-packages: false
           docker-images: false
           swap-storage: false
+
+      - name: Unmount dependency image
+        if: always() && steps.dependencies.outcome != 'skipped'
+        run: python3 .github/scripts/ci-dependencies.py cleanup

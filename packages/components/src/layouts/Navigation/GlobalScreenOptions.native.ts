@@ -40,9 +40,8 @@ export function makeModalOpenAnimationOptions(info: {
   }
 
   if (platformEnv.isNativeAndroid) {
-    // animation gets a little stuck
     return {
-      animation: 'none',
+      animation: 'slide_from_bottom',
     };
   }
 
@@ -79,8 +78,9 @@ export function makeModalStackNavigatorOptions({
   if (platformEnv.isNativeAndroid) {
     options = {
       headerShown: true,
-      animation: 'none',
+      animation: 'slide_from_right',
       presentation: 'modal',
+      gestureDirection: 'horizontal',
       headerShadowVisible: false,
       // Android Pad modal needs to be commented out
       ...makeHeaderScreenOptions({
@@ -144,6 +144,9 @@ export function makeModalScreenOptions(info: {
     // presentation: platformEnv.isNativeIOS ? 'modal' : 'transparentModal',
     presentation: 'modal',
     ...makeModalOpenAnimationOptions(info),
+    ...(platformEnv.isNativeAndroid
+      ? { gestureEnabled: true, gestureDirection: 'vertical' as const }
+      : {}),
   };
 }
 
@@ -155,8 +158,7 @@ export function makeRootModalStackOptions(params?: {
   };
 
   if (platformEnv.isNativeAndroid) {
-    // animation gets a little stuck
-    options.animation = 'none';
+    options.animation = 'slide_from_right';
   }
 
   if (params?.bgColor) {
@@ -186,8 +188,7 @@ export function makeTabScreenOptions({
   };
 
   if (platformEnv.isNativeAndroid) {
-    // animation gets a little stuck
-    options.animation = 'none';
+    options.animation = 'slide_from_right';
   }
 
   return options;
@@ -211,9 +212,6 @@ export function makeOnboardingScreenOptions(): IStackNavigationOptions {
     gestureDirection: 'horizontal',
     animation: 'slide_from_right',
   };
-  if (platformEnv.isNativeAndroid) {
-    options.animation = 'none';
-  }
   return options;
 }
 
@@ -229,8 +227,5 @@ export function makeWebviewScreenOptions(): IStackNavigationOptions {
     gestureDirection: 'horizontal',
     animation: 'slide_from_right',
   };
-  if (platformEnv.isNativeAndroid) {
-    options.animation = 'none';
-  }
   return options;
 }

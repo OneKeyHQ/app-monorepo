@@ -30,6 +30,8 @@ type IMockLayoutEvent = { nativeEvent: { layout: { height: number } } };
 type IMockListContainerProps = {
   paddingBottom: number;
   emptyContentHeight?: number;
+  emptyContentPaddingTop?: number;
+  emptyScrollContentMinHeight?: number;
 };
 
 type IMockPagerProps = {
@@ -172,6 +174,12 @@ jest.mock('react-native-reanimated', () => {
 jest.mock('react-intl', () => ({ useIntl: () => mockIntl }));
 // Every @onekeyhq/components import path resolves to one jest module.
 jest.mock('@onekeyhq/components', () => ({
+  BRAND_FONT_NATIVE_FAMILY: {
+    regular: 'Inter-Regular',
+    medium: 'Inter-Medium',
+    semibold: 'Inter-SemiBold',
+    bold: 'Inter-Bold',
+  },
   IconButton: () => null,
   Tabs: { TabBar: () => null },
   XStack: ({ children }: PropsWithChildren) => <div>{children}</div>,
@@ -288,9 +296,12 @@ jest.mock('../components/MarketNativeList/MobileMarketNativeLists', () => ({
   },
   MobileMarketNativeWatchlist: ({
     selectedFilter,
+    listContainerProps,
   }: {
     selectedFilter: string;
+    listContainerProps: IMockListContainerProps;
   }) => {
+    mockListContainerProps = listContainerProps;
     mockNativeSelections.watchlist = selectedFilter;
     return null;
   },
@@ -310,7 +321,10 @@ jest.mock('../components/MarketPerpsList/MarketPerpsCategorySelector', () => ({
 }));
 jest.mock(
   '../components/MarketTokenList/hooks/useMarketWatchlistTokenList',
-  () => ({ useIsWatchlistTokenCacheReady: () => true }),
+  () => ({
+    marketWatchlistDataCacheRef: { current: undefined },
+    useIsWatchlistTokenCacheReady: () => true,
+  }),
 );
 jest.mock('../components/MarketTokenList/MarketStockCategorySelector', () => ({
   MarketStockCategorySelector: (props: IMockCategorySelectorProps) => {
@@ -399,6 +413,43 @@ function pressNativeTab(key: string) {
 }
 
 describe('native market home tab presses', () => {
+  it.each([
+    ['jumpToTab', true, 4, 'Perps', false],
+    ['setIndex', true, 4, 'Perps', false],
+    ['jumpToTab', true, 1, 'Trending', true],
+    ['jumpToTab', false, 4, 'Perps', true],
+    ['setIndex', false, 4, 'Perps', true],
+  ] as const)(
+    '%s keeps iOS=%s selection of tab %s (%s) animated=%s',
+    (command, isIOS, index, tabName, animated) => {
+      jest.replaceProperty(platformEnv, 'isNativeIOS', isIOS);
+      jest.replaceProperty(platformEnv, 'isNativeAndroid', !isIOS);
+      const tabsRef = createRef<IAppPagerRef>();
+      render(
+        <MobileLayout
+          filterBarProps={filterBarProps}
+          selectedNetworkId="evm--1"
+          onTabChange={jest.fn()}
+          tabsRef={tabsRef}
+        />,
+      );
+
+      act(() => {
+        if (command === 'jumpToTab') tabsRef.current?.jumpToTab(tabName);
+        else tabsRef.current?.setIndex(index);
+      });
+
+      expect(tabsRef.current?.getFocusedTab()).toBe(tabName);
+      if (animated) {
+        expect(mockSetPage).toHaveBeenCalledWith(index);
+        expect(mockSetPageWithoutAnimation).not.toHaveBeenCalled();
+      } else {
+        expect(mockSetPageWithoutAnimation).toHaveBeenCalledWith(index);
+        expect(mockSetPage).not.toHaveBeenCalled();
+      }
+    },
+  );
+
   it('commits a press immediately and ignores stale non-drag selection callbacks', () => {
     const tabsRef = createRef<IAppPagerRef>();
     render(
@@ -888,4 +939,26 @@ it('keeps native Market controller inputs stable on unrelated renders', () => {
   expect(next.pages).toBe(first.pages);
   expect(next.onSelectionChange).toBe(first.onSelectionChange);
   expect(mockSetPageWithoutAnimation).toHaveBeenCalledTimes(commands);
+});
+
+it('leaves Android header avoidance to the pager while keeping empty Favorites scrollable', () => {
+  jest.replaceProperty(platformEnv, 'isNativeIOS', false);
+  jest.replaceProperty(platformEnv, 'isNativeAndroid', true);
+  render(
+    <MobileLayout
+      filterBarProps={filterBarProps}
+      selectedNetworkId="evm--1"
+      onTabChange={jest.fn()}
+    />,
+  );
+  measureMarketViewport(700);
+  expect(mockListContainerProps?.emptyContentPaddingTop).toBe(16);
+  expect(mockListContainerProps?.emptyScrollContentMinHeight).toBeGreaterThan(
+    700,
+  );
+
+  act(() => {
+    mockStickyHeaderLayout?.({ nativeEvent: { layout: { height: 132 } } });
+  });
+  expect(mockListContainerProps?.emptyContentPaddingTop).toBe(16);
 });

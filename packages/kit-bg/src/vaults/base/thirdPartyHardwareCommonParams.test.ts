@@ -11,6 +11,44 @@ import {
 } from './thirdPartyHardwareCommonParams';
 
 describe('thirdPartyConnectionContextFromDevice', () => {
+  it('does not reuse a legacy Keystone QR export choice for later calls', () => {
+    expect(
+      thirdPartyConnectionContextFromDevice({
+        id: 'keystone-device',
+        vendor: EHardwareVendor.keystone,
+        settingsRaw: '{"keystoneQrMode":"export"}',
+      }),
+    ).toEqual({
+      knownConnections: [],
+      extra: { dbDeviceId: 'keystone-device' },
+    });
+    expect(
+      thirdPartyConnectionContextFromDevice({
+        vendor: EHardwareVendor.ledger,
+        settingsRaw: '{"keystoneQrMode":"export"}',
+      }),
+    ).not.toHaveProperty('keystoneQrMode');
+  });
+
+  it('keeps transport hints while ignoring a legacy parsed export preference', () => {
+    const legacyDevice = {
+      vendor: EHardwareVendor.keystone,
+      usbConnectId: 'keystone-usb',
+      settings: { vendorModel: 'unknown', keystoneQrMode: 'export' },
+    };
+    expect(thirdPartyConnectionContextFromDevice(legacyDevice)).toEqual({
+      knownConnections: [{ transport: 'usb', connectId: 'keystone-usb' }],
+    });
+  });
+
+  it('ignores a malformed Keystone preference', () => {
+    expect(
+      thirdPartyConnectionContextFromDevice({
+        vendor: EHardwareVendor.keystone,
+        settingsRaw: '{',
+      }),
+    ).not.toHaveProperty('keystoneQrMode');
+  });
   it('uses the identity role rather than the vendor name', () => {
     const profile = vendorProfiles.getVendorProfile(EHardwareVendor.ledger);
     const role = jest.replaceProperty(
