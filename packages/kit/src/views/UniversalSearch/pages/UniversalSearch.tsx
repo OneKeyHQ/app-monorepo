@@ -128,6 +128,8 @@ import {
 import { RecentSearched } from './components/RecentSearched';
 import { UniversalSearchProviderMirror } from './UniversalSearchProviderMirror';
 
+import type { LayoutChangeEvent } from 'react-native';
+
 interface IUniversalSection {
   tabIndex: number;
   title: string;
@@ -236,6 +238,12 @@ export function UniversalSearch({
 }) {
   const intl = useIntl();
   const { gtMd } = useMedia();
+  const [listWidth, setListWidth] = useState(0);
+  const onListLayout = useCallback((event: LayoutChangeEvent) => {
+    setListWidth(event.nativeEvent.layout.width);
+  }, []);
+  const tableLayout = platformEnv.isNative ? listWidth >= 768 : gtMd;
+  const useMobileListOwner = platformEnv.isNative || !gtMd;
   const isTravelMode =
     travelModeManager.getRuntimeEnvironmentSync().profile.kind ===
     'travel-mode';
@@ -1020,11 +1028,13 @@ export function UniversalSearch({
               {section.title}
             </SizableText>
           </XStack>
-          {isMarketSection(section.tabIndex) ? <MarketTableHeader /> : null}
+          {isMarketSection(section.tabIndex) ? (
+            <MarketTableHeader tableLayout={tableLayout} />
+          ) : null}
         </YStack>
       );
     },
-    [],
+    [tableLayout],
   );
 
   const pressMarketItem = useUniversalSearchMarketPress({
@@ -1133,6 +1143,7 @@ export function UniversalSearch({
               isTrending={searchStatus === ESearchStatus.init}
               getSearchInput={getSearchInput}
               source={source}
+              tableLayout={tableLayout}
             />
           );
         case EUniversalSearchType.AccountAssets:
@@ -1178,6 +1189,7 @@ export function UniversalSearch({
       allAggregateTokenMap,
       getSearchInput,
       source,
+      tableLayout,
     ],
   );
 
@@ -1224,9 +1236,9 @@ export function UniversalSearch({
   // selector's own All sections (desktop or mobile), so both entries share
   // one implementation; the other result types follow with the same titles.
   // Every All section's Show more, like the selector's stock and token ones.
-  const ShowMoreButton = gtMd
-    ? MarketSearchShowMoreButton
-    : MobileMarketSearchShowMoreButton;
+  const ShowMoreButton = useMobileListOwner
+    ? MobileMarketSearchShowMoreButton
+    : MarketSearchShowMoreButton;
   const renderMarketAll = useCallback(() => {
     const stockLoadMore = isLoneStockSection
       ? {
@@ -1261,14 +1273,17 @@ export function UniversalSearch({
       </>
     );
 
-    if (!gtMd) {
+    if (useMobileListOwner) {
       return (
         <MobileMarketSearchAllList
           sections={filterSections.map((section) => {
             let body: ReactNode;
             if (isStockSection(section.tabIndex)) {
               body = (
-                <MobileMarketSearchStockRows {...getStockProps(section)} />
+                <MobileMarketSearchStockRows
+                  {...getStockProps(section)}
+                  tableLayout={tableLayout}
+                />
               );
             } else if (isMarketSection(section.tabIndex)) {
               body = (
@@ -1277,6 +1292,7 @@ export function UniversalSearch({
                   showMore={Boolean(section.showMore)}
                   onShowMore={() => handleTabPress(section.title)}
                   onPress={pressMarketItem}
+                  tableLayout={tableLayout}
                 />
               );
             } else {
@@ -1285,6 +1301,23 @@ export function UniversalSearch({
             return {
               key: String(section.tabIndex),
               title: section.title,
+              header:
+                tableLayout &&
+                (isStockSection(section.tabIndex) ||
+                  isMarketSection(section.tabIndex)) ? (
+                  <MarketTableHeader
+                    tableLayout
+                    showRank={false}
+                    metric={
+                      isStockSection(section.tabIndex)
+                        ? 'marketCap'
+                        : 'liquidity'
+                    }
+                    changeTitle={
+                      isStockSection(section.tabIndex) ? 'change' : '24h'
+                    }
+                  />
+                ) : undefined,
               body,
             };
           })}
@@ -1343,7 +1376,8 @@ export function UniversalSearch({
     );
   }, [
     filterSections,
-    gtMd,
+    useMobileListOwner,
+    tableLayout,
     handleMarketAllScroll,
     handleStockRowPress,
     handleTabPress,
@@ -1414,10 +1448,10 @@ export function UniversalSearch({
                 onTabPress={noop}
                 focusedTab={loadingFocusedTab}
               />
-              {gtMd ? (
-                <SearchResultsSkeleton />
+              {useMobileListOwner ? (
+                <MobileSelectorSearchSkeleton tableLayout={tableLayout} />
               ) : (
-                <MobileSelectorSearchSkeleton />
+                <SearchResultsSkeleton />
               )}
             </>
           );
@@ -1433,7 +1467,7 @@ export function UniversalSearch({
       case ESearchStatus.done: {
         let content: ReactNode;
         if (isMarketSearch && isInStocksTab && stockResult.items.length > 0) {
-          content = gtMd ? (
+          content = !useMobileListOwner ? (
             <UniversalSearchStockTab
               result={stockResult}
               onPress={pressMarketItem}
@@ -1444,8 +1478,21 @@ export function UniversalSearch({
             <MobileSelectorStockTable
               result={stockResult}
               onItemPress={handleStockRowPress}
+              tableLayout={tableLayout}
               listHeader={
-                <MobileMarketSearchSectionTitle title={stocksTabTitle} />
+                tableLayout ? (
+                  <YStack>
+                    <MobileMarketSearchSectionTitle title={stocksTabTitle} />
+                    <MarketTableHeader
+                      tableLayout
+                      showRank={false}
+                      metric="marketCap"
+                      changeTitle="change"
+                    />
+                  </YStack>
+                ) : (
+                  <MobileMarketSearchSectionTitle title={stocksTabTitle} />
+                )
               }
             />
           );
@@ -1454,7 +1501,7 @@ export function UniversalSearch({
           isInTokensTab &&
           selectorTokens.tokens.length > 0
         ) {
-          content = gtMd ? (
+          content = !useMobileListOwner ? (
             <UniversalSearchTokenTab
               tokens={selectorTokens.tokens}
               itemByTokenId={selectorTokens.itemByTokenId}
@@ -1464,8 +1511,16 @@ export function UniversalSearch({
             <MobileMarketSearchTokenList
               entries={selectorTokens.entries}
               onPress={pressMarketItem}
+              tableLayout={tableLayout}
               listHeader={
-                <MobileMarketSearchSectionTitle title={tokensTabTitle} />
+                tableLayout ? (
+                  <YStack>
+                    <MobileMarketSearchSectionTitle title={tokensTabTitle} />
+                    <MarketTableHeader tableLayout showRank={false} />
+                  </YStack>
+                ) : (
+                  <MobileMarketSearchSectionTitle title={tokensTabTitle} />
+                )
               }
             />
           );
@@ -1539,7 +1594,8 @@ export function UniversalSearch({
     isMarketSearch,
     loadingTabTitles,
     loadingFocusedTab,
-    gtMd,
+    useMobileListOwner,
+    tableLayout,
     isInStocksTab,
     isInTokensTab,
     stockResult,
@@ -1558,7 +1614,7 @@ export function UniversalSearch({
       <Page.Header
         title={intl.formatMessage({ id: ETranslations.global_search })}
       />
-      <Page.Body>
+      <Page.Body onLayout={platformEnv.isNative ? onListLayout : undefined}>
         <View px="$5" pb={searchBarGap}>
           <SearchBar
             autoFocus
