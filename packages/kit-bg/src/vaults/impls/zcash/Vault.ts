@@ -98,6 +98,7 @@ import type {
   ILocalWalletAccountBalance,
   ILocalWalletCapability,
   ILocalWalletSendPool,
+  ILocalWalletSyncErrorKind,
 } from '../../localWallet/types';
 import type {
   IBroadcastTransactionByCustomRpcParams,
@@ -442,6 +443,7 @@ export default class Vault extends VaultBtc {
     chainTip?: number | null;
     backfillRemaining?: boolean;
     caughtUpAccountIds?: string[];
+    syncError?: ILocalWalletSyncErrorKind;
   }> {
     return zcashLifecycle.syncLocalWalletGroupImpl(this, params);
   }

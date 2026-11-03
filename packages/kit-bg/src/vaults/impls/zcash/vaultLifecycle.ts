@@ -30,11 +30,11 @@ import {
 import { getLocalWalletRemoteConfig } from '../../localWallet/remoteConfig';
 
 import {
-  ZCASH_BIRTHDAY_PLACEMENT_FAILED_MESSAGE,
   clampZcashBirthdayHeight,
   estimateZcashBirthdayHeight,
   noteZcashBirthdayPlacement,
   placeZcashBirthdayHeight,
+  settleZcashBirthdayPlacementTurn,
 } from './birthday';
 import { KeyringHardware } from './KeyringHardware';
 import {
@@ -76,6 +76,7 @@ import type {
 import type {
   ILocalWalletCapability,
   ILocalWalletRetainedIdentity,
+  ILocalWalletSyncErrorKind,
 } from '../../localWallet/types';
 import type { IRescanLocalWalletFrom } from '../../types';
 
@@ -979,6 +980,7 @@ export async function syncLocalWalletGroup(
   chainTip?: number | null;
   backfillRemaining?: boolean;
   caughtUpAccountIds?: string[];
+  syncError?: ILocalWalletSyncErrorKind;
 }> {
   try {
     return await vault.syncLocalWalletGroupImpl(params);
@@ -1055,6 +1057,7 @@ export async function syncLocalWalletGroupImpl(
   chainTip?: number | null;
   backfillRemaining?: boolean;
   caughtUpAccountIds?: string[];
+  syncError?: ILocalWalletSyncErrorKind;
 }> {
   return getZcashSyncMutex(ZCASH_NETWORK_MAIN).runExclusive(async () => {
     // Enabling only touches the control plane (chain tip, birthday treestate); checked before the runtime loads.
@@ -1196,6 +1199,12 @@ export async function syncLocalWalletGroupImpl(
       accountIds,
       chainTip,
     });
+    // Every dated birthday this turn tries is placed by now; one still waiting does not stop the
+    // others, it is only reported.
+    const syncError: ILocalWalletSyncErrorKind | undefined =
+      settleZcashBirthdayPlacementTurn(accountIds)
+        ? 'nodeUnreachable'
+        : undefined;
     const accounts = prepared.map((item) => item.account);
     // After registration: an account not yet registered (first enable, or just purged) can't be requeued.
     if (effectiveRescanFrom) {
@@ -1226,7 +1235,7 @@ export async function syncLocalWalletGroupImpl(
       // Preparation and admission must stay atomic to other scans; the
       // callback stays in bg and must not reacquire the network mutex.
       await onPrepared?.();
-      return { synced: true, backfillRemaining: true };
+      return { synced: true, backfillRemaining: true, syncError };
     }
     // The one metered-data gate: everything past it downloads block data.
     if (
@@ -1236,7 +1245,7 @@ export async function syncLocalWalletGroupImpl(
     }
     // The shared database trial-decrypts every registered key in one pass, so any account advances the whole group.
     const account = accounts[0];
-    if (!account) return { synced: false };
+    if (!account) return { synced: false, syncError };
     const api = await vault.zcashGetApi();
     const result = await api.syncWallet(account, {
       activeUfvks: Array.from(new Set(accounts.map((item) => item.ufvk))),
@@ -1256,6 +1265,7 @@ export async function syncLocalWalletGroupImpl(
     }
     return {
       synced: true,
+      syncError,
       stateChanged: result.stateChanged,
       chainTip: result.chainTip,
       caughtUpAccountIds:
@@ -1572,12 +1582,8 @@ export async function zcashResumePendingRescans(
       // eslint-disable-next-line no-await-in-loop
       await vault.applyPendingRescan({ accountId, repair });
     } catch (e) {
-      const nodeCannotPlace =
-        e instanceof Error &&
-        e.message === ZCASH_BIRTHDAY_PLACEMENT_FAILED_MESSAGE;
-      // Admission cannot finish while this identity's recovery is pending, and a node that
-      // keeps failing to place a date is reported rather than waited on.
-      if (accountId === requiredAccountId || nodeCannotPlace) {
+      if (accountId === requiredAccountId) {
+        // Admission cannot finish while this identity's recovery is pending.
         throw e;
       }
       // Keep the journal intact; a later scheduler tick can retry without the user reopening the repair dialog.

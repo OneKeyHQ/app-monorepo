@@ -309,6 +309,8 @@ export type ILocalWalletCapability = {
     // Only accounts this turn actually brought up to its observed chain tip.
     // Display progress may be stale and must never establish completion.
     caughtUpAccountIds?: string[];
+    // A problem to show although the turn did not fail, e.g. an account still waiting on the node.
+    syncError?: ILocalWalletSyncErrorKind;
   }>;
   // Drops the account's scanned data (shared with its aliases) and scans
   // again from its birthday.

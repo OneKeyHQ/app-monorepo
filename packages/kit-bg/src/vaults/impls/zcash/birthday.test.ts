@@ -12,6 +12,7 @@ import {
   estimateZcashChainTipFromClock,
   noteZcashBirthdayPlacement,
   placeZcashBirthdayHeight,
+  settleZcashBirthdayPlacementTurn,
 } from './birthday';
 
 jest.mock(
@@ -235,14 +236,43 @@ describe('placeZcashBirthdayHeight', () => {
 });
 
 describe('noteZcashBirthdayPlacement', () => {
-  // The node is reported unreachable on the third failure in a row, not waited on.
-  it('reports the node after repeated failures and starts over once placed', () => {
-    const fail = () => noteZcashBirthdayPlacement('account', false);
-    expect(fail).not.toThrow();
-    expect(fail).not.toThrow();
-    expect(fail).toThrow(expect.objectContaining({ code: 'NETWORK_ERROR' }));
-    noteZcashBirthdayPlacement('account', true);
-    expect(fail).not.toThrow();
-    noteZcashBirthdayPlacement('account', true);
+  const turn = (failed: string[], accountIds = ['a', 'b']) => {
+    for (const accountId of failed) {
+      noteZcashBirthdayPlacement(accountId, false);
+    }
+    return settleZcashBirthdayPlacementTurn(accountIds);
+  };
+
+  afterEach(() => {
+    settleZcashBirthdayPlacementTurn([]);
+  });
+
+  it('tells the user on the third failing turn in a row', () => {
+    expect(turn(['a'])).toBe(false);
+    expect(turn(['a'])).toBe(false);
+    expect(turn(['a'])).toBe(true);
+    expect(turn(['a'])).toBe(true);
+  });
+
+  it('counts a turn once however often it failed in it', () => {
+    expect(turn(['a', 'a', 'a'])).toBe(false);
+  });
+
+  it('starts over after a turn without a failure', () => {
+    turn(['a']);
+    turn(['a']);
+    noteZcashBirthdayPlacement('a', false);
+    noteZcashBirthdayPlacement('a', true);
+    expect(settleZcashBirthdayPlacementTurn(['a'])).toBe(false);
+    expect(turn([])).toBe(false);
+    expect(turn(['a'])).toBe(false);
+  });
+
+  // A paused account keeps its count but does not speak for the scanning ones.
+  it('reports only the given accounts', () => {
+    turn(['c']);
+    turn(['c']);
+    expect(turn(['c'])).toBe(false);
+    expect(turn(['c'], ['c'])).toBe(true);
   });
 });

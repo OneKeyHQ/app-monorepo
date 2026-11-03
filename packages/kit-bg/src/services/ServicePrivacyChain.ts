@@ -2493,7 +2493,7 @@ class ServicePrivacyChain extends ServiceBase {
               result.caughtUpAccountIds ?? [],
             );
             this.syncFailureBackoff.delete(candidate.runtimeStateKey);
-            await this.publishSyncError(candidate.networkId, undefined);
+            await this.publishSyncError(candidate.networkId, result.syncError);
             this.runtimeSyncState.set(candidate.runtimeStateKey, {
               accountSignature: candidate.accountSignature,
               lastChainTip:
@@ -2512,6 +2512,12 @@ class ServicePrivacyChain extends ServiceBase {
             // would leave the retry nothing to run until the tip moves.
             retryNeeded = true;
             this.recordSyncFailure(candidate.runtimeStateKey);
+            if (result.syncError) {
+              await this.publishSyncError(
+                candidate.networkId,
+                result.syncError,
+              );
+            }
           }
           // Publish while the wallet is still ours, so readers subscribe instead of polling.
           await this.publishScanProgress(

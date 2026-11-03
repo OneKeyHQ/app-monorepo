@@ -6,7 +6,6 @@ import {
   ZCASH_POST_NU7_TARGET_BLOCK_SECONDS,
   ZCASH_TARGET_BLOCK_SECONDS,
 } from '@onekeyhq/shared/src/config/zcash';
-import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 // Extra history scanned before the requested date.
@@ -110,28 +109,42 @@ export async function placeZcashBirthdayHeight({
     : clampZcashBirthdayHeight({ birthdayHeight: height, chainTip });
 }
 
-// After this many turns in a row in which the node cannot place a dated birthday, the turn
-// reports the node unreachable instead of waiting without a word.
+// After this many sync turns in a row in which the node cannot place an account's dated birthday,
+// the turn reports the node unreachable instead of waiting without a word.
 const ZCASH_BIRTHDAY_PLACEMENT_ATTEMPTS = 3;
-export const ZCASH_BIRTHDAY_PLACEMENT_FAILED_MESSAGE =
-  'zcash: the node cannot place a birthday by date';
-const zcashBirthdayPlacementFailures = new Map<string, number>();
+const zcashBirthdayPlacementFailedThisTurn = new Set<string>();
+const zcashBirthdayPlacementFailedTurns = new Map<string, number>();
 
-// Counts the account's failed placements; a placed one starts the count over.
 export function noteZcashBirthdayPlacement(
   accountId: string,
   placed: boolean,
 ): void {
   if (placed) {
-    zcashBirthdayPlacementFailures.delete(accountId);
-    return;
+    zcashBirthdayPlacementFailedThisTurn.delete(accountId);
+  } else {
+    zcashBirthdayPlacementFailedThisTurn.add(accountId);
   }
-  const failures = (zcashBirthdayPlacementFailures.get(accountId) ?? 0) + 1;
-  zcashBirthdayPlacementFailures.set(accountId, failures);
-  if (failures >= ZCASH_BIRTHDAY_PLACEMENT_ATTEMPTS) {
-    throw Object.assign(
-      new OneKeyLocalError(ZCASH_BIRTHDAY_PLACEMENT_FAILED_MESSAGE),
-      { code: 'NETWORK_ERROR' },
+}
+
+// Ends a sync turn's count; an account that did not fail this turn starts over. True when one of
+// `accountIds` has failed for enough turns in a row to tell the user.
+export function settleZcashBirthdayPlacementTurn(
+  accountIds: string[],
+): boolean {
+  const failedTurns = new Map<string, number>();
+  for (const accountId of zcashBirthdayPlacementFailedThisTurn) {
+    failedTurns.set(
+      accountId,
+      (zcashBirthdayPlacementFailedTurns.get(accountId) ?? 0) + 1,
     );
   }
+  zcashBirthdayPlacementFailedThisTurn.clear();
+  zcashBirthdayPlacementFailedTurns.clear();
+  for (const [accountId, turns] of failedTurns) {
+    zcashBirthdayPlacementFailedTurns.set(accountId, turns);
+  }
+  return accountIds.some(
+    (accountId) =>
+      (failedTurns.get(accountId) ?? 0) >= ZCASH_BIRTHDAY_PLACEMENT_ATTEMPTS,
+  );
 }

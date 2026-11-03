@@ -1,11 +1,12 @@
+import { ZCASH_NETWORK_MAIN } from '@onekeyhq/core/src/chains/zcash/sdkZcash/constants';
 import { ZCASH_MIN_BIRTHDAY_HEIGHT_MAINNET } from '@onekeyhq/shared/src/config/zcash';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
 import { SimpleDbEntityPrivacyChainState } from '../../../dbs/simple/entity/SimpleDbEntityPrivacyChainState';
 
 import {
-  noteZcashBirthdayPlacement,
   placeZcashBirthdayHeight,
+  settleZcashBirthdayPlacementTurn,
 } from './birthday';
 import { getZcashSyncMutex } from './lifecycle';
 import Vault from './Vault';
@@ -21,6 +22,12 @@ jest.mock('./birthday', () => ({
 }));
 
 const placeBirthday = jest.mocked(placeZcashBirthdayHeight);
+
+// Clears the placement count, including a failure an earlier test left unsettled.
+function resetPlacementCount() {
+  settleZcashBirthdayPlacementTurn([]);
+  settleZcashBirthdayPlacementTurn([]);
+}
 
 describe('Zcash local lifecycle operations do not depend on pending history', () => {
   function fixture(historyState: 'pending' | 'unreadable') {
@@ -315,7 +322,7 @@ describe('Zcash local lifecycle operations do not depend on pending history', ()
 
     beforeEach(() => {
       placeBirthday.mockReset();
-      noteZcashBirthdayPlacement('synthetic-account', true);
+      resetPlacementCount();
     });
 
     it('rewinds the runtime to the height the node placed', async () => {
@@ -362,17 +369,21 @@ describe('Zcash local lifecycle operations do not depend on pending history', ()
       expect(f.removePendingRescan).not.toHaveBeenCalled();
     });
 
-    // A node that keeps failing to place the date is reported, not waited on in silence.
-    it('reports the node unreachable after repeated placement failures', async () => {
+    // A node that keeps failing to place the date is reported, never by failing the other accounts.
+    it('keeps retrying without failing the turn', async () => {
       const f = dateFixture();
       placeBirthday.mockResolvedValue(null);
       const errors = jest.spyOn(console, 'error').mockImplementation(() => {});
-      await f.vault.zcashResumePendingRescans();
-      await f.vault.zcashResumePendingRescans();
-      await expect(f.vault.zcashResumePendingRescans()).rejects.toMatchObject({
-        code: 'NETWORK_ERROR',
-      });
+      const reported: boolean[] = [];
+      for (let turn = 0; turn < 3; turn += 1) {
+        // eslint-disable-next-line no-await-in-loop
+        await expect(f.vault.zcashResumePendingRescans()).resolves.toBe(
+          undefined,
+        );
+        reported.push(settleZcashBirthdayPlacementTurn([f.accountId]));
+      }
       errors.mockRestore();
+      expect(reported).toEqual([false, false, true]);
       expect(f.rescanWallet).not.toHaveBeenCalled();
     });
 
@@ -804,7 +815,7 @@ describe('registering an account whose birthday is a date estimate', () => {
 
   beforeEach(() => {
     placeBirthday.mockReset();
-    noteZcashBirthdayPlacement('hd-1--dated', true);
+    resetPlacementCount();
   });
 
   it('places and saves the height before registering', async () => {
@@ -861,16 +872,57 @@ describe('registering an account whose birthday is a date estimate', () => {
     });
   });
 
-  it('reports the node unreachable when placement keeps failing', async () => {
+  // The turn goes on for the other accounts and only reports the node on the third turn.
+  it('reports the node while the other accounts keep scanning', async () => {
     const { vault } = await setup();
     placeBirthday.mockResolvedValue(null);
-    const register = () =>
-      vault.zcashPrepareAccounts({
+    const syncWallet = jest.fn(async () => ({
+      stateChanged: false,
+      chainTip: 3_700_000,
+      backfillRemaining: true,
+      fullyScanned: null,
+    }));
+    Object.assign(vault, {
+      backgroundApi: {
+        ...vault.backgroundApi,
+        servicePrivacyChain: { isLocalWalletScanAllowed: async () => true },
+      },
+      listLocalWalletAccounts: async () => ({
+        accounts: [
+          ['hd-1--dated', 'c'.repeat(32)],
+          ['hd-1--fixed', 'e'.repeat(32)],
+        ].map(([accountId, accountRuntimeKey]) => ({
+          accountId,
+          accountRuntimeKey,
+          runtimeKey: ZCASH_NETWORK_MAIN,
+          syncEnabled: true,
+        })),
+      }),
+      zcashHasAccountViewingKey: async () => true,
+      zcashGetApi: async () => ({
+        prepareWalletAccounts: async (accounts: unknown[]) => accounts,
+        getSyncProgress: async () => ({ birthdayHeight: null }),
+        syncWallet,
+      }),
+    });
+    const turn = () =>
+      vault.syncLocalWalletGroupImpl({
         accountIds: ['hd-1--dated', 'hd-1--fixed'],
         chainTip: 3_700_000,
       });
-    await register();
-    await register();
-    await expect(register()).rejects.toMatchObject({ code: 'NETWORK_ERROR' });
+    await expect(turn()).resolves.toMatchObject({
+      synced: true,
+      syncError: undefined,
+    });
+    await expect(turn()).resolves.toMatchObject({ syncError: undefined });
+    await expect(turn()).resolves.toMatchObject({
+      synced: true,
+      syncError: 'nodeUnreachable',
+    });
+    expect(syncWallet).toHaveBeenCalledTimes(3);
+    expect(syncWallet).toHaveBeenLastCalledWith(
+      expect.objectContaining({ ufvk: 'hd-1--fixed' }),
+      expect.objectContaining({ activeUfvks: ['hd-1--fixed'] }),
+    );
   });
 });
