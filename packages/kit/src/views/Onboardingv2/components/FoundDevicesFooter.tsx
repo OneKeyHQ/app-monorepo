@@ -15,6 +15,7 @@ import {
   YStack,
   useMedia,
 } from '@onekeyhq/components';
+import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IConnectYourDeviceItem } from '@onekeyhq/shared/types/device';
 
@@ -193,6 +194,12 @@ export function FoundDevicesFooter({
       setIsConnecting(true);
       try {
         await onConnect(item);
+      } catch (error) {
+        if (variant !== 'dialog') throw error;
+        // Both the row and footer can connect; consume failures here because
+        // Dialog.Footer only resets loading and does not handle rejections.
+        errorToastUtils.toastIfError(error);
+        errorToastUtils.showToastOfError(error);
       } finally {
         connectingRef.current = false;
         if (variant === 'dialog') setConnectionAttempt(undefined);
@@ -218,8 +225,7 @@ export function FoundDevicesFooter({
   >(async (dialog) => {
     const { selected: current, handleConnect: connect } =
       latestConnectRef.current;
-    // Let failures reach the dialog's error handler before preventing its
-    // default close; the picker owns the successful hand-off.
+    // The picker owns the successful hand-off; failures keep it open for retry.
     if (current) await connect(current);
     dialog.preventClose();
   }, []);

@@ -5,6 +5,7 @@ import type { ReactNode } from 'react';
 import { EDeviceType } from '@onekeyfe/hd-shared';
 import { act, fireEvent, render, screen } from '@testing-library/react';
 
+import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import type { IConnectYourDeviceItem } from '@onekeyhq/shared/types/device';
 
 import { OnboardingTestIDs } from '../testIDs';
@@ -17,10 +18,14 @@ let mockFooterConfirm:
   | undefined;
 
 beforeEach(() => {
-  mockPreventClose.mockClear();
+  jest.clearAllMocks();
   mockFooterConfirm = undefined;
 });
 
+jest.mock('@onekeyhq/shared/src/errors/utils/errorToastUtils', () => ({
+  __esModule: true,
+  default: { toastIfError: jest.fn(), showToastOfError: jest.fn() },
+}));
 jest.mock('react-intl', () => ({
   useIntl: () => ({ formatMessage: ({ id }: { id: string }) => id }),
 }));
@@ -309,7 +314,7 @@ describe('Cloud connection dialog', () => {
     expect(mockPreventClose).toHaveBeenCalled();
   });
 
-  it('lets connection errors reach the standard footer and permits a retry', async () => {
+  it('handles a failed footer connection without rejecting and permits a retry', async () => {
     const failure = new Error('Connection failed');
     const onConnect = jest
       .fn<Promise<void>, [IConnectYourDeviceItem]>()
@@ -326,13 +331,42 @@ describe('Cloud connection dialog', () => {
     const confirm = mockFooterConfirm;
     expect(confirm).toBeDefined();
     await act(async () => {
-      await expect(confirm?.({ preventClose: mockPreventClose })).rejects.toBe(
-        failure,
-      );
+      await expect(
+        confirm?.({ preventClose: mockPreventClose }),
+      ).resolves.toBeUndefined();
     });
-    expect(mockPreventClose).not.toHaveBeenCalled();
+    expect(mockPreventClose).toHaveBeenCalledTimes(1);
+    expect(errorToastUtils.toastIfError).toHaveBeenCalledWith(failure);
+    expect(errorToastUtils.showToastOfError).toHaveBeenCalledWith(failure);
+    expect(screen.getByText('device-a')).toBeDefined();
+    expect(screen.getByText('global.connect')).toBeDefined();
     await act(async () => confirm?.({ preventClose: mockPreventClose }));
     expect(onConnect).toHaveBeenCalledTimes(2);
-    expect(mockPreventClose).toHaveBeenCalledTimes(1);
+    expect(mockPreventClose).toHaveBeenCalledTimes(2);
+    expect(errorToastUtils.showToastOfError).toHaveBeenCalledTimes(1);
+  });
+
+  it('handles a single-row connection failure through the same error path', async () => {
+    const failure = new Error('Device disconnected');
+    const onConnect = jest.fn(() => {
+      throw failure;
+    });
+    render(
+      <FoundDevicesFooter
+        variant="dialog"
+        devices={[device('device-a')]}
+        isScanning
+        onConnect={onConnect}
+      />,
+    );
+
+    await act(async () =>
+      fireEvent.click(
+        screen.getByTestId(OnboardingTestIDs.connectYourDeviceItem('device-a')),
+      ),
+    );
+    expect(errorToastUtils.toastIfError).toHaveBeenCalledWith(failure);
+    expect(errorToastUtils.showToastOfError).toHaveBeenCalledWith(failure);
+    expect(screen.getByText('global.connect')).toBeDefined();
   });
 });
