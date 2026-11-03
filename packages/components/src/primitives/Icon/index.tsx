@@ -30,7 +30,7 @@ function BasicIconContainer(
   {
     name,
     style,
-    accessibilityRole = 'image',
+    accessibilityRole,
     accessibilityLabel,
     testID,
     ...props
@@ -40,12 +40,19 @@ function BasicIconContainer(
   const theme = useTheme();
   if (!name) return null;
   const color = (style?.color as string) || theme.icon.val;
+  // Unlabelled icons are decorative: keep them out of the accessibility tree.
+  const labelled = !!accessibilityLabel;
   return (
     <Stack
       className={props.className}
       style={style}
-      accessibilityRole={platformEnv.isNative ? accessibilityRole : undefined}
-      role={platformEnv.isNative ? undefined : 'img'}
+      accessibilityRole={
+        platformEnv.isNative
+          ? (accessibilityRole ?? (labelled ? 'image' : undefined))
+          : undefined
+      }
+      role={!platformEnv.isNative && labelled ? 'img' : undefined}
+      aria-hidden={!platformEnv.isNative && !labelled ? true : undefined}
       aria-label={platformEnv.isNative ? undefined : accessibilityLabel}
       accessibilityLabel={accessibilityLabel}
       testID={testID}
@@ -96,9 +103,6 @@ const BasicIcon = styled(IconContainer, {
 // Named resources are native-owned; these legacy entry points no longer load JS modules.
 const loadIcons = (...names: IKeyOfIcons[]) =>
   Promise.resolve(names.map(() => undefined));
-
-export const prefetchSwapColdStartIcons = () => Promise.resolve();
-export function warmCriticalIcons() {}
 
 export const Icon = withStaticProperties(BasicIcon, {
   prefetch: loadIcons,

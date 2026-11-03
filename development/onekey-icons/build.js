@@ -33,9 +33,13 @@ class OneKeyIconAssetsPlugin {
       }
       inputs = collectInputs(path.join(appRoot, 'packages/components/svg'));
       collectInputs(__dirname, inputs.files, inputs.directories);
+      // Stat fingerprint keeps watch rebuilds cheap; the generator itself
+      // compares content and only rewrites changed outputs.
       const hash = crypto.createHash('sha256');
-      for (const file of inputs.files.toSorted())
-        hash.update(file).update(fs.readFileSync(file));
+      for (const file of inputs.files.toSorted()) {
+        const { size, mtimeMs } = fs.statSync(file);
+        hash.update(`${file}\0${size}\0${mtimeMs}\n`);
+      }
       const sourceDigest = hash.digest('hex');
       if (previousDigest === sourceDigest && fs.existsSync(iconAssetProvider))
         return;

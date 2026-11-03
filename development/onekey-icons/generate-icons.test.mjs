@@ -416,14 +416,34 @@ test('mobile consumers and Metro bundle registry do not duplicate canonical SVGs
     );
   }
 
-  // 3. module-id-registry.json has zero entries from packages/components/svg/
+  // 3. module-id-registry.json gains no packages/components/svg/ entries. The
+  // registry is append-only (removed IDs would be reallocated and `reconcile`
+  // rejects removals), so the pre-migration Metro entries stay reserved.
   const registryPath = path.join(
     appRoot,
     'apps/mobile/bundle-registry/module-id-registry.json',
   );
   const registry = JSON.parse(fs.readFileSync(registryPath, 'utf8'));
-  const svgRegistryEntries = Object.keys(registry.modules || {}).filter((key) =>
-    key.startsWith('packages/components/svg/'),
+  const legacySvgRegistryEntries = new Set([
+    'packages/components/svg/illus/logo.svg',
+    ...[
+      'code-brackets',
+      'coins',
+      'compass',
+      'switch-hor',
+      'trade',
+      'trading-view-candles',
+      'wallet-4',
+    ].flatMap((name) => [
+      `packages/components/svg/outline/${name}.svg`,
+      `packages/components/svg/solid/${name}.svg`,
+    ]),
+    'packages/components/svg/outline/help-support.svg',
+  ]);
+  const svgRegistryEntries = Object.keys(registry.modules || {}).filter(
+    (key) =>
+      key.startsWith('packages/components/svg/') &&
+      !legacySvgRegistryEntries.has(key),
   );
   assert.deepEqual(svgRegistryEntries, []);
 
