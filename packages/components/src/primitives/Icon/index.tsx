@@ -1,6 +1,7 @@
 import { forwardRef } from 'react';
 
 import { OneKeyIcon } from '@onekeyfe/react-native-image/icon';
+import { getRgba } from '@tamagui/web';
 import { I18nManager } from 'react-native';
 
 import {
@@ -40,6 +41,11 @@ function BasicIconContainer(
   const theme = useTheme();
   if (!name) return null;
   const color = (style?.color as string) || theme.icon.val;
+  let iconColor = 'inherit';
+  if (platformEnv.isNative) {
+    const rgba = getRgba(color);
+    iconColor = rgba ? `rgba(${rgba.r},${rgba.g},${rgba.b},${rgba.a})` : color;
+  }
   // Unlabelled icons are decorative: keep them out of the accessibility tree.
   const labelled = !!accessibilityLabel;
   return (
@@ -59,7 +65,7 @@ function BasicIconContainer(
     >
       <OneKeyIcon
         name={resolveIconName(name, I18nManager.isRTL)}
-        color={platformEnv.isNative ? color : 'inherit'}
+        color={iconColor}
         style={resourceStyle}
         accessible={false}
       />

@@ -372,7 +372,7 @@ def prepareSentryNativeAssets = tasks.register("prepareSentryNativeAssets") {
 }
 
 tasks.matching { it.name.toLowerCase().contains("lintvital") }.configureEach {
-    dependsOn(prepareSentryNativeAssets)
+    dependsOn(prepareSentryNativeAssets, prepareOneKeyIconAssets)
 }
 
 // Gradle 9 removed Project.exec() from task actions.
