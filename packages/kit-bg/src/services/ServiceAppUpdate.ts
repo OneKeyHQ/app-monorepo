@@ -2650,15 +2650,10 @@ class ServiceAppUpdate extends ServiceBase {
             prevBundleVersion: prev.jsBundleVersion ?? null,
             nextBundleVersion: prev.jsBundleVersion ?? null,
           });
-          const shouldDowngradeForceStrategy =
-            prev.updateStrategy === EUpdateStrategy.force &&
-            releaseInfo.updateStrategy !== undefined &&
-            releaseInfo.updateStrategy !== EUpdateStrategy.force;
+          // Keep prev.updateStrategy: the response describes another target,
+          // so it cannot unlock the mandatory package still in flight.
           return {
             ...prev,
-            ...(shouldDowngradeForceStrategy
-              ? { updateStrategy: releaseInfo.updateStrategy }
-              : null),
             updateAt: Date.now(),
           };
         }

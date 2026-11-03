@@ -1,11 +1,13 @@
 import {
   createContext,
+  forwardRef,
   useCallback,
   useContext,
   useEffect,
   useMemo,
   useRef,
   useState,
+  useSyncExternalStore,
 } from 'react';
 
 import { useIntl } from 'react-intl';
@@ -15,8 +17,11 @@ import Animated, {
   useSharedValue,
 } from 'react-native-reanimated';
 
-import { Dialog, Toast } from '@onekeyhq/components';
-import type { IDialogInstance } from '@onekeyhq/components';
+import { Dialog, DialogContainer, Toast } from '@onekeyhq/components';
+import type {
+  IDialogContainerProps,
+  IDialogInstance,
+} from '@onekeyhq/components';
 import { acquireDeferredGuideBlocker } from '@onekeyhq/components/src/hooks/useDeferredGuideBlocker';
 import {
   appUpdatePersistAtom,
@@ -272,11 +277,13 @@ function FeaturedChangelogContent({
   isPreInstall,
   isLocked,
   onLockChange,
+  onSupportOpen,
   closeDialog,
 }: {
   isPreInstall: boolean;
   isLocked: boolean;
   onLockChange?: (locked: boolean) => void;
+  onSupportOpen?: () => void;
   closeDialog: () => Promise<void>;
 }) {
   const intl = useIntl();
@@ -339,6 +346,8 @@ function FeaturedChangelogContent({
       await new Promise<void>((resolve) => {
         setTimeout(resolve, 50);
       });
+    } else {
+      onSupportOpen?.();
     }
     await handleContactSupport();
   }, [
@@ -346,6 +355,7 @@ function FeaturedChangelogContent({
     handleContactSupport,
     isLiveLocked,
     navigation,
+    onSupportOpen,
     updateInfo?.latestVersion,
   ]);
 
@@ -410,6 +420,63 @@ function FeaturedChangelogContent({
   );
 }
 
+interface IFeaturedDialogState {
+  isLocked: boolean;
+  isSupportOpen: boolean;
+}
+
+function createFeaturedDialogStore(initial: IFeaturedDialogState) {
+  let state = initial;
+  const listeners = new Set<() => void>();
+  return {
+    get: () => state,
+    set: (patch: Partial<IFeaturedDialogState>) => {
+      const next = { ...state, ...patch };
+      if (
+        next.isLocked === state.isLocked &&
+        next.isSupportOpen === state.isSupportOpen
+      ) {
+        return;
+      }
+      state = next;
+      listeners.forEach((listener) => listener());
+    },
+    subscribe: (listener: () => void) => {
+      listeners.add(listener);
+      return () => {
+        listeners.delete(listener);
+      };
+    },
+  };
+}
+
+type IFeaturedDialogStore = ReturnType<typeof createFeaturedDialogStore>;
+
+// Dialog.show props are fixed at creation, so the dismissal switches are
+// rendered here from the live lock: a force strategy that arrives after the
+// dialog opened must close overlay/drag/system-close entry points too.
+const FeaturedChangelogDialogContainer = forwardRef<
+  IDialogInstance,
+  IDialogContainerProps & { store: IFeaturedDialogStore }
+>(function FeaturedChangelogDialogContainer({ store, ...props }, ref) {
+  const { isLocked, isSupportOpen } = useSyncExternalStore(
+    store.subscribe,
+    store.get,
+  );
+  return (
+    <DialogContainer
+      ref={ref}
+      {...props}
+      dismissOnOverlayPress={!isLocked}
+      disableDrag={isLocked}
+      disableSystemClose={isLocked}
+      // Keep keyboard focus inside the blocker on desktop/web, but release it
+      // once the in-page Intercom messenger opens so its input can take focus.
+      trapFocus={platformEnv.isNative ? false : !isSupportOpen}
+    />
+  );
+});
+
 export function showFeaturedChangelogDialog(
   params: IShowFeaturedChangelogDialogParams = {},
 ): IDialogInstance | undefined {
@@ -434,6 +501,10 @@ export function showFeaturedChangelogDialog(
       isForceUpdateStrategy(atomInfo.updateStrategy) &&
       isPreInstall;
   const isLockedRef = { current: isLocked };
+  const dialogStore = createFeaturedDialogStore({
+    isLocked,
+    isSupportOpen: false,
+  });
 
   const mountTime = Date.now();
 
@@ -448,13 +519,17 @@ export function showFeaturedChangelogDialog(
   const dialogInstance = Dialog.show({
     showFooter: false,
     showHeader: false,
-    trapFocus: false,
     // Block dismissal at the source while locked: on native the sheet animates
     // closed before onBeforeClose runs, so the guard alone cannot keep it open.
     // Once support unlocks the device, the close button reappears instead.
-    dismissOnOverlayPress: !isLocked,
-    disableDrag: isLocked,
-    disableSystemClose: isLocked,
+    dialogContainer: ({ ref }) => (
+      // onClose is replaced by Dialog.show's own close forwarder.
+      <FeaturedChangelogDialogContainer
+        ref={ref}
+        store={dialogStore}
+        onClose={async () => undefined}
+      />
+    ),
     onBeforeClose: (extra) =>
       extra?.flag === 'programmatic' || !isLockedRef.current,
     floatingPanelProps: { width: 480, overflow: 'hidden' },
@@ -465,6 +540,10 @@ export function showFeaturedChangelogDialog(
           isLocked={isLocked}
           onLockChange={(nextLocked) => {
             isLockedRef.current = nextLocked;
+            dialogStore.set({ isLocked: nextLocked });
+          }}
+          onSupportOpen={() => {
+            dialogStore.set({ isSupportOpen: true });
           }}
           closeDialog={closeDialog}
         />

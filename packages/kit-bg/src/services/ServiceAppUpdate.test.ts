@@ -2601,6 +2601,29 @@ describe('ServiceAppUpdate state transitions', () => {
       expect(atomValue.downloadUrl).toBe('https://cdn.onekey.so/app-2.0.0.dmg');
     });
 
+    test('keeps the force lock of an in-flight package when a different target is not forced', async () => {
+      resetAtom({
+        status: EAppUpdateStatus.verifyPackage,
+        latestVersion: '2.0.0',
+        downloadUrl: 'https://cdn.onekey.so/app-2.0.0.dmg',
+        updateStrategy: EUpdateStrategy.force,
+        updateAt: 0,
+      });
+      mockLatestInfo({
+        version: '3.0.0',
+        downloadUrl: 'https://cdn.onekey.so/app-3.0.0.dmg',
+        updateStrategy: EUpdateStrategy.manual,
+      });
+      jest.spyOn(service, 'isNeedSyncAppUpdateInfo').mockResolvedValue(true);
+      jest.spyOn(service, 'refreshUpdateStatus').mockResolvedValue(undefined);
+
+      await service.fetchAppUpdateInfo(true);
+
+      expect(atomValue.status).toBe(EAppUpdateStatus.verifyPackage);
+      expect(atomValue.latestVersion).toBe('2.0.0');
+      expect(atomValue.updateStrategy).toBe(EUpdateStrategy.force);
+    });
+
     test('preempts ready state to notify and clears downloadedEvent when server returns a different target', async () => {
       resetAtom({
         status: EAppUpdateStatus.ready,

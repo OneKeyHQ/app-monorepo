@@ -23791,6 +23791,7 @@
     "packages/kit/src/views/AppUpdate/components/ViewUpdateHistory.tsx": 17993,
     "packages/kit/src/views/AppUpdate/dialogs/showFeaturedChangelogDialog.tsx": 4062,
     "packages/kit/src/views/AppUpdate/dialogs/tryShowFeaturedDialog.ts": 8445,
+    "packages/kit/src/views/AppUpdate/hooks/useForceUpdateContactSupport.ts": 22440,
     "packages/kit/src/views/AppUpdate/pages/DownloadVerify.tsx": 1990,
     "packages/kit/src/views/AppUpdate/pages/FeaturedChangelogPreview.tsx": 23893,
     "packages/kit/src/views/AppUpdate/pages/ManualInstall.tsx": 12809,
