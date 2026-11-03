@@ -17,7 +17,12 @@ import type {
 // Native bottom tabs icon type (for react-native-bottom-tabs)
 // ImageSourcePropType: for static images using require() or { uri: string }
 // { sfSymbol: string }: for SF Symbols on iOS
-export type INativeTabBarIcon = ImageSourcePropType | { sfSymbol: string };
+// { iconName: IKeyOfIcons } | IKeyOfIcons: for packaged OneKeyIcons resources
+export type INativeTabBarIcon =
+  | ImageSourcePropType
+  | { sfSymbol: string }
+  | { iconName: IKeyOfIcons }
+  | IKeyOfIcons;
 
 export type ICommonScreenOptions = {
   headerShown?: boolean;
@@ -100,7 +105,7 @@ export interface ITabNavigatorExtraConfig<RouteName extends string> {
 // A round button the native tab bar draws above itself while the system shows
 // it as a vertical bar (the iPhone Duo side strip). iOS only.
 export interface ITabBarSideAccessory {
-  icon: ImageSourcePropType;
+  icon: ImageSourcePropType | { iconName: IKeyOfIcons } | IKeyOfIcons;
   label: string;
   onPress: () => void;
 }
