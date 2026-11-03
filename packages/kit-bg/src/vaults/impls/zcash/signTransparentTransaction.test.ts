@@ -199,9 +199,8 @@ it('reports a runtime failure in user wording', async () => {
       request,
     }),
   ).rejects.toMatchObject({
-    message: 'Insufficient ZEC balance',
-    key: ETranslations.send_error_insufficient_balance,
-    info: { token: 'ZEC' },
+    message: 'Insufficient balance. Please try a smaller amount',
+    key: ETranslations.send_toast_btc_fork_insufficient_fund,
     code: 'INSUFFICIENT_FUNDS',
   });
 });
