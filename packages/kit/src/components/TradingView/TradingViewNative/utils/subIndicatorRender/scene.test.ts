@@ -3,6 +3,7 @@ import type { IMarketTokenKLineDataPoint } from '@onekeyhq/shared/types/marketV2
 
 import { TRADING_VIEW_NATIVE_PRICE_AXIS_MIN_TICK_SPACING } from '../../chartConstants';
 
+import { getTradingViewNativeSubIndicatorY } from './coordinates';
 import { getTradingViewNativeSubIndicatorPaneLayouts } from './layout';
 import { createTradingViewNativeSubIndicatorRenderSnapshots } from './pipeline';
 import {
@@ -329,6 +330,44 @@ describe('TradingViewNative sub-indicator scene', () => {
         y: 200,
       }),
     ).toBeNull();
+  });
+
+  it('keeps a nonzero crosshair value visible under a fixed precision', () => {
+    const [pane] = createTradingViewNativeSubIndicatorRenderSnapshots({
+      configs: [{ id: 'macd', indicator: 'MACD' }],
+      points: POINTS,
+    }).map(({ pane: renderPane }) => renderPane);
+    expect(pane).toBeDefined();
+    if (!pane) {
+      return;
+    }
+    pane.format = { precision: 2, type: 'inherit' };
+    pane.scale = { kind: 'fixed', maxValue: 0.01, minValue: -0.01 };
+    const layouts = getTradingViewNativeSubIndicatorPaneLayouts({
+      endIndex: POINTS.length,
+      panes: [pane],
+      stackBottom: 300,
+      stackTop: 244,
+      startIndex: 0,
+    });
+    const [layout] = layouts;
+    expect(layout?.range).toBeTruthy();
+    if (!layout?.range) {
+      return;
+    }
+    const y = getTradingViewNativeSubIndicatorY({
+      bottom: layout.plotBottom,
+      range: layout.range,
+      top: layout.plotTop,
+      value: 0.0034,
+    });
+
+    const text = getTradingViewNativeSubIndicatorCrosshairValueText({
+      layouts,
+      y,
+    });
+    expect(text).not.toBe('0.00');
+    expect(Number(text)).toBeCloseTo(0.0034, 3);
   });
 
   it('supports plot fills across finite runs and narrow histogram bars', () => {

@@ -1,8 +1,8 @@
 diff --git a/node_modules/@onekeyfe/hd-core/dist/index.js b/node_modules/@onekeyfe/hd-core/dist/index.js
-index 480d76a..39e84e2 100644
+index cfabebb..5135f0f 100644
 --- a/node_modules/@onekeyfe/hd-core/dist/index.js
 +++ b/node_modules/@onekeyfe/hd-core/dist/index.js
-@@ -2440,6 +2440,8 @@ const LogBlockEvent = new Set([
+@@ -2449,6 +2449,8 @@ const LogBlockEvent = new Set([
  ]);
  const LogPayloadBlockMethod = new Set([
      'btcDeriveContextHash',

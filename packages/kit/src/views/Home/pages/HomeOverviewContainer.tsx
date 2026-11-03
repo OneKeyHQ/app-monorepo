@@ -261,7 +261,7 @@ function HomeOverviewContainer() {
     perpsNetWorthUsd = portfolioCategories.data.perpsFiat;
   }
   const isPortfolioCategoryCommitPending = Boolean(
-    portfolioCategories?.data &&
+    portfolioCategories?.data?.deFiOverview &&
     `${portfolioCategories.ownerKey}:${portfolioCategories.dataRequestId}` !==
       committedPortfolioCategoryRevisionRef.current,
   );

@@ -675,6 +675,63 @@ describe('hardware Cloud sync session', () => {
       ).resolves.toBe('raw-from-other-device');
     });
 
+    test.each([false, true])(
+      'unknown local ciphertext is preflighted before the server key changes (corrupt=%s)',
+      async (corrupt) => {
+        const { key, lock } = await firstDevice();
+        const opaque = {
+          id: 'public-test-future-record',
+          dataType: 'FutureCloudRecord',
+          pwdHash: key.pwdHash,
+          data: await keylessCloudSyncUtils.encryptWithKeylessKey({
+            rawData: 'public-test-opaque-payload',
+            encryptionKey: key.dek,
+            itemId: 'public-test-future-record',
+            dataType: 'FutureCloudRecord',
+          }),
+        };
+        const c = fakeClient();
+        c.get.mockResolvedValue(ok({ lock }));
+        c.post
+          .mockResolvedValueOnce(ok({ nonce: 7 }))
+          .mockResolvedValueOnce(ok({ serverData: [] }))
+          .mockResolvedValueOnce(ok({}));
+        const savePending = jest.fn(async () => undefined);
+        const rotate = rotateHardwareCloudSyncDataKey({
+          client: c.client,
+          session: session(),
+          deriveKek: wallet(WALLET),
+          current: key,
+          localItems: [
+            { ...opaque, data: corrupt ? 'not-ciphertext' : opaque.data },
+          ],
+          savePending,
+        });
+        if (corrupt) {
+          await expect(rotate).rejects.toThrow();
+          expect(savePending).not.toHaveBeenCalled();
+          expect(
+            c.post.mock.calls.some(([url]) => url === '/prime/v1/sync/flush'),
+          ).toBe(false);
+        } else {
+          const { next, items } = await rotate;
+          expect(items[0]).toMatchObject({
+            id: opaque.id,
+            dataType: opaque.dataType,
+            pwdHash: next.pwdHash,
+          });
+          await expect(
+            keylessCloudSyncUtils.decryptWithKeylessKey({
+              encryptedData: items[0].data,
+              encryptionKey: next.dek,
+              itemId: opaque.id,
+              dataType: opaque.dataType,
+            }),
+          ).resolves.toBe('public-test-opaque-payload');
+        }
+      },
+    );
+
     test('reads every page of server records before resetting', async () => {
       const { key, lock } = await firstDevice();
       const deleted = (n: number, from: number) =>

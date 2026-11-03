@@ -2,6 +2,7 @@ import { EDeviceType } from '@onekeyfe/hd-shared';
 import { Semaphore } from 'async-mutex';
 
 import appGlobals from '@onekeyhq/shared/src/appGlobals';
+import { EPrimeCloudSyncDataType } from '@onekeyhq/shared/src/consts/primeConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import { ECloudSyncMode } from '@onekeyhq/shared/types/keylessCloudSync';
@@ -137,6 +138,9 @@ jest.mock('./botWalletCloudSyncUtils', () => ({
 }));
 
 jest.mock('./cloudSyncCheckUtils', () => ({
+  ...jest.requireActual<typeof import('./cloudSyncCheckUtils')>(
+    './cloudSyncCheckUtils',
+  ),
   buildOnlyCheckLocalDataTypes: jest.fn(),
 }));
 
@@ -605,7 +609,12 @@ describe('ServicePrimeCloudSync local writes re-check the Cloud key', () => {
       signingPublicKey: 'other-signing-public-key',
     },
   };
-  const localItems = [{ id: 'server-item' } as IDBCloudSyncItem];
+  const localItems = [
+    {
+      id: 'server-item',
+      dataType: EPrimeCloudSyncDataType.IndexedAccount,
+    } as IDBCloudSyncItem,
+  ];
   const mockedLocalDb = jest.requireMock<{
     default: {
       addAndUpdateSyncItems?: jest.Mock;
@@ -1099,5 +1108,218 @@ describe('ServicePrimeCloudSync flush pushes outside OneKey ID sync', () => {
       .mockResolvedValue(undefined);
     await service.onWebSocketMasterPasswordChanged(flush);
     expect(alert).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('Cloud sync records from opaque server storage', () => {
+  const valid: IDBCloudSyncItem = {
+    id: 'account-record',
+    dataType: EPrimeCloudSyncDataType.IndexedAccount,
+    rawKey: '',
+    rawData: '',
+    data: 'public-test-ciphertext',
+    dataTime: 100,
+    pwdHash: 'public-test-pwd-hash',
+    isDeleted: false,
+    localSceneUpdated: false,
+    serverUploaded: false,
+  };
+  // HTTP responses and old persistence can contain types this client never declared.
+  const unsupported = [
+    'HardwareKeyEnvelope',
+    'HardwareCloudSyncKeyEnvelope',
+    'FutureCloudRecord',
+  ].map((dataType) => ({
+    ...valid,
+    id: dataType === 'HardwareCloudSyncKeyEnvelope' ? 'dek:inject' : dataType,
+    dataType: dataType as EPrimeCloudSyncDataType,
+    data: 'x',
+  }));
+  const credential: ICloudSyncCredential = {
+    primeAccountSalt: '',
+    securityPasswordR1: '',
+    masterPasswordUUID: '',
+  };
+  const db = jest.requireMock<{
+    default: {
+      getAllSyncItems: jest.Mock;
+      addAndUpdateSyncItems: jest.Mock;
+      getRecordsByIds: jest.Mock;
+      removeCloudSyncPoolItems: jest.Mock;
+    };
+  }>('../../dbs/local/localDb').default;
+
+  function build() {
+    db.getAllSyncItems = jest.fn(async () => ({
+      syncItems: [valid, ...unsupported],
+    }));
+    db.addAndUpdateSyncItems = jest.fn(async () => undefined);
+    db.getRecordsByIds = jest.fn(async () => ({ records: [valid] }));
+    db.removeCloudSyncPoolItems = jest.fn(async () => undefined);
+    jest.mocked(primeCloudSyncPersistAtom.get).mockResolvedValue({
+      isCloudSyncEnabled: true,
+      isCloudSyncEnabledKeyless: false,
+    });
+    const service = new ServicePrimeCloudSync({
+      backgroundApi: {
+        serviceKeylessCloudSync: {
+          runWithCloudSyncKeyLock: <T>(operation: () => Promise<T>) =>
+            operation(),
+        },
+      },
+    });
+    jest.spyOn(service, 'getSyncCredentialSafe').mockResolvedValue(credential);
+    jest.spyOn(service, 'updateLastSyncTime').mockResolvedValue(undefined);
+    return service;
+  }
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+    jest.clearAllTimers();
+    jest.useRealTimers();
+  });
+
+  test('full sync excludes old unsupported local records without deleting their stored data', async () => {
+    const service = build();
+    expect((await service.getAllLocalSyncItems()).items).toEqual([valid]);
+    expect((await db.getAllSyncItems()).syncItems).toEqual([
+      valid,
+      ...unsupported,
+    ]);
+    expect(db.removeCloudSyncPoolItems).not.toHaveBeenCalled();
+  });
+
+  test('key safety checks can read unsupported local records without exposing them to business sync', async () => {
+    const service = build();
+    expect(
+      (
+        await service.getAllLocalSyncItems({
+          includeUnsupportedDataTypes: true,
+        })
+      ).items,
+    ).toEqual([valid, ...unsupported]);
+    expect((await service.getAllLocalSyncItems()).items).toEqual([valid]);
+    expect(db.removeCloudSyncPoolItems).not.toHaveBeenCalled();
+  });
+
+  test('mixed check, download or push data applies supported records without importing unknown records', async () => {
+    const service = build();
+    const convert = jest
+      .spyOn(service, 'convertServerItemToLocalItem')
+      .mockImplementation(async ({ serverItem }) => ({
+        ...valid,
+        id: serverItem.key,
+        dataType: serverItem.dataType,
+      }));
+    const serverItems = [valid, ...unsupported].map((item) => ({
+      key: item.id,
+      data: item.data!,
+      dataType: item.dataType,
+      dataTimestamp: item.dataTime,
+      isDeleted: item.isDeleted,
+      pwdHash: item.pwdHash,
+    }));
+    await service.saveServerSyncItemsToLocal({
+      serverItems,
+      syncCredential: credential,
+      serverPwdHash: valid.pwdHash,
+      shouldSyncToScene: false,
+    });
+    expect(convert).toHaveBeenCalledTimes(1);
+    expect(db.addAndUpdateSyncItems).toHaveBeenCalledWith({
+      items: [valid],
+      skipUploadToServer: true,
+    });
+    expect(serverItems).toHaveLength(4);
+  });
+
+  test('direct server writes exclude unsupported records before persistence and scene application', async () => {
+    const service = build();
+    const apply = jest
+      .spyOn(service, 'syncToSceneWithLocalSyncItems')
+      .mockResolvedValue(undefined);
+    await service.updateLocalItemsByServer({
+      localItems: [...unsupported, valid],
+      syncCredential: credential,
+      shouldSyncToScene: true,
+    });
+    expect(db.addAndUpdateSyncItems).toHaveBeenCalledWith({
+      items: [valid],
+      skipUploadToServer: true,
+    });
+    expect(db.getRecordsByIds).toHaveBeenCalledWith({
+      name: 'CloudSyncItem',
+      ids: [valid.id],
+    });
+    expect(apply).toHaveBeenCalledWith({
+      items: [valid],
+      syncCredential: credential,
+    });
+  });
+
+  test('unsupported local records cannot be uploaded by direct upload callers', async () => {
+    const service = build();
+    jest.spyOn(service, 'getCloudSyncDataTime').mockResolvedValue(200);
+    jest
+      .spyOn(service, 'getActiveSyncMode')
+      .mockResolvedValue(ECloudSyncMode.Keyless);
+    const convert = jest
+      .spyOn(service, 'convertLocalItemToServerItem')
+      .mockImplementation(({ localItem }) => ({
+        key: localItem.id,
+        dataType: localItem.dataType,
+        data: localItem.data!,
+        dataTimestamp: localItem.dataTime,
+        isDeleted: localItem.isDeleted,
+        pwdHash: localItem.pwdHash,
+      }));
+    const upload = jest
+      .spyOn(service, 'apiUploadItemsKeyless')
+      .mockResolvedValue({
+        created: 0,
+        updated: 1,
+        nonce: 1,
+      });
+    await service._callApiUploadItems({
+      localItems: [valid, ...unsupported],
+      pwdHash: valid.pwdHash,
+      isFlush: false,
+      lockItem: undefined,
+      setUndefinedTimeToNow: false,
+    });
+    expect(convert).toHaveBeenCalledTimes(1);
+    expect(upload).toHaveBeenCalledWith(
+      expect.objectContaining({
+        postData: expect.objectContaining({
+          localData: [expect.objectContaining({ key: valid.id })],
+        }),
+      }),
+    );
+  });
+
+  test('scene dispatch skips old unsupported records and still applies the account record', async () => {
+    jest.useFakeTimers();
+    const service = build();
+    jest.spyOn(service, 'isCloudSyncIsAvailable').mockResolvedValue(true);
+    const applyAccount = jest.fn(async () => undefined);
+    for (const manager of Object.values(service.syncManagers)) {
+      Object.assign(manager, {
+        syncToScene:
+          manager === service.syncManagers.indexedAccount
+            ? applyAccount
+            : jest.fn(async () => undefined),
+      });
+    }
+    await expect(
+      service.syncToSceneWithLocalSyncItems({
+        items: [...unsupported, valid],
+        syncCredential: credential,
+      }),
+    ).resolves.toBeUndefined();
+    expect(applyAccount).toHaveBeenCalledWith({
+      items: [valid],
+      syncCredential: credential,
+      forceSync: undefined,
+    });
   });
 });
