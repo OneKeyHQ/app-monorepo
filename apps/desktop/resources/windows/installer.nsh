@@ -20,11 +20,6 @@
     !ifdef INSTALL_MODE_PER_ALL_USERS_REQUIRED
       !insertmacro OneKeyDeleteProtocolKeyIfOwnedByDir ${ROOT_KEY} "${SCHEME}" "$perMachineInstallationFolder"
     !endif
-    !ifndef BUILD_UNINSTALLER
-      !ifndef INSTALL_MODE_PER_ALL_USERS
-        !insertmacro OneKeyDeleteProtocolKeyIfOwnedByDir ${ROOT_KEY} "${SCHEME}" "$perUserInstallationFolder"
-      !endif
-    !endif
   ${Else}
     !ifndef INSTALL_MODE_PER_ALL_USERS
       !insertmacro OneKeyDeleteProtocolKeyIfOwnedByDir ${ROOT_KEY} "${SCHEME}" "$perUserInstallationFolder"
