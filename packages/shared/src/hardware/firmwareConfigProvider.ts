@@ -1,6 +1,7 @@
 import axios from 'axios';
 
 import { defaultLogger } from '../logger/logger';
+import platformEnv from '../platformEnv';
 import {
   getMappedDomainForIpLookup,
   isIpTableTransportError,
@@ -114,6 +115,10 @@ async function fetchFirmwareConfigWithinDeadline({
 
   const configUrl = preRelease ? PRE_RELEASE_CONFIG_URL : STABLE_CONFIG_URL;
   const parsedUrl = new URL(`${configUrl}?noCache=${Date.now().toString()}`);
+  const requestUrl =
+    platformEnv.isDev && platformEnv.isDesktop
+      ? `/__onekey_firmware_config${parsedUrl.pathname}${parsedUrl.search}`
+      : parsedUrl.toString();
   const rootDomain = parsedUrl.hostname.split('.').slice(-2).join('.');
   const configKey =
     (await getMappedDomainForIpLookup(rootDomain)) ?? rootDomain;
@@ -123,7 +128,7 @@ async function fetchFirmwareConfigWithinDeadline({
   const plainAxios = axios.create();
   const domainRequestSequence = nextIpTableRequestSequence();
   try {
-    const response = await plainAxios.get<unknown>(parsedUrl.toString(), {
+    const response = await plainAxios.get<unknown>(requestUrl, {
       timeout: Math.min(CONFIG_FETCH_TIMEOUT_MS, deadlineAt - Date.now()),
       signal,
     });

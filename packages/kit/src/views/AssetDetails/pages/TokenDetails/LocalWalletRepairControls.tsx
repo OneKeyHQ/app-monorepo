@@ -38,17 +38,33 @@ export type IBirthdayFormState = {
 
 export type IEarliestBirthday = { height: number; timestamp: number };
 
-export function createEnableBirthdayForm(hintTimestamp?: number): {
+function getBirthdayCalendarDate(timestamp: number): Date {
+  const date = new Date(timestamp);
+  // Activation metadata represents a UTC calendar day, not a local instant.
+  return new Date(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate());
+}
+
+export function createEnableBirthdayForm(
+  hintTimestamp?: number,
+  earliestBirthday?: IEarliestBirthday,
+): {
   current: IBirthdayFormState;
 } {
   const now = new Date();
+  const suggestedDate =
+    typeof hintTimestamp === 'number'
+      ? new Date(hintTimestamp)
+      : new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const earliestDate = earliestBirthday
+    ? getBirthdayCalendarDate(earliestBirthday.timestamp)
+    : undefined;
   return {
     current: {
       mode: 'date',
       date:
-        typeof hintTimestamp === 'number'
-          ? new Date(hintTimestamp)
-          : new Date(now.getFullYear(), now.getMonth(), 1),
+        earliestDate && suggestedDate < earliestDate
+          ? earliestDate
+          : suggestedDate,
     },
   };
 }
@@ -80,6 +96,9 @@ export function readEnableBirthday(
   }
   if (form.mode !== 'date') return undefined;
   if (!form.date || !Number.isFinite(form.date.getTime())) return undefined;
+  if (earliest && form.date < getBirthdayCalendarDate(earliest.timestamp)) {
+    return undefined;
+  }
   return {
     birthdayTimestamp: new Date(
       form.date.getFullYear(),
@@ -139,15 +158,32 @@ export function BirthdayDialogForm({
   );
   const [date, setDate] = useState(formRef.current.date);
   const [height, setHeight] = useState(formRef.current.height ?? '');
+  const [heightTouched, setHeightTouched] = useState(false);
+  const locked = fromEarliest && !!earliestBirthday;
+  const displayedMode = locked && mode === 'saved-birthday' ? 'date' : mode;
+  const earliestDate = earliestBirthday
+    ? getBirthdayCalendarDate(earliestBirthday.timestamp)
+    : undefined;
+  const minDate = earliestDate ?? new Date(2022, 4, 1);
+  const displayedHeight = locked ? String(earliestBirthday.height) : height;
+  const displayedBirthdayHeight = locked
+    ? earliestBirthday.height
+    : currentBirthdayHeight;
   const invalidHeight =
+    !locked &&
     height.length > 0 &&
     !readEnableBirthday(
       { mode: 'height', date: null, height },
       earliestBirthday,
       networkId,
     );
+  const showHeightError =
+    displayedMode === 'height' && heightTouched && invalidHeight;
+  const minHeight = Math.max(1, earliestBirthday?.height ?? 1);
+  const heightBelowMinimum =
+    /^\d+$/.test(height.trim()) && Number(height) < minHeight;
   let editor: React.ReactNode = null;
-  if (mode === 'date') {
+  if (displayedMode === 'date') {
     editor = (
       <YStack testID="local-wallet-birthday-date-input">
         <DatePicker
@@ -157,45 +193,37 @@ export function BirthdayDialogForm({
           placeholder={intl.formatMessage({
             id: ETranslations.global_select_date,
           })}
-          minDate={
-            earliestBirthday
-              ? new Date(earliestBirthday.timestamp)
-              : new Date(2022, 4, 1)
-          }
+          minDate={minDate}
           maxDate={new Date()}
-          value={date}
+          disabled={locked}
+          value={locked ? earliestDate : date}
           onChange={(value) => {
+            if (locked) return;
             setDate(value);
             formRef.current.date = value;
           }}
         />
       </YStack>
     );
-  } else if (mode === 'height') {
+  } else if (displayedMode === 'height') {
     editor = (
-      <YStack gap="$2">
-        <Input
-          testID="local-wallet-birthday-height-input"
-          keyboardType="number-pad"
-          placeholder={intl.formatMessage({
-            id: ETranslations.global_block_height,
-          })}
-          value={height}
-          error={invalidHeight}
-          onChangeText={(value) => {
-            setHeight(value);
-            formRef.current.height = value;
-          }}
-        />
-        <SizableText
-          testID="local-wallet-birthday-height-range"
-          size="$bodySm"
-          color={invalidHeight ? '$textCritical' : '$textSubdued'}
-        >
-          {intl.formatMessage({ id: ETranslations.global_block_height })} ≥{' '}
-          {Math.max(1, earliestBirthday?.height ?? 1).toLocaleString('en-US')}
-        </SizableText>
-      </YStack>
+      <Input
+        testID="local-wallet-birthday-height-input"
+        size="small"
+        keyboardType="number-pad"
+        placeholder={intl.formatMessage({
+          id: ETranslations.global_block_height,
+        })}
+        value={displayedHeight}
+        disabled={locked}
+        error={showHeightError}
+        onBlur={() => setHeightTouched(true)}
+        onChangeText={(value) => {
+          if (locked) return;
+          setHeight(value);
+          formRef.current.height = value;
+        }}
+      />
     );
   }
 
@@ -207,48 +235,76 @@ export function BirthdayDialogForm({
             {
               id: ETranslations.privacy_sync_start_block__title,
             },
-            { height: currentBirthdayHeight.toLocaleString('en-US') },
+            {
+              height: intl.formatNumber(
+                displayedBirthdayHeight ?? currentBirthdayHeight,
+              ),
+            },
           )}
         </SizableText>
       ) : null}
-      {fromEarliest ? null : (
-        <SegmentControl
-          testID="local-wallet-birthday-mode"
-          fullWidth
-          value={mode}
-          onChange={(v) => {
-            const next = v as IBirthdayFormState['mode'];
-            setMode(next);
-            formRef.current.mode = next;
-          }}
-          options={[
-            ...(allowSavedBirthday
-              ? [
-                  {
-                    label: intl.formatMessage({
-                      id: ETranslations.privacy_sync_start_saved__title,
-                    }),
-                    value: 'saved-birthday',
-                    testID: 'local-wallet-birthday-mode-saved',
-                  },
-                ]
-              : []),
-            {
-              label: intl.formatMessage({ id: ETranslations.global_date }),
-              value: 'date',
-              testID: 'local-wallet-birthday-mode-date',
-            },
-            {
-              label: intl.formatMessage({
-                id: ETranslations.global_block_height,
-              }),
-              value: 'height',
-              testID: 'local-wallet-birthday-mode-height',
-            },
-          ]}
-        />
-      )}
-      {fromEarliest ? null : editor}
+      <SegmentControl
+        testID="local-wallet-birthday-mode"
+        fullWidth
+        value={displayedMode}
+        pointerEvents={locked ? 'none' : 'auto'}
+        aria-disabled={locked}
+        onChange={(v) => {
+          if (locked) return;
+          const next = v as IBirthdayFormState['mode'];
+          setMode(next);
+          formRef.current.mode = next;
+        }}
+        options={[
+          ...(allowSavedBirthday
+            ? [
+                {
+                  label: intl.formatMessage({
+                    id: ETranslations.privacy_sync_start_saved__title,
+                  }),
+                  value: 'saved-birthday',
+                  testID: 'local-wallet-birthday-mode-saved',
+                  disabled: locked,
+                },
+              ]
+            : []),
+          {
+            label: intl.formatMessage({ id: ETranslations.global_date }),
+            value: 'date',
+            testID: 'local-wallet-birthday-mode-date',
+            disabled: locked,
+          },
+          {
+            label: intl.formatMessage({
+              id: ETranslations.global_block_height,
+            }),
+            value: 'height',
+            testID: 'local-wallet-birthday-mode-height',
+            disabled: locked,
+          },
+        ]}
+      />
+      {editor ? (
+        <YStack gap="$1">
+          {editor}
+          <YStack minHeight="$5">
+            {showHeightError ? (
+              <SizableText
+                testID="local-wallet-birthday-height-error"
+                size="$bodySm"
+                color="$textCritical"
+                accessibilityRole="alert"
+              >
+                {heightBelowMinimum
+                  ? `${intl.formatMessage({ id: ETranslations.global_block_height })} ≥ ${intl.formatNumber(minHeight)}`
+                  : intl.formatMessage({
+                      id: getBirthdayInputError('height'),
+                    })}
+              </SizableText>
+            ) : null}
+          </YStack>
+        </YStack>
+      ) : null}
       {earliestBirthday ? (
         <YStack gap="$1">
           <Checkbox
@@ -262,6 +318,7 @@ export function BirthdayDialogForm({
             label={intl.formatMessage({
               id: ETranslations.privacy_sync_start_from_beginning__desc,
             })}
+            labelContainerProps={{ flex: 1 }}
           />
         </YStack>
       ) : null}
@@ -364,8 +421,8 @@ export function ScanRepairControl({
         let birthdayHeightValue: number | undefined;
         if (fromEarliest && earliestBirthday) {
           mode = 'height';
-          birthdayHeightValue = earliestBirthday.height;
-        } else if (mode === 'date' || mode === 'height') {
+        }
+        if (mode === 'date' || mode === 'height') {
           const birthday = readEnableBirthday(
             formRef.current,
             earliestBirthday,

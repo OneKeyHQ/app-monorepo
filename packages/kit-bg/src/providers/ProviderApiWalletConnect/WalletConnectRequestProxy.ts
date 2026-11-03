@@ -1,3 +1,5 @@
+import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
+
 import type ProviderApiWalletConnect from './ProviderApiWalletConnect';
 import type { IInjectedProviderNames } from '@onekeyfe/cross-inpage-provider-types';
 import type { WalletKitTypes } from '@reown/walletkit';
@@ -36,6 +38,15 @@ export abstract class WalletConnectRequestProxy {
       data: {
         ...data,
         wcChainName: options.wcChain,
+        walletConnectTopic: options.sessionRequest?.topic,
+        walletConnectDisplayOrigin:
+          uriUtils.safeGetWalletConnectVerifiedOrigin({
+            verifyContext: options.sessionRequest?.verifyContext,
+            claimedOrigin:
+              this.client.web3Wallet?.getActiveSessions()?.[
+                options.sessionRequest?.topic ?? ''
+              ]?.peer.metadata.url,
+          }) ?? '',
         // Forward Reown's identity attestation through the data envelope.
         // ServiceDApp.openModal hoists this back onto $sourceInfo so the
         // modal can call useRiskDetection({ walletConnectVerifyContext }).

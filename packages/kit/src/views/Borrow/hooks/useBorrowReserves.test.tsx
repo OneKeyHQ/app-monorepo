@@ -137,7 +137,7 @@ describe('useBorrowReserves in-flight requests', () => {
   });
 
   it('invalidates a cached reserves entry after an account event without fetching', () => {
-    const cachedUpdatedAt = Date.now();
+    const cachedUpdatedAt = Date.now() - 1;
     expect(isBorrowReservesCacheReusable(cachedUpdatedAt)).toBe(true);
 
     renderHook(() => useBorrowReserves());

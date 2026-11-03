@@ -45,6 +45,7 @@ import {
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
+import { assertNoHardwareCloudSyncSigningRequest } from '@onekeyhq/shared/src/utils/hardwareCloudSyncGuards';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
@@ -504,6 +505,7 @@ class ProviderApiBtc extends ProviderApiBase {
     request: IJsBridgeMessagePayload,
     params: ISignMessageParams,
   ) {
+    assertNoHardwareCloudSyncSigningRequest(params.message);
     defaultLogger.discovery.dapp.dappRequest({ request });
     await this.checkIfEnableConnect();
     const { message, type } = params;

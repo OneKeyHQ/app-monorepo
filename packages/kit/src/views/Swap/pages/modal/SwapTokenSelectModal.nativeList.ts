@@ -94,9 +94,10 @@ export function buildSwapTokenNativeListSnapshot({
         sectionKey: `section:${index}`,
         title: sectionTitle,
         height: 36,
+        heightRounding: 'nearest',
         pressDisabled: true,
         style: {
-          horizontalPadding: isDesktopSelector ? 4 : 20,
+          horizontalPadding: isDesktopSelector ? 12 : 20,
           title: {
             fontSize: 14,
             lineHeight: 20,
@@ -113,6 +114,7 @@ export function buildSwapTokenNativeListSnapshot({
           type: 'system',
           variant: 'spacer',
           height: 12,
+          heightRounding: 'nearest',
           pressDisabled: true,
         });
       }
@@ -154,6 +156,7 @@ export function buildSwapTokenNativeListSnapshot({
           type: 'system',
           variant: 'spacer',
           height: 8,
+          heightRounding: 'nearest',
           pressDisabled: true,
         });
       }
@@ -189,6 +192,9 @@ export function buildSwapTokenNativeListSnapshot({
       key,
       type: 'identity',
       height: searchKeyword ? 76 : 60,
+      // Explicit heights pair with unscaled style metrics, so they must not
+      // take Android's legacy sub-400dp 0.9 row scale (OK-66072).
+      heightRounding: 'nearest',
       opacity: disabled ? 0.5 : 1,
       leading: {
         kind: 'token',
@@ -227,7 +233,8 @@ export function buildSwapTokenNativeListSnapshot({
         },
       ],
       style: {
-        horizontalPadding: isDesktopSelector ? 4 : 20,
+        ...(isDesktopSelector ? { container: { cornerRadius: 12 } } : {}),
+        horizontalPadding: isDesktopSelector ? 12 : 20,
         leadingGap: 12,
         trailingGap: 8,
         image: { width: 40, height: 40, shape: 'circle' },
@@ -247,7 +254,7 @@ export function buildSwapTokenNativeListSnapshot({
       generation: 1,
       layout: {
         kind: 'linear',
-        contentPaddingHorizontal: isDesktopSelector ? 16 : 0,
+        contentPaddingHorizontal: isDesktopSelector ? 8 : 0,
       },
       selection: { mode: 'none', selectedKeys: [] },
       theme,

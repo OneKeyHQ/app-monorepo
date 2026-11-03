@@ -74,6 +74,14 @@ import type Vault from './Vault';
 import type { IDBUtxoAccount } from '../../../dbs/local/types';
 import type { IZcashSentRecord } from '../../../dbs/simple/entity/SimpleDbEntityPrivacyChainZcashSent';
 
+function hasSupportedHistoryPool(poolIds: number[] | undefined) {
+  return poolIds?.some(
+    (poolId) =>
+      poolId === ZCASH_POOL_IDS.transparent ||
+      poolId === ZCASH_POOL_IDS.ironwood,
+  );
+}
+
 // A failed read only costs the recorded recipient and memo.
 async function listZcashSentRecords(
   vault: Vault,
@@ -226,6 +234,9 @@ export async function fetchAccountHistoryDetail(
   }
   if (!item) {
     return vault.zcashFetchBackendHistoryDetail(params);
+  }
+  if (!hasSupportedHistoryPool(item.poolIds)) {
+    throw new OneKeyLocalError('Zcash transaction uses an unsupported pool');
   }
   // No pool tab in the request: a row the runtime knows only as transparent is the backend's to describe.
   if (
@@ -511,27 +522,30 @@ export async function fetchAccountHistoryFromLocal(
   });
   const buildRows = (rows: IZcashHistoryItem[]) =>
     Promise.all(
-      rows.map((item) =>
-        buildZcashLocalHistoryTx({
-          item,
-          chainTip,
-          ownAddress: account.address,
-          nativeToken,
-          networkId: vault.networkId,
-          accountId: vault.accountId,
-          accountAddress: params.accountAddress,
-          xpub: params.xpub,
-          buildTransferAction: (p) => vault.buildTxTransferAssetAction(p),
-        }),
-      ),
+      rows
+        .filter((item) => hasSupportedHistoryPool(item.poolIds))
+        .map((item) =>
+          buildZcashLocalHistoryTx({
+            item,
+            chainTip,
+            ownAddress: account.address,
+            nativeToken,
+            networkId: vault.networkId,
+            accountId: vault.accountId,
+            accountAddress: params.accountAddress,
+            xpub: params.xpub,
+            buildTransferAction: (p) => vault.buildTxTransferAssetAction(p),
+          }),
+        ),
     );
 
   const privateTxs = !privateUnavailable
     ? await buildRows(items)
     : (await loadCachedHistory()).filter(
         (tx) =>
-          tx.privacyChainHistorySide === 'private' ||
-          tx.privacyChainHistorySide === 'mixed',
+          (tx.privacyChainHistorySide === 'private' ||
+            tx.privacyChainHistorySide === 'mixed') &&
+          hasSupportedHistoryPool(tx.privacyChainHistoryPoolIds ?? []),
       );
 
   let publicTxs: IAccountHistoryTx[] = [];

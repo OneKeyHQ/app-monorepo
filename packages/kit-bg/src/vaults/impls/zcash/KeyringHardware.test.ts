@@ -1,4 +1,5 @@
 import addressFixtures from '@onekeyhq/core/src/chains/zcash/sdkZcash/unifiedAddress.fixtures.json';
+import { ZCASH_MIN_BIRTHDAY_HEIGHT_MAINNET } from '@onekeyhq/shared/src/config/zcash';
 import { createUntrackedMemoryStorage } from '@onekeyhq/shared/src/test-utils/mocks/memoryStorage';
 import { EConfirmOnDeviceType } from '@onekeyhq/shared/types/device';
 
@@ -693,7 +694,7 @@ describe('Zcash KeyringHardware', () => {
         transparentAddress: 't1account',
         seedFingerprintHex: 'ab'.repeat(32),
         hdIndex: 2,
-        birthdayHeight: 2_500_000,
+        birthdayHeight: ZCASH_MIN_BIRTHDAY_HEIGHT_MAINNET,
         birthdaySource: 'manual-height',
       }),
     });

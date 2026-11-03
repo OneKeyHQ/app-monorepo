@@ -1,5 +1,5 @@
 import { memo, useCallback, useMemo, useRef, useState } from 'react';
-import type { ComponentProps, ReactElement } from 'react';
+import type { ComponentProps, ReactElement, RefObject } from 'react';
 
 import { useRoute } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
@@ -27,6 +27,7 @@ import type { IMarketToken } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/c
 import { useMarketTopCoins } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketTopCoinsList/hooks/useMarketTopCoins';
 import { useSwapProTokenSearch } from '@onekeyhq/kit/src/views/Swap/hooks/useSwapPro';
 import { useMarketTokenSelectorConfigAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { MARKET_TOP_COINS_CATEGORY_ID } from '@onekeyhq/shared/src/consts/marketConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import type { IMarketAssetListItem } from '@onekeyhq/shared/types/market';
@@ -107,8 +108,10 @@ function convertTopCoinToSelectorToken(
 
 function BaseMarketTokenSelectorContent({
   defaultCategory,
+  watchlistDataCacheRef,
 }: {
   defaultCategory: IMarketTokenSelectorDefaultCategory;
+  watchlistDataCacheRef: RefObject<IMarketWatchlistDataCache | undefined>;
 }) {
   const intl = useIntl();
   const route = useRoute();
@@ -171,13 +174,6 @@ function BaseMarketTokenSelectorContent({
   const searchValueDebounce = useDebounce(searchValue, 500);
   const searchQuery = searchValueDebounce.trim();
   const { searchLoading, searchTokenList } = useSwapProTokenSearch(searchQuery);
-
-  // The favorites list is unmounted on every tab switch, so its fetched data
-  // is parked on this shell — which outlives the tabs — and handed back on
-  // remount instead of the list restarting from an empty state.
-  const watchlistDataCacheRef = useRef<IMarketWatchlistDataCache | undefined>(
-    undefined,
-  );
 
   const handleBrowseTabChange = useCallback(
     (tabId: 'favorites' | 'stocks' | 'tokens') => {
@@ -305,44 +301,6 @@ function BaseMarketTokenSelectorContent({
 
   const showChipBand = !searchQuery && subCategories.length > 0;
 
-  let selectorListContent: ReactElement;
-  if (searchQuery) {
-    selectorListContent = (
-      <MarketTokenSelectorSearchResults
-        query={searchQuery}
-        marketItems={searchTokenList}
-        isMarketLoading={searchLoading}
-        onStockPress={handleSelectStock}
-        onMarketPress={handleSelectToken}
-      />
-    );
-  } else if (isStockSelection) {
-    selectorListContent = (
-      <MarketStockSelectorList
-        query=""
-        category={stockCategoryId}
-        onItemPress={handleSelectStock}
-      />
-    );
-  } else {
-    selectorListContent = (
-      <MarketTokenSelectorList
-        networkId={allNetworkId}
-        selectedCategory={tokenCategoryId}
-        timeRange={selectorTimeRange}
-        onItemPress={handleSelectToken}
-        pollingInterval={TOKEN_SELECTOR_POLLING_INTERVAL}
-        isWatchlistMode={isFavoritesSelection}
-        watchlistFilter={watchlistFilter}
-        watchlistDataCacheRef={watchlistDataCacheRef}
-        dataOverride={isTopCoinsSelection ? topCoinsSelectorData : undefined}
-        dataOverrideLoading={isTopCoinsLoading}
-        dataOverrideError={isTopCoinsError}
-        onDataOverrideRetry={() => void refreshTopCoins()}
-      />
-    );
-  }
-
   return (
     // Figma 27032:42467 — every block sits on the same 20px gutter.
     <YStack
@@ -384,7 +342,63 @@ function BaseMarketTokenSelectorContent({
           </YStack>
         ) : null}
 
-        {selectorListContent}
+        {searchQuery ? (
+          <MarketTokenSelectorSearchResults
+            query={searchQuery}
+            marketItems={searchTokenList}
+            isMarketLoading={searchLoading}
+            onStockPress={handleSelectStock}
+            onMarketPress={handleSelectToken}
+          />
+        ) : null}
+        {/* Load browse lists together and retain their rows across tab/search switches. */}
+        <YStack
+          testID="market-token-selector-panel-favorites"
+          flex={1}
+          display={!searchQuery && isFavoritesSelection ? 'flex' : 'none'}
+        >
+          <MarketTokenSelectorList
+            networkId={allNetworkId}
+            onItemPress={handleSelectToken}
+            pollingInterval={TOKEN_SELECTOR_POLLING_INTERVAL}
+            isWatchlistMode
+            watchlistFilter={watchlistFilter}
+            watchlistDataCacheRef={watchlistDataCacheRef}
+          />
+        </YStack>
+        <YStack
+          testID="market-token-selector-panel-stocks"
+          flex={1}
+          display={!searchQuery && isStockSelection ? 'flex' : 'none'}
+        >
+          <MarketStockSelectorList
+            query=""
+            category={stockCategoryId}
+            onItemPress={handleSelectStock}
+          />
+        </YStack>
+        <YStack
+          testID="market-token-selector-panel-tokens"
+          flex={1}
+          display={!searchQuery && browseTab === 'tokens' ? 'flex' : 'none'}
+        >
+          <MarketTokenSelectorList
+            networkId={allNetworkId}
+            selectedCategory={tokenCategoryId}
+            timeRange={selectorTimeRange}
+            onItemPress={handleSelectToken}
+            pollingInterval={TOKEN_SELECTOR_POLLING_INTERVAL}
+            isWatchlistMode={false}
+            dataOverride={
+              tokenCategoryId === MARKET_TOP_COINS_CATEGORY_ID
+                ? topCoinsSelectorData
+                : undefined
+            }
+            dataOverrideLoading={isTopCoinsLoading}
+            dataOverrideError={isTopCoinsError}
+            onDataOverrideRetry={() => void refreshTopCoins()}
+          />
+        </YStack>
       </YStack>
     </YStack>
   );
@@ -393,10 +407,17 @@ function BaseMarketTokenSelectorContent({
 // Retain closing content until exit completes; each open gets fresh state.
 function MarketTokenSelectorContent({
   defaultCategory,
+  watchlistDataCacheRef,
 }: {
   defaultCategory: IMarketTokenSelectorDefaultCategory;
+  watchlistDataCacheRef: RefObject<IMarketWatchlistDataCache | undefined>;
 }) {
-  return <BaseMarketTokenSelectorContent defaultCategory={defaultCategory} />;
+  return (
+    <BaseMarketTokenSelectorContent
+      defaultCategory={defaultCategory}
+      watchlistDataCacheRef={watchlistDataCacheRef}
+    />
+  );
 }
 
 const MarketTokenSelectorContentMemo = memo(MarketTokenSelectorContent);
@@ -417,6 +438,10 @@ function BaseMarketTokenSelector({
   const intl = useIntl();
   const [isOpen, setIsOpen] = useState(false);
   const [contentGeneration, setContentGeneration] = useState(0);
+  // The trigger outlives the popover, including search state resets on reopen.
+  const watchlistDataCacheRef = useRef<IMarketWatchlistDataCache | undefined>(
+    undefined,
+  );
   const handleOpenChange = useCallback(
     (open: boolean) => {
       if (open && !isOpen) {
@@ -493,6 +518,7 @@ function BaseMarketTokenSelector({
       <MarketTokenSelectorContentMemo
         key={contentGeneration}
         defaultCategory={defaultCategory}
+        watchlistDataCacheRef={watchlistDataCacheRef}
       />
     ),
     [contentGeneration, defaultCategory],

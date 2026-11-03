@@ -588,6 +588,7 @@ export function DeviceStage({
   vendorModel,
   vendorModelName,
   appName,
+  transferProgress,
   installProgress,
   installQueue,
   installActiveIndex,
@@ -2324,6 +2325,20 @@ export function DeviceStage({
   // — never for a flight settling over the other glyphs.
   const bluetoothBadgePaused =
     capsuleGlyph !== 'bluetooth' || pose !== 'capsule' || poseInFlight;
+  const transferPercent =
+    step === 'processing' &&
+    typeof transferProgress === 'number' &&
+    Number.isFinite(transferProgress)
+      ? Math.max(0, Math.min(100, Math.round(transferProgress)))
+      : undefined;
+  const transferAccessibilityValue = useMemo(
+    () => ({ min: 0, max: 100, now: transferPercent }),
+    [transferPercent],
+  );
+  const transferTitle =
+    transferPercent !== undefined
+      ? intl.formatMessage({ id: ETranslations.communication_communicating })
+      : capsuleText.title;
   const capsule = useMemo(
     () => (
       <XStack
@@ -2372,17 +2387,41 @@ export function DeviceStage({
             the notice too — the sweep is a waiting affordance, and the
             notice waits for nothing. */}
           <ShimmerTitle paused={pose !== 'capsule' || capsuleGlyph === 'error'}>
-            {capsuleText.title}
+            {transferTitle}
           </ShimmerTitle>
-          {capsuleText.sub ? (
+          {capsuleText.sub && transferPercent === undefined ? (
             <SizableText size="$bodyMd" color="$textSubdued">
               {capsuleText.sub}
             </SizableText>
           ) : null}
+          {transferPercent !== undefined ? (
+            <YStack gap="$1" mt="$1" minWidth={120}>
+              <Stack
+                testID="device-stage-transfer-progress"
+                accessibilityRole="progressbar"
+                accessibilityValue={transferAccessibilityValue}
+                h="$1"
+                borderRadius="$full"
+                bg="$neutral5"
+                overflow="hidden"
+              >
+                <Stack h="100%" width={`${transferPercent}%`} bg="$bgPrimary" />
+              </Stack>
+            </YStack>
+          ) : null}
         </YStack>
       </XStack>
     ),
-    [bluetoothBadgePaused, capsuleGlyph, capsuleText, pose, vendorImageSource],
+    [
+      bluetoothBadgePaused,
+      capsuleGlyph,
+      capsuleText,
+      transferTitle,
+      pose,
+      transferAccessibilityValue,
+      transferPercent,
+      vendorImageSource,
+    ],
   );
 
   const dismissLabel = useMemo(

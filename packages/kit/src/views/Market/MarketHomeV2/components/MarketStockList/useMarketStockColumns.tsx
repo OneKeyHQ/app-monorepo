@@ -220,6 +220,9 @@ export function useMarketStockColumns({
                 borderRadius="$full"
                 tokenImageUri={record.logoUrl}
                 fallbackIcon="CryptoCoinOutline"
+                {...(compact
+                  ? { placeholder: null, loadingStrategy: 'static' as const }
+                  : {})}
               />
               <YStack
                 flex={1}

@@ -51,6 +51,41 @@ function rows(
 }
 
 describe('Swap NativeList row adapter', () => {
+  it.each([true, false])(
+    'keeps menu bounds inside the row and token columns aligned for desktop=%s',
+    (isDesktopSelector) => {
+      const built = buildSwapTokenNativeListSnapshot({
+        tokens: [token('USDC', 'evm--1', '0x1234')],
+        theme,
+        disabledNetworkIds: [],
+        isMediumScreen: false,
+        isDesktopSelector,
+        currencySymbol: '$',
+        otherNetworkStartIndex: -1,
+        warningIndex: -1,
+        warningText: 'Unknown token',
+        warningBorderWidth: 1,
+        searchSectionTitles: {
+          selectedNetwork: 'Tokens on Ethereum',
+          otherNetworks: 'Tokens on other networks',
+        },
+      });
+      const [row] = rows(built.snapshot);
+      const padding = row?.style?.horizontalPadding ?? 0;
+      const contentInset = built.snapshot.layout?.contentPaddingHorizontal ?? 0;
+      // Reserve the tertiary button's 7px overhang and its 2px focus ring.
+      expect(padding).toBeGreaterThanOrEqual(9);
+      expect(contentInset + padding).toBe(20);
+      const section = built.snapshot.rows.find(
+        (item) => item.type === 'sectionHeader',
+      );
+      expect(section?.style?.horizontalPadding).toBe(padding);
+      expect(row?.style?.container?.cornerRadius).toBe(
+        isDesktopSelector ? 12 : undefined,
+      );
+    },
+  );
+
   it('keeps result sections, Fuse highlighting, balances, and disabled network actions', () => {
     const selected = token('USDC', 'evm--1', '0x12345678901234567890');
     const other = token('ETH', 'evm--137', '0xabcdefabcdefabcdef');
@@ -83,6 +118,14 @@ describe('Swap NativeList row adapter', () => {
       'identity',
     ]);
     const [first, second] = rows(built.snapshot);
+    // Explicit heights opt out of Android's legacy sub-400dp 0.9 row scale,
+    // which clipped unscaled text metrics (OK-66072).
+    expect(built.snapshot.rows[0]).toMatchObject({
+      type: 'sectionHeader',
+      height: 36,
+      heightRounding: 'nearest',
+    });
+    expect(first).toMatchObject({ height: 76, heightRounding: 'nearest' });
     expect(first?.titleMatch).toEqual([{ start: 0, end: 2 }]);
     expect(first?.tertiary).toBe(selected.contractAddress);
     expect(first?.trailing?.[0]).toEqual(
@@ -191,6 +234,18 @@ describe('Swap NativeList row adapter', () => {
       'system',
       'identity',
     ]);
+    expect(built.snapshot.rows[1]).toMatchObject({
+      height: 12,
+      heightRounding: 'nearest',
+    });
+    expect(built.snapshot.rows[3]).toMatchObject({
+      height: 8,
+      heightRounding: 'nearest',
+    });
+    expect(built.snapshot.rows[4]).toMatchObject({
+      height: 60,
+      heightRounding: 'nearest',
+    });
     expect(built.snapshot.rows[2]).toEqual(
       expect.objectContaining({
         type: 'message',

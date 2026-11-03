@@ -274,13 +274,13 @@ function createTransportError(message: string) {
 
 type IBackgroundThreadTransportError = Error &
   Partial<IBackgroundThreadResponseErrorPayload>;
-type IRehydratableBackgroundThreadErrorKey = Exclude<
+type IBackgroundThreadErrorMetadataKey = Exclude<
   keyof IBackgroundThreadResponseErrorPayload,
   'message'
 >;
 
 const backgroundThreadErrorMetadataValidators: {
-  [Key in IRehydratableBackgroundThreadErrorKey]: (value: unknown) => boolean;
+  [Key in IBackgroundThreadErrorMetadataKey]: (value: unknown) => boolean;
 } = {
   name: (value) => typeof value === 'string' && Boolean(value),
   stack: (value) => typeof value === 'string' && Boolean(value),
@@ -329,7 +329,7 @@ function rehydrateTransportError({
 
   const metadataKeys = Object.keys(
     backgroundThreadErrorMetadataValidators,
-  ) as IRehydratableBackgroundThreadErrorKey[];
+  ) as IBackgroundThreadErrorMetadataKey[];
   for (const metadataKey of metadataKeys) {
     const metadataValue = errorInfo[metadataKey];
     if (backgroundThreadErrorMetadataValidators[metadataKey](metadataValue)) {
@@ -382,14 +382,18 @@ function isAsyncStorageWriteServiceRequest(
   );
 }
 
-function isNativeSyncStorageServiceRequest(request: IBackgroundThreadRequest) {
+function isShortNativeStorageServiceRequest(request: IBackgroundThreadRequest) {
   if (request.type !== 'service-call' || request.method !== 'nativeStorage') {
     return false;
   }
   const nativeStorageRequest = request.params[0] as
     | INativeStorageRequest
     | undefined;
-  return nativeStorageRequest?.scope === 'syncStorage';
+  return (
+    nativeStorageRequest?.scope === 'syncStorage' ||
+    (nativeStorageRequest?.scope === 'recovery' &&
+      nativeStorageRequest.operation === 'inspectAppStorageMigration')
+  );
 }
 
 function isNativeStorageBootstrapServiceRequest(
@@ -902,7 +906,9 @@ function getRemoteRequestTimeoutMs(request: IBackgroundThreadRequest) {
     // must not block every later write for the generic service timeout window.
     return ASYNC_STORAGE_FORWARDER_REQUEST_TIMEOUT_MS;
   }
-  if (isNativeSyncStorageServiceRequest(request)) {
+  if (isShortNativeStorageServiceRequest(request)) {
+    // The lock's read-only probe must not wait for the generic ten-minute
+    // service deadline. Apply one deadline across queueing and dispatch.
     return NATIVE_SYNC_STORAGE_REQUEST_TIMEOUT_MS;
   }
   if (isNativeStorageBootstrapServiceRequest(request)) {

@@ -2183,6 +2183,9 @@ const icons = {
   ZoomInSolid: () => import('./react/solid/ZoomIn'),
   ZoomOutSolid: () => import('./react/solid/ZoomOut'),
   StarListOutline: () => import('./react/outline/StarList'),
+  KeystoneBrand: () => import('./react/brand/Keystone'),
+  LedgerBrand: () => import('./react/brand/Ledger'),
+  TrezorBrand: () => import('./react/brand/Trezor'),
 };
 export type IKeyOfIcons = keyof typeof icons;
 export default icons;

@@ -206,6 +206,8 @@ function RevokeSuggestion() {
     const shouldShowBadge = riskyNumber > 0 && inactiveNumber > 0;
     return (
       <ApprovalListView
+        withHeader
+        hideRiskOverview
         hideRiskBadge={!shouldShowBadge}
         onPress={handleApprovalItemOnPress}
         accountId={accountId}

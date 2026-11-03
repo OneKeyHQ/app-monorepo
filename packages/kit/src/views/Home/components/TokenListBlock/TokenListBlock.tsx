@@ -47,6 +47,7 @@ import {
   useAllNetworksStateStateAtom,
   useHomePortfolioDisplayAtom,
   useOverviewTokenCacheStateAtom,
+  usePortfolioCategoryRefreshAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/accountOverview';
 import { buildOverviewOwnerKey } from '@onekeyhq/kit/src/states/jotai/contexts/accountOverview/atoms';
 import {
@@ -85,6 +86,7 @@ import type { ISimpleDBAggregateToken } from '@onekeyhq/kit-bg/src/dbs/simple/en
 import type { ICustomTokenDBStruct } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityCustomTokens';
 import type { IRiskTokenManagementDBStruct } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityRiskTokenManagement';
 import type { IAllNetworkAccountInfo } from '@onekeyhq/kit-bg/src/services/ServiceAllNetwork/ServiceAllNetwork';
+import type { IPortfolioCategoryRefreshResult } from '@onekeyhq/kit-bg/src/services/ServiceHardware/serviceHardwarePortfolioSync/ServiceHardwarePortfolioSync';
 import {
   EJotaiContextStoreNames,
   type IDeviceStageState,
@@ -102,6 +104,7 @@ import {
   POLLING_INTERVAL_FOR_HISTORY,
   POLLING_INTERVAL_FOR_TOKEN,
 } from '@onekeyhq/shared/src/consts/walletConsts';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { isOneKeyHardwareError } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import { isRequestCanceledError } from '@onekeyhq/shared/src/errors/utils/errorUtils';
@@ -502,6 +505,30 @@ function TokenListBlock({
 
   const [accountTokensWorth] = useAccountWorthAtom();
   const [homePortfolioDisplay] = useHomePortfolioDisplayAtom();
+  const [portfolioCategoryRefresh, setPortfolioCategoryRefresh] =
+    usePortfolioCategoryRefreshAtom();
+  const portfolioCategoryRequestIdRef = useRef(
+    portfolioCategoryRefresh.requestId,
+  );
+  const portfolioCategoryTaskRef = useRef<
+    | {
+        scope: string;
+        force: boolean;
+        promise: Promise<boolean>;
+        requestId: number;
+      }
+    | undefined
+  >(undefined);
+  const partialPortfolioCategoriesRef = useRef<
+    | {
+        scope: string;
+        data: IPortfolioCategoryRefreshResult;
+      }
+    | undefined
+  >(undefined);
+  const refreshPortfolioCategoriesRef = useRef<
+    (force?: boolean, sources?: ('defi' | 'perps')[]) => Promise<boolean>
+  >(async () => false);
   const [{ currencyMap }] = useCurrencyPersistAtom();
   const [, setOverviewTokenCacheState] = useOverviewTokenCacheStateAtom();
 
@@ -565,10 +592,14 @@ function TokenListBlock({
   );
   const [portfolioSyncRequestPhase, setPortfolioSyncRequestPhase] =
     useState<IPortfolioSyncRequestPhase>();
+  const [portfolioSyncPreparedRevision, setPortfolioSyncPreparedRevision] =
+    useState<number>();
   const [silentPortfolioPayload, setSilentPortfolioPayload] = useState<
     | IAppEventBusPayload[EAppEventBusNames.AllNetworksTokenListSettled]
     | undefined
   >();
+  const [displayedPortfolioPayload, setDisplayedPortfolioPayload] =
+    useState<typeof silentPortfolioPayload>();
   const portfolioSyncDeviceDbId =
     device?.id ?? wallet?.associatedDeviceInfo?.id ?? '';
   const portfolioSyncDeviceType =
@@ -591,14 +622,49 @@ function TokenListBlock({
   });
   const portfolioSyncTargetKeyRef = useRef(portfolioSyncTargetKey);
   portfolioSyncTargetKeyRef.current = portfolioSyncTargetKey;
+  const portfolioCategoryScope = `${portfolioSyncTargetKey}:${activeAccountEpoch}`;
+  const portfolioCategoryScopeRef = useRef(portfolioCategoryScope);
+  portfolioCategoryScopeRef.current = portfolioCategoryScope;
+  const portfolioCategoryOwnerKey = buildOverviewOwnerKey(
+    account?.id,
+    network?.id,
+  );
+  useLayoutEffect(() => {
+    portfolioCategoryTaskRef.current = undefined;
+    partialPortfolioCategoriesRef.current = undefined;
+    portfolioCategoryRequestIdRef.current += 1;
+    setPortfolioCategoryRefresh((previous) => ({
+      ...(previous.ownerKey === portfolioCategoryOwnerKey ? previous : {}),
+      ownerKey: portfolioCategoryOwnerKey,
+      requestId: portfolioCategoryRequestIdRef.current,
+      isRefreshing: false,
+      failedSources: [],
+      heldTotalFiatUsd: undefined,
+      retry: undefined,
+    }));
+    return () => {
+      portfolioCategoryScopeRef.current = '';
+    };
+  }, [
+    portfolioCategoryOwnerKey,
+    portfolioCategoryScope,
+    setPortfolioCategoryRefresh,
+  ]);
 
-  const getPortfolioSyncRequestForTarget = useCallback((targetKey: string) => {
-    const request = portfolioSyncRequestRef.current;
-    return request?.targetKey === targetKey ? request : undefined;
-  }, []);
+  const getPortfolioSyncRequestForTarget = useCallback(
+    (targetKey: string, includePreparing = false) => {
+      const request = portfolioSyncRequestRef.current;
+      return request?.targetKey === targetKey &&
+        (includePreparing || request.phase !== 'preparing')
+        ? request
+        : undefined;
+    },
+    [],
+  );
 
   const getCurrentPortfolioSyncRequest = useCallback(
-    () => getPortfolioSyncRequestForTarget(portfolioSyncTargetKeyRef.current),
+    () =>
+      getPortfolioSyncRequestForTarget(portfolioSyncTargetKeyRef.current, true),
     [getPortfolioSyncRequestForTarget],
   );
 
@@ -626,7 +692,10 @@ function TokenListBlock({
       if (portfolioSyncRequestRef.current?.id !== requestId) {
         return;
       }
-      void endPortfolioSyncStage(params).catch(() => undefined);
+      if (portfolioSyncStageHoldRef.current?.requestId === requestId) {
+        void endPortfolioSyncStage(params).catch(() => undefined);
+        portfolioSyncStageHoldRef.current = undefined;
+      }
       clearPortfolioSyncFallbackTimer();
       if (
         allowEmptyInteractivePortfolioSyncRequestIdRef.current === requestId
@@ -3452,6 +3521,203 @@ function TokenListBlock({
     listStructure.generation >= 0 &&
     listStructure.ownerKey === cellsOwnerKey,
   );
+  const needsHeldPortfolioPayload =
+    !homePortfolioDisplay.isLive &&
+    homePortfolioDisplay.tokenFiatUsd !== undefined;
+  const hasMatchingHeldPortfolioPayload = Boolean(
+    displayedPortfolioPayload &&
+    displayedPortfolioPayload.ownerAccountId === account?.id &&
+    displayedPortfolioPayload.ownerNetworkId === network?.id &&
+    displayedPortfolioPayload.walletId === wallet?.id &&
+    displayedPortfolioPayload.deviceDbId === portfolioSyncDeviceDbId &&
+    displayedPortfolioPayload.homeTotalFiatUsd ===
+      homePortfolioDisplay.totalFiatUsd &&
+    displayedPortfolioPayload.homeCategoryFiatUsd?.defiFiat ===
+      homePortfolioDisplay.defiFiatUsd &&
+    displayedPortfolioPayload.homeCategoryFiatUsd?.perpsFiat ===
+      homePortfolioDisplay.perpsFiatUsd &&
+    new BigNumber(
+      convertFiat({
+        value: displayedPortfolioPayload.totalFiat,
+        sourceCurrency: displayedPortfolioPayload.totalFiatCurrency,
+        targetCurrency: USD_CURRENCY_ID,
+        currencyMap,
+      }),
+    ).eq(homePortfolioDisplay.tokenFiatUsd ?? ''),
+  );
+
+  const canRefreshPortfolioCategories = Boolean(
+    account?.id &&
+    indexedAccount?.id &&
+    network?.id &&
+    hasPortfolioSyncTarget &&
+    wallet &&
+    accountUtils.isHwWallet({ walletId: wallet.id }) &&
+    !accountUtils.isHwHiddenWallet({ wallet }) &&
+    !accountUtils.isQrWallet({ walletId: wallet.id }) &&
+    isProtocolV2ProductType(portfolioSyncDeviceType),
+  );
+
+  const refreshPortfolioCategories = useCallback(
+    (
+      force = false,
+      sources: ('defi' | 'perps')[] = ['defi', 'perps'],
+    ): Promise<boolean> => {
+      if (
+        !canRefreshPortfolioCategories ||
+        !account?.id ||
+        !indexedAccount?.id ||
+        !network?.id
+      ) {
+        return Promise.resolve(false);
+      }
+      const scope = portfolioCategoryScope;
+      const pending = portfolioCategoryTaskRef.current;
+      if (pending?.scope === scope) {
+        if (force && !pending.force) {
+          return pending.promise.then(() =>
+            portfolioCategoryScopeRef.current === scope
+              ? refreshPortfolioCategoriesRef.current(true, sources)
+              : false,
+          );
+        }
+        return pending.promise;
+      }
+      portfolioCategoryRequestIdRef.current += 1;
+      const requestId = portfolioCategoryRequestIdRef.current;
+      setPortfolioCategoryRefresh((previous) => ({
+        ...(previous.ownerKey === portfolioCategoryOwnerKey ? previous : {}),
+        ownerKey: portfolioCategoryOwnerKey,
+        requestId,
+        isRefreshing: true,
+        failedSources: [],
+        heldTotalFiatUsd:
+          homePortfolioDisplay.ownerKey === portfolioCategoryOwnerKey
+            ? homePortfolioDisplay.totalFiatUsd
+            : undefined,
+        retry: undefined,
+      }));
+      const isCurrent = () =>
+        portfolioCategoryScopeRef.current === scope &&
+        portfolioCategoryRequestIdRef.current === requestId;
+      const promise = Promise.resolve().then(async () => {
+        try {
+          const result =
+            await backgroundApiProxy.serviceHardwarePortfolioSync.refreshPortfolioCategories(
+              {
+                accountId: account.id,
+                indexedAccountId: indexedAccount.id,
+                networkId: network.id,
+                force,
+                sources,
+              },
+            );
+          if (!isCurrent()) return false;
+          const previous =
+            partialPortfolioCategoriesRef.current?.scope === scope
+              ? partialPortfolioCategoriesRef.current.data
+              : undefined;
+          const knownHome =
+            homePortfolioDisplay.isLive &&
+            homePortfolioDisplay.ownerKey === portfolioCategoryOwnerKey
+              ? homePortfolioDisplay
+              : undefined;
+          const merged = {
+            ...result,
+            ...(!sources.includes('defi')
+              ? {
+                  defiFiat: knownHome?.defiFiatUsd ?? previous?.defiFiat,
+                  deFiSource:
+                    knownHome?.defiFiatUsd !== undefined
+                      ? ('live' as const)
+                      : previous?.deFiSource,
+                  deFiOverview:
+                    knownHome?.defiFiatUsd !== undefined
+                      ? undefined
+                      : previous?.deFiOverview,
+                }
+              : {}),
+            ...(!sources.includes('perps')
+              ? { perpsFiat: knownHome?.perpsFiatUsd ?? previous?.perpsFiat }
+              : {}),
+          };
+          const failedSources: ('defi' | 'perps')[] = [];
+          if (
+            merged.defiFiat === undefined ||
+            !new BigNumber(merged.defiFiat).isFinite() ||
+            !['live', 'empty'].includes(merged.deFiSource ?? '')
+          )
+            failedSources.push('defi');
+          if (
+            merged.perpsFiat === undefined ||
+            !new BigNumber(merged.perpsFiat).isFinite()
+          )
+            failedSources.push('perps');
+          partialPortfolioCategoriesRef.current = { scope, data: merged };
+          setPortfolioCategoryRefresh((current) =>
+            current.requestId !== requestId
+              ? current
+              : {
+                  ...current,
+                  isRefreshing: false,
+                  failedSources,
+                  ...(failedSources.length
+                    ? {
+                        retry: () => {
+                          void refreshPortfolioCategoriesRef.current(
+                            false,
+                            failedSources,
+                          );
+                        },
+                      }
+                    : {
+                        data: merged,
+                        dataRequestId: requestId,
+                        retry: undefined,
+                      }),
+                },
+          );
+          return failedSources.length === 0;
+        } catch {
+          if (isCurrent()) {
+            setPortfolioCategoryRefresh((current) =>
+              current.requestId !== requestId
+                ? current
+                : {
+                    ...current,
+                    isRefreshing: false,
+                    failedSources: sources,
+                    retry: () => {
+                      void refreshPortfolioCategoriesRef.current(
+                        false,
+                        sources,
+                      );
+                    },
+                  },
+            );
+          }
+          return false;
+        } finally {
+          if (portfolioCategoryTaskRef.current?.requestId === requestId) {
+            portfolioCategoryTaskRef.current = undefined;
+          }
+        }
+      });
+      portfolioCategoryTaskRef.current = { scope, force, promise, requestId };
+      return promise;
+    },
+    [
+      account?.id,
+      canRefreshPortfolioCategories,
+      homePortfolioDisplay,
+      indexedAccount?.id,
+      network?.id,
+      portfolioCategoryOwnerKey,
+      portfolioCategoryScope,
+      setPortfolioCategoryRefresh,
+    ],
+  );
+  refreshPortfolioCategoriesRef.current = refreshPortfolioCategories;
 
   const buildCurrentHomePortfolioSyncPayload = useCallback(() => {
     const totalFiatCurrency = accountTokensWorth.currency ?? currencyInfo?.id;
@@ -3468,6 +3734,17 @@ function TokenListBlock({
       accountUtils.isQrWallet({ walletId: wallet.id })
     ) {
       return undefined;
+    }
+
+    if (needsHeldPortfolioPayload) {
+      if (!hasMatchingHeldPortfolioPayload || !displayedPortfolioPayload) {
+        return undefined;
+      }
+      return {
+        ...displayedPortfolioPayload,
+        deviceConnectId:
+          device?.connectId ?? wallet.associatedDeviceInfo?.connectId,
+      };
     }
 
     const sourceTokenIds = Array.from(
@@ -3527,7 +3804,15 @@ function TokenListBlock({
         defiFiat: homePortfolioDisplay.defiFiatUsd,
         perpsFiat: homePortfolioDisplay.perpsFiatUsd,
       },
-      totalFiat: accountTokensValue,
+      totalFiat:
+        homePortfolioDisplay.tokenFiatUsd === undefined
+          ? accountTokensValue
+          : convertFiat({
+              value: homePortfolioDisplay.tokenFiatUsd,
+              sourceCurrency: USD_CURRENCY_ID,
+              targetCurrency: totalFiatCurrency,
+              currencyMap,
+            }),
       totalFiatCurrency,
       totalTokenCount: portfolioTokens.length,
       tokenMap,
@@ -3542,9 +3827,12 @@ function TokenListBlock({
     accountTokensValue,
     accountTokensWorth.currency,
     currencyInfo?.id,
+    currencyMap,
     device?.connectId,
     device?.id,
+    displayedPortfolioPayload,
     hasCurrentHomePortfolioSnapshot,
+    hasMatchingHeldPortfolioPayload,
     homePortfolioDisplay,
     indexedAccount?.id,
     indexedAccount?.index,
@@ -3554,6 +3842,7 @@ function TokenListBlock({
     listStructure.ownedAggregateTokenListMap,
     listStructure.smallBalanceIds,
     network,
+    needsHeldPortfolioPayload,
     portfolioSyncDeviceType,
     tokenListStore,
     wallet,
@@ -3584,15 +3873,18 @@ function TokenListBlock({
       return;
     }
     if (hasPortfolioSyncTarget) {
-      void backgroundApiProxy.serviceHardwarePortfolioSync.notifyAllNetworksTokenListSettled(
-        {
-          ...silentPortfolioPayload,
-          homeTotalFiatUsd: homePortfolioDisplay.totalFiatUsd,
-          homeCategoryFiatUsd: {
-            defiFiat: homePortfolioDisplay.defiFiatUsd,
-            perpsFiat: homePortfolioDisplay.perpsFiatUsd,
-          },
+      const displayedPayload = {
+        ...silentPortfolioPayload,
+        homeTotalFiatUsd: homePortfolioDisplay.totalFiatUsd,
+        homeCategoryFiatUsd: {
+          defiFiat: homePortfolioDisplay.defiFiatUsd,
+          perpsFiat: homePortfolioDisplay.perpsFiatUsd,
         },
+      };
+      // Keep the accepted rows while Home holds this balance during refresh.
+      setDisplayedPortfolioPayload(displayedPayload);
+      void backgroundApiProxy.serviceHardwarePortfolioSync.notifyAllNetworksTokenListSettled(
+        displayedPayload,
       );
     }
   }, [
@@ -3605,71 +3897,175 @@ function TokenListBlock({
     silentPortfolioPayload,
   ]);
 
-  const handleSyncPortfolio = useCallback(() => {
-    if (getCurrentPortfolioSyncRequest()) {
-      return;
-    }
-    const eventPayload = buildCurrentHomePortfolioSyncPayload();
-    if (!eventPayload || !hasPortfolioSyncTarget) {
-      return;
-    }
-    allowEmptyInteractivePortfolioSyncRequestIdRef.current = undefined;
-    portfolioSyncRequestIdRef.current += 1;
-    const request: IPortfolioSyncRequest = {
-      id: portfolioSyncRequestIdRef.current,
-      phase: 'communicating',
-      targetKey: portfolioSyncTargetKey,
-    };
-    portfolioSyncRequestRef.current = request;
-    setPortfolioSyncRequestPhase(request.phase);
-    void beginPortfolioSyncStage({
-      connectId: device?.connectId ?? wallet?.associatedDeviceInfo?.connectId,
-      deviceName: device?.name,
-      deviceType: portfolioSyncDeviceType,
-    })
-      .then(async (burstId) => {
-        if (portfolioSyncRequestRef.current?.id !== request.id) {
-          return;
-        }
-        portfolioSyncStageHoldRef.current = { requestId: request.id, burstId };
-
-        const portfolioSynced =
-          await backgroundApiProxy.serviceHardwarePortfolioSync.syncPortfolio({
-            eventPayload,
-            syncMode: 'interactive',
-          });
-        finishPortfolioSyncRequest(
-          request.id,
-          portfolioSynced
-            ? {
-                doneI18n: {
-                  key: ETranslations.portfolio_updated__title,
-                },
-              }
-            : undefined,
-        );
+  const communicatePortfolio = useCallback(
+    (
+      request: IPortfolioSyncRequest,
+      eventPayload: NonNullable<
+        ReturnType<typeof buildCurrentHomePortfolioSyncPayload>
+      >,
+    ) => {
+      if (!transitionPortfolioSyncRequest(request.id, 'communicating')) return;
+      void beginPortfolioSyncStage({
+        connectId: device?.connectId ?? wallet?.associatedDeviceInfo?.connectId,
+        deviceName: device?.name,
+        deviceType: portfolioSyncDeviceType,
       })
-      .catch((error) => {
-        if (portfolioSyncRequestRef.current?.id !== request.id) {
-          return;
-        }
-        if (!isOneKeyHardwareError(error)) {
-          errorToastUtils.toastIfError(error);
-          errorToastUtils.showToastOfError(error);
-        }
-        finishPortfolioSyncRequest(request.id, { error });
+        .then(async (burstId) => {
+          if (portfolioSyncRequestRef.current?.id !== request.id) {
+            return;
+          }
+          portfolioSyncStageHoldRef.current = {
+            requestId: request.id,
+            burstId,
+          };
+
+          const portfolioSynced =
+            await backgroundApiProxy.serviceHardwarePortfolioSync.syncPortfolio(
+              {
+                eventPayload,
+                syncMode: 'interactive',
+              },
+            );
+          finishPortfolioSyncRequest(
+            request.id,
+            portfolioSynced
+              ? {
+                  doneI18n: {
+                    key: ETranslations.portfolio_updated__title,
+                  },
+                }
+              : undefined,
+          );
+        })
+        .catch((error) => {
+          if (portfolioSyncRequestRef.current?.id !== request.id) {
+            return;
+          }
+          if (!isOneKeyHardwareError(error)) {
+            errorToastUtils.toastIfError(error);
+            errorToastUtils.showToastOfError(error);
+          }
+          finishPortfolioSyncRequest(request.id, { error });
+        });
+    },
+    [
+      beginPortfolioSyncStage,
+      device?.connectId,
+      device?.name,
+      finishPortfolioSyncRequest,
+      portfolioSyncDeviceType,
+      transitionPortfolioSyncRequest,
+      wallet?.associatedDeviceInfo?.connectId,
+    ],
+  );
+
+  const manualPortfolioSyncRef = useRef<
+    (sources?: ('defi' | 'perps')[]) => void
+  >(() => undefined);
+  const handleSyncPortfolio = useCallback(
+    (sources: ('defi' | 'perps')[] = ['defi', 'perps']) => {
+      if (getCurrentPortfolioSyncRequest() || !canRefreshPortfolioCategories)
+        return;
+      portfolioSyncRequestIdRef.current += 1;
+      const request: IPortfolioSyncRequest = {
+        id: portfolioSyncRequestIdRef.current,
+        phase: 'preparing',
+        targetKey: portfolioSyncTargetKey,
+      };
+      portfolioSyncRequestRef.current = request;
+      setPortfolioSyncPreparedRevision(undefined);
+      setPortfolioSyncRequestPhase(request.phase);
+      allowEmptyInteractivePortfolioSyncRequestIdRef.current = undefined;
+      clearPortfolioSyncFallbackTimer();
+      portfolioSyncAllNetworksFallbackTimerRef.current = setTimeout(() => {
+        if (getCurrentPortfolioSyncRequest()?.id !== request.id) return;
+        finishPortfolioSyncRequest(request.id);
+        errorToastUtils.showToastOfError(
+          new OneKeyLocalError(
+            intl.formatMessage({ id: ETranslations.global_update_failed }),
+          ),
+        );
+      }, 30_000);
+      if (!hasCurrentHomePortfolioSnapshot)
+        refreshWalletTokenListRef.current?.();
+      const missingSources = sources.filter((source) => {
+        const value =
+          source === 'defi'
+            ? homePortfolioDisplay.defiFiatUsd
+            : homePortfolioDisplay.perpsFiatUsd;
+        return (
+          !homePortfolioDisplay.isLive ||
+          homePortfolioDisplay.ownerKey !== portfolioCategoryOwnerKey ||
+          value === undefined ||
+          !new BigNumber(value).isFinite()
+        );
       });
+      if (!missingSources.length) {
+        const eventPayload = buildCurrentHomePortfolioSyncPayload();
+        if (eventPayload) communicatePortfolio(request, eventPayload);
+        return;
+      }
+      void refreshPortfolioCategories(false, missingSources).then(
+        (complete) => {
+          if (getCurrentPortfolioSyncRequest()?.id !== request.id) return;
+          if (!complete) {
+            finishPortfolioSyncRequest(request.id);
+            setPortfolioCategoryRefresh((current) => ({
+              ...current,
+              retry: () =>
+                manualPortfolioSyncRef.current(current.failedSources),
+            }));
+            return;
+          }
+          request.categoryRequestId = portfolioCategoryRequestIdRef.current;
+          setPortfolioSyncPreparedRevision(request.categoryRequestId);
+          // The header publishes this revision after committing the refreshed amounts.
+        },
+      );
+    },
+    [
+      buildCurrentHomePortfolioSyncPayload,
+      canRefreshPortfolioCategories,
+      clearPortfolioSyncFallbackTimer,
+      communicatePortfolio,
+      finishPortfolioSyncRequest,
+      getCurrentPortfolioSyncRequest,
+      hasCurrentHomePortfolioSnapshot,
+      homePortfolioDisplay,
+      intl,
+      portfolioCategoryOwnerKey,
+      portfolioSyncTargetKey,
+      refreshPortfolioCategories,
+      setPortfolioCategoryRefresh,
+    ],
+  );
+  manualPortfolioSyncRef.current = handleSyncPortfolio;
+
+  useEffect(() => {
+    const request = getCurrentPortfolioSyncRequest();
+    if (
+      request?.phase !== 'preparing' ||
+      portfolioCategoryTaskRef.current ||
+      !homePortfolioDisplay.isLive ||
+      homePortfolioDisplay.ownerKey !== portfolioCategoryOwnerKey ||
+      homePortfolioDisplay.defiFiatUsd === undefined ||
+      !new BigNumber(homePortfolioDisplay.defiFiatUsd).isFinite() ||
+      homePortfolioDisplay.perpsFiatUsd === undefined ||
+      !new BigNumber(homePortfolioDisplay.perpsFiatUsd).isFinite() ||
+      (request.categoryRequestId !== undefined &&
+        homePortfolioDisplay.categoryRevision !== request.categoryRequestId)
+    )
+      return;
+    const eventPayload = buildCurrentHomePortfolioSyncPayload();
+    if (eventPayload) communicatePortfolio(request, eventPayload);
   }, [
     buildCurrentHomePortfolioSyncPayload,
-    beginPortfolioSyncStage,
-    device?.connectId,
-    device?.name,
-    finishPortfolioSyncRequest,
+    communicatePortfolio,
     getCurrentPortfolioSyncRequest,
-    hasPortfolioSyncTarget,
-    portfolioSyncDeviceType,
-    portfolioSyncTargetKey,
-    wallet?.associatedDeviceInfo?.connectId,
+    homePortfolioDisplay,
+    portfolioCategoryOwnerKey,
+    portfolioSyncPreparedRevision,
+    portfolioSyncRequestPhase,
   ]);
 
   const lastVisibilityRefreshAtRef = useRef(0);
@@ -4089,23 +4485,29 @@ function TokenListBlock({
     updatePortfolioSyncUiState({
       disabled: Boolean(
         !hasPortfolioSyncTarget ||
-        !hasCurrentHomePortfolioSnapshot ||
-        homePortfolioDisplay.totalFiatUsd === undefined ||
         isPortfolioSyncing ||
+        portfolioCategoryRefresh.isRefreshing ||
         hardwareUiState ||
         firmwareUpdateWorkflowRunning,
       ),
+      loading:
+        portfolioSyncRequestPhase === 'preparing' ||
+        portfolioCategoryRefresh.isRefreshing,
       visible: showPortfolioSyncButton,
-      request: handleSyncPortfolio,
+      request: () => handleSyncPortfolio(),
     });
   }, [
     handleSyncPortfolio,
     firmwareUpdateWorkflowRunning,
     hasCurrentHomePortfolioSnapshot,
+    hasMatchingHeldPortfolioPayload,
     hasPortfolioSyncTarget,
     hardwareUiState,
     homePortfolioDisplay.totalFiatUsd,
     isPortfolioSyncing,
+    portfolioCategoryRefresh.isRefreshing,
+    portfolioSyncRequestPhase,
+    needsHeldPortfolioPayload,
     showPortfolioSyncButton,
     updatePortfolioSyncUiState,
   ]);
@@ -4115,6 +4517,7 @@ function TokenListBlock({
       updatePortfolioSyncUiState({
         disabled: false,
         visible: false,
+        loading: false,
         request: undefined,
       });
     },
