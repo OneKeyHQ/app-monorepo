@@ -6,6 +6,7 @@ import { createRequire } from 'node:module';
 import path from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
+import vm from 'node:vm';
 
 import {
   compileSource,
@@ -434,5 +435,113 @@ test('mobile consumers and Metro bundle registry do not duplicate canonical SVGs
   assert.match(
     metroConfigContent,
     /Direct Metro import of canonical SVG source is forbidden/,
+  );
+});
+
+test('web assetUrls provider uses external href on same-origin and injects in-document symbol on cross-origin CDN', async () => {
+  const { outputs } = await generateOutputs(appRoot);
+  const assetUrlsTs = [...outputs].find(([file]) =>
+    file.endsWith('/web/assetUrls.ts'),
+  )[1];
+  const dotVerSvg = [...outputs].find(([file]) =>
+    file.endsWith('/web/assets/DotVerSolid.svg'),
+  )[1];
+
+  const appRequire = createRequire(path.join(appRoot, 'package.json'));
+  const { JSDOM } = appRequire('jsdom');
+  const ts = appRequire('typescript');
+
+  const evaluateProvider = (baseUrl, contextGlobals) => {
+    const rewrittenTs = assetUrlsTs.replaceAll(
+      'import.meta.url',
+      JSON.stringify(baseUrl),
+    );
+    const transpiled = ts.transpileModule(rewrittenTs, {
+      compilerOptions: {
+        module: ts.ModuleKind.CommonJS,
+        target: ts.ScriptTarget.ES2020,
+      },
+    }).outputText;
+    const exportsObj = {};
+    vm.runInNewContext(transpiled, {
+      exports: exportsObj,
+      URL,
+      Map,
+      Array,
+      Object,
+      Error,
+      document: contextGlobals.document,
+      location: contextGlobals.location,
+      DOMParser: contextGlobals.DOMParser,
+      fetch: contextGlobals.fetch,
+    });
+    return exportsObj;
+  };
+
+  // 1. Same-origin Web environment keeps direct external symbol URL reference
+  const sameOriginDom = new JSDOM('<!doctype html><html><body></body></html>', {
+    url: 'https://app.onekey.so/swap',
+  });
+  const sameOriginFetchCalls = [];
+  const sameOriginProvider = evaluateProvider(
+    'https://app.onekey.so/static/js/bundle.js',
+    {
+      document: sameOriginDom.window.document,
+      location: sameOriginDom.window.location,
+      DOMParser: sameOriginDom.window.DOMParser,
+      fetch: async (url) => {
+        sameOriginFetchCalls.push(url);
+        return { ok: true, text: async () => dotVerSvg };
+      },
+    },
+  );
+  assert.equal(
+    sameOriginProvider.iconResourceHref('DotVerSolid'),
+    'https://app.onekey.so/static/js/assets/DotVerSolid.svg#onekey-DotVerSolid',
+  );
+  assert.equal(sameOriginFetchCalls.length, 0);
+
+  // 2. Cross-origin CDN deployment (PUBLIC_URL on app-assets.onekey.so, page on app.onekey.so)
+  // fetches symbol once, injects into #onekey-icon-sprite-root, and returns in-document #onekey-<Name>
+  const crossOriginDom = new JSDOM(
+    '<!doctype html><html><body><svg><use href="#onekey-DotVerSolid"></use></svg></body></html>',
+    { url: 'https://app.onekey.so/swap' },
+  );
+  const crossOriginFetchCalls = [];
+  const crossOriginProvider = evaluateProvider(
+    'https://app-assets.onekey.so/commit-build/static/js/bundle.js',
+    {
+      document: crossOriginDom.window.document,
+      location: crossOriginDom.window.location,
+      DOMParser: crossOriginDom.window.DOMParser,
+      fetch: async (url) => {
+        crossOriginFetchCalls.push(url);
+        return { ok: true, text: async () => dotVerSvg };
+      },
+    },
+  );
+  assert.equal(
+    crossOriginProvider.iconResourceHref('DotVerSolid'),
+    '#onekey-DotVerSolid',
+  );
+  // Deduplicates concurrent/repeated lookups
+  assert.equal(
+    crossOriginProvider.iconResourceHref('DotVerSolid'),
+    '#onekey-DotVerSolid',
+  );
+  assert.deepEqual(crossOriginFetchCalls, [
+    'https://app-assets.onekey.so/commit-build/static/js/assets/DotVerSolid.svg',
+  ]);
+  await new Promise((resolve) => setTimeout(resolve, 20));
+  const injectedSymbol =
+    crossOriginDom.window.document.getElementById('onekey-DotVerSolid');
+  assert.ok(
+    injectedSymbol,
+    'Expected cross-origin symbol to be injected into document',
+  );
+  assert.equal(injectedSymbol.tagName.toLowerCase(), 'symbol');
+  assert.equal(
+    injectedSymbol.parentElement?.getAttribute('id'),
+    'onekey-icon-sprite-root',
   );
 });
