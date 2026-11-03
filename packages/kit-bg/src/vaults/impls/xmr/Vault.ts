@@ -133,6 +133,10 @@ import type {
   IValidateGeneralInputParams,
 } from '../../types';
 
+// Token details are synthesized here, so nothing else supplies the id that
+// Market pages and chart history resolve XMR from.
+const XMR_COINGECKO_ID = 'monero';
+
 async function postXmrNodeRequest(url: string): Promise<string> {
   if (xmrHostFetch) {
     return bufferUtils.bytesToUtf8(
@@ -1061,6 +1065,7 @@ export default class Vault extends VaultBase {
               symbol: network.symbol,
               logoURI: network.logoURI,
               isNative: true,
+              coingeckoId: XMR_COINGECKO_ID,
             },
             balance: spendable,
             balanceParsed: spendableParsed,

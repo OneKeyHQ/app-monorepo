@@ -1143,6 +1143,13 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries �
 **Fix**: `drawReferenceTitle` takes the computed price-axis labels and centers the tag on `referenceLabelY` (falling back to the clamped line position), matching the axis badge. A unit test pins equal `y` and `height` for the tag and badge, both at rest and when nudged.
 **Catchable by**: NEW — when one visual element is drawn as several shapes (tag + axis badge), derive every shape's position from one shared anchor and assert their alignment in a scene test, especially when porting a renderer (web lightweight-charts → native Skia).
 
+## Case: Native chart settings button left fullscreen on mobile
+**Date**: 2026-11-02 | **Platforms**: iOS, Android (main UI runtime), mobile web (single runtime)
+**Symptom**: With a native chart fullscreen on mobile, the toolbar settings button sat right next to exit fullscreen, so a near miss left fullscreen (OK-65712). On Android and mobile web, pressing settings itself also left fullscreen.
+**Root Cause**: `TradingViewNativeContainer` hid only the in-chart settings button with `!isNativeChartFullscreen`. The toolbar placement built in `mobileSettingsControl` had no such check, so it kept rendering in fullscreen. Only iOS can push a modal over its fullscreen page; `pushTradingViewNativeFullscreenModal` returns `false` on Android and web, so those platforms fell through to `onBeforeOpenSettings`, which exited fullscreen before opening settings.
+**Fix**: Hide only the button inside the `mobileSettingsControl` wrapper while fullscreen, and remove `onBeforeOpenSettings`. The wrapper stays because a truthy control keeps the chart type and indicator actions out of the toolbar, and `mobileToolbarExtra` stays because it carries the mobile web fullscreen toggle. A `TradingViewNativeContainer` test pins the hidden button and the retained control and extras.
+**Catchable by**: NEW — when a control has several placements, apply its visibility rule to every placement, and check what else reads a prop's truthiness before clearing it. A workaround that leaves the current mode (such as exiting fullscreen to open a page) should be checked against the user's flow on each platform.
+
 ## Case: Recipient pager selection echoed through native commands and initialPage
 **Date**: 2026-11-02 | **Platforms**: iOS, Android (main UI runtime and its per-view native pager instance; no bg state or cross-runtime deserialization)
 **Symptom**: On Android, swiping between recipient tabs left the segmented indicator partway between tabs. Removing the echoed page command also exposed an iOS path that reapplied the selected page and detached/rebuilt its scroll observation after each swipe.
@@ -1171,6 +1178,19 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries �
 **Fix**: `getUtxoHistoryDisplayValue` returns the sum of the owned outputs the server does not explicitly mark as change when the net value is 0 and both legs are the account's own; a change-only spend keeps the net value since it has no recipient. `VaultBase` uses it for `nativeAmount` and the action value. Unit tests cover the self-transfer, a non-zero value, an external leg, change-marked outputs, change-only outputs, and nothing to sum.
 **Catchable by**: Section 4: Business Logic & Regression — when displaying a server-aggregated field, test the degenerate input where the aggregation cancels out (self-transfer, round trip).
 
+## Case: Language picker modules missing native module IDs
+**Date**: 2026-11-02 | **Platforms**: iOS, Android (native union and production bundles)
+**Symptom**: Strict native bundling throws because SelectSearchableList.tsx, filterSelectItems.ts, localeSearch.ts, and translationKeys.ts are not in the module ID registry.
+**Root Cause**: The new language-picker files are imported by Select and the locale options, so they enter the native graph, but no stable IDs were committed.
+**Fix**: Register the four files in apps/mobile/bundle-registry/module-id-registry.json with the existing module ID allocator.
+**Catchable by**: Section 4: a new file that the native bundle imports must be added to module-id-registry.json before the release bundle runs.
+
+## Case: Wide iPad language search used the anchored layout inside a sheet
+**Date**: 2026-11-02 | **Platforms**: iPad Settings (native main UI). Phone sheets and triggered wide panels are unchanged.
+**Symptom**: On iPad Settings the language picker is a sheet, but the search field autofocused at the small size and the list used a fixed 360-point height, leaving empty sheet space.
+**Root Cause**: Search layout followed window width. iPad Settings clamps Tamagui `md`, so Select passes no popover trigger and the native popover stays a sheet even when the window is at least 768 points wide.
+**Fix**: Treat the search UI as a sheet unless a popover trigger exists and the window is expanded, matching native anchoring. Include that flag in the open content memo so a web resize does not keep the previous layout.
+**Catchable by**: Section 3: a layout mode must follow the presentation the host actually mounts, not only the window width; Section 4: logic moved into a memo must keep the condition that changes while the memo stays mounted.
 
 ## Case: Mobile stock sharing used the selected token URL (OK-66105)
 **Date**: 2026-11-02 | **Platforms**: iOS/Android main UI runtime and compact Web/Desktop headers; verified on iOS and Desktop
@@ -1185,3 +1205,17 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries �
 **Root Cause**: The shared price-source state temporarily returned token mode while the stock status request was pending and already exposed `isPriceSourceReady`. Desktop price/chart content and mobile Simple/Pro chart owners ignored that readiness flag. Guarding only the mobile price header did not prevent chart children from mounting with the temporary source. On native, this readiness belongs to the main UI runtime while responses arrive asynchronously from the isolated bg runtime.
 **Fix**: Wait for price-source readiness before mounting desktop price/chart content or either mobile chart mode, reserve a loading area, and keep mobile token chart price updates inactive during the wait. Preserve the existing resolved market defaults, error fallback, and manual selections. Tests cover open, closed, and failed responses across Simple, native Pro, and WebView Pro paths; delayed real responses on Desktop and iOS confirmed the first mounted chart used Share Price.
 **Catchable by**: Section 4: Shared hook/utility modified → checked all consumers; Section 5: Distinguish unresolved asynchronous state from a valid default; Section 6: Assert that dependent charts do not mount before readiness, then mount with the resolved source; Section 8: Verify cold-cache transitions on the real platforms, including both mobile chart modes.
+
+## Case: Referral reward scopes silent on wide native
+**Date**: 2026-11-02 | **Platforms**: iOS, Android (main UI runtime; wide layout when `gtMd` is true, including tablets)
+**Symptom**: On a wide native device, tapping "Learn more" on the empty referral earnings card and the product-row info icons did nothing. The server-provided reward scope descriptions never appeared.
+**Root Cause**: Both entry points render `Tooltip` when `gtMd` is true. Native `Tooltip` returns only `renderTrigger` and never shows `renderContent`, so the descriptions were unreachable on tablets and other wide native layouts. Narrow native already used `Popover`.
+**Fix**: Use `Popover` on native at every width for the Learn more hint and for `InfoIcon` (product-row icons and the other info icons that share it). Web and desktop wide layouts still use `Tooltip`. Regression tests cover native and non-native, wide and compact, for both entry points.
+**Catchable by**: Section 3: Cross-Platform Impact — a `gtMd` Tooltip branch must be checked against the native Tooltip implementation, which does not display content.
+
+## Case: Language search pulled the translations enum into the web startup graph
+**Date**: 2026-11-02 | **Platforms**: Web (single JS runtime, cold startup graph). Desktop, extension, and native bundles do not use this forbidden-module check.
+**Symptom**: The Web CI job failed because `packages/shared/src/locale/enum/translations.ts` was in the cold startup graph.
+**Root Cause**: Select's search filter imported `localeSearch.ts`, and the web locale barrel re-exported that module plus `isKnownTranslationKey`. `isKnownTranslationKey` calls `Object.values(ETranslations)`, which the web inline-translations transform cannot erase. The error toast container is mounted at startup and was that call's sync importer.
+**Fix**: Move text normalization into `normalizeSearchText.ts` and point Select at that file. Stop re-exporting `localeSearch` and `isKnownTranslationKey` from the web locale barrel. The startup toast checks the active catalog instead of the enum. Register `normalizeSearchText.ts` for the native bundle.
+**Catchable by**: Section 3: a module imported by startup UI must not import `translations.ts` unless every member access is a static `ETranslations.*` that the web inline transform removes; Section 4: a new shared helper used by Select or the app shell has to be checked against the web startup graph, not only the screen that owns the feature.

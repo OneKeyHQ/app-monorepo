@@ -56,6 +56,7 @@ import {
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import bulkSendUtils from '@onekeyhq/shared/src/utils/bulkSendUtils';
 import cacheUtils from '@onekeyhq/shared/src/utils/cacheUtils';
+import { assertNoHardwareCloudSyncSigningRequest } from '@onekeyhq/shared/src/utils/hardwareCloudSyncGuards';
 import { getValidUnsignedMessage } from '@onekeyhq/shared/src/utils/messageUtils';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
@@ -2974,11 +2975,16 @@ class ServiceSend extends ServiceBase {
     useNonBlockingKdf?: boolean;
   }) {
     assertAccountCanSign(accountId);
+    if (
+      networkUtils.isBTCNetwork(networkId) &&
+      unsignedMessage &&
+      'message' in unsignedMessage
+    )
+      assertNoHardwareCloudSyncSigningRequest(unsignedMessage.message);
     const vault = await vaultFactory.getVault({
       networkId,
       accountId,
     });
-
     let validUnsignedMessage = unsignedMessage;
     if (unsignedMessage) {
       // TODO fix message format and params in vault
@@ -2988,6 +2994,11 @@ class ServiceSend extends ServiceBase {
     if (!validUnsignedMessage) {
       throw new OneKeyLocalError('Invalid unsigned message');
     }
+    if (
+      networkUtils.isBTCNetwork(networkId) &&
+      'message' in validUnsignedMessage
+    )
+      assertNoHardwareCloudSyncSigningRequest(validUnsignedMessage.message);
 
     const kdfParams = useNonBlockingKdf
       ? getPbkdf2KdfParamsForNonDbTxNoCache()
