@@ -20,22 +20,20 @@ function runtimeError(code: string, params: Record<string, unknown>) {
 }
 
 describe('zcashUserMessage', () => {
-  it('uses the BTC balance message in the current locale', async () => {
+  it('uses the existing send balance message in the current locale', async () => {
     const error = runtimeError('INSUFFICIENT_FUNDS', {
       shortfallZat: 66_000_000,
     });
     appLocale.setLocale('en-US', await loadLocaleMessages('en-US'));
-    expect(zcashUserMessage(error)).toBe(
-      'Insufficient balance. Please try a smaller amount',
-    );
+    expect(zcashUserMessage(error)).toBe('Insufficient ZEC balance');
     appLocale.setLocale('zh-CN', await loadLocaleMessages('zh-CN'));
-    expect(zcashUserMessage(error)).toBe('余额不足，请尝试输入较小的金额');
+    expect(zcashUserMessage(error)).toBe('ZEC 余额不足');
   });
 
   it('uses the same balance message when no shortfall is reported', async () => {
     appLocale.setLocale('zh-CN', await loadLocaleMessages('zh-CN'));
     expect(zcashUserMessage(runtimeError('INSUFFICIENT_FUNDS', {}))).toBe(
-      '余额不足，请尝试输入较小的金额',
+      'ZEC 余额不足',
     );
   });
 
@@ -108,8 +106,9 @@ describe('toUserFacingZcashError', () => {
           : { message: original.message, payload: original.payload };
       const out = toUserFacingZcashError(input);
       expect(out).toMatchObject({
-        message: '余额不足，请尝试输入较小的金额',
-        key: ETranslations.send_toast_btc_fork_insufficient_fund,
+        message: 'ZEC 余额不足',
+        key: ETranslations.send_error_insufficient_balance,
+        info: { token: 'ZEC' },
         payload: original.payload,
         autoToast: true,
       });

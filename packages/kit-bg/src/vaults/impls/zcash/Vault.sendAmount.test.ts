@@ -235,8 +235,8 @@ describe('Zcash send amount intent', () => {
     await expect(
       vault.buildEncodedTx(request('1', true)),
     ).rejects.toMatchObject({
-      message: 'Insufficient balance. Please try a smaller amount',
-      key: ETranslations.send_toast_btc_fork_insufficient_fund,
+      message: 'Insufficient ZEC balance',
+      key: ETranslations.send_error_insufficient_balance,
       params: { shortfallZat: 6000 },
     });
   });
@@ -253,8 +253,8 @@ describe('Zcash send amount intent', () => {
     await expect(
       vault.buildEncodedTx(request('1', true)),
     ).rejects.toMatchObject({
-      message: 'Insufficient balance. Please try a smaller amount',
-      key: ETranslations.send_toast_btc_fork_insufficient_fund,
+      message: 'Insufficient ZEC balance',
+      key: ETranslations.send_error_insufficient_balance,
       params: { shortfallZat: 7000 },
     });
   });

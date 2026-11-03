@@ -17,9 +17,11 @@ export function zcashUserMessage(e: unknown): string | null {
   if (!err) return null;
   const text = (id: ETranslations) => appLocale.intl.formatMessage({ id });
   switch (err.code) {
-    // BTC's wording; also covers a private send refused for leaving change below the dust threshold.
     case 'INSUFFICIENT_FUNDS':
-      return text(ETranslations.send_toast_btc_fork_insufficient_fund);
+      return appLocale.intl.formatMessage(
+        { id: ETranslations.send_error_insufficient_balance },
+        { token: 'ZEC' },
+      );
     case 'NOT_SYNCED':
     case 'WALLET_BUSY':
     case 'NOT_INITIALIZED':
@@ -88,7 +90,8 @@ export function toUserFacingZcashError(e: unknown): unknown {
     }
   }
   if (readZcashRuntimeError(e)?.code === 'INSUFFICIENT_FUNDS') {
-    out.key = ETranslations.send_toast_btc_fork_insufficient_fund;
+    out.key = ETranslations.send_error_insufficient_balance;
+    out.info = { token: 'ZEC' };
   }
   // Required: shield/withdraw dialogs have no error UI, so without this a rejection after password entry vanishes silently.
   out.autoToast = true;
