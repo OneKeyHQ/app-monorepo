@@ -8,10 +8,7 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
-import {
-  ETranslations,
-  isKnownTranslationKey,
-} from '@onekeyhq/shared/src/locale';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { subscribeNativeStorageContractViolations } from '@onekeyhq/shared/src/storage/nativeStorageContractViolationSubscription';
 
 import { getErrorAction } from './ErrorToasts';
@@ -42,6 +39,13 @@ const getDeduplicationId = (
 
   return { id: undefined, forceDeduplicate: false };
 };
+
+// This container is on the web startup graph. isKnownTranslationKey imports
+// the translations enum, so a hardware key counts only when the active catalog
+// already contains it.
+function hasLoadedTranslation(messages: object | undefined, key: string) {
+  return !!messages && Object.prototype.hasOwnProperty.call(messages, key);
+}
 
 // These errors may cross from a runtime without loaded locale messages.
 const MAIN_THREAD_HARDWARE_ERROR_I18N_KEYS = new Set<ETranslations>([
@@ -111,7 +115,8 @@ export function ErrorToastContainer() {
 
       const canLocalizeError =
         p.i18nKey &&
-        ((p.isHardwareError && isKnownTranslationKey(p.i18nKey)) ||
+        ((p.isHardwareError &&
+          hasLoadedTranslation(intl.messages, p.i18nKey)) ||
           MAIN_THREAD_HARDWARE_ERROR_I18N_KEYS.has(p.i18nKey) ||
           (p.i18nKey === ETranslations.wallet_action_failed &&
             typeof p.i18nInfo?.message === 'string'));
