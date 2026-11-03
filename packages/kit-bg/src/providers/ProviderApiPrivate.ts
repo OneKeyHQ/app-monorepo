@@ -707,6 +707,8 @@ class ProviderApiPrivate extends ProviderApiBase {
 
   private webEmbedMountId: string | undefined;
 
+  private webEmbedMountPending = false;
+
   private webEmbedMountSequence = 0;
 
   private webEmbedMainRuntimeId: string | undefined;
@@ -718,6 +720,7 @@ class ProviderApiPrivate extends ProviderApiBase {
     if (runtimeId !== this.webEmbedMainRuntimeId) {
       this.webEmbedMainRuntimeId = runtimeId;
       this.webEmbedMountId = undefined;
+      this.webEmbedMountPending = false;
       this.webEmbedMountSequence = 0;
       this.isWebEmbedApiReady = false;
     }
@@ -728,8 +731,15 @@ class ProviderApiPrivate extends ProviderApiBase {
     if (this.isWebEmbedApiReady && this.webEmbedMountId) {
       return { ready: true };
     }
+    const canAdoptPendingMount =
+      !this.webEmbedRequestId &&
+      Boolean(this.webEmbedMountId) &&
+      this.webEmbedMountPending;
     this.webEmbedRequestId = requestId;
-    this.webEmbedMountId = undefined;
+    if (!canAdoptPendingMount) {
+      this.webEmbedMountId = undefined;
+      this.webEmbedMountPending = false;
+    }
     this.isWebEmbedApiReady = false;
     return { ready: false };
   }
@@ -776,6 +786,7 @@ class ProviderApiPrivate extends ProviderApiBase {
     }
     this.webEmbedMountSequence = mountSequence;
     this.webEmbedMountId = mountId;
+    this.webEmbedMountPending = true;
     this.isWebEmbedApiReady = false;
     return true;
   }
@@ -784,6 +795,7 @@ class ProviderApiPrivate extends ProviderApiBase {
     this.syncWebEmbedMainRuntime();
     if (this.webEmbedMountId === mountId) {
       this.webEmbedMountId = undefined;
+      this.webEmbedMountPending = false;
       this.isWebEmbedApiReady = false;
     }
   }
@@ -809,6 +821,7 @@ class ProviderApiPrivate extends ProviderApiBase {
       return;
     }
     defaultLogger.app.webembed.webembedApiReady();
+    this.webEmbedMountPending = false;
     this.isWebEmbedApiReady = true;
     appEventBus.emit(EAppEventBusNames.LoadWebEmbedWebViewComplete, {
       mountId: params.mountId,
@@ -833,6 +846,7 @@ class ProviderApiPrivate extends ProviderApiBase {
       return;
     }
     defaultLogger.app.webembed.webembedApiNotReady();
+    this.webEmbedMountPending = false;
     this.isWebEmbedApiReady = false;
     if (mountId) {
       appEventBus.emit(EAppEventBusNames.WebEmbedWebViewNotReady, { mountId });

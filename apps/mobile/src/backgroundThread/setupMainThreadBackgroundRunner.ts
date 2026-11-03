@@ -1718,6 +1718,7 @@ let webEmbedMountGeneration = 0;
 // Complete` arrives — that event is BG-relayed *after* the new page sent
 // `webEmbedApiReady`, so once we observe it BG's flag is fresh again.
 let webEmbedBgFallbackEnabled = true;
+let timedOutWebEmbedMountId: string | undefined;
 const webEmbedReadyWaiters: Array<() => void> = [];
 
 function isMainThreadWebEmbedReady(): boolean {
@@ -1845,6 +1846,7 @@ appEventBus.on(EAppEventBusNames.WebEmbedWebViewMountRequested, (payload) => {
   }
   expectedWebEmbedMountSequence = payload.mountSequence;
   expectedWebEmbedMountId = payload.mountId;
+  timedOutWebEmbedMountId = undefined;
   webEmbedReady = false;
   webEmbedMountGeneration += 1;
   webEmbedBgFallbackEnabled = false;
@@ -1863,6 +1865,7 @@ appEventBus.on(EAppEventBusNames.LoadWebEmbedWebViewComplete, (payload) => {
   if (!payload || payload.mountId !== expectedWebEmbedMountId) {
     return;
   }
+  timedOutWebEmbedMountId = undefined;
   webEmbedReady = true;
   // BG re-emits this event only *after* the live page sent
   // `webEmbedApiReady`, which means BG's canonical flag has been updated
@@ -1898,6 +1901,7 @@ async function checkBackgroundWebEmbedReady(): Promise<boolean> {
       webEmbedMountGeneration === generationAtStart &&
       webEmbedBgFallbackEnabled
     ) {
+      timedOutWebEmbedMountId = undefined;
       webEmbedReady = true;
       flushWebEmbedReadyWaiters();
       return isMainThreadWebEmbedReady();
@@ -1922,6 +1926,7 @@ async function awaitWebEmbedReady(timeoutMs: number): Promise<void> {
     const timer = setTimeout(() => {
       const idx = webEmbedReadyWaiters.indexOf(onReady);
       if (idx !== -1) webEmbedReadyWaiters.splice(idx, 1);
+      timedOutWebEmbedMountId = expectedWebEmbedMountId;
       reject(
         new OneKeyLocalError(`webEmbed not ready after ${timeoutMs / 1000}s`),
       );
@@ -1952,7 +1957,8 @@ function ensureMainThreadWebEmbedReady(): Promise<void> {
   if (isMainThreadWebEmbedReady()) return Promise.resolve();
   if (
     mainThreadBridgeMap.webEmbed &&
-    connectedWebEmbedMountId === expectedWebEmbedMountId
+    connectedWebEmbedMountId === expectedWebEmbedMountId &&
+    timedOutWebEmbedMountId !== expectedWebEmbedMountId
   ) {
     return awaitWebEmbedReady(WEBEMBED_BRIDGE_READY_TIMEOUT_MS);
   }

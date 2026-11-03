@@ -116,13 +116,19 @@ export function WebViewWebEmbed({
   const webviewRef = useRef<IWebViewWrapperRef | null>(null);
   const activationPromiseRef = useRef<Promise<boolean> | undefined>(undefined);
   const connectedBridgeRef = useRef<JsBridgeBase | undefined>(undefined);
+  const requestIdRef = useRef(requestId);
+  requestIdRef.current = requestId;
   const activateMount = useCallback(() => {
     if (!isSingleton || !mountId || !mountSequence) {
       return Promise.resolve(true);
     }
     if (!activationPromiseRef.current) {
       const activation = backgroundApiProxy.serviceDApp
-        .activateWebEmbedMount({ mountId, mountSequence, requestId })
+        .activateWebEmbedMount({
+          mountId,
+          mountSequence,
+          requestId: requestIdRef.current,
+        })
         .catch((error: unknown) => {
           if (activationPromiseRef.current === activation) {
             activationPromiseRef.current = undefined;
@@ -132,7 +138,7 @@ export function WebViewWebEmbed({
       activationPromiseRef.current = activation;
     }
     return activationPromiseRef.current;
-  }, [isSingleton, mountId, mountSequence, requestId]);
+  }, [isSingleton, mountId, mountSequence]);
   useEffect(() => {
     if (!isSingleton || !mountId) {
       return;

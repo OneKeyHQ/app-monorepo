@@ -12,6 +12,7 @@ import { getHomeTokenMainRuntimeId } from '@onekeyhq/shared/src/utils/homeTokenR
 import { WebViewWebEmbedSingleton } from '../components/WebViewWebEmbed';
 
 let webEmbedMountSequence = 0;
+const WEB_EMBED_PENDING_MOUNT_COALESCE_WINDOW_MS = 30 * 1000;
 const webEmbedMainRuntimeId =
   platformEnv.isNative && platformEnv.enableNativeBackgroundThread
     ? getHomeTokenMainRuntimeId()
@@ -34,6 +35,9 @@ function BasicWebViewWebEmbedProvider() {
     requestId?: string;
   }>();
   const currentMountIdRef = useRef<string | undefined>(undefined);
+  const currentMountSequenceRef = useRef(0);
+  const isMountPendingRef = useRef(false);
+  const mountRequestedAtRef = useRef(0);
   const isCurrentMount = useCallback(
     (mountId: string) => currentMountIdRef.current === mountId,
     [],
@@ -52,24 +56,48 @@ function BasicWebViewWebEmbedProvider() {
       if (replaceMountId && replaceMountId !== currentMountIdRef.current) {
         return;
       }
-      pendingRequestIdRef.current = requestId;
+      pendingRequestIdRef.current = requestId ?? lastRequestIdRef.current;
       if (disabledRef.current) {
         setIsShow(true);
         return;
       }
-      if (
-        !replaceMountId &&
-        currentMountIdRef.current &&
-        requestId &&
-        lastRequestIdRef.current === requestId
-      ) {
-        return;
+      if (!replaceMountId && currentMountIdRef.current) {
+        if (requestId && lastRequestIdRef.current === requestId) {
+          return;
+        }
+        const isPendingWithinWindow =
+          isMountPendingRef.current &&
+          Date.now() - mountRequestedAtRef.current <
+            WEB_EMBED_PENDING_MOUNT_COALESCE_WINDOW_MS;
+        if (isPendingWithinWindow) {
+          if (requestId && !lastRequestIdRef.current) {
+            lastRequestIdRef.current = requestId;
+            pendingRequestIdRef.current = requestId;
+            const currentMountId = currentMountIdRef.current;
+            setMount((prev) =>
+              prev && prev.mountId === currentMountId
+                ? { ...prev, requestId }
+                : prev,
+            );
+            return;
+          }
+          if (!requestId && lastRequestIdRef.current) {
+            appEventBus.emit(EAppEventBusNames.WebEmbedWebViewMountRequested, {
+              mountId: currentMountIdRef.current,
+              mountSequence: currentMountSequenceRef.current,
+            });
+            return;
+          }
+        }
       }
       lastRequestIdRef.current = requestId;
       webEmbedMountSequence += 1;
       const mountSequence = webEmbedMountSequence;
       const mountId = `${webEmbedMainRuntimeId || appEventBus.nodeId}-${mountSequence}`;
       currentMountIdRef.current = mountId;
+      currentMountSequenceRef.current = mountSequence;
+      isMountPendingRef.current = true;
+      mountRequestedAtRef.current = Date.now();
       appEventBus.emit(EAppEventBusNames.WebEmbedWebViewMountRequested, {
         mountId,
         mountSequence,
@@ -87,6 +115,7 @@ function BasicWebViewWebEmbedProvider() {
   useEffect(() => {
     if (disabled) {
       currentMountIdRef.current = undefined;
+      isMountPendingRef.current = false;
       setMount(undefined);
     } else if (isShowRef.current && !currentMountIdRef.current) {
       showWebEmbedWebView({
@@ -133,7 +162,17 @@ function BasicWebViewWebEmbedProvider() {
         });
       }
     };
+    const onMountSettled = (payload?: { mountId?: string }) => {
+      if (payload?.mountId && payload.mountId === currentMountIdRef.current) {
+        isMountPendingRef.current = false;
+      }
+    };
     appEventBus.on(EAppEventBusNames.LoadWebEmbedWebView, fn);
+    appEventBus.on(
+      EAppEventBusNames.LoadWebEmbedWebViewComplete,
+      onMountSettled,
+    );
+    appEventBus.on(EAppEventBusNames.WebEmbedWebViewNotReady, onMountSettled);
     if (webEmbedMainRuntimeId) {
       appEventBus.on(
         EAppEventBusNames.WebEmbedWebViewRuntimeProbe,
@@ -148,6 +187,14 @@ function BasicWebViewWebEmbedProvider() {
     );
     return () => {
       appEventBus.off(EAppEventBusNames.LoadWebEmbedWebView, fn);
+      appEventBus.off(
+        EAppEventBusNames.LoadWebEmbedWebViewComplete,
+        onMountSettled,
+      );
+      appEventBus.off(
+        EAppEventBusNames.WebEmbedWebViewNotReady,
+        onMountSettled,
+      );
       if (webEmbedMainRuntimeId) {
         appEventBus.off(
           EAppEventBusNames.WebEmbedWebViewRuntimeProbe,

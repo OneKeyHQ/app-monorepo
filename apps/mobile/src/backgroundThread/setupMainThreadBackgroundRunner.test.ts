@@ -982,6 +982,62 @@ describe('main thread background runner', () => {
     }
   });
 
+  it('rebuilds a connected mount after its page handshake times out', async () => {
+    jest.useFakeTimers();
+    try {
+      const { imageBridge, mount, settle, cleanup } =
+        await createRecoveryHarness(2500);
+      let stuckMountId: string | undefined;
+      mockAppEventEmit.mockImplementation((name: string) => {
+        if (name === 'LoadWebEmbedWebView') {
+          stuckMountId = mount(2501);
+        }
+      });
+
+      const first = imageBridge.convertToBlackAndWhiteImageBase64(
+        'image',
+        'image/png',
+      );
+      const firstRejection = first.catch((error: unknown) => error);
+      await settle();
+      expect(stuckMountId).toBe('recovery-2501');
+
+      await jest.advanceTimersByTimeAsync(30_000);
+      await expect(firstRejection).resolves.toMatchObject({
+        message: 'webEmbed not ready after 30s',
+      });
+
+      mockAppEventEmit.mockClear();
+      let replacementMountId: string | undefined;
+      mockAppEventEmit.mockImplementation((name: string) => {
+        if (name === 'LoadWebEmbedWebView') {
+          replacementMountId = mount(2502);
+        }
+      });
+
+      const retry = imageBridge.convertToBlackAndWhiteImageBase64(
+        'image',
+        'image/png',
+      );
+      await settle();
+      expect(
+        mockAppEventEmit.mock.calls.filter(
+          ([name]) => name === 'LoadWebEmbedWebView',
+        ),
+      ).toHaveLength(1);
+      expect(replacementMountId).toBe('recovery-2502');
+
+      mockAppEventHandlers.LoadWebEmbedWebViewComplete({
+        mountId: replacementMountId!,
+      });
+      await expect(retry).resolves.toBe('recovered-image');
+      await cleanup();
+    } finally {
+      jest.clearAllTimers();
+      jest.useRealTimers();
+    }
+  });
+
   it('rebuilds an owned page once after a real background restart and waits for its new handshake', async () => {
     const { imageBridge, request, mount, settle, cleanup } =
       await createRecoveryHarness(3000);

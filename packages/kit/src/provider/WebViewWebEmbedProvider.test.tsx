@@ -98,17 +98,17 @@ jest.mock('../components/WebViewWebEmbed', () => ({
     mockTerminate = mountId
       ? () => onContentProcessTerminate?.(mountId)
       : undefined;
+    mockCurrentRequestId = requestId;
     const { useEffect } = jest.requireActual<typeof import('react')>('react');
     useEffect(() => {
       if (!mountId) return;
       mockCurrentMountId = mountId;
       mockCurrentMountSequence = mountSequence ?? 0;
-      mockCurrentRequestId = requestId;
       mockWebViewMount();
       return () => {
         mockWebViewUnmount();
       };
-    }, [mountId, mountSequence, requestId]);
+    }, [mountId, mountSequence]);
     return null;
   },
 }));
@@ -621,5 +621,110 @@ describe('WebEmbed API startup request', () => {
     expect(jest.mocked(appEventBus).emit.mock.calls).toHaveLength(
       repliesBeforeUnmount,
     );
+  });
+
+  it('coalesces a background request into an in-flight unowned mount without remounting', async () => {
+    render(<WebViewWebEmbedProvider />);
+
+    act(() => {
+      appEventBus.emit(EAppEventBusNames.LoadWebEmbedWebView, undefined);
+    });
+    expect(mockWebViewMount).toHaveBeenCalledTimes(1);
+    expect(mockCurrentRequestId).toBeUndefined();
+    const initialMountId = mockCurrentMountId;
+
+    let pending: Promise<void> | undefined;
+    await act(async () => {
+      pending = backgroundProxy.waitRemoteApiReady();
+      await Promise.resolve();
+    });
+
+    expect(mockWebViewMount).toHaveBeenCalledTimes(1);
+    expect(mockWebViewUnmount).not.toHaveBeenCalled();
+    expect(mockCurrentMountId).toBe(initialMountId);
+    expect(mockCurrentRequestId).toEqual(expect.any(String));
+
+    completeCurrent();
+    await pending;
+  });
+
+  it('coalesces an unkeyed main-thread Load event into an in-flight background mount without remounting', async () => {
+    render(<WebViewWebEmbedProvider />);
+
+    let pending: Promise<void> | undefined;
+    await act(async () => {
+      pending = backgroundProxy.waitRemoteApiReady();
+      await Promise.resolve();
+    });
+    expect(mockWebViewMount).toHaveBeenCalledTimes(1);
+    const initialMountId = mockCurrentMountId;
+    const initialRequestId = mockCurrentRequestId;
+
+    const mountRequestedEvents: Array<{
+      mountId: string;
+      mountSequence: number;
+    }> = [];
+    const onMountRequested = (payload: {
+      mountId: string;
+      mountSequence: number;
+    }) => {
+      mountRequestedEvents.push(payload);
+    };
+    appEventBus.on(
+      EAppEventBusNames.WebEmbedWebViewMountRequested,
+      onMountRequested,
+    );
+
+    act(() => {
+      appEventBus.emit(EAppEventBusNames.LoadWebEmbedWebView, undefined);
+    });
+
+    appEventBus.off(
+      EAppEventBusNames.WebEmbedWebViewMountRequested,
+      onMountRequested,
+    );
+
+    expect(mockWebViewMount).toHaveBeenCalledTimes(1);
+    expect(mockWebViewUnmount).not.toHaveBeenCalled();
+    expect(mockCurrentMountId).toBe(initialMountId);
+    expect(mockCurrentRequestId).toBe(initialRequestId);
+    expect(mountRequestedEvents).toEqual([
+      {
+        mountId: initialMountId,
+        mountSequence: mockCurrentMountSequence,
+      },
+    ]);
+
+    completeCurrent();
+    await pending;
+  });
+
+  it('mounts a fresh WebView when a background request arrives after an unowned mount was marked not-ready', async () => {
+    render(<WebViewWebEmbedProvider />);
+
+    act(() => {
+      appEventBus.emit(EAppEventBusNames.LoadWebEmbedWebView, undefined);
+    });
+    expect(mockWebViewMount).toHaveBeenCalledTimes(1);
+    const initialMountId = mockCurrentMountId as string;
+
+    act(() => {
+      appEventBus.emit(EAppEventBusNames.WebEmbedWebViewNotReady, {
+        mountId: initialMountId,
+      });
+    });
+
+    let pending: Promise<void> | undefined;
+    await act(async () => {
+      pending = backgroundProxy.waitRemoteApiReady();
+      await Promise.resolve();
+    });
+
+    expect(mockWebViewMount).toHaveBeenCalledTimes(2);
+    expect(mockWebViewUnmount).toHaveBeenCalledTimes(1);
+    expect(mockCurrentMountId).not.toBe(initialMountId);
+
+    completeCurrent();
+    await pending;
   });
 });

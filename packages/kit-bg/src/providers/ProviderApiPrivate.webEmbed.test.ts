@@ -178,6 +178,27 @@ describe('WebEmbed page readiness ownership', () => {
     );
   });
 
+  it('adopts an in-flight unowned mount when a background request reserves after activation', async () => {
+    const provider = new ProviderApiPrivate({ backgroundApi: {} });
+    const emitSpy = jest.spyOn(appEventBus, 'emit');
+
+    expect(
+      provider.activateWebEmbedMount({
+        mountId: 'unowned-in-flight',
+        mountSequence: 1,
+      }),
+    ).toBe(true);
+    expect(provider.reserveWebEmbedRequest('request-1')).toEqual({
+      ready: false,
+    });
+    await callReady(provider, 'unowned-in-flight');
+
+    expect(emitSpy).toHaveBeenCalledWith(
+      EAppEventBusNames.LoadWebEmbedWebViewComplete,
+      { mountId: 'unowned-in-flight', requestId: 'request-1' },
+    );
+  });
+
   it('does not invalidate a page that became ready before reservation', async () => {
     const provider = new ProviderApiPrivate({ backgroundApi: {} });
 
