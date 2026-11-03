@@ -18855,6 +18855,7 @@
     "packages/components/src/composite/Dialog/renderToContainer.tsx": 12611,
     "packages/components/src/composite/DialogV2/index.native.tsx": 12959,
     "packages/components/src/composite/ImageCrop/index.native.tsx": 8879,
+    "packages/components/src/composite/ImageCrop/index.tsx": 7535,
     "packages/components/src/composite/ImageCrop/type.ts": 10951,
     "packages/components/src/composite/MorphOverlay/dynamicIsland.ts": 23660,
     "packages/components/src/composite/MorphOverlay/index.tsx": 8051,
