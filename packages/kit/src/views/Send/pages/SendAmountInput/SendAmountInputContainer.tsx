@@ -1132,7 +1132,7 @@ function SendAmountInputContainer() {
   const [lnUnit, setLnUnit] = useState<ELightningUnit>(ELightningUnit.SATS);
 
   const isLightningNetwork = useMemo(
-    () => networkUtils.isLightningNetworkByNetworkId(networkId),
+    () => networkUtils.isAnyLightningNetworkByNetworkId(networkId),
     [networkId],
   );
   const enableAllowListValidation = !isLightningNetwork;
