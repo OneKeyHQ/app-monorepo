@@ -5525,6 +5525,13 @@ class ServiceAccount extends ServiceBase {
       hideImmediately,
     });
     appEventBus.emit(EAppEventBusNames.WalletUpdate, undefined);
+    void this.backgroundApi.servicePrivacyChain
+      .onWalletTempStatusChanged({ walletId })
+      .catch((error: unknown) => {
+        console.error('[privacy-chain] wallet keep notice failed', {
+          error: error instanceof Error ? error.message : '',
+        });
+      });
     return result;
   }
 

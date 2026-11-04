@@ -23,11 +23,13 @@ import { EAddressEncodings } from '@onekeyhq/core/src/types';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import { LRUCache } from '@onekeyhq/shared/src/utils/cacheUtils';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
+import { getPrivacyChainTimeWindowBlocks } from '@onekeyhq/shared/src/utils/privacyChainSyncPolicy';
 import type { IAccountHistoryTx } from '@onekeyhq/shared/types/history';
 
 import { loadCachedLocalWalletHistory } from '../../localWallet/cachedHistory';
 import { getLastLocalWalletChainTip } from '../../localWallet/privacyChainCacheStore';
 
+import settings from './settings';
 import {
   ZCASH_TRANSPARENT_P2PKH_SCRIPT_RE,
   ZCASH_TRANSPARENT_PATH_RE,
@@ -43,7 +45,16 @@ import type { IDBUtxoAccount } from '../../../dbs/local/types';
 import type { IBuildEncodedTxParams } from '../../types';
 
 // Blocks past expiry before an unmined send is dropped; covers indexer lag and shallow reorgs.
-export const ZCASH_TRANSPARENT_DROP_MARGIN_BLOCKS = 10;
+// It stands for time, so it keeps its time across NU7 like the expiry window (ZIP 218).
+const ZCASH_TRANSPARENT_DROP_MARGIN_BLOCKS = 10;
+
+export function getZcashTransparentDropMarginBlocks(tip: number): number {
+  return getPrivacyChainTimeWindowBlocks(
+    settings.localWallet,
+    ZCASH_TRANSPARENT_DROP_MARGIN_BLOCKS,
+    tip,
+  );
+}
 
 // Highest height seen this session per network: backend history and UTXOs, or
 // the scanner's node. A height carries no account data.
@@ -91,7 +102,7 @@ export function isZcashTransparentSendExpired(
   expiryHeight: number,
   tip: number,
 ): boolean {
-  return tip > expiryHeight + ZCASH_TRANSPARENT_DROP_MARGIN_BLOCKS;
+  return tip > expiryHeight + getZcashTransparentDropMarginBlocks(tip);
 }
 
 // Releases input holds once the backend settles a send (lowercase txids) or it expires.

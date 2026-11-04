@@ -3,8 +3,10 @@ import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
 import {
   extractGrpcWebDataFrame,
+  fetchZcashBlockTimeDirect,
   fetchZcashChainTipDirect,
   fetchZcashLightdInfoDirect,
+  findZcashHeightAtTimeDirect,
   parseZcashBlockIdHeight,
   parseZcashLightdInfoChainName,
 } from './chainTipDirect';
@@ -193,6 +195,139 @@ describe('lightd info chain name', () => {
     ) as typeof fetch;
     await expect(
       fetchZcashLightdInfoDirect({ lightwalletdUrl: 'https://example.test' }),
+    ).resolves.toBeNull();
+  });
+});
+
+describe('block time lookups', () => {
+  const LOW = 3_428_143;
+  const HIGH = LOW + 200_000;
+  const T0 = 1_785_196_800;
+  // Uneven gaps (15s to 135s), still increasing, as real block times are.
+  const blockTime = (height: number) =>
+    T0 + 75 * (height - LOW) + Math.floor(30 * Math.sin(height));
+
+  function varintAt(bytes: Uint8Array, offset: number) {
+    let value = 0;
+    let shift = 0;
+    for (let i = offset; i < bytes.length; i += 1) {
+      value += (bytes[i] % 128) * 2 ** shift;
+      if (bytes[i] < 128) return value;
+      shift += 7;
+    }
+    return value;
+  }
+
+  function encodeVarint(value: number) {
+    const bytes: number[] = [];
+    let rest = value;
+    while (rest >= 128) {
+      bytes.push((rest % 128) + 128);
+      rest = Math.floor(rest / 128);
+    }
+    bytes.push(rest);
+    return bytes;
+  }
+
+  // Serves GetBlock for the requested height; `fail` makes the node refuse.
+  function mockNode(fail = false) {
+    const requested: number[] = [];
+    const fetchMock = jest.fn(async (url: string, init: RequestInit) => {
+      expect(url).toBe(
+        'https://example.test/cash.z.wallet.sdk.rpc.CompactTxStreamer/GetBlock',
+      );
+      if (fail) throw new OneKeyLocalError('offline');
+      const body = init.body as Uint8Array;
+      // 5-byte frame header, then BlockID { 0x08 height }.
+      expect(body[5]).toBe(0x08);
+      const height = varintAt(body, 6);
+      requested.push(height);
+      const block = Uint8Array.from([
+        0x10,
+        ...encodeVarint(height),
+        0x28,
+        ...encodeVarint(blockTime(height)),
+      ]);
+      const reply = concat(
+        frame(0, block),
+        frame(0x80, new TextEncoder().encode('grpc-status:0\r\n')),
+      );
+      return {
+        ok: true,
+        headers: { get: () => null },
+        arrayBuffer: async () => reply.buffer.slice(0),
+      } as unknown as Response;
+    });
+    globalThis.fetch = fetchMock as unknown as typeof fetch;
+    return requested;
+  }
+
+  const originalFetch = globalThis.fetch;
+  afterEach(() => {
+    globalThis.fetch = originalFetch;
+  });
+
+  it('reads a block time by height', async () => {
+    const requested = mockNode();
+    await expect(
+      fetchZcashBlockTimeDirect({
+        lightwalletdUrl: 'https://example.test',
+        height: LOW + 10,
+      }),
+    ).resolves.toBe(blockTime(LOW + 10));
+    expect(requested).toEqual([LOW + 10]);
+  });
+
+  it.each([1234, 100_000, 199_998])(
+    'finds the last block at or before a time (%s blocks in)',
+    async (offset) => {
+      const requested = mockNode();
+      const target = blockTime(LOW + offset) + 10;
+      let expected = LOW;
+      for (let height = LOW; height <= HIGH; height += 1) {
+        if (blockTime(height) <= target) expected = height;
+      }
+      await expect(
+        findZcashHeightAtTimeDirect({
+          lightwalletdUrl: 'https://example.test',
+          timeSeconds: target,
+          lowHeight: LOW,
+          highHeight: HIGH,
+        }),
+      ).resolves.toBe(expected);
+      expect(requested.length).toBeLessThanOrEqual(40);
+    },
+  );
+
+  it('keeps a time outside the range at its edge', async () => {
+    mockNode();
+    await expect(
+      findZcashHeightAtTimeDirect({
+        lightwalletdUrl: 'https://example.test',
+        timeSeconds: T0 - 86_400,
+        lowHeight: LOW,
+        highHeight: HIGH,
+      }),
+    ).resolves.toBe(LOW);
+    await expect(
+      findZcashHeightAtTimeDirect({
+        lightwalletdUrl: 'https://example.test',
+        timeSeconds: blockTime(HIGH) + 86_400,
+        lowHeight: LOW,
+        highHeight: HIGH,
+      }),
+    ).resolves.toBe(HIGH);
+  });
+
+  it('places nothing when the node cannot answer', async () => {
+    mockNode(true);
+    await expect(
+      findZcashHeightAtTimeDirect({
+        lightwalletdUrl: 'https://example.test',
+        timeSeconds: T0 + 86_400,
+        lowHeight: LOW,
+        highHeight: HIGH,
+      }),
     ).resolves.toBeNull();
   });
 });

@@ -1,7 +1,4 @@
-import * as raw from '@onekeyfe/zcash-runtime';
-
-import sdk from '@onekeyhq/core/src/chains/zcash/sdkZcash/impl';
-import { storageRequiresWorkerRestart } from '@onekeyhq/core/src/chains/zcash/sdkZcash/impl/carrier';
+import type * as raw from '@onekeyfe/zcash-runtime';
 
 jest.mock('@onekeyfe/zcash-runtime', () => ({
   __esModule: true,
@@ -15,17 +12,6 @@ jest.mock('@onekeyfe/zcash-runtime', () => ({
     JSON.stringify({ uuid: 'synthetic-runtime-id' }),
   ),
 }));
-
-test('an ordinary offline tip remains a recoverable null', async () => {
-  jest.mocked(raw.chainTipAt).mockRejectedValueOnce(new Error('offline'));
-  await expect(
-    (await sdk.getZcashApi()).getChainTip({
-      network: 'main',
-      lightwalletdUrl: 'https://example.invalid',
-    }),
-  ).resolves.toBeNull();
-  expect(storageRequiresWorkerRestart()).toBe(false);
-});
 
 test.each(['tip', 'initialization'] as const)(
   'a %s trap retires the worker before any later leased runtime call',
@@ -71,12 +57,15 @@ test.each(['tip', 'initialization'] as const)(
           );
       worker.servePrivacyChainWorker({
         label: 'zcash',
-        methods: ['getChainTip', 'prepareWalletAccounts'],
+        methods: ['runRuntimeSelfTest', 'prepareWalletAccounts'],
         loadApi: async () => freshSdk.getZcashApi(),
         storageRequiresRestart: carrier.storageRequiresWorkerRestart,
       });
-      const first = await call(1, 'getChainTip', [
-        { lightwalletdUrl: 'https://example.invalid' },
+      // The network stage asks the node without initializing storage; the storage stage initializes it.
+      const first = await call(1, 'runRuntimeSelfTest', [
+        phase === 'tip'
+          ? { stage: 'network', lightwalletdUrl: 'https://example.invalid' }
+          : { stage: 'storage' },
       ]);
       expect(first).toMatchObject({
         id: 1,

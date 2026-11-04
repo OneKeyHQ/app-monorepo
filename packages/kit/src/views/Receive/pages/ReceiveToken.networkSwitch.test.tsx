@@ -22,9 +22,6 @@ const mockGetLocalWalletAccountState = jest.fn<
   Promise<{ enabled: boolean; paused: boolean; identityMismatch?: boolean }>,
   [unknown]
 >(async () => ({ enabled: true, paused: false }));
-const mockRetryAccountSetup = jest.fn<Promise<void>, [unknown]>(
-  async () => undefined,
-);
 const mockShowReceived = jest.fn<void, [unknown]>();
 const mockReceivePageShown = jest.fn<void, [unknown]>();
 const mockReceiveSwitchNetwork = jest.fn<void, [unknown]>();
@@ -225,7 +222,7 @@ jest.mock('@onekeyhq/components', () => {
   }: {
     children?: ReactNode;
     onConfirm?: () => void;
-    confirmButtonProps?: { testID?: string };
+    confirmButtonProps?: { testID?: string; disabled?: boolean };
   }) =>
     React.createElement(
       'div',
@@ -233,6 +230,7 @@ jest.mock('@onekeyhq/components', () => {
       onConfirm
         ? React.createElement('button', {
             'data-testid': confirmButtonProps?.testID,
+            disabled: confirmButtonProps?.disabled,
             onClick: onConfirm,
           })
         : null,
@@ -630,36 +628,6 @@ jest.mock('../../../hooks/useWalletBanner', () => ({
   }),
 }));
 
-// Stands in for the repair button: a press runs the repair, then reports.
-jest.mock(
-  '../../AssetDetails/pages/TokenDetails/LocalWalletRepairControls',
-  () => {
-    const React = jest.requireActual<typeof import('react')>('react');
-    return {
-      SetupRepairControl: ({
-        networkId,
-        accountId,
-        onDone,
-        onError,
-      }: {
-        networkId: string;
-        accountId: string;
-        onDone: () => void;
-        onError?: () => void;
-      }) =>
-        React.createElement('button', {
-          'data-testid': 'local-wallet-repair-setup-btn',
-          onClick: () => {
-            void mockRetryAccountSetup({ networkId, accountId }).then(
-              onDone,
-              () => onError?.(),
-            );
-          },
-        }),
-    };
-  },
-);
-
 jest.mock('../components/ReceiveCard', () => {
   const React = jest.requireActual<typeof import('react')>('react');
   const Cell = ({ children }: { children?: ReactNode }) =>
@@ -847,8 +815,6 @@ describe('ReceiveToken network switch', () => {
       enabled: true,
       paused: false,
     });
-    mockRetryAccountSetup.mockReset();
-    mockRetryAccountSetup.mockResolvedValue(undefined);
     mockShowReceived.mockReset();
     mockReceivePageShown.mockReset();
     mockReceiveSwitchNetwork.mockReset();
@@ -939,6 +905,26 @@ describe('ReceiveToken network switch', () => {
     },
   );
 
+  // Not scanning: no private address is handed out, so there is nothing to
+  // verify until privacy is on.
+  it('disables verifying the private form while privacy is off', async () => {
+    mockRouteParams = {
+      ...zcashHardwareParams,
+      localWalletAddressForm: 'private',
+    };
+    mockGetLocalWalletAccountAddresses.mockResolvedValue({});
+    const { getByTestId } = render(<ReceiveToken />);
+    await waitFor(() =>
+      expect(getByTestId('receive-open-privacy-settings')).toBeTruthy(),
+    );
+    const button = getByTestId(
+      'receive-verify-on-device-button',
+    ) as HTMLButtonElement;
+    expect(button.disabled).toBe(true);
+    fireEvent.click(button);
+    expect(mockVerifyHWAccountAddresses).not.toHaveBeenCalled();
+  });
+
   it.each([
     ['a public tab', 'public'],
     ['an entry without a form', undefined],
@@ -972,6 +958,9 @@ describe('ReceiveToken network switch', () => {
     };
     mockVerifyHWAccountAddresses.mockResolvedValueOnce(['u1Private']);
     const { getByTestId, queryByTestId } = render(<ReceiveToken />);
+    // Settled first: a verification the page's late account path resets
+    // would never show the address.
+    await expectAddressForm(getByTestId, 'private');
     await pressVerifyOnDevice(getByTestId);
     await waitFor(() =>
       expect(getByTestId('qr-value').textContent).toBe('u1Private'),
@@ -1059,9 +1048,6 @@ describe('ReceiveToken network switch', () => {
       indexedAccountId: 'hd-1--0',
       localWalletAddressForm: 'private',
     };
-    const setupIncompleteError = Object.assign(new Error('Setup incomplete'), {
-      key: 'privacy_error_setup_incomplete__msg',
-    });
     const runtimeUnavailableError = Object.assign(new Error('worker died'), {
       data: { privacyChainRuntimeFailure: 'handshake' },
     });
@@ -1136,31 +1122,6 @@ describe('ReceiveToken network switch', () => {
       expect(container.textContent).not.toContain('u1Private');
     });
 
-    it('offers the setup repair only for a missing viewing key', async () => {
-      mockGetLocalWalletAccountAddresses
-        .mockRejectedValueOnce(setupIncompleteError)
-        .mockResolvedValue({ privateAddress: 'u1Private' });
-      mockRouteParams = zcashPrivateParams;
-      const { getByTestId, queryByTestId } = render(<ReceiveToken />);
-
-      await waitFor(() =>
-        expect(
-          getByTestId('receive-local-wallet-address-failed').textContent,
-        ).toContain('privacy_error_setup_incomplete__msg'),
-      );
-      expect(queryByTestId('receive-local-wallet-address-retry')).toBeNull();
-      fireEvent.click(getByTestId('local-wallet-repair-setup-btn'));
-
-      await waitFor(() =>
-        expect(getByTestId('address').textContent).toBe('u1Private'),
-      );
-      expect(mockRetryAccountSetup).toHaveBeenCalledWith({
-        networkId: 'zec--0',
-        accountId: 'hd-1--zec',
-      });
-      expect(queryByTestId('receive-local-wallet-address-failed')).toBeNull();
-    });
-
     it.each([
       [
         'an unresponsive runtime',
@@ -1179,45 +1140,36 @@ describe('ReceiveToken network switch', () => {
           .mockRejectedValueOnce(error)
           .mockResolvedValue({ privateAddress: 'u1Private' });
         mockRouteParams = zcashPrivateParams;
-        const { getByTestId, queryByTestId } = render(<ReceiveToken />);
+        const { getByTestId } = render(<ReceiveToken />);
 
         await waitFor(() =>
           expect(
             getByTestId('receive-local-wallet-address-failed').textContent,
           ).toContain(message),
         );
-        expect(
-          getByTestId('receive-local-wallet-address-failed').textContent,
-        ).not.toContain('privacy_error_setup_incomplete__msg');
-        expect(queryByTestId('local-wallet-repair-setup-btn')).toBeNull();
-
         fireEvent.click(getByTestId('receive-local-wallet-address-retry'));
         await waitFor(() =>
           expect(getByTestId('address').textContent).toBe('u1Private'),
         );
         expect(mockGetLocalWalletAccountAddresses).toHaveBeenCalledTimes(2);
-        expect(mockRetryAccountSetup).not.toHaveBeenCalled();
       },
     );
 
-    it('sends an identity mismatch to the privacy settings instead of repairing', async () => {
-      mockGetLocalWalletAccountAddresses.mockRejectedValue(
-        setupIncompleteError,
-      );
+    it('sends an identity mismatch to the privacy settings', async () => {
+      mockGetLocalWalletAccountAddresses.mockRejectedValue(new Error('boom'));
       mockGetLocalWalletAccountState.mockResolvedValue({
         enabled: true,
         paused: false,
         identityMismatch: true,
       });
       mockRouteParams = zcashPrivateParams;
-      const { getByTestId, queryByTestId } = render(<ReceiveToken />);
+      const { getByTestId } = render(<ReceiveToken />);
 
       await waitFor(() =>
         expect(
           getByTestId('receive-local-wallet-address-failed').textContent,
         ).toContain('privacy_error_identity_mismatch__msg'),
       );
-      expect(queryByTestId('local-wallet-repair-setup-btn')).toBeNull();
       fireEvent.click(
         getByTestId('receive-local-wallet-open-privacy-settings'),
       );
@@ -1225,33 +1177,6 @@ describe('ReceiveToken network switch', () => {
         screen: 'SettingPrivacyNetwork',
         params: { networkId: 'zec--0', walletId: 'hd-1' },
       });
-    });
-
-    it('shows the mismatch once a failed repair finds the other key', async () => {
-      mockGetLocalWalletAccountAddresses.mockRejectedValue(
-        setupIncompleteError,
-      );
-      mockRetryAccountSetup.mockImplementation(async () => {
-        mockGetLocalWalletAccountState.mockResolvedValue({
-          enabled: true,
-          paused: false,
-          identityMismatch: true,
-        });
-        return Promise.reject(new Error('identity mismatch'));
-      });
-      mockRouteParams = zcashPrivateParams;
-      const { getByTestId } = render(<ReceiveToken />);
-
-      await waitFor(() =>
-        expect(getByTestId('local-wallet-repair-setup-btn')).not.toBeNull(),
-      );
-      fireEvent.click(getByTestId('local-wallet-repair-setup-btn'));
-
-      await waitFor(() =>
-        expect(
-          getByTestId('receive-local-wallet-address-failed').textContent,
-        ).toContain('privacy_error_identity_mismatch__msg'),
-      );
     });
   });
 

@@ -1,16 +1,17 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback } from 'react';
 
-import { useAtomValue } from 'jotai';
-import { selectAtom } from 'jotai/utils';
 import { useIntl } from 'react-intl';
 
 import { Button } from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import useFormatDate from '@onekeyhq/kit/src/hooks/useFormatDate';
-import { privacyChainAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import type { ILocalWalletSyncStatus } from '@onekeyhq/kit-bg/src/utils/privacyChainSyncStatus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EGalleryRoutes, EModalRoutes } from '@onekeyhq/shared/src/routes';
+
+import { getLocalWalletSyncAction } from './useLocalWalletPool';
 
 import type {
   ITokenPrivacyPanelProps,
@@ -18,102 +19,60 @@ import type {
 } from './TokenPrivacyPanel';
 import type { ILocalWalletPool } from './useLocalWalletPool';
 
-// Keep status presentation aligned with the shared account sync controls.
+const PANEL_STATES: Record<ILocalWalletSyncStatus, ITokenPrivacyPanelState> = {
+  unavailable: 'disabled',
+  enabling: 'preparing',
+  accountPaused: 'stopped',
+  off: 'disabled',
+  chainPaused: 'stopped',
+  storageUnsupported: 'error',
+  waitingWifi: 'waitingWifi',
+  error: 'error',
+  preparing: 'preparing',
+  syncing: 'syncing',
+  synced: 'synced',
+};
+
+// The token page's panel for the account's one sync status.
 export function useTokenPrivacyStatus({
-  networkId,
   pool: lw,
 }: {
-  networkId: string;
   pool: ILocalWalletPool;
 }): ITokenPrivacyPanelProps {
   const intl = useIntl();
   const { formatDate } = useFormatDate();
-  const dataBlockedAtom = useMemo(
-    () =>
-      selectAtom(privacyChainAtom.atom(), (value) =>
-        value.dataBlockedNetworkIds.includes(networkId),
-      ),
-    [networkId],
-  );
-  const dataBlocked = useAtomValue(dataBlockedAtom);
-  const preparingAtom = useMemo(
-    () =>
-      selectAtom(privacyChainAtom.atom(), (value) =>
-        value.preparingNetworkIds.includes(networkId),
-      ),
-    [networkId],
-  );
-  const networkPreparing = useAtomValue(preparingAtom);
+  const status: ILocalWalletSyncStatus | undefined = lw.isUnsupportedWallet
+    ? 'unavailable'
+    : lw.syncStatus;
   const handleSync = useCallback(() => {
-    let action = lw.refreshBalanceNow;
-    if (lw.state?.paused) {
-      action = () => lw.enableAccount({});
-    } else if (lw.isNetworkPaused) {
-      action = lw.resumeNetworkSync;
-    }
-    void action().catch((error: unknown) => {
+    void getLocalWalletSyncAction(lw)().catch((error: unknown) => {
       console.error('[privacyChain] refresh failed', {
         error: error instanceof Error ? error.message : '',
       });
     });
   }, [lw]);
-  const progress = lw.syncProgress;
-  let state: ITokenPrivacyPanelState = 'preparing';
+  const handleAllowMobileData = useCallback(() => {
+    void backgroundApiProxy.servicePrivacyChain.setAllowCellularSync({
+      allow: true,
+    });
+  }, []);
+  const state: ITokenPrivacyPanelState =
+    lw.isReady && status ? PANEL_STATES[status] : 'preparing';
+
   let description: string | undefined;
-  let detail: string | undefined;
-
-  if (
-    lw.isReady &&
-    lw.isStateSettled &&
-    lw.state?.pendingOperation !== 'enable'
-  ) {
-    if (!lw.enabled) {
-      state = 'disabled';
-    } else if (lw.isSyncPaused) {
-      // Paused by the user or rotated out of the sync slots alike: nothing
-      // scans it until Resume, so its balance is only as new as its last sync.
-      state = 'stopped';
-    } else if (lw.hasSyncError) {
-      state = 'error';
-      detail = lw.syncStatusText ?? undefined;
-    } else if (dataBlocked || networkPreparing || lw.isPreparing) {
-      state = 'preparing';
-    } else if (progress?.isSyncing) {
-      state = 'syncing';
-    } else if (progress?.isBackfillComplete && progress.isTipCaughtUp) {
-      state = 'synced';
+  if (status === 'unavailable') {
+    let id = ETranslations.global_not_available;
+    if (lw.isTempWallet) {
+      id = ETranslations.privacy_temp_wallet_unavailable__desc;
+    } else if (lw.isUnsupportedWallet) {
+      id = ETranslations.privacy_balance_wallet_not_supported__desc;
     }
-  }
-
-  if (lw.isUnsupportedWallet) {
-    state = 'disabled';
-    const id = lw.isTempWallet
-      ? ETranslations.privacy_temp_wallet_unavailable__desc
-      : ETranslations.privacy_balance_wallet_not_supported__desc;
     description = intl.formatMessage({ id, defaultMessage: id });
   }
-  if (lw.state?.privacyDisabled) {
-    state = 'disabled';
-    description = intl.formatMessage({
-      id: ETranslations.global_not_available,
-    });
-  }
-
-  if (state !== 'error') {
-    if (dataBlocked && state === 'preparing') {
-      detail = intl.formatMessage({
-        id: ETranslations.privacy_sync_waiting_wifi__msg,
-      });
-    } else if (state === 'syncing' || state === 'stopped') {
-      detail = lw.syncStatusText ?? undefined;
-    }
-  }
-  // The paused title already says so; keep only a detail that adds to it.
-  if (
-    state === 'stopped' &&
-    detail === intl.formatMessage({ id: ETranslations.syncing_paused__title })
-  ) {
-    detail = undefined;
+  // The title already names the state; the detail adds figures or the reason.
+  let detail: string | undefined;
+  if (['syncing', 'waitingWifi', 'error'].includes(state)) {
+    detail = lw.syncStatusText ?? undefined;
   }
   let updatedAtLabel: string | undefined;
   if (
@@ -126,21 +85,24 @@ export function useTokenPrivacyStatus({
       { time: formatDate(new Date(lw.lastSyncedAt), { hideTheYear: true }) },
     );
   }
+  const progress = lw.syncProgress;
 
   return {
     state,
     description,
     detail,
     updatedAtLabel,
-    enableUnavailable: lw.isUnsupportedWallet || !!lw.state?.privacyDisabled,
+    enableUnavailable: status === 'unavailable',
     busy: lw.busy,
+    // Nothing to retry until the WebView is updated.
     onSync:
       lw.isReady &&
       lw.enabled &&
-      !lw.isUnsupportedWallet &&
-      !lw.state?.privacyDisabled
+      status !== 'unavailable' &&
+      status !== 'storageUnsupported'
         ? handleSync
         : undefined,
+    onAllowMobileData: handleAllowMobileData,
     progress:
       progress &&
       !progress.isBackfillComplete &&

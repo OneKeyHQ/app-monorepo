@@ -14,9 +14,9 @@ describe('Zcash desktop carrier reset', () => {
   });
 
   it('terminates a wedged worker without queueing reset behind it', async () => {
-    let markGetChainTipStarted: (() => void) | undefined;
-    const getChainTipStarted = new Promise<void>((resolve) => {
-      markGetChainTipStarted = resolve;
+    let markCallStarted: (() => void) | undefined;
+    const callStarted = new Promise<void>((resolve) => {
+      markCallStarted = resolve;
     });
 
     class MockWorker {
@@ -41,8 +41,8 @@ describe('Zcash desktop carrier reset', () => {
               }),
             );
           });
-        } else if (message.method === 'getChainTip') {
-          markGetChainTipStarted?.();
+        } else if (message.method === 'capabilities') {
+          markCallStarted?.();
         }
       }
     }
@@ -52,13 +52,10 @@ describe('Zcash desktop carrier reset', () => {
       value: MockWorker as unknown as typeof Worker,
     });
 
-    const { default: sdk } = await import('./index.desktop');
+    const { default: sdk } = await import('./index.web');
     const api = await sdk.getZcashApi();
-    const pendingCall = api.getChainTip({
-      network: 'main',
-      lightwalletdUrl: 'https://example.invalid',
-    });
-    await getChainTipStarted;
+    const pendingCall = api.capabilities();
+    await callStarted;
 
     await api.resetCarrier();
 
