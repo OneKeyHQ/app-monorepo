@@ -15,7 +15,6 @@ import { useSwapProEnableCurrentSymbolAtom } from '@onekeyhq/kit/src/states/jota
 import { useStockDetail } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/hooks/StockDetailContext';
 import { resolveMarketStockId } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/utils/resolveIsStockToken';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type { IMarketBasicConfigNetwork } from '@onekeyhq/shared/types/marketV2';
 import type {
@@ -24,7 +23,12 @@ import type {
 } from '@onekeyhq/shared/types/swap/types';
 
 import { ETabName, TabBarItem } from '../../../Perp/layouts/PerpMobileLayout';
-import { useSwapProSupportNetworksTokenList } from '../../hooks/useSwapPro';
+import {
+  useSwapProPositionsListFilter,
+  useSwapProSupportNetworksTokenList,
+} from '../../hooks/useSwapPro';
+import { useSwapProPositionsPnl } from '../../hooks/useSwapProPositionsPnl';
+import { useSwapStockPortfolioData } from '../../hooks/useSwapStockPortfolioData';
 import {
   SWAP_DESKTOP_CARD_SHADOW_NATIVE_STYLE,
   SWAP_DESKTOP_CARD_SHADOW_WEB_STYLE,
@@ -34,14 +38,16 @@ import SwapProPositionsList from './SwapProPositionsList';
 import { useSwapStockSelection } from './SwapStockMarketProvider';
 import { useSwapStockTradeContext } from './SwapStockTradeProvider';
 
-type IPositions = ReturnType<typeof useSwapProSupportNetworksTokenList>;
+type IPositions = ReturnType<typeof useSwapProSupportNetworksTokenList> & {
+  pnlMap: ReturnType<typeof useSwapProPositionsPnl>;
+  portfolio: ReturnType<typeof useSwapStockPortfolioData>;
+  displayPortfolio: ReturnType<typeof useSwapStockPortfolioData>;
+};
 // The stock page has a single positions tab, so its title is not a switch.
 const ignoreTitlePress = () => undefined;
 const PositionsContext = createContext<IPositions | undefined>(undefined);
 
-// The stock detail page's portfolio polls every 15s. This list is checked at
-// the same cadence; the loader's own runtime window still decides whether a
-// check turns into a request, so an unchanged list costs nothing.
+// The loader's runtime window decides whether a check needs a new request.
 const STOCK_POSITIONS_REFRESH_INTERVAL_MS = 15_000;
 
 export function SwapStockPositionsProvider({
@@ -55,12 +61,31 @@ export function SwapStockPositionsProvider({
   const positions = useSwapProSupportNetworksTokenList(networks, ready, {
     stockOnly: true,
   });
+  const { finallyTokenList } = useSwapProPositionsListFilter(
+    undefined,
+    positions.positionTokenList,
+    true,
+  );
+  const pnlMap = useSwapProPositionsPnl(finallyTokenList);
+  const portfolio = useSwapStockPortfolioData({ ...positions, pnlMap });
+  const selection = useSwapStockSelection();
+  const displayPortfolio = useSwapStockPortfolioData(
+    { ...positions, pnlMap },
+    selection
+      ? {
+          stockId: selection.displayStockId,
+          tokenVariants: selection.displayTokenVariants,
+        }
+      : undefined,
+  );
+  const value = useMemo(
+    () => ({ ...positions, pnlMap, portfolio, displayPortfolio }),
+    [positions, pnlMap, portfolio, displayPortfolio],
+  );
   const isFocused = useRouteIsFocused();
   const { swapProLoadSupportNetworksTokenListRun } = positions;
   useEffect(() => {
-    // Native keeps its own prefetch scheduler. Focus gating matches the market
-    // portfolio's polling: a surface behind another one does not refresh.
-    if (platformEnv.isNative || !ready || !isFocused) {
+    if (!ready || !isFocused) {
       return;
     }
     const timer = setInterval(() => {
@@ -71,7 +96,7 @@ export function SwapStockPositionsProvider({
     return () => clearInterval(timer);
   }, [isFocused, networks, ready, swapProLoadSupportNetworksTokenListRun]);
   return (
-    <PositionsContext.Provider value={positions}>
+    <PositionsContext.Provider value={value}>
       {children}
     </PositionsContext.Provider>
   );
@@ -208,6 +233,7 @@ export function SwapStockPositions({
         positionTokenList={positions.positionTokenList}
         positionLoading={positions.positionLoading}
         positionLoadError={positions.positionLoadError}
+        pnlMap={positions.pnlMap}
         filterToken={filterToken}
         onTokenPress={selectPositionToken}
         onRetry={() =>

@@ -18,6 +18,20 @@ const mockReserveWebEmbedRequest = jest.fn<
 const mockWebViewMount = jest.fn();
 const mockWebViewUnmount = jest.fn();
 let mockCurrentMountId: string | undefined;
+let mockCurrentRequestId: string | undefined;
+let mockCurrentMountSequence = 0;
+let mockDisabled = false;
+let mockRefreshSettings: (() => void) | undefined;
+let mockTerminate: (() => void) | undefined;
+
+jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings', () => ({
+  useDevSettingsPersistAtom: () => {
+    const React = jest.requireActual<typeof import('react')>('react');
+    const [, refresh] = React.useReducer((value: number) => value + 1, 0);
+    mockRefreshSettings = refresh;
+    return [{ enabled: true, settings: { disableWebEmbedApi: mockDisabled } }];
+  },
+}));
 
 jest.mock('@onekeyhq/shared/src/appGlobals', () => ({
   __esModule: true,
@@ -34,6 +48,7 @@ jest.mock('@onekeyhq/shared/src/appGlobals', () => ({
 
 jest.mock('@onekeyhq/shared/src/platformEnv', () => {
   return {
+    __esModule: true,
     ERuntimeRole: {
       Main: 'main',
       Background: 'background',
@@ -41,6 +56,7 @@ jest.mock('@onekeyhq/shared/src/platformEnv', () => {
     },
     default: {
       isNative: true,
+      enableNativeBackgroundThread: true,
       isJest: true,
       runtimeRole: 'main',
     },
@@ -52,6 +68,7 @@ jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
     app: {
       webembed: {
         webEmbedWaitRemoteApiReady: jest.fn(),
+        webembedApiReady: jest.fn(),
         initTimeout: jest.fn(),
         loadWebEmbedWebViewComplete: jest.fn(),
         emitRenderEvent: jest.fn(),
@@ -67,15 +84,31 @@ jest.mock('@onekeyhq/shared/src/utils/imageUtils.embedBridge', () => ({
 }));
 
 jest.mock('../components/WebViewWebEmbed', () => ({
-  WebViewWebEmbedSingleton: ({ mountId }: { mountId: string }) => {
+  WebViewWebEmbedSingleton: ({
+    mountId,
+    mountSequence,
+    requestId,
+    onContentProcessTerminate,
+  }: {
+    mountId?: string;
+    mountSequence?: number;
+    requestId?: string;
+    onContentProcessTerminate?: (mountId: string) => void;
+  }) => {
+    mockTerminate = mountId
+      ? () => onContentProcessTerminate?.(mountId)
+      : undefined;
+    mockCurrentRequestId = requestId;
     const { useEffect } = jest.requireActual<typeof import('react')>('react');
     useEffect(() => {
+      if (!mountId) return;
       mockCurrentMountId = mountId;
+      mockCurrentMountSequence = mountSequence ?? 0;
       mockWebViewMount();
       return () => {
         mockWebViewUnmount();
       };
-    }, [mountId]);
+    }, [mountId, mountSequence]);
     return null;
   },
 }));
@@ -91,6 +124,9 @@ describe('WebEmbed API startup request', () => {
     mockIsWebEmbedApiReady.mockResolvedValue(false);
     mockReserveWebEmbedRequest.mockResolvedValue({ ready: false });
     mockCurrentMountId = undefined;
+    mockCurrentRequestId = undefined;
+    mockDisabled = false;
+    mockTerminate = undefined;
     platformEnv.runtimeRole = ERuntimeRole.Main;
     jest.isolateModules(() => {
       backgroundBus = require('@onekeyhq/shared/src/eventBus/appEventBus')
@@ -139,13 +175,9 @@ describe('WebEmbed API startup request', () => {
   });
 
   function completeCurrent(requestId?: string) {
-    const latestLoad = backgroundEmitSpy.mock.calls
-      .filter(([type]) => type === EAppEventBusNames.LoadWebEmbedWebView)
-      .at(-1);
     backgroundBus.emit(EAppEventBusNames.LoadWebEmbedWebViewComplete, {
       mountId: mockCurrentMountId as string,
-      requestId:
-        requestId ?? (latestLoad?.[1] as { requestId?: string })?.requestId,
+      requestId: requestId ?? mockCurrentRequestId,
     });
   }
 
@@ -419,39 +451,296 @@ describe('WebEmbed API startup request', () => {
     await retry;
   });
 
-  it('coalesces untagged Load events while a mount is pending and preserves rebuilds after completion or timeout', () => {
+  it('allocates a fresh page after disable and retains a request received while disabled', async () => {
+    render(<WebViewWebEmbedProvider />);
+    let pending: Promise<void> | undefined;
+    await act(async () => {
+      pending = backgroundProxy.waitRemoteApiReady();
+      await Promise.resolve();
+    });
+    const oldMount = mockCurrentMountId;
+    const oldRequest = mockCurrentRequestId;
+    const { default: ProviderApiPrivate } =
+      await import('@onekeyhq/kit-bg/src/providers/ProviderApiPrivate');
+    const { markWebEmbedChannelPayload } =
+      await import('@onekeyhq/shared/src/utils/webEmbedChannelUtils');
+    const privateProvider = new ProviderApiPrivate({ backgroundApi: {} });
+    privateProvider.reserveWebEmbedRequest(oldRequest as string);
+    privateProvider.activateWebEmbedMount({
+      mountId: oldMount as string,
+      mountSequence: mockCurrentMountSequence,
+      requestId: oldRequest,
+    });
+    act(() => {
+      mockDisabled = true;
+      mockRefreshSettings?.();
+    });
+    expect(mockWebViewUnmount).toHaveBeenCalledTimes(1);
+    const latestLoad = backgroundEmitSpy.mock.calls
+      .filter(([type]) => type === EAppEventBusNames.LoadWebEmbedWebView)
+      .at(-1);
+    act(() => {
+      void appEventBus.emit(
+        EAppEventBusNames.LoadWebEmbedWebView,
+        latestLoad?.[1],
+      );
+    });
+    expect(mockWebViewMount).toHaveBeenCalledTimes(1);
+    act(() => {
+      mockDisabled = false;
+      mockRefreshSettings?.();
+    });
+    expect(mockCurrentMountId).not.toBe(oldMount);
+    expect(mockCurrentRequestId).toBe(oldRequest);
+    expect(mockWebViewMount).toHaveBeenCalledTimes(2);
+    const onReady = jest.fn();
+    void pending?.then(onReady);
+    privateProvider.activateWebEmbedMount({
+      mountId: mockCurrentMountId as string,
+      mountSequence: mockCurrentMountSequence,
+      requestId: mockCurrentRequestId,
+    });
+    const request = markWebEmbedChannelPayload(
+      {
+        origin: 'null',
+        scope: '$private',
+        data: { method: 'webEmbedApiReady' },
+      } as import('@onekeyfe/cross-inpage-provider-types').IJsBridgeMessagePayload,
+      true,
+    );
+    await privateProvider.webEmbedApiReady(request, { mountId: oldMount });
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(onReady).not.toHaveBeenCalled();
+    await privateProvider.webEmbedApiReady(request, {
+      mountId: mockCurrentMountId,
+    });
+    await pending;
+  });
+
+  it('replaces only the current page after its native renderer dies', async () => {
+    render(<WebViewWebEmbedProvider />);
+    let pending: Promise<void> | undefined;
+    await act(async () => {
+      pending = backgroundProxy.waitRemoteApiReady();
+      await Promise.resolve();
+    });
+    const oldMount = mockCurrentMountId;
+    const oldTerminate = mockTerminate;
+    act(() => oldTerminate?.());
+    expect(mockCurrentMountId).not.toBe(oldMount);
+    expect(mockWebViewMount).toHaveBeenCalledTimes(2);
+    act(() => oldTerminate?.());
+    expect(mockWebViewMount).toHaveBeenCalledTimes(2);
+    completeCurrent();
+    await pending;
+  });
+
+  it('preserves rebuilds for legacy Load events without request IDs', () => {
     render(<WebViewWebEmbedProvider />);
 
     act(() => {
       appEventBus.emit(EAppEventBusNames.LoadWebEmbedWebView, undefined);
     });
     expect(mockWebViewMount).toHaveBeenCalledTimes(1);
-    const firstMountId = mockCurrentMountId as string;
 
-    // Concurrent untagged load while mount is still pending should not remount
-    jest.setSystemTime(Date.now() + 100);
+    jest.setSystemTime(Date.now() + 1);
     act(() => {
-      appEventBus.emit(EAppEventBusNames.LoadWebEmbedWebView, undefined);
-    });
-    expect(mockWebViewMount).toHaveBeenCalledTimes(1);
-    expect(mockWebViewUnmount).not.toHaveBeenCalled();
-
-    // Once the mount completes, a subsequent untagged load rebuilds the WebView
-    act(() => {
-      appEventBus.emit(EAppEventBusNames.LoadWebEmbedWebViewComplete, {
-        mountId: firstMountId,
-      });
       appEventBus.emit(EAppEventBusNames.LoadWebEmbedWebView, undefined);
     });
     expect(mockWebViewMount).toHaveBeenCalledTimes(2);
     expect(mockWebViewUnmount).toHaveBeenCalledTimes(1);
+  });
 
-    // If a pending mount times out without completing, a retry after the window rebuilds
-    jest.setSystemTime(Date.now() + 30_000);
+  it('acknowledges a replayed early demand synchronously before another provider-ready event', () => {
+    let acknowledged = false;
+    let loads = 0;
+    const onMount = () => {
+      acknowledged = true;
+    };
+    const requestMount = () => {
+      if (!acknowledged) {
+        loads += 1;
+        void appEventBus.emit(EAppEventBusNames.LoadWebEmbedWebView, undefined);
+      }
+    };
+    appEventBus.on(EAppEventBusNames.WebEmbedWebViewMountRequested, onMount);
+    appEventBus.on(
+      EAppEventBusNames.WebEmbedWebViewProviderReady,
+      requestMount,
+    );
+    requestMount();
+    expect(mockWebViewMount).not.toHaveBeenCalled();
+    render(<WebViewWebEmbedProvider />);
+    expect(acknowledged).toBe(true);
+    expect(mockWebViewMount).toHaveBeenCalledTimes(1);
+    act(() => {
+      void appEventBus.emit(
+        EAppEventBusNames.WebEmbedWebViewProviderReady,
+        undefined,
+      );
+    });
+    expect(loads).toBe(2);
+    expect(mockWebViewMount).toHaveBeenCalledTimes(1);
+    appEventBus.off(EAppEventBusNames.WebEmbedWebViewMountRequested, onMount);
+    appEventBus.off(
+      EAppEventBusNames.WebEmbedWebViewProviderReady,
+      requestMount,
+    );
+  });
+
+  it('answers a runtime probe without mounting a page', async () => {
+    const view = render(<WebViewWebEmbedProvider />);
+    const initialReady = jest
+      .mocked(appEventBus)
+      .emit.mock.calls.find(
+        ([name]) => name === EAppEventBusNames.WebEmbedWebViewProviderReady,
+      )?.[1] as { mainRuntimeId: string };
+    const runtimeId = initialReady.mainRuntimeId;
+    expect(runtimeId).toEqual(expect.any(String));
+    act(() => {
+      void backgroundBus.emit(EAppEventBusNames.WebEmbedWebViewRuntimeProbe, {
+        probeId: 'boot-probe-1',
+      });
+    });
+    expect(jest.mocked(appEventBus).emit.mock.calls).toContainEqual([
+      EAppEventBusNames.WebEmbedWebViewProviderReady,
+      { mainRuntimeId: runtimeId, probeId: 'boot-probe-1' },
+    ]);
+    expect(mockWebViewMount).not.toHaveBeenCalled();
+    expect(mockReserveWebEmbedRequest).not.toHaveBeenCalled();
+    const repliesBeforeUnmount =
+      jest.mocked(appEventBus).emit.mock.calls.length;
+    view.unmount();
+    act(() => {
+      void backgroundBus.emit(EAppEventBusNames.WebEmbedWebViewRuntimeProbe, {
+        probeId: 'boot-probe-2',
+      });
+    });
+    expect(jest.mocked(appEventBus).emit.mock.calls).toHaveLength(
+      repliesBeforeUnmount,
+    );
+  });
+
+  it('coalesces a background request into an in-flight unowned mount without remounting', async () => {
+    render(<WebViewWebEmbedProvider />);
+
     act(() => {
       appEventBus.emit(EAppEventBusNames.LoadWebEmbedWebView, undefined);
     });
+    expect(mockWebViewMount).toHaveBeenCalledTimes(1);
+    expect(mockCurrentRequestId).toBeUndefined();
+    const initialMountId = mockCurrentMountId;
+
+    let pending: Promise<void> | undefined;
+    await act(async () => {
+      pending = backgroundProxy.waitRemoteApiReady();
+      await Promise.resolve();
+    });
+
+    expect(mockWebViewMount).toHaveBeenCalledTimes(1);
+    expect(mockWebViewUnmount).not.toHaveBeenCalled();
+    expect(mockCurrentMountId).toBe(initialMountId);
+    expect(mockCurrentRequestId).toEqual(expect.any(String));
+
+    completeCurrent();
+    await pending;
+  });
+
+  it('rebuilds an in-flight background mount when an unowned recovery Load event arrives and coalesces the subsequent replay', async () => {
+    render(<WebViewWebEmbedProvider />);
+
+    let pending: Promise<void> | undefined;
+    await act(async () => {
+      pending = backgroundProxy.waitRemoteApiReady();
+      await Promise.resolve();
+    });
+    expect(mockWebViewMount).toHaveBeenCalledTimes(1);
+    const rejectedMountId = mockCurrentMountId;
+    const initialRequestId = mockCurrentRequestId;
+
+    // Simulate adoptWebEmbedMainRuntime or background restart emitting an unowned Load rebuild
+    act(() => {
+      appEventBus.emit(EAppEventBusNames.LoadWebEmbedWebView, undefined);
+    });
+    expect(mockWebViewMount).toHaveBeenCalledTimes(2);
+    expect(mockWebViewUnmount).toHaveBeenCalledTimes(1);
+    const rebuiltMountId = mockCurrentMountId;
+    expect(rebuiltMountId).not.toBe(rejectedMountId);
+
+    // Subsequent ProviderReady replay from background Proxy coalesces into the rebuilt mount
+    act(() => {
+      appEventBus.emit(
+        EAppEventBusNames.WebEmbedWebViewProviderReady,
+        undefined,
+      );
+    });
+    expect(mockWebViewMount).toHaveBeenCalledTimes(2);
+    expect(mockWebViewUnmount).toHaveBeenCalledTimes(1);
+    expect(mockCurrentMountId).toBe(rebuiltMountId);
+    expect(mockCurrentRequestId).toBe(initialRequestId);
+
+    completeCurrent();
+    await pending;
+  });
+
+  it('mounts a fresh WebView when a background request arrives after an unowned mount was marked not-ready', async () => {
+    render(<WebViewWebEmbedProvider />);
+
+    act(() => {
+      appEventBus.emit(EAppEventBusNames.LoadWebEmbedWebView, undefined);
+    });
+    expect(mockWebViewMount).toHaveBeenCalledTimes(1);
+    const initialMountId = mockCurrentMountId as string;
+
+    act(() => {
+      appEventBus.emit(EAppEventBusNames.WebEmbedWebViewNotReady, {
+        mountId: initialMountId,
+      });
+    });
+
+    let pending: Promise<void> | undefined;
+    await act(async () => {
+      pending = backgroundProxy.waitRemoteApiReady();
+      await Promise.resolve();
+    });
+
+    expect(mockWebViewMount).toHaveBeenCalledTimes(2);
+    expect(mockWebViewUnmount).toHaveBeenCalledTimes(1);
+    expect(mockCurrentMountId).not.toBe(initialMountId);
+
+    completeCurrent();
+    await pending;
+  });
+
+  it('clears stale requestId on an unowned rebuild so subsequent renderer termination does not replay the old requestId', async () => {
+    render(<WebViewWebEmbedProvider />);
+
+    let pending: Promise<void> | undefined;
+    await act(async () => {
+      pending = backgroundProxy.waitRemoteApiReady();
+      await Promise.resolve();
+    });
+    expect(mockWebViewMount).toHaveBeenCalledTimes(1);
+    expect(mockCurrentRequestId).toEqual(expect.any(String));
+    completeCurrent();
+    await pending;
+
+    // Background restarts and emits an unowned LoadWebEmbedWebView rebuild
+    act(() => {
+      appEventBus.emit(EAppEventBusNames.LoadWebEmbedWebView, undefined);
+    });
+    expect(mockWebViewMount).toHaveBeenCalledTimes(2);
+    expect(mockCurrentRequestId).toBeUndefined();
+    const unownedMountId = mockCurrentMountId;
+
+    // Renderer termination on the unowned mount must keep requestId undefined
+    act(() => {
+      mockTerminate?.();
+    });
     expect(mockWebViewMount).toHaveBeenCalledTimes(3);
-    expect(mockWebViewUnmount).toHaveBeenCalledTimes(2);
+    expect(mockCurrentMountId).not.toBe(unownedMountId);
+    expect(mockCurrentRequestId).toBeUndefined();
   });
 });

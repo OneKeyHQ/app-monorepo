@@ -458,6 +458,7 @@ export function BorrowMobilePositions({
             )}
             token={entry.asset.token}
             tokenAmount={tokenAmount}
+            amountValue={amount.number ?? amount.amount}
             fiatValue={fiatValue}
             apyDetail={entry.asset.apyDetail}
             statusLabel={labels[entry.kind]}

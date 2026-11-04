@@ -1,11 +1,19 @@
+import appGlobals from '@onekeyhq/shared/src/appGlobals';
 import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { markWebEmbedChannelPayload } from '@onekeyhq/shared/src/utils/webEmbedChannelUtils';
 
 import ProviderApiPrivate from './ProviderApiPrivate';
 
 import type { IJsBridgeMessagePayload } from '@onekeyfe/cross-inpage-provider-types';
+
+jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
+  __esModule: true,
+  default: { isNative: true, enableNativeBackgroundThread: false },
+}));
 
 jest.mock('@onekeyhq/shared/src/logger/logger', () => {
   const noopLogger: unknown = new Proxy(jest.fn(), {
@@ -16,11 +24,16 @@ jest.mock('@onekeyhq/shared/src/logger/logger', () => {
 });
 
 function callReady(provider: ProviderApiPrivate, mountId: string) {
-  return provider.handleMethods({
-    scope: '$private',
-    origin: 'file:///web-embed/index.html',
-    data: { method: 'webEmbedApiReady', params: [{ mountId }] },
-  } as IJsBridgeMessagePayload);
+  return provider.handleMethods(
+    markWebEmbedChannelPayload(
+      {
+        scope: '$private',
+        origin: 'null',
+        data: { method: 'webEmbedApiReady', params: [{ mountId }] },
+      } as IJsBridgeMessagePayload,
+      true,
+    ),
+  );
 }
 
 describe('WebEmbed page readiness ownership', () => {
@@ -36,13 +49,15 @@ describe('WebEmbed page readiness ownership', () => {
 
   afterEach(() => {
     jest.restoreAllMocks();
+    platformEnv.enableNativeBackgroundThread = false;
+    appGlobals.$$webEmbedMainRuntime = undefined;
   });
 
   it('does not accept a ready callback from a torn-down page', async () => {
     const provider = new ProviderApiPrivate({ backgroundApi: {} });
     const emitSpy = jest.spyOn(appEventBus, 'emit');
 
-    await provider.webEmbedApiNotReady();
+    await provider.setWebEmbedApiNotReady();
     await callReady(provider, 'old-mount');
 
     expect(provider.isWebEmbedApiReady).toBe(false);
@@ -111,7 +126,36 @@ describe('WebEmbed page readiness ownership', () => {
       }),
     ).toBe(true);
     expect(provider.isWebEmbedApiReady).toBe(true);
-    await provider.webEmbedApiNotReady();
+    await provider.setWebEmbedApiNotReady();
+    expect(provider.isWebEmbedApiReady).toBe(true);
+  });
+
+  it('only accepts not-ready from the active page and broadcasts its owner', async () => {
+    const provider = new ProviderApiPrivate({ backgroundApi: {} });
+    const emitSpy = jest.spyOn(appEventBus, 'emit');
+    const request = markWebEmbedChannelPayload(
+      {
+        scope: '$private',
+        origin: 'null',
+        data: { method: 'webEmbedApiNotReady' },
+      } as IJsBridgeMessagePayload,
+      true,
+    );
+    provider.activateWebEmbedMount({ mountId: 'current', mountSequence: 2 });
+    await callReady(provider, 'current');
+    await provider.webEmbedApiNotReady(request, { mountId: 'old' });
+    expect(provider.isWebEmbedApiReady).toBe(true);
+    expect(emitSpy).not.toHaveBeenCalledWith(
+      EAppEventBusNames.WebEmbedWebViewNotReady,
+      expect.anything(),
+    );
+    await provider.webEmbedApiNotReady(request, { mountId: 'current' });
+    expect(provider.isWebEmbedApiReady).toBe(false);
+    expect(emitSpy).toHaveBeenCalledWith(
+      EAppEventBusNames.WebEmbedWebViewNotReady,
+      { mountId: 'current' },
+    );
+    await callReady(provider, 'current');
     expect(provider.isWebEmbedApiReady).toBe(true);
   });
 
@@ -134,6 +178,45 @@ describe('WebEmbed page readiness ownership', () => {
     );
   });
 
+  it('adopts an in-flight unowned mount when a background request reserves after activation, including after an earlier request', async () => {
+    const provider = new ProviderApiPrivate({ backgroundApi: {} });
+    const emitSpy = jest.spyOn(appEventBus, 'emit');
+
+    expect(
+      provider.activateWebEmbedMount({
+        mountId: 'unowned-in-flight',
+        mountSequence: 1,
+      }),
+    ).toBe(true);
+    expect(provider.reserveWebEmbedRequest('request-1')).toEqual({
+      ready: false,
+    });
+    await callReady(provider, 'unowned-in-flight');
+
+    expect(emitSpy).toHaveBeenCalledWith(
+      EAppEventBusNames.LoadWebEmbedWebViewComplete,
+      { mountId: 'unowned-in-flight', requestId: 'request-1' },
+    );
+
+    // A subsequent unowned replacement mount (e.g. Zcash replacement flow)
+    // must also be adopted by the next background request reservation.
+    expect(
+      provider.activateWebEmbedMount({
+        mountId: 'unowned-replacement',
+        mountSequence: 2,
+      }),
+    ).toBe(true);
+    expect(provider.reserveWebEmbedRequest('request-2')).toEqual({
+      ready: false,
+    });
+    await callReady(provider, 'unowned-replacement');
+
+    expect(emitSpy).toHaveBeenCalledWith(
+      EAppEventBusNames.LoadWebEmbedWebViewComplete,
+      { mountId: 'unowned-replacement', requestId: 'request-2' },
+    );
+  });
+
   it('does not invalidate a page that became ready before reservation', async () => {
     const provider = new ProviderApiPrivate({ backgroundApi: {} });
 
@@ -152,14 +235,146 @@ describe('WebEmbed page readiness ownership', () => {
       ready: true,
       mountId: 'mount-a',
     });
+  });
 
-    provider.resetWebEmbedMountReady('other-mount');
-    expect(provider.isWebEmbedApiReady).toBe(true);
-
-    provider.resetWebEmbedMountReady('mount-a');
+  it('accepts a restarted main first mount and rejects the retired owner without cleanup', async () => {
+    platformEnv.enableNativeBackgroundThread = true;
+    const provider = new ProviderApiPrivate({ backgroundApi: {} });
+    appGlobals.$$webEmbedMainRuntime = {
+      currentRuntimeId: 'main-a',
+      retiredRuntimeIds: new Set(),
+    };
+    expect(
+      provider.activateWebEmbedMount({ mountId: 'main-a-5', mountSequence: 5 }),
+    ).toBe(true);
+    await callReady(provider, 'main-a-5');
+    expect(provider.getWebEmbedApiReadyState().ready).toBe(true);
+    appGlobals.$$webEmbedMainRuntime.currentRuntimeId = 'main-b';
+    appGlobals.$$webEmbedMainRuntime.retiredRuntimeIds.add('main-a');
+    expect(provider.getWebEmbedApiReadyState().ready).toBe(false);
+    provider.reserveWebEmbedRequest('request-b');
+    expect(
+      provider.activateWebEmbedMount({
+        mountId: 'main-b-1',
+        mountSequence: 1,
+        requestId: 'request-b',
+      }),
+    ).toBe(true);
+    await callReady(provider, 'main-b-1');
+    expect(
+      provider.activateWebEmbedMount({ mountId: 'main-a-6', mountSequence: 6 }),
+    ).toBe(false);
+    await callReady(provider, 'main-a-5');
+    provider.deactivateWebEmbedMount('main-a-5');
     expect(provider.getWebEmbedApiReadyState()).toEqual({
-      ready: false,
-      mountId: 'mount-a',
+      ready: true,
+      mountId: 'main-b-1',
     });
+    expect(
+      provider.activateWebEmbedMount({ mountId: 'main-b-1', mountSequence: 1 }),
+    ).toBe(true);
+    expect(provider.getWebEmbedApiReadyState().ready).toBe(true);
+  });
+
+  it('does not let an unannounced runtime replace the active page', async () => {
+    platformEnv.enableNativeBackgroundThread = true;
+    const provider = new ProviderApiPrivate({ backgroundApi: {} });
+    expect(
+      provider.activateWebEmbedMount({ mountId: 'main-a-5', mountSequence: 5 }),
+    ).toBe(true);
+    await callReady(provider, 'main-a-5');
+    expect(
+      provider.activateWebEmbedMount({ mountId: 'main-b-6', mountSequence: 6 }),
+    ).toBe(false);
+    expect(provider.getWebEmbedApiReadyState()).toEqual({
+      ready: true,
+      mountId: 'main-a-5',
+    });
+    expect(
+      provider.activateWebEmbedMount({ mountId: 'main-a-6', mountSequence: 6 }),
+    ).toBe(true);
+    expect(
+      provider.activateWebEmbedMount({ mountId: 'forged-7', mountSequence: 7 }),
+    ).toBe(false);
+  });
+
+  it('keeps single-runtime mount ordering independent of native epochs', async () => {
+    const provider = new ProviderApiPrivate({ backgroundApi: {} });
+    appGlobals.$$webEmbedMainRuntime = {
+      currentRuntimeId: 'unrelated',
+      retiredRuntimeIds: new Set(['legacy']),
+    };
+    expect(
+      provider.activateWebEmbedMount({ mountId: 'legacy', mountSequence: 1 }),
+    ).toBe(true);
+    await callReady(provider, 'legacy');
+    expect(provider.getWebEmbedApiReadyState()).toEqual({
+      ready: true,
+      mountId: 'legacy',
+    });
+  });
+
+  it('gates direct fallback calls on the new epoch and bridge owner', async () => {
+    jest.useFakeTimers();
+    try {
+      platformEnv.enableNativeBackgroundThread = true;
+      const request = jest.fn().mockResolvedValue('new-image');
+      let bridgeOwner = 'main-a-5';
+      const backgroundApi = {
+        webEmbedBridge: { request, remoteInfo: { origin: 'null' } },
+        isWebEmbedBridgeOwnedBy: (mountId?: string) => mountId === bridgeOwner,
+      };
+      const provider = new ProviderApiPrivate({ backgroundApi });
+      appGlobals.$$webEmbedMainRuntime = {
+        currentRuntimeId: 'main-a',
+        retiredRuntimeIds: new Set(),
+      };
+      provider.activateWebEmbedMount({ mountId: 'main-a-5', mountSequence: 5 });
+      await callReady(provider, 'main-a-5');
+      appGlobals.$$webEmbedMainRuntime.currentRuntimeId = 'main-b';
+      const pending = provider.callWebEmbedApiProxy({
+        module: 'imageUtils',
+        method: 'base64ImageToBitmap',
+        params: [],
+      });
+      await jest.advanceTimersByTimeAsync(1000);
+      expect(request).not.toHaveBeenCalled();
+      provider.activateWebEmbedMount({ mountId: 'main-b-1', mountSequence: 1 });
+      bridgeOwner = 'main-b-1';
+      await callReady(provider, 'main-b-1');
+      await jest.advanceTimersByTimeAsync(1000);
+      await expect(pending).resolves.toBe('new-image');
+      expect(request).toHaveBeenCalledTimes(1);
+    } finally {
+      jest.clearAllTimers();
+      jest.useRealTimers();
+    }
+  });
+
+  it('rechecks the epoch after direct fallback waiting completes', async () => {
+    platformEnv.enableNativeBackgroundThread = true;
+    const request = jest.fn();
+    const backgroundApi = {
+      webEmbedBridge: { request, remoteInfo: { origin: 'null' } },
+      isWebEmbedBridgeOwnedBy: () => {
+        appGlobals.$$webEmbedMainRuntime!.currentRuntimeId = 'main-b';
+        return true;
+      },
+    };
+    const provider = new ProviderApiPrivate({ backgroundApi });
+    appGlobals.$$webEmbedMainRuntime = {
+      currentRuntimeId: 'main-a',
+      retiredRuntimeIds: new Set(),
+    };
+    provider.activateWebEmbedMount({ mountId: 'main-a-5', mountSequence: 5 });
+    await callReady(provider, 'main-a-5');
+    await expect(
+      provider.callWebEmbedApiProxy({
+        module: 'imageUtils',
+        method: 'base64ImageToBitmap',
+        params: [],
+      }),
+    ).rejects.toThrow('webembed webview bridge not ready.');
+    expect(request).not.toHaveBeenCalled();
   });
 });

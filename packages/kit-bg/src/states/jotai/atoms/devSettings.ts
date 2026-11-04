@@ -33,6 +33,8 @@ export interface ITestAccount {
 }
 
 export interface IDevSettings {
+  // Resume the isolated storage recovery scenario from Home after a restart.
+  nativeStorageRecoveryTestOnHome?: boolean;
   // enable test endpoint
   enableTestEndpoint?: boolean;
   // enable dev overlay window
@@ -141,6 +143,9 @@ export interface IDevSettings {
   // regardless of its value. Default off; only honored while dev mode is
   // enabled.
   ignoreReviewControl?: boolean;
+  // Dev builds only: turning on hardware Cloud sync signs with a fixed test
+  // key instead of a device, so end-to-end runs need no hardware.
+  hardwareCloudSyncSoftwareKey?: boolean;
 }
 
 export type IDevSettingsKeys = keyof IDevSettings;

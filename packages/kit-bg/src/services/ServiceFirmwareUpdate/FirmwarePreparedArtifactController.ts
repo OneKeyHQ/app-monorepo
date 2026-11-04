@@ -5,8 +5,12 @@ import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import { EHardwareTransportType } from '@onekeyhq/shared/types';
 import type { ICheckAllFirmwareReleaseResult } from '@onekeyhq/shared/types/device';
 
+import { getGatedFirmwareUpdateDevSetting } from '../../states/jotai/atoms/devSettings';
+
 import { firmwareArtifactAdapter } from './FirmwareArtifactAdapter';
+import { getFirmwareArtifactCache } from './FirmwareArtifactCache';
 import {
+  downloadFirmwareArtifact,
   isExternalFirmwareCapabilityReady,
   isFirmwareArtifactCapabilityReady,
   prepareBridgeFirmwareBinaries,
@@ -15,6 +19,7 @@ import {
 } from './FirmwareArtifactPreflight';
 import { firmwareUpdateTrace } from './FirmwareUpdateTrace';
 
+import type { IFirmwareDownloadContext } from './FirmwareArtifactCache';
 import type {
   IBridgeFirmwareBinaries,
   IPreparedFirmwareArtifacts,
@@ -427,12 +432,14 @@ export class FirmwarePreparedArtifactController {
   async preparePlanArtifacts({
     plan,
     sdk,
+    downloadContext,
     // cspell:disable-next-line
     transactionId = `fwtx:${generateUUID().toLowerCase()}`,
   }: {
     plan: FirmwareUpdatePlan;
     sdk: CoreApi;
     transactionId?: string;
+    downloadContext?: IFirmwareDownloadContext;
   }): Promise<IPreparedFirmwareArtifacts> {
     firmwareUpdateTrace({
       transactionId,
@@ -470,6 +477,7 @@ export class FirmwarePreparedArtifactController {
         transactionId,
         leaseRef,
         preparePlan: sdk.prepareFirmwareUpdatePlan,
+        downloadContext,
       });
       const validatedPreparedPlan = sdk.validateFirmwareUpdatePreparedPlan(
         prepared.preparedPlan,
@@ -557,7 +565,11 @@ export class FirmwarePreparedArtifactController {
         'Firmware external SDK capability is unavailable',
       );
     }
-    return this.preparePlanArtifacts({ plan, sdk });
+    return this.preparePlanArtifacts({
+      plan,
+      sdk,
+      downloadContext: await this.getDownloadContext(plan),
+    });
   }
 
   async prepareWorkflowArtifacts(
@@ -580,6 +592,7 @@ export class FirmwarePreparedArtifactController {
         const prepared = await prepareBridgeFirmwareBinaries(
           plan,
           transactionId,
+          await this.getDownloadContext(plan),
         );
         if (prepared) {
           firmwareUpdateTrace({
@@ -665,10 +678,38 @@ export class FirmwarePreparedArtifactController {
     return { hostBindingReleased, leaseReleased };
   }
 
-  sweepOrphanedArtifacts(): Promise<{
+  async prefetchDeviceModels(
+    deviceTypes: readonly string[],
+    preRelease: boolean,
+  ): Promise<void> {
+    if (!(await isFirmwareArtifactCapabilityReady())) return;
+    await getFirmwareArtifactCache().prefetch(
+      deviceTypes,
+      preRelease,
+      downloadFirmwareArtifact,
+    );
+  }
+
+  private async getDownloadContext(
+    plan: FirmwareUpdatePlan,
+  ): Promise<IFirmwareDownloadContext> {
+    return {
+      deviceType: String(plan.deviceModel),
+      firmwareType: plan.firmwareType,
+      releaseChannel: (await getGatedFirmwareUpdateDevSetting(
+        'usePreReleaseConfig',
+      ))
+        ? 'pre-release'
+        : 'stable',
+      source: 'upgrade',
+    };
+  }
+
+  async sweepOrphanedArtifacts(): Promise<{
     deletedFiles: number;
     deletedBytes: number;
   }> {
+    await getFirmwareArtifactCache().restorePins();
     return firmwareArtifactAdapter.sweepOrphans();
   }
 }

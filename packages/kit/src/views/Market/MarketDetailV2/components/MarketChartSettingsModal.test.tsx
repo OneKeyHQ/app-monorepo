@@ -51,6 +51,7 @@ const mockChartSourceRow = jest.fn<null, [IChartSourceRowProps]>(() => null);
 let mockRouteParams:
   | {
       showPreviousClose?: boolean;
+      showNavigationButtons?: boolean;
       showChartType?: boolean;
       chartMode?: 'native' | 'tradingView';
       isChartSwitchDisabled?: boolean;
@@ -155,6 +156,7 @@ describe('MarketChartSettingsModal', () => {
       'pastEvents',
       'clickInteraction',
       'previousClose',
+      'navigationButtons',
     ]);
 
     await act(async () => {
@@ -277,6 +279,7 @@ describe('MarketChartSettingsModal', () => {
     expect(props.onChange).toBeUndefined();
     expect(props.hiddenOptionIds).toContain('clickInteraction');
     expect(props.hiddenOptionIds).toContain('previousClose');
+    expect(props.hiddenOptionIds).toContain('navigationButtons');
 
     act(() => {
       props.onCancel?.();
@@ -308,7 +311,29 @@ describe('MarketChartSettingsModal', () => {
       'futureEvents',
       'pastEvents',
       'previousClose',
+      'navigationButtons',
     ]);
+  });
+
+  it('offers navigation buttons only when the chart opts in', () => {
+    mockIsNative = true;
+    mockIsMobileLayout = true;
+    mockRouteParams = { showNavigationButtons: true };
+    render(<MarketChartSettingsModal />);
+    expect(
+      mockTradingViewChartSettings.mock.calls.at(-1)?.[0].hiddenOptionIds,
+    ).not.toContain('navigationButtons');
+
+    showMarketChartSettingsDialog({ showNavigationButtons: true });
+    render(
+      mockShowTradingViewChartSettingsDialog.mock.calls[0][0].renderContent(
+        mockCloseDialog,
+      ),
+    );
+
+    expect(
+      mockTradingViewChartSettings.mock.calls.at(-1)?.[0].hiddenOptionIds,
+    ).not.toContain('navigationButtons');
   });
 
   it('offers Prev close only when the chart opts in', () => {

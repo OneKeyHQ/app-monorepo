@@ -735,6 +735,7 @@ export interface IMarketAccountPortfolioItem {
 }
 
 export interface IMarketAccountPortfolioDisplayItem extends IMarketAccountPortfolioItem {
+  currency?: string;
   networkId?: string;
   tokenId?: string;
   issuer?: string;
@@ -764,6 +765,9 @@ export interface IMarketBannerDescription {
 }
 
 export interface IMarketBannerTokenPreview {
+  stockId?: string;
+  networkId?: string;
+  address?: string;
   logo: string;
   name: string;
   symbol: string;

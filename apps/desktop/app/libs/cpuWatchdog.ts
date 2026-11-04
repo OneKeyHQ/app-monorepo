@@ -94,6 +94,14 @@ export class CpuWatchdogController {
     return previousLastFiredAt;
   }
 
+  markResponsive(pid?: number) {
+    const episode = this.episodeByPid.get(pid ?? 0);
+    if (episode?.activeHighestRank === SEVERITY_RANK.unresponsive) {
+      episode.activeHighestRank = 0;
+      episode.recoverySamplesBelowThreshold = 0;
+    }
+  }
+
   private getOrCreateEpisode(pidKey: number): IPidEpisodeState {
     let state = this.episodeByPid.get(pidKey);
     if (!state) {

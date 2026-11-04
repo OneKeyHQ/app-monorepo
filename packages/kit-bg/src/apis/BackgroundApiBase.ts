@@ -813,6 +813,9 @@ class BackgroundApiBase implements IBackgroundApiBridge {
   async nativeStorage(request: INativeStorageRequest): Promise<unknown> {
     await travelModeManager.ready;
     if (travelModeManager.isMaskingDataSync() && request.scope === 'recovery') {
+      if (request.operation === 'inspectAppStorageMigration') {
+        return { errorMessage: null };
+      }
       return undefined;
     }
     if (
@@ -1003,28 +1006,17 @@ class BackgroundApiBase implements IBackgroundApiBridge {
     if (!mountId && this.webEmbedBridgeMountId) {
       return;
     }
-    if (mountId) {
-      if (bridge) {
-        if (
-          mountSequence === undefined ||
-          mountSequence < this.webEmbedBridgeMountSequence
-        ) {
-          return;
-        }
-        this.webEmbedBridgeMountSequence = mountSequence;
-        this.webEmbedBridgeMountId = mountId;
-      } else {
-        if (mountId !== this.webEmbedBridgeMountId) {
-          return;
-        }
-        if (
-          mountSequence !== undefined &&
-          mountSequence > this.webEmbedBridgeMountSequence
-        ) {
-          this.webEmbedBridgeMountSequence = mountSequence;
-        }
-        this.webEmbedBridgeMountId = undefined;
-      }
+    if (
+      mountId &&
+      (mountSequence === undefined ||
+        mountSequence < this.webEmbedBridgeMountSequence ||
+        (!bridge && mountId !== this.webEmbedBridgeMountId))
+    ) {
+      return;
+    }
+    if (mountId && mountSequence !== undefined) {
+      this.webEmbedBridgeMountSequence = mountSequence;
+      this.webEmbedBridgeMountId = bridge ? mountId : undefined;
     }
     defaultLogger.app.webembed.webEmbedBgConnectWebEmbedBridge({
       hasBridge: !!bridge,

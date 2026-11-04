@@ -41,12 +41,11 @@ import type {
   IPasteEventPayload,
 } from '@onekeyfe/react-native-text-input';
 import type {
-  HostComponent,
+  HostInstance,
   MeasureLayoutOnSuccessCallback,
   MeasureOnSuccessCallback,
-  NativeSyntheticEvent,
-  TextInput,
-  TextInputFocusEventData,
+  TextInputFocusEvent,
+  TextInputInstance,
 } from 'react-native';
 
 export { EPasteEventPayloadItemType } from '@onekeyfe/react-native-text-input/src/enum';
@@ -138,7 +137,11 @@ const SIZE_MAPPINGS = {
 };
 
 export const useAutoScrollToTop = platformEnv.isNativeAndroid
-  ? (ref: RefObject<TextInput | null>, waitMs = 250, enabled = true) => {
+  ? (
+      ref: RefObject<TextInputInstance | null>,
+      waitMs = 250,
+      enabled = true,
+    ) => {
       useEffect(() => {
         if (!enabled) {
           return;
@@ -164,7 +167,7 @@ const useReadOnlyStyle = (readOnly = false) =>
   );
 
 export const useAutoFocus = (
-  inputRef: RefObject<TextInput | null>,
+  inputRef: RefObject<TextInputInstance | null>,
   autoFocus?: boolean,
   autoFocusDelayMs?: number,
 ) => {
@@ -207,7 +210,7 @@ export const useFixAndroidInputValueDisplay = platformEnv.isNativeAndroid
 export const useOnWebPaste = platformEnv.isNative
   ? noop
   : (
-      inputRef: RefObject<TextInput> | null,
+      inputRef: RefObject<TextInputInstance | null> | null,
       onPaste?: (event: IPasteEventParams) => void,
     ) => {
       useEffect(() => {
@@ -314,7 +317,7 @@ function BaseInput(
   const addOnsBorderRadius =
     addOnsContainerProps?.borderRadius ?? containerBorderRadius;
   const themeName = useThemeName();
-  const inputRef: RefObject<TextInput | null> | null = useRef(null);
+  const inputRef: RefObject<TextInputInstance | null> | null = useRef(null);
   const reloadAutoFocus = useAutoFocus(inputRef, autoFocus, autoFocusDelayMs);
   const readOnlyStyle = useReadOnlyStyle(readonly);
   const { clearText, getClipboard, supportPaste, onPasteClearText } =
@@ -459,9 +462,7 @@ function BaseInput(
       inputRef.current?.setSelection?.(start, end);
     },
     measureLayout: (
-      relativeToNativeComponentRef:
-        | React.ElementRef<HostComponent<unknown>>
-        | number,
+      relativeToNativeComponentRef: HostInstance | number,
       onSuccess: MeasureLayoutOnSuccessCallback,
       onFail?: () => void,
     ) =>
@@ -487,10 +488,11 @@ function BaseInput(
   const shownValue = useFixAndroidInputValueDisplay(value);
   // workaround for selectTextOnFocus={true} not working on Native App
   const handleFocus = useCallback(
-    (e: NativeSyntheticEvent<TextInputFocusEventData>) => {
+    (e: TextInputFocusEvent) => {
       onFocus?.(e);
       if (platformEnv.isNative && selectTextOnFocus) {
-        const currentTarget = e.currentTarget;
+        // On native the event target is always a host element, never a tag.
+        const currentTarget = e.currentTarget as HostInstance;
         void timerUtils.setTimeoutPromised(() => {
           currentTarget?.setNativeProps({
             selection: { start: 0, end: valueRef.current?.length || 0 },

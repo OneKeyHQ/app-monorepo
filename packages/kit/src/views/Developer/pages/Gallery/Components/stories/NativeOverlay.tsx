@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { OverlayView } from '@onekeyfe/react-native-native-overlay';
 import { useNavigation } from '@react-navigation/native';
-import { Keyboard, View } from 'react-native';
+import { Keyboard, View, type ViewInstance } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import {
@@ -292,7 +292,7 @@ function MeasureOverlay({
 }) {
   const [visible, setVisible] = useState(true);
   const [result, setResult] = useState('measuring…');
-  const boxRef = useRef<View>(null);
+  const boxRef = useRef<ViewInstance>(null);
   const measure = useCallback(() => {
     boxRef.current?.measureInWindow((x, y, width, height) => {
       setResult(

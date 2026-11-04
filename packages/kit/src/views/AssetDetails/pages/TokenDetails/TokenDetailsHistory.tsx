@@ -2,10 +2,9 @@ import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { unionBy } from 'lodash';
 
-import type { SectionList } from '@onekeyhq/components';
-import { useTabIsRefreshingFocused } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { TxHistoryListView } from '@onekeyhq/kit/src/components/TxHistoryListView';
+import { AppPagerContent } from '@onekeyhq/kit/src/components/AppPager/AppPagerContent';
+import { useAppPagerPage } from '@onekeyhq/kit/src/components/AppPager/useAppPagerPage';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useRouteIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
@@ -13,10 +12,9 @@ import {
   useHistoryListActions,
   withHistoryListProvider,
 } from '@onekeyhq/kit/src/states/jotai/contexts/historyList';
-import {
-  FrozenTopHistoryScrollObserver,
-  useFrozenTopHistoryData,
-} from '@onekeyhq/kit/src/views/Home/pages/hooks/useFrozenTopHistoryData';
+import { withBrowserProvider } from '@onekeyhq/kit/src/views/Discovery/pages/Browser/WithBrowserProvider';
+import { NativeHistoryList } from '@onekeyhq/kit/src/views/Home/components/HomeHistoryListView/NativeHistoryList';
+import { useFrozenTopHistoryData } from '@onekeyhq/kit/src/views/Home/pages/hooks/useFrozenTopHistoryData';
 import { useHistoryListLoadMore } from '@onekeyhq/kit/src/views/Home/pages/hooks/useHistoryListLoadMore';
 import { maybeOpenPrivateSendHistoryDetail } from '@onekeyhq/kit/src/views/Swap/utils/privateSendHistory';
 import {
@@ -34,9 +32,16 @@ import {
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalAssetDetailRoutes } from '@onekeyhq/shared/src/routes/assetDetails';
 import cacheUtils from '@onekeyhq/shared/src/utils/cacheUtils';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+import {
+  isPrivacyChainHistoryVisible,
+  projectPrivacyChainHistoryTxToPool,
+} from '@onekeyhq/shared/src/utils/privacyChainHistoryUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IAccountHistoryTx } from '@onekeyhq/shared/types/history';
 import { EDecodedTxStatus } from '@onekeyhq/shared/types/tx';
+
+import { TokenDetailsPaginationObserver } from './TokenDetailsPager';
 
 import type { IProps } from '.';
 
@@ -45,6 +50,9 @@ const tokenHistoryCache = new cacheUtils.LRUCache<string, IAccountHistoryTx[]>({
   ttl: timerUtils.getTimeDurationMs({ minute: 5 }),
   ttlAutopurge: true,
 });
+
+const TokenDetailsNativeHistoryList = withBrowserProvider(NativeHistoryList);
+const historyContentPadding = { top: 0, bottom: 0 };
 
 function TokenDetailsHistoryContent({
   focusParam,
@@ -61,17 +69,11 @@ function TokenDetailsHistoryContent({
     ListHeaderComponent,
     isTabView,
     inTabList,
+    privacyHistoryPoolId,
   } = props;
 
-  const ListComponentRef = useRef<typeof SectionList>(null);
   const isRouteFocused = useRouteIsFocused();
-
-  const recomputeLayout = useCallback(() => {
-    if (!platformEnv.isNative) {
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
-      (ListComponentRef.current as any)?.recomputeLayout?.();
-    }
-  }, []);
+  const pagerPage = useAppPagerPage();
 
   const [settings] = useSettingsPersistAtom();
   const [{ currencyMap }] = useCurrencyPersistAtom();
@@ -143,11 +145,20 @@ function TokenDetailsHistoryContent({
   // `run()` body so a slow stale response can't re-seed the load-more cursor
   // after `resetLoadMore()` ran.
   const fetchRequestIdRef = useRef(0);
+  const activeRef = useRef(false);
+  useEffect(() => {
+    activeRef.current = true;
+    return () => {
+      activeRef.current = false;
+      fetchRequestIdRef.current += 1;
+    };
+  }, []);
   const { result: tokenHistory, run } = usePromiseResult(
     async () => {
       fetchRequestIdRef.current += 1;
       const requestId = fetchRequestIdRef.current;
-      const isCurrentRequest = () => fetchRequestIdRef.current === requestId;
+      const isCurrentRequest = () =>
+        activeRef.current && fetchRequestIdRef.current === requestId;
       try {
         const r = await backgroundApiProxy.serviceHistory.fetchAccountHistory({
           accountId,
@@ -174,9 +185,6 @@ function TokenDetailsHistoryContent({
           hasMore: r.hasMoreOnChainHistory,
           isIndexer: r.isIndexer,
         });
-        setTimeout(() => {
-          recomputeLayout();
-        }, 300);
         return r.txs ?? [];
       } finally {
         if (isCurrentRequest()) {
@@ -193,7 +201,6 @@ function TokenDetailsHistoryContent({
       settings.currencyInfo.id,
       currencyMap,
       updateAddressesInfo,
-      recomputeLayout,
       historyCacheKey,
       onFirstPageResponse,
     ],
@@ -209,16 +216,32 @@ function TokenDetailsHistoryContent({
 
   const resolvedHistory = useMemo(() => {
     const firstPageHistory = tokenHistory ?? cachedHistory ?? [];
-    return appendedTxs.length
+    const mergedHistory = appendedTxs.length
       ? unionBy([...firstPageHistory, ...appendedTxs], (tx) => tx.id)
       : firstPageHistory;
-  }, [tokenHistory, cachedHistory, appendedTxs]);
+    if (privacyHistoryPoolId === undefined) {
+      return mergedHistory;
+    }
+    return mergedHistory
+      .filter((tx) =>
+        isPrivacyChainHistoryVisible({
+          txPoolIds: tx.privacyChainHistoryPoolIds,
+          txSide: tx.privacyChainHistorySide,
+          selectedPoolId: privacyHistoryPoolId,
+        }),
+      )
+      .map((tx) =>
+        projectPrivacyChainHistoryTxToPool({
+          tx,
+          selectedPoolId: privacyHistoryPoolId,
+        }),
+      );
+  }, [tokenHistory, cachedHistory, appendedTxs, privacyHistoryPoolId]);
 
   // OK-57070: same native top-insertion jitter fix as the wallet history tab.
   // Only engages inside the collapsible tab (where the scroll position is
   // meaningful and the user can be scrolled deep); a pass-through otherwise.
-  // `inTabList` also gates the scroll observer mount below, so the tab-context
-  // hook never runs on the non-tab single-token detail path.
+  // Standalone details do not have a pager scroll position to freeze.
   const frozenTopEnabled = !!inTabList && focusParam && isRouteFocused;
   // `historyCacheKey` doubles as the freeze identity: it changes exactly when
   // the rows switch to a different history stream (account / network / token /
@@ -228,9 +251,20 @@ function TokenDetailsHistoryContent({
   // Derive initialized synchronously to avoid one-frame flash of empty history
   // when historyCacheKey changes and cachedHistory becomes undefined
   const effectiveInit = historyInit || cachedHistory !== undefined;
+  const historyKeyRef = useRef(historyCacheKey);
+  historyKeyRef.current = historyCacheKey;
+  const actionFocusRef = useRef({ focusParam, isRouteFocused });
+  actionFocusRef.current = { focusParam, isRouteFocused };
 
   const handleHistoryItemPress = useCallback(
     async (tx: IAccountHistoryTx) => {
+      const isCurrentAction = () =>
+        activeRef.current && historyKeyRef.current === historyCacheKey;
+      const canNavigate = () =>
+        isCurrentAction() &&
+        actionFocusRef.current.isRouteFocused &&
+        (!isTabView || actionFocusRef.current.focusParam);
+      if (!canNavigate()) return;
       if (
         tx.decodedTx.status === EDecodedTxStatus.Pending &&
         tx.isLocalCreated
@@ -243,7 +277,7 @@ function TokenDetailsHistoryContent({
           });
 
         // tx has been replaced by another tx
-        if (!localTx || localTx.replacedNextId) {
+        if (!canNavigate() || !localTx || localTx.replacedNextId) {
           return;
         }
       }
@@ -253,29 +287,50 @@ function TokenDetailsHistoryContent({
           accountId,
           networkId,
         });
+      if (!canNavigate()) return;
+      const guardedNavigation: Parameters<
+        typeof maybeOpenPrivateSendHistoryDetail
+      >[0]['navigation'] = {
+        pushModal: (route, params) => {
+          if (canNavigate()) navigation.pushModal(route, params);
+        },
+      };
       const openedPrivateSendHistory = await maybeOpenPrivateSendHistoryDetail({
         historyTx: tx,
-        navigation,
+        navigation: guardedNavigation,
         accountId,
         accountAddress,
         network: { id: networkId },
         tokenInfo,
         currencySymbol: settings.currencyInfo.symbol,
       });
-      if (openedPrivateSendHistory) return;
+      if (!canNavigate() || openedPrivateSendHistory) return;
+
+      const xpub = await backgroundApiProxy.serviceAccount.getAccountXpub({
+        accountId,
+        networkId,
+      });
+      if (!canNavigate()) return;
 
       navigation.push(EModalAssetDetailRoutes.HistoryDetails, {
         accountId,
         networkId,
         accountAddress,
-        xpub: await backgroundApiProxy.serviceAccount.getAccountXpub({
-          accountId,
-          networkId,
-        }),
+        xpub,
         historyTx: tx,
+        privacyChainPoolId: privacyHistoryPoolId,
       });
     },
-    [accountId, navigation, networkId, settings.currencyInfo.symbol, tokenInfo],
+    [
+      accountId,
+      navigation,
+      networkId,
+      privacyHistoryPoolId,
+      settings.currencyInfo.symbol,
+      tokenInfo,
+      historyCacheKey,
+      isTabView,
+    ],
   );
 
   useEffect(() => {
@@ -286,40 +341,70 @@ function TokenDetailsHistoryContent({
     };
   }, [run]);
 
-  return (
-    <>
-      {inTabList ? (
-        <FrozenTopHistoryScrollObserver
-          enabled={frozenTopEnabled}
-          onAwayFromTopChange={onAwayFromTopChange}
-        />
-      ) : null}
-      <TxHistoryListView
-        ref={ListComponentRef}
-        hideValue
-        showFooter
-        walletId={walletId}
-        accountId={accountId}
-        networkId={networkId}
-        indexedAccountId={indexedAccountId}
-        inTabList={inTabList}
-        initialized={effectiveInit}
-        data={displayedHistory}
-        onPressHistory={handleHistoryItemPress}
-        ListHeaderComponent={ListHeaderComponent as React.ReactElement}
-        isSingleAccount
-        onEndReached={loadMore}
-        isLoadingMore={isLoadingMore}
-        hasMore={loadMoreHasMore}
-      />
-    </>
+  const webScrollHost =
+    !platformEnv.isNative && isTabView
+      ? (focusParam && pagerPage.owner) || null
+      : undefined;
+  const historyList = (
+    <TokenDetailsNativeHistoryList
+      key={historyCacheKey}
+      hideValue
+      showIcon={false}
+      showFooter
+      refreshEnabled={false}
+      isAllNetworks={networkUtils.isAllNetwork({ networkId })}
+      walletId={walletId}
+      accountId={accountId}
+      networkId={networkId}
+      indexedAccountId={indexedAccountId}
+      inTabList={inTabList}
+      initialized={effectiveInit}
+      data={displayedHistory}
+      onPressHistory={handleHistoryItemPress}
+      ListHeaderComponent={ListHeaderComponent as React.ReactElement}
+      isSingleAccount
+      onEndReached={isTabView && !focusParam ? undefined : loadMore}
+      isLoadingMore={isLoadingMore}
+      hasMore={loadMoreHasMore}
+      frozenTopEnabled={frozenTopEnabled}
+      frozenTopIdentityKey={historyCacheKey}
+      observeFrozenTop={!!inTabList}
+      onAwayFromTopChange={onAwayFromTopChange}
+      webScrollHost={webScrollHost}
+      webContentPadding={historyContentPadding}
+    />
   );
+
+  if (!platformEnv.isNative && isTabView) {
+    return (
+      <AppPagerContent>
+        {historyList}
+        <TokenDetailsPaginationObserver
+          enabled={effectiveInit && displayedHistory.length > 0 && focusParam}
+          hasMore={loadMoreHasMore}
+          isLoadingMore={isLoadingMore}
+          progressKey={`${historyCacheKey}:${displayedHistory.length}:${displayedHistory.at(-1)?.id ?? ''}`}
+          onEndReached={loadMore}
+          onEndReachedThreshold={0.2}
+          padding={historyContentPadding}
+        />
+      </AppPagerContent>
+    );
+  }
+
+  return historyList;
 }
 
 function TokenDetailsHistoryWithTabFocus(props: IProps) {
-  const { isFocused } = useTabIsRefreshingFocused();
+  const { isFocused } = useAppPagerPage();
+  const isRouteFocused = useRouteIsFocused();
 
-  return <TokenDetailsHistoryContent {...props} focusParam={isFocused} />;
+  return (
+    <TokenDetailsHistoryContent
+      {...props}
+      focusParam={isFocused && isRouteFocused}
+    />
+  );
 }
 
 function TokenDetailsHistory(props: IProps) {

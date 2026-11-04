@@ -1141,6 +1141,7 @@ class ServiceBatchCreateAccount extends ServiceBase {
         );
       }
       const deviceVendor = deviceParams?.dbDevice?.vendor;
+      hwAllNetworkPrepareAccountsResponse.vendor = deviceVendor;
       const vendorProfile = getVendorProfile(deviceVendor);
       const isThirdPartyWallet = !!deviceVendor && vendorProfile.isThirdParty;
       let thirdPartyAllNetworkAdapter: IThirdPartyHardwareAdapter | undefined;

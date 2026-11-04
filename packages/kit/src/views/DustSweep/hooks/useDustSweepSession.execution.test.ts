@@ -25,6 +25,9 @@ const mockResult = jest.fn();
 const mockTxState: jest.MockedFunction<
   typeof backgroundApiProxy.serviceSwap.fetchTxState
 > = jest.fn();
+const mockFetchQuote = jest.fn(async (token: IDustSweepToken) =>
+  mockQuote(token),
+);
 const mockBuild = jest.fn(
   async ({ fromToken }: { fromToken: IDustSweepToken }) => ({
     result: mockQuote(fromToken),
@@ -45,7 +48,8 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
 }));
 jest.mock('../utils/quote', () => ({
   ...jest.requireActual<typeof import('../utils/quote')>('../utils/quote'),
-  fetchDustSweepQuote: async (token: IDustSweepToken) => mockQuote(token),
+  fetchDustSweepQuote: (...args: Parameters<typeof mockFetchQuote>) =>
+    mockFetchQuote(...args),
 }));
 jest.mock(
   '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/SwapPanel/hooks/marketBuildExecutionUtils',
@@ -155,6 +159,9 @@ async function broadcast(
 
 beforeEach(() => {
   jest.clearAllMocks();
+  mockFetchQuote
+    .mockReset()
+    .mockImplementation(async (token) => mockQuote(token));
   mockBuild.mockReset().mockImplementation(async ({ fromToken }) => ({
     result: mockQuote(fromToken),
   }));
@@ -163,6 +170,44 @@ beforeEach(() => {
     dealReceiveAmount: '0.01',
   });
   mockHistory.mockResolvedValue(undefined);
+});
+
+it('skips quote errors, fails build errors and completes the next token', async () => {
+  mockFetchQuote.mockRejectedValueOnce({
+    ...rejection(),
+    message: 'Quote unavailable',
+  });
+  mockBuild.mockRejectedValueOnce({
+    ...rejection(),
+    message: 'API build failed',
+  });
+  mockSend.mockImplementation(async (params) => {
+    await params.onBeforeSignAndSend?.();
+    return broadcast(params);
+  });
+  const { result } = renderHook(() => useDustSweepSession([], { minRunMs: 0 }));
+  await act(async () => result.current.start(snapshot));
+  expect(result.current.state.phase).toBe('completed');
+  expect(result.current.state.items.map((item) => item.status)).toEqual([
+    'skipped',
+    'failed',
+    'success',
+  ]);
+  expect(result.current.state.items[0].providerErrorMessage).toBe(
+    'Quote unavailable',
+  );
+  expect(result.current.state.items[1].providerErrorMessage).toBe(
+    'API build failed',
+  );
+  expect(mockBuild).toHaveBeenCalledTimes(2);
+  expect(mockSend).toHaveBeenCalledTimes(1);
+  expect(mockResult).toHaveBeenCalledWith(
+    expect.objectContaining({
+      successCount: 1,
+      failedCount: 1,
+      skippedCount: 1,
+    }),
+  );
 });
 
 it('preserves a bridge API build failure through the real executor and session', async () => {
@@ -175,7 +220,7 @@ it('preserves a bridge API build failure through the real executor and session',
     result.current.start({ ...snapshot, tokens: [snapshot.tokens[0]] }),
   );
   expect(result.current.state.items[0]).toMatchObject({
-    status: 'skipped',
+    status: 'failed',
     reason: 'unknown',
     providerErrorMessage: 'API build failed',
   });
@@ -244,7 +289,7 @@ it.each(['preparation', 'submission', 'confirmation'] as const)(
     await act(async () => result.current.start(snapshot));
     expect(result.current.state.phase).toBe('completed');
     expect(result.current.state.items.map((item) => item.status)).toEqual([
-      'skipped',
+      'failed',
       'success',
       'success',
     ]);
@@ -259,7 +304,12 @@ it.each(['preparation', 'submission', 'confirmation'] as const)(
     expect(mockHistory).toHaveBeenCalledTimes(phase === 'confirmation' ? 3 : 2);
     expect(getDustSweepPresentation(result.current.state)).toMatchObject({
       outcome: 'partial',
-      totals: { settledCount: 3, successCount: 2, skippedCount: 1 },
+      totals: {
+        settledCount: 3,
+        successCount: 2,
+        failedCount: 1,
+        skippedCount: 0,
+      },
     });
     if (phase === 'confirmation')
       expect(mockResult).toHaveBeenCalledWith(
@@ -286,7 +336,7 @@ it('settles all rejected tokens without waiting, history writes or a resume acti
   expect(result.current.state.phase).toBe('completed');
   expect(getDustSweepPresentation(result.current.state)).toMatchObject({
     outcome: 'failed',
-    totals: { settledCount: 3, skippedCount: 3 },
+    totals: { settledCount: 3, failedCount: 3, skippedCount: 0 },
   });
   expect(mockSend).toHaveBeenCalledTimes(3);
   expect(mockHistory).not.toHaveBeenCalled();
@@ -303,9 +353,9 @@ it('collects a sender failure after broadcast without losing transaction identit
   await act(async () => result.current.start(snapshot));
   expect(result.current.state.phase).toBe('completed');
   expect(result.current.state.items.map((item) => item.status)).toEqual([
-    'skipped',
-    'skipped',
-    'skipped',
+    'failed',
+    'failed',
+    'failed',
   ]);
   expect(mockSend).toHaveBeenCalledTimes(3);
   expect(mockHistory).toHaveBeenCalledTimes(3);
@@ -342,7 +392,7 @@ it('honors a pause while the rejected submission is outstanding, then continues 
   await act(async () => rejectSend(rejection()));
   expect(result.current.state.phase).toBe('paused');
   expect(result.current.state.items.map((item) => item.status)).toEqual([
-    'skipped',
+    'failed',
     'waiting',
     'waiting',
   ]);
@@ -382,7 +432,7 @@ it('preserves localized signing errors in the existing collector and finishes', 
   await act(async () => result.current.start(snapshot));
   expect(result.current.state.phase).toBe('completed');
   expect(result.current.state.items[0]).toMatchObject({
-    status: 'skipped',
+    status: 'failed',
     localError: {
       key: ETranslations.swap_page_toast_insufficient_balance_title,
       values: { token: 'SOL' },

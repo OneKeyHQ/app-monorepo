@@ -1,15 +1,16 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import { debounce } from 'lodash';
-
-import { useIsOverlayPage } from '@onekeyhq/components';
 import { useRouteIsFocused as useIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
-import { useSettingsAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  EJotaiContextStoreNames,
+  useSettingsAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 import {
@@ -18,11 +19,13 @@ import {
 } from '@onekeyhq/shared/types/swap/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+import { useDebouncedCallback } from '../../../hooks/useDebounce';
 import useListenTabFocusState from '../../../hooks/useListenTabFocusState';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 import { useAccountSelectorActions } from '../../../states/jotai/contexts/accountSelector/actions';
 import {
+  useSwapColdStartScopeKey,
   useSwapFromTokenAmountAtom,
   useSwapProDirectionAtom,
   useSwapProSelectTokenAtom,
@@ -39,6 +42,7 @@ import {
 } from '../../../states/jotai/contexts/swap';
 import { ESwapDirection } from '../../Market/MarketDetailV2/components/SwapPanel/hooks/useTradeType';
 import {
+  isSwapColdStartAllNetworkContextNetworkId,
   isSwapSelectedTokensColdStartContextValidForAccountNetworkSync,
   shouldPreserveSwapUserInputOnAccountSwitch,
 } from '../utils/swapColdStartTokenCacheUtils';
@@ -74,6 +78,22 @@ function isSameSwapRecipientAddress({
  * Ensures that the account network selection matches the chosen swap tokens for both "from" and "to" directions. Automatically resets the "swap to another account" switch and address if the selected network or account becomes invalid or unsupported. Triggers synchronization on relevant changes, tab focus, and modal state transitions.
  */
 export function useSwapFromAccountNetworkSync() {
+  const isFocused = useIsFocused();
+  const isFocusedRef = useRef(isFocused);
+  isFocusedRef.current = isFocused;
+  const scope = useSwapColdStartScopeKey();
+  const isRootSwap = scope === `store:${EJotaiContextStoreNames.swap}`;
+  const isTabVisibleRef = useRef(isFocused);
+  const syncAuthorityRef = useRef({ active: false, generation: 0 });
+  const recipientRetryRef = useRef<ReturnType<typeof setTimeout> | undefined>(
+    undefined,
+  );
+  if (!isFocused || (isRootSwap && !isTabVisibleRef.current)) {
+    if (syncAuthorityRef.current.active) {
+      syncAuthorityRef.current.generation += 1;
+    }
+    syncAuthorityRef.current.active = false;
+  }
   const { updateSelectedAccountNetwork } = useAccountSelectorActions().current;
   const [fromToken] = useSwapSelectFromTokenAtom();
   const [fromTokenAmount] = useSwapFromTokenAmountAtom();
@@ -90,6 +110,20 @@ export function useSwapFromAccountNetworkSync() {
   const [toToken] = useSwapSelectToTokenAtom();
   const [selectedTokensColdStartContext] =
     useSwapSelectedTokensColdStartContextAtom();
+  const shouldKeepAllNetworkDefaultAccount = Boolean(
+    selectedTokensColdStartContext?.defaultTokenSeed &&
+    isSwapColdStartAllNetworkContextNetworkId(
+      selectedTokensColdStartContext.networkId,
+    ) &&
+    equalTokenNoCaseSensitive({
+      token1: selectedTokensColdStartContext.defaultTokenSeed.fromToken,
+      token2: fromToken,
+    }) &&
+    equalTokenNoCaseSensitive({
+      token1: selectedTokensColdStartContext.defaultTokenSeed.toToken,
+      token2: toToken,
+    }),
+  );
   const shouldPreserveSelectedTokensForAccountNetworkSync = useMemo(
     () =>
       shouldPreserveSwapUserInputOnAccountSwitch({
@@ -155,114 +189,129 @@ export function useSwapFromAccountNetworkSync() {
     swapProviderSupportReceiveAddressRef.current =
       swapProviderSupportReceiveAddress;
   }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  const checkTokenForAccountNetworkDebounce = useCallback(
-    debounce(async () => {
-      if (!isSelectedTokensColdStartContextValidRef.current) {
-        return;
+  const checkTokenForAccountNetworkDebounce = useDebouncedCallback(async () => {
+    const { generation } = syncAuthorityRef.current;
+    const fromNetworkId = fromTokenRef.current?.networkId;
+    const toNetworkId = toTokenRef.current?.networkId;
+    const shouldCommit = () =>
+      syncAuthorityRef.current.active &&
+      syncAuthorityRef.current.generation === generation &&
+      isSelectedTokensColdStartContextValidRef.current &&
+      fromTokenRef.current?.networkId === fromNetworkId &&
+      toTokenRef.current?.networkId === toNetworkId;
+    if (!shouldCommit()) {
+      return;
+    }
+    // All-network defaults resolve the execution account by token network.
+    // Keep their aggregate account/context intact for configuration updates.
+    if (fromNetworkId && !shouldKeepAllNetworkDefaultAccount) {
+      await updateSelectedAccountNetwork({
+        num: 0,
+        networkId: fromNetworkId,
+        reason: 'swapFromTokenNetworkSync',
+        shouldCommit,
+      });
+    }
+    if (!shouldCommit()) {
+      return;
+    }
+    if (toNetworkId) {
+      await updateSelectedAccountNetwork({
+        num: 1,
+        networkId: toNetworkId,
+        reason: 'swapToTokenNetworkSync',
+        shouldCommit,
+      });
+    }
+    if (!shouldCommit()) {
+      return;
+    }
+    if (fromTokenRef.current && toTokenRef.current) {
+      if (
+        shouldResetSwapRecipientOnAccountNetworkSync({
+          selectedRecipientAddress: swapToAnotherAccountRef.current.address,
+          selectedRecipientNetworkId:
+            swapToAnotherAccountRef.current?.networkId,
+          hasTargetWallet: Boolean(swapToAccountRef.current?.wallet),
+          targetAccountId: swapToAccountRef.current.account?.id,
+          sourceAccountId: swapFromAccountRef.current.account?.id,
+          providerSupportReceiveAddress:
+            swapProviderSupportReceiveAddressRef.current,
+        })
+      ) {
+        setSettings((v) => ({
+          ...v,
+          swapToAnotherAccountSwitchOn: false,
+        }));
+        setSwapToAnotherAccount((v) => ({ ...v, address: undefined }));
+        // should wait account async finish
+        clearTimeout(recipientRetryRef.current);
+        recipientRetryRef.current = setTimeout(() => {
+          recipientRetryRef.current = undefined;
+          if (
+            shouldCommit() &&
+            toTokenRef.current?.networkId &&
+            swapToAccountRef.current.network?.id &&
+            toTokenRef.current?.networkId !==
+              swapToAccountRef.current.network.id
+          )
+            void updateSelectedAccountNetwork({
+              num: 1,
+              networkId: toTokenRef.current?.networkId,
+              reason: 'swapRecipientNetworkSync',
+              shouldCommit,
+            });
+        }, 500);
       }
-      if (fromTokenRef.current) {
-        await updateSelectedAccountNetwork({
-          num: 0,
-          networkId: fromTokenRef.current?.networkId,
-          reason: 'swapFromTokenNetworkSync',
-        });
-      }
-      if (toTokenRef.current) {
-        await updateSelectedAccountNetwork({
-          num: 1,
-          networkId: toTokenRef.current?.networkId,
-          reason: 'swapToTokenNetworkSync',
-        });
-      }
-      if (fromTokenRef.current && toTokenRef.current) {
-        if (
-          shouldResetSwapRecipientOnAccountNetworkSync({
-            selectedRecipientAddress: swapToAnotherAccountRef.current.address,
-            selectedRecipientNetworkId:
-              swapToAnotherAccountRef.current?.networkId,
-            hasTargetWallet: Boolean(swapToAccountRef.current?.wallet),
-            targetAccountId: swapToAccountRef.current.account?.id,
-            sourceAccountId: swapFromAccountRef.current.account?.id,
-            providerSupportReceiveAddress:
-              swapProviderSupportReceiveAddressRef.current,
-          })
-        ) {
-          setSettings((v) => ({
-            ...v,
-            swapToAnotherAccountSwitchOn: false,
-          }));
-          setSwapToAnotherAccount((v) => ({ ...v, address: undefined }));
-          // should wait account async finish
-          setTimeout(() => {
-            if (
-              toTokenRef.current?.networkId &&
-              swapToAccountRef.current.network?.id &&
-              toTokenRef.current?.networkId !==
-                swapToAccountRef.current.network.id
-            )
-              void updateSelectedAccountNetwork({
-                num: 1,
-                networkId: toTokenRef.current?.networkId,
-                reason: 'swapRecipientNetworkSync',
-              });
-          }, 500);
-        }
-      }
-    }, 100),
-    [setSettings, updateSelectedAccountNetwork],
-  );
+    }
+  }, 100);
 
-  const isModalPage = useIsOverlayPage();
+  const cancelNetworkSync = useCallback(() => {
+    syncAuthorityRef.current.active = false;
+    syncAuthorityRef.current.generation += 1;
+    checkTokenForAccountNetworkDebounce.cancel();
+    clearTimeout(recipientRetryRef.current);
+    recipientRetryRef.current = undefined;
+  }, [checkTokenForAccountNetworkDebounce]);
+
   useListenTabFocusState(
     ETabRoutes.Swap,
-    async (isFocus: boolean, isHideByModal: boolean) => {
-      if (!isModalPage) {
-        if (isHideByModal) return;
-        if (isFocus) {
-          await checkTokenForAccountNetworkDebounce();
-        }
+    (isFocus: boolean, isHideByModal: boolean) => {
+      if (!isRootSwap) {
+        return;
+      }
+      isTabVisibleRef.current = isFocus && !isHideByModal;
+      if (!isTabVisibleRef.current) {
+        cancelNetworkSync();
+      } else if (isFocusedRef.current) {
+        syncAuthorityRef.current.active = true;
+        void checkTokenForAccountNetworkDebounce();
       }
     },
   );
 
   useEffect(() => {
-    if (!isModalPage) {
-      void (async () => {
-        await checkTokenForAccountNetworkDebounce();
-      })();
+    if (!isFocused || (isRootSwap && !isTabVisibleRef.current)) {
+      cancelNetworkSync();
+      return;
     }
+    syncAuthorityRef.current.active = true;
+    void checkTokenForAccountNetworkDebounce();
   }, [
-    checkTokenForAccountNetworkDebounce,
-    fromToken?.networkId,
-    fromToken?.contractAddress,
-    toToken?.networkId,
-    toToken?.contractAddress,
-    isSelectedTokensColdStartContextValid,
-    swapProviderSupportReceiveAddress,
-    isModalPage,
-  ]);
-
-  const isFocused = useIsFocused();
-  useEffect(() => {
-    if (isModalPage) {
-      if (isFocused) {
-        void (async () => {
-          await checkTokenForAccountNetworkDebounce();
-        })();
-      }
-    }
-  }, [
+    cancelNetworkSync,
     checkTokenForAccountNetworkDebounce,
     isFocused,
+    isRootSwap,
     fromToken?.networkId,
     fromToken?.contractAddress,
     toToken?.networkId,
     toToken?.contractAddress,
     isSelectedTokensColdStartContextValid,
+    shouldKeepAllNetworkDefaultAccount,
     swapProviderSupportReceiveAddress,
-    isModalPage,
   ]);
+
+  useEffect(() => cancelNetworkSync, [cancelNetworkSync]);
 }
 
 // The active account's counterpart on `networkId`: same wallet and indexed

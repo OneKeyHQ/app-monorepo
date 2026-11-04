@@ -92,11 +92,14 @@ beforeEach(() => jest.clearAllMocks());
 
 it('starts exactly once after selection effects reconnect', async () => {
   const first = deferred<IResult>();
-  execute.mockImplementationOnce(async ({ onSigning, onBroadcast }) => {
-    onSigning();
-    onBroadcast('tx-a');
-    return first.promise;
-  });
+  execute.mockImplementationOnce(
+    async ({ onBuilding, onSigning, onBroadcast }) => {
+      onBuilding();
+      onSigning();
+      onBroadcast('tx-a');
+      return first.promise;
+    },
+  );
   const { result } = renderHook(
     () => useDustSweepSession([], { minRunMs: 0 }),
     { reactStrictMode: true },
@@ -141,16 +144,22 @@ it('preserves an existing localized App error through the session without exposi
 
 it('pauses immediately while retaining the broadcast worker and its eventual result', async () => {
   const first = deferred<IResult>();
-  execute.mockImplementationOnce(async ({ onSigning, onBroadcast }) => {
-    onSigning();
-    onBroadcast('tx-a');
-    return first.promise;
-  });
-  execute.mockImplementationOnce(async ({ onSigning, onBroadcast }) => {
-    onSigning();
-    onBroadcast('tx-b');
-    return success;
-  });
+  execute.mockImplementationOnce(
+    async ({ onBuilding, onSigning, onBroadcast }) => {
+      onBuilding();
+      onSigning();
+      onBroadcast('tx-a');
+      return first.promise;
+    },
+  );
+  execute.mockImplementationOnce(
+    async ({ onBuilding, onSigning, onBroadcast }) => {
+      onBuilding();
+      onSigning();
+      onBroadcast('tx-b');
+      return success;
+    },
+  );
   const { result } = renderHook(() => useDustSweepSession([], { minRunMs: 0 }));
   act(() => {
     result.current.start(snapshot);
@@ -180,16 +189,22 @@ it('pauses immediately while retaining the broadcast worker and its eventual res
 
 it('does not duplicate an active broadcast when resuming before it settles', async () => {
   const first = deferred<IResult>();
-  execute.mockImplementationOnce(async ({ onSigning, onBroadcast }) => {
-    onSigning();
-    onBroadcast('tx-a');
-    return first.promise;
-  });
-  execute.mockImplementationOnce(async ({ onSigning, onBroadcast }) => {
-    onSigning();
-    onBroadcast('tx-b');
-    return success;
-  });
+  execute.mockImplementationOnce(
+    async ({ onBuilding, onSigning, onBroadcast }) => {
+      onBuilding();
+      onSigning();
+      onBroadcast('tx-a');
+      return first.promise;
+    },
+  );
+  execute.mockImplementationOnce(
+    async ({ onBuilding, onSigning, onBroadcast }) => {
+      onBuilding();
+      onSigning();
+      onBroadcast('tx-b');
+      return success;
+    },
+  );
   const { result } = renderHook(() => useDustSweepSession([], { minRunMs: 0 }));
   act(() => {
     result.current.start(snapshot);
@@ -216,11 +231,14 @@ it('invalidates old preparation even after a quick stop and resume', async () =>
     signed();
     return success;
   });
-  execute.mockImplementationOnce(async ({ onSigning, onBroadcast }) => {
-    onSigning();
-    onBroadcast('fresh-tx');
-    return success;
-  });
+  execute.mockImplementationOnce(
+    async ({ onBuilding, onSigning, onBroadcast }) => {
+      onBuilding();
+      onSigning();
+      onBroadcast('fresh-tx');
+      return success;
+    },
+  );
   const { result } = renderHook(() => useDustSweepSession([], { minRunMs: 0 }));
   act(() => {
     result.current.start({ ...snapshot, tokens: [snapshot.tokens[0]] });
@@ -239,12 +257,15 @@ it('invalidates old preparation even after a quick stop and resume', async () =>
 it('preserves a late broadcast from signing after stop without starting the next item', async () => {
   const signature = deferred<void>();
   const settled = deferred<IResult>();
-  execute.mockImplementationOnce(async ({ onSigning, onBroadcast }) => {
-    onSigning();
-    await signature.promise;
-    onBroadcast('late-tx');
-    return settled.promise;
-  });
+  execute.mockImplementationOnce(
+    async ({ onBuilding, onSigning, onBroadcast }) => {
+      onBuilding();
+      onSigning();
+      await signature.promise;
+      onBroadcast('late-tx');
+      return settled.promise;
+    },
+  );
   const { result } = renderHook(() => useDustSweepSession([], { minRunMs: 0 }));
   act(() => {
     result.current.start(snapshot);
@@ -265,7 +286,8 @@ it('preserves a late broadcast from signing after stop without starting the next
 
 it('blocks an uncertain SDK result after stopping instead of retrying the item', async () => {
   const signature = deferred<void>();
-  execute.mockImplementationOnce(async ({ onSigning }) => {
+  execute.mockImplementationOnce(async ({ onBuilding, onSigning }) => {
+    onBuilding();
     onSigning();
     await signature.promise;
     throw new DustSweepUnknownSubmission();
@@ -283,12 +305,15 @@ it('blocks an uncertain SDK result after stopping instead of retrying the item',
 });
 it('waits for a background signing return on leave and never begins the next item', async () => {
   const first = deferred<IResult>();
-  execute.mockImplementationOnce(async ({ onSigning, onBroadcast }) => {
-    onSigning();
-    const completed = await first.promise;
-    onBroadcast('tx-a');
-    return completed;
-  });
+  execute.mockImplementationOnce(
+    async ({ onBuilding, onSigning, onBroadcast }) => {
+      onBuilding();
+      onSigning();
+      const completed = await first.promise;
+      onBroadcast('tx-a');
+      return completed;
+    },
+  );
   const { result } = renderHook(() => useDustSweepSession([], { minRunMs: 0 }));
   act(() => {
     result.current.start(snapshot);
@@ -312,11 +337,14 @@ it('waits for a background signing return on leave and never begins the next ite
 
 it('reports leaving separately from stopping after a paused session', async () => {
   const first = deferred<IResult>();
-  execute.mockImplementationOnce(async ({ onSigning, onBroadcast }) => {
-    onSigning();
-    onBroadcast('tx-a');
-    return first.promise;
-  });
+  execute.mockImplementationOnce(
+    async ({ onBuilding, onSigning, onBroadcast }) => {
+      onBuilding();
+      onSigning();
+      onBroadcast('tx-a');
+      return first.promise;
+    },
+  );
   const { result } = renderHook(() => useDustSweepSession([], { minRunMs: 0 }));
   act(() => {
     result.current.start(snapshot);
@@ -336,7 +364,8 @@ it('reports leaving separately from stopping after a paused session', async () =
 it('shows a broadcast error until the exact transaction settles, then clears it', async () => {
   const pending = deferred<IResult>();
   execute.mockImplementationOnce(
-    async ({ onSigning, onBroadcast, onSubmissionError }) => {
+    async ({ onBuilding, onSigning, onBroadcast, onSubmissionError }) => {
+      onBuilding();
       onSigning();
       onBroadcast('signed-hash');
       onSubmissionError?.('Nonce already used');
@@ -359,7 +388,8 @@ it('shows a broadcast error until the exact transaction settles, then clears it'
 });
 
 it('never retries a submission whose broadcast status is unknown', async () => {
-  execute.mockImplementationOnce(async ({ onSigning }) => {
+  execute.mockImplementationOnce(async ({ onBuilding, onSigning }) => {
+    onBuilding();
     onSigning();
     throw new DustSweepUnknownSubmission();
   });
@@ -371,11 +401,14 @@ it('never retries a submission whose broadcast status is unknown', async () => {
   expect(execute).toHaveBeenCalledTimes(1);
 });
 it('pauses a canceled password prompt with its item waiting for explicit retry', async () => {
-  execute.mockImplementationOnce(async ({ onSigning, onPrepared }) => {
-    onSigning();
-    onPrepared();
-    throw new DustSweepUserCanceled();
-  });
+  execute.mockImplementationOnce(
+    async ({ onBuilding, onSigning, onPrepared }) => {
+      onBuilding();
+      onSigning();
+      onPrepared();
+      throw new DustSweepUserCanceled();
+    },
+  );
   const { result } = renderHook(() => useDustSweepSession([], { minRunMs: 0 }));
   await act(async () => result.current.start(snapshot));
   expect(result.current.state.phase).toBe('paused');
@@ -383,7 +416,8 @@ it('pauses a canceled password prompt with its item waiting for explicit retry',
   expect(mockItemLog).not.toHaveBeenCalled();
 });
 it('does not report a partial receipt as the complete amount', async () => {
-  execute.mockImplementation(async ({ onSigning, onBroadcast }) => {
+  execute.mockImplementation(async ({ onBuilding, onSigning, onBroadcast }) => {
+    onBuilding();
     onSigning();
     onBroadcast('tx');
     return { status: 'success', receiptUnavailable: true };
@@ -401,7 +435,8 @@ it('does not report a partial receipt as the complete amount', async () => {
 
 it('pauses a retryable preparation failure with approval identity intact', async () => {
   execute.mockImplementationOnce(
-    async ({ onSigning, onApprovalBroadcast, onPrepared }) => {
+    async ({ onBuilding, onSigning, onApprovalBroadcast, onPrepared }) => {
+      onBuilding();
       onSigning();
       onApprovalBroadcast?.(['approval-known']);
       onPrepared();
@@ -423,7 +458,8 @@ it('submits every token, keeps execution quote failures and rejects duplicate st
     providerErrorMessage: 'Execution provider error',
   });
   execute.mockRejectedValueOnce(providerFailure);
-  execute.mockImplementation(async ({ onSigning, onBroadcast }) => {
+  execute.mockImplementation(async ({ onBuilding, onSigning, onBroadcast }) => {
+    onBuilding();
     onSigning();
     onBroadcast('tx');
     return success;
@@ -503,17 +539,23 @@ it.each([
 
 it('isolates late callbacks even when a later run uses the same caller id', async () => {
   let oldBroadcast: ((txId: string) => void) | undefined;
-  execute.mockImplementationOnce(async ({ onSigning, onBroadcast }) => {
-    oldBroadcast = onBroadcast;
-    onSigning();
-    onBroadcast('first');
-    return success;
-  });
-  execute.mockImplementationOnce(async ({ onSigning, onBroadcast }) => {
-    onSigning();
-    onBroadcast('second');
-    return success;
-  });
+  execute.mockImplementationOnce(
+    async ({ onBuilding, onSigning, onBroadcast }) => {
+      oldBroadcast = onBroadcast;
+      onBuilding();
+      onSigning();
+      onBroadcast('first');
+      return success;
+    },
+  );
+  execute.mockImplementationOnce(
+    async ({ onBuilding, onSigning, onBroadcast }) => {
+      onBuilding();
+      onSigning();
+      onBroadcast('second');
+      return success;
+    },
+  );
   const { result } = renderHook(() => useDustSweepSession([], { minRunMs: 0 }));
   const single = { ...snapshot, tokens: [snapshot.tokens[0]] };
   await act(async () => result.current.start(single));
@@ -527,7 +569,8 @@ it('isolates late callbacks even when a later run uses the same caller id', asyn
 
 it('retains a submission that becomes unknown while leaving before allowing a second explicit leave', async () => {
   const settle = deferred<void>();
-  execute.mockImplementationOnce(async ({ onSigning }) => {
+  execute.mockImplementationOnce(async ({ onBuilding, onSigning }) => {
+    onBuilding();
     onSigning();
     await settle.promise;
     throw new DustSweepUnknownSubmission();
@@ -556,12 +599,15 @@ it('retains a submission that becomes unknown while leaving before allowing a se
 
 it('stops a paused session after its in-flight item and returns to selection', async () => {
   const signature = deferred<void>();
-  execute.mockImplementationOnce(async ({ onSigning, onBroadcast }) => {
-    onSigning();
-    await signature.promise;
-    onBroadcast('tx-a');
-    return success;
-  });
+  execute.mockImplementationOnce(
+    async ({ onBuilding, onSigning, onBroadcast }) => {
+      onBuilding();
+      onSigning();
+      await signature.promise;
+      onBroadcast('tx-a');
+      return success;
+    },
+  );
   const { result } = renderHook(() => useDustSweepSession([], { minRunMs: 0 }));
   act(() => {
     result.current.start(snapshot);
@@ -592,14 +638,17 @@ it('stops a paused session after its in-flight item and returns to selection', a
 
 it('waits for a broadcast swap to settle before Stop resets the session', async () => {
   const settled = deferred<IResult>();
-  execute.mockImplementationOnce(async ({ onSigning, onBroadcast, signal }) => {
-    onSigning();
-    onBroadcast('tx-a');
-    const outcome = await settled.promise;
-    // The real confirmation loop gives up once its signal aborts.
-    if (signal.aborted) throw new OneKeyLocalError('Dust Sweep cancelled');
-    return outcome;
-  });
+  execute.mockImplementationOnce(
+    async ({ onBuilding, onSigning, onBroadcast, signal }) => {
+      onBuilding();
+      onSigning();
+      onBroadcast('tx-a');
+      const outcome = await settled.promise;
+      // The real confirmation loop gives up once its signal aborts.
+      if (signal.aborted) throw new OneKeyLocalError('Dust Sweep cancelled');
+      return outcome;
+    },
+  );
   const { result } = renderHook(() => useDustSweepSession([], { minRunMs: 0 }));
   act(() => {
     result.current.start(snapshot);
@@ -634,7 +683,8 @@ it('waits for a broadcast swap to settle before Stop resets the session', async 
 
 it('keeps an unconfirmed submission blocked instead of stopping', async () => {
   const signature = deferred<void>();
-  execute.mockImplementationOnce(async ({ onSigning }) => {
+  execute.mockImplementationOnce(async ({ onBuilding, onSigning }) => {
+    onBuilding();
     onSigning();
     await signature.promise;
     throw new DustSweepUnknownSubmission();
@@ -660,7 +710,8 @@ it('keeps an unconfirmed submission blocked instead of stopping', async () => {
 it('finishes Stop as blocked when recovered-hash verification remains unknown', async () => {
   const verification = deferred<void>();
   const message = 'Nonce already used; signed transaction is unconfirmed';
-  execute.mockImplementationOnce(async ({ onSigning }) => {
+  execute.mockImplementationOnce(async ({ onBuilding, onSigning }) => {
+    onBuilding();
     onSigning();
     await verification.promise;
     throw Object.assign(new DustSweepUnknownSubmission(message), {
@@ -751,11 +802,14 @@ it('only stops a paused session', async () => {
 });
 
 it('keeps a settled last result when Stop cuts the minimum run hold short', async () => {
-  execute.mockImplementationOnce(async ({ onSigning, onBroadcast }) => {
-    onSigning();
-    onBroadcast('tx-a');
-    return success;
-  });
+  execute.mockImplementationOnce(
+    async ({ onBuilding, onSigning, onBroadcast }) => {
+      onBuilding();
+      onSigning();
+      onBroadcast('tx-a');
+      return success;
+    },
+  );
   const { result } = renderHook(() =>
     useDustSweepSession([], { minRunMs: 60_000 }),
   );

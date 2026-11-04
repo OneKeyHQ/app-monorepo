@@ -20,6 +20,10 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IMarketStockInfo } from '@onekeyhq/shared/types/marketV2';
 
 import { StockMarketStatusBadge } from '../../../components/PerpsBadges';
+import {
+  useMarketPriceChangeLabelId,
+  useMarketSimpleChartRangePriceChange,
+} from '../../hooks/MarketSimpleChartRangeChangeContext';
 import { useStockDetail } from '../../hooks/StockDetailContext';
 import { useStockPriceSource } from '../../hooks/useStockPriceSource';
 import { useTokenDetail } from '../../hooks/useTokenDetail';
@@ -47,16 +51,22 @@ function PriceModeButton({
       testID={testID}
       height={26}
       m="$0"
-      px="$1.5"
+      px="$2"
       py="$0"
       borderWidth={0}
       flexShrink={0}
       size="small"
       variant={selected ? 'secondary' : 'tertiary'}
       borderRadius="$full"
+      childrenAsText={false}
       onPress={onPress}
     >
-      {label}
+      <SizableText
+        size="$bodySmMedium"
+        color={selected ? '$text' : '$textSubdued'}
+      >
+        {label}
+      </SizableText>
     </Button>
   );
 }
@@ -65,10 +75,12 @@ function StockPriceChangeLine({
   changeValueText,
   priceChangePercent,
   color,
+  label,
 }: {
   changeValueText?: string;
   priceChangePercent?: string;
   color: ReturnType<typeof formatPriceChangeDisplay>['color'];
+  label: string;
 }) {
   return (
     <XStack alignItems="center" gap="$1.5">
@@ -98,12 +110,21 @@ function StockPriceChangeLine({
           </SizableText>
         ) : null}
       </XStack>
+      <SizableText
+        testID="stock-mobile-price-change-label"
+        // Figma 25227:67442: 10px from the change, past the row's 6px gap.
+        ml="$1"
+        size="$bodyMd"
+        color="$textSubdued"
+      >
+        {label}
+      </SizableText>
     </XStack>
   );
 }
 
-// 36pt price, 20pt change, 2pt gap, 20pt status, 12pt row gap, and 36pt padding.
-export const STOCK_MOBILE_PRICE_HEADER_HEIGHT = 126;
+// 36pt price, 20pt change, 2pt gap, 16pt status, 12pt row gap, and 36pt padding.
+export const STOCK_MOBILE_PRICE_HEADER_HEIGHT = 122;
 
 export function StockMobilePriceHeader() {
   const intl = useIntl();
@@ -125,16 +146,28 @@ export function StockMobilePriceHeader() {
   const shareQuote =
     stockDetail?.price !== undefined ? stockDetail : sharePreview;
   const price = isSharePrice ? shareQuote?.price : tokenDetail?.price;
-  const priceChangePercent = isSharePrice
-    ? shareQuote?.priceChange24hPercent
-    : tokenDetail?.priceChange24hPercent;
+  // The simple chart's selected range replaces the 24h move while it is drawn.
+  const rangePriceChange = useMarketSimpleChartRangePriceChange(
+    isSharePrice ? 'share' : 'token',
+  );
+  const priceChangeLabelId = useMarketPriceChangeLabelId(
+    isSharePrice ? 'share' : 'token',
+  );
+  const priceChangePercent =
+    rangePriceChange?.priceChangePercent ??
+    (isSharePrice
+      ? shareQuote?.priceChange24hPercent
+      : tokenDetail?.priceChange24hPercent);
+  let reportedPriceChangeValue: string | undefined;
+  if (rangePriceChange) {
+    reportedPriceChangeValue = rangePriceChange.priceChangeValue;
+  } else if (isSharePrice && stockDetail?.price !== undefined) {
+    reportedPriceChangeValue = stockDetail.priceChange24hValue;
+  }
   const priceChangeValue = resolveDisplayedPriceChange({
     price,
     priceChangePercent,
-    reportedPriceChangeValue:
-      isSharePrice && stockDetail?.price !== undefined
-        ? stockDetail.priceChange24hValue
-        : undefined,
+    reportedPriceChangeValue,
   });
   const { color: priceChangeColor } =
     formatPriceChangeDisplay(priceChangePercent);
@@ -203,6 +236,7 @@ export function StockMobilePriceHeader() {
               changeValueText={changeValueText}
               priceChangePercent={priceChangePercent}
               color={priceChangeColor}
+              label={intl.formatMessage({ id: priceChangeLabelId })}
             />
           ) : (
             <Stack height={20} justifyContent="center">
@@ -211,7 +245,7 @@ export function StockMobilePriceHeader() {
           )}
         </YStack>
         {sharePriceAvailable ? (
-          <XStack alignItems="center" gap="$0.5" flexShrink={0}>
+          <XStack alignItems="center" gap="$0.5" flexShrink={0} pt="$1">
             <PriceModeButton
               testID="stock-mobile-price-mode-share"
               label={intl.formatMessage({
@@ -231,16 +265,16 @@ export function StockMobilePriceHeader() {
           </XStack>
         ) : null}
       </XStack>
-      {/* Keep the status row's bodyMd line box while its first quote loads. */}
+      {/* Keep the status row's bodySm line box while its first quote loads. */}
       <Stack
         testID="stock-mobile-market-status-row"
-        minHeight={20}
+        minHeight={16}
         justifyContent="center"
       >
         {isSharePreview ? (
           <SizableText
             testID="stock-mobile-share-price-preview-label"
-            size="$bodyMd"
+            size="$bodySm"
             color="$textSubdued"
           >
             {intl.formatMessage({ id: ETranslations.market_share_price })}
@@ -252,6 +286,7 @@ export function StockMobilePriceHeader() {
           <StockMarketStatusBadge
             stock={stockStatus}
             variant="inline"
+            inlineSize="sm"
             showLastUpdate={isSharePrice}
           />
         ) : null}

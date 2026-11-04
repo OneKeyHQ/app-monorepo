@@ -72,7 +72,19 @@ const openUrlByWebview = (
   title?: string,
   options?: IOpenUrlInAppOptions,
 ) => {
-  appGlobals.$navigationRef.current?.navigate(ERootRoutes.Modal, {
+  const rootRoutes = (
+    appGlobals.$navigationRef.current as
+      | {
+          getRootState?: () => { routes?: Array<{ name?: string }> };
+        }
+      | undefined
+  )?.getRootState?.()?.routes;
+  const topRootRoute = rootRoutes?.[rootRoutes.length - 1]?.name;
+  const targetRootRoute =
+    topRootRoute === ERootRoutes.iOSFullScreen
+      ? ERootRoutes.iOSFullScreen
+      : ERootRoutes.Modal;
+  appGlobals.$navigationRef.current?.navigate(targetRootRoute, {
     screen: EModalRoutes.WebViewModal,
     params: {
       screen: EModalWebViewRoutes.WebView,
@@ -81,6 +93,9 @@ const openUrlByWebview = (
         title,
         enableDappBridge: options?.enableDappBridge,
         redirectExternalNavigation: options?.redirectExternalNavigation,
+        hideHeaderRight: options?.hideHeaderRight,
+        disableBridge: options?.disableBridge,
+        intercomUserId: options?.intercomUserId,
       },
     },
   });
@@ -157,6 +172,10 @@ const openUrlOutsideNative = (url: string): void => {
 };
 
 export interface IOpenUrlInAppOptions {
+  hideHeaderRight?: boolean;
+  disableBridge?: boolean;
+  /** Bind an authenticated support page to its opening wallet identity. */
+  intercomUserId?: string | null;
   /**
    * The page is expected to talk to the wallet (connect, sign). Adds the
    * account/network change notifications a dApp session needs; see
@@ -175,7 +194,10 @@ export const openUrlInApp = (
   title?: string,
   options?: IOpenUrlInAppOptions,
 ) => {
-  if (platformEnv.isNative || platformEnv.isDesktop) {
+  // Extension support stays in the wallet UI so the wallet lock still covers it.
+  const isExtensionSupport =
+    platformEnv.isExtension && options?.intercomUserId !== undefined;
+  if (platformEnv.isNative || platformEnv.isDesktop || isExtensionSupport) {
     openUrlByWebview(url.trim(), title, options);
   } else {
     openUrlOutsideNative(url.trim());

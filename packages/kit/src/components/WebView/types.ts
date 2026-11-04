@@ -13,10 +13,8 @@ import type {
   WebViewErrorEvent,
   WebViewHttpErrorEvent,
   WebViewNavigationEvent,
-  WebViewRenderProcessGoneEvent,
   WebViewSharedProps,
   WebViewSource,
-  WebViewTerminatedEvent,
 } from 'react-native-webview/lib/WebViewTypes';
 
 type IFirstParameterOrUndefined<T> = T extends (
@@ -49,8 +47,6 @@ export interface IInpageProviderWebViewProps
   onLoadEnd?: (event: WebViewNavigationEvent | WebViewErrorEvent) => void;
   onError?: (event: WebViewErrorEvent) => void;
   onHttpError?: (event: WebViewHttpErrorEvent) => void;
-  onContentProcessDidTerminate?: (event: WebViewTerminatedEvent) => void;
-  onRenderProcessGone?: (event: WebViewRenderProcessGoneEvent) => void;
   onScroll?: IWebViewOnScroll;
   displayProgressBar?: boolean;
   onProgress?: (progress: number) => void;
@@ -59,6 +55,10 @@ export interface IInpageProviderWebViewProps
    * Only works in iOS and Android devices.
    */
   webviewDebuggingEnabled?: boolean;
+  /** @platform native
+   * @description Recreate a terminated WebView, or let its owner replace it.
+   */
+  recreateOnContentProcessTerminate?: boolean | (() => void);
   /** @platform native
    * @description Open website in desktop mode or mobile mode
    */
@@ -95,6 +95,12 @@ export interface IInpageProviderWebViewProps
    * @description URL string that specifies the directory WKWebView can read from when loading local file URLs.
    */
   allowingReadAccessToURL?: string;
+  /** @platform ios
+   * @description Let page content draw past the WebView's frame (e.g. under a
+   * floating toolbar); the page is still laid out within the frame.
+   * @default true
+   */
+  scrollViewClipsToBounds?: boolean;
   /** @platform native
    * @description Whitelisted origins that may request camera or microphone access.
    */

@@ -13,6 +13,8 @@ import type { IPro2DeviceColor } from './hardwareDeviceColors';
 import type { IDeviceType, SearchDevice } from '@onekeyfe/hd-core';
 import type { ImageSourcePropType } from 'react-native';
 
+// Listed in picker order. Keys are stored on wallets and synced across
+// devices: never rename or remove one. Builds without a key show the bear.
 export const HdWalletAvatarImages = {
   bear: require('../assets/wallet/avatar/Bear.png'),
   cat: require('../assets/wallet/avatar/Cat.png'),
@@ -30,6 +32,26 @@ export const HdWalletAvatarImages = {
   raccoon: require('../assets/wallet/avatar/Raccoon.png'),
   tiger: require('../assets/wallet/avatar/Tiger.png'),
   wolf: require('../assets/wallet/avatar/Wolf.png'),
+  hamster: require('../assets/wallet/avatar/Hamster.png'),
+  mouse: require('../assets/wallet/avatar/Mouse.png'),
+  horse: require('../assets/wallet/avatar/Horse.png'),
+  unicorn: require('../assets/wallet/avatar/Unicorn.png'),
+  dragon: require('../assets/wallet/avatar/Dragon.png'),
+  owl: require('../assets/wallet/avatar/Owl.png'),
+  penguin: require('../assets/wallet/avatar/Penguin.png'),
+  chick: require('../assets/wallet/avatar/Chick.png'),
+  parrot: require('../assets/wallet/avatar/Parrot.png'),
+  peacock: require('../assets/wallet/avatar/Peacock.png'),
+  octopus: require('../assets/wallet/avatar/Octopus.png'),
+  whale: require('../assets/wallet/avatar/Whale.png'),
+  jellyfish: require('../assets/wallet/avatar/Jellyfish.png'),
+  crab: require('../assets/wallet/avatar/Crab.png'),
+  tropicalFish: require('../assets/wallet/avatar/TropicalFish.png'),
+  blowfish: require('../assets/wallet/avatar/Blowfish.png'),
+  dinosaur: require('../assets/wallet/avatar/Dinosaur.png'),
+  butterfly: require('../assets/wallet/avatar/Butterfly.png'),
+  ladybug: require('../assets/wallet/avatar/Ladybug.png'),
+  bee: require('../assets/wallet/avatar/Bee.png'),
 };
 export const HdWalletAvatarImageNames = Object.keys(
   HdWalletAvatarImages,

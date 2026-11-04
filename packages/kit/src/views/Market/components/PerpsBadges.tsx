@@ -479,11 +479,14 @@ const StockIsOpenBadge = memo(
     stock,
     disableTooltip,
     variant: displayVariant = 'badge',
+    inlineSize = 'md',
     showLastUpdate = true,
   }: {
     stock: IMarketStockInfo;
     disableTooltip?: boolean;
     variant?: 'badge' | 'inline';
+    /** Mobile detail headers use the compact `sm` inline row. */
+    inlineSize?: 'md' | 'sm';
     /** Off for the token price: that quote trades around the clock, so its
      *  own timestamp is always now. */
     showLastUpdate?: boolean;
@@ -612,16 +615,22 @@ const StockIsOpenBadge = memo(
       Boolean(nextOpenText) && !hasMeasuredOptionalSegment;
     showsOptionalSegmentRef.current = measureNextOpen || showNextOpen;
 
+    const isCompactInline = inlineSize === 'sm';
+    const inlineTextSize = isCompactInline ? '$bodySmMedium' : '$bodyMd';
+    const inlineMetaTextSize = isCompactInline ? '$bodySm' : '$bodyMd';
     const badge =
       displayVariant === 'inline' ? (
         <XStack alignItems="center" gap="$1" onLayout={handleRowLayout}>
           {/* Figma 26560:24978 pads the icon box by 2px so the glyph is not
               flush against the label's cap height. */}
-          <Stack px="$0.5" onLayout={handleIconLayout}>
+          <Stack
+            px={isCompactInline ? '$0' : '$0.5'}
+            onLayout={handleIconLayout}
+          >
             <Icon name={chip.icon} size="$4" color={chip.color} />
           </Stack>
           <XStack alignItems="center" gap="$2" onLayout={handleContentLayout}>
-            <SizableText size="$bodyMd" color={chip.color}>
+            <SizableText size={inlineTextSize} color={chip.color}>
               {chip.titleId !== undefined
                 ? intl.formatMessage({ id: chip.titleId })
                 : chip.title}
@@ -630,7 +639,7 @@ const StockIsOpenBadge = memo(
               <>
                 {/* Figma 26560:25110 */}
                 <Stack width="$px" height={12} bg="$borderSubdued" />
-                <SizableText size="$bodyMd" color="$textSubdued">
+                <SizableText size={inlineMetaTextSize} color="$textSubdued">
                   {lastUpdateText}
                 </SizableText>
               </>
@@ -642,7 +651,11 @@ const StockIsOpenBadge = memo(
                 opacity={showNextOpen ? 1 : 0}
               >
                 <Stack width="$px" height={12} bg="$borderSubdued" />
-                <SizableText size="$bodyMd" color="$textSubdued" flexShrink={0}>
+                <SizableText
+                  size={inlineMetaTextSize}
+                  color="$textSubdued"
+                  flexShrink={0}
+                >
                   {nextOpenText}
                 </SizableText>
               </XStack>
@@ -692,10 +705,12 @@ const StockMarketStatusBadge = memo(
   ({
     stock,
     variant,
+    inlineSize,
     showLastUpdate,
   }: {
     stock?: IMarketStockInfo;
     variant?: 'badge' | 'inline';
+    inlineSize?: 'md' | 'sm';
     showLastUpdate?: boolean;
   }) => {
     const stockKey =
@@ -717,6 +732,7 @@ const StockMarketStatusBadge = memo(
         stock={stock}
         disableTooltip
         variant={variant}
+        inlineSize={inlineSize}
         showLastUpdate={showLastUpdate}
       />
     );

@@ -28,6 +28,7 @@ interface IMarketRecommendListProps {
   onTokenSelect?: (token: IMarketBasicConfigToken) => void;
   enableSelection?: boolean;
   containerProps?: IYStackProps;
+  compact?: boolean;
 }
 
 export function MarketRecommendList({
@@ -36,6 +37,7 @@ export function MarketRecommendList({
   onTokenSelect,
   enableSelection = true,
   containerProps,
+  compact = false,
 }: IMarketRecommendListProps) {
   const intl = useIntl();
   const actions = useWatchListV2Action();
@@ -174,7 +176,7 @@ export function MarketRecommendList({
       {...containerProps}
     >
       <YStack
-        gap="$2.5"
+        gap={compact ? '$2' : '$2.5'}
         width="100%"
         $gtMd={{ maxWidth: 480 }}
         $sm={{
@@ -183,7 +185,7 @@ export function MarketRecommendList({
       >
         {new Array(Math.ceil(defaultTokens.length / 2)).fill(0).map((_, i) => (
           <XStack
-            gap="$2.5"
+            gap={compact ? '$2' : '$2.5'}
             key={i}
             $sm={{
               gap: '$2',
@@ -207,6 +209,7 @@ export function MarketRecommendList({
                   tokenName={item.name}
                   networkId={getRecommendTokenNetworkId(item)}
                   onChange={handleRecommendItemChange}
+                  compact={compact}
                 />
               );
             })}

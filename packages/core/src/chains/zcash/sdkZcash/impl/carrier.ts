@@ -1,0 +1,492 @@
+import { runPrivacyChainWorkerOperation } from '@onekeyhq/core/src/utils/privacyChainWorkerClient';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors/errors/localError';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
+import { ZCASH_LIGHTWALLETD_MAINNET } from '../constants';
+import { isZcashAccountImportCheckpointError } from '../runtimeError';
+
+import { wrapKeysModuleWithStackCleanup } from './keysMemory';
+
+import type {
+  IZcashDatabaseDiagnostics,
+  IZcashNetwork,
+  IZcashWalletAccount,
+} from '../types/sdk';
+
+// Low-level utility only: one database open at a time, bounded scan steps, no scheduling of its own.
+
+type IRuntimeModule = typeof import('@onekeyfe/zcash-runtime');
+type IKeysModule = typeof import('@onekeyfe/zcash-keys');
+
+let runtimeWasmPromise: Promise<IRuntimeModule> | undefined;
+let runtimePromise: Promise<IRuntimeModule> | undefined;
+let keysPromise: Promise<IKeysModule> | undefined;
+
+export function walletDbNameForNetwork(network: IZcashNetwork): string {
+  return `zcash-${network}.db`;
+}
+
+export function walletDbName(account: IZcashWalletAccount): string {
+  return walletDbNameForNetwork(account.network);
+}
+
+// Which database the runtime currently has open, to avoid reopening on every call.
+let openDbName: string | undefined;
+
+// Failed imports roll back; unchanged requests wait for scan progress before retrying.
+const registrationRetries = new Map<
+  string,
+  {
+    scanProgress: number;
+    failures: Map<
+      string,
+      {
+        scanProgress: number;
+        birthdayHeight?: number;
+        lightwalletdUrl: string;
+        seedFingerprintHex: string;
+        hdIndex: number;
+        error: unknown;
+      }
+    >;
+  }
+>();
+
+export function recordWalletScanProgress(account: IZcashWalletAccount): void {
+  const retries = registrationRetries.get(walletDbName(account));
+  if (retries) retries.scanProgress += 1;
+}
+
+// A removed account may be enabled again; no earlier import failure should block it.
+export function forgetWalletRegistrationFailures(network: IZcashNetwork): void {
+  registrationRetries.get(walletDbNameForNetwork(network))?.failures.clear();
+}
+
+// Kept synchronously reachable: an await here would yield to the event loop, where the scan could retake the lease.
+let loadedRuntime: IRuntimeModule | undefined;
+
+export function storageRequiresWorkerRestart(): boolean {
+  return loadedRuntime?.storageRequiresWorkerRestart() ?? false;
+}
+
+// Serializes every wallet operation: opening a different database mid-call would corrupt
+// shared state. Must cover the whole public operation (sync = prepare + many steps), not just the open.
+let lease: Promise<unknown> = Promise.resolve();
+// Running + queued lease count, so read-only surfaces can snapshot instead of queueing behind a scan.
+let leasePendingCount = 0;
+
+// Whether a scan pass is currently running (anything holds/waits for the lease).
+export function isWalletLeaseBusy(): boolean {
+  return leasePendingCount > 0;
+}
+
+export function withWalletLease<T>(operation: () => Promise<T>): Promise<T> {
+  leasePendingCount += 1;
+  const guardedOperation = () =>
+    runPrivacyChainWorkerOperation(() => {
+      if (storageRequiresWorkerRestart()) {
+        throw new OneKeyLocalError('zcash worker: storage failed');
+      }
+      return operation();
+    });
+  const run = lease.then(guardedOperation, guardedOperation);
+  // Keep the chain alive regardless of outcome: a rejected op must not wedge later ones.
+  lease = run.then(
+    () => undefined,
+    () => undefined,
+  );
+  run.then(
+    () => {
+      leasePendingCount -= 1;
+    },
+    () => {
+      leasePendingCount -= 1;
+    },
+  );
+  return run;
+}
+
+export async function getRuntimeWasm(): Promise<IRuntimeModule> {
+  if (!runtimeWasmPromise) {
+    runtimeWasmPromise = (async () => {
+      const mod = await import(
+        /* webpackMode: "eager" */ '@onekeyfe/zcash-runtime'
+      );
+      await mod.default();
+      return mod;
+    })().catch((error) => {
+      runtimeWasmPromise = undefined;
+      throw error;
+    });
+  }
+  return runtimeWasmPromise;
+}
+
+export async function getRuntime(): Promise<IRuntimeModule> {
+  if (!runtimePromise) {
+    runtimePromise = (async () => {
+      const mod = await getRuntimeWasm();
+      // Installs the shared OPFS VFS; must complete before openWallet or SQLite silently falls back to memory.
+      await mod.init();
+      loadedRuntime = mod;
+      return mod;
+    })().catch((e) => {
+      // Never cache a failed load: a transient failure would otherwise poison every later call.
+      runtimePromise = undefined;
+      throw e;
+    });
+  }
+  return runtimePromise;
+}
+
+// Lock-free: these are synchronous wasm calls, so they can't interleave with the scan and always see a consistent db.
+// Returns null (caller falls back to the leased path) when not loaded, wrong db open, or account not registered.
+export function tryReadOnlyHandle(account: IZcashWalletAccount): {
+  rt: IRuntimeModule;
+  accountUuid: string;
+} | null {
+  if (storageRequiresWorkerRestart()) {
+    throw new OneKeyLocalError('zcash worker: storage failed');
+  }
+  const rt = loadedRuntime;
+  if (!rt) {
+    return null;
+  }
+  if (openDbName !== walletDbName(account)) {
+    return null;
+  }
+  // Deliberately skips setLightwalletdUrl: rewriting that shared setting mid-scan would change where the scan downloads from.
+  try {
+    const existing = JSON.parse(rt.accountByUfvk(account.ufvk)) as {
+      uuid: string;
+    } | null;
+    if (!existing) {
+      return null;
+    }
+    return { rt, accountUuid: existing.uuid };
+  } catch (error) {
+    if (error instanceof WebAssembly.RuntimeError) throw error;
+    // DB is busy mid-await from an async op; let the caller join the lease instead of a false WALLET_NOT_OPEN.
+    return null;
+  }
+}
+
+export async function getKeys(): Promise<IKeysModule> {
+  if (!keysPromise) {
+    keysPromise = (async () => {
+      const mod = await import(
+        /* webpackMode: "eager" */ '@onekeyfe/zcash-keys'
+      );
+      const instance = await mod.default();
+      return wrapKeysModuleWithStackCleanup(mod, instance);
+    })().catch((e) => {
+      keysPromise = undefined;
+      throw e;
+    });
+  }
+  return keysPromise;
+}
+
+// One database per network; every account across every wallet shares it (scanning trial-decrypts for all keys in one pass).
+// Safe to mix seeds: note selection is account-scoped and the db holds viewing keys only, never spending keys.
+function getDatabaseLocation(): IZcashDatabaseDiagnostics['location'] {
+  const origin = globalThis.location?.origin || null;
+  if (platformEnv.isDesktop) {
+    return {
+      carrier: 'desktop-sdk-runtime',
+      origin,
+      description:
+        'Dedicated Worker / Electron profile OPFS (.onekey-zcash-opfs)',
+      exactPhysicalPathAvailable: false,
+    };
+  }
+  if (platformEnv.isExtension) {
+    return {
+      carrier: platformEnv.isExtensionOffscreen
+        ? 'extension-offscreen'
+        : 'extension-background',
+      origin,
+      description: platformEnv.isExtensionOffscreen
+        ? 'Dedicated Worker / extension offscreen-origin OPFS (.onekey-zcash-opfs)'
+        : 'Dedicated Worker / extension background-origin OPFS (.onekey-zcash-opfs)',
+      exactPhysicalPathAvailable: false,
+    };
+  }
+  if (platformEnv.isWebEmbed) {
+    return {
+      carrier: 'mobile-webembed',
+      origin,
+      description:
+        'Dedicated Worker / WebView profile OPFS (.onekey-zcash-opfs)',
+      exactPhysicalPathAvailable: false,
+    };
+  }
+  if (platformEnv.isWeb) {
+    return {
+      carrier: 'web-page',
+      origin,
+      description: 'Dedicated Worker / page-origin OPFS (.onekey-zcash-opfs)',
+      exactPhysicalPathAvailable: false,
+    };
+  }
+  return {
+    carrier: 'unknown-web-runtime',
+    origin,
+    description: 'Dedicated Worker / origin-scoped OPFS (.onekey-zcash-opfs)',
+    exactPhysicalPathAvailable: false,
+  };
+}
+
+async function getBrowserStorageDiagnostics(): Promise<
+  IZcashDatabaseDiagnostics['browserStorage']
+> {
+  const storage = globalThis.navigator?.storage;
+  let persisted: boolean | null = null;
+  let originUsageBytes: number | null = null;
+  let originQuotaBytes: number | null = null;
+  let estimateError: string | null = null;
+  try {
+    if (typeof storage?.persisted === 'function') {
+      persisted = await storage.persisted();
+    }
+    if (typeof storage?.estimate === 'function') {
+      const estimate = await storage.estimate();
+      originUsageBytes = estimate.usage ?? null;
+      originQuotaBytes = estimate.quota ?? null;
+    }
+  } catch (e) {
+    estimateError = e instanceof Error ? e.message : String(e);
+  }
+  return {
+    persisted,
+    originUsageBytes,
+    originQuotaBytes,
+    estimateError,
+  };
+}
+
+export async function diagnoseWalletDatabase({
+  network,
+  account,
+}: {
+  network: IZcashNetwork;
+  account?: IZcashWalletAccount;
+}): Promise<IZcashDatabaseDiagnostics> {
+  if (account && account.network !== network) {
+    throw new OneKeyLocalError('Zcash diagnostic account network mismatch');
+  }
+  const rt = await getRuntime();
+  const databaseName = walletDbNameForNetwork(network);
+  const [databaseExists, browserStorage] = await Promise.all([
+    rt.diagDatabaseExists(databaseName),
+    getBrowserStorageDiagnostics(),
+  ]);
+  const base = {
+    backend: 'sqlite-wasm-opfs-sahpool' as const,
+    databaseName,
+    databaseExists,
+    location: getDatabaseLocation(),
+    browserStorage,
+  };
+
+  if (!databaseExists) {
+    return {
+      ...base,
+      openedAndMigrated: false,
+      accountPresent: account ? false : null,
+      accountScanState: null,
+      health: null,
+      storageStats: null,
+    };
+  }
+
+  if (openDbName !== databaseName) {
+    await rt.openWallet(network, databaseName);
+    openDbName = databaseName;
+  }
+
+  const existing = account
+    ? (JSON.parse(rt.accountByUfvk(account.ufvk)) as { uuid: string } | null)
+    : null;
+  return {
+    ...base,
+    openedAndMigrated: true,
+    accountPresent: account ? existing !== null : null,
+    accountScanState:
+      account && existing
+        ? (JSON.parse(
+            rt.accountSyncStatus(existing.uuid),
+          ) as IZcashDatabaseDiagnostics['accountScanState'])
+        : null,
+    health: JSON.parse(
+      rt.diagDatabaseHealth(),
+    ) as IZcashDatabaseDiagnostics['health'],
+    storageStats: JSON.parse(
+      rt.storageStats(),
+    ) as IZcashDatabaseDiagnostics['storageStats'],
+  };
+}
+
+// The endpoint the last wallet operation used; health samples are attributed to it.
+let selectedEndpointUrl: string | undefined;
+
+// Opens the network's database without resolving any account.
+export async function openWalletDatabase(
+  network: IZcashNetwork,
+): Promise<IRuntimeModule> {
+  const rt = await getRuntime();
+  const dbName = walletDbNameForNetwork(network);
+  if (openDbName !== dbName) {
+    await rt.openWallet(network, dbName);
+    openDbName = dbName;
+  }
+  return rt;
+}
+
+export async function withWallet(
+  account: IZcashWalletAccount,
+  options?: {
+    // Only prepareWalletAccounts may register; reads and sends must wait for it.
+    registerIfMissing?: boolean;
+  },
+): Promise<{
+  rt: IRuntimeModule;
+  accountUuid: string;
+}> {
+  const rt = await openWalletDatabase(account.network);
+  const dbName = walletDbName(account);
+  // Pinned to the configured endpoint (default or custom RPC); no automatic failover.
+  selectedEndpointUrl = account.lightwalletdUrl;
+  rt.setLightwalletdUrl(account.lightwalletdUrl);
+
+  // Match by UFVK, not uuid: the runtime's uuid is not stable across a purge, so it can't be cached.
+  const existing = JSON.parse(rt.accountByUfvk(account.ufvk)) as {
+    uuid: string;
+  } | null;
+  if (existing) {
+    registrationRetries.get(dbName)?.failures.delete(account.ufvk);
+    return { rt, accountUuid: existing.uuid };
+  }
+  if (options?.registerIfMissing !== true) {
+    const err = new OneKeyLocalError(
+      'zcash: account not registered in runtime',
+    );
+    Object.assign(err, {
+      code: 'ACCOUNT_NOT_FOUND',
+      params: { hdIndex: account.hdIndex },
+    });
+    throw err;
+  }
+
+  let retries = registrationRetries.get(dbName);
+  if (!retries) {
+    retries = { scanProgress: 0, failures: new Map() };
+    registrationRetries.set(dbName, retries);
+  }
+  const failure = retries.failures.get(account.ufvk);
+  if (
+    failure &&
+    failure.scanProgress === retries.scanProgress &&
+    failure.birthdayHeight === account.birthdayHeight &&
+    failure.lightwalletdUrl === account.lightwalletdUrl &&
+    failure.seedFingerprintHex === account.seedFingerprintHex &&
+    failure.hdIndex === account.hdIndex
+  ) {
+    throw failure.error;
+  }
+
+  // Registering a new account rewinds and re-scans every account above this birthday (host warns the user).
+  const birthday = account.birthdayHeight ?? (await rt.chainTip());
+  try {
+    const accountUuid = await rt.importAccountUfvk(
+      account.label,
+      account.ufvk,
+      birthday,
+      account.seedFingerprintHex,
+      account.hdIndex,
+    );
+    retries.failures.delete(account.ufvk);
+    return { rt, accountUuid };
+  } catch (error) {
+    if (isZcashAccountImportCheckpointError(error)) {
+      retries.failures.set(account.ufvk, {
+        scanProgress: retries.scanProgress,
+        birthdayHeight: account.birthdayHeight,
+        lightwalletdUrl: account.lightwalletdUrl,
+        seedFingerprintHex: account.seedFingerprintHex,
+        hdIndex: account.hdIndex,
+        error,
+      });
+      console.warn(
+        '[zcash] account registration deferred until scan progress',
+        {
+          error: error instanceof Error ? error.message : '',
+        },
+      );
+    }
+    throw error;
+  }
+}
+
+// Callers that delete a database must call this first, or the runtime keeps a SQLite handle to deleted bytes.
+export function forgetOpenWallet(network: IZcashNetwork): void {
+  openDbName = undefined;
+  registrationRetries.delete(walletDbNameForNetwork(network));
+}
+
+// Last-resort recovery for a wedged carrier: swaps in a fresh lease so new calls stop queueing behind it.
+// The abandoned call keeps running; if it wedged holding the busy flag, opens throw WALLET_BUSY until reload.
+export function resetCarrierState(): void {
+  lease = Promise.resolve();
+  openDbName = undefined;
+  runtimePromise = undefined;
+  // Must be cleared with runtimePromise: the read fast path reaches this synchronously.
+  loadedRuntime = undefined;
+}
+
+// Health signal comes from the scan's own requests, not a dedicated probe.
+export type IZcashEndpointHealth = {
+  url: string;
+  ok: boolean;
+  // Round trip of the tip call, when this sample came from one.
+  latencyMs: number | null;
+  atMs: number;
+};
+
+let endpointHealth: IZcashEndpointHealth | undefined;
+
+export function recordEndpointHealth(sample: {
+  ok: boolean;
+  latencyMs?: number | null;
+}): void {
+  const url = selectedEndpointUrl ?? ZCASH_LIGHTWALLETD_MAINNET;
+  endpointHealth = {
+    url,
+    ok: sample.ok,
+    latencyMs:
+      sample.latencyMs ??
+      (endpointHealth?.url === url ? endpointHealth.latencyMs : null),
+    atMs: Date.now(),
+  };
+}
+
+export function getEndpointHealth(): IZcashEndpointHealth | undefined {
+  return endpointHealth;
+}
+
+export function noteNetworkOutcome(e: unknown | null): void {
+  recordEndpointHealth({ ok: e === null });
+}
+
+/** Install only on this WASM instance, before any node operation runs. */
+export async function installZcashHostFetch(
+  fetcher: typeof fetch,
+): Promise<void> {
+  const mod = await getRuntimeWasm();
+  if (typeof mod.setRequestHandler !== 'function') {
+    throw new OneKeyLocalError(
+      'zcash runtime lacks the host network transport; rebuild the runtime',
+    );
+  }
+  mod.setRequestHandler(fetcher);
+}

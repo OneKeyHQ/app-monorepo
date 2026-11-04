@@ -12,6 +12,7 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import { listItemPressStyle } from '@onekeyhq/shared/src/style';
+import { displayOrUnavailable } from '@onekeyhq/shared/src/utils/tokenValueUtils';
 import type { IMarketAccountPortfolioPnl } from '@onekeyhq/shared/types/marketV2';
 import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 
@@ -138,7 +139,7 @@ const SwapProPositionItem = ({
           formatterOptions={{ currency: currencyInfo.symbol }}
           numberOfLines={1}
         >
-          {token.fiatValue}
+          {displayOrUnavailable(token.fiatValue)}
         </NumberSizeableText>
         {stockLayout && pnlDisplay ? (
           <NumberSizeableText

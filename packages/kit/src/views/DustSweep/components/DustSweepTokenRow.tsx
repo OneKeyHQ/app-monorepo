@@ -22,6 +22,7 @@ import { SwapStepStatusIcon } from '@onekeyhq/kit/src/views/Swap/components/PreS
 import { formatSwapErrorMessage } from '@onekeyhq/kit/src/views/Swap/utils/swapErrorUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { EDustSweepItemStatus } from '@onekeyhq/shared/types/swap/dustSweep';
 import type {
   IDustSweepItem,
   IDustSweepReason,
@@ -106,7 +107,7 @@ const DustSweepTokenRowBase = ({
   if (item)
     reasonDescription =
       item.submissionErrorMessage ||
-      (item.status === 'unknown' && !item.localError
+      (item.status === EDustSweepItemStatus.Unknown && !item.localError
         ? intl.formatMessage({ id: ETranslations.swap_review_tx_pending })
         : getDustSweepItemReasonMessage(intl, item, nativeTokenSymbol));
   // Errors only surface once the sweep starts, as the leading status icon.
@@ -114,18 +115,29 @@ const DustSweepTokenRowBase = ({
   let statusLabel = token?.name;
   if (unverified)
     statusLabel = intl.formatMessage({ id: ETranslations.global_unverified });
-  if (item?.status === 'preparing')
+  if (
+    item?.status === EDustSweepItemStatus.Preparing ||
+    item?.status === EDustSweepItemStatus.Building
+  )
     statusLabel = intl.formatMessage({ id: ETranslations.global_processing });
-  else if (item?.status === 'signing')
+  else if (item?.status === EDustSweepItemStatus.Signing)
     statusLabel = intl.formatMessage({
       id: ETranslations.swap_review_sign_and_submit,
     });
-  else if (item?.status === 'broadcasted' || item?.status === 'unknown')
+  else if (
+    item?.status === EDustSweepItemStatus.Broadcasted ||
+    item?.status === EDustSweepItemStatus.Unknown
+  )
     statusLabel = intl.formatMessage({ id: ETranslations.global_pending });
   let statusIcon;
   if (item) {
     if (
-      ['preparing', 'signing', 'broadcasted'].includes(item.status) &&
+      [
+        EDustSweepItemStatus.Preparing,
+        EDustSweepItemStatus.Building,
+        EDustSweepItemStatus.Signing,
+        EDustSweepItemStatus.Broadcasted,
+      ].some((status) => status === item.status) &&
       !item.submissionErrorMessage &&
       !item.providerErrorMessage &&
       !item.localError
@@ -133,12 +145,16 @@ const DustSweepTokenRowBase = ({
       statusIcon = (
         <SwapStepStatusIcon isLoading success={false} failed={false} />
       );
-    else if (item.status === 'success')
+    else if (item.status === EDustSweepItemStatus.Success)
       statusIcon = (
         <SwapStepStatusIcon isLoading={false} success failed={false} />
       );
     else if (
-      ['failed', 'skipped', 'unknown'].includes(item.status) ||
+      [
+        EDustSweepItemStatus.Failed,
+        EDustSweepItemStatus.Skipped,
+        EDustSweepItemStatus.Unknown,
+      ].some((status) => status === item.status) ||
       item.submissionErrorMessage ||
       item.providerErrorMessage ||
       item.localError
@@ -149,13 +165,15 @@ const DustSweepTokenRowBase = ({
             <IconButton
               testID={`dust-sweep-reason-${token?.key}`}
               icon={
-                item.status === 'unknown' && !item.submissionErrorMessage
+                item.status === EDustSweepItemStatus.Unknown &&
+                !item.submissionErrorMessage
                   ? 'ClockTimeHistoryOutline'
                   : 'InfoCircleSolid'
               }
               iconProps={{
                 color:
-                  item.status === 'unknown' && !item.submissionErrorMessage
+                  item.status === EDustSweepItemStatus.Unknown &&
+                  !item.submissionErrorMessage
                     ? '$iconSubdued'
                     : '$iconCritical',
               }}

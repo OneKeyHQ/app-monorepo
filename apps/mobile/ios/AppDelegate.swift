@@ -23,6 +23,14 @@ private enum NitroModuleBridge {
     return cls.perform(NSSelectorFromString("sharedInstance"))?.takeUnretainedValue() as? NSObject
   }
 
+  // MainMenuController (ReactNativeDeviceUtils) owns the iPadOS menu bar content.
+  static func buildMainMenu(with builder: any UIMenuBuilder) {
+    guard let cls = NSClassFromString("ReactNativeDeviceUtils.MainMenuController") as? NSObject.Type else { return }
+    let selector = NSSelectorFromString("buildMenuWithBuilder:")
+    guard cls.responds(to: selector) else { return }
+    _ = cls.perform(selector, with: builder)
+  }
+
   // OneKeyLog is @objc in ReactNativeNativeLogger
   static func logInfo(_ tag: String, _ message: String) {
     guard let cls = NSClassFromString("ReactNativeNativeLogger.OneKeyLog") as? NSObject.Type else { return }
@@ -189,7 +197,7 @@ private struct DevVendorBundleInfo {
 #endif
 
 @UIApplicationMain
-class AppDelegate: ExpoAppDelegate {
+class AppDelegate: ExpoAppDelegate, ExpoReactNativeFactoryProvider {
   /// The real app-launch anchor. Captured eagerly inside `init()`, which is
   /// invoked by `UIApplicationMain` just after dyld + `UIApplication.init`
   /// finish and before `application(_:didFinishLaunchingWithOptions:)` fires.
@@ -210,11 +218,14 @@ class AppDelegate: ExpoAppDelegate {
 
   var reactNativeDelegate: ExpoReactNativeFactoryDelegate?
   var reactNativeFactory: RCTReactNativeFactory?
+  private(set) var launchOptions: [UIApplication.LaunchOptionsKey: Any]?
+  private(set) var needsRecoveryWindow = false
 
   override func application(
     _ application: UIApplication,
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil
   ) -> Bool {
+    self.launchOptions = launchOptions
     let didFinishLaunchingStartAt = CFAbsoluteTimeGetCurrent()
     initializeNativeSentry()
     NitroModuleBridge.logInfo(
@@ -229,6 +240,7 @@ class AppDelegate: ExpoAppDelegate {
     // request (incl. recovery-mode path below). See SlowMist audit iOS-9.1.
     URLCache.shared.removeAllCachedResponses()
     URLCache.shared = URLCache(memoryCapacity: 4 * 1024 * 1024, diskCapacity: 0, diskPath: nil)
+    OneKeyInitializeIntercom()
 
     // The Objective-C MMKV wrapper has initialization separate from the JS factory.
     MMKV.initialize(rootDir: nil)
@@ -282,13 +294,9 @@ class AppDelegate: ExpoAppDelegate {
         }
       }
       if !rolledBack {
-        // Skip super.application() and React Native initialization entirely.
-        // Create our own window — this replaces the system launch storyboard.
-        // Do NOT call super here: ExpoAppDelegate.super would start the RN engine
-        // and show the Expo splash screen overlay, which would cover recovery UI.
-        window = UIWindow(frame: UIScreen.main.bounds)
-        window?.rootViewController = RecoveryViewController()
-        window?.makeKeyAndVisible()
+        // The scene owns the recovery window; skip Expo and React Native startup
+        // so the splash screen cannot cover the native recovery interface.
+        needsRecoveryWindow = true
         return true
       }
     }
@@ -308,16 +316,21 @@ class AppDelegate: ExpoAppDelegate {
     reactNativeDelegate = delegate
     reactNativeFactory = factory
     RCTI18nUtil.sharedInstance().allowRTL(true)
-#if os(iOS) || os(tvOS)
-    window = UIWindow(frame: UIScreen.main.bounds)
-    factory.startReactNative(
-      withModuleName: "main",
-      in: window,
-      launchOptions: launchOptions)
-#endif
-
     store?.setValue(launchOptions, forKey: "launchOptions")
 
+#if !targetEnvironment(macCatalyst)
+    // Silent-push launches need the JS notification bootstrap even without a scene.
+    if application.applicationState == .background {
+      factory.rootViewFactory.initializeReactHost(
+        launchOptions: launchOptions,
+        bundleConfiguration: factory.bundleConfiguration,
+        devMenuConfiguration: factory.devMenuConfiguration ?? RCTDevMenuConfiguration.default()
+      )
+    }
+#endif
+
+    #if !targetEnvironment(macCatalyst)
+    // JPUSHService Register
     let tBeforeJPush = CFAbsoluteTimeGetCurrent()
     let entity = JPUSHRegisterEntity()
     entity.types = 0
@@ -331,6 +344,7 @@ class AppDelegate: ExpoAppDelegate {
       "StartupTiming",
       "ios.app.jpush_register: \(String(format: "%.0f", (tAfterJPush - tBeforeJPush) * 1000))ms"
     )
+    #endif
 
     let tBeforeSuper = CFAbsoluteTimeGetCurrent()
     let result = super.application(application, didFinishLaunchingWithOptions: launchOptions)
@@ -356,6 +370,12 @@ class AppDelegate: ExpoAppDelegate {
       UserDefaults.standard.set(0, forKey: BootRecoveryKeys.consecutiveBootFailCount)
       UserDefaults.standard.synchronize()
     }
+  }
+
+  // The iPadOS menu bar shows once the app runs in a resizable window.
+  override func buildMenu(with builder: any UIMenuBuilder) {
+    super.buildMenu(with: builder)
+    NitroModuleBridge.buildMainMenu(with: builder)
   }
 
   // Background URLSession events (concurrent/background downloads).
@@ -403,7 +423,9 @@ class AppDelegate: ExpoAppDelegate {
       return
     }
     NitroModuleBridge.logInfo("App", "didRegisterForRemoteNotificationsWithDeviceToken")
+    #if !targetEnvironment(macCatalyst)
     JPUSHService.registerDeviceToken(deviceToken)
+    #endif
     NitroModuleBridge.launchOptionsStore()?.setValue(deviceToken, forKey: "deviceToken")
   }
 
@@ -420,11 +442,97 @@ class AppDelegate: ExpoAppDelegate {
       return
     }
     NitroModuleBridge.logInfo("App", "didReceiveRemoteNotification")
+    #if !targetEnvironment(macCatalyst)
     JPUSHService.handleRemoteNotification(userInfo)
     NotificationCenter.default.post(name: NSNotification.Name(J_APNS_NOTIFICATION_ARRIVED_EVENT), object: userInfo)
+    #endif
     completionHandler(.newData)
   }
 }
+
+
+class SceneDelegate: ExpoAppSceneDelegate {
+  override func scene(
+    _ scene: UIScene,
+    willConnectTo session: UISceneSession,
+    options connectionOptions: UIScene.ConnectionOptions
+  ) {
+    guard let windowScene = scene as? UIWindowScene,
+      let appDelegate = UIApplication.shared.delegate as? AppDelegate else {
+      return
+    }
+
+    let window = UIWindow(windowScene: windowScene)
+    self.window = window
+    appDelegate.window = window
+
+    if appDelegate.needsRecoveryWindow {
+      window.rootViewController = RecoveryViewController()
+      window.makeKeyAndVisible()
+      return
+    }
+
+    guard let factory = appDelegate.reactNativeFactory else {
+      fatalError("The app delegate must create the React Native factory before connecting its scene.")
+    }
+
+    // Preserve notification launch options alongside the scene-only link data.
+    var launchOptions = appDelegate.launchOptions ?? [:]
+    if let url = connectionOptions.urlContexts.first?.url {
+      launchOptions[UIApplication.LaunchOptionsKey(rawValue: "UIApplicationLaunchOptionsURLKey")] = url
+    }
+    if let sourceApplication = connectionOptions.urlContexts.first?.options.sourceApplication {
+      launchOptions[.sourceApplication] = sourceApplication
+    }
+    if let userActivity = connectionOptions.userActivities.first(where: {
+      $0.activityType == NSUserActivityTypeBrowsingWeb
+    }) {
+      launchOptions[UIApplication.LaunchOptionsKey(rawValue: "UIApplicationLaunchOptionsUserActivityDictionaryKey")] = [
+        "UIApplicationLaunchOptionsUserActivityTypeKey": userActivity.activityType,
+        "UIApplicationLaunchOptionsUserActivityKey": userActivity,
+      ]
+    }
+    if let response = connectionOptions.notificationResponse,
+      response.notification.request.trigger is UNPushNotificationTrigger {
+      launchOptions[.remoteNotification] = response.notification.request.content.userInfo
+    }
+    let mergedLaunchOptions = launchOptions.isEmpty ? nil : launchOptions
+    NitroModuleBridge.launchOptionsStore()?.setValue(mergedLaunchOptions, forKey: "launchOptions")
+
+    // Cold links reach Expo subscribers through app-delegate APIs; React Native
+    // reads the initial URL from launch options instead of receiving a warm event.
+    connectionOptions.urlContexts.forEach { context in
+      var options: [UIApplication.OpenURLOptionsKey: Any] = [:]
+      if let sourceApplication = context.options.sourceApplication {
+        options[.sourceApplication] = sourceApplication
+      }
+      if let annotation = context.options.annotation {
+        options[.annotation] = annotation
+      }
+      options[.openInPlace] = context.options.openInPlace
+      _ = appDelegate.application(UIApplication.shared, open: context.url, options: options)
+    }
+    connectionOptions.userActivities.forEach { userActivity in
+      _ = appDelegate.application(
+        UIApplication.shared,
+        continue: userActivity,
+        restorationHandler: { _ in }
+      )
+    }
+    factory.startReactNative(
+      withModuleName: appDelegate.reactNativeFactoryModuleName,
+      in: window,
+      launchOptions: mergedLaunchOptions
+    )
+
+    if let shortcutItem = connectionOptions.shortcutItem {
+      self.windowScene(windowScene, performActionFor: shortcutItem) { _ in }
+    }
+  }
+}
+#if targetEnvironment(macCatalyst)
+class CatalystSceneDelegate: SceneDelegate {}
+#endif
 
 class ReactNativeDelegate: ExpoReactNativeFactoryDelegate {
   // Extension point for config-plugins
@@ -1222,6 +1330,7 @@ class ReactNativeDelegate: ExpoReactNativeFactoryDelegate {
   }
 }
 
+#if !targetEnvironment(macCatalyst)
 extension AppDelegate:JPUSHRegisterDelegate {
   //MARK - JPUSHRegisterDelegate
   @available(iOS 10.0, *)
@@ -1284,3 +1393,4 @@ extension AppDelegate:JPUSHRegisterDelegate {
     NotificationCenter.default.post(name: NSNotification.Name(J_CUSTOM_NOTIFICATION_EVENT), object: userInfo)
   }
 }
+#endif

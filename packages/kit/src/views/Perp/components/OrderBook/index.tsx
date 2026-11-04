@@ -100,6 +100,9 @@ export function PerpBookText({ children, style, ...props }: TextProps) {
 }
 
 export const rowHeight = 24;
+const ORDER_BOOK_CONTAINER_PADDING = 8;
+const ORDER_BOOK_HORIZONTAL_HEADER_HEIGHT = 16;
+const ORDER_BOOK_HORIZONTAL_SIDE_RATIO_HEIGHT = 24;
 
 type IWebPointerStyle = ViewStyle & { cursor?: string };
 type IWebRectElement = {
@@ -249,7 +252,7 @@ interface IOrderBookProps {
 const styles = StyleSheet.create({
   container: {
     position: 'relative',
-    padding: 8,
+    padding: ORDER_BOOK_CONTAINER_PADDING,
     width: '100%',
     height: '100%',
   },
@@ -460,11 +463,11 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   sideRatioContainerCompact: {
-    height: 24,
+    height: ORDER_BOOK_HORIZONTAL_SIDE_RATIO_HEIGHT,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    marginTop: 4,
+    marginTop: ORDER_BOOK_SIDE_RATIO_GAP,
     paddingHorizontal: 4,
   },
   sideRatioTrackCompact: {
@@ -1340,9 +1343,25 @@ export function OrderBook({
   );
 
   if (horizontal) {
+    // Android's detail pager measures this content and then fixes its height.
+    // Reserve the rows across loading/ready changes instead of inheriting that
+    // height with 100%, which can keep the book collapsed after a coin switch.
+    const intrinsicHeightStyle =
+      platformEnv.isNativeAndroid && variant === 'mobileHorizontal'
+        ? {
+            height:
+              resolvedMaxLevelsPerSide *
+                (ORDER_BOOK_HORIZONTAL_ROW_HEIGHT +
+                  ORDER_BOOK_HORIZONTAL_ROW_MARGIN_TOP) +
+              ORDER_BOOK_HORIZONTAL_HEADER_HEIGHT +
+              ORDER_BOOK_HORIZONTAL_SIDE_RATIO_HEIGHT +
+              ORDER_BOOK_SIDE_RATIO_GAP +
+              ORDER_BOOK_CONTAINER_PADDING * 2,
+          }
+        : undefined;
     return (
       <View
-        style={[styles.container, style]}
+        style={[styles.container, intrinsicHeightStyle, style]}
         onLayout={(event) => traceInnerLayout('horizontalContainer', event)}
       >
         <DebugRenderTracker
@@ -1352,7 +1371,7 @@ export function OrderBook({
           <View
             style={{
               gap: 4,
-              height: 16,
+              height: ORDER_BOOK_HORIZONTAL_HEADER_HEIGHT,
               alignItems: 'center',
               flexDirection: 'row',
             }}

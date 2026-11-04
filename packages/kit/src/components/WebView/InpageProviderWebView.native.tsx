@@ -97,6 +97,7 @@ const InpageProviderWebView: FC<INativeInpageProviderWebViewProps> = forwardRef(
       displayProgressBar,
       onProgress,
       webviewDebuggingEnabled,
+      recreateOnContentProcessTerminate,
       siteMode,
       mediaPermissionWhitelist,
       onMessage,
@@ -107,10 +108,9 @@ const InpageProviderWebView: FC<INativeInpageProviderWebViewProps> = forwardRef(
       allowFileAccessFromFileURLs,
       allowFileAccess,
       allowingReadAccessToURL,
+      scrollViewClipsToBounds,
       onError,
       onHttpError,
-      onContentProcessDidTerminate,
-      onRenderProcessGone,
       disableBridge,
       injectedJavaScript,
     }: INativeInpageProviderWebViewProps,
@@ -278,6 +278,7 @@ const InpageProviderWebView: FC<INativeInpageProviderWebViewProps> = forwardRef(
           pullToRefreshEnabled={pullToRefreshEnabled}
           scalesPageToFit={!isDesktopMode}
           webviewDebuggingEnabled={webviewDebuggingEnabled}
+          recreateOnContentProcessTerminate={recreateOnContentProcessTerminate}
           ref={setWebViewRef}
           src={src}
           onSrcChange={onSrcChange}
@@ -318,10 +319,9 @@ const InpageProviderWebView: FC<INativeInpageProviderWebViewProps> = forwardRef(
           }
           {...nativeWebviewProps}
           allowingReadAccessToURL={allowingReadAccessToURL}
+          scrollViewClipsToBounds={scrollViewClipsToBounds}
           onError={onError}
           onHttpError={onHttpError}
-          onContentProcessDidTerminate={onContentProcessDidTerminate}
-          onRenderProcessGone={onRenderProcessGone}
         />
       </Stack>
     );

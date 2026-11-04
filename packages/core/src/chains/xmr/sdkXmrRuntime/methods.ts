@@ -1,0 +1,86 @@
+// Single source of truth for the runtime's method names; checked against
+// `IXmrRuntimeApi` in `methods.test.ts`.
+export const XMR_RUNTIME_METHODS = [
+  'init',
+  'dependencyVersions',
+  'openWallet',
+  'closeWallet',
+  'setNodeUrl',
+  'chainTip',
+
+  'deriveAccount',
+  'deriveSubaddress',
+  'validateAddress',
+
+  'addAccount',
+  'listAccounts',
+  'removeAccount',
+  'deleteWallet',
+  'registerSubaddress',
+
+  'updateChainTip',
+  'syncStep',
+  'syncPeek',
+  'rewindTo',
+
+  'balance',
+  'history',
+  'transactionDetails',
+  'diagDatabase',
+
+  'importKeyImagesWithBip32Key',
+  'exportKeyImageSyncData',
+  'importDeviceKeyImages',
+  'prepareTransaction',
+  'signTransactionWithBip32Key',
+  'prepareDeviceTransaction',
+  'assembleDeviceTransaction',
+  'verifyTransaction',
+  'verifySignedTransaction',
+  'broadcastTransaction',
+] as const;
+
+export type IXmrRuntimeMethod = (typeof XMR_RUNTIME_METHODS)[number];
+
+// Positions of the args the wasm declares as `u64`. `bigint` cannot cross the
+// extension/mobile JSON bridge, so the API carries them as decimal strings.
+export const XMR_RUNTIME_U64_ARGS: Partial<
+  Record<IXmrRuntimeMethod, readonly number[]>
+> = {
+  addAccount: [3],
+  registerSubaddress: [0],
+  updateChainTip: [0, 1],
+  syncStep: [0, 1],
+  syncPeek: [0],
+  rewindTo: [0, 1, 2],
+  balance: [0, 1],
+  history: [0],
+  transactionDetails: [0],
+  importKeyImagesWithBip32Key: [0],
+  exportKeyImageSyncData: [0],
+  importDeviceKeyImages: [0],
+  prepareTransaction: [0, 3],
+  prepareDeviceTransaction: [0, 3],
+  broadcastTransaction: [0, 2],
+};
+
+const DECIMAL_U64 = /^(0|[1-9][0-9]*)$/;
+
+export function coerceXmrU64Args(
+  method: IXmrRuntimeMethod,
+  args: readonly unknown[],
+): unknown[] {
+  const positions = XMR_RUNTIME_U64_ARGS[method];
+  if (!positions) return [...args];
+  return args.map((arg, index) => {
+    if (!positions.includes(index)) return arg;
+    // Optional `u64` (`balance`'s chain tip) stays absent when absent.
+    if (arg === undefined || arg === null) return arg;
+    if (typeof arg !== 'string' || !DECIMAL_U64.test(arg)) {
+      throw new TypeError(
+        `xmr: ${method} argument ${index} must be a decimal u64 string, got ${String(arg)}`,
+      );
+    }
+    return BigInt(arg);
+  });
+}

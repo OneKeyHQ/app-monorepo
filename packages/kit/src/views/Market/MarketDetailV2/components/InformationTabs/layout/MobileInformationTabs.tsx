@@ -97,7 +97,7 @@ function MobileInformationTabsHeader({
           {...props}
           scrollable
           keepFocusedTabVisible
-          textSize="$bodyMdMedium"
+          textSize="$bodyLgMedium"
           onTabPress={handleTabPress}
           renderItem={renderTabBarItem}
         />
@@ -135,8 +135,10 @@ export function MobileInformationTabs({
   pendingHeader,
   onScrollEnd,
   portfolioData,
+  hasPortfolioAccount,
   isRefreshing,
   isPortfolioPending,
+  isPortfolioFailed,
   tokenLogoUrl,
   scrollEnabled = true,
   freezeContent = false,
@@ -151,9 +153,11 @@ export function MobileInformationTabs({
   pendingHeader?: ReactNode;
   onScrollEnd: () => void;
   portfolioData: IMarketAccountPortfolioItem[];
+  hasPortfolioAccount?: boolean;
   isRefreshing?: boolean;
   // The first holdings result for this token is not back yet.
   isPortfolioPending?: boolean;
+  isPortfolioFailed?: boolean;
   tokenLogoUrl?: string;
   scrollEnabled?: boolean;
   freezeContent?: boolean;
@@ -200,11 +204,15 @@ export function MobileInformationTabs({
       >
         <DelayedFreeze freeze={freezeContent}>
           <Portfolio
+            isStock={detailKind === 'stock' || isStockToken}
             portfolioData={portfolioData}
+            hasAccount={hasPortfolioAccount}
             isRefreshing={!!isRefreshing}
             isPending={isPortfolioPending}
+            isFailed={isPortfolioFailed}
             accountAddress={accountAddress}
             tokenLogoUrl={tokenLogoUrl}
+            isMarketDetail
             scrollEnabled={scrollEnabled}
           />
         </DelayedFreeze>
@@ -319,8 +327,10 @@ export function MobileInformationTabs({
     holdersTabName,
     accountAddress,
     portfolioData,
+    hasPortfolioAccount,
     isRefreshing,
     isPortfolioPending,
+    isPortfolioFailed,
     isNative,
     isBTCNetwork,
     tokenLogoUrl,
@@ -359,8 +369,16 @@ export function MobileInformationTabs({
     [detailKind, holdersTabLabel, holdersTabName],
   );
 
-  // Generate unique key based on tabs composition
-  const tabsKey = useMemo(() => tabKeys.join('-'), [tabKeys]);
+  // Reset native header and page offsets when switching tokens. Stock network
+  // hydration must not remount the chart for the same stock.
+  const tokenKey =
+    detailKind === 'stock'
+      ? `stock:${stockId ?? ''}`
+      : `${networkId}:${tokenAddress}:${isNative ? 'native' : 'token'}`;
+  const tabsKey = useMemo(
+    () => `${platformEnv.isNative ? `${tokenKey}:` : ''}${tabKeys.join('-')}`,
+    [tabKeys, tokenKey],
+  );
 
   // Stock tabs are independent of the selected token network. Other tab sets
   // wait for it so their header does not remount when the network resolves.

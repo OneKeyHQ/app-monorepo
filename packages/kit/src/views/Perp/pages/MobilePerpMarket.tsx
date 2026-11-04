@@ -14,25 +14,27 @@ import {
   type LayoutChangeEvent,
   useWindowDimensions,
 } from 'react-native';
+import { NativeScroller } from 'react-native-pager-view';
 
 import type { IScrollViewRef } from '@onekeyhq/components';
 import {
-  HeaderScrollGestureWrapper,
   Icon,
   Page,
   ScrollView,
   SizableText,
-  Tabs,
   XStack,
   YStack,
   useIsSplitDetailActive,
   usePageWidth,
   useSafeAreaInsets,
-  useTheme,
 } from '@onekeyhq/components';
+import { useTradingViewNativeSubIndicatorCount } from '@onekeyhq/kit/src/components/TradingView/TradingViewNative/useTradingViewNativeSettings';
 import { useActiveTradeInstrumentAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import { PerpDexBadge } from '@onekeyhq/kit/src/views/Market/components/PerpsBadges';
-import { usePerpsActiveAccountAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  usePerpsActiveAccountAtom,
+  usePerpsCustomSettingsAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -72,13 +74,27 @@ import {
 } from '../utils/mobileLayoutTrace';
 import {
   type IMobilePerpMarketTab,
+  getMobilePerpMarketChartHeight,
   getMobilePerpMarketPageScrollState,
   getMobilePerpMarketPagerHeight,
 } from '../utils/mobilePerpMarketScrollState';
 import { preloadPerpsMobileTokenSelectorPage } from '../utils/preloadPerpsTokenSelector';
 
-const MOBILE_CHART_HEIGHT = 500;
-const IOS_CHART_BOTTOM_OVERLAP = 56;
+// Native sub-indicator panes extend the chart downward; the price pane keeps
+// its height.
+function useMobilePerpChartLayout() {
+  const [{ chartMode = 'tradingView' }] = usePerpsCustomSettingsAtom();
+  const subIndicatorCount = useTradingViewNativeSubIndicatorCount('perps');
+  const growsWithSubIndicators = platformEnv.isNative && chartMode === 'native';
+  return {
+    chartHeight: getMobilePerpMarketChartHeight({
+      isNativeChart: chartMode === 'native',
+      isNative: Boolean(platformEnv.isNative),
+      subIndicatorCount,
+    }),
+    growsWithSubIndicators,
+  };
+}
 
 const MOBILE_PERP_MARKET_TAB_ITEMS: Array<{
   key: IMobilePerpMarketTab;
@@ -194,51 +210,54 @@ function MobilePerpMarketPageContent({
 }
 
 function MobilePerpCandlesHeader({
+  children,
   isInteractionOverlayOpen,
   onInteractionOverlayOpenChange,
 }: {
+  children: ReactNode;
   isInteractionOverlayOpen: boolean;
   onInteractionOverlayOpenChange: (isOpen: boolean) => void;
 }) {
   const layoutRef = useRef<IPerpsMobileLayoutTraceRect | undefined>(undefined);
+  const { chartHeight, growsWithSubIndicators } = useMobilePerpChartLayout();
   useEffect(
     () => () => {
       onInteractionOverlayOpenChange(false);
     },
     [onInteractionOverlayOpenChange],
   );
-  const handleLayout = useCallback((event: LayoutChangeEvent) => {
-    const rect = getPerpsMobileLayoutTraceRect(event);
-    if (isPerpsMobileLayoutTraceRectChanged(layoutRef.current, rect)) {
-      tracePerpsMobileLayout('mobileMarket.candlesHeader.layout', {
-        rect,
-        chartHeight: MOBILE_CHART_HEIGHT,
-        bottomOverlap: IOS_CHART_BOTTOM_OVERLAP,
-      });
-      layoutRef.current = rect;
-    }
-  }, []);
+  const handleLayout = useCallback(
+    (event: LayoutChangeEvent) => {
+      const rect = getPerpsMobileLayoutTraceRect(event);
+      if (isPerpsMobileLayoutTraceRectChanged(layoutRef.current, rect)) {
+        tracePerpsMobileLayout('mobileMarket.candlesHeader.layout', {
+          rect,
+          chartHeight,
+        });
+        layoutRef.current = rect;
+      }
+    },
+    [chartHeight],
+  );
 
   return (
-    <YStack mb={-IOS_CHART_BOTTOM_OVERLAP} onLayout={handleLayout}>
-      <MobilePerpMarketHeader />
-      <HeaderScrollGestureWrapper
-        disabled={isInteractionOverlayOpen}
-        panActiveOffsetY={[-4, 4]}
-        panFailOffsetX={[-40, 40]}
-        excludeRightEdgeRatio={0.1}
-        scrollScale={1.2}
-        disableMomentum
-        simultaneousWithNativeGesture
-        cancelChildTouches={false}
-      >
-        <YStack h={MOBILE_CHART_HEIGHT} overflow="hidden">
+    <NativeScroller
+      testID="perps-market-chart-scroll"
+      style={{ flex: 1 }}
+      scrollEnabled={!isInteractionOverlayOpen}
+      showsVerticalScrollIndicator={false}
+    >
+      <YStack onLayout={handleLayout}>
+        <MobilePerpMarketHeader />
+        <YStack h={chartHeight} overflow="hidden">
           <PerpCandles
             onInteractionOverlayOpenChange={onInteractionOverlayOpenChange}
+            nativeChartGrowsWithSubIndicators={growsWithSubIndicators}
           />
         </YStack>
-      </HeaderScrollGestureWrapper>
-    </YStack>
+      </YStack>
+      {children}
+    </NativeScroller>
   );
 }
 
@@ -248,6 +267,7 @@ function MobilePerpCandlesStatic({
   onInteractionOverlayOpenChange?: (isOpen: boolean) => void;
 }) {
   const layoutRef = useRef<IPerpsMobileLayoutTraceRect | undefined>(undefined);
+  const { chartHeight, growsWithSubIndicators } = useMobilePerpChartLayout();
   const handleLayout = useCallback((event: LayoutChangeEvent) => {
     const rect = getPerpsMobileLayoutTraceRect(event);
     if (isPerpsMobileLayoutTraceRectChanged(layoutRef.current, rect)) {
@@ -269,9 +289,10 @@ function MobilePerpCandlesStatic({
           indefinite here, so `flex-basis: 0%` resolves the chart box to its
           content in WebKit (Safari collapses it and leaves the reserved space
           blank) while Blink grows it to the min-height. */}
-      <YStack h={MOBILE_CHART_HEIGHT} overflow="hidden">
+      <YStack h={chartHeight} overflow="hidden">
         <PerpCandles
           onInteractionOverlayOpenChange={onInteractionOverlayOpenChange}
+          nativeChartGrowsWithSubIndicators={growsWithSubIndicators}
         />
       </YStack>
     </YStack>
@@ -279,11 +300,6 @@ function MobilePerpCandlesStatic({
 }
 
 function MobilePerpMarket() {
-  const theme = useTheme();
-  const chartHeaderStyle = useMemo(
-    () => ({ backgroundColor: theme.bgApp.val }),
-    [theme.bgApp.val],
-  );
   const route = useAppRoute<
     IModalPerpParamList,
     EModalPerpRoutes.MobilePerpMarket
@@ -738,37 +754,14 @@ function MobilePerpMarket() {
                   </YStack>
                 </YStack>
               ) : platformEnv.isNativeIOS ? (
-                <Tabs.Container
-                  initialTabName="orderbook"
-                  headerContainerStyle={chartHeaderStyle}
-                  renderHeader={() => (
-                    <MobilePerpCandlesHeader
-                      isInteractionOverlayOpen={
-                        isTradingViewInteractionOverlayOpen
-                      }
-                      onInteractionOverlayOpenChange={
-                        handleInteractionOverlayOpenChange
-                      }
-                    />
-                  )}
-                  renderTabBar={() => null}
+                <MobilePerpCandlesHeader
+                  isInteractionOverlayOpen={isTradingViewInteractionOverlayOpen}
+                  onInteractionOverlayOpenChange={
+                    handleInteractionOverlayOpenChange
+                  }
                 >
-                  <Tabs.Tab name="orderbook">
-                    <Tabs.ScrollView
-                      scrollEnabled={!isTradingViewInteractionOverlayOpen}
-                      showsVerticalScrollIndicator={false}
-                      contentContainerStyle={{ flexGrow: 0, minHeight: 0 }}
-                    >
-                      <YStack
-                        onLayout={(event) =>
-                          handleTraceLayout('iosOrderbookTabContent', event)
-                        }
-                      >
-                        {orderBookContent}
-                      </YStack>
-                    </Tabs.ScrollView>
-                  </Tabs.Tab>
-                </Tabs.Container>
+                  {orderBookContent}
+                </MobilePerpCandlesHeader>
               ) : (
                 <YStack
                   onLayout={(event) =>

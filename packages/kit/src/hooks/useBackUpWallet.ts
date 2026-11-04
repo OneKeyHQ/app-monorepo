@@ -1,5 +1,7 @@
 import { useCallback } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { ERootRoutes } from '@onekeyhq/shared/src/routes';
 import { ensureSensitiveTextEncoded } from '@onekeyhq/shared/src/utils/sensitiveTextUtils';
@@ -7,6 +9,7 @@ import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 
 import backgroundApiProxy from '../background/instance/backgroundApiProxy';
+import { getManualBackupMnemonic } from '../components/WalletBackup/getManualBackupMnemonic';
 import useLiteCard from '../views/LiteCard/hooks/useLiteCard';
 import { useCloudBackup } from '../views/Onboardingv2/hooks/useCloudBackup';
 
@@ -18,6 +21,7 @@ import {
 } from './usePageNavigation';
 
 function useBackUpWallet({ walletId }: { walletId: string }) {
+  const intl = useIntl();
   const { wallet } = useAccountData({ walletId });
 
   const navigation = useAppNavigation();
@@ -30,11 +34,9 @@ function useBackUpWallet({ walletId }: { walletId: string }) {
     if (!wallet?.id) {
       return;
     }
-    const { mnemonic } =
-      await backgroundApiProxy.serviceAccount.getHDAccountMnemonic({
-        walletId: wallet?.id,
-        reason: EReasonForNeedPassword.Security,
-      });
+    const result = await getManualBackupMnemonic(wallet.id, intl);
+    if (!result) return;
+    const { mnemonic } = result;
     if (mnemonic) ensureSensitiveTextEncoded(mnemonic);
 
     navigateToBackupWalletReminderPage({
@@ -43,7 +45,7 @@ function useBackUpWallet({ walletId }: { walletId: string }) {
       mnemonic,
     });
     defaultLogger.account.wallet.backupWallet('manualBackup');
-  }, [wallet?.backuped, wallet?.id]);
+  }, [wallet?.backuped, wallet?.id, intl]);
 
   const handleBackUpByLiteCard = useCallback(async () => {
     await liteCard.backupWallet(wallet?.id);

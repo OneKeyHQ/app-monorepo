@@ -35,6 +35,13 @@ import { getWatchlistSidebarPriceChange } from './filterWatchlistTokens';
 import type { IMarketToken } from '../../../MarketHomeV2/components/MarketTokenList/MarketTokenData';
 
 export const WATCHLIST_SIDEBAR_ROW_HEIGHT = TOKEN_SELECTOR_ROW_HEIGHT;
+// The star glyph sits on the row's content edge instead of 4px inside a 24px
+// slot. The slot narrows by those 4px, so the logo keeps its distance to the
+// star and the name and price get the freed width.
+const STAR_GLYPH_SIZE = 16;
+const STAR_SLOT_WIDTH =
+  TOKEN_SELECTOR_STAR_COLUMN_WIDTH -
+  (TOKEN_SELECTOR_STAR_COLUMN_WIDTH - STAR_GLYPH_SIZE) / 2;
 
 function MissingValue({
   size,
@@ -164,11 +171,19 @@ function BasicWatchlistSidebarRow({
       ) : null}
       <XStack alignItems="center" gap={TOKEN_SELECTOR_NAME_GAP}>
         <Stack
-          width={TOKEN_SELECTOR_STAR_COLUMN_WIDTH}
-          alignItems="center"
+          width={STAR_SLOT_WIDTH}
+          alignItems="flex-start"
           justifyContent="center"
         >
-          <SelectorTokenStar item={item} />
+          {/* The tertiary button's negative margin lets it overhang this
+              glyph-sized box, so the glyph lands on the box itself. */}
+          <Stack
+            width={STAR_GLYPH_SIZE}
+            alignItems="center"
+            justifyContent="center"
+          >
+            <SelectorTokenStar item={item} />
+          </Stack>
         </Stack>
         <Token
           size="md"
@@ -261,8 +276,8 @@ export function WatchlistSidebarRowSkeleton() {
     >
       <XStack alignItems="center" gap={TOKEN_SELECTOR_NAME_GAP}>
         <Stack
-          width={TOKEN_SELECTOR_STAR_COLUMN_WIDTH}
-          alignItems="center"
+          width={STAR_SLOT_WIDTH}
+          alignItems="flex-start"
           justifyContent="center"
         >
           <Skeleton w="$4" h="$4" radius="round" />

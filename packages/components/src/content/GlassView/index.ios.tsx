@@ -6,8 +6,9 @@
 //
 // Never fade glass through a parent's opacity: glass whose ancestor animates
 // to opacity 0 stops rendering and can leave later glass broken
-// (expo/expo#50097, #41024, #51575). Animate glassEffectStyle to 'none'
-// instead (see the mobile browser's BrowserChromeCapsule).
+// (expo/expo#50097, #41024, #51575). Shrink it away with a transform, or
+// animate glassEffectStyle to 'none', instead (the mobile browser's
+// BrowserChromeCapsule shrinks its glass).
 import { GlassView as ExpoGlassView } from 'expo-glass-effect';
 
 import { useThemeName } from '../../hooks/useStyle';
@@ -15,6 +16,11 @@ import { useThemeName } from '../../hooks/useStyle';
 import type { GlassViewProps } from 'expo-glass-effect';
 
 export { isLiquidGlassAvailable } from 'expo-glass-effect';
+
+// Glass views inside render together: one look for neighboring glass (each
+// glass otherwise adapts to what is behind it on its own), and shapes closer
+// than `spacing` merge, like the system bars.
+export { GlassContainer } from 'expo-glass-effect';
 
 // With the default 'auto' scheme the glass picks its light/dark variant from
 // the content behind it, and every time the view is shown again (a tab switch,

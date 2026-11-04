@@ -1,4 +1,4 @@
-import { forEach, isNil, isString } from 'lodash';
+import { isNil, isString } from 'lodash';
 
 import { defaultLogger } from '../logger/logger';
 import { isEnableLogNetwork } from '../logger/scopes/app/scenes/networkFilter';
@@ -9,6 +9,7 @@ import {
   reportApiAvailabilityError,
   reportApiAvailabilityResponse,
 } from './availabilityMetrics';
+import { withCustomUAHeaders } from './customUA';
 import { HEADER_REQUEST_ID_KEY, getRequestHeaders } from './Interceptor';
 import { AVAILABILITY_COUNTED_FETCH_OPTION } from './requestConst';
 import requestHelper from './requestHelper';
@@ -57,29 +58,12 @@ const newFetch = async function (
   }
   const resourceInfo = resource as Request;
 
-  // manifest v3 axios may pass headers in fetch resource
-  // so we need merge headers from axios to fetch
-  // @ts-ignore
-  if (resourceInfo && resourceInfo.headers && resourceInfo.headers.entries) {
-    const headersArr: Array<[string, string]> = Array.from(
-      // @ts-ignore
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-      resourceInfo.headers.entries(),
-    );
-    options.headers = options.headers || {};
-    const { headers } = options;
-    headersArr.forEach(([key, val]) => {
-      if (
-        key &&
-        !(key in headers) &&
-        !(key?.toLowerCase() in headers) &&
-        !(key?.toUpperCase() in headers)
-      ) {
-        // @ts-ignore
-        headers[key] = val;
-      }
-    });
-  }
+  // Request, Headers, tuple arrays and plain objects must share the same
+  // case-insensitive merge so an explicit caller UA is always preserved.
+  const requestHeaders = new Headers(resourceInfo?.headers);
+  new Headers(options.headers).forEach((value, key) => {
+    requestHeaders.set(key, value);
+  });
 
   const url = getUrlFromResource(resource);
   // same contract as checkRequestIsOneKeyDomain (Interceptor.ts): runtimes that
@@ -93,22 +77,18 @@ const newFetch = async function (
   }
   let requestId: string | undefined;
   if (isOneKeyDomain) {
-    options.headers = options.headers || {};
     const headers = await getRequestHeaders();
     requestId = headers[HEADER_REQUEST_ID_KEY];
-    forEach(headers, (val, key) => {
-      if (
-        key &&
-        !(key in headers) &&
-        !(key?.toLowerCase() in headers) &&
-        !(key?.toUpperCase() in headers)
-      ) {
-        // @ts-ignore
-        headers[key] = val;
-      }
-      // @ts-ignore
-      options.headers[key] = val;
+    Object.entries(headers).forEach(([key, value]) => {
+      requestHeaders.set(key, value);
     });
+    options.headers = await withCustomUAHeaders(
+      url,
+      Object.fromEntries(requestHeaders.entries()),
+      { browserTransport: true },
+    );
+  } else if (resourceInfo?.headers) {
+    options.headers = Object.fromEntries(requestHeaders.entries());
   }
 
   if (isEnableLogNetwork(url)) {

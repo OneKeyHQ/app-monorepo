@@ -35,8 +35,8 @@ function touchEvent(pageX: number, pageY: number, count = 1) {
     pageY,
     locationX: pageX,
     locationY: pageY,
-    identifier: '0',
-    target: '1',
+    identifier: 0,
+    target: 1,
     timestamp: 0,
     changedTouches: [],
     touches: [],
@@ -46,7 +46,7 @@ function touchEvent(pageX: number, pageY: number, count = 1) {
       ...touch,
       touches: Array.from({ length: count }, (_, index) => ({
         ...touch,
-        identifier: String(index),
+        identifier: index,
       })),
     },
   };

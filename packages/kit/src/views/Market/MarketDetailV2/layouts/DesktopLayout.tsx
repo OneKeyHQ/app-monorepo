@@ -25,6 +25,7 @@ import type { IMarketStockDetailInitialSection } from '@onekeyhq/shared/src/rout
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type { IMarketAssetDetailData } from '@onekeyhq/shared/types/market';
 
+import { MARKET_DETAIL_TABS_MIN_HEIGHT } from '../../marketDesktopLayoutConstants';
 import { MarketTestIDs } from '../../testIDs';
 import { usePortfolioData } from '../components/InformationTabs/components/Portfolio/hooks/usePortfolioData';
 import { useNetworkAccount } from '../components/InformationTabs/hooks/useNetworkAccount';
@@ -60,7 +61,7 @@ import type { DesktopInformationTabs } from '../components/InformationTabs/layou
 
 const MARKET_DETAIL_LAYOUT = {
   chartHeight: 456,
-  infoTabsHeight: 480,
+  infoTabsHeight: MARKET_DETAIL_TABS_MIN_HEIGHT,
 } as const;
 
 const SCROLL_CONTAINER_STYLE = { overflowY: 'auto' } as const;
@@ -168,7 +169,7 @@ export interface IDesktopLayoutProps {
 export function DesktopLayout({
   active,
   isChartFullscreen,
-  isTradingViewNative,
+  isTradingViewNative: preferredIsTradingViewNative,
   onChartSwitch,
   onChartFullscreenChange,
   isNative: routeIsNative,
@@ -260,13 +261,14 @@ export function DesktopLayout({
     [accountAddress, networkId, tokenAddress],
   );
 
-  const { portfolioData, isRefreshing, isPortfolioPending } = usePortfolioData({
-    tokenAddress,
-    networkId,
-    accountAddress: shouldUseStockDesktopLayout ? undefined : accountAddress,
-    xpub: shouldUseStockDesktopLayout ? undefined : xpub,
-    isStock: Boolean(isStockToken || isStockRoute),
-  });
+  const { portfolioData, isRefreshing, isPortfolioPending, isPortfolioFailed } =
+    usePortfolioData({
+      tokenAddress,
+      networkId,
+      accountAddress: shouldUseStockDesktopLayout ? undefined : accountAddress,
+      xpub: shouldUseStockDesktopLayout ? undefined : xpub,
+      isStock: Boolean(isStockToken || isStockRoute),
+    });
 
   const isBTCNetwork = networkUtils.isBTCNetwork(networkId);
   const isBTCMainnet = networkUtils.isBTCMainnet(networkId);
@@ -427,10 +429,6 @@ export function DesktopLayout({
     shouldUseStockDesktopLayout,
     stockId,
   ]);
-  useIframeWheelPassthrough({
-    disabled: isChartFullscreen || isTradingViewNative,
-    scrollRef: scrollContainerRef,
-  });
   const handleChartFullscreenChange = useCallback(
     (isFullscreen: boolean) => {
       onChartFullscreenChange(isFullscreen);
@@ -454,6 +452,15 @@ export function DesktopLayout({
     websocketConfig,
   });
   const effectiveMarketTradingViewParams = marketTradingViewParams;
+  // TradingView draws a stock's share price on its own, but a token chart
+  // needs its params, so the native chart stands in until they load.
+  const isTradingViewNative =
+    preferredIsTradingViewNative ||
+    (!effectiveMarketTradingViewParams && !isStockSharePrice);
+  useIframeWheelPassthrough({
+    disabled: isChartFullscreen || isTradingViewNative,
+    scrollRef: scrollContainerRef,
+  });
   const [{ mode: chartDisplayMode }] =
     useMarketDetailChartDisplayModePersistAtom();
   const tradingViewNativeSource = useMemo<ITradingViewNativeSource>(() => {
@@ -702,6 +709,7 @@ export function DesktopLayout({
           portfolioData={portfolioData}
           accountAddress={accountAddress}
           isRefreshing={isRefreshing}
+          isPortfolioFailed={isPortfolioFailed}
           tokenLogoUrl={displayTokenDetail?.logoUrl}
           marketTokenId={marketTokenId}
           assetDetail={marketAssetDetail}
@@ -733,6 +741,7 @@ export function DesktopLayout({
         portfolioData={portfolioData}
         isRefreshing={isRefreshing}
         isPortfolioPending={isPortfolioPending}
+        isPortfolioFailed={isPortfolioFailed}
         isBTCNetwork={isBTCNetwork}
         isBTCMainnet={isBTCMainnet}
         tokenLogoUrl={tokenDetail?.logoUrl}

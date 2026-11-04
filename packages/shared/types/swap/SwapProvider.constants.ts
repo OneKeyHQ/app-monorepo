@@ -206,8 +206,8 @@ export const swapProTimeRangeItems: {
 export const SWAP_QUOTE_INPUT_DEBOUNCE_MS = 500;
 export const SWAP_PRO_QUOTE_INPUT_DEBOUNCE_MS = 300;
 
-export const swapProPositionsListMinValue = 1;
-export const swapProPositionsListMaxCount = 20;
+export const swapProPositionsListMinValue = 0.01;
+export const swapProPositionsListMaxCount = 6;
 
 export const swapDefaultSetTokens: Record<
   string,

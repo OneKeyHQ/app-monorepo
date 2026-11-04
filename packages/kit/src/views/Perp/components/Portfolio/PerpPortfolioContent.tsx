@@ -19,6 +19,7 @@ import {
   YStack,
   useTheme,
 } from '@onekeyhq/components';
+import type { ISegmentControlLabelState } from '@onekeyhq/components';
 import { LightweightChart } from '@onekeyhq/kit/src/components/LightweightChart';
 import { getChartColorWithAlpha } from '@onekeyhq/kit/src/components/LightweightChart/utils/chartColor';
 import { Token } from '@onekeyhq/kit/src/components/Token';
@@ -401,11 +402,11 @@ function PerpPortfolioContentComponent({
     () =>
       chartTypeOptions.map((option) => ({
         ...option,
-        label: (
+        label: ({ color }: ISegmentControlLabelState) => (
           <XStack height={20} alignItems="center" justifyContent="center">
             <SizableText
               size="$bodySmMedium"
-              color={chartType === option.value ? '$text' : '$textSubdued'}
+              color={color}
               textAlign="center"
               numberOfLines={1}
             >
@@ -414,7 +415,7 @@ function PerpPortfolioContentComponent({
           </XStack>
         ),
       })),
-    [chartType, chartTypeOptions],
+    [chartTypeOptions],
   );
   const mobileTimePeriodOptions = useMemo(
     () =>

@@ -11,20 +11,63 @@ import {
   SizableText,
   Spinner,
   Stack,
+  XStack,
   YStack,
 } from '@onekeyhq/components';
+import { ZcashMemo } from '@onekeyhq/kit/src/components/ZcashMemo';
 import type { IDBUtxoAccount } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
   EModalAssetDetailRoutes,
   IModalAssetDetailsParamList,
 } from '@onekeyhq/shared/src/routes/assetDetails';
+import { getOnChainHistoryTransferDisplayAddress } from '@onekeyhq/shared/src/utils/historyUtils';
+import {
+  getPrivacyChainEntryItem,
+  getPrivacyChainPublicDisplayAddress,
+} from '@onekeyhq/shared/src/utils/privacyChainDisplayUtils';
+import {
+  EOnChainHistoryTransferType,
+  type IOnChainHistoryTxTransfer,
+} from '@onekeyhq/shared/types/history';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useAccountData } from '../../../hooks/useAccountData';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
+import {
+  resolvePrivacyChainEndpointDisplay,
+  toPrivacyChainLocalWalletDisplay,
+} from '../../../utils/privacyChainEndpointLabel';
 
 import type { RouteProp } from '@react-navigation/core';
+
+type IUtxoListItem = {
+  address: string;
+  balance: string;
+  isShielded?: boolean;
+  isChange?: boolean;
+  isOwn?: boolean;
+  label?: string;
+  poolId?: number;
+};
+
+function buildHistoryUtxoListItem({
+  transfer,
+  endpoint,
+}: {
+  transfer: IOnChainHistoryTxTransfer;
+  endpoint: 'from' | 'to';
+}): IUtxoListItem {
+  return {
+    address: getOnChainHistoryTransferDisplayAddress({ transfer, endpoint }),
+    balance: transfer.amount,
+    isChange: transfer.isChange,
+    isOwn: transfer.isOwn,
+    label: transfer.label,
+    poolId: transfer.poolId,
+    isShielded: transfer.type === EOnChainHistoryTransferType.Shielded,
+  };
+}
 
 function UTXODetails() {
   const route =
@@ -36,42 +79,171 @@ function UTXODetails() {
     >();
   const intl = useIntl();
 
-  const { inputs, outputs, networkId, accountId, txId } = route.params;
-
-  const { account, network } = useAccountData({ accountId, networkId });
+  const { inputs, outputs, networkId, accountId, txId, privacyChainPoolId } =
+    route.params;
+  const { account, network, vaultSettings } = useAccountData({
+    accountId,
+    networkId,
+  });
+  const isLocalWalletHistory = !!vaultSettings?.localWallet;
+  const localWalletDisplay = useMemo(
+    () =>
+      vaultSettings?.localWallet
+        ? toPrivacyChainLocalWalletDisplay(vaultSettings.localWallet)
+        : undefined,
+    [vaultSettings?.localWallet],
+  );
+  // Public endpoints and shielded entries have separate display rules. The
+  // background leaves an own address only when the account displays exactly
+  // that string; otherwise the entry is named by its pool.
+  const showUtxoEndpoint = useCallback(
+    (utxo: IUtxoListItem) =>
+      !isLocalWalletHistory ||
+      !!getPrivacyChainPublicDisplayAddress({
+        publicAddressPattern: vaultSettings?.localWallet?.publicAddressPattern,
+        address: utxo.address,
+      }),
+    [isLocalWalletHistory, vaultSettings?.localWallet?.publicAddressPattern],
+  );
+  const renderUtxoEndpoint = useCallback(
+    (
+      utxo: IUtxoListItem,
+      {
+        isInput,
+        ownAddresses,
+      }: { isInput: boolean; ownAddresses: Set<string> },
+    ) => {
+      if (utxo.isShielded) {
+        const display = resolvePrivacyChainEndpointDisplay({
+          intl,
+          localWallet: localWalletDisplay,
+          item: getPrivacyChainEntryItem({
+            pools: localWalletDisplay?.pools,
+            entry: utxo,
+            isInput,
+            ownAddresses,
+          }),
+        });
+        return (
+          <XStack
+            testID="utxo-shielded-endpoint"
+            alignItems="center"
+            gap="$1.5"
+          >
+            <Icon
+              name="ShieldOutline"
+              size="$4"
+              color="$iconSubdued"
+              flexShrink={0}
+            />
+            <SizableText
+              size="$bodyMdMedium"
+              flexShrink={1}
+              $gtMd={{ size: '$bodySmMedium' }}
+              $platform-web={{ wordBreak: 'break-all' }}
+            >
+              {display.address ?? display.poolLabel}
+            </SizableText>
+          </XStack>
+        );
+      }
+      const isOwn =
+        isLocalWalletHistory && (utxo.isOwn || ownAddresses.has(utxo.address));
+      if (!isOwn && !showUtxoEndpoint(utxo)) return null;
+      let content = utxo.address;
+      if (isOwn) {
+        const display = resolvePrivacyChainEndpointDisplay({
+          intl,
+          localWallet: localWalletDisplay,
+          item: {
+            kind: 'own',
+            poolId: localWalletDisplay?.pools?.find(
+              (pool) => pool.kind === 'public',
+            )?.id,
+            ...(utxo.address ? { address: utxo.address } : {}),
+          },
+        });
+        content = display.address ?? display.poolLabel;
+      }
+      return (
+        <SizableText
+          size="$bodyMd"
+          $gtMd={{
+            size: '$bodySm',
+          }}
+        >
+          {content}
+        </SizableText>
+      );
+    },
+    [intl, isLocalWalletHistory, localWalletDisplay, showUtxoEndpoint],
+  );
 
   const { result, isLoading } = usePromiseResult(
     async () => {
-      if (inputs && outputs) {
-        return Promise.resolve({ inputs, outputs });
+      if (!isLocalWalletHistory && inputs && outputs) {
+        return Promise.resolve({
+          inputs: inputs.map(({ address, balance }) => ({ address, balance })),
+          outputs: outputs.map(({ address, balance }) => ({
+            address,
+            balance,
+          })),
+          memo: undefined,
+          binaryMemos: undefined,
+          inputOutputSource: undefined,
+        });
       }
 
       const r = await backgroundApiProxy.serviceHistory.fetchHistoryTxDetails({
         accountId,
         networkId,
         txid: txId,
+        privacyChainPoolId,
         withUTXOs: true,
       });
 
-      if (r) {
+      if (!isLocalWalletHistory) {
         return {
-          inputs: r.data.sends?.map((send) => ({
-            address: send.from,
-            balance: send.amount,
-          })),
-          outputs: r.data.receives?.map((receive) => ({
-            address: receive.to,
-            balance: receive.amount,
-          })),
+          inputs:
+            r?.data.sends?.map((send) => ({
+              address: send.from,
+              balance: send.amount,
+            })) ?? [],
+          outputs:
+            r?.data.receives?.map((receive) => ({
+              address: receive.to,
+              balance: receive.amount,
+            })) ?? [],
+          memo: undefined,
+          binaryMemos: undefined,
+          inputOutputSource: undefined,
         };
       }
 
+      if (!r) return undefined;
       return {
-        inputs: [],
-        outputs: [],
+        inputs:
+          r.data.sends?.map((send) =>
+            buildHistoryUtxoListItem({ transfer: send, endpoint: 'from' }),
+          ) ?? [],
+        outputs:
+          r.data.receives?.map((receive) =>
+            buildHistoryUtxoListItem({ transfer: receive, endpoint: 'to' }),
+          ) ?? [],
+        memo: r.data.memo,
+        binaryMemos: r.data.binaryMemos,
+        inputOutputSource: r.data.inputOutputSource,
       };
     },
-    [inputs, networkId, accountId, outputs, txId],
+    [
+      inputs,
+      networkId,
+      accountId,
+      outputs,
+      txId,
+      privacyChainPoolId,
+      isLocalWalletHistory,
+    ],
     {
       watchLoading: true,
     },
@@ -116,10 +288,24 @@ function UTXODetails() {
     [changeAddressesSet],
   );
 
+  // Addresses the data says are this account's; they pass the
+  // displayed-address check before being shown.
+  const ownAddresses = useMemo(() => {
+    const own = new Set<string>();
+    if (!isLocalWalletHistory) return own;
+    if (account?.address) own.add(account.address);
+    [...(result?.inputs ?? []), ...(result?.outputs ?? [])].forEach(
+      (utxo: IUtxoListItem) => {
+        if (utxo.isOwn && utxo.address) own.add(utxo.address);
+      },
+    );
+    return own;
+  }, [account?.address, isLocalWalletHistory, result]);
+
   const renderUTXOList = useCallback(
     (
-      utxos: { address: string; balance: string }[],
-      options?: { showChangeBadge?: boolean },
+      utxos: IUtxoListItem[],
+      options: { showChangeBadge?: boolean; isInput: boolean },
     ) => (
       <Stack>
         {utxos.map((utxo, index) => (
@@ -135,15 +321,12 @@ function UTXODetails() {
               mt: '$2.5',
             })}
           >
-            <SizableText
-              size="$bodyMd"
-              $gtMd={{
-                size: '$bodySm',
-              }}
-            >
-              {utxo.address}
-            </SizableText>
-            {options?.showChangeBadge && changeAddressSet.has(utxo.address) ? (
+            {renderUtxoEndpoint(utxo, {
+              isInput: options.isInput,
+              ownAddresses,
+            })}
+            {options.showChangeBadge &&
+            (utxo.isChange || changeAddressSet.has(utxo.address)) ? (
               <Badge
                 badgeType="success"
                 badgeSize="sm"
@@ -171,7 +354,7 @@ function UTXODetails() {
         ))}
       </Stack>
     ),
-    [changeAddressSet, intl, network?.symbol],
+    [changeAddressSet, intl, network?.symbol, ownAddresses, renderUtxoEndpoint],
   );
 
   const renderUTXODetails = useCallback(() => {
@@ -183,84 +366,108 @@ function UTXODetails() {
       );
     }
 
+    if (!result) {
+      return (
+        <SizableText px="$5">
+          {intl.formatMessage({ id: ETranslations.global_not_available })}
+        </SizableText>
+      );
+    }
     return (
-      <Stack
-        px="$5"
-        $gtMd={{
-          flexDirection: 'row',
-        }}
-      >
+      <YStack gap="$4">
+        {result.inputOutputSource ? (
+          <SizableText px="$5" color="$textSubdued" size="$bodySm">
+            {intl.formatMessage({
+              id:
+                result.inputOutputSource === 'account'
+                  ? ETranslations.privacy_history_wallet_io__desc
+                  : ETranslations.privacy_history_public_io__desc,
+            })}
+          </SizableText>
+        ) : null}
         <Stack
+          px="$5"
           $gtMd={{
-            flexGrow: 1,
-            flexBasis: 0,
+            flexDirection: 'row',
           }}
         >
-          <Heading
-            mb="$2.5"
-            color="$textSuccess"
-            size="$headingSm"
+          <Stack
             $gtMd={{
-              size: '$headingXs',
+              flexGrow: 1,
+              flexBasis: 0,
             }}
           >
-            {intl.formatMessage({
-              id: ETranslations.global_inputs,
-            })}{' '}
-            • {result?.inputs.length ?? 0}
-          </Heading>
-          {renderUTXOList(result?.inputs ?? [])}
-        </Stack>
-        <Icon
-          flexShrink={0}
-          name="ChevronDownSmallOutline"
-          color="$iconSubdued"
-          alignSelf="center"
-          my="$2"
-          $gtMd={{
-            rotate: '-90deg',
-            my: '$0',
-            mx: '$2.5',
-          }}
-        />
-        <Stack
-          $gtMd={{
-            flexGrow: 1,
-            flexBasis: 0,
-          }}
-        >
-          <Heading
-            mb="$2.5"
-            color="$textSuccess"
-            size="$headingSm"
+            <Heading
+              mb="$2.5"
+              color="$textSuccess"
+              size="$headingSm"
+              $gtMd={{
+                size: '$headingXs',
+              }}
+            >
+              {intl.formatMessage({ id: ETranslations.global_inputs })} •{' '}
+              {result?.inputs.length ?? 0}
+            </Heading>
+            {renderUTXOList(result?.inputs ?? [], { isInput: true })}
+          </Stack>
+          <Icon
+            flexShrink={0}
+            name="ChevronDownSmallOutline"
+            color="$iconSubdued"
+            alignSelf="center"
+            my="$2"
             $gtMd={{
-              size: '$headingXs',
+              rotate: '-90deg',
+              my: '$0',
+              mx: '$2.5',
+            }}
+          />
+          <Stack
+            $gtMd={{
+              flexGrow: 1,
+              flexBasis: 0,
             }}
           >
-            {intl.formatMessage({
-              id: ETranslations.global_outputs,
-            })}{' '}
-            • {result?.outputs.length ?? 0}
-          </Heading>
-          {renderUTXOList(result?.outputs ?? [], {
-            showChangeBadge: true,
-          })}
+            <Heading
+              mb="$2.5"
+              color="$textSuccess"
+              size="$headingSm"
+              $gtMd={{
+                size: '$headingXs',
+              }}
+            >
+              {intl.formatMessage({ id: ETranslations.global_outputs })} •{' '}
+              {result?.outputs.length ?? 0}
+            </Heading>
+            {renderUTXOList(result?.outputs ?? [], {
+              isInput: false,
+              showChangeBadge: true,
+            })}
+          </Stack>
         </Stack>
+      </YStack>
+    );
+  }, [intl, isLoading, renderUTXOList, result]);
+
+  const renderMemo = useCallback(() => {
+    if (isLoading || (!result?.memo && !result?.binaryMemos?.length)) {
+      return null;
+    }
+    return (
+      <Stack px="$5" pt="$5">
+        <ZcashMemo text={result.memo} binaryMemos={result.binaryMemos} />
       </Stack>
     );
-  }, [intl, isLoading, renderUTXOList, result?.inputs, result?.outputs]);
+  }, [isLoading, result?.memo, result?.binaryMemos]);
 
   return (
     <Page scrollEnabled>
       <Page.Header
-        title={`${intl.formatMessage({
-          id: ETranslations.global_inputs,
-        })} & ${intl.formatMessage({
-          id: ETranslations.global_outputs,
-        })}`}
+        title={`${intl.formatMessage({ id: ETranslations.global_inputs })} & ${intl.formatMessage({ id: ETranslations.global_outputs })}`}
       />
       <Page.Body testID="history-details-inputs-and-outputs">
         {renderUTXODetails()}
+        {renderMemo()}
       </Page.Body>
     </Page>
   );
