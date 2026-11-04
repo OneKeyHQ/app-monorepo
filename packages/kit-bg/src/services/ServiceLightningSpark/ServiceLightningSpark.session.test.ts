@@ -209,6 +209,25 @@ describe('ServiceLightningSpark session lifecycle', () => {
     });
   });
 
+  it('claims pending receives by connecting and syncing, then refreshes the home', async () => {
+    const { service, ensureConnected } = makeService();
+    const syncWallet = jest.fn(async () => ({}));
+    ensureConnected.mockResolvedValue({ syncWallet });
+
+    await service.claimPendingReceive({
+      accountId: ACCOUNT_ID,
+      networkId: NETWORK_ID,
+    });
+
+    expect(ensureConnected).toHaveBeenCalledWith({
+      accountId: ACCOUNT_ID,
+      networkId: NETWORK_ID,
+    });
+    expect(syncWallet).toHaveBeenCalledWith({});
+    jest.advanceTimersByTime(PAYMENT_REFRESH_DELAY_MS);
+    expect(eventBus.emit).toHaveBeenCalledWith('AccountDataUpdate', undefined);
+  });
+
   it('refreshes the home once per burst of payment events, after the server cache window', () => {
     const { internals } = makeService();
     const payment = { id: 'transfer-1' } as unknown as Extract<

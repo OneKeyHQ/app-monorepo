@@ -69,6 +69,7 @@ import ActionBuy from './ActionBuy';
 import TokenDetailsBalanceHero from './TokenDetailsBalanceHero';
 import { useTokenDetailsContext } from './TokenDetailsContext';
 import { TokenDetailsDeFiBlock } from './TokenDetailsDeFiBlock';
+import TokenDetailsSparkClaim from './TokenDetailsSparkClaim';
 
 const tokenDetailsCache = new cacheUtils.LRUCache<
   string,
@@ -325,41 +326,44 @@ function TokenDetailsHeaderContent({
     }),
     [cachedTokenDetails, focusParam, isTabView],
   );
-  const { result: tokenDetailsResult, isLoading: isLoadingTokenDetails } =
-    usePromiseResult(
-      async () => {
-        const tokensDetails =
-          await backgroundApiProxy.serviceToken.fetchTokensDetails({
-            accountId,
-            networkId,
-            contractList: [tokenInfo.address],
-          });
-
-        const data = tokensDetails?.[0];
-
-        if (!data) {
-          tokenDetailsCache.delete(tokenDetailsCacheKey);
-          return undefined;
-        }
-
-        tokenDetailsCache.set(tokenDetailsCacheKey, data);
-        updateTokenDetails({
+  const {
+    result: tokenDetailsResult,
+    isLoading: isLoadingTokenDetails,
+    run: refreshTokenDetails,
+  } = usePromiseResult(
+    async () => {
+      const tokensDetails =
+        await backgroundApiProxy.serviceToken.fetchTokensDetails({
           accountId,
           networkId,
-          isInit: true,
-          data,
+          contractList: [tokenInfo.address],
         });
-        return data;
-      },
-      [
+
+      const data = tokensDetails?.[0];
+
+      if (!data) {
+        tokenDetailsCache.delete(tokenDetailsCacheKey);
+        return undefined;
+      }
+
+      tokenDetailsCache.set(tokenDetailsCacheKey, data);
+      updateTokenDetails({
         accountId,
         networkId,
-        tokenInfo.address,
-        updateTokenDetails,
-        tokenDetailsCacheKey,
-      ],
-      tokenDetailsPromiseOptions,
-    );
+        isInit: true,
+        data,
+      });
+      return data;
+    },
+    [
+      accountId,
+      networkId,
+      tokenInfo.address,
+      updateTokenDetails,
+      tokenDetailsCacheKey,
+    ],
+    tokenDetailsPromiseOptions,
+  );
 
   const tokenDetails = tokenDetailsResult ?? cachedTokenDetails;
 
@@ -603,6 +607,15 @@ function TokenDetailsHeaderContent({
                 tokenRebaseUtils.pickBalanceMultiplier(tokenDetails),
             })}
           />
+          {networkUtils.isLightningSparkNetworkByNetworkId(networkId) ? (
+            <TokenDetailsSparkClaim
+              accountId={accountId}
+              networkId={networkId}
+              symbol={tokenInfo.symbol}
+              pendingReceiveSats={tokenDetails?.pendingReceiveSats}
+              onRefresh={refreshTokenDetails}
+            />
+          ) : null}
           {/* Actions */}
           <RawActions>
             <RawActions.Send
