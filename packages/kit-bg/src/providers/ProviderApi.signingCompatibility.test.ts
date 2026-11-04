@@ -1,6 +1,6 @@
 import { PublicKey, SystemProgram, Transaction } from '@solana/web3.js';
 import sdkAlgo from 'algosdk';
-import { Psbt } from 'bitcoinjs-lib';
+import { Psbt, address as bitcoinAddress } from 'bitcoinjs-lib';
 import bs58 from 'bs58';
 import { PubKey } from 'cosmjs-types/cosmos/crypto/secp256k1/keys';
 import { AuthInfo, TxBody, TxRaw } from 'cosmjs-types/cosmos/tx/v1beta1/tx';
@@ -132,6 +132,18 @@ describe('original successful signing behavior', () => {
     'keeps original signing payload and result: $name',
     async ({ options }) => {
       const h = setup(btcAddress, btcPub, 'qr-fixture', 'tbtc--0');
+      const fixture = Psbt.fromHex(babylonPsbt, { network: btcNetwork });
+      const input = fixture.data.inputs[0];
+      expect(Buffer.from(input.witnessUtxo!.script)).not.toEqual(
+        Buffer.from(bitcoinAddress.toOutputScript(btcAddress, btcNetwork)),
+      );
+      expect(
+        input.tapLeafScript?.some((leaf) =>
+          Buffer.from(leaf.script).includes(
+            Buffer.from(btcPub.slice(2), 'hex'),
+          ),
+        ),
+      ).toBe(true);
       h.transaction.mockResolvedValue({ psbtHex: babylonPsbt });
       const params = { psbtHex: babylonPsbt, options };
       const before = cloneDeep(params);
