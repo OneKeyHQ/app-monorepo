@@ -90,6 +90,8 @@ import type {
   IWalletDevUnbindResponse,
 } from '@onekeyhq/shared/src/referralCode/type';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { normalizeTokenContractAddress } from '@onekeyhq/shared/src/utils/tokenUtils';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import type { IHyperLiquidSignatureRSV } from '@onekeyhq/shared/types/hyperliquid/webview';
@@ -141,22 +143,31 @@ class ServiceReferralCode extends ServiceBase {
     return summary.data.data;
   }
 
-  // Unauthenticated: the invitee's rewards tab shows this copy before any
-  // OneKey ID login. The request locale header picks the language.
+  // Unauthenticated, so invitees without a OneKey ID login see it too. The
+  // request locale header picks the language.
   @backgroundMethod()
   async getInviteRewardScopes(): Promise<IInviteRewardScope[]> {
     try {
-      const client = await this.getClient(EServiceEndpointEnum.Rebate);
-      const response = await client.get<{
-        data: IInviteRewardScopesResponse;
-      }>('/rebate/v1/invite/reward-scopes');
-      return response.data.data?.rewardScopes ?? [];
+      return await this._getInviteRewardScopesMemo();
     } catch (error) {
       // Optional hint copy: callers hide it on failure, so never toast.
       errorToastUtils.toastIfErrorDisable(error);
       throw error;
     }
   }
+
+  // Static copy that both referral tabs read on every visit; a failed request
+  // is not cached.
+  private _getInviteRewardScopesMemo = memoizee(
+    async (): Promise<IInviteRewardScope[]> => {
+      const client = await this.getClient(EServiceEndpointEnum.Rebate);
+      const response = await client.get<{
+        data: IInviteRewardScopesResponse;
+      }>('/rebate/v1/invite/reward-scopes');
+      return response.data.data?.rewardScopes ?? [];
+    },
+    { promise: true, maxAge: timerUtils.getTimeDurationMs({ minute: 5 }) },
+  );
 
   @backgroundMethod()
   async getLevelDetail() {

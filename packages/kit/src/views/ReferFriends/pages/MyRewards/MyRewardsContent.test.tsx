@@ -241,18 +241,6 @@ jest.mock('../InviteReward/components/BenefitsTabPlaceholder', () => ({
   useBenefitsBindStatus: () => ({}),
 }));
 
-jest.mock('../InviteReward/components/getInviteRewardRows', () => ({
-  INVITE_REWARD_SUBJECT_ICON: {
-    perps: 'TradeOutline',
-    swap: 'SwitchHorOutline',
-    defi: 'CoinsOutline',
-  },
-  getInviteRewardScopeDescription: jest.requireActual<
-    typeof import('../InviteReward/components/getInviteRewardRows')
-  >('../InviteReward/components/getInviteRewardRows')
-    .getInviteRewardScopeDescription,
-}));
-
 jest.mock('../../hooks/useInviteRewardScopes', () => ({
   useInviteRewardScopes: () => mockRewardScopes,
 }));

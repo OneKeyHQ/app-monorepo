@@ -30,15 +30,15 @@ import {
   type IInviteRewardScopeItem,
   type IInviteRewardSubject,
   INVITE_REWARD_SUBJECT_ICON,
+  INVITE_REWARD_SUBJECT_TITLE,
   getInviteRewardRows,
   getInviteRewardScopeItems,
 } from './getInviteRewardRows';
 import { InviteRewardAmount } from './InviteRewardAmount';
 import { useReferralCodeCard } from './ReferralCodeCard/hooks/useReferralCodeCard';
 import {
-  INVITE_REWARD_SUBJECT_TITLE,
   RewardScopeCompactTitle,
-  RewardScopeInfo,
+  RewardScopeDesktopTitle,
   withRewardScopesHint,
 } from './RewardScopeInfo';
 import {
@@ -251,21 +251,11 @@ function DesktopRewardRow({
     >
       <DesktopCell first>
         <ProductTile subject={row.subject} />
-        <SizableText
-          flexShrink={1}
-          minWidth={0}
-          size="$bodyLgMedium"
-          numberOfLines={1}
-        >
-          {title}
-        </SizableText>
-        {row.scopeDescription ? (
-          <RewardScopeInfo
-            title={title}
-            subject={row.subject}
-            description={row.scopeDescription}
-          />
-        ) : null}
+        <RewardScopeDesktopTitle
+          title={title}
+          subject={row.subject}
+          description={row.scopeDescription}
+        />
       </DesktopCell>
       {columns.monthly ? (
         <DesktopCell>
@@ -391,19 +381,16 @@ export function InviteRewardRows({
   const { md } = useMedia();
   const cardStyle = useInviteHomeCardStyle();
   const rewardScopes = useInviteRewardScopes();
-  const rowsInput = useMemo(
-    () => ({ ...summaryInfo, rewardScopes }),
+  const rows = useMemo(
+    () =>
+      getInviteRewardRows(
+        summaryInfo,
+        summaryInfo.rebateConfig.configs,
+        rewardScopes,
+      ),
     [summaryInfo, rewardScopes],
   );
-  const rows = useMemo(
-    () => getInviteRewardRows(rowsInput, summaryInfo.rebateConfig.configs),
-    [rowsInput, summaryInfo.rebateConfig.configs],
-  );
-  const scopeItems = useMemo(
-    () =>
-      getInviteRewardScopeItems(rowsInput, summaryInfo.rebateConfig.configs),
-    [rowsInput, summaryInfo.rebateConfig.configs],
-  );
+  const scopeItems = useMemo(() => getInviteRewardScopeItems(rows), [rows]);
   const hasAnyData = rows.some((row) => row.hasData);
   const { copyLink } = useReferralCodeCard({
     inviteUrl: summaryInfo.inviteUrl,

@@ -49,8 +49,8 @@ export interface IInviteRewardScope {
   description: string;
 }
 
-// `GET /rebate/v1/invite/reward-scopes` needs no OneKey ID login, so invitees
-// get the same copy as inviters. A product without server config is left out.
+// `GET /rebate/v1/invite/reward-scopes`. A product without server config is
+// left out.
 export interface IInviteRewardScopesResponse {
   rewardScopes?: IInviteRewardScope[];
 }

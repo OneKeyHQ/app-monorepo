@@ -497,6 +497,31 @@ describe('ServiceReferralCode Swap rebate API', () => {
     expect(get).toHaveBeenCalledWith('/rebate/v1/invite/reward-scopes');
   });
 
+  test('shares one reward scopes request and retries after a failure', async () => {
+    const { service } = createService();
+    const rewardScopes = [{ subject: 'Swap', description: 'Swap providers' }];
+    const get = jest
+      .fn()
+      .mockRejectedValueOnce(new Error('offline'))
+      .mockResolvedValue({ data: { data: { rewardScopes } } });
+    jest.spyOn(service, 'getClient').mockResolvedValue({ get } as any);
+
+    // A failed request is not cached: memoizee drops it on a later tick.
+    await expect(service.getInviteRewardScopes()).rejects.toThrow('offline');
+    await new Promise((resolve) => {
+      setTimeout(resolve, 0);
+    });
+    const [first, second] = await Promise.all([
+      service.getInviteRewardScopes(),
+      service.getInviteRewardScopes(),
+    ]);
+    await expect(service.getInviteRewardScopes()).resolves.toBe(rewardScopes);
+
+    expect(first).toBe(rewardScopes);
+    expect(second).toBe(rewardScopes);
+    expect(get).toHaveBeenCalledTimes(2);
+  });
+
   test('treats missing reward scopes as none', async () => {
     const { service } = createService();
     const get = jest.fn().mockResolvedValue({ data: { data: {} } });

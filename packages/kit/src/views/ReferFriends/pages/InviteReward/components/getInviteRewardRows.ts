@@ -1,5 +1,6 @@
 import type { IKeyOfIcons } from '@onekeyhq/components';
 import { toAmount } from '@onekeyhq/kit/src/views/ReferFriends/utils/amountUtils';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IInviteRewardScope } from '@onekeyhq/shared/src/referralCode/type';
 
 import {
@@ -27,6 +28,18 @@ export const INVITE_REWARD_SUBJECT_ICON: Record<
   defi: 'CoinsOutline',
 };
 
+// Product names match the level targets and rates ("Perps volume", "Swap
+// fees"), so each product reads the same everywhere on the referral pages.
+export const INVITE_REWARD_SUBJECT_TITLE: Record<
+  IInviteRewardSubject,
+  ETranslations
+> = {
+  hardware: ETranslations.referral_referred_type_3,
+  perps: ETranslations.perps_perps,
+  swap: ETranslations.global_swap,
+  defi: ETranslations.referral_referred_type_2,
+};
+
 export interface IInviteRewardRow {
   subject: IInviteRewardSubject;
   hasData: boolean;
@@ -51,8 +64,6 @@ export interface IInviteRewardRowsInput {
     available?: readonly IRewardSummaryItem[];
     swap?: readonly IRewardSummaryItem[];
   };
-  // From the unauthenticated reward-scopes endpoint, not the invite summary.
-  rewardScopes?: readonly IInviteRewardScope[];
 }
 
 export interface IInviteRewardScopeItem {
@@ -161,8 +172,8 @@ export function isInviteRewardSubjectEnabled(
 export function getInviteRewardRows(
   summary?: IInviteRewardRowsInput | null,
   configs?: Record<string, { enabled?: boolean }>,
+  rewardScopes?: readonly IInviteRewardScope[],
 ): IInviteRewardRow[] {
-  const rewardScopes = summary?.rewardScopes;
   const rows: IInviteRewardRow[] = [
     buildHardwareRow(summary?.HardwareSales, rewardScopes),
     buildAmountRow('perps', summary?.Perp?.available, rewardScopes),
@@ -179,12 +190,11 @@ export function getInviteRewardRows(
   ];
 }
 
-// Visible products only, in the same order as the breakdown rows.
+// The rows' scope copy, in row order, for the one popover that lists them.
 export function getInviteRewardScopeItems(
-  summary?: IInviteRewardRowsInput | null,
-  configs?: Record<string, { enabled?: boolean }>,
+  rows: readonly Pick<IInviteRewardRow, 'subject' | 'scopeDescription'>[],
 ): IInviteRewardScopeItem[] {
-  return getInviteRewardRows(summary, configs).flatMap((row) =>
+  return rows.flatMap((row) =>
     row.scopeDescription
       ? [{ subject: row.subject, description: row.scopeDescription }]
       : [],

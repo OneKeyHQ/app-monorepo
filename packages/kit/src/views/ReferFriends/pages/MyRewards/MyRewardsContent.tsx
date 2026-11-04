@@ -11,7 +11,6 @@ import {
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
-import type { IKeyOfIcons } from '@onekeyhq/components';
 import {
   Dialog,
   Divider,
@@ -60,14 +59,16 @@ import {
 } from '../InviteReward/components/BenefitsTabPlaceholder';
 import {
   INVITE_REWARD_SUBJECT_ICON,
+  INVITE_REWARD_SUBJECT_TITLE,
   getInviteRewardScopeDescription,
+  getInviteRewardScopeItems,
 } from '../InviteReward/components/getInviteRewardRows';
 import { InviteStatCell } from '../InviteReward/components/InviteStatCell';
 import { PartDot } from '../InviteReward/components/PartDot';
 import { ReferralTabCrossLink } from '../InviteReward/components/ReferralTabCrossLink';
 import {
   RewardScopeCompactTitle,
-  RewardScopeInfo,
+  RewardScopeDesktopTitle,
 } from '../InviteReward/components/RewardScopeInfo';
 import { REFERRAL_USD_SOURCE_PROPS } from '../InviteReward/components/shared/getRewardSummary';
 import {
@@ -134,23 +135,10 @@ function useMyRewardsCopy() {
   return copy;
 }
 
-const MODULE_ICON: Record<IRewardModule, IKeyOfIcons> = {
-  perps: INVITE_REWARD_SUBJECT_ICON.perps,
-  swap: INVITE_REWARD_SUBJECT_ICON.swap,
-  earn: INVITE_REWARD_SUBJECT_ICON.defi,
-};
-
-// Same product names as the invite tab's breakdown.
-const MODULE_TITLE: Record<IRewardModule, ETranslations> = {
-  perps: ETranslations.perps_perps,
-  swap: ETranslations.global_swap,
-  earn: ETranslations.referral_referred_type_2,
-};
-
 const MODULES: IRewardModule[] = ['perps', 'swap', 'earn'];
 
-// The invite breakdown's product for each module, whose reward-scope copy
-// (which channels and protocols count) the row shares.
+// The invite breakdown's product for each module: its icon, name and
+// reward-scope copy are the product's, so both tabs read the same.
 const MODULE_SUBJECT: Record<IRewardModule, IInviteRewardSubject> = {
   perps: 'perps',
   swap: 'swap',
@@ -902,7 +890,10 @@ function ProductTile({ module }: { module: IRewardModule }) {
       jc="center"
       flexShrink={0}
     >
-      <Icon name={MODULE_ICON[module]} size="$5" />
+      <Icon
+        name={INVITE_REWARD_SUBJECT_ICON[MODULE_SUBJECT[module]]}
+        size="$5"
+      />
     </Stack>
   );
 }
@@ -981,21 +972,11 @@ function DesktopRow({
     >
       <DesktopCell first>
         <ProductTile module={row.module} />
-        <SizableText
-          flexShrink={1}
-          minWidth={0}
-          size="$bodyLgMedium"
-          numberOfLines={1}
-        >
-          {title}
-        </SizableText>
-        {scopeDescription ? (
-          <RewardScopeInfo
-            title={title}
-            subject={MODULE_SUBJECT[row.module]}
-            description={scopeDescription}
-          />
-        ) : null}
+        <RewardScopeDesktopTitle
+          title={title}
+          subject={MODULE_SUBJECT[row.module]}
+          description={scopeDescription}
+        />
       </DesktopCell>
       {renderValues()}
       <Icon
@@ -1059,7 +1040,7 @@ function CompactRow({
     <ListItem
       testID={`my-rewards-module-${row.module}`}
       {...COMPACT_ROW_BLEED_PROPS}
-      icon={MODULE_ICON[row.module]}
+      icon={INVITE_REWARD_SUBJECT_ICON[MODULE_SUBJECT[row.module]]}
       iconProps={COMPACT_ROW_ICON_PROPS}
       titleProps={COMPACT_ENTRY_TITLE_PROPS}
       title={title}
@@ -1172,7 +1153,6 @@ function MyRewardsContentBody({
   const intl = useIntl();
   const { md } = useMedia();
   const cardStyle = useInviteHomeCardStyle();
-  // Needs no OneKey ID login, unlike the invite tab's summary.
   const rewardScopes = useInviteRewardScopes();
   const {
     activeAccount: { account, indexedAccount, ready: accountReady },
@@ -1372,15 +1352,17 @@ function MyRewardsContentBody({
     }
   };
   const titleFor = (module: IRewardModule) =>
-    intl.formatMessage({ id: MODULE_TITLE[module] });
+    intl.formatMessage({
+      id: INVITE_REWARD_SUBJECT_TITLE[MODULE_SUBJECT[module]],
+    });
   const scopeFor = (module: IRewardModule) =>
     getInviteRewardScopeDescription(MODULE_SUBJECT[module], rewardScopes);
-  const scopeItems = MODULES.flatMap((module) => {
-    const description = scopeFor(module);
-    return description
-      ? [{ subject: MODULE_SUBJECT[module], description }]
-      : [];
-  });
+  const scopeItems = getInviteRewardScopeItems(
+    MODULES.map((module) => ({
+      subject: MODULE_SUBJECT[module],
+      scopeDescription: scopeFor(module),
+    })),
+  );
   const sectionTitle = intl.formatMessage({
     id: ETranslations.referral_earnings_by_product__title,
   });

@@ -18,6 +18,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { ReferFriendsTestIDs } from '../../../testIDs';
 
+import { INVITE_REWARD_SUBJECT_TITLE } from './getInviteRewardRows';
 import {
   COMPACT_ENTRY_TITLE_PROPS,
   INVITE_POPOVER_PANEL_PROPS,
@@ -31,18 +32,6 @@ import type {
 function stopPropagation(e: { stopPropagation: () => void }) {
   e.stopPropagation();
 }
-
-// Product names match the level targets and rates ("Perps volume", "Swap
-// fees"), so each product reads the same everywhere on the referral pages.
-export const INVITE_REWARD_SUBJECT_TITLE: Record<
-  IInviteRewardSubject,
-  ETranslations
-> = {
-  hardware: ETranslations.referral_referred_type_3,
-  perps: ETranslations.perps_perps,
-  swap: ETranslations.global_swap,
-  defi: ETranslations.referral_referred_type_2,
-};
 
 function RewardScopeList({
   items,
@@ -146,7 +135,7 @@ export function RewardScopeInfo({
 
 // One entry for every visible product that has scope copy, because the empty
 // card has no product rows to hang an icon on.
-export function RewardScopesHint({
+function RewardScopesHint({
   items,
 }: {
   items: readonly IInviteRewardScopeItem[];
@@ -198,6 +187,38 @@ export function withRewardScopesHint(
       </SizableText>
       <RewardScopesHint items={scopeItems} />
     </YStack>
+  );
+}
+
+// A desktop table row's product name, with the scope icon after it when the
+// product has scope copy.
+export function RewardScopeDesktopTitle({
+  title,
+  subject,
+  description,
+}: {
+  title: string;
+  subject: IInviteRewardSubject;
+  description: string | null;
+}) {
+  return (
+    <>
+      <SizableText
+        flexShrink={1}
+        minWidth={0}
+        size="$bodyLgMedium"
+        numberOfLines={1}
+      >
+        {title}
+      </SizableText>
+      {description ? (
+        <RewardScopeInfo
+          title={title}
+          subject={subject}
+          description={description}
+        />
+      ) : null}
+    </>
   );
 }
 

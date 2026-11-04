@@ -116,7 +116,7 @@ jest.mock('@onekeyhq/kit/src/components/ListItem', () => {
   };
 });
 
-// Scope copy comes from its own unauthenticated endpoint, not the summary.
+// Scope copy comes from its own endpoint, not the summary.
 jest.mock('../../../hooks/useInviteRewardScopes', () => ({
   useInviteRewardScopes: () => [
     { subject: 'Swap', description: 'Swap providers' },
