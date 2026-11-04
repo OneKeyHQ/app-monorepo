@@ -6202,8 +6202,8 @@ class ServicePrime extends ServiceBase {
         authStateGeneration: snapshot.authStateGeneration,
       },
     };
-    const client = await this.getPrimeClient();
     try {
+      const client = await this.getPrimeClient();
       const result = await client.get<
         IApiClientResponse<
           | (IPrimeInfiniPaymentApiResponse & {

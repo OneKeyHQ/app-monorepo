@@ -1968,6 +1968,19 @@ describe('ServicePrime Infini payment APIs', () => {
     },
   );
 
+  it('keeps unavailable discovery client setup advisory under the same authenticated identity', async () => {
+    const { service } = createInfiniService();
+    service.getPrimeClient = jest.fn(async () => {
+      throw new OneKeyLocalError('discovery client unavailable');
+    });
+    await expect(
+      service.apiGetInfiniPendingPayment({ expectedOneKeyUserId: 'user-a' }),
+    ).resolves.toMatchObject({
+      status: 'unavailable',
+      authContext: { onekeyUserId: 'user-a', authStateGeneration: 3 },
+    });
+  });
+
   it.each(['signed', 'broadcast', 'processing', 'failed'])(
     'leaves the original create/query APIs free of a new remote tracking fence: %s',
     async (status) => {
