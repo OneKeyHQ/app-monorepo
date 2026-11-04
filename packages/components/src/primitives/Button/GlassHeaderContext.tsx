@@ -1,6 +1,7 @@
 import { createContext, useContext } from 'react';
 import type { ReactElement, ReactNode } from 'react';
 
+import { HeaderHeightContext } from '@react-navigation/elements';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -61,12 +62,20 @@ export const LIQUID_GLASS_HEADER_CONTENT_GAP = 16;
 // height + a breathing gap). Returns 0 off iOS 26, where the bar is opaque /
 // self-drawn and the screen keeps its normal layout. Centralizing this keeps
 // every glass screen's top spacing consistent and adjustable in one place.
+//
+// iPhone Duo reports no top safe area yet still offsets the bar from the top
+// edge, so prefer the measured header height when it is taller. The context is
+// undefined outside a native stack header.
 export function useLiquidGlassHeaderTopInset(): number {
   const { top } = useSafeAreaInsets();
+  const headerHeight = useContext(HeaderHeightContext) ?? 0;
   if (!platformEnv.isNativeIOS26Plus) {
     return 0;
   }
-  return top + LIQUID_GLASS_HEADER_BAR_HEIGHT + LIQUID_GLASS_HEADER_CONTENT_GAP;
+  return (
+    Math.max(top + LIQUID_GLASS_HEADER_BAR_HEIGHT, headerHeight) +
+    LIQUID_GLASS_HEADER_CONTENT_GAP
+  );
 }
 
 export function GlassHeaderProvider({ children }: { children: ReactNode }) {

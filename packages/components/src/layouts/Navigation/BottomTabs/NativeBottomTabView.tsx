@@ -12,10 +12,9 @@ import {
 import { StyleSheet, View } from 'react-native';
 
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { useSafeAreaInsets } from '../../../hooks/useLayout';
 import { Spinner, Stack } from '../../../primitives';
+import { BottomTabBarVerticalContext } from '../../Page/BottomTabBarVisibilityContext';
 
 import { TabSceneContext } from './TabSceneContext';
 
@@ -24,6 +23,7 @@ import type {
   NativeBottomTabNavigationConfig,
   NativeBottomTabNavigationHelpers,
 } from './types';
+import type { TabBarPlacement } from '@onekeyfe/react-native-bottom-tabs';
 
 type Props = NativeBottomTabNavigationConfig & {
   state: TabNavigationState<ParamListBase>;
@@ -38,9 +38,6 @@ const styles = StyleSheet.create({
   hiddenTabBarScene: {
     width: '100%',
     height: '100%',
-  },
-  sceneContent: {
-    flex: 1,
   },
   activationSignal: {
     position: 'absolute',
@@ -67,22 +64,6 @@ function SceneLoadingView() {
       <Spinner size="large" />
     </Stack>
   );
-}
-
-// iPhone Duo places the status bar, camera and vertical tab bar in a side
-// strip and reports it as a horizontal safe area inset. Tab pages only handle
-// top/bottom insets, so keep their content out of that strip here. Regular
-// iPhones are portrait-locked, where these insets are always 0.
-const shouldApplyHorizontalSafeArea =
-  platformEnv.isNativeIOS && !platformEnv.isNativeIOSPad;
-
-function HorizontalSafeAreaSceneContent({ children }: { children: ReactNode }) {
-  const { left, right } = useSafeAreaInsets();
-  const style = useMemo(
-    () => [styles.sceneContent, { paddingLeft: left, paddingRight: right }],
-    [left, right],
-  );
-  return <View style={style}>{children}</View>;
 }
 
 function SceneWithActivationPlaceholder({
@@ -118,13 +99,7 @@ function SceneWithActivationPlaceholder({
   return (
     <View style={styles.scene}>
       <TabSceneContext.Provider value={sceneInfo}>
-        {shouldApplyHorizontalSafeArea ? (
-          <HorizontalSafeAreaSceneContent>
-            {children}
-          </HorizontalSafeAreaSceneContent>
-        ) : (
-          children
-        )}
+        {children}
       </TabSceneContext.Provider>
       {/* A preloaded scene is laid out while still blurred, so let every
           scene that has not been activated yet raise the signal. Gating this
@@ -152,6 +127,13 @@ export function NativeBottomTabView({
   sideAccessoryIcon,
   ...rest
 }: Props) {
+  const [isVerticalTabBar, setIsVerticalTabBar] = useState(false);
+  const handleTabBarPlacementChange = useCallback(
+    (placement: TabBarPlacement) => {
+      setIsVerticalTabBar(placement !== 'bottom');
+    },
+    [],
+  );
   const [activatedRouteKeys, setActivatedRouteKeys] = useState<string[]>(() => {
     const focusedRouteKey = state.routes[state.index]?.key;
     return focusedRouteKey ? [focusedRouteKey] : [];
@@ -336,29 +318,32 @@ export function NativeBottomTabView({
   );
 
   return (
-    <BottomTabs
-      {...rest}
-      sideAccessoryIcon={sideAccessoryIcon}
-      tabBarHidden={tabBarHidden}
-      navigationState={state}
-      renderScene={renderScene}
-      renderLazyPlaceholder={renderLazyPlaceholder}
-      getActiveTintColor={getActiveTintColor}
-      getLabelText={getLabelText}
-      getBadge={getBadge}
-      getBadgeBackgroundColor={getBadgeBackgroundColor}
-      getBadgeTextColor={getBadgeTextColor}
-      getHidden={getHidden}
-      getTestID={getTestID}
-      getRole={getRole}
-      tabBar={tabBar ? tabBarCallback : undefined}
-      getIcon={getIcon}
-      getLazy={getLazy}
-      getFreezeOnBlur={getFreezeOnBlur}
-      getSceneStyle={getSceneStyle}
-      onTabDoublePress={onTabDoublePress}
-      getPreventsDefault={getPreventsDefault}
-      onIndexChange={onIndexChange}
-    />
+    <BottomTabBarVerticalContext.Provider value={isVerticalTabBar}>
+      <BottomTabs
+        {...rest}
+        sideAccessoryIcon={sideAccessoryIcon}
+        tabBarHidden={tabBarHidden}
+        navigationState={state}
+        renderScene={renderScene}
+        renderLazyPlaceholder={renderLazyPlaceholder}
+        getActiveTintColor={getActiveTintColor}
+        getLabelText={getLabelText}
+        getBadge={getBadge}
+        getBadgeBackgroundColor={getBadgeBackgroundColor}
+        getBadgeTextColor={getBadgeTextColor}
+        getHidden={getHidden}
+        getTestID={getTestID}
+        getRole={getRole}
+        tabBar={tabBar ? tabBarCallback : undefined}
+        getIcon={getIcon}
+        getLazy={getLazy}
+        getFreezeOnBlur={getFreezeOnBlur}
+        getSceneStyle={getSceneStyle}
+        onTabDoublePress={onTabDoublePress}
+        getPreventsDefault={getPreventsDefault}
+        onIndexChange={onIndexChange}
+        onTabBarPlacementChange={handleTabBarPlacementChange}
+      />
+    </BottomTabBarVerticalContext.Provider>
   );
 }
