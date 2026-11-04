@@ -1,0 +1,13 @@
+[
+  {
+    "seq": 1,
+    "commit": "964c8c12c058a352dcc78d1e221dc9c835524a51",
+    "date": "2026-11-03T02:54:51Z",
+    "prs": [
+      "#13732",
+      "#13973",
+      "#14244"
+    ],
+    "notes": "fix: retry QA bundle uploads on gateway timeouts (#13732), fix: recover native storage and manual mnemonic backup on v6.6.4 (#13973), chore: sync #14066 and #13836 into release/v6.6.4 (#14244)"
+  }
+]

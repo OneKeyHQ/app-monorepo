@@ -15,6 +15,7 @@ export interface IWithToastOptions<T = unknown> {
   asyncFn: () => Promise<T>;
   actionType?: EActionType;
   args?: any[];
+  shouldShowSuccess?: (result: T) => boolean;
 }
 
 function identifyError(errorMessage: string): EErrorType | null {
@@ -124,6 +125,10 @@ export async function withToast<T>(options: IWithToastOptions<T>): Promise<T> {
 
     if (loadingTimer) clearTimeout(loadingTimer);
     if (loadingToast) loadingToast.close();
+
+    if (options.shouldShowSuccess?.(result) === false) {
+      return result;
+    }
 
     const successTitle =
       typeof config.successTitle === 'function'
