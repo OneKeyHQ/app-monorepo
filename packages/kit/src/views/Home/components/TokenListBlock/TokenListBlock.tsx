@@ -596,6 +596,15 @@ function TokenListBlock({
   >();
   const [displayedPortfolioPayload, setDisplayedPortfolioPayload] =
     useState<typeof silentPortfolioPayload>();
+  const silentPortfolioPayloadEpochRef = useRef<number | undefined>(undefined);
+  const automaticPortfolioRefreshRef = useRef<
+    | {
+        payload: NonNullable<typeof silentPortfolioPayload>;
+        requestId: number;
+      }
+    | undefined
+  >(undefined);
+  const manualPortfolioSyncRef = useRef<() => void>(() => undefined);
   const portfolioSyncDeviceDbId =
     device?.id ?? wallet?.associatedDeviceInfo?.id ?? '';
   const portfolioSyncDeviceType =
@@ -627,6 +636,9 @@ function TokenListBlock({
   );
   useLayoutEffect(() => {
     portfolioCategoryTaskRef.current = undefined;
+    automaticPortfolioRefreshRef.current = undefined;
+    silentPortfolioPayloadEpochRef.current = undefined;
+    setSilentPortfolioPayload(undefined);
     portfolioSpotRefreshRef.current?.reject(
       new OneKeyLocalError('Portfolio account changed'),
     );
@@ -1128,6 +1140,7 @@ function TokenListBlock({
             walletId: wallet.id,
             walletType: wallet.type,
           };
+          silentPortfolioPayloadEpochRef.current = requestAccountEpoch;
           setSilentPortfolioPayload(portfolioSyncPayload);
         }
 
@@ -2607,7 +2620,7 @@ function TokenListBlock({
               aggregationComplete: assetStatusAggregationComplete,
               totalTokenCount: fundedTokenCount,
             });
-          if (!shouldDeferEmptySnapshot) {
+          if (assetStatusAggregationComplete && !shouldDeferEmptySnapshot) {
             const portfolioSyncPayload = {
               accountAddress: account?.address,
               accountId: account?.id,
@@ -2636,6 +2649,7 @@ function TokenListBlock({
               walletId: wallet.id,
               walletType: wallet.type,
             };
+            silentPortfolioPayloadEpochRef.current = requestAccountEpoch;
             setSilentPortfolioPayload(portfolioSyncPayload);
             if (
               portfolioSpotRefresh &&
@@ -3401,106 +3415,115 @@ function TokenListBlock({
     isProtocolV2ProductType(portfolioSyncDeviceType),
   );
 
-  const refreshPortfolioCategories = useCallback(async (): Promise<boolean> => {
-    if (
-      !canRefreshPortfolioCategories ||
-      !account?.id ||
-      !indexedAccount?.id ||
-      !network?.id
-    )
-      return false;
-    const scope = portfolioCategoryScope;
-    const pending = portfolioCategoryTaskRef.current;
-    if (pending?.scope === scope) return pending.promise;
-    portfolioCategoryRequestIdRef.current += 1;
-    const requestId = portfolioCategoryRequestIdRef.current;
-    setPortfolioCategoryRefresh((previous) => ({
-      ...(previous.ownerKey === portfolioCategoryOwnerKey ? previous : {}),
-      ownerKey: portfolioCategoryOwnerKey,
-      requestId,
-      isRefreshing: true,
-      failedSources: [],
-      heldTotalFiatUsd:
-        homePortfolioDisplay.ownerKey === portfolioCategoryOwnerKey
-          ? homePortfolioDisplay.totalFiatUsd
-          : undefined,
-      retry: undefined,
-    }));
-    const isCurrent = () =>
-      portfolioCategoryScopeRef.current === scope &&
-      portfolioCategoryRequestIdRef.current === requestId;
-    const promise = (async () => {
-      try {
-        const spotRefresh = new Promise<void>((resolve, reject) => {
-          portfolioSpotRefreshRef.current = { requestId, resolve, reject };
-          setSilentPortfolioPayload(undefined);
-          refreshWalletTokenListRef.current?.();
-        });
-        const [, result] = await Promise.all([
-          spotRefresh,
-          backgroundApiProxy.serviceHardwarePortfolioSync.refreshPortfolioCategories(
-            {
-              accountId: account.id,
-              indexedAccountId: indexedAccount.id,
-              networkId: network.id,
-              force: true,
-              sources: ['defi', 'perps'],
-            },
-          ),
-        ]);
-        if (!isCurrent()) return false;
-        const failedSources: ('defi' | 'perps')[] = [];
-        if (
-          result.defiFiat === undefined ||
-          !new BigNumber(result.defiFiat).isFinite() ||
-          !['live', 'empty'].includes(result.deFiSource ?? '')
-        )
-          failedSources.push('defi');
-        if (
-          result.perpsFiat === undefined ||
-          !new BigNumber(result.perpsFiat).isFinite()
-        )
-          failedSources.push('perps');
-        setPortfolioCategoryRefresh((current) =>
-          current.requestId !== requestId
-            ? current
-            : {
-                ...current,
-                isRefreshing: false,
-                failedSources,
-                ...(failedSources.length
-                  ? {}
-                  : { data: result, dataRequestId: requestId }),
-              },
-        );
-        return failedSources.length === 0;
-      } catch {
-        if (isCurrent())
-          setPortfolioCategoryRefresh((current) => ({
-            ...current,
-            isRefreshing: false,
-            failedSources: ['defi', 'perps'],
-          }));
+  const refreshPortfolioCategories = useCallback(
+    async (refreshSpot = true): Promise<boolean> => {
+      if (
+        !canRefreshPortfolioCategories ||
+        !account?.id ||
+        !indexedAccount?.id ||
+        !network?.id
+      )
         return false;
-      } finally {
-        if (portfolioSpotRefreshRef.current?.requestId === requestId)
-          portfolioSpotRefreshRef.current = undefined;
-        if (portfolioCategoryTaskRef.current?.requestId === requestId)
-          portfolioCategoryTaskRef.current = undefined;
-      }
-    })();
-    portfolioCategoryTaskRef.current = { scope, promise, requestId };
-    return promise;
-  }, [
-    account?.id,
-    canRefreshPortfolioCategories,
-    homePortfolioDisplay,
-    indexedAccount?.id,
-    network?.id,
-    portfolioCategoryOwnerKey,
-    portfolioCategoryScope,
-    setPortfolioCategoryRefresh,
-  ]);
+      const scope = portfolioCategoryScope;
+      const pending = portfolioCategoryTaskRef.current;
+      if (pending?.scope === scope) return pending.promise;
+      portfolioCategoryRequestIdRef.current += 1;
+      const requestId = portfolioCategoryRequestIdRef.current;
+      setPortfolioCategoryRefresh((previous) => ({
+        ...(previous.ownerKey === portfolioCategoryOwnerKey ? previous : {}),
+        ownerKey: portfolioCategoryOwnerKey,
+        requestId,
+        isRefreshing: true,
+        failedSources: [],
+        heldTotalFiatUsd:
+          homePortfolioDisplay.ownerKey === portfolioCategoryOwnerKey
+            ? homePortfolioDisplay.totalFiatUsd
+            : undefined,
+        retry: undefined,
+      }));
+      const isCurrent = () =>
+        portfolioCategoryScopeRef.current === scope &&
+        portfolioCategoryRequestIdRef.current === requestId;
+      const promise = (async () => {
+        try {
+          const spotRefresh = refreshSpot
+            ? new Promise<void>((resolve, reject) => {
+                portfolioSpotRefreshRef.current = {
+                  requestId,
+                  resolve,
+                  reject,
+                };
+                setSilentPortfolioPayload(undefined);
+                refreshWalletTokenListRef.current?.();
+              })
+            : undefined;
+          const [, result] = await Promise.all([
+            spotRefresh,
+            backgroundApiProxy.serviceHardwarePortfolioSync.refreshPortfolioCategories(
+              {
+                accountId: account.id,
+                indexedAccountId: indexedAccount.id,
+                networkId: network.id,
+                force: true,
+                sources: ['defi', 'perps'],
+              },
+            ),
+          ]);
+          if (!isCurrent()) return false;
+          const failedSources: ('defi' | 'perps')[] = [];
+          if (
+            result.defiFiat === undefined ||
+            !new BigNumber(result.defiFiat).isFinite() ||
+            !['live', 'empty'].includes(result.deFiSource ?? '')
+          )
+            failedSources.push('defi');
+          if (
+            result.perpsFiat === undefined ||
+            !new BigNumber(result.perpsFiat).isFinite()
+          )
+            failedSources.push('perps');
+          setPortfolioCategoryRefresh((current) =>
+            current.requestId !== requestId
+              ? current
+              : {
+                  ...current,
+                  isRefreshing: false,
+                  failedSources,
+                  ...(failedSources.length
+                    ? {}
+                    : { data: result, dataRequestId: requestId }),
+                },
+          );
+          return failedSources.length === 0;
+        } catch {
+          if (isCurrent())
+            setPortfolioCategoryRefresh((current) => ({
+              ...current,
+              isRefreshing: false,
+              failedSources: ['defi', 'perps'],
+            }));
+          return false;
+        } finally {
+          if (portfolioSpotRefreshRef.current?.requestId === requestId)
+            portfolioSpotRefreshRef.current = undefined;
+          if (portfolioCategoryTaskRef.current?.requestId === requestId)
+            portfolioCategoryTaskRef.current = undefined;
+        }
+      })();
+      portfolioCategoryTaskRef.current = { scope, promise, requestId };
+      return promise;
+    },
+    [
+      account?.id,
+      canRefreshPortfolioCategories,
+      homePortfolioDisplay,
+      indexedAccount?.id,
+      network?.id,
+      portfolioCategoryOwnerKey,
+      portfolioCategoryScope,
+      setPortfolioCategoryRefresh,
+    ],
+  );
 
   const buildCurrentHomePortfolioSyncPayload = useCallback(() => {
     const totalFiatCurrency = accountTokensWorth.currency ?? currencyInfo?.id;
@@ -3635,14 +3658,53 @@ function TokenListBlock({
     if (
       !network?.id ||
       !silentPortfolioPayload ||
+      silentPortfolioPayloadEpochRef.current !== activeAccountEpoch ||
       silentPortfolioPayload.ownerAccountId !== account?.id ||
       silentPortfolioPayload.ownerNetworkId !== network.id ||
+      !canRefreshPortfolioCategories
+    ) {
+      return;
+    }
+    if (portfolioSyncRequestPhase) {
+      automaticPortfolioRefreshRef.current = {
+        payload: silentPortfolioPayload,
+        requestId: portfolioCategoryRequestIdRef.current,
+      };
+      return;
+    }
+    if (
+      automaticPortfolioRefreshRef.current?.payload !== silentPortfolioPayload
+    ) {
+      // Spot already completed this round. Fetch the other categories once,
+      // then wait for Home to commit their amounts before publishing it.
+      void refreshPortfolioCategories(false).then((complete) => {
+        if (
+          !complete &&
+          automaticPortfolioRefreshRef.current?.payload ===
+            silentPortfolioPayload
+        )
+          setPortfolioCategoryRefresh((current) => ({
+            ...current,
+            retry: () => manualPortfolioSyncRef.current(),
+          }));
+      });
+      automaticPortfolioRefreshRef.current = {
+        payload: silentPortfolioPayload,
+        requestId: portfolioCategoryRequestIdRef.current,
+      };
+      return;
+    }
+    if (
+      portfolioCategoryTaskRef.current ||
+      portfolioCategoryRefresh.isRefreshing ||
+      portfolioCategoryRefresh.failedSources.length ||
+      homePortfolioDisplay.categoryRevision !==
+        automaticPortfolioRefreshRef.current.requestId ||
       !homePortfolioDisplay.isLive ||
       homePortfolioDisplay.ownerKey !==
         buildOverviewOwnerKey(account?.id, network.id) ||
       homePortfolioDisplay.tokenFiatUsd === undefined ||
-      homePortfolioDisplay.totalFiatUsd === undefined ||
-      portfolioSyncRequestPhase
+      homePortfolioDisplay.totalFiatUsd === undefined
     ) {
       return;
     }
@@ -3672,11 +3734,16 @@ function TokenListBlock({
     }
   }, [
     account?.id,
+    activeAccountEpoch,
+    canRefreshPortfolioCategories,
     currencyMap,
     hasPortfolioSyncTarget,
     homePortfolioDisplay,
     network?.id,
+    portfolioCategoryRefresh,
     portfolioSyncRequestPhase,
+    refreshPortfolioCategories,
+    setPortfolioCategoryRefresh,
     silentPortfolioPayload,
   ]);
 
@@ -3740,7 +3807,6 @@ function TokenListBlock({
     ],
   );
 
-  const manualPortfolioSyncRef = useRef<() => void>(() => undefined);
   const handleSyncPortfolio = useCallback(() => {
     if (getCurrentPortfolioSyncRequest() || !canRefreshPortfolioCategories)
       return;

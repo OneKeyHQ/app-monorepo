@@ -538,19 +538,20 @@ describe('Home automatic Portfolio sync', () => {
     mockFetchTokens.mockResolvedValue(tokenResponse());
   });
 
-  it('does not query categories on hydration, timers or account refresh events', async () => {
+  it('does not query categories until a current spot response is available', async () => {
     jest.useFakeTimers();
     try {
       mockIndexedAccountReady = false;
       const { rerender } = render(<TokenListBlock />);
       mockIndexedAccountReady = true;
       rerender(<TokenListBlock />);
+      expect(mockRefreshCategories).not.toHaveBeenCalled();
       await act(async () => {
         jest.advanceTimersByTime(180_000);
         appEventBus.emit(EAppEventBusNames.AccountDataUpdate, undefined);
         appEventBus.emit(EAppEventBusNames.NetworkDeriveTypeChanged, undefined);
       });
-      expect(mockRefreshCategories).not.toHaveBeenCalled();
+      expect(mockRefreshCategories).toHaveBeenCalledTimes(1);
     } finally {
       jest.useRealTimers();
     }
@@ -559,7 +560,6 @@ describe('Home automatic Portfolio sync', () => {
   it('refreshes spot and both categories once before explicit sync', async () => {
     mockPublishRefreshedHeader = true;
     render(<TokenListBlock />);
-    await refresh();
     const request = mockUpdateSyncUi.mock.calls.at(-1)?.[0]
       .request as () => void;
     await act(async () => request());
@@ -568,7 +568,7 @@ describe('Home automatic Portfolio sync', () => {
     expect(mockRefreshCategories).toHaveBeenCalledWith(
       expect.objectContaining({ force: true, sources: ['defi', 'perps'] }),
     );
-    expect(mockFetchTokens).toHaveBeenCalledTimes(2);
+    expect(mockFetchTokens).toHaveBeenCalledTimes(1);
     expect(mockSyncPortfolio).toHaveBeenCalledWith(
       expect.objectContaining({
         eventPayload: expect.objectContaining({
@@ -602,7 +602,6 @@ describe('Home automatic Portfolio sync', () => {
         failedSources: [],
       });
       render(<TokenListBlock />);
-      await refresh();
       const request = mockUpdateSyncUi.mock.calls.at(-1)?.[0]
         .request as () => void;
       await act(async () => request());
@@ -709,10 +708,48 @@ describe('Home automatic Portfolio sync', () => {
     },
   );
 
-  it('automatically syncs the current single-network snapshot after a live refresh', async () => {
+  it('refreshes both categories before automatically syncing the committed Home total', async () => {
+    mockPublishRefreshedHeader = true;
+    mockHomeDisplay = {
+      ...mockHomeDisplay,
+      isLive: false,
+      defiFiatUsd: undefined,
+      perpsFiatUsd: undefined,
+    };
+    let resolveCategories: (
+      value: IPortfolioCategoryRefreshResult,
+    ) => void = () => undefined;
+    mockRefreshCategories.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          resolveCategories = resolve;
+        }),
+    );
     render(<TokenListBlock />);
     await refresh();
+    expect(mockRefreshCategories).toHaveBeenCalledTimes(1);
+    expect(mockRefreshCategories).toHaveBeenCalledWith(
+      expect.objectContaining({ force: true, sources: ['defi', 'perps'] }),
+    );
+    expect(mockNotifySettled).not.toHaveBeenCalled();
+    await act(async () =>
+      resolveCategories({
+        defiFiat: '40',
+        perpsFiat: '20',
+        deFiSource: 'live',
+        deFiOverview: {
+          netWorth: 40,
+          totalValue: 40,
+          totalDebt: 0,
+          totalReward: 0,
+        },
+        fetchedAt: Date.now(),
+        failedSources: [],
+      }),
+    );
     await waitFor(() => expect(mockNotifySettled).toHaveBeenCalledTimes(1));
+    expect(mockFetchTokens).toHaveBeenCalledTimes(1);
+    expect(mockRefreshCategories).toHaveBeenCalledTimes(1);
     expect(mockNotifySettled).toHaveBeenCalledWith(
       expect.objectContaining({
         ownerAccountId: mockAccount.id,
@@ -720,12 +757,83 @@ describe('Home automatic Portfolio sync', () => {
         networkId: 'evm--1',
         totalFiat: '125',
         totalFiatCurrency: 'usd',
-        homeTotalFiatUsd: '125',
+        homeTotalFiatUsd: '185',
+        homeCategoryFiatUsd: { defiFiat: '40', perpsFiat: '20' },
         tokens: [
           expect.objectContaining({ networkId: 'evm--1', symbol: 'ETH' }),
         ],
       }),
     );
+  });
+
+  it.each(['defi', 'perps'] as const)(
+    'keeps Home and skips automatic upload when %s refresh is incomplete',
+    async (source) => {
+      mockPublishRefreshedHeader = true;
+      mockRefreshCategories.mockResolvedValueOnce({
+        defiFiat: source === 'defi' ? undefined : '40',
+        perpsFiat: source === 'perps' ? undefined : '20',
+        deFiSource: source === 'defi' ? 'unknown' : 'live',
+        fetchedAt: Date.now(),
+        failedSources: [source],
+      });
+      const { rerender } = render(<TokenListBlock />);
+      await refresh();
+      expect(mockCategoryState.isRefreshing).toBe(false);
+      expect(mockCategoryState.failedSources).toEqual([source]);
+      expect(mockCategoryState.data).toBeUndefined();
+      expect(mockCategoryState.heldTotalFiatUsd).toBe('125');
+      expect(mockHomeDisplay.totalFiatUsd).toBe('125');
+      expect(mockNotifySettled).not.toHaveBeenCalled();
+      rerender(<TokenListBlock />);
+      expect(mockRefreshCategories).toHaveBeenCalledTimes(1);
+      expect(mockFetchTokens).toHaveBeenCalledTimes(1);
+    },
+  );
+
+  it('waits for the refreshed Home revision before automatically uploading', async () => {
+    const { rerender } = render(<TokenListBlock />);
+    await refresh();
+    expect(mockCategoryState.dataRequestId).toBeDefined();
+    expect(mockNotifySettled).not.toHaveBeenCalled();
+    mockHomeDisplay = {
+      ...mockHomeDisplay,
+      categoryRevision: mockCategoryState.dataRequestId,
+    };
+    rerender(<TokenListBlock />);
+    await waitFor(() => expect(mockNotifySettled).toHaveBeenCalledTimes(1));
+    expect(mockRefreshCategories).toHaveBeenCalledTimes(1);
+  });
+
+  it('drops an automatic category response after account selection changes', async () => {
+    mockPublishRefreshedHeader = true;
+    let resolveCategories: (
+      value: IPortfolioCategoryRefreshResult,
+    ) => void = () => undefined;
+    mockRefreshCategories.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          resolveCategories = resolve;
+        }),
+    );
+    const { rerender } = render(<TokenListBlock />);
+    await refresh();
+    const requestId = mockCategoryState.requestId;
+    mockEpoch += 1;
+    rerender(<TokenListBlock />);
+    await act(async () =>
+      resolveCategories({
+        defiFiat: '999',
+        perpsFiat: '20',
+        deFiSource: 'live',
+        fetchedAt: Date.now(),
+        failedSources: [],
+      }),
+    );
+    expect(mockCategoryState.requestId).toBeGreaterThan(requestId);
+    expect(mockCategoryState.data).toBeUndefined();
+    expect(mockNotifySettled).not.toHaveBeenCalled();
+    expect(mockSyncPortfolio).not.toHaveBeenCalled();
   });
 
   it('refreshes categories before syncing the newly committed Home snapshot and token rows', async () => {
@@ -763,7 +871,7 @@ describe('Home automatic Portfolio sync', () => {
       appEventBus.emit(EAppEventBusNames.RefreshTokenList, undefined);
     });
     expect(mockFetchTokens).toHaveBeenCalledTimes(2);
-    expect(mockNotifySettled).toHaveBeenCalledTimes(1);
+    expect(mockNotifySettled).toHaveBeenCalledTimes(2);
     const { request, disabled } = mockUpdateSyncUi.mock.calls.at(-1)?.[0] as {
       request: () => void;
       disabled: boolean;
@@ -949,9 +1057,14 @@ describe('Home automatic Portfolio sync', () => {
     expect(mockSyncPortfolio).not.toHaveBeenCalled();
   });
 
-  it.each([false, true])(
-    'syncs the complete all-networks snapshot (explicit: %s)',
-    async (explicit) => {
+  it.each([
+    { explicit: false, complete: true },
+    { explicit: true, complete: true },
+    { explicit: false, complete: false },
+  ])(
+    'syncs All Networks only with complete spot and category results: %j',
+    async ({ explicit, complete }) => {
+      mockPublishRefreshedHeader = true;
       mockNetwork = { id: 'onekeyall--0', isAllNetworks: true };
       mockHomeDisplay = {
         ...mockHomeDisplay,
@@ -979,7 +1092,25 @@ describe('Home automatic Portfolio sync', () => {
         createAtNetworkWorth: '125',
       });
       const { rerender } = render(<TokenListBlock />);
+      await act(async () => {
+        const accounts = [
+          { accountId: mockAccount.id, networkId: mockNetwork.id },
+          ...(complete
+            ? []
+            : [{ accountId: 'missing-account', networkId: 'evm--10' }]),
+        ];
+        mockAllNetworkParams?.allNetworkAccountsData?.({
+          accounts,
+          allAccounts: accounts,
+        });
+      });
+      if (!complete) {
+        expect(mockRefreshCategories).not.toHaveBeenCalled();
+        expect(mockNotifySettled).not.toHaveBeenCalled();
+        return;
+      }
       await waitFor(() => expect(mockNotifySettled).toHaveBeenCalledTimes(1));
+      expect(mockRefreshCategories).toHaveBeenCalledTimes(1);
       if (explicit) {
         mockPublishRefreshedHeader = true;
         const request = mockUpdateSyncUi.mock.calls.at(-1)?.[0]
