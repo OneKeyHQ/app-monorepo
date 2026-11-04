@@ -6,9 +6,13 @@ import { encryptRevealableSeed, mnemonicToRevealableSeed } from '../../secret';
 
 import CoreChainHd from './CoreChainHd';
 import { getXmrCurveForPath } from './CoreChainSoftware';
-import { setXmrRuntimeLoader } from './sdkXmrRuntime/address';
 
 import type { IXmrPureRuntimeApi } from './sdkXmrRuntime/address';
+
+const mockLoadRuntime = jest.fn<Promise<IXmrPureRuntimeApi>, []>();
+jest.mock('./sdkXmrRuntime/sdk', () => ({
+  getXmrRuntimeApiForCarrier: () => mockLoadRuntime(),
+}));
 
 /**
  * Published Trezor and Cake Wallet vectors. They pin derive type -> path -> curve -> the
@@ -72,7 +76,7 @@ async function spendKeysFor(mnemonic: string, template: string, count = 1) {
 }
 
 beforeAll(() => {
-  setXmrRuntimeLoader(async () => fakeRuntime);
+  mockLoadRuntime.mockResolvedValue(fakeRuntime);
 });
 
 describe('xmr derive type -> curve', () => {

@@ -10,39 +10,27 @@ export type IPrivacyChainBoostTrigger =
   | 'auto-backfill'
   | 'chain-selected';
 
-// Null when no pass has published a position yet.
-export function getPrivacyChainBlocksLeft(
-  progress:
-    | {
-        isBackfillComplete: boolean;
-        backfillScannedHeight: number | null;
-        backfillTargetHeight: number | null;
-        tipLag: number | null;
-      }
-    | null
-    | undefined,
-): number | null {
-  if (!progress) return null;
-  let backfillLeft = 0;
-  if (!progress.isBackfillComplete) {
-    const { backfillScannedHeight, backfillTargetHeight } = progress;
-    if (
-      typeof backfillScannedHeight !== 'number' ||
-      typeof backfillTargetHeight !== 'number'
-    ) {
-      return null;
-    }
-    backfillLeft = Math.max(0, backfillTargetHeight - backfillScannedHeight);
-  }
-  return backfillLeft + Math.max(0, progress.tipLag ?? 0);
-}
-
 type IPrivacyChainBackfillPosition = {
   isBackfillComplete: boolean;
   backfillScannedHeight: number | null;
   backfillTargetHeight: number | null;
   backfillRemainingBlocks?: number;
 };
+
+// Null when no pass has published a position yet.
+export function getPrivacyChainBlocksLeft(
+  progress:
+    | (IPrivacyChainBackfillPosition & { tipLag: number | null })
+    | null
+    | undefined,
+): number | null {
+  if (!progress) return null;
+  const backfillLeft = progress.isBackfillComplete
+    ? 0
+    : getPrivacyChainBackfillBlocksLeft(progress);
+  if (backfillLeft === undefined) return null;
+  return backfillLeft + Math.max(0, progress.tipLag ?? 0);
+}
 
 // Backfill blocks left: the chain's own count when it reports one (Zcash scans out of order),
 // else target minus scanned.
@@ -66,6 +54,8 @@ export function getPrivacyChainBackfillBlocksLeft(
 export type IPrivacyChainScanRateSample = {
   done: number;
   at: number;
+  // When this run of measurements started; a short one still swings.
+  since: number;
   blocksPerSec: number | null;
 };
 
@@ -92,13 +82,14 @@ export function nextPrivacyChainScanRate({
     done < previous.done ||
     now - previous.at > SCAN_RATE_STALE_MS
   ) {
-    return { done, at: now, blocksPerSec: null };
+    return { done, at: now, since: now, blocksPerSec: null };
   }
   if (done === previous.done || now <= previous.at) return previous;
   const instantaneous = ((done - previous.done) * 1000) / (now - previous.at);
   return {
     done,
     at: now,
+    since: previous.since,
     blocksPerSec:
       previous.blocksPerSec === null
         ? instantaneous
@@ -144,6 +135,56 @@ export function shouldStartBoost({
     return false;
   }
   return remainingBlocks >= PRIVACY_CHAIN_LIGHT_MIN_BLOCKS_LEFT;
+}
+
+// A chain's target block interval, which may change from a height on (Zcash NU7: 75s to 25s).
+export type IPrivacyChainBlockTime = {
+  blockTimeSeconds: number;
+  blockTimeChange?: { fromHeight: number; blockTimeSeconds: number };
+};
+
+// Blocks up to `tip` produced after the interval changed.
+function countChangedBlocks(
+  blockTime: IPrivacyChainBlockTime,
+  tip: number | null | undefined,
+): number {
+  const change = blockTime.blockTimeChange;
+  if (!change || typeof tip !== 'number') return 0;
+  return Math.max(0, tip - change.fromHeight + 1);
+}
+
+// Target chain time of the `blocks` blocks up to `tip`, each at its own height's interval.
+export function getPrivacyChainBlocksSeconds(
+  blockTime: IPrivacyChainBlockTime,
+  blocks: number,
+  tip: number | null | undefined,
+): number {
+  const changed = Math.min(blocks, countChangedBlocks(blockTime, tip));
+  const changedSeconds = blockTime.blockTimeChange?.blockTimeSeconds ?? 0;
+  return (
+    (blocks - changed) * blockTime.blockTimeSeconds + changed * changedSeconds
+  );
+}
+
+// A window set as `windowBlocks` at the original interval that stands for time: the blocks up
+// to `tip` that take as long (ZIP 218 keeps such windows in time).
+export function getPrivacyChainTimeWindowBlocks(
+  blockTime: IPrivacyChainBlockTime | undefined,
+  windowBlocks: number,
+  tip: number | null | undefined,
+): number {
+  const change = blockTime?.blockTimeChange;
+  if (!blockTime || !change) return windowBlocks;
+  const windowSeconds = windowBlocks * blockTime.blockTimeSeconds;
+  const changedBlocks = countChangedBlocks(blockTime, tip);
+  const changedSeconds = changedBlocks * change.blockTimeSeconds;
+  if (windowSeconds <= changedSeconds) {
+    return windowSeconds / change.blockTimeSeconds;
+  }
+  return (
+    changedBlocks +
+    (windowSeconds - changedSeconds) / blockTime.blockTimeSeconds
+  );
 }
 
 // Small lag is normal chain-following, not a problem; reserved for lag a

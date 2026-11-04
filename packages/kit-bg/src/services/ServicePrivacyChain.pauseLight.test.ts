@@ -5,8 +5,9 @@ type IPublished = {
   boostingNetworkIds: string[];
   dataBlockedNetworkIds: string[];
   pausedNetworkIds: string[];
-  preparingNetworkIds: string[];
+  preparingAccountKeys: string[];
   syncErrorByNetworkId: Record<string, string>;
+  allowCellularSync?: boolean;
 };
 
 const mockEmptyState = (): IPublished => ({
@@ -14,7 +15,7 @@ const mockEmptyState = (): IPublished => ({
   boostingNetworkIds: [],
   dataBlockedNetworkIds: [],
   pausedNetworkIds: [],
-  preparingNetworkIds: [],
+  preparingAccountKeys: [],
   syncErrorByNetworkId: {},
 });
 
@@ -60,6 +61,17 @@ describe('Privacy sync light pause state', () => {
           backfillActive: boolean;
         }) => Promise<void>;
         markLocalWalletOrphanCleanupDue: (networkId: string) => void;
+        startForegroundBoost: (params: {
+          networkId: string;
+          accountId?: string;
+          trigger: 'manual-sync';
+        }) => Promise<void>;
+        repairLocalChainData: (params: {
+          networkId: string;
+          accountId: string;
+          mode: 'height';
+          birthdayHeight: number;
+        }) => Promise<void>;
         foregroundBoostRequestedByNetwork: Record<string, boolean>;
         boostPausedByNetwork: Record<string, boolean>;
       },
@@ -164,7 +176,8 @@ describe('Privacy sync light pause state', () => {
         capability: capabilityForAccounts(accountIds),
       });
 
-    it('turns on at the threshold and off once below it', async () => {
+    // Zcash counts as synced below 48 blocks left (`syncedBelowBlocks`).
+    it('turns on at the threshold and stays on until the chain counts as synced', async () => {
       const service = createService();
       publishBehind('account', {
         backfill: PRIVACY_CHAIN_LIGHT_MIN_BLOCKS_LEFT - 1,
@@ -180,10 +193,11 @@ describe('Privacy sync light pause state', () => {
       await pass(service);
       expect(mockPublished.boostingNetworkIds).toEqual([networkId]);
 
-      publishBehind('account', {
-        backfill: PRIVACY_CHAIN_LIGHT_MIN_BLOCKS_LEFT - 1,
-        tipLag: 0,
-      });
+      publishBehind('account', { backfill: 0, tipLag: 48 });
+      await pass(service);
+      expect(mockPublished.boostingNetworkIds).toEqual([networkId]);
+
+      publishBehind('account', { backfill: 0, tipLag: 47 });
       await pass(service);
       expect(mockPublished.boostingNetworkIds).toEqual([]);
     });
@@ -214,6 +228,111 @@ describe('Privacy sync light pause state', () => {
       await pass(service);
       expect(mockPublished.boostingNetworkIds).toEqual([]);
     });
+  });
+
+  describe('a rescan from a new start', () => {
+    const repair = {
+      networkId,
+      accountId: 'account',
+      mode: 'height' as const,
+      birthdayHeight: 3_000_000,
+    };
+    const createRepairService = ({
+      enabled = true,
+      runLocalChainDataRepair = jest.fn(async () => undefined),
+    } = {}) => {
+      const startUserSync = jest.fn(async () => undefined);
+      const service = Object.assign(createService(), {
+        repairMutexByAccount: new Map(),
+        runLocalChainDataRepair,
+        requireAccountCapability: async () => ({
+          getAccountState: async () => ({ enabled, paused: !enabled }),
+        }),
+        startUserSync,
+      });
+      return { service, startUserSync };
+    };
+
+    it('shows at once instead of after the first pass', async () => {
+      let preparingWhileRunning: string[] = [];
+      const { service, startUserSync } = createRepairService({
+        runLocalChainDataRepair: jest.fn(async () => {
+          preparingWhileRunning = [...mockPublished.preparingAccountKeys];
+          return undefined;
+        }),
+      });
+      await service.repairLocalChainData(repair);
+      // Preparing from the press, not once the rescan is done.
+      expect(preparingWhileRunning).toEqual([`${networkId}:account`]);
+      expect(startUserSync).toHaveBeenCalledWith({
+        networkId,
+        accountId: 'account',
+      });
+    });
+
+    it('leaves a paused account waiting for resume', async () => {
+      const { service, startUserSync } = createRepairService({
+        enabled: false,
+      });
+      await service.repairLocalChainData(repair);
+      expect(startUserSync).not.toHaveBeenCalled();
+    });
+
+    it('keeps a paused chain paused, with its new start saved', async () => {
+      const { service, startUserSync } = createRepairService();
+      service.boostPausedByNetwork[networkId] = true;
+      await service.repairLocalChainData(repair);
+      expect(startUserSync).not.toHaveBeenCalled();
+    });
+
+    it('shows nothing when the rescan fails', async () => {
+      const { service, startUserSync } = createRepairService({
+        runLocalChainDataRepair: jest
+          .fn()
+          .mockRejectedValue(new Error('rescan failed')),
+      });
+      await expect(service.repairLocalChainData(repair)).rejects.toThrow();
+      expect(startUserSync).not.toHaveBeenCalled();
+      expect(mockPublished.preparingAccountKeys).toEqual([]);
+    });
+  });
+
+  // Pause then Sync within one block: without a pass, nothing clears Preparing.
+  it('runs a pass on a manual sync even at an unchanged tip', async () => {
+    const service = Object.assign(createService(), {
+      runtimeSyncState: new Map([
+        [`${networkId}|main`, { accountSignature: 'account', lastChainTip: 1 }],
+      ]),
+      getLocalWalletNetworkIds: async () => [networkId],
+    });
+    await service.pauseLocalWalletScan({ networkId });
+    await service.startForegroundBoost({
+      networkId,
+      accountId: 'account',
+      trigger: 'manual-sync',
+    });
+    expect(service.runtimeSyncState.size).toBe(0);
+    expect(mockPublished.preparingAccountKeys).toEqual([
+      `${networkId}:account`,
+    ]);
+  });
+
+  // No pass runs on metered data without consent, so Preparing would never clear.
+  it('shows no Preparing for a manual sync held by metered data', async () => {
+    const service = Object.assign(createService({ cellularBlocked: true }), {
+      runtimeSyncState: new Map(),
+      getLocalWalletNetworkIds: async () => [networkId],
+    });
+    Object.assign(service.backgroundApi.simpleDb.privacyChainState, {
+      getAllowCellularSync: async () => false,
+    });
+    await service.startForegroundBoost({
+      networkId,
+      accountId: 'account',
+      trigger: 'manual-sync',
+    });
+    expect(mockPublished.preparingAccountKeys).toEqual([]);
+    expect(mockPublished.dataBlockedNetworkIds).toEqual([networkId]);
   });
 
   // Pausing from Settings or after the boost request cleared must still publish, or the light stays
@@ -348,25 +467,11 @@ describe('Privacy sync light pause state', () => {
       service.foregroundBoostRequestedByNetwork[networkId],
     ).toBeUndefined();
   });
-  it('keeps a new account visible when another account is deleted during init', async () => {
+  it('keeps a new account visible when another account is deleted', async () => {
     const service = createService();
-    let finishInit!: () => void;
-    let initRequested!: () => void;
-    const requested = new Promise<void>((resolve) => {
-      initRequested = resolve;
-    });
-    service.init.mockImplementationOnce(() => {
-      initRequested();
-      return new Promise<void>((resolve) => {
-        finishInit = resolve;
-      });
-    });
-    const enabling = service.onLocalWalletAccountsChanged({
-      networkId,
-      accountIds: ['new'],
-      backfillActive: true,
-    });
-    await requested;
+    // As the user's enable would.
+    service.foregroundBoostRequestedByNetwork[networkId] = true;
+    await service.publishBoostingNetworks();
     mockGetChainOnlyVault.mockResolvedValue({
       getLocalWalletCapability: () => capabilityForAccounts(['new']),
     });
@@ -375,54 +480,255 @@ describe('Privacy sync light pause state', () => {
       accountIds: ['old'],
       backfillActive: false,
     });
-    finishInit();
-    await enabling;
     expect(mockPublished.boostingNetworkIds).toEqual([networkId]);
   });
 });
 
-describe('Privacy scan pause is session-scoped', () => {
+describe('Privacy data consent publish', () => {
+  beforeEach(() => {
+    mockPublished = mockEmptyState();
+  });
+
+  // The settings switch reads it from here, so a Use mobile data pressed elsewhere shows at once.
+  it('publishes the stored consent once read, and a change at once', async () => {
+    let stored = true;
+    const service = Object.assign(
+      Object.create(ServicePrivacyChain.prototype) as {
+        isPrivacySyncOnCellularAllowed: () => Promise<boolean>;
+        setAllowCellularSync: (params: { allow: boolean }) => Promise<void>;
+      },
+      {
+        allowCellularSyncCache: false,
+        boostPausedByNetwork: {} as Record<string, boolean>,
+        foregroundBoostRequestedByNetwork: {} as Record<string, boolean>,
+        deviceIsCellular: false,
+        scheduleBackgroundSync: jest.fn(),
+        backgroundApi: {
+          simpleDb: {
+            privacyChainState: {
+              getAllowCellularSync: async () => stored,
+              setAllowCellularSync: async ({ allow }: { allow: boolean }) => {
+                stored = allow;
+              },
+            },
+          },
+        },
+      },
+    );
+    expect(mockPublished.allowCellularSync).toBeUndefined();
+    await service.isPrivacySyncOnCellularAllowed();
+    expect(mockPublished.allowCellularSync).toBe(true);
+    await service.setAllowCellularSync({ allow: false });
+    expect(mockPublished.allowCellularSync).toBe(false);
+  });
+});
+
+describe('Privacy connection failures after a network change', () => {
+  const networkId = 'zec--0';
+  const runtimeStateKey = `${networkId}|main`;
+
+  beforeEach(() => {
+    mockPublished = mockEmptyState();
+  });
+
+  function createFailedService({
+    deviceIsCellular,
+  }: {
+    deviceIsCellular: boolean | undefined;
+  }) {
+    mockPublished.syncErrorByNetworkId = { [networkId]: 'nodeUnreachable' };
+    const scheduleBackgroundSync = jest.fn();
+    const service = Object.assign(
+      Object.create(ServicePrivacyChain.prototype) as {
+        setAllowCellularSync: (params: { allow: boolean }) => Promise<void>;
+        setDeviceNetworkState: (params: {
+          isCellular: boolean | undefined;
+        }) => Promise<void>;
+        syncFailureBackoff: Map<string, unknown>;
+      },
+      {
+        allowCellularSyncCache: false,
+        boostPausedByNetwork: {} as Record<string, boolean>,
+        foregroundBoostRequestedByNetwork: {} as Record<string, boolean>,
+        deviceIsCellular,
+        syncFailureBackoff: new Map([
+          [runtimeStateKey, { failures: 4, untilMs: Date.now() + 60_000 }],
+        ]),
+        scheduleBackgroundSync,
+        getLocalWalletNetworkIds: async () => [networkId],
+        backgroundApi: {
+          simpleDb: {
+            privacyChainState: {
+              setAllowCellularSync: async () => undefined,
+            },
+          },
+        },
+      },
+    );
+    return { service, scheduleBackgroundSync };
+  }
+
+  // A failure from before the user chose mobile data must not hold the retry it asked for.
+  it('retries at once when mobile data is allowed', async () => {
+    const { service, scheduleBackgroundSync } = createFailedService({
+      deviceIsCellular: true,
+    });
+    await service.setAllowCellularSync({ allow: true });
+    expect(service.syncFailureBackoff.has(runtimeStateKey)).toBe(false);
+    expect(mockPublished.syncErrorByNetworkId).toEqual({});
+    expect(scheduleBackgroundSync).toHaveBeenCalledWith(0);
+  });
+
+  it.each([
+    [false, true],
+    [true, false],
+  ])('retries at once on a switch from cellular %s to %s', async (from, to) => {
+    const { service, scheduleBackgroundSync } = createFailedService({
+      deviceIsCellular: from,
+    });
+    await service.setDeviceNetworkState({ isCellular: to });
+    expect(service.syncFailureBackoff.has(runtimeStateKey)).toBe(false);
+    expect(mockPublished.syncErrorByNetworkId).toEqual({});
+    expect(scheduleBackgroundSync).toHaveBeenCalledWith(0);
+  });
+
+  it.each([
+    ['the same network reported again', true, true],
+    ['losing the network', true, undefined],
+  ])('keeps the failure for %s', async (_case, from, to) => {
+    const { service, scheduleBackgroundSync } = createFailedService({
+      deviceIsCellular: from,
+    });
+    await service.setDeviceNetworkState({ isCellular: to });
+    expect(service.syncFailureBackoff.has(runtimeStateKey)).toBe(true);
+    expect(mockPublished.syncErrorByNetworkId).toEqual({
+      [networkId]: 'nodeUnreachable',
+    });
+    expect(scheduleBackgroundSync).not.toHaveBeenCalled();
+  });
+});
+
+describe('Privacy progress forgotten for a rescan', () => {
+  beforeEach(() => {
+    mockPublished = mockEmptyState();
+  });
+
+  // A new start makes blocks done jump; measured as speed it would promise minutes for hours.
+  it('starts the speed over with the position', async () => {
+    const service = Object.assign(
+      Object.create(ServicePrivacyChain.prototype) as {
+        forgetPublishedProgress: (params: {
+          networkId: string;
+          accountIds: string[];
+        }) => Promise<void>;
+        scanRateSamples: Map<string, unknown>;
+      },
+      {
+        scanRateSamples: new Map([
+          ['zec--0:a', { done: 1 }],
+          ['zec--0:b', { done: 1 }],
+        ]),
+      },
+    );
+    mockPublished.progress['zec--0:a'] = { tipScannedHeight: 1 };
+    await service.forgetPublishedProgress({
+      networkId: 'zec--0',
+      accountIds: ['a'],
+    });
+    expect([...service.scanRateSamples.keys()]).toEqual(['zec--0:b']);
+    expect(mockPublished.progress['zec--0:a']).toBeUndefined();
+  });
+});
+
+describe('Privacy scan held between steps', () => {
+  // Read between every scan step, so it must not touch storage.
+  it('answers from memory: a chain pause or a lost data consent', async () => {
+    const service = Object.assign(
+      Object.create(ServicePrivacyChain.prototype) as {
+        isLocalWalletScanHeld: (networkId: string) => Promise<boolean>;
+      },
+      {
+        boostPausedByNetwork: {} as Record<string, boolean>,
+        deviceIsCellular: false,
+        allowCellularSyncCache: false,
+      },
+    );
+    await expect(service.isLocalWalletScanHeld('zec--0')).resolves.toBe(false);
+    Object.assign(service, { deviceIsCellular: true });
+    await expect(service.isLocalWalletScanHeld('zec--0')).resolves.toBe(true);
+    Object.assign(service, {
+      deviceIsCellular: false,
+      boostPausedByNetwork: { 'zec--0': true },
+    });
+    await expect(service.isLocalWalletScanHeld('zec--0')).resolves.toBe(true);
+  });
+});
+
+describe('Privacy chain pause survives a restart', () => {
   const networkId = 'zec--0';
 
   beforeEach(() => {
     mockPublished = mockEmptyState();
   });
 
-  function createService() {
+  // Stands in for the saved chain switch, shared across "launches".
+  function createStore() {
+    let saved: string[] = [];
+    return {
+      getPausedNetworkIds: jest.fn(async () => saved),
+      setNetworkPaused: jest.fn(
+        async (params: { networkId: string; paused: boolean }) => {
+          saved = saved.filter((id) => id !== params.networkId);
+          if (params.paused) saved = [...saved, params.networkId];
+        },
+      ),
+    };
+  }
+
+  function createService(store: ReturnType<typeof createStore>) {
     return Object.assign(
       Object.create(ServicePrivacyChain.prototype) as {
         pauseLocalWalletScan: (params: { networkId: string }) => Promise<void>;
+        loadChainPauses: () => Promise<void>;
+        setChainPaused: (networkId: string, paused: boolean) => Promise<void>;
         boostPausedByNetwork: Record<string, boolean>;
-        backgroundApi: {
-          simpleDb: { privacyChainState: Record<string, unknown> };
-        };
       },
       {
         foregroundBoostRequestedByNetwork: {} as Record<string, boolean>,
         boostPausedByNetwork: {} as Record<string, boolean>,
         deviceIsCellular: false,
         allowCellularSyncCache: true,
-        backgroundApi: { simpleDb: { privacyChainState: {} } },
+        backgroundApi: { simpleDb: { privacyChainState: store } },
       },
     );
   }
 
-  it('keeps the pause in memory without storing it', async () => {
-    const service = createService();
+  it('saves the chain pause', async () => {
+    const store = createStore();
+    const service = createService(store);
 
     await service.pauseLocalWalletScan({ networkId });
 
     expect(service.boostPausedByNetwork[networkId]).toBe(true);
-    expect(service.backgroundApi.simpleDb.privacyChainState).toEqual({});
+    expect(store.setNetworkPaused).toHaveBeenCalledWith({
+      networkId,
+      paused: true,
+    });
   });
 
-  it('starts the next session scanning again', async () => {
-    const first = createService();
-    await first.pauseLocalWalletScan({ networkId });
+  it('starts the next session still paused, until a Sync lifts it', async () => {
+    const store = createStore();
+    await createService(store).pauseLocalWalletScan({ networkId });
 
-    const restarted = createService();
+    const restarted = createService(store);
+    await restarted.loadChainPauses();
+    expect(restarted.boostPausedByNetwork[networkId]).toBe(true);
+    expect(mockPublished.pausedNetworkIds).toEqual([networkId]);
 
-    expect(restarted.boostPausedByNetwork).toEqual({});
+    await restarted.setChainPaused(networkId, false);
+    const next = createService(store);
+    await next.loadChainPauses();
+    expect(next.boostPausedByNetwork).toEqual({});
   });
 });
 

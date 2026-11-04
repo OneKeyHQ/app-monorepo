@@ -2,6 +2,7 @@
 
 jest.mock('../../../dbs/local/localDbInstance');
 
+import fixtures from '@onekeyhq/core/src/chains/zcash/sdkZcash/unifiedAddress.fixtures.json';
 import { EOnChainHistoryTransferType } from '@onekeyhq/shared/types/history';
 
 import Vault from './Vault';
@@ -133,6 +134,70 @@ it.each(
     expect(detail.confirmations).toBe(pending ? undefined : 11);
   },
 );
+
+// A spent note keeps the address it was received at; only the form Receive shows reaches the UI.
+it('names a spent note by the private address Receive shows', async () => {
+  const address = (name: string) =>
+    fixtures.find((item) => item.name === name)?.address ?? '';
+  const vault = Object.assign(Object.create(Vault.prototype) as Vault, {
+    accountId: 'synthetic-account',
+    networkId: 'zec--0',
+    backgroundApi: {
+      simpleDb: {
+        privacyChainState: {
+          getZcashPrivacyModeState: async () => ({ intent: 'on' }),
+        },
+      },
+      servicePrivacyChain: {
+        getLocalWalletAccountAddresses: async () => ({
+          privateAddress: address('derived account 0 orchard'),
+        }),
+      },
+    },
+    zcashGetWalletAccount: async () => ({}),
+    zcashGetApi: async () => ({
+      getHistory: async () => [
+        {
+          txid: 'synthetic-tx',
+          minedHeight: 100,
+          timestamp: 1,
+          fee: '10000',
+          pending: false,
+          poolIds: [4],
+        },
+      ],
+      getSyncProgress: async () => ({ chainTip: 110 }),
+      getTxDetails: async () => ({
+        spent: [
+          {
+            pool: 'ironwood',
+            value: '1000',
+            address: address('derived account 0 all'),
+          },
+          {
+            pool: 'ironwood',
+            value: '2000',
+            address: address('derived account 1 all'),
+          },
+          { pool: 'ironwood', value: '3000', address: null },
+        ],
+        received: [],
+        external: [],
+      }),
+    }),
+  });
+  const response = await vault.fetchAccountHistoryDetail({
+    accountId: 'synthetic-account',
+    networkId: 'zec--0',
+    txid: 'synthetic-tx',
+    privacyChainPoolId: 4,
+  });
+  expect(response.data.data.data.sends?.map((entry) => entry.address)).toEqual([
+    address('derived account 0 orchard'),
+    '',
+    '',
+  ]);
+});
 
 it.each([2, 3])(
   'does not expose unsupported private-only history pool %s',
