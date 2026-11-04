@@ -48,6 +48,7 @@ import {
   EDecodedTxStatus,
   type IDecodedTx,
   type IDecodedTxAction,
+  type IDecodedTxTransferInfo,
 } from '@onekeyhq/shared/types/tx';
 
 import { VaultBase } from '../../base/VaultBase';
@@ -284,23 +285,35 @@ export default class Vault extends VaultBase {
             balanceMultiplier,
           });
           toAddress = to;
-          return this.buildTxTransferAssetAction({
-            from,
-            to,
-            transfers: [
-              {
-                from,
-                to,
-                amount,
-                icon: token?.logoURI ?? '',
-                symbol:
-                  token?.symbol ?? (isNativeTransfer ? network.symbol : ''),
-                name: token?.name ?? (isNativeTransfer ? network.symbol : ''),
-                tokenIdOnNetwork: token?.address ?? '',
-                isNative: isNativeTransfer,
-              },
-            ],
-          });
+          const transfers: IDecodedTxTransferInfo[] = [
+            {
+              from,
+              to,
+              amount,
+              icon: token?.logoURI ?? '',
+              symbol: token?.symbol ?? (isNativeTransfer ? network.symbol : ''),
+              name: token?.name ?? (isNativeTransfer ? network.symbol : ''),
+              tokenIdOnNetwork: token?.address ?? '',
+              isNative: isNativeTransfer,
+            },
+          ];
+          if (!isNativeTransfer && new BigNumber(message.amount).gt(0)) {
+            // Attached TON is a separate signed outflow, even if the Jetton
+            // wallet later refunds some of it to the payload's response address.
+            transfers.push({
+              from,
+              to: message.address,
+              amount: new BigNumber(message.amount)
+                .shiftedBy(-network.decimals)
+                .toFixed(),
+              icon: '',
+              symbol: network.symbol,
+              name: network.symbol,
+              tokenIdOnNetwork: '',
+              isNative: true,
+            });
+          }
+          return this.buildTxTransferAssetAction({ from, to, transfers });
         }
         return unknownAction;
       }),

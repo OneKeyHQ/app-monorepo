@@ -11,6 +11,8 @@ import TonWeb from 'tonweb';
 import type { IEncodedTxTon } from '@onekeyhq/core/src/chains/ton/types';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
+import { convertDecodedTxActionsToSignatureConfirmTxDisplayComponents } from '@onekeyhq/shared/src/utils/txActionUtils';
+import { EParseTxComponentType } from '@onekeyhq/shared/types/signatureConfirm';
 import type { IToken } from '@onekeyhq/shared/types/token';
 import { EDecodedTxActionType } from '@onekeyhq/shared/types/tx';
 
@@ -231,6 +233,12 @@ describe('TON Jetton confirmation integrity', () => {
             isNative: false,
             tokenIdOnNetwork: MASTER,
           },
+          {
+            to: friendly(JETTON_WALLET),
+            amount: '0.05',
+            isNative: true,
+            tokenIdOnNetwork: '',
+          },
         ],
       });
       expect(getData).toHaveBeenCalledTimes(1);
@@ -241,6 +249,69 @@ describe('TON Jetton confirmation integrity', () => {
       expect(decodedTx.encodedTx).toBe(encodedTx);
     },
   );
+
+  it.each(['TON', 'GRAM'])(
+    'shows attached %s separately when Jetton refunds can go to another address',
+    async (symbol) => {
+      const { vault } = setup();
+      vault.getNetwork = jest.fn().mockResolvedValue({
+        id: vault.networkId,
+        decimals: 9,
+        symbol,
+      });
+      const encodedTx = buildJettonTx();
+      const message = encodedTx.messages[0];
+      message.amount = '10000000000';
+      message.payload = encodeDecodedJetton({
+        ...checkIsDefined(decodePayload(message.payload).jetton),
+        responseAddress: FORGED_RECIPIENT,
+      })
+        .toBoc()
+        .toString('base64');
+
+      const unsignedTx = { encodedTx };
+      const decodedTx = await vault.buildDecodedTx({ unsignedTx });
+      expect(decodedTx.actions[0].assetTransfer).toMatchObject({
+        nativeAmount: '10',
+        sends: [
+          { amount: '1.5', isNative: false, to: friendly(RECIPIENT) },
+          { amount: '10', isNative: true, to: friendly(JETTON_WALLET) },
+        ],
+      });
+      const components =
+        convertDecodedTxActionsToSignatureConfirmTxDisplayComponents({
+          decodedTx,
+          unsignedTx,
+        });
+      expect(components).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            type: EParseTxComponentType.InternalAssets,
+            symbol: 'JETTON',
+            amountParsed: '1.5',
+          }),
+          expect.objectContaining({
+            type: EParseTxComponentType.InternalAssets,
+            symbol,
+            amountParsed: '10',
+          }),
+          expect.objectContaining({
+            type: EParseTxComponentType.Address,
+            address: friendly(JETTON_WALLET),
+          }),
+        ]),
+      );
+    },
+  );
+
+  it('keeps a zero-attachment Jetton transfer to one asset', async () => {
+    const { vault } = setup();
+    const encodedTx = buildJettonTx();
+    encodedTx.messages[0].amount = '0';
+    const decoded = await vault.buildDecodedTx({ unsignedTx: { encodedTx } });
+    expect(decoded.actions[0].assetTransfer?.sends).toHaveLength(1);
+    expect(decoded.actions[0].assetTransfer?.nativeAmount).toBe('0');
+  });
 
   it('keeps native transfers native despite injected Jetton metadata', async () => {
     const { vault, getToken, getData } = setup();
@@ -324,7 +395,10 @@ describe('TON Jetton confirmation integrity', () => {
       });
       expect(decodedTx.actions[0].assetTransfer).toMatchObject({
         to: friendly(RECIPIENT),
-        sends: [{ amount: balanceMultiplier ? '3' : '1.5', isNative: false }],
+        sends: [
+          { amount: balanceMultiplier ? '3' : '1.5', isNative: false },
+          { amount: '0.05', isNative: true },
+        ],
       });
     },
   );

@@ -25,6 +25,32 @@ import type { Cell, CommonMessageInfoInternal, StateInit } from '@ton/core';
 const RECIPIENT = `0:${'22'.repeat(32)}`;
 const WALLET = `0:${'44'.repeat(32)}`;
 const FROM = `0:${'11'.repeat(32)}`;
+const TEST_KEY_PAIR = TonWeb.utils.nacl.sign.keyPair.fromSeed(
+  new Uint8Array(32).fill(7),
+);
+
+function signedByTestAccount(message: Cell) {
+  return {
+    signature: TonWeb.utils.nacl.sign.detached(
+      message.hash(),
+      TEST_KEY_PAIR.secretKey,
+    ),
+    publicKey: TEST_KEY_PAIR.publicKey,
+  };
+}
+
+function receiptFor(
+  message: Cell,
+  receiptType: 'boc' | 'hash' | 'none',
+): string | undefined {
+  if (receiptType === 'boc') {
+    return message.toBoc().toString('hex');
+  }
+  if (receiptType === 'hash') {
+    return message.hash().toString('hex');
+  }
+  return undefined;
+}
 
 function jetton(overrides: Partial<IDecodedTonJetton> = {}): IDecodedTonJetton {
   return {
@@ -131,8 +157,7 @@ describe('TON signing message semantic validation', () => {
       expected,
       candidates: [expected],
       returnedMessage,
-      signature: new Uint8Array(64),
-      publicKey: new Uint8Array(32),
+      ...signedByTestAccount(actual),
     });
     expect(resolved.hash()).toEqual(actual.hash());
   });
@@ -144,19 +169,19 @@ describe('TON signing message semantic validation', () => {
       expected: app,
       alternateExpected: sdk,
       candidates: [app, sdk],
-      signature: new Uint8Array(64),
-      publicKey: new Uint8Array(32),
     };
     expect(
       resolveTonHardwareSigningMessage({
         ...options,
         returnedMessage: sdk.toBoc().toString('hex'),
+        ...signedByTestAccount(sdk),
       }).hash(),
     ).toEqual(sdk.hash());
     expect(
       resolveTonHardwareSigningMessage({
         ...options,
         returnedMessage: app.hash().toString('hex'),
+        ...signedByTestAccount(app),
       }).hash(),
     ).toEqual(app.hash());
     const tampered = signingMessage({
@@ -167,14 +192,15 @@ describe('TON signing message semantic validation', () => {
       resolveTonHardwareSigningMessage({
         ...options,
         returnedMessage: tampered.toBoc().toString('hex'),
+        ...signedByTestAccount(tampered),
       }),
     ).toThrow();
+    const otherExpiry = signingMessage({ expiry: 2_000_000_200 });
     expect(() =>
       resolveTonHardwareSigningMessage({
         ...options,
-        returnedMessage: signingMessage({ expiry: 2_000_000_200 })
-          .toBoc()
-          .toString('hex'),
+        returnedMessage: otherExpiry.toBoc().toString('hex'),
+        ...signedByTestAccount(otherExpiry),
       }),
     ).toThrow();
   });
@@ -337,8 +363,7 @@ describe('TON signing message semantic validation', () => {
     const options = {
       expected,
       candidates: [expected, classic],
-      signature: new Uint8Array(64),
-      publicKey: new Uint8Array(32),
+      ...signedByTestAccount(classic),
     };
     expect(
       resolveTonHardwareSigningMessage({
@@ -358,6 +383,7 @@ describe('TON signing message semantic validation', () => {
         ...options,
         candidates: [tampered],
         returnedMessage: tampered.hash().toString('hex'),
+        ...signedByTestAccount(tampered),
       }),
     ).toThrow();
   });
@@ -419,6 +445,63 @@ describe('TON signing message semantic validation', () => {
       }),
     ).toThrow();
   });
+
+  it.each(
+    (['boc', 'hash', 'none'] as const).flatMap((receiptType) =>
+      (['invalidSignature', 'wrongPublicKey'] as const).map((failure) => ({
+        receiptType,
+        failure,
+      })),
+    ),
+  )(
+    'rejects $failure with a $receiptType receipt',
+    ({ receiptType, failure }) => {
+      const expected = signingMessage();
+      const signed = signedByTestAccount(expected);
+      const returnedMessage = receiptFor(expected, receiptType);
+      const otherKey = TonWeb.utils.nacl.sign.keyPair.fromSeed(
+        new Uint8Array(32).fill(8),
+      );
+      expect(() =>
+        resolveTonHardwareSigningMessage({
+          expected,
+          candidates: [expected],
+          returnedMessage,
+          signature:
+            failure === 'invalidSignature'
+              ? new Uint8Array(64)
+              : signed.signature,
+          publicKey:
+            failure === 'wrongPublicKey'
+              ? otherKey.publicKey
+              : signed.publicKey,
+        }),
+      ).toThrow();
+    },
+  );
+
+  it.each(['boc', 'hash', 'none'] as const)(
+    'rejects a signature for another equivalent layout with a %s receipt',
+    (receiptType) => {
+      const body = beginCell()
+        .storeUint(0, 32)
+        .storeStringTail('memo')
+        .endCell();
+      const expected = signingMessage({ body, bodyRef: false });
+      const actual = signingMessage({ body, bodyRef: true });
+      expect(areTonSigningMessagesEquivalent(expected, actual)).toBe(true);
+      expect(expected.hash()).not.toEqual(actual.hash());
+      const returnedMessage = receiptFor(actual, receiptType);
+      expect(() =>
+        resolveTonHardwareSigningMessage({
+          expected,
+          candidates: [actual],
+          returnedMessage,
+          ...signedByTestAccount(expected),
+        }),
+      ).toThrow();
+    },
+  );
 
   it('rejects unparsed wallet trailing bits', () => {
     const expected = signingMessage();

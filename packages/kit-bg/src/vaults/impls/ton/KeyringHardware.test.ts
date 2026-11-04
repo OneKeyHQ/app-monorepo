@@ -42,8 +42,17 @@ const FROM = `0:${'11'.repeat(32)}`;
 const RECIPIENT = `0:${'22'.repeat(32)}`;
 const WALLET = `0:${'44'.repeat(32)}`;
 const MASTER = `0:${'55'.repeat(32)}`;
-const PUBLIC_KEY = '01'.repeat(32);
+const TEST_KEY_PAIR = TonWeb.utils.nacl.sign.keyPair.fromSeed(
+  new Uint8Array(32).fill(7),
+);
+const PUBLIC_KEY = Buffer.from(TEST_KEY_PAIR.publicKey).toString('hex');
 const EXPIRY = 2_000_000_000;
+
+function signTestHash(hash: Uint8Array): string {
+  return Buffer.from(
+    TonWeb.utils.nacl.sign.detached(hash, TEST_KEY_PAIR.secretKey),
+  ).toString('hex');
+}
 
 function friendly(address: string) {
   return Address.parse(address).toString({ bounceable: false });
@@ -96,8 +105,11 @@ function setup(
       options: TonSignMessageParams,
     ) => {
       if (returnedMessage) {
+        const hash = /^[a-f\d]{64}$/iu.test(returnedMessage)
+          ? Buffer.from(returnedMessage, 'hex')
+          : Cell.fromHex(returnedMessage).hash();
         return {
-          signature: '11'.repeat(64),
+          signature: signTestHash(hash),
           skip_validate: false,
           signing_message: returnedMessage,
         };
@@ -141,7 +153,7 @@ function setup(
         signing_message = 'ff'.repeat(32);
       }
       return {
-        signature: '11'.repeat(64),
+        signature: signTestHash(signingMessage.hash()),
         skip_validate: response === 'classic' || response === 'unknownHash',
         signing_message,
       };

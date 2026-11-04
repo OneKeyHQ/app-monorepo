@@ -235,28 +235,29 @@ export function resolveTonHardwareSigningMessage({
   try {
     // The SDK may rebuild a transaction or sign the App's representation.
     // Both expectations must be prepared from trusted inputs before signing.
-    const isExpected = (actual: Cell) =>
-      areTonSigningMessagesEquivalent(expected, actual) ||
-      (!!alternateExpected &&
-        areTonSigningMessagesEquivalent(alternateExpected, actual));
+    const isExpectedAndSigned = (actual: Cell) =>
+      (areTonSigningMessagesEquivalent(expected, actual) ||
+        (!!alternateExpected &&
+          areTonSigningMessagesEquivalent(alternateExpected, actual))) &&
+      TonWeb.utils.nacl.sign.detached.verify(
+        actual.hash(),
+        signature,
+        publicKey,
+      );
     // Interpret the receipt itself. Legacy skip_validate conflates Classic
     // hashes with responses that omit the signing message altogether.
     const receipt = returnedMessage?.replace(/^0x/u, '');
     if (receipt && !/^[a-f\d]{64}$/iu.test(receipt)) {
       const actual = Cell.fromHex(receipt);
-      if (isExpected(actual)) {
+      if (isExpectedAndSigned(actual)) {
         return actual;
       }
     } else {
       for (const candidate of candidates) {
-        const matches = receipt
-          ? candidate.hash().toString('hex') === receipt.toLowerCase()
-          : TonWeb.utils.nacl.sign.detached.verify(
-              candidate.hash(),
-              signature,
-              publicKey,
-            );
-        if (matches && isExpected(candidate)) {
+        const matches =
+          !receipt ||
+          candidate.hash().toString('hex') === receipt.toLowerCase();
+        if (matches && isExpectedAndSigned(candidate)) {
           return candidate;
         }
       }

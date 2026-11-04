@@ -64,7 +64,6 @@ import {
 } from '../dbs/simple/entity/SimpleDbEntityRecentRecipients';
 import { primePersistAtom } from '../states/jotai/atoms/prime';
 import { vaultFactory } from '../vaults/factory';
-import { normalizeTonAddress } from '../vaults/impls/ton/sdkTon/transactionParser';
 import { isLocalWalletNetwork } from '../vaults/localWallet/isLocalWalletNetwork';
 
 import ServiceBase from './ServiceBase';
@@ -517,14 +516,17 @@ class ServiceSignatureConfirm extends ServiceBase {
 
       // Permit2 and payload-forced local displays must retain address-only server
       // risks even when display.alerts is empty.
+      // Load TON address handling only when needed, outside background startup.
+      const normalizeAddress = forceLocalTonTransfer
+        ? (await import('../vaults/impls/ton/sdkTon/transactionParser'))
+            .normalizeTonAddress
+        : undefined;
       const mergedComponents =
         isPayloadForcedLocal || useLocalPermit2Display
           ? mergeServerAddressRiskTagsIntoComponents({
               localComponents: txDisplayComponents,
               serverComponents: parsedTx?.display?.components,
-              normalizeAddress: forceLocalTonTransfer
-                ? normalizeTonAddress
-                : undefined,
+              normalizeAddress,
               unmatchedAddressLabel: forceLocalTonTransfer
                 ? appLocale.intl.formatMessage({
                     id: ETranslations.global_address,

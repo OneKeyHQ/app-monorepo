@@ -400,6 +400,18 @@ describe('ServiceSignatureConfirm.buildDecodedTx', () => {
               isNative: false,
               tokenIdOnNetwork: `0:${'44'.repeat(32)}`,
             },
+            {
+              from: accountAddress,
+              to: Address.parse(`0:${'44'.repeat(32)}`).toString({
+                bounceable: false,
+              }),
+              amount: '10',
+              name: 'Toncoin',
+              symbol: 'TON',
+              icon: '',
+              isNative: true,
+              tokenIdOnNetwork: '',
+            },
           ],
         },
       },
@@ -416,6 +428,20 @@ describe('ServiceSignatureConfirm.buildDecodedTx', () => {
     expect(decoded.isLocalParsed).toBe(true);
     expect(decoded.hasServerSecurityAnalysis).toBe(true);
     expect(decoded.txDisplay?.alerts).toEqual(['Server risk alert']);
+    expect(decoded.txDisplay?.components).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: EParseTxComponentType.InternalAssets,
+          symbol: 'JETTON',
+          amountParsed: '1.5',
+        }),
+        expect.objectContaining({
+          type: EParseTxComponentType.InternalAssets,
+          symbol: 'TON',
+          amountParsed: '10',
+        }),
+      ]),
+    );
     expect(decoded.txDisplay?.components).toContainEqual(
       expect.objectContaining({ address: recipient, tags: [risk] }),
     );
