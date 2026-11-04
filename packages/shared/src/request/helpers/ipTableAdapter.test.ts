@@ -1456,21 +1456,43 @@ describe('ipTableAdapter idempotency-gated fallback after SNI started', () => {
     expect(fallbackAdapter).toHaveBeenCalledTimes(1);
   });
 
-  test('POST falls back on Android TCP connect-stage SNI_REQUEST_FAILED before TLS/write', async () => {
-    const connectError = Object.assign(
-      new Error('Request failed: Failed to connect to /93.184.216.34:443'),
-      {
-        code: 'SNI_REQUEST_FAILED',
-        cause: Object.assign(
-          new Error('Failed to connect to /93.184.216.34:443'),
-          { name: 'java.net.ConnectException' },
+  // A final connection error can follow an internal retry after the body was sent.
+  test.each([
+    ['java.net.ConnectException', 'connection failed'],
+    ['java.net.NoRouteToHostException', 'no route to host'],
+    [undefined, 'Request failed: Failed to connect to /93.184.216.34:443'],
+    [undefined, 'Host unreachable'],
+  ])(
+    'POST does NOT fall back on SNI_REQUEST_FAILED (cause %s, message %s)',
+    async (causeName, message) => {
+      mockedSniRequest.mockRejectedValue(
+        Object.assign(new Error(message), {
+          code: 'SNI_REQUEST_FAILED',
+          cause: causeName ? { name: causeName } : undefined,
+        }),
+      );
+      await expect(
+        createIpTableAdapter({})(
+          buildMethodConfig('https://api.example.com/v1', 'post'),
         ),
-      },
+      ).rejects.toMatchObject({
+        code: 'ERR_NETWORK',
+        cause: { code: 'SNI_REQUEST_FAILED' },
+      });
+      expect(fallbackAdapter).not.toHaveBeenCalled();
+    },
+  );
+
+  test('GET still falls back on SNI_REQUEST_FAILED with a final Android connection error', async () => {
+    mockedSniRequest.mockRejectedValue(
+      Object.assign(new Error('Failed to connect to /93.184.216.34:443'), {
+        code: 'SNI_REQUEST_FAILED',
+        cause: { name: 'java.net.ConnectException' },
+      }),
     );
-    mockedSniRequest.mockRejectedValue(connectError);
     await expect(
       createIpTableAdapter({})(
-        buildMethodConfig('https://api.example.com/v1', 'post'),
+        buildMethodConfig('https://api.example.com/v1', 'get'),
       ),
     ).resolves.toMatchObject({ data: { fallback: true } });
     expect(fallbackAdapter).toHaveBeenCalledTimes(1);

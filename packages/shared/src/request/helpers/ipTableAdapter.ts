@@ -193,39 +193,11 @@ const SNI_PRE_WRITE_ERROR_CODES = new Set([
   'SNI_INVALID_URL',
 ]);
 
-function isAndroidPreWriteConnectError(error: unknown): boolean {
-  if (getErrorCode(error) !== 'SNI_REQUEST_FAILED') {
-    return false;
-  }
-  const cause =
-    error && typeof error === 'object' && 'cause' in error
-      ? (error as { cause?: unknown }).cause
-      : undefined;
-  const causeName =
-    cause && typeof cause === 'object' && 'name' in cause
-      ? (cause as { name?: unknown }).name
-      : undefined;
-  if (
-    causeName === 'java.net.ConnectException' ||
-    causeName === 'java.net.NoRouteToHostException'
-  ) {
-    return true;
-  }
-  const message = getErrorMessage(error);
-  return /^(?:Request failed:\s*)?(?:Failed to connect to \/|Host unreachable\b)/i.test(
-    message,
-  );
-}
-
 function canFallbackAfterSniStarted(method: string, error?: unknown): boolean {
   if (IDEMPOTENT_HTTP_METHODS.has(method.toUpperCase())) {
     return true;
   }
-  if (
-    error &&
-    (SNI_PRE_WRITE_ERROR_CODES.has(getErrorCode(error)) ||
-      isAndroidPreWriteConnectError(error))
-  ) {
+  if (error && SNI_PRE_WRITE_ERROR_CODES.has(getErrorCode(error))) {
     return true;
   }
   return false;
