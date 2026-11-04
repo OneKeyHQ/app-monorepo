@@ -5,16 +5,19 @@ import { EDeviceType, HardwareErrorCode } from '@onekeyfe/hd-shared';
 import { act, fireEvent, render, screen, within } from '@testing-library/react';
 import { createIntl } from 'react-intl';
 
-import { Toast } from '@onekeyhq/components';
+import { ImageCrop, Toast } from '@onekeyhq/components';
 import type backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import type { IDBDevice } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import type { IHardwareHomeScreenData } from '@onekeyhq/kit-bg/src/services/ServiceHardware/DeviceSettingsManager';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
+import { EAppEventBusNames } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import enMessages from '@onekeyhq/shared/src/locale/json/en_US.json';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EAccountManagerStacksRoutes } from '@onekeyhq/shared/src/routes';
+import imageUtils from '@onekeyhq/shared/src/utils/imageUtils';
 
 import HardwareHomeScreenModal from './HardwareHomeScreenModal';
+import UploadedHomeScreenCache from './uploadedHomeScreenCache';
 
 type ISetDeviceHomeScreen =
   typeof backgroundApiProxy.serviceHardware.setDeviceHomeScreen;
@@ -22,11 +25,13 @@ type ISetDeviceHomeScreen =
 const mockMessages: Record<string, string> = enMessages;
 const mockIntl = createIntl({ locale: 'en-US', messages: mockMessages });
 const mockClose = jest.fn();
+const mockEmit = jest.fn();
 const mockSetDeviceHomeScreen = jest.fn<
   ReturnType<ISetDeviceHomeScreen>,
   Parameters<ISetDeviceHomeScreen>
 >();
 let mockOnConfirm: (close: () => void) => Promise<void>;
+let mockOnUpload: () => Promise<void>;
 
 const mockWallpaper: IHardwareHomeScreenData = {
   id: 'wallpaper-test',
@@ -87,8 +92,20 @@ jest.mock('@onekeyhq/components', () => {
     SizableText: Container,
     AnimatePresence: Container,
     Icon: () => null,
-    IconButton: () => null,
+    IconButton: ({
+      onPress,
+      testID,
+    }: {
+      onPress?: () => Promise<void>;
+      testID?: string;
+    }) => {
+      if (testID === 'account-manager-upload-button-icon-btn' && onPress) {
+        mockOnUpload = onPress;
+      }
+      return null;
+    },
     Image: () => null,
+    ImageCrop: { openPicker: jest.fn() },
     Spinner: () => null,
     Alert: () => null,
     Toast: { success: jest.fn(), error: jest.fn() },
@@ -123,7 +140,10 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   __esModule: true,
   default: {
     serviceHardware: {
-      getDeviceHomeScreenConfig: jest.fn(async () => ({})),
+      getDeviceHomeScreenConfig: jest.fn(async () => ({
+        names: [],
+        size: { width: 128, height: 64 },
+      })),
       fetchHardwareHomeScreen: jest.fn(async () => [mockWallpaper]),
       setDeviceHomeScreen: (...args: Parameters<ISetDeviceHomeScreen>) =>
         mockSetDeviceHomeScreen(...args),
@@ -137,9 +157,32 @@ jest.mock('@onekeyhq/shared/src/hardware/instance', () => ({
 
 jest.mock('@onekeyhq/shared/src/errors', () => ({ OneKeyLocalError: Error }));
 
-jest.mock('@onekeyhq/shared/src/errors/utils/errorToastUtils', () => ({
-  __esModule: true,
-  default: { toastIfError: jest.fn() },
+jest.mock('@onekeyhq/shared/src/errors/utils/errorToastUtils', () => {
+  const actual = jest.requireActual<
+    typeof import('@onekeyhq/shared/src/errors/utils/errorToastUtils')
+  >('@onekeyhq/shared/src/errors/utils/errorToastUtils');
+  return {
+    __esModule: true,
+    default: {
+      ...actual.default,
+      toastIfError: jest.fn(actual.default.toastIfError),
+    },
+  };
+});
+
+jest.mock('@onekeyhq/shared/src/eventBus/appEventBus', () => ({
+  EAppEventBusNames: jest.requireActual<
+    typeof import('@onekeyhq/shared/src/eventBus/appEventBusNames')
+  >('@onekeyhq/shared/src/eventBus/appEventBusNames').EAppEventBusNames,
+  appEventBus: {
+    emit: (...args: unknown[]) => {
+      mockEmit(...args);
+    },
+  },
+}));
+
+jest.mock('@onekeyhq/shared/src/modules3rdParty/intercom/utils', () => ({
+  getInstanceId: async () => 'instance-test',
 }));
 
 jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
@@ -164,11 +207,14 @@ jest.mock('@onekeyhq/shared/src/utils/deviceUtils', () => ({
 }));
 
 jest.mock('@onekeyhq/shared/src/utils/deviceHomeScreenUtils', () => ({}));
-jest.mock('@onekeyhq/shared/src/utils/imageUtils', () => ({}));
+jest.mock('@onekeyhq/shared/src/utils/imageUtils', () => ({
+  __esModule: true,
+  default: { resizeImage: jest.fn() },
+}));
 jest.mock('@onekeyhq/shared/src/utils/miscUtils', () => ({}));
 jest.mock('./uploadedHomeScreenCache', () => ({
   __esModule: true,
-  default: { getCacheList: jest.fn(() => []) },
+  default: { getCacheList: jest.fn(() => []), saveCache: jest.fn() },
 }));
 
 async function renderSelectedWallpaper(deviceType: EDeviceType) {
@@ -211,6 +257,64 @@ async function renderSelectedWallpaper(deviceType: EDeviceType) {
 describe('hardware wallpaper confirmation', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+  });
+
+  it.each([
+    {
+      scenario: 'picker Error',
+      error: Object.assign(new Error('User cancelled image selection'), {
+        code: 'E_PICKER_CANCELLED',
+      }),
+    },
+    {
+      scenario: 'plain cancellation object',
+      error: { code: 'E_PICKER_CANCELLED' },
+    },
+  ])(
+    'finishes a cancelled upload from $scenario silently',
+    async ({ error }) => {
+      const saveCacheSpy = jest.spyOn(UploadedHomeScreenCache, 'saveCache');
+      jest.mocked(ImageCrop.openPicker).mockRejectedValueOnce(error);
+      await renderSelectedWallpaper(EDeviceType.Classic1s);
+
+      await act(async () => {
+        await expect(mockOnUpload()).resolves.toBeUndefined();
+      });
+
+      expect(ImageCrop.openPicker).toHaveBeenCalledWith({
+        width: 128,
+        height: 64,
+      });
+      expect(errorToastUtils.toastIfError).not.toHaveBeenCalled();
+      expect(mockEmit).not.toHaveBeenCalled();
+      expect(Toast.error).not.toHaveBeenCalled();
+      expect(imageUtils.resizeImage).not.toHaveBeenCalled();
+      expect(saveCacheSpy).not.toHaveBeenCalled();
+      expect(
+        screen
+          .getByTestId('hardware-wallpaper-apply-button')
+          .hasAttribute('disabled'),
+      ).toBe(false);
+    },
+  );
+
+  it('shows picker failures without creating a wallpaper cache entry', async () => {
+    const saveCacheSpy = jest.spyOn(UploadedHomeScreenCache, 'saveCache');
+    const error = new Error('Unable to decode the selected image');
+    jest.mocked(ImageCrop.openPicker).mockRejectedValueOnce(error);
+    await renderSelectedWallpaper(EDeviceType.Classic1s);
+
+    await act(async () => {
+      await expect(mockOnUpload()).resolves.toBeUndefined();
+    });
+
+    expect(errorToastUtils.toastIfError).toHaveBeenCalledWith(error);
+    expect(mockEmit).toHaveBeenCalledWith(
+      EAppEventBusNames.ShowToast,
+      expect.objectContaining({ method: 'error', title: error.message }),
+    );
+    expect(imageUtils.resizeImage).not.toHaveBeenCalled();
+    expect(saveCacheSpy).not.toHaveBeenCalled();
   });
 
   it.each([

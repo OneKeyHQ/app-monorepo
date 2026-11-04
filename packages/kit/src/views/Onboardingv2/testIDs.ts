@@ -155,6 +155,7 @@ export const OnboardingTestIDs = {
   connectYourDeviceAdvancedMenuBtn:
     'onboarding-connect-your-device-advanced-menu-btn',
   connectYourDeviceConnectBtn: 'onboarding-connect-your-device-connect-btn',
+  connectYourDeviceList: 'onboarding-connect-your-device-list',
   connectYourDeviceItem: (key: string) =>
     `onboarding-connect-your-device-item-${key}`,
 

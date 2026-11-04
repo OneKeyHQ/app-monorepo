@@ -66,7 +66,10 @@ import { ListLoading } from '../Loading';
 import { formatNativeSelectorAmount } from './nativeSelectorFormat';
 import { resolveMapTokenFiat } from './resolveMapTokenFiat';
 import TokenActionsView from './TokenActionsView';
-import { getTokenRowIconSize } from './tokenListRowLayoutShared';
+import {
+  TOKEN_LIST_CONTENT_PADDING_HORIZONTAL,
+  getTokenRowIconSize,
+} from './tokenListRowLayoutShared';
 
 import type { IJotaiContextStore } from '../../states/jotai/utils/createJotaiContext';
 import type {
@@ -941,7 +944,10 @@ export function NativeTokenSelectorList({
     const nextSnapshot: NativeListSnapshot = {
       schemaVersion: 1,
       generation: 1,
-      layout: { kind: 'linear', contentPaddingHorizontal: 8 },
+      layout: {
+        kind: 'linear',
+        contentPaddingHorizontal: TOKEN_LIST_CONTENT_PADDING_HORIZONTAL,
+      },
       rows: nativeRows,
       theme,
       ...(structuralTransition ? { structuralTransition } : undefined),
