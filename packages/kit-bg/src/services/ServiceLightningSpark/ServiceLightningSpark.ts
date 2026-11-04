@@ -234,6 +234,24 @@ class ServiceLightningSpark extends ServiceBase {
     }, SPARK_IDLE_DISCONNECT_MS);
   }
 
+  /**
+   * Claims sats paid to the account while its wallet was offline: connects,
+   * asking for the password unless it is cached, then syncs, which claims
+   * pending transfers.
+   */
+  @backgroundMethod()
+  async claimPendingReceive({
+    accountId,
+    networkId,
+  }: {
+    accountId: string;
+    networkId: string;
+  }) {
+    const sdk = await this.ensureConnected({ accountId, networkId });
+    await sdk.syncWallet({});
+    this.schedulePaymentRefresh();
+  }
+
   private cancelIdleDisconnect() {
     clearTimeout(this.idleDisconnectTimer);
     this.idleDisconnectTimer = undefined;

@@ -129,6 +129,10 @@ const selectBalanceMultiplier = (
 const selectPrice24h = (f: ITokenFiat | undefined): number | undefined =>
   f?.price24h;
 
+const selectPendingReceiveSats = (
+  f: ITokenFiat | undefined,
+): string | undefined => f?.pendingReceiveSats;
+
 export interface ITokenPriceSlice {
   price: number | undefined;
   currency: string | undefined;
@@ -182,6 +186,11 @@ export function useTokenBalanceMultiplier($key: string): string | undefined {
 /** `price24h` only. */
 export function useTokenPrice24h($key: string): number | undefined {
   return useTokenFiatField($key, selectPrice24h);
+}
+
+/** Lightning on Spark: sats paid to the account but not claimed yet. */
+export function useTokenPendingReceiveSats($key: string): string | undefined {
+  return useTokenFiatField($key, selectPendingReceiveSats);
 }
 
 /** `{ price, currency }` — re-renders when price (or currency) changes. */
