@@ -678,7 +678,7 @@ function SendDataInputContainer() {
       const isLightning = networkUtils.isAnyLightningNetworkByNetworkId(
         currentAccount.networkId,
       );
-      // Self-custody Lightning pays invoices with an amount only for now.
+      // Self-custody Lightning pays BOLT11 invoices only for now.
       const isLightningSpark = networkUtils.isLightningSparkNetworkByNetworkId(
         currentAccount.networkId,
       );
@@ -728,6 +728,7 @@ function SendDataInputContainer() {
       // For Lightning invoices, decode the invoice to extract embedded amount
       let invoiceAmount: string | undefined;
       let isInvoiceAmountLocked = false;
+      let isZeroAmountInvoice = false;
       if (isLightning && toResolved) {
         try {
           const isZeroAmount =
@@ -736,6 +737,7 @@ function SendDataInputContainer() {
               networkId: currentAccount.networkId,
               accountId: currentAccount.accountId,
             });
+          isZeroAmountInvoice = isZeroAmount;
           if (!isZeroAmount) {
             const decoded =
               await backgroundApiProxy.serviceLightning.decodedInvoice({
@@ -833,9 +835,14 @@ function SendDataInputContainer() {
         return;
       }
 
-      // Invoices without an amount and Spark addresses come later.
-      if (isLightningSpark) {
-        showLightningSparkComingSoon();
+      // Validation lets only invoices through; one whose decode failed here
+      // cannot be paid.
+      if (isLightningSpark && !isZeroAmountInvoice) {
+        Toast.error({
+          title: intl.formatMessage({
+            id: ETranslations.send_invalid_lightning_payment_request,
+          }),
+        });
         return;
       }
 
