@@ -24,6 +24,9 @@ const mockEnable = jest.fn(async (_params: unknown) => undefined);
 const mockReset = jest.fn(async (_params: unknown) => undefined);
 type IDialogParams = {
   title?: string;
+  description?: string;
+  onConfirmText?: string;
+  tone?: string;
   renderContent?: ReactNode;
   onConfirm?: () => Promise<void> | void;
   onClose?: () => Promise<void> | void;
@@ -336,13 +339,7 @@ test('a mismatched hardware wallet continues after the user confirms', async () 
   });
 });
 
-test('reset offers a confirmed migration bound to the selected wallet identity', async () => {
-  const targetCredentialId = `hardware-cloud-v1-${'b'.repeat(64)}`;
-  mockReset.mockRejectedValueOnce({
-    key: 'cloud_sync_hardware_wallet_mismatch__msg',
-    autoToast: false,
-    info: { targetCredentialId },
-  });
+async function pickResetDevice() {
   const { result } = renderHook(() => useHardwareCloudSyncKey());
   let resetting: Promise<void> | undefined;
   act(() => {
@@ -358,6 +355,16 @@ test('reset offers a confirmed migration bound to the selected wallet identity',
   await act(async () => {
     fireEvent.click(screen.getByTestId('mock-device-picker'));
   });
+}
+
+test('reset offers a confirmed migration bound to the selected wallet identity', async () => {
+  const targetCredentialId = `hardware-cloud-v1-${'b'.repeat(64)}`;
+  mockReset.mockRejectedValueOnce({
+    key: 'cloud_sync_hardware_wallet_mismatch__msg',
+    autoToast: false,
+    info: { targetCredentialId },
+  });
+  await pickResetDevice();
   const migrationConfirm = mockDialogShow.mock.calls.find(
     ([params]) => params.title === 'cloud_sync_hardware_switch__title',
   )?.[0];
@@ -369,5 +376,98 @@ test('reset offers a confirmed migration bound to the selected wallet identity',
   expect(mockReset).toHaveBeenLastCalledWith({
     connectId: 'connect-A',
     targetCredentialId,
+  });
+});
+
+test.each([true, false])(
+  'populated target continues only after the second confirmation: %s',
+  async (confirmed) => {
+    const targetCredentialId = `hardware-cloud-v1-${'b'.repeat(64)}`;
+    const targetSnapshotHash = 'c'.repeat(64);
+    mockReset
+      .mockRejectedValueOnce({
+        key: 'cloud_sync_hardware_wallet_mismatch__msg',
+        autoToast: false,
+        info: { targetCredentialId },
+      })
+      .mockRejectedValueOnce({
+        key: 'cloud_sync_hardware_switch_target_has_data__msg',
+        autoToast: false,
+        info: { targetCredentialId, targetSnapshotHash },
+      });
+    await pickResetDevice();
+    const switchConfirm = lastDialog();
+    await act(async () => {
+      await switchConfirm.onConfirm?.();
+      await switchConfirm.onClose?.();
+    });
+    const overwriteConfirm = lastDialog();
+    expect(overwriteConfirm).toMatchObject({
+      title: 'cloud_sync_hardware_overwrite__title',
+      description: 'cloud_sync_hardware_switch_target_has_data__msg',
+      onConfirmText: 'cloud_sync_hardware_overwrite__action',
+      tone: 'destructive',
+    });
+    expect(mockReset).toHaveBeenCalledTimes(2);
+    await act(async () => {
+      if (confirmed) await overwriteConfirm.onConfirm?.();
+      await overwriteConfirm.onClose?.();
+    });
+    expect(mockReset).toHaveBeenCalledTimes(confirmed ? 3 : 2);
+    if (confirmed) {
+      expect(mockReset).toHaveBeenLastCalledWith({
+        connectId: 'connect-A',
+        targetCredentialId,
+        overwriteTargetSnapshot: targetSnapshotHash,
+      });
+    }
+  },
+);
+
+test('a changed target snapshot asks again before the replacement continues', async () => {
+  const targetCredentialId = `hardware-cloud-v1-${'b'.repeat(64)}`;
+  const firstSnapshot = 'c'.repeat(64);
+  const latestSnapshot = 'd'.repeat(64);
+  mockReset
+    .mockRejectedValueOnce({
+      key: 'cloud_sync_hardware_wallet_mismatch__msg',
+      autoToast: false,
+      info: { targetCredentialId },
+    })
+    .mockRejectedValueOnce({
+      key: 'cloud_sync_hardware_switch_target_has_data__msg',
+      autoToast: false,
+      info: { targetCredentialId, targetSnapshotHash: firstSnapshot },
+    })
+    .mockRejectedValueOnce({
+      key: 'cloud_sync_hardware_switch_target_has_data__msg',
+      autoToast: false,
+      info: { targetCredentialId, targetSnapshotHash: latestSnapshot },
+    });
+  await pickResetDevice();
+  for (let index = 0; index < 2; index += 1) {
+    const dialog = lastDialog();
+    await act(async () => {
+      await dialog.onConfirm?.();
+      await dialog.onClose?.();
+    });
+  }
+  expect(mockReset).toHaveBeenCalledTimes(3);
+  expect(mockReset).toHaveBeenLastCalledWith({
+    connectId: 'connect-A',
+    targetCredentialId,
+    overwriteTargetSnapshot: firstSnapshot,
+  });
+  const changedDataConfirm = lastDialog();
+  expect(changedDataConfirm.tone).toBe('destructive');
+  await act(async () => {
+    await changedDataConfirm.onConfirm?.();
+    await changedDataConfirm.onClose?.();
+  });
+  expect(mockReset).toHaveBeenCalledTimes(4);
+  expect(mockReset).toHaveBeenLastCalledWith({
+    connectId: 'connect-A',
+    targetCredentialId,
+    overwriteTargetSnapshot: latestSnapshot,
   });
 });

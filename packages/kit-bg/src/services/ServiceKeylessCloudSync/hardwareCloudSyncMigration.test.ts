@@ -4,6 +4,7 @@ import { EDeviceType } from '@onekeyfe/hd-shared';
 
 import { EPrimeCloudSyncDataType } from '@onekeyhq/shared/src/consts/primeConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import systemTimeUtils from '@onekeyhq/shared/src/utils/systemTimeUtils';
 import type {
   IHardwareCloudSyncSession,
@@ -243,7 +244,10 @@ async function setup() {
     },
   );
   const beforeFlush = jest.fn(async () => undefined);
-  const run = (isCurrent: () => boolean = () => true) =>
+  const run = (
+    isCurrent: () => boolean = () => true,
+    overwriteTargetSnapshot?: string,
+  ) =>
     migrateHardwareCloudSyncRecords({
       client,
       source,
@@ -251,6 +255,7 @@ async function setup() {
       isCurrent,
       savePending,
       beforeFlush,
+      overwriteTargetSnapshot,
     });
   return {
     client,
@@ -301,7 +306,7 @@ test('copies all records to the separately authenticated wallet and keeps the so
   expect(test.beforeFlush).toHaveBeenCalledTimes(1);
 });
 
-test('a populated target is never overwritten', async () => {
+test('a populated target requires explicit confirmation before writing', async () => {
   const test = await setup();
   test.targetSpace.records.push({
     key: 'existing',
@@ -311,6 +316,72 @@ test('a populated target is never overwritten', async () => {
   const before = structuredClone(test.targetSpace);
   await expect(test.run()).rejects.toThrow('already has synced data');
   expect(test.targetSpace).toEqual(before);
+  expect(test.writes).toEqual([]);
+  expect(test.savePending).not.toHaveBeenCalled();
+});
+
+async function populatedTarget() {
+  const test = await setup();
+  test.targetSpace.records.push({
+    key: 'existing-target-only',
+    dataType: 'IndexedAccount',
+    data: 'previous target ciphertext',
+    dataTimestamp: 42,
+  });
+  const failure: unknown = await test.run().catch((error: unknown) => error);
+  expect(failure).toMatchObject({
+    key: 'cloud_sync_hardware_switch_target_has_data__msg',
+    autoToast: false,
+    info: { targetCredentialId: test.target.keylessWalletId },
+  });
+  const snapshot = (failure as IOneKeyError<{ targetSnapshotHash: string }>)
+    .info?.targetSnapshotHash;
+  if (!snapshot) throw new OneKeyLocalError('Missing overwrite confirmation');
+  expect(snapshot).toMatch(/^[\da-f]{64}$/);
+  return { ...test, snapshot };
+}
+
+test('confirmation permits replacing target data while retaining the original source', async () => {
+  const test = await populatedTarget();
+  const sourceBefore = structuredClone(test.sourceSpace);
+  await test.run(() => true, test.snapshot);
+  expect(test.writes).toEqual(['target']);
+  expect(test.targetSpace.records.map((record) => record.key)).not.toContain(
+    'existing-target-only',
+  );
+  expect(test.targetSpace.records.map((record) => record.key)).toEqual(
+    expect.arrayContaining(['record-0', 'record-1', 'deleted']),
+  );
+  expect(test.sourceSpace).toEqual(sourceBefore);
+});
+
+test.each(['nonce', 'data', 'source', 'target'] as const)(
+  'overwrite confirmation is bound to the %s snapshot',
+  async (change) => {
+    const test = await populatedTarget();
+    if (change === 'nonce') test.targetSpace.nonce += 1;
+    if (change === 'data')
+      test.targetSpace.records[1].data = 'changed ciphertext';
+    if (change === 'source')
+      test.source.keylessWalletId = 'hardware-cloud-v1-other-source';
+    if (change === 'target')
+      test.target.keylessWalletId = 'hardware-cloud-v1-other-target';
+    await expect(test.run(() => true, test.snapshot)).rejects.toMatchObject({
+      key: 'cloud_sync_hardware_switch_target_has_data__msg',
+      info: { targetSnapshotHash: expect.not.stringMatching(test.snapshot) },
+    });
+    expect(test.writes).toEqual([]);
+  },
+);
+
+test('a write after overwrite confirmation still fails the server nonce guard', async () => {
+  const test = await populatedTarget();
+  test.beforeFlush.mockImplementationOnce(async () => {
+    test.targetSpace.nonce += 1;
+  });
+  await expect(test.run(() => true, test.snapshot)).rejects.toThrow(
+    'Snapshot changed',
+  );
   expect(test.writes).toEqual([]);
 });
 
@@ -366,6 +437,28 @@ test('a source write during the download prevents migration', async () => {
   await expect(test.run()).rejects.toThrow('Synced data changed');
   expect(test.writes).toEqual([]);
   expect(test.savePending).not.toHaveBeenCalled();
+});
+
+test('a source upload during the target flush keeps the old selection retryable', async () => {
+  const test = await setup();
+  test.beforeFlush.mockImplementationOnce(async () => {
+    test.sourceSpace.records.push({
+      key: 'late-source-item',
+      dataType: 'FutureCloudRecord',
+      data: '',
+      dataTimestamp: 99,
+      isDeleted: true,
+    });
+    test.sourceSpace.nonce += 1;
+  });
+  await expect(test.run()).rejects.toThrow('Synced data changed');
+  expect(test.writes).toEqual(['target']);
+  expect(test.source.pendingHardwareKeyMigration?.phase).toBe('prepared');
+  await test.run();
+  expect(test.writes).toEqual(['target', 'target']);
+  expect(test.targetSpace.records.map((record) => record.key)).toContain(
+    'late-source-item',
+  );
 });
 
 test('the complete snapshot includes records after the first download page', async () => {

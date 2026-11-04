@@ -136,6 +136,7 @@ class ServiceKeylessCloudSync extends ServiceBase {
 
   private hardwareCloudKeyCommitting = false;
   private hardwareCloudMigrationRecovered = false;
+  private hardwareCloudMigrationRecovering = false;
 
   private hardwareCloudKeyDeviceCancel:
     | { generation: number; cancel: () => void }
@@ -184,9 +185,14 @@ class ServiceKeylessCloudSync extends ServiceBase {
       // Recover before admitting another writer. Reads inside this lock see
       // the flag already set and never wait on the lock they are running in.
       if (!this.hardwareCloudMigrationRecovered) {
-        await this.repairCredentialMutex.runExclusive(() =>
-          recoverHardwareCloudSyncMigration(this.backgroundApi),
-        );
+        this.hardwareCloudMigrationRecovering = true;
+        try {
+          await this.repairCredentialMutex.runExclusive(() =>
+            recoverHardwareCloudSyncMigration(this.backgroundApi),
+          );
+        } finally {
+          this.hardwareCloudMigrationRecovering = false;
+        }
         this.hardwareCloudMigrationRecovered = true;
       }
       return operation();
@@ -1277,9 +1283,11 @@ class ServiceKeylessCloudSync extends ServiceBase {
   async resetHardwareCloudSyncKey({
     connectId,
     targetCredentialId,
+    overwriteTargetSnapshot,
   }: {
     connectId: string;
     targetCredentialId?: string;
+    overwriteTargetSnapshot?: string;
   }) {
     if (this.hardwareCloudKeyCommitting) {
       throw keyChangeInProgressError();
@@ -1382,6 +1390,7 @@ class ServiceKeylessCloudSync extends ServiceBase {
             target,
             isCurrent,
             beforeFlush,
+            overwriteTargetSnapshot,
             savePending: async (pendingHardwareKeyMigration) => {
               migrationSource = await this.saveHardwareCredential({
                 ...credential,
@@ -2022,7 +2031,12 @@ class ServiceKeylessCloudSync extends ServiceBase {
    * transaction. Never await storage reads while an IDB tx is open.
    */
   @backgroundMethod()
-  async hydrateKeylessSyncCredentialFromStorageIfNeeded(): Promise<void> {
+  async hydrateKeylessSyncCredentialFromStorageIfNeeded({
+    forDbTransaction = false,
+  }: { forDbTransaction?: boolean } = {}): Promise<void> {
+    // Recovery writes account records. Its transaction warm-up must not wait
+    // for the recovery lock; ordinary reads still wait until recovery finishes.
+    if (forDbTransaction && this.hardwareCloudMigrationRecovering) return;
     const keylessWalletId = await this.getCurrentCloudSyncKeylessWalletId();
     if (!keylessWalletId) {
       return;

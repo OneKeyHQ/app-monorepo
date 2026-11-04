@@ -127,10 +127,12 @@ function confirmDialog({
   title,
   description,
   onConfirmText,
+  destructive,
 }: {
   title: string;
   description: string;
   onConfirmText: string;
+  destructive?: boolean;
 }): Promise<boolean> {
   return new Promise((resolve) => {
     let confirmed = false;
@@ -138,6 +140,7 @@ function confirmDialog({
       title,
       description,
       onConfirmText,
+      ...(destructive ? { tone: 'destructive' as const } : {}),
       onConfirm: () => {
         confirmed = true;
       },
@@ -274,6 +277,7 @@ export function useHardwareCloudSyncKey() {
     async function resetWithDeviceFlow(
       connectId: string,
       targetCredentialId?: string,
+      overwriteTargetSnapshot?: string,
     ): Promise<void> {
       setPending(true);
       let finished = false;
@@ -296,7 +300,11 @@ export function useHardwareCloudSyncKey() {
       appEventBus.once(EAppEventBusNames.ShowDialogLoading, onSyncLoading);
       try {
         await backgroundApiProxy.serviceKeylessCloudSync.resetHardwareCloudSyncKey(
-          { connectId, ...(targetCredentialId ? { targetCredentialId } : {}) },
+          {
+            connectId,
+            ...(targetCredentialId ? { targetCredentialId } : {}),
+            ...(overwriteTargetSnapshot ? { overwriteTargetSnapshot } : {}),
+          },
         );
         void backgroundApiProxy.serviceApp.showToast({
           method: 'success',
@@ -306,19 +314,33 @@ export function useHardwareCloudSyncKey() {
         });
       } catch (error) {
         const failure = error as
-          | IOneKeyError<{ targetCredentialId?: string }>
+          | IOneKeyError<{
+              targetCredentialId?: string;
+              targetSnapshotHash?: string;
+            }>
           | undefined;
         const target = failure?.info?.targetCredentialId;
+        const snapshot = failure?.info?.targetSnapshotHash;
+        const switchRequired =
+          !targetCredentialId &&
+          failure?.key ===
+            ETranslations.cloud_sync_hardware_wallet_mismatch__msg;
+        const overwriteRequired =
+          target === targetCredentialId &&
+          failure?.key ===
+            ETranslations.cloud_sync_hardware_switch_target_has_data__msg &&
+          !!snapshot &&
+          /^[\da-f]{64}$/.test(snapshot);
         if (
-          targetCredentialId ||
-          failure?.key !==
-            ETranslations.cloud_sync_hardware_wallet_mismatch__msg ||
+          (!switchRequired && !overwriteRequired) ||
           !target ||
           !/^hardware-cloud-v1-[\da-f]{64}$/.test(target)
         ) {
           if (
             failure?.key ===
-            ETranslations.cloud_sync_hardware_wallet_mismatch__msg
+              ETranslations.cloud_sync_hardware_wallet_mismatch__msg ||
+            failure?.key ===
+              ETranslations.cloud_sync_hardware_switch_target_has_data__msg
           ) {
             errorToastUtils.showToastOfError({ ...failure, autoToast: true });
           }
@@ -326,22 +348,46 @@ export function useHardwareCloudSyncKey() {
         }
         finished = true;
         await waiting.close();
-        const confirmed = await confirmDialog({
-          title: intl.formatMessage({
-            id: ETranslations.cloud_sync_hardware_switch__title,
-            defaultMessage: 'Switch hardware wallet?',
-          }),
-          description: intl.formatMessage({
-            id: ETranslations.cloud_sync_hardware_switch__desc,
-            defaultMessage:
-              "Your synced data will use this wallet's key. The original cloud copy will be kept. Connect the new wallet on other clients to sync future changes.",
-          }),
-          onConfirmText: intl.formatMessage({
-            id: ETranslations.cloud_sync_hardware_switch__action,
-            defaultMessage: 'Switch wallet',
-          }),
-        });
-        if (confirmed) await resetWithDeviceFlow(connectId, target);
+        const confirmed = await confirmDialog(
+          overwriteRequired
+            ? {
+                title: intl.formatMessage({
+                  id: ETranslations.cloud_sync_hardware_overwrite__title,
+                  defaultMessage: "Replace this wallet's cloud data?",
+                }),
+                description: intl.formatMessage({
+                  id: ETranslations.cloud_sync_hardware_switch_target_has_data__msg,
+                  defaultMessage:
+                    "This wallet already has synced data. Continuing will replace its cloud data with your current synced data. This can't be undone.",
+                }),
+                onConfirmText: intl.formatMessage({
+                  id: ETranslations.cloud_sync_hardware_overwrite__action,
+                  defaultMessage: 'Replace data',
+                }),
+                destructive: true,
+              }
+            : {
+                title: intl.formatMessage({
+                  id: ETranslations.cloud_sync_hardware_switch__title,
+                  defaultMessage: 'Switch hardware wallet?',
+                }),
+                description: intl.formatMessage({
+                  id: ETranslations.cloud_sync_hardware_switch__desc,
+                  defaultMessage:
+                    "Your synced data will use this wallet's key. The original cloud copy will be kept. Connect the new wallet on other clients to sync future changes.",
+                }),
+                onConfirmText: intl.formatMessage({
+                  id: ETranslations.cloud_sync_hardware_switch__action,
+                  defaultMessage: 'Switch wallet',
+                }),
+              },
+        );
+        if (confirmed)
+          await resetWithDeviceFlow(
+            connectId,
+            target,
+            overwriteRequired ? snapshot : undefined,
+          );
       } finally {
         finished = true;
         appEventBus.off(EAppEventBusNames.ShowDialogLoading, onSyncLoading);

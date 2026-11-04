@@ -21,7 +21,7 @@ import type {
   IHardwarePathTestMethod,
   IHardwarePathTestSignType,
 } from '@onekeyhq/shared/src/consts/hardwareDerivationPathTest';
-import { toPlainErrorObject } from '@onekeyhq/shared/src/errors/utils/errorUtils';
+import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 export function HardwareDerivationPathTest() {
@@ -83,13 +83,18 @@ export function HardwareDerivationPathTest() {
         );
       appendReport({ ...result, durationMs: Date.now() - startedAt });
     } catch (error) {
+      const failure = error as IOneKeyError | undefined;
       appendReport({
         method: request.method,
         path: request.path,
         signType: request.signType,
         success: false,
         durationMs: Date.now() - startedAt,
-        error: toPlainErrorObject(error),
+        error: {
+          key: failure?.key,
+          code: failure?.code,
+          message: failure?.message,
+        },
       });
     } finally {
       running.current = false;

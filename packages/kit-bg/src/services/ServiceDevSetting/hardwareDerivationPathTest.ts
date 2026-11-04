@@ -6,6 +6,8 @@ import { convertDeviceResponse } from '@onekeyhq/shared/src/errors/utils/deviceE
 import { assertNoHardwareCloudSyncSigningRequest } from '@onekeyhq/shared/src/utils/hardwareCloudSyncGuards';
 import { EHardwareCallContext } from '@onekeyhq/shared/types/device';
 
+import { sanitizeHardwareCloudSyncDeviceError } from '../ServiceKeylessCloudSync/hardwareCloudSyncLog';
+
 import type { IBackgroundApi } from '../../apis/IBackgroundApi';
 
 export async function runHardwareDerivationPathTest({
@@ -27,7 +29,7 @@ export async function runHardwareDerivationPathTest({
     parts.length > 10 ||
     !parts.every(
       (part) =>
-        /^\d+'?$/.test(part) && Number(part.replace("'", '')) <= 0x7f_ff_ff_ff,
+        /^\d+'?$/.test(part) && Number.parseInt(part, 10) <= 0x7f_ff_ff_ff,
     ) ||
     !['btcGetPublicKey', 'btcGetAddress', 'btcSignMessage'].includes(method) ||
     !['default', 'ecdsa', 'bip322-simple'].includes(signType)
@@ -127,6 +129,8 @@ export async function runHardwareDerivationPathTest({
         }
         assertCurrent();
         return { device, method, path, signType, success: true, ...detail };
+      } catch (error) {
+        throw sanitizeHardwareCloudSyncDeviceError(error);
       } finally {
         onCancelChange(undefined);
       }

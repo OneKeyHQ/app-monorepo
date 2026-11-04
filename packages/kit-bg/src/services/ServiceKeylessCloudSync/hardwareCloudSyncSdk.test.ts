@@ -239,7 +239,12 @@ describe('hardware Cloud SDK adapter', () => {
         connectId: 'test-connect',
         isCurrent: () => true,
       }),
-    ).rejects.toBe(error);
+    ).rejects.toMatchObject({
+      key: error.key,
+      code: error.code,
+      message: error.message,
+      className: error.className,
+    });
   });
 
   test('resolves a changed USB/BLE handle before opening the captured session', async () => {
@@ -454,7 +459,12 @@ describe('hardware Cloud SDK adapter', () => {
         connectId: 'test-connect',
         isCurrent: () => true,
       }),
-    ).rejects.toBe(error);
+    ).rejects.toMatchObject({
+      key: error.key,
+      code: error.code,
+      message: error.message,
+      className: error.className,
+    });
   });
 
   test.each([

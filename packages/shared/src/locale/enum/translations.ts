@@ -482,6 +482,8 @@ export enum ETranslations {
   cloud_sync_hardware_key_missing__desc = 'cloud_sync_hardware_key_missing__desc',
   cloud_sync_hardware_mismatch__title = 'cloud_sync_hardware_mismatch__title',
   cloud_sync_hardware_option__desc = 'cloud_sync_hardware_option__desc',
+  cloud_sync_hardware_overwrite__action = 'cloud_sync_hardware_overwrite__action',
+  cloud_sync_hardware_overwrite__title = 'cloud_sync_hardware_overwrite__title',
   cloud_sync_hardware_reconnect_first__msg = 'cloud_sync_hardware_reconnect_first__msg',
   cloud_sync_hardware_sign_again__msg = 'cloud_sync_hardware_sign_again__msg',
   cloud_sync_hardware_signed_out__msg = 'cloud_sync_hardware_signed_out__msg',

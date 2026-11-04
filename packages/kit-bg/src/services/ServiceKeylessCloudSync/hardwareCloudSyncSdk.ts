@@ -24,7 +24,10 @@ import {
   deriveHardwareCloudSyncKek,
   normalizeHardwareCloudWalletXfp,
 } from './hardwareCloudSyncCredential';
-import { assertHardwareCloudSyncAuthTemplate } from './hardwareCloudSyncLog';
+import {
+  assertHardwareCloudSyncAuthTemplate,
+  sanitizeHardwareCloudSyncDeviceError,
+} from './hardwareCloudSyncLog';
 
 import type {
   IHardwareCloudKeyAdapter,
@@ -42,7 +45,9 @@ function assertSdkSuccess<T>(
   response: Success<T> | Unsuccessful,
 ): asserts response is Success<T> {
   if (!response.success) {
-    throw convertDeviceError(response.payload);
+    throw sanitizeHardwareCloudSyncDeviceError(
+      convertDeviceError(response.payload),
+    );
   }
 }
 
@@ -104,7 +109,12 @@ export async function generateHardwareCloudSyncCredentialWithSdk({
         };
         const call = async <T>(operation: () => Promise<T>): Promise<T> => {
           assertCurrent();
-          const result = await operation();
+          let result: T;
+          try {
+            result = await operation();
+          } catch (error) {
+            throw sanitizeHardwareCloudSyncDeviceError(error);
+          }
           assertCurrent();
           return result;
         };

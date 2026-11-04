@@ -1,4 +1,6 @@
 import appCrypto from '@onekeyhq/shared/src/appCrypto';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import { normalizeErrorProps } from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import {
   HardwareCloudSyncCancelledError,
   HardwareCloudSyncError,
@@ -85,8 +87,8 @@ async function readNonce(
 }
 
 // Copies a complete, versioned snapshot between separately authenticated spaces.
-// The original space is retained. A populated target may only be our own exact
-// previous upload, identified by the journal saved before that upload.
+// The original space is retained. Replacing existing target data requires
+// confirmation of this exact snapshot, or an exact retry of our own upload.
 export async function migrateHardwareCloudSyncRecords({
   client,
   source,
@@ -94,6 +96,7 @@ export async function migrateHardwareCloudSyncRecords({
   isCurrent,
   savePending,
   beforeFlush,
+  overwriteTargetSnapshot,
 }: {
   client: AxiosInstance;
   source: IKeylessCloudSyncCredential;
@@ -101,6 +104,7 @@ export async function migrateHardwareCloudSyncRecords({
   isCurrent: () => boolean;
   savePending: (pending: IMigration) => Promise<void>;
   beforeFlush: () => Promise<void>;
+  overwriteTargetSnapshot?: string;
 }) {
   const sourceSession = source.hardwareSession;
   const targetSession = target.hardwareSession;
@@ -135,17 +139,45 @@ export async function migrateHardwareCloudSyncRecords({
     (item) => !isHardwareCloudSyncKeyEnvelopeItem(item),
   );
   const pending = source.pendingHardwareKeyMigration;
+  const targetRecordsHash = recordsHash(targetData);
+  const targetSnapshotHash = Buffer.from(
+    appCrypto.hash.sha256Sync(
+      Buffer.from(
+        stringUtils.stableStringify({
+          sourceCredentialId: source.keylessWalletId,
+          targetCredentialId: target.keylessWalletId,
+          pwdHash: target.pwdHash,
+          nonce: targetNonce,
+          recordsHash: targetRecordsHash,
+        }),
+        'utf8',
+      ),
+    ),
+  ).toString('hex');
   if (
     targetData.length &&
+    overwriteTargetSnapshot !== targetSnapshotHash &&
     !(
       pending?.target.keylessWalletId === target.keylessWalletId &&
       pending.target.pwdHash === target.pwdHash &&
-      pending.recordsHash === recordsHash(targetData)
+      pending.recordsHash === targetRecordsHash
     )
   ) {
-    throw new HardwareCloudSyncError(
-      ETranslations.cloud_sync_hardware_switch_target_has_data__msg,
-      'This wallet already has synced data. Choose another wallet to avoid overwriting it.',
+    throw new OneKeyLocalError(
+      normalizeErrorProps(
+        {
+          key: ETranslations.cloud_sync_hardware_switch_target_has_data__msg,
+          autoToast: false,
+          info: {
+            targetCredentialId: target.keylessWalletId,
+            targetSnapshotHash,
+          },
+        },
+        {
+          defaultMessage:
+            "This wallet already has synced data. Continuing will replace its cloud data with your current synced data. This can't be undone.",
+        },
+      ),
     );
   }
   assertCurrent();
@@ -210,6 +242,14 @@ export async function migrateHardwareCloudSyncRecords({
       })),
     },
   });
+  // A source upload during the destination write must not silently cut this
+  // client over to an older copy. The journal permits retrying that copy.
+  if ((await readNonce(client, source)) !== sourceNonce) {
+    throw new HardwareCloudSyncError(
+      ETranslations.cloud_sync_data_changed_during_key_change__msg,
+      'Synced data changed during the key change. Try again.',
+    );
+  }
 }
 
 // Only ciphertext still belonging to `from` is rewritten. Comparing inside

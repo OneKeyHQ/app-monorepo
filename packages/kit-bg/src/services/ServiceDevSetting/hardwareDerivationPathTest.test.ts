@@ -148,7 +148,14 @@ test.each(['ecdsa', 'bip322-simple'] as const)(
   },
 );
 
-test.each(["m/44'/0'/2147483648'/0/0", "m/44'/0'/-1'/0/0", 'm//0', 'invalid'])(
+test.each([
+  "m/44'/0'/2147483648'/0/0",
+  "m/44'/0'/-1'/0/0",
+  "m/44''/0'/0'/0/0",
+  "m/44'/0'/0'/0/1'1",
+  'm//0',
+  'invalid',
+])(
   'rejects malformed BIP32 path %s before device interaction',
   async (path) => {
     const test = setup();
