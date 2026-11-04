@@ -49,6 +49,10 @@ type IWebViewProps = {
 let mockLocked = false;
 let mockFocused = true;
 let mockUserId: string | null = 'A';
+let mockDevSettings: {
+  enabled: boolean;
+  settings?: { intercomSupportUrl?: string };
+} = { enabled: false };
 const mockPop = jest.fn();
 const mockInjectJavaScript = jest.fn<void, [string]>();
 const mockGetIntercomSessionToken = jest.fn<
@@ -184,8 +188,16 @@ jest.mock('@onekeyhq/kit/src/components/WebView/WebViewWithFeatures', () => ({
 }));
 
 jest.mock('./IntercomSupportFrame', () => ({
-  IntercomSupportFrame: ({ userId }: { userId: string | null }) => (
-    <div data-testid="support-frame">{userId}</div>
+  IntercomSupportFrame: ({
+    userId,
+    supportOrigin,
+  }: {
+    userId: string | null;
+    supportOrigin: string;
+  }) => (
+    <div data-testid="support-frame" data-origin={supportOrigin}>
+      {userId}
+    </div>
   ),
 }));
 
@@ -228,6 +240,9 @@ jest.mock(
   }),
 );
 
+jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings', () => ({
+  useDevSettingsPersistAtom: () => [mockDevSettings],
+}));
 jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms/passwordLock', () => ({
   useAppIsLockedAtom: () => [mockLocked],
 }));
@@ -276,6 +291,7 @@ describe('WebViewModal menu', () => {
     mockLocked = false;
     mockFocused = true;
     mockUserId = 'A';
+    mockDevSettings = { enabled: false };
     jest
       .mocked(handlePrimePurchaseSuccessCloseRequest)
       .mockImplementation(({ pop }) => pop());
@@ -633,6 +649,51 @@ describe('WebViewModal menu', () => {
       expect(mockGetIntercomSessionToken).toHaveBeenCalledWith(null);
       expect(mockInjectJavaScript).toHaveBeenCalledTimes(1);
       expect(mockInjectJavaScript.mock.calls[0][0]).not.toContain('"token"');
+    });
+
+    describe('with a developer support URL override', () => {
+      const previewOrigin = 'https://intercom-preview.onekey.test';
+      const previewHandshake = {
+        ...handshake,
+        url: `${previewOrigin}/#bridge=injected-v1`,
+      };
+
+      beforeEach(() => {
+        mockDevSettings = {
+          enabled: true,
+          settings: { intercomSupportUrl: `${previewOrigin}/` },
+        };
+      });
+
+      test('delivers the session only to the configured origin', async () => {
+        Object.assign(platformEnv, { isNative: true });
+        mockParams = { ...supportParams, url: previewHandshake.url };
+        render(<WebViewModal />);
+        await sendFromPage(handshake);
+        expect(mockInjectJavaScript).not.toHaveBeenCalled();
+        await sendFromPage(previewHandshake);
+        expect(mockInjectJavaScript).toHaveBeenCalledWith(
+          createIntercomSessionScript('intercom-token', previewOrigin),
+        );
+      });
+
+      test('passes the configured origin to the extension frame', () => {
+        Object.assign(platformEnv, { isExtension: true });
+        mockParams = { ...supportParams, url: previewHandshake.url };
+        const screen = render(<WebViewModal />);
+        expect(
+          screen.getByTestId('support-frame').getAttribute('data-origin'),
+        ).toBe(previewOrigin);
+      });
+
+      test('falls back to production once developer mode is off', async () => {
+        Object.assign(platformEnv, { isNative: true });
+        mockDevSettings = { ...mockDevSettings, enabled: false };
+        mockParams = { ...supportParams, url: previewHandshake.url };
+        render(<WebViewModal />);
+        await sendFromPage(previewHandshake);
+        expect(mockInjectJavaScript).not.toHaveBeenCalled();
+      });
     });
 
     test('does not inject once the wallet locks during the token request', async () => {

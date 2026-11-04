@@ -1,12 +1,13 @@
 diff --git a/node_modules/react-native-pager-view/lib/typescript/src/CollapsiblePagerViewNativeComponent.d.ts b/node_modules/react-native-pager-view/lib/typescript/src/CollapsiblePagerViewNativeComponent.d.ts
-index b094653..986a2b9 100644
+index b094653..b0607cc 100644
 --- a/node_modules/react-native-pager-view/lib/typescript/src/CollapsiblePagerViewNativeComponent.d.ts
 +++ b/node_modules/react-native-pager-view/lib/typescript/src/CollapsiblePagerViewNativeComponent.d.ts
-@@ -1,6 +1,11 @@
+@@ -1,6 +1,12 @@
  import type * as React from "react";
  import { type ColorValue, type HostComponent, type ViewProps } from "react-native";
 -import type { DirectEventHandler, Double, Int32, WithDefault } from "react-native/Libraries/Types/CodegenTypes";
 +// OneKey patch: RN 0.87+ strict API only exposes codegen types via the `CodegenTypes` namespace.
++// import type { DirectEventHandler, Double, Int32, WithDefault } from "react-native/Libraries/Types/CodegenTypes";
 +import type { CodegenTypes } from 'react-native';
 +type DirectEventHandler<T, PaperName extends string | never = never> = CodegenTypes.DirectEventHandler<T, PaperName>;
 +type Double = CodegenTypes.Double;
@@ -16,14 +17,15 @@ index b094653..986a2b9 100644
      position: Double;
      offset: Double;
 diff --git a/node_modules/react-native-pager-view/lib/typescript/src/NativeScrollerNativeComponent.d.ts b/node_modules/react-native-pager-view/lib/typescript/src/NativeScrollerNativeComponent.d.ts
-index 99f2524..ae725bc 100644
+index 99f2524..2a7f961 100644
 --- a/node_modules/react-native-pager-view/lib/typescript/src/NativeScrollerNativeComponent.d.ts
 +++ b/node_modules/react-native-pager-view/lib/typescript/src/NativeScrollerNativeComponent.d.ts
-@@ -1,6 +1,10 @@
+@@ -1,6 +1,11 @@
  import type * as React from "react";
  import { type ColorValue, type HostComponent, type ViewProps } from "react-native";
 -import type { DirectEventHandler, Double, WithDefault } from "react-native/Libraries/Types/CodegenTypes";
 +// OneKey patch: RN 0.87+ strict API only exposes codegen types via the `CodegenTypes` namespace.
++// import type { DirectEventHandler, Double, WithDefault } from "react-native/Libraries/Types/CodegenTypes";
 +import type { CodegenTypes } from 'react-native';
 +type DirectEventHandler<T, PaperName extends string | never = never> = CodegenTypes.DirectEventHandler<T, PaperName>;
 +type Double = CodegenTypes.Double;
@@ -32,14 +34,15 @@ index 99f2524..ae725bc 100644
      contentInset: Readonly<{
          top: Double;
 diff --git a/node_modules/react-native-pager-view/lib/typescript/src/PagerViewNativeComponent.d.ts b/node_modules/react-native-pager-view/lib/typescript/src/PagerViewNativeComponent.d.ts
-index cebe8e5..7d2c445 100644
+index cebe8e5..efd8d76 100644
 --- a/node_modules/react-native-pager-view/lib/typescript/src/PagerViewNativeComponent.d.ts
 +++ b/node_modules/react-native-pager-view/lib/typescript/src/PagerViewNativeComponent.d.ts
-@@ -1,6 +1,11 @@
+@@ -1,6 +1,12 @@
  import type * as React from 'react';
  import { type HostComponent, type ViewProps } from 'react-native';
 -import type { DirectEventHandler, Double, Int32, WithDefault } from 'react-native/Libraries/Types/CodegenTypes';
 +// OneKey patch: RN 0.87+ strict API only exposes codegen types via the `CodegenTypes` namespace.
++// import type { DirectEventHandler, Double, Int32, WithDefault } from 'react-native/Libraries/Types/CodegenTypes';
 +import type { CodegenTypes } from 'react-native';
 +type DirectEventHandler<T, PaperName extends string | never = never> = CodegenTypes.DirectEventHandler<T, PaperName>;
 +type Double = CodegenTypes.Double;
