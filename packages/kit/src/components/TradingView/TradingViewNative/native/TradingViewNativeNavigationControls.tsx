@@ -14,7 +14,7 @@ import {
   TRADING_VIEW_NATIVE_NAVIGATION_BUTTONS,
   TRADING_VIEW_NATIVE_NAVIGATION_TOUCH_BUTTON_GAP,
   TRADING_VIEW_NATIVE_NAVIGATION_TOUCH_BUTTON_SIZE,
-  getTradingViewNativeNavigationResetButtonLeft,
+  getTradingViewNativeNavigationLayout,
 } from '../utils/chartNavigationControls';
 
 import type { ITradingViewNativeNavigationAction } from '../utils/chartNavigation';
@@ -42,11 +42,12 @@ export function TradingViewNativeNavigationControls({
   const actions = isResetVisible
     ? TRADING_VIEW_NATIVE_NAVIGATION_ACTIONS
     : TRADING_VIEW_NATIVE_NAVIGATION_PRIMARY_ACTIONS;
-  const resetButtonLeft = getTradingViewNativeNavigationResetButtonLeft({
-    buttonSize: TRADING_VIEW_NATIVE_NAVIGATION_TOUCH_BUTTON_SIZE,
-    chartWidth,
-    gap: TRADING_VIEW_NATIVE_NAVIGATION_TOUCH_BUTTON_GAP,
-  });
+  const { primaryTrailingInset, resetButtonLeft } =
+    getTradingViewNativeNavigationLayout({
+      buttonSize: TRADING_VIEW_NATIVE_NAVIGATION_TOUCH_BUTTON_SIZE,
+      chartWidth,
+      gap: TRADING_VIEW_NATIVE_NAVIGATION_TOUCH_BUTTON_GAP,
+    });
 
   return (
     <XStack
@@ -58,6 +59,7 @@ export function TradingViewNativeNavigationControls({
       zIndex={2}
       justifyContent="center"
       gap={TRADING_VIEW_NATIVE_NAVIGATION_TOUCH_BUTTON_GAP}
+      paddingRight={primaryTrailingInset}
       pointerEvents="box-none"
     >
       {actions.map((action) => {

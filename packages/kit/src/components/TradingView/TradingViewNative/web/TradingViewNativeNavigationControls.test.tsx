@@ -67,11 +67,13 @@ jest.mock('@onekeyhq/components', () => ({
 }));
 
 function renderControls({
+  chartWidth = 600,
   isResetVisible = true,
   isVisible = false,
   isMobileLayout = false,
   onAction = jest.fn(),
 }: {
+  chartWidth?: number;
   isResetVisible?: boolean;
   isVisible?: boolean;
   isMobileLayout?: boolean;
@@ -79,7 +81,7 @@ function renderControls({
 } = {}) {
   const props = {
     backgroundColor: '#ffffff',
-    chartWidth: 600,
+    chartWidth,
     isMobileLayout,
     isVisible,
     onAction,
@@ -260,5 +262,24 @@ describe('Web TradingViewNativeNavigationControls', () => {
     expect(mockXStack.mock.lastCall?.[0]).toEqual(
       expect.objectContaining({ opacity: 0, pointerEvents: 'none' }),
     );
+
+    // A later zoom brings reset back without real keyboard focus.
+    setResetVisible(true);
+    expect(mockXStack.mock.lastCall?.[0]).toEqual(
+      expect.objectContaining({ opacity: 0, pointerEvents: 'none' }),
+    );
+  });
+
+  it('keeps reset inside a narrow chart', () => {
+    renderControls({ chartWidth: 160, isVisible: true });
+
+    expect(mockXStack.mock.lastCall?.[0]).toEqual(
+      expect.objectContaining({ paddingRight: 20, width: 160 }),
+    );
+    const resetProps = mockStack.mock.calls.find(
+      ([props]) => props['aria-label'] === 'global.reset',
+    )?.[0];
+    // 135 + 25 ends exactly at the 160px chart edge.
+    expect(resetProps).toEqual(expect.objectContaining({ left: 135 }));
   });
 });

@@ -8,10 +8,11 @@ export const TRADING_VIEW_NATIVE_NAVIGATION_TOUCH_BUTTON_SIZE = 28;
 export const TRADING_VIEW_NATIVE_NAVIGATION_TOUCH_BUTTON_GAP = 6;
 
 /**
- * The primary buttons stay centered and the conditional reset button hangs off
+ * The primary buttons stay put and the conditional reset button hangs off
  * their right edge, so showing it never shifts a button under the finger.
+ * Narrow charts move the primary group left to keep reset inside the chart.
  */
-export function getTradingViewNativeNavigationResetButtonLeft({
+export function getTradingViewNativeNavigationLayout({
   buttonSize,
   chartWidth,
   gap,
@@ -22,7 +23,15 @@ export function getTradingViewNativeNavigationResetButtonLeft({
 }) {
   const primaryCount = TRADING_VIEW_NATIVE_NAVIGATION_PRIMARY_ACTIONS.length;
   const primaryWidth = primaryCount * buttonSize + (primaryCount - 1) * gap;
-  return (chartWidth + primaryWidth) / 2 + gap;
+  const primaryCenter = Math.max(
+    Math.min(chartWidth / 2, chartWidth - primaryWidth / 2 - gap - buttonSize),
+    Math.min(primaryWidth, chartWidth) / 2,
+  );
+  return {
+    // Trailing padding that moves the centered primary group to primaryCenter.
+    primaryTrailingInset: Math.max(chartWidth - 2 * primaryCenter, 0),
+    resetButtonLeft: primaryCenter + primaryWidth / 2 + gap,
+  };
 }
 
 // Glyphs share a 24 px grid with thin rounded strokes.

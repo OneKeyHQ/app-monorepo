@@ -18,7 +18,7 @@ import {
   TRADING_VIEW_NATIVE_NAVIGATION_BUTTONS,
   TRADING_VIEW_NATIVE_NAVIGATION_TOUCH_BUTTON_GAP,
   TRADING_VIEW_NATIVE_NAVIGATION_TOUCH_BUTTON_SIZE,
-  getTradingViewNativeNavigationResetButtonLeft,
+  getTradingViewNativeNavigationLayout,
 } from '../utils/chartNavigationControls';
 
 import type { ITradingViewNativeNavigationAction } from '../utils/chartNavigation';
@@ -51,22 +51,24 @@ export function TradingViewNativeNavigationControls({
   // it visible outside the hot zone.
   const [keyboardFocusedAction, setKeyboardFocusedAction] =
     useState<ITradingViewNativeNavigationAction | null>(null);
-  // Reset unmounts once it has nothing to undo, which may skip its blur.
-  const hasKeyboardFocus =
-    keyboardFocusedAction !== null &&
-    (keyboardFocusedAction !== 'reset' || isResetVisible);
-  const isShown = isVisible || hasKeyboardFocus;
+  // Reset unmounts once it has nothing to undo, which may skip its blur; drop
+  // that focus so a later reset cannot revive it.
+  if (!isResetVisible && keyboardFocusedAction === 'reset') {
+    setKeyboardFocusedAction(null);
+  }
+  const isShown = isVisible || keyboardFocusedAction !== null;
   const buttonSize = isMobileLayout
     ? TRADING_VIEW_NATIVE_NAVIGATION_TOUCH_BUTTON_SIZE
     : TRADING_VIEW_NATIVE_NAVIGATION_BUTTON_SIZE;
   const buttonGap = isMobileLayout
     ? TRADING_VIEW_NATIVE_NAVIGATION_TOUCH_BUTTON_GAP
     : TRADING_VIEW_NATIVE_NAVIGATION_BUTTON_GAP;
-  const resetButtonLeft = getTradingViewNativeNavigationResetButtonLeft({
-    buttonSize,
-    chartWidth,
-    gap: buttonGap,
-  });
+  const { primaryTrailingInset, resetButtonLeft } =
+    getTradingViewNativeNavigationLayout({
+      buttonSize,
+      chartWidth,
+      gap: buttonGap,
+    });
   const actions = isResetVisible
     ? TRADING_VIEW_NATIVE_NAVIGATION_ACTIONS
     : TRADING_VIEW_NATIVE_NAVIGATION_PRIMARY_ACTIONS;
@@ -84,6 +86,7 @@ export function TradingViewNativeNavigationControls({
       zIndex={2}
       justifyContent="center"
       gap={buttonGap}
+      paddingRight={primaryTrailingInset}
       opacity={isShown ? 1 : 0}
       pointerEvents={isShown ? 'box-none' : 'none'}
     >

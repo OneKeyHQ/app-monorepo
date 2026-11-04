@@ -103,6 +103,7 @@ describe('Native TradingViewNativeNavigationControls', () => {
       expect.objectContaining({
         bottom: 36,
         gap: 6,
+        paddingRight: 0,
         pointerEvents: 'box-none',
         width: 320,
       }),
@@ -159,5 +160,27 @@ describe('Native TradingViewNativeNavigationControls', () => {
         undefined,
       );
     }
+  });
+
+  it('keeps reset inside a narrow chart', () => {
+    render(
+      <TradingViewNativeNavigationControls
+        backgroundColor="#ffffff"
+        chartWidth={180}
+        isResetVisible
+        onAction={jest.fn()}
+        timeAxisHeight={24}
+        testID="chart"
+      />,
+    );
+
+    expect(mockXStack.mock.lastCall?.[0]).toEqual(
+      expect.objectContaining({ paddingRight: 18, width: 180 }),
+    );
+    const resetProps = mockStack.mock.calls.find(
+      ([props]) => props.testID === 'chart-navigation-reset',
+    )?.[0];
+    // 152 + 28 ends exactly at the 180px chart edge.
+    expect(resetProps).toEqual(expect.objectContaining({ left: 152 }));
   });
 });
