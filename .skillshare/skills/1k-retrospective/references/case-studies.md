@@ -1233,6 +1233,7 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries â€
 **Root Cause**: The device identity event recorded a target-specific mismatch and invalidated the sync generation before the task could return its mismatch result. The interactive wrapper converted the resulting undefined value to false.
 **Fix**: Preserve the target-specific mismatch as DeviceNotSame when the task returns undefined, after honoring explicit user cancellation. Regression tests cover identity changes during unlock, package preparation, and the final identity check; upload remains blocked.
 **Catchable by**: Section 5: No race conditions in async operations; Section 6: A bug fix includes regression tests for event-driven cancellation and user-visible errors.
+
 ## Case: Perps chart defaults disagreed with the intended native chart mode (OK-66019)
 **Date**: 2026-11-04 | **Platforms**: Web/Desktop UI and iOS/Android main UI; no native resource changes
 **Symptom**: A fresh or older settings record without a chart mode opened TradingView instead of the native chart. Changing only the initial setting would still leave legacy records and the first toggle inconsistent.
@@ -1254,3 +1255,10 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries â€
 **Fix**: Recognize both reversal directions while retaining the full fill size for entry price and return calculations and deducting the full fill fee. This intentionally follows Hyperliquid's trade-sharing convention, rather than reconstructing the closed position's cost basis. With fill size 5, gross PnL 20, fee 1 and leverage 10, the long-to-short example at price 110 shares net PnL 19, entry price 106 and return 35.85%; the short-to-long example at price 90 shares net PnL 19, entry price 94 and return 40.43%. Ordinary-close tests retain full-fee deductions.
 **Catchable by**: Section 4: Business Logic & Regression â€” verify reference-product formulas and keep trade-history and share amounts consistent before adopting a different accounting convention from review feedback.
 **Reference**: Hyperliquid production `config-BUOnMMpI.js` (`l4`, `u4`, `Vse`) and `ShareModal-CdPBXUc8.js`, inspected 2026-11-04 at https://app.hyperliquid.xyz/assets/config-BUOnMMpI.js and https://app.hyperliquid.xyz/assets/ShareModal-CdPBXUc8.js. Synthetic inputs executed against the extracted production row function confirm the values above.
+
+## Case: Mobile stock trade modals showed a redundant K-line button (OK-66221)
+**Date**: 2026-11-04 | **Platforms**: iOS and Android (main UI runtime)
+**Symptom**: Opening Buy or Sell from Market stock details displayed a K-line button in the Stock trade modal.
+**Root Cause**: The shared Swap header hid the button only in Desktop Stock modals, so native Stock modals still showed it.
+**Fix**: Extend the existing Stock modal visibility condition to iOS and Android. Regression tests cover hiding the button in native Stock modals and keeping it available in native Swap modals and on the standalone Stock page.
+**Catchable by**: Section 3 (Cross-Platform Impact) and Section 6 (Unit Tests). Test shared header actions across platform, modal versus page, and active trade mode.
