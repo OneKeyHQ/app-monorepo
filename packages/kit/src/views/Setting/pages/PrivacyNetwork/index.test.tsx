@@ -44,6 +44,10 @@ const mockGetVaultSettings = jest.fn(
     localWallet: { accountSetup: mockBirthdaySettings },
   }),
 );
+// eslint-disable-next-line no-var, vars-on-top
+var mockAllowCellular: boolean | undefined;
+// eslint-disable-next-line no-var, vars-on-top
+var mockIsNative = false;
 const mockDelete = jest.fn<
   Promise<void>,
   [{ accountId: string; networkId: string }]
@@ -57,6 +61,7 @@ const mockDisable = jest.fn<
   [{ accountId: string; networkId: string }]
 >();
 const mockRepair = jest.fn(async (_params: unknown) => undefined);
+const mockResumeChain = jest.fn(async (_params: unknown) => undefined);
 const mockAdmission = jest.fn(async (_params: unknown) => undefined);
 const mockTwinBirthday = jest.fn(
   async (_params: unknown): Promise<{ birthdayHeight: number } | undefined> =>
@@ -125,14 +130,28 @@ jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => ({
     {
       dataBlockedNetworkIds: [],
       pausedNetworkIds: mockPausedNetworks,
-      preparingNetworkIds: [],
+      preparingAccountKeys: [],
       boostingNetworkIds: mockBoostingNetworks,
       storageUnsupportedNetworkIds: mockUnsupportedNetworks,
       syncErrorByNetworkId: {},
       progress: mockProgress,
+      allowCellularSync: mockAllowCellular,
     },
   ],
 }));
+
+// Only phones have mobile data: the row shows on native alone.
+jest.mock('@onekeyhq/shared/src/platformEnv', () => {
+  const actual = jest.requireActual<{
+    default: Record<string, unknown>;
+  }>('@onekeyhq/shared/src/platformEnv').default;
+  return {
+    __esModule: true,
+    default: Object.create(actual, {
+      isNative: { get: () => mockIsNative },
+    }) as Record<string, unknown>,
+  };
+});
 
 jest.mock('@onekeyhq/kit/src/components/LazyLoadPage', () => ({
   LazyLoadPage: () => () => null,
@@ -181,9 +200,10 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
         networkId: string;
       }) => mockDelete(params),
       repairLocalChainData: (params: unknown) => mockRepair(params),
+      startForegroundBoost: (params: unknown) => mockResumeChain(params),
       getLocalWalletSyncProgress: async () => undefined,
       getLocalWalletNetworkInfo: async () => undefined,
-      getAllowPrivacySyncOnCellular: async () => false,
+      isPrivacySyncOnCellularAllowed: async () => false,
     },
   },
 }));
@@ -263,8 +283,8 @@ jest.mock('@onekeyhq/components', () => {
     SizableText: Wrapper,
     Spinner: () => null,
     Stack: Wrapper,
-    Switch: ({ testID }: { testID?: string }) => (
-      <input type="checkbox" data-testid={testID} />
+    Switch: ({ testID, value }: { testID?: string; value?: boolean }) => (
+      <input type="checkbox" data-testid={testID} checked={!!value} readOnly />
     ),
     Toast: { error: jest.fn() },
     XStack: Wrapper,
@@ -549,6 +569,29 @@ describe('Privacy network settings for a temp wallet', () => {
     consoleError.mockRestore();
   });
 
+  // Use mobile data pressed on the light or the token page shows here at once.
+  it('shows mobile data consent given elsewhere', async () => {
+    mockIsNative = true;
+    mockAllowCellular = false;
+    mockAccounts = [listItem({})];
+    mockAccountStates = { 'hd-1--0': { enabled: true, paused: false } };
+    try {
+      const { rerender } = render(<PrivacyNetworkSettings />);
+      const consent = () =>
+        screen.getByTestId(
+          'privacy-sync-allow-cellular-switch',
+        ) as HTMLInputElement;
+      await waitFor(() => expect(consent().checked).toBe(false));
+
+      mockAllowCellular = true;
+      rerender(<PrivacyNetworkSettings />);
+      expect(consent().checked).toBe(true);
+    } finally {
+      mockIsNative = false;
+      mockAllowCellular = undefined;
+    }
+  });
+
   it('shows the slowest active account using the same figures as the float', async () => {
     const complete: ILocalWalletSyncProgress = {
       birthdayHeight: 1,
@@ -595,21 +638,27 @@ describe('Privacy network settings for a temp wallet', () => {
     expect(progressText(screen.getByTestId('privacy-sync-progress'))).toContain(
       'syncing_paused__title',
     );
+    // The chain switch, the same one the sync light's Continue turns on.
+    await act(async () => {
+      fireEvent.click(screen.getByTestId('privacy-sync-resume-btn'));
+    });
+    expect(mockResumeChain).toHaveBeenCalledWith({
+      networkId: 'zec--0',
+      trigger: 'manual-sync',
+    });
     expect(mockDisable).not.toHaveBeenCalled();
     mockPausedNetworks = [];
-    delete mockProgress['zec--0:hd-1--1'];
+    // Every scanning account has a position; one without would keep the chain unsynced.
+    mockProgress['zec--0:hd-1--1'] = complete;
     delete mockProgress['zec--0:waiting'];
-    mockBoostingNetworks = ['zec--0'];
-    rerender(<PrivacyNetworkSettings networkId="zec--0" />);
-    expect(progressText(screen.getByTestId('privacy-sync-progress'))).toBe(
-      'global.syncing',
-    );
-    // Caught up: scanned and chain heights, never a bare "synced".
-    mockBoostingNetworks = [];
-    rerender(<PrivacyNetworkSettings networkId="zec--0" />);
-    expect(progressText(screen.getByTestId('privacy-sync-progress'))).toBe(
-      'global.synced · 100 / 100',
-    );
+    // Synced by blocks left, whatever the pace; with scanned and chain heights, never a bare "synced".
+    for (const boosting of [['zec--0'], []]) {
+      mockBoostingNetworks = boosting;
+      rerender(<PrivacyNetworkSettings networkId="zec--0" />);
+      expect(progressText(screen.getByTestId('privacy-sync-progress'))).toBe(
+        'global.synced · 100 / 100',
+      );
+    }
   });
 
   it.each(['date', 'height'] as const)(

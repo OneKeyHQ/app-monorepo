@@ -478,11 +478,6 @@ const desktopApi = {
       };
     },
   } as ThirdPartyBleApi,
-  privacyChainNodeRequest: (params: {
-    url: string;
-    contentType: string;
-    body: Uint8Array;
-  }) => ipcRenderer.invoke(ipcMessageKeys.PRIVACY_CHAIN_NODE_REQUEST, params),
   fetchStream: (params: IFetchStreamRequest) =>
     ipcRenderer.invoke(ipcMessageKeys.FETCH_STREAM, params),
   getCpuUsage: () => ipcRenderer.invoke(ipcMessageKeys.SYSTEM_GET_CPU_USAGE),

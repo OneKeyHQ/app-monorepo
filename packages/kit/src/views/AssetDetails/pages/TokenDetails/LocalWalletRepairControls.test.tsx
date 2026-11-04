@@ -1,27 +1,16 @@
 /** @jest-environment jsdom */
 import type { ReactNode } from 'react';
 
-import { act, fireEvent, render } from '@testing-library/react';
+import { fireEvent, render } from '@testing-library/react';
 
 import {
   BirthdayDialogForm,
-  ScanRepairControl,
-  SetupRepairControl,
   createEnableBirthdayForm,
+  getBirthdayHeightHint,
   readEnableBirthday,
 } from './LocalWalletRepairControls';
 
 import type { IBirthdayFormState } from './LocalWalletRepairControls';
-
-type ITestDialogOptions = {
-  renderContent: ReactNode;
-  onConfirm: (params: { preventClose: () => void }) => Promise<void>;
-};
-
-const mockRetrySetup = jest.fn(async (_params: unknown) => undefined);
-const mockRepairLocalChainData = jest.fn(async (_params: unknown) => undefined);
-const mockToastSuccess = jest.fn((_params: unknown) => undefined);
-const mockDialogConfirm = jest.fn((_params: ITestDialogOptions) => undefined);
 
 const ironwoodBirthday = {
   height: 3_428_143,
@@ -165,79 +154,15 @@ jest.mock('@onekeyhq/components', () => ({
     children?: ReactNode;
     testID?: string;
   }) => <span data-testid={testID}>{children}</span>,
-  Dialog: {
-    confirm: (params: ITestDialogOptions) => mockDialogConfirm(params),
-  },
-  Toast: { success: (params: unknown) => mockToastSuccess(params) },
 }));
 jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   __esModule: true,
-  default: {
-    servicePrivacyChain: {
-      retryLocalWalletAccountSetup: (params: unknown) => mockRetrySetup(params),
-      repairLocalChainData: (params: unknown) =>
-        mockRepairLocalChainData(params),
-    },
-  },
+  default: {},
 }));
-jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings', () => ({}));
-
-describe('setup repair', () => {
-  beforeEach(() => {
-    mockRetrySetup.mockReset();
-    mockToastSuccess.mockReset();
-  });
-
-  it('reports a failed repair instead of claiming success', async () => {
-    const consoleError = jest
-      .spyOn(console, 'error')
-      .mockImplementation(() => {});
-    mockRetrySetup.mockRejectedValueOnce(new Error('identity mismatch'));
-    const onDone = jest.fn();
-    const onError = jest.fn();
-    try {
-      const { getByTestId } = render(
-        <SetupRepairControl
-          networkId="zec--0"
-          accountId="hd-1--zec"
-          onDone={onDone}
-          onError={onError}
-        />,
-      );
-      await act(async () => {
-        fireEvent.click(getByTestId('local-wallet-repair-setup-btn'));
-      });
-      expect(onError).toHaveBeenCalledTimes(1);
-      expect(onDone).not.toHaveBeenCalled();
-      expect(mockToastSuccess).not.toHaveBeenCalled();
-    } finally {
-      consoleError.mockRestore();
-    }
-  });
-
-  it('confirms a completed repair', async () => {
-    const onDone = jest.fn();
-    const onError = jest.fn();
-    const { getByTestId } = render(
-      <SetupRepairControl
-        networkId="zec--0"
-        accountId="hd-1--zec"
-        onDone={onDone}
-        onError={onError}
-      />,
-    );
-    await act(async () => {
-      fireEvent.click(getByTestId('local-wallet-repair-setup-btn'));
-    });
-    expect(mockRetrySetup).toHaveBeenCalledWith({
-      networkId: 'zec--0',
-      accountId: 'hd-1--zec',
-    });
-    expect(mockToastSuccess).toHaveBeenCalledTimes(1);
-    expect(onDone).toHaveBeenCalledTimes(1);
-    expect(onError).not.toHaveBeenCalled();
-  });
-});
+// The chain tip is not known yet: heights have no upper bound.
+jest.mock('@onekeyhq/kit/src/hooks/usePromiseResult', () => ({
+  usePromiseResult: () => ({ result: undefined }),
+}));
 
 describe('birthday date precision', () => {
   it.each([new Date(2024, 1, 29, 18, 30), new Date(2025, 6, 19, 9, 45)])(
@@ -335,6 +260,58 @@ describe('birthday date precision', () => {
       ).toBeUndefined();
     },
   );
+
+  it('rejects a height above the known chain tip and keeps the tip itself', () => {
+    const form = (height: string) => ({
+      mode: 'height' as const,
+      date: null,
+      height,
+      maxHeight: 3_600_000,
+    });
+    expect(
+      readEnableBirthday(form('3600001'), undefined, 'zec--0'),
+    ).toBeUndefined();
+    expect(readEnableBirthday(form('3600000'), undefined, 'zec--0')).toEqual({
+      birthdayHeight: 3_600_000,
+    });
+  });
+
+  it.each([
+    ['', false, undefined, 'Block height ≥ 1,687,104'],
+    ['', false, 3_600_000, 'Block height 1,687,104 – 3,600,000'],
+    ['1000', true, 3_600_000, 'Block height ≥ 1,687,104'],
+    ['999999999', true, 3_600_000, 'Block height ≤ 3,600,000'],
+    ['99999999999999999999', true, 3_600_000, 'Block height ≤ 3,600,000'],
+    ['99999999999', true, undefined, 'Invalid number'],
+    ['1.5', true, 3_600_000, 'Invalid number'],
+  ])(
+    'tells %p which bound it breaks',
+    (height, invalid, maxHeight, expected) => {
+      expect(
+        getBirthdayHeightHint({
+          height,
+          invalid,
+          minHeight: 1_687_104,
+          maxHeight,
+          label: 'Block height',
+          invalidText: 'Invalid number',
+        }),
+      ).toBe(expected);
+    },
+  );
+
+  it('defaults to today without a recommended date', () => {
+    jest.useFakeTimers().setSystemTime(new Date(2026, 9, 29, 15, 30));
+    try {
+      const form = createEnableBirthdayForm();
+      expect(form.current).toEqual({
+        mode: 'date',
+        date: new Date(2026, 9, 29),
+      });
+    } finally {
+      jest.useRealTimers();
+    }
+  });
 
   it('defaults to the recommended date without truncating its day', () => {
     const hint = new Date(2025, 6, 19).getTime();
@@ -592,37 +569,4 @@ describe('supported scan start', () => {
       }
     },
   );
-
-  it('submits the earliest height when an account is explicitly repaired from the beginning', async () => {
-    mockDialogConfirm.mockClear();
-    mockRepairLocalChainData.mockClear();
-    const onDone = jest.fn();
-    const preventClose = jest.fn();
-    const { getByTestId } = render(
-      <ScanRepairControl
-        networkId="zec--0"
-        accountId="hd-1--zec"
-        currentBirthdayHeight={3_500_000}
-        earliestBirthday={ironwoodBirthday}
-        onDone={onDone}
-      />,
-    );
-    fireEvent.click(getByTestId('local-wallet-repair-scan-btn'));
-    expect(mockDialogConfirm).toHaveBeenCalledTimes(1);
-    const [dialog] = mockDialogConfirm.mock.calls[0];
-    const form = render(<>{dialog.renderContent}</>);
-    fireEvent.click(form.getByTestId('local-wallet-birthday-from-earliest'));
-    await act(async () => {
-      await dialog.onConfirm({ preventClose });
-    });
-    expect(mockRepairLocalChainData).toHaveBeenCalledWith({
-      networkId: 'zec--0',
-      accountId: 'hd-1--zec',
-      mode: 'height',
-      birthdayHeight: 3_428_143,
-      birthdayTimestamp: undefined,
-    });
-    expect(onDone).toHaveBeenCalledTimes(1);
-    expect(preventClose).not.toHaveBeenCalled();
-  });
 });

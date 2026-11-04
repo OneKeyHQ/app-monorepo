@@ -39,6 +39,8 @@ import {
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { getHistoryTxDisplayStatus } from '@onekeyhq/shared/src/utils/historyUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+import { splitPrivacyChainHistoryTxsBySide } from '@onekeyhq/shared/src/utils/privacyChainHistoryUtils';
+import type { IPrivacyChainHistorySideRow } from '@onekeyhq/shared/src/utils/privacyChainHistoryUtils';
 import { EHomeTab } from '@onekeyhq/shared/types';
 import type { IAddressBadge } from '@onekeyhq/shared/types/address';
 import type { IAccountHistoryTx } from '@onekeyhq/shared/types/history';
@@ -207,9 +209,13 @@ function TxHistoryListContainer(
     onAddressMap: handleLoadMoreAddressMap,
   });
 
+  const privacyChainSideRowByIdRef = useRef<
+    Map<string, IPrivacyChainHistorySideRow> | undefined
+  >(undefined);
   const handleHistoryItemPress = useCallback(
     async (history: IAccountHistoryTx) => {
       if (!account || !network) return;
+      const sideRow = privacyChainSideRowByIdRef.current?.get(history.id);
 
       if (
         history.decodedTx.status === EDecodedTxStatus.Pending &&
@@ -219,7 +225,7 @@ function TxHistoryListContainer(
           await backgroundApiProxy.serviceHistory.getLocalHistoryTxById({
             accountId: history.decodedTx.accountId,
             networkId: history.decodedTx.networkId,
-            historyId: history.id,
+            historyId: sideRow?.sourceId ?? history.id,
           });
 
         // tx has been replaced by another tx
@@ -245,6 +251,7 @@ function TxHistoryListContainer(
           accountId: history.decodedTx.accountId,
           historyTx: history,
           isAllNetworks: network.isAllNetworks,
+          ...(sideRow ? { privacyChainPoolId: sideRow.poolId } : {}),
         },
       });
     },
@@ -767,6 +774,25 @@ function TxHistoryListContainer(
     [historyData, appendedTxs],
   );
 
+  // As BTC lists a move between two of its address types, a move between the
+  // public and private sides lists once per side, as each pool tab shows it.
+  const isPrivacyChainHistory =
+    !!network?.id &&
+    networkUtils.isLocalWalletNetwork({ networkId: network.id });
+  const privacyChainHistory = useMemo(() => {
+    if (!isPrivacyChainHistory) return undefined;
+    const sideRows = splitPrivacyChainHistoryTxsBySide(combinedHistoryData);
+    return {
+      txs: sideRows.map((row) => row.tx),
+      sideRowById: new Map(
+        sideRows
+          .filter((row) => row.poolId !== undefined)
+          .map((row) => [row.tx.id, row]),
+      ),
+    };
+  }, [combinedHistoryData, isPrivacyChainHistory]);
+  privacyChainSideRowByIdRef.current = privacyChainHistory?.sideRowById;
+
   // OK-57070: freeze top-of-list growth while the user is scrolled away from
   // the top. A background refresh that prepends new rows would otherwise shift
   // the viewport and make the native SectionList jitter (it has no exact
@@ -794,7 +820,7 @@ function TxHistoryListContainer(
     ],
   );
   const { displayedHistoryData, onAwayFromTopChange } = useFrozenTopHistoryData(
-    combinedHistoryData,
+    privacyChainHistory?.txs ?? combinedHistoryData,
     frozenTopEnabled,
     frozenTopIdentityKey,
   );

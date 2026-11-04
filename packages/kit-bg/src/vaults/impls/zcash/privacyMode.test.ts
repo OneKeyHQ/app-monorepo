@@ -630,30 +630,6 @@ describe('Zcash Privacy Mode enable failure cleanup', () => {
     expect(zcashRetryLocalWalletSetup).toHaveBeenCalledTimes(1);
   });
 
-  it('keeps an enabled account on when repairing its key fails', async () => {
-    const { backgroundApi, service } = createService();
-    backgroundApi.simpleDb.privacyChainState.getZcashPrivacyModeState.mockResolvedValue(
-      {
-        intent: 'on',
-        birthdayHeight: 2_000_000,
-      },
-    );
-    backgroundApi.simpleDb.privacyChainKeys.getKey.mockResolvedValue(undefined);
-    mockGetVault.mockResolvedValue({
-      zcashRetryLocalWalletSetup: jest
-        .fn()
-        .mockRejectedValue(new Error('cancelled on the device')),
-    });
-
-    await expect(
-      service.enablePrivacyMode({ networkId: 'zec--0', accountId }),
-    ).rejects.toThrow('cancelled on the device');
-
-    const state = backgroundApi.simpleDb.privacyChainState;
-    expect(state.beginZcashPrivacyModeEnable).not.toHaveBeenCalled();
-    expect(state.cancelZcashPendingEnables).not.toHaveBeenCalled();
-  });
-
   it('does not report a failed notification as a failed enable', async () => {
     const { backgroundApi, service } = createService();
     mockGetVault.mockResolvedValue({

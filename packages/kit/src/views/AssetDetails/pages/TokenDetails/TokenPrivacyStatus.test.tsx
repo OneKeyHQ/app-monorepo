@@ -1,6 +1,6 @@
 import { act, renderHook } from '@testing-library/react-native';
-import { getDefaultStore } from 'jotai';
 
+import type { ILocalWalletSyncStatus } from '@onekeyhq/kit-bg/src/utils/privacyChainSyncStatus';
 import type { ILocalWalletSyncProgress } from '@onekeyhq/kit-bg/src/vaults/localWallet/types';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -8,7 +8,6 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { useTokenPrivacyStatus } from './TokenPrivacyStatus';
 
 import type { ILocalWalletPool } from './useLocalWalletPool';
-import type { PrimitiveAtom } from 'jotai';
 
 jest.mock('react-intl', () => ({
   useIntl: () => ({
@@ -26,46 +25,41 @@ jest.mock('@onekeyhq/kit/src/hooks/useFormatDate', () => ({
 
 jest.mock('@onekeyhq/components', () => ({ Button: () => null }));
 
-const mockPushModal = jest.fn();
-
 jest.mock('@onekeyhq/kit/src/hooks/useAppNavigation', () => ({
   __esModule: true,
-  default: () => ({ pushModal: mockPushModal }),
+  default: () => ({ pushModal: jest.fn() }),
 }));
 
-jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => {
-  const { atom } = jest.requireActual<typeof import('jotai')>('jotai');
-  const testPrivacyChainAtom = atom({
-    dataBlockedNetworkIds: [] as string[],
-    preparingNetworkIds: [] as string[],
-  });
-  return {
-    privacyChainAtom: { atom: () => testPrivacyChainAtom },
-    testPrivacyChainAtom,
-  };
-});
+const mockSetAllowCellularSync = jest.fn(
+  async (_params: { allow: boolean }) => undefined,
+);
+jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
+  __esModule: true,
+  default: {
+    servicePrivacyChain: {
+      setAllowCellularSync: (params: { allow: boolean }) =>
+        mockSetAllowCellularSync(params),
+    },
+  },
+}));
 
-const { testPrivacyChainAtom } = jest.requireMock<{
-  testPrivacyChainAtom: PrimitiveAtom<{
-    dataBlockedNetworkIds: string[];
-    preparingNetworkIds: string[];
-  }>;
-}>('@onekeyhq/kit-bg/src/states/jotai/atoms');
-
-const completedProgress: ILocalWalletSyncProgress = {
+const syncingProgress: ILocalWalletSyncProgress = {
   birthdayHeight: 100,
-  backfillScannedHeight: 200,
+  backfillScannedHeight: 150,
   backfillTargetHeight: 200,
-  backfillProgress: 1,
-  isBackfillComplete: true,
-  tipScannedHeight: 200,
+  backfillProgress: 0.5,
+  isBackfillComplete: false,
+  tipScannedHeight: 150,
   chainTip: 200,
-  tipLag: 0,
-  isTipCaughtUp: true,
-  isSyncing: false,
+  tipLag: 50,
+  isTipCaughtUp: false,
+  isSyncing: true,
 };
 
-function pool(overrides: Partial<ILocalWalletPool> = {}): ILocalWalletPool {
+function pool(
+  syncStatus: ILocalWalletSyncStatus | undefined,
+  overrides: Partial<ILocalWalletPool> = {},
+): ILocalWalletPool {
   return {
     settings: undefined,
     hasPooledBalance: true,
@@ -81,8 +75,9 @@ function pool(overrides: Partial<ILocalWalletPool> = {}): ILocalWalletPool {
     poolBalance: undefined,
     poolAddress: undefined,
     addresses: undefined,
-    syncProgress: completedProgress,
+    syncProgress: undefined,
     syncStatusText: null,
+    syncStatus,
     isPreparing: false,
     isSyncPaused: false,
     isNetworkPaused: false,
@@ -93,339 +88,165 @@ function pool(overrides: Partial<ILocalWalletPool> = {}): ILocalWalletPool {
     isTempWallet: false,
     refresh: jest.fn(),
     refreshBalanceNow: jest.fn(async () => undefined),
-    resumeNetworkSync: jest.fn(async () => undefined),
+    startSync: jest.fn(async () => undefined),
     enableAccount: jest.fn(async () => undefined),
-    deleteLocalData: jest.fn(async () => undefined),
     ...overrides,
   };
 }
 
 function renderStatus(value: ILocalWalletPool) {
-  return renderHook(() =>
-    useTokenPrivacyStatus({
-      networkId: 'zec--0',
-      pool: value,
-    }),
-  );
+  return renderHook(() => useTokenPrivacyStatus({ pool: value }));
 }
 
 beforeEach(() => {
-  getDefaultStore().set(testPrivacyChainAtom, {
-    dataBlockedNetworkIds: [],
-    preparingNetworkIds: [],
-  });
-  mockPushModal.mockClear();
+  mockSetAllowCellularSync.mockClear();
 });
 
 describe('token privacy status', () => {
-  it('does not offer Sync or Enable while disabled by the server', () => {
+  it.each([
+    ['unavailable', 'disabled'],
+    ['off', 'disabled'],
+    ['enabling', 'preparing'],
+    ['accountPaused', 'stopped'],
+    ['chainPaused', 'stopped'],
+    ['storageUnsupported', 'error'],
+    ['waitingWifi', 'waitingWifi'],
+    ['error', 'error'],
+    ['preparing', 'preparing'],
+    ['syncing', 'syncing'],
+    ['synced', 'synced'],
+  ] as const)('shows %s as the %s panel', (syncStatus, panelState) => {
+    expect(renderStatus(pool(syncStatus)).result.current.state).toBe(
+      panelState,
+    );
+  });
+
+  it('prepares until the account is known', () => {
     const { result } = renderStatus(
-      pool({
+      pool('synced', { isReady: false, isWalletSupported: undefined }),
+    );
+    expect(result.current.state).toBe('preparing');
+    expect(result.current.onSync).toBeUndefined();
+  });
+
+  it('offers nothing to do while the server has privacy off', () => {
+    const { result } = renderStatus(
+      pool('unavailable', {
         enabled: false,
         state: { enabled: false, paused: false, privacyDisabled: true },
       }),
     );
-    expect(result.current.state).toBe('disabled');
     expect(result.current.description).toBe(ETranslations.global_not_available);
     expect(result.current.enableUnavailable).toBe(true);
     expect(result.current.onSync).toBeUndefined();
   });
-  it('keeps an opted-in paused account stopped without requiring setup again', () => {
-    const { result } = renderStatus(
-      pool({
-        state: { enabled: false, paused: true },
-        enabled: true,
-        isSyncPaused: true,
-        syncProgress: undefined,
-        syncStatusText: ETranslations.syncing_paused__title,
+
+  it('explains why a wallet cannot scan here', () => {
+    expect(
+      renderStatus(pool(undefined, { isUnsupportedWallet: true })).result
+        .current.description,
+    ).toBe(ETranslations.privacy_balance_wallet_not_supported__desc);
+    expect(
+      renderStatus(
+        pool(undefined, { isUnsupportedWallet: true, isTempWallet: true }),
+      ).result.current.description,
+    ).toBe(ETranslations.privacy_temp_wallet_unavailable__desc);
+  });
+
+  it('offers no retry until an outdated WebView is updated', () => {
+    expect(
+      renderStatus(pool('storageUnsupported')).result.current.onSync,
+    ).toBeUndefined();
+  });
+
+  it('shows figures while syncing and the reason for an error', () => {
+    const syncing = renderStatus(
+      pool('syncing', {
+        syncProgress: syncingProgress,
+        syncStatusText: '150 / 200 · 50.0%',
       }),
-    );
-
-    expect(result.current.state).toBe('stopped');
-    // The title already says paused; the line is not repeated.
-    expect(result.current.detail).toBeUndefined();
-    expect(result.current.onSync).toBeDefined();
-    expect(result.current.onEnable).toBeUndefined();
-    expect(result.current.onStop).toBeUndefined();
-  });
-
-  it('keeps a paused detail that says more than the title', () => {
-    const { result } = renderStatus(
-      pool({
-        state: { enabled: false, paused: true },
-        isSyncPaused: true,
-        hasSyncError: true,
-        syncProgress: undefined,
-        syncStatusText: ETranslations.privacy_error_webview_outdated__msg,
-      }),
-    );
-
-    expect(result.current.state).toBe('stopped');
-    expect(result.current.detail).toBe(
-      ETranslations.privacy_error_webview_outdated__msg,
-    );
-  });
-
-  it('waits for wallet support even when a remembered account state exists', () => {
-    const { result } = renderStatus(
-      pool({ isReady: false, isWalletSupported: undefined }),
-    );
-
-    expect(result.current.state).toBe('preparing');
-    expect(result.current.onSync).toBeUndefined();
-  });
-
-  it('keeps pending initialization preparing despite a previous completed scan', () => {
-    const { result } = renderStatus(pool({ isPreparing: true }));
-
-    expect(result.current.state).toBe('preparing');
-  });
-
-  it('shows network preparation until the manual start publishes its next position', () => {
-    getDefaultStore().set(testPrivacyChainAtom, {
-      dataBlockedNetworkIds: [],
-      preparingNetworkIds: ['zec--0'],
-    });
-    const { result } = renderStatus(pool());
-
-    expect(result.current.state).toBe('preparing');
-
-    act(() => {
-      getDefaultStore().set(testPrivacyChainAtom, {
-        dataBlockedNetworkIds: [],
-        preparingNetworkIds: [],
-      });
-    });
-
-    expect(result.current.state).toBe('synced');
-  });
-
-  it('only reports synced after both backfill and tip have caught up', () => {
-    const { result } = renderStatus(pool());
-
-    expect(result.current.state).toBe('synced');
-    expect(result.current.progress).toBeUndefined();
-  });
-
-  it('shows an active scan even when the previous progress reached the tip', () => {
-    const { result } = renderStatus(
-      pool({ syncProgress: { ...completedProgress, isSyncing: true } }),
-    );
-
-    expect(result.current.state).toBe('syncing');
-    expect(result.current.onStop).toBeUndefined();
-  });
-
-  it('preserves the shared hook error message instead of replacing it with preparing', () => {
-    const { result } = renderStatus(
-      pool({
-        hasSyncError: true,
-        syncProgress: undefined,
-        syncStatusText: 'The current node could not be reached.',
-      }),
-    );
-
-    expect(result.current.state).toBe('error');
-    expect(result.current.detail).toBe(
-      'The current node could not be reached.',
-    );
-  });
-
-  it('explains a data-policy wait without presenting stale completed progress', () => {
-    getDefaultStore().set(testPrivacyChainAtom, {
-      dataBlockedNetworkIds: ['zec--0'],
-      preparingNetworkIds: [],
-    });
-    const { result } = renderStatus(pool());
-
-    expect(result.current.state).toBe('preparing');
-    expect(result.current.detail).toBe(
-      ETranslations.privacy_sync_waiting_wifi__msg,
-    );
-  });
-
-  it.each([false, true])(
-    'uses the existing refresh or resume operation (account paused: %s)',
-    async (paused) => {
-      const enableAccount = jest.fn(async () => undefined);
-      const refreshBalanceNow = jest.fn(async () => undefined);
-      const resumeNetworkSync = jest.fn(async () => undefined);
-      const { result } = renderStatus(
-        pool({
-          state: { enabled: !paused, paused },
-          isSyncPaused: paused,
-          enableAccount,
-          refreshBalanceNow,
-          resumeNetworkSync,
+    ).result.current;
+    expect(syncing.detail).toBe('150 / 200 · 50.0%');
+    expect(syncing.progress).toBe(50);
+    expect(syncing.onStop).toBeUndefined();
+    expect(
+      renderStatus(
+        pool('error', {
+          syncStatusText: 'The current node could not be reached.',
         }),
-      );
+      ).result.current.detail,
+    ).toBe('The current node could not be reached.');
+  });
 
-      await act(async () => {
-        result.current.onSync?.();
-      });
+  it('offers mobile data while it waits for Wi-Fi', async () => {
+    const { result } = renderStatus(pool('waitingWifi'));
+    await act(async () => {
+      result.current.onAllowMobileData?.();
+    });
+    expect(mockSetAllowCellularSync).toHaveBeenCalledWith({ allow: true });
+  });
 
-      if (paused) {
-        expect(enableAccount).toHaveBeenCalledWith({});
-        expect(refreshBalanceNow).not.toHaveBeenCalled();
-      } else {
-        expect(refreshBalanceNow).toHaveBeenCalledTimes(1);
-        expect(enableAccount).not.toHaveBeenCalled();
-      }
-      expect(resumeNetworkSync).not.toHaveBeenCalled();
-    },
-  );
-
-  it('resumes a paused network through manual boost instead of account refresh', async () => {
-    const enableAccount = jest.fn(async () => undefined);
-    const refreshBalanceNow = jest.fn(async () => undefined);
-    const resumeNetworkSync = jest.fn(async () => undefined);
-    const { result } = renderStatus(
-      pool({
-        state: { enabled: true, paused: false },
-        isSyncPaused: true,
-        isNetworkPaused: true,
-        enableAccount,
-        refreshBalanceNow,
-        resumeNetworkSync,
-      }),
-    );
-
-    expect(result.current.state).toBe('stopped');
+  it.each([
+    ['accountPaused', 'enableAccount'],
+    ['chainPaused', 'startSync'],
+    ['synced', 'refreshBalanceNow'],
+    ['error', 'startSync'],
+  ] as const)('acts on %s through %s', async (syncStatus, operation) => {
+    const value = pool(syncStatus);
+    const { result } = renderStatus(value);
     await act(async () => {
       result.current.onSync?.();
     });
-
-    expect(resumeNetworkSync).toHaveBeenCalledTimes(1);
-    expect(enableAccount).not.toHaveBeenCalled();
-    expect(refreshBalanceNow).not.toHaveBeenCalled();
-  });
-
-  it('handles a rejected network resume without falling through to account refresh', async () => {
-    const consoleError = jest
-      .spyOn(console, 'error')
-      .mockImplementation(() => {});
-    const resumeNetworkSync = jest.fn(async () => {
-      throw new OneKeyLocalError('Network resume failed');
-    });
-    const refreshBalanceNow = jest.fn(async () => undefined);
-    try {
-      const { result } = renderStatus(
-        pool({
-          isSyncPaused: true,
-          isNetworkPaused: true,
-          resumeNetworkSync,
-          refreshBalanceNow,
-        }),
-      );
-
-      await act(async () => {
-        result.current.onSync?.();
-      });
-
-      expect(consoleError).toHaveBeenCalledWith(
-        '[privacyChain] refresh failed',
-        { error: 'Network resume failed' },
-      );
-      expect(resumeNetworkSync).toHaveBeenCalledTimes(1);
-      expect(refreshBalanceNow).not.toHaveBeenCalled();
-    } finally {
-      consoleError.mockRestore();
+    for (const name of [
+      'enableAccount',
+      'startSync',
+      'refreshBalanceNow',
+    ] as const) {
+      expect(value[name]).toHaveBeenCalledTimes(name === operation ? 1 : 0);
     }
   });
 
-  // A manual pause and a rotation out of the sync slots read the same: the
-  // balance is only as new as the last sync, and Resume restarts it.
-  it('shows a paused account as paused since its last sync, never as synced', async () => {
-    const enableAccount = jest.fn(async () => undefined);
+  // The balance is only as new as the last sync; Resume restarts it.
+  it('shows a paused account as paused since its last sync', () => {
     const { result } = renderStatus(
-      pool({
-        state: { enabled: false, paused: true },
-        isSyncPaused: true,
-        syncProgress: undefined,
-        lastSyncedAt: 1_700_000_000_000,
-        enableAccount,
-      }),
+      pool('accountPaused', { lastSyncedAt: 1_700_000_000_000 }),
     );
-
-    expect(result.current.state).toBe('stopped');
     expect(result.current.updatedAtLabel).toBe(
       `${ETranslations.backup_updated_time}:${JSON.stringify({
         time: 'date(1700000000000)',
       })}`,
     );
-
-    await act(async () => {
-      result.current.onSync?.();
-    });
-
-    expect(enableAccount).toHaveBeenCalledWith({});
-  });
-
-  it('has no last sync time to show for an account that never synced', () => {
-    const { result } = renderStatus(
-      pool({
-        state: { enabled: false, paused: true },
-        isSyncPaused: true,
-        syncProgress: undefined,
-      }),
-    );
-
-    expect(result.current.state).toBe('stopped');
-    expect(result.current.updatedAtLabel).toBeUndefined();
+    expect(result.current.detail).toBeUndefined();
   });
 
   it('keeps the last sync time off a running account', () => {
-    const { result } = renderStatus(pool({ lastSyncedAt: 1_700_000_000_000 }));
-
-    expect(result.current.state).toBe('synced');
-    expect(result.current.updatedAtLabel).toBeUndefined();
+    expect(
+      renderStatus(pool('synced', { lastSyncedAt: 1_700_000_000_000 })).result
+        .current.updatedAtLabel,
+    ).toBeUndefined();
   });
 
-  it('keeps a chain paused from the sync light stopped despite a last catch-up', () => {
-    const { result } = renderStatus(
-      pool({
-        isSyncPaused: true,
-        isNetworkPaused: true,
-        lastSyncedAt: 1_700_000_000_000,
-      }),
-    );
-
-    expect(result.current.state).toBe('stopped');
-  });
-
-  it.each([false, true])(
-    'handles an operation rejection without an unhandled promise (account paused: %s)',
-    async (paused) => {
-      const consoleError = jest
-        .spyOn(console, 'error')
-        .mockImplementation(() => {});
-      const operation = jest.fn(async () => {
-        throw new OneKeyLocalError('Sync failed');
-      });
-      try {
-        const { result } = renderStatus(
-          pool({
-            state: { enabled: !paused, paused },
-            isSyncPaused: paused,
-            enableAccount: operation,
-            refreshBalanceNow: operation,
+  it('logs a rejected operation instead of leaving it unhandled', async () => {
+    const consoleError = jest
+      .spyOn(console, 'error')
+      .mockImplementation(() => {});
+    try {
+      const { result } = renderStatus(
+        pool('chainPaused', {
+          startSync: jest.fn(async () => {
+            throw new OneKeyLocalError('Network resume failed');
           }),
-        );
-
-        await act(async () => {
-          result.current.onSync?.();
-        });
-
-        expect(operation).toHaveBeenCalledTimes(1);
-        expect(consoleError).toHaveBeenCalledWith(
-          '[privacyChain] refresh failed',
-          {
-            error: 'Sync failed',
-          },
-        );
-      } finally {
-        consoleError.mockRestore();
-      }
-    },
-  );
+        }),
+      );
+      await act(async () => {
+        result.current.onSync?.();
+      });
+      expect(consoleError).toHaveBeenCalledWith(
+        '[privacyChain] refresh failed',
+        { error: 'Network resume failed' },
+      );
+    } finally {
+      consoleError.mockRestore();
+    }
+  });
 });
