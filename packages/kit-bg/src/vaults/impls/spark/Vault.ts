@@ -1,7 +1,5 @@
 import { isNil } from 'lodash';
 
-import { getSparkNetworkFromImpl } from '@onekeyhq/core/src/chains/spark/utils';
-import { decodeLightningSparkAddress } from '@onekeyhq/core/src/secret';
 import type { ISignedTxPro, IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import {
   NotImplemented,
@@ -9,7 +7,6 @@ import {
 } from '@onekeyhq/shared/src/errors';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { isReusableLightningRecipient } from '@onekeyhq/shared/src/utils/lnUrlUtils';
-import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type {
   IAddressValidation,
   IGeneralInputValidation,
@@ -61,12 +58,6 @@ export default class Vault extends VaultBase {
     external: undefined,
   };
 
-  private getSparkNetwork() {
-    return getSparkNetworkFromImpl(
-      networkUtils.getNetworkImpl({ networkId: this.networkId }),
-    );
-  }
-
   // Like the custodial Lightning network, the account shows no address and
   // receives through invoices; API calls read the Spark address from
   // normalizedAddress.
@@ -89,9 +80,9 @@ export default class Vault extends VaultBase {
     return (await this.getAccount()).addressDetail.normalizedAddress;
   }
 
-  // Phase 1 sends pay BOLT11 invoices with an amount. The OneKey lightning
-  // service decodes the invoice; the Breez SDK pays it in
-  // broadcastTransaction.
+  // Phase 1 sends pay BOLT11 invoices; one without an amount pays the amount
+  // entered on the amount page. The OneKey lightning service decodes the
+  // invoice; the Breez SDK pays it in broadcastTransaction.
   override async buildEncodedTx(
     params: IBuildEncodedTxParams,
   ): Promise<IEncodedTxLightningSpark> {
@@ -99,10 +90,10 @@ export default class Vault extends VaultBase {
     if (!transfersInfo || transfersInfo.length !== 1) {
       throw new OneKeyInternalError('Lightning sends one payment at a time');
     }
-    const input = transfersInfo[0].to;
+    const { to: input, amount: enteredAmountSats } = transfersInfo[0];
     const decoded =
       await this.backgroundApi.serviceLightning.decodeInvoiceByServer(input);
-    return buildSparkInvoiceEncodedTx({ input, decoded });
+    return buildSparkInvoiceEncodedTx({ input, decoded, enteredAmountSats });
   }
 
   override async buildDecodedTx(
@@ -229,18 +220,13 @@ export default class Vault extends VaultBase {
     return { ...signedTx, txid: paymentId };
   }
 
+  // A recipient is a BOLT11 invoice. Spark addresses are not a send target.
   override async validateAddress(address: string): Promise<IAddressValidation> {
     const valid = {
       isValid: true,
       normalizedAddress: address,
       displayAddress: address,
     };
-    try {
-      decodeLightningSparkAddress({ address, network: this.getSparkNetwork() });
-      return valid;
-    } catch {
-      // Not a Spark address.
-    }
     // LNURL and Lightning addresses are recognized by format only: the send
     // flow does not pay them yet and never hands them to the Breez SDK.
     if (isReusableLightningRecipient(address)) {

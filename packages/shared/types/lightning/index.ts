@@ -53,7 +53,9 @@ export type IEncodedTxLightning = {
 export type IEncodedTxLightningSpark = {
   invoice: string;
   paymentHash: string;
-  amountMillisatoshis: string;
+  // The invoice's own amount. An invoice without an amount has none and
+  // pays amountSats, the amount the user entered.
+  amountMillisatoshis?: string;
   amountSats: string;
   description?: string;
   // Unix seconds.

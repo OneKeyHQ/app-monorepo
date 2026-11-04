@@ -30,6 +30,7 @@ import {
   checkPreparedFeeApproved,
   checkPreparedInvoicePayment,
   findSettledInvoicePaymentProblem,
+  getPrepareAmountSats,
   getPreparedFeeSats,
   isSparkPayableInvoice,
 } from '../../vaults/impls/spark/sdkSpark/invoicePayment';
@@ -530,8 +531,10 @@ class ServiceLightningSpark extends ServiceBase {
     if (!isSparkPayableInvoice(encodedTx.invoice)) {
       throw new InvalidLightningPaymentRequest();
     }
+    const amount = getPrepareAmountSats(encodedTx);
     const prepared = await sdk.prepareSendPayment({
       paymentRequest: { type: 'input', input: encodedTx.invoice },
+      ...(amount === undefined ? {} : { amount }),
     });
     checkPreparedInvoicePayment({ prepared, encodedTx });
     return prepared;

@@ -48,14 +48,17 @@ function getInvoiceTagText(decoded: IInvoiceDecodedResponse, tagName: string) {
 
 /**
  * Builds the payment from the OneKey lightning service's decode of the
- * invoice the user entered. Phase 1 pays invoices with an amount only.
+ * invoice the user entered. An invoice without an amount pays the whole
+ * number of sats the user entered on the amount page.
  */
 export function buildSparkInvoiceEncodedTx({
   input,
   decoded,
+  enteredAmountSats,
 }: {
   input: string;
   decoded: IInvoiceDecodedResponse;
+  enteredAmountSats?: string;
 }): IEncodedTxLightningSpark {
   const invoice = decoded.paymentRequest ?? '';
   const paymentHash = getInvoiceTagText(decoded, 'payment_hash');
@@ -69,21 +72,38 @@ export function buildSparkInvoiceEncodedTx({
   ) {
     throw new InvalidLightningPaymentRequest();
   }
-  const amountMillisatoshis = getInvoiceAmountMillisatoshis(decoded);
-  if (!amountMillisatoshis.isInteger() || amountMillisatoshis.lte(0)) {
-    throw new OneKeyLocalError('Invoices without an amount are not supported');
-  }
-  return {
+  const fields = {
     invoice,
     paymentHash,
+    description: getInvoiceTagText(decoded, 'description'),
+    expiresAt: decoded.timeExpireDate,
+  };
+  if (isZeroAmountDecodedInvoice(decoded)) {
+    const amountSats = new BigNumber(enteredAmountSats ?? 0);
+    if (!amountSats.isInteger() || amountSats.lte(0)) {
+      throw new OneKeyLocalError('Enter an amount of at least 1 sat');
+    }
+    return { ...fields, amountSats: amountSats.toFixed() };
+  }
+  const amountMillisatoshis = getInvoiceAmountMillisatoshis(decoded);
+  if (!amountMillisatoshis.isInteger()) {
+    throw new InvalidLightningPaymentRequest();
+  }
+  return {
+    ...fields,
     amountMillisatoshis: amountMillisatoshis.toFixed(),
     amountSats: amountMillisatoshis
       .div(1000)
       .integerValue(BigNumber.ROUND_CEIL)
       .toFixed(),
-    description: getInvoiceTagText(decoded, 'description'),
-    expiresAt: decoded.timeExpireDate,
   };
+}
+
+// An invoice without an amount is prepared with the amount the user entered.
+export function getPrepareAmountSats(encodedTx: IEncodedTxLightningSpark) {
+  return encodedTx.amountMillisatoshis === undefined
+    ? BigInt(encodedTx.amountSats)
+    : undefined;
 }
 
 export function getPreparedFeeSats(prepared: PrepareSendPaymentResponse) {
@@ -96,6 +116,7 @@ export function getPreparedFeeSats(prepared: PrepareSendPaymentResponse) {
 /**
  * Stops a payment whose SDK preparation differs from the invoice the confirm
  * page showed: another invoice, hash or amount, or a token or conversion leg.
+ * An invoice without an amount must still have none in the SDK's parse.
  */
 export function checkPreparedInvoicePayment({
   prepared,
@@ -110,8 +131,10 @@ export function checkPreparedInvoicePayment({
     method.invoiceDetails.invoice.bolt11.toLowerCase() !==
       encodedTx.invoice.toLowerCase() ||
     method.invoiceDetails.paymentHash !== encodedTx.paymentHash ||
-    String(method.invoiceDetails.amountMsat) !==
-      encodedTx.amountMillisatoshis ||
+    (encodedTx.amountMillisatoshis === undefined
+      ? Boolean(method.invoiceDetails.amountMsat)
+      : String(method.invoiceDetails.amountMsat) !==
+        encodedTx.amountMillisatoshis) ||
     prepared.amount.toString() !== encodedTx.amountSats ||
     prepared.feePolicy !== 'feesExcluded' ||
     prepared.tokenIdentifier !== undefined ||
