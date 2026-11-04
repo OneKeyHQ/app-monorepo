@@ -180,6 +180,27 @@ export function RewardScopesHint({
   );
 }
 
+// An empty card's description with the scope link under it, for the cards
+// that have no product rows to hang the icons on.
+export function withRewardScopesHint(
+  description: string,
+  scopeItems: readonly IInviteRewardScopeItem[],
+) {
+  if (scopeItems.length === 0) {
+    return description;
+  }
+  // String descriptions pick up Empty's text style. A custom node does not,
+  // so the copy keeps the same size and color beside the scope line.
+  return (
+    <YStack ai="center" gap="$1">
+      <SizableText size="$bodyMd" textAlign="center" color="$textSubdued">
+        {description}
+      </SizableText>
+      <RewardScopesHint items={scopeItems} />
+    </YStack>
+  );
+}
+
 // A compact list row's title with the scope icon right after the name, for
 // `ListItem.renderItemText`.
 export function RewardScopeCompactTitle({

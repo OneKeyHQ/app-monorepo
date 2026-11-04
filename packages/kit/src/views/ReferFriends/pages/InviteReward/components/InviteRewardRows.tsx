@@ -39,7 +39,7 @@ import {
   INVITE_REWARD_SUBJECT_TITLE,
   RewardScopeCompactTitle,
   RewardScopeInfo,
-  RewardScopesHint,
+  withRewardScopesHint,
 } from './RewardScopeInfo';
 import {
   COMPACT_ENTRY_TITLE_PROPS,
@@ -311,25 +311,6 @@ function DesktopRewardRow({
   );
 }
 
-function rewardEmptyDescription(
-  description: string,
-  scopeItems: readonly IInviteRewardScopeItem[],
-) {
-  if (scopeItems.length === 0) {
-    return description;
-  }
-  // String descriptions pick up Empty's text style. A custom node does not,
-  // so the copy keeps the same size and color beside the scope line.
-  return (
-    <YStack ai="center" gap="$1">
-      <SizableText size="$bodyMd" textAlign="center" color="$textSubdued">
-        {description}
-      </SizableText>
-      <RewardScopesHint items={scopeItems} />
-    </YStack>
-  );
-}
-
 // Before the first reward every product page is empty too, so the section
 // shows one quiet in-card empty state: what will appear here, plus the one
 // action that changes it. Native already has the share footer, so only the
@@ -350,7 +331,7 @@ function RewardsEmpty({
   return (
     <ReferralCardEmpty
       {...cardStyle}
-      description={rewardEmptyDescription(description, scopeItems)}
+      description={withRewardScopesHint(description, scopeItems)}
       buttonProps={
         onCopyLink
           ? {

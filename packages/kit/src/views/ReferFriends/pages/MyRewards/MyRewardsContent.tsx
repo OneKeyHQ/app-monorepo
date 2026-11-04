@@ -1375,6 +1375,12 @@ function MyRewardsContentBody({
     intl.formatMessage({ id: MODULE_TITLE[module] });
   const scopeFor = (module: IRewardModule) =>
     getInviteRewardScopeDescription(MODULE_SUBJECT[module], rewardScopes);
+  const scopeItems = MODULES.flatMap((module) => {
+    const description = scopeFor(module);
+    return description
+      ? [{ subject: MODULE_SUBJECT[module], description }]
+      : [];
+  });
   const sectionTitle = intl.formatMessage({
     id: ETranslations.referral_earnings_by_product__title,
   });
@@ -1396,7 +1402,12 @@ function MyRewardsContentBody({
       );
     }
     if (!isLoading && hasNoRewards(overview)) {
-      return <BenefitsTabPlaceholder bindStatus={bindStatus} />;
+      return (
+        <BenefitsTabPlaceholder
+          bindStatus={bindStatus}
+          scopeItems={scopeItems}
+        />
+      );
     }
     if (md) {
       return (
