@@ -86,9 +86,17 @@ export async function generateHardwareCloudSyncCredentialWithSoftwareKey({
       ),
     }),
   };
+  const source: IHardwareCloudSyncKeySource = {
+    type: 'hardware',
+    credentialId,
+    derivationVersion: HARDWARE_CLOUD_SYNC_DERIVATION_VERSION,
+    deviceName: 'Dev software key',
+    deviceType: EDeviceType.Pro,
+  };
   // Same order as a device: sign in, then the salted key message.
   const credential = await unlock({
     credentialId,
+    source,
     signAuth: async (message) => {
       assertHardwareCloudSyncAuthMessage(message);
       return signBip137(
@@ -105,12 +113,5 @@ export async function generateHardwareCloudSyncCredentialWithSoftwareKey({
         kekSalt,
       }),
   });
-  const source: IHardwareCloudSyncKeySource = {
-    type: 'hardware',
-    credentialId,
-    derivationVersion: HARDWARE_CLOUD_SYNC_DERIVATION_VERSION,
-    deviceName: 'Dev software key',
-    deviceType: EDeviceType.Pro,
-  };
   return { credential: { ...credential, source }, source };
 }
