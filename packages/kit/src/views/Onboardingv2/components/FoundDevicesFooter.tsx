@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
+import { useWindowDimensions } from 'react-native';
 
 import type { IDialogConfirmProps } from '@onekeyhq/components';
 import {
@@ -133,6 +134,7 @@ export function FoundDevicesFooter({
 }) {
   const intl = useIntl();
   const { gtMd } = useMedia();
+  const { height: windowHeight } = useWindowDimensions();
   const [pickedKey, setPickedKey] = useState<string | undefined>();
   const [isConnecting, setIsConnecting] = useState(false);
   const [connectionAttempt, setConnectionAttempt] = useState<{
@@ -307,7 +309,16 @@ export function FoundDevicesFooter({
         searchDescription={searchDescription}
       />
       {variant === 'dialog' ? (
-        deviceList
+        <Dialog.ScrollView
+          testID={OnboardingTestIDs.connectYourDeviceList}
+          // Reserve room for the dialog header, channel tabs and Connect footer.
+          maxHeight={windowHeight * 0.4}
+          flexGrow={0}
+          showsVerticalScrollIndicator
+          keyboardShouldPersistTaps="handled"
+        >
+          {deviceList}
+        </Dialog.ScrollView>
       ) : (
         <HeightTransition initialHeight={0}>{deviceList}</HeightTransition>
       )}

@@ -765,6 +765,9 @@ export interface IMarketBannerDescription {
 }
 
 export interface IMarketBannerTokenPreview {
+  stockId?: string;
+  networkId?: string;
+  address?: string;
   logo: string;
   name: string;
   symbol: string;

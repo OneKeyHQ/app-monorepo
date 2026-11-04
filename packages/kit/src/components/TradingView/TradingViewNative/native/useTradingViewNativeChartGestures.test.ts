@@ -277,6 +277,7 @@ describe('useTradingViewNativeChartGestures', () => {
     jest.clearAllMocks();
     I18nManager.isRTL = false;
     mockPanGestures.length = 0;
+    mockPinchGestures.length = 0;
     mockTapGestures.length = 0;
     mockGetSubIndicatorAtPoint.mockImplementation(
       ({ y }: { y: number }): 'RSI' | null => (y === 100 ? 'RSI' : null),
@@ -504,6 +505,114 @@ describe('useTradingViewNativeChartGestures', () => {
       x: 100,
       y: 120,
     });
+  });
+
+  it('shows the crosshair after a single-finger tap', () => {
+    const { chartRuntime, tapCrosshairGesture } = renderChartGestures();
+    const fail = jest.fn();
+    chartRuntime.value.crosshair.visible = false;
+
+    expect(tapCrosshairGesture).toBeDefined();
+    tapCrosshairGesture?.handlers.onTouchesDown?.(
+      { changedTouches: [{ x: 100, y: 120 }], numberOfTouches: 1 },
+      { fail },
+    );
+    tapCrosshairGesture?.handlers.onEnd?.({ x: 100, y: 120 }, true);
+
+    expect(fail).not.toHaveBeenCalled();
+    expect(chartRuntime.value.crosshair).toEqual({
+      visible: true,
+      x: 100,
+      y: 120,
+    });
+  });
+
+  it.each([true, false])(
+    'blocks crosshair callbacks throughout a pinch (simultaneous touches: %s)',
+    (simultaneousTouches) => {
+      const {
+        chartRuntime,
+        crosshairGesture,
+        pinchGesture,
+        tapCrosshairGesture,
+      } = renderChartGestures();
+      const firstTouch = { x: 100, y: 120 };
+      const secondTouch = { x: 140, y: 120 };
+
+      expect(tapCrosshairGesture).toBeDefined();
+      [crosshairGesture, tapCrosshairGesture].forEach((gesture) => {
+        const fail = jest.fn();
+        if (!simultaneousTouches) {
+          gesture?.handlers.onTouchesDown?.(
+            { changedTouches: [firstTouch], numberOfTouches: 1 },
+            { fail },
+          );
+          expect(fail).not.toHaveBeenCalled();
+        }
+        gesture?.handlers.onTouchesDown?.(
+          {
+            changedTouches: simultaneousTouches
+              ? [firstTouch, secondTouch]
+              : [secondTouch],
+            numberOfTouches: 2,
+          },
+          { fail },
+        );
+        expect(fail).toHaveBeenCalledTimes(1);
+      });
+      expect(chartRuntime.value.crosshair.visible).toBe(false);
+
+      pinchGesture.handlers.onStart?.({ focalX: 120, scale: 1 });
+      crosshairGesture.handlers.onStart?.(firstTouch);
+      expect(chartRuntime.value.crosshair.visible).toBe(false);
+
+      pinchGesture.handlers.onUpdate?.({ scale: 1.5 });
+      expect(chartRuntime.value.viewport.zoomScale).toBe(1.5);
+      expect(chartRuntime.value.crosshair.visible).toBe(false);
+
+      pinchGesture.handlers.onFinalize?.();
+      crosshairGesture.handlers.onUpdate?.({
+        ...firstTouch,
+        numberOfPointers: 1,
+      });
+      tapCrosshairGesture?.handlers.onEnd?.(firstTouch, true);
+      expect(chartRuntime.value.crosshair.visible).toBe(false);
+
+      const failNextTap = jest.fn();
+      tapCrosshairGesture?.handlers.onTouchesDown?.(
+        { changedTouches: [firstTouch], numberOfTouches: 1 },
+        { fail: failNextTap },
+      );
+      tapCrosshairGesture?.handlers.onEnd?.(firstTouch, true);
+      expect(failNextTap).not.toHaveBeenCalled();
+      expect(chartRuntime.value.crosshair).toEqual({
+        visible: true,
+        ...firstTouch,
+      });
+    },
+  );
+
+  it('hides an active long-press crosshair when a second finger lands', () => {
+    const { chartRuntime, crosshairGesture } = renderChartGestures();
+    const fail = jest.fn();
+
+    crosshairGesture.handlers.onStart?.({ x: 100, y: 120 });
+    expect(chartRuntime.value.crosshair.visible).toBe(true);
+
+    crosshairGesture.handlers.onTouchesDown?.(
+      { changedTouches: [{ x: 140, y: 120 }], numberOfTouches: 2 },
+      { fail },
+    );
+    expect(fail).toHaveBeenCalledTimes(1);
+    expect(chartRuntime.value.crosshair.visible).toBe(false);
+
+    crosshairGesture.handlers.onUpdate?.({
+      numberOfPointers: 1,
+      x: 110,
+      y: 120,
+    });
+    crosshairGesture.handlers.onFinalize?.({}, true);
+    expect(chartRuntime.value.crosshair.visible).toBe(false);
   });
 
   it('hides the crosshair when the long press is interrupted', () => {
