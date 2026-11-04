@@ -2124,6 +2124,16 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
     const pending = this.portfolioCategoryRefreshes.get(key);
     if (pending) return pending;
 
+    // The force cooldown is scoped to the account/query window only. The dedupe
+    // key above includes the current network state so in-flight requests for
+    // different query shapes stay separate, but including that state here would
+    // let any network/derive toggle bypass the 5-minute bound.
+    const forceCooldownKey = stringUtils.stableStringify({
+      accountId,
+      indexedAccountId,
+      networkId,
+    });
+
     let shouldForce = force;
     if (force) {
       const now = Date.now();
@@ -2132,12 +2142,14 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
         if (expiresAt <= now)
           this.portfolioCategoryForceRefreshCooldownByKey.delete(refreshKey);
       }
-      if (this.portfolioCategoryForceRefreshCooldownByKey.has(key)) {
+      if (
+        this.portfolioCategoryForceRefreshCooldownByKey.has(forceCooldownKey)
+      ) {
         shouldForce = false;
       } else {
         // Limit force attempts, including failures, without caching old balances.
         this.portfolioCategoryForceRefreshCooldownByKey.set(
-          key,
+          forceCooldownKey,
           now + PORTFOLIO_FORCE_REFRESH_COOLDOWN_MS,
         );
       }
@@ -2356,10 +2368,14 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
           deFiOverview = emptyOverview;
           return { source: 'empty', value: '0' };
         }
-        if (refresh?.force) {
+        let forceDeFiRefresh = refresh?.force ?? false;
+        if (forceDeFiRefresh) {
           const quota =
             await this.backgroundApi.serviceDeFi.consumeManualDeFiForceRefreshQuota();
-          if (!quota.allowed) return { source: 'unknown', value: undefined };
+          // The manual-force quota is global, so another feature or account can
+          // deny it at any time. An explicit Portfolio sync must not fail on
+          // that: serve the same complete query without the paid force flag.
+          forceDeFiRefresh = quota.allowed;
         }
         const client = await this.getClient(EServiceEndpointEnum.Wallet);
         let total = new BigNumber(0);
@@ -2413,7 +2429,7 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
                         excludeLowValueProtocols: true,
                         sourceCurrencyInfo: usd,
                         targetCurrencyInfo: usd,
-                        isForceRefresh: refresh.force,
+                        isForceRefresh: forceDeFiRefresh,
                         requireComplete: true,
                         abortable: false,
                         timeoutMs: 20_000,
@@ -2423,23 +2439,17 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
                     (response): response is NonNullable<typeof response> =>
                       response !== undefined,
                   );
+                  // Complete queries fail closed inside ServiceDeFi, so only an
+                  // abort or a missing group entry can invalidate the batch here.
+                  if (
+                    signal?.aborted ||
+                    completeResponses.length !== group.length
+                  ) {
+                    return undefined;
+                  }
                   const fields = Object.keys(
                     overviewTotals,
                   ) as (keyof typeof overviewTotals)[];
-                  if (
-                    signal?.aborted ||
-                    completeResponses.length !== group.length ||
-                    completeResponses.some(
-                      (response, index) =>
-                        response.networkId !== group[index].networkId ||
-                        !response.isNetworkQueried ||
-                        fields.some(
-                          (field) =>
-                            !new BigNumber(response.overview[field]).isFinite(),
-                        ),
-                    )
-                  )
-                    return undefined;
                   completeResponses.forEach((response) =>
                     fields.forEach((field) => {
                       overviewTotals[field] = overviewTotals[field].plus(
@@ -2567,13 +2577,26 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
         if (!address) {
           return '0';
         }
-        const snapshot =
+        const forcePerpsRefresh = refresh?.force ?? false;
+        let snapshot =
           await this.backgroundApi.serviceHyperliquid.getHyperliquidPortfolioSnapshot(
             {
               address,
-              ...(refresh?.force ? { force: true, requireFresh: true } : {}),
+              ...(forcePerpsRefresh ? { force: true, requireFresh: true } : {}),
             },
           );
+        if (forcePerpsRefresh && (!snapshot || snapshot.isDegraded)) {
+          // A transient forced fetch failure must not abort the whole explicit
+          // sync while a still-usable cached snapshot exists.
+          try {
+            snapshot =
+              await this.backgroundApi.serviceHyperliquid.getHyperliquidPortfolioSnapshot(
+                { address },
+              );
+          } catch {
+            // Keep the forced result; unavailable data stays unknown.
+          }
+        }
         return snapshot && !snapshot.isDegraded
           ? snapshot.netWorthUsd
           : undefined;

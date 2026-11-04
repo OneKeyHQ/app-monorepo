@@ -43,6 +43,20 @@ import ServiceBase from './ServiceBase';
 
 import type { IDeFiDBStruct } from '../dbs/simple/entity/SimpleDbEntityDeFi';
 
+const DEFI_OVERVIEW_TOTAL_FIELDS = [
+  'totalValue',
+  'totalDebt',
+  'totalReward',
+  'netWorth',
+] as const;
+
+// The per-network overviews persisted below are derived from the position rows,
+// so a complete response must represent its totals with those rows. A network
+// missing from `positions` would otherwise be persisted as a zero balance.
+// Tolerate the backend's float summation/rounding noise, but not a material gap.
+const DEFI_TOTALS_COVERAGE_MIN_TOLERANCE_USD = 0.01;
+const DEFI_TOTALS_COVERAGE_RELATIVE_TOLERANCE = 1e-6;
+
 type IDeFiEnabledNetworksMapState = {
   enabledNetworksMap: Record<string, boolean>;
   isReady: boolean;
@@ -490,6 +504,40 @@ class ServiceDeFi extends ServiceBase {
     );
   }
 
+  // Complete responses must be fully attributable to the position rows we
+  // persist. `unrepresentedValue` is the backend's own signal for value outside
+  // `positions`; otherwise the per-network rows must sum to the response totals.
+  private _isDeFiTotalsCoveredByPositions({
+    networkIds,
+    positions,
+    totals,
+  }: {
+    networkIds: string[];
+    positions: IFetchAccountDeFiPositionsResp['data']['positions'] | undefined;
+    totals: IFetchAccountDeFiPositionsResp['data']['totals'] | undefined;
+  }) {
+    if (!totals) return false;
+    if (!new BigNumber(totals.unrepresentedValue ?? 0).isZero()) {
+      return false;
+    }
+    const splitResults = defiUtils.splitDeFiPositionsByNetwork({
+      networkIds,
+      positions,
+    });
+    return DEFI_OVERVIEW_TOTAL_FIELDS.every((field) => {
+      const total = new BigNumber(totals[field]);
+      if (!total.isFinite()) return false;
+      const coveredTotal = BigNumber.sum(
+        ...splitResults.map((result) => result.overview[field]),
+      );
+      const tolerance = BigNumber.maximum(
+        total.abs().multipliedBy(DEFI_TOTALS_COVERAGE_RELATIVE_TOLERANCE),
+        DEFI_TOTALS_COVERAGE_MIN_TOLERANCE_USD,
+      );
+      return coveredTotal.minus(total).abs().lte(tolerance);
+    });
+  }
+
   private _filterLowValueProtocols({
     protocols,
     protocolMap,
@@ -677,30 +725,30 @@ class ServiceDeFi extends ServiceBase {
 
     if (params.requireComplete) {
       const result = resp.data.data;
-      const totals = result.data?.totals;
-      const fields = [
-        'totalValue',
-        'totalDebt',
-        'totalReward',
-        'netWorth',
-      ] as const;
+      const meta = result.meta;
+      const expectedCurrency = sourceCurrencyInfo?.id;
       if (
         !result.success ||
-        result.meta?.degraded !== false ||
-        !result.meta.requestedNetworkIds?.includes(networkId) ||
-        (Array.isArray(result.meta.queriedNetworkIds) &&
-          !result.meta.queriedNetworkIds.includes(networkId)) ||
-        result.meta.networkIds.some((id) => id !== networkId) ||
-        Object.entries(result.data.positions ?? {}).some(
+        !meta ||
+        meta.degraded !== false ||
+        !meta.requestedNetworkIds?.includes(networkId) ||
+        (Array.isArray(meta.queriedNetworkIds) &&
+          !meta.queriedNetworkIds.includes(networkId)) ||
+        !Array.isArray(meta.networkIds) ||
+        meta.networkIds.some((id) => id !== networkId) ||
+        Object.entries(result.data?.positions ?? {}).some(
           ([id, positions]) => id !== networkId && positions.length > 0,
         ) ||
         this._getNotQueriedNetworkIds({ networkIds: [networkId], resp: result })
           .length > 0 ||
-        !totals ||
-        fields.some((field) => !new BigNumber(totals[field]).isFinite()) ||
-        !new BigNumber(totals.unrepresentedValue ?? 0).isZero() ||
-        (fields.some((field) => !new BigNumber(totals[field]).isZero()) &&
-          !result.data.positions?.[networkId]?.length)
+        (expectedCurrency !== undefined &&
+          meta.currencyInfo?.actual !== undefined &&
+          meta.currencyInfo.actual !== expectedCurrency) ||
+        !this._isDeFiTotalsCoveredByPositions({
+          networkIds: [networkId],
+          positions: result.data?.positions,
+          totals: result.data?.totals,
+        })
       ) {
         throw new OneKeyLocalError('Incomplete DeFi portfolio response');
       }
@@ -786,7 +834,7 @@ class ServiceDeFi extends ServiceBase {
       }),
       { continueOnError: true, concurrency: 2 },
     );
-    return settled.map((r) =>
+    const results = settled.map((r) =>
       r
         ? {
             networkId: r.networkId,
@@ -799,6 +847,12 @@ class ServiceDeFi extends ServiceBase {
           }
         : undefined,
     );
+    // Complete batch queries fail closed: a partially failed per-network
+    // fallback must not look like a successful complete result.
+    if (params.requireComplete && results.some((result) => !result)) {
+      throw new OneKeyLocalError('Incomplete DeFi portfolio response');
+    }
+    return results;
   }
 
   /**
@@ -978,15 +1032,11 @@ class ServiceDeFi extends ServiceBase {
       const meta = body.meta;
       const queriedNetworkIds = meta?.queriedNetworkIds;
       const requested = new Set(networkIds);
-      const fields = [
-        'totalValue',
-        'totalDebt',
-        'totalReward',
-        'netWorth',
-      ] as const;
+      const expectedCurrency = sourceCurrencyInfo?.id;
       if (
         !body.success ||
-        meta?.degraded !== false ||
+        !meta ||
+        meta.degraded !== false ||
         networkIds.some((id) => !meta.requestedNetworkIds?.includes(id)) ||
         (Array.isArray(queriedNetworkIds) &&
           networkIds.some((id) => !queriedNetworkIds.includes(id))) ||
@@ -995,12 +1045,14 @@ class ServiceDeFi extends ServiceBase {
         Object.entries(data?.positions ?? {}).some(
           ([id, positions]) => !requested.has(id) && positions.length > 0,
         ) ||
-        !data?.totals ||
-        fields.some((field) => !new BigNumber(data.totals[field]).isFinite()) ||
-        !new BigNumber(data.totals.unrepresentedValue ?? 0).isZero() ||
-        (fields.some((field) => !new BigNumber(data.totals[field]).isZero()) &&
-          (!networkIds.some((id) => data.positions?.[id]?.length) ||
-            meta.networkIds.some((id) => !data.positions?.[id]?.length)))
+        (expectedCurrency !== undefined &&
+          meta.currencyInfo?.actual !== undefined &&
+          meta.currencyInfo.actual !== expectedCurrency) ||
+        !this._isDeFiTotalsCoveredByPositions({
+          networkIds,
+          positions: data?.positions,
+          totals: data?.totals,
+        })
       ) {
         throw new OneKeyLocalError('Incomplete DeFi portfolio response');
       }
@@ -1048,24 +1100,6 @@ class ServiceDeFi extends ServiceBase {
           overviewRequestRevision: overviewRequest?.revisions.get(networkId),
         };
       });
-
-    if (params.requireComplete) {
-      const fields = [
-        'totalValue',
-        'totalDebt',
-        'totalReward',
-        'netWorth',
-      ] as const;
-      if (
-        results.some((result) =>
-          fields.some(
-            (field) => !new BigNumber(result.overview[field]).isFinite(),
-          ),
-        )
-      ) {
-        throw new OneKeyLocalError('Incomplete DeFi portfolio response');
-      }
-    }
     const persistedResults = results.filter(
       (result) => !notQueried.has(result.networkId),
     );

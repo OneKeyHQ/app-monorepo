@@ -540,9 +540,96 @@ describe('Portfolio v2 category retrieval', () => {
         ...params,
         accountId: 'account-2',
       }),
-    ).resolves.toMatchObject({ failedSources: ['defi'] });
-    expect(mocks.fetchAccountDeFiPositions).toHaveBeenCalledTimes(2);
+    ).resolves.toMatchObject({ defiFiat: '20', failedSources: [] });
+    expect(mocks.fetchAccountDeFiPositions).toHaveBeenCalledTimes(3);
+    expect(mocks.fetchAccountDeFiPositions).toHaveBeenLastCalledWith(
+      expect.objectContaining({ isForceRefresh: false }),
+    );
     expect(mocks.consumeManualDeFiForceRefreshQuota).toHaveBeenCalledTimes(2);
+  });
+
+  test('falls back to a normal complete query when the force quota is denied', async () => {
+    const mocks = prepare();
+    mocks.consumeManualDeFiForceRefreshQuota.mockResolvedValueOnce({
+      allowed: false,
+    });
+    await expect(
+      mocks.service.refreshPortfolioCategories({
+        accountId: 'account-1',
+        indexedAccountId: 'indexed-account-1',
+        networkId: getNetworkIdsMap().onekeyall,
+        force: true,
+      }),
+    ).resolves.toMatchObject({ defiFiat: '20', failedSources: [] });
+    expect(mocks.fetchAccountDeFiPositionsBatch).toHaveBeenCalledWith(
+      expect.objectContaining({
+        isForceRefresh: false,
+        requireComplete: true,
+      }),
+    );
+    expect(mocks.fetchAccountDeFiPositions).toHaveBeenLastCalledWith(
+      expect.objectContaining({ isForceRefresh: false }),
+    );
+    expect(mocks.consumeManualDeFiForceRefreshQuota).toHaveBeenCalledTimes(1);
+  });
+
+  test('keeps the force cooldown when the query shape changes', async () => {
+    const now = Date.now();
+    const clock = jest.spyOn(Date, 'now').mockReturnValue(now);
+    try {
+      const mocks = prepare();
+      const params = {
+        accountId: 'account-1',
+        indexedAccountId: 'indexed-account-1',
+        networkId: getNetworkIdsMap().onekeyall,
+        force: true,
+      };
+      await mocks.service.refreshPortfolioCategories(params);
+      clock.mockReturnValue(now + 60_000);
+      mocks.getDeFiEnabledNetworksMapState.mockResolvedValue({
+        isReady: true,
+        enabledNetworksMap: { 'evm--1': true, 'btc--0': true },
+      });
+      mocks.getAllNetworksState.mockResolvedValue({
+        enabledNetworks: { 'evm--1': true, 'btc--0': true },
+        disabledNetworks: {},
+      });
+      mocks.getAllNetworks.mockResolvedValue({
+        networks: [
+          { id: 'evm--1', isTestnet: false },
+          { id: 'btc--0', isTestnet: false },
+        ],
+      });
+      await expect(
+        mocks.service.refreshPortfolioCategories(params),
+      ).resolves.toMatchObject({ failedSources: [] });
+      expect(mocks.fetchAccountDeFiPositions).toHaveBeenCalledTimes(2);
+      expect(mocks.fetchAccountDeFiPositions).toHaveBeenLastCalledWith(
+        expect.objectContaining({ isForceRefresh: false }),
+      );
+      expect(mocks.consumeManualDeFiForceRefreshQuota).toHaveBeenCalledTimes(1);
+    } finally {
+      clock.mockRestore();
+    }
+  });
+
+  test('uses a usable cached Perps snapshot when the forced fetch fails', async () => {
+    const mocks = prepare();
+    mocks.getHyperliquidPortfolioSnapshot
+      .mockResolvedValueOnce(undefined)
+      .mockResolvedValue({ netWorthUsd: '30', isDegraded: false });
+    await expect(
+      mocks.service.refreshPortfolioCategories({
+        accountId: 'account-1',
+        indexedAccountId: 'indexed-account-1',
+        networkId: getNetworkIdsMap().onekeyall,
+        force: true,
+      }),
+    ).resolves.toMatchObject({ perpsFiat: '30', failedSources: [] });
+    expect(mocks.getHyperliquidPortfolioSnapshot).toHaveBeenCalledTimes(2);
+    expect(mocks.getHyperliquidPortfolioSnapshot).toHaveBeenLastCalledWith({
+      address: '0x3333',
+    });
   });
 
   test('also bounds Perps-only forced refreshes without spending a DeFi quota', async () => {
