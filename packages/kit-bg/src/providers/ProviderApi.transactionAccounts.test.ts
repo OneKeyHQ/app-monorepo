@@ -8,6 +8,7 @@ import {
 } from '@aptos-labs/ts-sdk';
 import {
   Keypair,
+  Message,
   SystemProgram,
   Transaction,
   TransactionMessage,
@@ -17,6 +18,8 @@ import sdkAlgo from 'algosdk';
 import bs58 from 'bs58';
 import { utils as nearUtils, transactions } from 'near-api-js';
 import { TronWeb, utils as tronUtils } from 'tronweb';
+
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
 import ProviderApiAlgo from './ProviderApiAlgo';
 import ProviderApiAptos from './ProviderApiAptos';
@@ -82,9 +85,18 @@ describe('Solana transaction signers', () => {
   const a = Keypair.generate().publicKey;
   const b = Keypair.generate().publicKey;
   const blockhash = Keypair.generate().publicKey.toBase58();
-  function encoded(signer = a, versioned = false, cosigner = false) {
+  function encoded(
+    signer = a,
+    versioned = false,
+    cosigner = false,
+    recipient = b,
+  ) {
     const instructions = [
-      SystemProgram.transfer({ fromPubkey: signer, toPubkey: b, lamports: 1 }),
+      SystemProgram.transfer({
+        fromPubkey: signer,
+        toPubkey: recipient,
+        lamports: 1,
+      }),
     ];
     if (cosigner)
       instructions.push(
@@ -178,6 +190,62 @@ describe('Solana transaction signers', () => {
       h.openSignAndSendTransactionModal.mock.calls.map(([p]) => p.accountId),
     ).toEqual(['account-a', 'account-a']);
   });
+
+  describe.each(['legacy', 'v0'] as const)(
+    '%s native message fields',
+    (format) => {
+      const cases = (
+        [
+          'signTransaction',
+          'signAllTransactions',
+          'signAndSendTransaction',
+        ] as const
+      ).flatMap((method) =>
+        (['signer', 'cosigner', 'recipient'] as const).map((role) => ({
+          method,
+          role,
+        })),
+      );
+      it.each(cases)('$method with A as $role', async ({ method, role }) => {
+        const h = setup(a.toBase58());
+        const tx = encoded(
+          role === 'signer' ? a : b,
+          format === 'v0',
+          role === 'cosigner',
+          role === 'recipient' ? a : b,
+        );
+        // Exercise the native legacy interface without its versioned-message compatibility alias.
+        const alias =
+          format === 'legacy'
+            ? jest
+                .spyOn(Message.prototype, 'staticAccountKeys', 'get')
+                .mockImplementation(() => {
+                  throw new OneKeyLocalError(
+                    'Legacy compatibility alias accessed',
+                  );
+                })
+            : undefined;
+        try {
+          const provider = new ProviderApiSolana({
+            backgroundApi: h.backgroundApi,
+          });
+          const result =
+            method === 'signAllTransactions'
+              ? provider.signAllTransactions(h.request, { message: [tx, tx] })
+              : provider[method](h.request, { message: tx });
+          if (role === 'recipient') {
+            await expect(result).rejects.toMatchObject({ code: 4100 });
+            expect(h.openSignAndSendTransactionModal).not.toHaveBeenCalled();
+          } else {
+            await expect(result).rejects.toBe(approval);
+            expect(h.openSignAndSendTransactionModal).toHaveBeenCalledTimes(1);
+          }
+        } finally {
+          alias?.mockRestore();
+        }
+      });
+    },
+  );
 });
 
 describe('NEAR signer and access key', () => {

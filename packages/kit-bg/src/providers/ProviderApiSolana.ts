@@ -201,10 +201,11 @@ class ProviderApiSolana extends ProviderApiBase {
       transaction instanceof VersionedTransaction
         ? transaction.message
         : transaction.compileMessage();
-    const signers = message.staticAccountKeys.slice(
-      0,
-      message.header.numRequiredSignatures,
-    );
+    const accountKeys =
+      'accountKeys' in message
+        ? message.accountKeys
+        : message.staticAccountKeys;
+    const signers = accountKeys.slice(0, message.header.numRequiredSignatures);
     if (!signers.some((key) => key.toBase58() === account.address)) {
       throw web3Errors.provider.unauthorized();
     }
