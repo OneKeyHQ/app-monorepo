@@ -674,6 +674,8 @@ describe('HomePageView complete header authority', () => {
     isNativeIOS: false,
     isNativeIOS26Plus: false,
   };
+  let externalPerps = false;
+  const switchTab = jest.fn();
   let walletBackedUp = true;
   let accountId = 'test-account';
   let validationRequired = false;
@@ -752,6 +754,13 @@ describe('HomePageView complete header authority', () => {
         '@onekeyhq/shared/src/locale': {
           ETranslations: new Proxy({}, { get: (_target, key) => key }),
         },
+        '@onekeyhq/shared/src/logger/scopes/perp/perpPageSource': {
+          setPerpPageEnterSource: noop,
+          EPerpPageEnterSource: { Home: 'Home' },
+        },
+        '@onekeyhq/shared/src/routes': {
+          ETabRoutes: { Home: 'Home', WebviewPerpTrade: 'WebviewPerpTrade' },
+        },
         '@onekeyhq/shared/types/wallet': { EHomeWalletTab },
         '@onekeyhq/shared/src/eventBus/appEventBus': {
           EAppEventBusNames: {},
@@ -778,7 +787,7 @@ describe('HomePageView complete header authority', () => {
           __esModule: true,
         },
         '../../../hooks/useAppNavigation': {
-          default: () => ({}),
+          default: () => ({ switchTab }),
           __esModule: true,
         },
         '../../../hooks/usePromiseResult': {
@@ -815,7 +824,10 @@ describe('HomePageView complete header authority', () => {
         '../../../components/AccountSelector/hooks/useUnifiedNetworkSelectorTrigger':
           { useUnifiedNetworkSelectorTrigger: () => ({}) },
         '../hooks/useHomeWalletTabSupport': {
-          useHomeWalletTabSupport: () => ({}),
+          useHomeWalletTabSupport: () => ({
+            isPerpsSupported: externalPerps,
+            perpTabShowWeb: externalPerps,
+          }),
         },
         '../components/HomeStickyHeaderContext': {
           HomeStickyHeaderContext: React.createContext({}),
@@ -937,6 +949,8 @@ describe('HomePageView complete header authority', () => {
       isNativeIOS26Plus: false,
     });
     walletBackedUp = true;
+    externalPerps = false;
+    switchTab.mockClear();
     accountId = 'test-account';
     validationRequired = false;
     softwareAccountDisabled = false;
@@ -1038,6 +1052,56 @@ describe('HomePageView complete header authority', () => {
       } as Parameters<NonNullable<typeof props.onNativeTabPress>>[0]),
     );
     expect(mockSetPage).not.toHaveBeenCalled();
+  });
+
+  it('keeps external Perps intent out of pager commands and maps later tabs by key', () => {
+    externalPerps = true;
+    const screen = renderParent();
+    const props = () =>
+      screen.UNSAFE_getByType(HomeNativePager).props as React.ComponentProps<
+        typeof HomeNativePager
+      >;
+    expect(props().nativeTabBar?.items.map((item) => item.key)).toEqual([
+      EHomeWalletTab.Portfolio,
+      EHomeWalletTab.Perps,
+      EHomeWalletTab.History,
+    ]);
+    expect(props().tabs.map((tab) => tab.id)).toEqual([
+      EHomeWalletTab.Portfolio,
+      EHomeWalletTab.History,
+    ]);
+    mockSetPage.mockClear();
+    act(() =>
+      props().onNativeTabPress?.({
+        nativeEvent: { position: 1, key: EHomeWalletTab.Perps },
+      } as Parameters<
+        NonNullable<ReturnType<typeof props>['onNativeTabPress']>
+      >[0]),
+    );
+    expect(switchTab).toHaveBeenCalledTimes(1);
+    expect(switchTab).toHaveBeenCalledWith('WebviewPerpTrade');
+    expect(mockSetPage).not.toHaveBeenCalled();
+    expect(props().nativeTabBar?.selectedKey).toBe(EHomeWalletTab.Portfolio);
+    act(() =>
+      props().onNativeTabPress?.({
+        nativeEvent: { position: 2, key: EHomeWalletTab.History },
+      } as Parameters<
+        NonNullable<ReturnType<typeof props>['onNativeTabPress']>
+      >[0]),
+    );
+    expect(mockSetPage).toHaveBeenCalledTimes(1);
+    expect(mockSetPage).toHaveBeenCalledWith(1);
+    act(() =>
+      mockNativeEvents.onPageSelected?.({ nativeEvent: { position: 1 } }),
+    );
+    externalPerps = false;
+    screen.rerender(<HomePage sceneName={EAccountSelectorSceneName.home} />);
+    expect(props().nativeTabBar?.items.map((item) => item.key)).toEqual([
+      EHomeWalletTab.Portfolio,
+      EHomeWalletTab.History,
+    ]);
+    expect(props().nativeTabBar?.selectedKey).toBe(EHomeWalletTab.History);
+    expect(mockSetPage).toHaveBeenCalledTimes(1);
   });
 
   it('does not replay an old toolbar request after tab or account round trips', () => {
