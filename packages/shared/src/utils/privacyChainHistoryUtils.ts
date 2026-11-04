@@ -172,15 +172,20 @@ export function splitPrivacyChainHistoryTxsBySide(
 ): IPrivacyChainHistorySideRow[] {
   return txs.flatMap((tx): IPrivacyChainHistorySideRow[] => {
     const poolIds = tx.privacyChainHistoryPoolIds ?? [];
-    const privatePoolId = poolIds.find(
-      (poolId) => poolId !== PRIVACY_CHAIN_PUBLIC_POOL_ID,
-    );
-    if (
-      privatePoolId === undefined ||
-      !poolIds.includes(PRIVACY_CHAIN_PUBLIC_POOL_ID)
-    ) {
+    if (!poolIds.includes(PRIVACY_CHAIN_PUBLIC_POOL_ID)) {
       return [{ tx }];
     }
+    // Pool codes are upstream's and grow with each newer pool; the newest one with a delta is the
+    // private pool the app shows (Zcash: Ironwood over Orchard and Sapling).
+    const privatePoolIds = poolIds.filter(
+      (poolId) =>
+        poolId !== PRIVACY_CHAIN_PUBLIC_POOL_ID &&
+        tx.privacyChainHistoryPoolDeltas?.[String(poolId)] !== undefined,
+    );
+    if (!privatePoolIds.length) {
+      return [{ tx }];
+    }
+    const privatePoolId = Math.max(...privatePoolIds);
     const privateTx = projectPrivacyChainHistoryTxToPool({
       tx,
       selectedPoolId: privatePoolId,

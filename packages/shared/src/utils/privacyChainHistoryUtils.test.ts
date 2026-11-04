@@ -670,6 +670,27 @@ describe('splitPrivacyChainHistoryTxsBySide', () => {
     ]);
   });
 
+  // A tx can also touch an older shielded pool; the private row is the shown pool's.
+  it('splits the private row from the newest pool with a delta', () => {
+    const withOlderPool = (deltas: Record<string, string>) =>
+      ({
+        ...withdraw,
+        privacyChainHistoryPoolIds: [0, 2, 4],
+        privacyChainHistoryPoolDeltas: deltas,
+      }) as IAccountHistoryTx;
+    const cases: Record<string, string>[] = [
+      { '0': '0.028112', '2': '0.5', '4': '-0.028212' },
+      { '0': '0.028112', '4': '-0.028212' },
+    ];
+    for (const deltas of cases) {
+      const [, privateRow, ...rest] = splitPrivacyChainHistoryTxsBySide([
+        withOlderPool(deltas),
+      ]);
+      expect(rest).toEqual([]);
+      expect(privateRow).toMatchObject({ poolId: 4, tx: { id: 'w:4' } });
+    }
+  });
+
   it('keeps a row it cannot show from the private side as one row', () => {
     const publicOnlyDelta = {
       ...withdraw,
