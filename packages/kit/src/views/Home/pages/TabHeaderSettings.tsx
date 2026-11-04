@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { memo, useCallback, useEffect, useMemo, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -59,6 +59,9 @@ function useNativeSettingsToolbar(
   toolbar?: IHomeNativeToolbar,
 ) {
   const [open, setOpen] = useState(false);
+  const consumedPress = useRef<CollapsiblePagerToolbarPress | undefined>(
+    undefined,
+  );
   const intl = useIntl();
   const onConfig = toolbar?.onConfig;
   const title = intl.formatMessage({ id: ETranslations.global_filter });
@@ -77,11 +80,19 @@ function useNativeSettingsToolbar(
           }
         : undefined,
     );
-    return () => onConfig?.(key, undefined);
   }, [enabled, selected, title, key, onConfig]);
+  useEffect(() => () => onConfig?.(key, undefined), [key, onConfig]);
   useEffect(() => {
-    if (toolbar?.press?.key === key && enabled) setOpen(true);
-  }, [toolbar?.press, key, enabled]);
+    if (!toolbar) return;
+    const press = toolbar.press;
+    if (!enabled || press?.key !== key) {
+      if (press) consumedPress.current = press;
+      setOpen(false);
+    } else if (consumedPress.current !== press) {
+      consumedPress.current = press;
+      setOpen(true);
+    }
+  }, [toolbar, key, enabled]);
   return toolbar
     ? {
         open,
@@ -483,6 +494,14 @@ function BasicTabHeaderSettings({
   );
 
   const content = useMemo(() => {
+    if (nativeToolbar) {
+      return (
+        <>
+          <TokenListSettings nativeToolbar={nativeToolbar} />
+          <TxHistorySettings nativeToolbar={nativeToolbar} />
+        </>
+      );
+    }
     switch (focusedTab) {
       case portfolioName:
         return <TokenListSettings nativeToolbar={nativeToolbar} />;
