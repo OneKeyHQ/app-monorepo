@@ -507,9 +507,10 @@ describe('hardware Cloud SDK adapter', () => {
     }
   });
 
-  test('extension generation stays blocked while its embedded SDK lacks log redaction', async () => {
-    const { backgroundApi, sdk } = buildBackgroundApi();
+  test('extension generation uses the protected standard-wallet session', async () => {
+    const { backgroundApi, sdk, hardware } = buildBackgroundApi();
     const extension = jest.replaceProperty(platformEnv, 'isExtension', true);
+    const desktop = jest.replaceProperty(platformEnv, 'isDesktop', false);
     try {
       await expect(
         generateHardwareCloudSyncCredentialWithSdk({
@@ -518,12 +519,16 @@ describe('hardware Cloud SDK adapter', () => {
           connectId: 'test-connect',
           isCurrent: () => true,
         }),
-      ).rejects.toMatchObject({
-        key: ETranslations.cloud_sync_hardware_unavailable__msg,
+      ).resolves.toEqual(
+        expect.objectContaining({ credential: expect.any(Object) }),
+      );
+      expect(sdk.openWalletSession).toHaveBeenCalledWith('test-connect', {
+        mode: 'standard',
       });
-      expect(sdk.openWalletSession).not.toHaveBeenCalled();
+      expect(hardware.runWithSensitiveCloudKeyOperation).toHaveBeenCalled();
     } finally {
       extension.restore();
+      desktop.restore();
     }
   });
 

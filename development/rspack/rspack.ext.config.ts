@@ -37,6 +37,7 @@ const entries = {
   uiPasskey: 'ui-passkey',
   background: 'background',
   offscreen: 'offscreen',
+  hardwareSdkIframe: 'hardware-sdk-iframe',
   contentScript: 'content-script',
 } as const;
 
@@ -306,6 +307,30 @@ function createCompilerConfig({
     baseConfig,
     environmentConfig,
     createOutputConfig({ basePath, compilerName }),
+    {
+      resolve: {
+        alias: {
+          // Rebuild both sides of the iframe bridge with signature redaction.
+          '@onekeyfe/hd-web-sdk$':
+            require.resolve('@onekeyfe/hd-web-sdk/src/index.ts'),
+          '@onekeyfe/hd-core$': require.resolve('@onekeyfe/hd-core'),
+        },
+      },
+      module: {
+        rules: [
+          {
+            test: /node_modules[\\/].*@onekeyfe[\\/]hd-web-sdk[\\/]src[\\/].*\.ts$/,
+            loader: 'builtin:swc-loader',
+            options: {
+              jsc: {
+                parser: { syntax: 'typescript' },
+                target: 'es2022',
+              },
+            },
+          },
+        ],
+      },
+    },
   );
   config.name = compilerName;
   config.entry = entry;
@@ -412,11 +437,24 @@ function createPagesConfig(basePath: string): RspackOptions {
       [entries.uiPopup]: path.join(basePath, 'src/entry/ui-popup.tsx'),
       [entries.uiPasskey]: path.join(basePath, 'src/entry/ui-passkey.tsx'),
       [entries.offscreen]: path.join(basePath, 'src/entry/offscreen.ts'),
+      [entries.hardwareSdkIframe]: path.join(
+        basePath,
+        'src/entry/hardware-sdk-iframe.js',
+      ),
     },
     plugins: [
       ...uiHtmlPlugins,
       createHtmlPlugin({ name: entries.uiPasskey, basePath }),
       createHtmlPlugin({ name: entries.offscreen, basePath }),
+      new HtmlWebpackPlugin({
+        filename: 'hardware-sdk/iframe.html',
+        chunks: [entries.hardwareSdkIframe],
+        templateContent: `<!doctype html><html><head><meta charset="utf-8"><title>OneKey hardware SDK</title>${
+          isDev ? '' : '<script src="/release-meta.js"></script>'
+        }</head><body></body></html>`,
+        inject: 'body',
+        minify: !isDev,
+      }) as unknown as RspackPluginInstance,
       createCopyPlugin(basePath),
       ...(!isDev ? [createExtensionBootAssetsPlugin()] : []),
     ],
