@@ -5640,12 +5640,19 @@ function SendAmountInputContainer() {
       {renderFooterActions}
     </>
   );
+  // Keep the direct footer until a private mode reset completes if support
+  // changes while the page is open.
+  const useDirectFooter =
+    platformEnv.isNativeAndroid &&
+    (showPrivateSendModeSwitch || isPrivateSendMode);
 
   return (
     <Page
       safeAreaEnabled
       directFooter={
-        platformEnv.isNativeAndroid ? { children: footerContent } : undefined
+        platformEnv.isNativeAndroid
+          ? { enabled: useDirectFooter, children: footerContent }
+          : undefined
       }
     >
       <Page.Header
@@ -5658,9 +5665,7 @@ function SendAmountInputContainer() {
 
       {renderPageBody}
 
-      {platformEnv.isNativeAndroid ? null : (
-        <Page.Footer>{footerContent}</Page.Footer>
-      )}
+      {useDirectFooter ? null : <Page.Footer>{footerContent}</Page.Footer>}
     </Page>
   );
 }
