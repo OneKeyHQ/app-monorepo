@@ -742,19 +742,34 @@ describe('Portfolio v2 category retrieval', () => {
     });
   });
 
-  test('keeps a missing Perps account incomplete instead of publishing zero', async () => {
+  test('returns zero for the confirmed missing Perps network account', async () => {
     const mocks = prepare();
     mocks.getNetworkAccount.mockRejectedValue(
-      new Error('indexedAccounts not found: indexed-account-1'),
+      new OneKeyLocalError('indexedAccounts not found: indexed-account-1'),
     );
     await expect(refreshCategoryFiat(mocks)).resolves.toMatchObject({
       defiFiat: '20',
       deFiSource: 'live',
-      perpsFiat: undefined,
-      failedSources: ['perps'],
+      perpsFiat: '0',
+      failedSources: [],
     });
     expect(mocks.getHyperliquidPortfolioSnapshot).not.toHaveBeenCalled();
   });
+
+  test.each([
+    new Error('indexedAccounts not found: indexed-account-1'),
+    new OneKeyLocalError('indexedAccounts not found: another-account'),
+  ])(
+    'does not infer zero from an unrelated missing-account error: %s',
+    async (error) => {
+      const mocks = prepare();
+      mocks.getNetworkAccount.mockRejectedValue(error);
+      await expect(refreshCategoryFiat(mocks)).resolves.toMatchObject({
+        perpsFiat: undefined,
+        failedSources: ['perps'],
+      });
+    },
+  );
 
   test('reports a perps infrastructure failure as a failed source', async () => {
     const mocks = prepare();

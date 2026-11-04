@@ -516,6 +516,7 @@ function TokenListBlock({
         scope: string;
         promise: Promise<boolean>;
         requestId: number;
+        force: boolean;
       }
     | undefined
   >(undefined);
@@ -3426,7 +3427,8 @@ function TokenListBlock({
         return false;
       const scope = portfolioCategoryScope;
       const pending = portfolioCategoryTaskRef.current;
-      if (pending?.scope === scope) return pending.promise;
+      if (pending?.scope === scope && (!refreshSpot || pending.force))
+        return pending.promise;
       portfolioCategoryRequestIdRef.current += 1;
       const requestId = portfolioCategoryRequestIdRef.current;
       setPortfolioCategoryRefresh((previous) => ({
@@ -3464,7 +3466,7 @@ function TokenListBlock({
                 accountId: account.id,
                 indexedAccountId: indexedAccount.id,
                 networkId: network.id,
-                force: true,
+                force: refreshSpot,
                 sources: ['defi', 'perps'],
               },
             ),
@@ -3510,7 +3512,12 @@ function TokenListBlock({
             portfolioCategoryTaskRef.current = undefined;
         }
       })();
-      portfolioCategoryTaskRef.current = { scope, promise, requestId };
+      portfolioCategoryTaskRef.current = {
+        scope,
+        promise,
+        requestId,
+        force: refreshSpot,
+      };
       return promise;
     },
     [
@@ -3677,9 +3684,12 @@ function TokenListBlock({
     ) {
       // Spot already completed this round. Fetch the other categories once,
       // then wait for Home to commit their amounts before publishing it.
-      void refreshPortfolioCategories(false).then((complete) => {
+      const refresh = refreshPortfolioCategories(false);
+      const requestId = portfolioCategoryRequestIdRef.current;
+      void refresh.then((complete) => {
         if (
           !complete &&
+          portfolioCategoryRequestIdRef.current === requestId &&
           automaticPortfolioRefreshRef.current?.payload ===
             silentPortfolioPayload
         )
@@ -3690,7 +3700,7 @@ function TokenListBlock({
       });
       automaticPortfolioRefreshRef.current = {
         payload: silentPortfolioPayload,
-        requestId: portfolioCategoryRequestIdRef.current,
+        requestId,
       };
       return;
     }
@@ -3822,6 +3832,10 @@ function TokenListBlock({
     clearPortfolioSyncFallbackTimer();
     portfolioSyncAllNetworksFallbackTimerRef.current = setTimeout(() => {
       if (getCurrentPortfolioSyncRequest()?.id !== request.id) return;
+      setPortfolioCategoryRefresh((current) => ({
+        ...current,
+        retry: () => manualPortfolioSyncRef.current(),
+      }));
       finishPortfolioSyncRequest(request.id);
       errorToastUtils.showToastOfError(
         new OneKeyLocalError(

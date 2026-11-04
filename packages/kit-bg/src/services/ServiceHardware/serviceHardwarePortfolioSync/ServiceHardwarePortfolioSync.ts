@@ -29,6 +29,7 @@ import {
   EAccountSelectorSceneName,
   EHardwareTransportType,
 } from '@onekeyhq/shared/types';
+import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 import {
   EHardwareCallContext,
   EHardwareVendor,
@@ -2373,13 +2374,24 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
         if (!deriveType) {
           return undefined;
         }
-        const account =
-          await this.backgroundApi.serviceAccount.getNetworkAccount({
+        let account: INetworkAccount;
+        try {
+          account = await this.backgroundApi.serviceAccount.getNetworkAccount({
             accountId: undefined,
             indexedAccountId,
             deriveType,
             networkId: PERPS_NETWORK_ID,
           });
+        } catch (error) {
+          // Only this account lookup's confirmed absence is an empty category.
+          if (
+            error instanceof OneKeyLocalError &&
+            error.message === `indexedAccounts not found: ${indexedAccountId}`
+          ) {
+            return '0';
+          }
+          throw error;
+        }
         const address =
           account?.addressDetail?.normalizedAddress || account?.address;
         if (!address) {

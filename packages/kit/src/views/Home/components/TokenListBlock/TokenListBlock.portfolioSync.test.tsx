@@ -647,6 +647,32 @@ describe('Home automatic Portfolio sync', () => {
     await waitFor(() => expect(mockSyncPortfolio).toHaveBeenCalledTimes(1));
   });
 
+  it('can retry the whole sync after the spot refresh times out', async () => {
+    jest.useFakeTimers();
+    try {
+      mockPublishRefreshedHeader = true;
+      mockFetchTokens.mockImplementationOnce(
+        () => new Promise(() => undefined),
+      );
+      render(<TokenListBlock />);
+      const request = mockUpdateSyncUi.mock.calls.at(-1)?.[0]
+        .request as () => void;
+      await act(async () => request());
+      await act(async () => {
+        jest.advanceTimersByTime(30_000);
+      });
+      expect(mockCategoryState.isRefreshing).toBe(false);
+      expect(mockCategoryState.retry).toEqual(expect.any(Function));
+      expect(mockSyncPortfolio).not.toHaveBeenCalled();
+      await act(async () => mockCategoryState.retry?.());
+      expect(mockFetchTokens).toHaveBeenCalledTimes(2);
+      expect(mockRefreshCategories).toHaveBeenCalledTimes(2);
+      expect(mockSyncPortfolio).toHaveBeenCalledTimes(1);
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
   it('keeps the previous total and does not upload when spot refresh fails', async () => {
     mockPublishRefreshedHeader = true;
     mockHomeDisplay = {
@@ -729,7 +755,7 @@ describe('Home automatic Portfolio sync', () => {
     await refresh();
     expect(mockRefreshCategories).toHaveBeenCalledTimes(1);
     expect(mockRefreshCategories).toHaveBeenCalledWith(
-      expect.objectContaining({ force: true, sources: ['defi', 'perps'] }),
+      expect.objectContaining({ force: false, sources: ['defi', 'perps'] }),
     );
     expect(mockNotifySettled).not.toHaveBeenCalled();
     await act(async () =>
@@ -764,6 +790,45 @@ describe('Home automatic Portfolio sync', () => {
         ],
       }),
     );
+  });
+
+  it('forces an explicit sync instead of reusing a routine category request', async () => {
+    mockPublishRefreshedHeader = true;
+    let resolveAutomatic: (
+      result: IPortfolioCategoryRefreshResult,
+    ) => void = () => undefined;
+    mockRefreshCategories.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          resolveAutomatic = resolve;
+        }),
+    );
+    render(<TokenListBlock />);
+    await refresh();
+    expect(mockRefreshCategories).toHaveBeenLastCalledWith(
+      expect.objectContaining({ force: false }),
+    );
+    const request = mockUpdateSyncUi.mock.calls.at(-1)?.[0]
+      .request as () => void;
+    await act(async () => request());
+    expect(mockRefreshCategories).toHaveBeenCalledTimes(2);
+    expect(mockRefreshCategories).toHaveBeenLastCalledWith(
+      expect.objectContaining({ force: true }),
+    );
+    expect(mockFetchTokens).toHaveBeenCalledTimes(2);
+    expect(mockSyncPortfolio).toHaveBeenCalledTimes(1);
+    await act(async () =>
+      resolveAutomatic({
+        defiFiat: '999',
+        perpsFiat: '999',
+        deFiSource: 'live',
+        fetchedAt: Date.now(),
+        failedSources: [],
+      }),
+    );
+    expect(mockCategoryState.data?.defiFiat).toBe('0');
+    expect(mockCategoryState.retry).toBeUndefined();
+    expect(mockHomeDisplay.totalFiatUsd).toBe('125');
   });
 
   it.each(['defi', 'perps'] as const)(
