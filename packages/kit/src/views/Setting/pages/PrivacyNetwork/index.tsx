@@ -405,8 +405,9 @@ function PrivacyChainSettingsProgress({
     networkId,
     syncedBelowBlocks: localWalletSettings?.syncedBelowBlocks ?? 1,
     blockTime: localWalletSettings,
+    // Only accounts that scan: a server-disabled one never gets a position.
     accountIds: accounts
-      .filter((account) => account.enabled)
+      .filter((account) => account.enabled && !account.privacyDisabled)
       .map((account) => account.accountId),
     accountPaused:
       accounts.length > 0 && accounts.every((account) => account.paused),

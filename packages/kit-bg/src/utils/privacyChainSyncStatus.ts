@@ -58,7 +58,8 @@ function getScanStatus({
 }: {
   scan: IPrivacyChainScanState;
   networkId: string;
-  progresses: ILocalWalletSyncProgress[];
+  // An undefined entry is an expected account with no position yet: unfinished work.
+  progresses: (ILocalWalletSyncProgress | undefined)[];
   preparing: boolean;
   syncedBelowBlocks: number;
   // Scales `syncedBelowBlocks` across a block interval change.
@@ -163,12 +164,14 @@ export function getLocalWalletNetworkSyncStatus({
   const isIncluded = (key: string) =>
     key.startsWith(prefix) &&
     (!accountIds || accountIds.includes(key.slice(prefix.length)));
+  // Given accounts all count, so one without a position yet keeps the chain from reading synced.
+  const keys = accountIds
+    ? accountIds.map((accountId) => `${prefix}${accountId}`)
+    : Object.keys(scan.progress).filter(isIncluded);
   return getScanStatus({
     scan,
     networkId,
-    progresses: Object.keys(scan.progress)
-      .filter(isIncluded)
-      .map((key) => scan.progress[key]),
+    progresses: keys.map((key) => scan.progress[key]),
     preparing: scan.preparingAccountKeys.some(isIncluded),
     syncedBelowBlocks,
     blockTime,

@@ -648,7 +648,8 @@ describe('Privacy network settings for a temp wallet', () => {
     });
     expect(mockDisable).not.toHaveBeenCalled();
     mockPausedNetworks = [];
-    delete mockProgress['zec--0:hd-1--1'];
+    // Every scanning account has a position; one without would keep the chain unsynced.
+    mockProgress['zec--0:hd-1--1'] = complete;
     delete mockProgress['zec--0:waiting'];
     // Synced by blocks left, whatever the pace; with scanned and chain heights, never a bare "synced".
     for (const boosting of [['zec--0'], []]) {

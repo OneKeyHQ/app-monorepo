@@ -220,6 +220,14 @@ describe('getLocalWalletNetworkSyncStatus', () => {
     expect(view.status).toBe('syncing');
     expect(view.progress).toEqual(position(0));
   });
+
+  // A publish can clear an account's Preparing before it has a position.
+  it('stays unsynced while a given account has no position at all', () => {
+    const scan = scanState({ progress: { [`${networkId}:a`]: position(0) } });
+    expect(networkStatus(scan, ['a', 'b']).status).toBe('syncing');
+    expect(networkStatus(scan, ['a']).status).toBe('synced');
+    expect(networkStatus(scan).status).toBe('synced');
+  });
 });
 
 describe('synced window across a block interval change', () => {
