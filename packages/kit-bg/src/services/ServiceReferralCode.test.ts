@@ -1,5 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return, @typescript-eslint/unbound-method */
 
+import axios from 'axios';
+
 import { appApiClient } from '@onekeyhq/shared/src/appApiClient/appApiClient';
 import { buildLegacyWalletCreatedAtFallback } from '@onekeyhq/shared/src/referralCode/creationRecordUtils';
 import {
@@ -114,6 +116,9 @@ function createService() {
     },
     serviceNetwork: {
       getGlobalDeriveTypeOfNetwork: jest.fn().mockResolvedValue('default'),
+    },
+    serviceSetting: {
+      getCurrentLocale: jest.fn(async () => 'en'),
     },
     serviceHardware: {},
   };
@@ -494,7 +499,32 @@ describe('ServiceReferralCode Swap rebate API', () => {
 
     expect(getClientSpy).toHaveBeenCalledWith(EServiceEndpointEnum.Rebate);
     expect(getOneKeyIdClientSpy).not.toHaveBeenCalled();
-    expect(get).toHaveBeenCalledWith('/rebate/v1/invite/reward-scopes');
+    expect(get).toHaveBeenCalledWith('/rebate/v1/invite/reward-scopes', {
+      headers: { 'x-onekey-request-locale': 'en' },
+    });
+  });
+
+  test('caches reward scopes separately for each request locale', async () => {
+    const { service, backgroundApi } = createService();
+    const english = [{ subject: 'Swap', description: 'en-scope' }];
+    const chinese = [{ subject: 'Swap', description: 'zh-CN-scope' }];
+    const client = axios.create();
+    const get = jest
+      .spyOn(client, 'get')
+      .mockResolvedValueOnce({ data: { data: { rewardScopes: english } } })
+      .mockResolvedValueOnce({ data: { data: { rewardScopes: chinese } } });
+    jest.spyOn(service, 'getClient').mockResolvedValue(client);
+
+    await expect(service.getInviteRewardScopes()).resolves.toBe(english);
+    backgroundApi.serviceSetting.getCurrentLocale.mockResolvedValue('zh-CN');
+    await expect(service.getInviteRewardScopes()).resolves.toBe(chinese);
+    backgroundApi.serviceSetting.getCurrentLocale.mockResolvedValue('en');
+    await expect(service.getInviteRewardScopes()).resolves.toBe(english);
+
+    expect(get).toHaveBeenCalledTimes(2);
+    expect(get).toHaveBeenNthCalledWith(2, '/rebate/v1/invite/reward-scopes', {
+      headers: { 'x-onekey-request-locale': 'zh-cn' },
+    });
   });
 
   test('shares one reward scopes request and retries after a failure', async () => {

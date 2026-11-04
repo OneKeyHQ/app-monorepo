@@ -1,4 +1,5 @@
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { useLocaleVariant } from '@onekeyhq/kit/src/hooks/useLocaleVariant';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import type { IInviteRewardScope } from '@onekeyhq/shared/src/referralCode/type';
 
@@ -10,14 +11,19 @@ const EMPTY_SCOPES: IInviteRewardScope[] = [];
  * hint, shown only when present. The service caches it.
  */
 export function useInviteRewardScopes(): IInviteRewardScope[] {
+  const locale = useLocaleVariant();
   const { result } = usePromiseResult(
-    () => backgroundApiProxy.serviceReferralCode.getInviteRewardScopes(),
-    [],
+    async () => ({
+      locale,
+      scopes:
+        await backgroundApiProxy.serviceReferralCode.getInviteRewardScopes(),
+    }),
+    [locale],
     {
-      initResult: EMPTY_SCOPES,
       checkIsFocused: false,
       keepResultIfError: true,
     },
   );
-  return result;
+  // Never paint the previous language while the new request is pending or fails.
+  return result?.locale === locale ? result.scopes : EMPTY_SCOPES;
 }

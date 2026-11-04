@@ -148,7 +148,8 @@ class ServiceReferralCode extends ServiceBase {
   @backgroundMethod()
   async getInviteRewardScopes(): Promise<IInviteRewardScope[]> {
     try {
-      return await this._getInviteRewardScopesMemo();
+      const locale = await this.backgroundApi.serviceSetting.getCurrentLocale();
+      return await this._getInviteRewardScopesMemo(locale.toLowerCase());
     } catch (error) {
       // Optional hint copy: callers hide it on failure, so never toast.
       errorToastUtils.toastIfErrorDisable(error);
@@ -156,14 +157,15 @@ class ServiceReferralCode extends ServiceBase {
     }
   }
 
-  // Static copy that both referral tabs read on every visit; a failed request
-  // is not cached.
+  // Both tabs share localized copy, while failed requests are not cached.
   private _getInviteRewardScopesMemo = memoizee(
-    async (): Promise<IInviteRewardScope[]> => {
+    async (locale: string): Promise<IInviteRewardScope[]> => {
       const client = await this.getClient(EServiceEndpointEnum.Rebate);
       const response = await client.get<{
         data: IInviteRewardScopesResponse;
-      }>('/rebate/v1/invite/reward-scopes');
+      }>('/rebate/v1/invite/reward-scopes', {
+        headers: { 'x-onekey-request-locale': locale },
+      });
       return response.data.data?.rewardScopes ?? [];
     },
     { promise: true, maxAge: timerUtils.getTimeDurationMs({ minute: 5 }) },

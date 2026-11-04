@@ -80,6 +80,10 @@ const newFetch = async function (
     const headers = await getRequestHeaders();
     requestId = headers[HEADER_REQUEST_ID_KEY];
     Object.entries(headers).forEach(([key, value]) => {
+      // Axios requests routed through the XHR shim already carry their keyed locale.
+      if (key === 'x-onekey-request-locale' && requestHeaders.has(key)) {
+        return;
+      }
       requestHeaders.set(key, value);
     });
     options.headers = await withCustomUAHeaders(

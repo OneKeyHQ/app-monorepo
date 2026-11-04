@@ -312,9 +312,10 @@ axios.interceptors.request.use(async (config) => {
 
   const headers = await getRequestHeaders();
   forEach(headers, (val, key) => {
-    // Preserve per-request currency header override (e.g. force 'usd' for search)
+    // Preserve explicit currency and locale so cached requests use their keyed values.
     if (
-      key === 'x-onekey-request-currency' &&
+      (key === 'x-onekey-request-currency' ||
+        key === 'x-onekey-request-locale') &&
       config.headers[key] !== null &&
       config.headers[key] !== undefined
     ) {
