@@ -557,6 +557,31 @@ describe('applyValuationFrame', () => {
     unsubC();
   });
 
+  it('writes a cell whose unclaimed Lightning Spark sats alone changed', () => {
+    const { store, ctx, projection, deps } = setup();
+    applyStructureSnapshot(
+      ctx,
+      projection,
+      makeStructure({ orderedIds: ['sats'] }),
+      deps,
+    );
+    // Without a BTC price, a payment that arrives while the wallet is offline
+    // leaves balance, fiat value and price unchanged.
+    const sats = makeFiat({ balance: '100', balanceParsed: '100' });
+    store.set(cell(ctx, 'sats'), { ...sats, pendingReceiveSats: '0' });
+
+    applyValuationFrame(
+      ctx,
+      projection,
+      makeValuation({
+        changedFiatById: { sats: { ...sats, pendingReceiveSats: '123' } },
+      }),
+      deps,
+    );
+
+    expect(store.get(cell(ctx, 'sats'))?.pendingReceiveSats).toBe('123');
+  });
+
   it('orphan guard: never lazy-creates a cell not in the structure', () => {
     const { ctx, projection, deps } = setup();
     applyStructureSnapshot(
