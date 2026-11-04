@@ -84,21 +84,25 @@ export function useShareTradeHistory() {
       if (isSpotInstrument(fill.coin)) {
         return;
       }
-      const closedPnlBN = new BigNumber(fill.closedPnl).minus(
-        new BigNumber(fill.fee),
+      // A reversal fill includes both closing the old position and opening the new one.
+      const isReversal = ['long > short', 'short > long'].includes(
+        fill.dir.trim().toLowerCase(),
       );
+      const fillSize = new BigNumber(fill.sz);
+      const positionSize = isReversal
+        ? BigNumber.minimum(new BigNumber(fill.startPosition).abs(), fillSize)
+        : fillSize;
+      const fee = new BigNumber(fill.fee);
+      const closedFee =
+        isReversal && fillSize.gt(0)
+          ? fee.multipliedBy(positionSize).dividedBy(fillSize)
+          : fee;
+      const closedPnlBN = new BigNumber(fill.closedPnl).minus(closedFee);
       if (closedPnlBN.isZero()) {
         return;
       }
       const isSpot = isSpotInstrument(fill.coin);
       const leverage = isSpot ? 1 : await getLeverage(fill.coin);
-      // A reversal fill includes both closing the old position and opening the new one.
-      const isReversal = ['long > short', 'short > long'].includes(
-        fill.dir.trim().toLowerCase(),
-      );
-      const positionSize = isReversal
-        ? BigNumber.minimum(new BigNumber(fill.startPosition).abs(), fill.sz)
-        : new BigNumber(fill.sz);
       const entryPriceBN = calculateEntryPrice(fill, positionSize);
 
       // Spot fill.side: 'B' = buy (~long), 'A' = sell (~short).

@@ -1219,3 +1219,24 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries �
 **Root Cause**: Select's search filter imported `localeSearch.ts`, and the web locale barrel re-exported that module plus `isKnownTranslationKey`. `isKnownTranslationKey` calls `Object.values(ETranslations)`, which the web inline-translations transform cannot erase. The error toast container is mounted at startup and was that call's sync importer.
 **Fix**: Move text normalization into `normalizeSearchText.ts` and point Select at that file. Stop re-exporting `localeSearch` and `isKnownTranslationKey` from the web locale barrel. The startup toast checks the active catalog instead of the enum. Register `normalizeSearchText.ts` for the native bundle.
 **Catchable by**: Section 3: a module imported by startup UI must not import `translations.ts` unless every member access is a static `ETranslations.*` that the web inline transform removes; Section 4: a new shared helper used by Select or the app shell has to be checked against the web startup graph, not only the screen that owns the feature.
+
+## Case: Perps chart defaults disagreed with the intended native chart mode (OK-66019)
+**Date**: 2026-11-04 | **Platforms**: Web/Desktop UI and iOS/Android main UI; no native resource changes
+**Symptom**: A fresh or older settings record without a chart mode opened TradingView instead of the native chart. Changing only the initial setting would still leave legacy records and the first toggle inconsistent.
+**Root Cause**: The settings atom, chart renderer fallback, mobile chart layout fallback, and missing-value toggle behavior all assumed TradingView as the default.
+**Fix**: Default all three owners to native and treat an absent saved mode as native when toggling. Preserve explicit saved choices. Existing PerpCandles tests cover missing settings, explicit overrides, and switching modes.
+**Catchable by**: Section 4: Business Logic & Regression — when changing a persisted default, test fresh settings, older records without the field, explicit saved choices, and the first interaction.
+
+## Case: Ordinary orders exposed the position TP/SL order link (OK-66078)
+**Date**: 2026-11-04 | **Platforms**: Web/Desktop wide position rows and native main UI where the wide row is rendered
+**Symptom**: An ordinary open order for the same coin caused the position TP/SL cell to show an order link even though no partial TP/SL order existed.
+**Root Cause**: The row treated every non-position TP/SL order as a partial TP/SL candidate without checking reduce-only status and the recognized TP/SL kind.
+**Fix**: Require both reduceOnly and getTpSlKind before setting hasNonPositionTpslOrder. Existing PositionsRow tests distinguish ordinary orders, partial TP/SL orders, and position TP/SL orders.
+**Catchable by**: Section 4: Business Logic & Regression — exercise sibling order types sharing the same coin before deriving a feature-specific action from a common order list.
+
+## Case: Reversal trade sharing mixed the closed and newly opened legs (OK-65718)
+**Date**: 2026-11-04 | **Platforms**: Shared UI hook on Web/Desktop and iOS/Android main UI; tested with the Web Jest preset, not device acceptance
+**Symptom**: Reversal shares calculated an incorrect entry price and return. After using only the closed size, they still deducted the entire fill fee: closing 2 of 5 units with gross PnL 20 and fee 1 showed net PnL 19 and 95% instead of 19.6 and 98% at entry price 100 and leverage 10.
+**Root Cause**: A reversal fill combines closing the previous position and opening a new one, while closedPnl belongs only to the closed leg. The entry-price denominator and fee deduction used the entire fill rather than that leg.
+**Fix**: Use the absolute starting position capped by fill size for the closed quantity, recognize both reversal directions when reconstructing entry price, and allocate the fee by closed quantity / fill size. Assert net PnL and return for both reversal directions and retain full-fee deductions for ordinary closes.
+**Catchable by**: Section 4: Business Logic & Regression — when splitting a transaction into legs, keep quantity, cost basis, fees, and the return denominator on the same leg and assert the amounts as well as the percentage.

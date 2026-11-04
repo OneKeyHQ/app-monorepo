@@ -29,7 +29,8 @@ it.each([
     startPosition: '2',
     closedPnl: '20',
     expectedSide: 'long',
-    pnlPercent: '95.00',
+    pnl: '19.6',
+    pnlPercent: '98.00',
   },
   {
     dir: 'Short > Long',
@@ -39,7 +40,8 @@ it.each([
     startPosition: '-2',
     closedPnl: '20',
     expectedSide: 'short',
-    pnlPercent: '95.00',
+    pnl: '19.6',
+    pnlPercent: '98.00',
   },
   {
     dir: 'Close Long',
@@ -49,6 +51,7 @@ it.each([
     startPosition: '2',
     closedPnl: '10',
     expectedSide: 'long',
+    pnl: '9',
     pnlPercent: '90.00',
   },
   {
@@ -59,11 +62,12 @@ it.each([
     startPosition: '-2',
     closedPnl: '10',
     expectedSide: 'short',
+    pnl: '9',
     pnlPercent: '90.00',
   },
 ] as const)(
   'shares the closed position for $dir',
-  async ({ expectedSide, pnlPercent, ...trade }) => {
+  async ({ expectedSide, pnl, pnlPercent, ...trade }) => {
     mockShowPositionShare.mockClear();
     const fill: IFill = {
       ...trade,
@@ -84,6 +88,7 @@ it.each([
         side: expectedSide,
         entryPrice: '100',
         markPrice: trade.px,
+        pnl,
         pnlPercent,
       }),
     );
