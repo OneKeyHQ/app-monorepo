@@ -131,6 +131,87 @@ describe('StockDetailProvider', () => {
     swrCacheUtils.clearAll();
   });
 
+  it('loads stock resources immediately when the initial stock ID becomes available', async () => {
+    jest.useFakeTimers();
+    serviceMarketV2.fetchMarketStockDetail.mockResolvedValue({
+      stockId: 'AAPL',
+      symbol: 'AAPL',
+      name: 'Apple Inc.',
+      logoUrl: '',
+      assetType: 'stock',
+      currency: 'USD',
+      categories: [],
+      aliases: [],
+    });
+    serviceMarketV2.fetchMarketStockTokenVariants.mockResolvedValue({
+      stockId: 'AAPL',
+      defaultTokenId: 'aapl-ondo',
+      items: [
+        {
+          tokenId: 'aapl-ondo',
+          issuer: 'ondo',
+          networkId: 'evm--1',
+          contractAddress: '0xaapl',
+          currency: 'USD',
+          status: 'active',
+          tradingEnabled: true,
+        },
+      ],
+    });
+
+    try {
+      const state: { stockId?: string } = {};
+      const wrapper = ({ children }: PropsWithChildren) => (
+        <StockDetailProvider stockId={state.stockId}>
+          {children}
+        </StockDetailProvider>
+      );
+      const { result, rerender, unmount } = renderHook(() => useStockDetail(), {
+        wrapper,
+      });
+
+      await act(async () => {
+        await jest.advanceTimersByTimeAsync(0);
+      });
+      expect(serviceMarketV2.fetchMarketStockDetail.mock.calls).toHaveLength(0);
+      expect(
+        serviceMarketV2.fetchMarketStockTokenVariants.mock.calls,
+      ).toHaveLength(0);
+
+      state.stockId = 'AAPL';
+      rerender();
+      await act(async () => {
+        await jest.advanceTimersByTimeAsync(0);
+      });
+      expect(serviceMarketV2.fetchMarketStockDetail.mock.calls).toHaveLength(1);
+      expect(
+        serviceMarketV2.fetchMarketStockTokenVariants.mock.calls,
+      ).toHaveLength(1);
+      expect(result.current.isStockDetailReady).toBe(true);
+      expect(result.current.selectedTokenVariant?.tokenId).toBe('aapl-ondo');
+
+      await act(async () => {
+        await jest.advanceTimersByTimeAsync(STOCK_TOKEN_VARIANTS_POLLING_MS);
+      });
+      expect(serviceMarketV2.fetchMarketStockDetail.mock.calls).toHaveLength(1);
+      expect(
+        serviceMarketV2.fetchMarketStockTokenVariants.mock.calls,
+      ).toHaveLength(2);
+      await act(async () => {
+        await jest.advanceTimersByTimeAsync(
+          STOCK_DETAIL_POLLING_MS - STOCK_TOKEN_VARIANTS_POLLING_MS,
+        );
+      });
+      expect(serviceMarketV2.fetchMarketStockDetail.mock.calls).toHaveLength(2);
+      expect(
+        serviceMarketV2.fetchMarketStockTokenVariants.mock.calls,
+      ).toHaveLength(3);
+      unmount();
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
   it('exposes a matching route preview before the stock detail request settles', () => {
     const stockPreview = {
       stockId: 'AAPL',

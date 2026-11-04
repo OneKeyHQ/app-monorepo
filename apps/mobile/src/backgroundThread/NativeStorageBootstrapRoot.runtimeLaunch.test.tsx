@@ -53,7 +53,18 @@ jest.mock('./jotaiMainHydrationGate', () => ({
     initializeFromBackground(),
 }));
 
+jest.mock('@onekeyfe/react-native-native-overlay', () => ({
+  OverlayView: ({ children }: { children?: import('react').ReactNode }) =>
+    children,
+}));
+
 jest.mock('react-native', () => ({
+  Modal: ({ children }: { children?: import('react').ReactNode }) => (
+    <div>{children}</div>
+  ),
+  ScrollView: ({ children }: { children?: import('react').ReactNode }) => (
+    <div>{children}</div>
+  ),
   ActivityIndicator: ({ testID }: { testID?: string }) => (
     <div data-testid={testID} />
   ),

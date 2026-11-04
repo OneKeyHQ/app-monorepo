@@ -833,6 +833,8 @@ function StockPayTokenPopoverContent({
 }
 
 function StockTradeHeaderSkeleton() {
+  const { gtLg } = useMedia();
+  const showPrice = platformEnv.isNative || !gtLg;
   return (
     <XStack
       testID={SwapTestIDs.stockTradeHeaderSkeleton}
@@ -849,7 +851,7 @@ function StockTradeHeaderSkeleton() {
           <Skeleton h="$4" w="$16" />
         </YStack>
       </XStack>
-      <Skeleton h="$5" w="$16" />
+      {showPrice ? <Skeleton h="$5" w="$16" /> : null}
     </XStack>
   );
 }
@@ -982,10 +984,9 @@ function StockAmountInput({
           activeAccount={swapFromAddressInfo.activeAccount}
           onDepositClose={onBalanceRefreshPress}
           showPercentageInput={Boolean(
-            showPercentageInputDebounce &&
-            balanceActionsReady &&
-            !contentLoading,
+            showPercentageInputDebounce && !contentLoading,
           )}
+          percentageInputDisabled={!balanceActionsReady}
           showActionBuy={showActionBuy && !contentLoading}
           actionBuyHighlighted={!isBalanceLoadedZero}
           onSelectStage={onSelectPercentageStage}
@@ -1266,6 +1267,7 @@ function StockTradeTicket({
         )}
         {stockChannel.readyForQuote && !showStockTradeIdentitySkeleton ? (
           <SwapQuoteResult
+            fixedReverseRate={tradeSide === ESwapStockTradeSide.Buy}
             refreshAction={refreshAction}
             onOpenProviderList={onOpenProviderList}
             quoteResult={quoteResult}
@@ -1397,6 +1399,7 @@ function SwapStockDesktopContent({
     [stockChannel],
   );
 
+  const hasMarketPanel = !embedded;
   const ticket = (
     <YStack
       testID="swap-stock-trade-card"
@@ -1441,7 +1444,11 @@ function SwapStockDesktopContent({
         showTradeSideSwitch={false}
         stockTradeConfig={stockTradeConfig}
         stockTradeHeader={
-          embedded ? stockTradeHeader : <SwapStockVariantSelector />
+          embedded ? (
+            stockTradeHeader
+          ) : (
+            <SwapStockVariantSelector hasMarketPanel={hasMarketPanel} />
+          )
         }
         stockTradeIdentityLoading={stockTradeIdentityLoading}
       />
@@ -1462,11 +1469,7 @@ function SwapStockDesktopContent({
         {!embedded && headerContent && !hasExternalHeader ? (
           <YStack {...STOCK_DESKTOP_HEADER_SLOT_PROPS}>{headerContent}</YStack>
         ) : null}
-        {embedded ? (
-          <YStack width="100%" px="$5">
-            {ticket}
-          </YStack>
-        ) : (
+        {hasMarketPanel ? (
           <XStack
             testID="swap-stock-desktop-layout"
             width="100%"
@@ -1482,6 +1485,10 @@ function SwapStockDesktopContent({
               <SwapStockPositions networks={supportNetworksList} />
             </YStack>
           </XStack>
+        ) : (
+          <YStack width="100%" px="$5">
+            {ticket}
+          </YStack>
         )}
       </YStack>
     </ScrollView>
@@ -1600,7 +1607,11 @@ function SwapStockMobileContent(props: ISwapStockDesktopContainerProps) {
           compact
           stockTradeConfig={stockTradeConfig}
           stockTradeHeader={
-            embedded ? stockTradeHeader : <SwapStockVariantSelector />
+            embedded ? (
+              stockTradeHeader
+            ) : (
+              <SwapStockVariantSelector hasMarketPanel={false} />
+            )
           }
         />
         {embedded || isDesktopModalPage ? null : (

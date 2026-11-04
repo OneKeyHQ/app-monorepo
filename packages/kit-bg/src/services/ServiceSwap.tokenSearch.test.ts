@@ -148,7 +148,7 @@ describe('ServiceSwap token search', () => {
     },
   );
 
-  it('cancels only the abandoned search and skips its queued chains without exceeding six HTTP calls', async () => {
+  it('cancels only the abandoned aggregate search without exceeding six HTTP calls', async () => {
     let active = 0;
     let peak = 0;
     const startedKeywords: (string | undefined)[] = [];
@@ -196,9 +196,6 @@ describe('ServiceSwap token search', () => {
     const search = (keywords: string) =>
       service.fetchSwapTokens({
         networkId: 'onekeyall--0',
-        searchNetworks: Array.from({ length: 8 }, (_, index) => ({
-          networkId: `evm--${index + 1}`,
-        })),
         keywords,
         searchRequestId: `${keywords}-request`,
         onlySwapTokens: true,
@@ -210,7 +207,7 @@ describe('ServiceSwap token search', () => {
     };
     const abandoned = search('abandoned').catch((error: unknown) => error);
     await flushPending();
-    expect(startedKeywords).toEqual(Array(6).fill('abandoned'));
+    expect(startedKeywords).toEqual(Array(2).fill('abandoned'));
     const retained = search('retained');
     const preload = service.fetchSwapTokens({
       networkId: 'evm--1',
@@ -225,7 +222,7 @@ describe('ServiceSwap token search', () => {
     await flushPending();
     expect(
       startedKeywords.filter((value) => value === 'abandoned'),
-    ).toHaveLength(6);
+    ).toHaveLength(2);
     expect(startedKeywords).toContain('retained');
     for (let batch = 0; batch < 5; batch += 1) {
       releases.splice(0).forEach((release) => release());
@@ -241,11 +238,11 @@ describe('ServiceSwap token search', () => {
     ]);
     expect(
       startedKeywords.filter((value) => value === 'abandoned'),
-    ).toHaveLength(6);
+    ).toHaveLength(2);
     expect(
       startedKeywords.filter((value) => value === 'retained'),
-    ).toHaveLength(9);
-    expect(startedKeywords.filter((value) => value === 'next')).toHaveLength(9);
+    ).toHaveLength(2);
+    expect(startedKeywords.filter((value) => value === 'next')).toHaveLength(2);
     expect(startedKeywords.filter((value) => value === undefined)).toHaveLength(
       1,
     );
@@ -473,9 +470,6 @@ describe('ServiceSwap token search', () => {
     const search = (keywords: string) =>
       service.fetchSwapTokens({
         networkId: 'onekeyall--0',
-        searchNetworks: Array.from({ length: 8 }, (_, index) => ({
-          networkId: `evm--${index + 1}`,
-        })),
         keywords,
         onlySwapTokens: true,
         currency: 'usd',
@@ -487,6 +481,7 @@ describe('ServiceSwap token search', () => {
     };
     const first = search('first');
     const second = search('second');
+    const third = search('third');
     await flushPending();
     expect(started).toBe(6);
     expect(active).toBe(6);
@@ -503,13 +498,11 @@ describe('ServiceSwap token search', () => {
       releases.splice(0).forEach((release) => release());
       await flushPending();
     }
-    await expect(Promise.all([first, second, preload])).resolves.toEqual([
-      [bnbUsdt],
-      [bnbUsdt],
-      [bnbUsdt],
-    ]);
+    await expect(Promise.all([first, second, third, preload])).resolves.toEqual(
+      [[bnbUsdt], [bnbUsdt], [bnbUsdt], [bnbUsdt]],
+    );
     expect(preloadStarted).toBe(true);
-    expect(started).toBe(19);
+    expect(started).toBe(7);
     expect(peak).toBe(6);
     expect(active).toBe(0);
   });
@@ -673,20 +666,18 @@ describe('ServiceSwap token search', () => {
     expect(requestedKeywords).toEqual(['new', 'old']);
   });
 
-  it.each([
-    { allNetworkTokens: [] },
-    { allNetworkTokens: [bnbUsdt, otherNetworkToken] },
-  ])(
-    'preserves the selected-chain contract result alongside all-network results %j',
-    async ({ allNetworkTokens }) => {
-      const get = jest.fn(
-        (_endpoint: string, { params }: { params: IFetchTokenListParams }) =>
-          Promise.resolve({
-            data: {
-              data:
-                params.networkId === 'evm--56' ? [bnbUsdt] : allNetworkTokens,
-            },
-          }),
+  it.each(['USDT', bnbUsdt.contractAddress])(
+    'merges aggregate token and discovery results without chain requests for %s',
+    async (keywords) => {
+      const get = jest.fn((endpoint: string) =>
+        Promise.resolve({
+          data: {
+            data:
+              endpoint === '/swap/v1/tokens'
+                ? [bnbUsdt]
+                : [bnbUsdt, otherNetworkToken],
+          },
+        }),
       );
       const service = new ServiceSwap({
         backgroundApi: {
@@ -696,63 +687,32 @@ describe('ServiceSwap token search', () => {
         },
       });
       jest.spyOn(service, 'getClient').mockResolvedValue({ get } as never);
-
       await expect(
         service.fetchSwapTokens({
           networkId: 'onekeyall--0',
-          contractSearchNetworkId: 'evm--56',
-          keywords: bnbUsdt.contractAddress,
+          keywords,
           onlySwapTokens: true,
           currency: 'usd',
           throwOnError: true,
         }),
-      ).resolves.toEqual(
-        allNetworkTokens.length ? [bnbUsdt, otherNetworkToken] : [bnbUsdt],
-      );
+      ).resolves.toEqual([bnbUsdt, otherNetworkToken]);
       expect(get).toHaveBeenCalledTimes(2);
-      expect(get).toHaveBeenCalledWith(
-        '/swap/v1/tokens',
-        expect.objectContaining({
-          params: expect.objectContaining({
-            networkId: 'evm--56',
-            accountAddress: undefined,
-            accountNetworkId: undefined,
+      for (const endpoint of ['/swap/v1/tokens', '/swap/v1/swap-tokens']) {
+        expect(get).toHaveBeenCalledWith(
+          endpoint,
+          expect.objectContaining({
+            params: expect.objectContaining({
+              networkId: 'onekeyall--0',
+              keywords,
+            }),
           }),
-        }),
-      );
+        );
+      }
     },
   );
 
-  it('keeps cross-network discovery when the selected-chain lookup fails', async () => {
-    const get = jest.fn(
-      (_endpoint: string, { params }: { params: IFetchTokenListParams }) =>
-        params.networkId === 'evm--56'
-          ? Promise.reject(new Error('selected chain unavailable'))
-          : Promise.resolve({ data: { data: [otherNetworkToken] } }),
-    );
-    const service = new ServiceSwap({
-      backgroundApi: {
-        serviceAccountProfile: {
-          _getWalletTypeHeader: jest.fn().mockResolvedValue({}),
-        },
-      },
-    });
-    jest.spyOn(service, 'getClient').mockResolvedValue({ get } as never);
-
-    await expect(
-      service.fetchSwapTokens({
-        networkId: 'onekeyall--0',
-        contractSearchNetworkId: 'evm--56',
-        keywords: bnbUsdt.contractAddress,
-        onlySwapTokens: true,
-        currency: 'usd',
-        throwOnError: true,
-      }),
-    ).resolves.toEqual([otherNetworkToken]);
-  });
-
   it.each(['merge', 'partial', 'empty', 'all-failed'])(
-    'fans out all-network search and handles %s responses',
+    'searches the aggregate network and handles %s responses',
     async (responseCase) => {
       const requested: { endpoint?: string; params: IFetchTokenListParams }[] =
         [];
@@ -764,7 +724,8 @@ describe('ServiceSwap token search', () => {
           requested.push({ endpoint: config.url, params: requestParams });
           if (
             responseCase === 'all-failed' ||
-            (responseCase === 'partial' && requestParams.networkId === 'evm--1')
+            (responseCase === 'partial' &&
+              config.url === '/swap/v1/swap-tokens')
           ) {
             throw failure;
           }
@@ -774,7 +735,7 @@ describe('ServiceSwap token search', () => {
                 responseCase === 'empty'
                   ? []
                   : [
-                      requestParams.networkId === 'evm--1'
+                      config.url === '/swap/v1/swap-tokens'
                         ? otherNetworkToken
                         : bnbUsdt,
                     ],
@@ -797,12 +758,6 @@ describe('ServiceSwap token search', () => {
       jest.spyOn(service, 'getClient').mockResolvedValue(client);
       const request = service.fetchSwapTokens({
         networkId: 'onekeyall--0',
-        contractSearchNetworkId: 'evm--56',
-        searchNetworks: [
-          { networkId: 'evm--1' },
-          { networkId: 'evm--56', lpToken: false },
-          { networkId: 'evm--1' },
-        ],
         keywords: 'usdt',
         onlySwapTokens: true,
         accountAddress: 'another-chain-address',
@@ -829,8 +784,7 @@ describe('ServiceSwap token search', () => {
           requestParams.networkId,
         ]),
       ).toEqual([
-        ['/swap/v1/tokens', 'evm--56'],
-        ['/swap/v1/tokens', 'evm--1'],
+        ['/swap/v1/tokens', 'onekeyall--0'],
         ['/swap/v1/swap-tokens', 'onekeyall--0'],
       ]);
       expect(

@@ -2690,51 +2690,34 @@ export class SimpleDbEntityPrime extends SimpleDbEntityBase<ISimpleDBPrime> {
       : undefined;
   }
 
+  // Records a new hosted checkout as the user's current one. Every call comes
+  // from a new card payment click and always replaces the previous record,
+  // even for the same plan (OK-65674): reusing it would reopen an older
+  // attempt instead of the plan the user just picked. The record only lets
+  // the app detect this checkout's result after the user leaves it. The
+  // replaced record is returned so the extension can reuse its checkout tab.
   // The read and write share the entity mutex, including across extension UIs.
   @backgroundMethod()
   async acquireWebCheckoutPendingSession({
     session,
   }: {
     session: IPrimeWebCheckoutPendingSession;
-  }): Promise<{
-    session: IPrimeWebCheckoutPendingSession;
-    reused: boolean;
-    replacedSession?: IPrimeWebCheckoutPendingSession;
-  }> {
-    const now = Date.now();
+  }): Promise<{ replacedSession?: IPrimeWebCheckoutPendingSession }> {
     if (
       !isValidWebCheckoutPendingSession(session, {
         onekeyUserId: session.onekeyUserId,
-        now,
+        now: Date.now(),
       })
     ) {
       throw new OneKeyLocalError('Invalid Prime web checkout session');
     }
-    let acquisition:
-      | {
-          session: IPrimeWebCheckoutPendingSession;
-          reused: boolean;
-          replacedSession?: IPrimeWebCheckoutPendingSession;
-        }
-      | undefined;
+    let replacedSession: IPrimeWebCheckoutPendingSession | undefined;
     await this.setRawData((rawData) => {
       const sessions = pruneWebCheckoutPendingSessions(
         rawData?.webCheckoutPendingSessionByUserId,
         Date.now(),
       );
-      const previousSession = sessions[session.onekeyUserId];
-      if (
-        previousSession?.platform === session.platform &&
-        previousSession.isSandbox === session.isSandbox
-      ) {
-        acquisition = { session: previousSession, reused: true };
-        return rawData ?? {};
-      }
-      acquisition = {
-        session,
-        reused: false,
-        replacedSession: previousSession,
-      };
+      replacedSession = sessions[session.onekeyUserId];
       return {
         ...rawData,
         webCheckoutPendingSessionByUserId: {
@@ -2743,10 +2726,7 @@ export class SimpleDbEntityPrime extends SimpleDbEntityBase<ISimpleDBPrime> {
         },
       };
     });
-    if (!acquisition) {
-      throw new OneKeyLocalError('Prime web checkout session was not acquired');
-    }
-    return acquisition;
+    return { replacedSession };
   }
 
   // Records the extension tabs after the checkout tab exists. Ignored when

@@ -304,6 +304,7 @@ export function StockDetailProvider({
       pollingInterval: normalizedStockId
         ? STOCK_DETAIL_POLLING_INTERVAL
         : undefined,
+      runImmediatelyOnPollingIntervalChange: true,
       revalidateOnReconnect: true,
       swrKey: stockDetailSwrKey,
       swrShouldPersist: (r) => !r.failed && !r.requestFailed && Boolean(r.data),
@@ -358,6 +359,7 @@ export function StockDetailProvider({
       pollingInterval: normalizedStockId
         ? STOCK_TOKEN_VARIANTS_POLLING_INTERVAL
         : undefined,
+      runImmediatelyOnPollingIntervalChange: true,
       revalidateOnReconnect: true,
       swrKey: tokenVariantsSwrKey,
       swrShouldPersist: (r) => !r.failed,

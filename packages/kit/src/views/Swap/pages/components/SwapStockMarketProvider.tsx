@@ -467,7 +467,10 @@ function SwapStockSelectionProvider({
               tokenVariants: resolvedVariants,
               previousDisplay,
             });
-            selectStockSwapToken(token, { resetReceiveAmount: true });
+            selectStockSwapToken(token, {
+              resetReceiveAmount: true,
+              manual: !silent,
+            });
             onCommitted?.();
           }
         };

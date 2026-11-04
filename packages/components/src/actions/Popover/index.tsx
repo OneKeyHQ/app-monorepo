@@ -14,6 +14,7 @@ import { withStaticProperties } from '@onekeyhq/components/src/shared/tamagui';
 
 import { useSafeAreaInsets } from '../../hooks';
 import { useDeferredGuideBlocker } from '../../hooks/useDeferredGuideBlocker';
+import { OVERLAY_SHEET_MAX_WIDTH } from '../../hooks/useOverlayWidthClass';
 import { ScrollView } from '../../layouts/ScrollView';
 import { SizableText, XStack, YStack } from '../../primitives';
 import { assertOverlayProps } from '../../shared/assertOverlayProps';
@@ -122,6 +123,7 @@ function RawPopover({
   renderContent,
   floatingPanelProps,
   sheetProps,
+  sheetContentScrollable = true,
   openPopover,
   closePopover,
   placement = 'bottom-end',
@@ -238,6 +240,7 @@ function RawPopover({
   const sheetOptions = useMemo<IOverlaySheetOptions>(
     () => ({
       height: percentSheetHeight,
+      maxWidth: OVERLAY_SHEET_MAX_WIDTH,
       cornerRadius: 0,
       showHandle: false,
       backgroundColor: 'transparent',
@@ -329,22 +332,42 @@ function RawPopover({
                 />
               </XStack>
             ) : null}
-            <ScrollView
-              flex={isFitSheet ? undefined : 1}
-              marginTop="$-0.5"
-              borderTopLeftRadius={showHeader ? undefined : '$6'}
-              borderTopRightRadius={showHeader ? undefined : '$6'}
-              borderBottomLeftRadius="$6"
-              borderBottomRightRadius="$6"
-              backgroundColor="$bg"
-              showsVerticalScrollIndicator={false}
-              mx="$5"
-              mb={bottom || '$5'}
-              maxHeight={sheetScrollViewMaxHeight}
-              borderCurve="continuous"
-            >
-              {content}
-            </ScrollView>
+            {sheetContentScrollable ? (
+              <ScrollView
+                flex={isFitSheet ? undefined : 1}
+                showsVerticalScrollIndicator={false}
+                marginTop="$-0.5"
+                borderTopLeftRadius={showHeader ? undefined : '$6'}
+                borderTopRightRadius={showHeader ? undefined : '$6'}
+                borderBottomLeftRadius="$6"
+                borderBottomRightRadius="$6"
+                backgroundColor="$bg"
+                mx="$5"
+                mb={bottom || '$5'}
+                maxHeight={sheetScrollViewMaxHeight}
+                borderCurve="continuous"
+              >
+                {content}
+              </ScrollView>
+            ) : (
+              <YStack
+                flex={1}
+                minHeight={0}
+                overflow="hidden"
+                marginTop="$-0.5"
+                borderTopLeftRadius={showHeader ? undefined : '$6'}
+                borderTopRightRadius={showHeader ? undefined : '$6'}
+                borderBottomLeftRadius="$6"
+                borderBottomRightRadius="$6"
+                backgroundColor="$bg"
+                mx="$5"
+                mb={bottom || '$5'}
+                maxHeight={sheetScrollViewMaxHeight}
+                borderCurve="continuous"
+              >
+                {content}
+              </YStack>
+            )}
           </YStack>
         </OverlayView>
       ) : (

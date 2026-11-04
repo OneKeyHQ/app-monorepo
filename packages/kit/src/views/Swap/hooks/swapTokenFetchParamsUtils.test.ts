@@ -26,48 +26,35 @@ function createAllNetworkAccountInfo(
 }
 
 describe('buildSwapTokenFetchParams', () => {
-  it('passes the supported chain plan only to non-Stock all-network searches', () => {
-    const searchNetworks = [
-      { networkId: 'evm--1', lpToken: false },
-      { networkId: 'sol--101' },
-    ];
-    const base = {
+  it('keeps all-network searches on the aggregate network without a chain plan', () => {
+    const params = buildSwapTokenFetchParams({
       currentSelectNetworkId: 'onekeyall--0',
       keywords: 'USDC',
       swapType: ESwapTabSwitchType.SWAP,
-      searchNetworks,
       shouldUseCurrentAccountAddress: false,
-    };
-    expect(buildSwapTokenFetchParams(base).searchNetworks).toEqual(
-      searchNetworks,
-    );
-    expect(
-      buildSwapTokenFetchParams({ ...base, keywords: '' }),
-    ).not.toHaveProperty('searchNetworks');
-    expect(
-      buildSwapTokenFetchParams({ ...base, currentSelectNetworkId: 'evm--1' }),
-    ).not.toHaveProperty('searchNetworks');
-    expect(
-      buildSwapTokenFetchParams({
-        ...base,
-        swapType: ESwapTabSwitchType.STOCK,
-      }),
-    ).not.toHaveProperty('searchNetworks');
-  });
-  it('preserves the selected chain lookup when contract search expands to all networks', () => {
-    expect(
-      buildSwapTokenFetchParams({
-        currentSelectNetworkId: 'evm--56',
-        searchNetworkId: 'onekeyall--0',
-        keywords: '0x55d398326f99059ff775485246999027b3197955',
-        swapType: ESwapTabSwitchType.SWAP,
-        shouldUseCurrentAccountAddress: false,
-      }),
-    ).toMatchObject({
+    });
+    expect(params).toMatchObject({
       networkId: 'onekeyall--0',
-      contractSearchNetworkId: 'evm--56',
+      keywords: 'USDC',
       onlySwapTokens: true,
     });
+    expect(params).not.toHaveProperty('searchNetworks');
+    expect(params).not.toHaveProperty('contractSearchNetworkId');
+  });
+
+  it('widens contract search to the aggregate network without a selected-chain fallback', () => {
+    const params = buildSwapTokenFetchParams({
+      currentSelectNetworkId: 'evm--56',
+      searchNetworkId: 'onekeyall--0',
+      keywords: '0x55d398326f99059ff775485246999027b3197955',
+      swapType: ESwapTabSwitchType.SWAP,
+      shouldUseCurrentAccountAddress: false,
+    });
+    expect(params).toMatchObject({
+      networkId: 'onekeyall--0',
+      onlySwapTokens: true,
+    });
+    expect(params).not.toHaveProperty('contractSearchNetworkId');
   });
 
   it.each([

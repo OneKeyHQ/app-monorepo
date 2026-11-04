@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -20,7 +20,10 @@ const ACTION_LABEL_MAP: Record<IBorrowActionType, ETranslations> = {
   repay: ETranslations.defi_repay,
 };
 
-export function AmountInputSection({ title }: IAmountInputSectionProps) {
+export function AmountInputSection({
+  title,
+  onAmountFocusChange,
+}: IAmountInputSectionProps) {
   const { state, actions, actionResult, approval } = useManagePositionContext();
   const intl = useIntl();
   const navigation = useAppNavigation();
@@ -59,6 +62,14 @@ export function AmountInputSection({ title }: IAmountInputSectionProps) {
   );
 
   const amountInputDisabled = isDisabled || approval.isFormInteractionLocked;
+  const handleSelectPercentageStage = useCallback(
+    (stage: number) => {
+      if (!approval.isFormInteractionLocked) {
+        onSelectPercentageStage(stage);
+      }
+    },
+    [approval.isFormInteractionLocked, onSelectPercentageStage],
+  );
 
   // Borrow action doesn't check isInsufficientBalance for hasError
   // because borrow is borrowing from the protocol, not spending wallet balance
@@ -129,7 +140,9 @@ export function AmountInputSection({ title }: IAmountInputSectionProps) {
           valueProps={valueProps}
           enableMaxAmount
           maxAmountText={maxAmountText}
-          onSelectPercentageStage={onSelectPercentageStage}
+          usePercentageKeyboardAccessory
+          onAmountFocusChange={onAmountFocusChange}
+          onSelectPercentageStage={handleSelectPercentageStage}
         />
         {showOverlayMask ? (
           <Stack position="absolute" w="100%" h="100%" zIndex={1} />

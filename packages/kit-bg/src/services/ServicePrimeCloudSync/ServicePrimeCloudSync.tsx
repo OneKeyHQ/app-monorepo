@@ -29,6 +29,7 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { HardwareCloudSyncError } from '@onekeyhq/shared/src/hardware/hardwareCloudSyncError';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
@@ -87,7 +88,10 @@ import {
 import ServiceBase from '../ServiceBase';
 
 import { filterBotWalletRecordsByCurrentKeylessSyncScope } from './botWalletCloudSyncUtils';
-import { buildOnlyCheckLocalDataTypes } from './cloudSyncCheckUtils';
+import {
+  buildOnlyCheckLocalDataTypes,
+  isSupportedCloudSyncDataType,
+} from './cloudSyncCheckUtils';
 import { CloudSyncFlowManagerAccount } from './CloudSyncFlowManager/CloudSyncFlowManagerAccount';
 import { CloudSyncFlowManagerAddressBook } from './CloudSyncFlowManager/CloudSyncFlowManagerAddressBook';
 import { CloudSyncFlowManagerBotWallet } from './CloudSyncFlowManager/CloudSyncFlowManagerBotWallet';
@@ -806,6 +810,7 @@ class ServicePrimeCloudSync extends ServiceBase {
   }) => {
     const now = await this.getCloudSyncDataTime();
     const localData: ICloudSyncServerItem[] = localItems
+      .filter((item) => isSupportedCloudSyncDataType(item.dataType))
       .map((item) => {
         let dataTimestamp = item.dataTime;
         if (setUndefinedTimeToNow && isNil(dataTimestamp)) {
@@ -1044,6 +1049,7 @@ class ServicePrimeCloudSync extends ServiceBase {
     const addressBookItems: IDBCloudSyncItem[] = [];
 
     for (const item of items) {
+      if (!isSupportedCloudSyncDataType(item.dataType)) continue;
       switch (item.dataType) {
         case EPrimeCloudSyncDataType.Wallet:
           walletItems.push(item);
@@ -1219,7 +1225,22 @@ class ServicePrimeCloudSync extends ServiceBase {
     syncCredential: ICloudSyncCredential | undefined;
     serverPwdHash: string;
   }) {
+    const config = await primeCloudSyncPersistAtom.get();
+    if (
+      config.hardwareCloudSyncKeySource &&
+      (!config.isCloudSyncEnabledKeyless ||
+        syncCredential?.keylessCredential?.source?.credentialId !==
+          config.hardwareCloudSyncKeySource.credentialId ||
+        !syncCredential.keylessCredential.hardwareSession ||
+        syncCredential.keylessCredential.pwdHash !== serverPwdHash)
+    ) {
+      // Keep unsynced local data until the selected hardware key can decrypt it.
+      return;
+    }
     const localSyncItemsPromise: Promise<IDBCloudSyncItem>[] = serverItems
+      // The server stores opaque records, including key envelopes and types
+      // introduced by newer clients. Only import supported business records.
+      .filter((item) => isSupportedCloudSyncDataType(item.dataType))
       .map(async (serverItem) =>
         this.convertServerItemToLocalItem({
           serverItem,
@@ -1274,7 +1295,7 @@ class ServicePrimeCloudSync extends ServiceBase {
   }
 
   async updateLocalItemsByServer({
-    localItems,
+    localItems: incomingItems,
     syncCredential,
     shouldSyncToScene,
   }: {
@@ -1282,12 +1303,23 @@ class ServicePrimeCloudSync extends ServiceBase {
     syncCredential: ICloudSyncCredential | undefined;
     shouldSyncToScene: boolean;
   }) {
+    const localItems = incomingItems.filter((item) =>
+      isSupportedCloudSyncDataType(item.dataType),
+    );
+    if (!localItems.length) return;
     console.log('updateLocalItemsByServer', localItems);
-    await localDb.addAndUpdateSyncItems({
-      items: localItems,
-      // the data is already from the server, so it doesn't need to be uploaded back to the server
-      skipUploadToServer: true,
-    });
+    await this.backgroundApi.serviceKeylessCloudSync.runWithCloudSyncKeyLock(
+      async () => {
+        // DB warm-up can await before the transaction starts. Keep the key
+        // selected by this check until the write has actually committed.
+        await this.assertSyncCredentialUnchanged(syncCredential);
+        await localDb.addAndUpdateSyncItems({
+          items: localItems,
+          // Server data does not need to be uploaded again.
+          skipUploadToServer: true,
+        });
+      },
+    );
     console.log('updateLocalItemsByServer sucess', localItems);
 
     if (shouldSyncToScene && syncCredential) {
@@ -1296,6 +1328,7 @@ class ServicePrimeCloudSync extends ServiceBase {
         name: ELocalDBStoreNames.CloudSyncItem,
         ids: localItems.map((item) => item.id),
       });
+      await this.assertSyncCredentialUnchanged(syncCredential);
       await this.syncToSceneWithLocalSyncItems({
         items: items.filter(Boolean),
         syncCredential,
@@ -1425,6 +1458,7 @@ class ServicePrimeCloudSync extends ServiceBase {
         encryptedSecurityPasswordR1ForServer,
         isFullDBChecking: true,
         noDebounceUpload,
+        expectedSyncCredential: credential,
       });
     } catch (error) {
       errorUtils.autoPrintErrorIgnore(error);
@@ -1452,6 +1486,7 @@ class ServicePrimeCloudSync extends ServiceBase {
     encryptedSecurityPasswordR1ForServer,
     isFullDBChecking,
     noDebounceUpload,
+    expectedSyncCredential,
   }: {
     localItems: IDBCloudSyncItem[];
     isFlush?: boolean;
@@ -1459,6 +1494,8 @@ class ServicePrimeCloudSync extends ServiceBase {
     encryptedSecurityPasswordR1ForServer?: string;
     isFullDBChecking?: boolean;
     noDebounceUpload?: boolean;
+    // The key the caller selected local items with, if it read one earlier.
+    expectedSyncCredential?: ICloudSyncCredential;
   }) {
     if (!(await this.isCloudSyncIsAvailable())) {
       return;
@@ -1468,12 +1505,20 @@ class ServicePrimeCloudSync extends ServiceBase {
 
     // TODO check passcode, syncPassword, accountSalt, isPrime are both available
 
+    // The sync does not hold the Cloud key lock across network calls. Capture
+    // the key before the first request and abort before any write if it changed.
+    const expectedCredential =
+      expectedSyncCredential ?? (await this.getSyncCredentialSafe());
+    const assertSelectedKey = () =>
+      this.assertSyncCredentialUnchanged(expectedCredential);
+
     const serverStatus = await this.apiCheckServerStatus({
       localItems,
       isFullDBChecking,
     });
 
     const syncCredential = await this.getSyncCredentialSafe();
+    await assertSelectedKey();
 
     // server obsoleted items, should be uploaded to server
     if (serverStatus.obsoleted.length || isFlush) {
@@ -1481,6 +1526,7 @@ class ServicePrimeCloudSync extends ServiceBase {
       const itemsToUpload = localItems.filter((item) =>
         serverStatus.obsoleted.includes(item.id),
       );
+      await assertSelectedKey();
       await this.apiUploadItems({
         localItems: itemsToUpload,
         isFlush: isFlush ?? false,
@@ -1495,6 +1541,7 @@ class ServicePrimeCloudSync extends ServiceBase {
     if (serverStatus.diff.length) {
       console.log('serverStatus.diff', serverStatus.diff);
       // TODO server returns missing data details, only key
+      await assertSelectedKey();
       await this.saveServerSyncItemsToLocal({
         serverItems: serverStatus.diff,
         shouldSyncToScene: true,
@@ -1506,6 +1553,7 @@ class ServicePrimeCloudSync extends ServiceBase {
     // server updated items, should be save to local
     if (serverStatus.updated.length) {
       console.log('serverStatus.updated', serverStatus.updated);
+      await assertSelectedKey();
       await this.saveServerSyncItemsToLocal({
         serverItems: serverStatus.updated,
         shouldSyncToScene: true,
@@ -1517,6 +1565,7 @@ class ServicePrimeCloudSync extends ServiceBase {
     // server deleted items, should be deleted from local
     if (serverStatus.deleted.length) {
       console.log('serverStatus.deleted', serverStatus.deleted);
+      await assertSelectedKey();
       await this.saveServerDeletedItemsToLocal({
         deletedItemIds: serverStatus.deleted,
         shouldSyncToScene: true,
@@ -1627,6 +1676,41 @@ class ServicePrimeCloudSync extends ServiceBase {
       }
       console.log(
         `CloudSyncTookTime:: ServicePrimeCloudSync.getSyncCredentialSafe() ${duration}ms`,
+      );
+    }
+  }
+
+  async assertSyncCredentialUnchanged(
+    expected: ICloudSyncCredential | undefined,
+  ) {
+    // Only Keyless and hardware keys can be switched under a running sync.
+    // OneKey ID credentials may be briefly unavailable after an App lock.
+    const expectedCredential = expected?.keylessCredential;
+    const expectedKey = expectedCredential?.signingPublicKey;
+    const expectedHardware = expectedCredential?.source;
+    if (!expectedKey && !expectedHardware) return;
+    const selected = await this.getSyncCredentialSafe();
+    // No credential at all is a transient read failure, not a different key.
+    if (!selected) {
+      throw new OneKeyError(
+        'Cloud key is temporarily unavailable. Try syncing again.',
+      );
+    }
+    const selectedCredential = selected.keylessCredential;
+    const unchanged = expectedHardware
+      ? selectedCredential?.source?.credentialId ===
+          expectedHardware.credentialId &&
+        selectedCredential?.keylessWalletId ===
+          expectedCredential.keylessWalletId &&
+        selectedCredential?.pwdHash === expectedCredential.pwdHash &&
+        selectedCredential?.hardwareSession?.dekId ===
+          expectedCredential.hardwareSession?.dekId
+      : !selectedCredential?.source &&
+        selectedCredential?.signingPublicKey === expectedKey;
+    if (!unchanged) {
+      throw new HardwareCloudSyncError(
+        ETranslations.cloud_sync_key_selection_changed__msg,
+        'The encryption method for Cloud sync changed. Your data will sync with the new one next time.',
       );
     }
   }
@@ -1747,6 +1831,35 @@ class ServicePrimeCloudSync extends ServiceBase {
       skipClearLocalMasterPassword?: boolean;
     } = {},
   ) {
+    // Legacy credential-error cleanup can run inside a Cloud key locked section.
+    // Disabling preserves the selected source and its credential storage.
+    if (!enabled) {
+      return this.setCloudSyncEnabledWithKeyLock(false, {
+        skipClearLocalMasterPassword,
+      });
+    }
+    return this.backgroundApi.serviceKeylessCloudSync.runWithCloudSyncKeyLock(
+      () =>
+        this.setCloudSyncEnabledWithKeyLock(enabled, {
+          skipClearLocalMasterPassword,
+        }),
+    );
+  }
+
+  async setCloudSyncEnabledWithKeyLock(
+    enabled: boolean,
+    {
+      skipClearLocalMasterPassword,
+    }: { skipClearLocalMasterPassword?: boolean } = {},
+  ) {
+    if (
+      enabled &&
+      (await primeCloudSyncPersistAtom.get()).hardwareCloudSyncKeySource
+    ) {
+      throw new OneKeyError(
+        'Changing an existing hardware Cloud key requires an explicit migration.',
+      );
+    }
     if (!enabled && !skipClearLocalMasterPassword) {
       await this.backgroundApi.serviceMasterPassword.clearLocalMasterPassword({
         skipDisableCloudSync: true,
@@ -1777,6 +1890,11 @@ class ServicePrimeCloudSync extends ServiceBase {
 
   @backgroundMethod()
   async normalizeCloudSyncStateForPageEnter() {
+    // Drop a hardware key left behind while sync is off without waiting for
+    // the daily sweep. A key in use stays.
+    await this.backgroundApi.serviceKeylessCloudSync
+      .sweepHardwareCloudKeyIfSyncOff()
+      .catch(() => false);
     const currentConfig = await primeCloudSyncPersistAtom.get();
     if (
       !currentConfig.isCloudSyncEnabled ||
@@ -1858,11 +1976,14 @@ class ServicePrimeCloudSync extends ServiceBase {
     noDebounceUpload = true,
     forceSync,
     password,
+    askPasswordOnlyIfHdXfpMissing,
   }: {
     callerName?: string;
     noDebounceUpload?: boolean;
     forceSync?: boolean;
     password?: string;
+    // Only the hardware Cloud key Sync now button sets this.
+    askPasswordOnlyIfHdXfpMissing?: boolean;
   } = {}): Promise<boolean> {
     const { isCloudSyncEnabledKeyless } = await primeCloudSyncPersistAtom.get();
     if (!isCloudSyncEnabledKeyless) {
@@ -1880,10 +2001,20 @@ class ServicePrimeCloudSync extends ServiceBase {
     if (!syncCredential) {
       return false;
     }
-    await this.initLocalSyncItemsDB({
-      syncCredential,
-      password,
-    });
+    // Ask before taking the key lock; never hold it while a prompt is open.
+    const initPassword = askPasswordOnlyIfHdXfpMissing
+      ? await this.resolvePasswordOnlyIfHdXfpMissing(password)
+      : await this.resolveInitLocalSyncItemsPassword(password);
+    await this.backgroundApi.serviceKeylessCloudSync.runWithCloudSyncKeyLock(
+      async () => {
+        await this.assertSyncCredentialUnchanged(syncCredential);
+        await this.initLocalSyncItemsDB({
+          syncCredential,
+          password: initPassword,
+          askPasswordOnlyIfHdXfpMissing,
+        });
+      },
+    );
     await this.startServerSyncFlow({
       callerName,
       noDebounceUpload,
@@ -2037,6 +2168,19 @@ class ServicePrimeCloudSync extends ServiceBase {
   async onWebSocketMasterPasswordChanged(
     payload: IPrimeConfigFlushInfo | IPrimeLockChangedInfo,
   ) {
+    // A hardware Cloud key's flush is a key reset, not a OneKey ID master
+    // password change: a stale master password UUID must not raise its alert.
+    const config = await primeCloudSyncPersistAtom.get();
+    if (config.isCloudSyncEnabledKeyless && config.hardwareCloudSyncKeySource) {
+      await this.backgroundApi.serviceKeylessCloudSync.onHardwareKeyFlushPush({
+        pwdHash: payload.pwdHash,
+      });
+      return;
+    }
+    // The master password only applies to OneKey ID sync. A Keyless flush, or
+    // one arriving with sync off, must not reach the OneKey ID alert through a
+    // master password UUID left from earlier.
+    if ((await this.getActiveSyncMode()) !== ECloudSyncMode.OnekeyId) return;
     const { masterPasswordUUID } = await primeMasterPasswordPersistAtom.get();
     if (masterPasswordUUID && masterPasswordUUID !== payload.pwdHash) {
       await this.showAlertDialogIfLocalPasswordInvalid({
@@ -2062,33 +2206,63 @@ class ServicePrimeCloudSync extends ServiceBase {
     });
   }
 
+  // Lets callers prompt before entering the Cloud key lock.
+  async resolveInitLocalSyncItemsPassword(password?: string): Promise<string> {
+    if (password) return password;
+    const result =
+      await this.backgroundApi.servicePassword.promptPasswordVerify({
+        reason: ALWAYS_VERIFY_PASSCODE_WHEN_CHANGE_SET_MASTER_PASSWORD
+          ? EReasonForNeedPassword.Security
+          : undefined,
+      });
+    return result.password;
+  }
+
+  // For turning on sync with hardware and its Sync now only: the hardware key
+  // is not stored under the App password, which is then needed only to fill
+  // HD wallets' missing hash or xfp before sync items are built.
+  async resolvePasswordOnlyIfHdXfpMissing(
+    password?: string,
+  ): Promise<string | undefined> {
+    if (password) return password;
+    if (
+      !(await this.backgroundApi.serviceAccount.hasHdWalletsMissingHashOrXfp())
+    ) {
+      return undefined;
+    }
+    return this.resolveInitLocalSyncItemsPassword();
+  }
+
   @backgroundMethod()
   async initLocalSyncItemsDB({
     syncCredential,
     password,
+    askPasswordOnlyIfHdXfpMissing,
   }: {
     syncCredential: ICloudSyncCredential;
     password?: string;
+    // Set with a password already from resolvePasswordOnlyIfHdXfpMissing, so
+    // a missing one is never prompted here.
+    askPasswordOnlyIfHdXfpMissing?: boolean;
   }) {
-    if (!password) {
-      // eslint-disable-next-line no-param-reassign
-      ({ password } =
-        await this.backgroundApi.servicePassword.promptPasswordVerify({
-          reason: ALWAYS_VERIFY_PASSCODE_WHEN_CHANGE_SET_MASTER_PASSWORD
-            ? EReasonForNeedPassword.Security
-            : undefined,
-        }));
+    const resolvedPassword = askPasswordOnlyIfHdXfpMissing
+      ? password
+      : await this.resolveInitLocalSyncItemsPassword(password);
+
+    if (resolvedPassword) {
+      await this.backgroundApi.serviceAccount.generateAllHdAndQrWalletsHashAndXfp(
+        {
+          password: resolvedPassword,
+        },
+      );
+
+      await this.backgroundApi.serviceAccount.mergeDuplicateHDWallets({
+        password: resolvedPassword,
+      });
+    } else {
+      // Only HD wallets need the password; QR wallets still get their xfp.
+      await this.backgroundApi.serviceAccount.generateAllQrWalletsMissingXfp();
     }
-
-    await this.backgroundApi.serviceAccount.generateAllHdAndQrWalletsHashAndXfp(
-      {
-        password,
-      },
-    );
-
-    await this.backgroundApi.serviceAccount.mergeDuplicateHDWallets({
-      password,
-    });
 
     const { wallets: allWallets, allDevices } =
       await this.backgroundApi.serviceAccount.getAllWallets({
@@ -2487,9 +2661,21 @@ class ServicePrimeCloudSync extends ServiceBase {
     };
   }
 
-  async getAllLocalSyncItems() {
+  async getAllLocalSyncItems({
+    includeUnsupportedDataTypes = false,
+  }: {
+    includeUnsupportedDataTypes?: boolean;
+  } = {}) {
     const { syncItems } = await localDb.getAllSyncItems();
-    return { items: syncItems };
+    // Preserve unknown records already stored by older clients, but keep them
+    // out of business sync and uploads. Key safety checks need the full view.
+    return {
+      items: includeUnsupportedDataTypes
+        ? syncItems
+        : syncItems.filter((item) =>
+            isSupportedCloudSyncDataType(item.dataType),
+          ),
+    };
   }
 
   @backgroundMethod()

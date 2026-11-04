@@ -4,6 +4,8 @@ import type {
   IMarketTokenDetailPreview,
 } from '@onekeyhq/shared/types/marketV2';
 
+import { isMarketTokenDecimalsReady } from './marketTokenIdentity';
+
 import type { IMarketToken } from '../../MarketHomeV2/components/MarketTokenList/MarketTokenData';
 
 type IBuildMarketTokenDetailPreviewInput = Pick<
@@ -74,7 +76,9 @@ function toFirstOptionalNumber(...values: unknown[]) {
 
 export function buildMarketTokenDetailPreview(
   token: IBuildMarketTokenDetailPreviewInput,
-): IMarketTokenDetailPreview {
+): IMarketTokenDetailPreview | undefined {
+  if (!isMarketTokenDecimalsReady(token)) return undefined;
+
   return {
     firstTradeTime: token.firstTradeTime,
     address: token.address,

@@ -7,7 +7,7 @@
   "options.title":"ইনস্টলেশনের স্থান বেছে নিন","options.subtitle":"প্রস্তাবিত অবস্থান ব্যবহার করুন বা অন্য ফোল্ডার বেছে নিন।","options.pathLabel":"এখানে ইনস্টল করুন","options.browse":"ব্রাউজ","options.install":"এখন ইনস্টল করুন","upgrade.title":"OneKey আপডেট করুন","upgrade.subtitle":"আগের ইনস্টলেশন সেটিংস রাখা হবে।","upgrade.pathLabel":"আপডেট অবস্থান","upgrade.install":"এখন আপডেট করুন",
   "uninstall.title":"OneKey আনইনস্টল হচ্ছে",
   "uninstall.confirmTitle": "OneKey আনইনস্টল করবেন?",
-  "uninstall.confirmSubtitle": "অ্যাপটি এই কম্পিউটার থেকে সরানো হবে। আপনার ওয়ালেটের ডেটা মুছে ফেলা হবে না।",
+  "uninstall.confirmSubtitle": "বর্তমান Windows অ্যাকাউন্টের সব স্থানীয় OneKey ডেটা, ওয়ালেট ও সেটিংসসহ, স্থায়ীভাবে মুছে যাবে। এগিয়ে যাওয়ার আগে আপনার রিকভারি ফ্রেজ বা প্রাইভেট কী ব্যাকআপ করুন।",
   "uninstall.confirm": "আনইনস্টল",
   "uninstall.cancel": "বাতিল","uninstall.subtitle":"অ্যাপের ফাইল নিরাপদে সরানো হচ্ছে। এই উইন্ডো খোলা রাখুন।","uninstall.status":"অ্যাপ ফাইল সাজানো হচ্ছে…","uninstall.finishTitle":"OneKey আনইনস্টল হয়েছে","uninstall.finishSubtitle":"অ্যাপের ফাইল নিরাপদে সরানো হয়েছে। OneKey ব্যবহার করার জন্য ধন্যবাদ।","uninstall.close":"সম্পন্ন","uninstallError.title":"আনইনস্টল সম্পন্ন হয়নি","uninstallError.subtitle":"এখন আবার চেষ্টা করুন অথবা পরে OneKey আনইনস্টল করুন।","uninstallError.retry":"আবার আনইনস্টল করুন","error.title":"ইনস্টল সম্পন্ন হয়নি","error.subtitle":"আপনার বর্তমান ডেটা অক্ষত আছে। আবার চেষ্টা করুন বা পরে ইনস্টল করুন।","error.retry":"আবার চেষ্টা করুন","finish.safeHint":"ব্যবহার শুরু করতে “OneKey খুলুন” ক্লিক করুন"
 }

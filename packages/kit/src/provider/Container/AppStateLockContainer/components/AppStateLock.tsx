@@ -36,6 +36,11 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { verifiedWebAuth } from '@onekeyhq/shared/src/webAuth';
 
 import { AppStateContainer } from './AppStateContainer';
+import {
+  NativeStorageLockError,
+  NativeStorageLockToast,
+  useNativeStorageLockError,
+} from './NativeStorageLockRecovery';
 
 import type { KeyboardEvent, ViewInstance } from 'react-native';
 
@@ -96,6 +101,7 @@ const AppStateLock = ({
   const resetApp = useResetApp({ inAppStateLock: true });
   const [v4migrationData] = useV4migrationAtom();
   const [{ webAuthCredentialId }] = usePasswordPersistAtom();
+  const storageError = useNativeStorageLockError();
 
   const handleExportLogs = useCallback(async () => {
     // Gate the hidden lock-screen log-upload entry behind a biometric check so
@@ -231,6 +237,7 @@ const AppStateLock = ({
               }}
             >
               {passwordVerifyContainer}
+              <NativeStorageLockError message={storageError} />
             </Stack>
           </Stack>
           <DevPerpsWebSocketUpdateView />
@@ -258,6 +265,7 @@ const AppStateLock = ({
             )}
           </Stack>
         </Animated.View>
+        <NativeStorageLockToast message={storageError} />
       </ThemeableStack>
     </AppStateContainer>
   );

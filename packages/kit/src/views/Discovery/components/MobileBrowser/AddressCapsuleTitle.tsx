@@ -123,11 +123,13 @@ function DomainLabel({
   testID,
   centerShift,
   onCenterOffset,
+  onFontSize,
 }: {
   text: string;
   testID?: string;
   centerShift: number;
   onCenterOffset?: (offset: number) => void;
+  onFontSize?: (fontSize: number) => void;
 }) {
   const [availableWidth, setAvailableWidth] = useState(0);
   // Natural single-line widths at the full and the minimum font size.
@@ -149,6 +151,9 @@ function DomainLabel({
   useEffect(() => {
     onCenterOffset?.(centerOffset);
   }, [centerOffset, onCenterOffset]);
+  useEffect(() => {
+    onFontSize?.(fontSize);
+  }, [fontSize, onFontSize]);
 
   // The text sits in a row far wider than the capsule, so its own box is
   // never constrained: positioned so the text is centered in the capsule, or,
@@ -259,11 +264,15 @@ function AddressCapsuleTitleComponent({
   domainStyle,
   capsuleWidth,
   onDomainCenterOffset,
+  onDomainFontSize,
 }: {
   url?: string;
   onPress: () => void;
   // Reports how far the domain sits right of the capsule's center.
   onDomainCenterOffset?: (offset: number) => void;
+  // Reports the size the domain is drawn at (smaller than DOMAIN_FONT_SIZE
+  // when a long one shrinks to fit).
+  onDomainFontSize?: (fontSize: number) => void;
   // Width of the capsule hosting this title, for exact centering.
   capsuleWidth?: number;
   // The bar's morph fades the badge with the capsule, but swaps the domain
@@ -362,6 +371,7 @@ function AddressCapsuleTitleComponent({
                 testID={DiscoveryTestIDs.searchBar}
                 centerShift={centerShift}
                 onCenterOffset={onDomainCenterOffset}
+                onFontSize={onDomainFontSize}
                 text={domainText}
               />
             </XStack>

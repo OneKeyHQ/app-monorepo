@@ -847,4 +847,57 @@ describe('market native list rows', () => {
       },
     ]);
   });
+
+  it('patches quote metrics but uses a full snapshot when visible columns change', () => {
+    const row = buildTokenMarketRow({
+      item: token,
+      presentation,
+      responsive: true,
+    });
+    const snapshot = (metrics?: typeof row.metrics) =>
+      buildMarketNativeSnapshot({
+        rows: [Object.assign({}, row, { metrics })],
+        generation: 1,
+        presentation,
+        loading: false,
+        noDataMessage: 'No data',
+        retryMessage: 'Retry',
+        contentPaddingBottom: 20,
+      });
+    const two = snapshot(row.metrics?.slice(0, 2));
+    const quoteTick = snapshot(
+      row.metrics
+        ?.slice(0, 2)
+        .map((metric) =>
+          metric.key === 'price' ? { ...metric, text: '$2' } : metric,
+        ),
+    );
+    expect(buildMarketNativeRowPatches(two, quoteTick)).toEqual([
+      expect.objectContaining({
+        type: 'market',
+        key: row.key,
+        changes: expect.objectContaining({
+          metrics: (quoteTick.rows[0] as typeof row).metrics,
+        }),
+      }),
+    ]);
+    expect(
+      buildMarketNativeRowPatches(two, snapshot(row.metrics)),
+    ).toBeUndefined();
+    expect(buildMarketNativeRowPatches(two, snapshot())).toBeUndefined();
+    expect(row.pressActionKey).toBe('open-detail');
+    expect(row.pressInActionKey).toBe('prewarm-detail');
+    expect(row.volumeSubtitle).toBe(true);
+    const webRow = buildTokenMarketRow({ item: token, presentation });
+    expect(webRow.metrics).toBeUndefined();
+    expect(webRow.volumeSubtitle).toBeUndefined();
+    expect(
+      buildTokenMarketRow({
+        item: { ...token, stockId: 'AAPL', address: '', networkId: '' },
+        presentation,
+        watchlist: true,
+        responsive: true,
+      }).volumeSubtitle,
+    ).toBe(false);
+  });
 });

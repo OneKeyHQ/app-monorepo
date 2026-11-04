@@ -92,7 +92,9 @@ jest.mock('@onekeyhq/components', () => {
     IconButton: View,
     Page: {
       Footer: View,
-      FooterActions: View,
+      FooterActions: ({ cancelButton }: { cancelButton?: ReactNode }) => (
+        <>{cancelButton}</>
+      ),
     },
     Popover: ({
       renderContent,
@@ -217,7 +219,7 @@ describe('TradingViewChartSettings', () => {
     expect(nextValue?.options.previousClose).toBe(true);
   });
 
-  it('shows the navigation buttons option enabled by default and updates it', () => {
+  it('shows the navigation buttons option disabled by default and updates it', () => {
     const initialValue = createTradingViewChartSettingsValue();
     const onChange = jest.fn<void, [ITradingViewChartSettingsValue]>();
 
@@ -235,12 +237,12 @@ describe('TradingViewChartSettings', () => {
     expect(navigationButtonsCheckbox.textContent).toBe(
       'chart_navigation_buttons__title',
     );
-    expect(navigationButtonsCheckbox.getAttribute('data-value')).toBe('true');
+    expect(navigationButtonsCheckbox.getAttribute('data-value')).toBe('false');
 
     fireEvent.click(navigationButtonsCheckbox);
 
     const nextValue = onChange.mock.calls.at(-1)?.[0];
-    expect(nextValue?.options.navigationButtons).toBe(false);
+    expect(nextValue?.options.navigationButtons).toBe(true);
   });
 
   it('keeps the chart interface group when only navigation buttons are offered', () => {
@@ -336,5 +338,86 @@ describe('TradingViewChartSettings', () => {
 
     const nextValue = onChange.mock.calls.at(-1)?.[0];
     expect(nextValue?.chartType).toBe('line');
+  });
+
+  it('applies reset defaults immediately without waiting for confirm', async () => {
+    const committedValue: ITradingViewChartSettingsValue = {
+      ...createTradingViewChartSettingsValue(),
+      chartType: 'line',
+    };
+    const onConfirm = jest.fn<Promise<void>, [ITradingViewChartSettingsValue]>(
+      () => Promise.resolve(),
+    );
+    const onConfirmSuccess = jest.fn();
+
+    render(
+      <TradingViewChartSettings
+        value={committedValue}
+        usePageFooter
+        showChartType
+        onConfirm={onConfirm}
+        onConfirmSuccess={onConfirmSuccess}
+      />,
+    );
+
+    expect(
+      (
+        screen.getByTestId(
+          'trading-view-settings-select-chart-type',
+        ) as HTMLSelectElement
+      ).value,
+    ).toBe('line');
+
+    await act(async () => {
+      fireEvent.click(screen.getByTestId('trading-view-settings-mock-reset'));
+    });
+
+    expect(onConfirm).toHaveBeenCalledTimes(1);
+    expect(onConfirm).toHaveBeenCalledWith(
+      createTradingViewChartSettingsValue(),
+    );
+    // Reset persists in place; only Confirm closes the settings.
+    expect(onConfirmSuccess).not.toHaveBeenCalled();
+    expect(
+      (
+        screen.getByTestId(
+          'trading-view-settings-select-chart-type',
+        ) as HTMLSelectElement
+      ).value,
+    ).toBe('auto');
+  });
+
+  it('keeps the reset draft and reports the error when applying it fails', async () => {
+    const error = new Error('persist failed');
+    const onConfirm = jest.fn<Promise<void>, [ITradingViewChartSettingsValue]>(
+      () => Promise.reject(error),
+    );
+    const onConfirmError = jest.fn();
+
+    render(
+      <TradingViewChartSettings
+        defaultValue={{
+          ...createTradingViewChartSettingsValue(),
+          chartType: 'line',
+        }}
+        usePageFooter
+        showChartType
+        onConfirm={onConfirm}
+        onConfirmError={onConfirmError}
+      />,
+    );
+
+    await act(async () => {
+      fireEvent.click(screen.getByTestId('trading-view-settings-mock-reset'));
+    });
+
+    expect(onConfirmError).toHaveBeenCalledWith(error);
+    expect(
+      (
+        screen.getByTestId(
+          'trading-view-settings-select-chart-type',
+        ) as HTMLSelectElement
+      ).value,
+    ).toBe('auto');
   });
 });

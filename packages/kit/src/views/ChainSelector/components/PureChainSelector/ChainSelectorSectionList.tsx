@@ -64,6 +64,7 @@ type IChainSelectorSectionListContentProps = {
   accountNetworkValues?: Record<string, string>;
   accountNetworkValueCurrency?: string;
   hideLowValueNetworkValue?: boolean;
+  highlightSelected?: boolean;
 };
 
 const ChainSelectorSectionListContent = ({
@@ -77,6 +78,7 @@ const ChainSelectorSectionListContent = ({
   accountNetworkValues,
   accountNetworkValueCurrency,
   hideLowValueNetworkValue,
+  highlightSelected,
 }: IChainSelectorSectionListContentProps & {
   initialScrollIndex: ISectionListProps<any>['initialScrollIndex'];
 }) => {
@@ -126,6 +128,7 @@ const ChainSelectorSectionListContent = ({
             new BigNumber(networkValue || 0).gt(
               NETWORK_SHOW_VALUE_THRESHOLD_USD,
             ));
+        const isSelected = networkId === item.id;
 
         return (
           <ListItem
@@ -147,6 +150,7 @@ const ChainSelectorSectionListContent = ({
                 ? intl.formatMessage({ id: ETranslations.global_all_networks })
                 : item.name
             }
+            bg={isSelected && highlightSelected ? '$bgActive' : undefined}
             opacity={section.isUnavailable ? 0.7 : 1}
             titleMatch={item.titleMatch}
             onPress={
@@ -155,14 +159,10 @@ const ChainSelectorSectionListContent = ({
             testID={`select-item-${item.id}`}
           >
             {/* eslint-disable no-nested-ternary */}
-            {accountNetworkValues !== undefined ? (
-              networkId === item.id ? (
-                <ListItem.CheckMark key="checkmark" />
-              ) : (
-                <Stack w="$5" />
-              )
-            ) : networkId === item.id ? (
+            {highlightSelected ? null : isSelected ? (
               <ListItem.CheckMark key="checkmark" />
+            ) : accountNetworkValues !== undefined ? (
+              <Stack w="$5" />
             ) : null}
             {/* eslint-enable no-nested-ternary */}
             {shouldShowValue ? (
@@ -195,6 +195,7 @@ type IChainSelectorSectionListProps = {
   // Lift networks above the value threshold into a top "Networks with assets"
   // section, like the wallet network selector. Opt-in per caller.
   groupByNetworkValue?: boolean;
+  highlightSelected?: boolean;
 };
 
 const usePending = () => {
@@ -234,6 +235,7 @@ export const ChainSelectorSectionList: FC<IChainSelectorSectionListProps> = ({
   accountNetworkValueCurrency,
   hideLowValueNetworkValue,
   groupByNetworkValue,
+  highlightSelected,
 }) => {
   const [text, setText] = useState('');
   const intl = useIntl();
@@ -455,6 +457,7 @@ export const ChainSelectorSectionList: FC<IChainSelectorSectionListProps> = ({
           accountNetworkValues={accountNetworkValues}
           accountNetworkValueCurrency={accountNetworkValueCurrency}
           hideLowValueNetworkValue={hideLowValueNetworkValue}
+          highlightSelected={highlightSelected}
         />
       ) : (
         <ListEmptyComponent />
@@ -469,6 +472,7 @@ export const ChainSelectorSectionList: FC<IChainSelectorSectionListProps> = ({
       accountNetworkValues,
       accountNetworkValueCurrency,
       hideLowValueNetworkValue,
+      highlightSelected,
       onScrollBeginDrag,
       androidScrollProps,
     ],

@@ -200,8 +200,13 @@ export function WebMarketTokenList({
         ? node
         : null;
   }, []);
+  const sticky = useContext(DesktopStickyHeaderContext);
+  const [stickyInset, setStickyInset] = useState(0);
   const registeredHeight = Math.max(
     400,
+    // Removing a favorite must not shorten the visible page and clamp the
+    // outer scroll offset, which would move all remaining rows downward.
+    watchlistMode ? (scrollElement?.clientHeight ?? 0) - stickyInset : 0,
     data.length * 72 +
       contentPaddingBottom +
       (footer ? 132 : 0) +
@@ -212,8 +217,6 @@ export function WebMarketTokenList({
     if (!element) return undefined;
     return registerContent?.(element, registeredHeight);
   }, [registerContent, registeredHeight]);
-  const sticky = useContext(DesktopStickyHeaderContext);
-  const [stickyInset, setStickyInset] = useState(0);
   useEffect(() => {
     const element = sticky?.portalTarget?.parentElement;
     if (!element) return undefined;

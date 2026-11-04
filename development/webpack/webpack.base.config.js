@@ -9,6 +9,10 @@ const webpack = require('webpack');
 const webpackManifestPlugin = require('webpack-manifest-plugin');
 
 const { readOneKeyBootstrapDataCode } = require('../htmlBootstrapData');
+const {
+  iconAssetsAlias,
+  OneKeyIconAssetsPlugin,
+} = require('../onekey-icons/build');
 const { resolveCommitSha } = require('../utils/resolveCommitSha');
 
 const { isDev, PUBLIC_URL, NODE_ENV, ONEKEY_PROXY } = require('./constant');
@@ -22,6 +26,10 @@ const CANVASKIT_WASM_TEST =
   /canvaskit-wasm[\\/]bin[\\/](full[\\/])?canvaskit\.wasm$/;
 const ZXING_READER_WASM_TEST =
   /zxing-wasm[\\/]dist[\\/]reader[\\/]zxing_reader\.wasm$/;
+// Chain runtime wasm gets its `wbg` imports from the JS glue; emit as an asset.
+const ZCASH_WASM_TEST = /onekey_zcash_(runtime|keys)_bg\.wasm$/;
+const MONERO_WASM_TEST = /onekey_monero_runtime_bg\.wasm$/;
+const CHAIN_RUNTIME_WASM_TEST = [ZCASH_WASM_TEST, MONERO_WASM_TEST];
 
 class BuildDoneNotifyPlugin {
   apply(compiler) {
@@ -55,6 +63,7 @@ const baseResolve = ({ platform, configName, basePath }) => ({
   extensions: createResolveExtensions({ platform, configName }),
   symlinks: true,
   alias: {
+    ...iconAssetsAlias,
     'react-native$': 'react-native-web',
     'react-native-aes-crypto': false,
     'react-native-cloud-fs': false,
@@ -89,6 +98,14 @@ const baseResolve = ({ platform, configName, basePath }) => ({
       '../../node_modules/@react-aria/utils/src/index.ts',
     ),
     'bn.js$': require.resolve('bn.js'),
+    // Web ships no Zcash/Monero (web-embed does); mirrors rspack.resolve.config.js.
+    ...(platform === 'web'
+      ? {
+          '@onekeyfe/zcash-runtime': false,
+          '@onekeyfe/zcash-keys': false,
+          '@onekeyfe/monero-runtime': false,
+        }
+      : {}),
   },
   fallback: {
     'crypto':
@@ -199,6 +216,7 @@ module.exports = ({ platform, basePath, configName }) => {
         : 'static/js/[name].[contenthash:10].chunk.js',
     },
     plugins: [
+      new OneKeyIconAssetsPlugin(),
       new HtmlWebpackPlugin({
         title: platform,
         minify: !isDev,
@@ -309,9 +327,42 @@ module.exports = ({ platform, basePath, configName }) => {
               },
             },
             {
+              test: CHAIN_RUNTIME_WASM_TEST,
+              type: 'asset/resource',
+              generator: { filename: 'static/chain-wasm/[name][ext]' },
+            },
+            {
               test: /\.wasm$/,
-              exclude: [CANVASKIT_WASM_TEST, ZXING_READER_WASM_TEST],
+              exclude: [
+                CANVASKIT_WASM_TEST,
+                ZXING_READER_WASM_TEST,
+                ...CHAIN_RUNTIME_WASM_TEST,
+              ],
               type: 'webassembly/async',
+            },
+            {
+              // External <use> cannot resolve small SVGs inlined as data URLs.
+              test: /\.svg$/,
+              include:
+                /development[\\/]generated[\\/]onekey-icons[\\/]web[\\/]assets[\\/]/,
+              type: 'asset/resource',
+              generator: {
+                filename: 'static/onekey-icons/[name].[contenthash:8][ext]',
+              },
+            },
+            {
+              // This generated resource module needs native import.meta for URL assets.
+              test: /development[\\/]generated[\\/]onekey-icons[\\/]web[\\/]assetUrls\.ts$/,
+              use: {
+                loader: 'babel-loader',
+                options: {
+                  ...babelLoaderOption,
+                  configFile: false,
+                  plugins: [
+                    require.resolve('@babel/plugin-transform-typescript'),
+                  ],
+                },
+              },
             },
             {
               test: [/\.avif$/],
@@ -332,6 +383,8 @@ module.exports = ({ platform, basePath, configName }) => {
                 /\.svg$/,
                 /\.webp$/,
               ],
+              exclude:
+                /development[\\/]generated[\\/]onekey-icons[\\/]web[\\/]assets[\\/]/,
               type: 'asset',
               parser: { dataUrlCondition: { maxSize: 1000 } },
             },

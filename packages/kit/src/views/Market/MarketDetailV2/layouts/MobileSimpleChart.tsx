@@ -27,8 +27,9 @@ import { useStockPriceSource } from '../hooks/useStockPriceSource';
 
 import { MARKET_SIMPLE_CHART_RANGE_LABEL_IDS } from './components/marketSimpleChartConstants';
 
-// Keep Simple compact and independent of Pro's indicator panes.
-export const MOBILE_SIMPLE_CHART_HEIGHT = 280;
+// Keep Simple compact and independent of Pro's indicator panes: a 280pt plot
+// plus the chart's own 28pt time axis.
+export const MOBILE_SIMPLE_CHART_HEIGHT = 308;
 // The range row mirrors the Pro interval bar (TradingViewChartControls on a
 // non-compact mobile layout): 8pt padding, 30pt pills, at least 42pt wide.
 const RANGE_BUTTON_HEIGHT = 30;

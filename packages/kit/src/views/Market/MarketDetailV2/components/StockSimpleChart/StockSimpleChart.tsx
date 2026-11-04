@@ -1,4 +1,5 @@
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import type { ReactNode } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -23,6 +24,7 @@ import type {
   IMarketTokenDetail,
 } from '@onekeyhq/shared/types/marketV2';
 
+import { useReportMarketSimpleChartRangeChange } from '../../hooks/MarketSimpleChartRangeChangeContext';
 import { useStockDetail } from '../../hooks/StockDetailContext';
 import { useMarketKlineLivePrice } from '../../hooks/useMarketKlineLivePrice';
 import { useTokenDetail } from '../../hooks/useTokenDetail';
@@ -34,12 +36,14 @@ import {
   buildStockSimpleChartAssetKey,
   buildStockSimpleChartScopeKey,
   fetchStockSimpleChartPoints,
+  isStockSimpleChartRangeUp,
   resolveStockSimpleChartBucketSeconds,
   resolveStockSimpleChartDisplayPoints,
   resolveStockSimpleChartLivePrice,
   resolveStockSimpleChartMinRefreshMs,
   resolveStockSimpleChartPreviousClose,
   resolveStockSimpleChartPulseLastPoint,
+  resolveStockSimpleChartRangeChange,
   resolveStockSimpleChartRequestScope,
   shouldStoreStockSimpleChartSeries,
 } from './stockSimpleChartData';
@@ -89,6 +93,7 @@ type IStockSimpleChartProps = {
   range: IStockSimpleChartRange;
   priceMode: IMarketPriceSource;
   priceScaleFormat?: 'stock' | 'full';
+  onPriceUpdate?: (price: number | undefined) => void;
   onRequestRetry?: () => void;
   requestError?: boolean;
 };
@@ -121,6 +126,7 @@ export function StockSimpleChartContent({
   range,
   priceMode,
   priceScaleFormat,
+  onPriceUpdate,
   requestError = false,
   onRequestRetry,
   retainPreviousRange = false,
@@ -464,7 +470,7 @@ export function StockSimpleChartContent({
     </YStack>
   );
 
-  let chartPlaceholder;
+  let chartPlaceholder: ReactNode;
   // Retain only another range of this asset; never expose a previous asset.
   if (requestError) {
     chartPlaceholder = renderChartError();
@@ -501,6 +507,45 @@ export function StockSimpleChartContent({
     );
   }
 
+  const hasChartPlaceholder = Boolean(chartPlaceholder);
+  const rangeChange = useMemo(
+    () =>
+      hasChartPlaceholder
+        ? undefined
+        : resolveStockSimpleChartRangeChange({
+            points: chartData,
+            previousClose,
+            priceMode: requestPriceMode,
+            range: displayedRange,
+          }),
+    [
+      chartData,
+      displayedRange,
+      hasChartPlaceholder,
+      previousClose,
+      requestPriceMode,
+    ],
+  );
+  const reportRangeChange = useReportMarketSimpleChartRangeChange();
+  useEffect(() => {
+    reportRangeChange(active && updateMarketDetail ? rangeChange : undefined);
+  }, [active, rangeChange, reportRangeChange, updateMarketDetail]);
+  // Unmounting (Pro mode, leaving the page) hands the header back to 24h.
+  useEffect(() => () => reportRangeChange(undefined), [reportRangeChange]);
+
+  useEffect(() => {
+    const price = chartData.at(-1)?.[1];
+    onPriceUpdate?.(
+      active &&
+        !chartPlaceholder &&
+        typeof price === 'number' &&
+        Number.isFinite(price) &&
+        price > 0
+        ? price
+        : undefined,
+    );
+  }, [active, chartData, chartPlaceholder, onPriceUpdate]);
+
   let placeholder = chartPlaceholder;
   if (platformEnv.isNative && placeholder) {
     placeholder = (
@@ -536,6 +581,11 @@ export function StockSimpleChartContent({
           height={chartHeight}
           pulseLastPoint={pulseLastPoint}
           previousClose={chartPlaceholder ? undefined : previousClose}
+          trend={
+            rangeChange && !isStockSimpleChartRangeUp(rangeChange)
+              ? 'down'
+              : 'up'
+          }
           showCurrentPriceLabel
           priceScaleFormat={priceScaleFormat}
           hoverLabelLargePrice

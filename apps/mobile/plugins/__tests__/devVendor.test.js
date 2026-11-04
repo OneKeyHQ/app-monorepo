@@ -638,6 +638,65 @@ describe('devVendor', () => {
     }
   });
 
+  it('invalidates compatible and exact native shells for canonical icons and their compiler', () => {
+    const fixture = createTemporaryRuntimeFixture();
+    try {
+      for (const relativePath of [
+        'packages/components/svg/outline/chart-position.svg',
+        'development/onekey-icons/generate-icons.mjs',
+      ]) {
+        const file = path.join(fixture.repoRoot, relativePath);
+        const original = fs.readFileSync(file);
+        const baselines = Object.fromEntries(
+          ['ios', 'android'].map((platform) => {
+            const nativeContractKey = computeNativeContractKey(
+              platform,
+              fixture.repoRoot,
+            );
+            return [
+              platform,
+              {
+                contract: nativeContractKey,
+                compatible: computeShellCompatibilityKey({
+                  platform,
+                  nativeContractKey,
+                }),
+                exact: computeShellInputKey(
+                  {
+                    platform,
+                    nativeContractKey,
+                    webEmbedInputKey: '1'.repeat(64),
+                  },
+                  fixture.repoRoot,
+                ),
+              },
+            ];
+          }),
+        );
+        fs.appendFileSync(file, '\nchanged icon input\n');
+        for (const platform of ['ios', 'android']) {
+          const nativeContractKey = computeNativeContractKey(
+            platform,
+            fixture.repoRoot,
+          );
+          expect(nativeContractKey).not.toBe(baselines[platform].contract);
+          expect(
+            computeShellCompatibilityKey({ platform, nativeContractKey }),
+          ).not.toBe(baselines[platform].compatible);
+          expect(
+            computeShellInputKey(
+              { platform, nativeContractKey, webEmbedInputKey: '1'.repeat(64) },
+              fixture.repoRoot,
+            ),
+          ).not.toBe(baselines[platform].exact);
+        }
+        fs.writeFileSync(file, original);
+      }
+    } finally {
+      fs.rmSync(fixture.repoRoot, { force: true, recursive: true });
+    }
+  });
+
   it('keeps shell input keys stable for non-ABI shell and web changes', () => {
     const fixture = createTemporaryRuntimeFixture();
     try {
@@ -1598,6 +1657,50 @@ describe('devVendor', () => {
         },
       }),
     ).toBe(false);
+  });
+
+  it('reports a rejected HMR registration to its client instead of stopping Metro', async () => {
+    const HmrServer = require(path.join(metroRoot, 'HmrServer')).default;
+    const sessionId = 'wk-111111111111-dev-222222222222-3333333333333333';
+    // A device that another DevSession left pointed at this port registers its
+    // entry point here, and the session contract rejects it.
+    const rejectForeignSession = () =>
+      assertNativeDevVendorResolverContract({
+        customResolverOptions: {
+          devVendor: 'true',
+          devVendorNative: 'true',
+          devVendorFingerprint: 'fingerprint-android',
+          devSessionId: sessionId.replace('3333', '4444'),
+          runtimeTarget: 'main',
+        },
+        env: { ONEKEY_DEV_SESSION_ID: sessionId },
+        manifest: { fingerprint: 'fingerprint-android' },
+        platform: 'android',
+      });
+    const hmrServer = new HmrServer({}, jest.fn(), {
+      resolver: { platforms: ['android', 'ios'] },
+      server: { rewriteRequestUrl: rejectForeignSession },
+    });
+    const sendFn = jest.fn();
+    const client = await hmrServer.onClientConnect('/hot', sendFn);
+
+    await expect(
+      hmrServer.onClientMessage(
+        client,
+        JSON.stringify({
+          type: 'register-entrypoints',
+          entryPoints: ['http://10.0.2.2:8083/index.bundle?platform=android'],
+        }),
+        sendFn,
+      ),
+    ).resolves.toBeDefined();
+    expect(sendFn).toHaveBeenCalledTimes(1);
+    expect(JSON.parse(sendFn.mock.calls[0][0])).toMatchObject({
+      type: 'error',
+      body: {
+        message: expect.stringContaining('does not match this Metro server'),
+      },
+    });
   });
 
   it('refreshes the cached dev server from native runtime delta URLs', () => {

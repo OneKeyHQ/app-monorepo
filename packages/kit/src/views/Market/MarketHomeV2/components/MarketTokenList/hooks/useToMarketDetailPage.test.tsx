@@ -655,6 +655,23 @@ describe('useToDetailPage', () => {
     },
   );
 
+  it.each([Number.NaN, -1, 1.5])(
+    'does not construct a navigation preview with invalid decimals %p',
+    async (decimals) => {
+      Object.assign(platformEnv, { isExtensionUiPopup: false, isNative: true });
+      const { result } = renderHook(() => useToDetailPage());
+      await act(async () => {
+        await result.current({ ...tokenItem, name: 'ABC Token', decimals });
+      });
+
+      expect(mockPrepareTokenDetailPreview).not.toHaveBeenCalled();
+      expect(mockNavigationPush).toHaveBeenCalledWith(
+        'MarketDetailV2',
+        expect.not.objectContaining({ legacyTokenPreview: expect.anything() }),
+      );
+    },
+  );
+
   it('navigates stock items with stockId instead of chain identity', async () => {
     const mockedPlatformEnv = platformEnv as typeof platformEnv & {
       isExtensionUiPopup: boolean;

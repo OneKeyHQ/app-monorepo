@@ -11,7 +11,7 @@ import {
 import BigNumber from 'bignumber.js';
 import { debounce } from 'lodash';
 
-import { useIsOverlayPage } from '@onekeyhq/components';
+import { useIsOverlayPage, useMedia } from '@onekeyhq/components';
 import { useRouteIsFocused as useIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import type { IAllNetworkAccountInfo } from '@onekeyhq/kit-bg/src/services/ServiceAllNetwork/ServiceAllNetwork';
 import {
@@ -172,6 +172,7 @@ export function useSwapTokenList(
   isSearchPending = false,
 ) {
   const isFocused = useIsFocused();
+  const { gtMd } = useMedia();
   const [{ tokenCatch }] = useSwapTokenMapAtom();
   const [swapAllNetworkTokenListMap] = useSwapAllNetworkTokenListMapAtom();
   const [swapAllNetworkTokenListStatus] =
@@ -346,19 +347,6 @@ export function useSwapTokenList(
       currentNetworkId,
       currentSelectNetworkId: currentSelectNetwork?.networkId,
       searchNetworkId,
-      searchNetworks: swapSupportAllNetworks
-        .filter(
-          (network) =>
-            !networkUtils.isAllNetwork({ networkId: network.networkId }) &&
-            (!lpToken ||
-              isTokenSelectorDappTokenFilterSupportedNetworkBase(network)),
-        )
-        .map((network) => ({
-          networkId: network.networkId,
-          lpToken: isTokenSelectorDappTokenFilterSupportedNetworkBase(network)
-            ? lpToken
-            : undefined,
-        })),
       keywords,
       swapType: from,
       lpToken,
@@ -378,7 +366,6 @@ export function useSwapTokenList(
     swapAddressInfo?.activeAccount?.network?.id,
     swapAddressInfo?.accountInfo?.account?.id,
     swapSupportAllAccounts,
-    swapSupportAllNetworks,
     keywords,
     searchNetworkId,
     lpToken,
@@ -416,8 +403,11 @@ export function useSwapTokenList(
     networkId: tokenFetchParams.networkId,
   });
   const refreshFullChainLists =
-    Boolean(platformEnv.isDesktop || platformEnv.isWeb) &&
-    from !== ESwapTabSwitchType.STOCK;
+    Boolean(
+      platformEnv.isDesktop ||
+      platformEnv.isWeb ||
+      (platformEnv.isExtension && gtMd),
+    ) && from !== ESwapTabSwitchType.STOCK;
   const queryCoveredByWalletRefresh =
     refreshFullChainLists &&
     swapSupportAllAccounts.some(
@@ -449,6 +439,7 @@ export function useSwapTokenList(
     currency: requestCurrency,
     cacheEpoch,
     networks: allNetworkSwapNetworksReadyKey,
+    fullChainLists: refreshFullChainLists,
   });
   // Chain selection starts a new search intent even when contract searches
   // share the same all-network HTTP identity and in-flight request.
@@ -745,7 +736,7 @@ export function useSwapTokenList(
               otherWalletTypeAccountId,
               filter,
               requestCurrency,
-              { policy: 'revalidate' },
+              { policy: 'revalidate', fullChainLists: refreshFullChainLists },
             ),
           fetchTokens: searchSubscription
             ? (params, options) =>

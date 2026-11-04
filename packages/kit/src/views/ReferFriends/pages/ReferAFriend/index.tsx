@@ -34,9 +34,9 @@ import { ReferralTabCrossLink } from '../InviteReward/components/ReferralTabCros
 import {
   EReferralPageTab,
   IS_BENEFITS_TAB_ENABLED,
-  resolveReferralPageTab,
 } from '../InviteReward/referralPageTab';
 import { useReferralTabCopy } from '../InviteReward/referralTabCopy';
+import { useReferralPageTab } from '../InviteReward/useReferralPageTab';
 import { useReferralTabSwitch } from '../InviteReward/useReferralTabSwitch';
 import { MyRewardsContent } from '../MyRewards';
 
@@ -143,7 +143,7 @@ function ReferAFriendPageWrapper() {
     perksEntry: route.params?.perksEntry,
   });
   const [phaseState, setPhaseState] = useState<EPhaseState>(EPhaseState.next);
-  const activeTab = resolveReferralPageTab(route.params?.tab);
+  const activeTab = useReferralPageTab(route.params?.tab);
   const isInviteTab = activeTab === EReferralPageTab.invite;
   const { setActiveTab, openPerks, openInvite } =
     useReferralTabSwitch(activeTab);

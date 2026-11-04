@@ -44,6 +44,13 @@ function InterestRateModelSectionContent({
 
   const isInitialLoading = curveData === undefined && isLoading !== false;
 
+  if (
+    !isInitialLoading &&
+    (!curveData?.borrowCurve?.length || !curveData?.supplyCurve?.length)
+  ) {
+    return null;
+  }
+
   return (
     <DetailsSectionContainer
       title={intl.formatMessage({ id: ETranslations.defi_interest_rate_model })}

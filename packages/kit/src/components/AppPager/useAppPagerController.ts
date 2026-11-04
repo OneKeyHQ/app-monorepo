@@ -1,11 +1,12 @@
 import {
   useCallback,
+  useImperativeHandle,
   useInsertionEffect,
   useLayoutEffect,
   useRef,
   useState,
 } from 'react';
-import type { RefObject } from 'react';
+import type { Ref, RefObject } from 'react';
 
 import { useSharedValue } from 'react-native-reanimated';
 
@@ -13,12 +14,15 @@ import type {
   IAppPagerChange,
   IAppPagerCommands,
   IAppPagerIdentity,
+  IAppPagerRef,
 } from './types';
 
 export function useAppPagerController({
   pages,
   initialTabName,
   pagerRef,
+  ref,
+  restoreScrollPosition,
   commitOnCommand = false,
   onSelectionChange,
   onBeforeCommand,
@@ -28,6 +32,8 @@ export function useAppPagerController({
   removedPageFallback?: { tabName: string; notifySelectionChange?: boolean };
   initialTabName?: string;
   pagerRef: RefObject<IAppPagerCommands | null>;
+  ref?: Ref<IAppPagerRef>;
+  restoreScrollPosition?: () => boolean;
   commitOnCommand?: boolean;
   onSelectionChange?: (event: IAppPagerChange) => void;
   onBeforeCommand?: (
@@ -216,6 +222,25 @@ export function useAppPagerController({
   const getFocusedTab = useCallback(
     () => pagesRef.current[selectedIndexRef.current]?.name ?? '',
     [],
+  );
+  useImperativeHandle(
+    ref,
+    () => ({
+      setIndex,
+      jumpToTab,
+      getCurrentIndex,
+      getFocusedTab,
+      syncCurrentPage,
+      ...(restoreScrollPosition ? { restoreScrollPosition } : {}),
+    }),
+    [
+      setIndex,
+      jumpToTab,
+      getCurrentIndex,
+      getFocusedTab,
+      syncCurrentPage,
+      restoreScrollPosition,
+    ],
   );
   return {
     initialIndex,

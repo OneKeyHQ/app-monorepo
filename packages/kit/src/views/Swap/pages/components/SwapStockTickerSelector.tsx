@@ -16,6 +16,7 @@ import {
   XStack,
   YStack,
   useMedia,
+  useSafeAreaInsets,
 } from '@onekeyhq/components';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { useDebounce } from '@onekeyhq/kit/src/hooks/useDebounce';
@@ -38,6 +39,7 @@ import type { NativeScrollEvent, NativeSyntheticEvent } from 'react-native';
 function StockTickerList({ closePopover }: { closePopover: () => void }) {
   const intl = useIntl();
   const { md } = useMedia();
+  const { bottom } = useSafeAreaInsets();
   const isSheet = platformEnv.isNative || md;
   const [query, setQuery] = useState('');
   const debouncedQuery = useDebounce(query, 500);
@@ -105,6 +107,9 @@ function StockTickerList({ closePopover }: { closePopover: () => void }) {
         nestedScrollEnabled
         flex={isSheet ? 1 : undefined}
         maxHeight={isSheet ? undefined : 604}
+        contentContainerStyle={
+          platformEnv.isNative ? { paddingBottom: bottom } : undefined
+        }
         keyboardDismissMode={platformEnv.isNative ? 'on-drag' : 'none'}
         keyboardShouldPersistTaps="handled"
         onScroll={handleScroll}
@@ -179,7 +184,7 @@ function StockTickerList({ closePopover }: { closePopover: () => void }) {
                  * dependencies on every parent render and restarts an unchanged
                  * logo request, which is visible as a flash after cold start.
                  */}
-                <Token size="md" tokenImageUri={stock.logoUrl} />
+                <Token size="lg" tokenImageUri={stock.logoUrl} />
                 <YStack flex={1} minWidth={0}>
                   <SizableText size="$bodyLgMedium" numberOfLines={1}>
                     {stock.symbol}
@@ -200,7 +205,7 @@ function StockTickerList({ closePopover }: { closePopover: () => void }) {
                       </Badge>
                     ))}
                     <SizableText
-                      size={md ? '$bodyMd' : '$bodySm'}
+                      size="$bodyMd"
                       color="$textSubdued"
                       numberOfLines={1}
                       ellipsizeMode="tail"

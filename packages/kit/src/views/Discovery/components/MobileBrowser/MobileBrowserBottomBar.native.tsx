@@ -1,11 +1,13 @@
 import {
   type ComponentProps,
+  type PropsWithChildren,
   memo,
   useCallback,
   useMemo,
   useState,
 } from 'react';
 
+import MaskedView from '@react-native-masked-view/masked-view';
 import { useIntl } from 'react-intl';
 import { StyleSheet, View } from 'react-native';
 import Animated, {
@@ -15,8 +17,10 @@ import Animated, {
 } from 'react-native-reanimated';
 
 import {
-  GlassView,
+  BlurView,
+  GlassContainer,
   IconButton,
+  LinearGradient,
   SizableText,
   Stack,
   Theme,
@@ -34,7 +38,10 @@ import {
 } from '../../config/Animation.constants';
 import { TranslatePopoverTrigger } from '../../hooks/usePageTranslation';
 import { DiscoveryTestIDs } from '../../testIDs';
-import { usePageTheme } from '../../utils/pageThemeColor';
+import {
+  usePageBottomThemeName,
+  usePageTheme,
+} from '../../utils/pageThemeColor';
 
 import {
   AddressCapsuleTitle,
@@ -45,6 +52,7 @@ import {
 import {
   CAPSULE_BACK_BUTTON_PULL,
   CAPSULE_BUTTON_HIT_SLOP,
+  PAGE_DRAWS_UNDER_BROWSER_BAR,
   getBarCapsuleBottom,
   getBarReservedHeight,
   getCollapsedPillBottom,
@@ -55,6 +63,7 @@ import {
 } from './browserChrome';
 import {
   BrowserChromeCapsule,
+  ChromeGlassView,
   PILL_RADIUS,
   useCapsuleFadeStyle,
 } from './BrowserChromeCapsule';
@@ -112,84 +121,61 @@ const PILL_HIT_SLOP = {
 // Fade ranges of the bar/pill morph (progress: 1 = expanded, 0 = collapsed).
 const SIDE_FADE_START = 0.4;
 // The address capsule's buttons and badge: only while the shared background
-// is wide enough to hold them.
+// is wide enough to hold them (it narrows faster than the capsule's contents
+// shrink, so an earlier fade would leave them hanging outside the glass).
 const CAPSULE_CONTENT_FADE_START = 0.7;
 // The capsule's and the pill's domain swap here (see useBarMorphStyles).
 // Same point where touches move from the bar to the pill.
 const DOMAIN_SWAP_POINT = BROWSER_CHROME_CROSSFADE_POINT;
 
-// The side buttons move this far towards the center while collapsing, and
-// shrink to this scale.
-const SIDE_COLLAPSE_TRAVEL_X = 40;
-const SIDE_COLLAPSED_SCALE = 0.5;
+// Glass shapes closer than this merge in the bar's glass container (Telegram's
+// spacing); the capsules' gap is wider and the side ones shrink in place, so
+// they stay apart. The prop has to be passed at all for the container to build
+// its UIGlassContainerEffect (its setSpacing skips a nil-to-nil change), so a
+// refactor dropping it silently disables the shared material.
+const SPACING_GLASS_CONTAINER = 7;
 
 // The pill's domain text size.
 const PILL_DOMAIN_FONT_SIZE = 14;
 // How far the capsule's contents shrink toward the pill's (and the pill's
-// grow toward the capsule's) during the morph. Matched to the domain texts,
-// so the two domains are the same size on every frame and the swap between
-// them is invisible; the shared background sizes itself separately.
-const CAPSULE_COLLAPSED_SCALE = PILL_DOMAIN_FONT_SIZE / DOMAIN_FONT_SIZE;
-
-// A side button's move: down with the bar, in toward the center (`towards`
-// is +1 for the left one, -1 for the right), and smaller.
-function useSideMorphStyle(
-  progress: SharedValue<number>,
-  travelY: number,
-  towards: 1 | -1,
-) {
-  return useAnimatedStyle(() => ({
-    transform: [
-      {
-        translateX: interpolate(
-          progress.value,
-          [0, 1],
-          [towards * SIDE_COLLAPSE_TRAVEL_X, 0],
-          'clamp',
-        ),
-      },
-      {
-        translateY: interpolate(progress.value, [0, 1], [travelY, 0], 'clamp'),
-      },
-      {
-        scale: interpolate(
-          progress.value,
-          [0, 1],
-          [SIDE_COLLAPSED_SCALE, 1],
-          'clamp',
-        ),
-      },
-    ],
-  }));
+// grow toward the capsule's) during the morph: from the size the capsule's
+// domain is drawn at (16pt, or less when a long one shrinks to fit) to the
+// pill's, so the two domains are the same size on every frame and the swap
+// between them is invisible; the shared background sizes itself separately.
+function getCapsuleCollapsedScale(domainFontSize: number) {
+  return PILL_DOMAIN_FONT_SIZE / domainFontSize;
 }
 
 // The capsule layer's scale along the morph. The pill layer is always this
-// over CAPSULE_COLLAPSED_SCALE, so the two domains match on every frame.
-function getCapsuleMorphScale(progress: number) {
+// over the collapsed scale, so the two domains match on every frame.
+function getCapsuleMorphScale(progress: number, collapsedScale: number) {
   'worklet';
 
-  return interpolate(progress, [0, 1], [CAPSULE_COLLAPSED_SCALE, 1], 'clamp');
+  return interpolate(progress, [0, 1], [collapsedScale, 1], 'clamp');
 }
 
 // Morphs the address capsule into the collapsed pill (and back), like
-// Safari: the capsule shrinks and slides down to the pill's spot while the
-// pill grows out of it; the side buttons shrink towards the pill, so the
-// whole bar draws into its center. The address capsule and the pill share
-// one background (MorphingAddressBackground); these are transforms only, as
-// a parent opacity would break Liquid Glass.
+// Safari: the bar's row slides down to the pill's spot while the capsule
+// shrinks and the pill grows out of it; the side buttons shrink away where
+// they are (their glass and contents, see BrowserChromeCapsule). The address
+// capsule and the pill share one background (MorphingAddressBackground);
+// these are transforms only, as a parent opacity would break Liquid Glass.
 function useBarMorphStyles(
   progress: SharedValue<number>,
   travelY: number,
   domainCenterOffset: SharedValue<number>,
+  collapsedScale: number,
 ) {
-  const leftStyle = useSideMorphStyle(progress, travelY, 1);
-  const rightStyle = useSideMorphStyle(progress, travelY, -1);
-  const capsuleStyle = useAnimatedStyle(() => ({
+  const rowStyle = useAnimatedStyle(() => ({
     transform: [
       {
         translateY: interpolate(progress.value, [0, 1], [travelY, 0], 'clamp'),
       },
-      { scale: getCapsuleMorphScale(progress.value) },
+    ],
+  }));
+  const capsuleStyle = useAnimatedStyle(() => ({
+    transform: [
+      { scale: getCapsuleMorphScale(progress.value, collapsedScale) },
     ],
   }));
   const pillStyle = useAnimatedStyle(() => ({
@@ -197,17 +183,20 @@ function useBarMorphStyles(
       {
         translateY: interpolate(progress.value, [0, 1], [0, -travelY], 'clamp'),
       },
-      { scale: getCapsuleMorphScale(progress.value) / CAPSULE_COLLAPSED_SCALE },
+      {
+        scale:
+          getCapsuleMorphScale(progress.value, collapsedScale) / collapsedScale,
+      },
     ],
   }));
   // The capsule's and the pill's domain are the same text at the same size
-  // and spot on every frame (see CAPSULE_COLLAPSED_SCALE), so instead of
+  // and spot on every frame (see getCapsuleCollapsedScale), so instead of
   // fading two copies into each other, the text swaps layers at the middle
   // of the morph and reads as one, like Safari's.
   // A domain that can't center in the capsule (it would crowd the badge)
   // rests a little right of center, while the pill's is centered: the drift
   // runs over the whole morph on both layers, in one go with the size
-  // change. The pill layer is drawn 1/CAPSULE_COLLAPSED_SCALE times the
+  // change. The pill layer is drawn 1/collapsedScale times the
   // capsule's, hence its shorter local offset.
   const capsuleDomainStyle = useAnimatedStyle(() => ({
     opacity: progress.value >= DOMAIN_SWAP_POINT ? 1 : 0,
@@ -219,14 +208,12 @@ function useBarMorphStyles(
     opacity: progress.value < DOMAIN_SWAP_POINT ? 1 : 0,
     transform: [
       {
-        translateX:
-          domainCenterOffset.value * progress.value * CAPSULE_COLLAPSED_SCALE,
+        translateX: domainCenterOffset.value * progress.value * collapsedScale,
       },
     ],
   }));
   return {
-    leftStyle,
-    rightStyle,
+    rowStyle,
     capsuleStyle,
     pillStyle,
     capsuleDomainStyle,
@@ -243,11 +230,13 @@ function CollapsedAddressPill({
   onPress,
   domainStyle,
   onWidth,
+  collapsedScale,
 }: {
   url?: string;
   onPress?: () => void;
   domainStyle: ComponentProps<typeof Animated.View>['style'];
   onWidth: (width: number) => void;
+  collapsedScale: number;
 }) {
   const hostname = useMemo(() => getDisplayHostname(url), [url]);
   return (
@@ -275,8 +264,8 @@ function CollapsedAddressPill({
               <SizableText
                 size="$bodyLgMedium"
                 fontSize={PILL_DOMAIN_FONT_SIZE}
-                lineHeight={DOMAIN_LINE_HEIGHT * CAPSULE_COLLAPSED_SCALE}
-                y={-DOMAIN_OPTICAL_LIFT * CAPSULE_COLLAPSED_SCALE}
+                lineHeight={DOMAIN_LINE_HEIGHT * collapsedScale}
+                y={-DOMAIN_OPTICAL_LIFT * collapsedScale}
                 numberOfLines={1}
                 maxWidth={220}
               >
@@ -323,7 +312,7 @@ function MorphingAddressBackground({
     <Animated.View pointerEvents="none" style={[styles.morphRow, rowStyle]}>
       <Animated.View style={[styles.morphBackground, widthStyle]}>
         {isLiquidGlassAvailable() ? (
-          <GlassView style={styles.glassFill} />
+          <ChromeGlassView style={styles.glassFill} />
         ) : (
           <Stack flex={1} bg="$bgStrong" borderRadius={PILL_RADIUS} />
         )}
@@ -332,11 +321,77 @@ function MorphingAddressBackground({
   );
 }
 
+// Behind the bar's capsules, from the screen bottom: laid out at the bar's
+// full height and slid down as the bar collapses (a transform, not a
+// per-frame height change), so it follows the bar, not the WebView's edge.
+function BarBackdrop({
+  progress,
+  bottom,
+  children,
+}: PropsWithChildren<{
+  progress: SharedValue<number>;
+  bottom: number;
+}>) {
+  const fullHeight = getBarReservedHeight(bottom);
+  const collapsedHeight = getCollapsedReservedHeight(bottom);
+  const style = useAnimatedStyle(() => ({
+    transform: [
+      { translateY: (fullHeight - collapsedHeight) * (1 - progress.value) },
+    ],
+  }));
+  return (
+    <Animated.View
+      pointerEvents="none"
+      style={[styles.strip, { height: fullHeight }, style]}
+    >
+      {children}
+    </Animated.View>
+  );
+}
+
+const EDGE_BLUR_INTENSITY = 24;
+// Clear at the top, full blur from 60% down.
+const edgeBlurMask = (
+  <LinearGradient
+    flex={1}
+    colors={['rgba(0,0,0,0)', 'rgba(0,0,0,1)']}
+    locations={[0, 0.6]}
+  />
+);
+
+// iPhone, where the page draws under the bar: a blur that fades in towards
+// the screen bottom, like Telegram's toolbar edge effect, so the glass sits
+// on a soft backdrop rather than on sharp page content. The thinnest
+// material in the page's light/dark look (Telegram's is not tinted; the
+// default tint follows the system appearance and veils a dark page in
+// light mode). If the blur doesn't render inside the mask on a device
+// (masking a visual effect view's parent view is not officially supported),
+// render nothing here instead.
+function BarEdgeBlur({ isDark }: { isDark: boolean }) {
+  return (
+    <MaskedView style={StyleSheet.absoluteFill} maskElement={edgeBlurMask}>
+      <BlurView
+        flex={1}
+        intensity={EDGE_BLUR_INTENSITY}
+        tint={
+          isDark
+            ? 'systemUltraThinMaterialDark'
+            : 'systemUltraThinMaterialLight'
+        }
+      />
+    </MaskedView>
+  );
+}
+
 // Bar: [tabs] [back · address · reload] [menu]. Forward,
 // translate, bookmark etc. live in the menu. While scrolling down the bar
 // fades out and a small address pill stays above the home indicator. iOS 26
 // renders the capsules as Liquid Glass.
-function MobileBrowserBottomBar({ id, chrome }: IMobileBrowserBottomBarProps) {
+function MobileBrowserBottomBar({
+  id,
+  chrome,
+  onMinimize,
+}: IMobileBrowserBottomBarProps) {
   const intl = useIntl();
   const {
     bottom,
@@ -345,7 +400,6 @@ function MobileBrowserBottomBar({ id, chrome }: IMobileBrowserBottomBarProps) {
     displayHomePage,
     handleBookmarkPress,
     handlePinTab,
-    handleCloseTab,
     onShare,
     onCopyUrl,
     handleDisconnect,
@@ -363,31 +417,17 @@ function MobileBrowserBottomBar({ id, chrome }: IMobileBrowserBottomBarProps) {
   } = useMobileBrowserBottomBarData({ id });
 
   const { progress, onExpand, onSearchBarPress } = chrome;
-  // Match the page's light/dark look (glass, icons, text), like Safari.
+  // On iPhone, match the light/dark look of the page right behind the bar
+  // (glass, icons, text, blur), like Safari, which reads each edge of the
+  // page. Elsewhere the bar sits on a solid strip in the header's color, so
+  // it takes the header's look too.
+  const bottomThemeName = usePageBottomThemeName(id);
   const { pageColor, pageThemeName } = usePageTheme(id);
   const appThemeName = useThemeName();
+  const chromeThemeName =
+    (PAGE_DRAWS_UNDER_BROWSER_BAR ? bottomThemeName : pageThemeName) ??
+    appThemeName;
   const isChromeCollapsed = useIsChromeCollapsed(progress);
-  // The WebView's bottom edge once the chrome settles.
-  const stripFullHeight = getBarReservedHeight(bottom);
-  const stripCollapsedHeight = getCollapsedReservedHeight(bottom);
-  // Follows the bar, not the WebView's edge: during a morph the WebView
-  // reaches further down (it resizes once, when the chrome settles), and
-  // the opaque strip keeps that part hidden, so the glass always sits on the
-  // page color rather than on page content passing behind it.
-  // Laid out at its full height and slid down as the bar collapses (a
-  // transform, not a per-frame height change).
-  const stripStyle = useAnimatedStyle(() => ({
-    transform: [
-      {
-        translateY:
-          (stripFullHeight - stripCollapsedHeight) * (1 - progress.value),
-      },
-    ],
-  }));
-  const pageColorStyle = useMemo(
-    () => (pageColor ? { backgroundColor: pageColor } : undefined),
-    [pageColor],
-  );
   const sideFade = useMemo<ICapsuleFade>(
     () => ({ progress, range: [SIDE_FADE_START, 1] }),
     [progress],
@@ -404,6 +444,9 @@ function MobileBrowserBottomBar({ id, chrome }: IMobileBrowserBottomBarProps) {
   const [capsuleWidth, setCapsuleWidth] = useState(0);
   const [pillWidth, setPillWidth] = useState(0);
   const domainCenterOffset = useSharedValue(0);
+  // The size the capsule's domain is drawn at, which sets the morph scale.
+  const [domainFontSize, setDomainFontSize] = useState(DOMAIN_FONT_SIZE);
+  const collapsedScale = getCapsuleCollapsedScale(domainFontSize);
   const handleDomainCenterOffset = useCallback(
     (offset: number) => {
       domainCenterOffset.value = offset;
@@ -418,13 +461,17 @@ function MobileBrowserBottomBar({ id, chrome }: IMobileBrowserBottomBarProps) {
     BROWSER_CHROME_CAPSULE_HEIGHT / 2 -
     (pillBottom + BROWSER_COLLAPSED_PILL_HEIGHT / 2);
   const {
-    leftStyle,
-    rightStyle,
+    rowStyle,
     capsuleStyle,
     pillStyle,
     capsuleDomainStyle,
     pillDomainStyle,
-  } = useBarMorphStyles(progress, morphTravelY, domainCenterOffset);
+  } = useBarMorphStyles(
+    progress,
+    morphTravelY,
+    domainCenterOffset,
+    collapsedScale,
+  );
 
   const [translateOpen, setTranslateOpen] = useState(false);
   const showOptions = useMobileBrowserOptions({
@@ -435,7 +482,7 @@ function MobileBrowserBottomBar({ id, chrome }: IMobileBrowserBottomBarProps) {
     isPinned: tab?.isPinned ?? false,
     onPinnedPress: handlePinTab,
     onBrowserOpen: handleBrowserOpen,
-    onCloseTab: handleCloseTab,
+    onMinimize,
     displayDisconnectOption: hasConnectedAccount,
     onDisconnect: handleDisconnect,
     siteMode: tab?.siteMode,
@@ -456,114 +503,129 @@ function MobileBrowserBottomBar({ id, chrome }: IMobileBrowserBottomBarProps) {
   return (
     // Fills the container: a fixed full-height box on phones, an animated
     // in-flow height on tablets.
-    <Theme name={pageThemeName ?? appThemeName}>
+    <Theme name={chromeThemeName}>
       <Stack h="100%" zIndex={1} pointerEvents="box-none">
-        <Animated.View
-          pointerEvents="none"
-          style={[styles.strip, { height: stripFullHeight }, stripStyle]}
-        >
-          {/* The WebView ends above the bar: the strip behind the bar takes
-            the page color. No fade above it: a plain alpha fade (no blur) over
-            page content of another color looks muddy. */}
-          <Stack flex={1} bg="$bgApp" style={pageColorStyle} />
-        </Animated.View>
-        <MorphingAddressBackground
-          progress={progress}
-          capsuleWidth={capsuleWidth}
-          pillWidth={pillWidth}
-          capsuleBottom={capsuleBottom}
-          pillBottom={pillBottom}
-        />
-        {/* The hidden layer only fades its contents, so its buttons stay in
-          the accessibility tree unless removed here. */}
-        <Animated.View
+        <BarBackdrop progress={progress} bottom={bottom}>
+          {PAGE_DRAWS_UNDER_BROWSER_BAR ? (
+            <BarEdgeBlur isDark={chromeThemeName === 'dark'} />
+          ) : (
+            // The WebView ends above the bar: a solid strip in the header's
+            // color hides the WebView's part that passes behind the bar
+            // mid-morph. Not the page's bottom color: that changes as the page
+            // scrolls, and a solid bar changing color draws the eye.
+            <Stack bg={pageColor ?? '$bgApp'} style={StyleSheet.absoluteFill} />
+          )}
+        </BarBackdrop>
+        {/* One glass container for the address background and the side
+          capsules, like Telegram's bars: the glass renders as one material
+          instead of each piece adapting to what is behind it on its own
+          (mismatched mid-morph over page content). spacing must be passed
+          explicitly: the native container only creates its UIGlassContainerEffect
+          inside setSpacing, which skips a nil-to-nil change, so omitting it
+          leaves the container ineffective. Collapsed, the container takes no
+          touches at all: it holds a full-size effect view that hit-tests across
+          its whole frame, so box-none would swallow taps on the page showing
+          under the bar. */}
+        <GlassContainer
           pointerEvents={isChromeCollapsed ? 'none' : 'box-none'}
-          accessibilityElementsHidden={isChromeCollapsed}
-          importantForAccessibility={
-            isChromeCollapsed ? 'no-hide-descendants' : 'auto'
-          }
-          style={[styles.bar, { bottom: capsuleBottom }]}
+          spacing={SPACING_GLASS_CONTAINER}
+          style={StyleSheet.absoluteFill}
         >
-          <XStack
-            h={BROWSER_CHROME_CAPSULE_HEIGHT}
-            px={BROWSER_CHROME_SIDE_PADDING}
-            gap="$2"
-            alignItems="center"
+          <MorphingAddressBackground
+            progress={progress}
+            capsuleWidth={capsuleWidth}
+            pillWidth={pillWidth}
+            capsuleBottom={capsuleBottom}
+            pillBottom={pillBottom}
+          />
+          {/* The hidden layer only fades its contents, so its buttons stay in
+          the accessibility tree unless removed here. */}
+          <Animated.View
+            pointerEvents={isChromeCollapsed ? 'none' : 'box-none'}
+            accessibilityElementsHidden={isChromeCollapsed}
+            importantForAccessibility={
+              isChromeCollapsed ? 'no-hide-descendants' : 'auto'
+            }
+            style={[styles.bar, { bottom: capsuleBottom }, rowStyle]}
           >
-            {/* Wallet-browser layout: tabs on the left, page navigation in
+            <XStack
+              h={BROWSER_CHROME_CAPSULE_HEIGHT}
+              px={BROWSER_CHROME_SIDE_PADDING}
+              gap="$2"
+              alignItems="center"
+            >
+              {/* Wallet-browser layout: tabs on the left, page navigation in
               the address capsule (back · site badge · domain · refresh), the
               page menu on the right. Account and exit live in the header. */}
-            <Animated.View style={leftStyle}>
               <BrowserChromeCapsule fade={sideFade}>
                 <TabCountButton
                   testID={DiscoveryTestIDs.tabListButton}
                   onPressed={() => logBrowserChromeAction('tabs', 'toolbar')}
                 />
               </BrowserChromeCapsule>
-            </Animated.View>
-            <Animated.View
-              style={[styles.capsule, capsuleStyle]}
-              onLayout={(e) =>
-                setCapsuleWidth(Math.round(e.nativeEvent.layout.width))
-              }
-            >
-              <BrowserChromeCapsule flex={1} px="$2" background={false}>
-                {/* Kept in place (dimmed) when there is no history, so the
+              <Animated.View
+                style={[styles.capsule, capsuleStyle]}
+                onLayout={(e) =>
+                  setCapsuleWidth(Math.round(e.nativeEvent.layout.width))
+                }
+              >
+                <BrowserChromeCapsule flex={1} px="$2" background={false}>
+                  {/* Kept in place (dimmed) when there is no history, so the
                   domain doesn't shift. */}
-                <Animated.View style={capsuleContentStyle}>
-                  <ChromePressable
-                    onPress={() => {
-                      logBrowserChromeAction('back', 'toolbar');
-                      handleGoBack();
-                    }}
-                    disabled={disabledGoBack}
-                    hitSlop={CAPSULE_BUTTON_HIT_SLOP}
-                    accessibilityLabel={intl.formatMessage({
-                      id: ETranslations.global_back,
-                    })}
-                  >
-                    <IconButton
-                      variant="tertiary"
-                      icon="ChevronLeftOutline"
-                      iconSize="$5"
-                      // The narrow chevron left a wider gap to the site badge
-                      // than to the capsule edge; pull it in.
-                      mr={-CAPSULE_BACK_BUTTON_PULL}
+                  <Animated.View style={capsuleContentStyle}>
+                    <ChromePressable
+                      onPress={() => {
+                        logBrowserChromeAction('back', 'toolbar');
+                        handleGoBack();
+                      }}
                       disabled={disabledGoBack}
-                      accessible={!disabledGoBack}
-                      testID={DiscoveryTestIDs.browserBackButton}
-                    />
-                  </ChromePressable>
-                </Animated.View>
-                <TranslatePopoverTrigger
-                  isTranslated={isTranslated}
-                  onTranslate={handleTranslate}
-                  onRetranslate={handleRetranslate}
-                  onTestAITranslateError={handleTranslateTestAIError}
-                  open={translateOpen}
-                  onOpenChange={setTranslateOpen}
-                  trigger={translatePopoverAnchor}
-                />
-                <AddressCapsuleTitle
-                  url={currentUrl}
-                  onPress={handleAddressPress}
-                  badgeStyle={capsuleContentStyle}
-                  domainStyle={capsuleDomainStyle}
-                  capsuleWidth={capsuleWidth}
-                  onDomainCenterOffset={handleDomainCenterOffset}
-                />
-                <Animated.View style={capsuleContentStyle}>
-                  <RefreshButton
-                    iconSize="$5"
-                    onRefresh={() => {
-                      logBrowserChromeAction('refresh', 'toolbar');
-                      handleRefresh();
-                    }}
+                      hitSlop={CAPSULE_BUTTON_HIT_SLOP}
+                      accessibilityLabel={intl.formatMessage({
+                        id: ETranslations.global_back,
+                      })}
+                    >
+                      <IconButton
+                        variant="tertiary"
+                        icon="ChevronLeftOutline"
+                        iconSize="$5"
+                        // The narrow chevron left a wider gap to the site badge
+                        // than to the capsule edge; pull it in.
+                        mr={-CAPSULE_BACK_BUTTON_PULL}
+                        disabled={disabledGoBack}
+                        accessible={!disabledGoBack}
+                        testID={DiscoveryTestIDs.browserBackButton}
+                      />
+                    </ChromePressable>
+                  </Animated.View>
+                  <TranslatePopoverTrigger
+                    isTranslated={isTranslated}
+                    onTranslate={handleTranslate}
+                    onRetranslate={handleRetranslate}
+                    onTestAITranslateError={handleTranslateTestAIError}
+                    open={translateOpen}
+                    onOpenChange={setTranslateOpen}
+                    trigger={translatePopoverAnchor}
                   />
-                </Animated.View>
-              </BrowserChromeCapsule>
-            </Animated.View>
-            <Animated.View style={rightStyle}>
+                  <AddressCapsuleTitle
+                    url={currentUrl}
+                    onPress={handleAddressPress}
+                    badgeStyle={capsuleContentStyle}
+                    domainStyle={capsuleDomainStyle}
+                    capsuleWidth={capsuleWidth}
+                    onDomainCenterOffset={handleDomainCenterOffset}
+                    onDomainFontSize={setDomainFontSize}
+                  />
+                  <Animated.View style={capsuleContentStyle}>
+                    <RefreshButton
+                      iconSize="$5"
+                      onRefresh={() => {
+                        logBrowserChromeAction('refresh', 'toolbar');
+                        handleRefresh();
+                      }}
+                    />
+                  </Animated.View>
+                </BrowserChromeCapsule>
+              </Animated.View>
               <BrowserChromeCapsule fade={sideFade}>
                 <ChromePressable
                   onPress={() => {
@@ -584,9 +646,9 @@ function MobileBrowserBottomBar({ id, chrome }: IMobileBrowserBottomBarProps) {
                   />
                 </ChromePressable>
               </BrowserChromeCapsule>
-            </Animated.View>
-          </XStack>
-        </Animated.View>
+            </XStack>
+          </Animated.View>
+        </GlassContainer>
         <Animated.View
           pointerEvents={isChromeCollapsed ? 'box-none' : 'none'}
           accessibilityElementsHidden={!isChromeCollapsed}
@@ -596,6 +658,7 @@ function MobileBrowserBottomBar({ id, chrome }: IMobileBrowserBottomBarProps) {
           style={[styles.pillRow, { bottom: pillBottom }, pillStyle]}
         >
           <CollapsedAddressPill
+            collapsedScale={collapsedScale}
             domainStyle={pillDomainStyle}
             onWidth={setPillWidth}
             url={currentUrl}

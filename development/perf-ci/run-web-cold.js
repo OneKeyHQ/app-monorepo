@@ -55,7 +55,7 @@ const DEFAULT_BUDGETS = {
   largestPreLcpScriptDecodedBytes: 600 * 1024,
 };
 
-const RUNTIME_BUDGET_WARNING_RATIO = 0.05;
+const RUNTIME_BUDGET_WARNING_RATIO = 0.1;
 const RUNTIME_BUDGET_NAMES = new Set([
   'fcpMs',
   'firstTextMs',

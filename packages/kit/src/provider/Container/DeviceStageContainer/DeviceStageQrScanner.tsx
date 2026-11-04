@@ -1,4 +1,4 @@
-import { useCallback, useRef } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 
 import { Haptics, ImpactFeedbackStyle } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -37,6 +37,13 @@ export function DeviceStageQrScanner({
   const resetPromiseRef = useRef<Promise<void> | undefined>(undefined);
   const sessionIdRef = useRef(sessionId);
   sessionIdRef.current = sessionId;
+  const unmountedRef = useRef(false);
+  useEffect(() => {
+    unmountedRef.current = false;
+    return () => {
+      unmountedRef.current = true;
+    };
+  }, []);
   const handleBarCodeScanned = useCallback(async (value: string) => {
     // The empty value is ScanQrCode's unmount cleanup — never an answer.
     if (!value || submittedRef.current) {
@@ -56,6 +63,10 @@ export function DeviceStageQrScanner({
         });
     }
     await resetPromiseRef.current;
+    // A frame that outlived this scanner must not reach the next session's decoder.
+    if (unmountedRef.current) {
+      return {};
+    }
     let parsed: Awaited<
       ReturnType<typeof backgroundApiProxy.serviceScanQRCode.parse>
     >;
@@ -66,6 +77,9 @@ export function DeviceStageQrScanner({
         autoExecuteParsedAction: false,
       });
     } catch (error) {
+      if (unmountedRef.current) {
+        return {};
+      }
       // Anything but an unacceptable code is a transient failure (a bridge
       // hiccup): retry the frame, as a rejected submit does below.
       if (!isInvalidQrCodeError(error)) {
@@ -77,11 +91,12 @@ export function DeviceStageQrScanner({
         submittedRef.current = true;
         await backgroundApiProxy.serviceQrWallet.cancelStageAirGapScan({
           scanning: true,
+          sessionId: sessionIdRef.current,
         });
       }
       return {};
     }
-    if (submittedRef.current) {
+    if (submittedRef.current || unmountedRef.current) {
       // A slower frame racing the one that completed the set.
       return {};
     }

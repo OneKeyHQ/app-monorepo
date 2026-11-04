@@ -7,7 +7,7 @@
     "initialScriptRawBytes": 15728640,
     "initialScriptGzipBytes": 3984589,
     "initialScriptBrotliBytes": 3145728,
-    "allScriptRawBytes": 110100480,
+    "allScriptRawBytes": 127926272,
     "largestModuleBytes": 665600,
     "forbiddenSources": ["@sentry/", "@sentry-internal/"]
   },

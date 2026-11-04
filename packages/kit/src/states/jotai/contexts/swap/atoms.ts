@@ -245,6 +245,19 @@ export const { atom: swapSelectToTokenAtom, use: useSwapSelectToTokenAtom } =
     coldStartCacheKey: CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapSelectToTokenAtom,
   });
 
+export type ISwapTokenPair = { fromToken: ISwapToken; toToken: ISwapToken };
+
+// The pair last picked from the "Recent trades" chips, so an order can report
+// whether it still trades that pair.
+export const { atom: swapRecentTokenPairSelectionAtom } = contextAtom<
+  ISwapTokenPair | undefined
+>(undefined);
+
+// Bumped by every user token pick (not by automatic syncs), so a Stock
+// "Recent trades" pick still waiting on its sync knows if it was superseded.
+export const { atom: swapRecentTokenPairPickGenerationAtom } =
+  contextAtom<number>(0);
+
 export const {
   atom: swapLastNonLimitSelectedTokensAtom,
   use: useSwapLastNonLimitSelectedTokensAtom,
