@@ -51,6 +51,7 @@ export interface IInviteRewardRowsInput {
     available?: readonly IRewardSummaryItem[];
     swap?: readonly IRewardSummaryItem[];
   };
+  // From the unauthenticated reward-scopes endpoint, not the invite summary.
   rewardScopes?: readonly IInviteRewardScope[];
 }
 

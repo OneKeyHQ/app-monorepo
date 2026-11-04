@@ -49,6 +49,12 @@ export interface IInviteRewardScope {
   description: string;
 }
 
+// `GET /rebate/v1/invite/reward-scopes` needs no OneKey ID login, so invitees
+// get the same copy as inviters. A product without server config is left out.
+export interface IInviteRewardScopesResponse {
+  rewardScopes?: IInviteRewardScope[];
+}
+
 export interface IInviteSummary {
   faqs: Array<{
     q: string;
@@ -105,7 +111,6 @@ export interface IInviteSummary {
   Earn?: Record<string, any>;
   banners: any[];
   cumulativeRewards: IHardwareCumulativeRewards;
-  rewardScopes?: IInviteRewardScope[];
 }
 
 export interface IEarnWalletHistoryItem {

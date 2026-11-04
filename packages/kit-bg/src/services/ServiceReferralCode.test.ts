@@ -476,6 +476,47 @@ describe('ServiceReferralCode Swap rebate API', () => {
     });
   });
 
+  test('reads reward scopes without a OneKey ID login', async () => {
+    const { service } = createService();
+    const rewardScopes = [
+      { subject: 'Swap', description: 'Swap providers' },
+      { subject: 'Earn', description: 'DeFi venues' },
+    ];
+    const get = jest
+      .fn()
+      .mockResolvedValue({ data: { data: { rewardScopes } } });
+    const getClientSpy = jest
+      .spyOn(service, 'getClient')
+      .mockResolvedValue({ get } as any);
+    const getOneKeyIdClientSpy = jest.spyOn(service, 'getOneKeyIdClient');
+
+    await expect(service.getInviteRewardScopes()).resolves.toBe(rewardScopes);
+
+    expect(getClientSpy).toHaveBeenCalledWith(EServiceEndpointEnum.Rebate);
+    expect(getOneKeyIdClientSpy).not.toHaveBeenCalled();
+    expect(get).toHaveBeenCalledWith('/rebate/v1/invite/reward-scopes');
+  });
+
+  test('treats missing reward scopes as none', async () => {
+    const { service } = createService();
+    const get = jest.fn().mockResolvedValue({ data: { data: {} } });
+    jest.spyOn(service, 'getClient').mockResolvedValue({ get } as any);
+
+    await expect(service.getInviteRewardScopes()).resolves.toEqual([]);
+  });
+
+  test('mutes reward scope failures while preserving the rejection', async () => {
+    const { service } = createService();
+    const error = Object.assign(new Error('reward scopes unavailable'), {
+      autoToast: true,
+    });
+    const get = jest.fn().mockRejectedValue(error);
+    jest.spyOn(service, 'getClient').mockResolvedValue({ get } as any);
+
+    await expect(service.getInviteRewardScopes()).rejects.toBe(error);
+    expect(error.autoToast).toBe(false);
+  });
+
   test('mutes invitee rewards failures while preserving the rejection', async () => {
     const { service } = createService();
     const error = Object.assign(new Error('invitee rewards unavailable'), {

@@ -62,6 +62,8 @@ import type {
   IInviteLevelDetail,
   IInvitePaidHistory,
   IInvitePostConfig,
+  IInviteRewardScope,
+  IInviteRewardScopesResponse,
   IInviteSummary,
   IInviteeRewardsModuleResult,
   IInviteeRewardsOverview,
@@ -137,6 +139,23 @@ class ServiceReferralCode extends ServiceBase {
       );
     }
     return summary.data.data;
+  }
+
+  // Unauthenticated: the invitee's rewards tab shows this copy before any
+  // OneKey ID login. The request locale header picks the language.
+  @backgroundMethod()
+  async getInviteRewardScopes(): Promise<IInviteRewardScope[]> {
+    try {
+      const client = await this.getClient(EServiceEndpointEnum.Rebate);
+      const response = await client.get<{
+        data: IInviteRewardScopesResponse;
+      }>('/rebate/v1/invite/reward-scopes');
+      return response.data.data?.rewardScopes ?? [];
+    } catch (error) {
+      // Optional hint copy: callers hide it on failure, so never toast.
+      errorToastUtils.toastIfErrorDisable(error);
+      throw error;
+    }
   }
 
   @backgroundMethod()

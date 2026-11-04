@@ -53,14 +53,22 @@ import type { IEarnSummaryV2, IEarnText } from '@onekeyhq/shared/types/staking';
 import { CompactFieldRow } from '../../components/CompactFieldRow';
 import { InviteeRewardNoWallet } from '../../components/InviteeRewardNoWallet';
 import { ReferralCardEmpty } from '../../components/ReferralCardEmpty';
+import { useInviteRewardScopes } from '../../hooks/useInviteRewardScopes';
 import {
   BenefitsTabPlaceholder,
   useBenefitsBindStatus,
 } from '../InviteReward/components/BenefitsTabPlaceholder';
-import { INVITE_REWARD_SUBJECT_ICON } from '../InviteReward/components/getInviteRewardRows';
+import {
+  INVITE_REWARD_SUBJECT_ICON,
+  getInviteRewardScopeDescription,
+} from '../InviteReward/components/getInviteRewardRows';
 import { InviteStatCell } from '../InviteReward/components/InviteStatCell';
 import { PartDot } from '../InviteReward/components/PartDot';
 import { ReferralTabCrossLink } from '../InviteReward/components/ReferralTabCrossLink';
+import {
+  RewardScopeCompactTitle,
+  RewardScopeInfo,
+} from '../InviteReward/components/RewardScopeInfo';
 import { REFERRAL_USD_SOURCE_PROPS } from '../InviteReward/components/shared/getRewardSummary';
 import {
   COMPACT_ENTRY_TITLE_PROPS,
@@ -78,6 +86,8 @@ import {
   PerksCampaignBanner,
   usePerksBannerItems,
 } from './PerksCampaignBanner';
+
+import type { IInviteRewardSubject } from '../InviteReward/components/getInviteRewardRows';
 
 type IRewardModule = keyof IInviteeRewardsOverview;
 
@@ -138,6 +148,14 @@ const MODULE_TITLE: Record<IRewardModule, ETranslations> = {
 };
 
 const MODULES: IRewardModule[] = ['perps', 'swap', 'earn'];
+
+// The invite breakdown's product for each module, whose reward-scope copy
+// (which channels and protocols count) the row shares.
+const MODULE_SUBJECT: Record<IRewardModule, IInviteRewardSubject> = {
+  perps: 'perps',
+  swap: 'swap',
+  earn: 'defi',
+};
 
 // Desktop rows bleed 12px past the text, like the invite tab's breakdown, so
 // the text lines up with the section title.
@@ -892,11 +910,13 @@ function ProductTile({ module }: { module: IRewardModule }) {
 function DesktopRow({
   row,
   title,
+  scopeDescription,
   noRewardLabel,
   onPress,
 }: {
   row: IModuleRow;
   title: string;
+  scopeDescription: string | null;
   noRewardLabel: string;
   onPress: () => void;
 }) {
@@ -961,9 +981,21 @@ function DesktopRow({
     >
       <DesktopCell first>
         <ProductTile module={row.module} />
-        <SizableText flex={1} size="$bodyLgMedium" numberOfLines={1}>
+        <SizableText
+          flexShrink={1}
+          minWidth={0}
+          size="$bodyLgMedium"
+          numberOfLines={1}
+        >
           {title}
         </SizableText>
+        {scopeDescription ? (
+          <RewardScopeInfo
+            title={title}
+            subject={MODULE_SUBJECT[row.module]}
+            description={scopeDescription}
+          />
+        ) : null}
       </DesktopCell>
       {renderValues()}
       <Icon
@@ -982,11 +1014,13 @@ function DesktopRow({
 function CompactRow({
   row,
   title,
+  scopeDescription,
   labels,
   onPress,
 }: {
   row: IModuleRow;
   title: string;
+  scopeDescription: string | null;
   labels: { unpaid: string; noReward: string };
   onPress: () => void;
 }) {
@@ -1029,6 +1063,15 @@ function CompactRow({
       iconProps={COMPACT_ROW_ICON_PROPS}
       titleProps={COMPACT_ENTRY_TITLE_PROPS}
       title={title}
+      renderItemText={
+        scopeDescription ? (
+          <RewardScopeCompactTitle
+            title={title}
+            subject={MODULE_SUBJECT[row.module]}
+            description={scopeDescription}
+          />
+        ) : undefined
+      }
       drillIn
       onPress={onPress}
     >
@@ -1129,6 +1172,8 @@ function MyRewardsContentBody({
   const intl = useIntl();
   const { md } = useMedia();
   const cardStyle = useInviteHomeCardStyle();
+  // Needs no OneKey ID login, unlike the invite tab's summary.
+  const rewardScopes = useInviteRewardScopes();
   const {
     activeAccount: { account, indexedAccount, ready: accountReady },
   } = useActiveAccount({ num: 0 });
@@ -1328,6 +1373,8 @@ function MyRewardsContentBody({
   };
   const titleFor = (module: IRewardModule) =>
     intl.formatMessage({ id: MODULE_TITLE[module] });
+  const scopeFor = (module: IRewardModule) =>
+    getInviteRewardScopeDescription(MODULE_SUBJECT[module], rewardScopes);
   const sectionTitle = intl.formatMessage({
     id: ETranslations.referral_earnings_by_product__title,
   });
@@ -1359,6 +1406,7 @@ function MyRewardsContentBody({
               key={row.module}
               row={row}
               title={titleFor(row.module)}
+              scopeDescription={scopeFor(row.module)}
               labels={labels}
               onPress={() => handleRowPress(row)}
             />
@@ -1386,6 +1434,7 @@ function MyRewardsContentBody({
             key={row.module}
             row={row}
             title={titleFor(row.module)}
+            scopeDescription={scopeFor(row.module)}
             noRewardLabel={labels.noReward}
             onPress={() => handleRowPress(row)}
           />

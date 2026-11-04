@@ -116,6 +116,14 @@ jest.mock('@onekeyhq/kit/src/components/ListItem', () => {
   };
 });
 
+// Scope copy comes from its own unauthenticated endpoint, not the summary.
+jest.mock('../../../hooks/useInviteRewardScopes', () => ({
+  useInviteRewardScopes: () => [
+    { subject: 'Swap', description: 'Swap providers' },
+    { subject: 'Earn', description: 'DeFi venues' },
+  ],
+}));
+
 jest.mock('./ReferralCodeCard/hooks/useReferralCodeCard', () => ({
   useReferralCodeCard: () => ({ copyLink: jest.fn() }),
 }));
@@ -147,11 +155,6 @@ const TOKEN = {
 const REWARD = [
   { token: TOKEN, amount: '10', fiatValue: '10', usdValue: '10' },
 ];
-const SCOPES = [
-  { subject: 'Swap', description: 'Swap providers' },
-  { subject: 'Earn', description: 'DeFi venues' },
-];
-
 function summary({ withRewards }: { withRewards: boolean }): IInviteSummary {
   return {
     inviteUrl: 'https://onekey.so/r/ABC123',
@@ -164,7 +167,6 @@ function summary({ withRewards }: { withRewards: boolean }): IInviteSummary {
     },
     HardwareSales: { available: [], pending: [] },
     Perp: { available: [] },
-    rewardScopes: SCOPES,
   } as unknown as IInviteSummary;
 }
 

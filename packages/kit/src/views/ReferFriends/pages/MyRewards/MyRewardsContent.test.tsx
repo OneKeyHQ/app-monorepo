@@ -10,6 +10,7 @@ const mockSetOverviewResult = jest.fn();
 const mockShowDialog = jest.fn();
 const mockCopyText = jest.fn();
 let mockIsCompact = false;
+let mockRewardScopes: { subject: string; description: string }[] = [];
 let mockActiveAccount: {
   account?: { id: string };
   indexedAccount?: { id: string };
@@ -246,6 +247,14 @@ jest.mock('../InviteReward/components/getInviteRewardRows', () => ({
     swap: 'SwitchHorOutline',
     defi: 'CoinsOutline',
   },
+  getInviteRewardScopeDescription: jest.requireActual<
+    typeof import('../InviteReward/components/getInviteRewardRows')
+  >('../InviteReward/components/getInviteRewardRows')
+    .getInviteRewardScopeDescription,
+}));
+
+jest.mock('../../hooks/useInviteRewardScopes', () => ({
+  useInviteRewardScopes: () => mockRewardScopes,
 }));
 
 jest.mock('../InviteReward/components/useInviteCardStyle', () => ({
@@ -280,6 +289,8 @@ jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
   },
 }));
 
+import { ReferFriendsTestIDs } from '../../testIDs';
+
 import { MyRewardsContent } from './MyRewardsContent';
 
 // Renders, then lets the overview fetch land.
@@ -304,6 +315,7 @@ describe('MyRewardsContent', () => {
     mockPerksProductOpened.mockReset();
     mockPerksAddressCopied.mockReset();
     mockIsCompact = false;
+    mockRewardScopes = [];
     mockActiveAccount = {
       account: { id: 'hd-1--account' },
       indexedAccount: { id: 'hd-1--0' },
@@ -1211,5 +1223,35 @@ describe('MyRewardsContent', () => {
       status: 'has_rewards',
       entry: 'route',
     });
+  });
+
+  it('shows the server reward scope on the Swap and DeFi rows', async () => {
+    mockRewardScopes = [
+      { subject: 'Swap', description: 'Swap providers' },
+      { subject: 'Earn', description: 'DeFi venues' },
+    ];
+    await renderMyRewards();
+
+    // Perps has no scope copy; Swap and DeFi (Earn) each get one icon.
+    const scopeInfos = screen.getAllByTestId(
+      ReferFriendsTestIDs.inviteRewardScopeInfo,
+    );
+    expect(scopeInfos).toHaveLength(2);
+    expect(screen.getByText('Swap providers')).toBeTruthy();
+    expect(screen.getByText('DeFi venues')).toBeTruthy();
+
+    // The icon sits on the product name; its press must not open the row.
+    for (const scopeInfo of scopeInfos) {
+      fireEvent.click(scopeInfo);
+    }
+    expect(mockShowDialog).not.toHaveBeenCalled();
+    expect(mockPerksProductOpened).not.toHaveBeenCalled();
+  });
+
+  it('shows no scope icon when the server sends no scope copy', async () => {
+    await renderMyRewards();
+    expect(
+      screen.queryByTestId(ReferFriendsTestIDs.inviteRewardScopeInfo),
+    ).toBeNull();
   });
 });
