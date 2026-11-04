@@ -44,7 +44,7 @@ function Address(props: IProps) {
   const networkId = component.networkId || currentNetworkId;
 
   const isLightningNetwork =
-    networkUtils.isLightningNetworkByNetworkId(networkId);
+    networkUtils.isAnyLightningNetworkByNetworkId(networkId);
 
   const accountName = usePromiseResult(async () => {
     if (!networkId || !isLightningNetwork) return;

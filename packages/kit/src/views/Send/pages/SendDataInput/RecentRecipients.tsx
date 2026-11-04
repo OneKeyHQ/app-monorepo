@@ -115,7 +115,7 @@ function QuickSelectListItemBase({
   // Only show menu for items NOT already in address book
   // Lightning Network doesn't support address book
   const isLightningNetwork =
-    networkUtils.isLightningNetworkByNetworkId(networkId);
+    networkUtils.isAnyLightningNetworkByNetworkId(networkId);
   const showAddToAddressBook = !item.isAddressBook && !isLightningNetwork;
 
   const addToAddressBookLabel = intl.formatMessage({

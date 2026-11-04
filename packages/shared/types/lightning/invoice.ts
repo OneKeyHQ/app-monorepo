@@ -130,7 +130,8 @@ export declare type IPaymentRequestObject = {
 };
 
 export type IInvoiceDecodedResponse = IPaymentRequestObject & {
-  tagsObject: ITagsObject;
+  // The OneKey lightning service decode sends only the `tags` list.
+  tagsObject?: ITagsObject;
 };
 
 export type IInvoiceConfig = {
