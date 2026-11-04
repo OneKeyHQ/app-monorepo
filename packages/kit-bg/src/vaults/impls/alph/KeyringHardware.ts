@@ -20,7 +20,6 @@ import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 
 import { KeyringHardwareBase } from '../../base/KeyringHardwareBase';
 
-import { prepareAlphHardwareTransaction } from './sdkAlph/hardwareInputLimit';
 import {
   deserializeUnsignedTransaction,
   serializeUnsignedTransaction,
@@ -156,22 +155,12 @@ export class KeyringHardware extends KeyringHardwareBase {
     if (!account.pub) {
       throw new OneKeyInternalError('Account pub not found');
     }
-    const transaction = await serializeUnsignedTransaction({
+    const { unsignedTx: rawTx } = await serializeUnsignedTransaction({
       encodedTx,
       publicKey: account.pub,
       backgroundApi: this.vault.backgroundApi,
       networkId: this.vault.networkId,
     });
-    const { unsignedTx: rawTx, encodedTx: hardwareEncodedTx } =
-      await prepareAlphHardwareTransaction({
-        unsignedTx: transaction.unsignedTx,
-        encodedTx,
-        backgroundApi: this.vault.backgroundApi,
-        networkId: this.vault.networkId,
-        accountId: account.id,
-        deviceType: dbDevice.deviceType,
-        publicKey: account.pub,
-      });
     const {
       unsignedTx: { scriptOpt },
     } = await deserializeUnsignedTransaction({
@@ -207,7 +196,7 @@ export class KeyringHardware extends KeyringHardwareBase {
         unsignedTx: rawTx,
         signature: res.signature,
       }),
-      encodedTx: hardwareEncodedTx,
+      encodedTx: unsignedTx.encodedTx,
       signature: res.signature,
     };
   }

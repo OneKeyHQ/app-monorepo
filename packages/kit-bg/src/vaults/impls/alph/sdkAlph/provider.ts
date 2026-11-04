@@ -20,13 +20,6 @@ export class Provider extends NodeProvider {
     this.backgroundApi = backgroundApi;
     this.networkId = networkId;
 
-    this.addresses.getAddressesAddressUtxos = async (address, query) =>
-      this.request({
-        path: 'addresses',
-        method: 'getAddressesAddressUtxos',
-        params: query ? [address, query] : [address],
-      }) as Promise<node.UTXOs>;
-
     this.transactions.postTransactionsBuild = async (
       data: node.BuildTransferTx,
     ) =>
