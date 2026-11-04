@@ -7,6 +7,10 @@ import type {
   IZcashHistoryItem,
   IZcashTxDetails,
 } from '@onekeyhq/core/src/chains/zcash/sdkZcash/types/sdk';
+import {
+  getZcashUnifiedAddressTransparentReceiver,
+  isSameZcashOrchardRecipient,
+} from '@onekeyhq/core/src/chains/zcash/sdkZcash/unifiedAddress';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import {
   EAppEventBusNames,
@@ -14,7 +18,10 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { LRUCache } from '@onekeyhq/shared/src/utils/cacheUtils';
-import type { ILocalWalletHistoryAddressGate } from '@onekeyhq/shared/src/utils/privacyChainHistoryAddressGate';
+import type {
+  ILocalWalletDisplayedAddressResolver,
+  ILocalWalletHistoryAddressGate,
+} from '@onekeyhq/shared/src/utils/privacyChainHistoryAddressGate';
 import {
   PRIVACY_CHAIN_PUBLIC_POOL_ID,
   mergePrivacyChainHistoryTxs,
@@ -73,6 +80,33 @@ import type { IEncodedTxZcash } from './types';
 import type Vault from './Vault';
 import type { IDBUtxoAccount } from '../../../dbs/local/types';
 import type { IZcashSentRecord } from '../../../dbs/simple/entity/SimpleDbEntityPrivacyChainZcashSent';
+
+// The runtime names an own output by its wallet address-table UA (P2PKH + Orchard here), never the
+// form Receive shows; only the receiver of the output's own pool decides which one it stands for.
+// Ironwood notes are paid to Orchard receivers.
+export const toZcashDisplayedOwnAddress: ILocalWalletDisplayedAddressResolver =
+  ({ address, poolId, addresses }) => {
+    if (poolId === ZCASH_POOL_IDS.transparent) {
+      const { publicAddress } = addresses;
+      if (!publicAddress) return undefined;
+      const isPublicAddress =
+        address === publicAddress ||
+        getZcashUnifiedAddressTransparentReceiver(address) === publicAddress;
+      return isPublicAddress ? publicAddress : undefined;
+    }
+    const shieldedPoolIds: number[] = [
+      ZCASH_POOL_IDS.orchard,
+      ZCASH_POOL_IDS.ironwood,
+    ];
+    if (poolId !== undefined && shieldedPoolIds.includes(poolId)) {
+      const { privateAddress } = addresses;
+      if (!privateAddress) return undefined;
+      return isSameZcashOrchardRecipient(privateAddress, address)
+        ? privateAddress
+        : undefined;
+    }
+    return undefined;
+  };
 
 function hasSupportedHistoryPool(poolIds: number[] | undefined) {
   return poolIds?.some(
@@ -250,7 +284,7 @@ export async function fetchAccountHistoryDetail(
   let details: IZcashTxDetails;
   let chainTip: number | null | undefined;
   try {
-    // Account-view I/O from local note tables; shielded entries have no on-chain address, so they're labeled by pool.
+    // Account-view I/O from local note tables; the gate shows an address of ours only as Receive shows it.
     details = await api.getTxDetails(account, { txid: params.txid });
     chainTip = (await api.getSyncProgress(account).catch(() => undefined))
       ?.chainTip;
@@ -283,7 +317,7 @@ export async function fetchAccountHistoryDetail(
     }
   }
 
-  // Shielded entries carry no address of their own; they name their pool.
+  // A spent note keeps the address it was received at; the gate shows only the displayed form of it.
   const poolIdOf = (pool: string): number | undefined =>
     ZCASH_POOL_IDS[pool as keyof typeof ZCASH_POOL_IDS];
   const toZec = (value: string) => zatoshiToZec(value);
@@ -293,8 +327,8 @@ export async function fetchAccountHistoryDetail(
       type: isShielded
         ? EOnChainHistoryTransferType.Shielded
         : EOnChainHistoryTransferType.Transfer,
-      address: isShielded ? '' : (s.address ?? ''),
-      from: isShielded ? '' : (s.address ?? ''),
+      address: s.address ?? '',
+      from: s.address ?? '',
       to: '',
       token: '',
       key: '',

@@ -13,7 +13,10 @@ jest.mock('../vaults/factory', () => ({
   },
 }));
 jest.mock('../states/jotai/atoms', () => ({
-  privacyChainAtom: { set: jest.fn(async () => undefined) },
+  privacyChainAtom: {
+    set: jest.fn(async () => undefined),
+    get: jest.fn(async () => ({ progress: {} })),
+  },
 }));
 
 const ServicePrivacyChain = require('./ServicePrivacyChain')
@@ -41,7 +44,7 @@ describe('Privacy sync timeout recovery', () => {
 
   function createService(
     authoritative: boolean,
-    terminated = false,
+    terminated: boolean | (() => Promise<boolean>) = false,
     isUserOperationActive?: () => boolean,
   ) {
     let resolveSync!: (value: ISyncResult) => void;
@@ -65,7 +68,10 @@ describe('Privacy sync timeout recovery', () => {
         syncPolicy: { maxSyncDurationMs: 10 },
         syncGroup,
         syncCompletionIsAuthoritative: authoritative,
-        recoverFromTimeout: async () => terminated,
+        recoverFromTimeout:
+          typeof terminated === 'function'
+            ? terminated
+            : async () => terminated,
         isUserOperationActive,
       }),
     });
@@ -87,6 +93,7 @@ describe('Privacy sync timeout recovery', () => {
         syncTickRunning: false,
         syncTickRequested: false,
         quarantinedSyncs: new Map<string, Promise<unknown>>(),
+        quarantineRecoveries: new Map<string, () => Promise<void>>(),
         storageUnsupportedNetworkIds: new Set<string>(),
         syncFailureBackoff: new Map(),
         runtimeSyncState: new Map(),
@@ -163,6 +170,138 @@ describe('Privacy sync timeout recovery', () => {
     expect(service.scheduleBackgroundSync).toHaveBeenCalledWith(0);
   });
 
+  // A carrier that could not be replaced stays quarantined; without a retry, the chain waits for a
+  // restart.
+  it('retries a failed recovery, slower each time, until it works', async () => {
+    jest.spyOn(console, 'error').mockImplementation(() => undefined);
+    const recover = jest
+      .fn<Promise<boolean>, []>()
+      .mockRejectedValueOnce(new Error('WebEmbed did not answer reset'))
+      .mockRejectedValueOnce(new Error('WebEmbed did not answer reset'))
+      .mockResolvedValue(true);
+    const { service } = createService(false, recover);
+    const tick = service.backgroundSyncTick();
+    await jest.advanceTimersByTimeAsync(11);
+    await tick;
+    expect(recover).toHaveBeenCalledTimes(1);
+    expect(service.quarantinedSyncs.has(stateKey)).toBe(true);
+
+    await jest.advanceTimersByTimeAsync(29_000);
+    expect(recover).toHaveBeenCalledTimes(1);
+    await jest.advanceTimersByTimeAsync(1000);
+    expect(recover).toHaveBeenCalledTimes(2);
+    expect(service.quarantinedSyncs.has(stateKey)).toBe(true);
+
+    await jest.advanceTimersByTimeAsync(59_000);
+    expect(recover).toHaveBeenCalledTimes(2);
+    await jest.advanceTimersByTimeAsync(1000);
+    expect(recover).toHaveBeenCalledTimes(3);
+    expect(service.quarantinedSyncs.has(stateKey)).toBe(false);
+    expect(service.scheduleBackgroundSync).toHaveBeenCalledWith(0);
+
+    await jest.advanceTimersByTimeAsync(10 * 60_000);
+    expect(recover).toHaveBeenCalledTimes(3);
+    // Only the first attempt may replace the carrier other features share.
+    expect(recover.mock.calls).toEqual([
+      [{ remountCarrier: true }],
+      [{ remountCarrier: false }],
+      [{ remountCarrier: false }],
+    ]);
+  });
+
+  // A recovery resets the runtime's Worker; a send running on it would lose its calls.
+  it('holds a recovery while a user send runs and retries once it ends', async () => {
+    jest.spyOn(console, 'error').mockImplementation(() => undefined);
+    let sending = false;
+    const recover = jest
+      .fn<Promise<boolean>, [{ remountCarrier?: boolean }?]>()
+      .mockRejectedValueOnce(new Error('WebEmbed did not answer reset'))
+      .mockResolvedValue(true);
+    const { service } = createService(false, recover, () => sending);
+    const tick = service.backgroundSyncTick();
+    await jest.advanceTimersByTimeAsync(11);
+    await tick;
+    expect(recover).toHaveBeenCalledTimes(1);
+
+    // The send starts after the first recovery failed; its retry must not reset under it.
+    sending = true;
+    await jest.advanceTimersByTimeAsync(30_000);
+    await jest.advanceTimersByTimeAsync(30_000);
+    expect(recover).toHaveBeenCalledTimes(1);
+    expect(service.quarantinedSyncs.has(stateKey)).toBe(true);
+
+    sending = false;
+    await jest.advanceTimersByTimeAsync(30_000);
+    expect(recover).toHaveBeenCalledTimes(2);
+    expect(recover.mock.calls[1]).toEqual([{ remountCarrier: false }]);
+    expect(service.quarantinedSyncs.has(stateKey)).toBe(false);
+  });
+
+  // A paused chain is not scanning; its Continue starts the recovery again.
+  it('stops retrying a failed recovery while the chain is paused', async () => {
+    jest.spyOn(console, 'error').mockImplementation(() => undefined);
+    const recover = jest
+      .fn<Promise<boolean>, [{ remountCarrier?: boolean }?]>()
+      .mockRejectedValue(new Error('WebEmbed did not answer reset'));
+    const { service } = createService(false, recover);
+    const tick = service.backgroundSyncTick();
+    await jest.advanceTimersByTimeAsync(11);
+    await tick;
+    expect(recover).toHaveBeenCalledTimes(1);
+
+    Object.assign(service, { boostPausedByNetwork: { [networkId]: true } });
+    await jest.advanceTimersByTimeAsync(10 * 60_000);
+    expect(recover).toHaveBeenCalledTimes(1);
+    expect(service.quarantinedSyncs.has(stateKey)).toBe(true);
+  });
+
+  it.each([
+    { outcome: 'replaced', stuck: false },
+    { outcome: 'still stuck', stuck: true },
+  ])(
+    'replaces a stuck runtime at once when the user starts a sync ($outcome)',
+    async ({ stuck }) => {
+      jest.spyOn(console, 'error').mockImplementation(() => undefined);
+      const recover = jest
+        .fn<Promise<boolean>, []>()
+        .mockRejectedValueOnce(new Error('WebEmbed did not answer reset'));
+      if (stuck) {
+        recover.mockRejectedValue(new Error('WebEmbed did not answer reset'));
+      } else {
+        recover.mockResolvedValue(true);
+      }
+      const { service } = createService(false, recover);
+      const tick = service.backgroundSyncTick();
+      await jest.advanceTimersByTimeAsync(11);
+      await tick;
+      expect(recover).toHaveBeenCalledTimes(1);
+      const publishSyncError = jest.fn(async () => undefined);
+      Object.assign(service, {
+        publishSyncError,
+        setChainPaused: jest.fn(async () => undefined),
+        setAccountsPreparing: jest.fn(async () => undefined),
+        requestForegroundScan: jest.fn(async () => undefined),
+      });
+
+      await (
+        service as unknown as {
+          startUserSync: (params: {
+            networkId: string;
+            accountId: string;
+          }) => Promise<void>;
+        }
+      ).startUserSync({ networkId, accountId: 'account' });
+      await jest.advanceTimersByTimeAsync(0);
+
+      expect(recover).toHaveBeenCalledTimes(2);
+      expect(service.quarantinedSyncs.has(stateKey)).toBe(stuck);
+      expect(publishSyncError).toHaveBeenLastCalledWith(
+        networkId,
+        stuck ? 'runtimeUnavailable' : undefined,
+      );
+    },
+  );
+
   it('does not clear a newer quarantine when an older writer finishes', async () => {
     const { service, resolveSync } = createService(true);
     const tick = service.backgroundSyncTick();
@@ -200,7 +339,15 @@ describe('Privacy sync failure backoff', () => {
         ],
       }),
       getChainTip: async () => 200,
-      syncPolicy: { maxSyncDurationMs: 60_000 },
+      // The chains' real rests: Zcash 0.5s watched, 30s in a phone's background; Monero 0.25s / 5s.
+      syncPolicy: {
+        maxSyncDurationMs: 60_000,
+        foregroundBackfillDelayMs: networkId === 'zec--0' ? 500 : 250,
+        backgroundBackfillDelayMs:
+          networkId === 'zec--0'
+            ? { desktop: 5000, default: 30_000 }
+            : { desktop: 1500, default: 5000 },
+      },
       syncGroup: networkId === 'zec--0' ? zcashSync : xmrSync,
       syncCompletionIsAuthoritative: true,
       recoverFromTimeout: async () => false,
@@ -271,6 +418,122 @@ describe('Privacy sync failure backoff', () => {
     await service.backgroundSyncTick();
     expect(zcashSync).toHaveBeenCalledTimes(1);
     expect(xmrSync).toHaveBeenCalledTimes(1);
+  });
+
+  // Without this the failing chain waits for the periodic check, minutes later.
+  it('wakes a backed-off chain when its wait ends, after another chain took the turn', async () => {
+    const zcashSync = jest.fn().mockRejectedValue(new Error('NETWORK_ERROR'));
+    const xmrSync = jest.fn().mockResolvedValue({
+      synced: true,
+      chainTip: 200,
+      backfillRemaining: false,
+    });
+    const service = createTwoChainScheduler(zcashSync, xmrSync) as unknown as {
+      backgroundSyncTick: () => Promise<void>;
+      scheduleBackgroundSync: jest.Mock;
+    };
+
+    await service.backgroundSyncTick();
+    service.scheduleBackgroundSync.mockClear();
+    await service.backgroundSyncTick();
+
+    expect(xmrSync).toHaveBeenCalledTimes(1);
+    expect(service.scheduleBackgroundSync).toHaveBeenCalledWith(5000);
+  });
+
+  // Only background scanning backs off for minutes; a chain the user watches retries within 30s.
+  it.each([
+    [false, 5 * 60 * 1000],
+    [true, 30 * 1000],
+  ])(
+    'caps the wait of a watched chain (watched: %s)',
+    async (watched, wait) => {
+      const service = createTwoChainScheduler(
+        jest.fn(),
+        jest.fn().mockResolvedValue({ synced: true, chainTip: 200 }),
+      ) as unknown as {
+        backgroundSyncTick: () => Promise<void>;
+        recordSyncFailure: (key: string) => void;
+        scheduleBackgroundSync: jest.Mock;
+        isNetworkForegroundHot: (networkId: string) => boolean;
+      };
+      for (let i = 0; i < 8; i += 1) service.recordSyncFailure('zec--0|main');
+      service.isNetworkForegroundHot = (networkId) =>
+        watched && networkId === 'zec--0';
+
+      await service.backgroundSyncTick();
+
+      expect(service.scheduleBackgroundSync).toHaveBeenCalledWith(wait);
+    },
+  );
+
+  describe('two chains backfilling', () => {
+    type IScheduler = {
+      backgroundSyncTick: () => Promise<void>;
+      scheduleBackgroundSync: jest.Mock;
+      runtimeSyncState: Map<string, unknown>;
+      isNetworkForegroundHot: (networkId: string) => boolean;
+    };
+    const backfilling = () =>
+      jest.fn().mockResolvedValue({
+        synced: true,
+        chainTip: 200,
+        backfillRemaining: true,
+      });
+
+    // Zcash takes the first turn (its tip moved), Monero the second; both still have blocks left.
+    async function afterOneTurnEach() {
+      const zcashSync = backfilling();
+      const xmrSync = backfilling();
+      const service = createTwoChainScheduler(
+        zcashSync,
+        xmrSync,
+      ) as unknown as IScheduler;
+      await service.backgroundSyncTick();
+      await service.backgroundSyncTick();
+      expect(zcashSync).toHaveBeenCalledTimes(1);
+      expect(xmrSync).toHaveBeenCalledTimes(1);
+      return { service, zcashSync, xmrSync };
+    }
+
+    // Swapping every second would keep a phone scanning nonstop in the background.
+    it('lets each chain rest at its own background pace', async () => {
+      const { service, zcashSync, xmrSync } = await afterOneTurnEach();
+      expect(service.scheduleBackgroundSync).toHaveBeenLastCalledWith(5000);
+
+      await service.backgroundSyncTick();
+      expect(zcashSync).toHaveBeenCalledTimes(1);
+      expect(xmrSync).toHaveBeenCalledTimes(1);
+
+      jest.setSystemTime(Date.now() + 5000);
+      await service.backgroundSyncTick();
+      expect(xmrSync).toHaveBeenCalledTimes(2);
+      expect(zcashSync).toHaveBeenCalledTimes(1);
+    });
+
+    it('scans a new tip at once, even while the chain rests', async () => {
+      const { service, zcashSync } = await afterOneTurnEach();
+      service.runtimeSyncState.set('zec--0|main', {
+        accountSignature: 'zec--0-account',
+        lastChainTip: 100,
+      });
+
+      await service.backgroundSyncTick();
+
+      expect(zcashSync).toHaveBeenCalledTimes(2);
+    });
+
+    it('keeps a watched chain moving at its foreground pace', async () => {
+      const { service, zcashSync } = await afterOneTurnEach();
+      service.isNetworkForegroundHot = (networkId) => networkId === 'zec--0';
+
+      await service.backgroundSyncTick();
+      expect(service.scheduleBackgroundSync).toHaveBeenLastCalledWith(1000);
+      jest.setSystemTime(Date.now() + 1000);
+      await service.backgroundSyncTick();
+
+      expect(zcashSync).toHaveBeenCalledTimes(2);
+    });
   });
 
   // An outdated WebView cannot become usable mid-session; retrying it only
@@ -383,11 +646,13 @@ describe('Privacy password work after a sync turn', () => {
   });
 });
 
-describe('Privacy enable scan visibility', () => {
+// The user's own entry (enable, Sync, a rescan) shows the scan; the notice only queues a pass.
+describe('Privacy accounts-changed notice', () => {
   it.each([false, true])(
-    'publishes an initial scan request without clearing manual pause (%s)',
+    'queues a pass without requesting the light or touching a pause (paused: %s)',
     async (paused) => {
       const publishBoostingNetworks = jest.fn();
+      const scheduleBackgroundSync = jest.fn();
       const service = Object.assign(
         Object.create(ServicePrivacyChain.prototype) as InstanceType<
           typeof ServicePrivacyChain
@@ -399,7 +664,7 @@ describe('Privacy enable scan visibility', () => {
           boostPausedByNetwork: { 'zec--0': paused },
           foregroundBoostRequestedByNetwork: {},
           init: jest.fn(),
-          scheduleBackgroundSync: jest.fn(),
+          scheduleBackgroundSync,
           publishBoostingNetworks,
         },
       );
@@ -408,11 +673,13 @@ describe('Privacy enable scan visibility', () => {
         accountIds: ['account'],
         backfillActive: true,
       });
-      expect(service.foregroundBoostRequestedByNetwork['zec--0']).toBe(
-        paused ? undefined : true,
-      );
+      expect(service.backfillActiveByAccount.account).toBe(true);
+      expect(scheduleBackgroundSync).toHaveBeenCalledWith(0);
+      expect(
+        service.foregroundBoostRequestedByNetwork['zec--0'],
+      ).toBeUndefined();
       expect(service.boostPausedByNetwork['zec--0']).toBe(paused);
-      expect(publishBoostingNetworks).toHaveBeenCalledTimes(paused ? 0 : 1);
+      expect(publishBoostingNetworks).not.toHaveBeenCalled();
     },
   );
 });
@@ -796,5 +1063,98 @@ describe('Privacy sync backoff after a user action', () => {
     expect(logged).toHaveBeenCalled();
     handled.mockRestore();
     logged.mockRestore();
+  });
+});
+
+// An open privacy page is a waiting user: the startup quiet window shrinks to its floor, and nothing
+// lights up.
+describe('Privacy page opened', () => {
+  function createService() {
+    return Object.assign(
+      Object.create(ServicePrivacyChain.prototype) as InstanceType<
+        typeof ServicePrivacyChain
+      >,
+      {
+        serviceBootAt: Date.now(),
+        earliestTickAt: Date.now() + 60_000,
+        getLocalWalletNetworkIds: async () => ['zec--0'],
+        init: jest.fn(async () => undefined),
+        scheduleBackgroundSync: jest.fn(),
+        publishBoostingNetworks: jest.fn(),
+        foregroundBoostRequestedByNetwork: {},
+      },
+    );
+  }
+
+  it('schedules a pass, waiting only for the startup floor', async () => {
+    const service = createService();
+    await service.onLocalWalletPageOpened({ networkId: 'zec--0' });
+    expect(service.earliestTickAt).toBe(service.serviceBootAt + 30_000);
+    expect(service.scheduleBackgroundSync).toHaveBeenCalledWith(0);
+    expect(service.foregroundBoostRequestedByNetwork).toEqual({});
+    expect(service.publishBoostingNetworks).not.toHaveBeenCalled();
+  });
+
+  it('does nothing for a network without local scanning', async () => {
+    const service = createService();
+    const quietUntil = service.earliestTickAt;
+    await service.onLocalWalletPageOpened({ networkId: 'evm--1' });
+    expect(service.earliestTickAt).toBe(quietUntil);
+    expect(service.scheduleBackgroundSync).not.toHaveBeenCalled();
+  });
+});
+
+// A runtime starting or running a turn answers late; no page read waits on it past the display wait.
+describe('Privacy page reads while the runtime is held', () => {
+  beforeEach(() => {
+    jest.useFakeTimers();
+  });
+  afterEach(() => {
+    jest.useRealTimers();
+    mockGetChainOnlyVault.mockReset();
+  });
+
+  function createService() {
+    const never = () => new Promise<never>(() => {});
+    mockGetChainOnlyVault.mockResolvedValue({
+      getLocalWalletCapability: () => ({
+        getSyncProgress: never,
+        getStorageUsage: never,
+        getSyncEndpoint: async () => ({ url: 'https://node.example' }),
+      }),
+    });
+    return Object.assign(
+      Object.create(ServicePrivacyChain.prototype) as InstanceType<
+        typeof ServicePrivacyChain
+      >,
+      {
+        backgroundApi: {
+          serviceCustomRpc: {
+            resolveDefaultRpcUrl: async () => 'https://node.example',
+          },
+        },
+      },
+    );
+  }
+
+  it('answers sync progress for an account with nothing published yet', async () => {
+    const progress = createService().getLocalWalletSyncProgress({
+      networkId: 'zec--held',
+      accountId: 'account',
+    });
+    await jest.advanceTimersByTimeAsync(1000);
+    await expect(progress).resolves.toBeUndefined();
+  });
+
+  // Unknown, not absent: an absent size hides the reset button exactly when it may be needed.
+  it('answers the network page with the size unknown and the node shown', async () => {
+    const info = createService().getLocalWalletNetworkInfo({
+      networkId: 'zec--held',
+    });
+    await jest.advanceTimersByTimeAsync(1000);
+    await expect(info).resolves.toMatchObject({
+      storageBytes: null,
+      endpointUrl: 'https://node.example',
+    });
   });
 });

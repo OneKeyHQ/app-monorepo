@@ -11,6 +11,7 @@ let mockRequest:
   | undefined;
 const mockRun = jest.fn(async () => undefined);
 const mockRequestSync = jest.fn<Promise<void>, [object]>(async () => undefined);
+const mockPageOpened = jest.fn<Promise<void>, [object]>(async () => undefined);
 const mockGetReadiness = jest.fn<
   Promise<ILocalWalletSendReadiness | undefined>,
   [{ networkId: string; accountId: string; sourcePool?: string }]
@@ -21,6 +22,7 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   default: {
     servicePrivacyChain: {
       requestLocalWalletSendSync: (params: object) => mockRequestSync(params),
+      onLocalWalletPageOpened: (params: object) => mockPageOpened(params),
       getLocalWalletSendReadiness: (params: {
         networkId: string;
         accountId: string;
@@ -50,6 +52,9 @@ jest.mock('react-intl', () => ({
   }),
 }));
 jest.mock('@onekeyhq/kit/src/utils/privacyChainSyncDisplay', () => ({
+  ...jest.requireActual<
+    typeof import('@onekeyhq/kit/src/utils/privacyChainSyncDisplay')
+  >('@onekeyhq/kit/src/utils/privacyChainSyncDisplay'),
   formatPrivacyChainSyncError: (kind?: string) =>
     kind ? `sync-error:${kind}` : undefined,
 }));
@@ -102,8 +107,20 @@ describe('send sync status text', () => {
   it('explains why a send is waiting', () => {
     const text = (readiness: ILocalWalletSendReadiness) =>
       getLocalWalletSendSyncStatusText({ readiness, intl });
-    expect(text({ blocksLeft: 5, canSend: false, paused: true })).toBe(
-      ETranslations.privacy_send_private_paused__msg,
+    for (const status of [
+      'accountPaused',
+      'chainPaused',
+      'unavailable',
+    ] as const) {
+      expect(text({ blocksLeft: 5, canSend: false, status })).toBe(
+        ETranslations.privacy_send_private_paused__msg,
+      );
+    }
+    expect(
+      text({ blocksLeft: 5, canSend: false, status: 'storageUnsupported' }),
+    ).toBe(ETranslations.privacy_error_webview_outdated__msg);
+    expect(text({ blocksLeft: 5, canSend: false, status: 'waitingWifi' })).toBe(
+      ETranslations.privacy_sync_waiting_wifi__msg,
     );
     expect(
       text({ blocksLeft: 5, canSend: false, syncError: 'nodeUnreachable' }),
@@ -135,6 +152,15 @@ describe('useLocalWalletSendReadiness', () => {
     });
     rerender({ ...props, sourcePool: 'ironwood' });
     expect(mockRequestSync).toHaveBeenCalledTimes(2);
+  });
+
+  // Not only a pool with a send sync: every privacy send wants the chain caught up now.
+  it('wakes the scan as the page opens', () => {
+    mockPageOpened.mockClear();
+    renderHook(() => useLocalWalletSendReadiness(props));
+    expect(mockPageOpened).toHaveBeenCalledWith({
+      networkId: props.networkId,
+    });
   });
 
   it('waits until this account and pool have an answer, then follows it', () => {
@@ -170,6 +196,7 @@ describe('useLocalWalletSendReadiness', () => {
     );
     expect(result.current.isWaitingForSync).toBe(false);
     expect(mockRequestSync).not.toHaveBeenCalled();
+    expect(mockPageOpened).not.toHaveBeenCalled();
   });
 
   it('reads again when the account publishes progress', async () => {

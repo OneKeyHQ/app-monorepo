@@ -14,6 +14,62 @@ import type { IBackgroundApi } from '../../apis/IBackgroundApi';
 // value is shown instead.
 export const LOCAL_WALLET_DISPLAY_WAIT_MS = 1000;
 
+// Every other read a page makes of a privacy chain's runtime goes through here. A runtime that is
+// starting, registering an account or running a scan turn answers late, and a page never waits on
+// it longer than the display wait: it gets the last answer, or nothing (shown as unknown, never 0).
+// `remember: false` keeps no answer, for reads the scheduler publishes anyway (progress). Keys start
+// `${networkId}:`, so a network's data going can forget them.
+type IDisplayRead = { value?: unknown; pending?: Promise<unknown> };
+const displayReads = new Map<string, IDisplayRead>();
+
+export async function readLocalWalletForDisplay<T>({
+  key,
+  read,
+  remember = true,
+}: {
+  key: string;
+  read: () => Promise<T>;
+  remember?: boolean;
+}): Promise<T | undefined> {
+  let entry = displayReads.get(key);
+  if (!entry) {
+    entry = {};
+    displayReads.set(key, entry);
+  }
+  const current = entry;
+  if (!current.pending) {
+    const running: Promise<unknown> = read()
+      .then((value) => {
+        // A forget while it ran made this answer describe gone data.
+        if (remember && displayReads.get(key) === current) {
+          current.value = value;
+        }
+        return value;
+      })
+      .catch(() => current.value)
+      .finally(() => {
+        if (current.pending === running) current.pending = undefined;
+      });
+    current.pending = running;
+  }
+  const answered = await Promise.race([
+    current.pending.then((value) => ({ value })),
+    timerUtils.wait(LOCAL_WALLET_DISPLAY_WAIT_MS).then(() => undefined),
+  ]);
+  return (answered ? answered.value : current.value) as T | undefined;
+}
+
+// What reads remembered about a network whose data is now gone or rewound.
+export function forgetLocalWalletDisplayReads({
+  networkId,
+}: {
+  networkId: string;
+}): void {
+  for (const key of displayReads.keys()) {
+    if (key.startsWith(`${networkId}:`)) displayReads.delete(key);
+  }
+}
+
 export type ILocalWalletBalanceRead<T> = {
   value: T;
   // Saved earlier, not read from the scanner just now.

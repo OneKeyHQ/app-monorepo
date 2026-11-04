@@ -565,6 +565,26 @@ describe('Privacy Mode accounts per network', () => {
     expect(enableAccount).toHaveBeenCalledTimes(1);
   });
 
+  // Enabling or resuming is a Sync: it shows at once and a paused chain turns back on.
+  it('starts the account like a Sync once it is on', async () => {
+    const { service } = createService(fullNetwork());
+    const startUserSync = jest
+      .spyOn(
+        service as unknown as {
+          startUserSync: (params: object) => Promise<void>;
+        },
+        'startUserSync',
+      )
+      .mockResolvedValue(undefined);
+
+    await service.enableLocalWalletAccount({ networkId: ZEC, accountId: 'p1' });
+
+    expect(startUserSync).toHaveBeenCalledWith({
+      networkId: ZEC,
+      accountId: 'p1',
+    });
+  });
+
   it('admits an alias of an identity already holding data', async () => {
     const setup = fullNetwork();
     setup.accountsByNetwork[ZEC].push(account('z1-twin', 'key-z1', false));

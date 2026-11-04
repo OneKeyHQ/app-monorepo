@@ -39,7 +39,6 @@ import {
   EOnboardingPagesV2,
   EOnboardingV2OneKeyIDLoginMode,
 } from '@onekeyhq/shared/src/routes/onboardingv2';
-import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import extUtils from '@onekeyhq/shared/src/utils/extUtils';
 import { getAdvertisedHomeTokenMainRuntimeId } from '@onekeyhq/shared/src/utils/homeTokenRequest';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
@@ -66,10 +65,7 @@ import {
   isWebEmbedChannelRequest,
 } from '../apis/backgroundApiPermissions';
 import { devSettingsPersistAtom } from '../states/jotai/atoms/devSettings';
-import {
-  createPrivacyChainFetchStreamRelay,
-  relayPrivacyChainNodeRequest,
-} from '../utils/privacyChainNodeRelay';
+import { createPrivacyChainFetchStreamRelay } from '../utils/privacyChainNodeRelay';
 import { createPrivacyChainRelayTargetSource } from '../utils/privacyChainRelayTargets';
 
 import ProviderApiBase from './ProviderApiBase';
@@ -664,27 +660,6 @@ class ProviderApiPrivate extends ProviderApiBase {
 
   // Relays the web-embed's node requests (native networking ignores CORS). Web-embed page and configured
   // nodes only, otherwise it is a POST-anywhere proxy.
-  @providerApiMethod()
-  async privacyChainNodeRequest(
-    request: IJsBridgeMessagePayload,
-    {
-      url,
-      contentType,
-      b64,
-    }: { url: string; contentType: string; b64: string },
-  ): Promise<{ ok: true; b64: string } | { ok: false; error: string }> {
-    if (!platformEnv.isNative) {
-      throw new OneKeyLocalError('privacyChainNodeRequest: not allowed');
-    }
-    this.assertWebEmbedChannel(request, 'privacyChainNodeRequest');
-    return relayPrivacyChainNodeRequest({
-      url,
-      contentType,
-      body: new Uint8Array(bufferUtils.base64ToBytes(b64)),
-      targets: this.relayTargets,
-    });
-  }
-
   private fetchStreamRequest = createPrivacyChainFetchStreamRelay(
     this.relayTargets,
   );
