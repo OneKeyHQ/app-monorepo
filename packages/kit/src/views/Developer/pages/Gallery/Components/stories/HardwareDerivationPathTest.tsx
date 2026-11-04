@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import {
   Button,
   Dialog,
@@ -22,9 +24,12 @@ import type {
   IHardwarePathTestSignType,
 } from '@onekeyhq/shared/src/consts/hardwareDerivationPathTest';
 import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 
 export function HardwareDerivationPathTest() {
+  const intl = useIntl();
   const [connectId, setConnectId] = useState('');
   const [path, setPath] = useState(HARDWARE_PATH_TEST_PRESETS[0].path);
   const [method, setMethod] =
@@ -34,7 +39,7 @@ export function HardwareDerivationPathTest() {
   const [busy, setBusy] = useState(false);
   const [reports, setReports] = useState<string[]>([]);
   const running = useRef(false);
-  const testId = useRef(`hardware-path-test-${Date.now()}`);
+  const testId = useRef(generateUUID());
   const { copyText } = useClipboard();
   const appendReport = (report: unknown) => {
     setReports((previous) =>
@@ -52,7 +57,9 @@ export function HardwareDerivationPathTest() {
 
   const connect = () => {
     const picker = Dialog.cancel({
-      title: 'Connect OneKey device',
+      title: intl.formatMessage({
+        id: ETranslations.device_stage_connect_device__title,
+      }),
       renderContent: (
         <HardwareCloudSyncDevicePicker
           onPick={async (selectedConnectId) => {
@@ -105,7 +112,7 @@ export function HardwareDerivationPathTest() {
   if (platformEnv.isExtension) {
     return (
       <SizableText>
-        Use desktop, mobile or web for direct OneKey device testing.
+        {intl.formatMessage({ id: ETranslations.dev_hw_path_platform__msg })}
       </SizableText>
     );
   }
@@ -113,21 +120,30 @@ export function HardwareDerivationPathTest() {
   return (
     <YStack gap="$3" testID="hardware-path-test">
       <SizableText size="$bodySm" color="$textSubdued">
-        Standard wallet · Bitcoin · Device safety checks stay enabled. Each run
-        makes one selected call. Confirm or reject signing on the device.
+        {intl.formatMessage({
+          id: ETranslations.dev_hw_path_instructions__desc,
+        })}
       </SizableText>
       <Button disabled={busy} onPress={connect} testID="hardware-path-search">
-        Connect OneKey device
+        {intl.formatMessage({
+          id: ETranslations.device_stage_connect_device__title,
+        })}
       </Button>
+      <SizableText>
+        {intl.formatMessage({
+          id: ETranslations.dev_hw_path_connection__title,
+        })}
+      </SizableText>
       <Input
         value={connectId}
         onChangeText={setConnectId}
         disabled={busy}
-        placeholder="Device connectId"
         testID="hardware-path-connect-id"
       />
       <Select
-        title="SDK method"
+        title={intl.formatMessage({
+          id: ETranslations.dev_hw_path_method__title,
+        })}
         value={method}
         disabled={busy}
         items={(
@@ -136,14 +152,19 @@ export function HardwareDerivationPathTest() {
         onChange={setMethod}
       />
       <Select
-        title="Signing format"
+        title={intl.formatMessage({
+          id: ETranslations.dev_hw_path_format__title,
+        })}
         value={signType}
         disabled={busy || method !== 'btcSignMessage'}
         items={[
-          { label: 'Default (Cloud sync / BIP137)', value: 'default' },
-          { label: 'ECDSA (no script type)', value: 'ecdsa' },
           {
-            label: 'BIP322 simple (Taproot / Native SegWit)',
+            label: `${intl.formatMessage({ id: ETranslations.global_default })} (BIP137)`,
+            value: 'default',
+          },
+          { label: 'ECDSA', value: 'ecdsa' },
+          {
+            label: 'BIP322 simple (P2TR / P2WPKH)',
             value: 'bip322-simple',
           },
         ]}
@@ -152,16 +173,21 @@ export function HardwareDerivationPathTest() {
       <XStack gap="$2" flexWrap="wrap">
         {HARDWARE_PATH_TEST_PRESETS.map((preset) => (
           <Button
-            key={preset.label}
+            key={preset.path}
             size="small"
             disabled={busy}
             variant={path === preset.path ? 'primary' : 'secondary'}
             onPress={() => setPath(preset.path)}
           >
-            {preset.label}
+            {'labelKey' in preset
+              ? intl.formatMessage({ id: preset.labelKey }, preset.values)
+              : preset.label}
           </Button>
         ))}
       </XStack>
+      <SizableText>
+        {intl.formatMessage({ id: ETranslations.global_derivation_path })}
+      </SizableText>
       <Input
         value={path}
         onChangeText={setPath}
@@ -177,7 +203,7 @@ export function HardwareDerivationPathTest() {
           onPress={run}
           testID="hardware-path-run"
         >
-          Run test
+          {intl.formatMessage({ id: ETranslations.global_test })}
         </Button>
         <Button
           disabled={!busy}
@@ -187,7 +213,7 @@ export function HardwareDerivationPathTest() {
             )
           }
         >
-          Cancel test
+          {intl.formatMessage({ id: ETranslations.global_cancel })}
         </Button>
       </XStack>
       <XStack gap="$2">
@@ -196,16 +222,16 @@ export function HardwareDerivationPathTest() {
           disabled={!reports.length}
           onPress={() => copyText(reports.join('\n\n'))}
         >
-          Copy results
+          {intl.formatMessage({ id: ETranslations.global_copy })}
         </Button>
         <Button size="small" disabled={busy} onPress={() => setReports([])}>
-          Clear results
+          {intl.formatMessage({ id: ETranslations.global_clear })}
         </Button>
       </XStack>
       <ScrollView maxHeight={300}>
         <SizableText size="$bodySm" selectable testID="hardware-path-results">
           {reports.join('\n\n') ||
-            'Results appear here. Signatures and wallet addresses are omitted.'}
+            intl.formatMessage({ id: ETranslations.dev_hw_path_results__msg })}
         </SizableText>
       </ScrollView>
     </YStack>

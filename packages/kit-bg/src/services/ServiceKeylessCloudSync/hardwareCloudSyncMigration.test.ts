@@ -33,6 +33,7 @@ import type { AxiosInstance } from 'axios';
 
 let mockStored: IKeylessCloudSyncCredential | undefined;
 let mockSelected: string | undefined;
+let mockPersistedSelected: string | undefined;
 
 jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
   defaultLogger: {
@@ -70,6 +71,7 @@ jest.mock('../../states/jotai/atoms', () => ({
           hardwareCloudSyncKeySource: { credentialId: mockSelected },
         });
         mockSelected = next.hardwareCloudSyncKeySource.credentialId;
+        mockPersistedSelected = mockSelected;
       },
     ),
   },
@@ -527,6 +529,7 @@ async function localSetup() {
     },
   ];
   mockSelected = test.source.keylessWalletId;
+  mockPersistedSelected = mockSelected;
   mockStored = {
     ...test.source,
     pendingHardwareKeyMigration: {
@@ -583,4 +586,49 @@ test('startup finishes B after selection was persisted but the final credential 
   await recoverHardwareCloudSyncMigration(test.backgroundApi);
   expect(mockStored).toEqual(test.target);
   expect(test.items[0].pwdHash).toBe(test.target.pwdHash);
+});
+
+test('recovery durably rewrites B when the selection write updated memory before rejecting', async () => {
+  const test = await localSetup();
+  jest
+    .mocked(primeCloudSyncPersistAtom.set)
+    .mockImplementationOnce(async (update) => {
+      if (typeof update !== 'function')
+        throw new OneKeyLocalError('Expected updater');
+      const next = update(await primeCloudSyncPersistAtom.get());
+      mockSelected = next.hardwareCloudSyncKeySource?.credentialId;
+      throw new OneKeyLocalError('Selection persistence failed');
+    });
+  await test.commit();
+  expect(mockSelected).toBe(test.target.keylessWalletId);
+  expect(mockPersistedSelected).toBe(test.target.keylessWalletId);
+  expect(primeCloudSyncPersistAtom.set).toHaveBeenCalledTimes(2);
+  expect(mockStored).toEqual(test.target);
+});
+
+test('repeated persistence failures retain both keys and recover A after restart', async () => {
+  const test = await localSetup();
+  const failAfterMemoryUpdate: typeof primeCloudSyncPersistAtom.set = async (
+    update,
+  ) => {
+    if (typeof update !== 'function')
+      throw new OneKeyLocalError('Expected updater');
+    const next = update(await primeCloudSyncPersistAtom.get());
+    mockSelected = next.hardwareCloudSyncKeySource?.credentialId;
+    throw new OneKeyLocalError('Selection persistence failed');
+  };
+  jest
+    .mocked(primeCloudSyncPersistAtom.set)
+    .mockImplementationOnce(failAfterMemoryUpdate)
+    .mockImplementationOnce(failAfterMemoryUpdate);
+  await expect(test.commit()).rejects.toThrow('Selection persistence failed');
+  expect(mockSelected).toBe(test.target.keylessWalletId);
+  expect(mockPersistedSelected).toBe(test.source.keylessWalletId);
+  expect(mockStored?.keylessWalletId).toBe(test.source.keylessWalletId);
+  expect(mockStored?.pendingHardwareKeyMigration?.phase).toBe('committing');
+  expect(mockStored?.pendingHardwareKeyMigration?.target).toEqual(test.target);
+  mockSelected = mockPersistedSelected;
+  await recoverHardwareCloudSyncMigration(test.backgroundApi);
+  expect(test.items[0].pwdHash).toBe(test.source.pwdHash);
+  expect(mockStored?.pendingHardwareKeyMigration?.phase).toBe('prepared');
 });

@@ -1,12 +1,18 @@
 import { HARDWARE_PATH_TEST_MESSAGE } from '@onekeyhq/shared/src/consts/hardwareDerivationPathTest';
 import type { IHardwarePathTestRequest } from '@onekeyhq/shared/src/consts/hardwareDerivationPathTest';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
-import { UserCancelFromOutside } from '@onekeyhq/shared/src/errors/errors/hardwareErrors';
-import { convertDeviceResponse } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
+import {
+  DeviceNotFound,
+  UserCancelFromOutside,
+} from '@onekeyhq/shared/src/errors/errors/hardwareErrors';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { assertNoHardwareCloudSyncSigningRequest } from '@onekeyhq/shared/src/utils/hardwareCloudSyncGuards';
 import { EHardwareCallContext } from '@onekeyhq/shared/types/device';
 
-import { sanitizeHardwareCloudSyncDeviceError } from '../ServiceKeylessCloudSync/hardwareCloudSyncLog';
+import {
+  callHardwareCloudSyncDevice,
+  sanitizeHardwareCloudSyncDeviceError,
+} from '../ServiceKeylessCloudSync/hardwareCloudSyncLog';
 
 import type { IBackgroundApi } from '../../apis/IBackgroundApi';
 
@@ -34,7 +40,7 @@ export async function runHardwareDerivationPathTest({
     !['btcGetPublicKey', 'btcGetAddress', 'btcSignMessage'].includes(method) ||
     !['default', 'ecdsa', 'bip322-simple'].includes(signType)
   ) {
-    throw new OneKeyLocalError('Select a device and enter a valid BIP32 path.');
+    throw new OneKeyLocalError({ key: ETranslations.dev_hw_path_input__msg });
   }
   const hardware = backgroundApi.serviceHardware;
   const ui = backgroundApi.serviceHardwareUI;
@@ -59,10 +65,11 @@ export async function runHardwareDerivationPathTest({
           hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
         });
         assertCurrent();
-        if (!connectId) throw new OneKeyLocalError('Device not found.');
+        if (!connectId) throw new DeviceNotFound();
         const sdk = await hardware.getSDKInstance({ connectId });
-        const session = await convertDeviceResponse(() =>
-          sdk.openWalletSession(connectId, { mode: 'standard' }),
+        const session = await callHardwareCloudSyncDevice(
+          () => sdk.openWalletSession(connectId, { mode: 'standard' }),
+          connectId,
         );
         assertCurrent();
         if (
@@ -70,12 +77,14 @@ export async function runHardwareDerivationPathTest({
           !session.deviceId ||
           session.passphraseState
         ) {
-          throw new OneKeyLocalError('A standard wallet session is required.');
+          throw new OneKeyLocalError({
+            key: ETranslations.dev_hw_path_standard__msg,
+          });
         }
-        const state = await hardware.getDeviceState({
+        const state = await callHardwareCloudSyncDevice(
+          () => sdk.getDeviceState(connectId, { scope: 'runtime' }),
           connectId,
-          params: { scope: 'runtime' },
-        });
+        );
         assertCurrent();
         const device = {
           type: state.identity.deviceType,
@@ -91,20 +100,24 @@ export async function runHardwareDerivationPathTest({
         let detail: { signatureBytes: number } | { received: string };
         switch (method) {
           case 'btcGetPublicKey':
-            await convertDeviceResponse(() =>
-              sdk.btcGetPublicKey(connectId, session.deviceId, {
-                ...params,
-                showOnOneKey: false,
-              }),
+            await callHardwareCloudSyncDevice(
+              () =>
+                sdk.btcGetPublicKey(connectId, session.deviceId, {
+                  ...params,
+                  showOnOneKey: false,
+                }),
+              connectId,
             );
             detail = { received: 'public key' };
             break;
           case 'btcGetAddress':
-            await convertDeviceResponse(() =>
-              sdk.btcGetAddress(connectId, session.deviceId, {
-                ...params,
-                showOnOneKey: false,
-              }),
+            await callHardwareCloudSyncDevice(
+              () =>
+                sdk.btcGetAddress(connectId, session.deviceId, {
+                  ...params,
+                  showOnOneKey: false,
+                }),
+              connectId,
             );
             detail = { received: 'address' };
             break;
@@ -114,23 +127,27 @@ export async function runHardwareDerivationPathTest({
               'utf8',
             ).toString('hex');
             assertNoHardwareCloudSyncSigningRequest(messageHex, 'hex');
-            const signed = await convertDeviceResponse(() =>
-              sdk.btcSignMessage(connectId, session.deviceId, {
-                ...params,
-                messageHex,
-                ...(signType === 'default' ? {} : { dAppSignType: signType }),
-              }),
+            const signed = await callHardwareCloudSyncDevice(
+              () =>
+                sdk.btcSignMessage(connectId, session.deviceId, {
+                  ...params,
+                  messageHex,
+                  ...(signType === 'default' ? {} : { dAppSignType: signType }),
+                }),
+              connectId,
             );
             detail = { signatureBytes: signed.signature.length / 2 };
             break;
           }
           default:
-            throw new OneKeyLocalError('Unsupported test method.');
+            throw new OneKeyLocalError({
+              key: ETranslations.dev_hw_path_input__msg,
+            });
         }
         assertCurrent();
         return { device, method, path, signType, success: true, ...detail };
       } catch (error) {
-        throw sanitizeHardwareCloudSyncDeviceError(error);
+        throw sanitizeHardwareCloudSyncDeviceError(error, connectId);
       } finally {
         onCancelChange(undefined);
       }
@@ -138,8 +155,8 @@ export async function runHardwareDerivationPathTest({
     { deviceKey: request.connectId },
   );
   if (!result.acquired)
-    throw new OneKeyLocalError(
-      'Hardware is busy. Try again after the current operation.',
-    );
+    throw new OneKeyLocalError({
+      key: ETranslations.feedback_hardware_is_busy,
+    });
   return result.result;
 }

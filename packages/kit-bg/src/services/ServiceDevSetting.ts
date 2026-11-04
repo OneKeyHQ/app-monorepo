@@ -10,6 +10,7 @@ import { buildServiceEndpoint } from '@onekeyhq/shared/src/config/appConfig';
 import { getOneKeyIdAuthConfigByDevSettings } from '@onekeyhq/shared/src/config/oneKeyIdAuth';
 import type { IHardwarePathTestRequest } from '@onekeyhq/shared/src/consts/hardwareDerivationPathTest';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import nativeNetworkThrottle, {
   NATIVE_SLOW_4G_LATENCY_MS,
   setNetworkThrottleRuntimeConfig,
@@ -62,33 +63,49 @@ class ServiceDevSetting extends ServiceBase {
   private readonly devSettingsWriteMutex = new Semaphore(1);
   private environmentRestartTimer: ReturnType<typeof setTimeout> | undefined;
   private environmentRestartRequired = false;
-  private hardwarePathTest?: { testId: string; cancel: () => void };
+  private readonly hardwarePathTests = new Map<
+    string,
+    { cancel?: () => void; cancelled: boolean }
+  >();
 
   @backgroundMethod()
   async testHardwareDerivationPath(request: IHardwarePathTestRequest) {
-    if (!(await devSettingsPersistAtom.get()).enabled) {
-      throw new OneKeyLocalError(
-        'Enable developer mode to test hardware paths.',
-      );
+    if (this.hardwarePathTests.has(request.testId)) {
+      throw new OneKeyLocalError({
+        key: ETranslations.feedback_hardware_is_busy,
+      });
     }
-    const { runHardwareDerivationPathTest } =
-      await import('./ServiceDevSetting/hardwareDerivationPathTest');
-    return runHardwareDerivationPathTest({
-      backgroundApi: this.backgroundApi,
-      request,
-      onCancelChange: (cancel) => {
-        this.hardwarePathTest = cancel
-          ? { testId: request.testId, cancel }
-          : undefined;
-      },
-    });
+    const operation: { cancel?: () => void; cancelled: boolean } = {
+      cancelled: false,
+    };
+    this.hardwarePathTests.set(request.testId, operation);
+    try {
+      if (!(await devSettingsPersistAtom.get()).enabled) {
+        throw new OneKeyLocalError({
+          key: ETranslations.dev_hw_path_enable__msg,
+        });
+      }
+      const { runHardwareDerivationPathTest } =
+        await import('./ServiceDevSetting/hardwareDerivationPathTest');
+      return await runHardwareDerivationPathTest({
+        backgroundApi: this.backgroundApi,
+        request,
+        onCancelChange: (cancel) => {
+          operation.cancel = cancel;
+          if (operation.cancelled) cancel?.();
+        },
+      });
+    } finally {
+      this.hardwarePathTests.delete(request.testId);
+    }
   }
 
   @backgroundMethod()
   async cancelHardwareDerivationPathTest(testId: string) {
-    if (this.hardwarePathTest?.testId === testId) {
-      this.hardwarePathTest.cancel();
-    }
+    const operation = this.hardwarePathTests.get(testId);
+    if (!operation) return;
+    operation.cancelled = true;
+    operation.cancel?.();
   }
 
   private async withOneKeyIdEnvironmentChange<T>(

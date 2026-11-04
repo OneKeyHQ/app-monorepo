@@ -4,6 +4,7 @@
 import { useState } from 'react';
 
 import { EDeviceType } from '@onekeyfe/hd-shared';
+import { useIntl } from 'react-intl';
 
 import {
   Button,
@@ -31,6 +32,7 @@ import {
   hardwareUiStateCompletedAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { isLegacyHardwareUiActive } from '@onekeyhq/shared/src/hardware/deviceStageOwnership';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import deviceHomeScreenUtils from '@onekeyhq/shared/src/utils/deviceHomeScreenUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
@@ -300,107 +302,112 @@ const HardwareActionTest = () => {
   );
 };
 
-const HardwareGallery = () => (
-  <Layout
-    getFilePath={() => __CURRENT_FILE_PATH__}
-    componentName="Hardware"
-    elements={[
-      {
-        title: 'Bitcoin derivation paths (OK-66332)',
-        element: () => <HardwareDerivationPathTest />,
-      },
-      {
-        title: 'Interactive with hardware wallet',
-        element: () => (
-          <Stack gap="$4">
-            <Button
-              onPress={() => {
-                void confirmOnDeviceToastSample();
-              }}
-            >
-              Confirm On Device (Toast)
-            </Button>
+const HardwareGallery = () => {
+  const intl = useIntl();
+  return (
+    <Layout
+      getFilePath={() => __CURRENT_FILE_PATH__}
+      componentName="Hardware"
+      elements={[
+        {
+          title: intl.formatMessage({ id: ETranslations.dev_hw_path__title }),
+          element: () => <HardwareDerivationPathTest />,
+        },
+        {
+          title: 'Interactive with hardware wallet',
+          element: () => (
+            <Stack gap="$4">
+              <Button
+                onPress={() => {
+                  void confirmOnDeviceToastSample();
+                }}
+              >
+                Confirm On Device (Toast)
+              </Button>
 
-            <Button
-              onPress={() => {
-                void ConfirmOnDeviceToast({ deviceType: EDeviceType.Classic });
-              }}
-            >
-              Confirm On Classic (Toast)
-            </Button>
+              <Button
+                onPress={() => {
+                  void ConfirmOnDeviceToast({
+                    deviceType: EDeviceType.Classic,
+                  });
+                }}
+              >
+                Confirm On Classic (Toast)
+              </Button>
 
-            <Button
-              onPress={() => {
-                void ConfirmOnDeviceToast({ deviceType: EDeviceType.Touch });
-              }}
-            >
-              Confirm On Touch (Toast)
-            </Button>
+              <Button
+                onPress={() => {
+                  void ConfirmOnDeviceToast({ deviceType: EDeviceType.Touch });
+                }}
+              >
+                Confirm On Touch (Toast)
+              </Button>
 
-            <Button
-              onPress={() => {
-                void confirmPinOnDevice();
-              }}
-            >
-              Enter PIN on Device
-            </Button>
-            <Button
-              onPress={() => {
-                void confirmByPin();
-              }}
-            >
-              Enter PIN
-            </Button>
+              <Button
+                onPress={() => {
+                  void confirmPinOnDevice();
+                }}
+              >
+                Enter PIN on Device
+              </Button>
+              <Button
+                onPress={() => {
+                  void confirmByPin();
+                }}
+              >
+                Enter PIN
+              </Button>
 
-            <Button
-              onPress={() => {
-                void confirmPhraseOnDevice();
-              }}
-            >
-              Enter Passphrase on Device
-            </Button>
-            <Button
-              onPress={() => {
-                void confirmPhrase();
-              }}
-            >
-              Enter Passphrase
-            </Button>
+              <Button
+                onPress={() => {
+                  void confirmPhraseOnDevice();
+                }}
+              >
+                Enter Passphrase on Device
+              </Button>
+              <Button
+                onPress={() => {
+                  void confirmPhrase();
+                }}
+              >
+                Enter Passphrase
+              </Button>
 
-            <Button
-              onPress={() => {
-                void confirmPassphrase();
-              }}
-            >
-              Confirm Passphrase
-            </Button>
-            <HardwareActionTest />
-            <Button
-              onPress={() =>
-                Dialog.show({
-                  title: 'Test Hardware Action',
-                  renderContent: <HardwareActionTest />,
-                })
-              }
-            >
-              Test Hardware Action Dialog & Toast from Dialog
-            </Button>
-            <Button
-              onPress={async () => {
-                const hex = await deviceHomeScreenUtils.imagePathToHex(
-                  'https://i.mij.rip/2024/09/19/b0cdcbdb45494fe53b831fff02981fdb.jpeg',
-                  EDeviceType.Classic,
-                );
-                console.log(hex);
-              }}
-            >
-              Test HomeScreen imagePathToHex
-            </Button>
-          </Stack>
-        ),
-      },
-    ]}
-  />
-);
+              <Button
+                onPress={() => {
+                  void confirmPassphrase();
+                }}
+              >
+                Confirm Passphrase
+              </Button>
+              <HardwareActionTest />
+              <Button
+                onPress={() =>
+                  Dialog.show({
+                    title: 'Test Hardware Action',
+                    renderContent: <HardwareActionTest />,
+                  })
+                }
+              >
+                Test Hardware Action Dialog & Toast from Dialog
+              </Button>
+              <Button
+                onPress={async () => {
+                  const hex = await deviceHomeScreenUtils.imagePathToHex(
+                    'https://i.mij.rip/2024/09/19/b0cdcbdb45494fe53b831fff02981fdb.jpeg',
+                    EDeviceType.Classic,
+                  );
+                  console.log(hex);
+                }}
+              >
+                Test HomeScreen imagePathToHex
+              </Button>
+            </Stack>
+          ),
+        },
+      ]}
+    />
+  );
+};
 
 export default HardwareGallery;

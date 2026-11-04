@@ -6,6 +6,7 @@ import {
 } from '@onekeyhq/shared/src/consts/hardwareDerivationPathTest';
 import type { IHardwarePathTestRequest } from '@onekeyhq/shared/src/consts/hardwareDerivationPathTest';
 import { convertDeviceError } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { runHardwareDerivationPathTest } from './hardwareDerivationPathTest';
 
@@ -21,6 +22,14 @@ function setup() {
     signal: abort.signal,
   };
   const sdk = {
+    getDeviceState: jest.fn(async () => ({
+      success: true,
+      payload: {
+        identity: { deviceType: 'classic1s', firmwareType: 'btc-only' },
+        protocol: 'V1',
+        versions: { firmware: '3.21.0' },
+      },
+    })),
     openWalletSession: jest.fn(async () => ({
       success: true,
       payload: {
@@ -96,7 +105,7 @@ function setup() {
 }
 
 test.each(HARDWARE_PATH_TEST_PRESETS)(
-  'passes $label to the SDK without enforcing firmware limits in the App',
+  'passes $path to the SDK without enforcing firmware limits in the App',
   async ({ path }) => {
     const test = setup();
     test.request.path = path;
@@ -160,9 +169,9 @@ test.each([
   async (path) => {
     const test = setup();
     test.request.path = path;
-    await expect(runHardwareDerivationPathTest(test)).rejects.toThrow(
-      'valid BIP32 path',
-    );
+    await expect(runHardwareDerivationPathTest(test)).rejects.toMatchObject({
+      key: ETranslations.dev_hw_path_input__msg,
+    });
     expect(test.hardware.getSDKInstance).not.toHaveBeenCalled();
   },
 );
@@ -196,4 +205,33 @@ test('cancels only its lease and does not sign after cancellation', async () => 
     immediate: true,
   });
   expect(test.sdk.btcSignMessage).not.toHaveBeenCalled();
+});
+
+test('a thrown SDK error is sanitized before any logger or RPC can see it', async () => {
+  const test = setup();
+  const signature = 'ab'.repeat(65);
+  const raw = Object.assign(new Error(`Signing failed: ${signature}`), {
+    errorCode: HardwareErrorCode.ActionCancelled,
+    data: { signature },
+    payload: {
+      signature,
+      connectId: signature,
+      deviceId: signature,
+      appName: signature,
+    },
+  });
+  test.sdk.btcSignMessage.mockRejectedValueOnce(raw);
+  const logged = jest
+    .spyOn(console, 'error')
+    .mockImplementation(() => undefined);
+  try {
+    await expect(runHardwareDerivationPathTest(test)).rejects.toMatchObject({
+      key: convertDeviceError({ code: raw.errorCode }).key,
+      payload: { connectId: 'resolved-device' },
+    });
+    expect(JSON.stringify(logged.mock.calls)).not.toContain(signature);
+    expect(test.onCancelChange).toHaveBeenLastCalledWith(undefined);
+  } finally {
+    logged.mockRestore();
+  }
 });

@@ -312,6 +312,16 @@ export async function recoverHardwareCloudSyncMigration(
       pendingHardwareKeyMigration: { ...pending, phase: 'prepared' },
     });
   } else if (selected === pending.target.keylessWalletId) {
+    // atomWithStorage updates memory before its storage write settles. Re-write
+    // a fresh object durably before removing the old key and recovery journal.
+    await primeCloudSyncPersistAtom.set((current) => {
+      if (
+        current.hardwareCloudSyncKeySource?.credentialId !==
+        pending.target.keylessWalletId
+      )
+        throw new HardwareCloudSyncCancelledError();
+      return { ...current };
+    });
     await reencryptLocalItems(backgroundApi, source, pending.target);
     await keylessSyncCredentialStorage.saveCredential(pending.target);
   }

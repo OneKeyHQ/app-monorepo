@@ -374,7 +374,7 @@ export function useHardwareCloudSyncKey() {
                 description: intl.formatMessage({
                   id: ETranslations.cloud_sync_hardware_switch__desc,
                   defaultMessage:
-                    "Your synced data will use this wallet's key. The original cloud copy will be kept. Connect the new wallet on other clients to sync future changes.",
+                    "Sync other clients before switching. Your synced data will use this wallet's key; the original cloud copy will be kept. Connect the new wallet on other clients before making further changes.",
                 }),
                 onConfirmText: intl.formatMessage({
                   id: ETranslations.cloud_sync_hardware_switch__action,

@@ -6,7 +6,6 @@ import {
   HARDWARE_CLOUD_SYNC_PATH,
   isHardwareCloudSyncPlatformSupported,
 } from '@onekeyhq/shared/src/consts/hardwareCloudSyncConsts';
-import { convertDeviceError } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import {
   HardwareCloudSyncCancelledError,
   HardwareCloudSyncUnlockError,
@@ -26,6 +25,7 @@ import {
 } from './hardwareCloudSyncCredential';
 import {
   assertHardwareCloudSyncAuthTemplate,
+  convertHardwareCloudSyncDeviceError,
   sanitizeHardwareCloudSyncDeviceError,
 } from './hardwareCloudSyncLog';
 
@@ -43,11 +43,10 @@ function unlockError() {
 
 function assertSdkSuccess<T>(
   response: Success<T> | Unsuccessful,
+  connectId: string,
 ): asserts response is Success<T> {
   if (!response.success) {
-    throw sanitizeHardwareCloudSyncDeviceError(
-      convertDeviceError(response.payload),
-    );
+    throw convertHardwareCloudSyncDeviceError(response.payload, connectId);
   }
 }
 
@@ -107,13 +106,14 @@ export async function generateHardwareCloudSyncCredentialWithSdk({
             throw new HardwareCloudSyncCancelledError();
           }
         };
+        let activeConnectId = selectedConnectId;
         const call = async <T>(operation: () => Promise<T>): Promise<T> => {
           assertCurrent();
           let result: T;
           try {
             result = await operation();
           } catch (error) {
-            throw sanitizeHardwareCloudSyncDeviceError(error);
+            throw sanitizeHardwareCloudSyncDeviceError(error, activeConnectId);
           }
           assertCurrent();
           return result;
@@ -128,13 +128,14 @@ export async function generateHardwareCloudSyncCredentialWithSdk({
               }),
             );
             if (!connectId) throw unlockError();
+            activeConnectId = connectId;
             const sdk = await call(() =>
               hardware.getSDKInstance({ connectId }),
             );
             const session = await call(() =>
               sdk.openWalletSession(connectId, { mode: 'standard' }),
             );
-            assertSdkSuccess(session);
+            assertSdkSuccess(session, connectId);
             if (
               session.payload.walletType !== 'standard' ||
               session.payload.passphraseState ||
@@ -204,7 +205,7 @@ export async function generateHardwareCloudSyncCredentialWithSdk({
                       useEmptyPassphrase: true,
                     }),
                   );
-                  assertSdkSuccess(pub);
+                  assertSdkSuccess(pub, connectId);
                   const addr = await call(() =>
                     sdk.btcGetAddress(connectId, deviceId, {
                       path: HARDWARE_CLOUD_SYNC_PATH,
@@ -213,7 +214,7 @@ export async function generateHardwareCloudSyncCredentialWithSdk({
                       useEmptyPassphrase: true,
                     }),
                   );
-                  assertSdkSuccess(addr);
+                  assertSdkSuccess(addr, connectId);
                   standard = {
                     publicKey: pub.payload.node.public_key,
                     address: addr.payload.address,
@@ -246,7 +247,7 @@ export async function generateHardwareCloudSyncCredentialWithSdk({
                 const response = await call(() =>
                   sdk.btcSignMessage(connectId, deviceId, params),
                 );
-                assertSdkSuccess(response);
+                assertSdkSuccess(response, connectId);
                 return response.payload;
               },
             };
@@ -278,7 +279,7 @@ export async function generateHardwareCloudSyncCredentialWithSdk({
                     useEmptyPassphrase: true,
                   }),
                 );
-                assertSdkSuccess(response);
+                assertSdkSuccess(response, connectId);
                 return Buffer.from(response.payload.signature, 'hex').toString(
                   'base64',
                 );

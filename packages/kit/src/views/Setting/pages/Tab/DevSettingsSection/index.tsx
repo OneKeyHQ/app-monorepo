@@ -2738,14 +2738,20 @@ const BaseDevSettingsSection = () => {
                           />
                           <SectionPressItem
                             icon="KeyOutline"
-                            title="Hardware Derivation Path Test"
-                            subtitle="Test Bitcoin addresses, public keys and message signing on different paths (OK-66332)"
+                            title={intl.formatMessage({
+                              id: ETranslations.dev_hw_path__title,
+                            })}
+                            subtitle={intl.formatMessage({
+                              id: ETranslations.dev_hw_path__desc,
+                            })}
                             testID="hardware-path-test-menu"
                             onPress={async () => {
                               const { HardwareDerivationPathTest } =
                                 await import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/HardwareDerivationPathTest');
                               Dialog.cancel({
-                                title: 'Hardware Derivation Path Test',
+                                title: intl.formatMessage({
+                                  id: ETranslations.dev_hw_path__title,
+                                }),
                                 renderContent: <HardwareDerivationPathTest />,
                               });
                             }}
