@@ -9,6 +9,7 @@ import type { ITradingViewNativeAnyIndicatorId } from '@onekeyhq/shared/types/tr
 export enum EModalMarketRoutes {
   MarketDetailV2 = 'MarketDetailV2',
   MarketBannerDetail = 'MarketBannerDetail',
+  MarketHighlights = 'MarketHighlights',
   MobileTokenSelector = 'MobileTokenSelector',
   MarketChartSettings = 'MarketChartSettings',
   MarketIndicatorSettings = 'MarketIndicatorSettings',
@@ -31,6 +32,7 @@ export type IModalMarketParamList = {
     title: string;
     type?: EMarketBannerType;
   };
+  [EModalMarketRoutes.MarketHighlights]: undefined;
   [EModalMarketRoutes.MobileTokenSelector]:
     | {
         showFavoriteButton?: boolean;

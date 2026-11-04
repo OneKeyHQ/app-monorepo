@@ -27,6 +27,8 @@ import {
   MARKET_DESKTOP_CONTENT_FRAME_PROPS,
   MARKET_DESKTOP_TAB_BAR_CONTAINER_STYLE,
 } from '../../marketDesktopLayoutConstants';
+import { MarketHighlightStrip } from '../../MarketHighlights/MarketHighlightStrip';
+import { useMarketHighlights } from '../../MarketHighlights/useMarketHighlights';
 import { MarketTestIDs } from '../../testIDs';
 import { markMarketPerf } from '../../utils/marketPerf';
 import { useMarketRenderCommitProbe } from '../../utils/marketReactPerf';
@@ -123,17 +125,22 @@ export function DesktopLayout({
   const isFocused = useIsFirstFocus();
   const isRouteFocused = useIsFocused();
 
+  const { items: highlights } = useMarketHighlights();
+  const highlight = highlights?.[0];
   const containerProps = useMemo(
     () => ({
       renderHeader: () => (
         <YStack bg="$bgApp" pointerEvents="box-none">
           <YStack {...MARKET_DESKTOP_CONTENT_FRAME_PROPS}>
+            {highlight ? (
+              <MarketHighlightStrip highlight={highlight} compact={false} />
+            ) : null}
             <MarketBannerList />
           </YStack>
         </YStack>
       ),
     }),
-    [],
+    [highlight],
   );
 
   // Portal target for sticky column headers.
