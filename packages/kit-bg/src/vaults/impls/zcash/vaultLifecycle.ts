@@ -411,6 +411,18 @@ export function getLocalWalletCapability(vault: Vault): ILocalWalletCapability {
       // No private address while not scanning: handing one out risks a payment landing where it can't be seen.
       return { publicAddress, privateAddress: meta?.unifiedAddress };
     },
+    getAccountNamingAddresses: async ({ accountId }) => {
+      // A paused account keeps its stored address; naming it hands nothing out.
+      const meta = vault.supportsAccountWalletType({ accountId })
+        ? await vault.zcashGetAccountMeta({ accountId }).catch(() => undefined)
+        : undefined;
+      return meta
+        ? {
+            publicAddress: meta.transparentAddress,
+            privateAddress: meta.unifiedAddress,
+          }
+        : undefined;
+    },
     getDebugAccountMeta: ({ accountId }) =>
       vault.zcashPrivacyMode().getLocalWalletAccountMeta({
         networkId: vault.networkId,

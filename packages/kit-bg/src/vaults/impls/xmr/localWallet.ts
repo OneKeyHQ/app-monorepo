@@ -645,6 +645,16 @@ export function buildXmrLocalWalletCapability(
       };
     },
 
+    // Naming only: a paused account is still known by its primary address.
+    async getAccountNamingAddresses({ accountId }) {
+      const account = await vault.backgroundApi.serviceAccount
+        .getAccount({ accountId, networkId: vault.networkId })
+        .catch(() => undefined);
+      return account?.address
+        ? { publicAddress: account.address, privateAddress: account.address }
+        : undefined;
+    },
+
     async deriveViewingKey({ accountId, password, deviceParams }) {
       if (vault.accountId === accountId) {
         if (vault.keyring instanceof KeyringHardware && deviceParams) {

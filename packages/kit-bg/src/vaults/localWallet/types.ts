@@ -248,6 +248,11 @@ export type ILocalWalletCapability = {
   getAccountAddresses: (params: {
     accountId: string;
   }) => Promise<ILocalWalletAccountAddresses | undefined>;
+  // The addresses an account is known by, a paused one included: for naming an address only,
+  // never for handing one out. Absent: getAccountAddresses.
+  getAccountNamingAddresses?: (params: {
+    accountId: string;
+  }) => Promise<ILocalWalletAccountAddresses | undefined>;
   // Lifecycle primitive: deletes the account's rows from the runtime unless
   // another live account still holds them under the same viewing key.
   // `orphaned`: rows may remain that no stored key names any more.

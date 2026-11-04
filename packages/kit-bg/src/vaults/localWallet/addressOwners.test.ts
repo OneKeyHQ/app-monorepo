@@ -2,7 +2,12 @@ import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
 import { findLocalWalletAddressOwners } from './addressOwners';
 
-function fixture(enabled = true) {
+function fixture(
+  state: { enabled: boolean; paused: boolean } = {
+    enabled: true,
+    paused: false,
+  },
+) {
   return {
     listAccounts: async () => ({
       accounts: [
@@ -21,7 +26,7 @@ function fixture(enabled = true) {
       ],
       cleanupAccountIds: [],
     }),
-    getAccountState: async () => ({ enabled, paused: !enabled }),
+    getAccountState: async () => state,
     getAccountAddresses: async ({ accountId }: { accountId: string }) => ({
       publicAddress: `t-${accountId}`,
       privateAddress: `u-${accountId}`,
@@ -50,10 +55,32 @@ it('does not label a foreign address or a case-altered Zcash address as our acco
     }),
   ).toEqual([]);
 });
-it('does not expose a paused private address through account naming', async () => {
+// A paused account is hidden from Receive but still named by its stored addresses.
+it('names a paused account by its stored address but not one never enabled', async () => {
+  const pausedFixture = (state: { enabled: boolean; paused: boolean }) => ({
+    ...fixture(state),
+    // What Receive reads: no private address while not scanning.
+    getAccountAddresses: async ({ accountId }: { accountId: string }) => ({
+      publicAddress: `t-${accountId}`,
+    }),
+    getAccountNamingAddresses: async ({
+      accountId,
+    }: {
+      accountId: string;
+    }) => ({
+      publicAddress: `t-${accountId}`,
+      privateAddress: `u-${accountId}`,
+    }),
+  });
   expect(
     await findLocalWalletAddressOwners({
-      capability: fixture(false),
+      capability: pausedFixture({ enabled: false, paused: true }),
+      address: 'u-own-two',
+    }),
+  ).toEqual(['own-two']);
+  expect(
+    await findLocalWalletAddressOwners({
+      capability: pausedFixture({ enabled: false, paused: false }),
       address: 'u-own-two',
     }),
   ).toEqual([]);
