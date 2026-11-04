@@ -1,10 +1,12 @@
-import type { ReactNode } from 'react';
+import type { ReactElement, ReactNode } from 'react';
 import { useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
 import {
+  DashText,
   Icon,
+  Popover,
   SizableText,
   Stack,
   XStack,
@@ -19,6 +21,7 @@ import { useNavigateToHardwareSalesReward } from '@onekeyhq/kit/src/views/ReferF
 import { useNavigateToPerpsReward } from '@onekeyhq/kit/src/views/ReferFriends/pages/PerpsReward/hooks/useNavigateToPerpsReward';
 import { useNavigateToSwapReward } from '@onekeyhq/kit/src/views/ReferFriends/pages/SwapReward/hooks/useNavigateToSwapReward';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IInviteSummary } from '@onekeyhq/shared/src/referralCode/type';
 
 import { ReferralCardEmpty } from '../../../components/ReferralCardEmpty';
@@ -26,9 +29,11 @@ import { ReferFriendsTestIDs } from '../../../testIDs';
 
 import {
   type IInviteRewardRow,
+  type IInviteRewardScopeItem,
   type IInviteRewardSubject,
   INVITE_REWARD_SUBJECT_ICON,
   getInviteRewardRows,
+  getInviteRewardScopeItems,
 } from './getInviteRewardRows';
 import { InviteRewardAmount } from './InviteRewardAmount';
 import { useReferralCodeCard } from './ReferralCodeCard/hooks/useReferralCodeCard';
@@ -36,6 +41,7 @@ import {
   COMPACT_ENTRY_TITLE_PROPS,
   COMPACT_ROW_BLEED_PROPS,
   COMPACT_ROW_ICON_PROPS,
+  INVITE_POPOVER_PANEL_PROPS,
   PRESSABLE_SURFACE_PROPS,
   useInviteHomeCardStyle,
 } from './useInviteCardStyle';
@@ -60,6 +66,140 @@ function stopPropagation(e: { stopPropagation: () => void }) {
   e.stopPropagation();
 }
 
+function RewardScopeList({
+  items,
+  showHeadings,
+}: {
+  items: readonly IInviteRewardScopeItem[];
+  showHeadings: boolean;
+}) {
+  const intl = useIntl();
+  return (
+    <YStack gap="$3">
+      {items.map((item) => (
+        <YStack key={item.subject} gap="$0.5">
+          {showHeadings ? (
+            <SizableText size="$bodyMdMedium">
+              {intl.formatMessage({ id: SUBJECT_TITLE[item.subject] })}
+            </SizableText>
+          ) : null}
+          <SizableText size="$bodyMd" color="$textSubdued">
+            {item.description}
+          </SizableText>
+        </YStack>
+      ))}
+    </YStack>
+  );
+}
+
+// The same panel as the page's other info popovers (rates, payout): hover on
+// pointer layouts, a sheet on compact layouts and native. A sheet names the
+// popover in its header, so a single product does not repeat its name below.
+function RewardScopePopover({
+  title,
+  items,
+  placement,
+  trigger,
+}: {
+  title: string;
+  items: readonly IInviteRewardScopeItem[];
+  placement: 'top' | 'bottom-start';
+  trigger: ReactElement;
+}) {
+  const { md } = useMedia();
+  const isSheet = platformEnv.isNative || md;
+  return (
+    <Popover
+      title={title}
+      hoverable
+      placement={placement}
+      floatingPanelProps={INVITE_POPOVER_PANEL_PROPS}
+      renderTrigger={trigger}
+      renderContent={
+        <YStack px="$5" py="$4">
+          <RewardScopeList
+            items={items}
+            showHeadings={!isSheet || items.length > 1}
+          />
+        </YStack>
+      }
+    />
+  );
+}
+
+// Sits on the product name. Its press must not open the detail page.
+function RewardScopeInfo({
+  title,
+  subject,
+  description,
+}: {
+  title: string;
+  subject: IInviteRewardSubject;
+  description: string;
+}) {
+  const items = useMemo(
+    () => [{ subject, description }],
+    [subject, description],
+  );
+  return (
+    <Stack
+      onPress={stopPropagation}
+      flexShrink={0}
+      m={platformEnv.isNative ? '$-3' : undefined}
+    >
+      <RewardScopePopover
+        title={title}
+        items={items}
+        placement="bottom-start"
+        trigger={
+          <Stack
+            testID={ReferFriendsTestIDs.inviteRewardScopeInfo}
+            p={platformEnv.isNative ? '$3' : undefined}
+          >
+            <Icon name="InfoCircleOutline" size="$4" color="$iconSubdued" />
+          </Stack>
+        }
+      />
+    </Stack>
+  );
+}
+
+// One entry for every visible product that has scope copy, because the empty
+// card has no product rows to hang an icon on.
+function RewardScopesHint({
+  items,
+}: {
+  items: readonly IInviteRewardScopeItem[];
+}) {
+  const intl = useIntl();
+  const { md } = useMedia();
+  const isTouchLayout = platformEnv.isNative || md;
+  return (
+    <RewardScopePopover
+      title={intl.formatMessage({
+        id: ETranslations.referral_earnings_by_product__title,
+      })}
+      items={items}
+      placement="top"
+      trigger={
+        // Reads as part of the copy above: same size and color, with dashes
+        // marking it as explained on hover or tap. On touch layouts the
+        // padding grows the tap area to 44px and the margin keeps the layout
+        // where it was.
+        <Stack
+          testID={ReferFriendsTestIDs.inviteRewardScopeLearnMore}
+          cursor="default"
+          {...(isTouchLayout ? { py: '$3', my: '$-3' } : null)}
+        >
+          <DashText size="$bodyMd" color="$textSubdued">
+            {intl.formatMessage({ id: ETranslations.global_learn_more })}
+          </DashText>
+        </Stack>
+      }
+    />
+  );
+}
+
 function RewardLabel({ label }: { label: string }) {
   return (
     <SizableText size="$bodyMd" color="$textSubdued" numberOfLines={1}>
@@ -82,6 +222,7 @@ function RewardListRow({
   pendingLabel: string;
   onPress: () => void;
 }) {
+  const scopeDescription = row.scopeDescription;
   return (
     <ListItem
       {...COMPACT_ROW_BLEED_PROPS}
@@ -89,6 +230,34 @@ function RewardListRow({
       iconProps={COMPACT_ROW_ICON_PROPS}
       titleProps={COMPACT_ENTRY_TITLE_PROPS}
       title={title}
+      renderItemText={
+        scopeDescription ? (
+          <XStack
+            flex={1}
+            ai="center"
+            gap="$1"
+            minWidth={0}
+            // Keep the full native trigger inside its parent's touch bounds.
+            minHeight={platformEnv.isNative ? '$10' : undefined}
+            my={platformEnv.isNative ? '$-2' : undefined}
+          >
+            <SizableText
+              {...COMPACT_ENTRY_TITLE_PROPS}
+              flexShrink={1}
+              minWidth={0}
+              numberOfLines={1}
+              userSelect="none"
+            >
+              {title}
+            </SizableText>
+            <RewardScopeInfo
+              title={title}
+              subject={row.subject}
+              description={scopeDescription}
+            />
+          </XStack>
+        ) : undefined
+      }
       drillIn
       onPress={onPress}
     >
@@ -241,9 +410,21 @@ function DesktopRewardRow({
     >
       <DesktopCell first>
         <ProductTile subject={row.subject} />
-        <SizableText flex={1} size="$bodyLgMedium" numberOfLines={1}>
+        <SizableText
+          flexShrink={1}
+          minWidth={0}
+          size="$bodyLgMedium"
+          numberOfLines={1}
+        >
           {title}
         </SizableText>
+        {row.scopeDescription ? (
+          <RewardScopeInfo
+            title={title}
+            subject={row.subject}
+            description={row.scopeDescription}
+          />
+        ) : null}
       </DesktopCell>
       {columns.monthly ? (
         <DesktopCell>
@@ -289,6 +470,25 @@ function DesktopRewardRow({
   );
 }
 
+function rewardEmptyDescription(
+  description: string,
+  scopeItems: readonly IInviteRewardScopeItem[],
+) {
+  if (scopeItems.length === 0) {
+    return description;
+  }
+  // String descriptions pick up Empty's text style. A custom node does not,
+  // so the copy keeps the same size and color beside the scope line.
+  return (
+    <YStack ai="center" gap="$1">
+      <SizableText size="$bodyMd" textAlign="center" color="$textSubdued">
+        {description}
+      </SizableText>
+      <RewardScopesHint items={scopeItems} />
+    </YStack>
+  );
+}
+
 // Before the first reward every product page is empty too, so the section
 // shows one quiet in-card empty state: what will appear here, plus the one
 // action that changes it. Native already has the share footer, so only the
@@ -296,17 +496,20 @@ function DesktopRewardRow({
 function RewardsEmpty({
   cardStyle,
   onCopyLink,
+  scopeItems,
 }: {
   cardStyle: IInviteCardStyle;
   onCopyLink?: () => void;
+  scopeItems: readonly IInviteRewardScopeItem[];
 }) {
   const intl = useIntl();
+  const description = intl.formatMessage({
+    id: ETranslations.referral_earnings_empty__desc,
+  });
   return (
     <ReferralCardEmpty
       {...cardStyle}
-      description={intl.formatMessage({
-        id: ETranslations.referral_earnings_empty__desc,
-      })}
+      description={rewardEmptyDescription(description, scopeItems)}
       buttonProps={
         onCopyLink
           ? {
@@ -367,6 +570,11 @@ export function InviteRewardRows({
   const cardStyle = useInviteHomeCardStyle();
   const rows = useMemo(
     () => getInviteRewardRows(summaryInfo, summaryInfo.rebateConfig.configs),
+    [summaryInfo],
+  );
+  const scopeItems = useMemo(
+    () =>
+      getInviteRewardScopeItems(summaryInfo, summaryInfo.rebateConfig.configs),
     [summaryInfo],
   );
   const hasAnyData = rows.some((row) => row.hasData);
@@ -446,7 +654,11 @@ export function InviteRewardRows({
             ))}
           </YStack>
         ) : (
-          <RewardsEmpty cardStyle={cardStyle} onCopyLink={copyLink} />
+          <RewardsEmpty
+            cardStyle={cardStyle}
+            onCopyLink={copyLink}
+            scopeItems={scopeItems}
+          />
         )}
       </YStack>
     );
@@ -467,7 +679,7 @@ export function InviteRewardRows({
     return (
       <YStack gap="$2">
         {compactTitle}
-        <RewardsEmpty cardStyle={cardStyle} />
+        <RewardsEmpty cardStyle={cardStyle} scopeItems={scopeItems} />
       </YStack>
     );
   }

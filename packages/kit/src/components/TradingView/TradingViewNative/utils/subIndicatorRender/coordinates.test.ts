@@ -1,6 +1,7 @@
 import type { IMarketTokenKLineDataPoint } from '@onekeyhq/shared/types/marketV2';
 
 import {
+  formatTradingViewNativeSubIndicatorReadoutValue,
   formatTradingViewNativeSubIndicatorValue,
   getTradingViewNativeSubIndicatorAxisLabel,
   getTradingViewNativeSubIndicatorValueAtY,
@@ -185,6 +186,115 @@ describe('TradingViewNative sub-indicator coordinates', () => {
     expect(
       formatTradingViewNativeSubIndicatorValue(0.199_999, pane.format).length,
     ).toBeLessThanOrEqual(volumeLabel.length);
+  });
+
+  it('formats inherited values with the resolved price precision', () => {
+    expect(
+      formatTradingViewNativeSubIndicatorValue(-1.9634, {
+        precision: 2,
+        type: 'inherit',
+      }),
+    ).toBe('-1.96');
+    expect(
+      formatTradingViewNativeSubIndicatorValue(0.0008, {
+        precision: 2,
+        type: 'inherit',
+      }),
+    ).toBe('0.00');
+  });
+
+  it.each([
+    [-0.3, { precision: 0, type: 'inherit' } as const, '0'],
+    [-0.001, { precision: 2, type: 'price' } as const, '0.00'],
+    [-0.6, { precision: 0, type: 'inherit' } as const, '-1'],
+  ])('drops the sign when %s rounds to zero', (value, format, expected) => {
+    expect(formatTradingViewNativeSubIndicatorValue(value, format)).toBe(
+      expected,
+    );
+  });
+
+  it.each([
+    [0.888_888, '0.89'],
+    [-0.888_888, '-0.89'],
+    [999.999, '1K'],
+    [-0.001, '0'],
+    [523.4567, '523.5'],
+    [147_912, '147.9K'],
+  ])('formats %s with limited volume decimals as %s', (value, expected) => {
+    expect(
+      formatTradingViewNativeSubIndicatorValue(value, {
+        precision: 2,
+        type: 'volume',
+      }),
+    ).toBe(expected);
+  });
+
+  it.each([
+    [0.0034, { precision: 2, type: 'inherit' } as const, '0.0034'],
+    [-0.0034, { precision: 0, type: 'inherit' } as const, '-0.0034'],
+    [1.2345, { precision: 2, type: 'inherit' } as const, '1.23'],
+    [0, { precision: 2, type: 'inherit' } as const, '0.00'],
+    [0.0034, { precision: 2, type: 'volume' } as const, '0.0034'],
+    [147_912, { precision: 2, type: 'volume' } as const, '147.9K'],
+  ])('keeps the readout of %s nonzero with %j', (value, format, expected) => {
+    expect(formatTradingViewNativeSubIndicatorReadoutValue(value, format)).toBe(
+      expected,
+    );
+  });
+
+  it('sizes a zero-crossing K-unit volume pane by its unit labels', () => {
+    const pane = createTradingViewNativeSubIndicatorRenderSnapshot({
+      config: { id: 'emv', indicator: 'EMV' },
+      points: POINTS,
+    }).pane;
+    pane.scale = { kind: 'fixed', maxValue: 147_900, minValue: -241_200 };
+
+    // Six significant digits stay reserved for tiny values near zero.
+    expect(getTradingViewNativeSubIndicatorAxisLabel([pane])).toBe('-0.888888');
+
+    pane.format = { precision: 2, type: 'volume' };
+    const widestLabel = getTradingViewNativeSubIndicatorAxisLabel([pane]);
+    expect(widestLabel).toBe('-888.8K');
+    for (let step = 0; step <= 1000; step += 1) {
+      const value = -241_200 + (389_100 * step) / 1000;
+      expect(
+        formatTradingViewNativeSubIndicatorValue(value, pane.format).length,
+      ).toBeLessThanOrEqual(widestLabel.length);
+    }
+  });
+
+  it('reserves the widest unit suffix a volume range reaches', () => {
+    const pane = createTradingViewNativeSubIndicatorRenderSnapshot({
+      config: { id: 'obv', indicator: 'OBV' },
+      points: POINTS,
+    }).pane;
+    pane.format = { precision: 2, type: 'volume' };
+    pane.scale = { kind: 'fixed', maxValue: 900_000, minValue: -2_500_000 };
+
+    expect(getTradingViewNativeSubIndicatorAxisLabel([pane])).toBe('-888.8M');
+  });
+
+  it('sizes a zero-crossing inherited pane by its range ends once precision is known', () => {
+    const pane = createTradingViewNativeSubIndicatorRenderSnapshot({
+      config: { id: 'inherited', indicator: 'MACD' },
+      points: POINTS,
+    }).pane;
+    pane.scale = { kind: 'fixed', maxValue: 4.9, minValue: -6.4 };
+
+    // Without a known precision, near-zero significant digits stay reserved.
+    expect(getTradingViewNativeSubIndicatorAxisLabel([pane])).toBe(
+      '-0.0008888',
+    );
+
+    pane.format = { precision: 2, type: 'inherit' };
+    const widestLabel = getTradingViewNativeSubIndicatorAxisLabel([pane]);
+    expect(widestLabel).toHaveLength('-6.40'.length);
+    for (let step = 0; step <= 1000; step += 1) {
+      const value = -6.4 + (11.3 * step) / 1000;
+      expect(
+        formatTradingViewNativeSubIndicatorValue(value, pane.format).length,
+      ).toBeLessThanOrEqual(widestLabel.length);
+    }
   });
 
   it('keeps a signed K-unit range narrower than a theoretical scientific label', () => {

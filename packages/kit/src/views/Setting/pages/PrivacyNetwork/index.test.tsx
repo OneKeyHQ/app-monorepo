@@ -11,7 +11,10 @@ import {
   waitFor,
 } from '@testing-library/react';
 
-import type { IBirthdayFormState } from '@onekeyhq/kit/src/views/AssetDetails/pages/TokenDetails/LocalWalletRepairControls';
+import type {
+  IBirthdayFormState,
+  IEarliestBirthday,
+} from '@onekeyhq/kit/src/views/AssetDetails/pages/TokenDetails/LocalWalletRepairControls';
 import type { ILocalWalletAccountListItem } from '@onekeyhq/kit-bg/src/services/ServicePrivacyChain';
 import type { IPrivacyChainScanState } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type {
@@ -32,6 +35,15 @@ var mockProgress: IPrivacyChainScanState['progress'] = {};
 var mockPausedNetworks: string[] = [];
 // eslint-disable-next-line no-var, vars-on-top
 var mockBoostingNetworks: string[] = [];
+// eslint-disable-next-line no-var, vars-on-top
+var mockBirthdaySettings: {
+  earliestBirthday?: IEarliestBirthday;
+} = {};
+const mockGetVaultSettings = jest.fn(
+  async (_params: { networkId: string }) => ({
+    localWallet: { accountSetup: mockBirthdaySettings },
+  }),
+);
 const mockDelete = jest.fn<
   Promise<void>,
   [{ accountId: string; networkId: string }]
@@ -65,7 +77,12 @@ jest.mock('@onekeyhq/shared/src/eventBus/appEventBus', () => ({
 
 jest.mock('react-intl', () => ({
   useIntl: () => ({
-    formatMessage: ({ id }: { id: string }) => id,
+    formatMessage: (
+      { id }: { id: string },
+      values?: { height?: string | number },
+    ) => (values?.height === undefined ? id : `${id}: ${values.height}`),
+    formatNumber: (value: number) =>
+      new Intl.NumberFormat('en-US').format(value),
   }),
 }));
 
@@ -126,9 +143,9 @@ jest.mock(
   () => ({
     BirthdayDialogForm: () => null,
     PrivacyEnableDisclosure: () => null,
-    createEnableBirthdayForm: () => ({ current: {} }),
+    createEnableBirthdayForm: jest.fn(() => ({ current: {} })),
     getBirthdayInputError: () => 'global.bulk_accounts_page_number_error',
-    readEnableBirthday: jest.fn(() => ({ birthdayHeight: 100 })),
+    readEnableBirthday: jest.fn(() => ({ birthdayHeight: 3_428_143 })),
   }),
 );
 
@@ -137,7 +154,8 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   default: {
     serviceNetwork: {
       getNetworkSafe: async () => undefined,
-      getVaultSettings: async () => ({ localWallet: undefined }),
+      getVaultSettings: (params: { networkId: string }) =>
+        mockGetVaultSettings(params),
     },
     servicePrivacyChain: {
       listLocalWalletAccounts: async () => mockAccounts,
@@ -283,12 +301,15 @@ describe('Privacy network settings for a temp wallet', () => {
     mockProgress = {};
     mockPausedNetworks = [];
     mockBoostingNetworks = [];
+    mockBirthdaySettings = {};
+    mockGetVaultSettings.mockClear();
     mockEnable.mockReset().mockResolvedValue(undefined);
     mockAdmission.mockReset().mockResolvedValue(undefined);
     mockShowSlotsFull.mockClear();
     mockDisable.mockReset().mockResolvedValue(undefined);
     mockDelete.mockReset().mockResolvedValue(undefined);
     mockRepair.mockClear();
+    mockTwinBirthday.mockReset().mockResolvedValue(undefined);
     mockAccounts = [
       listItem({}),
       listItem({
@@ -368,10 +389,87 @@ describe('Privacy network settings for a temp wallet', () => {
     ).toContain('Wallet 1 · global.disabled');
   });
 
+  it('shows the saved scan height without loading settings for every account', async () => {
+    mockAccounts = [listItem({}), listItem({ accountId: 'hd-1--1' })];
+    mockAccountStates['hd-1--0'] = {
+      enabled: true,
+      paused: false,
+      birthdayHeight: 3_500_000,
+    };
+    mockBirthdaySettings = {
+      earliestBirthday: { height: 3_428_143, timestamp: 1_785_196_800_000 },
+    };
+    render(<PrivacyNetworkSettings networkId="zec--0" />);
+
+    const row = await screen.findByTestId('privacy-network-birthday-hd-1--0');
+    expect(row.textContent).toContain(
+      `${ETranslations.privacy_sync_start_block__title}: 3,500,000`,
+    );
+    // Only the network progress needs settings; each account uses its saved height.
+    expect(mockGetVaultSettings).toHaveBeenCalledTimes(1);
+  });
+
+  it('loads and forwards the earliest birthday once when enabling privacy', async () => {
+    const { Dialog } = jest.requireMock<{ Dialog: { confirm: jest.Mock } }>(
+      '@onekeyhq/components',
+    );
+    const { createEnableBirthdayForm, readEnableBirthday } = jest.requireMock<{
+      createEnableBirthdayForm: jest.Mock;
+      readEnableBirthday: jest.Mock;
+    }>(
+      '@onekeyhq/kit/src/views/AssetDetails/pages/TokenDetails/LocalWalletRepairControls',
+    );
+    mockAccounts = [listItem({})];
+    mockBirthdaySettings = {
+      earliestBirthday: { height: 3_428_143, timestamp: 1_785_196_800_000 },
+    };
+    render(<PrivacyNetworkSettings networkId="zec--0" />);
+    const enableButton = await screen.findByTestId(
+      'privacy-network-enable-hd-1--0',
+    );
+    mockGetVaultSettings.mockClear();
+    await act(async () => {
+      fireEvent.click(enableButton);
+    });
+    const args = Dialog.confirm.mock.calls.at(-1)?.[0] as {
+      renderContent: ReactElement<{
+        children: ReactElement<{
+          formRef: { current: IBirthdayFormState };
+          earliestBirthday?: IEarliestBirthday;
+        }>[];
+      }>;
+      onConfirm: (params: { preventClose: () => void }) => Promise<void>;
+    };
+    const formProps = args.renderContent.props.children[1].props;
+    expect(createEnableBirthdayForm).toHaveBeenLastCalledWith(
+      undefined,
+      mockBirthdaySettings.earliestBirthday,
+    );
+    expect(formProps.earliestBirthday).toEqual(
+      mockBirthdaySettings.earliestBirthday,
+    );
+    formProps.formRef.current.fromEarliest = true;
+    readEnableBirthday.mockReturnValueOnce({ birthdayHeight: 3_428_143 });
+    await act(async () => {
+      await args.onConfirm({ preventClose: jest.fn() });
+    });
+    expect(readEnableBirthday).toHaveBeenLastCalledWith(
+      formProps.formRef.current,
+      mockBirthdaySettings.earliestBirthday,
+      'zec--0',
+    );
+    expect(mockEnable).toHaveBeenCalledWith({
+      accountId: 'hd-1--0',
+      networkId: 'zec--0',
+      birthdayHeight: 3_428_143,
+    });
+    expect(mockGetVaultSettings).toHaveBeenCalledTimes(1);
+  });
+
   it('pauses only the selected account and resumes without changing its birthday', async () => {
     mockAccounts = [listItem({}), listItem({ accountId: 'hd-1--1' })];
     mockAccountStates = {
-      'hd-1--0': { enabled: true, paused: false, birthdayHeight: 2_500_000 },
+      'hd-1--0': { enabled: true, paused: false, birthdayHeight: 3_500_000 },
       'hd-1--1': { enabled: true, paused: false },
     };
     mockDisable.mockImplementation(async ({ accountId }) => {
@@ -411,7 +509,7 @@ describe('Privacy network settings for a temp wallet', () => {
       accountId: 'hd-1--0',
       networkId: 'zec--0',
     });
-    expect(mockAccountStates['hd-1--0'].birthdayHeight).toBe(2_500_000);
+    expect(mockAccountStates['hd-1--0'].birthdayHeight).toBe(3_500_000);
     expect(mockDelete).not.toHaveBeenCalled();
     expect(mockRepair).not.toHaveBeenCalled();
   });
@@ -525,12 +623,15 @@ describe('Privacy network settings for a temp wallet', () => {
       }>(
         '@onekeyhq/kit/src/views/AssetDetails/pages/TokenDetails/LocalWalletRepairControls',
       );
-      const timestamp = new Date(2025, 6, 19).getTime();
+      const timestamp = new Date(2026, 9, 19).getTime();
       mockAccountStates['hd-1--0'] = {
         enabled: true,
         paused: false,
         birthdayTimestamp: timestamp,
-        birthdayHeight: 2_500_000,
+        birthdayHeight: 3_500_000,
+      };
+      mockBirthdaySettings = {
+        earliestBirthday: { height: 3_428_143, timestamp: 1_785_196_800_000 },
       };
       render(<PrivacyNetworkSettings networkId="zec--0" />);
       const button = await screen.findByTestId(
@@ -548,11 +649,11 @@ describe('Privacy network settings for a temp wallet', () => {
       expect(args.renderContent.props.formRef.current.date?.getTime()).toBe(
         timestamp,
       );
-      expect(args.renderContent.props.formRef.current.height).toBe('2500000');
+      expect(args.renderContent.props.formRef.current.height).toBe('3500000');
       args.renderContent.props.formRef.current.mode = mode;
       const birthday =
         mode === 'height'
-          ? { birthdayHeight: 2_500_000, birthdayTimestamp: undefined }
+          ? { birthdayHeight: 3_500_000, birthdayTimestamp: undefined }
           : { birthdayTimestamp: timestamp, birthdayHeight: undefined };
       readEnableBirthday.mockReturnValueOnce(birthday);
       const preventClose = jest.fn();
@@ -560,12 +661,76 @@ describe('Privacy network settings for a temp wallet', () => {
         await args.onConfirm({ preventClose });
       });
       expect(preventClose).not.toHaveBeenCalled();
+      expect(readEnableBirthday).toHaveBeenLastCalledWith(
+        args.renderContent.props.formRef.current,
+        mockBirthdaySettings.earliestBirthday,
+        'zec--0',
+      );
       expect(mockRepair).toHaveBeenCalledWith({
         accountId: 'hd-1--0',
         networkId: 'zec--0',
         mode: mode === 'date' ? 'month' : 'height',
         ...birthday,
       });
+    },
+  );
+
+  it.each([
+    {
+      networkId: 'zec--0',
+      earliestBirthday: { height: 3_428_143, timestamp: 1_785_196_800_000 },
+      expectedHeight: 3_428_143,
+    },
+    {
+      networkId: 'xmr--0',
+      earliestBirthday: { height: 1, timestamp: 1_397_779_200_000 },
+      expectedHeight: 1,
+    },
+  ])(
+    'uses the earliest supported block when resyncing $networkId from the beginning',
+    async ({ networkId, earliestBirthday, expectedHeight }) => {
+      const { Dialog } = jest.requireMock<{ Dialog: { confirm: jest.Mock } }>(
+        '@onekeyhq/components',
+      );
+      mockAccounts = [listItem({ networkId })];
+      mockAccountStates['hd-1--0'] = {
+        enabled: true,
+        paused: false,
+        birthdayHeight: 3_500_000,
+      };
+      mockBirthdaySettings = { earliestBirthday };
+      render(<PrivacyNetworkSettings networkId={networkId} />);
+      const birthdayButton = await screen.findByTestId(
+        'privacy-network-birthday-hd-1--0',
+      );
+      mockGetVaultSettings.mockClear();
+      await act(async () => {
+        fireEvent.click(birthdayButton);
+      });
+      const args = Dialog.confirm.mock.calls.at(-1)?.[0] as {
+        renderContent: ReactElement<{
+          formRef: { current: IBirthdayFormState };
+          earliestBirthday?: IEarliestBirthday;
+        }>;
+        onConfirm: (params: { preventClose: () => void }) => Promise<void>;
+      };
+      expect(args.renderContent.props.earliestBirthday).toEqual(
+        earliestBirthday,
+      );
+      args.renderContent.props.formRef.current.fromEarliest = true;
+      const preventClose = jest.fn();
+      await act(async () => {
+        await args.onConfirm({ preventClose });
+      });
+      expect(preventClose).not.toHaveBeenCalled();
+      expect(mockRepair).toHaveBeenCalledWith({
+        accountId: 'hd-1--0',
+        networkId,
+        mode: 'height',
+        birthdayHeight: expectedHeight,
+        birthdayTimestamp: undefined,
+      });
+      expect(mockGetVaultSettings).toHaveBeenCalledTimes(1);
     },
   );
 

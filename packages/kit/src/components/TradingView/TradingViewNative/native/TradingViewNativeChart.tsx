@@ -13,7 +13,8 @@ import {
   Canvas,
   FontWeight,
   Picture,
-  useSVG,
+  type SkSVG,
+  Skia,
   useTypeface,
 } from '@shopify/react-native-skia';
 import { Image } from 'react-native';
@@ -28,6 +29,7 @@ import {
 import { scheduleOnRN, scheduleOnUI } from 'react-native-worklets';
 
 import { Stack, useTheme, useThemeName } from '@onekeyhq/components';
+import RNFS from '@onekeyhq/shared/src/modules3rdParty/react-native-fs';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { getDateFormatTemplate } from '@onekeyhq/shared/src/utils/dateUtils';
 
@@ -103,7 +105,7 @@ import {
   getTradingViewNativeSkiaLegendText,
 } from './chartSkiaRenderer';
 import {
-  getTradingViewNativeSkiaDigitWidth,
+  getTradingViewNativeSkiaDigitMetrics,
   getTradingViewNativeSkiaPriceAxisLabelWidth,
 } from './chartSkiaText';
 import { NativeDrawingToolbar } from './NativeDrawingToolbar';
@@ -122,14 +124,64 @@ const SYSTEM_FONT_FAMILY = platformEnv.isNativeAndroid
   : 'System';
 const PRICE_AXIS_FONT_SOURCE =
   require('@onekeyhq/components/src/hocs/Provider/fonts/fallback/Inter-Regular.ttf') as number;
-const ONEKEY_WATERMARK_SOURCE =
-  require('@onekeyhq/components/svg/illus/logo.svg') as number;
 const PRICE_AXIS_FONT_URI = Image.resolveAssetSource(
   PRICE_AXIS_FONT_SOURCE,
 )?.uri;
-const ONEKEY_WATERMARK_URI = Image.resolveAssetSource(
-  ONEKEY_WATERMARK_SOURCE,
-)?.uri;
+
+let cachedWatermarkSvg: SkSVG | null = null;
+let watermarkSvgLoadPromise: Promise<SkSVG | null> | null = null;
+
+function readOneKeyWatermarkSvgXml(): Promise<string> {
+  if (!RNFS) {
+    return Promise.resolve('');
+  }
+  if (platformEnv.isNativeAndroid) {
+    return RNFS.readFileAssets('icons/LogoIllus.svg', 'utf8');
+  }
+  if (RNFS.MainBundlePath) {
+    return RNFS.readFile(
+      `${RNFS.MainBundlePath}/OneKeyIcons.bundle/LogoIllus.svg`,
+      'utf8',
+    );
+  }
+  return Promise.resolve('');
+}
+
+function loadOneKeyWatermarkSvg(): Promise<SkSVG | null> {
+  if (cachedWatermarkSvg) {
+    return Promise.resolve(cachedWatermarkSvg);
+  }
+  if (!watermarkSvgLoadPromise) {
+    watermarkSvgLoadPromise = readOneKeyWatermarkSvgXml()
+      .then((svgXml) => {
+        if (!svgXml) return null;
+        cachedWatermarkSvg = Skia.SVG.MakeFromString(svgXml);
+        return cachedWatermarkSvg;
+      })
+      .catch(() => null)
+      .finally(() => {
+        watermarkSvgLoadPromise = null;
+      });
+  }
+  return watermarkSvgLoadPromise;
+}
+
+function useOneKeyWatermarkSvg(): SkSVG | null {
+  const [svg, setSvg] = useState<SkSVG | null>(() => cachedWatermarkSvg);
+  useEffect(() => {
+    if (svg) return;
+    let cancelled = false;
+    void loadOneKeyWatermarkSvg().then((loaded) => {
+      if (!cancelled && loaded) {
+        setSvg(loaded);
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [svg]);
+  return svg;
+}
 // Fallback for a canvas size that never matches the pane count.
 const SUB_INDICATOR_RESIZE_HOLD_TIMEOUT_MS = 300;
 
@@ -346,7 +398,7 @@ export const TradingViewNativeChart = memo(
     const theme = useTheme();
     const themeName = useThemeName();
     const priceAxisTypeface = useTypeface(PRICE_AXIS_FONT_URI ?? null);
-    const watermarkSvg = useSVG(ONEKEY_WATERMARK_URI ?? null);
+    const watermarkSvg = useOneKeyWatermarkSvg();
     const background = chartSettings.background.colors[0];
     const grid = chartSettings.grid.horizontalColor;
     const timeAxisBorder = extendTimeAxisBorderToCanvasEdge
@@ -368,9 +420,11 @@ export const TradingViewNativeChart = memo(
     );
     const isLogScaleAvailable =
       isTradingViewNativeLogPriceScaleAvailable(autoPriceRange);
+    // Ticks, the crosshair, and the latest close all fit the axis display precision.
+    const axisLabelDecimalPlaces = priceAxisDecimalPlaces ?? priceDecimalPlaces;
     const widestPriceLabel = useMemo(
-      () => getTradingViewNativePriceAxisLabel(points, priceDecimalPlaces),
-      [points, priceDecimalPlaces],
+      () => getTradingViewNativePriceAxisLabel(points, axisLabelDecimalPlaces),
+      [axisLabelDecimalPlaces, points],
     );
     const widestChartComponentPriceLabel = useMemo(
       () =>
@@ -460,8 +514,8 @@ export const TradingViewNativeChart = memo(
         watermarkSvg,
       ],
     );
-    const priceAxisDigitWidth = useDerivedValue(() =>
-      getTradingViewNativeSkiaDigitWidth(resources.value.fonts.priceAxis),
+    const priceAxisDigitMetrics = useDerivedValue(() =>
+      getTradingViewNativeSkiaDigitMetrics(resources.value.fonts.priceAxis),
     );
     const priceAxisWidth = useDerivedValue(() => {
       if (!chartSettings.options.yAxis) {
@@ -474,7 +528,7 @@ export const TradingViewNativeChart = memo(
         return getTradingViewNativeSkiaPriceAxisLabelWidth(
           label,
           measuredPriceAxisFont,
-          priceAxisDigitWidth.value,
+          priceAxisDigitMetrics.value,
         );
       };
       const priceRange = chartRuntime.value.pinnedPriceRange ?? autoPriceRange;
@@ -483,7 +537,7 @@ export const TradingViewNativeChart = memo(
           ? getTradingViewNativeScaledPriceAxisLabel({
               autoPriceRange: priceRange,
               baseLabel: widestPriceLabel,
-              priceDecimalPlaces,
+              priceDecimalPlaces: axisLabelDecimalPlaces,
               priceRangeScale: chartRuntime.value.priceRangeScale,
               priceScaleMode: chartRuntime.value.priceScaleMode,
             })
@@ -500,7 +554,7 @@ export const TradingViewNativeChart = memo(
           chartSettings.options.latestPrice
             ? getTradingViewNativeCurrentPriceAxisLabel(
                 currentPriceLabel,
-                priceDecimalPlaces,
+                axisLabelDecimalPlaces,
               )
             : '',
         ),
@@ -520,12 +574,12 @@ export const TradingViewNativeChart = memo(
       });
     }, [
       autoPriceRange,
+      axisLabelDecimalPlaces,
       chartRuntime,
       chartSettings.options.latestPrice,
       chartSettings.options.yAxis,
       currentPriceLabel,
-      priceAxisDigitWidth,
-      priceDecimalPlaces,
+      priceAxisDigitMetrics,
       resources,
       widestChartComponentPriceLabel,
       widestIndicatorPriceLabel,

@@ -19,12 +19,17 @@ const METRIC_TRANSLATION_IDS: Record<IMarketSearchMetric, ETranslations> = {
 export function MarketTableHeader({
   metric = 'liquidity',
   changeTitle = '24h',
+  tableLayout,
+  showRank = true,
 }: {
   metric?: IMarketSearchMetric;
   changeTitle?: IMarketSearchPriceChangeTitle;
+  tableLayout?: boolean;
+  showRank?: boolean;
 }) {
   const intl = useIntl();
   const { gtMd } = useMedia();
+  const showMetrics = tableLayout ?? gtMd;
   const priceChangeHeader = formatMarketSearchPriceChangeHeader({
     priceLabel: intl
       .formatMessage({ id: ETranslations.global_price })
@@ -40,21 +45,26 @@ export function MarketTableHeader({
     <XStack alignSelf="stretch" mx="$2" px="$3" py="$1.5" gap="$3" ai="center">
       <XStack flex={1} minWidth={0} gap="$1" ai="center">
         <XStack w="$8" ai="center" jc="center">
-          <SizableText size="$bodySm" color="$textSubdued">
-            #
-          </SizableText>
+          {showRank ? (
+            <SizableText size="$bodySm" color="$textSubdued">
+              #
+            </SizableText>
+          ) : null}
         </XStack>
         <SizableText size="$bodySm" color="$textSubdued" flex={1}>
           {intl.formatMessage({ id: ETranslations.global_name }).toUpperCase()}
         </SizableText>
       </XStack>
       <XStack flexShrink={0} ai="center">
-        <XStack w={gtMd ? MARKET_DATA_COLUMN_WIDTH : undefined} jc="flex-end">
+        <XStack
+          w={showMetrics ? MARKET_DATA_COLUMN_WIDTH : undefined}
+          jc="flex-end"
+        >
           <SizableText size="$bodySm" color="$textSubdued" textAlign="right">
             {priceChangeHeader}
           </SizableText>
         </XStack>
-        {gtMd ? (
+        {showMetrics ? (
           <XStack w={MARKET_DATA_COLUMN_WIDTH} jc="flex-end">
             <SizableText size="$bodySm" color="$textSubdued" textAlign="right">
               {intl
@@ -63,7 +73,7 @@ export function MarketTableHeader({
             </SizableText>
           </XStack>
         ) : null}
-        {gtMd ? (
+        {showMetrics ? (
           <XStack w={MARKET_DATA_COLUMN_WIDTH} jc="flex-end">
             <SizableText size="$bodySm" color="$textSubdued" textAlign="right">
               {intl

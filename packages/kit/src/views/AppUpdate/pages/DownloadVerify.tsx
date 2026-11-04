@@ -28,6 +28,7 @@ import {
   useDownloadPackage,
 } from '../../../components/AppUpdate';
 import { HyperlinkText } from '../../../components/HyperlinkText';
+import { useForceUpdateContactSupport } from '../hooks/useForceUpdateContactSupport';
 import { AppUpdateTestIDs } from '../testIDs';
 
 const STEP_INDEX_MAP: Record<EAppUpdateStatus, number> = {
@@ -66,15 +67,19 @@ function RetryButton({ onPress }: IButtonProps) {
   );
 }
 
-function ContactUsButton() {
+function ContactUsButton({ onPress }: { onPress?: () => void }) {
   const intl = useIntl();
-  const onPress = useCallback(() => {
+  const handlePress = useCallback(() => {
+    if (onPress) {
+      onPress();
+      return;
+    }
     void showIntercom();
-  }, []);
+  }, [onPress]);
   return (
     <XStack>
-      <Button testID={AppUpdateTestIDs.contactUsBtn} onPress={onPress}>
-        {intl.formatMessage({ id: ETranslations.global_contact_us })}
+      <Button testID={AppUpdateTestIDs.contactUsBtn} onPress={handlePress}>
+        {intl.formatMessage({ id: ETranslations.swap_review_tx_failed_2 })}
       </Button>
     </XStack>
   );
@@ -84,7 +89,10 @@ function DownloadVerify({
   route,
 }: IPageScreenProps<IAppUpdatePagesParamList, EAppUpdateRoutes.UpdatePreview>) {
   const intl = useIntl();
-  const { isForceUpdate } = route.params || {};
+  const { isForceUpdate: isForceUpdateParam } = route.params || {};
+  const { isForceUpdate, handleContactSupport } = useForceUpdateContactSupport({
+    initialForceUpdate: isForceUpdateParam,
+  });
   usePreventRemove(!!isForceUpdate, () => {});
   const { data } = useAppUpdateInfo();
   const navigation = useAppNavigation();
@@ -195,15 +203,20 @@ function DownloadVerify({
     const title = intl.formatMessage({
       id: ETranslations.update_download_and_verify_text,
     });
-    return isForceUpdate
-      ? {
-          title,
-          headerLeft,
-        }
-      : {
-          title,
-        };
+    return {
+      title,
+      headerLeft: isForceUpdate ? headerLeft : undefined,
+    };
   }, [intl, isForceUpdate, headerLeft]);
+
+  const isShowingInlineContactUs =
+    (data.status === EAppUpdateStatus.verifyASCFailed ||
+      data.status === EAppUpdateStatus.verifyPackageFailed) &&
+    data.errorText !==
+      ETranslations.update_installation_package_possibly_compromised;
+  const showFooterContactUs = Boolean(
+    isForceUpdate && !isShowingInlineContactUs,
+  );
 
   return (
     <Page scrollEnabled>
@@ -343,7 +356,13 @@ function DownloadVerify({
                 ) {
                   return <RetryButton onPress={verifyASC} />;
                 }
-                return <ContactUsButton />;
+                return (
+                  <ContactUsButton
+                    onPress={() => {
+                      void handleContactSupport();
+                    }}
+                  />
+                );
               }
               return null;
             }}
@@ -417,7 +436,13 @@ function DownloadVerify({
                 ) {
                   return <RetryButton onPress={verifyPackage} />;
                 }
-                return <ContactUsButton />;
+                return (
+                  <ContactUsButton
+                    onPress={() => {
+                      void handleContactSupport();
+                    }}
+                  />
+                );
               }
               return null;
             }}
@@ -425,6 +450,26 @@ function DownloadVerify({
         </Stepper>
       </Page.Body>
       <Page.Footer
+        stacked={showFooterContactUs}
+        onCancelText={
+          showFooterContactUs
+            ? intl.formatMessage({ id: ETranslations.swap_review_tx_failed_2 })
+            : undefined
+        }
+        onCancel={
+          showFooterContactUs
+            ? (_close) => {
+                void handleContactSupport();
+              }
+            : undefined
+        }
+        cancelButtonProps={
+          showFooterContactUs
+            ? {
+                testID: AppUpdateTestIDs.contactUsBtn,
+              }
+            : undefined
+        }
         onConfirmText={intl.formatMessage({
           id:
             data.status === EAppUpdateStatus.manualInstall

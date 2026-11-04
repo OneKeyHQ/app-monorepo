@@ -16,6 +16,8 @@ export const LOCALES = LOCALE_LOADERS as unknown as Record<
 
 export { LOCALES_OPTION };
 
+// Do not re-export localeSearch or translationKeys from this barrel. Both
+// import translations.ts, and this file is already on the web startup graph.
 export * from './type';
 export * from './enum/translations';
 export * from './enum/translationsMock';

@@ -28,6 +28,7 @@ import { usePasswordPersistManualLockStateAtom } from '@onekeyhq/kit-bg/src/stat
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { getRequestedNativeStorageRecovery } from '@onekeyhq/shared/src/storage/nativeStorageRecovery';
 import {
   EPasswordMode,
   EPasswordVerifyStatus,
@@ -122,7 +123,11 @@ function PasswordVerify({
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
     timeoutRef.current = setTimeout(() => {
-      if (!isEnableRef.current && !disableInputRef.current) {
+      if (
+        !getRequestedNativeStorageRecovery() &&
+        !isEnableRef.current &&
+        !disableInputRef.current
+      ) {
         form.setFocus(
           passwordMode === EPasswordMode.PASSWORD ? 'password' : 'passCode',
         );
@@ -194,7 +199,7 @@ function PasswordVerify({
       }
       if (!disableInputRef.current) {
         setTimeout(() => {
-          form.setFocus(fieldName);
+          if (!getRequestedNativeStorageRecovery()) form.setFocus(fieldName);
         }, 150);
       }
     } else {
@@ -203,6 +208,8 @@ function PasswordVerify({
   }, [form, passwordMode, status]);
 
   const checkAuthChanged = useCallback((): Promise<IBiometricCheckResult> => {
+    if (getRequestedNativeStorageRecovery())
+      return Promise.resolve('unavailable');
     if (
       biometricCheckRef.current === 'changed' ||
       biometricCheckRef.current === 'unavailable'
@@ -216,7 +223,10 @@ function PasswordVerify({
       try {
         const changed =
           await backgroundApiProxy.servicePassword.checkBiometricAuthChanged();
-        if (generation !== biometricCheckGenerationRef.current)
+        if (
+          getRequestedNativeStorageRecovery() ||
+          generation !== biometricCheckGenerationRef.current
+        )
           return 'unavailable';
         defaultLogger.setting.page.biologyAuthDebug('checkAuthChanged:result', {
           platform: platformEnv.symbol,
@@ -227,7 +237,8 @@ function PasswordVerify({
           biometricCheckRef.current = 'changed';
           if (mountedRef.current) setBiometricCheckResult('changed');
           setTimeout(() => {
-            if (!mountedRef.current) return;
+            if (!mountedRef.current || getRequestedNativeStorageRecovery())
+              return;
             Dialog.confirm({
               icon: 'ErrorOutline',
               tone: 'warning',
@@ -261,7 +272,10 @@ function PasswordVerify({
         if (mountedRef.current) setBiometricCheckResult('unchanged');
         return 'unchanged';
       } catch {
-        if (generation !== biometricCheckGenerationRef.current)
+        if (
+          getRequestedNativeStorageRecovery() ||
+          generation !== biometricCheckGenerationRef.current
+        )
           return 'unavailable';
         defaultLogger.setting.page.biologyAuthDebug(
           'checkAuthChanged:unavailable',
@@ -282,6 +296,7 @@ function PasswordVerify({
   }, [authTitle, inAppStateLock, intl]);
 
   const guardedBiologyAuth = useCallback((): Promise<void> => {
+    if (getRequestedNativeStorageRecovery()) return Promise.resolve();
     if (biometricAuthPromiseRef.current) return biometricAuthPromiseRef.current;
     const field =
       passwordMode === EPasswordMode.PASSWORD ? 'password' : 'passCode';
@@ -294,6 +309,7 @@ function PasswordVerify({
           ? await checkAuthChanged()
           : 'unchanged';
       if (
+        !getRequestedNativeStorageRecovery() &&
         result === 'unchanged' &&
         generation === biometricCheckGenerationRef.current &&
         mountedRef.current &&
@@ -319,6 +335,7 @@ function PasswordVerify({
       // bound to Google Password Manager, and sidepanel lacks the popup
       // focus-loss escape that lets users recover. See PR #11125.
       if (
+        !getRequestedNativeStorageRecovery() &&
         !platformEnv.isExtensionUiSidePanel &&
         isEnable &&
         !passwordInput &&
@@ -346,6 +363,7 @@ function PasswordVerify({
   // Perform biology verification upon returning to the backend after a 1-second interval.
   // Same sidepanel carve-out as the mount-time effect above.
   const onActive = useCallback(() => {
+    if (getRequestedNativeStorageRecovery()) return;
     const now = Date.now();
     if (now - lastTime.current > 1000) {
       lastTime.current = now;
@@ -446,6 +464,7 @@ function PasswordVerify({
 
   const onPassCodeComplete = useCallback(() => {
     setTimeout(() => {
+      if (getRequestedNativeStorageRecovery()) return;
       void form.handleSubmit(onInputPasswordAuth)();
     });
   }, [form, onInputPasswordAuth]);

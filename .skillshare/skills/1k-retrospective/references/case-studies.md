@@ -1072,6 +1072,13 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries �
 **Fix**: The canvas and the button hide the button on pointer leave unless the pointer moves between the two. It reads the native `relatedTarget`, because React's synthetic leave event reports `window` for nodes React does not manage.
 **Catchable by**: NEW — not covered (same pattern as the previous case: overlays above a canvas take its pointer events)
 
+## Case: Android Select trigger focused as a text input instead of opening (OK-65708)
+**Date**: 2026-10-27 | **Platforms**: Android (native `main` runtime); the fix is scoped to chart `SettingsSelect` triggers
+**Symptom**: In the native TradingView chart settings, tapping the Chart, Chart style or Price change colors select on Android put a text caret and selection handle in the trigger instead of opening the options.
+**Root Cause**: `SettingsSelect` passes an explicit `disabled={false}`. The default Select trigger renders a read-only `Input`, whose Tamagui `Group` forwards `disabled: false` to the inner TextInput, and `useInputProps` mapped it to `readOnly: false`. The native TextInput prefers a defined `readOnly` over `editable`, so Android's read-only `editable={false}` was overridden. RN Android hit testing only lets touches pass through disabled views, so the enabled EditText took the tap and the trigger never got `onPress`. Selects that omit `disabled` kept `readOnly` undefined and worked.
+**Fix**: On Android, `SettingsSelect` passes `disabled` only as `true` or `undefined`, preserving the default trigger's `editable={false}` when enabled. Disabled controls still receive `true`; other platforms keep their original props. Shared `Input` and `TextArea` behavior is unchanged. Verified all three chart selects and ordinary search input on an Android API 36 emulator.
+**Catchable by**: Section 8: Manual Verification (tap every Select on Android native); an explicit `false` overriding an omitted-prop default (`readOnly: false` beating `editable={false}`) is NEW — not covered
+
 ## Case: Mobile browser top chrome missed gradient pages and copied a button color (OK-65819)
 **Date**: 2026-10-28 | **Platforms**: iOS, Android (in-app browser; Android/iPad bottom bar follows the top color)
 **Symptom**: On Tinyman the header stayed white, and after scroll it turned the yellow of the "Go to Tinyman v2" button. Android's bottom bar copied that color.
@@ -1135,3 +1142,94 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries �
 **Root Cause**: The Skia port in #14075 laid out the two halves of the reference-line label with different vertical anchors. `createPriceAxisLabelPainter` centered the axis badge on its label Y (`y - labelHeight / 2`), but `drawReferenceTitle` placed the tag at `yAtValue(price) - labelHeight`, so its bottom edge touched the line. It also used the raw line position, so the tag did not follow the badge when `getPriceAxisLabels` nudged it away from the last-price badge.
 **Fix**: `drawReferenceTitle` takes the computed price-axis labels and centers the tag on `referenceLabelY` (falling back to the clamped line position), matching the axis badge. A unit test pins equal `y` and `height` for the tag and badge, both at rest and when nudged.
 **Catchable by**: NEW — when one visual element is drawn as several shapes (tag + axis badge), derive every shape's position from one shared anchor and assert their alignment in a scene test, especially when porting a renderer (web lightweight-charts → native Skia).
+
+## Case: Native chart settings button left fullscreen on mobile
+**Date**: 2026-11-02 | **Platforms**: iOS, Android (main UI runtime), mobile web (single runtime)
+**Symptom**: With a native chart fullscreen on mobile, the toolbar settings button sat right next to exit fullscreen, so a near miss left fullscreen (OK-65712). On Android and mobile web, pressing settings itself also left fullscreen.
+**Root Cause**: `TradingViewNativeContainer` hid only the in-chart settings button with `!isNativeChartFullscreen`. The toolbar placement built in `mobileSettingsControl` had no such check, so it kept rendering in fullscreen. Only iOS can push a modal over its fullscreen page; `pushTradingViewNativeFullscreenModal` returns `false` on Android and web, so those platforms fell through to `onBeforeOpenSettings`, which exited fullscreen before opening settings.
+**Fix**: Hide only the button inside the `mobileSettingsControl` wrapper while fullscreen, and remove `onBeforeOpenSettings`. The wrapper stays because a truthy control keeps the chart type and indicator actions out of the toolbar, and `mobileToolbarExtra` stays because it carries the mobile web fullscreen toggle. A `TradingViewNativeContainer` test pins the hidden button and the retained control and extras.
+**Catchable by**: NEW — when a control has several placements, apply its visibility rule to every placement, and check what else reads a prop's truthiness before clearing it. A workaround that leaves the current mode (such as exiting fullscreen to open a page) should be checked against the user's flow on each platform.
+
+## Case: Recipient pager selection echoed through native commands and initialPage
+**Date**: 2026-11-02 | **Platforms**: iOS, Android (main UI runtime and its per-view native pager instance; no bg state or cross-runtime deserialization)
+**Symptom**: On Android, swiping between recipient tabs left the segmented indicator partway between tabs. Removing the echoed page command also exposed an iOS path that reapplied the selected page and detached/rebuilt its scroll observation after each swipe.
+**Root Cause**: `onPageSelected` updated `activeTab`, which triggered `setPageWithoutAnimation` during Android settling and prematurely finished the transition. Once selection refs suppressed that command, the render-derived `initialPage` still changed with `activeTab`; iOS reset `_hasAppliedInitialPage` while no page command had been received and reapplied the page during layout. A pager mock checking only imperative calls missed this prop-driven path.
+**Fix**: Record native selections to skip echoed commands, and capture `initialPage` once per `RecipientQuickSelect` mount. Keep external tab/index changes on the existing imperative synchronization path. Extend the focus suite to check stable initial props and no echoed commands across repeated iOS/Android selections, external tab changes, visible-tab index changes, and fresh mount initialization.
+**Catchable by**: Section 4: Business Logic & Regression — when removing a native synchronization command, trace both imperative commands and changing props through each platform's native implementation; assert mount-only props remain stable and controlled external updates still synchronize.
+
+## Case: Home token rows painted blank balances on first mount while All Networks loaded (OK-66042)
+**Date**: 2026-11-02 | **Platforms**: Android, iOS (native `main` UI runtime; NativeList rows; no bg state or cross-runtime copy involved)
+**Symptom**: On Android the Home token list showed `--` for balance and value on freshly mounted rows until the All Networks refresh finished, which could take several seconds.
+**Root Cause**: `NativeTokenSelectorList` builds its native list snapshot from per-row fiat that `HomeTokenCellMirror` components report through a layout effect. On a row's first mount the snapshot is built in the same render, before the mirror has reported, so the row carries no fiat. The follow-up render that would have filled it was held off by the All Networks load.
+**Fix**: When a row's mirror has not reported yet, `NativeTokenSelectorList` reads the row's cells synchronously from the token-list context store (`readHomeCellValue`, same resolution as `useTokenFiat` / `useAggregateSubTokenFiatMap`), so the first snapshot already carries the fiat. A test renders a first-mount row with an empty mirror map and asserts the balance, value, and price columns.
+**Catchable by**: Section 4: Data flow end-to-end: API → state → UI — when a list snapshot depends on values reported by child effects, verify the first frame on a slow data path, not only the settled state.
+
+## Case: Home hide-value toggle lagged behind the background round trip (OK-66089)
+**Date**: 2026-11-02 | **Platforms**: Android, iOS, extension (split runtimes: `main` UI writes `settingsValuePersistAtom`, `bg` owns it and echoes the accepted value back; desktop/web single runtime unaffected)
+**Symptom**: Tapping the eye icon on Home took seconds to mask or unmask balances on Android while All Networks was refreshing.
+**Root Cause**: On split runtimes a UI-side atom `set` only proxies the write to bg and the UI repaints when bg's echo returns, so the toggle queued behind every other bg write already in flight. Review of the optimistic replacement found two follow-ups: an echo of an older write could flip the UI back after the user had already toggled again, and a bg rejection (Travel Mode blocks this atom) left the UI showing a value bg never accepted.
+**Fix**: `JotaiCrossAtom.setOptimistic` applies the value on the UI runtime first, then forwards it; `settingsValuePersistAtom` uses `deepCompare` so the equal echo is a no-op. `optimisticAtomWrites` tracks pending forwards per atom: while any are in flight, `wrapAtomPro` drops bg echoes that do not carry the newest local value, and a rejected forward restores the last value bg accepted before the error propagates. Tests cover reordered echoes and every mix of resolved and rejected writes.
+**Catchable by**: Section 5: No race conditions in async operations — for optimistic UI over a round trip, enumerate reordered echoes and rejected writes, not only the happy path; Section 1: Error cases handled.
+
+## Case: BTC history showed 0 for a transfer between the account's own addresses (OK-66077)
+**Date**: 2026-11-02 | **Platforms**: All (bg `VaultBase` history decoding for UTXO chains; the UI renders the decoded value)
+**Symptom**: Sending BTC from one of the account's addresses to another of its own fresh receive addresses produced a history row with amount 0.
+**Root Cause**: UTXO history rows render the server's `value`, which is the account's net change. When every input and output belongs to the account, the net is 0 even though an amount moved.
+**Fix**: `getUtxoHistoryDisplayValue` returns the sum of the owned outputs the server does not explicitly mark as change when the net value is 0 and both legs are the account's own; a change-only spend keeps the net value since it has no recipient. `VaultBase` uses it for `nativeAmount` and the action value. Unit tests cover the self-transfer, a non-zero value, an external leg, change-marked outputs, change-only outputs, and nothing to sum.
+**Catchable by**: Section 4: Business Logic & Regression — when displaying a server-aggregated field, test the degenerate input where the aggregation cancels out (self-transfer, round trip).
+
+## Case: Language picker modules missing native module IDs
+**Date**: 2026-11-02 | **Platforms**: iOS, Android (native union and production bundles)
+**Symptom**: Strict native bundling throws because SelectSearchableList.tsx, filterSelectItems.ts, localeSearch.ts, and translationKeys.ts are not in the module ID registry.
+**Root Cause**: The new language-picker files are imported by Select and the locale options, so they enter the native graph, but no stable IDs were committed.
+**Fix**: Register the four files in apps/mobile/bundle-registry/module-id-registry.json with the existing module ID allocator.
+**Catchable by**: Section 4: a new file that the native bundle imports must be added to module-id-registry.json before the release bundle runs.
+
+## Case: Wide iPad language search used the anchored layout inside a sheet
+**Date**: 2026-11-02 | **Platforms**: iPad Settings (native main UI). Phone sheets and triggered wide panels are unchanged.
+**Symptom**: On iPad Settings the language picker is a sheet, but the search field autofocused at the small size and the list used a fixed 360-point height, leaving empty sheet space.
+**Root Cause**: Search layout followed window width. iPad Settings clamps Tamagui `md`, so Select passes no popover trigger and the native popover stays a sheet even when the window is at least 768 points wide.
+**Fix**: Treat the search UI as a sheet unless a popover trigger exists and the window is expanded, matching native anchoring. Include that flag in the open content memo so a web resize does not keep the previous layout.
+**Catchable by**: Section 3: a layout mode must follow the presentation the host actually mounts, not only the window width; Section 4: logic moved into a memo must keep the condition that changes while the memo stays mounted.
+
+## Case: Mobile stock sharing used the selected token URL (OK-66105)
+**Date**: 2026-11-02 | **Platforms**: iOS/Android main UI runtime and compact Web/Desktop headers; verified on iOS and Desktop
+**Symptom**: Sharing a stock detail page produced `/market/token/bsc/<contract>` instead of `/market/stock/AAPL`, including chain parameters and tying the link to one token variant.
+**Root Cause**: The native share handler always built a token URL from the network and contract, and the compact header did not pass the listing stock ID to the existing stock-aware ShareButton. Sharing availability also depended on token metadata even when the stock identity was already known.
+**Fix**: Build the native stock link from the listing ID with the existing stock URL helper, pass that ID to the compact ShareButton, and allow sharing before token metadata resolves. Preserve ordinary token sharing. Regression tests cover iOS 26, other native headers, and compact Web headers before and after token resolution; real Desktop and iOS clipboard checks confirmed stock URLs.
+**Catchable by**: Section 4: Data flow end-to-end: API → state → UI — distinguish a stock listing identity from its selected token variant; Section 6: Verify the actual shared URL before and after asynchronous token metadata resolves, including ordinary-token regression cases.
+
+## Case: Stock detail charts mounted with a temporary Token Price default (OK-66069)
+**Date**: 2026-11-02 | **Platforms**: Desktop/Web single JS runtime and iOS/Android main UI runtime; verified on Desktop and iOS; no native resource ownership changes
+**Symptom**: On a cold stock detail entry, the page first showed Token Price and then switched to Share Price. On iOS, the price buttons could remain correctly unselected while the Simple chart still loaded token data before redrawing with share data.
+**Root Cause**: The shared price-source state temporarily returned token mode while the stock status request was pending and already exposed `isPriceSourceReady`. Desktop price/chart content and mobile Simple/Pro chart owners ignored that readiness flag. Guarding only the mobile price header did not prevent chart children from mounting with the temporary source. On native, this readiness belongs to the main UI runtime while responses arrive asynchronously from the isolated bg runtime.
+**Fix**: Wait for price-source readiness before mounting desktop price/chart content or either mobile chart mode, reserve a loading area, and keep mobile token chart price updates inactive during the wait. Preserve the existing resolved market defaults, error fallback, and manual selections. Tests cover open, closed, and failed responses across Simple, native Pro, and WebView Pro paths; delayed real responses on Desktop and iOS confirmed the first mounted chart used Share Price.
+**Catchable by**: Section 4: Shared hook/utility modified → checked all consumers; Section 5: Distinguish unresolved asynchronous state from a valid default; Section 6: Assert that dependent charts do not mount before readiness, then mount with the resolved source; Section 8: Verify cold-cache transitions on the real platforms, including both mobile chart modes.
+
+## Case: Referral reward scopes silent on wide native
+**Date**: 2026-11-02 | **Platforms**: iOS, Android (main UI runtime; wide layout when `gtMd` is true, including tablets)
+**Symptom**: On a wide native device, tapping "Learn more" on the empty referral earnings card and the product-row info icons did nothing. The server-provided reward scope descriptions never appeared.
+**Root Cause**: Both entry points render `Tooltip` when `gtMd` is true. Native `Tooltip` returns only `renderTrigger` and never shows `renderContent`, so the descriptions were unreachable on tablets and other wide native layouts. Narrow native already used `Popover`.
+**Fix**: Use `Popover` on native at every width for the Learn more hint and for `InfoIcon` (product-row icons and the other info icons that share it). Web and desktop wide layouts still use `Tooltip`. Regression tests cover native and non-native, wide and compact, for both entry points.
+**Catchable by**: Section 3: Cross-Platform Impact — a `gtMd` Tooltip branch must be checked against the native Tooltip implementation, which does not display content.
+
+## Case: Language search pulled the translations enum into the web startup graph
+**Date**: 2026-11-02 | **Platforms**: Web (single JS runtime, cold startup graph). Desktop, extension, and native bundles do not use this forbidden-module check.
+**Symptom**: The Web CI job failed because `packages/shared/src/locale/enum/translations.ts` was in the cold startup graph.
+**Root Cause**: Select's search filter imported `localeSearch.ts`, and the web locale barrel re-exported that module plus `isKnownTranslationKey`. `isKnownTranslationKey` calls `Object.values(ETranslations)`, which the web inline-translations transform cannot erase. The error toast container is mounted at startup and was that call's sync importer.
+**Fix**: Move text normalization into `normalizeSearchText.ts` and point Select at that file. Stop re-exporting `localeSearch` and `isKnownTranslationKey` from the web locale barrel. The startup toast checks the active catalog instead of the enum. Register `normalizeSearchText.ts` for the native bundle.
+**Catchable by**: Section 3: a module imported by startup UI must not import `translations.ts` unless every member access is a static `ETranslations.*` that the web inline transform removes; Section 4: a new shared helper used by Select or the app shell has to be checked against the web startup graph, not only the screen that owns the feature.
+
+## Case: Cancelled biometric backup enrollment could never retry (OK-65971)
+**Date**: 2026-11-03 | **Platforms**: iOS, Android (bg owns the cache and mutex; main calls the background proxy from a separate JS runtime; native SecureStore resources are shared)
+**Symptom**: Cancelling biometric enrollment during backup or first restore left that record on password-only recovery, even after a later correct-password restore.
+**Root Cause**: The cache journals a key reference before authenticated native creation. Cancellation leaves a pending entry without ciphertext; reads ignore it, while the old write path rejected every existing entry. Rotating the service on each retry would also accumulate Android Keystore wrapping aliases because Expo value deletion retains those aliases.
+**Fix**: Retry only pending entries after verified backup or manual decryption. Under the existing mutex, reject shared references, remove the old protected value, verify persistence, retain its dedicated authenticated service, and write fresh random recovery-key material. Preserve complete pairings and reset/erasure barriers. Regression tests cover cancellation, cold retries, correct-password boundaries, persistence failures, isolation, concurrency, and bounded service aliases; native device acceptance remains required.
+**Catchable by**: Section 4: Business Logic & Regression — distinguish interrupted journals from complete records and trace native resource deletion semantics; Section 5: No race conditions in async operations; Section 6: Cover cancellation, cold retry, persistence failure, and reset ordering.
+
+## Case: Portfolio sync silently stopped after a hardware mnemonic change
+**Date**: 2026-11-04 | **Platforms**: iOS, Android, extension (identity state and sync generation belong to bg; main invokes the service across isolated JS heaps); desktop and web use a single JS runtime
+**Symptom**: After resetting a hardware wallet and importing a different mnemonic without recreating its App wallet, manual Portfolio sync stopped without an error.
+**Root Cause**: The device identity event recorded a target-specific mismatch and invalidated the sync generation before the task could return its mismatch result. The interactive wrapper converted the resulting undefined value to false.
+**Fix**: Preserve the target-specific mismatch as DeviceNotSame when the task returns undefined, after honoring explicit user cancellation. Regression tests cover identity changes during unlock, package preparation, and the final identity check; upload remains blocked.
+**Catchable by**: Section 5: No race conditions in async operations; Section 6: A bug fix includes regression tests for event-driven cancellation and user-visible errors.

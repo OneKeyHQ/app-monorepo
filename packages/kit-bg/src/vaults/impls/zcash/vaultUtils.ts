@@ -107,8 +107,14 @@ export const ZCASH_SETUP_INCOMPLETE = 'zcashSetupIncomplete';
 export function zcashSpendSourceFromKey(
   key: string | undefined,
 ): IZcashSpendSource | undefined {
-  if (key === 'orchard' || key === 'ironwood') {
+  if (key === 'ironwood') {
     return key;
+  }
+  if (key !== undefined) {
+    throw zcashTransparentError(
+      'UNSUPPORTED_SHIELDED_POOL',
+      'Only Ironwood private funds are supported',
+    );
   }
   return undefined;
 }

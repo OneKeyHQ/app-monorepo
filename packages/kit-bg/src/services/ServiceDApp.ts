@@ -43,6 +43,7 @@ import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { ensureSerializable } from '@onekeyhq/shared/src/utils/assertUtils';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import extUtils from '@onekeyhq/shared/src/utils/extUtils';
+import { assertNoHardwareCloudSyncSigningRequest } from '@onekeyhq/shared/src/utils/hardwareCloudSyncGuards';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { buildModalRouteParams } from '@onekeyhq/shared/src/utils/routeUtils';
@@ -675,6 +676,8 @@ class ServiceDApp extends ServiceBase {
     if (!accountId || !networkId) {
       throw new OneKeyLocalError('accountId and networkId required');
     }
+    if (networkUtils.isBTCNetwork(networkId) && 'message' in unsignedMessage)
+      assertNoHardwareCloudSyncSigningRequest(unsignedMessage.message);
     return this.openModal({
       request,
       screens: [
@@ -2091,18 +2094,58 @@ class ServiceDApp extends ServiceBase {
     const privateProvider = this.backgroundApi.providers.$private as
       | ProviderApiPrivate
       | undefined;
+    const ready = privateProvider?.getWebEmbedApiReadyState().ready;
     defaultLogger.app.webembed.privateProviderStatus({
       init: Boolean(privateProvider),
-      isWebEmbedApiReady: privateProvider?.isWebEmbedApiReady,
+      isWebEmbedApiReady: ready,
     });
-    return Promise.resolve(privateProvider?.isWebEmbedApiReady);
+    return Promise.resolve(ready);
   }
 
-  // Flip BG's canonical `isWebEmbedApiReady` back to false when the WebView
-  // host tears down. Without this, the flag stays sticky-true from the first
-  // mount, and `checkBackgroundWebEmbedReady` on the main thread can promote a
-  // stale BG ready into the next mount before that page has actually replayed
-  // its `webEmbedApiReady` handshake.
+  @backgroundMethod()
+  reserveWebEmbedRequest(requestId: string) {
+    const privateProvider = this.backgroundApi.providers.$private as
+      | ProviderApiPrivate
+      | undefined;
+    return Promise.resolve(
+      privateProvider?.reserveWebEmbedRequest(requestId) ?? { ready: false },
+    );
+  }
+
+  @backgroundMethod()
+  activateWebEmbedMount(params: {
+    mountId: string;
+    mountSequence: number;
+    requestId?: string;
+  }) {
+    const privateProvider = this.backgroundApi.providers.$private as
+      | ProviderApiPrivate
+      | undefined;
+    return Promise.resolve(
+      privateProvider?.activateWebEmbedMount(params) ?? false,
+    );
+  }
+
+  @backgroundMethod()
+  deactivateWebEmbedMount(mountId: string) {
+    const privateProvider = this.backgroundApi.providers.$private as
+      | ProviderApiPrivate
+      | undefined;
+    privateProvider?.deactivateWebEmbedMount(mountId);
+    return Promise.resolve();
+  }
+
+  @backgroundMethod()
+  getWebEmbedApiReadyState() {
+    const privateProvider = this.backgroundApi.providers.$private as
+      | ProviderApiPrivate
+      | undefined;
+    return Promise.resolve(
+      privateProvider?.getWebEmbedApiReadyState() ?? { ready: false },
+    );
+  }
+
+  // Legacy hosts may reset readiness when no owned API mount is active.
   @backgroundMethod()
   markWebEmbedApiNotReady() {
     const privateProvider = this.backgroundApi.providers.$private as

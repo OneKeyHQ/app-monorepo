@@ -232,6 +232,47 @@ describe('web-embed-prebundle', () => {
     expect(getInputKey(options)).not.toBe(inputKey);
   });
 
+  it('hashes canonical icons and the compiler without requiring generated output or host bindings', () => {
+    const canonical = path.join(
+      temporaryDirectory,
+      'packages/components/svg/outline/probe.svg',
+    );
+    const compiler = path.join(
+      temporaryDirectory,
+      'development/onekey-icons/generate-icons.mjs',
+    );
+    fs.mkdirSync(path.dirname(canonical), { recursive: true });
+    fs.mkdirSync(path.dirname(compiler), { recursive: true });
+    fs.writeFileSync(canonical, '<svg/>');
+    fs.writeFileSync(compiler, "import './missing-host-binding.node';\n");
+    fs.writeFileSync(
+      path.join(temporaryDirectory, 'entry.js'),
+      "import '#onekey-icon-assets';\n",
+    );
+    fs.writeFileSync(path.join(temporaryDirectory, 'yarn.lock'), '');
+    const options = {
+      inputPaths: [
+        'entry.js',
+        'packages/components/svg',
+        'development/onekey-icons',
+      ],
+      resolveOptions: {
+        alias: {},
+        extensions: ['.js', '.mjs'],
+        mainFields: ['main'],
+      },
+      root: temporaryDirectory,
+      traceDependencies: true,
+      inputCache: false,
+    };
+    const first = getInputKey(options);
+    fs.appendFileSync(canonical, '\n');
+    const second = getInputKey(options);
+    expect(second).not.toBe(first);
+    fs.appendFileSync(compiler, '// compiler change\n');
+    expect(getInputKey(options)).not.toBe(second);
+  });
+
   it('hashes browser fallbacks that replace imported Node built-ins', () => {
     const inputPath = path.join(temporaryDirectory, 'input.js');
     const fallbackPath = path.join(temporaryDirectory, 'crypto-fallback.js');
