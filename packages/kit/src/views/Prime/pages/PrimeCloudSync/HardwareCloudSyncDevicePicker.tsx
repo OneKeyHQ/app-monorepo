@@ -44,7 +44,11 @@ export function HardwareCloudSyncDevicePicker({
     [onPick],
   );
   return (
-    <YStack gap="$5">
+    <YStack
+      testID="hardware-cloud-sync-device-picker"
+      collapsable={false}
+      gap="$4"
+    >
       <ConnectDeviceChannels
         deviceTypeItems={ANY_DEVICE_TYPE}
         connectDevice={connectDevice}

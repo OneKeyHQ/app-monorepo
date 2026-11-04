@@ -1,9 +1,12 @@
 import { createHash } from 'crypto';
 
+import { HardwareErrorCode } from '@onekeyfe/hd-shared';
+
 import {
   HARDWARE_CLOUD_SYNC_AUTH_PATH,
   HARDWARE_CLOUD_SYNC_PATH,
 } from '@onekeyhq/shared/src/consts/hardwareCloudSyncConsts';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { deriveHardwareCloudSyncKek } from './hardwareCloudSyncCredential';
@@ -11,6 +14,11 @@ import { generateHardwareCloudSyncCredentialWithSdk } from './hardwareCloudSyncS
 
 import type { IHardwareCloudKeyUnlock } from './hardwareCloudSyncCredential';
 import type { IBackgroundApi } from '../../apis/IBackgroundApi';
+import type { Success, Unsuccessful } from '@onekeyfe/hd-core';
+
+jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
+  defaultLogger: { app: { error: { log: jest.fn() } } },
+}));
 
 jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
   __esModule: true,
@@ -71,14 +79,23 @@ const unlock: IHardwareCloudKeyUnlock = async (device) => {
 
 function buildBackgroundApi() {
   const sdk = {
-    openWalletSession: jest.fn(async () => ({
-      success: true,
-      payload: {
-        walletType: 'standard',
-        deviceId: 'test-device',
-        passphraseState: null as string | null,
-      },
-    })),
+    openWalletSession: jest.fn(
+      async (): Promise<
+        | Success<{
+            walletType: string;
+            deviceId: string;
+            passphraseState: string | null;
+          }>
+        | Unsuccessful
+      > => ({
+        success: true,
+        payload: {
+          walletType: 'standard',
+          deviceId: 'test-device',
+          passphraseState: null as string | null,
+        },
+      }),
+    ),
     btcGetPublicKey: jest.fn(async () => ({
       success: true,
       payload: { node: { public_key: 'synthetic-test-public-key' } },
@@ -247,7 +264,7 @@ describe('hardware Cloud SDK adapter', () => {
           connectId: 'test-connect',
           isCurrent: () => true,
         }),
-      ).rejects.toThrow('Hardware Cloud key could not be unlocked');
+      ).rejects.toThrow("Couldn't get the encryption key");
       expect(sdk.btcSignMessage).not.toHaveBeenCalled();
     },
   );
@@ -269,7 +286,7 @@ describe('hardware Cloud SDK adapter', () => {
         connectId: 'test-connect',
         isCurrent: () => true,
       }),
-    ).rejects.toThrow('Hardware Cloud key could not be unlocked');
+    ).rejects.toThrow("Couldn't get the encryption key");
     expect(sdk.btcSignMessage).not.toHaveBeenCalled();
   });
 
@@ -285,7 +302,7 @@ describe('hardware Cloud SDK adapter', () => {
         connectId: 'test-connect',
         isCurrent: () => true,
       }),
-    ).rejects.toThrow('Hardware Cloud key could not be unlocked');
+    ).rejects.toThrow("Couldn't get the encryption key");
     expect(sdk.btcSignMessage).not.toHaveBeenCalled();
   });
 
@@ -349,7 +366,7 @@ describe('hardware Cloud SDK adapter', () => {
         connectId: 'test-connect',
         isCurrent: () => true,
       }),
-    ).rejects.toThrow('Hardware Cloud key could not be unlocked');
+    ).rejects.toThrow("Couldn't get the encryption key");
   });
 
   test('does not return SDK request/response data on cancellation', async () => {
@@ -365,8 +382,41 @@ describe('hardware Cloud SDK adapter', () => {
         connectId: 'test-connect',
         isCurrent: () => true,
       }),
-    ).rejects.toThrow('Hardware Cloud key could not be unlocked');
+    ).rejects.toThrow("Couldn't get the encryption key");
   });
+
+  test.each([
+    [
+      HardwareErrorCode.ActionCancelled,
+      ETranslations.hardware_user_cancel_error,
+    ],
+    [
+      HardwareErrorCode.CallQueueActionCancelled,
+      ETranslations.hardware_user_cancel_error,
+    ],
+    [
+      HardwareErrorCode.PinCancelled,
+      ETranslations.feedback_pin_verification_cancelled,
+    ],
+  ] as const)(
+    'preserves the cancellation message for SDK code %s',
+    async (code, key) => {
+      const { backgroundApi, sdk } = buildBackgroundApi();
+      sdk.openWalletSession.mockResolvedValueOnce({
+        success: false,
+        payload: { code, error: 'synthetic-private-device-detail' },
+      });
+      const operation = generateHardwareCloudSyncCredentialWithSdk({
+        unlock,
+        backgroundApi,
+        connectId: 'test-connect',
+        isCurrent: () => true,
+      });
+      await expect(operation).rejects.toMatchObject({ key });
+      await expect(operation).rejects.toHaveProperty('payload', undefined);
+      expect(sdk.btcSignMessage).not.toHaveBeenCalled();
+    },
+  );
 
   test('Cancel aborts the hardware lease and the in-flight SDK request', async () => {
     const { backgroundApi, sdk, hardware, ui, lease } = buildBackgroundApi();
@@ -390,7 +440,7 @@ describe('hardware Cloud SDK adapter', () => {
         isCurrent: () => true,
         onDeviceCancelChange: (cancel) => cancelCallbacks.push(cancel),
       }),
-    ).rejects.toThrow('Hardware Cloud key could not be unlocked');
+    ).rejects.toThrow('Operation canceled');
     expect(
       ui.hardwareProcessingManager.cancelOneKeyOperation,
     ).toHaveBeenCalledWith(lease);
@@ -426,7 +476,7 @@ describe('hardware Cloud SDK adapter', () => {
         connectId: 'test-connect',
         isCurrent: () => false,
       }),
-    ).rejects.toThrow('Hardware Cloud key could not be unlocked');
+    ).rejects.toThrow('Operation canceled');
     expect(sdk.openWalletSession).not.toHaveBeenCalled();
   });
 
@@ -445,7 +495,9 @@ describe('hardware Cloud SDK adapter', () => {
           connectId: 'test-connect',
           isCurrent: () => true,
         }),
-      ).rejects.toThrow('not available here');
+      ).rejects.toMatchObject({
+        key: ETranslations.cloud_sync_hardware_unavailable__msg,
+      });
       expect(sdk.openWalletSession).not.toHaveBeenCalled();
     } finally {
       Object.defineProperty(platformEnv, 'isDesktop', {
@@ -455,9 +507,10 @@ describe('hardware Cloud SDK adapter', () => {
     }
   });
 
-  test('extension generation stays blocked while its embedded SDK lacks log redaction', async () => {
-    const { backgroundApi, sdk } = buildBackgroundApi();
+  test('extension generation uses the protected standard-wallet session', async () => {
+    const { backgroundApi, sdk, hardware } = buildBackgroundApi();
     const extension = jest.replaceProperty(platformEnv, 'isExtension', true);
+    const desktop = jest.replaceProperty(platformEnv, 'isDesktop', false);
     try {
       await expect(
         generateHardwareCloudSyncCredentialWithSdk({
@@ -466,10 +519,16 @@ describe('hardware Cloud SDK adapter', () => {
           connectId: 'test-connect',
           isCurrent: () => true,
         }),
-      ).rejects.toThrow('not available here');
-      expect(sdk.openWalletSession).not.toHaveBeenCalled();
+      ).resolves.toEqual(
+        expect.objectContaining({ credential: expect.any(Object) }),
+      );
+      expect(sdk.openWalletSession).toHaveBeenCalledWith('test-connect', {
+        mode: 'standard',
+      });
+      expect(hardware.runWithSensitiveCloudKeyOperation).toHaveBeenCalled();
     } finally {
       extension.restore();
+      desktop.restore();
     }
   });
 
@@ -522,13 +581,15 @@ describe('hardware Cloud SDK adapter', () => {
         connectId: 'test-connect',
         isCurrent: () => true,
       }),
-    ).rejects.toThrow('Hardware Cloud key could not be unlocked');
+    ).rejects.toMatchObject({
+      key: ETranslations.cloud_sync_data_unreadable__msg,
+    });
     expect(sdk.btcSignMessage).not.toHaveBeenCalled();
   });
 
   test("passes the caller's own errors through unchanged", async () => {
     const { backgroundApi } = buildBackgroundApi();
-    const serverError = new Error('Cloud sync key changed. Sync again first.');
+    const serverError = new Error('Encryption key changed. Sync again.');
     await expect(
       generateHardwareCloudSyncCredentialWithSdk({
         unlock: async () => {

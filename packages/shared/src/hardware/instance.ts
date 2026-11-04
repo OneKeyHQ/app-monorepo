@@ -23,6 +23,9 @@ let HardwareSDK: CoreApi;
 let HardwareLowLevelSDK: LowLevelCoreApi;
 
 export const generateConnectSrc = () => {
+  if (platformEnv.isExtension) {
+    return chrome.runtime.getURL('hardware-sdk/');
+  }
   const connectSrc = `${HARDWARE_SDK_IFRAME_SRC_ONEKEYSO}/${HARDWARE_SDK_VERSION}/`;
   return connectSrc;
 };
