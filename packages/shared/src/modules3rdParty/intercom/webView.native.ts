@@ -1,8 +1,9 @@
 import openUrlUtils from '../../utils/openUrlUtils';
 
+import { EIntercomBridge, INTERCOM_SUPPORT_URL } from './bridge';
 import {
   assertIntercomUserUnchanged,
-  getCurrentIntercomIdentity,
+  getCurrentIntercomUserId,
 } from './identity';
 import {
   type IShowIntercomParams,
@@ -15,16 +16,14 @@ export const showIntercom = async (
   params?: IShowIntercomParams,
   canPresent: (userId: string | null) => boolean = () => true,
 ): Promise<boolean> => {
-  const { userId, token } = await getCurrentIntercomIdentity();
+  const userId = await getCurrentIntercomUserId();
   const [instanceId, languageOverride] = await Promise.all([
     getInstanceId(),
     getIntercomLanguageOverride(),
   ]);
 
-  const supportUrl = 'https://intercom.onekey.so/';
-
-  const url = buildIntercomUrl(supportUrl, {
-    token,
+  const url = buildIntercomUrl(INTERCOM_SUPPORT_URL, {
+    bridge: EIntercomBridge.Injected,
     instanceId,
     requestId: params?.requestId,
     languageOverride,

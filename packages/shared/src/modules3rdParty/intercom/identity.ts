@@ -38,25 +38,24 @@ function throwIntercomUserChanged(): never {
   throw new OneKeyLocalError('Intercom user changed; please try again');
 }
 
-// Fallback URLs carry the token, so callers keep the expected user and
-// re-check it with assertIntercomUserUnchanged right before opening.
-export async function getCurrentIntercomIdentity(): Promise<{
-  userId: string | null;
-  token?: string;
-}> {
-  const userId = await getCurrentIntercomUserId();
+export async function assertIntercomUserUnchanged(userId: string | null) {
+  if ((await getCurrentIntercomUserId()) !== userId) {
+    throwIntercomUserChanged();
+  }
+}
+
+// Fetched per page load, so a reloaded support page gets a fresh token and a
+// session opened for one user can never receive another user's.
+export async function getIntercomSessionToken(
+  userId: string | null,
+): Promise<string | undefined> {
   if (userId === null) {
-    return { userId };
+    await assertIntercomUserUnchanged(userId);
+    return undefined;
   }
   const credentials = await getIntercomCredentials(userId);
   if (!credentials) {
     throwIntercomUserChanged();
   }
-  return { userId, token: credentials.token };
-}
-
-export async function assertIntercomUserUnchanged(userId: string | null) {
-  if ((await getCurrentIntercomUserId()) !== userId) {
-    throwIntercomUserChanged();
-  }
+  return credentials.token;
 }

@@ -171,3 +171,6 @@ apps/mobile/android/app/src/main/assets/modules.json
 development/scripts/.windows-perf.env
 /apps/web/out-dir-analysis
 /apps/desktop/out-dir-analysis
+
+# App-owned SVG build resources
+/development/generated/onekey-icons/
