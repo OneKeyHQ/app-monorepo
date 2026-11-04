@@ -4,10 +4,9 @@ import platformEnv from '../platformEnv';
 // These values are part of the recoverable key derivation contract. Changing
 // any byte requires an explicit version and migration, not a copy update.
 export const HARDWARE_CLOUD_SYNC_DERIVATION_VERSION = 1;
-// BIP44 Legacy shape, so the device accepts it under default safety checks
-// (OneKey Pro 2 firmware 1.0.3; other models are checked during hardware
-// acceptance). Its account and address indexes are far beyond the accounts the
-// App creates, so the key does not land on a user's account.
+// Accepted with default safety checks on OneKey Pro 2 firmware 1.0.3.
+// Classic 1S firmware limits the address index to 1,000,000 and rejects this
+// path. Changing this recoverable key contract requires a version/migration.
 export const HARDWARE_CLOUD_SYNC_PATH = "m/44'/0'/924823361'/1/835069775";
 export const HARDWARE_CLOUD_SYNC_MESSAGE_PREFIX =
   'WARNING: Unlock ALL OneKey Cloud data. Sign ONLY in OneKey App, never in other apps or dApps.\nOneKey Cloud Key v1\nStandard wallet: ';
