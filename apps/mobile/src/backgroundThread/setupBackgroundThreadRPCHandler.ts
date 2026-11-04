@@ -4,6 +4,7 @@ import {
   getSharedStore,
 } from '@onekeyfe/react-native-background-thread';
 
+import appGlobals from '@onekeyhq/shared/src/appGlobals';
 import { XMR_SYNC_WATCHDOG_MS } from '@onekeyhq/shared/src/config/xmr';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { toPlainErrorObject } from '@onekeyhq/shared/src/errors/utils/errorUtils';
@@ -483,7 +484,76 @@ function sendBridgeMessageFromBgToUi(
   return true;
 }
 
+let webEmbedRuntimeProbeSequence = 0;
+let pendingWebEmbedRuntimeProbe: string | undefined;
+
+function adoptWebEmbedMainRuntime(mainRuntimeId: string | undefined) {
+  if (!mainRuntimeId) return;
+  const state = (appGlobals.$$webEmbedMainRuntime ??= {
+    retiredRuntimeIds: new Set<string>(),
+  });
+  if (state.retiredRuntimeIds.has(mainRuntimeId)) return;
+  // A native capability confirmation also invalidates proofs for the same current epoch.
+  pendingWebEmbedRuntimeProbe = undefined;
+  if (state.currentRuntimeId === mainRuntimeId) return;
+  if (state.currentRuntimeId) {
+    state.retiredRuntimeIds.add(state.currentRuntimeId);
+    state.pendingMountRuntimeIds?.delete(state.currentRuntimeId);
+  }
+  state.currentRuntimeId = mainRuntimeId;
+  if (state.pendingMountRuntimeIds?.delete(mainRuntimeId)) {
+    // The first host cached a rejected activation. Replace it only after its epoch is trusted.
+    void appEventBus.emit(EAppEventBusNames.LoadWebEmbedWebView, undefined);
+  }
+}
+
 function handleAppEventRequest(request: IBackgroundThreadAppEventRequest) {
+  if (request.eventName === EAppEventBusNames.WebEmbedWebViewProviderReady) {
+    const payload = request.payload as
+      | { mainRuntimeId?: unknown; probeId?: unknown }
+      | undefined;
+    const runtimeId = payload?.mainRuntimeId;
+    const state = appGlobals.$$webEmbedMainRuntime;
+    const isEligibleRuntime =
+      request.originNodeId &&
+      typeof runtimeId === 'string' &&
+      runtimeId &&
+      !state?.retiredRuntimeIds.has(runtimeId);
+    if (payload?.probeId !== undefined) {
+      if (
+        isEligibleRuntime &&
+        typeof payload.probeId === 'string' &&
+        payload.probeId === pendingWebEmbedRuntimeProbe
+      ) {
+        adoptWebEmbedMainRuntime(runtimeId);
+      }
+      // Proof is not a new subscription: do not replay pending bootstrap requests.
+      return true;
+    }
+    if (isEligibleRuntime && runtimeId !== state?.currentRuntimeId) {
+      let advertisedRuntimeId: string | undefined;
+      try {
+        const advertised = parseBackgroundThreadMainCapabilitiesPayload(
+          getSharedStore()?.get(BACKGROUND_THREAD_MAIN_CAPABILITIES_KEY),
+        )?.mainRuntimeId;
+        if (typeof advertised === 'string') advertisedRuntimeId = advertised;
+      } catch {
+        // The live provider can prove its identity when no advertisement is readable.
+      }
+      if (
+        advertisedRuntimeId === runtimeId ||
+        (!advertisedRuntimeId && !state?.currentRuntimeId)
+      ) {
+        adoptWebEmbedMainRuntime(runtimeId);
+      } else if (!advertisedRuntimeId) {
+        webEmbedRuntimeProbeSequence += 1;
+        pendingWebEmbedRuntimeProbe = `${getBackgroundThreadBootId()}-${webEmbedRuntimeProbeSequence}`;
+        void appEventBus.emit(EAppEventBusNames.WebEmbedWebViewRuntimeProbe, {
+          probeId: pendingWebEmbedRuntimeProbe,
+        });
+      }
+    }
+  }
   if (!request.originNodeId) {
     // Symmetric with BackgroundApi.emitEvent: warn loudly so a bridge
     // regression that drops originNodeId surfaces here too. Routing keeps
@@ -660,6 +730,9 @@ function applyMainCapabilities() {
     // BACKGROUND_THREAD_MAIN_CAPABILITIES_WAKE_KEY. Re-reading is idempotent.
     const raw = sharedStore.get(BACKGROUND_THREAD_MAIN_CAPABILITIES_KEY);
     const payload = parseBackgroundThreadMainCapabilitiesPayload(raw);
+    if (typeof payload?.mainRuntimeId === 'string') {
+      adoptWebEmbedMainRuntime(payload.mainRuntimeId);
+    }
     // Reflect main's currently advertised capability (bidirectional). Don't
     // latch — an OTA rollback can drop batch support and we must follow it
     // back down to the legacy path on the very next capability read.
