@@ -173,9 +173,16 @@ class ProviderApiStellar extends ProviderApiBase {
       throw web3Errors.rpc.invalidParams('Transaction XDR is required');
     }
 
-    const { accountInfo: { accountId, networkId, address } = {} } = (
+    const { account, accountInfo: { accountId, networkId } = {} } = (
       await this.getAccountsInfo(request)
     )[0];
+    const address = account.address;
+    if (params.address !== undefined) {
+      this.assertAccountAddress(account, params.address);
+    }
+    if (params.path !== undefined && params.path !== account.path) {
+      throw web3Errors.provider.unauthorized();
+    }
 
     // Get network passphrase from params or derive from Vault context
     let resolvedNetworkPassphrase = networkPassphrase;
@@ -276,9 +283,16 @@ class ProviderApiStellar extends ProviderApiBase {
       throw web3Errors.rpc.invalidParams('Message is required');
     }
 
-    const { accountInfo: { accountId, networkId, address } = {} } = (
+    const { account, accountInfo: { accountId, networkId } = {} } = (
       await this.getAccountsInfo(request)
     )[0];
+    const address = account.address;
+    if (params.address !== undefined) {
+      this.assertAccountAddress(account, params.address);
+    }
+    if (params.path !== undefined && params.path !== account.path) {
+      throw web3Errors.provider.unauthorized();
+    }
 
     const result = (await this.backgroundApi.serviceDApp.openSignMessageModal({
       request,

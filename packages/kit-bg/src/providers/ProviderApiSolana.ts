@@ -1,6 +1,7 @@
 /* eslint-disable camelcase */
 import { web3Errors } from '@onekeyfe/cross-inpage-provider-errors';
 import { IInjectedProviderNames } from '@onekeyfe/cross-inpage-provider-types';
+import { VersionedTransaction } from '@solana/web3.js';
 import bs58 from 'bs58';
 import { isArray } from 'lodash';
 import isString from 'lodash/isString';
@@ -9,12 +10,15 @@ import {
   OffchainMessage,
   classifyOffchainMessageVersion,
 } from '@onekeyhq/core/src/chains/sol/sdkSol/OffchainMessage';
+import { parseToNativeTx } from '@onekeyhq/core/src/chains/sol/sdkSol/parse';
 import {
   backgroundClass,
   providerApiMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import type { INetworkAccount } from '@onekeyhq/shared/types/account';
+import type { IConnectedAccountInfo } from '@onekeyhq/shared/types/dappConnection';
 import {
   EMessageTypesCommon,
   EMessageTypesSolana,
@@ -172,20 +176,53 @@ class ProviderApiSolana extends ProviderApiBase {
     params: { message: string },
   ) {
     defaultLogger.discovery.dapp.dappRequest({ request });
-    const { accountInfo: { accountId, networkId } = {} } = (
-      await this.getAccountsInfo(request)
-    )[0];
+    const connectedAccount = (await this.getAccountsInfo(request))[0];
 
     if (typeof params.message !== 'string') {
       throw web3Errors.rpc.invalidInput();
     }
+    this.assertTransactionAccount(connectedAccount.account, params.message);
+    return this.signTransactionForAccount(
+      request,
+      params.message,
+      connectedAccount,
+    );
+  }
+
+  private assertTransactionAccount(
+    account: INetworkAccount,
+    encodedTx: string,
+  ) {
+    const transaction = parseToNativeTx(encodedTx);
+    if (!transaction) {
+      throw web3Errors.rpc.invalidParams('Invalid transaction');
+    }
+    const message =
+      transaction instanceof VersionedTransaction
+        ? transaction.message
+        : transaction.compileMessage();
+    const signers = message.staticAccountKeys.slice(
+      0,
+      message.header.numRequiredSignatures,
+    );
+    if (!signers.some((key) => key.toBase58() === account.address)) {
+      throw web3Errors.provider.unauthorized();
+    }
+  }
+
+  private async signTransactionForAccount(
+    request: IJsBridgeMessagePayload,
+    message: string,
+    connectedAccount: IConnectedAccountInfo,
+  ) {
+    const { account, accountInfo: { networkId } = {} } = connectedAccount;
 
     const rawTx =
       await this.backgroundApi.serviceDApp.openSignAndSendTransactionModal({
-        accountId: accountId ?? '',
+        accountId: account.id,
         networkId: networkId ?? '',
         request,
-        encodedTx: params.message,
+        encodedTx: message,
         signOnly: true,
       });
     // Signed transaction is base64 encoded, inpage provider expects base58.
@@ -210,9 +247,17 @@ class ProviderApiSolana extends ProviderApiBase {
 
     console.log('solana signAllTransactions', request, params);
 
+    const connectedAccount = (await this.getAccountsInfo(request))[0];
+    for (const tx of txsToBeSigned) {
+      this.assertTransactionAccount(connectedAccount.account, tx);
+    }
     const ret: string[] = [];
     for (const tx of txsToBeSigned) {
-      const signedTx = await this.signTransaction(request, { message: tx });
+      const signedTx = await this.signTransactionForAccount(
+        request,
+        tx,
+        connectedAccount,
+      );
       ret.push(signedTx);
     }
     return ret;
@@ -230,9 +275,10 @@ class ProviderApiSolana extends ProviderApiBase {
       throw web3Errors.rpc.invalidInput();
     }
 
-    const { accountInfo: { accountId, networkId, address } = {} } = (
+    const { account, accountInfo: { accountId, networkId, address } = {} } = (
       await this.getAccountsInfo(request)
     )[0];
+    this.assertTransactionAccount(account, message);
 
     const txid =
       await this.backgroundApi.serviceDApp.openSignAndSendTransactionModal({

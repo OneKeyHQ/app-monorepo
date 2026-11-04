@@ -31,6 +31,7 @@ import { check } from '@onekeyhq/shared/src/utils/assertUtils';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
+import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 import type { IHyperLiquidTypedDataApproveAgent } from '@onekeyhq/shared/types/hyperliquid';
@@ -49,6 +50,10 @@ import type {
   IJsBridgeMessagePayload,
   IJsonRpcRequest,
 } from '@onekeyfe/cross-inpage-provider-types';
+
+function normalizeSigningAddress(address: string) {
+  return hexUtils.addHexPrefix(address.toLowerCase());
+}
 
 export type ISwitchEthereumChainParameter = {
   chainId: string;
@@ -495,9 +500,14 @@ class ProviderApiEthereum extends ProviderApiBase {
     transaction: IEncodedTxEvm,
   ) {
     defaultLogger.discovery.dapp.dappRequest({ request });
-    const { accountInfo: { accountId, networkId } = {} } = (
+    const { account, accountInfo: { accountId, networkId } = {} } = (
       await this.getAccountsInfo(request)
     )[0];
+    this.assertAccountAddress(
+      account,
+      transaction.from,
+      normalizeSigningAddress,
+    );
 
     if (!isNil(transaction.value)) {
       transaction.value = prefixTxValueToHex(transaction.value);
@@ -584,9 +594,10 @@ class ProviderApiEthereum extends ProviderApiBase {
   @providerApiMethod()
   async eth_sign(request: IJsBridgeMessagePayload, ...messages: any[]) {
     defaultLogger.discovery.dapp.dappRequest({ request });
-    const { accountInfo: { accountId, networkId } = {} } = (
+    const { account, accountInfo: { accountId, networkId } = {} } = (
       await this.getAccountsInfo(request)
     )[0];
+    this.assertAccountAddress(account, messages[0], normalizeSigningAddress);
     return this.backgroundApi.serviceDApp.openSignMessageModal({
       request,
       unsignedMessage: {
@@ -620,14 +631,7 @@ class ProviderApiEthereum extends ProviderApiBase {
     ) {
       [address, message] = messages;
     }
-    if (
-      typeof address !== 'string' ||
-      !accountAddress ||
-      hexUtils.addHexPrefix(address).toLowerCase() !==
-        accountAddress.toLowerCase()
-    ) {
-      throw web3Errors.provider.unauthorized();
-    }
+    this.assertAccountAddress(account, address, normalizeSigningAddress);
     message = autoFixPersonalSignMessage({ message });
 
     return this.backgroundApi.serviceDApp.openSignMessageModal({
@@ -720,30 +724,25 @@ class ProviderApiEthereum extends ProviderApiBase {
     ...messages: any[]
   ) {
     defaultLogger.discovery.dapp.dappRequest({ request });
-    const { accountInfo: { accountId, networkId } = {} } = (
+    const { account, accountInfo: { accountId, networkId } = {} } = (
       await this.getAccountsInfo(request)
     )[0];
 
-    let message;
-    if (messages.length && messages[0]) {
-      message = messages[0] ?? null;
-      if (
-        await this._isValidAddress({
-          networkId: networkId ?? '',
-          address: message,
-        })
-      ) {
-        message = messages[1] ?? null;
-      }
-    }
+    // Legacy v1 callers use data-first; other callers use address-first.
+    const addressFirst =
+      typeof messages[0] === 'string' &&
+      hexUtils.isHexString(messages[0].toLowerCase(), 20);
+    const address = messages[addressFirst ? 0 : 1];
+    const message = messages[addressFirst ? 1 : 0];
+    this.assertAccountAddress(account, address, normalizeSigningAddress);
 
     let parsedData = message;
     try {
-      parsedData = typeof message === 'string' && JSON.parse(message);
+      parsedData = typeof message === 'string' ? JSON.parse(message) : message;
       // eslint-disable-next-line no-empty
     } catch {}
 
-    const { types, primaryType, domain } = parsedData;
+    const { types, primaryType, domain } = parsedData ?? {};
     let ethMessageType = EMessageTypesEth.TYPED_DATA_V1;
     if (typeof parsedData === 'object' && (types || primaryType || domain)) {
       ethMessageType = EMessageTypesEth.TYPED_DATA_V4;
@@ -752,7 +751,7 @@ class ProviderApiEthereum extends ProviderApiBase {
     // Convert to a JSON string
     let messageStr = message;
     if (typeof message === 'object') {
-      messageStr = JSON.stringify(message);
+      messageStr = stringUtils.stableStringify(message);
     }
 
     return this.backgroundApi.serviceDApp.openSignMessageModal({
@@ -785,9 +784,10 @@ class ProviderApiEthereum extends ProviderApiBase {
     ...messages: any[]
   ) {
     defaultLogger.discovery.dapp.dappRequest({ request });
-    const { accountInfo: { accountId, networkId } = {} } = (
+    const { account, accountInfo: { accountId, networkId } = {} } = (
       await this.getAccountsInfo(request)
     )[0];
+    this.assertAccountAddress(account, messages[0], normalizeSigningAddress);
     if (process.env.NODE_ENV !== 'production') {
       console.log('eth_signTypedData_v3', messages, request);
     }
@@ -837,9 +837,10 @@ class ProviderApiEthereum extends ProviderApiBase {
     }
 
     defaultLogger.discovery.dapp.dappRequest({ request });
-    const { accountInfo: { accountId, networkId } = {} } = (
+    const { account, accountInfo: { accountId, networkId } = {} } = (
       await this.getAccountsInfo(request)
     )[0];
+    this.assertAccountAddress(account, messages[0], normalizeSigningAddress);
     if (process.env.NODE_ENV !== 'production') {
       console.log('eth_signTypedData_v4', messages, request);
     }
@@ -1072,7 +1073,12 @@ class ProviderApiEthereum extends ProviderApiBase {
         ISwitchEthereumChainParameter,
       ]): string {
         const p = request?.data ?? [params];
-        return stringify(p);
+        return stringify([
+          request.origin,
+          request.scope,
+          request.isWalletConnectRequest,
+          p,
+        ]);
       },
     },
   );
@@ -1177,7 +1183,12 @@ class ProviderApiEthereum extends ProviderApiBase {
         ISwitchEthereumChainParameter,
       ]): string {
         const p = request?.data ?? [params];
-        return stringify(p);
+        return stringify([
+          request.origin,
+          request.scope,
+          request.isWalletConnectRequest,
+          p,
+        ]);
       },
     },
   );
