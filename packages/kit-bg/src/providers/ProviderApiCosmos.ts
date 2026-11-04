@@ -1,7 +1,5 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
-import { sha256 } from '@noble/hashes/sha256';
 import { bytesToHex, hexToBytes } from '@noble/hashes/utils';
-import { verify as verifySecp256k1 } from '@noble/secp256k1';
 import { web3Errors } from '@onekeyfe/cross-inpage-provider-errors';
 import { IInjectedProviderNames } from '@onekeyfe/cross-inpage-provider-types';
 import { Semaphore } from 'async-mutex';
@@ -14,7 +12,6 @@ import {
   TransactionWrapper,
   deserializeTx,
   encodeSecp256k1Pubkey,
-  getADR36SignDoc,
   getAminoSignDoc,
 } from '@onekeyhq/core/src/chains/cosmos/sdkCosmos';
 import {
@@ -35,7 +32,6 @@ import {
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
-import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 import type { IConnectionAccountInfo } from '@onekeyhq/shared/types/dappConnection';
@@ -565,7 +561,7 @@ class ProviderApiCosmos extends ProviderApiBase {
           request,
           unsignedMessage: {
             type: EMessageTypesCommon.SIMPLE_SIGN,
-            message: stringUtils.stableStringify(paramsData),
+            message: JSON.stringify(paramsData),
             secure: true,
           },
           networkId,
@@ -623,35 +619,30 @@ class ProviderApiCosmos extends ProviderApiBase {
     },
   ): Promise<any> {
     defaultLogger.discovery.dapp.dappRequest({ request });
-    const networkId = this.convertCosmosChainId(params.chainId);
-    if (!networkId) throw new OneKeyLocalError('Invalid chainId');
-    const { account } = await this._getAccount(request, networkId);
-    this.assertAccountAddress(account, params.signer);
+    const txInfo = await this.signArbitraryMessage(request, params);
 
-    // Verification must never generate a new signature or request wallet credentials.
-    try {
-      if (params.signature.pub_key.type !== 'tendermint/PubKeySecp256k1')
-        return false;
-      const publicKey = Buffer.from(params.signature.pub_key.value, 'base64');
-      const signature = Buffer.from(params.signature.signature, 'base64');
-      if (
-        publicKey.length !== 33 ||
-        signature.length !== 64 ||
-        publicKey.toString('hex') !==
-          hexUtils.stripHexPrefix(account.pub ?? '').toLowerCase()
-      )
-        return false;
-      const signDoc = getADR36SignDoc(
-        params.signer,
-        Buffer.from(params.data).toString('base64'),
-      );
-      const digest = Buffer.from(
-        sha256(Buffer.from(stringUtils.stableStringify(signDoc))),
-      );
-      return verifySecp256k1(signature, digest, publicKey);
-    } catch {
-      return false;
+    const [signerInfo] = txInfo.authInfo.signerInfos;
+    const [signature] = txInfo.signatures;
+
+    const pubKey = PubKey.decode(
+      signerInfo?.publicKey?.value ?? new Uint8Array(),
+    );
+
+    const signatureInfo = {
+      signature: Buffer.from(bytesToHex(signature), 'hex').toString('base64'),
+      pub_key: {
+        type: signerInfo?.publicKey?.typeUrl,
+        value: Buffer.from(pubKey.key).toString('base64'),
+      },
+    };
+
+    if (
+      signatureInfo.signature === params.signature.signature &&
+      signatureInfo.pub_key.value === params.signature.pub_key.value
+    ) {
+      return true;
     }
+    return false;
   }
 
   @providerApiMethod()

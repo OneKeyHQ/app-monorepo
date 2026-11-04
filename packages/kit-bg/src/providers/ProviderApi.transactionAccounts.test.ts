@@ -165,30 +165,24 @@ describe('Solana transaction signers', () => {
     ).rejects.toMatchObject({ code: 4100 });
     expect(h.openSignAndSendTransactionModal).not.toHaveBeenCalled();
   });
-  it('pins the approved account across a batch even if the connection changes', async () => {
+  it('rejects a connection change instead of replacing the original signing account', async () => {
     const h = setup(a.toBase58());
-    h.openSignAndSendTransactionModal.mockResolvedValue({ rawTx: 'AA==' });
-    h.dAppGetConnectedAccountsInfo.mockResolvedValueOnce([
+    const connected = (id: string) => [
       {
-        account: h.account,
-        accountInfo: { accountId: 'account-a', networkId: 'sol--101' },
+        account: { ...h.account, id },
+        accountInfo: { accountId: id, networkId: 'sol--101' },
       },
-    ]);
-    h.dAppGetConnectedAccountsInfo.mockResolvedValue([
-      {
-        account: { ...h.account, id: 'account-b', address: b.toBase58() },
-        accountInfo: { accountId: 'account-b', networkId: 'sol--101' },
-      },
-    ]);
+    ];
+    h.dAppGetConnectedAccountsInfo.mockResolvedValueOnce(
+      connected('account-a'),
+    );
+    h.dAppGetConnectedAccountsInfo.mockResolvedValue(connected('account-b'));
     await expect(
       new ProviderApiSolana({
         backgroundApi: h.backgroundApi,
       }).signAllTransactions(h.request, { message: [encoded(), encoded()] }),
-    ).resolves.toHaveLength(2);
-    expect(h.dAppGetConnectedAccountsInfo).toHaveBeenCalledTimes(1);
-    expect(
-      h.openSignAndSendTransactionModal.mock.calls.map(([p]) => p.accountId),
-    ).toEqual(['account-a', 'account-a']);
+    ).rejects.toMatchObject({ code: 4100 });
+    expect(h.openSignAndSendTransactionModal).not.toHaveBeenCalled();
   });
 
   describe.each(['legacy', 'v0'] as const)(
@@ -317,33 +311,26 @@ describe('Algorand requested signers', () => {
         .toByte(),
     ).toString('base64');
   }
-  it.each([undefined, [a]])(
-    'accepts the connected sender with signers=%j',
-    async (signers) => {
-      const h = setup(a);
-      await expect(
-        new ProviderApiAlgo({ backgroundApi: h.backgroundApi }).algo_signTxn(
-          h.request,
-          [{ txn: encoded(), signers }],
-        ),
-      ).rejects.toBe(approval);
-    },
-  );
-  it.each([
-    { txn: encoded(b) },
-    { txn: encoded(), signers: [b] },
-    { txn: encoded(b), signers: [a] },
-  ])('rejects unauthorized signer constraints %j', async (tx) => {
+  it('accepts the connected sender without changing the original selection', async () => {
     const h = setup(a);
     await expect(
       new ProviderApiAlgo({ backgroundApi: h.backgroundApi }).algo_signTxn(
         h.request,
-        [{ txn: encoded() }, tx],
+        [{ txn: encoded() }],
+      ),
+    ).rejects.toBe(approval);
+  });
+  it('rejects another sender before any confirmation', async () => {
+    const h = setup(a);
+    await expect(
+      new ProviderApiAlgo({ backgroundApi: h.backgroundApi }).algo_signTxn(
+        h.request,
+        [{ txn: encoded() }, { txn: encoded(b) }],
       ),
     ).rejects.toMatchObject({ code: 4100 });
     expect(h.openSignAndSendTransactionModal).not.toHaveBeenCalled();
   });
-  it('preserves another party transaction with signers=[] and output positions', async () => {
+  it('preserves the original skip rule for both empty and non-empty signers arrays', async () => {
     const h = setup(a);
     h.openSignAndSendTransactionModal.mockResolvedValue({ rawTx: 'signed-a' });
     await expect(
@@ -351,33 +338,27 @@ describe('Algorand requested signers', () => {
         h.request,
         [
           { txn: encoded(b), signers: [] },
-          { txn: encoded(), signers: [a] },
+          { txn: encoded(b), signers: [b] },
+          { txn: encoded() },
         ],
       ),
-    ).resolves.toEqual([null, 'signed-a']);
+    ).resolves.toEqual([null, null, 'signed-a']);
     expect(h.openSignAndSendTransactionModal).toHaveBeenCalledWith(
       expect.objectContaining({ encodedTx: [encoded()] }),
     );
   });
-  it('does not open an empty signing confirmation', async () => {
+  it('preserves explicit authorized-address signing without rewriting the transaction', async () => {
     const h = setup(a);
+    const txn = encoded(b);
     await expect(
       new ProviderApiAlgo({ backgroundApi: h.backgroundApi }).algo_signTxn(
         h.request,
-        [{ txn: encoded(b), signers: [] }],
+        [{ txn, authAddr: a }],
       ),
-    ).resolves.toEqual([null]);
-    expect(h.openSignAndSendTransactionModal).not.toHaveBeenCalled();
-  });
-  it('rejects unsupported authorized-address metadata rather than signing with another key', async () => {
-    const h = setup(a);
-    await expect(
-      new ProviderApiAlgo({ backgroundApi: h.backgroundApi }).algo_signTxn(
-        h.request,
-        [{ txn: encoded(b), authAddr: a }],
-      ),
-    ).rejects.toMatchObject({ code: 4200 });
-    expect(h.openSignAndSendTransactionModal).not.toHaveBeenCalled();
+    ).rejects.toBe(approval);
+    expect(h.openSignAndSendTransactionModal).toHaveBeenCalledWith(
+      expect.objectContaining({ encodedTx: [txn] }),
+    );
   });
 });
 

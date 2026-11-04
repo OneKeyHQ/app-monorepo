@@ -73,7 +73,7 @@ function setup(address = hexAddress, networkId = 'sui--101') {
           accountId: account.id,
           networkId,
           walletId: 'hd-a',
-          address: 'stale-address',
+          address,
         },
       },
     ]),
@@ -294,9 +294,19 @@ const cases: {
 describe.each(cases)(
   '$name account authorization',
   ({ address, other, networkId, optional, call }) => {
-    it('accepts the actual account even when the cached address differs', async () => {
+    it('accepts the selected account', async () => {
       const h = setup(address, networkId);
       await expect(call(h, h.account.address)).rejects.toBe(approval);
+    });
+
+    it('keeps original signing payload', async () => {
+      const h = setup(address, networkId);
+      await expect(call(h, h.account.address)).rejects.toBe(approval);
+      expect({
+        message: h.openSignMessageModal.mock.calls,
+        transaction: h.openSignAndSendTransactionModal.mock.calls,
+        modal: h.openModal.mock.calls,
+      }).toMatchSnapshot('baseline-fe08');
     });
 
     it.each([
@@ -319,6 +329,41 @@ describe.each(cases)(
 );
 
 describe('optional signer constraints', () => {
+  it.each(['sui', 'bfc', 'stellar'] as const)(
+    'rejects a stale %s execution address without repairing the payload',
+    async (chain) => {
+      const h = setup();
+      h.backgroundApi.serviceDApp.dAppGetConnectedAccountsInfo.mockResolvedValue(
+        [
+          {
+            account: h.account,
+            accountInfo: {
+              accountId: h.account.id,
+              networkId: 'test-network',
+              address: otherAddress,
+            },
+          },
+        ],
+      );
+      let result: Promise<unknown>;
+      if (chain === 'sui') {
+        result = new ProviderApiSui({
+          backgroundApi: h.backgroundApi,
+        }).signTransactionBlock(h.request, suiInput(hexAddress));
+      } else if (chain === 'bfc') {
+        result = new ProviderApiBfc({
+          backgroundApi: h.backgroundApi,
+        }).signTransactionBlock(h.request, suiInput(hexAddress));
+      } else {
+        result = new ProviderApiStellar({
+          backgroundApi: h.backgroundApi,
+        }).stellar_signMessage(h.request, { message: 'hi' });
+      }
+      await expect(result).rejects.toMatchObject({ code: 4100 });
+      expect(h.openSignMessageModal).not.toHaveBeenCalled();
+      expect(h.openSignAndSendTransactionModal).not.toHaveBeenCalled();
+    },
+  );
   it.each(['stellar_signMessage', 'stellar_signTransaction'] as const)(
     'allows omitted Stellar address in %s',
     async (method) => {

@@ -166,7 +166,7 @@ describe('BTC explicit PSBT signing accounts', () => {
     ).rejects.toMatchObject({ code: 4100 });
     expect(h.openSignAndSendTransactionModal).not.toHaveBeenCalled();
   });
-  it('does not resolve another signing account between legacy batch confirmations', async () => {
+  it('keeps the original account resolution for stable legacy batch confirmations', async () => {
     const h = setup();
     h.openSignAndSendTransactionModal.mockResolvedValue({ psbtHex: encoded() });
     await expect(
@@ -178,9 +178,30 @@ describe('BTC explicit PSBT signing accounts', () => {
         },
       }),
     ).resolves.toHaveLength(2);
-    expect(h.dAppGetConnectedAccountsInfo).toHaveBeenCalledTimes(1);
+    expect(h.dAppGetConnectedAccountsInfo).toHaveBeenCalledTimes(3);
     expect(
       h.openSignAndSendTransactionModal.mock.calls.map(([p]) => p.accountId),
     ).toEqual(['qr-test', 'qr-test']);
+  });
+  it('rejects an account change instead of replacing the account used by the original flow', async () => {
+    const h = setup();
+    const connected = (id: string) => [
+      {
+        account: { ...h.account, id },
+        accountInfo: { accountId: id, networkId: 'btc--0', address: a.address },
+      },
+    ];
+    h.dAppGetConnectedAccountsInfo.mockResolvedValueOnce(connected('qr-test'));
+    h.dAppGetConnectedAccountsInfo.mockResolvedValue(connected('qr-other'));
+    await expect(
+      h.provider.signPsbts(h.request, {
+        psbtHexs: [encoded(), encoded()],
+        options: {
+          autoFinalized: false,
+          toSignInputs: [{ index: 0, address: a.address }],
+        },
+      }),
+    ).rejects.toMatchObject({ code: 4100 });
+    expect(h.openSignAndSendTransactionModal).not.toHaveBeenCalled();
   });
 });

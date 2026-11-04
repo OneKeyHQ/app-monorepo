@@ -102,44 +102,31 @@ class ProviderApiAlgo extends ProviderApiBase {
       txn: string;
       signers?: string[];
       authAddr?: string;
-      // oxlint-disable-next-line @cspell/spellchecker
-      msig?: unknown;
     }>,
   ): Promise<(string | null)[]> {
     defaultLogger.discovery.dapp.dappRequest({ request });
+    const txsToSign: string[] = [];
+    for (let i = 0; i < walletTransactions.length; i += 1) {
+      // transaction with signers means that this transaction is not meant to be signed
+      if (!Array.isArray(walletTransactions[i].signers)) {
+        txsToSign.push(walletTransactions[i].txn);
+      }
+    }
+
     const { account, accountInfo: { networkId, accountId } = {} } = (
       await this.getAccountsInfo(request)
     )[0];
-    const txsToSign: string[] = [];
-    for (let i = 0; i < walletTransactions.length; i += 1) {
-      const tx = walletTransactions[i];
-      // ARC-1 uses an empty signers array for transactions signed by another party.
-      if (!(Array.isArray(tx.signers) && tx.signers.length === 0)) {
-        // oxlint-disable-next-line @cspell/spellchecker
-        if (tx.authAddr !== undefined || tx.msig !== undefined) {
-          throw web3Errors.provider.unsupportedMethod(
-            'Rekeyed and multisig transactions are not supported',
-          );
-        }
-        if (tx.signers !== undefined) {
-          if (!Array.isArray(tx.signers) || tx.signers.length !== 1) {
-            throw web3Errors.rpc.invalidParams('Expected one signing account');
-          }
-          this.assertAccountAddress(account, tx.signers[0]);
-        }
+
+    for (const tx of walletTransactions) {
+      if (!Array.isArray(tx.signers)) {
         const transaction = sdkAlgo.decodeUnsignedTransaction(
           Buffer.from(tx.txn, 'base64'),
         );
         this.assertAccountAddress(
           account,
-          sdkAlgo.encodeAddress(transaction.from.publicKey),
+          tx.authAddr ?? sdkAlgo.encodeAddress(transaction.from.publicKey),
         );
-        txsToSign.push(tx.txn);
       }
-    }
-
-    if (txsToSign.length === 0) {
-      return walletTransactions.map(() => null);
     }
 
     const result =
@@ -154,7 +141,7 @@ class ProviderApiAlgo extends ProviderApiBase {
     const signedTxs = result.rawTx?.split(',');
 
     return walletTransactions.map((tx) => {
-      if (Array.isArray(tx.signers) && tx.signers.length === 0) {
+      if (Array.isArray(tx.signers)) {
         return null;
       }
       return signedTxs.shift() ?? null;

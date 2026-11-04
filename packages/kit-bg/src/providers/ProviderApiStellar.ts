@@ -173,10 +173,10 @@ class ProviderApiStellar extends ProviderApiBase {
       throw web3Errors.rpc.invalidParams('Transaction XDR is required');
     }
 
-    const { account, accountInfo: { accountId, networkId } = {} } = (
+    const { account, accountInfo: { accountId, networkId, address } = {} } = (
       await this.getAccountsInfo(request)
     )[0];
-    const address = account.address;
+    if (address !== undefined) this.assertAccountAddress(account, address);
     if (params.address !== undefined) {
       this.assertAccountAddress(account, params.address);
     }
@@ -283,10 +283,10 @@ class ProviderApiStellar extends ProviderApiBase {
       throw web3Errors.rpc.invalidParams('Message is required');
     }
 
-    const { account, accountInfo: { accountId, networkId } = {} } = (
+    const { account, accountInfo: { accountId, networkId, address } = {} } = (
       await this.getAccountsInfo(request)
     )[0];
-    const address = account.address;
+    if (address !== undefined) this.assertAccountAddress(account, address);
     if (params.address !== undefined) {
       this.assertAccountAddress(account, params.address);
     }

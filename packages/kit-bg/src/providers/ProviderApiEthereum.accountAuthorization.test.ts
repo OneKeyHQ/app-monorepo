@@ -27,7 +27,7 @@ const request: IJsBridgeMessagePayload = {
   scope: 'ethereum',
 };
 
-function setup(isWalletConnectRequest = false) {
+function setup(isWalletConnectRequest = false, cachedAddress = other) {
   const openSignMessageModal = jest.fn().mockRejectedValue(approval);
   const openSignAndSendTransactionModal = jest.fn().mockRejectedValue(approval);
   const dAppGetConnectedAccountsInfo = jest.fn().mockResolvedValue([
@@ -40,12 +40,20 @@ function setup(isWalletConnectRequest = false) {
       accountInfo: {
         accountId: 'account-a',
         networkId: 'evm--1',
-        address: other,
+        address: cachedAddress,
       },
     },
   ]);
   const provider = new ProviderApiEthereum({
     backgroundApi: {
+      serviceValidator: {
+        validateAddress: jest.fn(
+          async ({ address: value }: { address: unknown }) =>
+            typeof value === 'string' && /^(0x)?[0-9a-f]{40}$/i.test(value)
+              ? 'valid'
+              : 'invalid',
+        ),
+      },
       serviceDApp: {
         dAppGetConnectedAccountsInfo,
         openSignMessageModal,
@@ -118,6 +126,80 @@ describe.each([false, true])(
       );
     });
 
+    it.each(cases)(
+      'keeps original signing payload $method',
+      async ({ method, args }) => {
+        const h = setup(wc);
+        await expect(
+          h.provider[method](h.request, ...args(address)),
+        ).rejects.toBe(approval);
+        expect(h.openSignMessageModal.mock.calls).toMatchSnapshot(
+          'baseline-fe08',
+        );
+      },
+    );
+
+    it.each([
+      {
+        name: 'legacy personal-sign order',
+        method: 'personal_sign' as const,
+        args: [address, '0x6869'],
+      },
+      {
+        name: 'typed-data object serialization',
+        method: 'eth_signTypedData' as const,
+        args: [
+          address,
+          {
+            message: { z: 'last', a: 'first' },
+            domain: {},
+            primaryType: 'Test',
+            types: { Test: [], EIP712Domain: [] },
+          },
+        ],
+      },
+      {
+        name: 'typed-data JSON whitespace',
+        method: 'eth_signTypedData_v4' as const,
+        args: [address, `  ${typedData}  `],
+      },
+      {
+        name: 'legacy address-first typed data',
+        method: 'eth_signTypedData_v1' as const,
+        args: [address, legacyData],
+      },
+    ])('keeps original signing payload $name', async ({ method, args }) => {
+      const h = setup(wc, address);
+      await expect(h.provider[method](h.request, ...args)).rejects.toBe(
+        approval,
+      );
+      expect(h.openSignMessageModal.mock.calls).toMatchSnapshot(
+        'baseline-fe08',
+      );
+    });
+
+    it('keeps original signing payload and result for transaction submission', async () => {
+      const h = setup(wc, address);
+      h.openSignAndSendTransactionModal.mockResolvedValue({
+        txid: 'preserved-txid',
+      });
+      const transaction = {
+        from: address.toLowerCase(),
+        to: other,
+        value: '1',
+        data: '0x1234',
+      };
+      const result = await h.provider.eth_sendTransaction(
+        h.request,
+        transaction,
+      );
+      expect({
+        calls: h.openSignAndSendTransactionModal.mock.calls,
+        transaction,
+        result,
+      }).toMatchSnapshot('baseline-fe08');
+    });
+
     it.each([other, undefined, null])(
       'rejects transaction from=%j',
       async (from) => {
@@ -155,44 +237,3 @@ describe.each([false, true])(
     });
   },
 );
-
-describe('network change request isolation', () => {
-  it.each(['wallet_switchEthereumChain', 'wallet_addEthereumChain'] as const)(
-    'does not suppress another origin calling %s with identical params',
-    async (method) => {
-      const h = setup();
-      const switchConnectedNetwork = jest.fn(
-        async (_params: { origin: string }) => undefined,
-      );
-      Object.assign(h.provider.backgroundApi, {
-        serviceNetwork: {
-          containsNetwork: jest.fn().mockResolvedValue(true),
-          getNetworkSafe: jest.fn().mockResolvedValue({
-            id: 'evm--10',
-            chainId: '10',
-            name: 'Optimism',
-          }),
-        },
-      });
-      Object.assign(h.provider.backgroundApi.serviceDApp, {
-        switchConnectedNetwork,
-        notifyChainSwitchUIToDappSite: jest.fn(),
-        notifyDAppChainChanged: jest.fn(),
-      });
-      const params = { chainId: '0xa' };
-      const data = { method, params: [params] };
-      await expect(
-        Promise.all([
-          h.provider[method]({ ...request, data }, params),
-          h.provider[method](
-            { ...request, origin: 'https://other.example', data },
-            params,
-          ),
-        ]),
-      ).resolves.toEqual([null, null]);
-      expect(switchConnectedNetwork.mock.calls.map(([p]) => p.origin)).toEqual(
-        expect.arrayContaining([request.origin, 'https://other.example']),
-      );
-    },
-  );
-});

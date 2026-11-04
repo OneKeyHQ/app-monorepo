@@ -31,7 +31,6 @@ import { check } from '@onekeyhq/shared/src/utils/assertUtils';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
-import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 import type { IHyperLiquidTypedDataApproveAgent } from '@onekeyhq/shared/types/hyperliquid';
@@ -614,21 +613,24 @@ class ProviderApiEthereum extends ProviderApiBase {
   @providerApiMethod()
   async personal_sign(request: IJsBridgeMessagePayload, ...messages: any[]) {
     defaultLogger.discovery.dapp.dappRequest({ request });
-    const { account, accountInfo: { accountId, networkId } = {} } = (
-      await this.getAccountsInfo(request)
-    )[0];
-    const accountAddress = account.addressDetail.normalizedAddress;
+    const {
+      account,
+      accountInfo: { accountId, networkId, address: accountAddress } = {},
+    } = (await this.getAccountsInfo(request))[0];
 
     let message = messages[0] as string;
     let address = messages[1] as string;
 
-    // Support legacy address-first calls only when the second parameter is not an address.
+    // An explicit address must not be reinterpreted as data by legacy argument handling.
     if (
-      message?.toLowerCase() === accountAddress?.toLowerCase() &&
       typeof address === 'string' &&
-      address &&
-      !hexUtils.isHexString(address.toLowerCase(), 20)
+      hexUtils.isHexString(address.toLowerCase(), 20)
     ) {
+      this.assertAccountAddress(account, address, normalizeSigningAddress);
+    }
+
+    // FIX: DYDX, KAVA evm use second param as message
+    if (message?.toLowerCase() === accountAddress?.toLowerCase() && address) {
       [address, message] = messages;
     }
     this.assertAccountAddress(account, address, normalizeSigningAddress);
@@ -728,21 +730,30 @@ class ProviderApiEthereum extends ProviderApiBase {
       await this.getAccountsInfo(request)
     )[0];
 
-    // Legacy v1 callers use data-first; other callers use address-first.
-    const addressFirst =
-      typeof messages[0] === 'string' &&
-      hexUtils.isHexString(messages[0].toLowerCase(), 20);
-    const address = messages[addressFirst ? 0 : 1];
-    const message = messages[addressFirst ? 1 : 0];
-    this.assertAccountAddress(account, address, normalizeSigningAddress);
+    let message;
+    let signingAddress = messages[1];
+    if (messages.length && messages[0]) {
+      message = messages[0] ?? null;
+      if (
+        await this._isValidAddress({
+          networkId: networkId ?? '',
+          address: message,
+        })
+      ) {
+        signingAddress = message;
+        message = messages[1] ?? null;
+      }
+    }
+
+    this.assertAccountAddress(account, signingAddress, normalizeSigningAddress);
 
     let parsedData = message;
     try {
-      parsedData = typeof message === 'string' ? JSON.parse(message) : message;
+      parsedData = typeof message === 'string' && JSON.parse(message);
       // eslint-disable-next-line no-empty
     } catch {}
 
-    const { types, primaryType, domain } = parsedData ?? {};
+    const { types, primaryType, domain } = parsedData;
     let ethMessageType = EMessageTypesEth.TYPED_DATA_V1;
     if (typeof parsedData === 'object' && (types || primaryType || domain)) {
       ethMessageType = EMessageTypesEth.TYPED_DATA_V4;
@@ -751,7 +762,7 @@ class ProviderApiEthereum extends ProviderApiBase {
     // Convert to a JSON string
     let messageStr = message;
     if (typeof message === 'object') {
-      messageStr = stringUtils.stableStringify(message);
+      messageStr = JSON.stringify(message);
     }
 
     return this.backgroundApi.serviceDApp.openSignMessageModal({
@@ -1073,12 +1084,7 @@ class ProviderApiEthereum extends ProviderApiBase {
         ISwitchEthereumChainParameter,
       ]): string {
         const p = request?.data ?? [params];
-        return stringify([
-          request.origin,
-          request.scope,
-          request.isWalletConnectRequest,
-          p,
-        ]);
+        return stringify(p);
       },
     },
   );
@@ -1183,12 +1189,7 @@ class ProviderApiEthereum extends ProviderApiBase {
         ISwitchEthereumChainParameter,
       ]): string {
         const p = request?.data ?? [params];
-        return stringify([
-          request.origin,
-          request.scope,
-          request.isWalletConnectRequest,
-          p,
-        ]);
+        return stringify(p);
       },
     },
   );

@@ -150,7 +150,7 @@ class ProviderApiBfc extends ProviderApiBase {
     params: ISignAndExecuteTransactionBlockInput,
   ): Promise<BenfenTransactionBlockResponse> {
     defaultLogger.discovery.dapp.dappRequest({ request });
-    const { account, accountInfo: { accountId, networkId } = {} } = (
+    const { account, accountInfo: { accountId, networkId, address } = {} } = (
       await this.getAccountsInfo(request)
     )[0];
     this.assertAccountAddress(
@@ -158,9 +158,10 @@ class ProviderApiBfc extends ProviderApiBase {
       params.account?.address,
       normalizeHexAddress,
     );
+    this.assertAccountAddress(account, address, normalizeHexAddress);
     const encodedTx: IEncodedTxBfc = {
       rawTx: TransactionBlock.from(params.blockSerialize).serialize(),
-      sender: account.address,
+      sender: address ?? '',
     };
     const result =
       await this.backgroundApi.serviceDApp.openSignAndSendTransactionModal({
@@ -188,7 +189,7 @@ class ProviderApiBfc extends ProviderApiBase {
     params: ISignTransactionBlockInput,
   ): Promise<ISignTransactionBlockOutput> {
     defaultLogger.discovery.dapp.dappRequest({ request });
-    const { account, accountInfo: { accountId, networkId } = {} } = (
+    const { account, accountInfo: { accountId, networkId, address } = {} } = (
       await this.getAccountsInfo(request)
     )[0];
     this.assertAccountAddress(
@@ -196,9 +197,10 @@ class ProviderApiBfc extends ProviderApiBase {
       params.account?.address,
       normalizeHexAddress,
     );
+    this.assertAccountAddress(account, address, normalizeHexAddress);
     const encodedTx: IEncodedTxBfc = {
       rawTx: TransactionBlock.from(params.blockSerialize).serialize(),
-      sender: account.address,
+      sender: address ?? '',
     };
 
     const result =

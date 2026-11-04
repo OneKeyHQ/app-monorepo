@@ -18,7 +18,6 @@ import {
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
-import type { IConnectedAccountInfo } from '@onekeyhq/shared/types/dappConnection';
 import {
   EMessageTypesCommon,
   EMessageTypesSolana,
@@ -175,18 +174,7 @@ class ProviderApiSolana extends ProviderApiBase {
     request: IJsBridgeMessagePayload,
     params: { message: string },
   ) {
-    defaultLogger.discovery.dapp.dappRequest({ request });
-    const connectedAccount = (await this.getAccountsInfo(request))[0];
-
-    if (typeof params.message !== 'string') {
-      throw web3Errors.rpc.invalidInput();
-    }
-    this.assertTransactionAccount(connectedAccount.account, params.message);
-    return this.signTransactionForAccount(
-      request,
-      params.message,
-      connectedAccount,
-    );
+    return this.signTransactionWithAccountCheck(request, params);
   }
 
   private assertTransactionAccount(
@@ -211,19 +199,34 @@ class ProviderApiSolana extends ProviderApiBase {
     }
   }
 
-  private async signTransactionForAccount(
+  private async signTransactionWithAccountCheck(
     request: IJsBridgeMessagePayload,
-    message: string,
-    connectedAccount: IConnectedAccountInfo,
+    params: { message: string },
+    expectedAccountId?: string,
   ) {
-    const { account, accountInfo: { networkId } = {} } = connectedAccount;
+    defaultLogger.discovery.dapp.dappRequest({ request });
+    const { account, accountInfo: { accountId, networkId } = {} } = (
+      await this.getAccountsInfo(request)
+    )[0];
+
+    if (typeof params.message !== 'string') {
+      throw web3Errors.rpc.invalidInput();
+    }
+
+    if (
+      accountId !== account.id ||
+      (expectedAccountId && expectedAccountId !== accountId)
+    ) {
+      throw web3Errors.provider.unauthorized();
+    }
+    this.assertTransactionAccount(account, params.message);
 
     const rawTx =
       await this.backgroundApi.serviceDApp.openSignAndSendTransactionModal({
-        accountId: account.id,
+        accountId: accountId ?? '',
         networkId: networkId ?? '',
         request,
-        encodedTx: message,
+        encodedTx: params.message,
         signOnly: true,
       });
     // Signed transaction is base64 encoded, inpage provider expects base58.
@@ -248,16 +251,16 @@ class ProviderApiSolana extends ProviderApiBase {
 
     console.log('solana signAllTransactions', request, params);
 
-    const connectedAccount = (await this.getAccountsInfo(request))[0];
+    const { account } = (await this.getAccountsInfo(request))[0];
     for (const tx of txsToBeSigned) {
-      this.assertTransactionAccount(connectedAccount.account, tx);
+      this.assertTransactionAccount(account, tx);
     }
     const ret: string[] = [];
     for (const tx of txsToBeSigned) {
-      const signedTx = await this.signTransactionForAccount(
+      const signedTx = await this.signTransactionWithAccountCheck(
         request,
-        tx,
-        connectedAccount,
+        { message: tx },
+        account.id,
       );
       ret.push(signedTx);
     }
@@ -279,6 +282,7 @@ class ProviderApiSolana extends ProviderApiBase {
     const { account, accountInfo: { accountId, networkId, address } = {} } = (
       await this.getAccountsInfo(request)
     )[0];
+
     this.assertTransactionAccount(account, message);
 
     const txid =

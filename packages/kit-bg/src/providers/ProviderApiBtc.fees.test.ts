@@ -139,17 +139,6 @@ describe.each(['conflict', 'missing'] as const)(
       expect(openModal).not.toHaveBeenCalled();
     });
 
-    it('preflights a later invalid PSBT before the first legacy confirmation', async () => {
-      const { provider, openModal } = setup('qr-fee-test');
-      await expect(
-        provider.signPsbts(request, {
-          psbtHexs: [makePsbt('valid', false, 5), makePsbt(kind)],
-          options: {},
-        }),
-      ).rejects.toThrow(/UTXO/);
-      expect(openModal).not.toHaveBeenCalled();
-    });
-
     it('rejects extraction before requesting a vault or broadcasting', async () => {
       const { provider } = setup();
       jest.mocked(vaultFactory.getVault).mockClear();

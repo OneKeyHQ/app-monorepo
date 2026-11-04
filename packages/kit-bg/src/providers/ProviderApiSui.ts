@@ -153,7 +153,7 @@ class ProviderApiSui extends ProviderApiBase {
     params: Omit<ISignAndExecuteTransactionBlockInput, 'transactionBlock'>,
   ): Promise<SuiTransactionBlockResponse> {
     defaultLogger.discovery.dapp.dappRequest({ request });
-    const { account, accountInfo: { accountId, networkId } = {} } = (
+    const { account, accountInfo: { accountId, networkId, address } = {} } = (
       await this.getAccountsInfo(request)
     )[0];
     this.assertAccountAddress(
@@ -161,9 +161,10 @@ class ProviderApiSui extends ProviderApiBase {
       params.account?.address,
       normalizeSuiAddress,
     );
+    this.assertAccountAddress(account, address, normalizeSuiAddress);
     const encodedTx: IEncodedTxSui = {
       rawTx: params.blockSerialize,
-      sender: account.address,
+      sender: address ?? '',
     };
     const result =
       await this.backgroundApi.serviceDApp.openSignAndSendTransactionModal({
@@ -191,7 +192,7 @@ class ProviderApiSui extends ProviderApiBase {
     params: Omit<ISignTransactionBlockInput, 'transactionBlock'>,
   ): Promise<ISignTransactionBlockOutput> {
     defaultLogger.discovery.dapp.dappRequest({ request });
-    const { account, accountInfo: { accountId, networkId } = {} } = (
+    const { account, accountInfo: { accountId, networkId, address } = {} } = (
       await this.getAccountsInfo(request)
     )[0];
     this.assertAccountAddress(
@@ -199,9 +200,10 @@ class ProviderApiSui extends ProviderApiBase {
       params.account?.address,
       normalizeSuiAddress,
     );
+    this.assertAccountAddress(account, address, normalizeSuiAddress);
     const encodedTx: IEncodedTxSui = {
       rawTx: params.blockSerialize,
-      sender: account.address,
+      sender: address ?? '',
     };
 
     const result =
@@ -275,18 +277,28 @@ class ProviderApiSui extends ProviderApiBase {
     params: IOneKeySuiSignTransactionInput,
   ): Promise<IOneKeySuiSignTransactionOutput> {
     defaultLogger.discovery.dapp.dappRequest({ request });
-    const { account, accountInfo: { accountId, networkId } = {} } = (
+    const { account, accountInfo: { accountId, networkId, address } = {} } = (
       await this.getAccountsInfo(request)
     )[0];
+
     this.assertAccountAddress(
       account,
       params.account?.address,
       normalizeSuiAddress,
     );
+    this.assertAccountAddress(account, address, normalizeSuiAddress);
+
+    const dAppAccount = params.account;
+    if (
+      dAppAccount?.address &&
+      address?.toLowerCase() !== dAppAccount.address?.toLowerCase()
+    ) {
+      throw new OneKeyLocalError('Sender address mismatch');
+    }
 
     const encodedTx: IEncodedTxSui = {
       rawTx: params.transaction,
-      sender: account.address,
+      sender: address ?? '',
     };
     const result =
       await this.backgroundApi.serviceDApp.openSignAndSendTransactionModal({
@@ -311,18 +323,28 @@ class ProviderApiSui extends ProviderApiBase {
     params: IOneKeySuiSignAndExecuteTransactionInput,
   ): Promise<IOneKeySuiSignAndExecuteTransactionOutput> {
     defaultLogger.discovery.dapp.dappRequest({ request });
-    const { account, accountInfo: { accountId, networkId } = {} } = (
+    const { account, accountInfo: { accountId, networkId, address } = {} } = (
       await this.getAccountsInfo(request)
     )[0];
+
     this.assertAccountAddress(
       account,
       params.account?.address,
       normalizeSuiAddress,
     );
+    this.assertAccountAddress(account, address, normalizeSuiAddress);
+
+    const dAppAccount = params.account;
+    if (
+      dAppAccount?.address &&
+      address?.toLowerCase() !== dAppAccount.address?.toLowerCase()
+    ) {
+      throw new OneKeyLocalError('Sender address mismatch');
+    }
 
     const encodedTx: IEncodedTxSui = {
       rawTx: params.transaction,
-      sender: account.address,
+      sender: address ?? '',
     };
     const result =
       await this.backgroundApi.serviceDApp.openSignAndSendTransactionModal({
