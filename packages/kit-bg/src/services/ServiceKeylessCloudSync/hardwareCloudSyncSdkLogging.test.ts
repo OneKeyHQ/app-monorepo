@@ -2,7 +2,7 @@ import assert from 'assert/strict';
 import fs from 'fs';
 import vm from 'vm';
 
-test('hardware SDK caches and emits redacted Bitcoin signing payloads', () => {
+test('upstream hardware SDK caches and emits redacted Bitcoin signing payloads', () => {
   const bundle = fs.readFileSync(require.resolve('@onekeyfe/hd-core'), 'utf8');
   const section = (start: string, end: string) => {
     const first = bundle.indexOf(start);
@@ -21,8 +21,9 @@ test('hardware SDK caches and emits redacted Bitcoin signing payloads', () => {
     createLogMessage: (type: string, payload: unknown) => ({ type, payload }),
     emit: (message: unknown) => emitted.push(message),
   });
-  // Execute the installed runtime's redactor and log ring, including the
-  // patch-package change, without opening a device or starting the SDK.
+  // Execute the installed upstream runtime's redactor and log ring without
+  // opening a device or starting the SDK. This release acceptance check must
+  // pass after the upstream fix is published and the App dependency is upgraded.
   vm.runInContext(
     `${section('const LogBlockEvent =', 'const HD_HARDENED =')}
      ${section('const MAX_ENTRIES = 500;', 'exports.LoggerNames = void 0;')}

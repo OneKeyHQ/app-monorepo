@@ -337,10 +337,6 @@ textarea {
   top: 0 !important;
 }
 
-.onekey-img-cropper {
-  height: 100%;
-}
-
 /* 
   Add break-all class to handle word breaking in web platform,
   since react-native doesn't support wordBreak property directly.
