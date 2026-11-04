@@ -585,6 +585,18 @@ async function installNetworkIsolation({
       postData: request.postData(),
     };
 
+    // Cold-start runs use an ineligible device; never record device rewards.
+    if (
+      routeKey(keyInput) === 'GET rebate.onekeycn.com/rebate/v1/recall/progress'
+    ) {
+      increment(stats.stubbed, 'recall-ineligible');
+      return route.fulfill({
+        status: 204,
+        headers: apiResponseHeaders(),
+        body: '',
+      });
+    }
+
     if (mode === 'record') {
       const label = redactRequest(keyInput);
       if (!isApiUrl(url)) {
