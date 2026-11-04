@@ -29,8 +29,9 @@ it.each([
     startPosition: '2',
     closedPnl: '20',
     expectedSide: 'long',
-    pnl: '19.6',
-    pnlPercent: '98.00',
+    pnl: '19',
+    entryPrice: '106',
+    pnlPercent: '35.85',
   },
   {
     dir: 'Short > Long',
@@ -40,8 +41,9 @@ it.each([
     startPosition: '-2',
     closedPnl: '20',
     expectedSide: 'short',
-    pnl: '19.6',
-    pnlPercent: '98.00',
+    pnl: '19',
+    entryPrice: '94',
+    pnlPercent: '40.43',
   },
   {
     dir: 'Close Long',
@@ -52,6 +54,7 @@ it.each([
     closedPnl: '10',
     expectedSide: 'long',
     pnl: '9',
+    entryPrice: '100',
     pnlPercent: '90.00',
   },
   {
@@ -63,11 +66,12 @@ it.each([
     closedPnl: '10',
     expectedSide: 'short',
     pnl: '9',
+    entryPrice: '100',
     pnlPercent: '90.00',
   },
 ] as const)(
-  'shares the closed position for $dir',
-  async ({ expectedSide, pnl, pnlPercent, ...trade }) => {
+  'matches Hyperliquid trade sharing for $dir',
+  async ({ expectedSide, pnl, entryPrice, pnlPercent, ...trade }) => {
     mockShowPositionShare.mockClear();
     const fill: IFill = {
       ...trade,
@@ -86,7 +90,7 @@ it.each([
     expect(mockShowPositionShare).toHaveBeenCalledWith(
       expect.objectContaining({
         side: expectedSide,
-        entryPrice: '100',
+        entryPrice,
         markPrice: trade.px,
         pnl,
         pnlPercent,
