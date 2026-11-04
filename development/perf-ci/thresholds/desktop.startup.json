@@ -40,7 +40,8 @@
       },
       {
         "pattern": "locale/enum/translations.ts",
-        "bytes": 589824
+        "_comment": "Approved Lokalise additions for hardware Cloud sync bring this input to 590197 emitted bytes; keep a 580 KiB cap for the growing catalog.",
+        "bytes": 593920
       },
       {
         "pattern": "locale/json/",
