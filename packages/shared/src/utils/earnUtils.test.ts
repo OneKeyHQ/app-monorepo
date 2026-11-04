@@ -279,3 +279,40 @@ describe('earnUtils Unitas provider behavior (OK-61790)', () => {
     );
   });
 });
+
+describe('earnUtils normalizeEarnUtmParams', () => {
+  it('reads the link spelling and the route spelling', () => {
+    expect(
+      earnUtils.normalizeEarnUtmParams({
+        utm_source: 'twitter',
+        utm_medium: 'kol',
+        utm_campaign: 'unitas_launch_1103',
+      }),
+    ).toEqual({
+      utmSource: 'twitter',
+      utmMedium: 'kol',
+      utmCampaign: 'unitas_launch_1103',
+    });
+    expect(
+      earnUtils.normalizeEarnUtmParams({ utmCampaign: 'unitas_launch_1103' }),
+    ).toEqual({ utmCampaign: 'unitas_launch_1103' });
+  });
+
+  it('drops values the server would reject instead of failing the order', () => {
+    expect(
+      earnUtils.normalizeEarnUtmParams({
+        utm_source: '',
+        utm_medium: 'with space',
+        utm_campaign: '活动',
+      }),
+    ).toBeUndefined();
+    expect(
+      earnUtils.normalizeEarnUtmParams({
+        utm_source: ' onekey_app ',
+        utm_campaign: 'a'.repeat(101),
+      }),
+    ).toEqual({ utmSource: 'onekey_app' });
+    expect(earnUtils.normalizeEarnUtmParams(undefined)).toBeUndefined();
+    expect(earnUtils.normalizeEarnUtmParams({ vault: '0x1' })).toBeUndefined();
+  });
+});

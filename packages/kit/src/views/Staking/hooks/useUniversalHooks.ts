@@ -26,6 +26,7 @@ import {
   type IEarnPermit2ApproveSignData,
   type IEarnServerOrderWaitResult,
   type IEarnStakeType,
+  type IEarnUtmParams,
   type IEarnWithdrawType,
   type IStakeTxResponse,
   type IStakeTxStakefishExitBroadcast,
@@ -246,6 +247,7 @@ export function useUniversalStake({
       onStepChange,
       // Stakefish specific param
       validatorPublicKey,
+      utm,
     }: {
       amount: string;
       symbol: string;
@@ -275,6 +277,8 @@ export function useUniversalStake({
       ) => void;
       // Stakefish specific param
       validatorPublicKey?: string;
+      // Campaign attribution, forwarded to the server unchanged
+      utm?: IEarnUtmParams;
     }) => {
       // OK-59196: one-time risk disclaimer gates the first earn trade on
       // this device; resolves immediately once accepted
@@ -317,6 +321,7 @@ export function useUniversalStake({
             stakeType: confirmStakeType,
             // Stakefish specific param
             validatorPublicKey,
+            ...utm,
           });
 
         if (!stakeTx.tx) {
@@ -685,6 +690,7 @@ export function useUniversalWithdraw({
       onStepChange,
       onEthenaCooldownUnstakeReady,
       signal,
+      utm,
     }: {
       amount: string;
       symbol: string;
@@ -708,6 +714,8 @@ export function useUniversalWithdraw({
       onStepChange?: (step: number) => void;
       onEthenaCooldownUnstakeReady?: () => void;
       signal?: AbortSignal;
+      // Campaign attribution, forwarded to the server unchanged
+      utm?: IEarnUtmParams;
     }) => {
       // OK-59196: one-time DeFi risk disclaimer, same gate the earn stake flow
       // uses. Returning false lets the caller tell a rejection apart from a
@@ -764,6 +772,7 @@ export function useUniversalWithdraw({
             inputTokenAddress,
             outputTokenAddress,
             effectiveApy,
+            ...utm,
             withdrawType,
             signature: signHash,
             deadline,
@@ -785,6 +794,7 @@ export function useUniversalWithdraw({
               useEthenaCooldown: true,
               slippage,
               effectiveApy,
+              ...utm,
               withdrawType,
             });
           const unstakeEncodedTx =
@@ -845,6 +855,7 @@ export function useUniversalWithdraw({
             ethenaPath: true,
             slippage,
             effectiveApy,
+            ...utm,
             withdrawType,
           });
         const swapEncodedTx =
@@ -941,6 +952,7 @@ export function useUniversalWithdraw({
             message: withdrawMessage,
             slippage,
             effectiveApy,
+            ...utm,
             withdrawType,
           });
       }

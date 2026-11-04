@@ -196,7 +196,18 @@ export type IStakeProviderInfo = {
   eventEndTime?: number;
 };
 
-export type IStakeBaseParams = {
+/**
+ * Campaign attribution carried from an Earn link into the stake / unstake
+ * request. The server forwards it to partners that report by campaign
+ * (Unitas) and fills in a default source / medium when the link had none.
+ */
+export type IEarnUtmParams = {
+  utmSource?: string;
+  utmMedium?: string;
+  utmCampaign?: string;
+};
+
+export type IStakeBaseParams = IEarnUtmParams & {
   accountId: string;
   networkId: string;
   amount: string;
@@ -231,7 +242,7 @@ export type IStakeBaseParams = {
   stakeType?: IEarnStakeType;
 };
 
-export type IWithdrawBaseParams = {
+export type IWithdrawBaseParams = IEarnUtmParams & {
   accountId: string;
   networkId: string;
   amount: string;
