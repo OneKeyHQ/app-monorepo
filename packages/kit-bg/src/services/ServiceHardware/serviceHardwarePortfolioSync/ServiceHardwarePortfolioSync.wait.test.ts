@@ -3134,6 +3134,50 @@ describe('ServiceHardwarePortfolioSync.syncSettledPortfolio', () => {
     expect(uploadPortfolioPackage).not.toHaveBeenCalled();
   });
 
+  test.each(['unlock', 'pack', 'identity-check'] as const)(
+    'reports an identity change that invalidates explicit sync during %s',
+    async (stage) => {
+      const {
+        getDeviceState,
+        getDeviceStateWithUnlock,
+        service,
+        serviceInternals,
+        uploadPortfolioPackage,
+      } = prepareHardwareSync({ busyResults: [false] });
+      let operation = getDeviceState;
+      if (stage === 'unlock') {
+        operation = getDeviceStateWithUnlock;
+      } else if (stage === 'pack') {
+        operation = serviceInternals.submitPortfolioJsonToServer;
+      }
+      const original = operation.getMockImplementation();
+      operation.mockImplementationOnce(async () => {
+        await service.notifyHardwareDeviceIdentityMismatch({
+          deviceDbId: 'db-device-1',
+          expectedDeviceId: 'PRO2_DEVICE_ID',
+        });
+        if (stage === 'identity-check') {
+          return {
+            identity: { deviceId: 'OTHER_DEVICE_ID' },
+            protocol: 'V2',
+            status: { unlocked: true },
+          };
+        }
+        const value: unknown = await original?.();
+        return value;
+      });
+
+      await expect(
+        service.syncPortfolio({
+          eventPayload: buildHardwarePayload(),
+          syncMode: 'interactive',
+        }),
+      ).rejects.toBeInstanceOf(DeviceNotSame);
+
+      expect(uploadPortfolioPackage).not.toHaveBeenCalled();
+    },
+  );
+
   test('replays a desktop BLE snapshot after a later USB connection', async () => {
     jest.useFakeTimers();
     Object.assign(mutablePlatformEnv, {
