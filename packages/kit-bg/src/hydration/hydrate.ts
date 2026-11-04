@@ -320,7 +320,10 @@ export function shouldProceedAfterReset(
   return countNonMetaEntries(recheck) === 0;
 }
 
+// Electron's tray is a separate auxiliary window that does not need full UI
+// hydration. Web shares this entry and must hydrate even with the same query.
 const isDesktopTrayRenderer =
+  platformEnv.isDesktop &&
   typeof globalThis.location !== 'undefined' &&
   new URLSearchParams(globalThis.location.search ?? '').get('render') ===
     'tray';
