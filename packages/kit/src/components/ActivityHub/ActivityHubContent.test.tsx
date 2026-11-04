@@ -1470,7 +1470,7 @@ describe('Perps recall activity integration', () => {
   });
 
   it.each(['native', 'desktop', 'web'] as const)(
-    'opens the campaign link after closing the dialog on %s',
+    'preserves campaign link opening order on %s',
     async (platform) => {
       platformEnv.isNative = platform === 'native';
       platformEnv.isDesktop = platform === 'desktop';
@@ -1491,7 +1491,11 @@ describe('Perps recall activity integration', () => {
       expect(mockPopoverClose).toHaveBeenCalledTimes(1);
       expect(mockOpenUrlInApp).not.toHaveBeenCalled();
       expect(mockOpenUrlInDiscovery).not.toHaveBeenCalled();
-      expect(mockOpenUrlExternal).not.toHaveBeenCalled();
+      if (platform === 'web') {
+        expect(mockOpenUrlExternal).toHaveBeenCalledWith(progress.blogUrl);
+      } else {
+        expect(mockOpenUrlExternal).not.toHaveBeenCalled();
+      }
 
       await act(async () => resolveClose?.());
       if (platform === 'native') {

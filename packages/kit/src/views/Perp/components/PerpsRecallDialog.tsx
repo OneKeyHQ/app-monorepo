@@ -46,7 +46,12 @@ export function PerpsRecallDialogContent({
   const { blogUrl } = recall.progress;
   const onOpenHelp = async () => {
     if (!blogUrl) return;
-    await close();
+    if (platformEnv.isNative || platformEnv.isDesktop) {
+      await close();
+    } else {
+      // Open the browser tab while the click still has user activation.
+      void close();
+    }
     if (platformEnv.isNative) {
       openUrlInApp(blogUrl, undefined, { redirectExternalNavigation: true });
     } else {
