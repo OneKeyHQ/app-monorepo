@@ -43,9 +43,10 @@ const SPARK_RECENT_EVENTS_LIMIT = 50;
 // After the last Spark screen closes the SDK stays connected this long, so
 // coming straight back does not connect again.
 const SPARK_IDLE_DISCONNECT_MS = 60_000;
-// The OneKey server caches Spark reads for 5 s; a refresh after that window
-// shows a new payment without making the server skip its cache.
-const SPARK_PAYMENT_REFRESH_DELAY_MS = 6000;
+// A payment refreshes balances and history twice: once the OneKey server's
+// 5 s read cache has expired, and again after the explorer the server reads
+// has indexed it (7-17 s after a claim in the 11-03 mainnet tests).
+const SPARK_PAYMENT_REFRESH_DELAYS_MS = [6000, 20_000];
 const SPARK_PAYMENT_EVENTS = new Set<SdkEvent['type']>([
   'paymentSucceeded',
   'paymentPending',
@@ -156,7 +157,7 @@ class ServiceLightningSpark extends ServiceBase {
 
   private idleDisconnectTimer: ReturnType<typeof setTimeout> | undefined;
 
-  private paymentRefreshTimer: ReturnType<typeof setTimeout> | undefined;
+  private paymentRefreshTimers: ReturnType<typeof setTimeout>[] = [];
 
   private getConnectedSdk(): { sdk: BreezSdk; walletId: string } {
     if (!this.sdk || !this.connectedWalletId) {
@@ -186,14 +187,16 @@ class ServiceLightningSpark extends ServiceBase {
     }
   }
 
-  // One home refresh per burst of payment events, so balance and history
-  // show the payment once the server's cache has expired.
+  // One set of refreshes per burst of payment events. History lists, token
+  // details included, reload on HistoryTxStatusChanged.
   private schedulePaymentRefresh() {
-    clearTimeout(this.paymentRefreshTimer);
-    this.paymentRefreshTimer = setTimeout(() => {
-      this.paymentRefreshTimer = undefined;
-      appEventBus.emit(EAppEventBusNames.AccountDataUpdate, undefined);
-    }, SPARK_PAYMENT_REFRESH_DELAY_MS);
+    this.paymentRefreshTimers.forEach((timer) => clearTimeout(timer));
+    this.paymentRefreshTimers = SPARK_PAYMENT_REFRESH_DELAYS_MS.map((delay) =>
+      setTimeout(() => {
+        appEventBus.emit(EAppEventBusNames.AccountDataUpdate, undefined);
+        appEventBus.emit(EAppEventBusNames.HistoryTxStatusChanged, undefined);
+      }, delay),
+    );
   }
 
   /**
