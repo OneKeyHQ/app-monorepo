@@ -123,8 +123,11 @@ const SILENT_IN_PROD = { autoHandleError: !platformEnv.isProduction } as any;
 
 @backgroundClass()
 class ServiceReferralCode extends ServiceBase {
+  private perpsRecallRequestId = 0;
+
   @backgroundMethod()
   async fetchPerpsRecallProgress(): Promise<IPerpsRecallProgress | null> {
+    const requestId = (this.perpsRecallRequestId += 1);
     const { instanceId: rawInstanceId } = await settingsPersistAtom.get();
     const instanceId = rawInstanceId.trim().toLowerCase();
     const locale = (
@@ -133,36 +136,42 @@ class ServiceReferralCode extends ServiceBase {
     const { endpoint } = await this.getClientEndpointInfo(
       EServiceEndpointEnum.Rebate,
     );
-    const previous = await perpsRecallProgressAtom.get();
-    if (
-      previous.instanceId !== instanceId ||
-      previous.endpoint !== endpoint ||
-      previous.locale !== locale
-    ) {
-      await perpsRecallProgressAtom.set({
+    await perpsRecallProgressAtom.set((previous) => {
+      // Scope resolution can finish after a newer request has selected its scope.
+      if (
+        requestId !== this.perpsRecallRequestId ||
+        (previous.instanceId === instanceId &&
+          previous.endpoint === endpoint &&
+          previous.locale === locale)
+      ) {
+        return previous;
+      }
+      return {
         instanceId,
         endpoint,
         locale,
         progress: null,
-      });
-    }
+      };
+    });
     const progress = /^[a-z0-9][a-z0-9_-]{0,63}$/.test(instanceId)
       ? await this.fetchPerpsRecallProgressMemo(instanceId, endpoint, locale)
       : null;
-    const scope = await perpsRecallProgressAtom.get();
-    // An older identity/environment/locale request cannot replace the active result.
-    if (
-      scope.instanceId === instanceId &&
-      scope.endpoint === endpoint &&
-      scope.locale === locale
-    ) {
-      await perpsRecallProgressAtom.set({
+    await perpsRecallProgressAtom.set((scope) => {
+      if (
+        requestId !== this.perpsRecallRequestId ||
+        scope.instanceId !== instanceId ||
+        scope.endpoint !== endpoint ||
+        scope.locale !== locale
+      ) {
+        return scope;
+      }
+      return {
         instanceId,
         endpoint,
         locale,
         progress,
-      });
-    }
+      };
+    });
     return progress;
   }
 

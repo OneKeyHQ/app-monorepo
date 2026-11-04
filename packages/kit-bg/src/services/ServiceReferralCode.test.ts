@@ -1274,7 +1274,7 @@ describe('ServiceReferralCode Perps recall progress', () => {
     jest
       .mocked(perpsRecallProgressAtom.set)
       .mockImplementation(async (value) => {
-        if (typeof value !== 'function') snapshot = value;
+        snapshot = typeof value === 'function' ? value(snapshot) : value;
       });
   });
 
@@ -1442,6 +1442,40 @@ describe('ServiceReferralCode Perps recall progress', () => {
     expect(get).toHaveBeenCalledTimes(3);
     expect(snapshot.instanceId).toBe('another-instance');
     expect(snapshot.endpoint).toBe('https://other.onekey.so');
+  });
+
+  it('does not restore an old scope when its locale lookup finishes late', async () => {
+    const { service, backgroundApi } = createService();
+    let notifyStarted: (() => void) | undefined;
+    const lookupStarted = new Promise<void>((resolve) => {
+      notifyStarted = resolve;
+    });
+    let resolveLocale: ((value: string) => void) | undefined;
+    const oldLocale = new Promise<string>((resolve) => {
+      resolveLocale = resolve;
+    });
+    backgroundApi.serviceSetting.getCurrentLocale.mockImplementationOnce(() => {
+      notifyStarted?.();
+      return oldLocale;
+    });
+    const get = jest
+      .fn()
+      .mockResolvedValueOnce({ status: 204, data: '' })
+      .mockResolvedValueOnce({
+        status: 200,
+        data: { code: 0, data: progress },
+      });
+    mockRecallClient(get);
+    const oldRequest = service.fetchPerpsRecallProgress();
+    await lookupStarted;
+    instanceId = 'another-instance';
+    await service.fetchPerpsRecallProgress();
+    expect(snapshot.instanceId).toBe('another-instance');
+    expect(snapshot.progress).toBeNull();
+    resolveLocale?.('en-US');
+    await oldRequest;
+    expect(snapshot.instanceId).toBe('another-instance');
+    expect(snapshot.progress).toBeNull();
   });
 
   it('does not let an old instance response overwrite the active snapshot', async () => {
