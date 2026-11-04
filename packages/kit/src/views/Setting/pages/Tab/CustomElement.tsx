@@ -27,6 +27,7 @@ import {
   ESwitchSize,
   Icon,
   IconButton,
+  SELECT_SEARCHABLE_PANEL_HEIGHT,
   Select,
   SizableText,
   Stack,
@@ -210,7 +211,8 @@ export function LanguageListItem({
       onChange={handleChange}
       onOpenChange={handleOpenChange}
       placement="bottom-end"
-      floatingPanelProps={{ maxHeight: 280 }}
+      searchable
+      floatingPanelProps={{ maxHeight: SELECT_SEARCHABLE_PANEL_HEIGHT }}
       sheetProps={{
         snapPoints: [80],
         snapPointsMode: 'percent',

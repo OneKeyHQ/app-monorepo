@@ -192,6 +192,10 @@ export function SettingsCheckboxRow({
         }}
         onChange={(checked) => onChange(Boolean(checked))}
       />
+      {/* Keep children on one line. On native, Yoga can wrap a content-sized
+          nested `flexWrap` stack even after sizing it for a single line (seen
+          with zh-CN labels). This row's own wrap moves the controls below the
+          label as a group when they do not fit. */}
       {children ? (
         <XStack ml={controlsIndent} flexShrink={1}>
           {children}
@@ -332,7 +336,9 @@ export function SettingsSelect<TValue extends string>({
       testID={`trading-view-settings-select-${testID}`}
       title={title}
       value={value}
-      disabled={disabled}
+      // On Android, explicit false maps to readOnly={false} in the default
+      // trigger Input, overriding its editable={false} and intercepting taps.
+      disabled={platformEnv.isNativeAndroid ? disabled || undefined : disabled}
       onChange={onChange}
       placement="bottom-end"
       floatingPanelProps={

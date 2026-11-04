@@ -246,7 +246,7 @@ const shellInputDirectories = {
     'apps/mobile/ios/zh-Hans.lproj',
     'apps/mobile/ios/zh-Hant.lproj',
   ],
-  shared: [],
+  shared: ['packages/components/svg', 'development/onekey-icons'],
 };
 
 const shellInputFiles = {
@@ -279,6 +279,8 @@ const shellInputFiles = {
     'apps/mobile/ios/PrivacyInfo.xcprivacy',
     'apps/mobile/ios/sentry.properties',
     'apps/mobile/scripts/mobile-dev-shell-resource.js',
+    'apps/mobile/scripts/patch-intercom-ios.py',
+    'apps/mobile/scripts/patch-intercom-ios.json',
   ],
   shared: [
     'apps/mobile/native/mmkv/checked-sync.patch',

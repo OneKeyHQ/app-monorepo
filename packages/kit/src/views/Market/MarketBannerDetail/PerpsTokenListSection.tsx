@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 import { FlatList } from 'react-native';
@@ -31,11 +31,14 @@ import { TokenListSkeleton } from '../MarketHomeV2/components/MarketTokenList/co
 import { sortMarketTokenListData } from '../MarketHomeV2/components/MarketTokenList/utils/tokenListHelpers';
 import { useMarketDesktopResponsiveColumns } from '../MarketHomeV2/components/useMarketDesktopResponsiveColumns';
 
-import { BannerDetailListColumnHeader } from './BannerDetailListColumnHeader';
+import {
+  BannerDetailListColumnHeader,
+  resolveBannerDetailColumnMode,
+} from './BannerDetailListColumnHeader';
 import { useBannerDetailTableSort } from './useBannerDetailTableSort';
 
 import type { IBannerDetailSortType } from './BannerDetailListColumnHeader';
-import type { FlatListProps } from 'react-native';
+import type { FlatListProps, LayoutChangeEvent } from 'react-native';
 
 export function PerpsTokenListSection({
   tokenListId,
@@ -66,6 +69,11 @@ export function PerpsTokenListSection({
   });
   const tabBarHeight = useTabBarHeight();
   const intl = useIntl();
+  const [listWidth, setListWidth] = useState(0);
+  const columnMode = resolveBannerDetailColumnMode(listWidth);
+  const onListLayout = useCallback((event: LayoutChangeEvent) => {
+    setListWidth(event.nativeEvent.layout.width);
+  }, []);
 
   const { result: perpsResult, isLoading } = usePromiseResult(
     async () => {
@@ -120,9 +128,10 @@ export function PerpsTokenListSection({
         <MarketPerpsTokenListItem
           item={item}
           onPress={() => navigateToPerps(item.name)}
+          bannerColumnMode={columnMode}
         />
       ),
-      [navigateToPerps],
+      [columnMode, navigateToPerps],
     );
   const mobileSortedTokens = useMemo(
     () =>
@@ -134,9 +143,9 @@ export function PerpsTokenListSection({
     [changeSortType, tokens],
   );
 
-  if (!gtMd) {
+  if (platformEnv.isNative || !gtMd) {
     return (
-      <Stack flex={1}>
+      <Stack flex={1} onLayout={onListLayout}>
         <BannerDetailListColumnHeader
           // Same label as the mobile home lists: the row's second line is the
           // contract's volume.
@@ -148,9 +157,10 @@ export function PerpsTokenListSection({
           changeSortType={changeSortType}
           change24hColumnTitle={change24hColumnTitle}
           onChangeSortPress={onChangeSortPress}
+          columnMode={columnMode}
         />
         {showSkeleton ? (
-          <TokenListSkeleton count={15} />
+          <TokenListSkeleton count={15} bannerColumnMode={columnMode} />
         ) : (
           <FlatList<IMarketPerpsToken>
             style={{ flex: 1 }}
