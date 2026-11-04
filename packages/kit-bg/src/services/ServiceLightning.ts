@@ -24,6 +24,7 @@ import {
   isLightningAddress,
   verifyInvoice,
 } from '../vaults/impls/lightning/sdkLightning/lnurl';
+import { isZeroAmountDecodedInvoice } from '../vaults/impls/spark/sdkSpark/invoicePayment';
 
 import ServiceBase from './ServiceBase';
 
@@ -182,12 +183,31 @@ class ServiceLightning extends ServiceBase {
     networkId: string;
     accountId: string;
   }) {
+    if (networkUtils.isLightningSparkNetworkByNetworkId(networkId)) {
+      return this.decodeInvoiceByServer(paymentRequest);
+    }
     const vault = (await vaultFactory.getVault({
       networkId,
       accountId,
     })) as LightningVault;
     return vault._decodedInvoiceCache(paymentRequest);
   }
+
+  /**
+   * Decodes a BOLT11 invoice on the OneKey lightning service, the same route
+   * custodial Lightning uses. It needs no account token, so self-custody
+   * Lightning decodes user input here instead of in the Breez SDK.
+   */
+  decodeInvoiceByServer = memoizee(
+    async (paymentRequest: string) => {
+      const client = await this.getLnClient(false);
+      return client.decodedInvoice(paymentRequest);
+    },
+    {
+      maxAge: timerUtils.getTimeDurationMs({ seconds: 30 }),
+      promise: true,
+    },
+  );
 
   @backgroundMethod()
   async isZeroAmountInvoice({
@@ -204,6 +224,9 @@ class ServiceLightning extends ServiceBase {
       networkId,
       accountId,
     });
+    if (networkUtils.isLightningSparkNetworkByNetworkId(networkId)) {
+      return isZeroAmountDecodedInvoice(invoice);
+    }
     const vault = (await vaultFactory.getVault({
       networkId,
       accountId,

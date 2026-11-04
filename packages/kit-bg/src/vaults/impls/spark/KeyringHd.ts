@@ -18,6 +18,7 @@ import type { IDBAccount, IDBSimpleAccount } from '../../../dbs/local/types';
 import type {
   IGetPrivateKeysResult,
   IPrepareHdAccountsParams,
+  ISignTransactionParams,
 } from '../../types';
 
 /**
@@ -76,8 +77,16 @@ export class KeyringHd extends KeyringHdBase {
     return childMnemonic;
   }
 
-  override async signTransaction(): Promise<ISignedTxPro> {
-    throw new NotImplemented();
+  // The Breez SDK signs while it pays the invoice, which the vault's
+  // broadcastTransaction asks it to do, so there is nothing to sign here.
+  override async signTransaction(
+    params: ISignTransactionParams,
+  ): Promise<ISignedTxPro> {
+    return {
+      txid: '',
+      rawTx: '',
+      encodedTx: params.unsignedTx.encodedTx,
+    };
   }
 
   override async signMessage(): Promise<string[]> {

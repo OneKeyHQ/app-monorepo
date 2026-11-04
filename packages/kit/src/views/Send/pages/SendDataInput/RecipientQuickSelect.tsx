@@ -1594,7 +1594,8 @@ function RecipientQuickSelect({
 
   // Set of tabs that should appear (excludes hideTabs and Lightning hidden tabs)
   const visibleTabKeys = useMemo<IRecipientQuickSelectTab[]>(() => {
-    const isLightning = networkUtils.isLightningNetworkByNetworkId(networkId);
+    const isLightning =
+      networkUtils.isAnyLightningNetworkByNetworkId(networkId);
     const all: IRecipientQuickSelectTab[] = isLightning
       ? ['recent']
       : ['recent', 'account', 'addressBook'];

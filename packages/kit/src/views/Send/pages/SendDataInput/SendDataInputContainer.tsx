@@ -312,7 +312,7 @@ function SendDataInputContainer() {
       isNFT ||
       !tokenInfo ||
       !account?.address ||
-      networkUtils.isLightningNetworkByNetworkId(currentAccount.networkId)
+      networkUtils.isAnyLightningNetworkByNetworkId(currentAccount.networkId)
     ) {
       return;
     }
@@ -730,14 +730,29 @@ function SendDataInputContainer() {
 
       // Reuse the matching amount-input route for the active modal stack.
 
-      const isLightning = networkUtils.isLightningNetworkByNetworkId(
+      const isLightning = networkUtils.isAnyLightningNetworkByNetworkId(
         currentAccount.networkId,
       );
+      // Self-custody Lightning pays invoices with an amount only for now.
+      const isLightningSpark = networkUtils.isLightningSparkNetworkByNetworkId(
+        currentAccount.networkId,
+      );
+      const showLightningSparkComingSoon = () => {
+        Toast.message({
+          title: intl.formatMessage({
+            id: ETranslations.wallet_feature_coming_soon,
+          }),
+        });
+      };
 
       // For LNURL / Lightning Address, skip amount page — LnurlPayRequestModal
       // handles amount input, comment, and metadata display (OK-52507, OK-52671).
       // Must check before invoice decode to avoid passing LNURL to decodedInvoice.
       const rawInput = (toVal?.raw ?? '').trim();
+      if (isLightningSpark && isReusableLightningRecipient(rawInput)) {
+        showLightningSparkComingSoon();
+        return;
+      }
       if (isLightning && account && isReusableLightningRecipient(rawInput)) {
         const transfersInfo: ITransferInfo[] = [
           {
@@ -870,6 +885,12 @@ function SendDataInputContainer() {
           },
           isInternalTransfer: true,
         });
+        return;
+      }
+
+      // Invoices without an amount and Spark addresses come later.
+      if (isLightningSpark) {
+        showLightningSparkComingSoon();
         return;
       }
 
@@ -1287,7 +1308,7 @@ function SendDataInputContainer() {
   );
 
   const enableAllowListValidation = useMemo(
-    () => !networkUtils.isLightningNetworkByNetworkId(networkId),
+    () => !networkUtils.isAnyLightningNetworkByNetworkId(networkId),
     [networkId],
   );
 
@@ -1660,7 +1681,7 @@ function SendDataInputContainer() {
     >
       <Page.Header
         title={intl.formatMessage({
-          id: networkUtils.isLightningNetworkByNetworkId(
+          id: networkUtils.isAnyLightningNetworkByNetworkId(
             currentAccount.networkId,
           )
             ? ETranslations.send_title
@@ -1746,7 +1767,7 @@ function SendDataInputContainer() {
                   labelAddon={addressRiskCheckLabelAddon}
                   testID={SendTestIDs.recipientInput}
                   numberOfLines={
-                    networkUtils.isLightningNetworkByNetworkId(
+                    networkUtils.isAnyLightningNetworkByNetworkId(
                       currentAccount.networkId,
                     )
                       ? 5
