@@ -1,4 +1,5 @@
 import BigNumber from 'bignumber.js';
+import { useIntl } from 'react-intl';
 import Svg, { Circle } from 'react-native-svg';
 
 import type { IIconProps } from '@onekeyhq/components';
@@ -12,21 +13,15 @@ import {
   YStack,
   useTheme,
 } from '@onekeyhq/components';
-import { HELP_CENTER_URL } from '@onekeyhq/shared/src/config/appConfig';
+import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IPerpsRecallProgress } from '@onekeyhq/shared/src/referralCode/recall';
-import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
 
 import { openGuideUrl } from './Guide/perpGuideData';
 
-export function formatRecallAmount(value: string, minimumDecimals = 2) {
-  const amount = new BigNumber(value);
-  return amount.toFormat(
-    Math.max(minimumDecimals, amount.decimalPlaces() ?? 0),
-  );
-}
-
 function formatRewardAmount(value: string) {
-  return formatRecallAmount(value, 0);
+  const amount = new BigNumber(value);
+  return amount.toFormat(amount.decimalPlaces() ?? 0);
 }
 
 export function PerpsRecallProgressCard({
@@ -38,9 +33,13 @@ export function PerpsRecallProgressCard({
   hasEnded: boolean;
   onOpenHelp?: () => void;
 }) {
-  const deadline = formatDate(progress.deadline, {
-    formatTemplate: 'MMM d, yyyy',
-    locale: 'en-US',
+  const intl = useIntl();
+  const isDarkTheme = useThemeVariant() === 'dark';
+  const surfaceBg = isDarkTheme ? '$bgStrong' : '$bgSubdued';
+  const deadline = intl.formatDate(new Date(progress.deadline), {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
     timeZone: 'UTC',
   });
   const achieved = progress.status === 'achieved';
@@ -69,18 +68,18 @@ export function PerpsRecallProgressCard({
     statusIcon = 'ClockTimeHistoryOutline';
   }
 
-  let statusTitle = 'Awaiting payout';
+  let statusTitle: ETranslations = ETranslations.rebate_awaiting_payout;
   if (paid) {
-    statusTitle = 'Reward received';
+    statusTitle = ETranslations.perps_recall_reward_received__title;
   } else if (skipped) {
-    statusTitle = 'Payout skipped';
+    statusTitle = ETranslations.perps_recall_payout_skipped__title;
   } else if (canTrade && progress.current) {
-    statusTitle = 'Reward locked';
+    statusTitle = ETranslations.perps_recall_reward_locked__title;
   } else if (!achieved && hasEnded) {
     statusTitle =
       progress.activityStatus === 'ended'
-        ? 'Target not reached'
-        : 'Awaiting final results';
+        ? ETranslations.perps_recall_target_not_reached__title
+        : ETranslations.perps_recall_awaiting_results__title;
   }
 
   return (
@@ -89,7 +88,7 @@ export function PerpsRecallProgressCard({
         <YStack flex={1} minWidth={0} gap="$2">
           <YStack gap="$1">
             <SizableText size="$bodyMd" color="$textSubdued">
-              Total reward
+              {intl.formatMessage({ id: ETranslations.referral_total_reward })}
             </SizableText>
             <XStack gap="$2" alignItems="baseline" flexWrap="wrap">
               <SizableText
@@ -113,13 +112,13 @@ export function PerpsRecallProgressCard({
             px="$2"
             py="$1"
             borderRadius="$full"
-            bg={paid ? '$brand3' : '$bgSubdued'}
+            bg={paid ? '$brand3' : surfaceBg}
             {...(awaitingPayout && { bg: '$bgInfo' })}
           >
             <Icon
               name={statusIcon}
               size="$3.5"
-              color={paid ? '$textInteractive' : '$iconSubdued'}
+              color={paid ? '$textInteractive' : '$icon'}
               {...(awaitingPayout && { color: '$iconInfo' })}
             />
             <SizableText
@@ -128,7 +127,7 @@ export function PerpsRecallProgressCard({
               {...(awaitingPayout && { color: '$textInfo' })}
               flexShrink={1}
             >
-              {statusTitle}
+              {intl.formatMessage({ id: statusTitle })}
             </SizableText>
           </XStack>
         </YStack>
@@ -152,18 +151,16 @@ export function PerpsRecallProgressCard({
         </Stack>
       </XStack>
 
-      <YStack
-        gap="$4"
-        p="$3"
-        borderRadius="$4"
-        bg="$bgSubdued"
-        $theme-dark={{ bg: '$bgStrong' }}
-      >
+      <YStack gap="$4" p="$3" borderRadius="$4" bg={surfaceBg}>
         <XStack alignItems="center" gap="$3">
           <RecallProgressRing percentage={percentage} achieved={achieved} />
           <YStack flex={1} minWidth={0} gap="$1">
             <SizableText size="$bodyMdMedium">
-              {achieved ? 'Trading target completed' : 'Trading volume'}
+              {intl.formatMessage({
+                id: achieved
+                  ? ETranslations.perps_recall_target_completed__title
+                  : ETranslations.referral_perps_trading_volume,
+              })}
             </SizableText>
             <SizableText
               size="$bodySm"
@@ -176,25 +173,43 @@ export function PerpsRecallProgressCard({
             </SizableText>
           </YStack>
         </XStack>
-        <Divider borderColor="$borderSubdued" />
+        <Divider
+          borderColor={isDarkTheme ? '$borderStrong' : '$borderSubdued'}
+        />
         <SizableText
           testID="perps-recall-details"
           size="$bodySm"
           color="$textSubdued"
         >
-          {`Campaign ${hasEnded ? 'ended' : 'ends'} on ${deadline}. `}
-          <SizableText
-            testID="perps-recall-help"
-            size="$bodySm"
-            color="$textInteractive"
-            textDecorationLine="underline"
-            cursor="pointer"
-            accessibilityRole="link"
-            onPress={onOpenHelp ?? (() => openGuideUrl(HELP_CENTER_URL))}
-          >
-            Learn more
-          </SizableText>{' '}
-          about this campaign.
+          {intl.formatMessage(
+            {
+              id: hasEnded
+                ? ETranslations.perps_recall_campaign_ended__desc
+                : ETranslations.perps_recall_campaign_ends__desc,
+            },
+            { date: deadline },
+          )}
+          {progress.blogUrl ? (
+            <>
+              {' '}
+              <SizableText
+                testID="perps-recall-help"
+                size="$bodySm"
+                color="$textInteractive"
+                textDecorationLine="underline"
+                cursor="pointer"
+                accessibilityRole="link"
+                onPress={
+                  onOpenHelp ??
+                  (() => {
+                    if (progress.blogUrl) openGuideUrl(progress.blogUrl);
+                  })
+                }
+              >
+                {intl.formatMessage({ id: ETranslations.global_learn_more })}
+              </SizableText>
+            </>
+          ) : null}
         </SizableText>
       </YStack>
     </YStack>
@@ -208,6 +223,7 @@ function RecallProgressRing({
   percentage: number;
   achieved: boolean;
 }) {
+  const intl = useIntl();
   const theme = useTheme();
   const circumference = 2 * Math.PI * 20;
   return (
@@ -218,7 +234,9 @@ function RecallProgressRing({
       alignItems="center"
       justifyContent="center"
       accessibilityRole="progressbar"
-      accessibilityLabel="Trading volume"
+      accessibilityLabel={intl.formatMessage({
+        id: ETranslations.referral_perps_trading_volume,
+      })}
       accessibilityValue={{ min: 0, max: 100, now: percentage }}
     >
       <Svg width={48} height={48} viewBox="0 0 48 48">

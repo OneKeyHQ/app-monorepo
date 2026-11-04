@@ -1,5 +1,7 @@
 import BigNumber from 'bignumber.js';
 
+import uriUtils from '../utils/uriUtils';
+
 export type IPerpsRecallProgress = {
   activityId: string;
   activityStatus: 'running' | 'ended';
@@ -18,6 +20,10 @@ export type IPerpsRecallProgress = {
   payoutStatus: 'pending' | 'paid' | 'skipped';
   paidAmount: string | null;
   paidAt: string | null;
+  title: string | null;
+  closable: boolean;
+  reopenAfterMinutes: number | null;
+  blogUrl: string | null;
 };
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -58,6 +64,19 @@ export function isPerpsRecallProgress(
       value.payoutStatus === 'skipped') &&
     (value.paidAmount === null || isAmount(value.paidAmount)) &&
     (value.paidAt === null || isDate(value.paidAt)) &&
+    (value.title === null || typeof value.title === 'string') &&
+    typeof value.closable === 'boolean' &&
+    (value.reopenAfterMinutes === null ||
+      (typeof value.reopenAfterMinutes === 'number' &&
+        Number.isSafeInteger(value.reopenAfterMinutes) &&
+        value.reopenAfterMinutes >= 0 &&
+        Number.isSafeInteger(value.reopenAfterMinutes * 60_000))) &&
+    (value.blogUrl === null ||
+      (typeof value.blogUrl === 'string' &&
+        (value.blogUrl === '' ||
+          ['https:', 'http:'].includes(
+            uriUtils.safeParseURL(value.blogUrl)?.protocol ?? '',
+          )))) &&
     (value.status === 'achieved'
       ? current === null
       : isRecord(current) &&

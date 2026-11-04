@@ -11,6 +11,7 @@ const mockFetch = jest
   .fn<Promise<IPerpsRecallProgress | null>, []>()
   .mockResolvedValue(null);
 const mockDevSettings = {};
+let mockLocale = 'en-US';
 let mockAccount = {
   accountId: 'account-a',
   indexedAccountId: 'indexed-a',
@@ -19,8 +20,11 @@ let mockAccount = {
 };
 let mockSnapshot: {
   instanceId: string;
+  locale: string;
   progress: IPerpsRecallProgress | null;
 };
+
+jest.mock('react-intl', () => ({ useIntl: () => ({ locale: mockLocale }) }));
 
 jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => ({
   useSettingsPersistAtom: () => [{ instanceId: 'test-instance' }],
@@ -50,6 +54,10 @@ jest.mock('@onekeyhq/components', () => ({
 describe('recall account changes', () => {
   it('shares instance progress across accounts without refetching and hides it for watching accounts', async () => {
     const progress: IPerpsRecallProgress = {
+      title: 'Trade more to earn 10 USDC',
+      closable: true,
+      reopenAfterMinutes: 30,
+      blogUrl: 'https://onekey.so/blog/recall',
       activityId: 'recall-1',
       activityStatus: 'running',
       status: 'achieved',
@@ -65,6 +73,7 @@ describe('recall account changes', () => {
     };
     mockSnapshot = {
       instanceId: 'test-instance',
+      locale: 'en-us',
       progress,
     };
     const { result, rerender } = renderHook(() => usePerpsRecallProgress());
@@ -91,9 +100,21 @@ describe('recall account changes', () => {
     expect(result.current.progress).toEqual(progress);
     expect(mockFetch).toHaveBeenCalledTimes(1);
 
+    mockLocale = 'zh-CN';
+    await act(async () => rerender());
+    expect(result.current.progress).toBeNull();
+    expect(mockFetch).toHaveBeenCalledTimes(2);
+    mockSnapshot = {
+      ...mockSnapshot,
+      locale: 'zh-cn',
+      progress: { ...progress, title: '再交易，返奖励' },
+    };
+    await act(async () => rerender());
+    expect(result.current.progress?.title).toBe('再交易，返奖励');
+
     mockSnapshot = { ...mockSnapshot, progress: null };
     await act(async () => rerender());
     expect(result.current.progress).toBeNull();
-    expect(mockFetch).toHaveBeenCalledTimes(1);
+    expect(mockFetch).toHaveBeenCalledTimes(2);
   });
 });

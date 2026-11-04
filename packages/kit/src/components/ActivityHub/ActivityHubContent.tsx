@@ -393,11 +393,7 @@ export function ActivityHubContent({
                   title={detailEntry.title}
                   subtitle={detailEntry.subtitle}
                   onPress={() => {
-                    if (detailEntry.closeOnOpen === false) {
-                      detailEntry.onOpen();
-                    } else {
-                      closeThenRun(closePopover, detailEntry.onOpen);
-                    }
+                    closeThenRun(closePopover, detailEntry.onOpen);
                   }}
                 />
               ) : null}

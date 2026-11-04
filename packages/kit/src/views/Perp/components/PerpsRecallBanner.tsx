@@ -1,3 +1,5 @@
+import { useIntl } from 'react-intl';
+
 import {
   Alert,
   Dialog,
@@ -9,27 +11,36 @@ import {
   YStack,
   useMedia,
 } from '@onekeyhq/components';
+import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useActiveTradeDisplay } from '../hooks/useActiveTradeDisplay';
 import { usePerpsRecallBannerVisibility } from '../hooks/usePerpsRecallBannerVisibility';
 import { usePerpsRecallProgress } from '../hooks/usePerpsRecallProgress';
 
-import { showPerpsActivityCenterDialog } from './PerpsActivityCenterAction';
+import { PerpsRecallDesktopHint } from './PerpsRecallDesktopHint';
 import { showPerpsRecallDialog } from './PerpsRecallDialog';
 import { PerpsRecallIllustration } from './PerpsRecallIllustration';
-import { formatRecallAmount } from './PerpsRecallProgressCard';
 
-function RecallEntryHint({ pairLabel }: { pairLabel: string }) {
+function RecallEntryHint({
+  pairLabel,
+  desktop = false,
+}: {
+  pairLabel: string;
+  desktop?: boolean;
+}) {
+  const intl = useIntl();
+  const isDarkTheme = useThemeVariant() === 'dark';
   return (
     <YStack gap="$5">
       <XStack
         testID="perps-recall-entry-hint"
-        bg="$bgSubdued"
-        $theme-dark={{ bg: '$bgStrong' }}
+        bg={isDarkTheme ? '$bgStrong' : '$bgSubdued'}
+        {...(desktop && { bg: isDarkTheme ? '$bgApp' : '$bgSubdued' })}
         borderRadius="$4"
-        px="$4"
-        py="$5"
+        px={desktop ? '$0' : '$4'}
+        py={desktop ? '$0' : '$5'}
         minHeight={80}
         gap="$3"
         alignItems="center"
@@ -39,75 +50,74 @@ function RecallEntryHint({ pairLabel }: { pairLabel: string }) {
         importantForAccessibility="no-hide-descendants"
         aria-hidden
       >
-        <XStack flex={1} minWidth={0} gap="$1" alignItems="center">
-          <SizableText size="$headingMd" numberOfLines={1} flexShrink={1}>
-            {pairLabel}
-          </SizableText>
-          <Icon
-            name="ChevronTriangleDownSmallSolid"
-            size="$4"
-            color="$iconSubdued"
-          />
-        </XStack>
-        <XStack gap="$3" alignItems="center" flexShrink={0}>
-          <Stack
-            width="$10"
-            height="$10"
-            borderRadius="$full"
-            bg="$brand3"
-            alignItems="center"
-            justifyContent="center"
-          >
-            <Stack width={28} height={24}>
-              <PerpsRecallIllustration trimmed />
-            </Stack>
-          </Stack>
-          <Icon
-            name="TradingViewCandlesOutline"
-            size="$5"
-            color="$iconSubdued"
-          />
-          <Icon name="DotHorOutline" size="$5" color="$iconSubdued" />
-        </XStack>
+        {desktop ? (
+          <PerpsRecallDesktopHint webDapp={platformEnv.isWebDappMode} />
+        ) : (
+          <>
+            <XStack flex={1} minWidth={0} gap="$1" alignItems="center">
+              <SizableText size="$headingMd" numberOfLines={1} flexShrink={1}>
+                {pairLabel}
+              </SizableText>
+              <Icon
+                name="ChevronTriangleDownSmallSolid"
+                size="$4"
+                color="$iconSubdued"
+              />
+            </XStack>
+            <XStack gap="$3" alignItems="center" flexShrink={0}>
+              <Stack
+                width="$10"
+                height="$10"
+                borderRadius="$full"
+                bg="$brand3"
+                alignItems="center"
+                justifyContent="center"
+              >
+                <Stack width={28} height={24}>
+                  <PerpsRecallIllustration trimmed />
+                </Stack>
+              </Stack>
+              <Icon
+                name="TradingViewCandlesOutline"
+                size="$5"
+                color="$iconSubdued"
+              />
+              <Icon name="DotHorOutline" size="$5" color="$iconSubdued" />
+            </XStack>
+          </>
+        )}
       </XStack>
       <SizableText
         size="$bodyLg"
-        accessibilityLabel="View your rewards and trading progress anytime using the rewards icon at the top of the trading screen."
+        accessibilityLabel={
+          desktop
+            ? undefined
+            : intl.formatMessage({
+                id: ETranslations.perps_recall_entry_accessibility__desc,
+              })
+        }
       >
-        View your rewards and trading progress here anytime.
+        {desktop
+          ? intl.formatMessage({ id: ETranslations.perps_recall_hidden__desc })
+          : intl.formatMessage({
+              id: ETranslations.perps_recall_entry_hint__desc,
+            })}
       </SizableText>
     </YStack>
   );
 }
 
 export function PerpsRecallBanner({ compact = false }: { compact?: boolean }) {
+  const intl = useIntl();
   const { gtMd } = useMedia();
   const { displayName, mode } = useActiveTradeDisplay();
-  const { progress, hasEnded, instanceId, refresh } = usePerpsRecallProgress();
+  const { progress, instanceId, refresh } = usePerpsRecallProgress();
   const { isBannerHidden, setBannerHidden } = usePerpsRecallBannerVisibility({
     instanceId,
-    activityId: progress?.activityId,
+    progress,
   });
-  if (!progress || isBannerHidden) return null;
-
-  let bannerText = '';
-  if (progress.payoutStatus === 'paid') {
-    bannerText =
-      progress.paidAmount !== null
-        ? `You’ve received ${formatRecallAmount(progress.paidAmount)} USDC in comeback rewards.`
-        : 'Your comeback reward has been sent.';
-  } else if (progress.payoutStatus === 'skipped') {
-    bannerText = 'Comeback reward update · View activity details';
-  } else if (progress.status === 'achieved') {
-    bannerText = `Target reached! ${formatRecallAmount(progress.earnedReward)} USDC reward awaiting payout.`;
-  } else if (hasEnded) {
-    bannerText =
-      progress.activityStatus === 'ended'
-        ? 'Comeback activity ended · View your results'
-        : 'Activity ended · Awaiting final results';
-  } else if (progress.current) {
-    bannerText = `Trade ${formatRecallAmount(progress.current.remaining)} USDC more to earn ${formatRecallAmount(progress.totalReward)} USDC in rewards.`;
-  }
+  if (!progress?.title?.trim() || isBannerHidden) return null;
+  const title = progress.title.replace(/\bUSDT\b/g, 'USDC');
 
   return (
     <YStack
@@ -117,6 +127,7 @@ export function PerpsRecallBanner({ compact = false }: { compact?: boolean }) {
     >
       <Alert
         type="default"
+        titleNumberOfLines={2}
         renderTitle={(titleProps) => (
           <XStack alignItems="center" gap={compact ? '$2' : '$3'}>
             <Stack
@@ -136,71 +147,67 @@ export function PerpsRecallBanner({ compact = false }: { compact?: boolean }) {
               flex={1}
               minWidth={0}
             >
-              {bannerText}
+              {title}
             </SizableText>
           </XStack>
         )}
         testID="perps-recall-banner"
         onPress={() => {
           void refresh();
-          if (platformEnv.isNative || !gtMd) {
-            showPerpsActivityCenterDialog({
-              initialDetailId: progress.activityId,
-            });
-          } else {
-            showPerpsRecallDialog({
-              activityId: progress.activityId,
-              instanceId,
-            });
-          }
+          showPerpsRecallDialog({
+            intl,
+            activityId: progress.activityId,
+            instanceId,
+          });
         }}
         accessibilityRole="button"
-        accessibilityLabel="View comeback reward details"
+        accessibilityLabel={intl.formatMessage({
+          id: ETranslations.perps_recall__title,
+        })}
         bg="$bgSubdued"
-        borderRadius={compact ? '$2' : '$4'}
+        borderRadius={compact ? '$3' : '$4'}
         borderWidth={0}
         borderColor="$borderSubdued"
         {...(compact ? { px: '$3', py: '$2.5' } : {})}
-        pr="$10"
+        pr={progress.closable ? '$10' : undefined}
         hoverStyle={{ bg: '$bgHover' }}
         pressStyle={{ bg: '$bgActive' }}
       />
-      <IconButton
-        testID="perps-recall-banner-close"
-        accessibilityLabel="Remind me about comeback rewards later"
-        position="absolute"
-        right="$2"
-        top="$2"
-        size="small"
-        variant="tertiary"
-        icon="CrossedSmallOutline"
-        onPress={() => {
-          const showEntryHint = platformEnv.isNative || !gtMd;
-          Dialog.show({
-            ...(showEntryHint
-              ? {
-                  showHeader: false,
-                  contentContainerProps: { p: '$6' },
-                  footerProps: { px: '$6', pb: '$6' },
-                  renderContent: (
-                    <RecallEntryHint
-                      pairLabel={
-                        mode === 'spot' ? displayName : `${displayName}USDC`
-                      }
-                    />
-                  ),
-                }
-              : {
-                  description:
-                    'You can still view your rewards and trading progress in the Activity Center.',
-                }),
-            onConfirmText: 'Remind me later',
-            showCancelButton: false,
-            showExitButton: false,
-            onConfirm: () => setBannerHidden(true),
-          });
-        }}
-      />
+      {progress.closable ? (
+        <IconButton
+          testID="perps-recall-banner-close"
+          accessibilityLabel={intl.formatMessage({
+            id: ETranslations.perps_recall_remind_later__action,
+          })}
+          position="absolute"
+          right="$2"
+          top="$2"
+          size="small"
+          variant="tertiary"
+          icon="CrossedSmallOutline"
+          onPress={() => {
+            Dialog.show({
+              showHeader: false,
+              contentContainerProps: { p: '$6' },
+              footerProps: { px: '$6', pb: '$6' },
+              renderContent: (
+                <RecallEntryHint
+                  desktop={!platformEnv.isNative && gtMd}
+                  pairLabel={
+                    mode === 'spot' ? displayName : `${displayName}USDC`
+                  }
+                />
+              ),
+              onConfirmText: intl.formatMessage({
+                id: ETranslations.perps_recall_remind_later__action,
+              }),
+              showCancelButton: false,
+              showExitButton: false,
+              onConfirm: () => setBannerHidden(true),
+            });
+          }}
+        />
+      ) : null}
     </YStack>
   );
 }

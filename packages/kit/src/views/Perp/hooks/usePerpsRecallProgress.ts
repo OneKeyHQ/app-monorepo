@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import { onVisibilityStateChange } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
@@ -13,6 +15,7 @@ import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 export function usePerpsRecallProgress() {
+  const { locale } = useIntl();
   const [{ instanceId }] = useSettingsPersistAtom();
   const [devSettings] = useDevSettingsPersistAtom();
   const [activeAccount] = usePerpsActiveAccountAtom();
@@ -22,9 +25,9 @@ export function usePerpsRecallProgress() {
   const [snapshot] = usePerpsRecallProgressAtom();
   const { run: refresh } = usePromiseResult(
     () => backgroundApiProxy.serviceReferralCode.fetchPerpsRecallProgress(),
-    // Refresh the device-scoped request when identity or endpoint settings change.
+    // Refresh the device-scoped request when identity, locale or endpoint settings change.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [instanceId, devSettings],
+    [instanceId, devSettings, locale],
     {
       pollingInterval: timerUtils.getTimeDurationMs({ minute: 1 }),
       revalidateOnFocus: true,
@@ -43,7 +46,8 @@ export function usePerpsRecallProgress() {
 
   const progress =
     !isWatchingAccount &&
-    snapshot.instanceId === instanceId.trim().toLowerCase()
+    snapshot.instanceId === instanceId.trim().toLowerCase() &&
+    snapshot.locale === locale.toLowerCase()
       ? snapshot.progress
       : null;
   const [now, setNow] = useState(Date.now);

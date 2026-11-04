@@ -18,11 +18,9 @@ export type IActivityHubSource = IReferralShareSource;
 // Opens the referral page; without a tab it reopens the one used last.
 export type IActivityHubOpenReferral = (tab?: IReferralPageTab) => void;
 export type IActivityHubDetailEntry = {
-  id: string;
   title: string;
   subtitle?: string;
   icon: IButtonProps['icon'];
   illustration?: ReactNode;
   onOpen: () => void;
-  closeOnOpen?: boolean;
 };

@@ -99,10 +99,11 @@ export const {
 } = globalAtom<{
   instanceId: string;
   endpoint: string;
+  locale: string;
   progress: IPerpsRecallProgress | null;
 }>({
   name: EAtomNames.perpsRecallProgressAtom,
-  initialValue: { instanceId: '', endpoint: '', progress: null },
+  initialValue: { instanceId: '', endpoint: '', locale: '', progress: null },
 });
 
 // #region Active Account
@@ -1203,7 +1204,8 @@ export type IPerpsLastAdvancedOrderType = ETriggerOrderType | 'scale' | 'twap';
 export type IPerpsChartPosition = 'top' | 'bottom' | 'hidden';
 
 export interface IPerpsCustomSettings {
-  dismissedRecallBanners?: Record<string, boolean>;
+  // Numbers are dismissal timestamps; booleans are legacy records.
+  dismissedRecallBanners?: Record<string, boolean | number>;
   positionActionVisibility?: Partial<
     Record<'add' | 'tpsl' | 'close' | 'reverse', boolean>
   >;

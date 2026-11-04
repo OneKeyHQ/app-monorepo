@@ -1,3 +1,5 @@
+import { type IntlShape, useIntl } from 'react-intl';
+
 import {
   Button,
   Dialog,
@@ -6,7 +8,9 @@ import {
   Stack,
   useDialogInstance,
 } from '@onekeyhq/components';
-import { HELP_CENTER_URL } from '@onekeyhq/shared/src/config/appConfig';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { openUrlInApp } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
 import { usePerpsRecallProgress } from '../hooks/usePerpsRecallProgress';
 
@@ -23,6 +27,7 @@ export function PerpsRecallDialogContent({
   activityId,
   instanceId,
 }: IPerpsRecallDialogProps) {
+  const intl = useIntl();
   const recall = usePerpsRecallProgress();
   const { close } = useDialogInstance();
   if (
@@ -31,14 +36,22 @@ export function PerpsRecallDialogContent({
   ) {
     return (
       <SizableText color="$textSubdued">
-        Activity details are currently unavailable.
+        {intl.formatMessage({
+          id: ETranslations.perps_recall_unavailable__msg,
+        })}
       </SizableText>
     );
   }
 
+  const { blogUrl } = recall.progress;
   const onOpenHelp = async () => {
+    if (!blogUrl) return;
     await close();
-    openGuideUrl(HELP_CENTER_URL);
+    if (platformEnv.isNative) {
+      openUrlInApp(blogUrl, undefined, { redirectExternalNavigation: true });
+    } else {
+      openGuideUrl(blogUrl);
+    }
   };
   return (
     <PerpsRecallProgressCard
@@ -49,15 +62,25 @@ export function PerpsRecallDialogContent({
   );
 }
 
-export function showPerpsRecallDialog(props: IPerpsRecallDialogProps) {
+export function showPerpsRecallDialog({
+  intl,
+  ...props
+}: IPerpsRecallDialogProps & { intl: IntlShape }) {
   return Dialog.show({
-    title: 'Comeback rewards',
+    title: intl.formatMessage({
+      id: ETranslations.perps_recall__title,
+    }),
     showFooter: false,
+    contentContainerProps: {
+      pb: platformEnv.isNative ? '$2' : '$5',
+      $md: { pb: '$2' },
+    },
     renderContent: <PerpsRecallDialogContent {...props} />,
   });
 }
 
 export function PerpsRecallAction() {
+  const intl = useIntl();
   const { progress, instanceId, refresh } = usePerpsRecallProgress();
   if (!progress) return null;
 
@@ -73,10 +96,13 @@ export function PerpsRecallAction() {
         mx={-5}
         my={-5}
         hitSlop={NATIVE_HIT_SLOP}
-        accessibilityLabel="Comeback rewards"
+        accessibilityLabel={intl.formatMessage({
+          id: ETranslations.perps_recall__title,
+        })}
         onPress={() => {
           void refresh();
           showPerpsRecallDialog({
+            intl,
             activityId: progress.activityId,
             instanceId,
           });

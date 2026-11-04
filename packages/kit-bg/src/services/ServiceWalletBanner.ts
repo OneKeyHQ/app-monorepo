@@ -66,21 +66,6 @@ class ServiceWalletBanner extends ServiceBase {
   }
 
   @backgroundMethod()
-  async getSnoozedBanners() {
-    return this.backgroundApi.simpleDb.walletBanner.getSnoozedBanners();
-  }
-
-  @backgroundMethod()
-  async snoozeBanner({ bannerId }: { bannerId: string }): Promise<number> {
-    const snoozedUntil = Date.now() + timerUtils.getTimeDurationMs({ day: 7 });
-    await this.backgroundApi.simpleDb.walletBanner.setBannerSnoozedUntil({
-      bannerId,
-      snoozedUntil,
-    });
-    return snoozedUntil;
-  }
-
-  @backgroundMethod()
   async getLocalTopBanners() {
     return this.backgroundApi.simpleDb.walletBanner.getTopBanners();
   }

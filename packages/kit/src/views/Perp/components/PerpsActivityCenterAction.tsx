@@ -5,7 +5,6 @@ import {
   useEffect,
   useMemo,
   useRef,
-  useState,
 } from 'react';
 import type { ReactNode } from 'react';
 
@@ -13,11 +12,9 @@ import { useIntl } from 'react-intl';
 
 import type { IButtonProps } from '@onekeyhq/components';
 import {
-  Button,
   Dialog,
   IconButton,
   Stack,
-  XStack,
   YStack,
   useDialogInstance,
   useMedia,
@@ -29,6 +26,7 @@ import {
   useShowActivityHub,
 } from '@onekeyhq/kit/src/components/ActivityHub';
 import type { IActivityHubDetailEntry } from '@onekeyhq/kit/src/components/ActivityHub/types';
+import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { useOpenReferralPage } from '@onekeyhq/kit/src/hooks/useReferFriends';
 import { usePerpsCommonConfigPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -38,17 +36,15 @@ import { usePerpsRecallBannerVisibility } from '../hooks/usePerpsRecallBannerVis
 import { usePerpsRecallProgress } from '../hooks/usePerpsRecallProgress';
 
 import { PerpsCampaignIllustration } from './PerpsCampaignIllustration';
-import {
-  PerpsRecallDialogContent,
-  showPerpsRecallDialog,
-} from './PerpsRecallDialog';
+import { showPerpsRecallDialog } from './PerpsRecallDialog';
 import { PerpsRecallIllustration } from './PerpsRecallIllustration';
 
 function usePerpsActivityHubProps() {
+  const intl = useIntl();
   const { progress, instanceId, refresh } = usePerpsRecallProgress();
   const { isBannerHidden, setBannerHidden } = usePerpsRecallBannerVisibility({
     instanceId,
-    activityId: progress?.activityId,
+    progress,
   });
   const [{ perpConfigCommon }] = usePerpsCommonConfigPersistAtom();
   const campaigns = useMemo(
@@ -60,13 +56,15 @@ function usePerpsActivityHubProps() {
 
   const detailEntry: IActivityHubDetailEntry | undefined = progress
     ? {
-        id: progress.activityId,
-        title: 'Comeback rewards',
-        subtitle: 'View your rewards and trading progress',
+        title: intl.formatMessage({ id: ETranslations.perps_recall__title }),
+        subtitle: intl.formatMessage({
+          id: ETranslations.perps_recall_progress__desc,
+        }),
         icon: 'GiftOutline',
         illustration: <PerpsRecallIllustration trimmed />,
         onOpen: () => {
           showPerpsRecallDialog({
+            intl,
             activityId: progress.activityId,
             instanceId,
           });
@@ -79,7 +77,6 @@ function usePerpsActivityHubProps() {
     handleOpenReferral,
     refresh,
     detailEntry,
-    instanceId,
     isBannerHidden,
     setBannerHidden,
   };
@@ -91,6 +88,7 @@ export function PerpsActivityCenterContent({
   menuLayout = false,
   menuPopoverLayout = false,
   menuShortcuts,
+  menuFooter,
   renderMenuReferral,
 }: {
   closePopover: () => void;
@@ -98,6 +96,7 @@ export function PerpsActivityCenterContent({
   menuLayout?: boolean;
   menuPopoverLayout?: boolean;
   menuShortcuts?: ReactNode;
+  menuFooter?: ReactNode;
   renderMenuReferral?: (referral: ReactNode) => ReactNode;
 }) {
   const {
@@ -107,6 +106,7 @@ export function PerpsActivityCenterContent({
     isBannerHidden,
     setBannerHidden,
   } = usePerpsActivityHubProps();
+  const intl = useIntl();
   const showActivityHub = useShowActivityHub();
   // The menu already lists the campaigns, so the dialog holds only the
   // invite panel.
@@ -136,97 +136,61 @@ export function PerpsActivityCenterContent({
         campaigns={campaigns}
         detailEntry={detailEntry}
       />
-      {menuLayout && isBannerHidden ? (
-        <YStack px="$5" pb="$3">
-          <Button
+      {menuFooter}
+      {platformEnv.isDev && menuLayout && isBannerHidden ? (
+        <YStack px="$2" pb="$3">
+          <ListItem
             testID="perps-recall-restore-banner"
-            variant="tertiary"
-            size="small"
+            mx="$0"
+            px="$3"
+            titleProps={{ size: '$bodyMdMedium' }}
+            title={intl.formatMessage({
+              id: ETranslations.perps_recall_restore_banner__action,
+            })}
             onPress={() => {
               setBannerHidden(false);
               closePopover();
             }}
-          >
-            Restore reward banner
-          </Button>
+            cursor="default"
+          />
         </YStack>
       ) : null}
     </>
   );
 }
 
-function PerpsActivityCenterDialogContent({
-  initialDetailId,
-}: {
-  initialDetailId?: string;
-}) {
+function PerpsActivityCenterDialogContent() {
   const intl = useIntl();
   const { close } = useDialogInstance();
-  const { campaigns, handleOpenReferral, detailEntry, instanceId } =
+  const { campaigns, handleOpenReferral, detailEntry } =
     usePerpsActivityHubProps();
-  const [selected, setSelected] = useState(() =>
-    initialDetailId ? { activityId: initialDetailId, instanceId } : undefined,
-  );
   const title = intl.formatMessage({ id: ETranslations.perps_activity_hub });
   return (
     <>
       <Dialog.Header>
-        <XStack alignItems="center" gap="$3">
-          {selected ? (
-            <IconButton
-              testID="perps-activity-dialog-back"
-              icon="ArrowLeftOutline"
-              size="small"
-              variant="tertiary"
-              accessibilityLabel="Back to activity center"
-              onPress={() => setSelected(undefined)}
-            />
-          ) : null}
-          <Dialog.Title flexShrink={1}>
-            {selected ? 'Comeback rewards' : title}
-          </Dialog.Title>
-        </XStack>
+        <Dialog.Title>{title}</Dialog.Title>
       </Dialog.Header>
-      {selected ? (
-        <YStack px="$5" pb="$5">
-          <PerpsRecallDialogContent {...selected} />
-        </YStack>
-      ) : (
-        <ActivityHubContent
-          source="Perps"
-          showTitle={false}
-          closePopover={close}
-          onOpenReferral={handleOpenReferral}
-          campaigns={campaigns}
-          detailEntry={
-            detailEntry
-              ? {
-                  ...detailEntry,
-                  onOpen: () =>
-                    setSelected({ activityId: detailEntry.id, instanceId }),
-                  closeOnOpen: false,
-                }
-              : undefined
-          }
-        />
-      )}
+      <ActivityHubContent
+        source="Perps"
+        showTitle={false}
+        closePopover={close}
+        onOpenReferral={handleOpenReferral}
+        campaigns={campaigns}
+        detailEntry={detailEntry}
+      />
     </>
   );
 }
 
-export function showPerpsActivityCenterDialog({
-  initialDetailId,
+function showPerpsActivityCenterDialog({
   onClose,
 }: {
-  initialDetailId?: string;
   onClose?: () => void;
 } = {}) {
   return Dialog.show({
     showFooter: false,
     contentContainerProps: { p: '$0' },
-    renderContent: (
-      <PerpsActivityCenterDialogContent initialDetailId={initialDetailId} />
-    ),
+    renderContent: <PerpsActivityCenterDialogContent />,
     onClose,
   });
 }

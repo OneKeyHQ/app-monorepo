@@ -127,24 +127,41 @@ class ServiceReferralCode extends ServiceBase {
   async fetchPerpsRecallProgress(): Promise<IPerpsRecallProgress | null> {
     const { instanceId: rawInstanceId } = await settingsPersistAtom.get();
     const instanceId = rawInstanceId.trim().toLowerCase();
+    const locale = (
+      await this.backgroundApi.serviceSetting.getCurrentLocale()
+    ).toLowerCase();
     const { endpoint } = await this.getClientEndpointInfo(
       EServiceEndpointEnum.Rebate,
     );
     const previous = await perpsRecallProgressAtom.get();
-    if (previous.instanceId !== instanceId || previous.endpoint !== endpoint) {
+    if (
+      previous.instanceId !== instanceId ||
+      previous.endpoint !== endpoint ||
+      previous.locale !== locale
+    ) {
       await perpsRecallProgressAtom.set({
         instanceId,
         endpoint,
+        locale,
         progress: null,
       });
     }
     const progress = /^[a-z0-9][a-z0-9_-]{0,63}$/.test(instanceId)
-      ? await this.fetchPerpsRecallProgressMemo(instanceId, endpoint)
+      ? await this.fetchPerpsRecallProgressMemo(instanceId, endpoint, locale)
       : null;
     const scope = await perpsRecallProgressAtom.get();
-    // An older instance/environment request cannot replace the active result.
-    if (scope.instanceId === instanceId && scope.endpoint === endpoint) {
-      await perpsRecallProgressAtom.set({ instanceId, endpoint, progress });
+    // An older identity/environment/locale request cannot replace the active result.
+    if (
+      scope.instanceId === instanceId &&
+      scope.endpoint === endpoint &&
+      scope.locale === locale
+    ) {
+      await perpsRecallProgressAtom.set({
+        instanceId,
+        endpoint,
+        locale,
+        progress,
+      });
     }
     return progress;
   }
@@ -153,6 +170,7 @@ class ServiceReferralCode extends ServiceBase {
     async (
       instanceId: string,
       _endpoint: string,
+      locale: string,
     ): Promise<IPerpsRecallProgress | null> => {
       try {
         // The raw client retains common request headers but lets this endpoint
@@ -162,6 +180,7 @@ class ServiceReferralCode extends ServiceBase {
           '/rebate/v1/recall/progress',
           {
             params: { instanceId },
+            headers: { 'x-onekey-request-locale': locale },
           },
         );
         if (response.status !== 200 || response.data?.code !== 0) return null;
