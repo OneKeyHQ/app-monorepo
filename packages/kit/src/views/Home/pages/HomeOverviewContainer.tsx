@@ -16,7 +16,6 @@ import {
   PROPORTIONAL_NUMS,
   SizableText,
   Skeleton,
-  Spinner,
   XStack,
   YStack,
 } from '@onekeyhq/components';
@@ -1350,25 +1349,6 @@ function HomeOverviewContainer() {
           </XStack>
         )}
       </YStack>
-      {portfolioCategories?.isRefreshing || portfolioSyncUiState.loading ? (
-        <XStack
-          alignItems="center"
-          gap="$2"
-          testID="portfolio-data-refresh-loading"
-        >
-          <Spinner size="small" />
-          <SizableText size="$bodySm" color="$textSubdued">
-            {intl.formatMessage(
-              { id: ETranslations.global_updating_type },
-              {
-                type: intl.formatMessage({
-                  id: ETranslations.global_portfolio,
-                }),
-              },
-            )}
-          </SizableText>
-        </XStack>
-      ) : null}
       {!portfolioCategories?.isRefreshing &&
       !portfolioSyncUiState.loading &&
       portfolioCategories?.failedSources.length ? (
