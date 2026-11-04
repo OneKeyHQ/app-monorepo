@@ -417,13 +417,13 @@ function hasLoadedExpectedPageContent(state) {
 async function emitDesktopShortcut(app, eventName) {
   await app.evaluate(
     ({ BrowserWindow }, { channel, shortcutEvent }) => {
-      const window = BrowserWindow.getAllWindows().find(
+      const targetWindow = BrowserWindow.getAllWindows().find(
         (browserWindow) => !browserWindow.isDestroyed(),
       );
-      if (!window) {
+      if (!targetWindow) {
         throw new Error('No desktop window available for E2E shortcut');
       }
-      window.webContents.send(channel, shortcutEvent);
+      targetWindow.webContents.send(channel, shortcutEvent);
     },
     {
       channel: DESKTOP_SHORTCUT_IPC_CHANNEL,
@@ -895,7 +895,708 @@ async function runSniRequestFlow(page) {
   );
 }
 
+async function runFetchStreamSenderFlow() {
+  const crypto = require('node:crypto');
+  const { pathToFileURL } = require('node:url');
+  const ts = require('typescript');
+  const out = path.join(repoRoot, '.tmp', 'fetch-stream-electron');
+  fs.mkdirSync(out, { recursive: true });
+  const executablePath =
+    process.env.DESKTOP_E2E_ELECTRON_PATH ||
+    path.join(out, 'runtime', 'Electron.app', 'Contents', 'MacOS', 'Electron');
+  assert(
+    fs.existsSync(executablePath),
+    'Provide an isolated Electron executable',
+  );
+  const sourcePath = path.join(desktopDir, 'app', 'app.ts');
+  const source = fs.readFileSync(sourcePath, 'utf8');
+  const ast = ts.createSourceFile(
+    sourcePath,
+    source,
+    ts.ScriptTarget.Latest,
+    true,
+  );
+  const nodes = [];
+  const walk = (node) => {
+    nodes.push(node);
+    ts.forEachChild(node, walk);
+  };
+  walk(ast);
+  const counts = {};
+  const fragments = {};
+  const one = (name, predicate) => {
+    const matches = nodes.filter(predicate);
+    counts[name] = matches.length;
+    assert.equal(matches.length, 1, `Production node ${name} must be unique`);
+    fragments[name] = crypto
+      .createHash('sha256')
+      .update(matches[0].getText(ast))
+      .digest('hex');
+    return matches[0];
+  };
+  const text = (node) => node.getText(ast);
+  const declaration = (name) =>
+    one(
+      name,
+      (node) => ts.isFunctionDeclaration(node) && node.name?.text === name,
+    );
+  const variable = (name) =>
+    one(
+      name,
+      (node) =>
+        ts.isVariableDeclaration(node) && node.name.getText(ast) === name,
+    );
+  const call = (name, expression, event) =>
+    one(
+      name,
+      (node) =>
+        ts.isCallExpression(node) &&
+        text(node.expression) === expression &&
+        (ts.isStringLiteral(node.arguments[0])
+          ? node.arguments[0].text
+          : text(node.arguments[0])) === event,
+    );
+  const transpile = (input) =>
+    ts.transpileModule(input, {
+      compilerOptions: {
+        target: ts.ScriptTarget.ES2022,
+        module: ts.ModuleKind.CommonJS,
+      },
+    }).outputText;
+  const configSource = fs.readFileSync(
+    path.join(desktopDir, 'app/config.ts'),
+    'utf8',
+  );
+  const configAst = ts.createSourceFile(
+    'config.ts',
+    configSource,
+    ts.ScriptTarget.Latest,
+    true,
+  );
+  const channels = [];
+  const visitConfig = (node) => {
+    if (
+      ts.isPropertyAssignment(node) &&
+      node.name.getText(configAst) === 'FETCH_STREAM'
+    )
+      channels.push(node);
+    ts.forEachChild(node, visitConfig);
+  };
+  visitConfig(configAst);
+  assert.equal(channels.length, 1);
+  const streamChannel = channels[0].initializer.text;
+  const protocol = text(variable('PROTOCOL').initializer);
+  const sharedPath = path.join(
+    repoRoot,
+    'packages/shared/src/utils/fetchStream.ts',
+  );
+  const helperPath = path.join(
+    desktopDir,
+    'app/libs/desktopApiModuleAllowlist.ts',
+  );
+  const extracted = {};
+  const extractFrom = (filename, names) => {
+    const raw = fs.readFileSync(filename, 'utf8');
+    const tree = ts.createSourceFile(
+      filename,
+      raw,
+      ts.ScriptTarget.Latest,
+      true,
+    );
+    return names
+      .map((name) => {
+        const matches = [];
+        const visit = (node) => {
+          if (
+            (ts.isFunctionDeclaration(node) && node.name?.text === name) ||
+            (ts.isVariableDeclaration(node) && node.name.getText(tree) === name)
+          )
+            matches.push(node);
+          ts.forEachChild(node, visit);
+        };
+        visit(tree);
+        assert.equal(
+          matches.length,
+          1,
+          `Dependency node ${name} must be unique`,
+        );
+        const node = matches[0];
+        const value = node.getText(tree);
+        extracted[name] = {
+          file: path.relative(repoRoot, filename),
+          count: matches.length,
+          sha256: crypto.createHash('sha256').update(value).digest('hex'),
+        };
+        return ts.isVariableDeclaration(node) ? `const ${value};` : value;
+      })
+      .join('\n');
+  };
+  const dependencySource = [
+    extractFrom(sharedPath, [
+      'createFetchStreamHandler',
+      'FETCH_STREAM_CHUNK_BYTES',
+      'FETCH_STREAM_MAX_ACTIVE',
+    ]),
+    extractFrom(helperPath, ['isTrustedMainWindowUrl']),
+    extractFrom(
+      path.join(repoRoot, 'packages/shared/src/utils/bufferUtils.ts'),
+      ['toBuffer', 'bytesToBase64', 'base64ToBytes'],
+    ),
+    extractFrom(path.join(repoRoot, 'packages/shared/src/utils/hexUtils.ts'), [
+      'hasHexPrefix',
+      'stripHexPrefix',
+    ]),
+    extractFrom(path.join(repoRoot, 'packages/shared/src/utils/miscUtils.ts'), [
+      'generateUUID',
+    ]),
+    extractFrom(
+      path.join(repoRoot, 'packages/shared/src/utils/fetchWithIdleTimeout.ts'),
+      ['FETCH_REQUEST_IDLE_TIMEOUT_MS', 'FETCH_RESPONSE_MAX_BYTES'],
+    ),
+  ].join('\n');
+  fs.writeFileSync(
+    path.join(out, 'production.cjs'),
+    `const {Buffer}=require('node:buffer');
+    const uuid=require(${JSON.stringify(require.resolve('react-native-uuid/dist'))}).default;
+    const {isString}=require(${JSON.stringify(require.resolve('lodash'))});
+    class OneKeyLocalError extends Error {} // Fixture-only: error classification/i18n are not under test.
+    const streamingFetch=globalThis.fetch;
+    ${transpile(dependencySource)}
+    const hexUtils={stripHexPrefix};
+    const bufferUtils={bytesToBase64,base64ToBytes};
+    module.exports={createFetchStreamHandler,isTrustedMainWindowUrl};`,
+  );
+  const shellState = [
+    'selectedShellDocumentCommitted',
+    'trustedSameDocumentRouteUrl',
+  ]
+    .map((name) => `let ${text(variable(name))};`)
+    .join('\n');
+  const predicate = one(
+    'sender-predicate',
+    (node) =>
+      ts.isBinaryExpression(node) &&
+      text(node.left) ===
+        'globalThis.$desktopMainAppFunctions.isTrustedMainWindowSender',
+  );
+  const navigation = [
+    'did-navigate',
+    'did-navigate-in-page',
+    'will-navigate',
+    'will-redirect',
+    'will-frame-navigate',
+  ]
+    .map(
+      (event) => `${text(call(event, 'browserWindow.webContents.on', event))};`,
+    )
+    .join('\n');
+  const registration = text(
+    call(
+      'fetch-stream-handler',
+      'ipcMain.handle',
+      'ipcMessageKeys.FETCH_STREAM',
+    ),
+  );
+  const safeMain = `const ${text(variable('getSafelyMainWindow'))};`;
+  const safeWindow = `const ${text(variable('getSafelyBrowserWindow'))};`;
+  const guard = `const ${text(variable('guardMainWindowNavigation'))};`;
+  const closed = `${text(call('window-closed', 'browserWindow.on', 'closed'))};`;
+  const relay = `const ${text(variable('fetchStreamRequest'))};`;
+  const callbacks = transpile(
+    [
+      safeMain,
+      text(declaration('showMainWindow')),
+      text(declaration('createMainWindow')),
+      text(declaration('softRestartRenderer')),
+    ].join('\n'),
+  );
+  const factoryCallbacks = transpile(
+    [
+      safeWindow,
+      shellState,
+      `${text(predicate)};`,
+      guard,
+      navigation,
+      closed,
+      relay,
+      'ipcMain.removeHandler(ipcMessageKeys.FETCH_STREAM);',
+      `${registration};`,
+    ].join('\n'),
+  );
+  const provenance = {
+    sourceSha256: crypto.createHash('sha256').update(source).digest('hex'),
+    counts,
+    fragments,
+    extracted,
+    streamChannel,
+    sharedSha256: crypto
+      .createHash('sha256')
+      .update(fs.readFileSync(sharedPath))
+      .digest('hex'),
+    helperSha256: crypto
+      .createHash('sha256')
+      .update(fs.readFileSync(helperPath))
+      .digest('hex'),
+    scope:
+      'Production callbacks in an isolated real Electron host; fixture window factory, no wallet or OTA verification',
+  };
+  fs.writeFileSync(
+    path.join(out, 'provenance.json'),
+    JSON.stringify(provenance, null, 2),
+  );
+  const preload = `const {contextBridge,ipcRenderer}=require('electron');
+    contextBridge.exposeInMainWorld('fixture', {invoke:r=>ipcRenderer.invoke(${JSON.stringify(streamChannel)},r),control:r=>ipcRenderer.invoke('fixture-control',r)});
+    ipcRenderer.invoke(${JSON.stringify(streamChannel)},{action:'cancel',id:'preload-probe'}).then(result=>ipcRenderer.send('fixture-observation',{kind:'preload-probe',url:location.href,result}));`;
+  fs.writeFileSync(path.join(out, 'preload.cjs'), preload);
+  const html = (
+    label,
+  ) => `<!doctype html><meta charset="utf-8"><title>${label}</title><h1>${label}</h1><p id="status">ready</p>
+    <button id="hash">Hash + immediate IPC</button><button id="history">History + immediate IPC</button><button id="reload">Reload</button><button id="restart">Soft restart</button><iframe src="child.html"></iframe>
+    <script>globalThis.results={}; for(const name of ['hash','history'])document.getElementById(name).onclick=async()=>{if(name==='hash')location.hash='route';else history.pushState({},'',document.title==='development'?'/dev/route':location.pathname+'?route=history');results[name]=await globalThis.fixture.invoke({action:'cancel',id:name});document.getElementById('status').textContent=name+':'+JSON.stringify(results[name]);};document.getElementById('reload').onclick=()=>location.reload();document.getElementById('restart').onclick=()=>globalThis.fixture.control('restart');</script>`;
+  for (const dir of ['packaged', 'ota']) {
+    fs.mkdirSync(path.join(out, dir), { recursive: true });
+    fs.writeFileSync(path.join(out, dir, 'index.html'), html(dir));
+    fs.writeFileSync(
+      path.join(out, dir, 'child.html'),
+      '<!doctype html><title>child</title><p>child</p>',
+    );
+  }
+  fs.writeFileSync(path.join(out, 'foreign.html'), html('foreign'));
+  fs.writeFileSync(path.join(out, 'child.html'), '<title>child</title>');
+  const mainSource = `const {app,BrowserWindow,ipcMain,net,session}=require('electron');
+    const fs=require('node:fs'),path=require('node:path');
+    const OUT=${JSON.stringify(out)};
+    fs.mkdirSync(path.join(OUT,'cache'),{recursive:true});
+    app.setPath('userData',path.join(OUT,'user-data'));app.setPath('sessionData',path.join(OUT,'session-data'));app.setPath('cache',path.join(OUT,'cache'));
+    const {createFetchStreamHandler,isTrustedMainWindowUrl}=require('./production.cjs');
+    const events=[]; const record=(kind,data={})=>{events.push({time:Date.now(),kind,...data});fs.writeFileSync(path.join(OUT,'events.json'),JSON.stringify(events,null,2));};
+    const logger={info:(...args)=>record('info',{args}),warn:(...args)=>record('warn',{args}),error:(...args)=>record('error',{args})};
+    let mainWindow=null,createMainWindowPromise=null,softRestarting=false,isAppReady=false;
+    let selectedDev=false;let selectedSrc=${JSON.stringify(pathToFileURL(path.join(out, 'packaged/index.html')).href)};
+    const store={getUpdateBundleData:()=>({bundleVersion:'fixture'}),resetConsecutiveBootFailCount:()=>{}};
+    const unregisterShortcuts=()=>{},getTrayWindow=()=>null,destroyTrayWindow=()=>{},PROTOCOL=${protocol};
+    const ipcMessageKeys={FETCH_STREAM:${JSON.stringify(streamChannel)}};
+    globalThis.$desktopMainAppFunctions={getBundleIndexHtmlPath:()=>selectedSrc};
+    ${callbacks}
+    async function createMainWindowImpl(){
+      const src=selectedSrc,isDevServer=selectedDev;
+      const browserWindow=new BrowserWindow({width:900,height:650,show:true,webPreferences:{preload:path.join(OUT,'preload.cjs'),webSecurity:true,contextIsolation:true,sandbox:true,nodeIntegration:false,nodeIntegrationInSubFrames:true}});
+      mainWindow=browserWindow;
+      browserWindow.webContents.on('render-process-gone',(_event,details)=>record('render-process-gone',details));
+      for(const name of ['did-navigate','did-navigate-in-page','did-finish-load','destroyed'])browserWindow.webContents.on(name,(_event,url)=>record(name,{id:browserWindow.id,url}));
+      ${factoryCallbacks}
+      await browserWindow.loadURL('about:blank');
+      await new Promise(resolve=>setTimeout(resolve,150));
+      await browserWindow.loadURL(src);
+      return browserWindow;
+    }
+    const originalHandle=ipcMain.handle.bind(ipcMain);
+    ipcMain.handle=(channel,handler)=>originalHandle(channel,async(event,request)=>{
+      let details={channel,request};try{const frame=event.senderFrame;details={...details,senderId:event.sender.id,frameUrl:frame?.url,frameProcessId:frame?.processId,frameRoutingId:frame?.routingId,mainFrame:frame===event.sender.mainFrame};}catch(error){details.frameObservationError=String(error);}
+      record('ipc-start',details);const result=await handler(event,request);record('ipc-result',{...details,result});return result;
+    });
+    ipcMain.on('fixture-observation',(_event,data)=>record('renderer-observation',data));
+    originalHandle('fixture-control',async(_event,action)=>{if(action==='restart'){selectedSrc=${JSON.stringify(pathToFileURL(path.join(out, 'ota/index.html')).href)};setTimeout(()=>void softRestartRenderer(),0);return true;}});
+    globalThis.fixtureHost={events,selectDev:async(url)=>{selectedSrc=url;selectedDev=true;await softRestartRenderer();return true;},ready:async()=>{await createMainWindowPromise;return true;},getWindow:()=>mainWindow,createForeign:async()=>{const w=new BrowserWindow({show:false,webPreferences:{preload:path.join(OUT,'preload.cjs'),contextIsolation:true,sandbox:true,nodeIntegration:false}});await w.loadURL(${JSON.stringify(pathToFileURL(path.join(out, 'foreign.html')).href)});return w.id;}};
+    app.whenReady().then(()=>createMainWindow()).catch(error=>{console.error(error);app.exit(1)});
+    app.on('window-all-closed',()=>{});`;
+  fs.writeFileSync(path.join(out, 'main.cjs'), mainSource);
+  const requests = [];
+  const sockets = new Set();
+  const server = http.createServer((request, response) => {
+    if (request.url.startsWith('/dev/')) {
+      response.writeHead(200, {
+        'content-type': 'text/html',
+        'cache-control': 'no-store',
+      });
+      response.end(
+        request.url === '/dev/child.html'
+          ? '<title>child</title>'
+          : html('development'),
+      );
+      return;
+    }
+    const entry = { url: request.url, time: Date.now(), closed: false };
+    requests.push(entry);
+    response.on('close', () => {
+      entry.closed = true;
+      entry.closedAt = Date.now();
+    });
+    response.writeHead(200, {
+      'content-type': 'application/octet-stream',
+      'x-content-type-options': 'nosniff',
+      'cache-control': 'no-store',
+    });
+    if (request.url.startsWith('/slow?')) {
+      response.write('first'.repeat(1024));
+      const timer = setInterval(() => response.write('more'), 100);
+      response.on('close', () => clearInterval(timer));
+    } else response.end('fixture-response');
+  });
+  server.on('connection', (socket) => {
+    sockets.add(socket);
+    socket.on('close', () => sockets.delete(socket));
+  });
+  await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
+  const base = `http://127.0.0.1:${server.address().port}`;
+  let instance;
+  const results = [];
+  try {
+    instance = await electron.launch({
+      executablePath,
+      args: [
+        path.join(out, 'main.cjs'),
+        `--user-data-dir=${path.join(out, 'user-data')}`,
+      ],
+      cwd: out,
+      env: { ...process.env, TMPDIR: out, ELECTRON_RUN_AS_NODE: undefined },
+      timeout: 30_000,
+    });
+    instance
+      .process()
+      .stderr.on('data', (data) =>
+        fs.appendFileSync(path.join(out, 'electron-stderr.log'), data),
+      );
+    await instance.evaluate(async () => globalThis.fixtureHost.ready());
+    let page = await instance.firstWindow();
+    const ready = async (target, label) => {
+      await target.waitForURL(`**/${label}/index.html*`);
+      await target.locator('h1').filter({ hasText: label }).waitFor();
+      assert.equal(await target.title(), label);
+    };
+    await ready(page, 'packaged');
+    const roundtrip = async (target, label) => {
+      const value = await target.evaluate(
+        async (url) => {
+          const opened = await globalThis.fixture.invoke({
+            action: 'open',
+            url,
+          });
+          if (!opened.ok) return { opened };
+          let body = '',
+            done = false;
+          for (let i = 0; i < 10; i += 1) {
+            const next = await globalThis.fixture.invoke({
+              action: 'read',
+              id: opened.response.id,
+            });
+            if (!next.ok) return { opened, next };
+            body += atob(next.chunk.b64);
+            if (next.chunk.done) {
+              done = true;
+              break;
+            }
+          }
+          return { opened, body, done };
+        },
+        `${base}/bytes?case=${encodeURIComponent(label)}`,
+      );
+      assert.equal(value.opened.ok, true, `${label} first open`);
+      assert.equal(value.body, 'fixture-response');
+      assert.equal(value.done, true);
+      results.push({ label, ...value });
+      const cancelled = await target.evaluate(
+        async (url) => {
+          const opened = await globalThis.fixture.invoke({
+            action: 'open',
+            url,
+          });
+          if (!opened.ok) return { opened };
+          return {
+            opened,
+            cancelled: await globalThis.fixture.invoke({
+              action: 'cancel',
+              id: opened.response.id,
+            }),
+          };
+        },
+        `${base}/slow?case=${encodeURIComponent(label)}`,
+      );
+      assert.equal(cancelled.opened.ok, true);
+      assert.equal(cancelled.cancelled.cancelled, true);
+      const slow = requests
+        .filter(
+          (entry) => entry.url === `/slow?case=${encodeURIComponent(label)}`,
+        )
+        .at(-1);
+      assert(slow);
+      for (let n = 0; n < 30 && !slow.closed; n += 1)
+        await new Promise((resolve) => setTimeout(resolve, 100));
+      assert.equal(
+        slow.closed,
+        true,
+        'cancel must close the real server response',
+      );
+    };
+    await roundtrip(page, 'cold committed');
+    for (const action of ['hash', 'history']) {
+      await page.locator(`#${action}`).click();
+      await page.waitForFunction((name) => globalThis.results[name], action);
+      assert.deepEqual(
+        await page.evaluate((name) => globalThis.results[name], action),
+        { ok: true, cancelled: true },
+      );
+      await roundtrip(page, `${action} immediate then stream`);
+      await page.screenshot({ path: path.join(out, `${action}-success.png`) });
+      if (action === 'hash') {
+        const abandoned = await page.evaluate(
+          (url) => globalThis.fixture.invoke({ action: 'open', url }),
+          `${base}/slow?case=abandoned-before-reload`,
+        );
+        assert.equal(abandoned.ok, true);
+        const navigated = page.waitForEvent('load');
+        await page.locator('#reload').click();
+        await navigated;
+        await ready(page, 'packaged');
+        await roundtrip(page, 'reload');
+        const retained = await page.evaluate(
+          (id) => globalThis.fixture.invoke({ action: 'read', id }),
+          abandoned.response.id,
+        );
+        assert.equal(retained.ok, true);
+        assert.equal(retained.chunk.done, false);
+        const idleStarted = Date.now();
+        await new Promise((resolve) => setTimeout(resolve, 31_000));
+        const expired = await page.evaluate(
+          (id) => globalThis.fixture.invoke({ action: 'read', id }),
+          abandoned.response.id,
+        );
+        assert.equal(expired.ok, false);
+        assert.equal(expired.error, 'fetch stream expired or closed');
+        assert.equal(
+          requests.find(
+            (entry) => entry.url === '/slow?case=abandoned-before-reload',
+          ).closed,
+          true,
+        );
+        results.push({
+          label: 'reload retains old stream until real default idle expiry',
+          idleWaitMs: Date.now() - idleStarted,
+          retained,
+          expired,
+        });
+      }
+    }
+    const beforeQueryReload = await instance.evaluate(
+      () => globalThis.fixtureHost.events.length,
+    );
+    await page.locator('#reload').click({ noWaitAfter: true });
+    await new Promise((resolve) => setTimeout(resolve, 200));
+    const queryEvents = await instance.evaluate(
+      () => globalThis.fixtureHost.events.slice(),
+      beforeQueryReload,
+    );
+    assert(
+      queryEvents
+        .slice(beforeQueryReload)
+        .some(
+          (event) =>
+            event.kind === 'warn' &&
+            event.args[0].includes('rejected navigation'),
+        ),
+    );
+    assert(page.url().includes('?route=history'));
+    assert.deepEqual(
+      await page.evaluate(() =>
+        globalThis.fixture.invoke({
+          action: 'cancel',
+          id: 'after-blocked-query-reload',
+        }),
+      ),
+      { ok: true, cancelled: true },
+    );
+    results.push({
+      label:
+        'file query full reload rejected by existing guard; live IPC remains allowed',
+    });
+    const beforeForeignLoad = requests.length;
+    await instance.evaluate(
+      async (_electron, url) => {
+        await globalThis.fixtureHost
+          .getWindow()
+          .loadURL(url)
+          .catch(() => {});
+      },
+      pathToFileURL(path.join(out, 'foreign.html')).href,
+    );
+    await ready(page, 'packaged');
+    assert.equal(requests.length, beforeForeignLoad);
+    results.push({
+      label:
+        'untrusted full file commit revoked sender and restored selected shell',
+    });
+    const beforeChild = requests.length;
+    const child = page.frames().find((frame) => frame !== page.mainFrame());
+    assert(child);
+    assert.deepEqual(
+      await child.evaluate(
+        (url) => globalThis.fixture.invoke({ action: 'open', url }),
+        `${base}/child-forbidden`,
+      ),
+      { ok: false, error: 'not allowed' },
+    );
+    assert.equal(requests.length, beforeChild);
+    results.push({ label: 'real child frame IPC denied' });
+    const beforeForeign = requests.length;
+    await instance.evaluate(async () => globalThis.fixtureHost.createForeign());
+    const foreign = (await instance.windows()).find(
+      (candidate) => candidate !== page,
+    );
+    assert.deepEqual(
+      await foreign.evaluate(
+        (url) => globalThis.fixture.invoke({ action: 'open', url }),
+        `${base}/foreign`,
+      ),
+      { ok: false, error: 'not allowed' },
+    );
+    assert.equal(requests.length, beforeForeign);
+    results.push({ label: 'foreign window IPC denied without network' });
+    const oldId = await instance.evaluate(
+      () => globalThis.fixtureHost.getWindow().webContents.id,
+    );
+    const newWindow = instance.waitForEvent('window');
+    await page.locator('#restart').click();
+    page = await newWindow;
+    await ready(page, 'ota');
+    await roundtrip(page, 'soft restart');
+    assert.equal(
+      (await instance.evaluate(
+        () => globalThis.fixtureHost.getWindow().webContents.id,
+      )) === oldId,
+      false,
+    );
+    assert(
+      await instance.evaluate(
+        ({ webContents }, id) => webContents.fromId(id) === undefined,
+        oldId,
+      ),
+    );
+    results.push({
+      label:
+        'production softRestart callback replaced and destroyed old webContents',
+    });
+    await page.screenshot({ path: path.join(out, 'ota-success.png') });
+    const developmentWindow = instance.waitForEvent('window');
+    await instance.evaluate(
+      (_electron, url) => globalThis.fixtureHost.selectDev(url),
+      `${base}/dev/index.html`,
+    );
+    page = await developmentWindow;
+    await page.locator('h1').filter({ hasText: 'development' }).waitFor();
+    assert.equal(await page.title(), 'development');
+    await page.locator('#history').click();
+    await page.waitForFunction(() => globalThis.results.history);
+    assert.deepEqual(await page.evaluate(() => globalThis.results.history), {
+      ok: true,
+      cancelled: true,
+    });
+    await roundtrip(page, 'development pathname immediate IPC');
+    const devReload = page.waitForEvent('load');
+    await page.locator('#reload').click();
+    await devReload;
+    await page.locator('h1').filter({ hasText: 'development' }).waitFor();
+    await roundtrip(page, 'development observed pathname reload');
+    await page.screenshot({ path: path.join(out, 'development-success.png') });
+    const events = await instance.evaluate(() => globalThis.fixtureHost.events);
+    assert(
+      events.some(
+        (event) =>
+          event.kind === 'ipc-result' &&
+          event.frameUrl === 'about:blank' &&
+          event.result.error === 'not allowed',
+      ),
+    );
+    results.push({
+      label: 'real about:blank IPC denied before selected shell commit',
+    });
+    assert.equal(
+      crypto
+        .createHash('sha256')
+        .update(fs.readFileSync(sourcePath))
+        .digest('hex'),
+      provenance.sourceSha256,
+    );
+    assert(
+      events.some(
+        (event) =>
+          event.kind === 'ipc-result' &&
+          event.senderId ===
+            events.find(
+              (item) =>
+                item.kind === 'ipc-result' && item.frameUrl === 'about:blank',
+            ).senderId &&
+          event.frameUrl ===
+            pathToFileURL(path.join(out, 'foreign.html')).href &&
+          event.result.ok === false &&
+          event.result.error === 'not allowed',
+      ),
+    );
+    assert(
+      events.some(
+        (event) =>
+          event.kind === 'ipc-result' &&
+          event.request.url === `${base}/child-forbidden` &&
+          event.mainFrame === false &&
+          event.result.ok === false,
+      ),
+    );
+    assert.equal(requests.length, 15);
+    assert.equal(new Set(requests.map((request) => request.url)).size, 15);
+    assert.equal(results.length, 14);
+    assert(!events.some((event) => event.kind === 'render-process-gone'));
+    fs.writeFileSync(
+      path.join(out, 'summary.json'),
+      JSON.stringify(
+        {
+          passed: true,
+          caseCount: results.length,
+          failed: 0,
+          versions: await instance.evaluate(() => process.versions),
+          results,
+          requests,
+          provenance,
+          limitations: [
+            'Fixture window factory; no complete wallet boot or OTA verification',
+            'Subframe preload enabled only for negative IPC fixture',
+            'ERR_ABORTED from recovery away from an untrusted file is an expected fixture navigation result',
+            'Window-all-closed and quitOrMinimize full App behavior are not exercised',
+            'Packaged history query is tested as same-document only; its full reload is rejected by the existing navigation policy',
+            'OneKey error classification/i18n and complete bootstrap are outside this fixture',
+            'Default 30s idle expiry is waited in real time; no stream ownership is assigned to documents',
+          ],
+        },
+        null,
+        2,
+      ),
+    );
+    log(`FETCH_STREAM real Electron passed; evidence: ${out}`);
+  } catch (error) {
+    fs.writeFileSync(
+      path.join(out, 'failure.json'),
+      JSON.stringify({ error: String(error), results, requests }, null, 2),
+    );
+    if (instance) {
+      const pages = await instance.windows();
+      await pages[0]
+        ?.screenshot({ path: path.join(out, 'failure.png') })
+        .catch(() => {});
+    }
+    throw error;
+  } finally {
+    try {
+      if (instance) await instance.close();
+    } finally {
+      for (const socket of sockets) socket.destroy();
+      await new Promise((resolve) => server.close(resolve));
+    }
+  }
+}
+
 async function main() {
+  if (desktopE2EFlow === 'fetch-stream-sender') {
+    await runFetchStreamSenderFlow();
+    return;
+  }
   fs.mkdirSync(artifactDir, { recursive: true });
 
   if (!process.env.DESKTOP_E2E_SKIP_COPY_INJECT) {
