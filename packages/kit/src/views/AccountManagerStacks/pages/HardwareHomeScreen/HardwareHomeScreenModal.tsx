@@ -852,7 +852,9 @@ export default function HardwareHomeScreenModal({
                   blurScreenHex: customBlurScreenHex,
                 } = await deviceHomeScreenUtils.buildCustomScreenHex({
                   dbDeviceId: device.id,
-                  url: selectedItem.uri || selectedItem.url,
+                  url: await UploadedHomeScreenCache.getOriginalImageUri(
+                    selectedItem.uri || selectedItem.url,
+                  ),
                   deviceType: device.deviceType,
                   isUserUpload,
                   config: deviceInfo?.config,
