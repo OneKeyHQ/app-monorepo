@@ -595,6 +595,9 @@ describe('complete Portfolio batch queries', () => {
   it('recovers omitted networks through complete single-network requests', async () => {
     const { service, post, updateAccountDeFiOverview } = makeService();
     const arrayResponse = multiChainResponse(params.networkIds);
+    // The backend drops the unsupported network from both metadata lists; it
+    // must be recovered through the complete single-network fallback.
+    arrayResponse.data.data.meta.requestedNetworkIds = ['evm--1'];
     arrayResponse.data.data.meta.queriedNetworkIds = ['evm--1'];
     arrayResponse.data.data.data.positions = {
       'evm--1': arrayResponse.data.data.data.positions['evm--1'],
@@ -642,6 +645,9 @@ describe('complete Portfolio batch queries', () => {
   it('fails closed without partial writes when a recovered network fails', async () => {
     const { service, post, updateAccountDeFiOverview } = makeService();
     const arrayResponse = multiChainResponse(params.networkIds);
+    // The backend drops the unsupported network from both metadata lists; it
+    // must be recovered through the complete single-network fallback.
+    arrayResponse.data.data.meta.requestedNetworkIds = ['evm--1'];
     arrayResponse.data.data.meta.queriedNetworkIds = ['evm--1'];
     arrayResponse.data.data.data.positions = {
       'evm--1': arrayResponse.data.data.data.positions['evm--1'],
@@ -658,6 +664,20 @@ describe('complete Portfolio batch queries', () => {
       .mockRejectedValueOnce(new Error('offline'));
     await expect(
       service.fetchAccountDeFiPositionsBatch(params),
+    ).rejects.toThrow('Incomplete DeFi');
+    expect(updateAccountDeFiOverview).not.toHaveBeenCalled();
+  });
+
+  it('fails closed when a single-network complete response is not requested', async () => {
+    const { service, post, updateAccountDeFiOverview } = makeService();
+    const response = multiChainResponse(['evm--1']);
+    response.data.data.meta.requestedNetworkIds = [];
+    post.mockResolvedValue(response);
+    await expect(
+      service.fetchAccountDeFiPositionsBatch({
+        ...params,
+        networkIds: ['evm--1'],
+      }),
     ).rejects.toThrow('Incomplete DeFi');
     expect(updateAccountDeFiOverview).not.toHaveBeenCalled();
   });

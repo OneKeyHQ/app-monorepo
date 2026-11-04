@@ -1075,7 +1075,8 @@ class ServiceDeFi extends ServiceBase {
         !body.success ||
         !meta ||
         meta.degraded !== false ||
-        networkIds.some((id) => !meta.requestedNetworkIds?.includes(id)) ||
+        (networkIds.length === 1 &&
+          !meta.requestedNetworkIds?.includes(networkIds[0])) ||
         (networkIds.length === 1 &&
           Array.isArray(queriedNetworkIds) &&
           !queriedNetworkIds.includes(networkIds[0])) ||
