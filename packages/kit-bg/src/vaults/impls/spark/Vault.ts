@@ -1,7 +1,14 @@
+import { isNil } from 'lodash';
+
 import { getSparkNetworkFromImpl } from '@onekeyhq/core/src/chains/spark/utils';
 import { decodeLightningSparkAddress } from '@onekeyhq/core/src/secret';
-import type { IEncodedTx, IUnsignedTxPro } from '@onekeyhq/core/src/types';
-import { NotImplemented } from '@onekeyhq/shared/src/errors';
+import type { ISignedTxPro, IUnsignedTxPro } from '@onekeyhq/core/src/types';
+import {
+  NotImplemented,
+  OneKeyInternalError,
+} from '@onekeyhq/shared/src/errors';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import { isReusableLightningRecipient } from '@onekeyhq/shared/src/utils/lnUrlUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type {
   IAddressValidation,
@@ -11,15 +18,29 @@ import type {
   IXprvtValidation,
   IXpubValidation,
 } from '@onekeyhq/shared/types/address';
-import type { IDecodedTx } from '@onekeyhq/shared/types/tx';
+import type {
+  IEstimateGasParams,
+  IServerEstimateFeeResponse,
+} from '@onekeyhq/shared/types/fee';
+import type { IEncodedTxLightningSpark } from '@onekeyhq/shared/types/lightning';
+import {
+  EDecodedTxActionType,
+  EDecodedTxStatus,
+} from '@onekeyhq/shared/types/tx';
+import type { IDecodedTx, IDecodedTxAction } from '@onekeyhq/shared/types/tx';
 
 import { VaultBase } from '../../base/VaultBase';
 
 import { KeyringHd } from './KeyringHd';
+import {
+  buildSparkInvoiceEncodedTx,
+  isSparkPayableInvoice,
+} from './sdkSpark/invoicePayment';
 
 import type { IDBWalletType } from '../../../dbs/local/types';
 import type { KeyringBase } from '../../base/KeyringBase';
 import type {
+  IBroadcastTransactionParams,
   IBuildAccountAddressDetailParams,
   IBuildDecodedTxParams,
   IBuildEncodedTxParams,
@@ -68,37 +89,174 @@ export default class Vault extends VaultBase {
     return (await this.getAccount()).addressDetail.normalizedAddress;
   }
 
-  override buildEncodedTx(_params: IBuildEncodedTxParams): Promise<IEncodedTx> {
-    throw new NotImplemented();
+  // Phase 1 sends pay BOLT11 invoices with an amount. The OneKey lightning
+  // service decodes the invoice; the Breez SDK pays it in
+  // broadcastTransaction.
+  override async buildEncodedTx(
+    params: IBuildEncodedTxParams,
+  ): Promise<IEncodedTxLightningSpark> {
+    const { transfersInfo } = params;
+    if (!transfersInfo || transfersInfo.length !== 1) {
+      throw new OneKeyInternalError('Lightning sends one payment at a time');
+    }
+    const input = transfersInfo[0].to;
+    const decoded =
+      await this.backgroundApi.serviceLightning.decodeInvoiceByServer(input);
+    return buildSparkInvoiceEncodedTx({ input, decoded });
   }
 
-  override buildDecodedTx(_params: IBuildDecodedTxParams): Promise<IDecodedTx> {
-    throw new NotImplemented();
+  override async buildDecodedTx(
+    params: IBuildDecodedTxParams,
+  ): Promise<IDecodedTx> {
+    const encodedTx = params.unsignedTx.encodedTx as IEncodedTxLightningSpark;
+    const network = await this.getNetwork();
+    const account = await this.getAccount();
+    const nativeToken = await this.backgroundApi.serviceToken.getToken({
+      accountId: this.accountId,
+      networkId: this.networkId,
+      tokenIdOnNetwork: '',
+    });
+    const to = accountUtils.shortenAddress({
+      address: encodedTx.invoice,
+      leadingLength: 44,
+      trailingLength: 33,
+    });
+
+    let action: IDecodedTxAction = {
+      type: EDecodedTxActionType.UNKNOWN,
+      unknownAction: { from: account.name, to },
+    };
+    if (nativeToken) {
+      const amount = encodedTx.amountSats;
+      action = {
+        type: EDecodedTxActionType.ASSET_TRANSFER,
+        assetTransfer: {
+          from: account.name,
+          to,
+          sends: [
+            {
+              from: account.name,
+              to,
+              isNative: true,
+              tokenIdOnNetwork: '',
+              name: nativeToken.name,
+              icon: nativeToken.logoURI ?? '',
+              amount,
+              symbol: network.symbol,
+            },
+          ],
+          receives: [],
+          nativeAmount: amount,
+          nativeAmountValue: amount,
+        },
+      };
+    }
+
+    return {
+      txid: '',
+      owner: account.name,
+      signer: '',
+      nonce: 0,
+      actions: [action],
+      status: EDecodedTxStatus.Pending,
+      networkId: this.networkId,
+      accountId: this.accountId,
+      extraInfo: null,
+      encodedTx,
+    };
   }
 
-  override buildUnsignedTx(
-    _params: IBuildUnsignedTxParams,
+  override async buildUnsignedTx(
+    params: IBuildUnsignedTxParams,
   ): Promise<IUnsignedTxPro> {
-    throw new NotImplemented();
+    const encodedTx = await this.buildEncodedTx(params);
+    return { encodedTx, transfersInfo: params.transfersInfo };
   }
 
-  override updateUnsignedTx(
-    _params: IUpdateUnsignedTxParams,
+  // The fee the user approved on the confirm page caps the fee of the payment
+  // the SDK sends.
+  override async updateUnsignedTx(
+    params: IUpdateUnsignedTxParams,
   ): Promise<IUnsignedTxPro> {
-    throw new NotImplemented();
+    const { unsignedTx, feeInfo } = params;
+    const baseFee = feeInfo?.common?.baseFee;
+    if (isNil(baseFee)) {
+      return unsignedTx;
+    }
+    const encodedTx: IEncodedTxLightningSpark = {
+      ...(unsignedTx.encodedTx as IEncodedTxLightningSpark),
+      maxFeeSats: baseFee,
+    };
+    return { ...unsignedTx, encodedTx };
+  }
+
+  // The Spark service provider quotes the Lightning fee through the SDK; the
+  // OneKey server has no fee data for this network.
+  override async estimateFee(
+    params: IEstimateGasParams,
+  ): Promise<IServerEstimateFeeResponse> {
+    const { feeSats } =
+      await this.backgroundApi.serviceLightningSpark.quoteInvoicePayment({
+        accountId: params.accountId,
+        networkId: this.networkId,
+        encodedTx: params.encodedTx as IEncodedTxLightningSpark,
+      });
+    const network = await this.getNetwork();
+    return {
+      data: {
+        data: {
+          isEIP1559: false,
+          baseFee: feeSats,
+          feeDecimals: network.feeMeta.decimals,
+          feeSymbol: network.feeMeta.symbol,
+          nativeDecimals: network.decimals,
+          nativeSymbol: network.symbol,
+        },
+      },
+    };
+  }
+
+  override async broadcastTransaction(
+    params: IBroadcastTransactionParams,
+  ): Promise<ISignedTxPro> {
+    const { signedTx } = params;
+    const { paymentId } =
+      await this.backgroundApi.serviceLightningSpark.payInvoice({
+        accountId: this.accountId,
+        networkId: this.networkId,
+        encodedTx: signedTx.encodedTx as IEncodedTxLightningSpark,
+      });
+    return { ...signedTx, txid: paymentId };
   }
 
   override async validateAddress(address: string): Promise<IAddressValidation> {
+    const valid = {
+      isValid: true,
+      normalizedAddress: address,
+      displayAddress: address,
+    };
     try {
       decodeLightningSparkAddress({ address, network: this.getSparkNetwork() });
-      return {
-        isValid: true,
-        normalizedAddress: address,
-        displayAddress: address,
-      };
+      return valid;
     } catch {
-      return { isValid: false, normalizedAddress: '', displayAddress: '' };
+      // Not a Spark address.
     }
+    // LNURL and Lightning addresses are recognized by format only: the send
+    // flow does not pay them yet and never hands them to the Breez SDK.
+    if (isReusableLightningRecipient(address)) {
+      return valid;
+    }
+    if (isSparkPayableInvoice(address)) {
+      try {
+        await this.backgroundApi.serviceLightning.decodeInvoiceByServer(
+          address,
+        );
+        return valid;
+      } catch {
+        // Not an invoice the lightning service can decode.
+      }
+    }
+    return { isValid: false, normalizedAddress: '', displayAddress: '' };
   }
 
   override validateXpub(_xpub: string): Promise<IXpubValidation> {

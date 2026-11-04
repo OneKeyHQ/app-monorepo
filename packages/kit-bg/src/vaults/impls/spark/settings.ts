@@ -35,7 +35,6 @@ const settings: IVaultSettings = {
   addressBookDisabled: true,
   addressBadgeDisabled: true,
   copyAddressDisabled: true,
-  disabledSendAction: true,
   disabledSwapAction: true,
 
   defaultFeePresetIndex: 0,

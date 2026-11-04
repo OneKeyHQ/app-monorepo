@@ -6,7 +6,10 @@ import {
   backgroundMethod,
   backgroundMethodForDev,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
-import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import {
+  InvalidLightningPaymentRequest,
+  OneKeyLocalError,
+} from '@onekeyhq/shared/src/errors';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -17,11 +20,19 @@ import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type {
   ICreateInvoiceResponse,
+  IEncodedTxLightningSpark,
   IInvoiceConfig,
 } from '@onekeyhq/shared/types/lightning';
 import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 
 import { vaultFactory } from '../../vaults/factory';
+import {
+  checkPreparedFeeApproved,
+  checkPreparedInvoicePayment,
+  findSettledInvoicePaymentProblem,
+  getPreparedFeeSats,
+  isSparkPayableInvoice,
+} from '../../vaults/impls/spark/sdkSpark/invoicePayment';
 import ServiceBase from '../ServiceBase';
 
 import { loadBreezSdk } from './sdk/breezSdk';
@@ -32,6 +43,7 @@ import type { KeyringHd as KeyringHdSpark } from '../../vaults/impls/spark/Keyri
 import type {
   BreezSdk,
   ListPaymentsRequest,
+  PrepareSendPaymentResponse,
   ReceivePaymentMethod,
   SdkEvent,
 } from '@breeztech/breez-sdk-spark';
@@ -47,6 +59,9 @@ const SPARK_IDLE_DISCONNECT_MS = 60_000;
 // 5 s read cache has expired, and again after the explorer the server reads
 // has indexed it (7-17 s after a claim in the 11-03 mainnet tests).
 const SPARK_PAYMENT_REFRESH_DELAYS_MS = [6000, 20_000];
+// How long a send waits for its Lightning payment to finish. A payment still
+// in flight after that is returned as pending, and history shows the result.
+const SPARK_SEND_COMPLETION_TIMEOUT_SECS = 30;
 const SPARK_PAYMENT_EVENTS = new Set<SdkEvent['type']>([
   'paymentSucceeded',
   'paymentPending',
@@ -441,6 +456,85 @@ class ServiceLightningSpark extends ServiceBase {
       );
     });
     return { isPaid };
+  }
+
+  /**
+   * Quotes the fee of paying a BOLT11 invoice, for the confirm page. It
+   * connects, asking for the password unless it is cached.
+   */
+  async quoteInvoicePayment({
+    accountId,
+    networkId,
+    encodedTx,
+  }: {
+    accountId: string;
+    networkId: string;
+    encodedTx: IEncodedTxLightningSpark;
+  }): Promise<{ feeSats: string }> {
+    const sdk = await this.ensureConnected({ accountId, networkId });
+    const prepared = await this.prepareInvoicePayment({ sdk, encodedTx });
+    return { feeSats: String(getPreparedFeeSats(prepared)) };
+  }
+
+  /**
+   * Pays a BOLT11 invoice the user approved on the confirm page. The SDK
+   * prepares it again, and the payment stops when that preparation differs
+   * from the confirmed invoice or quotes a fee above the approved one.
+   */
+  async payInvoice({
+    accountId,
+    networkId,
+    encodedTx,
+  }: {
+    accountId: string;
+    networkId: string;
+    encodedTx: IEncodedTxLightningSpark;
+  }): Promise<{ paymentId: string }> {
+    const sdk = await this.ensureConnected({ accountId, networkId });
+    const prepared = await this.prepareInvoicePayment({ sdk, encodedTx });
+    checkPreparedFeeApproved({ prepared, encodedTx });
+    const { payment } = await sdk.sendPayment({
+      prepareResponse: prepared,
+      options: {
+        type: 'bolt11Invoice',
+        // Always over Lightning, the route whose fee the confirm page showed.
+        preferSpark: false,
+        completionTimeoutSecs: SPARK_SEND_COMPLETION_TIMEOUT_SECS,
+      },
+    });
+    if (payment.status === 'failed') {
+      throw new OneKeyLocalError('Lightning payment failed');
+    }
+    if (payment.status === 'completed') {
+      const problem = findSettledInvoicePaymentProblem({ payment, encodedTx });
+      if (problem) {
+        defaultLogger.lightning.spark.paymentNotVerified({
+          paymentId: payment.id,
+          reason: problem,
+        });
+      }
+    }
+    return { paymentId: payment.id };
+  }
+
+  // The SDK parses payment requests from user input only here. The invoice
+  // was decoded by the OneKey lightning service and passes the format check,
+  // so the SDK parser has nothing to look up over the network.
+  private async prepareInvoicePayment({
+    sdk,
+    encodedTx,
+  }: {
+    sdk: BreezSdk;
+    encodedTx: IEncodedTxLightningSpark;
+  }): Promise<PrepareSendPaymentResponse> {
+    if (!isSparkPayableInvoice(encodedTx.invoice)) {
+      throw new InvalidLightningPaymentRequest();
+    }
+    const prepared = await sdk.prepareSendPayment({
+      paymentRequest: { type: 'input', input: encodedTx.invoice },
+    });
+    checkPreparedInvoicePayment({ prepared, encodedTx });
+    return prepared;
   }
 
   private async connectWithChildMnemonic({

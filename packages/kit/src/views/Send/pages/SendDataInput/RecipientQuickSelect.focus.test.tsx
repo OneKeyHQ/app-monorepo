@@ -297,6 +297,7 @@ jest.mock('@onekeyhq/shared/src/utils/networkUtils', () => ({
   __esModule: true,
   default: {
     isLightningNetworkByNetworkId: () => false,
+    isAnyLightningNetworkByNetworkId: () => false,
     isBTCNetwork: () => false,
   },
 }));

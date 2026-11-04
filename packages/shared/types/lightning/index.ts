@@ -44,6 +44,25 @@ export type IEncodedTxLightning = {
   decodedInvoice?: IInvoiceDecodedResponse;
 };
 
+/**
+ * A Lightning Self-Custody (Breez Spark) payment of a BOLT11 invoice. The
+ * fields come from the OneKey lightning service's decode of `invoice`, which
+ * the confirm page shows; the device pays it with the Breez SDK only after
+ * the SDK's own parse matches them.
+ */
+export type IEncodedTxLightningSpark = {
+  invoice: string;
+  paymentHash: string;
+  amountMillisatoshis: string;
+  amountSats: string;
+  description?: string;
+  // Unix seconds.
+  expiresAt?: number;
+  // The fee the user approved on the confirm page; the send refuses a
+  // higher quote.
+  maxFeeSats?: string;
+};
+
 export type ILnurlAuthParams = {
   lnurlDetail: ILNURLAuthServiceResponse;
   password?: string;

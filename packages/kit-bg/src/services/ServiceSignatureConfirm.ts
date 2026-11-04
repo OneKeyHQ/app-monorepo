@@ -418,7 +418,7 @@ class ServiceSignatureConfirm extends ServiceBase {
         convertAddressToSignatureConfirmAddress({
           address: requiresPrivacyReview ? r[0].signer : accountAddress,
           showAccountName:
-            networkUtils.isLightningNetworkByNetworkId(networkId),
+            networkUtils.isAnyLightningNetworkByNetworkId(networkId),
         }),
       );
 
