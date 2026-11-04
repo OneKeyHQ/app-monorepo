@@ -3,16 +3,27 @@ import type { ComponentProps, ReactNode } from 'react';
 
 import { EDeviceType, HardwareErrorCode } from '@onekeyfe/hd-shared';
 import { act, fireEvent, render, screen, within } from '@testing-library/react';
+import {
+  deleteAsync,
+  downloadAsync,
+  getInfoAsync,
+  makeDirectoryAsync,
+  moveAsync,
+  readDirectoryAsync,
+} from 'expo-file-system/legacy';
 import { createIntl } from 'react-intl';
+import { Platform, Image as RNImage } from 'react-native';
 
 import { ImageCrop, Toast } from '@onekeyhq/components';
 import type backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import type { IDBDevice } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import type { IHardwareHomeScreenData } from '@onekeyhq/kit-bg/src/services/ServiceHardware/DeviceSettingsManager';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import { EAppEventBusNames } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import enMessages from '@onekeyhq/shared/src/locale/json/en_US.json';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EAccountManagerStacksRoutes } from '@onekeyhq/shared/src/routes';
 import imageUtils from '@onekeyhq/shared/src/utils/imageUtils';
 
@@ -43,6 +54,11 @@ const mockWallpaper: IHardwareHomeScreenData = {
 jest.mock('react-intl', () => ({
   ...jest.requireActual<typeof import('react-intl')>('react-intl'),
   useIntl: () => mockIntl,
+}));
+
+jest.mock('react-native', () => ({
+  ...jest.requireActual<typeof import('react-native')>('react-native'),
+  Image: { getSize: jest.fn() },
 }));
 
 jest.mock('@onekeyhq/components', () => {
@@ -211,11 +227,273 @@ jest.mock('@onekeyhq/shared/src/utils/imageUtils', () => ({
   __esModule: true,
   default: { resizeImage: jest.fn() },
 }));
-jest.mock('@onekeyhq/shared/src/utils/miscUtils', () => ({}));
+jest.mock('@onekeyhq/shared/src/utils/miscUtils', () => ({
+  generateUUID: () => 'wallpaper-cache-test',
+}));
+jest.mock('expo-file-system/legacy', () => ({
+  cacheDirectory: 'file:///cache/',
+  deleteAsync: jest.fn(),
+  downloadAsync: jest.fn(),
+  getInfoAsync: jest.fn(),
+  makeDirectoryAsync: jest.fn(),
+  moveAsync: jest.fn(),
+  readDirectoryAsync: jest.fn(),
+}));
 jest.mock('./uploadedHomeScreenCache', () => ({
   __esModule: true,
   default: { getCacheList: jest.fn(() => []), saveCache: jest.fn() },
 }));
+
+describe('wallpaper original image cache', () => {
+  const cache = jest.requireActual<typeof import('./uploadedHomeScreenCache')>(
+    './uploadedHomeScreenCache',
+  ).default;
+  const files = new Map<string, number>();
+  const modifiedAt = new Map<string, number>();
+  const url = 'https://example.com/wallpaper.png';
+  let now: number;
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    files.clear();
+    modifiedAt.clear();
+    now = 1_793_772_000_000;
+    jest.spyOn(Date, 'now').mockImplementation(() => now);
+    jest.spyOn(Platform, 'select').mockReturnValue(true);
+    jest.spyOn(RNImage, 'getSize').mockImplementation((_uri, success) => {
+      success(604, 1024);
+    });
+    Object.assign(platformEnv, { isNative: true });
+    jest.mocked(getInfoAsync).mockImplementation(async (uri) => {
+      const size = files.get(uri);
+      return size === undefined
+        ? { exists: false, isDirectory: false, uri }
+        : {
+            exists: true,
+            isDirectory: false,
+            uri,
+            size,
+            modificationTime: modifiedAt.get(uri) ?? now / 1000,
+          };
+    });
+    jest
+      .mocked(readDirectoryAsync)
+      .mockImplementation(async (directory) =>
+        [...files.keys()]
+          .filter((uri) => uri.startsWith(directory))
+          .map((uri) => uri.slice(directory.length)),
+      );
+    jest.mocked(makeDirectoryAsync).mockResolvedValue(undefined);
+    jest.mocked(deleteAsync).mockImplementation(async (uri) => {
+      files.delete(uri);
+      modifiedAt.delete(uri);
+    });
+    jest.mocked(downloadAsync).mockImplementation(async (_url, uri) => {
+      files.set(uri, 100);
+      modifiedAt.set(uri, now / 1000);
+      return {
+        uri,
+        status: 200,
+        headers: { 'content-type': 'image/png' },
+        mimeType: 'image/png',
+      };
+    });
+    jest.mocked(moveAsync).mockImplementation(async ({ from, to }) => {
+      const size = files.get(from);
+      if (size === undefined) {
+        throw new OneKeyLocalError('Missing temporary download');
+      }
+      files.set(to, size);
+      modifiedAt.set(to, modifiedAt.get(from) ?? now / 1000);
+      files.delete(from);
+      modifiedAt.delete(from);
+    });
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+    Object.assign(platformEnv, { isNative: false });
+  });
+
+  it('retains the original file and reuses it for the same URL', async () => {
+    const uri = await cache.getOriginalImageUri(url);
+    expect(uri).toMatch(/^file:\/\/\/cache\/hardware-wallpapers\//u);
+    await expect(cache.getOriginalImageUri(url)).resolves.toBe(uri);
+    expect(downloadAsync).toHaveBeenCalledTimes(1);
+    expect(moveAsync).toHaveBeenCalledTimes(1);
+    expect(files.get(uri ?? '')).toBe(100);
+    expect(deleteAsync).not.toHaveBeenCalled();
+  });
+
+  it('shares an in-flight download for the same URL', async () => {
+    const uris = await Promise.all([
+      cache.getOriginalImageUri(url),
+      cache.getOriginalImageUri(url),
+    ]);
+    expect(uris[0]).toBe(uris[1]);
+    expect(downloadAsync).toHaveBeenCalledTimes(1);
+  });
+
+  it('uses the full URL including its query to distinguish originals', async () => {
+    const first = await cache.getOriginalImageUri(`${url}?version=1`);
+    const second = await cache.getOriginalImageUri(`${url}?version=2`);
+    expect(first).not.toBe(second);
+    expect(downloadAsync).toHaveBeenCalledTimes(2);
+  });
+
+  it.each(['missing', 'empty'] as const)(
+    'downloads again when the cached file is %s',
+    async (state) => {
+      const uri = await cache.getOriginalImageUri(url);
+      if (!uri) throw new OneKeyLocalError('Missing cache URI');
+      if (state === 'missing') files.delete(uri);
+      else files.set(uri, 0);
+      await expect(cache.getOriginalImageUri(url)).resolves.toBe(uri);
+      expect(downloadAsync).toHaveBeenCalledTimes(2);
+    },
+  );
+
+  it('cleans up a failed download and allows the next attempt to retry', async () => {
+    jest.mocked(downloadAsync).mockImplementationOnce(async (_url, uri) => {
+      files.set(uri, 20);
+      throw new OneKeyLocalError('Download interrupted');
+    });
+    await expect(cache.getOriginalImageUri(url)).rejects.toThrow(
+      'Download interrupted',
+    );
+    expect(files.size).toBe(0);
+    expect(deleteAsync).toHaveBeenCalledTimes(1);
+    await expect(cache.getOriginalImageUri(url)).resolves.toBeDefined();
+    expect(downloadAsync).toHaveBeenCalledTimes(2);
+  });
+
+  it('does not retain an HTTP error response as an original', async () => {
+    jest.mocked(downloadAsync).mockImplementationOnce(async (_url, uri) => {
+      files.set(uri, 100);
+      return { uri, status: 404, headers: {}, mimeType: 'text/plain' };
+    });
+    await expect(cache.getOriginalImageUri(url)).rejects.toThrow(
+      'Wallpaper download did not complete',
+    );
+    expect(files.size).toBe(0);
+    expect(moveAsync).not.toHaveBeenCalled();
+  });
+
+  it('passes through local images and non-native requests', async () => {
+    await expect(cache.getOriginalImageUri('file:///picked.png')).resolves.toBe(
+      'file:///picked.png',
+    );
+    Object.assign(platformEnv, { isNative: false });
+    jest.mocked(Platform.select).mockReturnValue(false);
+    await expect(cache.getOriginalImageUri(url)).resolves.toBe(url);
+    expect(downloadAsync).not.toHaveBeenCalled();
+  });
+
+  it('refreshes a changed response at the same URL after 24 hours', async () => {
+    const uri = await cache.getOriginalImageUri(url);
+    now += 24 * 60 * 60 * 1000;
+    jest.mocked(downloadAsync).mockImplementationOnce(async (_url, target) => {
+      files.set(target, 200);
+      modifiedAt.set(target, now / 1000);
+      return {
+        uri: target,
+        status: 200,
+        headers: {},
+        mimeType: 'image/png',
+      };
+    });
+    await expect(cache.getOriginalImageUri(url)).resolves.toBe(uri);
+    expect(downloadAsync).toHaveBeenCalledTimes(2);
+    expect(files.get(uri ?? '')).toBe(200);
+  });
+
+  it('removes expired originals and abandoned partial files on access', async () => {
+    const directory = 'file:///cache/hardware-wallpapers/';
+    const expired = `${directory}old.img`;
+    const partial = `${directory}old.img.interrupted.part`;
+    for (const uri of [expired, partial]) {
+      files.set(uri, 100);
+      modifiedAt.set(uri, now / 1000 - 24 * 60 * 60);
+    }
+    await cache.getOriginalImageUri(url);
+    expect(files.has(expired)).toBe(false);
+    expect(files.has(partial)).toBe(false);
+    expect(files.size).toBe(1);
+  });
+
+  it('evicts older originals before publishing beyond 50 MB', async () => {
+    const older = await cache.getOriginalImageUri(`${url}?older`);
+    now += 1000;
+    const newer = await cache.getOriginalImageUri(`${url}?newer`);
+    if (!older || !newer) throw new OneKeyLocalError('Missing cache URI');
+    files.set(older, 25 * 1024 * 1024);
+    files.set(newer, 25 * 1024 * 1024);
+    await cache.getOriginalImageUri(url);
+    expect(files.has(older)).toBe(false);
+    expect(files.has(newer)).toBe(true);
+    expect(
+      [...files.values()].reduce((sum, size) => sum + size, 0),
+    ).toBeLessThanOrEqual(50 * 1024 * 1024);
+  });
+
+  it('rejects a nonimage HTTP 200 response and retries after recovery', async () => {
+    jest.mocked(downloadAsync).mockImplementationOnce(async (_url, uri) => {
+      files.set(uri, 100);
+      return { uri, status: 200, headers: {}, mimeType: 'text/html' };
+    });
+    jest
+      .mocked(RNImage.getSize)
+      .mockImplementationOnce((_uri, _success, failure) => {
+        failure?.(new OneKeyLocalError('Invalid image'));
+      });
+    await expect(cache.getOriginalImageUri(url)).rejects.toThrow(
+      'Invalid image',
+    );
+    expect(files.size).toBe(0);
+    expect(moveAsync).not.toHaveBeenCalled();
+    await expect(cache.getOriginalImageUri(url)).resolves.toBeDefined();
+    expect(downloadAsync).toHaveBeenCalledTimes(2);
+  });
+
+  it('replaces an invalid previously cached original', async () => {
+    const uri = await cache.getOriginalImageUri(url);
+    jest
+      .mocked(RNImage.getSize)
+      .mockImplementationOnce((_uri, _success, failure) => {
+        failure?.(new OneKeyLocalError('Invalid cached image'));
+      });
+    await expect(cache.getOriginalImageUri(url)).resolves.toBe(uri);
+    expect(downloadAsync).toHaveBeenCalledTimes(2);
+  });
+
+  it('does not publish an image larger than the cache limit', async () => {
+    jest.mocked(downloadAsync).mockImplementationOnce(async (_url, uri) => {
+      files.set(uri, 50 * 1024 * 1024 + 1);
+      return { uri, status: 200, headers: {}, mimeType: 'image/png' };
+    });
+    await expect(cache.getOriginalImageUri(url)).rejects.toThrow();
+    expect(files.size).toBe(0);
+    expect(moveAsync).not.toHaveBeenCalled();
+  });
+
+  it('keeps concurrent downloads of different URLs within the cache limit', async () => {
+    jest.mocked(downloadAsync).mockImplementation(async (_url, uri) => {
+      files.set(uri, 20 * 1024 * 1024);
+      modifiedAt.set(uri, now / 1000);
+      return { uri, status: 200, headers: {}, mimeType: 'image/png' };
+    });
+    await Promise.all(
+      [1, 2, 3].map((version) =>
+        cache.getOriginalImageUri(`${url}?version=${version}`),
+      ),
+    );
+    expect(downloadAsync).toHaveBeenCalledTimes(3);
+    expect(files.size).toBe(2);
+    expect(
+      [...files.values()].reduce((sum, size) => sum + size, 0),
+    ).toBeLessThanOrEqual(50 * 1024 * 1024);
+  });
+});
 
 async function renderSelectedWallpaper(deviceType: EDeviceType) {
   const device: IDBDevice = {

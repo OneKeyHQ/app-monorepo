@@ -1226,3 +1226,17 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries â€
 **Root Cause**: The cache journals a key reference before authenticated native creation. Cancellation leaves a pending entry without ciphertext; reads ignore it, while the old write path rejected every existing entry. Rotating the service on each retry would also accumulate Android Keystore wrapping aliases because Expo value deletion retains those aliases.
 **Fix**: Retry only pending entries after verified backup or manual decryption. Under the existing mutex, reject shared references, remove the old protected value, verify persistence, retain its dedicated authenticated service, and write fresh random recovery-key material. Preserve complete pairings and reset/erasure barriers. Regression tests cover cancellation, cold retries, correct-password boundaries, persistence failures, isolation, concurrency, and bounded service aliases; native device acceptance remains required.
 **Catchable by**: Section 4: Business Logic & Regression â€” distinguish interrupted journals from complete records and trace native resource deletion semantics; Section 5: No race conditions in async operations; Section 6: Cover cancellation, cold retry, persistence failure, and reset ordering.
+
+## Case: Portfolio sync silently stopped after a hardware mnemonic change
+**Date**: 2026-11-04 | **Platforms**: iOS, Android, extension (identity state and sync generation belong to bg; main invokes the service across isolated JS heaps); desktop and web use a single JS runtime
+**Symptom**: After resetting a hardware wallet and importing a different mnemonic without recreating its App wallet, manual Portfolio sync stopped without an error.
+**Root Cause**: The device identity event recorded a target-specific mismatch and invalidated the sync generation before the task could return its mismatch result. The interactive wrapper converted the resulting undefined value to false.
+**Fix**: Preserve the target-specific mismatch as DeviceNotSame when the task returns undefined, after honoring explicit user cancellation. Regression tests cover identity changes during unlock, package preparation, and the final identity check; upload remains blocked.
+**Catchable by**: Section 5: No race conditions in async operations; Section 6: A bug fix includes regression tests for event-driven cancellation and user-visible errors.
+
+## Case: Mobile stock trade modals showed a redundant K-line button (OK-66221)
+**Date**: 2026-11-04 | **Platforms**: iOS and Android (main UI runtime)
+**Symptom**: Opening Buy or Sell from Market stock details displayed a K-line button in the Stock trade modal.
+**Root Cause**: The shared Swap header hid the button only in Desktop Stock modals, so native Stock modals still showed it.
+**Fix**: Extend the existing Stock modal visibility condition to iOS and Android. Regression tests cover hiding the button in native Stock modals and keeping it available in native Swap modals and on the standalone Stock page.
+**Catchable by**: Section 3 (Cross-Platform Impact) and Section 6 (Unit Tests). Test shared header actions across platform, modal versus page, and active trade mode.

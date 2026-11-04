@@ -507,7 +507,14 @@ function useAllNetworkRequests<T>(params: {
   const activeRunAccountKeysRef = useRef<
     { generation: number; keys: Set<string> } | undefined
   >(undefined);
-  const [isEmptyAccount, setIsEmptyAccount] = useState(false);
+  // Owner key of the run that found no account on any enabled network. Keyed
+  // by owner rather than a bare boolean: a boolean carried `true` across a
+  // switch between two such owners, so the consumers' effects keyed on
+  // `isEmptyAccount` never saw a transition for the second owner and left its
+  // list on the skeleton. Derived against the current owner below.
+  const [emptyAccountOwnerKey, setEmptyAccountOwnerKey] = useState<
+    string | undefined
+  >(undefined);
   const [isLocked] = useAppIsLockedAtom();
   const isRouteFocused = useRouteIsFocused();
   let traceRequestKind = 'token';
@@ -1104,7 +1111,9 @@ function useAllNetworkRequests<T>(params: {
           },
         });
 
-        setIsEmptyAccount(false);
+        setEmptyAccountOwnerKey(
+          !accountsInfo || isEmpty(accountsInfo) ? runnerOwnerKey : undefined,
+        );
 
         allNetworkAccountsData?.({
           accounts: accountsInfo,
@@ -1118,15 +1127,6 @@ function useAllNetworkRequests<T>(params: {
             ),
           ),
         };
-
-        if (!accountsInfo || isEmpty(accountsInfo)) {
-          setIsEmptyAccount(true);
-        }
-
-        // if (concurrentNetworks.length === 0 && sequentialNetworks.length === 0) {
-        if (accountsInfo.length === 0) {
-          setIsEmptyAccount(true);
-        }
 
         if (onStartedTask) {
           await onStartedTask;
@@ -1787,13 +1787,18 @@ function useAllNetworkRequests<T>(params: {
   );
 
   applyResultRef.current = (nextResult) => setResult(nextResult);
-  liveRunOwnerKeyRef.current = buildAllNetworkRunOwnerKey({
+  const currentOwnerKey = buildAllNetworkRunOwnerKey({
     accountId: currentAccountId,
     networkId: currentNetworkId,
     walletId: currentWalletId,
     isAllNetworks,
   });
+  liveRunOwnerKeyRef.current = currentOwnerKey;
   runWithQueueRef.current = runWithQueue;
+  // A new owner is unknown until its own run resolves, so the flag is false for
+  // it even while the previous owner's stamp is still stored.
+  const isEmptyAccount =
+    !!emptyAccountOwnerKey && emptyAccountOwnerKey === currentOwnerKey;
 
   return {
     run: runWithQueue,
