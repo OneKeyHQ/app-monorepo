@@ -12,11 +12,13 @@ import {
   TRADING_VIEW_NATIVE_NAVIGATION_BUTTON_RADIUS,
   TRADING_VIEW_NATIVE_NAVIGATION_BUTTON_SIZE,
   TRADING_VIEW_NATIVE_NAVIGATION_ICON_SIZE,
+  TRADING_VIEW_NATIVE_NAVIGATION_PRIMARY_ACTIONS,
 } from '../utils/chartNavigation';
 import {
   TRADING_VIEW_NATIVE_NAVIGATION_BUTTONS,
   TRADING_VIEW_NATIVE_NAVIGATION_TOUCH_BUTTON_GAP,
   TRADING_VIEW_NATIVE_NAVIGATION_TOUCH_BUTTON_SIZE,
+  getTradingViewNativeNavigationResetButtonLeft,
 } from '../utils/chartNavigationControls';
 
 import type { ITradingViewNativeNavigationAction } from '../utils/chartNavigation';
@@ -24,6 +26,7 @@ import type { ITradingViewNativeNavigationAction } from '../utils/chartNavigatio
 interface ITradingViewNativeNavigationControlsProps {
   backgroundColor: string;
   chartWidth: number;
+  isResetVisible: boolean;
   isVisible: boolean;
   isMobileLayout?: boolean;
   onAction: (action: ITradingViewNativeNavigationAction) => void;
@@ -34,6 +37,7 @@ interface ITradingViewNativeNavigationControlsProps {
 export function TradingViewNativeNavigationControls({
   backgroundColor,
   chartWidth,
+  isResetVisible,
   isVisible,
   isMobileLayout = false,
   onAction,
@@ -47,10 +51,25 @@ export function TradingViewNativeNavigationControls({
   // it visible outside the hot zone.
   const [keyboardFocusedAction, setKeyboardFocusedAction] =
     useState<ITradingViewNativeNavigationAction | null>(null);
-  const isShown = isVisible || keyboardFocusedAction !== null;
+  // Reset unmounts once it has nothing to undo, which may skip its blur.
+  const hasKeyboardFocus =
+    keyboardFocusedAction !== null &&
+    (keyboardFocusedAction !== 'reset' || isResetVisible);
+  const isShown = isVisible || hasKeyboardFocus;
   const buttonSize = isMobileLayout
     ? TRADING_VIEW_NATIVE_NAVIGATION_TOUCH_BUTTON_SIZE
     : TRADING_VIEW_NATIVE_NAVIGATION_BUTTON_SIZE;
+  const buttonGap = isMobileLayout
+    ? TRADING_VIEW_NATIVE_NAVIGATION_TOUCH_BUTTON_GAP
+    : TRADING_VIEW_NATIVE_NAVIGATION_BUTTON_GAP;
+  const resetButtonLeft = getTradingViewNativeNavigationResetButtonLeft({
+    buttonSize,
+    chartWidth,
+    gap: buttonGap,
+  });
+  const actions = isResetVisible
+    ? TRADING_VIEW_NATIVE_NAVIGATION_ACTIONS
+    : TRADING_VIEW_NATIVE_NAVIGATION_PRIMARY_ACTIONS;
   const testIDPrefix = testID
     ? `${testID}-navigation`
     : 'trading-view-native-navigation';
@@ -64,18 +83,15 @@ export function TradingViewNativeNavigationControls({
       bottom={timeAxisHeight + TRADING_VIEW_NATIVE_NAVIGATION_BOTTOM_GAP}
       zIndex={2}
       justifyContent="center"
-      gap={
-        isMobileLayout
-          ? TRADING_VIEW_NATIVE_NAVIGATION_TOUCH_BUTTON_GAP
-          : TRADING_VIEW_NATIVE_NAVIGATION_BUTTON_GAP
-      }
+      gap={buttonGap}
       opacity={isShown ? 1 : 0}
       pointerEvents={isShown ? 'box-none' : 'none'}
     >
-      {TRADING_VIEW_NATIVE_NAVIGATION_ACTIONS.map((action) => {
+      {actions.map((action) => {
         const { labelId, path } =
           TRADING_VIEW_NATIVE_NAVIGATION_BUTTONS[action];
         const label = intl.formatMessage({ id: labelId });
+        const isReset = action === 'reset';
         const updateKeyboardFocus = (
           event: FocusEvent<HTMLElement> | KeyboardEvent<HTMLElement>,
         ) => {
@@ -99,6 +115,9 @@ export function TradingViewNativeNavigationControls({
             borderWidth="$px"
             borderColor="$borderStrong"
             backgroundColor={backgroundColor}
+            position={isReset ? 'absolute' : undefined}
+            top={isReset ? 0 : undefined}
+            left={isReset ? resetButtonLeft : undefined}
             cursor="pointer"
             pointerEvents={isShown ? 'auto' : 'none'}
             hoverStyle={{ opacity: 0.86 }}

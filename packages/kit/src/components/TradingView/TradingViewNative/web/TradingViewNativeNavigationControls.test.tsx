@@ -67,26 +67,41 @@ jest.mock('@onekeyhq/components', () => ({
 }));
 
 function renderControls({
+  isResetVisible = true,
   isVisible = false,
   isMobileLayout = false,
   onAction = jest.fn(),
 }: {
+  isResetVisible?: boolean;
   isVisible?: boolean;
   isMobileLayout?: boolean;
   onAction?: jest.Mock;
 } = {}) {
-  render(
+  const props = {
+    backgroundColor: '#ffffff',
+    chartWidth: 600,
+    isMobileLayout,
+    isVisible,
+    onAction,
+    timeAxisHeight: 24,
+    testID: 'chart',
+  };
+  const { rerender } = render(
     <TradingViewNativeNavigationControls
-      backgroundColor="#ffffff"
-      chartWidth={600}
-      isVisible={isVisible}
-      isMobileLayout={isMobileLayout}
-      onAction={onAction}
-      timeAxisHeight={24}
-      testID="chart"
+      {...props}
+      isResetVisible={isResetVisible}
     />,
   );
-  return { onAction };
+  return {
+    onAction,
+    setResetVisible: (nextIsResetVisible: boolean) =>
+      rerender(
+        <TradingViewNativeNavigationControls
+          {...props}
+          isResetVisible={nextIsResetVisible}
+        />,
+      ),
+  };
 }
 
 describe('Web TradingViewNativeNavigationControls', () => {
@@ -186,14 +201,14 @@ describe('Web TradingViewNativeNavigationControls', () => {
       expect.objectContaining({
         opacity: 1,
         pointerEvents: 'box-none',
-        gap: 8,
+        gap: 6,
       }),
     );
     for (const [props] of mockStack.mock.calls) {
       expect(props).toEqual(
         expect.objectContaining({
-          width: 36,
-          height: 36,
+          width: 28,
+          height: 28,
           pointerEvents: 'auto',
         }),
       );
@@ -209,5 +224,41 @@ describe('Web TradingViewNativeNavigationControls', () => {
     for (const [props] of mockStack.mock.calls) {
       expect(props).toEqual(expect.objectContaining({ width: 25, height: 25 }));
     }
+  });
+
+  it('hides reset while the chart is at its default view', () => {
+    renderControls({ isResetVisible: false, isVisible: true });
+
+    expect(screen.queryByTestId('chart-navigation-reset')).toBeNull();
+    expect(screen.getAllByRole('button')).toHaveLength(4);
+  });
+
+  it('pins reset beside the centered primary buttons', () => {
+    renderControls({ isVisible: true });
+
+    const propsByLabel = new Map(
+      mockStack.mock.calls.map(([props]) => [props['aria-label'], props]),
+    );
+    // Four 25px buttons with 6px gaps span 118px, centered in 600px.
+    expect(propsByLabel.get('global.reset')).toEqual(
+      expect.objectContaining({ position: 'absolute', top: 0, left: 365 }),
+    );
+    expect(propsByLabel.get('menu.zoom_in')?.position).toBe(undefined);
+  });
+
+  it('hides the bar once a keyboard-focused reset unmounts', () => {
+    const { setResetVisible } = renderControls();
+    const reset = screen.getByTestId('chart-navigation-reset');
+    jest.spyOn(reset, 'matches').mockReturnValue(true);
+
+    fireEvent.focus(reset);
+    expect(mockXStack.mock.lastCall?.[0]).toEqual(
+      expect.objectContaining({ opacity: 1 }),
+    );
+
+    setResetVisible(false);
+    expect(mockXStack.mock.lastCall?.[0]).toEqual(
+      expect.objectContaining({ opacity: 0, pointerEvents: 'none' }),
+    );
   });
 });

@@ -158,6 +158,21 @@ describe('TradingViewNative chart settings adapter', () => {
     expect(migrated.options.navigationButtons).toBe(false);
   });
 
+  it('resets navigation buttons saved by schema version 5 to hidden', () => {
+    const previousSettings = createTradingViewNativeChartSettings();
+
+    const migrated = normalizeTradingViewNativeChartSettings({
+      ...previousSettings,
+      schemaVersion: 5,
+      options: { ...previousSettings.options, navigationButtons: true },
+    });
+
+    expect(migrated.schemaVersion).toBe(
+      TRADING_VIEW_NATIVE_CHART_SETTINGS_SCHEMA_VERSION,
+    );
+    expect(migrated.options.navigationButtons).toBe(false);
+  });
+
   it.each([false, true])(
     'preserves the saved navigation buttons preference: %s',
     (navigationButtons) => {

@@ -8,11 +8,13 @@ import {
   TRADING_VIEW_NATIVE_NAVIGATION_BOTTOM_GAP,
   TRADING_VIEW_NATIVE_NAVIGATION_BUTTON_RADIUS,
   TRADING_VIEW_NATIVE_NAVIGATION_ICON_SIZE,
+  TRADING_VIEW_NATIVE_NAVIGATION_PRIMARY_ACTIONS,
 } from '../utils/chartNavigation';
 import {
   TRADING_VIEW_NATIVE_NAVIGATION_BUTTONS,
   TRADING_VIEW_NATIVE_NAVIGATION_TOUCH_BUTTON_GAP,
   TRADING_VIEW_NATIVE_NAVIGATION_TOUCH_BUTTON_SIZE,
+  getTradingViewNativeNavigationResetButtonLeft,
 } from '../utils/chartNavigationControls';
 
 import type { ITradingViewNativeNavigationAction } from '../utils/chartNavigation';
@@ -20,12 +22,14 @@ import type { ITradingViewNativeNavigationAction } from '../utils/chartNavigatio
 export function TradingViewNativeNavigationControls({
   backgroundColor,
   chartWidth,
+  isResetVisible,
   onAction,
   timeAxisHeight,
   testID,
 }: {
   backgroundColor: string;
   chartWidth: number;
+  isResetVisible: boolean;
   onAction: (action: ITradingViewNativeNavigationAction) => void;
   timeAxisHeight: number;
   testID?: string;
@@ -35,6 +39,14 @@ export function TradingViewNativeNavigationControls({
   const testIDPrefix = testID
     ? `${testID}-navigation`
     : 'trading-view-native-navigation';
+  const actions = isResetVisible
+    ? TRADING_VIEW_NATIVE_NAVIGATION_ACTIONS
+    : TRADING_VIEW_NATIVE_NAVIGATION_PRIMARY_ACTIONS;
+  const resetButtonLeft = getTradingViewNativeNavigationResetButtonLeft({
+    buttonSize: TRADING_VIEW_NATIVE_NAVIGATION_TOUCH_BUTTON_SIZE,
+    chartWidth,
+    gap: TRADING_VIEW_NATIVE_NAVIGATION_TOUCH_BUTTON_GAP,
+  });
 
   return (
     <XStack
@@ -48,9 +60,10 @@ export function TradingViewNativeNavigationControls({
       gap={TRADING_VIEW_NATIVE_NAVIGATION_TOUCH_BUTTON_GAP}
       pointerEvents="box-none"
     >
-      {TRADING_VIEW_NATIVE_NAVIGATION_ACTIONS.map((action) => {
+      {actions.map((action) => {
         const { labelId, path } =
           TRADING_VIEW_NATIVE_NAVIGATION_BUTTONS[action];
+        const isReset = action === 'reset';
         return (
           <Stack
             key={action}
@@ -66,6 +79,9 @@ export function TradingViewNativeNavigationControls({
             borderWidth="$px"
             borderColor="$borderStrong"
             backgroundColor={backgroundColor}
+            position={isReset ? 'absolute' : undefined}
+            top={isReset ? 0 : undefined}
+            left={isReset ? resetButtonLeft : undefined}
             pressStyle={{ opacity: 0.72 }}
             onPress={() => onAction(action)}
           >
