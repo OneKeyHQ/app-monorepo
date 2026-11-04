@@ -603,16 +603,30 @@ class ProviderApiEthereum extends ProviderApiBase {
   @providerApiMethod()
   async personal_sign(request: IJsBridgeMessagePayload, ...messages: any[]) {
     defaultLogger.discovery.dapp.dappRequest({ request });
-    const {
-      accountInfo: { accountId, networkId, address: accountAddress } = {},
-    } = (await this.getAccountsInfo(request))[0];
+    const { account, accountInfo: { accountId, networkId } = {} } = (
+      await this.getAccountsInfo(request)
+    )[0];
+    const accountAddress = account.addressDetail.normalizedAddress;
 
     let message = messages[0] as string;
     let address = messages[1] as string;
 
-    // FIX: DYDX, KAVA evm use second param as message
-    if (message?.toLowerCase() === accountAddress?.toLowerCase() && address) {
+    // Support legacy address-first calls only when the second parameter is not an address.
+    if (
+      message?.toLowerCase() === accountAddress?.toLowerCase() &&
+      typeof address === 'string' &&
+      address &&
+      !hexUtils.isHexString(address.toLowerCase(), 20)
+    ) {
       [address, message] = messages;
+    }
+    if (
+      typeof address !== 'string' ||
+      !accountAddress ||
+      hexUtils.addHexPrefix(address).toLowerCase() !==
+        accountAddress.toLowerCase()
+    ) {
+      throw web3Errors.provider.unauthorized();
     }
     message = autoFixPersonalSignMessage({ message });
 
