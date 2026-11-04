@@ -136,42 +136,27 @@ class ServiceReferralCode extends ServiceBase {
     const { endpoint } = await this.getClientEndpointInfo(
       EServiceEndpointEnum.Rebate,
     );
-    await perpsRecallProgressAtom.set((previous) => {
-      // Scope resolution can finish after a newer request has selected its scope.
-      if (
-        requestId !== this.perpsRecallRequestId ||
-        (previous.instanceId === instanceId &&
-          previous.endpoint === endpoint &&
-          previous.locale === locale)
-      ) {
-        return previous;
-      }
-      return {
-        instanceId,
-        endpoint,
-        locale,
-        progress: null,
-      };
-    });
+    const scope = { instanceId, endpoint, locale };
+    // Scope resolution can finish after a newer request has selected its scope.
+    await perpsRecallProgressAtom.set((previous) =>
+      requestId !== this.perpsRecallRequestId ||
+      (previous.instanceId === instanceId &&
+        previous.endpoint === endpoint &&
+        previous.locale === locale)
+        ? previous
+        : { ...scope, progress: null },
+    );
     const progress = /^[a-z0-9][a-z0-9_-]{0,63}$/.test(instanceId)
       ? await this.fetchPerpsRecallProgressMemo(instanceId, endpoint, locale)
       : null;
-    await perpsRecallProgressAtom.set((scope) => {
-      if (
-        requestId !== this.perpsRecallRequestId ||
-        scope.instanceId !== instanceId ||
-        scope.endpoint !== endpoint ||
-        scope.locale !== locale
-      ) {
-        return scope;
-      }
-      return {
-        instanceId,
-        endpoint,
-        locale,
-        progress,
-      };
-    });
+    await perpsRecallProgressAtom.set((previous) =>
+      requestId === this.perpsRecallRequestId &&
+      previous.instanceId === instanceId &&
+      previous.endpoint === endpoint &&
+      previous.locale === locale
+        ? { ...scope, progress }
+        : previous,
+    );
     return progress;
   }
 
