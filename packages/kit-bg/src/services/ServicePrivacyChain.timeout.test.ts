@@ -209,6 +209,34 @@ describe('Privacy sync timeout recovery', () => {
     ]);
   });
 
+  // A recovery resets the runtime's Worker; a send running on it would lose its calls.
+  it('holds a recovery while a user send runs and retries once it ends', async () => {
+    jest.spyOn(console, 'error').mockImplementation(() => undefined);
+    let sending = false;
+    const recover = jest
+      .fn<Promise<boolean>, [{ remountCarrier?: boolean }?]>()
+      .mockRejectedValueOnce(new Error('WebEmbed did not answer reset'))
+      .mockResolvedValue(true);
+    const { service } = createService(false, recover, () => sending);
+    const tick = service.backgroundSyncTick();
+    await jest.advanceTimersByTimeAsync(11);
+    await tick;
+    expect(recover).toHaveBeenCalledTimes(1);
+
+    // The send starts after the first recovery failed; its retry must not reset under it.
+    sending = true;
+    await jest.advanceTimersByTimeAsync(30_000);
+    await jest.advanceTimersByTimeAsync(30_000);
+    expect(recover).toHaveBeenCalledTimes(1);
+    expect(service.quarantinedSyncs.has(stateKey)).toBe(true);
+
+    sending = false;
+    await jest.advanceTimersByTimeAsync(30_000);
+    expect(recover).toHaveBeenCalledTimes(2);
+    expect(recover.mock.calls[1]).toEqual([{ remountCarrier: false }]);
+    expect(service.quarantinedSyncs.has(stateKey)).toBe(false);
+  });
+
   // A paused chain is not scanning; its Continue starts the recovery again.
   it('stops retrying a failed recovery while the chain is paused', async () => {
     jest.spyOn(console, 'error').mockImplementation(() => undefined);

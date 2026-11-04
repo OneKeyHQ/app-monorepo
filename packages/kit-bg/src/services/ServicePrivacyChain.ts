@@ -2195,15 +2195,19 @@ class ServicePrivacyChain extends ServiceBase {
     let failures = 0;
     let retryTimer: ReturnType<typeof setTimeout> | undefined;
     let running: Promise<void> | undefined;
-    // Resolves true when the attempt failed and the runtime is still ours to recover.
-    const attempt = async (remountCarrier: boolean): Promise<boolean> => {
+    // 'failed' and 'deferred' leave the runtime ours to recover; 'done' ends the attempts.
+    const attempt = async (
+      remountCarrier: boolean,
+    ): Promise<'done' | 'failed' | 'deferred'> => {
       clearTimeout(retryTimer);
-      if (!isCurrent()) return false;
+      if (!isCurrent()) return 'done';
+      // A reset drops the calls of a send running on this runtime; recover once it is over.
+      if (capability.isUserOperationActive?.()) return 'deferred';
       try {
         if (await capability.recoverFromTimeout({ remountCarrier })) {
           clearQuarantine();
         }
-        return false;
+        return 'done';
       } catch (resetErr) {
         console.error('[privacy-chain] carrier timeout recovery failed', {
           runtimeStateKey,
@@ -2211,18 +2215,22 @@ class ServicePrivacyChain extends ServiceBase {
           error:
             resetErr instanceof Error ? resetErr.message : String(resetErr),
         });
-        return isCurrent();
+        return isCurrent() ? 'failed' : 'done';
       }
     };
     // Only the first attempt and one the user starts may replace a carrier other features share;
     // timed retries restart this chain alone. A paused chain waits for Continue, which recovers it.
     const recoverNow = (remountCarrier: boolean): Promise<void> => {
-      running ??= attempt(remountCarrier).then((failed) => {
+      running ??= attempt(remountCarrier).then((outcome) => {
         running = undefined;
-        if (!failed || this.boostPausedByNetwork[networkId]) return;
-        failures += 1;
+        if (outcome === 'done' || this.boostPausedByNetwork[networkId]) return;
+        if (outcome === 'failed') failures += 1;
+        // A deferred attempt keeps its right to replace the shared carrier.
+        const retryRemountsCarrier = outcome === 'deferred' && remountCarrier;
         retryTimer = setTimeout(() => {
-          if (!this.boostPausedByNetwork[networkId]) void recoverNow(false);
+          if (!this.boostPausedByNetwork[networkId]) {
+            void recoverNow(retryRemountsCarrier);
+          }
         }, getQuarantineRecoveryDelayMs(failures));
       });
       return running;
