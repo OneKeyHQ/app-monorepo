@@ -771,10 +771,21 @@ class GateTests(unittest.TestCase):
         directory = Path(__file__).parent.parent / 'workflows'
         candidate = (directory / 'trivy.yml').read_text()
         trusted = (directory / 'trivy-pr-gate.yml').read_text()
-        self.assertEqual(re.findall(r'(?m)^ +version: v([0-9.]+)$', candidate + trusted), [gate.VERSION] * 3)
+        self.assertEqual(re.findall(r'(?m)^ +version: v([0-9.]+)$', candidate + trusted), [gate.VERSION])
         checkout = candidate.split('- name: Check installed PR-target policy\n', 1)[1].split('- name:', 1)[0]
         self.assertIn('ref: ${{ github.event.pull_request.base.sha }}', checkout)
         self.assertNotIn('default_branch', checkout)
+
+        spec = importlib.util.spec_from_file_location('installer', Path(__file__).with_name('install_trivy.py'))
+        installer = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(installer)
+        self.assertEqual(installer.VERSION, gate.VERSION)
+        self.assertIn('skip-setup-trivy: true', candidate)
+        self.assertNotIn('aquasecurity/setup-trivy@', candidate + trusted)
+        installation = trusted.split('- name: Set up pinned Trivy\n', 1)[1].split('\n      #', 1)[0]
+        self.assertIn('python3 -I trusted/.github/scripts/install_trivy.py', installation)
+        self.assertNotIn('source/.github/scripts/install_trivy.py', trusted)
+        self.assertIn('ref: ${{ github.workflow_sha }}', trusted)
 
     def test_pull_requests_retain_sarif_publication(self):
         workflow = (Path(__file__).parent.parent / 'workflows/trivy.yml').read_text()
