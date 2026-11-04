@@ -2,6 +2,7 @@
 import { createIntl } from 'react-intl';
 
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import zhCN from '@onekeyhq/shared/src/locale/json/zh_CN.json';
 
 import { showPrimeInfiniUnfinishedPaymentDialog } from './showPrimeInfiniUnfinishedPaymentDialog';
 
@@ -28,6 +29,7 @@ const messages: Record<string, string> = {
   [ETranslations.global_cancel]: 'Cancel',
 };
 const intl = createIntl({ locale: 'en', onError: () => undefined, messages });
+const chineseMessages: Record<string, string> = zhCN;
 
 describe('existing unfinished-payment warning', () => {
   beforeEach(() => mockShow.mockClear());
@@ -47,19 +49,17 @@ describe('existing unfinished-payment warning', () => {
     warning.onClose();
     await expect(result).resolves.toBe('resume');
   });
-  it('distinguishes failure to check from a confirmed existing order', async () => {
+  it('localizes lookup failure and the risk warning without asserting an existing order', async () => {
     const result = showPrimeInfiniUnfinishedPaymentDialog({
-      intl,
+      intl: createIntl({ locale: 'zh-CN', messages: chineseMessages }),
       canResume: false,
       lookupUnavailable: true,
     });
     const warning = mockShow.mock.calls[0][0];
-    expect(warning.title).toBe('Unable to check unfinished payments');
-    expect(warning.description).toBe(
-      "We couldn't confirm whether you have an unfinished payment. Continuing could result in a duplicate payment.",
-    );
-    expect(warning.onConfirmText).toBe('Continue');
-    expect(warning.onCancelText).toBe('Cancel');
+    expect(warning.title).toBe(zhCN.prime_payment_refresh_failed__title);
+    expect(warning.description).toBe(zhCN.prime_unfinished_payment__desc);
+    expect(warning.onConfirmText).toBe(zhCN['global.continue']);
+    expect(warning.onCancelText).toBe(zhCN['global.cancel']);
     warning.onConfirm();
     warning.onClose();
     await expect(result).resolves.toBe('replace');

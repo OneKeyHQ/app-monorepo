@@ -1,7 +1,7 @@
 /* cspell:ignore Infini */
 
 import { Dialog } from '@onekeyhq/components';
-import { ETranslations, ETranslationsMock } from '@onekeyhq/shared/src/locale';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import type { IPrimeInfiniUnfinishedPaymentChoice } from '../../hooks/primeInfiniRemotePendingPayment';
 import type { IntlShape } from 'react-intl';
@@ -18,24 +18,14 @@ export function showPrimeInfiniUnfinishedPaymentDialog({
   return new Promise((resolve) => {
     let choice: IPrimeInfiniUnfinishedPaymentChoice = 'cancel';
     Dialog.show({
-      title: lookupUnavailable
-        ? intl.formatMessage({
-            id: ETranslationsMock.prime_pending_payment_lookup_unavailable__title,
-            defaultMessage:
-              ETranslationsMock.prime_pending_payment_lookup_unavailable__title,
-          })
-        : intl.formatMessage({
-            id: ETranslations.prime_unfinished_payment__title,
-          }),
-      description: lookupUnavailable
-        ? intl.formatMessage({
-            id: ETranslationsMock.prime_pending_payment_lookup_unavailable__desc,
-            defaultMessage:
-              ETranslationsMock.prime_pending_payment_lookup_unavailable__desc,
-          })
-        : intl.formatMessage({
-            id: ETranslations.prime_unfinished_payment__desc,
-          }),
+      title: intl.formatMessage({
+        id: lookupUnavailable
+          ? ETranslations.prime_payment_refresh_failed__title
+          : ETranslations.prime_unfinished_payment__title,
+      }),
+      description: intl.formatMessage({
+        id: ETranslations.prime_unfinished_payment__desc,
+      }),
       onConfirmText: intl.formatMessage({
         id: lookupUnavailable
           ? ETranslations.global_continue

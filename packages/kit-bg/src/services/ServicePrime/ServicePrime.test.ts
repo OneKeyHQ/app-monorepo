@@ -371,7 +371,6 @@ const REQUEST_TOKEN = 'request-token';
 
 function createService() {
   const simpleDbPrime = {
-    isInfiniPaymentRetired: jest.fn(async () => false),
     recordInfiniPaymentValidation: jest.fn(async () => undefined),
     getAuthSessionSource: jest.fn(async () => undefined as unknown),
     getAuthSessionCommitId: jest.fn(
@@ -1918,21 +1917,6 @@ describe('ServicePrime Infini payment APIs', () => {
     });
   });
 
-  it('reads existing retirement records without adding new persistence or fences', async () => {
-    const { service, simpleDbPrime } = createInfiniService();
-    simpleDbPrime.isInfiniPaymentRetired.mockResolvedValue(true);
-    service.getPrimeClient = jest.fn(async () => ({
-      get: jest.fn(async () => ({
-        data: { data: { ...payment, transactions: [] } },
-      })),
-    }));
-    const result = await service.apiGetInfiniPendingPayment({
-      expectedOneKeyUserId: 'user-a',
-    });
-    expect(result.pendingPayment).toBeUndefined();
-    expect(simpleDbPrime.recordInfiniPaymentValidation).not.toHaveBeenCalled();
-  });
-
   it('keeps identity changes blocking even when discovery has failed', async () => {
     const { service, simpleDbPrime } = createInfiniService();
     service.getPrimeClient = jest.fn(async () => ({
@@ -1980,32 +1964,6 @@ describe('ServicePrime Infini payment APIs', () => {
       authContext: { onekeyUserId: 'user-a', authStateGeneration: 3 },
     });
   });
-
-  it.each(['signed', 'broadcast', 'processing', 'failed'])(
-    'leaves the original create/query APIs free of a new remote tracking fence: %s',
-    async (status) => {
-      const { service } = createInfiniService();
-      const invoice = { ...payment, status };
-      service.getPrimeClient = jest.fn(async () => ({
-        post: jest.fn(async () => ({ data: { data: invoice } })),
-        get: jest.fn(async () => ({ data: { data: invoice } })),
-      }));
-      await expect(
-        service.apiCreateInfiniPayment({
-          plan: 'monthly',
-          chain: 'ETHEREUM',
-          token: 'USDC',
-          expectedOneKeyUserId: 'user-a',
-        }),
-      ).resolves.toEqual(invoice);
-      await expect(
-        service.apiGetInfiniPayment({
-          paymentId: payment.paymentId,
-          expectedOneKeyUserId: 'user-a',
-        }),
-      ).resolves.toEqual(invoice);
-    },
-  );
 
   it('still refuses creating after the consent auth lifecycle has changed', async () => {
     const { service } = createInfiniService();

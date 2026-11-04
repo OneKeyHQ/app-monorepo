@@ -14,7 +14,7 @@ import {
 } from '@testing-library/react';
 
 import type { IListItemTextProps } from '@onekeyhq/kit/src/components/ListItem';
-import { ETranslations, ETranslationsMock } from '@onekeyhq/shared/src/locale';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EPrimeAuthSessionSource } from '@onekeyhq/shared/types/prime/primeTypes';
 import type {
   IPrimeInfiniPendingPaymentLookup,
@@ -450,8 +450,7 @@ describe('usePrimePurchaseCallback pending payment entry guard', () => {
     mockDialogShow.mockImplementation((config) => {
       if (
         config.title === ETranslations.prime_unfinished_payment__title ||
-        config.title ===
-          ETranslationsMock.prime_pending_payment_lookup_unavailable__title
+        config.title === ETranslations.prime_payment_refresh_failed__title
       ) {
         if (mockPendingChoice === 'replace') config.onConfirm?.();
         if (mockPendingChoice === 'resume') config.onCancel?.();

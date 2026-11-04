@@ -80,26 +80,19 @@ describe('advisory remote pending payment', () => {
     { payment: { ...payment, amountConfirming: '1' } },
     { payment: { ...payment, expiresAt: 1 } },
     { payment: { ...payment, token: 'UNSUPPORTED' } },
-  ])(
-    'does not guess recovery data, while still allowing a confirmed new payment: %j',
-    async (change) => {
-      const p = params();
-      p.lookup = {
-        ...lookup,
-        pendingPayment: { ...lookup.pendingPayment!, ...change },
-      };
-      expect(
-        getPrimeInfiniRemotePaymentRecovery({
-          pendingPayment: p.lookup.pendingPayment,
-          assets: [asset],
-        }),
-      ).toBeUndefined();
-      await expect(
-        createPrimeInfiniRemotePendingPaymentResolver()(p),
-      ).resolves.toEqual({ type: 'new' });
-      expect(p.choose).toHaveBeenCalledWith(false);
-    },
-  );
+  ])('does not guess incomplete or transferred recovery data: %j', (change) => {
+    const p = params();
+    p.lookup = {
+      ...lookup,
+      pendingPayment: { ...lookup.pendingPayment!, ...change },
+    };
+    expect(
+      getPrimeInfiniRemotePaymentRecovery({
+        pendingPayment: p.lookup.pendingPayment,
+        assets: [asset],
+      }),
+    ).toBeUndefined();
+  });
   it('continues automatically after a confirmed empty query', async () => {
     const p = params();
     p.lookup = { authContext: lookup.authContext };

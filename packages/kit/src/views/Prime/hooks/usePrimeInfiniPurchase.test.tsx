@@ -373,6 +373,31 @@ describe('usePrimeInfiniPurchase internal wallet route', () => {
     });
   });
 
+  it('forwards the selected remote invoice and auth lifecycle to the wallet route', async () => {
+    mockIsLoggedIn.mockResolvedValue(true);
+    const remotePaymentResumeIntent = {
+      paymentId: 'remote-order',
+      authContext: checkoutAuthContext,
+    };
+    const { result } = renderHook(() => usePrimeInfiniPurchase());
+    await act(async () => {
+      await result.current.purchaseByCrypto({
+        selectedSubscriptionPeriod: 'P1M',
+        createNewPayment: false,
+        remotePaymentResumeIntent,
+      });
+    });
+    expect(mockPushModal).toHaveBeenCalledWith(EModalRoutes.PrimeModal, {
+      screen: EPrimePages.PrimeInfiniPayment,
+      params: expect.objectContaining({
+        selectedSubscriptionPeriod: 'P1M',
+        createNewPayment: false,
+        remotePaymentResumeIntent,
+      }),
+    });
+    expect(mockUnfinishedPaymentChoice).not.toHaveBeenCalled();
+  });
+
   it('does not push the payment page when the Prime session is logged out', async () => {
     mockIsLoggedIn.mockResolvedValue(false);
     const { result } = renderHook(() => usePrimeInfiniPurchase());

@@ -207,49 +207,38 @@ describe('Infini wallet loader creation gate', () => {
     );
   });
 
-  it.each(['replace', 'resume', 'cancel'] as const)(
-    'requires replacement consent before changing a remote recovery asset: %s',
-    async (choice) => {
-      mockLookup.mockResolvedValue({
-        authContext,
-        pendingPayment: {
+  it('keeps the chosen recovery without another warning and uses normal asset selection', async () => {
+    mockLookup.mockResolvedValue({
+      authContext,
+      pendingPayment: {
+        paymentId: 'remote-id',
+        payment: {
           paymentId: 'remote-id',
-          payment: {
-            paymentId: 'remote-id',
-            chain: 'ETHEREUM',
-            token: 'USDC',
-            address: '0xrecipient',
-            amountDue: '29.99',
-            amountConfirmed: '0',
-            amountConfirming: '0',
-            expiresAt: Date.now() + 3_600_000,
-            status: 'created',
-          },
-          plan: 'monthly',
-          hasTransactions: false,
+          chain: 'ETHEREUM',
+          token: 'USDC',
+          address: '0xrecipient',
+          amountDue: '29.99',
+          amountConfirmed: '0',
+          amountConfirming: '0',
+          expiresAt: Date.now() + 3_600_000,
+          status: 'created',
         },
-      });
-      mockChoose.mockResolvedValueOnce('resume').mockResolvedValueOnce(choice);
-      renderRoot(true);
-      await waitFor(() =>
-        expect(mockContent?.props.remoteRecovery).toBeTruthy(),
-      );
-      const changeAsset = mockContent?.props.onSelectedAssetChange as (
-        key: string,
-      ) => Promise<void>;
-      const nextAsset = (mockContent?.props.assets as { key: string }[])[1];
-      const previousAsset = mockContent?.props.selectedAsset;
-      await act(async () => changeAsset(nextAsset.key));
-      expect(mockChoose).toHaveBeenCalledTimes(2);
-      expect(Boolean(mockContent?.props.remoteRecovery)).toBe(
-        choice !== 'replace',
-      );
-      expect(mockContent?.props.shouldCreatePayment).toBe(true);
-      expect(mockContent?.props.selectedAsset).toEqual(
-        choice === 'replace' ? nextAsset : previousAsset,
-      );
-    },
-  );
+        plan: 'monthly',
+        hasTransactions: false,
+      },
+    });
+    renderRoot(false, 'remote-id');
+    await waitFor(() => expect(mockContent?.props.remoteRecovery).toBeTruthy());
+    const changeAsset = mockContent?.props.onSelectedAssetChange as (
+      key: string,
+    ) => void;
+    const nextAsset = (mockContent?.props.assets as { key: string }[])[1];
+    act(() => changeAsset(nextAsset.key));
+    expect(mockContent?.props.selectedAsset).toEqual(nextAsset);
+    expect(mockContent?.props.remoteRecovery).toBeUndefined();
+    expect(mockContent?.props.shouldCreatePayment).toBe(true);
+    expect(mockChoose).not.toHaveBeenCalled();
+  });
 
   it('allows a confirmed new payment when the resume target is unavailable', async () => {
     mockLookup.mockResolvedValue({ authContext, status: 'unavailable' });

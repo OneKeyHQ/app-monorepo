@@ -1690,26 +1690,6 @@ export class SimpleDbEntityPrime extends SimpleDbEntityBase<ISimpleDBPrime> {
   }
 
   @backgroundMethod()
-  async isInfiniPaymentRetired({
-    onekeyUserId,
-    paymentId,
-  }: {
-    onekeyUserId: string;
-    paymentId: string;
-  }): Promise<boolean> {
-    const rawData = await this.getRawData();
-    const context = { rawData, onekeyUserId, now: Date.now() };
-    return (
-      getActiveInfiniPaymentCacheTombstones(context).some(
-        (item) => item.paymentId === paymentId,
-      ) ||
-      getActiveInfiniSupersededPaymentSessions(context).some(
-        (item) => item.payment.paymentId === paymentId,
-      )
-    );
-  }
-
-  @backgroundMethod()
   async setInfiniPendingPaymentSession({
     onekeyUserId,
     session,

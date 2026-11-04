@@ -6241,25 +6241,13 @@ class ServicePrime extends ServiceBase {
         const hasTransactions = Array.isArray(pending.transactions)
           ? pending.transactions.length > 0
           : undefined;
-        // Reuse only the existing device-local retirement records. Discovery
-        // never creates a record, changes a send claim or blocks a new payment.
-        const isRetired =
-          isString(pending.paymentId) &&
-          (await this.backgroundApi.simpleDb.prime.isInfiniPaymentRetired({
-            onekeyUserId: snapshot.expectedOneKeyUserId,
-            paymentId: pending.paymentId,
-          }));
-        if (!isRetired) {
-          const plan = pending.plan === 'annual' ? 'yearly' : pending.plan;
-          lookup.pendingPayment = {
-            paymentId: isString(pending.paymentId)
-              ? pending.paymentId
-              : undefined,
-            payment,
-            plan: plan === 'monthly' || plan === 'yearly' ? plan : undefined,
-            hasTransactions,
-          };
-        }
+        const plan = pending.plan === 'annual' ? 'yearly' : pending.plan;
+        lookup.pendingPayment = {
+          paymentId: pending.paymentId,
+          payment,
+          plan: plan === 'monthly' || plan === 'yearly' ? plan : undefined,
+          hasTransactions,
+        };
       }
     } catch (error) {
       if (error instanceof OneKeyErrorPrimeLoginInvalidToken) throw error;
