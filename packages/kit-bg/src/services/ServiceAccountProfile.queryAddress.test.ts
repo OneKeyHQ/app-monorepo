@@ -81,7 +81,7 @@ jest.mock('../vaults/localWallet/isLocalWalletNetwork', () => ({
     networkId === 'zec--0',
   isAddressWithheldFromBackend: async () => false,
 }));
-const mockGetChainOnlyVault = jest.fn();
+const mockGetChainOnlyVault = jest.fn<Promise<unknown>, [unknown]>();
 jest.mock('../vaults/factory', () => ({
   vaultFactory: {
     getChainOnlyVault: (params: unknown) => mockGetChainOnlyVault(params),

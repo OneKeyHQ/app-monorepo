@@ -487,11 +487,11 @@ describe('a temp wallet kept or no longer kept', () => {
     const notices = emit.mock.calls.filter(
       ([name]) => name === EAppEventBusNames.LocalWalletAccountsChanged,
     );
-    expect(notices.map(([, payload]) => payload)).toEqual(
-      ['zec--0', 'xmr--0'].map((id) => ({
-        networkId: id,
-        accountIds: [tempAccountId, `${tempWalletId}--0`],
-      })),
+    expect(notices).toEqual(
+      ['zec--0', 'xmr--0'].map((id) => [
+        EAppEventBusNames.LocalWalletAccountsChanged,
+        { networkId: id, accountIds: [tempAccountId, `${tempWalletId}--0`] },
+      ]),
     );
     expect(service.shortenStartupQuietWindow).toHaveBeenCalled();
     expect(service.scheduleBackgroundSync).toHaveBeenCalledWith(0);

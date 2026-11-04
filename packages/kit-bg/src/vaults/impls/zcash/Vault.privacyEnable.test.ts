@@ -2,7 +2,7 @@
 jest.mock('../../../dbs/local/localDbInstance');
 // The node's block-time search places a date at this height.
 jest.mock('./birthday', () => ({
-  ...jest.requireActual('./birthday'),
+  ...jest.requireActual<typeof import('./birthday')>('./birthday'),
   placeZcashBirthdayHeight: jest.fn(async () => 3_650_000),
 }));
 

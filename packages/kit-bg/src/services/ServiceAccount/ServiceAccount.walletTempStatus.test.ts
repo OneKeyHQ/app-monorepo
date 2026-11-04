@@ -15,7 +15,7 @@ jest.mock('@onekeyhq/shared/src/background/backgroundDecorators', () => ({
       descriptor,
 }));
 
-const mockEmit = jest.fn();
+const mockEmit = jest.fn<void, unknown[]>();
 jest.mock('@onekeyhq/shared/src/eventBus/appEventBus', () => ({
   EAppEventBusNames: { WalletUpdate: 'WalletUpdate' },
   appEventBus: {

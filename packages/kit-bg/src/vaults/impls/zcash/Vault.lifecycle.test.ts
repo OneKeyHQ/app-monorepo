@@ -17,7 +17,7 @@ import {
 
 jest.mock('../../../dbs/local/localDbInstance');
 jest.mock('./birthday', () => ({
-  ...jest.requireActual('./birthday'),
+  ...jest.requireActual<typeof import('./birthday')>('./birthday'),
   placeZcashBirthdayHeight: jest.fn(),
 }));
 
