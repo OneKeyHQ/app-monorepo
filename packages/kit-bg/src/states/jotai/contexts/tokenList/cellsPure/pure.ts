@@ -139,7 +139,10 @@ export function fiatEqual(a?: ITokenFiat, b?: ITokenFiat): boolean {
     // ONLY the multiplier can move on a refresh — without this, a
     // multiplier-only update would be swallowed and the UI would keep
     // displaying the stale multiplied amount.
-    a.balanceMultiplier === b.balanceMultiplier
+    a.balanceMultiplier === b.balanceMultiplier &&
+    // Lightning on Spark: a payment that arrives while the wallet is offline
+    // changes only the unclaimed sats; balance and price stay the same.
+    a.pendingReceiveSats === b.pendingReceiveSats
   );
 }
 
