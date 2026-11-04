@@ -73,6 +73,7 @@ export function scheduleReferrerCodeBinding({
   }
 
   let skippedBecauseAlreadyBound = false;
+  let encounteredAlreadySet = false;
   const binding = Promise.resolve().then(async () => {
     if (isAlreadyBound && (await isAlreadyBound())) {
       skippedBecauseAlreadyBound = true;
@@ -85,11 +86,19 @@ export function scheduleReferrerCodeBinding({
       if (!isReferrerAlreadySetError(error)) {
         throw error;
       }
+      encounteredAlreadySet = true;
     }
   });
   const task = binding
     .then(async () => {
       if (cache.referrerCodeSetInFlight[cacheKey] === task) {
+        if (encounteredAlreadySet) {
+          await onBound?.();
+          if (cache.referrerCodeSetInFlight[cacheKey] === task) {
+            cache.referrerCodeSetDone[cacheKey] = true;
+          }
+          return;
+        }
         cache.referrerCodeSetDone[cacheKey] = true;
         if (!skippedBecauseAlreadyBound) {
           try {

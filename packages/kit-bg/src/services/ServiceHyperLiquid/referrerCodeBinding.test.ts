@@ -22,7 +22,7 @@ function createParams({
   isAlreadyBound?: jest.Mock<Promise<boolean>>;
   getReferralCode?: jest.Mock<Promise<string>>;
   setReferrerCode?: jest.Mock<Promise<unknown>>;
-  onBound?: jest.Mock<void>;
+  onBound?: jest.Mock<void | Promise<void>>;
   onFailure?: jest.Mock<void>;
 } = {}) {
   return {
@@ -54,6 +54,92 @@ describe('deferred Hyperliquid referrer binding', () => {
     expect(scheduleReferrerCodeBinding(params)).toBeUndefined();
     expect(params.setReferrerCode).toHaveBeenCalledTimes(1);
   });
+
+  it('retries already-set banner reconciliation after a local cache write fails', async () => {
+    const alreadySet = Object.assign(new Error('Referrer already set'), {
+      name: 'ApiRequestError',
+      response: { status: 'err', response: 'Referrer already set' },
+    });
+    const cacheError = new Error('cache write failed');
+    const params = createParams({
+      setReferrerCode: jest.fn().mockRejectedValue(alreadySet),
+      onBound: jest
+        .fn<Promise<void>, []>()
+        .mockRejectedValueOnce(cacheError)
+        .mockResolvedValueOnce(undefined),
+    });
+
+    await scheduleReferrerCodeBinding(params);
+    expect(params.cache.referrerCodeSetDone[params.cacheKey]).toBeUndefined();
+    expect(
+      params.cache.referrerCodeSetInFlight[params.cacheKey],
+    ).toBeUndefined();
+    expect(params.onFailure).toHaveBeenCalledWith(cacheError);
+
+    await scheduleReferrerCodeBinding(params);
+    expect(params.cache.referrerCodeSetDone[params.cacheKey]).toBe(true);
+    expect(params.setReferrerCode).toHaveBeenCalledTimes(2);
+    expect(params.onBound).toHaveBeenCalledTimes(2);
+    expect(params.onFailure).toHaveBeenCalledTimes(1);
+    expect(scheduleReferrerCodeBinding(params)).toBeUndefined();
+  });
+
+  it.each([false, true])(
+    'completes already-set reconciliation only for the current binding (cache reset %s)',
+    async (resetCache) => {
+      const alreadySet = Object.assign(new Error('Referrer already set'), {
+        name: 'ApiRequestError',
+        response: { status: 'err', response: 'Referrer already set' },
+      });
+      let finishReconciliation: (() => void) | undefined;
+      const pending = new Promise<void>((resolve) => {
+        finishReconciliation = resolve;
+      });
+      let notifyReconciliationStarted: (() => void) | undefined;
+      const started = new Promise<void>((resolve) => {
+        notifyReconciliationStarted = resolve;
+      });
+      const params = createParams({
+        setReferrerCode: jest.fn().mockRejectedValue(alreadySet),
+        onBound: jest.fn<Promise<void>, []>(() => {
+          notifyReconciliationStarted?.();
+          return pending;
+        }),
+      });
+
+      const first = scheduleReferrerCodeBinding(params);
+      await started;
+      expect(params.cache.referrerCodeSetDone[params.cacheKey]).toBeUndefined();
+      expect(scheduleReferrerCodeBinding(params)).toBe(first);
+      expect(params.setReferrerCode).toHaveBeenCalledTimes(1);
+      expect(params.onBound).toHaveBeenCalledTimes(1);
+
+      const replacement = Promise.resolve();
+      if (resetCache) {
+        params.cache.referrerCodeSetDone = {};
+        params.cache.referrerCodeSetInFlight = {
+          [params.cacheKey]: replacement,
+        };
+      }
+      finishReconciliation?.();
+      await first;
+
+      if (resetCache) {
+        expect(
+          params.cache.referrerCodeSetDone[params.cacheKey],
+        ).toBeUndefined();
+        expect(params.cache.referrerCodeSetInFlight[params.cacheKey]).toBe(
+          replacement,
+        );
+      } else {
+        expect(params.cache.referrerCodeSetDone[params.cacheKey]).toBe(true);
+        expect(
+          params.cache.referrerCodeSetInFlight[params.cacheKey],
+        ).toBeUndefined();
+      }
+      expect(params.onFailure).not.toHaveBeenCalled();
+    },
+  );
 
   it('skips network submission when persistent cache already indicates referrer is bound', async () => {
     const params = createParams({
