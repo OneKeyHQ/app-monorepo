@@ -63,7 +63,10 @@ export type IPageFooterProps = PropsWithChildren<
   }
 >;
 
-export type IPageProps = IBasicPageProps;
+export type IPageProps = IBasicPageProps & {
+  /** Renders with the page and takes precedence over a registered Page.Footer. */
+  directFooter?: IPageFooterProps;
+};
 
 export type IPageContentContainerLayout = 'full' | 'regular' | 'compact';
 export type IPageContentContainerProps = Omit<IStackProps, 'layout'> & {

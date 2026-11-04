@@ -3939,6 +3939,9 @@ function SendAmountInputContainer() {
         // The shared Android input survives mode changes, so dismiss its
         // keyboard explicitly instead of relying on the previous remount.
         if (platformEnv.isNativeAndroid) {
+          // Apply the unfocused layout in the same render as the new mode;
+          // the native blur callback can arrive after that render.
+          setIsAmountInputFocused(false);
           amountInputRef.current?.blur();
           Keyboard.dismiss();
         }
@@ -5625,8 +5628,26 @@ function SendAmountInputContainer() {
     );
   }
 
+  const footerContent = (
+    <>
+      {shouldUseScrollableAmountBody ? null : (
+        <Stack px="$5" gap={MOBILE_AMOUNT_BOTTOM_INFO_GAP_TOKEN}>
+          {isMobilePrivateSendLayout
+            ? renderMobilePrivateSendFooterInfoContent
+            : renderBottomInfoContent}
+        </Stack>
+      )}
+      {renderFooterActions}
+    </>
+  );
+
   return (
-    <Page safeAreaEnabled>
+    <Page
+      safeAreaEnabled
+      directFooter={
+        platformEnv.isNativeAndroid ? { children: footerContent } : undefined
+      }
+    >
       <Page.Header
         title={intl.formatMessage({ id: pageTitleTranslationId })}
         headerRight={renderPrivateSendHeaderRight}
@@ -5637,16 +5658,9 @@ function SendAmountInputContainer() {
 
       {renderPageBody}
 
-      <Page.Footer>
-        {shouldUseScrollableAmountBody ? null : (
-          <Stack px="$5" gap={MOBILE_AMOUNT_BOTTOM_INFO_GAP_TOKEN}>
-            {isMobilePrivateSendLayout
-              ? renderMobilePrivateSendFooterInfoContent
-              : renderBottomInfoContent}
-          </Stack>
-        )}
-        {renderFooterActions}
-      </Page.Footer>
+      {platformEnv.isNativeAndroid ? null : (
+        <Page.Footer>{footerContent}</Page.Footer>
+      )}
     </Page>
   );
 }

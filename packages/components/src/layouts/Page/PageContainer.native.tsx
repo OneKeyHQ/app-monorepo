@@ -31,6 +31,7 @@ export function PageContainer({
   fullPage,
   testID,
   backgroundColor,
+  directFooter,
 }: IPageProps) {
   const { scrollEnabled, scrollProps } = useContext(PageContext);
   const keyboardHeight = useKeyboardState((state) => state.height);
@@ -112,7 +113,10 @@ export function PageContainer({
         ) : (
           children
         )}
-        <BasicPageFooter onKeyboardLiftChange={setIsFooterLiftedByKeyboard} />
+        <BasicPageFooter
+          directProps={directFooter}
+          onKeyboardLiftChange={setIsFooterLiftedByKeyboard}
+        />
       </BasicPage>
     ),
     [
@@ -128,6 +132,7 @@ export function PageContainer({
       extraKeyboardSpace,
       contextValue,
       children,
+      directFooter,
     ],
   );
 }

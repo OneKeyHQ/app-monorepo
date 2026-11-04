@@ -103,8 +103,10 @@ function PageFooterContext(props: IPageFooterProps) {
 }
 
 export function BasicPageFooter({
+  directProps,
   onKeyboardLiftChange,
 }: {
+  directProps?: IPageFooterProps;
   // Reports whether the footer lifts itself above the keyboard, which also
   // shrinks the page ScrollView above it.
   onKeyboardLiftChange?: (isLifted: boolean) => void;
@@ -112,7 +114,7 @@ export function BasicPageFooter({
   const { footerRef } = useContext(PageContext);
   const { gtMd } = useMedia();
   const [, setCount] = useState(0);
-  const { props: footerProps } = footerRef.current;
+  const footerProps = directProps ?? footerRef.current.props;
   useEffect(() => {
     footerRef.current.notifyUpdate = () => {
       setCount((i) => i + 1);
