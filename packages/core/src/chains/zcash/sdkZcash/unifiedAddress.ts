@@ -148,7 +148,12 @@ export function isSameZcashOrchardRecipient(a: string, b: string): boolean {
   if (a === b) return true;
   const orchardA = decodeSupportedZcashUnifiedAddress(a)?.get(3);
   const orchardB = decodeSupportedZcashUnifiedAddress(b)?.get(3);
-  return !!orchardA && !!orchardB && Buffer.from(orchardA).equals(orchardB);
+  // The apps' Buffer polyfill compares only Buffers, unlike Node's.
+  return (
+    !!orchardA &&
+    !!orchardB &&
+    Buffer.from(orchardA).equals(Buffer.from(orchardB))
+  );
 }
 
 export function isSupportedZcashUnifiedAddress(address: string): boolean {

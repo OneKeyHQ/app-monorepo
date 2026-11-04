@@ -87,6 +87,23 @@ describe('one Orchard recipient', () => {
     ).toBe(true);
   });
 
+  // The apps run the `buffer` package, whose equals() throws on a plain Uint8Array.
+  it('matches under the Buffer polyfill the apps run', () => {
+    const nodeBuffer = globalThis.Buffer;
+    globalThis.Buffer = jest.requireActual<typeof import('buffer')>('buffer/')
+      .Buffer as unknown as typeof globalThis.Buffer;
+    try {
+      expect(
+        isSameZcashOrchardRecipient(
+          address('derived account 0 orchard'),
+          address('derived account 0 all'),
+        ),
+      ).toBe(true);
+    } finally {
+      globalThis.Buffer = nodeBuffer;
+    }
+  });
+
   it.each([
     ['another account', 'derived account 1 all'],
     ['an invalid address', 'checksum'],
