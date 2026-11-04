@@ -15,6 +15,7 @@ import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 
+import { HardwareDeviceList } from './HardwareDeviceList';
 import { Layout } from './utils/Layout';
 
 function demoLog(data: any, apiName: string) {
@@ -264,6 +265,10 @@ const CloudSyncGallery = () => (
     getFilePath={() => __CURRENT_FILE_PATH__}
     componentName="CloudSyncGallery"
     elements={[
+      {
+        title: 'Hardware device list overflow (OK-66329)',
+        element: <HardwareDeviceList />,
+      },
       {
         title: 'Prime Cloud Sync API Tests',
         element: <CloudSyncApiTests />,
