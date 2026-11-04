@@ -585,6 +585,11 @@ export function PrimeLoginEmailCodeDialogV2(props: {
                         size="$3.5"
                         color="$iconSubdued"
                         pointerEvents="none"
+                        // The web Icon renders a flex container, which breaks
+                        // onto its own line inside text; keep it inline.
+                        display={
+                          platformEnv.isNative ? undefined : 'inline-flex'
+                        }
                         transform={[{ translateY: 2 }]}
                       />
                     </SizableText>

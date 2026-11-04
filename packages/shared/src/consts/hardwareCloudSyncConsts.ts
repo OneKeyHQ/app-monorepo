@@ -64,13 +64,16 @@ export function getHardwareCloudSyncIdentityTagFromCredentialId(
   );
 }
 
-// Direct desktop/web and native transports use the patched hd-core. The
-// extension's bundled/remote iframe has its own SDK copy and is not covered by
-// that patch; keep generation disabled there until it also redacts signatures.
+// Supported platforms use the default upstream SDK integration; iframe-based
+// transports use official prebuilt assets. Release requires an upstream
+// btcSignMessage redaction fix, an App SDK upgrade, and acceptance checks
+// confirming the same fix in every shipped SDK/iframe.
 export function isHardwareCloudSyncPlatformSupported(): boolean {
   return !!(
-    !platformEnv.isExtension &&
-    (platformEnv.isDesktop || platformEnv.isNative || platformEnv.isWeb)
+    platformEnv.isDesktop ||
+    platformEnv.isNative ||
+    platformEnv.isWeb ||
+    platformEnv.isExtension
   );
 }
 

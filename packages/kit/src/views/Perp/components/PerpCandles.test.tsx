@@ -330,8 +330,15 @@ describe('PerpCandles account switch', () => {
 
 describe.each([
   ['standalone chart', PerpCandles],
+  ['mobile chart', PerpCandles],
   ['desktop workspace', PerpMarketWorkspacePanel],
 ] as const)('%s chart mode preference', (_name, Chart) => {
+  beforeEach(() => {
+    jest.replaceProperty(platformEnv, 'isNative', _name === 'mobile chart');
+  });
+
+  afterEach(() => jest.restoreAllMocks());
+
   it('defaults to native and switches to TradingView when no preference exists', () => {
     const view = render(<Chart />);
 
