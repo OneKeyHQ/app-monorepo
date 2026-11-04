@@ -1405,26 +1405,6 @@ export function buildTradingViewNativeChartScene({
     priceScaleMode: resolvedPriceScaleMode,
   });
   const showLatestPrice = chartSettings?.options.latestPrice ?? true;
-  const tradeMarkTooltipCommands: ITradingViewNativeChartSceneCommand[] = [];
-  appendTradingViewNativeTradeMarkCommands({
-    candleIntervalSeconds,
-    candleTimeMode,
-    commands,
-    components: chartComponents,
-    crosshair,
-    customPaintStyles,
-    getPointX,
-    maxPrice,
-    measureTextWidth,
-    minPrice,
-    points,
-    priceAxisX,
-    priceChartHeight,
-    priceScaleMode: resolvedPriceScaleMode,
-    priceSource: primarySeries.priceSource,
-    tooltipCommands: tradeMarkTooltipCommands,
-  });
-
   const chartComponentCommandLayers =
     appendTradingViewNativeChartComponentCommands({
       commands,
@@ -1508,6 +1488,26 @@ export function buildTradingViewNativeChartScene({
       );
     }
   }
+
+  const tradeMarkTooltipCommands: ITradingViewNativeChartSceneCommand[] = [];
+  appendTradingViewNativeTradeMarkCommands({
+    candleIntervalSeconds,
+    candleTimeMode,
+    commands,
+    components: chartComponents,
+    crosshair,
+    customPaintStyles,
+    getPointX,
+    maxPrice,
+    measureTextWidth,
+    minPrice,
+    points,
+    priceAxisX,
+    priceChartHeight,
+    priceScaleMode: resolvedPriceScaleMode,
+    priceSource: primarySeries.priceSource,
+    tooltipCommands: tradeMarkTooltipCommands,
+  });
 
   commands.push(
     ...chartComponentCommandLayers.priceLabelCommands,
