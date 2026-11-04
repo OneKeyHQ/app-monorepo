@@ -19,6 +19,7 @@ import {
   checkPreparedFeeApproved,
   checkPreparedInvoicePayment,
   findSettledInvoicePaymentProblem,
+  getPrepareAmountSats,
   isSparkPayableInvoice,
   isZeroAmountDecodedInvoice,
 } from './invoicePayment';
@@ -180,13 +181,39 @@ describe('buildSparkInvoiceEncodedTx', () => {
     ).toThrow();
   });
 
-  it('refuses invoices without an amount or a payment hash', () => {
-    expect(() =>
+  it('pays an invoice without an amount with the whole sats the user entered', () => {
+    const zeroAmount = decodedInvoice({ millisatoshis: null, satoshis: null });
+
+    const encodedTx = buildSparkInvoiceEncodedTx({
+      input: INVOICE,
+      decoded: zeroAmount,
+      enteredAmountSats: '21',
+    });
+
+    expect(encodedTx).toMatchObject({ invoice: INVOICE, amountSats: '21' });
+    expect(encodedTx.amountMillisatoshis).toBeUndefined();
+    for (const enteredAmountSats of [undefined, '0', '-1', '1.5', 'abc']) {
+      expect(() =>
+        buildSparkInvoiceEncodedTx({
+          input: INVOICE,
+          decoded: zeroAmount,
+          enteredAmountSats,
+        }),
+      ).toThrow('Enter an amount of at least 1 sat');
+    }
+  });
+
+  it('keeps the invoice amount when the invoice has one', () => {
+    expect(
       buildSparkInvoiceEncodedTx({
         input: INVOICE,
-        decoded: decodedInvoice({ millisatoshis: null, satoshis: null }),
+        decoded: decodedInvoice(),
+        enteredAmountSats: '99',
       }),
-    ).toThrow('Invoices without an amount are not supported');
+    ).toMatchObject({ amountMillisatoshis: '12000', amountSats: '12' });
+  });
+
+  it('refuses a decode without a payment hash', () => {
     expect(() =>
       buildSparkInvoiceEncodedTx({
         input: INVOICE,
@@ -256,6 +283,51 @@ describe('checkPreparedInvoicePayment', () => {
       checkPreparedInvoicePayment({
         prepared: sparkTransfer,
         encodedTx: ENCODED_TX,
+      }),
+    ).toThrow();
+  });
+});
+
+describe('invoices without an amount', () => {
+  const ZERO_AMOUNT_TX: IEncodedTxLightningSpark = {
+    invoice: INVOICE,
+    paymentHash: PAYMENT_HASH,
+    amountSats: '21',
+    maxFeeSats: '2',
+  };
+  const zeroAmountPrepared = (overrides: { amountMsat?: number } = {}) => {
+    const response = prepared({ amount: BigInt(21) });
+    if (response.paymentMethod.type === 'bolt11Invoice') {
+      response.paymentMethod.invoiceDetails.amountMsat = overrides.amountMsat;
+    }
+    return response;
+  };
+
+  it('are prepared with the entered amount, and invoices with an amount without one', () => {
+    expect(getPrepareAmountSats(ZERO_AMOUNT_TX)).toBe(BigInt(21));
+    expect(getPrepareAmountSats(ENCODED_TX)).toBeUndefined();
+  });
+
+  it('pass when the SDK parse has no amount and sends the entered one', () => {
+    expect(() =>
+      checkPreparedInvoicePayment({
+        prepared: zeroAmountPrepared(),
+        encodedTx: ZERO_AMOUNT_TX,
+      }),
+    ).not.toThrow();
+  });
+
+  it('stop when the SDK parse finds an amount or sends another amount', () => {
+    expect(() =>
+      checkPreparedInvoicePayment({
+        prepared: zeroAmountPrepared({ amountMsat: 21_000 }),
+        encodedTx: ZERO_AMOUNT_TX,
+      }),
+    ).toThrow();
+    expect(() =>
+      checkPreparedInvoicePayment({
+        prepared: zeroAmountPrepared(),
+        encodedTx: { ...ZERO_AMOUNT_TX, amountSats: '22' },
       }),
     ).toThrow();
   });

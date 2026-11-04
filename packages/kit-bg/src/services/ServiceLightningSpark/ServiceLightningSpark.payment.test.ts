@@ -234,6 +234,34 @@ describe('ServiceLightningSpark invoice payments', () => {
     expect(sparkLog.paymentNotVerified).not.toHaveBeenCalled();
   });
 
+  it('prepares an invoice without an amount with the amount the user entered', async () => {
+    const { service, sdk } = makeService();
+    const zeroAmount = {
+      ...preparedResponse(),
+      amount: BigInt(21),
+    };
+    zeroAmount.paymentMethod.invoiceDetails = {
+      ...zeroAmount.paymentMethod.invoiceDetails,
+      amountMsat: undefined as unknown as number,
+    };
+    sdk.prepareSendPayment.mockResolvedValueOnce(zeroAmount);
+
+    await expect(
+      service.quoteInvoicePayment(
+        params({
+          invoice: INVOICE,
+          paymentHash: PAYMENT_HASH,
+          amountSats: '21',
+          maxFeeSats: '2',
+        }),
+      ),
+    ).resolves.toEqual({ feeSats: '2' });
+    expect(sdk.prepareSendPayment).toHaveBeenCalledWith({
+      paymentRequest: { type: 'input', input: INVOICE },
+      amount: BigInt(21),
+    });
+  });
+
   it('stops before sending when the new quote is above the approved fee', async () => {
     const { service, sdk } = makeService({ quotedFeeSats: 3 });
 
