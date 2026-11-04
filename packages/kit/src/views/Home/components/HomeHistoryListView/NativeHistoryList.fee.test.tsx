@@ -29,9 +29,13 @@ let mockRootLayout: ((event: LayoutChangeEvent) => void) | undefined;
 let mockNativeListMounts = 0;
 const mockTriggerRefresh = jest.fn();
 const mockBuildHistoryActivityRow = jest.fn(
-  (_params: { hideValue: boolean; tableLayout?: boolean }) => ({
+  (params: {
+    history: IAccountHistoryTx;
+    hideValue: boolean;
+    tableLayout?: boolean;
+  }) => ({
     address: '',
-    row: { key: 'test-tx', type: 'activity' },
+    row: { key: params.history.id, type: 'activity' },
   }),
 );
 const mockGetVaultSettings = jest.fn<
@@ -196,6 +200,7 @@ jest.mock('../homeNativeListSnapshot', () => ({
 }));
 jest.mock('./historyActivityRows', () => ({
   buildHistoryActivityRow: (params: {
+    history: IAccountHistoryTx;
     hideValue: boolean;
     tableLayout?: boolean;
   }) => mockBuildHistoryActivityRow(params),
@@ -230,6 +235,51 @@ const baseProps = {
   observeFrozenTop: false,
   onAwayFromTopChange() {},
 } as IHomeHistoryListViewProps;
+
+it.each([true, false])(
+  'rearms pagination after appending rows without remounting or rearming value updates (native=%s)',
+  (isNative) => {
+    mockIsNative = isNative;
+    const onEndReached = jest.fn();
+    const props = { ...baseProps, hasMore: true, onEndReached };
+    const view = render(<NativeHistoryList {...props} />);
+    let emittedGeneration: number | undefined;
+    // NativeList documents one end-reached event per content generation.
+    const reachEnd = () => {
+      if (emittedGeneration !== mockSnapshot.generation) {
+        emittedGeneration = mockSnapshot.generation;
+        mockNativeListProps.onEndReached?.();
+      }
+    };
+    reachEnd();
+    reachEnd();
+    expect(onEndReached).toHaveBeenCalledTimes(1);
+    const initialGeneration = mockSnapshot.generation;
+    const initialKeys = mockSnapshot.rows.map((row) => row.key);
+
+    const data = [history, { ...history, id: 'appended-tx' }];
+    view.rerender(<NativeHistoryList {...props} data={data} />);
+    expect(mockSnapshot.generation).toBeGreaterThan(initialGeneration);
+    expect(mockSnapshot.rows.map((row) => row.key)).toEqual([
+      ...initialKeys,
+      'appended-tx',
+    ]);
+    reachEnd();
+    expect(onEndReached).toHaveBeenCalledTimes(2);
+    const appendedGeneration = mockSnapshot.generation;
+
+    view.rerender(
+      <NativeHistoryList {...props} data={data} showIcon={false} />,
+    );
+    expect(
+      mockSnapshot.rows.find((row) => row.type === 'activity')?.hideLeading,
+    ).toBe(true);
+    expect(mockSnapshot.generation).toBe(appendedGeneration);
+    reachEnd();
+    expect(onEndReached).toHaveBeenCalledTimes(2);
+    expect(mockNativeListMounts).toBe(1);
+  },
+);
 
 it('switches native rows at the root width without remounting the list', () => {
   const { rerender } = render(<NativeHistoryList {...baseProps} />);

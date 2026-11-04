@@ -819,14 +819,14 @@ export function NativeHistoryList(
     structure: rowStructure,
     generation: 1,
   });
-  if (!platformEnv.isNative && webGeneration.structure !== rowStructure) {
+  if (webGeneration.structure !== rowStructure) {
     // Commit structure and generation together, including interrupted renders.
     setWebGeneration({
       structure: rowStructure,
       generation: webGeneration.generation + 1,
     });
   }
-  const generation = platformEnv.isNative ? 1 : webGeneration.generation;
+  const generation = webGeneration.generation;
   const snapshot = useMemo<NativeListSnapshot>(
     () => ({
       schemaVersion: 1,
