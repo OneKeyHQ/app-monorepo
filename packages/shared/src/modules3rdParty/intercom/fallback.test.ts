@@ -12,6 +12,10 @@ const mockApiGetCustomerJWT = jest.fn(async () => ({
   token: 'intercom-token',
 }));
 const EXTENSION_ORIGIN = 'chrome-extension://onekey-test';
+let mockDevSettings: {
+  enabled: boolean;
+  settings?: { intercomSupportUrl?: string };
+} = { enabled: false };
 
 jest.mock('../../appGlobals', () => ({
   __esModule: true,
@@ -23,6 +27,9 @@ jest.mock('../../appGlobals', () => ({
           onekeyUserId: mockUserId,
         }),
         apiGetCustomerJWT: () => mockApiGetCustomerJWT(),
+      },
+      serviceDevSetting: {
+        getDevSetting: async () => mockDevSettings,
       },
     },
   },
@@ -69,6 +76,7 @@ describe('fallback support URLs', () => {
     jest.clearAllMocks();
     mockUserId = 'A';
     mockInstanceId = Promise.resolve('instance');
+    mockDevSettings = { enabled: false };
     Object.defineProperty(globalThis, 'window', {
       configurable: true,
       value: { open: mockWindowOpen },
@@ -134,6 +142,44 @@ describe('fallback support URLs', () => {
     expect(mockApiGetCustomerJWT).not.toHaveBeenCalled();
     expect(mockOpenUrlExternal).not.toHaveBeenCalled();
     expect(mockWindowOpen).not.toHaveBeenCalled();
+  });
+
+  describe('developer support URL override', () => {
+    const previewUrl = 'https://intercom-preview.onekey.test/support/';
+
+    it.each([
+      ['WebView', './webView.native', 'injected-v1'],
+      ['extension', './index.ext', 'message-channel-v1'],
+    ])(
+      'opens the %s support page at the configured URL',
+      async (_name, modulePath, bridge) => {
+        mockDevSettings = {
+          enabled: true,
+          settings: { intercomSupportUrl: `${previewUrl}#stale` },
+        };
+        const { showIntercom } = (await import(
+          modulePath
+        )) as typeof import('./webView.native');
+        await showIntercom({ requestId: 'request-1' });
+        expect(mockOpenUrlInApp).toHaveBeenCalledTimes(1);
+        const [url] = mockOpenUrlInApp.mock.calls[0];
+        expect(url.startsWith(`${previewUrl}?instanceId=instance`)).toBe(true);
+        expect(url).toContain('requestId=request-1');
+        expect(url).toContain(`#bridge=${bridge}`);
+        expect(url).not.toContain('stale');
+      },
+    );
+
+    it('ignores the override once developer mode is off', async () => {
+      mockDevSettings = {
+        enabled: false,
+        settings: { intercomSupportUrl: previewUrl },
+      };
+      const { showIntercom } = await import('./webView.native');
+      await showIntercom();
+      const [url] = mockOpenUrlInApp.mock.calls[0];
+      expect(url).toMatch(/^https:\/\/intercom\.onekey\.so\/\?/);
+    });
   });
 
   it('does not open extension support when the account changes during metadata loading', async () => {

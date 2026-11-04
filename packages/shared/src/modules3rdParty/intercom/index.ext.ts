@@ -1,6 +1,6 @@
 import openUrlUtils from '../../utils/openUrlUtils';
 
-import { EIntercomBridge, INTERCOM_SUPPORT_URL } from './bridge';
+import { EIntercomBridge } from './bridge';
 import {
   assertIntercomUserUnchanged,
   getCurrentIntercomUserId,
@@ -13,6 +13,7 @@ import {
   createIntercomOpenGuard,
   getInstanceId,
   getIntercomLanguageOverride,
+  getIntercomSupportUrl,
 } from './utils';
 
 const intercomOpenGuard = createIntercomOpenGuard(notifyIntercomOpenFailed);
@@ -42,17 +43,18 @@ const openIntercom = async (
   expectedUserId: string | null,
   canPresent: () => boolean,
 ): Promise<boolean> => {
-  const [userId, instanceId, languageOverride] = await Promise.all([
+  const [userId, instanceId, languageOverride, supportUrl] = await Promise.all([
     getCurrentIntercomUserId(),
     getInstanceId(),
     getIntercomLanguageOverride(),
+    getIntercomSupportUrl(),
   ]);
   if (userId !== expectedUserId) {
     await assertIntercomUserUnchanged(expectedUserId);
     return false;
   }
 
-  const url = buildIntercomUrl(INTERCOM_SUPPORT_URL, {
+  const url = buildIntercomUrl(supportUrl, {
     bridge: EIntercomBridge.MessageChannel,
     parentOrigin: globalThis.location.origin,
     instanceId,
