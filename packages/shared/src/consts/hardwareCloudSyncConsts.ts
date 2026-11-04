@@ -64,8 +64,10 @@ export function getHardwareCloudSyncIdentityTagFromCredentialId(
   );
 }
 
-// The extension bundles its SDK host and iframe against the same patched core
-// as direct desktop/web and native transports, including signature redaction.
+// Supported platforms use the default upstream SDK integration; iframe-based
+// transports use official prebuilt assets. Release requires an upstream
+// btcSignMessage redaction fix, an App SDK upgrade, and acceptance checks
+// confirming the same fix in every shipped SDK/iframe.
 export function isHardwareCloudSyncPlatformSupported(): boolean {
   return !!(
     platformEnv.isDesktop ||
