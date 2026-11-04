@@ -74,7 +74,7 @@ import { NativeTokenSelectorList } from './NativeTokenSelectorList';
 import { perfTokenListView } from './perfTokenListView';
 import { TokenListFooter } from './TokenListFooter';
 import { TokenListHeader } from './TokenListHeader';
-import { TOKEN_LIST_CONTENT_PADDING_HORIZONTAL } from './tokenListRowLayoutShared';
+import { getTokenListSlotInsetCompensation } from './tokenListRowLayoutShared';
 import {
   TokenListViewContext,
   useTokenListViewContext,
@@ -1215,10 +1215,13 @@ function TokenListViewCmp(props: IProps) {
   // button, the Home blocks below the list) and already pads itself to the
   // page edge, so pull the slot inset back out or everything around the rows
   // lands 8 units further in than the rows and the tab bar. Web slot content
-  // is sized for the inset (see TokenListHeader).
-  const slotInsetCompensation = platformEnv.isNative
-    ? -TOKEN_LIST_CONTENT_PADDING_HORIZONTAL
-    : undefined;
+  // is sized for the inset (see TokenListHeader), and the Android sidecar
+  // layout drops the inset on its own (see the helper).
+  const slotInsetCompensation = getTokenListSlotInsetCompensation({
+    isNative: !!platformEnv.isNative,
+    isNativeAndroid: !!platformEnv.isNativeAndroid,
+    hasSidecarLayout: !!nativeListSidecarLayout,
+  });
   const expandedContent =
     disclosureEnabled && keepExpandedContent ? (
       <Stack key={disclosureScope} mx={slotInsetCompensation}>

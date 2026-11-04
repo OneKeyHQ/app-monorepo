@@ -8,6 +8,28 @@
 // itself to the page edge) has to pull this back out; see TokenListView.
 export const TOKEN_LIST_CONTENT_PADDING_HORIZONTAL = 8;
 
+// Horizontal margin for page-level native slot content so it lines up with
+// the rows, or undefined when the slot content already does. Web slot content
+// is sized for the inset. iOS keeps the React-applied inset in both the plain
+// and the sidecar (Recent History band) layouts. Android does too without a
+// sidecar, but its sidecar layout places the slot holders at the band's
+// centering offset without the content padding and lays the React root out
+// at 0 inside them, so the inset is already gone there and compensating
+// would pull the slots the same 8 units past the rows instead.
+export function getTokenListSlotInsetCompensation({
+  isNative,
+  isNativeAndroid,
+  hasSidecarLayout,
+}: {
+  isNative: boolean;
+  isNativeAndroid: boolean;
+  hasSidecarLayout: boolean;
+}): number | undefined {
+  if (!isNative) return undefined;
+  if (isNativeAndroid && hasSidecarLayout) return undefined;
+  return -TOKEN_LIST_CONTENT_PADDING_HORIZONTAL;
+}
+
 export const TOKEN_ROW_ICON_SIZE_WIDE = 32;
 export const TOKEN_ROW_ICON_SIZE_COMPACT = 40;
 
