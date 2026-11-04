@@ -62,6 +62,7 @@ export type ICpuWatchdogFireEvent = {
 
 type IPidEpisodeState = {
   activeHighestRank: number;
+  unresponsiveActive: boolean;
   recoverySamplesBelowThreshold: number;
   lastFiredAtByRank: Record<number, number>;
 };
@@ -96,9 +97,8 @@ export class CpuWatchdogController {
 
   markResponsive(pid?: number) {
     const episode = this.episodeByPid.get(pid ?? 0);
-    if (episode?.activeHighestRank === SEVERITY_RANK.unresponsive) {
-      episode.activeHighestRank = 0;
-      episode.recoverySamplesBelowThreshold = 0;
+    if (episode) {
+      episode.unresponsiveActive = false;
     }
   }
 
@@ -107,6 +107,7 @@ export class CpuWatchdogController {
     if (!state) {
       state = {
         activeHighestRank: 0,
+        unresponsiveActive: false,
         recoverySamplesBelowThreshold: 0,
         lastFiredAtByRank: {},
       };
@@ -278,6 +279,9 @@ export class CpuWatchdogController {
     if (params.bypassCooldown) {
       this.lastFiredAt = now;
       episode.lastFiredAtByRank[rank] = now;
+      if (params.reason === 'unresponsive') {
+        episode.unresponsiveActive = true;
+      }
       if (rank > episode.activeHighestRank) {
         episode.activeHighestRank = rank;
       }
@@ -290,7 +294,11 @@ export class CpuWatchdogController {
     }
 
     // Suppress duplicate reports or false downgrades within the same ongoing episode
-    if (episode.activeHighestRank >= rank) {
+    if (
+      params.reason === 'unresponsive'
+        ? episode.unresponsiveActive
+        : episode.activeHighestRank >= rank
+    ) {
       return null;
     }
 
@@ -306,8 +314,12 @@ export class CpuWatchdogController {
       return null;
     }
 
-    const episodeEscalated = episode.activeHighestRank > 0;
+    const episodeEscalated =
+      episode.activeHighestRank > 0 && rank > episode.activeHighestRank;
     episode.activeHighestRank = rank;
+    if (params.reason === 'unresponsive') {
+      episode.unresponsiveActive = true;
+    }
     episode.recoverySamplesBelowThreshold = 0;
     episode.lastFiredAtByRank[rank] = now;
     this.lastFiredAt = now;

@@ -333,6 +333,120 @@ describe('CpuWatchdogController', () => {
     },
   );
 
+  it.each([120, 88])(
+    'preserves a continuous CPU episode after responsiveness returns at %s%% CPU beyond cooldown',
+    (effectivePct) => {
+      const controller = new CpuWatchdogController();
+      const startTime = 1_000_000;
+      controller.start(startTime - CPU_WATCHDOG_STARTUP_GRACE_MS);
+      controller.sampleMetrics({
+        now: startTime,
+        metrics: [
+          { pid: 808, type: 'Tab', percentCPUUsage: 0, cumulativeCPUUsage: 0 },
+        ],
+      });
+      const severe = feedSamples(controller, {
+        pid: 808,
+        effectivePct: 120,
+        count: CPU_WATCHDOG_SEVERE_SUSTAINED_SAMPLES,
+        startTime,
+        startCum: 0,
+      });
+      expect(severe.fired).toHaveLength(1);
+      expect(
+        controller.evaluateTrigger({
+          reason: 'unresponsive',
+          pid: 808,
+          now: severe.now,
+        }),
+      ).toMatchObject({ reason: 'unresponsive', episodeEscalated: true });
+      const ongoing = feedSamples(controller, {
+        pid: 808,
+        effectivePct: 120,
+        count: CPU_WATCHDOG_COOLDOWN_MS / CPU_WATCHDOG_SAMPLE_INTERVAL_MS + 1,
+        startTime: severe.now,
+        startCum: severe.cum,
+      });
+      expect(ongoing.fired).toHaveLength(0);
+      controller.markResponsive(808);
+      const responsive = feedSamples(controller, {
+        pid: 808,
+        effectivePct,
+        count: 1,
+        startTime: ongoing.now,
+        startCum: ongoing.cum,
+      });
+      expect(responsive.fired).toHaveLength(0);
+      expect(
+        controller.evaluateTrigger({
+          reason: 'unresponsive',
+          pid: 808,
+          now: responsive.now,
+        }),
+      ).toMatchObject({ reason: 'unresponsive', episodeEscalated: false });
+    },
+  );
+
+  it.each([false, true])(
+    'keeps a hang active through CPU recovery and re-arms the recovered CPU episode (bypass %s)',
+    (bypassCooldown) => {
+      const controller = new CpuWatchdogController();
+      const startTime = 1_000_000;
+      controller.start(startTime - CPU_WATCHDOG_STARTUP_GRACE_MS);
+      controller.sampleMetrics({
+        now: startTime,
+        metrics: [
+          { pid: 909, type: 'Tab', percentCPUUsage: 0, cumulativeCPUUsage: 0 },
+        ],
+      });
+      const severe = feedSamples(controller, {
+        pid: 909,
+        effectivePct: 120,
+        count: CPU_WATCHDOG_SEVERE_SUSTAINED_SAMPLES,
+        startTime,
+        startCum: 0,
+      });
+      expect(severe.fired).toHaveLength(1);
+      expect(
+        controller.evaluateTrigger({
+          reason: 'unresponsive',
+          pid: 909,
+          now: severe.now,
+          bypassCooldown,
+        }),
+      ).not.toBeNull();
+      const recovered = feedSamples(controller, {
+        pid: 909,
+        effectivePct: 10,
+        count:
+          CPU_WATCHDOG_COOLDOWN_MS / CPU_WATCHDOG_SAMPLE_INTERVAL_MS +
+          CPU_WATCHDOG_RECOVERY_SUSTAINED_SAMPLES,
+        startTime: severe.now,
+        startCum: severe.cum,
+      });
+      expect(recovered.fired).toHaveLength(0);
+      expect(
+        controller.evaluateTrigger({
+          reason: 'unresponsive',
+          pid: 909,
+          now: recovered.now,
+        }),
+      ).toBeNull();
+      const nextCpuEpisode = feedSamples(controller, {
+        pid: 909,
+        effectivePct: 120,
+        count: CPU_WATCHDOG_SEVERE_SUSTAINED_SAMPLES,
+        startTime: recovered.now,
+        startCum: recovered.cum,
+      });
+      expect(nextCpuEpisode.fired).toHaveLength(1);
+      expect(nextCpuEpisode.fired[0]).toMatchObject({
+        reason: 'sustained-high-cpu-severe',
+        episodeEscalated: false,
+      });
+    },
+  );
+
   it('ignores external guest webview Tab PIDs when specified in ignoredTabPids', () => {
     const controller = new CpuWatchdogController();
     const startTime = 1_000_000;
