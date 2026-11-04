@@ -34,6 +34,7 @@ jest.mock('@onekeyhq/shared/src/eventBus/appEventBus', () => ({
     LockApp: 'LockApp',
     UnlockApp: 'UnlockApp',
     AccountDataUpdate: 'AccountDataUpdate',
+    HistoryTxStatusChanged: 'HistoryTxStatusChanged',
   },
   appEventBus: { on: jest.fn(), emit: jest.fn() },
 }));
@@ -96,6 +97,7 @@ const ACCOUNT_ID = "hd-1--m/83696968'/1330334798'/0'/12'/0'";
 const NETWORK_ID = 'lightningspark--0';
 const IDLE_DISCONNECT_MS = 60_000;
 const PAYMENT_REFRESH_DELAY_MS = 6000;
+const PAYMENT_LATE_REFRESH_DELAY_MS = 20_000;
 
 type ISparkInternals = {
   ensureConnected: (params: {
@@ -226,14 +228,22 @@ describe('ServiceLightningSpark session lifecycle', () => {
     expect(syncWallet).toHaveBeenCalledWith({});
     jest.advanceTimersByTime(PAYMENT_REFRESH_DELAY_MS);
     expect(eventBus.emit).toHaveBeenCalledWith('AccountDataUpdate', undefined);
+    expect(eventBus.emit).toHaveBeenCalledWith(
+      'HistoryTxStatusChanged',
+      undefined,
+    );
   });
 
-  it('refreshes the home once per burst of payment events, after the server cache window', () => {
+  it('refreshes balances and history twice per burst of payment events: after the server cache window and after explorer indexing', () => {
     const { internals } = makeService();
     const payment = { id: 'transfer-1' } as unknown as Extract<
       SdkEvent,
       { type: 'paymentPending' }
     >['payment'];
+    const refreshPass = [
+      ['AccountDataUpdate', undefined],
+      ['HistoryTxStatusChanged', undefined],
+    ];
 
     internals.onSdkEvent('hd-1', { type: 'synced' });
     internals.onSdkEvent('hd-1', { type: 'paymentPending', payment });
@@ -242,7 +252,28 @@ describe('ServiceLightningSpark session lifecycle', () => {
     expect(eventBus.emit).not.toHaveBeenCalled();
 
     jest.advanceTimersByTime(1);
-    expect(eventBus.emit).toHaveBeenCalledTimes(1);
-    expect(eventBus.emit).toHaveBeenCalledWith('AccountDataUpdate', undefined);
+    expect(eventBus.emit.mock.calls).toEqual(refreshPass);
+
+    jest.advanceTimersByTime(
+      PAYMENT_LATE_REFRESH_DELAY_MS - PAYMENT_REFRESH_DELAY_MS,
+    );
+    expect(eventBus.emit.mock.calls).toEqual([...refreshPass, ...refreshPass]);
+  });
+
+  it('restarts both refreshes when another payment event arrives in between', () => {
+    const { internals } = makeService();
+    const payment = { id: 'transfer-1' } as unknown as Extract<
+      SdkEvent,
+      { type: 'paymentSucceeded' }
+    >['payment'];
+
+    internals.onSdkEvent('hd-1', { type: 'paymentSucceeded', payment });
+    jest.advanceTimersByTime(PAYMENT_REFRESH_DELAY_MS - 1);
+    internals.onSdkEvent('hd-1', { type: 'paymentSucceeded', payment });
+    jest.advanceTimersByTime(PAYMENT_REFRESH_DELAY_MS - 1);
+    expect(eventBus.emit).not.toHaveBeenCalled();
+
+    jest.advanceTimersByTime(PAYMENT_LATE_REFRESH_DELAY_MS);
+    expect(eventBus.emit).toHaveBeenCalledTimes(4);
   });
 });
