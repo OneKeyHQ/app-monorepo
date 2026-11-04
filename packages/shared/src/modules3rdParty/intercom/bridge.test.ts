@@ -7,7 +7,12 @@ import {
   createIntercomSessionScript,
   isIntercomBridgeHandshake,
   isIntercomNativeHandshake,
+  normalizeIntercomSupportUrl,
+  resolveIntercomSupportOrigin,
+  resolveIntercomSupportUrlOverride,
 } from './bridge';
+
+const PREVIEW_ORIGIN = 'https://intercom-preview.onekey.test';
 
 function runSessionScript(
   script: string,
@@ -78,6 +83,68 @@ describe('Intercom bridge', () => {
     expect(isIntercomBridgeHandshake(null)).toBe(false);
   });
 
+  it('targets an overridden support origin only', () => {
+    const script = createIntercomSessionScript('token', PREVIEW_ORIGIN);
+    const postMessage = runSessionScript(script, { origin: PREVIEW_ORIGIN });
+    expect(postMessage).toHaveBeenCalledTimes(1);
+    expect(postMessage.mock.calls[0][1]).toBe(PREVIEW_ORIGIN);
+    expect(runSessionScript(script)).not.toHaveBeenCalled();
+  });
+
+  describe('support URL override', () => {
+    it('accepts absolute http(s) URLs and drops the fragment', () => {
+      expect(
+        normalizeIntercomSupportUrl(`  ${PREVIEW_ORIGIN}/path?x=1#old  `),
+      ).toBe(`${PREVIEW_ORIGIN}/path?x=1`);
+      expect(normalizeIntercomSupportUrl('http://192.168.1.2:5173')).toBe(
+        'http://192.168.1.2:5173/',
+      );
+    });
+
+    it.each([
+      undefined,
+      '',
+      '   ',
+      'intercom.onekey.so',
+      'data:text/html,support',
+      'file:///tmp/support.html',
+    ])('rejects %p', (value) => {
+      expect(normalizeIntercomSupportUrl(value)).toBeUndefined();
+    });
+
+    it('applies only while developer mode is enabled', () => {
+      const settings = { intercomSupportUrl: `${PREVIEW_ORIGIN}/` };
+      expect(
+        resolveIntercomSupportUrlOverride({ enabled: true, settings }),
+      ).toBe(`${PREVIEW_ORIGIN}/`);
+      expect(
+        resolveIntercomSupportUrlOverride({ enabled: false, settings }),
+      ).toBeUndefined();
+      expect(resolveIntercomSupportUrlOverride(undefined)).toBeUndefined();
+    });
+
+    it('derives the trusted origin from the effective support URL', () => {
+      expect(
+        resolveIntercomSupportOrigin({
+          enabled: true,
+          settings: { intercomSupportUrl: `${PREVIEW_ORIGIN}/support/` },
+        }),
+      ).toBe(PREVIEW_ORIGIN);
+      expect(
+        resolveIntercomSupportOrigin({
+          enabled: true,
+          settings: { intercomSupportUrl: 'not a url' },
+        }),
+      ).toBe(INTERCOM_SUPPORT_ORIGIN);
+      expect(
+        resolveIntercomSupportOrigin({
+          enabled: false,
+          settings: { intercomSupportUrl: `${PREVIEW_ORIGIN}/` },
+        }),
+      ).toBe(INTERCOM_SUPPORT_ORIGIN);
+    });
+  });
+
   describe('native handshake', () => {
     const data = JSON.stringify({ type: 'onekey-intercom-bridge', version: 1 });
     const url = `${INTERCOM_SUPPORT_URL}#bridge=injected-v1`;
@@ -90,6 +157,18 @@ describe('Intercom bridge', () => {
       expect(
         isIntercomNativeHandshake({ data, url: 'https://evil.test/' }),
       ).toBe(false);
+    });
+
+    it('trusts only the overridden origin when one is configured', () => {
+      expect(
+        isIntercomNativeHandshake(
+          { data, url: `${PREVIEW_ORIGIN}/#bridge=injected-v1` },
+          PREVIEW_ORIGIN,
+        ),
+      ).toBe(true);
+      expect(isIntercomNativeHandshake({ data, url }, PREVIEW_ORIGIN)).toBe(
+        false,
+      );
     });
 
     it('rejects other WebView messages', () => {
