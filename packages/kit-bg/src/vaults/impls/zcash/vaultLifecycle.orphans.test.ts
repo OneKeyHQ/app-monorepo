@@ -19,9 +19,16 @@ jest.mock('../../../dbs/local/localDbInstance');
 const LIVE = 'hd-1--0';
 const PAUSED = 'hd-1--1';
 
-function createVault({ pausedMetaVkFp = 'fp-paused' } = {}) {
+function createVault({
+  pausedMetaVkFp = 'fp-paused',
+  purgeComplete = true,
+} = {}) {
   const prepareWalletAccounts = jest.fn(
     async (prepared: { ufvk: string }[]) => prepared,
+  );
+  const purgeUnknownAccounts = jest.fn(
+    async (_opener: { ufvk: string }, _options: { retainedLabels: string[] }) =>
+      purgeComplete,
   );
   const accounts: Record<string, { ufvk: string }> = {
     [LIVE]: { ufvk: 'ufvk-live' },
@@ -53,9 +60,14 @@ function createVault({ pausedMetaVkFp = 'fp-paused' } = {}) {
     }),
     zcashGetWalletAccount,
     zcashHealOutOfRangeBirthdays: async () => undefined,
-    zcashGetApi: async () => ({ prepareWalletAccounts }),
+    zcashGetApi: async () => ({ prepareWalletAccounts, purgeUnknownAccounts }),
   });
-  return { vault, prepareWalletAccounts, zcashGetWalletAccount };
+  return {
+    vault,
+    prepareWalletAccounts,
+    purgeUnknownAccounts,
+    zcashGetWalletAccount,
+  };
 }
 
 const retained = [
@@ -65,21 +77,30 @@ const retained = [
 
 describe('zcash runtime orphan cleanup', () => {
   it('keeps every retained identity by label, paused ones included, opening through a scanning account', async () => {
-    const { vault, prepareWalletAccounts } = createVault();
+    const { vault, purgeUnknownAccounts } = createVault();
 
     await expect(zcashPurgeRuntimeOrphans(vault, { retained })).resolves.toBe(
       true,
     );
 
-    // Only the scanning account is registered; the paused one is kept by key.
-    expect(prepareWalletAccounts).toHaveBeenCalledWith(
-      [{ ufvk: 'ufvk-live' }],
+    // Only the scanning account opens the database; the paused one is kept by label.
+    expect(purgeUnknownAccounts).toHaveBeenCalledWith(
+      { ufvk: 'ufvk-live' },
       { retainedLabels: ['fp-live', 'fp-paused'] },
     );
   });
 
+  // The service clears the orphan mark only on true.
+  it('stays due when the runtime could not finish the purge', async () => {
+    const { vault } = createVault({ purgeComplete: false });
+
+    await expect(zcashPurgeRuntimeOrphans(vault, { retained })).resolves.toBe(
+      false,
+    );
+  });
+
   it('does not run while the scan lane is held', async () => {
-    const { vault, prepareWalletAccounts } = createVault();
+    const { vault, purgeUnknownAccounts } = createVault();
     const release = await getZcashSyncMutex('main').acquire();
     try {
       await expect(zcashPurgeRuntimeOrphans(vault, { retained })).resolves.toBe(
@@ -88,31 +109,33 @@ describe('zcash runtime orphan cleanup', () => {
     } finally {
       release();
     }
-    expect(prepareWalletAccounts).not.toHaveBeenCalled();
+    expect(purgeUnknownAccounts).not.toHaveBeenCalled();
   });
 
   it('does not run when a key names another identity than its account record', async () => {
-    const { vault, prepareWalletAccounts } = createVault({
+    const { vault, purgeUnknownAccounts } = createVault({
       pausedMetaVkFp: 'fp-other',
     });
     await expect(zcashPurgeRuntimeOrphans(vault, { retained })).resolves.toBe(
       false,
     );
-    expect(prepareWalletAccounts).not.toHaveBeenCalled();
+    expect(purgeUnknownAccounts).not.toHaveBeenCalled();
   });
 
   it('does not run without a scanning account to open the database', async () => {
-    const { vault, prepareWalletAccounts } = createVault();
+    const { vault, purgeUnknownAccounts } = createVault();
     await expect(
       zcashPurgeRuntimeOrphans(vault, { retained: [retained[1]] }),
     ).resolves.toBe(false);
-    expect(prepareWalletAccounts).not.toHaveBeenCalled();
+    expect(purgeUnknownAccounts).not.toHaveBeenCalled();
   });
 
   it('never purges on an ordinary scan turn', async () => {
-    const { vault, prepareWalletAccounts } = createVault();
+    const { vault, prepareWalletAccounts, purgeUnknownAccounts } =
+      createVault();
     await zcashPrepareAccounts(vault, { accountIds: [LIVE] });
     expect(prepareWalletAccounts).toHaveBeenCalledWith([{ ufvk: 'ufvk-live' }]);
+    expect(purgeUnknownAccounts).not.toHaveBeenCalled();
   });
 });
 

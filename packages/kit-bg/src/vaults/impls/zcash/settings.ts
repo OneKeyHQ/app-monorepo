@@ -11,6 +11,8 @@ import { EAddressEncodings } from '@onekeyhq/core/src/types';
 import {
   ZCASH_IRONWOOD_ACTIVATION_HEIGHT_MAINNET,
   ZCASH_IRONWOOD_ACTIVATION_TIMESTAMP_MS,
+  ZCASH_NU7_ACTIVATION_HEIGHT_MAINNET,
+  ZCASH_POST_NU7_TARGET_BLOCK_SECONDS,
   ZCASH_SPAM_REGION_END_MAINNET,
   ZCASH_SPAM_REGION_START_MAINNET,
   ZCASH_TARGET_BLOCK_SECONDS,
@@ -68,8 +70,9 @@ const settings: IVaultSettings = {
     publicAddressPattern:
       '^(t[13][1-9A-HJ-NP-Za-km-z]{33}|tex1[02-9ac-hj-np-z]{38})$',
     privateAddressPattern: '^u1[02-9ac-hj-np-z]+$',
-    hiddenEndpointLabelId: ETranslations.privacy_history_shielded__title,
+    hiddenEndpointLabelId: ETranslations.private_send_private_option,
     tipLagWarningBlocks: 48,
+    syncedBelowBlocks: 48,
     // The first release exposes transparent funds and the Ironwood pool.
     pools: [
       {
@@ -97,10 +100,15 @@ const settings: IVaultSettings = {
       },
     },
     addressForms: {
-      publicLabel: ETranslations.privacy_receive_transparent_address__title,
-      privateLabel: ETranslations.privacy_receive_private_address__title,
+      // Same words as the token tabs and send source.
+      publicLabel: ETranslations.privacy_balance_public__title,
+      privateLabel: ETranslations.private_send_private_option,
     },
     blockTimeSeconds: ZCASH_TARGET_BLOCK_SECONDS,
+    blockTimeChange: {
+      fromHeight: ZCASH_NU7_ACTIVATION_HEIGHT_MAINNET,
+      blockTimeSeconds: ZCASH_POST_NU7_TARGET_BLOCK_SECONDS,
+    },
     scanRegionHints: [
       {
         fromHeight: ZCASH_SPAM_REGION_START_MAINNET,

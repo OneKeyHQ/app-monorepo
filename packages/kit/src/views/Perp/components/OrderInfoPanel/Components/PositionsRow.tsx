@@ -503,7 +503,7 @@ const PositionRowDesktopTPSL = memo(
           } else if (kind === 'sl') {
             slPrice = order.triggerPx;
           }
-        } else {
+        } else if (order.reduceOnly && getTpSlKind(order)) {
           hasNonPositionTpslOrder = true;
         }
       });

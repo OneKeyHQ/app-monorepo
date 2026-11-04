@@ -1653,8 +1653,8 @@ export function createIpTableAdapter(
             'IP Table Adapter: SNI response missing and method is not allowed to fall back',
           );
         }
-        // Fallback to domain (isFallback = true, so domain failure won't be counted)
-        return await callOriginalAdapter({
+        // Let domain rejection reach the caller instead of the SNI catch below.
+        return callOriginalAdapter({
           config,
           isFallback: true,
           hostname,

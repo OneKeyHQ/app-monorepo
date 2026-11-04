@@ -1214,7 +1214,7 @@ export const {
     showTradeMarks: true,
     showChartLines: true,
     chartPosition: 'bottom',
-    chartMode: 'tradingView',
+    chartMode: 'native',
     hideSmallSpotHoldings: true,
     lastTriggerOrderType: ETriggerOrderType.TRIGGER_MARKET,
     lastAdvancedOrderType: ETriggerOrderType.TRIGGER_MARKET,

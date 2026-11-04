@@ -100,7 +100,7 @@ afterEach(() => {
 });
 
 test('loads the support URL in a frame that cannot navigate the wallet', () => {
-  render(<IntercomSupportFrame url={url} userId="A" />);
+  render(<IntercomSupportFrame url={url} userId="A" supportOrigin={origin} />);
   expect(getFrame().getAttribute('src')).toBe(url);
   const sandbox = getFrame().getAttribute('sandbox') ?? '';
   expect(sandbox).toContain('allow-scripts');
@@ -109,14 +109,14 @@ test('loads the support URL in a frame that cannot navigate the wallet', () => {
 });
 
 test('labels the frame with the translated support title', () => {
-  render(<IntercomSupportFrame url={url} userId="A" />);
+  render(<IntercomSupportFrame url={url} userId="A" supportOrigin={origin} />);
   expect(getFrame().getAttribute('title')).toBe(
     ETranslations.settings_contact_us,
   );
 });
 
 test('answers a verified handshake on the port of that document', async () => {
-  render(<IntercomSupportFrame url={url} userId="A" />);
+  render(<IntercomSupportFrame url={url} userId="A" supportOrigin={origin} />);
   const port = sendHandshake();
   await flush();
   expect(mockGetToken).toHaveBeenCalledWith('A');
@@ -130,7 +130,9 @@ test('answers a verified handshake on the port of that document', async () => {
 
 test('tells the page explicitly when support is anonymous', async () => {
   mockGetToken.mockResolvedValue(undefined);
-  render(<IntercomSupportFrame url={url} userId={null} />);
+  render(
+    <IntercomSupportFrame url={url} userId={null} supportOrigin={origin} />,
+  );
   const port = sendHandshake();
   await flush();
   expect(port.postMessage).toHaveBeenCalledWith({
@@ -145,7 +147,7 @@ test.each([
   ['no port', { ports: [] }],
   ['a malformed handshake', { data: { type: 'other', version: 1 } }],
 ])('ignores a handshake from %s', async (_name, options) => {
-  render(<IntercomSupportFrame url={url} userId="A" />);
+  render(<IntercomSupportFrame url={url} userId="A" supportOrigin={origin} />);
   const port = sendHandshake(options);
   await flush();
   expect(mockGetToken).not.toHaveBeenCalled();
@@ -153,7 +155,7 @@ test.each([
 });
 
 test('ignores a handshake carrying more than one port', async () => {
-  render(<IntercomSupportFrame url={url} userId="A" />);
+  render(<IntercomSupportFrame url={url} userId="A" supportOrigin={origin} />);
   const first = new TestPort();
   sendHandshake({ ports: [first, new TestPort()] });
   await flush();
@@ -168,7 +170,9 @@ test('never delivers after the frame unmounts', async () => {
       resolveToken = resolve;
     }),
   );
-  const { unmount } = render(<IntercomSupportFrame url={url} userId="A" />);
+  const { unmount } = render(
+    <IntercomSupportFrame url={url} userId="A" supportOrigin={origin} />,
+  );
   const port = sendHandshake();
   unmount();
   resolveToken('intercom-token');
@@ -179,7 +183,7 @@ test('never delivers after the frame unmounts', async () => {
 
 test('sends nothing when the token cannot be loaded', async () => {
   mockGetToken.mockRejectedValue(new Error('network'));
-  render(<IntercomSupportFrame url={url} userId="A" />);
+  render(<IntercomSupportFrame url={url} userId="A" supportOrigin={origin} />);
   const port = sendHandshake();
   await flush();
   expect(port.postMessage).not.toHaveBeenCalled();
@@ -187,11 +191,30 @@ test('sends nothing when the token cannot be loaded', async () => {
 });
 
 test('fetches a fresh token for each document in the frame', async () => {
-  render(<IntercomSupportFrame url={url} userId="A" />);
+  render(<IntercomSupportFrame url={url} userId="A" supportOrigin={origin} />);
   sendHandshake();
   await flush();
   const reloaded = sendHandshake();
   await flush();
   expect(mockGetToken).toHaveBeenCalledTimes(2);
   expect(reloaded.postMessage).toHaveBeenCalledTimes(1);
+});
+
+test('answers only the configured support origin', async () => {
+  const previewOrigin = 'https://intercom-preview.onekey.test';
+  render(
+    <IntercomSupportFrame
+      url={`${previewOrigin}/#bridge=message-channel-v1`}
+      userId="A"
+      supportOrigin={previewOrigin}
+    />,
+  );
+  const production = sendHandshake();
+  await flush();
+  expect(production.postMessage).not.toHaveBeenCalled();
+
+  const preview = sendHandshake({ origin: previewOrigin });
+  await flush();
+  expect(mockGetToken).toHaveBeenCalledTimes(1);
+  expect(preview.postMessage).toHaveBeenCalledTimes(1);
 });

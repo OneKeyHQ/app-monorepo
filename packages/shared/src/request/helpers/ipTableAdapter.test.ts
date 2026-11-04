@@ -430,6 +430,45 @@ describe('ipTableAdapter SNI preflight and fail-closed behavior', () => {
       expect(mockAvailabilityOutcomes).toHaveLength(0);
     });
 
+    test.each([
+      ['network failure', 'ERR_NETWORK'],
+      ['cancellation', 'ERR_CANCELED'],
+    ])('does not retry a null-response domain %s', async (_label, code) => {
+      const cause = new Error('fixture domain outcome');
+      const domainError = Object.assign(new Error('domain request failed'), {
+        code,
+        cause,
+      });
+      mockedSniRequest.mockResolvedValue(null);
+      fallbackAdapter.mockRejectedValue(domainError);
+      const { config, timing } = buildTimedConfig(
+        'https://metrics-null.example.com/v1',
+      );
+      const result = createIpTableAdapter({})(config);
+
+      await expect(result).rejects.toBe(domainError);
+      await expect(result).rejects.toMatchObject({ code, cause });
+      expect(mockedSniRequest).toHaveBeenCalledTimes(1);
+      expect(fallbackAdapter).toHaveBeenCalledTimes(1);
+      expect(timing.route).toBe('fallback');
+      if (code === 'ERR_CANCELED') {
+        expect(mockAvailabilityOutcomes).toHaveLength(0);
+      } else {
+        expect(mockAvailabilityOutcomes).toContainEqual(
+          expect.objectContaining({
+            source: 'api',
+            status: 'network_error',
+            failure: { detail: 'fallback:/v1', errorCode: 'err_network' },
+          }),
+        );
+        expect(
+          mockAvailabilityOutcomes.filter(
+            (outcome) => outcome.source === 'api_net',
+          ),
+        ).toEqual([expect.objectContaining({ status: 'failed' })]);
+      }
+    });
+
     test('records errors raised by the adapter itself with their context', async () => {
       mockedSniRequest.mockRejectedValue(
         Object.assign(new Error('certificate rejected'), {

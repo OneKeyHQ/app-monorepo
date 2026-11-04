@@ -26,6 +26,7 @@ import {
   formatPrivacyChainSyncError,
   formatPrivacyChainSyncSummary,
   getPrivacyChainNetworkSyncDisplay,
+  pickPrivacyChainSummaryFigure,
   pickSlowestPrivacyChainNetwork,
 } from '@onekeyhq/kit/src/utils/privacyChainSyncDisplay';
 import {
@@ -40,6 +41,7 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import type { IPrivacyChainBlockTime } from '@onekeyhq/shared/src/utils/privacyChainSyncPolicy';
 
 import type { IOverlayAnimation } from '@onekeyfe/react-native-native-overlay';
 
@@ -91,15 +93,15 @@ function PrivacyChainSyncNetwork({
   );
   const networkName =
     metadata?.networkId === networkId ? metadata.name : undefined;
+  // Also read collapsed: whether time left is reliable depends on the regions it declares.
   const { result: settingsResult } = usePromiseResult(
     async () => {
-      if (!expanded) return undefined;
       const settings = await backgroundApiProxy.serviceNetwork.getVaultSettings(
         { networkId },
       );
       return { networkId, localWallet: settings.localWallet };
     },
-    [networkId, expanded],
+    [networkId],
     { checkIsFocused: false },
   );
   const localWalletSettings =
@@ -107,51 +109,57 @@ function PrivacyChainSyncNetwork({
       ? settingsResult.localWallet
       : undefined;
   const {
-    entry,
+    status,
+    progress: entry,
     labelId,
-    isStorageUnsupported,
     isRunning,
-    isPaused,
-    isHeldByData,
     syncError,
-  } = getPrivacyChainNetworkSyncDisplay({ state, networkId });
-  const stateLabel = intl.formatMessage({ id: labelId });
+  } = getPrivacyChainNetworkSyncDisplay({
+    state,
+    networkId,
+    syncedBelowBlocks: localWalletSettings?.syncedBelowBlocks ?? 1,
+    blockTime: localWalletSettings,
+  });
+  const isSyncing = status === 'syncing';
+  const isHeldByData = status === 'waitingWifi';
+  const isStopped = status === 'chainPaused' || isHeldByData;
+  // A figure follows it here, so not the shared label that ends in an ellipsis.
+  const stateLabel = intl.formatMessage({
+    id: isSyncing ? ETranslations.privacy_sync_syncing__title : labelId,
+  });
+  const summaryFigure =
+    isSyncing && entry
+      ? pickPrivacyChainSummaryFigure({
+          progress: entry,
+          settings: localWalletSettings,
+          now: Date.now(),
+        })
+      : undefined;
   let syncErrorText: string | undefined;
-  if (isStorageUnsupported) {
+  if (status === 'storageUnsupported') {
     syncErrorText = intl.formatMessage({
       id: ETranslations.privacy_error_webview_outdated__msg,
     });
   } else {
     syncErrorText = formatPrivacyChainSyncError(syncError, intl);
   }
-  const connection =
-    platformEnv.isNative && isCellular
-      ? intl.formatMessage({
-          id: ETranslations.privacy_sync_on_mobile_data__msg,
-        })
-      : '';
-  const isSyncing = labelId === ETranslations.global_syncing;
+  const isScanningOnMobileData =
+    platformEnv.isNative && isCellular && isRunning;
   const detailLine =
     syncErrorText ??
-    [
-      formatPrivacyChainSyncDetail({
-        progress: entry,
-        settings: localWalletSettings,
-        stopped: isPaused || isHeldByData,
-        // The summary line already shows the percentage and time left.
-        blocksOnly: isSyncing,
-        intl,
-      }),
-      connection,
-    ]
-      .filter(Boolean)
-      .join(' · ');
+    formatPrivacyChainSyncDetail({
+      progress: entry,
+      settings: localWalletSettings,
+      stopped: isStopped,
+      shownAbove: summaryFigure,
+      intl,
+    });
   const summaryLabel = syncErrorText
     ? stateLabel
     : formatPrivacyChainSyncSummary({
         label: stateLabel,
         progress: entry,
-        syncing: isSyncing,
+        figure: summaryFigure,
       });
   let lightIcon: IKeyOfIcons = 'RefreshCcwOutline';
   let lightIconColor: IIconProps['color'] = isRunning
@@ -160,7 +168,7 @@ function PrivacyChainSyncNetwork({
   if (syncErrorText) {
     lightIcon = 'ErrorOutline';
     lightIconColor = '$iconCaution';
-  } else if (isPaused || isHeldByData) {
+  } else if (isStopped) {
     lightIcon = 'PauseOutline';
   }
   return (
@@ -175,6 +183,14 @@ function PrivacyChainSyncNetwork({
         >
           {[networkName, summaryLabel].filter(Boolean).join(' · ')}
         </SizableText>
+        {isScanningOnMobileData ? (
+          <Icon
+            testID={`privacy-chain-sync-mobile-data-${networkId}`}
+            name="SignalOutline"
+            size="$4"
+            color="$iconSubdued"
+          />
+        ) : null}
         {controls}
       </XStack>
       {(expanded || syncErrorText) && detailLine ? (
@@ -190,38 +206,39 @@ function PrivacyChainSyncNetwork({
           {detailLine}
         </SizableText>
       ) : null}
-      {isHeldByData ? (
-        <>
-          <SizableText size="$bodySm" color="$textSubdued">
-            {intl.formatMessage({
-              id: ETranslations.privacy_sync_mobile_data__desc,
-            })}
-          </SizableText>
-          <Button
-            testID={
-              primary
-                ? 'privacy-chain-sync-light-allow-data-btn'
-                : `privacy-chain-sync-light-allow-data-btn-${networkId}`
-            }
-            size="small"
-            variant="primary"
-            onPress={onAllowCellular}
-          >
-            {intl.formatMessage({
-              id: ETranslations.privacy_sync_always_allow__action,
-            })}
-          </Button>
-        </>
+      {/* Turns on the same switch as the privacy network settings, so it says the same. */}
+      {isHeldByData && expanded ? (
+        <Button
+          testID={
+            primary
+              ? 'privacy-chain-sync-light-allow-data-btn'
+              : `privacy-chain-sync-light-allow-data-btn-${networkId}`
+          }
+          size="small"
+          variant="primary"
+          onPress={onAllowCellular}
+        >
+          {intl.formatMessage({
+            id: ETranslations.privacy_sync_mobile_data__title,
+          })}
+        </Button>
       ) : null}
     </YStack>
   );
 }
+
+// Each chain's synced threshold from its settings, kept across mounts so a remount knows it at once.
+const syncedBelowBlocksCache = new Map<
+  string,
+  { syncedBelowBlocks: number; blockTime?: IPrivacyChainBlockTime }
+>();
 
 function BasicPrivacyChainSyncLight() {
   const [state] = usePrivacyChainAtom();
   const {
     boostingNetworkIds,
     dataBlockedNetworkIds,
+    pausedNetworkIds,
     progress,
     storageUnsupportedNetworkIds,
   } = state;
@@ -230,36 +247,60 @@ function BasicPrivacyChainSyncLight() {
   const { bottom: safeAreaBottom } = useSafeAreaInsets();
   const isCellular = useIsCellularNetwork();
   const [expanded, setExpanded] = useState(false);
-  // Paused by this light and not yet stopped by the service: already hidden.
-  const [closingNetworkIds, setClosingNetworkIds] = useState<string[]>([]);
+  // A paused chain stays here, so its Continue is where its Pause was.
   const activeNetworkIds = useMemo(
-    () => uniq([...boostingNetworkIds, ...dataBlockedNetworkIds]),
-    [boostingNetworkIds, dataBlockedNetworkIds],
+    () =>
+      uniq([
+        ...boostingNetworkIds,
+        ...dataBlockedNetworkIds,
+        ...pausedNetworkIds,
+      ]),
+    [boostingNetworkIds, dataBlockedNetworkIds, pausedNetworkIds],
   );
-  // A chain that has caught up only follows the tip; it shows only to report a wait or an error.
+  const activeNetworkKey = activeNetworkIds.join(',');
+  const { result: syncedBelowBlocksByNetwork } = usePromiseResult(
+    async () =>
+      Object.fromEntries(
+        await Promise.all(
+          activeNetworkKey
+            .split(',')
+            .filter(Boolean)
+            .map(async (id) => {
+              const settings =
+                await backgroundApiProxy.serviceNetwork.getVaultSettings({
+                  networkId: id,
+                });
+              const value = {
+                syncedBelowBlocks: settings.localWallet?.syncedBelowBlocks ?? 1,
+                blockTime: settings.localWallet,
+              };
+              syncedBelowBlocksCache.set(id, value);
+              return [id, value] as const;
+            }),
+        ),
+      ),
+    [activeNetworkKey],
+    { checkIsFocused: false },
+  );
+  // A synced chain only follows the tip, so it has nothing to show. Until a chain's threshold is
+  // known it counts as synced: a chain a few blocks behind would otherwise flash on.
   const visibleNetworkIds = useMemo(
     () =>
       activeNetworkIds.filter((id) => {
-        if (closingNetworkIds.includes(id)) return false;
-        const display = getPrivacyChainNetworkSyncDisplay({
-          state,
-          networkId: id,
-        });
+        const threshold =
+          syncedBelowBlocksByNetwork?.[id] ?? syncedBelowBlocksCache.get(id);
         return (
-          !display.isCaughtUp ||
-          display.isStorageUnsupported ||
-          display.isHeldByData ||
-          display.syncError !== undefined
+          getPrivacyChainNetworkSyncDisplay({
+            state,
+            networkId: id,
+            syncedBelowBlocks:
+              threshold?.syncedBelowBlocks ?? Number.POSITIVE_INFINITY,
+            blockTime: threshold?.blockTime,
+          }).status !== 'synced'
         );
       }),
-    [activeNetworkIds, closingNetworkIds, state],
+    [activeNetworkIds, state, syncedBelowBlocksByNetwork],
   );
-  useEffect(() => {
-    setClosingNetworkIds((ids) => {
-      const next = ids.filter((id) => activeNetworkIds.includes(id));
-      return next.length === ids.length ? ids : next;
-    });
-  }, [activeNetworkIds]);
   const networkId = pickSlowestPrivacyChainNetwork(visibleNetworkIds, progress);
   const otherNetworkIds = useMemo(
     () => visibleNetworkIds.filter((id) => id !== networkId),
@@ -275,38 +316,35 @@ function BasicPrivacyChainSyncLight() {
   const hasRunningScans = controllableNetworkIds.some((id) =>
     boostingNetworkIds.includes(id),
   );
+  const resumableNetworkIds = useMemo(
+    () => visibleNetworkIds.filter((id) => pausedNetworkIds.includes(id)),
+    [visibleNetworkIds, pausedNetworkIds],
+  );
+  // Waiting for Wi-Fi or an outdated WebView must not keep the light up either: Pause folds every
+  // shown chain that is not paused yet into the Continue bar.
+  const pausableNetworkIds = useMemo(
+    () => visibleNetworkIds.filter((id) => !pausedNetworkIds.includes(id)),
+    [visibleNetworkIds, pausedNetworkIds],
+  );
 
   useEffect(() => {
     if (!networkId) setExpanded(false);
   }, [networkId]);
-  useEffect(() => {
-    const reportDeviceNetworkState = () => {
-      void backgroundApiProxy.servicePrivacyChain.setDeviceNetworkState({
-        isCellular,
-      });
-    };
-    reportDeviceNetworkState();
-    appEventBus.on(
-      EAppEventBusNames.BackgroundThreadReady,
-      reportDeviceNetworkState,
-    );
-    return () => {
-      appEventBus.off(
-        EAppEventBusNames.BackgroundThreadReady,
-        reportDeviceNetworkState,
-      );
-    };
-  }, [isCellular]);
   const onPause = useCallback(() => {
-    setClosingNetworkIds((ids) => uniq([...ids, ...controllableNetworkIds]));
-    for (const id of controllableNetworkIds) {
-      void backgroundApiProxy.servicePrivacyChain
-        .pauseLocalWalletScan({ networkId: id })
-        .catch(() =>
-          setClosingNetworkIds((ids) => ids.filter((value) => value !== id)),
-        );
+    for (const id of pausableNetworkIds) {
+      void backgroundApiProxy.servicePrivacyChain.pauseLocalWalletScan({
+        networkId: id,
+      });
     }
-  }, [controllableNetworkIds]);
+  }, [pausableNetworkIds]);
+  const onResume = useCallback(() => {
+    for (const id of resumableNetworkIds) {
+      void backgroundApiProxy.servicePrivacyChain.startForegroundBoost({
+        networkId: id,
+        trigger: 'manual-sync',
+      });
+    }
+  }, [resumableNetworkIds]);
   const onAllowCellular = useCallback(() => {
     void backgroundApiProxy.servicePrivacyChain.setAllowCellularSync({
       allow: true,
@@ -333,7 +371,7 @@ function BasicPrivacyChainSyncLight() {
         })}
         onPress={() => setExpanded((value) => !value)}
       />
-      {hasRunningScans ? (
+      {pausableNetworkIds.length ? (
         <IconButton
           testID="privacy-chain-sync-light-pause-btn"
           size="small"
@@ -341,6 +379,16 @@ function BasicPrivacyChainSyncLight() {
           icon="PauseOutline"
           title={intl.formatMessage({ id: ETranslations.global_pause })}
           onPress={onPause}
+        />
+      ) : null}
+      {!pausableNetworkIds.length && resumableNetworkIds.length ? (
+        <IconButton
+          testID="privacy-chain-sync-light-resume-btn"
+          size="small"
+          variant="tertiary"
+          icon="PlayOutline"
+          title={intl.formatMessage({ id: ETranslations.global_resume })}
+          onPress={onResume}
         />
       ) : null}
     </>
@@ -403,12 +451,49 @@ function BasicPrivacyChainSyncLight() {
               </Stack>
             ))
           : null}
+        {/* The phone stops scanning in the background or when locked. */}
+        {expanded && hasRunningScans && platformEnv.isNative ? (
+          <SizableText
+            testID="privacy-chain-sync-light-keep-open"
+            size="$bodyXs"
+            color="$textSubdued"
+          >
+            {intl.formatMessage({
+              id: ETranslations.privacy_sync_keep_open__msg,
+            })}
+          </SizableText>
+        ) : null}
       </YStack>
     </Stack>
   );
 }
 
 const PrivacyChainSyncLightContent = memo(BasicPrivacyChainSyncLight);
+
+// Tells the scheduler the device's network. Outside the light: the iOS host unmounts the light
+// during a device stage, and a remount would first report the network as unknown.
+function PrivacyChainNetworkReporter() {
+  const isCellular = useIsCellularNetwork();
+  useEffect(() => {
+    const reportDeviceNetworkState = () => {
+      void backgroundApiProxy.servicePrivacyChain.setDeviceNetworkState({
+        isCellular,
+      });
+    };
+    reportDeviceNetworkState();
+    appEventBus.on(
+      EAppEventBusNames.BackgroundThreadReady,
+      reportDeviceNetworkState,
+    );
+    return () => {
+      appEventBus.off(
+        EAppEventBusNames.BackgroundThreadReady,
+        reportDeviceNetworkState,
+      );
+    };
+  }, [isCellular]);
+  return null;
+}
 
 const IOS_HOST_ANIMATION: IOverlayAnimation = { enter: { type: 'none' } };
 
@@ -436,8 +521,14 @@ function IOSPrivacyChainSyncLight() {
 
 // Elsewhere the stage's overlay level sits above the app tree the light renders in.
 export function PrivacyChainSyncLight() {
-  if (!platformEnv.isNativeIOS) {
-    return <PrivacyChainSyncLightContent />;
-  }
-  return <IOSPrivacyChainSyncLight />;
+  return (
+    <>
+      <PrivacyChainNetworkReporter />
+      {platformEnv.isNativeIOS ? (
+        <IOSPrivacyChainSyncLight />
+      ) : (
+        <PrivacyChainSyncLightContent />
+      )}
+    </>
+  );
 }
