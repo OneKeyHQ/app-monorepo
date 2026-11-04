@@ -2,6 +2,7 @@
 import { webcrypto } from 'crypto';
 
 import { ECloudBackupProviderType } from '@onekeyhq/shared/src/cloudBackup/cloudBackupTypes';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import secureStorage from '@onekeyhq/shared/src/storage/instance/secureStorageInstance';
 import { RuntimeEnvironment } from '@onekeyhq/shared/src/travelMode/runtimeEnvironment';
@@ -111,5 +112,33 @@ describe('recovery erasure through the Travel Mode persistence facade', () => {
     mockMasked = false;
     await cache.prepareForReset({ preserve: true });
     expect(mockKeys.size).toBe(0);
+  });
+
+  it('retains the pending journal if persistence becomes masked during key retirement', async () => {
+    const cache = new LocalBackupPasswordCache();
+    mockNative.setSecureItemWithBiometrics.mockImplementationOnce(
+      async (key, value) => {
+        mockKeys.set(key, value);
+        throw new OneKeyLocalError('interrupted');
+      },
+    );
+    await cache.set({ ...scope, password: 'synthetic-password' });
+    const before = [...mockMetadata];
+    const oldKey = [...mockKeys.keys()][0];
+    const oldValue = mockKeys.get(oldKey);
+    mockNative.removeSecureItem.mockImplementationOnce(async () => {
+      // The facade can start a native call in real mode, then mask continuations.
+      mockMasked = true;
+    });
+    await cache.set({ ...scope, password: 'verified-manual-password' });
+    expect([...mockMetadata]).toEqual(before);
+    expect(mockKeys.has(oldKey)).toBe(true);
+    expect(mockNative.setSecureItemWithBiometrics).toHaveBeenCalledTimes(1);
+    mockMasked = false;
+    const cold = new LocalBackupPasswordCache();
+    await cold.set({ ...scope, password: 'verified-manual-password' });
+    expect(mockKeys.size).toBe(1);
+    expect(mockKeys.get(oldKey)).not.toBe(oldValue);
+    expect(await cold.get(scope)).toBe('verified-manual-password');
   });
 });

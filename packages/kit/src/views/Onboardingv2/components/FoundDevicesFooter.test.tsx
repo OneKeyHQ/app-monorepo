@@ -29,6 +29,9 @@ jest.mock('@onekeyhq/shared/src/errors/utils/errorToastUtils', () => ({
 jest.mock('react-intl', () => ({
   useIntl: () => ({ formatMessage: ({ id }: { id: string }) => id }),
 }));
+jest.mock('react-native', () => ({
+  useWindowDimensions: () => ({ width: 390, height: 844 }),
+}));
 jest.mock('@onekeyhq/components', () => {
   const React = jest.requireActual<typeof import('react')>('react');
   const Container = ({
@@ -63,6 +66,7 @@ jest.mock('@onekeyhq/components', () => {
     Icon: () => null,
     Spinner: () => null,
     Dialog: {
+      ScrollView: Container,
       Footer: ({
         showFooter,
         onConfirm,

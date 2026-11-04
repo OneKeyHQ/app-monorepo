@@ -449,15 +449,17 @@ describe('InviteTabContent entry points', () => {
         ],
       } as IInviteSummary);
 
-      expect(
-        screen.getByTestId(`info-${ETranslations.global_swap}`),
-      ).toBeTruthy();
-      expect(
-        screen.getByTestId(`info-${ETranslations.referral_referred_type_2}`),
-      ).toBeTruthy();
+      // Swap and DeFi each carry scope copy.
+      const scopeInfos = screen.getAllByTestId(
+        ReferFriendsTestIDs.inviteRewardScopeInfo,
+      );
+      expect(scopeInfos).toHaveLength(2);
 
-      fireEvent.click(screen.getByTestId(`info-${ETranslations.global_swap}`));
+      for (const scopeInfo of scopeInfos) {
+        fireEvent.click(scopeInfo);
+      }
       expect(mockNavigateToSwapReward).not.toHaveBeenCalled();
+      expect(mockNavigateToEarnReward).not.toHaveBeenCalled();
     },
   );
 
@@ -476,6 +478,9 @@ describe('InviteTabContent entry points', () => {
         Onchain: { ...SUMMARY.Onchain, available: [], swap: [] },
       } as IInviteSummary);
 
+      expect(
+        screen.getByTestId(ReferFriendsTestIDs.inviteRewardScopeLearnMore),
+      ).toBeTruthy();
       expect(screen.getByText(ETranslations.global_learn_more)).toBeTruthy();
       expect(screen.queryByText(ETranslations.global_swap)).toBeNull();
       expect(
