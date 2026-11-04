@@ -253,6 +253,15 @@ describe('native Intercom SDK integration', () => {
     expect(mockSdk.present).toHaveBeenCalledTimes(1);
   });
 
+  it('keeps notification conversations on the SDK while a support URL override is set', async () => {
+    mockSupportUrlOverride = 'https://intercom-preview.onekey.test/';
+    await subject.showIntercom({ conversationId: 'conversation-1' });
+    expect(mockWebIntercom).not.toHaveBeenCalled();
+    expect(mockSdk.presentContent).toHaveBeenCalledWith({
+      id: 'conversation-1',
+    });
+  });
+
   it('sends lock policy to Android without loading the SDK or using bg state', async () => {
     mockPlatformEnv.isNativeAndroid = true;
     const policy = { validFromMs: 1234, lockAtMs: 301_234 };

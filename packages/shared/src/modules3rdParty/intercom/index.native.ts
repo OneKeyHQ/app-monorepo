@@ -318,8 +318,12 @@ async function openIntercom(
     throw new OneKeyLocalError('Intercom must be opened in the main runtime');
   }
   // A developer support URL override only applies to the hosted page, so it
-  // routes around the native Messenger.
-  if (!canUseNativeSdk() || (await getIntercomSupportUrlOverride())) {
+  // routes around the native Messenger. The hosted page cannot open a specific
+  // conversation, so notification opens keep using the SDK when it exists.
+  if (
+    !canUseNativeSdk() ||
+    (!params?.conversationId && (await getIntercomSupportUrlOverride()))
+  ) {
     return showWebIntercom(
       params,
       (userId) => userId === expectedUserId && !messengerLocked && canPresent(),

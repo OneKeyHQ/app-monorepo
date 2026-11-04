@@ -92,20 +92,34 @@ describe('Intercom bridge', () => {
   });
 
   describe('support URL override', () => {
-    it('accepts absolute http(s) URLs and drops the fragment', () => {
+    it('accepts HTTPS URLs and drops the fragment', () => {
       expect(
         normalizeIntercomSupportUrl(`  ${PREVIEW_ORIGIN}/path?x=1#old  `),
       ).toBe(`${PREVIEW_ORIGIN}/path?x=1`);
-      expect(normalizeIntercomSupportUrl('http://192.168.1.2:5173')).toBe(
-        'http://192.168.1.2:5173/',
+      expect(normalizeIntercomSupportUrl('https://192.168.1.2:5173')).toBe(
+        'https://192.168.1.2:5173/',
       );
     });
 
+    it.each([
+      'http://localhost:5173/',
+      'http://127.0.0.1:5173/',
+      'http://[::1]:5173/',
+    ])('accepts loopback HTTP %p', (value) => {
+      expect(normalizeIntercomSupportUrl(value)).toBe(value);
+    });
+
+    // The page receives the session JWT, so it must never travel in cleartext.
     it.each([
       undefined,
       '',
       '   ',
       'intercom.onekey.so',
+      'http://intercom-preview.onekey.test/',
+      'http://192.168.1.2:5173/',
+      'http://10.0.2.2:5173/',
+      'http://localhost.evil.test/',
+      'http://127.0.0.1.evil.test/',
       'data:text/html,support',
       'file:///tmp/support.html',
     ])('rejects %p', (value) => {

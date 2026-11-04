@@ -1007,7 +1007,7 @@ const BaseDevSettingsSection = () => {
   const handleOpenIntercomSupportUrlDialog = useCallback(() => {
     Dialog.show({
       title: '客服页面地址',
-      description: `强制替换插件 / iOS / Android 打开的客服页面地址，留空恢复默认 ${INTERCOM_SUPPORT_URL}。设置后 iOS / Android 改用 WebView 打开客服，登录会话只会发给该地址的 origin。关闭开发者模式后自动失效。`,
+      description: `强制替换插件 / iOS / Android 打开的客服页面地址，留空恢复默认 ${INTERCOM_SUPPORT_URL}。必须是 https，http 仅允许 localhost / 127.0.0.1。设置后 iOS / Android 改用 WebView 打开客服（通知打开指定会话仍走原生），登录会话只会发给该地址的 origin。关闭开发者模式后自动失效。`,
       renderContent: (
         <Dialog.Form
           formProps={{ values: { url: savedIntercomSupportUrl ?? '' } }}
@@ -1018,7 +1018,7 @@ const BaseDevSettingsSection = () => {
               validate: (value: string | undefined) =>
                 !value?.trim() ||
                 !!normalizeIntercomSupportUrl(value) ||
-                '请输入以 http:// 或 https:// 开头的完整地址',
+                '请输入 https:// 开头的完整地址（http 仅限 localhost / 127.0.0.1）',
             }}
           >
             <Input

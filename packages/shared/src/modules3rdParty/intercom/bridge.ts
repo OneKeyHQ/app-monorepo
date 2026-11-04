@@ -4,9 +4,16 @@
 export const INTERCOM_SUPPORT_ORIGIN = 'https://intercom.onekey.so';
 export const INTERCOM_SUPPORT_URL = `${INTERCOM_SUPPORT_ORIGIN}/`;
 
+const isLoopbackHostname = (hostname: string): boolean =>
+  hostname === 'localhost' ||
+  hostname === '[::1]' ||
+  /^127(\.\d{1,3}){3}$/.test(hostname);
+
 // Dev settings can point support at another deploy of the hosted page (a
-// preview or a local server). Anything that is not an absolute http(s) URL is
-// ignored so a typo falls back to production instead of a broken page.
+// preview or a local server). The page receives the user's session JWT, so it
+// must be HTTPS; plain HTTP is only accepted on loopback, where the traffic
+// never reaches the network. Anything else is ignored so a typo falls back to
+// production instead of exposing the session.
 export const normalizeIntercomSupportUrl = (
   value: string | undefined,
 ): string | undefined => {
@@ -16,7 +23,10 @@ export const normalizeIntercomSupportUrl = (
   }
   try {
     const url = new URL(trimmed);
-    if (url.protocol !== 'https:' && url.protocol !== 'http:') {
+    const isSecure =
+      url.protocol === 'https:' ||
+      (url.protocol === 'http:' && isLoopbackHostname(url.hostname));
+    if (!isSecure) {
       return undefined;
     }
     // buildIntercomUrl appends the bridge fragment itself.
