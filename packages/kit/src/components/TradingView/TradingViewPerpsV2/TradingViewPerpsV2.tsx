@@ -30,8 +30,13 @@ import {
   useNavigationHandler,
   useTradingViewUrl,
 } from '../hooks';
+import { TradingViewChartModeSelect } from '../TradingViewChartControls';
 import { TradingViewChartLoadingMask } from '../TradingViewChartLoadingMask';
-import { TradingViewV2ChartControlsContainer } from '../TradingViewV2/components/TradingViewV2ChartControls';
+import {
+  TradingViewNativeIndicatorQuickBar,
+  TradingViewV2ChartControlsContainer,
+  useShowNativeIndicatorsDialog,
+} from '../TradingViewV2/components/TradingViewV2ChartControls';
 
 import { MESSAGE_TYPES } from './constants/messageTypes';
 import { useChartLines, useTradeUpdates } from './hooks';
@@ -315,6 +320,8 @@ export function TradingViewPerpsV2(
     enabled: enableNativeChartControls,
     webRef,
   });
+  const showNativeIndicatorsDialog =
+    useShowNativeIndicatorsDialog(controlsProps);
   const theme = useThemeVariant();
   const latestThemeRef = useRef(theme);
   latestThemeRef.current = theme;
@@ -821,20 +828,28 @@ export function TradingViewPerpsV2(
   const showChartLoadingMask =
     !isChartContentReady ||
     (Boolean(controlsProps.nativeChartControlsConfig) && isRestoringInterval);
+  const isChartControlsReady =
+    isChartContentReady && Boolean(controlsProps.nativeChartControlsConfig);
 
   return (
     <Stack flex={1} minHeight={0} {...stackStyle}>
       {enableNativeChartControls ? (
         <TradingViewV2ChartControlsContainer
           {...controlsProps}
-          isControlsReady={
-            isChartContentReady &&
-            Boolean(controlsProps.nativeChartControlsConfig)
+          isControlsReady={isChartControlsReady}
+          mobileToolbarExtra={
+            platformEnv.isNative && !isChartControlsReady && onChartSwitch ? (
+              <TradingViewChartModeSelect
+                chartMode="tradingView"
+                onChartSwitch={onChartSwitch}
+              />
+            ) : undefined
           }
-          chartTypeControlMode="select"
-          indicatorControlMode="popover"
-          intervalControlMode="popover"
-          layoutMode="desktop"
+          enableNativeChartSettings={platformEnv.isNative}
+          chartTypeControlMode={platformEnv.isNative ? 'toggle' : 'select'}
+          indicatorControlMode={platformEnv.isNative ? 'dialog' : 'popover'}
+          intervalControlMode={platformEnv.isNative ? 'dialog' : 'popover'}
+          layoutMode={platformEnv.isNative ? 'mobile' : 'desktop'}
           chartTimezone={timezone}
           isFullscreen={isNativeChartFullscreen}
           onFullscreenChange={onNativeChartFullscreenChange}
@@ -885,6 +900,18 @@ export function TradingViewPerpsV2(
           />
         ) : null}
       </Stack>
+      {enableNativeChartControls &&
+      platformEnv.isNative &&
+      isChartContentReady ? (
+        <TradingViewNativeIndicatorQuickBar
+          nativeChartControlsConfig={controlsProps.nativeChartControlsConfig}
+          nativeIndicatorState={controlsProps.nativeIndicatorState}
+          onIndicatorSelect={controlsProps.onIndicatorSelect}
+          onIndicatorsDialogPress={showNativeIndicatorsDialog}
+          onControlInteraction={controlsProps.onControlInteraction}
+          onTouchScroll={onTouchScroll}
+        />
+      ) : null}
     </Stack>
   );
 }

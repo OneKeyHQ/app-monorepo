@@ -455,8 +455,19 @@ function WallpaperCustomCategorySection({
     const data = await ImageCrop.openPicker({
       width: config.size?.width,
       height: config.size?.height,
+    }).catch((error: unknown) => {
+      const isCancelled =
+        typeof error === 'object' &&
+        error !== null &&
+        'code' in error &&
+        error.code === 'E_PICKER_CANCELLED';
+      if (!isCancelled) {
+        errorToastUtils.toastIfError(error);
+        errorToastUtils.showToastOfError(error);
+      }
+      return undefined;
     });
-    if (!data.data) {
+    if (!data?.data) {
       return;
     }
 
