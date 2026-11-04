@@ -814,30 +814,39 @@ describe('desktop banner quote updates', () => {
     (platformEnv as { isDesktop: boolean }).isDesktop = true;
   });
 
-  it.each(['stock', 'token', 'legacy'])(
+  it.each(['stock', 'token', 'evm', 'legacy'])(
     'does not mix quotes for duplicate symbols (%s identity)',
     async (kind) => {
+      const isEvm = kind === 'evm';
+      const isToken = isEvm || kind === 'token';
+      const networkId = isEvm ? 'evm--1' : 'sol--101';
+      const addresses = isEvm
+        ? [
+            '0x52908400098527886E0F7030069857D2E4169EE7',
+            '0x8617E340B3D01FA5F11F306F4090FD50E238070D',
+          ]
+        : [
+            'So11111111111111111111111111111111111111112',
+            'so11111111111111111111111111111111111111112',
+          ];
       const tokens = ['2', '1'].map((change, index) => ({
         ...preview('SAME', change),
         stockId: kind === 'stock' ? String(index) : undefined,
-        networkId: kind === 'token' ? 'sol--101' : undefined,
-        address: kind === 'token' ? String(index) : undefined,
+        networkId: isToken ? networkId : undefined,
+        address: isToken ? addresses[index] : undefined,
         logo: `preview-${index}.png`,
       }));
       const quotes = tokens.map((token, index) => ({
         ...asset('SAME', token.priceChange24hPercent, String((index + 1) * 10)),
         stockId: String(index),
-        networkId: 'sol--101',
-        address: String(index),
+        networkId,
+        address: isEvm ? addresses[index].toLowerCase() : addresses[index],
         decimals: 9,
         logoUrl: `quote-${index}.png`,
       }));
       mockResult = [
         makeBanner({
-          type:
-            kind === 'token'
-              ? EMarketBannerType.Ticker
-              : EMarketBannerType.Stock,
+          type: isToken ? EMarketBannerType.Ticker : EMarketBannerType.Stock,
           tokens,
         }),
       ];

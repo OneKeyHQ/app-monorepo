@@ -56,8 +56,12 @@ export function getMarketBannerTopTokens(
 
 export function getMarketBannerTokenIdentity(token: IMarketBannerTokenPreview) {
   if (token.stockId) return `stock:${token.stockId}`;
-  if (token.networkId && token.address !== undefined)
-    return `token:${token.networkId}:${token.address}`;
+  if (token.networkId && token.address !== undefined) {
+    const address = token.networkId.startsWith('evm--')
+      ? token.address.toLowerCase()
+      : token.address;
+    return `token:${token.networkId}:${address}`;
+  }
   return undefined;
 }
 
