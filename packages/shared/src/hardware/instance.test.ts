@@ -32,37 +32,21 @@ jest.mock('./sdk-loader', () => ({
 }));
 
 describe('hardware SDK iframe source', () => {
-  it('uses the bundled iframe for extension background and offscreen runtimes', () => {
-    const originalChrome = Object.getOwnPropertyDescriptor(
-      globalThis,
-      'chrome',
-    );
-    const extension = jest.replaceProperty(platformEnv, 'isExtension', true);
-    const getURL = jest.fn(
-      (resource: string) => `chrome-extension://test-extension/${resource}`,
-    );
-    Object.defineProperty(globalThis, 'chrome', {
-      configurable: true,
-      value: { runtime: { getURL } },
-    });
-    try {
-      expect(generateConnectSrc()).toBe(
-        'chrome-extension://test-extension/hardware-sdk/',
+  it.each([false, true])(
+    'uses the official versioned iframe source with isExtension=%s',
+    (isExtension) => {
+      const extension = jest.replaceProperty(
+        platformEnv,
+        'isExtension',
+        isExtension,
       );
-      expect(getURL).toHaveBeenCalledWith('hardware-sdk/');
-    } finally {
-      extension.restore();
-      if (originalChrome) {
-        Object.defineProperty(globalThis, 'chrome', originalChrome);
-      } else {
-        Reflect.deleteProperty(globalThis, 'chrome');
+      try {
+        expect(generateConnectSrc()).toBe('https://example.com/test/');
+      } finally {
+        extension.restore();
       }
-    }
-  });
-
-  it('keeps the remote versioned iframe source for other platforms', () => {
-    expect(generateConnectSrc()).toBe('https://example.com/test/');
-  });
+    },
+  );
 });
 
 describe('isDirectFirmwareHostBindingTransport', () => {
