@@ -371,6 +371,7 @@ const REQUEST_TOKEN = 'request-token';
 
 function createService() {
   const simpleDbPrime = {
+    hasInfiniPaymentLocalSendEvidence: jest.fn(async () => false),
     recordInfiniPaymentValidation: jest.fn(async () => undefined),
     getAuthSessionSource: jest.fn(async () => undefined as unknown),
     getAuthSessionCommitId: jest.fn(
@@ -1841,6 +1842,41 @@ describe('ServicePrime Infini payment APIs', () => {
     },
   );
 
+  it.each([false, true])(
+    'keeps pending visible when local send evidence lookup fails=%s',
+    async (fails) => {
+      const { service, simpleDbPrime } = createInfiniService();
+      if (fails)
+        simpleDbPrime.hasInfiniPaymentLocalSendEvidence.mockRejectedValue(
+          new Error('storage unavailable'),
+        );
+      else
+        simpleDbPrime.hasInfiniPaymentLocalSendEvidence.mockResolvedValue(true);
+      service.getPrimeClient = jest.fn(async () => ({
+        get: jest.fn(async () => ({
+          data: { data: { ...payment, plan: 'monthly', transactions: [] } },
+        })),
+      }));
+      const result = await service.apiGetInfiniPendingPayment({
+        expectedOneKeyUserId: 'user-a',
+      });
+      expect(result.pendingPayment).toMatchObject({
+        payment,
+        hasTransactions: false,
+      });
+      expect(result.pendingPayment?.hasLocalSendEvidence).toBe(
+        fails ? undefined : true,
+      );
+      expect(result.status).toBe(fails ? 'unavailable' : undefined);
+      expect(
+        simpleDbPrime.hasInfiniPaymentLocalSendEvidence,
+      ).toHaveBeenCalledWith({
+        onekeyUserId: 'user-a',
+        paymentId: payment.paymentId,
+      });
+    },
+  );
+
   it.each([null, undefined])(
     'keeps successful empty lookup distinct from failure: %s',
     async (data) => {
@@ -1914,6 +1950,7 @@ describe('ServicePrime Infini payment APIs', () => {
       payment: undefined,
       plan: undefined,
       hasTransactions: undefined,
+      hasLocalSendEvidence: false,
     });
   });
 

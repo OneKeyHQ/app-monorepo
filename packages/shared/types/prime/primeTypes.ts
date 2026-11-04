@@ -191,6 +191,7 @@ export type IPrimeInfiniPendingPaymentLookup = {
     payment?: IPrimeInfiniPayment;
     plan?: IPrimeInfiniSubscriptionPlan;
     hasTransactions?: boolean;
+    hasLocalSendEvidence?: boolean;
   };
 };
 

@@ -6248,6 +6248,13 @@ class ServicePrime extends ServiceBase {
           plan: plan === 'monthly' || plan === 'yearly' ? plan : undefined,
           hasTransactions,
         };
+        lookup.pendingPayment.hasLocalSendEvidence =
+          await this.backgroundApi.simpleDb.prime.hasInfiniPaymentLocalSendEvidence(
+            {
+              onekeyUserId: snapshot.expectedOneKeyUserId,
+              paymentId: pending.paymentId,
+            },
+          );
       }
     } catch (error) {
       if (error instanceof OneKeyErrorPrimeLoginInvalidToken) throw error;

@@ -63,6 +63,7 @@ describe('advisory remote pending payment', () => {
     { plan: undefined },
     { hasTransactions: undefined },
     { hasTransactions: true },
+    { hasLocalSendEvidence: true },
     { payment: undefined },
     ...[
       'signed',
@@ -125,6 +126,32 @@ describe('advisory remote pending payment', () => {
     ).resolves.toEqual({ type: 'new' });
     expect(p.choose).toHaveBeenCalledWith(false, true);
   });
+  it.each(['localSend', 'unavailable'] as const)(
+    'warns without auto-resuming an old intent with %s evidence, while allowing a new payment',
+    async (kind) => {
+      const p = params();
+      p.lookup =
+        kind === 'unavailable'
+          ? { ...lookup, status: 'unavailable' }
+          : {
+              ...lookup,
+              pendingPayment: {
+                ...lookup.pendingPayment!,
+                hasLocalSendEvidence: true,
+              },
+            };
+      await expect(
+        createPrimeInfiniRemotePendingPaymentResolver()({
+          ...p,
+          resumePaymentId: payment.paymentId,
+        }),
+      ).resolves.toEqual({ type: 'new' });
+      expect(p.choose).toHaveBeenCalledWith(
+        false,
+        ...(kind === 'unavailable' ? [true] : []),
+      );
+    },
+  );
   it('does not automatically create on a missing resume-only entry', async () => {
     const p = params();
     p.lookup = { authContext: lookup.authContext };
@@ -175,6 +202,43 @@ describe('advisory remote pending payment', () => {
     expect(p.choose).toHaveBeenCalledTimes(2);
     await createPrimeInfiniRemotePendingPaymentResolver()(p);
     expect(p.choose).toHaveBeenCalledTimes(3);
+  });
+  it('does not let an older cancellation clear a newer shared dialog', async () => {
+    const p = params();
+    const resolve = createPrimeInfiniRemotePendingPaymentResolver();
+    let cancelOld!: (choice: 'cancel') => void;
+    let confirmNew!: (choice: 'replace') => void;
+    p.choose
+      .mockImplementationOnce(
+        () =>
+          new Promise((done) => {
+            cancelOld = done;
+          }),
+      )
+      .mockImplementationOnce(
+        () =>
+          new Promise((done) => {
+            confirmNew = done;
+          }),
+      );
+    const old = resolve(p);
+    await Promise.resolve();
+    const newer = {
+      ...p,
+      lookup: { ...lookup, status: 'unavailable' as const },
+    };
+    const next = resolve(newer);
+    await Promise.resolve();
+    cancelOld('cancel');
+    await expect(old).resolves.toEqual({ type: 'cancelled' });
+    const concurrent = resolve(newer);
+    await Promise.resolve();
+    expect(p.choose).toHaveBeenCalledTimes(2);
+    confirmNew('replace');
+    await expect(Promise.all([next, concurrent])).resolves.toEqual([
+      { type: 'new' },
+      { type: 'new' },
+    ]);
   });
   it('rejects an identity change before opening the warning', async () => {
     const p = params();
@@ -229,7 +293,13 @@ describe('wallet recovery preparation to the original create API', () => {
     expect(p.createPayment).not.toHaveBeenCalled();
     expect(p.chooseNew).not.toHaveBeenCalled();
   });
-  it.each(['unavailable', 'transferred', 'different', 'missing'] as const)(
+  it.each([
+    'unavailable',
+    'transferred',
+    'localSend',
+    'different',
+    'missing',
+  ] as const)(
     'calls the original new-payment API only after confirmation when recovery is %s',
     async (kind) => {
       const p = create();
@@ -237,6 +307,14 @@ describe('wallet recovery preparation to the original create API', () => {
         p.fetchLookup.mockResolvedValue({
           authContext: lookup.authContext,
           status: 'unavailable',
+        });
+      if (kind === 'localSend')
+        p.fetchLookup.mockResolvedValue({
+          ...lookup,
+          pendingPayment: {
+            ...lookup.pendingPayment!,
+            hasLocalSendEvidence: true,
+          },
         });
       if (kind === 'missing')
         p.fetchLookup.mockResolvedValue({ authContext: lookup.authContext });

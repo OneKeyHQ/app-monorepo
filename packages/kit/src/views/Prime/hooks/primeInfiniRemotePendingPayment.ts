@@ -40,6 +40,7 @@ export function getPrimeInfiniRemotePaymentRecovery({
   // Existing wallet preparation can resume an unpaid quote. It cannot safely
   // reconstruct another device's payer or transaction from partial progress.
   if (
+    pendingPayment.hasLocalSendEvidence ||
     pendingPayment.hasTransactions !== false ||
     !statuses.length ||
     !statuses.every((status) =>
@@ -79,10 +80,13 @@ export async function preparePrimeInfiniRemotePayment({
   const lookup = await fetchLookup();
   if (!shouldContinue() || !(await validateAuth()) || !shouldContinue())
     return undefined;
-  const latest = getPrimeInfiniRemotePaymentRecovery({
-    pendingPayment: lookup.pendingPayment,
-    assets: [asset],
-  });
+  const latest =
+    lookup.status !== 'unavailable'
+      ? getPrimeInfiniRemotePaymentRecovery({
+          pendingPayment: lookup.pendingPayment,
+          assets: [asset],
+        })
+      : undefined;
   if (
     latest &&
     latest.plan === recovery.plan &&
@@ -148,10 +152,9 @@ export function createPrimeInfiniRemotePendingPaymentResolver() {
       Boolean(resumePaymentId && !pendingPayment);
     if (!pendingPayment && !lookupUnavailable)
       return { type: allowNewPayment ? 'new' : 'cancelled' };
-    const candidate = getPrimeInfiniRemotePaymentRecovery({
-      pendingPayment,
-      assets,
-    });
+    const candidate = !lookupUnavailable
+      ? getPrimeInfiniRemotePaymentRecovery({ pendingPayment, assets })
+      : undefined;
     const recovery =
       !resumePaymentId || resumePaymentId === candidate?.payment.paymentId
         ? candidate
@@ -169,7 +172,10 @@ export function createPrimeInfiniRemotePendingPaymentResolver() {
       else promise = choose(Boolean(recovery));
       previousChoice = { key, promise };
     }
-    const choice = await previousChoice.promise;
+    const pendingChoice = previousChoice;
+    const choice = await pendingChoice.promise;
+    if (choice === 'cancel' && previousChoice === pendingChoice)
+      previousChoice = undefined;
     if (!shouldContinue() || !(await validateAuth()) || !shouldContinue())
       return { type: 'cancelled' };
     // The warning is advisory. An explicit new-payment choice always returns

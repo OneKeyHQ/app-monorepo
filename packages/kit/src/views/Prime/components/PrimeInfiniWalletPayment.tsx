@@ -1090,12 +1090,14 @@ function PrimeInfiniWalletPaymentContent({
       nextPayerAccountId = paymentAccountIdRef.current,
       nextPayerAddress = paymentAccountAddressRef.current,
       nextAsset = paymentAssetRef.current,
+      isRemoteRecovery = false,
     }: {
       nextPayment: IPrimeInfiniPayment;
       nextSendStarted?: boolean;
       nextPayerAccountId?: string;
       nextPayerAddress?: string;
       nextAsset?: IPrimeInfiniPaymentAsset;
+      isRemoteRecovery?: boolean;
     }): Promise<IPrimeInfiniPendingPaymentSession> => {
       const onekeyUserId = baseline.onekeyUserId;
       if (!onekeyUserId || !nextPayerAccountId || !nextPayerAddress) {
@@ -1128,6 +1130,7 @@ function PrimeInfiniWalletPaymentContent({
             await backgroundApiProxy.simpleDb.prime.setInfiniPendingPaymentSession(
               {
                 onekeyUserId,
+                isRemoteRecovery,
                 session: {
                   asset: nextAsset,
                   baseline: {
@@ -2653,6 +2656,7 @@ function PrimeInfiniWalletPaymentContent({
       paymentAccountAddressRef.current = capturedAccountAddress;
       const createdSession = await persistPaymentSession({
         nextPayment: createdPayment,
+        isRemoteRecovery: resumedRemotePayment,
         nextPayerAccountId: capturedAccountId,
         nextPayerAddress: capturedAccountAddress,
         nextAsset: capturedAsset,

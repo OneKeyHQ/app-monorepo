@@ -556,6 +556,46 @@ describe('usePrimePurchaseCallback pending payment entry guard', () => {
     },
   );
 
+  it('lets the same card picker retry and confirm after cancelling a failed lookup', async () => {
+    mockGetPrimeInfiniPaymentEntryGuard.mockResolvedValue({
+      isLoggedIn: true,
+      hasPendingPayment: false,
+      onekeyUserId: 'user-1',
+    });
+    mockRemoteLookup.mockResolvedValue({
+      authContext: mockAuthContext,
+      status: 'unavailable',
+    });
+    const { result } = renderHook(() =>
+      usePrimePurchaseCallback({ onPurchase: jest.fn() }),
+    );
+    await act(async () => {
+      await result.current.purchase({ selectedSubscriptionPeriod: 'P1Y' });
+    });
+    const picker = mockDialogShow.mock.calls.find(([config]) =>
+      Boolean(config.renderContent),
+    )?.[0].renderContent as IPaymentMethodDialogContent;
+    mockPendingChoice = 'cancel';
+    await act(async () => {
+      await picker.props.children.props.onSelect('webStripe');
+    });
+    expect(mockPurchasePackageWeb).not.toHaveBeenCalled();
+    expect(mockPaymentMethodDialogClose).not.toHaveBeenCalled();
+    mockPendingChoice = 'replace';
+    await act(async () => {
+      await picker.props.children.props.onSelect('webStripe');
+    });
+    expect(mockRemoteLookup).toHaveBeenCalledTimes(2);
+    expect(
+      mockDialogShow.mock.calls.filter(
+        ([config]) =>
+          config.title === ETranslations.prime_payment_refresh_failed__title,
+      ),
+    ).toHaveLength(2);
+    expect(mockPurchasePackageWeb).toHaveBeenCalledTimes(1);
+    expect(mockPaymentMethodDialogClose).toHaveBeenCalledTimes(1);
+  });
+
   it.each(['cancel', 'authChanged'] as const)(
     'does not proceed with IAP after %s during a failed-discovery warning',
     async (reason) => {
