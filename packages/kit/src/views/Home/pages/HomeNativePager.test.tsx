@@ -1054,6 +1054,63 @@ describe('HomePageView complete header authority', () => {
     expect(mockSetPage).not.toHaveBeenCalled();
   });
 
+  it('keeps toolbar settings aligned with React selection when animation focus is stale', () => {
+    const screen = renderParent();
+    const props = () =>
+      screen.UNSAFE_getByType(HomeNativePager).props as React.ComponentProps<
+        typeof HomeNativePager
+      >;
+    const name = (key: EHomeWalletTab) =>
+      props().tabs.find((tab) => tab.id === key)!.name;
+    const settingsName = (staleName: string) => {
+      const rendered = props().renderTabBar({
+        focusedTab: {
+          value: staleName,
+          get: () => staleName,
+          set: jest.fn(),
+          addListener: jest.fn(),
+          removeListener: jest.fn(),
+          modify: jest.fn(),
+        },
+        onTabPress: jest.fn(),
+      }) as React.ReactElement<{ focusedTab: string }>;
+      return rendered.props.focusedTab;
+    };
+    expect(settingsName(name(EHomeWalletTab.History))).toBe(
+      name(EHomeWalletTab.Portfolio),
+    );
+    const index = props().tabs.findIndex(
+      (tab) => tab.id === EHomeWalletTab.History,
+    );
+    act(() =>
+      props().onNativeTabPress?.({
+        nativeEvent: { key: EHomeWalletTab.History, position: index },
+      } as Parameters<
+        NonNullable<ReturnType<typeof props>['onNativeTabPress']>
+      >[0]),
+    );
+    expect(settingsName(name(EHomeWalletTab.Portfolio))).toBe(
+      name(EHomeWalletTab.History),
+    );
+    act(() =>
+      mockNativeEvents.onPageSelected?.({ nativeEvent: { position: index } }),
+    );
+    screen.rerender(<HomePage sceneName={EAccountSelectorSceneName.home} />);
+    expect(settingsName(name(EHomeWalletTab.Portfolio))).toBe(
+      name(EHomeWalletTab.History),
+    );
+    act(() =>
+      props().onNativeTabPress?.({
+        nativeEvent: { key: EHomeWalletTab.Portfolio, position: 0 },
+      } as Parameters<
+        NonNullable<ReturnType<typeof props>['onNativeTabPress']>
+      >[0]),
+    );
+    expect(settingsName(name(EHomeWalletTab.History))).toBe(
+      name(EHomeWalletTab.Portfolio),
+    );
+  });
+
   it('keeps external Perps intent out of pager commands and maps later tabs by key', () => {
     externalPerps = true;
     const screen = renderParent();

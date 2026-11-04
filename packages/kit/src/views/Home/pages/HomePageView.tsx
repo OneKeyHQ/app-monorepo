@@ -1073,7 +1073,9 @@ export function HomePageView({
         const settings = (
           <TabHeaderSettings
             key={homeScrollOwnerKey}
-            focusedTab={tabBarProps.focusedTab.value}
+            focusedTab={
+              tabConfigs.find((tab) => tab.id === activeTabId)?.name ?? ''
+            }
             nativeToolbar={nativeToolbar}
           />
         );
@@ -1166,6 +1168,7 @@ export function HomePageView({
     },
     [
       nativeToolbar,
+      activeTabId,
       homeScrollOwnerKey,
       portalRefCallback,
       stickyHostRefCallback,
