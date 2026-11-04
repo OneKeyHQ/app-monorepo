@@ -100,16 +100,15 @@ export function PerpCandles({
   const [currentAccount] = usePerpsActiveAccountAtom();
   const [{ reloadHook }] = usePerpsCandlesWebviewReloadHookAtom();
   const [{ chartExpanded = false }, setLayoutState] = usePerpsLayoutStateAtom();
-  const [
-    { chartMode: savedChartMode = 'tradingView' },
-    setPerpsCustomSettings,
-  ] = usePerpsCustomSettingsAtom();
+  const [{ chartMode: savedChartMode = 'native' }, setPerpsCustomSettings] =
+    usePerpsCustomSettingsAtom();
   const isTradingViewNative = (chartMode ?? savedChartMode) === 'native';
   const showChartModeSelect = chartMode === undefined;
   const [isMobileChartFullscreen, setIsMobileChartFullscreen] = useState(false);
   const [isChartInteracting, setIsChartInteracting] = useState(false);
   const { gtMd } = useMedia();
   const isDesktopLayout = gtMd && !platformEnv.isNative;
+  const enableNativeChartControls = isDesktopLayout || platformEnv.isNative;
   // Perp layouts remount at this breakpoint; keep the legacy WebView URL stable.
   const [enablePerpsTradingUi] = useState(isDesktopLayout);
   const source = useMemo<ITradingViewNativeSource>(
@@ -179,7 +178,7 @@ export function PerpCandles({
     setIsChartInteracting(false);
     void setPerpsCustomSettings((current) => ({
       ...current,
-      chartMode: current.chartMode === 'native' ? 'tradingView' : 'native',
+      chartMode: current.chartMode === 'tradingView' ? 'native' : 'tradingView',
     }));
   }, [
     handleFullscreenChange,
@@ -200,7 +199,9 @@ export function PerpCandles({
 
   const content = (
     <Stack w="100%" h="100%" flex={1} minHeight={0}>
-      {!isTradingViewNative && showChartModeSelect && !isDesktopLayout ? (
+      {!isTradingViewNative &&
+      showChartModeSelect &&
+      !enableNativeChartControls ? (
         <XStack
           h={TRADING_VIEW_CHART_CONTROLS_HEIGHT}
           px="$2"
@@ -243,7 +244,7 @@ export function PerpCandles({
           webviewKey={reloadHook.toString()}
           userAddress={currentAccount?.accountAddress}
           enablePerpsTradingUi={enablePerpsTradingUi}
-          enableNativeChartControls={isDesktopLayout}
+          enableNativeChartControls={enableNativeChartControls}
           isNativeChartFullscreen={chartExpanded}
           onNativeChartFullscreenChange={
             isDesktopLayout ? handleFullscreenChange : undefined

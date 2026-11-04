@@ -12,7 +12,7 @@ import type { IPositionRowItem } from './PositionsRow';
 let mockVisibility: Partial<
   Record<'add' | 'reverse' | 'tpsl' | 'close', boolean>
 > = {};
-let mockHasOtherOrders = false;
+let mockOrder: { orderType: string; reduceOnly: boolean } | undefined;
 const mockShowTpsl = jest.fn();
 const mockViewOrders = jest.fn();
 
@@ -73,7 +73,7 @@ jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => ({
 }));
 jest.mock('../../../hooks/usePerpsAccountScopedOpenOrdersByCoin', () => ({
   usePerpsAccountScopedOpenOrdersByCoin: () =>
-    mockHasOtherOrders ? [{ isPositionTpsl: false }] : [],
+    mockOrder ? [{ ...mockOrder, isPositionTpsl: false }] : [],
 }));
 jest.mock('../../../hooks/usePerpsMidPrice', () => ({
   usePerpsMidPrice: () => ({ midFormattedByDecimals: '2000' }),
@@ -138,7 +138,7 @@ function renderPosition() {
 describe('desktop position action visibility', () => {
   beforeEach(() => {
     mockVisibility = {};
-    mockHasOtherOrders = false;
+    mockOrder = undefined;
     jest.clearAllMocks();
   });
 
@@ -175,13 +175,32 @@ describe('desktop position action visibility', () => {
     expect(view.getByLabelText('HighlightOutline')).toBeTruthy();
   });
 
-  it('keeps viewing existing orders available when TP/SL editing is hidden', () => {
-    mockVisibility = { tpsl: false };
-    mockHasOtherOrders = true;
-    const view = renderPosition();
-    expect(view.queryByLabelText('HighlightOutline')).toBeNull();
-    fireEvent.click(view.getByText(ETranslations.perp_position_view_orders));
-    expect(mockViewOrders).toHaveBeenCalledTimes(1);
-    expect(mockShowTpsl).not.toHaveBeenCalled();
-  });
+  it.each([
+    { orderType: 'Limit', reduceOnly: false },
+    { orderType: 'Limit', reduceOnly: true },
+    { orderType: 'Stop Market', reduceOnly: false },
+  ])(
+    'does not show TP/SL orders for $orderType reduceOnly=$reduceOnly',
+    (order) => {
+      mockOrder = order;
+      const view = renderPosition();
+      expect(
+        view.queryByText(ETranslations.perp_position_view_orders),
+      ).toBeNull();
+      expect(view.getByText('--/--')).toBeTruthy();
+    },
+  );
+
+  it.each(['Take Profit Market', 'Stop Market'])(
+    'keeps viewing %s orders available when TP/SL editing is hidden',
+    (orderType) => {
+      mockVisibility = { tpsl: false };
+      mockOrder = { orderType, reduceOnly: true };
+      const view = renderPosition();
+      expect(view.queryByLabelText('HighlightOutline')).toBeNull();
+      fireEvent.click(view.getByText(ETranslations.perp_position_view_orders));
+      expect(mockViewOrders).toHaveBeenCalledTimes(1);
+      expect(mockShowTpsl).not.toHaveBeenCalled();
+    },
+  );
 });

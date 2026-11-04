@@ -314,6 +314,7 @@ it.each([false, true])(
 
 describe('PerpCandles account switch', () => {
   it('leaves the rebuild decision to the chart instead of remounting it', () => {
+    mockCustomSettings.chartMode = 'tradingView';
     const { rerender } = renderTradingViewCandles();
     mockAccountAddress = '0xDEF';
     rerender(<PerpCandles />);
@@ -329,8 +330,30 @@ describe('PerpCandles account switch', () => {
 
 describe.each([
   ['standalone chart', PerpCandles],
+  ['mobile chart', PerpCandles],
   ['desktop workspace', PerpMarketWorkspacePanel],
 ] as const)('%s chart mode preference', (_name, Chart) => {
+  beforeEach(() => {
+    jest.replaceProperty(platformEnv, 'isNative', _name === 'mobile chart');
+  });
+
+  afterEach(() => jest.restoreAllMocks());
+
+  it('defaults to native and switches to TradingView when no preference exists', () => {
+    const view = render(<Chart />);
+
+    expect(mockNativeChart).toHaveBeenCalled();
+    expect(mockChartMount).not.toHaveBeenCalled();
+    act(() => mockNativeChart.mock.lastCall?.[0].onChartSwitch?.());
+    view.rerender(<Chart />);
+
+    expect(mockChartMount).toHaveBeenCalledTimes(1);
+    expect(mockCustomSettings).toEqual({
+      chartMode: 'tradingView',
+      showChartLines: false,
+    });
+  });
+
   it('restores a saved native chart preference', () => {
     mockCustomSettings.chartMode = 'native';
     render(<Chart />);
@@ -341,6 +364,7 @@ describe.each([
   });
 
   it('remembers both choices across remounts and preserves other settings', () => {
+    mockCustomSettings.chartMode = 'tradingView';
     const first = render(<Chart />);
     expect(mockChartMount).toHaveBeenCalledTimes(1);
     expect(mockChartModeSelect).not.toHaveBeenCalled();

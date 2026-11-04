@@ -100,6 +100,7 @@ import type {
   IPrimeInfiniPaymentOption,
   IPrimeInfiniPaymentPreBroadcastSnapshot,
   IPrimeInfiniPaymentSource,
+  IPrimeInfiniPendingPaymentLookup,
   IPrimeInfiniPurchaseStatusSnapshot,
   IPrimeInfiniSubscription,
   IPrimeInfiniSubscriptionPlan,
@@ -6082,6 +6083,7 @@ class ServicePrime extends ServiceBase {
     token,
     expectedOneKeyUserId,
     flowContext,
+    authContext,
   }: IPrimeInfiniPaymentCreateParams): Promise<IPrimeInfiniPayment> {
     return this.runInfiniPaymentRequest({
       flowContext: flowContext
@@ -6092,6 +6094,7 @@ class ServicePrime extends ServiceBase {
       request: async (context) => {
         const authSnapshot =
           await this.captureInfiniPurchaseAuthSnapshot(expectedOneKeyUserId);
+        this.assertInfiniPaymentRequestAuthContext(authSnapshot, authContext);
         const client = await this.getPrimeClient();
         const result = await client.post<
           IApiClientResponse<IPrimeInfiniPaymentApiResponse>
@@ -6166,6 +6169,107 @@ class ServicePrime extends ServiceBase {
         failureReason: 'localPersistenceFailed',
       });
     }
+  }
+
+  private assertInfiniPaymentRequestAuthContext(
+    snapshot: IOneKeyIdAuthSnapshot,
+    context?: IPrimeInfiniCheckoutAuthContext,
+  ) {
+    if (
+      context &&
+      (context.onekeyUserId !== snapshot.expectedOneKeyUserId ||
+        context.authSessionSource !== snapshot.authSessionSource ||
+        context.authStateGeneration !== snapshot.authStateGeneration)
+    )
+      throw this.createInfiniPurchaseUserChangedError();
+  }
+
+  @backgroundMethod()
+  async apiGetInfiniPendingPayment({
+    expectedOneKeyUserId,
+    authContext,
+  }: {
+    expectedOneKeyUserId: string;
+    authContext?: IPrimeInfiniCheckoutAuthContext;
+  }): Promise<IPrimeInfiniPendingPaymentLookup> {
+    const snapshot =
+      await this.captureInfiniPurchaseAuthSnapshot(expectedOneKeyUserId);
+    this.assertInfiniPaymentRequestAuthContext(snapshot, authContext);
+    const lookup: IPrimeInfiniPendingPaymentLookup = {
+      authContext: {
+        onekeyUserId: snapshot.expectedOneKeyUserId,
+        authSessionSource: snapshot.authSessionSource,
+        authStateGeneration: snapshot.authStateGeneration,
+      },
+    };
+    try {
+      const client = await this.getPrimeClient();
+      const result = await client.get<
+        IApiClientResponse<
+          | (IPrimeInfiniPaymentApiResponse & {
+              plan?: unknown;
+              transactions?: unknown;
+            })
+          | null
+        >
+      >('/prime/v1/infini/payment/pending', {
+        ...this.getInfiniPurchaseRequestConfig(snapshot),
+        timeout: 5000,
+      });
+      if (
+        !result?.data ||
+        !Object.prototype.hasOwnProperty.call(result.data, 'data')
+      )
+        throw new OneKeyLocalError('Invalid Infini pending response');
+      const pending = result.data.data;
+      if (
+        pending !== null &&
+        pending !== undefined &&
+        (typeof pending !== 'object' || Array.isArray(pending))
+      )
+        throw new OneKeyLocalError('Invalid Infini pending response');
+      if (pending) {
+        if (!isString(pending.paymentId) || !pending.paymentId.trim()) {
+          throw new OneKeyLocalError('Invalid Infini pending payment identity');
+        }
+        let payment: IPrimeInfiniPayment | undefined;
+        try {
+          payment = validateInfiniPaymentResponse(pending);
+        } catch {
+          /* Warn without offering recovery when fields are incomplete. */
+        }
+        const hasTransactions = Array.isArray(pending.transactions)
+          ? pending.transactions.length > 0
+          : undefined;
+        const plan = pending.plan === 'annual' ? 'yearly' : pending.plan;
+        lookup.pendingPayment = {
+          paymentId: pending.paymentId,
+          payment,
+          plan: plan === 'monthly' || plan === 'yearly' ? plan : undefined,
+          hasTransactions,
+        };
+        lookup.pendingPayment.hasLocalSendEvidence =
+          await this.backgroundApi.simpleDb.prime.hasInfiniPaymentLocalSendEvidence(
+            {
+              onekeyUserId: snapshot.expectedOneKeyUserId,
+              paymentId: pending.paymentId,
+            },
+          );
+      }
+    } catch (error) {
+      if (error instanceof OneKeyErrorPrimeLoginInvalidToken) throw error;
+      defaultLogger.prime.subscription.primeCryptoPaymentFlow({
+        ...getPrimeInfiniPaymentSafeError(error),
+        stage: 'paymentContext',
+        status: 'failed',
+        reason: 'remotePendingLookupFailed',
+      });
+      // Advisory discovery cannot prove there is no old order on failure.
+      lookup.status = 'unavailable';
+    }
+    // Authentication failures are outside the advisory failure path.
+    await this.assertInfiniPurchaseAuthSnapshot(snapshot);
+    return lookup;
   }
 
   @backgroundMethod()

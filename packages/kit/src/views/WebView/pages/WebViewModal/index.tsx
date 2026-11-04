@@ -24,6 +24,7 @@ import { useCrossDomainRedirect } from '@onekeyhq/kit/src/hooks/useCrossDomainRe
 import { handleDeepLinkUrl } from '@onekeyhq/kit/src/routes/config/deeplink';
 import { handlePrimeHostedCardCheckoutFallbackRequest } from '@onekeyhq/kit/src/views/Prime/hooks/primeHostedCardCheckout';
 import { handlePrimePurchaseSuccessCloseRequest } from '@onekeyhq/kit/src/views/Prime/primeSubscriptionPurchaseSuccess';
+import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
 import { useAppIsLockedAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/passwordLock';
 import { usePrimePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/prime';
 import { useSettingsFiatPaySiteWhitelistPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/settings';
@@ -36,6 +37,7 @@ import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import {
   createIntercomSessionScript,
   isIntercomNativeHandshake,
+  resolveIntercomSupportOrigin,
 } from '@onekeyhq/shared/src/modules3rdParty/intercom/bridge';
 import { getIntercomSessionToken } from '@onekeyhq/shared/src/modules3rdParty/intercom/identity';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -93,6 +95,10 @@ export default function WebViewModal() {
   const isFocused = useIsFocused();
   const [isLocked] = useAppIsLockedAtom();
   const [{ isLoggedIn, onekeyUserId }] = usePrimePersistAtom();
+  const [devSettings] = useDevSettingsPersistAtom();
+  // Follows the developer support URL override, so the session is only handed
+  // to the page the support entry was configured to open.
+  const supportOrigin = resolveIntercomSupportOrigin(devSettings);
   const supportSessionClosed = useRef(false);
   const supportDismissed = useRef(false);
   if (
@@ -153,21 +159,23 @@ export default function WebViewModal() {
       const webview = webviewRef?.current?.innerRef as
         | IReactNativeWebView
         | undefined;
-      webview?.injectJavaScript(createIntercomSessionScript(token));
+      webview?.injectJavaScript(
+        createIntercomSessionScript(token, supportOrigin),
+      );
     } catch {
       // The hosted page times out and offers a retry rather than opening
       // support without the session the user expects.
       console.warn('Failed to deliver Intercom session');
     }
-  }, [intercomUserId, webviewRef]);
+  }, [intercomUserId, supportOrigin, webviewRef]);
 
   const onSupportMessage = useCallback(
     ({ nativeEvent }: WebViewMessageEvent) => {
-      if (isIntercomNativeHandshake(nativeEvent)) {
+      if (isIntercomNativeHandshake(nativeEvent, supportOrigin)) {
         void deliverSupportSession();
       }
     },
-    [deliverSupportSession],
+    [deliverSupportSession, supportOrigin],
   );
 
   // Cleanup WebView before unmount to prevent native crashes
@@ -503,7 +511,11 @@ export default function WebViewModal() {
 
   const extensionSupportFrame =
     platformEnv.isExtension && intercomUserId !== undefined ? (
-      <IntercomSupportFrame url={url} userId={intercomUserId} />
+      <IntercomSupportFrame
+        url={url}
+        userId={intercomUserId}
+        supportOrigin={supportOrigin}
+      />
     ) : null;
 
   return (

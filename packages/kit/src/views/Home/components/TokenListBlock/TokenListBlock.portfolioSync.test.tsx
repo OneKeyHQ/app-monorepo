@@ -112,14 +112,31 @@ let mockAllNetworkResult:
       }
     >
   | undefined;
+const mockUpdateAccountWorth = jest.fn();
+const mockUpdateTokenListState = jest.fn();
+const mockCommitAuthoritativeIngest = jest.fn();
+let mockAllNetworkParams:
+  | {
+      onFinished?: (params: {
+        accountId?: string;
+        networkId?: string;
+        runResult: {
+          didComplete: boolean;
+          requestCount: number;
+          resultCount: number;
+        };
+        generation: number;
+      }) => Promise<void> | void;
+    }
+  | undefined;
 const mockActions = {
-  updateAccountWorth: mockNoop,
+  updateAccountWorth: mockUpdateAccountWorth,
   retainAccountWorth: mockNoop,
   updateAccountOverviewState: mockNoop,
   updateAllNetworksState: mockNoop,
 };
 const mockTokenActions = {
-  updateTokenListState: mockNoop,
+  updateTokenListState: mockUpdateTokenListState,
   updateSearchKey: mockNoop,
   updatePortfolioSyncUiState: mockUpdateSyncUi,
 };
@@ -129,7 +146,7 @@ const mockPipeline = {
   setEnabledKeys: mockNoop,
   ingestLiveRound: mockNoop,
   buildAuthoritativeSnapshot: jest.fn(),
-  commitAuthoritativeIngest: mockNoop,
+  commitAuthoritativeIngest: mockCommitAuthoritativeIngest,
 };
 
 jest.mock('react-intl', () => ({
@@ -208,12 +225,15 @@ jest.mock('@onekeyhq/kit/src/hooks/usePromiseResult', () => {
   };
 });
 jest.mock('@onekeyhq/kit/src/hooks/useAllNetwork', () => ({
-  useAllNetworkRequests: () => ({
-    run: mockAsyncNoop,
-    runAccountRequests: mockAsyncNoop,
-    result: mockAllNetworkResult,
-    isEmptyAccount: false,
-  }),
+  useAllNetworkRequests: (params: typeof mockAllNetworkParams) => {
+    mockAllNetworkParams = params;
+    return {
+      run: mockAsyncNoop,
+      runAccountRequests: mockAsyncNoop,
+      result: mockAllNetworkResult,
+      isEmptyAccount: false,
+    };
+  },
 }));
 jest.mock('@onekeyhq/kit/src/states/jotai/contexts/accountSelector', () => ({
   activeAccountEpochAtom: () => 'epoch',
@@ -351,6 +371,7 @@ jest.mock('@onekeyhq/shared/src/utils/tokenUtils', () => ({
     riskTokens: { data: [], map: {} },
   }),
   flattenAggregateTokensMap: () => ({}),
+  sortTokensByFiatValue: ({ tokens }: { tokens: unknown[] }) => tokens,
 }));
 jest.mock('@onekeyhq/shared/src/utils/tokenSelectorFilterUtils', () => ({
   buildTokenSelectorDappTokenFilterParams: () => ({}),
@@ -510,14 +531,19 @@ describe('Home automatic Portfolio sync', () => {
     }
   });
 
-  it('syncs a complete Home snapshot without querying categories', async () => {
+  it('refreshes categories once before explicit sync while reusing the Home token snapshot', async () => {
+    mockPublishRefreshedHeader = true;
     render(<TokenListBlock />);
     await refresh();
     const request = mockUpdateSyncUi.mock.calls.at(-1)?.[0]
       .request as () => void;
     await act(async () => request());
     await waitFor(() => expect(mockSyncPortfolio).toHaveBeenCalledTimes(1));
-    expect(mockRefreshCategories).not.toHaveBeenCalled();
+    expect(mockRefreshCategories).toHaveBeenCalledTimes(1);
+    expect(mockRefreshCategories).toHaveBeenCalledWith(
+      expect.objectContaining({ force: true, sources: ['defi', 'perps'] }),
+    );
+    expect(mockFetchTokens).toHaveBeenCalledTimes(1);
     expect(mockSyncPortfolio).toHaveBeenCalledWith(
       expect.objectContaining({
         eventPayload: expect.objectContaining({
@@ -529,7 +555,7 @@ describe('Home automatic Portfolio sync', () => {
   });
 
   it.each(['defi', 'perps'] as const)(
-    'only queries the missing %s category without forcing refresh',
+    'refreshes both categories before explicit sync when %s is missing',
     async (source) => {
       mockPublishRefreshedHeader = true;
       mockHomeDisplay = {
@@ -538,18 +564,15 @@ describe('Home automatic Portfolio sync', () => {
         perpsFiatUsd: source === 'perps' ? undefined : '20',
       };
       mockRefreshCategories.mockResolvedValueOnce({
-        defiFiat: source === 'defi' ? '40' : undefined,
-        perpsFiat: source === 'perps' ? '20' : undefined,
-        deFiSource: source === 'defi' ? 'live' : undefined,
-        deFiOverview:
-          source === 'defi'
-            ? {
-                totalValue: 40,
-                totalDebt: 0,
-                totalReward: 0,
-                netWorth: 40,
-              }
-            : undefined,
+        defiFiat: '40',
+        perpsFiat: '20',
+        deFiSource: 'live',
+        deFiOverview: {
+          totalValue: 40,
+          totalDebt: 0,
+          totalReward: 0,
+          netWorth: 40,
+        },
         fetchedAt: Date.now(),
         failedSources: [],
       });
@@ -561,7 +584,7 @@ describe('Home automatic Portfolio sync', () => {
       await waitFor(() => expect(mockSyncPortfolio).toHaveBeenCalledTimes(1));
       expect(mockRefreshCategories).toHaveBeenCalledTimes(1);
       expect(mockRefreshCategories).toHaveBeenCalledWith(
-        expect.objectContaining({ force: false, sources: [source] }),
+        expect.objectContaining({ force: true, sources: ['defi', 'perps'] }),
       );
       expect(mockSyncPortfolio).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -695,12 +718,7 @@ describe('Home automatic Portfolio sync', () => {
     );
   });
 
-  it('keeps the previous snapshot on failure and retries only the failed source', async () => {
-    mockHomeDisplay = {
-      ...mockHomeDisplay,
-      defiFiatUsd: undefined,
-      perpsFiatUsd: undefined,
-    };
+  it('keeps the previous snapshot on failure and retries stale categories too', async () => {
     mockPublishRefreshedHeader = true;
     render(<TokenListBlock />);
     await waitFor(() => expect(mockCategoryState.isRefreshing).toBe(false));
@@ -733,6 +751,8 @@ describe('Home automatic Portfolio sync', () => {
     expect(mockHomeDisplay.totalFiatUsd).toBe('125');
     expect(mockCategoryState.heldTotalFiatUsd).toBe('125');
     expect(mockSyncPortfolio).not.toHaveBeenCalled();
+    // The saved partial Perps value (20) differs from the live Home value (0),
+    // so the retry refreshes Perps as well instead of publishing the save.
     mockRefreshCategories.mockResolvedValueOnce({
       ...complete,
       defiFiat: '40',
@@ -742,12 +762,15 @@ describe('Home automatic Portfolio sync', () => {
         totalReward: 0,
         netWorth: 40,
       },
-      perpsFiat: undefined,
+      perpsFiat: '20',
     });
     await act(async () => mockCategoryState.retry?.());
     await waitFor(() => expect(mockSyncPortfolio).toHaveBeenCalledTimes(1));
     expect(mockRefreshCategories).toHaveBeenLastCalledWith(
-      expect.objectContaining({ force: false, sources: ['defi'] }),
+      expect.objectContaining({
+        force: false,
+        sources: ['defi', 'perps'],
+      }),
     );
     expect(mockSyncPortfolio).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -869,5 +892,72 @@ describe('Home automatic Portfolio sync', () => {
     render(<TokenListBlock />);
     await refresh();
     expect(mockNotifySettled).not.toHaveBeenCalled();
+  });
+});
+
+describe('Home All Networks owner without accounts', () => {
+  const finishRun = async (requestCount: number) => {
+    await act(async () => {
+      await mockAllNetworkParams?.onFinished?.({
+        accountId: mockAccount.id,
+        networkId: mockNetwork.id,
+        runResult: { didComplete: true, requestCount, resultCount: 0 },
+        generation: 1,
+      });
+    });
+  };
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockEpoch = 0;
+    mockIndexedAccountReady = true;
+    mockAllNetworkResult = undefined;
+    mockNetwork = { id: 'onekeyall--0', isAllNetworks: true };
+  });
+
+  afterEach(() => {
+    mockNetwork = { id: 'evm--1', isAllNetworks: false };
+  });
+
+  it('stamps an empty authoritative snapshot when the run issued no request', async () => {
+    render(<TokenListBlock />);
+    mockUpdateTokenListState.mockClear();
+    await finishRun(0);
+    expect(mockCommitAuthoritativeIngest).toHaveBeenCalledTimes(1);
+    expect(mockCommitAuthoritativeIngest).toHaveBeenCalledWith(
+      expect.objectContaining({
+        orderedTokens: [],
+        smallBalanceTokens: [],
+        riskyTokens: [],
+        accountsWorth: {},
+      }),
+      undefined,
+    );
+    expect(mockUpdateAccountWorth).toHaveBeenCalledWith(
+      expect.objectContaining({
+        accountId: mockAccount.id,
+        initialized: true,
+        updateAll: true,
+        worth: {},
+      }),
+    );
+    expect(mockUpdateTokenListState).toHaveBeenCalledWith({
+      initialized: true,
+      isRefreshing: false,
+    });
+  });
+
+  it('leaves the projection to the fan-out when requests were issued', async () => {
+    render(<TokenListBlock />);
+    await finishRun(3);
+    expect(mockCommitAuthoritativeIngest).not.toHaveBeenCalled();
+    expect(mockUpdateAccountWorth).not.toHaveBeenCalled();
+  });
+
+  it('does not stamp a superseded owner', async () => {
+    render(<TokenListBlock />);
+    mockEpoch += 1;
+    await finishRun(0);
+    expect(mockCommitAuthoritativeIngest).not.toHaveBeenCalled();
   });
 });

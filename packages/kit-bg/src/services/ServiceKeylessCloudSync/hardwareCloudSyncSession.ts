@@ -498,7 +498,7 @@ function parseEnvelope(data: string | undefined): IKeyEnvelope | undefined {
   return envelope;
 }
 
-async function readLockEnvelope({
+export async function readLockEnvelope({
   client,
   session,
 }: {
@@ -916,7 +916,7 @@ export async function rotateHardwareCloudSyncDataKey<
   return { next, items, generation: envelope.generation };
 }
 
-type IServerSyncRecord = {
+export type IServerSyncRecord = {
   key: string;
   dataType: string;
   data?: string;
@@ -928,7 +928,7 @@ const RESET_DOWNLOAD_PAGE_SIZE = 1000;
 const RESET_DOWNLOAD_MAX_PAGES = 1000;
 
 // Every record, page by page: a partial copy would lose the rest on flush.
-async function downloadAllForReset({
+export async function downloadAllForReset({
   client,
   session,
   pwdHash,

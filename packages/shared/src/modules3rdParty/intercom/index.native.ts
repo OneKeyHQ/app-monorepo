@@ -14,6 +14,7 @@ import {
   createIntercomOpenGuard,
   getInstanceId,
   getIntercomLanguageOverride,
+  getIntercomSupportUrlOverride,
 } from './utils';
 import { showIntercom as showWebIntercom } from './webView.native';
 
@@ -316,7 +317,13 @@ async function openIntercom(
   if (!platformEnv.isNativeMainThread) {
     throw new OneKeyLocalError('Intercom must be opened in the main runtime');
   }
-  if (!canUseNativeSdk()) {
+  // A developer support URL override only applies to the hosted page, so it
+  // routes around the native Messenger. The hosted page cannot open a specific
+  // conversation, so notification opens keep using the SDK when it exists.
+  if (
+    !canUseNativeSdk() ||
+    (!params?.conversationId && (await getIntercomSupportUrlOverride()))
+  ) {
     return showWebIntercom(
       params,
       (userId) => userId === expectedUserId && !messengerLocked && canPresent(),

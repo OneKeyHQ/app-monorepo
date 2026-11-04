@@ -182,6 +182,19 @@ export type IPrimeInfiniPaymentValidationFailure =
   | 'invalidResponse'
   | 'localPersistenceFailed';
 
+export type IPrimeInfiniPendingPaymentLookup = {
+  authContext: IPrimeInfiniCheckoutAuthContext;
+  // Unavailable discovery requires a risk warning, not a claim of no old order.
+  status?: 'unavailable';
+  pendingPayment?: {
+    paymentId?: string;
+    payment?: IPrimeInfiniPayment;
+    plan?: IPrimeInfiniSubscriptionPlan;
+    hasTransactions?: boolean;
+    hasLocalSendEvidence?: boolean;
+  };
+};
+
 export type IPrimeInfiniPaymentSource =
   | 'createResponse'
   | 'localPendingSession'
@@ -208,6 +221,7 @@ export type IPrimeInfiniPaymentCreateParams = {
   token: string;
   expectedOneKeyUserId: string;
   flowContext?: IPrimeInfiniPaymentFlowContext;
+  authContext?: IPrimeInfiniCheckoutAuthContext;
 };
 
 export type IPrimeRedemptionParams = {
