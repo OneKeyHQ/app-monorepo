@@ -5,6 +5,7 @@ import { ECloudBackupProviderType } from '@onekeyhq/shared/src/cloudBackup/cloud
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import secureStorage from '@onekeyhq/shared/src/storage/instance/secureStorageInstance';
+import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 
 import { LocalBackupPasswordCache } from './localBackupPasswordCache';
 
@@ -88,6 +89,15 @@ describe.each([
   async function saveTwo() {
     await cache.set({ ...scope, password: 'synthetic-first-password' });
     await cache.set({ ...second, password: 'synthetic-second-password' });
+  }
+
+  function readEntry(target = scope) {
+    const manifest = JSON.parse(metadata.get(MANIFEST) ?? '') as {
+      entries: Record<string, { keyRef: string; ciphertext?: string }>;
+    };
+    return manifest.entries[
+      stringUtils.stableStringify({ ...target, version: 1 })
+    ];
   }
 
   it('retains two independently protected passwords through normal reset and a cold instance', async () => {
@@ -183,20 +193,28 @@ describe.each([
     expect(await cache.get(scope)).toBe('synthetic-first-password');
   });
 
-  it('falls back on corrupt ciphertext without affecting another backup', async () => {
-    await saveTwo();
-    const manifest = JSON.parse(metadata.get(MANIFEST) ?? '') as {
-      entries: Record<string, { keyRef: string; ciphertext: string }>;
-    };
-    const target = Object.keys(manifest.entries).find((entry) =>
-      entry.includes('backup-a'),
-    ) as string;
-    manifest.entries[target].ciphertext = 'invalid-ciphertext';
-    metadata.set(MANIFEST, JSON.stringify(manifest));
-    expect(await cache.get(scope)).toBeUndefined();
-    expect(await cache.get(second)).toBe('synthetic-second-password');
-    expect(keys.size).toBe(2);
-  });
+  it.each(['invalid-ciphertext', ''])(
+    'keeps corrupt ciphertext %j paired without affecting another backup',
+    async (ciphertext) => {
+      await saveTwo();
+      const manifest = JSON.parse(metadata.get(MANIFEST) ?? '') as {
+        entries: Record<string, { keyRef: string; ciphertext: string }>;
+      };
+      const target = Object.keys(manifest.entries).find((entry) =>
+        entry.includes('backup-a'),
+      ) as string;
+      manifest.entries[target].ciphertext = ciphertext;
+      metadata.set(MANIFEST, JSON.stringify(manifest));
+      const before = metadata.get(MANIFEST);
+      expect(await cache.get(scope)).toBeUndefined();
+      await cache.set({ ...scope, password: 'verified-manual-password' });
+      expect(metadata.get(MANIFEST)).toBe(before);
+      expect(secure.removeSecureItem).not.toHaveBeenCalled();
+      expect(secure.setSecureItemWithBiometrics).toHaveBeenCalledTimes(2);
+      expect(await cache.get(second)).toBe('synthetic-second-password');
+      expect(keys.size).toBe(2);
+    },
+  );
 
   it('does not authenticate or find another provider with matching account and record IDs', async () => {
     await saveTwo();
@@ -238,17 +256,351 @@ describe.each([
     expect(keys.size).toBe(2);
   });
 
-  it('leaves an interrupted/declined creation unavailable and erasable without read-back', async () => {
+  it('retries declined enrollment after cold start without probing protected keys', async () => {
     secure.setSecureItemWithBiometrics.mockRejectedValueOnce(
       new Error('cancelled'),
     );
     await cache.set({ ...scope, password: 'synthetic-password' });
+    const pending = readEntry();
+    expect(pending.ciphertext).toBeUndefined();
+    cache = new LocalBackupPasswordCache();
     expect(await cache.get(scope)).toBeUndefined();
+    expect(readEntry()).toEqual(pending);
     await cache.set({ ...scope, password: 'verified-manual-password' });
-    expect(secure.setSecureItemWithBiometrics).toHaveBeenCalledTimes(1);
+    expect(secure.removeSecureItem).toHaveBeenCalledWith(pending.keyRef, {
+      keychainService: pending.keyRef,
+    });
+    expect(readEntry().keyRef).toBe(pending.keyRef);
+    expect(secure.setSecureItemWithBiometrics).toHaveBeenCalledTimes(2);
     expect(secure.getSecureItemWithBiometrics).not.toHaveBeenCalled();
+    cache = new LocalBackupPasswordCache();
+    expect(await cache.get(scope)).toBe('verified-manual-password');
+    expect(keys.size).toBe(1);
+  });
+
+  it('retires a key whose ciphertext commit failed before reusing its isolated service', async () => {
+    await cache.set({ ...second, password: 'synthetic-second-password' });
+    const otherEntry = readEntry(second);
+    secure.setSecureItem
+      .mockImplementationOnce(async (key, value) => {
+        metadata.set(key, value);
+      })
+      .mockRejectedValueOnce(new Error('commit failed'));
+    await cache.set({ ...scope, password: 'synthetic-password' });
+    const pending = readEntry();
+    expect(pending.ciphertext).toBeUndefined();
+    expect(keys.has(pending.keyRef)).toBe(true);
+    const oldValue = keys.get(pending.keyRef);
+    cache = new LocalBackupPasswordCache();
+    secure.setSecureItemWithBiometrics.mockImplementationOnce(
+      async (key, value) => {
+        expect(keys.has(pending.keyRef)).toBe(false);
+        expect(readEntry()).toEqual({ keyRef: key });
+        expect(key).toBe(pending.keyRef);
+        expect(value).not.toBe(oldValue);
+        keys.set(key, value);
+      },
+    );
+    await cache.set({ ...scope, password: 'verified-manual-password' });
+    expect(readEntry(second)).toEqual(otherEntry);
+    expect(keys.size).toBe(2);
+    expect(secure.getSecureItemWithBiometrics).not.toHaveBeenCalled();
+    expect(await cache.get(scope)).toBe('verified-manual-password');
+    expect(await cache.get(second)).toBe('synthetic-second-password');
+  });
+
+  it('retains the old reference when retiring an interrupted key fails', async () => {
+    secure.setSecureItemWithBiometrics.mockImplementationOnce(
+      async (key, value) => {
+        keys.set(key, value);
+        throw new OneKeyLocalError('write outcome unknown');
+      },
+    );
+    await cache.set({ ...scope, password: 'synthetic-password' });
+    const before = metadata.get(MANIFEST);
+    const oldKeys = [...keys];
+    secure.removeSecureItem.mockRejectedValueOnce(new Error('delete failed'));
+    await cache.set({ ...scope, password: 'verified-manual-password' });
+    expect(metadata.get(MANIFEST)).toBe(before);
+    expect([...keys]).toEqual(oldKeys);
+    expect(secure.setSecureItemWithBiometrics).toHaveBeenCalledTimes(1);
+    cache = new LocalBackupPasswordCache();
+    await cache.set({ ...scope, password: 'verified-manual-password' });
+    expect(keys.size).toBe(1);
+    expect(readEntry().keyRef).toBe(oldKeys[0][0]);
+    expect(keys.get(oldKeys[0][0])).not.toBe(oldKeys[0][1]);
+    expect(await cache.get(scope)).toBe('verified-manual-password');
+  });
+
+  it.each(['reject', 'persist then reject'])(
+    'does not write a new protected key when retry journaling fails (%s)',
+    async (failure) => {
+      secure.setSecureItemWithBiometrics.mockRejectedValueOnce(
+        new Error('cancelled'),
+      );
+      await cache.set({ ...scope, password: 'synthetic-password' });
+      secure.setSecureItem.mockImplementationOnce(async (key, value) => {
+        if (failure === 'persist then reject') metadata.set(key, value);
+        throw new OneKeyLocalError('journal failure');
+      });
+      await cache.set({ ...scope, password: 'verified-manual-password' });
+      expect(secure.setSecureItemWithBiometrics).toHaveBeenCalledTimes(1);
+      expect(readEntry().ciphertext).toBeUndefined();
+      expect(keys.size).toBe(0);
+      cache = new LocalBackupPasswordCache();
+      await cache.set({ ...scope, password: 'verified-manual-password' });
+      expect(await cache.get(scope)).toBe('verified-manual-password');
+    },
+  );
+
+  it('can reuse an already durable pending reference when an identical journal write is a no-op', async () => {
+    secure.setSecureItemWithBiometrics.mockRejectedValueOnce(
+      new Error('cancelled'),
+    );
+    await cache.set({ ...scope, password: 'synthetic-password' });
+    const pending = readEntry();
+    secure.setSecureItem.mockImplementationOnce(async () => {});
+    await cache.set({ ...scope, password: 'verified-manual-password' });
+    expect(readEntry().keyRef).toBe(pending.keyRef);
+    expect(secure.setSecureItemWithBiometrics).toHaveBeenCalledTimes(2);
+    expect(await cache.get(scope)).toBe('verified-manual-password');
+  });
+
+  it('does not create a protected item when the initial journal is not persisted', async () => {
+    secure.setSecureItem.mockImplementationOnce(async () => {});
+    await cache.set({ ...scope, password: 'synthetic-password' });
+    expect(metadata.size).toBe(0);
+    expect(keys.size).toBe(0);
+    expect(secure.setSecureItemWithBiometrics).not.toHaveBeenCalled();
+    cache = new LocalBackupPasswordCache();
+    await cache.set({ ...scope, password: 'verified-manual-password' });
+    expect(await cache.get(scope)).toBe('verified-manual-password');
+  });
+
+  it('keeps a failed retry commit erasable and allows another cold retry', async () => {
+    secure.setSecureItemWithBiometrics.mockRejectedValueOnce(
+      new Error('cancelled'),
+    );
+    await cache.set({ ...scope, password: 'synthetic-password' });
+    secure.setSecureItem
+      .mockImplementationOnce(async (key, value) => {
+        metadata.set(key, value);
+      })
+      .mockRejectedValueOnce(new Error('commit failed'));
+    await cache.set({ ...scope, password: 'verified-manual-password' });
+    const interrupted = readEntry();
+    const oldValue = keys.get(interrupted.keyRef);
+    expect(interrupted.ciphertext).toBeUndefined();
+    expect(keys.has(interrupted.keyRef)).toBe(true);
+    cache = new LocalBackupPasswordCache();
+    await cache.set({ ...scope, password: 'verified-manual-password' });
+    expect(readEntry().keyRef).toBe(interrupted.keyRef);
+    expect(keys.get(interrupted.keyRef)).not.toBe(oldValue);
+    expect(await cache.get(scope)).toBe('verified-manual-password');
     await cache.prepareForReset({ preserve: false });
     expect(metadata.size).toBe(0);
+    expect(keys.size).toBe(0);
+  });
+
+  it('keeps repeated declined retries unavailable and erasable', async () => {
+    secure.setSecureItemWithBiometrics.mockImplementation(
+      async (key, value) => {
+        keys.set(key, value);
+        throw new OneKeyLocalError('interrupted');
+      },
+    );
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      await cache.set({ ...scope, password: 'verified-manual-password' });
+      expect(keys.size).toBe(1);
+      expect(keys.has(readEntry().keyRef)).toBe(true);
+      expect(await cache.get(scope)).toBeUndefined();
+    }
+    expect(secure.setSecureItemWithBiometrics).toHaveBeenCalledTimes(3);
+    expect(secure.getSecureItemWithBiometrics).not.toHaveBeenCalled();
+    await cache.prepareForReset({ preserve: false });
+    expect(keys.size).toBe(0);
+    expect(metadata.size).toBe(0);
+  });
+
+  it('bounds wrapping aliases across cold cancelled retries while rotating the recovery key', async () => {
+    // Model Expo Android: alias creation precedes authentication, and deleting
+    // a stored item does not delete that alias. This is not a device test.
+    const aliases = new Set<string>();
+    let attempts = 0;
+    secure.setSecureItemWithBiometrics.mockImplementation(
+      async (ref, value) => {
+        aliases.add(ref);
+        attempts += 1;
+        if (attempts <= 3) throw new OneKeyLocalError('cancelled');
+        keys.set(ref, value);
+      },
+    );
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      await cache.set({ ...scope, password: 'verified-manual-password' });
+      expect(aliases.size).toBe(1);
+      expect(await cache.get(scope)).toBeUndefined();
+      cache = new LocalBackupPasswordCache();
+    }
+    await cache.set({ ...scope, password: 'verified-manual-password' });
+    const writes = secure.setSecureItemWithBiometrics.mock.calls;
+    expect(new Set(writes.map(([ref]) => ref)).size).toBe(1);
+    expect(new Set(writes.map(([, value]) => value)).size).toBe(4);
+    expect(secure.getSecureItemWithBiometrics).not.toHaveBeenCalled();
+    expect(await cache.get(scope)).toBe('verified-manual-password');
+    await cache.prepareForReset({ preserve: false });
+    expect(keys.size).toBe(0);
+    expect(metadata.size).toBe(0);
+    // JS deletion removes recovery values, not Android's Keystore wrapping key.
+    expect(aliases.size).toBe(1);
+  });
+
+  it('preserves a complete pairing when final commit persisted before rejecting', async () => {
+    secure.setSecureItem
+      .mockImplementationOnce(async (key, value) => {
+        metadata.set(key, value);
+      })
+      .mockImplementationOnce(async (key, value) => {
+        metadata.set(key, value);
+        throw new OneKeyLocalError('acknowledgment failed');
+      });
+    await cache.set({ ...scope, password: 'synthetic-password' });
+    const before = metadata.get(MANIFEST);
+    cache = new LocalBackupPasswordCache();
+    await cache.set({ ...scope, password: 'must-not-replace' });
+    expect(metadata.get(MANIFEST)).toBe(before);
+    expect(secure.removeSecureItem).not.toHaveBeenCalled();
+    expect(secure.setSecureItemWithBiometrics).toHaveBeenCalledTimes(1);
+    expect(await cache.get(scope)).toBe('synthetic-password');
+  });
+
+  it('does not retire another pairing through a duplicated pending reference', async () => {
+    await saveTwo();
+    const manifest = JSON.parse(metadata.get(MANIFEST) ?? '') as {
+      entries: Record<string, { keyRef: string; ciphertext?: string }>;
+    };
+    manifest.entries[stringUtils.stableStringify({ ...scope, version: 1 })] = {
+      keyRef: readEntry(second).keyRef,
+    };
+    metadata.set(MANIFEST, stringUtils.stableStringify(manifest));
+    const before = metadata.get(MANIFEST);
+    await cache.set({ ...scope, password: 'verified-manual-password' });
+    expect(metadata.get(MANIFEST)).toBe(before);
+    expect(secure.removeSecureItem).not.toHaveBeenCalled();
+    expect(secure.setSecureItemWithBiometrics).toHaveBeenCalledTimes(2);
+    expect(await cache.get(second)).toBe('synthetic-second-password');
+  });
+
+  it('serializes interrupted retries with same-record and other-record creation', async () => {
+    secure.setSecureItemWithBiometrics.mockRejectedValueOnce(
+      new Error('cancelled'),
+    );
+    await Promise.all([
+      cache.set({ ...scope, password: 'synthetic-password' }),
+      cache.set({ ...scope, password: 'verified-manual-password' }),
+      cache.set({ ...second, password: 'synthetic-second-password' }),
+      cache.set({ ...scope, password: 'must-not-replace-first' }),
+    ]);
+    expect(secure.setSecureItemWithBiometrics).toHaveBeenCalledTimes(3);
+    expect(keys.size).toBe(2);
+    expect(await cache.get(scope)).toBe('verified-manual-password');
+    expect(await cache.get(second)).toBe('synthetic-second-password');
+  });
+
+  it.each(['marker', 'manifest'])(
+    'never retries a pending enrollment behind an erasure %s',
+    async (intent) => {
+      secure.setSecureItemWithBiometrics.mockRejectedValueOnce(
+        new Error('cancelled'),
+      );
+      await cache.set({ ...scope, password: 'synthetic-password' });
+      if (intent === 'marker') metadata.set(ERASURE, '1');
+      else {
+        const manifest = JSON.parse(metadata.get(MANIFEST) ?? '') as {
+          erasing?: boolean;
+        };
+        manifest.erasing = true;
+        metadata.set(MANIFEST, stringUtils.stableStringify(manifest));
+      }
+      const before = [...metadata];
+      cache = new LocalBackupPasswordCache();
+      await cache.set({ ...scope, password: 'verified-manual-password' });
+      expect([...metadata]).toEqual(before);
+      expect(secure.removeSecureItem).not.toHaveBeenCalled();
+      expect(secure.setSecureItemWithBiometrics).toHaveBeenCalledTimes(1);
+      expect(await cache.get(scope)).toBeUndefined();
+      await cache.prepareForReset({ preserve: true });
+      expect(metadata.size).toBe(0);
+    },
+  );
+
+  it.each([false, true])(
+    'drains a retiring pending key and blocks queued enrollment on reset preserve=%s',
+    async (preserve) => {
+      secure.setSecureItemWithBiometrics.mockRejectedValueOnce(
+        new Error('cancelled'),
+      );
+      await cache.set({ ...scope, password: 'synthetic-password' });
+      let release = () => {};
+      const gate = new Promise<void>((resolve) => {
+        release = resolve;
+      });
+      let started = () => {};
+      const retiring = new Promise<void>((resolve) => {
+        started = resolve;
+      });
+      secure.removeSecureItem.mockImplementationOnce(async (key) => {
+        started();
+        await gate;
+        keys.delete(key);
+      });
+      const retry = cache.set({
+        ...scope,
+        password: 'verified-manual-password',
+      });
+      await retiring;
+      const queued = cache.set({
+        ...second,
+        password: 'synthetic-second-password',
+      });
+      const reset = cache.prepareForReset({ preserve });
+      release();
+      await Promise.all([retry, queued, reset]);
+      expect(keys.size).toBe(0);
+      expect(secure.setSecureItemWithBiometrics).toHaveBeenCalledTimes(1);
+      cache.finishReset();
+      await cache.set({ ...scope, password: 'verified-manual-password' });
+      expect(await cache.get(scope)).toBe('verified-manual-password');
+    },
+  );
+
+  it('drains an in-flight retry write before security erasure', async () => {
+    secure.setSecureItemWithBiometrics.mockRejectedValueOnce(
+      new Error('cancelled'),
+    );
+    await cache.set({ ...scope, password: 'synthetic-password' });
+    let release = () => {};
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    let started = () => {};
+    const writing = new Promise<void>((resolve) => {
+      started = resolve;
+    });
+    secure.setSecureItemWithBiometrics.mockImplementationOnce(
+      async (key, value) => {
+        started();
+        await gate;
+        keys.set(key, value);
+      },
+    );
+    const retry = cache.set({ ...scope, password: 'verified-manual-password' });
+    await writing;
+    const reset = cache.prepareForReset({ preserve: false });
+    release();
+    await Promise.all([retry, reset]);
+    expect(keys.size).toBe(0);
+    expect(metadata.size).toBe(0);
+    expect(await cache.get(scope)).toBeUndefined();
   });
 
   it('retains a tombstone across interrupted security erasure and retries without authentication', async () => {

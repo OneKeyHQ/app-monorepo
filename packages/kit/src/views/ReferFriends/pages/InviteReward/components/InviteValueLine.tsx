@@ -15,6 +15,7 @@ import {
 import { CardTextAction } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/components/CardTextAction';
 import { useNavigateToReferralLevel } from '@onekeyhq/kit/src/views/ReferFriends/pages/ReferralLevel/hooks/useNavigateToReferralLevel';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IInviteLevelDetail } from '@onekeyhq/shared/src/referralCode/type';
 
 import { ReferFriendsTestIDs } from '../../../testIDs';
@@ -233,6 +234,9 @@ function RateLine({
         size="$4"
         color="$iconSubdued"
         pointerEvents="none"
+        // The web Icon renders a flex container, which breaks onto its own
+        // line inside text; keep it inline so it follows the last word.
+        display={platformEnv.isNative ? undefined : 'inline-flex'}
         // Inline views sit on the baseline; this centers the icon on the
         // line.
         transform={[{ translateY: 2 }]}
