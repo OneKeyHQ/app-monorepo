@@ -112,9 +112,10 @@ describe('ProviderApiPrivate web-embed-only methods on native', () => {
     await expect(provider.getSensitiveEncodeKey(request)).resolves.toBe(
       'encode-key',
     );
-    await provider.webEmbedApiReady(request);
+    provider.activateWebEmbedMount({ mountId: 'singleton', mountSequence: 1 });
+    await provider.webEmbedApiReady(request, { mountId: 'singleton' });
     expect(provider.isWebEmbedApiReady).toBe(true);
-    await provider.webEmbedApiNotReady(request);
+    await provider.webEmbedApiNotReady(request, { mountId: 'singleton' });
     expect(provider.isWebEmbedApiReady).toBe(false);
   });
 
