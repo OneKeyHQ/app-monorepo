@@ -152,7 +152,6 @@ const nativeContractDependencies = {
     'expo-splash-screen',
     'expo-web-browser',
     'hermes-compiler',
-    'jcore-react-native',
     'jpush-react-native',
     'lottie-react-native',
     'react-native',
