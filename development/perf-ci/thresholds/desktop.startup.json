@@ -40,7 +40,8 @@
       },
       {
         "pattern": "locale/enum/translations.ts",
-        "bytes": 589824
+        "_comment": "Lokalise additions for hardware Cloud sync and path diagnostics bring this input to 591412 emitted bytes; keep the 580 KiB catalog cap.",
+        "bytes": 593920
       },
       {
         "pattern": "locale/json/",

@@ -1,5 +1,6 @@
 import { createHmac } from 'crypto';
 
+import { HardwareErrorCode } from '@onekeyfe/hd-shared';
 import { payments } from 'bitcoinjs-lib';
 import bitcoinMessage from 'bitcoinjs-message';
 
@@ -7,8 +8,7 @@ import {
   HARDWARE_CLOUD_SYNC_PATH,
   buildHardwareCloudSyncMessage,
 } from '@onekeyhq/shared/src/consts/hardwareCloudSyncConsts';
-import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
-import { HardwareCloudKeyDeviceRejectedError } from '@onekeyhq/shared/src/hardware/hardwareCloudKeyDeviceRejectedError';
+import { convertDeviceError } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 
 import {
   deriveHardwareCloudSyncKek,
@@ -75,9 +75,7 @@ class MockHardwareCloudKeyAdapter implements IHardwareCloudKeyAdapter {
 
   calls: Parameters<IHardwareCloudKeyAdapter['signMessage']>[0][] = [];
 
-  signFailure = false;
-
-  firmwareRejection?: string;
+  signFailure?: ReturnType<typeof convertDeviceError>;
 
   nonDeterministic = false;
 
@@ -95,17 +93,7 @@ class MockHardwareCloudKeyAdapter implements IHardwareCloudKeyAdapter {
     params: Parameters<IHardwareCloudKeyAdapter['signMessage']>[0],
   ) {
     this.calls.push(params);
-    if (this.firmwareRejection) {
-      throw new HardwareCloudKeyDeviceRejectedError(
-        params.path,
-        this.firmwareRejection,
-      );
-    }
-    if (this.signFailure) {
-      throw new OneKeyLocalError(
-        'SDK cancellation with a deliberately sensitive payload',
-      );
-    }
+    if (this.signFailure) throw this.signFailure;
     this.signatures += 1;
     const message = Buffer.from(params.messageHex, 'hex').toString('ascii');
     const signature = bitcoinMessage.sign(
@@ -206,7 +194,7 @@ describe('hardware Cloud key credential provider', () => {
   test('refuses a malformed salt before asking the device', async () => {
     const adapter = new MockHardwareCloudKeyAdapter();
     await expect(derive(adapter, () => true, 'NOT-A-SALT')).rejects.toThrow(
-      EXPECTED_FAILURE,
+      'Invalid Cloud sync key salt',
     );
     expect(adapter.calls).toHaveLength(0);
   });
@@ -237,23 +225,25 @@ describe('hardware Cloud key credential provider', () => {
     expect(adapter.signatures).toBe(0);
   });
 
-  test('keeps a firmware rejection visible instead of the generic error', async () => {
-    const rejected = new MockHardwareCloudKeyAdapter();
-    rejected.firmwareRejection = 'Failure_DataError,Forbidden key path';
-    await expect(derive(rejected)).rejects.toThrow(
-      `The device rejected the derivation path ${HARDWARE_CLOUD_SYNC_PATH} (Forbidden key path)`,
-    );
+  test('preserves the shared hardware error through key derivation', async () => {
+    const adapter = new MockHardwareCloudKeyAdapter();
+    const error = convertDeviceError({
+      code: HardwareErrorCode.ActionCancelled,
+      error: 'Action cancelled',
+    });
+    adapter.signFailure = error;
+    await expect(derive(adapter)).rejects.toBe(error);
   });
 
-  test('rejects cancellation without copying SDK error data', async () => {
+  test('preserves hardware errors from a post-sign identity read', async () => {
     const adapter = new MockHardwareCloudKeyAdapter();
-    adapter.signFailure = true;
-    await expect(derive(adapter)).rejects.toThrow(EXPECTED_FAILURE);
-    try {
-      await derive(adapter);
-    } catch (error) {
-      expect(String(error)).not.toContain('sensitive payload');
-    }
+    const error = convertDeviceError({
+      code: HardwareErrorCode.DeviceNotFound,
+      error: 'Device disconnected',
+    });
+    const readIdentity = jest.spyOn(adapter, 'getIdentity');
+    adapter.afterSign = () => readIdentity.mockRejectedValue(error);
+    await expect(derive(adapter)).rejects.toBe(error);
   });
 
   test('rejects disconnect or a wallet switch after confirmation', async () => {
