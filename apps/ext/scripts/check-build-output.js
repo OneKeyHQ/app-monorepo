@@ -250,6 +250,20 @@ function main() {
   for (const reference of collectManifestReferences(manifest)) {
     assertFile(outputRoot, reference, 'manifest.json');
   }
+  assertFile(outputRoot, 'hardware-sdk/iframe.html', 'hardware SDK');
+  const hardwareIframeHtml = fs.readFileSync(
+    path.join(outputRoot, 'hardware-sdk/iframe.html'),
+    'utf8',
+  );
+  if (
+    [
+      ...hardwareIframeHtml.matchAll(
+        /<script\b[^>]*>([\s\S]*?)<\/script(?=[\t\n\f\r />])[^>]*>/gi,
+      ),
+    ].some((match) => match[1].trim())
+  ) {
+    throw new Error('Hardware SDK iframe must not contain inline scripts.');
+  }
   const backgroundBootFiles = [
     'release-meta.js',
     'background-runtime.bundle.js',
