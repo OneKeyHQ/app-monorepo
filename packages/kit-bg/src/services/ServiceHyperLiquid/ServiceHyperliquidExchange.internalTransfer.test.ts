@@ -104,20 +104,30 @@ jest.mock('@nktkas/hyperliquid', () => {
         clientWallet = wallet;
         return {
           sendAsset: async (action: unknown) => {
-            await wallet.signTypedData(
-              {
-                name: 'HyperliquidSignTransaction',
-                version: '1',
-                chainId: 42_161,
-                verifyingContract: '0x0000000000000000000000000000000000000000',
-              },
-              {
-                'HyperliquidTransaction:SendAsset': [
-                  { name: 'nonce', type: 'uint64' },
-                ],
-              },
-              { nonce },
-            );
+            try {
+              await wallet.signTypedData(
+                {
+                  name: 'HyperliquidSignTransaction',
+                  version: '1',
+                  chainId: 42_161,
+                  verifyingContract:
+                    '0x0000000000000000000000000000000000000000',
+                },
+                {
+                  'HyperliquidTransaction:SendAsset': [
+                    { name: 'nonce', type: 'uint64' },
+                  ],
+                },
+                { nonce },
+              );
+            } catch (cause) {
+              const error = new Error(
+                'Failed to sign the typed data using the wallet',
+                { cause },
+              );
+              error.name = 'AbstractWalletError';
+              throw error;
+            }
             await post(action);
             return { status: 'ok', response: { type: 'default' } };
           },
@@ -208,6 +218,30 @@ describe('HL internal token transfers', () => {
     await service.transferAssetInternally(params);
     expect(clientWallet.signTypedData.length).toBe(3);
     await expect(clientWallet.getAddress()).resolves.toBe(source);
+  });
+
+  it('unwraps SDK signing failures without broadcasting or keeping a pending transfer', async () => {
+    const error = new Error('Reconnect the device');
+    sign.mockRejectedValueOnce(error);
+    await expect(service.transferAssetInternally(params)).rejects.toBe(error);
+    expect(post).not.toHaveBeenCalled();
+    expect(pending).toBeUndefined();
+  });
+
+  it('preserves review-required details when fees change after signing', async () => {
+    sign.mockImplementationOnce(async () => {
+      preTransferCheck.mockResolvedValue({ fee: '2', isSanctioned: false });
+      return 'signature';
+    });
+    await expect(service.transferAssetInternally(params)).rejects.toMatchObject(
+      {
+        message:
+          'The token, source account or fee changed. Review the transfer again.',
+        data: { requiresReview: true },
+      },
+    );
+    expect(post).not.toHaveBeenCalled();
+    expect(pending).toBeUndefined();
   });
 
   it('shares preview queries across source, token and recipient changes but checks each recipient', async () => {

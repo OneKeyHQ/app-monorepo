@@ -3,6 +3,7 @@
 import { Children, cloneElement } from 'react';
 import type { ReactElement, ReactNode } from 'react';
 
+import { HardwareErrorCode } from '@onekeyfe/hd-shared';
 import {
   act,
   fireEvent,
@@ -16,10 +17,17 @@ import {
   useBackHandler,
   type useInTabDialog,
 } from '@onekeyhq/components';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import { EModalPerpRoutes } from '@onekeyhq/shared/src/routes/perp';
-import type { IInternalTransferQuote } from '@onekeyhq/shared/types/hyperliquid/internalTransfer';
+import type {
+  IInternalTransferQuote,
+  IInternalTransferQuoteParams,
+  IInternalTransferToken,
+  IInternalTransferTokenParams,
+} from '@onekeyhq/shared/types/hyperliquid/internalTransfer';
 import type { IUserNonFundingLedgerUpdate } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
 import { ModalPerpStack, perpRouters } from '../../../router';
@@ -44,6 +52,7 @@ let active = {
   accountId: account.userAccountId,
   accountAddress: account.expectedAccountAddress,
 };
+let mockFocused = true;
 const getSources = jest.fn();
 const getQuote = jest.fn();
 const getTokens = jest.fn();
@@ -193,6 +202,9 @@ jest.mock(
 jest.mock(
   '@onekeyhq/kit/src/views/Send/pages/SendDataInput/QuickSelectListShared',
   () => ({
+    QuickSelectListSkeleton: () => (
+      <div data-testid="perps-internal-transfer-recipients-loading" />
+    ),
     QuickSelectListItemFrame: ({
       testID,
       primary,
@@ -218,9 +230,10 @@ jest.mock('@onekeyhq/kit/src/components/NetworkAvatar', () => ({
   ),
 }));
 jest.mock('@onekeyhq/kit/src/components/Token', () => ({ Token: () => null }));
-jest.mock('react-intl', () => ({
-  useIntl: () => ({ formatMessage: ({ id }: { id: string }) => id }),
-}));
+jest.mock('react-intl', () => {
+  const intl = { formatMessage: ({ id }: { id: string }) => id };
+  return { useIntl: () => intl };
+});
 jest.mock('@onekeyhq/kit/src/components/ListItem', () => ({
   ListItem: ({
     children,
@@ -254,7 +267,7 @@ jest.mock('@onekeyhq/kit/src/hooks/useAppNavigation', () => ({
   default: () => ({ pushModal }),
 }));
 jest.mock('@onekeyhq/kit/src/hooks/useRouteIsFocused', () => ({
-  useRouteIsFocusedWhenEnabled: () => true,
+  useRouteIsFocusedWhenEnabled: () => mockFocused,
 }));
 jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => ({
   usePerpsActiveAccountAtom: () => [active],
@@ -426,7 +439,13 @@ jest.mock('@onekeyhq/components', () => {
     ),
     YStack: Container,
     XStack: Container,
-    SizableText: Container,
+    SizableText: ({
+      children,
+      color,
+    }: {
+      children?: ReactNode;
+      color?: string;
+    }) => <div data-color={color}>{children}</div>,
     Empty: ({ title, description }: { title: string; description: string }) => (
       <div>
         {title}
@@ -656,8 +675,20 @@ describe('withdraw method selection', () => {
 });
 
 describe('HL internal transfer form', () => {
+  beforeAll(() => {
+    Object.defineProperty(globalThis, 'requestIdleCallback', {
+      configurable: true,
+      value: (callback: () => void) => setTimeout(callback, 0),
+    });
+    Object.defineProperty(globalThis, 'cancelIdleCallback', {
+      configurable: true,
+      value: clearTimeout,
+    });
+  });
+
   beforeEach(() => {
     jest.clearAllMocks();
+    mockFocused = true;
     account.userAccountId = 'hd-1--evm--0';
     Object.assign(platformEnv, {
       isNative: false,
@@ -822,6 +853,78 @@ describe('HL internal transfer form', () => {
     },
   );
 
+  it.each(['ios', 'android', 'web'])(
+    'waits for recent recipients before mounting accounts on %s and preserves the list on refresh',
+    async (platform) => {
+      Object.assign(platformEnv, {
+        isNative: platform !== 'web',
+        isNativeIOS: platform === 'ios',
+        isNativeAndroid: platform === 'android',
+      });
+      const recipients = [
+        { address: destination, amount: '12', token: 'HYPE' },
+      ];
+      let resolveRecipients: (value: typeof recipients) => void = () =>
+        undefined;
+      getRecentRecipients.mockImplementation(
+        () =>
+          new Promise<typeof recipients>((resolve) => {
+            resolveRecipients = resolve;
+          }),
+      );
+      const screen = render(<InternalTransferModal />);
+      expect(
+        screen.getByTestId('perps-internal-transfer-recipients-loading'),
+      ).toBeTruthy();
+      expect(screen.queryByTestId('wallet-recipient')).toBeNull();
+      expect(screen.queryByText('My accounts')).toBeNull();
+      expect(
+        screen
+          .getByTestId('perps-internal-transfer-recipient')
+          .hasAttribute('disabled'),
+      ).toBe(false);
+      await waitFor(() => expect(getRecentRecipients).toHaveBeenCalledTimes(1));
+      await act(async () => resolveRecipients(recipients));
+      const recentId = `perps-internal-transfer-recent-${destination}`;
+      expect(screen.getByTestId(recentId)).toBeTruthy();
+      expect(screen.queryByTestId('wallet-recipient')).toBeNull();
+      expect(
+        screen.queryByTestId('perps-internal-transfer-recipients-loading'),
+      ).toBeNull();
+
+      mockFocused = false;
+      screen.rerender(<InternalTransferModal />);
+      mockFocused = true;
+      screen.rerender(<InternalTransferModal />);
+      await waitFor(() => expect(getRecentRecipients).toHaveBeenCalledTimes(2));
+      expect(screen.getByTestId(recentId)).toBeTruthy();
+      expect(screen.queryByTestId('wallet-recipient')).toBeNull();
+      expect(
+        screen.queryByTestId('perps-internal-transfer-recipients-loading'),
+      ).toBeNull();
+      fireEvent.click(screen.getByRole('button', { name: 'My accounts' }));
+      expect(screen.getByTestId('wallet-recipient')).toBeTruthy();
+      await act(async () => resolveRecipients(recipients));
+      expect(screen.getByTestId('wallet-recipient')).toBeTruthy();
+    },
+  );
+
+  it.each(['empty', 'failed'])(
+    'shows accounts after a %s recent-recipient lookup',
+    async (result) => {
+      if (result === 'failed') {
+        getRecentRecipients.mockRejectedValue(new Error('offline'));
+      }
+      const screen = render(<InternalTransferModal />);
+      expect(screen.queryByTestId('wallet-recipient')).toBeNull();
+      expect(await screen.findByTestId('wallet-recipient')).toBeTruthy();
+      expect(screen.getByText('My accounts')).toBeTruthy();
+      expect(
+        screen.queryByTestId('perps-internal-transfer-recipients-loading'),
+      ).toBeNull();
+    },
+  );
+
   it('keeps manual address entry available when recent history fails', async () => {
     getRecentRecipients.mockRejectedValue(new Error('offline'));
     const screen = renderEntry();
@@ -846,7 +949,7 @@ describe('HL internal transfer form', () => {
         isNativeAndroid: platform === 'android',
       });
       const screen = render(<InternalTransferModal />);
-      fireEvent.click(screen.getByTestId('wallet-recipient'));
+      fireEvent.click(await screen.findByTestId('wallet-recipient'));
       const input = screen.getByTestId(
         'perps-internal-transfer-amount',
       ) as HTMLInputElement;
@@ -879,12 +982,12 @@ describe('HL internal transfer form', () => {
       isNativeIOS26Plus: true,
     });
     const screen = render(<InternalTransferModal />);
-    fireEvent.click(screen.getByTestId('wallet-recipient'));
+    fireEvent.click(await screen.findByTestId('wallet-recipient'));
     fireEvent.click(screen.getByRole('button', { name: '2' }));
     fireEvent.click(screen.getByTestId('header-back'));
     expect(screen.getByPlaceholderText('Address or account name')).toBeTruthy();
     expect(goBack).not.toHaveBeenCalled();
-    fireEvent.click(screen.getByTestId('wallet-recipient'));
+    fireEvent.click(await screen.findByTestId('wallet-recipient'));
     expect(
       (screen.getByTestId('perps-internal-transfer-amount') as HTMLInputElement)
         .value,
@@ -898,11 +1001,11 @@ describe('HL internal transfer form', () => {
     expect(screen.getByPlaceholderText('Address or account name')).toBeTruthy();
     expect(screen.queryByTestId('perps-internal-transfer-amount')).toBeNull();
     expect(
-      screen
-        .getByTestId('wallet-recipient')
-        .getAttribute('data-excluded-address'),
+      (await screen.findByTestId('wallet-recipient')).getAttribute(
+        'data-excluded-address',
+      ),
     ).toBe(account.expectedAccountAddress);
-    fireEvent.click(screen.getByTestId('wallet-recipient'));
+    fireEvent.click(await screen.findByTestId('wallet-recipient'));
     expect(screen.queryByText('To')).toBeNull();
     expect(screen.queryByText('Account 2')).toBeNull();
     fireEvent.change(screen.getByTestId('perps-internal-transfer-amount'), {
@@ -911,7 +1014,7 @@ describe('HL internal transfer form', () => {
     await waitFor(() =>
       expect(screen.getByText('Trading Account')).toBeTruthy(),
     );
-    expect(screen.queryByTestId('perps-internal-transfer-source')).toBeNull();
+    expect(screen.getByTestId('perps-internal-transfer-source')).toBeTruthy();
     fireEvent.click(screen.getByTestId('header-back'));
     expect(screen.queryByTestId('perps-internal-transfer-amount')).toBeNull();
     expect(screen.getByPlaceholderText('Address or account name')).toBeTruthy();
@@ -1003,8 +1106,15 @@ describe('HL internal transfer form', () => {
           .hasAttribute('disabled'),
       ).toBe(true);
       expect(getQuote).not.toHaveBeenCalled();
-      fireEvent.click(screen.getByTestId('wallet-recipient'));
+      fireEvent.click(await screen.findByTestId('wallet-recipient'));
       await screen.findByRole('option', { name: 'HYPE' });
+      await waitFor(() =>
+        expect(
+          screen
+            .getByTestId('perps-internal-transfer-token')
+            .hasAttribute('disabled'),
+        ).toBe(false),
+      );
       fireEvent.change(screen.getByTestId('perps-internal-transfer-token'), {
         target: { value: hype.id },
       });
@@ -1150,15 +1260,13 @@ describe('HL internal transfer form', () => {
     [true, undefined],
     [false, undefined],
   ])(
-    'shows the recipient warning only for an explicit false status (mobile: %s, userHasSentTx: %s)',
+    'omits the recipient hint while preserving the reviewed status (mobile: %s, userHasSentTx: %s)',
     async (mobile, userHasSentTx) => {
       getQuote.mockResolvedValue({ ...quote, userHasSentTx });
       const screen = await enterReview(mobile);
       expect(
-        Boolean(
-          screen.queryByText(/This recipient has never sent a transaction/),
-        ),
-      ).toBe(userHasSentTx === false);
+        screen.queryByText(/This recipient has never sent a transaction/),
+      ).toBeNull();
       expect(transfer).not.toHaveBeenCalled();
       fireEvent.click(screen.getByTestId('perps-internal-transfer-confirm'));
       await waitFor(() =>
@@ -1182,11 +1290,12 @@ describe('HL internal transfer form', () => {
       const hasFee = fee === '1';
       const confirmation = within(screen.getByRole('dialog'));
       expect(Boolean(confirmation.queryByText('Activation fee'))).toBe(hasFee);
+      expect(Boolean(confirmation.queryByText('1 USD stablecoin'))).toBe(
+        hasFee,
+      );
       expect(
-        Boolean(
-          confirmation.queryByText(/The activation fee is charged separately/),
-        ),
-      ).toBe(hasFee);
+        confirmation.queryByText(/The activation fee is charged separately/),
+      ).toBeNull();
       expect(confirmation.queryByText('Receive in')).toBeNull();
       expect(transfer).not.toHaveBeenCalled();
     },
@@ -1303,29 +1412,129 @@ describe('HL internal transfer form', () => {
     expect(successToast).toHaveBeenCalledWith({ title: 'Transfer confirmed' });
   });
 
-  it('keeps the account selector available with a single source', async () => {
-    const screen = renderEntry();
-    await waitFor(() =>
-      expect(screen.getByText('Trading Account')).toBeTruthy(),
+  it.each(['desktop', 'ios', 'android', 'web'])(
+    'keeps the account selector available with a single source on %s',
+    async (platform) => {
+      Object.assign(platformEnv, {
+        isNative: platform === 'ios' || platform === 'android',
+        isNativeIOS: platform === 'ios',
+        isNativeAndroid: platform === 'android',
+      });
+      const screen =
+        platform === 'desktop'
+          ? renderEntry()
+          : render(<InternalTransferModal />);
+      if (platform !== 'desktop') {
+        fireEvent.click(await screen.findByTestId('wallet-recipient'));
+      }
+      await waitFor(() =>
+        expect(screen.getByText('Trading Account')).toBeTruthy(),
+      );
+      const sourceSelect = screen.getByTestId(
+        'perps-internal-transfer-source',
+      ) as HTMLSelectElement;
+      expect(sourceSelect.disabled).toBe(false);
+      expect(sourceSelect.options).toHaveLength(1);
+      expect(sourceSelect.selectedOptions[0].textContent).toBe(
+        'Trading Account',
+      );
+      expect(screen.getByTestId('perps-internal-transfer-token')).toBeTruthy();
+      if (platformEnv.isNative) {
+        fireEvent.click(screen.getByRole('button', { name: '1' }));
+      } else {
+        fireEvent.change(screen.getByTestId('perps-internal-transfer-amount'), {
+          target: { value: '1' },
+        });
+      }
+      fireEvent.change(sourceSelect, { target: { value: 'trading' } });
+      fireEvent.change(screen.getByTestId('perps-internal-transfer-token'), {
+        target: { value: usdc.id },
+      });
+      expect(
+        (
+          screen.getByTestId(
+            'perps-internal-transfer-amount',
+          ) as HTMLInputElement
+        ).value,
+      ).toBe('1');
+    },
+  );
+
+  it.each(['desktop', 'ios', 'android', 'web'])(
+    'preloads both standard accounts and switches without reloading on %s',
+    async (platform) => {
+      Object.assign(platformEnv, {
+        isNative: platform === 'ios' || platform === 'android',
+        isNativeIOS: platform === 'ios',
+        isNativeAndroid: platform === 'android',
+      });
+      getSources.mockResolvedValue(['perps', 'spot']);
+      let resolveSpot!: (tokens: IInternalTransferToken[]) => void;
+      const spotRequest = new Promise<IInternalTransferToken[]>((resolve) => {
+        resolveSpot = resolve;
+      });
+      getTokens.mockImplementation((params: IInternalTransferTokenParams) =>
+        params.source === 'spot' ? spotRequest : Promise.resolve([usdc]),
+      );
+      const screen =
+        platform === 'desktop'
+          ? renderEntry()
+          : render(<InternalTransferModal />);
+      await waitFor(() => expect(getTokens).toHaveBeenCalledTimes(2));
+      for (const source of ['perps', 'spot']) {
+        expect(getTokens).toHaveBeenCalledWith(
+          expect.objectContaining({ ...account, source }),
+        );
+      }
+      if (platform !== 'desktop') {
+        fireEvent.click(await screen.findByTestId('wallet-recipient'));
+      }
+      const tokenSelect = screen.getByTestId(
+        'perps-internal-transfer-token',
+      ) as HTMLSelectElement;
+      await waitFor(() => expect(tokenSelect.disabled).toBe(false));
+      expect(tokenSelect.options).toHaveLength(1);
+
+      await act(async () => resolveSpot([hype, usdc]));
+      const sourceSelect = screen.getByTestId('perps-internal-transfer-source');
+      fireEvent.change(sourceSelect, { target: { value: 'spot' } });
+      expect(tokenSelect.disabled).toBe(false);
+      expect(tokenSelect.options).toHaveLength(2);
+      expect(tokenSelect.value).toBe(usdc.id);
+      fireEvent.change(sourceSelect, { target: { value: 'perps' } });
+      expect(tokenSelect.disabled).toBe(false);
+      expect(tokenSelect.options).toHaveLength(1);
+      expect(getTokens).toHaveBeenCalledTimes(2);
+    },
+  );
+
+  it('isolates a preloaded source failure and retries the selected source', async () => {
+    getSources.mockResolvedValue(['perps', 'spot']);
+    getTokens.mockImplementation(
+      async (params: IInternalTransferTokenParams) => {
+        if (params.source === 'spot')
+          throw new OneKeyLocalError('Spot unavailable');
+        return [usdc];
+      },
     );
-    const sourceSelect = screen.getByTestId(
-      'perps-internal-transfer-source',
+    const screen = renderEntry();
+    const tokenSelect = screen.getByTestId(
+      'perps-internal-transfer-token',
     ) as HTMLSelectElement;
-    expect(sourceSelect.disabled).toBe(false);
-    expect(sourceSelect.options).toHaveLength(1);
-    expect(sourceSelect.selectedOptions[0].textContent).toBe('Trading Account');
-    expect(screen.getByTestId('perps-internal-transfer-token')).toBeTruthy();
-    fireEvent.change(screen.getByTestId('perps-internal-transfer-amount'), {
-      target: { value: '1' },
+    await waitFor(() => expect(tokenSelect.disabled).toBe(false));
+    expect(screen.queryByText('Spot unavailable')).toBeNull();
+    fireEvent.change(screen.getByTestId('perps-internal-transfer-source'), {
+      target: { value: 'spot' },
     });
-    fireEvent.change(sourceSelect, { target: { value: 'trading' } });
-    fireEvent.change(screen.getByTestId('perps-internal-transfer-token'), {
-      target: { value: usdc.id },
-    });
-    expect(
-      (screen.getByTestId('perps-internal-transfer-amount') as HTMLInputElement)
-        .value,
-    ).toBe('1');
+    expect(await screen.findByText('Spot unavailable')).toBeTruthy();
+    expect(tokenSelect.options).toHaveLength(0);
+    getTokens.mockResolvedValue([hype, usdc]);
+    fireEvent.click(screen.getByTestId('perps-internal-transfer-retry-tokens'));
+    await waitFor(() => expect(tokenSelect.disabled).toBe(false));
+    expect(tokenSelect.options).toHaveLength(2);
+    expect(getTokens).toHaveBeenLastCalledWith(
+      expect.objectContaining({ source: 'spot' }),
+    );
   });
 
   it('clears the amount and requests a new quote when switching standard accounts', async () => {
@@ -1641,7 +1850,7 @@ describe('HL internal transfer form', () => {
     async (mobile) => {
       const screen = mobile ? render(<InternalTransferModal />) : renderEntry();
       if (mobile) {
-        fireEvent.click(screen.getByTestId('wallet-recipient'));
+        fireEvent.click(await screen.findByTestId('wallet-recipient'));
       } else {
         fireEvent.change(
           screen.getByTestId('perps-internal-transfer-recipient'),
@@ -1708,4 +1917,317 @@ describe('HL internal transfer form', () => {
       expect(transfer).not.toHaveBeenCalled();
     },
   );
+  it.each([
+    [true, true],
+    [true, false],
+    [false, true],
+    [false, false],
+  ])(
+    'recovers from an invalid source after account mode changes (mobile: %s, selected: %s)',
+    async (mobile, selected) => {
+      getSources.mockResolvedValue(['perps', 'spot']);
+      getQuote.mockImplementation(
+        async (params: IInternalTransferQuoteParams) => ({
+          ...quote,
+          ...params,
+          asset: params.tokenId === hype.id ? hype : usdc,
+          sourceDex: 'spot',
+          destinationDex: 'spot',
+        }),
+      );
+      const screen = mobile ? render(<InternalTransferModal />) : renderEntry();
+      if (mobile)
+        fireEvent.click(await screen.findByTestId('wallet-recipient'));
+      else
+        fireEvent.change(
+          screen.getByTestId('perps-internal-transfer-recipient'),
+          { target: { value: destination } },
+        );
+      await waitFor(() =>
+        expect(
+          screen
+            .getByTestId('perps-internal-transfer-source')
+            .querySelectorAll('option'),
+        ).toHaveLength(2),
+      );
+      if (selected) {
+        fireEvent.change(screen.getByTestId('perps-internal-transfer-source'), {
+          target: { value: 'spot' },
+        });
+      }
+      await waitFor(() =>
+        expect(
+          screen
+            .getByTestId('perps-internal-transfer-token')
+            .hasAttribute('disabled'),
+        ).toBe(false),
+      );
+      fireEvent.change(screen.getByTestId('perps-internal-transfer-token'), {
+        target: { value: hype.id },
+      });
+      fireEvent.change(screen.getByTestId('perps-internal-transfer-amount'), {
+        target: { value: '1' },
+      });
+      await waitFor(() =>
+        expect(
+          screen
+            .getByTestId('perps-internal-transfer-review')
+            .hasAttribute('disabled'),
+        ).toBe(false),
+      );
+      fireEvent.click(screen.getByTestId('perps-internal-transfer-review'));
+      getSources.mockResolvedValue(['trading']);
+      transfer.mockRejectedValueOnce(new Error('Source account changed'));
+      fireEvent.click(screen.getByTestId('perps-internal-transfer-confirm'));
+      const notice = await screen.findByText(
+        'active_trading_account_changed__msg',
+      );
+      expect(notice.getAttribute('data-color')).toBe('$textCaution');
+      await waitFor(() =>
+        expect(getQuote).toHaveBeenLastCalledWith(
+          expect.objectContaining({ source: 'trading', tokenId: usdc.id }),
+        ),
+      );
+      expect(
+        (
+          screen.getByTestId(
+            'perps-internal-transfer-amount',
+          ) as HTMLInputElement
+        ).value,
+      ).toBe('');
+      expect(
+        screen
+          .getByTestId('perps-internal-transfer-review')
+          .hasAttribute('disabled'),
+      ).toBe(true);
+      fireEvent.change(screen.getByTestId('perps-internal-transfer-amount'), {
+        target: { value: '2' },
+      });
+      await waitFor(() =>
+        expect(
+          screen
+            .getByTestId('perps-internal-transfer-review')
+            .hasAttribute('disabled'),
+        ).toBe(false),
+      );
+      fireEvent.click(screen.getByTestId('perps-internal-transfer-review'));
+      fireEvent.click(screen.getByTestId('perps-internal-transfer-confirm'));
+      await waitFor(() => expect(successToast).toHaveBeenCalledTimes(1));
+    },
+  );
+
+  it.each(['source', 'tokens', 'status'] as const)(
+    'leaves mobile review and exposes a retry when %s refresh fails',
+    async (kind) => {
+      const screen = await enterReview(true);
+      mockFocused = false;
+      screen.rerender(<InternalTransferModal />);
+      const request = { source: getSources, tokens: getTokens, status: check }[
+        kind
+      ];
+      request.mockRejectedValueOnce(new Error('Network unavailable'));
+      mockFocused = true;
+      screen.rerender(<InternalTransferModal />);
+      await screen.findByText('Network unavailable');
+      await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+      const footer = within(screen.getByTestId('page-footer'));
+      expect(
+        footer.getByText('Network unavailable').getAttribute('data-color'),
+      ).toBe('$textCritical');
+      expect(
+        footer
+          .getByTestId('perps-internal-transfer-review')
+          .hasAttribute('disabled'),
+      ).toBe(true);
+      expect(
+        (
+          screen.getByTestId(
+            'perps-internal-transfer-amount',
+          ) as HTMLInputElement
+        ).value,
+      ).toBe('10');
+      fireEvent.click(
+        footer.getByTestId(`perps-internal-transfer-retry-${kind}`),
+      );
+      await waitFor(() =>
+        expect(
+          footer
+            .getByTestId('perps-internal-transfer-review')
+            .hasAttribute('disabled'),
+        ).toBe(false),
+      );
+      expect(screen.queryByText('Network unavailable')).toBeNull();
+      expect(transfer).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each([true, false])(
+    'shows submission failures inline and allows a fresh review (mobile: %s)',
+    async (mobile) => {
+      transfer.mockRejectedValueOnce(new Error('Reconnect the device'));
+      const screen = await enterReview(mobile);
+      fireEvent.click(screen.getByTestId('perps-internal-transfer-confirm'));
+      const error = await screen.findByText('Reconnect the device');
+      expect(error.getAttribute('data-color')).toBe('$textCritical');
+      expect(successToast).not.toHaveBeenCalled();
+      await waitFor(() =>
+        expect(
+          screen
+            .getByTestId('perps-internal-transfer-review')
+            .hasAttribute('disabled'),
+        ).toBe(false),
+      );
+      fireEvent.click(screen.getByTestId('perps-internal-transfer-review'));
+      fireEvent.click(screen.getByTestId('perps-internal-transfer-confirm'));
+      await waitFor(() => expect(successToast).toHaveBeenCalledTimes(1));
+      expect(transfer).toHaveBeenCalledTimes(2);
+    },
+  );
+
+  it.each([true, false])(
+    'shows changed fees as a warning and requires review again (mobile: %s)',
+    async (mobile) => {
+      transfer.mockRejectedValueOnce(
+        Object.assign(new Error('Fee changed'), {
+          data: { requiresReview: true },
+        }),
+      );
+      const screen = await enterReview(mobile);
+      fireEvent.click(screen.getByTestId('perps-internal-transfer-confirm'));
+      const warning = await screen.findByText('Fee changed');
+      expect(warning.getAttribute('data-color')).toBe('$textCaution');
+      await waitFor(() =>
+        expect(
+          screen.queryByTestId('perps-internal-transfer-confirm'),
+        ).toBeNull(),
+      );
+      expect(transfer).toHaveBeenCalledTimes(1);
+      expect(successToast).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each([
+    { className: EOneKeyErrorClassNames.PasswordPromptDialogCancel },
+    {
+      className: EOneKeyErrorClassNames.OneKeyHardwareError,
+      code: HardwareErrorCode.ActionCancelled,
+    },
+    { code: 4001 },
+  ])('returns to the form silently after cancellation %j', async (details) => {
+    transfer.mockRejectedValueOnce(
+      Object.assign(new Error('Cancelled signing'), details),
+    );
+    const screen = await enterReview(true);
+    fireEvent.click(screen.getByTestId('perps-internal-transfer-confirm'));
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    expect(screen.queryByText('Cancelled signing')).toBeNull();
+    expect(
+      (screen.getByTestId('perps-internal-transfer-amount') as HTMLInputElement)
+        .value,
+    ).toBe('10');
+    await waitFor(() =>
+      expect(
+        screen
+          .getByTestId('perps-internal-transfer-review')
+          .hasAttribute('disabled'),
+      ).toBe(false),
+    );
+    expect(successToast).not.toHaveBeenCalled();
+    expect(transfer).toHaveBeenCalledTimes(1);
+  });
+  it.each([true, false])(
+    'keeps the pending view when a status query fails (mobile: %s)',
+    async (mobile) => {
+      check.mockResolvedValue({
+        status: 'pending',
+        pending: { nonce: 123, amount: '10', destination, sourceDex: 'spot' },
+      });
+      const screen = mobile ? render(<InternalTransferModal />) : renderEntry();
+      await screen.findByText('Transfer not yet confirmed');
+      check.mockRejectedValueOnce(new Error('Status unavailable'));
+      fireEvent.click(
+        screen.getByTestId('perps-internal-transfer-check-status'),
+      );
+      await screen.findByText('Status unavailable');
+      expect(screen.getByText('Transfer not yet confirmed')).toBeTruthy();
+      expect(screen.queryByTestId('perps-internal-transfer-review')).toBeNull();
+      expect(
+        screen.queryByTestId('perps-internal-transfer-confirm'),
+      ).toBeNull();
+      expect(transfer).not.toHaveBeenCalled();
+      check.mockResolvedValue({ status: 'confirmed' });
+      fireEvent.click(
+        screen.getByTestId('perps-internal-transfer-check-status'),
+      );
+      await waitFor(() => expect(successToast).toHaveBeenCalledTimes(1));
+    },
+  );
+
+  it('keeps mobile review open during signing even if a focus refresh fails', async () => {
+    let finish: (result: string) => void = () => undefined;
+    transfer.mockImplementationOnce(
+      () =>
+        new Promise<string>((resolve) => {
+          finish = resolve;
+        }),
+    );
+    const screen = await enterReview(true);
+    fireEvent.click(screen.getByTestId('perps-internal-transfer-confirm'));
+    mockFocused = false;
+    screen.rerender(<InternalTransferModal />);
+    getSources.mockRejectedValueOnce(new Error('Refresh unavailable'));
+    mockFocused = true;
+    screen.rerender(<InternalTransferModal />);
+    await screen.findByText('Refresh unavailable');
+    expect(screen.getByRole('dialog')).toBeTruthy();
+    fireEvent.click(screen.getByTestId('review-dialog-close'));
+    expect(screen.getByRole('dialog')).toBeTruthy();
+    expect(
+      screen
+        .getByTestId('perps-internal-transfer-confirm')
+        .hasAttribute('disabled'),
+    ).toBe(true);
+    expect(transfer).toHaveBeenCalledTimes(1);
+    check.mockResolvedValue({
+      status: 'pending',
+      pending: { nonce: 123, amount: '10', destination, sourceDex: 'spot' },
+    });
+    await act(async () => {
+      finish('pending');
+    });
+    await screen.findByText('Transfer not yet confirmed');
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(transfer).toHaveBeenCalledTimes(1);
+    expect(successToast).not.toHaveBeenCalled();
+  });
+  it('shows a rejected transfer before recovery requests finish', async () => {
+    const screen = await enterReview(true);
+    let finishRefresh: (sources: string[]) => void = () => undefined;
+    getSources.mockImplementationOnce(
+      () =>
+        new Promise<string[]>((resolve) => {
+          finishRefresh = resolve;
+        }),
+    );
+    transfer.mockRejectedValueOnce(new Error('Signing rejected by device'));
+    fireEvent.click(screen.getByTestId('perps-internal-transfer-confirm'));
+    await screen.findByText('Signing rejected by device');
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    expect(
+      screen
+        .getByTestId('perps-internal-transfer-review')
+        .hasAttribute('disabled'),
+    ).toBe(true);
+    await act(async () => {
+      finishRefresh(['trading']);
+    });
+    await waitFor(() =>
+      expect(
+        screen
+          .getByTestId('perps-internal-transfer-review')
+          .hasAttribute('disabled'),
+      ).toBe(false),
+    );
+    expect(transfer).toHaveBeenCalledTimes(1);
+  });
 });

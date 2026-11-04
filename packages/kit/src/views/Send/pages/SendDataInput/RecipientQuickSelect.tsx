@@ -171,6 +171,7 @@ type IRecipientQuickSelectProps = {
 type IAccountRecipientsProps = {
   excludedAddress?: string;
   nativeList?: boolean;
+  showNetworkIcon?: boolean;
   accountNetwork?: IRecipientAccountNetwork;
   networkId: string;
   senderDeriveType?: string;
@@ -347,6 +348,7 @@ function findMatchedAccountAddress(
 export function AccountRecipients({
   excludedAddress,
   nativeList = false,
+  showNetworkIcon = true,
   accountNetwork,
   networkId,
   senderDeriveType,
@@ -782,7 +784,7 @@ export function AccountRecipients({
             leading: accountSelectorAccountVisualV2({
               account,
               indexedAccount: item.indexedAccount,
-              network: accountNetwork,
+              network: showNetworkIcon ? accountNetwork : undefined,
               theme: nativeListTheme,
             }),
           }),
@@ -796,6 +798,7 @@ export function AccountRecipients({
     collapsedWallets,
     nativeListTheme,
     accountNetwork,
+    showNetworkIcon,
   ]);
 
   const handleNativeAccountAction = useCallback(
@@ -1054,7 +1057,7 @@ export function AccountRecipients({
                   }
                   indexedAccount={itemIndexedAccount}
                   account={account}
-                  networkId={networkId}
+                  networkId={showNetworkIcon ? networkId : undefined}
                   enableEnterAnimation
                 />
               ),

@@ -1,9 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { RefObject } from 'react';
 
+import { HardwareErrorCode } from '@onekeyfe/hd-shared';
+import { HardwareErrorCode as ThirdPartyHwErrorCode } from '@onekeyfe/hwk-adapter-core';
 import { useOverlayPageScope } from '@onekeyfe/react-native-native-overlay';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import BigNumber from 'bignumber.js';
+import { useIntl } from 'react-intl';
 
 import {
   Button,
@@ -31,6 +34,10 @@ import { Token } from '@onekeyhq/kit/src/components/Token';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { usePerpsActiveAccountAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
+import { isHardwareErrorByCode } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
+import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EModalPerpRoutes } from '@onekeyhq/shared/src/routes/perp';
@@ -47,6 +54,7 @@ import {
 } from '@onekeyhq/shared/src/utils/perpsUtils';
 import type {
   IInternalTransferAccount,
+  IInternalTransferPending,
   IInternalTransferQuote,
   IInternalTransferSource,
 } from '@onekeyhq/shared/types/hyperliquid/internalTransfer';
@@ -64,6 +72,7 @@ import {
 import { PerpsAmountKeypad } from './PerpsAmountKeypad';
 
 import type { RouteProp } from '@react-navigation/native';
+import type { IntlShape } from 'react-intl';
 import type { LayoutChangeEvent } from 'react-native';
 
 const sourceLabels: Record<IInternalTransferSource, string> = {
@@ -85,10 +94,40 @@ const transferInputProps: IInputProps = {
   },
 };
 
-function errorMessage(error: unknown) {
-  return error instanceof Error
+function errorMessage(error: unknown, intl: IntlShape) {
+  return error instanceof Error && error.message
     ? error.message
-    : 'Unable to complete the request. Try again.';
+    : intl.formatMessage({
+        id: ETranslations.global_unknown_error_retry_message,
+      });
+}
+
+function useInternalTransferTokens(
+  account: IInternalTransferAccount,
+  source: IInternalTransferSource,
+  enabled: boolean,
+  selectedTokenId?: string,
+) {
+  const intl = useIntl();
+  return usePromiseResult(
+    async () => {
+      if (!enabled) return undefined;
+      try {
+        return {
+          source,
+          tokens: await exchange.getInternalTransferTokens({
+            ...account,
+            source,
+            selectedTokenId,
+          }),
+        };
+      } catch (cause) {
+        return { source, error: errorMessage(cause, intl) };
+      }
+    },
+    [account, source, enabled, selectedTokenId, intl],
+    { watchLoading: true, revalidateOnFocus: true },
+  );
 }
 
 function InternalTransferContent({
@@ -102,6 +141,7 @@ function InternalTransferContent({
   inPage?: boolean;
   dialogRef?: RefObject<IDialogInstance | null>;
 }) {
+  const intl = useIntl();
   const navigation = useAppNavigation();
   const route = useRoute();
   const { hostKey, ownerKey } = useOverlayPageScope();
@@ -122,8 +162,12 @@ function InternalTransferContent({
   const [submitting, setSubmitting] = useState(false);
   const submittingRef = useRef(false);
   const [success, setSuccess] = useState(false);
+  const [pending, setPending] = useState<IInternalTransferPending>();
   const successHandledRef = useRef(false);
-  const [error, setError] = useState('');
+  const [error, setError] = useState<{
+    message: string;
+    warning?: boolean;
+  }>();
   const destination = destinationInput.trim();
   const aligned =
     activeAccount.accountId === account.userAccountId &&
@@ -133,7 +177,10 @@ function InternalTransferContent({
     destination,
     account.expectedAccountAddress,
   );
-  const { result: recentRecipientsResult } = usePromiseResult(
+  const {
+    result: recentRecipientsResult,
+    isLoading: isLoadingRecentRecipients,
+  } = usePromiseResult(
     async () => {
       if (!aligned) return undefined;
       try {
@@ -148,7 +195,7 @@ function InternalTransferContent({
       }
     },
     [account, aligned],
-    { revalidateOnFocus: true, undefinedResultIfReRun: true },
+    { revalidateOnFocus: true, watchLoading: true },
   );
   const recentRecipients =
     aligned &&
@@ -159,7 +206,6 @@ function InternalTransferContent({
   const recentRecipientItems = recentRecipients.map((recipient) => ({
     value: recipient.address,
     label: recipient.address,
-    showSelectionIndicator: false,
     labelComponent: (
       <XStack
         alignItems="center"
@@ -212,39 +258,62 @@ function InternalTransferContent({
       try {
         return { sources: await exchange.getInternalTransferSources(account) };
       } catch (cause) {
-        return { error: errorMessage(cause) };
+        return { error: errorMessage(cause, intl) };
       }
     },
-    [account, aligned],
+    [account, aligned, intl],
     { watchLoading: true, revalidateOnFocus: true },
   );
   const source = selectedSource ?? sourcesResult?.sources?.[0];
   const validSource =
     source !== undefined && sourcesResult?.sources?.includes(source);
+  const previousSourceRef = useRef(source);
+  useEffect(() => {
+    const sources = sourcesResult?.sources;
+    if (!aligned || submitting || !sources?.length) return;
+    const previousSource = previousSourceRef.current;
+    if (previousSource && !sources.includes(previousSource)) {
+      previousSourceRef.current = sources[0];
+      setSelectedSource(undefined);
+      setSelectedTokenId(undefined);
+      setAmount('');
+      setReview(undefined);
+      setError({
+        message: intl.formatMessage({
+          id: ETranslations.active_trading_account_changed__msg,
+        }),
+        warning: true,
+      });
+    } else {
+      previousSourceRef.current = source;
+    }
+  }, [aligned, intl, source, sourcesResult, submitting]);
 
+  const tokensBySource = {
+    perps: useInternalTransferTokens(
+      account,
+      'perps',
+      aligned && !!sourcesResult?.sources?.includes('perps'),
+      source === 'perps' ? selectedTokenId : undefined,
+    ),
+    spot: useInternalTransferTokens(
+      account,
+      'spot',
+      aligned && !!sourcesResult?.sources?.includes('spot'),
+      source === 'spot' ? selectedTokenId : undefined,
+    ),
+    trading: useInternalTransferTokens(
+      account,
+      'trading',
+      aligned && !!sourcesResult?.sources?.includes('trading'),
+      source === 'trading' ? selectedTokenId : undefined,
+    ),
+  };
   const {
     result: tokensResult,
     run: refreshTokens,
     isLoading: loadingTokens,
-  } = usePromiseResult(
-    async () => {
-      if (!aligned || !validSource || !source) return undefined;
-      try {
-        return {
-          source,
-          tokens: await exchange.getInternalTransferTokens({
-            ...account,
-            source,
-            selectedTokenId,
-          }),
-        };
-      } catch (cause) {
-        return { source, error: errorMessage(cause) };
-      }
-    },
-    [account, aligned, source, validSource, selectedTokenId],
-    { watchLoading: true, revalidateOnFocus: true },
-  );
+  } = tokensBySource[source ?? 'perps'];
   const tokens =
     tokensResult && tokensResult.source === source
       ? tokensResult.tokens
@@ -269,13 +338,14 @@ function InternalTransferContent({
       if (!aligned) return undefined;
       try {
         const result = await exchange.checkInternalTransfer(account);
+        setPending(result.status === 'pending' ? result.pending : undefined);
         if (result.status === 'confirmed') setSuccess(true);
         return result;
       } catch (cause) {
-        return { status: 'error' as const, message: errorMessage(cause) };
+        return { status: 'error' as const, message: errorMessage(cause, intl) };
       }
     },
-    [aligned, account],
+    [aligned, account, intl],
     { watchLoading: true, revalidateOnFocus: true },
   );
   const {
@@ -309,10 +379,16 @@ function InternalTransferContent({
           }),
         };
       } catch (cause) {
-        return { destination, source, tokenId, error: errorMessage(cause) };
+        return {
+          destination,
+          source,
+          tokenId,
+          error: errorMessage(cause, intl),
+        };
       }
     },
     [
+      intl,
       destination,
       source,
       asset,
@@ -340,6 +416,16 @@ function InternalTransferContent({
     quoteResult.tokenId === tokenId
       ? quoteResult.error
       : undefined;
+  useEffect(() => {
+    if (
+      review &&
+      !submitting &&
+      (sourcesResult?.error || tokenError || status?.status === 'error')
+    ) {
+      setReview(undefined);
+    }
+  }, [review, sourcesResult?.error, status?.status, submitting, tokenError]);
+
   const transferConfirmed = success || status?.status === 'confirmed';
   useEffect(() => {
     if (!transferConfirmed || submitting || successHandledRef.current) return;
@@ -347,7 +433,6 @@ function InternalTransferContent({
     onClose();
     Toast.success({ title: 'Transfer confirmed' });
   }, [transferConfirmed, submitting, onClose]);
-  const pending = status?.status === 'pending' ? status.pending : undefined;
   const selectingRecipient = inPage && mobileStep === 'recipient' && !review;
   const canGoBack =
     inPage && !transferConfirmed && !pending && !selectingRecipient;
@@ -426,7 +511,7 @@ function InternalTransferContent({
     if (!review || !ready || submittingRef.current) return;
     submittingRef.current = true;
     setSubmitting(true);
-    setError('');
+    setError(undefined);
     try {
       const result = await exchange.transferAssetInternally({
         ...account,
@@ -443,7 +528,28 @@ function InternalTransferContent({
       setSuccess(result === 'confirmed');
       await refreshStatus();
     } catch (cause) {
-      setError(errorMessage(cause));
+      const transferError = cause as
+        | IOneKeyError<unknown, { requiresReview?: boolean }>
+        | undefined;
+      const cancelled =
+        errorToastUtils.isUserCancelStyleError(cause) ||
+        transferError?.code === 4001 ||
+        isHardwareErrorByCode({
+          error: transferError,
+          code: [
+            HardwareErrorCode.ActionCancelled,
+            HardwareErrorCode.CallQueueActionCancelled,
+            HardwareErrorCode.PinCancelled,
+            ThirdPartyHwErrorCode.UserRejected,
+            ThirdPartyHwErrorCode.UserAborted,
+          ],
+        });
+      if (cancelled) return;
+      setError({
+        message: errorMessage(cause, intl),
+        warning: transferError?.data?.requiresReview === true,
+      });
+      setReview(undefined);
       await refreshSources();
       await refreshTokens();
       await refreshStatus();
@@ -490,10 +596,7 @@ function InternalTransferContent({
     },
   };
 
-  const confirmButtonStyle = getTradingButtonStyleProps(
-    'long',
-    !ready || submitting,
-  );
+  const confirmButtonStyle = getTradingButtonStyleProps('long');
   const confirmAction = (
     <Button
       testID="perps-internal-transfer-confirm"
@@ -527,7 +630,7 @@ function InternalTransferContent({
         disabled={!ready || !validAmount || quoting || !!review}
         onPress={() => {
           Keyboard.dismiss();
-          setError('');
+          setError(undefined);
           setReview(quote);
         }}
       >
@@ -535,73 +638,68 @@ function InternalTransferContent({
       </Button>
     ));
 
-  const sourceSelector =
-    inPage && sourcesResult?.sources?.length === 1 ? (
-      <SizableText size="$bodyLgMedium" color="$text" textAlign="right">
-        {source ? sourceLabels[source] : ''}
-      </SizableText>
-    ) : (
-      <Select
-        testID="perps-internal-transfer-source"
-        title="Select account"
-        placement="bottom-start"
-        floatingPanelProps={
-          inPage
-            ? undefined
-            : {
-                width: sourceInputWidth || '$56',
-                borderRadius: '$3',
-              }
-        }
-        renderTrigger={({ onPress, label, disabled }) => (
-          <Button
-            testID="perps-internal-transfer-source-trigger"
-            size={inPage ? 'medium' : 'small'}
-            h={inPage ? 36 : 38}
-            px={inPage ? '$0' : '$3'}
-            borderRadius="$2"
-            bg={inPage ? '$transparent' : '$bgStrong'}
-            justifyContent="space-between"
-            iconAfter="ChevronDownSmallOutline"
-            accessibilityLabel="Source account"
-            disabled={disabled}
-            onPress={onPress}
+  const sourceSelector = (
+    <Select
+      testID="perps-internal-transfer-source"
+      title="Select account"
+      placement="bottom-start"
+      floatingPanelProps={
+        inPage
+          ? undefined
+          : {
+              width: sourceInputWidth || '$56',
+              borderRadius: '$3',
+            }
+      }
+      renderTrigger={({ onPress, label, disabled }) => (
+        <Button
+          testID="perps-internal-transfer-source-trigger"
+          size={inPage ? 'medium' : 'small'}
+          h={inPage ? 36 : 38}
+          px={inPage ? '$0' : '$3'}
+          borderRadius="$2"
+          bg={inPage ? '$transparent' : '$bgStrong'}
+          hoverStyle={inPage ? { bg: '$transparent' } : undefined}
+          justifyContent="space-between"
+          iconAfter="ChevronDownSmallOutline"
+          accessibilityLabel="Source account"
+          disabled={disabled}
+          onPress={onPress}
+        >
+          {label || 'Select account'}
+        </Button>
+      )}
+      value={source}
+      placeholder="Select account"
+      items={(sourcesResult?.sources ?? []).map((value) => ({
+        value,
+        label: sourceLabels[value],
+        labelComponent: inPage ? undefined : (
+          <SizableText
+            size="$bodyMdMedium"
+            color={value === source ? '$textSuccess' : '$text'}
+            py="$1"
           >
-            {label || 'Select account'}
-          </Button>
-        )}
-        value={source}
-        placeholder="Select account"
-        items={(sourcesResult?.sources ?? []).map((value) => ({
-          value,
-          label: sourceLabels[value],
-          showSelectionIndicator: false,
-          labelComponent: (
-            <SizableText
-              size={inPage ? '$bodyLgMedium' : '$bodyMdMedium'}
-              color={value === source ? '$textSuccess' : '$text'}
-              py="$1"
-            >
-              {sourceLabels[value]}
-            </SizableText>
-          ),
-        }))}
-        disabled={
-          !aligned ||
-          submitting ||
-          !!review ||
-          loadingSources ||
-          !sourcesResult?.sources
-        }
-        onChange={(value: IInternalTransferSource) => {
-          if (value === source) return;
-          setSelectedSource(value);
-          setSelectedTokenId(undefined);
-          setAmount('');
-          setError('');
-        }}
-      />
-    );
+            {sourceLabels[value]}
+          </SizableText>
+        ),
+      }))}
+      disabled={
+        !aligned ||
+        submitting ||
+        !!review ||
+        loadingSources ||
+        !sourcesResult?.sources
+      }
+      onChange={(value: IInternalTransferSource) => {
+        if (value === source) return;
+        setSelectedSource(value);
+        setSelectedTokenId(undefined);
+        setAmount('');
+        setError(undefined);
+      }}
+    />
+  );
   const tokenSelector = (
     <Select
       testID="perps-internal-transfer-token"
@@ -657,7 +755,6 @@ function InternalTransferContent({
       items={(tokens ?? []).map((token) => ({
         value: token.id,
         label: getSpotTokenDisplayName(token.symbol),
-        showSelectionIndicator: false,
         labelComponent: (
           <XStack alignItems="center" gap="$2.5" py="$1" minWidth={0}>
             <Token
@@ -690,7 +787,7 @@ function InternalTransferContent({
         if (value === tokenId) return;
         setSelectedTokenId(value);
         setAmount('');
-        setError('');
+        setError(undefined);
       }}
     />
   );
@@ -701,11 +798,16 @@ function InternalTransferContent({
       search={recipientSearch}
       onChangeSearch={setRecipientSearch}
       recentRecipients={recentRecipients}
+      isLoading={
+        aligned &&
+        !recentRecipientsResult &&
+        isLoadingRecentRecipients !== false
+      }
       disabled={!aligned || submitting || !!review}
       onSelect={({ address }) => {
         Keyboard.dismiss();
         setDestination(address);
-        setError('');
+        setError(undefined);
         setMobileStep('amount');
       }}
     />
@@ -788,37 +890,91 @@ function InternalTransferContent({
         </SizableText>
       </XStack>
       {new BigNumber(review.fee).gt(0) ? (
-        <>
-          <XStack
-            justifyContent="space-between"
-            alignItems="flex-start"
-            gap="$4"
-          >
-            <SizableText size="$bodyMd" color="$textSubdued" flexShrink={0}>
-              Activation fee
-            </SizableText>
-            <SizableText
-              size="$bodyMdMedium"
-              textAlign="right"
-              flex={1}
-              minWidth={0}
-            >
-              {new BigNumber(review.fee).toFixed()} USD stablecoin
-            </SizableText>
-          </XStack>
-          <SizableText size="$bodySm" color="$textSubdued">
-            The activation fee is charged separately in stablecoin.
+        <XStack justifyContent="space-between" alignItems="flex-start" gap="$4">
+          <SizableText size="$bodyMd" color="$textSubdued" flexShrink={0}>
+            Activation fee
           </SizableText>
-        </>
-      ) : null}
-      {review.userHasSentTx === false ? (
-        <SizableText size="$bodySm" color="$textCaution">
-          This recipient has never sent a transaction on Hyperliquid. Confirm
-          that they control this address before sending.
-        </SizableText>
+          <SizableText
+            size="$bodyMdMedium"
+            textAlign="right"
+            flex={1}
+            minWidth={0}
+          >
+            {new BigNumber(review.fee).toFixed()} USD stablecoin
+          </SizableText>
+        </XStack>
       ) : null}
     </YStack>
   ) : null;
+
+  const formFeedback = (
+    <>
+      {sourcesResult?.sources &&
+      source &&
+      (!validSource || (review && review.source !== source)) ? (
+        <SizableText color="$textCaution">
+          {intl.formatMessage({
+            id: ETranslations.active_trading_account_changed__msg,
+          })}
+        </SizableText>
+      ) : null}
+      {sourcesResult?.error ? (
+        <>
+          <SizableText color="$textCritical">{sourcesResult.error}</SizableText>
+          <Button
+            testID="perps-internal-transfer-retry-source"
+            onPress={() => void refreshSources()}
+          >
+            {intl.formatMessage({ id: ETranslations.global_retry })}
+          </Button>
+        </>
+      ) : null}
+      {tokenError ? (
+        <>
+          <SizableText color="$textCritical">{tokenError}</SizableText>
+          <Button
+            testID="perps-internal-transfer-retry-tokens"
+            onPress={() => void refreshTokens()}
+          >
+            {intl.formatMessage({ id: ETranslations.global_retry })}
+          </Button>
+        </>
+      ) : null}
+      {quoteError ? (
+        <YStack gap="$2">
+          <SizableText color="$textCritical">{quoteError}</SizableText>
+          <Button
+            testID="perps-internal-transfer-retry-quote"
+            variant="tertiary"
+            onPress={async () => {
+              await refreshSources();
+              await refreshTokens();
+              await refreshQuote();
+            }}
+          >
+            {intl.formatMessage({ id: ETranslations.global_retry })}
+          </Button>
+        </YStack>
+      ) : null}
+      {status?.status === 'error' ? (
+        <YStack gap="$2">
+          <SizableText color="$textCritical">{status.message}</SizableText>
+          <Button
+            testID="perps-internal-transfer-retry-status"
+            variant="tertiary"
+            onPress={() => void refreshStatus()}
+          >
+            Check previous transfer
+          </Button>
+        </YStack>
+      ) : null}
+      {error ? (
+        <SizableText color={error.warning ? '$textCaution' : '$textCritical'}>
+          {error.message}
+        </SizableText>
+      ) : null}
+    </>
+  );
 
   const formGap = inPage ? '$5' : '$3';
 
@@ -841,14 +997,14 @@ function InternalTransferContent({
       ) : (
         <Dialog.Header
           title={review ? 'Review transfer' : 'Send tokens'}
+          description={
+            !transferConfirmed && !pending && !review
+              ? 'Send to another address on Hyperliquid (HyperCore).'
+              : undefined
+          }
           showExitButton={!submitting}
         />
       )}
-      {!inPage && !transferConfirmed && !pending && !review ? (
-        <SizableText size="$bodyMd" color="$textSubdued">
-          Send to another address on Hyperliquid (HyperCore).
-        </SizableText>
-      ) : null}
       {!aligned ? (
         <SizableText color="$textCritical">
           The active account changed. Close and reopen this form.
@@ -869,6 +1025,9 @@ function InternalTransferContent({
             The response was interrupted. This transfer may have succeeded.
             Check its status before sending again.
           </SizableText>
+          {status?.status === 'error' ? (
+            <SizableText color="$textCritical">{status.message}</SizableText>
+          ) : null}
           <Button
             testID="perps-internal-transfer-check-status"
             loading={checkingStatus}
@@ -948,7 +1107,7 @@ function InternalTransferContent({
                     )}
                     onChange={(value: string) => {
                       setDestination(value);
-                      setError('');
+                      setError(undefined);
                     }}
                   />
                 ) : (
@@ -1047,67 +1206,7 @@ function InternalTransferContent({
               </YStack>
             </>
           ) : null}
-          {source && (!validSource || (review && review.source !== source)) ? (
-            <SizableText color="$textCritical">
-              The account mode changed. Select an account and review the
-              transfer again.
-            </SizableText>
-          ) : null}
-          {sourcesResult?.error ? (
-            <>
-              <SizableText color="$textCritical">
-                {sourcesResult.error}
-              </SizableText>
-              <Button
-                testID="perps-internal-transfer-retry-source"
-                onPress={() => void refreshSources()}
-              >
-                Retry
-              </Button>
-            </>
-          ) : null}
-          {tokenError ? (
-            <>
-              <SizableText color="$textCritical">{tokenError}</SizableText>
-              <Button
-                testID="perps-internal-transfer-retry-tokens"
-                onPress={() => void refreshTokens()}
-              >
-                Retry
-              </Button>
-            </>
-          ) : null}
-          {quoteError ? (
-            <YStack gap="$2">
-              <SizableText color="$textCritical">{quoteError}</SizableText>
-              <Button
-                testID="perps-internal-transfer-retry-quote"
-                variant="tertiary"
-                onPress={async () => {
-                  await refreshSources();
-                  await refreshTokens();
-                  await refreshQuote();
-                }}
-              >
-                Retry
-              </Button>
-            </YStack>
-          ) : null}
-          {status?.status === 'error' ? (
-            <YStack gap="$2">
-              <SizableText color="$textCritical">{status.message}</SizableText>
-              <Button
-                testID="perps-internal-transfer-retry-status"
-                variant="tertiary"
-                onPress={() => void refreshStatus()}
-              >
-                Check previous transfer
-              </Button>
-            </YStack>
-          ) : null}
-          {error ? (
-            <SizableText color="$textCritical">{error}</SizableText>
-          ) : null}
+          {!inPage || selectingRecipient ? formFeedback : null}
         </>
       ) : null}
       {inPage && review && !transferConfirmed && !pending ? (
@@ -1168,6 +1267,7 @@ function InternalTransferContent({
                   }}
                 />
               ) : null}
+              {formFeedback}
               {actions}
             </YStack>
           </Page.Footer>

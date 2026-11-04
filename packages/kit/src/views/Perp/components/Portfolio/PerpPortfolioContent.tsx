@@ -1243,17 +1243,14 @@ function PerpPortfolioContentComponent({
 
   // ─── Portfolio Value buttons (shared) ───────────────────────────────────────
   const portfolioButtons = (
-    <XStack gap="$2" flexWrap="wrap">
+    <XStack gap="$2">
       <Button
         testID="perp-portfolio-buttons-btn"
         flex={1}
         borderRadius="$full"
-        size={isMobile ? 'small' : PERP_DIALOG_BUTTON_SIZE}
-        minHeight={isMobile ? '$11' : undefined}
-        minWidth={0}
-        textEllipsis
+        size={PERP_DIALOG_BUTTON_SIZE}
         variant="accent"
-        icon={isMobile ? undefined : 'DownloadOutline'}
+        icon="DownloadOutline"
         disabled={isDepositDisabled}
         onPress={() => showDepositWithdrawModal('deposit')}
       >
@@ -1265,16 +1262,13 @@ function PerpPortfolioContentComponent({
         testID="perp-portfolio-buttons-btn"
         flex={1}
         borderRadius="$full"
-        size={isMobile ? 'small' : PERP_DIALOG_BUTTON_SIZE}
-        minHeight={isMobile ? '$11' : undefined}
-        minWidth={0}
-        textEllipsis
+        size={PERP_DIALOG_BUTTON_SIZE}
         variant="secondary"
-        icon={isMobile ? undefined : 'AlignTopOutline'}
+        icon="AlignTopOutline"
         onPress={() => showDepositWithdrawModal('withdraw')}
       >
         {intl.formatMessage({
-          id: ETranslations.perp_trade_withdraw,
+          id: ETranslations.global_send,
         })}
       </Button>
     </XStack>

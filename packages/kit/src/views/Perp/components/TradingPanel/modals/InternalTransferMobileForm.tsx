@@ -17,7 +17,10 @@ import { ClipboardPlugin } from '@onekeyhq/kit/src/components/AddressInput/plugi
 import { BaseInput } from '@onekeyhq/kit/src/components/BaseInput';
 import { useDebounce } from '@onekeyhq/kit/src/hooks/useDebounce';
 import { SendAutoSizeAmountInput } from '@onekeyhq/kit/src/views/Send/components/SendAutoSizeAmountInput';
-import { QuickSelectListItemFrame } from '@onekeyhq/kit/src/views/Send/pages/SendDataInput/QuickSelectListShared';
+import {
+  QuickSelectListItemFrame,
+  QuickSelectListSkeleton,
+} from '@onekeyhq/kit/src/views/Send/pages/SendDataInput/QuickSelectListShared';
 import { AccountRecipients } from '@onekeyhq/kit/src/views/Send/pages/SendDataInput/RecipientQuickSelect';
 import { PERPS_NETWORK_ID } from '@onekeyhq/shared/src/consts/perp';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -31,6 +34,7 @@ export function InternalTransferRecipientStep({
   search,
   onChangeSearch,
   recentRecipients,
+  isLoading,
   disabled,
   onSelect,
 }: {
@@ -38,6 +42,7 @@ export function InternalTransferRecipientStep({
   search: string;
   onChangeSearch: (value: string) => void;
   recentRecipients: { address: string; amount: string; token: string }[];
+  isLoading: boolean;
   disabled: boolean;
   onSelect: (recipient: { address: string; name?: string }) => void;
 }) {
@@ -101,7 +106,12 @@ export function InternalTransferRecipientStep({
           {visibleSelectionError || addressError}
         </SizableText>
       ) : null}
-      {addressError ? (
+      {addressError && isLoading ? (
+        <YStack mx="$-5">
+          <QuickSelectListSkeleton />
+        </YStack>
+      ) : null}
+      {addressError && !isLoading ? (
         <YStack gap="$3">
           {recentRecipients.length ? (
             <SegmentControl
@@ -122,6 +132,7 @@ export function InternalTransferRecipientStep({
             {showAccounts ? (
               <AccountRecipients
                 networkId={PERPS_NETWORK_ID}
+                showNetworkIcon={false}
                 excludedAddress={sender}
                 keylessWalletsOnly={platformEnv.isWebDappMode}
                 searchKey={search.trim()}

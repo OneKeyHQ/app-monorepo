@@ -265,7 +265,7 @@ function PerpsSection({
           onPress={handleWithdraw}
           testID="web-account-panel-main-withdraw"
         >
-          {intl.formatMessage({ id: ETranslations.perp_trade_withdraw })}
+          {intl.formatMessage({ id: ETranslations.global_send })}
         </Button>
       </XStack>
     </YStack>

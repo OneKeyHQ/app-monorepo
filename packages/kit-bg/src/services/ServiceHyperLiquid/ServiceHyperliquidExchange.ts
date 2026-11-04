@@ -2252,9 +2252,11 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
   ) {
     const sources = await this._getInternalTransferSources(params, fresh);
     if (!sources.includes(params.source)) {
-      throw new OneKeyLocalError(
-        'The source account changed. Select an account and review the transfer again.',
-      );
+      throw new OneKeyLocalError({
+        message:
+          'The source account changed. Select an account and review the transfer again.',
+        data: { requiresReview: true },
+      });
     }
     const { infoClient } = hyperLiquidApiClients;
     const user = params.expectedAccountAddress as IHex;
@@ -2371,9 +2373,11 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
       quote.userHasSentTx === false &&
       params.expectedUserHasSentTx !== false
     ) {
-      throw new OneKeyLocalError(
-        'The recipient account status changed. Review the transfer again.',
-      );
+      throw new OneKeyLocalError({
+        message:
+          'The recipient account status changed. Review the transfer again.',
+        data: { requiresReview: true },
+      });
     }
     if (
       quote.asset.token !== params.expectedToken ||
@@ -2381,9 +2385,11 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
       quote.destinationDex !== params.expectedDestinationDex ||
       !new BigNumber(quote.fee).eq(params.expectedFee)
     ) {
-      throw new OneKeyLocalError(
-        'The token, source account or fee changed. Review the transfer again.',
-      );
+      throw new OneKeyLocalError({
+        message:
+          'The token, source account or fee changed. Review the transfer again.',
+        data: { requiresReview: true },
+      });
     }
     if (
       !isInternalTransferAmountValid(
@@ -2458,14 +2464,16 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
           },
         },
       });
-      await exchangeClient.sendAsset({
-        destination: params.destination as IHex,
-        sourceDex: params.expectedSourceDex,
-        destinationDex: params.expectedDestinationDex,
-        token: quote.asset.token,
-        amount: params.amount,
-        fromSubAccount: '',
-      });
+      await convertHyperLiquidResponse(() =>
+        exchangeClient.sendAsset({
+          destination: params.destination as IHex,
+          sourceDex: params.expectedSourceDex,
+          destinationDex: params.expectedDestinationDex,
+          token: quote.asset.token,
+          amount: params.amount,
+          fromSubAccount: '',
+        }),
+      );
       await db.setInternalTransferPending(key, undefined, signedNonce);
       this._refreshAfterInternalTransfer(key);
       return 'confirmed';

@@ -66,7 +66,7 @@ const TYPE_CONFIG_DATA = new Map<string, ITypeConfigRaw>([
   [
     'withdraw',
     {
-      translationId: ETranslations.perp_trade_withdraw,
+      translationId: ETranslations.global_send,
       isIncrease: false,
     },
   ],
