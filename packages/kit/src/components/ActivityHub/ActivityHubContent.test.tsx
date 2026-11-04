@@ -1498,20 +1498,11 @@ describe('Perps recall activity integration', () => {
       }
 
       await act(async () => resolveClose?.());
-      if (platform === 'native') {
-        expect(mockOpenUrlInApp).toHaveBeenCalledWith(
-          progress.blogUrl,
-          undefined,
-          { redirectExternalNavigation: true },
-        );
-        expect(mockOpenUrlInDiscovery).not.toHaveBeenCalled();
-        expect(mockOpenUrlExternal).not.toHaveBeenCalled();
-      } else if (platform === 'web') {
-        expect(mockOpenUrlInApp).not.toHaveBeenCalled();
+      expect(mockOpenUrlInApp).not.toHaveBeenCalled();
+      if (platform === 'web') {
         expect(mockOpenUrlExternal).toHaveBeenCalledWith(progress.blogUrl);
         expect(mockOpenUrlInDiscovery).not.toHaveBeenCalled();
       } else {
-        expect(mockOpenUrlInApp).not.toHaveBeenCalled();
         expect(mockOpenUrlInDiscovery).toHaveBeenCalledWith({
           url: progress.blogUrl,
         });

@@ -10,7 +10,6 @@ import {
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { openUrlInApp } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
 import { usePerpsRecallProgress } from '../hooks/usePerpsRecallProgress';
 
@@ -52,11 +51,7 @@ export function PerpsRecallDialogContent({
       // Open the browser tab while the click still has user activation.
       void close();
     }
-    if (platformEnv.isNative) {
-      openUrlInApp(blogUrl, undefined, { redirectExternalNavigation: true });
-    } else {
-      openGuideUrl(blogUrl);
-    }
+    openGuideUrl(blogUrl);
   };
   return (
     <PerpsRecallProgressCard
