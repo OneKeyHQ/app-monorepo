@@ -5482,6 +5482,7 @@
     "node_modules/@onekeyfe/react-native-cloud-kit-module/lib/module/index.js": 58812,
     "node_modules/@onekeyfe/react-native-device-utils/lib/module/index.js": 32540,
     "node_modules/@onekeyfe/react-native-image-crop-picker/lib/module/index.js": 56900,
+    "node_modules/@onekeyfe/react-native-image-crop-picker/lib/module/shared.js": 30238,
     "node_modules/@onekeyfe/react-native-image/lib/module/OneKeyImage.nitro.js": 39418,
     "node_modules/@onekeyfe/react-native-image/lib/module/icon/index.js": 39097,
     "node_modules/@onekeyfe/react-native-image/lib/module/icon/props.js": 24615,
