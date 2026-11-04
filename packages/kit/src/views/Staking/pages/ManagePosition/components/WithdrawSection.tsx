@@ -45,6 +45,7 @@ import {
   type IEarnAssetsList,
   type IEarnTokenInfo,
   type IEarnTokenItem,
+  type IEarnUtmParams,
   type IEarnWithdrawType,
   type IProtocolInfo,
 } from '@onekeyhq/shared/types/staking';
@@ -90,6 +91,7 @@ export const WithdrawSection = ({
   showApyDetail,
   isInModalContext,
   fallbackTokenImageUri,
+  utm,
   useBorrowApi,
   borrowMarketAddress,
   borrowReserveAddress,
@@ -116,6 +118,7 @@ export const WithdrawSection = ({
   showApyDetail?: boolean;
   isInModalContext?: boolean;
   fallbackTokenImageUri?: string;
+  utm?: IEarnUtmParams;
   useBorrowApi?: boolean;
   borrowMarketAddress?: string;
   borrowReserveAddress?: string;
@@ -1052,6 +1055,7 @@ export const WithdrawSection = ({
         outputTokenAddress: selectedReceiveTokenAddress,
         slippage: pendleSlippage,
         effectiveApy,
+        utm,
         useEthenaCooldown,
         resumeEthenaCooldownUnstake,
         withdrawType,
@@ -1080,6 +1084,7 @@ export const WithdrawSection = ({
     [
       hasRequiredData,
       handleWithdraw,
+      utm,
       // identity,
       providerName,
       vault,

@@ -25,7 +25,10 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import type { ISupportedSymbol } from '@onekeyhq/shared/types/earn';
-import type { IStakeProtocolListItem } from '@onekeyhq/shared/types/staking';
+import type {
+  IEarnUtmParams,
+  IStakeProtocolListItem,
+} from '@onekeyhq/shared/types/staking';
 
 import { EarnAlert } from '../../../components/ProtocolDetails/EarnAlert';
 import { NetworkUnsupportedWarning } from '../../../components/ProtocolDetails/NetworkUnsupportedWarning';
@@ -89,6 +92,9 @@ export interface IManagePositionContentProps {
   // Optional callbacks
   onCreateAddress?: () => Promise<void>;
   onStakeWithdrawSuccess?: () => void;
+  // Campaign attribution for the stake / withdraw request (Unitas reports by
+  // campaign); undefined unless the page was opened from a campaign link.
+  utm?: IEarnUtmParams;
 }
 
 // Loading shell for the manage panel. Instead of masking the whole panel with
@@ -450,6 +456,7 @@ export function ManagePositionContent({
   suppressPlatformBonus,
   onCreateAddress,
   onStakeWithdrawSuccess,
+  utm,
   isInModalContext = false,
 }: IManagePositionContentProps) {
   const intl = useIntl();
@@ -1025,6 +1032,7 @@ export function ManagePositionContent({
       showApyDetail={showApyDetail}
       stakeProtocolSwitchConfig={stakeProtocolSwitchConfig}
       suppressPlatformBonus={suppressPlatformBonus}
+      utm={utm}
       ongoingValidator={ongoingValidator}
       managePageData={managePageData}
     />

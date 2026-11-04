@@ -14,6 +14,7 @@ import type { IEarnPermitCacheKey } from '../../types/earn';
 import type {
   IEarnText,
   IEarnToken,
+  IEarnUtmParams,
   IEarnWithdrawType,
 } from '../../types/staking';
 import type { IToken } from '../../types/token';
@@ -346,6 +347,45 @@ function normalizeBorrowAddressParams<
   };
 }
 
+// Mirrors the server rule for the order DTO: visible ASCII, 1-100 chars.
+// Anything else is dropped so a malformed campaign link never blocks the
+// order with a validation error.
+const EARN_UTM_VALUE_PATTERN = /^[\x21-\x7e]{1,100}$/;
+
+function normalizeEarnUtmValue(value: unknown): string | undefined {
+  if (typeof value !== 'string') return undefined;
+  const trimmed = value.trim();
+  return EARN_UTM_VALUE_PATTERN.test(trimmed) ? trimmed : undefined;
+}
+
+/**
+ * Reads campaign attribution from a parsed Earn link or from route params.
+ * Accepts the link spelling (utm_source) and the route spelling (utmSource)
+ * because the web router hands query params through unchanged.
+ * @returns undefined when nothing usable is present, so callers can spread
+ * the result into request params without leaving empty keys behind.
+ */
+function normalizeEarnUtmParams(
+  params?: Record<string, unknown> | null,
+): IEarnUtmParams | undefined {
+  if (!params) return undefined;
+  const utmSource = normalizeEarnUtmValue(
+    params.utmSource ?? params.utm_source,
+  );
+  const utmMedium = normalizeEarnUtmValue(
+    params.utmMedium ?? params.utm_medium,
+  );
+  const utmCampaign = normalizeEarnUtmValue(
+    params.utmCampaign ?? params.utm_campaign,
+  );
+  if (!utmSource && !utmMedium && !utmCampaign) return undefined;
+  return {
+    ...(utmSource ? { utmSource } : {}),
+    ...(utmMedium ? { utmMedium } : {}),
+    ...(utmCampaign ? { utmCampaign } : {}),
+  };
+}
+
 export default {
   buildEarnAccountKey,
   getEarnProviderEnumKey,
@@ -370,6 +410,7 @@ export default {
   requiresEarnWithdrawPath,
   isEarnWithdrawPathReady,
   shouldSendEarnProtocolVault,
+  normalizeEarnUtmParams,
   isValidatorProvider,
   resolveEarnApproveSpenderAddress,
   resolveEarnApproveType,
