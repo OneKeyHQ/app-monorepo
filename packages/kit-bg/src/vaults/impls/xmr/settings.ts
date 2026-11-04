@@ -114,7 +114,7 @@ const settings: IVaultSettings = {
         key: 'private',
         kind: 'private',
         source: 'localScan',
-        label: 'Monero',
+        label: 'Private',
         isDefaultPrivate: true,
       },
     ],
@@ -127,7 +127,7 @@ const settings: IVaultSettings = {
     },
     // No `publicLabel`: no public pool to produce that address form.
     addressForms: {
-      privateLabel: ETranslations.privacy_receive_private_address__title,
+      privateLabel: ETranslations.private_send_private_option,
     },
     hideAddressOnTokenDetails: true,
     blockTimeSeconds: XMR_TARGET_BLOCK_SECONDS,

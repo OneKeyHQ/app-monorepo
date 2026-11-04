@@ -1406,6 +1406,41 @@ describe('xmr enable authorization boundary', () => {
     expect(notify).not.toHaveBeenCalled();
   });
 
+  it('suggests the creation date only for a freshly generated wallet', async () => {
+    const { cap, state } = setup();
+    const createdAt = new Date(2026, 9, 12).getTime();
+    await state.saveWalletCreationProvenance({
+      walletId: 'hd-1',
+      isFreshlyGeneratedMnemonic: true,
+      createdAt,
+    });
+
+    await expect(cap.getAccountState({ accountId })).resolves.toMatchObject({
+      enabled: false,
+      birthdayHintTimestamp: createdAt,
+    });
+    expect(mockEnsureViewingKey).not.toHaveBeenCalled();
+    expect(mockLocalRuntime).not.toHaveBeenCalled();
+  });
+
+  it.each([false, undefined])(
+    'does not use an imported or unknown wallet creation time as a scan hint (%s)',
+    async (freshMnemonic) => {
+      const { cap, state } = setup();
+      if (freshMnemonic !== undefined) {
+        await state.saveWalletCreationProvenance({
+          walletId: 'hd-1',
+          isFreshlyGeneratedMnemonic: freshMnemonic,
+          createdAt: new Date(2026, 9, 12).getTime(),
+        });
+      }
+      const result = await cap.getAccountState({ accountId });
+      expect(result.birthdayHintTimestamp).toBeUndefined();
+      expect(result.birthdayHeight).toBeUndefined();
+      expect(mockEnsureViewingKey).not.toHaveBeenCalled();
+    },
+  );
+
   it('does not invent a birthday for an account without a user selection', async () => {
     const { cap, state } = setup();
 

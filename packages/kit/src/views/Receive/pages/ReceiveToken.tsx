@@ -29,7 +29,12 @@ import {
   useHardwareUiStateAtom,
   useThirdPartyHardwareUiStateAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import type { ILocalWalletAccountAddresses } from '@onekeyhq/kit-bg/src/vaults/localWallet/types';
+import { useReceivePreferencesPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/receivePreferences';
+import type {
+  ILocalWalletAccountAddresses,
+  ILocalWalletAccountState,
+  ILocalWalletAccountSupport,
+} from '@onekeyhq/kit-bg/src/vaults/localWallet/types';
 import {
   isLocalWalletRuntimeUnavailableError,
   isLocalWalletSetupIncompleteError,
@@ -89,12 +94,16 @@ import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { useWalletBanner } from '../../../hooks/useWalletBanner';
 import { SetupRepairControl } from '../../AssetDetails/pages/TokenDetails/LocalWalletRepairControls';
 import { ReceiveCard, ReceiveCardCell } from '../components/ReceiveCard';
+import { ReceivePrivacyPromotion } from '../components/ReceivePrivacyPromotion';
+import { ReceivePrivacySyncStatus } from '../components/ReceivePrivacyStatus';
+import { ReceivePrivacySyncGate } from '../components/ReceivePrivacySyncGate';
 import { ReceiveQRCode } from '../components/ReceiveQRCode';
 import {
   ShareImageGenerator,
   showReceiveShareDialog,
 } from '../components/ReceiveShare';
 import { ReceiveTitle } from '../components/ReceiveTitle';
+import { useReceivePrivacySetup } from '../hooks/useReceivePrivacySetup';
 import { ReceiveTestIDs } from '../testIDs';
 import { EAddressState } from '../types';
 import { getManualAddressVerificationPath } from '../utils/manualVerificationPathUtils';
@@ -133,6 +142,9 @@ type ILocalWalletAddressRead = {
   networkId: string;
   accountId: string;
   addresses: ILocalWalletAccountAddresses | undefined;
+  paused?: boolean;
+  state?: ILocalWalletAccountState;
+  support?: ILocalWalletAccountSupport;
   errorKind?: ILocalWalletAddressErrorKind;
 };
 
@@ -379,14 +391,25 @@ function ReceiveToken() {
         return undefined;
       }
       const scope = { networkId: network.id, accountId: currentAccount.id };
+      let support: ILocalWalletAccountSupport | undefined;
+      let state: ILocalWalletAccountState | undefined;
       try {
-        return {
-          ...scope,
-          addresses:
-            await backgroundApiProxy.servicePrivacyChain.getLocalWalletAccountAddresses(
+        support =
+          await backgroundApiProxy.servicePrivacyChain.getLocalWalletAccountSupport(
+            scope,
+          );
+        if (support !== 'supported')
+          return { ...scope, support, addresses: undefined };
+        state =
+          await backgroundApiProxy.servicePrivacyChain.getLocalWalletAccountState(
+            scope,
+          );
+        const addresses = state.privacyDisabled
+          ? undefined
+          : await backgroundApiProxy.servicePrivacyChain.getLocalWalletAccountAddresses(
               scope,
-            ),
-        };
+            );
+        return { ...scope, addresses, support, state, paused: state.paused };
       } catch (error) {
         console.error('[privacyChain] receive address read failed', {
           error: error instanceof Error ? error.message : '',
@@ -396,7 +419,7 @@ function ReceiveToken() {
           errorKind = 'runtimeUnavailable';
         } else {
           // Set by a repair that derived another key; repairing again cannot help.
-          const state = await backgroundApiProxy.servicePrivacyChain
+          state = await backgroundApiProxy.servicePrivacyChain
             .getLocalWalletAccountState(scope)
             .catch(() => undefined);
           if (state?.identityMismatch) {
@@ -405,12 +428,34 @@ function ReceiveToken() {
             errorKind = 'setupIncomplete';
           }
         }
-        return { ...scope, addresses: undefined, errorKind };
+        return { ...scope, addresses: undefined, support, state, errorKind };
       }
     },
     [localWalletAddressForms, network?.id, currentAccount?.id],
-    { watchLoading: true },
+    { watchLoading: true, revalidateOnFocus: true },
   );
+  useEffect(() => {
+    if (!localWalletAddressForms || !currentAccount?.id || !network?.id) {
+      return;
+    }
+    const refresh = (event: { networkId: string; accountIds: string[] }) => {
+      if (
+        event.networkId === network.id &&
+        event.accountIds.includes(currentAccount.id)
+      ) {
+        void reloadLocalWalletAddresses();
+      }
+    };
+    appEventBus.on(EAppEventBusNames.LocalWalletAccountsChanged, refresh);
+    return () => {
+      appEventBus.off(EAppEventBusNames.LocalWalletAccountsChanged, refresh);
+    };
+  }, [
+    localWalletAddressForms,
+    currentAccount?.id,
+    network?.id,
+    reloadLocalWalletAddresses,
+  ]);
   // The read lags a network or account switch and does not re-run while the
   // network picker covers the page: another scope's result is still loading.
   const localWalletAddressRead =
@@ -419,23 +464,64 @@ function ReceiveToken() {
       ? localWalletAddressResult
       : undefined;
   const localWalletAddresses = localWalletAddressRead?.addresses;
-  // Opens on the form of the entry (token details pool tab, its Copy).
-  const [requestedAddressForm, setReceiveAddressForm] = useState<
-    'public' | 'private'
-  >(localWalletAddressForm === 'private' ? 'private' : 'public');
+  const [receivePreferences, setReceivePreferences] =
+    useReceivePreferencesPersistAtom();
+  const receiveScope = `${networkId}:${currentAccount?.id ?? accountId}`;
+  const [addressFormSelection, setAddressFormSelection] = useState<{
+    scope: string;
+    value: 'public' | 'private';
+  }>();
+  // An explicit entry (the token's pool tab) wins over the saved preference.
+  const routeAddressForm =
+    networkId === routeNetworkId &&
+    (currentAccount?.id ?? accountId) === routeAccountId
+      ? localWalletAddressForm
+      : undefined;
+  const requestedAddressForm =
+    addressFormSelection?.scope === receiveScope
+      ? addressFormSelection.value
+      : (routeAddressForm ??
+        receivePreferences.addressForms[receiveScope] ??
+        'public');
+  const setReceiveAddressForm = useCallback(
+    (value: 'public' | 'private') => {
+      setAddressFormSelection({ scope: receiveScope, value });
+      setReceivePreferences((previous) => ({
+        ...previous,
+        addressForms: { ...previous.addressForms, [receiveScope]: value },
+      }));
+    },
+    [receiveScope, setReceivePreferences],
+  );
+  const canEnablePrivateReceive =
+    localWalletAddressRead?.support === 'supported' &&
+    !localWalletAddressRead.state?.privacyDisabled;
   const localWalletPrivateAddress = localWalletAddresses?.privateAddress;
-  // A chain with only a private form (Monero) always receives privately, from
-  // whichever entry the page was opened.
-  const receiveAddressForm: 'public' | 'private' =
-    localWalletAddressForms && !localWalletAddressForms.publicLabel
-      ? 'private'
-      : requestedAddressForm;
+  let receiveAddressForm: 'public' | 'private' = requestedAddressForm;
+  if (localWalletAddressForms && !localWalletAddressForms.publicLabel) {
+    // Monero has no public form to fall back to.
+    receiveAddressForm = 'private';
+  } else if (
+    localWalletAddressForms?.publicLabel &&
+    (localWalletAddressRead?.support === 'unsupported' ||
+      localWalletAddressRead?.support === 'tempWallet' ||
+      localWalletAddressRead?.state?.privacyDisabled)
+  ) {
+    // Keep public receive available without overwriting the saved preference.
+    receiveAddressForm = 'public';
+  }
   // Paused or never enabled: nothing scans the private address, so it is not
   // handed out; the page points at where scanning is turned on instead.
   const isPrivateReceiveUnavailable =
     localWalletAddressForms &&
     receiveAddressForm === 'private' &&
-    localWalletAddresses !== undefined &&
+    localWalletAddressRead !== undefined &&
+    !localWalletAddressRead.errorKind &&
+    !isLocalWalletAddressLoading &&
+    canEnablePrivateReceive &&
+    !localWalletAddressRead.state?.pendingOperation &&
+    (!localWalletAddressRead.state?.enabled ||
+      localWalletAddressRead.state.paused) &&
     !localWalletPrivateAddress;
   const privateReceiveErrorKind =
     localWalletAddressForms && receiveAddressForm === 'private'
@@ -445,7 +531,13 @@ function ReceiveToken() {
     !!localWalletAddressForms &&
     receiveAddressForm === 'private' &&
     !!currentAccount &&
-    !localWalletAddressRead;
+    (!localWalletAddressRead ||
+      (canEnablePrivateReceive &&
+        !localWalletAddressRead.errorKind &&
+        !localWalletAddressRead.state?.paused &&
+        (localWalletAddressRead.state?.enabled ||
+          localWalletAddressRead.state?.pendingOperation) &&
+        !localWalletPrivateAddress));
 
   let displayAddress = currentAccount?.address ?? '';
   if (isBtcUsedAddressVerifyMode) {
@@ -1745,31 +1837,35 @@ function ReceiveToken() {
 
   // Placeholder while a switch or the private address read resolves: header
   // stays, no stale address.
-  const renderPlaceholderCard = useCallback(() => {
-    if (!network) return null;
-    const qrSize = platformEnv.isNative ? 208 : 176;
-    return (
-      <ReceiveCard
-        testID={ReceiveTestIDs.SwitchPlaceholder}
-        headerLeft={cardHeaderLeft}
-      >
-        <ReceiveCardCell
-          alignItems="center"
-          justifyContent="center"
-          py={27}
-          px="$4"
+  const renderPlaceholderCard = useCallback(
+    (headerRight?: React.ReactNode) => {
+      if (!network) return null;
+      const qrSize = platformEnv.isNative ? 208 : 176;
+      return (
+        <ReceiveCard
+          testID={ReceiveTestIDs.SwitchPlaceholder}
+          headerLeft={cardHeaderLeft}
+          headerRight={headerRight}
         >
-          <Skeleton w={qrSize} h={qrSize} radius={12} />
-        </ReceiveCardCell>
-        <ReceiveCardCell>
-          <YStack px="$4" py="$3" gap="$2">
-            <Skeleton w="100%" h="$4" />
-            <Skeleton w="60%" h="$4" />
-          </YStack>
-        </ReceiveCardCell>
-      </ReceiveCard>
-    );
-  }, [network, cardHeaderLeft]);
+          <ReceiveCardCell
+            alignItems="center"
+            justifyContent="center"
+            py={27}
+            px="$4"
+          >
+            <Skeleton w={qrSize} h={qrSize} radius={12} />
+          </ReceiveCardCell>
+          <ReceiveCardCell>
+            <YStack px="$4" py="$3" gap="$2">
+              <Skeleton w="100%" h="$4" />
+              <Skeleton w="60%" h="$4" />
+            </YStack>
+          </ReceiveCardCell>
+        </ReceiveCard>
+      );
+    },
+    [network, cardHeaderLeft],
+  );
 
   // The selector saves the choice before calling back, so the callback can
   // arrive after the page moved to another network: it only applies to the
@@ -1803,16 +1899,38 @@ function ReceiveToken() {
     [accountId, networkId, onDeriveTypeChange, resetVerifyState],
   );
 
+  const networkIdForPrivacySettings = network?.id;
+  const openPrivacyNetworkSettings = useCallback(() => {
+    if (!networkIdForPrivacySettings) return;
+    navigation.pushModal(EModalRoutes.SettingModal, {
+      screen: EModalSettingRoutes.SettingPrivacyNetwork,
+      params: { networkId: networkIdForPrivacySettings, walletId },
+    });
+  }, [navigation, networkIdForPrivacySettings, walletId]);
+
+  const handlePrivacyEnabled = useCallback(() => {
+    resetVerifyState();
+    setReceiveAddressForm('private');
+    void reloadLocalWalletAddresses();
+  }, [reloadLocalWalletAddresses, resetVerifyState, setReceiveAddressForm]);
+  const { open: openPrivacySyncSetup, busy: isPrivacySetupBusy } =
+    useReceivePrivacySetup({
+      networkId,
+      accountId: currentAccount?.id,
+      settings: vaultSettings?.localWallet,
+      onEnabled: handlePrivacyEnabled,
+      onOpenSettings: openPrivacyNetworkSettings,
+    });
+
   const cardHeaderRight = useMemo(() => {
     // A chain with no public pool (Monero) has nothing to switch to.
     const publicFormLabel = localWalletAddressForms?.publicLabel;
-    if (
-      localWalletPrivateAddress &&
-      localWalletAddressForms &&
-      publicFormLabel
-    ) {
+    if (canEnablePrivateReceive && localWalletAddressForms && publicFormLabel) {
       const isAddressFormDisabled =
-        isVerifying || isPreparingShare || isSwitchResolving;
+        isVerifying ||
+        isPreparingShare ||
+        isSwitchResolving ||
+        isPrivacySetupBusy;
       const label = intl.formatMessage({
         id:
           receiveAddressForm === 'public'
@@ -1829,9 +1947,21 @@ function ReceiveToken() {
             if (
               isVerifyingRef.current ||
               isPreparingShare ||
+              isPrivacySetupBusy ||
               isSwitchResolvingRef.current ||
               value === receiveAddressForm
             ) {
+              return;
+            }
+            if (
+              value === 'private' &&
+              !localWalletPrivateAddress &&
+              !localWalletAddressRead?.errorKind &&
+              !localWalletAddressRead?.state?.pendingOperation &&
+              (!localWalletAddressRead?.state?.enabled ||
+                localWalletAddressRead.state.paused)
+            ) {
+              void openPrivacySyncSetup();
               return;
             }
             resetVerifyState();
@@ -1939,7 +2069,15 @@ function ReceiveToken() {
     intl,
     localWalletAddressForms,
     localWalletPrivateAddress,
+    localWalletAddressRead?.state?.enabled,
+    localWalletAddressRead?.state?.paused,
+    localWalletAddressRead?.state?.pendingOperation,
+    localWalletAddressRead?.errorKind,
+    canEnablePrivateReceive,
+    isPrivacySetupBusy,
+    openPrivacySyncSetup,
     receiveAddressForm,
+    setReceiveAddressForm,
     resetVerifyState,
     vaultSettings?.mergeDeriveAssetsEnabled,
     currentAccount,
@@ -2086,15 +2224,6 @@ function ReceiveToken() {
     return !!(banner?.href || banner?.mode);
   }, [banner?.href, banner?.mode]);
 
-  const networkIdForPrivacySettings = network?.id;
-  const openPrivacyNetworkSettings = useCallback(() => {
-    if (!networkIdForPrivacySettings) return;
-    navigation.pushModal(EModalRoutes.SettingModal, {
-      screen: EModalSettingRoutes.SettingPrivacyNetwork,
-      params: { networkId: networkIdForPrivacySettings, walletId },
-    });
-  }, [navigation, networkIdForPrivacySettings, walletId]);
-
   let privateReceiveErrorAction: React.ReactNode = null;
   if (
     privateReceiveErrorKind === 'setupIncomplete' &&
@@ -2187,6 +2316,46 @@ function ReceiveToken() {
               {shouldShowAddress ? renderAddressCell() : null}
             </ReceiveCard>
           ) : null}
+          {canEnablePrivateReceive &&
+          localWalletAddressForms?.publicLabel &&
+          receiveAddressForm === 'public' &&
+          !localWalletPrivateAddress &&
+          !localWalletAddressRead?.state?.enabled &&
+          !localWalletAddressRead?.state?.pendingOperation ? (
+            <ReceivePrivacyPromotion
+              loading={isPrivacySetupBusy}
+              paused={localWalletAddressRead?.paused}
+              onEnable={() => void openPrivacySyncSetup()}
+            />
+          ) : null}
+          {receiveAddressForm === 'private' &&
+          localWalletPrivateAddress &&
+          currentAccount &&
+          network ? (
+            <ReceivePrivacySyncStatus
+              networkId={network.id}
+              accountId={currentAccount.id}
+            />
+          ) : null}
+          {receiveAddressForm === 'private' &&
+          localWalletAddressRead &&
+          !localWalletAddressRead.errorKind &&
+          !canEnablePrivateReceive &&
+          !displayAddress ? (
+            <SizableText
+              testID="receive-privacy-unavailable"
+              size="$bodyMd"
+              color="$textSubdued"
+              textAlign="center"
+            >
+              {intl.formatMessage({
+                id:
+                  localWalletAddressRead.support === 'tempWallet'
+                    ? ETranslations.privacy_temp_wallet_unavailable__desc
+                    : ETranslations.privacy_balance_wallet_not_supported__desc,
+              })}
+            </SizableText>
+          ) : null}
           {privateReceiveErrorKind && currentAccount && network ? (
             <YStack
               testID="receive-local-wallet-address-failed"
@@ -2208,30 +2377,20 @@ function ReceiveToken() {
             </YStack>
           ) : null}
           {isPrivateReceiveUnavailable && network ? (
-            <YStack gap="$3" alignItems="center">
-              <SizableText
-                size="$bodyMd"
-                color="$textSubdued"
-                textAlign="center"
-              >
-                {intl.formatMessage({
-                  id: ETranslations.privacy_receive_needs_sync__msg,
-                })}
-              </SizableText>
-              <Button
-                testID="receive-open-privacy-settings"
-                variant="primary"
-                onPress={openPrivacyNetworkSettings}
-              >
-                {intl.formatMessage({
-                  id: ETranslations.backup_turn_on,
-                })}
-              </Button>
-            </YStack>
+            <ReceiveCard
+              headerLeft={cardHeaderLeft}
+              headerRight={cardHeaderRight}
+            >
+              <ReceivePrivacySyncGate
+                paused={localWalletAddressRead?.paused}
+                loading={isPrivacySetupBusy}
+                onEnable={() => void openPrivacySyncSetup()}
+              />
+            </ReceiveCard>
           ) : null}
           {(isSwitchPending || isPrivateAddressLoading) &&
           !(currentAccount && displayAddress)
-            ? renderPlaceholderCard()
+            ? renderPlaceholderCard(cardHeaderRight)
             : null}
           {canShowShareEntry && shareData ? (
             // offscreen: pre-generates the share image so the dialog opens

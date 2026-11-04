@@ -5,6 +5,7 @@ import type { ReactNode } from 'react';
 
 import { render, waitFor } from '@testing-library/react';
 
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   buildLocalWalletHistoryAddressGate,
   gateLocalWalletHistoryDetail,
@@ -160,7 +161,7 @@ beforeEach(() => {
   mockAddresses = { publicAddress: OWN_T, privateAddress: OWN_UA };
 });
 
-it('names own notes by pool unless the note names the displayed address', async () => {
+it('labels own notes as private unless the note names the displayed address', async () => {
   mockDetails = {
     inputOutputSource: 'account',
     sends: [entry({ poolId: 4, isOwn: true })],
@@ -181,14 +182,16 @@ it('names own notes by pool unless the note names the displayed address', async 
   const text = result.container.textContent ?? '';
   expect(text).not.toContain(DIVERSIFIED);
   expect(text).toContain(RECIPIENT);
-  expect(text).toContain('Sapling pool');
+  expect(text).not.toContain('Sapling');
   expect(result.getAllByText(OWN_UA)).toHaveLength(1);
-  expect(result.getAllByText('Ironwood pool')).toHaveLength(2);
+  expect(
+    result.getAllByText(ETranslations.private_send_private_option),
+  ).toHaveLength(3);
 });
 
 it.each([
   [OWN_T, OWN_T],
-  [`t1${'C'.repeat(33)}`, 'Transparent pool'],
+  [`t1${'C'.repeat(33)}`, ETranslations.privacy_balance_public__title],
 ])(
   'shows our transparent input only when the displayed one is %s',
   async (displayed, expected) => {
@@ -237,7 +240,9 @@ it('names our transparent change output by pool', async () => {
   };
   const result = await renderPage();
   expect(result.queryByText(change)).toBeNull();
-  expect(result.getByText('Transparent pool')).toBeTruthy();
+  expect(
+    result.getByText(ETranslations.privacy_balance_public__title),
+  ).toBeTruthy();
   expect(result.getByText(OWN_T)).toBeTruthy();
 });
 
@@ -254,7 +259,9 @@ it('marks shielded change under its pool name', async () => {
   const badges = result.getAllByText('wallet.change_address');
   expect(badges).toHaveLength(1);
   const changeRow = badges[0].parentElement?.parentElement;
-  expect(changeRow?.textContent).toContain('Ironwood pool');
+  expect(changeRow?.textContent).toContain(
+    ETranslations.private_send_private_option,
+  );
   expect(changeRow?.textContent).not.toContain(RECIPIENT);
 });
 

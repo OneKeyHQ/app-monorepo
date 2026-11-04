@@ -39,8 +39,7 @@ export function toPrivacyChainLocalWalletDisplay(
   };
 }
 
-// Display text for a shielded endpoint: its pool, else the chain's name for
-// an endpoint it keeps private.
+// Keep endpoint labels consistent without exposing protocol pool names.
 export function formatPrivacyChainEndpointLabel({
   intl,
   localWallet,
@@ -51,21 +50,15 @@ export function formatPrivacyChainEndpointLabel({
   endpoint: IPrivacyChainShieldedEndpointLabel;
 }): string {
   const pool =
-    endpoint.poolId === undefined || localWallet?.isSinglePool
+    endpoint.poolId === undefined
       ? undefined
       : localWallet?.pools?.find((item) => item.id === endpoint.poolId);
-  if (pool) {
-    return intl.formatMessage(
-      {
-        id: ETranslations.privacy_history_pool__title,
-      },
-      { pool: pool.label },
-    );
-  }
-  const id =
-    localWallet?.hiddenEndpointLabelId ??
-    ETranslations.privacy_history_shielded__title;
-  return intl.formatMessage({ id });
+  return intl.formatMessage({
+    id:
+      pool?.kind === 'public'
+        ? ETranslations.privacy_balance_public__title
+        : ETranslations.private_send_private_option,
+  });
 }
 
 // How one history endpoint renders: a copyable address, or a pool name that

@@ -12,7 +12,7 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { ETranslations, ETranslationsMock } from '@onekeyhq/shared/src/locale';
 
 export type ITokenPrivacyPanelState =
   | 'disabled'
@@ -37,8 +37,11 @@ export type ITokenPrivacyPanelProps = {
   onSync?: () => void;
 };
 
-const STATUS_LABELS: Record<ITokenPrivacyPanelState, ETranslations> = {
-  disabled: ETranslations.privacy_enable__title,
+const STATUS_LABELS: Record<
+  ITokenPrivacyPanelState,
+  ETranslations | ETranslationsMock
+> = {
+  disabled: ETranslationsMock.privacy_enable_account__title,
   preparing: ETranslations.global_preparing,
   syncing: ETranslations.global_syncing,
   synced: ETranslations.global_synced,
@@ -107,7 +110,8 @@ export function TokenPrivacyPanel({
   if (supportingText === undefined) {
     if (isDisabled) {
       supportingText = intl.formatMessage({
-        id: ETranslations.privacy_enable__desc,
+        id: ETranslationsMock.privacy_enable_account__desc,
+        defaultMessage: ETranslationsMock.privacy_enable_account__desc,
       });
     }
   }
@@ -169,7 +173,13 @@ export function TokenPrivacyPanel({
               color="$text"
               flexShrink={1}
             >
-              {title ?? intl.formatMessage({ id: STATUS_LABELS[state] })}
+              {title ??
+                intl.formatMessage({
+                  id: STATUS_LABELS[state],
+                  defaultMessage: isDisabled
+                    ? ETranslationsMock.privacy_enable_account__title
+                    : undefined,
+                })}
             </SizableText>
           </XStack>
           {supportingText ? (

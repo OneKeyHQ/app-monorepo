@@ -24,7 +24,7 @@ import type {
   ILocalWalletSyncProgress,
 } from '@onekeyhq/kit-bg/src/vaults/localWallet/types';
 import { IMPL_ZCASH } from '@onekeyhq/shared/src/engine/engineConsts';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { ETranslations, ETranslationsMock } from '@onekeyhq/shared/src/locale';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 
 // Recovery controls for a local-wallet account; every action goes through servicePrivacyChain.
@@ -116,24 +116,16 @@ export function getBirthdayInputError(mode: IBirthdayFormState['mode']) {
 
 // Shared by both enable entry points. Repair dialogs must NOT show it: the
 // account is already scanning by then.
-export function PrivacyEnableDisclosure({
-  hasRecommendedMonth,
-}: {
-  hasRecommendedMonth: boolean;
-}) {
+export function PrivacyEnableDisclosure() {
   const intl = useIntl();
   return (
     <YStack gap="$3">
       <SizableText size="$bodyMd">
-        {intl.formatMessage({ id: ETranslations.privacy_enable__desc })}
+        {intl.formatMessage({
+          id: ETranslationsMock.privacy_enable_account__desc,
+          defaultMessage: ETranslationsMock.privacy_enable_account__desc,
+        })}
       </SizableText>
-      {hasRecommendedMonth ? (
-        <SizableText size="$bodySm" color="$textSubdued">
-          {intl.formatMessage({
-            id: ETranslations.privacy_enable_month__desc,
-          })}
-        </SizableText>
-      ) : null}
     </YStack>
   );
 }
@@ -287,22 +279,20 @@ export function BirthdayDialogForm({
       {editor ? (
         <YStack gap="$1">
           {editor}
-          <YStack minHeight="$5">
-            {showHeightError ? (
-              <SizableText
-                testID="local-wallet-birthday-height-error"
-                size="$bodySm"
-                color="$textCritical"
-                accessibilityRole="alert"
-              >
-                {heightBelowMinimum
-                  ? `${intl.formatMessage({ id: ETranslations.global_block_height })} ≥ ${intl.formatNumber(minHeight)}`
-                  : intl.formatMessage({
-                      id: getBirthdayInputError('height'),
-                    })}
-              </SizableText>
-            ) : null}
-          </YStack>
+          {showHeightError ? (
+            <SizableText
+              testID="local-wallet-birthday-height-error"
+              size="$bodySm"
+              color="$textCritical"
+              accessibilityRole="alert"
+            >
+              {heightBelowMinimum
+                ? `${intl.formatMessage({ id: ETranslations.global_block_height })} ≥ ${intl.formatNumber(minHeight)}`
+                : intl.formatMessage({
+                    id: getBirthdayInputError('height'),
+                  })}
+            </SizableText>
+          ) : null}
         </YStack>
       ) : null}
       {earliestBirthday ? (
@@ -316,8 +306,12 @@ export function BirthdayDialogForm({
               formRef.current.fromEarliest = next;
             }}
             label={intl.formatMessage({
-              id: ETranslations.privacy_sync_start_from_beginning__desc,
+              id: ETranslationsMock.privacy_sync_start_existing_unknown__desc,
+              defaultMessage:
+                ETranslationsMock.privacy_sync_start_existing_unknown__desc,
             })}
+            containerProps={{ py: '$0', mt: '$1' }}
+            labelProps={{ variant: '$bodyMd', color: '$textSubdued' }}
             labelContainerProps={{ flex: 1 }}
           />
         </YStack>

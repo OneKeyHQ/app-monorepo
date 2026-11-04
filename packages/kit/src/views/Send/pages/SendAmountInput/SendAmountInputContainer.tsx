@@ -4223,6 +4223,14 @@ function SendAmountInputContainer() {
     }
 
     if (sendPools?.length && (sendPools.length > 1 || !selectedSendPool)) {
+      const getPoolLabel = (key: string) =>
+        intl.formatMessage({
+          id:
+            vaultSettings?.localWallet?.pools.find((pool) => pool.key === key)
+              ?.kind === 'public'
+              ? ETranslations.privacy_balance_public__title
+              : ETranslations.private_send_private_option,
+        });
       addons.push(
         <Select
           key="send-pool-picker"
@@ -4232,7 +4240,7 @@ function SendAmountInputContainer() {
           placement="top-end"
           value={selectedSendPool?.key ?? ''}
           items={sendPools.map((pool) => ({
-            label: pool.label,
+            label: getPoolLabel(pool.key),
             value: pool.key,
             description: [
               `${pool.spendableParsed ?? '—'} ${tokenSymbol}`.trim(),
@@ -4263,8 +4271,9 @@ function SendAmountInputContainer() {
               }}
             >
               <Badge.Text>
-                {selectedSendPool?.label ??
-                  intl.formatMessage({ id: ETranslations.global_from })}
+                {selectedSendPool
+                  ? getPoolLabel(selectedSendPool.key)
+                  : intl.formatMessage({ id: ETranslations.global_from })}
               </Badge.Text>
               <Icon
                 size="$4"
@@ -4312,6 +4321,7 @@ function SendAmountInputContainer() {
     pulseSignal,
     sendConfirmActions,
     vaultSettings?.mergeDeriveAssetsEnabled,
+    vaultSettings?.localWallet?.pools,
     walletId,
     intl,
     selectedSendPool,

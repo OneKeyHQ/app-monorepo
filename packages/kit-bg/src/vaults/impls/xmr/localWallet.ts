@@ -15,6 +15,7 @@ import {
   XMR_TARGET_BLOCK_SECONDS,
 } from '@onekeyhq/shared/src/config/xmr';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import resetUtils from '@onekeyhq/shared/src/utils/resetUtils';
 
 import {
@@ -612,7 +613,12 @@ export function buildXmrLocalWalletCapability(
       };
     },
     async getAccountState({ accountId }): Promise<ILocalWalletAccountState> {
-      const state = await stateDb().getXmrAccountState({ accountId });
+      const walletId = accountUtils.getWalletIdFromAccountId({ accountId });
+      const [state, freshMnemonic, createdAt] = await Promise.all([
+        stateDb().getXmrAccountState({ accountId }),
+        stateDb().getWalletFreshMnemonic({ walletId }),
+        stateDb().getWalletCreatedAtTimestamp({ walletId }),
+      ]);
       return {
         enabled: state.intent === 'on' && !state.operation,
         paused: state.intent === 'off' && state.resumeFromHeight !== undefined,
@@ -620,6 +626,7 @@ export function buildXmrLocalWalletCapability(
         birthdayHeight: state.birthdayHeight,
         birthdaySource: state.birthdaySource,
         birthdayTimestamp: state.birthdayTimestamp,
+        birthdayHintTimestamp: freshMnemonic ? createdAt : undefined,
       };
     },
 

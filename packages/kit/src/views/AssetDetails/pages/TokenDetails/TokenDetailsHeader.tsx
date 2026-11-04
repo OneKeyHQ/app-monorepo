@@ -9,7 +9,6 @@ import {
   ActionList,
   Alert,
   DebugRenderTracker,
-  Dialog,
   Divider,
   Icon,
   SizableText,
@@ -30,7 +29,6 @@ import { useDisplayAccountAddress } from '@onekeyhq/kit/src/hooks/useDisplayAcco
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useReceiveToken } from '@onekeyhq/kit/src/hooks/useReceiveToken';
 import { useRouteIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
-import { useSignatureConfirm } from '@onekeyhq/kit/src/hooks/useSignatureConfirm';
 import { useUserWalletProfile } from '@onekeyhq/kit/src/hooks/useUserWalletProfile';
 import {
   privacyChainPoolOwnerKey,
@@ -42,10 +40,7 @@ import {
   shouldBlockBotWalletCopyAddress,
   shouldBlockBotWalletReceive,
 } from '@onekeyhq/kit/src/utils/botWalletStatusUtils';
-import {
-  ActionItem,
-  RawActions,
-} from '@onekeyhq/kit/src/views/Home/components/WalletActions/RawActions';
+import { RawActions } from '@onekeyhq/kit/src/views/Home/components/WalletActions/RawActions';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
 import {
@@ -263,10 +258,6 @@ function TokenDetailsHeaderContent({
     privacyHistoryPoolId: selectedPoolIdProp,
   } = props;
   const navigation = useAppNavigation();
-  const { navigationToTxConfirm } = useSignatureConfirm({
-    accountId,
-    networkId,
-  });
   const intl = useIntl();
   const { copyText } = useClipboard();
   const copyAccountAddress = useCopyAccountAddress();
@@ -295,8 +286,7 @@ function TokenDetailsHeaderContent({
   // Until settings resolve a selected pool counts as private: that hides the
   // generic action row instead of flashing it on a private tab.
   const isPrivatePool = hasSelectedPool && !isPublicPool;
-  // A pool that can no longer receive. Balance, history and the withdraw
-  // action still show; Send does not (see the action row below).
+  // Pools that can no longer receive do not expose transfer actions.
   const isLegacyPoolTab = selectedPool?.receivesFunds === false;
   const localWalletPool = useLocalWalletPool({
     networkId,
@@ -634,79 +624,6 @@ function TokenDetailsHeaderContent({
     [wallet?.type],
   );
 
-  const poolAction = poolDisplay?.action;
-  // Withdraw opens the amount step, like Ledger Live's self transfer: any
-  // amount from the private pool to the account's own public address. Shield
-  // sweeps with Max, so the indexer's transparent UTXOs pay their own fee.
-  const handlePoolActionPress = useCallback(() => {
-    if (!poolAction?.toAddress || !poolAction.amount) return;
-    if (poolAction.type === 'withdraw') {
-      Dialog.confirm({
-        title: intl.formatMessage({ id: ETranslations.global_withdraw }),
-        description: intl.formatMessage({
-          id: ETranslations.privacy_unshield_warning__desc,
-        }),
-        onConfirmText: intl.formatMessage({
-          id: ETranslations.global_continue,
-        }),
-        onConfirm: async ({ close }) => {
-          await close();
-          navigation.pushModal(EModalRoutes.SignatureConfirmModal, {
-            screen: EModalSignatureConfirmRoutes.TxAmountInput,
-            params: {
-              networkId,
-              accountId,
-              isNFT: false,
-              token: tokenDetails?.info ?? tokenInfo,
-              recipientAddress: poolAction.toAddress,
-              isAllNetworks,
-              localWalletSourcePool: poolAction.spendSource,
-              onSuccess: poolAction.onDone,
-            },
-          });
-        },
-      });
-      return;
-    }
-    void backgroundApiProxy.servicePrivacyChain
-      .prewarmLocalWalletSend({
-        networkId,
-        accountId,
-        sourcePool: 'transparent',
-        toAddress: poolAction.toAddress,
-      })
-      .catch(() => undefined);
-    void navigationToTxConfirm({
-      transfersInfo: [
-        {
-          from: poolAction.fromAddress,
-          to: poolAction.toAddress,
-          amount: poolAction.amount,
-          localWalletShield: true,
-          localWalletSourcePool: 'transparent',
-        },
-      ],
-      transferPayload: {
-        amountToSend: poolAction.amount,
-        originalRecipient: poolAction.toAddress,
-        isMaxSend: true,
-        isNFT: false,
-      },
-      isInternalTransfer: true,
-      onSuccess: poolAction.onDone,
-    });
-  }, [
-    intl,
-    navigation,
-    navigationToTxConfirm,
-    poolAction,
-    networkId,
-    accountId,
-    tokenDetails?.info,
-    tokenInfo,
-    isAllNetworks,
-  ]);
-
   const { hideAccountAddress } = useDisplayAccountAddress({ networkId });
   const shouldShowAddressBlock = useMemo(() => {
     if (networkUtils.isLightningNetworkByNetworkId(networkId)) return false;
@@ -807,34 +724,6 @@ function TokenDetailsHeaderContent({
     poolDisplay?.address,
   ]);
 
-  const poolActionItem =
-    hasSelectedPool && poolAction ? (
-      <ActionItem
-        testID={`local-wallet-pool-${poolAction.type}-btn`}
-        label={intl.formatMessage({
-          id:
-            poolAction.type === 'shield'
-              ? ETranslations.privacy_balance_shield__action
-              : ETranslations.global_withdraw,
-        })}
-        icon={
-          poolAction.type === 'shield' ? 'ShieldOutline' : 'UnlockedOutline'
-        }
-        disabled={
-          isWatchOnly ||
-          localWalletPool.state?.paused ||
-          poolAction.disabled ||
-          !poolAction.toAddress ||
-          !poolAction.amount
-        }
-        onPress={handlePoolActionPress}
-        trackID={`wallet-token-details-local-wallet-${poolAction.type}`}
-      />
-    ) : null;
-  const legacyPoolActionRow = poolActionItem ? (
-    <RawActions>{poolActionItem}</RawActions>
-  ) : null;
-
   return (
     <DebugRenderTracker position="top-right" name="TokenDetailsHeader">
       <>
@@ -885,9 +774,7 @@ function TokenDetailsHeaderContent({
                   : undefined
               }
             />
-            {isLegacyPoolTab ? (
-              legacyPoolActionRow
-            ) : (
+            {isLegacyPoolTab ? null : (
               <RawActions testID="token-details-primary-actions">
                 <RawActions.Send
                   testID={AssetDetailsTestIDs.sendBtn}
@@ -932,7 +819,6 @@ function TokenDetailsHeaderContent({
                   }}
                   trackID="wallet-token-details-receive"
                 />
-                {poolActionItem}
                 {isPublicPool ? (
                   <RawActions.More
                     testID="token-details-more-btn"

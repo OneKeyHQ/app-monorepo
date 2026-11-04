@@ -68,7 +68,7 @@ const settings: IVaultSettings = {
     publicAddressPattern:
       '^(t[13][1-9A-HJ-NP-Za-km-z]{33}|tex1[02-9ac-hj-np-z]{38})$',
     privateAddressPattern: '^u1[02-9ac-hj-np-z]+$',
-    hiddenEndpointLabelId: ETranslations.privacy_history_shielded__title,
+    hiddenEndpointLabelId: ETranslations.private_send_private_option,
     tipLagWarningBlocks: 48,
     // The first release exposes transparent funds and the Ironwood pool.
     pools: [
@@ -77,14 +77,14 @@ const settings: IVaultSettings = {
         key: 'transparent',
         kind: 'public',
         source: 'backend',
-        label: 'Transparent',
+        label: 'Public',
       },
       {
         id: ZCASH_POOL_IDS.ironwood,
         key: 'ironwood',
         kind: 'private',
         source: 'localScan',
-        label: 'Ironwood',
+        label: 'Private',
         isDefaultPrivate: ZCASH_CURRENT_SHIELDED_POOL === 'ironwood',
       },
     ],
@@ -97,8 +97,8 @@ const settings: IVaultSettings = {
       },
     },
     addressForms: {
-      publicLabel: ETranslations.privacy_receive_transparent_address__title,
-      privateLabel: ETranslations.privacy_receive_private_address__title,
+      publicLabel: ETranslations.privacy_balance_public__title,
+      privateLabel: ETranslations.private_send_private_option,
     },
     blockTimeSeconds: ZCASH_TARGET_BLOCK_SECONDS,
     scanRegionHints: [

@@ -22,6 +22,10 @@ import type {
   ILocalWalletSyncProgress,
 } from '@onekeyhq/kit-bg/src/vaults/localWallet/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import type {
+  EModalSettingRoutes,
+  IModalSettingParamList,
+} from '@onekeyhq/shared/src/routes/setting';
 
 // eslint-disable-next-line no-var, vars-on-top
 var mockAccounts: ILocalWalletAccountListItem[] = [];
@@ -39,6 +43,9 @@ var mockBoostingNetworks: string[] = [];
 var mockBirthdaySettings: {
   earliestBirthday?: IEarliestBirthday;
 } = {};
+// eslint-disable-next-line no-var, vars-on-top
+var mockRouteParams: IModalSettingParamList[EModalSettingRoutes.SettingPrivacyNetwork];
+const mockPopStack = jest.fn();
 const mockGetVaultSettings = jest.fn(
   async (_params: { networkId: string }) => ({
     localWallet: { accountSetup: mockBirthdaySettings },
@@ -57,7 +64,9 @@ const mockDisable = jest.fn<
   [{ accountId: string; networkId: string }]
 >();
 const mockRepair = jest.fn(async (_params: unknown) => undefined);
-const mockAdmission = jest.fn(async (_params: unknown) => undefined);
+const mockAdmission = jest.fn(
+  async (_params: unknown): Promise<void> => undefined,
+);
 const mockTwinBirthday = jest.fn(
   async (_params: unknown): Promise<{ birthdayHeight: number } | undefined> =>
     undefined,
@@ -89,7 +98,7 @@ jest.mock('react-intl', () => ({
 jest.mock('react-native', () => ({ StyleSheet: { hairlineWidth: 1 } }));
 
 jest.mock('@react-navigation/core', () => ({
-  useRoute: () => ({ params: { walletId: undefined } }),
+  useRoute: () => ({ params: mockRouteParams }),
 }));
 
 jest.mock('@onekeyhq/kit/src/hooks/useRouteIsFocused', () => ({
@@ -98,7 +107,7 @@ jest.mock('@onekeyhq/kit/src/hooks/useRouteIsFocused', () => ({
 
 jest.mock('@onekeyhq/kit/src/hooks/useAppNavigation', () => ({
   __esModule: true,
-  default: () => ({ pushModal: jest.fn() }),
+  default: () => ({ pushModal: jest.fn(), popStack: mockPopStack }),
 }));
 
 jest.mock('@onekeyhq/kit/src/hooks/usePromiseResult', () => {
@@ -142,10 +151,16 @@ jest.mock(
   '@onekeyhq/kit/src/views/AssetDetails/pages/TokenDetails/LocalWalletRepairControls',
   () => ({
     BirthdayDialogForm: () => null,
-    PrivacyEnableDisclosure: () => null,
-    createEnableBirthdayForm: jest.fn(() => ({ current: {} })),
     getBirthdayInputError: () => 'global.bulk_accounts_page_number_error',
     readEnableBirthday: jest.fn(() => ({ birthdayHeight: 3_428_143 })),
+  }),
+);
+
+jest.mock(
+  '@onekeyhq/kit/src/views/AssetDetails/pages/TokenDetails/PrivacyEnableContent',
+  () => ({
+    PrivacyEnableContent: () => null,
+    createPrivacyEnableForm: jest.fn(() => ({ current: {} })),
   }),
 );
 
@@ -296,6 +311,15 @@ function progressText(row: HTMLElement) {
 
 describe('Privacy network settings for a temp wallet', () => {
   beforeEach(() => {
+    mockRouteParams = undefined;
+    mockPopStack.mockClear();
+    const { Dialog, Toast } = jest.requireMock<{
+      Dialog: { show: jest.Mock; confirm: jest.Mock };
+      Toast: { error: jest.Mock };
+    }>('@onekeyhq/components');
+    Dialog.show.mockClear();
+    Dialog.confirm.mockClear();
+    Toast.error.mockClear();
     mockAccountStates = {};
     mockUnsupportedNetworks = [];
     mockProgress = {};
@@ -341,6 +365,221 @@ describe('Privacy network settings for a temp wallet', () => {
     expect(
       screen.getByTestId('privacy-network-delete-hw-1-passphrase--0'),
     ).toBeTruthy();
+  });
+
+  it('opens the requested account once and stays in privacy settings after enabling', async () => {
+    const { Dialog } = jest.requireMock<{ Dialog: { show: jest.Mock } }>(
+      '@onekeyhq/components',
+    );
+    mockRouteParams = {
+      walletId: 'hd-1',
+      networkId: 'xmr--0',
+      accountId: 'hd-1--1',
+      enableSync: true,
+    };
+    mockAccounts = [
+      listItem({ networkId: 'xmr--0' }),
+      listItem({
+        accountId: 'hd-1--1',
+        accountName: 'Account #2',
+        networkId: 'xmr--0',
+      }),
+      listItem({ accountId: 'hd-1--1', networkId: 'zec--0' }),
+    ];
+    const { rerender } = render(<PrivacyNetworkSettings />);
+    await waitFor(() => expect(Dialog.show).toHaveBeenCalledTimes(1));
+    expect(mockAdmission).toHaveBeenCalledWith({
+      networkId: 'xmr--0',
+      accountId: 'hd-1--1',
+    });
+    const args = Dialog.show.mock.calls[0][0] as {
+      description: string;
+      showConfirmButton: boolean;
+      showCancelButton: boolean;
+      onConfirm: (params: { preventClose: () => void }) => Promise<void>;
+      onClose: (extra?: { flag?: string }) => void;
+    };
+    expect(args.description).toBe('Account #2');
+    expect(args.showConfirmButton).toBe(true);
+    expect(args.showCancelButton).toBe(true);
+    rerender(<PrivacyNetworkSettings />);
+    expect(Dialog.show).toHaveBeenCalledTimes(1);
+    await act(async () => {
+      await args.onConfirm({ preventClose: jest.fn() });
+      args.onClose({ flag: 'confirm' });
+    });
+    expect(mockEnable).toHaveBeenCalledWith({
+      networkId: 'xmr--0',
+      accountId: 'hd-1--1',
+      birthdayHeight: 3_428_143,
+    });
+    expect(Dialog.show).toHaveBeenCalledTimes(1);
+    expect(mockPopStack).not.toHaveBeenCalled();
+  });
+
+  it.each(['cancel', undefined])(
+    'returns to Receive when the requested enable dialog closes with %s',
+    async (flag) => {
+      const { Dialog } = jest.requireMock<{ Dialog: { show: jest.Mock } }>(
+        '@onekeyhq/components',
+      );
+      mockRouteParams = {
+        networkId: 'zec--0',
+        accountId: 'hd-1--0',
+        enableSync: true,
+      };
+      render(<PrivacyNetworkSettings />);
+      await waitFor(() => expect(Dialog.show).toHaveBeenCalledTimes(1));
+      const args = Dialog.show.mock.calls[0][0] as {
+        onClose: (extra?: { flag?: string }) => void;
+      };
+      act(() => args.onClose(flag ? { flag } : undefined));
+      expect(mockPopStack).toHaveBeenCalledTimes(1);
+      expect(mockEnable).not.toHaveBeenCalled();
+    },
+  );
+
+  it('resumes the requested paused account without replacing its saved birthday', async () => {
+    const { Dialog } = jest.requireMock<{ Dialog: { show: jest.Mock } }>(
+      '@onekeyhq/components',
+    );
+    mockRouteParams = {
+      networkId: 'zec--0',
+      accountId: 'hd-1--0',
+      enableSync: true,
+    };
+    mockAccountStates['hd-1--0'] = {
+      enabled: false,
+      paused: true,
+      birthdayHeight: 3_500_000,
+    };
+    render(<PrivacyNetworkSettings />);
+    await waitFor(() => expect(mockEnable).toHaveBeenCalledTimes(1));
+    expect(mockEnable).toHaveBeenCalledWith({
+      networkId: 'zec--0',
+      accountId: 'hd-1--0',
+    });
+    expect(mockAccountStates['hd-1--0'].birthdayHeight).toBe(3_500_000);
+    expect(mockAdmission).not.toHaveBeenCalled();
+    expect(mockTwinBirthday).not.toHaveBeenCalled();
+    expect(Dialog.show).not.toHaveBeenCalled();
+    expect(mockPopStack).not.toHaveBeenCalled();
+  });
+
+  it('leaves an already enabled account unchanged', async () => {
+    const { Dialog } = jest.requireMock<{ Dialog: { show: jest.Mock } }>(
+      '@onekeyhq/components',
+    );
+    mockRouteParams = {
+      networkId: 'zec--0',
+      accountId: 'hd-1--0',
+      enableSync: true,
+    };
+    mockAccountStates['hd-1--0'] = { enabled: true, paused: false };
+    render(<PrivacyNetworkSettings />);
+    await screen.findByTestId('privacy-network-pause-hd-1--0');
+    expect(mockEnable).not.toHaveBeenCalled();
+    expect(mockDisable).not.toHaveBeenCalled();
+    expect(Dialog.show).not.toHaveBeenCalled();
+    expect(mockPopStack).not.toHaveBeenCalled();
+  });
+
+  it.each(['missing', 'temporary', 'privacy-disabled'])(
+    'does not enable a %s target or fall back to another account',
+    async (targetState) => {
+      const { Dialog, Toast } = jest.requireMock<{
+        Dialog: { show: jest.Mock };
+        Toast: { error: jest.Mock };
+      }>('@onekeyhq/components');
+      mockRouteParams = {
+        networkId: 'zec--0',
+        accountId: 'hd-1--1',
+        enableSync: true,
+      };
+      mockAccounts = [listItem({})];
+      if (targetState !== 'missing') {
+        mockAccounts.push(
+          listItem({
+            accountId: 'hd-1--1',
+            walletIsTemp: targetState === 'temporary',
+          }),
+        );
+        mockAccountStates['hd-1--1'] = {
+          enabled: false,
+          paused: false,
+          privacyDisabled: targetState === 'privacy-disabled',
+        };
+      }
+      render(<PrivacyNetworkSettings />);
+      await waitFor(() => expect(Toast.error).toHaveBeenCalledTimes(1));
+      expect(mockAdmission).not.toHaveBeenCalled();
+      expect(mockEnable).not.toHaveBeenCalled();
+      expect(Dialog.show).not.toHaveBeenCalled();
+      expect(mockPopStack).not.toHaveBeenCalled();
+    },
+  );
+
+  it('keeps settings usable after an automatic enable preparation error', async () => {
+    const { Dialog, Toast } = jest.requireMock<{
+      Dialog: { show: jest.Mock };
+      Toast: { error: jest.Mock };
+    }>('@onekeyhq/components');
+    const consoleError = jest
+      .spyOn(console, 'error')
+      .mockImplementation(() => undefined);
+    mockRouteParams = {
+      networkId: 'zec--0',
+      accountId: 'hd-1--0',
+      enableSync: true,
+    };
+    mockAdmission.mockRejectedValueOnce(new Error('runtime unavailable'));
+    const { rerender } = render(<PrivacyNetworkSettings />);
+    await waitFor(() => expect(Toast.error).toHaveBeenCalledTimes(1));
+    rerender(<PrivacyNetworkSettings />);
+    expect(mockAdmission).toHaveBeenCalledTimes(1);
+    expect(Dialog.show).not.toHaveBeenCalled();
+    expect(mockPopStack).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByTestId('privacy-network-enable-hd-1--0'));
+    await waitFor(() => expect(Dialog.show).toHaveBeenCalledTimes(1));
+    expect(mockAdmission).toHaveBeenCalledTimes(2);
+    consoleError.mockRestore();
+  });
+
+  it('does not open an enable dialog after leaving settings during preparation', async () => {
+    const { Dialog } = jest.requireMock<{ Dialog: { show: jest.Mock } }>(
+      '@onekeyhq/components',
+    );
+    let finishAdmission: () => void = () => {};
+    mockAdmission.mockImplementation(
+      () =>
+        new Promise<void>((resolve) => {
+          finishAdmission = resolve;
+        }),
+    );
+    mockRouteParams = {
+      networkId: 'zec--0',
+      accountId: 'hd-1--0',
+      enableSync: true,
+    };
+    const { unmount } = render(<PrivacyNetworkSettings />);
+    await waitFor(() => expect(mockAdmission).toHaveBeenCalledTimes(1));
+    unmount();
+    await act(async () => finishAdmission());
+    expect(Dialog.show).not.toHaveBeenCalled();
+    expect(mockEnable).not.toHaveBeenCalled();
+    expect(mockTwinBirthday).not.toHaveBeenCalled();
+  });
+
+  it('does not automatically enable accounts for the ordinary settings entry', async () => {
+    const { Dialog } = jest.requireMock<{ Dialog: { show: jest.Mock } }>(
+      '@onekeyhq/components',
+    );
+    mockRouteParams = { walletId: 'hd-1', networkId: 'zec--0' };
+    render(<PrivacyNetworkSettings />);
+    await screen.findByTestId('privacy-network-enable-hd-1--0');
+    expect(mockAdmission).not.toHaveBeenCalled();
+    expect(mockEnable).not.toHaveBeenCalled();
+    expect(Dialog.show).not.toHaveBeenCalled();
   });
 
   it('offers an explicit Enable action to a saved wallet', async () => {
@@ -410,11 +649,15 @@ describe('Privacy network settings for a temp wallet', () => {
   });
 
   it('loads and forwards the earliest birthday once when enabling privacy', async () => {
-    const { Dialog } = jest.requireMock<{ Dialog: { confirm: jest.Mock } }>(
+    const { Dialog } = jest.requireMock<{ Dialog: { show: jest.Mock } }>(
       '@onekeyhq/components',
     );
-    const { createEnableBirthdayForm, readEnableBirthday } = jest.requireMock<{
-      createEnableBirthdayForm: jest.Mock;
+    const { createPrivacyEnableForm } = jest.requireMock<{
+      createPrivacyEnableForm: jest.Mock;
+    }>(
+      '@onekeyhq/kit/src/views/AssetDetails/pages/TokenDetails/PrivacyEnableContent',
+    );
+    const { readEnableBirthday } = jest.requireMock<{
       readEnableBirthday: jest.Mock;
     }>(
       '@onekeyhq/kit/src/views/AssetDetails/pages/TokenDetails/LocalWalletRepairControls',
@@ -431,20 +674,17 @@ describe('Privacy network settings for a temp wallet', () => {
     await act(async () => {
       fireEvent.click(enableButton);
     });
-    const args = Dialog.confirm.mock.calls.at(-1)?.[0] as {
+    const args = Dialog.show.mock.calls.at(-1)?.[0] as {
       renderContent: ReactElement<{
-        children: ReactElement<{
-          formRef: { current: IBirthdayFormState };
-          earliestBirthday?: IEarliestBirthday;
-        }>[];
+        formRef: { current: IBirthdayFormState };
+        earliestBirthday?: IEarliestBirthday;
       }>;
       onConfirm: (params: { preventClose: () => void }) => Promise<void>;
     };
-    const formProps = args.renderContent.props.children[1].props;
-    expect(createEnableBirthdayForm).toHaveBeenLastCalledWith(
-      undefined,
-      mockBirthdaySettings.earliestBirthday,
-    );
+    const formProps = args.renderContent.props;
+    expect(createPrivacyEnableForm).toHaveBeenLastCalledWith({
+      earliestBirthday: mockBirthdaySettings.earliestBirthday,
+    });
     expect(formProps.earliestBirthday).toEqual(
       mockBirthdaySettings.earliestBirthday,
     );
@@ -735,10 +975,10 @@ describe('Privacy network settings for a temp wallet', () => {
   );
 
   it('explains a full network before asking for a birthday', async () => {
-    const { Dialog } = jest.requireMock<{ Dialog: { confirm: jest.Mock } }>(
+    const { Dialog } = jest.requireMock<{ Dialog: { show: jest.Mock } }>(
       '@onekeyhq/components',
     );
-    Dialog.confirm.mockClear();
+    Dialog.show.mockClear();
     mockAdmission.mockRejectedValue(
       Object.assign(new Error('full'), {
         key: ETranslations.privacy_slots_delete__desc,
@@ -763,7 +1003,7 @@ describe('Privacy network settings for a temp wallet', () => {
       (mockShowSlotsFull.mock.calls[0][0] as { onOpenSettings?: unknown })
         .onOpenSettings,
     ).toBeUndefined();
-    expect(Dialog.confirm).not.toHaveBeenCalled();
+    expect(Dialog.show).not.toHaveBeenCalled();
     expect(mockEnable).not.toHaveBeenCalled();
   });
 
