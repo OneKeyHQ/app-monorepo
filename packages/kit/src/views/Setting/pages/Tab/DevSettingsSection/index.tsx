@@ -1287,7 +1287,7 @@ const BaseDevSettingsSection = () => {
         title: 'UI Galleries',
         description: 'UI Galleries',
         keywords:
-          'DesktopApiProxy Test PerpGallery CryptoGallery CloudBackupGallery AuthGallery KeylessWalletGallery StorageGallery',
+          'Hardware Derivation Path Test 硬件 派生路径 签名 OK-66332 DesktopApiProxy Test PerpGallery CryptoGallery CloudBackupGallery AuthGallery KeylessWalletGallery StorageGallery',
       },
       {
         key: 'account',
@@ -2796,6 +2796,26 @@ const BaseDevSettingsSection = () => {
                               navigation.push(
                                 EModalSettingRoutes.SettingDevCryptoGalleryModal,
                               );
+                            }}
+                          />
+                          <SectionPressItem
+                            icon="KeyOutline"
+                            title={intl.formatMessage({
+                              id: ETranslations.dev_hw_path__title,
+                            })}
+                            subtitle={intl.formatMessage({
+                              id: ETranslations.dev_hw_path__desc,
+                            })}
+                            testID="hardware-path-test-menu"
+                            onPress={async () => {
+                              const { HardwareDerivationPathTest } =
+                                await import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/HardwareDerivationPathTest');
+                              Dialog.cancel({
+                                title: intl.formatMessage({
+                                  id: ETranslations.dev_hw_path__title,
+                                }),
+                                renderContent: <HardwareDerivationPathTest />,
+                              });
                             }}
                           />
                           <SectionPressItem

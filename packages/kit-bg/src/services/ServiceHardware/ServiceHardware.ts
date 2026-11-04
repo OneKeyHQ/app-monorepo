@@ -26,6 +26,7 @@ import {
   UserCancelFromOutside,
 } from '@onekeyhq/shared/src/errors';
 import * as deviceErrors from '@onekeyhq/shared/src/errors/errors/hardwareErrors';
+import type { IConvertDeviceErrorOptions } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import { convertDeviceResponse } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import type {
   IAppEventBusPayload,
@@ -81,6 +82,7 @@ import { EHardwareTransportType } from '@onekeyhq/shared/types';
 import type {
   IBleFirmwareReleasePayload,
   IDeviceHomeScreen,
+  IDeviceResponseResult,
   IDeviceVerifyVersionCompareResult,
   IDeviceVersionCacheInfo,
   IFirmwareReleasePayload,
@@ -108,6 +110,7 @@ import {
 } from '../../states/jotai/atoms';
 import ServiceBase from '../ServiceBase';
 import { getFirmwareManifestSnapshot } from '../ServiceFirmwareUpdate/FirmwareManifestProvider';
+import { callHardwareCloudSyncDevice } from '../ServiceKeylessCloudSync/hardwareCloudSyncLog';
 
 import { DeviceSettingsManager } from './DeviceSettingsManager';
 import { HardwareConnectionManager } from './HardwareConnectionManager';
@@ -480,6 +483,16 @@ class ServiceHardware extends ServiceBase {
   private activeHardwareSDKInstance: IProtocolAwareCoreApi | undefined;
 
   private sensitiveCloudKeyOperationDepth = 0;
+
+  private async convertHardwareResponse<T>(
+    operation: () => Promise<IDeviceResponseResult<T>>,
+    options?: IConvertDeviceErrorOptions,
+    connectId?: string,
+  ): Promise<T> {
+    return this.sensitiveCloudKeyOperationDepth > 0
+      ? callHardwareCloudSyncDevice(operation, connectId, options)
+      : convertDeviceResponse(operation, options);
+  }
 
   // Internal background scope only. Never expose raw Cloud-key signatures over
   // the bridge or copy SDK log payloads into application logs during this scope.
@@ -2813,7 +2826,7 @@ class ServiceHardware extends ServiceBase {
       connectProtocol: 'V2',
       hardwareCallContext,
     });
-    return convertDeviceResponse(() =>
+    return this.convertHardwareResponse(() =>
       hardwareSDK.deviceGetOnboardingStatus(compatibleConnectId, {
         connectProtocol: 'V2',
       }),
@@ -3049,7 +3062,7 @@ class ServiceHardware extends ServiceBase {
     const unlockParams: CommonParams & {
       pinType?: DeviceSessionPinType;
     } = pinType === undefined ? {} : { pinType };
-    return convertDeviceResponse(() => {
+    return this.convertHardwareResponse(() => {
       if (lease?.signal?.aborted) throw new UserCancelFromOutside();
       return hardwareSDK?.deviceUnlock(
         resolvedTransport.connectId,
@@ -3218,7 +3231,7 @@ class ServiceHardware extends ServiceBase {
     const hardwareSDK = await this.getSDKInstance({
       connectId: compatibleConnectId,
     });
-    return convertDeviceResponse(() =>
+    return this.convertHardwareResponse(() =>
       hardwareSDK?.deviceSupportFeatures(compatibleConnectId),
     );
   }
@@ -3270,7 +3283,7 @@ class ServiceHardware extends ServiceBase {
             ...(detectBootloaderDevice ? { detectBootloaderDevice: true } : {}),
           }
         : getFeaturesParams;
-      const features = await convertDeviceResponse(
+      const features = await this.convertHardwareResponse(
         () =>
           hardwareSDK?.getFeatures(
             connectId as string,
@@ -3279,6 +3292,7 @@ class ServiceHardware extends ServiceBase {
               : undefined,
           ),
         { silentMode },
+        connectId,
       );
       await this.rememberDeviceProtocol({
         connectIds: [connectId],
@@ -3297,7 +3311,7 @@ class ServiceHardware extends ServiceBase {
     } else if (forceProtocolDetection) {
       readParams = { ...sdkParams, forceProtocolDetection: true };
     }
-    const currentState = await convertDeviceResponse(
+    const currentState = await this.convertHardwareResponse(
       () => hardwareSDK?.getDeviceState(connectId as string, readParams),
       { silentMode },
     );
@@ -3413,7 +3427,7 @@ class ServiceHardware extends ServiceBase {
       connectId,
       enabled: desktopBleReuseConnectedOnly,
       task: () =>
-        convertDeviceResponse(
+        this.convertHardwareResponse(
           () => {
             if (lease?.signal?.aborted) throw new UserCancelFromOutside();
             return hardwareSDK.getDeviceState(connectId, normalizedSdkParams);
@@ -3421,6 +3435,7 @@ class ServiceHardware extends ServiceBase {
           {
             silentMode,
           },
+          connectId,
         ),
     });
     await this.rememberDeviceProtocol({
@@ -3685,7 +3700,7 @@ class ServiceHardware extends ServiceBase {
       const walletSessionParams = useEmptyPassphrase
         ? { mode: 'standard' as const }
         : { mode: 'select-hidden' as const };
-      const walletSession = await convertDeviceResponse(() =>
+      const walletSession = await this.convertHardwareResponse(() =>
         openWalletSession(connectId, walletSessionParams),
       );
       serviceHardwareUtils.hardwareLog('openWalletSession', {
@@ -3723,7 +3738,7 @@ class ServiceHardware extends ServiceBase {
       return undefined;
     }
 
-    return convertDeviceResponse(() =>
+    return this.convertHardwareResponse(() =>
       getPassphraseState(connectId, {
         initSession: forceInputPassphrase, // always re-input passphrase on device
         useEmptyPassphrase,
@@ -4012,7 +4027,7 @@ class ServiceHardware extends ServiceBase {
     const hardwareSDK = await this.getSDKInstance({
       connectId: compatibleConnectId,
     });
-    return convertDeviceResponse(() =>
+    return this.convertHardwareResponse(() =>
       hardwareSDK?.deviceUploadResource(compatibleConnectId, params),
     );
   }
@@ -4041,7 +4056,7 @@ class ServiceHardware extends ServiceBase {
         'Hardware SDK does not support Protocol V2 NFT upload',
       );
     }
-    return convertDeviceResponse(() =>
+    return this.convertHardwareResponse(() =>
       uploadNft(compatibleConnectId, {
         imageJpegBase64,
         thumbnailJpegBase64,
@@ -4098,7 +4113,7 @@ class ServiceHardware extends ServiceBase {
       connectId: compatibleConnectId,
       enabled: desktopBleReuseConnectedOnly,
       task: () =>
-        convertDeviceResponse(
+        this.convertHardwareResponse(
           () => {
             if (lease?.signal?.aborted) throw new UserCancelFromOutside();
             return hardwareSDK.uploadPortfolio(compatibleConnectId, {
@@ -4118,7 +4133,9 @@ class ServiceHardware extends ServiceBase {
       const hardwareSDK = await this.getSDKInstance({
         connectId: undefined,
       });
-      const messages = await convertDeviceResponse(() => hardwareSDK.getLogs());
+      const messages = await this.convertHardwareResponse(() =>
+        hardwareSDK.getLogs(),
+      );
       logs.push(...messages);
     } catch (_error) {
       // ignore
@@ -4471,7 +4488,7 @@ class ServiceHardware extends ServiceBase {
         connectId: compatibleConnectId,
       });
       await this.waitForLegacyHardwareCallBoundary(compatibleConnectId);
-      const evmAddressResponse = await convertDeviceResponse(() =>
+      const evmAddressResponse = await this.convertHardwareResponse(() =>
         hardwareSDK?.evmGetAddress(compatibleConnectId, params.deviceId, {
           path: params.path,
           showOnOneKey: false,
@@ -4563,18 +4580,22 @@ class ServiceHardware extends ServiceBase {
         connectId: compatibleConnectId,
       });
       await this.waitForLegacyHardwareCallBoundary(compatibleConnectId);
-      const result = await convertDeviceResponse(() => {
-        return hardwareSDK.btcGetPublicKey(
-          compatibleConnectId,
-          deviceId || '',
-          {
-            path: BTC_FIRST_TAPROOT_PATH,
-            showOnOneKey: false,
-            useEmptyPassphrase: passphraseState ? undefined : true,
-            passphraseState: passphraseState || undefined,
-          },
-        );
-      });
+      const result = await this.convertHardwareResponse(
+        () => {
+          return hardwareSDK.btcGetPublicKey(
+            compatibleConnectId,
+            deviceId || '',
+            {
+              path: BTC_FIRST_TAPROOT_PATH,
+              showOnOneKey: false,
+              useEmptyPassphrase: passphraseState ? undefined : true,
+              passphraseState: passphraseState || undefined,
+            },
+          );
+        },
+        undefined,
+        compatibleConnectId,
+      );
       if (result.root_fingerprint && result.xpub) {
         const xfp = numberUtils
           .numberToHex(result.root_fingerprint, { prefix0x: false })
@@ -4602,12 +4623,12 @@ class ServiceHardware extends ServiceBase {
     });
     let result: { device: KnownDevice | null };
     try {
-      result = await convertDeviceResponse(() =>
+      result = await this.convertHardwareResponse(() =>
         hardwareSDK?.promptWebDeviceAccess(params),
       );
     } catch (error) {
       if (await this.recoverLinuxWebUsbAccessDeniedError(error)) {
-        result = await convertDeviceResponse(() =>
+        result = await this.convertHardwareResponse(() =>
           hardwareSDK?.promptWebDeviceAccess(params),
         );
       } else {
