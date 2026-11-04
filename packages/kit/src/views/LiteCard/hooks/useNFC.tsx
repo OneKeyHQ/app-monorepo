@@ -13,7 +13,10 @@ import {
 import type { IDialogInstance } from '@onekeyhq/components';
 import LazyLoad from '@onekeyhq/shared/src/lazyLoad';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import type { ILiteCardDiagnostic } from '@onekeyhq/shared/src/logger/scopes/hardware/scenes/litecard';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 
 import type { LiteCardNFCAnimation } from '../components/LiteCardNFCAnimation';
 import type { CallbackError, CardInfo } from '@onekeyfe/react-native-lite-card';
@@ -59,8 +62,48 @@ enum ENFCEventCode {
 export default function useNFC() {
   const intl = useIntl();
   const willCloseDialogInstance = useRef<IDialogInstance>(undefined);
+  const diagnosticContext = useRef<{ operationId: string; startedAt: number }>(
+    undefined,
+  );
+  const logNFC = useCallback(
+    (
+      phase: ILiteCardDiagnostic['phase'],
+      fields: Partial<ILiteCardDiagnostic> = {},
+      context = diagnosticContext.current,
+    ) => {
+      defaultLogger.hardware.liteCard.diagnostic({
+        ...fields,
+        operation: 'nfc',
+        phase,
+        operationId: context?.operationId ?? '',
+        elapsedMs: context ? Date.now() - context.startedAt : undefined,
+      });
+    },
+    [],
+  );
+  const closeCallbacks = useCallback(
+    (context = diagnosticContext.current) => ({
+      onCloseStart: () => logNFC('dialog-close-start', {}, context),
+      onClose: (extra?: { flag?: string }) =>
+        logNFC(
+          'dialog-close',
+          {
+            closeReason:
+              extra?.flag === 'confirm' || extra?.flag === 'cancel'
+                ? extra.flag
+                : 'other',
+          },
+          context,
+        ),
+    }),
+    [logNFC],
+  );
   const handlerNFCConnectStatus = useCallback(
     ({ code }: { code: number }) => {
+      logNFC('connection-event', {
+        eventCode: code,
+        hasDialogRef: Boolean(willCloseDialogInstance.current),
+      });
       if (code !== ENFCEventCode.TRANSFERRING_DATA) {
         if (code === ENFCEventCode.FINISHED) {
           setTimeout(() => {
@@ -70,7 +113,9 @@ export default function useNFC() {
         return;
       }
       void willCloseDialogInstance.current?.close?.();
+      logNFC('dialog-show-request');
       willCloseDialogInstance.current = Dialog.show({
+        ...closeCallbacks(),
         title: intl.formatMessage({
           id: ETranslations.hardware_transferring_data,
         }),
@@ -80,8 +125,9 @@ export default function useNFC() {
         showFooter: false,
         renderContent: <NFCAnimation state="connecting" height={225} />,
       });
+      logNFC('dialog-show-returned');
     },
-    [intl],
+    [intl, logNFC, closeCallbacks],
   );
   useEffect(() => {
     if (!platformEnv.isNativeAndroid) {
@@ -97,7 +143,17 @@ export default function useNFC() {
           reject(new Error('OneKey Lite is unavailable on Mac Catalyst'));
           return;
         }
+        const context = { operationId: generateUUID(), startedAt: Date.now() };
+        logNFC('permission-start', {}, context);
         void LiteCard.checkNFCPermission().then(({ error }) => {
+          logNFC(
+            'permission-result',
+            {
+              errorCode: error?.code,
+              isSuccess: !error,
+            },
+            context,
+          );
           if (!error) {
             resolve();
             return;
@@ -149,11 +205,22 @@ export default function useNFC() {
           reject(new Error('NFC permission check failed'));
         });
       }),
-    [intl],
+    [intl, logNFC],
   );
   const hideNFCConnectDialog = useCallback(async () => {
+    const context = diagnosticContext.current;
+    logNFC(
+      'hide-request',
+      { hasDialogRef: Boolean(willCloseDialogInstance.current) },
+      context,
+    );
     await willCloseDialogInstance?.current?.close?.();
-  }, [willCloseDialogInstance]);
+    logNFC(
+      'hide-settled',
+      { hasDialogRef: Boolean(willCloseDialogInstance.current) },
+      context,
+    );
+  }, [willCloseDialogInstance, logNFC]);
   const handlerLiteCardError = useCallback(
     ({
       error,
@@ -169,6 +236,12 @@ export default function useNFC() {
       retryPINAction?: () => Promise<void>;
     }) =>
       new Promise<void>((resolve, reject) => {
+        logNFC('error-handler', {
+          errorCode: error?.code,
+          hasCardInfo: Boolean(cardInfo),
+          hasBackup: cardInfo?.hasBackup,
+          isNewCard: cardInfo?.isNewCard,
+        });
         void hideNFCConnectDialog();
         if (error) {
           if (
@@ -206,7 +279,12 @@ export default function useNFC() {
                 onConfirmText: intl.formatMessage({
                   id: ETranslations.global_retry,
                 }),
-                onConfirm: retryNFCAction,
+                onConfirm: retryNFCAction
+                  ? () => {
+                      logNFC('retry-nfc');
+                      return retryNFCAction();
+                    }
+                  : undefined,
               });
               break;
             case CardErrors.NotInitializedError:
@@ -222,7 +300,12 @@ export default function useNFC() {
                 onConfirmText: intl.formatMessage({
                   id: ETranslations.global_retry,
                 }),
-                onConfirm: retryNFCAction,
+                onConfirm: retryNFCAction
+                  ? () => {
+                      logNFC('retry-nfc');
+                      return retryNFCAction();
+                    }
+                  : undefined,
               });
               break;
             case CardErrors.PasswordWrong:
@@ -249,7 +332,9 @@ export default function useNFC() {
                 }),
                 onConfirm: async (dialogInstance) => {
                   void dialogInstance.close();
+                  logNFC('retry-pin');
                   await retryPINAction?.();
+                  logNFC('retry-nfc');
                   await retryNFCAction?.();
                 },
               });
@@ -282,7 +367,12 @@ export default function useNFC() {
                 onConfirmText: intl.formatMessage({
                   id: ETranslations.global_retry,
                 }),
-                onConfirm: retryNFCAction,
+                onConfirm: retryNFCAction
+                  ? () => {
+                      logNFC('retry-nfc');
+                      return retryNFCAction();
+                    }
+                  : undefined,
               });
               break;
           }
@@ -291,12 +381,16 @@ export default function useNFC() {
           resolve();
         }
       }),
-    [intl, hideNFCConnectDialog],
+    [intl, hideNFCConnectDialog, logNFC],
   );
   const createNFCConnection = useCallback(
     (callback: () => void) => async () => {
+      const context = { operationId: generateUUID(), startedAt: Date.now() };
+      diagnosticContext.current = context;
+      logNFC('dialog-show-request', {}, context);
       if (platformEnv.isNativeAndroid) {
         willCloseDialogInstance.current = Dialog.show({
+          ...closeCallbacks(context),
           title: intl.formatMessage({
             id: ETranslations.hardware_searching_for_device,
           }),
@@ -306,10 +400,13 @@ export default function useNFC() {
           showFooter: false,
           renderContent: <NFCAnimation state="searching" height={205} />,
         });
+        logNFC('dialog-show-returned', {}, context);
+        logNFC('callback-enter', {}, context);
         callback();
         return;
       }
       willCloseDialogInstance.current = Dialog.confirm({
+        ...closeCallbacks(context),
         title: intl.formatMessage({
           id: ETranslations.hardware_place_onekey_lite_close_to_phone,
         }),
@@ -319,12 +416,15 @@ export default function useNFC() {
         renderContent: <NFCAnimation state="searching" height={205} />,
         onConfirmText: intl.formatMessage({ id: ETranslations.global_connect }),
         onConfirm: ({ preventClose }) => {
+          logNFC('connect-confirm', {}, context);
           preventClose();
+          logNFC('callback-enter', {}, context);
           callback();
         },
       });
+      logNFC('dialog-show-returned', {}, context);
     },
-    [intl],
+    [intl, logNFC, closeCallbacks],
   );
   return useMemo(
     () => ({
