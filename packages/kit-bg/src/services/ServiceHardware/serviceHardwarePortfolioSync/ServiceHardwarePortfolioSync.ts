@@ -1563,6 +1563,14 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
               if (telemetry.cancelled) {
                 throw new UserCancelFromOutside();
               }
+              // Identity events invalidate the generation before the task can
+              // return its mismatch result. Preserve that error for manual sync.
+              if (
+                syncResult === undefined &&
+                this.mismatchedDeviceIdByTargetKey.has(targetKey)
+              ) {
+                throw new DeviceNotSame();
+              }
               return this.resolveInteractivePortfolioSyncResult(syncResult);
             },
             {
