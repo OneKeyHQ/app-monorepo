@@ -10,6 +10,7 @@ export enum EModalPerpRoutes {
   MobileTokenSelector = 'MobileTokenSelector',
   MobileSetTpsl = 'MobileSetTpsl',
   MobileDepositWithdrawModal = 'MobileDepositWithdrawModal',
+  InternalTransfer = 'InternalTransfer',
   MobileDepositSelectToken = 'MobileDepositSelectToken',
   MobileUnifoldDepositTransfer = 'MobileUnifoldDepositTransfer',
   MobileUnifoldDepositTracker = 'MobileUnifoldDepositTracker',
@@ -53,6 +54,10 @@ export type IUnifoldSourceSelectorResult =
     };
 
 export type IModalPerpParamList = {
+  [EModalPerpRoutes.InternalTransfer]: {
+    userAccountId: string;
+    expectedAccountAddress: string;
+  };
   [EModalPerpRoutes.PerpTradeHistoryDetails]: {
     fill: IFill;
     builderFeeRate?: number;

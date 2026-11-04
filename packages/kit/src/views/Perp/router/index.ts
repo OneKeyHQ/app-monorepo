@@ -55,6 +55,9 @@ const MobileSetTpslModal = LazyLoadPage(
 );
 
 const MobileDepositWithdrawModal = LazyLoadPage(loadPerpsDepositWithdrawModal);
+const InternalTransferModal = LazyLoadPage(
+  () => import('../components/TradingPanel/modals/InternalTransferModal'),
+);
 
 const MobileDepositSelectTokenLazyModal = LazyLoadPage(
   loadPerpsDepositSelectTokenModal,
@@ -167,6 +170,7 @@ export const ModalPerpStack: IModalFlowNavigatorConfig<
     name: EModalPerpRoutes.MobileDepositWithdrawModal,
     component: MobileDepositWithdrawModal,
   },
+  { name: EModalPerpRoutes.InternalTransfer, component: InternalTransferModal },
   {
     name: EModalPerpRoutes.MobileDepositSelectToken,
     component: MobileDepositSelectTokenModal,

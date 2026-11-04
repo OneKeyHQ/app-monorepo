@@ -169,7 +169,9 @@ type IRecipientQuickSelectProps = {
 };
 
 type IAccountRecipientsProps = {
+  excludedAddress?: string;
   nativeList?: boolean;
+  showNetworkIcon?: boolean;
   accountNetwork?: IRecipientAccountNetwork;
   networkId: string;
   senderDeriveType?: string;
@@ -179,7 +181,7 @@ type IAccountRecipientsProps = {
   isSearchMode?: boolean;
   keylessWalletsOnly?: boolean;
   onInputTypeChange?: (type: EInputAddressChangeType) => void;
-  onSelect?: (params: { address: string }) => void;
+  onSelect?: (params: { address: string; name?: string }) => void;
   onMatchStatusChange?: (hasMatches: boolean, matchCount: number) => void;
 };
 
@@ -343,8 +345,10 @@ function findMatchedAccountAddress(
   );
 }
 
-function AccountRecipients({
+export function AccountRecipients({
+  excludedAddress,
   nativeList = false,
+  showNetworkIcon = true,
   accountNetwork,
   networkId,
   senderDeriveType,
@@ -464,14 +468,28 @@ function AccountRecipients({
     if (!walletGroups || !Array.isArray(walletGroups)) {
       return [];
     }
+    const eligibleGroups = excludedAddress
+      ? walletGroups
+          .map((group) => ({
+            ...group,
+            accounts: group.accounts.filter(({ account }) => {
+              const address = account.address ?? account.addressDetail?.address;
+              return (
+                address &&
+                address.toLowerCase() !== excludedAddress.toLowerCase()
+              );
+            }),
+          }))
+          .filter((group) => group.accounts.length > 0)
+      : walletGroups;
     if (!isSearchActive) {
-      return walletGroups;
+      return eligibleGroups;
     }
 
     const nameMatchedGroups: typeof walletGroups = [];
     const addressOnlyGroups: typeof walletGroups = [];
 
-    for (const group of walletGroups) {
+    for (const group of eligibleGroups) {
       if (!group) {
         // skip null/undefined groups
       } else if ((group.walletName ?? '').toLowerCase().includes(searchValue)) {
@@ -523,14 +541,23 @@ function AccountRecipients({
     }
 
     return [...nameMatchedGroups, ...addressOnlyGroups];
-  }, [walletGroups, isSearchActive, searchValue, btcFreshAddressMap]);
+  }, [
+    walletGroups,
+    isSearchActive,
+    searchValue,
+    btcFreshAddressMap,
+    excludedAddress,
+  ]);
 
   // Handle account selection. A row's displayAddress is the matched
   // historical address when the search hit one, else the account's current
   // address — the same value the row shows.
   const handleSelectAccount = useStableItemPress((item: IQuickItem) => {
     onInputTypeChange?.(EInputAddressChangeType.AccountSelector);
-    onSelect?.({ address: item.displayAddress ?? item.address });
+    onSelect?.({
+      address: item.displayAddress ?? item.address,
+      name: item.name,
+    });
   });
 
   // Derive type selection per wallet group (for BTC/LTC multi-derive chains)
@@ -757,7 +784,7 @@ function AccountRecipients({
             leading: accountSelectorAccountVisualV2({
               account,
               indexedAccount: item.indexedAccount,
-              network: accountNetwork,
+              network: showNetworkIcon ? accountNetwork : undefined,
               theme: nativeListTheme,
             }),
           }),
@@ -771,6 +798,7 @@ function AccountRecipients({
     collapsedWallets,
     nativeListTheme,
     accountNetwork,
+    showNetworkIcon,
   ]);
 
   const handleNativeAccountAction = useCallback(
@@ -1029,7 +1057,7 @@ function AccountRecipients({
                   }
                   indexedAccount={itemIndexedAccount}
                   account={account}
-                  networkId={networkId}
+                  networkId={showNetworkIcon ? networkId : undefined}
                   enableEnterAnimation
                 />
               ),

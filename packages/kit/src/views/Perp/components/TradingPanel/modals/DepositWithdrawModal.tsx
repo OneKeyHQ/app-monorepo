@@ -250,7 +250,7 @@ function getDepositWithdrawTitle(
     id:
       actionType === 'deposit'
         ? ETranslations.perp_trade_deposit
-        : ETranslations.perp_trade_withdraw,
+        : ETranslations.global_send,
   });
 }
 
@@ -1793,7 +1793,7 @@ function DepositWithdrawContent({
     }
     return selectedAction === 'deposit'
       ? depositActionText
-      : intl.formatMessage({ id: ETranslations.perp_trade_withdraw });
+      : intl.formatMessage({ id: ETranslations.global_send });
   }, [
     isInsufficientBalance,
     intl,
@@ -2758,7 +2758,7 @@ function DepositWithdrawContent({
               id:
                 selectedAction === 'deposit'
                   ? ETranslations.perp_trade_deposit
-                  : ETranslations.perp_trade_withdraw,
+                  : ETranslations.global_send,
             })}
           </SizableText>
         </XStack>
@@ -3072,7 +3072,7 @@ function MobileDepositWithdrawModal() {
           id:
             actionType === 'deposit'
               ? ETranslations.perp_trade_deposit
-              : ETranslations.perp_trade_withdraw,
+              : ETranslations.global_send,
         })}
         headerRight={renderHeaderRight}
       />

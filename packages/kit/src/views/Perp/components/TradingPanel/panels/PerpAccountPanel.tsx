@@ -336,7 +336,7 @@ function PerpAccountPanel() {
             icon="AlignTopOutline"
             iconSize="$4.5"
             title={intl.formatMessage({
-              id: ETranslations.perp_trade_withdraw,
+              id: ETranslations.global_send,
             })}
             onPress={() => void showDepositWithdrawModal('withdraw')}
           />

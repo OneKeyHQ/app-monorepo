@@ -9,6 +9,7 @@ import {
   PERPS_SNAPSHOT_CACHE_MAX_ENTRIES,
 } from '@onekeyhq/shared/src/consts/perpCache';
 import type { ITokenSearchAliases } from '@onekeyhq/shared/src/utils/perpsUtils';
+import type { IInternalTransferPending } from '@onekeyhq/shared/types/hyperliquid/internalTransfer';
 import type { IHyperliquidPortfolioSnapshot } from '@onekeyhq/shared/types/hyperliquid/portfolio';
 import type {
   IBook,
@@ -190,12 +191,35 @@ export interface ISimpleDbPerpData {
     IHyperliquidPortfolioSnapshot
   >;
   perpsDepositTokenListCache?: Record<string, IPerpsDepositTokenListCacheEntry>;
+  internalTransferPending?: Record<string, IInternalTransferPending>;
 }
 
 export class SimpleDbEntityPerp extends SimpleDbEntityBase<ISimpleDbPerpData> {
   entityName = 'perp';
 
   override enableCache = true;
+
+  @backgroundMethod()
+  async getInternalTransferPending(address: string) {
+    return (await this.getPerpData()).internalTransferPending?.[
+      address.toLowerCase()
+    ];
+  }
+
+  @backgroundMethod()
+  async setInternalTransferPending(
+    address: string,
+    pending: IInternalTransferPending | undefined,
+    expectedNonce?: number,
+  ) {
+    await this.setPerpData((previous) => {
+      const entries = { ...previous?.internalTransferPending };
+      if (pending) entries[address.toLowerCase()] = pending;
+      else if (entries[address.toLowerCase()]?.nonce === expectedNonce)
+        delete entries[address.toLowerCase()];
+      return { ...previous, internalTransferPending: entries };
+    });
+  }
 
   private _isCacheEntryFresh(updatedAt: number | undefined, maxAgeMs: number) {
     if (!updatedAt || maxAgeMs <= 0) {

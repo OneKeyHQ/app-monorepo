@@ -1268,7 +1268,7 @@ function PerpPortfolioContentComponent({
         onPress={() => showDepositWithdrawModal('withdraw')}
       >
         {intl.formatMessage({
-          id: ETranslations.perp_trade_withdraw,
+          id: ETranslations.global_send,
         })}
       </Button>
     </XStack>
