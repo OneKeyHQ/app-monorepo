@@ -1,14 +1,8 @@
-export type IPortfolioSyncRequestPhase =
-  | 'preparing'
-  | 'queued'
-  | 'refreshing'
-  | 'settled'
-  | 'communicating';
+export type IPortfolioSyncRequestPhase = 'preparing' | 'communicating';
 
 export interface IPortfolioSyncRequest {
   id: number;
   categoryRequestId?: number;
-  minimumAllNetworksGeneration?: number;
   phase: IPortfolioSyncRequestPhase;
   targetKey: string;
 }
@@ -35,12 +29,11 @@ export interface IPortfolioSyncRequestTransition {
   clearFallbackTimer: boolean;
 }
 
-// One tap opens a single sync request that several independent refreshes
-// report into (all-networks fan-out, single-network derive, the fallback
-// timer). Only the first report to reach `communicating` owns the hardware
-// handoff: once claimed the phase is frozen, and a report carrying a
-// superseded tap's id must never move the current request — otherwise a late
-// refresh from the previous tap claims the new tap's device session.
+// One tap opens a single sync request. Only the explicit-sync commit step
+// claims it for the hardware handoff: once claimed the phase is frozen, and a
+// report carrying a superseded tap's id must never move the current request —
+// otherwise a late report from the previous tap claims the new tap's device
+// session.
 export function resolvePortfolioSyncRequestTransition({
   request,
   requestId,
@@ -60,9 +53,7 @@ export function resolvePortfolioSyncRequestTransition({
   return {
     accepted: true,
     nextRequest: { ...request, phase },
-    // `settled` still waits on the all-networks snapshot, so it keeps the
-    // fallback timer armed; every other phase has already produced a result.
-    clearFallbackTimer: phase !== 'settled',
+    clearFallbackTimer: true,
   };
 }
 
