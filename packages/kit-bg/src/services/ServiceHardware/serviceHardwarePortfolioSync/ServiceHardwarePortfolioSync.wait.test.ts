@@ -157,6 +157,8 @@ describe('Portfolio v2 category retrieval', () => {
     const getAllNetworks = jest.fn().mockResolvedValue({
       networks: [{ id: 'evm--1', isTestnet: false }],
     });
+    const getAccountAddressForApi = jest.fn().mockResolvedValue('0x1111');
+    const getAccountXpub = jest.fn().mockResolvedValue(undefined);
     const getNetworkAccount = jest.fn().mockResolvedValue({
       address: '0x2222',
       addressDetail: { normalizedAddress: '0x3333' },
@@ -204,7 +206,11 @@ describe('Portfolio v2 category retrieval', () => {
           getGlobalDeriveTypeOfNetwork: jest.fn().mockResolvedValue('default'),
         },
         serviceAllNetwork: { getAllNetworksState, getAllNetworkAccounts },
-        serviceAccount: { getNetworkAccount },
+        serviceAccount: {
+          getNetworkAccount,
+          getAccountAddressForApi,
+          getAccountXpub,
+        },
         serviceAccountProfile: {
           _getWalletTypeHeader: jest.fn().mockResolvedValue({}),
         },
@@ -222,6 +228,8 @@ describe('Portfolio v2 category retrieval', () => {
       getDeFiEnabledNetworksMapState,
       getAccountTotalDeFiNetWorth,
       getNetworkAccount,
+      getAccountAddressForApi,
+      getAccountXpub,
       getHyperliquidPortfolioSnapshot,
     };
   }
@@ -450,53 +458,34 @@ describe('Portfolio v2 category retrieval', () => {
   });
 
   test.each([false, true])(
-    'uses normal queries during the force cooldown (failure: %s)',
+    'refreshes every explicit attempt without a Portfolio cooldown (previous failure: %s)',
     async (fails) => {
-      const now = Date.now();
-      const clock = jest.spyOn(Date, 'now').mockReturnValue(now);
-      try {
-        const mocks = prepare();
-        if (fails)
-          mocks.fetchAccountDeFiPositions.mockRejectedValueOnce(
-            new Error('Force refresh is rate limited'),
-          );
-        const params = {
-          accountId: 'account-1',
-          indexedAccountId: 'indexed-account-1',
-          networkId: getNetworkIdsMap().onekeyall,
-          force: true,
-        };
-        await mocks.service.refreshPortfolioCategories(params);
-        clock.mockReturnValue(now + 299_999);
-        await expect(
-          mocks.service.refreshPortfolioCategories(params),
-        ).resolves.toMatchObject({ failedSources: [] });
-        expect(mocks.fetchAccountDeFiPositions).toHaveBeenCalledTimes(2);
-        expect(mocks.fetchAccountDeFiPositions).toHaveBeenLastCalledWith(
-          expect.objectContaining({ isForceRefresh: false }),
+      const mocks = prepare();
+      if (fails)
+        mocks.fetchAccountDeFiPositions.mockRejectedValueOnce(
+          new Error('offline'),
         );
-        expect(mocks.getHyperliquidPortfolioSnapshot).toHaveBeenCalledTimes(2);
-        expect(mocks.getHyperliquidPortfolioSnapshot).toHaveBeenLastCalledWith({
-          address: '0x3333',
-        });
-        expect(mocks.consumeManualDeFiForceRefreshQuota).toHaveBeenCalledTimes(
-          1,
-        );
-        clock.mockReturnValue(now + 300_000);
-        await expect(
-          mocks.service.refreshPortfolioCategories(params),
-        ).resolves.toMatchObject({ failedSources: [] });
-        expect(mocks.fetchAccountDeFiPositions).toHaveBeenCalledTimes(3);
-        expect(mocks.fetchAccountDeFiPositions).toHaveBeenLastCalledWith(
-          expect.objectContaining({ isForceRefresh: true }),
-        );
-        expect(mocks.getHyperliquidPortfolioSnapshot).toHaveBeenCalledTimes(3);
-        expect(mocks.consumeManualDeFiForceRefreshQuota).toHaveBeenCalledTimes(
-          2,
-        );
-      } finally {
-        clock.mockRestore();
-      }
+      const params = {
+        accountId: 'account-1',
+        indexedAccountId: 'indexed-account-1',
+        networkId: getNetworkIdsMap().onekeyall,
+        force: true,
+      };
+      await mocks.service.refreshPortfolioCategories(params);
+      await expect(
+        mocks.service.refreshPortfolioCategories(params),
+      ).resolves.toMatchObject({ failedSources: [] });
+      expect(mocks.fetchAccountDeFiPositions).toHaveBeenCalledTimes(2);
+      expect(mocks.fetchAccountDeFiPositions).toHaveBeenLastCalledWith(
+        expect.objectContaining({ isForceRefresh: true }),
+      );
+      expect(mocks.consumeManualDeFiForceRefreshQuota).toHaveBeenCalledTimes(2);
+      expect(mocks.getHyperliquidPortfolioSnapshot).toHaveBeenCalledTimes(2);
+      expect(mocks.getHyperliquidPortfolioSnapshot).toHaveBeenLastCalledWith({
+        address: '0x3333',
+        force: true,
+        requireFresh: true,
+      });
     },
   );
 
@@ -565,81 +554,18 @@ describe('Portfolio v2 category retrieval', () => {
     expect(mocks.consumeManualDeFiForceRefreshQuota).toHaveBeenCalledTimes(1);
   });
 
-  test('keeps the force cooldown when the query shape changes', async () => {
-    const now = Date.now();
-    const clock = jest.spyOn(Date, 'now').mockReturnValue(now);
-    try {
-      const mocks = prepare();
-      const params = {
-        accountId: 'account-1',
-        indexedAccountId: 'indexed-account-1',
-        networkId: getNetworkIdsMap().onekeyall,
-        force: true,
-      };
-      await mocks.service.refreshPortfolioCategories(params);
-      clock.mockReturnValue(now + 60_000);
-      mocks.getDeFiEnabledNetworksMapState.mockResolvedValue({
-        isReady: true,
-        enabledNetworksMap: { 'evm--1': true, 'btc--0': true },
-      });
-      mocks.getAllNetworksState.mockResolvedValue({
-        enabledNetworks: { 'evm--1': true, 'btc--0': true },
-        disabledNetworks: {},
-      });
-      mocks.getAllNetworks.mockResolvedValue({
-        networks: [
-          { id: 'evm--1', isTestnet: false },
-          { id: 'btc--0', isTestnet: false },
-        ],
-      });
-      await expect(
-        mocks.service.refreshPortfolioCategories(params),
-      ).resolves.toMatchObject({ failedSources: [] });
-      expect(mocks.fetchAccountDeFiPositions).toHaveBeenCalledTimes(2);
-      expect(mocks.fetchAccountDeFiPositions).toHaveBeenLastCalledWith(
-        expect.objectContaining({ isForceRefresh: false }),
-      );
-      expect(mocks.consumeManualDeFiForceRefreshQuota).toHaveBeenCalledTimes(1);
-    } finally {
-      clock.mockRestore();
-    }
-  });
-
-  test('uses a usable cached Perps snapshot when the forced fetch fails', async () => {
+  test('keeps a failed forced Perps refresh incomplete instead of retrying cached data', async () => {
     const mocks = prepare();
     mocks.getHyperliquidPortfolioSnapshot
       .mockResolvedValueOnce(undefined)
       .mockResolvedValue({ netWorthUsd: '30', isDegraded: false });
     await expect(
-      mocks.service.refreshPortfolioCategories({
-        accountId: 'account-1',
-        indexedAccountId: 'indexed-account-1',
-        networkId: getNetworkIdsMap().onekeyall,
-        force: true,
-      }),
-    ).resolves.toMatchObject({ perpsFiat: '30', failedSources: [] });
-    expect(mocks.getHyperliquidPortfolioSnapshot).toHaveBeenCalledTimes(2);
-    expect(mocks.getHyperliquidPortfolioSnapshot).toHaveBeenLastCalledWith({
-      address: '0x3333',
+      refreshCategoryFiat(mocks, { force: true }),
+    ).resolves.toMatchObject({
+      perpsFiat: undefined,
+      failedSources: ['perps'],
     });
-  });
-
-  test('also bounds Perps-only forced refreshes without spending a DeFi quota', async () => {
-    const mocks = prepare();
-    const params = {
-      accountId: 'account-1',
-      indexedAccountId: 'indexed-account-1',
-      networkId: getNetworkIdsMap().onekeyall,
-      force: true,
-      sources: ['perps'] as 'perps'[],
-    };
-    await mocks.service.refreshPortfolioCategories(params);
-    await mocks.service.refreshPortfolioCategories(params);
-    expect(mocks.getHyperliquidPortfolioSnapshot).toHaveBeenCalledTimes(2);
-    expect(mocks.getHyperliquidPortfolioSnapshot).toHaveBeenLastCalledWith({
-      address: '0x3333',
-    });
-    expect(mocks.consumeManualDeFiForceRefreshQuota).not.toHaveBeenCalled();
+    expect(mocks.getHyperliquidPortfolioSnapshot).toHaveBeenCalledTimes(1);
   });
 
   test('accepts confirmed zero values as complete data', async () => {
@@ -694,24 +620,56 @@ describe('Portfolio v2 category retrieval', () => {
     });
   });
 
-  test('passes deriveType for a single-network DeFi lookup', async () => {
+  test('queries the selected single-network account independently of All Networks filters', async () => {
     const mocks = prepare();
+    mocks.getAllNetworksState.mockResolvedValue({
+      enabledNetworks: {},
+      disabledNetworks: { 'evm--1': true },
+    });
+    mocks.getAllNetworkAccounts.mockResolvedValue({ accountsInfo: [] });
     await expect(
       refreshCategoryFiat(mocks, { networkId: 'evm--1' }),
-    ).resolves.toMatchObject({ defiFiat: '20', failedSources: [] });
-    expect(mocks.getAllNetworkAccounts).toHaveBeenCalledWith(
-      expect.objectContaining({ networkId: 'evm--1', deriveType: 'default' }),
+    ).resolves.toMatchObject({
+      defiFiat: '20',
+      deFiOverview: { netWorth: 20 },
+      failedSources: [],
+    });
+    expect(mocks.getAllNetworkAccounts).not.toHaveBeenCalled();
+    expect(mocks.getAccountAddressForApi).toHaveBeenCalledWith({
+      accountId: 'account-1',
+      networkId: 'evm--1',
+    });
+    expect(mocks.fetchAccountDeFiPositionsBatch).toHaveBeenCalledWith(
+      expect.objectContaining({
+        accountId: 'account-1',
+        accountAddress: '0x1111',
+        networkIds: ['evm--1'],
+        requireComplete: true,
+      }),
     );
   });
 
-  test('treats an empty DeFi account set as zero instead of unknown', async () => {
+  test('does not publish zero DeFi when the All Networks account set is unavailable', async () => {
     const mocks = prepare();
     mocks.getAllNetworkAccounts.mockResolvedValue({ accountsInfo: [] });
     await expect(refreshCategoryFiat(mocks)).resolves.toMatchObject({
-      defiFiat: '0',
-      deFiSource: 'empty',
-      perpsFiat: '30',
-      failedSources: [],
+      defiFiat: undefined,
+      deFiSource: 'unknown',
+      deFiOverview: undefined,
+      failedSources: ['defi'],
+    });
+    expect(mocks.fetchAccountDeFiPositionsBatch).not.toHaveBeenCalled();
+  });
+
+  test('does not publish zero DeFi when the selected address is unavailable', async () => {
+    const mocks = prepare();
+    mocks.getAccountAddressForApi.mockResolvedValue(undefined);
+    await expect(
+      refreshCategoryFiat(mocks, { networkId: 'evm--1' }),
+    ).resolves.toMatchObject({
+      defiFiat: undefined,
+      deFiOverview: undefined,
+      failedSources: ['defi'],
     });
     expect(mocks.fetchAccountDeFiPositionsBatch).not.toHaveBeenCalled();
   });
@@ -784,7 +742,7 @@ describe('Portfolio v2 category retrieval', () => {
     });
   });
 
-  test('treats a missing perps account row as zero instead of unknown', async () => {
+  test('keeps a missing Perps account incomplete instead of publishing zero', async () => {
     const mocks = prepare();
     mocks.getNetworkAccount.mockRejectedValue(
       new Error('indexedAccounts not found: indexed-account-1'),
@@ -792,8 +750,8 @@ describe('Portfolio v2 category retrieval', () => {
     await expect(refreshCategoryFiat(mocks)).resolves.toMatchObject({
       defiFiat: '20',
       deFiSource: 'live',
-      perpsFiat: '0',
-      failedSources: [],
+      perpsFiat: undefined,
+      failedSources: ['perps'],
     });
     expect(mocks.getHyperliquidPortfolioSnapshot).not.toHaveBeenCalled();
   });

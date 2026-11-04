@@ -87,7 +87,6 @@ import type { ISimpleDBAggregateToken } from '@onekeyhq/kit-bg/src/dbs/simple/en
 import type { ICustomTokenDBStruct } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityCustomTokens';
 import type { IRiskTokenManagementDBStruct } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityRiskTokenManagement';
 import type { IAllNetworkAccountInfo } from '@onekeyhq/kit-bg/src/services/ServiceAllNetwork/ServiceAllNetwork';
-import type { IPortfolioCategoryRefreshResult } from '@onekeyhq/kit-bg/src/services/ServiceHardware/serviceHardwarePortfolioSync/ServiceHardwarePortfolioSync';
 import {
   EJotaiContextStoreNames,
   type IDeviceStageState,
@@ -515,22 +514,20 @@ function TokenListBlock({
   const portfolioCategoryTaskRef = useRef<
     | {
         scope: string;
-        force: boolean;
         promise: Promise<boolean>;
         requestId: number;
       }
     | undefined
   >(undefined);
-  const partialPortfolioCategoriesRef = useRef<
+  const portfolioSpotRefreshRef = useRef<
     | {
-        scope: string;
-        data: IPortfolioCategoryRefreshResult;
+        requestId: number;
+        generation?: number;
+        resolve: () => void;
+        reject: (error: unknown) => void;
       }
     | undefined
   >(undefined);
-  const refreshPortfolioCategoriesRef = useRef<
-    (force?: boolean, sources?: ('defi' | 'perps')[]) => Promise<boolean>
-  >(async () => false);
   const [{ currencyMap }] = useCurrencyPersistAtom();
   const [, setOverviewTokenCacheState] = useOverviewTokenCacheStateAtom();
 
@@ -630,7 +627,10 @@ function TokenListBlock({
   );
   useLayoutEffect(() => {
     portfolioCategoryTaskRef.current = undefined;
-    partialPortfolioCategoriesRef.current = undefined;
+    portfolioSpotRefreshRef.current?.reject(
+      new OneKeyLocalError('Portfolio account changed'),
+    );
+    portfolioSpotRefreshRef.current = undefined;
     portfolioCategoryRequestIdRef.current += 1;
     setPortfolioCategoryRefresh((previous) => ({
       ...(previous.ownerKey === portfolioCategoryOwnerKey ? previous : {}),
@@ -696,6 +696,10 @@ function TokenListBlock({
         portfolioSyncStageHoldRef.current = undefined;
       }
       clearPortfolioSyncFallbackTimer();
+      portfolioSpotRefreshRef.current?.reject(
+        new OneKeyLocalError('Portfolio refresh cancelled'),
+      );
+      portfolioSpotRefreshRef.current = undefined;
       portfolioSyncRequestRef.current = undefined;
       setPortfolioSyncRequestPhase(undefined);
     },
@@ -755,6 +759,10 @@ function TokenListBlock({
   useEffect(
     () => () => {
       clearPortfolioSyncFallbackTimer();
+      portfolioSpotRefreshRef.current?.reject(
+        new OneKeyLocalError('Portfolio refresh cancelled'),
+      );
+      portfolioSpotRefreshRef.current = undefined;
     },
     [clearPortfolioSyncFallbackTimer],
   );
@@ -852,6 +860,7 @@ function TokenListBlock({
   const { run } = usePromiseResult(
     async () => {
       const requestAccountEpoch = activeAccountEpoch;
+      const portfolioSpotRefresh = portfolioSpotRefreshRef.current;
       if (!isHomeRequestCurrent()) return;
       let homeRequest: IHomeTokenRequest | undefined;
       let accountId = account?.id ?? '';
@@ -1194,7 +1203,11 @@ function TokenListBlock({
         });
 
         endTokenListRefreshEvent();
+        if (portfolioSpotRefreshRef.current === portfolioSpotRefresh)
+          portfolioSpotRefresh?.resolve();
       } catch (e) {
+        if (portfolioSpotRefreshRef.current === portfolioSpotRefresh)
+          portfolioSpotRefresh?.reject(e);
         endTokenListRefreshEvent();
         if (
           !isAccountEpochCurrent(requestAccountEpoch) ||
@@ -1904,9 +1917,11 @@ function TokenListBlock({
       accountId,
       networkId,
       runResult,
+      generation,
     }: {
       accountId?: string;
       networkId?: string;
+      generation: number;
       runResult?: IAllNetworkRunResult;
     }) => {
       appEventBus.emit(EAppEventBusNames.TabListStateUpdate, {
@@ -1918,6 +1933,18 @@ function TokenListBlock({
 
       if (runResult?.didComplete && runResult.requestCount === 0) {
         commitEmptyAllNetworksOwner();
+      }
+      const spotRefresh = portfolioSpotRefreshRef.current;
+      if (spotRefresh?.generation === generation) {
+        if (
+          runResult?.didComplete &&
+          runResult.resultCount === runResult.requestCount
+        ) {
+          if (runResult.requestCount === 0) spotRefresh.resolve();
+        } else
+          spotRefresh.reject(
+            new OneKeyLocalError('Incomplete Portfolio token refresh'),
+          );
       }
     },
     [commitEmptyAllNetworksOwner],
@@ -1968,14 +1995,18 @@ function TokenListBlock({
       networkId,
       allNetworkDataInit,
       isRunCurrent,
+      generation,
     }: {
       accountId?: string;
       networkId?: string;
       allNetworkDataInit?: boolean;
       isRunCurrent?: () => boolean;
+      generation: number;
     }) => {
       const requestAccountEpoch = activeAccountEpoch;
       if (!isHomeRequestCurrent()) return;
+      if (portfolioSpotRefreshRef.current)
+        portfolioSpotRefreshRef.current.generation = generation;
       const homeRequest = getHomeRequest(true);
       const updateCurrentAccountTask =
         accountId && networkId
@@ -2456,6 +2487,7 @@ function TokenListBlock({
 
   const updateAllNetworksTokenList = useCallback(async () => {
     const requestAccountEpoch = activeAccountEpoch;
+    const portfolioSpotRefresh = portfolioSpotRefreshRef.current;
     const homeRequest = allNetworksResult?.[0]?.homeRequest;
     if (allNetworksTokenListUpdateInFlightRef.current) {
       allNetworksTokenListUpdatePendingRef.current = true;
@@ -2605,6 +2637,16 @@ function TokenListBlock({
               walletType: wallet.type,
             };
             setSilentPortfolioPayload(portfolioSyncPayload);
+            if (
+              portfolioSpotRefresh &&
+              portfolioSpotRefreshRef.current === portfolioSpotRefresh &&
+              portfolioSpotRefresh.generation ===
+                allNetworksPublishedResultRef.current.generation &&
+              allNetworksPublishedResultRef.current.result ===
+                allNetworksResult &&
+              assetStatusAggregationComplete
+            )
+              portfolioSpotRefresh.resolve();
           }
         }
       }
@@ -3308,7 +3350,7 @@ function TokenListBlock({
       handleRefreshAllNetworkData();
       return;
     }
-    void run({ alwaysSetState: true });
+    void run({ alwaysSetState: true }).catch(() => undefined);
   };
 
   const portfolioSyncWorthAccountId = mergeDeriveAddressData
@@ -3359,203 +3401,106 @@ function TokenListBlock({
     isProtocolV2ProductType(portfolioSyncDeviceType),
   );
 
-  const refreshPortfolioCategories = useCallback(
-    (
-      force = false,
-      sources: ('defi' | 'perps')[] = ['defi', 'perps'],
-    ): Promise<boolean> => {
-      if (
-        !canRefreshPortfolioCategories ||
-        !account?.id ||
-        !indexedAccount?.id ||
-        !network?.id
-      ) {
-        return Promise.resolve(false);
-      }
-      const scope = portfolioCategoryScope;
-      const savedPartial =
-        partialPortfolioCategoriesRef.current?.scope === scope
-          ? partialPortfolioCategoriesRef.current.data
-          : undefined;
-      const knownHomeAtStart =
-        homePortfolioDisplay.isLive &&
+  const refreshPortfolioCategories = useCallback(async (): Promise<boolean> => {
+    if (
+      !canRefreshPortfolioCategories ||
+      !account?.id ||
+      !indexedAccount?.id ||
+      !network?.id
+    )
+      return false;
+    const scope = portfolioCategoryScope;
+    const pending = portfolioCategoryTaskRef.current;
+    if (pending?.scope === scope) return pending.promise;
+    portfolioCategoryRequestIdRef.current += 1;
+    const requestId = portfolioCategoryRequestIdRef.current;
+    setPortfolioCategoryRefresh((previous) => ({
+      ...(previous.ownerKey === portfolioCategoryOwnerKey ? previous : {}),
+      ownerKey: portfolioCategoryOwnerKey,
+      requestId,
+      isRefreshing: true,
+      failedSources: [],
+      heldTotalFiatUsd:
         homePortfolioDisplay.ownerKey === portfolioCategoryOwnerKey
-          ? homePortfolioDisplay
-          : undefined;
-      const requestedSources = new Set(sources);
-      if (knownHomeAtStart && sources.length < 2) {
-        // A retry can ask for only the failed categories. If Home has changed
-        // for a skipped category since the saved partial result, refresh that
-        // category too instead of publishing (and re-committing) the stale
-        // saved amount.
-        const differs = (home?: string, saved?: string) => {
-          if (home === undefined || saved === undefined) return home !== saved;
-          const homeValue = new BigNumber(home);
-          const savedValue = new BigNumber(saved);
-          return (
-            !homeValue.isFinite() ||
-            !savedValue.isFinite() ||
-            !homeValue.eq(savedValue)
-          );
-        };
+          ? homePortfolioDisplay.totalFiatUsd
+          : undefined,
+      retry: undefined,
+    }));
+    const isCurrent = () =>
+      portfolioCategoryScopeRef.current === scope &&
+      portfolioCategoryRequestIdRef.current === requestId;
+    const promise = (async () => {
+      try {
+        const spotRefresh = new Promise<void>((resolve, reject) => {
+          portfolioSpotRefreshRef.current = { requestId, resolve, reject };
+          setSilentPortfolioPayload(undefined);
+          refreshWalletTokenListRef.current?.();
+        });
+        const [, result] = await Promise.all([
+          spotRefresh,
+          backgroundApiProxy.serviceHardwarePortfolioSync.refreshPortfolioCategories(
+            {
+              accountId: account.id,
+              indexedAccountId: indexedAccount.id,
+              networkId: network.id,
+              force: true,
+              sources: ['defi', 'perps'],
+            },
+          ),
+        ]);
+        if (!isCurrent()) return false;
+        const failedSources: ('defi' | 'perps')[] = [];
         if (
-          !requestedSources.has('defi') &&
-          differs(knownHomeAtStart.defiFiatUsd, savedPartial?.defiFiat)
-        ) {
-          requestedSources.add('defi');
-        }
+          result.defiFiat === undefined ||
+          !new BigNumber(result.defiFiat).isFinite() ||
+          !['live', 'empty'].includes(result.deFiSource ?? '')
+        )
+          failedSources.push('defi');
         if (
-          !requestedSources.has('perps') &&
-          differs(knownHomeAtStart.perpsFiatUsd, savedPartial?.perpsFiat)
-        ) {
-          requestedSources.add('perps');
-        }
-      }
-      const effectiveSources = Array.from(requestedSources);
-      const pending = portfolioCategoryTaskRef.current;
-      if (pending?.scope === scope) {
-        if (force && !pending.force) {
-          return pending.promise.then(() =>
-            portfolioCategoryScopeRef.current === scope
-              ? refreshPortfolioCategoriesRef.current(true, effectiveSources)
-              : false,
-          );
-        }
-        return pending.promise;
-      }
-      portfolioCategoryRequestIdRef.current += 1;
-      const requestId = portfolioCategoryRequestIdRef.current;
-      setPortfolioCategoryRefresh((previous) => ({
-        ...(previous.ownerKey === portfolioCategoryOwnerKey ? previous : {}),
-        ownerKey: portfolioCategoryOwnerKey,
-        requestId,
-        isRefreshing: true,
-        failedSources: [],
-        heldTotalFiatUsd:
-          homePortfolioDisplay.ownerKey === portfolioCategoryOwnerKey
-            ? homePortfolioDisplay.totalFiatUsd
-            : undefined,
-        retry: undefined,
-      }));
-      const isCurrent = () =>
-        portfolioCategoryScopeRef.current === scope &&
-        portfolioCategoryRequestIdRef.current === requestId;
-      const promise = Promise.resolve().then(async () => {
-        try {
-          const result =
-            await backgroundApiProxy.serviceHardwarePortfolioSync.refreshPortfolioCategories(
-              {
-                accountId: account.id,
-                indexedAccountId: indexedAccount.id,
-                networkId: network.id,
-                force,
-                sources: effectiveSources,
+          result.perpsFiat === undefined ||
+          !new BigNumber(result.perpsFiat).isFinite()
+        )
+          failedSources.push('perps');
+        setPortfolioCategoryRefresh((current) =>
+          current.requestId !== requestId
+            ? current
+            : {
+                ...current,
+                isRefreshing: false,
+                failedSources,
+                ...(failedSources.length
+                  ? {}
+                  : { data: result, dataRequestId: requestId }),
               },
-            );
-          if (!isCurrent()) return false;
-          const previous =
-            partialPortfolioCategoriesRef.current?.scope === scope
-              ? partialPortfolioCategoriesRef.current.data
-              : undefined;
-          const knownHome =
-            homePortfolioDisplay.isLive &&
-            homePortfolioDisplay.ownerKey === portfolioCategoryOwnerKey
-              ? homePortfolioDisplay
-              : undefined;
-          const merged = {
-            ...result,
-            ...(!effectiveSources.includes('defi')
-              ? {
-                  defiFiat: previous?.defiFiat ?? knownHome?.defiFiatUsd,
-                  deFiSource:
-                    previous?.deFiSource ??
-                    (knownHome?.defiFiatUsd !== undefined
-                      ? ('live' as const)
-                      : undefined),
-                  deFiOverview: previous?.deFiOverview,
-                }
-              : {}),
-            ...(!effectiveSources.includes('perps')
-              ? { perpsFiat: previous?.perpsFiat ?? knownHome?.perpsFiatUsd }
-              : {}),
-          };
-          const failedSources: ('defi' | 'perps')[] = [];
-          if (
-            merged.defiFiat === undefined ||
-            !new BigNumber(merged.defiFiat).isFinite() ||
-            !['live', 'empty'].includes(merged.deFiSource ?? '')
-          )
-            failedSources.push('defi');
-          if (
-            merged.perpsFiat === undefined ||
-            !new BigNumber(merged.perpsFiat).isFinite()
-          )
-            failedSources.push('perps');
-          partialPortfolioCategoriesRef.current = { scope, data: merged };
-          setPortfolioCategoryRefresh((current) =>
-            current.requestId !== requestId
-              ? current
-              : {
-                  ...current,
-                  isRefreshing: false,
-                  failedSources,
-                  ...(failedSources.length
-                    ? {
-                        retry: () => {
-                          void refreshPortfolioCategoriesRef.current(
-                            false,
-                            failedSources,
-                          );
-                        },
-                      }
-                    : {
-                        data: merged,
-                        dataRequestId: requestId,
-                        retry: undefined,
-                      }),
-                },
-          );
-          return failedSources.length === 0;
-        } catch {
-          if (isCurrent()) {
-            setPortfolioCategoryRefresh((current) =>
-              current.requestId !== requestId
-                ? current
-                : {
-                    ...current,
-                    isRefreshing: false,
-                    failedSources: effectiveSources,
-                    retry: () => {
-                      void refreshPortfolioCategoriesRef.current(
-                        false,
-                        effectiveSources,
-                      );
-                    },
-                  },
-            );
-          }
-          return false;
-        } finally {
-          if (portfolioCategoryTaskRef.current?.requestId === requestId) {
-            portfolioCategoryTaskRef.current = undefined;
-          }
-        }
-      });
-      portfolioCategoryTaskRef.current = { scope, force, promise, requestId };
-      return promise;
-    },
-    [
-      account?.id,
-      canRefreshPortfolioCategories,
-      homePortfolioDisplay,
-      indexedAccount?.id,
-      network?.id,
-      portfolioCategoryOwnerKey,
-      portfolioCategoryScope,
-      setPortfolioCategoryRefresh,
-    ],
-  );
-  refreshPortfolioCategoriesRef.current = refreshPortfolioCategories;
+        );
+        return failedSources.length === 0;
+      } catch {
+        if (isCurrent())
+          setPortfolioCategoryRefresh((current) => ({
+            ...current,
+            isRefreshing: false,
+            failedSources: ['defi', 'perps'],
+          }));
+        return false;
+      } finally {
+        if (portfolioSpotRefreshRef.current?.requestId === requestId)
+          portfolioSpotRefreshRef.current = undefined;
+        if (portfolioCategoryTaskRef.current?.requestId === requestId)
+          portfolioCategoryTaskRef.current = undefined;
+      }
+    })();
+    portfolioCategoryTaskRef.current = { scope, promise, requestId };
+    return promise;
+  }, [
+    account?.id,
+    canRefreshPortfolioCategories,
+    homePortfolioDisplay,
+    indexedAccount?.id,
+    network?.id,
+    portfolioCategoryOwnerKey,
+    portfolioCategoryScope,
+    setPortfolioCategoryRefresh,
+  ]);
 
   const buildCurrentHomePortfolioSyncPayload = useCallback(() => {
     const totalFiatCurrency = accountTokensWorth.currency ?? currencyInfo?.id;
@@ -3738,9 +3683,7 @@ function TokenListBlock({
   const communicatePortfolio = useCallback(
     (
       request: IPortfolioSyncRequest,
-      eventPayload: NonNullable<
-        ReturnType<typeof buildCurrentHomePortfolioSyncPayload>
-      >,
+      eventPayload: IAppEventBusPayload[EAppEventBusNames.AllNetworksTokenListSettled],
     ) => {
       if (!transitionPortfolioSyncRequest(request.id, 'communicating')) return;
       void beginPortfolioSyncStage({
@@ -3797,68 +3740,63 @@ function TokenListBlock({
     ],
   );
 
-  const manualPortfolioSyncRef = useRef<
-    (sources?: ('defi' | 'perps')[], force?: boolean) => void
-  >(() => undefined);
-  const handleSyncPortfolio = useCallback(
-    (sources: ('defi' | 'perps')[] = ['defi', 'perps'], force = true) => {
-      if (getCurrentPortfolioSyncRequest() || !canRefreshPortfolioCategories)
-        return;
-      portfolioSyncRequestIdRef.current += 1;
-      const request: IPortfolioSyncRequest = {
-        id: portfolioSyncRequestIdRef.current,
-        phase: 'preparing',
-        targetKey: portfolioSyncTargetKey,
-      };
-      portfolioSyncRequestRef.current = request;
-      setPortfolioSyncPreparedRevision(undefined);
-      setPortfolioSyncRequestPhase(request.phase);
-      clearPortfolioSyncFallbackTimer();
-      portfolioSyncAllNetworksFallbackTimerRef.current = setTimeout(() => {
-        if (getCurrentPortfolioSyncRequest()?.id !== request.id) return;
+  const manualPortfolioSyncRef = useRef<() => void>(() => undefined);
+  const handleSyncPortfolio = useCallback(() => {
+    if (getCurrentPortfolioSyncRequest() || !canRefreshPortfolioCategories)
+      return;
+    portfolioSyncRequestIdRef.current += 1;
+    const request: IPortfolioSyncRequest = {
+      id: portfolioSyncRequestIdRef.current,
+      phase: 'preparing',
+      targetKey: portfolioSyncTargetKey,
+    };
+    portfolioSyncRequestRef.current = request;
+    setPortfolioSyncPreparedRevision(undefined);
+    setPortfolioSyncRequestPhase(request.phase);
+    clearPortfolioSyncFallbackTimer();
+    portfolioSyncAllNetworksFallbackTimerRef.current = setTimeout(() => {
+      if (getCurrentPortfolioSyncRequest()?.id !== request.id) return;
+      finishPortfolioSyncRequest(request.id);
+      errorToastUtils.showToastOfError(
+        new OneKeyLocalError(
+          intl.formatMessage({ id: ETranslations.global_update_failed }),
+        ),
+      );
+    }, 30_000);
+    void refreshPortfolioCategories().then((complete) => {
+      if (getCurrentPortfolioSyncRequest()?.id !== request.id) return;
+      if (!complete) {
         finishPortfolioSyncRequest(request.id);
-        errorToastUtils.showToastOfError(
-          new OneKeyLocalError(
-            intl.formatMessage({ id: ETranslations.global_update_failed }),
-          ),
-        );
-      }, 30_000);
-      if (!hasCurrentHomePortfolioSnapshot)
-        refreshWalletTokenListRef.current?.();
-      void refreshPortfolioCategories(force, sources).then((complete) => {
-        if (getCurrentPortfolioSyncRequest()?.id !== request.id) return;
-        if (!complete) {
-          finishPortfolioSyncRequest(request.id);
-          setPortfolioCategoryRefresh((current) => ({
-            ...current,
-            retry: () =>
-              manualPortfolioSyncRef.current(current.failedSources, false),
-          }));
-          return;
-        }
-        request.categoryRequestId = portfolioCategoryRequestIdRef.current;
-        setPortfolioSyncPreparedRevision(request.categoryRequestId);
-        // The header publishes this revision after committing the refreshed amounts.
-      });
-    },
-    [
-      canRefreshPortfolioCategories,
-      clearPortfolioSyncFallbackTimer,
-      finishPortfolioSyncRequest,
-      getCurrentPortfolioSyncRequest,
-      hasCurrentHomePortfolioSnapshot,
-      intl,
-      portfolioSyncTargetKey,
-      refreshPortfolioCategories,
-      setPortfolioCategoryRefresh,
-    ],
-  );
+        setPortfolioCategoryRefresh((current) => ({
+          ...current,
+          retry: () => manualPortfolioSyncRef.current(),
+        }));
+        return;
+      }
+      request.categoryRequestId = portfolioCategoryRequestIdRef.current;
+      setPortfolioSyncPreparedRevision(request.categoryRequestId);
+      // The header publishes this revision after committing the refreshed amounts.
+    });
+  }, [
+    canRefreshPortfolioCategories,
+    clearPortfolioSyncFallbackTimer,
+    finishPortfolioSyncRequest,
+    getCurrentPortfolioSyncRequest,
+    intl,
+    portfolioSyncTargetKey,
+    refreshPortfolioCategories,
+    setPortfolioCategoryRefresh,
+  ]);
   manualPortfolioSyncRef.current = handleSyncPortfolio;
 
   useEffect(() => {
     const request = getCurrentPortfolioSyncRequest();
     if (
       request?.phase !== 'preparing' ||
+      (!silentPortfolioPayload && !isEmptyAccount) ||
+      (silentPortfolioPayload &&
+        (silentPortfolioPayload.ownerAccountId !== account?.id ||
+          silentPortfolioPayload.ownerNetworkId !== network?.id)) ||
       request.categoryRequestId === undefined ||
       portfolioCategoryTaskRef.current ||
       !homePortfolioDisplay.isLive ||
@@ -3870,16 +3808,44 @@ function TokenListBlock({
       homePortfolioDisplay.categoryRevision !== request.categoryRequestId
     )
       return;
-    const eventPayload = buildCurrentHomePortfolioSyncPayload();
+    if (
+      silentPortfolioPayload &&
+      !new BigNumber(
+        convertFiat({
+          value: silentPortfolioPayload.totalFiat,
+          sourceCurrency: silentPortfolioPayload.totalFiatCurrency,
+          targetCurrency: USD_CURRENCY_ID,
+          currencyMap,
+        }),
+      ).eq(homePortfolioDisplay.tokenFiatUsd ?? '')
+    )
+      return;
+    // Use the same fetched token rows as the refreshed worth; the cell projection
+    // may still be applying its asynchronous ingest when the header commits.
+    const eventPayload = silentPortfolioPayload
+      ? {
+          ...silentPortfolioPayload,
+          homeTotalFiatUsd: homePortfolioDisplay.totalFiatUsd,
+          homeCategoryFiatUsd: {
+            defiFiat: homePortfolioDisplay.defiFiatUsd,
+            perpsFiat: homePortfolioDisplay.perpsFiatUsd,
+          },
+        }
+      : buildCurrentHomePortfolioSyncPayload();
     if (eventPayload) communicatePortfolio(request, eventPayload);
   }, [
     buildCurrentHomePortfolioSyncPayload,
     communicatePortfolio,
     getCurrentPortfolioSyncRequest,
     homePortfolioDisplay,
+    currencyMap,
     portfolioCategoryOwnerKey,
     portfolioSyncPreparedRevision,
     portfolioSyncRequestPhase,
+    silentPortfolioPayload,
+    isEmptyAccount,
+    account?.id,
+    network?.id,
   ]);
 
   const lastVisibilityRefreshAtRef = useRef(0);

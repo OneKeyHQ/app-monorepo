@@ -1378,13 +1378,7 @@ function HomeOverviewContainer() {
           testID="portfolio-data-refresh-error"
         >
           <SizableText size="$bodySm" color="$textSubdued">
-            {portfolioCategories.failedSources
-              .map((source) =>
-                source === 'defi'
-                  ? 'DeFi'
-                  : intl.formatMessage({ id: ETranslations.global_perp }),
-              )
-              .join(' / ')}
+            {intl.formatMessage({ id: ETranslations.global_portfolio })}
             {': '}
             {intl.formatMessage({ id: ETranslations.global_failed })}
           </SizableText>
