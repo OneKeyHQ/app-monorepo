@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/unbound-method */
 import ServicePassword, { shouldUseV4MigrationPasswordForPrompt } from '.';
 
 import { encodeSensitiveTextAsync } from '@onekeyhq/core/src/secret';
@@ -247,6 +248,46 @@ describe('ServicePassword', () => {
       }
     },
   );
+
+  it('verifies isolated mnemonic requests without Jotai, cached passwords, unlock or background tasks', async () => {
+    const service = Object.create(ServicePassword.prototype) as ServicePassword;
+    jest.spyOn(service, 'validatePasswordValidRules').mockResolvedValue({});
+    const stateRead = jest
+      .spyOn(passwordPersistAtom, 'get')
+      .mockRejectedValue(new Error('Jotai unavailable'));
+    const stateWrite = jest
+      .spyOn(passwordPersistAtom, 'set')
+      .mockRejectedValue(new Error('Jotai unavailable'));
+    const cache = jest.spyOn(service, 'setCachedPassword');
+    const unlock = jest.spyOn(service, 'unLockApp');
+    const background = jest.spyOn(
+      service,
+      'runPostPasswordVerifyBackgroundTasks',
+    );
+    await expect(
+      service.verifyPasswordForManualMnemonicRecovery('encoded-test-password'),
+    ).resolves.toBeUndefined();
+    expect(localDb.verifyPassword).toHaveBeenCalledWith({
+      password: 'encoded-test-password',
+      skipLazyUpgrade: true,
+    });
+    expect(stateRead).not.toHaveBeenCalled();
+    expect(stateWrite).not.toHaveBeenCalled();
+    expect(cache).not.toHaveBeenCalled();
+    expect(unlock).not.toHaveBeenCalled();
+    expect(background).not.toHaveBeenCalled();
+  });
+
+  it('rejects an incorrect password in the isolated mnemonic branch', async () => {
+    const service = Object.create(ServicePassword.prototype) as ServicePassword;
+    jest.spyOn(service, 'validatePasswordValidRules').mockResolvedValue({});
+    jest
+      .mocked(localDb.verifyPassword)
+      .mockRejectedValueOnce(new WrongPassword());
+    await expect(
+      service.verifyPasswordForManualMnemonicRecovery('encoded-wrong-password'),
+    ).rejects.toThrow('WrongPassword');
+  });
 
   it('never substitutes a migration password for a manual prompt', () => {
     expect(

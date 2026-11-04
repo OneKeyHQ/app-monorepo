@@ -119,6 +119,7 @@ export type IEventBusPayloadShowToast = {
   i18nInfo?: IOneKeyErrorI18nInfo;
   requestId?: string;
   diagnosticText?: string;
+  nativeStorageRecoveryTestSessionId?: string;
 };
 
 export type ILinuxUdevGuideReason =
@@ -338,8 +339,20 @@ export interface IAppEventBusPayload {
   [EAppEventBusNames.BeginFirmwareUpdate]: undefined;
   [EAppEventBusNames.FinishFirmwareUpdate]: undefined;
   [EAppEventBusNames.FirmwareUpdateDetectStatusChanged]: undefined;
-  [EAppEventBusNames.LoadWebEmbedWebView]: undefined;
-  [EAppEventBusNames.LoadWebEmbedWebViewComplete]: undefined;
+  [EAppEventBusNames.LoadWebEmbedWebView]: { requestId: string } | undefined;
+  [EAppEventBusNames.WebEmbedWebViewMountRequested]: {
+    mountId: string;
+    mountSequence: number;
+  };
+  [EAppEventBusNames.WebEmbedWebViewProviderReady]:
+    | { mainRuntimeId: string; probeId?: string }
+    | undefined;
+  [EAppEventBusNames.WebEmbedWebViewRuntimeProbe]: { probeId: string };
+  [EAppEventBusNames.WebEmbedWebViewNotReady]: { mountId: string };
+  [EAppEventBusNames.LoadWebEmbedWebViewComplete]: {
+    mountId: string;
+    requestId?: string;
+  };
   [EAppEventBusNames.HardwareVerifyAfterDeviceConfirm]: undefined;
   // The authenticity card's exits, from the DeviceStage driver back to
   // whoever is running the check (OK-59934).

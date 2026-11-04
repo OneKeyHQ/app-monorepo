@@ -53,6 +53,8 @@ const TRUSTED_ROOT_PATH = path.join(
   'apps/mobile/bundle-registry/metro-dev-prebundle-trusted-root.jsonl',
 );
 const INPUT_PATHS = [
+  'packages/components/svg',
+  'development/onekey-icons',
   'apps/ext/src/assets/preload-html-head.js',
   'apps/web-embed/babel.config.js',
   'apps/web-embed/index.js',
@@ -319,6 +321,9 @@ function createWebEmbedResolver(root, inputResolveOptions, snapshot) {
 }
 
 function resolveWebEmbedSpecifier({ fallback, resolve }, context, specifier) {
+  // Generated icon URLs are fully determined by the canonical/compiler inputs above.
+  // Do not require ignored build output when computing a fresh checkout's key.
+  if (specifier === '#onekey-icon-assets') return false;
   if (BUILTIN_MODULES.has(specifier)) {
     const builtinName = specifier.startsWith('node:')
       ? specifier.slice('node:'.length)
@@ -434,7 +439,11 @@ function getWebEmbedInputDescriptor({
     if (!visited.has(filePath)) {
       visited.add(filePath);
       snapshot?.fileDependencies.add(filePath);
-      if (SOURCE_EXTENSIONS.has(path.extname(filePath))) {
+      // Hash the compiler as build input without tracing its host-specific Node bindings.
+      if (
+        SOURCE_EXTENSIONS.has(path.extname(filePath)) &&
+        !toRepoPath(filePath, root).startsWith('development/onekey-icons/')
+      ) {
         const specifiers = parseModuleSpecifiers(filePath, snapshot);
         for (const specifier of specifiers) {
           let resolved;
