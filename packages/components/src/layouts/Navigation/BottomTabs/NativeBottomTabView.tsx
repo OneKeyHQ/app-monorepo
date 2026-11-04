@@ -149,6 +149,7 @@ export function NativeBottomTabView({
   descriptors,
   tabBar,
   tabBarHidden,
+  sideAccessoryIcon,
   ...rest
 }: Props) {
   const [activatedRouteKeys, setActivatedRouteKeys] = useState<string[]>(() => {
@@ -337,6 +338,7 @@ export function NativeBottomTabView({
   return (
     <BottomTabs
       {...rest}
+      sideAccessoryIcon={sideAccessoryIcon}
       tabBarHidden={tabBarHidden}
       navigationState={state}
       renderScene={renderScene}

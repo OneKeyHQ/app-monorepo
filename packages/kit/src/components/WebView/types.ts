@@ -55,10 +55,10 @@ export interface IInpageProviderWebViewProps
    * Only works in iOS and Android devices.
    */
   webviewDebuggingEnabled?: boolean;
-  /** @platform ios
-   * @description Recreate the WebView when iOS kills its content process.
+  /** @platform native
+   * @description Recreate a terminated WebView, or let its owner replace it.
    */
-  recreateOnContentProcessTerminate?: boolean;
+  recreateOnContentProcessTerminate?: boolean | (() => void);
   /** @platform native
    * @description Open website in desktop mode or mobile mode
    */

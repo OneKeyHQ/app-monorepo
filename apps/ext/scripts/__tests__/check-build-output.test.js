@@ -33,6 +33,11 @@ function createOutput() {
     ],
     ['content-script.bundle.js', 'rspackChunkonekey_ext_content_script'],
     ['preload-html-head.js', '/* preload */'],
+    [
+      'hardware-sdk/iframe.html',
+      '<script src="/hardware-sdk-iframe.bundle.js"></script>',
+    ],
+    ['hardware-sdk-iframe.bundle.js', '/* bundled hardware SDK */'],
     ['extra.js', '/* extra background code */'.repeat(20)],
     ['stripe.js', vendoredRuntime('index.js')],
     ['stripe-faulty.js', vendoredRuntime('faulty-before-13914.js')],
@@ -136,6 +141,28 @@ describe('Firefox background entrypoint budget', () => {
     const { sources, baselineBytes, extraBytes } = createOutput();
     expect(() => runCheck(sources, baselineBytes + extraBytes - 1)).toThrow(
       'Background entrypoint exceeds size budget',
+    );
+  });
+
+  it('requires the hardware iframe to ship with the extension', () => {
+    const { sources } = createOutput();
+    sources.delete('hardware-sdk/iframe.html');
+    expect(() => runCheck(sources, 1_000_000)).toThrow(
+      'hardware SDK references missing asset: hardware-sdk/iframe.html',
+    );
+  });
+
+  it.each([
+    '</script>',
+    '</script >',
+    '</script\n>',
+    '</SCRIPT\t>',
+    '</script/>',
+  ])('rejects the SDK inline bootstrap with closing tag %s', (closingTag) => {
+    const { sources } = createOutput();
+    sources.set('hardware-sdk/iframe.html', `<script>bootstrap()${closingTag}`);
+    expect(() => runCheck(sources, 1_000_000)).toThrow(
+      'Hardware SDK iframe must not contain inline scripts.',
     );
   });
 
