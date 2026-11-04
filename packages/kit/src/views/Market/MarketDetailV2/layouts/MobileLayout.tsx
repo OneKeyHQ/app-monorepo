@@ -66,6 +66,7 @@ import { dismissKeyboardWithDelay } from '@onekeyhq/shared/src/keyboard';
 import LazyLoad from '@onekeyhq/shared/src/lazyLoad';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EPerpPageEnterSource } from '@onekeyhq/shared/src/logger/scopes/perp/perpPageSource';
+import { isFoldableIPhone } from '@onekeyhq/shared/src/modules/DualScreenInfo/isFoldableIPhone';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
@@ -724,8 +725,12 @@ export function MobileLayout({
   const isTradingViewScrollLocked =
     isTradingViewIndicatorsDialogOpen || isTradingViewInteractionOverlayOpen;
 
+  // Only the fullscreen chart leaves portrait on regular iPhones. Foldable
+  // iPhones rotate the whole app, so landscape is a real page layout there.
   const preservesPortraitLayout =
-    platformEnv.isNativeIOS && !platformEnv.isNativeIOSPad;
+    platformEnv.isNativeIOS &&
+    !platformEnv.isNativeIOSPad &&
+    !isFoldableIPhone();
   const preserveInlineViewport =
     preservesPortraitLayout &&
     (isChartFullscreen || windowWidth > windowHeight);

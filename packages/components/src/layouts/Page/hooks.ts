@@ -139,6 +139,9 @@ const useNativeTabBarHeight = () => {
   return getNativeTabBarHeight({ bottom, isVerticalTabBar, measuredHeight });
 };
 
+export const useIsVerticalTabBar = () =>
+  useContext(BottomTabBarVerticalContext);
+
 const usePageFooterBottomMetrics = () => {
   const nativeTabBarHeight = useNativeTabBarHeight();
   const tabBarVisible = useContext(BottomTabBarVisibilityContext);
