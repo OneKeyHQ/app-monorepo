@@ -1238,7 +1238,7 @@ const BaseDevSettingsSection = () => {
         title: 'UI Galleries',
         description: 'UI Galleries',
         keywords:
-          'DesktopApiProxy Test PerpGallery CryptoGallery CloudBackupGallery AuthGallery KeylessWalletGallery StorageGallery',
+          'Hardware Derivation Path Test 硬件 派生路径 签名 OK-66332 DesktopApiProxy Test PerpGallery CryptoGallery CloudBackupGallery AuthGallery KeylessWalletGallery StorageGallery',
       },
       {
         key: 'account',
@@ -2734,6 +2734,20 @@ const BaseDevSettingsSection = () => {
                               navigation.push(
                                 EModalSettingRoutes.SettingDevCryptoGalleryModal,
                               );
+                            }}
+                          />
+                          <SectionPressItem
+                            icon="KeyOutline"
+                            title="Hardware Derivation Path Test"
+                            subtitle="Test Bitcoin addresses, public keys and message signing on different paths (OK-66332)"
+                            testID="hardware-path-test-menu"
+                            onPress={async () => {
+                              const { HardwareDerivationPathTest } =
+                                await import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/HardwareDerivationPathTest');
+                              Dialog.cancel({
+                                title: 'Hardware Derivation Path Test',
+                                renderContent: <HardwareDerivationPathTest />,
+                              });
                             }}
                           />
                           <SectionPressItem

@@ -21,6 +21,7 @@ const mockToggle = jest.fn<
   [unknown]
 >();
 const mockEnable = jest.fn(async (_params: unknown) => undefined);
+const mockReset = jest.fn(async (_params: unknown) => undefined);
 type IDialogParams = {
   title?: string;
   renderContent?: ReactNode;
@@ -134,6 +135,7 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
     serviceKeylessCloudSync: {
       toggleCloudSyncKeyless: (params: unknown) => mockToggle(params),
       enableHardwareCloudSync: (params: unknown) => mockEnable(params),
+      resetHardwareCloudSyncKey: (params: unknown) => mockReset(params),
       cancelHardwareCloudKeyOperation: () => mockCancel(),
     },
     servicePrimeCloudSync: {
@@ -331,5 +333,41 @@ test('a mismatched hardware wallet continues after the user confirms', async () 
   expect(mockEnable).toHaveBeenLastCalledWith({
     connectId: 'connect-A',
     switchDevice: true,
+  });
+});
+
+test('reset offers a confirmed migration bound to the selected wallet identity', async () => {
+  const targetCredentialId = `hardware-cloud-v1-${'b'.repeat(64)}`;
+  mockReset.mockRejectedValueOnce({
+    key: 'cloud_sync_hardware_wallet_mismatch__msg',
+    autoToast: false,
+    info: { targetCredentialId },
+  });
+  const { result } = renderHook(() => useHardwareCloudSyncKey());
+  let resetting: Promise<void> | undefined;
+  act(() => {
+    resetting = result.current.resetKey();
+  });
+  const resetConfirm = lastDialog();
+  await act(async () => {
+    await resetConfirm.onConfirm?.();
+    await resetConfirm.onClose?.();
+    await resetting;
+  });
+  render(<>{lastDialog().renderContent}</>);
+  await act(async () => {
+    fireEvent.click(screen.getByTestId('mock-device-picker'));
+  });
+  const migrationConfirm = mockDialogShow.mock.calls.find(
+    ([params]) => params.title === 'cloud_sync_hardware_switch__title',
+  )?.[0];
+  expect(migrationConfirm).toBeDefined();
+  await act(async () => {
+    await migrationConfirm?.onConfirm?.();
+    await migrationConfirm?.onClose?.();
+  });
+  expect(mockReset).toHaveBeenLastCalledWith({
+    connectId: 'connect-A',
+    targetCredentialId,
   });
 });

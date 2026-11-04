@@ -8,6 +8,7 @@ import {
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { buildServiceEndpoint } from '@onekeyhq/shared/src/config/appConfig';
 import { getOneKeyIdAuthConfigByDevSettings } from '@onekeyhq/shared/src/config/oneKeyIdAuth';
+import type { IHardwarePathTestRequest } from '@onekeyhq/shared/src/consts/hardwareDerivationPathTest';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import nativeNetworkThrottle, {
   NATIVE_SLOW_4G_LATENCY_MS,
@@ -61,6 +62,34 @@ class ServiceDevSetting extends ServiceBase {
   private readonly devSettingsWriteMutex = new Semaphore(1);
   private environmentRestartTimer: ReturnType<typeof setTimeout> | undefined;
   private environmentRestartRequired = false;
+  private hardwarePathTest?: { testId: string; cancel: () => void };
+
+  @backgroundMethod()
+  async testHardwareDerivationPath(request: IHardwarePathTestRequest) {
+    if (!(await devSettingsPersistAtom.get()).enabled) {
+      throw new OneKeyLocalError(
+        'Enable developer mode to test hardware paths.',
+      );
+    }
+    const { runHardwareDerivationPathTest } =
+      await import('./ServiceDevSetting/hardwareDerivationPathTest');
+    return runHardwareDerivationPathTest({
+      backgroundApi: this.backgroundApi,
+      request,
+      onCancelChange: (cancel) => {
+        this.hardwarePathTest = cancel
+          ? { testId: request.testId, cancel }
+          : undefined;
+      },
+    });
+  }
+
+  @backgroundMethod()
+  async cancelHardwareDerivationPathTest(testId: string) {
+    if (this.hardwarePathTest?.testId === testId) {
+      this.hardwarePathTest.cancel();
+    }
+  }
 
   private async withOneKeyIdEnvironmentChange<T>(
     previous: IDevSettingsPersistAtom,

@@ -10,6 +10,7 @@ import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms'
 import { usePrimeCloudSyncPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/prime';
 import { isHardwareCloudSyncPlatformSupported } from '@onekeyhq/shared/src/consts/hardwareCloudSyncConsts';
 import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
+import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import {
   EAppEventBusNames,
@@ -270,7 +271,10 @@ export function useHardwareCloudSyncKey() {
     [intl, signWithDevice],
   );
   const resetWithDevice = useCallback(
-    async (connectId: string) => {
+    async function resetWithDeviceFlow(
+      connectId: string,
+      targetCredentialId?: string,
+    ): Promise<void> {
       setPending(true);
       let finished = false;
       const waiting = Dialog.show({
@@ -292,7 +296,7 @@ export function useHardwareCloudSyncKey() {
       appEventBus.once(EAppEventBusNames.ShowDialogLoading, onSyncLoading);
       try {
         await backgroundApiProxy.serviceKeylessCloudSync.resetHardwareCloudSyncKey(
-          { connectId },
+          { connectId, ...(targetCredentialId ? { targetCredentialId } : {}) },
         );
         void backgroundApiProxy.serviceApp.showToast({
           method: 'success',
@@ -300,6 +304,44 @@ export function useHardwareCloudSyncKey() {
             id: ETranslations.sync_key_changed__title,
           }),
         });
+      } catch (error) {
+        const failure = error as
+          | IOneKeyError<{ targetCredentialId?: string }>
+          | undefined;
+        const target = failure?.info?.targetCredentialId;
+        if (
+          targetCredentialId ||
+          failure?.key !==
+            ETranslations.cloud_sync_hardware_wallet_mismatch__msg ||
+          !target ||
+          !/^hardware-cloud-v1-[\da-f]{64}$/.test(target)
+        ) {
+          if (
+            failure?.key ===
+            ETranslations.cloud_sync_hardware_wallet_mismatch__msg
+          ) {
+            errorToastUtils.showToastOfError({ ...failure, autoToast: true });
+          }
+          throw error;
+        }
+        finished = true;
+        await waiting.close();
+        const confirmed = await confirmDialog({
+          title: intl.formatMessage({
+            id: ETranslations.cloud_sync_hardware_switch__title,
+            defaultMessage: 'Switch hardware wallet?',
+          }),
+          description: intl.formatMessage({
+            id: ETranslations.cloud_sync_hardware_switch__desc,
+            defaultMessage:
+              "Your synced data will use this wallet's key. The original cloud copy will be kept. Connect the new wallet on other clients to sync future changes.",
+          }),
+          onConfirmText: intl.formatMessage({
+            id: ETranslations.cloud_sync_hardware_switch__action,
+            defaultMessage: 'Switch wallet',
+          }),
+        });
+        if (confirmed) await resetWithDeviceFlow(connectId, target);
       } finally {
         finished = true;
         appEventBus.off(EAppEventBusNames.ShowDialogLoading, onSyncLoading);

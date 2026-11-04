@@ -36,6 +36,7 @@ import deviceHomeScreenUtils from '@onekeyhq/shared/src/utils/deviceHomeScreenUt
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EOneKeyDeviceMode } from '@onekeyhq/shared/types/device';
 
+import { HardwareDerivationPathTest } from './HardwareDerivationPathTest';
 import { Layout } from './utils/Layout';
 
 import type { IDeviceType } from '@onekeyfe/hd-core';
@@ -304,6 +305,10 @@ const HardwareGallery = () => (
     getFilePath={() => __CURRENT_FILE_PATH__}
     componentName="Hardware"
     elements={[
+      {
+        title: 'Bitcoin derivation paths (OK-66332)',
+        element: () => <HardwareDerivationPathTest />,
+      },
       {
         title: 'Interactive with hardware wallet',
         element: () => (

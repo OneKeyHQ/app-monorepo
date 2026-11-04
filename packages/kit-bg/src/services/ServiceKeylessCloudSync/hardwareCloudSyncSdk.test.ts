@@ -6,6 +6,7 @@ import {
   HARDWARE_CLOUD_SYNC_AUTH_PATH,
   HARDWARE_CLOUD_SYNC_PATH,
 } from '@onekeyhq/shared/src/consts/hardwareCloudSyncConsts';
+import { convertDeviceError } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -104,13 +105,17 @@ function buildBackgroundApi() {
       success: true,
       payload: { address: 'synthetic-test-address' },
     })),
-    btcSignMessage: jest.fn(async () => ({
-      success: true,
-      payload: {
-        signature: 'synthetic-test-signature',
-        address: 'synthetic-test-address',
-      },
-    })),
+    btcSignMessage: jest.fn(
+      async (): Promise<
+        Success<{ signature: string; address: string }> | Unsuccessful
+      > => ({
+        success: true,
+        payload: {
+          signature: 'synthetic-test-signature',
+          address: 'synthetic-test-address',
+        },
+      }),
+    ),
   };
   const hardware = {
     getCompatibleConnectId: jest.fn(async () => 'test-connect'),
@@ -170,6 +175,73 @@ beforeEach(() => {
 });
 
 describe('hardware Cloud SDK adapter', () => {
+  test.each(['sign-in', 'key derivation'] as const)(
+    'preserves a device refusal during %s signing',
+    async (stage) => {
+      const { backgroundApi, sdk } = buildBackgroundApi();
+      const payload = {
+        code: HardwareErrorCode.ActionCancelled,
+        error: 'Failure_ActionCancelled',
+      };
+      sdk.btcSignMessage.mockResolvedValueOnce({ success: false, payload });
+      const selectedUnlock: IHardwareCloudKeyUnlock =
+        stage === 'sign-in'
+          ? async (device) => {
+              await device.signAuth(
+                `OneKey Cloud Sync sign-in\nOnly confirm this inside the OneKey App.\nNonce: ${'a'.repeat(64)}\nDevice: abcdefgh\nExpires: 2026-11-04T00:00:00.000Z`,
+              );
+              return mockCredential;
+            }
+          : unlock;
+      await expect(
+        generateHardwareCloudSyncCredentialWithSdk({
+          unlock: selectedUnlock,
+          backgroundApi,
+          connectId: 'test-connect',
+          isCurrent: () => true,
+        }),
+      ).rejects.toMatchObject(convertDeviceError(payload));
+    },
+  );
+
+  test.each([
+    HardwareErrorCode.ActionCancelled,
+    HardwareErrorCode.DeviceNotFound,
+    HardwareErrorCode.PinInvalid,
+  ])(
+    'uses the shared hardware error conversion for SDK code %s',
+    async (code) => {
+      const { backgroundApi, sdk } = buildBackgroundApi();
+      const payload = { code, error: 'Failure_ActionCancelled' };
+      sdk.openWalletSession.mockResolvedValueOnce({ success: false, payload });
+      await expect(
+        generateHardwareCloudSyncCredentialWithSdk({
+          unlock,
+          backgroundApi,
+          connectId: 'test-connect',
+          isCurrent: () => true,
+        }),
+      ).rejects.toMatchObject(convertDeviceError(payload));
+    },
+  );
+
+  test('preserves an error already thrown by the hardware service', async () => {
+    const { backgroundApi, hardware } = buildBackgroundApi();
+    const error = convertDeviceError({
+      code: HardwareErrorCode.DeviceNotFound,
+      error: 'Device not found',
+    });
+    hardware.getCompatibleConnectId.mockRejectedValueOnce(error);
+    await expect(
+      generateHardwareCloudSyncCredentialWithSdk({
+        unlock,
+        backgroundApi,
+        connectId: 'test-connect',
+        isCurrent: () => true,
+      }),
+    ).rejects.toBe(error);
+  });
+
   test('resolves a changed USB/BLE handle before opening the captured session', async () => {
     const { backgroundApi, sdk, hardware } = buildBackgroundApi();
     hardware.getCompatibleConnectId.mockResolvedValue(
@@ -347,18 +419,17 @@ describe('hardware Cloud SDK adapter', () => {
         connectId: 'test-connect',
         isCurrent: () => true,
       }),
-    ).rejects.toThrow(
-      `The device rejected the derivation path ${HARDWARE_CLOUD_SYNC_PATH} (Forbidden key path)`,
-    );
+    ).rejects.toThrow('Forbidden key path');
     expect(sdk.btcSignMessage).not.toHaveBeenCalled();
   });
 
-  test('keeps other SDK failures generic', async () => {
+  test('keeps the shared hardware error for transport failures', async () => {
     const { backgroundApi, sdk } = buildBackgroundApi();
-    sdk.btcGetPublicKey.mockResolvedValue({
-      success: false,
-      payload: { error: 'synthetic transport detail' },
-    } as never);
+    const payload = {
+      code: HardwareErrorCode.DeviceNotFound,
+      error: 'Device not found',
+    };
+    sdk.openWalletSession.mockResolvedValueOnce({ success: false, payload });
     await expect(
       generateHardwareCloudSyncCredentialWithSdk({
         unlock,
@@ -366,15 +437,16 @@ describe('hardware Cloud SDK adapter', () => {
         connectId: 'test-connect',
         isCurrent: () => true,
       }),
-    ).rejects.toThrow("Couldn't get the encryption key");
+    ).rejects.toMatchObject(convertDeviceError(payload));
   });
 
-  test('does not return SDK request/response data on cancellation', async () => {
+  test('preserves errors thrown during signing', async () => {
     const { backgroundApi, sdk } = buildBackgroundApi();
-    sdk.btcSignMessage.mockRejectedValue({
-      message: 'synthetic-sensitive-data',
-      signature: 'synthetic-secret',
+    const error = convertDeviceError({
+      code: HardwareErrorCode.ActionCancelled,
+      error: 'Action cancelled',
     });
+    sdk.btcSignMessage.mockRejectedValue(error);
     await expect(
       generateHardwareCloudSyncCredentialWithSdk({
         unlock,
@@ -382,7 +454,7 @@ describe('hardware Cloud SDK adapter', () => {
         connectId: 'test-connect',
         isCurrent: () => true,
       }),
-    ).rejects.toThrow("Couldn't get the encryption key");
+    ).rejects.toBe(error);
   });
 
   test.each([
@@ -413,7 +485,7 @@ describe('hardware Cloud SDK adapter', () => {
         isCurrent: () => true,
       });
       await expect(operation).rejects.toMatchObject({ key });
-      await expect(operation).rejects.toHaveProperty('payload', undefined);
+      await expect(operation).rejects.toHaveProperty('payload.code', code);
       expect(sdk.btcSignMessage).not.toHaveBeenCalled();
     },
   );
