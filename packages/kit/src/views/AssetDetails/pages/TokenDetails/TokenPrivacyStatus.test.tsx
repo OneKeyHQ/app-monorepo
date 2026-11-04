@@ -1,6 +1,6 @@
 import { act, renderHook } from '@testing-library/react-native';
 
-import type { ILocalWalletSyncStatus } from '@onekeyhq/kit-bg/src/vaults/localWallet/syncStatus';
+import type { ILocalWalletSyncStatus } from '@onekeyhq/kit-bg/src/utils/privacyChainSyncStatus';
 import type { ILocalWalletSyncProgress } from '@onekeyhq/kit-bg/src/vaults/localWallet/types';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';

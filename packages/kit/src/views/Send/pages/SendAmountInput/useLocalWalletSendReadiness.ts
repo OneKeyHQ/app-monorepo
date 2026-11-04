@@ -11,7 +11,7 @@ import {
   formatPrivacyChainSyncError,
 } from '@onekeyhq/kit/src/utils/privacyChainSyncDisplay';
 import { privacyChainAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import { isLocalWalletScanStopped } from '@onekeyhq/kit-bg/src/vaults/localWallet/syncStatus';
+import { isLocalWalletScanStopped } from '@onekeyhq/kit-bg/src/utils/privacyChainSyncStatus';
 import type { ILocalWalletSendReadiness } from '@onekeyhq/kit-bg/src/vaults/localWallet/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { PRIVACY_CHAIN_SYNC_POLL_MS } from '@onekeyhq/shared/src/utils/privacyChainSyncPolicy';

@@ -1,10 +1,10 @@
 import {
   getLocalWalletAccountSyncStatus,
   getLocalWalletNetworkSyncStatus,
-} from './syncStatus';
+} from './privacyChainSyncStatus';
 
-import type { ILocalWalletSyncProgress } from './types';
-import type { IPrivacyChainScanState } from '../../states/jotai/atoms/privacyChain';
+import type { IPrivacyChainScanState } from '../states/jotai/atoms/privacyChain';
+import type { ILocalWalletSyncProgress } from '../vaults/localWallet/types';
 
 const networkId = 'xmr--0';
 const syncedBelowBlocks = 100;

@@ -6,7 +6,7 @@ import { Button } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import useFormatDate from '@onekeyhq/kit/src/hooks/useFormatDate';
-import type { ILocalWalletSyncStatus } from '@onekeyhq/kit-bg/src/vaults/localWallet/syncStatus';
+import type { ILocalWalletSyncStatus } from '@onekeyhq/kit-bg/src/utils/privacyChainSyncStatus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EGalleryRoutes, EModalRoutes } from '@onekeyhq/shared/src/routes';

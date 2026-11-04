@@ -4,12 +4,12 @@ import {
 } from '@onekeyhq/shared/src/utils/privacyChainSyncPolicy';
 import type { IPrivacyChainBlockTime } from '@onekeyhq/shared/src/utils/privacyChainSyncPolicy';
 
+import type { IPrivacyChainScanState } from '../states/jotai/atoms/privacyChain';
 import type {
   ILocalWalletAccountState,
   ILocalWalletSyncErrorKind,
   ILocalWalletSyncProgress,
-} from './types';
-import type { IPrivacyChainScanState } from '../../states/jotai/atoms/privacyChain';
+} from '../vaults/localWallet/types';
 
 // The one sync status every surface shows, highest priority first.
 export type ILocalWalletSyncStatus =

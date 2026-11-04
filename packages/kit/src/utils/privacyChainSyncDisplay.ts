@@ -1,9 +1,9 @@
 import type { IPrivacyChainScanState } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import { getLocalWalletNetworkSyncStatus } from '@onekeyhq/kit-bg/src/vaults/localWallet/syncStatus';
+import { getLocalWalletNetworkSyncStatus } from '@onekeyhq/kit-bg/src/utils/privacyChainSyncStatus';
 import type {
   ILocalWalletSyncStatus,
   ILocalWalletSyncStatusView,
-} from '@onekeyhq/kit-bg/src/vaults/localWallet/syncStatus';
+} from '@onekeyhq/kit-bg/src/utils/privacyChainSyncStatus';
 import type {
   ILocalWalletSyncErrorKind,
   ILocalWalletSyncProgress,

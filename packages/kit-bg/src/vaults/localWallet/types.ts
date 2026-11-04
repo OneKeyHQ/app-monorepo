@@ -3,7 +3,7 @@ import type { IEncodedTx } from '@onekeyhq/core/src/types';
 import type { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IDeviceSharedCallParams } from '@onekeyhq/shared/types/device';
 
-import type { ILocalWalletSyncStatus } from './syncStatus';
+import type { ILocalWalletSyncStatus } from '../../utils/privacyChainSyncStatus';
 import type { IRescanLocalWalletFrom } from '../types';
 
 export type ILocalWalletAccount = {

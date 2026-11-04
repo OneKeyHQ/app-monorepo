@@ -19,7 +19,7 @@ import {
 } from '@onekeyhq/kit/src/utils/privacyChainSyncDisplay';
 import { privacyChainAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { IPrivacyChainScanState } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import { getLocalWalletAccountSyncStatus } from '@onekeyhq/kit-bg/src/vaults/localWallet/syncStatus';
+import { getLocalWalletAccountSyncStatus } from '@onekeyhq/kit-bg/src/utils/privacyChainSyncStatus';
 import type {
   ILocalWalletAccountAddresses,
   ILocalWalletAccountState,

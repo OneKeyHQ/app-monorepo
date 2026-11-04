@@ -37,6 +37,10 @@ import { EHardwareCallContext } from '@onekeyhq/shared/types/device';
 import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 
 import { privacyChainAtom } from '../states/jotai/atoms';
+import {
+  getLocalWalletAccountSyncStatus,
+  isLocalWalletScanStopped,
+} from '../utils/privacyChainSyncStatus';
 import { vaultFactory } from '../vaults/factory';
 import { planLocalWalletLifecycle } from '../vaults/localWallet/lifecycle';
 import { localWalletText } from '../vaults/localWallet/messages';
@@ -56,10 +60,6 @@ import {
   listPrivacyDisabledNetworkIds,
 } from '../vaults/localWallet/remoteConfig';
 import { isLocalWalletStorageUnsupportedError } from '../vaults/localWallet/storageSupport';
-import {
-  getLocalWalletAccountSyncStatus,
-  isLocalWalletScanStopped,
-} from '../vaults/localWallet/syncStatus';
 import {
   LOCAL_WALLET_CHAIN_TIP_TIMEOUT_MESSAGE,
   LOCAL_WALLET_SYNC_TIMEOUT_MESSAGE,
@@ -104,12 +104,12 @@ import type {
 import type { IPrivacyChainSyncSlot } from './PrivacyChainSyncSlots';
 import type { IBackgroundApi } from '../apis/IBackgroundApi';
 import type { IPrivacyChainPendingAccountDeletion } from '../dbs/simple/entity/SimpleDbEntityPrivacyChainState';
+import type { ILocalWalletSyncStatusView } from '../utils/privacyChainSyncStatus';
 import type { VaultBaseChainOnly } from '../vaults/base/VaultBase';
 import type {
   ILocalWalletLifecycleAction,
   ILocalWalletLifecycleEvent,
 } from '../vaults/localWallet/lifecycle';
-import type { ILocalWalletSyncStatusView } from '../vaults/localWallet/syncStatus';
 import type {
   ILocalWalletAccountAddresses,
   ILocalWalletAccountBalance,
