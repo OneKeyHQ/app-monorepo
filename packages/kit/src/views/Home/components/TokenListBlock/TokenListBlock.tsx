@@ -35,6 +35,7 @@ import {
   fetchFilteredTokenSelectorTokens,
 } from '@onekeyhq/kit/src/components/TokenSelectorFilter/utils';
 import { useAllNetworkRequests } from '@onekeyhq/kit/src/hooks/useAllNetwork';
+import type { IAllNetworkRunResult } from '@onekeyhq/kit/src/hooks/useAllNetwork';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useDeviceStageBurst } from '@onekeyhq/kit/src/hooks/useDeviceStageBurst';
 import { useIsDeFiEnabled } from '@onekeyhq/kit/src/hooks/useIsDeFiEnabled';
@@ -125,6 +126,7 @@ import {
   ERootRoutes,
 } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import { buildMergedAllNetworkSnapshot } from '@onekeyhq/shared/src/utils/buildMergedAllNetworkSnapshot';
 import { isProtocolV2ProductType } from '@onekeyhq/shared/src/utils/hardwareDeviceTypes';
 import {
   createHomeTokenRequest,
@@ -1846,13 +1848,66 @@ function TokenListBlock({
     resetPipeline();
   }, [resetPipeline]);
 
+  // The owner has no account on any enabled network (e.g. All Networks
+  // narrowed to chains whose address was never created). Such a run issues no
+  // request, so neither a cache seed nor a live round ever re-stamps the cells
+  // projection for this owner: the settled structure keeps the previous
+  // owner's key and `TokenListView` holds its owner-mismatch skeleton over the
+  // empty state. Commit an empty authoritative snapshot so the projection, the
+  // worth and the list state all belong to this owner.
+  const commitEmptyAllNetworksOwner = useCallback(() => {
+    const homeRequest = homeRequestRef.current;
+    if (!isHomeRequestCurrent() || !isHomeTokenRequestCurrent(homeRequest)) {
+      return;
+    }
+    const snapshot = buildMergedAllNetworkSnapshot({
+      rounds: [],
+      mergeDeriveAssetsByNetworkId: {},
+      accountId: account?.id,
+      createAtNetwork: account?.createAtNetwork,
+    });
+    if (syncTokenFilterToOverview) {
+      updateAccountWorth({
+        accountId: mergeDeriveAddressData
+          ? (indexedAccount?.id ?? '')
+          : (account?.id ?? ''),
+        initialized: true,
+        updateAll: true,
+        worth: snapshot.accountsWorth,
+        createAtNetworkWorth: snapshot.createAtNetworkWorth,
+      });
+      updateAccountOverviewState({
+        initialized: true,
+        isRefreshing: false,
+      });
+    }
+    commitAuthoritativeIngest(snapshot, homeRequest);
+    updateTokenListState({
+      initialized: true,
+      isRefreshing: false,
+    });
+  }, [
+    account?.createAtNetwork,
+    account?.id,
+    commitAuthoritativeIngest,
+    indexedAccount?.id,
+    isHomeRequestCurrent,
+    mergeDeriveAddressData,
+    syncTokenFilterToOverview,
+    updateAccountOverviewState,
+    updateAccountWorth,
+    updateTokenListState,
+  ]);
+
   const handleAllNetworkRequestsFinished = useCallback(
     async ({
       accountId,
       networkId,
+      runResult,
     }: {
       accountId?: string;
       networkId?: string;
+      runResult?: IAllNetworkRunResult;
     }) => {
       appEventBus.emit(EAppEventBusNames.TabListStateUpdate, {
         isRefreshing: false,
@@ -1860,8 +1915,12 @@ function TokenListBlock({
         accountId: accountId ?? '',
         networkId: networkId ?? '',
       });
+
+      if (runResult?.didComplete && runResult.requestCount === 0) {
+        commitEmptyAllNetworksOwner();
+      }
     },
-    [],
+    [commitEmptyAllNetworksOwner],
   );
 
   const handleAllNetworkCacheChecked = useCallback(
