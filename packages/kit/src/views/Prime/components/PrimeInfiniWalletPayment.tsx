@@ -83,7 +83,6 @@ import {
   isPrimeInfiniPaymentCacheKeyForContext,
   isSamePrimeInfiniPaymentCacheKey,
   isSamePrimeInfiniPaymentTransferSnapshot,
-  mergePrimeInfiniPaymentProgressSnapshot,
 } from '@onekeyhq/shared/src/utils/primeInfiniPaymentCacheUtils';
 import {
   createPrimeInfiniPaymentValidationError,
@@ -149,7 +148,10 @@ import {
   shouldRenderPrimeInfiniPaymentSelection,
 } from '../hooks/primeInfiniPaymentUtils';
 import { confirmPrimeInfiniPaymentWarnings } from '../hooks/primeInfiniPaymentWarnings';
-import { createPrimeInfiniRemotePendingPaymentResolver } from '../hooks/primeInfiniRemotePendingPayment';
+import {
+  createPrimeInfiniRemotePendingPaymentResolver,
+  preparePrimeInfiniRemotePayment,
+} from '../hooks/primeInfiniRemotePendingPayment';
 import {
   capturePrimeInfiniSessionRevision,
   releasePrimeInfiniTerminalSession,
@@ -2476,7 +2478,8 @@ function PrimeInfiniWalletPaymentContent({
 
   const preparePaymentForSelection = useCallback(async () => {
     const expectedOneKeyUserId = baseline.onekeyUserId;
-    const preparationStage = remoteRecovery
+    let resumedRemotePayment = false;
+    let preparationStage: 'paymentRestore' | 'paymentCreation' = remoteRecovery
       ? 'paymentRestore'
       : 'paymentCreation';
     if (
@@ -2541,47 +2544,61 @@ function PrimeInfiniWalletPaymentContent({
         }),
         sendStarted: false,
       });
-      if (!remoteRecovery) {
+      const createPayment = async () => {
+        preparationStage = 'paymentCreation';
         defaultLogger.prime.subscription.primeSubscribeIntent({
           subscriptionPeriod: selectedSubscriptionPeriod,
           featureName,
           currency: 'USD',
           paymentMethod: 'crypto',
         });
-      }
-      const receivedPayment = remoteRecovery
-        ? await backgroundApiProxy.servicePrime.apiGetInfiniPayment({
-            paymentId: remoteRecovery.payment.paymentId,
-            expectedOneKeyUserId,
-            authContext: discoveryAuthContext,
-            flowContext: flowContextRef.current
-              ? {
-                  ...flowContextRef.current,
-                  paymentSource: 'restoreRefresh',
-                }
-              : undefined,
-          })
-        : await backgroundApiProxy.servicePrime.apiCreateInfiniPayment({
-            flowContext: flowContextRef.current,
-            plan,
-            chain: capturedAsset.chain,
-            token: capturedAsset.token,
-            expectedOneKeyUserId,
-            authContext: discoveryAuthContext,
-          });
-      const createdPayment = remoteRecovery
-        ? mergePrimeInfiniPaymentProgressSnapshot({
-            previous: remoteRecovery.payment,
-            latest: receivedPayment,
-          })
-        : receivedPayment;
+        return backgroundApiProxy.servicePrime.apiCreateInfiniPayment({
+          flowContext: flowContextRef.current,
+          plan,
+          chain: capturedAsset.chain,
+          token: capturedAsset.token,
+          expectedOneKeyUserId,
+          authContext: discoveryAuthContext,
+        });
+      };
+      let createdPayment: IPrimeInfiniPayment;
+      if (remoteRecovery) {
+        const prepared = await preparePrimeInfiniRemotePayment({
+          recovery: remoteRecovery,
+          asset: capturedAsset,
+          fetchLookup: () =>
+            backgroundApiProxy.servicePrime.apiGetInfiniPendingPayment({
+              expectedOneKeyUserId,
+              authContext: discoveryAuthContext,
+            }),
+          createPayment,
+          chooseNew: (lookupUnavailable) =>
+            showPrimeInfiniUnfinishedPaymentDialog({
+              intl,
+              canResume: false,
+              lookupUnavailable,
+            }),
+          validateAuth: async () =>
+            !discoveryAuthContext ||
+            backgroundApiProxy.servicePrime.isInfiniCheckoutAuthContextCurrent({
+              context: discoveryAuthContext,
+            }),
+          shouldContinue: isAttemptCurrent,
+        });
+        if (!prepared) {
+          if (isAttemptCurrent()) onClose();
+          return;
+        }
+        createdPayment = prepared.payment;
+        resumedRemotePayment = prepared.resumed;
+      } else createdPayment = await createPayment();
       const validationFailure = getPrimeInfiniPaymentValidationFailure({
         payment: createdPayment,
-        previousPayment: remoteRecovery?.payment,
+        previousPayment: resumedRemotePayment
+          ? remoteRecovery?.payment
+          : undefined,
         asset: capturedAsset,
-        validateQuote:
-          !remoteRecovery?.sendStarted &&
-          !hasPrimeInfiniPaymentProgress(createdPayment),
+        validateQuote: !hasPrimeInfiniPaymentProgress(createdPayment),
       });
       validationPaymentRef.current = createdPayment;
       if (
@@ -2598,7 +2615,9 @@ function PrimeInfiniWalletPaymentContent({
           stage: 'responseValidation',
           status: 'failed',
           failureReason: validationFailure,
-          paymentSource: remoteRecovery ? 'restoreRefresh' : 'createResponse',
+          paymentSource: resumedRemotePayment
+            ? 'restoreRefresh'
+            : 'createResponse',
         });
         throw createPrimeInfiniPaymentValidationError(validationFailure, {
           expectedChain: capturedAsset.chain,
@@ -2634,9 +2653,6 @@ function PrimeInfiniWalletPaymentContent({
       paymentAccountAddressRef.current = capturedAccountAddress;
       const createdSession = await persistPaymentSession({
         nextPayment: createdPayment,
-        nextSendStarted:
-          remoteRecovery?.sendStarted ||
-          hasPrimeInfiniPaymentProgress(createdPayment),
         nextPayerAccountId: capturedAccountId,
         nextPayerAddress: capturedAccountAddress,
         nextAsset: capturedAsset,
@@ -2718,7 +2734,9 @@ function PrimeInfiniWalletPaymentContent({
         stage: 'responseValidation',
         status: validationFailure ? 'blocked' : 'succeeded',
         failureReason: validationFailure,
-        paymentSource: remoteRecovery ? 'restoreRefresh' : 'createResponse',
+        paymentSource: resumedRemotePayment
+          ? 'restoreRefresh'
+          : 'createResponse',
         ...getPrimeInfiniPaymentLogContext({
           payment: createdPayment,
           asset: capturedAsset,
@@ -2788,6 +2806,7 @@ function PrimeInfiniWalletPaymentContent({
     isPurchaseUserCurrent,
     isSelectedNetworkReady,
     onExitPreventedChange,
+    onClose,
     onReloadPaymentSession,
     onRestartPaymentSession,
     persistPaymentSession,
@@ -4383,9 +4402,8 @@ export function PrimeInfiniWalletPaymentRoot({
     }
   }, [devSettings.enabled]);
   const [selectedAssetKey, setSelectedAssetKey] = useState('');
-  const [isRemoteReplacementPending, setIsRemoteReplacementPending] =
+  const [isRemoteAssetChangePending, setRemoteAssetChangePending] =
     useState(false);
-  const remoteReplacementPendingRef = useRef(false);
   const [discardedPaymentBindingIds, setDiscardedPaymentBindingIds] = useState<
     ReadonlySet<string>
   >(() => new Set());
@@ -4403,7 +4421,6 @@ export function PrimeInfiniWalletPaymentRoot({
   // exactly the duplicate-transfer risk the choice screen warns about.
   const hasPersistedPaymentSessionRef = useRef(false);
   const remoteResumedPaymentIdRef = useRef('');
-  const remoteTrackingHandoffRef = useRef('');
   const [handledPaymentBindingIds, setHandledPaymentBindingIds] = useState<
     ReadonlySet<string>
   >(() => new Set());
@@ -4672,7 +4689,7 @@ export function PrimeInfiniWalletPaymentRoot({
       let remoteRecovery: IPrimeInfiniRemotePaymentRecovery | undefined;
       let discoveryAuthContext: IPrimeInfiniCheckoutAuthContext | undefined;
       let remotePaymentCancelled = false;
-      let canPrepareRemotePayment = false;
+      let remotePreparationAllowed: boolean | undefined;
       if (
         onekeyUserId &&
         !pendingSession &&
@@ -4697,8 +4714,12 @@ export function PrimeInfiniWalletPaymentRoot({
           const decision = await remoteResolverRef.current({
             lookup,
             assets: supportedAssets,
-            choose: (canResume) =>
-              showPrimeInfiniUnfinishedPaymentDialog({ intl, canResume }),
+            choose: (canResume, lookupUnavailable) =>
+              showPrimeInfiniUnfinishedPaymentDialog({
+                intl,
+                canResume,
+                lookupUnavailable,
+              }),
             validateAuth: () =>
               backgroundApiProxy.servicePrime.isInfiniCheckoutAuthContextCurrent(
                 { context: lookup.authContext },
@@ -4707,7 +4728,7 @@ export function PrimeInfiniWalletPaymentRoot({
             resumePaymentId: remotePaymentResumeIntent?.paymentId,
             allowNewPayment: shouldCreatePayment,
           });
-          canPrepareRemotePayment = decision.type !== 'cancelled';
+          remotePreparationAllowed = decision.type !== 'cancelled';
           if (decision.type === 'resume') {
             remoteRecovery = decision.recovery;
             remoteResumedPaymentIdRef.current =
@@ -4716,7 +4737,7 @@ export function PrimeInfiniWalletPaymentRoot({
             remotePaymentCancelled = true;
           }
         } catch (error) {
-          // Discovery and identity failures both block invoice creation.
+          // Request failures already fail open in bg; identity failures do not.
           sessionLoadFailed = true;
           sessionLoadError = error;
         }
@@ -4860,9 +4881,9 @@ export function PrimeInfiniWalletPaymentRoot({
         completedPaymentId,
         contextError,
         shouldCreatePayment:
-          !hasError &&
           !remotePaymentCancelled &&
-          (shouldCreatePayment || canPrepareRemotePayment),
+          !sessionLoadFailed &&
+          (remotePreparationAllowed ?? shouldCreatePayment),
         remoteRecovery,
         discoveryAuthContext,
         remotePaymentCancelled,
@@ -5088,6 +5109,60 @@ export function PrimeInfiniWalletPaymentRoot({
       selectedAssetKey,
     ],
   );
+  const handleRemoteAssetChange = useCallback(
+    (assetKey: string) => {
+      if (
+        !result?.remoteRecovery ||
+        result.remoteRecovery.asset.key === assetKey
+      ) {
+        setSelectedAssetKey(assetKey);
+        return;
+      }
+      setRemoteAssetChangePending(true);
+      void (async () => {
+        const choice = await showPrimeInfiniUnfinishedPaymentDialog({
+          intl,
+          canResume: false,
+        });
+        if (
+          choice !== 'replace' ||
+          !rootMountedRef.current ||
+          result.loadAttempt !== paymentContextLoadAttemptRef.current ||
+          !result.discoveryAuthContext ||
+          !(await backgroundApiProxy.servicePrime.isInfiniCheckoutAuthContextCurrent(
+            { context: result.discoveryAuthContext },
+          ))
+        )
+          return;
+        if (
+          !rootMountedRef.current ||
+          result.loadAttempt !== paymentContextLoadAttemptRef.current
+        )
+          return;
+        setSelectedAssetKey(assetKey);
+        setResult((current) =>
+          current
+            ? {
+                ...current,
+                remoteRecovery: undefined,
+                shouldCreatePayment: true,
+              }
+            : current,
+        );
+        setPaymentSessionGeneration((current) => current + 1);
+      })()
+        .catch((error) =>
+          showPrimeInfiniPaymentErrorToast({
+            error,
+            fallbackMessage: intl.formatMessage({
+              id: ETranslations.global_failed,
+            }),
+          }),
+        )
+        .finally(() => setRemoteAssetChangePending(false));
+    },
+    [intl, result, setResult],
+  );
   const availableNetworksMap = useMemo(
     () =>
       selectedAsset
@@ -5122,132 +5197,6 @@ export function PrimeInfiniWalletPaymentRoot({
     },
     [featureName, intl, plan, selectedSubscriptionPeriod],
   );
-  const handleSelectedAssetChange = useCallback(
-    async (assetKey: string) => {
-      if (!result?.remoteRecovery || hasPersistedPaymentSessionRef.current) {
-        setSelectedAssetKey(assetKey);
-        return;
-      }
-      if (
-        remoteReplacementPendingRef.current ||
-        !createNewPayment ||
-        remotePaymentResumeIntent ||
-        !result.discoveryAuthContext
-      )
-        return;
-      const context = result.discoveryAuthContext;
-      const loadAttempt = result.loadAttempt;
-      const isCurrent = () =>
-        rootMountedRef.current &&
-        paymentContextLoadAttemptRef.current === loadAttempt &&
-        currentPurchaseUserIdRef.current === context.onekeyUserId &&
-        !hasPersistedPaymentSessionRef.current;
-      remoteReplacementPendingRef.current = true;
-      setIsRemoteReplacementPending(true);
-      try {
-        const choice = await showPrimeInfiniUnfinishedPaymentDialog({
-          intl,
-          canResume: true,
-        });
-        if (
-          choice !== 'replace' ||
-          !isCurrent() ||
-          !(await backgroundApiProxy.servicePrime.isInfiniCheckoutAuthContextCurrent(
-            { context },
-          )) ||
-          !isCurrent()
-        )
-          return;
-        // The asset change is a new payment attempt; the old remote invoice
-        // remains recoverable only after another explicit discovery decision.
-        remoteResolverRef.current =
-          createPrimeInfiniRemotePendingPaymentResolver();
-        remoteResumedPaymentIdRef.current = '';
-        paymentCreationIntentRef.current = true;
-        setResult((current) =>
-          current?.loadAttempt === loadAttempt
-            ? { ...current, remoteRecovery: undefined }
-            : current,
-        );
-        setSelectedAssetKey(assetKey);
-        setPaymentSessionGeneration((value) => value + 1);
-      } catch (error) {
-        handlePaymentContextRunError(error, 'remoteAssetReplacementFailed');
-      } finally {
-        remoteReplacementPendingRef.current = false;
-        if (rootMountedRef.current) setIsRemoteReplacementPending(false);
-      }
-    },
-    [
-      createNewPayment,
-      handlePaymentContextRunError,
-      intl,
-      remotePaymentResumeIntent,
-      result,
-      setResult,
-    ],
-  );
-  useEffect(() => {
-    const recovery = result?.remoteRecovery;
-    const authContext = result?.discoveryAuthContext;
-    if (!result || !recovery?.sendStarted || !authContext || result.hasError)
-      return;
-    const key = `${recovery.payment.paymentId}:${authContext.authSessionSource}:${authContext.authStateGeneration}`;
-    if (remoteTrackingHandoffRef.current === key) return;
-    remoteTrackingHandoffRef.current = key;
-    let didClose = false;
-    void (async () => {
-      const isAuthCurrent =
-        await backgroundApiProxy.servicePrime.isInfiniCheckoutAuthContextCurrent(
-          { context: authContext },
-        );
-      if (!rootMountedRef.current || remoteTrackingHandoffRef.current !== key)
-        return;
-      didClose = true;
-      onExitPreventedChange(false);
-      onClose();
-      if (!isAuthCurrent) return;
-      await timerUtils.setTimeoutPromised(
-        undefined,
-        PRIME_PAYMENT_MODAL_CLOSE_DELAY_MS,
-      );
-      if (
-        !(await backgroundApiProxy.servicePrime.isInfiniCheckoutAuthContextCurrent(
-          { context: authContext },
-        ))
-      )
-        return;
-      showPrimeInfiniWaitingDialog({
-        context: {
-          checkoutType: 'internalWallet',
-          session: {
-            flowId: flowContextRef.current?.flowId,
-            payment: recovery.payment,
-            asset: recovery.asset,
-            plan: recovery.plan,
-            selectedSubscriptionPeriod:
-              recovery.plan === 'monthly' ? 'P1M' : 'P1Y',
-            baseline: {
-              ...result.baseline,
-              onekeyUserId: authContext.onekeyUserId,
-            },
-            featureName,
-            authContext,
-          },
-        },
-      });
-    })().catch((error) => {
-      if (remoteTrackingHandoffRef.current !== key) return;
-      if (!didClose && rootMountedRef.current) onClose();
-      handlePaymentContextRunError(error, 'remoteTrackingHandoffFailed');
-    });
-  }, [
-    featureName,
-    handlePaymentContextRunError,
-    onClose,
-    onExitPreventedChange,
-    result,
-  ]);
   const handleDiscardPaymentSession = useCallback(
     (bindingId: string) => {
       paymentCreationIntentRef.current = true;
@@ -5578,10 +5527,8 @@ export function PrimeInfiniWalletPaymentRoot({
   }, [run]);
 
   const paymentContent = (() => {
+    if (result?.remotePaymentCancelled) return <Stack />;
     if (!result) {
-      return <PrimeInfiniPaymentSkeleton />;
-    }
-    if (result.remotePaymentCancelled || result.remoteRecovery?.sendStarted) {
       return <PrimeInfiniPaymentSkeleton />;
     }
     if (result.completedPaymentId) {
@@ -5661,7 +5608,7 @@ export function PrimeInfiniWalletPaymentRoot({
         pendingSession={effectivePendingSession}
         remoteRecovery={result.remoteRecovery}
         discoveryAuthContext={result.discoveryAuthContext}
-        onSelectedAssetChange={handleSelectedAssetChange}
+        onSelectedAssetChange={handleRemoteAssetChange}
         onDiscardPaymentSession={handleDiscardPaymentSession}
         onReplacePaymentSession={handleReplacePaymentSession}
         onReloadPaymentSession={handleReloadPaymentSession}
@@ -5671,22 +5618,20 @@ export function PrimeInfiniWalletPaymentRoot({
         onClose={onClose}
         onExitPreventedChange={onExitPreventedChange}
         initialAccountSyncPromiseRef={initialAccountSyncPromiseRef}
-        isOptionsRefreshing={Boolean(isLoading) || isRemoteReplacementPending}
+        isOptionsRefreshing={Boolean(isLoading)}
         paymentContextErrorTitle={paymentContextErrorTitle}
         isPaymentContextRetrying={Boolean(isLoading)}
         onRetryPaymentContext={handleRetryPaymentContext}
         fallbackWarningMessages={fallbackWarningMessages}
         onEnableMockPaymentWarnings={handleEnableMockPaymentWarnings}
         shouldCreatePayment={
-          !paymentContextErrorTitle && result.shouldCreatePayment
+          !paymentContextErrorTitle &&
+          !isRemoteAssetChangePending &&
+          result.shouldCreatePayment
         }
       />
     );
   })();
-
-  if (!result || result.remoteRecovery?.sendStarted) {
-    return <PrimeInfiniPaymentSkeleton />;
-  }
 
   return (
     <AccountSelectorProviderMirror

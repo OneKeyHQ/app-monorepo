@@ -9,7 +9,6 @@ import type {
   IPrimeInfiniPayment,
   IPrimeInfiniPaymentCacheKey,
 } from '@onekeyhq/shared/types/prime/primeTypes';
-import { EPrimeAuthSessionSource } from '@onekeyhq/shared/types/prime/primeTypes';
 
 import { usePrimeInfiniPaymentPolling } from './usePrimeInfiniPaymentPolling';
 
@@ -25,7 +24,6 @@ const globalMockBag = globalThis as typeof globalThis & {
   __primeInfiniPollingService?: {
     apiGetInfiniPayment: jest.Mock;
     apiGetInfiniPurchaseStatusSnapshot: jest.Mock;
-    isInfiniCheckoutAuthContextCurrent: jest.Mock;
   };
 };
 
@@ -33,7 +31,6 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => {
   const mockServicePrime = {
     apiGetInfiniPayment: jest.fn(),
     apiGetInfiniPurchaseStatusSnapshot: jest.fn(),
-    isInfiniCheckoutAuthContextCurrent: jest.fn(),
   };
   const mockPrimeDb = { latchInfiniPendingPaymentSessionProgress: jest.fn() };
   (globalThis as typeof globalMockBag).__primeInfiniPollingService =
@@ -146,7 +143,6 @@ describe('usePrimeInfiniPaymentPolling', () => {
     jest.clearAllMocks();
     visibilityHandler = undefined;
     routeFocused = true;
-    servicePrime.isInfiniCheckoutAuthContextCurrent.mockResolvedValue(true);
     primeDb.latchInfiniPendingPaymentSessionProgress.mockImplementation(
       async ({ latestPayment }: { latestPayment: IPrimeInfiniPayment }) => ({
         payment: latestPayment,
@@ -157,147 +153,6 @@ describe('usePrimeInfiniPaymentPolling', () => {
       primeSubscription: undefined,
       infiniSubscription: undefined,
     });
-  });
-
-  it.each([{ hasTransactions: true }, { remoteTrackingOnly: true }])(
-    'tracks a remote transfer with pinned auth and no local payer or cache binding: %j',
-    async (evidence) => {
-      const payment = {
-        ...buildPayment('remote-payment'),
-        ...evidence,
-        expiresAt: 1,
-        status: 'expired',
-      };
-      const authContext = {
-        onekeyUserId: baseline.onekeyUserId,
-        authSessionSource: EPrimeAuthSessionSource.KeylessOAuth,
-        authStateGeneration: 3,
-      };
-      servicePrime.apiGetInfiniPayment.mockResolvedValue({
-        ...payment,
-        hasTransactions: undefined,
-      });
-      const onSuccess = jest.fn();
-      const onTerminal = jest.fn();
-      const { result, unmount } = renderHook(() =>
-        usePrimeInfiniPaymentPolling({
-          payment,
-          authContext,
-          asset,
-          baseline,
-          enabled: true,
-          onSuccess,
-          onTerminal,
-          pollIntervalMs: 60_000,
-        }),
-      );
-      await waitFor(() =>
-        expect(servicePrime.apiGetInfiniPayment).toHaveBeenCalledWith(
-          expect.objectContaining({
-            paymentId: payment.paymentId,
-            expectedOneKeyUserId: baseline.onekeyUserId,
-            authContext,
-          }),
-        ),
-      );
-      expect(result.current.outcome).toBe('pending');
-      expect(
-        primeDb.latchInfiniPendingPaymentSessionProgress,
-      ).not.toHaveBeenCalled();
-      servicePrime.apiGetInfiniPayment.mockResolvedValue({
-        ...payment,
-        status: 'confirmed',
-        amountConfirmed: payment.amountDue,
-      });
-      servicePrime.apiGetInfiniPurchaseStatusSnapshot.mockResolvedValue({
-        onekeyUserId: baseline.onekeyUserId,
-        primeSubscription: {
-          isActive: true,
-          subscriptions: [{ channel: 'infini' }],
-        },
-      });
-      act(() => result.current.refresh());
-      await waitFor(() => expect(onSuccess).toHaveBeenCalledTimes(1));
-      expect(onTerminal).not.toHaveBeenCalled();
-      unmount();
-    },
-  );
-
-  it('stops remote tracking when the pinned auth lifecycle changes during a request', async () => {
-    const payment = {
-      ...buildPayment('remote-payment'),
-      hasTransactions: true,
-    };
-    const authContext = {
-      onekeyUserId: baseline.onekeyUserId,
-      authSessionSource: EPrimeAuthSessionSource.KeylessOAuth,
-      authStateGeneration: 3,
-    };
-    const pending = createDeferred<IPrimeInfiniPayment>();
-    servicePrime.apiGetInfiniPayment.mockReturnValue(pending.promise);
-    const onSuccess = jest.fn();
-    const onAuthChanged = jest.fn();
-    const { unmount } = renderHook(() =>
-      usePrimeInfiniPaymentPolling({
-        payment,
-        authContext,
-        asset,
-        baseline,
-        enabled: true,
-        onSuccess,
-        onAuthChanged,
-        onTerminal: jest.fn(),
-      }),
-    );
-    await waitFor(() =>
-      expect(servicePrime.apiGetInfiniPayment).toHaveBeenCalledTimes(1),
-    );
-    servicePrime.isInfiniCheckoutAuthContextCurrent.mockResolvedValue(false);
-    await act(async () =>
-      pending.resolve({
-        ...payment,
-        status: 'confirmed',
-        amountConfirmed: payment.amountDue,
-      }),
-    );
-    await waitFor(() => expect(onAuthChanged).toHaveBeenCalledTimes(1));
-    expect(onSuccess).not.toHaveBeenCalled();
-    expect(
-      primeDb.latchInfiniPendingPaymentSessionProgress,
-    ).not.toHaveBeenCalled();
-    unmount();
-  });
-
-  it('never queries a remote payment under an obsolete auth snapshot', async () => {
-    const payment = {
-      ...buildPayment('remote-payment'),
-      hasTransactions: true,
-    };
-    const authContext = {
-      onekeyUserId: baseline.onekeyUserId,
-      authSessionSource: EPrimeAuthSessionSource.KeylessOAuth,
-      authStateGeneration: 3,
-    };
-    servicePrime.isInfiniCheckoutAuthContextCurrent.mockResolvedValue(false);
-    const onAuthChanged = jest.fn();
-    const { unmount } = renderHook(() =>
-      usePrimeInfiniPaymentPolling({
-        payment,
-        authContext,
-        asset,
-        baseline,
-        enabled: true,
-        onSuccess: jest.fn(),
-        onAuthChanged,
-        onTerminal: jest.fn(),
-      }),
-    );
-    await waitFor(() => expect(onAuthChanged).toHaveBeenCalledTimes(1));
-    expect(servicePrime.apiGetInfiniPayment).not.toHaveBeenCalled();
-    expect(
-      servicePrime.apiGetInfiniPurchaseStatusSnapshot,
-    ).not.toHaveBeenCalled();
-    unmount();
   });
 
   it('persists observed progress with the binding before exposing it and skips unchanged polls', async () => {
@@ -862,72 +717,6 @@ describe('usePrimeInfiniPaymentPolling', () => {
     expect(result.current.outcome).toBe('expired');
     unmount();
   });
-
-  it.each([undefined, 'expired'])(
-    'keeps tracking a transaction after quote expiry (status: %s) until credited',
-    async (status) => {
-      const payment = {
-        ...buildPayment('payment-a'),
-        hasTransactions: true,
-        amountConfirming: '0',
-        expiresAt: Date.now() - 1,
-        status,
-      };
-      const onTerminal = jest.fn();
-      const onSuccess = jest.fn();
-      servicePrime.apiGetInfiniPayment
-        .mockResolvedValueOnce(payment)
-        .mockResolvedValueOnce({
-          ...payment,
-          hasTransactions: false,
-        })
-        .mockResolvedValue({
-          ...payment,
-          status: 'confirmed',
-          amountConfirmed: payment.amountDue,
-        });
-      const { result, unmount } = renderHook(() =>
-        usePrimeInfiniPaymentPolling({
-          paymentCacheKey: buildPaymentCacheKey(payment),
-          payment: { ...payment, hasTransactions: undefined },
-          asset,
-          baseline,
-          enabled: true,
-          onSuccess,
-          onTerminal,
-          pollIntervalMs: 60_000,
-        }),
-      );
-      await waitFor(() => {
-        expect(result.current.latestPayment?.hasTransactions).toBe(true);
-        expect(result.current.outcome).toBe('pending');
-      });
-      act(() => result.current.refresh());
-      await waitFor(() =>
-        expect(servicePrime.apiGetInfiniPayment).toHaveBeenCalledTimes(2),
-      );
-      expect(result.current.latestPayment?.hasTransactions).toBe(true);
-      expect(
-        primeDb.latchInfiniPendingPaymentSessionProgress,
-      ).toHaveBeenCalledWith(
-        expect.objectContaining({
-          latestPayment: expect.objectContaining({ hasTransactions: true }),
-        }),
-      );
-      expect(onTerminal).not.toHaveBeenCalled();
-      servicePrime.apiGetInfiniPurchaseStatusSnapshot.mockResolvedValue({
-        onekeyUserId: baseline.onekeyUserId,
-        primeSubscription: {
-          isActive: true,
-          subscriptions: [{ channel: 'infini' }],
-        },
-      });
-      act(() => result.current.refresh());
-      await waitFor(() => expect(onSuccess).toHaveBeenCalledTimes(1));
-      expect(onTerminal).not.toHaveBeenCalled();
-      unmount();
-    },
-  );
 
   it.each(['expired', 'failed'] as const)(
     'terminates an explicitly %s payment even while funds are still confirming',

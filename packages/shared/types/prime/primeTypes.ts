@@ -172,22 +172,6 @@ export type IPrimeInfiniPayment = {
   amountConfirmed?: string;
   amountConfirming?: string;
   warningMessages?: string[];
-  // Only activity is retained; remote transaction payloads and IDs stay out of storage.
-  hasTransactions?: boolean;
-  // Local, durable evidence that this remote invoice must never become a new
-  // transfer again. This field is not accepted from payment API responses.
-  remoteTrackingOnly?: boolean;
-};
-
-export type IPrimeInfiniPendingPaymentLookup = {
-  authContext: IPrimeInfiniCheckoutAuthContext;
-  // An existing order can be reported without enough fields to restore it.
-  pendingPayment?: {
-    paymentId?: string;
-    payment?: IPrimeInfiniPayment;
-    plan?: IPrimeInfiniSubscriptionPlan;
-    hasTransactions: boolean;
-  };
 };
 
 export type IPrimeInfiniPaymentValidationFailure =
@@ -197,6 +181,18 @@ export type IPrimeInfiniPaymentValidationFailure =
   | 'transferSnapshotChanged'
   | 'invalidResponse'
   | 'localPersistenceFailed';
+
+export type IPrimeInfiniPendingPaymentLookup = {
+  authContext: IPrimeInfiniCheckoutAuthContext;
+  // Unavailable discovery requires a risk warning, not a claim of no old order.
+  status?: 'unavailable';
+  pendingPayment?: {
+    paymentId?: string;
+    payment?: IPrimeInfiniPayment;
+    plan?: IPrimeInfiniSubscriptionPlan;
+    hasTransactions?: boolean;
+  };
+};
 
 export type IPrimeInfiniPaymentSource =
   | 'createResponse'

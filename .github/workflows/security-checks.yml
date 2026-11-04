@@ -35,14 +35,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           lfs: false
-          fetch-depth: 1
-
-      - name: Fetch release age comparison base
-        env:
-          RELEASE_AGE_BASE_REF: ${{ github.base_ref }}
-        run: |
-          # The lockfile check compares snapshots and needs no repository history.
-          git fetch --no-tags --depth=1 origin "+refs/heads/${RELEASE_AGE_BASE_REF}:refs/remotes/origin/${RELEASE_AGE_BASE_REF}"
+          fetch-depth: 0
 
       - name: Use Node.js 24.x
         uses: actions/setup-node@v6
@@ -58,12 +51,10 @@ jobs:
             echo "AI prompt generation failed; inspect the failed step log and minimum-release-age.log." > ci-ai/security-checks-ai-prompt.md
 
       - name: Check minimum release age
-        env:
-          RELEASE_AGE_BASE_REF: ${{ github.base_ref }}
         run: |
           mkdir -p ci-ai
           set +e
-          node development/scripts/minimum-release-age/run.ts diff "origin/${RELEASE_AGE_BASE_REF}" 2>&1 | tee ci-ai/minimum-release-age.log
+          node development/scripts/minimum-release-age/run.ts diff origin/${{ github.base_ref }} 2>&1 | tee ci-ai/minimum-release-age.log
           status=${PIPESTATUS[0]}
           set -e
           exit "$status"

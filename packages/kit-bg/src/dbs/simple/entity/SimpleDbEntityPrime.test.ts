@@ -1317,255 +1317,6 @@ describe('SimpleDbEntityPrime Infini pending payment session', () => {
     return { entity, read: () => stored };
   }
 
-  test('keeps remote transfer evidence across reopening without a payer binding', async () => {
-    const { entity, read } = createSessionStore();
-    const observed = {
-      ...session.payment,
-      status: 'pending',
-      amountConfirmed: '0',
-      amountConfirming: '0',
-      hasTransactions: true,
-      transactions: [{ txId: 'must-not-persist' }],
-    };
-    await expect(
-      entity.mergeInfiniRemotePaymentTracking({
-        onekeyUserId: 'user-1',
-        payment: observed,
-      }),
-    ).resolves.toMatchObject({
-      remoteTrackingOnly: true,
-      hasTransactions: true,
-    });
-    expect(read().infiniPendingPaymentSessionByUserId).toBeUndefined();
-    expect(JSON.stringify(read())).not.toContain('must-not-persist');
-    expect(JSON.stringify(read())).not.toMatch(/payer|bindingId/);
-
-    const reopened = createSessionStore(
-      JSON.parse(JSON.stringify(read())) as ISimpleDBPrime,
-    );
-    const later = {
-      ...session.payment,
-      status: 'pending',
-      amountConfirmed: '0',
-      amountConfirming: '0',
-    };
-    await expect(
-      reopened.entity.mergeInfiniRemotePaymentTracking({
-        onekeyUserId: 'user-1',
-        payment: later,
-      }),
-    ).resolves.toMatchObject({
-      remoteTrackingOnly: true,
-      hasTransactions: true,
-      status: 'pending',
-    });
-    await expect(
-      reopened.entity.mergeInfiniRemotePaymentTracking({
-        onekeyUserId: 'other-user',
-        payment: later,
-      }),
-    ).resolves.toEqual(later);
-    const otherInvoice = { ...later, paymentId: 'other-invoice' };
-    await expect(
-      reopened.entity.mergeInfiniRemotePaymentTracking({
-        onekeyUserId: 'user-1',
-        payment: otherInvoice,
-      }),
-    ).resolves.toEqual(otherInvoice);
-  });
-
-  test('persists signed transfer evidence even without reported transactions or amounts', async () => {
-    const { entity, read } = createSessionStore();
-    await entity.mergeInfiniRemotePaymentTracking({
-      onekeyUserId: 'user-1',
-      payment: { ...session.payment, status: 'signed' },
-    });
-    const reopened = createSessionStore(read());
-    await expect(
-      reopened.entity.mergeInfiniRemotePaymentTracking({
-        onekeyUserId: 'user-1',
-        payment: { ...session.payment, status: 'created' },
-      }),
-    ).resolves.toMatchObject({ remoteTrackingOnly: true });
-  });
-
-  test('does not merge progress onto changed remote invoice transfer details', async () => {
-    const { entity } = createSessionStore();
-    await entity.mergeInfiniRemotePaymentTracking({
-      onekeyUserId: 'user-1',
-      payment: { ...session.payment, status: 'signed' },
-    });
-    await expect(
-      entity.mergeInfiniRemotePaymentTracking({
-        onekeyUserId: 'user-1',
-        payment: { ...session.payment, address: 'changed-recipient' },
-      }),
-    ).rejects.toMatchObject({
-      data: { paymentValidationFailure: 'transferSnapshotChanged' },
-    });
-  });
-
-  test('fails closed if remote tracking evidence cannot be persisted', async () => {
-    const { entity } = createSessionStore();
-    jest
-      .spyOn(entity, 'setRawData')
-      .mockRejectedValueOnce(new Error('disk failure'));
-    await expect(
-      entity.mergeInfiniRemotePaymentTracking({
-        onekeyUserId: 'user-1',
-        payment: { ...session.payment, hasTransactions: true },
-      }),
-    ).rejects.toMatchObject({
-      data: { paymentValidationFailure: 'localPersistenceFailed' },
-    });
-  });
-
-  test.each(['expired', 'failed', 'cancelled', 'pending', undefined])(
-    'does not invent durable transfer evidence from unpaid status %s',
-    async (status) => {
-      const { entity, read } = createSessionStore();
-      const persist = jest.spyOn(entity, 'setRawData');
-      const unpaid = {
-        ...session.payment,
-        status,
-        amountConfirmed: '0',
-        amountConfirming: '0',
-      };
-      await expect(
-        entity.mergeInfiniRemotePaymentTracking({
-          onekeyUserId: 'user-1',
-          payment: unpaid,
-        }),
-      ).resolves.toEqual(unpaid);
-      expect(persist).not.toHaveBeenCalled();
-      expect(read().infiniRemotePaymentTrackingByUserId).toBeUndefined();
-    },
-  );
-
-  test.each(['expired', 'failed'])(
-    'retains actual transfer evidence when a later response is %s',
-    async (status) => {
-      const { entity, read } = createSessionStore();
-      await entity.mergeInfiniRemotePaymentTracking({
-        onekeyUserId: 'user-1',
-        payment: { ...session.payment, hasTransactions: true },
-      });
-      const reopened = createSessionStore(read());
-      await expect(
-        reopened.entity.mergeInfiniRemotePaymentTracking({
-          onekeyUserId: 'user-1',
-          payment: { ...session.payment, status },
-        }),
-      ).resolves.toMatchObject({
-        remoteTrackingOnly: true,
-        hasTransactions: true,
-      });
-    },
-  );
-
-  test('fails closed if storage declines a remote tracking write', async () => {
-    const { entity } = createSessionStore();
-    jest.spyOn(entity, 'setRawData').mockResolvedValueOnce(undefined);
-    await expect(
-      entity.mergeInfiniRemotePaymentTracking({
-        onekeyUserId: 'user-1',
-        payment: { ...session.payment, hasTransactions: true },
-      }),
-    ).rejects.toMatchObject({
-      data: { paymentValidationFailure: 'localPersistenceFailed' },
-    });
-  });
-
-  test.each(['initial', 'speedUp'] as const)(
-    'rejects a stale %s send claim after remote transfer evidence is persisted',
-    async (mode) => {
-      const { entity, read } = createSessionStore();
-      const saved = await entity.setInfiniPendingPaymentSession({
-        onekeyUserId: 'user-1',
-        session: { ...session, sendStarted: mode === 'speedUp' },
-      });
-      const stalePreflight = { ...saved.payment };
-      await entity.mergeInfiniRemotePaymentTracking({
-        onekeyUserId: 'user-1',
-        payment: { ...saved.payment, hasTransactions: true },
-      });
-      await expect(
-        entity.markInfiniPendingPaymentSessionSendStarted({
-          onekeyUserId: 'user-1',
-          paymentCacheKey: saved.paymentCacheKey,
-          transferClaim,
-          latestPayment: stalePreflight,
-          purchaseStatusSnapshot,
-          mode,
-        }),
-      ).rejects.toThrow('unavailable before broadcast');
-      expect(read().infiniPendingPaymentSessionByUserId?.['user-1']).toEqual(
-        saved,
-      );
-    },
-  );
-
-  test('reads a concurrent remote fence inside the final send-claim transaction', async () => {
-    const { entity, read } = createSessionStore();
-    const saved = await entity.setInfiniPendingPaymentSession({
-      onekeyUserId: 'user-1',
-      session,
-    });
-    const persist = jest.spyOn(entity, 'setRawData');
-    const originalPersist = persist.getMockImplementation();
-    if (!originalPersist) throw new OneKeyLocalError('Missing test store');
-    persist.mockImplementationOnce(async (updater) => {
-      // The remote write commits after admission starts but before its builder
-      // reads the serialized state, as with two extension UIs sharing the DB.
-      await entity.mergeInfiniRemotePaymentTracking({
-        onekeyUserId: 'user-1',
-        payment: { ...saved.payment, hasTransactions: true },
-      });
-      return originalPersist(updater);
-    });
-    await expect(
-      entity.markInfiniPendingPaymentSessionSendStarted({
-        onekeyUserId: 'user-1',
-        paymentCacheKey: saved.paymentCacheKey,
-        transferClaim,
-        latestPayment: saved.payment,
-        purchaseStatusSnapshot,
-      }),
-    ).rejects.toThrow('unavailable before broadcast');
-    expect(
-      read().infiniPendingPaymentSessionByUserId?.['user-1']?.sendStarted,
-    ).toBe(false);
-  });
-
-  test.each(['other-user', 'other-invoice'])(
-    'does not apply the %s remote fence to a different payment claim',
-    async (scope) => {
-      const { entity } = createSessionStore();
-      const saved = await entity.setInfiniPendingPaymentSession({
-        onekeyUserId: 'user-1',
-        session,
-      });
-      await entity.mergeInfiniRemotePaymentTracking({
-        onekeyUserId: scope === 'other-user' ? scope : 'user-1',
-        payment: {
-          ...saved.payment,
-          paymentId:
-            scope === 'other-invoice' ? scope : saved.payment.paymentId,
-          hasTransactions: true,
-        },
-      });
-      await expect(
-        entity.markInfiniPendingPaymentSessionSendStarted({
-          onekeyUserId: 'user-1',
-          paymentCacheKey: saved.paymentCacheKey,
-          transferClaim,
-          latestPayment: saved.payment,
-          purchaseStatusSnapshot,
-        }),
-      ).resolves.toMatchObject({ sendStarted: true });
-    },
-  );
-
   function createNativePaymentSession() {
     const asset = { ...session.asset, token: 'ETH', contractAddress: '' };
     asset.key = getPrimeInfiniPaymentAssetKey(asset);
@@ -2602,147 +2353,6 @@ describe('SimpleDbEntityPrime Infini pending payment session', () => {
     );
   });
 
-  test.each(['superseded', 'discarded'] as const)(
-    'excludes a %s invoice from discovery without fencing another user',
-    async (reason) => {
-      const { entity } = createSessionStore({
-        infiniPendingPaymentSessionByUserId: {
-          'user-1': { ...session, schemaVersion: 2, updatedAt: Date.now() },
-        },
-      });
-      if (reason === 'superseded') {
-        await entity.supersedeInfiniPendingPaymentSession({
-          onekeyUserId: 'user-1',
-          expectedPaymentCacheIdentity: session.paymentCacheKey,
-          latestPayment: session.payment,
-        });
-      } else {
-        await entity.discardUnsentInfiniPendingPaymentSession({
-          onekeyUserId: 'user-1',
-          expectedPaymentCacheIdentity: session.paymentCacheKey,
-        });
-      }
-      await expect(
-        entity.isInfiniPaymentRetired({
-          onekeyUserId: 'user-1',
-          paymentId: session.payment.paymentId,
-        }),
-      ).resolves.toBe(true);
-      await expect(
-        entity.isInfiniPaymentRetired({
-          onekeyUserId: 'user-2',
-          paymentId: session.payment.paymentId,
-        }),
-      ).resolves.toBe(false);
-      await expect(
-        entity.isInfiniPaymentRetired({
-          onekeyUserId: 'user-1',
-          paymentId: 'different-payment',
-        }),
-      ).resolves.toBe(false);
-    },
-  );
-
-  test.each([false, true])(
-    'rejects a new binding after a sent invoice is superseded (archive removed: %s)',
-    async (removeArchive) => {
-      const { entity, read } = createSessionStore({
-        infiniPendingPaymentSessionByUserId: {
-          'user-1': {
-            ...session,
-            schemaVersion: 2,
-            updatedAt: Date.now(),
-            sendStarted: true,
-          },
-        },
-      });
-      await entity.supersedeInfiniPendingPaymentSession({
-        onekeyUserId: 'user-1',
-        expectedPaymentCacheIdentity: session.paymentCacheKey,
-        latestPayment: session.payment,
-      });
-      if (removeArchive) {
-        await entity.setRawData((rawData) => ({
-          ...rawData,
-          infiniSupersededPaymentSessionsByUserId: {},
-        }));
-      }
-      await expect(
-        entity.setInfiniPendingPaymentSession({
-          onekeyUserId: 'user-1',
-          session: {
-            ...session,
-            paymentCacheKey: {
-              ...session.paymentCacheKey,
-              bindingId: 'remote-new-binding',
-            },
-          },
-        }),
-      ).rejects.toThrow('Infini payment cache is retired');
-      expect(
-        read().infiniPendingPaymentSessionByUserId?.['user-1'],
-      ).toBeUndefined();
-    },
-  );
-
-  test.each(['superseded', 'discarded'] as const)(
-    'restores a %s invoice under a new binding only for tracking remote transfers',
-    async (reason) => {
-      const { entity } = createSessionStore({
-        infiniPendingPaymentSessionByUserId: {
-          'user-1': {
-            ...session,
-            schemaVersion: 2,
-            updatedAt: Date.now(),
-            sendStarted: reason === 'superseded',
-          },
-        },
-      });
-      if (reason === 'superseded') {
-        await entity.supersedeInfiniPendingPaymentSession({
-          onekeyUserId: 'user-1',
-          expectedPaymentCacheIdentity: session.paymentCacheKey,
-          latestPayment: session.payment,
-        });
-      } else {
-        await entity.discardUnsentInfiniPendingPaymentSession({
-          onekeyUserId: 'user-1',
-          expectedPaymentCacheIdentity: session.paymentCacheKey,
-        });
-      }
-      const trackedPayment = { ...session.payment, hasTransactions: true };
-      const tracked = await entity.setInfiniPendingPaymentSession({
-        onekeyUserId: 'user-1',
-        session: {
-          ...session,
-          payment: trackedPayment,
-          sendStarted: true,
-          paymentCacheKey: {
-            ...session.paymentCacheKey,
-            bindingId: 'remote-tracking-binding',
-          },
-        },
-      });
-      expect(tracked.sendStarted).toBe(true);
-      expect(tracked.payment.hasTransactions).toBe(true);
-      await expect(
-        entity.setInfiniPendingPaymentSession({
-          onekeyUserId: 'user-1',
-          session: { ...tracked, sendStarted: false, payment: session.payment },
-        }),
-      ).resolves.toMatchObject({
-        sendStarted: true,
-        payment: { hasTransactions: true },
-      });
-      await expect(
-        entity.setInfiniPendingPaymentSession({
-          onekeyUserId: 'user-1',
-          session: { ...session, payment: trackedPayment, sendStarted: true },
-        }),
-      ).rejects.toThrow('Infini payment cache is retired');
-    },
-  );
-
   test('atomically archives a partially paid invoice before forced replacement', async () => {
     const entity = new SimpleDbEntityPrime();
     const persistedSession = {
@@ -3144,56 +2754,6 @@ describe('SimpleDbEntityPrime Infini pending payment session', () => {
     expect(getStoredSession().sendStarted).toBe(true);
   });
 
-  test('persists transaction-only evidence on an already sent session across reopening', async () => {
-    const payment = {
-      ...session.payment,
-      amountConfirmed: '0',
-      amountConfirming: '0',
-      status: 'pending',
-      expiresAt: 1,
-    };
-    const { entity, read } = createSessionStore({
-      infiniPendingPaymentSessionByUserId: {
-        'user-1': {
-          ...session,
-          payment,
-          sendStarted: true,
-          schemaVersion: 2,
-          updatedAt: Date.now(),
-        },
-      },
-    });
-    await entity.latchInfiniPendingPaymentSessionProgress({
-      onekeyUserId: 'user-1',
-      paymentCacheKey: session.paymentCacheKey,
-      latestPayment: { ...payment, hasTransactions: true },
-    });
-    expect(
-      read().infiniPendingPaymentSessionByUserId?.['user-1']?.payment
-        .hasTransactions,
-    ).toBe(true);
-    const reopened = createSessionStore(read());
-    const restored = await reopened.entity.getInfiniPendingPaymentSession({
-      onekeyUserId: 'user-1',
-    });
-    expect(restored?.payment.hasTransactions).toBe(true);
-    if (!restored) throw new OneKeyLocalError('Missing reopened session');
-    const latestPayment = { ...payment, status: 'expired', expiresAt: 1 };
-    await expect(
-      reopened.entity.discardTerminalInfiniPendingPaymentSession({
-        onekeyUserId: 'user-1',
-        expectedPaymentCacheIdentity: session.paymentCacheKey,
-        expectedUpdatedAt: restored.updatedAt,
-        expectedSendStarted: true,
-        latestPayment,
-      }),
-    ).resolves.toBe(false);
-    expect(
-      reopened.read().infiniPendingPaymentSessionByUserId?.['user-1']?.payment
-        .hasTransactions,
-    ).toBe(true);
-  });
-
   test('does not refresh the session when no new progress is observed', async () => {
     const { entity, getStoredSession } = makeLatchEntity();
     const updatedAtBefore = getStoredSession().updatedAt;
@@ -3562,6 +3122,70 @@ describe('SimpleDbEntityPrime Infini pending payment session', () => {
       persisted.infiniPendingPaymentSessionByUserId['user-1'].sendStarted,
     ).toBe(true);
   });
+
+  test.each(['signed', 'broadcast', 'processing'])(
+    'keeps original local speed-up admission for zero-funded %s invoices',
+    async (status) => {
+      const original = {
+        ...session,
+        schemaVersion: 2 as const,
+        sendStarted: true,
+        updatedAt: Date.now(),
+        payment: {
+          ...session.payment,
+          status,
+          amountConfirmed: '0',
+          amountConfirming: '0',
+        },
+      };
+      const { entity } = createSessionStore({
+        infiniPendingPaymentSessionByUserId: { 'user-1': original },
+      });
+      await expect(
+        entity.markInfiniPendingPaymentSessionSendStarted({
+          onekeyUserId: 'user-1',
+          paymentCacheKey: session.paymentCacheKey,
+          transferClaim,
+          latestPayment: original.payment,
+          purchaseStatusSnapshot,
+          mode: 'speedUp',
+        }),
+      ).resolves.toMatchObject({ sendStarted: true });
+    },
+  );
+
+  test.each(['failed', 'expired'])(
+    'keeps original terminal release after signed -> %s with no collected funds',
+    async (status) => {
+      const original = {
+        ...session,
+        schemaVersion: 2 as const,
+        sendStarted: true,
+        updatedAt: Date.now(),
+        payment: {
+          ...session.payment,
+          status: 'signed',
+          amountConfirmed: '0',
+          amountConfirming: '0',
+        },
+      };
+      const { entity, read } = createSessionStore({
+        infiniPendingPaymentSessionByUserId: { 'user-1': original },
+      });
+      await expect(
+        entity.discardTerminalInfiniPendingPaymentSession({
+          onekeyUserId: 'user-1',
+          expectedPaymentCacheIdentity: session.paymentCacheKey,
+          expectedUpdatedAt: original.updatedAt,
+          expectedSendStarted: true,
+          latestPayment: { ...original.payment, status },
+        }),
+      ).resolves.toBe(true);
+      expect(
+        read().infiniPendingPaymentSessionByUserId?.['user-1'],
+      ).toBeUndefined();
+    },
+  );
 
   test('admits a fee replacement without reopening the original send claim', async () => {
     const { entity, read } = createSessionStore({

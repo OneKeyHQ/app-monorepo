@@ -100,7 +100,6 @@ function isAnalyticsReportDue({
 
 type IPrimeInfiniPaymentCacheTombstone = IPrimeInfiniPaymentCacheKey & {
   retiredAt: number;
-  sendStarted?: boolean;
 };
 
 type IPrimeInfiniSupersededPaymentSession =
@@ -179,12 +178,6 @@ export interface ISimpleDBPrime {
   infiniPendingPaymentSessionByUserId?: Record<
     string,
     IPrimeInfiniPendingPaymentSession
-  >;
-  // Independent of payer bindings and expiring sessions. Forgetting observed
-  // remote transfers could authorize sending the same invoice a second time.
-  infiniRemotePaymentTrackingByUserId?: Record<
-    string,
-    Record<string, IPrimeInfiniPayment>
   >;
   infiniPaymentCacheTombstonesByUserId?: Record<
     string,
@@ -298,13 +291,11 @@ function retireInfiniPaymentCache({
   onekeyUserId,
   paymentCacheKey,
   now,
-  sendStarted,
 }: {
   rawData: ISimpleDBPrime | null | undefined;
   onekeyUserId: string;
   paymentCacheKey: IPrimeInfiniPaymentCacheKey;
   now: number;
-  sendStarted?: boolean;
 }): ISimpleDBPrime {
   const tombstones = getActiveInfiniPaymentCacheTombstones({
     rawData,
@@ -319,7 +310,6 @@ function retireInfiniPaymentCache({
     {
       ...paymentCacheKey,
       retiredAt: now,
-      ...(sendStarted ? { sendStarted: true } : undefined),
     },
   ].slice(-INFINI_PAYMENT_CACHE_TOMBSTONE_LIMIT);
   return {
@@ -1656,106 +1646,6 @@ export class SimpleDbEntityPrime extends SimpleDbEntityBase<ISimpleDBPrime> {
   }
 
   @backgroundMethod()
-  async mergeInfiniRemotePaymentTracking({
-    onekeyUserId,
-    payment,
-  }: {
-    onekeyUserId: string;
-    payment: IPrimeInfiniPayment;
-  }): Promise<IPrimeInfiniPayment> {
-    const failure = getPrimeInfiniPaymentValidationFailure({
-      payment,
-      validateQuote: false,
-    });
-    if (!onekeyUserId || failure) {
-      throw createPrimeInfiniPaymentValidationError(
-        failure ?? 'invalidResponse',
-      );
-    }
-    const rawData = await this.getRawData();
-    const previous =
-      rawData?.infiniRemotePaymentTrackingByUserId?.[onekeyUserId]?.[
-        payment.paymentId
-      ];
-    if (!previous && !hasPrimeInfiniPaymentProgressSnapshot(payment)) {
-      return payment;
-    }
-    let mergedPayment = payment;
-    const persisted = await this.setRawData((latestRawData) => {
-      const current =
-        latestRawData?.infiniRemotePaymentTrackingByUserId?.[onekeyUserId]?.[
-          payment.paymentId
-        ];
-      if (
-        current &&
-        (!current.remoteTrackingOnly ||
-          getPrimeInfiniPaymentValidationFailure({
-            payment: current,
-            validateQuote: false,
-          }) ||
-          !isSamePrimeInfiniPaymentTransferSnapshot({
-            first: current,
-            second: payment,
-            networkId: '',
-          }))
-      ) {
-        throw createPrimeInfiniPaymentValidationError(
-          'transferSnapshotChanged',
-        );
-      }
-      mergedPayment = {
-        ...(current
-          ? mergePrimeInfiniPaymentProgressSnapshot({
-              previous: current,
-              latest: payment,
-            })
-          : payment),
-        remoteTrackingOnly: true,
-      };
-      // Persist only the invoice identity and coarse progress, never transaction
-      // payloads, payer details, credentials, or arbitrary response properties.
-      const durablePayment: IPrimeInfiniPayment = {
-        paymentId: mergedPayment.paymentId,
-        address: mergedPayment.address,
-        chain: mergedPayment.chain,
-        token: mergedPayment.token,
-        amountDue: mergedPayment.amountDue,
-        expiresAt: mergedPayment.expiresAt,
-        status: mergedPayment.status,
-        infiniStatus: mergedPayment.infiniStatus,
-        amountConfirmed: mergedPayment.amountConfirmed,
-        amountConfirming: mergedPayment.amountConfirming,
-        hasTransactions: mergedPayment.hasTransactions,
-        remoteTrackingOnly: true,
-      };
-      return {
-        ...latestRawData,
-        infiniRemotePaymentTrackingByUserId: {
-          ...latestRawData?.infiniRemotePaymentTrackingByUserId,
-          [onekeyUserId]: {
-            ...latestRawData?.infiniRemotePaymentTrackingByUserId?.[
-              onekeyUserId
-            ],
-            [payment.paymentId]: durablePayment,
-          },
-        },
-      };
-    }).catch((error: unknown) => {
-      this.clearRawDataCache();
-      throw toPrimeInfiniPaymentPersistenceError(error);
-    });
-    if (
-      !persisted?.infiniRemotePaymentTrackingByUserId?.[onekeyUserId]?.[
-        payment.paymentId
-      ]?.remoteTrackingOnly
-    ) {
-      this.clearRawDataCache();
-      throw createPrimeInfiniPaymentValidationError('localPersistenceFailed');
-    }
-    return mergedPayment;
-  }
-
-  @backgroundMethod()
   async recordInfiniPaymentValidation({
     onekeyUserId,
     payment,
@@ -1811,10 +1701,10 @@ export class SimpleDbEntityPrime extends SimpleDbEntityBase<ISimpleDBPrime> {
     const context = { rawData, onekeyUserId, now: Date.now() };
     return (
       getActiveInfiniPaymentCacheTombstones(context).some(
-        (tombstone) => tombstone.paymentId === paymentId,
+        (item) => item.paymentId === paymentId,
       ) ||
       getActiveInfiniSupersededPaymentSessions(context).some(
-        (session) => session.payment.paymentId === paymentId,
+        (item) => item.payment.paymentId === paymentId,
       )
     );
   }
@@ -1855,37 +1745,6 @@ export class SimpleDbEntityPrime extends SimpleDbEntityBase<ISimpleDBPrime> {
         currentSession,
         { onekeyUserId, now },
       );
-      // A new binding may only track a retired invoice with transfer evidence.
-      // Check inside the write transaction so retirement racing discovery wins.
-      if (
-        !isCurrentSessionValid &&
-        !(
-          session.sendStarted &&
-          hasPrimeInfiniPaymentProgressSnapshot(session.payment)
-        ) &&
-        (getActiveInfiniPaymentCacheTombstones({
-          rawData,
-          onekeyUserId,
-          now,
-        }).some(
-          (tombstone) =>
-            tombstone.sendStarted &&
-            tombstone.paymentId === session.payment.paymentId,
-        ) ||
-          getActiveInfiniSupersededPaymentSessions({
-            rawData,
-            onekeyUserId,
-            now,
-          }).some(
-            (superseded) =>
-              superseded.payment.paymentId === session.payment.paymentId,
-          ))
-      ) {
-        throw new OneKeyLocalError({
-          message: 'Infini payment cache is retired',
-          autoToast: false,
-        });
-      }
       if (
         isCurrentSessionValid &&
         currentSession &&
@@ -2203,7 +2062,6 @@ export class SimpleDbEntityPrime extends SimpleDbEntityBase<ISimpleDBPrime> {
         onekeyUserId,
         paymentCacheKey: currentSession.paymentCacheKey,
         now,
-        sendStarted: nextSupersededSession.sendStarted,
       });
       const activeSupersededSessions = getActiveInfiniSupersededPaymentSessions(
         {
@@ -2502,8 +2360,6 @@ export class SimpleDbEntityPrime extends SimpleDbEntityBase<ISimpleDBPrime> {
         hasPrimeInfiniPaymentProgressSnapshot(paymentWithDurableProgress);
       const hasNewDurableProgress =
         sendStarted !== currentSession.sendStarted ||
-        Boolean(paymentWithDurableProgress.hasTransactions) !==
-          Boolean(currentSession.payment.hasTransactions) ||
         paymentWithDurableProgress.amountConfirmed !==
           currentSession.payment.amountConfirmed ||
         paymentWithDurableProgress.amountConfirming !==
@@ -2756,14 +2612,7 @@ export class SimpleDbEntityPrime extends SimpleDbEntityBase<ISimpleDBPrime> {
               latest: latestPayment,
             })
           : latestPayment;
-      // A different UI may have persisted remote transfer evidence after the
-      // preflight query. Check it under this same final send-claim transaction.
-      const remoteTrackingFence =
-        rawData?.infiniRemotePaymentTrackingByUserId?.[onekeyUserId]?.[
-          paymentCacheKey.paymentId
-        ];
       if (
-        remoteTrackingFence ||
         !currentSession ||
         !isCurrentSessionValid ||
         !isSamePrimeInfiniPaymentCacheKey(

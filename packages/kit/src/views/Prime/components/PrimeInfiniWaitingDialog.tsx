@@ -24,7 +24,6 @@ import type { EPrimeFeatures } from '@onekeyhq/shared/src/routes/prime';
 import openUrlUtils from '@onekeyhq/shared/src/utils/openUrlUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type {
-  IPrimeInfiniCheckoutAuthContext,
   IPrimeInfiniPendingPaymentSession,
   IPrimeInfiniPurchaseStatusSnapshot,
   IPrimeInfiniSubscriptionPlan,
@@ -57,20 +56,6 @@ type IInternalPaymentWaitingSession = Omit<
   'featureName'
 > & {
   featureName?: EPrimeFeatures;
-  authContext?: never;
-};
-type IRemotePaymentWaitingSession = Pick<
-  IInternalPaymentWaitingSession,
-  | 'payment'
-  | 'asset'
-  | 'plan'
-  | 'baseline'
-  | 'flowId'
-  | 'featureName'
-  | 'selectedSubscriptionPeriod'
-> & {
-  authContext: IPrimeInfiniCheckoutAuthContext;
-  paymentCacheKey?: never;
 };
 type IPrimeInfiniCompletionPaymentContext = {
   paymentId: string;
@@ -100,7 +85,7 @@ export type IPrimeInfiniWaitingContext =
     }
   | {
       checkoutType: 'internalWallet';
-      session: IInternalPaymentWaitingSession | IRemotePaymentWaitingSession;
+      session: IInternalPaymentWaitingSession;
     };
 
 function getExternalPollingFailureReason(reason: string) {
@@ -649,28 +634,17 @@ function PrimeInfiniExternalWaitingMonitor({
 function PrimeInfiniInternalWaitingMonitor({
   session,
 }: {
-  session: IInternalPaymentWaitingSession | IRemotePaymentWaitingSession;
+  session: IInternalPaymentWaitingSession;
 }) {
   const intl = useIntl();
-  const dialogInstance = useDialogInstance();
   const { baseline, asset, plan, featureName, selectedSubscriptionPeriod } =
     session;
   const clearPendingSession = useCallback(async () => {
-    if (!session.paymentCacheKey) return;
     await backgroundApiProxy.simpleDb.prime.clearInfiniPendingPaymentSession({
       onekeyUserId: baseline.onekeyUserId,
       expectedPaymentCacheIdentity: session.paymentCacheKey,
     });
   }, [baseline.onekeyUserId, session.paymentCacheKey]);
-  const validateRemoteContext = useCallback(async () => {
-    if (!session.authContext) return true;
-    const valid =
-      await backgroundApiProxy.servicePrime.isInfiniCheckoutAuthContextCurrent({
-        context: session.authContext,
-      });
-    if (!valid) await dialogInstance.close();
-    return valid;
-  }, [dialogInstance, session.authContext]);
   const { completePurchase } = usePrimeInfiniPurchaseCompletion({
     flowId: session.flowId,
     plan,
@@ -679,9 +653,6 @@ function PrimeInfiniInternalWaitingMonitor({
     checkoutType: 'internalWallet',
     subscriptionPeriod: selectedSubscriptionPeriod,
     beforeComplete: clearPendingSession,
-    validatePurchaseContext: session.authContext
-      ? validateRemoteContext
-      : undefined,
   });
 
   const handleSuccess = useCallback(
@@ -705,10 +676,6 @@ function PrimeInfiniInternalWaitingMonitor({
     flowId: session.flowId,
     payment: session.payment,
     paymentCacheKey: session.paymentCacheKey,
-    authContext: session.authContext,
-    onAuthChanged: session.authContext
-      ? () => dialogInstance.close()
-      : undefined,
     asset,
     baseline,
     enabled: true,

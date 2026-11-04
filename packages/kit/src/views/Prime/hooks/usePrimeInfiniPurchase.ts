@@ -232,7 +232,7 @@ export function usePrimeInfiniPurchase({
             expectedOneKeyUserId: purchaserUserId,
             authContext,
           });
-        if (lookup.pendingPayment) {
+        if (lookup.pendingPayment || lookup.status === 'unavailable') {
           const options = await backgroundApiProxy.servicePrime
             .apiGetInfiniPaymentOptions()
             .catch(() => []);
@@ -240,8 +240,12 @@ export function usePrimeInfiniPurchase({
             await createPrimeInfiniRemotePendingPaymentResolver()({
               lookup,
               assets: getPrimeInfiniPaymentAssets(options),
-              choose: (canResume) =>
-                showPrimeInfiniUnfinishedPaymentDialog({ intl, canResume }),
+              choose: (canResume, lookupUnavailable) =>
+                showPrimeInfiniUnfinishedPaymentDialog({
+                  intl,
+                  canResume,
+                  lookupUnavailable,
+                }),
               validateAuth: validateCheckout,
               shouldContinue: isCheckoutCurrent,
             });
@@ -403,12 +407,10 @@ export function usePrimeInfiniPurchase({
       selectedSubscriptionPeriod,
       featureName,
       createNewPayment = true,
-      remotePaymentResumeIntent,
     }: {
       selectedSubscriptionPeriod: ISubscriptionPeriod;
       featureName?: EPrimeFeatures;
       createNewPayment?: boolean;
-      remotePaymentResumeIntent?: IPrimeParamList[EPrimePages.PrimeInfiniPayment]['remotePaymentResumeIntent'];
     }) => {
       const flowId = generateUUID();
       const plan: IPrimeInfiniSubscriptionPlan =
@@ -461,7 +463,6 @@ export function usePrimeInfiniPurchase({
             featureName,
             createNewPayment,
             networkId,
-            ...(remotePaymentResumeIntent ? { remotePaymentResumeIntent } : {}),
           },
         });
         logPrimeInfiniPaymentFlow({

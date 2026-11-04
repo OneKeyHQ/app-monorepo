@@ -176,7 +176,9 @@ describe('usePrimeInfiniPurchase internal wallet route', () => {
     token: 'USDC',
     amountDue: '29.99',
     expiresAt: Date.now() + 3_600_000,
-    status: 'confirming',
+    status: 'created',
+    amountConfirmed: '0',
+    amountConfirming: '0',
   };
 
   function setupRemotePending(plan?: 'monthly') {
@@ -258,22 +260,36 @@ describe('usePrimeInfiniPurchase internal wallet route', () => {
     expect(mockPushModal).not.toHaveBeenCalled();
   });
 
-  it('does not create or open checkout when remote discovery fails', async () => {
-    setupRemotePending();
-    mockApiGetInfiniPendingPayment.mockRejectedValue(
-      new Error('pending lookup unavailable'),
-    );
-    const { result } = renderHook(() => usePrimeInfiniPurchase());
-    await expect(
-      result.current.purchaseByExternalCheckout({
-        selectedSubscriptionPeriod: 'P1M',
-      }),
-    ).rejects.toThrow('pending lookup unavailable');
-    expect(mockApiGetInfiniCheckoutUrl).not.toHaveBeenCalled();
-    expect(mockOpenUrlExternal).not.toHaveBeenCalled();
-    expect(mockUnfinishedPaymentChoice).not.toHaveBeenCalled();
-    expect(isPrimeInfiniExternalCheckoutInFlight()).toBe(false);
-  });
+  it.each(['replace', 'cancel'] as const)(
+    'handles unavailable external discovery after explicit choice: %s',
+    async (choice) => {
+      setupRemotePending();
+      mockApiGetInfiniPendingPayment.mockResolvedValue({
+        authContext: checkoutAuthContext,
+        status: 'unavailable',
+      });
+      mockUnfinishedPaymentChoice.mockImplementation(async () => {
+        expect(mockApiGetInfiniCheckoutUrl).not.toHaveBeenCalled();
+        expect(mockOpenUrlExternal).not.toHaveBeenCalled();
+        return choice;
+      });
+      const { result } = renderHook(() => usePrimeInfiniPurchase());
+      await act(async () => {
+        await result.current.purchaseByExternalCheckout({
+          selectedSubscriptionPeriod: 'P1Y',
+        });
+      });
+      expect(mockUnfinishedPaymentChoice).toHaveBeenCalledWith(
+        expect.objectContaining({ canResume: false, lookupUnavailable: true }),
+      );
+      expect(mockApiGetInfiniCheckoutUrl).toHaveBeenCalledTimes(
+        choice === 'replace' ? 1 : 0,
+      );
+      expect(mockOpenUrlExternal).toHaveBeenCalledTimes(
+        choice === 'replace' ? 1 : 0,
+      );
+    },
+  );
 
   it('rejects auth changes while the remote warning is open', async () => {
     setupRemotePending();

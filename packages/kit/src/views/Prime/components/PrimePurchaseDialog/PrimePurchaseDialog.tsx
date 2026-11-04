@@ -475,10 +475,12 @@ export function usePrimePurchaseCallback({
       };
       const resolveRemotePendingPayment =
         createPrimeInfiniRemotePendingPaymentResolver();
+      let confirmedLocalNewPayment = false;
       const continueRemotePendingPayment = async (
         expectedOneKeyUserId: string | undefined,
         beforeContinue: () => void | Promise<void>,
       ): Promise<'continuePurchase' | 'resumed' | 'cancelled'> => {
+        if (confirmedLocalNewPayment) return 'continuePurchase';
         if (
           !expectedOneKeyUserId ||
           expectedOneKeyUserId !== user?.onekeyUserId
@@ -508,10 +510,11 @@ export function usePrimePurchaseCallback({
           const decision = await resolveRemotePendingPayment({
             lookup,
             assets: getPrimeInfiniPaymentAssets(options),
-            choose: (canResume) =>
+            choose: (canResume, lookupUnavailable) =>
               showPrimeInfiniUnfinishedPaymentDialog({
                 intl,
                 canResume: canResume && !isPrimeStoreOnlyPayment(),
+                lookupUnavailable,
               }),
             validateAuth,
             shouldContinue: () => true,
@@ -588,18 +591,12 @@ export function usePrimePurchaseCallback({
           };
         }
         if (!entryGuard.hasPendingPayment) {
-          return continueRemotePendingPayment(
-            entryGuard.onekeyUserId,
-            beforeContinue,
-          );
+          return 'continuePurchase';
         }
         pendingContext ??= await getPrimeInfiniPendingPaymentContext();
         const { pendingPaymentSession, onekeyUserId } = pendingContext;
         if (!pendingPaymentSession) {
-          return continueRemotePendingPayment(
-            entryGuard.onekeyUserId,
-            beforeContinue,
-          );
+          return 'continuePurchase';
         }
         if (!onekeyUserId || onekeyUserId !== entryGuard.onekeyUserId) {
           throw new OneKeyLocalError('Infini purchase user changed');
@@ -633,6 +630,7 @@ export function usePrimePurchaseCallback({
           if (!archivedSession) {
             throw new OneKeyLocalError('Infini payment session changed');
           }
+          confirmedLocalNewPayment = true;
           return 'continuePurchase';
         }
         await beforeContinue();
@@ -683,6 +681,12 @@ export function usePrimePurchaseCallback({
 
       if (isPrimeStoreOnlyPayment()) {
         if (
+          (await continueRemotePendingPayment(user?.onekeyUserId, async () => {
+            await onPurchase?.();
+          })) !== 'continuePurchase'
+        )
+          return;
+        if (
           !(await ensurePrimePurchaseEligible({
             expectedOneKeyUserId: user?.onekeyUserId,
             intl,
@@ -729,6 +733,16 @@ export function usePrimePurchaseCallback({
                 if (pendingResult !== 'continuePurchase') {
                   return pendingResult === 'resumed';
                 }
+                if (
+                  method !== 'crypto' &&
+                  (await continueRemotePendingPayment(
+                    user?.onekeyUserId,
+                    async () => {
+                      await paymentMethodDialog.close();
+                    },
+                  )) !== 'continuePurchase'
+                )
+                  return false;
                 if (
                   !(await ensurePrimePurchaseEligible({
                     expectedOneKeyUserId: user?.onekeyUserId,

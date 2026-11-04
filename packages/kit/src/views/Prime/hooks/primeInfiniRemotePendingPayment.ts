@@ -1,9 +1,8 @@
 /* cspell:ignore Infini */
-import {
-  isPrimeInfiniPaymentClosedUnpaidSnapshot,
-  isPrimeInfiniRemotePaymentTrackingOnlySnapshot,
-} from '@onekeyhq/shared/src/utils/primeInfiniPaymentCacheUtils';
+import BigNumber from 'bignumber.js';
+
 import { getPrimeInfiniPaymentValidationFailure } from '@onekeyhq/shared/src/utils/primeInfiniPaymentValidation';
+import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import type {
   IPrimeInfiniPayment,
   IPrimeInfiniPaymentAsset,
@@ -17,12 +16,10 @@ export type IPrimeInfiniUnfinishedPaymentChoice =
   | 'replace'
   | 'resume'
   | 'cancel';
-
 export type IPrimeInfiniRemotePaymentRecovery = {
   payment: IPrimeInfiniPayment;
   asset: IPrimeInfiniPaymentAsset;
   plan: IPrimeInfiniSubscriptionPlan;
-  sendStarted: boolean;
 };
 
 export function getPrimeInfiniRemotePaymentRecovery({
@@ -32,35 +29,84 @@ export function getPrimeInfiniRemotePaymentRecovery({
   pendingPayment: IPrimeInfiniPendingPaymentLookup['pendingPayment'];
   assets: IPrimeInfiniPaymentAsset[];
 }): IPrimeInfiniRemotePaymentRecovery | undefined {
+  const payment = pendingPayment?.payment;
   const plan = pendingPayment?.plan;
-  if (!pendingPayment?.payment || (plan !== 'monthly' && plan !== 'yearly')) {
+  if (!payment || (plan !== 'monthly' && plan !== 'yearly')) return undefined;
+  const unsentStatuses = new Set(['pending', 'created', 'unpaid']);
+  const statuses = [payment.status, payment.infiniStatus].filter(
+    (status): status is string =>
+      typeof status === 'string' && status.length > 0,
+  );
+  // Existing wallet preparation can resume an unpaid quote. It cannot safely
+  // reconstruct another device's payer or transaction from partial progress.
+  if (
+    pendingPayment.hasTransactions !== false ||
+    !statuses.length ||
+    !statuses.every((status) =>
+      unsentStatuses.has(status.trim().toLowerCase()),
+    ) ||
+    !new BigNumber(payment.amountConfirmed ?? 'NaN').eq(0) ||
+    !new BigNumber(payment.amountConfirming ?? 'NaN').eq(0)
+  )
     return undefined;
-  }
-  const payment = pendingPayment.hasTransactions
-    ? { ...pendingPayment.payment, hasTransactions: true }
-    : pendingPayment.payment;
   const asset = assets.find((item) =>
     isPrimeInfiniPaymentForAsset({ payment, asset: item }),
   );
-  // Only a clearly unsent invoice can become a transfer on this device.
-  const sendStarted = isPrimeInfiniRemotePaymentTrackingOnlySnapshot(payment);
-  if (
-    !asset ||
-    isPrimeInfiniPaymentClosedUnpaidSnapshot(payment) ||
-    getPrimeInfiniPaymentValidationFailure({
-      payment,
-      asset,
-      validateQuote: !sendStarted,
-    })
-  ) {
+  if (!asset || getPrimeInfiniPaymentValidationFailure({ payment, asset }))
     return undefined;
-  }
-  return {
-    payment,
-    asset,
-    plan,
-    sendStarted,
-  };
+  return { payment, asset, plan };
+}
+
+export async function preparePrimeInfiniRemotePayment({
+  recovery,
+  asset,
+  fetchLookup,
+  createPayment,
+  chooseNew,
+  validateAuth,
+  shouldContinue,
+}: {
+  recovery: IPrimeInfiniRemotePaymentRecovery;
+  asset: IPrimeInfiniPaymentAsset;
+  fetchLookup: () => Promise<IPrimeInfiniPendingPaymentLookup>;
+  createPayment: () => Promise<IPrimeInfiniPayment>;
+  chooseNew: (
+    lookupUnavailable: boolean,
+  ) => Promise<IPrimeInfiniUnfinishedPaymentChoice>;
+  validateAuth: () => Promise<boolean>;
+  shouldContinue: () => boolean;
+}): Promise<{ payment: IPrimeInfiniPayment; resumed: boolean } | undefined> {
+  const lookup = await fetchLookup();
+  if (!shouldContinue() || !(await validateAuth()) || !shouldContinue())
+    return undefined;
+  const latest = getPrimeInfiniRemotePaymentRecovery({
+    pendingPayment: lookup.pendingPayment,
+    assets: [asset],
+  });
+  if (
+    latest &&
+    latest.plan === recovery.plan &&
+    latest.payment.paymentId === recovery.payment.paymentId &&
+    !getPrimeInfiniPaymentValidationFailure({
+      payment: latest.payment,
+      previousPayment: recovery.payment,
+      asset,
+    })
+  )
+    return { payment: latest.payment, resumed: true };
+  // A stale/incomplete recovery is a warning with an exit to a new purchase,
+  // not a new payment lock. No payer, transaction or old quote is guessed.
+  const choice = await chooseNew(
+    lookup.status === 'unavailable' || !lookup.pendingPayment,
+  );
+  if (
+    choice !== 'replace' ||
+    !shouldContinue() ||
+    !(await validateAuth()) ||
+    !shouldContinue()
+  )
+    return undefined;
+  return { payment: await createPayment(), resumed: false };
 }
 
 export type IPrimeInfiniRemotePaymentDecision =
@@ -69,6 +115,8 @@ export type IPrimeInfiniRemotePaymentDecision =
   | { type: 'cancelled' };
 
 export function createPrimeInfiniRemotePendingPaymentResolver() {
+  // UI retries share a dialog only while the account and full lookup agree.
+  // This is never persisted and never changes any transaction/send admission.
   let previousChoice:
     | { key: string; promise: Promise<IPrimeInfiniUnfinishedPaymentChoice> }
     | undefined;
@@ -85,68 +133,49 @@ export function createPrimeInfiniRemotePendingPaymentResolver() {
     assets: IPrimeInfiniPaymentAsset[];
     choose: (
       canResume: boolean,
+      lookupUnavailable?: boolean,
     ) => Promise<IPrimeInfiniUnfinishedPaymentChoice>;
     validateAuth: () => Promise<boolean>;
     shouldContinue: () => boolean;
     resumePaymentId?: string;
     allowNewPayment?: boolean;
   }): Promise<IPrimeInfiniRemotePaymentDecision> => {
-    if (!shouldContinue()) {
+    if (!shouldContinue() || !(await validateAuth()) || !shouldContinue())
       return { type: 'cancelled' };
-    }
-    const { pendingPayment, authContext } = lookup;
-    if (!pendingPayment) {
-      return allowNewPayment &&
-        !resumePaymentId &&
-        (await validateAuth()) &&
-        shouldContinue()
-        ? { type: 'new' }
-        : { type: 'cancelled' };
-    }
-    const recovery = getPrimeInfiniRemotePaymentRecovery({
+    const { pendingPayment } = lookup;
+    const lookupUnavailable =
+      lookup.status === 'unavailable' ||
+      Boolean(resumePaymentId && !pendingPayment);
+    if (!pendingPayment && !lookupUnavailable)
+      return { type: allowNewPayment ? 'new' : 'cancelled' };
+    const candidate = getPrimeInfiniRemotePaymentRecovery({
       pendingPayment,
       assets,
     });
-    // A resume intent authorizes only its original invoice, never a new one.
-    if (
-      (resumePaymentId && resumePaymentId !== recovery?.payment.paymentId) ||
-      (!allowNewPayment && !recovery)
-    ) {
-      return { type: 'cancelled' };
-    }
-    const key = JSON.stringify([
-      authContext.onekeyUserId,
-      authContext.authSessionSource,
-      authContext.authStateGeneration,
-      pendingPayment.paymentId,
+    const recovery =
+      !resumePaymentId || resumePaymentId === candidate?.payment.paymentId
+        ? candidate
+        : undefined;
+    const key = stringUtils.stableStringify([
+      lookup,
       Boolean(recovery),
-      pendingPayment.hasTransactions,
-      recovery?.sendStarted,
-      allowNewPayment,
       resumePaymentId,
     ]);
-    // Loader retries share one prompt and one consent for this order/lifecycle.
     if (previousChoice?.key !== key) {
-      previousChoice = {
-        key,
-        promise:
-          recovery && resumePaymentId === recovery.payment.paymentId
-            ? Promise.resolve('resume')
-            : choose(Boolean(recovery)),
-      };
+      let promise: Promise<IPrimeInfiniUnfinishedPaymentChoice>;
+      if (recovery && resumePaymentId === recovery.payment.paymentId)
+        promise = Promise.resolve('resume');
+      else if (lookupUnavailable) promise = choose(false, true);
+      else promise = choose(Boolean(recovery));
+      previousChoice = { key, promise };
     }
     const choice = await previousChoice.promise;
-    if (!shouldContinue() || !(await validateAuth()) || !shouldContinue()) {
+    if (!shouldContinue() || !(await validateAuth()) || !shouldContinue())
       return { type: 'cancelled' };
-    }
-    if (choice === 'replace') {
-      return allowNewPayment && !resumePaymentId
-        ? { type: 'new' }
-        : { type: 'cancelled' };
-    }
-    if (choice === 'resume' && recovery) {
-      return { type: 'resume', recovery };
-    }
+    // The warning is advisory. An explicit new-payment choice always returns
+    // to the existing purchase flow; it creates no durable duplicate fence.
+    if (choice === 'replace') return { type: 'new' };
+    if (choice === 'resume' && recovery) return { type: 'resume', recovery };
     return { type: 'cancelled' };
   };
 }

@@ -5,6 +5,7 @@ import type { IPrimeInfiniPendingPaymentLookup } from '@onekeyhq/shared/types/pr
 import {
   createPrimeInfiniRemotePendingPaymentResolver,
   getPrimeInfiniRemotePaymentRecovery,
+  preparePrimeInfiniRemotePayment,
 } from './primeInfiniRemotePendingPayment';
 
 const asset = {
@@ -15,13 +16,15 @@ const asset = {
   contractAddress: '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48',
 };
 const payment = {
-  paymentId: 'remote-payment',
-  address: '0x1234',
+  paymentId: 'remote-order',
+  address: '0xrecipient',
   chain: 'ETHEREUM',
   token: 'USDC',
   amountDue: '29.99',
   expiresAt: Date.now() + 3_600_000,
-  status: 'pending',
+  status: 'created',
+  amountConfirmed: '0',
+  amountConfirming: '0',
 };
 const lookup: IPrimeInfiniPendingPaymentLookup = {
   authContext: {
@@ -36,269 +39,253 @@ const lookup: IPrimeInfiniPendingPaymentLookup = {
     hasTransactions: false,
   },
 };
-
-describe('remote Infini pending payment recovery', () => {
-  it('uses the order plan and supported asset without requiring optional amounts', () => {
-    expect(
-      getPrimeInfiniRemotePaymentRecovery({
-        pendingPayment: lookup.pendingPayment,
-        assets: [asset],
-      }),
-    ).toEqual({ payment, plan: 'monthly', asset, sendStarted: false });
-  });
-
-  it.each([
-    { ...lookup.pendingPayment!, plan: undefined },
-    { ...lookup.pendingPayment!, payment: undefined },
-    { ...lookup.pendingPayment!, payment: { ...payment, amountDue: '' } },
-    { ...lookup.pendingPayment!, payment: { ...payment, expiresAt: 1 } },
-  ])(
-    'offers replacement when recovery fields are unavailable: %j',
-    (pendingPayment) => {
-      expect(
-        getPrimeInfiniRemotePaymentRecovery({
-          pendingPayment,
-          assets: [asset],
-        }),
-      ).toBeUndefined();
-    },
-  );
-
-  it('does not invent an asset when the remote token is unsupported', () => {
-    expect(
-      getPrimeInfiniRemotePaymentRecovery({
-        pendingPayment: lookup.pendingPayment,
-        assets: [],
-      }),
-    ).toBeUndefined();
-  });
-
-  it.each(['expired', 'failed', 'cancelled'])(
-    'does not resume a closed unpaid %s invoice',
-    (status) => {
-      expect(
-        getPrimeInfiniRemotePaymentRecovery({
-          pendingPayment: {
-            ...lookup.pendingPayment!,
-            payment: { ...payment, status },
-          },
-          assets: [asset],
-        }),
-      ).toBeUndefined();
-    },
-  );
-
-  it.each([
-    { ...payment, status: 'confirming' },
-    { ...payment, status: 'signed' },
-    { ...payment, amountConfirmed: '1' },
-    { ...payment, amountConfirming: '1' },
-    { ...payment, hasTransactions: true },
-    { ...payment, remoteTrackingOnly: true },
-    { ...payment, status: undefined },
-  ])('keeps transfer activity tracking only: %j', (remotePayment) => {
-    expect(
-      getPrimeInfiniRemotePaymentRecovery({
-        pendingPayment: { ...lookup.pendingPayment!, payment: remotePayment },
-        assets: [asset],
-      })?.sendStarted,
-    ).toBe(true);
-  });
-
-  it('tracks a transaction after quote expiry instead of sending the due amount', () => {
-    expect(
-      getPrimeInfiniRemotePaymentRecovery({
-        pendingPayment: {
-          ...lookup.pendingPayment!,
-          hasTransactions: true,
-          payment: { ...payment, expiresAt: 1 },
-        },
-        assets: [asset],
-      }),
-    ).toMatchObject({ sendStarted: true, payment: { hasTransactions: true } });
-  });
+const params = () => ({
+  lookup,
+  assets: [asset],
+  choose: jest.fn(
+    async (_canResume: boolean, _unavailable?: boolean) =>
+      'replace' as 'replace' | 'resume' | 'cancel',
+  ),
+  validateAuth: jest.fn(async () => true),
+  shouldContinue: jest.fn(() => true),
 });
 
-describe('remote Infini pending payment consent', () => {
-  const createParams = () => ({
-    lookup,
-    assets: [asset],
-    choose: jest.fn(async (_canResume: boolean) => 'replace' as const),
-    validateAuth: jest.fn(async () => true),
-    shouldContinue: jest.fn(() => true),
-  });
-
-  it('keeps automatic preparation when there is no remote pending order', async () => {
-    const params = createParams();
-    params.lookup = { authContext: lookup.authContext };
-    await expect(
-      createPrimeInfiniRemotePendingPaymentResolver()(params),
-    ).resolves.toEqual({ type: 'new' });
-    expect(params.choose).not.toHaveBeenCalled();
-  });
-
-  it('allows confirmed new payment when the plan is missing', async () => {
-    const params = createParams();
-    params.lookup = {
-      ...lookup,
-      pendingPayment: { ...lookup.pendingPayment!, plan: undefined },
-    };
-    await expect(
-      createPrimeInfiniRemotePendingPaymentResolver()(params),
-    ).resolves.toEqual({ type: 'new' });
-    expect(params.choose).toHaveBeenCalledWith(false);
-  });
-
-  it.each([{ allowNewPayment: false }, { resumePaymentId: payment.paymentId }])(
-    'cancels a missing resume target instead of creating: %j',
-    async (intent) => {
-      const params = createParams();
-      await expect(
-        createPrimeInfiniRemotePendingPaymentResolver()({
-          ...params,
-          ...intent,
-          lookup: { authContext: lookup.authContext },
-        }),
-      ).resolves.toEqual({ type: 'cancelled' });
-      expect(params.choose).not.toHaveBeenCalled();
-    },
-  );
-
-  it('rejects an empty lookup after the auth lifecycle changes', async () => {
-    const params = createParams();
-    params.validateAuth.mockResolvedValue(false);
-    await expect(
-      createPrimeInfiniRemotePendingPaymentResolver()({
-        ...params,
-        lookup: { authContext: lookup.authContext },
+describe('advisory remote pending payment', () => {
+  it('resumes only a complete supported unpaid quote on its actual plan', () => {
+    expect(
+      getPrimeInfiniRemotePaymentRecovery({
+        pendingPayment: lookup.pendingPayment,
+        assets: [asset],
       }),
-    ).resolves.toEqual({ type: 'cancelled' });
+    ).toEqual({ payment, asset, plan: 'monthly' });
   });
-
   it.each([
-    { allowNewPayment: false },
-    { allowNewPayment: false, resumePaymentId: 'different-payment' },
-    { resumePaymentId: 'different-payment' },
+    { plan: undefined },
+    { hasTransactions: undefined },
+    { hasTransactions: true },
+    { payment: undefined },
+    ...[
+      'signed',
+      'broadcast',
+      'processing',
+      'confirming',
+      'paid',
+      'expired',
+      'failed',
+      undefined,
+    ].map((status) => ({ payment: { ...payment, status } })),
+    { payment: { ...payment, amountConfirmed: undefined } },
+    { payment: { ...payment, amountConfirming: undefined } },
+    { payment: { ...payment, amountConfirmed: '1' } },
+    { payment: { ...payment, amountConfirming: '1' } },
+    { payment: { ...payment, expiresAt: 1 } },
+    { payment: { ...payment, token: 'UNSUPPORTED' } },
   ])(
-    'never replaces an existing invoice on a resume-only intent: %j',
-    async (intent) => {
-      const params = createParams();
-      await expect(
-        createPrimeInfiniRemotePendingPaymentResolver()({
-          ...params,
-          ...intent,
+    'does not guess recovery data, while still allowing a confirmed new payment: %j',
+    async (change) => {
+      const p = params();
+      p.lookup = {
+        ...lookup,
+        pendingPayment: { ...lookup.pendingPayment!, ...change },
+      };
+      expect(
+        getPrimeInfiniRemotePaymentRecovery({
+          pendingPayment: p.lookup.pendingPayment,
+          assets: [asset],
         }),
-      ).resolves.toEqual({ type: 'cancelled' });
+      ).toBeUndefined();
+      await expect(
+        createPrimeInfiniRemotePendingPaymentResolver()(p),
+      ).resolves.toEqual({ type: 'new' });
+      expect(p.choose).toHaveBeenCalledWith(false);
     },
   );
-
-  it('cancels an unrecoverable resume target without offering a new invoice', async () => {
-    const params = createParams();
+  it('continues automatically after a confirmed empty query', async () => {
+    const p = params();
+    p.lookup = { authContext: lookup.authContext };
+    await expect(
+      createPrimeInfiniRemotePendingPaymentResolver()(p),
+    ).resolves.toEqual({ type: 'new' });
+    expect(p.choose).not.toHaveBeenCalled();
+  });
+  it.each(['replace', 'cancel', 'resume'] as const)(
+    'requires a choice after query failure: %s',
+    async (choice) => {
+      const p = params();
+      p.lookup = { authContext: lookup.authContext, status: 'unavailable' };
+      p.choose.mockResolvedValue(choice);
+      await expect(
+        createPrimeInfiniRemotePendingPaymentResolver()(p),
+      ).resolves.toEqual({ type: choice === 'replace' ? 'new' : 'cancelled' });
+      expect(p.choose).toHaveBeenCalledWith(false, true);
+    },
+  );
+  it('lets an explicit new-payment choice replace an unsuccessful resume', async () => {
+    const p = params();
+    p.lookup = { authContext: lookup.authContext, status: 'unavailable' };
     await expect(
       createPrimeInfiniRemotePendingPaymentResolver()({
-        ...params,
+        ...p,
+        resumePaymentId: 'missing-order',
         allowNewPayment: false,
-        resumePaymentId: payment.paymentId,
-        lookup: {
-          ...lookup,
-          pendingPayment: { ...lookup.pendingPayment!, plan: undefined },
-        },
+      }),
+    ).resolves.toEqual({ type: 'new' });
+    expect(p.choose).toHaveBeenCalledWith(false, true);
+  });
+  it('does not automatically create on a missing resume-only entry', async () => {
+    const p = params();
+    p.lookup = { authContext: lookup.authContext };
+    await expect(
+      createPrimeInfiniRemotePendingPaymentResolver()({
+        ...p,
+        allowNewPayment: false,
       }),
     ).resolves.toEqual({ type: 'cancelled' });
-    expect(params.choose).not.toHaveBeenCalled();
+    expect(p.choose).not.toHaveBeenCalled();
   });
-
-  it('restores only after continue was selected', async () => {
-    const params = {
-      ...createParams(),
-      choose: jest.fn(async () => 'resume' as const),
-    };
+  it('offers resume for a validated unpaid invoice', async () => {
+    const p = params();
+    p.choose.mockResolvedValue('resume');
     await expect(
-      createPrimeInfiniRemotePendingPaymentResolver()(params),
+      createPrimeInfiniRemotePendingPaymentResolver()(p),
     ).resolves.toMatchObject({
       type: 'resume',
       recovery: { payment, plan: 'monthly' },
     });
-    expect(params.choose).toHaveBeenCalledWith(true);
+    expect(p.choose).toHaveBeenCalledWith(true);
   });
-
-  it('cancels on dismissal or when unavailable recovery is requested', async () => {
-    const params = {
-      ...createParams(),
-      choose: jest.fn(async () => 'cancel' as const),
-    };
-    await expect(
-      createPrimeInfiniRemotePendingPaymentResolver()(params),
-    ).resolves.toEqual({ type: 'cancelled' });
-  });
-
-  it('shares one prompt for concurrent loader retries and repeated choices', async () => {
-    const params = createParams();
-    const resolve = createPrimeInfiniRemotePendingPaymentResolver();
-    await expect(
-      Promise.all([resolve(params), resolve(params), resolve(params)]),
-    ).resolves.toEqual([{ type: 'new' }, { type: 'new' }, { type: 'new' }]);
-    expect(params.choose).toHaveBeenCalledTimes(1);
-  });
-
-  it('discards a result after an account switch during the prompt', async () => {
-    const params = createParams();
-    params.choose.mockImplementation(async () => {
-      params.validateAuth.mockResolvedValue(false);
-      return 'replace';
-    });
-    await expect(
-      createPrimeInfiniRemotePendingPaymentResolver()(params),
-    ).resolves.toEqual({ type: 'cancelled' });
-  });
-
-  it('asks again when another device starts paying a previously replaced quote', async () => {
-    const params = createParams();
-    const resolve = createPrimeInfiniRemotePendingPaymentResolver();
-    await expect(resolve(params)).resolves.toEqual({ type: 'new' });
-    await expect(
-      resolve({
-        ...params,
-        choose: jest.fn(async () => 'cancel' as const),
-        lookup: {
-          ...lookup,
-          pendingPayment: { ...lookup.pendingPayment!, hasTransactions: true },
-        },
-      }),
-    ).resolves.toEqual({ type: 'cancelled' });
-  });
-
-  it('discards stale async results before showing a prompt', async () => {
-    const params = createParams();
-    params.shouldContinue.mockReturnValue(false);
-    await expect(
-      createPrimeInfiniRemotePendingPaymentResolver()(params),
-    ).resolves.toEqual({ type: 'cancelled' });
-    expect(params.choose).not.toHaveBeenCalled();
-  });
-
-  it('does not reuse consent after an A to B to A auth lifecycle change', async () => {
-    const params = createParams();
-    const resolve = createPrimeInfiniRemotePendingPaymentResolver();
-    await resolve(params);
-    await resolve({
-      ...params,
-      lookup: {
-        ...lookup,
-        authContext: { ...lookup.authContext, authStateGeneration: 4 },
-      },
-    });
-    expect(params.choose).toHaveBeenCalledTimes(2);
-  });
-
-  it('honors a previously consented external-checkout recovery for the same order', async () => {
-    const params = createParams();
+  it('uses the requested recovery without asking the same resume question twice', async () => {
+    const p = params();
     await expect(
       createPrimeInfiniRemotePendingPaymentResolver()({
-        ...params,
+        ...p,
         resumePaymentId: payment.paymentId,
       }),
     ).resolves.toMatchObject({ type: 'resume' });
-    expect(params.choose).not.toHaveBeenCalled();
+    expect(p.choose).not.toHaveBeenCalled();
+  });
+  it('shares a dialog only within one loader and unchanged lookup', async () => {
+    const p = params();
+    const resolve = createPrimeInfiniRemotePendingPaymentResolver();
+    await Promise.all([resolve(p), resolve(p), resolve(p)]);
+    expect(p.choose).toHaveBeenCalledTimes(1);
+    await resolve({
+      ...p,
+      lookup: {
+        ...lookup,
+        pendingPayment: {
+          ...lookup.pendingPayment!,
+          payment: { ...payment, amountDue: '39.99' },
+        },
+      },
+    });
+    expect(p.choose).toHaveBeenCalledTimes(2);
+    await createPrimeInfiniRemotePendingPaymentResolver()(p);
+    expect(p.choose).toHaveBeenCalledTimes(3);
+  });
+  it('rejects an identity change before opening the warning', async () => {
+    const p = params();
+    p.validateAuth.mockResolvedValue(false);
+    await expect(
+      createPrimeInfiniRemotePendingPaymentResolver()(p),
+    ).resolves.toEqual({ type: 'cancelled' });
+    expect(p.choose).not.toHaveBeenCalled();
+  });
+  it('rejects identity changes and stale attempts during a warning', async () => {
+    const p = params();
+    p.choose.mockImplementation(async () => {
+      p.validateAuth.mockResolvedValue(false);
+      return 'replace';
+    });
+    await expect(
+      createPrimeInfiniRemotePendingPaymentResolver()(p),
+    ).resolves.toEqual({ type: 'cancelled' });
+    p.validateAuth.mockResolvedValue(true);
+    p.choose.mockImplementation(async () => {
+      p.shouldContinue.mockReturnValue(false);
+      return 'replace';
+    });
+    await expect(
+      createPrimeInfiniRemotePendingPaymentResolver()(p),
+    ).resolves.toEqual({ type: 'cancelled' });
+  });
+});
+
+describe('wallet recovery preparation to the original create API', () => {
+  const recovery = { payment, asset, plan: 'monthly' as const };
+  const create = () => ({
+    recovery,
+    asset,
+    fetchLookup: jest.fn(async () => lookup),
+    createPayment: jest.fn(async () => ({
+      ...payment,
+      paymentId: 'new-order',
+    })),
+    chooseNew: jest.fn(
+      async (_unavailable: boolean) => 'replace' as 'replace' | 'cancel',
+    ),
+    validateAuth: jest.fn(async () => true),
+    shouldContinue: () => true,
+  });
+  it('reuses a freshly verified unchanged unpaid invoice without creating or warning again', async () => {
+    const p = create();
+    await expect(preparePrimeInfiniRemotePayment(p)).resolves.toEqual({
+      payment,
+      resumed: true,
+    });
+    expect(p.createPayment).not.toHaveBeenCalled();
+    expect(p.chooseNew).not.toHaveBeenCalled();
+  });
+  it.each(['unavailable', 'transferred', 'different', 'missing'] as const)(
+    'calls the original new-payment API only after confirmation when recovery is %s',
+    async (kind) => {
+      const p = create();
+      if (kind === 'unavailable')
+        p.fetchLookup.mockResolvedValue({
+          authContext: lookup.authContext,
+          status: 'unavailable',
+        });
+      if (kind === 'missing')
+        p.fetchLookup.mockResolvedValue({ authContext: lookup.authContext });
+      if (kind === 'transferred')
+        p.fetchLookup.mockResolvedValue({
+          ...lookup,
+          pendingPayment: { ...lookup.pendingPayment!, hasTransactions: true },
+        });
+      if (kind === 'different')
+        p.fetchLookup.mockResolvedValue({
+          ...lookup,
+          pendingPayment: {
+            ...lookup.pendingPayment!,
+            payment: { ...payment, amountDue: '99' },
+          },
+        });
+      p.chooseNew.mockImplementation(async () => {
+        expect(p.createPayment).not.toHaveBeenCalled();
+        return 'replace';
+      });
+      await expect(preparePrimeInfiniRemotePayment(p)).resolves.toMatchObject({
+        payment: { paymentId: 'new-order' },
+        resumed: false,
+      });
+      expect(p.createPayment).toHaveBeenCalledTimes(1);
+      expect(p.chooseNew).toHaveBeenCalledTimes(1);
+    },
+  );
+  it('does not create after cancellation or an auth change during confirmation', async () => {
+    const p = create();
+    p.fetchLookup.mockResolvedValue({
+      authContext: lookup.authContext,
+      status: 'unavailable',
+    });
+    p.chooseNew.mockResolvedValue('cancel');
+    await expect(preparePrimeInfiniRemotePayment(p)).resolves.toBeUndefined();
+    expect(p.createPayment).not.toHaveBeenCalled();
+    p.chooseNew.mockImplementation(async () => {
+      p.validateAuth.mockResolvedValue(false);
+      return 'replace';
+    });
+    await expect(preparePrimeInfiniRemotePayment(p)).resolves.toBeUndefined();
+    expect(p.createPayment).not.toHaveBeenCalled();
   });
 });

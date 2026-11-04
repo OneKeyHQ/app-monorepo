@@ -4,11 +4,8 @@ import type { ReactElement, ReactNode } from 'react';
 
 import { act, cleanup, render, waitFor } from '@testing-library/react';
 
-import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EPrimeAuthSessionSource } from '@onekeyhq/shared/types/prime/primeTypes';
 import type { IPrimeInfiniPendingPaymentLookup } from '@onekeyhq/shared/types/prime/primeTypes';
-
-import { showPrimeInfiniPaymentErrorToast } from '../primeInfiniPaymentError';
 
 import { PrimeInfiniWalletPaymentRoot } from './PrimeInfiniWalletPayment';
 
@@ -198,8 +195,8 @@ describe('Infini wallet loader creation gate', () => {
     expect(mockContent?.props.shouldCreatePayment).toBeUndefined();
   });
 
-  it('blocks preparation on lookup failure and exposes retry', async () => {
-    mockLookup.mockRejectedValue(new Error('pending lookup unavailable'));
+  it('keeps identity-bound RPC rejection blocking and exposes retry', async () => {
+    mockLookup.mockRejectedValue(new Error('Prime purchase user changed'));
     renderRoot(true);
     await waitFor(() =>
       expect(mockContent?.props.paymentContextErrorTitle).toBeTruthy(),
@@ -223,6 +220,8 @@ describe('Infini wallet loader creation gate', () => {
             token: 'USDC',
             address: '0xrecipient',
             amountDue: '29.99',
+            amountConfirmed: '0',
+            amountConfirming: '0',
             expiresAt: Date.now() + 3_600_000,
             status: 'created',
           },
@@ -252,56 +251,54 @@ describe('Infini wallet loader creation gate', () => {
     },
   );
 
-  it('closes a resume-only entry when the server returns a different pending invoice', async () => {
-    mockLookup.mockResolvedValue({
-      authContext,
-      pendingPayment: { paymentId: 'different-id', hasTransactions: false },
-    });
+  it('allows a confirmed new payment when the resume target is unavailable', async () => {
+    mockLookup.mockResolvedValue({ authContext, status: 'unavailable' });
     mockChoose.mockResolvedValue('replace');
     renderRoot(false, 'original-id');
-    await waitFor(() => expect(mockClose).toHaveBeenCalledTimes(1));
-    expect(mockChoose).not.toHaveBeenCalled();
-    expect(mockContent?.props.shouldCreatePayment).toBeUndefined();
+    await waitFor(() =>
+      expect(mockContent?.props.shouldCreatePayment).toBe(true),
+    );
+    expect(mockChoose).toHaveBeenCalledWith(
+      expect.objectContaining({ canResume: false, lookupUnavailable: true }),
+    );
+    expect(mockClose).not.toHaveBeenCalled();
   });
 
-  it('hands a sent remote invoice to tracking without mounting or selecting a payer wallet', async () => {
-    const wait = jest
-      .spyOn(timerUtils, 'setTimeoutPromised')
-      .mockResolvedValue(undefined);
-    mockLookup.mockResolvedValue({
-      authContext,
-      pendingPayment: {
-        paymentId: 'remote-id',
-        plan: 'monthly',
-        hasTransactions: true,
-        payment: {
-          paymentId: 'remote-id',
-          chain: 'ETHEREUM',
-          token: 'USDC',
-          address: '0xrecipient',
-          amountDue: '29.99',
-          expiresAt: 1,
-          status: 'expired',
-        },
-      },
-    });
-    mockChoose.mockResolvedValue('resume');
-    renderRoot(false, 'remote-id');
-    await waitFor(() => {
-      expect(showPrimeInfiniPaymentErrorToast).not.toHaveBeenCalled();
-      expect(mockWaitingDialog).toHaveBeenCalledTimes(1);
-    });
-    expect(mockClose).toHaveBeenCalledTimes(1);
-    expect(mockContent?.props.shouldCreatePayment).toBeUndefined();
-    const waiting = mockWaitingDialog.mock.calls[0][0] as {
-      context: { session: Record<string, unknown> };
-    };
-    expect(waiting.context.session).toMatchObject({
-      authContext,
-      payment: { paymentId: 'remote-id', hasTransactions: true },
-    });
-    expect(waiting.context.session.paymentCacheKey).toBeUndefined();
-    expect(waiting.context.session.payerAccountId).toBeUndefined();
-    wait.mockRestore();
+  it.each(['replace', 'cancel'] as const)(
+    'warns rather than guessing recovery of a transferred order: %s',
+    async (choice) => {
+      mockLookup.mockResolvedValue({
+        authContext,
+        pendingPayment: { paymentId: 'remote-id', hasTransactions: true },
+      });
+      mockChoose.mockResolvedValue(choice);
+      renderRoot(true);
+      if (choice === 'replace')
+        await waitFor(() =>
+          expect(mockContent?.props.shouldCreatePayment).toBe(true),
+        );
+      else await waitFor(() => expect(mockClose).toHaveBeenCalledTimes(1));
+      expect(mockChoose).toHaveBeenCalledWith(
+        expect.objectContaining({ canResume: false }),
+      );
+      expect(mockWaitingDialog).not.toHaveBeenCalled();
+    },
+  );
+
+  it('waits for explicit consent after failed discovery before allowing preparation', async () => {
+    let confirm: (choice: 'replace') => void = () => undefined;
+    mockLookup.mockResolvedValue({ authContext, status: 'unavailable' });
+    mockChoose.mockReturnValue(
+      new Promise<'replace'>((resolve) => {
+        confirm = resolve;
+      }),
+    );
+    renderRoot(true);
+    await waitFor(() => expect(mockChoose).toHaveBeenCalledTimes(1));
+    expect(mockContent?.props.shouldCreatePayment).not.toBe(true);
+    await act(async () => confirm('replace'));
+    await waitFor(() =>
+      expect(mockContent?.props.shouldCreatePayment).toBe(true),
+    );
   });
 });

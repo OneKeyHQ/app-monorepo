@@ -18,19 +18,6 @@ import type {
   IPrimeInfiniSubscriptionPlan,
 } from '../../types/prime/primeTypes';
 
-const TRANSFER_PAYMENT_STATUSES = new Set([
-  'signed',
-  'broadcast',
-  'broadcasted',
-  'confirming',
-  'processing',
-  'confirmed',
-  'completed',
-  'paid',
-  'success',
-  'succeeded',
-]);
-
 const FAILED_PAYMENT_STATUSES = new Set([
   'cancelled',
   'canceled',
@@ -505,29 +492,8 @@ export function hasPrimeInfiniPaymentProgressSnapshot(
   payment: IPrimeInfiniPayment,
 ) {
   return Boolean(
-    payment.remoteTrackingOnly ||
-    payment.hasTransactions ||
-    TRANSFER_PAYMENT_STATUSES.has(normalizePaymentStatus(payment.status)) ||
-    TRANSFER_PAYMENT_STATUSES.has(
-      normalizePaymentStatus(payment.infiniStatus),
-    ) ||
     getPositiveAmount(payment.amountConfirmed) ||
     getPositiveAmount(payment.amountConfirming),
-  );
-}
-
-export function isPrimeInfiniRemotePaymentTrackingOnlySnapshot(
-  payment: IPrimeInfiniPayment,
-) {
-  if (isPrimeInfiniPaymentClosedUnpaidSnapshot(payment)) return false;
-  const status = normalizePaymentStatus(payment.status);
-  const infiniStatus = normalizePaymentStatus(payment.infiniStatus);
-  const unsentStatuses = new Set(['pending', 'created', 'unpaid']);
-  return Boolean(
-    hasPrimeInfiniPaymentProgressSnapshot(payment) ||
-    (!status && !infiniStatus) ||
-    (status && !unsentStatuses.has(status)) ||
-    (infiniStatus && !unsentStatuses.has(infiniStatus)),
   );
 }
 
@@ -615,12 +581,6 @@ export function mergePrimeInfiniPaymentProgressSnapshot({
   );
   return {
     ...latest,
-    ...(previous.hasTransactions || latest.hasTransactions
-      ? { hasTransactions: true }
-      : undefined),
-    ...(previous.remoteTrackingOnly || latest.remoteTrackingOnly
-      ? { remoteTrackingOnly: true }
-      : undefined),
     status: preservePreviousTerminalStatus ? previous.status : latest.status,
     infiniStatus: preservePreviousTerminalStatus
       ? previous.infiniStatus

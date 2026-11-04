@@ -56,10 +56,7 @@ import {
   getPrimeGiftVerifyFailureLogPayload,
   isPrimeGiftVerifyCancellationError,
 } from '@onekeyhq/shared/src/utils/primeGiftVerifyError';
-import {
-  hasPrimeInfiniPaymentProgressSnapshot,
-  isValidPrimeInfiniPaymentContract,
-} from '@onekeyhq/shared/src/utils/primeInfiniPaymentCacheUtils';
+import { isValidPrimeInfiniPaymentContract } from '@onekeyhq/shared/src/utils/primeInfiniPaymentCacheUtils';
 import { getPrimeInfiniPaymentSafeError } from '@onekeyhq/shared/src/utils/primeInfiniPaymentDiagnostics';
 import {
   createPrimeInfiniPaymentValidationError,
@@ -218,7 +215,6 @@ type IPrimeInfiniPaymentApiResponse = {
   amountConfirmed?: unknown;
   amountConfirming?: unknown;
   warningMessages?: unknown;
-  transactions?: unknown;
 };
 
 type IPrimeRedemptionApiResponse = {
@@ -294,14 +290,6 @@ function normalizePrimeRedemptionAxiosHttpError(
     httpStatusCode: status,
     data: { code, message, translatedMessage },
   });
-}
-
-function normalizeInfiniPendingPaymentPlan(
-  plan: unknown,
-): IPrimeInfiniSubscriptionPlan | undefined {
-  if (plan === 'monthly' || plan === 'yearly') return plan;
-  if (plan === 'annual') return 'yearly';
-  return undefined;
 }
 
 function validateInfiniPaymentResponse(
@@ -393,10 +381,6 @@ function validateInfiniPaymentResponse(
     amountConfirmed: payment.amountConfirmed,
     amountConfirming: payment.amountConfirming,
     warningMessages: payment.warningMessages as string[] | undefined,
-    ...(payment.transactions !== undefined &&
-    (!Array.isArray(payment.transactions) || payment.transactions.length > 0)
-      ? { hasTransactions: true }
-      : undefined),
   };
 }
 
@@ -6145,49 +6129,18 @@ class ServicePrime extends ServiceBase {
             paymentId,
             context,
           );
-          const trackedPayment = await this.mergeInfiniRemotePaymentTracking({
-            authSnapshot,
-            payment: validatedPayment,
-          });
-          if (trackedPayment.remoteTrackingOnly)
-            throw createPrimeInfiniPaymentValidationError(
-              'transferSnapshotChanged',
-            );
-          return trackedPayment;
+          await this.assertInfiniPurchaseAuthSnapshot(authSnapshot);
+          return validatedPayment;
         }
         const validatedPayment = validateInfiniPaymentResponse(
           payment,
           undefined,
           context,
         );
-        const trackedPayment = await this.mergeInfiniRemotePaymentTracking({
-          authSnapshot,
-          payment: validatedPayment,
-        });
-        if (trackedPayment.remoteTrackingOnly)
-          throw createPrimeInfiniPaymentValidationError(
-            'transferSnapshotChanged',
-          );
-        return trackedPayment;
+        await this.assertInfiniPurchaseAuthSnapshot(authSnapshot);
+        return validatedPayment;
       },
     });
-  }
-
-  private async mergeInfiniRemotePaymentTracking({
-    authSnapshot,
-    payment,
-  }: {
-    authSnapshot: IOneKeyIdAuthSnapshot;
-    payment: IPrimeInfiniPayment;
-  }): Promise<IPrimeInfiniPayment> {
-    await this.assertInfiniPurchaseAuthSnapshot(authSnapshot);
-    const merged =
-      await this.backgroundApi.simpleDb.prime.mergeInfiniRemotePaymentTracking({
-        onekeyUserId: authSnapshot.expectedOneKeyUserId,
-        payment,
-      });
-    await this.assertInfiniPurchaseAuthSnapshot(authSnapshot);
-    return merged;
   }
 
   private async recordInfiniPaymentValidationBestEffort({
@@ -6218,6 +6171,19 @@ class ServicePrime extends ServiceBase {
     }
   }
 
+  private assertInfiniPaymentRequestAuthContext(
+    snapshot: IOneKeyIdAuthSnapshot,
+    context?: IPrimeInfiniCheckoutAuthContext,
+  ) {
+    if (
+      context &&
+      (context.onekeyUserId !== snapshot.expectedOneKeyUserId ||
+        context.authSessionSource !== snapshot.authSessionSource ||
+        context.authStateGeneration !== snapshot.authStateGeneration)
+    )
+      throw this.createInfiniPurchaseUserChangedError();
+  }
+
   @backgroundMethod()
   async apiGetInfiniPendingPayment({
     expectedOneKeyUserId,
@@ -6236,8 +6202,8 @@ class ServicePrime extends ServiceBase {
         authStateGeneration: snapshot.authStateGeneration,
       },
     };
+    const client = await this.getPrimeClient();
     try {
-      const client = await this.getPrimeClient();
       const result = await client.get<
         IApiClientResponse<
           | (IPrimeInfiniPaymentApiResponse & {
@@ -6253,87 +6219,62 @@ class ServicePrime extends ServiceBase {
       if (
         !result?.data ||
         !Object.prototype.hasOwnProperty.call(result.data, 'data')
-      ) {
-        throw new OneKeyLocalError('Invalid Infini pending payment response');
-      }
-      const pending = result?.data?.data;
+      )
+        throw new OneKeyLocalError('Invalid Infini pending response');
+      const pending = result.data.data;
       if (
         pending !== null &&
         pending !== undefined &&
         (typeof pending !== 'object' || Array.isArray(pending))
-      ) {
-        throw new OneKeyLocalError('Invalid Infini pending payment response');
-      }
-      const isRetired =
-        pending &&
-        isString(pending.paymentId) &&
-        (await this.backgroundApi.simpleDb.prime.isInfiniPaymentRetired({
-          onekeyUserId: snapshot.expectedOneKeyUserId,
-          paymentId: pending.paymentId,
-        }));
+      )
+        throw new OneKeyLocalError('Invalid Infini pending response');
       if (pending) {
+        if (!isString(pending.paymentId) || !pending.paymentId.trim()) {
+          throw new OneKeyLocalError('Invalid Infini pending payment identity');
+        }
         let payment: IPrimeInfiniPayment | undefined;
         try {
           payment = validateInfiniPaymentResponse(pending);
         } catch {
-          // Existence still requires consent even when recovery is unavailable.
+          /* Warn without offering recovery when fields are incomplete. */
         }
-        if (payment) {
-          payment = await this.mergeInfiniRemotePaymentTracking({
-            authSnapshot: snapshot,
-            payment,
-          });
-        }
-        const hasTransactions =
-          Boolean(payment?.hasTransactions) ||
-          (pending.transactions !== undefined &&
-            (!Array.isArray(pending.transactions) ||
-              pending.transactions.length > 0));
-        // Retirement only suppresses an unsent quote. Another device may have
-        // started paying it since this device discarded its local binding.
-        if (
-          !isRetired ||
-          hasTransactions ||
-          (payment && hasPrimeInfiniPaymentProgressSnapshot(payment))
-        ) {
+        const hasTransactions = Array.isArray(pending.transactions)
+          ? pending.transactions.length > 0
+          : undefined;
+        // Reuse only the existing device-local retirement records. Discovery
+        // never creates a record, changes a send claim or blocks a new payment.
+        const isRetired =
+          isString(pending.paymentId) &&
+          (await this.backgroundApi.simpleDb.prime.isInfiniPaymentRetired({
+            onekeyUserId: snapshot.expectedOneKeyUserId,
+            paymentId: pending.paymentId,
+          }));
+        if (!isRetired) {
+          const plan = pending.plan === 'annual' ? 'yearly' : pending.plan;
           lookup.pendingPayment = {
             paymentId: isString(pending.paymentId)
               ? pending.paymentId
               : undefined,
             payment,
-            plan: normalizeInfiniPendingPaymentPlan(pending.plan),
+            plan: plan === 'monthly' || plan === 'yearly' ? plan : undefined,
             hasTransactions,
           };
         }
       }
     } catch (error) {
-      // Never log response bodies or request credentials, including on failure.
+      if (error instanceof OneKeyErrorPrimeLoginInvalidToken) throw error;
       defaultLogger.prime.subscription.primeCryptoPaymentFlow({
         ...getPrimeInfiniPaymentSafeError(error),
         stage: 'paymentContext',
         status: 'failed',
         reason: 'remotePendingLookupFailed',
       });
-      await this.assertInfiniPurchaseAuthSnapshot(snapshot);
-      throw new OneKeyLocalError('Infini pending payment lookup failed');
+      // Advisory discovery cannot prove there is no old order on failure.
+      lookup.status = 'unavailable';
     }
-    // Only a successful lookup can authorize preparation in this lifecycle.
+    // Authentication failures are outside the advisory failure path.
     await this.assertInfiniPurchaseAuthSnapshot(snapshot);
     return lookup;
-  }
-
-  private assertInfiniPaymentRequestAuthContext(
-    snapshot: IOneKeyIdAuthSnapshot,
-    context?: IPrimeInfiniCheckoutAuthContext,
-  ) {
-    if (
-      context &&
-      (context.onekeyUserId !== snapshot.expectedOneKeyUserId ||
-        context.authSessionSource !== snapshot.authSessionSource ||
-        context.authStateGeneration !== snapshot.authStateGeneration)
-    ) {
-      throw this.createInfiniPurchaseUserChangedError();
-    }
   }
 
   @backgroundMethod()
@@ -6341,12 +6282,10 @@ class ServicePrime extends ServiceBase {
     paymentId,
     expectedOneKeyUserId,
     flowContext,
-    authContext,
   }: {
     paymentId: string;
     expectedOneKeyUserId: string;
     flowContext?: IPrimeInfiniPaymentFlowContext;
-    authContext?: IPrimeInfiniCheckoutAuthContext;
   }): Promise<IPrimeInfiniPayment> {
     return this.runInfiniPaymentRequest({
       flowContext,
@@ -6355,7 +6294,6 @@ class ServicePrime extends ServiceBase {
       request: async (context) => {
         const authSnapshot =
           await this.captureInfiniPurchaseAuthSnapshot(expectedOneKeyUserId);
-        this.assertInfiniPaymentRequestAuthContext(authSnapshot, authContext);
         const client = await this.getPrimeClient();
         const result = await client.get<
           IApiClientResponse<IPrimeInfiniPaymentApiResponse>
@@ -6365,15 +6303,11 @@ class ServicePrime extends ServiceBase {
           },
           ...this.getInfiniPurchaseRequestConfig(authSnapshot),
         });
-        const validatedPayment = validateInfiniPaymentResponse(
+        const payment = validateInfiniPaymentResponse(
           result?.data?.data,
           paymentId,
           context,
         );
-        const payment = await this.mergeInfiniRemotePaymentTracking({
-          authSnapshot,
-          payment: validatedPayment,
-        });
         if (flowContext) {
           await this.recordInfiniPaymentValidationBestEffort({
             onekeyUserId: expectedOneKeyUserId,
@@ -6430,19 +6364,11 @@ class ServicePrime extends ServiceBase {
         if (serverUserInfo.userId !== expectedOneKeyUserId) {
           throw this.createInfiniPurchaseUserChangedError();
         }
-        const validatedPayment = validateInfiniPaymentResponse(
+        const payment = validateInfiniPaymentResponse(
           paymentResult?.data?.data,
           paymentId,
           context,
         );
-        const payment = await this.mergeInfiniRemotePaymentTracking({
-          authSnapshot,
-          payment: validatedPayment,
-        });
-        if (payment.remoteTrackingOnly)
-          throw createPrimeInfiniPaymentValidationError(
-            'transferSnapshotChanged',
-          );
         if (flowContext) {
           await this.recordInfiniPaymentValidationBestEffort({
             onekeyUserId: expectedOneKeyUserId,

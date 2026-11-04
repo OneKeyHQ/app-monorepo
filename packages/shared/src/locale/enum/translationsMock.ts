@@ -35,5 +35,7 @@ export enum ETranslationsMock {
   prime_gift_verified = 'Verified',
   prime_gift_session_changed = 'Your account changed. Confirm the receiving account to continue.',
   prime_gift_result_unknown = 'Your previous claim is not yet confirmed. Retrying will use the same redemption code.',
+  prime_pending_payment_lookup_unavailable__title = 'Unable to check unfinished payments',
+  prime_pending_payment_lookup_unavailable__desc = "We couldn't confirm whether you have an unfinished payment. Continuing could result in a duplicate payment.",
   // ----------------------------------------------
 }
