@@ -141,6 +141,7 @@ function BulkRevokeItem(props: IProps) {
     (token: IToken) => {
       void handleOnReceive({
         token,
+        source: 'approval',
       });
     },
     [handleOnReceive],

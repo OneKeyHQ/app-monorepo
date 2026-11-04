@@ -1,8 +1,13 @@
 import {
+  BROADCAST_TX_CONTEXT_DATA_FIELD,
+  getBroadcastTxContextFromData,
+} from '@onekeyhq/shared/src/errors/utils/broadcastTxErrorData';
+import {
   type ILocalSecretEnvelopeCredentialErrorData,
   LOCAL_SECRET_ENVELOPE_CREDENTIAL_ERROR_DATA_TYPE,
   LOCAL_SECRET_ENVELOPE_ERROR_DATA_TYPE_FIELD,
 } from '@onekeyhq/shared/src/errors/utils/localSecretEnvelopeErrorData';
+import { getNativeStorageMigrationRecoveryTarget } from '@onekeyhq/shared/src/storage/nativeStorageTypes';
 
 import type {
   IInjectedProviderNamesStrings,
@@ -107,6 +112,8 @@ export type IBackgroundThreadResponseErrorPayload = {
   info?: unknown;
   payload?: unknown;
   reconnect?: boolean;
+  params?: Record<string, unknown>;
+  detail?: string;
 };
 
 export type IBackgroundThreadResponsePayload = {
@@ -133,7 +140,7 @@ export const WEBEMBED_BRIDGE_RESPONSE_KEY_PREFIX = 'onekey:webembed:resp:';
 // SharedStore key holding main's latched capability advertisement (+ doubling
 // as the "main is up" liveness signal). Read synchronously by bg via
 // `sharedStore.get`.
-export const BACKGROUND_THREAD_MAIN_CAPABILITIES_KEY = 'onekey:bg:main-caps';
+export { BACKGROUND_THREAD_MAIN_CAPABILITIES_KEY } from '@onekeyhq/shared/src/utils/homeTokenRequest';
 // SharedRPC content-less wake ping fired after main updates its latched
 // capabilities in SharedStore (SharedStore has no notify). Edge-wakes bg to
 // re-read the capabilities key. Value is irrelevant.
@@ -142,6 +149,7 @@ export const BACKGROUND_THREAD_MAIN_CAPABILITIES_WAKE_KEY =
 
 export type IBackgroundThreadMainCapabilitiesPayload = {
   jotaiStateBatch?: boolean;
+  mainRuntimeId?: string;
 };
 
 export function serializeBackgroundThreadMainCapabilitiesPayload(
@@ -277,7 +285,88 @@ export function serializeBackgroundThreadResponse(
   return JSON.stringify(payload);
 }
 
-export function buildSafeBackgroundThreadErrorData(data: unknown) {
+export function buildBackgroundThreadErrorResponse(
+  error: unknown,
+): IBackgroundThreadResponsePayload {
+  const runtimeError = error as Error & {
+    autoToast?: unknown;
+    className?: unknown;
+    $isHardwareError?: unknown;
+    code?: unknown;
+    key?: unknown;
+    requestId?: unknown;
+    httpStatusCode?: unknown;
+    data?: unknown;
+    payload?: unknown;
+    params?: unknown;
+    detail?: unknown;
+  };
+  const errorPayload: IBackgroundThreadResponseErrorPayload = {
+    name: runtimeError?.name || 'BackgroundThreadError',
+    message: runtimeError?.message || 'Unknown background thread error',
+  };
+  if (typeof runtimeError?.stack === 'string') {
+    errorPayload.stack = runtimeError.stack;
+  }
+  if (typeof runtimeError?.autoToast === 'boolean') {
+    errorPayload.autoToast = runtimeError.autoToast;
+  }
+  if (typeof runtimeError?.className === 'string') {
+    errorPayload.className = runtimeError.className;
+  }
+  if (runtimeError?.$isHardwareError === true) {
+    errorPayload.$isHardwareError = true;
+  }
+  if (
+    typeof runtimeError?.code === 'string' ||
+    typeof runtimeError?.code === 'number'
+  ) {
+    errorPayload.code = runtimeError.code;
+  }
+  if (typeof runtimeError?.key === 'string') {
+    errorPayload.key = runtimeError.key;
+  }
+  if (typeof runtimeError?.requestId === 'string') {
+    errorPayload.requestId = runtimeError.requestId;
+  }
+  if (typeof runtimeError?.httpStatusCode === 'number') {
+    errorPayload.httpStatusCode = runtimeError.httpStatusCode;
+  }
+  const safeData = buildSafeBackgroundThreadErrorData(runtimeError?.data);
+  if (safeData) {
+    errorPayload.data = safeData;
+  }
+  if (runtimeError?.payload !== undefined) {
+    errorPayload.payload = runtimeError.payload;
+  }
+  if (
+    runtimeError?.params &&
+    typeof runtimeError.params === 'object' &&
+    !Array.isArray(runtimeError.params)
+  ) {
+    errorPayload.params = runtimeError.params as Record<string, unknown>;
+  }
+  if (typeof runtimeError?.detail === 'string') {
+    errorPayload.detail = runtimeError.detail;
+  }
+  return { ok: false, error: errorPayload };
+}
+
+export function buildSafeBackgroundThreadErrorData(
+  data: unknown,
+  context?: { request: IBackgroundThreadRequest; message: string },
+) {
+  const broadcastTxContext = getBroadcastTxContextFromData(data);
+  // Lets bg tell a privacy runtime that is down from an ordinary failure.
+  const runtimeFailure =
+    data && typeof data === 'object' && !Array.isArray(data)
+      ? (data as { privacyChainRuntimeFailure?: unknown })
+          .privacyChainRuntimeFailure
+      : undefined;
+  const runtimeFailureData =
+    typeof runtimeFailure === 'string'
+      ? { privacyChainRuntimeFailure: runtimeFailure }
+      : {};
   if (
     data &&
     typeof data === 'object' &&
@@ -289,10 +378,43 @@ export function buildSafeBackgroundThreadErrorData(data: unknown) {
     return {
       [LOCAL_SECRET_ENVELOPE_ERROR_DATA_TYPE_FIELD]:
         LOCAL_SECRET_ENVELOPE_CREDENTIAL_ERROR_DATA_TYPE,
+      ...(broadcastTxContext
+        ? { [BROADCAST_TX_CONTEXT_DATA_FIELD]: broadcastTxContext }
+        : {}),
+      ...runtimeFailureData,
     };
   }
 
-  return undefined;
+  // Only the isolated developer Home test needs this opaque identifier. Never
+  // forward arbitrary error data from wallet services or real storage errors.
+  const request = context?.request;
+  if (
+    request?.type === 'service-call' &&
+    request.method === 'serviceDevSetting.nativeStorageRecoveryTest' &&
+    request.params.length === 1 &&
+    request.params[0]?.action === 'homeRead' &&
+    getNativeStorageMigrationRecoveryTarget(context) === 'appStorage' &&
+    data &&
+    typeof data === 'object' &&
+    !Array.isArray(data) &&
+    'nativeStorageRecoveryTestSessionId' in data
+  ) {
+    const sessionId = data.nativeStorageRecoveryTestSessionId;
+    if (
+      typeof sessionId === 'string' &&
+      /^storage-repair-test-\d{1,16}-[a-z0-9]{0,32}$/.test(sessionId)
+    ) {
+      return { nativeStorageRecoveryTestSessionId: sessionId };
+    }
+  }
+
+  if (broadcastTxContext) {
+    return {
+      [BROADCAST_TX_CONTEXT_DATA_FIELD]: broadcastTxContext,
+      ...runtimeFailureData,
+    };
+  }
+  return typeof runtimeFailure === 'string' ? runtimeFailureData : undefined;
 }
 
 export function parseBackgroundThreadResponse(

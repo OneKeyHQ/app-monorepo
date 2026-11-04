@@ -3,13 +3,7 @@ import { memo, useCallback, useMemo } from 'react';
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
-import {
-  Button,
-  SizableText,
-  Spinner,
-  XStack,
-  YStack,
-} from '@onekeyhq/components';
+import { Button, SizableText, XStack, YStack } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { useHyperliquidActions } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import {
@@ -17,7 +11,7 @@ import {
   useSpotPairDisplayNameMapAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { formatTime } from '@onekeyhq/shared/src/utils/dateUtils';
+import { formatDate, formatTime } from '@onekeyhq/shared/src/utils/dateUtils';
 import type { INumberFormatProps } from '@onekeyhq/shared/src/utils/numberUtils';
 import {
   formatLocalizedNumberString,
@@ -30,6 +24,7 @@ import {
 import type { IPerpsFrontendOrder } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
 import { PerpTestIDs } from '../../../testIDs';
+import { PERP_TEXT_ACTION_HOVER_STYLE } from '../../../utils/styleUtils';
 import {
   calcCellAlign,
   getColumnStyle,
@@ -183,9 +178,7 @@ const OpenOrdersRow = memo(
     }, [actions, assetInfo.isSpot, assetInfo.rawCoin]);
     const dateInfo = useMemo(() => {
       const timeDate = new Date(order.timestamp);
-      const date = formatTime(timeDate, {
-        formatTemplate: 'yyyy-LL-dd',
-      });
+      const date = formatDate(timeDate, { hideTimeForever: true });
       const time = formatTime(timeDate, {
         formatTemplate: 'HH:mm:ss',
       });
@@ -201,7 +194,14 @@ const OpenOrdersRow = memo(
       const decimals = getValidPriceDecimals(price);
       const triggerCondition = order.triggerCondition;
       const origSizeBN = new BigNumber(origSize);
-      const origSizeFormatted = numberFormat(origSize, balanceFormatter);
+      // Zero sizes on position TP/SL orders follow the entire position.
+      const isPositionSized =
+        order.isPositionTpsl &&
+        origSizeBN.isZero() &&
+        new BigNumber(size).isZero();
+      const origSizeFormatted = isPositionSized
+        ? '--'
+        : numberFormat(origSize, balanceFormatter);
       const executePriceFormatted = new BigNumber(executePrice).toFixed(
         decimals,
       );
@@ -209,9 +209,13 @@ const OpenOrdersRow = memo(
         new BigNumber(executePriceLimit).toFixed(decimals),
       );
       const priceFormatted = new BigNumber(price).toFixed(decimals);
-      const sizeFormatted = numberFormat(size, balanceFormatter);
+      const sizeFormatted = isPositionSized
+        ? '--'
+        : numberFormat(size, balanceFormatter);
       const value = priceBN.times(origSizeBN).toFixed();
-      const valueFormatted = numberFormat(value, balanceCurrencyFormatter);
+      const valueFormatted = isPositionSized
+        ? '--'
+        : numberFormat(value, balanceCurrencyFormatter);
       return {
         triggerCondition,
         origSizeFormatted,
@@ -219,6 +223,9 @@ const OpenOrdersRow = memo(
         executePriceLimitFormatted,
         priceFormatted,
         sizeFormatted,
+        sizeSummary: isPositionSized
+          ? '--'
+          : `${sizeFormatted} / ${origSizeFormatted}`,
         valueFormatted,
       };
     }, [
@@ -227,10 +234,11 @@ const OpenOrdersRow = memo(
       order.origSz,
       order.triggerCondition,
       order.triggerPx,
+      order.isPositionTpsl,
     ]);
 
     const tpslInfo = useMemo(() => {
-      const tpslChildren = (order.children ?? []) as IPerpsFrontendOrder[];
+      const tpslChildren = order.children ?? [];
       let tpPrice = '--';
       let slPrice = '--';
       if (tpslChildren && tpslChildren.length > 0) {
@@ -272,11 +280,15 @@ const OpenOrdersRow = memo(
             width="100%"
             alignItems="center"
           >
-            <YStack onPress={handleSwitchInstrument} cursor="pointer">
+            <YStack>
               <SizableText
                 numberOfLines={1}
                 ellipsizeMode="tail"
                 size="$bodyMdMedium"
+                alignSelf="flex-start"
+                maxWidth="100%"
+                onPress={handleSwitchInstrument}
+                cursor="pointer"
               >
                 {assetInfo.assetSymbol}
               </SizableText>
@@ -305,7 +317,6 @@ const OpenOrdersRow = memo(
                   testID={PerpTestIDs.ChaseOrderButton(order.oid)}
                   size="small"
                   variant="secondary"
-                  loading={isChasingOrder}
                   disabled={isChasingOrder}
                   onPress={handleChaseOrder}
                   childrenAsText={false}
@@ -321,6 +332,7 @@ const OpenOrdersRow = memo(
                 testID={PerpTestIDs.CancelOrderButton(order.oid)}
                 size="small"
                 variant="secondary"
+                cursor="pointer"
                 onPress={handleCancelOrder}
                 childrenAsText={false}
               >
@@ -343,7 +355,7 @@ const OpenOrdersRow = memo(
               })}
             </SizableText>
             <SizableText size="$bodySm">
-              {`${orderBaseInfo.sizeFormatted} / ${orderBaseInfo.origSizeFormatted}`}
+              {orderBaseInfo.sizeSummary}
             </SizableText>
           </XStack>
           <XStack
@@ -451,8 +463,6 @@ const OpenOrdersRow = memo(
               {...getColumnStyle(columnConfigs[1])}
               justifyContent="center"
               alignItems={calcCellAlign(columnConfigs[1].align)}
-              onPress={handleSwitchInstrument}
-              cursor="pointer"
             >
               <SizableText
                 size="$bodySm"
@@ -460,6 +470,9 @@ const OpenOrdersRow = memo(
                 numberOfLines={1}
                 color={assetInfo.typeColor}
                 ellipsizeMode="tail"
+                maxWidth="100%"
+                onPress={handleSwitchInstrument}
+                cursor="pointer"
               >
                 {assetInfo.assetSymbol}
               </SizableText>
@@ -611,22 +624,13 @@ const OpenOrdersRow = memo(
                   gap="$1"
                   alignItems="center"
                   cursor={isChasingOrder ? 'default' : 'pointer'}
+                  hoverStyle={
+                    isChasingOrder ? undefined : PERP_TEXT_ACTION_HOVER_STYLE
+                  }
                   onPress={isChasingOrder ? undefined : handleChaseOrder}
                 >
-                  {isChasingOrder ? (
-                    <Spinner
-                      size="small"
-                      color="$textInteractive"
-                      scale={0.65}
-                    />
-                  ) : null}
                   <SizableText
                     color={isChasingOrder ? '$textDisabled' : '$bgAccent'}
-                    hoverStyle={
-                      isChasingOrder
-                        ? undefined
-                        : { size: '$bodySmMedium', fontWeight: 600 }
-                    }
                     size="$bodySmMedium"
                   >
                     {intl.formatMessage({
@@ -637,8 +641,9 @@ const OpenOrdersRow = memo(
               ) : null}
               <SizableText
                 color="$bgAccent"
-                hoverStyle={{ size: '$bodySmMedium', fontWeight: 600 }}
+                hoverStyle={PERP_TEXT_ACTION_HOVER_STYLE}
                 size="$bodySmMedium"
+                cursor="pointer"
                 onPress={handleCancelOrder}
               >
                 {intl.formatMessage({

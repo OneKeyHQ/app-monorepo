@@ -10,16 +10,11 @@ const NAMESPACE_PATTERN = /^[a-z0-9][a-z0-9-]{0,63}$/;
 const KEY_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._:/-]*$/;
 
 /**
- * UTF-8 byte length without requiring `TextEncoder`.
- *
- * This runs in every runtime the app has — Hermes, a browser, a jsdom test —
- * and a size check that throws where the global is missing turns a bounded
- * write into a silently dropped one.
+ * Count bytes without encoding a second copy of every snapshot. Native's
+ * TextEncoder polyfill also builds intermediate arrays proportional to the
+ * payload size. Unpaired surrogates encode as the 3-byte replacement character.
  */
 function getUtf8ByteLength(value: string): number {
-  if (typeof TextEncoder !== 'undefined') {
-    return new TextEncoder().encode(value).length;
-  }
   let bytes = 0;
   for (let index = 0; index < value.length; index += 1) {
     const code = value.charCodeAt(index);
@@ -28,9 +23,13 @@ function getUtf8ByteLength(value: string): number {
     } else if (code < 0x8_00) {
       bytes += 2;
     } else if (code >= 0xd8_00 && code <= 0xdb_ff) {
-      // A surrogate pair is one 4-byte code point; skip its low half.
-      bytes += 4;
-      index += 1;
+      const next = value.charCodeAt(index + 1);
+      if (next >= 0xdc_00 && next <= 0xdf_ff) {
+        bytes += 4;
+        index += 1;
+      } else {
+        bytes += 3;
+      }
     } else {
       bytes += 3;
     }

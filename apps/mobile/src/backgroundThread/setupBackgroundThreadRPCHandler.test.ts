@@ -1,10 +1,12 @@
 import { HardwareErrorCode } from '@onekeyfe/hd-shared';
 
+import { XMR_SYNC_WATCHDOG_MS } from '@onekeyhq/shared/src/config/xmr';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { IncorrectPinError } from '@onekeyhq/shared/src/errors/errors/appErrors';
 import { DeviceNotFound } from '@onekeyhq/shared/src/errors/errors/hardwareErrors';
 import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { createNativeStorageMigrationInconsistentErrorMessage } from '@onekeyhq/shared/src/storage/nativeStorageTypes';
 
 const mockSharedRPCWrite = jest.fn();
 const mockSharedRPCRegisterReadinessKey = jest.fn();
@@ -16,13 +18,17 @@ let mockInboundMessageHandler:
   | ((key: string, value: string | number | boolean) => void)
   | undefined;
 
-function dispatchServiceRequest(callId: string) {
+function dispatchServiceRequest(
+  callId: string,
+  method = 'servicePrime.apiRedeemPrimeCode',
+  params: unknown[] = ['OK61451-INVALID-CODE'],
+) {
   mockInboundMessageHandler?.(
     `onekey:bg:req:${callId}`,
     JSON.stringify({
       type: 'service-call',
-      method: 'servicePrime.apiRedeemPrimeCode',
-      params: ['OK61451-INVALID-CODE'],
+      method,
+      params,
       sync: false,
     }),
   );
@@ -103,6 +109,157 @@ describe('background thread RPC handler', () => {
   afterAll(() => {
     jest.clearAllTimers();
     jest.useRealTimers();
+  });
+
+  it('lets a Monero scan step run as long as its turn watchdog', async () => {
+    const { getWebEmbedBridgeCallTimeoutMs } =
+      await import('./setupBackgroundThreadRPCHandler');
+
+    expect(
+      getWebEmbedBridgeCallTimeoutMs({
+        module: 'chainXmr',
+        method: 'syncStep',
+      }),
+    ).toBe(XMR_SYNC_WATCHDOG_MS);
+    expect(
+      getWebEmbedBridgeCallTimeoutMs({
+        module: 'chainXmr',
+        method: 'prepareTransaction',
+      }),
+    ).toBeGreaterThan(30_000);
+  });
+
+  it('keeps Zcash sync and broadcast deadlines outside their inner watchdogs', async () => {
+    const { getWebEmbedBridgeCallTimeoutMs } =
+      await import('./setupBackgroundThreadRPCHandler');
+
+    expect(
+      getWebEmbedBridgeCallTimeoutMs({
+        module: 'chainZcash',
+        method: 'syncWallet',
+      }),
+    ).toBe(360_000);
+    expect(
+      getWebEmbedBridgeCallTimeoutMs({
+        module: 'chainZcash',
+        method: 'submitPczt',
+      }),
+    ).toBe(360_000);
+    expect(
+      getWebEmbedBridgeCallTimeoutMs({
+        module: 'chainZcash',
+        method: 'prepareWalletAccounts',
+      }),
+    ).toBe(360_000);
+    expect(
+      getWebEmbedBridgeCallTimeoutMs({
+        module: 'chainZcash',
+        method: 'purgeWallet',
+      }),
+    ).toBe(360_000);
+    for (const method of ['quotePczt', 'createPczt', 'releasePczt']) {
+      expect(
+        getWebEmbedBridgeCallTimeoutMs({ module: 'chainZcash', method }),
+      ).toBe(360_000);
+    }
+    expect(
+      getWebEmbedBridgeCallTimeoutMs({
+        module: 'chainZcash',
+        method: 'provePczt',
+      }),
+    ).toBe(540_000);
+    expect(
+      getWebEmbedBridgeCallTimeoutMs({
+        module: 'imageUtils',
+        method: 'resize',
+      }),
+    ).toBe(30_000);
+  });
+
+  it('rehydrates structured runtime errors from WebEmbed', async () => {
+    const { rehydrateWebEmbedBridgeError } =
+      await import('./setupBackgroundThreadRPCHandler');
+    const payload = {
+      code: 'INSUFFICIENT_FUNDS',
+      params: { shortfallZat: 20_000 },
+      detail: 'proposal failed',
+    };
+
+    const error = rehydrateWebEmbedBridgeError(
+      {
+        name: 'RuntimeError',
+        message: 'INSUFFICIENT_FUNDS',
+        code: 'INSUFFICIENT_FUNDS',
+        payload,
+      },
+      'chainZcash',
+    );
+
+    expect(error).toMatchObject({
+      name: 'RuntimeError',
+      message: 'INSUFFICIENT_FUNDS',
+      code: 'INSUFFICIENT_FUNDS',
+      payload,
+    });
+  });
+
+  it('keeps message-only errors for other WebEmbed modules', async () => {
+    const { rehydrateWebEmbedBridgeError } =
+      await import('./setupBackgroundThreadRPCHandler');
+
+    const error = rehydrateWebEmbedBridgeError(
+      {
+        name: 'RuntimeError',
+        message: 'sign failed',
+        code: 'X',
+        autoToast: true,
+      },
+      'chainKaspa',
+    );
+
+    expect(error.message).toBe('sign failed');
+    expect(error).not.toHaveProperty('code', 'X');
+    expect(error.autoToast).not.toBe(true);
+  });
+
+  it('namespaces reverse WebEmbed call IDs by background boot', async () => {
+    const { callWebEmbedBridgeViaMainThread } =
+      await import('./setupBackgroundThreadRPCHandler');
+    mockSharedRPCWrite.mockClear();
+
+    const resultPromise = callWebEmbedBridgeViaMainThread({
+      module: 'chainZcash',
+      method: 'getBalance',
+    });
+    const request = mockSharedRPCWrite.mock.calls.find(
+      ([key]) =>
+        typeof key === 'string' && key.startsWith('onekey:webembed:req:'),
+    );
+    const callId = (request?.[0] as string).slice(
+      'onekey:webembed:req:'.length,
+    );
+    expect(callId).toMatch(/^[^:]+:\d+$/);
+
+    mockInboundMessageHandler?.(
+      `onekey:webembed:resp:${callId}`,
+      JSON.stringify({ ok: true, result: 'ok' }),
+    );
+    await expect(resultPromise).resolves.toBe('ok');
+  });
+
+  it('fails pending WebEmbed calls when the WebView is remounted', async () => {
+    const {
+      callWebEmbedBridgeViaMainThread,
+      rejectPendingWebEmbedBridgeCalls,
+    } = await import('./setupBackgroundThreadRPCHandler');
+
+    const resultPromise = callWebEmbedBridgeViaMainThread({
+      module: 'chainZcash',
+      method: 'provePczt',
+    });
+    rejectPendingWebEmbedBridgeCalls('remounted');
+
+    await expect(resultPromise).rejects.toThrow('remounted');
   });
 
   it('writes a minimal error response when the original error is not serializable', async () => {
@@ -226,6 +383,45 @@ describe('background thread RPC handler', () => {
         message: 'Unknown empty error',
       },
     });
+  });
+
+  it('carries only the isolated Home test ID through the real RPC handler and JSON wire', async () => {
+    const { setBackgroundThreadRequestExecutor } =
+      await import('./setupBackgroundThreadRPCHandler');
+    const sessionId = 'storage-repair-test-123456789-test';
+    const error = Object.assign(
+      new OneKeyLocalError(
+        createNativeStorageMigrationInconsistentErrorMessage('appStorage'),
+      ),
+      {
+        data: {
+          nativeStorageRecoveryTestSessionId: sessionId,
+          privateDetails: 'must-not-cross-runtimes',
+        },
+      },
+    );
+    setBackgroundThreadRequestExecutor(() => Promise.reject(error));
+    mockSharedRPCWrite.mockClear();
+    dispatchServiceRequest(
+      'home-test',
+      'serviceDevSetting.nativeStorageRecoveryTest',
+      [{ action: 'homeRead' }],
+    );
+    await flushRequest();
+    expect(getResponse('home-test')).toMatchObject({
+      ok: false,
+      error: { data: { nativeStorageRecoveryTestSessionId: sessionId } },
+    });
+    expect(JSON.stringify(getResponse('home-test'))).not.toContain(
+      'privateDetails',
+    );
+    expect(JSON.stringify(getResponse('home-test'))).not.toContain(
+      'must-not-cross-runtimes',
+    );
+
+    dispatchServiceRequest('unrelated');
+    await flushRequest();
+    expect(getResponse('unrelated')).not.toHaveProperty('error.data');
   });
 
   it('retries a failed response write with the minimal error response', async () => {

@@ -60,7 +60,6 @@ function evaluateHarnessReport({
       fatalError: fatalError ?? 'Harness report was not available',
       pass: false,
       report: report ?? null,
-      updaterChecks: [],
     };
   }
 
@@ -186,48 +185,10 @@ function evaluateHarnessReport({
     },
   ];
 
-  const stagingResult = report.stagingResult;
-  const updaterChecks = [
-    createValueCheck('autoDownload disabled', report.autoDownload, false),
-    createValueCheck(
-      'checkForUpdates call count',
-      report.checkForUpdatesCallCount,
-      0,
-    ),
-    createValueCheck(
-      'checkForUpdates called flag',
-      report.checkForUpdatesCalled,
-      false,
-    ),
-    createValueCheck('Staging ID call succeeded', stagingResult?.success, true),
-    createValueCheck(
-      'Staging ID absent before test',
-      stagingResult?.beforeExists,
-      false,
-    ),
-    createValueCheck(
-      'Staging ID file created',
-      stagingResult?.afterExists,
-      true,
-    ),
-    createValueCheck('Generated ID length', stagingResult?.idLength, 36),
-    createValueCheck(
-      'Staging ID file byte length',
-      stagingResult?.fileByteLength,
-      36,
-    ),
-    createValueCheck(
-      'Staging ID file UUID format',
-      stagingResult?.fileUuidFormat,
-      true,
-    ),
-  ];
-
   const allStatuses = [
     ...environmentChecks.map(({ status }) => status),
     ...canonicalDriftChecks.map(({ status }) => status),
     ...apiChecks.map(({ status }) => status),
-    ...updaterChecks.map(({ status }) => status),
   ];
 
   return {
@@ -237,7 +198,6 @@ function evaluateHarnessReport({
     fatalError: null,
     pass: allStatuses.length > 0 && allStatuses.every((s) => s === STATUS.PASS),
     report,
-    updaterChecks,
   };
 }
 
@@ -335,41 +295,10 @@ function formatConsoleSummary(result) {
     );
   }
 
-  lines.push(prefixed());
-  lines.push(prefixed('Updater staging safety'));
-  if (result.updaterChecks.length === 0) {
-    lines.push(
-      prefixed(
-        'UNKNOWN Updater results unavailable because no valid report was produced',
-      ),
-    );
-  } else {
-    for (const check of result.updaterChecks) {
-      lines.push(
-        prefixed(
-          `${check.status.padEnd(7)} ${check.name.padEnd(32)} actual=${displayValue(
-            check.actual,
-          )} expected=${displayValue(check.expected)}`,
-        ),
-      );
-    }
-    const { errorCode, errorMessage } = result.report.stagingResult ?? {};
-    if (errorCode || errorMessage) {
-      lines.push(
-        prefixed(
-          `DETAIL  staging error code=${displayValue(
-            errorCode,
-          )} message=${displayValue(errorMessage)}`,
-        ),
-      );
-    }
-  }
-
   const checks = [
     ...result.environmentChecks,
     ...result.canonicalDriftChecks,
     ...result.apiChecks,
-    ...result.updaterChecks,
   ];
   const count = (status) =>
     checks.filter((check) => check.status === status).length;
@@ -391,9 +320,6 @@ function formatConsoleSummary(result) {
     ...result.apiChecks
       .filter(({ status }) => status === STATUS.FAIL)
       .map(({ name }) => `Node API: ${name}`),
-    ...result.updaterChecks
-      .filter(({ status }) => status === STATUS.FAIL)
-      .map(({ name }) => `updater: ${name}`),
   ];
   if (failedChecks.length === 0) {
     lines.push(prefixed('FAILED CHECKS: none'));
@@ -472,27 +398,6 @@ function formatGitHubStepSummary(result) {
     ),
   );
 
-  lines.push(
-    '',
-    '### Updater staging safety',
-    '',
-    '| Result | Check | Actual | Expected |',
-    '| --- | --- | --- | --- |',
-  );
-  if (result.updaterChecks.length === 0) {
-    lines.push('| UNKNOWN | Results unavailable | — | — |');
-  } else {
-    lines.push(
-      ...result.updaterChecks.map(
-        (check) =>
-          `| ${check.status} | ${escapeMarkdown(
-            check.name,
-          )} | ${escapeMarkdown(check.actual)} | ${escapeMarkdown(
-            check.expected,
-          )} |`,
-      ),
-    );
-  }
   return `${lines.join('\n')}\n`;
 }
 

@@ -107,7 +107,9 @@ jest.mock('./BorrowBonusMetric', () => ({
 }));
 jest.mock('./BorrowRewardsMetric', () => ({
   __esModule: true,
-  BorrowRewardsMetric: () => <div data-testid="rewards-metric" />,
+  BorrowRewardsMetric: ({ isError }: { isError?: boolean }) => (
+    <div data-testid="rewards-metric" data-error={String(Boolean(isError))} />
+  ),
 }));
 
 describe('BorrowMobileSummary', () => {
@@ -249,5 +251,18 @@ describe('BorrowMobileSummary', () => {
 
     expect(queryByTestId(suppliedMetricId)).toBeTruthy();
     expect(queryByTestId('bonus-metric')).toBeTruthy();
+  });
+
+  it('shows an error placeholder for failed rewards instead of dropping the cell', () => {
+    const { getByTestId } = render(
+      <BorrowMobileSummary
+        overviewData={overviewData({ isRewardsError: true })}
+        showPositionTotals={false}
+      />,
+    );
+
+    expect(getByTestId('rewards-metric').getAttribute('data-error')).toBe(
+      'true',
+    );
   });
 });

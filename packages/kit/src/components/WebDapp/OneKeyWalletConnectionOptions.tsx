@@ -11,7 +11,7 @@ import {
   useMedia,
 } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
-import { EXT_RATE_URL } from '@onekeyhq/shared/src/config/appConfig';
+import { EXTENSION_STORE_URLS } from '@onekeyhq/shared/src/config/extensionConfig';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -206,7 +206,7 @@ function OneKeyWalletConnectionOptions({
             cursor="pointer"
             onPress={() => {
               setHasClickedAdd(true);
-              openUrlExternal(EXT_RATE_URL.chrome);
+              openUrlExternal(EXTENSION_STORE_URLS.chrome);
             }}
           >
             {intl.formatMessage({ id: ETranslations.global_add })}

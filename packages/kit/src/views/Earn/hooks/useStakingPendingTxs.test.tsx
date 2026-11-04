@@ -29,6 +29,8 @@ jest.mock('@onekeyhq/shared/src/utils/timerUtils', () => {
 const mockRouteFocus = { current: true };
 jest.mock('@onekeyhq/kit/src/hooks/useRouteIsFocused', () => ({
   useRouteIsFocused: () => mockRouteFocus.current,
+  useRouteIsFocusedWhenEnabled: ({ enabled }: { enabled: boolean }) =>
+    !enabled || mockRouteFocus.current,
 }));
 
 jest.mock('@onekeyhq/components', () => {

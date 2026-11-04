@@ -1,5 +1,6 @@
-import { useMemo } from 'react';
+import { useContext, useMemo } from 'react';
 
+import { I18nManager, useWindowDimensions } from 'react-native';
 import { Gesture } from 'react-native-gesture-handler';
 import {
   cancelAnimation,
@@ -7,6 +8,8 @@ import {
   withDecay,
 } from 'react-native-reanimated';
 import { scheduleOnRN } from 'react-native-worklets';
+
+import { HeaderScrollGestureContext } from '@onekeyhq/components/src/composite/Tabs/HeaderScrollGestureContext';
 
 import {
   TRADING_VIEW_NATIVE_CHART_HORIZONTAL_PADDING,
@@ -17,15 +20,15 @@ import {
 import { getTradingViewNativeChartWidth } from '../utils/chartLayout';
 import { reduceTradingViewNativeChartRuntime } from '../utils/chartRuntime';
 import {
-  getTradingViewNativeMaxPanOffset,
+  getTradingViewNativePanOffsetBounds,
+  getTradingViewNativePanStartOffsetAfterViewportPreservation,
   getTradingViewNativePointIndexAtX,
   getTradingViewNativeRelativePinchScale,
 } from '../utils/chartViewport';
-import { isTradingViewNativeMainPriceAxisTouch } from '../utils/priceAxisScale';
+import { isTradingViewNativePriceAxisTouch } from '../utils/priceAxisScale';
 import {
   getTradingViewNativeSubIndicatorLegendHitRegions,
   getTradingViewNativeSubIndicatorLegendIndicatorAtPoint,
-  getTradingViewNativeVisibleSubIndicatorPaneCount,
 } from '../utils/subIndicatorRender';
 import {
   getTradingViewNativeTimeAxisZoomScaleAfterDrag,
@@ -53,9 +56,11 @@ export function useTradingViewNativeChartGestures({
   isClickInteractionEnabled,
   isCrosshairEnabled,
   onSubIndicatorSettingsPress,
+  onInteractionChange,
   priceAxisResetGesture,
   priceAxisScaleGesture,
   priceAxisWidth,
+  prioritizePageScroll = false,
   resources,
   timeAxisHeight,
 }: {
@@ -63,33 +68,56 @@ export function useTradingViewNativeChartGestures({
   decayOffset: SharedValue<number>;
   isClickInteractionEnabled: boolean;
   isCrosshairEnabled: boolean;
+  onInteractionChange?: (isInteracting: boolean) => void;
   onSubIndicatorSettingsPress: (
     indicator: ITradingViewNativeSubIndicator,
   ) => void;
   priceAxisResetGesture: GestureType;
   priceAxisScaleGesture: GestureType;
   priceAxisWidth: SharedValue<number>;
+  prioritizePageScroll?: boolean;
   resources: SharedValue<ITradingViewNativeSkiaResources>;
   timeAxisHeight: number;
 }) {
+  const { gestures: headerScrollGestures, excludeStartEdgeWidth } = useContext(
+    HeaderScrollGestureContext,
+  );
+  const { width: windowWidth } = useWindowDimensions();
+  const isRTL = I18nManager.isRTL;
+  const shouldWaitForPageScroll =
+    prioritizePageScroll && headerScrollGestures.length > 0;
   const hasMultipleCrosshairTouches = useSharedValue(false);
   const pressedSubIndicatorSettingsTarget =
     useSharedValue<ITradingViewNativeSubIndicator | null>(null);
 
+  const panStartTranslationX = useSharedValue(0);
+  const activeGestures = useSharedValue(0);
   return useMemo(() => {
-    const isMainPriceAxisTouch = (x: number, y: number) => {
+    const setInteraction = (bit: number, active: boolean) => {
+      'worklet';
+      const previous = activeGestures.value;
+      const next = active ? previous | bit : previous & ~bit;
+      activeGestures.value = next;
+      if (onInteractionChange && Boolean(previous) !== Boolean(next))
+        scheduleOnRN(onInteractionChange, Boolean(next));
+    };
+    const isNavigationEdgeTouch = (absoluteX: number) => {
+      'worklet';
+
+      return (
+        excludeStartEdgeWidth > 0 &&
+        (isRTL
+          ? windowWidth - absoluteX < excludeStartEdgeWidth
+          : absoluteX < excludeStartEdgeWidth)
+      );
+    };
+    const isPriceAxisTouch = (x: number, y: number) => {
       'worklet';
 
       const runtime = chartRuntime.value;
-      const paneCount = getTradingViewNativeVisibleSubIndicatorPaneCount(
-        runtime.subIndicatorPanes,
-      );
-      return isTradingViewNativeMainPriceAxisTouch({
-        height: runtime.size.height,
-        paneCount,
-        panes: runtime.subIndicatorPanes,
+      return isTradingViewNativePriceAxisTouch({
+        priceAxisHeight: runtime.size.height - timeAxisHeight,
         priceAxisWidth: priceAxisWidth.value,
-        timeAxisHeight,
         width: runtime.size.width,
         x,
         y,
@@ -165,7 +193,12 @@ export function useTradingViewNativeChartGestures({
       }
 
       const touch = event.changedTouches[0];
-      if (touch && isTimeAxisTouch(touch.x, touch.y)) {
+      if (
+        touch &&
+        (isNavigationEdgeTouch(touch.absoluteX) ||
+          isPriceAxisTouch(touch.x, touch.y) ||
+          isTimeAxisTouch(touch.x, touch.y))
+      ) {
         stateManager.fail();
       }
     };
@@ -219,6 +252,7 @@ export function useTradingViewNativeChartGestures({
       .onTouchesDown(onCrosshairTouchesDown)
       .onStart((event) => {
         'worklet';
+        setInteraction(1, true);
 
         cancelAnimation(decayOffset);
         updateCrosshair(event.x, event.y);
@@ -230,6 +264,7 @@ export function useTradingViewNativeChartGestures({
       })
       .onFinalize((_event, success) => {
         'worklet';
+        setInteraction(1, false);
 
         if (success) {
           return;
@@ -255,9 +290,10 @@ export function useTradingViewNativeChartGestures({
         'worklet';
 
         const touch = event.changedTouches[0];
-        pressedSubIndicatorSettingsTarget.value = touch
-          ? getSubIndicatorSettingsTarget(touch.x, touch.y)
-          : null;
+        pressedSubIndicatorSettingsTarget.value =
+          touch && !isNavigationEdgeTouch(touch.absoluteX)
+            ? getSubIndicatorSettingsTarget(touch.x, touch.y)
+            : null;
         if (pressedSubIndicatorSettingsTarget.value === null) {
           stateManager.fail();
         }
@@ -276,9 +312,9 @@ export function useTradingViewNativeChartGestures({
         pressedSubIndicatorSettingsTarget.value = null;
       });
 
+    // Leave vertical drags available to the enclosing page.
     const panGesture = Gesture.Pan()
       .activeOffsetX([-4, 4])
-      .failOffsetY([-12, 12])
       .maxPointers(1)
       .onTouchesDown((event, stateManager) => {
         'worklet';
@@ -286,7 +322,8 @@ export function useTradingViewNativeChartGestures({
         const touch = event.changedTouches[0];
         if (
           touch &&
-          (isMainPriceAxisTouch(touch.x, touch.y) ||
+          (isNavigationEdgeTouch(touch.absoluteX) ||
+            isPriceAxisTouch(touch.x, touch.y) ||
             isTimeAxisTouch(touch.x, touch.y))
         ) {
           stateManager.fail();
@@ -297,9 +334,14 @@ export function useTradingViewNativeChartGestures({
 
         cancelAnimation(decayOffset);
       })
-      .onStart(() => {
+      .onStart((event) => {
         'worklet';
+        setInteraction(2, true);
 
+        // Discard movement accumulated while the page decided the drag direction.
+        panStartTranslationX.value = shouldWaitForPageScroll
+          ? event.translationX
+          : 0;
         const runtime = chartRuntime.value;
         const nextChartWidth = getTradingViewNativeChartWidth(
           runtime.size.width,
@@ -327,6 +369,7 @@ export function useTradingViewNativeChartGestures({
         'worklet';
 
         const runtime = chartRuntime.value;
+        const translationX = event.translationX - panStartTranslationX.value;
         const nextRuntimeState = reduceTradingViewNativeChartRuntime(runtime, {
           chartWidth: getTradingViewNativeChartWidth(
             runtime.size.width,
@@ -335,7 +378,7 @@ export function useTradingViewNativeChartGestures({
           hideCrosshair: true,
           offset:
             runtime.panGesture.startOffset +
-            event.translationX * TRADING_VIEW_NATIVE_PAN_DRAG_RATIO,
+            translationX * TRADING_VIEW_NATIVE_PAN_DRAG_RATIO,
           pointCount: runtime.points.length,
           type: 'panMoved',
         });
@@ -346,44 +389,31 @@ export function useTradingViewNativeChartGestures({
           ...nextRuntimeState,
           panGesture: {
             ...runtime.panGesture,
-            translationX: event.translationX,
+            startOffset:
+              getTradingViewNativePanStartOffsetAfterViewportPreservation({
+                currentTranslationX: translationX,
+                dragRatio: TRADING_VIEW_NATIVE_PAN_DRAG_RATIO,
+                preservedOffset: nextOffset,
+              }),
+            translationX,
           },
         };
       })
       .onEnd((event) => {
         'worklet';
 
-        const runtime = chartRuntime.value;
-        const maxOffset = getTradingViewNativeMaxPanOffset({
-          chartWidth: getTradingViewNativeChartWidth(
-            runtime.size.width,
-            priceAxisWidth.value,
-          ),
-          initialRightOffset: runtime.viewport.initialRightOffset,
-          pointCount: runtime.points.length,
-          zoomScale: runtime.viewport.zoomScale,
-        });
-        if (maxOffset <= 0) {
-          const nextRuntimeState = reduceTradingViewNativeChartRuntime(
-            runtime,
-            {
-              chartWidth: getTradingViewNativeChartWidth(
-                runtime.size.width,
-                priceAxisWidth.value,
-              ),
-              offset: 0,
-              pointCount: runtime.points.length,
-              type: 'panMoved',
-            },
-          );
-          decayOffset.value = 0;
-          chartRuntime.value = {
-            ...runtime,
-            ...nextRuntimeState,
-          };
-        } else if (Math.abs(event.velocityX) >= MIN_FLING_VELOCITY) {
+        if (Math.abs(event.velocityX) >= MIN_FLING_VELOCITY) {
+          const runtime = chartRuntime.value;
+          const { minOffset, maxOffset } = getTradingViewNativePanOffsetBounds({
+            ...runtime.viewport,
+            chartWidth: getTradingViewNativeChartWidth(
+              runtime.size.width,
+              priceAxisWidth.value,
+            ),
+            pointCount: runtime.points.length,
+          });
           decayOffset.value = withDecay({
-            clamp: [0, maxOffset],
+            clamp: [minOffset, maxOffset],
             deceleration: PAN_DECELERATION,
             velocity: event.velocityX * TRADING_VIEW_NATIVE_PAN_DRAG_RATIO,
           });
@@ -391,6 +421,7 @@ export function useTradingViewNativeChartGestures({
       })
       .onFinalize(() => {
         'worklet';
+        setInteraction(2, false);
 
         const runtime = chartRuntime.value;
         chartRuntime.value = {
@@ -402,6 +433,14 @@ export function useTradingViewNativeChartGestures({
         };
       });
 
+    if (shouldWaitForPageScroll) {
+      // The page already selects the direction. An independent Y failure could
+      // reject the same diagonal move that failed the page's X threshold.
+      panGesture.requireExternalGestureToFail(...headerScrollGestures);
+    } else {
+      panGesture.failOffsetY([-12, 12]);
+    }
+
     const timeAxisScaleGesture = Gesture.Pan()
       .activeOffsetX([-4, 4])
       .failOffsetY([-12, 12])
@@ -410,12 +449,17 @@ export function useTradingViewNativeChartGestures({
         'worklet';
 
         const touch = event.changedTouches[0];
-        if (!touch || !isTimeAxisTouch(touch.x, touch.y)) {
+        if (
+          !touch ||
+          isNavigationEdgeTouch(touch.absoluteX) ||
+          !isTimeAxisTouch(touch.x, touch.y)
+        ) {
           stateManager.fail();
         }
       })
       .onStart((event) => {
         'worklet';
+        setInteraction(4, true);
 
         cancelAnimation(decayOffset);
         const runtime = chartRuntime.value;
@@ -480,11 +524,15 @@ export function useTradingViewNativeChartGestures({
           timeAxisScaleGesture: {
             ...gesture,
             currentX,
+            startOffset: nextRuntimeState.viewport.offset,
+            startX: currentX,
+            startZoomScale: nextRuntimeState.viewport.zoomScale,
           },
         };
       })
       .onFinalize(() => {
         'worklet';
+        setInteraction(4, false);
 
         const runtime = chartRuntime.value;
         chartRuntime.value = {
@@ -499,6 +547,7 @@ export function useTradingViewNativeChartGestures({
     const pinchGesture = Gesture.Pinch()
       .onStart((event) => {
         'worklet';
+        setInteraction(8, true);
 
         cancelAnimation(decayOffset);
         const runtime = chartRuntime.value;
@@ -558,11 +607,15 @@ export function useTradingViewNativeChartGestures({
           pinchGesture: {
             ...runtime.pinchGesture,
             currentScale: event.scale,
+            scaleBaseline: event.scale,
+            startOffset: nextRuntimeState.viewport.offset,
+            startZoomScale: nextRuntimeState.viewport.zoomScale,
           },
         };
       })
       .onFinalize(() => {
         'worklet';
+        setInteraction(8, false);
 
         const runtime = chartRuntime.value;
         chartRuntime.value = {
@@ -589,12 +642,20 @@ export function useTradingViewNativeChartGestures({
       ),
     );
   }, [
+    activeGestures,
+    panStartTranslationX,
     chartRuntime,
     decayOffset,
     hasMultipleCrosshairTouches,
+    headerScrollGestures,
+    excludeStartEdgeWidth,
+    isRTL,
+    windowWidth,
+    shouldWaitForPageScroll,
     isClickInteractionEnabled,
     isCrosshairEnabled,
     onSubIndicatorSettingsPress,
+    onInteractionChange,
     pressedSubIndicatorSettingsTarget,
     priceAxisResetGesture,
     priceAxisScaleGesture,

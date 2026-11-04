@@ -153,6 +153,7 @@ class ServiceUniversalSearch extends ServiceBase {
               return {
                 type: EUniversalSearchType.V2MarketToken as const,
                 payload: {
+                  assetId: configToken.assetId,
                   name: batchItem?.name ?? configToken.name,
                   symbol: batchItem?.symbol ?? configToken.symbol,
                   price: batchItem?.price ?? '0',
@@ -177,7 +178,16 @@ class ServiceUniversalSearch extends ServiceBase {
             );
 
           if (v2Items.length) {
-            result[EUniversalSearchType.V2MarketToken] = { items: v2Items };
+            const tokens =
+              await this.backgroundApi.serviceMarket.resolveSearchTokenAssets(
+                v2Items.map((item) => item.payload),
+              );
+            result[EUniversalSearchType.V2MarketToken] = {
+              items: tokens.map((payload) => ({
+                type: EUniversalSearchType.V2MarketToken,
+                payload,
+              })),
+            };
           }
         }
       } catch {
@@ -600,11 +610,10 @@ class ServiceUniversalSearch extends ServiceBase {
     const networkIdList = await this.getUniversalValidateNetworkIds({
       networkId,
     });
-    const batchValidateResult =
-      await serviceValidator.serverBatchValidateAddress({
-        networkIdList,
-        accountAddress: trimmedInput,
-      });
+    const batchValidateResult = await serviceValidator.validateAddressBatch({
+      networkIdList,
+      accountAddress: trimmedInput,
+    });
 
     // Execute account name search in parallel
     const accountNameResults = await accountNameSearchPromise;
@@ -991,11 +1000,10 @@ class ServiceUniversalSearch extends ServiceBase {
     const networkIdList = await this.getUniversalValidateNetworkIds({
       networkId,
     });
-    const batchValidateResult =
-      await serviceValidator.serverBatchValidateAddress({
-        networkIdList,
-        accountAddress: trimmedInput,
-      });
+    const batchValidateResult = await serviceValidator.validateAddressBatch({
+      networkIdList,
+      accountAddress: trimmedInput,
+    });
 
     if (!batchValidateResult.isValid) {
       return { items: [] } as IUniversalSearchSingleResult;

@@ -1,9 +1,11 @@
 /* eslint-disable new-cap, global-require, @typescript-eslint/no-var-requires */
 import { buildCallRemoteApiMethod } from '@onekeyhq/kit-bg/src/apis/RemoteApiProxyBase';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 
 import { DESKTOP_API_MESSAGE_TYPE } from '../base/consts';
 import { JsBridgeDesktopApiOfMain } from '../base/JsBridgeDesktopApiOfMain';
+import { isDesktopApiMethodAllowed } from '../desktopApiMethodPolicy';
 
 import type {
   IDesktopApi,
@@ -200,11 +202,18 @@ const createDesktopApiModule = memoizee(
   },
 );
 
-const callDesktopApiMethod =
+const dispatchDesktopApiMethod =
   buildCallRemoteApiMethod<IDesktopApiMessagePayload>(
     createDesktopApiModule,
     'desktopApi',
   );
+
+function callDesktopApiMethod(message: IDesktopApiMessagePayload) {
+  if (!isDesktopApiMethodAllowed(message?.module, message?.method)) {
+    throw new OneKeyLocalError('Desktop API method is not public');
+  }
+  return dispatchDesktopApiMethod(message);
+}
 
 function desktopApiSetup() {
   const bridge = new JsBridgeDesktopApiOfMain({

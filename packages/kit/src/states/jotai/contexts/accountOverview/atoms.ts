@@ -1,3 +1,4 @@
+import type { IPortfolioCategoryRefreshResult } from '@onekeyhq/kit-bg/src/services/ServiceHardware/serviceHardwarePortfolioSync/ServiceHardwarePortfolioSync';
 import { CONTEXT_ATOM_COLD_START_CACHE_KEYS } from '@onekeyhq/shared/src/consts/jotaiConsts';
 import type { IWalletBanner } from '@onekeyhq/shared/types/walletBanner';
 
@@ -85,6 +86,20 @@ export const {
   },
 );
 
+export const {
+  atom: portfolioCategoryRefreshAtom,
+  use: usePortfolioCategoryRefreshAtom,
+} = contextAtom<{
+  ownerKey: string;
+  requestId: number;
+  isRefreshing: boolean;
+  failedSources: IPortfolioCategoryRefreshResult['failedSources'];
+  heldTotalFiatUsd?: string;
+  data?: IPortfolioCategoryRefreshResult;
+  dataRequestId?: number;
+  retry?: () => void;
+}>({ ownerKey: '', requestId: 0, isRefreshing: false, failedSources: [] });
+
 // The amount and categories currently rendered in the Home balance header.
 // Portfolio sync reads this owner-scoped view instead of fetching a second
 // valuation when it builds the device payload.
@@ -98,6 +113,7 @@ export const {
   defiFiatUsd?: string;
   perpsFiatUsd?: string;
   isLive: boolean;
+  categoryRevision?: number;
 }>({ ownerKey: '', isLive: false });
 
 export const {
@@ -145,11 +161,12 @@ export const { atom: allNetworksStateAtom, use: useAllNetworksStateStateAtom } =
 
 export const { atom: approvalsInfoAtom, use: useApprovalsInfoAtom } =
   contextAtom<{
-    hasRiskApprovals: boolean;
-    riskApprovalsCount: number;
+    ownerKey: string;
+    // Risk approvals the user has not reviewed within the resurface window.
+    showRiskApprovalsDot: boolean;
   }>({
-    hasRiskApprovals: false,
-    riskApprovalsCount: 0,
+    ownerKey: '',
+    showRiskApprovalsDot: false,
   });
 
 export const { atom: walletTopBannersAtom, use: useWalletTopBannersAtom } =

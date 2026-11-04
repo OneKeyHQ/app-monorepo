@@ -1,5 +1,34 @@
-function formatChartPrice(price, maxCharacters) {
+function formatChartPrice(price, maxCharacters, stockPrice, fullPrice) {
   if (!Number.isFinite(price)) return '--';
+  if (fullPrice && Math.abs(price) >= 1) {
+    var fullMatch = /^(-?\$)(\d+)\.(\d{2})$/.exec(
+      formatChartPrice(price, maxCharacters, true),
+    );
+    if (fullMatch && Number(fullMatch[2]) < 1e6) {
+      var integer = fullMatch[2].replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+      return fullPrice === 'whole'
+        ? fullMatch[1] + integer
+        : fullMatch[1] + integer + '.' + fullMatch[3];
+    }
+    return formatChartPrice(price, maxCharacters);
+  }
+  if (stockPrice && Math.abs(price) >= 1) {
+    // Round the decimal digits half-up, avoiding binary midpoint errors.
+    const [mantissa, exponentText] = Math.abs(price).toExponential().split('e');
+    const decimalPosition = Number(exponentText) + 1;
+    const digits = mantissa.replace('.', '').padEnd(decimalPosition + 3, '0');
+    const cents = digits.slice(0, decimalPosition + 2).split('');
+    if (digits.charAt(decimalPosition + 2) >= '5') {
+      let index = cents.length - 1;
+      while (index >= 0 && cents[index] === '9') {
+        cents[index] = '0';
+        index -= 1;
+      }
+      if (index < 0) cents.unshift('1');
+      else cents[index] = String(Number(cents[index]) + 1);
+    }
+    return `${price < 0 ? '-' : ''}$${cents.slice(0, -2).join('')}.${cents.slice(-2).join('')}`;
+  }
   var limit = Number.isFinite(maxCharacters)
     ? Math.max(4, Math.floor(maxCharacters))
     : 8;

@@ -17,6 +17,7 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import { NetworkAvatar } from '@onekeyhq/kit/src/components/NetworkAvatar';
+import { getOnramperQuotePricing } from '@onekeyhq/shared/src/modules3rdParty/onramper';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
 import { DetailRow, formatPrice } from './DetailRow';
@@ -28,6 +29,7 @@ import {
   MOTION_MICRO_MS,
 } from './motionTokens';
 import { ProviderLogo, getProviderDisplayName } from './ProviderLogo';
+import { RateRow } from './RateRow';
 
 type IProps = {
   tokenSymbol: string;
@@ -39,11 +41,12 @@ type IProps = {
   // change, nothing below the card moves (the pay zone below is hard-swap by
   // design and must not be displaced).
   isQuoting?: boolean;
-  // USD market price of 1 token from OneKey's own feed — prices the payout's
-  // parenthetical. Must NOT come from the Onramper quote: its `rate` is just
-  // payout/amount echoed back (device-verified), and amount−fees can't see
-  // the spread the provider bakes into the conversion.
-  marketPrice?: number;
+  // Fiat the user pays, in the quote's source currency. Together with the
+  // quote's fees it prices the payout at the provider's own rate
+  // (getOnramperQuotePricing) — NOT at OneKey's market price: the provider's
+  // spread (~3% on Coinbase Pay) made the market-priced figure disagree with
+  // "amount − fees", which read as a fee error (2026-09-23 production orders).
+  fiatAmount?: number;
   payout?: number;
   networkFee?: number;
   transactionFee?: number;
@@ -65,7 +68,7 @@ export function CheckoutInfoCard({
   networkId,
   networkName,
   isQuoting,
-  marketPrice,
+  fiatAmount,
   payout,
   networkFee,
   transactionFee,
@@ -75,12 +78,26 @@ export function CheckoutInfoCard({
 }: IProps) {
   const totalFee = (networkFee ?? 0) + (transactionFee ?? 0);
   const hasFee = networkFee !== undefined || transactionFee !== undefined;
-  // Market value of the estimated receive. ≈ because the market feed and the
-  // provider quote are two sources sampled at slightly different times; when
-  // no price is available the parenthetical is hidden entirely.
-  const payoutFiatValue =
-    payout !== undefined && marketPrice !== undefined
-      ? payout * marketPrice
+  // Provider-rate value of the estimated receive (= amount − fees) and the
+  // rate itself. Undefined until a full quote is in hand, or when the quote
+  // can't be priced — the fiat figures are then hidden rather than replaced
+  // with a different-meaning number. fiatAmount and the quote must describe
+  // the same request: the hook keeps the last quote only while a NEW request
+  // is in flight (preset tap after typing, provider switch) and drops it when
+  // that request fails, so the !isQuoting gate — same as the hero estimate —
+  // covers the one window where the two can disagree.
+  const pricing =
+    !isQuoting &&
+    fiatAmount !== undefined &&
+    payout !== undefined &&
+    networkFee !== undefined &&
+    transactionFee !== undefined
+      ? getOnramperQuotePricing({
+          amount: fiatAmount,
+          payout,
+          networkFee,
+          transactionFee,
+        })
       : undefined;
   const rows: { key: string; node: ReactNode }[] = [];
   rows.push({
@@ -96,9 +113,11 @@ export function CheckoutInfoCard({
             >
               {payout}
             </NumberSizeableText>
-            {payoutFiatValue !== undefined ? (
+            {/* ≈ because the payout itself is the provider's estimate; the
+                delivered amount settles at execution. */}
+            {pricing ? (
               <SizableText size="$bodyMd" color="$textSubdued">
-                {`(≈${formatPrice(payoutFiatValue)})`}
+                {`(≈${formatPrice(pricing.payoutFiatValue)})`}
               </SizableText>
             ) : null}
           </XStack>
@@ -109,6 +128,19 @@ export function CheckoutInfoCard({
       </DetailRow>
     ),
   });
+  if (pricing || isQuoting) {
+    rows.push({
+      key: 'rate',
+      node: (
+        <RateRow
+          tokenSymbol={tokenSymbol}
+          impliedPrice={pricing?.impliedPrice}
+          providerName={providerName}
+          py="$2"
+        />
+      ),
+    });
+  }
   if (hasFee || isQuoting) {
     rows.push({
       key: 'fee',

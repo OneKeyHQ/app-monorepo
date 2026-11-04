@@ -118,6 +118,20 @@ describe('main-process OneKey purchase identity', () => {
     ).toBe(true);
   });
 
+  it('reads the email session from the test realm slot when the test realm is selected', async () => {
+    await verifyRevenueCatIdentity({
+      ...context,
+      sessionSource: EPrimeAuthSessionSource.LegacyEmailSupabase,
+      endpointEnv: 'test',
+    });
+    expect(mockGetSecureItem).toHaveBeenCalledWith(
+      `${SUPABASE_STORAGE_KEY_PREFIX}sb-onekey-test-auth-token`,
+    );
+    expect(mockGetSecureItem).not.toHaveBeenCalledWith(
+      `${SUPABASE_STORAGE_KEY_PREFIX}${getSupabaseAuthSessionKey()}`,
+    );
+  });
+
   it.each([undefined, '', 'not-json', '{}', '{"access_token":42}'])(
     'rejects unusable secure storage (%s) before networking',
     async (raw) => {

@@ -1,17 +1,23 @@
 /* eslint-disable @typescript-eslint/naming-convention */
-import { useCallback, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
 
-import TabView from '@onekeyfe/react-native-tab-view';
+import BottomTabs from '@onekeyfe/react-native-bottom-tabs';
 import {
   CommonActions,
   type ParamListBase,
   type Route,
   type TabNavigationState,
 } from '@react-navigation/native';
-import { Platform, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
+import { useSafeAreaInsets } from '../../../hooks/useLayout';
 import { Spinner, Stack } from '../../../primitives';
+
+import { TabSceneContext } from './TabSceneContext';
 
 import type {
   NativeBottomTabDescriptorMap,
@@ -29,9 +35,12 @@ const styles = StyleSheet.create({
   scene: {
     flex: 1,
   },
-  androidHiddenTabBarScene: {
+  hiddenTabBarScene: {
     width: '100%',
     height: '100%',
+  },
+  sceneContent: {
+    flex: 1,
   },
   activationSignal: {
     position: 'absolute',
@@ -60,27 +69,68 @@ function SceneLoadingView() {
   );
 }
 
+// iPhone Duo places the status bar, camera and vertical tab bar in a side
+// strip and reports it as a horizontal safe area inset. Tab pages only handle
+// top/bottom insets, so keep their content out of that strip here. Regular
+// iPhones are portrait-locked, where these insets are always 0.
+const shouldApplyHorizontalSafeArea =
+  platformEnv.isNativeIOS && !platformEnv.isNativeIOSPad;
+
+function HorizontalSafeAreaSceneContent({ children }: { children: ReactNode }) {
+  const { left, right } = useSafeAreaInsets();
+  const style = useMemo(
+    () => [styles.sceneContent, { paddingLeft: left, paddingRight: right }],
+    [left, right],
+  );
+  return <View style={style}>{children}</View>;
+}
+
 function SceneWithActivationPlaceholder({
   routeKey,
+  routeName,
   focused,
+  preloaded,
   activated,
   onActivated,
   children,
 }: {
   routeKey: string;
+  routeName: string;
   focused: boolean;
+  preloaded: boolean;
   activated: boolean;
   onActivated: (routeKey: string) => void;
   children: ReactNode;
 }) {
+  const sceneInfo = useMemo(
+    () => ({ tabName: routeName, preloaded }),
+    [routeName, preloaded],
+  );
   const handleLayout = useCallback(() => {
+    defaultLogger.app.perf.tabPreloadStage({
+      stage: 'sceneRevealed',
+      tab: routeName,
+      aheadOfFocus: !focused,
+    });
     onActivated(routeKey);
-  }, [onActivated, routeKey]);
+  }, [focused, onActivated, routeKey, routeName]);
 
   return (
     <View style={styles.scene}>
-      {children}
-      {focused && !activated ? (
+      <TabSceneContext.Provider value={sceneInfo}>
+        {shouldApplyHorizontalSafeArea ? (
+          <HorizontalSafeAreaSceneContent>
+            {children}
+          </HorizontalSafeAreaSceneContent>
+        ) : (
+          children
+        )}
+      </TabSceneContext.Provider>
+      {/* A preloaded scene is laid out while still blurred, so let every
+          scene that has not been activated yet raise the signal. Gating this
+          on `focused` kept each preloaded tab behind SceneLoadingView until
+          its first tap, which hid the whole benefit of preloading. */}
+      {!activated ? (
         <View
           collapsable={false}
           pointerEvents="none"
@@ -99,6 +149,7 @@ export function NativeBottomTabView({
   descriptors,
   tabBar,
   tabBarHidden,
+  sideAccessoryIcon,
   ...rest
 }: Props) {
   const [activatedRouteKeys, setActivatedRouteKeys] = useState<string[]>(() => {
@@ -116,7 +167,9 @@ export function NativeBottomTabView({
     ({ route }: { route: Route<string> }) => (
       <SceneWithActivationPlaceholder
         routeKey={route.key}
+        routeName={route.name}
         focused={state.routes[state.index]?.key === route.key}
+        preloaded={Boolean(state.preloadedRouteKeys?.includes(route.key))}
         activated={activatedRouteKeys.includes(route.key)}
         onActivated={handleSceneActivated}
       >
@@ -128,6 +181,7 @@ export function NativeBottomTabView({
       descriptors,
       handleSceneActivated,
       state.index,
+      state.preloadedRouteKeys,
       state.routes,
     ],
   );
@@ -221,24 +275,21 @@ export function NativeBottomTabView({
   const getSceneStyle = useCallback(
     ({ route }: { route: Route<string> }) => [
       descriptors[route.key]?.options.sceneStyle,
-      // Android can report the old scene height once after its native tab bar
-      // becomes GONE. Fill the expanded holder immediately so a screen pushed
-      // during that frame does not inherit the stale tab-bar viewport.
-      Platform.OS === 'android' && tabBarHidden
-        ? styles.androidHiddenTabBarScene
-        : undefined,
+      // Hidden-tab scenes follow the native holder through bar changes and
+      // rotation without waiting for JS to receive its new dimensions.
+      tabBarHidden ? styles.hiddenTabBarScene : undefined,
     ],
     [descriptors, tabBarHidden],
   );
-  const onTabLongPress = useCallback(
+  const onTabDoublePress = useCallback(
     (index: number) => {
       const route = state.routes[index];
       if (!route) {
-        return false;
+        return;
       }
 
       navigation.emit({
-        type: 'tabLongPress',
+        type: 'tabDoublePress',
         target: route.key,
       });
     },
@@ -285,8 +336,9 @@ export function NativeBottomTabView({
   );
 
   return (
-    <TabView
+    <BottomTabs
       {...rest}
+      sideAccessoryIcon={sideAccessoryIcon}
       tabBarHidden={tabBarHidden}
       navigationState={state}
       renderScene={renderScene}
@@ -304,7 +356,7 @@ export function NativeBottomTabView({
       getLazy={getLazy}
       getFreezeOnBlur={getFreezeOnBlur}
       getSceneStyle={getSceneStyle}
-      onTabLongPress={onTabLongPress}
+      onTabDoublePress={onTabDoublePress}
       getPreventsDefault={getPreventsDefault}
       onIndexChange={onIndexChange}
     />

@@ -14,6 +14,7 @@ import type {
   IPerpTokenSelectorConfig,
   IPerpUserConfig,
   IPerpsActiveAssetData,
+  IPerpsDexCrossMargin,
   IPerpsFormattedAssetCtx,
   IPerpsUniverse,
 } from '@onekeyhq/shared/types/hyperliquid';
@@ -28,6 +29,12 @@ import {
 } from '@onekeyhq/shared/types/hyperliquid/perp.constants';
 import type { IUsdcWithdrawDestinationId } from '@onekeyhq/shared/types/hyperliquid/perp.constants';
 import type { ESwapTxHistoryStatus } from '@onekeyhq/shared/types/swap/types';
+import {
+  type ITradingViewNativeChartSettings,
+  type ITradingViewNativeIndicatorSettings,
+  createTradingViewNativeChartSettings,
+  createTradingViewNativeIndicatorSettings,
+} from '@onekeyhq/shared/types/tradingViewNative';
 import type {
   IUnifoldDepositExecution,
   IUnifoldExecutionStatus,
@@ -41,11 +48,46 @@ import { hyperLiquidAgentPasswordStatusAtom } from './passwordLock';
 import type { IPerpDynamicTab } from '../../../services/ServiceWebviewPerp/ServiceWebviewPerp';
 import type { IAccountDeriveTypes } from '../../../vaults/types';
 
+export const {
+  target: perpsTradingViewChartSettingsPersistAtom,
+  use: usePerpsTradingViewChartSettingsPersistAtom,
+} = globalAtom<ITradingViewNativeChartSettings>({
+  persist: true,
+  name: EAtomNames.perpsTradingViewChartSettingsPersistAtom,
+  initialValue: createTradingViewNativeChartSettings(),
+});
+
+export const {
+  target: perpsTradingViewIndicatorSettingsPersistAtom,
+  use: usePerpsTradingViewIndicatorSettingsPersistAtom,
+} = globalAtom<ITradingViewNativeIndicatorSettings>({
+  persist: true,
+  name: EAtomNames.perpsTradingViewIndicatorSettingsPersistAtom,
+  initialValue: {
+    ...createTradingViewNativeIndicatorSettings(),
+    subIndicators: [
+      {
+        active: true,
+        id: 'VOL',
+        lines: {},
+        parameters: {},
+        transparency: 50,
+      },
+    ],
+  },
+});
+
 // Shared by Market entries and Web Perps, including expanded extension windows.
+export type IWebviewPerpTradeTarget = {
+  coin?: string;
+  revision: number;
+  requestId?: string;
+};
+
 export const {
   target: webviewPerpTradeTargetAtom,
   use: useWebviewPerpTradeTargetAtom,
-} = globalAtom<{ coin?: string; revision: number }>({
+} = globalAtom<IWebviewPerpTradeTarget>({
   name: EAtomNames.webviewPerpTradeTargetAtom,
   initialValue: { revision: 0 },
 });
@@ -107,6 +149,7 @@ export interface IPerpsAccountDisplaySnapshotEntry {
   account: IPerpsActiveAccountAtom;
   accountValue: string | undefined;
   withdrawable: string | undefined;
+  isAccountValuePartial?: boolean;
   activeAsset:
     | {
         coin: string;
@@ -210,17 +253,18 @@ export function getPerpsAccountDisplaySnapshotEntry({
 // #region Abstraction Mode
 export type IPerpsAbstractionModeSource = 'live' | 'cache';
 
-export const {
-  target: perpsAbstractionModeAtom,
-  use: usePerpsAbstractionModeAtom,
-} = globalAtom<
+export type IPerpsAbstractionModeAtom =
   | {
       accountAddress: IHex | undefined;
       mode: EHyperLiquidAbstractionMode | undefined;
       source?: IPerpsAbstractionModeSource;
     }
-  | undefined
->({
+  | undefined;
+
+export const {
+  target: perpsAbstractionModeAtom,
+  use: usePerpsAbstractionModeAtom,
+} = globalAtom<IPerpsAbstractionModeAtom>({
   name: EAtomNames.perpsAbstractionModeAtom,
   initialValue: undefined,
 });
@@ -323,12 +367,33 @@ export const { target: perpsSpotBalancesAtom, use: usePerpsSpotBalancesAtom } =
         accountAddress: IHex | undefined;
         balances: ISpotBalanceItem[];
         spotTotalUsd: string | undefined;
+        hasUnsupportedBalances?: boolean;
       }
     | undefined
   >({
     name: EAtomNames.perpsSpotBalancesAtom,
     initialValue: undefined,
   });
+// #endregion
+
+// #region Liquidation Risk Inputs
+// Live-only: never hydrated from the display cache, so a pre-trade liquidation
+// estimate cannot be computed from a stale or different account's snapshot.
+export type IPerpsLiquidationRiskInputsAtom =
+  | {
+      accountAddress: IHex;
+      abstractionMode: EHyperLiquidAbstractionMode;
+      tokenToAvailableAfterMaintenance?: Record<number, string>;
+      crossMarginByDex?: Record<string, IPerpsDexCrossMargin>;
+    }
+  | undefined;
+export const {
+  target: perpsLiquidationRiskInputsAtom,
+  use: usePerpsLiquidationRiskInputsAtom,
+} = globalAtom<IPerpsLiquidationRiskInputsAtom>({
+  name: EAtomNames.perpsLiquidationRiskInputsAtom,
+  initialValue: undefined,
+});
 // #endregion
 
 export type IPerpsActiveAccountStatusDetails = {
@@ -361,6 +426,7 @@ export const {
   accountValue: string | undefined;
   withdrawable: string | undefined;
   isLoading: boolean;
+  isAccountValuePartial?: boolean;
 }>({
   read: (get) => {
     const account = get(perpsActiveAccountAtom.atom());
@@ -433,6 +499,7 @@ export const {
         : '0';
       return {
         accountValue: activeSpotData.spotTotalUsd,
+        isAccountValuePartial: activeSpotData.hasUnsupportedBalances,
         withdrawable: usdcWithdrawable,
         isLoading: false,
       };
@@ -443,6 +510,7 @@ export const {
     const spotValue = new BigNumber(activeSpotData?.spotTotalUsd || '0');
     return {
       accountValue: spotValue.plus(perpsValue).toFixed(),
+      isAccountValuePartial: activeSpotData?.hasUnsupportedBalances,
       withdrawable: activeSummary?.withdrawable,
       isLoading: activeSpotData?.spotTotalUsd === undefined,
     };
@@ -823,6 +891,21 @@ export const {
   initialValue: undefined,
 });
 
+const twapMarkPriceAtom = globalAtomComputedR<string | undefined>({
+  read: (get) =>
+    get(perpsActiveAssetCtxAtom.atom())?.ctx?.markPrice ??
+    get(perpsActiveAssetDataAtom.atom())?.markPx,
+});
+const disabledTwapMarkPriceAtom = globalAtomComputedR<string | undefined>({
+  read: () => undefined,
+});
+
+export function usePerpsTwapMarkPrice(enabled: boolean): string | undefined {
+  const { use } = enabled ? twapMarkPriceAtom : disabledTwapMarkPriceAtom;
+  const [markPrice] = use();
+  return markPrice;
+}
+
 // #region Trading Mode
 export type ITradingMode = 'perp' | 'spot';
 export const { target: tradingModeAtom, use: useTradingModeAtom } =
@@ -1107,10 +1190,14 @@ export type IPerpsLastAdvancedOrderType = ETriggerOrderType | 'scale' | 'twap';
 export type IPerpsChartPosition = 'top' | 'bottom' | 'hidden';
 
 export interface IPerpsCustomSettings {
+  positionActionVisibility?: Partial<
+    Record<'add' | 'tpsl' | 'close' | 'reverse', boolean>
+  >;
   skipOrderConfirm: boolean;
   showTradeMarks: boolean;
   showChartLines: boolean;
   chartPosition?: IPerpsChartPosition;
+  chartMode?: 'native' | 'tradingView';
   hideSmallSpotHoldings: boolean;
   lastTriggerOrderType: ETriggerOrderType;
   lastAdvancedOrderType?: IPerpsLastAdvancedOrderType;
@@ -1127,6 +1214,7 @@ export const {
     showTradeMarks: true,
     showChartLines: true,
     chartPosition: 'bottom',
+    chartMode: 'tradingView',
     hideSmallSpotHoldings: true,
     lastTriggerOrderType: ETriggerOrderType.TRIGGER_MARKET,
     lastAdvancedOrderType: ETriggerOrderType.TRIGGER_MARKET,

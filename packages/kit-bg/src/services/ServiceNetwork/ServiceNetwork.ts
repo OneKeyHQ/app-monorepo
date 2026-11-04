@@ -32,7 +32,11 @@ import {
   SEPERATOR,
 } from '@onekeyhq/shared/src/engine/engineConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
-import { getVendorProfile } from '@onekeyhq/shared/src/hardware/vendorProfile';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { getVendorProfile } from '@onekeyhq/shared/src/hardware/config/vendorProfile';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
@@ -52,6 +56,10 @@ import { ENetworkStatus, type IServerNetwork } from '@onekeyhq/shared/types';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 
 import { vaultFactory } from '../../vaults/factory';
+import {
+  hideLocalWalletPrivatePools,
+  isLocalWalletPrivacyDisabled,
+} from '../../vaults/localWallet/remoteConfig';
 import {
   getVaultSettings,
   getVaultSettingsAccountDeriveInfo,
@@ -142,14 +150,17 @@ class ServiceNetwork extends ServiceBase {
 
       perf.markStart('getServerNetworks-and-getAllCustomNetworks');
       // Fetch server and custom networks
-      const [serverNetworks, customNetworks] = await Promise.all([
-        this.backgroundApi.serviceCustomRpc.getServerNetworks(),
+      const [
+        { networks: serverNetworks, delistedPresetNetworkIds },
+        customNetworks,
+      ] = await Promise.all([
+        this.backgroundApi.serviceCustomRpc.getServerNetworkState(),
         this.backgroundApi.serviceCustomRpc.getAllCustomNetworks(),
       ]);
       perf.markEnd('getServerNetworks-and-getAllCustomNetworks');
 
       // Create a Map to store unique networks by id
-      // Priority: serverNetworks > presetNetworks > customNetworks
+      // Priority: presetNetworks > serverNetworks > customNetworks
       const networkMap = new Map<string, IServerNetwork>();
 
       // Helper function to add networks to the map
@@ -162,8 +173,16 @@ class ServiceNetwork extends ServiceBase {
       };
 
       perf.markStart('addNetworks-presetNetworks');
-      // Add networks in order of priority
-      addNetworks(presetNetworks);
+      // Add networks in order of priority. A preset the server delisted keeps
+      // its slot as TRASH, so the TRASH filter below hides it.
+      const delistedPresetNetworkIdSet = new Set(delistedPresetNetworkIds);
+      addNetworks(
+        presetNetworks.map((network) =>
+          delistedPresetNetworkIdSet.has(network.id)
+            ? { ...network, status: ENetworkStatus.TRASH }
+            : network,
+        ),
+      );
       perf.markEnd('addNetworks-presetNetworks');
 
       perf.markStart('addNetworks-serverNetworks');
@@ -348,7 +367,15 @@ class ServiceNetwork extends ServiceBase {
 
   @backgroundMethod()
   async getVaultSettings({ networkId }: { networkId: string }) {
-    return this._getVaultSettingsByNetworkId(networkId);
+    const settings = await this._getVaultSettingsByNetworkId(networkId);
+    if (!settings.localWallet) {
+      return settings;
+    }
+    await this.backgroundApi.serviceCustomRpc.ensureLocalWalletRemoteConfigLoaded();
+    // Privacy switched off by the server: pages see only the public pool.
+    return isLocalWalletPrivacyDisabled(networkId)
+      ? hideLocalWalletPrivatePools(settings)
+      : settings;
   }
 
   @backgroundMethod()
@@ -1610,14 +1637,19 @@ class ServiceNetwork extends ServiceBase {
       return;
     }
     const timestamp = Date.now();
-    return this.backgroundApi.simpleDb.recentNetworks.updateRecentNetworks({
+    await this.backgroundApi.simpleDb.recentNetworks.updateRecentNetworks({
       [networkId]: { updatedAt: timestamp },
     });
+    const network = await this.getNetworkSafe({ networkId });
+    if (network) {
+      appEventBus.emit(EAppEventBusNames.RecentNetworkRecorded, { network });
+    }
   }
 
   @backgroundMethod()
   async clearRecentNetworks() {
-    return this.backgroundApi.simpleDb.recentNetworks.clearRecentNetworks();
+    await this.backgroundApi.simpleDb.recentNetworks.clearRecentNetworks();
+    appEventBus.emit(EAppEventBusNames.RecentNetworksCleared, undefined);
   }
 
   @backgroundMethod()
@@ -1674,6 +1706,15 @@ class ServiceNetwork extends ServiceBase {
     const deriveTypeRawData =
       await this.backgroundApi.simpleDb.accountSelector.getRawData();
 
+    const selectorNetworkIds = new Set(
+      [
+        ...chainSelectorNetworks.mainnetItems,
+        ...chainSelectorNetworks.testnetItems,
+        ...chainSelectorNetworks.frequentlyUsedItems,
+        ...chainSelectorNetworks.unavailableItems,
+      ].map((network) => network.id),
+    );
+
     for (const [key, value] of Object.entries(accountNetworkValues)) {
       const keyArray = key.split('_');
       const networkId = keyArray.pop() as string;
@@ -1684,7 +1725,10 @@ class ServiceNetwork extends ServiceBase {
         string,
       ];
       const shouldUseAccountNetworkValue = Boolean(
-        networkId && accountId && walletId === _walletId,
+        selectorNetworkIds.has(networkId) &&
+        networkId &&
+        accountId &&
+        walletId === _walletId,
       );
       if (shouldUseAccountNetworkValue) {
         if (!networkInfoMap[networkId]) {

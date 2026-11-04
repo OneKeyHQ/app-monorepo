@@ -64,6 +64,8 @@ export type IModalAssetDetailsParamList = {
   };
   [EModalAssetDetailRoutes.MarketDetail]: {
     token: string;
+    tokenImageUri?: string;
+    tokenSymbol?: string;
     /**
      * The wallet asset the caller launched Market from. Lets the trade
      * actions resolve the network and contract address even when market
@@ -96,6 +98,9 @@ export type IModalAssetDetailsParamList = {
     notificationId?: string;
     notificationAccountId?: string;
     historyTx: IAccountHistoryTx | undefined;
+    // Which pool tab this was opened from, for chains whose public and private
+    // history come from different sources.
+    privacyChainPoolId?: number;
     isAllNetworks?: boolean;
     checkIsFocused?: boolean;
     allowClickAccountNameSwitch?: boolean;
@@ -104,6 +109,7 @@ export type IModalAssetDetailsParamList = {
     accountId: string;
     networkId: string;
     txId: string;
+    privacyChainPoolId?: number;
     inputs?: IUtxoAddressInfo[];
     outputs?: IUtxoAddressInfo[];
   };

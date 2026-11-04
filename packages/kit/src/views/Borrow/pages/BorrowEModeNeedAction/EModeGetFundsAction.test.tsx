@@ -7,7 +7,7 @@ jest.mock('react-intl', () => ({
 }));
 
 jest.mock('@onekeyhq/components', () => {
-  const React = jest.requireActual('react') as typeof import('react');
+  const React = jest.requireActual<typeof import('react')>('react');
   const buttonProps: Record<string, unknown>[] = [];
   (globalThis as Record<string, unknown>).__eModeGetFundsButtonProps =
     buttonProps;

@@ -7,6 +7,12 @@ type IAllowList = Record<string, IAllowListRule>;
 
 const DYNAMIC_PATH_SUFFIX = '/.';
 
+export function normalizeMarketTokenDetailPath(path: string) {
+  // Native tokens have an empty address. Publish the existing native route
+  // without its empty address segment so allowlisting and reload agree.
+  return path.replace(/^(\/market\/token\/[^/?]+)\/(?=\?|$)/u, '$1');
+}
+
 function matchesDynamicAllowListPath({
   allowListKey,
   path,

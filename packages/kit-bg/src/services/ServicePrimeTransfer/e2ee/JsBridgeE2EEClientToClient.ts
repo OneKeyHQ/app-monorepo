@@ -20,7 +20,11 @@ import type { Socket } from 'socket.io';
 
 const RATE_LIMIT_INTERVAL_MS = 3500;
 const CHUNK_REQUESTS_PER_SECOND = 512;
-const lastRequestTime: Map<string, number> = new Map();
+
+// Upper bound on distinct methods tracked per connection. `method` comes from
+// the remote peer, so without a cap a single peer could grow this map forever.
+// Well above the number of methods a real peer calls.
+const RATE_LIMIT_MAX_TRACKED_METHODS = 64;
 
 // Rate limiting whitelist - methods that are exempt from rate limiting
 const RATE_LIMIT_WHITELIST = new Set([
@@ -60,6 +64,21 @@ export class JsBridgeE2EEClientToClient extends JsBridgeBase {
 
   isProxySide: boolean;
 
+  // Rate limit state held per bridge instance instead of a module-level map.
+  // The old map was keyed by socket.id and never pruned, so every socket.io
+  // reconnect (which mints a fresh id) leaked one entry per method for the
+  // lifetime of the process. Dropping socket.id from the key keeps the map
+  // bounded by method name and stable across reconnects, and the map is freed
+  // with the instance. `method` is still peer-controlled, so the entry count is
+  // additionally capped at RATE_LIMIT_MAX_TRACKED_METHODS, reclaiming expired
+  // windows only (see pruneRateLimitState). We deliberately do NOT attach a
+  // socket 'disconnect' listener to clear it (as the server does): the client
+  // socket is long-lived and this bridge is re-created on it (e.g. QR refresh
+  // -> joinRoom), where setup() detaches the superseded instance's c2c listener
+  // so it can be GC'd - a disconnect listener would pin that old instance and
+  // reintroduce a leak.
+  private rateLimitState = new Map<string, number>();
+
   override sendAsString = false;
 
   private chunkWindowStartedAt = 0;
@@ -73,9 +92,10 @@ export class JsBridgeE2EEClientToClient extends JsBridgeBase {
     payload: IJsBridgeMessagePayload;
     eventName: string;
   }): ETransferServerErrorCode | 'drop' | undefined {
-    const req: IJsonRpcRequest = payload.data as IJsonRpcRequest;
+    const req = payload?.data as IJsonRpcRequest | undefined;
+    const method = typeof req?.method === 'string' ? req.method : '';
 
-    if (req.method === 'sendTransferChunk') {
+    if (method === 'sendTransferChunk') {
       const now = Date.now();
       if (now - this.chunkWindowStartedAt >= 1000) {
         this.chunkWindowStartedAt = now;
@@ -113,21 +133,54 @@ export class JsBridgeE2EEClientToClient extends JsBridgeBase {
     }
 
     // Check if method is in whitelist
-    if (RATE_LIMIT_WHITELIST.has(req.method)) {
+    if (RATE_LIMIT_WHITELIST.has(method)) {
       return undefined;
     }
 
-    const rateLimitKey = `${this.socket.id}:${eventName}:${req.method}`;
+    // no socket id in the key: this map already belongs to this connection
+    const rateLimitKey = `${eventName}:${method}`;
 
     const now = Date.now();
-    const lastTime = lastRequestTime.get(rateLimitKey) || 0;
+    const lastTime = this.rateLimitState.get(rateLimitKey);
 
-    if (now - lastTime < RATE_LIMIT_INTERVAL_MS) {
+    if (lastTime !== undefined && now - lastTime < RATE_LIMIT_INTERVAL_MS) {
       return ETransferServerErrorCode.RATE_LIMIT_EXCEEDED;
     }
 
-    lastRequestTime.set(rateLimitKey, now);
+    if (
+      lastTime === undefined &&
+      this.rateLimitState.size >= RATE_LIMIT_MAX_TRACKED_METHODS
+    ) {
+      this.pruneRateLimitState(now);
+
+      if (this.rateLimitState.size >= RATE_LIMIT_MAX_TRACKED_METHODS) {
+        // Every tracked window is still live, so this peer is flooding distinct
+        // method names. Refuse to track a new one and treat it as limited: the
+        // flood throttles itself and the existing windows - the expensive calls
+        // it is trying to reset - stay intact.
+        return ETransferServerErrorCode.RATE_LIMIT_EXCEEDED;
+      }
+    }
+
+    this.rateLimitState.set(rateLimitKey, now);
     return undefined;
+  }
+
+  /**
+   * Reclaim entries whose window has already passed - they cannot rate limit
+   * anything any more.
+   *
+   * This only ever drops expired entries. Live windows are never touched: since
+   * `method` is peer-controlled, wiping the map on a flood would let the
+   * flooder reset the windows of the calls it was just blocked on, turning the
+   * bound into a rate-limit bypass.
+   */
+  private pruneRateLimitState(now: number): void {
+    Array.from(this.rateLimitState.entries()).forEach(([key, time]) => {
+      if (now - time >= RATE_LIMIT_INTERVAL_MS) {
+        this.rateLimitState.delete(key);
+      }
+    });
   }
 
   sendPayload(payload: IJsBridgeMessagePayload): void {

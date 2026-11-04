@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { Suspense, lazy, useEffect } from 'react';
 
 import { RootSiblingParent } from 'react-native-root-siblings';
 
@@ -27,13 +27,13 @@ import { GlobalErrorHandlerContainer } from './GlobalErrorHandlerContainer';
 import { GlobalWalletConnectModalContainer } from './GlobalWalletConnectModalContainer';
 import { HardwareUiStateContainerLazy } from './HardwareUiStateContainer/Lazy';
 import InAppNotification from './InAppNotification';
+import { IntercomNotificationContainer } from './IntercomNotificationContainer';
 import { KeylessWebAutoConnectHashCleanupContainer } from './KeylessWebAutoConnectHashCleanupContainer';
 import { LinuxUdevGuideDialogContainer } from './LinuxUdevGuideDialogContainer/LinuxUdevGuideDialogContainer';
 import { LocalDbDowngradeDialogContainer } from './LocalDbDowngradeDialogContainer';
 import { LocalSecretEnvelopeErrorDialogContainer } from './LocalSecretEnvelopeErrorDialogContainer';
 import { NavigationContainer } from './NavigationContainer';
 import PageTrackerContainer from './PageTrackerContainer';
-import { PasswordVerifyPortalContainer } from './PasswordVerifyPortalContainer';
 import { PerpsUnifoldDepositTerminalDeliveryContainer } from './PerpsUnifoldDepositTerminalDeliveryContainer';
 import { PrevCheckBeforeSendingContainer } from './PrevCheckBeforeSendingContainer';
 import { PrimeGlobalEffectLazy } from './PrimeGlobalEffectLazy';
@@ -45,6 +45,16 @@ import { ThirdPartyHardwareUiStateContainerLazy } from './ThirdPartyHardwareUiSt
 import { VerifyTxContainer } from './VerifyTxContainer';
 import { WalletBackupPreCheckContainerLazy } from './WalletBackupPreCheckContainerLazy';
 import { WebPerformanceMonitorContainer } from './WebPerformanceMonitor';
+
+// Lazy on purpose: this host is the startup graph's only sync importer of
+// wcPayDialogStore, so deferring it keeps the whole pay entry off the main
+// startup graph. The store holds state (not events): a payment link that lands
+// before the host is resident is picked up on its first render.
+const WalletConnectPayDialogContainerLazy = lazy(() =>
+  import('./WalletConnectPayDialogContainer').then((m) => ({
+    default: m.WalletConnectPayDialogContainer,
+  })),
+);
 
 function GlobalRootAppNavigationUpdate() {
   const navigation = useAppNavigation();
@@ -58,6 +68,7 @@ function DetailRouter() {
       <InAppNotification />
       <GlobalRootAppNavigationUpdate />
       <JotaiContextRootProvidersAutoMount />
+      <IntercomNotificationContainer />
       <Bootstrap />
       <FullWindowOverlayContainer />
       <AirGapQrcodeDialogContainer />
@@ -86,8 +97,10 @@ function DetailRouter() {
       <ColdStartByNotification />
       <PrimeGlobalEffectLazy />
       <WebPerformanceMonitorContainer />
-      <PasswordVerifyPortalContainer />
       <RookieShareContainerLazy />
+      <Suspense fallback={null}>
+        <WalletConnectPayDialogContainerLazy />
+      </Suspense>
     </NavigationContainer>
   );
 }

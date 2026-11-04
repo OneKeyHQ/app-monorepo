@@ -1,13 +1,16 @@
 /** @jest-environment jsdom */
 
-import type { ReactElement } from 'react';
+import type { ReactElement, ReactNode } from 'react';
 
 import { showTradingViewChartSettingsDialog } from './showTradingViewChartSettingsDialog';
 
 import type { ITradingViewChartSettingsProps } from './TradingViewChartSettings';
+import type { ITradingViewSettingsDialogRef } from './TradingViewSettingsDialog';
 
 type IMockDialogConfig = {
-  renderContent: ReactElement<ITradingViewChartSettingsProps>;
+  dialogContainer: (params: {
+    ref: ITradingViewSettingsDialogRef;
+  }) => ReactElement<ITradingViewChartSettingsProps & { children?: ReactNode }>;
 };
 
 const mockCloseDialog = jest.fn();
@@ -35,8 +38,10 @@ describe('showTradingViewChartSettingsDialog', () => {
     showTradingViewChartSettingsDialog();
 
     expect(
-      mockShowDialog.mock.calls[0][0].renderContent.props.hiddenOptionIds,
-    ).toEqual(['previousClose']);
+      mockShowDialog.mock.calls[0][0].dialogContainer({
+        ref: { current: null },
+      }).props.hiddenOptionIds,
+    ).toEqual(['previousClose', 'navigationButtons']);
   });
 
   it('lets custom settings content close its own dialog', () => {
@@ -48,9 +53,11 @@ describe('showTradingViewChartSettingsDialog', () => {
 
     showTradingViewChartSettingsDialog({ renderContent });
 
-    expect(mockShowDialog.mock.calls[0][0].renderContent).toBe(
-      renderContent.mock.results[0].value,
-    );
+    expect(
+      mockShowDialog.mock.calls[0][0].dialogContainer({
+        ref: { current: null },
+      }).props.children,
+    ).toBe(renderContent.mock.results[0].value);
     renderContent.mock.calls[0][0]();
     expect(mockCloseDialog).toHaveBeenCalledTimes(1);
   });

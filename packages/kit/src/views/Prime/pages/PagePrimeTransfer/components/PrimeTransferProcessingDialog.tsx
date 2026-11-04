@@ -8,6 +8,7 @@ import {
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms/prime';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
+import { usePrimeTransferStepProgress } from './hooks/usePrimeTransferStepProgress';
 import {
   PrimeTransferProgress,
   primeTransferProgressDialogProps,
@@ -18,14 +19,28 @@ import type { IntlShape } from 'react-intl';
 function PrimeTransferProcessingDialogContent() {
   const intl = useIntl();
   const [{ preparationProgress, networkProgress }] = usePrimeTransferAtom();
-  let value = preparationProgress?.percentage;
+  // Preparation and network transfer are separate 0-100% phases.
+  let phaseKey: string | undefined;
+  let target: number | undefined;
+  let completed = false;
   if (networkProgress) {
-    value = networkProgress.indeterminate
-      ? undefined
-      : Math.floor(
-          (100 * networkProgress.transferredBytes) / networkProgress.totalBytes,
-        );
+    phaseKey = `network:${networkProgress.direction}:${networkProgress.transferId}`;
+    if (!networkProgress.indeterminate) {
+      target =
+        networkProgress.totalBytes > 0
+          ? Math.floor(
+              (100 * networkProgress.transferredBytes) /
+                networkProgress.totalBytes,
+            )
+          : 0;
+    }
+    completed = Boolean(networkProgress.completed);
+  } else if (preparationProgress) {
+    phaseKey = `preparation:${preparationProgress.taskId}`;
+    target = preparationProgress.percentage;
+    completed = preparationProgress.percentage >= 100;
   }
+  const value = usePrimeTransferStepProgress({ phaseKey, target, completed });
   return (
     <Stack>
       <PrimeTransferProgress

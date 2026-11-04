@@ -34,7 +34,6 @@ const {
 const {
   getThirdPartyMMKVImportError,
 } = require('./scripts/native-storage-metro-policy');
-// const { withRozeniteExpoAtlasPlugin } = require('@rozenite/expo-atlas-plugin'); // Uncomment if needed
 
 const projectRoot = __dirname;
 
@@ -82,6 +81,17 @@ if (process.env.RN_HARNESS === 'true') {
   config.server.unstable_serverRoot = monorepoRoot;
   const expoRewrite = config.server.rewriteRequestUrl || ((url) => url);
   config.server.rewriteRequestUrl = (url) => {
+    if (
+      process.env.RN_HARNESS_NATIVE_STORAGE_BACKGROUND === 'true' &&
+      /^\/(?:apps\/mobile\/)?background\.bundle(?:\?|$)/u.test(url)
+    ) {
+      return expoRewrite(
+        url.replace(
+          /^\/(?:apps\/mobile\/)?background\.bundle/u,
+          '/apps/mobile/harness/nativeStorageBackgroundEntry.bundle',
+        ),
+      );
+    }
     // Handle Expo virtual entry first (before the general rewrite)
     if (url.includes('/.expo/.virtual-metro-entry.bundle')) {
       // oxlint-disable-next-line no-param-reassign
@@ -154,22 +164,23 @@ config.resolver.unstable_enablePackageExports = false;
 // Manual alias for a subpath export when package exports are disabled.
 const hyperliquidSigningPath = require.resolve('@nktkas/hyperliquid/signing');
 
-// OneKey HWK SDK sub-path aliases. With
-// `unstable_enablePackageExports=false` above, Metro can't read the `exports`
-// map in the SDK packages, so each sub-path consumer apps import (e.g.
-// `@onekeyfe/hwk-adapter-core/errors`) needs an explicit redirect. We
-// `require.resolve` here in Node-land where the `exports` map IS honored, so
-// the target file path is correct.
-//
-// When the SDK adds new sub-paths (or `unstable_enablePackageExports` becomes
-// safe to enable globally), append/remove entries from this array.
-const HWK_SUBPATH_ALIASES = [
+// Sub-path aliases for packages whose `exports` map Metro can't read with
+// `unstable_enablePackageExports=false`; resolved via Node's `require.resolve()`, which does honor it. Update this array when packages add new sub-paths.
+const SUBPATH_EXPORT_ALIASES = [
+  '@onekeyfe/react-native-image/icon',
   '@onekeyfe/hwk-adapter-core/errors',
   '@onekeyfe/hwk-adapter-core/ui-events',
   '@onekeyfe/hwk-trezor-connector-webusb/constants',
+  'bitcoinjs-lib/src/bufferutils',
+  'bitcoinjs-lib/src/payments/bip341',
+  // React Native 0.88 renderer shims import these export-only sub-paths.
+  'react-native/asset-registry',
+  'react-native/react-private-interface',
+  'react-native/setup-env',
+  'react-native/unstable-internals-do-not-use',
 ];
-const hwkSubpathAliasMap = new Map(
-  HWK_SUBPATH_ALIASES.map((spec) => [spec, require.resolve(spec)]),
+const subpathExportAliasMap = new Map(
+  SUBPATH_EXPORT_ALIASES.map((spec) => [spec, require.resolve(spec)]),
 );
 
 // @mysten/sui 2.x only exposes package exports; Metro package exports are disabled above.
@@ -200,7 +211,7 @@ const aptosScriptComposerNativeStub = path.resolve(
 // prefers even for native bundles. Pin native resolution to its native entry.
 const nativePagerViewEntry = path.resolve(
   monorepoRoot,
-  'node_modules/react-native-pager-view/lib/module/index.js',
+  'node_modules/react-native-pager-view/lib/module/index.native.js',
 );
 
 // Ledger DMK packages only declare `exports` (no `main`). With
@@ -210,6 +221,8 @@ const LEDGER_CJS_ENTRY_PACKAGES = [
   '@ledgerhq/device-management-kit',
   '@ledgerhq/device-signer-kit-ethereum',
   '@ledgerhq/device-signer-kit-solana',
+  '@ledgerhq/device-signer-kit-tron',
+  '@ledgerhq/device-signer-kit-zcash',
   '@ledgerhq/device-transport-kit-react-native-ble',
   '@ledgerhq/context-module',
   '@ledgerhq/signer-utils',
@@ -258,12 +271,12 @@ config.resolver.resolveRequest = (context, moduleName, platform) => {
       filePath: hyperliquidSigningPath,
     };
   }
-  // OneKey HWK SDK sub-path resolution (see HWK_SUBPATH_ALIASES above).
-  const hwkAliasPath = hwkSubpathAliasMap.get(moduleName);
-  if (hwkAliasPath) {
+  // Resolve only the explicitly listed sub-path exports above.
+  const subpathAliasPath = subpathExportAliasMap.get(moduleName);
+  if (subpathAliasPath) {
     return {
       type: 'sourceFile',
-      filePath: hwkAliasPath,
+      filePath: subpathAliasPath,
     };
   }
   if (
@@ -277,9 +290,10 @@ config.resolver.resolveRequest = (context, moduleName, platform) => {
       // noop
     }
   }
-  // Strip Developer/Gallery from production union builds
+  // Strip Developer/Gallery from all production builds.
   if (
-    (process.env.UNION_BUILD === 'true' ||
+    (process.env.NODE_ENV === 'production' ||
+      process.env.UNION_BUILD === 'true' ||
       process.env.SPLIT_BUNDLE_SEGMENTS === 'true') &&
     context.originModulePath &&
     (moduleName.includes('/Developer/router') ||
@@ -305,7 +319,22 @@ config.resolver.resolveRequest = (context, moduleName, platform) => {
       filePath: ledgerCjs,
     };
   }
-  return resolve(context, moduleName, platform);
+  try {
+    return resolve(context, moduleName, platform);
+  } catch (error) {
+    // React Native 0.88 ships some @react-native/* packages (for example
+    // asset-utils) with only an `exports` map and no `main`. Let Node, which
+    // honors `exports`, resolve them when Metro cannot.
+    if (!moduleName.startsWith('@react-native/')) {
+      throw error;
+    }
+    return {
+      type: 'sourceFile',
+      filePath: require.resolve(moduleName, {
+        paths: [path.dirname(context.originModulePath), monorepoRoot],
+      }),
+    };
+  }
 };
 
 // When running under React Native Harness, manually resolve subpath exports
@@ -461,7 +490,20 @@ const getMetroRuntimeTarget = (context) =>
     monorepoRoot,
     'packages/shared/src/storage/instance/nativeAsyncStorageInstance.ts',
   );
+  const canonicalSvgDir = `${path.resolve(
+    monorepoRoot,
+    'packages/components/svg',
+  )}${path.sep}`;
   config.resolver.resolveRequest = (context, moduleName, platform) => {
+    if (
+      moduleName.startsWith('@onekeyhq/components/svg/') ||
+      moduleName.includes('/packages/components/svg/')
+    ) {
+      // eslint-disable-next-line onekey/no-raw-error -- Metro config runs in Node before app error classes are available.
+      throw new Error(
+        `Direct Metro import of canonical SVG source is forbidden (${moduleName}). Use <Icon name="..." />, NativeList iconName, BottomTabs icon name, or the packaged OneKeyIcons resource set instead.`,
+      );
+    }
     const thirdPartyMMKVImportError = getThirdPartyMMKVImportError({
       moduleName,
       originModulePath: context.originModulePath,
@@ -479,7 +521,18 @@ const getMetroRuntimeTarget = (context) =>
         `AsyncStorage deep import bypasses the native bg proxy: ${moduleName}`,
       );
     }
-    return previousResolveRequest(context, moduleName, platform);
+    const resolved = previousResolveRequest(context, moduleName, platform);
+    if (
+      resolved?.filePath?.startsWith(canonicalSvgDir) ||
+      (Array.isArray(resolved?.filePaths) &&
+        resolved.filePaths.some((fp) => fp.startsWith(canonicalSvgDir)))
+    ) {
+      // eslint-disable-next-line onekey/no-raw-error -- Metro config runs in Node before app error classes are available.
+      throw new Error(
+        `Direct Metro import of canonical SVG source is forbidden (${moduleName}). Use <Icon name="..." />, NativeList iconName, BottomTabs icon name, or the packaged OneKeyIcons resource set instead.`,
+      );
+    }
+    return resolved;
   };
 }
 
@@ -687,18 +740,6 @@ const applyFixImageAssetsMiddleware = (middleware) => {
         'metro-sever: >>>>> the asset path is auto fixed >>>>>',
         req.url,
       );
-    } else if (
-      req.url.startsWith('/packages/components/svg/') &&
-      req.url.includes('.svg')
-    ) {
-      req.url = req.url.replace(
-        '/packages/components/svg/',
-        buildRelativeDirPath('/packages/components/svg/'),
-      );
-      console.log(
-        'metro-sever: >>>>> the svg asset path is auto fixed >>>>>',
-        req.url,
-      );
     }
     return middleware(req, res, next);
   };
@@ -740,7 +781,6 @@ module.exports = withRozenite(
   }),
   {
     enabled: process.env.WITH_ROZENITE === 'true',
-    // enhanceMetroConfig: (cfg) => withRozeniteExpoAtlasPlugin(cfg),
     enhanceMetroConfig: (cfg) => cfg,
   },
 );

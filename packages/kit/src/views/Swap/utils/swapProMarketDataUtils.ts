@@ -15,7 +15,7 @@ export type ISwapProMarketData = {
   hasLoadedSource: boolean;
 };
 
-export const SWAP_PRO_TRANSACTION_LIMIT = 10;
+export const SWAP_PRO_TRANSACTION_LIMIT = 12;
 
 export function getTransactionIdentity(transaction: ISwapProMarketTransaction) {
   return (

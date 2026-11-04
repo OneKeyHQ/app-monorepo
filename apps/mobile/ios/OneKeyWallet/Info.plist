@@ -102,16 +102,14 @@
 	<string>Use biometrics to authenticate and unlock your wallet.</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>
 	<string>Use photo library to save images.</string>
-	<key>NSPhotoLibraryUsageDescription</key>
-	<string>Use photo library to read QR images.</string>
 	<key>RCTNewArchEnabled</key>
 	<true/>
 	<key>UIAppFonts</key>
 	<array>
-		<string>Roobert-Regular.ttf</string>
-		<string>Roobert-Medium.ttf</string>
-		<string>Roobert-SemiBold.ttf</string>
-		<string>Roobert-Bold.ttf</string>
+		<string>BrandSans-Regular.ttf</string>
+		<string>BrandSans-Medium.ttf</string>
+		<string>BrandSans-SemiBold.ttf</string>
+		<string>BrandSans-Bold.ttf</string>
 		<string>GeistMono-Regular.ttf</string>
 		<string>GeistMono-Medium.ttf</string>
 	</array>
@@ -119,6 +117,21 @@
 	<array>
 		<string>remote-notification</string>
 	</array>
+	<key>UIApplicationSceneManifest</key>
+	<dict>
+		<key>UIApplicationSupportsMultipleScenes</key>
+		<false/>
+		<key>UISceneConfigurations</key>
+		<dict>
+			<key>UIWindowSceneSessionRoleApplication</key>
+			<array>
+				<dict>
+					<key>UISceneDelegateClassName</key>
+					<string>$(PRODUCT_MODULE_NAME).SceneDelegate</string>
+				</dict>
+			</array>
+		</dict>
+	</dict>
 	<key>UILaunchStoryboardName</key>
 	<string>SplashScreen</string>
 	<key>UIRequiredDeviceCapabilities</key>
@@ -126,7 +139,7 @@
 		<string>armv7</string>
 	</array>
 	<key>UIRequiresFullScreen</key>
-	<true/>
+	<false/>
 	<key>UIStatusBarStyle</key>
 	<string>UIStatusBarStyleDefault</string>
 	<key>UISupportedInterfaceOrientations</key>

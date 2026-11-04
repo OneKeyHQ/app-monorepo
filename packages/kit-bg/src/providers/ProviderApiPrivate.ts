@@ -13,6 +13,10 @@ import {
   getOneKeyWebUrl,
 } from '@onekeyhq/shared/src/config/appConfig';
 import type { EOAuthSocialLoginProvider } from '@onekeyhq/shared/src/consts/authConsts';
+import {
+  PRIME_SUBSCRIPTION_EXT_HANDOFF_QUERY,
+  PRIME_SUBSCRIPTION_EXT_HANDOFF_VALUE,
+} from '@onekeyhq/shared/src/consts/deeplinkConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import type { IEventBusPayloadShowToast } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import {
@@ -28,11 +32,14 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { isPrimeWebCheckoutReturnFromCheckoutTab } from '@onekeyhq/shared/src/prime/primeWebCheckoutReturn';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import {
   EOnboardingPagesV2,
   EOnboardingV2OneKeyIDLoginMode,
 } from '@onekeyhq/shared/src/routes/onboardingv2';
+import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
+import extUtils from '@onekeyhq/shared/src/utils/extUtils';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import { waitForDataLoaded } from '@onekeyhq/shared/src/utils/promiseUtils';
 import {
@@ -43,12 +50,25 @@ import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EHostSecurityLevel } from '@onekeyhq/shared/types/discovery';
 import type { IEndpointEnv } from '@onekeyhq/shared/types/endpoint';
 import type {
+  IFetchStreamRequest,
+  IFetchStreamResult,
+} from '@onekeyhq/shared/types/fetchStream';
+import type {
   IRookieGuideInfo,
   IRookieShareData,
 } from '@onekeyhq/shared/types/rookieGuide';
 
-import { isWebEmbedApiAllowedOrigin } from '../apis/backgroundApiPermissions';
+import {
+  isProviderApiPrivateAllowedKeylessOrigin,
+  isWebEmbedApiAllowedOrigin,
+  isWebEmbedChannelRequest,
+} from '../apis/backgroundApiPermissions';
 import { devSettingsPersistAtom } from '../states/jotai/atoms/devSettings';
+import {
+  createPrivacyChainFetchStreamRelay,
+  relayPrivacyChainNodeRequest,
+} from '../utils/privacyChainNodeRelay';
+import { createPrivacyChainRelayTargetSource } from '../utils/privacyChainRelayTargets';
 
 import ProviderApiBase from './ProviderApiBase';
 
@@ -615,16 +635,77 @@ class ProviderApiPrivate extends ProviderApiBase {
     });
   }
 
+  // Only the app's own web-embed page may use these; on native any frame can claim its origin, so the host's channel mark is required too.
+  private assertWebEmbedChannel(
+    request: IJsBridgeMessagePayload,
+    name: string,
+  ) {
+    if (!isWebEmbedChannelRequest(request)) {
+      throw new OneKeyLocalError(`${name}: not allowed`);
+    }
+  }
+
   @providerApiMethod()
-  async getSensitiveEncodeKey(): Promise<string> {
+  async getSensitiveEncodeKey(
+    request: IJsBridgeMessagePayload,
+  ): Promise<string> {
+    if (platformEnv.isNative) {
+      this.assertWebEmbedChannel(request, 'getSensitiveEncodeKey');
+    }
     defaultLogger.app.webembed.getSensitiveEncodeKey();
     return getBgSensitiveTextEncodeKey();
+  }
+
+  private relayTargets = createPrivacyChainRelayTargetSource(
+    this.backgroundApi,
+  );
+
+  // Relays the web-embed's node requests (native networking ignores CORS). Web-embed page and configured
+  // nodes only, otherwise it is a POST-anywhere proxy.
+  @providerApiMethod()
+  async privacyChainNodeRequest(
+    request: IJsBridgeMessagePayload,
+    {
+      url,
+      contentType,
+      b64,
+    }: { url: string; contentType: string; b64: string },
+  ): Promise<{ ok: true; b64: string } | { ok: false; error: string }> {
+    if (!platformEnv.isNative) {
+      throw new OneKeyLocalError('privacyChainNodeRequest: not allowed');
+    }
+    this.assertWebEmbedChannel(request, 'privacyChainNodeRequest');
+    return relayPrivacyChainNodeRequest({
+      url,
+      contentType,
+      body: new Uint8Array(bufferUtils.base64ToBytes(b64)),
+      targets: this.relayTargets,
+    });
+  }
+
+  private fetchStreamRequest = createPrivacyChainFetchStreamRelay(
+    this.relayTargets,
+  );
+
+  @providerApiMethod()
+  async fetchStream(
+    request: IJsBridgeMessagePayload,
+    params: IFetchStreamRequest,
+  ): Promise<IFetchStreamResult> {
+    if (!platformEnv.isNative) {
+      throw new OneKeyLocalError('fetchStream: not allowed');
+    }
+    this.assertWebEmbedChannel(request, 'fetchStream');
+    return this.fetchStreamRequest(params);
   }
 
   isWebEmbedApiReady = false;
 
   @providerApiMethod()
-  async webEmbedApiReady(): Promise<void> {
+  async webEmbedApiReady(request: IJsBridgeMessagePayload): Promise<void> {
+    if (platformEnv.isNative) {
+      this.assertWebEmbedChannel(request, 'webEmbedApiReady');
+    }
     defaultLogger.app.webembed.webembedApiReady();
     this.isWebEmbedApiReady = true;
     appEventBus.emit(EAppEventBusNames.LoadWebEmbedWebViewComplete, undefined);
@@ -632,7 +713,14 @@ class ProviderApiPrivate extends ProviderApiBase {
   }
 
   @providerApiMethod()
-  async webEmbedApiNotReady(): Promise<void> {
+  async webEmbedApiNotReady(request: IJsBridgeMessagePayload): Promise<void> {
+    if (platformEnv.isNative) {
+      this.assertWebEmbedChannel(request, 'webEmbedApiNotReady');
+    }
+    return this.setWebEmbedApiNotReady();
+  }
+
+  async setWebEmbedApiNotReady(): Promise<void> {
     defaultLogger.app.webembed.webembedApiNotReady();
     this.isWebEmbedApiReady = false;
     return Promise.resolve();
@@ -701,6 +789,111 @@ class ProviderApiPrivate extends ProviderApiBase {
   @providerApiMethod()
   async getLastFocusUrl() {
     return Promise.resolve(this.lastFocusUrl);
+  }
+
+  @providerApiMethod()
+  async wallet_openPrimeSubscription(request: IJsBridgeMessagePayload) {
+    if (!platformEnv.isExtension) {
+      throw new OneKeyLocalError(
+        'wallet_openPrimeSubscription is only available in the extension',
+      );
+    }
+    // Defense in depth: BackgroundApiBase already gates this origin.
+    if (!isProviderApiPrivateAllowedKeylessOrigin(request.origin)) {
+      throw new OneKeyLocalError(
+        `[${request.origin ?? ''}] is not allowed to call wallet_openPrimeSubscription`,
+      );
+    }
+    await this.backgroundApi.serviceApp.openExtensionExpandTab({
+      path: '/',
+      params: {
+        [PRIME_SUBSCRIPTION_EXT_HANDOFF_QUERY]:
+          PRIME_SUBSCRIPTION_EXT_HANDOFF_VALUE,
+      },
+    });
+    return { success: true };
+  }
+
+  /*
+    window.$onekey.$private.request({
+      method: 'wallet_primeWebCheckoutReturn',
+    });
+    Called by the first-party /prime/purchase-complete page after a RevenueCat
+    hosted card checkout redirects back. Request params are ignored: only the
+    background's own pending checkout record is trusted, and success is still
+    decided by polling RevenueCat in the extension UI.
+  */
+  @providerApiMethod()
+  async wallet_primeWebCheckoutReturn(
+    request: IJsBridgeMessagePayload,
+  ): Promise<{ handled: boolean }> {
+    if (!platformEnv.isExtension) {
+      throw new OneKeyLocalError(
+        'wallet_primeWebCheckoutReturn is only available in the extension',
+      );
+    }
+    // Defense in depth: BackgroundApiBase already gates this origin.
+    if (!isProviderApiPrivateAllowedKeylessOrigin(request.origin)) {
+      throw new OneKeyLocalError(
+        `[${request.origin ?? ''}] is not allowed to call wallet_primeWebCheckoutReturn`,
+      );
+    }
+    const { isLoggedIn, onekeyUserId } =
+      await this.backgroundApi.servicePrime.getLocalUserInfo();
+    if (!isLoggedIn || !onekeyUserId) {
+      return { handled: false };
+    }
+    const session =
+      await this.backgroundApi.simpleDb.prime.getWebCheckoutPendingSession({
+        onekeyUserId,
+      });
+    if (!session || session.platform !== 'extension') {
+      return { handled: false };
+    }
+    const port =
+      request.remoteId === undefined || request.remoteId === null
+        ? undefined
+        : this.backgroundApi.bridgeExtBg?.ports?.[request.remoteId];
+    if (
+      !isPrimeWebCheckoutReturnFromCheckoutTab({
+        extension: session.extension,
+        browserSessionId: await extUtils.getBrowserSessionId(),
+        sender: port?.sender
+          ? {
+              tabId: port.sender.tab?.id,
+              frameId: port.sender.frameId,
+              url: port.sender.url,
+            }
+          : undefined,
+      })
+    ) {
+      return { handled: false };
+    }
+    appEventBus.emit(EAppEventBusNames.PrimeWebCheckoutReturned, {
+      checkoutId: session.checkoutId,
+    });
+    const { initiatorKind, initiatorTabId, checkoutTabId } =
+      session.extension ?? {};
+    let isInitiatorVisible = false;
+    if (initiatorKind === 'tab' && initiatorTabId !== undefined) {
+      isInitiatorVisible = await extUtils.focusTab(initiatorTabId);
+    } else if (initiatorKind === 'sidePanel') {
+      // sidePanel.open needs a user gesture, so only a still-open panel counts.
+      isInitiatorVisible = sidePanelState.isOpen;
+    }
+    if (!isInitiatorVisible) {
+      // PrimeGlobalEffect in the new tab re-checks the pending checkout.
+      await this.backgroundApi.serviceApp.openExtensionExpandTab({
+        path: '/',
+      });
+    }
+    if (checkoutTabId !== undefined) {
+      // Let the response reach the return page before its tab goes away.
+      setTimeout(() => {
+        void extUtils.removeTab(checkoutTabId);
+      }, 500);
+    }
+    return { handled: true };
   }
 
   @providerApiMethod()

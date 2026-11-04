@@ -542,6 +542,7 @@ function BasicStakePage() {
       />
       <Page.Body>
         <UniversalStake
+          showStandaloneKeyboardFooter
           key={`stake-input-${selectedStakeTokenUniqueKey || tokenInfo?.token?.uniqueKey || 'default'}`}
           accountId={accountId}
           networkId={networkId}

@@ -18,6 +18,7 @@
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { IJotaiContextStoreData } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
+  buildAggregateMemberBalanceKey,
   buildFrames,
   metaByKeyFromTokens,
 } from '@onekeyhq/kit-bg/src/states/jotai/contexts/tokenList/cellsPure/buildFrames';
@@ -75,6 +76,7 @@ function emptyPrev(): IBuildFramesPrev {
     },
     smallBalanceFiatValue: '0',
     metaByKey: {},
+    balanceByKey: {},
   };
 }
 
@@ -122,6 +124,7 @@ function prevFromResult(
       ...input.orderedTokens,
       ...input.smallBalanceTokens,
     ]),
+    balanceByKey: result.balanceByKey,
   };
 }
 
@@ -182,6 +185,121 @@ describe('buildFrames', () => {
     expect(r2.structure).toBeUndefined();
     expect(r2.valuation.changedFiatById.a.fiatValue).toBe('120');
     expect(r2.valuation.changedFiatById.b.price).toBe(11);
+  });
+
+  it('emits a structure frame when a balance moves without reordering', () => {
+    // A send that leaves the value order intact (SUI 10 -> 5 stays below
+    // sTRX) used to be a pure valuation round: the structure generation did
+    // not bump, so `useHomeTokenListSnapshot` kept serving the pre-send
+    // balances to the token selector's floor seed on every open.
+    const baseTokens = [makeToken('a'), makeToken('b')];
+    const input1 = makeInput({
+      orderedTokens: baseTokens,
+      tokenListMap: {
+        a: makeFiat({ balance: '10', fiatValue: '100', price: 10 }),
+        b: makeFiat({ balance: '1', fiatValue: '10', price: 10 }),
+      },
+    });
+    const r1 = buildFrames(input1, emptyPrev());
+    const prev = prevFromResult(input1, r1);
+
+    const input2 = makeInput({
+      orderedTokens: baseTokens,
+      tokenListMap: {
+        a: makeFiat({ balance: '5', fiatValue: '50', price: 10 }),
+        b: makeFiat({ balance: '1', fiatValue: '10', price: 10 }),
+      },
+    });
+    const r2 = buildFrames(input2, prev);
+
+    expect(r2.structure).toBeDefined();
+    expect(r2.structure?.generation).toBe(1);
+    expect(r2.balanceByKey).toEqual({ a: '5', b: '1' });
+  });
+
+  it('emits a structure frame when an aggregate member balance moves', () => {
+    const agg = makeToken('aggregate_eth', { isAggregateToken: true });
+    const input1 = makeInput({
+      orderedTokens: [agg],
+      aggregateTokensMap: {
+        aggregate_eth: {
+          'evm--1': makeFiat({ balance: '10', fiatValue: '100', price: 10 }),
+        },
+      },
+    });
+    const r1 = buildFrames(input1, emptyPrev());
+    const prev = prevFromResult(input1, r1);
+
+    const input2 = makeInput({
+      orderedTokens: [agg],
+      aggregateTokensMap: {
+        aggregate_eth: {
+          'evm--1': makeFiat({ balance: '5', fiatValue: '50', price: 10 }),
+        },
+      },
+    });
+    const r2 = buildFrames(input2, prev);
+
+    expect(r2.structure).toBeDefined();
+    expect(r2.balanceByKey.aggregate_eth).toBe('5');
+  });
+
+  it('emits a structure frame when aggregate member balances move but their sum does not', () => {
+    // Both legs of a bridge landing in one round: the summed balance the
+    // aggregate row shows is unchanged, but the per-network entries the
+    // snapshot map serves moved and its consumers must re-pull.
+    const agg = makeToken('aggregate_usdc', { isAggregateToken: true });
+    const input1 = makeInput({
+      orderedTokens: [agg],
+      aggregateTokensMap: {
+        aggregate_usdc: {
+          'evm--1': makeFiat({ balance: '10', fiatValue: '10', price: 1 }),
+          'evm--10': makeFiat({ balance: '5', fiatValue: '5', price: 1 }),
+        },
+      },
+    });
+    const r1 = buildFrames(input1, emptyPrev());
+    const prev = prevFromResult(input1, r1);
+
+    const input2 = makeInput({
+      orderedTokens: [agg],
+      aggregateTokensMap: {
+        aggregate_usdc: {
+          'evm--1': makeFiat({ balance: '5', fiatValue: '5', price: 1 }),
+          'evm--10': makeFiat({ balance: '10', fiatValue: '10', price: 1 }),
+        },
+      },
+    });
+    const r2 = buildFrames(input2, prev);
+
+    expect(r2.balanceByKey.aggregate_usdc).toBe('15');
+    expect(r2.structure).toBeDefined();
+    expect(r2.structure?.generation).toBe(1);
+    expect(
+      r2.balanceByKey[
+        buildAggregateMemberBalanceKey('aggregate_usdc', 'evm--1')
+      ],
+    ).toBe('5');
+    expect(
+      r2.balanceByKey[
+        buildAggregateMemberBalanceKey('aggregate_usdc', 'evm--10')
+      ],
+    ).toBe('10');
+
+    // The same members again: a pure price tick, no structure frame.
+    const r3 = buildFrames(
+      makeInput({
+        orderedTokens: [agg],
+        aggregateTokensMap: {
+          aggregate_usdc: {
+            'evm--1': makeFiat({ balance: '5', fiatValue: '6', price: 1.2 }),
+            'evm--10': makeFiat({ balance: '10', fiatValue: '12', price: 1.2 }),
+          },
+        },
+      }),
+      prevFromResult(input2, r2),
+    );
+    expect(r3.structure).toBeUndefined();
   });
 
   it('emits a structure frame when a token is added', () => {

@@ -12,8 +12,8 @@ import {
   useMedia,
 } from '@onekeyhq/components';
 import type { ITableProps } from '@onekeyhq/components';
-import { ListLoading } from '@onekeyhq/kit/src/components/Loading';
 import { HomeTestIDs } from '@onekeyhq/kit/src/views/Home/testIDs';
+import { MARKET_TOKEN_ROW_GROUP_NAME } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketHoverRevealLine';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { RichTable } from '../RichTable';
@@ -103,75 +103,78 @@ function MarketCategoryTokenList({
     });
   }, [intl, isTokenInWatchList, onStarPress, shouldUseTableLayout]);
 
-  if (isLoading !== false && tokens.length === 0) {
-    return (
-      <ListLoading
-        listCount={HOME_MARKET_CATEGORY_REQUEST_LIMIT}
-        listContainerProps={{ py: '$0' }}
-        listHeaderProps={{ px: '$3' }}
-      />
-    );
-  }
-
-  if (tokens.length === 0) {
-    return (
-      <Stack alignItems="center" justifyContent="center" p="$8">
-        <SizableText size="$bodyLg" color="$textSubdued">
-          {intl.formatMessage({
-            id: ETranslations.global_no_data,
-          })}
-        </SizableText>
-      </Stack>
-    );
-  }
+  const loading = isLoading !== false && tokens.length === 0;
+  const empty = !loading && tokens.length === 0;
 
   return (
     <YStack>
-      <RichTable<IFavoriteTokenDisplay>
-        showHeader={shouldUseTableLayout}
-        dataSource={tokens}
-        columns={columns}
-        keyExtractor={getMarketCategoryTokenKey}
-        estimatedItemSize={
-          shouldUseTableLayout ? HOME_MARKET_TABLE_ROW_MIN_HEIGHT : 56
+      <YStack
+        minHeight={
+          HOME_MARKET_CATEGORY_REQUEST_LIMIT *
+            HOME_MARKET_TABLE_ROW_MIN_HEIGHT +
+          (shouldUseTableLayout ? 32 : 0)
         }
-        rowProps={{
-          mx: '$2',
-          px: '$3',
-          ...(shouldUseTableLayout
-            ? { minHeight: HOME_MARKET_TABLE_ROW_MIN_HEIGHT }
-            : undefined),
-        }}
-        headerRowProps={{
-          px: '$3',
-          mx: '$2',
-          ...(shouldUseTableLayout
-            ? { minHeight: HOME_MARKET_TABLE_HEADER_MIN_HEIGHT }
-            : undefined),
-        }}
-        onRow={(record) => ({
-          onPress: () => onTokenPress(record),
-        })}
-      />
-      <XStack pt="$3" px="$pagePadding" jc="center" ai="center">
-        <Button
-          testID={HomeTestIDs.popularViewMoreBtn}
-          variant="secondary"
-          iconAfter="ChevronRightSmallOutline"
-          onPress={onViewMore}
-          flexGrow={1}
-          flexBasis={0}
-          {...(md
-            ? {
-                borderRadius: '$full',
-                hoverStyle: { bg: 'transparent' },
-                pressStyle: { bg: 'transparent' },
-              }
-            : undefined)}
-        >
-          {intl.formatMessage({ id: ETranslations.global_view_more })}
-        </Button>
-      </XStack>
+      >
+        {empty ? (
+          <Stack alignItems="center" justifyContent="center" p="$8">
+            <SizableText size="$bodyLg" color="$textSubdued">
+              {intl.formatMessage({ id: ETranslations.global_no_data })}
+            </SizableText>
+          </Stack>
+        ) : (
+          <RichTable<IFavoriteTokenDisplay>
+            showSkeleton={loading}
+            skeletonCount={HOME_MARKET_CATEGORY_REQUEST_LIMIT}
+            showHeader={shouldUseTableLayout}
+            dataSource={tokens}
+            columns={columns}
+            keyExtractor={getMarketCategoryTokenKey}
+            estimatedItemSize={HOME_MARKET_TABLE_ROW_MIN_HEIGHT}
+            rowProps={{
+              mx: '$2',
+              px: '$3',
+              minHeight: HOME_MARKET_TABLE_ROW_MIN_HEIGHT,
+              ...(shouldUseTableLayout
+                ? { group: MARKET_TOKEN_ROW_GROUP_NAME }
+                : undefined),
+            }}
+            headerRowProps={{
+              px: '$3',
+              mx: '$2',
+              ...(shouldUseTableLayout
+                ? { minHeight: HOME_MARKET_TABLE_HEADER_MIN_HEIGHT }
+                : undefined),
+            }}
+            onRow={(record) => ({
+              onPress: () => onTokenPress(record),
+            })}
+          />
+        )}
+      </YStack>
+      {empty ? (
+        <Stack height={50} />
+      ) : (
+        <XStack pt="$3" px="$pagePadding" jc="center" ai="center">
+          <Button
+            testID={HomeTestIDs.popularViewMoreBtn}
+            variant="secondary"
+            iconAfter="ChevronRightSmallOutline"
+            onPress={onViewMore}
+            disabled={loading}
+            flexGrow={1}
+            flexBasis={0}
+            {...(md
+              ? {
+                  borderRadius: '$full',
+                  hoverStyle: { bg: 'transparent' },
+                  pressStyle: { bg: 'transparent' },
+                }
+              : undefined)}
+          >
+            {intl.formatMessage({ id: ETranslations.global_view_more })}
+          </Button>
+        </XStack>
+      )}
     </YStack>
   );
 }

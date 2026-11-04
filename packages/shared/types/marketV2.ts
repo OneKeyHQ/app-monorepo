@@ -33,6 +33,7 @@ export interface IMarketTokenLaunchpad {
 }
 
 export interface IMarketTokenDetail {
+  firstTradeTime?: string | number;
   networkId?: string;
   isNative?: boolean;
   address: string;
@@ -58,6 +59,10 @@ export interface IMarketTokenDetail {
   };
   price?: string;
   priceConverted?: string;
+  // Runtime-only: retain the latest detail response's rate across chart ticks.
+  priceConversionRate?: string;
+  // Runtime-only: start the grace period before detail quotes may recover a stalled feed.
+  detailPriceInitializedAt?: number;
   chartPriceUpdatedAt?: number;
   priceChange1mPercent?: string;
   priceChange5mPercent?: string;
@@ -137,6 +142,7 @@ export interface IMarketTokenDetail {
 }
 
 export interface IMarketTokenDetailPreview {
+  firstTradeTime?: number;
   address: string;
   networkId: string;
   isNative?: boolean;
@@ -200,6 +206,10 @@ export interface IMarketStockInfo {
   subtitle: string;
   source?: string;
   sourceLogoUri: string;
+  // Set only from the stock feed, which names the listing market: true for a
+  // US listing, false for any other (e.g. HK), which gets no US session
+  // status. Token data carries no listing market and leaves it unset.
+  isUSListing?: boolean;
   isOpen?: boolean;
   // Localized description from backend (tooltip when open, countdown + tooltip when closed)
   description?: string;
@@ -725,6 +735,7 @@ export interface IMarketAccountPortfolioItem {
 }
 
 export interface IMarketAccountPortfolioDisplayItem extends IMarketAccountPortfolioItem {
+  currency?: string;
   networkId?: string;
   tokenId?: string;
   issuer?: string;
@@ -837,7 +848,14 @@ export interface IMarketStockPublicItem {
 export type IMarketStockDetailPreview = Pick<
   IMarketStockPublicItem,
   'stockId' | 'symbol' | 'name' | 'logoUrl'
->;
+> & {
+  quote?: {
+    source: 'share';
+    price: string;
+    priceChange24hPercent?: string;
+    quoteUpdatedAt?: string;
+  };
+};
 
 export type IMarketStockPublicListSortBy =
   | 'default'

@@ -9,7 +9,6 @@ import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { MARKET_TOP_COINS_CATEGORY_ID } from '@onekeyhq/shared/src/consts/marketConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { travelModeManager } from '@onekeyhq/shared/src/travelMode';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
@@ -116,6 +115,12 @@ export function useMarketTopCoinResolver() {
   );
 }
 
+export function isMarketTopCoinNavigationSuppressed() {
+  return (
+    travelModeManager.getRuntimeEnvironmentSync().profile.kind === 'travel-mode'
+  );
+}
+
 export function useMarketTopCoinNavigation({
   replaceCurrentDetail = false,
 }: IUseMarketTopCoinNavigationOptions = {}) {
@@ -129,10 +134,7 @@ export function useMarketTopCoinNavigation({
 
   const handleItemPress = useCallback(
     async (item: IMarketAssetListItem) => {
-      if (
-        travelModeManager.getRuntimeEnvironmentSync().profile.kind ===
-        'travel-mode'
-      ) {
+      if (isMarketTopCoinNavigationSuppressed()) {
         return;
       }
       if (isNavigatingRef.current) {
@@ -174,9 +176,7 @@ export function useMarketTopCoins(
   const requestType = getMarketTopCoinsRequestType(options.categoryId);
   const requestTypeRef = useRef(requestType);
   requestTypeRef.current = requestType;
-  // The type whose latest request settled, successfully or not. Web failures
-  // throw and leave `result` on the previous type, so `result` alone cannot
-  // tell a settled failure from a request that has not started yet.
+  // Distinguish a settled request from a category whose request has not started yet.
   const settledRequestTypeRef = useRef<string | undefined>(undefined);
   const {
     result,
@@ -187,8 +187,7 @@ export function useMarketTopCoins(
       try {
         const response = await fetchMarketTopCoinsForPlatform(requestType);
         return { requestType, response, failed: false };
-      } catch (error) {
-        if (!platformEnv.isNative) throw error;
+      } catch {
         return { requestType, response: undefined, failed: true };
       } finally {
         if (requestTypeRef.current === requestType) {

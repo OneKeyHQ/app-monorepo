@@ -1,8 +1,14 @@
 import { Image, SizableText, XStack, YStack } from '@onekeyhq/components';
-import { Token } from '@onekeyhq/kit/src/components/Token';
 import { EarnText } from '@onekeyhq/kit/src/views/Staking/components/ProtocolDetails/EarnText';
-import type { IBorrowToken, IEarnText } from '@onekeyhq/shared/types/staking';
+import type {
+  IBorrowBalance,
+  IBorrowToken,
+  IEarnText,
+} from '@onekeyhq/shared/types/staking';
 
+import { BorrowAssetToken } from '../BorrowAssetToken';
+
+import { BorrowBalanceText } from './BorrowBalanceText';
 import { CollateralBadge } from './CollateralBadge';
 import { FieldWrapper } from './FieldWrapper';
 
@@ -12,8 +18,7 @@ type IAssetWithAmountFieldProps = {
   token: IAssetFieldToken;
   canBeCollateral?: boolean;
   amountLabel?: IEarnText;
-  amount?: IEarnText;
-  amountDescription?: IEarnText;
+  balance: IBorrowBalance;
   platformBonusApy?: {
     title: IEarnText;
     logoURI?: string;
@@ -24,14 +29,13 @@ export const AssetWithAmountField = ({
   token,
   canBeCollateral,
   amountLabel,
-  amount,
-  amountDescription,
+  balance,
   platformBonusApy,
 }: IAssetWithAmountFieldProps) => {
   return (
     <FieldWrapper flex={1}>
       <XStack ai="center">
-        <Token size="md" tokenImageUri={token.logoURI} />
+        <BorrowAssetToken size="md" logoURI={token.logoURI} />
         <YStack ml="$3" gap="$0.5">
           <XStack ai="center" gap="$1">
             <SizableText size="$bodyMdMedium" color="$text">
@@ -58,13 +62,29 @@ export const AssetWithAmountField = ({
           ) : null}
           <XStack ai="center" gap="$1">
             <EarnText text={amountLabel} size="$bodySm" color="$textSubdued" />
-            <EarnText text={amount} size="$bodySm" color="$textSubdued" />
-            {amountDescription ? (
-              <EarnText
-                text={{ text: `(${amountDescription.text})` }}
+            <BorrowBalanceText
+              kind="balance"
+              text={balance.title}
+              value={balance.number ?? balance.amount}
+              size="$bodySm"
+              color="$textSubdued"
+            />
+            {balance.description ? (
+              <SizableText
                 size="$bodySm"
                 color="$textSubdued"
-              />
+                accessibilityLabel={`(${balance.description.text})`}
+                aria-label={`(${balance.description.text})`}
+              >
+                (
+                <BorrowBalanceText
+                  kind="fiat"
+                  text={{ text: balance.description.text }}
+                  size="$bodySm"
+                  color="$textSubdued"
+                />
+                )
+              </SizableText>
             ) : null}
           </XStack>
         </YStack>

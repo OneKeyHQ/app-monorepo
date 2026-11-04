@@ -19,7 +19,6 @@ import {
   ANIMATE_ONLY_OPACITY,
   ANIMATE_ONLY_TRANSFORM,
 } from '@onekeyhq/components/src/utils/animationConstants';
-import { Token } from '@onekeyhq/kit/src/components/Token';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type {
   IBorrowApy,
@@ -29,7 +28,9 @@ import type {
 
 import { EarnText } from '../../Staking/components/ProtocolDetails/EarnText';
 
+import { BorrowAssetToken } from './BorrowAssetToken';
 import { ApyTextV2 } from './BorrowTableList/ApyTextV2';
+import { BorrowBalanceText } from './BorrowTableList/BorrowBalanceText';
 
 const ACCESSIBILITY_ACTIVATE = [{ name: 'activate' }] as const;
 const ACTIONS_ACCORDION_VALUE = 'actions';
@@ -47,6 +48,7 @@ export type IBorrowPositionCardAction = {
 export type IBorrowPositionCardProps = {
   token: IBorrowToken;
   tokenAmount?: IEarnText;
+  amountValue?: string;
   fiatValue?: IEarnText;
   apyDetail?: IBorrowApy;
   statusLabel: string;
@@ -122,6 +124,7 @@ function BorrowPositionCardActions({
 export function BorrowPositionCard({
   token,
   tokenAmount,
+  amountValue,
   fiatValue,
   apyDetail,
   statusLabel,
@@ -217,7 +220,7 @@ export function BorrowPositionCard({
         </XStack>
 
         <XStack ai="center" gap="$3" py="$2" {...disclosureProps}>
-          <Token size="lg" tokenImageUri={token.logoURI} />
+          <BorrowAssetToken size="lg" logoURI={token.logoURI} />
           <YStack flex={1} minWidth={0} gap="$0.5">
             <SizableText size="$bodyLgMedium" numberOfLines={1}>
               {token.symbol}
@@ -243,7 +246,8 @@ export function BorrowPositionCard({
           <XStack ai="center" gap="$2" flexShrink={0}>
             <YStack ai="flex-end">
               {fiatValue ? (
-                <EarnText
+                <BorrowBalanceText
+                  kind="fiat"
                   text={fiatValue}
                   size="$bodyLgMedium"
                   color="$text"
@@ -252,8 +256,10 @@ export function BorrowPositionCard({
               ) : null}
               {tokenAmount ? (
                 <XStack ai="center" gap="$1">
-                  <EarnText
+                  <BorrowBalanceText
+                    kind="balance"
                     text={tokenAmount}
+                    value={amountValue}
                     size={amountSize}
                     color={amountColor}
                     numberOfLines={1}

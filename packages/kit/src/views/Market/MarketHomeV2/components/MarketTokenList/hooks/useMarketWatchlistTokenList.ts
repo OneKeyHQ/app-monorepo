@@ -37,9 +37,43 @@ import { fetchMarketTokenListBatchForPlatform } from './marketTokenBatchPlatform
 
 import type { IMarketToken } from '../MarketTokenData';
 
-// Cached token list shared with the edit dialog so it opens instantly.
+// Cached token list shared with the edit dialog so it opens instantly. Several
+// favorites lists can be mounted at once (the Market Favorites tab and the detail
+// page's favorites sidebar), so each mounted list owns an entry: the cache shows
+// the latest write, and a list that unmounts hands it to one still mounted
+// rather than clearing data another list relies on.
 let watchlistTokenCache: IMarketToken[] = [];
+const watchlistTokenCacheEntries = new Map<symbol, IMarketToken[]>();
+let watchlistTokenCacheOwner: symbol | undefined;
 const cacheListeners = new Set<() => void>();
+
+function notifyWatchlistTokenCache() {
+  cacheListeners.forEach((cb) => cb());
+}
+
+export function publishWatchlistTokenCache(
+  owner: symbol,
+  tokens: IMarketToken[],
+) {
+  watchlistTokenCacheEntries.delete(owner);
+  watchlistTokenCacheEntries.set(owner, tokens);
+  watchlistTokenCacheOwner = owner;
+  watchlistTokenCache = tokens;
+  notifyWatchlistTokenCache();
+}
+
+export function releaseWatchlistTokenCache(owner: symbol) {
+  watchlistTokenCacheEntries.delete(owner);
+  if (watchlistTokenCacheOwner !== owner) {
+    return;
+  }
+  // The most recently published entry left takes over; with none left the
+  // cache clears so a later mount reads fresh data.
+  const remaining = [...watchlistTokenCacheEntries.entries()].at(-1);
+  watchlistTokenCacheOwner = remaining?.[0];
+  watchlistTokenCache = remaining?.[1] ?? [];
+  notifyWatchlistTokenCache();
+}
 
 export function getWatchlistTokenCache(): IMarketToken[] {
   return watchlistTokenCache;
@@ -60,6 +94,7 @@ export function useIsWatchlistTokenCacheReady(): boolean {
 
 export interface IUseMarketWatchlistTokenListParams {
   watchlist: IMarketWatchListItemV2[];
+  isWatchlistReady?: boolean;
   initialSortBy?: string;
   initialSortType?: 'asc' | 'desc';
   pageSize?: number;
@@ -73,11 +108,13 @@ export interface IMarketWatchlistListingQuoteEntry {
 }
 
 export interface IMarketWatchlistDataCache {
+  // The selector also reuses a successful empty result for these favorites.
+  emptyWatchlistKey?: string;
   spot?: Awaited<
     ReturnType<
       typeof backgroundApiProxy.serviceMarketV2.fetchMarketTokenListBatch
     >
-  >;
+  > & { requestKey?: string };
   listing?: IMarketWatchlistListingQuoteEntry[];
   perps?: {
     tokenListData: Awaited<
@@ -93,8 +130,71 @@ export interface IMarketWatchlistDataCache {
   };
 }
 
+// Shared by the native home and detail selector within the UI runtime.
+export const marketWatchlistDataCacheRef: RefObject<
+  IMarketWatchlistDataCache | undefined
+> = { current: undefined };
+
+function isWatchlistSpotItem(item: IMarketWatchListItemV2) {
+  return (
+    !item.perpsCoin && !item.assetId && !item.stockId && Boolean(item.chainId)
+  );
+}
+
+function isWatchlistListingItem(item: IMarketWatchListItemV2) {
+  return Boolean(item.assetId || item.stockId);
+}
+
+function isWatchlistPerpsItem(item: IMarketWatchListItemV2) {
+  return Boolean(item.perpsCoin);
+}
+
+// A remount may paint immediately only when the cache already covers every
+// source this watchlist needs. One populated source is not enough: the missing
+// source would insert later and reorder the first paint (OK-63895).
+function watchlistMountCacheCoversSources(
+  cache: IMarketWatchlistDataCache | undefined,
+  items: IMarketWatchListItemV2[],
+) {
+  if (!cache || items.length === 0) {
+    return false;
+  }
+  const needsSpot = items.some(isWatchlistSpotItem);
+  const needsListing = items.some(isWatchlistListingItem);
+  const needsPerps = items.some(isWatchlistPerpsItem);
+  // An empty successful response still covers the same unresolved favorites.
+  const spotRequestKey = items
+    .filter(isWatchlistSpotItem)
+    .map(getMarketWatchlistKey)
+    .join('\n');
+  if (
+    needsSpot &&
+    !cache.spot?.list?.length &&
+    cache.spot?.requestKey !== spotRequestKey
+  ) {
+    return false;
+  }
+  if (
+    needsListing &&
+    !items
+      .filter(isWatchlistListingItem)
+      .every((item) =>
+        cache.listing?.some(
+          (entry) => entry.key === getMarketWatchlistKey(item),
+        ),
+      )
+  ) {
+    return false;
+  }
+  if (needsPerps && !cache.perps?.tokenListData) {
+    return false;
+  }
+  return needsSpot || needsListing || needsPerps;
+}
+
 export function useMarketWatchlistTokenList({
   watchlist,
+  isWatchlistReady = true,
   initialSortBy,
   initialSortType,
   pageSize = 100,
@@ -114,25 +214,46 @@ export function useMarketWatchlistTokenList({
   const isLoadingMore = false;
   const hasMore = false;
   const [isInitialLoad, setIsInitialLoad] = useState(true);
+  // Cold start paints spot, listings, and perps as each request returns, so
+  // rows pop in and the order jumps (OK-63895). Hold the first commit until
+  // every source for this watchlist has settled. The mount's own loading
+  // flags are current: a sync result with isLoading false can paint
+  // immediately. A later watchlist change still carries the previous
+  // request's idle flags until its effect starts, so that render does not
+  // count. Cache written by in-flight effects is also ignored; only a mount-time
+  // cache that already covers every source this watchlist needs can paint early.
+  const hasCommittedWatchlistRowsRef = useRef(false);
+  const watchlistGenerationRef = useRef<string | null>(null);
+  const settledWatchlistGenerationRef = useRef<string | null>(null);
+  // Set when the watchlist changes, cleared after that generation's fetch
+  // effects start. Loading on the transition render still belongs to the
+  // previous request.
+  const pendingGenerationRef = useRef<string | null>(null);
+  const [, setWatchlistFetchEpoch] = useState(0);
+  const hadCachedRowsOnMountRef = useRef<boolean | undefined>(undefined);
+  // Check coverage once the actual watchlist is known, before any request can
+  // replace the shared cache with a result for the initial empty placeholder.
+  if (isWatchlistReady && hadCachedRowsOnMountRef.current === undefined) {
+    hadCachedRowsOnMountRef.current = watchlistMountCacheCoversSources(
+      dataCacheRef?.current,
+      watchlist,
+    );
+  }
 
   const pageIndex = useCarouselIndex();
 
   // Split watchlist into spot and perps items
   const spotItems = useMemo(
-    () =>
-      watchlist.filter(
-        (item) =>
-          !item.perpsCoin && !item.assetId && !item.stockId && item.chainId,
-      ),
+    () => watchlist.filter(isWatchlistSpotItem),
     [watchlist],
   );
   const perpsItems = useMemo(
-    () => watchlist.filter((item) => !!item.perpsCoin),
+    () => watchlist.filter(isWatchlistPerpsItem),
     [watchlist],
   );
 
   const listingItems = useMemo(
-    () => watchlist.filter((item) => item.assetId || item.stockId),
+    () => watchlist.filter(isWatchlistListingItem),
     [watchlist],
   );
   const {
@@ -141,6 +262,7 @@ export function useMarketWatchlistTokenList({
     run: refetchListings,
   } = usePromiseResult(
     async () => {
+      if (!isWatchlistReady) return undefined;
       const assetItems = listingItems.filter((item) => item.assetId);
       const stockItems = listingItems.filter(
         (item) => !item.assetId && item.stockId,
@@ -188,7 +310,7 @@ export function useMarketWatchlistTokenList({
       }));
       return [...assetQuotes, ...stockQuotes];
     },
-    [listingItems],
+    [isWatchlistReady, listingItems],
     {
       pollingInterval,
       watchLoading: true,
@@ -201,8 +323,7 @@ export function useMarketWatchlistTokenList({
 
   // Listing rows are synthesized from the local watchlist record, so unlike
   // spot rows they can render before any quote exists. Reusing the previous
-  // batch keeps a remount — the token selector drops this list on every tab
-  // switch — from falling back to that quote-less state.
+  // batch keeps a selector reopen from falling back to that quote-less state.
   const lastListingQuotesRef = useRef<
     IMarketWatchlistListingQuoteEntry[] | undefined
   >(dataCacheRef?.current?.listing);
@@ -221,6 +342,11 @@ export function useMarketWatchlistTokenList({
   // therefore checked per row below rather than trusting the batch as a whole.
   const listingResult = listingQuotes ?? lastListingQuotesRef.current;
 
+  // Identifies the spot items a result was fetched for. A failed request
+  // keeps the previous result in `usePromiseResult`, so a result counts as
+  // loaded only when it answers the current items.
+  const spotRequestKey = spotItems.map(getMarketWatchlistKey).join('\n');
+
   // ── Spot data fetching (existing logic) ──
   const {
     result: spotResult,
@@ -228,14 +354,17 @@ export function useMarketWatchlistTokenList({
     run: refetchData,
   } = usePromiseResult(
     async () => {
+      if (!isWatchlistReady) return undefined;
+      // Cached results carry no key, so the result type allows none.
+      const requestKey = spotRequestKey as string | undefined;
       if (!watchlist || watchlist.length === 0) {
         if (isInitialLoad) {
           await new Promise((resolve) => setTimeout(resolve, 300));
         }
-        return { list: [], failed: false } as const;
+        return { list: [], failed: false, requestKey } as const;
       }
       if (spotItems.length === 0) {
-        return { list: [], failed: false } as const;
+        return { list: [], failed: false, requestKey } as const;
       }
       const tokenAddressList = spotItems.map((item) => {
         const { isNative } = getNativeTokenInfo(
@@ -252,13 +381,13 @@ export function useMarketWatchlistTokenList({
         const response = await fetchMarketTokenListBatchForPlatform({
           tokenAddressList,
         });
-        return { ...response, failed: false };
+        return { ...response, failed: false, requestKey };
       } catch (error) {
         if (!platformEnv.isNative) throw error;
-        return { list: undefined, failed: true };
+        return { list: undefined, failed: true, requestKey };
       }
     },
-    [watchlist, spotItems, isInitialLoad],
+    [watchlist, spotItems, spotRequestKey, isInitialLoad, isWatchlistReady],
     {
       pollingInterval,
       watchLoading: true,
@@ -276,6 +405,7 @@ export function useMarketWatchlistTokenList({
     run: refetchPerpsData,
   } = usePromiseResult(
     async () => {
+      if (!isWatchlistReady) return undefined;
       if (perpsItems.length === 0) return null;
       try {
         const [tokenListData, tokenSearchAliases] = await Promise.all([
@@ -294,7 +424,7 @@ export function useMarketWatchlistTokenList({
         };
       }
     },
-    [perpsItems.length],
+    [isWatchlistReady, perpsItems.length],
     {
       pollingInterval: timerUtils.getTimeDurationMs({ seconds: 30 }),
       watchLoading: true,
@@ -304,7 +434,7 @@ export function useMarketWatchlistTokenList({
 
   const lastSpotResultRef = useRef<typeof spotResult>(
     dataCacheRef?.current?.spot
-      ? { ...dataCacheRef.current.spot, failed: false }
+      ? { ...dataCacheRef.current.spot, failed: false, requestKey: undefined }
       : undefined,
   );
   const lastPerpsResultRef = useRef<typeof perpsResult>(
@@ -318,7 +448,10 @@ export function useMarketWatchlistTokenList({
       if (dataCacheRef && spotResult.list)
         dataCacheRef.current = {
           ...dataCacheRef.current,
-          spot: { list: [...spotResult.list] },
+          spot: {
+            list: [...spotResult.list],
+            requestKey: spotResult.requestKey,
+          },
         };
     }
   }, [dataCacheRef, spotResult]);
@@ -349,6 +482,28 @@ export function useMarketWatchlistTokenList({
     perpsResult?.failed || (!perpsResult && dataCacheRef)
       ? lastPerpsResultRef.current
       : perpsResult;
+  // Every source this watchlist needs holds a successful result for its
+  // current items. Desktop and web report a failed request only as a missing
+  // or stale result (`isError` is native-only), so an empty list with this
+  // false is a failed load rather than favorites that resolve to no rows.
+  // Cached spot rows carry no request key and never count: when they hold
+  // rows the list shows them anyway.
+  const hasLoadedAllSources =
+    (spotItems.length === 0 ||
+      Boolean(
+        spotResult?.list &&
+        !spotResult.failed &&
+        spotResult.requestKey === spotRequestKey,
+      )) &&
+    // The previous batch stays in place while a newer one is in flight, so
+    // each current listing needs its own entry, not just any batch.
+    (listingItems.length === 0 ||
+      listingItems.every((item) => {
+        const key = getMarketWatchlistKey(item);
+        return Boolean(listingResult?.some((entry) => entry.key === key));
+      })) &&
+    (perpsItems.length === 0 ||
+      Boolean(perpsApiResult?.tokenListData && !perpsApiResult.failed));
 
   // Combined loading state
   const isLoading =
@@ -359,13 +514,24 @@ export function useMarketWatchlistTokenList({
     (platformEnv.isNative &&
       ((spotItems.length > 0 && apiLoading !== false && !spotResult) ||
         (perpsItems.length > 0 && perpsLoading !== false && !perpsResult)));
-  const isError = Boolean(
-    (spotItems.length > 0 && spotResult?.failed) ||
-    (perpsItems.length > 0 && perpsResult?.failed),
+  const isSpotError = spotItems.length > 0 && Boolean(spotResult?.failed);
+  const isPerpsError = perpsItems.length > 0 && Boolean(perpsResult?.failed);
+  const isError = isSpotError || isPerpsError;
+  // `alwaysSetState` lets a caller refresh while its page sits under a modal,
+  // where the focus gate would otherwise skip the fetch.
+  const refetch = useCallback(
+    async (options?: { alwaysSetState?: boolean }) => {
+      const config = options?.alwaysSetState
+        ? { alwaysSetState: true }
+        : undefined;
+      await Promise.all([
+        refetchData(config),
+        refetchPerpsData(config),
+        refetchListings(config),
+      ]);
+    },
+    [refetchData, refetchPerpsData, refetchListings],
   );
-  const refetch = useCallback(async () => {
-    await Promise.all([refetchData(), refetchPerpsData(), refetchListings()]);
-  }, [refetchData, refetchPerpsData, refetchListings]);
 
   // ── Build perps IMarketToken items from backend ──
   const perpsTokenMap = useMemo(() => {
@@ -494,6 +660,7 @@ export function useMarketWatchlistTokenList({
             uniqueTraders: 0,
             holders: 0,
             tokenImageUri: quote?.logoUrl ?? '',
+            stockTags: quote?.tags,
             stockVariants: quote?.variants,
             networkLogoUri: '',
             sortIndex: watchlistItem.sortIndex ?? 0,
@@ -538,9 +705,14 @@ export function useMarketWatchlistTokenList({
     perpsTokenMap,
     networkLogoUriMap,
   ]);
+  const hasUnresolvedSpotFavorites =
+    transformedData.filter(
+      (item) => !item.perpsCoin && !item.assetId && !item.stockId,
+    ).length < spotItems.length;
 
   useEffect(() => {
     if (
+      isWatchlistReady &&
       isInitialLoad &&
       apiLoading === false &&
       listingLoading === false &&
@@ -551,6 +723,7 @@ export function useMarketWatchlistTokenList({
   }, [
     apiLoading,
     isInitialLoad,
+    isWatchlistReady,
     listingLoading,
     perpsItems.length,
     perpsLoading,
@@ -575,7 +748,56 @@ export function useMarketWatchlistTokenList({
     });
   }, [transformedData, sortBy, sortType]);
 
-  const totalCount = sortedData.length;
+  const watchlistGeneration = watchlist
+    .map((item) => getMarketWatchlistKey(item))
+    .join('\n');
+  if (watchlistGenerationRef.current !== watchlistGeneration) {
+    const isInitialGeneration = watchlistGenerationRef.current === null;
+    watchlistGenerationRef.current = watchlistGeneration;
+    settledWatchlistGenerationRef.current = null;
+    if (!isInitialGeneration) {
+      pendingGenerationRef.current = watchlistGeneration;
+    }
+    if (watchlist.length === 0) {
+      hasCommittedWatchlistRowsRef.current = false;
+    }
+  }
+  const watchlistFetchStarted =
+    pendingGenerationRef.current !== watchlistGeneration;
+  useEffect(() => {
+    pendingGenerationRef.current = null;
+    setWatchlistFetchEpoch((epoch) => epoch + 1);
+  }, [watchlistGeneration]);
+  const sourceHasSettled = (itemCount: number, loading: boolean | undefined) =>
+    itemCount === 0 || (watchlistFetchStarted && loading === false);
+  const watchlistSourcesSettled =
+    isWatchlistReady &&
+    watchlist.length > 0 &&
+    sourceHasSettled(spotItems.length, apiLoading) &&
+    sourceHasSettled(listingItems.length, listingLoading) &&
+    sourceHasSettled(perpsItems.length, perpsLoading);
+  if (watchlistSourcesSettled) {
+    hasCommittedWatchlistRowsRef.current = true;
+    settledWatchlistGenerationRef.current = watchlistGeneration;
+  }
+  // Polling must not turn a settled error or empty view back into first-load UI.
+  const hasSettledAllSources =
+    isWatchlistReady &&
+    (watchlist.length === 0 ||
+      settledWatchlistGenerationRef.current === watchlistGeneration);
+  const showWatchlistRows =
+    isWatchlistReady &&
+    (hasCommittedWatchlistRowsRef.current || hadCachedRowsOnMountRef.current);
+  const displayData = useMemo(
+    () => (showWatchlistRows ? sortedData : []),
+    [showWatchlistRows, sortedData],
+  );
+  // While rows are held, the previous request can still report idle. Keep
+  // loading true so the list shows a skeleton instead of an empty body.
+  const isHoldingWatchlistFirstPaint =
+    watchlist.length > 0 && !showWatchlistRows;
+
+  const totalCount = displayData.length;
   const totalPages = totalCount > 0 ? Math.ceil(totalCount / pageSize) : 1;
 
   useEffect(() => {
@@ -586,8 +808,8 @@ export function useMarketWatchlistTokenList({
 
   const paginatedData = useMemo(() => {
     const start = (currentPage - 1) * pageSize;
-    return sortedData.slice(start, start + pageSize);
-  }, [sortedData, currentPage, pageSize]);
+    return displayData.slice(start, start + pageSize);
+  }, [displayData, currentPage, pageSize]);
 
   const loadMore = useCallback(() => {
     // Watchlist doesn't support load more - all data is loaded at once
@@ -599,24 +821,30 @@ export function useMarketWatchlistTokenList({
     void refetchListings();
   }, [refetchData, refetchListings]);
 
+  const [cacheOwner] = useState(() => Symbol('watchlist-token-cache'));
   useEffect(() => {
-    watchlistTokenCache = paginatedData;
-    cacheListeners.forEach((cb) => cb());
-  }, [paginatedData]);
+    publishWatchlistTokenCache(cacheOwner, paginatedData);
+  }, [cacheOwner, paginatedData]);
 
-  // Clear stale cache on unmount so re-mounting reads fresh data
   useEffect(
     () => () => {
-      watchlistTokenCache = [];
-      cacheListeners.forEach((cb) => cb());
+      releaseWatchlistTokenCache(cacheOwner);
     },
-    [],
+    [cacheOwner],
   );
 
   return {
     data: paginatedData,
-    isLoading,
+    isLoading: !isWatchlistReady || isLoading || isHoldingWatchlistFirstPaint,
     isError,
+    isSpotError,
+    isPerpsError,
+    hasUnresolvedSpotFavorites,
+    hasSettledAllSources,
+    // Rows held back for the first paint have not loaded yet, whatever the
+    // sources hold from an earlier watchlist.
+    hasLoadedAllSources:
+      isWatchlistReady && hasLoadedAllSources && !isHoldingWatchlistFirstPaint,
     isLoadingMore,
     isNetworkSwitching: false,
     canLoadMore: hasMore,
@@ -627,6 +855,8 @@ export function useMarketWatchlistTokenList({
     loadMore,
     refresh,
     refetch: platformEnv.isNative ? refetch : refetchData,
+    // Retries spot, perps and listings on every platform.
+    refetchAll: refetch,
     sortBy,
     sortType,
     setSortBy,

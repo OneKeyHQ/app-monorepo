@@ -1,12 +1,17 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
+import { buildOptimizedImageSource } from '@onekeyhq/components/src/primitives/Image/optimization';
+import { preloadImages } from '@onekeyhq/components/src/primitives/Image/preload';
+import { isPreloadedImageUri } from '@onekeyhq/components/src/primitives/Image/preloadedImageUris';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { getTokenImageResizeWidth } from '@onekeyhq/kit/src/components/Token/tokenSize';
 import { useLocaleVariant } from '@onekeyhq/kit/src/hooks/useLocaleVariant';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import {
   DEFAULT_MARKET_STOCK_SORT_BY,
   DEFAULT_MARKET_STOCK_SORT_TYPE,
 } from '@onekeyhq/shared/src/consts/marketConsts';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   swrCacheUtils,
   swrKeys,
@@ -23,7 +28,22 @@ import {
 
 const MARKET_STOCK_SELECTOR_PAGE_SIZE = 20;
 const MARKET_STOCK_SELECTOR_CACHE_FRESH_MS = 5 * 60 * 1000;
+// The desktop selector shows six complete rows in its first viewport.
+const MARKET_STOCK_SELECTOR_IMAGE_PREWARM_LIMIT = 6;
+const MARKET_STOCK_SELECTOR_IMAGE_RESIZE_WIDTH = getTokenImageResizeWidth('md');
+const STOCK_SELECTOR_IMAGE_PREWARM_TIMEOUT_MS = 500;
+const STOCK_SELECTOR_IMAGE_PREWARM_PENDING_TTL_MS = 30_000;
+// Keep the selector-side bookkeeping bounded to the same number of entries as
+// the web ImageV2 preload cache. Native uses its own image cache and does not
+// consult this set when rendering.
+const MAX_TRACKED_STOCK_SELECTOR_IMAGE_URIS = 256;
 const UNINITIALIZED_STOCK_SELECTOR_QUERY_KEY = '__uninitialized__';
+
+const prewarmedStockSelectorImageUris = new Set<string>();
+const prewarmingStockSelectorImagePromises = new Map<
+  string,
+  { promise: Promise<boolean>; expiresAt: number }
+>();
 
 type IMarketStockSelectorListResult = {
   queryKey: string;
@@ -48,6 +68,139 @@ const EMPTY_STOCK_SELECTOR_RESULT: IMarketStockSelectorListResult = {
   response: undefined,
 };
 
+function getStockSelectorImageUris(items: IMarketStockPublicItem[]) {
+  return [
+    ...new Set(
+      items
+        .map((item) => item.logoUrl)
+        .filter((uri): uri is string => Boolean(uri)),
+    ),
+  ].slice(0, MARKET_STOCK_SELECTOR_IMAGE_PREWARM_LIMIT);
+}
+
+function getStockSelectorImageCacheKey(uri: string) {
+  if (!platformEnv.isWeb && !platformEnv.isWebEmbed) {
+    return uri;
+  }
+  const optimizedSource = buildOptimizedImageSource({
+    source: { uri },
+    resolvedSource: { uri },
+    resizeWidth: MARKET_STOCK_SELECTOR_IMAGE_RESIZE_WIDTH,
+    allowRelativeUrl: platformEnv.isWeb || platformEnv.isWebEmbed,
+  });
+  return optimizedSource.optimizedUri ?? optimizedSource.rawUri ?? uri;
+}
+
+function isStockSelectorImagePrewarmed(uri: string) {
+  const cacheKey = getStockSelectorImageCacheKey(uri);
+  if (!prewarmedStockSelectorImageUris.has(cacheKey)) {
+    return false;
+  }
+  if (platformEnv.isWeb || platformEnv.isWebEmbed) {
+    return isPreloadedImageUri(cacheKey);
+  }
+  return true;
+}
+
+function withTimeout(promise: Promise<boolean>, timeoutMs: number) {
+  return new Promise<boolean>((resolve) => {
+    let settled = false;
+    const timer = setTimeout(() => {
+      if (!settled) {
+        settled = true;
+        resolve(false);
+      }
+    }, timeoutMs);
+    void promise.then(
+      (result) => {
+        if (settled) {
+          return;
+        }
+        settled = true;
+        clearTimeout(timer);
+        resolve(result);
+      },
+      () => {
+        if (settled) {
+          return;
+        }
+        settled = true;
+        clearTimeout(timer);
+        resolve(false);
+      },
+    );
+  });
+}
+
+async function prewarmStockSelectorImages(items: IMarketStockPublicItem[]) {
+  const now = Date.now();
+  // Discard expired entries on access without keeping timers alive for idle selectors.
+  for (const [uri, pending] of prewarmingStockSelectorImagePromises) {
+    if (pending.expiresAt <= now)
+      prewarmingStockSelectorImagePromises.delete(uri);
+  }
+  const uris = getStockSelectorImageUris(items).filter(
+    (uri) => !isStockSelectorImagePrewarmed(uri),
+  );
+  if (uris.length === 0) {
+    return true;
+  }
+
+  const newUris = uris.filter(
+    (uri) => !prewarmingStockSelectorImagePromises.has(uri),
+  );
+  if (newUris.length > 0) {
+    const batchPromise = preloadImages(
+      newUris.map((uri) => ({
+        uri,
+        resizeWidth: MARKET_STOCK_SELECTOR_IMAGE_RESIZE_WIDTH,
+      })),
+    )
+      .then((success) => {
+        if (success) {
+          if (
+            prewarmedStockSelectorImageUris.size + newUris.length >
+            MAX_TRACKED_STOCK_SELECTOR_IMAGE_URIS
+          ) {
+            prewarmedStockSelectorImageUris.clear();
+          }
+          newUris.forEach((uri) =>
+            prewarmedStockSelectorImageUris.add(
+              getStockSelectorImageCacheKey(uri),
+            ),
+          );
+        }
+        return success;
+      })
+      .catch(() => false);
+    newUris.forEach((uri) => {
+      // The display deadline must not expire the underlying image request.
+      const uriPromise = batchPromise.finally(() => {
+        if (
+          prewarmingStockSelectorImagePromises.get(uri)?.promise === uriPromise
+        ) {
+          prewarmingStockSelectorImagePromises.delete(uri);
+        }
+      });
+      prewarmingStockSelectorImagePromises.set(uri, {
+        promise: uriPromise,
+        expiresAt: now + STOCK_SELECTOR_IMAGE_PREWARM_PENDING_TTL_MS,
+      });
+    });
+  }
+
+  return withTimeout(
+    Promise.all(
+      uris.map(
+        (uri) =>
+          prewarmingStockSelectorImagePromises.get(uri)?.promise ??
+          Promise.resolve(true),
+      ),
+    ).then((results) => results.every(Boolean)),
+    STOCK_SELECTOR_IMAGE_PREWARM_TIMEOUT_MS,
+  );
+}
+
 function dropStaleStockListCache(swrKey: string) {
   if (
     swrCacheUtils.getWithTimestamp(swrKey) &&
@@ -70,13 +223,19 @@ function readCachedStockListResponse(swrKey: string) {
 export function useMarketStockSelectorList({
   query,
   searchOnly = false,
+  category,
 }: {
   query?: string;
   searchOnly?: boolean;
+  category?: string;
 }) {
   const locale = useLocaleVariant();
   const normalizedQuery = query?.trim() ?? '';
-  const queryKey = normalizedQuery;
+  const listCategory =
+    !searchOnly && !normalizedQuery && category && category !== 'all'
+      ? category
+      : undefined;
+  const queryKey = listCategory ? `category:${listCategory}` : normalizedQuery;
   const shouldUseDefaultList = !searchOnly && !normalizedQuery;
   const queryKeyRef = useRef(queryKey);
   queryKeyRef.current = queryKey;
@@ -84,10 +243,11 @@ export function useMarketStockSelectorList({
     () =>
       buildMarketStockListQueryKey({
         locale,
+        category: listCategory,
         sortBy: DEFAULT_MARKET_STOCK_SORT_BY,
         sortType: DEFAULT_MARKET_STOCK_SORT_TYPE,
       }),
-    [locale],
+    [listCategory, locale],
   );
   const emptyListSwrKey = useMemo(() => {
     if (!shouldUseDefaultList) {
@@ -111,8 +271,8 @@ export function useMarketStockSelectorList({
     if (!response) {
       return EMPTY_STOCK_SELECTOR_RESULT;
     }
-    return { queryKey: '', response };
-  }, [defaultListQueryKey, emptyListSwrKey, shouldUseDefaultList]);
+    return { queryKey, response };
+  }, [defaultListQueryKey, emptyListSwrKey, queryKey, shouldUseDefaultList]);
 
   const [listState, setListState] = useState<IMarketStockSelectorListState>({
     queryKey: UNINITIALIZED_STOCK_SELECTOR_QUERY_KEY,
@@ -121,6 +281,7 @@ export function useMarketStockSelectorList({
   });
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [isLoadMoreError, setIsLoadMoreError] = useState(false);
+  const [prewarmedImageKey, setPrewarmedImageKey] = useState('');
   const loadMoreRequestRef = useRef<object | undefined>(undefined);
   const queuedLoadMoreRef = useRef<string | undefined>(undefined);
   const remoteQueryKeyRef = useRef<string | undefined>(undefined);
@@ -154,7 +315,11 @@ export function useMarketStockSelectorList({
             })
           : await backgroundApiProxy.serviceMarketV2.fetchMarketStockList({
               limit: MARKET_STOCK_SELECTOR_PAGE_SIZE,
+              ...(listCategory ? { category: listCategory } : {}),
             });
+        // Warm cold first-page logos before mounting their rows. Cached rows
+        // remain interactive, and the prewarm timeout keeps slow images bounded.
+        await prewarmStockSelectorImages(response.items);
         if (queryKeyRef.current === requestQueryKey) {
           remoteQueryKeyRef.current = requestQueryKey;
         }
@@ -166,7 +331,7 @@ export function useMarketStockSelectorList({
         return { queryKey: requestQueryKey, failed: true };
       }
     },
-    [normalizedQuery, queryKey, searchOnly],
+    [listCategory, normalizedQuery, queryKey, searchOnly],
     {
       initResult: cachedEmptyListInitResult,
       watchLoading: true,
@@ -239,6 +404,32 @@ export function useMarketStockSelectorList({
       currentFirstPage && currentListState.firstPage !== currentFirstPage,
     );
   const isRevalidatingFirstPage = isAwaitingRemoteFirstPage && items.length > 0;
+  const imagePrewarmUris = getStockSelectorImageUris(items);
+  const imagePrewarmKey = imagePrewarmUris.join('\u0000');
+  const isImagePrewarming =
+    Boolean(imagePrewarmKey) &&
+    imagePrewarmKey !== prewarmedImageKey &&
+    imagePrewarmUris.some((uri) => !isStockSelectorImagePrewarmed(uri));
+  const imagePrewarmItemsRef = useRef(items);
+  imagePrewarmItemsRef.current = items;
+
+  useEffect(() => {
+    if (!imagePrewarmKey) {
+      return undefined;
+    }
+
+    let cancelled = false;
+    void prewarmStockSelectorImages(imagePrewarmItemsRef.current).finally(
+      () => {
+        if (!cancelled) {
+          setPrewarmedImageKey(imagePrewarmKey);
+        }
+      },
+    );
+    return () => {
+      cancelled = true;
+    };
+  }, [imagePrewarmKey]);
 
   const loadMore = useCallback(async () => {
     if (isLoading || isAwaitingRemoteFirstPage) {
@@ -273,6 +464,7 @@ export function useMarketStockSelectorList({
         : await backgroundApiProxy.serviceMarketV2.fetchMarketStockList({
             cursor: nextCursor,
             limit: MARKET_STOCK_SELECTOR_PAGE_SIZE,
+            ...(listCategory ? { category: listCategory } : {}),
           });
 
       if (
@@ -312,6 +504,7 @@ export function useMarketStockSelectorList({
     isLoading,
     isLoadingMore,
     nextCursor,
+    listCategory,
     normalizedQuery,
     queryKey,
     searchOnly,
@@ -346,6 +539,7 @@ export function useMarketStockSelectorList({
     isError: isFirstPageError && items.length === 0,
     isLoadingMore,
     isLoadMoreError,
+    isImagePrewarming,
     canLoadMore:
       Boolean(nextCursor) && hasCurrentData && !isAwaitingRemoteFirstPage,
     isRevalidatingFirstPage,

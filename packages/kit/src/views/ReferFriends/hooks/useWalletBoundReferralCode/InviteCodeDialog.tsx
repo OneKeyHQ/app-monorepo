@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
@@ -21,9 +21,18 @@ import { WalletAvatar } from '@onekeyhq/kit/src/components/WalletAvatar/WalletAv
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useSignatureConfirm } from '@onekeyhq/kit/src/hooks/useSignatureConfirm';
 import type { INavigationToMessageConfirmParams } from '@onekeyhq/kit/src/hooks/useSignatureConfirm';
+import { useInvitePostConfig } from '@onekeyhq/kit/src/views/ReferFriends/hooks/useInvitePostConfig';
+import {
+  DEFAULT_INVITEE_DISCOUNT_TEXT,
+  formatInviteeDiscountFromConfig,
+  isInviteeDiscountDeclined,
+} from '@onekeyhq/kit/src/views/ReferFriends/utils';
+import { readInstallReferralAutoFillCode } from '@onekeyhq/kit/src/views/ReferFriends/utils/installReferralAutoFill';
 import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import type { OneKeyError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import type { IReferralBindSource } from '@onekeyhq/shared/src/logger/scopes/referral/scenes/page';
 
 import { ReferFriendsTestIDs } from '../../testIDs';
 
@@ -32,22 +41,45 @@ import {
   AllWalletsUnavailableEmpty,
 } from './AllWalletsBoundEmpty';
 import { NoWalletEmpty } from './NoWalletEmpty';
+import { isBindWindowExpiredError } from './referralBindStatusUtils';
 import { useFetchWalletsWithBoundStatus } from './useFetchWalletsWithBoundStatus';
 import { useGetReferralCodeWalletInfo } from './useGetReferralCodeWalletInfo';
 
 import type { IReferralCodeWalletInfo } from './types';
+import type { IWalletReferralBindListStatus } from './useFetchWalletsWithBoundStatus';
+
+// Upper bound on holding the invite hint back for the configured rebate. A
+// cached config answers at once; a fresh install has to fetch, and past this
+// the hint commits to the default rebate rather than keep waiting.
+const INVITEE_DISCOUNT_WAIT_MS = 1500;
+
+// Upper bound on waiting for a startup install-referrer capture still in
+// flight when the dialog opens.
+const INSTALL_REFERRAL_CAPTURE_WAIT_MS = 10_000;
+
+// Bound, past the bind window, or of unknown status: listed but cannot be selected.
+function isUnavailableToBind(status: IWalletReferralBindListStatus) {
+  return status === 'bound' || status === 'expired' || status === 'unknown';
+}
 
 export function InviteCodeDialog({
   wallet,
+  preferredWalletId,
   onSuccess,
   confirmBindReferralCode,
   defaultReferralCode,
+  source,
 }: {
   wallet?: IDBWallet;
+  // Without a `wallet`, the selector starts on this one if it can still
+  // bind, otherwise on the first wallet that can.
+  preferredWalletId?: string;
   onSuccess?: () => void;
   defaultReferralCode?: string;
+  source?: IReferralBindSource;
   confirmBindReferralCode: (params: {
     referralCode: string;
+    source?: IReferralBindSource;
     preventClose?: () => void;
     walletInfo: IReferralCodeWalletInfo | null | undefined;
     navigationToMessageConfirmAsync: (
@@ -64,18 +96,41 @@ export function InviteCodeDialog({
   });
 
   // Fetch cached invite code on mount
-  const { result: cachedCode } = usePromiseResult(async () => {
-    const code =
-      await backgroundApiProxy.serviceReferralCode.getCachedInviteCode();
-    return code;
-  }, []);
+  const { result: cachedCode, isLoading: isCachedCodeLoading } =
+    usePromiseResult(
+      async () => {
+        const code =
+          await backgroundApiProxy.serviceReferralCode.getCachedInviteCode();
+        return code;
+      },
+      [],
+      // `watchLoading` is what makes `isLoading` update at all — without it
+      // the draft gate below would never open. `undefinedResultIfError` keeps
+      // a failed read from surfacing as an unhandled rejection.
+      { watchLoading: true, undefinedResultIfError: true },
+    );
+
+  // Until the saved draft has been read, an empty field does not yet mean
+  // "nothing to restore", so the install-referrer suggestion stays hidden —
+  // otherwise a quick Apply could bind it over a draft about to appear. Keyed
+  // off the read settling rather than off its value, so a failed read still
+  // opens the gate instead of hiding the invite for the whole dialog session.
+  //
+  // Opened only after the restore effect below has run, not merely once the
+  // read settles: the read result and the field value land in different
+  // renders, and the render in between would flash the hint over the draft.
+  const [isDraftSettled, setIsDraftSettled] = useState(false);
 
   // Update form default value when cachedCode loads
   useEffect(() => {
+    if (isCachedCodeLoading !== false) {
+      return;
+    }
     if (cachedCode && !form.getValues('referralCode')) {
       form.setValue('referralCode', cachedCode);
     }
-  }, [cachedCode, form]);
+    setIsDraftSettled(true);
+  }, [cachedCode, isCachedCodeLoading, form]);
 
   // Save to cache when input changes (debounced)
   const handleCodeChange = useDebouncedCallback((value: string) => {
@@ -92,14 +147,98 @@ export function InviteCodeDialog({
     return () => subscription.unsubscribe();
   }, [form, handleCodeChange]);
 
+  // Invite code recovered from the store install referrer. Offered as a hint
+  // rather than pre-filled: it came from the download link, not from this
+  // user, and binding is irreversible, so accepting it stays a deliberate tap.
+  // Anything already in the field — a deeplink code or a saved draft — wins.
+  //
+  // Settings, Perps and Swap can open this before the startup capture has
+  // landed on a fresh install, so wait it out like the onboarding dialog does.
+  // A late hint only appears under an empty field, so this can wait longer.
+  const isMountedRef = useRef(true);
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
+  const { result: suggestedCode } = usePromiseResult(
+    async () =>
+      readInstallReferralAutoFillCode({
+        timeoutMs: INSTALL_REFERRAL_CAPTURE_WAIT_MS,
+        isActive: () => isMountedRef.current,
+      }),
+    [],
+    { undefinedResultIfError: true },
+  );
+
+  const { postConfig, isSettled: isPostConfigSettled } = useInvitePostConfig({
+    enabled: Boolean(suggestedCode),
+  });
+
+  // The rebate line is decided once per dialog — when the config settles or
+  // when the wait runs out, whichever comes first — and the hint stays hidden
+  // until then. It therefore never shows one rate and swaps to another under a
+  // user about to make an irreversible bind. Only a timeout or a failed read
+  // falls back to the default; `null` means the server declined a rebate, so
+  // none is shown. The one change allowed afterwards is below: withdrawing the
+  // promise when a refreshed config declines it.
+  const [inviteeDiscount, setInviteeDiscount] = useState<
+    string | null | undefined
+  >(undefined);
+  useEffect(() => {
+    if (!suggestedCode || inviteeDiscount !== undefined) {
+      return undefined;
+    }
+    if (isPostConfigSettled) {
+      const discount = postConfig?.inviteeDiscount;
+      setInviteeDiscount(
+        isInviteeDiscountDeclined(discount)
+          ? null
+          : formatInviteeDiscountFromConfig(discount),
+      );
+      return undefined;
+    }
+    const timer = setTimeout(() => {
+      setInviteeDiscount(DEFAULT_INVITEE_DISCOUNT_TEXT);
+    }, INVITEE_DISCOUNT_WAIT_MS);
+    return () => clearTimeout(timer);
+  }, [suggestedCode, inviteeDiscount, isPostConfigSettled, postConfig]);
+
+  // One-way: the first answer can be a cached config, and a refresh that says
+  // the rebate is paused must not leave a rate promised above the bind. Only
+  // "rate → no rate" is allowed; a different positive rate never swaps in.
+  useEffect(() => {
+    if (
+      typeof inviteeDiscount === 'string' &&
+      isInviteeDiscountDeclined(postConfig?.inviteeDiscount)
+    ) {
+      setInviteeDiscount(null);
+    }
+  }, [inviteeDiscount, postConfig]);
+
   const getReferralCodeWalletInfo = useGetReferralCodeWalletInfo();
   const { walletsWithStatus, isLoading: isLoadingWallets } =
     useFetchWalletsWithBoundStatus();
 
-  // Selected wallet state
-  const [selectedWalletId, setSelectedWalletId] = useState<string | undefined>(
+  // The wallet the user picked; until then, the one the dialog opened with.
+  const [pickedWalletId, setSelectedWalletId] = useState<string | undefined>(
     wallet?.id,
   );
+  // Entries with no wallet in hand (the referral page's own prompts) start on
+  // the preferred wallet if it can still bind, otherwise the first that can.
+  const selectedWalletId = useMemo(() => {
+    if (pickedWalletId || !walletsWithStatus) {
+      return pickedWalletId;
+    }
+    const bindable = walletsWithStatus.filter(
+      (item) => !isUnavailableToBind(item.status),
+    );
+    return (
+      bindable.find((item) => item.wallet.id === preferredWalletId) ??
+      bindable[0]
+    )?.wallet.id;
+  }, [pickedWalletId, preferredWalletId, walletsWithStatus]);
 
   // Get the selected wallet object
   const selectedWallet = useMemo(() => {
@@ -116,10 +255,7 @@ export function InviteCodeDialog({
 
     return walletsWithStatus.map((item) => {
       let description: string | undefined;
-      const isDisabled =
-        item.status === 'bound' ||
-        item.status === 'expired' ||
-        item.status === 'unknown';
+      const isDisabled = isUnavailableToBind(item.status);
       if (item.status === 'bound') {
         description = intl.formatMessage({
           id: ETranslations.referral_wallet_bind_code_finish,
@@ -158,12 +294,7 @@ export function InviteCodeDialog({
   // Check if all wallets are unavailable (bound, window expired, or unknown)
   const allWalletsUnavailable = useMemo(() => {
     if (!walletsWithStatus || walletsWithStatus.length === 0) return false;
-    return walletsWithStatus.every(
-      (w) =>
-        w.status === 'bound' ||
-        w.status === 'expired' ||
-        w.status === 'unknown',
-    );
+    return walletsWithStatus.every((w) => isUnavailableToBind(w.status));
   }, [walletsWithStatus]);
 
   // Check if the selected wallet is already bound
@@ -192,6 +323,36 @@ export function InviteCodeDialog({
     return found?.status === 'unknown';
   }, [walletsWithStatus, selectedWalletId]);
 
+  const currentCode = form.watch('referralCode');
+  // Only for a wallet that can still bind: a bound, expired or unknown-status
+  // wallet has Apply disabled, and an invite line above it would promise a
+  // rebate the user cannot take. Waits for the wallet statuses so the hint
+  // does not flash before they are known.
+  const isSelectedWalletBindable =
+    isDataReady &&
+    !isSelectedWalletBound &&
+    !isSelectedWalletNotBindable &&
+    !isSelectedWalletStatusUnknown;
+  const isSuggestionVisible =
+    isSelectedWalletBindable &&
+    isDraftSettled &&
+    Boolean(suggestedCode) &&
+    inviteeDiscount !== undefined &&
+    !currentCode?.trim();
+
+  // Once per mount: the hint's visibility flips on every keystroke that
+  // empties or fills the field, and that is not a new impression.
+  const isOfferLoggedRef = useRef(false);
+  useEffect(() => {
+    if (!isSuggestionVisible || isOfferLoggedRef.current) {
+      return;
+    }
+    isOfferLoggedRef.current = true;
+    defaultLogger.referral.page.installReferralOffered({
+      surface: 'bind_dialog',
+    });
+  }, [isSuggestionVisible]);
+
   const { result: walletInfo } = usePromiseResult(async () => {
     const r = await getReferralCodeWalletInfo(selectedWallet?.id);
     if (!r) {
@@ -210,16 +371,50 @@ export function InviteCodeDialog({
       try {
         const isValidForm = await form.trigger();
         if (!isValidForm) {
+          if (form.getValues().referralCode) {
+            defaultLogger.referral.page.referralBindFailed({
+              source,
+              errorType: 'invalid_format',
+            });
+          }
+          preventClose?.();
+          return;
+        }
+        // An empty field while the hint is showing means "accept the
+        // invite" — Apply is the only affordance the hint offers.
+        const typedCode = form.getValues().referralCode?.trim();
+        const referralCode =
+          typedCode || (isSuggestionVisible ? suggestedCode : undefined);
+        if (!referralCode) {
           preventClose?.();
           return;
         }
         await confirmBindReferralCode({
-          referralCode: form.getValues().referralCode,
+          referralCode,
+          source,
           preventClose,
           walletInfo,
           navigationToMessageConfirmAsync,
           onSuccess,
         });
+        // Retire the attribution if this was the inviter's code, however it
+        // got into the field — accepted from the hint or typed by hand.
+        try {
+          const isInviterCode =
+            await backgroundApiProxy.serviceReferralCode.consumeInstallReferralIfBound(
+              { referralCode },
+            );
+          // Consume however the code got into the field, but only count an
+          // acceptance when this dialog actually showed the invite.
+          if (isInviterCode && isOfferLoggedRef.current) {
+            defaultLogger.referral.page.installReferralAccepted({
+              surface: 'bind_dialog',
+            });
+          }
+        } catch {
+          // Worst case the invite is offered once more, and the server
+          // rejects the duplicate bind.
+        }
       } catch (e) {
         const err = e as OneKeyError<
           unknown,
@@ -229,10 +424,7 @@ export function InviteCodeDialog({
           }
         >;
         if (err.className === 'OneKeyServerApiError' && err.message) {
-          const isBindWindowExpired =
-            err.data?.messageId === 'exceeded_bind_window' ||
-            err.data?.message === 'exceeded_bind_window' ||
-            err.message === 'exceeded_bind_window';
+          const isBindWindowExpired = isBindWindowExpiredError(err);
           form.setError('referralCode', {
             message: isBindWindowExpired
               ? intl.formatMessage({
@@ -246,11 +438,14 @@ export function InviteCodeDialog({
     },
     [
       form,
+      suggestedCode,
+      isSuggestionVisible,
       walletInfo,
       confirmBindReferralCode,
       navigationToMessageConfirmAsync,
       onSuccess,
       intl,
+      source,
     ],
   );
 
@@ -363,7 +558,11 @@ export function InviteCodeDialog({
           <Form.Field
             name="referralCode"
             rules={{
-              required: true,
+              // A visible suggestion supplies the value on submit, so an
+              // empty field is legitimate. Empty values bypass `pattern` in
+              // react-hook-form, making `required` the only check that would
+              // otherwise reject them.
+              required: !isSuggestionVisible,
               pattern: {
                 value: /^[a-zA-Z0-9]{1,30}$/,
                 message: intl.formatMessage({
@@ -381,6 +580,23 @@ export function InviteCodeDialog({
             />
           </Form.Field>
         </Form>
+        {isSuggestionVisible ? (
+          // Sits below the input rather than in its placeholder: the field
+          // stays visibly empty, so Apply reads as accepting the invite
+          // instead of submitting something the user typed.
+          <SizableText size="$bodySm" color="$textSubdued">
+            {inviteeDiscount
+              ? intl.formatMessage(
+                  { id: ETranslations.referral_invited_by_code__desc },
+                  { code: suggestedCode, amount: inviteeDiscount },
+                )
+              : // The server declined a rebate: name the invite, promise none.
+                intl.formatMessage(
+                  { id: ETranslations.referral_modal_been_invited_title_code },
+                  { ABCDEF: suggestedCode },
+                )}
+          </SizableText>
+        ) : null}
       </YStack>
       <SizableText mt="$3" size="$bodyMd" color="$textSubdued">
         {intl.formatMessage({

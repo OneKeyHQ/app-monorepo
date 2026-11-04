@@ -1,4 +1,13 @@
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  Suspense,
+  lazy,
+  memo,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -19,7 +28,6 @@ import type {
 import { LazyPopover } from '@onekeyhq/components/src/actions/LazyPopover';
 import { LazyTooltip } from '@onekeyhq/components/src/actions/LazyTooltip';
 import type { ITooltipRef } from '@onekeyhq/components/src/actions/Tooltip';
-import { TradingHoursTrigger } from '@onekeyhq/kit/src/components/TradingHoursPanel';
 import useFormatDate from '@onekeyhq/kit/src/hooks/useFormatDate';
 import { useUSMarketStatus } from '@onekeyhq/kit/src/hooks/useUSMarketStatus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -27,7 +35,6 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   EUSMarketStatusVariant,
   getUSMarketNextOpenCountdown,
-  isOndoUSMarketStock,
   resolveUSMarketStatusVariant,
 } from '@onekeyhq/shared/src/utils/tradingHoursUtils';
 import type { IMarketStockInfo } from '@onekeyhq/shared/types/marketV2';
@@ -36,6 +43,13 @@ import { formatStockLastUpdateTime } from '../utils/stockLastUpdate';
 
 import { shouldShowOptionalSegment } from './utils/inlineStatusFit';
 import { truncatePerpsSubtitle } from './utils/perpsSubtitle';
+
+// Ordinary list badges do not need the trading-hours panel in the startup graph.
+const TradingHoursTrigger = lazy(async () => {
+  const { TradingHoursTrigger: Component } =
+    await import('@onekeyhq/kit/src/components/TradingHoursPanel');
+  return { default: Component };
+});
 
 const LeverageBadge = memo(
   ({ leverage, compact }: { leverage: number; compact?: boolean }) => (
@@ -73,11 +87,13 @@ const PerpDexBadge = memo(
     dexLabel,
     height,
     testID,
+    interactive = true,
   }: {
     compact?: boolean;
     dexLabel?: string;
     height?: number;
     testID?: string;
+    interactive?: boolean;
   }) => {
     const intl = useIntl();
     const descriptionId = getPerpDexDescriptionId(dexLabel);
@@ -106,6 +122,10 @@ const PerpDexBadge = memo(
         {badgeText}
       </XStack>
     );
+
+    if (!interactive) {
+      return badge;
+    }
 
     if (platformEnv.isNative) {
       return (
@@ -438,11 +458,9 @@ const STOCK_MARKET_STATUS_CHIPS: Record<
 };
 
 /**
- * Market status chip for tokenized stocks (see OK-58043). Only Ondo tokens
- * follow the US-session model, so only they get a chip (sessions, closed,
- * halted); other issuers (e.g. xStocks run 7×24 with no open/closed
- * distinction) show no badge at all. The chip describes the underlying
- * market only — it no longer implies whether trading is disabled (OK-58986).
+ * Market status chip for tokenized stocks of every issuer (see OK-58043).
+ * The chip describes the underlying market only; it does not determine
+ * whether the token can trade (OK-58986).
  * Pass `disableTooltip` when the chip is used as a popover trigger (e.g. the
  * trading-hours panel) — the wrapping trigger owns the press, so the hover
  * tooltip must not compete with it.
@@ -461,35 +479,38 @@ const StockIsOpenBadge = memo(
     stock,
     disableTooltip,
     variant: displayVariant = 'badge',
+    inlineSize = 'md',
     showLastUpdate = true,
   }: {
     stock: IMarketStockInfo;
     disableTooltip?: boolean;
     variant?: 'badge' | 'inline';
+    /** Mobile detail headers use the compact `sm` inline row. */
+    inlineSize?: 'md' | 'sm';
     /** Off for the token price: that quote trades around the clock, so its
      *  own timestamp is always now. */
     showLastUpdate?: boolean;
   }) => {
     const intl = useIntl();
-    const { source, isOpen, isPaused, description } = stock;
+    const { isUSListing, isOpen, isPaused, description } = stock;
     // Every isOpen === true resolution (paused or not) may need the backend
     // status — the 60s poll is also what re-runs the memo below, unfreezing
     // gap-transient variants once the gap ends. Other isOpen values resolve
     // clock-free (Closed / Halted / no chip), so skip the fetch for them.
     const marketStatus = useUSMarketStatus({
-      enabled: isOndoUSMarketStock(source) && isOpen === true,
+      enabled: isOpen === true && isUSListing !== false,
     });
     // The offline fallback path runs Intl-heavy clock math — don't redo it on
     // unrelated parent re-renders.
     const variant = useMemo(
       () =>
         resolveUSMarketStatusVariant({
-          source,
+          isUSListing,
           isOpen,
           isPaused,
           status: marketStatus,
         }),
-      [source, isOpen, isPaused, marketStatus],
+      [isUSListing, isOpen, isPaused, marketStatus],
     );
 
     // Outside regular trading the share price is frozen, so the inline chip
@@ -570,31 +591,46 @@ const StockIsOpenBadge = memo(
     }
     const contentWidth =
       measurement.key === measurementKey ? measurement.width : 0;
+    const hasMeasuredOptionalSegment =
+      Boolean(nextOpenText) &&
+      measurement.key === measurementKey &&
+      measurement.width > 0;
 
     if (!variant) {
       return null;
     }
     const chip = STOCK_MARKET_STATUS_CHIPS[variant];
     const showNextOpen =
-      Boolean(nextOpenText) &&
+      hasMeasuredOptionalSegment &&
       shouldShowOptionalSegment({
         availableWidth,
         contentWidth,
         // The icon box plus the row's own `$1` gap before the text stack.
         reservedWidth: iconWidth ? iconWidth + INLINE_STATUS_ROW_GAP : 0,
       });
-    showsOptionalSegmentRef.current = showNextOpen;
+    // Keep the optional segment in the layout while measuring, but hide it
+    // until its width has been confirmed. Rendering it visible on the first
+    // pass makes a long countdown flash before the row can decide to drop it.
+    const measureNextOpen =
+      Boolean(nextOpenText) && !hasMeasuredOptionalSegment;
+    showsOptionalSegmentRef.current = measureNextOpen || showNextOpen;
 
+    const isCompactInline = inlineSize === 'sm';
+    const inlineTextSize = isCompactInline ? '$bodySmMedium' : '$bodyMd';
+    const inlineMetaTextSize = isCompactInline ? '$bodySm' : '$bodyMd';
     const badge =
       displayVariant === 'inline' ? (
         <XStack alignItems="center" gap="$1" onLayout={handleRowLayout}>
           {/* Figma 26560:24978 pads the icon box by 2px so the glyph is not
               flush against the label's cap height. */}
-          <Stack px="$0.5" onLayout={handleIconLayout}>
+          <Stack
+            px={isCompactInline ? '$0' : '$0.5'}
+            onLayout={handleIconLayout}
+          >
             <Icon name={chip.icon} size="$4" color={chip.color} />
           </Stack>
           <XStack alignItems="center" gap="$2" onLayout={handleContentLayout}>
-            <SizableText size="$bodyMd" color={chip.color}>
+            <SizableText size={inlineTextSize} color={chip.color}>
               {chip.titleId !== undefined
                 ? intl.formatMessage({ id: chip.titleId })
                 : chip.title}
@@ -603,18 +639,26 @@ const StockIsOpenBadge = memo(
               <>
                 {/* Figma 26560:25110 */}
                 <Stack width="$px" height={12} bg="$borderSubdued" />
-                <SizableText size="$bodyMd" color="$textSubdued">
+                <SizableText size={inlineMetaTextSize} color="$textSubdued">
                   {lastUpdateText}
                 </SizableText>
               </>
             ) : null}
-            {showNextOpen ? (
-              <>
+            {nextOpenText && (measureNextOpen || showNextOpen) ? (
+              <XStack
+                alignItems="center"
+                gap="$2"
+                opacity={showNextOpen ? 1 : 0}
+              >
                 <Stack width="$px" height={12} bg="$borderSubdued" />
-                <SizableText size="$bodyMd" color="$textSubdued" flexShrink={0}>
+                <SizableText
+                  size={inlineMetaTextSize}
+                  color="$textSubdued"
+                  flexShrink={0}
+                >
                   {nextOpenText}
                 </SizableText>
-              </>
+              </XStack>
             ) : null}
           </XStack>
         </XStack>
@@ -655,34 +699,67 @@ StockIsOpenBadge.displayName = 'StockIsOpenBadge';
 /**
  * Standard entry composition used by every trading-hours surface: the status
  * chip wired to open the panel (hover popover on desktop, bottom-sheet dialog
- * on native/small screens). Renders nothing for tokens without a stock;
- * non-Ondo issuers render no chip (see StockIsOpenBadge).
+ * on native/small screens). Renders nothing for tokens without stock data.
  */
 const StockMarketStatusBadge = memo(
   ({
     stock,
     variant,
+    inlineSize,
     showLastUpdate,
   }: {
     stock?: IMarketStockInfo;
     variant?: 'badge' | 'inline';
+    inlineSize?: 'md' | 'sm';
     showLastUpdate?: boolean;
   }) => {
+    const stockKey =
+      stock && stock.isUSListing !== false
+        ? `${stock.source ?? ''}:${stock.stockId ?? stock.title ?? stock.subtitle}`
+        : undefined;
+    const [pendingStockKey, setPendingStockKey] = useState<string>();
+    useEffect(() => {
+      setPendingStockKey(undefined);
+    }, [stockKey]);
+    const handleDefaultOpenConsumed = useCallback(() => {
+      setPendingStockKey(undefined);
+    }, []);
     if (!stock) {
       return null;
     }
-    return (
-      <TradingHoursTrigger
+    const trigger = (
+      <StockIsOpenBadge
         stock={stock}
-        renderTrigger={
-          <StockIsOpenBadge
-            stock={stock}
-            disableTooltip
-            variant={variant}
-            showLastUpdate={showLastUpdate}
-          />
-        }
+        disableTooltip
+        variant={variant}
+        inlineSize={inlineSize}
+        showLastUpdate={showLastUpdate}
       />
+    );
+    if (stock.isUSListing === false) {
+      return trigger;
+    }
+    return (
+      <Suspense
+        fallback={
+          <Stack
+            cursor="pointer"
+            onPress={(event) => {
+              event.stopPropagation();
+              setPendingStockKey(stockKey);
+            }}
+          >
+            {trigger}
+          </Stack>
+        }
+      >
+        <TradingHoursTrigger
+          stock={stock}
+          renderTrigger={trigger}
+          defaultOpen={stockKey !== undefined && pendingStockKey === stockKey}
+          onDefaultOpenConsumed={handleDefaultOpenConsumed}
+        />
+      </Suspense>
     );
   },
 );

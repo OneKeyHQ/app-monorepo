@@ -176,7 +176,10 @@ export function getFirmwareUpdateItems({
       key: item.target,
       name: getProtocolV2Title(item.target),
       fromVersion: item.currentVersion,
-      toVersion: item.targetVersion,
+      toVersion:
+        item.target === 'safeos'
+          ? (item.targetVersion ?? item.currentVersion)
+          : item.targetVersion,
       noVersion: item.releaseIdentifierOnly,
     }));
   }

@@ -1,18 +1,60 @@
 import { useEffect } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import {
+  Icon,
   NumberSizeableText,
+  Popover,
   SizableText,
   Skeleton,
+  Tooltip,
+  XStack,
 } from '@onekeyhq/components';
 import {
   usePerpsAccountLoadingInfoAtom,
   usePerpsActiveAccountAtom,
   usePerpsActiveAccountSummaryAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { markPerpsColdStartPerfOnce } from '@onekeyhq/shared/src/performance/perpsColdStartPerf';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import type { FontSizeTokens } from 'tamagui';
+
+export function PerpsPartialAccountValueWarning() {
+  const intl = useIntl();
+  const label = intl.formatMessage({
+    id: ETranslations.wallet_partial_price_unavailable,
+  });
+  if (platformEnv.isNative) {
+    return (
+      <Popover.Tooltip
+        title={intl.formatMessage({ id: ETranslations.perp_portfolio_value })}
+        tooltip={label}
+        triggerProps={{
+          iconColor: '$iconCaution',
+          accessibilityLabel: label,
+          testID: 'perps-partial-account-value-warning',
+          p: '$0',
+        }}
+      />
+    );
+  }
+  return (
+    <Tooltip
+      renderContent={label}
+      renderTrigger={
+        <Icon
+          name="InfoCircleOutline"
+          size="$4"
+          color="$iconCaution"
+          accessibilityLabel={label}
+        />
+      }
+    />
+  );
+}
 
 export function PerpsAccountNumberValue({
   value,
@@ -20,12 +62,14 @@ export function PerpsAccountNumberValue({
   textSize = '$bodySmMedium',
   allowValueDuringAccountLoading = false,
   skipAccountSummaryCheck = false,
+  isPartial = false,
 }: {
   value: string;
   skeletonWidth?: number;
   textSize?: FontSizeTokens;
   allowValueDuringAccountLoading?: boolean;
   skipAccountSummaryCheck?: boolean;
+  isPartial?: boolean;
 }) {
   const [perpsAccountLoading] = usePerpsAccountLoadingInfoAtom();
   const [selectedAccount] = usePerpsActiveAccountAtom();
@@ -57,7 +101,7 @@ export function PerpsAccountNumberValue({
     );
   }
 
-  return (
+  const valueContent = (
     <NumberSizeableText
       size={textSize}
       formatter="value"
@@ -65,5 +109,13 @@ export function PerpsAccountNumberValue({
     >
       {value}
     </NumberSizeableText>
+  );
+  return isPartial ? (
+    <XStack alignItems="center" gap="$1">
+      {valueContent}
+      <PerpsPartialAccountValueWarning />
+    </XStack>
+  ) : (
+    valueContent
   );
 }

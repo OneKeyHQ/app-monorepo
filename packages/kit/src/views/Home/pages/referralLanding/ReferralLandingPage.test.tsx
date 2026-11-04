@@ -119,9 +119,12 @@ jest.mock('@onekeyhq/shared/src/config/appConfig', () => ({
 jest.mock('@onekeyhq/shared/src/eventBus/appEventBus', () => ({
   EAppEventBusNames: {
     HideTabBar: 'HideTabBar',
+    ReferralPostConfigUpdated: 'ReferralPostConfigUpdated',
   },
   appEventBus: {
     emit: jest.fn(),
+    on: jest.fn(),
+    off: jest.fn(),
   },
 }));
 

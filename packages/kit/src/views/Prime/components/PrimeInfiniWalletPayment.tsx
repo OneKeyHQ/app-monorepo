@@ -4485,6 +4485,9 @@ function PrimeInfiniWalletPaymentRoot({
               );
             } else {
               const restoreResult = await resolvePrimeInfiniPaymentRestore({
+                sessionChangedMessage: intl.formatMessage({
+                  id: ETranslations.prime_close_and_try_again__desc,
+                }),
                 session: {
                   ...restoredSession,
                   asset: canonicalAsset,
@@ -4517,6 +4520,17 @@ function PrimeInfiniWalletPaymentRoot({
                     {
                       onekeyUserId,
                       expectedPaymentCacheIdentity,
+                    },
+                  ),
+                discardTerminalPaymentSession: (latestPayment) =>
+                  backgroundApiProxy.simpleDb.prime.discardTerminalInfiniPendingPaymentSession(
+                    {
+                      onekeyUserId,
+                      expectedPaymentCacheIdentity:
+                        restoredSession.paymentCacheKey,
+                      expectedUpdatedAt: restoredSession.updatedAt,
+                      expectedSendStarted: restoredSession.sendStarted,
+                      latestPayment,
                     },
                   ),
                 clearCompletedPaymentSession: (expectedPaymentCacheIdentity) =>
@@ -4727,6 +4741,7 @@ function PrimeInfiniWalletPaymentRoot({
     [
       featureName,
       hasValidRouteParams,
+      intl,
       plan,
       primeUserInfo.onekeyUserId,
       selectedSubscriptionPeriod,

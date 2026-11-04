@@ -17,6 +17,9 @@ describe('TradingViewNative chart settings adapter', () => {
     expect(
       getTradingViewChartSettingsValue(createTradingViewNativeChartSettings()),
     ).toEqual(createTradingViewChartSettingsValue());
+    expect(
+      createTradingViewNativeChartSettings().options.navigationButtons,
+    ).toBe(false);
   });
 
   it('round-trips supported chart settings without the countdown option', () => {
@@ -38,6 +41,7 @@ describe('TradingViewNative chart settings adapter', () => {
     value.options.countdown = false;
     value.options.latestPrice = false;
     value.options.previousClose = true;
+    value.options.navigationButtons = true;
     value.latestPriceLine.upColor = '#123456';
     value.latestPriceLine.downColor = '#654321';
     value.background.style = 'gradient';
@@ -53,6 +57,7 @@ describe('TradingViewNative chart settings adapter', () => {
     expect(nextSettings.options).not.toHaveProperty('countdown');
     expect(nextSettings.options.latestPrice).toBe(false);
     expect(nextSettings.options.previousClose).toBe(true);
+    expect(nextSettings.options.navigationButtons).toBe(true);
     expect(nextSettings.latestPriceLine).toEqual({
       ...currentSettings.latestPriceLine,
       upColor: '#123456',
@@ -135,6 +140,36 @@ describe('TradingViewNative chart settings adapter', () => {
     );
     expect(migrated.options.previousClose).toBe(false);
   });
+
+  it('keeps navigation buttons hidden when migrating schema version 4 settings', () => {
+    const previousSettings = createTradingViewNativeChartSettings();
+    const { navigationButtons: _navigationButtons, ...legacyOptions } =
+      previousSettings.options;
+
+    const migrated = normalizeTradingViewNativeChartSettings({
+      ...previousSettings,
+      schemaVersion: 4,
+      options: legacyOptions,
+    });
+
+    expect(migrated.schemaVersion).toBe(
+      TRADING_VIEW_NATIVE_CHART_SETTINGS_SCHEMA_VERSION,
+    );
+    expect(migrated.options.navigationButtons).toBe(false);
+  });
+
+  it.each([false, true])(
+    'preserves the saved navigation buttons preference: %s',
+    (navigationButtons) => {
+      const settings = createTradingViewNativeChartSettings();
+      settings.options.navigationButtons = navigationButtons;
+
+      expect(
+        normalizeTradingViewNativeChartSettings(settings).options
+          .navigationButtons,
+      ).toBe(navigationButtons);
+    },
+  );
 
   it('sanitizes malformed nested values in the current persisted schema', () => {
     const fallback = createTradingViewNativeChartSettings();

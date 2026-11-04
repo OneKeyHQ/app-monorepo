@@ -1,14 +1,14 @@
 // cspell:ignore OCDS
 import { globalNetInfo } from '@onekeyhq/components/src/hooks/useNetInfo';
-import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
-import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
-
 import {
-  extractUpdateErrorCode,
-  isPermanentThisUrlDownloadError,
-  isUnrecoverableDownloadError,
-} from './updateErrorTaxonomy';
+  EUpdateErrorCode,
+  createUpdateError,
+  getUpdateError,
+  isRetryableUpdateError,
+  shouldRefreshUpdateUrl,
+} from '@onekeyhq/shared/src/modules3rdParty/auto-update/error';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 const DOWNLOAD_RETRY_MAX_ATTEMPTS = 5;
 const DOWNLOAD_RETRY_BASE_DELAY_MS = 1500;
@@ -109,7 +109,7 @@ export type IDownloadGaveUpReason =
   | 'fallbackFailed'
   | 'urlDead';
 
-export class DownloadGaveUpError extends OneKeyLocalError {
+export class DownloadGaveUpError extends Error {
   // Why we gave up — surfaced for analytics / UI copy. (`name` stays the
   // OneKeyLocalError className; callers discriminate via `instanceof
   // DownloadGaveUpError` + this field.)
@@ -118,12 +118,8 @@ export class DownloadGaveUpError extends OneKeyLocalError {
   // The last underlying transport error, when there was one.
   readonly downloadCause?: unknown;
 
-  constructor(params: {
-    reason: IDownloadGaveUpReason;
-    message?: string;
-    cause?: unknown;
-  }) {
-    super(params.message ?? `DownloadGaveUp: ${params.reason}`);
+  constructor(params: { reason: IDownloadGaveUpReason; cause?: unknown }) {
+    super(createUpdateError(getUpdateError(params.cause, 'download')).message);
     this.reason = params.reason;
     this.downloadCause = params.cause;
   }
@@ -155,28 +151,8 @@ export interface IDownloadRetryOptions {
   // ends the run, "fallback failure is the terminal failure of the whole
   // download": the loop surfaces DownloadGaveUpError('fallbackFailed') instead
   // of the raw transport error, so the fallback is never a silent black hole.
-  // Defaults (when absent) to isSingleStreamFallbackFailure below.
+  // Without an explicit signal, the failure is not identified as fallback.
   isFallbackFailure?: (error: unknown) => boolean;
-}
-
-/**
- * OCDS §5.11 default detector for "the single-stream fallback itself failed".
- * The native range downloader emits a `fallback` signal and then runs the
- * sequential single-stream path; when THAT path also fails it surfaces the
- * error with a recognizable marker. Recognizing it here lets runDownloadWithRetry
- * tag the run's terminal outcome as 'fallbackFailed' rather than leaking a bare
- * transport error, making §5.11's "fallback is not a black hole" observable to
- * the caller (analytics / UI copy).
- */
-export function isSingleStreamFallbackFailure(error: unknown): boolean {
-  const msg = (error as { message?: string } | null)?.message ?? '';
-  const code = (error as { code?: string } | null)?.code ?? '';
-  return (
-    /\bfallback\b/i.test(msg) ||
-    /single[-\s]?stream/i.test(msg) ||
-    code === 'FALLBACK_FAILED' ||
-    code === 'SINGLE_STREAM_FAILED'
-  );
 }
 
 /**
@@ -222,15 +198,13 @@ export async function runDownloadWithRetry<T>(
       );
       throw new DownloadGaveUpError({
         reason: entry.reason ?? 'maxAttempts',
-        message: `${context}: download gave up (budget ${
-          entry.reason ?? 'maxAttempts'
-        })`,
       });
     }
   }
 
   // Tracks whether we've already spent the one-shot 401/403 URL refresh.
   let urlRefreshed = false;
+  let lastError: Error | undefined;
 
   for (let attempt = 0; attempt <= DOWNLOAD_RETRY_MAX_ATTEMPTS; attempt += 1) {
     // §5.11 — record before running so every native operation counts against
@@ -246,9 +220,7 @@ export async function runDownloadWithRetry<T>(
         );
         throw new DownloadGaveUpError({
           reason: budget.reason ?? 'maxAttempts',
-          message: `${context}: download gave up (budget ${
-            budget.reason ?? 'maxAttempts'
-          })`,
+          cause: lastError,
         });
       }
     }
@@ -266,8 +238,13 @@ export async function runDownloadWithRetry<T>(
       // §4 — a 401/403 (permanent-this-URL) is not a blind retry: refresh the
       // signed URL ONCE and try again against the fresh one. If the refresh
       // yields no fresh URL, the URL is dead → terminal.
+      const updateError = getUpdateError(e, 'download');
+      lastError = createUpdateError(updateError);
+      if (updateError.code === EUpdateErrorCode.cancelled) {
+        throw createUpdateError(updateError);
+      }
       if (
-        isPermanentThisUrlDownloadError(e) &&
+        shouldRefreshUpdateUrl(updateError) &&
         options?.refreshUrl &&
         !urlRefreshed &&
         attempt < DOWNLOAD_RETRY_MAX_ATTEMPTS
@@ -281,7 +258,6 @@ export async function runDownloadWithRetry<T>(
         if (!ok) {
           throw new DownloadGaveUpError({
             reason: 'urlDead',
-            message: `${context}: signed URL could not be refreshed`,
             cause: e,
           });
         }
@@ -291,7 +267,7 @@ export async function runDownloadWithRetry<T>(
         continue;
       }
       if (
-        isUnrecoverableDownloadError(e) ||
+        !isRetryableUpdateError(updateError) ||
         attempt === DOWNLOAD_RETRY_MAX_ATTEMPTS
       ) {
         // §5.11 — if the error that ends the run came from the single-stream
@@ -299,22 +275,18 @@ export async function runDownloadWithRetry<T>(
         // failure of the whole download. Surface it as a definitive give-up
         // ('fallbackFailed') rather than leaking the bare transport error, so
         // the fallback is never a silent black hole.
-        const detectFallback = options?.isFallbackFailure
-          ? options.isFallbackFailure
-          : isSingleStreamFallbackFailure;
-        if (detectFallback(e)) {
+        if (options?.isFallbackFailure?.(e)) {
           defaultLogger.app.appUpdate.log(
             `${context}: single-stream fallback failed — terminal (fallbackFailed) code=${
-              extractUpdateErrorCode(e) ?? '<none>'
+              updateError.code
             }`,
           );
           throw new DownloadGaveUpError({
             reason: 'fallbackFailed',
-            message: `${context}: single-stream fallback failed`,
             cause: e,
           });
         }
-        throw e;
+        throw createUpdateError(updateError);
       }
       const isOffline =
         globalNetInfo.currentState().isInternetReachable === false;
@@ -324,7 +296,7 @@ export async function runDownloadWithRetry<T>(
           isOffline
             ? `offline-wait≤${DOWNLOAD_RETRY_OFFLINE_WAIT_MS}ms`
             : `in ${baseDelayMs}ms`
-        } — code=${extractUpdateErrorCode(e) ?? '<none>'}`,
+        } — code=${updateError.code}`,
       );
       // eslint-disable-next-line no-await-in-loop
       await waitBeforeRetry(attempt, context);
@@ -332,5 +304,5 @@ export async function runDownloadWithRetry<T>(
   }
   // Unreachable: the loop either returns on success or throws on the
   // attempt === MAX iteration. Keep the throw to satisfy TS control flow.
-  throw new OneKeyLocalError('runDownloadWithRetry: unreachable');
+  throw createUpdateError({ code: EUpdateErrorCode.unknown, step: 'download' });
 }

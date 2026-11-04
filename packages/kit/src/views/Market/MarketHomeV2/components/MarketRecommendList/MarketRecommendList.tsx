@@ -2,9 +2,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
+import type { IYStackProps } from '@onekeyhq/components';
 import { Button, XStack, YStack } from '@onekeyhq/components';
-import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EWatchlistFrom } from '@onekeyhq/shared/src/logger/scopes/dex';
@@ -12,7 +11,9 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IMarketBasicConfigToken } from '@onekeyhq/shared/types/marketV2';
 
 import { useWatchListV2Action } from '../../../components/watchListHooksV2';
+import { getRecommendTokenNetworkId } from '../../../utils/getRecommendTokenNetworkId';
 import { mapRecommendTokensToWatchlistItems } from '../../../utils/mapRecommendTokensToWatchlistItems';
+import { orderSelectedRecommendTokens } from '../../../utils/orderSelectedRecommendTokens';
 import { getMarketRecommendContainerPaddingTop } from '../../layouts/mobileLayoutUtils';
 
 import { RecommendItem } from './RecommendItem';
@@ -21,13 +22,13 @@ function getTokenKey(token: { chainId: string; contractAddress: string }) {
   return `${token.chainId}:${token.contractAddress}`;
 }
 
-const EMPTY_COMMUNITY_RECOGNIZED_MAP: Record<string, boolean> = {};
-
 interface IMarketRecommendListProps {
   recommendedTokens: IMarketBasicConfigToken[];
   maxSize?: number;
   onTokenSelect?: (token: IMarketBasicConfigToken) => void;
   enableSelection?: boolean;
+  containerProps?: IYStackProps;
+  compact?: boolean;
 }
 
 export function MarketRecommendList({
@@ -35,6 +36,8 @@ export function MarketRecommendList({
   maxSize = 8,
   onTokenSelect,
   enableSelection = true,
+  containerProps,
+  compact = false,
 }: IMarketRecommendListProps) {
   const intl = useIntl();
   const actions = useWatchListV2Action();
@@ -61,41 +64,6 @@ export function MarketRecommendList({
   const defaultTokens = useMemo(
     () => uniqueTokens.slice(0, maxSize),
     [uniqueTokens, maxSize],
-  );
-
-  const { result: communityRecognizedMap } = usePromiseResult(
-    async () => {
-      if (!defaultTokens.length) {
-        return EMPTY_COMMUNITY_RECOGNIZED_MAP;
-      }
-
-      const response =
-        await backgroundApiProxy.serviceMarketV2.fetchMarketTokenListBatch({
-          tokenAddressList: defaultTokens.map((token) => ({
-            chainId: token.chainId,
-            contractAddress: token.contractAddress,
-            isNative: token.isNative,
-          })),
-        });
-
-      return defaultTokens.reduce<Record<string, boolean>>(
-        (acc, token, index) => {
-          const tokenKey = getTokenKey(token);
-          if (
-            token.communityRecognized ||
-            response.list?.[index]?.communityRecognized
-          ) {
-            acc[tokenKey] = true;
-          }
-          return acc;
-        },
-        {},
-      );
-    },
-    [defaultTokens],
-    {
-      initResult: EMPTY_COMMUNITY_RECOGNIZED_MAP,
-    },
   );
 
   const [selectedTokens, setSelectedTokens] = useState<
@@ -137,15 +105,22 @@ export function MarketRecommendList({
     isAddingRef.current = true;
     setIsAdding(true);
     try {
-      const items = await mapRecommendTokensToWatchlistItems(selectedTokens);
+      const orderedTokens = orderSelectedRecommendTokens(
+        defaultTokens,
+        selectedTokens,
+        getTokenKey,
+      );
+      const items = mapRecommendTokensToWatchlistItems(orderedTokens);
 
-      const added = await actions.addIntoWatchListV2(items);
+      const added = await actions.addIntoWatchListV2(items, {
+        preserveOrder: true,
+      });
       if (!added) {
         return;
       }
 
       // Log analytics for each token added to watchlist from recommend list
-      selectedTokens.forEach((token) => {
+      orderedTokens.forEach((token) => {
         defaultLogger.dex.watchlist.dexAddToWatchlist({
           network: token.chainId,
           tokenSymbol: token.symbol || '',
@@ -198,9 +173,10 @@ export function MarketRecommendList({
       jc="center"
       ai="center"
       width="100%"
+      {...containerProps}
     >
       <YStack
-        gap="$2.5"
+        gap={compact ? '$2' : '$2.5'}
         width="100%"
         $gtMd={{ maxWidth: 480 }}
         $sm={{
@@ -209,7 +185,7 @@ export function MarketRecommendList({
       >
         {new Array(Math.ceil(defaultTokens.length / 2)).fill(0).map((_, i) => (
           <XStack
-            gap="$2.5"
+            gap={compact ? '$2' : '$2.5'}
             key={i}
             $sm={{
               gap: '$2',
@@ -231,12 +207,9 @@ export function MarketRecommendList({
                   icon={item.logo || ''}
                   symbol={item.symbol}
                   tokenName={item.name}
-                  networkId={item.chainId}
-                  communityRecognized={Boolean(
-                    item.communityRecognized ||
-                    communityRecognizedMap[tokenKey],
-                  )}
+                  networkId={getRecommendTokenNetworkId(item)}
                   onChange={handleRecommendItemChange}
+                  compact={compact}
                 />
               );
             })}

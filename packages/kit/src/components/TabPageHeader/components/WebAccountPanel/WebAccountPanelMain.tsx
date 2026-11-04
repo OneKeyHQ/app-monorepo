@@ -22,7 +22,8 @@ import {
   useActiveAccount,
   useSelectedAccount,
 } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
-import { useAccountSelectorActions } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector/actions';
+import { useAccountSelectorLazyAction } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector/actionsLazy';
+import { PerpsPartialAccountValueWarning } from '@onekeyhq/kit/src/views/Perp/components/TradingPanel/components/PerpsAccountNumberValue';
 import { useShowDepositWithdrawModal } from '@onekeyhq/kit/src/views/Perp/hooks/useShowDepositWithdrawModal';
 import {
   usePerpsActiveAccountAtom,
@@ -188,14 +189,19 @@ function PerpsSection({
       );
     }
     return (
-      <NumberSizeableText
-        size="$bodyMdMedium"
-        color="$text"
-        formatter="value"
-        formatterOptions={{ currency: '$' }}
-      >
-        {effectiveValue}
-      </NumberSizeableText>
+      <XStack alignItems="center" gap="$1">
+        <NumberSizeableText
+          size="$bodyMdMedium"
+          color="$text"
+          formatter="value"
+          formatterOptions={{ currency: '$' }}
+        >
+          {effectiveValue}
+        </NumberSizeableText>
+        {atomValue !== undefined && computedValue?.isAccountValuePartial ? (
+          <PerpsPartialAccountValueWarning />
+        ) : null}
+      </XStack>
     );
   };
 
@@ -277,7 +283,7 @@ export function WebAccountPanelMain({
 }: IWebAccountPanelMainProps) {
   const intl = useIntl();
   const { copyText } = useClipboard();
-  const actions = useAccountSelectorActions();
+  const runAccountSelectorAction = useAccountSelectorLazyAction();
   const { selectedAccount } = useSelectedAccount({ num: 0 });
   const {
     activeAccount: { account, dbAccount, indexedAccount, wallet },
@@ -528,7 +534,7 @@ export function WebAccountPanelMain({
     // its own). It deliberately does NOT touch origin/storageType — the dApp
     // website-session flow lives in the connection modals, not the generic
     // account selector, so it's out of scope here.
-    const connectedAccountId = selectedAccount?.othersWalletAccountId;
+    const connectedAccountId = selectedAccount.othersWalletAccountId;
     if (connectedAccountId) {
       // Web dapp mode forces the active account to all-networks, so
       // useActiveAccount doesn't populate dbAccount; resolve from the id.
@@ -537,7 +543,9 @@ export function WebAccountPanelMain({
           accountId: connectedAccountId,
         });
       if (targetAccount) {
-        await actions.current.removeAccount({ account: targetAccount });
+        await runAccountSelectorAction('removeAccount', {
+          account: targetAccount,
+        });
         return;
       }
     } else if (indexedAccount) {
@@ -546,17 +554,17 @@ export function WebAccountPanelMain({
       // auto-switch — autoSelectNextAccount only runs for others accounts).
       // Disconnect here just resets the selection to unconnected; the account
       // stays in the wallet.
-      await actions.current.clearSelectedAccount({
+      await runAccountSelectorAction('clearSelectedAccount', {
         num: 0,
         clearAccount: true,
       });
     }
     onRequestClose();
   }, [
-    actions,
     indexedAccount,
     onRequestClose,
-    selectedAccount?.othersWalletAccountId,
+    runAccountSelectorAction,
+    selectedAccount.othersWalletAccountId,
   ]);
 
   // Initialize the active perps account from this account before any perps

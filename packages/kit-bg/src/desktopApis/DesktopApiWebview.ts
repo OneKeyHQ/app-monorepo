@@ -1,7 +1,7 @@
 import path from 'path';
 
-import { session } from 'electron';
-import isDev from 'electron-is-dev';
+import { app, session } from 'electron';
+import electronIsDev from 'electron-is-dev';
 import logger from 'electron-log/main';
 
 import {
@@ -17,6 +17,8 @@ import { getStaticPath } from '@onekeyhq/desktop/app/resoucePath';
 import injectedDesktopCode from './injectedDesktopCode.text-js';
 
 import type { IDesktopApi } from './instance/IDesktopApi';
+
+const isDev = !app?.isPackaged && electronIsDev;
 
 let templatePhishingUrls: string[] = [];
 
@@ -134,7 +136,9 @@ class DesktopApiNetwork {
         bundleDirPath,
         metadata,
         driveLetter,
-        url: preloadJsPath.replace(`${bundleDirPath}/`, ''),
+        url: preloadJsPath
+          .replace(/\\/g, '/')
+          .replace(`${bundleDirPath.replace(/\\/g, '/')}/`, ''),
       });
     }
     // ref: https://github.com/electron/electron/blob/7e031f7e33dcc66cbe5e0e4153a0fc0544618612/lib/sandboxed_renderer/preload.ts#L47

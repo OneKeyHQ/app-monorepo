@@ -1,7 +1,10 @@
 import fs from 'fs';
 import * as path from 'path';
 
-import isDev from 'electron-is-dev';
+import { app } from 'electron';
+import electronIsDev from 'electron-is-dev';
+
+const isDev = !app?.isPackaged && electronIsDev;
 
 const getJsBundleStaticPath = () => {
   const indexHtmlPath =

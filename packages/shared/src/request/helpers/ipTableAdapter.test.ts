@@ -2,6 +2,7 @@ import axios from 'axios';
 
 import { OneKeyLocalError } from '../../errors';
 import { EOneKeyErrorClassNames } from '../../errors/types/errorTypes';
+import { withCustomUAHeaders } from '../customUA';
 import { getRequestHeaders } from '../Interceptor';
 import requestHelper from '../requestHelper';
 
@@ -38,6 +39,12 @@ jest.mock('../Interceptor', () => ({
   getRequestHeaders: jest.fn(),
 }));
 
+jest.mock('../customUA', () => ({
+  withCustomUAHeaders: jest.fn(
+    async (_url: string, headers: Record<string, string>) => headers,
+  ),
+}));
+
 jest.mock('../../logger/logger', () => ({
   defaultLogger: {
     ipTable: {
@@ -66,6 +73,7 @@ const mockedRequestHelper = requestHelper as jest.Mocked<typeof requestHelper>;
 const mockedIsProxyActiveForUrl = isProxyActiveForUrl as jest.Mock;
 const mockedIsSniSupported = isSniSupported as jest.Mock;
 const mockedSniRequest = sniRequest as jest.Mock;
+const mockedWithCustomUAHeaders = withCustomUAHeaders as jest.Mock;
 const mockedLogger = jest.requireMock('../../logger/logger') as {
   defaultLogger: { ipTable: { request: { warn: jest.Mock } } };
 };
@@ -269,6 +277,75 @@ describe('ipTableAdapter SNI preflight and fail-closed behavior', () => {
         hostname: 'api.example.com',
       }),
       { signal: controller.signal },
+    );
+    expect(fallbackAdapter).not.toHaveBeenCalled();
+  });
+
+  test('aborts immediately while UA lookup is pending without starting a transport', async () => {
+    let finishHeaders: ((headers: Record<string, string>) => void) | undefined;
+    let lookupStarted: (() => void) | undefined;
+    const started = new Promise<void>((resolve) => {
+      lookupStarted = resolve;
+    });
+    mockedWithCustomUAHeaders.mockImplementationOnce(() => {
+      lookupStarted?.();
+      return new Promise<Record<string, string>>((resolve) => {
+        finishHeaders = resolve;
+      });
+    });
+    const controller = new AbortController();
+    const config = buildConfig('https://ua-pending.example.com/v1');
+    config.signal = controller.signal;
+    const outcome = createIpTableAdapter({})(config).then(
+      () => 'resolved',
+      (error: unknown) => error,
+    );
+    await started;
+    controller.abort();
+    const result = await Promise.race([
+      outcome,
+      new Promise<string>((resolve) => {
+        setTimeout(() => resolve('still pending'), 50);
+      }),
+    ]);
+    finishHeaders?.({});
+    await outcome;
+    expect(result).toMatchObject({ code: 'SNI_CANCELLED' });
+    expect(mockedSniRequest).not.toHaveBeenCalled();
+    expect(fallbackAdapter).not.toHaveBeenCalled();
+  });
+
+  test('injects the OneKey User-Agent into SNI request headers', async () => {
+    mockedWithCustomUAHeaders.mockImplementationOnce(
+      async (_url: string, headers: Record<string, string>) => ({
+        ...headers,
+        'User-Agent': 'OneKey macOS 6.6.1',
+      }),
+    );
+    mockedSniRequest.mockResolvedValue({
+      statusCode: 200,
+      statusText: 'OK',
+      headers: {},
+      body: '{"ok":true}',
+    });
+    const adapter = createIpTableAdapter({});
+
+    await expect(
+      adapter(buildConfig('https://api.example.com/v1')),
+    ).resolves.toMatchObject({ status: 200 });
+
+    expect(mockedWithCustomUAHeaders).toHaveBeenCalledWith(
+      'https://api.example.com/v1',
+      expect.any(Object),
+    );
+    expect(mockedSniRequest).toHaveBeenCalledWith(
+      expect.objectContaining({
+        hostname: 'api.example.com',
+        headers: expect.objectContaining({
+          'User-Agent': 'OneKey macOS 6.6.1',
+        }),
+      }),
+      expect.anything(),
     );
     expect(fallbackAdapter).not.toHaveBeenCalled();
   });

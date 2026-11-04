@@ -1,6 +1,7 @@
-import { useEffect, useReducer, useState } from 'react';
+import { useEffect, useRef, useSyncExternalStore } from 'react';
 import type { ComponentType, ReactNode } from 'react';
 
+import { OverlayView } from '@onekeyfe/react-native-native-overlay';
 import {
   ActivityIndicator,
   Pressable,
@@ -17,8 +18,20 @@ import {
   appRestart,
 } from '@onekeyhq/shared/src/modules3rdParty/appRestart';
 import { callNativeStorage } from '@onekeyhq/shared/src/storage/nativeStorageBridge';
+import {
+  dismissNativeStorageRecovery,
+  getRequestedNativeStorageRecovery,
+  getRequestedNativeStorageRecoveryTestSessionId,
+  setNativeAppStorageEmergencyStatus,
+  subscribeNativeStorageRecovery,
+} from '@onekeyhq/shared/src/storage/nativeStorageRecovery';
+import type { INativeStorageRecoveryTestRequest } from '@onekeyhq/shared/src/storage/nativeStorageRecoveryTestTypes';
 import { getNativeStorageMigrationRecoveryTarget } from '@onekeyhq/shared/src/storage/nativeStorageTypes';
-import type { INativeStorageMigrationRecoveryTarget } from '@onekeyhq/shared/src/storage/nativeStorageTypes';
+import type {
+  INativeAppStorageEmergencyStatus,
+  INativeAppStorageRepairSummary,
+  INativeStorageMigrationRecoveryTarget,
+} from '@onekeyhq/shared/src/storage/nativeStorageTypes';
 
 import {
   bootstrapNativeStorage,
@@ -28,6 +41,8 @@ import {
 import { runJotaiMainHydration } from './jotaiMainHydrationGate';
 import { hideNativeStorageBootstrapSplash } from './nativeStorageBootstrapSplash';
 
+import type { INativeStorageBootstrapErrorScreenProps } from './NativeStorageBootstrapErrorScreen';
+
 let AppComponent: ComponentType | undefined;
 let bootstrapError: Error | undefined;
 let bootstrapErrorTitle = 'Storage initialization failed';
@@ -35,16 +50,37 @@ let bootstrapRecoveryTarget: INativeStorageMigrationRecoveryTarget | undefined;
 let bootstrapPromise: Promise<void> | undefined;
 let storageRepairPromise: Promise<void> | undefined;
 let recoveryRestartPromise: Promise<void> | undefined;
+let storageRepairInProgress = false;
+let storageRepairCompleted = false;
+let storageEmergencyModeEnabled = false;
+let storageRepairCanReset = false;
+let storageRepairError: string | undefined;
+let storageRepairSummary: INativeAppStorageRepairSummary | undefined;
 let bootstrapGeneration = 0;
 type IBootstrapFailureStage = 'app' | 'jotai' | 'runtime-launch' | 'storage';
 let bootstrapFailureStage: IBootstrapFailureStage | undefined;
 const subscribers = new Set<() => void>();
+// Bumped on every notify so the root can detect a notify that fired between
+// its render and its subscription (the gate can settle in that window).
+let bootstrapStateVersion = 0;
 const NATIVE_STORAGE_BOOTSTRAP_TIMEOUT_MS = 65_000;
 const NATIVE_STORAGE_BOOTSTRAP_TIMEOUT_MESSAGE =
   'Native storage bootstrap timed out after 65 seconds';
 
 function notifySubscribers() {
+  bootstrapStateVersion += 1;
   subscribers.forEach((subscriber) => subscriber());
+}
+
+function subscribeBootstrapState(subscriber: () => void) {
+  subscribers.add(subscriber);
+  return () => {
+    subscribers.delete(subscriber);
+  };
+}
+
+function getBootstrapStateVersion() {
+  return bootstrapStateVersion;
 }
 
 function initializeJotaiFromBackground() {
@@ -54,6 +90,32 @@ function initializeJotaiFromBackground() {
   return runJotaiMainHydration(() =>
     backgroundApiProxy.initializeJotaiFromBackground(),
   );
+}
+
+function callStorageRecoveryTest(request: INativeStorageRecoveryTestRequest) {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const { default: backgroundApiProxy } =
+    require('@onekeyhq/kit/src/background/instance/backgroundApiProxy') as typeof import('@onekeyhq/kit/src/background/instance/backgroundApiProxy');
+  return backgroundApiProxy.serviceDevSetting.nativeStorageRecoveryTest(
+    request,
+  );
+}
+
+async function releaseStorageRecoveryTestFault() {
+  const sessionId = getRequestedNativeStorageRecoveryTestSessionId();
+  if (!sessionId || storageRepairInProgress) return;
+  storageRepairInProgress = true;
+  notifySubscribers();
+  try {
+    await callStorageRecoveryTest({ action: 'releaseFault', sessionId });
+    storageRepairError = 'Simulated fault cleared. Retry repair to continue.';
+  } catch {
+    storageRepairError =
+      'Could not clear the simulated fault. Reopen the test panel.';
+  } finally {
+    storageRepairInProgress = false;
+    notifySubscribers();
+  }
 }
 
 /** Each stage of the gate that holds the first frame, so a startup
@@ -97,6 +159,8 @@ function withNativeBootstrapTimeout(promise: Promise<boolean>) {
 }
 
 const BACKGROUND_RECONCILIATION_RETRY_DELAYS_MS = [1000, 3000, 10_000];
+let backgroundReconciliationPending = false;
+let backgroundReconciliationGeneration: number | undefined;
 
 /**
  * The half of startup that needs bg, once it no longer holds the first frame.
@@ -104,7 +168,8 @@ const BACKGROUND_RECONCILIATION_RETRY_DELAYS_MS = [1000, 3000, 10_000];
  * Both steps still matter after the mount: the mirrors are how this runtime's
  * writes reach the settings store, and the RPC hydration is canonical — it
  * carries anything bg changed while it was booting. Failing them silently
- * would leave writes queued forever, so they retry and then say so.
+ * would leave writes queued forever, so retry with capped backoff until bg
+ * becomes ready or a new bootstrap generation supersedes this one.
  */
 function startBackgroundRuntimeReconciliation({
   force,
@@ -113,6 +178,9 @@ function startBackgroundRuntimeReconciliation({
   force: boolean;
   generation: number;
 }) {
+  if (backgroundReconciliationGeneration === generation) return;
+  backgroundReconciliationPending = true;
+  backgroundReconciliationGeneration = generation;
   void (async () => {
     for (let attempt = 0; ; attempt += 1) {
       if (generation !== bootstrapGeneration) {
@@ -125,32 +193,45 @@ function startBackgroundRuntimeReconciliation({
           return;
         }
         await initializeJotaiFromBackground();
+        if (generation !== bootstrapGeneration) return;
+        backgroundReconciliationPending = false;
         logBootstrapStage('background runtime reconciled', startedAt);
         return;
       } catch (error) {
-        const delayMs = BACKGROUND_RECONCILIATION_RETRY_DELAYS_MS[attempt];
+        const delayMs =
+          BACKGROUND_RECONCILIATION_RETRY_DELAYS_MS[
+            Math.min(
+              attempt,
+              BACKGROUND_RECONCILIATION_RETRY_DELAYS_MS.length - 1,
+            )
+          ];
         writeBootstrapError(
           `[StartupTiming] background runtime reconciliation failed (attempt ${
             attempt + 1
-          }): ${error instanceof Error ? error.message : String(error)}${
-            delayMs === undefined ? '; giving up' : `; retrying in ${delayMs}ms`
-          }`,
+          }): ${error instanceof Error ? error.message : String(error)}; retrying in ${delayMs}ms`,
         );
-        if (delayMs === undefined) {
-          return;
-        }
         await new Promise((resolve) => setTimeout(resolve, delayMs));
       }
     }
-  })();
+  })().finally(() => {
+    if (backgroundReconciliationGeneration === generation) {
+      backgroundReconciliationGeneration = undefined;
+    }
+  });
 }
 
-function writeBootstrapError(message: string) {
+function writeBootstrapError(
+  message: string,
+  level: 'info' | 'error' = 'error',
+) {
   try {
     const { NativeLogger, LogLevel } =
       // eslint-disable-next-line @typescript-eslint/no-require-imports
       require('@onekeyhq/shared/src/modules3rdParty/react-native-file-logger') as typeof import('@onekeyhq/shared/src/modules3rdParty/react-native-file-logger');
-    NativeLogger.write(LogLevel.Error, message);
+    NativeLogger.write(
+      level === 'error' ? LogLevel.Error : LogLevel.Info,
+      message,
+    );
   } catch {
     // Logging is best-effort during bootstrap.
   }
@@ -361,30 +442,198 @@ function restartAfterBootstrapFailure({
   return recoveryRestartPromise;
 }
 
-function startStorageRepair(target: INativeStorageMigrationRecoveryTarget) {
+function startStorageRepair(
+  target: INativeStorageMigrationRecoveryTarget,
+  action:
+    | 'prepare'
+    | 'complete'
+    | 'reset'
+    | 'close'
+    | 'restart'
+    | 'emergency' = 'prepare',
+  force = false,
+) {
   if (storageRepairPromise) {
     return storageRepairPromise;
   }
-  bootstrapError = undefined;
-  bootstrapRecoveryTarget = undefined;
+  // Invalidate the old reconciliation loop before touching the storage owner.
+  bootstrapGeneration += 1;
+  storageRepairInProgress = true;
+  if (action !== 'close') storageRepairCompleted = false;
+  storageRepairCanReset = false;
+  storageRepairError = undefined;
   notifySubscribers();
-  const nextPromise = callNativeStorage<void>({
-    scope: 'recovery',
-    operation: 'resetMigrationTarget',
-    target,
-  })
-    .then(() => startBootstrap(true))
+  const testSessionId = getRequestedNativeStorageRecoveryTestSessionId();
+  writeBootstrapError(
+    `[NativeStorageRecovery] target=${target} phase=${action}-start test=${Boolean(testSessionId)}`,
+    'info',
+  );
+  let restartScheduled = false;
+  const nextPromise = (async () => {
+    if (action === 'close' || action === 'restart') {
+      if (
+        action === 'close' &&
+        (target !== 'appStorage' ||
+          (!storageRepairCompleted && !storageEmergencyModeEnabled))
+      ) {
+        throw new OneKeyLocalError('Storage repair has not completed');
+      }
+      // Closing only refreshes the runtimes; storage was already committed.
+      let restartReason = testSessionId
+        ? 'storage.migration.test.repaired'
+        : 'storage.migration.repaired';
+      if (action === 'restart') restartReason = 'storage.migration.incomplete';
+      if (storageEmergencyModeEnabled)
+        restartReason = 'storage.migration.emergency';
+      await appRestart({
+        mode: EAppRestartMode.All,
+        reason: restartReason,
+      });
+      restartScheduled = true;
+      return;
+    }
+    if (target === 'appStorage' && action === 'emergency') {
+      if (testSessionId)
+        throw new OneKeyLocalError(
+          'Real emergency continuation is unavailable for isolated test sessions',
+        );
+      const status = await callNativeStorage<INativeAppStorageEmergencyStatus>({
+        scope: 'recovery',
+        operation: 'enableEmergencyAppStorage',
+        confirmed: true,
+      });
+      if (status?.mode !== 'emergency' || status.phase !== 'active')
+        throw new OneKeyLocalError('Emergency mode was not durably activated');
+      storageEmergencyModeEnabled = true;
+      setNativeAppStorageEmergencyStatus(status);
+      await bootstrapNativeStorage({ force: true });
+      await initializeJotaiFromBackground();
+      return;
+    }
+    if (target === 'appStorage' && action === 'prepare') {
+      storageRepairSummary = undefined;
+      const summary = testSessionId
+        ? (
+            await callStorageRecoveryTest({
+              action: 'prepare',
+              sessionId: testSessionId,
+            })
+          ).summary
+        : await callNativeStorage<INativeAppStorageRepairSummary | undefined>({
+            scope: 'recovery',
+            operation: 'prepareMigrationRepair',
+            target,
+          });
+      if (!summary)
+        throw new OneKeyLocalError(
+          'Storage repair is unavailable in this runtime',
+        );
+      storageRepairSummary = summary;
+      if (
+        summary.successfulCount === 0 ||
+        summary.failedCount > 0 ||
+        !summary.scanComplete
+      )
+        return;
+    }
+    if (target === 'appStorage') {
+      if (!storageRepairSummary)
+        throw new OneKeyLocalError('Please run storage repair again');
+      if (testSessionId) {
+        await callStorageRecoveryTest({
+          action: 'complete',
+          sessionId: testSessionId,
+          repairId: storageRepairSummary.repairId,
+          force,
+        });
+      } else {
+        await callNativeStorage<void>({
+          scope: 'recovery',
+          operation: 'completeMigrationRepair',
+          target,
+          repairId: storageRepairSummary.repairId,
+          force,
+        });
+        // Native finalization has verified storage. A later state-refresh
+        // failure must still allow a restart without repeating finalization.
+        storageRepairCompleted = true;
+      }
+    } else if (action === 'reset') {
+      await callNativeStorage<void>({
+        scope: 'recovery',
+        operation: 'resetMigrationTarget',
+        target,
+      });
+    }
+    if (testSessionId) {
+      const result = await callStorageRecoveryTest({
+        action: 'verify',
+        sessionId: testSessionId,
+      });
+      if (!result.snapshot.verification?.passed)
+        throw new OneKeyLocalError('Storage recovery test verification failed');
+    } else {
+      await bootstrapNativeStorage({ force: true });
+      await initializeJotaiFromBackground();
+    }
+    if (target === 'appStorage') {
+      if (testSessionId !== getRequestedNativeStorageRecoveryTestSessionId()) {
+        throw new OneKeyLocalError(
+          'Storage repair request changed. Please retry.',
+        );
+      }
+      storageRepairCompleted = true;
+      writeBootstrapError(
+        `[NativeStorageRecovery] target=${target} result=verified awaitingClose=true test=${Boolean(testSessionId)}`,
+        'info',
+      );
+      return;
+    }
+    writeBootstrapError(
+      `[NativeStorageRecovery] target=${target} result=verified restarting=true`,
+      'info',
+    );
+    // Both heaps can retain values from the failed store. Restart both only
+    // after canonical storage and state hydration have passed verification.
+    await appRestart({
+      mode: EAppRestartMode.All,
+      reason: 'storage.migration.repaired',
+    });
+    restartScheduled = true;
+  })()
     .catch((error: unknown) => {
-      bootstrapError =
-        error instanceof Error ? error : new Error(String(error));
-      bootstrapErrorTitle = 'Storage repair failed';
-      bootstrapRecoveryTarget = getNativeStorageMigrationRecoveryTarget(error);
+      storageRepairCanReset =
+        target === 'jotai' &&
+        action !== 'reset' &&
+        getNativeStorageMigrationRecoveryTarget(error) === target;
+      if (storageEmergencyModeEnabled) {
+        storageRepairError =
+          'Emergency storage mode is active, but app state could not be refreshed or restarted. Close to restart, or fully close and reopen the app. Migration is not complete.';
+      } else if (storageRepairCompleted) {
+        storageRepairError =
+          action === 'close'
+            ? 'Storage repair is complete, but the app could not restart. Please close and reopen the app.'
+            : 'Storage repair is complete, but app state could not be refreshed. Close to restart the app.';
+      } else if (action === 'restart') {
+        storageRepairError =
+          'The app could not restart. Storage still needs repair. Please retry or close and reopen the app.';
+      } else if (storageRepairCanReset) {
+        storageRepairError =
+          'The storage could not be recovered. You can rebuild the affected local storage to continue.';
+      } else {
+        storageRepairError =
+          'Storage repair failed. Please retry or restart the app. See the device log for details.';
+      }
+      writeBootstrapError(
+        `[NativeStorageRecovery] target=${target} result=failed canReset=${storageRepairCanReset} errorType=${error instanceof Error ? error.name : typeof error}`,
+      );
       hideNativeStorageBootstrapSplash();
     })
     .finally(() => {
       if (storageRepairPromise === nextPromise) {
         storageRepairPromise = undefined;
       }
+      storageRepairInProgress = restartScheduled;
       notifySubscribers();
     });
   storageRepairPromise = nextPromise;
@@ -393,37 +642,63 @@ function startStorageRepair(target: INativeStorageMigrationRecoveryTarget) {
 
 void startBootstrap();
 
+let ErrorScreenComponent:
+  | ComponentType<INativeStorageBootstrapErrorScreenProps>
+  | undefined;
+let errorScreenLoadPromise: Promise<void> | undefined;
+let errorScreenLoadFailed = false;
+let errorScreenFailedSegmentKey: string | undefined;
+
+function loadErrorScreen(retry = false) {
+  if (ErrorScreenComponent) return Promise.resolve();
+  if (errorScreenLoadPromise) return errorScreenLoadPromise;
+  errorScreenLoadFailed = false;
+  const nextPromise = (async () => {
+    if (retry && errorScreenFailedSegmentKey) {
+      const { retrySegment } =
+        await import('../splitBundle/installProdBundleLoader');
+      await retrySegment(errorScreenFailedSegmentKey);
+    }
+    const module = await import('./NativeStorageBootstrapErrorScreen');
+    ErrorScreenComponent = module.NativeStorageBootstrapErrorScreen;
+    errorScreenFailedSegmentKey = undefined;
+  })()
+    .catch((error: unknown) => {
+      errorScreenLoadFailed = true;
+      const segmentKey =
+        error && typeof error === 'object' && 'segmentKey' in error
+          ? error.segmentKey
+          : undefined;
+      errorScreenFailedSegmentKey =
+        typeof segmentKey === 'string' && segmentKey.startsWith('seg:')
+          ? segmentKey
+          : undefined;
+      writeBootstrapError('[NativeStorageRecovery] screen load failed');
+      hideNativeStorageBootstrapSplash();
+    })
+    .finally(() => {
+      errorScreenLoadPromise = undefined;
+      notifySubscribers();
+    });
+  errorScreenLoadPromise = nextPromise;
+  return nextPromise;
+}
+
+// Recovery must cover native dialogs, hardware, toasts and the retained lock.
+const RECOVERY_ANIMATION = {
+  enter: { type: 'none' },
+  exit: { type: 'none' },
+} as const;
+
 const styles = StyleSheet.create({
-  container: {
-    alignItems: 'center',
-    flex: 1,
-    justifyContent: 'center',
-  },
-  errorContainer: {
-    backgroundColor: '#000',
-    padding: 24,
-  },
+  app: { flex: 1 },
+  // Keep Fabric hosts attached: display:none closes their native overlay windows.
+  hiddenApp: { flex: 1, opacity: 0 },
+  container: { alignItems: 'center', flex: 1, justifyContent: 'center' },
   waitingDark: { backgroundColor: '#000' },
   waitingLight: { backgroundColor: '#fff' },
-  title: { color: '#fff', fontSize: 18, fontWeight: '600' },
-  message: { color: '#aaa', marginTop: 12, textAlign: 'center' },
-  retryButton: {
-    backgroundColor: '#fff',
-    borderRadius: 8,
-    marginTop: 20,
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-  },
-  retryText: { color: '#000', fontWeight: '600' },
-  restartButton: {
-    borderColor: '#fff',
-    borderRadius: 8,
-    borderWidth: 1,
-    marginTop: 12,
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-  },
-  restartText: { color: '#fff', fontWeight: '600' },
+  fallback: { backgroundColor: '#000', padding: 24 },
+  fallbackText: { color: '#fff', marginTop: 20, textAlign: 'center' },
 });
 
 // Registered here, in the module that awaits the background runtime, because
@@ -434,135 +709,196 @@ const styles = StyleSheet.create({
 // mount first.
 registerSwrCacheMutationInvalidation();
 
-export function NativeStorageBootstrapRoot() {
-  const [, rerender] = useReducer((value: number) => value + 1, 0);
-  const [repairConfirmationTarget, setRepairConfirmationTarget] = useState<
-    INativeStorageMigrationRecoveryTarget | undefined
-  >();
-  const isDarkMode = useColorScheme() === 'dark';
-  useEffect(() => {
-    subscribers.add(rerender);
-    return () => {
-      subscribers.delete(rerender);
-    };
-  }, []);
-
-  if (AppComponent) {
-    const App = AppComponent;
-    return <App />;
+let lastRecoveryTestSessionId: string | undefined;
+subscribeNativeStorageRecovery(() => {
+  const sessionId = getRequestedNativeStorageRecoveryTestSessionId();
+  if (sessionId !== lastRecoveryTestSessionId && !storageRepairInProgress) {
+    storageRepairSummary = undefined;
+    storageRepairCompleted = false;
+    storageRepairError = undefined;
+    storageRepairCanReset = false;
   }
-  if (bootstrapError) {
-    const recoveryTarget = bootstrapRecoveryTarget;
-    const isConfirmingRepair = repairConfirmationTarget === recoveryTarget;
-    let recoveryAction: ReactNode;
-    if (!recoveryTarget && bootstrapFailureStage === 'runtime-launch') {
-      recoveryAction = (
-        <Pressable
-          accessibilityRole="button"
-          onPress={() =>
-            void restartAfterBootstrapFailure({
-              failureStage: 'runtime-launch',
-              reason: 'travel-mode.runtime-launch.restart',
-            })
-          }
-          style={styles.retryButton}
-          testID="travel-mode-runtime-launch-retry"
-        >
-          <Text style={styles.retryText}>Retry and restart</Text>
-        </Pressable>
-      );
-    } else if (!recoveryTarget) {
-      recoveryAction = (
-        <>
-          <Pressable
-            accessibilityRole="button"
-            onPress={() => void retryBootstrapAfterFailure()}
-            style={styles.retryButton}
-            testID="native-storage-migration-retry"
-          >
-            <Text style={styles.retryText}>Retry</Text>
-          </Pressable>
-          <Pressable
-            accessibilityRole="button"
-            onPress={() =>
-              void restartAfterBootstrapFailure({
-                failureStage: bootstrapFailureStage ?? 'storage',
-                reason: 'storage.bootstrap.restart',
-              })
-            }
-            style={styles.restartButton}
-            testID="native-storage-bootstrap-restart-app"
-          >
-            <Text style={styles.restartText}>Restart App</Text>
-          </Pressable>
-        </>
-      );
-    } else if (isConfirmingRepair) {
-      recoveryAction = (
-        <>
-          <Text style={styles.message}>
-            This removes the affected local state and its stale AsyncStorage
-            copy. Continue?
-          </Text>
-          <Pressable
-            accessibilityRole="button"
-            onPress={() => {
-              setRepairConfirmationTarget(undefined);
-              void startStorageRepair(recoveryTarget);
-            }}
-            style={styles.retryButton}
-            testID="native-storage-migration-repair-confirm"
-          >
-            <Text style={styles.retryText}>Confirm reset</Text>
-          </Pressable>
-          <Pressable
-            accessibilityRole="button"
-            onPress={() => setRepairConfirmationTarget(undefined)}
-            style={styles.retryButton}
-            testID="native-storage-migration-repair-cancel"
-          >
-            <Text style={styles.retryText}>Cancel</Text>
-          </Pressable>
-        </>
+  lastRecoveryTestSessionId = sessionId;
+  notifySubscribers();
+});
+
+function returnFromStorageRecovery() {
+  // Recheck the current operation synchronously. A stale Back callback in the
+  // same frame as Confirm/Repair must never detach a running mutation/restart.
+  if (
+    !AppComponent ||
+    !getRequestedNativeStorageRecovery() ||
+    storageRepairPromise ||
+    recoveryRestartPromise ||
+    storageRepairInProgress ||
+    storageRepairCompleted ||
+    storageEmergencyModeEnabled
+  )
+    return;
+  dismissNativeStorageRecovery();
+  // Repair invalidates the old startup generation even if preparation fails.
+  // Resume only unfinished normal initialization; Back never requests repair,
+  // reset, force-refresh or restart, and an existing current run is reused.
+  if (backgroundReconciliationPending) {
+    startBackgroundRuntimeReconciliation({
+      force: false,
+      generation: bootstrapGeneration,
+    });
+  }
+}
+
+export function NativeStorageBootstrapRoot() {
+  const backRequestRef = useRef<(() => void) | null>(null);
+  useSyncExternalStore(subscribeBootstrapState, getBootstrapStateVersion);
+  const requestedRecoveryTarget = useSyncExternalStore(
+    subscribeNativeStorageRecovery,
+    getRequestedNativeStorageRecovery,
+  );
+  const isDarkMode = useColorScheme() === 'dark';
+  const showError = Boolean(
+    (!AppComponent || requestedRecoveryTarget) &&
+    (bootstrapError || requestedRecoveryTarget),
+  );
+  useEffect(() => {
+    if (showError && !ErrorScreenComponent && !errorScreenLoadFailed) {
+      void loadErrorScreen();
+    }
+  }, [showError]);
+
+  let recoveryContent: ReactNode;
+  if (showError) {
+    if (ErrorScreenComponent) {
+      recoveryContent = (
+        <ErrorScreenComponent
+          bootstrapErrorMessage={bootstrapError?.message}
+          bootstrapErrorTitle={bootstrapErrorTitle}
+          bootstrapFailureStage={bootstrapFailureStage}
+          recoveryTarget={requestedRecoveryTarget ?? bootstrapRecoveryTarget}
+          testSessionId={getRequestedNativeStorageRecoveryTestSessionId()}
+          storageRepairInProgress={storageRepairInProgress}
+          storageRepairCompleted={storageRepairCompleted}
+          storageEmergencyModeEnabled={storageEmergencyModeEnabled}
+          storageRepairCanReset={storageRepairCanReset}
+          storageRepairError={storageRepairError}
+          storageRepairSummary={storageRepairSummary}
+          hasAppComponent={Boolean(AppComponent)}
+          startStorageRepair={startStorageRepair}
+          retryBootstrapAfterFailure={retryBootstrapAfterFailure}
+          restartAfterBootstrapFailure={restartAfterBootstrapFailure}
+          releaseStorageRecoveryTestFault={releaseStorageRecoveryTestFault}
+          onBack={returnFromStorageRecovery}
+          backRequestRef={backRequestRef}
+        />
       );
     } else {
-      recoveryAction = (
-        <Pressable
-          accessibilityRole="button"
-          onPress={() => setRepairConfirmationTarget(recoveryTarget)}
-          style={styles.retryButton}
-          testID="native-storage-migration-repair"
-        >
-          <Text style={styles.retryText}>Reset local storage</Text>
-        </Pressable>
+      recoveryContent = (
+        <View style={[styles.container, styles.fallback]}>
+          {errorScreenLoadFailed ? (
+            <>
+              <Text style={styles.fallbackText}>
+                Could not load the storage repair screen. Retry or restart the
+                app.
+              </Text>
+              <Pressable
+                accessibilityRole="button"
+                onPress={() => {
+                  void loadErrorScreen(true);
+                  notifySubscribers();
+                }}
+                testID="native-storage-error-screen-retry"
+              >
+                <Text style={styles.fallbackText}>Retry</Text>
+              </Pressable>
+              <Pressable
+                accessibilityRole="button"
+                onPress={() => {
+                  if (AppComponent) {
+                    returnFromStorageRecovery();
+                    return;
+                  }
+                  void restartAfterBootstrapFailure({
+                    failureStage: bootstrapFailureStage ?? 'storage',
+                    reason: 'storage.recovery-screen.restart',
+                  });
+                }}
+                testID="native-storage-error-screen-restart"
+              >
+                <Text style={styles.fallbackText}>
+                  {AppComponent ? 'Back' : 'Restart App'}
+                </Text>
+              </Pressable>
+            </>
+          ) : (
+            <>
+              <ActivityIndicator
+                color="#fff"
+                testID="native-storage-error-screen-loading"
+              />
+              {AppComponent ? (
+                <Pressable
+                  accessibilityRole="button"
+                  onPress={returnFromStorageRecovery}
+                  testID="native-storage-error-screen-back"
+                >
+                  <Text style={styles.fallbackText}>Back</Text>
+                </Pressable>
+              ) : null}
+            </>
+          )}
+        </View>
       );
     }
-    return (
-      <View style={[styles.container, styles.errorContainer]}>
-        <Text style={styles.title}>
-          {recoveryTarget ? 'Local storage needs repair' : bootstrapErrorTitle}
-        </Text>
-        <Text style={styles.message}>
-          {recoveryTarget
-            ? 'The migrated local storage is incomplete and cannot be used safely.'
-            : bootstrapError.message}
-        </Text>
-        {recoveryAction}
-      </View>
-    );
   }
+  const App = AppComponent;
   return (
-    <View
-      style={[
-        styles.container,
-        isDarkMode ? styles.waitingDark : styles.waitingLight,
-      ]}
-      testID="native-storage-bootstrap-waiting"
-    >
-      <ActivityIndicator
-        color={isDarkMode ? '#fff' : '#000'}
-        testID="native-storage-bootstrap-spinner"
-      />
-    </View>
+    <>
+      {App ? (
+        <View
+          // Keep Fabric's stacking context stable when inert/hidden props change.
+          collapsable={false}
+          style={showError ? styles.hiddenApp : styles.app}
+          pointerEvents={showError ? 'none' : 'auto'}
+          accessibilityElementsHidden={showError}
+          importantForAccessibility={showError ? 'no-hide-descendants' : 'auto'}
+          testID="native-storage-retained-app"
+        >
+          <App />
+        </View>
+      ) : null}
+      {showError && App ? (
+        <OverlayView
+          visible
+          level="lock"
+          presentation="fullscreen"
+          animation={RECOVERY_ANIMATION}
+          blocking
+          backdrop={false}
+          dismissOnBackPress
+          onRequestDismiss={() => {
+            if (backRequestRef.current) backRequestRef.current();
+            else returnFromStorageRecovery();
+          }}
+          testID="native-storage-recovery-overlay"
+        >
+          {recoveryContent}
+        </OverlayView>
+      ) : (
+        recoveryContent
+      )}
+      {!App && !showError ? (
+        <View
+          style={[
+            styles.container,
+            isDarkMode ? styles.waitingDark : styles.waitingLight,
+          ]}
+          testID="native-storage-bootstrap-waiting"
+        >
+          <ActivityIndicator
+            color={isDarkMode ? '#fff' : '#000'}
+            testID="native-storage-bootstrap-spinner"
+          />
+        </View>
+      ) : null}
+    </>
   );
 }

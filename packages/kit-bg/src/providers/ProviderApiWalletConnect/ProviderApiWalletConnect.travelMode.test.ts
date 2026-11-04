@@ -22,13 +22,29 @@ const mockGetEnvironment = jest.fn(async () =>
 );
 
 jest.mock('@onekeyhq/shared/src/travelMode', () => ({
-  travelModeManager: { getRuntimeEnvironment: mockGetEnvironment },
+  travelModeManager: {
+    getRuntimeEnvironment: mockGetEnvironment,
+    // Connection diagnostics persist through the logger, whose storage reads
+    // the runtime environment synchronously while loading.
+    getRuntimeEnvironmentSync: () =>
+      RuntimeEnvironment.create(getTravelModeRuntimeProfile(false)),
+  },
 }));
 jest.mock('../../services/ServiceWalletConnect/walletConnectClient', () => ({
   __esModule: true,
   default: {
     getWalletSideClient: () => mockGetWalletSideClient(),
     getWalletSideStorageSessions: async () => [{ topic: 'stored-session' }],
+    // ProviderApiWalletConnect resolves SDK errors lazily; keep the real
+    // error codes so response assertions stay meaningful
+    getSdkErrorLazy: async (
+      ...args: Parameters<typeof import('@walletconnect/utils').getSdkError>
+    ) => {
+      const { getSdkError } = jest.requireActual<
+        typeof import('@walletconnect/utils')
+      >('@walletconnect/utils');
+      return getSdkError(...args);
+    },
   },
 }));
 jest.mock('./WalletConnectRequestProxyAlgo', () => ({

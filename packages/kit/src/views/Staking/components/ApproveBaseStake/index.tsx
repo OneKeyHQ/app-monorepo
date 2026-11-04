@@ -32,6 +32,7 @@ import {
   PercentageStageOnKeyboard,
   calcPercentBalance,
 } from '@onekeyhq/kit/src/components/PercentageStageOnKeyboard';
+import { useAmountInputFocus } from '@onekeyhq/kit/src/components/PercentageStageOnKeyboard/useAmountInputFocus';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useRouteIsFocused as useIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import { useSignatureConfirm } from '@onekeyhq/kit/src/hooks/useSignatureConfirm';
@@ -136,6 +137,7 @@ export function ApproveBaseStake({
   rewardAssets,
   poolFee,
 }: PropsWithChildren<IApproveBaseStakeProps>) {
+  const { isAmountFocused, onAmountFocusChange } = useAmountInputFocus();
   const intl = useIntl();
   const showEstimateGasAlert = useShowStakeEstimateGasAlert();
   const { navigationToTxConfirm } = useSignatureConfirm({
@@ -910,6 +912,8 @@ export function ApproveBaseStake({
           currency: currentValue ? symbol : undefined,
         }}
         enableMaxAmount
+        usePercentageKeyboardAccessory
+        onAmountFocusChange={onAmountFocusChange}
         onSelectPercentageStage={onSelectPercentageStage}
       />
       {platformEnv.isDev ? (
@@ -1100,9 +1104,12 @@ export function ApproveBaseStake({
             }}
           />
         </Stack>
-        <PercentageStageOnKeyboard
-          onSelectPercentageStage={onSelectPercentageStage}
-        />
+        {platformEnv.isNativeIOSPhone ? null : (
+          <PercentageStageOnKeyboard
+            isAmountFocused={isAmountFocused}
+            onSelectPercentageStage={onSelectPercentageStage}
+          />
+        )}
       </Page.Footer>
     </StakingFormWrapper>
   );

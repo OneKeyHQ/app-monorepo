@@ -1,4 +1,6 @@
+import type { IAccountSelectorActiveAccountInfo } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { shouldKeepCurrentActiveAccountForIncompleteSelection } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector/activeAccountInitGuard';
+import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 
 export enum ESwapProAccountStatus {
   NO_ACCOUNT = 'noAccount',
@@ -90,6 +92,46 @@ export function resolveSwapProAccountIdentity({
   };
 }
 
+export function getSwapProPositionsAccountScope({
+  indexedAccountId,
+  accountId,
+  activeAccount,
+  selectedDeriveType,
+}: {
+  indexedAccountId?: string;
+  accountId?: string;
+  selectedDeriveType?: string;
+  activeAccount: {
+    ready?: boolean;
+    deriveType?: string;
+    indexedAccount?: { id: string };
+    account?: { id: string; address?: string };
+    dbAccount?: { id: string };
+    network?: { id: string };
+  };
+}) {
+  const activeDeriveType = activeAccount.deriveType ?? 'default';
+  const matchesAccount = indexedAccountId
+    ? indexedAccountId === activeAccount.indexedAccount?.id
+    : Boolean(
+        accountId &&
+        (accountId === activeAccount.account?.id ||
+          accountId === activeAccount.dbAccount?.id),
+      );
+  if (
+    !activeAccount.ready ||
+    !matchesAccount ||
+    (selectedDeriveType && selectedDeriveType !== activeDeriveType)
+  )
+    return undefined;
+  return JSON.stringify([
+    activeAccount.network?.id,
+    activeDeriveType,
+    activeAccount.account?.id,
+    activeAccount.account?.address,
+  ]);
+}
+
 export function resolveSwapProAccountStatus({
   hasConnectedAccount,
   accountScope,
@@ -127,6 +169,42 @@ export function getSwapProAccountForCurrentScope<T>({
     return undefined;
   }
   return account;
+}
+
+export function getSwapProDepositAccountInfo({
+  activeAccount,
+  networkAccount,
+  indexedAccountId,
+  accountId,
+  selectedWalletId,
+}: {
+  activeAccount: IAccountSelectorActiveAccountInfo;
+  networkAccount: INetworkAccount | undefined;
+  indexedAccountId: string | undefined;
+  accountId: string | undefined;
+  selectedWalletId: string | undefined;
+}): IAccountSelectorActiveAccountInfo | undefined {
+  if (!networkAccount || !activeAccount.wallet?.id) return undefined;
+  if (selectedWalletId && activeAccount.wallet.id !== selectedWalletId) {
+    return undefined;
+  }
+  const identityMatches = indexedAccountId
+    ? activeAccount.indexedAccount?.id === indexedAccountId
+    : Boolean(
+        accountId &&
+        (activeAccount.account?.id === accountId ||
+          activeAccount.dbAccount?.id === accountId),
+      );
+  if (!identityMatches) return undefined;
+  return {
+    ...activeAccount,
+    account: networkAccount,
+    indexedAccount: indexedAccountId ? activeAccount.indexedAccount : undefined,
+    dbAccount:
+      accountId && activeAccount.dbAccount?.id === accountId
+        ? activeAccount.dbAccount
+        : undefined,
+  };
 }
 
 export function getSwapProErrorAlertAction({

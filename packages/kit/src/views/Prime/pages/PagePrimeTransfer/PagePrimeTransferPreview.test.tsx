@@ -49,6 +49,7 @@ jest.mock('@onekeyhq/components', () => {
   return {
     Button: Container,
     Checkbox: () => null,
+    ListView: () => null,
     Input: ({
       testID,
       onChangeText,

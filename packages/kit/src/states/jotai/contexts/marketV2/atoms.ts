@@ -10,6 +10,7 @@ import {
   EAmountEnterType,
   ESlippageSetting,
 } from '@onekeyhq/shared/src/logger/scopes/dex/types';
+import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type { IMarketWatchListDataV2 } from '@onekeyhq/shared/types/market';
 import type {
   IMarketPerpsInfo,
@@ -76,11 +77,59 @@ export const { atom: perpsInfoAtom, use: usePerpsInfoAtom } = contextAtom<
   IMarketPerpsInfo | undefined
 >(undefined);
 
+export const { atom: marketPerpsResolutionAtom } = contextAtom<
+  | {
+      networkId: string;
+      tokenAddress: string;
+      requestId: number;
+      lookupRequestId?: number;
+      status: 'pending' | 'resolved' | 'error';
+    }
+  | undefined
+>(undefined);
+
 export const { atom: tokenAddressAtom, use: useTokenAddressAtom } =
   contextAtom<string>('');
 
 export const { atom: networkIdAtom, use: useNetworkIdAtom } =
   contextAtom<string>('');
+
+export const {
+  atom: marketPerpsInfoStatusAtom,
+  use: useMarketPerpsInfoStatusAtom,
+} = contextAtomComputed((get) => {
+  const resolution = get(marketPerpsResolutionAtom());
+  const detail = get(tokenDetailAtom());
+  const hasRetainedDetail =
+    resolution &&
+    resolution.status !== 'pending' &&
+    Boolean(detail) &&
+    equalTokenNoCaseSensitive({
+      token1: {
+        networkId: detail?.networkId,
+        contractAddress: detail?.address,
+      },
+      token2: {
+        networkId: resolution.networkId,
+        contractAddress: resolution.tokenAddress,
+      },
+    });
+  return resolution &&
+    equalTokenNoCaseSensitive({
+      token1: {
+        networkId: resolution.networkId,
+        contractAddress: resolution.tokenAddress,
+      },
+      token2: {
+        networkId: get(networkIdAtom()),
+        contractAddress: get(tokenAddressAtom()),
+      },
+    }) &&
+    (resolution?.requestId === get(tokenDetailRequestIdAtom()) ||
+      hasRetainedDetail)
+    ? resolution.status
+    : 'pending';
+});
 
 export const { atom: isNativeAtom, use: useIsNativeAtom } =
   contextAtom<boolean>(false);

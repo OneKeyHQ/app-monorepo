@@ -19,6 +19,7 @@ import {
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import {
   useAccountSelectorContextData,
   useActiveAccount,
@@ -26,7 +27,7 @@ import {
 import { shouldShowMnemonicBackupEntryForWallet } from '@onekeyhq/kit/src/utils/botWalletStatusUtils';
 import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import { getVendorProfile } from '@onekeyhq/shared/src/hardware/vendorProfile';
+import { getVendorProfile } from '@onekeyhq/shared/src/hardware/config/vendorProfile';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
@@ -69,13 +70,15 @@ function WalletEditButtonView({
   const [devSettings] = useDevSettingsPersistAtom();
 
   const { isPrimeAvailable } = usePrimeAvailable();
-  const { user, isPrimeActive } = useOneKeyAuth();
+  const { isPrimeActive, isPrimeSubscriptionActive } = useOneKeyAuth();
   const { goToOneKeyIDLoginPageForKeylessWallet } = useKeylessWallet();
   const { verifyKeylessPinChecking } = useVerifyKeylessPinChecking();
 
   const [isResetPinLoading, setIsResetPinLoading] = useState(false);
   const [isVerifyPinLoading, _setIsVerifyPinLoading] = useState(false);
-  const isPrimeUser = Boolean(isPrimeActive && user?.onekeyUserId);
+  // Only drives the Prime badge; access (incl. free trial) is checked by the
+  // button itself.
+  const isPrimeUser = Boolean(isPrimeSubscriptionActive);
 
   // True when the wallet is bound to a third-party hardware vendor.
   // Used only for entries that are still third-party-wide exclusions. Device
@@ -211,6 +214,16 @@ function WalletEditButtonView({
     [goToOneKeyIDLoginPageForKeylessWallet, intl],
   );
 
+  const { result: hasPrivacyWalletAccount } = usePromiseResult(
+    async () =>
+      wallet?.id
+        ? backgroundApiProxy.servicePrivacyChain.hasLocalWalletAccounts({
+            walletId: wallet.id,
+          })
+        : false,
+    [wallet?.id],
+  );
+
   const renderItems = useCallback(
     ({ handleActionListClose }: { handleActionListClose: () => void }) => {
       if (!config) {
@@ -278,7 +291,6 @@ function WalletEditButtonView({
 
           {showMockedWalletBulkCopyAddressesButton ? (
             <BulkCopyAddressesButton
-              nativeSheet
               wallet={wallet}
               networkId={network?.id || ''}
               isPrimeActive={isPrimeActive}
@@ -296,6 +308,22 @@ function WalletEditButtonView({
               onPress={() => {
                 navigation.push(EAccountManagerStacksRoutes.BotWalletManager, {
                   parentKeylessWalletId: wallet?.id || '',
+                });
+              }}
+            />
+          ) : null}
+
+          {hasPrivacyWalletAccount ? (
+            <ActionList.Item
+              testID={AccountManagerTestIDs.privacyNetworksButton}
+              icon="ShieldOutline"
+              label={intl.formatMessage({
+                id: ETranslations.privacy_sync_menu__title,
+              })}
+              onClose={handleActionListClose}
+              onPress={() => {
+                navigation.push(EAccountManagerStacksRoutes.PrivacyNetworks, {
+                  walletId: wallet?.id || '',
                 });
               }}
             />
@@ -332,7 +360,6 @@ function WalletEditButtonView({
 
           {showRemoveWalletButton ? (
             <WalletRemoveButton
-              nativeSheet
               isRemoveToMocked
               wallet={wallet}
               onClose={handleActionListClose}
@@ -341,7 +368,6 @@ function WalletEditButtonView({
 
           {showRemoveDeviceButton ? (
             <WalletRemoveButton
-              nativeSheet
               wallet={wallet}
               onClose={handleActionListClose}
             />
@@ -350,6 +376,7 @@ function WalletEditButtonView({
       );
     },
     [
+      hasPrivacyWalletAccount,
       config,
       wallet,
       isKeyless,
@@ -380,7 +407,6 @@ function WalletEditButtonView({
 
   return (
     <ActionList
-      nativeSheet
       title={intl.formatMessage({ id: ETranslations.global_more })}
       renderTrigger={
         <ListItem.IconButton

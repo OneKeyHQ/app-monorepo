@@ -14,6 +14,7 @@ import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { mergeCexSupportedInfo } from '@onekeyhq/shared/src/utils/cexDepositSupportUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { promiseAllSettledEnhanced } from '@onekeyhq/shared/src/utils/promiseUtils';
+import { parseTronAccountResources } from '@onekeyhq/shared/src/utils/tronResourceUtils';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 import { ERequestWalletTypeEnum } from '@onekeyhq/shared/types/account';
 import type {
@@ -37,6 +38,10 @@ import type {
   IProxyResponse,
   IRpcProxyResponse,
 } from '@onekeyhq/shared/types/proxy';
+import type {
+  ITronAccountResources,
+  ITronAccountResourcesRaw,
+} from '@onekeyhq/shared/types/tron';
 import { EDecodedTxStatus } from '@onekeyhq/shared/types/tx';
 
 import simpleDb from '../dbs/simple/simpleDb';
@@ -46,6 +51,10 @@ import {
 } from '../states/jotai/atoms';
 import { vaultFactory } from '../vaults/factory';
 import { mergeClaimedUtxos } from '../vaults/impls/btc/sdkBtc/findAddressUtils';
+import {
+  isAddressWithheldFromBackend,
+  isLocalWalletNetwork,
+} from '../vaults/localWallet/isLocalWalletNetwork';
 
 import ServiceBase from './ServiceBase';
 
@@ -264,7 +273,10 @@ class ServiceAccountProfile extends ServiceBase {
       await this.backgroundApi.serviceNetwork.isCustomNetwork({
         networkId,
       });
-    if (isCustomNetwork) {
+    if (
+      isCustomNetwork ||
+      (await isAddressWithheldFromBackend({ networkId }))
+    ) {
       return emptyAccountBadgeResult();
     }
     const client = await this.getClient(EServiceEndpointEnum.Wallet);
@@ -536,6 +548,17 @@ class ServiceAccountProfile extends ServiceBase {
       input: rawAddress,
     };
 
+    // Start the combined local/server check before address normalization so a local WASM load cannot delay the server round trip.
+    const validation =
+      !skipValidateAddress &&
+      networkId &&
+      (await isLocalWalletNetwork({
+        networkId,
+      }))
+        ? serviceValidator.validateAddress({ networkId, address })
+        : undefined;
+    validation?.catch(() => undefined);
+
     let isLocalValid = false;
     try {
       const { displayAddress, isValid } =
@@ -585,10 +608,8 @@ class ServiceAccountProfile extends ServiceBase {
     }
 
     if (!skipValidateAddress) {
-      result.validStatus = await serviceValidator.validateAddress({
-        networkId,
-        address,
-      });
+      result.validStatus = await (validation ??
+        serviceValidator.validateAddress({ networkId, address }));
     }
 
     if (enableNameResolve) {
@@ -1002,6 +1023,38 @@ class ServiceAccountProfile extends ServiceBase {
     }
 
     return resp.data.data as T;
+  }
+
+  // Energy / bandwidth of one Tron account for the home resource card and
+  // its detail dialog. Resolving the API address here keeps the read to one
+  // bridge round-trip from the UI instead of two (OK-64027).
+  @backgroundMethod()
+  @toastIfError()
+  async fetchTronAccountResources({
+    accountId,
+    networkId,
+  }: {
+    accountId: string;
+    networkId: string;
+  }): Promise<ITronAccountResources> {
+    const accountAddress =
+      await this.backgroundApi.serviceAccount.getAccountAddressForApi({
+        accountId,
+        networkId,
+      });
+    const [resources] = await this.sendProxyRequest<ITronAccountResourcesRaw>({
+      networkId,
+      body: [
+        {
+          route: 'tronweb',
+          params: {
+            method: 'trx.getAccountResources',
+            params: [accountAddress],
+          },
+        },
+      ],
+    });
+    return parseTronAccountResources(resources);
   }
 
   // Resolve a (accountId, networkId) to its on-chain identifiers used as

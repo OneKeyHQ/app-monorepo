@@ -11,6 +11,8 @@ import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EEnterWay } from '@onekeyhq/shared/src/logger/scopes/dex';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import { isInitialSectionConsumed } from '../utils/marketDetailNavigation';
+
 /**
  * Hook to track market page entry analytics
  * Records different entry ways: from route params, direct link, or others
@@ -21,7 +23,13 @@ export function useMarketEnterAnalytics(params?: {
   const route = useRoute();
   const { isLazyLoad = false } = params ?? {};
   const isFirstRender = useRef(true);
+  const previousParamsRef = useRef<unknown>(undefined);
   useEffect(() => {
+    const previousParams = previousParamsRef.current;
+    previousParamsRef.current = route.params;
+    // Clearing the one-shot `initialSection` rewrites params but is the same
+    // entry; recording it again would double count it.
+    if (isInitialSectionConsumed(previousParams, route.params)) return;
     if (isLazyLoad && isFirstRender.current) {
       isFirstRender.current = false;
       return;

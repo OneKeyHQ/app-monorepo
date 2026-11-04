@@ -1,6 +1,7 @@
 import { app, dialog, net } from 'electron';
 
 import { buildServiceEndpoint } from '@onekeyhq/shared/src/config/appConfig';
+import { ONEKEY_ID_AUTH_CONFIG } from '@onekeyhq/shared/src/consts/authConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale/enum/translations';
 import {
@@ -76,7 +77,10 @@ export async function verifyRevenueCatIdentity(
   const sessionKey = `${SUPABASE_STORAGE_KEY_PREFIX}${
     context.sessionSource === EPrimeAuthSessionSource.KeylessOAuth
       ? getKeylessSupabaseAuthSessionKey()
-      : getSupabaseAuthSessionKey()
+      : // The email session is stored in a separate slot per auth realm.
+        getSupabaseAuthSessionKey(
+          ONEKEY_ID_AUTH_CONFIG[context.endpointEnv].projectUrl,
+        )
   }`;
   const token = readSessionToken(sessionKey);
   const assertCurrentSession = () => {

@@ -1,7 +1,15 @@
 import BigNumber from 'bignumber.js';
 
+import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type { ICurrencyItem } from '@onekeyhq/shared/types';
-import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
+import type {
+  IMarketStockTokenVariant,
+  IMarketTokenDetail,
+} from '@onekeyhq/shared/types/marketV2';
+import type {
+  ISwapStockTradeConfig,
+  ISwapToken,
+} from '@onekeyhq/shared/types/swap/types';
 
 import { getSwapTokenDisplayFiatValue } from './swapDisplayFiatValue';
 
@@ -28,6 +36,72 @@ export function resolveStockTokenToAssetRatio({
       ? getValidStockTokenToAssetRatio(tokenDetailRatio)
       : undefined)
   );
+}
+
+export function resolveSwapStockReviewToken({
+  stockToken,
+  selectedTokenVariant,
+  tokenDetail,
+  stockTradeConfig,
+  underlyingSymbol,
+}: {
+  stockToken?: ISwapToken;
+  selectedTokenVariant?: Pick<
+    IMarketStockTokenVariant,
+    'networkId' | 'contractAddress' | 'tokenToAssetRatio'
+  >;
+  tokenDetail?: Pick<IMarketTokenDetail, 'networkId' | 'address' | 'stock'>;
+  stockTradeConfig?: ISwapStockTradeConfig;
+  underlyingSymbol?: string;
+}): ISwapToken | undefined {
+  if (!stockToken?.isStock) {
+    return undefined;
+  }
+
+  const selectedVariantMatchesStockToken = equalTokenNoCaseSensitive({
+    token1: selectedTokenVariant,
+    token2: stockToken,
+  });
+  const tokenDetailMatchesStockToken = equalTokenNoCaseSensitive({
+    token1: tokenDetail
+      ? {
+          networkId: tokenDetail.networkId ?? stockToken.networkId,
+          contractAddress: tokenDetail.address,
+        }
+      : undefined,
+    token2: stockToken,
+  });
+  // Market config belongs to the selected variant, which may lead the execution token.
+  const matchingConfig = selectedVariantMatchesStockToken
+    ? stockTradeConfig
+    : undefined;
+  const matchingDetail = tokenDetailMatchesStockToken ? tokenDetail : undefined;
+  const tokenToAssetRatio = resolveStockTokenToAssetRatio({
+    selectedVariantRatio: selectedVariantMatchesStockToken
+      ? (getValidStockTokenToAssetRatio(matchingConfig?.tokenToAssetRatio) ??
+        selectedTokenVariant?.tokenToAssetRatio)
+      : undefined,
+    tokenDetailRatio: matchingDetail?.stock?.tokenToAssetRatio,
+    hasSelectedVariant: Boolean(selectedTokenVariant),
+    selectedVariantMatchesTokenDetail: selectedVariantMatchesStockToken,
+  });
+
+  return {
+    ...stockToken,
+    stock: {
+      subtitle: '',
+      sourceLogoUri: '',
+      ...stockToken.stock,
+      // Keep an explicit undefined when the live sources withdraw the ratio.
+      tokenToAssetRatio,
+      underlyingAssetTicker:
+        matchingConfig?.underlyingSymbol ??
+        matchingDetail?.stock?.underlyingAssetTicker ??
+        (selectedVariantMatchesStockToken ? underlyingSymbol : undefined) ??
+        stockToken.stock?.underlyingAssetTicker ??
+        stockToken.symbol,
+    },
+  };
 }
 
 export function calculateSwapStockEstimatedShares({

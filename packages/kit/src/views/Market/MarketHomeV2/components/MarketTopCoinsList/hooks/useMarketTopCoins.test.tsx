@@ -5,6 +5,7 @@ import { act, renderHook } from '@testing-library/react';
 import { Toast } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { travelModeManager } from '@onekeyhq/shared/src/travelMode';
 import type {
   IMarketAssetDetailData,
   IMarketAssetListItem,
@@ -226,6 +227,24 @@ describe('useMarketTopCoins', () => {
     expect(Toast.error).toHaveBeenCalledWith({
       title: ETranslations.global_an_error_occurred,
     });
+  });
+
+  it('does not open a Top Coin while travel mode is active', async () => {
+    const runtimeSpy = jest
+      .spyOn(travelModeManager, 'getRuntimeEnvironmentSync')
+      .mockReturnValue({
+        profile: { kind: 'travel-mode' },
+      } as ReturnType<typeof travelModeManager.getRuntimeEnvironmentSync>);
+    serviceMarket.fetchMarketAssetDetail.mockResolvedValueOnce(bitcoinDetail);
+    const { result } = renderHook(() => useMarketTopCoins());
+
+    await act(async () => {
+      await result.current.handleItemPress(bitcoin);
+    });
+
+    expect(serviceMarket.fetchMarketAssetDetail.mock.calls).toHaveLength(0);
+    expect(mockToMarketDetailPage).not.toHaveBeenCalled();
+    runtimeSpy.mockRestore();
   });
 
   it('forwards detail replacement mode to the detail navigation owner', () => {

@@ -772,7 +772,8 @@ const compareTableListProps = (
     prevProps.enableDrillIn === nextProps.enableDrillIn &&
     prevProps.withHeader === nextProps.withHeader &&
     prevProps.rowGap === nextProps.rowGap &&
-    prevProps.listItemProps === nextProps.listItemProps;
+    prevProps.listItemProps === nextProps.listItemProps &&
+    prevProps.ListFooterComponent === nextProps.ListFooterComponent;
   if (!simplePropsEqual) {
     return false;
   }

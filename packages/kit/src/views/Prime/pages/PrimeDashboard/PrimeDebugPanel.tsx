@@ -1,5 +1,7 @@
 /* cspell:ignore Infini */
-import { useState } from 'react';
+import { useRef, useState } from 'react';
+
+import { useIntl } from 'react-intl';
 
 import {
   Button,
@@ -16,12 +18,16 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePrimePayment } from '@onekeyhq/kit/src/views/Prime/hooks/usePrimePayment';
 import { usePrimePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 
 import { PrimeInfiniSubscriptionResetButton } from '../../components/PrimeDevUtils';
 import { usePrimePurchaseCallback } from '../../components/PrimePurchaseDialog/PrimePurchaseDialog';
+
+import { startPrimeDebugCardCheckout } from './primeDebugCardCheckout';
 
 function CloudSyncDebugTest() {
   const navigation = useAppNavigation();
@@ -190,11 +196,23 @@ export function PrimeDebugPanel({
 }: {
   shouldShowConfirmButton: boolean;
 }) {
-  const { getAccessToken, isReady, isSupabaseLoggedIn, loginOneKeyId } =
-    useOneKeyAuth();
+  const {
+    getAccessToken,
+    isReady,
+    isSupabaseLoggedIn,
+    loginOneKeyId,
+    user,
+    supabaseUser,
+  } = useOneKeyAuth();
   const { run: runIdentityExit } = useIdentityExitFlow();
-  const { getCustomerInfo, getPackagesNative, getPackagesWeb } =
-    usePrimePayment();
+  const {
+    getCustomerInfo,
+    getPackagesNative,
+    getPackagesWeb,
+    purchasePackageWeb,
+  } = usePrimePayment();
+  const intl = useIntl();
+  const cardCheckoutPendingRef = useRef(false);
   const navigation = useAppNavigation();
   const [isHidden, setIsHidden] = useState(false);
   const [primePersistAtomData] = usePrimePersistAtom();
@@ -334,6 +352,32 @@ export function PrimeDebugPanel({
         </Button>
       </XStack>
       <CloudSyncDebugTest />
+      {platformEnv.isDev && !platformEnv.isNative && !platformEnv.isMas ? (
+        <Button
+          testID="prime-debug-force-card-payment"
+          icon="CreditCardOutline"
+          onPressLoadingEnabled
+          disabled={!isReady || !user?.onekeyUserId || !purchasePackageWeb}
+          onPress={async () => {
+            if (cardCheckoutPendingRef.current) return;
+            cardCheckoutPendingRef.current = true;
+            try {
+              await startPrimeDebugCardCheckout({
+                onekeyUserId: user?.onekeyUserId,
+                email: supabaseUser?.email || '',
+                locale: intl.locale,
+                purchasePackageWeb,
+              });
+            } catch (error) {
+              errorToastUtils.toastIfError(error);
+            } finally {
+              cardCheckoutPendingRef.current = false;
+            }
+          }}
+        >
+          Force credit card payment (P1Y, even if Prime is active)
+        </Button>
+      ) : null}
     </Stack>
   );
 }

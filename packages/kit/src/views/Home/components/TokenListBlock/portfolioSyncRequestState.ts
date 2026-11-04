@@ -1,4 +1,5 @@
 export type IPortfolioSyncRequestPhase =
+  | 'preparing'
   | 'queued'
   | 'refreshing'
   | 'settled'
@@ -6,6 +7,7 @@ export type IPortfolioSyncRequestPhase =
 
 export interface IPortfolioSyncRequest {
   id: number;
+  categoryRequestId?: number;
   minimumAllNetworksGeneration?: number;
   phase: IPortfolioSyncRequestPhase;
   targetKey: string;
@@ -62,4 +64,30 @@ export function resolvePortfolioSyncRequestTransition({
     // fallback timer armed; every other phase has already produced a result.
     clearFallbackTimer: phase !== 'settled',
   };
+}
+
+export type IPortfolioSyncStageHold = {
+  requestId: number;
+  burstId: number | undefined;
+};
+
+// A stage exit speaks only for the request whose own stage hold it closes,
+// matched by the burst the exit names. Arrival order proves nothing: on
+// split runtimes the previous attempt's exit (its ✗ retiring under a page
+// it no longer blocks, OK-64696) can land after the new hold has opened.
+export function shouldPortfolioSyncStandDownOnStageOff({
+  request,
+  stageHold,
+  offBurstId,
+}: {
+  request: IPortfolioSyncRequest | undefined;
+  stageHold: IPortfolioSyncStageHold | undefined;
+  offBurstId: number | undefined;
+}): boolean {
+  return (
+    request !== undefined &&
+    stageHold?.requestId === request.id &&
+    stageHold.burstId !== undefined &&
+    stageHold.burstId === offBurstId
+  );
 }

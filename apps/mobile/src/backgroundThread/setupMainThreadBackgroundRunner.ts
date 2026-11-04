@@ -16,6 +16,7 @@ import {
   NativeLogger,
 } from '@onekeyhq/shared/src/modules3rdParty/react-native-file-logger';
 import { recordInboundFromBackground } from '@onekeyhq/shared/src/performance/collectors/jsBlockCollector';
+import { isAccountSwitchDiagnosticsEnabled } from '@onekeyhq/shared/src/performance/enabled';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   type IAsyncStorageWriteArgs,
@@ -35,6 +36,7 @@ import {
   parseNativeStorageContractViolation,
   parseNativeSyncStorageMutation,
 } from '@onekeyhq/shared/src/storage/nativeStorageTypes';
+import { getHomeTokenMainRuntimeId } from '@onekeyhq/shared/src/utils/homeTokenRequest';
 import { registerImageEmbedBridge } from '@onekeyhq/shared/src/utils/imageUtils.embedBridge';
 
 import { routeBackgroundMessage } from './backgroundMessageRouter';
@@ -54,6 +56,7 @@ import {
   type IBackgroundThreadServiceCallRequest,
   type IBackgroundThreadTransportState,
   WEBEMBED_BRIDGE_REQUEST_KEY_PREFIX,
+  buildBackgroundThreadErrorResponse,
   buildBackgroundThreadRequestKey,
   buildWebEmbedBridgeResponseKey,
   parseBackgroundThreadAppEventBroadcastPayload,
@@ -64,6 +67,7 @@ import {
   parseBackgroundThreadResponse,
   serializeBackgroundThreadMainCapabilitiesPayload,
   serializeBackgroundThreadRequest,
+  serializeBackgroundThreadResponse,
 } from './rpcProtocol';
 import {
   BACKGROUND_THREAD_READY_KEY,
@@ -137,6 +141,7 @@ function getAsyncStorageWriteArgSummary(
 }
 
 const OBSERVER_RETRY_MS = 50;
+// Warn only: in dev the background bundle compiles on demand and can take minutes.
 const READY_OBSERVATION_WARN_MS = 10_000;
 const ASYNC_STORAGE_FORWARDER_RETRY_MS = 100;
 const ASYNC_STORAGE_FORWARDER_REQUEST_TIMEOUT_MS = 15_000;
@@ -269,13 +274,13 @@ function createTransportError(message: string) {
 
 type IBackgroundThreadTransportError = Error &
   Partial<IBackgroundThreadResponseErrorPayload>;
-type IRehydratableBackgroundThreadErrorKey = Exclude<
+type IBackgroundThreadErrorMetadataKey = Exclude<
   keyof IBackgroundThreadResponseErrorPayload,
   'message'
 >;
 
 const backgroundThreadErrorMetadataValidators: {
-  [Key in IRehydratableBackgroundThreadErrorKey]: (value: unknown) => boolean;
+  [Key in IBackgroundThreadErrorMetadataKey]: (value: unknown) => boolean;
 } = {
   name: (value) => typeof value === 'string' && Boolean(value),
   stack: (value) => typeof value === 'string' && Boolean(value),
@@ -290,6 +295,9 @@ const backgroundThreadErrorMetadataValidators: {
   info: (value) => value !== undefined,
   payload: (value) => value !== undefined,
   reconnect: (value) => typeof value === 'boolean',
+  params: (value) =>
+    typeof value === 'object' && value !== null && !Array.isArray(value),
+  detail: (value) => typeof value === 'string',
 };
 
 function rehydrateTransportError({
@@ -321,7 +329,7 @@ function rehydrateTransportError({
 
   const metadataKeys = Object.keys(
     backgroundThreadErrorMetadataValidators,
-  ) as IRehydratableBackgroundThreadErrorKey[];
+  ) as IBackgroundThreadErrorMetadataKey[];
   for (const metadataKey of metadataKeys) {
     const metadataValue = errorInfo[metadataKey];
     if (backgroundThreadErrorMetadataValidators[metadataKey](metadataValue)) {
@@ -374,14 +382,18 @@ function isAsyncStorageWriteServiceRequest(
   );
 }
 
-function isNativeSyncStorageServiceRequest(request: IBackgroundThreadRequest) {
+function isShortNativeStorageServiceRequest(request: IBackgroundThreadRequest) {
   if (request.type !== 'service-call' || request.method !== 'nativeStorage') {
     return false;
   }
   const nativeStorageRequest = request.params[0] as
     | INativeStorageRequest
     | undefined;
-  return nativeStorageRequest?.scope === 'syncStorage';
+  return (
+    nativeStorageRequest?.scope === 'syncStorage' ||
+    (nativeStorageRequest?.scope === 'recovery' &&
+      nativeStorageRequest.operation === 'inspectAppStorageMigration')
+  );
 }
 
 function isNativeStorageBootstrapServiceRequest(
@@ -894,7 +906,9 @@ function getRemoteRequestTimeoutMs(request: IBackgroundThreadRequest) {
     // must not block every later write for the generic service timeout window.
     return ASYNC_STORAGE_FORWARDER_REQUEST_TIMEOUT_MS;
   }
-  if (isNativeSyncStorageServiceRequest(request)) {
+  if (isShortNativeStorageServiceRequest(request)) {
+    // The lock's read-only probe must not wait for the generic ten-minute
+    // service deadline. Apply one deadline across queueing and dispatch.
     return NATIVE_SYNC_STORAGE_REQUEST_TIMEOUT_MS;
   }
   if (isNativeStorageBootstrapServiceRequest(request)) {
@@ -1110,6 +1124,9 @@ function handleRuntimeSignal() {
         `background runtime bootId changed while transport ready: ${previousBootId} -> ${runtimePayload.bootId}`,
       );
       setBackgroundThreadReadyPayload(runtimePayload);
+      appEventBus.emit(EAppEventBusNames.BackgroundThreadReady, {
+        bootId: runtimePayload.bootId,
+      });
       // The new bg runtime has already signaled ready, so keep the transport
       // ready for new calls. Old in-flight calls belonged to the previous bg
       // JS heap and cannot receive a reliable response anymore. Do not replay
@@ -1138,6 +1155,9 @@ function handleRuntimeSignal() {
   );
   clearReadyObservationTimer();
   setBackgroundThreadReadyPayload(runtimePayload);
+  appEventBus.emit(EAppEventBusNames.BackgroundThreadReady, {
+    bootId: runtimePayload.bootId,
+  });
   dispatchQueuedCallsToRemote();
   resolveReadyWaiters();
   notifyNativeSyncStorageTransportReady();
@@ -1164,11 +1184,13 @@ function handleBackgroundThreadResponse(
     return;
   }
 
-  recordInboundFromBackground({
-    kind: 'rpc',
-    name: pendingCall.method,
-    chars: typeof value === 'string' ? value.length : 0,
-  });
+  if (isAccountSwitchDiagnosticsEnabled()) {
+    recordInboundFromBackground({
+      kind: 'rpc',
+      name: pendingCall.method,
+      chars: typeof value === 'string' ? value.length : 0,
+    });
+  }
 
   const response = parseBackgroundThreadResponse(value);
   transportLog(
@@ -1212,11 +1234,13 @@ function handleBackgroundThreadJotaiStateUpdate(
   if (!payload) {
     return;
   }
-  recordInboundFromBackground({
-    kind: 'atom',
-    name: payload.name,
-    chars: typeof value === 'string' ? value.length : 0,
-  });
+  if (isAccountSwitchDiagnosticsEnabled()) {
+    recordInboundFromBackground({
+      kind: 'atom',
+      name: payload.name,
+      chars: typeof value === 'string' ? value.length : 0,
+    });
+  }
 
   applyOrQueueJotaiStateBroadcast({
     name: payload.name,
@@ -1240,16 +1264,18 @@ function handleBackgroundThreadJotaiStateBatchUpdate(
   }
   // One slot carries the whole batch, so split its size across the atoms in
   // it rather than charging each one for the batch.
-  const chars = typeof value === 'string' ? value.length : 0;
-  const charsPerItem = payload.items.length
-    ? Math.round(chars / payload.items.length)
-    : 0;
-  for (const item of payload.items) {
-    recordInboundFromBackground({
-      kind: 'atom',
-      name: item.name,
-      chars: charsPerItem,
-    });
+  if (isAccountSwitchDiagnosticsEnabled()) {
+    const chars = typeof value === 'string' ? value.length : 0;
+    const charsPerItem = payload.items.length
+      ? Math.round(chars / payload.items.length)
+      : 0;
+    for (const item of payload.items) {
+      recordInboundFromBackground({
+        kind: 'atom',
+        name: item.name,
+        chars: charsPerItem,
+      });
+    }
   }
 
   for (const item of payload.items) {
@@ -1288,11 +1314,13 @@ function handleBackgroundThreadAppEventUpdate(
   if (!payload) {
     return;
   }
-  recordInboundFromBackground({
-    kind: 'event',
-    name: payload.eventName,
-    chars: typeof value === 'string' ? value.length : 0,
-  });
+  if (isAccountSwitchDiagnosticsEnabled()) {
+    recordInboundFromBackground({
+      kind: 'event',
+      name: payload.eventName,
+      chars: typeof value === 'string' ? value.length : 0,
+    });
+  }
 
   if (payload.eventName === EAppEventBusNames.NativeStorageContractViolation) {
     const violation = parseNativeStorageContractViolation(payload.payload);
@@ -1356,6 +1384,22 @@ function handleBackgroundThreadBridgeSend(value: string | number | boolean) {
   });
 }
 
+export function serializeWebEmbedBridgeError(error: unknown): string {
+  try {
+    return serializeBackgroundThreadResponse(
+      buildBackgroundThreadErrorResponse(error),
+    );
+  } catch {
+    return JSON.stringify({
+      ok: false,
+      error: {
+        name: 'WebEmbedBridgeResponseError',
+        message: 'WebEmbed bridge response could not be serialized',
+      },
+    });
+  }
+}
+
 async function handleWebEmbedBridgeRequest(
   sharedRPC: ISharedRPC,
   key: string,
@@ -1382,13 +1426,7 @@ async function handleWebEmbedBridgeRequest(
     const result = await bridge.request({ scope: '$private', data });
     sharedRPC.write(responseKey, JSON.stringify({ ok: true, result }));
   } catch (error) {
-    sharedRPC.write(
-      responseKey,
-      JSON.stringify({
-        ok: false,
-        error: { message: String((error as Error)?.message || error) },
-      }),
-    );
+    sharedRPC.write(responseKey, serializeWebEmbedBridgeError(error));
   }
 }
 
@@ -1435,6 +1473,7 @@ function installBackgroundRuntimeObserver(sharedRPC: ISharedRPC) {
         BACKGROUND_THREAD_MAIN_CAPABILITIES_KEY,
         serializeBackgroundThreadMainCapabilitiesPayload({
           jotaiStateBatch: true,
+          mainRuntimeId: getHomeTokenMainRuntimeId(),
         }),
       );
       sharedRPC.write(BACKGROUND_THREAD_MAIN_CAPABILITIES_WAKE_KEY, '1');

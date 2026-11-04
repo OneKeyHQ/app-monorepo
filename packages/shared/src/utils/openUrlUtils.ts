@@ -72,7 +72,19 @@ const openUrlByWebview = (
   title?: string,
   options?: IOpenUrlInAppOptions,
 ) => {
-  appGlobals.$navigationRef.current?.navigate(ERootRoutes.Modal, {
+  const rootRoutes = (
+    appGlobals.$navigationRef.current as
+      | {
+          getRootState?: () => { routes?: Array<{ name?: string }> };
+        }
+      | undefined
+  )?.getRootState?.()?.routes;
+  const topRootRoute = rootRoutes?.[rootRoutes.length - 1]?.name;
+  const targetRootRoute =
+    topRootRoute === ERootRoutes.iOSFullScreen
+      ? ERootRoutes.iOSFullScreen
+      : ERootRoutes.Modal;
+  appGlobals.$navigationRef.current?.navigate(targetRootRoute, {
     screen: EModalRoutes.WebViewModal,
     params: {
       screen: EModalWebViewRoutes.WebView,
@@ -80,6 +92,10 @@ const openUrlByWebview = (
         url,
         title,
         enableDappBridge: options?.enableDappBridge,
+        redirectExternalNavigation: options?.redirectExternalNavigation,
+        hideHeaderRight: options?.hideHeaderRight,
+        disableBridge: options?.disableBridge,
+        intercomUserId: options?.intercomUserId,
       },
     },
   });
@@ -113,23 +129,64 @@ function openUrlByWebviewPro({
   });
 }
 
+const BLOCKED_EXTERNAL_SCHEMES = new Set([
+  'javascript',
+  'data',
+  'vbscript',
+  'file',
+  'blob',
+  'about',
+  'chrome',
+  'chrome-extension',
+  'intent',
+]);
+
+export const isBlockedExternalScheme = (url: string): boolean => {
+  try {
+    return BLOCKED_EXTERNAL_SCHEMES.has(
+      new URL(url.trim()).protocol.slice(0, -1),
+    );
+  } catch {
+    return false;
+  }
+};
+
 const openUrlOutsideNative = (url: string): void => {
+  const trimmedUrl = url.trim();
+  let protocol: string;
+  try {
+    protocol = new URL(trimmedUrl).protocol;
+  } catch {
+    return;
+  }
+  if (protocol !== 'http:' && protocol !== 'https:' && protocol !== 'mailto:') {
+    return;
+  }
   if (platformEnv.isExtension) {
     void chrome.tabs.create({
-      url,
+      url: trimmedUrl,
     });
   } else {
-    window.open(url, '_blank');
+    window.open(trimmedUrl, '_blank');
   }
 };
 
 export interface IOpenUrlInAppOptions {
+  hideHeaderRight?: boolean;
+  disableBridge?: boolean;
+  /** Bind an authenticated support page to its opening wallet identity. */
+  intercomUserId?: string | null;
   /**
    * The page is expected to talk to the wallet (connect, sign). Adds the
    * account/network change notifications a dApp session needs; see
    * WebViewWithFeatures.
    */
   enableDappBridge?: boolean;
+  /**
+   * Hand any cross-origin navigation to the Discovery browser, which runs its
+   * URL risk checks, so the modal only ever shows the entry site.
+   */
+  redirectExternalNavigation?: boolean;
 }
 
 export const openUrlInApp = (
@@ -137,7 +194,10 @@ export const openUrlInApp = (
   title?: string,
   options?: IOpenUrlInAppOptions,
 ) => {
-  if (platformEnv.isNative || platformEnv.isDesktop) {
+  // Extension support stays in the wallet UI so the wallet lock still covers it.
+  const isExtensionSupport =
+    platformEnv.isExtension && options?.intercomUserId !== undefined;
+  if (platformEnv.isNative || platformEnv.isDesktop || isExtensionSupport) {
     openUrlByWebview(url.trim(), title, options);
   } else {
     openUrlOutsideNative(url.trim());
@@ -228,16 +288,23 @@ export const openUrlExternal = (
   options?: IOpenUrlExternalOptions,
 ) => {
   const trimmedUrl = url.trim();
+  if (!trimmedUrl || isBlockedExternalScheme(trimmedUrl)) {
+    return;
+  }
+  const parsedUrl = parseUrl(trimmedUrl);
+  const isHttpUrl =
+    parsedUrl?.urlSchema === 'http' || parsedUrl?.urlSchema === 'https';
   if (!platformEnv.isNative) {
     openUrlOutsideNative(trimmedUrl);
     return;
   }
-  const parsedUrl = parseUrl(trimmedUrl);
   const openViaSystemBrowser = () => {
     trackOpenUrl(parsedUrl, 'system');
     void linkingOpenURL(trimmedUrl);
   };
   if (
+    !parsedUrl ||
+    !isHttpUrl ||
     options?.useSystemBrowser ||
     forceSystemBrowserForDebug ||
     // The background JS runtime cannot present a native view controller.
@@ -246,9 +313,7 @@ export const openUrlExternal = (
     openViaSystemBrowser();
     return;
   }
-  const isHttpUrl =
-    parsedUrl?.urlSchema === 'http' || parsedUrl?.urlSchema === 'https';
-  if (!parsedUrl || !isHttpUrl || isSystemBrowserOnlyHost(parsedUrl.hostname)) {
+  if (isSystemBrowserOnlyHost(parsedUrl.hostname)) {
     openViaSystemBrowser();
     return;
   }
@@ -315,7 +380,14 @@ export const handleOneKeyStoreLink = (
     return false;
   }
   if (isTopFrame) {
-    openUrlExternal(handoffUrl, { useSystemBrowser: true });
+    if (
+      platformEnv.isDesktopMac &&
+      handoffUrl === MAC_APP_STORE_DOWNLOAD_LINK
+    ) {
+      window.open(MAC_APP_STORE_DOWNLOAD_LINK, '_blank');
+    } else {
+      openUrlExternal(handoffUrl, { useSystemBrowser: true });
+    }
   }
   return true;
 };

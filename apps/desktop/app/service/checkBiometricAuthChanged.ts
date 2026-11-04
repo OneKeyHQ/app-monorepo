@@ -6,15 +6,26 @@ import { ECheckBiometricAuthChangedEventType } from './enum';
 process.parentPort.on(
   'message',
   (e: {
-    data: { type: ECheckBiometricAuthChangedEventType; params: unknown };
+    data: {
+      type: ECheckBiometricAuthChangedEventType;
+      params: unknown;
+      requestId: number;
+    };
   }) => {
     switch (e.data.type) {
       case ECheckBiometricAuthChangedEventType.CheckBiometricAuthChanged:
-        {
+        try {
           const result = checkBiometricAuthChanged();
           process.parentPort.postMessage({
-            type: ECheckBiometricAuthChangedEventType.CheckBiometricAuthChanged,
+            type: e.data.type,
+            requestId: e.data.requestId,
             result,
+          });
+        } catch {
+          process.parentPort.postMessage({
+            type: e.data.type,
+            requestId: e.data.requestId,
+            error: true,
           });
         }
         break;

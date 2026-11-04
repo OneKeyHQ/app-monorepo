@@ -9,10 +9,6 @@ import {
 } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
 import { useMarketAssetTokenDetailAction } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2/marketAssetDetail';
 import { useTokenDetail } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/hooks/useTokenDetail';
-import {
-  type IMarketAssetRouteIdentity,
-  resolveMarketAssetRouteIdentity,
-} from '@onekeyhq/kit/src/views/Market/MarketDetailV2/utils/resolveMarketAssetRouteIdentity';
 import { useMarketCurrentTokenLiveDataAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { MARKET_TOP_COINS_CATEGORY_ID } from '@onekeyhq/shared/src/consts/marketConsts';
 import { swrKeys } from '@onekeyhq/shared/src/utils/swrCacheUtils';
@@ -31,83 +27,10 @@ interface IUseMarketDetailDataProps {
   marketTokenCategory?: string;
 }
 
-interface IUseResolvedMarketAssetRouteIdentityProps {
-  enabled: boolean;
-  active?: boolean;
-  tokenAddress: string;
-  networkId: string;
-  symbol?: string;
-  isNative: boolean;
-}
-
-type IMarketAssetRouteIdentityResult = Omit<
-  IUseResolvedMarketAssetRouteIdentityProps,
-  'enabled'
-> & {
-  identity?: IMarketAssetRouteIdentity;
-};
-
 function toFiniteNumber(value?: string | number) {
   if (value === undefined || value === null || value === '') return undefined;
   const n = Number(value);
   return Number.isFinite(n) ? n : undefined;
-}
-
-export function useResolvedMarketAssetRouteIdentity({
-  enabled,
-  active = true,
-  tokenAddress,
-  networkId,
-  symbol,
-  isNative,
-}: IUseResolvedMarketAssetRouteIdentityProps) {
-  const [result, setResult] = useState<IMarketAssetRouteIdentityResult>();
-  const isCurrentResult = Boolean(
-    result &&
-    result.tokenAddress === tokenAddress &&
-    result.networkId === networkId &&
-    result.symbol === symbol &&
-    result.isNative === isNative,
-  );
-
-  const hasResolvedIdentity = isCurrentResult && Boolean(result?.identity);
-
-  useEffect(() => {
-    // Keep the canonical identity for this route across focus changes.
-    if (!enabled || !active || !symbol || hasResolvedIdentity) {
-      return;
-    }
-
-    let isActive = true;
-    void resolveMarketAssetRouteIdentity({
-      tokenAddress,
-      networkId,
-      symbol,
-      isNative,
-    }).then((identity) => {
-      if (isActive) {
-        setResult({ tokenAddress, networkId, symbol, isNative, identity });
-      }
-    });
-
-    return () => {
-      isActive = false;
-    };
-  }, [
-    active,
-    enabled,
-    hasResolvedIdentity,
-    isNative,
-    networkId,
-    symbol,
-    tokenAddress,
-  ]);
-
-  return {
-    identity: enabled && isCurrentResult ? result?.identity : undefined,
-    isResolving: Boolean(enabled && active && symbol && !isCurrentResult),
-    shouldSkipMarketDataFetch: Boolean(enabled && symbol && !isCurrentResult),
-  };
 }
 
 // Keep live quote mirroring in a leaf so price ticks do not render the page.
@@ -261,7 +184,7 @@ export function useAutoRefreshTokenDetail(data: IUseMarketDetailDataProps) {
   ]);
 
   // Set tokenAddress/networkId/isNative synchronously on prop change,
-  // NOT inside the polling callback. This prevents stale polling responses
+  // not inside the request callback. This prevents stale responses
   // from writing old token identifiers back into atoms after a token switch.
   useLayoutEffect(() => {
     if (!active) return;
@@ -392,10 +315,8 @@ export function useAutoRefreshTokenDetail(data: IUseMarketDetailDataProps) {
     ],
     {
       undefinedResultIfError: true,
-      // Keep the interval identity stable while a retained Desktop/Web route is
-      // inactive. usePromiseResult delays a changed interval by its full
-      // duration; a stable interval lets the active dependency refetch
-      // immediately when the user returns to the route.
+      // Refresh statistics and recover quotes when the chart feed becomes stale.
+      // A stable interval also lets retained routes refetch immediately on entry.
       pollingInterval: 6000,
       revalidateOnFocus: true,
       revalidateOnReconnect: true,

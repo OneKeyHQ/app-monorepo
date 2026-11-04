@@ -9,7 +9,11 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IBorrowReserveItem } from '@onekeyhq/shared/types/staking';
 
 import { EManagePositionType } from '../../Staking/pages/ManagePosition/hooks/useManagePage';
-import { isBorrowReservesPending } from '../borrowDataStatus';
+import {
+  hasBorrowReservesForMarket,
+  isBorrowReservesPending,
+} from '../borrowDataStatus';
+import { buildBorrowMarketKey } from '../borrowMarketKey';
 import { useBorrowContext } from '../BorrowProvider';
 import { BorrowNavigation } from '../borrowUtils';
 
@@ -86,7 +90,13 @@ export const BorrowCard = () => {
     [navigation, market, gtMd, handleManageBorrow, accountId, indexedAccountId],
   );
 
-  const showLoading = isBorrowReservesPending(borrowDataStatus);
+  const showLoading =
+    isBorrowReservesPending(borrowDataStatus) ||
+    !hasBorrowReservesForMarket({
+      data: reserves.data,
+      ownerMarketKey: reserves.ownerMarketKey,
+      marketKey: market ? buildBorrowMarketKey(market) : undefined,
+    });
   const borrowAssets = useMemo(
     () =>
       filterUnsupportedAaveNativeReserveAssets({
@@ -143,8 +153,7 @@ export const BorrowCard = () => {
           <AssetWithAmountField
             token={item.token}
             amountLabel={{ text: labels.balanceWithColon }}
-            amount={item.available.title}
-            amountDescription={item.available.description}
+            balance={item.available}
             platformBonusApy={item.platformBonusApy}
           />
         ),
@@ -187,10 +196,7 @@ export const BorrowCard = () => {
           return aFiatValue.comparedTo(bFiatValue);
         },
         render: (item: IBorrowAsset) => (
-          <AmountField
-            title={item.available.title}
-            description={item.available.description}
-          />
+          <AmountField balance={item.available} />
         ),
         flex: 1,
         minWidth: BORROW_TABLE_AMOUNT_COLUMN_MIN_WIDTH,

@@ -16,6 +16,7 @@ export function deriveBorrowDataStatus({
   marketsLoading,
   hasMarket,
   hasFetchKey,
+  hasAccountError = false,
   shouldWaitForAccount,
   reservesLoading,
   isCurrentFetchKey,
@@ -28,6 +29,7 @@ export function deriveBorrowDataStatus({
   marketsLoading: boolean;
   hasMarket: boolean;
   hasFetchKey: boolean;
+  hasAccountError?: boolean;
   shouldWaitForAccount: boolean;
   reservesLoading?: boolean;
   isCurrentFetchKey: boolean;
@@ -40,19 +42,23 @@ export function deriveBorrowDataStatus({
     return EBorrowDataStatus.LoadingMarkets;
   }
   if (marketsLoading) {
-    if (!hasCachedReserves || !isCurrentFetchKey) {
+    if (!hasCachedReserves || (!isCurrentFetchKey && !hasOwnedReservesResult)) {
       return EBorrowDataStatus.LoadingMarkets;
     }
     return EBorrowDataStatus.Refreshing;
   }
   if (!hasMarket) return EBorrowDataStatus.Idle;
+  if (hasAccountError) return EBorrowDataStatus.Error;
   if (shouldWaitForAccount) return EBorrowDataStatus.WaitingForAccount;
   if (!hasFetchKey) return EBorrowDataStatus.Idle;
 
   // The request starts in a passive effect. Keep the new scope pending during
-  // the render before usePromiseResult publishes its loading flag.
+  // the render before usePromiseResult publishes its loading flag, unless its
+  // own SWR entry is already available for immediate publication.
   if (!isCurrentFetchKey) {
-    return EBorrowDataStatus.LoadingReserves;
+    return hasOwnedReservesResult
+      ? EBorrowDataStatus.Refreshing
+      : EBorrowDataStatus.LoadingReserves;
   }
 
   if (reservesLoading) {
@@ -93,5 +99,25 @@ export function isBorrowReservesPending(status: EBorrowDataStatus) {
     status === EBorrowDataStatus.LoadingMarkets ||
     status === EBorrowDataStatus.WaitingForAccount ||
     status === EBorrowDataStatus.LoadingReserves
+  );
+}
+
+/**
+ * A reserves payload is only usable by the market scope that owns it. The
+ * token selector has its own request, so its list must never make an
+ * unowned/missing home snapshot look settled.
+ */
+export function hasBorrowReservesForMarket({
+  data,
+  ownerMarketKey,
+  marketKey,
+}: {
+  data: unknown;
+  ownerMarketKey?: string;
+  marketKey?: string;
+}) {
+  return (
+    !marketKey ||
+    (data !== null && data !== undefined && ownerMarketKey === marketKey)
   );
 }

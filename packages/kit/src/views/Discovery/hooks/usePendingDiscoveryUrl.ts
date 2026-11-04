@@ -16,7 +16,7 @@ import { useWebSiteHandler } from './useWebSiteHandler';
  *
  * On native: Listens for SwitchDiscoveryTabInNative event to consume pending URLs.
  *   NOTE: Do NOT rely on isFocused on native. The custom native bottom tab navigator
- *   (@onekeyfe/react-native-tab-view) does not properly dispatch focus/blur events
+ *   (@onekeyfe/react-native-bottom-tabs) does not properly dispatch focus/blur events
  *   to React Navigation, so useIsFocused() always returns true and never transitions
  *   back to false when the user switches away from the Discovery tab.
  *

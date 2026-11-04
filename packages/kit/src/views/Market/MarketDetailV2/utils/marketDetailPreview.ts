@@ -4,11 +4,14 @@ import type {
   IMarketTokenDetailPreview,
 } from '@onekeyhq/shared/types/marketV2';
 
+import { isMarketTokenDecimalsReady } from './marketTokenIdentity';
+
 import type { IMarketToken } from '../../MarketHomeV2/components/MarketTokenList/MarketTokenData';
 
 type IBuildMarketTokenDetailPreviewInput = Pick<
   IMarketToken,
   | 'address'
+  | 'firstTradeTime'
   | 'networkId'
   | 'name'
   | 'symbol'
@@ -73,8 +76,11 @@ function toFirstOptionalNumber(...values: unknown[]) {
 
 export function buildMarketTokenDetailPreview(
   token: IBuildMarketTokenDetailPreviewInput,
-): IMarketTokenDetailPreview {
+): IMarketTokenDetailPreview | undefined {
+  if (!isMarketTokenDecimalsReady(token)) return undefined;
+
   return {
+    firstTradeTime: token.firstTradeTime,
     address: token.address,
     networkId: token.networkId,
     isNative: token.isNative,
@@ -123,12 +129,20 @@ export function buildMarketStockDetailPreview({
   symbol,
   name,
   logoUrl,
+  price,
+  priceChange24hPercent,
+  quoteUpdatedAt,
+  quote,
 }: {
   stockId?: unknown;
   symbol?: unknown;
   name?: unknown;
   logoUrl?: unknown;
-}) {
+  price?: unknown;
+  priceChange24hPercent?: unknown;
+  quoteUpdatedAt?: unknown;
+  quote?: IMarketStockDetailPreview['quote'];
+}): IMarketStockDetailPreview | undefined {
   if (
     typeof stockId !== 'string' ||
     !stockId ||
@@ -140,10 +154,31 @@ export function buildMarketStockDetailPreview({
     return undefined;
   }
 
+  const quotePrice = toOptionalNumber(
+    quote?.source === 'share' ? quote.price : price,
+  );
+  let shareQuote: IMarketStockDetailPreview['quote'];
+  if (quotePrice !== undefined && quotePrice >= 0) {
+    const change = toOptionalNumber(
+      quote?.priceChange24hPercent ?? priceChange24hPercent,
+    );
+    const updatedAt = quote?.quoteUpdatedAt ?? quoteUpdatedAt;
+    shareQuote = {
+      source: 'share',
+      price: String(quotePrice),
+      ...(change === undefined
+        ? undefined
+        : { priceChange24hPercent: String(change) }),
+      ...(typeof updatedAt === 'string'
+        ? { quoteUpdatedAt: updatedAt }
+        : undefined),
+    };
+  }
   return {
     stockId,
     symbol,
     name,
     logoUrl: typeof logoUrl === 'string' ? logoUrl : '',
+    ...(shareQuote ? { quote: shareQuote } : undefined),
   };
 }

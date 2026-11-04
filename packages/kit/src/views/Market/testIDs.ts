@@ -1,9 +1,18 @@
+import testIDValues from './testIDValues.json';
+
 export const MarketTestIDs = {
+  // Shared with e2e suites through testIDValues.json (see
+  // apps/web/e2e/account-selector-test-ids.js).
+  ...testIDValues,
+
   // Main page
   marketPage: 'market-page',
   searchBar: 'market-search-bar',
   marketTabs: 'market-tabs',
   compactNetworkSelector: 'market-compact-network-selector',
+  networkOption: (networkId: string) => `market-network-${networkId}`,
+  timeRangeDropdown: 'market-time-range-dropdown',
+  timeRangeOption: (range: string) => `market-time-range-${range}`,
 
   // Banner
   bannerDivider: 'market-banner-divider',
@@ -42,6 +51,8 @@ export const MarketTestIDs = {
   detailChart: 'market-detail-chart',
   detailChartFullscreenInfo: 'market-detail-chart-fullscreen-info',
   detailBuyButton: 'market-detail-buy-button',
+  detailSellButton: 'market-detail-sell-button',
+  detailPerpsButton: 'market-detail-perps-button',
   detailSwapButton: 'market-detail-swap-button',
   detailEmbeddedSwap: 'market-detail-embedded-swap',
   detailAbout: 'market-detail-about',

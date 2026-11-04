@@ -8,6 +8,7 @@ import type {
   IAccountDeriveTypes,
   ITransferInfo,
 } from '@onekeyhq/kit-bg/src/vaults/types';
+import type { IOneKeyErrorI18nInfo } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import type {
   IEventSourceCloseEvent,
   IEventSourceDoneEvent,
@@ -17,7 +18,9 @@ import type {
   IEventSourceOpenEvent,
   IEventSourceTimeoutEvent,
 } from '@onekeyhq/shared/src/eventSource';
+import type { ETranslations } from '@onekeyhq/shared/src/locale';
 
+import type { ISwapReviewAnalyticsContext } from './reviewAnalytics';
 import type {
   IEstimateGasResp,
   IFeeAlgo,
@@ -38,6 +41,12 @@ import type { IToken } from '../token';
 import type { IDecodedTxActionTokenApprove } from '../tx';
 import type { NormalizedOrder, TypedDataDomain } from '@cowprotocol/contracts';
 import type { IDeviceType } from '@onekeyfe/hd-core';
+
+export type ISwapErrorMessage = {
+  key: ETranslations;
+  values?: IOneKeyErrorI18nInfo;
+  detail?: { key: ETranslations; values?: IOneKeyErrorI18nInfo };
+};
 
 export enum EWrappedType {
   DEPOSIT = 'deposit',
@@ -91,6 +100,7 @@ export enum ESwapQuoteKind {
 
 export enum ESwapQuoteSource {
   MARKET = 'Market',
+  SWEEP = 'Sweep',
 }
 
 export enum ESwapSource {
@@ -191,6 +201,8 @@ export interface IMarketPresetTokenContext {
 }
 
 export interface ISwapInitParams {
+  // The current Market token side; resolved using Swap's loaded capabilities.
+  marketSwapDirection?: 'from' | 'to';
   importFromToken?: ISwapToken;
   importToToken?: ISwapToken;
   importAccountKey?: string;
@@ -207,7 +219,15 @@ export interface ISwapInitParams {
 
 export interface ISwapNetworkBase {
   networkId: string;
+  /** Whether this network is an L2 chain. */
+  isL2?: boolean;
+  /** The parent L1 network id for an L2 chain. */
+  parentNetworkId?: string;
   defaultSelectToken?: { from?: string; to?: string };
+  defaultSelectTokenDetail?: {
+    from?: ISwapToken;
+    to?: ISwapToken;
+  };
   supportCrossChainSwap?: boolean;
   supportSingleSwap?: boolean;
   supportLimit?: boolean;
@@ -282,7 +302,16 @@ export interface ISwapToken extends ISwapTokenBase {
 export interface ISwapTokenCatch {
   data: ISwapToken[];
   updatedAt: number;
+  refreshVersion?: number;
+  identityVersion?: number;
+  persisted?: boolean;
 }
+
+export type ISwapTokenListSnapshotMap = {
+  version?: number;
+  updatedAt: number;
+  tokenCatch?: Record<string, ISwapTokenCatch>;
+};
 
 interface IFetchSwapQuoteBaseParams {
   fromNetworkId: string;
@@ -296,6 +325,7 @@ interface IFetchSwapQuoteBaseParams {
 export interface IFetchTokensParams {
   protocol?: string;
   networkId?: string;
+  searchRequestId?: string;
   keywords?: string;
   limit?: number;
   accountAddress?: string;
@@ -305,6 +335,8 @@ export interface IFetchTokensParams {
   onlySwapTokens?: boolean;
   isAllNetworkFetchAccountTokens?: boolean;
   throwOnError?: boolean;
+  isTokenListPrefetch?: boolean;
+  tokenListPriority?: 'foreground' | 'background';
   lpToken?: boolean;
   currency?: string;
 }
@@ -386,6 +418,8 @@ export interface ISwapOrderHash {
 
 export interface ISwapApproveTransaction {
   approvalRequestId?: string;
+  // Keep the originating Review for estimates after reset approval completes.
+  analyticsSwapInfo?: ISwapTxInfo;
   fromToken: ISwapToken;
   toToken: ISwapToken;
   marketSwapApprovalFlowId?: string;
@@ -565,6 +599,9 @@ export interface ISwapStep {
   orderId?: string;
   errorMessage?: string;
   canRetry?: boolean;
+  // Set when a sponsored direct send ended result-unknown (OK-64746): the tx
+  // may already be on chain, so this review must not retry or confirm again.
+  submitResultUnknown?: boolean;
   shouldWaitApproved?: boolean;
   isResetApprove?: boolean;
   skipSendTransAction?: boolean;
@@ -602,6 +639,7 @@ export interface ISwapGasInfo {
   gasAccountEligible?: boolean;
   gasAccountQuote?: IGasAccountQuote;
   gasAccountScenarioReason?: string;
+  gasAccountSkipReason?: string;
   // Raw megafuel eligibility kept for the external-wallet promo hint
   // (OK-61254). The effective sponsor state above is stripped at the estimate
   // source for external-wallet accounts — they always pay the real fee — but
@@ -655,6 +693,7 @@ export interface ISwapPreSwapData {
 
 export interface IFetchSwapQuoteParams {
   source?: ESwapQuoteSource;
+  denySingleSwapProvider?: string;
   fromToken: ISwapToken;
   toToken: ISwapToken;
   requestScopeKey?: string;
@@ -754,6 +793,8 @@ export interface IFetchQuoteResult {
   providerDisableBatchTransfer?: boolean;
   buyTax?: number;
   sellTax?: number;
+  honeypot?: boolean;
+  lowLiquidity?: boolean;
 }
 
 export interface IAllowanceResult {
@@ -828,6 +869,9 @@ export interface ISwapState {
   isRefreshQuote?: boolean;
   isWaitingAutoSlippage?: boolean;
   shouldEnterRecipient?: boolean;
+  // From-token balance is a loaded zero: the action button becomes the
+  // deposit entry instead of a disabled "insufficient balance" label.
+  shouldDepositToTrade?: boolean;
 }
 
 export interface ISwapApproveAllowanceResponse {
@@ -879,6 +923,13 @@ export interface ISwapAlertState {
   alertLevel?: ESwapAlertLevel;
   inputShowError?: boolean;
   noConnectWallet?: boolean;
+  isAccountNetworkUnsupported?: boolean;
+  accountNetworkUnsupportedContext?: {
+    accountId?: string;
+    walletId?: IDBWalletId;
+    networkId?: string;
+    directionType?: ESwapDirectionType;
+  };
   action?: {
     actionType: ESwapAlertActionType;
     actionLabel?: string;
@@ -920,6 +971,7 @@ export type ISwapQuoteEventData =
 
 // build_tx
 export interface IFetchBuildTxParams extends IFetchSwapQuoteBaseParams {
+  source?: ESwapQuoteSource;
   userAddress: string;
   receivingAddress: string;
   slippagePercentage: number;
@@ -929,6 +981,7 @@ export interface IFetchBuildTxParams extends IFetchSwapQuoteBaseParams {
   quoteResultCtx?: any;
   kind: ESwapQuoteKind;
   walletType?: string;
+  deviceType?: string;
   bindedAccountAddress?: string;
   bindedNetworkId?: string;
   rebateAddress?: string;
@@ -1028,6 +1081,7 @@ export interface ISwapInfoSide {
   };
 }
 export interface ISwapTxInfo {
+  reviewAnalyticsContext?: ISwapReviewAnalyticsContext;
   protocol: EProtocolOfExchange;
   sender: ISwapInfoSide;
   receiver: ISwapInfoSide;
@@ -1340,7 +1394,10 @@ export const SwapPercentageInputStageForNative = [25, 50, 75, 100];
 export const SwapLimitPriceInputStageBuyForNative = [0, -20, -50];
 export const SwapLimitPriceInputStageSellForNative = [0, 20, 50, 100];
 
-export const SwapBuildUseMultiplePopoversNetworkIds = ['tron--0x2b6653dc'];
+export const SwapBuildUseMultiplePopoversNetworkIds = [
+  'tron--0x2b6653dc',
+  'evm--81457',
+];
 
 export const SwapBuildShouldFallBackNetworkIds = ['tron--0x2b6653dc'];
 

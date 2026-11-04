@@ -29,12 +29,8 @@ jest.mock('../../../states/jotai/contexts/accountSelector', () => ({
   useActiveAccount: () => ({ activeAccount: {} }),
 }));
 
-jest.mock('../../../states/jotai/contexts/accountSelector/actions', () => ({
-  useAccountSelectorActions: () => ({
-    current: {
-      showUnifiedNetworkSelector: mockShowUnifiedNetworkSelector,
-    },
-  }),
+jest.mock('../../../states/jotai/contexts/accountSelector/actionsLazy', () => ({
+  useAccountSelectorLazyAction: () => mockShowUnifiedNetworkSelector,
 }));
 
 jest.mock('./useAccountSelectorAvailableNetworks', () => ({
@@ -43,6 +39,15 @@ jest.mock('./useAccountSelectorAvailableNetworks', () => ({
     defaultNetworkId: 'network-1',
   }),
 }));
+
+// The real hook imports backgroundApiProxy, which drags the whole
+// BackgroundApi (and ESM-only wagmi) into this focused trigger test.
+jest.mock(
+  '../../../views/ChainSelector/components/useRecentNetworksCacheSync',
+  () => ({
+    useRecentNetworksCacheSync: jest.fn(),
+  }),
+);
 
 describe('useUnifiedNetworkSelectorTrigger', () => {
   beforeEach(() => {
@@ -60,5 +65,9 @@ describe('useUnifiedNetworkSelectorTrigger', () => {
 
     expect(Haptics.selection).toHaveBeenCalledTimes(1);
     expect(mockShowUnifiedNetworkSelector).toHaveBeenCalledTimes(1);
+    expect(mockShowUnifiedNetworkSelector).toHaveBeenCalledWith(
+      'showUnifiedNetworkSelector',
+      expect.objectContaining({ navigation: mockNavigation, num: 0 }),
+    );
   });
 });

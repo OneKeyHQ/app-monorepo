@@ -10,7 +10,6 @@ import {
   type ITradingViewNativeVisiblePointRange,
   clampTradingViewNativePanOffset,
   getTradingViewNativePanOffsetAfterDataUpdate,
-  getTradingViewNativePointIndexAtX,
   getTradingViewNativeViewportForPointRange,
   getTradingViewNativeVisiblePointRange,
   getTradingViewNativeZoomedViewport,
@@ -29,6 +28,8 @@ export interface ITradingViewNativeChartRuntimeCrosshair {
   visible: boolean;
   x: number;
   y: number;
+  // A pinned price is projected after the current frame's layout is resolved.
+  price?: number;
 }
 
 export interface ITradingViewNativeChartRuntimeState {
@@ -106,13 +107,13 @@ export function createTradingViewNativeChartRuntimeState({
       ? Math.min(Math.max(initialRightOffset.value, 0), 100)
       : 0;
     normalizedInitialRightOffset =
-      value > 0 ? { type: initialRightOffset.type, value } : undefined;
+      value > 0 ? { ...initialRightOffset, value } : undefined;
   } else if (initialRightOffset?.type === 'pointCount') {
     const value = Number.isFinite(initialRightOffset.value)
       ? Math.max(Math.floor(initialRightOffset.value), 0)
       : 0;
     normalizedInitialRightOffset =
-      value > 0 ? { type: initialRightOffset.type, value } : undefined;
+      value > 0 ? { ...initialRightOffset, value } : undefined;
   }
   return {
     crosshair: { visible: false, x: 0, y: 0 },
@@ -231,17 +232,14 @@ export function reduceTradingViewNativeChartRuntime(
         TRADING_VIEW_NATIVE_CHART_HORIZONTAL_PADDING + event.chartWidth,
         0,
       );
-      const pointIndex = getTradingViewNativePointIndexAtX({
-        initialRightOffset: state.viewport.initialRightOffset,
-        offset: state.viewport.offset,
-        pointCount: event.pointCount,
-        priceAxisX,
-        x: event.x,
-        zoomScale: state.viewport.zoomScale,
-      });
       return {
         crosshair: {
-          visible: pointIndex !== null,
+          visible:
+            event.pointCount > 0 &&
+            Number.isFinite(event.x) &&
+            Number.isFinite(event.y) &&
+            event.x >= TRADING_VIEW_NATIVE_CHART_HORIZONTAL_PADDING &&
+            event.x <= priceAxisX,
           x: event.x,
           y: Math.min(
             Math.max(event.y, 0),

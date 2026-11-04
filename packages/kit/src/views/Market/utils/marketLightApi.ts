@@ -3,6 +3,7 @@ import { getEndpointByServiceName } from '@onekeyhq/shared/src/config/endpointsM
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { getDefaultLocale } from '@onekeyhq/shared/src/locale/getDefaultLocale';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
+import { toMarketTokenBatchRequestItems } from '@onekeyhq/shared/src/utils/marketTokenBatchUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import {
   EServiceEndpointEnum,
@@ -88,8 +89,8 @@ const shouldUseMarketHomeTokenListSeed = ({
 }: INormalizedMarketTokenListRequestParams) =>
   shouldUseMarketHomeTokenListBootstrapSeed() &&
   networkId === '' &&
-  sortBy === 'v24hUSD' &&
-  sortType === 'desc' &&
+  sortBy === undefined &&
+  sortType === undefined &&
   page === 1 &&
   limit === 20 &&
   minLiquidity === 5000 &&
@@ -229,7 +230,7 @@ const fetchMarketTokenListBatchFromApi = async ({
   >(
     '/utility/v2/market/token/list/batch',
     {
-      tokenAddressList,
+      tokenAddressList: toMarketTokenBatchRequestItems(tokenAddressList),
       currency: 'usd',
     },
     {

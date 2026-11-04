@@ -12,8 +12,8 @@ import {
   disposeNobleBleSupport,
   initNobleBleSupport,
 } from '@onekeyfe/hd-transport-electron';
-import { TREZOR_BLE_CHANNELS } from '@onekeyfe/hwk-trezor-connector-electron-ble/constants';
-import { initTrezorBleSupport } from '@onekeyfe/hwk-trezor-connector-electron-ble/main';
+import { initThirdPartyBleSupport } from '@onekeyfe/hwk-desktop-noble-ble';
+import { THIRD_PARTY_BLE_CHANNELS } from '@onekeyfe/hwk-desktop-noble-ble/constants';
 import {
   BrowserWindow,
   Menu,
@@ -23,12 +23,13 @@ import {
   inAppPurchase,
   ipcMain,
   nativeTheme,
+  net,
   powerMonitor,
   session,
   shell,
 } from 'electron';
 import contextMenu from 'electron-context-menu';
-import isDev from 'electron-is-dev';
+import electronIsDev from 'electron-is-dev';
 import logger from 'electron-log/main';
 
 import { CALL_DESKTOP_API_EVENT_NAME } from '@onekeyhq/kit-bg/src/desktopApis/base/consts';
@@ -45,15 +46,22 @@ import {
   TRADING_VIEW_URL_TEST,
 } from '@onekeyhq/shared/src/config/appConfig';
 import {
-  ONEKEY_APP_DEEP_LINK_NAME,
-  WALLET_CONNECT_DEEP_LINK_NAME,
-} from '@onekeyhq/shared/src/consts/deeplinkConsts';
+  APP_MENU_GITHUB_URL,
+  APP_MENU_HELP_CENTER_URL,
+  APP_MENU_OFFICIAL_WEBSITE_URL,
+  APP_MENU_X_URL,
+} from '@onekeyhq/shared/src/consts/appMenuConsts';
 import { DESKTOP_WEBVIEW_OVERLAY_PARTITION } from '@onekeyhq/shared/src/consts/desktopWebviewPartitions';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { sanitizeTrezorThpModuleLogData } from '@onekeyhq/shared/src/hardware/trezorThpLogRedact';
+import { UPDATE_ERROR_WIRE_PREFIX } from '@onekeyhq/shared/src/modules3rdParty/auto-update/error';
+import { resolveDesktopCustomUAHeaders } from '@onekeyhq/shared/src/request/customUA';
+import { createFetchStreamHandler } from '@onekeyhq/shared/src/utils/fetchStream';
+import { fetchBytesWithIdleTimeout } from '@onekeyhq/shared/src/utils/fetchWithIdleTimeout';
 import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
 import { isAllowedWebViewUrl } from '@onekeyhq/shared/src/utils/webViewUrlSafety';
 import type { IDesktopAppState } from '@onekeyhq/shared/types/desktop';
+import type { IFetchStreamRequest } from '@onekeyhq/shared/types/fetchStream';
 
 import {
   checkFileHash,
@@ -66,16 +74,24 @@ import {
 import { ipcMessageKeys } from './config';
 import { ElectronTranslations, i18nText, initLocale } from './i18n';
 import { scheduleCrashDumpCleanup } from './libs/crashDumpCleanup';
-import { findAllowedDeepLinkArg, isAllowedDeepLinkUrl } from './libs/deepLink';
+import {
+  DESKTOP_DEEP_LINK_PROTOCOLS,
+  findAllowedDeepLinkArg,
+  getDesktopProtocolClientArgs,
+  isAllowedDeepLinkUrl,
+  resolveDesktopRuntimeFlags,
+} from './libs/deepLink';
 import {
   DESKTOP_API_ALLOWED_MODULES,
   isDesktopApiMethodAllowed,
+  isTrustedMainWindowUrl,
 } from './libs/desktopApiModuleAllowlist';
 import {
   applyDesktopNetworkThrottleToKnownSessions,
   applyDesktopNetworkThrottleToWebContents,
 } from './libs/networkThrottle';
 import { openExternalUrl } from './libs/openExternalUrl';
+import { createPrimeStripeRequestMonitor } from './libs/primeStripeRequestMonitor';
 // Side-effect import: registers synchronous IPC handler for renderer MMKV access
 // eslint-disable-next-line import-js/order
 import './libs/react-native-mmkv-desktop-main';
@@ -84,6 +100,10 @@ import { shouldReloadAppShellAfterFailedLoad } from './libs/rendererLoadRecovery
 import { registerShortcuts, unregisterShortcuts } from './libs/shortcuts';
 import * as store from './libs/store';
 import { getBackgroundColor } from './libs/utils';
+import {
+  isWcPayEmbedUrl,
+  stripFrameBlockingHeaders,
+} from './libs/wcPayFrameEmbedding';
 import { shouldGrantMainWindowDevicePermission } from './libs/webUsbDeviceSelection';
 // Logger initialization (file rotation, sanitization, rate limiting)
 import './logger';
@@ -104,7 +124,7 @@ import { setMainWindowForOAuthServer } from './service/oauthLocalServer/oauthLoc
 import { destroyTrayManager, initTrayManager } from './tray/TrayManager';
 import { destroyTrayWindow, getTrayWindow } from './tray/trayWindow';
 
-import type { IpcMainLike } from '@onekeyfe/hwk-trezor-connector-electron-ble/main';
+import type { IpcMainLike } from '@onekeyfe/hwk-desktop-noble-ble';
 
 // cspell:ignore pkexec
 // Main-process (sender) side of the DESKTOP_API_CALL IPC boundary: normalize
@@ -115,8 +135,11 @@ import type { IpcMainLike } from '@onekeyfe/hwk-trezor-connector-electron-ble/ma
 // can still recover any `{ message, code, data }` payload encoded in it.
 function makeIpcSafeError(error: unknown, fallbackMessage: string): Error {
   if (error instanceof Error) {
-    const safeError = new Error(error.message || fallbackMessage);
-    safeError.name = error.name || 'Error';
+    const message = error.message || fallbackMessage;
+    const safeError = new Error(message);
+    if (!message.startsWith(UPDATE_ERROR_WIRE_PREFIX)) {
+      safeError.name = error.name || 'Error';
+    }
     safeError.stack = error.stack;
     return safeError;
   }
@@ -160,10 +183,15 @@ function makeIpcSafeResult(result: unknown): unknown {
 // pre-Sentry by construction; native crashes are still covered out-of-band.)
 process.nextTick(initSentry);
 
-const isPerfCiMode = process.env.PERF_CI_MODE === '1';
-const isDesktopE2EMode = process.env.DESKTOP_E2E_MODE === 'true';
-const isDevServer = isDev && !isPerfCiMode;
-const isLocalUnpacked = isDev || isPerfCiMode;
+// SECURITY: never allow development or unpacked modes (such as ELECTRON_IS_DEV=1
+// or PERF_CI_MODE=1) in packaged builds; they enable unpacked file/URL loading
+// and skip production file:// hash/GPG checks.
+const { isDev, isPerfCiMode, isDevServer, isLocalUnpacked, isDesktopE2EMode } =
+  resolveDesktopRuntimeFlags({
+    isPackaged: app.isPackaged,
+    electronIsDev,
+    env: process.env,
+  });
 
 function isWhitelistedMediaOrigin(
   origin: string,
@@ -595,28 +623,26 @@ const initMenu = () => {
         {
           label: i18nText(ElectronTranslations.menu_visit_help_center),
           click: async () => {
-            await shell.openExternal('https://help.onekey.so');
+            await shell.openExternal(APP_MENU_HELP_CENTER_URL);
           },
         },
         { type: 'separator' },
         {
           label: i18nText(ElectronTranslations.menu_official_website),
           click: async () => {
-            await shell.openExternal('https://onekey.so');
+            await shell.openExternal(APP_MENU_OFFICIAL_WEBSITE_URL);
           },
         },
         {
           label: 'Github',
           click: async () => {
-            await shell.openExternal(
-              'https://github.com/OneKeyHQ/app-monorepo',
-            );
+            await shell.openExternal(APP_MENU_GITHUB_URL);
           },
         },
         {
           label: 'X',
           click: async () => {
-            await shell.openExternal('https://x.com/onekeyhq');
+            await shell.openExternal(APP_MENU_X_URL);
           },
         },
       ],
@@ -670,15 +696,18 @@ function handleDeepLinkUrl(
   argv?: string[],
   isColdStartup?: boolean,
 ) {
-  // Validate deep link scheme before forwarding to renderer
-  if (url && !isAllowedDeepLinkUrl(url)) {
-    logger.warn('[DeepLink] Rejected URL with unknown scheme:', url);
+  // Validate deep link scheme and syntax before forwarding to renderer.
+  // Never log raw deep link URLs as they may contain pairing keys or tokens.
+  if (!url || !isAllowedDeepLinkUrl(url)) {
+    logger.warn('[DeepLink] Rejected URL with unknown or unsafe scheme');
     return;
   }
 
+  // Only forward the validated deep link URL; never pass raw process.argv
+  // (which contains executable paths, Electron switches, or untrusted args).
   const eventData: IDesktopOpenUrlEventData = {
     url,
-    argv,
+    argv: argv ? [url] : undefined,
     isColdStartup,
     platform: process.platform,
   };
@@ -750,10 +779,14 @@ const minWidth = 1024;
 const minHeight = 800;
 let bleQuitStarted = false;
 let bleQuitReady = false;
+let appQuitStarted = false;
+let mainRendererBootFailed = false;
 let nobleBleInitialization = Promise.resolve();
 let trezorBleWindowCleanup = Promise.resolve();
 // Retain retired handlers so recovery-created native instances survive until app quit.
-const trezorBleSupports = new Set<ReturnType<typeof initTrezorBleSupport>>();
+const trezorBleSupports = new Set<
+  ReturnType<typeof initThirdPartyBleSupport>
+>();
 // When the main renderer dies, the window keeps its last frame but ignores all
 // input. Reload it, capped so a renderer that crashes while booting cannot
 // reload forever.
@@ -789,8 +822,27 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
     );
   }
   store.setBootFailAppVersion(currentAppVersion);
-  const bootFailCount = store.incrementConsecutiveBootFailCount();
+  let bootFailCount = store.incrementConsecutiveBootFailCount();
   logger.info('Boot fail count:', bootFailCount, { isSoftRestart });
+  const activeOtaBundleVersion = store.getUpdateBundleData()?.bundleVersion;
+  if (bootFailCount >= 3 && activeOtaBundleVersion) {
+    logger.warn(
+      'Consecutive boot failures detected with active OTA bundle, rolling back to built-in bundle',
+      {
+        bootFailCount,
+        bundleVersion: activeOtaBundleVersion,
+        appVersion: currentAppVersion,
+      },
+    );
+    store.recordFailedOtaBundle(currentAppVersion, activeOtaBundleVersion);
+    store.revokePendingSwitchForFailedBundle(
+      currentAppVersion,
+      activeOtaBundleVersion,
+    );
+    store.clearUpdateBundleData();
+    store.resetConsecutiveBootFailCount();
+    bootFailCount = store.incrementConsecutiveBootFailCount();
+  }
   if (bootFailCount >= 3) {
     logger.error('Recovery page triggered', {
       crashCount: bootFailCount,
@@ -848,7 +900,9 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
     webPreferences: {
       spellcheck: false,
       webviewTag: true,
-      webSecurity: isPerfCiMode ? true : !isDev,
+      // Disabling origin checks breaks Turnstile child-frame commits in
+      // Chromium and terminates the renderer, even during development.
+      webSecurity: true,
       // @ts-expect-error
       nativeWindowOpen: true,
       allowRunningInsecureContent: false,
@@ -875,7 +929,7 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
   store.processPreLaunchPendingTask();
   const bundleData = store.getUpdateBundleData();
   logger.info('bundleData >>>> ', bundleData);
-  const bundleIndexHtmlPath = getBundleIndexHtmlPath(bundleData);
+  let bundleIndexHtmlPath = getBundleIndexHtmlPath(bundleData);
   logger.info('bundleIndexHtmlPath >>>> ', bundleIndexHtmlPath);
 
   globalThis.$desktopMainAppFunctions = {
@@ -979,11 +1033,87 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
         });
   /* eslint-enable no-nested-ternary */
 
+  let selectedShellDocumentCommitted = false;
+  let trustedSameDocumentRouteUrl: string | undefined;
+  globalThis.$desktopMainAppFunctions.isTrustedMainWindowSender = (
+    senderId,
+    senderFrame,
+    mainFrame,
+  ) => {
+    const currentMainWindow = getSafelyMainWindow() ?? getSafelyBrowserWindow();
+    return Boolean(
+      currentMainWindow?.webContents.id === senderId &&
+      senderFrame &&
+      senderFrame === mainFrame &&
+      selectedShellDocumentCommitted &&
+      isTrustedMainWindowUrl(
+        src,
+        senderFrame.url,
+        trustedSameDocumentRouteUrl,
+        isDevServer,
+      ),
+    );
+  };
+
+  browserWindow.webContents.on('did-navigate', (_event, url) => {
+    selectedShellDocumentCommitted = isTrustedMainWindowUrl(
+      src,
+      url,
+      isDevServer ? trustedSameDocumentRouteUrl : undefined,
+      isDevServer,
+    );
+    trustedSameDocumentRouteUrl =
+      isDevServer && selectedShellDocumentCommitted ? url : undefined;
+    if (!selectedShellDocumentCommitted) {
+      try {
+        if (
+          new URL(src).protocol === 'file:' &&
+          new URL(url).protocol === 'file:'
+        ) {
+          void getSafelyBrowserWindow()
+            ?.loadURL(src)
+            .catch((error) =>
+              logger.error('Failed to reload app shell:', error),
+            );
+        }
+      } catch {
+        // Invalid URLs cannot be recovered as local app-shell routes.
+      }
+    }
+  });
+  browserWindow.webContents.on(
+    'did-navigate-in-page',
+    (_event, url, isMainFrame) => {
+      if (isMainFrame && selectedShellDocumentCommitted) {
+        trustedSameDocumentRouteUrl = url;
+      }
+    },
+  );
+
+  const guardMainWindowNavigation = (event: Electron.Event, url: string) => {
+    if (
+      !isTrustedMainWindowUrl(
+        src,
+        url,
+        isDevServer ? trustedSameDocumentRouteUrl : undefined,
+        isDevServer,
+      )
+    ) {
+      event.preventDefault();
+      logger.warn(
+        '[MainWindow] rejected navigation outside selected app shell',
+      );
+    }
+  };
+  browserWindow.webContents.on('will-navigate', guardMainWindowNavigation);
+  browserWindow.webContents.on('will-redirect', guardMainWindowNavigation);
+  browserWindow.webContents.on('will-frame-navigate', (event) => {
+    if (event.isMainFrame) guardMainWindowNavigation(event, event.url);
+  });
+
   if (isDevServer && !isDesktopE2EMode) {
     browserWindow.webContents.openDevTools();
   }
-
-  void browserWindow.loadURL(src);
 
   // Set main window reference for OAuth server
   setMainWindowForOAuthServer(browserWindow);
@@ -991,12 +1121,12 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
   // renderer via sender-id checks in HttpServer.
   setMainWindowForHttpServer(browserWindow);
 
-  // Protocol handler for win32
+  // Protocol handler for cold startup command-line URLs
   // Skip on soft restart: process.argv is unchanged across an in-process
   // recreate, so replaying the launch deep link here would re-dispatch the
   // original cold-start URL (e.g. a WalletConnect pairing or send screen) after
   // every bundle update. Only a genuine cold boot should consume argv.
-  if ((isWin || isMac) && !isSoftRestart) {
+  if ((isWin || isMac || isLinux) && !isSoftRestart) {
     const deeplinkingUrl = findAllowedDeepLinkArg(process.argv);
     if (deeplinkingUrl) {
       handleDeepLinkUrl(null, deeplinkingUrl, process.argv, true);
@@ -1012,9 +1142,15 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
   });
 
   browserWindow.webContents.on('render-process-gone', (_event, details) => {
-    if (details.reason === 'clean-exit' || bleQuitStarted || softRestarting) {
+    if (
+      details.reason === 'clean-exit' ||
+      appQuitStarted ||
+      bleQuitStarted ||
+      softRestarting
+    ) {
       return;
     }
+    mainRendererBootFailed = true;
     const now = Date.now();
     mainRendererReloadTimestamps = mainRendererReloadTimestamps.filter(
       (timestamp) => now - timestamp < MAIN_RENDERER_RELOAD_WINDOW_MS,
@@ -1038,7 +1174,12 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
     // Start the reload after Electron finishes dispatching this event.
     setImmediate(() => {
       const safelyBrowserWindow = getSafelyBrowserWindow();
-      if (!safelyBrowserWindow || bleQuitStarted || softRestarting) {
+      if (
+        !safelyBrowserWindow ||
+        appQuitStarted ||
+        bleQuitStarted ||
+        softRestarting
+      ) {
         return;
       }
       // Deep links received while the page reboots wait for dom-ready.
@@ -1163,6 +1304,80 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
     });
   }
 
+  // The renderer's fetch obeys CORS and mixed content; the main process does not.
+  ipcMain.removeHandler(ipcMessageKeys.PRIVACY_CHAIN_NODE_REQUEST);
+  ipcMain.handle(
+    ipcMessageKeys.PRIVACY_CHAIN_NODE_REQUEST,
+    async (
+      event,
+      params: { url: string; contentType: string; body: Uint8Array },
+    ) => {
+      // Main window only: dApp webviews share the preload, and this is a POST-anywhere relay.
+      const currentMainWebContentsId =
+        getSafelyMainWindow()?.webContents.id ?? browserWindow.webContents.id;
+      if (event.sender.id !== currentMainWebContentsId) {
+        return { ok: false, error: 'not allowed' };
+      }
+      try {
+        const { url, contentType, body } = params;
+        // Only http(s): never let the renderer reach file:// etc. through us.
+        const parsed = new URL(url);
+        if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+          return {
+            ok: false,
+            error: `unsupported protocol ${parsed.protocol}`,
+          };
+        }
+        // Same limits as FETCH_STREAM: no credentials, no cross-host redirects.
+        if (parsed.username || parsed.password) {
+          return { ok: false, error: 'URL credentials are not supported' };
+        }
+        // Idle timeout only: batches can take minutes. `net.fetch` follows the system proxy;
+        // Node's fetch would bypass it and expose the user's IP.
+        const response = await fetchBytesWithIdleTimeout(
+          url,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': contentType },
+            credentials: 'omit',
+            redirect: 'error',
+            // A zero-length body is a GET-shaped call in Monero's binary API; some proxies reject an empty buffer.
+            body: body.length > 0 ? Buffer.from(body) : undefined,
+          },
+          undefined,
+          (input, init) => net.fetch(String(input), init),
+        );
+        if (!response.ok) {
+          return {
+            ok: false,
+            error: `node answered HTTP ${response.status} ${response.statusText}`,
+          };
+        }
+        return { ok: true, bytes: response.bytes };
+      } catch (error) {
+        return {
+          ok: false,
+          error: error instanceof Error ? error.message : String(error),
+        };
+      }
+    },
+  );
+
+  const fetchStreamRequest = createFetchStreamHandler((input, init) =>
+    net.fetch(String(input), init),
+  );
+  ipcMain.removeHandler(ipcMessageKeys.FETCH_STREAM);
+  ipcMain.handle(
+    ipcMessageKeys.FETCH_STREAM,
+    async (event, request: IFetchStreamRequest) => {
+      const mainId =
+        getSafelyMainWindow()?.webContents.id ?? browserWindow.webContents.id;
+      if (event.sender.id !== mainId)
+        return { ok: false, error: 'not allowed' };
+      return fetchStreamRequest(request);
+    },
+  );
+
   // System Resources
   ipcMain.removeHandler(ipcMessageKeys.SYSTEM_GET_CPU_USAGE);
   ipcMain.removeHandler(ipcMessageKeys.SYSTEM_GET_MEMORY_USAGE);
@@ -1221,6 +1436,7 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
   ipcMain.removeAllListeners(ipcMessageKeys.MARK_BOOT_SUCCESS);
   ipcMain.on(ipcMessageKeys.MARK_BOOT_SUCCESS, () => {
     store.resetConsecutiveBootFailCount();
+    mainRendererBootFailed = false;
     logger.info('Boot success confirmed, crash counter reset');
   });
 
@@ -1249,9 +1465,13 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
       // window dynamically (not the closure-captured `browserWindow`) so a MAS
       // soft restart — which destroys and recreates the window — keeps the gate
       // pointed at the current renderer instead of the destroyed one.
-      const currentMainWebContentsId =
-        getSafelyMainWindow()?.webContents.id ?? browserWindow.webContents.id;
-      if (event.sender.id !== currentMainWebContentsId) {
+      if (
+        !globalThis.$desktopMainAppFunctions.isTrustedMainWindowSender?.(
+          event.sender.id,
+          event.senderFrame,
+          event.sender.mainFrame,
+        )
+      ) {
         logger.warn(
           '[DESKTOP_API_CALL] Rejected call from non-main renderer',
           event.sender.id,
@@ -1382,7 +1602,7 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
         ) => {
           if (isAllowedWebViewUrl(url)) return;
           navigationEvent.preventDefault();
-          logger.info('overlay pre-navigation block (main process):', url);
+          logger.info('overlay pre-navigation block (main process)');
         };
         contents.on('will-redirect', guardOverlayPreNavigation);
         contents.on('will-navigate', guardOverlayPreNavigation);
@@ -1407,28 +1627,24 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
         );
         if (action === uriUtils.EDAppOpenActionEnum.DENY) {
           e.preventDefault();
-          logger.info(
-            'reject navigate main process will-frame-navigate: ',
-            url,
-          );
+          logger.info('reject navigate main process will-frame-navigate');
           return false;
         }
 
         if (uriUtils.isValidDeepLink(url)) {
           e.preventDefault();
-          logger.info('reject deeplink in main process:', url);
+          logger.info('reject deeplink in main process');
           return false;
         }
       });
     }
   });
 
-  const filter = {
-    urls: [
-      'http://127.0.0.1:21320/*',
-      'http://localhost:21320/*',
-      'https://mainnet.optimism.io/*',
-    ],
+  const filter: Electron.WebRequestFilter = {
+    urls: ['http://*/*', 'https://*/*'],
+    // Only XHR/fetch carry the UA bridge. Keep every destination so Chromium's
+    // original bridge header is also removed after cross-origin redirects.
+    types: ['xhr'],
   };
 
   // WebUSB permission handlers - Enable WebUSB support for hardware wallet connections
@@ -1542,27 +1758,80 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
     filter,
     (details, callback) => {
       const { url } = details;
+      let requestHeaders = resolveDesktopCustomUAHeaders(
+        url,
+        details.requestHeaders,
+      );
       if (
         url.startsWith('http://127.0.0.1:21320/') ||
         url.startsWith('http://localhost:21320/')
       ) {
         // resolve onekey bridge CORS error
-        details.requestHeaders.Origin = 'https://jssdk.onekey.so';
+        requestHeaders = {
+          ...requestHeaders,
+          Origin: 'https://jssdk.onekey.so',
+        };
       } else if (url.startsWith('https://mainnet.optimism.io/')) {
         // add metamask header to resolve rate-limit
-        details.requestHeaders.Origin =
-          'chrome-extension://nkbihfbeogaeaoehlefnkodbefgpgknn';
+        requestHeaders = {
+          ...requestHeaders,
+          Origin: 'chrome-extension://nkbihfbeogaeaoehlefnkodbefgpgknn',
+        };
       }
 
-      callback({ cancel: false, requestHeaders: details.requestHeaders });
+      callback(
+        requestHeaders === details.requestHeaders ? {} : { requestHeaders },
+      );
     },
+  );
+
+  const primeStripeRequestMonitor = createPrimeStripeRequestMonitor(
+    () => getSafelyMainWindow()?.webContents,
+  );
+  session.defaultSession.webRequest.onBeforeRequest(
+    { urls: ['https://js.stripe.com/*'] },
+    (details, callback) => {
+      primeStripeRequestMonitor.recordRequest(details);
+      callback({});
+    },
+  );
+  session.defaultSession.webRequest.onErrorOccurred(
+    { urls: ['https://js.stripe.com/*'] },
+    (details) => primeStripeRequestMonitor.forgetRequest(details.id),
   );
 
   // Inject security response headers for the app's own pages only.
   // Scoped to file:// and localhost to avoid interfering with external API responses.
+  //
+  // The WalletConnect Pay hosts are the one exception: their compliance form
+  // is embedded in an iframe (official web integration path), but its CSP
+  // `frame-ancestors https:` rejects the desktop renderer origin (file:// in
+  // prod, http://localhost in dev). Strip only the frame-blocking headers for
+  // those hosts; the rest of their CSP stays enforced. Electron replaces the
+  // previous onHeadersReceived listener on re-registration, so both concerns
+  // must share this single registration.
   session.defaultSession.webRequest.onHeadersReceived(
-    { urls: ['file://*', 'http://localhost:*/*'] },
+    {
+      urls: [
+        'file://*',
+        'http://localhost:*/*',
+        'https://pay.walletconnect.com/*',
+        'https://*.pay.walletconnect.com/*',
+        'https://js.stripe.com/*',
+      ],
+    },
     (details, callback) => {
+      if (details.url.startsWith('https://js.stripe.com/')) {
+        primeStripeRequestMonitor.receiveResponse(details);
+        callback({});
+        return;
+      }
+      if (isWcPayEmbedUrl(details.url)) {
+        callback({
+          responseHeaders: stripFrameBlockingHeaders(details.responseHeaders),
+        });
+        return;
+      }
       callback({
         responseHeaders: {
           ...details.responseHeaders,
@@ -1583,7 +1852,6 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
     let useJsBundle = globalThis.$desktopMainAppFunctions?.useJsBundle?.();
     const bundleDirPath = getBundleDirPath();
     let metadata: Record<string, string> = {};
-    let metadataFailed = false;
     if (bundleDirPath) {
       try {
         metadata = await getMetadata({
@@ -1593,113 +1861,150 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
           signature: bundleData.signature,
         });
       } catch (e) {
-        // GPG verification failed or metadata unreadable — disable JS bundle
-        // so the interceptor falls back to the builtin bundle in the asar.
+        // GPG verification failed or metadata unreadable — clear broken OTA
+        // bundle pointer and disable JS bundle so the interceptor falls back
+        // to the builtin bundle in the asar.
         logger.error('getMetadata failed, falling back to builtin bundle:', e);
+        store.clearUpdateBundleData();
+        bundleIndexHtmlPath = undefined;
         useJsBundle = false;
-        metadataFailed = true;
+        /* eslint-disable no-nested-ternary */
+        src = isPerfCiMode
+          ? formatUrl({
+              pathname: perfIndexHtmlPath,
+              protocol: PROTOCOL,
+              slashes: true,
+            })
+          : isDev
+            ? process.env.DESKTOP_E2E_RENDERER_URL || 'http://localhost:3001/'
+            : formatUrl({
+                pathname: 'index.html',
+                protocol: PROTOCOL,
+                slashes: true,
+              });
+        /* eslint-enable no-nested-ternary */
+        selectedShellDocumentCommitted = false;
+        trustedSameDocumentRouteUrl = undefined;
       }
     }
     uninterceptFileProtocolIfNeeded();
     session.defaultSession.protocol.interceptFileProtocol(
       PROTOCOL,
       (request, callback) => {
-        const isJsSdkFile = request.url.indexOf('/static/js-sdk') > -1;
-        const isIFrameHtml =
-          request.url.indexOf('/static/js-sdk/iframe.html') > -1;
+        try {
+          const cleanUrl = request.url.split(/[?#]/, 1)[0];
+          const isJsSdkFile = cleanUrl.indexOf('/static/js-sdk') > -1;
+          const isIFrameHtml = cleanUrl.endsWith('/static/js-sdk/iframe.html');
 
-        // resolve iframe path
-        if (isJsSdkFile && isIFrameHtml) {
+          // resolve iframe path
+          if (isJsSdkFile && isIFrameHtml) {
+            if (useJsBundle && indexHtmlPath && bundleDirPath) {
+              let key = path.join('static', 'js-sdk', 'iframe.html');
+              const filePath = path.join(bundleDirPath, key);
+              if (isWin) {
+                key = key.replace(/\\/g, '/');
+              }
+              const sha512 =
+                Object.prototype.hasOwnProperty.call(metadata, key) &&
+                typeof metadata[key] === 'string'
+                  ? metadata[key]
+                  : undefined;
+              if (!sha512 || !checkFileSha512(filePath, sha512)) {
+                logger.info(
+                  'checkFileHash error in js-sdk:',
+                  `${key}:  ${filePath} not matched ${sha512 ?? ''}`,
+                );
+                store.clearUpdateBundleData();
+                throw new OneKeyLocalError(`File ${key} sha512 mismatch`);
+              }
+              callback(filePath);
+              return;
+            }
+            callback({
+              path: path.join(
+                __dirname,
+                '..',
+                'build',
+                'static',
+                'js-sdk',
+                'iframe.html',
+              ),
+            });
+            return;
+          }
+
+          const url = cleanUrl.substring(PROTOCOL.length + 1);
           if (useJsBundle && indexHtmlPath && bundleDirPath) {
-            let key = path.join('static', 'js-sdk', 'iframe.html');
-            const filePath = path.join(bundleDirPath, key);
-            if (isWin) {
-              key = key.replace(/\\/g, '/');
+            let decodedUrl: string;
+            try {
+              decodedUrl = decodeURIComponent(url);
+            } catch {
+              callback({ error: -6 } as any);
+              return;
             }
-            const sha512 = metadata[key];
-            if (!checkFileSha512(filePath, sha512)) {
-              logger.info(
-                'checkFileHash error in js-sdk:',
-                `${key}:  ${filePath} not matched ${sha512}`,
-              );
-              throw new OneKeyLocalError(`File ${key} sha512 mismatch`);
+            const normalizedDecodedUrl = decodedUrl.replace(/\\/g, '/');
+            const normalizedBundleDirPath = bundleDirPath.replace(/\\/g, '/');
+            if (normalizedDecodedUrl.includes(normalizedBundleDirPath)) {
+              const filePath = checkFileHash({
+                bundleDirPath,
+                metadata,
+                driveLetter,
+                url: normalizedDecodedUrl.replace(normalizedBundleDirPath, ''),
+              });
+              callback(filePath);
+            } else {
+              const filePath = checkFileHash({
+                bundleDirPath,
+                metadata,
+                driveLetter,
+                url: decodedUrl,
+              });
+              callback(filePath);
             }
-            callback(filePath);
-            return;
-          }
-          callback({
-            path: path.join(
-              __dirname,
-              '..',
-              'build',
-              'static',
-              'js-sdk',
-              'iframe.html',
-            ),
-          });
-          return;
-        }
-
-        // Strip the query string before path resolution — without this the
-        // tray window's `?render=tray` gets concatenated into the resolved
-        // filename and fs misses. Guarded by indexOf so the common
-        // no-query case (main window resources) stays allocation-free.
-        const queryIdx = request.url.indexOf('?');
-        const rawUrl =
-          queryIdx === -1 ? request.url : request.url.substring(0, queryIdx);
-        const url = rawUrl.substring(PROTOCOL.length + 1);
-        if (useJsBundle && indexHtmlPath && bundleDirPath) {
-          const decodedUrl = decodeURIComponent(url);
-          if (decodedUrl.includes(bundleDirPath)) {
-            const filePath = checkFileHash({
-              bundleDirPath,
-              metadata,
-              driveLetter,
-              url: decodedUrl.replace(bundleDirPath, ''),
-            });
-            callback(filePath);
           } else {
-            const filePath = checkFileHash({
-              bundleDirPath,
-              metadata,
-              driveLetter,
-              url: decodedUrl,
-            });
-            callback(filePath);
+            const buildDir = path.resolve(__dirname, '..', 'build');
+            let decodedUrl: string;
+            try {
+              decodedUrl = decodeURIComponent(url);
+            } catch {
+              callback({ error: -6 } as any);
+              return;
+            }
+            // Strip leading protocol slashes (e.g. "//index.html" → "index.html")
+            // and Windows drive prefix so path.resolve treats the segment as relative.
+            const relativeUrl = decodedUrl
+              .replace(/^[:/\\]+/, '')
+              .replace(/^[A-Za-z]:[\\/]/, '')
+              .replace(/^[:/\\]+/, '');
+            const resolved = path.resolve(buildDir, relativeUrl);
+            if (
+              !resolved.startsWith(buildDir + path.sep) &&
+              resolved !== buildDir
+            ) {
+              logger.warn('Blocked file access outside build dir:', resolved);
+              callback({ error: -6 } as any); // net::ERR_FILE_NOT_FOUND
+              return;
+            }
+            callback(resolved);
           }
-        } else {
-          const buildDir = path.resolve(__dirname, '..', 'build');
-          // Strip leading protocol slashes (e.g. "//index.html" → "index.html")
-          // so path.resolve treats the segment as relative, not absolute.
-          const relativeUrl = url.replace(/^[:/]+/, '');
-          const resolved = path.resolve(buildDir, relativeUrl);
-          if (
-            !resolved.startsWith(buildDir + path.sep) &&
-            resolved !== buildDir
-          ) {
-            logger.warn('Blocked file access outside build dir:', resolved);
-            callback({ error: -6 } as any); // net::ERR_FILE_NOT_FOUND
-            return;
-          }
-          callback(resolved);
+        } catch (error) {
+          logger.error('interceptFileProtocol error:', error);
+          callback({ error: -6 } as any);
         }
       },
     );
-    // When getMetadata failed, src still points to the bundle path which the
-    // interceptor cannot resolve with useJsBundle=false. Recompute and reload
-    // now that the interceptor is registered and will serve builtin files.
-    if (metadataFailed) {
-      src = formatUrl({
-        pathname: 'index.html',
-        protocol: PROTOCOL,
-        slashes: true,
-      });
-      void browserWindow.loadURL(src);
-    }
     const safelyBrowserWindow = getSafelyBrowserWindow();
     safelyBrowserWindow?.webContents.on(
       'did-fail-load',
       (_, errorCode, __, validatedURL, isMainFrame) => {
+        if (
+          !appQuitStarted &&
+          isMainFrame &&
+          errorCode !== -3 &&
+          isTrustedMainWindowUrl(src, validatedURL)
+        ) {
+          mainRendererBootFailed = true;
+        }
         if (
           !shouldReloadAppShellAfterFailedLoad({
             validatedURL,
@@ -1718,6 +2023,8 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
       },
     );
   }
+
+  void getSafelyBrowserWindow()?.loadURL(src);
 
   // @ts-expect-error
   browserWindow.on('close', (event: Event) => {
@@ -1763,30 +2070,26 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
   );
 
   // Third-party BLE wiring — exposed to the renderer as the vendor-neutral
-  // `window.desktopApi.thirdPartyBle`. Today it's backed by the SDK's
-  // `initTrezorBleSupport`, whose IPC channels live in their own
-  // namespace ($onekey-trezor-ble-*) so they coexist with OneKey's
-  // own `nobleBle` without colliding. When we add other 3rd-party BLE
-  // vendors, they should plug into the same `thirdPartyBle` surface
-  // rather than each adding a parallel object.
-  Object.values(TREZOR_BLE_CHANNELS).forEach((channel) =>
+  // `window.desktopApi.thirdPartyBle` serves every third-party vendor through
+  // one handler, namespaced ($onekey-3p-ble-*) to coexist with OneKey's `nobleBle`. A new vendor plugs in here, not a parallel object.
+  Object.values(THIRD_PARTY_BLE_CHANNELS).forEach((channel) =>
     ipcMain.removeHandler(channel),
   );
   // The SDK registers its BLE IPC handlers ignoring `event.sender`. DApp
   // webviews share the same preload (`desktopApi.thirdPartyBle`) and could
   // otherwise drive BLE scan/connect/write. Gate every channel to the main
   // window renderer, matching the DESKTOP_API_CALL sender check.
-  const trezorBleSenderGatedIpcMain: IpcMainLike = {
+  const thirdPartyBleSenderGatedIpcMain: IpcMainLike = {
     handle: (channel, listener) => {
       ipcMain.handle(channel, (event, ...args) => {
         if (event.sender.id !== browserWindow.webContents.id) {
           logger.warn(
-            '[TrezorBLE] Rejected IPC from non-main renderer',
+            '[ThirdPartyBLE] Rejected IPC from non-main renderer',
             channel,
             event.sender.id,
           );
           throw new OneKeyLocalError(
-            'Trezor BLE IPC is only allowed from the main window',
+            'Third-party BLE IPC is only allowed from the main window',
           );
         }
         return listener(event, ...args);
@@ -1795,12 +2098,12 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
     removeHandler: (channel) => ipcMain.removeHandler(channel),
   };
   logTrezorBleFlags();
-  const trezorBleSupport = initTrezorBleSupport(browserWindow.webContents, {
+  const trezorBleSupport = initThirdPartyBleSupport(browserWindow.webContents, {
     // Insert Windows OS-pairing at the connect seam (SDK stays untouched):
     // caches scan address, runs the WinRT pairing helper before noble connects.
     // No-op on non-Windows / builds without the bundled helper.
     ipcMain: createTrezorBlePairingIpcMain(
-      trezorBleSenderGatedIpcMain,
+      thirdPartyBleSenderGatedIpcMain,
       browserWindow,
     ),
     logger: (entry) => {
@@ -1843,9 +2146,12 @@ if (!singleInstance && !process.mas) {
   app.quit();
 } else {
   app.on('second-instance', (e, argv) => {
+    const deeplinkingUrl = findAllowedDeepLinkArg(argv);
+    // Omit raw `argv` and `deeplinkingUrl` from logs so sensitive deep-link
+    // parameters (e.g. WalletConnect `symKey` or voucher codes) are not persisted.
     logger.info('Second instance launched, focusing existing window', {
-      argv,
       platform: process.platform,
+      hasDeepLink: Boolean(deeplinkingUrl),
     });
 
     const safelyMainWindow = getSafelyMainWindow();
@@ -1856,8 +2162,6 @@ if (!singleInstance && !process.mas) {
       }
 
       // Handle deep link arguments for all platforms
-      // argv: An array of the second instance's (command line / deep linked) arguments
-      const deeplinkingUrl = findAllowedDeepLinkArg(argv);
       if (deeplinkingUrl) {
         // handleDeepLinkUrl internally calls showMainWindow(), so we don't need to call it separately
         handleDeepLinkUrl(null, deeplinkingUrl, argv, false); // isColdStartup=false for second instance
@@ -1957,6 +2261,7 @@ app.on('activate', async () => {
 });
 
 app.on('before-quit', (event) => {
+  appQuitStarted = true;
   unregisterShortcuts();
   if (isMac && !bleQuitReady) {
     event.preventDefault();
@@ -2019,11 +2324,7 @@ app.on('before-quit', (event) => {
     destroyTrayManager();
   }
 
-  // Reset crash counter on graceful shutdown so normal close
-  // is not mistaken for a crash on next boot.
-  // Skip reset when in recovery mode (count >= 3) so recovery is still
-  // offered if the user closes the recovery window without resolving.
-  if (store.getConsecutiveBootFailCount() < 3) {
+  if (!mainRendererBootFailed && store.getConsecutiveBootFailCount() < 3) {
     store.resetConsecutiveBootFailCount();
   }
 
@@ -2403,8 +2704,9 @@ function startWebviewMemoryMonitoring() {
 // token from app.getName() verbatim, so the actual default UA contains
 // `OneKey Wallet/<electronVer>` (with the space from APP_NAME above) — and
 // some packaging paths can also surface the no-space `OneKeyWallet/` form.
-// Match both, and normalize to the canonical no-space `OneKeyWallet/<APP_VERSION>`
-// that buildCustomUA() emits, so chromium and our X-Onekey-* injection agree.
+// Match both, and normalize to the no-space `OneKeyWallet/<APP_VERSION>` so the
+// Chromium's default UA carries the real app version. OneKey API requests
+// use buildCustomUA()'s `OneKey <platform> <version>` via the request hook.
 // Run synchronously at module load (before `ready` fires) so the very first
 // webContents created in the ready handler already sees the patched UA —
 // `app.userAgentFallback` is readable/writable before `ready`.
@@ -2707,26 +3009,30 @@ if (isDevServer && !app.isPackaged) {
 
 // register deeplink for desktop
 //  https://www.electronjs.org/docs/latest/tutorial/launch-app-from-url-in-another-app
-if (process.defaultApp) {
-  if (process.argv.length >= 2) {
-    app.setAsDefaultProtocolClient(
-      ONEKEY_APP_DEEP_LINK_NAME,
-      process.execPath,
-      // reassign args to argv[1]  ?
-      [path.resolve(process.argv[1])],
-    );
+// Always include `'--'` before `"%1"` on Windows so Chromium option parsing
+// terminates before the external URL argument (prevents switch injection).
+// Passing `process.execPath` and `protocolClientArgs` to `isDefaultProtocolClient`
+// also ensures legacy bare `"%1"` registry entries are upgraded automatically.
+if (!process.defaultApp || process.argv.length >= 2) {
+  const protocolClientArgs = getDesktopProtocolClientArgs(
+    process.defaultApp,
+    process.argv,
+  );
+  for (const protocol of DESKTOP_DEEP_LINK_PROTOCOLS) {
+    if (
+      !app.isDefaultProtocolClient(
+        protocol,
+        process.execPath,
+        protocolClientArgs,
+      )
+    ) {
+      app.setAsDefaultProtocolClient(
+        protocol,
+        process.execPath,
+        protocolClientArgs,
+      );
+    }
   }
-} else {
-  app.setAsDefaultProtocolClient(ONEKEY_APP_DEEP_LINK_NAME);
-}
-if (!app.isDefaultProtocolClient(WALLET_CONNECT_DEEP_LINK_NAME)) {
-  // Define custom protocol handler. Deep linking works on packaged versions of the application!
-  app.setAsDefaultProtocolClient(WALLET_CONNECT_DEEP_LINK_NAME);
-}
-// also define `protocols` at apps/desktop/electron-builder.config.js
-if (!app.isDefaultProtocolClient(ONEKEY_APP_DEEP_LINK_NAME)) {
-  // Define custom protocol handler. Deep linking works on packaged versions of the application!
-  app.setAsDefaultProtocolClient(ONEKEY_APP_DEEP_LINK_NAME);
 }
 
 if (isWin) {

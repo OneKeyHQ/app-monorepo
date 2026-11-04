@@ -34,6 +34,13 @@ export interface IGasAccountAnalyticsContext {
   selectedPayer: 'user' | 'gasAccount';
   effectiveFeePayer: IGasPayer;
   unavailableReason: string | undefined;
+  // Raw backend `gasAccountSkipReason` (open string: member_required,
+  // member_pending, member_unavailable, eligibility_* …) when the estimate
+  // came back self-paid; absent means no reason was given, not "anonymous".
+  gasAccountSkipReason: string | undefined;
+  // `gasAccountQuote.identity.ownerType` of the sponsored quote ('member'
+  // when bound to a OneKey ID member); undefined without a quote.
+  quoteOwnerType: string | undefined;
   nativeBalanceAvailable: boolean;
   selfPayGasSufficient: boolean | null;
   shortageType: IGasAccountShortageType;

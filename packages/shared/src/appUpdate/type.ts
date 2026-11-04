@@ -1,6 +1,7 @@
 import type { IFeaturedChangelog } from './featuredChangelog';
 import type { ETranslations } from '../locale';
 import type { IUpdateDownloadedEvent } from '../modules3rdParty/auto-update';
+import type { IUpdateErrorDTO } from '../modules3rdParty/auto-update/error';
 
 export enum EUpdateStrategy {
   // Download and install silently in the background; only show UI when ready to install.
@@ -165,6 +166,7 @@ export interface IAppUpdateInfo extends IBasicAppUpdateInfo {
   //  2. notify -> failed
   status: EAppUpdateStatus;
   errorText?: ETranslations;
+  updateError?: IUpdateErrorDTO;
   downloadedEvent?: IUpdateDownloadedEvent;
   summary?: string;
   // the last time the update dialog was shown (for rate limiting)

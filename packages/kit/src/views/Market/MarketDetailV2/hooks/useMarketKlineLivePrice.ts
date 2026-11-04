@@ -1,6 +1,7 @@
-import { useRef } from 'react';
+import { useLayoutEffect, useMemo, useRef, useState } from 'react';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { fetchMarketAssetKLineData } from '@onekeyhq/kit/src/components/TradingView/utils/fetchMarketAssetKLineData';
 import { useIsMounted } from '@onekeyhq/kit/src/hooks/useIsMounted';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import {
@@ -19,13 +20,11 @@ import {
 } from '../utils/marketKlineLivePrice';
 
 /**
- * Keeps the detail quote on the traded price while no Pro chart is mounted.
+ * Keeps the detail quote live for Simple charts and Native charts without WS.
  *
- * `/market/token/detail` answers from a snapshot that can hold one price for
- * minutes, so the 6s poll behind `tokenDetail` is not what makes the header
- * live. The Pro chart stays live because TradingView runs its own K-line feed
- * and reports the price back; the Simple chart mounts no TradingView, so it
- * polls the same K-line endpoint here and overlays the newest bucket's close.
+ * Charts without a live quote feed poll the matching token or aggregate asset
+ * feed here and overlay the newest bucket's close. Detail quotes initialize the
+ * header and recover it if chart updates stop.
  *
  * The ohlcv websocket is deliberately not used: it only emits on a trade, so
  * exactly the thin markets whose snapshot sits still are the ones it never
@@ -33,13 +32,17 @@ import {
  */
 export function useMarketKlineLivePrice({
   enabled,
+  marketAssetId,
   networkId,
   tokenAddress,
+  updateMarketDetail = true,
 }: {
   enabled: boolean;
+  marketAssetId?: string;
   networkId: string;
   tokenAddress: string;
-}): void {
+  updateMarketDetail?: boolean;
+}): string | undefined {
   const actions = useTokenDetailActions();
   const { store } = useMarketV2ContextData();
   const lastWrittenAtRef = useRef(0);
@@ -47,9 +50,28 @@ export function useMarketKlineLivePrice({
   // `usePromiseResult` can drop a stale return value, but this hook writes to a
   // shared atom as a side effect, which no nonce can roll back. The scope this
   // request was started for has to be re-checked once it resolves.
-  const requestScope = `${String(enabled)}|${networkId}|${tokenAddress}`;
-  const requestScopeRef = useRef(requestScope);
-  requestScopeRef.current = requestScope;
+  const requestScope = useMemo(
+    () => ({
+      enabled,
+      networkId,
+      tokenAddress,
+      marketAssetId,
+      updateMarketDetail,
+    }),
+    [enabled, networkId, tokenAddress, marketAssetId, updateMarketDetail],
+  );
+  const [liveQuote, setLiveQuote] = useState<{
+    scope: typeof requestScope;
+    price: string;
+  }>();
+  const requestScopeRef = useRef<typeof requestScope | null>(null);
+  useLayoutEffect(() => {
+    // Returning to the same asset must not reactivate its previous requests.
+    requestScopeRef.current = requestScope;
+    return () => {
+      requestScopeRef.current = null;
+    };
+  }, [requestScope]);
   // Ordering for overlapping polls of the same scope, so a slow older response
   // cannot land after a newer one has already updated the quote.
   const requestSeqRef = useRef(0);
@@ -66,15 +88,23 @@ export function useMarketKlineLivePrice({
       const timeTo = Math.floor(Date.now() / 1000);
       let response;
       try {
-        response =
-          await backgroundApiProxy.serviceMarketV2.fetchMarketTokenKline({
-            interval: MARKET_KLINE_LIVE_PRICE_INTERVAL,
-            networkId,
-            tokenAddress,
-            timeFrom: timeTo - MARKET_KLINE_LIVE_PRICE_WINDOW_SECONDS,
-            timeTo,
-            autoHandleError: false,
-          });
+        const timeFrom = timeTo - MARKET_KLINE_LIVE_PRICE_WINDOW_SECONDS;
+        response = marketAssetId
+          ? await fetchMarketAssetKLineData({
+              assetId: marketAssetId,
+              // Asset history serves buckets no finer than five minutes.
+              interval: '5m',
+              timeFrom,
+              timeTo,
+            })
+          : await backgroundApiProxy.serviceMarketV2.fetchMarketTokenKline({
+              interval: MARKET_KLINE_LIVE_PRICE_INTERVAL,
+              networkId,
+              tokenAddress,
+              timeFrom,
+              timeTo,
+              autoHandleError: false,
+            });
       } catch (_error) {
         // A refresh that fails keeps the price already on screen. Rethrowing
         // would surface as an unhandled rejection on every polling tick, since
@@ -87,9 +117,8 @@ export function useMarketKlineLivePrice({
         return;
       }
 
-      // Display currency, price mode and Simple-vs-Pro can all change while the
-      // request is in flight, and a USD close must not land on a quote that is
-      // no longer USD — `applyChartPriceUpdate` only guards token identity.
+      // Price mode and Simple-vs-Pro can change while the request is in flight.
+      // `applyChartPriceUpdate` only guards token identity, not the active feed.
       if (
         !isMountedRef.current ||
         !shouldApplyMarketKlineLivePrice({
@@ -102,6 +131,10 @@ export function useMarketKlineLivePrice({
         return;
       }
       appliedSeqRef.current = requestSeq;
+
+      const formattedPrice = formatMarketKlineLivePrice(price);
+      setLiveQuote({ scope: requestScope, price: formattedPrice });
+      if (!updateMarketDetail) return;
 
       // The header price cache drops any write that is not strictly newer than
       // the one it holds, so a quote timestamp is only useful while it stays
@@ -119,7 +152,7 @@ export function useMarketKlineLivePrice({
       actions.current.applyChartPriceUpdate({
         networkId,
         tokenAddress,
-        price: formatMarketKlineLivePrice(price),
+        price: formattedPrice,
         lastUpdated,
       });
     },
@@ -127,10 +160,12 @@ export function useMarketKlineLivePrice({
       actions,
       enabled,
       isMountedRef,
+      marketAssetId,
       networkId,
       requestScope,
       store,
       tokenAddress,
+      updateMarketDetail,
     ],
     {
       pollingInterval: MARKET_KLINE_LIVE_PRICE_POLLING_MS,
@@ -142,4 +177,7 @@ export function useMarketKlineLivePrice({
       checkIsFocused: false,
     },
   );
+  return enabled && liveQuote?.scope === requestScope
+    ? liveQuote.price
+    : undefined;
 }

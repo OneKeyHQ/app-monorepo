@@ -7,7 +7,12 @@ export type IPreloadEntry = { queue: ETabRoutes[]; intervalMs: number };
 
 const nativePreloadConfig: Record<ETabPreloadMode, IPreloadEntry> = {
   [ETabPreloadMode.full]: {
-    queue: [ETabRoutes.Swap, ETabRoutes.Discovery, ETabRoutes.Perp],
+    queue: [
+      ETabRoutes.Swap,
+      ETabRoutes.Market,
+      ETabRoutes.Discovery,
+      ETabRoutes.Perp,
+    ],
     intervalMs: 2000,
   },
   [ETabPreloadMode.light]: {

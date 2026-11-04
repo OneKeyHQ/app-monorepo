@@ -19,7 +19,10 @@ import { SwapProviderMirror } from '../SwapProviderMirror';
 import PreSwapDialogContent from './PreSwapDialogContent';
 import { SwapReviewInitializer } from './SwapReviewInitializer';
 
+import type { ISwapReviewAnalytics } from '../../utils/swapReviewAnalytics';
+
 type ISwapReviewDialogProps = {
+  reviewAnalytics?: ISwapReviewAnalytics;
   onDone: () => void;
   onConfirmStart?: () => void;
   adapter: ISwapReviewAdapter;
@@ -41,6 +44,8 @@ type ISwapReviewDialogProps = {
 };
 
 function SwapReviewDialogContent({
+  reviewAnalytics,
+  initialReviewState,
   adapter,
   approveTransactionSource,
   disableGlobalApproveSync,
@@ -51,6 +56,8 @@ function SwapReviewDialogContent({
   onDone,
   onConfirmStart,
 }: {
+  reviewAnalytics?: ISwapReviewAnalytics;
+  initialReviewState: ISwapReviewState;
   adapter: ISwapReviewAdapter;
   approveTransactionSource: ESwapReviewApproveTransactionSource;
   disableGlobalApproveSync?: boolean;
@@ -69,12 +76,16 @@ function SwapReviewDialogContent({
     reviewRebuildState,
     resetUncommittedReviewRebuildError,
   } = useSwapReviewActions({
+    reviewAnalytics,
     adapter,
     approveTransactionSource,
   });
 
   return (
     <PreSwapDialogContent
+      reviewAnalytics={reviewAnalytics}
+      analyticsInitialState={initialReviewState}
+      analyticsCreateFrom="marketDex"
       disableGlobalApproveSync={disableGlobalApproveSync}
       disableSaveSlippageForFutureOrders={disableSaveSlippageForFutureOrders}
       onConfirm={() => {
@@ -98,6 +109,7 @@ function SwapReviewDialogContent({
 }
 
 export function SwapReviewDialog({
+  reviewAnalytics,
   onDone,
   onConfirmStart,
   adapter,
@@ -137,6 +149,8 @@ export function SwapReviewDialog({
           reviewState={reviewState}
         >
           <SwapReviewDialogContent
+            reviewAnalytics={reviewAnalytics}
+            initialReviewState={reviewState}
             adapter={adapter}
             approveTransactionSource={approveTransactionSource}
             disableGlobalApproveSync={disableGlobalApproveSync}

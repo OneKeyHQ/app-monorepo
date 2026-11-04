@@ -41,6 +41,7 @@ jest.mock('@onekeyhq/kit/src/states/jotai/contexts/marketV2/atoms', () => ({
 
 jest.mock('@onekeyhq/kit/src/hooks/useRouteIsFocused', () => ({
   useRouteIsFocused: () => true,
+  useRouteIsFocusedWhenEnabled: () => true,
 }));
 
 jest.mock('@onekeyhq/components', () => {
@@ -66,6 +67,19 @@ describe('useNetworkAccount identity isolation', () => {
     mockGetNetworkAccount.mockReset();
     mockGetNetworkAccount.mockResolvedValue(accountA);
     mockGetDeriveType.mockClear();
+  });
+
+  it('does not request an account while the web wallet is disconnected', async () => {
+    mockActiveAccount = {};
+    const { result, rerender } = renderHook(() => useNetworkAccount('btc--0'));
+    await waitFor(() => expect(mockGetDeriveType).toHaveBeenCalled());
+    expect(mockGetNetworkAccount).not.toHaveBeenCalled();
+    expect(result.current.accountAddress).toBeUndefined();
+    mockActiveAccount = { account: { id: accountA.id } };
+    rerender();
+    await waitFor(() =>
+      expect(result.current.accountAddress).toBe('address-a'),
+    );
   });
 
   it.each(['account', 'indexedAccount', 'network', 'deriveType'] as const)(

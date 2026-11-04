@@ -1,14 +1,26 @@
-import { type ReactNode, useMemo } from 'react';
+import {
+  type ReactNode,
+  useCallback,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
+
+import { useWindowDimensions } from 'react-native';
 
 import {
   GlassButtonCapsule,
   Page,
   View,
   XStack,
+  YStack,
   isLiquidGlassAvailable,
   useSafeAreaInsets,
 } from '@onekeyhq/components';
+import type { IElement } from '@onekeyhq/components';
 import type { ETranslations } from '@onekeyhq/shared/src/locale';
+import { useWindowControlsLeadingOffset } from '@onekeyhq/shared/src/modules/WindowControlsInsets';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
@@ -78,6 +90,7 @@ export function MDHeader({
   customHeaderRightItems,
   renderCustomHeaderRightItems,
   headerPx = '$5',
+  disableHomeHeaderGlass = false,
   pageScrollPosition,
 }: {
   tabRoute: ETabRoutes;
@@ -92,13 +105,39 @@ export function MDHeader({
     fixedItems: ReactNode;
   }) => ReactNode;
   headerPx?: string;
+  disableHomeHeaderGlass?: boolean;
   pageScrollPosition?: SharedValue<number>;
 }) {
   const { top } = useSafeAreaInsets();
-  // iOS 26 only: when the search bar + buttons render as Liquid Glass capsules,
-  // tighten the gap between them. Off iOS 26 this is false, so the row keeps its
-  // original "$6" spacing (no change on other platforms / iOS < 26).
-  const headerGlassActive = isLiquidGlassAvailable();
+  const { width, height } = useWindowDimensions();
+  const headerRef = useRef<IElement | null>(null);
+  const measureRequest = useRef(0);
+  const [headerWindowX, setHeaderWindowX] = useState(0);
+  const windowLeadingOffset = useWindowControlsLeadingOffset(20);
+  const measureHeaderPosition = useCallback(() => {
+    if (!windowLeadingOffset) return;
+    const header = headerRef.current;
+    measureRequest.current += 1;
+    const request = measureRequest.current;
+    header?.measureInWindow((x) => {
+      if (request === measureRequest.current && header === headerRef.current) {
+        setHeaderWindowX(x);
+      }
+    });
+  }, [windowLeadingOffset]);
+  useLayoutEffect(measureHeaderPosition, [
+    measureHeaderPosition,
+    width,
+    height,
+  ]);
+  // Measure the host before applying the row margin: a detail pane may start beyond the window controls.
+  const windowControlsOffset = Math.max(0, windowLeadingOffset - headerWindowX);
+  const isHomeTab =
+    tabRoute === ETabRoutes.Home &&
+    sceneName !== EAccountSelectorSceneName.homeUrlAccount;
+  const usePlainHomeHeader = isHomeTab && disableHomeHeaderGlass;
+  // Preserve the iOS 26 header spacing when its fixed Home overlay uses plain pills.
+  const headerGlassActive = isLiquidGlassAvailable() && !usePlainHomeHeader;
 
   const rightActions = useMemo(() => {
     return sceneName === EAccountSelectorSceneName.homeUrlAccount ? (
@@ -132,11 +171,7 @@ export function MDHeader({
       tabRoute === ETabRoutes.DeviceManagement
     );
   }, [tabRoute]);
-  const isHomeTab =
-    tabRoute === ETabRoutes.Home &&
-    sceneName !== EAccountSelectorSceneName.homeUrlAccount;
-
-  return (
+  const content = (
     <>
       <Page.Header headerShown={false} />
       {showBaseHeader ? (
@@ -147,8 +182,9 @@ export function MDHeader({
               <XStack
                 alignItems="center"
                 px={headerPx}
+                ml={windowControlsOffset}
                 h={56}
-                gap={headerGlassActive ? '$3' : '$6'}
+                gap={headerGlassActive || usePlainHomeHeader ? '$3' : '$6'}
                 {...(top || platformEnv.isNativeAndroid
                   ? { mt: top || '$2' }
                   : {})}
@@ -156,7 +192,7 @@ export function MDHeader({
                 <XStack flex={1}>
                   <LegacyUniversalSearchInput
                     size="medium"
-                    glass
+                    glass={!usePlainHomeHeader}
                     tabRoute={tabRoute}
                     containerProps={{
                       width: '100%',
@@ -169,10 +205,24 @@ export function MDHeader({
                     Glass capsule (this in-page header hides the native nav bar,
                     so they can't get the system bar-button glass). Off iOS 26
                     this is a passthrough — the two buttons stay as before. */}
-                <GlassButtonCapsule>
-                  <HeaderNotificationIconButton testID="header-right-notification" />
-                  <LazyMoreActionButton />
-                </GlassButtonCapsule>
+                {usePlainHomeHeader ? (
+                  <XStack
+                    h={40}
+                    alignItems="center"
+                    px="$2"
+                    gap="$3"
+                    bg="$bgStrong"
+                    borderRadius="$full"
+                  >
+                    <HeaderNotificationIconButton testID="header-right-notification" />
+                    <LazyMoreActionButton />
+                  </XStack>
+                ) : (
+                  <GlassButtonCapsule>
+                    <HeaderNotificationIconButton testID="header-right-notification" />
+                    <LazyMoreActionButton />
+                  </GlassButtonCapsule>
+                )}
               </XStack>
               {/* Row 2: Wallet connection (account + network + address) */}
               <HomeWalletConnectionRow
@@ -189,6 +239,7 @@ export function MDHeader({
                 alignItems="center"
                 justifyContent="space-between"
                 px={headerPx}
+                ml={windowControlsOffset}
                 h={44}
                 {...(top || platformEnv.isNativeAndroid
                   ? { mt: top || '$2' }
@@ -219,5 +270,19 @@ export function MDHeader({
         <XStack h={top || '$2'} bg="$bgApp" />
       )}
     </>
+  );
+  return platformEnv.isNativeIOS ? (
+    // box-none: this measuring wrapper spans the page top padding, where
+    // Discovery overlays its absolute search bar; it must not catch those taps.
+    <YStack
+      ref={headerRef}
+      collapsable={false}
+      pointerEvents="box-none"
+      onLayout={measureHeaderPosition}
+    >
+      {content}
+    </YStack>
+  ) : (
+    content
   );
 }

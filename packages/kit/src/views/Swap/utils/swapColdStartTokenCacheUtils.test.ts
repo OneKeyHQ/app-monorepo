@@ -1,13 +1,23 @@
 import type { IAccountSelectorSelectedAccount } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAccountSelector';
+import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
+import { SolanaUSDC } from '@onekeyhq/shared/src/consts/addresses';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import { getSwapNetworkDefaultTokenPair } from '@onekeyhq/shared/src/utils/swapEntryUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type {
   ISwapNetwork,
   ISwapToken,
 } from '@onekeyhq/shared/types/swap/types';
-import { ESwapTabSwitchType } from '@onekeyhq/shared/types/swap/types';
+import {
+  ESwapSource,
+  ESwapTabSwitchType,
+} from '@onekeyhq/shared/types/swap/types';
 
 import {
+  buildSwapAutomaticDefaultTokenContext,
+  buildSwapDefaultSelectedTokensForNetwork,
   buildSwapDefaultSelectedTokensFromHomeAccount,
+  buildSwapDefaultTokenSeed,
   buildSwapInitParamsConsumptionKey,
   buildSwapSelectedAccountSyncedFromHome,
   buildSwapSelectedTokensColdStartAccountKey,
@@ -15,13 +25,14 @@ import {
   buildSwapSelectedTokensColdStartContext,
   getSelectedTokensColdStartChannelSupport,
   getSwapSelectedTokensColdStartContextNetworkId,
-  getSwapSelectedTokensHomeAccountSyncAction,
   getSwapTokenSupportTypes,
+  isSwapAccountSelectionSyncAccepted,
   isSwapSelectedTokensColdStartContextMatched,
   isSwapSelectedTokensColdStartContextValidForAccountNetworkSync,
   isSwapTokenSupportedBySwapType,
+  prepareSwapSelectedAccountSyncedFromHome,
+  resolveSwapDefaultTokensState,
   resolveSwapTokenNetworkLogoURI,
-  shouldClearSwapSelectedTokensBeforeHomeAccountSync,
   shouldClearSwapSelectedTokensOnHomeAccountUpdate,
   shouldDeferSwapDefaultSelectedTokenSyncForNativePro,
   shouldHandleSwapColdStartHomeAccountUpdate,
@@ -30,9 +41,286 @@ import {
   shouldPreserveSwapUserInputOnAccountSwitch,
   shouldSkipSwapDefaultSelectedTokenSync,
   shouldSyncSwapSelectedAccountOnHomeAccountUpdate,
+  shouldWaitForSwapDefaultConfig,
 } from './swapColdStartTokenCacheUtils';
+import {
+  getSwapBackendDefaultTokensForSeed,
+  getSwapDefaultTokenSeedContextForSyncedHomeAccount,
+  getSwapSelectedTokensHomeAccountSyncAction,
+  isSwapHomeAccountSyncSelectionCurrent,
+  shouldClearSwapSelectedTokensBeforeHomeAccountSync,
+  shouldDeferSwapDefaultTokenSeedContextUpdate,
+} from './swapDefaultTokenSeedUtils';
 
 import type { IAccountSelectorActiveAccountInfo } from '../../../states/jotai/contexts/accountSelector';
+
+describe('isSwapAccountSelectionSyncAccepted', () => {
+  it.each(['commit', 'noop'])('accepts %s', (outcome) => {
+    expect(isSwapAccountSelectionSyncAccepted(outcome)).toBe(true);
+  });
+
+  it.each([
+    'skip-older-event',
+    'skip-equal-event-conflict',
+    'skip-unversioned-event',
+    'stale',
+  ])('rejects %s', (outcome) => {
+    expect(isSwapAccountSelectionSyncAccepted(outcome)).toBe(false);
+  });
+});
+
+describe('Swap default configuration readiness', () => {
+  const configuredFromToken: ISwapToken = {
+    networkId: 'evm--1',
+    contractAddress: '0xconfigured-usdt',
+    symbol: 'USDT',
+    decimals: 6,
+  };
+  const configuredToToken: ISwapToken = {
+    networkId: 'evm--1',
+    contractAddress: '0xconfigured-weth',
+    symbol: 'WETH',
+    decimals: 18,
+  };
+  const swapNetworks: ISwapNetwork[] = [
+    {
+      networkId: 'evm--1',
+      name: 'Ethereum',
+      symbol: 'ETH',
+      defaultSelectTokenDetail: {
+        from: configuredFromToken,
+        to: configuredToToken,
+      },
+    },
+  ];
+
+  it('does not treat cached backend tokens as a fallback on a chain without local defaults', () => {
+    const networkId = 'evm--250';
+    const cachedNetworks = swapNetworks.map((network) => ({
+      ...network,
+      networkId,
+      defaultSelectTokenDetail: {
+        from: { ...configuredFromToken, networkId },
+        to: { ...configuredToToken, networkId },
+      },
+    }));
+    expect(
+      buildSwapDefaultSelectedTokensForNetwork({
+        networkId,
+        swapNetworks: cachedNetworks,
+        defaultConfigStatus: 'success',
+      }),
+    ).toBeDefined();
+    expect(
+      buildSwapDefaultSelectedTokensForNetwork({
+        networkId,
+        swapNetworks: cachedNetworks,
+        defaultConfigStatus: 'failed',
+      }),
+    ).toBeUndefined();
+  });
+
+  it.each([undefined, ESwapTabSwitchType.SWAP])(
+    'waits for configuration without exposing placeholders for the %s mode',
+    (swapType) => {
+      expect(
+        shouldWaitForSwapDefaultConfig({
+          networkId: 'evm--1',
+          swapType,
+          defaultConfigStatus: 'pending',
+        }),
+      ).toBe(true);
+      expect(
+        buildSwapDefaultSelectedTokensForNetwork({
+          networkId: 'evm--1',
+          swapType,
+          swapNetworks,
+          defaultConfigStatus: 'pending',
+        }),
+      ).toBeUndefined();
+      expect(
+        buildSwapDefaultSelectedTokensFromHomeAccount({
+          homeSelectedAccount: buildSelectedAccount(),
+          swapType,
+          swapNetworks,
+          defaultConfigStatus: 'pending',
+        }),
+      ).toBeUndefined();
+    },
+  );
+
+  it('uses fresh backend defaults after success and local defaults after failure', () => {
+    expect(
+      resolveSwapDefaultTokensState({
+        networkId: 'evm--1',
+        swapNetworks,
+        defaultConfigStatus: 'pending',
+      }),
+    ).toEqual({ status: 'loading' });
+    const localDefaults = buildSwapDefaultSelectedTokensForNetwork({
+      networkId: 'evm--1',
+    });
+    expect(
+      buildSwapDefaultSelectedTokensForNetwork({
+        networkId: 'evm--1',
+        swapNetworks,
+        defaultConfigStatus: 'success',
+      }),
+    ).toEqual({
+      fromToken: configuredFromToken,
+      toToken: configuredToToken,
+      swapType: ESwapTabSwitchType.SWAP,
+    });
+    expect(
+      buildSwapDefaultSelectedTokensForNetwork({
+        networkId: 'evm--1',
+        swapNetworks,
+        defaultConfigStatus: 'failed',
+      }),
+    ).toEqual(localDefaults);
+    expect(
+      buildSwapDefaultSelectedTokensFromHomeAccount({
+        homeSelectedAccount: buildSelectedAccount(),
+        swapNetworks,
+        defaultConfigStatus: 'failed',
+        now: 1,
+      }),
+    ).toEqual(
+      buildSwapDefaultSelectedTokensFromHomeAccount({
+        homeSelectedAccount: buildSelectedAccount(),
+        now: 1,
+      }),
+    );
+  });
+
+  it.each([
+    { networkId: 'evm--1', swapType: ESwapTabSwitchType.LIMIT },
+    { networkId: 'evm--1', swapType: ESwapTabSwitchType.BRIDGE },
+    { networkId: 'evm--1', swapType: ESwapTabSwitchType.STOCK },
+  ])(
+    'preserves the $networkId $swapType default owner while pending',
+    (args) => {
+      expect(
+        shouldWaitForSwapDefaultConfig({
+          ...args,
+          defaultConfigStatus: 'pending',
+        }),
+      ).toBe(false);
+      expect(
+        buildSwapDefaultSelectedTokensForNetwork({
+          ...args,
+          swapNetworks,
+          defaultConfigStatus: 'pending',
+        }),
+      ).toEqual(
+        buildSwapDefaultSelectedTokensForNetwork({ ...args, swapNetworks }),
+      );
+    },
+  );
+
+  it('clears the previous owner while loading, then resolves API or fallback defaults', () => {
+    const args = {
+      homeSelectedAccount: buildSelectedAccount({
+        indexedAccountId: 'new-home-account',
+      }),
+      swapSelectedAccount: buildSelectedAccount(),
+      hasSelectedTokens: true,
+      swapType: ESwapTabSwitchType.SWAP,
+      swapNetworks,
+      now: 1,
+    };
+    expect(
+      getSwapSelectedTokensHomeAccountSyncAction({
+        ...args,
+        defaultConfigStatus: 'pending',
+      }),
+    ).toEqual({ type: 'clear' });
+    expect(
+      getSwapSelectedTokensHomeAccountSyncAction({
+        ...args,
+        defaultConfigStatus: 'success',
+      }),
+    ).toEqual({
+      type: 'replace-with-defaults',
+      defaultTokens: expect.objectContaining({
+        fromToken: configuredFromToken,
+        toToken: configuredToToken,
+      }),
+    });
+    expect(
+      getSwapSelectedTokensHomeAccountSyncAction({
+        ...args,
+        defaultConfigStatus: 'failed',
+      }),
+    ).toEqual({
+      type: 'replace-with-defaults',
+      defaultTokens: buildSwapDefaultSelectedTokensFromHomeAccount({
+        homeSelectedAccount: args.homeSelectedAccount,
+        now: 1,
+      }),
+    });
+  });
+
+  it.each([
+    { preserveSelectedTokens: true },
+    { deferSelectedTokenSync: true },
+    { swapType: ESwapTabSwitchType.STOCK },
+    {
+      swapSelectedAccount: buildSelectedAccount({
+        indexedAccountId: 'new-home-account',
+      }),
+    },
+  ])(
+    'preserves explicit input and unchanged owners while config is pending: %o',
+    (overrides) => {
+      expect(
+        getSwapSelectedTokensHomeAccountSyncAction({
+          homeSelectedAccount: buildSelectedAccount({
+            indexedAccountId: 'new-home-account',
+          }),
+          swapSelectedAccount: buildSelectedAccount(),
+          hasSelectedTokens: true,
+          initialSelectedTokensSynced: true,
+          swapType: ESwapTabSwitchType.SWAP,
+          defaultConfigStatus: 'pending',
+          ...overrides,
+        }),
+      ).toEqual({ type: 'preserve' });
+    },
+  );
+
+  it.each(['pending', 'failed'] as const)(
+    'does not reconcile a saved automatic seed with cached details when %s',
+    (defaultConfigStatus) => {
+      const defaults = buildSwapDefaultSelectedTokensFromHomeAccount({
+        homeSelectedAccount: buildSelectedAccount(),
+        now: 1,
+      });
+      const args = {
+        cachedContext: defaults?.context,
+        currentContext: defaults?.context,
+        fromToken: defaults?.fromToken,
+        toToken: defaults?.toToken,
+        selectedAccount: buildSelectedAccount(),
+        swapNetworks,
+        preserveSelectedTokens: false,
+      };
+      expect(
+        getSwapBackendDefaultTokensForSeed({ ...args, defaultConfigStatus }),
+      ).toBeUndefined();
+      expect(
+        getSwapBackendDefaultTokensForSeed({
+          ...args,
+          defaultConfigStatus: 'success',
+        }),
+      ).toEqual({
+        fromToken: configuredFromToken,
+        toToken: configuredToToken,
+        swapType: ESwapTabSwitchType.SWAP,
+      });
+    },
+  );
+});
 
 function buildActiveAccount(
   overrides: Partial<IAccountSelectorActiveAccountInfo> = {},
@@ -106,6 +394,341 @@ function buildSwapNetwork({
 }
 
 describe('swap cold-start selected token context', () => {
+  it('confirms a landed Home selection only for the same owner and network while allowing derive correction', () => {
+    const homeSelectedAccount = buildSelectedAccount({ networkId: 'btc--0' });
+    expect(
+      isSwapHomeAccountSyncSelectionCurrent({
+        homeSelectedAccount,
+        selectedAccount: buildSelectedAccount({
+          networkId: 'btc--0',
+          deriveType: 'BIP44',
+        }),
+      }),
+    ).toBe(true);
+    expect(
+      isSwapHomeAccountSyncSelectionCurrent({
+        homeSelectedAccount,
+        selectedAccount: buildSelectedAccount({
+          networkId: 'btc--0',
+          indexedAccountId: 'queued-account',
+        }),
+      }),
+    ).toBe(false);
+    expect(
+      isSwapHomeAccountSyncSelectionCurrent({
+        homeSelectedAccount,
+        selectedAccount: buildSelectedAccount({
+          networkId: 'btc--0',
+          walletId: 'queued-wallet',
+        }),
+      }),
+    ).toBe(false);
+    expect(
+      isSwapHomeAccountSyncSelectionCurrent({
+        homeSelectedAccount,
+        selectedAccount: buildSelectedAccount({ networkId: 'evm--1' }),
+      }),
+    ).toBe(false);
+    expect(
+      isSwapHomeAccountSyncSelectionCurrent({
+        homeSelectedAccount: buildSelectedAccount({ networkId: undefined }),
+        selectedAccount: buildSelectedAccount(),
+      }),
+    ).toBe(false);
+    expect(isSwapHomeAccountSyncSelectionCurrent({})).toBe(false);
+  });
+
+  it('preserves a Home seed before either Swap selected or active ownership has caught up', () => {
+    const homeSelectedAccount = buildSelectedAccount({
+      walletId: 'wallet-new',
+      indexedAccountId: 'indexed-new',
+      networkId: 'btc--0',
+    });
+    const defaults = buildSwapDefaultSelectedTokensFromHomeAccount({
+      homeSelectedAccount,
+      now: 1,
+    });
+    if (!defaults) {
+      throw new OneKeyLocalError('Expected Bitcoin Home defaults.');
+    }
+    const oldContext = buildSwapSelectedTokensColdStartContext({
+      activeAccount: buildActiveAccount(),
+      networkId: 'evm--1',
+    });
+    expect(
+      shouldDeferSwapDefaultTokenSeedContextUpdate({
+        cachedContext: defaults.context,
+        currentContext: oldContext,
+      }),
+    ).toBe(true);
+    expect(
+      getSwapDefaultTokenSeedContextForSyncedHomeAccount({
+        cachedContext: defaults.context,
+        homeSelectedAccount,
+        selectedAccount: buildSelectedAccount(),
+        fromToken: defaults.fromToken,
+        toToken: defaults.toToken,
+      }),
+    ).toBeUndefined();
+  });
+
+  it('defers only automatic seed contexts until their ownership matches', () => {
+    const defaults = buildSwapDefaultSelectedTokensFromHomeAccount({
+      homeSelectedAccount: buildSelectedAccount(),
+    });
+    if (!defaults) {
+      throw new OneKeyLocalError('Expected Ethereum Home defaults.');
+    }
+    expect(
+      shouldDeferSwapDefaultTokenSeedContextUpdate({
+        cachedContext: defaults.context,
+        currentContext: defaults.context,
+      }),
+    ).toBe(false);
+    expect(
+      shouldDeferSwapDefaultTokenSeedContextUpdate({
+        cachedContext: defaults.context,
+        currentContext: { ...defaults.context, networkId: 'onekeyall--0' },
+      }),
+    ).toBe(true);
+    expect(
+      shouldDeferSwapDefaultTokenSeedContextUpdate({
+        cachedContext: defaults.context,
+      }),
+    ).toBe(true);
+    expect(
+      shouldDeferSwapDefaultTokenSeedContextUpdate({
+        cachedContext: { ...defaults.context, defaultTokenSeed: undefined },
+        currentContext: { ...defaults.context, accountKey: 'different-owner' },
+      }),
+    ).toBe(false);
+    expect(shouldDeferSwapDefaultTokenSeedContextUpdate({})).toBe(false);
+  });
+
+  it('uses the landed Home selection derive type without changing the seed or its context metadata', () => {
+    const homeSelectedAccount = buildSelectedAccount({ networkId: 'btc--0' });
+    const defaults = buildSwapDefaultSelectedTokensFromHomeAccount({
+      homeSelectedAccount,
+      now: 1,
+    });
+    if (!defaults) {
+      throw new OneKeyLocalError('Expected Bitcoin Home defaults.');
+    }
+    const selectedAccount = buildSelectedAccount({
+      networkId: 'btc--0',
+      deriveType: 'BIP44',
+    });
+    const context = getSwapDefaultTokenSeedContextForSyncedHomeAccount({
+      cachedContext: defaults.context,
+      homeSelectedAccount,
+      selectedAccount,
+      fromToken: defaults.fromToken,
+      toToken: defaults.toToken,
+    });
+    expect(context).toEqual({
+      ...defaults.context,
+      accountKey:
+        buildSwapSelectedTokensColdStartAccountKeyFromSelectedAccount(
+          selectedAccount,
+        ),
+    });
+    expect(context?.defaultTokenSeed).toBe(defaults.context.defaultTokenSeed);
+    expect(defaults.context.accountKey).toBe(
+      'wallet-1|indexed-account-1|default',
+    );
+    expect(
+      shouldDeferSwapDefaultTokenSeedContextUpdate({
+        cachedContext: context,
+        currentContext: context,
+      }),
+    ).toBe(false);
+  });
+
+  it('does not retag cancelled, changed or differently owned Home seeds', () => {
+    const homeSelectedAccount = buildSelectedAccount();
+    const defaults = buildSwapDefaultSelectedTokensFromHomeAccount({
+      homeSelectedAccount,
+    });
+    if (!defaults?.fromToken || !defaults.toToken) {
+      throw new OneKeyLocalError('Expected an Ethereum Home token pair.');
+    }
+    const args = {
+      cachedContext: defaults.context,
+      homeSelectedAccount,
+      selectedAccount: buildSelectedAccount({ deriveType: 'BIP44' }),
+      fromToken: defaults.fromToken,
+      toToken: defaults.toToken,
+    };
+    expect(
+      getSwapDefaultTokenSeedContextForSyncedHomeAccount({
+        ...args,
+        cachedContext: { ...defaults.context, defaultTokenSeed: undefined },
+      }),
+    ).toBeUndefined();
+    expect(
+      getSwapDefaultTokenSeedContextForSyncedHomeAccount({
+        ...args,
+        cachedContext: {
+          ...defaults.context,
+          accountKey: 'other|account|default',
+        },
+      }),
+    ).toBeUndefined();
+    expect(
+      getSwapDefaultTokenSeedContextForSyncedHomeAccount({
+        ...args,
+        selectedAccount: buildSelectedAccount({ indexedAccountId: 'other' }),
+      }),
+    ).toBeUndefined();
+    expect(
+      getSwapDefaultTokenSeedContextForSyncedHomeAccount({
+        ...args,
+        selectedAccount: buildSelectedAccount({ networkId: 'evm--56' }),
+      }),
+    ).toBeUndefined();
+    expect(
+      getSwapDefaultTokenSeedContextForSyncedHomeAccount({
+        ...args,
+        homeSelectedAccount: buildSelectedAccount({ networkId: 'evm--56' }),
+      }),
+    ).toBeUndefined();
+    expect(
+      getSwapDefaultTokenSeedContextForSyncedHomeAccount({
+        ...args,
+        fromToken: { ...defaults.fromToken, contractAddress: '0xmanual-from' },
+      }),
+    ).toBeUndefined();
+    expect(
+      getSwapDefaultTokenSeedContextForSyncedHomeAccount({
+        ...args,
+        toToken: { ...defaults.toToken, contractAddress: '0xmanual-to' },
+      }),
+    ).toBeUndefined();
+  });
+
+  it('uses backend defaults for Swap and All while keeping Bridge, Limit and Stock ownership', () => {
+    const fromToken: ISwapToken = {
+      networkId: 'evm--1',
+      contractAddress: '',
+      symbol: 'ETH',
+      decimals: 18,
+    };
+    const toToken: ISwapToken = {
+      networkId: 'evm--1',
+      contractAddress: '0xusdt',
+      symbol: 'USDT',
+      decimals: 6,
+    };
+    const swapNetworks: ISwapNetwork[] = [
+      {
+        networkId: 'evm--1',
+        name: 'Ethereum',
+        symbol: 'ETH',
+        defaultSelectTokenDetail: { from: fromToken, to: toToken },
+      },
+    ];
+    expect(
+      buildSwapDefaultSelectedTokensForNetwork({
+        networkId: 'evm--1',
+        swapNetworks,
+      })?.toToken?.symbol,
+    ).toBe('USDT');
+    expect(
+      buildSwapDefaultSelectedTokensForNetwork({
+        networkId: 'evm--1',
+        swapType: ESwapTabSwitchType.BRIDGE,
+        swapNetworks,
+      })?.toToken?.networkId,
+    ).not.toBe('evm--1');
+    expect(
+      buildSwapDefaultSelectedTokensForNetwork({
+        networkId: 'evm--1',
+        swapType: ESwapTabSwitchType.LIMIT,
+        swapNetworks,
+      })?.toToken?.symbol,
+    ).not.toBe('USDT');
+    expect(
+      buildSwapDefaultSelectedTokensForNetwork({
+        networkId: 'onekeyall--0',
+        swapNetworks,
+      })?.toToken?.symbol,
+    ).toBe('USDT');
+    expect(
+      buildSwapDefaultSelectedTokensForNetwork({
+        networkId: 'evm--1',
+        swapType: ESwapTabSwitchType.STOCK,
+        swapNetworks,
+      }),
+    ).toBeUndefined();
+  });
+
+  it('reconciles only untouched automatic seeds belonging to the resolved and selected owner', () => {
+    const defaults = buildSwapDefaultSelectedTokensFromHomeAccount({
+      homeSelectedAccount: buildSelectedAccount({ networkId: 'evm--1' }),
+    });
+    const fromToken = defaults?.fromToken;
+    const toToken: ISwapToken = {
+      networkId: 'evm--1',
+      contractAddress: '0xusdt',
+      symbol: 'USDT',
+      decimals: 6,
+    };
+    const swapNetworks: ISwapNetwork[] = [
+      {
+        networkId: 'evm--1',
+        name: 'Ethereum',
+        symbol: 'ETH',
+        defaultSelectTokenDetail: { from: fromToken, to: toToken },
+      },
+    ];
+    const args = {
+      cachedContext: defaults?.context,
+      currentContext: defaults?.context,
+      fromToken,
+      toToken: defaults?.toToken,
+      selectedAccount: buildSelectedAccount({ networkId: 'evm--1' }),
+      swapNetworks,
+      preserveSelectedTokens: false,
+    };
+    expect(getSwapBackendDefaultTokensForSeed(args)?.toToken).toBe(toToken);
+    expect(
+      getSwapBackendDefaultTokensForSeed({
+        ...args,
+        selectedAccount: buildSelectedAccount({
+          indexedAccountId: 'different',
+        }),
+      }),
+    ).toBeUndefined();
+    expect(
+      getSwapBackendDefaultTokensForSeed({
+        ...args,
+        currentContext: defaults
+          ? { ...defaults.context, accountKey: 'old-owner' }
+          : undefined,
+      }),
+    ).toBeUndefined();
+    expect(
+      getSwapBackendDefaultTokensForSeed({
+        ...args,
+        toToken: { ...toToken, contractAddress: '0xmanual' },
+      }),
+    ).toBeUndefined();
+    expect(
+      getSwapBackendDefaultTokensForSeed({
+        ...args,
+        preserveSelectedTokens: true,
+      }),
+    ).toBeUndefined();
+    expect(buildSwapDefaultTokenSeed({ fromToken, toToken })).toEqual({
+      fromToken: fromToken
+        ? {
+            networkId: fromToken.networkId,
+            contractAddress: fromToken.contractAddress,
+          }
+        : undefined,
+      toToken: { networkId: 'evm--1', contractAddress: '0xusdt' },
+    });
+  });
   it('resolves each token network logo from its own network identity', () => {
     const swapNetworks = [
       {
@@ -631,6 +1254,128 @@ describe('swap cold-start selected token context', () => {
     });
   });
 
+  it('accepts a complete same-network backend default pair', () => {
+    const fromToken: ISwapToken = {
+      ...buildSwapToken('evm--1'),
+      contractAddress: '0xfrom',
+      symbol: 'FROM',
+      decimals: 18,
+    };
+    const toToken: ISwapToken = {
+      ...buildSwapToken('evm--1'),
+      contractAddress: '0xto',
+      symbol: 'TO',
+      decimals: 6,
+    };
+    const network: ISwapNetwork = {
+      networkId: 'evm--1',
+      name: 'Ethereum',
+      symbol: 'ETH',
+      defaultSelectTokenDetail: { from: fromToken, to: toToken },
+    };
+
+    expect(getSwapNetworkDefaultTokenPair(network)).toEqual({
+      fromToken,
+      toToken,
+    });
+  });
+
+  it.each([
+    {
+      name: 'distinct Solana addresses differing only by case',
+      networkId: 'sol--101',
+      fromAddress: SolanaUSDC,
+      toAddress: SolanaUSDC.replace('P', 'p'),
+      sameToken: false,
+    },
+    {
+      name: 'identical Solana addresses',
+      networkId: 'sol--101',
+      fromAddress: SolanaUSDC,
+      toAddress: SolanaUSDC,
+      sameToken: true,
+    },
+    {
+      name: 'one EVM address with different casing',
+      networkId: 'evm--1',
+      fromAddress: '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48',
+      toAddress: '0xA0B86991C6218B36C1D19D4A2E9EB0CE3606EB48',
+      sameToken: true,
+    },
+    {
+      name: 'distinct EVM addresses',
+      networkId: 'evm--1',
+      fromAddress: '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48',
+      toAddress: '0xdac17f958d2ee523a2206206994597c13d831ec7',
+      sameToken: false,
+    },
+  ])(
+    'validates backend defaults using network-specific token address identity: $name',
+    ({ networkId, fromAddress, toAddress, sameToken }) => {
+      const fromToken: ISwapToken = {
+        networkId,
+        contractAddress: fromAddress,
+        symbol: 'FROM',
+        decimals: 6,
+      };
+      const toToken: ISwapToken = {
+        ...fromToken,
+        contractAddress: toAddress,
+        symbol: 'TO',
+      };
+      const network: ISwapNetwork = {
+        networkId,
+        name: 'Test network',
+        symbol: 'TEST',
+        defaultSelectTokenDetail: { from: fromToken, to: toToken },
+      };
+
+      if (sameToken) {
+        expect(getSwapNetworkDefaultTokenPair(network)).toBeUndefined();
+      } else {
+        expect(getSwapNetworkDefaultTokenPair(network)).toEqual({
+          fromToken,
+          toToken,
+        });
+        expect(
+          buildSwapDefaultSelectedTokensForNetwork({
+            networkId,
+            swapType: ESwapTabSwitchType.SWAP,
+            swapNetworks: [network],
+          }),
+        ).toEqual({ fromToken, toToken, swapType: ESwapTabSwitchType.SWAP });
+      }
+    },
+  );
+
+  it('ignores incomplete or cross-network backend default pairs', () => {
+    const fromToken: ISwapToken = {
+      ...buildSwapToken('evm--1'),
+      contractAddress: '0xfrom',
+      symbol: 'FROM',
+      decimals: 18,
+    };
+    expect(
+      getSwapNetworkDefaultTokenPair({
+        networkId: 'evm--1',
+        name: 'Ethereum',
+        symbol: 'ETH',
+        defaultSelectTokenDetail: { from: fromToken },
+      }),
+    ).toBeUndefined();
+    expect(
+      getSwapNetworkDefaultTokenPair({
+        networkId: 'evm--1',
+        name: 'Ethereum',
+        symbol: 'ETH',
+        defaultSelectTokenDetail: {
+          from: fromToken,
+          to: { ...fromToken, networkId: 'evm--56' },
+        },
+      }),
+    ).toBeUndefined();
+  });
+
   it('does not preselect Tron tokens when initializing Limit', () => {
     expect(
       buildSwapDefaultSelectedTokensFromHomeAccount({
@@ -939,6 +1684,41 @@ describe('swap cold-start selected token context', () => {
     ).toBe(false);
   });
 
+  it('aligns a stale Swap account with the Home network that owns an automatic seed', () => {
+    const homeAccount = buildSelectedAccount({ networkId: 'evm--42161' });
+    const defaults = buildSwapDefaultSelectedTokensFromHomeAccount({
+      homeSelectedAccount: homeAccount,
+      swapType: ESwapTabSwitchType.SWAP,
+    });
+    expect(defaults?.context.defaultTokenSeed).toBeDefined();
+    expect(
+      shouldSyncSwapSelectedAccountOnHomeAccountUpdate({
+        cachedContext: defaults?.context,
+        hasSelectedTokens: true,
+        swapSelectedAccount: buildSelectedAccount({ networkId: 'evm--1' }),
+        eventPayload: {
+          sceneName: EAccountSelectorSceneName.home,
+          num: 0,
+          selectedAccount: homeAccount,
+        },
+      }),
+    ).toBe(true);
+    expect(
+      shouldSyncSwapSelectedAccountOnHomeAccountUpdate({
+        cachedContext: defaults
+          ? { ...defaults.context, defaultTokenSeed: undefined }
+          : undefined,
+        hasSelectedTokens: true,
+        swapSelectedAccount: buildSelectedAccount({ networkId: 'evm--1' }),
+        eventPayload: {
+          sceneName: EAccountSelectorSceneName.home,
+          num: 0,
+          selectedAccount: homeAccount,
+        },
+      }),
+    ).toBe(false);
+  });
+
   it('syncs swap account when home network changes and swap has no selected tokens', () => {
     expect(
       shouldSyncSwapSelectedAccountOnHomeAccountUpdate({
@@ -954,6 +1734,114 @@ describe('swap cold-start selected token context', () => {
           selectedAccount: buildSelectedAccount({
             networkId: 'btc--0',
             deriveType: 'BIP44',
+          }),
+        },
+      }),
+    ).toBe(true);
+  });
+
+  it.each([false, true])(
+    'preserves an explicit member-network entry for the same All Networks owner (tokens=%s)',
+    (hasSelectedTokens) => {
+      expect(
+        shouldSyncSwapSelectedAccountOnHomeAccountUpdate({
+          hasSelectedTokens,
+          initialSelectedTokensSynced: false,
+          importNetworkId: 'evm--1',
+          swapActiveNetworkId: 'evm--1',
+          swapSelectedAccount: buildSelectedAccount({ networkId: 'evm--1' }),
+          eventPayload: {
+            sceneName: EAccountSelectorSceneName.home,
+            num: 0,
+            selectedAccount: buildSelectedAccount({
+              networkId: 'onekeyall--0',
+            }),
+          },
+        }),
+      ).toBe(false);
+    },
+  );
+
+  it.each([
+    { walletId: 'other-wallet', indexedAccountId: 'indexed-account-1' },
+    { walletId: 'wallet-1', indexedAccountId: 'other-indexed-account' },
+  ])('still synchronizes a different entry owner (%j)', (owner) => {
+    expect(
+      shouldSyncSwapSelectedAccountOnHomeAccountUpdate({
+        hasSelectedTokens: false,
+        importNetworkId: 'evm--1',
+        swapActiveNetworkId: 'evm--1',
+        swapSelectedAccount: buildSelectedAccount({ networkId: 'evm--1' }),
+        eventPayload: {
+          sceneName: EAccountSelectorSceneName.home,
+          num: 0,
+          selectedAccount: buildSelectedAccount({
+            ...owner,
+            networkId: 'onekeyall--0',
+          }),
+        },
+      }),
+    ).toBe(true);
+  });
+
+  it('does not preserve a member network that differs from the imported network', () => {
+    expect(
+      shouldSyncSwapSelectedAccountOnHomeAccountUpdate({
+        hasSelectedTokens: false,
+        importNetworkId: 'evm--42161',
+        swapActiveNetworkId: 'evm--1',
+        swapSelectedAccount: buildSelectedAccount({ networkId: 'evm--1' }),
+        eventPayload: {
+          sceneName: EAccountSelectorSceneName.home,
+          num: 0,
+          selectedAccount: buildSelectedAccount({ networkId: 'onekeyall--0' }),
+        },
+      }),
+    ).toBe(true);
+  });
+
+  it('still synchronizes a different watch-only account for an explicit entry', () => {
+    expect(
+      shouldSyncSwapSelectedAccountOnHomeAccountUpdate({
+        hasSelectedTokens: false,
+        importNetworkId: 'evm--1',
+        swapActiveNetworkId: 'evm--1',
+        swapSelectedAccount: buildSelectedAccount({
+          walletId: 'watching',
+          indexedAccountId: undefined,
+          othersWalletAccountId: 'watch-1',
+          networkId: 'evm--1',
+        }),
+        eventPayload: {
+          sceneName: EAccountSelectorSceneName.home,
+          num: 0,
+          selectedAccount: buildSelectedAccount({
+            walletId: 'watching',
+            indexedAccountId: undefined,
+            othersWalletAccountId: 'watch-2',
+            networkId: 'onekeyall--0',
+          }),
+        },
+      }),
+    ).toBe(true);
+  });
+
+  it('still synchronizes single-network address types for an explicit entry', () => {
+    expect(
+      shouldSyncSwapSelectedAccountOnHomeAccountUpdate({
+        hasSelectedTokens: false,
+        importNetworkId: 'btc--0',
+        swapActiveNetworkId: 'btc--0',
+        swapSelectedAccount: buildSelectedAccount({
+          networkId: 'btc--0',
+          deriveType: 'BIP44',
+        }),
+        eventPayload: {
+          sceneName: EAccountSelectorSceneName.home,
+          num: 0,
+          selectedAccount: buildSelectedAccount({
+            networkId: 'btc--0',
+            deriveType: 'BIP86',
           }),
         },
       }),
@@ -1670,6 +2558,21 @@ describe('swap cold-start selected token context', () => {
     ).toEqual({ type: 'preserve' });
   });
 
+  it('distinguishes Market intent when the same directed pair has a different current token', () => {
+    const pair = {
+      importFromToken: buildSwapToken('evm--1'),
+      importToToken: buildSwapToken('btc--0'),
+    };
+    expect(
+      buildSwapInitParamsConsumptionKey({
+        ...pair,
+        marketSwapDirection: 'from',
+      }),
+    ).not.toBe(
+      buildSwapInitParamsConsumptionKey({ ...pair, marketSwapDirection: 'to' }),
+    );
+  });
+
   it('builds one-shot consumption keys only for swap init handoff params', () => {
     expect(buildSwapInitParamsConsumptionKey()).toBeUndefined();
     expect(
@@ -1855,6 +2758,501 @@ describe('swap cold-start selected token context', () => {
         networkId: 'btc--0',
         deriveType: 'BIP44',
         focusedWallet: 'wallet-1',
+      }),
+    );
+  });
+});
+
+describe('automatic empty default ownership', () => {
+  const home: IAccountSelectorSelectedAccount = {
+    walletId: 'wallet-empty',
+    indexedAccountId: 'account-empty',
+    deriveType: 'default',
+    networkId: 'evm--no-local-default',
+    othersWalletAccountId: undefined,
+    focusedWallet: 'wallet-empty',
+  };
+  const context = buildSwapAutomaticDefaultTokenContext({
+    homeSelectedAccount: home,
+    swapType: ESwapTabSwitchType.SWAP,
+    now: 1,
+  });
+  const options = {
+    cachedContext: context,
+    hasSelectedTokens: false,
+    initialSelectedTokensSynced: true,
+    swapSelectedAccount: home,
+    swapType: ESwapTabSwitchType.SWAP,
+    defaultConfigStatus: 'success' as const,
+  };
+
+  it('keeps the same Home empty after late recovery and does not take ownership of an explicit empty pair', () => {
+    expect(context?.defaultTokenSeed).toEqual({});
+    expect(
+      getSwapSelectedTokensHomeAccountSyncAction({
+        ...options,
+        homeSelectedAccount: home,
+      }).type,
+    ).toBe('preserve');
+    expect(
+      getSwapSelectedTokensHomeAccountSyncAction({
+        ...options,
+        cachedContext: context
+          ? { ...context, defaultTokenSeed: undefined }
+          : undefined,
+        homeSelectedAccount: { ...home, networkId: 'evm--42161' },
+      }).type,
+    ).toBe('preserve');
+  });
+
+  it.each([
+    { networkId: 'evm--42161' },
+    { indexedAccountId: 'another-account' },
+  ])('allows a real new Home intent after an empty result: %j', (change) => {
+    expect(
+      shouldClearSwapSelectedTokensBeforeHomeAccountSync({
+        ...options,
+        homeSelectedAccount: { ...home, ...change },
+      }),
+    ).toBe(true);
+    expect(
+      shouldHandleSwapColdStartHomeAccountUpdate({
+        cachedContext: context,
+        hasSelectedTokens: false,
+        initialSelectedTokensSynced: true,
+        swapType: ESwapTabSwitchType.SWAP,
+        eventPayload: {
+          selectedAccount: { ...home, ...change },
+          sceneName: EAccountSelectorSceneName.home,
+          num: 0,
+        },
+      }),
+    ).toBe(true);
+  });
+
+  it('does not create an automatic empty owner without an account', () => {
+    expect(
+      buildSwapAutomaticDefaultTokenContext({
+        homeSelectedAccount: { networkId: home.networkId },
+        swapType: ESwapTabSwitchType.SWAP,
+      }),
+    ).toBeUndefined();
+  });
+
+  it('clears the automatic empty owner when Home is disconnected', () => {
+    expect(
+      getSwapSelectedTokensHomeAccountSyncAction({
+        ...options,
+        homeSelectedAccount: undefined,
+      }).type,
+    ).toBe('clear');
+  });
+});
+
+describe('prepareSwapSelectedAccountSyncedFromHome', () => {
+  it('returns the merged candidate without the pair-fix RPC for non-others wallets', async () => {
+    const fixOthersWalletAccountNetworkPair = jest.fn(async () => {
+      throw new OneKeyLocalError('should not call fix RPC');
+    });
+    const homeSelectedAccount = buildSelectedAccount({
+      walletId: 'hd-1',
+      networkId: 'btc--0',
+      deriveType: 'BIP44',
+      // A contrived leftover others-account id isolates the wallet-type gate:
+      // every other early-exit field is present.
+      othersWalletAccountId: 'stale-others-account-1',
+    });
+    const swapSelectedAccount = buildSelectedAccount({ networkId: 'evm--1' });
+
+    await expect(
+      prepareSwapSelectedAccountSyncedFromHome({
+        fixOthersWalletAccountNetworkPair,
+        homeSelectedAccount,
+        swapSelectedAccount,
+      }),
+    ).resolves.toEqual(
+      buildSwapSelectedAccountSyncedFromHome({
+        homeSelectedAccount,
+        swapSelectedAccount,
+      }),
+    );
+    expect(fixOthersWalletAccountNetworkPair).not.toHaveBeenCalled();
+  });
+
+  it('runs the pair fix on a complete others-wallet candidate and adopts its result', async () => {
+    const homeSelectedAccount = buildSelectedAccount({
+      walletId: 'imported',
+      indexedAccountId: undefined,
+      othersWalletAccountId: 'imported-account-1',
+      networkId: 'evm--1',
+      focusedWallet: 'imported',
+    });
+    const swapSelectedAccount = buildSelectedAccount({ networkId: 'btc--0' });
+    const mergedCandidate = buildSwapSelectedAccountSyncedFromHome({
+      homeSelectedAccount,
+      swapSelectedAccount,
+    });
+    const fixedSelectedAccount = {
+      ...mergedCandidate,
+      networkId: 'evm--56',
+    };
+    const fixOthersWalletAccountNetworkPair = jest.fn(
+      async () => fixedSelectedAccount,
+    );
+
+    await expect(
+      prepareSwapSelectedAccountSyncedFromHome({
+        fixOthersWalletAccountNetworkPair,
+        homeSelectedAccount,
+        swapSelectedAccount,
+      }),
+    ).resolves.toBe(fixedSelectedAccount);
+    expect(fixOthersWalletAccountNetworkPair).toHaveBeenCalledTimes(1);
+    expect(fixOthersWalletAccountNetworkPair).toHaveBeenCalledWith({
+      selectedAccount: mergedCandidate,
+      source: 'syncSwapSelectedAccountFromHome',
+    });
+  });
+
+  it.each([
+    {
+      caseName: 'the others-wallet account id is missing',
+      homeOverrides: {
+        walletId: 'imported',
+        indexedAccountId: undefined,
+        othersWalletAccountId: undefined,
+      },
+    },
+    {
+      caseName: 'the network id is missing',
+      homeOverrides: {
+        walletId: 'imported',
+        indexedAccountId: undefined,
+        othersWalletAccountId: 'imported-account-1',
+        networkId: undefined,
+      },
+    },
+    {
+      caseName: 'the wallet id is missing',
+      homeOverrides: {
+        walletId: undefined,
+        othersWalletAccountId: 'imported-account-1',
+      },
+    },
+    {
+      caseName: 'the candidate targets the all-network entry',
+      homeOverrides: {
+        walletId: 'imported',
+        indexedAccountId: undefined,
+        othersWalletAccountId: 'imported-account-1',
+        networkId: getNetworkIdsMap().onekeyall,
+      },
+    },
+  ])('skips the pair-fix RPC when $caseName', async ({ homeOverrides }) => {
+    const fixOthersWalletAccountNetworkPair = jest.fn(async () => {
+      throw new OneKeyLocalError('should not call fix RPC');
+    });
+    const homeSelectedAccount = buildSelectedAccount(homeOverrides);
+    const swapSelectedAccount = buildSelectedAccount({ networkId: 'btc--0' });
+
+    await expect(
+      prepareSwapSelectedAccountSyncedFromHome({
+        fixOthersWalletAccountNetworkPair,
+        homeSelectedAccount,
+        swapSelectedAccount,
+      }),
+    ).resolves.toEqual(
+      buildSwapSelectedAccountSyncedFromHome({
+        homeSelectedAccount,
+        swapSelectedAccount,
+      }),
+    );
+    expect(fixOthersWalletAccountNetworkPair).not.toHaveBeenCalled();
+  });
+
+  it('falls back to the unfixed merged candidate when the fix RPC rejects', async () => {
+    const fixOthersWalletAccountNetworkPair = jest.fn(async () => {
+      throw new OneKeyLocalError('background unreachable');
+    });
+    const homeSelectedAccount = buildSelectedAccount({
+      walletId: 'imported',
+      indexedAccountId: undefined,
+      othersWalletAccountId: 'imported-account-1',
+      networkId: 'evm--1',
+    });
+    const swapSelectedAccount = buildSelectedAccount({ networkId: 'btc--0' });
+
+    await expect(
+      prepareSwapSelectedAccountSyncedFromHome({
+        fixOthersWalletAccountNetworkPair,
+        homeSelectedAccount,
+        swapSelectedAccount,
+      }),
+    ).resolves.toEqual(
+      buildSwapSelectedAccountSyncedFromHome({
+        homeSelectedAccount,
+        swapSelectedAccount,
+      }),
+    );
+    expect(fixOthersWalletAccountNetworkPair).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('automatic default ownership boundaries', () => {
+  it.each([
+    ['evm--42161', 'onekeyall--0'],
+    ['onekeyall--0', 'evm--42161'],
+  ])(
+    'updates only an automatic pair from %s to %s',
+    (fromNetwork, homeNetwork) => {
+      const swapSelectedAccount = buildSelectedAccount({
+        networkId: fromNetwork,
+      });
+      const homeSelectedAccount = buildSelectedAccount({
+        networkId: homeNetwork,
+      });
+      const defaults = buildSwapDefaultSelectedTokensFromHomeAccount({
+        homeSelectedAccount: swapSelectedAccount,
+        swapType: ESwapTabSwitchType.SWAP,
+      });
+      expect(defaults?.context.defaultTokenSeed).toBeDefined();
+      for (const initialSelectedTokensSynced of [false, true]) {
+        for (const automatic of [false, true]) {
+          const cachedContext = defaults
+            ? {
+                ...defaults.context,
+                defaultTokenSeed: automatic
+                  ? defaults.context.defaultTokenSeed
+                  : undefined,
+              }
+            : undefined;
+          const args = {
+            cachedContext,
+            hasSelectedTokens: true,
+            swapSelectedAccount,
+            initialSelectedTokensSynced,
+            swapType: ESwapTabSwitchType.SWAP,
+          };
+          expect(
+            shouldSyncSwapSelectedAccountOnHomeAccountUpdate({
+              ...args,
+              eventPayload: {
+                sceneName: EAccountSelectorSceneName.home,
+                num: 0,
+                selectedAccount: homeSelectedAccount,
+              },
+            }),
+          ).toBe(automatic);
+          expect(
+            getSwapSelectedTokensHomeAccountSyncAction({
+              ...args,
+              homeSelectedAccount,
+            }).type,
+          ).toBe(automatic ? 'replace-with-defaults' : 'preserve');
+          expect(
+            getSwapSelectedTokensHomeAccountSyncAction({
+              ...args,
+              homeSelectedAccount,
+              preserveSelectedTokens: true,
+            }).type,
+          ).toBe('preserve');
+        }
+      }
+    },
+  );
+
+  it('resolves All configuration from Ethereum for both initialization and a delayed refresh', () => {
+    const homeSelectedAccount = buildSelectedAccount({
+      networkId: 'onekeyall--0',
+    });
+    const defaults = buildSwapDefaultSelectedTokensFromHomeAccount({
+      homeSelectedAccount,
+      defaultConfigStatus: 'failed',
+    });
+    expect(defaults?.context.networkId).toBe('onekeyall--0');
+    expect(
+      shouldWaitForSwapDefaultConfig({
+        networkId: 'onekeyall--0',
+        defaultConfigStatus: 'pending',
+      }),
+    ).toBe(true);
+    const configuredFrom: ISwapToken = {
+      networkId: 'evm--1',
+      contractAddress: '',
+      symbol: 'ETH',
+      decimals: 18,
+    };
+    const configuredTo: ISwapToken = {
+      networkId: 'evm--1',
+      contractAddress: '0xconfigured-usdt',
+      symbol: 'USDT',
+      decimals: 6,
+    };
+    const swapNetworks: ISwapNetwork[] = [
+      {
+        networkId: 'evm--1',
+        name: 'Ethereum',
+        symbol: 'ETH',
+        defaultSelectTokenDetail: { from: configuredFrom, to: configuredTo },
+      },
+    ];
+    const init = buildSwapDefaultSelectedTokensFromHomeAccount({
+      homeSelectedAccount,
+      swapNetworks,
+    });
+    expect(init?.context.networkId).toBe('onekeyall--0');
+    expect(init?.toToken).toBe(configuredTo);
+    const args = {
+      cachedContext: defaults?.context,
+      currentContext: defaults?.context,
+      fromToken: defaults?.fromToken,
+      toToken: defaults?.toToken,
+      selectedAccount: homeSelectedAccount,
+      swapNetworks,
+      preserveSelectedTokens: false,
+    };
+    expect(getSwapBackendDefaultTokensForSeed(args)?.toToken).toBe(
+      configuredTo,
+    );
+    expect(
+      getSwapBackendDefaultTokensForSeed({
+        ...args,
+        preserveSelectedTokens: true,
+      }),
+    ).toBeUndefined();
+    expect(
+      getSwapBackendDefaultTokensForSeed({ ...args, toToken: configuredTo }),
+    ).toBeUndefined();
+    for (const swapType of [
+      ESwapTabSwitchType.BRIDGE,
+      ESwapTabSwitchType.LIMIT,
+    ]) {
+      expect(
+        buildSwapDefaultSelectedTokensForNetwork({
+          networkId: 'onekeyall--0',
+          swapType,
+          swapNetworks,
+        }),
+      ).toEqual(
+        buildSwapDefaultSelectedTokensForNetwork({
+          networkId: 'onekeyall--0',
+          swapType,
+        }),
+      );
+    }
+  });
+
+  it.each([false, true])(
+    'follows Home network only for an automatic ordinary Swap (synced=%s)',
+    (initialSelectedTokensSynced) => {
+      const homeSelectedAccount = buildSelectedAccount({ networkId: 'btc--0' });
+      const swapSelectedAccount = buildSelectedAccount();
+      const defaults = buildSwapDefaultSelectedTokensFromHomeAccount({
+        homeSelectedAccount: swapSelectedAccount,
+        swapType: ESwapTabSwitchType.SWAP,
+      });
+      expect(defaults).toBeDefined();
+      for (const [swapType, automatic, expected] of [
+        [ESwapTabSwitchType.SWAP, true, true],
+        [ESwapTabSwitchType.SWAP, false, false],
+        [ESwapTabSwitchType.BRIDGE, true, false],
+        [ESwapTabSwitchType.LIMIT, true, false],
+      ] as const) {
+        const cachedContext = defaults && {
+          ...defaults.context,
+          defaultTokenSeed: automatic
+            ? defaults.context.defaultTokenSeed
+            : undefined,
+        };
+        const args = {
+          cachedContext,
+          hasSelectedTokens: true,
+          homeSelectedAccount,
+          swapSelectedAccount,
+          swapType,
+          initialSelectedTokensSynced,
+        };
+        expect(
+          shouldSyncSwapSelectedAccountOnHomeAccountUpdate({
+            ...args,
+            eventPayload: {
+              sceneName: EAccountSelectorSceneName.home,
+              num: 0,
+              selectedAccount: homeSelectedAccount,
+            },
+          }),
+        ).toBe(expected);
+        const action = getSwapSelectedTokensHomeAccountSyncAction({
+          ...args,
+          defaultConfigStatus: 'pending',
+        });
+        expect(action.type).toBe(expected ? 'clear' : 'preserve');
+        if (action.type === 'replace-with-defaults') {
+          expect(action.defaultTokens.fromToken?.symbol).toBe('BTC');
+          expect(action.defaultTokens.toToken?.symbol).toBe('ETH');
+        }
+        expect(
+          getSwapSelectedTokensHomeAccountSyncAction({
+            ...args,
+            preserveSelectedTokens: true,
+          }).type,
+        ).toBe('preserve');
+      }
+    },
+  );
+
+  it('does not consume an automatic Market candidate refresh as a new entry', () => {
+    const target: ISwapToken = {
+      networkId: 'sol--101',
+      contractAddress: 'TARGET',
+      symbol: 'TARGET',
+      decimals: 6,
+    };
+    const first: ISwapToken = {
+      ...target,
+      contractAddress: 'USDC',
+      symbol: 'USDC',
+    };
+    const params = {
+      swapSource: ESwapSource.MARKET,
+      marketSwapDirection: 'to' as const,
+      importToToken: target,
+      importFromToken: first,
+      importNetworkId: first.networkId,
+      swapTabSwitchType: ESwapTabSwitchType.SWAP,
+    };
+    const refreshed = {
+      ...params,
+      importFromToken: {
+        ...first,
+        networkId: 'evm--1',
+        contractAddress: 'USDT',
+        symbol: 'USDT',
+      },
+      importNetworkId: 'evm--1',
+      swapTabSwitchType: ESwapTabSwitchType.BRIDGE,
+    };
+    expect(buildSwapInitParamsConsumptionKey(refreshed)).toBe(
+      buildSwapInitParamsConsumptionKey(params),
+    );
+    expect(
+      buildSwapInitParamsConsumptionKey({ ...params, importToToken: first }),
+    ).not.toBe(buildSwapInitParamsConsumptionKey(params));
+    expect(
+      buildSwapInitParamsConsumptionKey({
+        ...params,
+        swapTabSwitchType: ESwapTabSwitchType.STOCK,
+      }),
+    ).not.toBe(buildSwapInitParamsConsumptionKey(params));
+    expect(
+      buildSwapInitParamsConsumptionKey({
+        ...refreshed,
+        marketSwapDirection: undefined,
+      }),
+    ).not.toBe(
+      buildSwapInitParamsConsumptionKey({
+        ...params,
+        marketSwapDirection: undefined,
       }),
     );
   });

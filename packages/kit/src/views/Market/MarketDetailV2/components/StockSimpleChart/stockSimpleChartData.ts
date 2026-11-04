@@ -4,13 +4,19 @@ import {
   fillMarketKLineGaps,
   getMarketApiKLineIntervalSeconds,
 } from '@onekeyhq/shared/src/utils/marketKLineUtils';
-import { getUSMarketTradingHours } from '@onekeyhq/shared/src/utils/tradingHoursUtils';
 import type { IMarketTokenChart } from '@onekeyhq/shared/types/market';
 import type { IMarketStockPublicChartPeriod } from '@onekeyhq/shared/types/marketV2';
 
 import { getMarketStockPreviousClose } from '../../utils/marketStockPreviousClose';
 
-export type IStockSimpleChartRange = '1H' | '1D' | '1W' | '1M' | '1Y' | 'All';
+export type IStockSimpleChartRange =
+  | '1H'
+  | '1D'
+  | '1W'
+  | '1M'
+  | '1Y'
+  | '5Y'
+  | 'All';
 
 export const TOKEN_SIMPLE_CHART_RANGES = [
   '1H',
@@ -21,10 +27,40 @@ export const TOKEN_SIMPLE_CHART_RANGES = [
   'All',
 ] as const satisfies readonly IStockSimpleChartRange[];
 
-export const STOCK_SHARE_SIMPLE_CHART_RANGES =
-  TOKEN_SIMPLE_CHART_RANGES satisfies readonly IStockSimpleChartRange[];
+// The share chart's longest period (`all`) serves five years, so it is
+// labelled for what it draws rather than as the full history.
+export const STOCK_SHARE_SIMPLE_CHART_RANGES = [
+  '1H',
+  '1D',
+  '1W',
+  '1M',
+  '1Y',
+  '5Y',
+] as const satisfies readonly IStockSimpleChartRange[];
+
+/**
+ * Keeps a range picked in one price mode valid in the other. Each mode ends on
+ * its own longest window (share 5Y, token All), so switching from one carries
+ * over to the other instead of leaving no button selected.
+ */
+export function resolveStockSimpleChartRangeForPriceMode({
+  priceMode,
+  range,
+}: {
+  priceMode: 'share' | 'token';
+  range: IStockSimpleChartRange;
+}): IStockSimpleChartRange {
+  if (priceMode === 'share' && range === 'All') {
+    return '5Y';
+  }
+  if (priceMode === 'token' && range === '5Y') {
+    return 'All';
+  }
+  return range;
+}
 
 const STOCK_SIMPLE_CHART_ONE_MONTH_SECONDS = 30 * 24 * 60 * 60;
+const STOCK_SIMPLE_CHART_ONE_YEAR_SECONDS = 365 * 24 * 60 * 60;
 
 // The previous session close frames the within-day ranges. On longer ranges
 // it is one of the many closes already on the line, so it stays off.
@@ -72,6 +108,54 @@ export function resolveStockSimpleChartPulseLastPoint({
   );
 }
 
+export type IStockSimpleChartRangeChange = {
+  priceMode: 'share' | 'token';
+  range: IStockSimpleChartRange;
+  baseline: number;
+  latest: number;
+};
+
+/**
+ * The move the drawn range has made, from its start to the line's live tail.
+ * A share's 1D starts at the previous session close, as broker quotes do: the
+ * feed opens in pre-market, so its first point is not "today's" reference.
+ * Every other range, and every tokenized price, starts at its first point.
+ */
+export function resolveStockSimpleChartRangeChange({
+  points,
+  previousClose,
+  priceMode,
+  range,
+}: {
+  points: IMarketTokenChart;
+  previousClose?: number;
+  priceMode: 'share' | 'token';
+  range: IStockSimpleChartRange;
+}): IStockSimpleChartRangeChange | undefined {
+  const latest = points.at(-1)?.[1];
+  const baseline =
+    priceMode === 'share' && range === '1D' && previousClose !== undefined
+      ? previousClose
+      : points[0]?.[1];
+  if (
+    latest === undefined ||
+    baseline === undefined ||
+    !Number.isFinite(latest) ||
+    !Number.isFinite(baseline) ||
+    baseline <= 0
+  ) {
+    return undefined;
+  }
+  return { priceMode, range, baseline, latest };
+}
+
+// Ties read as up, so a flat range keeps the chart's default green.
+export function isStockSimpleChartRangeUp(
+  change: IStockSimpleChartRangeChange,
+): boolean {
+  return change.latest >= change.baseline;
+}
+
 /**
  * One interval for every range, on purpose. `usePromiseResult` treats a changed
  * `pollingInterval` as a timer retune: it withholds the dependency-triggered run
@@ -94,6 +178,7 @@ const STOCK_SIMPLE_CHART_MIN_REFRESH_MS: Record<
   '1W': 300_000,
   '1M': 300_000,
   '1Y': 600_000,
+  '5Y': 600_000,
   All: 600_000,
 };
 
@@ -150,6 +235,24 @@ export function buildStockSimpleChartScopeKey({
   return [
     priceMode,
     range,
+    networkId,
+    tokenAddress,
+    stockId ?? '',
+    marketAssetId ?? '',
+    coinGeckoId ?? '',
+  ].join('|');
+}
+
+export function buildStockSimpleChartAssetKey({
+  coinGeckoId,
+  marketAssetId,
+  networkId,
+  priceMode,
+  stockId,
+  tokenAddress,
+}: Omit<Parameters<typeof buildStockSimpleChartScopeKey>[0], 'range'>): string {
+  return [
+    priceMode,
     networkId,
     tokenAddress,
     stockId ?? '',
@@ -226,7 +329,8 @@ const STOCK_SIMPLE_CHART_RANGE_SECONDS: Record<
   '1D': 24 * 60 * 60,
   '1W': 7 * 24 * 60 * 60,
   '1M': STOCK_SIMPLE_CHART_ONE_MONTH_SECONDS,
-  '1Y': 365 * 24 * 60 * 60,
+  '1Y': STOCK_SIMPLE_CHART_ONE_YEAR_SECONDS,
+  '5Y': 5 * STOCK_SIMPLE_CHART_ONE_YEAR_SECONDS,
   All: undefined,
 };
 
@@ -239,6 +343,7 @@ const STOCK_TOKEN_CHART_INTERVALS: Record<IStockSimpleChartRange, string> = {
   '1W': '1H',
   '1M': '4H',
   '1Y': '1D',
+  '5Y': '1W',
   All: '1W',
 };
 
@@ -299,101 +404,6 @@ function shouldDropLiveMergeTailPoint({
   );
 }
 
-const STOCK_SIMPLE_CHART_SESSION_CLIP_RANGES = new Set<IStockSimpleChartRange>([
-  '1H',
-  '1D',
-]);
-
-/**
- * Start of the visible 1H/1D window while a share session is in progress.
- *
- * The 1H/1D feeds keep last Friday's prints over the weekend so a closed
- * market still has a line. Once Monday pre-market opens, those prints are
- * still in the payload — the time axis then stretches Friday→now into one
- * long horizontal segment. Token series already arrive windowed; this clip
- * is share-only. Clock math cannot see holidays, so an explicit `isOpen
- * === false` keeps last session, including weekday clock gaps. Monday
- * 09:30 still clips while the backend reports the market open.
- */
-export function resolveStockSimpleChartActiveRangeStartSeconds({
-  isOpen,
-  nowSeconds,
-  priceMode,
-  range,
-}: {
-  isOpen?: boolean;
-  nowSeconds: number;
-  priceMode: 'share' | 'token';
-  range: IStockSimpleChartRange;
-}): number | undefined {
-  if (
-    priceMode !== 'share' ||
-    !STOCK_SIMPLE_CHART_SESSION_CLIP_RANGES.has(range) ||
-    !Number.isFinite(nowSeconds)
-  ) {
-    return undefined;
-  }
-  const rangeSeconds = STOCK_SIMPLE_CHART_RANGE_SECONDS[range];
-  if (!rangeSeconds) {
-    return undefined;
-  }
-  const nowMs = nowSeconds * 1000;
-  const hours = getUSMarketTradingHours(new Date(nowMs));
-  if (nowMs >= hours.weekendStartInstant && nowMs < hours.weekendEndInstant) {
-    return undefined;
-  }
-  if (isOpen === false) {
-    return undefined;
-  }
-  return nowSeconds - rangeSeconds;
-}
-
-export function resolveStockSimpleChartClipKey({
-  isOpen,
-  nowSeconds,
-  priceMode,
-  range,
-}: {
-  isOpen?: boolean;
-  nowSeconds: number;
-  priceMode: 'share' | 'token';
-  range: IStockSimpleChartRange;
-}): 'clip' | 'keep' {
-  return resolveStockSimpleChartActiveRangeStartSeconds({
-    isOpen,
-    nowSeconds,
-    priceMode,
-    range,
-  }) === undefined
-    ? 'keep'
-    : 'clip';
-}
-
-export function clipStockSimpleChartToActiveRange({
-  isOpen,
-  nowSeconds,
-  points,
-  priceMode,
-  range,
-}: {
-  isOpen?: boolean;
-  nowSeconds: number;
-  points: IMarketTokenChart;
-  priceMode: 'share' | 'token';
-  range: IStockSimpleChartRange;
-}): IMarketTokenChart {
-  const clipStart = resolveStockSimpleChartActiveRangeStartSeconds({
-    isOpen,
-    nowSeconds,
-    priceMode,
-    range,
-  });
-  if (clipStart === undefined) {
-    return points;
-  }
-  return points.filter(([timestamp]) => timestamp >= clipStart);
-}
-
 /**
  * Pins the line's last displayed price to the title quote without rewriting a
  * closed bucket's cutoff. K-line `t` is the bucket start, so a still-open (or
@@ -448,64 +458,26 @@ export function mergeStockSimpleChartLivePrice({
 }
 
 /**
- * Display series for the simple chart: drop last-session prints that would
- * stretch the time axis across a weekend/overnight close, then pin the live
- * quote. A clock gap can empty the window (Sunday 20:00 ET, holiday
- * crosses) even while the backend is closed — only collapse to
- * `[now, live]` when the market is open. Otherwise keep the source series
- * and still pin the title quote so the last label does not jump.
+ * The backend owns the share chart's period and last-session fallback. Do not
+ * clip it against the client clock: overnight isOpen can be true without new
+ * share prices, so a second time filter would discard valid history.
  */
 export function resolveStockSimpleChartDisplayPoints({
-  clipKey,
   intervalSeconds,
-  isOpen,
   livePrice,
   nowSeconds,
   points,
-  priceMode,
-  range,
 }: {
-  clipKey?: 'clip' | 'keep';
   intervalSeconds?: number;
-  isOpen?: boolean;
   livePrice?: string | number;
   nowSeconds: number;
   points: IMarketTokenChart;
-  priceMode: 'share' | 'token';
-  range: IStockSimpleChartRange;
 }): IMarketTokenChart {
-  const clipped =
-    clipKey === 'keep'
-      ? points
-      : clipStockSimpleChartToActiveRange({
-          isOpen,
-          nowSeconds,
-          points,
-          priceMode,
-          range,
-        });
-  if (clipped.length === 0 && points.length > 0) {
-    const price = Number(livePrice);
-    if (
-      isOpen === true &&
-      Number.isFinite(price) &&
-      price > 0 &&
-      Number.isFinite(nowSeconds)
-    ) {
-      return [[nowSeconds, price]];
-    }
-    return mergeStockSimpleChartLivePrice({
-      intervalSeconds,
-      livePrice,
-      nowSeconds,
-      points,
-    });
-  }
   return mergeStockSimpleChartLivePrice({
     intervalSeconds,
     livePrice,
     nowSeconds,
-    points: clipped,
+    points,
   });
 }
 
@@ -519,6 +491,7 @@ const COINGECKO_CHART_DAYS: Record<IStockSimpleChartRange, string> = {
   '1W': '7',
   '1M': '30',
   '1Y': '365',
+  '5Y': '1825',
   All: 'max',
 };
 
@@ -531,6 +504,7 @@ const STOCK_SHARE_CHART_PERIODS: Record<
   '1W': '1w',
   '1M': '1m',
   '1Y': '1y',
+  '5Y': 'all',
   All: 'all',
 };
 

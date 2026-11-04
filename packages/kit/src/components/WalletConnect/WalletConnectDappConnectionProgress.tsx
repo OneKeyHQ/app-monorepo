@@ -47,7 +47,6 @@ export function WalletConnectDappConnectionProgress({
     <WalletConnectConnectionProgressView
       progress={
         result?.attemptId &&
-        result.attempt > 0 &&
         !result.snapshotFailed &&
         result.connected === false &&
         !result.connectedDuringAttempt &&

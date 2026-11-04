@@ -1,17 +1,5 @@
-import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
-import { getSwapConfiguredDefaultToToken } from '@onekeyhq/shared/src/utils/swapEntryUtils';
-import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
-import {
-  getSwapBridgeDefaultToToken,
-  swapDefaultSetTokens,
-} from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 import type { IAccountToken } from '@onekeyhq/shared/types/token';
-
-type ITokenActionSwapSupport = {
-  isSupportCrossChain?: boolean;
-  isSupportSwap?: boolean;
-};
 
 export function buildTokenActionSwapFromToken({
   token,
@@ -34,40 +22,6 @@ export function buildTokenActionSwapFromToken({
     networkLogoURI,
     balanceMultiplier: token.balanceMultiplier,
   };
-}
-
-export function getTokenActionSameNetworkSwapToToken({
-  fromToken,
-}: {
-  fromToken: ISwapToken;
-}) {
-  const defaultTokens = swapDefaultSetTokens[fromToken.networkId];
-  if (!defaultTokens) {
-    return undefined;
-  }
-  if (
-    fromToken.isNative &&
-    defaultTokens.toToken &&
-    !defaultTokens.toToken.isNative &&
-    !equalTokenNoCaseSensitive({
-      token1: fromToken,
-      token2: defaultTokens.toToken,
-    })
-  ) {
-    return defaultTokens.toToken;
-  }
-  if (
-    !fromToken.isNative &&
-    defaultTokens.fromToken &&
-    defaultTokens.fromToken.isNative &&
-    !equalTokenNoCaseSensitive({
-      token1: fromToken,
-      token2: defaultTokens.fromToken,
-    })
-  ) {
-    return defaultTokens.fromToken;
-  }
-  return undefined;
 }
 
 export function getResolvedTokenActionToken({
@@ -121,35 +75,4 @@ export function isResolvedTokenActionReady({
   return (
     !resolvedToken.accountId || resolvedToken.accountId === resolvedAccountId
   );
-}
-
-export function getTokenActionSwapToToken({
-  fromToken,
-  swapSupport,
-}: {
-  fromToken: ISwapToken;
-  swapSupport?: ITokenActionSwapSupport;
-}) {
-  const configuredDefaultToToken = getSwapConfiguredDefaultToToken(fromToken);
-  if (configuredDefaultToToken) {
-    return configuredDefaultToToken;
-  }
-
-  const isBtcNativeToken =
-    fromToken.networkId === getNetworkIdsMap().btc &&
-    fromToken.isNative &&
-    fromToken.symbol.toUpperCase() === 'BTC';
-
-  if (
-    isBtcNativeToken ||
-    (!swapSupport?.isSupportSwap && swapSupport?.isSupportCrossChain)
-  ) {
-    return getSwapBridgeDefaultToToken(fromToken);
-  }
-
-  if (swapSupport?.isSupportSwap) {
-    return getTokenActionSameNetworkSwapToToken({ fromToken });
-  }
-
-  return undefined;
 }

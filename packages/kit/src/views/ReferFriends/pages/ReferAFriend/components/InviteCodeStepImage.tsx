@@ -1,84 +1,55 @@
-import { useEffect, useState } from 'react';
+import { memo, useEffect } from 'react';
 
-import {
-  LottieView,
-  Stack,
-  useMedia,
-  usePageWidth,
-} from '@onekeyhq/components';
-import type { ILottieViewProps } from '@onekeyhq/components';
+import { LottieView, Stack, usePageWidth } from '@onekeyhq/components';
 import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
+import {
+  getReferLottieSource,
+  useReferLottieSource,
+} from '@onekeyhq/kit/src/views/ReferFriends/hooks/useReferLottieSource';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-const DESKTOP_ASPECT_RATIO = 284 / 640;
-const DESKTOP_WIDTH = 540;
+// Matches the Lottie composition (786x446) so the box has no empty bands.
+const LOTTIE_ASPECT_RATIO = 446 / 786;
+// Same max width as the intro text and actions, so their edges line up.
+const MAX_WIDTH = 480;
 
-function resolveLottieModule(module: unknown): ILottieViewProps['source'] {
-  const lottieModule = module as { default?: ILottieViewProps['source'] };
-  return lottieModule.default ?? module;
+// The illustration's rendered size at a page width, shared with the invite
+// page's still of it and the skeleton that holds its place.
+export function getInviteCodeStepImageWidth(pageWidth: number) {
+  return Math.min(pageWidth, MAX_WIDTH);
 }
 
-async function loadInviteCodeLottieSource({
-  step,
-  themeVariant,
-}: {
-  step: 1 | 2;
-  themeVariant: 'light' | 'dark';
-}) {
-  if (step === 1) {
-    return themeVariant === 'dark'
-      ? resolveLottieModule(
-          await import('@onekeyhq/kit/assets/animations/_mov_referHardware_dark.json'),
-        )
-      : resolveLottieModule(
-          await import('@onekeyhq/kit/assets/animations/_mov_referHardware.json'),
-        );
-  }
-  return themeVariant === 'dark'
-    ? resolveLottieModule(
-        await import('@onekeyhq/kit/assets/animations/_mov_refer_dark.json'),
-      )
-    : resolveLottieModule(
-        await import('@onekeyhq/kit/assets/animations/_mov_refer.json'),
-      );
+export function getInviteCodeStepImageHeight(pageWidth: number) {
+  return getInviteCodeStepImageWidth(pageWidth) * LOTTIE_ASPECT_RATIO;
 }
 
 interface IInviteCodeStepImageProps {
   step: 1 | 2;
 }
 
-export function InviteCodeStepImage({ step }: IInviteCodeStepImageProps) {
-  const { gtSm } = useMedia();
+// Memoized: re-rendering the native LottieView re-serializes its ~160 KB
+// source, and every prop here is stable.
+export const InviteCodeStepImage = memo(function InviteCodeStepImage({
+  step,
+}: IInviteCodeStepImageProps) {
   const themeVariant = useThemeVariant();
   const pageWidth = usePageWidth();
-  const [lottieSource, setLottieSource] = useState<
-    ILottieViewProps['source'] | null
-  >(null);
-  const isDesktop = gtSm || platformEnv.isExtensionUiPopup;
+  const lottieSource = useReferLottieSource(step);
   const lottieThemeVariant = themeVariant === 'dark' ? 'dark' : 'light';
-  const width = gtSm ? DESKTOP_WIDTH : pageWidth;
-  const height = isDesktop ? width * DESKTOP_ASPECT_RATIO : pageWidth;
-  const shouldLoop = step === 2;
+  const width = getInviteCodeStepImageWidth(pageWidth);
+  const height = getInviteCodeStepImageHeight(pageWidth);
   const renderMode =
     platformEnv.isNativeIOS && step === 2 && themeVariant !== 'dark'
       ? 'HARDWARE'
       : 'AUTOMATIC';
 
+  // The intro flips between both steps: warm the other one while this one
+  // is on screen, so "Next" has its illustration ready.
   useEffect(() => {
-    let cancelled = false;
-    setLottieSource(null);
-    void loadInviteCodeLottieSource({
-      step,
+    void getReferLottieSource({
+      step: step === 1 ? 2 : 1,
       themeVariant: lottieThemeVariant,
-    }).then((source) => {
-      if (cancelled) {
-        return;
-      }
-      setLottieSource(source);
     });
-    return () => {
-      cancelled = true;
-    };
   }, [lottieThemeVariant, step]);
 
   return (
@@ -89,7 +60,7 @@ export function InviteCodeStepImage({ step }: IInviteCodeStepImageProps) {
           width={width}
           height={height}
           autoPlay
-          loop={shouldLoop}
+          loop={step === 2}
           resizeMode="contain"
           renderMode={renderMode}
           backgroundColor="$bgApp"
@@ -97,4 +68,4 @@ export function InviteCodeStepImage({ step }: IInviteCodeStepImageProps) {
       ) : null}
     </Stack>
   );
-}
+});

@@ -164,6 +164,7 @@ async function showOneKeyIdOAuthIdentityAlreadyBoundSwitchDialog({
         error,
       )}`,
       error,
+      { trigger: 'interactive' },
     );
     // keep the localized "Unknown" fallback from getDisplayEmailOrUnknown
   }
@@ -345,6 +346,7 @@ function OneKeyIdLegacyOAuthBindActions({
                 error,
               )}`,
               error,
+              { trigger: 'passive' },
             );
             return;
           }
@@ -390,6 +392,7 @@ function OneKeyIdLegacyOAuthBindActions({
                 rollbackError,
               )}`,
               rollbackError,
+              { trigger: 'interactive' },
             );
           }
         }
@@ -564,6 +567,7 @@ function OneKeyIdLegacyOAuthBindActions({
             error,
           )}`,
           error,
+          { trigger: 'interactive' },
         );
       } finally {
         bindingProviderRef.current = null;
@@ -855,6 +859,7 @@ export function OneKeyIdLegacyOAuthBindPrompt({
           error,
         )}`,
         error,
+        { trigger: 'interactive' },
       );
       Toast.error({
         title: 'Failed to reset OneKey ID bind reminder',
@@ -900,6 +905,7 @@ export function OneKeyIdLegacyOAuthBindPrompt({
             error,
           )}`,
           error,
+          { trigger: 'passive' },
         );
         return;
       }
@@ -911,6 +917,7 @@ export function OneKeyIdLegacyOAuthBindPrompt({
             error,
           )}`,
           error,
+          { trigger: 'passive' },
         );
       }
     };
@@ -1024,6 +1031,7 @@ async function prepareOneKeyIdOAuthBindDialog(
         error,
       )}`,
       error,
+      { trigger: 'interactive' },
     );
     return { shouldShow: false };
   }
@@ -1046,6 +1054,7 @@ async function releaseOneKeyIdOAuthBindPromptClaim(
         error,
       )}`,
       error,
+      { trigger: 'passive' },
     );
   }
 }
@@ -1256,6 +1265,7 @@ export async function showOneKeyIdLegacyOAuthBindDialog(
               closeError,
             )}`,
             closeError,
+            { trigger: 'passive' },
           );
           // Preserve the claim-completion error; the lease will still expire.
         }
@@ -1270,6 +1280,7 @@ export async function showOneKeyIdLegacyOAuthBindDialog(
               error,
             )}`,
             error,
+            { trigger: 'passive' },
           );
           // The claim remains unconsumed and will expire if release also fails.
         }

@@ -210,6 +210,7 @@ function BtcCoinsPage() {
       <Stack pr="$5">
         <AddressTypeSelector
           placement="bottom-end"
+          whenCollapsed="hide"
           walletId={effectiveWalletId ?? ''}
           networkId={networkId}
           indexedAccountId={headerRightIndexedAccountId}

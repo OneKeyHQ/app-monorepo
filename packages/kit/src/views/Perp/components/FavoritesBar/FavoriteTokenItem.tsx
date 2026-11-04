@@ -1,4 +1,14 @@
-import { memo, useMemo } from 'react';
+import {
+  memo,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
+
+import { useAtomValue } from 'jotai';
+import { selectAtom } from 'jotai/utils';
 
 import {
   NumberSizeableText,
@@ -11,9 +21,11 @@ import { useActiveTradeInstrumentAtom } from '@onekeyhq/kit/src/states/jotai/con
 import { usePerpsCtxByCoin } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/atoms';
 import {
   type IPerpFavoritesDisplayMode,
+  type IPerpsActiveAssetCtxAtom,
+  type ISpotActiveAssetCtxAtom,
+  perpsActiveAssetCtxAtom,
+  spotActiveAssetCtxAtom,
   usePerpsActiveAssetAtom,
-  usePerpsActiveAssetCtxAtom,
-  useSpotActiveAssetCtxAtom,
   useSpotAssetCtxsMapAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -93,6 +105,8 @@ const CtxPriceDisplay = memo(
     displayMode?: IPerpFavoritesDisplayMode;
     mode: 'perp' | 'spot';
   }) => {
+    const [activeInstrument] = useActiveTradeInstrumentAtom();
+    const [activeAsset] = usePerpsActiveAssetAtom();
     const ctx = usePerpsCtxByCoin(dexIndex, assetId);
     const [spotPriceMap] = useSpotAssetCtxsMapAtom();
     const formattedCtx = useMemo(() => perpsUtils.formatAssetCtx(ctx), [ctx]);
@@ -100,7 +114,38 @@ const CtxPriceDisplay = memo(
       () => formatSpotPriceEntry(spotPriceMap[coinName]),
       [coinName, spotPriceMap],
     );
-    const displayCtx = mode === 'spot' ? formattedSpotCtx : formattedCtx;
+    const isActive =
+      mode === 'spot'
+        ? activeInstrument.mode === 'spot' && activeInstrument.coin === coinName
+        : activeAsset?.coin === coinName;
+    const activeCtxAtom = useMemo(() => {
+      const selectCtx = (
+        value: IPerpsActiveAssetCtxAtom | ISpotActiveAssetCtxAtom,
+      ) => (isActive && value?.coin === coinName ? value.ctx : undefined);
+      return mode === 'spot'
+        ? selectAtom(spotActiveAssetCtxAtom.atom(), selectCtx)
+        : selectAtom(perpsActiveAssetCtxAtom.atom(), selectCtx);
+    }, [coinName, isActive, mode]);
+    const activeCtx = useAtomValue(activeCtxAtom);
+    const useActive = !!activeCtx?.markPrice;
+    const marketCtx = mode === 'spot' ? formattedSpotCtx : formattedCtx;
+    const candidate = useActive ? activeCtx : marketCtx;
+    const [settledActive, setSettledActive] = useState(useActive);
+    const lastDisplayed = useRef(candidate);
+    const displayCtx =
+      settledActive === useActive ? candidate : lastDisplayed.current;
+
+    useLayoutEffect(() => {
+      lastDisplayed.current = displayCtx;
+    }, [displayCtx]);
+
+    useEffect(() => {
+      if (settledActive === useActive) return;
+      // Hold the previous quote only while changing sources. Live ticks do not
+      // restart this window and resume immediately once the source settles.
+      const timer = setTimeout(() => setSettledActive(useActive), 250);
+      return () => clearTimeout(timer);
+    }, [settledActive, useActive]);
 
     const priceDisplay = displayCtx?.markPrice
       ? formatPriceToSignificantDigits(displayCtx.markPrice)
@@ -144,77 +189,6 @@ const CtxPriceDisplay = memo(
 );
 CtxPriceDisplay.displayName = 'CtxPriceDisplay';
 
-const ActiveAssetPriceDisplay = memo(
-  ({
-    coinName,
-    dexIndex,
-    assetId,
-    displayMode = 'price',
-    mode,
-  }: {
-    coinName: string;
-    dexIndex: number;
-    assetId: number;
-    displayMode?: IPerpFavoritesDisplayMode;
-    mode: 'perp' | 'spot';
-  }) => {
-    const [assetCtx] = usePerpsActiveAssetCtxAtom();
-    const [spotActiveAssetCtx] = useSpotActiveAssetCtxAtom();
-    const fallbackCtx = usePerpsCtxByCoin(dexIndex, assetId);
-    const [spotPriceMap] = useSpotAssetCtxsMapAtom();
-    const formattedFallback = useMemo(
-      () => perpsUtils.formatAssetCtx(fallbackCtx),
-      [fallbackCtx],
-    );
-    const formattedSpotFallback = useMemo(
-      () => formatSpotPriceEntry(spotPriceMap[coinName]),
-      [coinName, spotPriceMap],
-    );
-
-    const activeCtx = assetCtx?.ctx;
-    const spotCtx = spotActiveAssetCtx?.ctx;
-    let ctx: { markPrice?: string; change24hPercent?: number } =
-      activeCtx?.markPrice ? activeCtx : formattedFallback;
-    if (mode === 'spot') {
-      ctx = spotCtx?.markPrice ? spotCtx : formattedSpotFallback;
-    }
-
-    const priceDisplay = ctx?.markPrice
-      ? formatPriceToSignificantDigits(ctx.markPrice)
-      : '-';
-    const change24hPercent = ctx?.change24hPercent ?? 0;
-    const color = change24hPercent >= 0 ? '$textSuccess' : '$textCritical';
-
-    if (displayMode === 'percent') {
-      return (
-        <NumberSizeableText
-          size="$bodySmMedium"
-          color={color}
-          style={TABULAR_NUMS_STYLE}
-          formatter="priceChange"
-          formatterOptions={{ showPlusMinusSigns: true }}
-        >
-          {change24hPercent.toString()}
-        </NumberSizeableText>
-      );
-    }
-
-    const priceMinWidth = getStablePriceMinWidth(priceDisplay);
-    return (
-      <SizableText
-        size="$bodySmMedium"
-        color={color}
-        style={TABULAR_NUMS_STYLE}
-        minWidth={priceMinWidth}
-        textAlign="right"
-      >
-        {priceDisplay}
-      </SizableText>
-    );
-  },
-);
-ActiveAssetPriceDisplay.displayName = 'ActiveAssetPriceDisplay';
-
 // Shared price display: change% (colored) + price (subdued)
 export const PriceChangeDisplay = memo(
   ({ change, markPrice }: { change: number; markPrice?: string }) => {
@@ -256,14 +230,6 @@ function FavoriteTokenItem({
   onPress,
   displayMode = 'price',
 }: IFavoriteTokenItemProps) {
-  const [activeTradeInstrument] = useActiveTradeInstrumentAtom();
-  const [activeAsset] = usePerpsActiveAssetAtom();
-  const isActiveToken =
-    mode === 'spot'
-      ? activeTradeInstrument.mode === 'spot' &&
-        activeTradeInstrument.coin === coinName
-      : activeAsset?.coin === coinName;
-
   return (
     <XStack
       onPress={onPress}
@@ -289,23 +255,14 @@ function FavoriteTokenItem({
       <SizableText size="$bodySmMedium" color="$text">
         {displayName}
       </SizableText>
-      {isActiveToken ? (
-        <ActiveAssetPriceDisplay
-          coinName={coinName}
-          dexIndex={dexIndex}
-          assetId={assetId}
-          displayMode={displayMode}
-          mode={mode}
-        />
-      ) : (
-        <CtxPriceDisplay
-          coinName={coinName}
-          dexIndex={dexIndex}
-          assetId={assetId}
-          displayMode={displayMode}
-          mode={mode}
-        />
-      )}
+      <CtxPriceDisplay
+        key={`${mode}:${coinName}:${dexIndex}:${assetId}`}
+        coinName={coinName}
+        dexIndex={dexIndex}
+        assetId={assetId}
+        displayMode={displayMode}
+        mode={mode}
+      />
     </XStack>
   );
 }

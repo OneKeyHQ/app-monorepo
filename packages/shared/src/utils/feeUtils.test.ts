@@ -1,6 +1,13 @@
-import { calculateFeeForSend, calculateTotalFeeNative } from './feeUtils';
+import BigNumber from 'bignumber.js';
+
+import {
+  calculateFeeForSend,
+  calculateTotalFeeNative,
+  calculateTxExtraFee,
+} from './feeUtils';
 
 import type { IFeeInfoUnit } from '../../types/fee';
+import type { IDecodedTx } from '../../types/tx';
 
 /*
 yarn jest packages/shared/src/utils/feeUtils.test.ts
@@ -19,6 +26,46 @@ const ethereumCommon: IFeeInfoUnit['common'] = {
   nativeDecimals: 18,
   nativeSymbol: 'ETH',
 };
+
+describe('calculateTxExtraFee', () => {
+  const decodedTx = {
+    extraInfo: { createTokenAccountFee: { amount: '0.00203928' } },
+  } as IDecodedTx;
+
+  it.each([
+    ['0.00148844', '0.00148844'],
+    ['0', '0'],
+    [undefined, '0.00203928'],
+  ])(
+    'prefers calculated rent %s without double counting',
+    (solanaRent, expected) => {
+      expect(
+        new BigNumber(calculateTxExtraFee({ decodedTx, solanaRent })).toFixed(),
+      ).toBe(expected);
+    },
+  );
+
+  it('preserves other transactions when aggregating mixed rent sources', () => {
+    const rentAmounts = ['0.00148844', undefined, '0', '0.00148844'];
+    const total = rentAmounts.reduce(
+      (sum, solanaRent) =>
+        sum.plus(calculateTxExtraFee({ decodedTx, solanaRent })),
+      new BigNumber(0),
+    );
+
+    expect(total.toFixed()).toBe('0.00501616');
+  });
+
+  it('keeps transactions without extra fees at zero', () => {
+    expect(
+      new BigNumber(
+        calculateTxExtraFee({
+          decodedTx: { extraInfo: null } as IDecodedTx,
+        }),
+      ).toFixed(),
+    ).toBe('0');
+  });
+});
 
 describe('calculateTotalFeeNative', () => {
   it('rounds fractional base units up to what the chain charges (OK-61701)', () => {

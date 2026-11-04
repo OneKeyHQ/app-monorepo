@@ -12,5 +12,4 @@
 "NSCameraUsageDescription" = "Используйте камеру для сканирования QR-кода.";
 "NSFaceIDUsageDescription" = "Используйте Face ID для аутентификации и разблокировки вашего кошелька.";
 "NSPhotoLibraryAddUsageDescription" = "Используйте фотогалерею для сохранения изображений.";
-"NSPhotoLibraryUsageDescription" = "Используйте фотогалерею для чтения изображений QR-кодов.";
 "NSLocalNetworkUsageDescription" = "Это приложение сможет обнаруживать и подключаться к устройствам в используемых вами сетях.";

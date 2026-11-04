@@ -7,6 +7,7 @@ import { EAppSyncStorageKeys } from '../storage/syncStorageKeys';
 import { EAppUpdateStatus, EUpdateFileType, EUpdateStrategy } from './type';
 
 import type { IAppUpdateInfo, IResolvedUpdateDecision } from './type';
+import type { IDownloadProgressScope } from '../modules3rdParty/auto-update/type';
 
 export * from './utils';
 export * from './type';
@@ -198,6 +199,16 @@ export const getUpdateFileType: (
   }
   return EUpdateFileType.appShell;
 };
+
+export function getAppUpdateProgressScope(
+  info: Pick<IAppUpdateInfo, 'latestVersion' | 'jsBundleVersion'>,
+): IDownloadProgressScope | undefined {
+  if (getUpdateFileType(info) !== EUpdateFileType.jsBundle) return undefined;
+  return {
+    latestVersion: info.latestVersion,
+    bundleVersion: info.jsBundleVersion,
+  };
+}
 
 export const gtVersion = (appVersion?: string, bundleVersion?: string) => {
   const decision = resolveUpdateDecision({

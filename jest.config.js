@@ -41,6 +41,11 @@ module.exports = async () => {
     // buffer type incorrect if use [jsdom] https://github.com/facebook/jest/issues/4422
     // jest-environment-node, node, jsdom
     testEnvironment: 'jest-environment-node',
+    // jest-expo 58's web preset defaults to the `browser` export condition,
+    // which resolves ESM-only browser builds under this node environment.
+    testEnvironmentOptions: {
+      customExportConditions: ['node', 'node-addons'],
+    },
     verbose: true,
     moduleFileExtensions: [
       ...defaults.moduleFileExtensions,
@@ -53,6 +58,9 @@ module.exports = async () => {
     // 'extensionsToTreatAsEsm': ['.wasm', '.ts'],
     moduleNameMapper: {
       '^react-native$': 'react-native-web',
+      // Keep the TypeScript declaration alias from replacing executable code in Jest.
+      '^react\\-native\\-webview/src/WebViewShared$':
+        require.resolve('react-native-webview/src/WebViewShared.tsx'),
       // '^(\\.{1,2}/.*/cardano_message_signing_bg\\.wasm\\.js)$': '$1',
       '\\.(jpg|jpeg|png|gif|eot|otf|webp|svg|ttf|woff|woff2|mp4|webm|wav|mp3|m4a|aac|oga)$':
         '<rootDir>/__mocks__/fileMock.js',
@@ -78,7 +86,7 @@ module.exports = async () => {
     },
     // TODO unify with transpile modules
     transformIgnorePatterns: [
-      'node_modules/(?!(react-native-reanimated|react-native-aes-crypto|@react-navigation/(core|routers)|@keystonehq/bc-ur-registry-eth|@mysten/(sui|bcs|utils)|@noble/hashes|@scure/(base|bip32|bip39)|timeout-signal|p-limit|yocto-queue|react-native-web/dist/(exports|modules))/)',
+      'node_modules/(?!(@onekeyfe/zcash-keys|react-native-reanimated|react-native-aes-crypto|@onekeyfe/react-native-native-overlay|@onekeyfe/react-native-native-list|@react-navigation/(core|routers)|@keystonehq/bc-ur-registry-eth|@mysten/(sui|bcs|utils)|@noble/hashes|@scure/(base|bip32|bip39)|timeout-signal|p-limit|p-timeout|p-retry|is-network-error|yocto-queue|react-native-webview|react-native-web/dist/(exports|modules))/)',
     ],
     transform: {
       'node_modules/(@mysten/(sui|bcs|utils)|@noble/hashes|@scure/(base|bip32|bip39))/.+\\.m?js$':
@@ -134,6 +142,11 @@ module.exports = async () => {
     ],
     modulePathIgnorePatterns: [
       '<rootDir>/.claude/worktrees/',
+      // Disposable repo clones created by the render-baseline e2e harness
+      // (apps/web/e2e/render-baseline-compare.e2e.js). Each clone carries a
+      // full packages/ tree, which collides with the real one in the Haste
+      // module map and breaks every react-native-preset suite.
+      '<rootDir>/.tmp/',
       '<rootDir>/.worktree/',
       '<rootDir>/.worktrees/',
       '<rootDir>/ignore/',
@@ -144,7 +157,10 @@ module.exports = async () => {
       // CLI integration/smoke tests require a built binary and must not run in unit-test CI.
       '\\.integration\\.test\\.ts$',
       '-smoke\\.test\\.ts$',
+      // Browser benchmark self-tests use node:test through an explicit script.
+      '<rootDir>/apps/web/e2e/.*\\.test\\.js$',
       '<rootDir>/\\.claude/worktrees/',
+      '<rootDir>/\\.tmp/',
       '<rootDir>/\\.worktree/',
       '<rootDir>/\\.worktrees/',
       '<rootDir>/ignore/',
@@ -161,7 +177,6 @@ module.exports = async () => {
       'packages/core/src/chains/near',
       'packages/core/src/chains/nexa',
       'packages/core/src/chains/stc',
-      'packages/core/src/chains/xmr',
       'packages/core/src/chains/xrp',
     ],
   };

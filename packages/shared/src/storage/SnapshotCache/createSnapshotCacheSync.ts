@@ -47,6 +47,14 @@ export type ISnapshotCacheSync<T> = {
   setMany: (entries: readonly (readonly [string, T])[]) => void;
   remove: (key: string) => void;
   /**
+   * Marks an existing record as most recently used without rewriting its
+   * payload: only the manifest timestamp moves, so the count bound evicts the
+   * least recently USED record rather than the least recently written one.
+   * A key the namespace does not hold is ignored. The record's own age (the
+   * `maxAgeMs` gate in `get`) is unchanged.
+   */
+  touch: (key: string) => void;
+  /**
    * The keys this namespace holds, from the manifest alone. Listing them
    * loads no payloads, which is the property the absent enumeration API was
    * protecting — a caller that needs to drop a subset still has to name it.
@@ -132,8 +140,9 @@ export function createSnapshotCacheSync<T>({
       if (!isValidSnapshotCacheKey(key)) {
         return;
       }
+      const timestamp = now();
+      let entries: Array<{ key: string; value: string }> | undefined;
       const write = (attempt: number) => {
-        const timestamp = now();
         const { raw, manifest } = readManifest();
         const plan = planSnapshotCacheWrite({
           manifest,
@@ -143,15 +152,17 @@ export function createSnapshotCacheSync<T>({
           now: timestamp,
         });
         try {
+          // A retry only needs a fresh manifest; keep this write's snapshot.
+          entries ??= [
+            {
+              key: dataKey(key),
+              value: JSON.stringify({ d: data, t: timestamp }),
+            },
+          ];
           commitManifest({
             raw,
             manifest: plan.manifest,
-            entries: [
-              {
-                key: dataKey(key),
-                value: JSON.stringify({ d: data, t: timestamp }),
-              },
-            ],
+            entries,
             removeKeys: plan.removeKeys,
           });
         } catch {
@@ -181,8 +192,9 @@ export function createSnapshotCacheSync<T>({
       if (valid.length === 0) {
         return;
       }
+      const timestamp = now();
+      let serializedEntries: Array<{ key: string; value: string }> | undefined;
       const write = (attempt: number) => {
-        const timestamp = now();
         const { raw, manifest } = readManifest();
         const plan = planSnapshotCacheWriteMany({
           manifest,
@@ -191,13 +203,14 @@ export function createSnapshotCacheSync<T>({
           now: timestamp,
         });
         try {
+          serializedEntries ??= valid.map(([key, data]) => ({
+            key: dataKey(key),
+            value: JSON.stringify({ d: data, t: timestamp }),
+          }));
           commitManifest({
             raw,
             manifest: plan.manifest,
-            entries: valid.map(([key, data]) => ({
-              key: dataKey(key),
-              value: JSON.stringify({ d: data, t: timestamp }),
-            })),
+            entries: serializedEntries,
             removeKeys: plan.removeKeys,
           });
         } catch {
@@ -210,6 +223,43 @@ export function createSnapshotCacheSync<T>({
         write(0);
       } catch {
         // Persisting a snapshot must never fail the caller.
+      }
+    },
+
+    touch(key) {
+      if (!isValidSnapshotCacheKey(key)) {
+        return;
+      }
+      const write = (attempt: number) => {
+        const timestamp = now();
+        const { raw, manifest } = readManifest();
+        if (manifest.e[key] === undefined) {
+          return;
+        }
+        const plan = planSnapshotCacheWrite({
+          manifest,
+          key,
+          updatedAt: timestamp,
+          config: retention,
+          now: timestamp,
+        });
+        try {
+          commitManifest({
+            raw,
+            manifest: plan.manifest,
+            entries: [],
+            removeKeys: plan.removeKeys,
+          });
+        } catch {
+          if (attempt < MAX_COMMIT_ATTEMPTS - 1) {
+            write(attempt + 1);
+          }
+        }
+      };
+      try {
+        write(0);
+      } catch {
+        // Recency is a hint; failing to record it must never fail the caller.
       }
     },
 
