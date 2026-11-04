@@ -38,10 +38,29 @@ jobs:
         with:
           persist-credentials: false
 
+      # Pin the release archive digest here instead of trusting an installer
+      # or checksum file fetched at run time.
+      - name: Install pinned Trivy
+        env:
+          TRIVY_VERSION: 0.71.0
+          TRIVY_SHA256: 30a3d22b23f88c233f1658f562fb477cae3b3e8b4761109d515b7698daf85814
+        run: |
+          archive="$RUNNER_TEMP/trivy_${TRIVY_VERSION}_Linux-64bit.tar.gz"
+          curl -fsSL --retry 3 -o "$archive" \
+            "https://github.com/aquasecurity/trivy/releases/download/v${TRIVY_VERSION}/trivy_${TRIVY_VERSION}_Linux-64bit.tar.gz"
+          digest="$(sha256sum "$archive")"
+          if [ "${digest%% *}" != "$TRIVY_SHA256" ]; then
+            echo "::error::Unexpected Trivy archive digest ${digest%% *}"
+            exit 1
+          fi
+          mkdir "$RUNNER_TEMP/trivy-bin"
+          tar -xzf "$archive" -C "$RUNNER_TEMP/trivy-bin" trivy
+          echo "$RUNNER_TEMP/trivy-bin" >> "$GITHUB_PATH"
+
       - name: Run Trivy security scan
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
-          version: v0.71.0
+          skip-setup-trivy: true
           scan-type: fs
           scan-ref: .
           scanners: vuln,misconfig,secret
@@ -117,10 +136,23 @@ jobs:
       # Candidate tests are untrusted and run in their own job, with no secrets
       # or write permissions. They cannot supply data to the trusted gate.
       - run: python3 -I .github/scripts/trivy_gate_test.py
-      - name: Set up pinned Trivy for scanner regressions
-        uses: aquasecurity/setup-trivy@3fb12ec12f41e471780db15c232d5dd185dcb514
-        with:
-          version: v0.71.0
-          cache: false
+      # Pin the release archive digest here instead of trusting an installer
+      # or checksum file fetched at run time.
+      - name: Install pinned Trivy
+        env:
+          TRIVY_VERSION: 0.71.0
+          TRIVY_SHA256: 30a3d22b23f88c233f1658f562fb477cae3b3e8b4761109d515b7698daf85814
+        run: |
+          archive="$RUNNER_TEMP/trivy_${TRIVY_VERSION}_Linux-64bit.tar.gz"
+          curl -fsSL --retry 3 -o "$archive" \
+            "https://github.com/aquasecurity/trivy/releases/download/v${TRIVY_VERSION}/trivy_${TRIVY_VERSION}_Linux-64bit.tar.gz"
+          digest="$(sha256sum "$archive")"
+          if [ "${digest%% *}" != "$TRIVY_SHA256" ]; then
+            echo "::error::Unexpected Trivy archive digest ${digest%% *}"
+            exit 1
+          fi
+          mkdir "$RUNNER_TEMP/trivy-bin"
+          tar -xzf "$archive" -C "$RUNNER_TEMP/trivy-bin" trivy
+          echo "$RUNNER_TEMP/trivy-bin" >> "$GITHUB_PATH"
       - name: Run real-scanner coverage regressions
         run: python3 -I .github/scripts/trivy_gate_integration_test.py

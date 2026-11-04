@@ -1,6 +1,7 @@
 """Run with python3 -I .github/scripts/trivy_gate_test.py (stdlib only)."""
 
 import copy
+import hashlib
 import importlib.util
 import io
 import json
@@ -8,6 +9,7 @@ import os
 from pathlib import Path
 import re
 import subprocess
+import tarfile
 import tempfile
 import sys
 import unittest
@@ -771,10 +773,59 @@ class GateTests(unittest.TestCase):
         directory = Path(__file__).parent.parent / 'workflows'
         candidate = (directory / 'trivy.yml').read_text()
         trusted = (directory / 'trivy-pr-gate.yml').read_text()
-        self.assertEqual(re.findall(r'(?m)^ +version: v([0-9.]+)$', candidate + trusted), [gate.VERSION] * 3)
+        # Every Trivy job installs the same digest-pinned archive, never through an installer.
+        steps = re.findall(r'(?m)^      - name: Install pinned Trivy\n((?: {8}.*\n)+)', candidate + trusted)
+        self.assertEqual(len(steps), 3)
+        self.assertEqual(len(set(steps)), 1)
+        self.assertIn(f'          TRIVY_VERSION: {gate.VERSION}\n', steps[0])
+        self.assertRegex(steps[0], r'(?m)^          TRIVY_SHA256: [0-9a-f]{64}$')
+        self.assertNotRegex(candidate + trusted, r'(?m)setup-trivy@|get\.trivy\.dev|^ +version: ')
+        self.assertIn('          skip-setup-trivy: true\n', candidate)
         checkout = candidate.split('- name: Check installed PR-target policy\n', 1)[1].split('- name:', 1)[0]
         self.assertIn('ref: ${{ github.event.pull_request.base.sha }}', checkout)
         self.assertNotIn('default_branch', checkout)
+
+    def test_trivy_install_accepts_only_the_pinned_archive_digest(self):
+        workflow = (Path(__file__).parent.parent / 'workflows/trivy-pr-gate.yml').read_text()
+        step = re.search(r'(?m)^      - name: Install pinned Trivy\n((?: {8}.*\n)+)', workflow)[1]
+        pinned = dict(re.findall(r'(?m)^          (TRIVY_\w+): (\S+)$', step))
+        script = '\n'.join(line[10:] for line in step.split('run: |\n', 1)[1].splitlines())
+        fixture = self.root / 'fixture.tar.gz'
+        content = b'#!/bin/sh\n'
+        with tarfile.open(fixture, 'w:gz') as archive:
+            binary = tarfile.TarInfo('trivy')
+            binary.size, binary.mode = len(content), 0o755
+            archive.addfile(binary, io.BytesIO(content))
+        stubs = self.root / 'stubs'
+        stubs.mkdir()
+        # Record the requested URL and serve the fixture instead of the network.
+        (stubs / 'curl').write_text('#!/bin/sh\nwhile [ "$#" -gt 0 ]; do\n  case "$1" in\n'
+                                    '    -o) output="$2"; shift 2 ;;\n    --retry) shift 2 ;;\n'
+                                    '    -*) shift ;;\n    *) echo "$1" >> "$REQUESTS"; shift ;;\n'
+                                    '  esac\ndone\ncp "$FIXTURE" "$output"\n')
+        (stubs / 'curl').chmod(0o755)
+        url = (f'https://github.com/aquasecurity/trivy/releases/download/v{gate.VERSION}/'
+               f'trivy_{gate.VERSION}_Linux-64bit.tar.gz\n')
+        for name, digest in (('matching digest', hashlib.sha256(fixture.read_bytes()).hexdigest()),
+                             ('substituted archive', pinned['TRIVY_SHA256']), ('missing digest', '')):
+            with self.subTest(name), tempfile.TemporaryDirectory() as tmp:
+                temp = Path(tmp)
+                github_path = temp / 'github-path'
+                github_path.write_text('')
+                result = subprocess.run(['/bin/bash', '-e', '-o', 'pipefail', '-c', script], cwd=temp,
+                                        capture_output=True, text=True, check=False, env={
+                    'PATH': f'{stubs}:/usr/bin:/bin:/usr/sbin:/sbin', 'RUNNER_TEMP': str(temp),
+                    'GITHUB_PATH': str(github_path), 'TRIVY_VERSION': pinned['TRIVY_VERSION'],
+                    'TRIVY_SHA256': digest, 'FIXTURE': str(fixture), 'REQUESTS': str(temp / 'requests')})
+                self.assertEqual((temp / 'requests').read_text(), url)
+                if name == 'matching digest':
+                    self.assertEqual(result.returncode, 0, result.stderr)
+                    self.assertEqual(github_path.read_text(), f'{temp}/trivy-bin\n')
+                    self.assertTrue((temp / 'trivy-bin/trivy').is_file())
+                else:
+                    self.assertNotEqual(result.returncode, 0)
+                    self.assertEqual(github_path.read_text(), '')
+                    self.assertFalse((temp / 'trivy-bin').exists())
 
     def test_pull_requests_retain_sarif_publication(self):
         workflow = (Path(__file__).parent.parent / 'workflows/trivy.yml').read_text()

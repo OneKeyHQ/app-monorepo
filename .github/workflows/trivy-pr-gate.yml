@@ -56,11 +56,24 @@ jobs:
             exit 1
           fi
 
-      - name: Set up pinned Trivy
-        uses: aquasecurity/setup-trivy@3fb12ec12f41e471780db15c232d5dd185dcb514
-        with:
-          version: v0.71.0
-          cache: false
+      # Pin the release archive digest here instead of trusting an installer
+      # or checksum file fetched at run time.
+      - name: Install pinned Trivy
+        env:
+          TRIVY_VERSION: 0.71.0
+          TRIVY_SHA256: 30a3d22b23f88c233f1658f562fb477cae3b3e8b4761109d515b7698daf85814
+        run: |
+          archive="$RUNNER_TEMP/trivy_${TRIVY_VERSION}_Linux-64bit.tar.gz"
+          curl -fsSL --retry 3 -o "$archive" \
+            "https://github.com/aquasecurity/trivy/releases/download/v${TRIVY_VERSION}/trivy_${TRIVY_VERSION}_Linux-64bit.tar.gz"
+          digest="$(sha256sum "$archive")"
+          if [ "${digest%% *}" != "$TRIVY_SHA256" ]; then
+            echo "::error::Unexpected Trivy archive digest ${digest%% *}"
+            exit 1
+          fi
+          mkdir "$RUNNER_TEMP/trivy-bin"
+          tar -xzf "$archive" -C "$RUNNER_TEMP/trivy-bin" trivy
+          echo "$RUNNER_TEMP/trivy-bin" >> "$GITHUB_PATH"
 
       # The event's base.sha is not refreshed when the base branch advances,
       # and GitHub rebuilds refs/pull/N/merge asynchronously. Compare the live
