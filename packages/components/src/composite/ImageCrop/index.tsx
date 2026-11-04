@@ -1,4 +1,5 @@
 import {
+  cleanSingle,
   openCropper as nativeOpenCropper,
   openPicker as nativeOpenPicker,
 } from '@onekeyfe/react-native-image-crop-picker';
@@ -132,6 +133,11 @@ const openPicker: IOpenPickerFunc = async (params) => {
   });
   if (response.data) {
     response.data = `${BASE64_PREFIX}${response.data}`;
+    // Web callers consume the data URI, so the Blob URL is no longer needed.
+    if (!platformEnv.isNative) {
+      await cleanSingle(response.path);
+      response.path = '';
+    }
   }
   return response;
 };
@@ -155,6 +161,10 @@ const openCropImage = async (
 
   if (response.data) {
     response.data = `${BASE64_PREFIX}${response.data}`;
+    if (!platformEnv.isNative) {
+      await cleanSingle(response.path);
+      response.path = '';
+    }
   }
 
   return response;

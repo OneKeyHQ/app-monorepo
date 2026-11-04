@@ -463,6 +463,7 @@ function WallpaperCustomCategorySection({
         error.code === 'E_PICKER_CANCELLED';
       if (!isCancelled) {
         errorToastUtils.toastIfError(error);
+        errorToastUtils.showToastOfError(error);
       }
       return undefined;
     });

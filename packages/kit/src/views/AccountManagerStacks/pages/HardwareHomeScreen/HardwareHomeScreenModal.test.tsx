@@ -10,6 +10,7 @@ import type backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backg
 import type { IDBDevice } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import type { IHardwareHomeScreenData } from '@onekeyhq/kit-bg/src/services/ServiceHardware/DeviceSettingsManager';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
+import { EAppEventBusNames } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import enMessages from '@onekeyhq/shared/src/locale/json/en_US.json';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EAccountManagerStacksRoutes } from '@onekeyhq/shared/src/routes';
@@ -24,6 +25,7 @@ type ISetDeviceHomeScreen =
 const mockMessages: Record<string, string> = enMessages;
 const mockIntl = createIntl({ locale: 'en-US', messages: mockMessages });
 const mockClose = jest.fn();
+const mockEmit = jest.fn();
 const mockSetDeviceHomeScreen = jest.fn<
   ReturnType<ISetDeviceHomeScreen>,
   Parameters<ISetDeviceHomeScreen>
@@ -155,9 +157,32 @@ jest.mock('@onekeyhq/shared/src/hardware/instance', () => ({
 
 jest.mock('@onekeyhq/shared/src/errors', () => ({ OneKeyLocalError: Error }));
 
-jest.mock('@onekeyhq/shared/src/errors/utils/errorToastUtils', () => ({
-  __esModule: true,
-  default: { toastIfError: jest.fn() },
+jest.mock('@onekeyhq/shared/src/errors/utils/errorToastUtils', () => {
+  const actual = jest.requireActual<
+    typeof import('@onekeyhq/shared/src/errors/utils/errorToastUtils')
+  >('@onekeyhq/shared/src/errors/utils/errorToastUtils');
+  return {
+    __esModule: true,
+    default: {
+      ...actual.default,
+      toastIfError: jest.fn(actual.default.toastIfError),
+    },
+  };
+});
+
+jest.mock('@onekeyhq/shared/src/eventBus/appEventBus', () => ({
+  EAppEventBusNames: jest.requireActual<
+    typeof import('@onekeyhq/shared/src/eventBus/appEventBusNames')
+  >('@onekeyhq/shared/src/eventBus/appEventBusNames').EAppEventBusNames,
+  appEventBus: {
+    emit: (...args: unknown[]) => {
+      mockEmit(...args);
+    },
+  },
+}));
+
+jest.mock('@onekeyhq/shared/src/modules3rdParty/intercom/utils', () => ({
+  getInstanceId: async () => 'instance-test',
 }));
 
 jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
@@ -261,6 +286,7 @@ describe('hardware wallpaper confirmation', () => {
         height: 64,
       });
       expect(errorToastUtils.toastIfError).not.toHaveBeenCalled();
+      expect(mockEmit).not.toHaveBeenCalled();
       expect(Toast.error).not.toHaveBeenCalled();
       expect(imageUtils.resizeImage).not.toHaveBeenCalled();
       expect(saveCacheSpy).not.toHaveBeenCalled();
@@ -283,6 +309,10 @@ describe('hardware wallpaper confirmation', () => {
     });
 
     expect(errorToastUtils.toastIfError).toHaveBeenCalledWith(error);
+    expect(mockEmit).toHaveBeenCalledWith(
+      EAppEventBusNames.ShowToast,
+      expect.objectContaining({ method: 'error', title: error.message }),
+    );
     expect(imageUtils.resizeImage).not.toHaveBeenCalled();
     expect(saveCacheSpy).not.toHaveBeenCalled();
   });
