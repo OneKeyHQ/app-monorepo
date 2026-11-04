@@ -1,16 +1,22 @@
-import { TransactionBlock } from '@benfen/bfc.js/transactions';
-import { wallet } from '@cityofzion/neon-core';
+import { createHash } from 'crypto';
 
-import { conflux } from '@onekeyhq/core/src/chains/cfx/sdkCfx';
+import { Message } from '@solana/web3.js';
+import { Psbt, address as bitcoinAddress, networks } from 'bitcoinjs-lib';
+import { cloneDeep, set } from 'lodash';
+import { utils as tronUtils } from 'tronweb';
 
-import ProviderApiAlph from './ProviderApiAlph';
+import { initBitcoinEcc } from '@onekeyhq/core/src/chains/btc/sdkBtc';
+
+import fixtures from './__fixtures__/signingAccounts.json';
+import ProviderApiAlgo from './ProviderApiAlgo';
 import ProviderApiAptos from './ProviderApiAptos';
 import ProviderApiBfc from './ProviderApiBfc';
-import ProviderApiConflux from './ProviderApiConflux';
-import ProviderApiCosmos from './ProviderApiCosmos';
-import ProviderApiNeoN3 from './ProviderApiNeoN3';
+import ProviderApiBtc from './ProviderApiBtc';
+import ProviderApiEthereum from './ProviderApiEthereum';
+import ProviderApiNear from './ProviderApiNear';
 import ProviderApiNostr from './ProviderApiNostr';
 import ProviderApiScdo from './ProviderApiScdo';
+import ProviderApiSolana from './ProviderApiSolana';
 import ProviderApiStellar from './ProviderApiStellar';
 import ProviderApiSui from './ProviderApiSui';
 import ProviderApiTron from './ProviderApiTron';
@@ -25,415 +31,401 @@ jest.mock('@onekeyhq/shared/src/background/backgroundDecorators', () => ({
 jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
   defaultLogger: { discovery: { dapp: { dappRequest: jest.fn() } } },
 }));
-jest.mock('../vaults/factory', () => ({
-  vaultFactory: {
-    getVault: jest.fn().mockResolvedValue({
-      buildTransferTransaction: jest
-        .fn()
-        .mockResolvedValue({ toJson: () => ({}) }),
-    }),
-  },
-}));
 jest.mock('./backgroundProviders', () => ({ providerApiLoaders: {} }));
-jest.mock('../vaults/impls/alph/sdkAlph/utils', () => ({
-  serializeUnsignedTransaction: jest.fn().mockResolvedValue({}),
-  deserializeUnsignedTransaction: jest
-    .fn()
-    .mockResolvedValue({ unsignedTx: {} }),
-}));
+jest.mock('../states/jotai/atoms', () => ({ perpsActiveAccountAtom: {} }));
+jest.mock('../vaults/factory', () => ({ vaultFactory: {} }));
 
+const providers = {
+  algo: ProviderApiAlgo,
+  aptos: ProviderApiAptos,
+  bfc: ProviderApiBfc,
+  btc: ProviderApiBtc,
+  evm: ProviderApiEthereum,
+  near: ProviderApiNear,
+  nostr: ProviderApiNostr,
+  scdo: ProviderApiScdo,
+  sol: ProviderApiSolana,
+  stellar: ProviderApiStellar,
+  sui: ProviderApiSui,
+  tron: ProviderApiTron,
+};
 const approval = new Error('confirmation reached');
-const hexAddress = `0x${'12'.repeat(32)}`;
-const otherAddress = `0x${'34'.repeat(32)}`;
-const cfxAddress = conflux.address.encodeCfxAddress(
-  '0x1122334455667788990011223344556677889900',
-  1029,
-);
-const cfxOther = conflux.address.encodeCfxAddress(
-  '0x1344334455667788990011223344556677889900',
-  1029,
-);
-
-function setup(address = hexAddress, networkId = 'sui--101') {
-  const openSignMessageModal = jest.fn().mockRejectedValue(approval);
-  const openSignAndSendTransactionModal = jest.fn().mockRejectedValue(approval);
-  const openModal = jest.fn().mockRejectedValue(approval);
+const evmAddress = '0x52908400098527886E0F7030069857D2E4169EE7';
+const message = '0x6869';
+const typed =
+  '{"types":{"EIP712Domain":[],"Test":[]},"primaryType":"Test","domain":{},"message":{}}';
+const legacy = [{ name: 'text', type: 'string', value: 'hi' }];
+function setup(chain: keyof typeof providers, address = fixtures.hex) {
   const account = {
-    id: 'account-a',
-    pub: '12'.repeat(32),
+    id: 'qr-test',
     address,
+    pub: '12'.repeat(32),
     path: "m/44'/148'/0'",
     addressDetail: { normalizedAddress: address },
   };
-  const serviceDApp = {
-    dAppGetConnectedAccountsInfo: jest.fn().mockResolvedValue([
-      {
-        account,
-        accountInfo: {
-          accountId: account.id,
-          networkId,
-          walletId: 'hd-a',
-          address,
-        },
-      },
-    ]),
-    openSignMessageModal,
-    openSignAndSendTransactionModal,
-    openModal,
-  };
-  const backgroundApi = {
-    serviceDApp,
-    servicePassword: {
-      getCachedPassword: jest.fn().mockResolvedValue(undefined),
+  const connection = {
+    account,
+    accountInfo: {
+      accountId: account.id,
+      networkId: 'test-network',
+      address,
+      walletId: 'hd-test',
     },
   };
+  const approve = jest.fn(async (_params: unknown): Promise<unknown> => {
+    throw approval;
+  });
+  const connections = jest.fn().mockResolvedValue([connection]);
+  const backgroundApi = {
+    serviceDApp: {
+      dAppGetConnectedAccountsInfo: connections,
+      openSignMessageModal: approve,
+      openSignAndSendTransactionModal: approve,
+      openModal: approve,
+      switchConnectedNetwork: jest.fn(),
+    },
+    serviceAccount: { getAccount: async () => account },
+    serviceSetting: { getEnableBTCFreshAddress: async () => false },
+    serviceNetwork: { getNetwork: async () => ({ code: 'tbtc' }) },
+    servicePassword: { getCachedPassword: async () => undefined },
+    serviceValidator: {
+      validateAddress: async ({ address: value }: { address: unknown }) =>
+        typeof value === 'string' && /^(0x)?[0-9a-f]{40}$/i.test(value)
+          ? 'valid'
+          : 'invalid',
+    },
+  };
+  const Provider = providers[chain];
+  const provider = new Provider({ backgroundApi });
   const request: IJsBridgeMessagePayload = { origin: 'https://signer.example' };
+  // Invoke the DApp's dynamic method/parameter surface, including malformed inputs.
+  const methods = provider as unknown as Record<
+    string,
+    (request: IJsBridgeMessagePayload, ...params: unknown[]) => Promise<unknown>
+  >;
+  const run = (method: string, ...params: unknown[]) =>
+    methods[method].call(provider, request, ...params);
+  const rejects = async (method: string, ...params: unknown[]) => {
+    await expect(run(method, ...params)).rejects.toMatchObject({ code: 4100 });
+    expect(approve).not.toHaveBeenCalled();
+  };
+  const accepts = async (method: string, ...params: unknown[]) => {
+    await expect(run(method, ...params)).rejects.toBe(approval);
+  };
   return {
+    rejects,
+    accepts,
     account,
-    backgroundApi,
+    connection,
+    approve,
+    connections,
     request,
-    openSignMessageModal,
-    openSignAndSendTransactionModal,
-    openModal,
+    run,
   };
 }
-
-type IHarness = ReturnType<typeof setup>;
-const suiInput = (address: string) => ({
-  account: { address, publicKey: new Uint8Array(), chains: [], features: [] },
-  chain: 'sui:mainnet' as const,
-  messageSerialize: '6869',
-  walletSerialize: '',
-  blockSerialize: new TransactionBlock().serialize(),
-  transaction: '',
-});
-const aminoDoc = {
-  chain_id: 'cosmoshub-4',
-  account_number: '1',
-  sequence: '0',
-  fee: { amount: [], gas: '200000' },
-  msgs: [],
-  memo: '',
-};
-
-const cases: {
-  name: string;
-  address?: string;
-  other?: string;
-  networkId?: string;
-  optional?: boolean;
-  call: (h: IHarness, signer: string) => Promise<unknown>;
-}[] = [
-  ...(
-    [
-      'signMessage',
-      'signPersonalMessage',
-      'signTransactionBlock',
-      'signAndExecuteTransactionBlock',
-      'signTransaction',
-      'signAndExecuteTransaction',
-    ] as const
-  ).map((method) => ({
-    name: `sui.${method}`,
-    call: (h: IHarness, signer: string) =>
-      new ProviderApiSui({ backgroundApi: h.backgroundApi })[method](
-        h.request,
-        suiInput(signer),
-      ),
-  })),
-  ...(
-    [
-      'signMessage',
-      'signPersonalMessage',
-      'signTransactionBlock',
-      'signAndExecuteTransactionBlock',
-    ] as const
-  ).map((method) => ({
-    name: `bfc.${method}`,
-    call: (h: IHarness, signer: string) =>
-      new ProviderApiBfc({ backgroundApi: h.backgroundApi })[method](
-        h.request,
-        suiInput(signer),
-      ),
-  })),
-  ...(
-    [
-      'signAndSubmitTransferTx',
-      'signAndSubmitDeployContractTx',
-      'signAndSubmitExecuteScriptTx',
-      'signAndSubmitUnsignedTx',
-      'signUnsignedTx',
-      'signMessage',
-    ] as const
-  ).map((method) => ({
-    name: `alephium.${method}`,
-    call: (h: IHarness, signer: string) =>
-      new ProviderApiAlph({ backgroundApi: h.backgroundApi })[method](
-        h.request,
-        JSON.stringify({
-          signerAddress: signer,
-          unsignedTx: '',
-          message: 'hi',
-          destinations: [],
-          bytecode: '',
-        }),
-      ),
-  })),
-  ...(['stellar_signMessage', 'stellar_signTransaction'] as const).map(
-    (method) => ({
-      name: `stellar.${method}`,
-      optional: true,
-      call: (h: IHarness, signer: string) =>
-        new ProviderApiStellar({ backgroundApi: h.backgroundApi })[method](
-          h.request,
-          {
-            address: signer,
-            message: 'hi',
-            xdr: 'opaque-xdr',
-            networkPassphrase: 'test',
-          },
-        ),
-    }),
-  ),
-  {
-    name: 'aptos.signIn',
-    optional: true,
-    call: (h, signer) =>
-      new ProviderApiAptos({ backgroundApi: h.backgroundApi }).signIn(
-        h.request,
-        {
-          address: signer,
-          nonce: '0123456789abcdef',
-          domain: 'signer.example',
-          uri: 'https://signer.example',
-          chainId: 'aptos:mainnet',
-        },
-      ),
+const evmCases = [
+  ['eth_sign', [evmAddress, message], 0],
+  ['personal_sign', [message, evmAddress], 1],
+  ['eth_signTypedData', [evmAddress, typed], 0],
+  ['eth_signTypedData_v1', [legacy, evmAddress], 1],
+  ['eth_signTypedData_v3', [evmAddress, typed], 0],
+  ['eth_signTypedData_v4', [evmAddress, typed], 0],
+  ['eth_sendTransaction', [{ from: evmAddress, value: '0x0' }], '0.from'],
+] as const;
+it.each(evmCases)(
+  'EVM %s authorizes its signer',
+  async (method, params, position) => {
+    const h = setup('evm', evmAddress);
+    for (const signer of [fixtures.other, undefined, null, 123, {}]) {
+      const args: unknown[] = cloneDeep([...params]);
+      set(args, String(position), signer);
+      await h.rejects(method, ...args);
+    }
+    const before = cloneDeep(params);
+    await h.accepts(method, ...params);
+    expect(params).toStrictEqual(before);
   },
-  {
-    name: 'neo.send',
-    address: wallet.getAddressFromScriptHash('12'.repeat(20)),
-    other: wallet.getAddressFromScriptHash('34'.repeat(20)),
-    call: (h, signer) =>
-      new ProviderApiNeoN3({ backgroundApi: h.backgroundApi }).send(h.request, {
-        fromAddress: signer,
-        toAddress: otherAddress,
-        asset: 'GAS',
-        amount: '1',
-      }),
-    // NEO validates the transfer encoding after checking its explicit sender.
-  },
-  ...(['signAmino', 'cosmos_signAmino'] as const).map((method) => ({
-    name: `cosmos.${method}`,
-    networkId: 'cosmos--cosmoshub-4',
-    call: (h: IHarness, signer: string) =>
-      new ProviderApiCosmos({ backgroundApi: h.backgroundApi })[method](
-        h.request,
-        { signer, signerAddress: signer, signDoc: aminoDoc },
-      ),
-  })),
-  ...(['signDirect', 'cosmos_signDirect'] as const).map((method) => ({
-    name: `cosmos.${method}`,
-    networkId: 'cosmos--cosmoshub-4',
-    call: (h: IHarness, signer: string) =>
-      new ProviderApiCosmos({ backgroundApi: h.backgroundApi })[method](
-        h.request,
-        {
-          signer,
-          signerAddress: signer,
-          signDoc: {
-            chainId: 'cosmoshub-4',
-            accountNumber: '1',
-            bodyBytes: '',
-            authInfoBytes: '',
-          },
+);
+it.each([false, true])(
+  'EVM payload and legacy order, WalletConnect=%s',
+  async (wc) => {
+    const h = setup('evm', evmAddress);
+    h.request.isWalletConnectRequest = wc;
+    h.approve.mockResolvedValue('signature');
+    for (const args of [
+      [message, evmAddress],
+      [message, evmAddress.toLowerCase()],
+      [message, evmAddress.slice(2)],
+      [evmAddress, message],
+    ]) {
+      const address = args[0] === message ? args[1] : args[0];
+      await expect(h.run('personal_sign', ...args)).resolves.toBe('signature');
+      expect(h.approve).toHaveBeenLastCalledWith({
+        request: h.request,
+        accountId: h.account.id,
+        networkId: h.connection.accountInfo.networkId,
+        unsignedMessage: {
+          type: 'PERSONAL_SIGN',
+          message,
+          payload: [message, address],
         },
-      ),
-  })),
-  ...(['signArbitrary'] as const).map((method) => ({
-    name: `cosmos.${method}`,
-    networkId: 'cosmos--cosmoshub-4',
-    call: (h: IHarness, signer: string) =>
-      new ProviderApiCosmos({ backgroundApi: h.backgroundApi })[method](
-        h.request,
-        {
-          chainId: 'cosmoshub-4',
-          signer,
-          data: 'hi',
-        },
-      ),
-  })),
-  ...(['cfx_sign', 'cfx_signTypedData_v4', 'personal_sign'] as const).map(
-    (method) => ({
-      name: `conflux.${method}`,
-      address: cfxAddress,
-      other: cfxOther,
-      call: (h: IHarness, signer: string) =>
-        new ProviderApiConflux({ backgroundApi: h.backgroundApi })[method](
-          h.request,
-          ...(method === 'personal_sign'
-            ? ['0x6869', signer]
-            : [signer, '0x6869']),
-        ),
-    }),
-  ),
-  ...(['cfx_sendTransaction', 'wallet_sendTransaction'] as const).map(
-    (method) => ({
-      name: `conflux.${method}`,
-      address: cfxAddress,
-      other: cfxOther,
-      call: (h: IHarness, signer: string) =>
-        new ProviderApiConflux({ backgroundApi: h.backgroundApi })[method](
-          h.request,
-          { from: signer, to: cfxOther, value: '0x0', data: '0x' },
-        ),
-    }),
-  ),
-];
-
-describe.each(cases)(
-  '$name account authorization',
-  ({ address, other, networkId, optional, call }) => {
-    it('accepts the selected account', async () => {
-      const h = setup(address, networkId);
-      await expect(call(h, h.account.address)).rejects.toBe(approval);
-    });
-
-    it('keeps original signing payload', async () => {
-      const h = setup(address, networkId);
-      await expect(call(h, h.account.address)).rejects.toBe(approval);
-      expect({
-        message: h.openSignMessageModal.mock.calls,
-        transaction: h.openSignAndSendTransactionModal.mock.calls,
-        modal: h.openModal.mock.calls,
-      }).toMatchSnapshot('baseline-fe08');
-    });
-
-    it.each([
-      other ?? otherAddress,
-      ...(optional ? [] : [undefined]),
-      null,
-      123,
-      {},
-    ])('rejects requested signer %j before confirmation', async (signer) => {
-      const h = setup(address, networkId);
-      // These requests intentionally violate the external API's static type.
-      await expect(call(h, signer as string)).rejects.toMatchObject({
-        code: 4100,
       });
-      expect(h.openSignMessageModal).not.toHaveBeenCalled();
-      expect(h.openSignAndSendTransactionModal).not.toHaveBeenCalled();
-      expect(h.openModal).not.toHaveBeenCalled();
+    }
+    h.approve.mockClear();
+    for (const address of [
+      fixtures.other.slice(0, 42),
+      fixtures.other.slice(2, 42),
+      fixtures.other.slice(0, 42).replace('0x', '0X'),
+    ]) {
+      await h.rejects('personal_sign', evmAddress, address);
+    }
+    h.connections.mockResolvedValue([]);
+    await h.rejects('eth_sign', evmAddress, message);
+  },
+);
+it.each(['sui', 'bfc', 'stellar', 'scdo'] as const)(
+  'rejects stale %s connection metadata',
+  async (chain) => {
+    const h = setup(chain);
+    h.connection.accountInfo.address = fixtures.other;
+    const method = {
+      sui: 'signTransactionBlock',
+      bfc: 'signTransactionBlock',
+      stellar: 'stellar_signMessage',
+      scdo: 'scdo_signTransaction',
+    }[chain];
+    h.request.data = { params: [{ From: fixtures.other }] };
+    await h.rejects(method, {
+      message: 'hi',
+      account: { address: fixtures.hex },
     });
   },
 );
-
-describe('optional signer constraints', () => {
-  it.each(['sui', 'bfc', 'stellar'] as const)(
-    'rejects a stale %s execution address without repairing the payload',
-    async (chain) => {
-      const h = setup();
-      h.backgroundApi.serviceDApp.dAppGetConnectedAccountsInfo.mockResolvedValue(
-        [
-          {
-            account: h.account,
-            accountInfo: {
-              accountId: h.account.id,
-              networkId: 'test-network',
-              address: otherAddress,
-            },
-          },
-        ],
-      );
-      let result: Promise<unknown>;
-      if (chain === 'sui') {
-        result = new ProviderApiSui({
-          backgroundApi: h.backgroundApi,
-        }).signTransactionBlock(h.request, suiInput(hexAddress));
-      } else if (chain === 'bfc') {
-        result = new ProviderApiBfc({
-          backgroundApi: h.backgroundApi,
-        }).signTransactionBlock(h.request, suiInput(hexAddress));
-      } else {
-        result = new ProviderApiStellar({
-          backgroundApi: h.backgroundApi,
-        }).stellar_signMessage(h.request, { message: 'hi' });
-      }
-      await expect(result).rejects.toMatchObject({ code: 4100 });
-      expect(h.openSignMessageModal).not.toHaveBeenCalled();
-      expect(h.openSignAndSendTransactionModal).not.toHaveBeenCalled();
-    },
-  );
-  it.each(['stellar_signMessage', 'stellar_signTransaction'] as const)(
-    'allows omitted Stellar address in %s',
-    async (method) => {
-      const h = setup();
-      await expect(
-        new ProviderApiStellar({ backgroundApi: h.backgroundApi })[method](
-          h.request,
-          { message: 'hi', xdr: 'opaque-xdr', networkPassphrase: 'test' },
-        ),
-      ).rejects.toBe(approval);
-    },
-  );
-  it('rejects a Stellar derivation path selecting another key', async () => {
-    const h = setup();
-    await expect(
-      new ProviderApiStellar({
-        backgroundApi: h.backgroundApi,
-      }).stellar_signMessage(h.request, {
-        message: 'hi',
-        path: "m/44'/148'/1'",
-      }),
-    ).rejects.toMatchObject({ code: 4100 });
-    expect(h.openSignMessageModal).not.toHaveBeenCalled();
-  });
-  it.each([undefined, '12'.repeat(32)])(
-    'allows an absent or matching Nostr event public key',
-    async (pubkey) => {
-      const h = setup();
-      await expect(
-        new ProviderApiNostr({ backgroundApi: h.backgroundApi }).signEvent({
-          ...h.request,
-          data: { params: { event: { pubkey } } },
-        }),
-      ).rejects.toBe(approval);
-    },
-  );
-  it('rejects a Nostr public key mismatch before the automatic signing path', async () => {
-    const h = setup();
-    await expect(
-      new ProviderApiNostr({ backgroundApi: h.backgroundApi }).signEvent({
-        ...h.request,
-        data: { params: { event: { pubkey: '34'.repeat(32) } } },
-      }),
-    ).rejects.toMatchObject({ code: 4100 });
-    expect(
-      h.backgroundApi.servicePassword.getCachedPassword,
-    ).not.toHaveBeenCalled();
-    expect(h.openModal).not.toHaveBeenCalled();
-  });
-  it('rejects a SCDO sender matching only the stale connection address', async () => {
-    const h = setup();
-    await expect(
-      new ProviderApiScdo({
-        backgroundApi: h.backgroundApi,
-      }).scdo_signTransaction({
-        ...h.request,
-        data: { params: [{ From: 'stale-address' }] },
-      }),
-    ).rejects.toMatchObject({ code: 4100 });
-    expect(h.openSignAndSendTransactionModal).not.toHaveBeenCalled();
-  });
-  it('rejects an explicitly mismatched Tron personal_sign account', async () => {
-    const h = setup('T9yD14Nj9j7xAB4dbGeiX9h8unkKHxuWwb');
-    await expect(
-      new ProviderApiTron({ backgroundApi: h.backgroundApi }).personal_sign(
-        h.request,
-        'hi',
-        'TCf5cqRffPccWpnN6LMTaD2cTCDEuqbnkD',
-      ),
-    ).rejects.toMatchObject({ code: 4100 });
-    expect(h.openSignMessageModal).not.toHaveBeenCalled();
+it('checks optional Nostr keys and Stellar paths before approval', async () => {
+  const h = setup('nostr');
+  h.request.data = { params: { event: { pubkey: '34'.repeat(32) } } };
+  await h.rejects('signEvent');
+  h.request.data = { params: { event: { pubkey: h.account.pub } } };
+  await h.accepts('signEvent');
+  const stellar = setup('stellar');
+  await stellar.rejects('stellar_signMessage', {
+    message: 'hi',
+    path: "m/44'/148'/1'",
   });
 });
+
+it.each(['legacy', 'v0'] as const)(
+  'Solana %s required signers',
+  async (format) => {
+    const h = setup('sol', fixtures.sol.address);
+    const alias =
+      format === 'legacy'
+        ? jest
+            .spyOn(Message.prototype, 'staticAccountKeys', 'get')
+            .mockReturnValue([])
+        : undefined;
+    try {
+      for (const method of [
+        'signTransaction',
+        'signAllTransactions',
+        'signAndSendTransaction',
+      ]) {
+        for (const [role, tx] of fixtures.sol[format].entries()) {
+          h.approve.mockClear();
+          const params = {
+            message: method === 'signAllTransactions' ? [tx, tx] : tx,
+          };
+          const result = h.run(method, params);
+          if (role === 2) {
+            await expect(result).rejects.toMatchObject({ code: 4100 });
+            expect(h.approve).not.toHaveBeenCalled();
+          } else {
+            await expect(result).rejects.toBe(approval);
+            expect(h.approve).toHaveBeenCalledWith(
+              expect.objectContaining({ encodedTx: tx }),
+            );
+          }
+        }
+      }
+      h.approve.mockClear();
+      await h.rejects('signAllTransactions', {
+        message: [fixtures.sol[format][0], fixtures.sol[format][2]],
+      });
+    } finally {
+      alias?.mockRestore();
+    }
+  },
+);
+it.each([
+  'martianSignTransaction',
+  'martianSignAndSubmitTransaction',
+  'signAndSubmitTransactionStandardV1',
+])('Aptos %s sender', async (method) => {
+  const h = setup('aptos');
+  await h.rejects(method, fixtures.aptos[1]);
+  await h.accepts(method, fixtures.aptos[0]);
+});
+it('checks all NEAR signers/keys before the first batch confirmation', async () => {
+  const h = setup('near', fixtures.near.address);
+  h.account.pub = fixtures.near.pub;
+  for (const invalid of fixtures.near.transactions.slice(1)) {
+    await h.rejects('near_sendTransactions', {
+      transactions: [fixtures.near.transactions[0], invalid],
+    });
+  }
+  h.approve.mockResolvedValue({ txid: 'txid' });
+  await expect(
+    h.run('near_requestSignTransactions', {
+      transactions: [fixtures.near.transactions[0]],
+    }),
+  ).resolves.toEqual({ transactionHashes: ['txid'] });
+  expect(h.approve).toHaveBeenCalledWith(
+    expect.objectContaining({ encodedTx: fixtures.near.transactions[0] }),
+  );
+});
+it('preserves Algorand rekey/skip selection and rejects a foreign sender', async () => {
+  const h = setup('algo', fixtures.algo.address);
+  const [own, foreign] = fixtures.algo.transactions;
+  await h.rejects('algo_signTxn', [{ txn: own }, { txn: foreign }]);
+
+  h.approve.mockResolvedValue({ rawTx: 'signed' });
+  await expect(
+    h.run('algo_signTxn', [
+      { txn: own, signers: [] },
+      { txn: own, signers: [h.account.address] },
+      { txn: foreign, authAddr: h.account.address },
+    ]),
+  ).resolves.toEqual([null, null, 'signed']);
+  expect(h.approve).toHaveBeenCalledWith(
+    expect.objectContaining({ encodedTx: [foreign] }),
+  );
+});
+
+it('Tron preserves explicit permissions and rejects foreign owners', async () => {
+  for (const [index, raw] of fixtures.tron.transactions.entries()) {
+    const h = setup('tron', fixtures.tron.address);
+    const rawData = tronUtils.deserializeTx.deserializeTransaction(
+      'TransferContract',
+      raw,
+    ) as { contract: { Permission_id?: number | string }[] };
+    if (index === 1) rawData.contract[0].Permission_id = '0';
+    const tx = {
+      raw_data: rawData,
+      raw_data_hex: raw,
+      txID: createHash('sha256').update(raw, 'hex').digest('hex'),
+    };
+    if (index < 2) {
+      for (const permission of index === 0 ? [undefined, 0] : ['0']) {
+        rawData.contract[0].Permission_id = permission;
+        await h.rejects('tron_signTransaction', tx);
+      }
+      await h.rejects(
+        'personal_sign',
+        message,
+        'TCf5cqRffPccWpnN6LMTaD2cTCDEuqbnkD',
+      );
+      await h.accepts('signMessageV2', message, h.account.address);
+    } else {
+      await h.accepts('tron_signTransaction', tx);
+    }
+  }
+});
+
+it('preserves Babylon PSBT bytes and signer options', async () => {
+  initBitcoinEcc();
+  const { address, pub, psbt, uncompressed } = fixtures.babylon;
+  const fixture = Psbt.fromHex(psbt).data.inputs[0];
+  expect(fixture.witnessUtxo?.script).not.toEqual(
+    bitcoinAddress.toOutputScript(address, networks.testnet),
+  );
+  expect(
+    fixture.tapLeafScript?.some((leaf) =>
+      Buffer.from(leaf.script).includes(Buffer.from(pub.slice(2), 'hex')),
+    ),
+  ).toBe(true);
+  for (const publicKey of [undefined, pub, pub.slice(2), uncompressed]) {
+    const h = setup('btc', address);
+    h.account.pub = pub;
+    h.approve.mockResolvedValue({ psbtHex: psbt });
+    const input = {
+      index: 0,
+      publicKey,
+      sighashTypes: [1],
+      useTweakedSigner: false,
+      disableTweakSigner: true,
+    };
+    const options = {
+      autoFinalized: false,
+      isBtcWalletProvider: true,
+      toSignInputs: publicKey ? [input] : undefined,
+    };
+    const params = { psbtHex: psbt, options };
+    const before = cloneDeep(params);
+    await expect(h.run('signPsbt', params)).resolves.toBe(psbt);
+    expect(params).toStrictEqual(before);
+    const selected = publicKey
+      ? { ...input, publicKey, address }
+      : { index: 0, publicKey: pub, address };
+    expect(h.approve.mock.calls[0][0]).toMatchObject({
+      encodedTx: { psbtHex: psbt, inputsToSign: [selected] },
+    });
+  }
+});
+it('validates owned BTC derivations and preflights legacy batch identities', async () => {
+  const { main, custom, claimed, xpub } = fixtures.btc;
+  const h = setup('btc', main.address);
+  Object.assign(h.account, {
+    pub: main.publicKey,
+    xpub,
+    addresses: { '0/0': main.address },
+    customAddresses: { '1/0': custom.address },
+    findAddresses: { '0/100': claimed.address },
+  });
+  for (const input of [main, custom, claimed]) {
+    await h.accepts('signPsbt', {
+      psbtHex: fixtures.babylon.psbt,
+      options: { toSignInputs: [{ index: 0, ...input }] },
+    });
+  }
+  h.approve.mockClear();
+  for (const input of [
+    { address: fixtures.babylon.address },
+    { publicKey: fixtures.babylon.pub },
+    { address: claimed.address, publicKey: main.publicKey },
+  ]) {
+    await h.rejects('signPsbts', {
+      psbtHexs: [fixtures.babylon.psbt, fixtures.babylon.psbt],
+      options: [
+        { toSignInputs: [{ index: 0, address: main.address }] },
+        { toSignInputs: [{ index: 0, ...input }] },
+      ],
+    });
+  }
+});
+it.each(['btc', 'sol'] as const)(
+  '%s rejects a changed signing account',
+  async (chain) => {
+    const h = setup(
+      chain,
+      chain === 'sol' ? fixtures.sol.address : fixtures.babylon.address,
+    );
+    const changed = {
+      account: { ...h.account, id: 'other-account' },
+      accountInfo: { ...h.connection.accountInfo, accountId: 'other-account' },
+    };
+    h.connections
+      .mockResolvedValueOnce([h.connection])
+      .mockResolvedValue([changed]);
+    const params =
+      chain === 'sol'
+        ? { message: [fixtures.sol.legacy[0]] }
+        : {
+            psbtHexs: [fixtures.babylon.psbt],
+            options: { autoFinalized: false },
+          };
+    await h.rejects(
+      chain === 'sol' ? 'signAllTransactions' : 'signPsbts',
+      params,
+    );
+  },
+);
