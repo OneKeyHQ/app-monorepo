@@ -4,6 +4,7 @@ import type { ReactElement, ReactNode } from 'react';
 import { HeaderHeightContext } from '@react-navigation/elements';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { isFoldableIPhone } from '@onekeyhq/shared/src/modules/DualScreenInfo/isFoldableIPhone';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 // NOTE: import useSafeAreaInsets from the leaf package directly, not from the
@@ -63,17 +64,18 @@ export const LIQUID_GLASS_HEADER_CONTENT_GAP = 16;
 // self-drawn and the screen keeps its normal layout. Centralizing this keeps
 // every glass screen's top spacing consistent and adjustable in one place.
 //
-// iPhone Duo reports no top safe area yet still offsets the bar from the top
-// edge, so prefer the measured header height when it is taller. The context is
-// undefined outside a native stack header.
+// Foldable iPhones report no top safe area yet still offset the bar from the
+// top edge, so prefer the measured header height when it is taller. The context
+// is undefined outside a native stack header.
 export function useLiquidGlassHeaderTopInset(): number {
   const { top } = useSafeAreaInsets();
   const headerHeight = useContext(HeaderHeightContext) ?? 0;
   if (!platformEnv.isNativeIOS26Plus) {
     return 0;
   }
+  const barBottom = top + LIQUID_GLASS_HEADER_BAR_HEIGHT;
   return (
-    Math.max(top + LIQUID_GLASS_HEADER_BAR_HEIGHT, headerHeight) +
+    (isFoldableIPhone() ? Math.max(barBottom, headerHeight) : barBottom) +
     LIQUID_GLASS_HEADER_CONTENT_GAP
   );
 }
