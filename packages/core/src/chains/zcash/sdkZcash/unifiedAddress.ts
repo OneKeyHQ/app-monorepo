@@ -1,6 +1,7 @@
 import { jubjub, jubjub_groupHash, pallas } from '@noble/curves/misc';
 import { blake2b } from '@noble/hashes/blake2b';
 import { bech32m } from 'bech32';
+import bs58check from 'bs58check';
 import { decode as decodeCompactSize, encodingLength } from 'varuint-bitcoin';
 
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
@@ -154,6 +155,29 @@ export function isSameZcashOrchardRecipient(a: string, b: string): boolean {
     !!orchardB &&
     Buffer.from(orchardA).equals(Buffer.from(orchardB))
   );
+}
+
+// Transparent receiver type codes and the t-address prefix each encodes to (t1 P2PKH, t3 P2SH).
+const TRANSPARENT_RECEIVER_PREFIXES: [number, number[]][] = [
+  [0, [0x1c, 0xb8]],
+  [1, [0x1c, 0xbd]],
+];
+
+// The t-address a Unified address carries, if it has a transparent receiver.
+export function getZcashUnifiedAddressTransparentReceiver(
+  address: string,
+): string | undefined {
+  const receivers = decodeSupportedZcashUnifiedAddress(address);
+  if (!receivers) return undefined;
+  for (const [type, prefix] of TRANSPARENT_RECEIVER_PREFIXES) {
+    const hash = receivers.get(type);
+    if (hash) {
+      return bs58check.encode(
+        Buffer.concat([Buffer.from(prefix), Buffer.from(hash)]),
+      );
+    }
+  }
+  return undefined;
 }
 
 export function isSupportedZcashUnifiedAddress(address: string): boolean {

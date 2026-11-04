@@ -2,6 +2,7 @@ import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
 import {
   getSupportedZcashUnifiedAddressReceiverTypes,
+  getZcashUnifiedAddressTransparentReceiver,
   isSameZcashOrchardRecipient,
   isSupportedZcashUnifiedAddress,
 } from './unifiedAddress';
@@ -116,5 +117,41 @@ describe('one Orchard recipient', () => {
         fixture?.address ?? other,
       ),
     ).toBe(false);
+  });
+});
+
+// Expected t-addresses decoded independently of this module (ZIP 316 F4Jumble + TLV).
+describe('the t-address a unified address carries', () => {
+  const address = (name: string) => {
+    const fixture = fixtures.find((item) => item.name === name);
+    if (!fixture) throw new OneKeyLocalError(`missing fixture ${name}`);
+    return fixture.address;
+  };
+
+  it.each([
+    ['derived account 0 all', 't1fmZBMvi4RrmrsFVr3cHvUjRWb3B74uYgQ'],
+    ['P2PKH and Orchard', 't1Hsc1LR8yKnbbe3twRp88p6vFfC5t7DLbs'],
+    ['P2SH and Orchard', 't3JZcvsuaXE6ygokL4XUiZSTrQBUoPYFnXJ'],
+    ['derived account 0 orchard', undefined],
+    ['checksum', undefined],
+  ])('%s carries %s', (name, expected) => {
+    expect(getZcashUnifiedAddressTransparentReceiver(address(name))).toBe(
+      expected,
+    );
+  });
+
+  it('reads it under the Buffer polyfill the apps run', () => {
+    const nodeBuffer = globalThis.Buffer;
+    globalThis.Buffer = jest.requireActual<typeof import('buffer')>('buffer/')
+      .Buffer as unknown as typeof globalThis.Buffer;
+    try {
+      expect(
+        getZcashUnifiedAddressTransparentReceiver(
+          address('derived account 0 all'),
+        ),
+      ).toBe('t1fmZBMvi4RrmrsFVr3cHvUjRWb3B74uYgQ');
+    } finally {
+      globalThis.Buffer = nodeBuffer;
+    }
   });
 });

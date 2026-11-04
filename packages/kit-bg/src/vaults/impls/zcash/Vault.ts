@@ -585,6 +585,7 @@ export default class Vault extends VaultBtc {
         backgroundApi: this.backgroundApi,
         networkId: this.networkId,
         accountId: params.accountId || this.accountId,
+        toDisplayedAddress: zcashHistory.toZcashDisplayedOwnAddress,
       });
       response.data.data.data = gateLocalWalletHistoryDetail(gate, detail);
     }

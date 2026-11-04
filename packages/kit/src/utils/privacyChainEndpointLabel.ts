@@ -107,7 +107,7 @@ export function resolvePrivacyChainEndpointDisplay({
     // details display exactly that string.
     return { address: item.address, poolLabel, isOwn: true };
   }
-  // No address in the data (e.g. a shielded spend): never fill one in.
+  // No address in the data (e.g. change): never fill one in.
   return { poolLabel, isOwn: true };
 }
 

@@ -525,7 +525,8 @@ describe('Home history shielded endpoints', () => {
     expect(result.row.description).toBe('Private');
   });
 
-  it('shows our transparent address only when it is the displayed one', () => {
+  // As BTC shows them, whether or not it is the address Receive displays.
+  it('shows our transparent address as it is', () => {
     const own = (addresses: { publicAddress?: string }) => {
       const tx = history([{ ...transfer('1'), from: T1, to: T1 }], []);
       tx.decodedTx.owner = T1;
@@ -542,11 +543,11 @@ describe('Home history shielded endpoints', () => {
     };
     expect(own({ publicAddress: T1 }).address).toBe(T1);
     const mismatch = own({ publicAddress: `t1${'C'.repeat(33)}` });
-    expect(mismatch.address).toBe('');
-    expect(mismatch.row.description).toBe('Public');
+    expect(mismatch.address).toBe(T1);
+    expect(mismatch.row.description).not.toBe('Public');
   });
 
-  it('names a row whose target is our own change address by pool', () => {
+  it('names a row whose target is our own change address by that address', () => {
     const change = `t1${'H'.repeat(33)}`;
     const tx = history(
       [{ ...transfer('1'), from: T1, to: '', isOwn: true }],
@@ -563,8 +564,8 @@ describe('Home history shielded endpoints', () => {
       currency: '$',
       intl,
     });
-    expect(result.address).toBe('');
-    expect(result.row.description).toBe('Public');
+    expect(result.address).toBe(change);
+    expect(result.row.description).not.toBe('Public');
   });
 
   it("shows another account's t1 as the sender of a transparent receive", () => {

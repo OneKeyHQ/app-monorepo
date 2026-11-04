@@ -343,7 +343,6 @@ type IEndpointFixture = {
 const OWN_UA = `u1${'q'.repeat(90)}`;
 // Pools go by their kind; the intl mock renders these ids as-is.
 const PRIVATE = ETranslations.private_send_private_option;
-const PUBLIC = ETranslations.privacy_balance_public__title;
 const OWN_T = `t1${'A'.repeat(33)}`;
 
 function setZcashEndpoints(from: IEndpointFixture, to: IEndpointFixture) {
@@ -560,13 +559,10 @@ it('never shows a self-payment or change address that is not the displayed u1', 
   expect(result.queryByText(OWN_UA)).toBeNull();
 });
 
-it.each([
-  [OWN_T, true],
-  [`t1${'C'.repeat(33)}`, false],
-  [undefined, false],
-])(
-  'shows our transparent address only when the displayed one is %s',
-  (displayed, shown) => {
+// Our transparent address is public on chain and shows as it is, as on BTC.
+it.each([[OWN_T], [`t1${'C'.repeat(33)}`], [undefined]])(
+  'shows our transparent address whatever Receive displays (%s)',
+  (displayed) => {
     mockAccountAddresses = displayed
       ? { publicAddress: displayed, privateAddress: OWN_UA }
       : undefined;
@@ -574,14 +570,7 @@ it.each([
     mockHistory.decodedTx.owner = OWN_T;
     mockHistory.decodedTx.signer = OWN_T;
     const result = render(<HistoryDetails />);
-    if (shown) {
-      expect(result.getAllByText(OWN_T)).toHaveLength(1);
-    } else {
-      expect(result.queryByText(OWN_T)).toBeNull();
-      const from = within(result.getByTestId('history-details-from-pool'));
-      expect(from.getByText(PUBLIC)).toBeTruthy();
-      expect(from.queryByRole('button')).toBeNull();
-    }
+    expect(result.getAllByText(OWN_T)).toHaveLength(1);
   },
 );
 
@@ -644,7 +633,7 @@ it('names a Sapling output although Sapling has no tab', () => {
   ).toBeTruthy();
 });
 
-it('names our transparent change address by pool and shows the displayed t1', () => {
+it('shows our transparent change address beside the displayed t1', () => {
   const change = `t1${'H'.repeat(33)}`;
   const external = `t1${'E'.repeat(33)}`;
   mockAccountAddresses = { publicAddress: OWN_T, privateAddress: OWN_UA };
@@ -659,13 +648,26 @@ it('names our transparent change address by pool and shows the displayed t1', ()
     { ...transfer.sends[0], from: '', to: change, isOwn: true },
   ];
   const result = render(<HistoryDetails />);
-  expect(result.queryByText(change)).toBeNull();
-  const pool = within(result.getByTestId('history-details-to-pool'));
-  expect(pool.getByText(PUBLIC)).toBeTruthy();
-  expect(pool.queryByRole('button')).toBeNull();
+  expect(result.getAllByText(change)).toHaveLength(1);
+  expect(result.queryByTestId('history-details-to-pool')).toBeNull();
   expect(result.getAllByText(OWN_T)).toHaveLength(1);
   expect(result.getAllByText(external)).toHaveLength(1);
 });
+
+// A privacy chain cannot always see the fee of a payment someone else funded.
+it.each([
+  ['zec--0', true],
+  ['btc--0', false],
+])(
+  'names an unknown fee only for local-wallet history (%s)',
+  (networkId, shown) => {
+    mockHistory = history(networkId, '1');
+    mockHistory.decodedTx.totalFeeInNative = undefined;
+    mockTxDetails = {};
+    const result = render(<HistoryDetails />);
+    expect(!!result.queryByText(ETranslations.global_unknown)).toBe(shown);
+  },
+);
 
 it.each([
   ['zec--0', true],
@@ -684,7 +686,7 @@ it.each([
   ['spent only legacy change', { publicAddress: OWN_T }],
   ['could not read the displayed addresses', undefined],
 ])(
-  'names our sending side by pool on a deep link when the send %s',
+  'shows the legacy change we spent on a deep link when the send %s',
   (_, displayed) => {
     const legacyChange = `t1${'H'.repeat(33)}`;
     const external = `t1${'E'.repeat(33)}`;
@@ -721,13 +723,15 @@ it.each([
       ],
     };
     const result = render(<HistoryDetails />);
-    expect(result.queryByText(legacyChange)).toBeNull();
+    expect(result.getAllByText(legacyChange)).toHaveLength(1);
     expect(
       result.queryByText(ETranslations.privacy_history_sender_unknown__desc),
     ).toBeNull();
-    const from = within(result.getByTestId('history-details-from-pool'));
-    expect(from.getByText(PUBLIC)).toBeTruthy();
-    expect(from.queryByRole('button')).toBeNull();
+    // A transparent address is on chain, unlike a private one.
+    expect(
+      result.queryByText(ETranslations.privacy_history_local_recipient__desc),
+    ).toBeNull();
+    expect(result.queryByTestId('history-details-from-pool')).toBeNull();
     expect(result.getAllByText(external)).toHaveLength(1);
   },
 );

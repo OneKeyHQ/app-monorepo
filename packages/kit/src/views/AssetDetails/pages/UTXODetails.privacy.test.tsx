@@ -24,7 +24,6 @@ const DIVERSIFIED = `u1${'d'.repeat(90)}`;
 const RECIPIENT = `u1${'z'.repeat(90)}`;
 // Pools go by their kind; the intl mock renders these ids as-is.
 const PRIVATE = ETranslations.private_send_private_option;
-const PUBLIC = ETranslations.privacy_balance_public__title;
 
 let mockNetworkId = 'zec--0';
 let mockDetails: Partial<IOnChainHistoryTx> = {};
@@ -190,12 +189,9 @@ it('names own notes by pool unless the note names the displayed address', async 
   expect(result.getAllByText(PRIVATE)).toHaveLength(3);
 });
 
-it.each([
-  [OWN_T, OWN_T],
-  [`t1${'C'.repeat(33)}`, PUBLIC],
-])(
-  'shows our transparent input only when the displayed one is %s',
-  async (displayed, expected) => {
+it.each([[OWN_T], [`t1${'C'.repeat(33)}`]])(
+  'shows our transparent input whatever Receive displays (%s)',
+  async (displayed) => {
     mockAddresses = { publicAddress: displayed, privateAddress: OWN_UA };
     mockDetails = {
       inputOutputSource: 'account',
@@ -210,14 +206,11 @@ it.each([
       receives: [],
     };
     const result = await renderPage();
-    expect(result.getByText(expected)).toBeTruthy();
-    if (expected !== OWN_T) {
-      expect(result.queryByText(OWN_T)).toBeNull();
-    }
+    expect(result.getByText(OWN_T)).toBeTruthy();
   },
 );
 
-it('names our transparent change output by pool', async () => {
+it('shows our transparent change output as it is', async () => {
   const change = `t1${'H'.repeat(33)}`;
   mockDetails = {
     inputOutputSource: 'public',
@@ -240,8 +233,7 @@ it('names our transparent change output by pool', async () => {
     ],
   };
   const result = await renderPage();
-  expect(result.queryByText(change)).toBeNull();
-  expect(result.getByText(PUBLIC)).toBeTruthy();
+  expect(result.getByText(change)).toBeTruthy();
   expect(result.getByText(OWN_T)).toBeTruthy();
 });
 
