@@ -27,9 +27,15 @@ import {
   YStack,
   useMedia,
   useScrollContentTabBarOffset,
+  useTheme,
 } from '@onekeyhq/components';
 import type { ITabBarItemProps } from '@onekeyhq/components/src/composite/TabBar';
 import { TabBar, TabBarItem } from '@onekeyhq/components/src/composite/TabBar';
+import {
+  BRAND_FONT_NATIVE_FAMILY,
+  BRAND_FONT_WEB_FAMILY,
+} from '@onekeyhq/components/src/hocs/Provider/fonts/brandFont';
+import { fs, s } from '@onekeyhq/components/src/utils/scale';
 import { useAppPager } from '@onekeyhq/kit/src/components/AppPager/context';
 import type { IAppPagerRef } from '@onekeyhq/kit/src/components/AppPager/types';
 import { getNetworksSupportBulkRevokeApproval } from '@onekeyhq/shared/src/config/presetNetworks';
@@ -112,7 +118,13 @@ import { TxHistoryListContainerWithProvider } from './TxHistoryContainer';
 import WalletContentWithAuth from './WalletContentWithAuth';
 
 import type { IHomeNativePagerProps } from './HomeNativePager';
+import type { IHomeNativeToolbar } from './TabHeaderSettings';
 import type { LayoutChangeEvent, ViewInstance } from 'react-native';
+import type {
+  CollapsiblePagerNativeTabBarConfig,
+  CollapsiblePagerToolbarItem,
+  CollapsiblePagerToolbarPress,
+} from 'react-native-pager-view';
 
 const networksSupportBulkRevokeApproval =
   getNetworksSupportBulkRevokeApproval();
@@ -927,6 +939,123 @@ export function HomePageView({
     });
   }, [activeTabId]);
 
+  const homeScrollOwnerKey = `${wallet?.id ?? ''}-${
+    account?.indexedAccountId ?? account?.id ?? ''
+  }`;
+  const nativeTabsTheme = useTheme();
+  const [nativeToolbarItems, setNativeToolbarItems] = useState<
+    Partial<Record<EHomeWalletTab, CollapsiblePagerToolbarItem>>
+  >({});
+  const [nativeToolbarPress, setNativeToolbarPress] = useState<{
+    event: CollapsiblePagerToolbarPress;
+    ownerKey: string;
+  }>();
+  useEffect(() => setNativeToolbarPress(undefined), [homeScrollOwnerKey]);
+  const handleNativeToolbarConfig = useCallback<IHomeNativeToolbar['onConfig']>(
+    (key, item) => {
+      setNativeToolbarItems((current) => {
+        if (!item && !current[key]) return current;
+        const next = { ...current };
+        if (item) next[key] = item;
+        else delete next[key];
+        return next;
+      });
+    },
+    [],
+  );
+  const nativeToolbar = useMemo<IHomeNativeToolbar>(
+    () => ({
+      onConfig: handleNativeToolbarConfig,
+      press:
+        nativeToolbarPress?.ownerKey === homeScrollOwnerKey
+          ? nativeToolbarPress.event
+          : undefined,
+    }),
+    [handleNativeToolbarConfig, nativeToolbarPress, homeScrollOwnerKey],
+  );
+  const nativeTextTabBar = useMemo<
+    CollapsiblePagerNativeTabBarConfig | undefined
+  >(() => {
+    if (!isSmallScreen) return undefined;
+    const toolbar: Record<string, CollapsiblePagerToolbarItem> = {};
+    for (const [key, item] of Object.entries(nativeToolbarItems)) {
+      toolbar[key] = {
+        ...item,
+        iconColor: nativeTabsTheme.iconSubdued.val,
+        selectedBackgroundColor: nativeTabsTheme.bgStrong.val,
+        hoverBackgroundColor: nativeTabsTheme.bgHover.val,
+        pressedBackgroundColor: nativeTabsTheme.bgActive.val,
+        size: s(24) + 2 * s(6) + 2,
+        iconSize: s(24),
+        contentWidth: s(24),
+        trailingInset: s(20),
+      };
+    }
+    return {
+      controlled: true,
+      selectedKey: activeTabId,
+      toolbar,
+      items: tabConfigs.map((tab) => ({
+        key: tab.id,
+        title: tab.name,
+        testID: tabTestIDMap[tab.name],
+      })),
+      style: {
+        variant: 'text',
+        height: fs(24) + 2 * s(6) + 2 * s(8),
+        contentPaddingHorizontal: s(10),
+        itemSpacing: 0,
+        fontSize: fs(18),
+        fontFamily: platformEnv.isNative
+          ? BRAND_FONT_NATIVE_FAMILY.medium
+          : BRAND_FONT_WEB_FAMILY,
+        activeFontFamily: platformEnv.isNative
+          ? BRAND_FONT_NATIVE_FAMILY.semibold
+          : BRAND_FONT_WEB_FAMILY,
+        backgroundColor: nativeTabsTheme.bgApp.val,
+        activeTextColor: nativeTabsTheme.text.val,
+        inactiveTextColor: nativeTabsTheme.textSubdued.val,
+      },
+    };
+  }, [
+    isSmallScreen,
+    nativeToolbarItems,
+    nativeTabsTheme,
+    activeTabId,
+    tabConfigs,
+    tabTestIDMap,
+  ]);
+  const handleNativeTextTabPress = useCallback<
+    NonNullable<IHomeNativePagerProps['onNativeTabPress']>
+  >(
+    ({ nativeEvent }) => {
+      const tab = tabConfigs.find((item) => item.id === nativeEvent.key);
+      if (!tab) return;
+      setNativeToolbarPress(undefined);
+      if (perpTabShowWeb && tab.id === EHomeWalletTab.Perps) {
+        switchToPerpsWebTab();
+        return;
+      }
+      setActiveTabName(tab.name);
+      setActiveTabId(tab.id);
+      lastDisplayableTabNameRef.current = tab.name;
+      tabsRef.current?.jumpToTab(tab.name);
+    },
+    [tabConfigs, perpTabShowWeb, switchToPerpsWebTab],
+  );
+  const handleNativeToolbarPress = useCallback<
+    NonNullable<IHomeNativePagerProps['onNativeToolbarPress']>
+  >(
+    ({ nativeEvent }) => {
+      if (nativeEvent.key === activeTabId)
+        setNativeToolbarPress({
+          event: nativeEvent,
+          ownerKey: homeScrollOwnerKey,
+        });
+    },
+    [activeTabId, homeScrollOwnerKey],
+  );
+
   const renderToolbar = useCallback(
     ({ focusedTab }: { focusedTab: string }) => (
       <XStack alignItems="center" gap="$3" flexShrink={0}>
@@ -940,6 +1069,31 @@ export function HomePageView({
     (tabBarProps: Parameters<IHomeNativePagerProps['renderTabBar']>[0]) => {
       // Design: plain-text tabs on small screens only; pill elsewhere.
       const tabBarVariant = isSmallScreen ? 'text' : 'pill';
+      if (isSmallScreen) {
+        const settings = (
+          <TabHeaderSettings
+            key={homeScrollOwnerKey}
+            focusedTab={tabBarProps.focusedTab.value}
+            nativeToolbar={nativeToolbar}
+          />
+        );
+        if (platformEnv.isNative) return settings;
+        return (
+          <YStack ref={stickyHostRefCallback as any} position="relative">
+            {settings}
+            <div
+              ref={portalRefCallback}
+              style={{
+                position: 'absolute',
+                top: '100%',
+                left: 0,
+                right: 0,
+                zIndex: 1,
+              }}
+            />
+          </YStack>
+        );
+      }
       const handleTabPress = (name: string) => {
         debugPerpsChain('home.tabPress', { name });
         const nextTab = tabConfigs.find((tab) => tab.name === name);
@@ -1011,6 +1165,8 @@ export function HomePageView({
       );
     },
     [
+      nativeToolbar,
+      homeScrollOwnerKey,
       portalRefCallback,
       stickyHostRefCallback,
       handleRenderItem,
@@ -1027,6 +1183,7 @@ export function HomePageView({
   const handleTabChange = useCallback(
     (data: { tabName: string }) => {
       debugPerpsChain('home.tabChange', { name: data.tabName });
+      setNativeToolbarPress(undefined);
       const nextTab = tabConfigs.find((tab) => tab.name === data.tabName);
       if (perpTabShowWeb && nextTab?.id === EHomeWalletTab.Perps) {
         switchToPerpsWebTab();
@@ -1049,9 +1206,6 @@ export function HomePageView({
   // account.id for Others wallets), so a pure network switch keeps its scroll
   // position exactly as before. Layout effect: the reset lands in the same
   // frame as the replayed token list, not one frame after it.
-  const homeScrollOwnerKey = `${wallet?.id ?? ''}-${
-    account?.indexedAccountId ?? account?.id ?? ''
-  }`;
   const prevHomeScrollOwnerKeyRef = useRef(homeScrollOwnerKey);
   useLayoutEffect(() => {
     if (prevHomeScrollOwnerKeyRef.current === homeScrollOwnerKey) {
@@ -1306,6 +1460,9 @@ export function HomePageView({
               </Stack>
             ) : undefined
           }
+          nativeTabBar={nativeTextTabBar}
+          onNativeTabPress={handleNativeTextTabPress}
+          onNativeToolbarPress={handleNativeToolbarPress}
           renderTabBar={renderTabBar}
           onTabChange={handleTabChange}
           onTabPrepare={handleTabPrepare}
@@ -1317,6 +1474,9 @@ export function HomePageView({
         ref={tabsRef}
         initialTabName={seedTabName}
         renderHeader={renderHeader}
+        nativeTabBar={nativeTextTabBar}
+        onNativeTabPress={handleNativeTextTabPress}
+        onNativeToolbarPress={handleNativeToolbarPress}
         renderTabBar={renderTabBar}
         renderSubHeader={renderSubHeader}
         onTabChange={handleTabChange}
@@ -1355,6 +1515,9 @@ export function HomePageView({
       />
     );
   }, [
+    nativeTextTabBar,
+    handleNativeTextTabPress,
+    handleNativeToolbarPress,
     tabBarHeight,
     isWalletNotBackedUp,
     renderHeader,

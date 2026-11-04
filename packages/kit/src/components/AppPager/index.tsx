@@ -3,6 +3,7 @@ import type { ReactNode, Ref } from 'react';
 
 import { View } from 'react-native';
 import {
+  type CollapsiblePagerViewProps,
   NativeScroller,
   WebCollapsiblePagerView,
   useWebCollapsiblePagerPage,
@@ -26,6 +27,9 @@ export type IAppPagerProps = {
   renderHeader?: () => ReactNode;
   renderTabBar?: (props: IAppPagerTabBarProps) => ReactNode;
   renderSubHeader?: () => ReactNode;
+  nativeTabBar?: CollapsiblePagerViewProps['nativeTabBar'];
+  onNativeTabPress?: CollapsiblePagerViewProps['onNativeTabPress'];
+  onNativeToolbarPress?: CollapsiblePagerViewProps['onNativeToolbarPress'];
   initialTabName?: string;
   onTabChange?: (event: IAppPagerChange) => void;
   onIndexChange?: (index: number) => void;
@@ -76,6 +80,9 @@ export function AppPager({
   renderTabBar,
   renderSubHeader,
   initialTabName,
+  nativeTabBar,
+  onNativeTabPress,
+  onNativeToolbarPress,
   onTabChange,
   onIndexChange,
   disableScroll,
@@ -111,6 +118,9 @@ export function AppPager({
       <WebCollapsiblePagerView
         ref={pagerRef}
         style={{ flex: 1 }}
+        nativeTabBar={nativeTabBar}
+        onNativeTabPress={onNativeTabPress}
+        onNativeToolbarPress={onNativeToolbarPress}
         initialPage={controller.initialIndex}
         scrollEnabled={!disableScroll}
         isActive={isRouteFocused}

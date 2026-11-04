@@ -9,9 +9,14 @@ import type {
 } from '@onekeyhq/kit/src/components/AppPager/types';
 import type { EHomeWalletTab } from '@onekeyhq/shared/types/wallet';
 
+import type { CollapsiblePagerViewProps } from 'react-native-pager-view';
+
 export type IHomeNativePagerProps = {
   ref?: Ref<IAppPagerRef>;
   tabs: { id: EHomeWalletTab; name: string; component: ReactNode }[];
+  nativeTabBar?: CollapsiblePagerViewProps['nativeTabBar'];
+  onNativeTabPress?: CollapsiblePagerViewProps['onNativeTabPress'];
+  onNativeToolbarPress?: CollapsiblePagerViewProps['onNativeToolbarPress'];
   initialTabName?: string;
   headerHeightHint?: number;
   topOverlayHeightHint?: number;
@@ -31,6 +36,9 @@ export function HomeNativePager({
   ref,
   tabs,
   initialTabName,
+  nativeTabBar,
+  onNativeTabPress,
+  onNativeToolbarPress,
   renderHeader,
   renderSubHeader,
   renderTabBar,
@@ -45,6 +53,9 @@ export function HomeNativePager({
         name: tab.name,
         children: tab.component,
       }))}
+      nativeTabBar={nativeTabBar}
+      onNativeTabPress={onNativeTabPress}
+      onNativeToolbarPress={onNativeToolbarPress}
       initialTabName={initialTabName}
       renderHeader={renderHeader}
       renderSubHeader={renderSubHeader}
