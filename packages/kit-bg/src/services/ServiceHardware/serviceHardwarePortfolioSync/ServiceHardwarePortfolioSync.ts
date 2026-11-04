@@ -100,7 +100,7 @@ type IPortfolioServerSubmitResult = NonNullable<
 >;
 
 type IPortfolioCategoryFiatResult = IPortfolioCategoryFiat & {
-  deFiSource?: 'live' | 'cache' | 'empty' | 'unknown';
+  deFiSource?: 'live' | 'empty' | 'unknown';
   deFiOverview?: {
     totalValue: number;
     totalDebt: number;
@@ -133,7 +133,7 @@ type IPortfolioSyncTelemetry = {
   cancelled?: boolean;
   failureStage?: IPortfolioSyncFailureStage;
   firmwareVersion?: string;
-  deFiSource?: 'live' | 'cache' | 'empty' | 'unknown';
+  deFiSource?: 'live' | 'empty' | 'unknown';
   queueDurationMs?: number;
   unlockDurationMs?: number;
   hardwareDurationMs?: number;
@@ -2216,7 +2216,7 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
         netWorth: 0,
       };
       const fetchDeFi = async (): Promise<{
-        source: 'live' | 'cache' | 'empty' | 'unknown';
+        source: 'live' | 'empty' | 'unknown';
         value: string | undefined;
       }> => {
         if (!refresh.sources.includes('defi')) {

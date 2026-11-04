@@ -3314,12 +3314,51 @@ function TokenListBlock({
         return Promise.resolve(false);
       }
       const scope = portfolioCategoryScope;
+      const savedPartial =
+        partialPortfolioCategoriesRef.current?.scope === scope
+          ? partialPortfolioCategoriesRef.current.data
+          : undefined;
+      const knownHomeAtStart =
+        homePortfolioDisplay.isLive &&
+        homePortfolioDisplay.ownerKey === portfolioCategoryOwnerKey
+          ? homePortfolioDisplay
+          : undefined;
+      const requestedSources = new Set(sources);
+      if (knownHomeAtStart && sources.length < 2) {
+        // A retry can ask for only the failed categories. If Home has changed
+        // for a skipped category since the saved partial result, refresh that
+        // category too instead of publishing (and re-committing) the stale
+        // saved amount.
+        const differs = (home?: string, saved?: string) => {
+          if (home === undefined || saved === undefined) return home !== saved;
+          const homeValue = new BigNumber(home);
+          const savedValue = new BigNumber(saved);
+          return (
+            !homeValue.isFinite() ||
+            !savedValue.isFinite() ||
+            !homeValue.eq(savedValue)
+          );
+        };
+        if (
+          !requestedSources.has('defi') &&
+          differs(knownHomeAtStart.defiFiatUsd, savedPartial?.defiFiat)
+        ) {
+          requestedSources.add('defi');
+        }
+        if (
+          !requestedSources.has('perps') &&
+          differs(knownHomeAtStart.perpsFiatUsd, savedPartial?.perpsFiat)
+        ) {
+          requestedSources.add('perps');
+        }
+      }
+      const effectiveSources = Array.from(requestedSources);
       const pending = portfolioCategoryTaskRef.current;
       if (pending?.scope === scope) {
         if (force && !pending.force) {
           return pending.promise.then(() =>
             portfolioCategoryScopeRef.current === scope
-              ? refreshPortfolioCategoriesRef.current(true, sources)
+              ? refreshPortfolioCategoriesRef.current(true, effectiveSources)
               : false,
           );
         }
@@ -3351,7 +3390,7 @@ function TokenListBlock({
                 indexedAccountId: indexedAccount.id,
                 networkId: network.id,
                 force,
-                sources,
+                sources: effectiveSources,
               },
             );
           if (!isCurrent()) return false;
@@ -3366,7 +3405,7 @@ function TokenListBlock({
               : undefined;
           const merged = {
             ...result,
-            ...(!sources.includes('defi')
+            ...(!effectiveSources.includes('defi')
               ? {
                   defiFiat: previous?.defiFiat ?? knownHome?.defiFiatUsd,
                   deFiSource:
@@ -3377,7 +3416,7 @@ function TokenListBlock({
                   deFiOverview: previous?.deFiOverview,
                 }
               : {}),
-            ...(!sources.includes('perps')
+            ...(!effectiveSources.includes('perps')
               ? { perpsFiat: previous?.perpsFiat ?? knownHome?.perpsFiatUsd }
               : {}),
           };
@@ -3426,11 +3465,11 @@ function TokenListBlock({
                 : {
                     ...current,
                     isRefreshing: false,
-                    failedSources: sources,
+                    failedSources: effectiveSources,
                     retry: () => {
                       void refreshPortfolioCategoriesRef.current(
                         false,
-                        sources,
+                        effectiveSources,
                       );
                     },
                   },

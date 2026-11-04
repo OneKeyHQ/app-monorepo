@@ -386,7 +386,6 @@ describe('complete Portfolio batch queries', () => {
   });
   it.each([
     'degraded',
-    'unqueried',
     'invalid totals',
     'foreign network',
     'missing positions',
@@ -400,10 +399,6 @@ describe('complete Portfolio batch queries', () => {
       const { service, post, updateAccountDeFiOverview } = makeService();
       const response = multiChainResponse(params.networkIds);
       if (mode === 'degraded') response.data.data.meta.degraded = true;
-      if (mode === 'unqueried') {
-        response.data.data.meta.queriedNetworkIds = ['evm--1'];
-        response.data.data.data.positions['evm--8453'] = [];
-      }
       if (mode === 'invalid totals')
         response.data.data.data.totals.netWorth = NaN;
       if (mode === 'foreign network')
@@ -595,6 +590,97 @@ describe('complete Portfolio batch queries', () => {
       service.fetchAccountDeFiPositionsBatch(params),
     ).rejects.toThrow('Incomplete DeFi');
     expect(updateAccountDeFiOverview).not.toHaveBeenCalled();
+  });
+
+  it('recovers omitted networks through complete single-network requests', async () => {
+    const { service, post, updateAccountDeFiOverview } = makeService();
+    const arrayResponse = multiChainResponse(params.networkIds);
+    arrayResponse.data.data.meta.queriedNetworkIds = ['evm--1'];
+    arrayResponse.data.data.data.positions = {
+      'evm--1': arrayResponse.data.data.data.positions['evm--1'],
+    };
+    arrayResponse.data.data.data.totals = {
+      ...arrayResponse.data.data.data.totals,
+      totalValue: 100,
+      totalDebt: 0,
+      totalReward: 0,
+      netWorth: 100,
+    };
+    const singleResponse = multiChainResponse(['evm--8453']);
+    singleResponse.data.data.data.positions = {
+      'evm--8453': singleResponse.data.data.data.positions['evm--8453'],
+    };
+    singleResponse.data.data.data.totals = {
+      ...singleResponse.data.data.data.totals,
+      totalValue: 50,
+      totalDebt: 0,
+      totalReward: 0,
+      netWorth: 50,
+    };
+    singleResponse.data.data.meta.networkIds = ['evm--8453'];
+    singleResponse.data.data.meta.queriedNetworkIds = ['evm--8453'];
+    singleResponse.data.data.meta.requestedNetworkIds = ['evm--8453'];
+    post
+      .mockResolvedValueOnce(arrayResponse)
+      .mockResolvedValueOnce(singleResponse);
+    const results = await service.fetchAccountDeFiPositionsBatch(params);
+    expect(post).toHaveBeenCalledTimes(2);
+    expect(post).toHaveBeenLastCalledWith(
+      '/wallet/v1/portfolio/positions',
+      expect.objectContaining({ networkId: 'evm--8453' }),
+      expect.anything(),
+    );
+    expect(results.map((result) => result?.overview.netWorth)).toEqual([
+      100, 50,
+    ]);
+    expect(updateAccountDeFiOverview).toHaveBeenCalledTimes(1);
+    expect(
+      Object.keys(updateAccountDeFiOverview.mock.calls[0][0].overview),
+    ).toEqual(['evm--1', 'evm--8453']);
+  });
+
+  it('fails closed without partial writes when a recovered network fails', async () => {
+    const { service, post, updateAccountDeFiOverview } = makeService();
+    const arrayResponse = multiChainResponse(params.networkIds);
+    arrayResponse.data.data.meta.queriedNetworkIds = ['evm--1'];
+    arrayResponse.data.data.data.positions = {
+      'evm--1': arrayResponse.data.data.data.positions['evm--1'],
+    };
+    arrayResponse.data.data.data.totals = {
+      ...arrayResponse.data.data.data.totals,
+      totalValue: 100,
+      totalDebt: 0,
+      totalReward: 0,
+      netWorth: 100,
+    };
+    post
+      .mockResolvedValueOnce(arrayResponse)
+      .mockRejectedValueOnce(new Error('offline'));
+    await expect(
+      service.fetchAccountDeFiPositionsBatch(params),
+    ).rejects.toThrow('Incomplete DeFi');
+    expect(updateAccountDeFiOverview).not.toHaveBeenCalled();
+  });
+
+  it('persists a complete per-network fallback in a single write', async () => {
+    const { service, post, updateAccountDeFiOverview } = makeService();
+    post.mockRejectedValueOnce(
+      Object.assign(new Error('array unsupported'), { code: 40_115 }),
+    );
+    jest
+      .spyOn(service, 'fetchAccountDeFiPositions')
+      .mockImplementation(async ({ networkId }) =>
+        singleResult({ networkId, netWorth: 100 }),
+      );
+    const results = await service.fetchAccountDeFiPositionsBatch(params);
+    expect(results.map((result) => result?.networkId)).toEqual([
+      'evm--1',
+      'evm--8453',
+    ]);
+    expect(updateAccountDeFiOverview).toHaveBeenCalledTimes(1);
+    expect(
+      Object.keys(updateAccountDeFiOverview.mock.calls[0][0].overview),
+    ).toEqual(['evm--1', 'evm--8453']);
   });
 });
 
@@ -853,20 +939,30 @@ describe('ServiceDeFi.fetchAccountDeFiPositionsBatch', () => {
     ]);
   });
 
-  it('splits the batch once on 13004', async () => {
+  it('splits oversized requests into consecutive batches', async () => {
     const { service, post } = makeService();
-    post
-      .mockRejectedValueOnce(
-        Object.assign(new Error('too many'), { code: 13_004 }),
-      )
-      .mockResolvedValueOnce(multiChainResponse(['evm--1']))
-      .mockResolvedValueOnce(multiChainResponse(['evm--8453']));
+    const networkIds = Array.from(
+      { length: 12 },
+      (_, index) => `evm--${index + 1}`,
+    );
+    post.mockImplementation(
+      async (_url: string, body: { networkId: string | string[] }) =>
+        multiChainResponse(
+          Array.isArray(body.networkId) ? body.networkId : [body.networkId],
+        ),
+    );
     const results = await service.fetchAccountDeFiPositionsBatch({
       ...baseParams,
-      networkIds: ['evm--1', 'evm--8453'],
+      networkIds,
     });
-    expect(post).toHaveBeenCalledTimes(3);
-    expect(results.map((r) => r?.networkId)).toEqual(['evm--1', 'evm--8453']);
+    expect(post).toHaveBeenCalledTimes(2);
+    expect(
+      (post.mock.calls[0][1] as { networkId: string[] }).networkId,
+    ).toHaveLength(10);
+    expect(
+      (post.mock.calls[1][1] as { networkId: string[] }).networkId,
+    ).toHaveLength(2);
+    expect(results.map((r) => r?.networkId)).toEqual(networkIds);
   });
 
   it('falls back to single-network requests on 40115', async () => {

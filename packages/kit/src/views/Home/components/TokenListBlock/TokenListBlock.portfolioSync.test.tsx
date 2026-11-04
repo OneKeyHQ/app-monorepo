@@ -697,7 +697,7 @@ describe('Home automatic Portfolio sync', () => {
     );
   });
 
-  it('keeps the previous snapshot on failure and retries only the failed source', async () => {
+  it('keeps the previous snapshot on failure and retries stale categories too', async () => {
     mockPublishRefreshedHeader = true;
     render(<TokenListBlock />);
     await waitFor(() => expect(mockCategoryState.isRefreshing).toBe(false));
@@ -730,6 +730,8 @@ describe('Home automatic Portfolio sync', () => {
     expect(mockHomeDisplay.totalFiatUsd).toBe('125');
     expect(mockCategoryState.heldTotalFiatUsd).toBe('125');
     expect(mockSyncPortfolio).not.toHaveBeenCalled();
+    // The saved partial Perps value (20) differs from the live Home value (0),
+    // so the retry refreshes Perps as well instead of publishing the save.
     mockRefreshCategories.mockResolvedValueOnce({
       ...complete,
       defiFiat: '40',
@@ -739,12 +741,15 @@ describe('Home automatic Portfolio sync', () => {
         totalReward: 0,
         netWorth: 40,
       },
-      perpsFiat: undefined,
+      perpsFiat: '20',
     });
     await act(async () => mockCategoryState.retry?.());
     await waitFor(() => expect(mockSyncPortfolio).toHaveBeenCalledTimes(1));
     expect(mockRefreshCategories).toHaveBeenLastCalledWith(
-      expect.objectContaining({ force: false, sources: ['defi'] }),
+      expect.objectContaining({
+        force: false,
+        sources: ['defi', 'perps'],
+      }),
     );
     expect(mockSyncPortfolio).toHaveBeenCalledWith(
       expect.objectContaining({
