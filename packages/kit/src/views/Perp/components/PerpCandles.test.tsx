@@ -329,8 +329,15 @@ describe('PerpCandles account switch', () => {
 
 describe.each([
   ['standalone chart', PerpCandles],
+  ['mobile chart', PerpCandles],
   ['desktop workspace', PerpMarketWorkspacePanel],
 ] as const)('%s chart mode preference', (_name, Chart) => {
+  beforeEach(() => {
+    jest.replaceProperty(platformEnv, 'isNative', _name === 'mobile chart');
+  });
+
+  afterEach(() => jest.restoreAllMocks());
+
   it('restores a saved native chart preference', () => {
     mockCustomSettings.chartMode = 'native';
     render(<Chart />);
