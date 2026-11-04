@@ -84,6 +84,9 @@ export type ITokenFiat = {
   // consumers that never see the token object can still skip this entry in
   // totals. Row display keeps using `fiatValue` unchanged.
   sharedBalanceExcludedFromTotal?: boolean;
+  // Lightning on Spark: sats paid to the account that its wallet has not
+  // claimed yet. They are not part of `balance`.
+  pendingReceiveSats?: string;
 };
 
 export enum ECustomTokenStatus {
