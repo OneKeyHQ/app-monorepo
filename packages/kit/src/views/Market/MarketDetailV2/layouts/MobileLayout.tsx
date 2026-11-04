@@ -42,6 +42,7 @@ import { TRADING_VIEW_NATIVE_SUB_INDICATOR_PANE_HEIGHT } from '@onekeyhq/kit/src
 import { getTradingViewNativeIntervalStorageNamespace } from '@onekeyhq/kit/src/components/TradingView/TradingViewNative/data/tradingViewNativeIntervalStorage';
 import type { ITradingViewNativeIntervalStorageNamespace } from '@onekeyhq/kit/src/components/TradingView/TradingViewNative/data/tradingViewNativeIntervalStorage';
 import { TradingViewNativeTokenHeader } from '@onekeyhq/kit/src/components/TradingView/TradingViewNative/TradingViewNativeTokenHeader';
+import { isTradingViewNativePhoneWindow } from '@onekeyhq/kit/src/components/TradingView/TradingViewNative/utils/fullscreenLayout';
 import { shouldReserveTradingViewNativeIndicatorQuickBar } from '@onekeyhq/kit/src/components/TradingView/TradingViewV2';
 import type { ITradingViewNativeIndicatorQuickBarState } from '@onekeyhq/kit/src/components/TradingView/TradingViewV2';
 import {
@@ -112,6 +113,7 @@ import {
 import { buildMarketStockTokenMetadata } from '../utils/resolveIsStockToken';
 
 import {
+  isTransientLandscapePageLayout,
   shouldShowMobileNativeChart,
   shouldShowMobileSimpleChart,
 } from './mobileChartVisibility';
@@ -729,14 +731,27 @@ export function MobileLayout({
   const preserveInlineViewport =
     preservesPortraitLayout &&
     (isChartFullscreen || windowWidth > windowHeight);
+  // Android phones only reach landscape through the native chart fullscreen;
+  // keep the page's portrait measurements through its rotations.
+  const keepsPortraitPageLayout = Boolean(
+    preservesPortraitLayout ||
+    (platformEnv.isNativeAndroid &&
+      isTradingViewNativePhoneWindow({
+        height: windowHeight,
+        width: windowWidth,
+      })),
+  );
 
   const handleContainerLayout = useCallback(
     (event: { nativeEvent: { layout: { height: number; width: number } } }) => {
       if (
         preserveInlineViewport ||
-        (preservesPortraitLayout &&
-          Math.round(event.nativeEvent.layout.width) >
-            Math.round(Math.min(windowWidth, windowHeight)))
+        isTransientLandscapePageLayout({
+          keepsPortraitLayout: keepsPortraitPageLayout,
+          layoutWidth: event.nativeEvent.layout.width,
+          windowHeight,
+          windowWidth,
+        })
       ) {
         return;
       }
@@ -753,6 +768,7 @@ export function MobileLayout({
       }
     },
     [
+      keepsPortraitPageLayout,
       preserveInlineViewport,
       preservesPortraitLayout,
       windowHeight,
@@ -769,9 +785,12 @@ export function MobileLayout({
         (preservesAndroidTabHeight && Keyboard.isVisible()) ||
         preserveInlineViewport ||
         // A queued landscape layout can arrive after Dimensions is portrait.
-        (preservesPortraitLayout &&
-          Math.round(event.nativeEvent.layout.width) >
-            Math.round(Math.min(windowWidth, windowHeight)))
+        isTransientLandscapePageLayout({
+          keepsPortraitLayout: keepsPortraitPageLayout,
+          layoutWidth: event.nativeEvent.layout.width,
+          windowHeight,
+          windowWidth,
+        })
       ) {
         return;
       }
@@ -786,9 +805,9 @@ export function MobileLayout({
       }
     },
     [
+      keepsPortraitPageLayout,
       pageViewportCacheKey,
       preserveInlineViewport,
-      preservesPortraitLayout,
       preservesAndroidTabHeight,
       usesMeasuredPageViewport,
       windowHeight,
