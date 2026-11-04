@@ -1233,3 +1233,10 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries â€
 **Root Cause**: The device identity event recorded a target-specific mismatch and invalidated the sync generation before the task could return its mismatch result. The interactive wrapper converted the resulting undefined value to false.
 **Fix**: Preserve the target-specific mismatch as DeviceNotSame when the task returns undefined, after honoring explicit user cancellation. Regression tests cover identity changes during unlock, package preparation, and the final identity check; upload remains blocked.
 **Catchable by**: Section 5: No race conditions in async operations; Section 6: A bug fix includes regression tests for event-driven cancellation and user-visible errors.
+
+## Case: Mobile stock trade modals showed a redundant K-line button (OK-66221)
+**Date**: 2026-11-04 | **Platforms**: iOS and Android (main UI runtime)
+**Symptom**: Opening Buy or Sell from Market stock details displayed a K-line button in the Stock trade modal.
+**Root Cause**: The shared Swap header hid the button only in Desktop Stock modals, so native Stock modals still showed it.
+**Fix**: Extend the existing Stock modal visibility condition to iOS and Android. Regression tests cover hiding the button in native Stock modals and keeping it available in native Swap modals and on the standalone Stock page.
+**Catchable by**: Section 3 (Cross-Platform Impact) and Section 6 (Unit Tests). Test shared header actions across platform, modal versus page, and active trade mode.
