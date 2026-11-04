@@ -702,6 +702,75 @@ describe('complete Portfolio batch queries', () => {
       Object.keys(updateAccountDeFiOverview.mock.calls[0][0].overview),
     ).toEqual(['evm--1', 'evm--8453']);
   });
+  it('recovers an unqueried network even when its positions bucket is empty', async () => {
+    const { service, post, updateAccountDeFiOverview } = makeService();
+    const arrayResponse = multiChainResponse(params.networkIds);
+    arrayResponse.data.data.meta.queriedNetworkIds = ['evm--1'];
+    arrayResponse.data.data.data.positions = {
+      'evm--1': arrayResponse.data.data.data.positions['evm--1'],
+      'evm--8453': [],
+    };
+    arrayResponse.data.data.data.totals = {
+      ...arrayResponse.data.data.data.totals,
+      totalValue: 100,
+      totalDebt: 0,
+      totalReward: 0,
+      netWorth: 100,
+    };
+    const singleResponse = multiChainResponse(['evm--8453']);
+    singleResponse.data.data.data.positions = {
+      'evm--8453': singleResponse.data.data.data.positions['evm--8453'],
+    };
+    singleResponse.data.data.data.totals = {
+      ...singleResponse.data.data.data.totals,
+      totalValue: 50,
+      totalDebt: 0,
+      totalReward: 0,
+      netWorth: 50,
+    };
+    singleResponse.data.data.meta.networkIds = ['evm--8453'];
+    singleResponse.data.data.meta.queriedNetworkIds = ['evm--8453'];
+    singleResponse.data.data.meta.requestedNetworkIds = ['evm--8453'];
+    post
+      .mockResolvedValueOnce(arrayResponse)
+      .mockResolvedValueOnce(singleResponse);
+    const results = await service.fetchAccountDeFiPositionsBatch(params);
+    expect(post).toHaveBeenCalledTimes(2);
+    expect(results.map((result) => result?.overview.netWorth)).toEqual([
+      100, 50,
+    ]);
+    expect(updateAccountDeFiOverview).toHaveBeenCalledTimes(1);
+    expect(
+      Object.keys(updateAccountDeFiOverview.mock.calls[0][0].overview),
+    ).toEqual(['evm--1', 'evm--8453']);
+  });
+
+  it('serves smaller complete batches one by one when the backend rejects the array with 13004', async () => {
+    const { service, post, updateAccountDeFiOverview } = makeService();
+    post.mockRejectedValueOnce(
+      Object.assign(new Error('too many networks'), { code: 13_004 }),
+    );
+    const single = jest
+      .spyOn(service, 'fetchAccountDeFiPositions')
+      .mockImplementation(async ({ networkId }) =>
+        singleResult({ networkId, netWorth: 100 }),
+      );
+    const results = await service.fetchAccountDeFiPositionsBatch(params);
+    expect(results.map((result) => result?.networkId)).toEqual([
+      'evm--1',
+      'evm--8453',
+    ]);
+    expect(results.every(Boolean)).toBe(true);
+    expect(updateAccountDeFiOverview).toHaveBeenCalledTimes(1);
+    expect(
+      Object.keys(updateAccountDeFiOverview.mock.calls[0][0].overview),
+    ).toEqual(['evm--1', 'evm--8453']);
+    // The rejected network set is remembered, so the next call skips the array
+    // request instead of paying for another 13004 failure.
+    await service.fetchAccountDeFiPositionsBatch(params);
+    expect(post).toHaveBeenCalledTimes(1);
+    expect(single).toHaveBeenCalledTimes(4);
+  });
 });
 
 function singleResult({

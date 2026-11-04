@@ -1042,6 +1042,15 @@ class ServiceDeFi extends ServiceBase {
       );
     } catch (error) {
       const code = (error as { code?: number } | undefined)?.code;
+      if (code === 13_004) {
+        // The backend enforces a smaller multi-network limit than our planner:
+        // serve the networks one by one instead of failing the refresh. The
+        // complete per-network fallback persists atomically.
+        if (networkIds.length > 1) {
+          this._rejectedMultiChainSets.set(multiChainSetKey, Date.now());
+        }
+        return this._fetchAccountDeFiPositionsPerNetwork(resolvedParams);
+      }
       if (code === 40_115) {
         // The backend does not array this network set (not in its multi-chain
         // allowlist, or an old client): remember it and serve the networks
@@ -1097,10 +1106,23 @@ class ServiceDeFi extends ServiceBase {
         throw new OneKeyLocalError('Incomplete DeFi portfolio response');
       }
     }
-    const notQueriedNetworkIds = this._getNotQueriedNetworkIds({
-      networkIds,
-      resp: body,
-    });
+    const queriedNetworkIdsInResponse = Array.isArray(
+      body.meta?.queriedNetworkIds,
+    )
+      ? body.meta.queriedNetworkIds
+      : undefined;
+    // Complete queries treat any network the backend did not query as missing,
+    // even when it seeded an empty positions bucket for it: that bucket is not
+    // a confirmed zero. Non-complete callers keep the lenient heuristic.
+    const notQueriedNetworkIds =
+      params.requireComplete && queriedNetworkIdsInResponse
+        ? networkIds.filter(
+            (networkId) => !queriedNetworkIdsInResponse.includes(networkId),
+          )
+        : this._getNotQueriedNetworkIds({
+            networkIds,
+            resp: body,
+          });
     const notQueried = new Set(notQueriedNetworkIds);
     // A single network already went out as the string request the fallback
     // would send: its empty result stands, only the cache write is skipped.
