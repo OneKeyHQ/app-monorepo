@@ -74,6 +74,7 @@ import { NativeTokenSelectorList } from './NativeTokenSelectorList';
 import { perfTokenListView } from './perfTokenListView';
 import { TokenListFooter } from './TokenListFooter';
 import { TokenListHeader } from './TokenListHeader';
+import { getTokenListSlotInsetCompensation } from './tokenListRowLayoutShared';
 import {
   TokenListViewContext,
   useTokenListViewContext,
@@ -1207,9 +1208,23 @@ function TokenListViewCmp(props: IProps) {
   }, [disclosureEnabled, disclosureScope]);
   const keepExpandedContent =
     !overFlowState.isSliced || expandedContentScope === disclosureScope;
+  // NativeList lays the header, footer, expanded-content and structure-toggle
+  // slots out at the list's `contentPaddingHorizontal`, the same inset the
+  // rows get before their own `horizontalPadding`. The native slot content
+  // here is page-level (block header, footer rows, the show more / less
+  // button, the Home blocks below the list) and already pads itself to the
+  // page edge, so pull the slot inset back out or everything around the rows
+  // lands 8 units further in than the rows and the tab bar. Web slot content
+  // is sized for the inset (see TokenListHeader), and the Android sidecar
+  // layout drops the inset on its own (see the helper).
+  const slotInsetCompensation = getTokenListSlotInsetCompensation({
+    isNative: !!platformEnv.isNative,
+    isNativeAndroid: !!platformEnv.isNativeAndroid,
+    hasSidecarLayout: !!nativeListSidecarLayout,
+  });
   const expandedContent =
     disclosureEnabled && keepExpandedContent ? (
-      <Stack key={disclosureScope}>
+      <Stack key={disclosureScope} mx={slotInsetCompensation}>
         {withFooter ? (
           <TokenListFooter
             tableLayout={tableLayout}
@@ -1230,7 +1245,7 @@ function TokenListViewCmp(props: IProps) {
       </Stack>
     ) : undefined;
   const structureToggle = disclosureEnabled ? (
-    <XStack pt="$3" px="$5" jc="center" ai="center">
+    <XStack pt="$3" px="$5" mx={slotInsetCompensation} jc="center" ai="center">
       <Button
         testID={
           overFlowState.isSliced
@@ -1255,7 +1270,7 @@ function TokenListViewCmp(props: IProps) {
       ? structuralTransitionCommand
       : undefined;
   const listHeader = (
-    <Stack>
+    <Stack mx={slotInsetCompensation}>
       {nativeListHeader}
       {withHeader ? (
         <TokenListHeader
@@ -1268,14 +1283,14 @@ function TokenListViewCmp(props: IProps) {
     </Stack>
   );
   const listFooter = plainMode ? (
-    <>
+    <Stack mx={slotInsetCompensation}>
       {!disclosureEnabled && !showSkeleton && listData.length
         ? renderPlainModeFooter()
         : null}
       {nativeListFooter}
-    </>
+    </Stack>
   ) : (
-    <Stack pb="$5">
+    <Stack pb="$5" mx={slotInsetCompensation}>
       {withFooter ? (
         <TokenListFooter
           tableLayout={tableLayout}
