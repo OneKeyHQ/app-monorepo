@@ -50,6 +50,15 @@ export class SparkScene extends BaseScene {
     return params;
   }
 
+  /**
+   * A payment the SDK reported as completed that does not prove it: no
+   * preimage of the invoice's payment hash. Carries no invoice or preimage.
+   */
+  @LogToLocal({ level: 'error' })
+  public paymentNotVerified(params: { paymentId: string; reason: string }) {
+    return params;
+  }
+
   /** A warning the Breez SDK logged itself. */
   @LogToLocal({ level: 'warn' })
   public sdkWarning(params: { line: string }) {

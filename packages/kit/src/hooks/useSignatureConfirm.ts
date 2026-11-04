@@ -21,6 +21,7 @@ import {
   EModalRoutes,
   EModalSignatureConfirmRoutes,
 } from '@onekeyhq/shared/src/routes';
+import { isReusableLightningRecipient } from '@onekeyhq/shared/src/utils/lnUrlUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type { IDappSourceInfo } from '@onekeyhq/shared/types';
 import type {
@@ -377,15 +378,41 @@ function useSignatureConfirm(params: IParams): IUseSignatureConfirmResult {
     [accountId, navigation, networkId, normalizeTxConfirm],
   );
 
+  // Self-custody Lightning pays BOLT11 invoices only for now. LNURL and
+  // Lightning addresses need the callback invoice through a OneKey relay,
+  // so they stop here and never reach the Breez SDK.
+  const lightningSparkSignatureConfirm: INavigationToTxConfirm = useCallback(
+    async (params: IBuildUnsignedTxParams) => {
+      if (
+        params.transfersInfo?.some((transferInfo) =>
+          isReusableLightningRecipient(transferInfo.to),
+        )
+      ) {
+        throw new OneKeyLocalError({
+          key: ETranslations.wallet_feature_coming_soon,
+        });
+      }
+      await normalizeTxConfirm(params);
+    },
+    [normalizeTxConfirm],
+  );
+
   const navigationToTxConfirm: INavigationToTxConfirm = useCallback(
     async (params: IBuildUnsignedTxParams) => {
       if (networkUtils.isLightningNetworkByNetworkId(networkId)) {
         await lightningSignatureConfirm(params);
+      } else if (networkUtils.isLightningSparkNetworkByNetworkId(networkId)) {
+        await lightningSparkSignatureConfirm(params);
       } else {
         await normalizeTxConfirm(params);
       }
     },
-    [networkId, normalizeTxConfirm, lightningSignatureConfirm],
+    [
+      networkId,
+      normalizeTxConfirm,
+      lightningSignatureConfirm,
+      lightningSparkSignatureConfirm,
+    ],
   );
 
   const navigationToMessageConfirm: INavigationToMessageConfirm = useCallback(

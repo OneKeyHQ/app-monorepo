@@ -292,7 +292,7 @@ class ServiceSignatureConfirm extends ServiceBase {
         convertAddressToSignatureConfirmAddress({
           address: accountAddress,
           showAccountName:
-            networkUtils.isLightningNetworkByNetworkId(networkId),
+            networkUtils.isAnyLightningNetworkByNetworkId(networkId),
         }),
       );
 
