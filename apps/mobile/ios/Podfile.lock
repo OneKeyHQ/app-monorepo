@@ -425,10 +425,6 @@ PODS:
     - ReactCommon/turbomodule/core
     - ReactNativeDependencies
     - Yoga
-  - JCoreRN (2.3.2):
-    - React
-  - JPushRN (3.2.1):
-    - React
   - JuiceboxSdk (0.3.2)
   - KeychainModule (6.7.0-alpha.432):
     - hermes-engine
@@ -3309,6 +3305,31 @@ PODS:
     - ReactNativeDependencies
     - ReactNativeNativeLogger
     - Yoga
+  - ReactNativeJpush (6.7.0-alpha.436):
+    - hermes-engine
+    - NitroModules
+    - RCTRequired
+    - RCTTypeSafety
+    - React-bridging
+    - React-callinvoker
+    - React-Core
+    - React-cxxstableapi
+    - React-debug
+    - React-Fabric
+    - React-featureflags
+    - React-graphics
+    - React-ImageManager
+    - React-jsi
+    - React-NativeModulesApple
+    - React-RCTFabric
+    - React-renderercss
+    - React-rendererdebug
+    - React-utils
+    - ReactCodegen
+    - ReactCommon/turbomodule/core
+    - ReactNativeDependencies
+    - ReactNativeNativeLogger
+    - Yoga
   - ReactNativeLiteCard (6.7.0-alpha.432):
     - hermes-engine
     - RCTRequired
@@ -3332,7 +3353,7 @@ PODS:
     - ReactNativeDependencies
     - ReactNativeNativeLogger
     - Yoga
-  - ReactNativeNativeLogger (6.7.0-alpha.432):
+  - ReactNativeNativeLogger (6.7.0-alpha.436):
     - CocoaLumberjack/Swift (~> 3.8)
     - hermes-engine
     - NitroModules
@@ -4202,8 +4223,6 @@ DEPENDENCIES:
   - hermes-engine (from `../../../node_modules/react-native/sdks/hermes-engine/hermes-engine.podspec`)
   - ImageColors (from `../../../node_modules/react-native-image-colors/ios`)
   - "intercom-react-native (from `../../../node_modules/@intercom/intercom-react-native`)"
-  - JCoreRN (from `../../../node_modules/jcore-react-native`)
-  - JPushRN (from `../../../node_modules/jpush-react-native`)
   - "KeychainModule (from `../../../node_modules/@onekeyfe/react-native-keychain-module`)"
   - lottie-react-native (from `../../../node_modules/lottie-react-native`)
   - MMKV (from `../../../node_modules/.cache/onekey-mmkv-native/4007cba64e697a153127daa7578c13666f34525e-b4c0dcafcbcb`)
@@ -4321,6 +4340,7 @@ DEPENDENCIES:
   - ReactNativeFs (from `../../../node_modules/react-native-fs`)
   - ReactNativeGetRandomValues (from `../../../node_modules/react-native-get-random-values`)
   - "ReactNativeImageCropPicker (from `../../../node_modules/@onekeyfe/react-native-image-crop-picker`)"
+  - ReactNativeJpush (from `../../../node_modules/jpush-react-native`)
   - "ReactNativeLiteCard (from `../../../node_modules/@onekeyfe/react-native-lite-card`)"
   - "ReactNativeNativeLogger (from `../../../node_modules/@onekeyfe/react-native-native-logger`)"
   - "ReactNativeNetworkThrottle (from `../../../node_modules/@onekeyfe/react-native-network-throttle`)"
@@ -4492,10 +4512,6 @@ EXTERNAL SOURCES:
     :path: "../../../node_modules/react-native-image-colors/ios"
   intercom-react-native:
     :path: "../../../node_modules/@intercom/intercom-react-native"
-  JCoreRN:
-    :path: "../../../node_modules/jcore-react-native"
-  JPushRN:
-    :path: "../../../node_modules/jpush-react-native"
   KeychainModule:
     :path: "../../../node_modules/@onekeyfe/react-native-keychain-module"
   lottie-react-native:
@@ -4728,6 +4744,8 @@ EXTERNAL SOURCES:
     :path: "../../../node_modules/react-native-get-random-values"
   ReactNativeImageCropPicker:
     :path: "../../../node_modules/@onekeyfe/react-native-image-crop-picker"
+  ReactNativeJpush:
+    :path: "../../../node_modules/jpush-react-native"
   ReactNativeLiteCard:
     :path: "../../../node_modules/@onekeyfe/react-native-lite-card"
   ReactNativeNativeLogger:
@@ -4857,8 +4875,6 @@ SPEC CHECKSUMS:
   ImageColors: 51cd79f7a9d2524b7a681c660b0a50574085563b
   Intercom: 8d06a96c4c808a2b4acffc8373855f651121e26f
   intercom-react-native: f067a4279b73ea595e628eeda50fa4fb06c17f3c
-  JCoreRN: d985de509185b381c177fde4bb6bfc686089fdbd
-  JPushRN: 807bc962b2f25860e5c0caa5fcb7b4910572b890
   JuiceboxSdk: b2222491ce92b263694c217ea202a54b66c5ec5f
   KeychainModule: d8334028b0d9f11bad0bb978f8651d4126168377
   libwebp: 02b23773aedb6ff1fd38cec7a77b81414c6842a8
@@ -4982,8 +4998,9 @@ SPEC CHECKSUMS:
   ReactNativeFs: 1ea825ad068d8547e7024d51a4c4f7195a5fe927
   ReactNativeGetRandomValues: 5ce729aece16b1b01d51a89cb02680b7b8f88bee
   ReactNativeImageCropPicker: fe66f9a721864e80da22a0ea83a29c5cc80d636d
+  ReactNativeJpush: 87801dd17973128085161afd2447a481b2812996
   ReactNativeLiteCard: c471a6554ed6482c1ce989ed12e355847b3335fb
-  ReactNativeNativeLogger: 14efcdfad8b047d7b253800ae5753b982f0445ac
+  ReactNativeNativeLogger: 3d169c8d4b03697bfeb6a4adfeeec6ce7719906f
   ReactNativeNetworkThrottle: c21d73ed0d5ec3594ed3d8ede306bae58654fc76
   ReactNativePasskeys: 9e950e8cbf0e7d6aad9df4dcd21cee0efeb4e5cd
   ReactNativePerfMemory: 50dcd88646acfad25d44a4fc4f1f9f3e286e58c5

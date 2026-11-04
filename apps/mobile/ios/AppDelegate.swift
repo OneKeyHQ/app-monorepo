@@ -1375,7 +1375,7 @@ extension AppDelegate:JPUSHRegisterDelegate {
 
   }
 
-  func jpushNotificationCenter(_ center: UNUserNotificationCenter, openSettingsFor notification: UNNotification) {
+  func jpushNotificationCenter(_ center: UNUserNotificationCenter, openSettingsFor notification: UNNotification?) {
 
   }
 

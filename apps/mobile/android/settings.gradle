@@ -60,3 +60,7 @@ include ':app-update-noop'
 // All MMKV consumers use one source-built Core, including Nitro's prefab.
 include ':mmkv'
 project(':mmkv').projectDir = new File(rootDir, 'mmkv')
+
+// The Google transport is shipped as readable source inside the JPush package.
+include ':onekey-jpush-fcm'
+project(':onekey-jpush-fcm').projectDir = new File(project(':jpush-react-native').projectDir, 'fcm')
