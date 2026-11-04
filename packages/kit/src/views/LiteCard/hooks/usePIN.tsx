@@ -4,6 +4,8 @@ import { useIntl } from 'react-intl';
 
 import { Dialog, SizableText } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 
 import { PasswordKeyboard } from '../components/PasswordKeyboard';
 
@@ -71,7 +73,29 @@ export default function usePIN() {
           });
         }
       }
+      const operationId = generateUUID();
+      const startedAt = Date.now();
+      const logDialog = (
+        phase:
+          | 'dialog-show-request'
+          | 'dialog-show-returned'
+          | 'pin-confirm-resolve'
+          | 'dialog-close-start'
+          | 'dialog-close',
+        closeReason?: 'confirm' | 'cancel' | 'other',
+      ) => {
+        defaultLogger.hardware.liteCard.diagnostic({
+          operation: 'pin',
+          operationId,
+          phase,
+          elapsedMs: Date.now() - startedAt,
+          isSetNewPassword: Boolean(isSetNewPassword),
+          isConfirm: Boolean(shouldConfirmPassword),
+          closeReason,
+        });
+      };
       return new Promise<string>((resolve) => {
+        logDialog('dialog-show-request');
         Dialog.confirm({
           icon: 'GiroCardOutline',
           title: config.title,
@@ -94,9 +118,19 @@ export default function usePIN() {
           },
           onConfirm: (dialogInstance) => {
             const pin = dialogInstance.getForm()?.getValues().password;
+            logDialog('pin-confirm-resolve');
             resolve(pin);
           },
+          onCloseStart: () => logDialog('dialog-close-start'),
+          onClose: (extra) =>
+            logDialog(
+              'dialog-close',
+              extra?.flag === 'confirm' || extra?.flag === 'cancel'
+                ? extra.flag
+                : 'other',
+            ),
         });
+        logDialog('dialog-show-returned');
       });
     },
     [intl],
