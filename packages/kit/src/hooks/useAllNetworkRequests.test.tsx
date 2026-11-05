@@ -337,14 +337,36 @@ describe('Home All Networks dispatch ownership', () => {
     await act(() => hook.result.current.run());
 
     const nftAccounts = accounts.filter((item) => item.isNftEnabled);
+    // Only the fetch set is narrowed; `allAccounts` stays the owner's whole
+    // account set so every request kind reports the same visible networks.
     expect(hook.accountsData).toHaveBeenCalledWith({
       accounts: nftAccounts,
-      allAccounts: nftAccounts,
+      allAccounts: accounts,
     });
     expect(hook.fetch.mock.calls.map(([item]) => item.networkId)).toEqual(
       nftAccounts.map((item) => item.networkId),
     );
     expect(accounts).toHaveLength(22);
+  });
+
+  it('reports an owner whose only address has no NFT support as having accounts', async () => {
+    // All Networks narrowed to a network outside the NFT list (Monero, Zcash,
+    // TON): the NFT run has nothing to fetch, but the owner is not address-less.
+    const accounts = accountsFor('a', 1).accountsInfo.map((item) => ({
+      ...item,
+      isNftEnabled: false,
+    }));
+    getAccounts.mockResolvedValueOnce(accounts);
+    const hook = setup({ warm: false, isNFTRequests: true });
+
+    await act(() => hook.result.current.run());
+
+    expect(hook.accountsData).toHaveBeenCalledWith({
+      accounts: [],
+      allAccounts: accounts,
+    });
+    expect(hook.fetch).not.toHaveBeenCalled();
+    expect(hook.result.current.isEmptyAccount).toBe(true);
   });
 
   it('does not start an obsolete runner or its preflight RPC', async () => {

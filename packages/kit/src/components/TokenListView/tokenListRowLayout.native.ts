@@ -1,4 +1,11 @@
-import type { ITokenListHeaderLayout } from './tokenListRowLayoutShared';
+import type {
+  ITokenListHeaderLayout,
+  ITokenRowContainerStyle,
+} from './tokenListRowLayoutShared';
+
+// Native engines already round the pressed fill on their own. An explicit
+// container radius would also mask the resting row, so none is set here.
+export const TOKEN_ROW_CONTAINER_STYLE: ITokenRowContainerStyle = undefined;
 
 // Native rows: 44px leading slot, 8px gaps, and the header `ListItem` keeps
 // its default horizontal box.
