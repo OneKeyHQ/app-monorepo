@@ -1139,9 +1139,7 @@ export function CommonTableListView<T>({
         style={{ flex: 1 }}
         horizontal
         scrollEnabled={!platformEnv.isNative && showDesktopEmptyState}
-        showsHorizontalScrollIndicator={
-          !platformEnv.isNative && showDesktopEmptyState
-        }
+        showsHorizontalScrollIndicator={false}
         contentContainerStyle={{
           minWidth: scrollableMinWidth,
           flexGrow: 1,
