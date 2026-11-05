@@ -26,3 +26,10 @@ export function isZcashSpamRegionHeight(height: number | null | undefined) {
 
 // Zcash's target block interval, used to turn a block lag into elapsed time.
 export const ZCASH_TARGET_BLOCK_SECONDS = 75;
+
+// NU7 cuts the target block interval to 25s from this mainnet height.
+export const ZCASH_NU7_ACTIVATION_HEIGHT_MAINNET = 3_543_405;
+export const ZCASH_POST_NU7_TARGET_BLOCK_SECONDS = 25;
+// Projected from height 3,539,042 at 2026-11-02T07:08Z at 75s per block;
+// off by hours at most, inside the one-day birthday margin.
+export const ZCASH_NU7_ACTIVATION_TIMESTAMP_MS = Date.UTC(2026, 10, 6, 2);

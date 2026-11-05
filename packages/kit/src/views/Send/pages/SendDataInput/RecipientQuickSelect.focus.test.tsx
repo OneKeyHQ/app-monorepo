@@ -17,6 +17,7 @@ const mockScrollHeaderBy = jest.fn();
 const mockSetPageWithoutAnimation = jest.fn();
 let mockInitialPage: number | undefined;
 let mockNativeRowAction: NativeListProps['onRowAction'];
+let mockNativeRows: NativeListProps['snapshot']['rows'] | undefined;
 let mockHeaderLayout:
   | ((event: { nativeEvent: { layout: { height: number } } }) => void)
   | undefined;
@@ -197,8 +198,9 @@ jest.mock('@onekeyhq/components', () => {
 });
 
 jest.mock('@onekeyfe/react-native-native-list', () => ({
-  NativeList: ({ onRowAction }: NativeListProps) => {
+  NativeList: ({ onRowAction, snapshot }: Partial<NativeListProps>) => {
     mockNativeRowAction = onRowAction;
+    if (snapshot) mockNativeRows = snapshot.rows;
     return null;
   },
 }));
@@ -295,8 +297,8 @@ jest.mock('./QuickSelectListShared', () => ({
   QuickSelectListSkeleton: () => null,
 }));
 jest.mock('./recipientNativeList', () => ({
-  recipientIdentityRow: jest.fn(),
-  recipientSnapshot: jest.fn(),
+  recipientIdentityRow: jest.fn((row: unknown) => row),
+  recipientSnapshot: jest.fn((rows: unknown[]) => ({ rows })),
 }));
 
 const keyboardFrame = {
@@ -362,6 +364,7 @@ describe('RecipientQuickSelect keyboard focus visibility', () => {
     mockRecentMatchStatus = undefined;
     mockHeaderLayout = undefined;
     mockNativeRowAction = undefined;
+    mockNativeRows = undefined;
     mockShowWalletAccounts = false;
     jest.mocked(ActionList.show).mockClear();
     globalThis.requestAnimationFrame = jest.fn(
@@ -668,6 +671,34 @@ describe('RecipientQuickSelect keyboard focus visibility', () => {
           expect(frames).toHaveLength(0);
           expect(field.measureInWindow).not.toHaveBeenCalled();
         }
+      }
+    },
+  );
+  // The private entries never arrive here (the read is mocked out), so only
+  // the wait can end the hold.
+  it.each(['private', undefined] as const)(
+    'holds the Zcash account list only for a send from a private pool (%s)',
+    (senderAddressForm) => {
+      jest.useFakeTimers();
+      try {
+        mockShowWalletAccounts = true;
+        render(
+          <RecipientQuickSelect
+            networkId="zec--0"
+            senderAddressForm={senderAddressForm}
+            activeTab="account"
+            hideTabs={['recent', 'addressBook']}
+            pagerHeader={null}
+          />,
+        );
+        const isHeld = senderAddressForm === 'private';
+        expect(mockNativeRows?.length === 0).toBe(isHeld);
+        act(() => {
+          jest.advanceTimersByTime(300);
+        });
+        expect(mockNativeRows?.length).toBeGreaterThan(0);
+      } finally {
+        jest.useRealTimers();
       }
     },
   );

@@ -92,8 +92,18 @@ async function removeAllCredentials(): Promise<void> {
   await keylessStorageUtils.storageRemoveItem(STORAGE_KEY);
 }
 
+async function getPendingHardwareKeyMigration(): Promise<
+  IKeylessCloudSyncCredential | undefined
+> {
+  const map = await readMap();
+  return Object.values(map).find(
+    (credential) => credential.pendingHardwareKeyMigration,
+  );
+}
+
 export default {
   saveCredential,
   getCredential,
   removeAllCredentials,
+  getPendingHardwareKeyMigration,
 };
