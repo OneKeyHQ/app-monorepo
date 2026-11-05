@@ -38,12 +38,17 @@ const mockUpdateSyncUi = jest.fn();
 const mockFetchTokens = jest.fn<Promise<IFetchAccountTokensResp>, []>();
 const mockNoop = jest.fn();
 const mockAsyncNoop = jest.fn(async () => undefined);
-const mockClosePortfolioLoading = jest.fn();
-const mockPortfolioLoading = jest.fn(() => ({
-  close: mockClosePortfolioLoading,
-}));
+const mockPortfolioLoading = jest.fn();
 const mockPortfolioError = jest.fn();
-const mockBeginPortfolioStage = jest.fn(async () => undefined);
+const mockBeginPortfolioStage = jest.fn<Promise<number | undefined>, []>(
+  async () => 7,
+);
+const mockEndPortfolioStage = jest.fn(
+  async (_params?: { error?: unknown; doneI18n?: unknown }) => undefined,
+);
+const mockShowPortfolioProcessing = jest.fn<Promise<void>, []>(
+  async () => undefined,
+);
 const mockCustomTokens: ICustomTokenItem[] = [];
 const mockCurrencyMap = {};
 let mockEpoch = 0;
@@ -217,7 +222,7 @@ jest.mock('@onekeyhq/kit/src/hooks/useAppNavigation', () => ({
 jest.mock('@onekeyhq/kit/src/hooks/useDeviceStageBurst', () => ({
   useDeviceStageBurst: () => ({
     beginBurst: mockBeginPortfolioStage,
-    endBurst: mockAsyncNoop,
+    endBurst: mockEndPortfolioStage,
   }),
 }));
 jest.mock('@onekeyhq/kit/src/hooks/useIsDeFiEnabled', () => ({
@@ -427,6 +432,9 @@ jest.mock('./useTokenListReactivePipeline', () => ({
 jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   __esModule: true,
   default: {
+    serviceHardwareUI: {
+      showDeviceProcessLoadingDialog: mockShowPortfolioProcessing,
+    },
     serviceHardwarePortfolioSync: {
       refreshPortfolioCategories: mockRefreshCategories,
       syncPortfolio: mockSyncPortfolio,
@@ -647,20 +655,22 @@ describe('Home automatic Portfolio sync', () => {
     });
     expect(mockFetchTokens).toHaveBeenCalledTimes(1);
     expect(mockRefreshCategories).toHaveBeenCalledTimes(1);
-    expect(mockPortfolioLoading).toHaveBeenCalledTimes(1);
-    expect(mockPortfolioLoading).toHaveBeenCalledWith(
-      expect.objectContaining({ duration: Infinity }),
+    expect(mockBeginPortfolioStage).toHaveBeenCalledTimes(1);
+    expect(mockShowPortfolioProcessing).toHaveBeenCalledTimes(1);
+    expect(mockBeginPortfolioStage.mock.invocationCallOrder[0]).toBeLessThan(
+      mockFetchTokens.mock.invocationCallOrder[0],
     );
-    expect(mockClosePortfolioLoading).not.toHaveBeenCalled();
+    expect(mockEndPortfolioStage).not.toHaveBeenCalled();
+    expect(mockPortfolioLoading).not.toHaveBeenCalled();
     expect(mockCategoryState.isRefreshing).toBe(true);
     expect(mockCategoryState.data).toBeUndefined();
     expect(mockSyncPortfolio).not.toHaveBeenCalled();
     await act(async () => resolveTokens(tokenResponse()));
     await waitFor(() => expect(mockSyncPortfolio).toHaveBeenCalledTimes(1));
-    expect(mockClosePortfolioLoading).toHaveBeenCalledTimes(1);
-    expect(mockClosePortfolioLoading.mock.invocationCallOrder[0]).toBeLessThan(
-      mockBeginPortfolioStage.mock.invocationCallOrder[0],
-    );
+    expect(mockBeginPortfolioStage).toHaveBeenCalledTimes(1);
+    expect(mockEndPortfolioStage).toHaveBeenCalledWith({
+      doneI18n: { key: 'portfolio_updated__title' },
+    });
   });
 
   it('can retry the whole sync after the spot refresh times out', async () => {
@@ -679,8 +689,10 @@ describe('Home automatic Portfolio sync', () => {
       });
       expect(mockCategoryState.isRefreshing).toBe(false);
       expect(mockCategoryState.retry).toEqual(expect.any(Function));
-      expect(mockClosePortfolioLoading).toHaveBeenCalledTimes(1);
-      expect(mockPortfolioError).toHaveBeenCalledTimes(1);
+      expect(mockEndPortfolioStage).toHaveBeenCalledWith({
+        error: expect.any(Error),
+      });
+      expect(mockPortfolioError).not.toHaveBeenCalled();
       expect(mockSyncPortfolio).not.toHaveBeenCalled();
       const retry = mockUpdateSyncUi.mock.calls.at(-1)?.[0]
         .request as () => void;
@@ -688,11 +700,35 @@ describe('Home automatic Portfolio sync', () => {
       expect(mockFetchTokens).toHaveBeenCalledTimes(2);
       expect(mockRefreshCategories).toHaveBeenCalledTimes(2);
       expect(mockSyncPortfolio).toHaveBeenCalledTimes(1);
-      expect(mockPortfolioLoading).toHaveBeenCalledTimes(2);
-      expect(mockClosePortfolioLoading).toHaveBeenCalledTimes(2);
+      expect(mockBeginPortfolioStage).toHaveBeenCalledTimes(2);
+      expect(mockEndPortfolioStage).toHaveBeenCalledTimes(2);
+      expect(mockPortfolioLoading).not.toHaveBeenCalled();
     } finally {
       jest.useRealTimers();
     }
+  });
+
+  it('waits for the preparation panel before handing off complete data', async () => {
+    mockPublishRefreshedHeader = true;
+    let resolveProcessing: () => void = () => undefined;
+    mockShowPortfolioProcessing.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          resolveProcessing = resolve;
+        }),
+    );
+    render(<TokenListBlock />);
+    const request = mockUpdateSyncUi.mock.calls.at(-1)?.[0]
+      .request as () => void;
+    await act(async () => request());
+    expect(mockFetchTokens).toHaveBeenCalledTimes(1);
+    expect(mockCategoryState.isRefreshing).toBe(false);
+    expect(mockSyncPortfolio).not.toHaveBeenCalled();
+    await act(async () => resolveProcessing());
+    await waitFor(() => expect(mockSyncPortfolio).toHaveBeenCalledTimes(1));
+    expect(mockBeginPortfolioStage).toHaveBeenCalledTimes(1);
+    expect(mockPortfolioLoading).not.toHaveBeenCalled();
+    expect(mockPortfolioError).not.toHaveBeenCalled();
   });
 
   it('keeps the previous total and does not upload when spot refresh fails', async () => {
@@ -712,8 +748,10 @@ describe('Home automatic Portfolio sync', () => {
     expect(mockHomeDisplay.totalFiatUsd).toBe('9.01');
     expect(mockCategoryState.data).toBeUndefined();
     expect(mockCategoryState.retry).toEqual(expect.any(Function));
-    expect(mockClosePortfolioLoading).toHaveBeenCalledTimes(1);
-    expect(mockPortfolioError).toHaveBeenCalledTimes(1);
+    expect(mockEndPortfolioStage).toHaveBeenCalledWith({
+      error: expect.any(Error),
+    });
+    expect(mockPortfolioError).not.toHaveBeenCalled();
     expect(mockSyncPortfolio).not.toHaveBeenCalled();
   });
 
@@ -800,6 +838,8 @@ describe('Home automatic Portfolio sync', () => {
     await waitFor(() => expect(mockNotifySettled).toHaveBeenCalledTimes(1));
     expect(mockPortfolioLoading).not.toHaveBeenCalled();
     expect(mockPortfolioError).not.toHaveBeenCalled();
+    expect(mockBeginPortfolioStage).not.toHaveBeenCalled();
+    expect(mockShowPortfolioProcessing).not.toHaveBeenCalled();
     expect(mockFetchTokens).toHaveBeenCalledTimes(1);
     expect(mockRefreshCategories).toHaveBeenCalledTimes(1);
     expect(mockNotifySettled).toHaveBeenCalledWith(
@@ -1146,11 +1186,11 @@ describe('Home automatic Portfolio sync', () => {
     expect(mockCategoryState.data?.defiFiat).not.toBe('999');
     expect(mockCategoryState.isRefreshing).toBe(false);
     expect(mockSyncPortfolio).not.toHaveBeenCalled();
-    expect(mockClosePortfolioLoading).toHaveBeenCalledTimes(1);
+    expect(mockEndPortfolioStage).toHaveBeenCalledTimes(1);
     expect(mockPortfolioError).not.toHaveBeenCalled();
   });
 
-  it('dismisses preparation loading on unmount and ignores the late response', async () => {
+  it('ends the preparation stage on unmount and ignores the late response', async () => {
     let resolveTokens: (value: IFetchAccountTokensResp) => void = () =>
       undefined;
     mockFetchTokens.mockImplementationOnce(
@@ -1163,13 +1203,56 @@ describe('Home automatic Portfolio sync', () => {
     const request = mockUpdateSyncUi.mock.calls.at(-1)?.[0]
       .request as () => void;
     await act(async () => request());
-    expect(mockPortfolioLoading).toHaveBeenCalledTimes(1);
-    expect(mockClosePortfolioLoading).not.toHaveBeenCalled();
+    expect(mockBeginPortfolioStage).toHaveBeenCalledTimes(1);
+    expect(mockEndPortfolioStage).not.toHaveBeenCalled();
     view.unmount();
-    expect(mockClosePortfolioLoading).toHaveBeenCalledTimes(1);
+    expect(mockEndPortfolioStage).toHaveBeenCalledTimes(1);
     await act(async () => resolveTokens(tokenResponse()));
     expect(mockSyncPortfolio).not.toHaveBeenCalled();
     expect(mockPortfolioError).not.toHaveBeenCalled();
+  });
+
+  it('cancels preparation when its own top panel is closed', async () => {
+    let resolveTokens: (value: IFetchAccountTokensResp) => void = () =>
+      undefined;
+    mockFetchTokens.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          resolveTokens = resolve;
+        }),
+    );
+    render(<TokenListBlock />);
+    const request = mockUpdateSyncUi.mock.calls.at(-1)?.[0]
+      .request as () => void;
+    await act(async () => request());
+    await act(async () => {
+      appEventBus.emit(EAppEventBusNames.DeviceStageOff, { burstId: 7 });
+    });
+    expect(mockEndPortfolioStage).toHaveBeenCalledWith(undefined);
+    await act(async () => resolveTokens(tokenResponse()));
+    expect(mockSyncPortfolio).not.toHaveBeenCalled();
+    expect(mockShowPortfolioProcessing).toHaveBeenCalledTimes(1);
+    expect(mockPortfolioError).not.toHaveBeenCalled();
+  });
+
+  it('releases a pending stage opening on unmount and ignores its late response', async () => {
+    let resolveStage: (burstId: number) => void = () => undefined;
+    mockBeginPortfolioStage.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          resolveStage = resolve;
+        }),
+    );
+    const view = render(<TokenListBlock />);
+    const request = mockUpdateSyncUi.mock.calls.at(-1)?.[0]
+      .request as () => void;
+    await act(async () => request());
+    view.unmount();
+    expect(mockEndPortfolioStage).toHaveBeenCalledWith(undefined);
+    await act(async () => resolveStage(7));
+    expect(mockShowPortfolioProcessing).not.toHaveBeenCalled();
+    expect(mockFetchTokens).toHaveBeenCalledTimes(1);
+    expect(mockSyncPortfolio).not.toHaveBeenCalled();
   });
 
   it.each([
