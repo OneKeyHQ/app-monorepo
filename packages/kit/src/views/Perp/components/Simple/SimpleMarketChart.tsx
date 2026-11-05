@@ -264,9 +264,10 @@ export function SimpleMarketChart({
       ).length,
     [indicatorSettings],
   );
-  const chartHeight =
+  const candleChartHeight =
     BASE_CHART_HEIGHT +
-    subIndicatorCount * TRADING_VIEW_NATIVE_SUB_INDICATOR_PANE_HEIGHT;
+    subIndicatorCount * TRADING_VIEW_NATIVE_SUB_INDICATOR_PANE_HEIGHT +
+    TRADING_VIEW_NATIVE_INDICATOR_QUICK_BAR_HEIGHT;
   const source = useMemo<ITradingViewNativeSource>(
     () => ({ kind: 'hyperliquid', coin, environment: 'mainnet' }),
     [coin],
@@ -297,11 +298,7 @@ export function SimpleMarketChart({
 
   return (
     <Stack
-      height={
-        showCandles
-          ? chartHeight + TRADING_VIEW_NATIVE_INDICATOR_QUICK_BAR_HEIGHT
-          : chartHeight
-      }
+      height={showCandles ? candleChartHeight : BASE_CHART_HEIGHT}
       mx="$-5"
       my="$-4"
     >
@@ -346,7 +343,7 @@ export function SimpleMarketChart({
           rangeControlVariant="segmented"
           segmentControlStyle={SIMPLE_CHART_SEGMENT_STYLE}
           segmentLabelMinWidth={28}
-          height={chartHeight}
+          height={BASE_CHART_HEIGHT}
           range={range}
           chartRanges={TOKEN_SIMPLE_CHART_RANGES}
           onRangeChange={setRange}
@@ -356,7 +353,9 @@ export function SimpleMarketChart({
             backgroundColor={chartBackground}
             key={`${coin}:${range}`}
             coin={coin}
-            height={chartHeight - TRADING_VIEW_NATIVE_CHART_CONTROLS_HEIGHT}
+            height={
+              BASE_CHART_HEIGHT - TRADING_VIEW_NATIVE_CHART_CONTROLS_HEIGHT
+            }
             range={range}
             active={active}
             livePrice={livePrice}

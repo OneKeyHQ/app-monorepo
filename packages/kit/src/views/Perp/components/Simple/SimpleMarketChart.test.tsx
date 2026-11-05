@@ -226,7 +226,7 @@ jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => ({
 jest.mock(
   '@onekeyhq/kit/src/components/TradingView/TradingViewNative/indicatorSettingsAdapter',
   () => ({
-    getTradingViewNativeSubIndicatorInstances: () => [],
+    getTradingViewNativeSubIndicatorInstances: () => ['RSI', 'MACD'],
     normalizeTradingViewNativeIndicatorSettings: () => ({}),
   }),
 );
@@ -761,6 +761,24 @@ it('shows the active custom interval in More and switches quick intervals direct
   expect(onMorePress).toHaveBeenCalledTimes(1);
   fireEvent.click(getByText('1H'));
   expect(onSelect).toHaveBeenCalledWith('60');
+});
+
+it('reserves sub-indicator panes only while the candle chart is visible', () => {
+  mockSettingsStore.set(mockSettingsAtom, { simpleMarketChartMode: 'candles' });
+  mockSeries = { coin: 'BTC', range: '1D', data: [[1000, 100]], error: false };
+  const { getByTestId } = render(<SimpleMarketChart coin="BTC" active />);
+  expect(getByTestId('candle-chart').parentElement?.style.height).toBe('536px');
+
+  fireEvent.click(getByTestId('perps-simple-chart-mode-toggle'));
+  expect(
+    getByTestId('perps-simple-market-chart').parentElement?.style.height,
+  ).toBe('392px');
+  expect(getByTestId('perps-simple-price-line-chart').style.height).toBe(
+    '346px',
+  );
+
+  fireEvent.click(getByTestId('perps-simple-chart-mode-toggle'));
+  expect(getByTestId('candle-chart').parentElement?.style.height).toBe('536px');
 });
 
 it('keeps the selected range when switching chart modes', () => {
