@@ -3309,7 +3309,7 @@ PODS:
     - ReactNativeDependencies
     - ReactNativeNativeLogger
     - Yoga
-  - ReactNativeLiteCard (6.7.0-23):
+  - ReactNativeLiteCard (6.7.0-alpha.448):
     - hermes-engine
     - RCTRequired
     - RCTTypeSafety
@@ -4982,7 +4982,7 @@ SPEC CHECKSUMS:
   ReactNativeFs: 1ea825ad068d8547e7024d51a4c4f7195a5fe927
   ReactNativeGetRandomValues: 9136fd779f285582c80b491539853f1a3b6079fb
   ReactNativeImageCropPicker: e3b8117ecac4dd418c1338a28310ef22779fbdfa
-  ReactNativeLiteCard: 91c188c34bf20aa4bad8b2c953d240b125895a5e
+  ReactNativeLiteCard: 7a7c5fbafde95d85b415924fd876f89eab9d3361
   ReactNativeNativeLogger: 4a5a5838dc2405158e933d5849d7bb6028afa371
   ReactNativeNetworkThrottle: 189a147fd88160b3777d825f39972310f2728905
   ReactNativePasskeys: 9e950e8cbf0e7d6aad9df4dcd21cee0efeb4e5cd
