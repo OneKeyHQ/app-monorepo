@@ -32,6 +32,12 @@ for commit/PR checks and the development skills for platform launch commands.
 | Funding return | Exercise success, failure, cancellation, and missing history; re-read balance before enabling the next step. |
 | Layout/navigation | Use the real host, first and settled frames, loading sections, repeated entry, and back/modal behavior. |
 
+For changes to a provider policy or shared task, test the affected provider's
+plan and its consumer together. Cover step identity, stale attempts, cancellation,
+duplicate execution, unknown outcomes and account/network changes where they
+affect the action. Include an adjacent provider when changing a shared adapter;
+a passing state reducer alone does not prove transaction or settlement behavior.
+
 ## Report The Proof Boundary
 
 For behavior involving transactions, capture the relevant request/build
