@@ -123,6 +123,21 @@ describe('advisory remote pending payment', () => {
     expect(p.choose).toHaveBeenLastCalledWith(false, true);
   });
   it.each(['replace', 'cancel', 'resume'] as const)(
+    'uses the unfinished-payment choice without selecting a recovery from multiple orders: %s',
+    async (choice) => {
+      const p = params();
+      p.lookup = { authContext: lookup.authContext, hasPendingPayments: true };
+      p.choose.mockResolvedValue(choice);
+      await expect(
+        createPrimeInfiniRemotePendingPaymentResolver()({
+          ...p,
+          resumePaymentId: 'original-id',
+        }),
+      ).resolves.toEqual({ type: choice === 'replace' ? 'new' : 'cancelled' });
+      expect(p.choose).toHaveBeenCalledWith(false);
+    },
+  );
+  it.each(['replace', 'cancel', 'resume'] as const)(
     'requires a choice after query failure: %s',
     async (choice) => {
       const p = params();
@@ -319,6 +334,7 @@ describe('wallet recovery preparation to the original create API', () => {
     'localSend',
     'different',
     'missing',
+    'multiple',
   ] as const)(
     'calls the original new-payment API only after confirmation when recovery is %s',
     async (kind) => {
@@ -338,6 +354,11 @@ describe('wallet recovery preparation to the original create API', () => {
         });
       if (kind === 'missing')
         p.fetchLookup.mockResolvedValue({ authContext: lookup.authContext });
+      if (kind === 'multiple')
+        p.fetchLookup.mockResolvedValue({
+          authContext: lookup.authContext,
+          hasPendingPayments: true,
+        });
       if (kind === 'transferred')
         p.fetchLookup.mockResolvedValue({
           ...lookup,
@@ -361,6 +382,9 @@ describe('wallet recovery preparation to the original create API', () => {
       });
       expect(p.createPayment).toHaveBeenCalledTimes(1);
       expect(p.chooseNew).toHaveBeenCalledTimes(1);
+      expect(p.chooseNew).toHaveBeenCalledWith(
+        kind === 'unavailable' || kind === 'missing',
+      );
     },
   );
   it('does not create after cancellation or an auth change during confirmation', async () => {

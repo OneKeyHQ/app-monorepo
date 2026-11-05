@@ -6227,45 +6227,43 @@ class ServicePrime extends ServiceBase {
       )
         throw new OneKeyLocalError('Invalid Infini pending response');
       const { payments } = result.data.data;
-      // The recovery flow handles one order. Never choose one while hiding
-      // other pending orders; keep the existing warning without recovery.
-      if (payments.length > 1)
-        throw new OneKeyLocalError('Ambiguous Infini pending payments');
-      if (payments.length === 1) {
-        const [pending] = payments;
+      for (const pending of payments) {
         if (
           !pending ||
           typeof pending !== 'object' ||
           Array.isArray(pending) ||
           !isString(pending.paymentId) ||
           !pending.paymentId.trim()
-        ) {
+        )
           throw new OneKeyLocalError('Invalid Infini pending payment identity');
+        // Warn for every known order, but only one order can be a recovery candidate.
+        if (payments.length === 1) {
+          let payment: IPrimeInfiniPayment | undefined;
+          try {
+            payment = validateInfiniPaymentResponse(pending);
+          } catch {
+            /* Warn without offering recovery when fields are incomplete. */
+          }
+          const hasTransactions = Array.isArray(pending.transactions)
+            ? pending.transactions.length > 0
+            : undefined;
+          const plan = pending.plan === 'annual' ? 'yearly' : pending.plan;
+          lookup.pendingPayment = {
+            paymentId: pending.paymentId,
+            payment,
+            plan: plan === 'monthly' || plan === 'yearly' ? plan : undefined,
+            hasTransactions,
+          };
+          lookup.pendingPayment.hasLocalSendEvidence =
+            await this.backgroundApi.simpleDb.prime.hasInfiniPaymentLocalSendEvidence(
+              {
+                onekeyUserId: snapshot.expectedOneKeyUserId,
+                paymentId: pending.paymentId,
+              },
+            );
         }
-        let payment: IPrimeInfiniPayment | undefined;
-        try {
-          payment = validateInfiniPaymentResponse(pending);
-        } catch {
-          /* Warn without offering recovery when fields are incomplete. */
-        }
-        const hasTransactions = Array.isArray(pending.transactions)
-          ? pending.transactions.length > 0
-          : undefined;
-        const plan = pending.plan === 'annual' ? 'yearly' : pending.plan;
-        lookup.pendingPayment = {
-          paymentId: pending.paymentId,
-          payment,
-          plan: plan === 'monthly' || plan === 'yearly' ? plan : undefined,
-          hasTransactions,
-        };
-        lookup.pendingPayment.hasLocalSendEvidence =
-          await this.backgroundApi.simpleDb.prime.hasInfiniPaymentLocalSendEvidence(
-            {
-              onekeyUserId: snapshot.expectedOneKeyUserId,
-              paymentId: pending.paymentId,
-            },
-          );
       }
+      lookup.hasPendingPayments = payments.length > 0;
     } catch (error) {
       if (error instanceof OneKeyErrorPrimeLoginInvalidToken) throw error;
       defaultLogger.prime.subscription.primeCryptoPaymentFlow({

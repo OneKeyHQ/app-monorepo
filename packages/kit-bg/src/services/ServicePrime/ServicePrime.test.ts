@@ -1892,6 +1892,7 @@ describe('ServicePrime Infini payment APIs', () => {
       expectedOneKeyUserId: 'user-a',
     });
     expect(result).toEqual({
+      hasPendingPayments: false,
       authContext: {
         onekeyUserId: 'user-a',
         authSessionSource: EPrimeAuthSessionSource.KeylessOAuth,
@@ -1907,8 +1908,7 @@ describe('ServicePrime Infini payment APIs', () => {
     [payment, { ...payment, paymentId: 'other-order', amountConfirming: '1' }],
     [{ ...payment, paymentId: 'other-order', amountConfirming: '1' }, payment],
     [payment, payment],
-    [payment, null],
-    [null, payment],
+    [{ paymentId: 'remote-id' }, payment],
   ])(
     'never chooses a recovery from multiple orders: %j',
     async (...payments) => {
@@ -1919,7 +1919,8 @@ describe('ServicePrime Infini payment APIs', () => {
       const result = await service.apiGetInfiniPendingPayment({
         expectedOneKeyUserId: 'user-a',
       });
-      expect(result.status).toBe('unavailable');
+      expect(result.status).toBeUndefined();
+      expect(result.hasPendingPayments).toBe(true);
       expect(result.pendingPayment).toBeUndefined();
       expect(
         simpleDbPrime.hasInfiniPaymentLocalSendEvidence,
@@ -1974,6 +1975,8 @@ describe('ServicePrime Infini payment APIs', () => {
     ].map((item) => pendingResponse([item])),
     { data: { code: 1, data: { payments: [] } } },
     { data: { data: { payments: [] } } },
+    pendingResponse([payment, null]),
+    pendingResponse([null, payment]),
   ])(
     'warns instead of blocking a new purchase on invalid discovery: %j',
     async (response) => {
