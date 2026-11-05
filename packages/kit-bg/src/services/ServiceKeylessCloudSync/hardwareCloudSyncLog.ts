@@ -1,4 +1,4 @@
-import { EFirmwareType } from '@onekeyfe/hd-shared';
+import { EDeviceType, EFirmwareType } from '@onekeyfe/hd-shared';
 
 import {
   HARDWARE_CLOUD_SYNC_AUTH_MESSAGE_PREFIX,
@@ -23,6 +23,55 @@ import { scrubSensitiveErrorMessageText } from '@onekeyhq/shared/src/utils/sensi
 import type { IDeviceResponseResult } from '@onekeyhq/shared/types/device';
 
 const MAX_REASON_LENGTH = 200;
+
+export type IHardwareCloudSyncDiagnosticContext = {
+  deviceType?: string;
+  firmwareVersion?: string | null;
+  protocol?: string;
+  walletType?: string;
+  hasPassphraseState?: boolean;
+  hasDeviceId?: boolean;
+  unlocked?: boolean | null;
+  passphraseProtection?: boolean | null;
+  attachToPinEnabled?: boolean | null;
+  unlockedAttachPin?: boolean | null;
+  deviceIdMatches?: boolean;
+};
+
+function safeDiagnosticContext(context: IHardwareCloudSyncDiagnosticContext) {
+  const safe: Record<string, string | boolean | null> = {};
+  const deviceType = Object.values(EDeviceType).find(
+    (value) => value === context.deviceType,
+  );
+  if (deviceType) safe.deviceType = deviceType;
+  if (
+    typeof context.firmwareVersion === 'string' &&
+    /^v?\d{1,4}\.\d{1,4}\.\d{1,4}(?:-[a-z0-9.]{1,20})?$/i.test(
+      context.firmwareVersion,
+    )
+  ) {
+    safe.firmwareVersion = context.firmwareVersion;
+  }
+  if (context.protocol === 'V1' || context.protocol === 'V2') {
+    safe.protocol = context.protocol;
+  }
+  if (context.walletType === 'standard' || context.walletType === 'hidden') {
+    safe.walletType = context.walletType;
+  }
+  for (const key of [
+    'unlocked',
+    'passphraseProtection',
+    'attachToPinEnabled',
+    'unlockedAttachPin',
+    'deviceIdMatches',
+    'hasPassphraseState',
+    'hasDeviceId',
+  ] as const) {
+    const value = context[key];
+    if (typeof value === 'boolean' || value === null) safe[key] = value;
+  }
+  return Object.keys(safe).length ? ` | ${JSON.stringify(safe)}` : '';
+}
 
 function safeDeviceErrorText(value: unknown): string | undefined {
   if (typeof value !== 'string') return undefined;
@@ -189,20 +238,38 @@ function describeFailure(reason: unknown): string {
   // request or response data: log only its type and code.
   const error = reason as Partial<IOneKeyError> | undefined;
   return (
-    [error?.className ?? error?.name, error?.code]
+    [
+      error?.className ?? error?.name,
+      error?.code,
+      typeof error?.payload?.code === 'number' &&
+      Number.isFinite(error.payload.code)
+        ? `sdkCode=${error.payload.code}`
+        : undefined,
+      error?.payload?.error === 'Failure_DataError,Forbidden key path'
+        ? 'Forbidden key path'
+        : undefined,
+    ]
       .filter((part) => part !== undefined && part !== '')
       .join(' | ') || 'unknown error'
   );
 }
 
 // Users see a plain message; the specific reason goes only to the local log.
-export function logHardwareCloudSyncFailure(stage: string, reason: unknown) {
-  defaultLogger.app.error.log(
-    `[HardwareCloudSync] ${stage}: ${describeFailure(reason).slice(
-      0,
-      MAX_REASON_LENGTH,
-    )}`,
-  );
+export function logHardwareCloudSyncFailure(
+  stage: string,
+  reason: unknown,
+  context?: IHardwareCloudSyncDiagnosticContext,
+) {
+  try {
+    defaultLogger.app.error.log(
+      `[HardwareCloudSync] ${stage}: ${describeFailure(reason).slice(
+        0,
+        MAX_REASON_LENGTH,
+      )}${context ? safeDiagnosticContext(context) : ''}`,
+    );
+  } catch {
+    // Diagnostics must never replace the original operation failure.
+  }
 }
 
 export function createHardwareCloudSyncDataError(

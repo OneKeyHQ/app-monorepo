@@ -57,7 +57,7 @@ const TEST_PUBLIC_KEY =
   '0279be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798';
 const TEST_ADDRESS = '1BgGZ9tcN4rm9KBzDn7KprQz87SZ26SAMH';
 const TEST_XFP = `1234--xpub${'A'.repeat(107)}`;
-const EXPECTED_FAILURE = "Couldn't get the encryption key";
+const EXPECTED_FAILURE = 'Couldn’t complete this action';
 
 class MockHardwareCloudKeyAdapter implements IHardwareCloudKeyAdapter {
   identity: IHardwareCloudKeyIdentity = {
