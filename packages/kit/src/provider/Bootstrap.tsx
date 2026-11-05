@@ -174,6 +174,22 @@ const useDesktopEvents = platformEnv.isDesktop
         }
         isCheckingUpdate.current = true;
         const { isNeedUpdate, response } = await checkForUpdates();
+        if (
+          isNeedUpdate &&
+          response &&
+          getUpdateFileType(response) === EUpdateFileType.appShell &&
+          response.updateStrategy !== EUpdateStrategy.force &&
+          !response.storeUrl &&
+          response.downloadUrl?.startsWith('https://')
+        ) {
+          if (response.status === EAppUpdateStatus.notify) {
+            onUpdateAction();
+          } else {
+            appEventBus.emit(EAppEventBusNames.OpenAppUpdateDetails, undefined);
+          }
+          isCheckingUpdate.current = false;
+          return;
+        }
         // OTA (silent/seamless) updates download/install transparently in
         // the background. The desktop menu "Check for updates" must not open
         // the download/verify UI for these strategies — that breaks the

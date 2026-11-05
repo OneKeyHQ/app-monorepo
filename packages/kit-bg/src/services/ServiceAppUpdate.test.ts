@@ -1402,6 +1402,55 @@ describe('ServiceAppUpdate state transitions', () => {
       await service.refreshUpdateStatus();
       expect(atomValue.status).toBe(EAppUpdateStatus.verifyASCFailed);
     });
+
+    test('desktop package integrity failure clears the file and blocks the same URL', async () => {
+      const platform = require('@onekeyhq/shared/src/platformEnv').default;
+      const {
+        AppUpdate,
+      } = require('@onekeyhq/shared/src/modules3rdParty/auto-update');
+      platform.isDesktop = true;
+      try {
+        resetAtom({
+          status: EAppUpdateStatus.downloadPackage,
+          latestVersion: '2.0.0',
+          downloadUrl: 'https://cdn.onekey.so/app-2.0.0.exe',
+        });
+        await service.downloadPackageFailed({
+          code: EUpdateErrorCode.integrityFailed,
+          step: 'download',
+        });
+        expect(AppUpdate.clearPackage).toHaveBeenCalledTimes(1);
+        expect(atomValue.blockedDownloadUrl).toBe(atomValue.downloadUrl);
+        expect(await service.canDownloadCurrentTarget()).toBe(false);
+      } finally {
+        platform.isDesktop = false;
+      }
+    });
+
+    test('failed bad-package cleanup reports storage error instead of claiming file removal', async () => {
+      const platform = require('@onekeyhq/shared/src/platformEnv').default;
+      const {
+        AppUpdate,
+      } = require('@onekeyhq/shared/src/modules3rdParty/auto-update');
+      platform.isDesktop = true;
+      AppUpdate.clearPackage.mockRejectedValueOnce(new Error('file locked'));
+      try {
+        resetAtom({
+          status: EAppUpdateStatus.verifyPackage,
+          latestVersion: '2.0.0',
+          downloadUrl: 'https://cdn.onekey.so/app-2.0.0.exe',
+        });
+        await service.verifyPackageFailed({
+          code: EUpdateErrorCode.integrityFailed,
+          step: 'verifyPackage',
+        });
+        expect(atomValue.blockedDownloadUrl).toBe(atomValue.downloadUrl);
+        expect(atomValue.status).toBe(EAppUpdateStatus.failed);
+        expect(atomValue.updateError?.code).toBe(EUpdateErrorCode.storageError);
+      } finally {
+        platform.isDesktop = false;
+      }
+    });
   });
 
   // =========================================================================

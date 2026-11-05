@@ -8,6 +8,11 @@ import {
 } from '@onekeyhq/core/src/chains/btc/sdkBtc';
 import type { IAccountSelectorAvailableNetworksMap } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import {
+  EAppUpdateStatus,
+  EUpdateFileType,
+  getUpdateFileType,
+} from '@onekeyhq/shared/src/appUpdate';
+import {
   backgroundClass,
   backgroundMethod,
   toastIfError,
@@ -75,6 +80,7 @@ import type {
 } from '@onekeyhq/shared/types/token';
 
 import {
+  appUpdatePersistAtom,
   currencyPersistAtom,
   desktopBluetoothAtom,
 } from '../states/jotai/atoms';
@@ -899,6 +905,35 @@ class ServiceSetting extends ServiceBase {
       ...prev,
       enableMenuBarTray: value,
     }));
+  }
+
+  @backgroundMethod()
+  public async setEnableAutoDownloadAppUpdate(value: boolean) {
+    const wasEnabled =
+      (await settingsPersistAtom.get()).enableAutoDownloadAppUpdate !== false;
+    await settingsPersistAtom.set((prev) => ({
+      ...prev,
+      enableAutoDownloadAppUpdate: value,
+    }));
+    if (!value || wasEnabled || !platformEnv.isDesktop) return;
+    const update = await appUpdatePersistAtom.get();
+    if (
+      update.status === EAppUpdateStatus.notify &&
+      getUpdateFileType(update) === EUpdateFileType.appShell &&
+      !update.storeUrl &&
+      (await this.backgroundApi.serviceAppUpdate.canDownloadCurrentTarget())
+    ) {
+      appEventBus.emit(EAppEventBusNames.StartAutoDownloadUpdate, {
+        decision: 'autoDownloadEnabled',
+      });
+    }
+  }
+
+  @backgroundMethod()
+  public async getEnableAutoDownloadAppUpdate() {
+    return (
+      (await settingsPersistAtom.get()).enableAutoDownloadAppUpdate !== false
+    );
   }
 
   @backgroundMethod()

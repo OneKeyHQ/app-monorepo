@@ -222,9 +222,12 @@ function createService() {
     backgroundApi,
     refreshUpdateStatus: jest.fn(async () => undefined),
   });
-  return new ServiceAppUpdate({
+  const service = new ServiceAppUpdate({
     backgroundApi,
   });
+  backgroundApi.serviceAppUpdate = service;
+  jest.spyOn(service, 'canRestartForUpdate').mockResolvedValue(true);
+  return service;
 }
 
 function resetAppUpdateState(overrides?: Partial<IAppUpdateInfo>) {
@@ -1050,6 +1053,41 @@ describe('processPendingInstallTask', () => {
 
     expect(pendingTaskValue).toBeUndefined();
     expect(appUpdateState.fullFlowRetryByTarget?.['2.0.0:1']?.count).toBe(1);
+  });
+
+  test('busy desktop restart leaves pending app install ready without consuming retry budget', async () => {
+    resetAppUpdateState({
+      latestVersion: '2.0.0',
+      status: EAppUpdateStatus.ready,
+      updateStrategy: EUpdateStrategy.seamless,
+    });
+    resetPendingTask({
+      taskId: 'appShell:2.0.0:direct',
+      revision: 1,
+      action: 'install-app',
+      type: 'app-install',
+      targetAppVersion: '2.0.0',
+      targetBundleVersion: '1',
+      scheduledEnvAppVersion: '1.0.0',
+      scheduledEnvBundleVersion: '1',
+      createdAt: Date.now() - 1000,
+      expiresAt: Date.now() + 60_000,
+      retryCount: 0,
+      status: 'pending',
+      payload: {
+        latestVersion: '2.0.0',
+        channel: 'direct',
+        downloadUrl: 'https://cdn.onekey.so/app-2.0.0.pkg',
+      },
+    });
+    jest.spyOn(service, 'canRestartForUpdate').mockResolvedValue(false);
+
+    expect(await service.processPendingInstallTask()).toBe(false);
+    expect(pendingTaskValue).toMatchObject({
+      status: 'pending',
+      retryCount: 0,
+    });
+    expect(appUpdateState.status).toBe(EAppUpdateStatus.ready);
   });
 
   test('app-install restart mismatch waits during external installer grace period', async () => {

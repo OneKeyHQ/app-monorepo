@@ -27,7 +27,12 @@ export type IDownloadPackage = (
   params: IDownloadPackageParams,
 ) => Promise<IUpdateDownloadedEvent | null>;
 
-export type IInstallPackage = (params: IAppUpdateInfo) => Promise<boolean>;
+export type IInstallPackage = (
+  params: IAppUpdateInfo & {
+    userInitiated?: boolean;
+    installSource?: 'capsule' | 'quit' | 'startup' | 'legacy';
+  },
+) => Promise<boolean>;
 
 export enum EAppUpdatePackageAvailabilityStatus {
   available = 'available',
@@ -105,6 +110,8 @@ export interface IAppUpdate {
   downloadASC: IDownloadASC;
   checkPackageAvailability: ICheckPackageAvailability;
   installPackage: IInstallPackage;
+  prepareMacInstall?: (params: IAppUpdateInfo) => Promise<void>;
+  prepareQuitInstall?: (params: IAppUpdateInfo) => Promise<void>;
   manualInstallPackage: IManualInstallPackage;
   clearPackage: IClearPackage;
   /**

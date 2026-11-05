@@ -63,6 +63,7 @@ import { useLanguageSearchKeywords } from '../../hooks/useLocaleOptions';
 import { SettingTestIDs, settingsSidebarTabTestID } from '../../testIDs';
 
 import {
+  AutoDownloadAppUpdateListItem,
   AutoLockListItem,
   BTCFreshAddressListItem,
   BiologyAuthListItem,
@@ -960,6 +961,16 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
               }),
               renderElement: <ListVersionItem />,
             },
+            platformEnv.isDesktop && !platformEnv.isDesktopStore
+              ? {
+                  id: 'auto-download-app-update',
+                  icon: 'FileDownloadOutline',
+                  title: 'Download updates automatically',
+                  subtitle:
+                    'When off, updates download only after you click Update.',
+                  renderElement: <AutoDownloadAppUpdateListItem />,
+                }
+              : undefined,
           ],
           [
             {

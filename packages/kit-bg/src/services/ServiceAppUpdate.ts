@@ -58,9 +58,14 @@ import type { EAppSyncStorageKeys } from '@onekeyhq/shared/src/storage/syncStora
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import { EBatchTxSignStatus } from '@onekeyhq/shared/types/batchTxSign';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 
-import { appUpdatePersistAtom } from '../states/jotai/atoms';
+import {
+  appUpdatePersistAtom,
+  batchTxSignAtom,
+  settingsPersistAtom,
+} from '../states/jotai/atoms';
 import { devSettingsPersistAtom } from '../states/jotai/atoms/devSettings';
 
 import ServiceBase from './ServiceBase';
@@ -645,6 +650,7 @@ class ServiceAppUpdate extends ServiceBase {
             );
             await appUpdatePersistAtom.set((p) => ({
               ...p,
+              downloadRetryExhausted: true,
               freezeUntil: now + FAILED_RECOVERY_FREEZE_MS,
               ignoredTargets: {
                 ...p.ignoredTargets,
@@ -691,6 +697,58 @@ class ServiceAppUpdate extends ServiceBase {
     return (
       (await this.pendingInstallTaskService.processPendingInstallTask()) ===
       true
+    );
+  }
+
+  @backgroundMethod()
+  public async canRestartForUpdate(): Promise<boolean> {
+    const [hardwareBusy, dappPending, batchSign, migrating] = await Promise.all(
+      [
+        this.backgroundApi.serviceHardwareUI.isHardwareChannelBusy(),
+        this.backgroundApi.serviceDApp.hasPendingDappRequest(),
+        batchTxSignAtom.get(),
+        this.backgroundApi.serviceV4Migration.isAtMigrationPage(),
+      ],
+    );
+    return !(
+      hardwareBusy ||
+      dappPending ||
+      migrating ||
+      batchSign?.status === EBatchTxSignStatus.Overview ||
+      batchSign?.status === EBatchTxSignStatus.Signing
+    );
+  }
+
+  @backgroundMethod()
+  public async recordInstallSource(
+    source: 'capsule' | 'legacy' | 'startup',
+    latestVersion: string,
+    downloadUrl: string,
+  ) {
+    await appUpdatePersistAtom.set((prev) =>
+      platformEnv.isDesktop &&
+      getUpdateFileType(prev) === EUpdateFileType.appShell &&
+      prev.updateStrategy !== EUpdateStrategy.force &&
+      prev.latestVersion === latestVersion &&
+      prev.downloadUrl === downloadUrl
+        ? { ...prev, installSource: source }
+        : prev,
+    );
+  }
+
+  @backgroundMethod()
+  public async restoreInstallSource(
+    attemptedSource: 'capsule' | 'legacy' | 'startup',
+    previousSource: 'capsule' | 'legacy' | 'quit' | 'startup' | undefined,
+    latestVersion: string,
+    downloadUrl: string,
+  ) {
+    await appUpdatePersistAtom.set((prev) =>
+      prev.latestVersion === latestVersion &&
+      prev.downloadUrl === downloadUrl &&
+      prev.installSource === attemptedSource
+        ? { ...prev, installSource: previousSource ?? 'quit' }
+        : prev,
     );
   }
 
@@ -1255,6 +1313,8 @@ class ServiceAppUpdate extends ServiceBase {
         jsBundle: undefined,
         isRollbackTarget: undefined,
         downloadedEvent: undefined,
+        readyAt: undefined,
+        installSource: undefined,
       }));
     } else if (
       ServiceAppUpdate.FAILED_STATUSES.includes(appInfo.status) &&
@@ -1267,6 +1327,10 @@ class ServiceAppUpdate extends ServiceBase {
       if (targetKey) {
         const prev = failedRecoveryRetryCount.get(targetKey) || 0;
         if (prev >= MAX_FAILED_RECOVERY_RETRY) {
+          await appUpdatePersistAtom.set((p) => ({
+            ...p,
+            downloadRetryExhausted: true,
+          }));
           defaultLogger.app.appUpdate.log(
             `refreshUpdateStatus: retry exhausted for ${targetKey} (count=${prev}), skipping reset`,
           );
@@ -1358,6 +1422,7 @@ class ServiceAppUpdate extends ServiceBase {
       );
       return false;
     }
+    if (!(await this.canDownloadCurrentTarget())) return false;
     clearTimeout(downloadTimeoutId);
     clearTimeout(failedRecoveryTimerId);
     downloadTimeoutId = setTimeout(
@@ -1372,10 +1437,41 @@ class ServiceAppUpdate extends ServiceBase {
     await appUpdatePersistAtom.set((prev) => ({
       ...prev,
       downloadedEvent: undefined,
+      downloadRetryExhausted: false,
       status: EAppUpdateStatus.downloadPackage,
     }));
     this.reportOtaTelemetry({ event: 'DOWNLOAD_START' });
     return true;
+  }
+
+  @backgroundMethod()
+  public async canDownloadCurrentTarget(): Promise<boolean> {
+    const info = await appUpdatePersistAtom.get();
+    if (
+      !platformEnv.isDesktop ||
+      getUpdateFileType(info) !== EUpdateFileType.appShell
+    ) {
+      return true;
+    }
+    if (
+      info.storeUrl ||
+      !info.latestVersion ||
+      !info.downloadUrl?.startsWith('https://') ||
+      info.blockedDownloadUrl === info.downloadUrl
+    ) {
+      return false;
+    }
+    await this.cleanupUpdateControlState();
+    const targetKey = this.getTargetKey({
+      targetAppVersion: info.latestVersion,
+      targetBundleVersion: String(platformEnv.bundleVersion || ''),
+    });
+    return !(await this.shouldSkipTargetByControl(
+      targetKey,
+      generateUUID(),
+      await this.nextRequestSeq(),
+      false,
+    ));
   }
 
   /**
@@ -1434,9 +1530,10 @@ class ServiceAppUpdate extends ServiceBase {
     );
   }
 
-  private updateErrorText(
+  private async updateErrorText(
     status: EAppUpdateStatus,
     updateError: IUpdateErrorDTO,
+    downloadRetryExhausted = false,
   ) {
     const safeError = normalizeUpdateErrorDTO(
       updateError,
@@ -1444,17 +1541,21 @@ class ServiceAppUpdate extends ServiceBase {
         ? 'downloadASC'
         : 'download',
     );
-    void appUpdatePersistAtom.set((prev) => ({
+    await appUpdatePersistAtom.set((prev) => ({
       ...prev,
       errorText:
         getUpdateErrorI18nKey(safeError) ?? ETranslations.global_update_failed,
       updateError: safeError,
+      downloadRetryExhausted,
       status,
     }));
   }
 
   @backgroundMethod()
-  public async downloadPackageFailed(error?: IUpdateErrorDTO) {
+  public async downloadPackageFailed(
+    error?: IUpdateErrorDTO,
+    options?: { terminal?: boolean },
+  ) {
     const safeError = normalizeUpdateErrorDTO(error, 'download');
     if (safeError.code === EUpdateErrorCode.cancelled) return;
     const { status } = await appUpdatePersistAtom.get();
@@ -1466,7 +1567,12 @@ class ServiceAppUpdate extends ServiceBase {
     }
     clearTimeout(downloadTimeoutId);
     clearTimeout(failedRecoveryTimerId);
-    this.updateErrorText(EAppUpdateStatus.downloadPackageFailed, safeError);
+    await this.updateErrorText(
+      EAppUpdateStatus.downloadPackageFailed,
+      safeError,
+      options?.terminal === true,
+    );
+    await this.quarantineInvalidAppShell(safeError);
     this.reportOtaTelemetry({
       event: 'DOWNLOAD_FAILED',
       errorCode: mapDownloadErrorToOtaCode(safeError),
@@ -1932,6 +2038,7 @@ class ServiceAppUpdate extends ServiceBase {
       updateError: safeError,
       status: EAppUpdateStatus.verifyASCFailed,
     }));
+    await this.quarantineInvalidAppShell(safeError);
     this.reportOtaTelemetry({
       event: 'VERIFY_FAILED',
       errorCode: resolveVerifyErrorCode(
@@ -1945,8 +2052,25 @@ class ServiceAppUpdate extends ServiceBase {
 
   @backgroundMethod()
   public async verifyPackageFailed(error?: IUpdateErrorDTO) {
+    if (error?.step === 'install') {
+      const installError = normalizeUpdateErrorDTO(error, 'install');
+      await appUpdatePersistAtom.set((prev) =>
+        prev.status === EAppUpdateStatus.verifyPackage
+          ? {
+              ...prev,
+              status: EAppUpdateStatus.failed,
+              updateError: installError,
+            }
+          : prev,
+      );
+      return;
+    }
     const safeError = normalizeUpdateErrorDTO(error, 'verifyPackage');
     if (safeError.code === EUpdateErrorCode.cancelled) return;
+    if (safeError.code === EUpdateErrorCode.installLocation) {
+      await this.installLocationFailed(safeError);
+      return;
+    }
     const { status } = await appUpdatePersistAtom.get();
     if (status !== EAppUpdateStatus.verifyPackage) {
       defaultLogger.app.appUpdate.log(
@@ -1962,12 +2086,60 @@ class ServiceAppUpdate extends ServiceBase {
       updateError: safeError,
       status: EAppUpdateStatus.verifyPackageFailed,
     }));
+    await this.quarantineInvalidAppShell(safeError);
     this.reportOtaTelemetry({
       event: 'VERIFY_FAILED',
       errorCode: resolveVerifyErrorCode(error ?? safeError, 'SHA256_MISMATCH'),
       errorSample: buildOtaErrorSample(safeError),
     });
     if (isRetryableUpdateError(safeError)) this.startFailedRecoveryTimer();
+  }
+
+  @backgroundMethod()
+  public async installLocationFailed(error: IUpdateErrorDTO) {
+    const safeError = normalizeUpdateErrorDTO(error, 'install');
+    if (safeError.code !== EUpdateErrorCode.installLocation) return;
+    await appUpdatePersistAtom.set((prev) =>
+      prev.status === EAppUpdateStatus.verifyPackage ||
+      prev.status === EAppUpdateStatus.ready
+        ? {
+            ...prev,
+            status: EAppUpdateStatus.failed,
+            updateError: safeError,
+          }
+        : prev,
+    );
+  }
+
+  private async quarantineInvalidAppShell(error: IUpdateErrorDTO) {
+    if (
+      !platformEnv.isDesktop ||
+      error.code !== EUpdateErrorCode.integrityFailed
+    ) {
+      return;
+    }
+    const info = await appUpdatePersistAtom.get();
+    if (getUpdateFileType(info) !== EUpdateFileType.appShell) return;
+    await appUpdatePersistAtom.set((prev) => ({
+      ...prev,
+      blockedDownloadUrl: prev.downloadUrl,
+    }));
+    try {
+      await AppUpdate.clearPackage();
+      await appUpdatePersistAtom.set((prev) => ({
+        ...prev,
+        downloadedEvent: undefined,
+      }));
+    } catch (cleanupError) {
+      defaultLogger.app.appUpdate.log(
+        `Failed to clear invalid app package: ${String(cleanupError)}`,
+      );
+      await appUpdatePersistAtom.set((prev) => ({
+        ...prev,
+        status: EAppUpdateStatus.failed,
+        updateError: { code: EUpdateErrorCode.storageError, step: 'download' },
+      }));
+    }
   }
 
   @backgroundMethod()
@@ -1982,7 +2154,7 @@ class ServiceAppUpdate extends ServiceBase {
       return;
     }
     clearTimeout(failedRecoveryTimerId);
-    this.updateErrorText(EAppUpdateStatus.downloadASCFailed, safeError);
+    await this.updateErrorText(EAppUpdateStatus.downloadASCFailed, safeError);
     this.reportOtaTelemetry({
       event: 'DOWNLOAD_FAILED',
       errorCode: mapDownloadErrorToOtaCode(safeError),
@@ -2058,6 +2230,54 @@ class ServiceAppUpdate extends ServiceBase {
     clearTimeout(failedRecoveryTimerId);
     const traceId = generateUUID();
     const requestSeq = await this.nextRequestSeq();
+    if (
+      platformEnv.isDesktopMac &&
+      getUpdateFileType(latest) === EUpdateFileType.appShell &&
+      latest.updateStrategy !== EUpdateStrategy.force &&
+      !latest.storeUrl
+    ) {
+      const targetKey = this.getTargetKey({
+        targetAppVersion: latest.latestVersion || '',
+        targetBundleVersion: String(platformEnv.bundleVersion || ''),
+      });
+      if (
+        await this.shouldSkipTargetByControl(
+          targetKey,
+          traceId,
+          requestSeq,
+          false,
+        )
+      ) {
+        await appUpdatePersistAtom.set((prev) =>
+          prev.status === status &&
+          prev.latestVersion === latest.latestVersion &&
+          prev.downloadedEvent?.downloadUrl === downloadedEvent?.downloadUrl
+            ? {
+                ...prev,
+                status: EAppUpdateStatus.done,
+                downloadedEvent: undefined,
+                errorText: undefined,
+                updateError: undefined,
+                readyAt: undefined,
+              }
+            : prev,
+        );
+        return;
+      }
+      if (!AppUpdate.prepareMacInstall) {
+        throw new OneKeyLocalError('macOS update staging is unavailable');
+      }
+      await AppUpdate.prepareMacInstall(latest);
+    }
+    if (
+      platformEnv.isDesktop &&
+      !platformEnv.isDesktopMac &&
+      getUpdateFileType(latest) === EUpdateFileType.appShell &&
+      latest.updateStrategy !== EUpdateStrategy.force &&
+      !latest.storeUrl
+    ) {
+      await AppUpdate.prepareQuitInstall?.(latest);
+    }
     await this.syncPendingInstallTaskWithReleaseInfo({
       releaseInfo: {
         version: latest.latestVersion,
@@ -2103,6 +2323,13 @@ class ServiceAppUpdate extends ServiceBase {
       return {
         ...prev,
         status: EAppUpdateStatus.ready,
+        readyAt: prev.readyAt ?? Date.now(),
+        installSource:
+          platformEnv.isDesktop &&
+          getUpdateFileType(prev) === EUpdateFileType.appShell &&
+          prev.updateStrategy !== EUpdateStrategy.force
+            ? (prev.installSource ?? 'quit')
+            : prev.installSource,
       };
     });
     if (reachedReady) {
@@ -2389,6 +2616,7 @@ class ServiceAppUpdate extends ServiceBase {
                 jsBundleVersion: undefined,
                 jsBundle: undefined,
                 downloadedEvent: undefined,
+                readyAt: undefined,
                 isRollbackTarget: false,
                 errorText: undefined,
                 updateError: undefined,
@@ -2766,6 +2994,14 @@ class ServiceAppUpdate extends ServiceBase {
           downloadedEvent: shouldClearDownloadedEvent
             ? undefined
             : prev.downloadedEvent,
+          readyAt: shouldTransitionToNotify ? undefined : prev.readyAt,
+          installSource: shouldTransitionToNotify
+            ? undefined
+            : prev.installSource,
+          blockedDownloadUrl:
+            releaseInfo.downloadUrl === prev.blockedDownloadUrl
+              ? prev.blockedDownloadUrl
+              : undefined,
           status: nextStatus,
           // Always refresh based on current decision — a stale flag from a
           // previous rollback would break first-launch detection for upgrades.
@@ -2806,8 +3042,13 @@ class ServiceAppUpdate extends ServiceBase {
         (isAutoUpdateStrategy(releaseInfo.updateStrategy) &&
           (decision.decision === 'jsBundleUpgrade' ||
             decision.decision === 'appShellUpdate'));
+      const autoDownloadEnabled =
+        decision.decision !== 'appShellUpdate' ||
+        !platformEnv.isDesktop ||
+        (await settingsPersistAtom.get()).enableAutoDownloadAppUpdate !== false;
       if (
         shouldAutoDownload &&
+        autoDownloadEnabled &&
         (await appUpdatePersistAtom.get()).status === EAppUpdateStatus.notify
       ) {
         // Verify target is not frozen/ignored before auto-triggering download.

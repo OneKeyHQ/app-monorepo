@@ -14,6 +14,7 @@ import { ipcMessageKeys } from '@onekeyhq/desktop/app/config';
 import { PUBLIC_KEY } from '@onekeyhq/desktop/app/constant/gpg';
 // eslint-disable-next-line @typescript-eslint/no-restricted-imports
 import { ElectronTranslations, i18nText } from '@onekeyhq/desktop/app/i18n';
+import { getDesktopPlatformInfo } from '@onekeyhq/desktop/app/libs/desktopPlatformInfo';
 import * as store from '@onekeyhq/desktop/app/libs/store';
 import type {
   IInstallUpdateParams,
@@ -99,11 +100,56 @@ interface IAppImageHandoff {
 const isMac = process.platform === 'darwin';
 const isWin = process.platform === 'win32';
 const isLinux = process.platform === 'linux';
-const isAppImage = isLinux && process.env.DESK_CHANNEL === 'appImage';
+const desktopChannel = getDesktopPlatformInfo().channel;
+const isAppImage = isLinux && desktopChannel === 'appImage';
 const isStoreVersion =
   Boolean(process.mas) ||
-  Boolean(isLinux && (process.env.SNAP || process.env.FLATPAK)) ||
+  Boolean(
+    isLinux && (desktopChannel === 'snap' || desktopChannel === 'flatpak'),
+  ) ||
   Boolean(isWin && process.env.DESK_CHANNEL === 'ms-store');
+// electron-builder derives APP_GUID from appId `so.onekey.wallet.desktop`.
+const WINDOWS_INSTALL_REGISTRY_KEY =
+  'Software\\c63242f1-2b62-5725-b853-31b79889ccf8';
+
+function getWindowsInstallScope(): 'currentUser' | 'allUsers' | 'unknown' {
+  if (!isWin) return 'unknown';
+  const installedAt = path.win32
+    .normalize(path.dirname(process.execPath))
+    .replace(/[\\/]+$/, '')
+    .toLowerCase();
+  const matchesInstallLocation = (hive: 'HKCU' | 'HKLM'): boolean => {
+    try {
+      const output = execFileSync(
+        'reg.exe',
+        [
+          'query',
+          `${hive}\\${WINDOWS_INSTALL_REGISTRY_KEY}`,
+          '/v',
+          'InstallLocation',
+        ],
+        { encoding: 'utf8', windowsHide: true },
+      );
+      const location =
+        /^\s*InstallLocation\s+REG_(?:SZ|EXPAND_SZ)\s+(.+?)\s*$/im.exec(
+          output,
+        )?.[1];
+      return Boolean(
+        location &&
+        path.win32
+          .normalize(location)
+          .replace(/[\\/]+$/, '')
+          .toLowerCase() === installedAt,
+      );
+    } catch {
+      return false;
+    }
+  };
+  const currentUser = matchesInstallLocation('HKCU');
+  const allUsers = matchesInstallLocation('HKLM');
+  if (currentUser === allUsers) return 'unknown';
+  return currentUser ? 'currentUser' : 'allUsers';
+}
 const MAX_FEED_BYTES = 2 * 1024 * 1024;
 const METADATA_STALL_MS = 30_000;
 
@@ -358,6 +404,8 @@ class DesktopApiAppUpdate {
   private appImageInstallInProgress = false;
 
   private installInProgress = false;
+
+  private quitInstallParams?: IInstallUpdateParams;
 
   private installHandoffStarted = false;
 
@@ -647,6 +695,7 @@ class DesktopApiAppUpdate {
         step: 'cleanup',
       });
     }
+    this.quitInstallParams = undefined;
     if (this.cacheClearPromise) {
       try {
         return await this.cacheClearPromise;
@@ -807,7 +856,7 @@ class DesktopApiAppUpdate {
       ipcMessageKeys.UPDATE_DOWNLOADING,
       progress,
     );
-    updateWindowProgressBar(this.getMainWindow(), progress.percent);
+    updateWindowProgressBar(this.getMainWindow(), progress.percent / 100);
   }
 
   private emitDownloaded(record: ICacheRecord): void {
@@ -1171,9 +1220,16 @@ class DesktopApiAppUpdate {
     return record;
   }
 
-  private async launchWindowsInstaller(record: ICacheRecord): Promise<void> {
-    const args = ['--updated', '--force-run'];
-    const start = (file: string, argv: string[]): Promise<void> =>
+  private async launchWindowsInstaller(
+    record: ICacheRecord,
+    restart: boolean,
+  ): Promise<void> {
+    const args = ['/S', '--updated', ...(restart ? ['--force-run'] : [])];
+    const start = (
+      file: string,
+      argv: string[],
+      waitForExit = false,
+    ): Promise<void> =>
       new Promise<void>((resolve, reject) => {
         const child = spawn(file, argv, {
           cwd: path.dirname(file),
@@ -1181,20 +1237,50 @@ class DesktopApiAppUpdate {
           stdio: 'ignore',
         });
         child.once('error', reject);
-        child.once('spawn', () => {
-          child.unref();
-          resolve();
-        });
+        if (waitForExit) {
+          child.once('exit', (code) => {
+            if (code === 0) resolve();
+            else
+              reject(
+                createUpdateError({
+                  code:
+                    code === 1223 || code === 2
+                      ? EUpdateErrorCode.cancelled
+                      : EUpdateErrorCode.installFailed,
+                  step: 'install',
+                }),
+              );
+          });
+        } else {
+          child.once('spawn', () => {
+            child.unref();
+            resolve();
+          });
+        }
       });
+    const elevate = () =>
+      start(
+        path.join(process.resourcesPath, 'elevate.exe'),
+        [record.downloadedFile, ...args],
+        true,
+      );
+    if (getWindowsInstallScope() !== 'currentUser') {
+      if (!restart) {
+        throw createUpdateError({
+          code: EUpdateErrorCode.installFailed,
+          step: 'install',
+        });
+      }
+      await elevate();
+      return;
+    }
     try {
       await start(record.downloadedFile, args);
     } catch (error) {
       const code = (error as NodeJS.ErrnoException).code;
       if (code !== 'EACCES' && code !== 'UNKNOWN') throw error;
-      await start(path.join(process.resourcesPath, 'elevate.exe'), [
-        record.downloadedFile,
-        ...args,
-      ]);
+      if (!restart) throw error;
+      await elevate();
     }
   }
 
@@ -1214,6 +1300,7 @@ class DesktopApiAppUpdate {
   private async installAppImage(
     record: ICacheRecord,
     buildNumber: string,
+    restart = true,
   ): Promise<boolean> {
     const current = process.env.APPIMAGE;
     if (!this.canAutoInstallAppImage() || !current) {
@@ -1226,7 +1313,7 @@ class DesktopApiAppUpdate {
     }
     const oldName = path.basename(current);
     const destination =
-      oldName === record.fileName || !/\d+\.\d+\.\d+/.test(oldName)
+      !restart || oldName === record.fileName || !/\d+\.\d+\.\d+/.test(oldName)
         ? current
         : path.join(path.dirname(current), record.fileName);
     const nonce = crypto.randomBytes(8).toString('hex');
@@ -1278,9 +1365,11 @@ class DesktopApiAppUpdate {
       };
       fs.mkdirSync(this.getCacheDir(), { recursive: true });
       fs.writeFileSync(marker, JSON.stringify(handoff), { mode: 0o600 });
-      app.relaunch({ execPath: destination, args: process.argv.slice(1) });
+      if (restart) {
+        app.relaunch({ execPath: destination, args: process.argv.slice(1) });
+      }
       handoffQueued = true;
-      app.quit();
+      if (restart) app.quit();
       this.installHandoffStarted = true;
       return true;
     } catch (error) {
@@ -1317,7 +1406,11 @@ class DesktopApiAppUpdate {
       await Promise.allSettled(this.metadataRequests);
       return await this.installPackageLocked(params);
     } catch (error) {
-      const classified = getUpdateError(classifyNodeError(error), 'install');
+      const directError = getUpdateError(error, 'install');
+      const classified =
+        directError.code === EUpdateErrorCode.unknown
+          ? getUpdateError(classifyNodeError(error), 'install')
+          : directError;
       throw createUpdateError({
         ...classified,
         code:
@@ -1331,20 +1424,110 @@ class DesktopApiAppUpdate {
     }
   }
 
+  async prepareMacInstall(params: IInstallUpdateParams): Promise<void> {
+    if (!isMac || isStoreVersion) return;
+    if (this.installInProgress) {
+      throw createUpdateError({
+        code: EUpdateErrorCode.installFailed,
+        step: 'install',
+      });
+    }
+    this.installInProgress = true;
+    try {
+      if (this.cacheClearPromise) await this.cacheClearPromise;
+      await this.activeDownload;
+      this.metadataGeneration += 1;
+      this.metadataControllers.forEach((controller) => controller.abort());
+      await Promise.allSettled(this.metadataRequests);
+      const appBundle = fs.realpathSync(
+        path.resolve(path.dirname(process.execPath), '..', '..'),
+      );
+      if (path.dirname(appBundle) !== '/Applications') {
+        throw createUpdateError({
+          code: EUpdateErrorCode.installLocation,
+          step: 'install',
+        });
+      }
+      const record = await this.getInstallRecord(params);
+      await this.stageMacUpdate(record);
+      store.setUpdateBuildNumber(params.buildNumber);
+    } finally {
+      this.installInProgress = false;
+    }
+  }
+
+  async moveToApplicationsFolder(): Promise<boolean> {
+    if (!isMac) return false;
+    return app.moveToApplicationsFolder();
+  }
+
+  async prepareQuitInstall(params: IInstallUpdateParams): Promise<void> {
+    this.quitInstallParams = undefined;
+    if (isStoreVersion || (!isWin && !isAppImage)) return;
+    if (isWin) {
+      if (getWindowsInstallScope() !== 'currentUser') return;
+      try {
+        fs.accessSync(path.dirname(process.execPath), fs.constants.W_OK);
+      } catch {
+        return;
+      }
+    } else if (!this.canAutoInstallAppImage()) {
+      return;
+    }
+    await this.getInstallRecord(params);
+    this.quitInstallParams = params;
+  }
+
+  hasPreparedQuitInstall(): boolean {
+    return Boolean(this.quitInstallParams);
+  }
+
+  async installOnQuit(): Promise<boolean> {
+    const params = this.quitInstallParams;
+    this.quitInstallParams = undefined;
+    if (!params || this.installInProgress) return false;
+    this.installInProgress = true;
+    try {
+      const record = await this.getInstallRecord(params);
+      if (isWin) {
+        if (getWindowsInstallScope() !== 'currentUser') return false;
+        fs.accessSync(path.dirname(process.execPath), fs.constants.W_OK);
+        await this.launchWindowsInstaller(record, false);
+        store.setUpdateBuildNumber(params.buildNumber);
+        return true;
+      }
+      if (isAppImage && this.canAutoInstallAppImage()) {
+        return await this.installAppImage(record, params.buildNumber, false);
+      }
+      return false;
+    } catch (error) {
+      logger.error('auto-updater', 'Prepared update on quit failed', error);
+      return false;
+    } finally {
+      this.installInProgress = false;
+    }
+  }
+
   private async installPackageLocked(
     params: IInstallUpdateParams,
   ): Promise<boolean> {
     if (isStoreVersion) return false;
-    const selection = await dialog.showMessageBox({
-      type: 'question',
-      buttons: [
-        i18nText(ElectronTranslations.update_install_and_restart),
-        i18nText(ElectronTranslations.global_later),
-      ],
-      defaultId: 0,
-      message: i18nText(ElectronTranslations.update_new_update_downloaded),
-    });
-    if (selection.response !== 0) return false;
+    if (
+      params.userInitiated !== true &&
+      params.installSource !== 'quit' &&
+      params.installSource !== 'startup'
+    ) {
+      const selection = await dialog.showMessageBox({
+        type: 'question',
+        buttons: [
+          i18nText(ElectronTranslations.update_install_and_restart),
+          i18nText(ElectronTranslations.global_later),
+        ],
+        defaultId: 0,
+        message: i18nText(ElectronTranslations.update_new_update_downloaded),
+      });
+      if (selection.response !== 0) return false;
+    }
     const record = await this.getInstallRecord(params);
     if (isMac) {
       if (this.macInstallInProgress) return false;
@@ -1448,13 +1631,30 @@ class DesktopApiAppUpdate {
       }
     }
     if (isWin) {
-      await this.launchWindowsInstaller(record);
+      try {
+        await this.launchWindowsInstaller(
+          record,
+          params.installSource !== 'quit',
+        );
+      } catch (error) {
+        if (
+          getUpdateError(error, 'install').code === EUpdateErrorCode.cancelled
+        ) {
+          this.getMainWindow()?.show();
+          this.getMainWindow()?.focus();
+        }
+        throw error;
+      }
       store.setUpdateBuildNumber(params.buildNumber);
+      this.quitInstallParams = undefined;
       app.quit();
       this.installHandoffStarted = true;
       return true;
     }
-    if (isAppImage) return this.installAppImage(record, params.buildNumber);
+    if (isAppImage) {
+      this.quitInstallParams = undefined;
+      return this.installAppImage(record, params.buildNumber);
+    }
     await this.manualInstallPackage(params);
     return true;
   }
