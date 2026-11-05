@@ -16,6 +16,7 @@ import {
   useThemeName,
 } from '@onekeyhq/components';
 import type { IXStackProps } from '@onekeyhq/components';
+import { getFoldableIPhoneHeaderTop } from '@onekeyhq/kit/src/components/TabPageHeader/headerLayout';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import {
@@ -190,7 +191,8 @@ function MobileBrowserHeader({
   chrome,
   onCloseTab,
 }: IMobileBrowserHeaderProps) {
-  const { top } = useSafeAreaInsets();
+  const { top: safeAreaTop } = useSafeAreaInsets();
+  const top = safeAreaTop || getFoldableIPhoneHeaderTop(BROWSER_HEADER_HEIGHT);
   const { progress, layoutExpanded } = chrome;
   const isCollapsed = useIsChromeCollapsed(progress);
   // The row fades out in the first half of a collapse while it slides up
