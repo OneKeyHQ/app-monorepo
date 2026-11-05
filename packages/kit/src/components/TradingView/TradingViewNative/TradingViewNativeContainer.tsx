@@ -880,6 +880,7 @@ const TradingViewNativeContent = memo(
           displayMode: 'full',
           initialIndicatorId: indicator,
           intl,
+          storageNamespace,
           onConfirm: (nextValue) => setIndicatorSettings(nextValue),
           value: indicatorSettingsValue,
         });
