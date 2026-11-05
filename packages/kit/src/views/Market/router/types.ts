@@ -6,6 +6,8 @@ import type {
 } from '@onekeyhq/shared/types/marketV2';
 import type { ITradingViewNativeAnyIndicatorId } from '@onekeyhq/shared/types/tradingViewNative';
 
+import type { IMarketHighlightQuote } from '../MarketHighlights/useMarketHighlightQuotes';
+
 export enum EModalMarketRoutes {
   MarketDetailV2 = 'MarketDetailV2',
   MarketBannerDetail = 'MarketBannerDetail',
@@ -32,7 +34,9 @@ export type IModalMarketParamList = {
     title: string;
     type?: EMarketBannerType;
   };
-  [EModalMarketRoutes.MarketHighlights]: undefined;
+  [EModalMarketRoutes.MarketHighlights]:
+    | { initialQuotes?: [string, IMarketHighlightQuote][] }
+    | undefined;
   [EModalMarketRoutes.MobileTokenSelector]:
     | {
         showFavoriteButton?: boolean;

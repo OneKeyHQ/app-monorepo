@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
 
 import {
   Icon,
@@ -14,6 +14,7 @@ import { getMarketWatchlistKey } from '@onekeyhq/shared/src/utils/marketWatchlis
 import type { IMarketHighlight } from '@onekeyhq/shared/types/marketV2';
 
 import { PriceChangePercentage } from '../components/PriceChangePercentage';
+import { prewarmMarketTokenImages } from '../MarketDetailV2/utils/marketDetailImagePreload';
 import { EModalMarketRoutes } from '../router/types';
 
 import { useMarketHighlightQuotes } from './useMarketHighlightQuotes';
@@ -33,6 +34,11 @@ export function MarketHighlightStrip({
     [highlight.assets, compact],
   );
   const quotes = useMarketHighlightQuotes(assets);
+  useEffect(() => {
+    quotes?.forEach((quote) => {
+      prewarmMarketTokenImages({ tokenImageUri: quote.logoUrl });
+    });
+  }, [quotes]);
 
   return (
     <YStack
@@ -56,6 +62,9 @@ export function MarketHighlightStrip({
         onPress={() =>
           navigation.pushModal(EModalRoutes.MarketModal, {
             screen: EModalMarketRoutes.MarketHighlights,
+            params: {
+              initialQuotes: quotes ? [...quotes] : undefined,
+            },
           })
         }
       >

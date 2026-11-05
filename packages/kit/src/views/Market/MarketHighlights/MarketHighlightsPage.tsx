@@ -1,5 +1,6 @@
 import { Fragment, useCallback, useMemo, useState } from 'react';
 
+import { useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
 import {
@@ -42,6 +43,11 @@ import { useMarketHighlightQuotes } from './useMarketHighlightQuotes';
 import { useMarketHighlights } from './useMarketHighlights';
 
 import type { IMarketHighlightQuote } from './useMarketHighlightQuotes';
+import type {
+  EModalMarketRoutes,
+  IModalMarketParamList,
+} from '../router/types';
+import type { RouteProp } from '@react-navigation/core';
 import type { ListRenderItem } from 'react-native';
 
 const MAX_CARD_ASSETS = 3;
@@ -378,6 +384,17 @@ function HighlightCard({
 }
 
 function MarketHighlightsContent() {
+  const route =
+    useRoute<
+      RouteProp<IModalMarketParamList, EModalMarketRoutes.MarketHighlights>
+    >();
+  const initialQuotes = useMemo(
+    () =>
+      route.params?.initialQuotes
+        ? new Map(route.params.initialQuotes)
+        : undefined,
+    [route.params?.initialQuotes],
+  );
   const intl = useIntl();
   const { gtMd: wide } = useMedia();
   const title = intl.formatMessage({
@@ -400,11 +417,9 @@ function MarketHighlightsContent() {
     const visible = visibleIds.length
       ? items?.filter((item) => visibleIds.includes(item.highlightId))
       : items?.slice(0, 3);
-    return (
-      visible?.flatMap((item) => item.assets.slice(0, MAX_CARD_ASSETS)) ?? []
-    );
+    return visible?.flatMap((item) => item.assets.slice(0, MAX_CARD_ASSETS));
   }, [items, visibleIds]);
-  const quotes = useMarketHighlightQuotes(assets);
+  const quotes = useMarketHighlightQuotes(assets, initialQuotes);
   const onAssetPress = useCallback(
     (asset: IMarketHighlightAsset) => {
       if (asset.type === 'perp') {

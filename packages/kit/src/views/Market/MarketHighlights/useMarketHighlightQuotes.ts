@@ -1,6 +1,9 @@
+import { useMemo, useRef } from 'react';
+
 import pLimit from 'p-limit';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { useIsMounted } from '@onekeyhq/kit/src/hooks/useIsMounted';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { getMarketWatchlistKey } from '@onekeyhq/shared/src/utils/marketWatchlistIdentity';
@@ -17,7 +20,10 @@ export type IMarketHighlightQuote = {
   priceChange24hPercent?: string | number;
 };
 
-async function fetchHighlightQuotes(assets: IMarketHighlightAsset[]) {
+async function fetchHighlightQuotes(
+  assets: IMarketHighlightAsset[],
+  onUpdate: (quotes: Map<string, IMarketHighlightQuote>) => void,
+) {
   const service = backgroundApiProxy.serviceMarketV2;
   const quotes = new Map<string, IMarketHighlightQuote>();
   const byIdentity = new Map(
@@ -114,7 +120,16 @@ async function fetchHighlightQuotes(assets: IMarketHighlightAsset[]) {
       }),
     ),
   ];
-  const results = await Promise.allSettled(requests.filter(Boolean));
+  const results = await Promise.allSettled(
+    requests
+      .filter((request) => request !== false)
+      .map(async (request) => {
+        await request;
+        if (quotes.size > 0) {
+          onUpdate(new Map(quotes));
+        }
+      }),
+  );
   if (
     results.length > 0 &&
     results.every((result) => result.status === 'rejected')
@@ -124,11 +139,36 @@ async function fetchHighlightQuotes(assets: IMarketHighlightAsset[]) {
   return quotes;
 }
 
-export function useMarketHighlightQuotes(assets: IMarketHighlightAsset[]) {
-  const { result } = usePromiseResult(
-    () => fetchHighlightQuotes(assets),
-    [assets],
+export function useMarketHighlightQuotes(
+  assets: IMarketHighlightAsset[] | undefined,
+  initialQuotes?: ReadonlyMap<string, IMarketHighlightQuote>,
+) {
+  const isMounted = useIsMounted();
+  const requestRef = useRef(0);
+  const assetsRef = useRef(assets);
+  assetsRef.current = assets;
+  const preview = useMemo(
+    () => (initialQuotes ? new Map(initialQuotes) : undefined),
+    [initialQuotes],
+  );
+  const { result, setResult } = usePromiseResult(
+    () => {
+      const requestId = requestRef.current + 1;
+      requestRef.current = requestId;
+      if (!assets) return Promise.resolve(preview);
+      return fetchHighlightQuotes(assets, (quotes) => {
+        if (
+          isMounted.current &&
+          requestRef.current === requestId &&
+          assetsRef.current === assets
+        ) {
+          setResult((previous) => new Map([...(previous ?? []), ...quotes]));
+        }
+      });
+    },
+    [assets, isMounted, preview],
     {
+      initResult: preview,
       pollingInterval: timerUtils.getTimeDurationMs({ seconds: 30 }),
       runImmediatelyOnMount: true,
       keepResultIfError: true,
