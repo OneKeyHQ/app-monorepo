@@ -4,6 +4,7 @@ import { act, cleanup, renderHook } from '@testing-library/react-native/pure';
 
 import { buildDeferredPromise } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import type { IMarketHighlightAsset } from '@onekeyhq/shared/types/marketV2';
 
 import { fetchMarketTokenListBatchForPlatform } from '../MarketHomeV2/components/MarketTokenList/hooks/marketTokenBatchPlatformApi';
@@ -416,6 +417,86 @@ it.each([false, true])(
     expect(result.current?.get('asset:eth')?.price).toBe('2500');
   },
 );
+
+it('keeps failed asset quotes during a partial refresh and removes deleted assets', async () => {
+  const assets = ['btc', 'eth'].map<IMarketHighlightAsset>((assetId) => ({
+    type: 'asset',
+    assetId,
+    symbol: assetId.toUpperCase(),
+    favorite: { chainId: '', contractAddress: '', assetId },
+  }));
+  let price = '100';
+  let failBitcoin = false;
+  service.fetchMarketListingWatchlistQuote.mockImplementation(
+    async ({ assetId }) => {
+      if (failBitcoin && assetId === 'btc') {
+        throw new OneKeyLocalError('Bitcoin quote source unavailable');
+      }
+      return {
+        name: 'Asset',
+        symbol: 'ASSET',
+        logoUrl: `${assetId}-logo`,
+        price,
+      };
+    },
+  );
+  const { result, rerender } = renderHook(
+    ({ currentAssets }: { currentAssets: IMarketHighlightAsset[] }) =>
+      useMarketHighlightQuotes(currentAssets),
+    { initialProps: { currentAssets: assets } },
+  );
+  await act(async () => {
+    await jest.advanceTimersByTimeAsync(0);
+  });
+  expect(result.current?.get('asset:btc')?.price).toBe('100');
+  expect(result.current?.get('asset:eth')?.price).toBe('100');
+
+  price = '101';
+  failBitcoin = true;
+  await act(async () => {
+    await jest.advanceTimersByTimeAsync(30_000);
+  });
+  expect(result.current?.get('asset:btc')).toMatchObject({
+    price: '100',
+    logoUrl: 'btc-logo',
+  });
+  expect(result.current?.get('asset:eth')?.price).toBe('101');
+
+  rerender({ currentAssets: assets.slice(1) });
+  await act(async () => {
+    await jest.advanceTimersByTimeAsync(0);
+  });
+  expect(result.current?.has('asset:btc')).toBe(false);
+});
+
+it('clears a cached quote when its source successfully returns no quote', async () => {
+  const assets: IMarketHighlightAsset[] = [
+    {
+      type: 'asset',
+      assetId: 'btc',
+      symbol: 'BTC',
+      favorite: { chainId: '', contractAddress: '', assetId: 'btc' },
+    },
+  ];
+  service.fetchMarketListingWatchlistQuote
+    .mockResolvedValueOnce({
+      name: 'Bitcoin',
+      symbol: 'BTC',
+      logoUrl: 'btc-logo',
+      price: '100',
+    })
+    .mockResolvedValueOnce(undefined);
+  const { result } = renderHook(() => useMarketHighlightQuotes(assets));
+  await act(async () => {
+    await jest.advanceTimersByTimeAsync(0);
+  });
+  expect(result.current?.get('asset:btc')?.price).toBe('100');
+
+  await act(async () => {
+    await jest.advanceTimersByTimeAsync(30_000);
+  });
+  expect(result.current?.has('asset:btc')).toBe(false);
+});
 
 it('ignores a late partial result after switching visible assets', async () => {
   const pending =

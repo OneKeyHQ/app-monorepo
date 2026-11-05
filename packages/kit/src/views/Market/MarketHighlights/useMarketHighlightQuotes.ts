@@ -22,6 +22,7 @@ export type IMarketHighlightQuote = {
 
 async function fetchHighlightQuotes(
   assets: IMarketHighlightAsset[],
+  previousQuotes: ReadonlyMap<string, IMarketHighlightQuote> | undefined,
   onUpdate: (quotes: Map<string, IMarketHighlightQuote>) => void,
 ) {
   const service = backgroundApiProxy.serviceMarketV2;
@@ -29,6 +30,10 @@ async function fetchHighlightQuotes(
   const byIdentity = new Map(
     assets.map((asset) => [getMarketWatchlistKey(asset.favorite), asset]),
   );
+  for (const identity of byIdentity.keys()) {
+    const previous = previousQuotes?.get(identity);
+    if (previous) quotes.set(identity, previous);
+  }
   const unique = [...byIdentity.values()];
   const tokens = unique.filter((asset) => asset.type === 'token');
   const stocks = unique.filter((asset) => asset.type === 'stock');
@@ -72,6 +77,7 @@ async function fetchHighlightQuotes(
               contractAddress: isNative ? '' : asset.contractAddress,
             });
             const quote = tokenQuotes.get(key);
+            quotes.delete(getMarketWatchlistKey(asset.favorite));
             if (quote) {
               quotes.set(getMarketWatchlistKey(asset.favorite), quote);
             }
@@ -90,6 +96,7 @@ async function fetchHighlightQuotes(
             );
             for (const asset of stocks) {
               const quote = byStockId.get(asset.stockId.toUpperCase());
+              quotes.delete(getMarketWatchlistKey(asset.favorite));
               if (quote) {
                 quotes.set(getMarketWatchlistKey(asset.favorite), {
                   ...quote,
@@ -107,6 +114,7 @@ async function fetchHighlightQuotes(
             const byCoin = new Map(items.map((item) => [item.name, item]));
             for (const asset of perps) {
               const quote = byCoin.get(asset.perpsCoin);
+              quotes.delete(getMarketWatchlistKey(asset.favorite));
               if (quote) {
                 quotes.set(getMarketWatchlistKey(asset.favorite), {
                   logoUrl: quote.tokenImageUrl,
@@ -122,6 +130,7 @@ async function fetchHighlightQuotes(
         const quote = await service.fetchMarketListingWatchlistQuote(
           asset.favorite,
         );
+        quotes.delete(getMarketWatchlistKey(asset.favorite));
         if (quote) quotes.set(getMarketWatchlistKey(asset.favorite), quote);
       }),
     ),
@@ -157,12 +166,13 @@ export function useMarketHighlightQuotes(
     () => (initialQuotes ? new Map(initialQuotes) : undefined),
     [initialQuotes],
   );
+  const quotesRef = useRef(preview);
   const { result, setResult } = usePromiseResult(
     () => {
       const requestId = requestRef.current + 1;
       requestRef.current = requestId;
       if (!assets) return Promise.resolve(preview);
-      return fetchHighlightQuotes(assets, (quotes) => {
+      return fetchHighlightQuotes(assets, quotesRef.current, (quotes) => {
         if (
           isMounted.current &&
           requestRef.current === requestId &&
@@ -182,5 +192,6 @@ export function useMarketHighlightQuotes(
       revalidateOnReconnect: true,
     },
   );
+  quotesRef.current = result;
   return result;
 }
