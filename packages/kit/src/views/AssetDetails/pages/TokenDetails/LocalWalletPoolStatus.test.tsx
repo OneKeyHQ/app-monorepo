@@ -109,7 +109,7 @@ jest.mock('@onekeyhq/components', () => {
   return {
     Button,
     IconButton: Button,
-    Dialog: { confirm: jest.fn() },
+    Dialog: { show: jest.fn() },
     Toast: { error: jest.fn() },
     Divider: () => null,
     Icon: () => null,
@@ -328,11 +328,11 @@ it.each([
 
 describe('LocalWalletPoolStatus enable failure', () => {
   const { Dialog } = jest.requireMock<{
-    Dialog: { confirm: jest.Mock<void, [IConfirmArgs]> };
+    Dialog: { show: jest.Mock<void, [IConfirmArgs]> };
   }>('@onekeyhq/components');
 
   beforeEach(() => {
-    Dialog.confirm.mockReset();
+    Dialog.show.mockReset();
     mockAssertAdmission.mockReset().mockResolvedValue(undefined);
     mockTwinBirthday.mockReset().mockResolvedValue(undefined);
     mockShowSlotsFull.mockClear();
@@ -357,7 +357,7 @@ describe('LocalWalletPoolStatus enable failure', () => {
       fireEvent.click(screen.getByTestId('local-wallet-enable-button'));
     });
 
-    expect(Dialog.confirm).not.toHaveBeenCalled();
+    expect(Dialog.show).not.toHaveBeenCalled();
     expect(enableAccount).not.toHaveBeenCalled();
     const params = mockShowSlotsFull.mock.calls[0][0] as {
       onOpenSettings?: () => void;
@@ -390,7 +390,7 @@ describe('LocalWalletPoolStatus enable failure', () => {
   });
 
   function lastDialog(): IConfirmArgs {
-    const call = Dialog.confirm.mock.calls.at(-1);
+    const call = Dialog.show.mock.calls.at(-1);
     expect(call).toBeDefined();
     return (call as [IConfirmArgs])[0];
   }
@@ -464,7 +464,7 @@ describe('LocalWalletPoolStatus enable failure', () => {
       accountId: 'hw-1--0',
     });
     expect(enableAccount).toHaveBeenCalledWith({ birthdayHeight: 3_400_000 });
-    expect(Dialog.confirm).not.toHaveBeenCalled();
+    expect(Dialog.show).not.toHaveBeenCalled();
   });
 
   it('lets a rejected enable reach the user and keeps the dialog open', async () => {
@@ -486,7 +486,7 @@ describe('LocalWalletPoolStatus enable failure', () => {
     await act(async () => {
       fireEvent.click(screen.getByTestId('local-wallet-enable-button'));
     });
-    expect(Dialog.confirm).toHaveBeenCalledTimes(1);
+    expect(Dialog.show).toHaveBeenCalledTimes(1);
 
     const preventClose = jest.fn();
     await expect(lastDialog().onConfirm({ preventClose })).rejects.toBe(
@@ -520,7 +520,7 @@ describe('LocalWalletPoolStatus enable failure', () => {
       fireEvent.click(button);
     });
 
-    expect(Dialog.confirm).toHaveBeenCalledTimes(2);
+    expect(Dialog.show).toHaveBeenCalledTimes(2);
   });
 
   it('shows the loading state only while the hook is busy', () => {
@@ -573,7 +573,7 @@ describe('LocalWalletPoolStatus enable failure', () => {
     expect(screen.getByTestId('local-wallet-enable-button').textContent).toBe(
       'global.resume',
     );
-    expect(Dialog.confirm).not.toHaveBeenCalled();
+    expect(Dialog.show).not.toHaveBeenCalled();
     expect(consoleError).toHaveBeenCalledWith(
       '[privacyChain] enable failed',
       expect.objectContaining({ error: 'offline' }),

@@ -481,7 +481,7 @@ describe('Home history shielded endpoints', () => {
     expect(result.row.description).toBe('Private');
   });
 
-  it("uses the chain's own name when the counterparty's pool is unknown", () => {
+  it('labels a hidden counterparty as private even when its pool is unknown', () => {
     expect(shieldedRow({ side: 'to', marker: {} }).row.description).toBe(
       'Private',
     );
