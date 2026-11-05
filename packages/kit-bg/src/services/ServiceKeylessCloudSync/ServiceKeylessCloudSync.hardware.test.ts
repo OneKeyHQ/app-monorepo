@@ -259,6 +259,9 @@ function setup(items: Array<Partial<IDBCloudSyncItem>> = []) {
       })),
     },
     servicePrimeCloudSync: {
+      setCloudSyncEnabledWithKeyLock: jest.fn(async (enabled: boolean) => {
+        mockConfig.isCloudSyncEnabled = enabled;
+      }),
       startServerSyncFlow: jest.fn(async () => undefined),
       startServerSyncFlowSilently: jest.fn(async () => undefined),
       updateLastSyncTime: jest.fn(async () => undefined),
@@ -1133,6 +1136,178 @@ describe('hardware Cloud key source lifecycle', () => {
     await service.autoEnableCloudSyncKeyless();
     expect(select).toHaveBeenCalledTimes(1);
     expect(enable).toHaveBeenCalledTimes(1);
+  });
+
+  describe('automatic sync after Keyless wallet creation', () => {
+    test('honors an explicit OneKey ID create-and-switch action', async () => {
+      const { service } = setup();
+      mockConfig.isCloudSyncEnabled = true;
+      const enable = jest
+        .spyOn(service, 'enableKeylessCloudSyncWithMigrationIfNeeded')
+        .mockResolvedValue(undefined);
+      jest
+        .spyOn(
+          service,
+          'syncPersistedCurrentCloudSyncKeylessWalletIdWithWallets',
+        )
+        .mockResolvedValue(undefined);
+      await service.setPendingAutoEnableCloudSyncKeyless(true);
+
+      await service.autoEnableCloudSyncKeyless();
+
+      expect(enable).toHaveBeenCalledTimes(1);
+    });
+
+    describe.each([false, true])('pending explicit choice: %s', (pending) => {
+      test.each(
+        pending
+          ? (['hardware', 'keyless'] as const)
+          : (['hardware', 'keyless', 'onekeyId'] as const),
+      )('preserves active %s sync', async (mode) => {
+        const { service, backgroundApi } = setup();
+        mockConfig = {
+          isCloudSyncEnabled: mode === 'onekeyId',
+          isCloudSyncEnabledKeyless: mode !== 'onekeyId',
+          hardwareCloudSyncKeySource: mode === 'hardware' ? source : undefined,
+          currentCloudSyncKeylessWalletId:
+            mode === 'hardware' ? source.credentialId : 'hd-keyless-test',
+        };
+        mockStored = mode === 'hardware' ? credential : undefined;
+        const original = { ...mockConfig };
+        const stored = mockStored;
+        const prepare = jest
+          .spyOn(service, 'prepareCloudSyncKeyless')
+          .mockResolvedValue({ success: true });
+        await service.setPendingAutoEnableCloudSyncKeyless(pending);
+
+        await service.autoEnableCloudSyncKeyless();
+
+        expect(mockConfig).toEqual(original);
+        expect(mockStored).toBe(stored);
+        expect(prepare).not.toHaveBeenCalled();
+        expect(
+          backgroundApi.serviceAccount.getAllWallets,
+        ).not.toHaveBeenCalled();
+        expect(
+          backgroundApi.servicePrimeCloudSync.startServerSyncFlow,
+        ).not.toHaveBeenCalled();
+      });
+    });
+
+    test.each([
+      { hardware: false, formerId: false },
+      { hardware: true, formerId: false },
+      { hardware: false, formerId: true },
+      { hardware: true, formerId: true },
+    ])(
+      'enables Keyless when all sync is off (hardware=$hardware, formerId=$formerId)',
+      async ({ hardware, formerId }) => {
+        const { service, backgroundApi } = setup();
+        mockConfig = {
+          isCloudSyncEnabled: false,
+          isCloudSyncEnabledKeyless: false,
+          hasEverEnabledOneKeyIdSync: formerId,
+          hardwareCloudSyncKeySource: hardware ? source : undefined,
+          currentCloudSyncKeylessWalletId: hardware
+            ? source.credentialId
+            : undefined,
+        };
+        mockStored = hardware ? credential : undefined;
+        jest
+          .spyOn(
+            service,
+            'syncPersistedCurrentCloudSyncKeylessWalletIdWithWallets',
+          )
+          .mockResolvedValue(undefined);
+        jest
+          .spyOn(service, 'prepareCloudSyncKeyless')
+          .mockResolvedValue({ success: true });
+
+        await service.autoEnableCloudSyncKeyless();
+
+        expect(mockConfig.isCloudSyncEnabled).toBe(false);
+        expect(mockConfig.isCloudSyncEnabledKeyless).toBe(true);
+        expect(mockConfig.hardwareCloudSyncKeySource).toBeUndefined();
+        expect(mockConfig.currentCloudSyncKeylessWalletId).toBe(
+          'hd-keyless-test',
+        );
+        expect(
+          backgroundApi.servicePrimeCloudSync.startServerSyncFlow,
+        ).toHaveBeenCalledTimes(1);
+        expect(
+          generateHardwareCloudSyncCredentialWithSdk,
+        ).not.toHaveBeenCalled();
+      },
+    );
+
+    test.each(['hardware', 'onekeyId'] as const)(
+      'keeps %s sync enabled while automatic credential preparation is in flight',
+      async (mode) => {
+        const { service, backgroundApi } = setup();
+        jest
+          .spyOn(
+            service,
+            'syncPersistedCurrentCloudSyncKeylessWalletIdWithWallets',
+          )
+          .mockResolvedValue(undefined);
+        let selected: IPrimeCloudSyncPersistAtomData | undefined;
+        jest
+          .spyOn(service, 'prepareCloudSyncKeyless')
+          .mockImplementation(async () => {
+            mockConfig = {
+              isCloudSyncEnabled: mode === 'onekeyId',
+              isCloudSyncEnabledKeyless: mode === 'hardware',
+              hardwareCloudSyncKeySource:
+                mode === 'hardware' ? source : undefined,
+              currentCloudSyncKeylessWalletId:
+                mode === 'hardware' ? source.credentialId : undefined,
+            };
+            mockStored = mode === 'hardware' ? credential : undefined;
+            selected = { ...mockConfig };
+            return { success: true };
+          });
+
+        await service.autoEnableCloudSyncKeyless();
+
+        expect(mockConfig).toEqual(selected);
+        expect(
+          backgroundApi.servicePrimeCloudSync.setCloudSyncEnabledWithKeyLock,
+        ).not.toHaveBeenCalled();
+        expect(
+          backgroundApi.servicePrimeCloudSync.startServerSyncFlow,
+        ).not.toHaveBeenCalled();
+        expect(
+          backgroundApi.servicePrimeCloudSync.updateLastSyncTime,
+        ).not.toHaveBeenCalled();
+      },
+    );
+
+    test('a failed automatic preparation cannot roll back a newly enabled OneKey ID mode', async () => {
+      const { service, backgroundApi } = setup();
+      jest
+        .spyOn(
+          service,
+          'syncPersistedCurrentCloudSyncKeylessWalletIdWithWallets',
+        )
+        .mockResolvedValue(undefined);
+      jest
+        .spyOn(service, 'prepareCloudSyncKeyless')
+        .mockImplementation(async () => {
+          mockConfig.isCloudSyncEnabled = true;
+          throw new OneKeyLocalError('Public automatic preparation failure');
+        });
+
+      await service.autoEnableCloudSyncKeyless();
+
+      expect(mockConfig.isCloudSyncEnabled).toBe(true);
+      expect(mockConfig.isCloudSyncEnabledKeyless).toBe(false);
+      expect(
+        backgroundApi.servicePrimeCloudSync.setCloudSyncEnabledWithKeyLock,
+      ).not.toHaveBeenCalled();
+      expect(
+        backgroundApi.servicePrimeCloudSync.startServerSyncFlow,
+      ).not.toHaveBeenCalled();
+    });
   });
 
   test('clears a mismatched in-memory source instead of using its keys', async () => {

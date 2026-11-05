@@ -1,19 +1,17 @@
 import { OneKeyLocalError } from '../errors/errors/localError';
 import platformEnv from '../platformEnv';
 
-// These values are part of the recoverable key derivation contract. Changing
-// any byte requires an explicit version and migration, not a copy update.
+// Final v1 contract for this unreleased feature. Pre-release paths and data
+// are not retained; changes after release require a version and migration.
 export const HARDWARE_CLOUD_SYNC_DERIVATION_VERSION = 1;
-// Accepted with default safety checks on OneKey Pro 2 firmware 1.0.3.
-// Classic 1S firmware limits the address index to 1,000,000 and rejects this
-// path. Changing this recoverable key contract requires a version/migration.
-export const HARDWARE_CLOUD_SYNC_PATH = "m/44'/0'/924823361'/1/835069775";
+// Classic firmware permits at most 1,000,000 for the final address index.
+export const HARDWARE_CLOUD_SYNC_PATH = "m/44'/0'/924823361'/1/369775";
 export const HARDWARE_CLOUD_SYNC_MESSAGE_PREFIX =
   'WARNING: Sign ONLY in OneKey App. NEVER in other apps or dApps. Signing unlocks ALL your OneKey Cloud data. >>> type=onekey-cloud-key;v=1;wallet=';
 
 // Signs server sign-in challenges. It must differ from HARDWARE_CLOUD_SYNC_PATH:
 // a server-chosen message on the key path could return the data key itself.
-export const HARDWARE_CLOUD_SYNC_AUTH_PATH = "m/44'/0'/924823361'/1/835069776";
+export const HARDWARE_CLOUD_SYNC_AUTH_PATH = "m/44'/0'/924823361'/1/369776";
 export const HARDWARE_CLOUD_SYNC_AUTH_MESSAGE_PREFIX =
   'WARNING: Sign ONLY in OneKey App. NEVER in other apps or dApps. Signing approves OneKey Cloud sign-in. >>> ';
 export const HARDWARE_CLOUD_SYNC_AUTH_SERVICE = 'onekey-cloud-sync';

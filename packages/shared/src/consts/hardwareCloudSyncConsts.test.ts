@@ -1,4 +1,6 @@
 import {
+  HARDWARE_CLOUD_SYNC_AUTH_PATH,
+  HARDWARE_CLOUD_SYNC_PATH,
   assertHardwareCloudSyncAuthContext,
   buildHardwareCloudSyncAuthMessage,
   buildHardwareCloudSyncMessage,
@@ -20,6 +22,20 @@ const authMessage =
   'WARNING: Sign ONLY in OneKey App. NEVER in other apps or dApps. Signing approves OneKey Cloud sign-in. >>> type=onekey-cloud-signin;v=1;service=onekey-cloud-sync;env=prod;wallet=0123456789abcdef;nonce=00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff;session=0ZcOCORZ;jkt=0ZcOCORZNYy-DWpqq30jZyJGHTN0d2HglBV3uiguA4I;expires=2026-11-03T08:00:00.000Z';
 
 describe('hardware Cloud sync final v1 message contract', () => {
+  test('keeps the key and authentication paths distinct and within Classic index limits', () => {
+    expect(HARDWARE_CLOUD_SYNC_PATH).toBe("m/44'/0'/924823361'/1/369775");
+    expect(HARDWARE_CLOUD_SYNC_AUTH_PATH).toBe("m/44'/0'/924823361'/1/369776");
+    expect(HARDWARE_CLOUD_SYNC_AUTH_PATH).not.toBe(HARDWARE_CLOUD_SYNC_PATH);
+    for (const path of [
+      HARDWARE_CLOUD_SYNC_PATH,
+      HARDWARE_CLOUD_SYNC_AUTH_PATH,
+    ]) {
+      const parts = path.split('/');
+      expect(parts).toHaveLength(6);
+      expect(Number(parts[5])).toBeLessThanOrEqual(1_000_000);
+    }
+  });
+
   test('freezes the Jira vectors as 199 and 363 printable ASCII bytes', () => {
     expect(buildHardwareCloudSyncMessage(identityTag, salt)).toBe(keyMessage);
     expect(
