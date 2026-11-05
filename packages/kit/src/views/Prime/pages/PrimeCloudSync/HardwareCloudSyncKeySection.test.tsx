@@ -9,6 +9,7 @@ import {
   screen,
 } from '@testing-library/react';
 
+import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import {
@@ -39,7 +40,9 @@ const mockClearForceTransport = jest.fn(async () => undefined);
 const mockOpenExpandTab = jest.fn(async (_params: unknown) => undefined);
 const mockCancel = jest.fn(async () => true);
 const mockSyncNow = jest.fn(async (_params: unknown) => true);
+const mockHideLoading = jest.fn<Promise<void>, []>(async () => undefined);
 const mockToast = jest.fn((_params: unknown) => undefined);
+const mockAutoToast = jest.fn<void, unknown[]>();
 const credentialId = `hardware-cloud-v1-0123456789abcdef${'0'.repeat(48)}`;
 type IMockConfig = {
   isCloudSyncEnabled: boolean;
@@ -129,7 +132,7 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
     serviceApp: {
       openExtensionExpandTab: (params: unknown) => mockOpenExpandTab(params),
       showDialogLoading: async () => undefined,
-      hideDialogLoading: async () => undefined,
+      hideDialogLoading: () => mockHideLoading(),
       showToast: (params: unknown) => mockToast(params),
     },
     serviceSetting: {
@@ -156,6 +159,7 @@ jest.mock('@onekeyhq/shared/src/eventBus/appEventBus', () => ({
     HardwareCloudKeyDropped: 'HardwareCloudKeyDropped',
   },
   appEventBus: {
+    emit: (...params: unknown[]) => mockAutoToast(...params),
     on: () => undefined,
     once: (_name: string, fn: () => void) => {
       mockOnSyncLoading = fn;
@@ -286,6 +290,101 @@ test('manual sync shows the original failure after loading closes', async () => 
   await act(() => result.current.syncNow());
   expect(lastDialog().description).toBe('cloud_sync_data_unreadable__msg');
   expect(mockToast).not.toHaveBeenCalled();
+});
+
+test.each(['enable', 'reset'] as const)(
+  'a toast-enabled %s failure has one owner while the waiting dialog closes',
+  async (action) => {
+    jest.useFakeTimers();
+    try {
+      const failure = Object.assign(new Error('Synthetic cloud failure'), {
+        key: 'cloud_sync_data_unreadable__msg',
+        autoToast: true,
+      });
+      (action === 'enable' ? mockEnable : mockReset).mockImplementationOnce(
+        async () => {
+          // BackgroundApiProxyBase schedules its toast before rethrowing to UI.
+          setTimeout(() => errorToastUtils.showToastOfError(failure), 50);
+          throw failure;
+        },
+      );
+      let finishWaitingClose: (() => void) | undefined;
+      mockDialogClose.mockResolvedValueOnce(undefined).mockImplementationOnce(
+        () =>
+          new Promise<void>((resolve) => {
+            finishWaitingClose = resolve;
+          }),
+      );
+      if (action === 'reset') {
+        await pickResetDevice();
+      } else {
+        await pickDeviceA();
+      }
+      await act(async () => {
+        jest.advanceTimersByTime(50);
+      });
+      expect(mockAutoToast).not.toHaveBeenCalled();
+      expect(mockDialogShow).toHaveBeenCalledTimes(action === 'reset' ? 3 : 2);
+      await act(async () => finishWaitingClose?.());
+      expect(lastDialog().description).toBe(failure.key);
+      expect(mockDialogShow).toHaveBeenCalledTimes(action === 'reset' ? 4 : 3);
+    } finally {
+      jest.useRealTimers();
+    }
+  },
+);
+
+test('manual sync claims a business failure before awaiting loading dismissal', async () => {
+  jest.useFakeTimers();
+  try {
+    const failure = Object.assign(new Error('Synthetic manual sync failure'), {
+      autoToast: true,
+    });
+    mockSyncNow.mockImplementationOnce(async () => {
+      setTimeout(() => errorToastUtils.showToastOfError(failure), 50);
+      throw failure;
+    });
+    let finishLoading: (() => void) | undefined;
+    mockHideLoading.mockImplementationOnce(
+      () =>
+        new Promise<void>((resolve) => {
+          finishLoading = resolve;
+        }),
+    );
+    const { result } = renderHook(() => useHardwareCloudSyncKey());
+    let syncing: Promise<void> | undefined;
+    await act(async () => {
+      syncing = result.current.syncNow();
+    });
+    await act(async () => {
+      jest.advanceTimersByTime(50);
+    });
+    expect(mockAutoToast).not.toHaveBeenCalled();
+    expect(mockDialogShow).not.toHaveBeenCalled();
+    await act(async () => {
+      finishLoading?.();
+      await syncing;
+    });
+    expect(lastDialog().description).toBe(failure.message);
+  } finally {
+    jest.useRealTimers();
+  }
+});
+
+test('an error already shown by the proxy does not open a second business dialog', async () => {
+  const failure = Object.assign(
+    new Error('Synthetic previously shown failure'),
+    {
+      autoToast: true,
+    },
+  );
+  mockEnable.mockImplementationOnce(async () => {
+    errorToastUtils.showToastOfError(failure);
+    throw failure;
+  });
+  await pickDeviceA();
+  expect(mockAutoToast).toHaveBeenCalledTimes(1);
+  expect(mockDialogShow).toHaveBeenCalledTimes(2);
 });
 
 test('setup preserves a failure without a translation key', async () => {

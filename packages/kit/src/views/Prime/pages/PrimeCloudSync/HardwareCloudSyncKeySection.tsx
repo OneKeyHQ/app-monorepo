@@ -177,10 +177,19 @@ function confirmSwitchToWebUsb(intl: IntlShape) {
   });
 }
 
+function deferCloudSyncFailureToPage(error: unknown) {
+  if (!isOneKeyHardwareError(error)) {
+    // The proxy schedules its toast before rethrowing. Claim business errors
+    // before awaiting dialog cleanup, on the UI runtime's same error object.
+    errorToastUtils.toastIfErrorDisable(error);
+  }
+}
+
 async function showCloudSyncFailure(intl: IntlShape, error: unknown) {
   const failure = error as IOneKeyError | undefined;
   if (
     isOneKeyHardwareError(error) ||
+    errorToastUtils.wasAutoToastShown(error) ||
     errorToastUtils.isUserCancelStyleError(error) ||
     failure?.key === ETranslations.update_operation_canceled
   ) {
@@ -271,6 +280,9 @@ export function useHardwareCloudSyncKey() {
         await backgroundApiProxy.serviceKeylessCloudSync.enableHardwareCloudSync(
           { connectId, switchDevice },
         );
+      } catch (error) {
+        deferCloudSyncFailureToPage(error);
+        throw error;
       } finally {
         appEventBus.off(EAppEventBusNames.ShowDialogLoading, onSyncLoading);
         finished = true;
@@ -342,6 +354,7 @@ export function useHardwareCloudSyncKey() {
           }),
         });
       } catch (error) {
+        deferCloudSyncFailureToPage(error);
         const failure = error as
           | IOneKeyError<{
               targetCredentialId?: string;
@@ -516,6 +529,9 @@ export function useHardwareCloudSyncKey() {
             askPasswordOnlyIfHdXfpMissing: true,
           },
         );
+      } catch (error) {
+        deferCloudSyncFailureToPage(error);
+        throw error;
       } finally {
         await timerUtils.wait(1000);
         await backgroundApiProxy.serviceApp.hideDialogLoading();
