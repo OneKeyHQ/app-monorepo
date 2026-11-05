@@ -272,3 +272,29 @@ test('thrown SDK errors retain the common silent-mode behavior', async () => {
     emit.mockRestore();
   }
 });
+
+test.each([
+  HardwareErrorCode.DeviceCheckUnlockTypeError,
+  HardwareErrorCode.DeviceCheckPassphraseStateError,
+  HardwareErrorCode.PinInvalid,
+  HardwareErrorCode.DeviceNotFound,
+])(
+  'raw numeric SDK code %s retains the shared error type and translation',
+  (code) => {
+    const common = convertDeviceError(
+      { code, error: 'Synthetic device refusal' },
+      { silentMode: true },
+    );
+    const safe = sanitizeHardwareCloudSyncDeviceError(
+      { code, message: 'Synthetic device refusal' },
+      'selected-id',
+      { silentMode: true },
+    );
+    expect(Object.getPrototypeOf(safe)).toBe(Object.getPrototypeOf(common));
+    expect(safe).toMatchObject({
+      code: common.code,
+      key: common.key,
+      $isHardwareError: true,
+    });
+  },
+);

@@ -104,6 +104,7 @@ const unlock: IHardwareCloudKeyUnlock = async (device) => {
 function buildBackgroundApi(
   status: {
     unlocked: boolean;
+    attachToPinEnabled?: boolean;
     unlockedAttachPin?: boolean | null;
     passphraseProtection?: boolean;
   } = { unlocked: true, unlockedAttachPin: false },
@@ -166,6 +167,8 @@ function buildBackgroundApi(
   const controller = new AbortController();
   const lease = { signal: controller.signal };
   const ui = {
+    deviceStageJoinBurst: jest.fn(async (_params: unknown) => undefined),
+    deviceStageLeaveBurst: jest.fn(async (_params: unknown) => undefined),
     hardwareProcessingManager: {
       cancelOneKeyOperation: jest.fn((_lease: unknown) => controller.abort()),
     },
@@ -474,8 +477,147 @@ describe('hardware Cloud SDK adapter', () => {
           connectId: 'test-connect',
           isCurrent: () => true,
         }),
-      ).rejects.toThrow('Couldn’t complete this action');
+      ).rejects.toMatchObject({
+        key:
+          session.walletType === 'hidden' || session.passphraseState
+            ? ETranslations.cloud_sync_hardware_hidden_wallet__msg
+            : ETranslations.cloud_sync_hardware_unlock_failed__msg,
+      });
       expect(sdk.btcSignMessage).not.toHaveBeenCalled();
+    },
+  );
+
+  test.each(
+    [
+      HardwareErrorCode.DeviceCheckUnlockTypeError,
+      HardwareErrorCode.DeviceCheckPassphraseStateError,
+    ].flatMap((code) =>
+      (['response', 'throw'] as const).map((kind) => ({ code, kind })),
+    ),
+  )(
+    'a session refusal retains its shared hardware error and lands on DeviceStage ($code, $kind)',
+    async ({ code, kind }) => {
+      const { backgroundApi, sdk, hardware, ui } = buildBackgroundApi();
+      const blockedUnlock = jest.fn(unlock);
+      if (kind === 'response') {
+        sdk.openWalletSession.mockResolvedValueOnce({
+          success: false,
+          payload: { code, error: 'Synthetic hidden-wallet refusal' },
+        });
+      } else {
+        sdk.openWalletSession.mockRejectedValueOnce(
+          convertDeviceError({ code }),
+        );
+      }
+      await expect(
+        generateHardwareCloudSyncCredentialWithSdk({
+          unlock: blockedUnlock,
+          backgroundApi,
+          connectId: 'test-connect',
+          isCurrent: () => true,
+        }),
+      ).rejects.toMatchObject({
+        key: convertDeviceError({ code }).key,
+        code,
+        $isHardwareError: true,
+        autoToast: false,
+      });
+      expect(ui.deviceStageLeaveBurst).toHaveBeenCalledWith({
+        error: expect.objectContaining({ code, $isHardwareError: true }),
+      });
+      expect(hardware.getDeviceState).not.toHaveBeenCalled();
+      expect(sdk.btcSignMessage).not.toHaveBeenCalled();
+      expect(blockedUnlock).not.toHaveBeenCalled();
+    },
+  );
+
+  test('Attach to PIN being configured does not block a standard PIN session', async () => {
+    const { backgroundApi } = buildBackgroundApi({
+      unlocked: true,
+      unlockedAttachPin: false,
+      attachToPinEnabled: true,
+      passphraseProtection: true,
+    });
+    await expect(
+      generateHardwareCloudSyncCredentialWithSdk({
+        unlock,
+        backgroundApi,
+        connectId: 'test-connect',
+        isCurrent: () => true,
+      }),
+    ).resolves.toHaveProperty('credential');
+  });
+
+  test('DeviceStage exit failure preserves the original hardware error and restores the toast fallback', async () => {
+    const { backgroundApi, sdk, ui } = buildBackgroundApi();
+    const original = convertDeviceError({ code: HardwareErrorCode.PinInvalid });
+    original.autoToast = false;
+    sdk.openWalletSession.mockRejectedValueOnce(original);
+    ui.deviceStageLeaveBurst.mockRejectedValueOnce(
+      new Error('Synthetic stage failure'),
+    );
+    await expect(
+      generateHardwareCloudSyncCredentialWithSdk({
+        unlock,
+        backgroundApi,
+        connectId: 'test-connect',
+        isCurrent: () => true,
+      }),
+    ).rejects.toMatchObject({
+      code: original.code,
+      key: original.key,
+      className: original.className,
+      autoToast: true,
+    });
+  });
+
+  test.each(
+    [
+      HardwareErrorCode.PinInvalid,
+      HardwareErrorCode.DeviceCheckDeviceIdError,
+      HardwareErrorCode.DeviceNotFound,
+      HardwareErrorCode.BleUnavailableWhileUsbConnected,
+      HardwareErrorCode.CallMethodNeedUpgradeFirmware,
+      HardwareErrorCode.ActionCancelled,
+    ].flatMap((code) =>
+      (
+        [
+          'openWalletSession',
+          'btcGetPublicKey',
+          'btcGetAddress',
+          'btcSignMessage',
+        ] as const
+      ).map((method) => ({ code, method })),
+    ),
+  )(
+    'keeps the hardware failure across $method for code $code',
+    async ({ code, method }) => {
+      const { backgroundApi, sdk, ui } = buildBackgroundApi();
+      const common = convertDeviceError({ code });
+      sdk[method].mockRejectedValueOnce(common);
+      await expect(
+        generateHardwareCloudSyncCredentialWithSdk({
+          unlock,
+          backgroundApi,
+          connectId: 'test-connect',
+          isCurrent: () => true,
+        }),
+      ).rejects.toMatchObject({
+        code: common.code,
+        key: common.key,
+        className: common.className,
+        $isHardwareError: true,
+      });
+      expect(ui.deviceStageJoinBurst).toHaveBeenCalledWith({
+        connectId: 'test-connect',
+      });
+      expect(ui.deviceStageLeaveBurst).toHaveBeenCalledWith({
+        error: expect.objectContaining({
+          code: common.code,
+          key: common.key,
+          $isHardwareError: true,
+        }),
+      });
     },
   );
 
@@ -498,6 +640,7 @@ describe('hardware Cloud SDK adapter', () => {
       }),
     ).rejects.toMatchObject({
       key: ETranslations.cloud_sync_hardware_hidden_wallet__msg,
+      autoToast: false,
     });
     expect(sdk.btcSignMessage).not.toHaveBeenCalled();
   });

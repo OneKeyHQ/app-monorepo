@@ -31,7 +31,7 @@ type IDialogParams = {
   onConfirm?: () => Promise<void> | void;
   onClose?: () => Promise<void> | void;
 };
-const mockDialogClose = jest.fn(async () => undefined);
+const mockDialogClose = jest.fn<Promise<void>, []>(async () => undefined);
 const mockDialogShow = jest.fn((_params: IDialogParams) => ({
   close: mockDialogClose,
 }));
@@ -168,6 +168,12 @@ jest.mock('@onekeyhq/shared/src/eventBus/appEventBus', () => ({
 jest.mock('@onekeyhq/kit/src/hooks/usePromiseResult', () => ({
   usePromiseResult: () => ({ result: mockKeyMissing }),
 }));
+jest.mock(
+  '@onekeyhq/kit/src/provider/Container/DeviceStageContainer/waitForDeviceStageExit',
+  () => ({
+    yieldDeviceStageToDialog: jest.fn(async () => true),
+  }),
+);
 jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => ({
   useSettingsPersistAtom: () => [{ hardwareTransportType: 'WEBUSB' }],
 }));
@@ -228,6 +234,81 @@ test('turns sync on by picking a device, without adding a wallet first', async (
     switchDevice: false,
   });
   expect(mockClearForceTransport).toHaveBeenCalled();
+});
+
+test.each([
+  'cloud_sync_hardware_hidden_wallet__msg',
+  'cloud_sync_hardware_unlock_failed__msg',
+  'cloud_sync_data_unreadable__msg',
+  'error_network',
+])(
+  'a wallet refusal shows an explanation after the waiting dialog closes (%s)',
+  async (key) => {
+    mockEnable.mockRejectedValueOnce({
+      key,
+      autoToast: false,
+    });
+    let finishWaitingClose: (() => void) | undefined;
+    mockDialogClose.mockResolvedValueOnce(undefined).mockImplementationOnce(
+      () =>
+        new Promise<void>((resolve) => {
+          finishWaitingClose = resolve;
+        }),
+    );
+    const { result } = renderHook(() => useHardwareCloudSyncKey());
+    await act(() => result.current.openPicker());
+    render(<>{lastDialog().renderContent}</>);
+    await act(async () => {
+      fireEvent.click(screen.getByTestId('mock-device-picker'));
+    });
+    expect(mockDialogShow).toHaveBeenCalledTimes(2);
+    expect(finishWaitingClose).toBeDefined();
+
+    await act(async () => finishWaitingClose?.());
+
+    expect(lastDialog()).toMatchObject({
+      description: key,
+      onConfirmText: 'global.ok',
+    });
+    expect(result.current.pending).toBe(false);
+    expect(mockConfig.isCloudSyncEnabledKeyless).toBe(false);
+    expect(mockEnable).toHaveBeenCalledTimes(1);
+  },
+);
+
+test('manual sync shows the original failure after loading closes', async () => {
+  mockSyncNow.mockRejectedValueOnce({
+    key: 'cloud_sync_data_unreadable__msg',
+    message: 'Synthetic cloud data failure',
+    autoToast: false,
+  });
+  const { result } = renderHook(() => useHardwareCloudSyncKey());
+  await act(() => result.current.syncNow());
+  expect(lastDialog().description).toBe('cloud_sync_data_unreadable__msg');
+  expect(mockToast).not.toHaveBeenCalled();
+});
+
+test('setup preserves a failure without a translation key', async () => {
+  mockEnable.mockRejectedValueOnce(new Error('Synthetic network failure'));
+  const dialog = await pickDeviceA();
+  expect(dialog.description).toBe('Synthetic network failure');
+});
+
+test('hardware failures already owned by DeviceStage do not open a generic dialog', async () => {
+  mockEnable.mockRejectedValueOnce({
+    key: 'hardware.device_pin_state_error',
+    code: 405,
+    $isHardwareError: true,
+    autoToast: false,
+  });
+  await pickDeviceA();
+  expect(mockDialogShow).toHaveBeenCalledTimes(2);
+});
+
+test('a cancelled Cloud operation stays silent', async () => {
+  mockEnable.mockRejectedValueOnce({ key: 'update.operation_canceled' });
+  await pickDeviceA();
+  expect(mockDialogShow).toHaveBeenCalledTimes(2);
 });
 
 test('closing the connect window does not turn sync on', async () => {
@@ -342,7 +423,7 @@ test('a mismatched hardware wallet continues after the user confirms', async () 
 async function pickResetDevice() {
   const { result } = renderHook(() => useHardwareCloudSyncKey());
   let resetting: Promise<void> | undefined;
-  act(() => {
+  await act(async () => {
     resetting = result.current.resetKey();
   });
   const resetConfirm = lastDialog();

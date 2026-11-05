@@ -64,6 +64,7 @@ import cloudSyncItemBuilder from '../ServicePrimeCloudSync/cloudSyncItemBuilder'
 import { keylessCloudSyncApi } from '../ServicePrimeCloudSync/keylessCloudSyncApi';
 import keylessCloudSyncUtils from '../ServicePrimeCloudSync/keylessCloudSyncUtils';
 
+import { logHardwareCloudSyncFailure } from './hardwareCloudSyncLog';
 import {
   commitHardwareCloudSyncMigration,
   migrateHardwareCloudSyncRecords,
@@ -1036,6 +1037,7 @@ class ServiceKeylessCloudSync extends ServiceBase {
         await this.handleHardwareDataKeyRefused(fresh);
       }
     } catch (error) {
+      logHardwareCloudSyncFailure('Background session check failed', error);
       errorUtils.autoPrintErrorIgnore(error);
     }
   }
@@ -1076,6 +1078,10 @@ class ServiceKeylessCloudSync extends ServiceBase {
         'current',
       );
     } catch (error) {
+      logHardwareCloudSyncFailure(
+        'Current session revoke preparation failed',
+        error,
+      );
       errorUtils.autoPrintErrorIgnore(error);
     }
   }
@@ -1093,6 +1099,7 @@ class ServiceKeylessCloudSync extends ServiceBase {
         scope,
       });
     } catch (error) {
+      logHardwareCloudSyncFailure(`Revoke ${scope} session failed`, error);
       errorUtils.autoPrintErrorIgnore(error);
     }
   }
@@ -1772,6 +1779,7 @@ class ServiceKeylessCloudSync extends ServiceBase {
         await this.getFreshHardwareCredential(credential),
       );
     } catch (error) {
+      logHardwareCloudSyncFailure('Flush push handling failed', error);
       errorUtils.autoPrintErrorIgnore(error);
     }
   }
@@ -1786,6 +1794,10 @@ class ServiceKeylessCloudSync extends ServiceBase {
       if (!credential || !session || session.sessionId !== sessionId) return;
       await this.getFreshHardwareCredential(credential, { force: true });
     } catch (error) {
+      logHardwareCloudSyncFailure(
+        'Session revoked push handling failed',
+        error,
+      );
       errorUtils.autoPrintErrorIgnore(error);
     }
   }

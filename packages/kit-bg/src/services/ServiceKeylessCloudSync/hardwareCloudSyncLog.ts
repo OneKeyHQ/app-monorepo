@@ -169,10 +169,13 @@ export function sanitizeHardwareCloudSyncDeviceError(
   let converted: IOneKeyError;
   if (error instanceof OneKeyError || isOneKeyHardwareError(error)) {
     converted = error;
-  } else if (typeof raw?.errorCode === 'number') {
+  } else if (
+    typeof raw?.errorCode === 'number' ||
+    typeof raw?.code === 'number'
+  ) {
     converted = convertDeviceError(
       {
-        code: raw.errorCode,
+        code: raw.errorCode ?? raw.code,
         error: safeDeviceErrorText(raw.message),
         params: safeDeviceErrorParams(raw.params),
         connectId,

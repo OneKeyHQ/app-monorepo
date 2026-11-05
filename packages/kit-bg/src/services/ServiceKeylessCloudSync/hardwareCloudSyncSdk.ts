@@ -8,6 +8,9 @@ import {
   getHardwareCloudSyncIdentityTagFromCredentialId,
   isHardwareCloudSyncPlatformSupported,
 } from '@onekeyhq/shared/src/consts/hardwareCloudSyncConsts';
+import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
+import { isOneKeyHardwareError } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
+import { toPlainErrorObject } from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import {
   HardwareCloudSyncCancelledError,
   HardwareCloudSyncLocalError,
@@ -46,6 +49,17 @@ import type { Success, Unsuccessful } from '@onekeyfe/hd-core';
 
 function unlockError() {
   return new HardwareCloudSyncUnlockError();
+}
+
+function hiddenWalletError() {
+  const error = new HardwareCloudSyncLocalError(
+    ETranslations.cloud_sync_hardware_hidden_wallet__msg,
+    "Hidden wallets can't sync. Unlock with the standard wallet PIN.",
+  );
+  // The Cloud page owns this refusal and shows it after the waiting dialog
+  // closes, rather than relying on a toast behind that dialog.
+  error.autoToast = false;
+  return error;
 }
 
 function assertSdkSuccess<T>(
@@ -98,6 +112,8 @@ export async function generateHardwareCloudSyncCredentialWithSdk({
       let stage = 'Open device operation';
       let diagnostics: IHardwareCloudSyncDiagnosticContext = {};
       let validationFailure: string | undefined;
+      let stageOpened = false;
+      let hardwareFailure: IOneKeyError | undefined;
       const failWalletCheck = (reason: string) => {
         validationFailure = reason;
         return unlockError();
@@ -115,6 +131,12 @@ export async function generateHardwareCloudSyncCredentialWithSdk({
         });
       });
       try {
+        // Direct SDK calls must share the same error owner as wrapped
+        // hardware calls, including failures before runtime state is read.
+        await backgroundApi.serviceHardwareUI.deviceStageJoinBurst({
+          connectId: selectedConnectId,
+        });
+        stageOpened = true;
         const assertCurrent = () => {
           if (!isCurrent() || lease.signal?.aborted) {
             throw new HardwareCloudSyncCancelledError();
@@ -162,6 +184,14 @@ export async function generateHardwareCloudSyncCredentialWithSdk({
               hasDeviceId: !!session.payload.deviceId,
             };
             if (
+              session.payload.walletType === 'hidden' ||
+              session.payload.passphraseState
+            ) {
+              validationFailure =
+                'Hidden wallet session returned instead of standard wallet';
+              throw hiddenWalletError();
+            }
+            if (
               session.payload.walletType !== 'standard' ||
               session.payload.passphraseState ||
               !session.payload.deviceId
@@ -197,10 +227,7 @@ export async function generateHardwareCloudSyncCredentialWithSdk({
               ) {
                 if (state.status.unlockedAttachPin === true) {
                   validationFailure = 'Hidden wallet unlocked with attach PIN';
-                  throw new HardwareCloudSyncLocalError(
-                    ETranslations.cloud_sync_hardware_hidden_wallet__msg,
-                    "Hidden wallets can't sync. Unlock with the standard wallet PIN.",
-                  );
+                  throw hiddenWalletError();
                 }
                 throw failWalletCheck('Standard wallet runtime state invalid');
               }
@@ -382,6 +409,9 @@ export async function generateHardwareCloudSyncCredentialWithSdk({
           },
         );
       } catch (error) {
+        if (isOneKeyHardwareError(error)) {
+          hardwareFailure = error;
+        }
         logHardwareCloudSyncFailure(
           stage,
           validationFailure ??
@@ -391,6 +421,23 @@ export async function generateHardwareCloudSyncCredentialWithSdk({
         throw error;
       } finally {
         onDeviceCancelChange?.(undefined);
+        if (stageOpened) {
+          try {
+            await backgroundApi.serviceHardwareUI.deviceStageLeaveBurst({
+              error: hardwareFailure
+                ? toPlainErrorObject(hardwareFailure)
+                : undefined,
+            });
+            // DeviceStage owns hardware feedback; preserve the original
+            // class, code, translation and recovery payload across RPC.
+            if (hardwareFailure) hardwareFailure.autoToast = false;
+          } catch (stageError) {
+            // Presentation failure must neither replace nor silence the
+            // original hardware error. The service toast is the fallback.
+            if (hardwareFailure) hardwareFailure.autoToast = true;
+            logHardwareCloudSyncFailure('DeviceStage exit failed', stageError);
+          }
+        }
       }
     },
     { deviceKey: selectedConnectId },
