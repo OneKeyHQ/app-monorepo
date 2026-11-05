@@ -14,6 +14,7 @@ let mockRouteNames = [EModalPerpRoutes.MobileTokenSelector];
 let mockOrderSide: 'long' | 'short' = 'long';
 let mockInstrument = { mode: 'perp', coin: 'BTC' };
 const mockNavigation = {
+  addListener: jest.fn(() => () => {}),
   isFocused: jest.fn(() => true),
   popStack: jest.fn(),
   replace: jest.fn(),
@@ -59,7 +60,7 @@ jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => ({
   usePerpsCustomSettingsAtom: () => [mockSettings],
   usePerpsActiveAccountAtom: () => [{ walletType: 'hd' }],
   usePerpTokenSelectorConfigPersistAtom: () => [
-    { activeTab: 'perps', field: 'volume24h', direction: 'desc' },
+    { activeTab: 'spot', field: 'volume24h', direction: 'desc' },
   ],
   appIsLocked: { get: jest.fn(async () => false) },
   useAppIsLockedAtom: () => [false],
@@ -103,7 +104,11 @@ jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
 function setup() {
   const onLoadingChange = jest.fn();
   const hook = renderHook(() =>
-    usePerpTokenSelectorSelection({ onLoadingChange, spotUniverses: [] }),
+    usePerpTokenSelectorSelection({
+      activeTab: 'perps',
+      onLoadingChange,
+      spotUniverses: [],
+    }),
   );
   return { ...hook, onLoadingChange };
 }
@@ -205,6 +210,7 @@ it('restores the route instrument on return from Go to trade without changing a 
   expect(mockActions.switchTradeInstrument).toHaveBeenCalledWith({
     mode: 'perp',
     coin: 'BTC',
+    restorationSignal: expect.any(AbortSignal),
     subscriptionRecoveryProof: { source: 'simple-market', disabledCount: 0 },
   });
   mockInstrument = { mode: 'perp', coin: 'BTC' };

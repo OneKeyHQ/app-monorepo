@@ -92,10 +92,13 @@ const mockGetTwapHistory = jest.fn<Promise<HL.ITwapHistoryRecord[]>, []>();
 const mockGetTwapSliceFills = jest.fn<Promise<HL.ITwapSliceFill[]>, []>();
 const mockCancelTwapOrder = jest.fn<Promise<unknown>, unknown[]>();
 const mockPlaceTwapOrder = jest.fn<Promise<unknown>, [IPlaceTwapOrderParams]>();
-const mockCancelPendingActiveAssetChange = jest.fn<Promise<void>, []>();
+const mockCancelPendingActiveAssetChange = jest.fn<
+  Promise<void>,
+  [params?: { restorationId: string }]
+>();
 const mockChangeActiveAsset = jest.fn<
   ReturnType<typeof perpsActiveAssetAtom.get>,
-  [{ coin: string }]
+  [{ coin: string; restorationId?: string }]
 >();
 const mockGetSpotMeta = jest.fn<Promise<{ universes: [] }>, []>();
 const mockUpdateSubscriptions = jest.fn<Promise<void>, []>();
@@ -205,8 +208,8 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
         mockPlaceTwapOrder(params),
     },
     serviceHyperliquid: {
-      cancelPendingActiveAssetChange: () =>
-        mockCancelPendingActiveAssetChange(),
+      cancelPendingActiveAssetChange: (params?: { restorationId: string }) =>
+        mockCancelPendingActiveAssetChange(params),
       changeActiveAsset: (params: { coin: string }) =>
         mockChangeActiveAsset(params),
       getSpotMeta: () => mockGetSpotMeta(),
@@ -578,6 +581,36 @@ describe('useHyperliquidActions.hydrateUnresolvedActivePerp', () => {
     ]);
     expect(mockUpdateSubscriptions).not.toHaveBeenCalled();
     expect(mockRecoverSubscriptionsAfterLivenessProof).not.toHaveBeenCalled();
+  });
+
+  it('cancels only the pending focus restore when the page blurs during the BG switch', async () => {
+    const pending =
+      createDeferred<Awaited<ReturnType<typeof perpsActiveAssetAtom.get>>>();
+    mockChangeActiveAsset.mockImplementationOnce(() => pending.promise);
+    const { store, actions } = setup();
+    const previous = store.get(activeTradeInstrumentAtom());
+    const controller = new AbortController();
+    let switching!: Promise<boolean>;
+    act(() => {
+      switching = actions.switchTradeInstrument({
+        mode: 'perp',
+        coin: 'ETH',
+        restorationSignal: controller.signal,
+      });
+    });
+    await waitFor(() => expect(mockChangeActiveAsset).toHaveBeenCalledTimes(1));
+    const { restorationId } = mockChangeActiveAsset.mock.calls[0][0];
+    expect(restorationId).toEqual(expect.any(String));
+    await act(async () => {
+      controller.abort();
+      expect(mockCancelPendingActiveAssetChange).toHaveBeenLastCalledWith({
+        restorationId,
+      });
+      pending.resolve(bgAsset);
+      expect(await switching).toBe(false);
+    });
+    expect(store.get(activeTradeInstrumentAtom())).toEqual(previous);
+    expect(mockUpdateSubscriptions).not.toHaveBeenCalled();
   });
 
   it('waits for an in-flight switch without superseding its successful result', async () => {

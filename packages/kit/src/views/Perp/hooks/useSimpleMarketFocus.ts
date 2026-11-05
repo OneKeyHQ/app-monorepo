@@ -33,31 +33,39 @@ export function useSimpleMarketFocus(coin: string, enabled: boolean) {
       (instrument.mode === 'perp' && instrument.coin === coin)
     )
       return;
-    let active = true;
+    const controller = new AbortController();
+    const cancel = () => controller.abort();
+    const unsubscribe = navigation.addListener('blur', cancel);
     // Returning from another market restores this route's instrument. Hidden
     // pages must never compete with the foreground page for the global feed.
     void captureSubscriptionRecoveryProof({
       source: 'simple-market',
-      isSourceLive: () => active && navigation.isFocused(),
+      isSourceLive: () => !controller.signal.aborted && navigation.isFocused(),
       isAppVisible: getCurrentVisibilityState,
       isAppLocked: () => appIsLocked.get(),
       readDisabledCount: () =>
         backgroundApiProxy.serviceHyperliquidSubscription.getSubscriptionsHandlerDisabledCount(),
     })
       .then((subscriptionRecoveryProof) => {
-        if (!active || !navigation.isFocused() || !subscriptionRecoveryProof)
+        if (
+          controller.signal.aborted ||
+          !navigation.isFocused() ||
+          !subscriptionRecoveryProof
+        )
           return;
         return actions.current.switchTradeInstrument({
           mode: 'perp',
           coin,
           subscriptionRecoveryProof,
+          restorationSignal: controller.signal,
         });
       })
       .catch((error: unknown) => {
-        if (active) errorToastUtils.toastIfError(error);
+        if (!controller.signal.aborted) errorToastUtils.toastIfError(error);
       });
     return () => {
-      active = false;
+      unsubscribe();
+      cancel();
     };
   }, [
     actions,

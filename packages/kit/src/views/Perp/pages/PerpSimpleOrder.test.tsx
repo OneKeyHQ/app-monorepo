@@ -26,6 +26,8 @@ jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
 const submitOrder = jest.fn().mockResolvedValue(undefined);
 const showDepositWithdrawModal = jest.fn();
 let inputAmount = '100';
+let draftSource: 'manual' | 'percent' = 'manual';
+const setDraft = jest.fn();
 const showOrderConfirmDialog = jest.fn(
   (_options: { onConfirmSuccess?: () => void }) => ({ close: jest.fn() }),
 );
@@ -149,11 +151,12 @@ const mocks = {
       {
         scope: 'account-a:BTC',
         side: route.params.side,
-        source: 'manual',
+        source: draftSource,
+        sizePercent: 50,
         inputAmount,
         inputUnit: 'usd',
       },
-      jest.fn(),
+      setDraft,
     ],
   },
   '@onekeyhq/shared/src/utils/appVisibility': {
@@ -192,11 +195,23 @@ const mocks = {
     usePerpsTradingPreferencesAtom: () => [{}, jest.fn()],
   },
   '@onekeyhq/kit/src/views/Send/components/SendAutoSizeAmountInput': {
-    SendAutoSizeAmountInput: Empty,
+    SendAutoSizeAmountInput: ({ value }: { value: string }) => (
+      <span>{value}</span>
+    ),
   },
   '../components/PerpActionButton': { PerpActionButton: Box },
   '../components/PerpsSlider': { PerpsSlider: Empty },
-  '../components/PerpsNativeAmountKeypad': {},
+  '../components/PerpsNativeAmountKeypad': {
+    PerpsNativeAmountKeypad: ({
+      onKeyPress,
+    }: {
+      onKeyPress: (key: string) => void;
+    }) => (
+      <button type="button" onClick={() => onKeyPress('backspace')}>
+        Backspace
+      </button>
+    ),
+  },
   '../components/Simple/PerpsMobileMode': {
     useSimpleScope: () => 'account-a:BTC',
   },
@@ -253,6 +268,8 @@ beforeEach(() => {
   jest.clearAllMocks();
   skipOrderConfirm = false;
   inputAmount = '100';
+  draftSource = 'manual';
+  mocks['@onekeyhq/shared/src/platformEnv'].default.isNative = false;
   route.params.side = 'long';
   focused = true;
   instrument.coin = 'BTC';
@@ -346,6 +363,7 @@ it('restores the order coin after leaving an in-flight token selection', async (
   expect(switchTradeInstrument).toHaveBeenCalledWith({
     mode: 'perp',
     coin: 'BTC',
+    restorationSignal: expect.any(AbortSignal),
     subscriptionRecoveryProof: { source: 'simple-market', disabledCount: 0 },
   });
 });
@@ -360,4 +378,15 @@ it('returns to the market after confirmation without consuming manual refresh', 
 
   expect(navigation.replace).toHaveBeenCalled();
   expect(actions.current.refreshAllPerpsData).not.toHaveBeenCalled();
+});
+
+it('edits the displayed native amount after a slider selection', () => {
+  mocks['@onekeyhq/shared/src/platformEnv'].default.isNative = true;
+  draftSource = 'percent';
+  const { getByText } = render(<PerpSimpleOrder />);
+  expect(getByText('25000.00')).toBeTruthy();
+  fireEvent.click(getByText('Backspace'));
+  expect(setDraft).toHaveBeenCalledWith(
+    expect.objectContaining({ source: 'manual', inputAmount: '25000.0' }),
+  );
 });
