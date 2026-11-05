@@ -407,7 +407,7 @@ describe('hardware Cloud SDK adapter', () => {
           connectId: 'test-connect',
           isCurrent: () => true,
         }),
-      ).rejects.toThrow("Couldn't get the encryption key");
+      ).rejects.toThrow('Couldn’t complete this action');
       expect(sdk.btcSignMessage).not.toHaveBeenCalled();
       expect(mockLog).toHaveBeenCalledWith(
         expect.stringContaining('Standard wallet runtime state invalid'),
@@ -453,7 +453,7 @@ describe('hardware Cloud SDK adapter', () => {
           connectId: 'test-connect',
           isCurrent: () => true,
         }),
-      ).rejects.toThrow("Couldn't get the encryption key");
+      ).rejects.toThrow('Couldn’t complete this action');
       expect(sdk.btcSignMessage).not.toHaveBeenCalled();
     },
   );
@@ -475,7 +475,9 @@ describe('hardware Cloud SDK adapter', () => {
         connectId: 'test-connect',
         isCurrent: () => true,
       }),
-    ).rejects.toThrow("Couldn't get the encryption key");
+    ).rejects.toMatchObject({
+      key: ETranslations.cloud_sync_hardware_hidden_wallet__msg,
+    });
     expect(sdk.btcSignMessage).not.toHaveBeenCalled();
   });
 
@@ -491,7 +493,7 @@ describe('hardware Cloud SDK adapter', () => {
         connectId: 'test-connect',
         isCurrent: () => true,
       }),
-    ).rejects.toThrow("Couldn't get the encryption key");
+    ).rejects.toThrow('Couldn’t complete this action');
     expect(sdk.btcSignMessage).not.toHaveBeenCalled();
   });
 

@@ -8,9 +8,11 @@ import {
 } from '@onekeyhq/shared/src/consts/hardwareCloudSyncConsts';
 import {
   HardwareCloudSyncCancelledError,
+  HardwareCloudSyncLocalError,
   HardwareCloudSyncUnlockError,
 } from '@onekeyhq/shared/src/hardware/hardwareCloudSyncError';
 import { HardwareCloudKeyPrerequisiteError } from '@onekeyhq/shared/src/hardware/hardwareCloudSyncErrors';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { getDeviceAvatarImage } from '@onekeyhq/shared/src/utils/avatarUtils';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import { EHardwareCallContext } from '@onekeyhq/shared/types/device';
@@ -190,6 +192,13 @@ export async function generateHardwareCloudSyncCredentialWithSdk({
                 state.status.unlocked !== true ||
                 (state.status.unlockedAttachPin ?? false) !== false
               ) {
+                if (state.status.unlockedAttachPin === true) {
+                  validationFailure = 'Hidden wallet unlocked with attach PIN';
+                  throw new HardwareCloudSyncLocalError(
+                    ETranslations.cloud_sync_hardware_hidden_wallet__msg,
+                    "Hidden wallets can't sync. Unlock with the standard wallet PIN.",
+                  );
+                }
                 throw failWalletCheck('Standard wallet runtime state invalid');
               }
               const walletXfp = await call('buildHwWalletXfp', () =>
