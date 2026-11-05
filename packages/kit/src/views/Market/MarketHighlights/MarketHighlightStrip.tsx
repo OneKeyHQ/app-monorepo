@@ -21,6 +21,7 @@ import { EModalMarketRoutes } from '../router/types';
 import { useMarketHighlightQuotes } from './useMarketHighlightQuotes';
 
 export const MARKET_HIGHLIGHT_MOBILE_HEADER_HEIGHT = 62;
+export const MARKET_HIGHLIGHT_DESKTOP_HEADER_HEIGHT = 64;
 
 export function MarketHighlightStrip({
   highlight,
@@ -51,15 +52,19 @@ export function MarketHighlightStrip({
   return (
     <YStack
       px="$5"
-      pt={compact ? '$2' : '$8'}
-      h={compact ? MARKET_HIGHLIGHT_MOBILE_HEADER_HEIGHT : 100}
+      pt={compact ? '$2' : '$3'}
+      h={
+        compact
+          ? MARKET_HIGHLIGHT_MOBILE_HEADER_HEIGHT
+          : MARKET_HIGHLIGHT_DESKTOP_HEADER_HEIGHT
+      }
     >
       <XStack
         testID="market-highlights-strip"
         role="button"
         maxWidth={800}
         alignSelf="stretch"
-        h={compact ? 40 : 48}
+        h={40}
         alignItems="center"
         bg="$bgSubdued"
         borderRadius="$3"
