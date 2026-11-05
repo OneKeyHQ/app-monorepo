@@ -78,7 +78,10 @@ import { showTradingViewNativeIndicatorSettingsDialog } from './showTradingViewN
 import { TradingViewNativeChart } from './TradingViewNativeChart';
 import { TradingViewNativeChartActiveContext } from './TradingViewNativeChartActiveContext';
 import { TradingViewNativeChartControlsContainer } from './TradingViewNativeChartControlsContainer';
-import { TradingViewNativeChartSettingsButton } from './TradingViewNativeChartSettingsButton';
+import {
+  TradingViewNativeChartSettingsButton,
+  TradingViewToolbarButtonAppearanceContext,
+} from './TradingViewNativeChartSettingsButton';
 import { TradingViewNativeFullscreenButton } from './TradingViewNativeFullscreenButton';
 import {
   TradingViewNativePresentation,
@@ -253,6 +256,7 @@ const TradingViewNativeContent = memo(
     defaultBackgroundColor,
     source,
     priceDecimalPlaces,
+    isPricePrecisionLoading,
     onPriceSelect,
     priceSelectionLabel,
     onInteractionChange,
@@ -1048,7 +1052,8 @@ const TradingViewNativeContent = memo(
       onNativeChartFullscreenChange?.(!isNativeChartFullscreen);
     }, [isNativeChartFullscreen, onNativeChartFullscreenChange]);
     const showChartLoadingMask =
-      points.length === 0 && dataState.status !== 'error';
+      isPricePrecisionLoading ||
+      (points.length === 0 && dataState.status !== 'error');
     const priceAxisWidth =
       chartWidth > 0 ? Math.max(chartAreaWidth - chartWidth, 0) : 0;
     const mobileSettingsControl = useMemo(
@@ -1056,16 +1061,10 @@ const TradingViewNativeContent = memo(
         isMobileControlsLayout &&
         enableNativeChartSettings &&
         nativeChartSettingsInToolbar ? (
-          <XStack
-            alignItems="center"
-            gap="$1"
-            {...mobileControlsAppearance?.actions}
-            flexShrink={0}
-          >
+          <XStack alignItems="center" gap="$1" flexShrink={0}>
             <TradingViewNativeChartSettingsButton
               storageNamespace={storageNamespace}
               placement="toolbar"
-              appearance={mobileControlsAppearance?.settingsButton}
               priceAxisWidth={priceAxisWidth}
               enablePreviousClose={enablePreviousClose}
               isChartSwitchDisabled={isChartSwitchDisabled}
@@ -1080,7 +1079,6 @@ const TradingViewNativeContent = memo(
         enablePreviousClose,
         handleExitFullscreen,
         isChartSwitchDisabled,
-        mobileControlsAppearance,
         isMobileControlsLayout,
         mobileToolbarExtra,
         nativeChartSettingsInToolbar,
@@ -1118,7 +1116,17 @@ const TradingViewNativeContent = memo(
                 : undefined
             }
             enableNativeChartSettings={enableNativeChartSettings}
-            mobileSettingsControl={mobileSettingsControl}
+            mobileSettingsControl={
+              mobileSettingsControl && mobileControlsAppearance ? (
+                <TradingViewToolbarButtonAppearanceContext.Provider
+                  value={mobileControlsAppearance.settingsButton}
+                >
+                  {mobileSettingsControl}
+                </TradingViewToolbarButtonAppearanceContext.Provider>
+              ) : (
+                mobileSettingsControl
+              )
+            }
             enablePreviousClose={enablePreviousClose}
             enableNavigationButtons={
               enableNavigationControls && !isCompactDisplayMode

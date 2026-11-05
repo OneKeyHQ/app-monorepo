@@ -31,10 +31,10 @@ import type {
   ITradingViewNativeChartSceneFont,
   ITradingViewNativeChartScenePaintStyle,
   ITradingViewNativeChartSceneRect,
+  ITradingViewNativeSceneComponents,
 } from './chartScene';
 import type { IDrawing } from '../drawings/model';
 import type {
-  ITradingViewNativeChartLeafComponent,
   ITradingViewNativePriceScaleMode,
   ITradingViewNativeReferenceLineComponent,
 } from '../types';
@@ -385,9 +385,8 @@ function appendTradingLineLabelCommands({
 }
 
 export function appendTradingViewNativeChartComponentCommands({
-  marketDetailLayout = false,
   commands,
-  components,
+  components: { nodes: components, marketDetailLayout = false, priceChartTop },
   currentPriceLabel,
   customPaintStyles,
   drawings,
@@ -396,7 +395,6 @@ export function appendTradingViewNativeChartComponentCommands({
   minPrice,
   priceAxisFontSize,
   priceAxisX,
-  priceChartTop,
   priceChartHeight,
   priceDecimalPlaces,
   priceScaleMode,
@@ -404,8 +402,7 @@ export function appendTradingViewNativeChartComponentCommands({
   width,
 }: {
   commands: ITradingViewNativeChartSceneCommand[];
-  marketDetailLayout?: boolean;
-  components: readonly ITradingViewNativeChartLeafComponent[];
+  components: ITradingViewNativeSceneComponents;
   currentPriceLabel?: { price: number; top: number };
   customPaintStyles: Record<string, ITradingViewNativeChartScenePaintStyle>;
   drawings: readonly IDrawing[];
@@ -417,7 +414,6 @@ export function appendTradingViewNativeChartComponentCommands({
   minPrice: number;
   priceAxisFontSize: number;
   priceAxisX: number;
-  priceChartTop?: number;
   priceChartHeight: number;
   priceDecimalPlaces?: number;
   priceScaleMode: ITradingViewNativePriceScaleMode;

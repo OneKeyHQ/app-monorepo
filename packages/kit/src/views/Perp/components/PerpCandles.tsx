@@ -13,7 +13,10 @@ import {
   TRADING_VIEW_CHART_CONTROLS_HEIGHT,
   TradingViewChartModeSelect,
 } from '@onekeyhq/kit/src/components/TradingView/TradingViewChartControls';
-import { getTradingViewNativeSourceKey } from '@onekeyhq/kit/src/components/TradingView/TradingViewNative';
+import {
+  TradingViewNative,
+  getTradingViewNativeSourceKey,
+} from '@onekeyhq/kit/src/components/TradingView/TradingViewNative';
 import type {
   ITradingViewNativeProps,
   ITradingViewNativeSource,
@@ -38,13 +41,16 @@ import {
 import { useActiveTradeDisplay } from '../hooks/useActiveTradeDisplay';
 import { usePerpsChartOrderMenu } from '../hooks/usePerpsChartOrderMenu';
 
-import { PerpsNativeChart } from './PerpsNativeChart';
+import { usePerpsNativeChartLayers } from './PerpsNativeChart';
 
 function PerpNativeCandles({
   enableTradingUi,
   ...props
 }: ITradingViewNativeProps & { enableTradingUi: boolean }) {
+  const { lines, marks, metadata, onReferenceLineAction } =
+    usePerpsNativeChartLayers({ enableTradingUi, active: props.active });
   const orderMenu = usePerpsChartOrderMenu(enableTradingUi);
+  const chartComponents = useMemo(() => [...lines, ...marks], [lines, marks]);
   const { baseName, coin, mode } = useActiveTradeDisplay();
   const fullscreenHeader = useMemo(
     () =>
@@ -59,11 +65,15 @@ function PerpNativeCandles({
     [baseName, coin, mode],
   );
   return (
-    <PerpsNativeChart
+    <TradingViewNative
       {...props}
-      enableTradingUi={enableTradingUi}
+      {...metadata}
       {...orderMenu}
       nativeChartFullscreenHeader={fullscreenHeader}
+      chartComponents={chartComponents}
+      onReferenceLineAction={
+        enableTradingUi ? onReferenceLineAction : undefined
+      }
     />
   );
 }

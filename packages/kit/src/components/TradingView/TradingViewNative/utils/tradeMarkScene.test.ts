@@ -37,10 +37,12 @@ function renderMarks(
     ITradingViewNativeChartScenePaintStyle
   > = {};
   const layouts = appendTradingViewNativeTradeMarkCommands({
-    marketDetailLayout,
     candleIntervalSeconds,
     commands,
-    components: [{ id: 'trades', type: 'tradeMarks', props: { marks } }],
+    components: {
+      nodes: [{ id: 'trades', type: 'tradeMarks', props: { marks } }],
+      marketDetailLayout,
+    },
     crosshair,
     customPaintStyles,
     getPointX: (index) => 50 + index * 50,

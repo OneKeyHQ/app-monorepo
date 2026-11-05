@@ -51,36 +51,6 @@ const colors = {
 };
 
 describe('TradingViewNative web canvas scene renderer', () => {
-  it('centers compact badge ink including descenders and side bearings', () => {
-    const context = createCanvasContext();
-    const metrics = {
-      actualBoundingBoxAscent: 8,
-      actualBoundingBoxDescent: 2,
-      actualBoundingBoxLeft: -1,
-      actualBoundingBoxRight: 21,
-      width: 24,
-    };
-    context.measureText.mockReturnValue(metrics);
-    drawTradingViewNativeCanvasScene({
-      colors,
-      customPaintStyles: {},
-      context: context as unknown as CanvasRenderingContext2D,
-      commands: [
-        {
-          kind: 'text',
-          centerInk: true,
-          text: 'Liq.',
-          font: 'referenceLineLabel',
-          paint: 'axisText',
-          x: 50,
-          y: 30,
-        },
-      ],
-      watermarkImage: null,
-    });
-    expect(context.fillText).toHaveBeenCalledWith('Liq.', 39, 33);
-  });
-
   it.each(['B', 'S'] as const)(
     'preserves the existing %s label font and position on web',
     (label) => {
@@ -328,5 +298,35 @@ describe('TradingViewNative web canvas scene renderer', () => {
     expect(context.strokeRect).toHaveBeenCalledWith(5, 6, 4, 10);
     expect(context.strokeStyle).toBe('#123456');
     expect(context.lineWidth).toBe(2);
+  });
+
+  it('centers compact badge ink including descenders and side bearings', () => {
+    const context = createCanvasContext();
+    const metrics = {
+      actualBoundingBoxAscent: 8,
+      actualBoundingBoxDescent: 2,
+      actualBoundingBoxLeft: -1,
+      actualBoundingBoxRight: 21,
+      width: 24,
+    };
+    context.measureText.mockReturnValue(metrics);
+    drawTradingViewNativeCanvasScene({
+      colors,
+      customPaintStyles: {},
+      context: context as unknown as CanvasRenderingContext2D,
+      commands: [
+        {
+          kind: 'text',
+          centerInk: true,
+          text: 'Liq.',
+          font: 'referenceLineLabel',
+          paint: 'axisText',
+          x: 50,
+          y: 30,
+        },
+      ],
+      watermarkImage: null,
+    });
+    expect(context.fillText).toHaveBeenCalledWith('Liq.', 39, 33);
   });
 });

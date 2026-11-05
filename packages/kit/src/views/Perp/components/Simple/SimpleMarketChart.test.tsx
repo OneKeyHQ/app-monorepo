@@ -76,7 +76,7 @@ jest.mock('@tamagui/core', () => ({
     Object.fromEntries(
       [
         'textSuccess',
-        'green9',
+        'bgAccent',
         'textSubdued',
         'bgApp',
         'borderStrong',
@@ -87,7 +87,10 @@ jest.mock('@tamagui/core', () => ({
         'borderSubdued',
         'text',
         'textDisabled',
-      ].map((name) => [name, { val: '#123456' }]),
+      ].map((name) => [
+        name,
+        { val: name === 'bgAccent' ? '#1fab00' : '#123456' },
+      ]),
     ),
 }));
 jest.mock('@onekeyhq/components', () => {
@@ -475,6 +478,11 @@ it.each([
     expect(getByTestId('price-header').textContent).toBe(
       '{"coin":"BTC","range":"1D","price":120,"change":"20","changePercent":20}',
     );
+    expect(mockChartProps).toMatchObject({
+      patternColor: '#1fab00',
+      pulseLastPointColor: '#1fab00',
+      secondaryLineColor: '#1fab00',
+    });
     expect(mockChartProps.showPriceScale).toBe(false);
     expect(mockChartProps.showLastValue).toBe(false);
     if (platform.isNative) {

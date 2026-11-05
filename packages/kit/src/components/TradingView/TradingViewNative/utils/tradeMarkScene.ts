@@ -14,11 +14,11 @@ import type {
   ITradingViewNativeChartSceneCommand,
   ITradingViewNativeChartSceneFont,
   ITradingViewNativeChartScenePaintStyle,
+  ITradingViewNativeSceneComponents,
 } from './chartScene';
 import type { ITradingViewNativePrimarySeriesPriceSource } from './chartType';
 import type {
   ITradingViewNativeCandleTimeMode,
-  ITradingViewNativeChartLeafComponent,
   ITradingViewNativePriceScaleMode,
 } from '../types';
 
@@ -230,11 +230,10 @@ function appendTradeMarkTooltip({
 }
 
 export function appendTradingViewNativeTradeMarkCommands({
-  marketDetailLayout = false,
   candleIntervalSeconds,
   candleTimeMode,
   commands,
-  components,
+  components: { nodes: components, marketDetailLayout = false, priceChartTop },
   crosshair,
   customPaintStyles,
   getPointX,
@@ -243,16 +242,14 @@ export function appendTradingViewNativeTradeMarkCommands({
   minPrice,
   points,
   priceAxisX,
-  priceChartTop,
   priceChartHeight,
   priceScaleMode,
   priceSource,
 }: {
-  marketDetailLayout?: boolean;
   candleIntervalSeconds: number;
   candleTimeMode?: ITradingViewNativeCandleTimeMode;
   commands: ITradingViewNativeChartSceneCommand[];
-  components: readonly ITradingViewNativeChartLeafComponent[];
+  components: ITradingViewNativeSceneComponents;
   crosshair: ITradingViewNativeChartRuntimeCrosshair;
   customPaintStyles: Record<string, ITradingViewNativeChartScenePaintStyle>;
   getPointX: (index: number) => number;
@@ -264,7 +261,6 @@ export function appendTradingViewNativeTradeMarkCommands({
   minPrice: number;
   points: readonly IMarketTokenKLineDataPoint[];
   priceAxisX: number;
-  priceChartTop?: number;
   priceChartHeight: number;
   priceScaleMode: ITradingViewNativePriceScaleMode;
   priceSource: ITradingViewNativePrimarySeriesPriceSource;

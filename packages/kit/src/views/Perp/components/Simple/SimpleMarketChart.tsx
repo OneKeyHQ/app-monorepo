@@ -7,6 +7,7 @@ import {
   Icon,
   SizableText,
   Stack,
+  XStack,
   YStack,
   useTheme,
 } from '@onekeyhq/components';
@@ -225,7 +226,7 @@ function SimpleMarketLineChart({
       testID="perps-simple-price-line-chart"
       data={data}
       height={height}
-      lineColorToken="green9"
+      lineColorToken="bgAccent"
       pulseLastPoint
       showPriceScale={false}
       showHoverLabel={false}
@@ -316,7 +317,15 @@ export function SimpleMarketChart({
           nativeChartDisplayMode={fullscreen ? 'default' : 'marketDetail'}
           nativeControlsLayoutMode="mobile"
           mobileControlsPaddingHorizontal={fullscreen ? undefined : 20}
-          mobileToolbarExtra={modeControl}
+          mobileToolbarExtra={
+            fullscreen ? (
+              modeControl
+            ) : (
+              <XStack ml="$1.5" minHeight={32} alignItems="center">
+                {modeControl}
+              </XStack>
+            )
+          }
           mobileControlsAppearance={
             fullscreen ? undefined : SIMPLE_CHART_CONTROLS
           }

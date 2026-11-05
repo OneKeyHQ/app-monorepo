@@ -98,7 +98,6 @@ function renderIntervals({
 
 export const SIMPLE_CHART_CONTROLS = {
   renderIntervals,
-  actions: { minHeight: 32, gap: '$2.5' },
   settingsButton: { ...SIMPLE_CHART_ACTION_STYLE, iconSize: '$4' },
   fullscreenButton: {
     width: 24,

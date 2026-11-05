@@ -49,7 +49,7 @@ const MIN_FLING_VELOCITY = 100;
 export function useTradingViewNativeChartGestures({
   chartRuntime,
   decayOffset,
-  isClickInteractionEnabled,
+  isClickInteractionEnabled: allowClickInteraction,
   holdToInspect = false,
   isCrosshairEnabled,
   onSubIndicatorSettingsPress,
@@ -89,6 +89,7 @@ export function useTradingViewNativeChartGestures({
 
   const panStartTranslationX = useSharedValue(0);
   const activeGestures = useSharedValue(0);
+  const isClickInteractionEnabled = allowClickInteraction && !holdToInspect;
   return useMemo(() => {
     const setInteraction = (bit: number, active: boolean) => {
       'worklet';
@@ -246,9 +247,7 @@ export function useTradingViewNativeChartGestures({
       });
 
     const tapCrosshairGesture = Gesture.Tap()
-      .enabled(
-        isCrosshairEnabled && isClickInteractionEnabled && !holdToInspect,
-      )
+      .enabled(isCrosshairEnabled && isClickInteractionEnabled)
       .onTouchesDown((event, stateManager) => {
         'worklet';
 

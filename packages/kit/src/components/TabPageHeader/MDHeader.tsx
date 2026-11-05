@@ -202,6 +202,8 @@ export function MDHeader({
           ) : (
             <>
               <XStack
+                minHeight={headerHeight}
+                maxHeight={headerHeight}
                 alignItems="center"
                 justifyContent="space-between"
                 px={headerPx}
@@ -209,7 +211,6 @@ export function MDHeader({
                 {...(top || platformEnv.isNativeAndroid
                   ? { mt: top || '$2' }
                   : {})}
-                {...(headerHeight !== undefined && { h: headerHeight })}
               >
                 <View>
                   <HeaderLeft

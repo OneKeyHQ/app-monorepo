@@ -36,6 +36,7 @@ import { useActiveTradeInstrumentAtom } from '@onekeyhq/kit/src/states/jotai/con
 import { PerpDexBadge } from '@onekeyhq/kit/src/views/Market/components/PerpsBadges';
 import { usePerpsCustomSettingsAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import {
@@ -386,8 +387,12 @@ function MobilePerpMarket() {
   const headerHeight = useHeaderHeight();
 
   const onPressTokenSelector = useCallback(() => {
-    void preloadPerpsMobileTokenSelectorPage();
-    void prewarmTokenSelectorImages();
+    void Promise.all([
+      preloadPerpsMobileTokenSelectorPage(),
+      prewarmTokenSelectorImages(),
+    ]).catch(() => {
+      defaultLogger.app.error.log('Failed to preload the Perps token selector');
+    });
     navigation.pushModal(EModalRoutes.PerpModal, {
       screen: EModalPerpRoutes.MobileTokenSelector,
     });

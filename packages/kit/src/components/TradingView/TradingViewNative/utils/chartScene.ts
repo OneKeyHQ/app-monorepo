@@ -265,6 +265,12 @@ export type ITradingViewNativeChartSceneCommand =
       rect: ITradingViewNativeChartSceneRect;
     };
 
+export interface ITradingViewNativeSceneComponents {
+  nodes: readonly ITradingViewNativeChartLeafComponent[];
+  marketDetailLayout?: boolean;
+  priceChartTop?: number;
+}
+
 export interface IBuildTradingViewNativeChartSceneOptions {
   dateFormatTemplate?: string;
   autoScalePointRange?: ITradingViewNativeVisiblePointRange;
@@ -694,7 +700,7 @@ export function buildTradingViewNativeChartScene({
   autoScalePointRange,
   candleIntervalSeconds,
   candleTimeMode,
-  chartComponents = [],
+  chartComponents: componentNodes = [],
   chartDrawings = [],
   chartSettings,
   chartType,
@@ -752,7 +758,7 @@ export function buildTradingViewNativeChartScene({
     );
     const chartComponentPriceAxisLabel =
       getTradingViewNativeChartComponentPriceAxisLabel(
-        chartComponents,
+        componentNodes,
         priceDecimalPlaces,
       );
     const widestSecondaryAxisLabel =
@@ -1049,7 +1055,9 @@ export function buildTradingViewNativeChartScene({
       y2: timeAxisY,
     });
   }
+  const detailPriceTicks: { text: string; y: number }[] = [];
   for (const { price, y } of priceTicks) {
+    const text = formatTradingViewNativePriceTick(price, 4, priceDecimalPlaces);
     if (showHorizontalGrid) {
       commands.push({
         ...(chartSettings ? { customPaintId: GRID_HORIZONTAL_PAINT_ID } : {}),
@@ -1061,12 +1069,13 @@ export function buildTradingViewNativeChartScene({
         y2: y,
       });
     }
+    if (showYAxis && marketDetailLayout) detailPriceTicks.push({ text, y });
     if (showYAxis && !marketDetailLayout) {
       commands.push({
         font: 'priceAxis',
         kind: 'text',
         paint: 'axisText',
-        text: formatTradingViewNativePriceTick(price, 4, priceDecimalPlaces),
+        text,
         x: priceAxisX + PRICE_AXIS_LABEL_LEFT_PADDING,
         y: y + priceAxisFontSize / 2 + PRICE_AXIS_TEXT_BASELINE_OFFSET,
       });
@@ -1434,9 +1443,13 @@ export function buildTradingViewNativeChartScene({
     priceScaleMode: resolvedPriceScaleMode,
   });
   const showLatestPrice = chartSettings?.options.latestPrice ?? true;
+  const chartComponents = {
+    nodes: componentNodes,
+    marketDetailLayout,
+    priceChartTop: layout.priceChartTop,
+  };
   const chartComponentCommandLayers =
     appendTradingViewNativeChartComponentCommands({
-      marketDetailLayout,
       commands,
       components: chartComponents,
       priceDecimalPlaces,
@@ -1464,7 +1477,6 @@ export function buildTradingViewNativeChartScene({
       priceAxisFontSize,
       priceAxisX,
       priceChartHeight,
-      priceChartTop: layout.priceChartTop,
       priceScaleMode: resolvedPriceScaleMode,
       showYAxis,
       width,
@@ -1475,7 +1487,7 @@ export function buildTradingViewNativeChartScene({
       chartComponentCommandLayers.priceLabelTops,
     );
     const clearance = priceAxisFontSize / 2 + 2;
-    for (const { price, y } of priceTicks) {
+    for (const { text, y } of detailPriceTicks) {
       if (
         !occupiedTops.some(
           (top) =>
@@ -1483,11 +1495,6 @@ export function buildTradingViewNativeChartScene({
             y <= top + CURRENT_PRICE_LABEL_HEIGHT + clearance,
         )
       ) {
-        const text = formatTradingViewNativePriceTick(
-          price,
-          4,
-          priceDecimalPlaces,
-        );
         commands.push({
           font: 'priceAxis',
           kind: 'text',
@@ -1693,7 +1700,6 @@ export function buildTradingViewNativeChartScene({
     });
 
   appendTradingViewNativeTradeMarkCommands({
-    marketDetailLayout,
     candleIntervalSeconds,
     candleTimeMode,
     commands,
@@ -1707,7 +1713,6 @@ export function buildTradingViewNativeChartScene({
     points,
     priceAxisX,
     priceChartHeight,
-    priceChartTop: layout.priceChartTop,
     priceScaleMode: resolvedPriceScaleMode,
     priceSource: primarySeries.priceSource,
   });

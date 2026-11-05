@@ -1,6 +1,6 @@
 import type { ReactElement, ReactNode } from 'react';
 
-import type { IIconButtonProps, IXStackProps } from '@onekeyhq/components';
+import type { IIconButtonProps } from '@onekeyhq/components';
 import type {
   ITradingViewNativeChartLineStyle,
   ITradingViewNativeChartType,
@@ -27,7 +27,6 @@ type IChartButtonAppearance = Pick<
 
 export interface ITradingViewMobileControlsAppearance {
   renderIntervals: (props: ITradingViewIntervalSegmentsProps) => ReactElement;
-  actions: Pick<IXStackProps, 'gap' | 'minHeight'>;
   settingsButton: IChartButtonAppearance;
   fullscreenButton: IChartButtonAppearance;
   denseIndicators: boolean;
@@ -197,6 +196,7 @@ export interface ITradingViewNativeProps {
   defaultBackgroundColor?: string;
   source: ITradingViewNativeSource;
   priceDecimalPlaces?: number;
+  isPricePrecisionLoading?: boolean;
   onPriceSelect?: (selection: ITradingViewNativePriceSelection) => void;
   priceSelectionLabel?: string;
   onInteractionChange?: (isInteracting: boolean) => void;

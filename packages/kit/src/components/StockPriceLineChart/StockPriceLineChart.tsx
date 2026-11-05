@@ -109,7 +109,7 @@ export type IStockPriceLineChartHoverPoint = {
 export function StockPriceLineChart({
   data,
   height,
-  lineColorToken = 'textSuccess',
+  lineColorToken,
   pulseLastPoint,
   previousClose,
   showCurrentPriceLabel,
@@ -124,7 +124,7 @@ export function StockPriceLineChart({
 }: {
   data: IMarketTokenChart;
   height: number;
-  lineColorToken?: 'textSuccess' | 'green9';
+  lineColorToken?: 'textSuccess' | 'green9' | 'bgAccent';
   pulseLastPoint?: boolean;
   // Previous session close. Drawn as a dashed line with a "Prev close" tag and
   // its own axis label, and kept inside the price scale even when the range
@@ -240,12 +240,27 @@ export function StockPriceLineChart({
     };
   }, [data, hoverData]);
 
-  const solidLineColor = theme[lineColorToken].val;
+  const solidLineColor = theme.textSuccess.val;
   // Constant for the life of the chart: only the overlay's data follows the
   // cursor, so hovering never re-creates the chart instance.
   const dimmedLineColor = useMemo(
     () => fadeLineColor(solidLineColor),
     [solidLineColor],
+  );
+  const lineColorOverride = lineColorToken
+    ? theme[lineColorToken].val
+    : undefined;
+  const seriesColorOverrides = useMemo(
+    () =>
+      lineColorOverride
+        ? {
+            lineColor: fadeLineColor(lineColorOverride),
+            patternColor: lineColorOverride,
+            pulseLastPointColor: lineColorOverride,
+            secondaryLineColor: lineColorOverride,
+          }
+        : undefined,
+    [lineColorOverride],
   );
   const crosshairVertLineColor = theme.textSubdued.val;
   const pageBackgroundColor = theme.bgApp.val;
@@ -459,6 +474,7 @@ export function StockPriceLineChart({
         showLastPointMarker={false}
         preserveChartInstanceOnDataChange
         pulseLastPoint={pulseLastPoint}
+        {...seriesColorOverrides}
         showTimeScale
         priceScaleMargins={PRICE_SCALE_MARGINS}
         priceScaleEntireTextOnly

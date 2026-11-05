@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { createContext, useCallback, useContext } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -15,6 +15,10 @@ import type {
   ITradingViewMobileControlsAppearance,
   ITradingViewNativeStorageNamespace,
 } from './types';
+
+export const TradingViewToolbarButtonAppearanceContext = createContext<
+  ITradingViewMobileControlsAppearance['settingsButton'] | undefined
+>(undefined);
 
 const SETTINGS_BUTTON_SIZE = 24;
 const PRICE_AXIS_FALLBACK_WIDTH = 52;
@@ -36,7 +40,6 @@ export function TradingViewNativeChartSettingsButton({
   isChartSwitchDisabled = false,
   onChartSwitch,
   onBeforeOpenSettings,
-  appearance,
   placement = 'chart',
 }: {
   storageNamespace?: ITradingViewNativeStorageNamespace;
@@ -45,10 +48,10 @@ export function TradingViewNativeChartSettingsButton({
   isChartSwitchDisabled?: boolean;
   onChartSwitch?: () => void;
   onBeforeOpenSettings?: () => void;
-  appearance?: ITradingViewMobileControlsAppearance['settingsButton'];
   placement?: 'chart' | 'toolbar';
 }) {
   const isToolbar = placement === 'toolbar';
+  const appearance = useContext(TradingViewToolbarButtonAppearanceContext);
   const intl = useIntl();
   const navigation = useAppNavigation();
   const openChartSettingsModal = useCallback(() => {
