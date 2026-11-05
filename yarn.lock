@@ -10328,16 +10328,16 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@onekeyfe/react-native-native-list@npm:6.7.0-alpha.422":
-  version: 6.7.0-alpha.422
-  resolution: "@onekeyfe/react-native-native-list@npm:6.7.0-alpha.422"
+"@onekeyfe/react-native-native-list@npm:6.7.0-alpha.449":
+  version: 6.7.0-alpha.449
+  resolution: "@onekeyfe/react-native-native-list@npm:6.7.0-alpha.449"
   peerDependencies:
-    "@onekeyfe/react-native-image": 6.7.0-alpha.422
-    "@onekeyfe/react-native-native-logger": 6.7.0-alpha.422
+    "@onekeyfe/react-native-image": "*"
+    "@onekeyfe/react-native-native-logger": "*"
     react: "*"
     react-native: "*"
     react-native-nitro-modules: 0.37.0
-  checksum: 10/01f57c6e5f505baed6f5afb51994f16868cd479be1f4d3f44bcc8b817f2961f0c065f547401defa4a1c990a0548a8dbd032acd0912218663429c6a64523c7d1b
+  checksum: 10/01a9f2e9ca5d2685eba6687bc78077201290067d44be7aced5c5356b67641d0f004ce43dbc72738a47583014abab2e6f553043cc7656ffaf29a037ee36dcfa21
   languageName: node
   linkType: hard
 
@@ -10962,7 +10962,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@onekeyhq/kit@workspace:packages/kit"
   dependencies:
-    "@onekeyfe/react-native-native-list": "npm:6.7.0-alpha.422"
+    "@onekeyfe/react-native-native-list": "npm:6.7.0-alpha.449"
     "@onekeyfe/react-native-text": "npm:6.7.0-alpha.422"
     "@onekeyhq/components": "npm:*"
     "@types/d3-scale": "npm:^4.0.3"
@@ -11015,7 +11015,7 @@ __metadata:
     "@onekeyfe/react-native-image-crop-picker": "npm:6.7.0-alpha.422"
     "@onekeyfe/react-native-keychain-module": "npm:6.7.0-alpha.422"
     "@onekeyfe/react-native-lite-card": "npm:6.7.0-alpha.422"
-    "@onekeyfe/react-native-native-list": "npm:6.7.0-alpha.422"
+    "@onekeyfe/react-native-native-list": "npm:6.7.0-alpha.449"
     "@onekeyfe/react-native-native-logger": "npm:6.7.0-alpha.422"
     "@onekeyfe/react-native-native-overlay": "npm:6.7.0-alpha.422"
     "@onekeyfe/react-native-network-throttle": "npm:6.7.0-alpha.422"
@@ -11114,7 +11114,7 @@ __metadata:
     react-native-network-info: "npm:@onekeyfe/react-native-network-info@6.7.0-alpha.422"
     react-native-network-logger: "npm:2.0.1"
     react-native-nitro-modules: "npm:0.37.0"
-    react-native-pager-view: "npm:@onekeyfe/react-native-pager-view@6.7.0-alpha.422"
+    react-native-pager-view: "npm:@onekeyfe/react-native-pager-view@6.7.0-alpha.449"
     react-native-passkeys: "npm:0.3.3"
     react-native-permissions: "npm:5.4.4"
     react-native-ping: "npm:@onekeyfe/react-native-ping@6.7.0-alpha.422"
@@ -43643,14 +43643,15 @@ __metadata:
   languageName: node
   linkType: hard
 
-"react-native-pager-view@npm:@onekeyfe/react-native-pager-view@6.7.0-alpha.422":
-  version: 6.7.0-alpha.422
-  resolution: "@onekeyfe/react-native-pager-view@npm:6.7.0-alpha.422"
+"react-native-pager-view@npm:@onekeyfe/react-native-pager-view@6.7.0-alpha.449":
+  version: 6.7.0-alpha.449
+  resolution: "@onekeyfe/react-native-pager-view@npm:6.7.0-alpha.449"
   peerDependencies:
-    "@onekeyfe/react-native-native-logger": 6.7.0-alpha.422
+    "@onekeyfe/react-native-image": "*"
+    "@onekeyfe/react-native-native-logger": "*"
     react: "*"
     react-native: "*"
-  checksum: 10/2be929d974b74eddd6c88388fd6731d91b1e942c94fbb59fea3f09c345c6c36d378f27352b550e0fddf51439ea0199f588ebfe1fa3065688a7af56ce72c68048
+  checksum: 10/855b7a5a2daacbe60b2538db8816e06c0378da9fd078b46a87e3db8136b6fcb7c452f64428e81d5f40115b13a6e85b33fbd41ba8ba29b2ca172d3a375ccaf28e
   languageName: node
   linkType: hard
 
