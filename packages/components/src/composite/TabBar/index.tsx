@@ -57,6 +57,11 @@ type IReadonlySharedValue<T> = { readonly value: T };
 
 const TAB_HOVER_STYLE = { bg: '$bgHover' } as const;
 const TAB_PRESS_STYLE = { bg: '$bgActive' } as const;
+// Focused pill. Web/desktop: a light gray chip (the sidebar's selected gray)
+// with the regular label color, so the balance stays the page's darkest
+// element. Native keeps the inverse pill.
+const PILL_FOCUSED_BG = platformEnv.isNative ? 'bgPrimary' : 'bgActive';
+const PILL_FOCUSED_TEXT = platformEnv.isNative ? 'textInverse' : 'text';
 const TAB_LIST_VIEW_STYLE = { flexShrink: 1 } as const;
 const TAB_LIST_FILL_AVAILABLE_SPACE_STYLE = {
   flexGrow: 1,
@@ -103,7 +108,9 @@ function AnimatedTabBarItemText({
 }) {
   const theme = useTheme();
   const isTextVariant = variant === 'text';
-  const activeColor = isTextVariant ? theme.text.val : theme.textInverse.val;
+  const activeColor = isTextVariant
+    ? theme.text.val
+    : theme[PILL_FOCUSED_TEXT].val;
   const inactiveColor = isTextVariant ? theme.textSubdued.val : theme.text.val;
 
   const animatedColorStyle = useAnimatedStyle(() => {
@@ -201,7 +208,7 @@ export function TabBarItem({
     // by AnimatedPillIndicator — items should be transparent so it shows through.
     let pillBg: string = 'transparent';
     if (!animatedPillIndicator && isFocused) {
-      pillBg = '$bgPrimary';
+      pillBg = `$${PILL_FOCUSED_BG}`;
     }
 
     const useAnimatedText =
@@ -240,7 +247,7 @@ export function TabBarItem({
         ) : (
           <SizableText
             size={resolvedTextSize}
-            color={isFocused ? '$textInverse' : '$text'}
+            color={isFocused ? (`$${PILL_FOCUSED_TEXT}` as const) : '$text'}
             userSelect="none"
           >
             {displayLabel}
@@ -498,7 +505,7 @@ function AnimatedPillTabBarItem({
   }, [name, onPress]);
 
   const theme = useTheme();
-  const activeColor = theme.textInverse.val;
+  const activeColor = theme[PILL_FOCUSED_TEXT].val;
   const inactiveColor = theme.text.val;
 
   const animatedTextStyle = useAnimatedStyle(() => {
@@ -551,7 +558,7 @@ function AnimatedPillIndicator({
   itemsLayout: IItemLayout[];
 }) {
   const theme = useTheme();
-  const bgColor = theme.bgPrimary.val;
+  const bgColor = theme[PILL_FOCUSED_BG].val;
 
   // Store layout edges as SharedValues so the worklet never needs to be
   // recreated when itemsLayout changes — all reads stay on the UI thread.
