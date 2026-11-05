@@ -1138,8 +1138,10 @@ export function CommonTableListView<T>({
         testID="perp-desktop-table-header"
         style={{ flex: 1 }}
         horizontal
-        scrollEnabled={false}
-        showsHorizontalScrollIndicator={false}
+        scrollEnabled={!platformEnv.isNative && showDesktopEmptyState}
+        showsHorizontalScrollIndicator={
+          !platformEnv.isNative && showDesktopEmptyState
+        }
         contentContainerStyle={{
           minWidth: scrollableMinWidth,
           flexGrow: 1,
