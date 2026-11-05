@@ -156,3 +156,48 @@ it('relocalizes loaded and live fills immediately without reloading history', as
   ]);
   expect(loadHistory).toHaveBeenCalledTimes(1);
 });
+
+it('pauses a hidden chart and only restores fills from its account and contract', async () => {
+  const loadHistory = jest.spyOn(
+    backgroundApiProxy.serviceHyperliquid,
+    'loadTradesHistory',
+  );
+  loadHistory.mockClear();
+  const buy = fill('Open Long', 'B', 1);
+  const sell = fill('Close Long', 'A', 2);
+  loadHistory.mockResolvedValue([buy, { ...sell, coin: 'xyz:SOL' }]);
+  const messages: Record<string, string> = enMessages;
+  const { result, rerender } = renderHook(
+    (active: boolean) => usePerpsNativeChartMarks(active),
+    {
+      initialProps: false,
+      wrapper: ({ children }: { children: ReactNode }) => (
+        <IntlProvider locale="en-US" messages={messages}>
+          <>{children}</>
+        </IntlProvider>
+      ),
+    },
+  );
+  expect(loadHistory).not.toHaveBeenCalled();
+  await act(async () => rerender(true));
+  const labels = () => result.current[0].props.marks.map((mark) => mark.label);
+  expect(labels()).toEqual(['B']);
+  const emitSell = (user: `0x${string}`) =>
+    appEventBus.emit(EAppEventBusNames.HyperliquidDataUpdate, {
+      type: EPerpsSubscriptionCategory.ACCOUNT,
+      subType: ESubscriptionType.USER_FILLS,
+      data: { user, fills: [sell] },
+    });
+  act(() => {
+    emitSell('0x0000000000000000000000000000000000000002');
+  });
+  expect(labels()).toEqual(['B']);
+  rerender(false);
+  act(() => {
+    emitSell(mockAccountAddress);
+  });
+  expect(labels()).toEqual(['B']);
+  loadHistory.mockResolvedValue([buy, sell]);
+  await act(async () => rerender(true));
+  expect(labels()).toEqual(['B', 'S']);
+});

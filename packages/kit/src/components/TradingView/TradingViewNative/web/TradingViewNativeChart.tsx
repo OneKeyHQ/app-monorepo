@@ -20,6 +20,7 @@ import {
   TRADING_VIEW_NATIVE_AXIS_FONT_SIZE as AXIS_FONT_SIZE,
   TRADING_VIEW_NATIVE_CHART_HORIZONTAL_PADDING as CHART_HORIZONTAL_PADDING,
   TRADING_VIEW_NATIVE_SWITCHING_INTERVAL_OPACITY as SWITCHING_INTERVAL_OPACITY,
+  TRADING_VIEW_NATIVE_CROSSHAIR_LONG_PRESS_DURATION,
   TRADING_VIEW_NATIVE_TIME_AXIS_HEIGHT,
   TRADING_VIEW_NATIVE_WATERMARK_DARK_OPACITY as WATERMARK_DARK_OPACITY,
   TRADING_VIEW_NATIVE_WATERMARK_LIGHT_OPACITY as WATERMARK_LIGHT_OPACITY,
@@ -120,6 +121,7 @@ const ONEKEY_WATERMARK_URI =
     ? ONEKEY_WATERMARK_ASSET
     : ONEKEY_WATERMARK_ASSET.default;
 interface IPointerPanDragState {
+  inspectingCandle?: boolean;
   priceRange: ITradingViewNativePriceRange | null;
   isPricePanActive: boolean;
   priceChartHeight: number;
@@ -165,10 +167,13 @@ export const TradingViewNativeChart = memo(
     hasVolume,
     indicatorSeries,
     initialRightOffset,
+    defaultPriceRangeScale,
+    initialZoomScale,
     isMobileLayout = false,
     isSwitchingInterval,
     priceAxisFontSize = AXIS_FONT_SIZE,
     priceAxisTickCount,
+    marketDetailLayout = false,
     showLegend = true,
     timeAxisFontSize = AXIS_FONT_SIZE,
     timeAxisHeight = TRADING_VIEW_NATIVE_TIME_AXIS_HEIGHT,
@@ -261,6 +266,7 @@ export const TradingViewNativeChart = memo(
     const runtimeStateRef = useRef<ITradingViewNativeChartRuntimeState>(
       createTradingViewNativeChartRuntimeState({
         initialRightOffset,
+        initialZoomScale,
       }),
     );
     const priceSelection = useChartPriceSelection({
@@ -346,7 +352,7 @@ export const TradingViewNativeChart = memo(
       ITradingViewNativeSubIndicatorLegendHitRegion[]
     >([]);
     const priceScaleModelRef = useRef(
-      createTradingViewNativeWebPriceScaleModel(),
+      createTradingViewNativeWebPriceScaleModel(defaultPriceRangeScale),
     );
     const wheelDeltaNormalizerRef = useRef(
       new TradingViewNativeWheelDeltaNormalizer(),
@@ -579,6 +585,7 @@ export const TradingViewNativeChart = memo(
             referenceLinePriceRange?.priceScaleMode ??
             priceScaleModelRef.current.mode,
           runtimeState: nextRuntimeState,
+          marketDetailLayout,
           showLegend,
           subIndicatorPanes: scaledSubIndicatorPanes,
           timeAxisFontSize,
@@ -670,6 +677,7 @@ export const TradingViewNativeChart = memo(
         priceAxisFontSize,
         priceAxisLabels,
         priceAxisTickCount,
+        marketDetailLayout,
         showLegend,
         subIndicatorPanes,
         subIndicatorPriceScales,
@@ -994,11 +1002,52 @@ export const TradingViewNativeChart = memo(
       isPointerDragging: isPriceScalePointerDragging,
       mode: priceScaleMode,
     } = useTradingViewNativePriceScale({
+      defaultPriceRangeScale,
       isLogScaleAvailable,
       modelRef: priceScaleModelRef,
       renderCurrentChart,
       renderWithCrosshairHidden,
     });
+
+    const moveCrosshair = useCallback(
+      (canvas: HTMLCanvasElement, clientX: number, clientY: number) => {
+        const canvasRect = canvas.getBoundingClientRect();
+        const nextRuntimeState = reduceTradingViewNativeChartRuntime(
+          runtimeStateRef.current,
+          {
+            chartWidth: getTradingViewNativeCanvasChartWidth(
+              canvas,
+              priceAxisLabels,
+              priceScaleModelRef.current,
+              priceAxisFontSize,
+            ),
+            height: canvasRect.height,
+            pointCount,
+            timeAxisHeight,
+            type: 'crosshairMoved',
+            x: clientX - canvasRect.left,
+            y: clientY - canvasRect.top,
+          },
+        );
+        runtimeStateRef.current = nextRuntimeState;
+        renderChart();
+      },
+      [
+        pointCount,
+        priceAxisFontSize,
+        priceAxisLabels,
+        renderChart,
+        timeAxisHeight,
+      ],
+    );
+    const holdTimer = useRef<ReturnType<typeof setTimeout> | undefined>(
+      undefined,
+    );
+    const cancelPendingHold = useCallback(() => {
+      clearTimeout(holdTimer.current);
+      holdTimer.current = undefined;
+    }, []);
+    useEffect(() => cancelPendingHold, [cancelPendingHold, marketDetailLayout]);
 
     const handlePointerDown = useCallback(
       (event: ReactPointerEvent<HTMLCanvasElement>) => {
@@ -1060,8 +1109,28 @@ export const TradingViewNativeChart = memo(
           subIndicatorSettingsTarget,
           zoomScale: nextRuntimeState.viewport.zoomScale,
         };
+        if (marketDetailLayout && subIndicatorSettingsTarget === null) {
+          const drag = pointerPanDragStateRef.current;
+          const { currentTarget, clientX, clientY } = event;
+          cancelPendingHold();
+          holdTimer.current = setTimeout(() => {
+            holdTimer.current = undefined;
+            if (pointerPanDragStateRef.current === drag) {
+              drag.inspectingCandle = true;
+              moveCrosshair(currentTarget, clientX, clientY);
+            }
+          }, TRADING_VIEW_NATIVE_CROSSHAIR_LONG_PRESS_DURATION);
+        }
       },
-      [pointCount, priceAxisFontSize, priceAxisLabels, renderChart],
+      [
+        pointCount,
+        priceAxisFontSize,
+        priceAxisLabels,
+        renderChart,
+        marketDetailLayout,
+        moveCrosshair,
+        cancelPendingHold,
+      ],
     );
 
     const handlePointerMove = useCallback(
@@ -1073,6 +1142,20 @@ export const TradingViewNativeChart = memo(
         if (dragState) {
           if (dragState.pointerId !== event.pointerId) {
             return;
+          }
+          if (dragState.inspectingCandle) {
+            moveCrosshair(event.currentTarget, event.clientX, event.clientY);
+            return;
+          }
+          if (holdTimer.current !== undefined) {
+            if (
+              Math.hypot(
+                event.clientX - dragState.startClientX,
+                event.clientY - dragState.startClientY,
+              ) < 4
+            )
+              return;
+            cancelPendingHold();
           }
           dragState.currentClientX = event.clientX;
           if (
@@ -1157,38 +1240,22 @@ export const TradingViewNativeChart = memo(
             ? 'crosshair'
             : 'pointer';
 
-        if (!chartSettings.options.crossLine) {
+        if (marketDetailLayout || !chartSettings.options.crossLine) {
           return;
         }
-        const nextRuntimeState = reduceTradingViewNativeChartRuntime(
-          runtimeStateRef.current,
-          {
-            chartWidth: getTradingViewNativeCanvasChartWidth(
-              event.currentTarget,
-              priceAxisLabels,
-              priceScaleModelRef.current,
-              priceAxisFontSize,
-            ),
-            height: canvasRect.height,
-            pointCount,
-            timeAxisHeight,
-            type: 'crosshairMoved',
-            x: event.clientX - canvasRect.left,
-            y: event.clientY - canvasRect.top,
-          },
-        );
-        runtimeStateRef.current = nextRuntimeState;
-        renderChart();
+        moveCrosshair(event.currentTarget, event.clientX, event.clientY);
       },
       [
         chartSettings.options.crossLine,
+        marketDetailLayout,
+        moveCrosshair,
+        cancelPendingHold,
         handlePriceRangePan,
         handlePriceScalePointerLeave,
         pointCount,
         priceAxisFontSize,
         priceAxisLabels,
         renderChart,
-        timeAxisHeight,
       ],
     );
 
@@ -1216,6 +1283,8 @@ export const TradingViewNativeChart = memo(
         if (dragState?.pointerId !== event.pointerId) {
           return;
         }
+        cancelPendingHold();
+        if (dragState.inspectingCandle) renderWithCrosshairHidden();
         const shouldOpenSubIndicatorSettings = Boolean(
           event.type === 'pointerup' &&
           getTradingViewNativePointerDragIntent({
@@ -1238,7 +1307,11 @@ export const TradingViewNativeChart = memo(
           onSubIndicatorSettingsPress(dragState.subIndicatorSettingsTarget);
         }
       },
-      [onSubIndicatorSettingsPress],
+      [
+        cancelPendingHold,
+        onSubIndicatorSettingsPress,
+        renderWithCrosshairHidden,
+      ],
     );
 
     const handleTimeAxisPointerDown = useCallback(

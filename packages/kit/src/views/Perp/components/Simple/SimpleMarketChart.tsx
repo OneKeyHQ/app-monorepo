@@ -6,20 +6,19 @@ import {
   Button,
   Icon,
   SizableText,
-  Skeleton,
   Stack,
   YStack,
   useTheme,
 } from '@onekeyhq/components';
 import { StockPriceLineChart } from '@onekeyhq/kit/src/components/StockPriceLineChart';
 import type { IStockPriceLineChartHoverPoint } from '@onekeyhq/kit/src/components/StockPriceLineChart';
+import { TradingViewChartLoadingMask } from '@onekeyhq/kit/src/components/TradingView/TradingViewChartLoadingMask';
 import { TRADING_VIEW_NATIVE_SUB_INDICATOR_PANE_HEIGHT } from '@onekeyhq/kit/src/components/TradingView/TradingViewNative/chartConstants';
 import { tradingViewNativeHyperliquidGateway } from '@onekeyhq/kit/src/components/TradingView/TradingViewNative/data/providers/hyperliquid/tradingViewNativeHyperliquidGateway';
 import {
   getTradingViewNativeSubIndicatorInstances,
   normalizeTradingViewNativeIndicatorSettings,
 } from '@onekeyhq/kit/src/components/TradingView/TradingViewNative/indicatorSettingsAdapter';
-import { TradingViewNative } from '@onekeyhq/kit/src/components/TradingView/TradingViewNative/TradingViewNative';
 import type { ITradingViewNativeSource } from '@onekeyhq/kit/src/components/TradingView/TradingViewNative/types';
 import {
   TRADING_VIEW_NATIVE_CHART_CONTROLS_HEIGHT,
@@ -34,7 +33,10 @@ import {
   MobileSimpleChartFrame,
 } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/layouts/MobileSimpleChart';
 import type { IMobileSimpleChartRange } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/layouts/MobileSimpleChart';
-import { usePerpsTradingViewIndicatorSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  usePerpsCustomSettingsAtom,
+  usePerpsTradingViewIndicatorSettingsPersistAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -43,12 +45,17 @@ import {
   getSimpleChartPoints,
   getSimpleChartRequest,
 } from '../../utils/simpleChart';
+import { PerpsNativeChart } from '../PerpsNativeChart';
+
+import {
+  SIMPLE_CHART_ACTION_STYLE,
+  SIMPLE_CHART_CONTROLS,
+  SIMPLE_CHART_SEGMENT_STYLE,
+} from './SimpleChartControls';
 
 import type { ISimpleChartPerformance } from '../../utils/simpleChart';
 
-const CHART_HEIGHT = 340;
-const LINE_CHART_HEIGHT =
-  CHART_HEIGHT - TRADING_VIEW_NATIVE_CHART_CONTROLS_HEIGHT;
+const BASE_CHART_HEIGHT = 392;
 
 export type ISimpleMarketChartPrice = ISimpleChartPerformance & {
   price?: number;
@@ -57,13 +64,17 @@ export type ISimpleMarketChartPrice = ISimpleChartPerformance & {
 };
 
 function SimpleMarketLineChart({
+  backgroundColor,
   coin,
+  height,
   range,
   active,
   livePrice,
   onPriceChange,
 }: {
+  backgroundColor?: string;
   coin: string;
+  height: number;
   range: IMobileSimpleChartRange;
   active: boolean;
   livePrice?: string;
@@ -165,8 +176,14 @@ function SimpleMarketLineChart({
   }, [displayPrice]);
   useEffect(() => () => onPriceChangeRef.current?.(undefined), []);
 
-  if (!active || !current) {
-    return <Skeleton width="100%" height="100%" />;
+  if (!active) return null;
+  if (!current) {
+    return (
+      <TradingViewChartLoadingMask
+        backgroundColor={backgroundColor}
+        testID="perps-simple-chart-loading"
+      />
+    );
   }
   if (current.error || !data.length) {
     return (
@@ -207,7 +224,8 @@ function SimpleMarketLineChart({
       key={`${coin}:${range}`}
       testID="perps-simple-price-line-chart"
       data={data}
-      height={LINE_CHART_HEIGHT}
+      height={height}
+      lineColorToken="green9"
       pulseLastPoint
       showPriceScale={false}
       showHoverLabel={false}
@@ -232,8 +250,11 @@ export function SimpleMarketChart({
   const theme = useTheme();
   const themeVariant = useThemeVariant();
   const [range, setRange] = useState<IMobileSimpleChartRange>('1D');
-  const [showCandles, setShowCandles] = useState(false);
+  const [{ simpleMarketChartMode }, setSettings] = usePerpsCustomSettingsAtom();
+  const showCandles = simpleMarketChartMode === 'candles';
   const [fullscreen, setFullscreen] = useState(false);
+  const chartBackground =
+    !fullscreen && themeVariant === 'light' ? theme.bgSubdued.val : undefined;
   const [indicatorSettings] = usePerpsTradingViewIndicatorSettingsPersistAtom();
   const subIndicatorCount = useMemo(
     () =>
@@ -242,10 +263,9 @@ export function SimpleMarketChart({
       ).length,
     [indicatorSettings],
   );
-  const candleChartHeight =
-    CHART_HEIGHT +
-    subIndicatorCount * TRADING_VIEW_NATIVE_SUB_INDICATOR_PANE_HEIGHT +
-    (platformEnv.isNative ? TRADING_VIEW_NATIVE_INDICATOR_QUICK_BAR_HEIGHT : 0);
+  const chartHeight =
+    BASE_CHART_HEIGHT +
+    subIndicatorCount * TRADING_VIEW_NATIVE_SUB_INDICATOR_PANE_HEIGHT;
   const source = useMemo<ITradingViewNativeSource>(
     () => ({ kind: 'hyperliquid', coin, environment: 'mainnet' }),
     [coin],
@@ -253,6 +273,8 @@ export function SimpleMarketChart({
   const modeControl = (
     <ChartModeButton
       testID="perps-simple-chart-mode-toggle"
+      buttonStyle={fullscreen ? undefined : SIMPLE_CHART_ACTION_STYLE}
+      iconSize={fullscreen ? '$4.5' : '$3.5'}
       icon={
         showCandles ? 'TradingViewLineOutline' : 'TradingViewCandlesOutline'
       }
@@ -263,35 +285,44 @@ export function SimpleMarketChart({
       })}
       onPress={() => {
         setFullscreen(false);
-        setShowCandles((value) => !value);
+        void setSettings((previous) => ({
+          ...previous,
+          simpleMarketChartMode:
+            previous.simpleMarketChartMode === 'candles' ? 'line' : 'candles',
+        }));
       }}
     />
   );
 
   return (
     <Stack
-      height={showCandles ? candleChartHeight : CHART_HEIGHT}
+      height={
+        showCandles
+          ? chartHeight + TRADING_VIEW_NATIVE_INDICATOR_QUICK_BAR_HEIGHT
+          : chartHeight
+      }
       mx="$-5"
-      mt="$-3"
-      mb="$-4"
+      my="$-4"
     >
       {showCandles ? (
-        <TradingViewNative
+        <PerpsNativeChart
           active={active}
           testID="perps-simple-native-chart"
-          defaultBackgroundColor={
-            !fullscreen && themeVariant === 'light'
-              ? theme.bgSubdued.val
-              : undefined
-          }
+          defaultBackgroundColor={chartBackground}
           source={source}
           storageNamespace="perps"
+          initialZoomScale={0.45}
+          defaultPriceRangeScale={1.25}
+          nativeChartDisplayMode={fullscreen ? 'default' : 'marketDetail'}
           nativeControlsLayoutMode="mobile"
           mobileControlsPaddingHorizontal={fullscreen ? undefined : 20}
           mobileToolbarExtra={modeControl}
+          mobileControlsAppearance={
+            fullscreen ? undefined : SIMPLE_CHART_CONTROLS
+          }
           enableNativeChartSettings
           nativeChartSettingsInToolbar
-          showNativeIndicatorQuickBar={platformEnv.isNative}
+          showNativeIndicatorQuickBar={!fullscreen || platformEnv.isNative}
           maxSelectableSubIndicatorCount={4}
           enableDrawings={!platformEnv.isNative}
           prioritizePageScroll
@@ -304,15 +335,19 @@ export function SimpleMarketChart({
           testID="perps-simple-market-chart"
           controlsPaddingHorizontal={20}
           rangeControlVariant="segmented"
-          height={CHART_HEIGHT}
+          segmentControlStyle={SIMPLE_CHART_SEGMENT_STYLE}
+          segmentLabelMinWidth={28}
+          height={chartHeight}
           range={range}
           chartRanges={TOKEN_SIMPLE_CHART_RANGES}
           onRangeChange={setRange}
           modeControl={modeControl}
         >
           <SimpleMarketLineChart
+            backgroundColor={chartBackground}
             key={`${coin}:${range}`}
             coin={coin}
+            height={chartHeight - TRADING_VIEW_NATIVE_CHART_CONTROLS_HEIGHT}
             range={range}
             active={active}
             livePrice={livePrice}

@@ -10,7 +10,10 @@ import { TRADING_VIEW_NATIVE_THEME_COLORS } from '@onekeyhq/shared/types/trading
 import { usePerpsChartLineActions } from './usePerpsChartLineActions';
 import { usePerpsChartLines } from './usePerpsChartLines';
 
-export function usePerpsNativeChartLines(enableTradingUi: boolean) {
+export function usePerpsNativeChartLines(
+  enableTradingUi: boolean,
+  compactLabels = false,
+) {
   const theme = useTheme();
   const labelBackground = theme.bgApp.val;
   const labelColor = theme.text.val;
@@ -73,6 +76,20 @@ export function usePerpsNativeChartLines(enableTradingUi: boolean) {
           color = themeColors[TRADING_VIEW_NATIVE_THEME_COLORS.negative];
         }
 
+        const labelStyle = compactLabels
+          ? {
+              offset: 0,
+              backgroundColor: color,
+              color: '#FFFFFF',
+              priceBadgeBackgroundColor: labelBackground,
+            }
+          : {
+              offset: isLimitOrder
+                ? { type: 'chartWidthPercentage' as const, value: 70 }
+                : labelOffset,
+              backgroundColor: labelBackground,
+              color: isLimitOrder ? color : labelColor,
+            };
         return [
           {
             id,
@@ -88,18 +105,20 @@ export function usePerpsNativeChartLines(enableTradingUi: boolean) {
               title: line.label?.left ?? '',
               label: {
                 variant: isLimitOrder ? 'order' : undefined,
-                offset: isLimitOrder
-                  ? { type: 'chartWidthPercentage', value: 70 }
-                  : labelOffset,
-                backgroundColor: labelBackground,
-                color: isLimitOrder ? color : labelColor,
+                ...labelStyle,
                 quantity: line.qty
                   ? {
                       text: line.qty,
-                      backgroundColor: isLimitOrder
-                        ? color
-                        : quantityBackground,
-                      color: isLimitOrder ? orderQuantityColor : quantityColor,
+                      ...(compactLabels
+                        ? { backgroundColor: labelBackground, color }
+                        : {
+                            backgroundColor: isLimitOrder
+                              ? color
+                              : quantityBackground,
+                            color: isLimitOrder
+                              ? orderQuantityColor
+                              : quantityColor,
+                          }),
                     }
                   : undefined,
               },
@@ -110,6 +129,7 @@ export function usePerpsNativeChartLines(enableTradingUi: boolean) {
     [
       lines,
       themeColors,
+      compactLabels,
       labelBackground,
       labelColor,
       quantityBackground,

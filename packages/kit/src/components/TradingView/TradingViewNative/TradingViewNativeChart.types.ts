@@ -55,12 +55,15 @@ export interface ITradingViewNativeChartProps {
   indicatorSeries: ITradingViewNativeIndicatorSeries[];
   indicatorSeriesSettingsKey: string;
   initialRightOffset?: ITradingViewNativeInitialRightOffset;
+  initialZoomScale?: number;
+  defaultPriceRangeScale?: number;
   isSwitchingInterval: boolean;
   isMobileLayout?: boolean;
   resizesWithSubIndicatorPanes?: boolean;
   locale: string;
   priceAxisFontSize?: number;
   priceAxisTickCount?: number;
+  marketDetailLayout?: boolean;
   showLegend?: boolean;
   timeAxisFontSize?: number;
   timeAxisHeight?: number;

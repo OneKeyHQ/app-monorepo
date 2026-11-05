@@ -45,6 +45,7 @@ describe('TradingViewNativePriceScaleControls', () => {
     render(
       <TradingViewNativePriceScaleControls
         backgroundColor="#ffffff"
+        compact
         isAutoScale
         isLogScaleAvailable
         isVisible
@@ -61,11 +62,11 @@ describe('TradingViewNativePriceScaleControls', () => {
       expect.objectContaining({
         testID: 'market-detail-chart-price-scale-controls',
         bottom: 84,
-        height: 28,
+        height: 20,
         opacity: 1,
         pointerEvents: 'auto',
-        right: 10,
-        width: 60,
+        right: 18.5,
+        width: 43,
       }),
     );
     const autoButtonProps = mockStack.mock.calls[0]?.[0];
@@ -74,9 +75,9 @@ describe('TradingViewNativePriceScaleControls', () => {
       expect.objectContaining({
         accessibilityState: { selected: true },
         backgroundColor: '$bgInverse',
-        height: 28,
+        height: 20,
         testID: 'market-detail-chart-price-scale-auto',
-        width: 28,
+        width: 20,
       }),
     );
     expect(logButtonProps).toEqual(

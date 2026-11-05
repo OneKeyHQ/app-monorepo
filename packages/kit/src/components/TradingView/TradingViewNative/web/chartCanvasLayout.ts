@@ -5,7 +5,7 @@ import {
 } from '../utils/chartLayout';
 import { isTradingViewNativeMainPriceAxisTouch } from '../utils/priceAxisScale';
 import {
-  PRICE_SCALE_CONTROL_WEB_SIZING,
+  PRICE_SCALE_CONTROL_COMPACT_SIZING,
   getTradingViewNativePriceScaleControlsMinimumAxisWidth,
 } from '../utils/priceScaleControls';
 import { getTradingViewNativeScaledSubIndicatorAxisLabel } from '../utils/subIndicatorPriceScale';
@@ -51,7 +51,7 @@ export function getTradingViewNativeCanvasPriceAxisWidth(
     return getTradingViewNativePriceAxisWidth({
       currentPriceLabelWidth: 0,
       minimumWidth: getTradingViewNativePriceScaleControlsMinimumAxisWidth(
-        PRICE_SCALE_CONTROL_WEB_SIZING,
+        PRICE_SCALE_CONTROL_COMPACT_SIZING,
       ),
       widestPriceLabelWidth: 0,
     });
@@ -70,7 +70,7 @@ export function getTradingViewNativeCanvasPriceAxisWidth(
   return getTradingViewNativePriceAxisWidth({
     currentPriceLabelWidth: context.measureText(labels.currentPrice).width,
     minimumWidth: getTradingViewNativePriceScaleControlsMinimumAxisWidth(
-      PRICE_SCALE_CONTROL_WEB_SIZING,
+      PRICE_SCALE_CONTROL_COMPACT_SIZING,
     ),
     widestPriceLabelWidth: Math.max(
       context.measureText(labels.chartComponentPrice).width,

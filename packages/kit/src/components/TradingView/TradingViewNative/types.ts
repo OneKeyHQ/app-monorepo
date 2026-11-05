@@ -1,5 +1,6 @@
-import type { ReactNode } from 'react';
+import type { ReactElement, ReactNode } from 'react';
 
+import type { IIconButtonProps, IXStackProps } from '@onekeyhq/components';
 import type {
   ITradingViewNativeChartLineStyle,
   ITradingViewNativeChartType,
@@ -7,11 +8,38 @@ import type {
 
 import type { ITradingViewNativeChartInterval } from './data/tradingViewNativeIntervals';
 import type { ITradingViewNativeIndicatorQuickBarState } from '../TradingViewChartControls/indicatorSelector/nativeIndicatorQuickBarState';
+import type { ITradingViewIntervalSegmentsProps } from '../TradingViewChartControls/types';
+
+type IChartButtonAppearance = Pick<
+  IIconButtonProps,
+  | 'width'
+  | 'height'
+  | 'p'
+  | 'hitSlop'
+  | 'bg'
+  | 'borderWidth'
+  | 'borderColor'
+  | 'borderRadius'
+  | 'pressStyle'
+  | 'iconSize'
+  | 'left'
+>;
+
+export interface ITradingViewMobileControlsAppearance {
+  renderIntervals: (props: ITradingViewIntervalSegmentsProps) => ReactElement;
+  actions: Pick<IXStackProps, 'gap' | 'minHeight'>;
+  settingsButton: IChartButtonAppearance;
+  fullscreenButton: IChartButtonAppearance;
+  denseIndicators: boolean;
+}
 
 export type { ITradingViewNativeChartType } from '@onekeyhq/shared/types/tradingViewNative';
 
 export type ITradingViewNativeHyperliquidEnvironment = 'mainnet' | 'testnet';
-export type ITradingViewNativeChartDisplayMode = 'default' | 'compact';
+export type ITradingViewNativeChartDisplayMode =
+  | 'default'
+  | 'compact'
+  | 'marketDetail';
 export type ITradingViewNativeStorageNamespace = 'market' | 'perps' | 'swap';
 export type ITradingViewNativePriceScaleMode = 'linear' | 'logarithmic';
 export type ITradingViewNativeCandleTimeMode = 'calendar' | 'fixed';
@@ -107,6 +135,7 @@ export interface ITradingViewNativeReferenceLineComponent {
     /** Opt into an outlined label with an optional quantity segment. */
     label?: {
       variant?: 'order';
+      priceBadgeBackgroundColor?: string;
       /** Offset from the chart's left edge; numbers are pixels. */
       offset: number | { type: 'chartWidthPercentage'; value: number };
       backgroundColor: string;
@@ -197,7 +226,10 @@ export interface ITradingViewNativeProps {
   nativeChartSettingsInToolbar?: boolean;
   /** Extra controls rendered in the mobile toolbar, to the left of settings. */
   mobileToolbarExtra?: ReactNode;
+  mobileControlsAppearance?: ITradingViewMobileControlsAppearance;
   initialRightOffset?: ITradingViewNativeInitialRightOffset;
+  initialZoomScale?: number;
+  defaultPriceRangeScale?: number;
   nativeChartDisplayMode?: ITradingViewNativeChartDisplayMode;
   /** Limits new selections without hiding sub-indicators that are already active. */
   maxSelectableSubIndicatorCount?: number;

@@ -34,7 +34,9 @@ function getFillId(fill: IFill) {
   return `${fill.coin}:${fill.tid ?? fill.oid}:${fill.time}`;
 }
 
-export function usePerpsNativeChartMarks(): ITradingViewNativeTradeMarksComponent[] {
+export function usePerpsNativeChartMarks(
+  active = true,
+): ITradingViewNativeTradeMarksComponent[] {
   const intl = useIntl();
   const [instrument] = useActiveTradeInstrumentAtom();
   const [account] = usePerpsActiveAccountAtom();
@@ -68,7 +70,7 @@ export function usePerpsNativeChartMarks(): ITradingViewNativeTradeMarksComponen
 
   useEffect(() => {
     const previousRefresh = lastRefresh.current;
-    if (!accountAddress || showTradeMarks === false) return;
+    if (!active || !accountAddress || showTradeMarks === false) return;
     let disposed = false;
     const mergeFills = (fills: IFill[]) => {
       if (disposed) return;
@@ -130,7 +132,14 @@ export function usePerpsNativeChartMarks(): ITradingViewNativeTradeMarksComponen
       appEventBus.off(EAppEventBusNames.HyperliquidDataUpdate, onFills);
       appEventBus.off(EAppEventBusNames.PerpsWebSocketRecovered, onRecovery);
     };
-  }, [accountAddress, request, showTradeMarks, refreshHook, restoreNonce]);
+  }, [
+    active,
+    accountAddress,
+    request,
+    showTradeMarks,
+    refreshHook,
+    restoreNonce,
+  ]);
 
   return useMemo(() => {
     if (

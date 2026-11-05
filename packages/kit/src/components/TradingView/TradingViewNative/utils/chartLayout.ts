@@ -91,6 +91,7 @@ export interface ITradingViewNativeWatermarkLayout {
 }
 
 export interface ITradingViewNativeChartLayout {
+  priceChartTop?: number;
   dateFormatTemplate?: string;
   autoPriceRange: ITradingViewNativePriceRange;
   mainChartBottom: number;
@@ -145,7 +146,7 @@ function createTimeAxisInterval(
 
 // Calendar buckets can be shorter than their nominal duration around DST
 // transitions and short months, so eligibility uses the shortest cadence.
-const TIME_AXIS_INTERVALS: ITimeAxisInterval[] = [
+const DENSE_TIME_AXIS_INTERVALS: ITimeAxisInterval[] = [
   createTimeAxisInterval('minute', 1, SECONDS_PER_MINUTE),
   createTimeAxisInterval('minute', 5, 5 * SECONDS_PER_MINUTE),
   createTimeAxisInterval('minute', 15, 15 * SECONDS_PER_MINUTE),
@@ -162,6 +163,8 @@ const TIME_AXIS_INTERVALS: ITimeAxisInterval[] = [
   ),
   createTimeAxisInterval('day', 1, SECONDS_PER_DAY, 23 * SECONDS_PER_HOUR),
   createTimeAxisInterval('day', 2, 2 * SECONDS_PER_DAY, 47 * SECONDS_PER_HOUR),
+  createTimeAxisInterval('day', 3, 3 * SECONDS_PER_DAY, 71 * SECONDS_PER_HOUR),
+  createTimeAxisInterval('day', 5, 5 * SECONDS_PER_DAY, 119 * SECONDS_PER_HOUR),
   createTimeAxisInterval('day', 7, 7 * SECONDS_PER_DAY, 167 * SECONDS_PER_HOUR),
   createTimeAxisInterval(
     'day',
@@ -193,6 +196,10 @@ const TIME_AXIS_INTERVALS: ITimeAxisInterval[] = [
   createTimeAxisInterval('year', 5, 5 * 365 * SECONDS_PER_DAY),
   createTimeAxisInterval('year', 10, 10 * 365 * SECONDS_PER_DAY),
 ];
+
+const TIME_AXIS_INTERVALS = DENSE_TIME_AXIS_INTERVALS.filter(
+  ({ unit, step }) => unit !== 'day' || (step !== 3 && step !== 5),
+);
 
 function formatTradingViewNativeSubscript(value: number) {
   'worklet';
@@ -883,21 +890,23 @@ function getTimeAxisBucket(
 }
 
 function getClosestTimeAxisInterval({
+  intervals,
   minimumSeconds,
   targetSeconds,
 }: {
+  intervals: ITimeAxisInterval[];
   minimumSeconds: number;
   targetSeconds: number;
 }) {
   'worklet';
 
   const firstEligibleInterval =
-    TIME_AXIS_INTERVALS.find(
+    intervals.find(
       ({ minimumRealizableSeconds }) =>
         minimumRealizableSeconds >= minimumSeconds,
-    ) ?? TIME_AXIS_INTERVALS[TIME_AXIS_INTERVALS.length - 1];
+    ) ?? intervals[intervals.length - 1];
 
-  return TIME_AXIS_INTERVALS.reduce((closestInterval, currentInterval) => {
+  return intervals.reduce((closestInterval, currentInterval) => {
     if (currentInterval.minimumRealizableSeconds < minimumSeconds) {
       return closestInterval;
     }
@@ -911,13 +920,15 @@ function getClosestTimeAxisInterval({
 
 export function getTradingViewNativeTimeTickMinimumIndexSpacing(
   pointSpacing: number,
+  minimumSpacing?: number,
 ) {
   'worklet';
 
   return pointSpacing > 0 && Number.isFinite(pointSpacing)
     ? Math.max(
         Math.ceil(
-          TRADING_VIEW_NATIVE_TIME_AXIS_MIN_TICK_SPACING / pointSpacing,
+          (minimumSpacing ?? TRADING_VIEW_NATIVE_TIME_AXIS_MIN_TICK_SPACING) /
+            pointSpacing,
         ),
         1,
       )
@@ -925,6 +936,7 @@ export function getTradingViewNativeTimeTickMinimumIndexSpacing(
 }
 
 export function getTradingViewNativeTimeAxisLayout({
+  denseTimeTicks,
   dateFormatTemplate,
   candleIntervalSeconds,
   chartWidth,
@@ -937,6 +949,7 @@ export function getTradingViewNativeTimeAxisLayout({
   chartWidth: number;
   endIndex: number;
   minimumIndexSpacing: number;
+  denseTimeTicks?: boolean;
   points: IMarketTokenKLineDataPoint[];
   startIndex: number;
   dateFormatTemplate?: string;
@@ -986,6 +999,7 @@ export function getTradingViewNativeTimeAxisLayout({
       ? candleIntervalSeconds * normalizedMinimumIndexSpacing
       : 0;
   const interval = getClosestTimeAxisInterval({
+    intervals: denseTimeTicks ? DENSE_TIME_AXIS_INTERVALS : TIME_AXIS_INTERVALS,
     minimumSeconds: minimumInterval,
     targetSeconds: targetInterval,
   });
@@ -1050,8 +1064,11 @@ export function getTradingViewNativeChartLayout({
   candleIntervalSeconds,
   chartType = 'candlestick',
   contentBottomInset = 0,
+  priceChartBottomPadding,
+  priceChartTop,
   hasVolume,
   height,
+  denseTimeTicks,
   minimumTimeTickIndexSpacing,
   points,
   pinnedPriceRange,
@@ -1071,8 +1088,11 @@ export function getTradingViewNativeChartLayout({
   candleIntervalSeconds: number;
   chartType?: ITradingViewNativeChartType;
   contentBottomInset?: number;
+  priceChartBottomPadding?: number;
+  priceChartTop?: number;
   hasVolume: boolean;
   height: number;
+  denseTimeTicks?: boolean;
   minimumTimeTickIndexSpacing: number;
   points: IMarketTokenKLineDataPoint[];
   pinnedPriceRange?: ITradingViewNativePriceRange | null;
@@ -1099,14 +1119,13 @@ export function getTradingViewNativeChartLayout({
   const normalizedContentBottomInset = Number.isFinite(contentBottomInset)
     ? Math.max(contentBottomInset, 0)
     : 0;
+  const chartTop = priceChartTop ?? TRADING_VIEW_NATIVE_CHART_TOP_PADDING;
   const mainChartBottom = Math.max(
     timeAxisY - normalizedContentBottomInset,
-    TRADING_VIEW_NATIVE_CHART_TOP_PADDING,
+    chartTop,
   );
   const contentHeight =
-    mainChartBottom -
-    TRADING_VIEW_NATIVE_CHART_TOP_PADDING -
-    TRADING_VIEW_NATIVE_CHART_BOTTOM_PADDING;
+    mainChartBottom - chartTop - TRADING_VIEW_NATIVE_CHART_BOTTOM_PADDING;
   if (!points.length || chartWidth <= 0 || contentHeight <= 0) {
     return null;
   }
@@ -1137,10 +1156,12 @@ export function getTradingViewNativeChartLayout({
   });
 
   const volumeHeight = hasVolume ? contentHeight * VOLUME_HEIGHT_RATIO : 0;
+  const bottomPadding =
+    priceChartBottomPadding === undefined
+      ? TRADING_VIEW_NATIVE_PRICE_CHART_BOTTOM_PADDING
+      : Math.min(priceChartBottomPadding, contentHeight / 4);
   const priceChartHeight = Math.max(
-    contentHeight -
-      volumeHeight -
-      TRADING_VIEW_NATIVE_PRICE_CHART_BOTTOM_PADDING,
+    contentHeight - volumeHeight - bottomPadding,
     0,
   );
   if (priceChartHeight <= 0) {
@@ -1179,7 +1200,7 @@ export function getTradingViewNativeChartLayout({
           mode: resolvedPriceScaleMode,
           progress,
         }),
-        y: TRADING_VIEW_NATIVE_CHART_TOP_PADDING + priceChartHeight * progress,
+        y: chartTop + priceChartHeight * progress,
       };
     },
   );
@@ -1211,6 +1232,7 @@ export function getTradingViewNativeChartLayout({
   );
 
   const timeTicks = getTradingViewNativeTimeAxisLayout({
+    denseTimeTicks,
     dateFormatTemplate,
     candleIntervalSeconds,
     chartWidth,
@@ -1223,6 +1245,7 @@ export function getTradingViewNativeChartLayout({
     autoPriceRange,
     ...(dateFormatTemplate ? { dateFormatTemplate } : {}),
     mainChartBottom,
+    priceChartTop: chartTop,
     maxPrice,
     maxVolume,
     minPrice,
@@ -1246,16 +1269,19 @@ export function getTradingViewNativePriceY(
     maxPrice,
     minPrice,
     priceChartHeight,
+    priceChartTop,
     priceScaleMode = 'linear',
   }: Pick<
     ITradingViewNativeChartLayout,
     'maxPrice' | 'minPrice' | 'priceChartHeight'
   > &
-    Partial<Pick<ITradingViewNativeChartLayout, 'priceScaleMode'>>,
+    Partial<
+      Pick<ITradingViewNativeChartLayout, 'priceScaleMode' | 'priceChartTop'>
+    >,
 ) {
   'worklet';
 
-  const chartTop = TRADING_VIEW_NATIVE_CHART_TOP_PADDING;
+  const chartTop = priceChartTop ?? TRADING_VIEW_NATIVE_CHART_TOP_PADDING;
   const progress = getTradingViewNativePriceProgress({
     maxPrice,
     minPrice,
@@ -1273,8 +1299,10 @@ export function getTradingViewNativePriceAtY({
   minPrice,
   priceChartHeight,
   priceScaleMode = 'linear',
+  priceChartTop,
   y,
 }: {
+  priceChartTop?: number;
   allowOutsideChart?: boolean;
   maxPrice: number;
   minPrice: number;
@@ -1284,20 +1312,19 @@ export function getTradingViewNativePriceAtY({
 }) {
   'worklet';
 
-  const chartBottom = TRADING_VIEW_NATIVE_CHART_TOP_PADDING + priceChartHeight;
+  const chartTop = priceChartTop ?? TRADING_VIEW_NATIVE_CHART_TOP_PADDING;
+  const chartBottom = chartTop + priceChartHeight;
   if (
     !Number.isFinite(maxPrice) ||
     !Number.isFinite(minPrice) ||
     !Number.isFinite(y) ||
     priceChartHeight <= 0 ||
-    (!allowOutsideChart &&
-      (y < TRADING_VIEW_NATIVE_CHART_TOP_PADDING || y > chartBottom))
+    (!allowOutsideChart && (y < chartTop || y > chartBottom))
   ) {
     return null;
   }
 
-  const progress =
-    (y - TRADING_VIEW_NATIVE_CHART_TOP_PADDING) / priceChartHeight;
+  const progress = (y - chartTop) / priceChartHeight;
   return getTradingViewNativePriceAtProgress({
     maxPrice,
     minPrice,
@@ -1341,6 +1368,7 @@ export function getTradingViewNativeVolumeAtY({
 
 export function getTradingViewNativeCurrentPriceLayout({
   labelHeight,
+  priceChartTop,
   maxPrice,
   minPrice,
   price,
@@ -1348,6 +1376,7 @@ export function getTradingViewNativeCurrentPriceLayout({
   priceScaleMode = 'linear',
 }: {
   labelHeight: number;
+  priceChartTop?: number;
   maxPrice: number;
   minPrice: number;
   price: number;
@@ -1369,9 +1398,10 @@ export function getTradingViewNativeCurrentPriceLayout({
     return null;
   }
 
-  const chartTop = TRADING_VIEW_NATIVE_CHART_TOP_PADDING;
+  const chartTop = priceChartTop ?? TRADING_VIEW_NATIVE_CHART_TOP_PADDING;
   const chartBottom = chartTop + priceChartHeight;
   const lineY = getTradingViewNativePriceY(price, {
+    priceChartTop,
     maxPrice,
     minPrice,
     priceChartHeight,

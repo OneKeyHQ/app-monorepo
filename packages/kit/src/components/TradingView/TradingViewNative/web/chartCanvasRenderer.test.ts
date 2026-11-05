@@ -30,6 +30,7 @@ function createCanvasContext() {
     measureText: jest.fn(() => ({ width: 6 })),
     moveTo: jest.fn(),
     rect: jest.fn(),
+    roundRect: jest.fn(),
     restore: jest.fn(),
     save: jest.fn(),
     setLineDash: jest.fn(),
@@ -50,6 +51,36 @@ const colors = {
 };
 
 describe('TradingViewNative web canvas scene renderer', () => {
+  it('centers compact badge ink including descenders and side bearings', () => {
+    const context = createCanvasContext();
+    const metrics = {
+      actualBoundingBoxAscent: 8,
+      actualBoundingBoxDescent: 2,
+      actualBoundingBoxLeft: -1,
+      actualBoundingBoxRight: 21,
+      width: 24,
+    };
+    context.measureText.mockReturnValue(metrics);
+    drawTradingViewNativeCanvasScene({
+      colors,
+      customPaintStyles: {},
+      context: context as unknown as CanvasRenderingContext2D,
+      commands: [
+        {
+          kind: 'text',
+          centerInk: true,
+          text: 'Liq.',
+          font: 'referenceLineLabel',
+          paint: 'axisText',
+          x: 50,
+          y: 30,
+        },
+      ],
+      watermarkImage: null,
+    });
+    expect(context.fillText).toHaveBeenCalledWith('Liq.', 39, 33);
+  });
+
   it.each(['B', 'S'] as const)(
     'preserves the existing %s label font and position on web',
     (label) => {
@@ -81,6 +112,31 @@ describe('TradingViewNative web canvas scene renderer', () => {
       expect(context.restore).toHaveBeenCalledTimes(1);
     },
   );
+
+  it('draws the rounded badge background and outline', () => {
+    const context = createCanvasContext();
+    const badge = {
+      kind: 'roundRect',
+      x: 3,
+      y: 4,
+      width: 30,
+      height: 18,
+      radius: 4,
+      paint: 'background',
+    } as const;
+    drawTradingViewNativeCanvasScene({
+      colors,
+      commands: [badge, { ...badge, customPaintId: 'border' }],
+      context: context as unknown as CanvasRenderingContext2D,
+      customPaintStyles: {
+        border: { color: '#30A46C', opacity: 1, drawStyle: 'stroke' },
+      },
+      watermarkImage: null,
+    });
+    expect(context.roundRect).toHaveBeenCalledWith(3, 4, 30, 18, 4);
+    expect(context.fill).toHaveBeenCalledTimes(1);
+    expect(context.stroke).toHaveBeenCalledTimes(1);
+  });
 
   it('uses a regular sans-serif font for price-axis and reference labels on web', () => {
     expect(getTradingViewNativeCanvasFont('priceAxis', 14)).toBe(

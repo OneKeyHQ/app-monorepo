@@ -109,6 +109,7 @@ export type IStockPriceLineChartHoverPoint = {
 export function StockPriceLineChart({
   data,
   height,
+  lineColorToken = 'textSuccess',
   pulseLastPoint,
   previousClose,
   showCurrentPriceLabel,
@@ -123,6 +124,7 @@ export function StockPriceLineChart({
 }: {
   data: IMarketTokenChart;
   height: number;
+  lineColorToken?: 'textSuccess' | 'green9';
   pulseLastPoint?: boolean;
   // Previous session close. Drawn as a dashed line with a "Prev close" tag and
   // its own axis label, and kept inside the price scale even when the range
@@ -238,7 +240,7 @@ export function StockPriceLineChart({
     };
   }, [data, hoverData]);
 
-  const solidLineColor = theme.textSuccess.val;
+  const solidLineColor = theme[lineColorToken].val;
   // Constant for the life of the chart: only the overlay's data follows the
   // cursor, so hovering never re-creates the chart instance.
   const dimmedLineColor = useMemo(

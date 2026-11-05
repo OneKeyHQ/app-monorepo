@@ -1229,6 +1229,39 @@ describe('TradingViewNative chart layout', () => {
     expect(layout.ticks.length).toBeGreaterThan(1);
   });
 
+  it.each([
+    [16, 2, 3],
+    [26, 7, 5],
+  ])(
+    'opts into denser day ticks for %i daily candles',
+    (count, regular, dense) => {
+      const points = buildPoints({
+        count,
+        startTimestamp: getLocalTimestamp(2025, 0, 15),
+        stepSeconds: SECONDS_PER_DAY,
+      });
+      const options = {
+        points,
+        candleIntervalSeconds: SECONDS_PER_DAY,
+        chartWidth: 360,
+        startIndex: 0,
+        endIndex: count,
+        minimumIndexSpacing: 1,
+      };
+      for (const [denseTimeTicks, step] of [
+        [false, regular],
+        [true, dense],
+      ] as const) {
+        const { ticks } = getTradingViewNativeTimeAxisLayout({
+          ...options,
+          denseTimeTicks,
+        });
+        expect(ticks.length).toBeGreaterThan(2);
+        expect(ticks[2].index - ticks[1].index).toBe(step);
+      }
+    },
+  );
+
   it('uses month ticks for a one-year visible range', () => {
     const points = buildPoints({
       count: 53,

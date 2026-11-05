@@ -713,9 +713,14 @@ describe('TradingViewNative trading line labels', () => {
   };
   const paintId = 'chart.component.referenceLine.limit-order.label.trading';
 
-  function buildTradingLineScene(width: number, label = orderLabel) {
+  function buildTradingLineScene(
+    width: number,
+    label = orderLabel,
+    marketDetailLayout = false,
+  ) {
     return buildPreviousCloseScene(101, {
       width,
+      marketDetailLayout,
       chartComponents: [
         {
           id: 'limit-order',
@@ -723,7 +728,7 @@ describe('TradingViewNative trading line labels', () => {
           props: {
             anchor: { type: 'price', price: 101 },
             color: '#30A46C',
-            interactive: true,
+            interactive: !marketDetailLayout,
             cancelable: true,
             draggable: true,
             style: 'dotted',
@@ -741,14 +746,75 @@ describe('TradingViewNative trading line labels', () => {
   ) {
     const rect = scene.commands.find(
       (command) =>
-        command.kind === 'rect' &&
+        (command.kind === 'rect' || command.kind === 'roundRect') &&
         command.customPaintId === `${paintId}.${part}`,
     );
-    if (rect?.kind !== 'rect') {
+    if (rect?.kind !== 'rect' && rect?.kind !== 'roundRect') {
       throw new OneKeyLocalError(`Expected trading label ${part}`);
     }
     return rect;
   }
+
+  it('keeps the border, separate quantity and colored price badge in the compact style', () => {
+    const scene = buildTradingLineScene(
+      320,
+      {
+        ...orderLabel,
+        offset: 0,
+        backgroundColor: '#30A46C',
+        color: '#FFFFFF',
+        priceBadgeBackgroundColor: orderLabel.backgroundColor,
+        quantity: {
+          text: '0.00015',
+          backgroundColor: orderLabel.backgroundColor,
+          color: '#30A46C',
+        },
+      },
+      true,
+    );
+    expect(getLabelRect(scene, 'body')).toMatchObject({ x: 0, height: 16 });
+    expect(getLabelRect(scene, 'quantity').height).toBe(16);
+    expect(scene.commands).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          kind: 'text',
+          font: 'referenceLineLabel',
+          text: 'Limit 101',
+        }),
+        expect.objectContaining({
+          kind: 'text',
+          font: 'referenceLineLabel',
+          text: '0.00015',
+        }),
+        expect.objectContaining({
+          kind: 'roundRect',
+          radius: 4,
+          customPaintId: `${paintId}.border`,
+        }),
+      ]),
+    );
+    expect(scene.customPaintStyles[`${paintId}.body`].color).toBe('#30A46C');
+    expect(scene.customPaintStyles[`${paintId}.bodyText`].color).toBe(
+      '#FFFFFF',
+    );
+    expect(scene.customPaintStyles[`${paintId}.quantity`].color).toBe(
+      orderLabel.backgroundColor,
+    );
+    expect(scene.customPaintStyles[`${paintId}.quantityText`].color).toBe(
+      '#30A46C',
+    );
+    const axisId = 'chart.component.referenceLine.limit-order';
+    expect(scene.customPaintStyles[`${axisId}.label`].color).toBe(
+      orderLabel.backgroundColor,
+    );
+    expect(scene.customPaintStyles[`${axisId}.text`].color).toBe('#30A46C');
+    const badge = scene.commands.find(
+      (command) =>
+        command.kind === 'roundRect' &&
+        command.customPaintId === `${axisId}.label`,
+    );
+    expect(badge?.kind === 'roundRect' && badge.x + badge.width).toBe(320);
+  });
 
   it.each([700, 1000])(
     'positions a compact order label at 70 percent of a %s px chart',

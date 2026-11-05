@@ -11,7 +11,10 @@ import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 
 import { pushTradingViewNativeFullscreenModal } from './TradingViewNativePresentation';
 
-import type { ITradingViewNativeStorageNamespace } from './types';
+import type {
+  ITradingViewMobileControlsAppearance,
+  ITradingViewNativeStorageNamespace,
+} from './types';
 
 const SETTINGS_BUTTON_SIZE = 24;
 const PRICE_AXIS_FALLBACK_WIDTH = 52;
@@ -33,6 +36,7 @@ export function TradingViewNativeChartSettingsButton({
   isChartSwitchDisabled = false,
   onChartSwitch,
   onBeforeOpenSettings,
+  appearance,
   placement = 'chart',
 }: {
   storageNamespace?: ITradingViewNativeStorageNamespace;
@@ -41,6 +45,7 @@ export function TradingViewNativeChartSettingsButton({
   isChartSwitchDisabled?: boolean;
   onChartSwitch?: () => void;
   onBeforeOpenSettings?: () => void;
+  appearance?: ITradingViewMobileControlsAppearance['settingsButton'];
   placement?: 'chart' | 'toolbar';
 }) {
   const isToolbar = placement === 'toolbar';
@@ -100,6 +105,7 @@ export function TradingViewNativeChartSettingsButton({
       {...HEADER_ICON_BUTTON_STYLE_PROPS}
       bg={isToolbar ? '$transparent' : '$bgApp'}
       borderWidth={0}
+      {...appearance}
     />
   );
 }
