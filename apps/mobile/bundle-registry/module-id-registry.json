@@ -5517,6 +5517,7 @@
     "node_modules/@onekeyfe/react-native-native-overlay/src/animation/resolveAnimation.ts": 52706,
     "node_modules/@onekeyfe/react-native-native-overlay/src/animation/spring.ts": 38961,
     "node_modules/@onekeyfe/react-native-native-overlay/src/animation/types.ts": 27816,
+    "node_modules/@onekeyfe/react-native-native-overlay/src/contentSize.ts": 43657,
     "node_modules/@onekeyfe/react-native-native-overlay/src/index.ts": 50835,
     "node_modules/@onekeyfe/react-native-native-overlay/src/sheetWidth.ts": 33499,
     "node_modules/@onekeyfe/react-native-native-overlay/src/types.ts": 33646,

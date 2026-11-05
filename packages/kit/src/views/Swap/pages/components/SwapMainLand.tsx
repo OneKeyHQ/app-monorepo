@@ -31,7 +31,10 @@ import { ANIMATE_ONLY_OPACITY } from '@onekeyhq/components/src/utils/animationCo
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { LazyPageContainer } from '@onekeyhq/kit/src/components/LazyPageContainer';
-import { getFoldableIPhoneHeaderTop } from '@onekeyhq/kit/src/components/TabPageHeader/headerLayout';
+import {
+  HEADER_EMPTY_INSET_SPACER_HEIGHT,
+  getFoldableIPhoneHeaderTop,
+} from '@onekeyhq/kit/src/components/TabPageHeader/headerLayout';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useCustomRpcAvailability } from '@onekeyhq/kit/src/hooks/useCustomRpcAvailability';
 import {
@@ -216,7 +219,6 @@ type ISwapMainLoadContentProps = Omit<ISwapMainLoadProps, 'storeName'> & {
 
 const SWAP_CONTENT_ENTER_STYLE = { opacity: 0 } as const;
 const SWAP_HEADER_ROW_HEIGHT = 56;
-const MD_HEADER_EMPTY_INSET_SPACER = 8;
 
 const SwapMainLoad = ({
   storeName,
@@ -1802,7 +1804,7 @@ const SwapMainLoad = ({
         ? getFoldableIPhoneHeaderTop(SWAP_HEADER_ROW_HEIGHT)
         : 0;
     contentTopPadding = foldableHeaderTop
-      ? foldableHeaderTop - MD_HEADER_EMPTY_INSET_SPACER
+      ? foldableHeaderTop - HEADER_EMPTY_INSET_SPACER_HEIGHT
       : '$0';
   }
 

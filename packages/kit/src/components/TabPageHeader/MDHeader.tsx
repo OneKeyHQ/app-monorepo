@@ -35,7 +35,10 @@ import { LazyMoreActionButton } from '../MoreActionButton/LazyMoreActionButton';
 
 import { HeaderNotificationIconButton } from './components/HeaderNotificationIconButton';
 import { HeaderUpdateButton } from './components/HeaderUpdateButton';
-import { getFoldableIPhoneHeaderTop } from './headerLayout';
+import {
+  HEADER_EMPTY_INSET_SPACER_HEIGHT,
+  getFoldableIPhoneHeaderTop,
+} from './headerLayout';
 import { HeaderLeft } from './HeaderLeft';
 import { HeaderMDSearch } from './HeaderMDSearch';
 import { HeaderRight, SelectorTrigger } from './HeaderRight';
@@ -275,7 +278,7 @@ export function MDHeader({
           )}
         </>
       ) : (
-        <XStack h={top || '$2'} bg="$bgApp" />
+        <XStack h={top || HEADER_EMPTY_INSET_SPACER_HEIGHT} bg="$bgApp" />
       )}
     </>
   );

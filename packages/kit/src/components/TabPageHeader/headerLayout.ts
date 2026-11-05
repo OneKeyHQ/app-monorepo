@@ -28,6 +28,9 @@ const FOLDABLE_IPHONE_BAR_CENTER_Y = 48;
 
 export const HEADER_SEARCH_BAR_HEIGHT = 44;
 
+// MDHeader's spacer on tabs without a base header row, when the top inset is 0.
+export const HEADER_EMPTY_INSET_SPACER_HEIGHT = 8;
+
 export function getFoldableIPhoneHeaderTop(rowHeight: number) {
   return isFoldableIPhone() ? FOLDABLE_IPHONE_BAR_CENTER_Y - rowHeight / 2 : 0;
 }

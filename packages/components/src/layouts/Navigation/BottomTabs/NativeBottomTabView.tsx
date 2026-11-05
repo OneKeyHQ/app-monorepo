@@ -125,14 +125,16 @@ export function NativeBottomTabView({
   tabBar,
   tabBarHidden,
   sideAccessoryIcon,
+  onTabBarPlacementChange,
   ...rest
 }: Props) {
   const [isVerticalTabBar, setIsVerticalTabBar] = useState(false);
   const handleTabBarPlacementChange = useCallback(
     (placement: TabBarPlacement) => {
       setIsVerticalTabBar(placement !== 'bottom');
+      onTabBarPlacementChange?.(placement);
     },
-    [],
+    [onTabBarPlacementChange],
   );
   const [activatedRouteKeys, setActivatedRouteKeys] = useState<string[]>(() => {
     const focusedRouteKey = state.routes[state.index]?.key;
