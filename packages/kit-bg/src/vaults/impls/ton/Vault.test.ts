@@ -9,6 +9,7 @@ import {
 import TonWeb from 'tonweb';
 
 import type { IEncodedTxTon } from '@onekeyhq/core/src/chains/ton/types';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import { convertDecodedTxActionsToSignatureConfirmTxDisplayComponents } from '@onekeyhq/shared/src/utils/txActionUtils';
@@ -120,7 +121,7 @@ afterEach(() => {
 
 describe('TON Jetton confirmation integrity', () => {
   it.each(firmwareTouchSigningMessages.fixtures)(
-    'uses the same Touch projection for confirmation of $name',
+    'rejects StateInit that Touch would omit before confirmation of $name',
     async ({ encodedTx }) => {
       const { vault } = setup();
       vault.accountId = "hw-test--m/44'/607'/0'--v4R2";
@@ -146,15 +147,20 @@ describe('TON Jetton confirmation integrity', () => {
         bleVersion: '',
         bootloaderVersion: '',
       });
-      const decoded = await vault.buildDecodedTx({ unsignedTx: { encodedTx } });
-      const actual = decoded.encodedTx as IEncodedTxTon;
-      expect(actual.messages.every((message) => !message.stateInit)).toBe(true);
+      await expect(
+        vault.buildDecodedTx({ unsignedTx: { encodedTx } }),
+      ).rejects.toMatchObject({
+        key: ETranslations.hardware_third_party_feature_not_supported,
+      });
       expect(encodedTx.messages[0].stateInit).toBeDefined();
       getDevice.mockClear();
-      await vault.buildDecodedTx({
-        unsignedTx: { encodedTx: actual },
+      const history = await vault.buildDecodedTx({
+        unsignedTx: { encodedTx },
         saveToLocalHistory: true,
       });
+      expect((history.encodedTx as IEncodedTxTon).messages[0].stateInit).toBe(
+        encodedTx.messages[0].stateInit,
+      );
       expect(getDevice).not.toHaveBeenCalled();
     },
   );
@@ -183,12 +189,11 @@ describe('TON Jetton confirmation integrity', () => {
       const encodedTx: IEncodedTxTon = {
         from: friendly(FROM),
         messages: [
-          { address: friendly(RECIPIENT), amount: '1', sendMode: 3 },
+          { address: friendly(RECIPIENT), amount: '1', sendMode: 3, stateInit },
           {
             address: friendly(RECIPIENT),
             amount: '1',
             sendMode: 3,
-            stateInit,
           },
         ],
       };
@@ -196,7 +201,65 @@ describe('TON Jetton confirmation integrity', () => {
         .toBoc()
         .toString('base64');
       const decoded = await vault.buildDecodedTx({ unsignedTx: { encodedTx } });
-      expect((decoded.encodedTx as IEncodedTxTon).messages[1].stateInit).toBe(
+      expect((decoded.encodedTx as IEncodedTxTon).messages[0].stateInit).toBe(
+        stateInit,
+      );
+    },
+  );
+
+  it.each(['sdk', 'firstStateInit', 'exotic'])(
+    'rejects unsupported later StateInit before hardware confirmation: %s',
+    async (kind) => {
+      const { vault } = setup();
+      vault.accountId = "hw-test--m/44'/607'/0'--v4R2";
+      const stateInit = beginCell()
+        .store(
+          storeStateInit({
+            code: beginCell().storeUint(1, 8).endCell(),
+            data: beginCell().storeUint(2, 8).endCell(),
+          }),
+        )
+        .endCell()
+        .toBoc()
+        .toString('base64');
+      const encodedTx: IEncodedTxTon = {
+        from: friendly(FROM),
+        messages: [
+          {
+            address: friendly(RECIPIENT),
+            amount: '1',
+            stateInit: kind === 'firstStateInit' ? stateInit : undefined,
+          },
+          { address: friendly(RECIPIENT), amount: '1', stateInit },
+        ],
+      };
+      if (kind === 'exotic') {
+        encodedTx.messages[0].payload = beginCell()
+          .storeUint(1, 8)
+          .storeUint(7, 8)
+          .storeBuffer(Buffer.alloc(96, 1))
+          .storeUint(0, 48)
+          .endCell({ exotic: true })
+          .toBoc()
+          .toString('base64');
+      }
+      await expect(
+        vault.buildDecodedTx({ unsignedTx: { encodedTx } }),
+      ).rejects.toMatchObject({
+        key: ETranslations.hardware_third_party_feature_not_supported,
+      });
+      const history = await vault.buildDecodedTx({
+        unsignedTx: { encodedTx },
+        saveToLocalHistory: true,
+      });
+      expect((history.encodedTx as IEncodedTxTon).messages[1].stateInit).toBe(
+        stateInit,
+      );
+      vault.accountId = 'test-account';
+      const software = await vault.buildDecodedTx({
+        unsignedTx: { encodedTx },
+      });
+      expect((software.encodedTx as IEncodedTxTon).messages[1].stateInit).toBe(
         stateInit,
       );
     },
@@ -311,6 +374,85 @@ describe('TON Jetton confirmation integrity', () => {
     const decoded = await vault.buildDecodedTx({ unsignedTx: { encodedTx } });
     expect(decoded.actions[0].assetTransfer?.sends).toHaveLength(1);
     expect(decoded.actions[0].assetTransfer?.nativeAmount).toBe('0');
+  });
+
+  it.each([
+    'unknownOpcode',
+    'complexJetton',
+    'unverifiedJetton',
+    'missingToken',
+  ])(
+    'shows the native value of an unknown call in a mixed batch: %s',
+    async (kind) => {
+      const { vault, getData, getToken } = setup();
+      const encodedTx = buildJettonTx();
+      const message = encodedTx.messages[0];
+      message.amount = '100000000000';
+      if (kind === 'unknownOpcode') {
+        message.payload = beginCell()
+          .storeUint(0x12_34_56_78, 32)
+          .endCell()
+          .toBoc()
+          .toString('base64');
+      } else if (kind === 'complexJetton') {
+        message.payload = encodeDecodedJetton({
+          ...checkIsDefined(decodePayload(message.payload).jetton),
+          forwardPayload: beginCell().storeUint(0x12_34_56_78, 32).endCell(),
+        })
+          .toBoc()
+          .toString('base64');
+      } else if (kind === 'unverifiedJetton') {
+        getData.mockRejectedValue(new Error('RPC unavailable'));
+      } else {
+        getToken.mockResolvedValue(null);
+      }
+      encodedTx.messages.unshift({
+        address: friendly(RECIPIENT),
+        amount: '1000000',
+      });
+      const unsignedTx = { encodedTx };
+      const decodedTx = await vault.buildDecodedTx({ unsignedTx });
+      expect(decodedTx.actions).toContainEqual(
+        expect.objectContaining({
+          type: EDecodedTxActionType.UNKNOWN,
+          unknownAction: { from: friendly(FROM), to: message.address },
+        }),
+      );
+      const components =
+        convertDecodedTxActionsToSignatureConfirmTxDisplayComponents({
+          decodedTx,
+          unsignedTx,
+        });
+      const amounts = components.filter(
+        (component) => component.type === EParseTxComponentType.InternalAssets,
+      );
+      expect(amounts).toEqual([
+        expect.objectContaining({ symbol: 'TON', amountParsed: '0.001' }),
+        expect.objectContaining({ symbol: 'TON', amountParsed: '100' }),
+      ]);
+    },
+  );
+
+  it('retains an unknown zero-value call without inventing an asset transfer', async () => {
+    const { vault } = setup();
+    const encodedTx: IEncodedTxTon = {
+      from: friendly(FROM),
+      messages: [
+        {
+          address: friendly(RECIPIENT),
+          amount: '0',
+          payload: beginCell()
+            .storeUint(0x12_34_56_78, 32)
+            .endCell()
+            .toBoc()
+            .toString('base64'),
+        },
+      ],
+    };
+    const decoded = await vault.buildDecodedTx({ unsignedTx: { encodedTx } });
+    expect(decoded.actions).toEqual([
+      expect.objectContaining({ type: EDecodedTxActionType.UNKNOWN }),
+    ]);
   });
 
   it('keeps native transfers native despite injected Jetton metadata', async () => {

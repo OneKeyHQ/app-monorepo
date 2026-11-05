@@ -9,6 +9,8 @@ import type {
 import type { IBackgroundApi } from '@onekeyhq/kit-bg/src/apis/IBackgroundApi';
 import type { IDBDevice } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { LRUCache } from '@onekeyhq/shared/src/utils/cacheUtils';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
@@ -98,6 +100,26 @@ export function getTonHardwareSdkTransaction(
       stateInit: index === 0 && !omitStateInit ? first.stateInit : undefined,
     })),
   };
+}
+
+export function assertTonHardwareTransactionSupported(
+  encodedTx: IEncodedTxTon,
+  { omitStateInit = false }: { omitStateInit?: boolean } = {},
+): void {
+  // The SDK has no per-message init field, and these Touch handlers ignore
+  // even its first init. Never confirm or accept a silently reduced request.
+  if (
+    encodedTx.messages.some(
+      (message, index) => !!message.stateInit && (index > 0 || omitStateInit),
+    )
+  ) {
+    throw new OneKeyLocalError({
+      key: ETranslations.hardware_third_party_feature_not_supported,
+      message: appLocale.intl.formatMessage({
+        id: ETranslations.hardware_third_party_feature_not_supported,
+      }),
+    });
+  }
 }
 
 export async function parseTonTransactionMessage({

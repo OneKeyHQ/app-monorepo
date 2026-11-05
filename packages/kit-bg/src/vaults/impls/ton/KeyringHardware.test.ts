@@ -12,6 +12,7 @@ import TonWeb from 'tonweb';
 
 import type { IEncodedTxTon } from '@onekeyhq/core/src/chains/ton/types';
 import type { ISignTransactionParams } from '@onekeyhq/kit-bg/src/vaults/types';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
@@ -210,7 +211,7 @@ describe('TON hardware signing uses the shared transaction parser', () => {
       })),
     ),
   )(
-    'preserves Touch $version firmware assembly for $name',
+    'rejects StateInit that Touch $version would omit for $name',
     async ({ encodedTx, signingMessage, version }) => {
       jest.spyOn(deviceUtils, 'getDeviceVersion').mockResolvedValue({
         firmwareVersion: version,
@@ -224,20 +225,29 @@ describe('TON hardware signing uses the shared transaction parser', () => {
       );
       checkIsDefined(params.deviceParams).dbDevice.deviceType =
         EDeviceType.Touch;
+      await expect(keyring.signTransaction(params)).rejects.toMatchObject({
+        key: ETranslations.hardware_third_party_feature_not_supported,
+      });
+      expect(tonSignMessage).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each(firmwareTouchSigningMessages.versions)(
+    'continues signing transactions without StateInit on Touch %s',
+    async (firmwareVersion) => {
+      jest.spyOn(deviceUtils, 'getDeviceVersion').mockResolvedValue({
+        firmwareVersion,
+        bleVersion: '',
+        bootloaderVersion: '',
+      });
+      const { keyring, params, tonSignMessage } = setup(transaction());
+      checkIsDefined(params.deviceParams).dbDevice.deviceType =
+        EDeviceType.Touch;
       const signed = await keyring.signTransaction(params);
-      expect(tonSignMessage.mock.calls[0][2].initState).toBe(
-        Buffer.from(encodedTx.messages[0].stateInit ?? '', 'base64').toString(
-          'hex',
-        ),
+      expect(tonSignMessage).toHaveBeenCalledTimes(1);
+      expect((signed.encodedTx as IEncodedTxTon).messages[0].amount).toBe(
+        '50000000',
       );
-      expect(tonSignMessage.mock.calls[0][2].signingMessageRepr).toBeDefined();
-      const actual = signed.encodedTx as IEncodedTxTon;
-      expect(actual.messages.every((message) => !message.stateInit)).toBe(true);
-      expect(actual.messages).toHaveLength(encodedTx.messages.length);
-      const external = loadMessage(Cell.fromBase64(signed.rawTx).beginParse());
-      const body = external.body.beginParse();
-      body.loadBuffer(64);
-      expect(body.asCell().hash()).toEqual(Cell.fromHex(signingMessage).hash());
     },
   );
 
@@ -623,35 +633,46 @@ describe('TON hardware signing uses the shared transaction parser', () => {
     },
   );
 
-  it.each(['mixedModes', 'secondStateInit'] as const)(
-    'preserves the existing SDK batch behavior and records its actual fields: %s',
-    async (kind) => {
+  it('preserves the existing SDK batch send mode and records its actual fields', async () => {
+    const encodedTx = transaction();
+    encodedTx.messages.push({
+      address: friendly(RECIPIENT),
+      amount: '1',
+      sendMode: 1,
+    });
+    const { keyring, params, tonSignMessage } = setup(encodedTx);
+    const signed = await keyring.signTransaction(params);
+    const actual = signed.encodedTx as IEncodedTxTon;
+    expect(tonSignMessage).toHaveBeenCalledTimes(1);
+    expect(actual.messages.map((message) => message.sendMode)).toEqual([3, 3]);
+    expect(actual.messages[1].stateInit).toBeUndefined();
+  });
+
+  it.each([false, true])(
+    'rejects later StateInit before prompting hardware, with first StateInit: %s',
+    async (firstStateInit) => {
       const encodedTx = transaction();
+      const stateInit = beginCell()
+        .store(
+          storeStateInit({
+            code: beginCell().storeUint(1, 8).endCell(),
+            data: beginCell().storeUint(2, 8).endCell(),
+          }),
+        )
+        .endCell()
+        .toBoc()
+        .toString('base64');
+      if (firstStateInit) encodedTx.messages[0].stateInit = stateInit;
       encodedTx.messages.push({
         address: friendly(RECIPIENT),
         amount: '1',
-        sendMode: kind === 'mixedModes' ? 1 : 3,
+        stateInit,
       });
-      if (kind === 'secondStateInit') {
-        encodedTx.messages[1].stateInit = beginCell()
-          .store(
-            storeStateInit({
-              code: beginCell().storeUint(1, 8).endCell(),
-              data: beginCell().storeUint(2, 8).endCell(),
-            }),
-          )
-          .endCell()
-          .toBoc()
-          .toString('base64');
-      }
       const { keyring, params, tonSignMessage } = setup(encodedTx);
-      const signed = await keyring.signTransaction(params);
-      const actual = signed.encodedTx as IEncodedTxTon;
-      expect(tonSignMessage).toHaveBeenCalledTimes(1);
-      expect(actual.messages.map((message) => message.sendMode)).toEqual([
-        3, 3,
-      ]);
-      expect(actual.messages[1].stateInit).toBeUndefined();
+      await expect(keyring.signTransaction(params)).rejects.toMatchObject({
+        key: ETranslations.hardware_third_party_feature_not_supported,
+      });
+      expect(tonSignMessage).not.toHaveBeenCalled();
     },
   );
 
@@ -699,19 +720,23 @@ describe('TON hardware signing uses the shared transaction parser', () => {
         sequenceNo: 7,
         validUntil: EXPIRY,
         messages: [
-          { address: friendly(RECIPIENT), amount: '1', sendMode: 3 },
+          { address: friendly(RECIPIENT), amount: '1', sendMode: 3, stateInit },
           {
             address: friendly(RECIPIENT),
             amount: '1',
             sendMode: 3,
-            stateInit,
           },
         ],
       };
       encodedTx.messages[exoticIndex].payload = exotic
         .toBoc()
         .toString('base64');
-      const app = await serializeUnsignedTransaction({ contract, encodedTx });
+      const app = await serializeUnsignedTransaction({
+        contract,
+        encodedTx,
+        timeout: encodedTx.validUntil,
+        fullStateInit: true,
+      });
       const { keyring, params, tonSignMessage } = setup(encodedTx);
       const account = await keyring.vault.getAccount();
       jest
@@ -744,7 +769,7 @@ describe('TON hardware signing uses the shared transaction parser', () => {
         ),
       ).toBe(true);
       const actual = signed.encodedTx as IEncodedTxTon;
-      expect(actual.messages[1].stateInit).toBe(stateInit);
+      expect(actual.messages[0].stateInit).toBe(stateInit);
       expect(
         Cell.fromBase64(actual.messages[exoticIndex].payload ?? '').hash(),
       ).toEqual(exotic.hash());
@@ -796,7 +821,7 @@ describe('TON hardware signing uses the shared transaction parser', () => {
     );
   });
 
-  it('preserves legacy App StateInit bytes and separately models the complete SDK StateInit', async () => {
+  it('keeps software defaults while requiring complete StateInit for hardware', async () => {
     const contract = new TonWeb.Wallets.all.v4R2(
       new TonWeb.HttpProvider('https://rpc.invalid'),
       { publicKey: Buffer.from(PUBLIC_KEY, 'hex'), wc: 0 },
@@ -830,15 +855,65 @@ describe('TON hardware signing uses the shared transaction parser', () => {
     const sdkMessage = loadMessageRelaxed(sdkSlice.loadRef().beginParse());
     expect(sdkMessage.init?.splitDepth).toBe(5);
     expect(sdkMessage.init?.special).toEqual(special);
-    const { keyring, params } = setup(
+    const { keyring, params, tonSignMessage } = setup(
       encodedTx,
       'pro',
       sdk.signingMessage.toBoc().toString('hex'),
     );
-    await expect(keyring.signTransaction(params)).resolves.toHaveProperty(
-      'rawTx',
+    const signed = await keyring.signTransaction(params);
+    expect(signed.rawTx).toBeDefined();
+    expect(tonSignMessage.mock.calls[0][2].signingMessageRepr).toBe(
+      Buffer.from(sdk.signingMessage.repr()).toString('hex'),
     );
   });
+
+  it.each(['boc', 'hash', 'none'] as const)(
+    'rejects a legacy App response that drops StateInit fields with a %s receipt',
+    async (receiptType) => {
+      jest.spyOn(Date, 'now').mockReturnValue(1_750_000_000_000);
+      const contract = new TonWeb.Wallets.all.v4R2(
+        new TonWeb.HttpProvider('https://rpc.invalid'),
+        { publicKey: Buffer.from(PUBLIC_KEY, 'hex'), wc: 0 },
+      ) as unknown as IWallet;
+      const encodedTx = transaction();
+      // Keep the legacy and current expiry equal to isolate the init fields.
+      encodedTx.validUntil = 1_750_000_060;
+      encodedTx.messages[0].stateInit = beginCell()
+        .store(
+          storeStateInit({
+            code: beginCell().storeUint(1, 8).endCell(),
+            data: beginCell().storeUint(2, 8).endCell(),
+            splitDepth: 5,
+            // oxlint-disable-next-line @cspell/spellchecker
+            special: { tick: true, tock: false },
+          }),
+        )
+        .endCell()
+        .toBoc()
+        .toString('base64');
+      const legacy = await serializeUnsignedTransaction({
+        contract,
+        encodedTx,
+        timeout: encodedTx.validUntil,
+      });
+      const header = legacy.signingMessage.beginParse();
+      header.loadUint(32);
+      expect(header.loadUint(32)).toBe(encodedTx.validUntil);
+      const { keyring, params, tonSignMessage } = setup(encodedTx);
+      let receipt = '';
+      if (receiptType === 'boc') {
+        receipt = legacy.signingMessage.toBoc().toString('hex');
+      } else if (receiptType === 'hash') {
+        receipt = legacy.signingMessage.hash().toString('hex');
+      }
+      tonSignMessage.mockResolvedValue({
+        signature: signTestHash(legacy.signingMessage.hash()),
+        skip_validate: receiptType !== 'boc',
+        signing_message: receipt,
+      });
+      await expect(keyring.signTransaction(params)).rejects.toThrow();
+    },
+  );
 
   it.each([false, true])(
     'checks original SDK StateInit identity with a re-encoded response: %s',
@@ -925,7 +1000,7 @@ describe('TON hardware signing uses the shared transaction parser', () => {
     },
   );
 
-  it('keeps an existing App-assembled StateInit path available when the complete SDK form cannot be parsed', async () => {
+  it('rejects malformed StateInit before prompting hardware', async () => {
     jest.spyOn(Date, 'now').mockReturnValue(1_750_000_000_000);
     const contract = new TonWeb.Wallets.all.v4R2(
       new TonWeb.HttpProvider('https://rpc.invalid'),
@@ -944,9 +1019,7 @@ describe('TON hardware signing uses the shared transaction parser', () => {
       'classic',
       app.signingMessage.hash().toString('hex'),
     );
-    await expect(keyring.signTransaction(params)).resolves.toHaveProperty(
-      'rawTx',
-    );
-    expect(tonSignMessage.mock.calls[0][2].signingMessageRepr).toBeDefined();
+    await expect(keyring.signTransaction(params)).rejects.toThrow();
+    expect(tonSignMessage).not.toHaveBeenCalled();
   });
 });

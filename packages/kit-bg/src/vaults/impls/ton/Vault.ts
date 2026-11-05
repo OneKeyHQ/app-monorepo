@@ -60,6 +60,7 @@ import { KeyringImported } from './KeyringImported';
 import { KeyringWatching } from './KeyringWatching';
 import { ClientTon } from './sdkTon/ClientTon';
 import {
+  assertTonHardwareTransactionSupported,
   getTonHardwareSdkOptions,
   getTonHardwareSdkTransaction,
   isSameTonAddress,
@@ -211,6 +212,9 @@ export default class Vault extends VaultBase {
           })
         : undefined;
     const sdkOptions = await getTonHardwareSdkOptions(device);
+    if (!params.saveToLocalHistory && isHardware) {
+      assertTonHardwareTransactionSupported(originalEncodedTx, sdkOptions);
+    }
     const encodedTx =
       !params.saveToLocalHistory &&
       isHardware &&
@@ -221,12 +225,37 @@ export default class Vault extends VaultBase {
     const from = await this.getAccountAddress();
     const network = await this.getNetwork();
     let toAddress = '';
-    let actions = await Promise.all(
-      encodedTx.messages.map(async (message) => {
+    const messageActions = await Promise.all(
+      encodedTx.messages.map(async (message): Promise<IDecodedTxAction[]> => {
         const unknownAction: IDecodedTxAction = {
           type: EDecodedTxActionType.UNKNOWN,
           direction: EDecodedTxDirection.OTHER,
           unknownAction: { from, to: message.address },
+        };
+        const nativeTransfer: IDecodedTxTransferInfo = {
+          from,
+          to: message.address,
+          amount: new BigNumber(message.amount)
+            .shiftedBy(-network.decimals)
+            .toFixed(),
+          icon: '',
+          symbol: network.symbol,
+          name: network.symbol,
+          tokenIdOnNetwork: '',
+          isNative: true,
+        };
+        const buildUnknownActions = async (): Promise<IDecodedTxAction[]> => {
+          if (!new BigNumber(message.amount).gt(0)) return [unknownAction];
+          // Unknown contract effects do not hide the native value already
+          // committed by this message. Keep the interaction visible as well.
+          return [
+            unknownAction,
+            await this.buildTxTransferAssetAction({
+              from,
+              to: message.address,
+              transfers: [nativeTransfer],
+            }),
+          ];
         };
         const parsed = await parseTonTransactionMessage({
           message,
@@ -264,7 +293,7 @@ export default class Vault extends VaultBase {
               tokenIdOnNetwork: tokenAddress,
             })) ?? (snapshotMatchesToken ? snapshotTokenInfo : undefined);
           if (!token && !isNativeTransfer) {
-            return unknownAction;
+            return buildUnknownActions();
           }
           // Keep the multiplier from the snapshot that rendered the
           // confirmed amount; a fresh token lookup may have drifted.
@@ -300,24 +329,16 @@ export default class Vault extends VaultBase {
           if (!isNativeTransfer && new BigNumber(message.amount).gt(0)) {
             // Attached TON is a separate signed outflow, even if the Jetton
             // wallet later refunds some of it to the payload's response address.
-            transfers.push({
-              from,
-              to: message.address,
-              amount: new BigNumber(message.amount)
-                .shiftedBy(-network.decimals)
-                .toFixed(),
-              icon: '',
-              symbol: network.symbol,
-              name: network.symbol,
-              tokenIdOnNetwork: '',
-              isNative: true,
-            });
+            transfers.push(nativeTransfer);
           }
-          return this.buildTxTransferAssetAction({ from, to, transfers });
+          return [
+            await this.buildTxTransferAssetAction({ from, to, transfers }),
+          ];
         }
-        return unknownAction;
+        return buildUnknownActions();
       }),
     );
+    let actions = messageActions.flat();
 
     if (swapInfo) {
       actions = [

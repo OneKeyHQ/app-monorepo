@@ -1,4 +1,9 @@
-import { Address } from '@ton/core';
+import { Address, beginCell } from '@ton/core';
+
+jest.mock('../dbs/local/localDbInstance', () => ({
+  __esModule: true,
+  default: {},
+}));
 
 jest.mock('@onekeyhq/shared/src/background/backgroundDecorators', () => ({
   backgroundClass: () => () => undefined,
@@ -458,6 +463,80 @@ describe('ServiceSignatureConfirm.buildDecodedTx', () => {
         role: undefined,
         tags: [risk],
       }),
+    );
+  });
+
+  it('shows every native outflow when a TON batch mixes a transfer and an unknown call', async () => {
+    const { default: TonVault } = await import('../vaults/impls/ton/Vault');
+    const from = Address.parse(`0:${'11'.repeat(32)}`).toString({
+      bounceable: false,
+    });
+    const recipient = Address.parse(`0:${'22'.repeat(32)}`).toString({
+      bounceable: false,
+    });
+    const contract = Address.parse(`0:${'33'.repeat(32)}`).toString({
+      bounceable: false,
+    });
+    const service = buildService(
+      buildParsedTx({
+        components: [
+          {
+            type: EParseTxComponentType.Default,
+            label: 'Server amount',
+            value: '100.001',
+          },
+        ],
+        alerts: ['Server risk alert'],
+      }),
+    );
+    const vault = Object.create(TonVault.prototype) as InstanceType<
+      typeof TonVault
+    >;
+    vault.networkId = 'ton--mainnet';
+    vault.accountId = accountId;
+    vault.getAccountAddress = jest.fn().mockResolvedValue(from);
+    vault.getNetwork = jest
+      .fn()
+      .mockResolvedValue({ id: vault.networkId, decimals: 9, symbol: 'TON' });
+    vault.backgroundApi = service.backgroundApi;
+    vault.backgroundApi.serviceToken = {
+      getToken: jest.fn().mockResolvedValue(null),
+    } as unknown as typeof vault.backgroundApi.serviceToken;
+    mockGetVault.mockResolvedValue(vault);
+    const decoded = await service.buildDecodedTx({
+      networkId: vault.networkId,
+      accountId,
+      accountAddress: from,
+      unsignedTx: {
+        encodedTx: {
+          from,
+          messages: [
+            { address: recipient, amount: '1000000' },
+            {
+              address: contract,
+              amount: '100000000000',
+              payload: beginCell()
+                .storeUint(0x12_34_56_78, 32)
+                .endCell()
+                .toBoc()
+                .toString('base64'),
+            },
+          ],
+        },
+      },
+    });
+    expect(decoded.isLocalParsed).toBe(true);
+    expect(decoded.txDisplay?.alerts).toEqual(['Server risk alert']);
+    expect(
+      decoded.txDisplay?.components.filter(
+        (component) => component.type === EParseTxComponentType.InternalAssets,
+      ),
+    ).toEqual([
+      expect.objectContaining({ symbol: 'TON', amountParsed: '0.001' }),
+      expect.objectContaining({ symbol: 'TON', amountParsed: '100' }),
+    ]);
+    expect(decoded.actions).toContainEqual(
+      expect.objectContaining({ type: EDecodedTxActionType.UNKNOWN }),
     );
   });
 

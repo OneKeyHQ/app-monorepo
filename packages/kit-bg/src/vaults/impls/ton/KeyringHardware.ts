@@ -39,6 +39,7 @@ import {
   resolveTonHardwareSigningMessage,
 } from './sdkTon/signingMessageValidation';
 import {
+  assertTonHardwareTransactionSupported,
   getTonHardwareSdkOptions,
   getTonHardwareSdkTransaction,
   parseTonTransactionMessage,
@@ -174,6 +175,8 @@ export class KeyringHardware extends KeyringHardwareBase {
     const { unsignedTx, deviceParams } = params;
     const { dbDevice, deviceCommonParams } = checkIsDefined(deviceParams);
     const originalEncodedTx = unsignedTx.encodedTx as IEncodedTxTon;
+    const sdkOptions = await getTonHardwareSdkOptions(dbDevice);
+    assertTonHardwareTransactionSupported(originalEncodedTx, sdkOptions);
     const encodedTx: IEncodedTxTon = {
       ...originalEncodedTx,
       validUntil:
@@ -206,6 +209,9 @@ export class KeyringHardware extends KeyringHardwareBase {
     const serializeUnsignedTx = await serializeUnsignedTransaction({
       contract,
       encodedTx,
+      sendMode: encodedTx.messages[0].sendMode,
+      timeout: encodedTx.validUntil,
+      fullStateInit: true,
     });
 
     const msg = encodedTx.messages[0];
@@ -285,7 +291,10 @@ export class KeyringHardware extends KeyringHardwareBase {
       });
     }
 
-    const appSigningMessage = serializeUnsignedTx.signingMessage;
+    const appSigningMessage = preserveTonStateInitCells(
+      serializeUnsignedTx.signingMessage,
+      encodedTx.messages,
+    );
     try {
       if (msg.stateInit) {
         hwParams.initState = Buffer.from(msg.stateInit, 'base64').toString(
@@ -299,30 +308,21 @@ export class KeyringHardware extends KeyringHardwareBase {
       // ignore
     }
 
-    const sdkOptions = await getTonHardwareSdkOptions(dbDevice);
     const sdkEncodedTx = getTonHardwareSdkTransaction(encodedTx, sdkOptions);
-    let sdkSigningMessage: Cell | undefined;
-    try {
-      const sdkSerialization = await serializeUnsignedTransaction({
-        contract,
-        encodedTx: sdkEncodedTx,
-        sendMode: msg.sendMode,
-        timeout: encodedTx.validUntil,
-        fullStateInit: true,
-      });
-      sdkSigningMessage = preserveTonStateInitCells(
-        sdkSerialization.signingMessage,
-        sdkEncodedTx.messages,
-      );
-    } catch (error) {
-      // A complete SDK StateInit must not disable the existing App fallback.
-      if (!useBlindSignature) {
-        throw error;
-      }
-    }
+    const sdkSerialization = await serializeUnsignedTransaction({
+      contract,
+      encodedTx: sdkEncodedTx,
+      sendMode: msg.sendMode,
+      timeout: encodedTx.validUntil,
+      fullStateInit: true,
+    });
+    const sdkSigningMessage = preserveTonStateInitCells(
+      sdkSerialization.signingMessage,
+      sdkEncodedTx.messages,
+    );
     const expectedSigningMessage = useBlindSignature
       ? appSigningMessage
-      : checkIsDefined(sdkSigningMessage);
+      : sdkSigningMessage;
     // Some firmware rebuilds the SDK request while other firmware signs the
     // App representation. Both paths are frozen before prompting the device.
     const alternateExpected = useBlindSignature ? sdkSigningMessage : undefined;
