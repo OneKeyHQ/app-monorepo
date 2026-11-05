@@ -128,9 +128,9 @@ describe('API availability counting in request interceptors', () => {
     );
   });
 
-  it.each([undefined, 'zh-cn'])(
+  it.each([undefined, 'x-onekey-request-locale', 'X-Onekey-Request-Locale'])(
     'uses the request locale override when supplied (%s)',
-    async (locale) => {
+    async (localeHeader) => {
       jest.mocked(getRequestHeaders).mockResolvedValue({
         'x-onekey-request-locale': 'en',
         'x-onekey-request-currency': 'usd',
@@ -147,12 +147,12 @@ describe('API availability counting in request interceptors', () => {
       const response = await client.get(WALLET_URL, {
         headers: {
           'x-onekey-request-currency': 'eur',
-          ...(locale ? { 'x-onekey-request-locale': locale } : {}),
+          ...(localeHeader ? { [localeHeader]: 'zh-cn' } : {}),
         },
       });
 
       expect(response.config.headers.get('x-onekey-request-locale')).toBe(
-        locale ?? 'en',
+        localeHeader ? 'zh-cn' : 'en',
       );
       expect(response.config.headers.get('x-onekey-request-currency')).toBe(
         'eur',
@@ -160,20 +160,36 @@ describe('API availability counting in request interceptors', () => {
     },
   );
 
-  it.each([undefined, 'zh-cn'])(
+  it.each([undefined, 'x-onekey-request-locale', 'X-Onekey-Request-Locale'])(
     'preserves the request locale through the XHR shim and fetch (%s)',
-    async (locale) => {
+    async (localeHeader) => {
       jest.mocked(getRequestHeaders).mockResolvedValue({
         'x-onekey-request-locale': 'en',
       });
       await axios.create().get(WALLET_URL, {
-        headers: locale ? { 'x-onekey-request-locale': locale } : {},
+        headers: localeHeader ? { [localeHeader]: 'zh-cn' } : {},
       });
 
       const headers = new Headers(stubFetch.mock.calls[0][1]?.headers);
-      expect(headers.get('x-onekey-request-locale')).toBe(locale ?? 'en');
+      expect(headers.get('x-onekey-request-locale')).toBe(
+        localeHeader ? 'zh-cn' : 'en',
+      );
     },
   );
+
+  it('keeps the requested locale if the app language changes before fetch', async () => {
+    jest
+      .mocked(getRequestHeaders)
+      .mockResolvedValueOnce({ 'x-onekey-request-locale': 'en' })
+      .mockResolvedValueOnce({ 'x-onekey-request-locale': 'zh-cn' });
+
+    await axios.create().get(WALLET_URL, {
+      headers: { 'x-onekey-request-locale': 'en' },
+    });
+
+    const headers = new Headers(stubFetch.mock.calls[0][1]?.headers);
+    expect(headers.get('x-onekey-request-locale')).toBe('en');
+  });
 
   it('counts an axios request sent through the XHR shim once', async () => {
     const response = await axios.create().get(WALLET_URL);

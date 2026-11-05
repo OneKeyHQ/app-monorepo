@@ -80,7 +80,9 @@ const newFetch = async function (
     const headers = await getRequestHeaders();
     requestId = headers[HEADER_REQUEST_ID_KEY];
     Object.entries(headers).forEach(([key, value]) => {
-      // Axios requests routed through the XHR shim already carry their keyed locale.
+      // Axios can also reach fetch through the extension XHR shim. Preserve the
+      // caller's locale: applying the current app locale after a language switch
+      // could store localized text under a cache key for a different language.
       if (key === 'x-onekey-request-locale' && requestHeaders.has(key)) {
         return;
       }
