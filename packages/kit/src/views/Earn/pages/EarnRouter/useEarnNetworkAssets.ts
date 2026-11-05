@@ -8,6 +8,7 @@ import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accoun
 import { useEarnAtom } from '@onekeyhq/kit/src/states/jotai/contexts/earn';
 import { EAvailableAssetsTypeEnum } from '@onekeyhq/shared/types/earn';
 import type { IEarnAvailableAsset } from '@onekeyhq/shared/types/earn';
+import { EStakeProtocolGroupEnum } from '@onekeyhq/shared/types/staking';
 import type { IStakeProtocolListItem } from '@onekeyhq/shared/types/staking';
 
 import {
@@ -45,6 +46,10 @@ export type IEarnNetworkAssets = {
   // What each pays, the best rate first, keyed by lowercased symbol: on the
   // one network asked for, else on every network
   offersBySymbol: Map<string, IEarnDesktopHoldOffer[]>;
+  // Where the wallet holds each token, keyed by lowercased symbol: every
+  // network it sits on, Earn's or not, the most valuable first, as Pay with
+  // ranks them for its default
+  heldNetworkIdsBySymbol: Map<string, string[]>;
   // The networks Earn pays on, those the wallet holds any of first: the
   // selector's network column
   networks: IEarnAssetSelectNetwork[];
@@ -241,8 +246,13 @@ export function useEarnNetworkAssets({
     const isInScope = (id: string) =>
       (!networkId || id === networkId) &&
       (!accountScope || accountScope.has(id));
+    // A withdraw-only protocol (Lido, Babylon) takes no deposits, as the
+    // Earn table's and the tiles' window offers leave it out
     const inScope = protocols.filter(
-      (item) => item.symbol && isInScope(item.network.networkId),
+      (item) =>
+        item.symbol &&
+        item.provider.group !== EStakeProtocolGroupEnum.WithdrawOnly &&
+        isInScope(item.network.networkId),
     );
     // Each symbol's protocol rows, then the networks they are on
     const protocolsBySymbol = new Map<string, IStakeProtocolListItem[]>();
@@ -347,9 +357,22 @@ export function useEarnNetworkAssets({
       });
     });
     const networks = listAssetSelectNetworks(tokens);
+    const heldNetworkIdsBySymbol = new Map<string, string[]>();
+    held.forEach((byNetwork, key) => {
+      const ids = Array.from(byNetwork)
+        .filter(([, item]) => item.amount.gt(0))
+        .toSorted(
+          (a, b) => b[1].fiatValueUsd.comparedTo(a[1].fiatValueUsd) ?? 0,
+        )
+        .map(([id]) => id);
+      if (ids.length) {
+        heldNetworkIdsBySymbol.set(key, ids);
+      }
+    });
     return {
       tokens,
       offersBySymbol,
+      heldNetworkIdsBySymbol,
       networks,
       networkById: new Map(networks.map((item) => [item.id, item])),
       stableSymbols,

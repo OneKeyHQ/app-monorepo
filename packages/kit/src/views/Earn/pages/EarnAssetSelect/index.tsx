@@ -583,25 +583,38 @@ function EarnRouterAssetSelectPage() {
     });
   }, [networkId, networkList, openChainSelector]);
 
-  // The list opens on the pick, in the middle of the rows when it is far down
-  // Once the rows are laid out (the modal mounts them a frame later), so the
-  // scroll has a height to move in
+  const scrollRef = useRef<IScrollViewRef>(null);
+  // The list opens on the pick, in the middle of the rows when it is far down.
+  // The modal lays the rows out a frame after it mounts and takes its size
+  // later still, so the pick is centred again every frame of the opening's
+  // first second, until the list is scrolled by hand. Only the list scrolls:
+  // scrollIntoView moved the modal too, and the pick ended up below it
   useEffect(() => {
     if (!platformEnv.isRuntimeBrowser) {
       return undefined;
     }
     let frame = 0;
-    let tries = 0;
+    let setTop: number | undefined;
+    const startedAt = Date.now();
     const scrollToPick = () => {
+      const scrollable: unknown = scrollRef.current?.getScrollableNode();
       const node = document.querySelector<HTMLElement>(
         `[data-testid="${SELECTED_ROW_TEST_ID}"]`,
       );
-      if (node?.getBoundingClientRect().height) {
-        node.scrollIntoView({ block: 'center' });
-        return;
+      const rect = node?.getBoundingClientRect();
+      if (scrollable instanceof HTMLElement && rect?.height) {
+        if (
+          setTop !== undefined &&
+          Math.abs(scrollable.scrollTop - setTop) > 1
+        ) {
+          return;
+        }
+        const box = scrollable.getBoundingClientRect();
+        scrollable.scrollTop +=
+          rect.top - box.top - (scrollable.clientHeight - rect.height) / 2;
+        setTop = scrollable.scrollTop;
       }
-      tries += 1;
-      if (tries < 10) {
+      if (Date.now() - startedAt < 1000) {
         frame = requestAnimationFrame(scrollToPick);
       }
     };
@@ -609,7 +622,6 @@ function EarnRouterAssetSelectPage() {
     return () => cancelAnimationFrame(frame);
   }, []);
   // Another network, tab or search starts the list at its top
-  const scrollRef = useRef<IScrollViewRef>(null);
   const viewKey = `${networkId ?? ''}|${view.category}|${keyword}`;
   const shownViewKeyRef = useRef(viewKey);
   useEffect(() => {

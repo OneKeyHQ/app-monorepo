@@ -862,14 +862,13 @@ export function EarnOffersDeposit({
     ],
   );
   // The networks the wallet holds a token on, the most valuable first, as
-  // Pay with orders its list
+  // Pay with orders its list: every one, also those where Earn offers nothing
+  // for the token (ETH on Base), since Pay with starts there and bridges
+  const heldNetworkIdsBySymbol = networkAssets?.heldNetworkIdsBySymbol;
   const heldNetworksOf = useCallback(
     (paySymbol: string) =>
-      (tokenBySymbol.get(paySymbol.toLowerCase())?.networks ?? [])
-        .filter((item) => new BigNumber(item.balance ?? 0).gt(0))
-        .toSorted((a, b) => (b.fiatValue ?? 0) - (a.fiatValue ?? 0))
-        .map((item) => item.id),
-    [tokenBySymbol],
+      heldNetworkIdsBySymbol?.get(paySymbol.toLowerCase()) ?? [],
+    [heldNetworkIdsBySymbol],
   );
   // What a card's form pays with, as its Pay with picks for it: the token
   // picked there; else the card's own token (comparing a kind, the kind's
