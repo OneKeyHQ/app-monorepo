@@ -1644,6 +1644,223 @@ describe('EtherFi USDT approval reset', () => {
     );
   });
 
+  it('warns about a high estimated fee before submitting a cached Morpho Permit', async () => {
+    const usdc = {
+      ...token,
+      address: '0xusdc',
+      symbol: 'USDC',
+      name: 'USD Coin',
+    };
+    mockPermitCache.mockReturnValue({
+      accountId: 'account',
+      accountAddress: '0xowner',
+      networkId: 'evm--1',
+      providerName: 'morpho',
+      approveSpenderAddress: '0xspender',
+      tokenAddress: '0xusdc',
+      amount: '2',
+      signature: 'cached-signature',
+      expiredAt: Date.now() + 10_000,
+    });
+    mockAllowanceState.value = '0';
+    mockAllowance.mockResolvedValue({ allowanceParsed: '0' });
+    mockEstimate.mockResolvedValue({
+      feeFiatValue: '10',
+      coverFeeSeconds: 7 * 24 * 3600,
+    });
+    const screen = render(
+      <StakeTaskHarness
+        {...props}
+        providerName="morpho"
+        tokenSymbol="USDC"
+        approveType={EApproveType.Permit}
+        preparationPolicy={undefined}
+        tokenInfo={
+          props.tokenInfo ? { ...props.tokenInfo, token: usdc } : undefined
+        }
+        approveTarget={{ ...props.approveTarget, token: usdc }}
+      />,
+    );
+    fireEvent.change(screen.getByLabelText('amount'), {
+      target: { value: '2' },
+    });
+    const button = await screen.findByRole('button', { name: 'earn.deposit' });
+    await waitFor(() => expect(button.hasAttribute('disabled')).toBe(false));
+    fireEvent.click(button);
+    await waitFor(() => expect(mockGasAlert).toHaveBeenCalledTimes(1));
+    expect(mockEstimate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        provider: 'morpho',
+        approveType: EApproveType.Permit,
+        accountAddress: undefined,
+      }),
+    );
+    expect(mockEstimate.mock.calls[0][0]).not.toHaveProperty('permitSignature');
+    expect(mockPermitSign).not.toHaveBeenCalled();
+    expect(mockBuildStake).not.toHaveBeenCalled();
+    await act(async () => {
+      await mockGasAlert.mock.calls[0][0].onConfirm({
+        close: async () => undefined,
+      });
+    });
+    await waitFor(() => expect(mockNavigate).toHaveBeenCalledTimes(1));
+    expect(mockBuildStake).toHaveBeenCalledWith(
+      expect.objectContaining({ permitSignature: 'cached-signature' }),
+    );
+  });
+
+  it('does not estimate an insufficient allowance with a cached Permit for another provider', async () => {
+    const usdc = {
+      ...token,
+      address: '0xusdc',
+      symbol: 'USDC',
+      name: 'USD Coin',
+    };
+    mockPermitCache.mockReturnValue({
+      accountId: 'account',
+      accountAddress: '0xowner',
+      networkId: 'evm--1',
+      providerName: 'etherfi',
+      approveSpenderAddress: '0xspender',
+      tokenAddress: '0xusdc',
+      amount: '2',
+      signature: 'cached-signature',
+      expiredAt: Date.now() + 10_000,
+    });
+    mockAllowanceState.value = '0';
+    mockAllowance.mockResolvedValue({ allowanceParsed: '0' });
+    const screen = render(
+      <StakeTaskHarness
+        {...props}
+        providerName="etherfi"
+        tokenSymbol="USDC"
+        approveType={EApproveType.Permit}
+        preparationPolicy={undefined}
+        tokenInfo={
+          props.tokenInfo ? { ...props.tokenInfo, token: usdc } : undefined
+        }
+        approveTarget={{ ...props.approveTarget, token: usdc }}
+      />,
+    );
+    fireEvent.change(screen.getByLabelText('amount'), {
+      target: { value: '2' },
+    });
+    const button = await screen.findByRole('button', { name: 'earn.deposit' });
+    await waitFor(() => expect(button.hasAttribute('disabled')).toBe(false));
+    fireEvent.click(button);
+    await waitFor(() => expect(mockNavigate).toHaveBeenCalledTimes(1));
+    expect(mockPermitSign).not.toHaveBeenCalled();
+    expect(mockEstimate).not.toHaveBeenCalled();
+  });
+
+  it('releases the cached Permit task after an estimate failure so the user can retry', async () => {
+    const usdc = {
+      ...token,
+      address: '0xusdc',
+      symbol: 'USDC',
+      name: 'USD Coin',
+    };
+    mockPermitCache.mockReturnValue({
+      accountId: 'account',
+      accountAddress: '0xowner',
+      networkId: 'evm--1',
+      providerName: 'morpho',
+      approveSpenderAddress: '0xspender',
+      tokenAddress: '0xusdc',
+      amount: '2',
+      signature: 'cached-signature',
+      expiredAt: Date.now() + 10_000,
+    });
+    mockAllowanceState.value = '0';
+    mockAllowance.mockResolvedValue({ allowanceParsed: '0' });
+    const error = new Error('fee estimate unavailable');
+    mockEstimate
+      .mockRejectedValueOnce(error)
+      .mockResolvedValue({ feeFiatValue: '1', coverFeeSeconds: 1 });
+    const screen = render(
+      <StakeTaskHarness
+        {...props}
+        providerName="morpho"
+        tokenSymbol="USDC"
+        approveType={EApproveType.Permit}
+        preparationPolicy={undefined}
+        tokenInfo={
+          props.tokenInfo ? { ...props.tokenInfo, token: usdc } : undefined
+        }
+        approveTarget={{ ...props.approveTarget, token: usdc }}
+      />,
+    );
+    fireEvent.change(screen.getByLabelText('amount'), {
+      target: { value: '2' },
+    });
+    const button = await screen.findByRole('button', { name: 'earn.deposit' });
+    await waitFor(() => expect(button.hasAttribute('disabled')).toBe(false));
+    fireEvent.click(button);
+    await waitFor(() =>
+      expect(mockShowToastOfError).toHaveBeenCalledWith(error),
+    );
+    expect(mockBuildStake).not.toHaveBeenCalled();
+    expect(mockNavigate).not.toHaveBeenCalled();
+    await waitFor(() => expect(button.hasAttribute('disabled')).toBe(false));
+    fireEvent.click(button);
+    await waitFor(() => expect(mockNavigate).toHaveBeenCalledTimes(1));
+    expect(mockBuildStake).toHaveBeenCalledTimes(1);
+    expect(mockPermitSign).not.toHaveBeenCalled();
+  });
+
+  it('does not use a cached Permit fee response after changing accounts', async () => {
+    const usdc = {
+      ...token,
+      address: '0xusdc',
+      symbol: 'USDC',
+      name: 'USD Coin',
+    };
+    mockPermitCache.mockReturnValue({
+      accountId: 'account',
+      accountAddress: '0xowner',
+      networkId: 'evm--1',
+      providerName: 'morpho',
+      approveSpenderAddress: '0xspender',
+      tokenAddress: '0xusdc',
+      amount: '2',
+      signature: 'cached-signature',
+      expiredAt: Date.now() + 10_000,
+    });
+    mockAllowanceState.value = '0';
+    mockAllowance.mockResolvedValue({ allowanceParsed: '0' });
+    const pending = deferred<{
+      feeFiatValue: string;
+      coverFeeSeconds: number;
+    }>();
+    mockEstimate.mockReturnValue(pending.promise);
+    const morphoProps = {
+      ...props,
+      providerName: 'morpho',
+      tokenSymbol: 'USDC',
+      approveType: EApproveType.Permit,
+      preparationPolicy: undefined,
+      tokenInfo: props.tokenInfo
+        ? { ...props.tokenInfo, token: usdc }
+        : undefined,
+      approveTarget: { ...props.approveTarget, token: usdc },
+    };
+    const screen = render(<StakeTaskHarness {...morphoProps} />);
+    fireEvent.change(screen.getByLabelText('amount'), {
+      target: { value: '2' },
+    });
+    const button = await screen.findByRole('button', { name: 'earn.deposit' });
+    await waitFor(() => expect(button.hasAttribute('disabled')).toBe(false));
+    fireEvent.click(button);
+    await waitFor(() => expect(mockEstimate).toHaveBeenCalledTimes(1));
+    screen.rerender(<StakeTaskHarness {...morphoProps} accountId="other" />);
+    await act(async () => {
+      pending.resolve({ feeFiatValue: '10', coverFeeSeconds: 7 * 24 * 3600 });
+    });
+    expect(mockGasAlert).not.toHaveBeenCalled();
+    expect(mockBuildStake).not.toHaveBeenCalled();
+    expect(mockNavigate).not.toHaveBeenCalled();
+  });
+
   it('preserves the existing Permit fee estimation behavior when allowance is insufficient', async () => {
     const usdc = {
       ...token,

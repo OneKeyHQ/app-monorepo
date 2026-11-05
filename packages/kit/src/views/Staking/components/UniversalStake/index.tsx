@@ -1036,6 +1036,7 @@ export function UniversalStake({
       amount?: string,
       action = confirmationAction,
       deposit?: { inputTokenAddress: string; stakeType: IEarnStakeType },
+      hasCachedPermit = false,
     ) => {
       if (!amount) {
         return undefined;
@@ -1046,18 +1047,26 @@ export function UniversalStake({
       }
 
       const needsAllowance = amountNumber.gt(allowance);
-      // The estimate endpoint does not accept the signed Permit payload.
-      if (usePermit2Approve && needsAllowance) {
+      const useCachedMorphoPermit = Boolean(
+        usePermit2Approve &&
+        needsAllowance &&
+        hasCachedPermit &&
+        earnUtils.isMorphoProvider({ providerName }),
+      );
+      if (usePermit2Approve && needsAllowance && !useCachedMorphoPermit) {
         return undefined;
       }
       const permitParams: {
         approveType?: EApproveType.Permit;
       } = usePermit2Approve ? { approveType: EApproveType.Permit } : {};
 
-      const account = await backgroundApiProxy.serviceAccount.getAccount({
-        accountId,
-        networkId,
-      });
+      // Force the server's gas-limit estimate without placing a Permit in a GET query.
+      const account = useCachedMorphoPermit
+        ? undefined
+        : await backgroundApiProxy.serviceAccount.getAccount({
+            accountId,
+            networkId,
+          });
       const resp = await backgroundApiProxy.serviceStaking.estimateFee({
         networkId,
         provider: providerName,
@@ -3259,6 +3268,7 @@ export function UniversalStake({
               },
               sign: async (signal) => {
                 const cached = getPermitCache(cacheKey);
+                let hasCachedPermit = false;
                 let signed: {
                   signature: string;
                   unsignedMessage?: IEarnPermit2ApproveSignData;
@@ -3274,6 +3284,7 @@ export function UniversalStake({
                     signature: cached.signature,
                     unsignedMessage: cached.permit2Data,
                   };
+                  hasCachedPermit = true;
                 } else {
                   const result = await getPermitSignature({
                     networkId: approveTarget.networkId,
@@ -3297,7 +3308,12 @@ export function UniversalStake({
                 if (signal.aborted || !isCurrent()) return undefined;
                 permitSignatureRef.current = signed.signature;
                 permit2DataRef.current = signed.unsignedMessage;
-                const fee = await fetchEstimateFeeResp(amountValue);
+                const fee = await fetchEstimateFeeResp(
+                  amountValue,
+                  undefined,
+                  undefined,
+                  hasCachedPermit,
+                );
                 if (signal.aborted || !isCurrent()) return undefined;
                 setEstimateFeeResp(fee);
                 return { ...signed, fee };
