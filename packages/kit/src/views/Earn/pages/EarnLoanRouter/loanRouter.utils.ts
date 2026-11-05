@@ -428,8 +428,6 @@ export function buildLoanSelectTokens({
     if (!byNetwork) {
       return token;
     }
-    let amount = new BigNumber(0);
-    let fiat = new BigNumber(0);
     const networks = token.networks.map((network) => {
       const held = byNetwork.get(network.id);
       const heldAmount = new BigNumber(held?.amount ?? 0);
@@ -437,10 +435,6 @@ export function buildLoanSelectTokens({
         return network;
       }
       const heldFiat = new BigNumber(held?.fiatValueUsd ?? 0);
-      amount = amount.plus(heldAmount);
-      if (heldFiat.isFinite() && heldFiat.gt(0)) {
-        fiat = fiat.plus(heldFiat);
-      }
       return {
         ...network,
         balance: heldAmount.toFixed(),
@@ -449,6 +443,22 @@ export function buildLoanSelectTokens({
             ? heldFiat.toNumber()
             : undefined,
       };
+    });
+    // The total counts every network the wallet holds it on, a market there
+    // or not, as the home's rows count it: Pay with bridges it from any of
+    // them to the market's network (11-05)
+    let amount = new BigNumber(0);
+    let fiat = new BigNumber(0);
+    byNetwork.forEach((held) => {
+      const heldAmount = new BigNumber(held.amount);
+      if (!heldAmount.isFinite() || heldAmount.lte(0)) {
+        return;
+      }
+      amount = amount.plus(heldAmount);
+      const heldFiat = new BigNumber(held.fiatValueUsd);
+      if (heldFiat.isFinite() && heldFiat.gt(0)) {
+        fiat = fiat.plus(heldFiat);
+      }
     });
     return {
       ...token,

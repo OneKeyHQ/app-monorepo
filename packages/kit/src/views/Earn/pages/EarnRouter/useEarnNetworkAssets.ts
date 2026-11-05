@@ -320,12 +320,18 @@ export function useEarnNetworkAssets({
         lending[0]?.symbol ??
         asset?.symbol ??
         key.toUpperCase();
-      // The wallet's total where Earn offers it
+      // The wallet's total on every network it holds it on, an offer there
+      // or not, as the home's row counts it: Earn bridges it from any of
+      // them (11-05). On one network, held is that network's alone
       let balance = new BigNumber(0);
       let fiatValue = 0;
-      networks.forEach((item) => {
-        balance = balance.plus(item.balance ?? 0);
-        fiatValue += item.fiatValue ?? 0;
+      inWallet?.forEach((item) => {
+        if (item.amount.gt(0)) {
+          balance = balance.plus(item.amount);
+        }
+        if (item.fiatValueUsd.gt(0)) {
+          fiatValue += item.fiatValueUsd.toNumber();
+        }
       });
       tokens.push({
         symbol,

@@ -302,7 +302,7 @@ describe('the network both picks are on', () => {
 });
 
 describe('buildLoanSelectTokens', () => {
-  it('gives each network what the wallet holds there, and the total', () => {
+  it('gives each network what the wallet holds there, and the total on every network', () => {
     const holdings = new Map([
       [
         'WBTC',
@@ -311,7 +311,8 @@ describe('buildLoanSelectTokens', () => {
           [BASE_ID, { amount: '0.25', fiatValueUsd: '20000' }],
         ]),
       ],
-      // Held where no market takes it: not counted
+      // Held where no market takes it: in the total (Pay with bridges it),
+      // on no network's line
       ['ETH', new Map([['evm--1', { amount: '1', fiatValueUsd: '3000' }]])],
     ]);
     const tokens = buildLoanSelectTokens({
@@ -335,7 +336,8 @@ describe('buildLoanSelectTokens', () => {
     expect(wbtc?.fiatValue).toBe(60_000);
     const eth = tokens.find((item) => item.symbol === 'ETH');
     expect(eth?.networks.map((network) => network.id)).toEqual([BASE_ID]);
-    expect(eth?.balance).toBeUndefined();
+    expect(eth?.balance).toBe('1');
+    expect(eth?.fiatValue).toBe(3000);
     expect(eth?.networks[0].balance).toBeUndefined();
   });
 
