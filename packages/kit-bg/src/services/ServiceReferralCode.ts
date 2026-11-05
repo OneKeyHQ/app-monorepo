@@ -143,8 +143,7 @@ class ServiceReferralCode extends ServiceBase {
     return summary.data.data;
   }
 
-  // Unauthenticated, so invitees without a OneKey ID login see it too. The
-  // request locale header picks the language.
+  // Unauthenticated, so invitees without a OneKey ID login see it too.
   @backgroundMethod()
   async getInviteRewardScopes(): Promise<IInviteRewardScope[]> {
     try {
