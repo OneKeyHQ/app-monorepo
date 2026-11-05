@@ -120,22 +120,30 @@ export function ReceivePrivacySyncStatus({
   );
   const syncState = useAtomValue(stateAtom);
   const { result } = usePromiseResult(
-    async () => ({
-      scope,
-      progress:
-        await backgroundApiProxy.servicePrivacyChain.getLocalWalletSyncProgress(
-          { networkId, accountId },
-        ),
-    }),
+    async () => {
+      try {
+        return {
+          scope,
+          progress:
+            await backgroundApiProxy.servicePrivacyChain.getLocalWalletSyncProgress(
+              { networkId, accountId },
+            ),
+          failed: false,
+        };
+      } catch {
+        return { scope, progress: undefined, failed: true };
+      }
+    },
     [scope, networkId, accountId],
     { pollingInterval: PRIVACY_CHAIN_SYNC_POLL_MS },
   );
-  const progress = result?.scope === scope ? result.progress : undefined;
+  const currentResult = result?.scope === scope ? result : undefined;
+  const progress = currentResult?.progress;
   let state: React.ComponentProps<typeof ReceivePrivacyStatus>['state'] =
     'preparing';
   if (syncState.held) state = 'waitingWifi';
   else if (syncState.paused) state = 'paused';
-  else if (syncState.error) state = 'error';
+  else if (syncState.error || currentResult?.failed) state = 'error';
   else if (progress?.isBackfillComplete && progress.isTipCaughtUp)
     state = 'synced';
   else if (progress) state = 'syncing';

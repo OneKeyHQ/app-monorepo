@@ -26,7 +26,7 @@ const mockEmptyState = (): IPrivacyChainScanState => ({
   boostingNetworkIds: [],
   dataBlockedNetworkIds: [],
   pausedNetworkIds: [],
-  preparingNetworkIds: [],
+  preparingAccountKeys: [],
   storageUnsupportedNetworkIds: [],
   syncErrorByNetworkId: {},
 });
@@ -224,12 +224,9 @@ describe('sync before a private send', () => {
       networkId,
       accountId,
     });
-    expect(await service.getLocalWalletSendReadiness(orchard)).toEqual({
-      blocksLeft: 10,
-      canSend: false,
-      paused: false,
-      syncError: undefined,
-    });
+    expect(await service.getLocalWalletSendReadiness(orchard)).toEqual(
+      expect.objectContaining({ blocksLeft: 10, canSend: false }),
+    );
 
     await service.backgroundSyncTick();
     expect(await service.getLocalWalletSendReadiness(orchard)).toEqual(
@@ -252,11 +249,17 @@ describe('sync before a private send', () => {
       canSend: true,
     });
     setLocalWalletRemoteConfigs({ [networkId]: { privacyDisabled: true } });
+    // As the real account state reports a server disable.
+    jest.mocked(service.getLocalWalletAccountState).mockResolvedValue({
+      enabled: false,
+      paused: false,
+      privacyDisabled: true,
+    });
     try {
       expect(await service.getLocalWalletSendReadiness(orchard)).toEqual({
         blocksLeft: null,
         canSend: false,
-        paused: true,
+        status: 'unavailable',
       });
     } finally {
       setLocalWalletRemoteConfigs({});
@@ -270,7 +273,7 @@ describe('sync before a private send', () => {
     expect(await service.getLocalWalletSendReadiness(orchard)).toEqual({
       blocksLeft: null,
       canSend: false,
-      paused: true,
+      status: 'accountPaused',
     });
   });
 
@@ -298,16 +301,21 @@ describe('sync before a private send', () => {
     );
   });
 
-  it('reports a paused network and the last sync error while waiting', async () => {
+  it('reports a paused network ahead of its last sync error while waiting', async () => {
     const { service } = createService();
     await service.requestLocalWalletSendSync(orchard);
-    service.boostPausedByNetwork[networkId] = true;
     mockPublished.syncErrorByNetworkId[networkId] = 'nodeUnreachable';
+    expect(await service.getLocalWalletSendReadiness(orchard)).toEqual(
+      expect.objectContaining({
+        status: 'error',
+        syncError: 'nodeUnreachable',
+      }),
+    );
+    mockPublished.pausedNetworkIds = [networkId];
     expect(await service.getLocalWalletSendReadiness(orchard)).toEqual({
       blocksLeft: null,
       canSend: false,
-      paused: true,
-      syncError: 'nodeUnreachable',
+      status: 'chainPaused',
     });
   });
 });

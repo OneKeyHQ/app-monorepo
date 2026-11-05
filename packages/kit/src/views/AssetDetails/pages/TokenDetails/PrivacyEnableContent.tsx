@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -13,11 +13,14 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { ETranslations, ETranslationsMock } from '@onekeyhq/shared/src/locale';
 
 import {
   PrivacyEnableDisclosure,
   createEnableBirthdayForm,
+  getBirthdayHeightHint,
   getBirthdayInputError,
   readEnableBirthday,
 } from './LocalWalletRepairControls';
@@ -88,6 +91,17 @@ function PrivacySyncStartEditor({
   const earliestDate = earliestBirthday
     ? earliestCalendarDate(earliestBirthday)
     : undefined;
+  const { result: chainTip } = usePromiseResult(
+    () =>
+      backgroundApiProxy.servicePrivacyChain.getLocalWalletLatestHeight({
+        networkId,
+      }),
+    [networkId],
+  );
+  const maxHeight = chainTip ?? undefined;
+  useEffect(() => {
+    formRef.current.maxHeight = maxHeight;
+  }, [formRef, maxHeight]);
   const selectChoice = (value: IStartChoice) => {
     setChoice(value);
     formRef.current = {
@@ -99,15 +113,18 @@ function PrivacySyncStartEditor({
       height,
       fromEarliest: value === 'earliest',
       startChoice: value,
+      maxHeight,
     };
   };
   const invalidHeight =
     choice === 'height' &&
     heightTouched &&
-    !readEnableBirthday(formRef.current, earliestBirthday, networkId);
+    !readEnableBirthday(
+      { ...formRef.current, maxHeight },
+      earliestBirthday,
+      networkId,
+    );
   const minHeight = Math.max(1, earliestBirthday?.height ?? 1);
-  const heightBelowMinimum =
-    /^\d+$/.test(height.trim()) && Number(height) < minHeight;
   const minimumHeightLabel = `${intl.formatMessage({ id: ETranslations.global_block_height })} ≥ ${intl.formatNumber(minHeight)}`;
 
   return (
@@ -158,6 +175,7 @@ function PrivacySyncStartEditor({
                     value={date}
                     minDate={earliestDate}
                     maxDate={new Date()}
+                    showTodayShortcut={false}
                     onChange={(next) => {
                       setDate(next);
                       formRef.current.date = next;
@@ -215,13 +233,21 @@ function PrivacySyncStartEditor({
                             color="$textCritical"
                             accessibilityRole="alert"
                           >
-                            {heightBelowMinimum
-                              ? minimumHeightLabel
-                              : intl.formatMessage({
-                                  id: ETranslationsMock.privacy_sync_start_height_invalid__msg,
-                                  defaultMessage:
-                                    ETranslationsMock.privacy_sync_start_height_invalid__msg,
-                                })}
+                            {getBirthdayHeightHint({
+                              height: height.trim(),
+                              invalid: true,
+                              minHeight,
+                              maxHeight,
+                              label: intl.formatMessage({
+                                id: ETranslations.global_block_height,
+                              }),
+                              invalidText: intl.formatMessage({
+                                id: ETranslationsMock.privacy_sync_start_height_invalid__msg,
+                                defaultMessage:
+                                  ETranslationsMock.privacy_sync_start_height_invalid__msg,
+                              }),
+                              format: (value) => intl.formatNumber(value),
+                            })}
                           </SizableText>
                         ) : null}
                       </YStack>
@@ -270,11 +296,15 @@ function PrivacySyncStartEditor({
 
 export function PrivacyEnableContent({
   networkId,
+  accountId,
+  deviceExportsViewKey,
   formRef,
   earliestBirthday,
   birthdayHintTimestamp,
 }: {
   networkId: string;
+  accountId: string;
+  deviceExportsViewKey?: boolean;
   formRef: IFormRef;
   earliestBirthday?: IEarliestBirthday;
   birthdayHintTimestamp?: number;
@@ -330,7 +360,11 @@ export function PrivacyEnableContent({
 
   return (
     <YStack gap="$4">
-      <PrivacyEnableDisclosure />
+      <PrivacyEnableDisclosure
+        accountId={accountId}
+        deviceExportsViewKey={deviceExportsViewKey}
+        hasRecommendedMonth={false}
+      />
       <XStack
         testID="privacy-enable-start-summary"
         p="$4"

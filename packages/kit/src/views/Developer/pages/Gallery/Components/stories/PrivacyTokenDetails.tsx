@@ -135,6 +135,7 @@ function PrivacyTokenDetailsPreview() {
         renderContent: (
           <PrivacyEnableContent
             networkId={networkId}
+            accountId="privacy-preview-account"
             formRef={formRef}
             birthdayHintTimestamp={birthdayHintTimestamp}
             earliestBirthday={earliestBirthday}

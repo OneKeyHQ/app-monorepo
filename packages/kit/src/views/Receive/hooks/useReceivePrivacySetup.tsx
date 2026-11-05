@@ -148,6 +148,8 @@ export function useReceivePrivacySetup({
         renderContent: (
           <PrivacyEnableContent
             networkId={networkId}
+            accountId={accountId}
+            deviceExportsViewKey={settings.accountSetup.deviceExportsViewKey}
             formRef={formRef}
             earliestBirthday={earliestBirthday}
             birthdayHintTimestamp={state.birthdayHintTimestamp}

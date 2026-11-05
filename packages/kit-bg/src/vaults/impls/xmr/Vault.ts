@@ -5,7 +5,6 @@ import { isEmpty } from 'lodash';
 import { parseXmrKeyImageTransfers } from '@onekeyhq/core/src/chains/xmr/deviceKeyImages';
 import { readXmrRuntimeError } from '@onekeyhq/core/src/chains/xmr/sdkXmrRuntime';
 import type { IXmrRuntimeApi } from '@onekeyhq/core/src/chains/xmr/sdkXmrRuntime';
-import { xmrHostFetch } from '@onekeyhq/core/src/chains/xmr/sdkXmrRuntime/sdk/hostFetch';
 import type { IXmrNetwork } from '@onekeyhq/core/src/chains/xmr/sdkXmrRuntime/types';
 import {
   getXmrReviewRequest,
@@ -16,6 +15,11 @@ import {
 } from '@onekeyhq/core/src/chains/xmr/transactionReview';
 import { parseXmrViewingKeyPair } from '@onekeyhq/core/src/chains/xmr/viewingKeys';
 import type { IXmrViewingKeyPair } from '@onekeyhq/core/src/chains/xmr/viewingKeys';
+import {
+  fetchXmrNodeHeightDirect,
+  normalizeXmrNodeBase,
+  probeXmrNodeNetworkDirect,
+} from '@onekeyhq/core/src/chains/xmr/xmrNodeDirect';
 import type { ISignedTxPro, IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import { getPrivacyChainRuntimeFailure } from '@onekeyhq/core/src/utils/privacyChainWorkerClient';
 import { getPresetNetworks } from '@onekeyhq/shared/src/config/presetNetworks';
@@ -33,7 +37,6 @@ import { ETranslations } from '@onekeyhq/shared/src/locale/enum/translations';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
-import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import { gateLocalWalletHistoryTx } from '@onekeyhq/shared/src/utils/privacyChainHistoryAddressGate';
 import { getPrivacyChainBlocksLeft } from '@onekeyhq/shared/src/utils/privacyChainSyncPolicy';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
@@ -79,6 +82,7 @@ import { VaultBase } from '../../base/VaultBase';
 import { getLocalWalletHistoryAddressGate } from '../../localWallet/historyAddressGate';
 import { localWalletText } from '../../localWallet/messages';
 import { fetchLocalWalletNativeTokenQuote } from '../../localWallet/nativeTokenPrice';
+import { resolveLocalWalletNodeUrl } from '../../localWallet/nodeUrl';
 import {
   isLocalWalletCacheEpochCurrent,
   readLocalWalletCacheEpoch,
@@ -136,47 +140,6 @@ import type {
 // Token details are synthesized here, so nothing else supplies the id that
 // Market pages and chart history resolve XMR from.
 const XMR_COINGECKO_ID = 'monero';
-
-async function postXmrNodeRequest(url: string): Promise<string> {
-  if (xmrHostFetch) {
-    return bufferUtils.bytesToUtf8(
-      await xmrHostFetch(url, 'application/json', new Uint8Array()),
-    );
-  }
-  const response = await fetch(url, { method: 'POST' });
-  if (!response.ok) {
-    throw new OneKeyLocalError(
-      localWalletText(ETranslations.privacy_error_node_unreachable__msg),
-    );
-  }
-  return response.text();
-}
-
-const XMR_NODE_NETWORKS: readonly string[] = [
-  'mainnet',
-  'stagenet',
-  'testnet',
-  'fakechain',
-];
-
-// Undefined when the node does not say: partial proxies may not serve /get_info.
-async function readXmrNodeNetwork(url: string): Promise<string | undefined> {
-  try {
-    const info = JSON.parse(await postXmrNodeRequest(url)) as Record<
-      string,
-      unknown
-    >;
-    if (
-      typeof info.nettype === 'string' &&
-      XMR_NODE_NETWORKS.includes(info.nettype)
-    ) {
-      return info.nettype;
-    }
-    return XMR_NODE_NETWORKS.find((name) => info[name] === true);
-  } catch {
-    return undefined;
-  }
-}
 
 function toXmrUserFacingError(error: unknown): unknown {
   if (getPrivacyChainRuntimeFailure(error)) {
@@ -276,19 +239,11 @@ export default class Vault extends VaultBase {
     return network.isTestnet ? 'testnet' : 'mainnet';
   }
 
-  // An enabled custom node wins; otherwise the built-in one, so turning a
-  // custom node off never stops sync.
   async resolveXmrNodeUrl(): Promise<string> {
-    const url =
-      await this.backgroundApi.serviceCustomRpc.resolveRpcUrlWithBuiltIn({
-        networkId: this.networkId,
-      });
-    if (!url) {
-      throw new OneKeyLocalError(
-        localWalletText(ETranslations.privacy_error_no_node__msg),
-      );
-    }
-    return url;
+    return resolveLocalWalletNodeUrl({
+      backgroundApi: this.backgroundApi,
+      networkId: this.networkId,
+    });
   }
 
   async getXmrRuntimeApi(): Promise<IXmrRuntimeApi> {
@@ -457,7 +412,6 @@ export default class Vault extends VaultBase {
     if (
       state.deletionPending ||
       state.intent !== 'on' ||
-      state.operation !== undefined ||
       state.epoch === undefined ||
       state.appliedEpoch !== state.epoch
     ) {
@@ -1275,11 +1229,18 @@ export default class Vault extends VaultBase {
     return { ...historyTx, privacyChainHistorySide: 'private' };
   }
 
-  /** Checked through the scanner request channel; plain http works on desktop/extension only. */
+  // Asks the configured node directly; the scanner and its database stay closed.
+  async getLocalWalletLatestHeight(): Promise<number | null> {
+    return fetchXmrNodeHeightDirect({
+      nodeBase: await this.resolveXmrNodeUrl(),
+    });
+  }
+
+  /** Checked over the app's node transport; plain http works on desktop/extension only. */
   override async getCustomRpcEndpointStatus(
     params: IMeasureRpcStatusParams,
   ): Promise<IMeasureRpcStatusResult> {
-    const base = params.rpcUrl.trim().replace(/\/+$/, '');
+    const base = normalizeXmrNodeBase(params.rpcUrl);
     const { protocol } = new URL(base);
     if (protocol !== 'https:' && protocol !== 'http:') {
       throw new OneKeyLocalError('xmr: the node must be http or https');
@@ -1287,11 +1248,10 @@ export default class Vault extends VaultBase {
     if (protocol === 'http:' && platformEnv.isWeb) {
       throw new OneKeyLocalError('xmr: this platform needs an https node');
     }
-    const url = `${base}/get_height`;
     const start = Date.now();
-    let text: string;
+    let height: number | null;
     try {
-      text = await postXmrNodeRequest(url);
+      height = await fetchXmrNodeHeightDirect({ nodeBase: base });
     } catch (error) {
       // The app's transport policy blocks cleartext on phones (iOS allows only
       // the local network), which surfaces as a bare network error.
@@ -1300,23 +1260,26 @@ export default class Vault extends VaultBase {
       }
       throw error;
     }
-    const body = JSON.parse(text) as { height?: number };
-    if (typeof body.height !== 'number' || body.height <= 0) {
+    if (height === null) {
       throw new OneKeyLocalError(
         localWalletText(ETranslations.privacy_error_node_unreachable__msg),
       );
     }
     const responseTime = Date.now() - start;
     if (params.validateChainId) {
-      // Lenient: only a node that names a different network is rejected.
-      const nodeNetwork = await readXmrNodeNetwork(`${base}/get_info`);
-      if (nodeNetwork && nodeNetwork !== (await this.getXmrNetwork())) {
-        throw new OneKeyLocalError('xmr: the node is on a different network');
+      // The runtime refuses a node whose chain it cannot confirm; so does this.
+      const nodeNetwork = await probeXmrNodeNetworkDirect({ nodeBase: base });
+      if (nodeNetwork !== (await this.getXmrNetwork())) {
+        throw new OneKeyLocalError(
+          nodeNetwork
+            ? 'xmr: the node is on a different network'
+            : 'xmr: the node did not confirm its network',
+        );
       }
     }
     return {
       responseTime,
-      bestBlockNumber: body.height,
+      bestBlockNumber: height,
     };
   }
 

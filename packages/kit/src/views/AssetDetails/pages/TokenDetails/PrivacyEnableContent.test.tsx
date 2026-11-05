@@ -18,6 +18,7 @@ type ITestDialog = {
 const mockDialog = jest.fn((_options: ITestDialog) => undefined);
 const mockToast = jest.fn((_options: unknown) => undefined);
 const mockPreventClose = jest.fn();
+let mockChainTip: number | undefined;
 const earliest = {
   height: 3_428_143,
   timestamp: Date.UTC(2026, 6, 28),
@@ -47,7 +48,9 @@ jest.mock(
   '@onekeyhq/kit/src/background/instance/backgroundApiProxy',
   () => ({}),
 );
-jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings', () => ({}));
+jest.mock('@onekeyhq/kit/src/hooks/usePromiseResult', () => ({
+  usePromiseResult: () => ({ result: mockChainTip }),
+}));
 jest.mock('@onekeyhq/components', () => {
   const Stack = ({
     children,
@@ -178,10 +181,32 @@ describe('privacy enable start selection', () => {
     mockDialog.mockClear();
     mockToast.mockClear();
     mockPreventClose.mockClear();
+    mockChainTip = undefined;
     jest.useFakeTimers().setSystemTime(new Date(2026, 10, 4, 12));
   });
 
   afterEach(() => jest.useRealTimers());
+
+  it.each([
+    ['hw-1--0', true, true],
+    ['hw-1--0', false, false],
+    ['hd-1--0', true, false],
+  ])(
+    'preserves the device view-key disclosure for %s (device asked: %s)',
+    (accountId, deviceExportsViewKey, shown) => {
+      const page = render(
+        <PrivacyEnableContent
+          networkId="xmr--0"
+          accountId={accountId}
+          deviceExportsViewKey={deviceExportsViewKey}
+          formRef={createPrivacyEnableForm({})}
+        />,
+      );
+      expect(
+        !!page.queryByText(ETranslations.privacy_enable_device_view_key__msg),
+      ).toBe(shown);
+    },
+  );
 
   it.each(networks)(
     'defaults $networkId to today without a creation hint',
@@ -189,6 +214,7 @@ describe('privacy enable start selection', () => {
       const formRef = createPrivacyEnableForm({ earliestBirthday });
       const page = render(
         <PrivacyEnableContent
+          accountId="hd-1--0"
           networkId={networkId}
           formRef={formRef}
           earliestBirthday={earliestBirthday}
@@ -231,6 +257,7 @@ describe('privacy enable start selection', () => {
       const formRef = createPrivacyEnableForm({ earliestBirthday });
       const page = render(
         <PrivacyEnableContent
+          accountId="hd-1--0"
           networkId={networkId}
           formRef={formRef}
           earliestBirthday={earliestBirthday}
@@ -263,6 +290,7 @@ describe('privacy enable start selection', () => {
     const formRef = createPrivacyEnableForm({ earliestBirthday: earliest });
     const page = render(
       <PrivacyEnableContent
+        accountId="hd-1--0"
         networkId="zec--0"
         formRef={formRef}
         earliestBirthday={earliest}
@@ -294,6 +322,7 @@ describe('privacy enable start selection', () => {
     const formRef = createPrivacyEnableForm({ earliestBirthday: earliest });
     const page = render(
       <PrivacyEnableContent
+        accountId="hd-1--0"
         networkId="zec--0"
         formRef={formRef}
         earliestBirthday={earliest}
@@ -327,6 +356,7 @@ describe('privacy enable start selection', () => {
       const formRef = createPrivacyEnableForm({ earliestBirthday });
       const page = render(
         <PrivacyEnableContent
+          accountId="hd-1--0"
           networkId={networkId}
           formRef={formRef}
           earliestBirthday={earliestBirthday}
@@ -357,6 +387,7 @@ describe('privacy enable start selection', () => {
     const formRef = createPrivacyEnableForm({ earliestBirthday: earliest });
     const page = render(
       <PrivacyEnableContent
+        accountId="hd-1--0"
         networkId="zec--0"
         formRef={formRef}
         earliestBirthday={earliest}
@@ -390,6 +421,7 @@ describe('privacy enable start selection', () => {
       const formRef = createPrivacyEnableForm({ earliestBirthday });
       const page = render(
         <PrivacyEnableContent
+          accountId="hd-1--0"
           networkId={networkId}
           formRef={formRef}
           earliestBirthday={earliestBirthday}
@@ -468,6 +500,7 @@ describe('privacy enable start selection', () => {
       const formRef = createPrivacyEnableForm({ earliestBirthday: earliest });
       const page = render(
         <PrivacyEnableContent
+          accountId="hd-1--0"
           networkId="zec--0"
           formRef={formRef}
           earliestBirthday={earliest}
@@ -505,4 +538,42 @@ describe('privacy enable start selection', () => {
       });
     },
   );
+
+  it('rejects heights beyond the chain tip after switching choices and accepts the tip', () => {
+    mockChainTip = 3_500_000;
+    const formRef = createPrivacyEnableForm({ earliestBirthday: earliest });
+    const page = render(
+      <PrivacyEnableContent
+        networkId="zec--0"
+        accountId="hd-1--0"
+        formRef={formRef}
+        earliestBirthday={earliest}
+      />,
+    );
+    fireEvent.click(page.getByTestId('privacy-enable-edit-start'));
+    const editor = render(mockDialog.mock.calls[0][0].renderContent);
+    fireEvent.click(editor.getByTestId('privacy-sync-start-advanced'));
+    fireEvent.click(editor.getByTestId('privacy-sync-start-choice-height'));
+    fireEvent.change(editor.getByTestId('privacy-sync-start-height'), {
+      target: { value: '3500001' },
+    });
+    fireEvent.click(editor.getByTestId('privacy-sync-start-choice-today'));
+    fireEvent.click(editor.getByTestId('privacy-sync-start-choice-height'));
+    fireEvent.click(editor.getByTestId('privacy-start-save'));
+    expect(mockPreventClose).toHaveBeenCalledTimes(1);
+    expect(formRef.current.startChoice).toBe('today');
+    expect(
+      editor.getByTestId('privacy-sync-start-height-error').textContent,
+    ).toBe(`${ETranslations.global_block_height} ≤ 3500000`);
+
+    fireEvent.change(editor.getByTestId('privacy-sync-start-height'), {
+      target: { value: '3500000' },
+    });
+    fireEvent.click(editor.getByTestId('privacy-start-save'));
+    expect(mockPreventClose).toHaveBeenCalledTimes(1);
+    expect(formRef.current.maxHeight).toBe(3_500_000);
+    expect(readEnableBirthday(formRef.current, earliest, 'zec--0')).toEqual({
+      birthdayHeight: 3_500_000,
+    });
+  });
 });

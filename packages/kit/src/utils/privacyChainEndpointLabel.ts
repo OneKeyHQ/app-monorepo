@@ -39,7 +39,25 @@ export function toPrivacyChainLocalWalletDisplay(
   };
 }
 
-// Keep endpoint labels consistent without exposing protocol pool names.
+// The one word a pool goes by everywhere (tabs, send source, history): its
+// kind, never its protocol name.
+export function formatPrivacyChainPoolKindLabel({
+  intl,
+  kind,
+}: {
+  intl: IntlShape;
+  kind: IPrivacyChainDisplayPool['kind'];
+}): string {
+  return intl.formatMessage({
+    id:
+      kind === 'public'
+        ? ETranslations.privacy_balance_public__title
+        : ETranslations.private_send_private_option,
+  });
+}
+
+// Display text for a shielded endpoint: its pool's kind, else the chain's
+// name for an endpoint it keeps private.
 export function formatPrivacyChainEndpointLabel({
   intl,
   localWallet,
@@ -53,12 +71,13 @@ export function formatPrivacyChainEndpointLabel({
     endpoint.poolId === undefined
       ? undefined
       : localWallet?.pools?.find((item) => item.id === endpoint.poolId);
-  return intl.formatMessage({
-    id:
-      pool?.kind === 'public'
-        ? ETranslations.privacy_balance_public__title
-        : ETranslations.private_send_private_option,
-  });
+  if (pool) {
+    return formatPrivacyChainPoolKindLabel({ intl, kind: pool.kind });
+  }
+  const id =
+    localWallet?.hiddenEndpointLabelId ??
+    ETranslations.private_send_private_option;
+  return intl.formatMessage({ id });
 }
 
 // How one history endpoint renders: a copyable address, or a pool name that
@@ -88,7 +107,7 @@ export function resolvePrivacyChainEndpointDisplay({
     // details display exactly that string.
     return { address: item.address, poolLabel, isOwn: true };
   }
-  // No address in the data (e.g. a shielded spend): never fill one in.
+  // No address in the data (e.g. change): never fill one in.
   return { poolLabel, isOwn: true };
 }
 

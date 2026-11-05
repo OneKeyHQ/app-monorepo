@@ -1233,3 +1233,32 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries �
 **Root Cause**: The device identity event recorded a target-specific mismatch and invalidated the sync generation before the task could return its mismatch result. The interactive wrapper converted the resulting undefined value to false.
 **Fix**: Preserve the target-specific mismatch as DeviceNotSame when the task returns undefined, after honoring explicit user cancellation. Regression tests cover identity changes during unlock, package preparation, and the final identity check; upload remains blocked.
 **Catchable by**: Section 5: No race conditions in async operations; Section 6: A bug fix includes regression tests for event-driven cancellation and user-visible errors.
+
+## Case: Perps chart defaults disagreed with the intended native chart mode (OK-66019)
+**Date**: 2026-11-04 | **Platforms**: Web/Desktop UI and iOS/Android main UI; no native resource changes
+**Symptom**: A fresh or older settings record without a chart mode opened TradingView instead of the native chart. Changing only the initial setting would still leave legacy records and the first toggle inconsistent.
+**Root Cause**: The settings atom, chart renderer fallback, mobile chart layout fallback, and missing-value toggle behavior all assumed TradingView as the default.
+**Fix**: Default all three owners to native and treat an absent saved mode as native when toggling. Preserve explicit saved choices. Existing PerpCandles tests cover missing settings, explicit overrides, and switching modes.
+**Catchable by**: Section 4: Business Logic & Regression — when changing a persisted default, test fresh settings, older records without the field, explicit saved choices, and the first interaction.
+
+## Case: Ordinary orders exposed the position TP/SL order link (OK-66078)
+**Date**: 2026-11-04 | **Platforms**: Web/Desktop wide position rows and native main UI where the wide row is rendered
+**Symptom**: An ordinary open order for the same coin caused the position TP/SL cell to show an order link even though no partial TP/SL order existed.
+**Root Cause**: The row treated every non-position TP/SL order as a partial TP/SL candidate without checking reduce-only status and the recognized TP/SL kind.
+**Fix**: Require both reduceOnly and getTpSlKind before setting hasNonPositionTpslOrder. Existing PositionsRow tests distinguish ordinary orders, partial TP/SL orders, and position TP/SL orders.
+**Catchable by**: Section 4: Business Logic & Regression — exercise sibling order types sharing the same coin before deriving a feature-specific action from a common order list.
+
+## Case: Reversal trade sharing did not match Hyperliquid (OK-65718)
+**Date**: 2026-11-04 | **Platforms**: Shared UI hook on Web/Desktop and iOS/Android main UI; tested with the Web Jest preset, not device acceptance
+**Symptom**: Reversal shares showed zero entry price and return. Using only the closed quantity and prorating the fee produced values that differed from Hyperliquid and a net PnL that differed from the trade history row.
+**Root Cause**: Entry-price reconstruction did not recognize Long > Short and Short > Long. Splitting the fill into closed and opened legs also introduced a different display convention from Hyperliquid's full-fill trade sharing.
+**Fix**: Recognize both reversal directions while retaining the full fill size for entry price and return calculations and deducting the full fill fee. This intentionally follows Hyperliquid's trade-sharing convention, rather than reconstructing the closed position's cost basis. With fill size 5, gross PnL 20, fee 1 and leverage 10, the long-to-short example at price 110 shares net PnL 19, entry price 106 and return 35.85%; the short-to-long example at price 90 shares net PnL 19, entry price 94 and return 40.43%. Ordinary-close tests retain full-fee deductions.
+**Catchable by**: Section 4: Business Logic & Regression — verify reference-product formulas and keep trade-history and share amounts consistent before adopting a different accounting convention from review feedback.
+**Reference**: Hyperliquid production `config-BUOnMMpI.js` (`l4`, `u4`, `Vse`) and `ShareModal-CdPBXUc8.js`, inspected 2026-11-04 at https://app.hyperliquid.xyz/assets/config-BUOnMMpI.js and https://app.hyperliquid.xyz/assets/ShareModal-CdPBXUc8.js. Synthetic inputs executed against the extracted production row function confirm the values above.
+
+## Case: Mobile stock trade modals showed a redundant K-line button (OK-66221)
+**Date**: 2026-11-04 | **Platforms**: iOS and Android (main UI runtime)
+**Symptom**: Opening Buy or Sell from Market stock details displayed a K-line button in the Stock trade modal.
+**Root Cause**: The shared Swap header hid the button only in Desktop Stock modals, so native Stock modals still showed it.
+**Fix**: Extend the existing Stock modal visibility condition to iOS and Android. Regression tests cover hiding the button in native Stock modals and keeping it available in native Swap modals and on the standalone Stock page.
+**Catchable by**: Section 3 (Cross-Platform Impact) and Section 6 (Unit Tests). Test shared header actions across platform, modal versus page, and active trade mode.

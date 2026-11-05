@@ -22,6 +22,7 @@ import type {
   ETranslations,
   ETranslationsMock,
 } from '@onekeyhq/shared/src/locale';
+import type { IPrivacyChainBlockTime } from '@onekeyhq/shared/src/utils/privacyChainSyncPolicy';
 import type { IWcPayPreBroadcastRecord } from '@onekeyhq/shared/src/walletConnect/payTypes';
 import type { IDappSourceInfo } from '@onekeyhq/shared/types';
 import type { IDBCustomRpc } from '@onekeyhq/shared/types/customRpc';
@@ -253,8 +254,11 @@ export type IVaultSettings = {
     // 'account-opt-in': scanning is costly, so each account enables it.
     activation: 'always' | 'account-opt-in';
     balanceShape: 'single' | 'pooled';
-    // In this chain's blocks; block time differs per chain.
+    // In this chain's blocks at `blockTimeSeconds`; `blockTimeChange` scales it to keep its time.
     tipLagWarningBlocks: number;
+    // Fewer blocks left than this is Synced everywhere: the status, the light closing, a send
+    // gated on sync. Scaled like `tipLagWarningBlocks`.
+    syncedBelowBlocks: number;
     // Display order is tab order. At most one backend pool.
     pools: ILocalWalletPoolDescriptor[];
     // Pools history may name but that have no tab, balance or address.
@@ -264,6 +268,9 @@ export type IVaultSettings = {
       requiresBirthday: boolean;
       // The first supported date and height, also used for a full scan.
       earliestBirthday: { height: number; timestamp: number };
+      // Enabling a hardware account asks its device for the view key (Monero);
+      // otherwise the device gave it when the account was created.
+      deviceExportsViewKey?: boolean;
     };
     // No `publicLabel` (Monero): the receive page shows no public/private switch.
     addressForms: {
@@ -285,6 +292,9 @@ export type IVaultSettings = {
     hideAddressOnTokenDetails?: boolean;
     // Turns a block lag into elapsed time for the sync status line.
     blockTimeSeconds: number;
+    // From this height the target block interval is `blockTimeSeconds` here instead (Zcash NU7:
+    // 75s to 25s). Block counts that stand for time keep their time, as ZIP 218 does.
+    blockTimeChange?: IPrivacyChainBlockTime['blockTimeChange'];
     // Height ranges worth naming while the scanner is inside them.
     scanRegionHints?: {
       fromHeight: number;

@@ -256,6 +256,7 @@ function TokenDetailsHeaderContent({
     deriveInfo,
     deriveType,
     privacyHistoryPoolId: selectedPoolIdProp,
+    privacyChainVaultSettings,
   } = props;
   const navigation = useAppNavigation();
   const intl = useIntl();
@@ -269,16 +270,26 @@ function TokenDetailsHeaderContent({
 
   const [settings] = useSettingsPersistAtom();
 
-  const { network, wallet, account, vaultSettings } = useAccountData({
+  const {
+    network,
+    wallet,
+    account,
+    vaultSettings: accountVaultSettings,
+  } = useAccountData({
     accountId,
     networkId,
     walletId,
   });
+  const vaultSettings = accountVaultSettings ?? privacyChainVaultSettings;
   const privacyHistoryPoolId = resolveSelectedPoolId({
     settings: vaultSettings?.localWallet,
     selectedPoolId: selectedPoolIdProp,
   });
-  const hasSelectedPool = privacyHistoryPoolId !== undefined;
+  // Monero has no pool tab, so its pool is only known once settings load;
+  // until then it already counts as a pool page instead of a plain token one.
+  const hasSelectedPool =
+    privacyHistoryPoolId !== undefined ||
+    (!vaultSettings && networkUtils.isLocalWalletNetwork({ networkId }));
   const selectedPool = vaultSettings?.localWallet?.pools.find(
     (pool) => pool.id === privacyHistoryPoolId,
   );
@@ -296,7 +307,6 @@ function TokenDetailsHeaderContent({
     accountData: { account, vaultSettings },
   });
   const privacyStatus = useTokenPrivacyStatus({
-    networkId,
     pool: localWalletPool,
   });
   const isPrivateSynced = isPrivatePool && privacyStatus.state === 'synced';
@@ -305,6 +315,10 @@ function TokenDetailsHeaderContent({
   const isLocalWalletEnabled = localWalletPool.enabled;
   const isPrivatePoolDisabled =
     isPrivatePool && isLocalWalletReady && !isLocalWalletEnabled;
+  // Off swaps the balance and actions for the enable card, so a private pool
+  // shows neither until it knows which.
+  const shouldShowOverview =
+    !isPrivatePool || (isLocalWalletReady && !isPrivatePoolDisabled);
 
   // Scoped per tab; ownerKey guards an account switch inside one mounted tab.
   const [privacyChainPoolDisplay] = usePrivacyChainPoolDisplayAtom();
@@ -501,8 +515,6 @@ function TokenDetailsHeaderContent({
   let isBalanceLoading = showLoadingState;
   if (shouldShowPoolBalance) {
     isBalanceLoading = !poolDisplay?.balanceSettled;
-  } else if (isPrivatePool) {
-    isBalanceLoading = !isLocalWalletReady;
   }
   const tokenLogoURI = tokenDetails?.info?.logoURI ?? tokenInfo.logoURI;
 
@@ -742,7 +754,9 @@ function TokenDetailsHeaderContent({
             />
           </Stack>
         ) : null}
-        {isPrivatePool && !isPrivateSynced ? (
+        {/* Shown once the pool's state is read: a Preparing panel during loading would vanish again
+            for the usual synced account and shift the page. */}
+        {isPrivatePool && isLocalWalletReady && !isPrivateSynced ? (
           <Stack px="$5" pt="$4" pb={isPrivatePoolDisabled ? '$5' : undefined}>
             {isPrivatePoolDisabled ? (
               <LocalWalletPoolStatus
@@ -757,7 +771,7 @@ function TokenDetailsHeaderContent({
           </Stack>
         ) : null}
         {/* Overview */}
-        {!isPrivatePoolDisabled ? (
+        {shouldShowOverview ? (
           <Stack px="$5" py="$5">
             <TokenDetailsBalanceHero
               isLoading={isBalanceLoading}
@@ -778,7 +792,7 @@ function TokenDetailsHeaderContent({
               <RawActions testID="token-details-primary-actions">
                 <RawActions.Send
                   testID={AssetDetailsTestIDs.sendBtn}
-                  disabled={isPrivatePool && localWalletPool.state?.paused}
+                  disabled={isPrivatePool && localWalletPool.isSyncPaused}
                   onPress={handleSendPress}
                   trackID="wallet-token-details-send"
                 />
@@ -787,7 +801,7 @@ function TokenDetailsHeaderContent({
                   disabled={
                     isWatchOnly ||
                     isBotWalletReceiveBlocked ||
-                    (isPrivatePool && localWalletPool.state?.paused)
+                    (isPrivatePool && localWalletPool.isSyncPaused)
                   }
                   allowPressWhenDisabled={isBotWalletReceiveBlocked}
                   onPress={async () => {
@@ -819,7 +833,8 @@ function TokenDetailsHeaderContent({
                   }}
                   trackID="wallet-token-details-receive"
                 />
-                {isPublicPool ? (
+                {/* Every pool page, public or private, folds Swap and Buy into More. */}
+                {hasSelectedPool ? (
                   <RawActions.More
                     testID="token-details-more-btn"
                     renderItems={({ handleActionListClose }) => (

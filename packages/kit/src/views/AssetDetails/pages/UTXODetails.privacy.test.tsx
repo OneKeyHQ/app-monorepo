@@ -22,6 +22,8 @@ const OWN_T = `t1${'A'.repeat(33)}`;
 const OWN_UA = `u1${'q'.repeat(90)}`;
 const DIVERSIFIED = `u1${'d'.repeat(90)}`;
 const RECIPIENT = `u1${'z'.repeat(90)}`;
+// Pools go by their kind; the intl mock renders these ids as-is.
+const PRIVATE = ETranslations.private_send_private_option;
 
 let mockNetworkId = 'zec--0';
 let mockDetails: Partial<IOnChainHistoryTx> = {};
@@ -184,17 +186,13 @@ it('labels own notes as private unless the note names the displayed address', as
   expect(text).toContain(RECIPIENT);
   expect(text).not.toContain('Sapling');
   expect(result.getAllByText(OWN_UA)).toHaveLength(1);
-  expect(
-    result.getAllByText(ETranslations.private_send_private_option),
-  ).toHaveLength(3);
+  // The Ironwood spend, the hidden change and the Sapling note.
+  expect(result.getAllByText(PRIVATE)).toHaveLength(3);
 });
 
-it.each([
-  [OWN_T, OWN_T],
-  [`t1${'C'.repeat(33)}`, ETranslations.privacy_balance_public__title],
-])(
-  'shows our transparent input only when the displayed one is %s',
-  async (displayed, expected) => {
+it.each([[OWN_T], [`t1${'C'.repeat(33)}`]])(
+  'shows our transparent input whatever Receive displays (%s)',
+  async (displayed) => {
     mockAddresses = { publicAddress: displayed, privateAddress: OWN_UA };
     mockDetails = {
       inputOutputSource: 'account',
@@ -209,14 +207,11 @@ it.each([
       receives: [],
     };
     const result = await renderPage();
-    expect(result.getByText(expected)).toBeTruthy();
-    if (expected !== OWN_T) {
-      expect(result.queryByText(OWN_T)).toBeNull();
-    }
+    expect(result.getByText(OWN_T)).toBeTruthy();
   },
 );
 
-it('names our transparent change output by pool', async () => {
+it('shows our transparent change output as it is', async () => {
   const change = `t1${'H'.repeat(33)}`;
   mockDetails = {
     inputOutputSource: 'public',
@@ -239,10 +234,7 @@ it('names our transparent change output by pool', async () => {
     ],
   };
   const result = await renderPage();
-  expect(result.queryByText(change)).toBeNull();
-  expect(
-    result.getByText(ETranslations.privacy_balance_public__title),
-  ).toBeTruthy();
+  expect(result.getByText(change)).toBeTruthy();
   expect(result.getByText(OWN_T)).toBeTruthy();
 });
 
@@ -259,9 +251,7 @@ it('marks shielded change under its pool name', async () => {
   const badges = result.getAllByText('wallet.change_address');
   expect(badges).toHaveLength(1);
   const changeRow = badges[0].parentElement?.parentElement;
-  expect(changeRow?.textContent).toContain(
-    ETranslations.private_send_private_option,
-  );
+  expect(changeRow?.textContent).toContain(PRIVATE);
   expect(changeRow?.textContent).not.toContain(RECIPIENT);
 });
 

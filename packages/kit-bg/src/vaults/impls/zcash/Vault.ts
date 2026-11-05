@@ -3,7 +3,6 @@
 import { validateZcashTransparentAddress } from '@onekeyhq/core/src/chains/zcash/sdkZcash';
 import { ZCASH_NETWORK_MAIN } from '@onekeyhq/core/src/chains/zcash/sdkZcash/constants';
 import {
-  ZCASH_LIGHTD_CHAIN_NAMES,
   fetchZcashChainTipDirect,
   fetchZcashLightdInfoDirect,
 } from '@onekeyhq/core/src/chains/zcash/sdkZcash/impl/chainTipDirect';
@@ -22,11 +21,7 @@ import type {
   IUnsignedTxPro,
 } from '@onekeyhq/core/src/types';
 import { ZCASH_MIN_BIRTHDAY_HEIGHT_MAINNET } from '@onekeyhq/shared/src/config/zcash';
-import {
-  OneKeyInternalError,
-  OneKeyLocalError,
-} from '@onekeyhq/shared/src/errors';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import type { LRUCache } from '@onekeyhq/shared/src/utils/cacheUtils';
 import { getOnChainHistoryTransferDisplayAddress } from '@onekeyhq/shared/src/utils/historyUtils';
@@ -62,9 +57,8 @@ import type {
 } from '@onekeyhq/shared/types/serverToken';
 import type { IDecodedTx } from '@onekeyhq/shared/types/tx';
 
-import { allowPrivacyChainRelayProbe } from '../../../utils/privacyChainRelayTargets';
 import { getLocalWalletHistoryAddressGate } from '../../localWallet/historyAddressGate';
-import { localWalletText } from '../../localWallet/messages';
+import { resolveLocalWalletNodeUrl } from '../../localWallet/nodeUrl';
 import VaultBtc from '../btc/Vault';
 
 import {
@@ -90,7 +84,7 @@ import * as zcashSend from './vaultSend';
 import * as zcashTransparent from './vaultTransparent';
 import {
   createZcashSetupIncompleteError,
-  zcashDescribeError,
+  isZcashSetupIncompleteError,
 } from './vaultUtils';
 
 import type { IEncodedTxZcash } from './types';
@@ -104,6 +98,7 @@ import type {
   ILocalWalletAccountBalance,
   ILocalWalletCapability,
   ILocalWalletSendPool,
+  ILocalWalletSyncErrorKind,
 } from '../../localWallet/types';
 import type {
   IBroadcastTransactionByCustomRpcParams,
@@ -148,21 +143,14 @@ export default class Vault extends VaultBtc {
     });
   }
 
-  // An enabled custom node wins; otherwise the built-in one, so turning a custom node off never stops sync.
   async zcashResolveLightwalletdUrl(): Promise<string> {
-    const url =
-      await this.backgroundApi.serviceCustomRpc.resolveRpcUrlWithBuiltIn({
-        networkId: this.networkId,
-      });
-    if (!url) {
-      throw new OneKeyLocalError(
-        localWalletText(ETranslations.privacy_error_no_node__msg),
-      );
-    }
-    return url;
+    return resolveLocalWalletNodeUrl({
+      backgroundApi: this.backgroundApi,
+      networkId: this.networkId,
+    });
   }
 
-  // Probes via the scanner's transport; the node still needs gRPC-web, not just CORS-friendly networking.
+  // Probes over the app's node transport; the node still needs gRPC-web, not just CORS-friendly networking.
   async zcashTestLightwalletdUrl(
     url: string,
     options?: { validateChain?: boolean },
@@ -180,43 +168,28 @@ export default class Vault extends VaultBtc {
     } catch {
       return { ok: false, reason: 'invalid-url' };
     }
-    // The runtime relays only configured nodes; this one is not saved yet.
-    const releaseProbe = allowPrivacyChainRelayProbe(normalized);
-    try {
-      const api = await this.zcashGetApi();
-      const tip = await api.getChainTip({
-        network: ZCASH_NETWORK_MAIN,
+    const tip = await fetchZcashChainTipDirect({ lightwalletdUrl: normalized });
+    if (tip === null) {
+      return { ok: false, reason: 'unreachable' };
+    }
+    // Only catches a stale or very young chain: testnet is already past this height.
+    if (tip < ZCASH_MIN_BIRTHDAY_HEIGHT_MAINNET) {
+      return { ok: false, chainTip: tip, reason: 'wrong-chain' };
+    }
+    if (options?.validateChain) {
+      // The runtime refuses a node whose chain it cannot confirm; so does this.
+      const info = await fetchZcashLightdInfoDirect({
         lightwalletdUrl: normalized,
       });
-      if (tip === null) {
-        return { ok: false, reason: 'unreachable' };
+      if (info?.chainName !== ZCASH_NETWORK_MAIN) {
+        return {
+          ok: false,
+          chainTip: tip,
+          reason: info ? 'wrong-chain' : 'unconfirmed-chain',
+        };
       }
-      // Only catches a stale or very young chain: testnet is already past this height.
-      if (tip < ZCASH_MIN_BIRTHDAY_HEIGHT_MAINNET) {
-        return { ok: false, chainTip: tip, reason: 'wrong-chain' };
-      }
-      if (options?.validateChain) {
-        // Lenient: only a known, different chain name rejects; no answer keeps the pass.
-        const info = await fetchZcashLightdInfoDirect({
-          lightwalletdUrl: normalized,
-        });
-        if (
-          info &&
-          ZCASH_LIGHTD_CHAIN_NAMES.includes(info.chainName) &&
-          info.chainName !== ZCASH_NETWORK_MAIN
-        ) {
-          return { ok: false, chainTip: tip, reason: 'wrong-chain' };
-        }
-      }
-      return { ok: true, chainTip: tip };
-    } catch (e) {
-      console.error('[zcash] endpoint probe failed', {
-        ...zcashDescribeError(e),
-      });
-      return { ok: false, reason: 'unreachable' };
-    } finally {
-      releaseProbe();
     }
+    return { ok: true, chainTip: tip };
   }
 
   // bestBlockNumber here is the lightwalletd chain tip; the gRPC-web check above is what actually decides pass/fail.
@@ -289,12 +262,29 @@ export default class Vault extends VaultBtc {
     accountId: string;
     meta: IZcashAccountMeta;
   }): Promise<string> {
-    return getZcashAccountUfvk({
-      backgroundApi: this.backgroundApi,
-      networkId: this.networkId,
-      accountId,
-      meta,
-    });
+    try {
+      return await getZcashAccountUfvk({
+        backgroundApi: this.backgroundApi,
+        networkId: this.networkId,
+        accountId,
+        meta,
+      });
+    } catch (error) {
+      // Every use of the key comes through here; the service decides whether to turn it off.
+      if (isZcashSetupIncompleteError(error)) {
+        void this.backgroundApi.servicePrivacyChain
+          .turnOffLocalWalletAccountWithoutKey({
+            networkId: this.networkId,
+            accountId,
+          })
+          .catch((turnOffError: unknown) => {
+            console.error('[zcash] could not turn off an account without key', {
+              error: turnOffError instanceof Error ? turnOffError.message : '',
+            });
+          });
+      }
+      throw error;
+    }
   }
 
   async zcashGetStoredUfvk({
@@ -416,16 +406,11 @@ export default class Vault extends VaultBtc {
     return zcashTransparent.zcashTransparentExpiryTip(this);
   }
 
-  // Runtime first; falls back to a direct background fetch when the native file:// carrier can't reach lightwalletd.
+  // Asks the configured node directly; the scanner stays unloaded.
   async getLocalWalletChainTip(): Promise<number | null> {
-    const api = await this.zcashGetApi();
-    const lightwalletdUrl = await this.zcashResolveLightwalletdUrl();
-    const runtimeTip = await api.getChainTip({
-      network: ZCASH_NETWORK_MAIN,
-      lightwalletdUrl,
+    return fetchZcashChainTipDirect({
+      lightwalletdUrl: await this.zcashResolveLightwalletdUrl(),
     });
-    if (runtimeTip !== null) return runtimeTip;
-    return fetchZcashChainTipDirect({ lightwalletdUrl });
   }
 
   async prewarmLocalWalletSend(params: {
@@ -458,6 +443,7 @@ export default class Vault extends VaultBtc {
     chainTip?: number | null;
     backfillRemaining?: boolean;
     caughtUpAccountIds?: string[];
+    syncError?: ILocalWalletSyncErrorKind;
   }> {
     return zcashLifecycle.syncLocalWalletGroupImpl(this, params);
   }
@@ -482,10 +468,6 @@ export default class Vault extends VaultBtc {
     forceDerivation?: boolean;
   }): Promise<void> {
     return zcashLifecycle.zcashRetryLocalWalletSetup(this, params);
-  }
-
-  async zcashTryAutoRepairLocalWalletSetupIfUnlocked(): Promise<boolean> {
-    return zcashLifecycle.zcashTryAutoRepairLocalWalletSetupIfUnlocked(this);
   }
 
   async getLocalWalletAccountMeta({
@@ -572,6 +554,7 @@ export default class Vault extends VaultBtc {
   async zcashGetIndexerTransparentBalance(params: {
     account: IDBUtxoAccount;
     rawTxRetries?: number;
+    onIndexerTotal?: (total: BigNumber) => void;
   }): Promise<{
     total?: BigNumber;
     spendable?: BigNumber;
@@ -602,6 +585,7 @@ export default class Vault extends VaultBtc {
         backgroundApi: this.backgroundApi,
         networkId: this.networkId,
         accountId: params.accountId || this.accountId,
+        toDisplayedAddress: zcashHistory.toZcashDisplayedOwnAddress,
       });
       response.data.data.data = gateLocalWalletHistoryDetail(gate, detail);
     }
