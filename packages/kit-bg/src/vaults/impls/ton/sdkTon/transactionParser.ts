@@ -1,4 +1,3 @@
-import { EDeviceType } from '@onekeyfe/hd-shared';
 import { Cell, beginCell } from '@ton/core';
 import TonWeb from 'tonweb';
 
@@ -7,12 +6,8 @@ import type {
   ITonMessage,
 } from '@onekeyhq/core/src/chains/ton/types';
 import type { IBackgroundApi } from '@onekeyhq/kit-bg/src/apis/IBackgroundApi';
-import type { IDBDevice } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { LRUCache } from '@onekeyhq/shared/src/utils/cacheUtils';
-import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 
 import { encodeDecodedJetton } from './payload';
@@ -21,29 +16,6 @@ import { decodePayload, getJettonData, getJettonWalletAddress } from './utils';
 // The background runtime owns these facts. No serialized dApp metadata can
 // populate them; canonical payload hashes also cover inline/ref variants.
 const verifiedMasters = new WeakMap<IBackgroundApi, LRUCache<string, string>>();
-
-const TOUCH_FIRMWARE_WITHOUT_STATE_INIT = new Set([
-  '4.10.0',
-  '4.11.0',
-  '4.12.0',
-]);
-
-export async function getTonHardwareSdkOptions(
-  device?: IDBDevice | null,
-): Promise<{ omitStateInit: boolean }> {
-  if (device?.deviceType !== EDeviceType.Touch) {
-    return { omitStateInit: false };
-  }
-  const { firmwareVersion } = await deviceUtils.getDeviceVersion({
-    device,
-    features: undefined,
-  });
-  // These released Touch handlers ignore init data. Keep this projection
-  // limited to firmware versions verified from their official release sources.
-  return {
-    omitStateInit: TOUCH_FIRMWARE_WITHOUT_STATE_INIT.has(firmwareVersion),
-  };
-}
 
 export function isSameTonAddress(first?: string, second?: string): boolean {
   return (
@@ -83,7 +55,6 @@ export function usesTonHardwareAppRepresentation(
 
 export function getTonHardwareSdkTransaction(
   encodedTx: IEncodedTxTon,
-  { omitStateInit = false }: { omitStateInit?: boolean } = {},
 ): IEncodedTxTon {
   const first = encodedTx.messages[0];
   if (!first) {
@@ -92,34 +63,13 @@ export function getTonHardwareSdkTransaction(
   const mode = first.sendMode ?? 3;
   return {
     ...encodedTx,
-    // The existing SDK rebuilds a batch with one mode and only receives
-    // StateInit for its first message. Additional message metadata is not sent.
-    messages: encodedTx.messages.map((message, index) => ({
+    // The SDK uses one batch mode. Keep all original initialization data in
+    // the expected transaction so a device cannot silently drop it.
+    messages: encodedTx.messages.map((message) => ({
       ...message,
       sendMode: mode,
-      stateInit: index === 0 && !omitStateInit ? first.stateInit : undefined,
     })),
   };
-}
-
-export function assertTonHardwareTransactionSupported(
-  encodedTx: IEncodedTxTon,
-  { omitStateInit = false }: { omitStateInit?: boolean } = {},
-): void {
-  // The SDK has no per-message init field, and these Touch handlers ignore
-  // even its first init. Never confirm or accept a silently reduced request.
-  if (
-    encodedTx.messages.some(
-      (message, index) => !!message.stateInit && (index > 0 || omitStateInit),
-    )
-  ) {
-    throw new OneKeyLocalError({
-      key: ETranslations.hardware_third_party_feature_not_supported,
-      message: appLocale.intl.formatMessage({
-        id: ETranslations.hardware_third_party_feature_not_supported,
-      }),
-    });
-  }
 }
 
 export async function parseTonTransactionMessage({

@@ -9,7 +9,6 @@ import {
 import TonWeb from 'tonweb';
 
 import type { IEncodedTxTon } from '@onekeyhq/core/src/chains/ton/types';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import { convertDecodedTxActionsToSignatureConfirmTxDisplayComponents } from '@onekeyhq/shared/src/utils/txActionUtils';
@@ -121,7 +120,7 @@ afterEach(() => {
 
 describe('TON Jetton confirmation integrity', () => {
   it.each(firmwareTouchSigningMessages.fixtures)(
-    'rejects StateInit that Touch would omit before confirmation of $name',
+    'keeps the original StateInit for Touch confirmation of $name',
     async ({ encodedTx }) => {
       const { vault } = setup();
       vault.accountId = "hw-test--m/44'/607'/0'--v4R2";
@@ -147,12 +146,13 @@ describe('TON Jetton confirmation integrity', () => {
         bleVersion: '',
         bootloaderVersion: '',
       });
-      await expect(
-        vault.buildDecodedTx({ unsignedTx: { encodedTx } }),
-      ).rejects.toMatchObject({
-        key: ETranslations.hardware_third_party_feature_not_supported,
-      });
+      const decoded = await vault.buildDecodedTx({ unsignedTx: { encodedTx } });
+      expect((decoded.encodedTx as IEncodedTxTon).messages[0].stateInit).toBe(
+        encodedTx.messages[0].stateInit,
+      );
       expect(encodedTx.messages[0].stateInit).toBeDefined();
+      expect(getDevice).not.toHaveBeenCalled();
+      expect(deviceUtils.getDeviceVersion).not.toHaveBeenCalled();
       getDevice.mockClear();
       const history = await vault.buildDecodedTx({
         unsignedTx: { encodedTx },
@@ -208,7 +208,7 @@ describe('TON Jetton confirmation integrity', () => {
   );
 
   it.each(['sdk', 'firstStateInit', 'exotic'])(
-    'rejects unsupported later StateInit before hardware confirmation: %s',
+    'preserves later StateInit in hardware confirmation: %s',
     async (kind) => {
       const { vault } = setup();
       vault.accountId = "hw-test--m/44'/607'/0'--v4R2";
@@ -243,11 +243,10 @@ describe('TON Jetton confirmation integrity', () => {
           .toBoc()
           .toString('base64');
       }
-      await expect(
-        vault.buildDecodedTx({ unsignedTx: { encodedTx } }),
-      ).rejects.toMatchObject({
-        key: ETranslations.hardware_third_party_feature_not_supported,
-      });
+      const decoded = await vault.buildDecodedTx({ unsignedTx: { encodedTx } });
+      expect((decoded.encodedTx as IEncodedTxTon).messages[1].stateInit).toBe(
+        stateInit,
+      );
       const history = await vault.buildDecodedTx({
         unsignedTx: { encodedTx },
         saveToLocalHistory: true,

@@ -39,8 +39,6 @@ import {
   resolveTonHardwareSigningMessage,
 } from './sdkTon/signingMessageValidation';
 import {
-  assertTonHardwareTransactionSupported,
-  getTonHardwareSdkOptions,
   getTonHardwareSdkTransaction,
   parseTonTransactionMessage,
   usesTonHardwareAppRepresentation,
@@ -175,8 +173,6 @@ export class KeyringHardware extends KeyringHardwareBase {
     const { unsignedTx, deviceParams } = params;
     const { dbDevice, deviceCommonParams } = checkIsDefined(deviceParams);
     const originalEncodedTx = unsignedTx.encodedTx as IEncodedTxTon;
-    const sdkOptions = await getTonHardwareSdkOptions(dbDevice);
-    assertTonHardwareTransactionSupported(originalEncodedTx, sdkOptions);
     const encodedTx: IEncodedTxTon = {
       ...originalEncodedTx,
       validUntil:
@@ -308,7 +304,7 @@ export class KeyringHardware extends KeyringHardwareBase {
       // ignore
     }
 
-    const sdkEncodedTx = getTonHardwareSdkTransaction(encodedTx, sdkOptions);
+    const sdkEncodedTx = getTonHardwareSdkTransaction(encodedTx);
     const sdkSerialization = await serializeUnsignedTransaction({
       contract,
       encodedTx: sdkEncodedTx,

@@ -60,8 +60,6 @@ import { KeyringImported } from './KeyringImported';
 import { KeyringWatching } from './KeyringWatching';
 import { ClientTon } from './sdkTon/ClientTon';
 import {
-  assertTonHardwareTransactionSupported,
-  getTonHardwareSdkOptions,
   getTonHardwareSdkTransaction,
   isSameTonAddress,
   parseTonTransactionMessage,
@@ -205,21 +203,9 @@ export default class Vault extends VaultBase {
     const isHardware = accountUtils.isHwAccount({ accountId: this.accountId });
     const appRepresentation =
       usesTonHardwareAppRepresentation(originalEncodedTx);
-    const device =
-      !params.saveToLocalHistory && isHardware && appRepresentation
-        ? await this.backgroundApi.serviceAccount.getAccountDeviceSafe({
-            accountId: this.accountId,
-          })
-        : undefined;
-    const sdkOptions = await getTonHardwareSdkOptions(device);
-    if (!params.saveToLocalHistory && isHardware) {
-      assertTonHardwareTransactionSupported(originalEncodedTx, sdkOptions);
-    }
     const encodedTx =
-      !params.saveToLocalHistory &&
-      isHardware &&
-      (sdkOptions.omitStateInit || !appRepresentation)
-        ? getTonHardwareSdkTransaction(originalEncodedTx, sdkOptions)
+      !params.saveToLocalHistory && isHardware && !appRepresentation
+        ? getTonHardwareSdkTransaction(originalEncodedTx)
         : originalEncodedTx;
     const swapInfo = params.unsignedTx.swapInfo;
     const from = await this.getAccountAddress();
