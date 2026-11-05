@@ -23,6 +23,7 @@ import {
 } from '@onekeyhq/components';
 import { AccountSelectorTriggerHome } from '@onekeyhq/kit/src/components/AccountSelector';
 import { TabPageHeader } from '@onekeyhq/kit/src/components/TabPageHeader';
+import { FOLDABLE_IPHONE_TITLE_ITEM_WIDTH } from '@onekeyhq/kit/src/components/TabPageHeader/headerLayout';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useNetworkLogoUri } from '@onekeyhq/kit/src/hooks/useNetworkLogoUri';
@@ -200,23 +201,19 @@ export function MarketDetailHeader({
   // Reserve the bar margins, back/action capsules, and the title's side gaps.
   // Custom bar items resist native compression, so constrain long identities
   // before UIKit lays out the left and right item groups.
-  // On foldable iPhones the side strip takes the icon items. UIKit still keeps
-  // the title slot narrow and centered, so the title lives in a wide left item
-  // that starts at the bar's leading edge and stays in the horizontal bar. It
-  // stays there in every posture: moving between slots on rotation leaves it
-  // under the back button. Too wide an item folds into an overflow menu, and
-  // without the side strip the status bar shares the top row.
   const isTitleInLeftItem = isFoldableIPhone();
-  let nativeHeaderTitleReservedWidth =
-    40 + 44 + (showFavoriteButton ? 100 : 44) + 32;
-  if (isTitleInLeftItem) {
-    nativeHeaderTitleReservedWidth =
-      safeAreaRight > 0 ? 80 : nativeHeaderTitleReservedWidth + 134;
-  }
-  const nativeHeaderTitleMaxWidth = Math.max(
-    0,
-    windowWidth - safeAreaLeft - safeAreaRight - nativeHeaderTitleReservedWidth,
-  );
+  const nativeHeaderTitleMaxWidth = isTitleInLeftItem
+    ? FOLDABLE_IPHONE_TITLE_ITEM_WIDTH
+    : Math.max(
+        0,
+        windowWidth -
+          safeAreaLeft -
+          safeAreaRight -
+          40 -
+          44 -
+          (showFavoriteButton ? 100 : 44) -
+          32,
+      );
 
   const renderNativeHeaderTitle = useCallback(
     () => (

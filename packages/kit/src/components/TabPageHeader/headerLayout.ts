@@ -31,3 +31,14 @@ export const HEADER_SEARCH_BAR_HEIGHT = 44;
 export function getFoldableIPhoneHeaderTop(rowHeight: number) {
   return isFoldableIPhone() ? FOLDABLE_IPHONE_BAR_CENTER_Y - rowHeight / 2 : 0;
 }
+
+/**
+ * Title width for foldable iPhones. UIKit keeps the title slot narrow and
+ * centered even when the side strip takes the icon items, so these titles live
+ * in a left item in every posture: moving between slots on rotation leaves the
+ * title under the back button. The width fits the outer display and never
+ * follows the window, because an item too wide at the moment of folding moves
+ * into the overflow menu and does not come back. UIKit also shifts a wider item
+ * left of the page inset on the outer display.
+ */
+export const FOLDABLE_IPHONE_TITLE_ITEM_WIDTH = 278;
