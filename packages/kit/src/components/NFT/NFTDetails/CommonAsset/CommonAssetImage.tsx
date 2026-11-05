@@ -1,36 +1,19 @@
-import { useMemo } from 'react';
-
 import BigNumber from 'bignumber.js';
 
 import { Icon, Image, SizableText, Stack, Video } from '@onekeyhq/components';
 import { useNFTMediaFallback } from '@onekeyhq/kit/src/components/NFT/hooks/useNFTMediaFallback';
 import { SHOW_NFT_AMOUNT_MAX } from '@onekeyhq/shared/src/consts/walletConsts';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ENFTType, type IAccountNFT } from '@onekeyhq/shared/types/nft';
-
-import { UnSupportedImageContainer } from './UnSupportedImageContainer';
 
 type IProps = {
   nft: IAccountNFT;
 };
-
-const unSupportedImage = ['data:image/svg+xml;'];
 
 function CommonAssetImage(props: IProps) {
   const { nft } = props;
   const image = nft.metadata?.image;
   const { kind: mediaKind, onError: handleMediaError } =
     useNFTMediaFallback(image);
-
-  const isUnSupportedImageInNative = useMemo(
-    () =>
-      platformEnv.isNative &&
-      !!unSupportedImage.find((i) => image?.includes(i)),
-    [image],
-  );
-  if (isUnSupportedImageInNative) {
-    return <UnSupportedImageContainer src={nft.metadata?.image} />;
-  }
 
   const mediaFallback = (
     <Image.Fallback
