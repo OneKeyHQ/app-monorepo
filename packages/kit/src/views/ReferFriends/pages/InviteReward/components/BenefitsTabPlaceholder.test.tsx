@@ -67,6 +67,13 @@ jest.mock('../../../components/ReferralCardEmpty', () => ({
   ),
 }));
 
+// The scope link itself is covered with the invite tab; here only where the
+// placeholder offers it.
+jest.mock('./RewardScopeInfo', () => ({
+  withRewardScopesHint: (description: string, items: readonly unknown[]) =>
+    items.length ? `${description} [scope-hint]` : description,
+}));
+
 jest.mock('./useInviteCardStyle', () => ({
   useInviteHomeCardStyle: () => ({}),
 }));
@@ -80,8 +87,22 @@ import {
   useBenefitsBindStatus,
 } from './BenefitsTabPlaceholder';
 
-function Subject() {
-  return <BenefitsTabPlaceholder bindStatus={useBenefitsBindStatus()} />;
+const SCOPE_ITEMS = [
+  { subject: 'swap', description: 'Swap providers' },
+  { subject: 'defi', description: 'DeFi venues' },
+] as const;
+
+function Subject({
+  scopeItems,
+}: {
+  scopeItems?: (typeof SCOPE_ITEMS)[number][];
+}) {
+  return (
+    <BenefitsTabPlaceholder
+      bindStatus={useBenefitsBindStatus()}
+      scopeItems={scopeItems}
+    />
+  );
 }
 
 function getText() {
@@ -158,5 +179,29 @@ describe('BenefitsTabPlaceholder', () => {
     expect(
       screen.queryByTestId(ReferFriendsTestIDs.benefitsBindBtn),
     ).toBeNull();
+  });
+
+  it.each(['bind', 'unknown', 'bound'])(
+    'links the reward scope for a wallet that can earn (%s)',
+    (status) => {
+      mockStatusResult = { walletId: 'hd-1', status };
+      render(<Subject scopeItems={[...SCOPE_ITEMS]} />);
+      expect(getText()).toContain('[scope-hint]');
+    },
+  );
+
+  it.each(['notApplicable', 'unsupported'])(
+    'leaves the reward scope out for a wallet that cannot earn (%s)',
+    (status) => {
+      mockStatusResult = { walletId: 'hd-1', status };
+      render(<Subject scopeItems={[...SCOPE_ITEMS]} />);
+      expect(getText()).not.toContain('[scope-hint]');
+    },
+  );
+
+  it('shows no scope link without scope copy', () => {
+    mockStatusResult = { walletId: 'hd-1', status: 'bound' };
+    render(<Subject />);
+    expect(getText()).not.toContain('[scope-hint]');
   });
 });
