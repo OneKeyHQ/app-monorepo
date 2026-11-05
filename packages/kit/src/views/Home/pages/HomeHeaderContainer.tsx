@@ -7,7 +7,7 @@ import {
   useRef,
 } from 'react';
 
-import { Stack, YStack } from '@onekeyhq/components';
+import { Stack, XStack, YStack, useMedia } from '@onekeyhq/components';
 import { WALLET_TYPE_HD } from '@onekeyhq/shared/src/consts/dbConsts';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type { IHomePageViewedState } from '@onekeyhq/shared/src/logger/scopes/account/scenes/wallet';
@@ -50,6 +50,9 @@ function BaseHomeHeaderContainer({
   } = useActiveAccount({
     num: 0,
   });
+  // Wide desktop / web: the action row joins the total's row, on the right.
+  const { gtMd } = useMedia();
+  const actionsInBalanceRow = !platformEnv.isNative && gtMd;
 
   // Mirror WalletBanner's own render condition so the placeholder height
   // matches what the banner will actually display. WalletBanner returns null
@@ -150,15 +153,28 @@ function BaseHomeHeaderContainer({
         bg="$bgApp"
         pointerEvents="box-none"
       >
-        <HomeHeaderGesture onRefresh={onHomePageRefresh}>
-          <Stack gap="$2.5">
-            <HomeOverviewContainer />
-          </Stack>
-        </HomeHeaderGesture>
-        {isWalletNotBackedUp ? null : (
-          <HomeHeaderGesture onRefresh={onHomePageRefresh}>
-            <WalletActions />
-          </HomeHeaderGesture>
+        {actionsInBalanceRow ? (
+          <XStack alignItems="center" gap="$5">
+            <Stack gap="$2.5" flex={1} minWidth={0}>
+              <HomeOverviewContainer />
+            </Stack>
+            {isWalletNotBackedUp ? null : (
+              <WalletActions inBalanceRow flexShrink={0} />
+            )}
+          </XStack>
+        ) : (
+          <>
+            <HomeHeaderGesture onRefresh={onHomePageRefresh}>
+              <Stack gap="$2.5">
+                <HomeOverviewContainer />
+              </Stack>
+            </HomeHeaderGesture>
+            {isWalletNotBackedUp ? null : (
+              <HomeHeaderGesture onRefresh={onHomePageRefresh}>
+                <WalletActions />
+              </HomeHeaderGesture>
+            )}
+          </>
         )}
       </Stack>
       {/* Always mount so initLocalBanners + remote fetch effects run.

@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { Children } from 'react';
+import { Children, createContext, useContext } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -25,6 +25,12 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { RiskApprovalsDot } from './RiskApprovalsDot';
 
+// Desktop pill size of a whole action row. The Home balance row uses medium
+// (38 high, same text and icon) so the total stays the strongest element; other
+// pages keep large.
+export type IRawActionsSize = 'large' | 'medium';
+const RawActionsSizeContext = createContext<IRawActionsSize>('large');
+
 export type IActionItemsProps = {
   icon?: IKeyOfIcons | null;
   label?: string | ReactNode;
@@ -48,6 +54,7 @@ function ActionItem({
   disabled,
   ...rest
 }: IActionItemsProps) {
+  const actionSize = useContext(RawActionsSizeContext);
   const visualDisabled = !!disabled;
   const effectiveDisabled = visualDisabled && !allowPressWhenDisabled;
 
@@ -134,7 +141,7 @@ function ActionItem({
       <Button
         testID="home-btn"
         variant={highlighted ? 'primary' : 'secondary'}
-        size="large"
+        size={actionSize}
         icon={icon || undefined}
         display="none"
         $gtSm={{ display: 'flex' }}
@@ -243,11 +250,12 @@ function ActionMore({
   showDot?: boolean;
 }) {
   const intl = useIntl();
+  const actionSize = useContext(RawActionsSizeContext);
   const label = intl.formatMessage({ id: ETranslations.global_more });
   const iconButtonTrigger = (
     <IconButton
       variant="secondary"
-      size="large"
+      size={actionSize}
       icon="DotHorOutline"
       testID={testID}
     />
@@ -343,19 +351,25 @@ function ActionMore({
   );
 }
 
-function RawActions({ children, ...rest }: IXStackProps) {
+function RawActions({
+  children,
+  actionSize = 'large',
+  ...rest
+}: IXStackProps & { actionSize?: IRawActionsSize }) {
   return (
-    <XStack
-      gap="$2"
-      $gtSm={{
-        flexDirection: 'row', // override the 'column' direction set in packages/kit/src/views/AssetDetails/pages/TokenDetails/TokenDetailsHeader.tsx 205L
-        justifyContent: 'flex-start',
-        gap: '$3',
-      }}
-      {...rest}
-    >
-      {Children.toArray(children)}
-    </XStack>
+    <RawActionsSizeContext.Provider value={actionSize}>
+      <XStack
+        gap="$2"
+        $gtSm={{
+          flexDirection: 'row', // override the 'column' direction set in packages/kit/src/views/AssetDetails/pages/TokenDetails/TokenDetailsHeader.tsx 205L
+          justifyContent: 'flex-start',
+          gap: '$3',
+        }}
+        {...rest}
+      >
+        {Children.toArray(children)}
+      </XStack>
+    </RawActionsSizeContext.Provider>
   );
 }
 
@@ -367,10 +381,26 @@ function RawActions({ children, ...rest }: IXStackProps) {
  */
 function ActionsPlaceholder({
   slotCount = 4,
+  actionSize = 'large',
   testID,
   ...rest
-}: IXStackProps & { slotCount?: number }) {
+}: IXStackProps & { slotCount?: number; actionSize?: IRawActionsSize }) {
   const slotTestID = testID ? `${testID}-slot` : undefined;
+  if (actionSize === 'medium') {
+    // Same footprint as the medium row: pills plus the round "More" button.
+    return (
+      <XStack gap="$2.5" alignItems="center" testID={testID} {...rest}>
+        {Array.from({ length: Math.max(slotCount - 1, 0) }, (_, index) => (
+          <Stack key={index} testID={slotTestID}>
+            <Skeleton w={100} h={38} radius="round" />
+          </Stack>
+        ))}
+        <Stack testID={slotTestID}>
+          <Skeleton w={38} h={38} radius="round" />
+        </Stack>
+      </XStack>
+    );
+  }
   return (
     <XStack
       gap="$2"

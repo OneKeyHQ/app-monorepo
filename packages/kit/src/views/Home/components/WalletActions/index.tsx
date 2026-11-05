@@ -3,7 +3,13 @@ import { useCallback } from 'react';
 import { useIntl } from 'react-intl';
 
 import type { IPageNavigationProp, IXStackProps } from '@onekeyhq/components';
-import { Button, Dialog, SizableText, YStack } from '@onekeyhq/components';
+import {
+  Button,
+  Dialog,
+  SizableText,
+  XStack,
+  YStack,
+} from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import {
   OptionCard,
@@ -431,10 +437,18 @@ function WalletActionSend({
   );
 }
 
-function WalletActions({ ...rest }: IXStackProps) {
+function WalletActions({
+  inBalanceRow = false,
+  ...rest
+}: IXStackProps & {
+  // Wide desktop: the row sits at the right of the total, at the medium
+  // (38) size, and the empty state drops its "add money to get started" line.
+  inBalanceRow?: boolean;
+}) {
   const intl = useIntl();
   const { config, getActionCustomization } = useWalletActionConfig();
   const balanceState = useHomeBalanceState();
+  const actionSize = inBalanceRow ? 'medium' : 'large';
 
   // No source knows this owner yet (first visit of a never-loaded account, or
   // a wallet switch that reset the sticky fallback): keep the row's footprint
@@ -443,6 +457,7 @@ function WalletActions({ ...rest }: IXStackProps) {
     return (
       <RawActions.Placeholder
         {...rest}
+        actionSize={actionSize}
         testID={HomeTestIDs.walletActionsLoading}
       />
     );
@@ -494,11 +509,45 @@ function WalletActions({ ...rest }: IXStackProps) {
 
   if (balanceState === 'positive') {
     return (
-      <RawActions {...rest} {...rawActionsLayout}>
+      <RawActions {...rest} {...rawActionsLayout} actionSize={actionSize}>
         {config.mainActions.map(renderActionComponent).filter(Boolean)}
         <WalletActionMore />
       </RawActions>
     );
+  }
+
+  const addMoneyActions = (
+    <RawActions {...rawActionsLayout} actionSize={actionSize}>
+      <WalletActionReceive
+        key="receive"
+        useSelector
+        variant="home_add_money"
+        renderTrigger={({ onPress, disabled }) => (
+          <Button
+            flex={1}
+            size={actionSize}
+            variant="primary"
+            icon="PlusLargeOutline"
+            onPress={onPress}
+            disabled={disabled}
+            testID={HomeTestIDs.addMoneyButton}
+            // In the balance row the button is as wide as its label.
+            $gtSm={{
+              flex: 0,
+              alignSelf: 'flex-start',
+              minWidth: inBalanceRow ? undefined : 200,
+            }}
+          >
+            {intl.formatMessage({ id: ETranslations.global_add_money })}
+          </Button>
+        )}
+      />
+      <WalletActionMore iconOnly />
+    </RawActions>
+  );
+
+  if (inBalanceRow) {
+    return <XStack {...rest}>{addMoneyActions}</XStack>;
   }
 
   return (
@@ -506,28 +555,7 @@ function WalletActions({ ...rest }: IXStackProps) {
       <SizableText size="$bodyMd" color="$textSubdued">
         {intl.formatMessage({ id: ETranslations.add_money_to_get_started })}
       </SizableText>
-      <RawActions {...rawActionsLayout}>
-        <WalletActionReceive
-          key="receive"
-          useSelector
-          variant="home_add_money"
-          renderTrigger={({ onPress, disabled }) => (
-            <Button
-              flex={1}
-              size="large"
-              variant="primary"
-              icon="PlusLargeOutline"
-              onPress={onPress}
-              disabled={disabled}
-              testID={HomeTestIDs.addMoneyButton}
-              $gtSm={{ flex: 0, alignSelf: 'flex-start', minWidth: 200 }}
-            >
-              {intl.formatMessage({ id: ETranslations.global_add_money })}
-            </Button>
-          )}
-        />
-        <WalletActionMore iconOnly />
-      </RawActions>
+      {addMoneyActions}
     </YStack>
   );
 }

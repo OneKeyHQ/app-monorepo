@@ -1,0 +1,290 @@
+diff --git a/node_modules/@onekeyfe/react-native-native-list/lib/module/web/NativeListGeneratedIcons.js b/node_modules/@onekeyfe/react-native-native-list/lib/module/web/NativeListGeneratedIcons.js
+index 0d0a5a4..e2c584b 100644
+--- a/node_modules/@onekeyfe/react-native-native-list/lib/module/web/NativeListGeneratedIcons.js
++++ b/node_modules/@onekeyfe/react-native-native-list/lib/module/web/NativeListGeneratedIcons.js
+@@ -25,6 +25,8 @@ export const nativeListGeneratedIcons = {
+   PlusLargeOutline: 'PlusLargeOutline',
+   PlusSmallOutline: 'PlusSmallOutline',
+   RefreshCcwOutline: 'RefreshCcwOutline',
++  // OneKey patch: the home token table's quiet swap action.
++  SwitchHorOutline: 'SwitchHorOutline',
+   TicketOutline: 'TicketOutline',
+   WalletOutline: 'WalletOutline'
+ };
+diff --git a/node_modules/@onekeyfe/react-native-native-list/lib/module/web/NativeListWebEngine.js b/node_modules/@onekeyfe/react-native-native-list/lib/module/web/NativeListWebEngine.js
+index a3f6641..59c9cdd 100644
+--- a/node_modules/@onekeyfe/react-native-native-list/lib/module/web/NativeListWebEngine.js
++++ b/node_modules/@onekeyfe/react-native-native-list/lib/module/web/NativeListWebEngine.js
+@@ -459,7 +459,12 @@ export const WEB_LIST_CSS = `
+ .ok-native-list-item[data-separator="true"]>.ok-native-list-row{border-bottom:1px solid var(--nl-separator-color,var(--nl-separator))}
+ /* An inset separator keeps the transparent border so the row's height is unchanged, and paints the visible line with a logical-inset overlay so it follows RTL. */
+ .ok-native-list-root[data-separator-inset="true"] .ok-native-list-item[data-separator="true"]>.ok-native-list-row{position:relative;border-bottom-color:transparent}
++/* OneKey patch: the row clips its overflow, which hid this line; it is drawn on the item instead (below).
+ .ok-native-list-root[data-separator-inset="true"] .ok-native-list-item[data-separator="true"]>.ok-native-list-row::after{content:"";position:absolute;inset-inline-start:var(--nl-separator-inset,0);inset-inline-end:0;bottom:-1px;height:1px;background:var(--nl-separator-color,var(--nl-separator))}
++*/
++.ok-native-list-root[data-separator-inset="true"] .ok-native-list-item[data-separator="true"]::after{content:"";position:absolute;inset-inline-start:var(--nl-separator-inset,0);inset-inline-end:0;bottom:0;height:1px;background:var(--nl-separator-color,var(--nl-separator));pointer-events:none}
++/* OneKey patch: a hovered, pressed or keyboard-focused row hides the inset lines on both of its edges. */
++.ok-native-list-root[data-separator-inset="true"] .ok-native-list-item[data-native-list-row-press-enabled="true"]:is(:hover,:active,:focus-visible)::after,.ok-native-list-root[data-separator-inset="true"] .ok-native-list-item[data-native-list-next-active="true"]::after{visibility:hidden}
+ .ok-native-list-item[data-group-position="first"]>.ok-native-list-row{border-radius:var(--nl-group-radius,12px) var(--nl-group-radius,12px) 0 0}
+ .ok-native-list-item[data-group-position="last"]>.ok-native-list-row{border-radius:0 0 var(--nl-group-radius,12px) var(--nl-group-radius,12px)}
+ .ok-native-list-item[data-group-position="single"]>.ok-native-list-row{border-radius:var(--nl-group-radius,12px)}
+@@ -467,6 +472,12 @@ export const WEB_LIST_CSS = `
+ .ok-native-list-trailing-button{appearance:none;box-sizing:border-box;flex:0 0 auto;padding:4px 10px;border:1px solid transparent;border-radius:9999px;background:var(--nl-button-bg,var(--nl-strong));color:var(--nl-button-text,var(--nl-primary));font:500 14px/20px var(--nl-font-medium);white-space:nowrap;cursor:pointer}.ok-native-list-trailing-button:hover:not(:disabled){background:var(--nl-button-hover,var(--nl-strong))}.ok-native-list-trailing-button:active:not(:disabled){background:var(--nl-button-pressed,var(--nl-pressed))}.ok-native-list-trailing-button:focus-visible{outline:2px solid var(--nl-button-focus,var(--nl-accent))}.ok-native-list-trailing-button:disabled{opacity:.4;cursor:default}
+ .ok-native-list-icon-button.ok-native-list-tertiary-icon{box-sizing:border-box;flex:0 0 38px;width:38px;height:38px;margin:-7px;padding:6px;border:1px solid transparent;border-radius:9999px;color:var(--nl-icon-subdued);background:transparent}.ok-native-list-icon-button.ok-native-list-tertiary-icon:hover:not(:disabled){background:var(--nl-hover)}.ok-native-list-icon-button.ok-native-list-tertiary-icon:active:not(:disabled){background:var(--nl-pressed)}.ok-native-list-icon-button.ok-native-list-tertiary-icon:disabled{opacity:.4;cursor:default}
+ .ok-native-list-icon-button.ok-native-list-tertiary-icon:focus-visible:not(:disabled){outline:2px solid var(--nl-accent)}
++/* OneKey patch: a quiet row action's circle ends at the row's content edge (no trailing overhang), on one line with page-level 38 buttons above. */
++.ok-native-list-icon-button.ok-native-list-tertiary-icon[data-native-list-quiet-row-action="true"]{margin-inline-end:0}
++/* OneKey patch: a quiet row action shows its background while its row is hovered or keyboard-focused. */
++.ok-native-list-item[data-native-list-row-press-enabled="true"]:is(:hover,:focus-visible) .ok-native-list-icon-button[data-native-list-quiet-row-action="true"]:not(:disabled),.ok-native-list-icon-button[data-native-list-quiet-row-action="true"]:focus-visible:not(:disabled){background:var(--nl-strong)}
++.ok-native-list-item[data-native-list-row-press-enabled="true"]:is(:hover,:focus-visible) .ok-native-list-icon-button[data-native-list-quiet-row-action="true"]:hover:not(:disabled){background:var(--nl-hover)}
++.ok-native-list-item[data-native-list-row-press-enabled="true"]:is(:hover,:focus-visible) .ok-native-list-icon-button[data-native-list-quiet-row-action="true"]:active:not(:disabled){background:var(--nl-pressed)}
+ .ok-native-list-identity-title-icon{flex:0 0 20px;width:20px;height:20px;display:inline-flex;align-items:center;justify-content:center;color:var(--nl-icon);font-size:20px}.ok-native-list-identity-title-text{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+ .ok-native-list-account-row .ok-native-list-visual,.ok-native-list-account-action-row .ok-native-list-visual{width:32px;height:32px;flex-basis:32px}.ok-native-list-account-row .ok-native-list-visual>img,.ok-native-list-account-row .ok-native-list-visual-main,.ok-native-list-account-action-row .ok-native-list-visual>img,.ok-native-list-account-action-row .ok-native-list-visual-main{width:32px;height:32px}.ok-native-list-account-row .ok-native-list-visual>.ok-native-list-visual-corner{width:20px;height:20px;padding:2px}.ok-native-list-account-action-row .ok-native-list-visual{border-radius:8px!important}.ok-native-list-wallet-row .ok-native-list-title{color:var(--nl-secondary);font-size:12px;line-height:16px;font-weight:400;font-family:var(--nl-font-regular)}.ok-native-list-item[data-native-list-selected="true"]>.ok-native-list-wallet-row .ok-native-list-title{color:var(--nl-primary)}.ok-native-list-account-row .ok-native-list-title{font-size:16px;line-height:20px;font-weight:400;font-family:var(--nl-font-regular)}.ok-native-list-account-row .ok-native-list-secondary{font-size:14px;line-height:20px;font-weight:400;font-family:var(--nl-font-regular)}
+ .ok-native-list-flex{display:flex;flex:1;min-width:0;flex-direction:column;justify-content:center}.ok-native-list-title{font-size:15px;line-height:20px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-family:var(--nl-font-semibold)}.ok-native-list-secondary{font-size:13px;line-height:18px;color:var(--nl-secondary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.ok-native-list-tertiary{color:var(--nl-secondary)}.ok-native-list-info{color:var(--nl-info)}
+@@ -1037,9 +1048,13 @@ function createAccessory(context, rowKey, accessory, slot, rowDisabled) {
+       element.classList.add('ok-native-list-tertiary-icon');
+       setData(element, 'nativeListAnchorInset', 7);
+     }
++    // OneKey patch: a quiet row action is a pressable tertiary icon; its background follows the row's hover.
++    if (accessory.quietRowAction) setData(element, 'nativeListQuietRowAction', true);
+     setData(element, 'testid', accessory.testID);
+     if (accessory.hoverActionKey) setData(element, 'nativeListHoverAction', accessory.hoverActionKey);
+-    if (accessory.hoverActionKey && accessory.buttonStyle === 'tertiary') setData(element, 'nativeListIconHelp', true);
++    // OneKey patch: a quiet row action's hover action is a tooltip, so it keeps its press instead of becoming a help toggle.
++    // if (accessory.hoverActionKey && accessory.buttonStyle === 'tertiary') setData(element, 'nativeListIconHelp', true);
++    if (accessory.hoverActionKey && accessory.buttonStyle === 'tertiary' && !accessory.quietRowAction) setData(element, 'nativeListIconHelp', true);
+     if (accessory.accessibilityLabel) element.setAttribute('aria-label', accessory.accessibilityLabel);
+     const row = context.snapshot.rows[context.itemIndex];
+     if (row && 'presentation' in row && row.presentation === 'accountSelector') {
+@@ -1298,6 +1313,11 @@ export class NativeListWebEngine {
+     this.root.addEventListener('focusin', this.handleTitlePointerOver);
+     this.root.addEventListener('focusout', this.handleTitlePointerOut);
+     this.root.addEventListener('pointerout', this.handleTitlePointerOut);
++    // OneKey patch: the row above a hovered or focused row hides its inset line.
++    this.root.addEventListener('pointerover', this.handleSeparatorActive);
++    this.root.addEventListener('pointerout', this.handleSeparatorActive);
++    this.root.addEventListener('focusin', this.handleSeparatorActive);
++    this.root.addEventListener('focusout', this.handleSeparatorActive);
+     this.root.addEventListener('keydown', this.handleKeyDown);
+     this.viewport.addEventListener('pointerdown', this.handleReorderPointerDown, {
+       passive: false
+@@ -1893,6 +1913,11 @@ export class NativeListWebEngine {
+     this.root.removeEventListener('focusin', this.handleTitlePointerOver);
+     this.root.removeEventListener('focusout', this.handleTitlePointerOut);
+     this.root.removeEventListener('pointerout', this.handleTitlePointerOut);
++    // OneKey patch: see handleSeparatorActive.
++    this.root.removeEventListener('pointerover', this.handleSeparatorActive);
++    this.root.removeEventListener('pointerout', this.handleSeparatorActive);
++    this.root.removeEventListener('focusin', this.handleSeparatorActive);
++    this.root.removeEventListener('focusout', this.handleSeparatorActive);
+     this.root.removeEventListener('keydown', this.handleKeyDown);
+     this.cancelPointerReorder(true);
+     this.viewport.removeEventListener('pointerdown', this.handleReorderPointerDown);
+@@ -2194,6 +2219,8 @@ export class NativeListWebEngine {
+   }
+   renderElement(element, index, row, overlay = false) {
+     this.invalidateActionAnchorForElement(element);
++    // OneKey patch: a recycled element must not keep the hidden line of the row it showed before.
++    if (this.separatorAboveActive === element) this.setSeparatorAboveActive(undefined);
+     const registered = rowRenderer(row);
+     const existingBody = element.firstElementChild;
+     const reusableBody = existingBody?.dataset.nlRenderer === registered.key ? existingBody : undefined;
+@@ -2839,6 +2866,23 @@ export class NativeListWebEngine {
+   };
+ 
+   // OneKey patch: hover opens the same anchored help action as native taps.
++  // OneKey patch: rows are absolutely positioned and recycled out of order, so
++  // the row above a hovered or focused row is found by index, not by DOM order.
++  handleSeparatorActive = event => {
++    if (this.root.dataset.separatorInset !== 'true') return;
++    const target = event.target;
++    const item = target instanceof Element ? target.closest('.ok-native-list-item[data-native-list-row-index]') : null;
++    const entering = event.type === 'pointerover' || event.type === 'focusin';
++    if (!entering && item && event.relatedTarget instanceof Node && item.contains(event.relatedTarget)) return;
++    const index = entering && item ? Number(item.dataset.nativeListRowIndex) : NaN;
++    this.setSeparatorAboveActive(Number.isFinite(index) ? this.mounted.get(index - 1) : undefined);
++  };
++  setSeparatorAboveActive(element) {
++    if (this.separatorAboveActive === element) return;
++    if (this.separatorAboveActive) delete this.separatorAboveActive.dataset.nativeListNextActive;
++    this.separatorAboveActive = element;
++    if (element) element.dataset.nativeListNextActive = 'true';
++  }
+   handleTitlePointerOver = event => {
+     const target = event.target;
+     if (!(target instanceof Element)) return;
+diff --git a/node_modules/@onekeyfe/react-native-native-list/lib/typescript/src/models.d.ts b/node_modules/@onekeyfe/react-native-native-list/lib/typescript/src/models.d.ts
+index 4050327..dbe8d77 100644
+--- a/node_modules/@onekeyfe/react-native-native-list/lib/typescript/src/models.d.ts
++++ b/node_modules/@onekeyfe/react-native-native-list/lib/typescript/src/models.d.ts
+@@ -362,6 +362,8 @@ export type TrailingAccessory = Readonly<{
+     testID?: string;
+     hoverActionKey?: string;
+     accessibilityLabel?: string;
++    /** OneKey patch: pressable tertiary icon whose background follows the row's hover; its hover action is a tooltip. */
++    quietRowAction?: boolean;
+ }> | Readonly<{
+     kind: 'spinner';
+ }> | Readonly<{
+diff --git a/node_modules/@onekeyfe/react-native-native-list/src/models.ts b/node_modules/@onekeyfe/react-native-native-list/src/models.ts
+index 9ac00b5..f152c71 100644
+--- a/node_modules/@onekeyfe/react-native-native-list/src/models.ts
++++ b/node_modules/@onekeyfe/react-native-native-list/src/models.ts
+@@ -479,6 +479,8 @@ export type TrailingAccessory =
+       testID?: string;
+       hoverActionKey?: string;
+       accessibilityLabel?: string;
++      /** OneKey patch: pressable tertiary icon whose background follows the row's hover; its hover action is a tooltip. */
++      quietRowAction?: boolean;
+     }>
+   | Readonly<{ kind: 'spinner' }>
+   | Readonly<{ kind: 'progress'; value: number }>;
+diff --git a/node_modules/@onekeyfe/react-native-native-list/src/web/NativeListGeneratedIcons.ts b/node_modules/@onekeyfe/react-native-native-list/src/web/NativeListGeneratedIcons.ts
+index d612a4d..f749c55 100644
+--- a/node_modules/@onekeyfe/react-native-native-list/src/web/NativeListGeneratedIcons.ts
++++ b/node_modules/@onekeyfe/react-native-native-list/src/web/NativeListGeneratedIcons.ts
+@@ -23,6 +23,8 @@ export const nativeListGeneratedIcons: Readonly<Record<string, string>> = {
+   PlusLargeOutline: 'PlusLargeOutline',
+   PlusSmallOutline: 'PlusSmallOutline',
+   RefreshCcwOutline: 'RefreshCcwOutline',
++  // OneKey patch: the home token table's quiet swap action.
++  SwitchHorOutline: 'SwitchHorOutline',
+   TicketOutline: 'TicketOutline',
+   WalletOutline: 'WalletOutline',
+ };
+diff --git a/node_modules/@onekeyfe/react-native-native-list/src/web/NativeListWebEngine.ts b/node_modules/@onekeyfe/react-native-native-list/src/web/NativeListWebEngine.ts
+index 751512c..76d29a3 100644
+--- a/node_modules/@onekeyfe/react-native-native-list/src/web/NativeListWebEngine.ts
++++ b/node_modules/@onekeyfe/react-native-native-list/src/web/NativeListWebEngine.ts
+@@ -837,7 +837,12 @@ export const WEB_LIST_CSS = `
+ .ok-native-list-item[data-separator="true"]>.ok-native-list-row{border-bottom:1px solid var(--nl-separator-color,var(--nl-separator))}
+ /* An inset separator keeps the transparent border so the row's height is unchanged, and paints the visible line with a logical-inset overlay so it follows RTL. */
+ .ok-native-list-root[data-separator-inset="true"] .ok-native-list-item[data-separator="true"]>.ok-native-list-row{position:relative;border-bottom-color:transparent}
++/* OneKey patch: the row clips its overflow, which hid this line; it is drawn on the item instead (below).
+ .ok-native-list-root[data-separator-inset="true"] .ok-native-list-item[data-separator="true"]>.ok-native-list-row::after{content:"";position:absolute;inset-inline-start:var(--nl-separator-inset,0);inset-inline-end:0;bottom:-1px;height:1px;background:var(--nl-separator-color,var(--nl-separator))}
++*/
++.ok-native-list-root[data-separator-inset="true"] .ok-native-list-item[data-separator="true"]::after{content:"";position:absolute;inset-inline-start:var(--nl-separator-inset,0);inset-inline-end:0;bottom:0;height:1px;background:var(--nl-separator-color,var(--nl-separator));pointer-events:none}
++/* OneKey patch: a hovered, pressed or keyboard-focused row hides the inset lines on both of its edges. */
++.ok-native-list-root[data-separator-inset="true"] .ok-native-list-item[data-native-list-row-press-enabled="true"]:is(:hover,:active,:focus-visible)::after,.ok-native-list-root[data-separator-inset="true"] .ok-native-list-item[data-native-list-next-active="true"]::after{visibility:hidden}
+ .ok-native-list-item[data-group-position="first"]>.ok-native-list-row{border-radius:var(--nl-group-radius,12px) var(--nl-group-radius,12px) 0 0}
+ .ok-native-list-item[data-group-position="last"]>.ok-native-list-row{border-radius:0 0 var(--nl-group-radius,12px) var(--nl-group-radius,12px)}
+ .ok-native-list-item[data-group-position="single"]>.ok-native-list-row{border-radius:var(--nl-group-radius,12px)}
+@@ -845,6 +850,12 @@ export const WEB_LIST_CSS = `
+ .ok-native-list-trailing-button{appearance:none;box-sizing:border-box;flex:0 0 auto;padding:4px 10px;border:1px solid transparent;border-radius:9999px;background:var(--nl-button-bg,var(--nl-strong));color:var(--nl-button-text,var(--nl-primary));font:500 14px/20px var(--nl-font-medium);white-space:nowrap;cursor:pointer}.ok-native-list-trailing-button:hover:not(:disabled){background:var(--nl-button-hover,var(--nl-strong))}.ok-native-list-trailing-button:active:not(:disabled){background:var(--nl-button-pressed,var(--nl-pressed))}.ok-native-list-trailing-button:focus-visible{outline:2px solid var(--nl-button-focus,var(--nl-accent))}.ok-native-list-trailing-button:disabled{opacity:.4;cursor:default}
+ .ok-native-list-icon-button.ok-native-list-tertiary-icon{box-sizing:border-box;flex:0 0 38px;width:38px;height:38px;margin:-7px;padding:6px;border:1px solid transparent;border-radius:9999px;color:var(--nl-icon-subdued);background:transparent}.ok-native-list-icon-button.ok-native-list-tertiary-icon:hover:not(:disabled){background:var(--nl-hover)}.ok-native-list-icon-button.ok-native-list-tertiary-icon:active:not(:disabled){background:var(--nl-pressed)}.ok-native-list-icon-button.ok-native-list-tertiary-icon:disabled{opacity:.4;cursor:default}
+ .ok-native-list-icon-button.ok-native-list-tertiary-icon:focus-visible:not(:disabled){outline:2px solid var(--nl-accent)}
++/* OneKey patch: a quiet row action's circle ends at the row's content edge (no trailing overhang), on one line with page-level 38 buttons above. */
++.ok-native-list-icon-button.ok-native-list-tertiary-icon[data-native-list-quiet-row-action="true"]{margin-inline-end:0}
++/* OneKey patch: a quiet row action shows its background while its row is hovered or keyboard-focused. */
++.ok-native-list-item[data-native-list-row-press-enabled="true"]:is(:hover,:focus-visible) .ok-native-list-icon-button[data-native-list-quiet-row-action="true"]:not(:disabled),.ok-native-list-icon-button[data-native-list-quiet-row-action="true"]:focus-visible:not(:disabled){background:var(--nl-strong)}
++.ok-native-list-item[data-native-list-row-press-enabled="true"]:is(:hover,:focus-visible) .ok-native-list-icon-button[data-native-list-quiet-row-action="true"]:hover:not(:disabled){background:var(--nl-hover)}
++.ok-native-list-item[data-native-list-row-press-enabled="true"]:is(:hover,:focus-visible) .ok-native-list-icon-button[data-native-list-quiet-row-action="true"]:active:not(:disabled){background:var(--nl-pressed)}
+ .ok-native-list-identity-title-icon{flex:0 0 20px;width:20px;height:20px;display:inline-flex;align-items:center;justify-content:center;color:var(--nl-icon);font-size:20px}.ok-native-list-identity-title-text{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+ .ok-native-list-account-row .ok-native-list-visual,.ok-native-list-account-action-row .ok-native-list-visual{width:32px;height:32px;flex-basis:32px}.ok-native-list-account-row .ok-native-list-visual>img,.ok-native-list-account-row .ok-native-list-visual-main,.ok-native-list-account-action-row .ok-native-list-visual>img,.ok-native-list-account-action-row .ok-native-list-visual-main{width:32px;height:32px}.ok-native-list-account-row .ok-native-list-visual>.ok-native-list-visual-corner{width:20px;height:20px;padding:2px}.ok-native-list-account-action-row .ok-native-list-visual{border-radius:8px!important}.ok-native-list-wallet-row .ok-native-list-title{color:var(--nl-secondary);font-size:12px;line-height:16px;font-weight:400;font-family:var(--nl-font-regular)}.ok-native-list-item[data-native-list-selected="true"]>.ok-native-list-wallet-row .ok-native-list-title{color:var(--nl-primary)}.ok-native-list-account-row .ok-native-list-title{font-size:16px;line-height:20px;font-weight:400;font-family:var(--nl-font-regular)}.ok-native-list-account-row .ok-native-list-secondary{font-size:14px;line-height:20px;font-weight:400;font-family:var(--nl-font-regular)}
+ .ok-native-list-flex{display:flex;flex:1;min-width:0;flex-direction:column;justify-content:center}.ok-native-list-title{font-size:15px;line-height:20px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-family:var(--nl-font-semibold)}.ok-native-list-secondary{font-size:13px;line-height:18px;color:var(--nl-secondary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.ok-native-list-tertiary{color:var(--nl-secondary)}.ok-native-list-info{color:var(--nl-info)}
+@@ -1726,10 +1737,20 @@ function createAccessory(
+       element.classList.add('ok-native-list-tertiary-icon');
+       setData(element, 'nativeListAnchorInset', 7);
+     }
++    // OneKey patch: a quiet row action is a pressable tertiary icon; its background follows the row's hover.
++    if (accessory.quietRowAction)
++      setData(element, 'nativeListQuietRowAction', true);
+     setData(element, 'testid', accessory.testID);
+     if (accessory.hoverActionKey)
+       setData(element, 'nativeListHoverAction', accessory.hoverActionKey);
+-    if (accessory.hoverActionKey && accessory.buttonStyle === 'tertiary')
++    // OneKey patch: a quiet row action's hover action is a tooltip, so it keeps its press instead of becoming a help toggle.
++    // if (accessory.hoverActionKey && accessory.buttonStyle === 'tertiary')
++    //   setData(element, 'nativeListIconHelp', true);
++    if (
++      accessory.hoverActionKey &&
++      accessory.buttonStyle === 'tertiary' &&
++      !accessory.quietRowAction
++    )
+       setData(element, 'nativeListIconHelp', true);
+     if (accessory.accessibilityLabel)
+       element.setAttribute('aria-label', accessory.accessibilityLabel);
+@@ -1961,6 +1982,8 @@ export class NativeListWebEngine {
+   private virtualizationEnabled: boolean;
+   private actionAnchor: WebActionAnchorRecord | undefined;
+   private pressedHelpElement: HTMLElement | undefined;
++  // OneKey patch: the item whose inset line is hidden for the active row below it.
++  private separatorAboveActive: HTMLElement | undefined;
+   private readonly actionAnchorInstanceId = String(
+     ++webNativeListInstanceCounter
+   );
+@@ -2213,6 +2236,11 @@ export class NativeListWebEngine {
+     this.root.addEventListener('focusin', this.handleTitlePointerOver);
+     this.root.addEventListener('focusout', this.handleTitlePointerOut);
+     this.root.addEventListener('pointerout', this.handleTitlePointerOut);
++    // OneKey patch: the row above a hovered or focused row hides its inset line.
++    this.root.addEventListener('pointerover', this.handleSeparatorActive);
++    this.root.addEventListener('pointerout', this.handleSeparatorActive);
++    this.root.addEventListener('focusin', this.handleSeparatorActive);
++    this.root.addEventListener('focusout', this.handleSeparatorActive);
+     this.root.addEventListener('keydown', this.handleKeyDown);
+     this.viewport.addEventListener(
+       'pointerdown',
+@@ -3063,6 +3091,11 @@ export class NativeListWebEngine {
+     this.root.removeEventListener('focusin', this.handleTitlePointerOver);
+     this.root.removeEventListener('focusout', this.handleTitlePointerOut);
+     this.root.removeEventListener('pointerout', this.handleTitlePointerOut);
++    // OneKey patch: see handleSeparatorActive.
++    this.root.removeEventListener('pointerover', this.handleSeparatorActive);
++    this.root.removeEventListener('pointerout', this.handleSeparatorActive);
++    this.root.removeEventListener('focusin', this.handleSeparatorActive);
++    this.root.removeEventListener('focusout', this.handleSeparatorActive);
+     this.root.removeEventListener('keydown', this.handleKeyDown);
+     this.cancelPointerReorder(true);
+     this.viewport.removeEventListener(
+@@ -3518,6 +3551,9 @@ export class NativeListWebEngine {
+     overlay = false
+   ) {
+     this.invalidateActionAnchorForElement(element);
++    // OneKey patch: a recycled element must not keep the hidden line of the row it showed before.
++    if (this.separatorAboveActive === element)
++      this.setSeparatorAboveActive(undefined);
+     const registered = rowRenderer(row);
+     const existingBody = element.firstElementChild as HTMLElement | null;
+     const reusableBody =
+@@ -4585,6 +4621,40 @@ export class NativeListWebEngine {
+   };
+ 
+   // OneKey patch: hover opens the same anchored help action as native taps.
++  // OneKey patch: rows are absolutely positioned and recycled out of order, so
++  // the row above a hovered or focused row is found by index, not by DOM order.
++  private handleSeparatorActive = (event: PointerEvent | FocusEvent) => {
++    if (this.root.dataset.separatorInset !== 'true') return;
++    const target = event.target;
++    const item =
++      target instanceof Element
++        ? target.closest<HTMLElement>(
++            '.ok-native-list-item[data-native-list-row-index]'
++          )
++        : null;
++    const entering = event.type === 'pointerover' || event.type === 'focusin';
++    if (
++      !entering &&
++      item &&
++      event.relatedTarget instanceof Node &&
++      item.contains(event.relatedTarget)
++    )
++      return;
++    const index =
++      entering && item ? Number(item.dataset.nativeListRowIndex) : NaN;
++    this.setSeparatorAboveActive(
++      Number.isFinite(index) ? this.mounted.get(index - 1) : undefined
++    );
++  };
++
++  private setSeparatorAboveActive(element: HTMLElement | undefined) {
++    if (this.separatorAboveActive === element) return;
++    if (this.separatorAboveActive)
++      delete this.separatorAboveActive.dataset.nativeListNextActive;
++    this.separatorAboveActive = element;
++    if (element) element.dataset.nativeListNextActive = 'true';
++  }
++
+   private handleTitlePointerOver = (event: PointerEvent | FocusEvent) => {
+     const target = event.target;
+     if (!(target instanceof Element)) return;

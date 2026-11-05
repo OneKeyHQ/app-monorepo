@@ -5,6 +5,7 @@ import { useIntl } from 'react-intl';
 
 import {
   Badge,
+  Button,
   ESwitchSize,
   IconButton,
   Popover,
@@ -12,11 +13,17 @@ import {
   Stack,
   Switch,
   XStack,
+  useMedia,
   usePopoverContext,
 } from '@onekeyhq/components';
 import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useIsDeFiEnabled } from '@onekeyhq/kit/src/hooks/useIsDeFiEnabled';
+import { useRouteIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
+import {
+  DustSweepEntryCapabilitiesProvider,
+  useActiveAccountDustSweep,
+} from '@onekeyhq/kit/src/views/DustSweep/hooks/useNavigateToDustSweep';
 import {
   useSettingsPersistAtom,
   useTokenSelectorFilterPersistAtom,
@@ -28,6 +35,7 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EModalBulkExportHistoryRoutes } from '@onekeyhq/shared/src/routes/bulkExportHistory';
 import { EPrimeFeatures } from '@onekeyhq/shared/src/routes/prime';
@@ -91,7 +99,13 @@ function TokenListSettingsContent({
   );
 }
 
-function TokenListSettings() {
+function TokenListSettings({
+  flushCircle = false,
+}: {
+  // Wide desktop: drop the tertiary overhang so the circle ends at the page
+  // edge, on one line with "More" in the balance row and the rows' swap.
+  flushCircle?: boolean;
+}) {
   const intl = useIntl();
   const {
     activeAccount: {
@@ -151,6 +165,7 @@ function TokenListSettings() {
           variant="tertiary"
           icon="SliderHorOutline"
           bg={showLpTokensOnly ? '$bgStrong' : 'transparent'}
+          {...(flushCircle ? { mx: '$0' } : undefined)}
         />
       }
       renderContent={
@@ -380,6 +395,52 @@ function TxHistorySettings() {
   );
 }
 
+// Wide desktop / web: Dust sweep is a quiet text button in the Spot tab row
+// (38 high like the filter, no fill until hovered) instead of a pill in the
+// token title row, so it reads as an action rather than another tab.
+function TokenListDustSweepTabAction() {
+  const intl = useIntl();
+  const { canDustSweep, openDustSweep } = useActiveAccountDustSweep();
+  const handlePress = useCallback(() => {
+    void openDustSweep('tokenListHeader');
+  }, [openDustSweep]);
+  if (!canDustSweep) {
+    return null;
+  }
+  return (
+    <Button
+      testID="token-list-header-dust-sweep"
+      variant="tertiary"
+      size="small"
+      icon="BroomOutline"
+      h={38}
+      my="$0"
+      mx="$0"
+      py="$0"
+      px={10}
+      onPress={handlePress}
+    >
+      {intl.formatMessage({ id: ETranslations.out_title_dust_sweep })}
+    </Button>
+  );
+}
+
+function TokenListTabActions() {
+  const { gtMd } = useMedia();
+  const isRouteFocused = useRouteIsFocused();
+  if (platformEnv.isNative || !gtMd) {
+    return <TokenListSettings />;
+  }
+  return (
+    <XStack alignItems="center" gap="$2">
+      <DustSweepEntryCapabilitiesProvider isFocused={isRouteFocused}>
+        <TokenListDustSweepTabAction />
+      </DustSweepEntryCapabilitiesProvider>
+      <TokenListSettings flushCircle />
+    </XStack>
+  );
+}
+
 function BasicTabHeaderSettings({ focusedTab }: { focusedTab: string }) {
   const intl = useIntl();
   const historyName = useMemo(
@@ -400,7 +461,7 @@ function BasicTabHeaderSettings({ focusedTab }: { focusedTab: string }) {
   const content = useMemo(() => {
     switch (focusedTab) {
       case portfolioName:
-        return <TokenListSettings />;
+        return <TokenListTabActions />;
       case historyName:
         return <TxHistorySettings />;
       default:

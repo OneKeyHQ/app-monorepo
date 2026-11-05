@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo } from 'react';
+import type { ReactNode } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { groupBy, keyBy, mapValues } from 'lodash';
@@ -14,6 +15,7 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import type { IKeyOfIcons } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { useSettingsValuePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { isAgg } from '@onekeyhq/kit-bg/src/states/jotai/contexts/tokenList/cellsPure/pure';
@@ -23,6 +25,7 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   EModalAssetListRoutes,
   EModalRoutes,
@@ -50,6 +53,7 @@ import {
 import { useTokenFiatSubtotal } from '../../states/jotai/contexts/tokenList/cells/useTokenFiatSubtotal';
 import { Currency } from '../Currency';
 
+import { TOKEN_WALLET_ROW_ICON_INSET } from './tokenListRowLayoutShared';
 import { useTokenListViewContext } from './TokenListViewContext';
 
 type IProps = {
@@ -60,6 +64,40 @@ type IProps = {
   manageTokenEnabled?: boolean;
   plainMode?: boolean;
 };
+
+// The hover capsule reaches this far past the text on each side.
+const FOOTER_TEXT_BUTTON_PADDING = 10;
+
+// 40-high quiet text button: no background at rest, light capsule on hover.
+function FooterTextButton({
+  testID,
+  icon,
+  onPress,
+  children,
+}: {
+  testID: string;
+  icon?: IKeyOfIcons;
+  onPress: () => void;
+  children: ReactNode;
+}) {
+  return (
+    <Button
+      testID={testID}
+      variant="tertiary"
+      size="small"
+      icon={icon}
+      h="$10"
+      my="$0"
+      mx="$0"
+      py="$0"
+      px={FOOTER_TEXT_BUTTON_PADDING}
+      childrenAsText={false}
+      onPress={onPress}
+    >
+      <XStack alignItems="center">{children}</XStack>
+    </Button>
+  );
+}
 
 function TokenListFooter(props: IProps) {
   const intl = useIntl();
@@ -434,6 +472,79 @@ function TokenListFooter(props: IProps) {
       appEventBus.off(EAppEventBusNames.RefreshTokenList, refresh);
     };
   }, [run]);
+
+  // Desktop / web home: low-value, risky and add-token sit on one line of
+  // quiet text buttons that starts at the token icon edge, under a closing
+  // line that is longer than the row dividers. The low-value page already
+  // carries the explanation, so the row's help popover is not repeated here.
+  if (tableLayout && plainMode && !platformEnv.isNative) {
+    const showLowValue = !isSearchMode && filteredSmallBalanceTokens.length > 0;
+    const showRisky = !isSearchMode && filteredRiskyTokens.length > 0;
+    const showAddToken = !!hasTokens && !!manageTokenEnabled;
+    if (!showLowValue && !showRisky && !showAddToken) {
+      return null;
+    }
+    return (
+      <YStack>
+        <Stack h={1} ml={TOKEN_WALLET_ROW_ICON_INSET} bg="$bgStrong" />
+        <XStack
+          flexWrap="wrap"
+          alignItems="center"
+          columnGap="$2"
+          py="$1.5"
+          pl={TOKEN_WALLET_ROW_ICON_INSET - FOOTER_TEXT_BUTTON_PADDING}
+          pr="$3"
+        >
+          {showLowValue ? (
+            <FooterTextButton
+              testID="token-list-footer-low-value-btn"
+              onPress={handleOnPressLowValueTokens}
+            >
+              <SizableText size="$bodyMd" color="$textSubdued">
+                {`${filteredSmallBalanceTokens.length} ${intl.formatMessage({
+                  id: ETranslations.low_value_assets,
+                })}`}
+              </SizableText>
+              <Currency
+                size="$bodyMd"
+                color="$textSubdued"
+                formatter="value"
+                sourceCurrency="usd"
+                hideValue
+                ml="$1"
+              >
+                {displayedSmallBalanceFiatValue}
+              </Currency>
+            </FooterTextButton>
+          ) : null}
+          {showRisky ? (
+            <FooterTextButton
+              testID="token-list-footer-risky-btn"
+              onPress={handleOnPressRiskyTokens}
+            >
+              <SizableText size="$bodyMd" color="$textSubdued">
+                {intl.formatMessage(
+                  { id: ETranslations.wallet_collapsed_risk_assets_number },
+                  { number: blockedTokensLength },
+                )}
+              </SizableText>
+            </FooterTextButton>
+          ) : null}
+          {showAddToken ? (
+            <FooterTextButton
+              testID="token-list-footer-add-token-btn"
+              icon="PlusSmallOutline"
+              onPress={handleOnPressManageTokens}
+            >
+              <SizableText size="$bodyMd" color="$textSubdued">
+                {intl.formatMessage({ id: ETranslations.add_token_label })}
+              </SizableText>
+            </FooterTextButton>
+          ) : null}
+        </XStack>
+      </YStack>
+    );
+  }
 
   return (
     <Stack mx={tableLayout ? undefined : '$2'}>

@@ -535,21 +535,31 @@ it('publishes Home cell values into separate table columns and routes the Swap a
   expect(first?.type).toBe('dataRow');
   if (first?.type === 'dataRow') {
     expect(first).toMatchObject({ height: 60, heightRounding: 'nearest' });
+    // Web wallet rows: name over "amount SYMBOL", value over 24h change.
     expect(first.columns.map((column) => column.key)).toEqual([
       'asset',
-      'balance',
-      'price',
+      'value',
     ]);
-    expect(first.columns[1].text).toBe('414');
-    expect(first.columns[1].secondaryText).toContain('0.41');
-    expect(first.columns[2].text).toContain('1.5');
-    expect(first.columns[2].secondaryTone).toBe('positive');
+    expect(first.columns[0].text).toBe('Tether USD');
+    expect(first.columns[0].secondaryText).toBe('414 USDT');
+    expect(first.columns[0].secondaryTone).toBe('primary');
+    expect(first.columns[1].text).toContain('0.41');
+    expect(first.columns[1].secondaryTone).toBe('positive');
+    expect(first.separator).toBe(true);
     expect(first.trailing?.[0]).toMatchObject({
-      kind: 'button',
+      kind: 'icon',
+      name: 'SwitchHorOutline',
+      buttonStyle: 'tertiary',
+      quietRowAction: true,
       actionKey: 'swap',
+      hoverActionKey: 'swap-tip',
       disabled: false,
     });
   }
+  // The last token row leaves its divider to the footer's closing line.
+  const last = mockSnapshot?.rows[1];
+  expect(last?.type === 'dataRow' && last.separator).toBe(false);
+  expect(mockSnapshot?.listStyle?.separator?.inset).toBe(64);
   fireEvent.click(getByTestId(`swap-${ethToken.$key}`));
   expect(mockSwap).toHaveBeenCalledWith(ethToken.$key);
 
@@ -568,8 +578,8 @@ it('publishes Home cell values into separate table columns and routes the Swap a
   const changed = mockSnapshot?.rows[0];
   expect(changed?.type).toBe('dataRow');
   if (changed?.type === 'dataRow') {
-    expect(changed.columns[1].text).toBe('414');
-    expect(changed.columns[2].secondaryTone).toBe('negative');
+    expect(changed.columns[0].secondaryText).toBe('414 USDT');
+    expect(changed.columns[1].secondaryTone).toBe('negative');
   }
   expect(mockSnapshot?.structuralTransition?.id).toBe('expand-1');
 
@@ -915,12 +925,65 @@ it('fills a first-mount Home row from its cell before the mirror reports', () =>
     const first = mockSnapshotProps[firstIndex]?.rows[0];
     expect(first?.type).toBe('dataRow');
     if (first?.type === 'dataRow') {
-      expect(first.columns[1].text).toBe('414');
-      expect(first.columns[1].secondaryText).toContain('0.41');
-      expect(first.columns[2].text).toContain('1.5');
+      expect(first.columns[0].secondaryText).toBe('414 USDT');
+      expect(first.columns[1].text).toContain('0.41');
     }
   } finally {
     mockHomeCellStore = undefined;
+    mockHomeFiatMap = {};
+  }
+});
+
+it('keeps the three-column table rows on native tablets', () => {
+  const wasNative = platformEnv.isNative;
+  platformEnv.isNative = true;
+  mockHomeFiatMap = {
+    [ethToken.$key]: {
+      balanceParsed: '0.414',
+      balanceMultiplier: '1000',
+      fiatValue: '0.41',
+      price: 1.5,
+      price24h: 5.5,
+      currency: 'usd',
+    } as ITokenFiat,
+  };
+  try {
+    render(
+      <NativeTokenSelectorList
+        rows={[ethToken, arbToken]}
+        networkId="evm--1"
+        ownerKey="owner-A"
+        crossNetworkGroupingActive={false}
+        zeroFillMissingFiat={false}
+        showProcessingState={false}
+        isSearching={false}
+        currentNetworkName="Ethereum"
+        empty={<div />}
+        homeCellSeam
+        tableLayout
+        withPrice
+        withSwapAction
+      />,
+    );
+    const first = mockSnapshot?.rows[0];
+    expect(first?.type).toBe('dataRow');
+    if (first?.type === 'dataRow') {
+      expect(first.columns.map((column) => column.key)).toEqual([
+        'asset',
+        'balance',
+        'price',
+      ]);
+      expect(first.columns[1].text).toBe('414');
+      expect(first.columns[2].text).toContain('1.5');
+      expect(first.trailing?.[0]).toMatchObject({
+        kind: 'button',
+        actionKey: 'swap',
+      });
+      expect(first.separator).toBeUndefined();
+    }
+    expect(mockSnapshot?.listStyle).toBeUndefined();
+  } finally {
+    platformEnv.isNative = wasNative;
     mockHomeFiatMap = {};
   }
 });

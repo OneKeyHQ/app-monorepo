@@ -93,6 +93,25 @@ jest.mock('@onekeyhq/kit/src/hooks/useIsDeFiEnabled', () => ({
   useIsDeFiEnabled: () => false,
 }));
 
+jest.mock('@onekeyhq/kit/src/hooks/useRouteIsFocused', () => ({
+  useRouteIsFocused: () => true,
+}));
+
+jest.mock(
+  '@onekeyhq/kit/src/views/DustSweep/hooks/useNavigateToDustSweep',
+  () => ({
+    DustSweepEntryCapabilitiesProvider: ({
+      children,
+    }: {
+      children?: ReactNode;
+    }) => children,
+    useActiveAccountDustSweep: () => ({
+      canDustSweep: false,
+      openDustSweep: jest.fn(),
+    }),
+  }),
+);
+
 jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => ({
   useSettingsPersistAtom: () => [
     {

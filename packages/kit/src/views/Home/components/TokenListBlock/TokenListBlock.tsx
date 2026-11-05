@@ -4434,9 +4434,12 @@ function TokenListBlock({
     return (
       <TokenListView
         tokenItemTestIDPrefix={HomeTestIDs.tokenItemTestIDPrefix}
-        limit={6}
+        // Desktop / web table lists every token; no "show more".
+        limit={tableLayout && !platformEnv.isNative ? undefined : 6}
         plainMode
-        withHeader
+        // Desktop / web wallet rows have no column header; native tablets
+        // keep the sortable one.
+        withHeader={!!platformEnv.isNative}
         withFooter
         withPrice
         inTabList
@@ -4544,6 +4547,16 @@ function TokenListBlock({
     showLpTokensOnly,
   ]);
 
+  // Wide desktop / web: the "Tokens · subtotal" row only explains the total
+  // when DeFi or perps value is part of it, so a tokens-only account drops
+  // it; Dust sweep lives in the tab row there (see TabHeaderSettings).
+  const hasNonTokenValue =
+    homePortfolioDisplay.ownerKey === portfolioCategoryOwnerKey &&
+    [homePortfolioDisplay.defiFiatUsd, homePortfolioDisplay.perpsFiatUsd].some(
+      (value) => !!value && new BigNumber(value).gt(0),
+    );
+  const showTokenTitleRow = !tableLayout || hasNonTokenValue;
+
   return (
     <DustSweepEntryCapabilitiesProvider
       isFocused={Boolean(isFocused && isRouteFocused)}
@@ -4553,11 +4566,19 @@ function TokenListBlock({
       ) : (
         <RichBlock
           withTitleSeparator
-          title={intl.formatMessage({
-            id: ETranslations.global_universal_search_tabs_tokens,
-          })}
-          subTitle={renderSubTitle()}
-          headerActions={<TokenListDustSweepAction showLabel={tableLayout} />}
+          title={
+            showTokenTitleRow
+              ? intl.formatMessage({
+                  id: ETranslations.global_universal_search_tabs_tokens,
+                })
+              : undefined
+          }
+          subTitle={showTokenTitleRow ? renderSubTitle() : undefined}
+          headerActions={
+            tableLayout ? undefined : (
+              <TokenListDustSweepAction showLabel={tableLayout} />
+            )
+          }
           headerContainerProps={{ px: '$pagePadding' }}
           content={renderContent()}
           plainContentContainer
