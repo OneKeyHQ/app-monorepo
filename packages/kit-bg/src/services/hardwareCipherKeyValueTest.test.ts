@@ -64,17 +64,19 @@ function setup() {
       patch_version: 0,
     })),
     getSDKInstance: jest.fn(async () => sdk),
+    cancel: jest.fn(async () => undefined),
   };
+  const lease = { signal: abort.signal };
   // Only the hardware services used by this diagnostic are needed here.
   const api = {
     serviceHardware: hardware,
     serviceHardwareUI: {
       withHardwareProcessing: async <T>(
         operation: (lease: { signal: AbortSignal }) => Promise<T>,
-      ) => operation({ signal: abort.signal }),
+      ) => operation(lease),
     },
   } as unknown as IBackgroundApi;
-  return { api, cipher, sdk, hardware, abort };
+  return { api, cipher, sdk, hardware, abort, lease };
 }
 
 test('verifies the SDK round trip with confirmation flags fixed in both directions', async () => {
@@ -176,3 +178,67 @@ test.each(['', ' ', 'x'.repeat(513)])(
     expect(hardware.getSDKInstance).not.toHaveBeenCalled();
   },
 );
+
+test.each(['success', 'device rejection', 'cancellation'] as const)(
+  'cleans up a fresh device session with its resolved connection after %s',
+  async (outcome) => {
+    const { api, cipher, sdk, hardware, abort, lease } = setup();
+    if (outcome === 'device rejection') {
+      cipher.mockResolvedValueOnce({
+        success: false,
+        payload: { error: 'Failure_ActionCancelled', code: 400 },
+      });
+    } else if (outcome === 'cancellation') {
+      sdk.openWalletSession.mockImplementationOnce(async () => {
+        abort.abort();
+        return {
+          success: true,
+          payload: { deviceId: 'test-device', walletType: 'standard' },
+        };
+      });
+    }
+    const operation = testHardwareCipherKeyValue(api, {
+      connectId: 'selected-id',
+      key,
+    });
+    if (outcome === 'success') {
+      await expect(operation).resolves.toMatchObject({ roundTrip: true });
+    } else {
+      await expect(operation).rejects.toThrow(
+        outcome === 'cancellation' ? 'cancelled' : 'Failure_ActionCancelled',
+      );
+    }
+    expect(hardware.cancel).toHaveBeenCalledTimes(1);
+    expect(hardware.cancel).toHaveBeenCalledWith({
+      connectId: 'compatible-id',
+      oneKeyOperationLease: lease,
+      immediate: true,
+    });
+  },
+);
+
+test('waits for session cleanup before releasing the hardware operation', async () => {
+  const { api, hardware } = setup();
+  let finishCleanup: (() => void) | undefined;
+  let cleanupStarted: (() => void) | undefined;
+  const started = new Promise<void>((resolve) => {
+    cleanupStarted = resolve;
+  });
+  const cleanup = new Promise<void>((resolve) => {
+    finishCleanup = resolve;
+  });
+  hardware.cancel.mockImplementationOnce(async () => {
+    cleanupStarted?.();
+    await cleanup;
+  });
+  const settled = jest.fn();
+  const operation = testHardwareCipherKeyValue(api, {
+    connectId: 'selected-id',
+    key,
+  }).then(settled);
+  await started;
+  expect(settled).not.toHaveBeenCalled();
+  finishCleanup?.();
+  await operation;
+  expect(settled).toHaveBeenCalledTimes(1);
+});
