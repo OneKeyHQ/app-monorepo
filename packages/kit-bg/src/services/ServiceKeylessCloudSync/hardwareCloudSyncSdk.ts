@@ -13,14 +13,17 @@ import {
 import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import { isOneKeyHardwareError } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import { toPlainErrorObject } from '@onekeyhq/shared/src/errors/utils/errorUtils';
+import { DEVICE_STAGE_DEDICATED_DIALOG_CODES } from '@onekeyhq/shared/src/hardware/deviceStageErrorCodes';
 import {
   HardwareCloudSyncCancelledError,
   HardwareCloudSyncLocalError,
   HardwareCloudSyncUnlockError,
 } from '@onekeyhq/shared/src/hardware/hardwareCloudSyncError';
 import {
+  HARDWARE_CLOUD_SYNC_DIRECT_SDK_ORIGIN,
   HARDWARE_CLOUD_SYNC_STANDARD_PIN_REQUIRED,
   HardwareCloudKeyPrerequisiteError,
+  isHardwareCloudSyncDirectSdkDialogError,
   isHardwareCloudSyncStandardPinRequired,
 } from '@onekeyhq/shared/src/hardware/hardwareCloudSyncErrors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -56,6 +59,14 @@ import type { Success, Unsuccessful } from '@onekeyfe/hd-core';
 function unlockError() {
   return new HardwareCloudSyncUnlockError();
 }
+
+const DIRECT_SDK_STAGES = new Set([
+  'openWalletSession',
+  'btcGetPublicKey',
+  'btcGetAddress',
+  'btcSignMessage.key',
+  'btcSignMessage.auth',
+]);
 
 function hiddenWalletError() {
   const error = new HardwareCloudSyncLocalError(
@@ -418,6 +429,22 @@ export async function generateHardwareCloudSyncCredentialWithSdk({
         if (isOneKeyHardwareError(error)) {
           hardwareFailure = error;
           if (
+            DIRECT_SDK_STAGES.has(stage) &&
+            typeof error.code === 'number' &&
+            DEVICE_STAGE_DEDICATED_DIALOG_CODES.some(
+              (code) => code === error.code,
+            )
+          ) {
+            // Direct SDK calls do not run the wrapper's recovery dispatch.
+            // Let the page hand off after its waiting dialog has closed.
+            error.info = {
+              ...error.info,
+              hardwareCloudSyncErrorOrigin:
+                HARDWARE_CLOUD_SYNC_DIRECT_SDK_ORIGIN,
+            };
+            error.autoToast = false;
+          }
+          if (
             stage === 'openWalletSession' &&
             error.code === HardwareErrorCode.DeviceCheckUnlockTypeError
           ) {
@@ -457,7 +484,8 @@ export async function generateHardwareCloudSyncCredentialWithSdk({
             // original hardware error. The service toast is the fallback.
             if (
               hardwareFailure &&
-              !isHardwareCloudSyncStandardPinRequired(hardwareFailure)
+              !isHardwareCloudSyncStandardPinRequired(hardwareFailure) &&
+              !isHardwareCloudSyncDirectSdkDialogError(hardwareFailure)
             )
               hardwareFailure.autoToast = true;
             logHardwareCloudSyncFailure('DeviceStage exit failed', stageError);

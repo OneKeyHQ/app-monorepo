@@ -9,6 +9,7 @@ import {
   getHardwareCloudSyncIdentityTagFromCredentialId,
 } from '@onekeyhq/shared/src/consts/hardwareCloudSyncConsts';
 import { convertDeviceError } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
+import { DEVICE_STAGE_DEDICATED_DIALOG_CODES } from '@onekeyhq/shared/src/hardware/deviceStageErrorCodes';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import systemTimeUtils from '@onekeyhq/shared/src/utils/systemTimeUtils';
@@ -491,6 +492,7 @@ describe('hardware Cloud SDK adapter', () => {
     [
       HardwareErrorCode.DeviceCheckUnlockTypeError,
       HardwareErrorCode.DeviceCheckPassphraseStateError,
+      ...DEVICE_STAGE_DEDICATED_DIALOG_CODES,
     ].flatMap((code) =>
       (['response', 'throw'] as const).map((kind) => ({ code, kind })),
     ),
@@ -521,6 +523,9 @@ describe('hardware Cloud SDK adapter', () => {
         code,
         $isHardwareError: true,
         autoToast: false,
+        ...(DEVICE_STAGE_DEDICATED_DIALOG_CODES.some((value) => value === code)
+          ? { info: { hardwareCloudSyncErrorOrigin: 'directSdk' } }
+          : {}),
         ...(code === HardwareErrorCode.DeviceCheckUnlockTypeError
           ? { info: { hardwareCloudSyncRefusal: 'standardPinRequired' } }
           : {}),
@@ -593,6 +598,7 @@ describe('hardware Cloud SDK adapter', () => {
       HardwareErrorCode.BleUnavailableWhileUsbConnected,
       HardwareErrorCode.CallMethodNeedUpgradeFirmware,
       HardwareErrorCode.ActionCancelled,
+      ...DEVICE_STAGE_DEDICATED_DIALOG_CODES,
     ].flatMap((code) =>
       (
         [
@@ -621,6 +627,9 @@ describe('hardware Cloud SDK adapter', () => {
         key: common.key,
         className: common.className,
         $isHardwareError: true,
+        ...(DEVICE_STAGE_DEDICATED_DIALOG_CODES.some((value) => value === code)
+          ? { info: { hardwareCloudSyncErrorOrigin: 'directSdk' } }
+          : {}),
         ...(method === 'openWalletSession' &&
         code === HardwareErrorCode.DeviceCheckUnlockTypeError
           ? { info: { hardwareCloudSyncRefusal: 'standardPinRequired' } }

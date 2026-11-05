@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 
+import { HardwareErrorCode } from '@onekeyfe/hd-shared';
 import { useIntl } from 'react-intl';
 
 import { Dialog, Spinner, YStack } from '@onekeyhq/components';
@@ -15,15 +16,20 @@ import { isOneKeyHardwareError } from '@onekeyhq/shared/src/errors/utils/deviceE
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import {
   EAppEventBusNames,
+  HARDWARE_ERROR_DIALOG_TYPES,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
-import { isHardwareCloudSyncStandardPinRequired } from '@onekeyhq/shared/src/hardware/hardwareCloudSyncErrors';
+import {
+  isHardwareCloudSyncDirectSdkDialogError,
+  isHardwareCloudSyncStandardPinRequired,
+} from '@onekeyhq/shared/src/hardware/hardwareCloudSyncErrors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes, ERootRoutes } from '@onekeyhq/shared/src/routes';
 import { EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EHardwareTransportType } from '@onekeyhq/shared/types';
+import { EHardwareUiStateAction } from '@onekeyhq/shared/types/hardwareUi';
 
 import { HardwareCloudSyncDevicePicker } from './HardwareCloudSyncDevicePicker';
 
@@ -181,7 +187,8 @@ function confirmSwitchToWebUsb(intl: IntlShape) {
 function deferCloudSyncFailureToPage(error: unknown) {
   if (
     !isOneKeyHardwareError(error) ||
-    isHardwareCloudSyncStandardPinRequired(error)
+    isHardwareCloudSyncStandardPinRequired(error) ||
+    isHardwareCloudSyncDirectSdkDialogError(error)
   ) {
     // The proxy schedules its toast before rethrowing. Claim business errors
     // before awaiting dialog cleanup, on the UI runtime's same error object.
@@ -189,11 +196,47 @@ function deferCloudSyncFailureToPage(error: unknown) {
   }
 }
 
+function showCloudSyncHardwareRecovery(failure: IOneKeyError): boolean {
+  const request = (uiRequestType: EHardwareUiStateAction) => {
+    appEventBus.emit(EAppEventBusNames.RequestHardwareUIDialog, {
+      uiRequestType,
+    });
+  };
+  switch (failure.code) {
+    case HardwareErrorCode.BlePoweredOff:
+    case HardwareErrorCode.BlePermissionError:
+      request(EHardwareUiStateAction.BLUETOOTH_PERMISSION);
+      return true;
+    case HardwareErrorCode.BleLocationError:
+      request(EHardwareUiStateAction.LOCATION_PERMISSION);
+      return true;
+    case HardwareErrorCode.BleLocationServicesDisabled:
+      request(EHardwareUiStateAction.LOCATION_SERVICE_PERMISSION);
+      return true;
+    case HardwareErrorCode.DeviceNotOpenedPassphrase:
+      appEventBus.emit(EAppEventBusNames.ShowHardwareErrorDialog, {
+        errorType: HARDWARE_ERROR_DIALOG_TYPES.DEVICE_NOT_OPENED_PASSPHRASE,
+        payload: failure.payload,
+      });
+      return true;
+    case HardwareErrorCode.NewFirmwareForceUpdate:
+      appEventBus.emit(EAppEventBusNames.ShowFirmwareUpdateForce, {
+        connectId: failure.payload?.connectId,
+      });
+      return true;
+    default:
+      return false;
+  }
+}
+
 async function showCloudSyncFailure(intl: IntlShape, error: unknown) {
   const failure = error as IOneKeyError | undefined;
   const standardPinRequired = isHardwareCloudSyncStandardPinRequired(error);
+  const directSdkDialog = isHardwareCloudSyncDirectSdkDialogError(error);
   if (
-    (isOneKeyHardwareError(error) && !standardPinRequired) ||
+    (isOneKeyHardwareError(error) &&
+      !standardPinRequired &&
+      !directSdkDialog) ||
     errorToastUtils.wasAutoToastShown(error) ||
     errorToastUtils.isUserCancelStyleError(error) ||
     failure?.key === ETranslations.update_operation_canceled
@@ -205,6 +248,8 @@ async function showCloudSyncFailure(intl: IntlShape, error: unknown) {
   // Service decorators respect autoToast=false. Business failures need an
   // explicit owner after the waiting/loading dialog has closed.
   await yieldDeviceStageToDialog();
+  if (directSdkDialog && failure && showCloudSyncHardwareRecovery(failure))
+    return;
   let description: string;
   if (standardPinRequired) {
     description = intl.formatMessage({

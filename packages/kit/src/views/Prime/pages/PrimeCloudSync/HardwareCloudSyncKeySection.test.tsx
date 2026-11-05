@@ -1,6 +1,7 @@
 /** @jest-environment jsdom */
 import type { ReactNode } from 'react';
 
+import { HardwareErrorCode } from '@onekeyfe/hd-shared';
 import {
   act,
   fireEvent,
@@ -11,6 +12,7 @@ import {
 
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { EHardwareUiStateAction } from '@onekeyhq/shared/types/hardwareUi';
 
 import {
   chooseCloudSyncKey,
@@ -159,6 +161,12 @@ jest.mock('@onekeyhq/shared/src/eventBus/appEventBus', () => ({
   EAppEventBusNames: {
     ShowDialogLoading: 'ShowDialogLoading',
     HardwareCloudKeyDropped: 'HardwareCloudKeyDropped',
+    RequestHardwareUIDialog: 'RequestHardwareUIDialog',
+    ShowHardwareErrorDialog: 'ShowHardwareErrorDialog',
+    ShowFirmwareUpdateForce: 'ShowFirmwareUpdateForce',
+  },
+  HARDWARE_ERROR_DIALOG_TYPES: {
+    DEVICE_NOT_OPENED_PASSPHRASE: 'DeviceNotOpenedPassphrase',
   },
   appEventBus: {
     emit: (...params: unknown[]) => mockAutoToast(...params),
@@ -426,6 +434,73 @@ test('setup preserves a failure without a translation key', async () => {
   const dialog = await pickDeviceA();
   expect(dialog.description).toBe('Synthetic network failure');
 });
+
+test.each([
+  [
+    HardwareErrorCode.BlePoweredOff,
+    EHardwareUiStateAction.BLUETOOTH_PERMISSION,
+  ],
+  [
+    HardwareErrorCode.BlePermissionError,
+    EHardwareUiStateAction.BLUETOOTH_PERMISSION,
+  ],
+  [
+    HardwareErrorCode.BleLocationError,
+    EHardwareUiStateAction.LOCATION_PERMISSION,
+  ],
+  [
+    HardwareErrorCode.BleLocationServicesDisabled,
+    EHardwareUiStateAction.LOCATION_SERVICE_PERMISSION,
+  ],
+] as const)(
+  'direct SDK code %s opens the shared recovery dialog',
+  async (code, uiRequestType) => {
+    mockEnable.mockRejectedValueOnce(
+      Object.assign(new Error('Synthetic SDK permission error'), {
+        code,
+        $isHardwareError: true,
+        autoToast: false,
+        info: { hardwareCloudSyncErrorOrigin: 'directSdk' },
+      }),
+    );
+    await pickDeviceA();
+    expect(mockAutoToast).toHaveBeenCalledWith('RequestHardwareUIDialog', {
+      uiRequestType,
+    });
+    expect(mockAutoToast).toHaveBeenCalledTimes(1);
+  },
+);
+
+test.each([
+  [HardwareErrorCode.DeviceNotOpenedPassphrase, 'ShowHardwareErrorDialog'],
+  [HardwareErrorCode.NewFirmwareForceUpdate, 'ShowFirmwareUpdateForce'],
+] as const)(
+  'direct SDK code %s hands off to its dedicated recovery owner',
+  async (code, event) => {
+    mockEnable.mockRejectedValueOnce(
+      Object.assign(new Error('Synthetic SDK recovery error'), {
+        code,
+        $isHardwareError: true,
+        autoToast: false,
+        payload: { code, connectId: 'connect-A' },
+        info: { hardwareCloudSyncErrorOrigin: 'directSdk' },
+      }),
+    );
+    await pickDeviceA();
+    expect(mockAutoToast).toHaveBeenCalledWith(
+      event,
+      expect.objectContaining(
+        code === HardwareErrorCode.NewFirmwareForceUpdate
+          ? { connectId: 'connect-A' }
+          : {
+              errorType: 'DeviceNotOpenedPassphrase',
+              payload: { code, connectId: 'connect-A' },
+            },
+      ),
+    );
+    expect(mockAutoToast).toHaveBeenCalledTimes(1);
+  },
+);
 
 test('hardware failures already owned by DeviceStage do not open a generic dialog', async () => {
   mockEnable.mockRejectedValueOnce({
