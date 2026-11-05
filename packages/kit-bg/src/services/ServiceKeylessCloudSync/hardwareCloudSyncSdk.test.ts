@@ -17,8 +17,11 @@ import type { IHardwareCloudKeyUnlock } from './hardwareCloudSyncCredential';
 import type { IBackgroundApi } from '../../apis/IBackgroundApi';
 import type { Success, Unsuccessful } from '@onekeyfe/hd-core';
 
+const mockLog = jest.fn<void, [string]>();
 jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
-  defaultLogger: { app: { error: { log: jest.fn() } } },
+  defaultLogger: {
+    app: { error: { log: (message: string) => mockLog(message) } },
+  },
 }));
 
 jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
@@ -78,7 +81,13 @@ const unlock: IHardwareCloudKeyUnlock = async (device) => {
   return { ...mockCredential, keylessWalletId: device.credentialId };
 };
 
-function buildBackgroundApi() {
+function buildBackgroundApi(
+  status: {
+    unlocked: boolean;
+    unlockedAttachPin?: boolean | null;
+    passphraseProtection?: boolean;
+  } = { unlocked: true, unlockedAttachPin: false },
+) {
   const sdk = {
     openWalletSession: jest.fn(
       async (): Promise<
@@ -126,7 +135,7 @@ function buildBackgroundApi() {
         label: 'My OneKey',
         deviceType: 'pro',
       },
-      status: { unlocked: true, unlockedAttachPin: false },
+      status,
     })),
     buildHwWalletXfp: jest.fn(async () => walletXfp),
     runWithSensitiveCloudKeyOperation: jest.fn(
@@ -175,10 +184,46 @@ beforeEach(() => {
 });
 
 describe('hardware Cloud SDK adapter', () => {
-  test.each(['sign-in', 'key derivation'] as const)(
-    'preserves a device refusal during %s signing',
-    async (stage) => {
-      const { backgroundApi, sdk } = buildBackgroundApi();
+  test('does not log a raw rejection string from the unlock callback', async () => {
+    const sensitive = 'synthetic-private-callback-rejection';
+    const rejectedUnlock = jest
+      .fn<
+        ReturnType<IHardwareCloudKeyUnlock>,
+        Parameters<IHardwareCloudKeyUnlock>
+      >()
+      .mockRejectedValue(sensitive);
+    const { backgroundApi } = buildBackgroundApi({
+      unlocked: true,
+      unlockedAttachPin: null,
+      passphraseProtection: false,
+    });
+    await expect(
+      generateHardwareCloudSyncCredentialWithSdk({
+        unlock: rejectedUnlock,
+        backgroundApi,
+        connectId: 'test-connect',
+        isCurrent: () => true,
+      }),
+    ).rejects.toBe(sensitive);
+    expect(mockLog).toHaveBeenCalledTimes(1);
+    expect(mockLog.mock.calls[0][0]).not.toContain(sensitive);
+  });
+
+  test.each(
+    ['sign-in', 'key derivation'].flatMap((stage) =>
+      [false, null, undefined].map((unlockedAttachPin) => ({
+        stage,
+        unlockedAttachPin,
+      })),
+    ),
+  )(
+    'preserves a device refusal during $stage signing with attach-PIN status $unlockedAttachPin',
+    async ({ stage, unlockedAttachPin }) => {
+      const { backgroundApi, sdk } = buildBackgroundApi({
+        unlocked: true,
+        unlockedAttachPin,
+        passphraseProtection: false,
+      });
       const payload = {
         code: HardwareErrorCode.ActionCancelled,
         error: 'Failure_ActionCancelled',
@@ -201,6 +246,12 @@ describe('hardware Cloud SDK adapter', () => {
           isCurrent: () => true,
         }),
       ).rejects.toMatchObject(convertDeviceError(payload));
+      expect(mockLog).toHaveBeenCalledWith(
+        expect.stringContaining('[HardwareCloudSync] btcSignMessage.'),
+      );
+      expect(mockLog).toHaveBeenCalledWith(
+        expect.stringContaining(`sdkCode=${payload.code}`),
+      );
     },
   );
 
@@ -316,6 +367,58 @@ describe('hardware Cloud SDK adapter', () => {
   });
 
   test.each([
+    { unlockedAttachPin: null, passphraseProtection: false },
+    { unlockedAttachPin: undefined, passphraseProtection: false },
+    { unlockedAttachPin: null, passphraseProtection: true },
+  ])('accepts a legacy standard-wallet status: %j', async (status) => {
+    const { backgroundApi, sdk } = buildBackgroundApi({
+      unlocked: true,
+      ...status,
+    });
+    const result = await generateHardwareCloudSyncCredentialWithSdk({
+      unlock,
+      backgroundApi,
+      connectId: 'test-connect',
+      isCurrent: () => true,
+    });
+    expect(result.source.credentialId).toBe(standardCredentialId);
+    expect(sdk.openWalletSession).toHaveBeenCalledWith('test-connect', {
+      mode: 'standard',
+    });
+    expect(sdk.btcSignMessage).toHaveBeenCalledWith(
+      'test-connect',
+      'test-device',
+      expect.objectContaining({ useEmptyPassphrase: true }),
+    );
+  });
+
+  test.each([null, undefined])(
+    'rejects a locked legacy wallet with attach-PIN status %s',
+    async (unlockedAttachPin) => {
+      const { backgroundApi, sdk } = buildBackgroundApi({
+        unlocked: false,
+        unlockedAttachPin,
+        passphraseProtection: false,
+      });
+      await expect(
+        generateHardwareCloudSyncCredentialWithSdk({
+          unlock,
+          backgroundApi,
+          connectId: 'test-connect',
+          isCurrent: () => true,
+        }),
+      ).rejects.toThrow("Couldn't get the encryption key");
+      expect(sdk.btcSignMessage).not.toHaveBeenCalled();
+      expect(mockLog).toHaveBeenCalledWith(
+        expect.stringContaining('Standard wallet runtime state invalid'),
+      );
+      expect(mockLog).toHaveBeenCalledWith(
+        expect.stringContaining('"unlocked":false'),
+      );
+    },
+  );
+
+  test.each([
     {
       walletType: 'hidden',
       deviceId: 'test-device',
@@ -326,10 +429,19 @@ describe('hardware Cloud SDK adapter', () => {
       deviceId: 'replacement-device',
       passphraseState: null,
     },
+    {
+      walletType: 'standard',
+      deviceId: 'test-device',
+      passphraseState: 'hidden',
+    },
   ])(
     'rejects an unsafe selected session before signing: %j',
     async (session) => {
-      const { backgroundApi, sdk } = buildBackgroundApi();
+      const { backgroundApi, sdk } = buildBackgroundApi({
+        unlocked: true,
+        unlockedAttachPin: null,
+        passphraseProtection: false,
+      });
       sdk.openWalletSession.mockResolvedValue({
         success: true,
         payload: session,
@@ -411,22 +523,29 @@ describe('hardware Cloud SDK adapter', () => {
     expect(result.source.credentialId).toBe(standardCredentialId);
   });
 
-  test('shows a firmware path rejection instead of the generic error', async () => {
-    const { backgroundApi, sdk } = buildBackgroundApi();
-    sdk.btcGetAddress.mockResolvedValue({
-      success: false,
-      payload: { error: 'Failure_DataError,Forbidden key path' },
-    } as never);
-    await expect(
-      generateHardwareCloudSyncCredentialWithSdk({
-        unlock,
-        backgroundApi,
-        connectId: 'test-connect',
-        isCurrent: () => true,
-      }),
-    ).rejects.toThrow('Forbidden key path');
-    expect(sdk.btcSignMessage).not.toHaveBeenCalled();
-  });
+  test.each([false, null, undefined])(
+    'shows a firmware path rejection with attach-PIN status %s',
+    async (unlockedAttachPin) => {
+      const { backgroundApi, sdk } = buildBackgroundApi({
+        unlocked: true,
+        unlockedAttachPin,
+        passphraseProtection: false,
+      });
+      sdk.btcGetAddress.mockResolvedValue({
+        success: false,
+        payload: { error: 'Failure_DataError,Forbidden key path' },
+      } as never);
+      await expect(
+        generateHardwareCloudSyncCredentialWithSdk({
+          unlock,
+          backgroundApi,
+          connectId: 'test-connect',
+          isCurrent: () => true,
+        }),
+      ).rejects.toThrow('Forbidden key path');
+      expect(sdk.btcSignMessage).not.toHaveBeenCalled();
+    },
+  );
 
   test('keeps the shared hardware error for transport failures', async () => {
     const { backgroundApi, sdk } = buildBackgroundApi();

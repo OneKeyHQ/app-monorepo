@@ -1,6 +1,7 @@
 import { EFirmwareType, HardwareErrorCode } from '@onekeyfe/hd-shared';
 
 import { HARDWARE_CLOUD_SYNC_MESSAGE_PREFIX } from '@onekeyhq/shared/src/consts/hardwareCloudSyncConsts';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { convertDeviceError } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import { toPlainErrorObject } from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
@@ -34,6 +35,67 @@ test('SDK failure logs exclude messages, request data and signatures', () => {
   expect(mockLog).toHaveBeenCalledWith(
     '[HardwareCloudSync] Device step failed: HardwareTransportError | 101',
   );
+});
+
+test('device diagnostics retain compatibility fields without copying SDK data', () => {
+  const context = {
+    deviceType: 'touch',
+    firmwareVersion: '4.9.0',
+    protocol: 'V1',
+    unlocked: true,
+    passphraseProtection: false,
+    unlockedAttachPin: null,
+    deviceIdMatches: true,
+    serialNo: 'synthetic-private-serial',
+    address: 'synthetic-private-address',
+    signature: 'synthetic-private-signature',
+  };
+  logHardwareCloudSyncFailure(
+    'Standard wallet check',
+    'Invalid state',
+    context,
+  );
+  expect(mockLog).toHaveBeenCalledWith(
+    '[HardwareCloudSync] Standard wallet check: Invalid state | {"deviceType":"touch","firmwareVersion":"4.9.0","protocol":"V1","unlocked":true,"passphraseProtection":false,"unlockedAttachPin":null,"deviceIdMatches":true}',
+  );
+});
+
+test('device diagnostics reject arbitrary model and firmware strings', () => {
+  logHardwareCloudSyncFailure('Device step', 'Invalid state', {
+    deviceType: 'synthetic-private-model',
+    firmwareVersion: 'synthetic-private-firmware',
+    protocol: 'synthetic-private-protocol',
+  });
+  expect(mockLog).toHaveBeenCalledWith(
+    '[HardwareCloudSync] Device step: Invalid state',
+  );
+});
+
+test('device failure diagnostics retain SDK codes and known path refusals', () => {
+  const signature = 'ab'.repeat(65);
+  logHardwareCloudSyncFailure('btcSignMessage.auth', {
+    className: 'OneKeyHardwareError',
+    code: 803,
+    payload: {
+      code: 800,
+      error: 'Failure_DataError,Forbidden key path',
+      signature,
+    },
+    message: signature,
+    request: { messageHex: signature },
+  });
+  expect(mockLog).toHaveBeenCalledWith(
+    '[HardwareCloudSync] btcSignMessage.auth: OneKeyHardwareError | 803 | sdkCode=800 | Forbidden key path',
+  );
+});
+
+test('a diagnostic sink failure cannot replace the hardware error', () => {
+  mockLog.mockImplementationOnce(() => {
+    throw new OneKeyLocalError('Synthetic log sink failure');
+  });
+  expect(() =>
+    logHardwareCloudSyncFailure('Device step', { code: 105 }),
+  ).not.toThrow();
 });
 
 test('data errors show a translated message and log only the internal check', () => {
