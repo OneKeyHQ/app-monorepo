@@ -245,9 +245,8 @@ function ZcashWalletDatabaseDiagnostics() {
   );
 }
 
-// Dev-only: inspect/repair a real account by id, e.g. one whose shielded
-// setup never completed.
-function ZcashRetryLocalWalletSetupDebug() {
+// Dev-only: inspect a real account's local wallet metadata by id.
+function ZcashLocalWalletMetaDebug() {
   const [accountId, setAccountId] = useState('');
   const [running, setRunning] = useState(false);
   const [error, setError] = useState('');
@@ -267,33 +266,6 @@ function ZcashRetryLocalWalletSetupDebug() {
           },
         );
       setResult(meta ?? '(no meta -- account is broken/transparent-only)');
-    } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
-    } finally {
-      setRunning(false);
-    }
-  }, [accountId]);
-
-  const retry = useCallback(async () => {
-    setRunning(true);
-    setError('');
-    setResult(null);
-    try {
-      await backgroundApiProxy.servicePrivacyChain.retryLocalWalletAccountSetup(
-        {
-          networkId: ZCASH_NETWORK_ID,
-          accountId,
-        },
-      );
-      const meta =
-        await backgroundApiProxy.servicePrivacyChain.getLocalWalletAccountMetaForDebug(
-          {
-            $$devOnlyPassword: `${formatDateFns(new Date(), 'yyyyMMdd')}-onekey-debug`,
-            networkId: ZCASH_NETWORK_ID,
-            accountId,
-          },
-        );
-      setResult(meta ?? '(retry returned but meta is still missing)');
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
@@ -322,14 +294,6 @@ function ZcashRetryLocalWalletSetupDebug() {
           onPress={getMeta}
         >
           读取本地钱包元数据
-        </Button>
-        <Button
-          disabled={!accountId || running}
-          loading={running}
-          variant="primary"
-          onPress={retry}
-        >
-          重试本地钱包初始化
         </Button>
       </Stack>
       {error ? (
@@ -501,8 +465,8 @@ const zcashDebugElements = [
     element: <ZcashWalletDatabaseDiagnostics />,
   },
   {
-    title: '重试本地钱包初始化（真实账户，调试）',
-    element: <ZcashRetryLocalWalletSetupDebug />,
+    title: '读取本地钱包元数据（真实账户，调试）',
+    element: <ZcashLocalWalletMetaDebug />,
   },
   {
     title: '清除或重扫本地链数据（真实账户，调试）',

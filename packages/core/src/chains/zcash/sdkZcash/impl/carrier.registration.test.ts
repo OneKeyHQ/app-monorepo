@@ -190,12 +190,16 @@ it.each([false, true])(
 it('does not repeat a failed first import to run orphan cleanup', async () => {
   createRuntime();
   const api = await sdk.getZcashApi();
+  await expect(api.prepareWalletAccounts([pending, healthy])).resolves.toEqual([
+    healthy,
+  ]);
   await expect(
-    api.prepareWalletAccounts([pending, healthy], {
+    api.purgeUnknownAccounts(pending, {
       retainedLabels: [pending.label, healthy.label],
     }),
-  ).resolves.toEqual([healthy]);
+  ).resolves.toBe(false);
   expect(runtime.importAccountUfvk).toHaveBeenCalledTimes(2);
+  expect(runtime.removeAccount).not.toHaveBeenCalled();
 });
 
 it('keeps other import errors fatal to the batch', async () => {

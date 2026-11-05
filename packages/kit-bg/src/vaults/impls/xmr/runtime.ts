@@ -2,24 +2,21 @@ import { Mutex } from 'async-mutex';
 
 import {
   getXmrRuntimeApi,
-  hasXmrRuntimeApiLoader,
   readXmrRuntimeError,
 } from '@onekeyhq/core/src/chains/xmr/sdkXmrRuntime';
 import type { IXmrRuntimeApi } from '@onekeyhq/core/src/chains/xmr/sdkXmrRuntime';
 import { XMR_RUNTIME_METHODS } from '@onekeyhq/core/src/chains/xmr/sdkXmrRuntime/methods';
-import { installXmrCarrier } from '@onekeyhq/core/src/chains/xmr/sdkXmrRuntime/sdk/install';
 import type { IXmrNetwork } from '@onekeyhq/core/src/chains/xmr/sdkXmrRuntime/types';
+import { fetchXmrNodeHeightDirect } from '@onekeyhq/core/src/chains/xmr/xmrNodeDirect';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
 import { getLastLocalWalletChainTip } from '../../localWallet/privacyChainCacheStore';
+import { LOCAL_WALLET_CHAIN_TIP_FAILED_MESSAGE } from '../../localWallet/userFacingError';
 import { getLocalWalletViewingKey } from '../../localWallet/viewingKeyStore';
 
 import type Vault from './Vault';
 
 /** The only place that opens the runtime database and node; opening the database twice fails like corruption. */
-
-// Installed on import so the chain cannot end up half-wired.
-installXmrCarrier();
 
 export function xmrDbNameForNetwork(network: IXmrNetwork): string {
   return `xmr-${network}`;
@@ -299,6 +296,8 @@ export function forgetXmrStaleFirst(accountIds?: string[]) {
         staleFirstCache.delete(`${kind}:${accountId}`);
       }
     }
+    // The database size changes with any account's data.
+    staleFirstCache.delete('storage');
   }
   staleFirstGeneration += 1;
 }
@@ -331,11 +330,6 @@ async function connectNode(target: ISession, url: string) {
 }
 
 export async function getXmrRuntime(vault: Vault): Promise<IXmrRuntimeApi> {
-  if (!hasXmrRuntimeApiLoader()) {
-    throw new OneKeyLocalError(
-      'xmr: this carrier has no runtime; scanning and sending are unavailable here',
-    );
-  }
   const network = await vault.getXmrNetwork();
   const nodeUrl = await vault.resolveXmrNodeUrl().catch(() => '');
   const dbName = xmrDbNameForNetwork(network);
@@ -355,11 +349,6 @@ export async function getXmrRuntime(vault: Vault): Promise<IXmrRuntimeApi> {
 export async function getXmrLocalRuntime(
   vault: Vault,
 ): Promise<IXmrRuntimeApi> {
-  if (!hasXmrRuntimeApiLoader()) {
-    throw new OneKeyLocalError(
-      'xmr: this carrier has no runtime; scanning and sending are unavailable here',
-    );
-  }
   const network = await vault.getXmrNetwork();
   const current =
     session?.dbName === xmrDbNameForNetwork(network)
@@ -448,6 +437,23 @@ export async function getXmrChainTip(api: IXmrRuntimeApi): Promise<number> {
   });
   lastKnownChainTip = tip.height;
   return tip.height;
+}
+
+// The scheduler's tip, asked of the node directly: the runtime's own fetch waits behind a running
+// scan or send, holding up every chain's turn. It feeds the same health and last-tip records.
+export async function fetchXmrChainTipDirect(vault: Vault): Promise<number> {
+  const url = await vault.resolveXmrNodeUrl();
+  const startedAt = Date.now();
+  const height = await fetchXmrNodeHeightDirect({ nodeBase: url }).catch(
+    () => null,
+  );
+  if (height === null) {
+    recordXmrNodeHealth({ url, ok: false, latencyMs: null });
+    throw new OneKeyLocalError(LOCAL_WALLET_CHAIN_TIP_FAILED_MESSAGE);
+  }
+  recordXmrNodeHealth({ url, ok: true, latencyMs: Date.now() - startedAt });
+  lastKnownChainTip = height;
+  return height;
 }
 
 // Last observed tip for display and local scan-data management. Sending and

@@ -145,7 +145,7 @@ describe('ServiceHistory All Networks privacy chain rows', () => {
     });
   });
 
-  it('names legacy Zcash change by pool and leaves BTC change as is', async () => {
+  it('shows Zcash change as it is, as BTC does', async () => {
     const own = `t1${'A'.repeat(33)}`;
     const change = `t1${'H'.repeat(33)}`;
     const withChange = (networkId: string) =>
@@ -173,7 +173,7 @@ describe('ServiceHistory All Networks privacy chain rows', () => {
     expect(txs[0]).toBe(btc);
     expect(
       txs[1]?.decodedTx.actions[0].assetTransfer?.receives[0],
-    ).toMatchObject({ to: '', shieldedTo: { poolId: 0, isOwn: true } });
+    ).toMatchObject({ to: change, isOwn: true });
   });
 
   it('returns the same rows when no privacy chain row is present', async () => {

@@ -112,14 +112,31 @@ let mockAllNetworkResult:
       }
     >
   | undefined;
+const mockUpdateAccountWorth = jest.fn();
+const mockUpdateTokenListState = jest.fn();
+const mockCommitAuthoritativeIngest = jest.fn();
+let mockAllNetworkParams:
+  | {
+      onFinished?: (params: {
+        accountId?: string;
+        networkId?: string;
+        runResult: {
+          didComplete: boolean;
+          requestCount: number;
+          resultCount: number;
+        };
+        generation: number;
+      }) => Promise<void> | void;
+    }
+  | undefined;
 const mockActions = {
-  updateAccountWorth: mockNoop,
+  updateAccountWorth: mockUpdateAccountWorth,
   retainAccountWorth: mockNoop,
   updateAccountOverviewState: mockNoop,
   updateAllNetworksState: mockNoop,
 };
 const mockTokenActions = {
-  updateTokenListState: mockNoop,
+  updateTokenListState: mockUpdateTokenListState,
   updateSearchKey: mockNoop,
   updatePortfolioSyncUiState: mockUpdateSyncUi,
 };
@@ -129,7 +146,7 @@ const mockPipeline = {
   setEnabledKeys: mockNoop,
   ingestLiveRound: mockNoop,
   buildAuthoritativeSnapshot: jest.fn(),
-  commitAuthoritativeIngest: mockNoop,
+  commitAuthoritativeIngest: mockCommitAuthoritativeIngest,
 };
 
 jest.mock('react-intl', () => ({
@@ -208,12 +225,15 @@ jest.mock('@onekeyhq/kit/src/hooks/usePromiseResult', () => {
   };
 });
 jest.mock('@onekeyhq/kit/src/hooks/useAllNetwork', () => ({
-  useAllNetworkRequests: () => ({
-    run: mockAsyncNoop,
-    runAccountRequests: mockAsyncNoop,
-    result: mockAllNetworkResult,
-    isEmptyAccount: false,
-  }),
+  useAllNetworkRequests: (params: typeof mockAllNetworkParams) => {
+    mockAllNetworkParams = params;
+    return {
+      run: mockAsyncNoop,
+      runAccountRequests: mockAsyncNoop,
+      result: mockAllNetworkResult,
+      isEmptyAccount: false,
+    };
+  },
 }));
 jest.mock('@onekeyhq/kit/src/states/jotai/contexts/accountSelector', () => ({
   activeAccountEpochAtom: () => 'epoch',
@@ -351,6 +371,7 @@ jest.mock('@onekeyhq/shared/src/utils/tokenUtils', () => ({
     riskTokens: { data: [], map: {} },
   }),
   flattenAggregateTokensMap: () => ({}),
+  sortTokensByFiatValue: ({ tokens }: { tokens: unknown[] }) => tokens,
 }));
 jest.mock('@onekeyhq/shared/src/utils/tokenSelectorFilterUtils', () => ({
   buildTokenSelectorDappTokenFilterParams: () => ({}),
@@ -871,5 +892,72 @@ describe('Home automatic Portfolio sync', () => {
     render(<TokenListBlock />);
     await refresh();
     expect(mockNotifySettled).not.toHaveBeenCalled();
+  });
+});
+
+describe('Home All Networks owner without accounts', () => {
+  const finishRun = async (requestCount: number) => {
+    await act(async () => {
+      await mockAllNetworkParams?.onFinished?.({
+        accountId: mockAccount.id,
+        networkId: mockNetwork.id,
+        runResult: { didComplete: true, requestCount, resultCount: 0 },
+        generation: 1,
+      });
+    });
+  };
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockEpoch = 0;
+    mockIndexedAccountReady = true;
+    mockAllNetworkResult = undefined;
+    mockNetwork = { id: 'onekeyall--0', isAllNetworks: true };
+  });
+
+  afterEach(() => {
+    mockNetwork = { id: 'evm--1', isAllNetworks: false };
+  });
+
+  it('stamps an empty authoritative snapshot when the run issued no request', async () => {
+    render(<TokenListBlock />);
+    mockUpdateTokenListState.mockClear();
+    await finishRun(0);
+    expect(mockCommitAuthoritativeIngest).toHaveBeenCalledTimes(1);
+    expect(mockCommitAuthoritativeIngest).toHaveBeenCalledWith(
+      expect.objectContaining({
+        orderedTokens: [],
+        smallBalanceTokens: [],
+        riskyTokens: [],
+        accountsWorth: {},
+      }),
+      undefined,
+    );
+    expect(mockUpdateAccountWorth).toHaveBeenCalledWith(
+      expect.objectContaining({
+        accountId: mockAccount.id,
+        initialized: true,
+        updateAll: true,
+        worth: {},
+      }),
+    );
+    expect(mockUpdateTokenListState).toHaveBeenCalledWith({
+      initialized: true,
+      isRefreshing: false,
+    });
+  });
+
+  it('leaves the projection to the fan-out when requests were issued', async () => {
+    render(<TokenListBlock />);
+    await finishRun(3);
+    expect(mockCommitAuthoritativeIngest).not.toHaveBeenCalled();
+    expect(mockUpdateAccountWorth).not.toHaveBeenCalled();
+  });
+
+  it('does not stamp a superseded owner', async () => {
+    render(<TokenListBlock />);
+    mockEpoch += 1;
+    await finishRun(0);
+    expect(mockCommitAuthoritativeIngest).not.toHaveBeenCalled();
   });
 });

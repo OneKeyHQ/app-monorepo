@@ -2,9 +2,10 @@ import fs from 'fs';
 import path from 'path';
 
 // Every Bitcoin message signature must pass the reserved Cloud-key message
-// guard in a keyring. Only the internal Cloud-key adapter may call the SDK
-// directly; a new caller has to add the guard before joining this list.
+// guard in a keyring or the developer path tester. The internal Cloud-key
+// adapter signs the reserved message; other callers must add the guard.
 const ALLOWED_CALLERS = [
+  'packages/kit-bg/src/services/ServiceDevSetting/hardwareDerivationPathTest.ts',
   'packages/kit-bg/src/services/ServiceKeylessCloudSync/hardwareCloudSyncSdk.ts',
   'packages/kit-bg/src/vaults/impls/btc/KeyringHardwareBtcBase.ts',
   'packages/kit-bg/src/vaults/impls/btc/KeyringHardwareKeystone.ts',
@@ -36,7 +37,7 @@ function collectSourceFiles(dir: string, files: string[] = []): string[] {
   return files;
 }
 
-test('only guarded keyrings and the Cloud-key adapter call btcSignMessage', () => {
+test('only guarded callers and the Cloud-key adapter call btcSignMessage', () => {
   const callers = SOURCE_DIRS.flatMap((dir) =>
     collectSourceFiles(path.join(repoRoot, dir)),
   )

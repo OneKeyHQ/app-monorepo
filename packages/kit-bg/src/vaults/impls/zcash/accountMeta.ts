@@ -218,6 +218,8 @@ export async function resolveAndSaveZcashAccountMeta({
     ));
   let birthdayHeight: number;
   let birthdaySource: IZcashAccountMeta['birthdaySource'];
+  // A date's height is only provisional while offline; registration has the node place it.
+  let birthdayHeightEstimated: boolean | undefined;
   if (privacyModeState.birthdayHeight !== undefined) {
     birthdayHeight = clampZcashBirthdayHeight({
       birthdayHeight: privacyModeState.birthdayHeight,
@@ -237,6 +239,7 @@ export async function resolveAndSaveZcashAccountMeta({
       privacyModeState.birthdayMonthHint?.source === 'created-wallet'
         ? 'fresh-wallet'
         : 'restore-month';
+    birthdayHeightEstimated = true;
   }
   await backgroundApi.simpleDb.privacyChainState.saveZcashAccountMeta({
     accountId: account.id,
@@ -252,6 +255,7 @@ export async function resolveAndSaveZcashAccountMeta({
       birthdayHeight,
       birthdaySource,
       birthdayTimestamp: privacyModeState.birthdayTimestamp,
+      birthdayHeightEstimated,
       createdAt: Date.now(),
     },
   });
