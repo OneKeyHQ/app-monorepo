@@ -87,7 +87,28 @@ export function TradingViewNative(props: ITradingViewNativeProps) {
   const [isEntering, setIsEntering] = useState(false);
   const [isExiting, setIsExiting] = useState(false);
   const [isRevealed, setIsRevealed] = useState(false);
-  const isFullscreen = isOwnerFullscreen || isEntering || isExiting;
+  // Decided once per session; once rotated, the window itself is landscape.
+  const landscapeLayoutRef = useRef<boolean | undefined>(undefined);
+  // The owner can leave fullscreen without the chart's control, e.g. on
+  // hardware back. A layer that has rotated the window then exits as the
+  // control does, so it covers the window rotating back. Switching in this
+  // render keeps the session, and its landscape decision, from ending first.
+  const [wasOwnerFullscreen, setWasOwnerFullscreen] =
+    useState(isOwnerFullscreen);
+  let isExitingSession = isExiting;
+  if (wasOwnerFullscreen !== isOwnerFullscreen) {
+    setWasOwnerFullscreen(isOwnerFullscreen);
+    if (
+      !isOwnerFullscreen &&
+      !isExiting &&
+      isRevealed &&
+      landscapeLayoutRef.current
+    ) {
+      setIsExiting(true);
+      isExitingSession = true;
+    }
+  }
+  const isFullscreen = isOwnerFullscreen || isEntering || isExitingSession;
   // Shows and hides the layer on the UI thread, without waiting for a commit.
   const layerOpacity = useSharedValue(0);
   const revealOnLandscape = useSharedValue(false);
@@ -114,8 +135,6 @@ export function TradingViewNative(props: ITradingViewNativeProps) {
     if (isOwnerFullscreen) setIsEntering(false);
   }, [isOwnerFullscreen]);
 
-  // Decided once per session; once rotated, the window itself is landscape.
-  const landscapeLayoutRef = useRef<boolean | undefined>(undefined);
   if (!isFullscreen) {
     landscapeLayoutRef.current = undefined;
   } else if (landscapeLayoutRef.current === undefined) {
@@ -250,6 +269,8 @@ export function TradingViewNative(props: ITradingViewNativeProps) {
     if (!isExiting || isOwnerFullscreen || !session || session.isRotatingBack) {
       return;
     }
+    // An exit the owner started itself has not returned the status bar yet.
+    releaseStatusBar(session);
     const rotateBack = () => {
       if (sessionRef.current !== session || session.isRotatingBack) return;
       session.isRotatingBack = true;
