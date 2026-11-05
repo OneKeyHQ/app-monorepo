@@ -1,7 +1,11 @@
 import { useMemo } from 'react';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import type { IStakeTransactionConfirmation } from '@onekeyhq/shared/types/staking';
+import type {
+  ECheckAmountActionType,
+  IEarnStakeType,
+  IStakeTransactionConfirmation,
+} from '@onekeyhq/shared/types/staking';
 
 import { usePendleTransactionDetails } from '../components/ProtocolDetails/PendleSharedComponents';
 
@@ -20,6 +24,9 @@ type IUsePendleLayoutStateParams = {
   networkLogoURI: string | undefined;
   isQuoteExpired: boolean | undefined;
   loading?: boolean;
+  stakeType?: IEarnStakeType;
+  action?: ECheckAmountActionType | 'approve';
+  hideYieldPreview?: boolean;
 };
 
 export function usePendleLayoutState({
@@ -31,9 +38,14 @@ export function usePendleLayoutState({
   networkLogoURI,
   isQuoteExpired,
   loading,
+  stakeType,
+  action,
+  hideYieldPreview,
 }: IUsePendleLayoutStateParams) {
   const isPendleProvider = useIsPendleProvider(providerName);
   const isPendleLikeLayout = isPendleProvider;
+  const isPreparationStep = stakeType === 'wrap' || action === 'approve';
+  const shouldHideYield = isPreparationStep || hideYieldPreview;
 
   const normalizedPendleTipText = useMemo(() => {
     if (!isPendleProvider) {
@@ -75,7 +87,8 @@ export function usePendleLayoutState({
   const transactionDetailsTriggerText =
     transactionConfirmation?.transactionDetails?.text;
   const apyDetail = transactionConfirmation?.apyDetail;
-  const showApyHeader = showApyDetail && !!apyDetail && !isPendleLikeLayout;
+  const showApyHeader =
+    !shouldHideYield && showApyDetail && !!apyDetail && !isPendleLikeLayout;
   const hasLegacySummaryContent =
     !!transactionConfirmation?.title ||
     !!transactionConfirmation?.tooltip ||
@@ -84,7 +97,8 @@ export function usePendleLayoutState({
     !!transactionConfirmation?.availableLiquidity ||
     (transactionConfirmation?.rewards?.length ?? 0) > 0;
   const hasSummarySection =
-    showApyHeader || usePendleSummaryLayout || hasLegacySummaryContent;
+    !shouldHideYield &&
+    (showApyHeader || usePendleSummaryLayout || hasLegacySummaryContent);
 
   const pendleTipText =
     isPendleLikeLayout && normalizedPendleTipText
@@ -105,6 +119,7 @@ export function usePendleLayoutState({
   ]);
 
   const showExpiredRefresh =
+    !isPreparationStep &&
     isQuoteExpired &&
     isPendleProvider &&
     !!amountValue &&
