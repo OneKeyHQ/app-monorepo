@@ -66,6 +66,10 @@ import { getEarnAssetClassLabel } from '../EarnAssetSelect/earnAssetClassLabel';
 import { EarnAssetLogos } from '../EarnAssetSelect/EarnAssetLogos';
 import { scopeAssetSelectTokens } from '../EarnAssetSelect/earnAssetSelect.utils';
 
+import {
+  buildOffersFirstFrameKey,
+  readFirstFrame,
+} from './earnFirstFrameCache';
 import { EarnOfferFacts } from './EarnOfferFacts';
 import {
   EARN_OFFER_OPTION_HEIGHT,
@@ -758,6 +762,31 @@ export function EarnOffersDeposit({
     [isInScope, offersBySymbol, tokenSymbol],
   );
   const [pickedKey, setPickedKey] = useState(offerKey);
+  // Every network's offers for the token as the home row counted them when
+  // it was hovered, for the window's first frame on every network
+  const { activeAccount } = useActiveAccount({ num: 0 });
+  const activeAccountId = activeAccount.account?.id;
+  const keptAllOffers = useMemo(
+    () =>
+      networkAssets && !pickedClass && !scopeNetworkId
+        ? readFirstFrame<IEarnDesktopHoldOffer[]>(
+            buildOffersFirstFrameKey({
+              accountId: activeAccountId,
+              networkId: networkId,
+              symbol: tokenSymbol,
+              allNetworks: true,
+            }),
+          )
+        : undefined,
+    [
+      activeAccountId,
+      networkAssets,
+      networkId,
+      pickedClass,
+      scopeNetworkId,
+      tokenSymbol,
+    ],
+  );
   let allOffers = tokenOffers;
   let isLoaded = isTokenLoaded;
   if (pickedClass) {
@@ -766,10 +795,15 @@ export function EarnOffersDeposit({
   } else if (networkAssets?.isLoaded) {
     allOffers = routerTokenOffers;
     isLoaded = true;
+  } else if (keptAllOffers?.length) {
+    // Until every network's offers are in: the home row's, all of them at
+    // once rather than one network's growing into the rest
+    allOffers = keptAllOffers;
+    isLoaded = true;
   } else if (networkAssets) {
-    // Until every network's offers are in: the token's on the window's own
-    // network, where the offer asked for is (the home row's best), so the
-    // form opens on it at once and stays on it
+    // Else the token's on the window's own network, where the offer asked
+    // for is (the home row's best), so the form opens on it at once and
+    // stays on it
     isLoaded =
       isTokenLoaded &&
       Boolean(pickedKey) &&
