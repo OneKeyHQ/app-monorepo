@@ -190,6 +190,16 @@ describe('OneKey ID environment switching', () => {
     jest.useRealTimers();
   });
 
+  it('rejects hardware input test RPC when developer mode is disabled', async () => {
+    mockSettings.enabled = false;
+    await expect(
+      createService().testAlphHardwareInputs({
+        accountId: "hw-test--m/44'/1234'/0'",
+        inputCount: 17,
+      }),
+    ).rejects.toThrow('require developer mode');
+  });
+
   it('rejects direct real-marker simulation RPC outside native bg or developer mode', async () => {
     const service = createService();
     await expect(
