@@ -72,6 +72,19 @@ import {
 } from './bundle';
 import { ipcMessageKeys } from './config';
 import { ElectronTranslations, i18nText, initLocale } from './i18n';
+import {
+  CPU_WATCHDOG_COOLDOWN_MS,
+  CPU_WATCHDOG_MILD_SUSTAINED_SAMPLES,
+  CPU_WATCHDOG_MILD_THRESHOLD_PERCENT,
+  CPU_WATCHDOG_RECOVERY_SUSTAINED_SAMPLES,
+  CPU_WATCHDOG_RECOVERY_THRESHOLD_PERCENT,
+  CPU_WATCHDOG_SAMPLE_INTERVAL_MS,
+  CPU_WATCHDOG_SEVERE_SUSTAINED_SAMPLES,
+  CPU_WATCHDOG_SEVERE_THRESHOLD_PERCENT,
+  CPU_WATCHDOG_STARTUP_GRACE_MS,
+  CpuWatchdogController,
+  isCpuWatchdogReason,
+} from './libs/cpuWatchdog';
 import { scheduleCrashDumpCleanup } from './libs/crashDumpCleanup';
 import {
   DESKTOP_DEEP_LINK_PROTOCOLS,
@@ -123,6 +136,7 @@ import { setMainWindowForOAuthServer } from './service/oauthLocalServer/oauthLoc
 import { destroyTrayManager, initTrayManager } from './tray/TrayManager';
 import { destroyTrayWindow, getTrayWindow } from './tray/trayWindow';
 
+import type { ICpuWatchdogReason } from './libs/cpuWatchdog';
 import type { IpcMainLike } from '@onekeyfe/hwk-desktop-noble-ble';
 
 // cspell:ignore pkexec
@@ -320,8 +334,16 @@ export type IDesktopOpenUrlEventData = {
 };
 
 const getSafelyMainWindow = () => {
-  if (mainWindow && !mainWindow.isDestroyed()) {
-    return mainWindow;
+  try {
+    if (
+      mainWindow &&
+      !mainWindow.isDestroyed() &&
+      !mainWindow.webContents.isDestroyed()
+    ) {
+      return mainWindow;
+    }
+  } catch {
+    // Window or webContents already destroyed
   }
   return undefined;
 };
@@ -792,8 +814,24 @@ const trezorBleSupports = new Set<
 const MAIN_RENDERER_RELOAD_WINDOW_MS = 5 * 60 * 1000;
 const MAIN_RENDERER_MAX_RELOADS_IN_WINDOW = 3;
 let mainRendererReloadTimestamps: number[] = [];
+let createMainWindowPromise: Promise<BrowserWindow | null> | null = null;
 
-async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
+function createMainWindow(opts?: {
+  isSoftRestart?: boolean;
+}): Promise<BrowserWindow | null> {
+  if (createMainWindowPromise) {
+    return createMainWindowPromise;
+  }
+  const promise = createMainWindowImpl(opts).finally(() => {
+    if (createMainWindowPromise === promise) {
+      createMainWindowPromise = null;
+    }
+  });
+  createMainWindowPromise = promise;
+  return promise;
+}
+
+async function createMainWindowImpl(opts?: { isSoftRestart?: boolean }) {
   await trezorBleWindowCleanup;
   if (bleQuitStarted) return null;
   const isSoftRestart = opts?.isSoftRestart ?? false;
@@ -848,8 +886,11 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
       appVersion: currentAppVersion,
     });
     const recoveryWin = createRecoveryWindow();
+    mainWindow = recoveryWin;
     recoveryWin.on('closed', () => {
-      mainWindow = null;
+      if (mainWindow === recoveryWin) {
+        mainWindow = null;
+      }
     });
     return recoveryWin;
   }
@@ -917,10 +958,19 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
     ...savedWinBounds,
   });
   applyDesktopNetworkThrottleToWebContents(browserWindow.webContents);
+  mainWindow = browserWindow;
 
   const getSafelyBrowserWindow = () => {
-    if (browserWindow && !browserWindow.isDestroyed()) {
-      return browserWindow;
+    try {
+      if (
+        browserWindow &&
+        !browserWindow.isDestroyed() &&
+        !browserWindow.webContents.isDestroyed()
+      ) {
+        return browserWindow;
+      }
+    } catch {
+      // Window or webContents already destroyed
     }
     return undefined;
   };
@@ -1039,19 +1089,24 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
     senderFrame,
     mainFrame,
   ) => {
-    const currentMainWindow = getSafelyMainWindow() ?? getSafelyBrowserWindow();
-    return Boolean(
-      currentMainWindow?.webContents.id === senderId &&
-      senderFrame &&
-      senderFrame === mainFrame &&
-      selectedShellDocumentCommitted &&
-      isTrustedMainWindowUrl(
-        src,
-        senderFrame.url,
-        trustedSameDocumentRouteUrl,
-        isDevServer,
-      ),
-    );
+    try {
+      const currentMainWindow =
+        getSafelyMainWindow() ?? getSafelyBrowserWindow();
+      return Boolean(
+        currentMainWindow?.webContents.id === senderId &&
+        senderFrame &&
+        senderFrame === mainFrame &&
+        selectedShellDocumentCommitted &&
+        isTrustedMainWindowUrl(
+          src,
+          senderFrame.url,
+          trustedSameDocumentRouteUrl,
+          isDevServer,
+        ),
+      );
+    } catch {
+      return false;
+    }
   };
 
   browserWindow.webContents.on('did-navigate', (_event, url) => {
@@ -1134,10 +1189,33 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
 
   browserWindow.webContents.on('unresponsive', () => {
     logger.warn('[CPU Watchdog] renderer webContents unresponsive');
-    triggerCpuWatchdog({ reason: 'unresponsive' });
+    let pid: number | undefined;
+    try {
+      if (
+        !browserWindow.isDestroyed() &&
+        !browserWindow.webContents.isDestroyed()
+      ) {
+        pid = browserWindow.webContents.getOSProcessId();
+      }
+    } catch {
+      pid = undefined;
+    }
+    triggerCpuWatchdog({ reason: 'unresponsive', pid });
   });
   browserWindow.webContents.on('responsive', () => {
     logger.info('[CPU Watchdog] renderer webContents responsive again');
+    let pid: number | undefined;
+    try {
+      if (
+        !browserWindow.isDestroyed() &&
+        !browserWindow.webContents.isDestroyed()
+      ) {
+        pid = browserWindow.webContents.getOSProcessId();
+      }
+    } catch {
+      pid = undefined;
+    }
+    markCpuWatchdogResponsive(pid);
   });
 
   browserWindow.webContents.on('render-process-gone', (_event, details) => {
@@ -1213,8 +1291,10 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
   });
   browserWindow.on('closed', () => {
     unregisterShortcuts();
-    mainWindow = null;
-    isAppReady = false;
+    if (mainWindow === browserWindow) {
+      mainWindow = null;
+      isAppReady = false;
+    }
     logger.info('set isAppReady on browserWindow closed', isAppReady);
   });
 
@@ -1312,10 +1392,21 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
   ipcMain.handle(
     ipcMessageKeys.FETCH_STREAM,
     async (event, request: IFetchStreamRequest) => {
-      const mainId =
-        getSafelyMainWindow()?.webContents.id ?? browserWindow.webContents.id;
-      if (event.sender.id !== mainId)
-        return { ok: false, error: 'not allowed' };
+      let isTrustedSender = false;
+      try {
+        if (!event.sender.isDestroyed()) {
+          isTrustedSender = Boolean(
+            globalThis.$desktopMainAppFunctions.isTrustedMainWindowSender?.(
+              event.sender.id,
+              event.senderFrame,
+              event.sender.mainFrame,
+            ),
+          );
+        }
+      } catch {
+        isTrustedSender = false;
+      }
+      if (!isTrustedSender) return { ok: false, error: 'not allowed' };
       return fetchStreamRequest(request);
     },
   );
@@ -1407,16 +1498,26 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
       // window dynamically (not the closure-captured `browserWindow`) so a MAS
       // soft restart — which destroys and recreates the window — keeps the gate
       // pointed at the current renderer instead of the destroyed one.
-      if (
-        !globalThis.$desktopMainAppFunctions.isTrustedMainWindowSender?.(
-          event.sender.id,
-          event.senderFrame,
-          event.sender.mainFrame,
-        )
-      ) {
+      let isTrustedSender = false;
+      let senderId = -1;
+      try {
+        if (!event.sender.isDestroyed()) {
+          senderId = event.sender.id;
+          isTrustedSender = Boolean(
+            globalThis.$desktopMainAppFunctions.isTrustedMainWindowSender?.(
+              senderId,
+              event.senderFrame,
+              event.sender.mainFrame,
+            ),
+          );
+        }
+      } catch {
+        isTrustedSender = false;
+      }
+      if (!isTrustedSender) {
         logger.warn(
           '[DESKTOP_API_CALL] Rejected call from non-main renderer',
-          event.sender.id,
+          senderId,
         );
         throw new OneKeyLocalError(
           'DESKTOP_API_CALL is only allowed from the main window',
@@ -2024,11 +2125,23 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
   const thirdPartyBleSenderGatedIpcMain: IpcMainLike = {
     handle: (channel, listener) => {
       ipcMain.handle(channel, (event, ...args) => {
-        if (event.sender.id !== browserWindow.webContents.id) {
+        let isMainRenderer = false;
+        let senderId = -1;
+        try {
+          if (!event.sender.isDestroyed()) {
+            senderId = event.sender.id;
+            const currentMainWindow =
+              getSafelyMainWindow() ?? getSafelyBrowserWindow();
+            isMainRenderer = currentMainWindow?.webContents.id === senderId;
+          }
+        } catch {
+          isMainRenderer = false;
+        }
+        if (!isMainRenderer) {
           logger.warn(
             '[ThirdPartyBLE] Rejected IPC from non-main renderer',
             channel,
-            event.sender.id,
+            senderId,
           );
           throw new OneKeyLocalError(
             'Third-party BLE IPC is only allowed from the main window',
@@ -2703,154 +2816,57 @@ app.on('before-quit', () => {
 // input" symptom. Both converge here so the dialog and cooldown are
 // shared.
 
-// Sample at the faster cadence; both tiers read from the same history.
-const CPU_WATCHDOG_SAMPLE_INTERVAL_MS = 10_000;
-
-// Severe tier — catches extreme pegging fast.
-// 3 × 10 s = 30 s sustained above 95% → essentially fully pegged for half
-// a minute, well past any legitimate hot path (signing, V8 turbofan
-// re-optimization, bundle decode, mass import).
-const CPU_WATCHDOG_SEVERE_THRESHOLD_PERCENT = 95;
-const CPU_WATCHDOG_SEVERE_SUSTAINED_SAMPLES = 3;
-
-// Mild tier — catches slower drift (the original 22h-uptime symptom).
-// 30 × 10 s = 5 minutes sustained above 80%.
-const CPU_WATCHDOG_MILD_THRESHOLD_PERCENT = 80;
-const CPU_WATCHDOG_MILD_SUSTAINED_SAMPLES = 30;
-
-const CPU_WATCHDOG_HISTORY_SIZE = CPU_WATCHDOG_MILD_SUSTAINED_SAMPLES;
-const CPU_WATCHDOG_COOLDOWN_MS = 30 * 60_000;
-
-const cpuHistoryByPid = new Map<number, number[]>();
-// Cumulative CPU seconds per pid at the previous tick. Delta of these
-// divided by wall-clock delta gives the true "fraction of one core" used,
-// independent of how many cores the machine has — matching the DevTools
-// Performance Monitor reading.
-const prevCumCpuByPid = new Map<number, number>();
-let lastSampleAt: number | null = null;
-let lastWatchdogFiredAt = 0;
+const cpuWatchdog = new CpuWatchdogController();
 let cpuWatchdogInterval: ReturnType<typeof setInterval> | null = null;
 
-type ICpuWatchdogReason =
-  | 'sustained-high-cpu-severe'
-  | 'sustained-high-cpu-mild'
-  | 'unresponsive';
-
-const CPU_WATCHDOG_REASONS = new Set<ICpuWatchdogReason>([
-  'sustained-high-cpu-severe',
-  'sustained-high-cpu-mild',
-  'unresponsive',
-]);
-
-function isCpuWatchdogReason(value: unknown): value is ICpuWatchdogReason {
-  return (
-    typeof value === 'string' &&
-    CPU_WATCHDOG_REASONS.has(value as ICpuWatchdogReason)
-  );
+function collectGuestWebviewPids(): Set<number> {
+  const ignoredPids = new Set<number>();
+  try {
+    for (const contents of electronWebContents.getAllWebContents()) {
+      if (!contents.isDestroyed() && contents.getType() === 'webview') {
+        const pid = contents.getOSProcessId();
+        if (typeof pid === 'number' && pid > 0) {
+          ignoredPids.add(pid);
+        }
+      }
+    }
+  } catch {
+    // Best-effort guest webview PID enumeration
+  }
+  return ignoredPids;
 }
 
 function startCpuWatchdog() {
   if (cpuWatchdogInterval) {
     clearInterval(cpuWatchdogInterval);
   }
+  cpuWatchdog.start();
   cpuWatchdogInterval = setInterval(() => {
     try {
-      const metrics = app.getAppMetrics();
-      const now = Date.now();
-      const wallDeltaSec =
-        lastSampleAt === null
-          ? CPU_WATCHDOG_SAMPLE_INTERVAL_MS / 1000
-          : (now - lastSampleAt) / 1000;
-      lastSampleAt = now;
-
-      // Step 1: compute effective % (= fraction of one core, 100 = one core
-      // fully busy) for every process using the cumulativeCPUUsage delta.
-      // This matches what Chrome DevTools Performance Monitor shows and is
-      // independent of total core count — Electron's percentCPUUsage divides
-      // by cores and is therefore unusable for "main thread saturated".
-      const annotated = metrics.map((m) => {
-        const cum =
-          (m.cpu as { cumulativeCPUUsage?: number }).cumulativeCPUUsage ?? 0;
-        const prev = prevCumCpuByPid.get(m.pid);
-        let effectivePercent = 0;
-        if (prev !== undefined && wallDeltaSec > 0) {
-          effectivePercent = ((cum - prev) / wallDeltaSec) * 100;
-          if (effectivePercent < 0) effectivePercent = 0;
-        }
-        prevCumCpuByPid.set(m.pid, cum);
-        return {
-          pid: m.pid,
-          type: m.type,
-          name: m.name,
-          electronPct: Number(m.cpu.percentCPUUsage.toFixed(2)),
-          effectivePct: Number(effectivePercent.toFixed(1)),
-          cum: Number(cum.toFixed(2)),
-        };
+      const metrics = app.getAppMetrics().map((m) => ({
+        pid: m.pid,
+        type: m.type,
+        name: m.name,
+        percentCPUUsage: m.cpu.percentCPUUsage,
+        cumulativeCPUUsage: (m.cpu as { cumulativeCPUUsage?: number })
+          .cumulativeCPUUsage,
+      }));
+      const sample = cpuWatchdog.sampleMetrics({
+        metrics,
+        ignoredTabPids: collectGuestWebviewPids(),
       });
-
-      // Step 2: log every process sorted by effective CPU descending so
-      // when "who's burning" is the question, the top line answers it.
-      const sortedForLog = [...annotated].toSorted(
-        (a, b) => b.effectivePct - a.effectivePct,
-      );
-      logger.info(
-        `[CPU Watchdog] tick cores=${os.cpus().length} wallΔ=${wallDeltaSec.toFixed(
-          1,
-        )}s processes=${JSON.stringify(sortedForLog)}`,
-      );
-
-      // Step 3: only Tab processes feed the sliding window for severe/mild
-      // detection. effectivePct is the right metric: 100 = one core fully
-      // busy = JS main thread saturated.
-      const seenPids = new Set<number>();
-      for (const a of annotated) {
-        if (a.type === 'Tab') {
-          seenPids.add(a.pid);
-          // Skip the very first sample for a new pid — no delta available
-          // (prev was undefined → effectivePct defaulted to 0).
-          if (prevCumCpuByPid.has(a.pid) && a.effectivePct === 0) {
-            // proceed with 0 — actually idle
-          }
-          const history = cpuHistoryByPid.get(a.pid) ?? [];
-          history.push(a.effectivePct);
-          if (history.length > CPU_WATCHDOG_HISTORY_SIZE) history.shift();
-          cpuHistoryByPid.set(a.pid, history);
-
-          const severeWindow = history.slice(
-            -CPU_WATCHDOG_SEVERE_SUSTAINED_SAMPLES,
-          );
-          const severe =
-            severeWindow.length === CPU_WATCHDOG_SEVERE_SUSTAINED_SAMPLES &&
-            severeWindow.every(
-              (v) => v > CPU_WATCHDOG_SEVERE_THRESHOLD_PERCENT,
-            );
-          if (severe) {
-            triggerCpuWatchdog({
-              reason: 'sustained-high-cpu-severe',
-              pid: a.pid,
-              cpuTrend: severeWindow,
-            });
-          } else {
-            const mild =
-              history.length === CPU_WATCHDOG_MILD_SUSTAINED_SAMPLES &&
-              history.every((v) => v > CPU_WATCHDOG_MILD_THRESHOLD_PERCENT);
-            if (mild) {
-              triggerCpuWatchdog({
-                reason: 'sustained-high-cpu-mild',
-                pid: a.pid,
-                cpuTrend: [...history],
-              });
-            }
-          }
-        }
+      if (sample.shouldLogTick) {
+        logger.info(
+          `[CPU Watchdog] tick cores=${
+            os.cpus().length
+          } wallΔ=${sample.wallDeltaSec.toFixed(1)}s processes=${JSON.stringify(
+            sample.sortedForLog,
+          )}`,
+        );
       }
-      // Forget pids that no longer exist (renderer restarted / process gone).
-      for (const pid of cpuHistoryByPid.keys()) {
-        if (!seenPids.has(pid)) cpuHistoryByPid.delete(pid);
-      }
-      // Also prune prev cum cache for vanished pids to avoid unbounded growth.
-      for (const pid of prevCumCpuByPid.keys()) {
-        if (!annotated.some((a) => a.pid === pid)) prevCumCpuByPid.delete(pid);
+      for (const event of sample.eventsToFire) {
+        logger.warn('[CPU Watchdog] fired (UI suppressed)', event);
+        reportWatchdogToSentry(event);
       }
     } catch (error) {
       logger.warn('[CPU Watchdog] sample failed', error);
@@ -2858,6 +2874,7 @@ function startCpuWatchdog() {
   }, CPU_WATCHDOG_SAMPLE_INTERVAL_MS);
   logger.info('[CPU Watchdog] started', {
     sampleIntervalMs: CPU_WATCHDOG_SAMPLE_INTERVAL_MS,
+    startupGraceMs: CPU_WATCHDOG_STARTUP_GRACE_MS,
     severe: {
       thresholdPercent: CPU_WATCHDOG_SEVERE_THRESHOLD_PERCENT,
       sustainedSamples: CPU_WATCHDOG_SEVERE_SUSTAINED_SAMPLES,
@@ -2865,6 +2882,10 @@ function startCpuWatchdog() {
     mild: {
       thresholdPercent: CPU_WATCHDOG_MILD_THRESHOLD_PERCENT,
       sustainedSamples: CPU_WATCHDOG_MILD_SUSTAINED_SAMPLES,
+    },
+    recovery: {
+      thresholdPercent: CPU_WATCHDOG_RECOVERY_THRESHOLD_PERCENT,
+      sustainedSamples: CPU_WATCHDOG_RECOVERY_SUSTAINED_SAMPLES,
     },
     cooldownMs: CPU_WATCHDOG_COOLDOWN_MS,
   });
@@ -2874,16 +2895,21 @@ function reportWatchdogToSentry(params: {
   reason: ICpuWatchdogReason;
   pid?: number;
   cpuTrend?: number[];
+  episodeEscalated?: boolean;
 }) {
   try {
     const { captureMessage, setContext } = require('@sentry/electron/main') as {
       captureMessage: (msg: string, level?: string) => void;
       setContext: (name: string, data: Record<string, unknown> | null) => void;
     };
+    const safelyMainWindow = getSafelyMainWindow();
     setContext('cpuWatchdog', {
       reason: params.reason,
       pid: params.pid,
       cpuTrend: params.cpuTrend,
+      episodeEscalated: params.episodeEscalated ?? false,
+      windowVisible: safelyMainWindow?.isVisible() ?? false,
+      windowMinimized: safelyMainWindow?.isMinimized() ?? false,
       uptimeMs: Math.round(process.uptime() * 1000),
     });
     captureMessage(`desktop:cpu-watchdog:${params.reason}`, 'warning');
@@ -2892,41 +2918,41 @@ function reportWatchdogToSentry(params: {
   }
 }
 
+function markCpuWatchdogResponsive(pid?: number) {
+  cpuWatchdog.markResponsive(pid);
+}
+
 function triggerCpuWatchdog(params: {
   reason: ICpuWatchdogReason;
   pid?: number;
   cpuTrend?: number[];
   bypassCooldown?: boolean;
 }) {
-  const now = Date.now();
-  if (
-    !params.bypassCooldown &&
-    now - lastWatchdogFiredAt < CPU_WATCHDOG_COOLDOWN_MS
-  ) {
-    logger.warn('[CPU Watchdog] trigger ignored — cooldown active', {
-      reason: params.reason,
-      msSinceLastFire: now - lastWatchdogFiredAt,
-      cooldownMs: CPU_WATCHDOG_COOLDOWN_MS,
-    });
+  const decision = cpuWatchdog.evaluateTrigger(params);
+  if (!decision) {
+    logger.warn(
+      '[CPU Watchdog] trigger ignored — episode active or cooldown active',
+      {
+        reason: params.reason,
+        pid: params.pid,
+        cooldownMs: CPU_WATCHDOG_COOLDOWN_MS,
+      },
+    );
     return;
   }
-  lastWatchdogFiredAt = now;
 
   // UI suppressed: only collect local logs + Sentry telemetry while we
   // investigate the underlying CPU regression. Re-enable surface (status
   // indicator / non-blocking card) once root cause is identified.
-  logger.warn('[CPU Watchdog] fired (UI suppressed)', params);
-  reportWatchdogToSentry(params);
+  logger.warn('[CPU Watchdog] fired (UI suppressed)', decision);
+  reportWatchdogToSentry(decision);
 }
 
 function resetCpuWatchdogStateForTesting() {
+  const previousLastFiredAt = cpuWatchdog.reset();
   logger.warn('[CPU Watchdog] cooldown reset via IPC', {
-    previousLastFiredAt: lastWatchdogFiredAt,
+    previousLastFiredAt,
   });
-  lastWatchdogFiredAt = 0;
-  cpuHistoryByPid.clear();
-  prevCumCpuByPid.clear();
-  lastSampleAt = null;
 }
 
 app.on('before-quit', () => {
