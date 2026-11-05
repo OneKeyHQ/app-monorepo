@@ -245,6 +245,22 @@ function getPortfolioSyncErrorCode(error: unknown): string | undefined {
     : undefined;
 }
 
+function isMissingNetworkAccountError(
+  error: unknown,
+  indexedAccountId: string,
+): boolean {
+  if (!(error instanceof OneKeyLocalError)) {
+    return false;
+  }
+  // getNetworkAccount reports the indexed-account miss only after the lookup
+  // returns no row. A Perps account that was never created fails earlier, in
+  // localDb.getAccount, as OneKeyLocalError('Account not found').
+  return (
+    error.message === 'Account not found' ||
+    error.message === `indexedAccounts not found: ${indexedAccountId}`
+  );
+}
+
 function isSilentUploadBlockedByDevice(error: unknown): boolean {
   if (
     isHardwareErrorByCode({
@@ -2383,11 +2399,9 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
             networkId: PERPS_NETWORK_ID,
           });
         } catch (error) {
-          // Only this account lookup's confirmed absence is an empty category.
-          if (
-            error instanceof OneKeyLocalError &&
-            error.message === `indexedAccounts not found: ${indexedAccountId}`
-          ) {
+          // Confirmed absence is an empty category. Other lookup failures stay
+          // unknown so they still block Portfolio upload.
+          if (isMissingNetworkAccountError(error, indexedAccountId)) {
             return '0';
           }
           throw error;

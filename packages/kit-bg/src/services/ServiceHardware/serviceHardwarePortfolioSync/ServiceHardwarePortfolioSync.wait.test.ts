@@ -742,26 +742,52 @@ describe('Portfolio v2 category retrieval', () => {
     });
   });
 
-  test('returns zero for the confirmed missing Perps network account', async () => {
-    const mocks = prepare();
-    mocks.getNetworkAccount.mockRejectedValue(
-      new OneKeyLocalError('indexedAccounts not found: indexed-account-1'),
-    );
-    await expect(refreshCategoryFiat(mocks)).resolves.toMatchObject({
-      defiFiat: '20',
-      deFiSource: 'live',
-      perpsFiat: '0',
-      failedSources: [],
-    });
-    expect(mocks.getHyperliquidPortfolioSnapshot).not.toHaveBeenCalled();
-  });
+  test.each([
+    {
+      name: 'uncreated Perps account',
+      error: new OneKeyLocalError('Account not found'),
+    },
+    {
+      name: 'indexed account lookup miss',
+      error: new OneKeyLocalError(
+        'indexedAccounts not found: indexed-account-1',
+      ),
+    },
+  ])(
+    'returns zero when the Perps account is confirmed missing: $name',
+    async ({ error }) => {
+      const mocks = prepare();
+      mocks.getNetworkAccount.mockRejectedValue(error);
+      await expect(refreshCategoryFiat(mocks)).resolves.toMatchObject({
+        defiFiat: '20',
+        deFiSource: 'live',
+        perpsFiat: '0',
+        failedSources: [],
+      });
+      expect(mocks.getHyperliquidPortfolioSnapshot).not.toHaveBeenCalled();
+    },
+  );
 
   test.each([
-    new Error('indexedAccounts not found: indexed-account-1'),
-    new OneKeyLocalError('indexedAccounts not found: another-account'),
+    {
+      name: 'plain indexed-account error',
+      error: new Error('indexedAccounts not found: indexed-account-1'),
+    },
+    {
+      name: 'indexed account id for a different account',
+      error: new OneKeyLocalError('indexedAccounts not found: another-account'),
+    },
+    {
+      name: 'generic Account not found error',
+      error: new Error('Account not found'),
+    },
+    {
+      name: 'missing indexed-account record',
+      error: new OneKeyLocalError('Indexed account not found'),
+    },
   ])(
-    'does not infer zero from an unrelated missing-account error: %s',
-    async (error) => {
+    'does not infer zero from an unrelated missing-account error: $name',
+    async ({ error }) => {
       const mocks = prepare();
       mocks.getNetworkAccount.mockRejectedValue(error);
       await expect(refreshCategoryFiat(mocks)).resolves.toMatchObject({
@@ -777,15 +803,6 @@ describe('Portfolio v2 category retrieval', () => {
     await expect(refreshCategoryFiat(mocks)).resolves.toMatchObject({
       defiFiat: '20',
       deFiSource: 'live',
-      perpsFiat: undefined,
-      failedSources: ['perps'],
-    });
-  });
-
-  test('does not treat a generic Account not found read as zero perps equity', async () => {
-    const mocks = prepare();
-    mocks.getNetworkAccount.mockRejectedValue(new Error('Account not found'));
-    await expect(refreshCategoryFiat(mocks)).resolves.toMatchObject({
       perpsFiat: undefined,
       failedSources: ['perps'],
     });
