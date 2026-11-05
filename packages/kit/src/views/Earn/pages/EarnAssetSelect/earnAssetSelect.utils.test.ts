@@ -3,7 +3,11 @@ import {
   isAddressKeyword,
   isInAssetPick,
   isSameAssetPick,
+  isSameAssetPickAsset,
+  listAssetSelectNetworks,
   listPickableClasses,
+  scopeAssetSelectToken,
+  scopeAssetSelectTokens,
   searchAssetSelect,
   splitClassMembers,
 } from './earnAssetSelect.utils';
@@ -224,5 +228,82 @@ describe('words', () => {
     expect(
       isAddressKeyword('EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v'),
     ).toBe(true);
+  });
+});
+
+describe('picks with a network (11-05)', () => {
+  const ARBITRUM = { id: 'evm--42161', name: 'Arbitrum', logoURI: 'arb.png' };
+  const usdc = token('USDC', {
+    type: 'stable',
+    networks: [
+      { ...BASE, rate: 5.19, balance: '4', fiatValue: 4 },
+      { ...ARBITRUM, rate: 3.1, balance: '10', fiatValue: 10 },
+    ],
+    addresses: [
+      { networkId: BASE.id, address: '0xbase' },
+      { networkId: ARBITRUM.id, address: '0xarb' },
+    ],
+    rate: 5.19,
+    balance: '14',
+    fiatValue: 14,
+  });
+
+  it('tells one network from every network', () => {
+    const everywhere = { kind: 'token', symbol: 'USDC' } as const;
+    const onBase = { ...everywhere, networkId: BASE.id };
+    expect(isSameAssetPick(everywhere, onBase)).toBe(false);
+    expect(isSameAssetPickAsset(everywhere, onBase)).toBe(true);
+    expect(isSameAssetPick(onBase, { ...onBase })).toBe(true);
+  });
+
+  it('takes a token on the pick network only', () => {
+    const stable = new Set(['USDC']);
+    const pick = {
+      kind: 'class',
+      assetClass: 'stable',
+      networkId: BASE.id,
+    } as const;
+    expect(
+      isInAssetPick({
+        symbol: 'USDC',
+        networkId: BASE.id,
+        pick,
+        stableSymbols: stable,
+      }),
+    ).toBe(true);
+    expect(
+      isInAssetPick({
+        symbol: 'USDC',
+        networkId: ARBITRUM.id,
+        pick,
+        stableSymbols: stable,
+      }),
+    ).toBe(false);
+    // Without the token's network, the kind alone decides
+    expect(isInAssetPick({ symbol: 'USDC', pick, stableSymbols: stable })).toBe(
+      true,
+    );
+  });
+
+  it('gives a token its figures on one network', () => {
+    expect(scopeAssetSelectToken(usdc)).toBe(usdc);
+    expect(scopeAssetSelectToken(usdc, ARBITRUM.id)).toMatchObject({
+      rate: 3.1,
+      balance: '10',
+      fiatValue: 10,
+      addresses: [{ networkId: ARBITRUM.id, address: '0xarb' }],
+    });
+    expect(scopeAssetSelectToken(usdc, 'sol--101')).toBeUndefined();
+    expect(scopeAssetSelectTokens([usdc], 'sol--101')).toEqual([]);
+  });
+
+  it('lists the networks the wallet holds most on first, then by name', () => {
+    const eth = token('ETH', {
+      type: 'eth',
+      networks: [{ id: 'evm--1', name: 'Ethereum', logoURI: 'eth.png' }],
+    });
+    expect(listAssetSelectNetworks([eth, usdc]).map((item) => item.id)).toEqual(
+      [ARBITRUM.id, BASE.id, 'evm--1'],
+    );
   });
 });

@@ -13,6 +13,7 @@ import { sortSwapQuotes } from '@onekeyhq/shared/src/utils/swapQuoteSortUtils';
 import { swapSlippageAutoValue } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import {
   EProtocolOfExchange,
+  ESwapCrossChainStatus,
   ESwapQuoteKind,
   ESwapTabSwitchType,
   ESwapTradeSource,
@@ -26,7 +27,11 @@ import type {
   ISwapToken,
 } from '@onekeyhq/shared/types/swap/types';
 
-import { getEarnSwapSlippage, isUsableEarnSwapQuote } from './earnRouter.utils';
+import {
+  getEarnSwapSlippage,
+  isEarnBridge,
+  isUsableEarnSwapQuote,
+} from './earnRouter.utils';
 
 // Paying with another token on a provider that takes only its own: a real
 // swap through the app's swap service, then the provider's own deposit form
@@ -68,16 +73,23 @@ export function fetchEarnSwapQuote({
   toToken,
   amount,
   account,
+  toAccount,
   signal,
   onBest,
 }: {
   fromToken: ISwapToken;
   toToken: ISwapToken;
   amount: string;
+  // The account paying, on the pay token's network
   account?: IEarnSwapAccount;
+  // Where the tokens land when that is another network (a bridge); unset,
+  // the paying account
+  toAccount?: IEarnSwapAccount;
   signal?: AbortSignal;
   onBest?: (quote: IFetchQuoteResult) => void;
 }): Promise<IFetchQuoteResult> {
+  const isBridge = isEarnBridge({ fromToken, toToken });
+  const receiver = isBridge ? toAccount : account;
   quoteSequence += 1;
   const quoteRequestId = `earn-swap-${quoteSequence}`;
   return new Promise((resolve, reject) => {
@@ -165,12 +177,14 @@ export function fetchEarnSwapQuote({
         toToken,
         fromTokenAmount: amount,
         userAddress: account?.address,
-        receivingAddress: account?.address,
+        receivingAddress: receiver?.address,
         accountId: account?.accountId,
         slippagePercentage: swapSlippageAutoValue,
         autoSlippage: true,
         kind: ESwapQuoteKind.SELL,
-        protocol: ESwapTabSwitchType.SWAP,
+        protocol: isBridge
+          ? ESwapTabSwitchType.BRIDGE
+          : ESwapTabSwitchType.SWAP,
         quoteRequestId,
       })
       .catch((error: unknown) =>
@@ -248,13 +262,21 @@ export async function prepareEarnSwap({
   toToken,
   amount,
   account,
+  toAccount,
 }: {
   quote: IFetchQuoteResult;
   fromToken: ISwapToken;
   toToken: ISwapToken;
   amount: string;
   account: IEarnSwapAccount;
+  // Where a bridge's tokens land; unset, the paying account
+  toAccount?: IEarnSwapAccount;
 }): Promise<IEarnSwapPrepared> {
+  const isBridge = isEarnBridge({ fromToken, toToken });
+  const receiver = isBridge && toAccount ? toAccount : account;
+  if (isBridge && !toAccount) {
+    throw new EarnSwapError('unsupported');
+  }
   const slippage = getEarnSwapSlippage(quote);
   const buildRes = await backgroundApiProxy.serviceSwap.fetchBuildTx({
     fromToken,
@@ -263,7 +285,7 @@ export async function prepareEarnSwap({
     toTokenAmount: quote.toAmount ?? '0',
     provider: quote.info.provider,
     userAddress: account.address,
-    receivingAddress: account.address,
+    receivingAddress: receiver.address,
     slippagePercentage: slippage,
     accountId: account.accountId,
     quoteResultCtx: quote.quoteResultCtx,
@@ -288,11 +310,11 @@ export async function prepareEarnSwap({
     currentFromToken: fromToken,
     currentToToken: toToken,
     fromAmount: amount,
-    receivingAccountId: account.accountId,
-    receivingAddress: account.address,
+    receivingAccountId: receiver.accountId,
+    receivingAddress: receiver.address,
     userAddress: account.address,
     slippage,
-    swapType: ESwapTabSwitchType.SWAP,
+    swapType: isBridge ? ESwapTabSwitchType.BRIDGE : ESwapTabSwitchType.SWAP,
     onBuildOkxSwapEncodedTx: (params) =>
       backgroundApiProxy.serviceSwap.buildOkxSwapEncodedTx(params),
     onBuildLMSwapEncodedTx: (params) =>
@@ -341,8 +363,22 @@ const FAILED_STATES = new Set([
   ESwapTxHistoryStatus.EXPIRED,
 ]);
 
-// A same-network swap lands in seconds; one not in by then went wrong
+// A bridge that stopped on its way: its tokens come back, or never left
+const FAILED_CROSS_CHAIN_STATES = new Set([
+  ESwapCrossChainStatus.FROM_FAILED,
+  ESwapCrossChainStatus.BRIDGE_FAILED,
+  ESwapCrossChainStatus.TO_FAILED,
+  ESwapCrossChainStatus.REFUNDING,
+  ESwapCrossChainStatus.REFUNDED,
+  ESwapCrossChainStatus.REFUND_FAILED,
+  ESwapCrossChainStatus.EXPIRED,
+  ESwapCrossChainStatus.PROVIDER_ERROR,
+]);
+
+// A same-network swap lands in seconds; one not in by then went wrong. A
+// bridge can take a while longer: some routes wait for finality
 const SWAP_WAIT_MS = 10 * 60 * 1000;
+const BRIDGE_WAIT_MS = 45 * 60 * 1000;
 
 /**
  * Waits on the chain for a sent swap: what it delivered once it lands (the
@@ -356,17 +392,25 @@ export async function waitForEarnSwap({
   prepared,
   toToken,
   account,
+  toAccount,
   landedBalance,
   signal,
 }: {
   txId: string;
   prepared: IEarnSwapPrepared;
   toToken: ISwapToken;
+  // The account that sent it, on the pay token's network
   account: IEarnSwapAccount;
+  // Where a bridge's tokens land; unset, the sending account
+  toAccount?: IEarnSwapAccount;
   landedBalance?: string;
   signal?: AbortSignal;
 }): Promise<{ receivedAmount?: string }> {
-  const deadline = Date.now() + SWAP_WAIT_MS;
+  const isBridge = Boolean(
+    toAccount && toAccount.networkId !== account.networkId,
+  );
+  const receiver = isBridge && toAccount ? toAccount : account;
+  const deadline = Date.now() + (isBridge ? BRIDGE_WAIT_MS : SWAP_WAIT_MS);
   for (;;) {
     if (signal?.aborted) {
       throw new EarnSwapError('cancelled');
@@ -379,10 +423,16 @@ export async function waitForEarnSwap({
         networkId: account.networkId,
         protocol: EProtocolOfExchange.SWAP,
         toTokenAddress: toToken.contractAddress,
-        receivedAddress: account.address,
+        receivedAddress: receiver.address,
         ctx: prepared.buildRes.ctx,
       });
-      if (result.state === ESwapTxHistoryStatus.SUCCESS) {
+      // A bridge is done once its tokens are out on the other network, not
+      // when its first transaction lands
+      const isDelivered =
+        !isBridge ||
+        result.crossChainStatus === undefined ||
+        result.crossChainStatus === ESwapCrossChainStatus.TO_SUCCESS;
+      if (result.state === ESwapTxHistoryStatus.SUCCESS && isDelivered) {
         const received = new BigNumber(result.dealReceiveAmount ?? '');
         return {
           receivedAmount:
@@ -391,7 +441,11 @@ export async function waitForEarnSwap({
               : undefined,
         };
       }
-      if (FAILED_STATES.has(result.state)) {
+      if (
+        FAILED_STATES.has(result.state) ||
+        (result.crossChainStatus !== undefined &&
+          FAILED_CROSS_CHAIN_STATES.has(result.crossChainStatus))
+      ) {
         throw new EarnSwapError('failed', result.stateDetail);
       }
     } catch (error) {
@@ -403,8 +457,8 @@ export async function waitForEarnSwap({
       const balance = await checkSwapLatestBalanceSufficient({
         token: toToken,
         amount: landedBalance,
-        accountId: account.accountId,
-        accountAddress: account.address,
+        accountId: receiver.accountId,
+        accountAddress: receiver.address,
       }).catch(() => undefined);
       // An unread balance passes the check; it proves nothing here
       if (balance?.balance !== undefined && balance.isSufficient) {

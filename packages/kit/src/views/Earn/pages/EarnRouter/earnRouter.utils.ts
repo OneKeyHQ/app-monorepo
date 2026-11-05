@@ -38,13 +38,17 @@ export const EARN_ROUTER_MODAL_HEIGHT = 640;
 export type IEarnRouterPayToken = {
   key: string;
   token: IAccountToken;
+  /** The network the token is on: another than the deposit's is bridged */
+  networkId: string;
+  /** The wallet's account there, which pays; unset for a pick not held */
+  accountId?: string;
   /** The balance in display units */
   amount: string;
   /** Its value in USD, the basis the token cache keeps; '0' in another */
   fiatValueUsd: string;
   /** One unit's price in USD, on the same terms */
   priceUsd: string;
-  /** The token the offer itself takes in */
+  /** The token the offer itself takes in, on the offer's network */
   isDepositToken: boolean;
 };
 
@@ -56,10 +60,17 @@ export type IEarnRouterPayToken = {
 export function listPayTokens({
   group,
   depositSymbol,
+  depositNetworkId,
   payableSymbols,
 }: {
-  group?: IEarnDesktopWalletTokenGroup;
+  // One network's tokens: the account and network they are on, where known
+  group?: IEarnDesktopWalletTokenGroup & {
+    networkId?: string;
+    accountId?: string;
+  };
   depositSymbol: string;
+  // The offer's network: the deposit token is the symbol there only
+  depositNetworkId?: string;
   /** Lowercased */
   payableSymbols?: Set<string>;
 }): IEarnRouterPayToken[] {
@@ -94,13 +105,18 @@ export function listPayTokens({
     const isUsd = (fiat.currency ?? USD_CURRENCY_ID) === USD_CURRENCY_ID;
     const value = new BigNumber(fiat.fiatValue);
     const price = new BigNumber(fiat.price ?? 0);
+    const networkId = group.networkId || token.networkId || '';
     tokens.push({
       key: token.$key,
       token,
+      networkId,
+      accountId: group.accountId,
       amount: amount.toFixed(),
       fiatValueUsd: isUsd && value.isFinite() ? value.toFixed() : '0',
       priceUsd: isUsd && price.isFinite() ? price.toFixed() : '0',
-      isDepositToken: symbolKey === depositKey,
+      isDepositToken:
+        symbolKey === depositKey &&
+        (!depositNetworkId || networkId === depositNetworkId),
     });
   });
   return tokens.toSorted((a, b) => {
@@ -119,6 +135,62 @@ export function pickDefaultPayToken(
   return tokens.find((item) => item.isDepositToken) ?? tokens[0];
 }
 
+/**
+ * The wallet's tokens on every network, as Pay with lists them when it
+ * bridges (11-05): the deposit token on the offer's network first, the
+ * same token elsewhere next, then the most valuable
+ */
+export function listPayTokensAcrossNetworks({
+  groups,
+  depositSymbol,
+  depositNetworkId,
+  payableSymbols,
+}: {
+  groups: (IEarnDesktopWalletTokenGroup & {
+    networkId: string;
+    accountId: string;
+  })[];
+  depositSymbol: string;
+  depositNetworkId: string;
+  /** Lowercased */
+  payableSymbols?: Set<string>;
+}): IEarnRouterPayToken[] {
+  const depositKey = depositSymbol.toLowerCase();
+  const rank = (item: IEarnRouterPayToken) => {
+    if (item.isDepositToken) {
+      return 0;
+    }
+    return item.token.symbol.toLowerCase() === depositKey ? 1 : 2;
+  };
+  return groups
+    .flatMap((group) =>
+      listPayTokens({ group, depositSymbol, depositNetworkId, payableSymbols }),
+    )
+    .toSorted(
+      (a, b) =>
+        rank(a) - rank(b) ||
+        (new BigNumber(b.fiatValueUsd).comparedTo(a.fiatValueUsd) ?? 0),
+    );
+}
+
+/**
+ * Where Pay with starts when it bridges (11-05, the 10-21 rule taken to
+ * every network): the wallet's largest holding of the deposit's token on
+ * any network, else its largest holding of anything
+ */
+export function pickDefaultPayTokenAcrossNetworks(
+  tokens: IEarnRouterPayToken[],
+  depositSymbol: string,
+): IEarnRouterPayToken | undefined {
+  const depositKey = depositSymbol.toLowerCase();
+  const byValue = (a: IEarnRouterPayToken, b: IEarnRouterPayToken) =>
+    new BigNumber(b.fiatValueUsd).comparedTo(a.fiatValueUsd) ?? 0;
+  const same = tokens
+    .filter((item) => item.token.symbol.toLowerCase() === depositKey)
+    .toSorted(byValue);
+  return same[0] ?? tokens.toSorted(byValue)[0];
+}
+
 // Keys of tokens picked in Pay with's picker that the wallet's list lacks:
 // `${PICKED_PAY_TOKEN_KEY}|networkId|address`
 const PICKED_PAY_TOKEN_KEY = 'earn-pay-picked';
@@ -132,6 +204,15 @@ export const getPayTokenAddress = (item: IEarnRouterPayToken) =>
     isNative: item.token.isNative,
   });
 
+// The same token: one address, on the same network where both say which
+// (one contract can sit at the same address on several networks)
+const isSamePayTokenPlace = (
+  item: IEarnRouterPayToken,
+  other: { address: string; networkId?: string },
+) =>
+  getPayTokenAddress(item) === other.address &&
+  (!item.networkId || !other.networkId || item.networkId === other.networkId);
+
 // A token picked in Pay with's picker (Swap's, so any token on the network).
 // The wallet's own entry when Pay with's list has it, its balance being the
 // one to trust; else the picker's token, with the balance the picker showed
@@ -141,18 +222,26 @@ export function toPickedPayToken({
   tokens,
   depositToken,
   depositSymbol,
+  depositNetworkId,
+  accountId,
 }: {
   token: ISwapToken;
   tokens: IEarnRouterPayToken[];
   // The offer's own token: a pick is the deposit token by its address
   depositToken?: { address?: string; isNative?: boolean };
   depositSymbol: string;
+  // The offer's network: a pick on another is bridged
+  depositNetworkId?: string;
+  // The wallet's account on the pick's network, where known
+  accountId?: string;
 }): IEarnRouterPayToken {
   const address = normalizeStakeTokenAddress({
     address: token.contractAddress,
     isNative: token.isNative,
   });
-  const listed = tokens.find((item) => getPayTokenAddress(item) === address);
+  const listed = tokens.find((item) =>
+    isSamePayTokenPlace(item, { address, networkId: token.networkId }),
+  );
   if (listed) {
     return listed;
   }
@@ -174,12 +263,16 @@ export function toPickedPayToken({
       networkId: token.networkId,
       balanceMultiplier: token.balanceMultiplier,
     },
+    networkId: token.networkId,
+    accountId,
     amount: amount.isFinite() && amount.gt(0) ? amount.toFixed() : '0',
     fiatValueUsd: isUsd && value.isFinite() ? value.toFixed() : '0',
     priceUsd: isUsd && price.isFinite() ? price.toFixed() : '0',
-    isDepositToken: depositToken
-      ? normalizeStakeTokenAddress(depositToken) === address
-      : token.symbol.toLowerCase() === depositSymbol.toLowerCase(),
+    isDepositToken:
+      (!depositNetworkId || token.networkId === depositNetworkId) &&
+      (depositToken
+        ? normalizeStakeTokenAddress(depositToken) === address
+        : token.symbol.toLowerCase() === depositSymbol.toLowerCase()),
   };
 }
 
@@ -218,8 +311,15 @@ export function mergePickedPayTokens(
   if (!picked.length) {
     return tokens;
   }
-  const listed = new Set(tokens.map(getPayTokenAddress));
-  const extra = picked.filter((item) => !listed.has(getPayTokenAddress(item)));
+  const extra = picked.filter(
+    (item) =>
+      !tokens.some((listed) =>
+        isSamePayTokenPlace(listed, {
+          address: getPayTokenAddress(item),
+          networkId: item.networkId,
+        }),
+      ),
+  );
   return extra.length ? [...tokens, ...extra] : tokens;
 }
 
@@ -237,10 +337,12 @@ export function findPayToken(
   if (byKey || !isPickedPayTokenKey(key)) {
     return byKey;
   }
-  const address = key.slice(key.lastIndexOf('|') + 1);
+  // `${PICKED_PAY_TOKEN_KEY}|networkId|address`
+  const [, networkId, address] = key.split('|');
   return tokens.find(
     (item) =>
-      !isPickedPayTokenKey(item.key) && getPayTokenAddress(item) === address,
+      !isPickedPayTokenKey(item.key) &&
+      isSamePayTokenPlace(item, { address, networkId }),
   );
 }
 
@@ -321,7 +423,10 @@ export type IEarnRouterPayMode =
   | 'zap'
   // Swap first through the app's swap service, then the provider's own
   // deposit form
-  | 'swapThenDeposit';
+  | 'swapThenDeposit'
+  // The token is on another network: bridged there first (a swap on the
+  // way where it is another token), then the provider's own deposit form
+  | 'bridgeThenDeposit';
 
 // How the chosen token reaches the provider. `takesOtherTokens`: the
 // provider lists the tokens it takes in (Pendle, native staking), which
@@ -330,11 +435,22 @@ export function resolvePayMode({
   payToken,
   takesOtherTokens,
   zapInputs,
+  depositNetworkId,
 }: {
   payToken?: IEarnRouterPayToken;
   takesOtherTokens: boolean;
   zapInputs?: { address?: string; isNative?: boolean }[];
+  // The offer's network, where Pay with lists other networks too
+  depositNetworkId?: string;
 }): IEarnRouterPayMode {
+  if (
+    payToken &&
+    depositNetworkId &&
+    payToken.networkId &&
+    payToken.networkId !== depositNetworkId
+  ) {
+    return 'bridgeThenDeposit';
+  }
   if (!payToken || payToken.isDepositToken) {
     return 'direct';
   }
@@ -553,6 +669,39 @@ export function isUsableEarnSwapQuote({
     return false;
   }
   return new BigNumber(quote.fromAmount ?? '').eq(amount);
+}
+
+/** The tokens are on two networks: the swap is a bridge (11-05) */
+export const isEarnBridge = ({
+  fromToken,
+  toToken,
+}: {
+  fromToken: { networkId: string };
+  toToken: { networkId: string };
+}) => fromToken.networkId !== toToken.networkId;
+
+/**
+ * About how long the swap takes to land, in minutes, as the provider
+ * quoted it (a bridge's arrival); undefined when it gave no time
+ */
+export function getEarnSwapMinutes(quote?: IFetchQuoteResult) {
+  if (!quote) {
+    return undefined;
+  }
+  const minutes = new BigNumber(quote.estTime ?? Number.NaN);
+  if (minutes.isFinite() && minutes.gt(0)) {
+    return minutes.toNumber();
+  }
+  const seconds = new BigNumber(quote.estimatedTime ?? Number.NaN);
+  return seconds.isFinite() && seconds.gt(0)
+    ? seconds.div(60).toNumber()
+    : undefined;
+}
+
+/** What the provider charges for the swap or bridge, in USD, when quoted */
+export function getEarnSwapFeeUsd(quote?: IFetchQuoteResult) {
+  const fee = quote?.fee?.estimatedFeeFiatValue;
+  return fee !== undefined && Number.isFinite(fee) && fee > 0 ? fee : undefined;
 }
 
 // The slippage a quote asks for: the provider's suggestion, as the Swap

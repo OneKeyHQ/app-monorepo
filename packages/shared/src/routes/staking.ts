@@ -7,6 +7,7 @@ import type {
 import type {
   IEarnAssetClass,
   IEarnAssetPick,
+  IEarnAssetSelectNetwork,
   IEarnAssetSelectPurpose,
   IEarnAssetSelectToken,
 } from '../../types/earn/earnAssetSelect';
@@ -159,6 +160,10 @@ export type IModalStakingParamList = {
       // Every token of the kind compared, the symbol's among them (the Earn
       // button opens the most valuable holding's kind)
       assetClass?: IEarnAssetClass;
+      // The pick's networks: every network (a home row, by token since
+      // 11-05), or the route's network alone (unset). Offers on another
+      // network than Pay with's bridge first
+      allNetworks?: boolean;
       // Pay with's token, with the amount typed in it (back from the page
       // the window's Details opened: the window as it was left)
       payKey?: string;
@@ -181,7 +186,10 @@ export type IModalStakingParamList = {
     modalHeight?: number;
     // The token paying now, checked in the list as the other pickers check
     // theirs
-    selectedToken?: { address: string; isNative: boolean };
+    selectedToken?: { address: string; isNative: boolean; networkId?: string };
+    // Swap's network column too: a token on any network, bridged to the
+    // deposit's network first (11-05). Unset, networkId's tokens alone
+    acrossNetworks?: boolean;
     // Called with the pick after the picker closes
     onSelect: (token: ISwapToken) => void;
   };
@@ -200,6 +208,9 @@ export type IModalStakingParamList = {
     // compared (the Loans button opens the loan side on Stable Tokens)
     collateralClass?: IEarnAssetClass;
     borrowClass?: IEarnAssetClass;
+    // The one network both sides are on (a loan is one market's); unset,
+    // every network ("All Networks", 11-05)
+    networkId?: string;
     routeKey?: string;
     wide?: boolean;
     // Back from the market's page Manage opened: the window as it was left.
@@ -214,10 +225,13 @@ export type IModalStakingParamList = {
     purpose: IEarnAssetSelectPurpose;
     title: string;
     tokens: IEarnAssetSelectToken[];
+    // What the window is on: a token or a kind, on one network or on all
+    // (the pick's networkId), which the list opens on
     selected?: IEarnAssetPick;
-    // Earn's list is the deposit's network's: named over the list and in
-    // the line for a pasted address it doesn't have
-    networkId?: string;
+    // The network column's networks, in the order shown after All Networks;
+    // unset, every network the tokens are on
+    networks?: IEarnAssetSelectNetwork[];
+    // Deprecated with the network column (11-05): the one network's name
     networkName?: string;
     // Wide windows: over a taller modal, its height (as Pay with's picker)
     modalHeight?: number;

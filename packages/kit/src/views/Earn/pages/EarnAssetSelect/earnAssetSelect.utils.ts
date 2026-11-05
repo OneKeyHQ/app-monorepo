@@ -1,6 +1,7 @@
 import type {
   IEarnAssetClass,
   IEarnAssetPick,
+  IEarnAssetSelectNetwork,
   IEarnAssetSelectPurpose,
   IEarnAssetSelectToken,
 } from '@onekeyhq/shared/types/earn/earnAssetSelect';
@@ -15,6 +16,7 @@ export type {
   IEarnAssetSelectNetwork,
   IEarnAssetSelectPurpose,
   IEarnAssetSelectToken,
+  IEarnAssetSelectTokenNetwork,
 } from '@onekeyhq/shared/types/earn/earnAssetSelect';
 
 export type IEarnAssetSelectClassRow = {
@@ -52,24 +54,100 @@ export const getEarnAssetType = (symbol: string, stableSymbols: Set<string>) =>
 const isSameSymbol = (a: string, b: string) =>
   a.toUpperCase() === b.toUpperCase();
 
-export const isSameAssetPick = (a: IEarnAssetPick, b: IEarnAssetPick) =>
+/** The same token or kind, whatever the networks */
+export const isSameAssetPickAsset = (a: IEarnAssetPick, b: IEarnAssetPick) =>
   a.kind === 'class'
     ? b.kind === 'class' && a.assetClass === b.assetClass
     : b.kind === 'token' && isSameSymbol(a.symbol, b.symbol);
 
-/** A token the pick takes in: the token itself, or one of the kind */
+/** The same token or kind on the same network, or both on every network */
+export const isSameAssetPick = (a: IEarnAssetPick, b: IEarnAssetPick) =>
+  isSameAssetPickAsset(a, b) && (a.networkId ?? '') === (b.networkId ?? '');
+
+/** Whether a network is in the pick: its own, or any where it has none */
+export const isNetworkInPick = (pick: IEarnAssetPick, networkId: string) =>
+  !pick.networkId || pick.networkId === networkId;
+
+/**
+ * The token as the pick's networks see it: its figures on that network, or
+ * as they stand across every network. Undefined where it isn't offered there
+ */
+export function scopeAssetSelectToken(
+  token: IEarnAssetSelectToken,
+  networkId?: string,
+): IEarnAssetSelectToken | undefined {
+  if (!networkId) {
+    return token;
+  }
+  const network = token.networks.find((item) => item.id === networkId);
+  if (!network) {
+    return undefined;
+  }
+  return {
+    ...token,
+    networks: [network],
+    addresses: token.addresses.filter((item) => item.networkId === networkId),
+    rate: network.rate,
+    balance: network.balance,
+    fiatValue: network.fiatValue,
+  };
+}
+
+/** Every token offered on the network (all of them, without one), with its figures there */
+export const scopeAssetSelectTokens = (
+  tokens: IEarnAssetSelectToken[],
+  networkId?: string,
+) =>
+  networkId
+    ? tokens.flatMap((token) => {
+        const scoped = scopeAssetSelectToken(token, networkId);
+        return scoped ? [scoped] : [];
+      })
+    : tokens;
+
+/**
+ * The networks the tokens are on, those where the wallet holds any of them
+ * first (the most valuable first), then by name: the network column's order
+ */
+export function listAssetSelectNetworks(
+  tokens: IEarnAssetSelectToken[],
+): IEarnAssetSelectNetwork[] {
+  const byId = new Map<string, IEarnAssetSelectNetwork & { held: number }>();
+  tokens.forEach((token) => {
+    token.networks.forEach((network) => {
+      const kept = byId.get(network.id);
+      byId.set(network.id, {
+        id: network.id,
+        name: network.name,
+        logoURI: network.logoURI,
+        held: (kept?.held ?? 0) + (network.fiatValue ?? 0),
+      });
+    });
+  });
+  return [...byId.values()]
+    .toSorted((a, b) => b.held - a.held || a.name.localeCompare(b.name))
+    .map(({ held: _held, ...network }) => network);
+}
+
+/**
+ * A token the pick takes in: the token itself, or one of the kind. Given the
+ * token's network, also only on the pick's network where it has one
+ */
 export const isInAssetPick = ({
   symbol,
+  networkId,
   pick,
   stableSymbols,
 }: {
   symbol: string;
+  networkId?: string;
   pick: IEarnAssetPick;
   stableSymbols: Set<string>;
 }) =>
-  pick.kind === 'token'
+  (networkId === undefined || isNetworkInPick(pick, networkId)) &&
+  (pick.kind === 'token'
     ? isSameSymbol(symbol, pick.symbol)
-    : getEarnAssetType(symbol, stableSymbols) === pick.assetClass;
+    : getEarnAssetType(symbol, stableSymbols) === pick.assetClass);
 
 const held = (token: IEarnAssetSelectToken) => token.fiatValue ?? 0;
 

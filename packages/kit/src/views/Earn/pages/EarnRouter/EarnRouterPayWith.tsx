@@ -10,8 +10,10 @@ import { useEarnDesktopWalletHoldings } from '../../components/desktopHome/useEa
 
 import {
   listPayTokens,
+  listPayTokensAcrossNetworks,
   mergePickedPayTokens,
   pickDefaultPayToken,
+  pickDefaultPayTokenAcrossNetworks,
   withPickedTokenDetails,
 } from './earnRouter.utils';
 
@@ -79,25 +81,48 @@ function subscribePickedPayTokens(listener: () => void) {
   };
 }
 
-function usePickedPayTokens(networkId: string) {
-  return useSyncExternalStore(
-    subscribePickedPayTokens,
-    () => pickedPayTokens.get(networkId) ?? NO_PICKED_PAY_TOKENS,
+// Every network's picks, one list kept until a pick changes, for a Pay with
+// that bridges
+let everyNetworkPicks: IEarnRouterPayToken[] = NO_PICKED_PAY_TOKENS;
+let everyNetworkPicksVersion = 0;
+let everyNetworkPicksBuiltAt = -1;
+// Added first, so the list is stale before any view reads it again
+pickedPayTokenListeners.add(() => {
+  everyNetworkPicksVersion += 1;
+});
+function readEveryNetworkPicks() {
+  if (everyNetworkPicksBuiltAt !== everyNetworkPicksVersion) {
+    everyNetworkPicksBuiltAt = everyNetworkPicksVersion;
+    const all = [...pickedPayTokens.values()].flat();
+    everyNetworkPicks = all.length ? all : NO_PICKED_PAY_TOKENS;
+  }
+  return everyNetworkPicks;
+}
+
+// One network's picks, or every network's (`networkId` unset)
+function usePickedPayTokens(networkId?: string) {
+  return useSyncExternalStore(subscribePickedPayTokens, () =>
+    networkId
+      ? (pickedPayTokens.get(networkId) ?? NO_PICKED_PAY_TOKENS)
+      : readEveryNetworkPicks(),
   );
 }
 
 // The wallet's tokens on the deposit's network, for Pay with, and the picks
-// they lack
+// they lack. Across networks, every network's (11-05: a token elsewhere is
+// bridged to the deposit's network first)
 export function usePayTokens({
   accountId,
   networkId,
   depositSymbol,
   enabled = true,
+  acrossNetworks = false,
 }: {
   accountId: string;
   networkId: string;
   depositSymbol: string;
   enabled?: boolean;
+  acrossNetworks?: boolean;
 }) {
   const refreshNetworkIds = useMemo(() => [networkId], [networkId]);
   const [{ availableAssetsByType = {} }] = useEarnAtom();
@@ -118,42 +143,72 @@ export function usePayTokens({
     () => wallet.networkGroups.find((item) => item.networkId === networkId),
     [networkId, wallet.networkGroups],
   );
-  const heldTokens = useMemo(
-    () =>
-      listPayTokens({
-        group,
-        depositSymbol,
-        // Before Earn's lists are in, nothing is filtered out
-        payableSymbols: payableSymbols.size ? payableSymbols : undefined,
-      }),
-    [depositSymbol, group, payableSymbols],
-  );
-  const picked = usePickedPayTokens(networkId);
+  const heldTokens = useMemo(() => {
+    // Before Earn's lists are in, nothing is filtered out
+    const payable = payableSymbols.size ? payableSymbols : undefined;
+    return acrossNetworks
+      ? listPayTokensAcrossNetworks({
+          groups: wallet.networkGroups,
+          depositSymbol,
+          depositNetworkId: networkId,
+          payableSymbols: payable,
+        })
+      : listPayTokens({
+          group,
+          depositSymbol,
+          depositNetworkId: networkId,
+          payableSymbols: payable,
+        });
+  }, [
+    acrossNetworks,
+    depositSymbol,
+    group,
+    networkId,
+    payableSymbols,
+    wallet.networkGroups,
+  ]);
+  const picked = usePickedPayTokens(acrossNetworks ? undefined : networkId);
   const tokens = useMemo(
     () => mergePickedPayTokens(heldTokens, picked),
     [heldTokens, picked],
   );
   const defaultToken = useMemo(
-    () => pickDefaultPayToken(heldTokens),
-    [heldTokens],
+    () =>
+      acrossNetworks
+        ? pickDefaultPayTokenAcrossNetworks(heldTokens, depositSymbol)
+        : pickDefaultPayToken(heldTokens),
+    [acrossNetworks, depositSymbol, heldTokens],
   );
-  // The wallet holds nothing at all on the network, of any token
+  // The wallet holds nothing at all on the network, of any token; across
+  // networks, nothing anywhere
+  const emptyGroups = acrossNetworks
+    ? wallet.networkGroups
+    : [group].filter(Boolean);
   const isNetworkEmpty =
     wallet.isLoaded &&
-    !(group?.tokens ?? []).some((token) =>
-      new BigNumber(group?.map[token.$key]?.balanceParsed ?? 0).gt(0),
+    !emptyGroups.some((item) =>
+      (item?.tokens ?? []).some((token) =>
+        new BigNumber(item?.map[token.$key]?.balanceParsed ?? 0).gt(0),
+      ),
     );
   // After a transaction: the wallet's balances, and the picks' own, which
   // the wallet's list doesn't carry
   const { refresh: refreshWallet } = wallet;
   const refresh = useCallback(async () => {
+    const picks = acrossNetworks
+      ? [...pickedPayTokens.values()].flat()
+      : (pickedPayTokens.get(networkId) ?? []);
     await Promise.all([
       refreshWallet(),
-      ...(pickedPayTokens.get(networkId) ?? []).map((item) =>
-        refreshPickedPayToken({ accountId, networkId, item }),
+      ...picks.map((item) =>
+        refreshPickedPayToken({
+          accountId: item.accountId || accountId,
+          networkId: item.networkId || networkId,
+          item,
+        }),
       ),
     ]);
-  }, [accountId, networkId, refreshWallet]);
+  }, [accountId, acrossNetworks, networkId, refreshWallet]);
   return {
     // The wallet's, then the picks
     tokens,

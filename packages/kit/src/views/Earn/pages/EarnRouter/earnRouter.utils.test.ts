@@ -15,17 +15,22 @@ import {
   findOffer,
   findPayToken,
   getEarnSwapDepositAmount,
+  getEarnSwapFeeUsd,
+  getEarnSwapMinutes,
   getEarnSwapPayMax,
   getEarnSwapSlippage,
   getPayTokenAddress,
+  isEarnBridge,
   isUsableEarnSwapQuote,
   keepPendleMarketRows,
   listPayTokens,
+  listPayTokensAcrossNetworks,
   listWithPayTokens,
   matchesPayTokenKeyword,
   mergePickedPayTokens,
   pickBetterOffer,
   pickDefaultPayToken,
+  pickDefaultPayTokenAcrossNetworks,
   resolvePayMode,
   toPickedPayToken,
   withPickedTokenDetails,
@@ -134,6 +139,7 @@ describe('listPayTokens', () => {
     ).toEqual({
       key: 'eth',
       token: eth,
+      networkId: '',
       amount: '0.000723',
       fiatValueUsd: '1.76',
       priceUsd: '2434.3',
@@ -371,6 +377,7 @@ describe('picks in Pay with picker', () => {
           symbol: 'CRV',
           networkId: 'evm--1',
         },
+        networkId: 'evm--1',
         amount: '0.4851',
         fiatValueUsd: '0.17',
         priceUsd: '0.35',
@@ -650,6 +657,7 @@ describe('resolvePayMode', () => {
   ): IEarnRouterPayToken => ({
     key: token.$key,
     token,
+    networkId: 'evm--1',
     amount: '1',
     fiatValueUsd: '1',
     priceUsd: '1',
@@ -1258,5 +1266,171 @@ describe('keepPendleMarketRows', () => {
     expect(keepPendleMarketRows(undefined)).toBeUndefined();
     const plain: IStakeTransactionConfirmation = { rewards: [] };
     expect(keepPendleMarketRows(plain)).toBe(plain);
+  });
+});
+
+describe('Pay with across networks (11-05)', () => {
+  const ARB_USDC = '0xaf88d065e77c8cC2239327C5EDb3A432268e5831';
+  const ethereum = {
+    ...ethereumWallet,
+    networkId: 'evm--1',
+    accountId: 'hd-1--evm',
+  };
+  const arbitrum = {
+    networkId: 'evm--42161',
+    accountId: 'hd-1--evm',
+    tokens: [walletToken('USDC', ARB_USDC), { ...eth, $key: 'arb-eth' }],
+    map: {
+      [ARB_USDC]: walletFiat('12.5', '12.49'),
+      'arb-eth': walletFiat('0.01', '24.34', { price: 2434.3 }),
+    },
+  };
+
+  it('lists the deposit token on its network first, the same token elsewhere next', () => {
+    const tokens = listPayTokensAcrossNetworks({
+      groups: [arbitrum, ethereum],
+      depositSymbol: 'USDC',
+      depositNetworkId: 'evm--1',
+    });
+    expect(
+      tokens
+        .slice(0, 3)
+        .map((item) => [
+          item.token.symbol,
+          item.networkId,
+          item.isDepositToken,
+        ]),
+    ).toEqual([
+      ['USDC', 'evm--1', true],
+      ['USDC', 'evm--42161', false],
+      ['ETH', 'evm--42161', false],
+    ]);
+    expect(tokens.every((item) => item.accountId === 'hd-1--evm')).toBe(true);
+  });
+
+  it('starts on the largest holding of the token on any network', () => {
+    const tokens = listPayTokensAcrossNetworks({
+      groups: [arbitrum, ethereum],
+      depositSymbol: 'USDC',
+      depositNetworkId: 'evm--1',
+    });
+    const start = pickDefaultPayTokenAcrossNetworks(tokens, 'USDC');
+    expect([start?.token.symbol, start?.networkId]).toEqual([
+      'USDC',
+      'evm--42161',
+    ]);
+  });
+
+  it('starts on the largest holding of anything without the token', () => {
+    const tokens = listPayTokensAcrossNetworks({
+      groups: [arbitrum, ethereum],
+      depositSymbol: 'WBTC',
+      depositNetworkId: 'evm--1',
+    });
+    const start = pickDefaultPayTokenAcrossNetworks(tokens, 'WBTC');
+    expect([start?.token.symbol, start?.networkId]).toEqual([
+      'ETH',
+      'evm--42161',
+    ]);
+  });
+
+  it('bridges a token on another network, the deposit token too', () => {
+    const tokens = listPayTokensAcrossNetworks({
+      groups: [arbitrum, ethereum],
+      depositSymbol: 'USDC',
+      depositNetworkId: 'evm--1',
+    });
+    const arbUsdc = tokens.find(
+      (item) => item.token.symbol === 'USDC' && item.networkId === 'evm--42161',
+    );
+    const ethUsdc = tokens.find(
+      (item) => item.token.symbol === 'USDC' && item.networkId === 'evm--1',
+    );
+    expect(
+      resolvePayMode({
+        payToken: arbUsdc,
+        takesOtherTokens: false,
+        depositNetworkId: 'evm--1',
+      }),
+    ).toBe('bridgeThenDeposit');
+    expect(
+      resolvePayMode({
+        payToken: ethUsdc,
+        takesOtherTokens: false,
+        depositNetworkId: 'evm--1',
+      }),
+    ).toBe('direct');
+  });
+
+  it('keeps a pick apart from the same address on another network', () => {
+    const picked = toPickedPayToken({
+      token: {
+        networkId: 'evm--8453',
+        contractAddress: USDC,
+        symbol: 'USDC',
+        decimals: 6,
+        isNative: false,
+      } as ISwapToken,
+      tokens: listPayTokens({
+        group: ethereum,
+        depositSymbol: 'USDC',
+        depositNetworkId: 'evm--1',
+      }),
+      depositSymbol: 'USDC',
+      depositNetworkId: 'evm--1',
+    });
+    expect([picked.networkId, picked.isDepositToken]).toEqual([
+      'evm--8453',
+      false,
+    ]);
+    expect(picked.key.startsWith('earn-pay-picked|evm--8453|')).toBe(true);
+    expect(
+      mergePickedPayTokens(
+        listPayTokens({ group: ethereum, depositSymbol: 'USDC' }),
+        [picked],
+      ).some((item) => item.key === picked.key),
+    ).toBe(true);
+  });
+});
+
+describe('bridge quotes (11-05)', () => {
+  it('is a bridge when the tokens are on two networks', () => {
+    expect(
+      isEarnBridge({
+        fromToken: { networkId: 'evm--42161' },
+        toToken: { networkId: 'evm--8453' },
+      }),
+    ).toBe(true);
+    expect(
+      isEarnBridge({
+        fromToken: { networkId: 'evm--8453' },
+        toToken: { networkId: 'evm--8453' },
+      }),
+    ).toBe(false);
+  });
+
+  it('reads the arrival in minutes, the server value first', () => {
+    const quote = (extra: Partial<IFetchQuoteResult>) =>
+      ({ info: { provider: 'p' }, ...extra }) as IFetchQuoteResult;
+    expect(getEarnSwapMinutes(quote({ estTime: 3, estimatedTime: 600 }))).toBe(
+      3,
+    );
+    expect(getEarnSwapMinutes(quote({ estimatedTime: '90' }))).toBe(1.5);
+    expect(getEarnSwapMinutes(quote({}))).toBeUndefined();
+    expect(getEarnSwapMinutes(undefined)).toBeUndefined();
+  });
+
+  it('reads the fee in USD when quoted', () => {
+    const quote = (fee?: number) =>
+      ({
+        info: { provider: 'p' },
+        fee:
+          fee === undefined
+            ? undefined
+            : { percentageFee: 0, estimatedFeeFiatValue: fee },
+      }) as IFetchQuoteResult;
+    expect(getEarnSwapFeeUsd(quote(0.42))).toBe(0.42);
+    expect(getEarnSwapFeeUsd(quote(0))).toBeUndefined();
+    expect(getEarnSwapFeeUsd(quote())).toBeUndefined();
   });
 });
