@@ -218,7 +218,7 @@ const HOVER_MOTION = {
 const shouldSendVault = (providerName: string) =>
   earnUtils.shouldSendEarnProtocolVault({ providerName });
 
-function CategoryPills({
+export function CategoryPills({
   categories,
   value,
   onChange,

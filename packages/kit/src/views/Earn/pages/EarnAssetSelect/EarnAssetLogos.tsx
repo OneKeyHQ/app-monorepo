@@ -54,3 +54,52 @@ export function EarnAssetLogos({
     </XStack>
   );
 }
+
+// Where a kind's logos sit in one token logo's square (40), by how many it
+// shows: four in a square as the app draws All Networks, three in a
+// triangle, two side by side
+const KIND_LOGO_PLACES: Record<number, { left: number; top: number }[]> = {
+  2: [
+    { left: 0, top: 10 },
+    { left: 20, top: 10 },
+  ],
+  3: [
+    { left: 0, top: 0 },
+    { left: 20, top: 0 },
+    { left: 10, top: 20 },
+  ],
+  4: [
+    { left: 0, top: 0 },
+    { left: 20, top: 0 },
+    { left: 0, top: 20 },
+    { left: 20, top: 20 },
+  ],
+};
+
+/**
+ * A whole kind of token in a token logo's place, so its row's logo and name
+ * start where every token row's do: its first logos, a little apart
+ */
+export function EarnAssetKindLogos({ logos }: { logos: string[] }) {
+  const shown = logos.slice(0, 4);
+  const places = KIND_LOGO_PLACES[shown.length];
+  if (!places) {
+    return <Token tokenImageUri={shown[0]} />;
+  }
+  return (
+    <Stack w="$10" h="$10" flexShrink={0}>
+      {shown.map((uri, index) => (
+        <Stack
+          key={`${uri}-${index}`}
+          position="absolute"
+          left={places[index].left}
+          top={places[index].top}
+          // Each logo a little smaller than its cell, so they don't touch
+          scale={0.9}
+        >
+          <Token size="xs" tokenImageUri={uri} />
+        </Stack>
+      ))}
+    </Stack>
+  );
+}

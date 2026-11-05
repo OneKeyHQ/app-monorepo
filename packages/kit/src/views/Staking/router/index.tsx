@@ -9,6 +9,7 @@ import type {
 
 import { ModalAssetDetailsStack } from '../../AssetDetails/router';
 import { EARN_GUIDE_MODAL_SIZE } from '../../Earn/components/desktopHome/earnGuide.utils';
+import { EARN_ASSET_SELECT_SIZE } from '../../Earn/pages/EarnAssetSelect/earnAssetSelectSize';
 import { EARN_LOAN_MODAL_SIZE } from '../../Earn/pages/EarnLoanRouter/loanRouterModal';
 import { EARN_PAY_WITH_PICKER_SIZE } from '../../Earn/pages/EarnRouter/earnPayWithPickerData';
 import {
@@ -255,16 +256,17 @@ export const StakingModalRouter: IModalFlowNavigatorConfig<
     name: EModalStakingRoutes.EarnRouterAssetSelect,
     component: EarnRouterAssetSelect,
     // Opens as Pay with's picker does, over the router it picks for: at its
-    // own size, the form under it still. Narrow windows keep it full screen
+    // own size (Swap's token selector's, for the network column), the form
+    // under it still. Narrow windows keep it full screen
     disableStackAnimation: true,
-    modalContentMaxWidth: EARN_PAY_WITH_PICKER_SIZE.width,
+    modalContentMaxWidth: EARN_ASSET_SELECT_SIZE.width,
     options: ({ route }) => ({
       modalContentMaxHeight:
         (
           route.params as
             | IModalStakingParamList[EModalStakingRoutes.EarnRouterAssetSelect]
             | undefined
-        )?.modalHeight ?? EARN_PAY_WITH_PICKER_SIZE.height,
+        )?.modalHeight ?? EARN_ASSET_SELECT_SIZE.height,
     }),
   },
   {

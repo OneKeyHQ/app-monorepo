@@ -678,14 +678,13 @@ const ManagePositionPage = () => {
               variant="pill"
               pick={assetPick}
               tokens={networkAssets.tokens}
+              networks={networkAssets.networks}
               purpose="earn"
               fallbackLogoURI={offersEntry.tokenImageUri ?? tokenImageUri}
-              // The pick's network, else "on All Networks" with no badge
+              // The pick's network before the list names it; the pill
+              // says "on All Networks" itself when the pick has none
               networkLogoURI={pickNetwork?.logoURI}
-              networkName={
-                pickNetwork?.name ??
-                intl.formatMessage({ id: ETranslations.global_all_networks })
-              }
+              networkName={pickNetwork?.name}
               onPress={handleOpenAssetSelect}
             />
           ) : undefined

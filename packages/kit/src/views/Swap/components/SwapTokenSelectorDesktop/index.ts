@@ -1,4 +1,6 @@
 export { SwapTokenSelectorDesktop } from './SwapTokenSelectorDesktop';
+export { SwapTokenSelectorNetworkColumn } from './SwapTokenSelectorNetworkColumn';
+export type { ISwapTokenSelectorNetworkColumnProps } from './SwapTokenSelectorNetworkColumn';
 export {
   buildSwapTokenSelectorAssetNetworks,
   buildSwapTokenSelectorNetworkGroups,

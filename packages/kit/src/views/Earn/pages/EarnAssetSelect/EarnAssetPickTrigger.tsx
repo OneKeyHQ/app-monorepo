@@ -10,10 +10,14 @@ import { buildKeyboardPressProps } from '../../components/desktopHome/earnDeskto
 
 import { getEarnAssetClassLabel } from './earnAssetClassLabel';
 import { EarnAssetLogos } from './EarnAssetLogos';
-import { sortAssetSelectTokens } from './earnAssetSelect.utils';
+import {
+  scopeAssetSelectTokens,
+  sortAssetSelectTokens,
+} from './earnAssetSelect.utils';
 
 import type {
   IEarnAssetPick,
+  IEarnAssetSelectNetwork,
   IEarnAssetSelectPurpose,
   IEarnAssetSelectToken,
 } from './earnAssetSelect.utils';
@@ -27,6 +31,7 @@ import type {
 export function EarnAssetPickTrigger({
   pick,
   tokens,
+  networks,
   purpose,
   fallbackLogoURI,
   networkLogoURI,
@@ -40,13 +45,16 @@ export function EarnAssetPickTrigger({
   variant?: 'title' | 'pill';
   pick: IEarnAssetPick;
   tokens: IEarnAssetSelectToken[];
+  // Where the pick's network is named; else found on the tokens' networks
+  networks?: IEarnAssetSelectNetwork[];
   purpose: IEarnAssetSelectPurpose;
   // The token's logo before the list is in
   fallbackLogoURI?: string;
-  // The pill's token carries its chain, as the amount box's token does
+  // The pill says where the pick is, after it in words ("USDC on Base",
+  // "USDC on All Networks", 11-05), and a token on one network carries its
+  // chain, as the amount box's token does. They come from the pick's
+  // network; these two stand in for its logo and name before the list is in
   networkLogoURI?: string;
-  // The pill says the network in words after the pick ("USDC on Ethereum"):
-  // what the window offers, and Pay with pays from, is there alone
   networkName?: string;
   // First in the title: its text starts where a plain title's would
   isLeading?: boolean;
@@ -61,12 +69,32 @@ export function EarnAssetPickTrigger({
     () =>
       pick.kind === 'class'
         ? sortAssetSelectTokens(
-            tokens.filter((token) => token.type === pick.assetClass),
+            scopeAssetSelectTokens(tokens, pick.networkId).filter(
+              (token) => token.type === pick.assetClass,
+            ),
             purpose,
           ).map((token) => token.logoURI)
         : [],
     [pick, purpose, tokens],
   );
+  const pickNetworkId = pick.networkId;
+  const pickNetwork = useMemo(() => {
+    if (!pickNetworkId) {
+      return undefined;
+    }
+    return (
+      networks?.find((item) => item.id === pickNetworkId) ??
+      tokens
+        .flatMap((item) => item.networks)
+        .find((item) => item.id === pickNetworkId)
+    );
+  }, [networks, pickNetworkId, tokens]);
+  const networkWords = pickNetworkId
+    ? (pickNetwork?.name ?? networkName)
+    : EARN_DESKTOP_DEMO_COPY.allNetworks;
+  const badgeLogoURI = pickNetworkId
+    ? (pickNetwork?.logoURI ?? networkLogoURI)
+    : undefined;
   const token =
     pick.kind === 'token'
       ? tokens.find(
@@ -122,14 +150,14 @@ export function EarnAssetPickTrigger({
           <Token
             size="sm"
             tokenImageUri={token?.logoURI || fallbackLogoURI}
-            networkImageUri={networkLogoURI}
+            networkImageUri={badgeLogoURI}
           />
         )}
         <SizableText size="$bodyLgMedium" numberOfLines={1} flexShrink={1}>
           {label}
-          {networkName ? (
+          {networkWords ? (
             <SizableText size="$bodyLg" color="$textSubdued">
-              {` ${EARN_DESKTOP_DEMO_COPY.onNetwork(networkName)}`}
+              {` ${EARN_DESKTOP_DEMO_COPY.onNetwork(networkWords)}`}
             </SizableText>
           ) : null}
         </SizableText>

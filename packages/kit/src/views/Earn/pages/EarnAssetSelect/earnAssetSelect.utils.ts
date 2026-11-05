@@ -340,8 +340,184 @@ export function searchAssetSelect({
 
 // ---------- Words ----------
 
-/** The kind's tokens by symbol, the first three and how many more */
-export const splitClassMembers = (tokens: IEarnAssetSelectToken[]) => ({
-  shown: tokens.slice(0, 3).map((token) => token.symbol),
-  rest: Math.max(0, tokens.length - 3),
+/**
+ * The kind's tokens by symbol, the first three (or as many as the line has
+ * room for) and how many more
+ */
+export const splitClassMembers = (
+  tokens: IEarnAssetSelectToken[],
+  count = 3,
+) => ({
+  shown: tokens.slice(0, count).map((token) => token.symbol),
+  rest: Math.max(0, tokens.length - count),
 });
+
+// ---------- Networks and tabs (11-05) ----------
+
+/** The selector's tabs: every token, or one kind of token */
+export type IEarnAssetSelectCategory = 'all' | IEarnDesktopLoanAssetType;
+
+export type IEarnAssetSelectRow =
+  | { type: 'class'; row: IEarnAssetSelectClassRow }
+  | {
+      type: 'token';
+      token: IEarnAssetSelectToken;
+      // The contract a pasted address matched
+      matchedAddress?: string;
+    };
+
+export type IEarnAssetSelectView = {
+  // All, then each kind that has tokens in view, in the kinds' order
+  categories: IEarnAssetSelectCategory[];
+  // The tab shown: the one asked for, or All where it has nothing in view
+  category: IEarnAssetSelectCategory;
+  rows: IEarnAssetSelectRow[];
+};
+
+const isInCategory = (
+  category: IEarnAssetSelectCategory,
+  type: IEarnDesktopLoanAssetType,
+) => category === 'all' || category === type;
+
+/**
+ * What the list shows on the network chosen (every network without one).
+ * All lists each token once, held first, with no kind rows. A kind's tab
+ * starts with the row that picks the whole kind (two tokens or more; Others
+ * never has one), then its tokens. A search looks through every kind there:
+ * the tabs become the kinds it found, the tab asked for narrows the matches
+ * while it has any, and a kind its words name ("stable", "btc") comes first
+ */
+export function buildAssetSelectView({
+  tokens,
+  purpose,
+  networkId,
+  category,
+  keyword,
+}: {
+  tokens: IEarnAssetSelectToken[];
+  purpose: IEarnAssetSelectPurpose;
+  networkId?: string;
+  category: IEarnAssetSelectCategory;
+  keyword: string;
+}): IEarnAssetSelectView {
+  const scoped = scopeAssetSelectTokens(tokens, networkId);
+  const groups = buildAssetSelectGroups({ tokens: scoped, purpose });
+  const tabsOf = (kinds: Set<IEarnDesktopLoanAssetType>) => {
+    const categories: IEarnAssetSelectCategory[] = [
+      'all',
+      ...EARN_ASSET_CLASS_ORDER.filter((type) => kinds.has(type)),
+    ];
+    return {
+      categories,
+      category: categories.includes(category) ? category : 'all',
+    };
+  };
+  if (!keyword.trim()) {
+    const tabs = tabsOf(new Set(groups.map((group) => group.key)));
+    const group =
+      tabs.category === 'all'
+        ? undefined
+        : groups.find((item) => item.key === tabs.category);
+    if (!group) {
+      return {
+        ...tabs,
+        rows: sortAssetSelectTokens(scoped, purpose).map((token) => ({
+          type: 'token' as const,
+          token,
+        })),
+      };
+    }
+    return {
+      ...tabs,
+      rows: [
+        ...(group.classRow
+          ? [{ type: 'class' as const, row: group.classRow }]
+          : []),
+        ...group.tokens.map((token) => ({ type: 'token' as const, token })),
+      ],
+    };
+  }
+  const search = searchAssetSelect({ groups, keyword, purpose });
+  const tabs = tabsOf(
+    new Set<IEarnDesktopLoanAssetType>([
+      ...search.classRows.map((row) => row.assetClass),
+      ...search.tokens.map((item) => item.token.type),
+    ]),
+  );
+  return {
+    ...tabs,
+    rows: [
+      ...search.classRows
+        .filter((row) => isInCategory(tabs.category, row.assetClass))
+        .map((row) => ({ type: 'class' as const, row })),
+      ...search.tokens
+        .filter((item) => isInCategory(tabs.category, item.token.type))
+        .map((item) => ({ type: 'token' as const, ...item })),
+    ],
+  };
+}
+
+/**
+ * The networks where the wallet holds any of the tokens, with what it holds
+ * there in USD, the most first: the network column's networks with assets
+ */
+export function listAssetSelectHeldNetworks({
+  tokens,
+  networks,
+}: {
+  tokens: IEarnAssetSelectToken[];
+  networks: IEarnAssetSelectNetwork[];
+}): { network: IEarnAssetSelectNetwork; fiatValue: number }[] {
+  const heldById = new Map<string, number>();
+  tokens.forEach((token) => {
+    token.networks.forEach((network) => {
+      if (network.fiatValue && network.fiatValue > 0) {
+        heldById.set(
+          network.id,
+          (heldById.get(network.id) ?? 0) + network.fiatValue,
+        );
+      }
+    });
+  });
+  return networks
+    .flatMap((network) => {
+      const fiatValue = heldById.get(network.id);
+      return fiatValue ? [{ network, fiatValue }] : [];
+    })
+    .toSorted(
+      (a, b) =>
+        b.fiatValue - a.fiatValue ||
+        a.network.name.localeCompare(b.network.name),
+    );
+}
+
+/**
+ * Where the selector opens: the pick's network where the column lists it
+ * (else every network), on a kind's own tab for a kind and on All for a token
+ */
+export function getAssetSelectOpening({
+  selected,
+  networks,
+}: {
+  selected?: IEarnAssetPick;
+  networks: IEarnAssetSelectNetwork[];
+}): { networkId?: string; category: IEarnAssetSelectCategory } {
+  const networkId = networks.some((item) => item.id === selected?.networkId)
+    ? selected?.networkId
+    : undefined;
+  return {
+    networkId,
+    category: selected?.kind === 'class' ? selected.assetClass : 'all',
+  };
+}
+
+/** The phone's row of networks: one picked from the full list moves up front */
+export const orderAssetSelectPhoneNetworks = (
+  networks: IEarnAssetSelectNetwork[],
+  leadNetworkId?: string,
+) => {
+  const lead = networks.find((item) => item.id === leadNetworkId);
+  return lead
+    ? [lead, ...networks.filter((item) => item.id !== leadNetworkId)]
+    : networks;
+};
