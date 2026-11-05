@@ -62,6 +62,8 @@ import type {
   IInviteLevelDetail,
   IInvitePaidHistory,
   IInvitePostConfig,
+  IInviteRewardScope,
+  IInviteRewardScopesResponse,
   IInviteSummary,
   IInviteeRewardsModuleResult,
   IInviteeRewardsOverview,
@@ -88,6 +90,8 @@ import type {
   IWalletDevUnbindResponse,
 } from '@onekeyhq/shared/src/referralCode/type';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { normalizeTokenContractAddress } from '@onekeyhq/shared/src/utils/tokenUtils';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import type { IHyperLiquidSignatureRSV } from '@onekeyhq/shared/types/hyperliquid/webview';
@@ -138,6 +142,40 @@ class ServiceReferralCode extends ServiceBase {
     }
     return summary.data.data;
   }
+
+  // Unauthenticated, so invitees without a OneKey ID login see it too.
+  @backgroundMethod()
+  async getInviteRewardScopes(): Promise<IInviteRewardScope[]> {
+    try {
+      const locale = await this.backgroundApi.serviceSetting.getCurrentLocale();
+      return await this._getInviteRewardScopesMemo(locale.toLowerCase());
+    } catch (error) {
+      // Optional hint copy: callers hide it on failure, so never toast.
+      errorToastUtils.toastIfErrorDisable(error);
+      throw error;
+    }
+  }
+
+  // Both tabs share localized copy, while failed requests are not cached.
+  private _getInviteRewardScopesMemo = memoizee(
+    async (locale: string): Promise<IInviteRewardScope[]> => {
+      const client = await this.getClient(EServiceEndpointEnum.Rebate);
+      const response = await client.get<{
+        data: IInviteRewardScopesResponse;
+      }>('/rebate/v1/invite/reward-scopes');
+      // Interceptors choose the request locale. Reject if the app locale
+      // differs from the cache key when the response arrives.
+      const currentLocale =
+        await this.backgroundApi.serviceSetting.getCurrentLocale();
+      if (currentLocale.toLowerCase() !== locale) {
+        throw new OneKeyLocalError(
+          'Locale changed during reward scopes request',
+        );
+      }
+      return response.data.data?.rewardScopes ?? [];
+    },
+    { promise: true, maxAge: timerUtils.getTimeDurationMs({ minute: 5 }) },
+  );
 
   @backgroundMethod()
   async getLevelDetail() {
