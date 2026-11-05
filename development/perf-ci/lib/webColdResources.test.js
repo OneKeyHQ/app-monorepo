@@ -38,19 +38,50 @@ test.each([
   ['media', 'video/mp4'],
   ['texttrack', 'text/vtt'],
   ['manifest', 'application/manifest+json'],
-  ['fetch', 'application/wasm'],
-  ['fetch', 'image/png'],
 ])('recognizes static %s responses (%s)', (resourceType, contentType) => {
   expect(classify({ resourceType, contentType })).toBe(true);
 });
 
-test.each(['locale.json', 'module.wasm', 'config'])(
+test.each(['locale.json', 'module.wasm', 'photo.png', 'config'])(
   'recognizes fetched build files without treating JSON APIs as static (%s)',
   (file) => {
     fs.writeFileSync(path.join(buildDir, file), 'fixture');
     expect(classify({ url: `${localOrigin}/${file}?v=1` })).toBe(true);
     expect(classify({ url: `${localOrigin}/api/data.json` })).toBe(false);
     expect(classify({ url: 'https://api.example.com/data.json' })).toBe(false);
+  },
+);
+
+test.each([
+  ['fetch', `${localOrigin}/api/chart.png`, 'image/png'],
+  ['xhr', `${localOrigin}/api/chart.svg`, 'image/svg+xml'],
+  ['fetch', 'https://api.example.com/chart.png', 'image/png'],
+  ['xhr', 'https://api.example.com/module.wasm', 'application/wasm'],
+])(
+  'counts repeated asset-valued API requests individually (%s %s)',
+  (resourceType, url, contentType) => {
+    const responses = [
+      { url, resourceType, contentType },
+      { url: `${localOrigin}/static/icon.svg`, resourceType: 'image' },
+    ];
+    const staticUrls = new Set(
+      responses
+        .filter(classify)
+        .map((response) => normalizeStaticResourceUrl(response.url)),
+    );
+
+    expect(classify({ url, resourceType, contentType })).toBe(false);
+    expect(
+      countResourceEntries(
+        responses.flatMap((response) =>
+          Array.from({ length: 2 }, () => ({
+            name: response.url,
+            initiatorType: response.resourceType,
+          })),
+        ),
+        staticUrls,
+      ),
+    ).toEqual({ resourceCount: 3, scriptCount: 0 });
   },
 );
 
@@ -62,6 +93,7 @@ test('keeps POST API responses and paths outside the build directory dynamic', (
 });
 
 test('deduplicates every static resource URL while counting identical API calls separately', () => {
+  fs.writeFileSync(path.join(buildDir, 'module.wasm'), 'fixture');
   const responses = [
     { url: `${localOrigin}/icon.svg`, resourceType: 'image' },
     { url: `${localOrigin}/chunk.js`, resourceType: 'script' },

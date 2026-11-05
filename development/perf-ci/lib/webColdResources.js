@@ -32,9 +32,13 @@ function isStaticResourceResponse({
   buildDir,
 }) {
   if (method !== 'GET' && method !== 'HEAD') return false;
+  // Data requests may return asset MIME types; only confirmed build files may
+  // deduplicate fetch/XHR entries. Browser asset requests keep their type checks.
+  const isDataRequest = resourceType === 'fetch' || resourceType === 'xhr';
   if (
-    STATIC_RESOURCE_TYPES.has(resourceType) ||
-    STATIC_CONTENT_TYPE.test(contentType || '')
+    !isDataRequest &&
+    (STATIC_RESOURCE_TYPES.has(resourceType) ||
+      STATIC_CONTENT_TYPE.test(contentType || ''))
   ) {
     return true;
   }

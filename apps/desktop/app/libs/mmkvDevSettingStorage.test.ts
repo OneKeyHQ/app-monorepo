@@ -2,6 +2,7 @@ import fs from 'fs';
 import os from 'os';
 import path from 'path';
 
+import type { IDesktopApi } from '@onekeyhq/kit-bg/src/desktopApis/instance/IDesktopApi';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { EDevSettingSyncStorageKeys } from '@onekeyhq/shared/src/storage/syncStorageKeys';
 
@@ -137,6 +138,29 @@ test('removing or clearing renderer settings also clears the main-process values
 
   rendererStorage.clearAll();
   expect(mainStore.getDevSettingsEnabled()).toBe(false);
+});
+
+test('app reset clears skip GPG across restart and re-enabling developer mode', async () => {
+  const { rendererStorage, mainStore } = loadStorage();
+  rendererStorage.set(devModeKey, true);
+  rendererStorage.set(skipKey, true);
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const { default: DesktopApiStorage } =
+    require('@onekeyhq/kit-bg/src/desktopApis/DesktopApiStorage') as typeof import('@onekeyhq/kit-bg/src/desktopApis/DesktopApiStorage');
+  const storageApi = new DesktopApiStorage({ desktopApi: {} as IDesktopApi });
+
+  await storageApi.resetAppConfiguration();
+
+  expect(mainStore.getDevSettingsEnabled()).toBe(false);
+  expect(mainStore.getSkipGPGVerification()).toBe(false);
+  expect(rendererStorage.getBoolean(skipKey)).toBeUndefined();
+
+  const reloaded = loadStorage();
+  expect(reloaded.mainStore.getSkipGPGVerification()).toBe(false);
+  reloaded.rendererStorage.set(devModeKey, true);
+  expect(reloaded.mainStore.getDevSettingsEnabled()).toBe(true);
+  expect(reloaded.mainStore.getSkipGPGVerification()).toBe(false);
+  expect(reloaded.rendererStorage.getBoolean(skipKey)).toBeUndefined();
 });
 
 test('the tray renderer without a bridge reads an empty store without throwing', () => {
