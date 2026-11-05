@@ -2,6 +2,7 @@ import pLimit from 'p-limit';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { getMarketWatchlistKey } from '@onekeyhq/shared/src/utils/marketWatchlistIdentity';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IMarketHighlightAsset } from '@onekeyhq/shared/types/marketV2';
@@ -29,7 +30,7 @@ async function fetchHighlightQuotes(assets: IMarketHighlightAsset[]) {
   const listings = unique.filter((asset) => asset.type === 'asset');
   const limit = pLimit(4);
 
-  await Promise.allSettled([
+  const requests = [
     tokens.length > 0 &&
       fetchMarketTokenListBatchForPlatform({
         tokenAddressList: tokens.map(
@@ -112,7 +113,14 @@ async function fetchHighlightQuotes(assets: IMarketHighlightAsset[]) {
         if (quote) quotes.set(getMarketWatchlistKey(asset.favorite), quote);
       }),
     ),
-  ]);
+  ];
+  const results = await Promise.allSettled(requests.filter(Boolean));
+  if (
+    results.length > 0 &&
+    results.every((result) => result.status === 'rejected')
+  ) {
+    throw new OneKeyLocalError('All market highlight quote sources failed');
+  }
   return quotes;
 }
 
@@ -123,6 +131,7 @@ export function useMarketHighlightQuotes(assets: IMarketHighlightAsset[]) {
     {
       pollingInterval: timerUtils.getTimeDurationMs({ seconds: 30 }),
       runImmediatelyOnMount: true,
+      keepResultIfError: true,
       revalidateOnFocus: true,
       revalidateOnReconnect: true,
     },

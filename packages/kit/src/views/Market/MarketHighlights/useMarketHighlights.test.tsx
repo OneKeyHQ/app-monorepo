@@ -235,3 +235,68 @@ it.each(['', 'btc'])(
     );
   },
 );
+
+it('keeps quotes when all active sources fail and accepts partial recovery', async () => {
+  const spot: IMarketHighlightAsset = {
+    type: 'asset',
+    assetId: 'btc',
+    symbol: 'BTC',
+    favorite: { chainId: '', contractAddress: '', assetId: 'btc' },
+  };
+  const perp: IMarketHighlightAsset = {
+    type: 'perp',
+    perpsCoin: 'BTC',
+    symbol: 'BTC',
+    favorite: { chainId: '', contractAddress: '', perpsCoin: 'BTC' },
+  };
+  service.fetchMarketListingWatchlistQuote.mockResolvedValue({
+    name: 'Bitcoin',
+    symbol: 'BTC',
+    logoUrl: '',
+    price: '78000',
+  });
+  const { result, rerender } = renderHook(
+    ({ assets }: { assets: IMarketHighlightAsset[] }) =>
+      useMarketHighlightQuotes(assets),
+    { initialProps: { assets: [spot] } },
+  );
+  await act(async () => {
+    await jest.advanceTimersByTimeAsync(0);
+  });
+  expect(result.current?.get('asset:btc')?.price).toBe('78000');
+
+  service.fetchMarketListingWatchlistQuote.mockRejectedValue(
+    new Error('Quote source unavailable'),
+  );
+  await act(async () => {
+    await jest.advanceTimersByTimeAsync(30_000);
+  });
+  expect(result.current?.get('asset:btc')?.price).toBe('78000');
+
+  service.fetchMarketPerpsTokenList.mockRejectedValue(
+    new Error('Perpetual source unavailable'),
+  );
+  rerender({ assets: [spot, perp] });
+  await act(async () => {
+    await jest.advanceTimersByTimeAsync(0);
+  });
+  expect(result.current?.get('asset:btc')?.price).toBe('78000');
+
+  service.fetchMarketListingWatchlistQuote.mockResolvedValue({
+    name: 'Bitcoin',
+    symbol: 'BTC',
+    logoUrl: '',
+    price: '79000',
+  });
+  await act(async () => {
+    await jest.advanceTimersByTimeAsync(30_000);
+  });
+  expect(result.current?.get('asset:btc')?.price).toBe('79000');
+  expect(result.current?.has('perps:BTC')).toBe(false);
+
+  rerender({ assets: [] });
+  await act(async () => {
+    await jest.advanceTimersByTimeAsync(0);
+  });
+  expect(result.current?.size).toBe(0);
+});
