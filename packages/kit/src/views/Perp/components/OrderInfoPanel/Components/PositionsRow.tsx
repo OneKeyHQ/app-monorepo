@@ -1313,7 +1313,7 @@ const PositionRowMobileActions = memo(
       },
       {
         key: 'close',
-        label: ETranslations.global_close,
+        label: ETranslations.perp_position_close_short,
         onPress: () => onClosePosition('market'),
         testID: PerpTestIDs.PositionCloseMarketButton,
       },
