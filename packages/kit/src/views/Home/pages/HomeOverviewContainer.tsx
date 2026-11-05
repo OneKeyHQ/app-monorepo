@@ -14,7 +14,6 @@ import {
   Button,
   IconButton,
   PROPORTIONAL_NUMS,
-  SizableText,
   Skeleton,
   XStack,
   YStack,
@@ -66,7 +65,6 @@ import {
 } from '../../../states/jotai/contexts/accountOverview';
 import { buildOverviewOwnerKey } from '../../../states/jotai/contexts/accountOverview/atoms';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
-import { usePortfolioSyncUiStateAtom } from '../../../states/jotai/contexts/tokenList';
 import { convertFiat } from '../../../utils/fiatConvert';
 import { LocalWalletPasswordAlert } from '../../AssetDetails/pages/TokenDetails/LocalWalletPasswordAlert';
 import { showBalanceDetailsDialog } from '../components/BalanceDetailsDialog';
@@ -138,7 +136,6 @@ function HomeOverviewContainer() {
     useLastConfirmedOverviewBalanceAtom();
   const [, setHomePortfolioDisplay] = useHomePortfolioDisplayAtom();
   const [portfolioCategoryRefresh] = usePortfolioCategoryRefreshAtom();
-  const [portfolioSyncUiState] = usePortfolioSyncUiStateAtom();
   const portfolioCategories =
     portfolioCategoryRefresh.ownerKey ===
     buildOverviewOwnerKey(account?.id, network?.id)
@@ -1349,29 +1346,6 @@ function HomeOverviewContainer() {
           </XStack>
         )}
       </YStack>
-      {!portfolioCategories?.isRefreshing &&
-      !portfolioSyncUiState.loading &&
-      portfolioCategories?.failedSources.length ? (
-        <XStack
-          alignItems="center"
-          gap="$2"
-          testID="portfolio-data-refresh-error"
-        >
-          <SizableText size="$bodySm" color="$textSubdued">
-            {intl.formatMessage({ id: ETranslations.global_portfolio })}
-            {': '}
-            {intl.formatMessage({ id: ETranslations.global_failed })}
-          </SizableText>
-          <Button
-            testID="portfolio-data-refresh-retry"
-            size="small"
-            variant="tertiary"
-            onPress={portfolioCategories.retry}
-          >
-            {intl.formatMessage({ id: ETranslations.global_retry })}
-          </Button>
-        </XStack>
-      ) : null}
       {vaultSettings?.hasFrozenBalance ? (
         <Button
           testID="home-btn"

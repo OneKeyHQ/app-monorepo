@@ -20,6 +20,7 @@ import {
   IconButton,
   Skeleton,
   Stack,
+  Toast,
   onVisibilityStateChange,
   useOnRouterChange,
 } from '@onekeyhq/components';
@@ -575,6 +576,8 @@ function TokenListBlock({
   const portfolioSyncStageHoldRef = useRef<IPortfolioSyncStageHold | undefined>(
     undefined,
   );
+  const portfolioSyncLoadingToastRef =
+    useRef<ReturnType<typeof Toast.loading>>(undefined);
   const portfolioSyncAllNetworksFallbackTimerRef = useRef<
     ReturnType<typeof setTimeout> | undefined
   >(undefined);
@@ -688,6 +691,12 @@ function TokenListBlock({
     }
   }, []);
 
+  const closePortfolioSyncLoading = useCallback(() => {
+    const loading = portfolioSyncLoadingToastRef.current;
+    portfolioSyncLoadingToastRef.current = undefined;
+    loading?.close();
+  }, []);
+
   const {
     beginBurst: beginPortfolioSyncStage,
     endBurst: endPortfolioSyncStage,
@@ -709,6 +718,7 @@ function TokenListBlock({
         portfolioSyncStageHoldRef.current = undefined;
       }
       clearPortfolioSyncFallbackTimer();
+      closePortfolioSyncLoading();
       portfolioSpotRefreshRef.current?.reject(
         new OneKeyLocalError('Portfolio refresh cancelled'),
       );
@@ -716,7 +726,20 @@ function TokenListBlock({
       portfolioSyncRequestRef.current = undefined;
       setPortfolioSyncRequestPhase(undefined);
     },
-    [clearPortfolioSyncFallbackTimer, endPortfolioSyncStage],
+    [
+      clearPortfolioSyncFallbackTimer,
+      closePortfolioSyncLoading,
+      endPortfolioSyncStage,
+    ],
+  );
+
+  useLayoutEffect(
+    () => () => {
+      const request = portfolioSyncRequestRef.current;
+      if (request?.phase === 'preparing')
+        finishPortfolioSyncRequest(request.id);
+    },
+    [finishPortfolioSyncRequest, portfolioCategoryScope],
   );
 
   const transitionPortfolioSyncRequest = useCallback(
@@ -772,12 +795,13 @@ function TokenListBlock({
   useEffect(
     () => () => {
       clearPortfolioSyncFallbackTimer();
+      closePortfolioSyncLoading();
       portfolioSpotRefreshRef.current?.reject(
         new OneKeyLocalError('Portfolio refresh cancelled'),
       );
       portfolioSpotRefreshRef.current = undefined;
     },
-    [clearPortfolioSyncFallbackTimer],
+    [clearPortfolioSyncFallbackTimer, closePortfolioSyncLoading],
   );
 
   const accountTokensValue = useMemo(
@@ -3763,6 +3787,7 @@ function TokenListBlock({
       eventPayload: IAppEventBusPayload[EAppEventBusNames.AllNetworksTokenListSettled],
     ) => {
       if (!transitionPortfolioSyncRequest(request.id, 'communicating')) return;
+      closePortfolioSyncLoading();
       void beginPortfolioSyncStage({
         connectId: device?.connectId ?? wallet?.associatedDeviceInfo?.connectId,
         deviceName: device?.name,
@@ -3808,6 +3833,7 @@ function TokenListBlock({
     },
     [
       beginPortfolioSyncStage,
+      closePortfolioSyncLoading,
       device?.connectId,
       device?.name,
       finishPortfolioSyncRequest,
@@ -3827,6 +3853,13 @@ function TokenListBlock({
       targetKey: portfolioSyncTargetKey,
     };
     portfolioSyncRequestRef.current = request;
+    portfolioSyncLoadingToastRef.current = Toast.loading({
+      title: intl.formatMessage(
+        { id: ETranslations.global_updating_type },
+        { type: intl.formatMessage({ id: ETranslations.global_portfolio }) },
+      ),
+      duration: Infinity,
+    });
     setPortfolioSyncPreparedRevision(undefined);
     setPortfolioSyncRequestPhase(request.phase);
     clearPortfolioSyncFallbackTimer();
@@ -3837,16 +3870,17 @@ function TokenListBlock({
         retry: () => manualPortfolioSyncRef.current(),
       }));
       finishPortfolioSyncRequest(request.id);
-      errorToastUtils.showToastOfError(
-        new OneKeyLocalError(
-          intl.formatMessage({ id: ETranslations.global_update_failed }),
-        ),
-      );
+      Toast.error({
+        title: intl.formatMessage({ id: ETranslations.global_update_failed }),
+      });
     }, 30_000);
     void refreshPortfolioCategories().then((complete) => {
       if (getCurrentPortfolioSyncRequest()?.id !== request.id) return;
       if (!complete) {
         finishPortfolioSyncRequest(request.id);
+        Toast.error({
+          title: intl.formatMessage({ id: ETranslations.global_update_failed }),
+        });
         setPortfolioCategoryRefresh((current) => ({
           ...current,
           retry: () => manualPortfolioSyncRef.current(),
