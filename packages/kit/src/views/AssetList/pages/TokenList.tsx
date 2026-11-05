@@ -58,6 +58,7 @@ import { ETokenListSortType } from '@onekeyhq/shared/types/token';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { EmptySearch, EmptyToken } from '../../../components/Empty';
+import { getNativeListTokenFallback } from '../../../components/Token/nativeListTokenFallback';
 import { perfTokenListView } from '../../../components/TokenListView/perfTokenListView';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { useThemeVariant } from '../../../hooks/useThemeVariant';
@@ -469,12 +470,22 @@ function TokenListContent({ params }: { params: ITokenListParams }) {
                 }
               : undefined,
             overlays,
-            fallbackIcon: {
-              name: 'CryptoCoinOutline',
-              tintColor: colors.iconSubdued.val,
-              size: gtMd ? 24 : 28,
-              backgroundColor: colors.gray5.val,
-            },
+            ...getNativeListTokenFallback({
+              symbol: token.isAggregateToken
+                ? (token.commonSymbol ?? token.symbol)
+                : token.symbol,
+              size: gtMd ? 32 : 40,
+              theme: {
+                inverseBackground: colors.bgInverse.val,
+                inverseText: colors.textInverse.val,
+              },
+              fallbackIcon: {
+                name: 'CryptoCoinOutline',
+                tintColor: colors.iconSubdued.val,
+                size: gtMd ? 24 : 28,
+                backgroundColor: colors.gray5.val,
+              },
+            }),
             backgroundColor: iconBackground,
             borderColor:
               tokenLogo && themeVariant === 'dark'

@@ -25,6 +25,7 @@ import { LazyTooltip } from '@onekeyhq/components/src/actions/LazyTooltip';
 import { useScrollContentRegistration } from '@onekeyhq/components/src/composite/ScrollContentRegistration';
 import type { IDragEndParamsWithItem } from '@onekeyhq/components/src/layouts/SortableListView/types';
 import { useAppPagerPage } from '@onekeyhq/kit/src/components/AppPager/useAppPagerPage';
+import { getNativeListTokenFallback } from '@onekeyhq/kit/src/components/Token/nativeListTokenFallback';
 import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
 import { useMarketWatchListV2Atom } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -76,6 +77,19 @@ type IWebColumn = Pick<
 >;
 
 const ROW_STYLE = { container: { cornerRadius: 12 } } as const;
+// Asset cells draw a 40px logo.
+function webTokenFallback(
+  symbol: string | undefined,
+  nativeTheme: NativeListTheme,
+  tintColor: string,
+) {
+  return getNativeListTokenFallback({
+    symbol,
+    size: 40,
+    theme: nativeTheme,
+    fallbackIcon: { name: 'CryptoCoinOutline', tintColor },
+  });
+}
 function formatted(
   value: number | string,
   formatter: 'marketCap' | 'price' | 'priceChangeCapped',
@@ -548,10 +562,11 @@ export function WebMarketTokenList({
                 borderColor:
                   themeVariant === 'dark' ? theme.neutral2Dark.val : undefined,
                 image: webImage(item.tokenImageUri, 40, item.tokenImageUris),
-                fallbackIcon: {
-                  name: 'CryptoCoinOutline',
-                  tintColor: theme.iconSubdued.val,
-                },
+                ...webTokenFallback(
+                  item.symbol,
+                  nativeTheme,
+                  theme.iconSubdued.val,
+                ),
                 overlays:
                   kind === 'token' && item.networkLogoUri
                     ? [
@@ -643,10 +658,11 @@ export function WebMarketTokenList({
                 borderColor:
                   themeVariant === 'dark' ? theme.neutral2Dark.val : undefined,
                 image: webImage(perp.tokenImageUrl, 40),
-                fallbackIcon: {
-                  name: 'CryptoCoinOutline',
-                  tintColor: theme.iconSubdued.val,
-                },
+                ...webTokenFallback(
+                  perp.displayName,
+                  nativeTheme,
+                  theme.iconSubdued.val,
+                ),
               },
               title: { text: perp.displayName },
               badges,
@@ -745,10 +761,11 @@ export function WebMarketTokenList({
                 borderColor:
                   themeVariant === 'dark' ? theme.neutral2Dark.val : undefined,
                 image: webImage(asset.logoUrl, 40),
-                fallbackIcon: {
-                  name: 'CryptoCoinOutline',
-                  tintColor: theme.iconSubdued.val,
-                },
+                ...webTokenFallback(
+                  asset.symbol,
+                  nativeTheme,
+                  theme.iconSubdued.val,
+                ),
               },
               title: { text: asset.symbol.toUpperCase() },
               lineGap: 0,
@@ -844,10 +861,11 @@ export function WebMarketTokenList({
                 borderColor:
                   themeVariant === 'dark' ? theme.neutral2Dark.val : undefined,
                 image: webImage(stock.logoUrl, 40),
-                fallbackIcon: {
-                  name: 'CryptoCoinOutline',
-                  tintColor: theme.iconSubdued.val,
-                },
+                ...webTokenFallback(
+                  stock.symbol,
+                  nativeTheme,
+                  theme.iconSubdued.val,
+                ),
               },
               title: { text: stock.symbol },
               lineGap: 0,
@@ -980,10 +998,11 @@ export function WebMarketTokenList({
                     : theme.bgApp.val,
                 borderColor:
                   themeVariant === 'dark' ? theme.neutral2Dark.val : undefined,
-                fallbackIcon: {
-                  name: 'CryptoCoinOutline',
-                  tintColor: theme.iconSubdued.val,
-                },
+                ...webTokenFallback(
+                  item.symbol,
+                  nativeTheme,
+                  theme.iconSubdued.val,
+                ),
                 overlays: item.networkLogoUri
                   ? [
                       {

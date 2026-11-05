@@ -25,6 +25,7 @@ import {
 } from '@onekeyhq/components';
 import { LazyTooltip } from '@onekeyhq/components/src/actions/LazyTooltip';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
+import { getNativeListTokenFallback } from '@onekeyhq/kit/src/components/Token/nativeListTokenFallback';
 import { useTokenListViewContext } from '@onekeyhq/kit/src/components/TokenListView/TokenListViewContext';
 import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
@@ -521,12 +522,17 @@ function NativeTokenManagerList({
                     loadingStrategy: 'skeleton',
                   }
                 : undefined,
-              fallbackIcon: {
-                name: 'CryptoCoinOutline',
-                tintColor: theme.iconSubdued,
-                size: gtMd ? 24 : 28,
-                backgroundColor: colors.gray5.val,
-              },
+              ...getNativeListTokenFallback({
+                symbol: item.symbol,
+                size: gtMd ? 32 : 40,
+                theme,
+                fallbackIcon: {
+                  name: 'CryptoCoinOutline',
+                  tintColor: theme.iconSubdued,
+                  size: gtMd ? 24 : 28,
+                  backgroundColor: colors.gray5.val,
+                },
+              }),
               borderColor:
                 themeVariant === 'dark' ? colors.neutral2Dark.val : undefined,
               backgroundColor: imageBackground,

@@ -62,6 +62,7 @@ import { useTokenFiat } from '../../states/jotai/contexts/tokenList/cells/useTok
 import { convertFiat } from '../../utils/fiatConvert';
 import { useHomeNativeListTheme } from '../../views/Home/hooks/useHomeNativeListTheme';
 import { ListLoading } from '../Loading';
+import { getNativeListTokenFallback } from '../Token/nativeListTokenFallback';
 
 import { formatNativeSelectorAmount } from './nativeSelectorFormat';
 import { resolveMapTokenFiat } from './resolveMapTokenFiat';
@@ -790,11 +791,18 @@ export function NativeTokenSelectorList({
                   }
                 : undefined,
               overlays,
-              fallbackIcon: {
-                name: 'CryptoCoinOutline',
-                tintColor: theme.iconSubdued,
-                size: gtMd ? 24 : 28,
-              },
+              ...getNativeListTokenFallback({
+                symbol: token.isAggregateToken
+                  ? (token.commonSymbol ?? token.symbol)
+                  : token.symbol,
+                size: iconSize,
+                theme,
+                fallbackIcon: {
+                  name: 'CryptoCoinOutline',
+                  tintColor: theme.iconSubdued,
+                  size: gtMd ? 24 : 28,
+                },
+              }),
             };
             const nativeRow: IdentityRow = {
               type: 'identity',
@@ -871,11 +879,6 @@ export function NativeTokenSelectorList({
                 id: ETranslations.global_swap,
               });
               const symbolText = nativeRow.title;
-              // Missing or broken logo: the symbol's first letter on a dark
-              // circle (the circle comes from the list's fallback background).
-              const fallbackLetter = Array.from(
-                symbolText.trim(),
-              )[0]?.toUpperCase();
               const walletRow: DataRow = {
                 type: 'dataRow',
                 key: rowKey,
@@ -893,19 +896,16 @@ export function NativeTokenSelectorList({
                       }
                     : undefined,
                   overlays,
-                  ...(fallbackLetter
-                    ? {
-                        fallbackText: fallbackLetter,
-                        fallbackTextColor: theme.inverseText,
-                        fallbackTextSize: 22,
-                      }
-                    : {
-                        fallbackIcon: {
-                          name: 'CryptoCoinOutline',
-                          tintColor: theme.iconSubdued,
-                          size: 24,
-                        },
-                      }),
+                  ...getNativeListTokenFallback({
+                    symbol: symbolText,
+                    size: TOKEN_WALLET_ROW_ICON_SIZE,
+                    theme,
+                    fallbackIcon: {
+                      name: 'CryptoCoinOutline',
+                      tintColor: theme.iconSubdued,
+                      size: 24,
+                    },
+                  }),
                 },
                 badges: nativeRow.badges,
                 separator: !isLastWalletRow,
@@ -1090,11 +1090,7 @@ export function NativeTokenSelectorList({
         contentPaddingHorizontal: TOKEN_LIST_CONTENT_PADDING_HORIZONTAL,
       },
       rows: nativeRows,
-      // Wallet rows paint a letter fallback on the inverse (dark) circle;
-      // dark mode flips it to a light circle with dark text.
-      theme: walletRowLayout
-        ? { ...theme, imageFallbackBackground: theme.inverseBackground }
-        : theme,
+      theme,
       ...(walletRowLayout
         ? {
             // 6% black dividers from the text column to the row's end.

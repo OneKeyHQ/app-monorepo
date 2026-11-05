@@ -295,6 +295,8 @@ function getTxActionTransferInfo(
     receiveNFTIcon: receivesWithNFT[0]?.icon,
     sendTokenIcon: sendsWithToken[0]?.icon,
     receiveTokenIcon: receivesWithToken[0]?.icon,
+    sendTokenSymbol: sendsWithToken[0]?.symbol,
+    receiveTokenSymbol: receivesWithToken[0]?.symbol,
     application,
     isInternalStaking,
     internalStakingLabel,
