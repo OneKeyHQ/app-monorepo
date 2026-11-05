@@ -496,7 +496,7 @@ function MarketHighlightsContent() {
   );
 }
 
-export default function MarketHighlightsPage() {
+export function MarketHighlightsPage() {
   return (
     <MarketWatchListProviderMirrorV2
       storeName={EJotaiContextStoreNames.marketWatchListV2}

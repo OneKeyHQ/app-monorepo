@@ -1,6 +1,7 @@
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useLocaleVariant } from '@onekeyhq/kit/src/hooks/useLocaleVariant';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 export function useMarketHighlights() {
   const locale = useLocaleVariant();
@@ -12,6 +13,8 @@ export function useMarketHighlights() {
     }),
     [locale],
     {
+      pollingInterval: timerUtils.getTimeDurationMs({ seconds: 30 }),
+      runImmediatelyOnMount: true,
       keepResultIfError: true,
       revalidateOnFocus: true,
       revalidateOnReconnect: true,

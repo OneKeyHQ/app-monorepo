@@ -11,8 +11,10 @@ const MarketDetailV2Modal = LazyLoadPage(
 const MarketBannerDetailModal = LazyLoadPage(
   () => import('../MarketBannerDetail'),
 );
-const MarketHighlightsModal = LazyLoadPage(
-  () => import('../MarketHighlights/MarketHighlightsPage'),
+const MarketHighlightsModal = LazyLoadPage(() =>
+  import('../MarketHighlights/MarketHighlightsPage').then((module) => ({
+    default: module.MarketHighlightsPage,
+  })),
 );
 const MobileTokenSelectorModal = LazyLoadPage(
   () =>

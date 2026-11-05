@@ -3,6 +3,7 @@ import pLimit from 'p-limit';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { getMarketWatchlistKey } from '@onekeyhq/shared/src/utils/marketWatchlistIdentity';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IMarketHighlightAsset } from '@onekeyhq/shared/types/marketV2';
 
 import { fetchMarketTokenListBatchForPlatform } from '../MarketHomeV2/components/MarketTokenList/hooks/marketTokenBatchPlatformApi';
@@ -35,10 +36,11 @@ async function fetchHighlightQuotes(assets: IMarketHighlightAsset[]) {
           ({ chainId, contractAddress, isNative }) => ({
             chainId,
             contractAddress,
-            isNative: isNative ?? false,
+            isNative: getNativeTokenInfo(isNative, contractAddress).isNative,
           }),
         ),
       }).then(({ list }) => {
+        const tokenQuotes = new Map<string, IMarketHighlightQuote>();
         list.forEach((token) => {
           const chainId = token?.networkId || token?.chainId;
           if (!chainId) return;
@@ -50,8 +52,22 @@ async function fetchHighlightQuotes(assets: IMarketHighlightAsset[]) {
             chainId,
             contractAddress: isNative ? '' : token.address,
           });
-          quotes.set(key, token);
+          tokenQuotes.set(key, token);
         });
+        for (const asset of tokens) {
+          const { isNative } = getNativeTokenInfo(
+            asset.isNative,
+            asset.contractAddress,
+          );
+          const key = getMarketWatchlistKey({
+            chainId: asset.chainId,
+            contractAddress: isNative ? '' : asset.contractAddress,
+          });
+          const quote = tokenQuotes.get(key);
+          if (quote) {
+            quotes.set(getMarketWatchlistKey(asset.favorite), quote);
+          }
+        }
       }),
     stocks.length > 0 &&
       service
@@ -104,7 +120,12 @@ export function useMarketHighlightQuotes(assets: IMarketHighlightAsset[]) {
   const { result } = usePromiseResult(
     () => fetchHighlightQuotes(assets),
     [assets],
-    { revalidateOnFocus: true, revalidateOnReconnect: true },
+    {
+      pollingInterval: timerUtils.getTimeDurationMs({ seconds: 30 }),
+      runImmediatelyOnMount: true,
+      revalidateOnFocus: true,
+      revalidateOnReconnect: true,
+    },
   );
   return result;
 }
