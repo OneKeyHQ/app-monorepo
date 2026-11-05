@@ -6205,31 +6205,41 @@ class ServicePrime extends ServiceBase {
     try {
       const client = await this.getPrimeClient();
       const result = await client.get<
-        IApiClientResponse<
-          | (IPrimeInfiniPaymentApiResponse & {
+        IApiClientResponse<{
+          payments: Array<
+            IPrimeInfiniPaymentApiResponse & {
               plan?: unknown;
               transactions?: unknown;
-            })
-          | null
-        >
+            }
+          >;
+        }>
       >('/prime/v1/infini/payment/pending', {
         ...this.getInfiniPurchaseRequestConfig(snapshot),
         timeout: 5000,
       });
       if (
         !result?.data ||
-        !Object.prototype.hasOwnProperty.call(result.data, 'data')
+        result.data.code !== 0 ||
+        !result.data.data ||
+        typeof result.data.data !== 'object' ||
+        Array.isArray(result.data.data) ||
+        !Array.isArray(result.data.data.payments)
       )
         throw new OneKeyLocalError('Invalid Infini pending response');
-      const pending = result.data.data;
-      if (
-        pending !== null &&
-        pending !== undefined &&
-        (typeof pending !== 'object' || Array.isArray(pending))
-      )
-        throw new OneKeyLocalError('Invalid Infini pending response');
-      if (pending) {
-        if (!isString(pending.paymentId) || !pending.paymentId.trim()) {
+      const { payments } = result.data.data;
+      // The recovery flow handles one order. Never choose one while hiding
+      // other pending orders; keep the existing warning without recovery.
+      if (payments.length > 1)
+        throw new OneKeyLocalError('Ambiguous Infini pending payments');
+      if (payments.length === 1) {
+        const [pending] = payments;
+        if (
+          !pending ||
+          typeof pending !== 'object' ||
+          Array.isArray(pending) ||
+          !isString(pending.paymentId) ||
+          !pending.paymentId.trim()
+        ) {
           throw new OneKeyLocalError('Invalid Infini pending payment identity');
         }
         let payment: IPrimeInfiniPayment | undefined;

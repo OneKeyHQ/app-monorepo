@@ -102,6 +102,26 @@ describe('advisory remote pending payment', () => {
     ).resolves.toEqual({ type: 'new' });
     expect(p.choose).not.toHaveBeenCalled();
   });
+  it('still warns if an order appears after an empty query', async () => {
+    const p = params();
+    const resolve = createPrimeInfiniRemotePendingPaymentResolver();
+    await expect(
+      resolve({ ...p, lookup: { authContext: lookup.authContext } }),
+    ).resolves.toEqual({ type: 'new' });
+    p.choose.mockResolvedValue('cancel');
+    await expect(resolve(p)).resolves.toEqual({ type: 'cancelled' });
+    expect(p.choose).toHaveBeenCalledTimes(1);
+  });
+  it('asks again after cancelling an ambiguous or failed lookup', async () => {
+    const p = params();
+    p.lookup = { authContext: lookup.authContext, status: 'unavailable' };
+    p.choose.mockResolvedValue('cancel');
+    const resolve = createPrimeInfiniRemotePendingPaymentResolver();
+    await expect(resolve(p)).resolves.toEqual({ type: 'cancelled' });
+    await expect(resolve(p)).resolves.toEqual({ type: 'cancelled' });
+    expect(p.choose).toHaveBeenCalledTimes(2);
+    expect(p.choose).toHaveBeenLastCalledWith(false, true);
+  });
   it.each(['replace', 'cancel', 'resume'] as const)(
     'requires a choice after query failure: %s',
     async (choice) => {
