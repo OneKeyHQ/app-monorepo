@@ -2806,16 +2806,12 @@ const BaseDevSettingsSection = () => {
                             subtitle={intl.formatMessage({
                               id: ETranslations.dev_hw_path__desc,
                             })}
+                            searchKeywords="Hardware Derivation Path Test BIP32 硬件 派生路径 签名 OK-66332"
                             testID="hardware-path-test-menu"
-                            onPress={async () => {
-                              const { HardwareDerivationPathTest } =
-                                await import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/HardwareDerivationPathTest');
-                              Dialog.cancel({
-                                title: intl.formatMessage({
-                                  id: ETranslations.dev_hw_path__title,
-                                }),
-                                renderContent: <HardwareDerivationPathTest />,
-                              });
+                            onPress={() => {
+                              navigation.push(
+                                EModalSettingRoutes.SettingDevHardwarePathTestModal,
+                              );
                             }}
                           />
                           <SectionPressItem
