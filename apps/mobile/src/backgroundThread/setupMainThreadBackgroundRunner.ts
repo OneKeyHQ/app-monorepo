@@ -285,7 +285,10 @@ const backgroundThreadErrorMetadataValidators: {
   [Key in IBackgroundThreadErrorMetadataKey]: (value: unknown) => boolean;
 } = {
   name: (value) => typeof value === 'string' && Boolean(value),
-  stack: (value) => typeof value === 'string' && Boolean(value),
+  stack: (value) =>
+    typeof value === 'string' &&
+    Boolean(value) &&
+    !value.startsWith('Access error.stack failed in native hermes engine'),
   autoToast: (value) => typeof value === 'boolean',
   className: (value) => typeof value === 'string',
   $isHardwareError: (value) => value === true,

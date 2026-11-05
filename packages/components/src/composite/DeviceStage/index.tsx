@@ -2339,6 +2339,15 @@ export function DeviceStage({
     transferPercent !== undefined
       ? intl.formatMessage({ id: ETranslations.communication_communicating })
       : capsuleText.title;
+  const transferCapsuleKeyRef = useRef<string | undefined>(undefined);
+  if (transferPercent !== undefined) {
+    transferCapsuleKeyRef.current = capsuleText.title;
+  } else if (step !== 'done') {
+    transferCapsuleKeyRef.current = undefined;
+  }
+  // Replace a completed transfer in place: an exiting keyed row would retain
+  // its full-width bar while the success capsule shrinks to its new words.
+  const capsuleKey = transferCapsuleKeyRef.current ?? capsuleText.title;
   const capsule = useMemo(
     () => (
       <XStack
@@ -2450,7 +2459,7 @@ export function DeviceStage({
       onGeometrySettled={handleGeometrySettled}
       modal={!errorNotice}
       scrim={scrim}
-      capsuleKey={capsuleText.title}
+      capsuleKey={capsuleKey}
       capsule={capsule}
       stageLayer={stageLayer}
       seats={seats}
