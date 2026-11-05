@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useLayoutEffect, useRef, useState } from 'react';
 import type { FocusEvent, KeyboardEvent } from 'react';
 
 import { useIntl } from 'react-intl';
@@ -22,6 +22,10 @@ import {
 } from '../utils/chartNavigationControls';
 
 import type { ITradingViewNativeNavigationAction } from '../utils/chartNavigation';
+
+// Reset sits right after this button in both tab order and layout.
+const RESET_FOCUS_FALLBACK_ACTION: ITradingViewNativeNavigationAction =
+  'scrollRight';
 
 interface ITradingViewNativeNavigationControlsProps {
   backgroundColor: string;
@@ -51,11 +55,25 @@ export function TradingViewNativeNavigationControls({
   // it visible outside the hot zone.
   const [keyboardFocusedAction, setKeyboardFocusedAction] =
     useState<ITradingViewNativeNavigationAction | null>(null);
-  // Reset unmounts once it has nothing to undo, which may skip its blur; drop
-  // that focus so a later reset cannot revive it.
+  const resetFocusFallbackRef = useRef<HTMLButtonElement>(null);
+  // Reset unmounts once it has nothing to undo, which may skip its blur and
+  // drop focus to the document. Hand keyboard focus to the adjacent button so
+  // keyboard users keep their place and a stale reset focus cannot linger.
   if (!isResetVisible && keyboardFocusedAction === 'reset') {
-    setKeyboardFocusedAction(null);
+    setKeyboardFocusedAction(RESET_FOCUS_FALLBACK_ACTION);
   }
+  useLayoutEffect(() => {
+    const fallbackButton = resetFocusFallbackRef.current;
+    // Focus and key events already sit on their button, so only the handoff
+    // above leaves the DOM focus behind.
+    if (
+      keyboardFocusedAction === RESET_FOCUS_FALLBACK_ACTION &&
+      fallbackButton &&
+      document.activeElement !== fallbackButton
+    ) {
+      fallbackButton.focus();
+    }
+  }, [keyboardFocusedAction]);
   const isShown = isVisible || keyboardFocusedAction !== null;
   const buttonSize = isMobileLayout
     ? TRADING_VIEW_NATIVE_NAVIGATION_TOUCH_BUTTON_SIZE
@@ -105,7 +123,17 @@ export function TradingViewNativeNavigationControls({
         return (
           <Stack
             key={action}
-            render={<button type="button" aria-label={label} />}
+            render={
+              <button
+                type="button"
+                aria-label={label}
+                ref={
+                  action === RESET_FOCUS_FALLBACK_ACTION
+                    ? resetFocusFallbackRef
+                    : undefined
+                }
+              />
+            }
             testID={`${testIDPrefix}-${action}`}
             aria-label={label}
             alignItems="center"

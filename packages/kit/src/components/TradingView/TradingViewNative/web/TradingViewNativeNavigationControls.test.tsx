@@ -8,9 +8,10 @@ import type {
   KeyboardEventHandler,
   PointerEventHandler,
   ReactNode,
+  Ref,
 } from 'react';
 
-import { fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 
 import { TradingViewNativeNavigationControls } from './TradingViewNativeNavigationControls';
 
@@ -41,11 +42,20 @@ jest.mock('@onekeyhq/components', () => ({
     onKeyDown?: KeyboardEventHandler<HTMLButtonElement>;
     onBlur?: FocusEventHandler<HTMLButtonElement>;
     onPointerDown?: PointerEventHandler<HTMLButtonElement>;
+    render?: ReactNode;
     'aria-label'?: string;
   }) => {
     mockStack(props);
+    const react = jest.requireActual<typeof import('react')>('react');
+    // Forward the ref placed on the `render` host element, as Tamagui does.
+    const renderRef = react.isValidElement<{
+      ref?: Ref<HTMLButtonElement>;
+    }>(props.render)
+      ? props.render.props.ref
+      : undefined;
     return (
       <button
+        ref={renderRef}
         type="button"
         data-testid={testID}
         aria-label={props['aria-label']}
@@ -248,23 +258,44 @@ describe('Web TradingViewNativeNavigationControls', () => {
     expect(propsByLabel.get('menu.zoom_in')?.position).toBe(undefined);
   });
 
-  it('hides the bar once a keyboard-focused reset unmounts', () => {
+  it('hands keyboard focus to scroll right once a keyboard-focused reset unmounts', () => {
     const { setResetVisible } = renderControls();
     const reset = screen.getByTestId('chart-navigation-reset');
+    const scrollRight = screen.getByTestId('chart-navigation-scrollRight');
     jest.spyOn(reset, 'matches').mockReturnValue(true);
+    jest.spyOn(scrollRight, 'matches').mockReturnValue(true);
 
-    fireEvent.focus(reset);
+    act(() => reset.focus());
     expect(mockXStack.mock.lastCall?.[0]).toEqual(
       expect.objectContaining({ opacity: 1 }),
     );
 
     setResetVisible(false);
+    expect(document.activeElement).toBe(scrollRight);
+    expect(mockXStack.mock.lastCall?.[0]).toEqual(
+      expect.objectContaining({ opacity: 1, pointerEvents: 'box-none' }),
+    );
+
+    // Leaving the bar clears the handed-off focus, so a later zoom that
+    // brings reset back does not keep the bar visible.
+    act(() => scrollRight.blur());
+    setResetVisible(true);
     expect(mockXStack.mock.lastCall?.[0]).toEqual(
       expect.objectContaining({ opacity: 0, pointerEvents: 'none' }),
     );
+  });
 
-    // A later zoom brings reset back without real keyboard focus.
-    setResetVisible(true);
+  it('leaves focus alone when a pointer-pressed reset unmounts', () => {
+    const { setResetVisible } = renderControls();
+    const reset = screen.getByTestId('chart-navigation-reset');
+    const scrollRight = screen.getByTestId('chart-navigation-scrollRight');
+    jest.spyOn(reset, 'matches').mockReturnValue(false);
+
+    fireEvent.pointerDown(reset);
+    act(() => reset.focus());
+    setResetVisible(false);
+
+    expect(document.activeElement).not.toBe(scrollRight);
     expect(mockXStack.mock.lastCall?.[0]).toEqual(
       expect.objectContaining({ opacity: 0, pointerEvents: 'none' }),
     );
