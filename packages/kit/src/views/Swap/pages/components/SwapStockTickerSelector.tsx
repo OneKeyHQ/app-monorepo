@@ -184,7 +184,11 @@ function StockTickerList({ closePopover }: { closePopover: () => void }) {
                  * dependencies on every parent render and restarts an unchanged
                  * logo request, which is visible as a flash after cold start.
                  */}
-                <Token size="lg" tokenImageUri={stock.logoUrl} />
+                <Token
+                  size="lg"
+                  tokenImageUri={stock.logoUrl}
+                  symbol={stock.symbol}
+                />
                 <YStack flex={1} minWidth={0}>
                   <SizableText size="$bodyLgMedium" numberOfLines={1}>
                     {stock.symbol}
@@ -346,7 +350,7 @@ export function SwapStockTickerSelector() {
     >
       {stockLogoUri || fallbackToken ? (
         // The fallback keeps the default icon rather than issuer artwork.
-        <Token size="xl" tokenImageUri={stockLogoUri} />
+        <Token size="xl" tokenImageUri={stockLogoUri} symbol={stockSymbol} />
       ) : (
         <Skeleton width="$12" height="$12" borderRadius="$full" />
       )}

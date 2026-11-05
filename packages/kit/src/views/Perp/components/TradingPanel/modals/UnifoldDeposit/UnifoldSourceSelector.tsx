@@ -40,6 +40,7 @@ const DASH_LABEL_HEIGHT_PADDING = platformEnv.isNative ? '$px' : '$0.5';
 function SelectorTrigger({
   testID,
   iconUri,
+  symbol,
   label,
   loading,
   disabled,
@@ -47,6 +48,8 @@ function SelectorTrigger({
 }: {
   testID: string;
   iconUri?: string;
+  // Token rows only; network rows keep the default icon fallback.
+  symbol?: string;
   label?: string;
   loading: boolean;
   disabled?: boolean;
@@ -91,7 +94,11 @@ function SelectorTrigger({
         </>
       ) : (
         <>
-          <Token size="xs" tokenImageUri={normalizeUnifoldIconUrl(iconUri)} />
+          <Token
+            size="xs"
+            tokenImageUri={normalizeUnifoldIconUrl(iconUri)}
+            symbol={symbol}
+          />
           <SizableText
             size="$bodySm"
             color="$text"
@@ -111,6 +118,7 @@ function SelectorTrigger({
 function OptionRow({
   testID,
   iconUri,
+  symbol,
   label,
   description,
   selected,
@@ -118,6 +126,8 @@ function OptionRow({
 }: {
   testID: string;
   iconUri?: string;
+  // Token rows only; network rows keep the default icon fallback.
+  symbol?: string;
   label: string;
   description?: string;
   selected: boolean;
@@ -140,7 +150,11 @@ function OptionRow({
       borderRadius="$2"
       onPress={onPress}
     >
-      <Token size="md" tokenImageUri={normalizeUnifoldIconUrl(iconUri)} />
+      <Token
+        size="md"
+        tokenImageUri={normalizeUnifoldIconUrl(iconUri)}
+        symbol={symbol}
+      />
       <YStack flex={1} minWidth={0} alignItems="flex-start" gap="$0.5">
         <SizableText size="$bodyMdMedium" color="$text" numberOfLines={1}>
           {label}
@@ -333,6 +347,7 @@ export function UnifoldSourceSelector({
     <SelectorTrigger
       testID="perps-unifold-token-selector"
       iconUri={selection?.asset.icon_url}
+      symbol={selection?.asset.symbol}
       label={selection?.asset.symbol}
       loading={loading || !selection}
       disabled={!canSelectToken}
@@ -413,6 +428,7 @@ export function UnifoldSourceSelector({
                     key={asset.symbol}
                     testID={`perps-unifold-token-option-${asset.symbol}`}
                     iconUri={asset.icon_url}
+                    symbol={asset.symbol}
                     label={asset.symbol}
                     description={
                       asset.chains.length === 1

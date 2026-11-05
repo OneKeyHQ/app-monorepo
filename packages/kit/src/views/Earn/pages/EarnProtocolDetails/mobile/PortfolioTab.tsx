@@ -76,7 +76,11 @@ function PortfolioRow({
       {...(onPress ? { onPress, cursor: 'pointer' } : {})}
     >
       <XStack ai="center" gap="$2.5" flex={1} minWidth={0}>
-        <Token size="sm" tokenImageUri={item.token.info.logoURI} />
+        <Token
+          size="sm"
+          tokenImageUri={item.token.info.logoURI}
+          symbol={item.token.info.symbol}
+        />
         <YStack flex={1} minWidth={0} gap="$0.5">
           <EarnText text={item.title} size="$bodyLgMedium" numberOfLines={1} />
           {item.txHash ? (

@@ -287,6 +287,7 @@ function BannerQuoteRow({
       <Token
         size="xs"
         tokenImageUri={indexConfig?.logoUrl || token.logo}
+        symbol={token.symbol}
         fallbackIcon={isIndex ? 'ChartColumnarOutline' : 'CryptoCoinOutline'}
       />
       <XStack flex={1} minWidth={0} alignItems="center" gap="$1">

@@ -111,6 +111,7 @@ const SwapRecentTokenPairsGroup = ({
                   h="$4.5"
                   size="sm"
                   tokenImageUri={tokenPair.fromToken.logoURI}
+                  symbol={tokenPair.fromToken.symbol}
                 />
               </YStack>
               <YStack
@@ -125,6 +126,7 @@ const SwapRecentTokenPairsGroup = ({
                   h="$4.5"
                   size="sm"
                   tokenImageUri={tokenPair.toToken.logoURI}
+                  symbol={tokenPair.toToken.symbol}
                 />
               </YStack>
               <SizableText

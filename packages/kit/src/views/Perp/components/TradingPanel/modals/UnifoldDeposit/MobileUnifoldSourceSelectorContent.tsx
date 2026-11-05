@@ -52,6 +52,7 @@ function MobileSourceSelectorSkeletonList() {
 function MobileSourceSelectorRow({
   testID,
   iconUri,
+  symbol,
   label,
   description,
   selected,
@@ -59,6 +60,8 @@ function MobileSourceSelectorRow({
 }: {
   testID: string;
   iconUri?: string;
+  // Token rows only; network rows keep the default icon fallback.
+  symbol?: string;
   label: string;
   description: string;
   selected: boolean;
@@ -77,7 +80,11 @@ function MobileSourceSelectorRow({
       onPress={onPress}
     >
       <XStack width="100%" alignItems="center" gap="$3" py="$2.5">
-        <Token tokenImageUri={normalizeUnifoldIconUrl(iconUri)} size="md" />
+        <Token
+          tokenImageUri={normalizeUnifoldIconUrl(iconUri)}
+          symbol={symbol}
+          size="md"
+        />
         <YStack flex={1} minWidth={0}>
           <SizableText size="$bodyLgMedium" numberOfLines={1}>
             {label}
@@ -163,6 +170,7 @@ export function MobileUnifoldSourceSelectorContent({
         key={asset.symbol}
         testID={`perps-unifold-token-option-${asset.symbol}`}
         iconUri={asset.icon_url}
+        symbol={asset.symbol}
         label={asset.symbol}
         description={
           asset.chains.length === 1

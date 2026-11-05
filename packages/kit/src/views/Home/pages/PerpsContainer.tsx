@@ -385,6 +385,7 @@ function PerpsHoldingCard({
           <Token
             size="md"
             tokenImageUri={getHyperliquidTokenImageUrl(holding.symbol)}
+            symbol={holding.symbol}
           />
           <Stack
             position="absolute"
@@ -766,6 +767,7 @@ function PerpsEmptyRecommendSection() {
                   size="md"
                   borderRadius="$full"
                   tokenImageUri={token.tokenImageUrl}
+                  symbol={token.displayName}
                   fallbackIcon="CryptoCoinOutline"
                 />
                 <YStack flex={1} minWidth={0} gap={MARKET_CELL_LINE_GAP}>
@@ -1151,6 +1153,7 @@ function PerpsMobileHoldingRow({
             <Token
               size="lg"
               tokenImageUri={getHyperliquidTokenImageUrl(holding.symbol)}
+              symbol={holding.symbol}
             />
             <Stack
               position="absolute"

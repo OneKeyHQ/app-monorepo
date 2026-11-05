@@ -17,6 +17,7 @@ type IMockImageProps = {
   round?: boolean;
   source?: { uri?: string };
   src?: string;
+  fallback?: ReactNode;
   onError?: (event: { error: string }) => void;
 };
 
@@ -217,5 +218,44 @@ describe('Token', () => {
   it('keeps the previous image path outside Android', () => {
     render(<Token tokenImageUri={tokenImageUri} />);
     expect(mockImageProps.at(-1)?.round).toBeUndefined();
+  });
+
+  // The mocked primitives render bare children, so a letter fallback renders
+  // as its text and the icon fallback renders nothing.
+  it('falls back to the symbol letter instead of the coin icon', () => {
+    render(<Token tokenImageUri={tokenImageUri} symbol=" usdc" />);
+    const fallback = render(<>{mockImageProps.at(-1)?.fallback}</>);
+    expect(fallback.toJSON()).toBe('U');
+  });
+
+  it('keeps the icon fallback for NFTs and custom fallback icons', () => {
+    render(<Token tokenImageUri={tokenImageUri} symbol="usdc" isNFT />);
+    expect(render(<>{mockImageProps.at(-1)?.fallback}</>).toJSON()).toBeNull();
+
+    render(
+      <Token
+        tokenImageUri={tokenImageUri}
+        symbol="usdc"
+        fallbackIcon="GlobusOutline"
+      />,
+    );
+    expect(render(<>{mockImageProps.at(-1)?.fallback}</>).toJSON()).toBeNull();
+  });
+
+  it('treats an explicit default coin icon like no custom icon', () => {
+    render(
+      <Token
+        tokenImageUri={tokenImageUri}
+        symbol="eth"
+        fallbackIcon="CryptoCoinOutline"
+      />,
+    );
+    expect(render(<>{mockImageProps.at(-1)?.fallback}</>).toJSON()).toBe('E');
+  });
+
+  it('keeps the icon fallback without a symbol', () => {
+    render(<Token tokenImageUri={tokenImageUri} symbol="  " />);
+    const fallback = render(<>{mockImageProps.at(-1)?.fallback}</>);
+    expect(fallback.toJSON()).toBeNull();
   });
 });

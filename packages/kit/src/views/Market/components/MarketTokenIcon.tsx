@@ -9,11 +9,13 @@ function BasicMarketTokenIcon({
   uris,
   size,
   networkId,
+  symbol,
 }: {
   uri: string;
   uris?: string[];
   size: ITokenProps['size'];
   networkId?: string;
+  symbol?: string;
 }) {
   return (
     <Token
@@ -22,6 +24,7 @@ function BasicMarketTokenIcon({
       tokenImageUris={uris}
       networkId={networkId}
       showNetworkIcon={Boolean(networkId)}
+      symbol={symbol}
     />
   );
 }

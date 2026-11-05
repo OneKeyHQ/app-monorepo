@@ -871,6 +871,11 @@ export function NativeTokenSelectorList({
                 id: ETranslations.global_swap,
               });
               const symbolText = nativeRow.title;
+              // Missing or broken logo: the symbol's first letter on a dark
+              // circle (the circle comes from the list's fallback background).
+              const fallbackLetter = Array.from(
+                symbolText.trim(),
+              )[0]?.toUpperCase();
               const walletRow: DataRow = {
                 type: 'dataRow',
                 key: rowKey,
@@ -888,11 +893,19 @@ export function NativeTokenSelectorList({
                       }
                     : undefined,
                   overlays,
-                  fallbackIcon: {
-                    name: 'CryptoCoinOutline',
-                    tintColor: theme.iconSubdued,
-                    size: 24,
-                  },
+                  ...(fallbackLetter
+                    ? {
+                        fallbackText: fallbackLetter,
+                        fallbackTextColor: theme.inverseText,
+                        fallbackTextSize: 22,
+                      }
+                    : {
+                        fallbackIcon: {
+                          name: 'CryptoCoinOutline',
+                          tintColor: theme.iconSubdued,
+                          size: 24,
+                        },
+                      }),
                 },
                 badges: nativeRow.badges,
                 separator: !isLastWalletRow,
@@ -1077,7 +1090,11 @@ export function NativeTokenSelectorList({
         contentPaddingHorizontal: TOKEN_LIST_CONTENT_PADDING_HORIZONTAL,
       },
       rows: nativeRows,
-      theme,
+      // Wallet rows paint a letter fallback on the inverse (dark) circle;
+      // dark mode flips it to a light circle with dark text.
+      theme: walletRowLayout
+        ? { ...theme, imageFallbackBackground: theme.inverseBackground }
+        : theme,
       ...(walletRowLayout
         ? {
             // 6% black dividers from the text column to the row's end.

@@ -93,6 +93,7 @@ export function DepositTokenSelectionContent({
             <XStack gap="$3" alignItems="center" flex={1} minWidth={0}>
               <Token
                 tokenImageUri={item.logoURI}
+                symbol={item.symbol}
                 networkImageUri={item.networkLogoURI}
                 size="md"
               />

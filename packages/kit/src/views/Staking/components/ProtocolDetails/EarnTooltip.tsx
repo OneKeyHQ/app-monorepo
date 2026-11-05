@@ -116,7 +116,11 @@ function RebateDetailsPopoverContent({
                 py={5}
               >
                 <XStack gap="$2.5" ai="center">
-                  <Token size="sm" tokenImageUri={token.logoURI} />
+                  <Token
+                    size="sm"
+                    tokenImageUri={token.logoURI}
+                    symbol={token.symbol}
+                  />
                   <SizableText size="$bodyMdMedium">
                     {token.symbol.toUpperCase()}
                   </SizableText>

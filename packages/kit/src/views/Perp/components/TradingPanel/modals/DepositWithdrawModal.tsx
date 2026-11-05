@@ -1977,6 +1977,7 @@ function DepositWithdrawContent({
             <Token
               size="md"
               tokenImageUri={displayDepositToken?.logoURI}
+              symbol={displayDepositToken?.symbol}
               networkImageUri={displayDepositToken?.networkLogoURI}
               showNetworkIcon
             />

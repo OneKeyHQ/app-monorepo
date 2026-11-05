@@ -171,6 +171,7 @@ function useTopCoinsColumns(): ITableColumn<IMarketAssetListItem>[] {
               size="lg"
               borderRadius="$full"
               tokenImageUri={record.logoUrl}
+              symbol={record.symbol}
               fallbackIcon="CryptoCoinOutline"
             />
             <YStack flex={1} minWidth={0} justifyContent="center">

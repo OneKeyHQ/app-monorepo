@@ -121,6 +121,7 @@ const OptionItem = ({
             <Stack pr="$3">
               <Token
                 tokenImageUri={token.logoURI}
+                symbol={token.symbol}
                 networkImageUri={network?.logoURI}
               />
             </Stack>

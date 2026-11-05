@@ -220,7 +220,11 @@ export function BorrowPositionCard({
         </XStack>
 
         <XStack ai="center" gap="$3" py="$2" {...disclosureProps}>
-          <BorrowAssetToken size="lg" logoURI={token.logoURI} />
+          <BorrowAssetToken
+            size="lg"
+            logoURI={token.logoURI}
+            symbol={token.symbol}
+          />
           <YStack flex={1} minWidth={0} gap="$0.5">
             <SizableText size="$bodyLgMedium" numberOfLines={1}>
               {token.symbol}

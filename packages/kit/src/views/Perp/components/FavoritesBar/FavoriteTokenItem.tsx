@@ -250,6 +250,7 @@ function FavoriteTokenItem({
         {...(mode === 'spot'
           ? { tokenImageUri: getHyperliquidTokenImageUrl(imageTokenName) }
           : { tokenImageUris: getHyperliquidTokenImageUris(coinName) })}
+        symbol={displayName}
         fallbackIcon="CryptoCoinOutline"
       />
       <SizableText size="$bodySmMedium" color="$text">

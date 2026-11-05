@@ -27,6 +27,7 @@ export function OrderListItem({
       <Token
         size="lg"
         tokenImageUri={order.tokenLogoURI}
+        symbol={order.tokenSymbol}
         networkImageUri={order.networkLogoURI}
       />
       <ListItem.Text

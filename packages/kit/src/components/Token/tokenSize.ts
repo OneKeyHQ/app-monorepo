@@ -12,6 +12,8 @@ export const TOKEN_SIZE_MAP: Record<
     tokenImageSize: SizeTokens;
     chainImageSize: SizeTokens;
     fallbackIconSize: SizeTokens;
+    // Letter fallback (symbol's first letter), about 55% of the circle.
+    fallbackLetterSize: number;
     tokenImageResizeWidth: number;
   }
 > = {
@@ -19,42 +21,49 @@ export const TOKEN_SIZE_MAP: Record<
     tokenImageSize: '$14',
     chainImageSize: '$6',
     fallbackIconSize: '$9',
+    fallbackLetterSize: 31,
     tokenImageResizeWidth: s(56),
   },
   xl: {
     tokenImageSize: '$12',
     chainImageSize: '$5',
     fallbackIconSize: '$8',
+    fallbackLetterSize: 26,
     tokenImageResizeWidth: s(48),
   },
   lg: {
     tokenImageSize: '$10',
     chainImageSize: '$4',
     fallbackIconSize: '$7',
+    fallbackLetterSize: 22,
     tokenImageResizeWidth: s(40),
   },
   md: {
     tokenImageSize: '$8',
     chainImageSize: '$4',
     fallbackIconSize: '$6',
+    fallbackLetterSize: 18,
     tokenImageResizeWidth: s(32),
   },
   sm: {
     tokenImageSize: '$6',
     chainImageSize: '$3',
     fallbackIconSize: '$6',
+    fallbackLetterSize: 13,
     tokenImageResizeWidth: s(24),
   },
   xs: {
     tokenImageSize: '$5',
     chainImageSize: '$2.5',
     fallbackIconSize: '$5',
+    fallbackLetterSize: 11,
     tokenImageResizeWidth: s(20),
   },
   xxs: {
     tokenImageSize: '$4',
     chainImageSize: '$2',
     fallbackIconSize: '$4',
+    fallbackLetterSize: 9,
     tokenImageResizeWidth: s(16),
   },
 };

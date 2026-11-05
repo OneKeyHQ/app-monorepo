@@ -42,6 +42,7 @@ export function usePerpsColumnsMobile(): ITableColumn<IMarketPerpsToken>[] {
               size="md"
               borderRadius="$full"
               tokenImageUri={record.tokenImageUrl}
+              symbol={record.displayName}
               fallbackIcon="CryptoCoinOutline"
             />
             <YStack flex={1} minWidth={0}>

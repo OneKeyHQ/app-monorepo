@@ -243,7 +243,11 @@ const ProtocolHeader = ({
             the name truncates into whatever is left. */}
         <XStack gap="$3" ai="center" minWidth={0} flex={1}>
           <XStack gap="$2" ai="center" flexShrink={1} minWidth={0}>
-            <Token size="xs" tokenImageUri={tokenInfo?.token.logoURI} />
+            <Token
+              size="xs"
+              tokenImageUri={tokenInfo?.token.logoURI}
+              symbol={tokenInfo?.token.symbol}
+            />
             {providerSubtitle ? (
               <YStack flexShrink={1} minWidth={0}>
                 <SizableText
@@ -1443,7 +1447,11 @@ const EarnProtocolDetailsPage = ({ route }: { route: IRouteProps }) => {
           // Matches Token size="md" (tokenImageSize $8) so nothing shifts
           <Skeleton w="$8" h="$8" radius="round" />
         ) : (
-          <Token size="md" tokenImageUri={headerTokenLogoURI} />
+          <Token
+            size="md"
+            tokenImageUri={headerTokenLogoURI}
+            symbol={earnUtils.getDisplaySymbol(tokenInfo?.token) || symbol}
+          />
         )}
         <SizableText size="$headingXl" numberOfLines={1} flexShrink={1}>
           {/* The relabel only lands once the detail request resolves; until

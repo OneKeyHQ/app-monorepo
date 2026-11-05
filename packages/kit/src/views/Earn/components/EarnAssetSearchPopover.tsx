@@ -81,7 +81,12 @@ function SearchResultItem({
       userSelect="none"
       onPress={onPress}
     >
-      <Token size="md" tokenImageUri={asset.logoURI} borderRadius="$full" />
+      <Token
+        size="md"
+        tokenImageUri={asset.logoURI}
+        symbol={asset.symbol}
+        borderRadius="$full"
+      />
       <ListItem.Text
         flex={1}
         primary={

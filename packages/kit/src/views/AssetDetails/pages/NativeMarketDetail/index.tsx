@@ -78,6 +78,7 @@ export function NativeMarketDetailContent({
           }
           size="sm"
           networkId={networkId}
+          symbol={tokenSymbol ?? token?.symbol}
         />
         <SizableText size="$headingLg" numberOfLines={1}>
           {tokenSymbol ?? token?.symbol}

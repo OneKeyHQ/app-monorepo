@@ -431,6 +431,7 @@ const StockSearchRow = memo(
               size="md"
               borderRadius="$full"
               tokenImageUri={item.logoUrl}
+              symbol={item.symbol}
               fallbackIcon="CryptoCoinOutline"
               placeholder={null}
               loadingStrategy="static"

@@ -235,6 +235,7 @@ export function MarketDetailHeader({
         <Token
           size={platformEnv.isNativeIOS26Plus ? 'sm' : 'md'}
           tokenImageUri={headerIdentity.logoUrl}
+          symbol={headerIdentity.symbol}
           tokenImageUris={headerIdentity.logoUrls}
           networkImageUri={headerNetworkLogoUri}
           fallbackIcon="CryptoCoinOutline"
@@ -508,6 +509,7 @@ export function MarketDetailHeader({
               <Token
                 size="md"
                 tokenImageUri={headerIdentity.logoUrl}
+                symbol={headerIdentity.symbol}
                 tokenImageUris={headerIdentity.logoUrls}
                 networkImageUri={headerNetworkLogoUri}
                 fallbackIcon="CryptoCoinOutline"

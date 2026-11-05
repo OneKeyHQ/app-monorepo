@@ -568,6 +568,9 @@ export function PerpMarketIntroContent({
                       )
                     : marketDetail?.image,
               })}
+          symbol={
+            displayName || stockDetail?.ticker || marketDetail?.symbol || coin
+          }
         />
         <XStack flex={1} minWidth={0} alignItems="baseline" gap="$2.5">
           <SizableText size="$headingLg" numberOfLines={1}>

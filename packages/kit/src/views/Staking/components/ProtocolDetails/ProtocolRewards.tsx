@@ -86,6 +86,7 @@ function RewardItem({
               mr="$1.5"
               size="sm"
               tokenImageUri={rewardToken.info?.logoURI}
+              symbol={rewardToken.info?.symbol}
             />
             <XStack flex={1} flexWrap="wrap" alignItems="center">
               <NumberSizeableText

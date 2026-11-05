@@ -173,6 +173,7 @@ export function UniversalSearchPerpItem({
             {...(tokenImageUris
               ? { tokenImageUris }
               : { tokenImageUri: logoUrl })}
+            symbol={name}
             fallbackIcon="CryptoCoinOutline"
           />
         </XStack>

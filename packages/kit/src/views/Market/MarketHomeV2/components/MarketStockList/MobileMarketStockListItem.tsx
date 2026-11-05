@@ -78,6 +78,7 @@ export function MobileMarketStockListItem({
           size="md"
           borderRadius="$full"
           tokenImageUri={item.logoUrl}
+          symbol={item.symbol}
           fallbackIcon="CryptoCoinOutline"
         />
         <YStack flex={1} minWidth={0} gap={MARKET_CELL_LINE_GAP}>

@@ -245,6 +245,7 @@ function EarnProtocolTokensContent({ route }: { route: IRouteProps }) {
           <Token
             size="md"
             tokenImageUri={assetLogoMap.get(row.symbol.toLowerCase())}
+            symbol={row.symbol}
             // Walkthrough r3: chain shown as a corner badge on the token logo
             // instead of a subtitle text line
             networkImageUri={row.item.network.logoURI}

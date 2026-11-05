@@ -398,6 +398,7 @@ const DepositField = ({
       <Token
         size="md"
         tokenImageUri={asset.token.info.logoURI}
+        symbol={asset.token.info.symbol}
         networkImageUri={asset.metadata.network.logoURI}
       />
       <FieldWrapper ml="$3" mr="$2" flex={1} asset={asset}>
@@ -777,6 +778,7 @@ const ProtocolAirdrop = ({
                 <Token
                   size="md"
                   tokenImageUri={group.token.info.logoURI}
+                  symbol={group.token.info.symbol}
                   showNetworkIcon
                   networkId={group.metadata?.network?.networkId}
                 />
@@ -825,6 +827,7 @@ const ProtocolAirdrop = ({
               <Token
                 size="md"
                 tokenImageUri={group.token.info.logoURI}
+                symbol={group.token.info.symbol}
                 showNetworkIcon
                 networkId={group.metadata?.network?.networkId}
               />

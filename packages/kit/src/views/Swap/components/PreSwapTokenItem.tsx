@@ -108,6 +108,7 @@ const PreSwapTokenItem = ({
       </YStack>
       <Token
         tokenImageUri={token?.logoURI}
+        symbol={token?.symbol}
         networkImageUri={networkImageUri}
         size="lg"
       />

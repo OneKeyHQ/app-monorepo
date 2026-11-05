@@ -65,7 +65,11 @@ function RewardItem({ item, token }: IRewardItemProps) {
       </SizableText>
       <XStack ai="center" jc="space-between" py="$1">
         <XStack ai="center" gap="$3" flex={1}>
-          <Token size="md" tokenImageUri={token.logoURI} />
+          <Token
+            size="md"
+            tokenImageUri={token.logoURI}
+            symbol={token.symbol}
+          />
           <YStack gap="$0.5" flex={1}>
             <SizableText size="$bodyMdMedium">
               {intl.formatMessage({

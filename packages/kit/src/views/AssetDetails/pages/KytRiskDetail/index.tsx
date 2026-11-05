@@ -324,6 +324,7 @@ function KytRiskDetail() {
                   <Token
                     size="sm"
                     tokenImageUri={riskDetail.asset.tokenImageUri}
+                    symbol={riskDetail.asset.symbol}
                   />
                   <SizableText
                     size="$bodyMdMedium"

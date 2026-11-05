@@ -170,7 +170,7 @@ const ReserveDetailsPage = () => {
   const pageTitle = useMemo(
     () => (
       <XStack gap="$3" ai="center">
-        <Token size="md" tokenImageUri={logoURI} />
+        <Token size="md" tokenImageUri={logoURI} symbol={symbol} />
         <SizableText size="$headingXl" numberOfLines={1} flexShrink={1}>
           {symbol}
         </SizableText>
@@ -182,7 +182,7 @@ const ReserveDetailsPage = () => {
   const headerTitle = useCallback(
     () => (
       <XStack gap="$2" alignItems="center">
-        <Token size="sm" tokenImageUri={logoURI} />
+        <Token size="sm" tokenImageUri={logoURI} symbol={symbol} />
         <SizableText size="$headingLg" numberOfLines={1}>
           {symbol}
         </SizableText>

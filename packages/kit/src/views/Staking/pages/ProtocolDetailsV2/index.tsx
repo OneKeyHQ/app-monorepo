@@ -230,6 +230,7 @@ function ProtocolRewards({
                     mr="$1.5"
                     size="sm"
                     tokenImageUri={token.token.info.logoURI}
+                    symbol={token.token.info.symbol}
                   />
                   <XStack flex={1} flexWrap="wrap" alignItems="center">
                     <EarnText text={token.title} size="$bodyLgMedium" />
@@ -285,7 +286,11 @@ function PortfolioSection({
               justifyContent="space-between"
             >
               <XStack alignItems="center" gap="$1.5">
-                <Token size="sm" tokenImageUri={item.token.info.logoURI} />
+                <Token
+                  size="sm"
+                  tokenImageUri={item.token.info.logoURI}
+                  symbol={item.token.info.symbol}
+                />
                 <EarnText text={item.title} size="$bodyLgMedium" />
                 <EarnText text={item.description} size="$bodyLgMedium" />
                 {item?.badge ? (

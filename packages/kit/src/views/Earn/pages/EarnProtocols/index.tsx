@@ -130,7 +130,7 @@ function BasicEarnProtocols({ route }: { route: IRouteProps }) {
   const customHeaderLeft = useMemo(
     () => (
       <>
-        <Token tokenImageUri={logoURI} size="md" />
+        <Token tokenImageUri={logoURI} symbol={symbol} size="md" />
         <SizableText size="$headingXl" numberOfLines={1} flexShrink={1}>
           {symbol ||
             intl.formatMessage({

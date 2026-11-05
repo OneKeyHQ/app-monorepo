@@ -86,7 +86,11 @@ export function MarketDetailContent({
   const renderHeaderTitle = useCallback(
     () => (
       <XStack gap="$2" ai="center">
-        <MarketTokenIcon uri={token?.image ?? ''} size="sm" />
+        <MarketTokenIcon
+          uri={token?.image ?? ''}
+          size="sm"
+          symbol={token?.symbol}
+        />
         <SizableText>{token?.symbol.toUpperCase()}</SizableText>
       </XStack>
     ),

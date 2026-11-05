@@ -263,7 +263,11 @@ function StepRow({
       <YStack gap="$3" flex={1}>
         <XStack gap="$2" ai="flex-start">
           {step.kind !== 'switch' ? (
-            <Token size="sm" tokenImageUri={step.logoURI} />
+            <Token
+              size="sm"
+              tokenImageUri={step.logoURI}
+              symbol={step.symbol}
+            />
           ) : (
             <Icon
               testID={BorrowTestIDs.eModeNeedActionSwitchIcon}

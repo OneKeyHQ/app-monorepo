@@ -180,6 +180,14 @@ function StockPageHeader({
                   tokenDetail?.logoUrl ||
                   stock?.sourceLogoUri
                 }
+                symbol={
+                  stockDetail?.symbol ||
+                  stockPreview?.symbol ||
+                  stock?.underlyingAssetTicker ||
+                  stock?.title ||
+                  tokenDetail?.symbol ||
+                  stockId
+                }
                 fallbackIcon="CryptoCoinOutline"
               />
               <YStack minWidth={0} justifyContent="center">

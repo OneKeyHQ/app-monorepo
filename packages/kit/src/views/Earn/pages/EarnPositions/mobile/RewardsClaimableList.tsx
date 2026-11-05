@@ -196,6 +196,7 @@ export function RewardsClaimableList({
                 key={row.key}
                 networkId={row.position.source.networkId}
                 logoURI={row.asset.meta?.logoUrl}
+                symbol={row.asset.symbol}
                 title={
                   <NumberSizeableTextWrapper
                     hideValue
@@ -231,6 +232,7 @@ export function RewardsClaimableList({
                   key={`${item.token.info.symbol}-${item.vault ?? ''}-${index}`}
                   networkId={ledgerGroup.networkId}
                   logoURI={item.token.info.logoURI}
+                  symbol={item.token.info.symbol}
                   title={
                     <EarnText
                       text={hideValue ? { text: '****' } : item.title}

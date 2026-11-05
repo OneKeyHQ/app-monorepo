@@ -48,6 +48,7 @@ function PortfolioItemSmallBase({
         <Token
           size="md"
           tokenImageUri={item.tokenLogoUrl}
+          symbol={item.symbol}
           networkImageUri={item.networkLogoUrl}
           networkId={item.networkId}
           showNetworkIcon={Boolean(item.networkId)}

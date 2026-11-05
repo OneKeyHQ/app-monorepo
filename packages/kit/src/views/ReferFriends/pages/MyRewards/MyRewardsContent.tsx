@@ -494,7 +494,11 @@ function PayoutInfo({
         <YStack p="$4" gap="$3">
           <XStack ai="center" gap="$2">
             {payout?.logoURI ? (
-              <Token size="xs" tokenImageUri={payout.logoURI} />
+              <Token
+                size="xs"
+                tokenImageUri={payout.logoURI}
+                symbol={payout.symbol}
+              />
             ) : null}
             <SizableText size="$bodyMdMedium" flexShrink={1}>
               {payout

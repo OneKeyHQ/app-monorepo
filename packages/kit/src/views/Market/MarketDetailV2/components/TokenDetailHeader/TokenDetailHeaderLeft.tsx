@@ -207,6 +207,7 @@ export function TokenDetailHeaderLeft({
           size="xl"
           tokenImageUri={logoUrl}
           tokenImageUris={stableLogoUrls}
+          symbol={symbol}
           networkImageUri={effectiveNetworkLogoUri}
           fallbackIcon="CryptoCoinOutline"
         />
@@ -321,6 +322,7 @@ export function TokenDetailHeaderLeft({
             size="md"
             tokenImageUri={logoUrl}
             tokenImageUris={logoUrls}
+            symbol={symbol}
             networkImageUri={effectiveNetworkLogoUri}
             fallbackIcon="CryptoCoinOutline"
           />

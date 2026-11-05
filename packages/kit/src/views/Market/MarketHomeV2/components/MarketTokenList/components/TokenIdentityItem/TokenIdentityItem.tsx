@@ -335,6 +335,7 @@ const BasicTokenIdentityItem: FC<ITokenIdentityItemProps> = ({
       <Token
         tokenImageUri={getTokenImageUri()}
         tokenImageUris={tokenLogoURIs}
+        symbol={symbol}
         networkImageUri={effectiveNetworkLogoUri}
         fallbackIcon={fallbackIcon}
         size={tokenSize}

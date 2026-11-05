@@ -35,7 +35,11 @@ export const AssetWithAmountField = ({
   return (
     <FieldWrapper flex={1}>
       <XStack ai="center">
-        <BorrowAssetToken size="md" logoURI={token.logoURI} />
+        <BorrowAssetToken
+          size="md"
+          logoURI={token.logoURI}
+          symbol={token.symbol}
+        />
         <YStack ml="$3" gap="$0.5">
           <XStack ai="center" gap="$1">
             <SizableText size="$bodyMdMedium" color="$text">

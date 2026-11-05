@@ -49,6 +49,9 @@ export type ITokenProps = {
   showCornerBadgeBorder?: boolean;
   networkId?: string;
   isAggregateToken?: boolean;
+  // Token symbol: a missing or broken image shows its first letter on an
+  // inverse circle instead of the generic coin icon.
+  symbol?: string;
 } & Omit<IImageProps, 'size'>;
 
 export function Token({
@@ -64,6 +67,7 @@ export function Token({
   showCornerBadgeBorder = true,
   fallbackIcon,
   isAggregateToken,
+  symbol,
   bg: bgProp,
   ...rest
 }: ITokenProps) {
@@ -71,8 +75,17 @@ export function Token({
     tokenImageSize,
     chainImageSize,
     fallbackIconSize,
+    fallbackLetterSize,
     tokenImageResizeWidth,
   } = size ? TOKEN_SIZE_MAP[size] : TOKEN_SIZE_MAP.lg;
+  // NFTs and callers with their own fallback icon keep the icon; passing the
+  // default coin icon explicitly still means "a token", so the letter wins.
+  const hasCustomFallbackIcon =
+    !!fallbackIcon && fallbackIcon !== 'CryptoCoinOutline';
+  const fallbackLetter =
+    isNFT || hasCustomFallbackIcon
+      ? undefined
+      : Array.from((symbol ?? '').trim())[0]?.toUpperCase();
 
   const themeVariant = useThemeVariant();
 
@@ -98,23 +111,56 @@ export function Token({
   const shouldShowBorder = themeVariant === 'dark';
 
   const fallbackElement = useMemo(
-    () => (
-      <Stack
-        bg="$gray5"
-        ai="center"
-        jc="center"
-        borderRadius={borderRadius}
-        w={tokenImageSize}
-        h={tokenImageSize}
-      >
-        <Icon
-          size={fallbackIconSize}
-          name={fallbackIconName}
-          color="$iconSubdued"
-        />
-      </Stack>
-    ),
-    [borderRadius, tokenImageSize, fallbackIconSize, fallbackIconName],
+    () =>
+      fallbackLetter ? (
+        <Stack
+          bg="$bgInverse"
+          ai="center"
+          jc="center"
+          borderRadius={borderRadius}
+          w={tokenImageSize}
+          h={tokenImageSize}
+        >
+          <SizableText
+            color="$textInverse"
+            fontSize={fallbackLetterSize}
+            lineHeight={fallbackLetterSize}
+            fontWeight="600"
+            textAlign="center"
+            // Centre the letter's cap height, not its line box.
+            style={
+              platformEnv.isNative
+                ? { includeFontPadding: false }
+                : ({ textBox: 'trim-both cap alphabetic' } as object)
+            }
+          >
+            {fallbackLetter}
+          </SizableText>
+        </Stack>
+      ) : (
+        <Stack
+          bg="$gray5"
+          ai="center"
+          jc="center"
+          borderRadius={borderRadius}
+          w={tokenImageSize}
+          h={tokenImageSize}
+        >
+          <Icon
+            size={fallbackIconSize}
+            name={fallbackIconName}
+            color="$iconSubdued"
+          />
+        </Stack>
+      ),
+    [
+      fallbackLetter,
+      fallbackLetterSize,
+      borderRadius,
+      tokenImageSize,
+      fallbackIconSize,
+      fallbackIconName,
+    ],
   );
 
   const placeholderElement = useMemo(

@@ -10,6 +10,7 @@ const evmTokenImageUri =
   'https://common.onekey-asset.com/token/evm-1/0x7D1AfA7B718fb893dB30A3aBc0Cfc608AaCfeBB0.jpg';
 const ethTokenImageUri = 'https://uni.onekey-asset.com/static/chain/eth.png';
 const solTokenImageUri = 'https://uni.onekey-asset.com/static/chain/sol.png';
+const missingImageUri = 'https://uni.onekey-asset.com/static/chain/missing.png';
 
 const mockTokens = [
   { tokenImageUri },
@@ -54,6 +55,26 @@ const TokenGallery = () => (
               networkImageUri={tokenImageUri}
               tokenImageUri={tokenImageUri}
             />
+          </YStack>
+        ),
+      },
+      {
+        title: 'missing image: symbol letter vs icon',
+        element: (
+          <YStack gap="$3">
+            <Token size="xs" tokenImageUri={missingImageUri} symbol="USDC" />
+            <Token size="sm" tokenImageUri={missingImageUri} symbol="USDC" />
+            <Token size="md" tokenImageUri={missingImageUri} symbol="USDC" />
+            <Token
+              size="lg"
+              tokenImageUri={missingImageUri}
+              symbol="arb"
+              showNetworkIcon
+              networkId="evm--1"
+            />
+            <Token size="xl" tokenImageUri={missingImageUri} symbol="Wbtc" />
+            <Token size="md" tokenImageUri={missingImageUri} />
+            <Token size="md" isNFT tokenImageUri={missingImageUri} />
           </YStack>
         ),
       },

@@ -118,6 +118,7 @@ function SimulationAssetGroups({
                 size="xs"
                 flexShrink={0}
                 {...getSimulationAssetIconProps(asset)}
+                symbol={getSimulationAssetLabel(asset)}
               />
               <YStack flex={1} minWidth={0}>
                 <SimulationAssetText asset={asset} />

@@ -110,6 +110,7 @@ export function FavoritesEmptyState({ isMobile }: { isMobile?: boolean }) {
                   size="sm"
                   borderRadius="$full"
                   tokenImageUri={getHyperliquidTokenImageUrl(token.symbol)}
+                  symbol={token.symbol}
                   fallbackIcon="CryptoCoinOutline"
                 />
                 <YStack>

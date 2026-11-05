@@ -117,7 +117,7 @@ const PortfolioItem = ({ item, network }: IPortfolioItemProps) => {
         </XStack>
         <XStack p={14} alignItems="center">
           <Stack pr={12}>
-            <Token tokenImageUri={network?.logoURI} />
+            <Token tokenImageUri={network?.logoURI} symbol={network?.symbol} />
           </Stack>
           <Stack>
             <SizableText size="$headingLg">

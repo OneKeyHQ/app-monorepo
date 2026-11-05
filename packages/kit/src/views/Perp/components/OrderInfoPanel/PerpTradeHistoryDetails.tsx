@@ -231,6 +231,7 @@ function TradeHistoryDetails() {
                   : {
                       tokenImageUris: getHyperliquidTokenImageUris(fill.coin),
                     })}
+                symbol={assetSymbol}
                 fallbackIcon="CryptoCoinOutline"
               />
               <SizableText size="$headingLg" flexShrink={1} numberOfLines={1}>

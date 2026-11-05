@@ -73,6 +73,7 @@ export function LedgerRewardCard({
         <Token
           size="sm"
           tokenImageUri={item.token.info.logoURI}
+          symbol={item.token.info.symbol}
           showNetworkIcon
           networkId={group.networkId}
         />

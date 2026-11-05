@@ -110,7 +110,7 @@ export const ReserveProtocolHeader = ({
           ) : null}
           {/* Token icon + Symbol (large) */}
           <XStack gap="$2" ai="center" mb="$6">
-            <Token size="lg" tokenImageUri={logoURI} />
+            <Token size="lg" tokenImageUri={logoURI} symbol={symbol} />
             <SizableText size="$heading2xl">{symbol}</SizableText>
           </XStack>
           {/* Statistics grid (2x2 layout) */}
@@ -165,7 +165,7 @@ export const ReserveProtocolHeader = ({
     <YStack>
       <YStack jc="center">
         <XStack gap="$2" ai="center">
-          <Token size="xs" tokenImageUri={logoURI} />
+          <Token size="xs" tokenImageUri={logoURI} symbol={symbol} />
           <SizableText size="$bodyLgMedium">{symbol}</SizableText>
           {onShare ? (
             <IconButton

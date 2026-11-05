@@ -12,7 +12,7 @@ index 0d0a5a4..e2c584b 100644
    WalletOutline: 'WalletOutline'
  };
 diff --git a/node_modules/@onekeyfe/react-native-native-list/lib/module/web/NativeListWebEngine.js b/node_modules/@onekeyfe/react-native-native-list/lib/module/web/NativeListWebEngine.js
-index a3f6641..59c9cdd 100644
+index a3f6641..9cff68b 100644
 --- a/node_modules/@onekeyfe/react-native-native-list/lib/module/web/NativeListWebEngine.js
 +++ b/node_modules/@onekeyfe/react-native-native-list/lib/module/web/NativeListWebEngine.js
 @@ -459,7 +459,12 @@ export const WEB_LIST_CSS = `
@@ -41,7 +41,20 @@ index a3f6641..59c9cdd 100644
  .ok-native-list-identity-title-icon{flex:0 0 20px;width:20px;height:20px;display:inline-flex;align-items:center;justify-content:center;color:var(--nl-icon);font-size:20px}.ok-native-list-identity-title-text{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
  .ok-native-list-account-row .ok-native-list-visual,.ok-native-list-account-action-row .ok-native-list-visual{width:32px;height:32px;flex-basis:32px}.ok-native-list-account-row .ok-native-list-visual>img,.ok-native-list-account-row .ok-native-list-visual-main,.ok-native-list-account-action-row .ok-native-list-visual>img,.ok-native-list-account-action-row .ok-native-list-visual-main{width:32px;height:32px}.ok-native-list-account-row .ok-native-list-visual>.ok-native-list-visual-corner{width:20px;height:20px;padding:2px}.ok-native-list-account-action-row .ok-native-list-visual{border-radius:8px!important}.ok-native-list-wallet-row .ok-native-list-title{color:var(--nl-secondary);font-size:12px;line-height:16px;font-weight:400;font-family:var(--nl-font-regular)}.ok-native-list-item[data-native-list-selected="true"]>.ok-native-list-wallet-row .ok-native-list-title{color:var(--nl-primary)}.ok-native-list-account-row .ok-native-list-title{font-size:16px;line-height:20px;font-weight:400;font-family:var(--nl-font-regular)}.ok-native-list-account-row .ok-native-list-secondary{font-size:14px;line-height:20px;font-weight:400;font-family:var(--nl-font-regular)}
  .ok-native-list-flex{display:flex;flex:1;min-width:0;flex-direction:column;justify-content:center}.ok-native-list-title{font-size:15px;line-height:20px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-family:var(--nl-font-semibold)}.ok-native-list-secondary{font-size:13px;line-height:18px;color:var(--nl-secondary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.ok-native-list-tertiary{color:var(--nl-secondary)}.ok-native-list-info{color:var(--nl-info)}
-@@ -1037,9 +1048,13 @@ function createAccessory(context, rowKey, accessory, slot, rowDisabled) {
+@@ -850,6 +861,12 @@ function createVisual(context, visual, selectorPresentation) {
+       frame.querySelector('.ok-native-list-visual-fallback:not(.ok-native-list-visual-corner)')?.remove();
+       const fallback = createElement(context.document, 'span', 'ok-native-list-visual-fallback', fallbackIcon ? undefined : 'fallbackText' in visual ? visual.fallbackText ?? '' : '');
+       if ('fallbackTextColor' in visual && visual.fallbackTextColor && !fallbackIcon) fallback.style.color = visual.fallbackTextColor;
++      // OneKey patch: a sized letter fallback, centred on the letter's cap height rather than its line box.
++      if ('fallbackTextSize' in visual && visual.fallbackTextSize && !fallbackIcon) {
++        fallback.style.fontSize = String(visual.fallbackTextSize) + 'px';
++        fallback.style.lineHeight = '1';
++        fallback.style.setProperty('text-box', 'trim-both cap alphabetic');
++      }
+       if (fallbackIcon) {
+         applySelectorIcon(fallback, fallbackIcon.name);
+         if (fallbackIcon.tintColor) fallback.style.color = fallbackIcon.tintColor;
+@@ -1037,9 +1054,13 @@ function createAccessory(context, rowKey, accessory, slot, rowDisabled) {
        element.classList.add('ok-native-list-tertiary-icon');
        setData(element, 'nativeListAnchorInset', 7);
      }
@@ -56,7 +69,7 @@ index a3f6641..59c9cdd 100644
      if (accessory.accessibilityLabel) element.setAttribute('aria-label', accessory.accessibilityLabel);
      const row = context.snapshot.rows[context.itemIndex];
      if (row && 'presentation' in row && row.presentation === 'accountSelector') {
-@@ -1298,6 +1313,11 @@ export class NativeListWebEngine {
+@@ -1298,6 +1319,11 @@ export class NativeListWebEngine {
      this.root.addEventListener('focusin', this.handleTitlePointerOver);
      this.root.addEventListener('focusout', this.handleTitlePointerOut);
      this.root.addEventListener('pointerout', this.handleTitlePointerOut);
@@ -68,7 +81,7 @@ index a3f6641..59c9cdd 100644
      this.root.addEventListener('keydown', this.handleKeyDown);
      this.viewport.addEventListener('pointerdown', this.handleReorderPointerDown, {
        passive: false
-@@ -1893,6 +1913,11 @@ export class NativeListWebEngine {
+@@ -1893,6 +1919,11 @@ export class NativeListWebEngine {
      this.root.removeEventListener('focusin', this.handleTitlePointerOver);
      this.root.removeEventListener('focusout', this.handleTitlePointerOut);
      this.root.removeEventListener('pointerout', this.handleTitlePointerOut);
@@ -80,7 +93,7 @@ index a3f6641..59c9cdd 100644
      this.root.removeEventListener('keydown', this.handleKeyDown);
      this.cancelPointerReorder(true);
      this.viewport.removeEventListener('pointerdown', this.handleReorderPointerDown);
-@@ -2194,6 +2219,8 @@ export class NativeListWebEngine {
+@@ -2194,6 +2225,8 @@ export class NativeListWebEngine {
    }
    renderElement(element, index, row, overlay = false) {
      this.invalidateActionAnchorForElement(element);
@@ -89,7 +102,7 @@ index a3f6641..59c9cdd 100644
      const registered = rowRenderer(row);
      const existingBody = element.firstElementChild;
      const reusableBody = existingBody?.dataset.nlRenderer === registered.key ? existingBody : undefined;
-@@ -2839,6 +2866,23 @@ export class NativeListWebEngine {
+@@ -2839,6 +2872,23 @@ export class NativeListWebEngine {
    };
  
    // OneKey patch: hover opens the same anchored help action as native taps.
@@ -114,10 +127,19 @@ index a3f6641..59c9cdd 100644
      const target = event.target;
      if (!(target instanceof Element)) return;
 diff --git a/node_modules/@onekeyfe/react-native-native-list/lib/typescript/src/models.d.ts b/node_modules/@onekeyfe/react-native-native-list/lib/typescript/src/models.d.ts
-index 4050327..dbe8d77 100644
+index 4050327..a47b0af 100644
 --- a/node_modules/@onekeyfe/react-native-native-list/lib/typescript/src/models.d.ts
 +++ b/node_modules/@onekeyfe/react-native-native-list/lib/typescript/src/models.d.ts
-@@ -362,6 +362,8 @@ export type TrailingAccessory = Readonly<{
+@@ -257,6 +257,8 @@ type VisualWithImage = Readonly<{
+     image?: ImageSource;
+     fallbackText?: string;
+     fallbackTextColor?: string;
++    /** OneKey patch: font size of a letter fallback (e.g. a token symbol's first letter). */
++    fallbackTextSize?: number;
+     backgroundColor?: string;
+     shape?: 'circle' | 'rounded' | 'square';
+     cornerIcon?: Readonly<{
+@@ -362,6 +364,8 @@ export type TrailingAccessory = Readonly<{
      testID?: string;
      hoverActionKey?: string;
      accessibilityLabel?: string;
@@ -127,10 +149,19 @@ index 4050327..dbe8d77 100644
      kind: 'spinner';
  }> | Readonly<{
 diff --git a/node_modules/@onekeyfe/react-native-native-list/src/models.ts b/node_modules/@onekeyfe/react-native-native-list/src/models.ts
-index 9ac00b5..f152c71 100644
+index 9ac00b5..fe2a0c3 100644
 --- a/node_modules/@onekeyfe/react-native-native-list/src/models.ts
 +++ b/node_modules/@onekeyfe/react-native-native-list/src/models.ts
-@@ -479,6 +479,8 @@ export type TrailingAccessory =
+@@ -375,6 +375,8 @@ type VisualWithImage = Readonly<{
+   image?: ImageSource;
+   fallbackText?: string;
+   fallbackTextColor?: string;
++  /** OneKey patch: font size of a letter fallback (e.g. a token symbol's first letter). */
++  fallbackTextSize?: number;
+   backgroundColor?: string;
+   shape?: 'circle' | 'rounded' | 'square';
+   cornerIcon?: Readonly<{
+@@ -479,6 +481,8 @@ export type TrailingAccessory =
        testID?: string;
        hoverActionKey?: string;
        accessibilityLabel?: string;
@@ -153,7 +184,7 @@ index d612a4d..f749c55 100644
    WalletOutline: 'WalletOutline',
  };
 diff --git a/node_modules/@onekeyfe/react-native-native-list/src/web/NativeListWebEngine.ts b/node_modules/@onekeyfe/react-native-native-list/src/web/NativeListWebEngine.ts
-index 751512c..76d29a3 100644
+index 751512c..56977ad 100644
 --- a/node_modules/@onekeyfe/react-native-native-list/src/web/NativeListWebEngine.ts
 +++ b/node_modules/@onekeyfe/react-native-native-list/src/web/NativeListWebEngine.ts
 @@ -837,7 +837,12 @@ export const WEB_LIST_CSS = `
@@ -182,7 +213,24 @@ index 751512c..76d29a3 100644
  .ok-native-list-identity-title-icon{flex:0 0 20px;width:20px;height:20px;display:inline-flex;align-items:center;justify-content:center;color:var(--nl-icon);font-size:20px}.ok-native-list-identity-title-text{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
  .ok-native-list-account-row .ok-native-list-visual,.ok-native-list-account-action-row .ok-native-list-visual{width:32px;height:32px;flex-basis:32px}.ok-native-list-account-row .ok-native-list-visual>img,.ok-native-list-account-row .ok-native-list-visual-main,.ok-native-list-account-action-row .ok-native-list-visual>img,.ok-native-list-account-action-row .ok-native-list-visual-main{width:32px;height:32px}.ok-native-list-account-row .ok-native-list-visual>.ok-native-list-visual-corner{width:20px;height:20px;padding:2px}.ok-native-list-account-action-row .ok-native-list-visual{border-radius:8px!important}.ok-native-list-wallet-row .ok-native-list-title{color:var(--nl-secondary);font-size:12px;line-height:16px;font-weight:400;font-family:var(--nl-font-regular)}.ok-native-list-item[data-native-list-selected="true"]>.ok-native-list-wallet-row .ok-native-list-title{color:var(--nl-primary)}.ok-native-list-account-row .ok-native-list-title{font-size:16px;line-height:20px;font-weight:400;font-family:var(--nl-font-regular)}.ok-native-list-account-row .ok-native-list-secondary{font-size:14px;line-height:20px;font-weight:400;font-family:var(--nl-font-regular)}
  .ok-native-list-flex{display:flex;flex:1;min-width:0;flex-direction:column;justify-content:center}.ok-native-list-title{font-size:15px;line-height:20px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-family:var(--nl-font-semibold)}.ok-native-list-secondary{font-size:13px;line-height:18px;color:var(--nl-secondary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.ok-native-list-tertiary{color:var(--nl-secondary)}.ok-native-list-info{color:var(--nl-info)}
-@@ -1726,10 +1737,20 @@ function createAccessory(
+@@ -1386,6 +1397,16 @@ function createVisual(
+         !fallbackIcon
+       )
+         fallback.style.color = visual.fallbackTextColor;
++      // OneKey patch: a sized letter fallback, centred on the letter's cap height rather than its line box.
++      if (
++        'fallbackTextSize' in visual &&
++        visual.fallbackTextSize &&
++        !fallbackIcon
++      ) {
++        fallback.style.fontSize = String(visual.fallbackTextSize) + 'px';
++        fallback.style.lineHeight = '1';
++        fallback.style.setProperty('text-box', 'trim-both cap alphabetic');
++      }
+       if (fallbackIcon) {
+         applySelectorIcon(fallback, fallbackIcon.name);
+         if (fallbackIcon.tintColor)
+@@ -1726,10 +1747,20 @@ function createAccessory(
        element.classList.add('ok-native-list-tertiary-icon');
        setData(element, 'nativeListAnchorInset', 7);
      }
@@ -204,7 +252,7 @@ index 751512c..76d29a3 100644
        setData(element, 'nativeListIconHelp', true);
      if (accessory.accessibilityLabel)
        element.setAttribute('aria-label', accessory.accessibilityLabel);
-@@ -1961,6 +1982,8 @@ export class NativeListWebEngine {
+@@ -1961,6 +1992,8 @@ export class NativeListWebEngine {
    private virtualizationEnabled: boolean;
    private actionAnchor: WebActionAnchorRecord | undefined;
    private pressedHelpElement: HTMLElement | undefined;
@@ -213,7 +261,7 @@ index 751512c..76d29a3 100644
    private readonly actionAnchorInstanceId = String(
      ++webNativeListInstanceCounter
    );
-@@ -2213,6 +2236,11 @@ export class NativeListWebEngine {
+@@ -2213,6 +2246,11 @@ export class NativeListWebEngine {
      this.root.addEventListener('focusin', this.handleTitlePointerOver);
      this.root.addEventListener('focusout', this.handleTitlePointerOut);
      this.root.addEventListener('pointerout', this.handleTitlePointerOut);
@@ -225,7 +273,7 @@ index 751512c..76d29a3 100644
      this.root.addEventListener('keydown', this.handleKeyDown);
      this.viewport.addEventListener(
        'pointerdown',
-@@ -3063,6 +3091,11 @@ export class NativeListWebEngine {
+@@ -3063,6 +3101,11 @@ export class NativeListWebEngine {
      this.root.removeEventListener('focusin', this.handleTitlePointerOver);
      this.root.removeEventListener('focusout', this.handleTitlePointerOut);
      this.root.removeEventListener('pointerout', this.handleTitlePointerOut);
@@ -237,7 +285,7 @@ index 751512c..76d29a3 100644
      this.root.removeEventListener('keydown', this.handleKeyDown);
      this.cancelPointerReorder(true);
      this.viewport.removeEventListener(
-@@ -3518,6 +3551,9 @@ export class NativeListWebEngine {
+@@ -3518,6 +3561,9 @@ export class NativeListWebEngine {
      overlay = false
    ) {
      this.invalidateActionAnchorForElement(element);
@@ -247,7 +295,7 @@ index 751512c..76d29a3 100644
      const registered = rowRenderer(row);
      const existingBody = element.firstElementChild as HTMLElement | null;
      const reusableBody =
-@@ -4585,6 +4621,40 @@ export class NativeListWebEngine {
+@@ -4585,6 +4631,40 @@ export class NativeListWebEngine {
    };
  
    // OneKey patch: hover opens the same anchored help action as native taps.

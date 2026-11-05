@@ -71,7 +71,7 @@ function RecommendItem({
       {...sharedFrameStyles}
     >
       <XStack gap="$3" ai="center" flexShrink={1}>
-        <MarketTokenIcon uri={icon} size="lg" />
+        <MarketTokenIcon uri={icon} size="lg" symbol={symbol} />
         <YStack flexShrink={1}>
           <SizableText size="$bodyLgMedium" numberOfLines={1}>
             {symbol.toUpperCase()}

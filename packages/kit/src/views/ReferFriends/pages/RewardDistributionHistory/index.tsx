@@ -115,7 +115,11 @@ function RewardDistributionHistoryPageWrapper() {
         <YStack px="$5" py="$2.5">
           <XStack jc="space-between" ai="center" gap="$4">
             <XStack gap="$3" flexShrink={1}>
-              <Token size="lg" tokenImageUri={item.token.logoURI} />
+              <Token
+                size="lg"
+                tokenImageUri={item.token.logoURI}
+                symbol={item.token.symbol}
+              />
               <YStack flexShrink={1}>
                 <XStack flexShrink={1}>
                   <SizableText size="$bodyLgMedium" flexShrink={1}>

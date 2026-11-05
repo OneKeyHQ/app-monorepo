@@ -33,9 +33,13 @@ interface ISwapTxHistoryListCellProps {
 export const SwapTxHistoryAvatar = ({
   fromUri,
   toUri,
+  fromSymbol,
+  toSymbol,
 }: {
   fromUri: string;
   toUri: string;
+  fromSymbol?: string;
+  toSymbol?: string;
 }) => (
   <XStack w="$10" h="$10" userSelect="none" alignItems="center" py="$1">
     <YStack
@@ -44,7 +48,7 @@ export const SwapTxHistoryAvatar = ({
       borderColor="$bg"
       bg="$bgSubdued"
     >
-      <Token w="$8" h="$8" tokenImageUri={fromUri} />
+      <Token w="$8" h="$8" tokenImageUri={fromUri} symbol={fromSymbol} />
     </YStack>
     <YStack
       borderWidth={2}
@@ -53,7 +57,7 @@ export const SwapTxHistoryAvatar = ({
       ml="$-3.5"
       bg="$bgSubdued"
     >
-      <Token w="$8" h="$8" tokenImageUri={toUri} />
+      <Token w="$8" h="$8" tokenImageUri={toUri} symbol={toSymbol} />
     </YStack>
   </XStack>
 );
@@ -268,6 +272,8 @@ const SwapTxHistoryListCell = ({
           <SwapTxHistoryAvatar
             fromUri={item.baseInfo.fromToken.logoURI ?? ''}
             toUri={item.baseInfo.toToken.logoURI ?? ''}
+            fromSymbol={item.baseInfo.fromToken.symbol}
+            toSymbol={item.baseInfo.toToken.symbol}
           />
           <YStack>
             <XStack alignItems="center" gap="$1.5">

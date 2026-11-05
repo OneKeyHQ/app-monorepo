@@ -318,6 +318,7 @@ function RecommendCardItem({
         <Token
           size="md"
           tokenImageUri={token.logoUrl}
+          symbol={token.symbol}
           tokenImageUris={token.logoUrls}
           networkId={networkId}
           showNetworkIcon={Boolean(networkId)}

@@ -219,6 +219,7 @@ export function useMarketStockColumns({
                 size={compact ? 'md' : 'lg'}
                 borderRadius="$full"
                 tokenImageUri={record.logoUrl}
+                symbol={record.symbol}
                 fallbackIcon="CryptoCoinOutline"
                 {...(compact
                   ? { placeholder: null, loadingStrategy: 'static' as const }

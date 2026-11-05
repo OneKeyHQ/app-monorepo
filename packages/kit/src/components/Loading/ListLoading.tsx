@@ -8,19 +8,79 @@ import {
 
 import { type IListItemProps, ListItem } from '../ListItem';
 
+// Desktop / web wallet rows: icon 40 + name and amount on the left, value and
+// change on the right, the swap slot, and the same inset dividers, so nothing
+// jumps when the rows arrive.
+function WalletRowsLoading({
+  listContainerProps,
+  listCount = 6,
+}: {
+  listContainerProps?: IStackProps;
+  listCount?: number;
+}) {
+  return (
+    <Stack {...listContainerProps}>
+      {[...Array(listCount)].map((_, index) => (
+        <XStack
+          key={index}
+          position="relative"
+          h={60}
+          mx="$2"
+          px="$3"
+          gap="$3"
+          alignItems="center"
+        >
+          <Skeleton w={40} h={40} radius="round" />
+          <Stack flex={1} gap="$2">
+            <Skeleton h="$4" w="$32" />
+            <Skeleton h="$3" w="$24" />
+          </Stack>
+          <Stack alignItems="flex-end" gap="$2">
+            <Skeleton h="$4" w="$16" />
+            <Skeleton h="$3" w="$12" />
+          </Stack>
+          <Stack w={38} alignItems="center">
+            <Skeleton w="$6" h="$6" radius="round" />
+          </Stack>
+          {index < listCount - 1 ? (
+            <Stack
+              position="absolute"
+              left={64}
+              right={0}
+              bottom={0}
+              h={1}
+              bg="$bgStrong"
+            />
+          ) : null}
+        </XStack>
+      ))}
+    </Stack>
+  );
+}
+
 function ListLoading({
   isTokenSelectorView,
+  walletRows,
   listContainerProps,
   listHeaderProps,
   itemProps,
   listCount,
 }: {
   isTokenSelectorView?: boolean;
+  walletRows?: boolean;
   itemProps?: IListItemProps;
   listContainerProps?: IStackProps;
   listHeaderProps?: IXStackProps;
   listCount?: number;
 }) {
+  if (walletRows) {
+    return (
+      <WalletRowsLoading
+        listContainerProps={listContainerProps}
+        listCount={listCount}
+      />
+    );
+  }
   if (!isTokenSelectorView) {
     return (
       <Stack {...listContainerProps}>

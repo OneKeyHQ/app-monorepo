@@ -106,6 +106,8 @@ const LimitOrderCard = ({
         <SwapTxHistoryAvatar
           fromUri={fromTokenInfo?.logoURI ?? ''}
           toUri={toTokenInfo?.logoURI ?? ''}
+          fromSymbol={fromTokenInfo?.symbol}
+          toSymbol={toTokenInfo?.symbol}
         />
         <YStack>
           <XStack alignItems="center" gap="$1" flex={1}>

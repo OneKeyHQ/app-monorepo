@@ -38,7 +38,12 @@ function ProtocolPositionAssetPillContent({
           wrapperBorderColor="$bgSubdued"
         />
       ) : (
-        <Token size="sm" tokenImageUri={logoURIs?.[0] ?? logoURI} bg="$bg" />
+        <Token
+          size="sm"
+          tokenImageUri={logoURIs?.[0] ?? logoURI}
+          symbol={symbol}
+          bg="$bg"
+        />
       )}
       <SizableText size="$bodyMdMedium" numberOfLines={1} flexShrink={1}>
         {symbol}
