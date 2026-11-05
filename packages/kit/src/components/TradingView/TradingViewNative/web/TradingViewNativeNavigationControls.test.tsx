@@ -8,9 +8,10 @@ import type {
   KeyboardEventHandler,
   PointerEventHandler,
   ReactNode,
+  Ref,
 } from 'react';
 
-import { fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 
 import { TradingViewNativeNavigationControls } from './TradingViewNativeNavigationControls';
 
@@ -41,11 +42,20 @@ jest.mock('@onekeyhq/components', () => ({
     onKeyDown?: KeyboardEventHandler<HTMLButtonElement>;
     onBlur?: FocusEventHandler<HTMLButtonElement>;
     onPointerDown?: PointerEventHandler<HTMLButtonElement>;
+    render?: ReactNode;
     'aria-label'?: string;
   }) => {
     mockStack(props);
+    const react = jest.requireActual<typeof import('react')>('react');
+    // Forward the ref placed on the `render` host element, as Tamagui does.
+    const renderRef = react.isValidElement<{
+      ref?: Ref<HTMLButtonElement>;
+    }>(props.render)
+      ? props.render.props.ref
+      : undefined;
     return (
       <button
+        ref={renderRef}
         type="button"
         data-testid={testID}
         aria-label={props['aria-label']}
@@ -67,26 +77,43 @@ jest.mock('@onekeyhq/components', () => ({
 }));
 
 function renderControls({
+  chartWidth = 600,
+  isResetVisible = true,
   isVisible = false,
   isMobileLayout = false,
   onAction = jest.fn(),
 }: {
+  chartWidth?: number;
+  isResetVisible?: boolean;
   isVisible?: boolean;
   isMobileLayout?: boolean;
   onAction?: jest.Mock;
 } = {}) {
-  render(
+  const props = {
+    backgroundColor: '#ffffff',
+    chartWidth,
+    isMobileLayout,
+    isVisible,
+    onAction,
+    timeAxisHeight: 24,
+    testID: 'chart',
+  };
+  const { rerender } = render(
     <TradingViewNativeNavigationControls
-      backgroundColor="#ffffff"
-      chartWidth={600}
-      isVisible={isVisible}
-      isMobileLayout={isMobileLayout}
-      onAction={onAction}
-      timeAxisHeight={24}
-      testID="chart"
+      {...props}
+      isResetVisible={isResetVisible}
     />,
   );
-  return { onAction };
+  return {
+    onAction,
+    setResetVisible: (nextIsResetVisible: boolean) =>
+      rerender(
+        <TradingViewNativeNavigationControls
+          {...props}
+          isResetVisible={nextIsResetVisible}
+        />,
+      ),
+  };
 }
 
 describe('Web TradingViewNativeNavigationControls', () => {
@@ -186,14 +213,14 @@ describe('Web TradingViewNativeNavigationControls', () => {
       expect.objectContaining({
         opacity: 1,
         pointerEvents: 'box-none',
-        gap: 8,
+        gap: 6,
       }),
     );
     for (const [props] of mockStack.mock.calls) {
       expect(props).toEqual(
         expect.objectContaining({
-          width: 36,
-          height: 36,
+          width: 28,
+          height: 28,
           pointerEvents: 'auto',
         }),
       );
@@ -209,5 +236,81 @@ describe('Web TradingViewNativeNavigationControls', () => {
     for (const [props] of mockStack.mock.calls) {
       expect(props).toEqual(expect.objectContaining({ width: 25, height: 25 }));
     }
+  });
+
+  it('hides reset while the chart is at its default view', () => {
+    renderControls({ isResetVisible: false, isVisible: true });
+
+    expect(screen.queryByTestId('chart-navigation-reset')).toBeNull();
+    expect(screen.getAllByRole('button')).toHaveLength(4);
+  });
+
+  it('pins reset beside the centered primary buttons', () => {
+    renderControls({ isVisible: true });
+
+    const propsByLabel = new Map(
+      mockStack.mock.calls.map(([props]) => [props['aria-label'], props]),
+    );
+    // Four 25px buttons with 6px gaps span 118px, centered in 600px.
+    expect(propsByLabel.get('global.reset')).toEqual(
+      expect.objectContaining({ position: 'absolute', top: 0, left: 365 }),
+    );
+    expect(propsByLabel.get('menu.zoom_in')?.position).toBe(undefined);
+  });
+
+  it('hands keyboard focus to scroll right once a keyboard-focused reset unmounts', () => {
+    const { setResetVisible } = renderControls();
+    const reset = screen.getByTestId('chart-navigation-reset');
+    const scrollRight = screen.getByTestId('chart-navigation-scrollRight');
+    jest.spyOn(reset, 'matches').mockReturnValue(true);
+    jest.spyOn(scrollRight, 'matches').mockReturnValue(true);
+
+    act(() => reset.focus());
+    expect(mockXStack.mock.lastCall?.[0]).toEqual(
+      expect.objectContaining({ opacity: 1 }),
+    );
+
+    setResetVisible(false);
+    expect(document.activeElement).toBe(scrollRight);
+    expect(mockXStack.mock.lastCall?.[0]).toEqual(
+      expect.objectContaining({ opacity: 1, pointerEvents: 'box-none' }),
+    );
+
+    // Leaving the bar clears the handed-off focus, so a later zoom that
+    // brings reset back does not keep the bar visible.
+    act(() => scrollRight.blur());
+    setResetVisible(true);
+    expect(mockXStack.mock.lastCall?.[0]).toEqual(
+      expect.objectContaining({ opacity: 0, pointerEvents: 'none' }),
+    );
+  });
+
+  it('leaves focus alone when a pointer-pressed reset unmounts', () => {
+    const { setResetVisible } = renderControls();
+    const reset = screen.getByTestId('chart-navigation-reset');
+    const scrollRight = screen.getByTestId('chart-navigation-scrollRight');
+    jest.spyOn(reset, 'matches').mockReturnValue(false);
+
+    fireEvent.pointerDown(reset);
+    act(() => reset.focus());
+    setResetVisible(false);
+
+    expect(document.activeElement).not.toBe(scrollRight);
+    expect(mockXStack.mock.lastCall?.[0]).toEqual(
+      expect.objectContaining({ opacity: 0, pointerEvents: 'none' }),
+    );
+  });
+
+  it('keeps reset inside a narrow chart', () => {
+    renderControls({ chartWidth: 160, isVisible: true });
+
+    expect(mockXStack.mock.lastCall?.[0]).toEqual(
+      expect.objectContaining({ paddingRight: 20, width: 160 }),
+    );
+    const resetProps = mockStack.mock.calls.find(
+      ([props]) => props['aria-label'] === 'global.reset',
+    )?.[0];
+    // 135 + 25 ends exactly at the 160px chart edge.
+    expect(resetProps).toEqual(expect.objectContaining({ left: 135 }));
   });
 });
