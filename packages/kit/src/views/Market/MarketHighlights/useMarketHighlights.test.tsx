@@ -465,3 +465,78 @@ it('ignores a late partial result after switching visible assets', async () => {
   expect(result.current?.get('asset:eth')?.price).toBe('2500');
   expect(result.current?.has('asset:btc')).toBe(false);
 });
+
+it('limits concurrent quote sources while preloading a full highlight list', async () => {
+  const pending = buildDeferredPromise<void>();
+  let active = 0;
+  let maximum = 0;
+  const waitForResponse = async () => {
+    active += 1;
+    maximum = Math.max(maximum, active);
+    await pending.promise;
+    active -= 1;
+  };
+  fetchTokens.mockImplementation(async () => {
+    await waitForResponse();
+    return { list: [] };
+  });
+  service.fetchMarketStockBatch.mockImplementation(async () => {
+    await waitForResponse();
+    return [];
+  });
+  service.fetchMarketPerpsTokenList.mockImplementation(async () => {
+    await waitForResponse();
+    return { tokens: [], updatedAt: 0 };
+  });
+  service.fetchMarketListingWatchlistQuote.mockImplementation(async () => {
+    await waitForResponse();
+    return { symbol: 'BTC', name: 'Bitcoin', logoUrl: '', price: '78000' };
+  });
+  const assets: IMarketHighlightAsset[] = [
+    {
+      type: 'token',
+      symbol: 'SOL',
+      chainId: 'sol--101',
+      contractAddress: '',
+      isNative: true,
+      favorite: { chainId: 'sol--101', contractAddress: '', isNative: true },
+    },
+    {
+      type: 'stock',
+      symbol: 'AAPL',
+      stockId: 'AAPL',
+      favorite: { chainId: '', contractAddress: '', stockId: 'AAPL' },
+    },
+    {
+      type: 'perp',
+      symbol: 'BTC',
+      perpsCoin: 'BTC',
+      favorite: { chainId: '', contractAddress: '', perpsCoin: 'BTC' },
+    },
+    ...Array.from(
+      { length: 8 },
+      (_, index): IMarketHighlightAsset => ({
+        type: 'asset',
+        symbol: `ASSET${index}`,
+        assetId: `asset-${index}`,
+        favorite: {
+          chainId: '',
+          contractAddress: '',
+          assetId: `asset-${index}`,
+        },
+      }),
+    ),
+  ];
+  const { result } = renderHook(() => useMarketHighlightQuotes(assets));
+  await act(async () => {
+    await jest.advanceTimersByTimeAsync(0);
+  });
+  expect(active).toBe(4);
+
+  pending.resolve();
+  await act(async () => {
+    await jest.advanceTimersByTimeAsync(0);
+  });
+  expect(maximum).toBe(4);
+  expect(result.current?.size).toBe(8);
+});

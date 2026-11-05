@@ -38,79 +38,85 @@ async function fetchHighlightQuotes(
 
   const requests = [
     tokens.length > 0 &&
-      fetchMarketTokenListBatchForPlatform({
-        tokenAddressList: tokens.map(
-          ({ chainId, contractAddress, isNative }) => ({
-            chainId,
-            contractAddress,
-            isNative: getNativeTokenInfo(isNative, contractAddress).isNative,
-          }),
-        ),
-      }).then(({ list }) => {
-        const tokenQuotes = new Map<string, IMarketHighlightQuote>();
-        list.forEach((token) => {
-          const chainId = token?.networkId || token?.chainId;
-          if (!chainId) return;
-          const { isNative } = getNativeTokenInfo(
-            token.isNative,
-            token.address,
-          );
-          const key = getMarketWatchlistKey({
-            chainId,
-            contractAddress: isNative ? '' : token.address,
+      limit(() =>
+        fetchMarketTokenListBatchForPlatform({
+          tokenAddressList: tokens.map(
+            ({ chainId, contractAddress, isNative }) => ({
+              chainId,
+              contractAddress,
+              isNative: getNativeTokenInfo(isNative, contractAddress).isNative,
+            }),
+          ),
+        }).then(({ list }) => {
+          const tokenQuotes = new Map<string, IMarketHighlightQuote>();
+          list.forEach((token) => {
+            const chainId = token?.networkId || token?.chainId;
+            if (!chainId) return;
+            const { isNative } = getNativeTokenInfo(
+              token.isNative,
+              token.address,
+            );
+            const key = getMarketWatchlistKey({
+              chainId,
+              contractAddress: isNative ? '' : token.address,
+            });
+            tokenQuotes.set(key, token);
           });
-          tokenQuotes.set(key, token);
-        });
-        for (const asset of tokens) {
-          const { isNative } = getNativeTokenInfo(
-            asset.isNative,
-            asset.contractAddress,
-          );
-          const key = getMarketWatchlistKey({
-            chainId: asset.chainId,
-            contractAddress: isNative ? '' : asset.contractAddress,
-          });
-          const quote = tokenQuotes.get(key);
-          if (quote) {
-            quotes.set(getMarketWatchlistKey(asset.favorite), quote);
+          for (const asset of tokens) {
+            const { isNative } = getNativeTokenInfo(
+              asset.isNative,
+              asset.contractAddress,
+            );
+            const key = getMarketWatchlistKey({
+              chainId: asset.chainId,
+              contractAddress: isNative ? '' : asset.contractAddress,
+            });
+            const quote = tokenQuotes.get(key);
+            if (quote) {
+              quotes.set(getMarketWatchlistKey(asset.favorite), quote);
+            }
           }
-        }
-      }),
+        }),
+      ),
     stocks.length > 0 &&
-      service
-        .fetchMarketStockBatch({
-          stockIds: stocks.map(({ stockId }) => stockId),
-        })
-        .then((items) => {
-          const byStockId = new Map(
-            items.map((item) => [item.stockId.toUpperCase(), item]),
-          );
-          for (const asset of stocks) {
-            const quote = byStockId.get(asset.stockId.toUpperCase());
-            if (quote) {
-              quotes.set(getMarketWatchlistKey(asset.favorite), {
-                ...quote,
-                isUSStock: quote.tags?.includes('US'),
-              });
+      limit(() =>
+        service
+          .fetchMarketStockBatch({
+            stockIds: stocks.map(({ stockId }) => stockId),
+          })
+          .then((items) => {
+            const byStockId = new Map(
+              items.map((item) => [item.stockId.toUpperCase(), item]),
+            );
+            for (const asset of stocks) {
+              const quote = byStockId.get(asset.stockId.toUpperCase());
+              if (quote) {
+                quotes.set(getMarketWatchlistKey(asset.favorite), {
+                  ...quote,
+                  isUSStock: quote.tags?.includes('US'),
+                });
+              }
             }
-          }
-        }),
+          }),
+      ),
     perps.length > 0 &&
-      service
-        .fetchMarketPerpsTokenList({ category: 'all' })
-        .then(({ tokens: items }) => {
-          const byCoin = new Map(items.map((item) => [item.name, item]));
-          for (const asset of perps) {
-            const quote = byCoin.get(asset.perpsCoin);
-            if (quote) {
-              quotes.set(getMarketWatchlistKey(asset.favorite), {
-                logoUrl: quote.tokenImageUrl,
-                price: quote.markPrice,
-                priceChange24hPercent: quote.change24hPercent,
-              });
+      limit(() =>
+        service
+          .fetchMarketPerpsTokenList({ category: 'all' })
+          .then(({ tokens: items }) => {
+            const byCoin = new Map(items.map((item) => [item.name, item]));
+            for (const asset of perps) {
+              const quote = byCoin.get(asset.perpsCoin);
+              if (quote) {
+                quotes.set(getMarketWatchlistKey(asset.favorite), {
+                  logoUrl: quote.tokenImageUrl,
+                  price: quote.markPrice,
+                  priceChange24hPercent: quote.change24hPercent,
+                });
+              }
             }
-          }
-        }),
+          }),
+      ),
     ...listings.map((asset) =>
       limit(async () => {
         const quote = await service.fetchMarketListingWatchlistQuote(

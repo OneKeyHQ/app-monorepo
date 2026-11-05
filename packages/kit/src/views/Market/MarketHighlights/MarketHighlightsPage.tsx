@@ -1,4 +1,4 @@
-import { Fragment, useCallback, useMemo, useState } from 'react';
+import { Fragment, useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -36,6 +36,7 @@ import { MarketPerpsStarV2, MarketStarV2 } from '../components/MarketStarV2';
 import { USStockMarketStatusIcon } from '../components/PerpsBadges';
 import { PriceChangePercentage } from '../components/PriceChangePercentage';
 import { usePerpsNavigation } from '../hooks/usePerpsNavigation';
+import { prewarmMarketTokenImages } from '../MarketDetailV2/utils/marketDetailImagePreload';
 import { useToDetailPage } from '../MarketHomeV2/components/MarketTokenList/hooks/useToMarketDetailPage';
 import { MarketWatchListProviderMirrorV2 } from '../MarketWatchListProviderMirrorV2';
 
@@ -407,21 +408,22 @@ function MarketHighlightsContent() {
   const { items, isLoading, retry } = useMarketHighlights(
     route.params?.initialHighlights,
   );
-  const [visibleIds, setVisibleIds] = useState<string[]>([]);
-
-  const onViewableItemsChanged = useCallback(
-    ({ viewableItems }: { viewableItems: { key: string }[] }) => {
-      setVisibleIds(viewableItems.map(({ key }) => key));
-    },
-    [],
+  const assets = useMemo(
+    () => items?.flatMap((item) => item.assets.slice(0, MAX_CARD_ASSETS)),
+    [items],
   );
-  const assets = useMemo(() => {
-    const visible = visibleIds.length
-      ? items?.filter((item) => visibleIds.includes(item.highlightId))
-      : items?.slice(0, 3);
-    return visible?.flatMap((item) => item.assets.slice(0, MAX_CARD_ASSETS));
-  }, [items, visibleIds]);
   const quotes = useMarketHighlightQuotes(assets, initialQuotes);
+  useEffect(() => {
+    if (!quotes) return;
+    prewarmMarketTokenImages(
+      {
+        tokenImageUris: [...quotes.values()]
+          .map((quote) => quote.logoUrl)
+          .filter((url): url is string => Boolean(url)),
+      },
+      { limit: quotes.size },
+    );
+  }, [quotes]);
   const onAssetPress = useCallback(
     (asset: IMarketHighlightAsset) => {
       if (asset.type === 'perp') {
@@ -486,7 +488,6 @@ function MarketHighlightsContent() {
               data={items}
               keyExtractor={(item) => item.highlightId}
               renderItem={renderItem}
-              onViewableItemsChanged={onViewableItemsChanged}
               ListHeaderComponent={<Stack height={10} />}
             />
           </YStack>
