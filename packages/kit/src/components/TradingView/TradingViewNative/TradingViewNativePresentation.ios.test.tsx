@@ -23,6 +23,7 @@ import type { Edge } from 'react-native-safe-area-context';
 let mockPageLayout: ((event: LayoutChangeEvent) => void) | undefined;
 let mockChartReady: (() => void) | undefined;
 let mockIsNativeIOSPad = false;
+let mockIsFoldableIPhone = false;
 const mockDispatch = jest.fn();
 const mockPageNavigation = {
   setOptions: jest.fn(),
@@ -68,6 +69,12 @@ jest.mock('@onekeyhq/components', () => ({
     },
   },
 }));
+jest.mock(
+  '@onekeyhq/shared/src/modules/DualScreenInfo/isFoldableIPhone',
+  () => ({
+    isFoldableIPhone: () => mockIsFoldableIPhone,
+  }),
+);
 jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
   __esModule: true,
   default: {
@@ -107,6 +114,7 @@ jest.mock('react-native-safe-area-context', () => ({
 
 beforeEach(() => {
   mockIsNativeIOSPad = false;
+  mockIsFoldableIPhone = false;
   mockDispatch.mockReset();
   mockChartReady = undefined;
   mockPageNavigation.setOptions.mockClear();
@@ -201,6 +209,33 @@ it.each([
     expect(safeArea.style.paddingLeft).toBe('62px');
   },
 );
+
+it('opens and closes in the current orientation on foldable iPhones', () => {
+  mockIsFoldableIPhone = true;
+  const chart = (isFullscreen: boolean) => (
+    <TradingViewNativePresentation isFullscreen={isFullscreen}>
+      <Chart label="Chart" />
+    </TradingViewNativePresentation>
+  );
+  const owner = render(chart(true));
+  render(<TradingViewNativeFullscreenPage />);
+  layout(669, 951);
+  act(() => {
+    mockChartReady?.();
+  });
+  expect(mockPageNavigation.setOptions).toHaveBeenCalledWith({
+    contentReady: true,
+  });
+  owner.rerender(chart(false));
+  expect(mockPageNavigation.setOptions).not.toHaveBeenCalledWith(
+    expect.objectContaining({ orientation: 'portrait' }),
+  );
+  expect(mockDispatch).toHaveBeenLastCalledWith({
+    type: 'GO_BACK',
+    source: 'fullscreen',
+    target: 'root',
+  });
+});
 
 it('keeps the inline canvas mounted while the native page receives updates', () => {
   const onClose = jest.fn();

@@ -94,6 +94,9 @@ export interface ITabSubStackNavigatorProps {
    * Settings split layout). Native only; defaults to `tab`.
    */
   pushedScreenPresentation?: 'tab' | 'modal';
+  // Set only on a tab's root stack. Stacks nested in a modal already sit inside
+  // the modal's own horizontal safe area, so this would inset them twice.
+  applyHorizontalSafeArea?: boolean;
 }
 
 export interface ITabNavigatorExtraConfig<RouteName extends string> {
