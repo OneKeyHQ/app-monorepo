@@ -17,6 +17,7 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { isHardwareCloudSyncStandardPinRequired } from '@onekeyhq/shared/src/hardware/hardwareCloudSyncErrors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes, ERootRoutes } from '@onekeyhq/shared/src/routes';
@@ -178,7 +179,10 @@ function confirmSwitchToWebUsb(intl: IntlShape) {
 }
 
 function deferCloudSyncFailureToPage(error: unknown) {
-  if (!isOneKeyHardwareError(error)) {
+  if (
+    !isOneKeyHardwareError(error) ||
+    isHardwareCloudSyncStandardPinRequired(error)
+  ) {
     // The proxy schedules its toast before rethrowing. Claim business errors
     // before awaiting dialog cleanup, on the UI runtime's same error object.
     errorToastUtils.toastIfErrorDisable(error);
@@ -187,8 +191,9 @@ function deferCloudSyncFailureToPage(error: unknown) {
 
 async function showCloudSyncFailure(intl: IntlShape, error: unknown) {
   const failure = error as IOneKeyError | undefined;
+  const standardPinRequired = isHardwareCloudSyncStandardPinRequired(error);
   if (
-    isOneKeyHardwareError(error) ||
+    (isOneKeyHardwareError(error) && !standardPinRequired) ||
     errorToastUtils.wasAutoToastShown(error) ||
     errorToastUtils.isUserCancelStyleError(error) ||
     failure?.key === ETranslations.update_operation_canceled
@@ -200,15 +205,31 @@ async function showCloudSyncFailure(intl: IntlShape, error: unknown) {
   // Service decorators respect autoToast=false. Business failures need an
   // explicit owner after the waiting/loading dialog has closed.
   await yieldDeviceStageToDialog();
+  let description: string;
+  if (standardPinRequired) {
+    description = intl.formatMessage({
+      id: ETranslations.cloud_sync_hardware_hidden_wallet__msg,
+    });
+  } else if (failure?.key) {
+    description = intl.formatMessage(
+      { id: failure.key, defaultMessage: failure.message },
+      failure.info,
+    );
+  } else {
+    description =
+      failure?.message ||
+      intl.formatMessage({ id: ETranslations.global_unknown_error });
+  }
   Dialog.show({
     title: intl.formatMessage({ id: ETranslations.global_an_error_occurred }),
-    description: failure?.key
-      ? intl.formatMessage(
-          { id: failure.key, defaultMessage: failure.message },
-          failure.info,
-        )
-      : failure?.message ||
-        intl.formatMessage({ id: ETranslations.global_unknown_error }),
+    ...(standardPinRequired
+      ? {
+          dismissOnOverlayPress: false,
+          disableDrag: true,
+          showCancelButton: false,
+        }
+      : {}),
+    description,
     onConfirmText: intl.formatMessage({ id: ETranslations.global_ok }),
   });
 }

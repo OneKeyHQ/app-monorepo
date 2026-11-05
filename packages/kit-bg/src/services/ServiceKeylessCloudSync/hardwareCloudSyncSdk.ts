@@ -1,3 +1,5 @@
+import { HardwareErrorCode } from '@onekeyfe/hd-shared';
+
 import appCrypto from '@onekeyhq/shared/src/appCrypto';
 import {
   HARDWARE_CLOUD_SYNC_AUTH_PATH,
@@ -16,7 +18,11 @@ import {
   HardwareCloudSyncLocalError,
   HardwareCloudSyncUnlockError,
 } from '@onekeyhq/shared/src/hardware/hardwareCloudSyncError';
-import { HardwareCloudKeyPrerequisiteError } from '@onekeyhq/shared/src/hardware/hardwareCloudSyncErrors';
+import {
+  HARDWARE_CLOUD_SYNC_STANDARD_PIN_REQUIRED,
+  HardwareCloudKeyPrerequisiteError,
+  isHardwareCloudSyncStandardPinRequired,
+} from '@onekeyhq/shared/src/hardware/hardwareCloudSyncErrors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { getDeviceAvatarImage } from '@onekeyhq/shared/src/utils/avatarUtils';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
@@ -411,6 +417,19 @@ export async function generateHardwareCloudSyncCredentialWithSdk({
       } catch (error) {
         if (isOneKeyHardwareError(error)) {
           hardwareFailure = error;
+          if (
+            stage === 'openWalletSession' &&
+            error.code === HardwareErrorCode.DeviceCheckUnlockTypeError
+          ) {
+            error.info = {
+              ...error.info,
+              hardwareCloudSyncRefusal:
+                HARDWARE_CLOUD_SYNC_STANDARD_PIN_REQUIRED,
+            };
+            // The Cloud page explains this standard-session refusal in a
+            // persistent dialog after the hardware/waiting UI has left.
+            error.autoToast = false;
+          }
         }
         logHardwareCloudSyncFailure(
           stage,
@@ -424,9 +443,11 @@ export async function generateHardwareCloudSyncCredentialWithSdk({
         if (stageOpened) {
           try {
             await backgroundApi.serviceHardwareUI.deviceStageLeaveBurst({
-              error: hardwareFailure
-                ? toPlainErrorObject(hardwareFailure)
-                : undefined,
+              error:
+                hardwareFailure &&
+                !isHardwareCloudSyncStandardPinRequired(hardwareFailure)
+                  ? toPlainErrorObject(hardwareFailure)
+                  : undefined,
             });
             // DeviceStage owns hardware feedback; preserve the original
             // class, code, translation and recovery payload across RPC.
@@ -434,7 +455,11 @@ export async function generateHardwareCloudSyncCredentialWithSdk({
           } catch (stageError) {
             // Presentation failure must neither replace nor silence the
             // original hardware error. The service toast is the fallback.
-            if (hardwareFailure) hardwareFailure.autoToast = true;
+            if (
+              hardwareFailure &&
+              !isHardwareCloudSyncStandardPinRequired(hardwareFailure)
+            )
+              hardwareFailure.autoToast = true;
             logHardwareCloudSyncFailure('DeviceStage exit failed', stageError);
           }
         }

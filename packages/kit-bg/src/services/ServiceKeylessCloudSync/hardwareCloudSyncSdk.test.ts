@@ -521,9 +521,15 @@ describe('hardware Cloud SDK adapter', () => {
         code,
         $isHardwareError: true,
         autoToast: false,
+        ...(code === HardwareErrorCode.DeviceCheckUnlockTypeError
+          ? { info: { hardwareCloudSyncRefusal: 'standardPinRequired' } }
+          : {}),
       });
       expect(ui.deviceStageLeaveBurst).toHaveBeenCalledWith({
-        error: expect.objectContaining({ code, $isHardwareError: true }),
+        error:
+          code === HardwareErrorCode.DeviceCheckUnlockTypeError
+            ? undefined
+            : expect.objectContaining({ code, $isHardwareError: true }),
       });
       expect(hardware.getDeviceState).not.toHaveBeenCalled();
       expect(sdk.btcSignMessage).not.toHaveBeenCalled();
@@ -548,32 +554,40 @@ describe('hardware Cloud SDK adapter', () => {
     ).resolves.toHaveProperty('credential');
   });
 
-  test('DeviceStage exit failure preserves the original hardware error and restores the toast fallback', async () => {
-    const { backgroundApi, sdk, ui } = buildBackgroundApi();
-    const original = convertDeviceError({ code: HardwareErrorCode.PinInvalid });
-    original.autoToast = false;
-    sdk.openWalletSession.mockRejectedValueOnce(original);
-    ui.deviceStageLeaveBurst.mockRejectedValueOnce(
-      new Error('Synthetic stage failure'),
-    );
-    await expect(
-      generateHardwareCloudSyncCredentialWithSdk({
-        unlock,
-        backgroundApi,
-        connectId: 'test-connect',
-        isCurrent: () => true,
-      }),
-    ).rejects.toMatchObject({
-      code: original.code,
-      key: original.key,
-      className: original.className,
-      autoToast: true,
-    });
-  });
+  test.each([
+    HardwareErrorCode.PinInvalid,
+    HardwareErrorCode.DeviceCheckUnlockTypeError,
+  ])(
+    'DeviceStage exit failure preserves feedback ownership for code %s',
+    async (code) => {
+      const { backgroundApi, sdk, ui } = buildBackgroundApi();
+      const original = convertDeviceError({ code });
+      original.autoToast = false;
+      sdk.openWalletSession.mockRejectedValueOnce(original);
+      ui.deviceStageLeaveBurst.mockRejectedValueOnce(
+        new Error('Synthetic stage failure'),
+      );
+      await expect(
+        generateHardwareCloudSyncCredentialWithSdk({
+          unlock,
+          backgroundApi,
+          connectId: 'test-connect',
+          isCurrent: () => true,
+        }),
+      ).rejects.toMatchObject({
+        code: original.code,
+        key: original.key,
+        className: original.className,
+        autoToast: code !== HardwareErrorCode.DeviceCheckUnlockTypeError,
+      });
+    },
+  );
 
   test.each(
     [
       HardwareErrorCode.PinInvalid,
+      HardwareErrorCode.DeviceCheckUnlockTypeError,
+      HardwareErrorCode.DeviceCheckPassphraseStateError,
       HardwareErrorCode.DeviceCheckDeviceIdError,
       HardwareErrorCode.DeviceNotFound,
       HardwareErrorCode.BleUnavailableWhileUsbConnected,
@@ -607,16 +621,24 @@ describe('hardware Cloud SDK adapter', () => {
         key: common.key,
         className: common.className,
         $isHardwareError: true,
+        ...(method === 'openWalletSession' &&
+        code === HardwareErrorCode.DeviceCheckUnlockTypeError
+          ? { info: { hardwareCloudSyncRefusal: 'standardPinRequired' } }
+          : {}),
       });
       expect(ui.deviceStageJoinBurst).toHaveBeenCalledWith({
         connectId: 'test-connect',
       });
       expect(ui.deviceStageLeaveBurst).toHaveBeenCalledWith({
-        error: expect.objectContaining({
-          code: common.code,
-          key: common.key,
-          $isHardwareError: true,
-        }),
+        error:
+          method === 'openWalletSession' &&
+          code === HardwareErrorCode.DeviceCheckUnlockTypeError
+            ? undefined
+            : expect.objectContaining({
+                code: common.code,
+                key: common.key,
+                $isHardwareError: true,
+              }),
       });
     },
   );

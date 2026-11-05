@@ -28,6 +28,8 @@ type IDialogParams = {
   description?: string;
   onConfirmText?: string;
   tone?: string;
+  dismissOnOverlayPress?: boolean;
+  disableDrag?: boolean;
   renderContent?: ReactNode;
   onConfirm?: () => Promise<void> | void;
   onClose?: () => Promise<void> | void;
@@ -387,6 +389,38 @@ test('an error already shown by the proxy does not open a second business dialog
   expect(mockDialogShow).toHaveBeenCalledTimes(2);
 });
 
+test.each(['enable', 'reset'] as const)(
+  'standard-wallet PIN refusal during %s has a persistent Cloud dialog',
+  async (action) => {
+    const failure = Object.assign(
+      new Error('The entered PIN does not correspond to the current wallet'),
+      {
+        code: 118,
+        key: 'hardware.device_pin_state_error',
+        $isHardwareError: true,
+        autoToast: false,
+        info: { hardwareCloudSyncRefusal: 'standardPinRequired' },
+      },
+    );
+    (action === 'enable' ? mockEnable : mockReset).mockRejectedValueOnce(
+      failure,
+    );
+    if (action === 'enable') await pickDeviceA();
+    else await pickResetDevice();
+    expect(lastDialog()).toMatchObject({
+      description: 'cloud_sync_hardware_hidden_wallet__msg',
+      onConfirmText: 'global.ok',
+      dismissOnOverlayPress: false,
+      disableDrag: true,
+    });
+    expect(mockAutoToast).not.toHaveBeenCalled();
+    expect(failure).toMatchObject({
+      code: 118,
+      key: 'hardware.device_pin_state_error',
+    });
+  },
+);
+
 test('setup preserves a failure without a translation key', async () => {
   mockEnable.mockRejectedValueOnce(new Error('Synthetic network failure'));
   const dialog = await pickDeviceA();
@@ -396,7 +430,7 @@ test('setup preserves a failure without a translation key', async () => {
 test('hardware failures already owned by DeviceStage do not open a generic dialog', async () => {
   mockEnable.mockRejectedValueOnce({
     key: 'hardware.device_pin_state_error',
-    code: 405,
+    code: 118,
     $isHardwareError: true,
     autoToast: false,
   });
