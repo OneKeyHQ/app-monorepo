@@ -81,16 +81,16 @@ describe('Zcash viewing metadata derivation lifecycle', () => {
         derive: async () => ({ ...derived, chainTip: null }),
       });
 
-      expect(
-        (await zcash.getZcashAccountMeta({ accountId: account.id }))
-          ?.birthdayHeight,
-      ).toBe(
+      const meta = await zcash.getZcashAccountMeta({ accountId: account.id });
+      expect(meta?.birthdayHeight).toBe(
         estimateZcashBirthdayHeight({
           birthdayTimestamp,
           chainTip: 3_400_000,
           now,
         }),
       );
+      // The node places the height before the account registers.
+      expect(meta?.birthdayHeightEstimated).toBe(true);
     } finally {
       clock.mockRestore();
     }

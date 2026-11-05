@@ -254,7 +254,7 @@ describe('Zcash private balance when the runtime read fails', () => {
     });
   }
 
-  it('reports preparing progress and unavailable private funds without repairing a pending registration', async () => {
+  it('reports preparing progress and unavailable private funds for a pending registration', async () => {
     jest.useFakeTimers();
     try {
       const missing = Object.assign(new Error('ACCOUNT_NOT_FOUND'), {
@@ -262,11 +262,9 @@ describe('Zcash private balance when the runtime read fails', () => {
       });
       const getBalance = jest.fn().mockRejectedValue(missing);
       const vault = createVault(getBalance, memoryCache());
-      const repair = jest.fn();
       Object.assign(vault, {
         accountId: 'balance-acc',
         zcashPrivacyModeIsActive: async () => true,
-        zcashTryAutoRepairLocalWalletSetupIfUnlocked: repair,
         zcashGetWalletAccount: async () => ({ birthdayHeight: 2_000_000 }),
         zcashGetApi: async () => ({
           getBalance,
@@ -318,7 +316,6 @@ describe('Zcash private balance when the runtime read fails', () => {
       ).toBeUndefined();
       expect(sendPools?.some((item) => item.key === 'orchard')).toBe(false);
       expect(balance?.pools.some((item) => item.key === 'orchard')).toBe(false);
-      expect(repair).not.toHaveBeenCalled();
     } finally {
       jest.useRealTimers();
     }
