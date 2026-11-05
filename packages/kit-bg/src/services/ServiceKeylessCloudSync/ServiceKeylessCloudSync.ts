@@ -359,10 +359,12 @@ class ServiceKeylessCloudSync extends ServiceBase {
     signatures: number;
     unlock: IHardwareCloudKeyUnlock;
   }) {
-    if (await this.isHardwareCloudSyncSoftwareKeyEnabled()) {
+    const softwareKey = await this.getHardwareCloudSyncSoftwareKeySettings();
+    if (softwareKey) {
       const { generateHardwareCloudSyncCredentialWithSoftwareKey } =
         await import('./hardwareCloudSyncSoftwareKey');
       return generateHardwareCloudSyncCredentialWithSoftwareKey({
+        profile: softwareKey.profile,
         isCurrent,
         unlock,
       });
@@ -860,12 +862,20 @@ class ServiceKeylessCloudSync extends ServiceBase {
     };
   }
 
-  private async isHardwareCloudSyncSoftwareKeyEnabled(): Promise<boolean> {
-    if (!platformEnv.isDev) return false;
+  private async getHardwareCloudSyncSoftwareKeySettings(): Promise<
+    { profile?: string } | undefined
+  > {
+    if (!platformEnv.isDev) return undefined;
     const devSettings = await devSettingsPersistAtom.get();
-    return !!(
-      devSettings.enabled && devSettings.settings?.hardwareCloudSyncSoftwareKey
-    );
+    if (
+      !devSettings.enabled ||
+      !devSettings.settings?.hardwareCloudSyncSoftwareKey
+    ) {
+      return undefined;
+    }
+    return {
+      profile: devSettings.settings.hardwareCloudSyncSoftwareKeyProfile,
+    };
   }
 
   // Hardware sync is apart from OneKey ID: the plain client sends no OneKey ID

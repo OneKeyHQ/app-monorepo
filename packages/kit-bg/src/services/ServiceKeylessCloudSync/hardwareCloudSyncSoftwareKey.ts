@@ -33,22 +33,22 @@ import type {
 const SOFTWARE_KEY_SEED = 'onekey-dev-hardware-cloud-sync-software-key-v1';
 export const HARDWARE_CLOUD_SYNC_SOFTWARE_CONNECT_ID = 'dev-software-key';
 
-function privateKeyForPath(path: string): Buffer {
+function privateKeyForPath(path: string, seed: string): Buffer {
   return Buffer.from(
-    appCrypto.hash.sha256Sync(
-      Buffer.from(`${SOFTWARE_KEY_SEED}:${path}`, 'utf8'),
-    ),
+    appCrypto.hash.sha256Sync(Buffer.from(`${seed}:${path}`, 'utf8')),
   );
 }
 
-function signBip137(path: string, message: Buffer): Buffer {
-  return bitcoinMessage.sign(message, privateKeyForPath(path), true);
+function signBip137(path: string, message: Buffer, seed: string): Buffer {
+  return bitcoinMessage.sign(message, privateKeyForPath(path, seed), true);
 }
 
 export async function generateHardwareCloudSyncCredentialWithSoftwareKey({
+  profile,
   isCurrent,
   unlock,
 }: {
+  profile?: string;
   isCurrent: () => boolean;
   unlock: IHardwareCloudKeyUnlock;
 }): Promise<{
@@ -58,12 +58,28 @@ export async function generateHardwareCloudSyncCredentialWithSoftwareKey({
   if (!platformEnv.isDev) {
     throw new OneKeyLocalError('Software Cloud key is only for dev builds');
   }
+  if (profile !== undefined && !/^[a-zA-Z0-9_-]{1,64}$/.test(profile)) {
+    throw new OneKeyLocalError('Invalid software Cloud key profile');
+  }
+  const seed = profile ? `${SOFTWARE_KEY_SEED}:${profile}` : SOFTWARE_KEY_SEED;
   const publicKeyBytes = Buffer.from(
-    secp256k1.getPublicKey(privateKeyForPath(HARDWARE_CLOUD_SYNC_PATH), true),
+    secp256k1.getPublicKey(
+      privateKeyForPath(HARDWARE_CLOUD_SYNC_PATH, seed),
+      true,
+    ),
   );
   const publicKey = publicKeyBytes.toString('hex');
   const address = payments.p2pkh({ pubkey: publicKeyBytes }).address as string;
-  const walletXfp = `00000000--${'z'.repeat(110)}`;
+  const profileHash = Buffer.from(
+    appCrypto.hash.sha256Sync(Buffer.from(seed, 'utf8')),
+  ).toString('hex');
+  // Synthetic public identities still satisfy the walletXfp format. Hex zero
+  // is outside Base58, so replace it with a character absent from hex.
+  const walletXfp = profile
+    ? `${profileHash.slice(0, 8)}--${profileHash
+        .replace(/0/g, 'z')
+        .padStart(110, 'z')}`
+    : `00000000--${'z'.repeat(110)}`;
   const credentialId = `${HARDWARE_CLOUD_SYNC_CREDENTIAL_ID_PREFIX}${Buffer.from(
     appCrypto.hash.sha256Sync(Buffer.from(walletXfp, 'utf8')),
   ).toString('hex')}`;
@@ -83,9 +99,11 @@ export async function generateHardwareCloudSyncCredentialWithSoftwareKey({
     getIdentity: async () => identity,
     signMessage: async ({ path, messageHex }) => ({
       address,
-      signature: signBip137(path, Buffer.from(messageHex, 'hex')).toString(
-        'hex',
-      ),
+      signature: signBip137(
+        path,
+        Buffer.from(messageHex, 'hex'),
+        seed,
+      ).toString('hex'),
     }),
   };
   const source: IHardwareCloudSyncKeySource = {
@@ -116,6 +134,7 @@ export async function generateHardwareCloudSyncCredentialWithSoftwareKey({
       return signBip137(
         HARDWARE_CLOUD_SYNC_AUTH_PATH,
         Buffer.from(message, 'utf8'),
+        seed,
       ).toString('base64');
     },
     deriveKek: (kekSalt) =>

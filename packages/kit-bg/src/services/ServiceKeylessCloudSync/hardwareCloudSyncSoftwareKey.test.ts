@@ -10,6 +10,7 @@ import {
   getHardwareCloudSyncIdentityTagFromCredentialId,
 } from '@onekeyhq/shared/src/consts/hardwareCloudSyncConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { generateHardwareCloudSyncCredentialWithSoftwareKey } from './hardwareCloudSyncSoftwareKey';
 
@@ -101,4 +102,48 @@ test('the dev software signer signs the exact final challenge on the auth path',
       return credential;
     },
   });
+});
+
+test('software profiles restore the same key without sharing the default test identity', async () => {
+  const read = async (profile?: string) => {
+    let result: { credentialId: string; kek: string } | undefined;
+    await generateHardwareCloudSyncCredentialWithSoftwareKey({
+      profile,
+      isCurrent: () => true,
+      unlock: async (device) => {
+        result = {
+          credentialId: device.credentialId,
+          kek: await device.deriveKek('ab'.repeat(16)),
+        };
+        return credential;
+      },
+    });
+    if (!result) throw new OneKeyLocalError('Missing software test identity');
+    return result;
+  };
+  const first = await read('desktop-profile-a');
+  expect(await read('desktop-profile-a')).toEqual(first);
+  const other = await read('desktop-profile-b');
+  const original = await read();
+  expect(other.credentialId).not.toBe(first.credentialId);
+  expect(other.kek).not.toBe(first.kek);
+  expect(original.credentialId).not.toBe(first.credentialId);
+  expect(original.kek).not.toBe(first.kek);
+});
+
+test('a software profile cannot enable the signer outside development builds', async () => {
+  const restore = jest.replaceProperty(platformEnv, 'isDev', false);
+  const unlock = jest.fn(async () => credential);
+  try {
+    await expect(
+      generateHardwareCloudSyncCredentialWithSoftwareKey({
+        profile: 'desktop-profile-a',
+        isCurrent: () => true,
+        unlock,
+      }),
+    ).rejects.toThrow('only for dev builds');
+    expect(unlock).not.toHaveBeenCalled();
+  } finally {
+    restore.restore();
+  }
 });

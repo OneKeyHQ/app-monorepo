@@ -311,7 +311,10 @@ describe('hardware Cloud sync session', () => {
         session: session(),
         deriveKek: wallet('wallet-b'),
       }),
-    ).rejects.toThrow();
+    ).rejects.toMatchObject({
+      key: ETranslations.cloud_sync_data_unreadable__msg,
+      reason: 'Cloud sync key envelope could not be decrypted',
+    });
   });
 
   test('a wrapped key does not unwrap under another key id', async () => {

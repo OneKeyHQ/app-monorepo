@@ -454,12 +454,20 @@ async function unwrapDek({
   kek: string;
   envelope: IKeyEnvelope;
 }) {
-  const dek = await keylessCloudSyncUtils.decryptWithKeylessKey({
-    encryptedData: envelope.wrappedDek,
-    encryptionKey: kek,
-    itemId: envelopeItemId(envelope),
-    dataType: HARDWARE_CLOUD_SYNC_KEY_ENVELOPE_DATA_TYPE,
-  });
+  let dek: string;
+  try {
+    dek = await keylessCloudSyncUtils.decryptWithKeylessKey({
+      encryptedData: envelope.wrappedDek,
+      encryptionKey: kek,
+      itemId: envelopeItemId(envelope),
+      dataType: HARDWARE_CLOUD_SYNC_KEY_ENVELOPE_DATA_TYPE,
+    });
+  } catch {
+    // This password is derived hardware key material, not the App passcode.
+    throw createHardwareCloudSyncDataError(
+      'Cloud sync key envelope could not be decrypted',
+    );
+  }
   if (!/^[0-9a-f]{64}$/.test(dek)) {
     throw createHardwareCloudSyncDataError('Invalid Cloud sync data key');
   }
