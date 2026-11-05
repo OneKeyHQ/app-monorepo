@@ -36,7 +36,18 @@ export function MarketDetailScrollView(
 ) {
   const page = useContext(MarketDetailNativePageContext);
   if (!page) {
-    return <Tabs.ScrollView {...props} />;
+    let keyboardShouldPersistTaps = props.keyboardShouldPersistTaps;
+    if (typeof keyboardShouldPersistTaps === 'boolean') {
+      keyboardShouldPersistTaps = keyboardShouldPersistTaps
+        ? 'always'
+        : 'never';
+    }
+    return (
+      <Tabs.ScrollView
+        {...props}
+        keyboardShouldPersistTaps={keyboardShouldPersistTaps}
+      />
+    );
   }
   return (
     <NativeScroller

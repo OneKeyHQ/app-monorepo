@@ -9,7 +9,6 @@ const macCatalystExcludedDependencies = [
   '@phantom/react-native-juicebox-sdk',
   '@shopify/react-native-skia',
   '@walletconnect/react-native-compat',
-  'jcore-react-native',
   'jpush-react-native',
 ];
 
@@ -17,6 +16,15 @@ const dependencies = {
   '@react-native-google-signin/google-signin': {
     platforms: {
       // ios: null,
+    },
+  },
+  'jpush-react-native': {
+    platforms: {
+      android: {
+        packageImportPath:
+          'import com.margelo.nitro.reactnativejpush.ReactNativeJpushPackage;',
+        packageInstance: 'new ReactNativeJpushPackage()',
+      },
     },
   },
   'react-native-check-biometric-auth-changed': {
