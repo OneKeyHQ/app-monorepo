@@ -1262,3 +1262,10 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries â€
 **Root Cause**: The shared Swap header hid the button only in Desktop Stock modals, so native Stock modals still showed it.
 **Fix**: Extend the existing Stock modal visibility condition to iOS and Android. Regression tests cover hiding the button in native Stock modals and keeping it available in native Swap modals and on the standalone Stock page.
 **Catchable by**: Section 3 (Cross-Platform Impact) and Section 6 (Unit Tests). Test shared header actions across platform, modal versus page, and active trade mode.
+
+## Case: Missing Perps account blocked Portfolio sync
+**Date**: 2026-11-05 | **Platforms**: iOS, Android, and extension background runtime; desktop and web single runtime. The account lookup runs in the service that builds the Portfolio category payload.
+**Symptom**: Manual Portfolio sync never uploaded when the indexed account had no Perps network account. Home treated Perps as unknown instead of zero.
+**Root Cause**: `localDb.getAccount` throws `OneKeyLocalError('Account not found')` before `getNetworkAccount` can throw `indexedAccounts not found`. The category fetch only treated the latter message as a confirmed empty Perps balance, so the real missing-account error stayed unknown and blocked upload.
+**Fix**: Treat both confirmed local lookup misses as zero Perps equity, and leave other lookup failures unknown. Regression tests cover the uncreated Perps account, the indexed-account miss, and unrelated not-found errors.
+**Catchable by**: Section 4: Business Logic & Regression â€” trace the thrown error from the missing DB record, not only the error the caller expected; Section 6: A bug fix includes a regression test for the confirmed empty case and for nearby errors that must stay unknown.
