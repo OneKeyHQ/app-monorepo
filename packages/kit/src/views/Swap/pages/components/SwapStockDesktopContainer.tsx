@@ -750,8 +750,24 @@ function StockActionGate({
   }
 
   if (stockChannel.readyForQuote || shouldPreserveStockActionsState) {
+    const account = swapFromAddressInfo.activeAccount;
+    const accountId = account?.indexedAccount?.id ?? account?.account?.id;
+    const { currentStockToken, payToken, tradeSide } = stockChannel;
     return (
       <SwapActionsState
+        stockRecipientSnapshotScope={
+          accountId && currentStockToken && payToken
+            ? JSON.stringify([
+                accountId,
+                account?.deriveType,
+                tradeSide,
+                currentStockToken.networkId,
+                currentStockToken.contractAddress,
+                payToken.networkId,
+                payToken.contractAddress,
+              ])
+            : undefined
+        }
         disabled={
           stockSelection?.availability === 'pending' ||
           stockTradeIdentityLoading ||

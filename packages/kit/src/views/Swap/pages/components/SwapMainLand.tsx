@@ -180,6 +180,7 @@ import PreSwapDialogContent from './PreSwapDialogContent';
 import SwapHeaderContainer from './SwapHeaderContainer';
 import SwapOldSwapBridgeLimitContainer from './SwapOldSwapBridgeLimitContainer';
 import SwapProContainer from './SwapProContainer';
+import { SwapRevealSnapshotProvider } from './SwapSmoothReveal';
 import {
   SwapStockDesktopContainer,
   SwapStockMobileContainer,
@@ -1888,32 +1889,34 @@ const SwapMainLoad = ({
         >
           {renderSwapHeader()}
           {shouldRenderDesktopSwapHeader ? (
-            <YStack
-              flex={1}
-              minHeight={0}
-              width="100%"
-              overflow="hidden"
-              $gtMd={{
-                flex: 'unset',
-              }}
-            >
+            <SwapRevealSnapshotProvider>
               <YStack
-                key={swapContentVersion}
                 flex={1}
                 minHeight={0}
                 width="100%"
-                transition="quick"
-                animateOnly={ANIMATE_ONLY_OPACITY}
-                enterStyle={
-                  fadeInSwapContent ? SWAP_CONTENT_ENTER_STYLE : undefined
-                }
+                overflow="hidden"
                 $gtMd={{
                   flex: 'unset',
                 }}
               >
-                {swapContent}
+                <YStack
+                  key={swapContentVersion}
+                  flex={1}
+                  minHeight={0}
+                  width="100%"
+                  transition="quick"
+                  animateOnly={ANIMATE_ONLY_OPACITY}
+                  enterStyle={
+                    fadeInSwapContent ? SWAP_CONTENT_ENTER_STYLE : undefined
+                  }
+                  $gtMd={{
+                    flex: 'unset',
+                  }}
+                >
+                  {swapContent}
+                </YStack>
               </YStack>
-            </YStack>
+            </SwapRevealSnapshotProvider>
           ) : (
             swapContent
           )}
