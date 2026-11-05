@@ -68,6 +68,7 @@ const RECORDABLE_ENDPOINTS = [
   },
   { route: 'GET utility.onekeycn.com/utility/v1/app-update' },
   { route: 'GET utility.onekeycn.com/utility/v1/currency/exchange-rates/map' },
+  { route: 'GET utility.onekeycn.com/utility/v1/market/highlight' },
   {
     route: 'GET utility.onekeycn.com/utility/v1/market/tokens',
     query: ['category', 'ids', 'sparkline'],
@@ -99,6 +100,10 @@ const RECORDABLE_ENDPOINTS = [
       'timeFrame',
       'type',
     ],
+  },
+  {
+    route: 'POST utility.onekeycn.com/utility/v2/market/token/list/batch',
+    body: /^\{"currency":"usd","tokenAddressList":\[\{"chainId":"sol--101","contractAddress":"","isNative":true\}\]\}$/,
   },
   {
     route: 'GET wallet.onekeycn.com/wallet/v1/health',
