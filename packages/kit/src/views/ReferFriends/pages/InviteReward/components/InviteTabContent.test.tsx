@@ -214,6 +214,14 @@ jest.mock(
   () => ({ useNavigateToEditAddress: () => mockNavigateToEditAddress }),
 );
 
+let mockRewardScopes: { subject: string; description: string }[] = [];
+jest.mock(
+  '@onekeyhq/kit/src/views/ReferFriends/hooks/useInviteRewardScopes',
+  () => ({
+    useInviteRewardScopes: () => mockRewardScopes,
+  }),
+);
+
 jest.mock('./useInviteCardStyle', () => ({
   useInviteHomeCardStyle: () => ({}),
 }));
@@ -278,6 +286,7 @@ describe('InviteTabContent entry points', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockMd = false;
+    mockRewardScopes = [];
   });
 
   it('copies the invite link and the invite code', () => {
@@ -441,13 +450,11 @@ describe('InviteTabContent entry points', () => {
     'shows server reward scope without opening the product (compact: %s)',
     (md) => {
       mockMd = md;
-      renderTab({
-        ...SUMMARY,
-        rewardScopes: [
-          { subject: 'Swap', description: 'Swap providers' },
-          { subject: 'Earn', description: 'DeFi venues' },
-        ],
-      } as IInviteSummary);
+      mockRewardScopes = [
+        { subject: 'Swap', description: 'Swap providers' },
+        { subject: 'Earn', description: 'DeFi venues' },
+      ];
+      renderTab();
 
       // Swap and DeFi each carry scope copy.
       const scopeInfos = screen.getAllByTestId(
@@ -467,12 +474,12 @@ describe('InviteTabContent entry points', () => {
     'offers reward scope from the empty earnings card (compact: %s)',
     (md) => {
       mockMd = md;
+      mockRewardScopes = [
+        { subject: 'Swap', description: 'Swap providers' },
+        { subject: 'Earn', description: 'DeFi venues' },
+      ];
       renderTab({
         ...SUMMARY,
-        rewardScopes: [
-          { subject: 'Swap', description: 'Swap providers' },
-          { subject: 'Earn', description: 'DeFi venues' },
-        ],
         HardwareSales: { ...SUMMARY.HardwareSales, available: [], pending: [] },
         Perp: { ...SUMMARY.Perp, available: [] },
         Onchain: { ...SUMMARY.Onchain, available: [], swap: [] },
