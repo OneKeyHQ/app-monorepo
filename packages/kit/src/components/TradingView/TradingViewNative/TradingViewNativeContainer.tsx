@@ -1024,9 +1024,9 @@ const TradingViewNativeContent = memo(
       onNativeIndicatorQuickBarChange?.(
         resolveTradingViewNativeIndicatorQuickBarState({
           isAvailabilityResolved: true,
-          // The iOS fullscreen page covers the intact inline chart and quick bar.
+          // Native fullscreen layers cover the intact inline chart and quick bar.
           quickBar:
-            isNativeChartFullscreen && !platformEnv.isNativeIOS
+            isNativeChartFullscreen && !platformEnv.isNative
               ? null
               : nativeIndicatorQuickBar,
         }),
@@ -1093,7 +1093,11 @@ const TradingViewNativeContent = memo(
                 onChartSwitch={onChartSwitch}
               />
             )}
-            {mobileToolbarExtra}
+            {/* Page controls stay with the page. An Android owner only learns
+                about fullscreen once the layer is shown, after it has drawn. */}
+            {isNativeChartFullscreen && platformEnv.isNative
+              ? null
+              : mobileToolbarExtra}
           </XStack>
         ) : undefined,
       [

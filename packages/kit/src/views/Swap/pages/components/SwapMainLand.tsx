@@ -25,11 +25,16 @@ import {
   useInModalDialog,
   useInTabDialog,
   useMedia,
+  useSafeAreaInsets,
 } from '@onekeyhq/components';
 import { ANIMATE_ONLY_OPACITY } from '@onekeyhq/components/src/utils/animationConstants';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { LazyPageContainer } from '@onekeyhq/kit/src/components/LazyPageContainer';
+import {
+  HEADER_EMPTY_INSET_SPACER_HEIGHT,
+  getFoldableIPhoneHeaderTop,
+} from '@onekeyhq/kit/src/components/TabPageHeader/headerLayout';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useCustomRpcAvailability } from '@onekeyhq/kit/src/hooks/useCustomRpcAvailability';
 import {
@@ -213,6 +218,7 @@ type ISwapMainLoadContentProps = Omit<ISwapMainLoadProps, 'storeName'> & {
 };
 
 const SWAP_CONTENT_ENTER_STYLE = { opacity: 0 } as const;
+const SWAP_HEADER_ROW_HEIGHT = 56;
 
 const SwapMainLoad = ({
   storeName,
@@ -1786,11 +1792,20 @@ const SwapMainLoad = ({
   // top+28, so the two tab headers align BY CONSTRUCTION, regardless of the
   // tab/pill content heights (no tuned padding). Android keeps its original
   // spacing; large screens already reset to $0 below.
-  let contentTopPadding = '$5';
+  const { top: safeAreaTop } = useSafeAreaInsets();
+  let contentTopPadding: string | number = '$5';
   if (pageType === EPageType.modal) {
     contentTopPadding = '$2.5';
   } else if (platformEnv.isNativeIOS) {
-    contentTopPadding = '$0';
+    // Foldable iPhones report a top inset of 0, so only MDHeader's spacer sits
+    // above this row; center it on the camera line like the Wallet header.
+    const foldableHeaderTop =
+      !safeAreaTop && !embeddedStockTrade
+        ? getFoldableIPhoneHeaderTop(SWAP_HEADER_ROW_HEIGHT)
+        : 0;
+    contentTopPadding = foldableHeaderTop
+      ? foldableHeaderTop - HEADER_EMPTY_INSET_SPACER_HEIGHT
+      : '$0';
   }
 
   // Keep the desktop header outside the keyed content so SegmentControl stays
