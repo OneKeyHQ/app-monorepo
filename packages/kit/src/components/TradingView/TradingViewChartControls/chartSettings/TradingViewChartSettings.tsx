@@ -508,7 +508,7 @@ export function TradingViewChartSettings({
   const persistValue = async (nextValue: ITradingViewChartSettingsValue) => {
     try {
       await onConfirm?.(nextValue);
-      commitSettingsValue();
+      commitSettingsValue(nextValue);
       return true;
     } catch (error) {
       onConfirmError?.(error);

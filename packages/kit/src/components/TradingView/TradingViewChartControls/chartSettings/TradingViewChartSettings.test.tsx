@@ -449,6 +449,56 @@ describe('TradingViewChartSettings', () => {
     expect(onConfirm).toHaveBeenCalledTimes(2);
   });
 
+  it('keeps edits made while reset persists as an unsaved draft', async () => {
+    let resolveConfirm: () => void = () => {};
+    const onConfirm = jest.fn<Promise<void>, [ITradingViewChartSettingsValue]>(
+      () =>
+        new Promise<void>((resolve) => {
+          resolveConfirm = resolve;
+        }),
+    );
+    const renderSettings = (value: ITradingViewChartSettingsValue) => (
+      <TradingViewChartSettings
+        value={value}
+        usePageFooter
+        showChartType
+        onConfirm={onConfirm}
+      />
+    );
+    const getChartTypeSelect = () =>
+      screen.getByTestId(
+        'trading-view-settings-select-chart-type',
+      ) as HTMLSelectElement;
+
+    const { rerender } = render(
+      renderSettings({
+        ...createTradingViewChartSettingsValue(),
+        chartType: 'line',
+      }),
+    );
+
+    await act(async () => {
+      fireEvent.click(screen.getByTestId('trading-view-settings-mock-reset'));
+    });
+    expect(getChartTypeSelect().value).toBe('auto');
+
+    fireEvent.change(getChartTypeSelect(), { target: { value: 'area' } });
+    expect(getChartTypeSelect().value).toBe('area');
+
+    // The persisted reset reaches the controlled value as a fresh object
+    // before onConfirm resolves, like a store-backed settings atom.
+    rerender(renderSettings(createTradingViewChartSettingsValue()));
+    await act(async () => {
+      resolveConfirm();
+    });
+
+    expect(onConfirm).toHaveBeenCalledTimes(1);
+    expect(onConfirm).toHaveBeenCalledWith(
+      createTradingViewChartSettingsValue(),
+    );
+    expect(getChartTypeSelect().value).toBe('area');
+  });
+
   it('keeps the reset draft and reports the error when applying it fails', async () => {
     const error = new Error('persist failed');
     const onConfirm = jest.fn<Promise<void>, [ITradingViewChartSettingsValue]>(
