@@ -363,6 +363,9 @@ describe('WebEmbed host mount ownership', () => {
       await act(async () => {
         await mockReceive?.(oldReady, {});
       });
+      const oldBridge = mockConnect.mock.calls.find(
+        ([bridge, mountId]) => bridge && mountId === requested[0]?.mountId,
+      )?.[0];
       const androidTerminate = mockNativeProps?.onRenderProcessGone;
       const terminate =
         platform === 'ios'
@@ -380,6 +383,11 @@ describe('WebEmbed host mount ownership', () => {
           requested[1]?.mountSequence,
         ),
       );
+      const newBridge = mockConnect.mock.calls.find(
+        ([bridge, mountId]) => bridge && mountId === requested[1]?.mountId,
+      )?.[0];
+      expect(newBridge).toBeDefined();
+      expect(newBridge).not.toBe(oldBridge);
       expect(mockActivate).toHaveBeenLastCalledWith(
         expect.objectContaining({
           requestId: 'renderer-request',

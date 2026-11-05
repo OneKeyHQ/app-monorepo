@@ -4,7 +4,6 @@ import { useIntl } from 'react-intl';
 
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
-  INTERCOM_SUPPORT_ORIGIN,
   createIntercomSessionMessage,
   isIntercomBridgeHandshake,
 } from '@onekeyhq/shared/src/modules3rdParty/intercom/bridge';
@@ -13,11 +12,14 @@ import { getIntercomSessionToken } from '@onekeyhq/shared/src/modules3rdParty/in
 type IIntercomSupportFrameProps = {
   url: string;
   userId: string | null;
+  // The only origin allowed to receive the session.
+  supportOrigin: string;
 };
 
 export function IntercomSupportFrame({
   url,
   userId,
+  supportOrigin,
 }: IIntercomSupportFrameProps) {
   const intl = useIntl();
   const frameRef = useRef<HTMLIFrameElement>(null);
@@ -43,7 +45,7 @@ export function IntercomSupportFrame({
     // that created it, so the token cannot reach a page the frame moved to.
     const handleMessage = (event: MessageEvent<unknown>) => {
       if (
-        event.origin !== INTERCOM_SUPPORT_ORIGIN ||
+        event.origin !== supportOrigin ||
         event.source !== frameRef.current?.contentWindow ||
         event.ports.length !== 1 ||
         !isIntercomBridgeHandshake(event.data)
@@ -58,7 +60,7 @@ export function IntercomSupportFrame({
       active = false;
       window.removeEventListener('message', handleMessage);
     };
-  }, [userId]);
+  }, [supportOrigin, userId]);
 
   return (
     <iframe

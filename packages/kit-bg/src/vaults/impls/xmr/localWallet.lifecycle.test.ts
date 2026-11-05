@@ -1,4 +1,3 @@
-import { setXmrRuntimeApiLoader } from '@onekeyhq/core/src/chains/xmr/sdkXmrRuntime';
 import type { IXmrRuntimeApi } from '@onekeyhq/core/src/chains/xmr/sdkXmrRuntime';
 import { SimpleDbEntityPrivacyChainCache } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityPrivacyChainCache';
 import { SimpleDbEntityPrivacyChainKeys } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityPrivacyChainKeys';
@@ -13,8 +12,12 @@ import type Vault from '@onekeyhq/kit-bg/src/vaults/impls/xmr/Vault';
 import { saveLocalWalletViewingKey } from '@onekeyhq/kit-bg/src/vaults/localWallet/viewingKeyStore';
 import { createUntrackedMemoryStorage } from '@onekeyhq/shared/src/test-utils/mocks/memoryStorage';
 
-jest.mock('@onekeyhq/core/src/chains/xmr/sdkXmrRuntime/sdk/install', () => ({
-  installXmrCarrier: () => undefined,
+let mockRuntime: IXmrRuntimeApi | undefined;
+jest.mock('@onekeyhq/core/src/chains/xmr/sdkXmrRuntime', () => ({
+  ...jest.requireActual<
+    typeof import('@onekeyhq/core/src/chains/xmr/sdkXmrRuntime')
+  >('@onekeyhq/core/src/chains/xmr/sdkXmrRuntime'),
+  getXmrRuntimeApi: async () => mockRuntime,
 }));
 jest.mock('@onekeyhq/shared/src/background/backgroundDecorators', () => {
   const actual = jest.requireActual<
@@ -35,10 +38,12 @@ jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => ({
       typeof update === 'function'
         ? (update as (state: unknown) => unknown)({
             progress: {},
+            boostingNetworkIds: [],
+            dataBlockedNetworkIds: [],
             syncErrorByNetworkId: {},
             storageUnsupportedNetworkIds: [],
             pausedNetworkIds: [],
-            preparingNetworkIds: [],
+            preparingAccountKeys: [],
           })
         : update,
   },
@@ -102,7 +107,7 @@ async function setup() {
       return '{}';
     }),
   };
-  setXmrRuntimeApiLoader(async () => runtime as unknown as IXmrRuntimeApi);
+  mockRuntime = runtime as unknown as IXmrRuntimeApi;
   const backgroundApi = {
     serviceCustomRpc: {
       ensureLocalWalletRemoteConfigLoaded: async () => undefined,
@@ -116,7 +121,7 @@ async function setup() {
     },
     servicePrivacyChain: {
       onLocalWalletAccountsChanged: async () => undefined,
-      ensureLocalWalletViewingKey: async () => 'synthetic-key',
+      turnOffLocalWalletAccountWithoutKey: async () => undefined,
       publishLocalWalletSyncProgress: async () => undefined,
     },
   };
@@ -223,50 +228,40 @@ test('an obsolete registration cannot restore the identity after Service deletio
   expect(runtime.syncStep).not.toHaveBeenCalled();
 });
 
-test.each(['rescan', 'legacy enable recovery'] as const)(
-  'an obsolete %s awaiting a viewing key cannot re-enable an account deleted by the Service',
-  async (operation) => {
-    const { cap, state, keys, runtime, vault, service } = await setup();
-    if (operation === 'rescan')
-      await cap.enableAccount({ accountId, birthdayHeight: 3_000_000 });
-    else
-      await state.beginXmrEnable({
-        networkId,
-        accountId,
-        birthdayHeight: 3_000_000,
-      });
-    let release: () => void = () => undefined;
-    let reached: () => void = () => undefined;
-    const gate = new Promise<void>((resolve) => {
-      release = resolve;
-    });
-    const requested = new Promise<void>((resolve) => {
-      reached = resolve;
-    });
-    const original = vault.getXmrViewingKeys.bind(vault);
-    vault.getXmrViewingKeys = async (params) => {
-      const captured = await original(params);
-      reached();
-      await gate;
-      return captured;
-    };
-    const rescan =
-      operation === 'rescan'
-        ? cap.rescan({ accountId, from: { type: 'height', height: 3_500_000 } })
-        : cap.retryAccountSetup({ accountId });
-    await requested;
-    await service.deleteLocalWalletAccountData({ networkId, accountId });
-    await service.resumePendingAccountDeletions();
-    const deleted = await state.getXmrAccountState({ accountId });
-    release();
-    await rescan;
-    expect(await state.getXmrAccountState({ accountId })).toEqual(deleted);
-    expect(deleted.intent).toBe('off');
-    expect(await keys.getKey({ accountId })).toBeUndefined();
-    await cap.syncGroup({ accountIds: [accountId], chainTip: tip });
-    expect(runtime.addAccount).not.toHaveBeenCalled();
-  },
-);
+test('an obsolete rescan awaiting a viewing key cannot re-enable an account deleted by the Service', async () => {
+  const { cap, state, keys, runtime, vault, service } = await setup();
+  await cap.enableAccount({ accountId, birthdayHeight: 3_000_000 });
+  let release: () => void = () => undefined;
+  let reached: () => void = () => undefined;
+  const gate = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  const requested = new Promise<void>((resolve) => {
+    reached = resolve;
+  });
+  const original = vault.getXmrViewingKeys.bind(vault);
+  vault.getXmrViewingKeys = async (params) => {
+    const captured = await original(params);
+    reached();
+    await gate;
+    return captured;
+  };
+  const rescan = cap.rescan({
+    accountId,
+    from: { type: 'height', height: 3_500_000 },
+  });
+  await requested;
+  await service.deleteLocalWalletAccountData({ networkId, accountId });
+  await service.resumePendingAccountDeletions();
+  const deleted = await state.getXmrAccountState({ accountId });
+  release();
+  await rescan;
+  expect(await state.getXmrAccountState({ accountId })).toEqual(deleted);
+  expect(deleted.intent).toBe('off');
+  expect(await keys.getKey({ accountId })).toBeUndefined();
+  await cap.syncGroup({ accountIds: [accountId], chainTip: tip });
+  expect(runtime.addAccount).not.toHaveBeenCalled();
+});
 
 test('a newly authorized account remains excluded from runtime work until deletion completes', async () => {
   const { cap, state, runtime } = await setup();

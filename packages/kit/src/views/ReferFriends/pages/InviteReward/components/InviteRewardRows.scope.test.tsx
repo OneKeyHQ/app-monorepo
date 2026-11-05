@@ -12,11 +12,13 @@ import type { IInviteSummary } from '@onekeyhq/shared/src/referralCode/type';
 
 import { InviteRewardRows } from './InviteRewardRows';
 
-// Native Tooltip renders only its trigger. These cases pin both scope entry
-// points (the empty-card "Learn more" line and the product-row info icons)
-// to Popover on native at every width, and to Tooltip only on wide web.
+// Both scope entry points (the empty-card "Learn more" link and the
+// product-row info icons) open the page's hover info Popover on every
+// platform and width. Native Tooltip renders only its trigger, so a Tooltip
+// here would leave wide tablets without the scope copy.
 
 let mockMd = false;
+let mockOverlayTitles: (string | undefined)[] = [];
 const initialIsNative = platformEnv.isNative;
 
 jest.mock('@onekeyhq/components', () => {
@@ -28,17 +30,22 @@ jest.mock('@onekeyhq/components', () => {
       description,
       renderTrigger,
       renderContent,
+      title,
     }: {
       children?: ReactNode;
       description?: ReactNode;
       renderTrigger?: ReactNode;
       renderContent?: ReactNode;
+      title?: string;
     }) {
       let overlay: 'popover' | 'tooltip' | null = null;
       if (name === 'Popover') {
         overlay = 'popover';
       } else if (name === 'Tooltip') {
         overlay = 'tooltip';
+      }
+      if (overlay) {
+        mockOverlayTitles.push(title);
       }
       return React.createElement(
         'div',
@@ -170,6 +177,7 @@ function overlayKinds(container: HTMLElement) {
 describe('InviteRewardRows scope overlays', () => {
   beforeEach(() => {
     mockMd = false;
+    mockOverlayTitles = [];
     platformEnv.isNative = initialIsNative;
   });
 
@@ -177,35 +185,37 @@ describe('InviteRewardRows scope overlays', () => {
     platformEnv.isNative = initialIsNative;
   });
 
-  it.each([
-    { isNative: true, md: false, overlay: 'popover' },
-    { isNative: true, md: true, overlay: 'popover' },
-    { isNative: false, md: false, overlay: 'tooltip' },
-    { isNative: false, md: true, overlay: 'popover' },
-  ])(
-    'opens Learn more with $overlay (native: $isNative, compact: $md)',
-    ({ isNative, md, overlay }) => {
+  const LAYOUTS = [
+    { isNative: true, md: false },
+    { isNative: true, md: true },
+    { isNative: false, md: false },
+    { isNative: false, md: true },
+  ];
+
+  it.each(LAYOUTS)(
+    'opens Learn more with a Popover (native: $isNative, compact: $md)',
+    ({ isNative, md }) => {
       platformEnv.isNative = isNative;
       mockMd = md;
       const view = render(
         <InviteRewardRows summaryInfo={summary({ withRewards: false })} />,
       );
 
-      expect(overlayKinds(view.container)).toEqual([overlay]);
+      expect(overlayKinds(view.container)).toEqual(['popover']);
+      expect(mockOverlayTitles).toEqual([
+        ETranslations.referral_earnings_by_product__title,
+      ]);
       expect(screen.getByText(ETranslations.global_learn_more)).toBeTruthy();
+      // Several products: each description keeps its product heading.
+      expect(screen.getByText(ETranslations.global_swap)).toBeTruthy();
       expect(screen.getByText('Swap providers')).toBeTruthy();
       expect(screen.getByText('DeFi venues')).toBeTruthy();
     },
   );
 
-  it.each([
-    { isNative: true, md: false, overlay: 'popover' },
-    { isNative: true, md: true, overlay: 'popover' },
-    { isNative: false, md: false, overlay: 'tooltip' },
-    { isNative: false, md: true, overlay: 'popover' },
-  ])(
-    'opens product scope icons with $overlay (native: $isNative, compact: $md)',
-    ({ isNative, md, overlay }) => {
+  it.each(LAYOUTS)(
+    'opens product scope icons with a Popover (native: $isNative, compact: $md)',
+    ({ isNative, md }) => {
       platformEnv.isNative = isNative;
       mockMd = md;
       const view = render(
@@ -214,9 +224,30 @@ describe('InviteRewardRows scope overlays', () => {
 
       expect(screen.queryByText(ETranslations.global_learn_more)).toBeNull();
       expect(screen.getAllByTestId('icon-InfoCircleOutline')).toHaveLength(2);
-      expect(overlayKinds(view.container)).toEqual([overlay, overlay]);
+      expect(overlayKinds(view.container)).toEqual(['popover', 'popover']);
       expect(screen.getByText('Swap providers')).toBeTruthy();
       expect(screen.getByText('DeFi venues')).toBeTruthy();
+    },
+  );
+
+  it.each([
+    { isNative: true, md: false, headings: false },
+    { isNative: true, md: true, headings: false },
+    { isNative: false, md: false, headings: true },
+    { isNative: false, md: true, headings: false },
+  ])(
+    'names a single product in the panel only without a sheet header (native: $isNative, compact: $md)',
+    ({ isNative, md, headings }) => {
+      platformEnv.isNative = isNative;
+      mockMd = md;
+      render(<InviteRewardRows summaryInfo={summary({ withRewards: true })} />);
+
+      // The row titles render the product names once; a panel heading adds
+      // a second copy.
+      const expected = headings ? 2 : 1;
+      expect(screen.getAllByText(ETranslations.global_swap)).toHaveLength(
+        expected,
+      );
     },
   );
 });

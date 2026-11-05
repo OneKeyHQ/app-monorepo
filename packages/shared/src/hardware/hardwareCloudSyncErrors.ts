@@ -22,11 +22,15 @@ const prerequisiteKeys: Partial<
 };
 
 export class HardwareCloudKeyPrerequisiteError extends OneKeyLocalError {
-  constructor(readonly reason: keyof typeof prerequisiteMessages) {
+  constructor(
+    readonly reason: keyof typeof prerequisiteMessages,
+    info?: { targetCredentialId: string },
+  ) {
     super(
       normalizeErrorProps(
         {
           key: prerequisiteKeys[reason],
+          info,
           // The page asks whether to continue with this hardware wallet.
           autoToast: reason === 'walletMismatch' ? false : undefined,
         },

@@ -30,10 +30,7 @@ import {
   useThirdPartyHardwareUiStateAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { ILocalWalletAccountAddresses } from '@onekeyhq/kit-bg/src/vaults/localWallet/types';
-import {
-  isLocalWalletRuntimeUnavailableError,
-  isLocalWalletSetupIncompleteError,
-} from '@onekeyhq/kit-bg/src/vaults/localWallet/userFacingError';
+import { isLocalWalletRuntimeUnavailableError } from '@onekeyhq/kit-bg/src/vaults/localWallet/userFacingError';
 import type {
   IAccountDeriveInfo,
   IAccountDeriveTypes,
@@ -87,7 +84,6 @@ import {
 } from '../../../hooks/useDeriveTypesCollapseState';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { useWalletBanner } from '../../../hooks/useWalletBanner';
-import { SetupRepairControl } from '../../AssetDetails/pages/TokenDetails/LocalWalletRepairControls';
 import { ReceiveCard, ReceiveCardCell } from '../components/ReceiveCard';
 import { ReceiveQRCode } from '../components/ReceiveQRCode';
 import {
@@ -110,10 +106,8 @@ import type {
 } from '../components/ReceiveShare';
 import type { RouteProp } from '@react-navigation/core';
 
-// Only a setup-incomplete read is repaired by Retry setup; the others re-read
-// or point to where the data can be deleted.
+// A failed read is read again, except one that points to where the data can be deleted.
 type ILocalWalletAddressErrorKind =
-  | 'setupIncomplete'
   | 'identityMismatch'
   | 'runtimeUnavailable'
   | 'failed';
@@ -122,7 +116,6 @@ const LOCAL_WALLET_ADDRESS_ERROR_MESSAGES: Record<
   ILocalWalletAddressErrorKind,
   ETranslations
 > = {
-  setupIncomplete: ETranslations.privacy_error_setup_incomplete__msg,
   identityMismatch: ETranslations.privacy_error_identity_mismatch__msg,
   runtimeUnavailable: ETranslations.privacy_error_runtime_unavailable__msg,
   failed: ETranslations.global_unknown_error_retry_message,
@@ -395,14 +388,12 @@ function ReceiveToken() {
         if (isLocalWalletRuntimeUnavailableError(error)) {
           errorKind = 'runtimeUnavailable';
         } else {
-          // Set by a repair that derived another key; repairing again cannot help.
+          // Set by an enable that derived another key; only deleting local data helps.
           const state = await backgroundApiProxy.servicePrivacyChain
             .getLocalWalletAccountState(scope)
             .catch(() => undefined);
           if (state?.identityMismatch) {
             errorKind = 'identityMismatch';
-          } else if (isLocalWalletSetupIncompleteError(error)) {
-            errorKind = 'setupIncomplete';
           }
         }
         return { ...scope, addresses: undefined, errorKind };
@@ -1566,6 +1557,9 @@ function ReceiveToken() {
   }, [intl]);
 
   const renderVerifyFooter = useCallback(() => {
+    // No address yet (a private form that is loading, not scanning or failed):
+    // nothing to verify or show.
+    const isNothingToVerify = !displayAddress;
     if (platformEnv.isNative) {
       return (
         <Page.Footer safeAreaBottomMode="content">
@@ -1575,6 +1569,7 @@ function ReceiveToken() {
               variant="primary"
               size="large"
               loading={isVerifying}
+              disabled={isNothingToVerify}
               onPress={handleVerifyOnDevicePressDebounced}
             >
               {intl.formatMessage({
@@ -1584,6 +1579,7 @@ function ReceiveToken() {
             <Button
               testID={ReceiveTestIDs.SkipVerifyButton}
               size="large"
+              disabled={isNothingToVerify}
               onPress={handleSkipVerifyPress}
             >
               {intl.formatMessage({
@@ -1604,6 +1600,7 @@ function ReceiveToken() {
         confirmButtonProps={{
           variant: 'primary',
           loading: isVerifying,
+          disabled: isNothingToVerify,
           testID: ReceiveTestIDs.VerifyOnDeviceButton,
         }}
         // keep one declared param: FooterCancelButton auto-closes the page
@@ -1613,12 +1610,14 @@ function ReceiveToken() {
           id: ETranslations.no_device_with_me__action,
         })}
         cancelButtonProps={{
+          disabled: isNothingToVerify,
           testID: ReceiveTestIDs.SkipVerifyButton,
         }}
       />
     );
   }, [
     bottom,
+    displayAddress,
     handleSkipVerifyPress,
     handleVerifyOnDevicePressDebounced,
     intl,
@@ -2096,24 +2095,7 @@ function ReceiveToken() {
   }, [navigation, networkIdForPrivacySettings, walletId]);
 
   let privateReceiveErrorAction: React.ReactNode = null;
-  if (
-    privateReceiveErrorKind === 'setupIncomplete' &&
-    currentAccount &&
-    network
-  ) {
-    privateReceiveErrorAction = (
-      <SetupRepairControl
-        networkId={network.id}
-        accountId={currentAccount.id}
-        onDone={() => {
-          void reloadLocalWalletAddresses();
-        }}
-        onError={() => {
-          void reloadLocalWalletAddresses();
-        }}
-      />
-    );
-  } else if (privateReceiveErrorKind === 'identityMismatch') {
+  if (privateReceiveErrorKind === 'identityMismatch') {
     // Deleting the account's privacy data lives in the network settings.
     privateReceiveErrorAction = (
       <Button

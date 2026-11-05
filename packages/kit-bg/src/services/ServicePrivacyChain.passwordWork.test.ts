@@ -91,6 +91,10 @@ describe('Privacy device verification on request', () => {
     const service = Object.assign(
       Object.create(ServicePrivacyChain.prototype) as {
         verifyLocalWalletWithPassword: (p: typeof params) => Promise<void>;
+        maybeVerifyLocalWalletOnSend: (p: typeof params) => Promise<void>;
+        getLocalWalletDeviceVerifyAmount: (
+          p: typeof params,
+        ) => Promise<string | undefined>;
       },
       {
         backgroundApi: {
@@ -98,6 +102,10 @@ describe('Privacy device verification on request', () => {
           serviceAccount: { getWalletDeviceParams },
           serviceHardwareUI: { withHardwareProcessing },
         },
+        getLocalWalletAccountState: jest.fn(async () => ({ enabled: true })),
+        getLocalWalletAccountBalance: jest.fn(async () => ({
+          frozen: [{ reason: 'needsPassword', amountParsed: '0.35' }],
+        })),
       },
     );
     return {
@@ -134,6 +142,37 @@ describe('Privacy device verification on request', () => {
     await service.verifyLocalWalletWithPassword(params);
 
     expect(localWalletDoDeviceWork).not.toHaveBeenCalled();
+  });
+
+  // The send page explains and asks the device once the user sends.
+  it('does not ask the device on entering a send', async () => {
+    const {
+      service,
+      localWalletDoDeviceWork,
+      getWalletDeviceParams,
+      promptPasswordVerifyByAccount,
+    } = createService(deviceParams);
+
+    await service.maybeVerifyLocalWalletOnSend(params);
+
+    expect(getWalletDeviceParams).not.toHaveBeenCalled();
+    expect(localWalletDoDeviceWork).not.toHaveBeenCalled();
+    expect(promptPasswordVerifyByAccount).not.toHaveBeenCalled();
+  });
+
+  it('tells the send page how much the device must verify', async () => {
+    const { service } = createService(deviceParams);
+
+    await expect(
+      service.getLocalWalletDeviceVerifyAmount(params),
+    ).resolves.toBe('0.35');
+
+    mockGetVault.mockResolvedValue({
+      localWalletHasDeviceWork: async () => false,
+    });
+    await expect(
+      service.getLocalWalletDeviceVerifyAmount(params),
+    ).resolves.toBeUndefined();
   });
 });
 

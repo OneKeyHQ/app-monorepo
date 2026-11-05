@@ -590,3 +590,39 @@ describe('Home All Networks dispatch ownership', () => {
     expect(hook.published.mock.calls[0][0]).toHaveLength(21);
   });
 });
+
+describe('Home All Networks empty-account flag', () => {
+  it('re-derives the flag per owner so consecutive empty owners each transition', async () => {
+    getAccounts.mockImplementation(async () => []);
+    const hook = setup({ warm: false });
+    await act(() => hook.result.current.run());
+    expect(hook.result.current.isEmptyAccount).toBe(true);
+    expect(hook.finished).toHaveBeenCalledWith(
+      expect.objectContaining({
+        runResult: { didComplete: true, requestCount: 0, resultCount: 0 },
+      }),
+    );
+
+    // The flag belongs to the owner whose run derived it. A new owner starts
+    // unknown: carrying `true` over would skip the false→true transition the
+    // consumers' effects key on, and their list would stay on its skeleton.
+    hook.switchOwner('b');
+    expect(hook.result.current.isEmptyAccount).toBe(false);
+
+    await act(() => hook.result.current.run());
+    expect(hook.result.current.isEmptyAccount).toBe(true);
+  });
+
+  it('clears the flag once the owner resolves accounts', async () => {
+    getAccounts.mockImplementation(async ({ accountId }) =>
+      accountId === 'a' ? [] : accountsFor(accountId).accountsInfo,
+    );
+    const hook = setup({ warm: false });
+    await act(() => hook.result.current.run());
+    expect(hook.result.current.isEmptyAccount).toBe(true);
+
+    hook.switchOwner('b');
+    await act(() => hook.result.current.run());
+    expect(hook.result.current.isEmptyAccount).toBe(false);
+  });
+});
