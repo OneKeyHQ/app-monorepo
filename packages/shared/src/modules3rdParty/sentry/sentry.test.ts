@@ -743,6 +743,42 @@ describe('buildBasicOptions', () => {
       expect(result).toBeNull();
     });
 
+    test('should return null when hint.originalException is a filtered OneKeyError subclass or SNI cancellation', () => {
+      const onError = jest.fn();
+      const options = buildBasicOptions({ onError });
+      const event: any = {
+        exception: {
+          values: [
+            {
+              type: 'java.io.InterruptedIOException',
+              value: 'timeout',
+            },
+          ],
+        },
+      };
+
+      expect(
+        options.beforeSend?.(event, {
+          originalException: {
+            name: 'Error',
+            className: 'OneKeyError',
+            cause: {
+              name: 'java.io.InterruptedIOException',
+              message: 'timeout',
+            },
+          },
+        }),
+      ).toBeNull();
+      expect(
+        options.beforeSend?.(event, {
+          originalException: {
+            name: 'SniRequestCancelledError',
+            code: 'SNI_CANCELLED',
+          },
+        }),
+      ).toBeNull();
+    });
+
     test('should forward web-embed exceptions locally and drop the Sentry event', () => {
       const previousIsWebEmbed = platformEnv.isWebEmbed;
       platformEnv.isWebEmbed = true;
