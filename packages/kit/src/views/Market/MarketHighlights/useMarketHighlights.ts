@@ -2,8 +2,14 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { useLocaleVariant } from '@onekeyhq/kit/src/hooks/useLocaleVariant';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import type { IMarketHighlight } from '@onekeyhq/shared/types/marketV2';
 
-export function useMarketHighlights() {
+export type IMarketHighlightsPreview = {
+  locale: string;
+  items: IMarketHighlight[];
+};
+
+export function useMarketHighlights(initialResult?: IMarketHighlightsPreview) {
   const locale = useLocaleVariant();
   const { result, isLoading, run } = usePromiseResult(
     async () => ({
@@ -13,6 +19,7 @@ export function useMarketHighlights() {
     }),
     [locale],
     {
+      initResult: initialResult,
       pollingInterval: timerUtils.getTimeDurationMs({ seconds: 30 }),
       runImmediatelyOnMount: true,
       keepResultIfError: true,

@@ -133,14 +133,18 @@ export function DesktopLayout({
         <YStack bg="$bgApp" pointerEvents="box-none">
           <YStack {...MARKET_DESKTOP_CONTENT_FRAME_PROPS}>
             {highlight ? (
-              <MarketHighlightStrip highlight={highlight} compact={false} />
+              <MarketHighlightStrip
+                highlight={highlight}
+                highlights={highlights}
+                compact={false}
+              />
             ) : null}
             <MarketBannerList />
           </YStack>
         </YStack>
       ),
     }),
-    [highlight],
+    [highlight, highlights],
   );
 
   // Portal target for sticky column headers.

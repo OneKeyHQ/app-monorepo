@@ -404,7 +404,9 @@ function MarketHighlightsContent() {
   const { popStack } = useAppNavigation();
   const { navigateToPerps } = usePerpsNavigation();
   const toDetailPage = useToDetailPage({ switchToMarketTabFirst: true });
-  const { items, isLoading, retry } = useMarketHighlights();
+  const { items, isLoading, retry } = useMarketHighlights(
+    route.params?.initialHighlights,
+  );
   const [visibleIds, setVisibleIds] = useState<string[]>([]);
 
   const onViewableItemsChanged = useCallback(

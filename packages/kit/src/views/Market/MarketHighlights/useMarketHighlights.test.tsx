@@ -93,6 +93,47 @@ it('loads immediately and replaces the headline while the page remains open', as
   expect(result.current.items?.[0].title).toBe('New headline');
 });
 
+it.each(['en-US', 'zh-CN'])(
+  'reuses the homepage list only for the current locale when preview locale=%s',
+  async (previewLocale) => {
+    const pending =
+      buildDeferredPromise<
+        Awaited<ReturnType<typeof service.fetchMarketHighlights>>
+      >();
+    const preview = {
+      locale: previewLocale,
+      items: [
+        {
+          highlightId: 'preview',
+          title: 'Homepage headline',
+          description: '',
+          publishedAt: '2026-11-04T00:00:00Z',
+          assets: [],
+          links: [],
+        },
+      ],
+    };
+    service.fetchMarketHighlights.mockReturnValue(pending.promise);
+    const { result } = renderHook(() => useMarketHighlights(preview));
+
+    expect(result.current.items?.[0].title).toBe(
+      previewLocale === 'en-US' ? 'Homepage headline' : undefined,
+    );
+    await act(async () => {
+      await jest.advanceTimersByTimeAsync(0);
+    });
+    expect(result.current.items?.[0].title).toBe(
+      previewLocale === 'en-US' ? 'Homepage headline' : undefined,
+    );
+
+    pending.resolve([{ ...preview.items[0], title: 'Refreshed headline' }]);
+    await act(async () => {
+      await jest.advanceTimersByTimeAsync(0);
+    });
+    expect(result.current.items?.[0].title).toBe('Refreshed headline');
+  },
+);
+
 it('refreshes stock, spot, perpetual, and token prices with unchanged assets', async () => {
   const assets: IMarketHighlightAsset[] = [
     {

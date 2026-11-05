@@ -9,6 +9,7 @@ import {
 } from '@onekeyhq/components';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { useLocaleVariant } from '@onekeyhq/kit/src/hooks/useLocaleVariant';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { getMarketWatchlistKey } from '@onekeyhq/shared/src/utils/marketWatchlistIdentity';
 import type { IMarketHighlight } from '@onekeyhq/shared/types/marketV2';
@@ -23,17 +24,24 @@ export const MARKET_HIGHLIGHT_MOBILE_HEADER_HEIGHT = 62;
 
 export function MarketHighlightStrip({
   highlight,
+  highlights,
   compact,
 }: {
   highlight: IMarketHighlight;
+  highlights: IMarketHighlight[] | undefined;
   compact: boolean;
 }) {
   const navigation = useAppNavigation();
+  const locale = useLocaleVariant();
   const assets = useMemo(
     () => highlight.assets.slice(0, compact ? 1 : 2),
     [highlight.assets, compact],
   );
-  const quotes = useMarketHighlightQuotes(assets);
+  const quoteAssets = useMemo(
+    () => highlights?.slice(0, 3).flatMap((item) => item.assets.slice(0, 3)),
+    [highlights],
+  );
+  const quotes = useMarketHighlightQuotes(quoteAssets);
   useEffect(() => {
     quotes?.forEach((quote) => {
       prewarmMarketTokenImages({ tokenImageUri: quote.logoUrl });
@@ -64,6 +72,9 @@ export function MarketHighlightStrip({
             screen: EModalMarketRoutes.MarketHighlights,
             params: {
               initialQuotes: quotes ? [...quotes] : undefined,
+              initialHighlights: highlights
+                ? { locale, items: highlights }
+                : undefined,
             },
           })
         }

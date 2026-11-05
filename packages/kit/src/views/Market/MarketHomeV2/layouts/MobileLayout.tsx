@@ -384,13 +384,17 @@ function MobileLayoutComponent({
       renderHeader: () => (
         <YStack bg="$bgApp" pointerEvents="box-none" minHeight={1}>
           {highlight ? (
-            <MarketHighlightStrip highlight={highlight} compact />
+            <MarketHighlightStrip
+              highlight={highlight}
+              highlights={highlights}
+              compact
+            />
           ) : null}
           <MarketBannerList />
         </YStack>
       ),
     }),
-    [highlight],
+    [highlight, highlights],
   );
 
   const listContainerProps = useMemo(() => {
