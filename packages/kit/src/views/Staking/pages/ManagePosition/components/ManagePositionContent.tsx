@@ -91,10 +91,17 @@ export type IManagePositionPayWith = {
   // Wide windows: the picker's height when the form is in a taller modal
   // (the desktop Earn guide), which it takes on
   pickerHeight?: number;
-  // The token it pays with now, and whether it was picked rather than the
-  // form's own choice: the deposit modal marks the protocols a swap comes
-  // before
-  onTokenChange?: (token?: { symbol: string; isPicked: boolean }) => void;
+  // The token it pays with now, its network, and whether it was picked
+  // rather than the form's own choice: the deposit modal marks the protocols
+  // a swap or a bridge comes before
+  onTokenChange?: (token?: {
+    symbol: string;
+    networkId?: string;
+    isPicked: boolean;
+  }) => void;
+  // Every network's tokens, a token elsewhere bridged to the deposit's
+  // network first (the Earn window, 11-05)
+  acrossNetworks?: boolean;
 };
 
 export type IManagePositionFooterAction = {

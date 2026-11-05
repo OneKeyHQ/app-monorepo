@@ -547,6 +547,8 @@ export const EarnNavigation = {
       wide?: boolean;
       // Every token of the kind on the network, the symbol's among them
       assetClass?: IEarnAssetClass;
+      // On every network, not networkId's alone (a home row by token, 11-05)
+      allNetworks?: boolean;
     },
   ) {
     navigation.pushModal(EModalRoutes.StakingModal, {
@@ -564,6 +566,7 @@ export const EarnNavigation = {
           offerOnly: params.offerOnly,
           wide: params.wide,
           assetClass: params.assetClass,
+          allNetworks: params.allNetworks,
         },
       },
     });

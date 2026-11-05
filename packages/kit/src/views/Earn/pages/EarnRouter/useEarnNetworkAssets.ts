@@ -23,7 +23,7 @@ import {
   listAssetSelectNetworks,
 } from '../EarnAssetSelect/earnAssetSelect.utils';
 
-import { listPayTokens } from './earnRouter.utils';
+import { listEarnNetworkIds, listPayTokens } from './earnRouter.utils';
 
 import type {
   IEarnDesktopHoldOffer,
@@ -35,7 +35,6 @@ import type {
   IEarnAssetSelectTokenNetwork,
 } from '../EarnAssetSelect/earnAssetSelect.utils';
 
-const NO_NETWORK_IDS: string[] = [];
 const NO_PROTOCOLS: IStakeProtocolListItem[] = [];
 const NO_ASSETS: IEarnAvailableAsset[] = [];
 
@@ -155,7 +154,11 @@ export function useEarnNetworkAssets({
     return lists.flat();
   }, [accountId, accountNetworkId, assetSymbolsKey, enabled]);
 
-  const { markets, isLoaded: isMarketsLoaded } = useEarnDesktopMarkets({
+  const {
+    markets,
+    marketList,
+    isLoaded: isMarketsLoaded,
+  } = useEarnDesktopMarkets({
     isActive: enabled,
   });
   const lendingOffers = useMemo(
@@ -183,10 +186,16 @@ export function useEarnNetworkAssets({
     [networkId],
   );
   // The wallet on the network, read fresh unless the home just did; across
-  // every network as the home last read it
+  // networks, on every one Earn offers on, as the home reads it
   const refreshNetworkIds = useMemo(
-    () => (networkId ? [networkId] : NO_NETWORK_IDS),
-    [networkId],
+    () =>
+      networkId
+        ? [networkId]
+        : listEarnNetworkIds({
+            assets,
+            marketNetworkIds: marketList.map((market) => market.networkId),
+          }),
+    [assets, marketList, networkId],
   );
   const wallet = useEarnDesktopWalletHoldings({
     isActive: enabled,

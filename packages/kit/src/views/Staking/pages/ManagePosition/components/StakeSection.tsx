@@ -36,6 +36,7 @@ import {
   findPayToken,
   getPayTokenAddress,
   resolvePayMode,
+  toPayTokenSwapToken,
   toPickedPayToken,
 } from '@onekeyhq/kit/src/views/Earn/pages/EarnRouter/earnRouter.utils';
 import { useEarnRouterOffers } from '@onekeyhq/kit/src/views/Earn/pages/EarnRouter/EarnRouterOffer';
@@ -327,11 +328,14 @@ export const StakeSection = ({
   const payInputTitle = canPayWith
     ? EARN_DESKTOP_DEMO_COPY.payWith
     : intl.formatMessage({ id: ETranslations.content__amount });
+  // The Earn window's Pay with lists every network's tokens (11-05)
+  const isPayAcrossNetworks = canPayWith && Boolean(payWith?.acrossNetworks);
   const pay = usePayTokens({
     accountId,
     networkId,
     depositSymbol,
     enabled: canPayWith && Boolean(depositSymbol),
+    acrossNetworks: isPayAcrossNetworks,
   });
   // An account with nothing at all on this network: Pay with's balance says
   // so and names the network, where a 0 would speak of one token only. The
@@ -344,7 +348,11 @@ export const StakeSection = ({
     [canPayWith, networkId],
   );
   const payBalanceNote =
-    canPayWith && accountId && pay.isNetworkEmpty && payNetwork?.name
+    canPayWith &&
+    !isPayAcrossNetworks &&
+    accountId &&
+    pay.isNetworkEmpty &&
+    payNetwork?.name
       ? EARN_DESKTOP_DEMO_COPY.noFundsOnNetwork(payNetwork.name)
       : undefined;
   // Pay with's own tokens by address, which the picker lists also where
@@ -404,11 +412,24 @@ export const StakeSection = ({
     if (preferred) {
       return preferred;
     }
-    return payWith?.preferDepositToken
-      ? pay.heldTokens.find((item) => item.isDepositToken)
-      : pay.defaultToken;
+    if (!payWith?.preferDepositToken) {
+      return pay.defaultToken;
+    }
+    // The deposit's own token; across networks, else the same token where
+    // the wallet holds most of it (the list's next), bridged over
+    const depositKey = depositSymbol.toLowerCase();
+    return (
+      pay.heldTokens.find((item) => item.isDepositToken) ??
+      (isPayAcrossNetworks && depositKey
+        ? pay.heldTokens.find(
+            (item) => item.token.symbol.toLowerCase() === depositKey,
+          )
+        : undefined)
+    );
   }, [
     canPayWith,
+    depositSymbol,
+    isPayAcrossNetworks,
     pay.defaultToken,
     pay.heldTokens,
     pay.tokens,
@@ -419,14 +440,19 @@ export const StakeSection = ({
   // Told to the deposit modal, which marks the protocols a swap comes before
   const onPayTokenChange = payWith?.onTokenChange;
   const payTokenSymbol = payToken?.token.symbol;
+  const payTokenNetworkId = payToken?.networkId || networkId;
   const isPayTokenPicked = Boolean(findPayToken(pay.tokens, payKey));
   useEffect(() => {
     onPayTokenChange?.(
       payTokenSymbol
-        ? { symbol: payTokenSymbol, isPicked: isPayTokenPicked }
+        ? {
+            symbol: payTokenSymbol,
+            networkId: payTokenNetworkId,
+            isPicked: isPayTokenPicked,
+          }
         : undefined,
     );
-  }, [isPayTokenPicked, onPayTokenChange, payTokenSymbol]);
+  }, [isPayTokenPicked, onPayTokenChange, payTokenNetworkId, payTokenSymbol]);
   // After a swap paid for the deposit: the deposit form takes over on the
   // tokens it brought in, filled with them and pressed once by itself, as
   // the swap's press asked. Only for the provider the swap was for; picking
@@ -478,15 +504,28 @@ export const StakeSection = ({
         tokenInfo.token.symbol.toLowerCase() === depositSymbol.toLowerCase()
           ? tokenInfo.token
           : undefined;
+      // A pick on another network pays from the wallet's account there
+      const pickNetworkId = token.networkId || networkId;
       const item = toPickedPayToken({
         token,
         tokens: pay.heldTokens,
         depositToken,
         depositSymbol,
+        depositNetworkId: isPayAcrossNetworks ? networkId : undefined,
+        accountId:
+          pickNetworkId === networkId
+            ? accountId
+            : pay.heldTokens.find(
+                (held) => held.networkId === pickNetworkId && held.accountId,
+              )?.accountId,
       });
       if (!pay.heldTokens.some((held) => held.key === item.key)) {
-        rememberPickedPayToken(networkId, item);
-        void refreshPickedPayToken({ accountId, networkId, item });
+        rememberPickedPayToken(pickNetworkId, item);
+        void refreshPickedPayToken({
+          accountId: item.accountId || accountId,
+          networkId: pickNetworkId,
+          item,
+        });
       }
       if (item.key === payToken?.key) {
         return;
@@ -503,6 +542,7 @@ export const StakeSection = ({
     [
       accountId,
       depositSymbol,
+      isPayAcrossNetworks,
       networkId,
       onAmountChange,
       pay.heldTokens,
@@ -526,16 +566,30 @@ export const StakeSection = ({
           ? {
               address: payToken.token.address,
               isNative: Boolean(payToken.token.isNative),
+              networkId: payToken.networkId || networkId,
             }
           : undefined,
+        acrossNetworks: isPayAcrossNetworks,
+        ...(isPayAcrossNetworks
+          ? {
+              heldTokens: pay.heldTokens.map(toPayTokenSwapToken),
+              accountIdByNetwork: Object.fromEntries(
+                pay.heldTokens.flatMap((item) =>
+                  item.accountId ? [[item.networkId, item.accountId]] : [],
+                ),
+              ),
+            }
+          : {}),
         onSelect: handlePickPayToken,
       },
     });
   }, [
     accountId,
     handlePickPayToken,
+    isPayAcrossNetworks,
     navigation,
     networkId,
+    pay.heldTokens,
     payToken,
     payTokenAddressesKey,
     pickerHeight,
@@ -554,21 +608,23 @@ export const StakeSection = ({
           address: asset.info.address,
           isNative: asset.info.isNative,
         })),
+        depositNetworkId: isPayAcrossNetworks ? networkId : undefined,
       });
+  // A swap first, or a bridge (a swap on the way where it's another token):
+  // both are the swap path's form
+  const isSwapPath =
+    payMode === 'swapThenDeposit' || payMode === 'bridgeThenDeposit';
   // The form shown before this one: paying with another token brings the
   // swap form's line under the box (it grows in), and paying with the token
   // itself again takes it away (its room closes); the same form drawn again
   // for another protocol keeps it as it was. Pendle's own form has the line
   // too ("You receive"), so between its two forms the line stays
   const lastPayModeRef = useRef(payMode);
-  const revealsDepositLine =
-    !isPendleProvider &&
-    payMode === 'swapThenDeposit' &&
-    lastPayModeRef.current !== 'swapThenDeposit';
-  const collapsesDepositLine =
-    !isPendleProvider &&
-    payMode !== 'swapThenDeposit' &&
-    lastPayModeRef.current === 'swapThenDeposit';
+  const wasSwapPath =
+    lastPayModeRef.current === 'swapThenDeposit' ||
+    lastPayModeRef.current === 'bridgeThenDeposit';
+  const revealsDepositLine = !isPendleProvider && isSwapPath && !wasSwapPath;
+  const collapsesDepositLine = !isPendleProvider && !isSwapPath && wasSwapPath;
   useEffect(() => {
     lastPayModeRef.current = payMode;
   }, [payMode]);
@@ -590,18 +646,28 @@ export const StakeSection = ({
         target: handoffTarget,
         autoSubmitKey: amount ? Date.now() : undefined,
       });
-      // The page's balance and Pay with's list, as the swap moved both
+      // The page's balance and Pay with's list, as the swap moved both; a
+      // bridge moved its own network's too
       onRefreshTokenInfo?.();
-      void refreshPayTokens();
+      void refreshPayTokens(
+        payTokenNetworkId === networkId ? undefined : [payTokenNetworkId],
+      );
     },
-    [handoffTarget, onAmountChange, onRefreshTokenInfo, refreshPayTokens],
+    [
+      handoffTarget,
+      networkId,
+      onAmountChange,
+      onRefreshTokenInfo,
+      payTokenNetworkId,
+      refreshPayTokens,
+    ],
   );
   // The rate the swap path estimates with: this provider's among the
   // token's offers on the network
   const { offers: payOffers } = useEarnRouterOffers({
     symbol: depositSymbol,
     networkId,
-    enabled: payMode === 'swapThenDeposit',
+    enabled: isSwapPath,
   });
   const payOfferApr = useMemo(
     () =>
@@ -743,7 +809,7 @@ export const StakeSection = ({
   const paySummaryRequest = useMemo<
     IEarnRouterSummaryRequest | undefined
   >(() => {
-    if (payMode !== 'swapThenDeposit') {
+    if (!isSwapPath) {
       return undefined;
     }
     if (isBorrowStake) {
@@ -800,7 +866,7 @@ export const StakeSection = ({
     effectiveStakeTokenInfo?.token.symbol,
     isBorrowStake,
     isPendleProvider,
-    payMode,
+    isSwapPath,
     pendleSlippage,
     protocolInfo?.earnAccount?.accountAddress,
     protocolInfo?.provider,
@@ -1518,7 +1584,7 @@ export const StakeSection = ({
     tokenInfo?.token && tokenInfo.token.decimals > 0
       ? tokenInfo.token
       : undefined;
-  if (payMode === 'swapThenDeposit' && payToken && depositTokenToBuy) {
+  if (isSwapPath && payToken && depositTokenToBuy) {
     // The wallet's entry for the token the swap buys, for its price
     const heldSwapToken = pay.tokens.find((item) =>
       isPendleProvider
@@ -1547,6 +1613,15 @@ export const StakeSection = ({
         key={`${providerName}|${protocolInfo?.vault ?? ''}|${payToken.key}`}
         accountId={accountId}
         networkId={networkId}
+        // A bridge pays from the token's own network and account
+        payNetworkId={
+          payMode === 'bridgeThenDeposit' ? payToken.networkId : undefined
+        }
+        payAccountId={
+          payMode === 'bridgeThenDeposit'
+            ? payToken.accountId || accountId
+            : undefined
+        }
         actionLabel={actionLabel}
         depositLineLabel={depositLineLabel}
         isDisabled={isDisabled}

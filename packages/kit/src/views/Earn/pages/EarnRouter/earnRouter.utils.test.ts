@@ -15,7 +15,7 @@ import {
   findOffer,
   findPayToken,
   getEarnSwapDepositAmount,
-  getEarnSwapFeeUsd,
+  getEarnSwapFee,
   getEarnSwapMinutes,
   getEarnSwapPayMax,
   getEarnSwapSlippage,
@@ -23,6 +23,7 @@ import {
   isEarnBridge,
   isUsableEarnSwapQuote,
   keepPendleMarketRows,
+  listEarnNetworkIds,
   listPayTokens,
   listPayTokensAcrossNetworks,
   listWithPayTokens,
@@ -32,6 +33,7 @@ import {
   pickDefaultPayToken,
   pickDefaultPayTokenAcrossNetworks,
   resolvePayMode,
+  toPayTokenSwapToken,
   toPickedPayToken,
   withPickedTokenDetails,
 } from './earnRouter.utils';
@@ -1420,7 +1422,7 @@ describe('bridge quotes (11-05)', () => {
     expect(getEarnSwapMinutes(undefined)).toBeUndefined();
   });
 
-  it('reads the fee in USD when quoted', () => {
+  it('reads the network fee when quoted', () => {
     const quote = (fee?: number) =>
       ({
         info: { provider: 'p' },
@@ -1429,8 +1431,55 @@ describe('bridge quotes (11-05)', () => {
             ? undefined
             : { percentageFee: 0, estimatedFeeFiatValue: fee },
       }) as IFetchQuoteResult;
-    expect(getEarnSwapFeeUsd(quote(0.42))).toBe(0.42);
-    expect(getEarnSwapFeeUsd(quote(0))).toBeUndefined();
-    expect(getEarnSwapFeeUsd(quote())).toBeUndefined();
+    expect(getEarnSwapFee(quote(0.42))).toBe(0.42);
+    expect(getEarnSwapFee(quote(0))).toBeUndefined();
+    expect(getEarnSwapFee(quote())).toBeUndefined();
+  });
+});
+
+describe('Pay with across networks: the picker and the fetches (11-05)', () => {
+  it('lists the networks Earn offers on once each, sorted', () => {
+    expect(
+      listEarnNetworkIds({
+        assets: [
+          { protocols: [{ networkId: 'evm--8453' }, { networkId: 'evm--1' }] },
+          { protocols: [{ networkId: 'evm--1' }] },
+        ],
+        marketNetworkIds: ['sol--101', 'evm--8453'],
+        alsoNetworkIds: ['evm--42161', ''],
+      }),
+    ).toEqual(['evm--1', 'evm--42161', 'evm--8453', 'sol--101']);
+    expect(listEarnNetworkIds({ assets: [] })).toEqual([]);
+  });
+
+  it('gives the picker a wallet token with its network and USD value', () => {
+    const item: IEarnRouterPayToken = {
+      key: 'base-usdc',
+      token: walletToken('USDC', '0xUSDC', { name: 'USD Coin' }),
+      networkId: 'evm--8453',
+      accountId: 'hd-1--evm',
+      amount: '16.3866',
+      fiatValueUsd: '16.38',
+      priceUsd: '0.9998',
+      isDepositToken: false,
+    };
+    expect(toPayTokenSwapToken(item)).toEqual(
+      expect.objectContaining({
+        networkId: 'evm--8453',
+        contractAddress: '0xUSDC',
+        isNative: false,
+        symbol: 'USDC',
+        balanceParsed: '16.3866',
+        fiatValue: '16.38',
+        price: '0.9998',
+        currency: 'usd',
+      }),
+    );
+    const native = toPayTokenSwapToken({
+      ...item,
+      token: walletToken('ETH', 'eth', { isNative: true, address: '' }),
+    });
+    expect(native.contractAddress).toBe('');
+    expect(native.isNative).toBe(true);
   });
 });

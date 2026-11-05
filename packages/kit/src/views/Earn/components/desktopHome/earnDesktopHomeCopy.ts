@@ -16,6 +16,8 @@ export const EARN_DESKTOP_DEMO_COPY = {
   youDeposit: 'You deposit',
   youSupply: 'You supply',
   swapAnd: (action: string) => `Swap and ${action}`,
+  // Pay with's token on another network: bridged there first (11-05)
+  bridgeAnd: (action: string) => `Bridge and ${action}`,
   // A lending form's one press that approves, then supplies or repays, named
   // as the vaults' "Approve and Deposit" is
   approveAnd: (action: string) => `Approve and ${action}`,

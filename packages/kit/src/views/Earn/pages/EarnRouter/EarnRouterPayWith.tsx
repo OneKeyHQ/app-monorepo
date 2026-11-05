@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useSyncExternalStore } from 'react';
+import { useCallback, useMemo, useState, useSyncExternalStore } from 'react';
 
 import BigNumber from 'bignumber.js';
 
@@ -9,6 +9,7 @@ import { USD_CURRENCY_ID } from '@onekeyhq/shared/src/consts/currencyConsts';
 import { useEarnDesktopWalletHoldings } from '../../components/desktopHome/useEarnDesktopHomeData';
 
 import {
+  listEarnNetworkIds,
   listPayTokens,
   listPayTokensAcrossNetworks,
   mergePickedPayTokens,
@@ -124,8 +125,23 @@ export function usePayTokens({
   enabled?: boolean;
   acrossNetworks?: boolean;
 }) {
-  const refreshNetworkIds = useMemo(() => [networkId], [networkId]);
   const [{ availableAssetsByType = {} }] = useEarnAtom();
+  // Fetched again after the cache: the deposit's network; across networks,
+  // every one Earn offers on, as the home fetches them, and the ones a
+  // bridge paid from, whose balances it moved
+  const [paidFromNetworkIds, setPaidFromNetworkIds] = useState<string[]>([]);
+  const refreshNetworkIds = useMemo(
+    () =>
+      acrossNetworks
+        ? listEarnNetworkIds({
+            assets: Object.values(availableAssetsByType).flatMap(
+              (list) => list ?? [],
+            ),
+            alsoNetworkIds: [networkId, ...paidFromNetworkIds],
+          })
+        : [networkId],
+    [acrossNetworks, availableAssetsByType, networkId, paidFromNetworkIds],
+  );
   const payableSymbols = useMemo(
     () =>
       new Set(
@@ -194,21 +210,34 @@ export function usePayTokens({
   // After a transaction: the wallet's balances, and the picks' own, which
   // the wallet's list doesn't carry
   const { refresh: refreshWallet } = wallet;
-  const refresh = useCallback(async () => {
-    const picks = acrossNetworks
-      ? [...pickedPayTokens.values()].flat()
-      : (pickedPayTokens.get(networkId) ?? []);
-    await Promise.all([
-      refreshWallet(),
-      ...picks.map((item) =>
-        refreshPickedPayToken({
-          accountId: item.accountId || accountId,
-          networkId: item.networkId || networkId,
-          item,
-        }),
-      ),
-    ]);
-  }, [accountId, acrossNetworks, networkId, refreshWallet]);
+  const refresh = useCallback(
+    async (alsoNetworkIds?: string[]) => {
+      // A bridge's own network, fetched along with the deposit's from now on
+      const extra = Array.isArray(alsoNetworkIds)
+        ? alsoNetworkIds.filter((id) => id && id !== networkId)
+        : [];
+      if (acrossNetworks && extra.length) {
+        setPaidFromNetworkIds((prev) => {
+          const next = [...new Set([...prev, ...extra])];
+          return next.length === prev.length ? prev : next;
+        });
+      }
+      const picks = acrossNetworks
+        ? [...pickedPayTokens.values()].flat()
+        : (pickedPayTokens.get(networkId) ?? []);
+      await Promise.all([
+        refreshWallet(),
+        ...picks.map((item) =>
+          refreshPickedPayToken({
+            accountId: item.accountId || accountId,
+            networkId: item.networkId || networkId,
+            item,
+          }),
+        ),
+      ]);
+    },
+    [accountId, acrossNetworks, networkId, refreshWallet],
+  );
   return {
     // The wallet's, then the picks
     tokens,

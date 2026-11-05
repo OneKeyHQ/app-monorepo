@@ -74,7 +74,8 @@ export function EarnOfferOptionCard({
   onHoverIn,
   vaultFirst = false,
   token,
-  needsSwap = false,
+  payRoute,
+  networkName,
   facts,
   testID,
 }: {
@@ -91,8 +92,11 @@ export function EarnOfferOptionCard({
   // Comparing a kind of token: the token the card holds, named first, the
   // protocol and its vault under it
   token?: { symbol: string; logoURI?: string };
-  // Its token isn't what Pay with pays with: a swap comes first
-  needsSwap?: boolean;
+  // What comes before its deposit: a swap (another token on its network)
+  // or a bridge (Pay with's token is on another network)
+  payRoute?: 'swap' | 'bridge';
+  // The cards span networks (All Networks): the card's own, by its name
+  networkName?: string;
   // Under the row while the card is picked: what tells the offer apart. It
   // unfolds as the card is picked and folds as another is
   facts?: ReactNode;
@@ -149,31 +153,51 @@ export function EarnOfferOptionCard({
           <ProtocolImage logoURI={logoURI} networkLogoURI={networkLogoURI} />
         )}
         <YStack flex={1} minWidth={0} gap="$0.5">
-          {/* A long name takes a second line in a narrow column, as the
-              name is what tells the offers apart. A token's symbol stays
-              whole on one, and its tag wraps under it where the column is
-              too narrow for both */}
+          {/* The name is what tells the offers apart: it keeps its width,
+              a long one taking a second line of its own, and the tags beside
+              it go under it where the column is too narrow for them all
+              (a network and a bridge across networks, 11-05) */}
           <XStack
             ai="center"
-            gap="$1.5"
+            columnGap="$1.5"
+            rowGap="$1"
             minWidth={0}
-            flexWrap={token ? 'wrap' : undefined}
+            flexWrap="wrap"
           >
             <SizableText
               size="$bodyLgMedium"
               numberOfLines={token ? 1 : 2}
-              flexShrink={token ? 0 : 1}
+              flexShrink={0}
               maxWidth="100%"
             >
               {title}
             </SizableText>
-            {/* The swap's tag sits by the token it buys; the product's own
-                tag (Fixed Rate) by the protocol, under it */}
-            {token ? null : nameAccessory}
-            {needsSwap ? (
+            {/* The network, as the wallet's token list tells a token's
+                networks apart; then the swap's or the bridge's tag by the
+                token it buys; the product's own tag (Fixed Rate) by the
+                protocol, under it */}
+            {networkName ? (
               <Badge badgeType="default" badgeSize="sm" flexShrink={0}>
+                <Badge.Text>{networkName}</Badge.Text>
+              </Badge>
+            ) : null}
+            {token ? null : nameAccessory}
+            {payRoute ? (
+              <Badge
+                testID={`earn-offer-pay-route-${payRoute}`}
+                // Apart from the grey network beside it: what happens, not
+                // where
+                badgeType="info"
+                badgeSize="sm"
+                flexShrink={0}
+              >
                 <Badge.Text>
-                  {intl.formatMessage({ id: ETranslations.global_swap })}
+                  {intl.formatMessage({
+                    id:
+                      payRoute === 'bridge'
+                        ? ETranslations.swap_page_bridge
+                        : ETranslations.global_swap,
+                  })}
                 </Badge.Text>
               </Badge>
             ) : null}

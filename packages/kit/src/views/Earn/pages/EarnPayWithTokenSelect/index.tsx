@@ -33,6 +33,7 @@ import {
 import { ANIMATE_ONLY_OPACITY } from '@onekeyhq/components/src/utils/animationConstants';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
+import NetworkToggleGroup from '@onekeyhq/kit/src/components/NetworkToggleGroup';
 import type { ITokenListItemProps } from '@onekeyhq/kit/src/components/TokenListItem';
 import { TokenListItem } from '@onekeyhq/kit/src/components/TokenListItem';
 import { TokenSelectorLpTokenSwitch } from '@onekeyhq/kit/src/components/TokenSelectorFilter';
@@ -40,15 +41,22 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useAppRoute } from '@onekeyhq/kit/src/hooks/useAppRoute';
 import { useDebounce } from '@onekeyhq/kit/src/hooks/useDebounce';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { convertFiat } from '@onekeyhq/kit/src/utils/fiatConvert';
+import useConfigurableChainSelector from '@onekeyhq/kit/src/views/ChainSelector/hooks/useChainSelector';
 import SwapPopularTokenGroup from '@onekeyhq/kit/src/views/Swap/components/SwapPopularTokenGroup';
 import { SwapTokenSelectorDesktop } from '@onekeyhq/kit/src/views/Swap/components/SwapTokenSelectorDesktop';
+import { buildSwapTokenSelectorAssetNetworks } from '@onekeyhq/kit/src/views/Swap/components/SwapTokenSelectorDesktop/SwapTokenSelectorDesktop.utils';
 import { useSwapTokenRiskCheck } from '@onekeyhq/kit/src/views/Swap/hooks/useSwapTokenRiskCheck';
 import { buildServerAuthoritativeSearchResults } from '@onekeyhq/kit/src/views/Swap/hooks/useSwapTokens.utils';
 import {
   EJotaiContextStoreNames,
+  useCurrencyPersistAtom,
   useSettingsPersistAtom,
   useTokenSelectorFilterPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
+import { dangerAllNetworkRepresent } from '@onekeyhq/shared/src/config/presetNetworks';
+import { USD_CURRENCY_ID } from '@onekeyhq/shared/src/consts/currencyConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { useFuse } from '@onekeyhq/shared/src/modules3rdParty/fuse';
 import type { IFuseResult } from '@onekeyhq/shared/src/modules3rdParty/fuse';
@@ -108,6 +116,10 @@ const NO_TOKENS: ISwapToken[] = [];
 const NO_NETWORK_IDS: string[] = [];
 const NO_ASSET_NETWORKS: [] = [];
 const noop = () => {};
+// Across networks: Swap's picker's width, for its network column
+const EARN_PAY_WITH_PICKER_ACROSS_WIDTH = 880;
+// The phone's row of network icons before the one that opens them all
+const PHONE_VISIBLE_NETWORKS = 5;
 
 // The token search: the hidden network column's comes first
 const findPickerSearch = (screen?: HTMLElement) =>
@@ -187,11 +199,14 @@ function EarnPayWithTokenSelectPage() {
     EModalStakingRoutes.EarnPayWithTokenSelect
   >();
   const {
-    accountId,
-    networkId,
+    accountId: depositAccountId,
+    networkId: depositNetworkId,
     payTokenAddresses,
     modalHeight,
     selectedToken,
+    acrossNetworks = false,
+    heldTokens,
+    accountIdByNetwork,
     onSelect,
   } = route.params;
   const { gtMd, md } = useMedia();
@@ -204,7 +219,64 @@ function EarnPayWithTokenSelectPage() {
   const useDesktopTokenSelector =
     (platformEnv.isDesktop || platformEnv.isWeb) && gtMd;
 
-  const network = useLockedNetwork(networkId);
+  // Across networks (the Earn window, 11-05): Swap's networks in a column,
+  // All Networks listing what the wallet holds on each; a token elsewhere
+  // is bridged to the deposit's network. Else the deposit's network alone
+  const { result: swapNetworks = NO_NETWORKS } = usePromiseResult(
+    async () =>
+      acrossNetworks
+        ? backgroundApiProxy.serviceSwap
+            .fetchSwapNetworks()
+            .catch(() => NO_NETWORKS)
+        : NO_NETWORKS,
+    [acrossNetworks],
+  );
+  // Swap's own entry for every network, as its picker builds it
+  const allNetwork = useMemo<ISwapNetwork | undefined>(
+    () =>
+      swapNetworks.length
+        ? {
+            networkId: getNetworkIdsMap().onekeyall,
+            name: dangerAllNetworkRepresent.name,
+            symbol: dangerAllNetworkRepresent.symbol,
+            logoURI: dangerAllNetworkRepresent.logoURI,
+            shortcode: dangerAllNetworkRepresent.shortcode,
+            isAllNetworks: true,
+          }
+        : undefined,
+    [swapNetworks],
+  );
+  // The networks a token can come from: the deposit's, and the ones a
+  // bridge leaves from
+  const columnNetworks = useMemo(
+    () =>
+      swapNetworks.filter(
+        (item) =>
+          !item.isAllNetworks &&
+          (item.networkId === depositNetworkId || item.supportCrossChainSwap),
+      ),
+    [depositNetworkId, swapNetworks],
+  );
+  const [listNetworkId, setListNetworkId] = useState(
+    (acrossNetworks && selectedToken?.networkId) || depositNetworkId,
+  );
+  const networkId = acrossNetworks ? listNetworkId : depositNetworkId;
+  const isAllNetworksView =
+    acrossNetworks &&
+    Boolean(allNetwork) &&
+    networkId === allNetwork?.networkId;
+  // The wallet's account on the network listed, for its balances there
+  const accountId =
+    (acrossNetworks ? accountIdByNetwork?.[networkId] : undefined) ??
+    depositAccountId;
+  const handleSelectNetwork = useCallback((item: ISwapNetwork) => {
+    setListNetworkId(item.networkId);
+    listViewRef.current?.scrollToOffset({ offset: 0, animated: false });
+  }, []);
+
+  const network = useLockedNetwork(
+    isAllNetworksView ? depositNetworkId : networkId,
+  );
   const showLpTokenFilterSwitch = isPayWithPickerLpFilterShown({
     networkId,
     network,
@@ -254,6 +326,7 @@ function EarnPayWithTokenSelectPage() {
   }, []);
 
   const [searchInput, setSearchInput] = useState('');
+  const [networkSearch, setNetworkSearch] = useState('');
   const typedKeyword = searchInput.trim();
   const debouncedKeyword = useDebounce(typedKeyword, SEARCH_DEBOUNCE_MS);
   // A cleared field shows the full list again at once, as in Swap
@@ -279,7 +352,7 @@ function EarnPayWithTokenSelectPage() {
   const currencyId = settingsPersist.currencyInfo.id;
   const request = useMemo(
     () =>
-      accountAddress === undefined || !network
+      accountAddress === undefined || !network || isAllNetworksView
         ? undefined
         : {
             accountId,
@@ -293,6 +366,7 @@ function EarnPayWithTokenSelectPage() {
       accountAddress,
       accountId,
       currencyId,
+      isAllNetworksView,
       keyword,
       network,
       networkId,
@@ -336,12 +410,50 @@ function EarnPayWithTokenSelectPage() {
   }, [keyword, request, requestKey]);
   // The answer to this request; before it, the last full list of the network
   // shows at once, as Swap shows its last complete list
-  const answered = result?.requestKey === requestKey;
+  // The wallet's tokens on every network, in the currency the app shows,
+  // each with its network's logo: All Networks lists them, and the column
+  // sums them by network
+  const [{ currencyMap }] = useCurrencyPersistAtom();
+  const heldSwapTokens = useMemo(() => {
+    if (!acrossNetworks || !heldTokens?.length) {
+      return NO_TOKENS;
+    }
+    const logoById = new Map(
+      columnNetworks.map((item) => [item.networkId, item.logoURI]),
+    );
+    return heldTokens.map((token) => ({
+      ...token,
+      fiatValue: convertFiat({
+        value: token.fiatValue ?? '0',
+        sourceCurrency: USD_CURRENCY_ID,
+        targetCurrency: currencyId,
+        currencyMap,
+      }),
+      currency: currencyId,
+      networkLogoURI: token.networkLogoURI || logoById.get(token.networkId),
+    }));
+  }, [acrossNetworks, columnNetworks, currencyId, currencyMap, heldTokens]);
+  const assetNetworks = useMemo(
+    () =>
+      acrossNetworks
+        ? buildSwapTokenSelectorAssetNetworks({
+            networks: columnNetworks,
+            tokens: heldSwapTokens,
+          })
+        : NO_ASSET_NETWORKS,
+    [acrossNetworks, columnNetworks, heldSwapTokens],
+  );
+  const answered = isAllNetworksView || result?.requestKey === requestKey;
   const cachedTokens =
     requestKey && !keyword
       ? payWithPickerTokenLists.get(requestKey)
       : undefined;
-  const listTokens = answered ? result?.tokens : cachedTokens;
+  let listTokens = answered ? result?.tokens : cachedTokens;
+  if (isAllNetworksView) {
+    listTokens = keyword
+      ? heldSwapTokens.filter((token) => matchesPayTokenKeyword(token, keyword))
+      : heldSwapTokens;
+  }
 
   // With DeFi tokens off, the wallet's tokens Swap files there, read beside
   // the list: the ones Pay with offers (sUSDe, sUSD3) show in it, in a search
@@ -349,7 +461,10 @@ function EarnPayWithTokenSelectPage() {
   const hasPayTokens = Boolean(payTokenAddresses?.length);
   const heldDeFiRequest = useMemo(
     () =>
-      requestLpToken === false && accountAddress && hasPayTokens
+      requestLpToken === false &&
+      accountAddress &&
+      hasPayTokens &&
+      !isAllNetworksView
         ? { accountId, networkId, accountAddress, currencyId }
         : undefined,
     [
@@ -357,6 +472,7 @@ function EarnPayWithTokenSelectPage() {
       accountId,
       currencyId,
       hasPayTokens,
+      isAllNetworksView,
       networkId,
       requestLpToken,
     ],
@@ -429,8 +545,9 @@ function EarnPayWithTokenSelectPage() {
   const listLoading = !answered || isSearchSettling || !heldDeFiTokens;
 
   const popularTokens = useMemo(
-    () => swapPopularTokens[networkId] ?? [],
-    [networkId],
+    () =>
+      isAllNetworksView ? NO_TOKENS : (swapPopularTokens[networkId] ?? []),
+    [isAllNetworksView, networkId],
   );
   const showPopularTokens = popularTokens.length > 0 && !keyword;
   // One note above the first token with no price, as Swap has it
@@ -443,7 +560,7 @@ function EarnPayWithTokenSelectPage() {
     [displayTokens],
   );
   const searchTitle =
-    keyword && network?.name
+    keyword && network?.name && !isAllNetworksView
       ? intl.formatMessage(
           { id: ETranslations.title_tokens_on_network },
           { network: network.name },
@@ -624,6 +741,9 @@ function EarnPayWithTokenSelectPage() {
       // picker marks its pick
       const isSelected = Boolean(
         selectedToken &&
+        (!acrossNetworks ||
+          !selectedToken.networkId ||
+          raw.networkId === selectedToken.networkId) &&
         (selectedToken.isNative
           ? raw.isNative
           : !raw.isNative &&
@@ -744,6 +864,7 @@ function EarnPayWithTokenSelectPage() {
       );
     },
     [
+      acrossNetworks,
       alertIndex,
       copyText,
       handleSelectToken,
@@ -756,6 +877,47 @@ function EarnPayWithTokenSelectPage() {
       useDesktopTokenSelector,
     ],
   );
+  // The phone's row of networks, as Swap's: the ones the wallet holds most
+  // on first, the rest in the chain selector
+  const openChainSelector = useConfigurableChainSelector();
+  const toggleNetworks = useMemo(() => {
+    if (!acrossNetworks) {
+      return NO_NETWORKS;
+    }
+    const heldIds = assetNetworks.map((item) => item.network.networkId);
+    const held = heldIds.flatMap((id) => {
+      const found = columnNetworks.find((item) => item.networkId === id);
+      return found ? [found] : [];
+    });
+    const rest = columnNetworks.filter(
+      (item) => !heldIds.includes(item.networkId),
+    );
+    return [...(allNetwork ? [allNetwork] : []), ...held, ...rest];
+  }, [acrossNetworks, allNetwork, assetNetworks, columnNetworks]);
+  const selectedListNetwork = isAllNetworksView
+    ? allNetwork
+    : (columnNetworks.find((item) => item.networkId === networkId) ?? network);
+  const handleMoreNetworks = useCallback(() => {
+    openChainSelector({
+      defaultNetworkId: isAllNetworksView ? undefined : networkId,
+      networkIds: columnNetworks.map((item) => item.networkId),
+      grouped: false,
+      onSelect: (picked) => {
+        const found = picked
+          ? columnNetworks.find((item) => item.networkId === picked.id)
+          : undefined;
+        if (found) {
+          handleSelectNetwork(found);
+        }
+      },
+    });
+  }, [
+    columnNetworks,
+    handleSelectNetwork,
+    isAllNetworksView,
+    networkId,
+    openChainSelector,
+  ]);
 
   const tokenListEmptyComponent = useMemo(() => {
     if (listLoading) {
@@ -775,6 +937,13 @@ function EarnPayWithTokenSelectPage() {
   const searchPlaceholder = intl.formatMessage({
     id: ETranslations.token_selector_search_placeholder,
   });
+  // Swap's token column alone; across networks, with its network column
+  let desktopPickerWidth: number | undefined;
+  if (useDesktopTokenSelector) {
+    desktopPickerWidth = acrossNetworks
+      ? EARN_PAY_WITH_PICKER_ACROSS_WIDTH
+      : EARN_PAY_WITH_PICKER_SIZE.width;
+  }
 
   return (
     <Page lazyLoad={!platformEnv.isNativeIOS} safeAreaEnabled={false}>
@@ -783,9 +952,7 @@ function EarnPayWithTokenSelectPage() {
         title={EARN_DESKTOP_DEMO_COPY.payWith}
         // Swap's token column alone: the app's usual modal width. Over a
         // taller modal, its height (as on the route)
-        modalContentMaxWidth={
-          useDesktopTokenSelector ? EARN_PAY_WITH_PICKER_SIZE.width : undefined
-        }
+        modalContentMaxWidth={desktopPickerWidth}
         modalContentMaxHeight={
           useDesktopTokenSelector
             ? (modalHeight ?? EARN_PAY_WITH_PICKER_SIZE.height)
@@ -816,28 +983,33 @@ function EarnPayWithTokenSelectPage() {
       <Page.Body>
         {useDesktopTokenSelector && network ? (
           <SwapTokenSelectorDesktop
-            hideNetworkColumn
-            allNetwork={network}
-            networks={NO_NETWORKS}
-            selectedNetwork={network}
-            assetNetworks={NO_ASSET_NETWORKS}
+            hideNetworkColumn={!acrossNetworks || !allNetwork}
+            allNetwork={(acrossNetworks && allNetwork) || network}
+            networks={acrossNetworks ? columnNetworks : NO_NETWORKS}
+            selectedNetwork={
+              acrossNetworks ? (selectedListNetwork ?? network) : network
+            }
+            assetNetworks={assetNetworks}
             disableNetworks={NO_NETWORK_IDS}
-            networkSearchValue=""
+            networkSearchValue={networkSearch}
             tokenSearchValue={searchInput}
             tokenSearchPlaceholder={searchPlaceholder}
             allNetworksLabel={intl.formatMessage({
               id: ETranslations.global_all_networks,
             })}
             sameChainLabel=""
-            onNetworkSearchChange={noop}
+            onNetworkSearchChange={setNetworkSearch}
             onTokenSearchChange={setSearchInput}
-            onSelectNetwork={noop}
+            onSelectNetwork={acrossNetworks ? handleSelectNetwork : noop}
             onDisableNetworksClick={noop}
             onSelectToken={handleSelectToken}
             listViewRef={listViewRef}
             popularTokens={popularTokens}
             showPopularTokens={showPopularTokens}
-            showLpTokenFilterSwitch={showLpTokenFilterSwitch}
+            // The wallet's own list on every network: nothing to filter
+            showLpTokenFilterSwitch={
+              showLpTokenFilterSwitch && !isAllNetworksView
+            }
             showLpTokensOnly={showLpTokensOnly}
             onLpTokenFilterChange={handleLpTokenFilterChange}
             tokens={isListShown ? displayTokens : NO_TOKENS}
@@ -869,16 +1041,26 @@ function EarnPayWithTokenSelectPage() {
                   })}
                 </SizableText>
                 <SizableText size="$bodyMd" numberOfLines={1} lineHeight={32}>
-                  {network?.name}
+                  {selectedListNetwork?.name ?? network?.name}
                 </SizableText>
               </XStack>
-              {showLpTokenFilterSwitch ? (
+              {showLpTokenFilterSwitch && !isAllNetworksView ? (
                 <TokenSelectorLpTokenSwitch
                   value={showLpTokensOnly}
                   onChange={handleLpTokenFilterChange}
                 />
               ) : null}
             </XStack>
+            {acrossNetworks && toggleNetworks.length ? (
+              <NetworkToggleGroup
+                networks={toggleNetworks}
+                maxVisibleNetworks={PHONE_VISIBLE_NETWORKS}
+                selectedNetwork={selectedListNetwork}
+                onSelectNetwork={handleSelectNetwork}
+                onMoreNetwork={handleMoreNetworks}
+                testIDPrefix="earn-pay-with-network"
+              />
+            ) : null}
             {/* Where Swap ends its header, under its network chips */}
             {showPopularTokens ? <Divider /> : null}
             <YStack flex={1}>

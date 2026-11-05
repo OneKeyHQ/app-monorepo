@@ -64,6 +64,7 @@ import {
 } from '../../utils/earnListMotion';
 import { getEarnAssetClassLabel } from '../EarnAssetSelect/earnAssetClassLabel';
 import { EarnAssetLogos } from '../EarnAssetSelect/EarnAssetLogos';
+import { scopeAssetSelectTokens } from '../EarnAssetSelect/earnAssetSelect.utils';
 
 import { EarnOfferFacts } from './EarnOfferFacts';
 import {
@@ -80,6 +81,7 @@ import {
   getOfferTarget,
   useEarnRouterOffers,
 } from './EarnRouterOffer';
+import { getOfferNetwork, getOfferNetworkId } from './useEarnNetworkAssets';
 import { useEscapeFoldsList } from './useEscapeFoldsList';
 import { warmFormData } from './useWarmOffersDeposit';
 
@@ -310,7 +312,8 @@ function EarnOfferRoutes({
   selectedKey,
   networkLogoURI,
   tokenOf,
-  needsSwap,
+  payRouteOf,
+  showsNetwork = false,
   footer,
   renderFacts,
   onSelect,
@@ -318,18 +321,21 @@ function EarnOfferRoutes({
 }: {
   offers: IEarnDesktopHoldOffer[];
   selectedKey?: string;
+  // The network's logo where an offer carries none of its own
   networkLogoURI?: string;
+  // The offers span networks (All Networks): each card names its own
+  showsNetwork?: boolean;
   // A card's facts, which show while it is the one picked
   renderFacts?: (
     offer: IEarnDesktopHoldOffer,
     isSelected: boolean,
   ) => ReactNode;
-  // Comparing a kind of token: each card's token, and whether a swap comes
-  // before its deposit
+  // Comparing a kind of token: each card's token
   tokenOf?: (
     offer: IEarnDesktopHoldOffer,
   ) => { symbol: string; logoURI?: string } | undefined;
-  needsSwap?: (offer: IEarnDesktopHoldOffer) => boolean;
+  // What comes before a card's deposit: a swap or a bridge from Pay with
+  payRouteOf?: (offer: IEarnDesktopHoldOffer) => 'swap' | 'bridge' | undefined;
   // Under the cards: the token's whole kind, where it pays more
   footer?: ReactNode;
   onSelect: (offer: IEarnDesktopHoldOffer) => void;
@@ -349,9 +355,10 @@ function EarnOfferRoutes({
             key={offer.key}
             testID={`earn-offer-${offer.key}`}
             offer={offer}
-            networkLogoURI={networkLogoURI}
+            networkLogoURI={getOfferNetwork(offer).logoURI || networkLogoURI}
+            networkName={showsNetwork ? getOfferNetwork(offer).name : undefined}
             token={tokenOf?.(offer)}
-            needsSwap={needsSwap?.(offer)}
+            payRoute={payRouteOf?.(offer)}
             isSelected={offer.key === selectedKey}
             facts={renderFacts?.(offer, offer.key === selectedKey)}
             onSelect={onSelect}
@@ -478,10 +485,12 @@ function useOfferFormParams({
     (offer: IEarnDesktopHoldOffer): IOfferFormParams => {
       const offerSymbol = getOfferSymbol(offer, symbol);
       const offerLogo = logoOf?.(offerSymbol) ?? logoURI;
+      // Each offer on its own network: across networks they differ
+      const offerNetworkId = getOfferNetworkId(offer) || networkId;
       if (offer.kind === 'lending') {
         const { offer: lending } = offer;
         return {
-          networkId,
+          networkId: offerNetworkId,
           symbol: lending.symbol,
           provider: lending.market.provider,
           type: EManagePositionType.Supply,
@@ -498,7 +507,7 @@ function useOfferFormParams({
       }
       const providerName = offer.item.provider.name;
       return {
-        networkId,
+        networkId: offerNetworkId,
         symbol: offerSymbol,
         provider: providerName,
         vault: earnUtils.shouldSendEarnProtocolVault({ providerName })
@@ -677,26 +686,48 @@ export function EarnOffersDeposit({
     page:
       | ETabEarnRoutes.EarnLendingDetails
       | ETabEarnRoutes.EarnProtocolDetails,
-    left: { offerKey: string; amount?: string; payKey?: string },
+    left: {
+      offerKey: string;
+      // The offer's network, which the window opens on again
+      networkId: string;
+      amount?: string;
+      payKey?: string;
+    },
   ) => void;
 }) {
   const intl = useIntl();
   const pickedClass: IEarnAssetClass | undefined =
     assetPick?.kind === 'class' ? assetPick.assetClass : undefined;
   const tokenSymbol = assetPick?.kind === 'token' ? assetPick.symbol : symbol;
+  // The pick's network, or every network (11-05): the router lists each
+  // network's offers for it, Pay with bridging where its token is elsewhere
+  const scopeNetworkId = assetPick?.networkId;
+  const isInScope = useCallback(
+    (offer: IEarnDesktopHoldOffer) =>
+      !scopeNetworkId || getOfferNetworkId(offer) === scopeNetworkId,
+    [scopeNetworkId],
+  );
   const { offers: tokenOffers, isLoaded: isTokenLoaded } = useEarnRouterOffers({
     symbol: tokenSymbol,
-    networkId,
+    networkId: scopeNetworkId ?? networkId,
     enabled: !pickedClass,
   });
   const assetTokens = networkAssets?.tokens;
   const offersBySymbol = networkAssets?.offersBySymbol;
+  // Every network's figures, for logos and for where the wallet holds a
+  // token (Pay with spans every network)
   const tokenBySymbol = useMemo(
     () =>
       new Map(
         (assetTokens ?? []).map((token) => [token.symbol.toLowerCase(), token]),
       ),
     [assetTokens],
+  );
+  // The pick's networks' figures, for its kinds and rates
+  const scopedTokens = useMemo(
+    () =>
+      assetTokens ? scopeAssetSelectTokens(assetTokens, scopeNetworkId) : [],
+    [assetTokens, scopeNetworkId],
   );
   const logoOf = useCallback(
     (offerSymbol: string) =>
@@ -706,30 +737,43 @@ export function EarnOffersDeposit({
   // A kind's offers: every token of it here, the best rate first. Their keys
   // name the token, as two tokens can share a protocol without a vault
   const classOffers = useMemo(() => {
-    if (!pickedClass || !assetTokens || !offersBySymbol) {
+    if (!pickedClass || !offersBySymbol) {
       return [];
     }
-    return assetTokens
+    return scopedTokens
       .filter((token) => token.type === pickedClass)
       .flatMap((token) =>
-        (offersBySymbol.get(token.symbol.toLowerCase()) ?? []).map((offer) => ({
-          ...offer,
-          key: `${token.symbol.toLowerCase()}|${offer.key}`,
-        })),
+        (offersBySymbol.get(token.symbol.toLowerCase()) ?? [])
+          .filter(isInScope)
+          .map((offer) => ({
+            ...offer,
+            key: `${token.symbol.toLowerCase()}|${offer.key}`,
+          })),
       )
       .toSorted((a, b) => b.apr - a.apr);
-  }, [assetTokens, offersBySymbol, pickedClass]);
-  // A token picked in the title shows the full list's offers for it until
-  // its own list is in, so the cards don't blank
-  const tokenFallback = offersBySymbol?.get(tokenSymbol.toLowerCase());
+  }, [isInScope, offersBySymbol, pickedClass, scopedTokens]);
+  const routerTokenOffers = useMemo(
+    () =>
+      (offersBySymbol?.get(tokenSymbol.toLowerCase()) ?? []).filter(isInScope),
+    [isInScope, offersBySymbol, tokenSymbol],
+  );
+  const [pickedKey, setPickedKey] = useState(offerKey);
   let allOffers = tokenOffers;
   let isLoaded = isTokenLoaded;
   if (pickedClass) {
     allOffers = classOffers;
     isLoaded = Boolean(networkAssets?.isLoaded);
-  } else if (!isTokenLoaded && tokenFallback?.length) {
-    allOffers = tokenFallback;
+  } else if (networkAssets?.isLoaded) {
+    allOffers = routerTokenOffers;
     isLoaded = true;
+  } else if (networkAssets) {
+    // Until every network's offers are in: the token's on the window's own
+    // network, where the offer asked for is (the home row's best), so the
+    // form opens on it at once and stays on it
+    isLoaded =
+      isTokenLoaded &&
+      Boolean(pickedKey) &&
+      tokenOffers.some((offer) => offer.key === pickedKey);
   }
   const offers = useMemo(
     () =>
@@ -746,9 +790,11 @@ export function EarnOffersDeposit({
   // Sent with an amount of the token itself, Pay with starts on that token
   // even before the withdrawal lands in the wallet
   const [payKey, setPayKey] = useState<string | undefined>(startPayKey);
-  // The token the form pays with, for the cards a swap comes before
+  // The token the form pays with and its network, for the cards a swap or a
+  // bridge comes before
   const [payToken, setPayToken] = useState<{
     symbol: string;
+    networkId?: string;
     isPicked: boolean;
   }>();
   // Comparing a kind, Pay with stays on one token as the cards change: the
@@ -759,6 +805,9 @@ export function EarnOffersDeposit({
   const [classPaySymbol, setClassPaySymbol] = useState(
     pickedClass ? symbol : undefined,
   );
+  // The router's Pay with spans every network: a token elsewhere is
+  // bridged to the offer's network first
+  const isAcrossNetworks = Boolean(networkAssets);
   const payWith = useMemo<IManagePositionPayWith>(
     () => ({
       preferDepositToken: Boolean(amount),
@@ -767,28 +816,88 @@ export function EarnOffersDeposit({
       preferSymbol: pickedClass ? classPaySymbol : undefined,
       pickerHeight: payWithPickerHeight,
       onTokenChange: setPayToken,
+      acrossNetworks: isAcrossNetworks,
     }),
-    [amount, classPaySymbol, payKey, payWithPickerHeight, pickedClass],
+    [
+      amount,
+      classPaySymbol,
+      isAcrossNetworks,
+      payKey,
+      payWithPickerHeight,
+      pickedClass,
+    ],
   );
-  // A card's token is paid for with a swap unless Pay with pays with it:
-  // comparing a kind, the token Pay with stays on; else the token picked
-  // there, or, as Pay with starts on the deposit's own token where the
-  // wallet holds it, any token the wallet holds here
-  const needsSwap = useCallback(
-    (offer: IEarnDesktopHoldOffer) => {
-      const offerSymbol = getOfferSymbol(offer, tokenSymbol).toLowerCase();
-      const paySymbol = pickedClass
-        ? (payToken?.symbol ?? classPaySymbol)
-        : undefined;
-      if (paySymbol) {
-        return paySymbol.toLowerCase() !== offerSymbol;
-      }
+  // The networks the wallet holds a token on, the most valuable first, as
+  // Pay with orders its list
+  const heldNetworksOf = useCallback(
+    (paySymbol: string) =>
+      (tokenBySymbol.get(paySymbol.toLowerCase())?.networks ?? [])
+        .filter((item) => new BigNumber(item.balance ?? 0).gt(0))
+        .toSorted((a, b) => (b.fiatValue ?? 0) - (a.fiatValue ?? 0))
+        .map((item) => item.id),
+    [tokenBySymbol],
+  );
+  // What a card's form pays with, as its Pay with picks for it: the token
+  // picked there; else the card's own token (comparing a kind, the kind's
+  // largest holding), on the card's network where it's held there and the
+  // form keeps to it (an amount typed, or the card's own token compared),
+  // else where the wallet holds most of it. Nothing of it held: the form's
+  // own choice, the same for every card
+  const payPlaceOf = useCallback(
+    (
+      offer: IEarnDesktopHoldOffer,
+    ): { symbol: string; networkId?: string } | undefined => {
       if (payToken?.isPicked) {
-        return payToken.symbol.toLowerCase() !== offerSymbol;
+        return payToken;
       }
-      return !tokenBySymbol.get(offerSymbol)?.balance;
+      const offerSymbol = getOfferSymbol(offer, tokenSymbol);
+      const paySymbol = pickedClass
+        ? (classPaySymbol ?? payToken?.symbol)
+        : offerSymbol;
+      if (!paySymbol) {
+        return undefined;
+      }
+      const held = heldNetworksOf(paySymbol);
+      if (!held.length) {
+        return payToken;
+      }
+      const offerNetworkId = getOfferNetworkId(offer);
+      const keepsCardNetwork = pickedClass
+        ? paySymbol.toLowerCase() === offerSymbol.toLowerCase()
+        : Boolean(amount);
+      return {
+        symbol: paySymbol,
+        networkId:
+          keepsCardNetwork && held.includes(offerNetworkId)
+            ? offerNetworkId
+            : held[0],
+      };
     },
-    [classPaySymbol, payToken, pickedClass, tokenBySymbol, tokenSymbol],
+    [
+      amount,
+      classPaySymbol,
+      heldNetworksOf,
+      payToken,
+      pickedClass,
+      tokenSymbol,
+    ],
+  );
+  // What comes before a card's deposit: a bridge where Pay with's token is
+  // on another network than the card's (a swap on the way if it's another
+  // token too), a swap where it's another token on the card's network
+  const payRouteOf = useCallback(
+    (offer: IEarnDesktopHoldOffer): 'swap' | 'bridge' | undefined => {
+      const place = payPlaceOf(offer);
+      if (!place?.networkId) {
+        return undefined;
+      }
+      if (place.networkId !== getOfferNetworkId(offer)) {
+        return 'bridge';
+      }
+      const offerSymbol = getOfferSymbol(offer, tokenSymbol).toLowerCase();
+      return place.symbol.toLowerCase() === offerSymbol ? undefined : 'swap';
+    },
+    [payPlaceOf, tokenSymbol],
   );
 
   // A pick in the title keeps the card it was on where the new list has
@@ -796,7 +905,6 @@ export function EarnOffersDeposit({
   const pickId = pickedClass
     ? `class:${pickedClass}`
     : `token:${tokenSymbol.toLowerCase()}`;
-  const [pickedKey, setPickedKey] = useState(offerKey);
   const [keyPickId, setKeyPickId] = useState(pickId);
   // What was typed, carried to a form another token starts over
   const typedAmountRef = useRef(amount ?? '');
@@ -829,21 +937,15 @@ export function EarnOffersDeposit({
   }
   // The offer asked for, else the best rate, once both the protocol list and
   // the lending markets are in: a market paying more would otherwise take the
-  // form over after it opened. Comparing a kind, the best one the wallet
-  // pays for without a swap
+  // form over after it opened. The best anywhere, a bridge or a swap first
+  // where it needs one (11-05, the user's A), so the home row's rate is the
+  // card picked here
   const selected = useMemo(() => {
     if (!isLoaded) {
       return undefined;
     }
-    const asked = offers.find((offer) => offer.key === pickedKey);
-    if (asked) {
-      return asked;
-    }
-    if (pickedClass) {
-      return offers.find((offer) => !needsSwap(offer)) ?? offers[0];
-    }
-    return offers[0];
-  }, [isLoaded, needsSwap, offers, pickedClass, pickedKey]);
+    return offers.find((offer) => offer.key === pickedKey) ?? offers[0];
+  }, [isLoaded, offers, pickedKey]);
   const selectedSymbol = selected
     ? getOfferSymbol(selected, tokenSymbol)
     : tokenSymbol;
@@ -977,7 +1079,7 @@ export function EarnOffersDeposit({
     if (!tokenKind || tokenKind === 'other') {
       return undefined;
     }
-    const kindTokens = assetTokens.filter((token) => token.type === tokenKind);
+    const kindTokens = scopedTokens.filter((token) => token.type === tokenKind);
     if (kindTokens.length < 2) {
       return undefined;
     }
@@ -999,6 +1101,7 @@ export function EarnOffersDeposit({
     offers,
     onAssetPickChange,
     pickedClass,
+    scopedTokens,
     tokenKind,
   ]);
   const handleClassHint = useCallback(() => {
@@ -1006,8 +1109,12 @@ export function EarnOffersDeposit({
       return;
     }
     easeModalHeightChanges();
-    onAssetPickChange?.({ kind: 'class', assetClass: classHint.assetClass });
-  }, [classHint, onAssetPickChange]);
+    onAssetPickChange?.({
+      kind: 'class',
+      assetClass: classHint.assetClass,
+      networkId: scopeNetworkId,
+    });
+  }, [classHint, onAssetPickChange, scopeNetworkId]);
   const tokenOf = useCallback(
     (offer: IEarnDesktopHoldOffer) => {
       const offerSymbol = getOfferSymbol(offer, tokenSymbol);
@@ -1043,7 +1150,11 @@ export function EarnOffersDeposit({
         offer.kind === 'lending'
           ? ETabEarnRoutes.EarnLendingDetails
           : ETabEarnRoutes.EarnProtocolDetails,
-        { offerKey: offer.key, ...carried },
+        {
+          offerKey: offer.key,
+          networkId: getOfferNetworkId(offer),
+          ...carried,
+        },
       );
       navigation.popStack();
       if (offer.kind === 'lending') {
@@ -1121,7 +1232,8 @@ export function EarnOffersDeposit({
       networkLogoURI={network?.logoURI}
       // Comparing a kind of token, each card names its own
       tokenOf={pickedClass ? tokenOf : undefined}
-      needsSwap={pickedClass ? needsSwap : undefined}
+      payRouteOf={networkAssets ? payRouteOf : undefined}
+      showsNetwork={Boolean(networkAssets) && !scopeNetworkId}
       footer={
         classHint ? (
           <EarnClassHint
@@ -1248,10 +1360,14 @@ export function EarnOffersDeposit({
     <EarnFormSwitchingContext.Provider value={shown?.key !== selected.key}>
       <EarnOutcomeCarryContext.Provider value={outcomeCarry}>
         <OfferDepositForm
-          key={getOfferFormKind(selected, selectedSymbol)}
+          // Another network's offer starts the form over on its network
+          key={`${getOfferNetworkId(selected)}|${getOfferFormKind(
+            selected,
+            selectedSymbol,
+          )}`}
           offer={selected}
           symbol={selectedSymbol}
-          networkId={networkId}
+          networkId={getOfferNetworkId(selected) || networkId}
           logoURI={selectedLogo}
           logoOf={logoOf}
           initialAmount={startAmount}

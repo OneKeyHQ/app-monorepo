@@ -39,6 +39,7 @@ import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes'
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
+import { formatSwapQuoteDuration } from '@onekeyhq/shared/src/utils/swapQuoteDurationUtils';
 import tokenRebaseUtils from '@onekeyhq/shared/src/utils/tokenRebaseUtils';
 import { ECheckAmountActionType } from '@onekeyhq/shared/types/staking';
 import type {
@@ -96,6 +97,7 @@ import {
   buildEarnSwapToken,
   earnRouterSwapReducer,
   getEarnSwapDepositAmount,
+  getEarnSwapFee,
   getEarnSwapPayMax,
   keepPendleMarketRows,
 } from './earnRouter.utils';
@@ -483,6 +485,8 @@ export type IEarnRouterSwapDepositToken = {
 export function EarnRouterSwapDepositForm({
   accountId,
   networkId,
+  payAccountId,
+  payNetworkId,
   actionLabel,
   depositLineLabel,
   isDisabled,
@@ -506,8 +510,13 @@ export function EarnRouterSwapDepositForm({
   onRefreshBalance,
   revealsDepositLine,
 }: {
+  // The deposit's account and network: where the swap's tokens land
   accountId: string;
   networkId: string;
+  // Where Pay with's token is, when that is another network: the swap is a
+  // bridge from there (11-05). Unset, the deposit's own
+  payAccountId?: string;
+  payNetworkId?: string;
   /** What the deposit form calls the action: Deposit, or Supply */
   actionLabel: string;
   /** The line under the Pay with box, in the same word: "You deposit", or
@@ -565,34 +574,64 @@ export function EarnRouterSwapDepositForm({
   const intl = useIntl();
   const [{ currencyInfo }] = useSettingsPersistAtom();
   const [{ currencyMap }] = useCurrencyPersistAtom();
+  // The paying side: Pay with's token's network and account, else the
+  // deposit's
+  const fromNetworkId = payNetworkId || networkId;
+  const fromAccountId = payAccountId || accountId;
+  const isBridge = fromNetworkId !== networkId;
   const { result: network } = usePromiseResult(
-    () => backgroundApiProxy.serviceNetwork.getNetwork({ networkId }),
-    [networkId],
+    () =>
+      backgroundApiProxy.serviceNetwork.getNetwork({
+        networkId: fromNetworkId,
+      }),
+    [fromNetworkId],
   );
   const { result: address } = usePromiseResult(
     async () =>
-      accountId
+      fromAccountId
+        ? backgroundApiProxy.serviceAccount.getAccountAddressForApi({
+            accountId: fromAccountId,
+            networkId: fromNetworkId,
+          })
+        : undefined,
+    [fromAccountId, fromNetworkId],
+  );
+  const account = useMemo<IEarnSwapAccount | undefined>(
+    () =>
+      fromAccountId && address
+        ? { accountId: fromAccountId, networkId: fromNetworkId, address }
+        : undefined,
+    [address, fromAccountId, fromNetworkId],
+  );
+  // Where a bridge's tokens land: the deposit's account there
+  const { result: toAddress } = usePromiseResult(
+    async () =>
+      isBridge && accountId
         ? backgroundApiProxy.serviceAccount.getAccountAddressForApi({
             accountId,
             networkId,
           })
         : undefined,
-    [accountId, networkId],
+    [accountId, isBridge, networkId],
   );
-  const account = useMemo<IEarnSwapAccount | undefined>(
+  const toAccount = useMemo<IEarnSwapAccount | undefined>(
     () =>
-      accountId && address ? { accountId, networkId, address } : undefined,
-    [accountId, address, networkId],
+      isBridge && accountId && toAddress
+        ? { accountId, networkId, address: toAddress }
+        : undefined,
+    [accountId, isBridge, networkId, toAddress],
   );
+  // The account the deposit token's balance is read on
+  const landingAccount = isBridge ? toAccount : account;
   // What the network's coin keeps back for fees, as the Swap page's Max does
   const { result: nativeConfig } = usePromiseResult(
     async () =>
       payToken.token.isNative
         ? backgroundApiProxy.serviceSwap.fetchSwapNativeTokenConfig({
-            networkId,
+            networkId: fromNetworkId,
           })
         : undefined,
-    [networkId, payToken.token.isNative],
+    [fromNetworkId, payToken.token.isNative],
   );
   const [typedAmount, setAmount] = useState(initialAmount ?? '');
   // "1." and "1.0" on the way to "1.05" are the amount 1: quoted, checked
@@ -625,11 +664,11 @@ export function EarnRouterSwapDepositForm({
   const fromToken = useMemo(
     () =>
       buildEarnSwapToken({
-        networkId,
+        networkId: fromNetworkId,
         token: payToken.token,
         priceUsd: payToken.priceUsd,
       }),
-    [networkId, payToken.priceUsd, payToken.token],
+    [fromNetworkId, payToken.priceUsd, payToken.token],
   );
   const toToken = useMemo(
     () =>
@@ -731,6 +770,7 @@ export function EarnRouterSwapDepositForm({
         ...quoteTokensRef.current,
         amount,
         account,
+        toAccount,
         signal: controller.signal,
         onBest: (quote) => setQuoteState({ amount, quote, isLoading: true }),
       })
@@ -749,7 +789,7 @@ export function EarnRouterSwapDepositForm({
       clearTimeout(timer);
       controller.abort();
     };
-  }, [account, amount, canQuote, isIdle, quoteTokensKey]);
+  }, [account, amount, canQuote, isIdle, quoteTokensKey, toAccount]);
   // A quote moved off, taken back from the frame its amount is typed again
   const leftQuote = leftQuotesRef.current.get(amount);
   const takenBackQuote =
@@ -927,8 +967,8 @@ export function EarnRouterSwapDepositForm({
   // The wallet's confirm for the swap, as the Swap page sends one (with an
   // approval in the same confirm): what went out, nothing when rejected
   const { navigationToTxConfirm } = useSignatureConfirm({
-    accountId,
-    networkId,
+    accountId: fromAccountId,
+    networkId: fromNetworkId,
   });
   const confirmSwap = useCallback(
     (prepared: IEarnSwapPrepared) =>
@@ -993,7 +1033,7 @@ export function EarnRouterSwapDepositForm({
   const onSwappedRef = useRef(onSwapped);
   onSwappedRef.current = onSwapped;
   const handleStart = useCallback(async () => {
-    if (!account) {
+    if (!account || !landingAccount) {
       return;
     }
     const controller = new AbortController();
@@ -1008,6 +1048,7 @@ export function EarnRouterSwapDepositForm({
         toToken,
         amount,
         account,
+        toAccount,
         signal,
       });
       setQuoteState({ amount, quote: freshQuote, isLoading: false });
@@ -1026,10 +1067,11 @@ export function EarnRouterSwapDepositForm({
         toToken,
         amount,
         account,
+        toAccount,
       });
       const balanceBefore = await readEarnSwapBalance({
         token: toToken,
-        account,
+        account: landingAccount,
       });
       if (signal.aborted) {
         throw new EarnSwapError('cancelled');
@@ -1049,6 +1091,7 @@ export function EarnRouterSwapDepositForm({
         prepared,
         toToken,
         account,
+        toAccount,
         landedBalance:
           balanceBefore === undefined
             ? undefined
@@ -1059,7 +1102,7 @@ export function EarnRouterSwapDepositForm({
       const balanceAfter = await waitForEarnSwapBalance({
         token: toToken,
         atLeast: new BigNumber(balanceBefore ?? 0).plus(expected).toFixed(),
-        account,
+        account: landingAccount,
         signal,
       });
       const deposit = getEarnSwapDepositAmount({
@@ -1101,7 +1144,9 @@ export function EarnRouterSwapDepositForm({
     depositToken.inputDecimals,
     fromToken,
     intl,
+    landingAccount,
     recordSwap,
+    toAccount,
     toToken,
   ]);
 
@@ -1141,7 +1186,8 @@ export function EarnRouterSwapDepositForm({
     !isPendleLineComing &&
     !isPendleLineMissing &&
     !isSummaryComing &&
-    Boolean(account);
+    Boolean(account) &&
+    Boolean(landingAccount);
 
   const handleSelectPercentage = useCallback(
     (percent: number) => {
@@ -1221,13 +1267,19 @@ export function EarnRouterSwapDepositForm({
   const confirmText =
     overridesState && !footerActionOverride.isSwitchWait
       ? footerActionOverride.text
-      : EARN_DESKTOP_DEMO_COPY.swapAnd(actionLabel);
-  // The steps the press runs, from the start: the swap marked as the one it
-  // begins with, then spinning while it runs
+      : (isBridge
+          ? EARN_DESKTOP_DEMO_COPY.bridgeAnd
+          : EARN_DESKTOP_DEMO_COPY.swapAnd)(actionLabel);
+  // The steps the press runs, from the start: the swap (or the bridge)
+  // marked as the one it begins with, then spinning while it runs
   const progress = (
     <StakeProgress
       currentStep={getProgressStep(flow)}
-      step1Label={intl.formatMessage({ id: ETranslations.global_swap })}
+      step1Label={intl.formatMessage({
+        id: isBridge
+          ? ETranslations.swap_page_bridge
+          : ETranslations.global_swap,
+      })}
       step2Label={actionLabel}
       isRunning={isBusy}
     />
@@ -1522,6 +1574,21 @@ export function EarnRouterSwapDepositForm({
     })} ${depositToken.symbol}`;
   }
   const isDepositLinePlaceholder = !depositLine.startsWith('≈');
+  // A bridge's time and network fee from the quote on screen, with the
+  // deposit line's figure (none before an amount, nor without a route)
+  const bridgeQuote = isBridge && !isDepositLinePlaceholder ? quote : undefined;
+  const bridgeDuration = bridgeQuote
+    ? formatSwapQuoteDuration(bridgeQuote)
+    : undefined;
+  // Quoted in the app's currency already
+  const bridgeFeeValue = getEarnSwapFee(bridgeQuote);
+  const bridgeFee =
+    bridgeFeeValue === undefined
+      ? undefined
+      : numberFormat(String(bridgeFeeValue), {
+          formatter: 'value',
+          formatterOptions: { currency: currencyInfo.symbol },
+        });
   if (isPendle && !isDepositLinePlaceholder && !isInsufficient) {
     lineShownSummaryAmountRef.current = summaryAmount;
   }
@@ -1652,6 +1719,30 @@ export function EarnRouterSwapDepositForm({
                 }
               />
             )}
+            {/* A bridge says before the press how long it takes and what
+                the network charges, as the Swap page's route does */}
+            {isBridge ? (
+              <YStack pt="$1">
+                <StakingAmountResultLine
+                  testID="earn-router-bridge-duration"
+                  label={intl.formatMessage({
+                    id: ETranslations.provider_swap_duration,
+                  })}
+                  value={bridgeDuration ?? '–'}
+                  isPlaceholder={!bridgeDuration}
+                  loading={isQuoting || isEmptySettling}
+                />
+                <StakingAmountResultLine
+                  testID="earn-router-bridge-fee"
+                  label={intl.formatMessage({
+                    id: ETranslations.provider_network_fee,
+                  })}
+                  value={bridgeFee ?? '–'}
+                  isPlaceholder={!bridgeFee}
+                  loading={isQuoting || isEmptySettling}
+                />
+              </YStack>
+            ) : null}
           </YStack>
         </HeightTransition>
       </YStack>

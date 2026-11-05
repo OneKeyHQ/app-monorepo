@@ -190,6 +190,11 @@ export type IModalStakingParamList = {
     // Swap's network column too: a token on any network, bridged to the
     // deposit's network first (11-05). Unset, networkId's tokens alone
     acrossNetworks?: boolean;
+    // Across networks: the wallet's tokens on every network (All Networks
+    // lists them, the column sums them), values in USD, and its account on
+    // each network
+    heldTokens?: ISwapToken[];
+    accountIdByNetwork?: Record<string, string>;
     // Called with the pick after the picker closes
     onSelect: (token: ISwapToken) => void;
   };

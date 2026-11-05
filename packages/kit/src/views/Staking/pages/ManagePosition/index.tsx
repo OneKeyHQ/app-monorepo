@@ -37,6 +37,7 @@ import { EarnProviderMirror } from '../../../Earn/EarnProviderMirror';
 import { EarnNavigation } from '../../../Earn/earnUtils';
 import { leaveEarnWindowFor } from '../../../Earn/earnWindowReturn';
 import { EarnAssetPickTrigger } from '../../../Earn/pages/EarnAssetSelect/EarnAssetPickTrigger';
+import { isNetworkInPick } from '../../../Earn/pages/EarnAssetSelect/earnAssetSelect.utils';
 import { EarnDepositDone } from '../../../Earn/pages/EarnRouter/EarnDepositDone';
 import {
   EarnOfferSwitcher,
@@ -52,7 +53,10 @@ import {
   useEarnRouterOffers,
 } from '../../../Earn/pages/EarnRouter/EarnRouterOffer';
 import { EarnWithdrawDone } from '../../../Earn/pages/EarnRouter/EarnWithdrawDone';
-import { useEarnNetworkAssets } from '../../../Earn/pages/EarnRouter/useEarnNetworkAssets';
+import {
+  getOfferNetworkId,
+  useEarnNetworkAssets,
+} from '../../../Earn/pages/EarnRouter/useEarnNetworkAssets';
 import { EarnFormLeavingContext } from '../../components/EarnFooterFade';
 import { EarnOutcomeCarryContext } from '../../components/UniversalStake/EarnFormSummary';
 import {
@@ -218,11 +222,16 @@ const ManagePositionPage = () => {
   // deposit (that offer alone) keeps its token
   const isRouter = Boolean(offersEntry && !offersEntry.offerOnly);
   const routeAssetClass = route.params.earnOffers?.assetClass;
-  const [assetPick, setAssetPick] = useState<IEarnAssetPick>(() =>
-    routeAssetClass
-      ? { kind: 'class', assetClass: routeAssetClass }
-      : { kind: 'token', symbol },
-  );
+  // On every network where the entry asks for it (a home row, by token since
+  // 11-05), else on the route's network
+  const [assetPick, setAssetPick] = useState<IEarnAssetPick>(() => {
+    const pickNetworkId = route.params.earnOffers?.allNetworks
+      ? undefined
+      : route.params.networkId;
+    return routeAssetClass
+      ? { kind: 'class', assetClass: routeAssetClass, networkId: pickNetworkId }
+      : { kind: 'token', symbol, networkId: pickNetworkId };
+  });
   const handleAssetPick = useCallback((pick: IEarnAssetPick) => {
     // The form under the title is built again around the new offers
     easeModalHeightChanges();
@@ -284,11 +293,12 @@ const ManagePositionPage = () => {
       }),
     [selectedProtocol.networkId],
   );
-  // What the network pays on, token by token: the title's selector lists it
-  const networkAssets = useEarnNetworkAssets({
-    networkId: selectedProtocol.networkId,
-    enabled: isRouter,
-  });
+  // What Earn pays on, token by token on every network: the title's
+  // selector lists it, and the offers come from it
+  const networkAssets = useEarnNetworkAssets({ enabled: isRouter });
+  const pickNetwork = assetPick.networkId
+    ? networkAssets.networkById.get(assetPick.networkId)
+    : undefined;
   // A transaction that went out: the form (its footer and the header's
   // History with it) fades, then the done view takes its place
   const reduceMotion = useReducedMotion();
@@ -341,8 +351,10 @@ const ManagePositionPage = () => {
       const earnOffers = route.params.earnOffers;
       const listsOffers =
         pick.kind === 'class' ||
-        (networkAssets.offersBySymbol.get(pick.symbol.toLowerCase())?.length ??
-          0) > 1;
+        (
+          networkAssets.offersBySymbol.get(pick.symbol.toLowerCase()) ?? []
+        ).filter((offer) => isNetworkInPick(pick, getOfferNetworkId(offer)))
+          .length > 1;
       if (earnOffers?.wide || !listsOffers) {
         handleAssetPick(pick);
         return;
@@ -381,9 +393,8 @@ const ManagePositionPage = () => {
         // "Pay with" (demo 10-29)
         title: intl.formatMessage({ id: ETranslations.earn_deposit }),
         tokens: networkAssets.tokens,
+        networks: networkAssets.networks,
         selected: assetPick,
-        networkId: selectedProtocol.networkId,
-        networkName: networkAssets.networkName ?? network?.name,
         onSelect: handlePickAsset,
       },
     });
@@ -392,10 +403,8 @@ const ManagePositionPage = () => {
     handlePickAsset,
     intl,
     navigation,
-    network?.name,
-    networkAssets.networkName,
+    networkAssets.networks,
     networkAssets.tokens,
-    selectedProtocol.networkId,
   ]);
   // Details closes the window for an offer's page. Back from that page opens
   // it again as it was left: what the title picked, the offer, the amount
@@ -405,7 +414,12 @@ const ManagePositionPage = () => {
       page:
         | ETabEarnRoutes.EarnLendingDetails
         | ETabEarnRoutes.EarnProtocolDetails,
-      left: { offerKey: string; amount?: string; payKey?: string },
+      left: {
+        offerKey: string;
+        networkId: string;
+        amount?: string;
+        payKey?: string;
+      },
     ) => {
       const pickedSymbol =
         assetPick.kind === 'token' ? assetPick.symbol : undefined;
@@ -418,7 +432,8 @@ const ManagePositionPage = () => {
       leaveEarnWindowFor(page, {
         screen: EModalStakingRoutes.ManagePosition,
         params: {
-          networkId: selectedProtocol.networkId,
+          // The offer's network; the pick's networks come back with it
+          networkId: left.networkId,
           symbol: pickedSymbol ?? symbol,
           provider: '',
           tab: 'deposit',
@@ -431,6 +446,7 @@ const ManagePositionPage = () => {
             payKey: left.payKey,
             assetClass:
               assetPick.kind === 'class' ? assetPick.assetClass : undefined,
+            allNetworks: !assetPick.networkId,
           },
         },
       });
@@ -440,7 +456,6 @@ const ManagePositionPage = () => {
       networkAssets.tokens,
       offersEntry?.tokenImageUri,
       route.params.earnOffers,
-      selectedProtocol.networkId,
       symbol,
       tokenImageUri,
     ],
@@ -665,8 +680,12 @@ const ManagePositionPage = () => {
               tokens={networkAssets.tokens}
               purpose="earn"
               fallbackLogoURI={offersEntry.tokenImageUri ?? tokenImageUri}
-              networkLogoURI={networkAssets.networkLogoURI}
-              networkName={networkAssets.networkName ?? network?.name}
+              // The pick's network, else "on All Networks" with no badge
+              networkLogoURI={pickNetwork?.logoURI}
+              networkName={
+                pickNetwork?.name ??
+                intl.formatMessage({ id: ETranslations.global_all_networks })
+              }
               onPress={handleOpenAssetSelect}
             />
           ) : undefined

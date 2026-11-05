@@ -191,6 +191,53 @@ export function pickDefaultPayTokenAcrossNetworks(
   return same[0] ?? tokens.toSorted(byValue)[0];
 }
 
+/**
+ * The networks Earn offers on, sorted so a key built from them holds still:
+ * where views spanning every network fetch the wallet's balances fresh, as
+ * the home does
+ */
+export function listEarnNetworkIds({
+  assets,
+  marketNetworkIds = [],
+  alsoNetworkIds = [],
+}: {
+  assets: { protocols: { networkId: string }[] }[];
+  marketNetworkIds?: string[];
+  alsoNetworkIds?: string[];
+}) {
+  return Array.from(
+    new Set(
+      [
+        ...assets.flatMap((asset) =>
+          asset.protocols.map((item) => item.networkId),
+        ),
+        ...marketNetworkIds,
+        ...alsoNetworkIds,
+      ].filter(Boolean),
+    ),
+  ).toSorted();
+}
+
+/**
+ * A Pay with token as Swap's picker lists one: the wallet's balance, with
+ * its value in USD as Pay with keeps it (the picker shows it converted)
+ */
+export function toPayTokenSwapToken(item: IEarnRouterPayToken): ISwapToken {
+  return {
+    networkId: item.networkId,
+    contractAddress: item.token.isNative ? '' : item.token.address,
+    isNative: Boolean(item.token.isNative),
+    symbol: item.token.symbol,
+    name: item.token.name,
+    decimals: item.token.decimals,
+    logoURI: item.token.logoURI,
+    balanceParsed: item.amount,
+    fiatValue: item.fiatValueUsd,
+    price: item.priceUsd,
+    currency: USD_CURRENCY_ID,
+  };
+}
+
 // Keys of tokens picked in Pay with's picker that the wallet's list lacks:
 // `${PICKED_PAY_TOKEN_KEY}|networkId|address`
 const PICKED_PAY_TOKEN_KEY = 'earn-pay-picked';
@@ -698,8 +745,11 @@ export function getEarnSwapMinutes(quote?: IFetchQuoteResult) {
     : undefined;
 }
 
-/** What the provider charges for the swap or bridge, in USD, when quoted */
-export function getEarnSwapFeeUsd(quote?: IFetchQuoteResult) {
+/**
+ * The quote's estimated network fee, when it has one: in the app's currency
+ * already (the quote is asked for in it), as the Swap page prints it
+ */
+export function getEarnSwapFee(quote?: IFetchQuoteResult) {
   const fee = quote?.fee?.estimatedFeeFiatValue;
   return fee !== undefined && Number.isFinite(fee) && fee > 0 ? fee : undefined;
 }

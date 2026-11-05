@@ -332,6 +332,23 @@ const WALLET_LIST_MAX_AGE = timerUtils.getTimeDurationMs({ seconds: 30 });
 const walletGroupKey = ({ accountId, networkId }: IWalletAccount) =>
   `${accountId}|${networkId}`;
 
+// Two sets of one account's fetched lists, each network's newer one: what
+// one view fetched counts for the others (the home's lists of every network
+// Earn offers on, for the Earn window that spans them)
+function mergeWalletFreshGroups(
+  a: Map<string, IWalletFreshGroup> | undefined,
+  b: Map<string, IWalletFreshGroup> | undefined,
+) {
+  const merged = new Map(a ?? []);
+  b?.forEach((item, key) => {
+    const kept = merged.get(key);
+    if (!kept || kept.fetchedAt < item.fetchedAt) {
+      merged.set(key, item);
+    }
+  });
+  return merged;
+}
+
 /**
  * What the wallet holds of each token across networks, with its value. The
  * wallet home's cached lists answer at once; the networks Earn offers on are
@@ -453,15 +470,20 @@ export function useEarnDesktopWalletHoldings({
       const isForced = isForcedRef.current;
       isForcedRef.current = false;
       const wanted = new Set(refreshKey ? refreshKey.split(',') : []);
-      const previous =
-        freshRef.current.scope === scope ? freshRef.current.groups : undefined;
+      // This view's lists, and any other view's of the account: one fetched
+      // moments ago elsewhere isn't fetched again here
+      const shared = readFirstFrame<IWalletFresh>(freshKey, { orOlder: true });
+      const previous = mergeWalletFreshGroups(
+        freshRef.current.scope === scope ? freshRef.current.groups : undefined,
+        shared?.scope === scope ? shared.groups : undefined,
+      );
       const now = Date.now();
       const groups = new Map<string, IWalletFreshGroup>();
       const stale: IWalletAccount[] = [];
       cache.accounts
         .filter((item) => wanted.has(item.networkId))
         .forEach((item) => {
-          const kept = previous?.get(walletGroupKey(item));
+          const kept = previous.get(walletGroupKey(item));
           if (kept && !isForced && now - kept.fetchedAt < WALLET_LIST_MAX_AGE) {
             groups.set(walletGroupKey(item), kept);
           } else {
@@ -501,7 +523,7 @@ export function useEarnDesktopWalletHoldings({
               });
             } catch {
               // A network that fails keeps its last list, else the cache's
-              const kept = previous?.get(key);
+              const kept = previous.get(key);
               if (kept) {
                 groups.set(key, kept);
               }
@@ -513,7 +535,17 @@ export function useEarnDesktopWalletHoldings({
       // A slower, older pass must not replace a newer one's lists
       if (run === freshRunRef.current) {
         freshRef.current = next;
-        keepFirstFrame(freshKey, next);
+        // Kept with the other views' lists, not in place of them
+        const latest = readFirstFrame<IWalletFresh>(freshKey, {
+          orOlder: true,
+        });
+        keepFirstFrame<IWalletFresh>(freshKey, {
+          scope,
+          groups: mergeWalletFreshGroups(
+            latest?.scope === scope ? latest.groups : undefined,
+            groups,
+          ),
+        });
       }
       return next;
     },
