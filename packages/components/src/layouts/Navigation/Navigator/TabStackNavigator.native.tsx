@@ -1,6 +1,8 @@
 import { memo, useCallback, useEffect, useMemo, useState } from 'react';
+import type { ReactElement, ReactNode } from 'react';
 
 import { useIntl } from 'react-intl';
+import { StyleSheet, View } from 'react-native';
 
 import {
   EAppEventBusNames,
@@ -26,6 +28,7 @@ import {
   useTheme,
   useThemeName,
 } from '../../../hooks';
+import { useSafeAreaInsets } from '../../../hooks/useLayout';
 import { BottomTabBarVisibilityContext } from '../../Page/BottomTabBarVisibilityContext';
 import { createNativeBottomTabNavigator } from '../BottomTabs';
 import { ANDROID_TAB_BAR_STYLE } from '../BottomTabs/tabBarOverlay';
@@ -35,6 +38,7 @@ import {
 } from '../GlobalScreenOptions';
 import { createStackNavigator } from '../StackNavigator';
 
+import { shouldApplyHorizontalSafeArea } from './ModalHorizontalSafeArea';
 import {
   rootNavigationRef,
   tabletMainViewNavigationRef,
@@ -45,9 +49,39 @@ import type { ITabNavigatorProps, ITabSubStackNavigatorProps } from './types';
 
 const Stack = createStackNavigator();
 
+const styles = StyleSheet.create({
+  screen: { flex: 1 },
+});
+
+// iPhone Duo places the status bar, camera and vertical tab bar in a side strip
+// and reports it as a horizontal safe area inset. Tab pages only handle
+// top/bottom insets, so keep their content out of that strip here. Regular
+// iPhones are portrait-locked, where these insets are always 0. Pad inside each
+// screen: UIKit lays out the vertical bar against the navigation controller's
+// edge, so padding around the navigator drags the bar out of the strip.
+function HorizontalSafeAreaTabScreen({ children }: { children: ReactNode }) {
+  const { left, right } = useSafeAreaInsets();
+  const style = useMemo(
+    () => [styles.screen, { paddingLeft: left, paddingRight: right }],
+    [left, right],
+  );
+  return <View style={style}>{children}</View>;
+}
+
+// React Navigation calls `screenLayout` as a plain function while looping over
+// routes, so it must return an element instead of running hooks itself.
+function renderHorizontalSafeAreaTabScreen({
+  children,
+}: {
+  children: ReactElement;
+}) {
+  return <HorizontalSafeAreaTabScreen>{children}</HorizontalSafeAreaTabScreen>;
+}
+
 function BasicTabSubStackNavigator({
   config,
   pushedScreenPresentation = 'tab',
+  applyHorizontalSafeArea = false,
 }: ITabSubStackNavigatorProps) {
   const theme = useTheme();
   const intl = useIntl();
@@ -57,7 +91,13 @@ function BasicTabSubStackNavigator({
   }
 
   return (
-    <Stack.Navigator>
+    <Stack.Navigator
+      screenLayout={
+        applyHorizontalSafeArea && shouldApplyHorizontalSafeArea
+          ? renderHorizontalSafeAreaTabScreen
+          : undefined
+      }
+    >
       {config
         .filter(({ disable }) => !disable)
         .map(
@@ -209,7 +249,7 @@ export function TabStackNavigator<RouteName extends string>({
       .map(({ name, children, nativeTabBarIcon, translationId, trackId }) => {
         // eslint-disable-next-line react/no-unstable-nested-components
         const ScreenComponent = () => (
-          <TabSubStackNavigator config={children} />
+          <TabSubStackNavigator config={children} applyHorizontalSafeArea />
         );
 
         // eslint-disable-next-line react-perf/jsx-no-new-object-as-prop
@@ -247,7 +287,10 @@ export function TabStackNavigator<RouteName extends string>({
     if (extraConfig) {
       // eslint-disable-next-line react/no-unstable-nested-components
       const ExtraScreenComponent = () => (
-        <TabSubStackNavigator config={extraConfig.children} />
+        <TabSubStackNavigator
+          config={extraConfig.children}
+          applyHorizontalSafeArea
+        />
       );
 
       screens.push(

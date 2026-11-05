@@ -1,13 +1,19 @@
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
-import { Button, Page, XStack } from '@onekeyhq/components';
+import {
+  Button,
+  Page,
+  XStack,
+  useIsVerticalTabBar,
+} from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { BorrowTestIDs } from '../testIDs';
 
 const ACTION_BAR_HEIGHT = 72;
+const ACTION_BAR_PADDING = 12;
 
 // Native content scrolls underneath the absolutely positioned action bar.
 export const BORROW_MOBILE_ACTION_BAR_SCROLL_INSET = platformEnv.isNative
@@ -30,6 +36,7 @@ export function BorrowMobileActionBar({
   onBorrow,
 }: IBorrowMobileActionBarProps) {
   const intl = useIntl();
+  const isVerticalTabBar = useIsVerticalTabBar();
 
   // The web footer is outside this subtree and must be hidden with its tab.
   if (!platformEnv.isNative && !isActive) {
@@ -77,7 +84,9 @@ export function BorrowMobileActionBar({
         position="absolute"
         left={0}
         right={0}
-        bottom={bottomOffset}
+        // No tab bar covers the bottom inset here, so the bar must fill it.
+        bottom={isVerticalTabBar ? 0 : bottomOffset}
+        pb={isVerticalTabBar ? bottomOffset + ACTION_BAR_PADDING : undefined}
       >
         {buttons}
       </XStack>
