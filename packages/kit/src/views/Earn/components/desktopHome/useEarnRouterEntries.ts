@@ -70,11 +70,10 @@ export function useEarnRouterEntries({
     const type = getLoanAssetType(top.asset.symbol, NO_STABLE_SYMBOLS);
     // The holding is the token on every network: the window compares on all
     // of them too, from the network of its best rate
-    const { networkId, provider } = getHoldRowTarget(top);
+    const { networkId } = getHoldRowTarget(top);
     EarnNavigation.pushToEarnOffersDeposit(navigation, {
       symbol: top.asset.symbol,
       networkId,
-      provider,
       logoURI: top.asset.logoURI || top.token.logoURI,
       // A kind lists its offers beside the form
       wide: isEarnAssetClass(type) || top.offers.length > 1,

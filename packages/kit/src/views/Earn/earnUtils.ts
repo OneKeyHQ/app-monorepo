@@ -538,8 +538,6 @@ export const EarnNavigation = {
       symbol: string;
       // The network it opens on: with allNetworks, the starting offer's
       networkId: string;
-      // The starting offer's protocol; unset, each offer names its own
-      provider?: string;
       logoURI?: string;
       // The offer to start on; the best rate otherwise
       offerKey?: string;
@@ -560,7 +558,8 @@ export const EarnNavigation = {
       params: {
         networkId: params.networkId,
         symbol: params.symbol,
-        provider: params.provider ?? '',
+        // Each offer names its own
+        provider: '',
         tab: 'deposit',
         tokenImageUri: params.logoURI,
         earnOffers: {

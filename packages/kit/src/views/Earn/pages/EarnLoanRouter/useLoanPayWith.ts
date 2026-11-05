@@ -620,7 +620,10 @@ export function useLoanPayWith({
           decimals: Math.min(collateral.decimals, 8),
         });
         setSwapPhase('idle');
-        void pay.refresh();
+        // A bridge moved its own network's balances too
+        void pay.refresh(
+          toAccount && fromAccount ? [fromAccount.networkId] : undefined,
+        );
         return received
           ? { amount: received, balance: balanceAfter }
           : undefined;

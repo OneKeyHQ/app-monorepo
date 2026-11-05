@@ -108,11 +108,10 @@ export function useEarnDesktopOpenHoldRow() {
   const navigation = useAppNavigation();
   return useCallback(
     (row: IEarnDesktopHoldRow) => {
-      const { networkId, provider, offerKey } = getHoldRowTarget(row);
+      const { networkId, offerKey } = getHoldRowTarget(row);
       EarnNavigation.pushToEarnOffersDeposit(navigation, {
         symbol: row.asset.symbol,
         networkId,
-        provider,
         logoURI: row.asset.logoURI || row.token.logoURI,
         offerKey,
         wide: row.offers.length > 1,
