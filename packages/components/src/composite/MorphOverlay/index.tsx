@@ -102,7 +102,7 @@ import type { SharedValue } from 'react-native-reanimated';
  * the reveal's first frame is a shared value (geometry, fades, the lit
  * seat), never a React style.
  *
- * Still out of scope until ratified: accessibility focus and the
+ * Still out of scope until ratified: native accessibility focus and the
  * Android back button. Judge springs in a release build — dev-mode JS
  * load slanders the engine.
  */
@@ -1545,7 +1545,11 @@ export function MorphOverlay<T>({
         ownsFocus={ownsFocus}
         {...(platformEnv.isNative
           ? null
-          : { tabIndex: -1, inert: pose === 'hidden' })}
+          : {
+              tabIndex: -1,
+              outlineStyle: 'none',
+              inert: pose === 'hidden',
+            })}
         style={styles.layer}
         pointerEvents="box-none"
         collapsable={false}

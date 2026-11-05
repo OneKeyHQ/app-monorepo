@@ -3,7 +3,12 @@
  * @jest-environment-options {"customExportConditions": ["node", "node-addons"]}
  */
 
-import type { KeyboardEvent, ReactNode } from 'react';
+import type {
+  CSSProperties,
+  HTMLAttributes,
+  KeyboardEvent,
+  ReactNode,
+} from 'react';
 
 import { MorphOverlay, useMorphOverlay } from '.';
 
@@ -33,6 +38,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { useMedia } from '../../hooks/useStyle';
 
 import type { IMorphOverlayPose, IMorphOverlayProps } from '.';
+import type { StyleProp, ViewStyle } from 'react-native';
 import type { Gesture } from 'react-native-gesture-handler';
 
 // This UI suite needs RN Web, not the CLI's repository-wide manual mock.
@@ -61,9 +67,36 @@ jest.mock('@onekeyhq/components/src/shared/tamagui', () => ({
   getTokenValue: () => '#222',
   useThemeName: () => 'dark',
 }));
-jest.mock('../../primitives', () => ({
-  Stack: jest.requireActual<typeof import('react-native')>('react-native').View,
-}));
+jest.mock('../../primitives', () => {
+  const React = jest.requireActual<typeof import('react')>('react');
+  const { StyleSheet } =
+    jest.requireActual<typeof import('react-native')>('react-native');
+  // Tamagui forwards DOM capture handlers; RN Web's View drops onBlurCapture.
+  return {
+    Stack: React.forwardRef<
+      HTMLDivElement,
+      Omit<HTMLAttributes<HTMLDivElement>, 'style'> & {
+        style?: StyleProp<ViewStyle>;
+      }
+    >(
+      (
+        { children, style, tabIndex, inert, onKeyDownCapture, onBlurCapture },
+        ref,
+      ) => (
+        <div
+          ref={ref}
+          style={StyleSheet.flatten(style) as CSSProperties}
+          tabIndex={tabIndex}
+          inert={inert}
+          onKeyDownCapture={onKeyDownCapture}
+          onBlurCapture={onBlurCapture}
+        >
+          {children}
+        </div>
+      ),
+    ),
+  };
+});
 jest.mock('../../actions/IconButton', () => ({
   IconButton:
     jest.requireActual<typeof import('react-native')>('react-native').Pressable,
@@ -352,6 +385,7 @@ const focusSeats: IMorphOverlayProps<string>['seats'] = [
     node: (
       <>
         <input aria-label="Passphrase" />
+        <button type="button">Details</button>
         <button type="button" onKeyDown={preventKeyDefault}>
           Confirm
         </button>
@@ -408,15 +442,22 @@ describe('MorphOverlay focus ownership', () => {
     await waitFor(() => expect(document.activeElement).toBe(trigger));
     view.rerender(<Harness pose="card" />);
     const input = view.getByLabelText('Passphrase');
+    const details = view.getByText('Details');
     const confirm = view.getByText('Confirm');
     await waitFor(() => expect(document.activeElement).toBe(input));
     fireEvent.change(input, { target: { value: 'test-passphrase' } });
     fireEvent.keyDown(input, { key: 'Tab' });
+    expect(document.activeElement).toBe(details);
+    fireEvent.keyDown(details, { key: 'Tab' });
     expect(document.activeElement).toBe(confirm);
     fireEvent.keyDown(confirm, { key: 'Tab' });
     expect(document.activeElement).toBe(input);
     fireEvent.keyDown(input, { key: 'Tab', shiftKey: true });
     expect(document.activeElement).toBe(confirm);
+    fireEvent.keyDown(confirm, { key: 'Tab', shiftKey: true });
+    expect(document.activeElement).toBe(details);
+    fireEvent.keyDown(details, { key: 'Tab', shiftKey: true });
+    expect(document.activeElement).toBe(input);
 
     view.rerender(<Harness pose="hidden" />);
     await waitFor(() => expect(document.activeElement).toBe(trigger));
@@ -425,6 +466,34 @@ describe('MorphOverlay focus ownership', () => {
 
     view.rerender(<Harness pose="card" />);
     await waitFor(() => expect(document.activeElement).toBe(input));
+  });
+
+  it('recovers focus when a step parks the focused input, without stealing it after exit', async () => {
+    const view = render(<Harness pose="hidden" />);
+    const trigger = view.getByText('Trigger');
+    await waitFor(() => expect(document.activeElement).toBe(trigger));
+    view.rerender(<Harness pose="card" />);
+    const input = view.getByLabelText('Passphrase');
+    await waitFor(() => expect(document.activeElement).toBe(input));
+
+    view.rerender(<Harness pose="capsule" />);
+    const layer = view.getByTestId('morph-overlay-wall').parentElement;
+    // jsdom does not blur inert controls; replay Chromium's focusout to body.
+    act(() => input.blur());
+    fireEvent.focusOut(input, { relatedTarget: null });
+    await waitFor(() => expect(document.activeElement).toBe(layer));
+
+    view.rerender(<Harness pose="card" />);
+    act(() => input.focus());
+    act(() => input.blur());
+    fireEvent.focusOut(input, { relatedTarget: null });
+    view.rerender(<Harness pose="hidden" />);
+    await waitFor(() => expect(document.activeElement).toBe(trigger));
+    await act(
+      () =>
+        new Promise<void>((resolve) => requestAnimationFrame(() => resolve())),
+    );
+    expect(document.activeElement).toBe(trigger);
   });
 
   it('focuses the container during a wait without interactive controls', async () => {
