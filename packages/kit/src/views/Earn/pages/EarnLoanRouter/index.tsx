@@ -35,6 +35,7 @@ import { Token } from '@onekeyhq/kit/src/components/Token';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useAppRoute } from '@onekeyhq/kit/src/hooks/useAppRoute';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { useEarnAtom } from '@onekeyhq/kit/src/states/jotai/contexts/earn';
 import { convertFiat } from '@onekeyhq/kit/src/utils/fiatConvert';
 import {
   EJotaiContextStoreNames,
@@ -98,6 +99,7 @@ import {
 import {
   EARN_OFFER_ROUTES_COLUMN_WIDTH,
   getEarnSwapFee,
+  listEarnNetworkIds,
   listPayTokens,
 } from '../EarnRouter/earnRouter.utils';
 
@@ -612,18 +614,24 @@ function EarnLoanRouterPage() {
     [stableAssets],
   );
 
-  // The wallet on the markets' networks, for the selector's balances (read
-  // fresh unless the home just did)
-  const marketNetworkIds = useMemo(
+  // The wallet for the selector's balances, on the markets' networks and
+  // every one Earn offers on, as Pay with reads it: a collateral held where
+  // no market takes it is bridged to one (11-05). Read fresh unless the
+  // home or Pay with just did
+  const [{ availableAssetsByType = {} }] = useEarnAtom();
+  const walletNetworkIds = useMemo(
     () =>
-      Array.from(
-        new Set(markets.map((entry) => entry.market.networkId)),
-      ).toSorted(),
-    [markets],
+      listEarnNetworkIds({
+        assets: Object.values(availableAssetsByType).flatMap(
+          (list) => list ?? [],
+        ),
+        marketNetworkIds: markets.map((entry) => entry.market.networkId),
+      }),
+    [availableAssetsByType, markets],
   );
   const wallet = useEarnDesktopWalletHoldings({
     isActive: true,
-    refreshNetworkIds: marketNetworkIds,
+    refreshNetworkIds: walletNetworkIds,
   });
   const holdings = useMemo(() => {
     const byToken = new Map<
