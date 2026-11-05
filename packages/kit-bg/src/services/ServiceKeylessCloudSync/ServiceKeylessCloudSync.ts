@@ -20,7 +20,10 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
-import { HardwareCloudSyncError } from '@onekeyhq/shared/src/hardware/hardwareCloudSyncError';
+import {
+  HardwareCloudSyncCancelledError,
+  HardwareCloudSyncError,
+} from '@onekeyhq/shared/src/hardware/hardwareCloudSyncError';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -62,6 +65,11 @@ import { keylessCloudSyncApi } from '../ServicePrimeCloudSync/keylessCloudSyncAp
 import keylessCloudSyncUtils from '../ServicePrimeCloudSync/keylessCloudSyncUtils';
 
 import {
+  commitHardwareCloudSyncMigration,
+  migrateHardwareCloudSyncRecords,
+  recoverHardwareCloudSyncMigration,
+} from './hardwareCloudSyncMigration';
+import {
   assertHardwareCloudSyncChallengeFor,
   bootstrapHardwareCloudSyncDataKey,
   createHardwareCloudSyncDeviceKey,
@@ -92,6 +100,28 @@ const HARDWARE_SESSION_CHECK_INTERVAL_MS = timerUtils.getTimeDurationMs({
   minute: 5,
 });
 
+// Repeated user-facing failures of the hardware Cloud sync flow.
+function hardwareSignedOutError() {
+  return new HardwareCloudSyncError(
+    ETranslations.cloud_sync_hardware_signed_out__msg,
+    'Cloud sync is signed out. Reconnect your hardware wallet.',
+  );
+}
+
+function keyChangeInProgressError() {
+  return new HardwareCloudSyncError(
+    ETranslations.cloud_sync_key_change_in_progress__msg,
+    'The encryption key is being changed. Try again once it finishes.',
+  );
+}
+
+function settingsChangedError() {
+  return new HardwareCloudSyncError(
+    ETranslations.cloud_sync_settings_changed__msg,
+    'Cloud sync settings changed. Try again.',
+  );
+}
+
 @backgroundClass()
 class ServiceKeylessCloudSync extends ServiceBase {
   constructor({ backgroundApi }: { backgroundApi: any }) {
@@ -110,6 +140,8 @@ class ServiceKeylessCloudSync extends ServiceBase {
   private hardwareCloudKeyPending = false;
 
   private hardwareCloudKeyCommitting = false;
+  private hardwareCloudMigrationRecovered = false;
+  private hardwareCloudMigrationRecovering = false;
 
   private hardwareCloudKeyDeviceCancel:
     | { generation: number; cancel: () => void }
@@ -154,7 +186,22 @@ class ServiceKeylessCloudSync extends ServiceBase {
   // Never hold it across prompts, device interaction or network sync; those
   // re-check the selected key before writing instead.
   runWithCloudSyncKeyLock<T>(operation: () => Promise<T>): Promise<T> {
-    return this.cloudSyncKeyMutex.runExclusive(operation);
+    return this.cloudSyncKeyMutex.runExclusive(async () => {
+      // Recover before admitting another writer. Reads inside this lock see
+      // the flag already set and never wait on the lock they are running in.
+      if (!this.hardwareCloudMigrationRecovered) {
+        this.hardwareCloudMigrationRecovering = true;
+        try {
+          await this.repairCredentialMutex.runExclusive(() =>
+            recoverHardwareCloudSyncMigration(this.backgroundApi),
+          );
+        } finally {
+          this.hardwareCloudMigrationRecovering = false;
+        }
+        this.hardwareCloudMigrationRecovered = true;
+      }
+      return operation();
+    });
   }
 
   private assertUnknownSyncItemsCanMigrate(
@@ -368,17 +415,20 @@ class ServiceKeylessCloudSync extends ServiceBase {
     switchDevice?: boolean;
   }) {
     if (!isHardwareCloudSyncPlatformSupported()) {
-      throw new OneKeyError('Hardware Cloud keys are not available here.');
+      throw new HardwareCloudSyncError(
+        ETranslations.cloud_sync_hardware_unavailable__msg,
+        "Hardware wallet encryption isn't supported on this platform.",
+      );
     }
     if (this.hardwareCloudKeyCommitting) {
-      throw new OneKeyError('A Cloud key change is already being committed.');
+      throw keyChangeInProgressError();
     }
     this.hardwareCloudKeyGeneration += 1;
     const generation = this.hardwareCloudKeyGeneration;
     const isCurrent = () => this.hardwareCloudKeyGeneration === generation;
     const assertCurrent = () => {
       if (!isCurrent()) {
-        throw new OneKeyError('Hardware Cloud key operation was cancelled.');
+        throw new HardwareCloudSyncCancelledError();
       }
     };
     // A newer request supersedes a device prompt still owned by an older one.
@@ -605,7 +655,10 @@ class ServiceKeylessCloudSync extends ServiceBase {
       if (!selected) return;
       const wallet = await this.backgroundApi.serviceAccount.getKeylessWallet();
       if (!wallet)
-        throw new OneKeyError('Add a Keyless wallet before selecting it.');
+        throw new HardwareCloudSyncError(
+          ETranslations.create_keyless_wallet_first__desc,
+          'A keyless wallet is required to encrypt and sync your data.',
+        );
       // Enabling Keyless rebuilds the records from local data: init writes
       // them with the Keyless key and the sync flow re-encrypts the rest
       // (fillingSyncItemsMissingDataFromRawData), as OneKey ID migration does.
@@ -836,7 +889,7 @@ class ServiceKeylessCloudSync extends ServiceBase {
     { force }: { force?: boolean } = {},
   ): Promise<IKeylessCloudSyncCredential> {
     if (this.hardwareSessionEnding) {
-      throw new OneKeyError('Cloud sync settings changed. Try again.');
+      throw settingsChangedError();
     }
     if (this.hardwareSessionRefresh) return this.hardwareSessionRefresh;
     const session = credential.hardwareSession;
@@ -919,8 +972,9 @@ class ServiceKeylessCloudSync extends ServiceBase {
     await this.backgroundApi.servicePrimeCloudSync.clearCachedSyncCredential();
     // The page shows the missing key without waiting to regain focus.
     appEventBus.emit(EAppEventBusNames.HardwareCloudKeyDropped, undefined);
-    throw new OneKeyError(
-      'Cloud sync was reset or signed out on another device. Connect your hardware wallet to continue.',
+    throw new HardwareCloudSyncError(
+      ETranslations.cloud_sync_reset_on_other_device__msg,
+      'Cloud sync changed on another device. Reconnect your hardware wallet.',
     );
   }
 
@@ -1076,7 +1130,7 @@ class ServiceKeylessCloudSync extends ServiceBase {
       return updated;
     });
     if (!saved) {
-      throw new OneKeyError('Cloud sync settings changed. Try again.');
+      throw settingsChangedError();
     }
     this.setKeylessCloudSyncCredentialCache(saved);
     await this.backgroundApi.servicePrimeCloudSync.clearCachedSyncCredential();
@@ -1090,7 +1144,9 @@ class ServiceKeylessCloudSync extends ServiceBase {
   ): Promise<IKeylessCloudSyncCredential> {
     return this.runWithCloudSyncKeyLock(async () => {
       const session = credential.hardwareSession;
-      if (!session) throw new OneKeyError('Cloud sync sign-in is missing.');
+      if (!session) {
+        throw hardwareSignedOutError();
+      }
       // Read after the device and network waits, so account edits made while
       // confirming the reset are carried forward instead of an old snapshot.
       const { items: originalItems } =
@@ -1234,12 +1290,15 @@ class ServiceKeylessCloudSync extends ServiceBase {
       typeof postData.pwdHash === 'string' &&
       postData.pwdHash !== fresh.pwdHash
     ) {
-      throw new OneKeyError('The Cloud sync key changed. Sync again.');
+      throw new HardwareCloudSyncError(
+        ETranslations.cloud_sync_key_changed_sync_again__msg,
+        'Encryption key changed. Sync again.',
+      );
     }
     const client = await this.getHardwareSyncClient();
     const send = (current: IKeylessCloudSyncCredential) => {
       if (!current.hardwareSession) {
-        throw new OneKeyError('Cloud sync sign-in is missing.');
+        throw hardwareSignedOutError();
       }
       return requestRawWithHardwareCloudSyncSession<T>({
         client,
@@ -1269,14 +1328,25 @@ class ServiceKeylessCloudSync extends ServiceBase {
 
   @backgroundMethod()
   @toastIfError()
-  async resetHardwareCloudSyncKey({ connectId }: { connectId: string }) {
+  async resetHardwareCloudSyncKey({
+    connectId,
+    targetCredentialId,
+    overwriteTargetSnapshot,
+  }: {
+    connectId: string;
+    targetCredentialId?: string;
+    overwriteTargetSnapshot?: string;
+  }) {
     if (this.hardwareCloudKeyCommitting) {
-      throw new OneKeyError('A Cloud key change is already being committed.');
+      throw keyChangeInProgressError();
     }
     const config = await primeCloudSyncPersistAtom.get();
     const source = config.hardwareCloudSyncKeySource;
     if (!source || !config.isCloudSyncEnabledKeyless) {
-      throw new OneKeyError('Turn on Cloud sync with a hardware wallet first.');
+      throw new HardwareCloudSyncError(
+        ETranslations.cloud_sync_hardware_turn_on_first__msg,
+        'Turn on Cloud sync with a hardware wallet first.',
+      );
     }
     // Merge what other devices uploaded before everything is re-encrypted.
     await this.backgroundApi.servicePrimeCloudSync.startServerSyncFlow({
@@ -1285,17 +1355,20 @@ class ServiceKeylessCloudSync extends ServiceBase {
     });
     const stored = await this.getKeylessCloudSyncCredential();
     if (!stored?.hardwareSession) {
-      throw new OneKeyError(
-        'Connect your hardware wallet to turn Cloud sync on again first.',
+      throw new HardwareCloudSyncError(
+        ETranslations.cloud_sync_hardware_reconnect_first__msg,
+        'Connect your hardware wallet to turn on Cloud sync again.',
       );
     }
 
     const credential = await this.getFreshHardwareCredential(stored);
     const session = credential.hardwareSession;
-    if (!session) throw new OneKeyError('Cloud sync sign-in is missing.');
+    if (!session) {
+      throw hardwareSignedOutError();
+    }
     const client = await this.getHardwareSyncClient();
     if (this.hardwareCloudKeyCommitting) {
-      throw new OneKeyError('A Cloud key change is already being committed.');
+      throw keyChangeInProgressError();
     }
     this.hardwareCloudKeyGeneration += 1;
     const generation = this.hardwareCloudKeyGeneration;
@@ -1307,10 +1380,75 @@ class ServiceKeylessCloudSync extends ServiceBase {
         >
       | undefined;
     let committing = false;
-    // The same wallet (checked by expectedCredentialId) signs a new salt; the
-    // new KEK wraps the new data key.
+    let replacement: IKeylessCloudSyncCredential | undefined;
+    let replacementGeneration = 0;
+    let migrationSource = credential;
+    const beforeFlush = async () => {
+      if (!isCurrent() || !(await this.isStoredHardwareSession(credential))) {
+        throw new HardwareCloudSyncCancelledError();
+      }
+      this.hardwareCloudKeyCommitting = true;
+      committing = true;
+      await this.showDialogLoading({
+        title: appLocale.intl.formatMessage({
+          id: ETranslations.global_syncing,
+        }),
+      });
+    };
+    // Pin the confirmed wallet identity before signing. The original wallet
+    // rotates its data key; a replacement copies data into its own space.
     const unlock: IHardwareCloudKeyUnlock = async (device) => {
       if (device.credentialId !== source.credentialId) {
+        if (
+          targetCredentialId === device.credentialId &&
+          device.source?.credentialId === device.credentialId
+        ) {
+          const { items: migrationItems } =
+            await this.backgroundApi.servicePrimeCloudSync.getAllLocalSyncItems(
+              { includeUnsupportedDataTypes: true },
+            );
+          this.assertUnknownSyncItemsCanMigrate(migrationItems, [
+            credential.pwdHash,
+          ]);
+          const targetSession = await this.signInHardwareCloudSync({
+            client,
+            device,
+          });
+          const targetKey = await bootstrapHardwareCloudSyncDataKey({
+            client,
+            session: targetSession,
+            deriveKek: device.deriveKek,
+            minGeneration: await this.getHardwareKeyGeneration(
+              device.credentialId,
+            ),
+          });
+          replacementGeneration = targetKey.generation;
+          const target: IKeylessCloudSyncCredential = {
+            keylessWalletId: device.credentialId,
+            source: device.source,
+            signingPrivateKey: '',
+            signingPublicKey: '',
+            encryptionKey: targetKey.dek,
+            pwdHash: targetKey.pwdHash,
+            hardwareSession: { ...targetSession, dekId: targetKey.dekId },
+          };
+          await migrateHardwareCloudSyncRecords({
+            client,
+            source: credential,
+            target,
+            isCurrent,
+            beforeFlush,
+            overwriteTargetSnapshot,
+            savePending: async (pendingHardwareKeyMigration) => {
+              migrationSource = await this.saveHardwareCredential({
+                ...credential,
+                pendingHardwareKeyMigration,
+              });
+            },
+          });
+          replacement = target;
+          return target;
+        }
         throw new HardwareCloudSyncError(
           ETranslations.cloud_sync_hardware_different_key__msg,
           "This hardware wallet can't unlock your synced data. Your existing data has been kept.",
@@ -1337,28 +1475,7 @@ class ServiceKeylessCloudSync extends ServiceBase {
           (item) => !isSupportedCloudSyncDataType(item.dataType),
         ),
         isCurrent,
-        beforeFlush: async () => {
-          if (
-            !isCurrent() ||
-            !(await this.isStoredHardwareSession(credential))
-          ) {
-            throw new OneKeyError(
-              'Hardware Cloud key operation was cancelled.',
-            );
-          }
-          if (!isCurrent()) {
-            throw new OneKeyError(
-              'Hardware Cloud key operation was cancelled.',
-            );
-          }
-          this.hardwareCloudKeyCommitting = true;
-          committing = true;
-          await this.showDialogLoading({
-            title: appLocale.intl.formatMessage({
-              id: ETranslations.global_syncing,
-            }),
-          });
-        },
+        beforeFlush,
         savePending: async (pending) => {
           await this.saveHardwareCredential({
             ...credential,
@@ -1372,24 +1489,69 @@ class ServiceKeylessCloudSync extends ServiceBase {
           ...credential,
           pendingDataKey: undefined,
         });
-        throw new OneKeyError(
-          'Cloud sync data changed during the reset. Try again.',
+        throw new HardwareCloudSyncError(
+          ETranslations.cloud_sync_data_changed_during_key_change__msg,
+          'Synced data changed during the key change. Try again.',
         );
       });
       return credential;
     };
     try {
-      await this.deriveHardwareCloudKey({
+      const derived = await this.deriveHardwareCloudKey({
         connectId,
-        expectedCredentialId: source.credentialId,
+        expectedCredentialId: targetCredentialId ?? source.credentialId,
         generation,
         isCurrent,
         // The new key's message twice; the session is already signed in.
-        signatures: 2,
+        signatures:
+          targetCredentialId && targetCredentialId !== source.credentialId
+            ? 3
+            : 2,
         unlock,
       });
+      if (replacement) {
+        const target = { ...replacement, source: derived.source };
+        await this.runWithCloudSyncKeyLock(() =>
+          this.repairCredentialMutex.runExclusive(async () => {
+            if (
+              !isCurrent() ||
+              !(await this.isStoredHardwareSession(migrationSource))
+            )
+              throw new HardwareCloudSyncCancelledError();
+            try {
+              this.setKeylessCloudSyncCredentialCache(target);
+              await commitHardwareCloudSyncMigration({
+                backgroundApi: this.backgroundApi,
+                source: migrationSource,
+                target,
+              });
+            } catch (error) {
+              this.hardwareCloudMigrationRecovered = false;
+              throw error;
+            } finally {
+              this.clearKeylessCloudSyncCredentialCache();
+              await this.backgroundApi.servicePrimeCloudSync.clearCachedSyncCredential();
+            }
+            this.setKeylessCloudSyncCredentialCache(target);
+          }),
+        );
+        await this.recordHardwareKeyGeneration(
+          target.keylessWalletId,
+          replacementGeneration,
+        );
+        await this.revokeOtherHardwareSessions(migrationSource);
+        await this.revokeCurrentHardwareSession(migrationSource);
+        await this.backgroundApi.servicePrimeCloudSync.startServerSyncFlow({
+          callerName: 'Switch hardware Cloud sync wallet',
+          forceSync: true,
+        });
+        await this.backgroundApi.servicePrimeCloudSync.updateLastSyncTime({
+          syncMode: ECloudSyncMode.Keyless,
+        });
+        return;
+      }
       if (!rotated) {
-        throw new OneKeyError('Hardware Cloud key operation was cancelled.');
+        throw new HardwareCloudSyncCancelledError();
       }
       const updated = await this.commitHardwareDataKey(
         credential,
@@ -1451,9 +1613,7 @@ class ServiceKeylessCloudSync extends ServiceBase {
       credential.source?.type === 'hardware' ||
       (await primeCloudSyncPersistAtom.get()).hardwareCloudSyncKeySource
     ) {
-      throw new OneKeyError(
-        'Cloud sync sign-in is missing. Connect your hardware wallet to continue.',
-      );
+      throw hardwareSignedOutError();
     }
     return undefined;
   }
@@ -1919,7 +2079,12 @@ class ServiceKeylessCloudSync extends ServiceBase {
    * transaction. Never await storage reads while an IDB tx is open.
    */
   @backgroundMethod()
-  async hydrateKeylessSyncCredentialFromStorageIfNeeded(): Promise<void> {
+  async hydrateKeylessSyncCredentialFromStorageIfNeeded({
+    forDbTransaction = false,
+  }: { forDbTransaction?: boolean } = {}): Promise<void> {
+    // Recovery writes account records. Its transaction warm-up must not wait
+    // for the recovery lock; ordinary reads still wait until recovery finishes.
+    if (forDbTransaction && this.hardwareCloudMigrationRecovering) return;
     const keylessWalletId = await this.getCurrentCloudSyncKeylessWalletId();
     if (!keylessWalletId) {
       return;
@@ -1928,6 +2093,12 @@ class ServiceKeylessCloudSync extends ServiceBase {
     if (cached) {
       if (await this.isCredentialForSelectedSource(cached)) return;
       this.keylessCloudSyncCredentialCache.delete(keylessWalletId);
+    }
+    if (
+      !this.hardwareCloudKeyCommitting &&
+      !this.hardwareCloudMigrationRecovered
+    ) {
+      await this.runWithCloudSyncKeyLock(async () => undefined);
     }
     const credential =
       await keylessSyncCredentialStorage.getCredential(keylessWalletId);

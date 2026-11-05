@@ -9,6 +9,7 @@ import {
   LOCAL_SECRET_ENVELOPE_CREDENTIAL_ERROR_DATA_TYPE,
   LOCAL_SECRET_ENVELOPE_ERROR_DATA_TYPE_FIELD,
 } from '@onekeyhq/shared/src/errors/utils/localSecretEnvelopeErrorData';
+import { createNativeStorageMigrationInconsistentErrorMessage } from '@onekeyhq/shared/src/storage/nativeStorageTypes';
 
 import {
   buildBackgroundThreadErrorResponse,
@@ -185,6 +186,75 @@ describe('background thread RPC protocol', () => {
     expect(
       buildSafeBackgroundThreadErrorData({ reason: 'network' }),
     ).toBeUndefined();
+  });
+
+  describe('isolated storage Home test error data', () => {
+    const context = {
+      request: {
+        type: 'service-call' as const,
+        method: 'serviceDevSetting.nativeStorageRecoveryTest',
+        params: [{ action: 'homeRead' }],
+        sync: false,
+      },
+      message:
+        createNativeStorageMigrationInconsistentErrorMessage('appStorage'),
+    };
+    const id = 'storage-repair-test-123456789-abc123';
+    it('preserves a bounded test identifier and discards every other field', () => {
+      expect(
+        buildSafeBackgroundThreadErrorData(
+          { nativeStorageRecoveryTestSessionId: id, privateDetails: {} },
+          context,
+        ),
+      ).toEqual({ nativeStorageRecoveryTestSessionId: id });
+    });
+    it.each([
+      null,
+      {},
+      ['test'],
+      'real-wallet-id',
+      `storage-repair-test-${'a'.repeat(500)}`,
+      'storage-repair-test-1234-ABC',
+    ])('rejects an invalid test identifier: %p', (idValue) => {
+      expect(
+        buildSafeBackgroundThreadErrorData(
+          { nativeStorageRecoveryTestSessionId: idValue },
+          context,
+        ),
+      ).toBeUndefined();
+    });
+    it('requires the exact test method, Home action and AppStorage mismatch', () => {
+      const data = { nativeStorageRecoveryTestSessionId: id };
+      expect(buildSafeBackgroundThreadErrorData(data)).toBeUndefined();
+      expect(
+        buildSafeBackgroundThreadErrorData(data, {
+          ...context,
+          message: 'network failed',
+        }),
+      ).toBeUndefined();
+      expect(
+        buildSafeBackgroundThreadErrorData(data, {
+          ...context,
+          message:
+            createNativeStorageMigrationInconsistentErrorMessage('jotai'),
+        }),
+      ).toBeUndefined();
+      expect(
+        buildSafeBackgroundThreadErrorData(data, {
+          ...context,
+          request: {
+            ...context.request,
+            method: 'serviceAccount.getHDAccountMnemonic',
+          },
+        }),
+      ).toBeUndefined();
+      expect(
+        buildSafeBackgroundThreadErrorData(data, {
+          ...context,
+          request: { ...context.request, params: [{ action: 'inspect' }] },
+        }),
+      ).toBeUndefined();
+    });
   });
 
   describe('jotai batch broadcast payload', () => {

@@ -52,6 +52,7 @@ const mockGetLastSyncedAt = jest.fn<
   [IAccountParams]
 >();
 const mockRefreshAccount = jest.fn<Promise<void>, [IAccountParams]>();
+const mockPageOpened = jest.fn<Promise<void>, [{ networkId: string }]>();
 const mockEnableAccount = jest.fn<Promise<void>, [IAccountParams]>();
 const mockGetSyncProgress = jest.fn<
   Promise<ILocalWalletSyncProgress | undefined>,
@@ -87,6 +88,8 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
         mockGetLastSyncedAt(params),
       refreshLocalWalletAccount: (params: IAccountParams) =>
         mockRefreshAccount(params),
+      onLocalWalletPageOpened: (params: { networkId: string }) =>
+        mockPageOpened(params),
       getLocalWalletSyncProgress: (params: IAccountParams) =>
         mockGetSyncProgress(params),
       enableLocalWalletAccount: (params: IAccountParams) =>
@@ -101,11 +104,13 @@ jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => {
   // eslint-disable-next-line @typescript-eslint/no-require-imports
   const { atom } = jest.requireActual<typeof import('jotai')>('jotai');
   const privacyChainAtomValue = atom({
+    boostingNetworkIds: [] as string[],
     storageUnsupportedNetworkIds: [] as string[],
     pausedNetworkIds: [] as string[],
-    preparingNetworkIds: [] as string[],
+    preparingAccountKeys: [] as string[],
     dataBlockedNetworkIds: [] as string[],
     syncErrorByNetworkId: {} as Record<string, string>,
+    progress: {},
   });
   return { privacyChainAtom: { atom: () => privacyChainAtomValue } };
 });
@@ -177,30 +182,23 @@ jest.mock('react-intl', () => ({
   useIntl: () => ({ formatMessage: ({ id }: { id: string }) => id }),
 }));
 jest.mock('@onekeyhq/kit/src/utils/privacyChainSyncDisplay', () => ({
+  ...jest.requireActual<
+    typeof import('@onekeyhq/kit/src/utils/privacyChainSyncDisplay')
+  >('@onekeyhq/kit/src/utils/privacyChainSyncDisplay'),
   formatPrivacyChainSyncError: (kind?: string) =>
     kind ? `sync-error:${kind}` : undefined,
-  formatPrivacyChainSyncDetail: (
-    ...args: Parameters<
-      typeof import('@onekeyhq/kit/src/utils/privacyChainSyncDisplay').formatPrivacyChainSyncDetail
-    >
-  ) =>
-    jest
-      .requireActual<
-        typeof import('@onekeyhq/kit/src/utils/privacyChainSyncDisplay')
-      >('@onekeyhq/kit/src/utils/privacyChainSyncDisplay')
-      .formatPrivacyChainSyncDetail(...args),
 }));
 jest.mock('@onekeyhq/shared/src/utils/dateUtils', () => ({}));
 jest.mock('@onekeyhq/shared/src/utils/privacyChainSyncPolicy', () => ({
   ...jest.requireActual<object>(
     '@onekeyhq/shared/src/utils/privacyChainSyncPolicy',
   ),
-  PRIVACY_CHAIN_SYNC_POLL_MS: 8000,
   PRIVACY_CHAIN_TIP_POLL_MS: 300_000,
   isTipLagWorthMentioning: () => false,
 }));
 
 import {
+  preloadLocalWalletPool,
   resetLocalWalletPoolLastSeen,
   resolveSelectedPoolId,
   useLocalWalletPool,
@@ -251,6 +249,7 @@ beforeEach(() => {
   mockTimerWait.mockReset().mockImplementation(() => new Promise(() => {}));
   mockGetLastSyncedAt.mockReset().mockResolvedValue(undefined);
   mockRefreshAccount.mockReset().mockResolvedValue(undefined);
+  mockPageOpened.mockReset().mockResolvedValue(undefined);
   mockGetState.mockReset().mockImplementation(async () => ({
     enabled: mockEnabled,
     paused: mockPaused,
@@ -273,6 +272,29 @@ beforeEach(() => {
 
 afterEach(() => {
   jest.useRealTimers();
+});
+
+// An open token page wants fresh data, not after the full startup quiet window.
+describe('useLocalWalletPool wakes the scan', () => {
+  it.each([
+    [true, false, 1],
+    [false, false, 0],
+    [true, true, 0],
+  ])(
+    'when the page opens (enabled: %s, paused: %s)',
+    async (enabled, paused, calls) => {
+      mockEnabled = enabled;
+      mockPaused = paused;
+      renderHook(useLocalWalletPool, { initialProps: props });
+      await flushReads();
+      expect(mockPageOpened).toHaveBeenCalledTimes(calls);
+      if (calls) {
+        expect(mockPageOpened).toHaveBeenCalledWith({
+          networkId: props.networkId,
+        });
+      }
+    },
+  );
 });
 
 describe('useLocalWalletPool address shows quickly', () => {
@@ -305,6 +327,18 @@ describe('useLocalWalletPool first balance read', () => {
   });
 });
 
+const setPublishedScanState = (state: Partial<IPrivacyChainScanState>) =>
+  getDefaultStore().set(privacyChainAtom.atom(), {
+    boostingNetworkIds: [],
+    storageUnsupportedNetworkIds: [],
+    pausedNetworkIds: [],
+    preparingAccountKeys: [],
+    dataBlockedNetworkIds: [],
+    syncErrorByNetworkId: {},
+    progress: {},
+    ...state,
+  } as IPrivacyChainScanState);
+
 describe('useLocalWalletPool balance refresh cadence', () => {
   const progress: ILocalWalletSyncProgress = {
     birthdayHeight: 1,
@@ -327,6 +361,19 @@ describe('useLocalWalletPool balance refresh cadence', () => {
     await flushMicrotasks();
   }
 
+  // What the scheduler publishes after a pass.
+  function publishProgress(next: ILocalWalletSyncProgress) {
+    act(() => {
+      setPublishedScanState({
+        progress: { [`${props.networkId}:${props.accountId}`]: next },
+      });
+    });
+  }
+
+  afterEach(() => {
+    setPublishedScanState({});
+  });
+
   beforeEach(() => {
     mockTimerWait.mockImplementation(
       (delay) => new Promise((resolve) => setTimeout(resolve, delay)),
@@ -334,15 +381,13 @@ describe('useLocalWalletPool balance refresh cadence', () => {
     mockGetSyncProgress.mockImplementation(async () => ({ ...progress }));
   });
 
-  it('polls progress without recalculating unchanged balances until five minutes', async () => {
+  it('reads progress once and keeps unchanged balances until five minutes', async () => {
     renderHook(useLocalWalletPool, { initialProps: props });
     await flushMicrotasks();
     const balanceReads = mockGetBalance.mock.calls.length;
     const progressReads = mockGetSyncProgress.mock.calls.length;
     await advanceTime(24_000);
-    expect(mockGetSyncProgress.mock.calls.length).toBeGreaterThan(
-      progressReads,
-    );
+    expect(mockGetSyncProgress).toHaveBeenCalledTimes(progressReads);
     expect(mockGetBalance).toHaveBeenCalledTimes(balanceReads);
 
     await advanceTime(276_000);
@@ -391,11 +436,8 @@ describe('useLocalWalletPool balance refresh cadence', () => {
       renderHook(useLocalWalletPool, { initialProps: props });
       await flushMicrotasks();
       const balanceReads = mockGetBalance.mock.calls.length;
-      mockGetSyncProgress.mockResolvedValue({
-        ...progress,
-        tipScannedHeight: height,
-      });
-      await advanceTime(8000);
+      publishProgress({ ...progress, tipScannedHeight: height });
+      await flushMicrotasks();
       expect(mockGetBalance).toHaveBeenCalledTimes(balanceReads + 1);
     },
   );
@@ -409,12 +451,12 @@ describe('useLocalWalletPool balance refresh cadence', () => {
     renderHook(useLocalWalletPool, { initialProps: props });
     await flushMicrotasks();
     const balanceReads = mockGetBalance.mock.calls.length;
-    mockGetSyncProgress.mockResolvedValue({
+    publishProgress({
       ...progress,
       backfillRemainingBlocks: 10,
       isBackfillComplete: false,
     });
-    await advanceTime(8000);
+    await flushMicrotasks();
     expect(mockGetBalance).toHaveBeenCalledTimes(balanceReads + 1);
   });
 
@@ -510,15 +552,52 @@ describe('useLocalWalletPool with account data from the caller', () => {
   });
 });
 
-const setPublishedScanState = (state: Partial<IPrivacyChainScanState>) =>
-  getDefaultStore().set(privacyChainAtom.atom(), {
-    storageUnsupportedNetworkIds: [],
-    pausedNetworkIds: [],
-    preparingNetworkIds: [],
-    dataBlockedNetworkIds: [],
-    syncErrorByNetworkId: {},
-    ...state,
-  } as IPrivacyChainScanState);
+describe('useLocalWalletPool before the caller has settings', () => {
+  it.each([
+    ['privacy chain', 'xmr--0', false],
+    ['other chain', 'evm--1', true],
+  ])('%s: ready = %s', async (_name, networkId, isReady) => {
+    const { result } = renderHook(useLocalWalletPool, {
+      initialProps: {
+        ...props,
+        networkId,
+        poolId: undefined,
+        accountData: { account: undefined, vaultSettings: undefined },
+      },
+    });
+    await flushReads();
+    expect(result.current.hasPooledBalance).toBe(false);
+    expect(result.current.isReady).toBe(isReady);
+  });
+});
+
+describe('useLocalWalletPool after the page preloaded the account', () => {
+  it.each([true, false])(
+    'knows on its first render whether privacy is on (on: %s)',
+    async (enabled) => {
+      mockEnabled = enabled;
+      await act(async () => {
+        await preloadLocalWalletPool({
+          networkId: props.networkId,
+          accountId: props.accountId,
+        });
+      });
+      // The page's own reads have not landed yet.
+      mockGetState.mockImplementation(() => new Promise(() => {}));
+      const { result } = renderHook(useLocalWalletPool, {
+        initialProps: props,
+      });
+      expect(result.current.isReady).toBe(true);
+      expect(result.current.enabled).toBe(enabled);
+    },
+  );
+
+  it('waits for its own reads without a preload', () => {
+    mockGetState.mockImplementation(() => new Promise(() => {}));
+    const { result } = renderHook(useLocalWalletPool, { initialProps: props });
+    expect(result.current.isReady).toBe(false);
+  });
+});
 
 describe('useLocalWalletPool on a device that cannot store the database', () => {
   const setStorageUnsupportedNetworkIds = (networkIds: string[]) =>
@@ -958,6 +1037,24 @@ describe('a wallet the chain cannot serve', () => {
     expect(result.current.isUnsupportedWallet).toBe(true);
     expect(result.current.isTempWallet).toBe(true);
     expect(result.current.isReady).toBe(true);
+  });
+
+  // Kept from Wallet settings: the page reads again without unmounting, and keeps its answer
+  // meanwhile instead of blanking.
+  it('reads again once a temp wallet is kept', async () => {
+    mockWalletSupport = 'tempWallet';
+    const { result } = renderHook(useLocalWalletPool, { initialProps: props });
+    await flushReads();
+    expect(result.current.isTempWallet).toBe(true);
+
+    mockWalletSupport = 'supported';
+    emitPrivacyChange();
+    expect(result.current.isReady).toBe(true);
+    expect(result.current.isTempWallet).toBe(true);
+    await flushReads();
+
+    expect(result.current.isTempWallet).toBe(false);
+    expect(result.current.isUnsupportedWallet).toBe(false);
   });
 
   it('does not call a wallet of an unsupported type temp', async () => {

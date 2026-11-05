@@ -4,12 +4,28 @@ import type { ReactElement } from 'react';
 
 import { act, render, renderHook, screen } from '@testing-library/react';
 
+import type { ILiteCardDiagnostic } from '@onekeyhq/shared/src/logger/scopes/hardware/scenes/litecard';
+
 import useNFC from './useNFC';
 
 type IDialogContent = {
   renderContent: ReactElement;
   onConfirm?: (instance: { preventClose: () => void }) => void;
+  onCloseStart?: () => void;
+  onClose?: (extra?: { flag?: string }) => void;
 };
+
+const mockDiagnostic = jest.fn<void, [ILiteCardDiagnostic]>();
+
+jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
+  defaultLogger: {
+    hardware: {
+      liteCard: {
+        diagnostic: (event: ILiteCardDiagnostic) => mockDiagnostic(event),
+      },
+    },
+  },
+}));
 
 let mockAndroid = true;
 let mockConnectListener: ((event: { code: number }) => void) | undefined;
@@ -136,4 +152,48 @@ it('keeps iOS connection behind confirmation while its animation loads independe
   act(() => mockDialogContent?.onConfirm?.({ preventClose }));
   expect(preventClose).toHaveBeenCalledTimes(1);
   expect(callback).toHaveBeenCalledTimes(1);
+});
+
+it('records dialog callbacks with the original local ID and whitelisted close reason', async () => {
+  mockAndroid = false;
+  const { result } = renderHook(() => useNFC());
+  const callback = jest.fn();
+  await act(async () => result.current.createNFCConnection(callback)());
+  const firstDialog = mockDialogContent;
+  const firstId = mockDiagnostic.mock.calls[0][0].operationId as string;
+  await act(async () => result.current.createNFCConnection(callback)());
+  const secondId = mockDiagnostic.mock.calls[2][0].operationId as string;
+  expect(firstId).not.toBe(secondId);
+  firstDialog?.onCloseStart?.();
+  firstDialog?.onClose?.({ flag: 'excluded-private-value' });
+  expect(mockDiagnostic).toHaveBeenLastCalledWith(
+    expect.objectContaining({
+      operation: 'nfc',
+      operationId: firstId,
+      phase: 'dialog-close',
+      closeReason: 'other',
+    }),
+  );
+  expect(JSON.stringify(mockDiagnostic.mock.calls)).not.toContain(
+    'excluded-private-value',
+  );
+  expect(callback).not.toHaveBeenCalled();
+});
+
+it('keeps Android callback completion independent from the connection wrapper', async () => {
+  const { result } = renderHook(() => useNFC());
+  let complete: (() => void) | undefined;
+  const pending = new Promise<void>((resolve) => {
+    complete = resolve;
+  });
+  const callback = jest.fn(() => pending);
+  await act(async () => result.current.createNFCConnection(callback)());
+  expect(callback).toHaveBeenCalledTimes(1);
+  expect(mockDiagnostic.mock.calls.map(([event]) => event.phase)).toEqual([
+    'dialog-show-request',
+    'dialog-show-returned',
+    'callback-enter',
+  ]);
+  complete?.();
+  await pending;
 });

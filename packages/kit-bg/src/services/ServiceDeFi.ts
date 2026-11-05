@@ -1,5 +1,5 @@
 import BigNumber from 'bignumber.js';
-import { isEmpty, isEqual, isUndefined } from 'lodash';
+import { chunk, isEmpty, isEqual, isUndefined } from 'lodash';
 
 import { settingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
@@ -42,6 +42,24 @@ import { currencyPersistAtom } from '../states/jotai/atoms/currency';
 import ServiceBase from './ServiceBase';
 
 import type { IDeFiDBStruct } from '../dbs/simple/entity/SimpleDbEntityDeFi';
+
+const DEFI_OVERVIEW_TOTAL_FIELDS = [
+  'totalValue',
+  'totalDebt',
+  'totalReward',
+  'netWorth',
+] as const;
+
+// The per-network overviews persisted below are derived from the position rows,
+// so a complete response must represent its totals with those rows. A network
+// missing from `positions` would otherwise be persisted as a zero balance.
+// Tolerate the backend's float summation/rounding noise, but not a material gap.
+const DEFI_TOTALS_COVERAGE_MIN_TOLERANCE_USD = 0.01;
+const DEFI_TOTALS_COVERAGE_RELATIVE_TOLERANCE = 1e-6;
+
+// The positions API accepts at most this many networks per request; larger
+// lists are split internally so callers never have to know the limit.
+const DEFI_POSITIONS_BATCH_MAX_NETWORKS = 10;
 
 type IDeFiEnabledNetworksMapState = {
   enabledNetworksMap: Record<string, boolean>;
@@ -490,6 +508,40 @@ class ServiceDeFi extends ServiceBase {
     );
   }
 
+  // Complete responses must be fully attributable to the position rows we
+  // persist. `unrepresentedValue` is the backend's own signal for value outside
+  // `positions`; otherwise the per-network rows must sum to the response totals.
+  private _isDeFiTotalsCoveredByPositions({
+    networkIds,
+    positions,
+    totals,
+  }: {
+    networkIds: string[];
+    positions: IFetchAccountDeFiPositionsResp['data']['positions'] | undefined;
+    totals: IFetchAccountDeFiPositionsResp['data']['totals'] | undefined;
+  }) {
+    if (!totals) return false;
+    if (!new BigNumber(totals.unrepresentedValue ?? 0).isZero()) {
+      return false;
+    }
+    const splitResults = defiUtils.splitDeFiPositionsByNetwork({
+      networkIds,
+      positions,
+    });
+    return DEFI_OVERVIEW_TOTAL_FIELDS.every((field) => {
+      const total = new BigNumber(totals[field]);
+      if (!total.isFinite()) return false;
+      const coveredTotal = BigNumber.sum(
+        ...splitResults.map((result) => result.overview[field]),
+      );
+      const tolerance = BigNumber.maximum(
+        total.abs().multipliedBy(DEFI_TOTALS_COVERAGE_RELATIVE_TOLERANCE),
+        DEFI_TOTALS_COVERAGE_MIN_TOLERANCE_USD,
+      );
+      return coveredTotal.minus(total).abs().lte(tolerance);
+    });
+  }
+
   private _filterLowValueProtocols({
     protocols,
     protocolMap,
@@ -565,6 +617,31 @@ class ServiceDeFi extends ServiceBase {
       dailyLimit: config.dailyLimit,
       minIntervalMs: config.minIntervalMs,
     });
+  }
+
+  private async _buildDeFiPositionsRequestConfig({
+    accountId,
+    controller,
+    params,
+    sourceCurrencyInfo,
+  }: {
+    accountId: string;
+    controller: AbortController;
+    params: { timeoutMs?: number; requireComplete?: boolean };
+    sourceCurrencyInfo?: ICurrencyItem;
+  }) {
+    return {
+      signal: controller.signal,
+      ...(params.timeoutMs !== undefined ? { timeout: params.timeoutMs } : {}),
+      headers: {
+        ...(await this.backgroundApi.serviceAccountProfile._getWalletTypeHeader(
+          { accountId },
+        )),
+        ...(params.requireComplete && sourceCurrencyInfo
+          ? { 'x-onekey-request-currency': sourceCurrencyInfo.id }
+          : {}),
+      },
+    };
   }
 
   @backgroundMethod()
@@ -659,45 +736,40 @@ class ServiceDeFi extends ServiceBase {
           ? true
           : isForceRefresh,
       },
-      {
-        signal: controller.signal,
-        ...(params.timeoutMs !== undefined
-          ? { timeout: params.timeoutMs }
-          : {}),
-        headers: {
-          ...(await this.backgroundApi.serviceAccountProfile._getWalletTypeHeader(
-            { accountId },
-          )),
-          ...(params.requireComplete && sourceCurrencyInfo
-            ? { 'x-onekey-request-currency': sourceCurrencyInfo.id }
-            : {}),
-        },
-      },
+      await this._buildDeFiPositionsRequestConfig({
+        accountId,
+        controller,
+        params,
+        sourceCurrencyInfo,
+      }),
     );
 
     if (params.requireComplete) {
       const result = resp.data.data;
-      const totals = result.data?.totals;
-      const fields = [
-        'totalValue',
-        'totalDebt',
-        'totalReward',
-        'netWorth',
-      ] as const;
+      const meta = result.meta;
+      const expectedCurrency = sourceCurrencyInfo?.id;
       if (
         !result.success ||
-        result.meta?.degraded !== false ||
-        !result.meta.requestedNetworkIds?.includes(networkId) ||
-        (Array.isArray(result.meta.queriedNetworkIds) &&
-          !result.meta.queriedNetworkIds.includes(networkId)) ||
-        result.meta.networkIds.some((id) => id !== networkId) ||
-        Object.entries(result.data.positions ?? {}).some(
+        !meta ||
+        meta.degraded !== false ||
+        !meta.requestedNetworkIds?.includes(networkId) ||
+        (Array.isArray(meta.queriedNetworkIds) &&
+          !meta.queriedNetworkIds.includes(networkId)) ||
+        !Array.isArray(meta.networkIds) ||
+        meta.networkIds.some((id) => id !== networkId) ||
+        Object.entries(result.data?.positions ?? {}).some(
           ([id, positions]) => id !== networkId && positions.length > 0,
         ) ||
         this._getNotQueriedNetworkIds({ networkIds: [networkId], resp: result })
           .length > 0 ||
-        !totals ||
-        fields.some((field) => !new BigNumber(totals[field]).isFinite())
+        (expectedCurrency !== undefined &&
+          meta.currencyInfo?.actual !== undefined &&
+          meta.currencyInfo.actual !== expectedCurrency) ||
+        !this._isDeFiTotalsCoveredByPositions({
+          networkIds: [networkId],
+          positions: result.data?.positions,
+          totals: result.data?.totals,
+        })
       ) {
         throw new OneKeyLocalError('Incomplete DeFi portfolio response');
       }
@@ -773,17 +845,30 @@ class ServiceDeFi extends ServiceBase {
   private async _fetchAccountDeFiPositionsPerNetwork(
     params: IFetchAccountDeFiPositionsBatchParams,
   ): Promise<Array<IFetchAccountDeFiPositionsResult | undefined>> {
+    // Complete queries persist only after every network produced a validated
+    // result, so a failed fallback cannot leave partial balances in the cache.
+    const persistAfterCompletion = Boolean(
+      params.requireComplete && params.saveToLocal,
+    );
+    const overviewRequest = persistAfterCompletion
+      ? this._beginOverviewRequest({
+          accountAddress: params.accountAddress,
+          xpub: params.xpub,
+          networkIds: params.networkIds,
+        })
+      : undefined;
     const settled = await promiseAllSettledEnhanced(
       params.networkIds.map((networkId) => async () => {
         const r = await this.fetchAccountDeFiPositions({
           ...params,
           networkId,
+          saveToLocal: persistAfterCompletion ? false : params.saveToLocal,
         });
         return { ...r, networkId };
       }),
       { continueOnError: true, concurrency: 2 },
     );
-    return settled.map((r) =>
+    const results = settled.map((r) =>
       r
         ? {
             networkId: r.networkId,
@@ -796,12 +881,37 @@ class ServiceDeFi extends ServiceBase {
           }
         : undefined,
     );
+    const completeResults = results.filter(
+      (result): result is NonNullable<typeof result> => Boolean(result),
+    );
+    if (params.requireComplete && completeResults.length !== results.length) {
+      throw new OneKeyLocalError('Incomplete DeFi portfolio response');
+    }
+    if (overviewRequest && completeResults.length) {
+      await this._saveLocalDeFiOverview({
+        accountAddress: params.accountAddress,
+        xpub: params.xpub,
+        request: overviewRequest,
+        overview: Object.fromEntries(
+          completeResults.map((result) => [
+            result.networkId,
+            this._buildLocalDeFiOverviewEntry({
+              overview: result.overview,
+              sourceCurrencyInfo: params.sourceCurrencyInfo,
+              targetCurrencyInfo: params.targetCurrencyInfo,
+            }),
+          ]),
+        ),
+      });
+    }
+    return results;
   }
 
   /**
    * One request for up to 10 networks served by the same address/xpub
-   * (All Networks fan-out). Returns one entry per `networkIds` element in the
-   * same order; `undefined` marks a network whose fallback request failed.
+   * (All Networks fan-out); larger lists are split into consecutive requests
+   * internally. Returns one entry per `networkIds` element in the same order;
+   * `undefined` marks a network whose fallback request failed.
    */
   @backgroundMethod()
   public async fetchAccountDeFiPositionsBatch(
@@ -823,6 +933,14 @@ class ServiceDeFi extends ServiceBase {
     } = params;
     if (networkIds.length === 0) {
       return [];
+    }
+    if (networkIds.length > DEFI_POSITIONS_BATCH_MAX_NETWORKS) {
+      const chunkResults = await Promise.all(
+        chunk(networkIds, DEFI_POSITIONS_BATCH_MAX_NETWORKS).map((ids) =>
+          this.fetchAccountDeFiPositionsBatch({ ...params, networkIds: ids }),
+        ),
+      );
+      return chunkResults.flat();
     }
 
     const isUrlAccount = accountUtils.isUrlAccountFn({ accountId });
@@ -915,30 +1033,23 @@ class ServiceDeFi extends ServiceBase {
             ? true
             : isForceRefresh,
         },
-        {
-          signal: controller.signal,
-          headers:
-            await this.backgroundApi.serviceAccountProfile._getWalletTypeHeader(
-              { accountId },
-            ),
-        },
+        await this._buildDeFiPositionsRequestConfig({
+          accountId,
+          controller,
+          params,
+          sourceCurrencyInfo,
+        }),
       );
     } catch (error) {
       const code = (error as { code?: number } | undefined)?.code;
-      if (code === 13_004 && networkIds.length > 1) {
-        // Defensive: the planner never exceeds the limit. Halve and retry once.
-        const middle = Math.ceil(networkIds.length / 2);
-        const [head, tail] = await Promise.all([
-          this.fetchAccountDeFiPositionsBatch({
-            ...resolvedParams,
-            networkIds: networkIds.slice(0, middle),
-          }),
-          this.fetchAccountDeFiPositionsBatch({
-            ...resolvedParams,
-            networkIds: networkIds.slice(middle),
-          }),
-        ]);
-        return [...head, ...tail];
+      if (code === 13_004) {
+        // The backend enforces a smaller multi-network limit than our planner:
+        // serve the networks one by one instead of failing the refresh. The
+        // complete per-network fallback persists atomically.
+        if (networkIds.length > 1) {
+          this._rejectedMultiChainSets.set(multiChainSetKey, Date.now());
+        }
+        return this._fetchAccountDeFiPositionsPerNetwork(resolvedParams);
       }
       if (code === 40_115) {
         // The backend does not array this network set (not in its multi-chain
@@ -949,6 +1060,8 @@ class ServiceDeFi extends ServiceBase {
         }
         return this._fetchAccountDeFiPositionsPerNetwork(resolvedParams);
       }
+      // Complete Portfolio queries must not amplify rate limits or partial failures.
+      if (params.requireComplete) throw error;
       if (networkIds.length > 1 && !controller.signal.aborted) {
         // Any other failure of the array request (timeout, 5xx, another
         // business code) would drop every network of the batch at once.
@@ -962,10 +1075,54 @@ class ServiceDeFi extends ServiceBase {
 
     const body = resp.data.data;
     const data = body.data;
-    const notQueriedNetworkIds = this._getNotQueriedNetworkIds({
-      networkIds,
-      resp: body,
-    });
+    if (params.requireComplete) {
+      const meta = body.meta;
+      const queriedNetworkIds = meta?.queriedNetworkIds;
+      const requested = new Set(networkIds);
+      const expectedCurrency = sourceCurrencyInfo?.id;
+      if (
+        !body.success ||
+        !meta ||
+        meta.degraded !== false ||
+        (networkIds.length === 1 &&
+          !meta.requestedNetworkIds?.includes(networkIds[0])) ||
+        (networkIds.length === 1 &&
+          Array.isArray(queriedNetworkIds) &&
+          !queriedNetworkIds.includes(networkIds[0])) ||
+        !Array.isArray(meta.networkIds) ||
+        meta.networkIds.some((id) => !requested.has(id)) ||
+        Object.entries(data?.positions ?? {}).some(
+          ([id, positions]) => !requested.has(id) && positions.length > 0,
+        ) ||
+        (expectedCurrency !== undefined &&
+          meta.currencyInfo?.actual !== undefined &&
+          meta.currencyInfo.actual !== expectedCurrency) ||
+        !this._isDeFiTotalsCoveredByPositions({
+          networkIds,
+          positions: data?.positions,
+          totals: data?.totals,
+        })
+      ) {
+        throw new OneKeyLocalError('Incomplete DeFi portfolio response');
+      }
+    }
+    const queriedNetworkIdsInResponse = Array.isArray(
+      body.meta?.queriedNetworkIds,
+    )
+      ? body.meta.queriedNetworkIds
+      : undefined;
+    // Complete queries treat any network the backend did not query as missing,
+    // even when it seeded an empty positions bucket for it: that bucket is not
+    // a confirmed zero. Non-complete callers keep the lenient heuristic.
+    const notQueriedNetworkIds =
+      params.requireComplete && queriedNetworkIdsInResponse
+        ? networkIds.filter(
+            (networkId) => !queriedNetworkIdsInResponse.includes(networkId),
+          )
+        : this._getNotQueriedNetworkIds({
+            networkIds,
+            resp: body,
+          });
     const notQueried = new Set(notQueriedNetworkIds);
     // A single network already went out as the string request the fallback
     // would send: its empty result stands, only the cache write is skipped.
@@ -1005,11 +1162,20 @@ class ServiceDeFi extends ServiceBase {
           overviewRequestRevision: overviewRequest?.revisions.get(networkId),
         };
       });
-
     const persistedResults = results.filter(
       (result) => !notQueried.has(result.networkId),
     );
-    if (saveToLocal && (accountAddress || xpub) && persistedResults.length) {
+    // Complete queries persist only after the whole result is assembled below,
+    // so a failed recovery cannot leave a partial cache write behind.
+    const deferCompletePersistence = Boolean(
+      params.requireComplete && refetchNetworkIds.length > 0 && saveToLocal,
+    );
+    if (
+      !deferCompletePersistence &&
+      saveToLocal &&
+      (accountAddress || xpub) &&
+      persistedResults.length
+    ) {
       await this._saveLocalDeFiOverview({
         accountAddress,
         xpub,
@@ -1030,12 +1196,13 @@ class ServiceDeFi extends ServiceBase {
     if (refetchNetworkIds.length === 0) {
       return results;
     }
-    // The networks the array request did not query are served as string
-    // requests, which the backend routes through its single-chain providers;
-    // one that fails stays `undefined` and keeps its cached overview.
+    // Networks the array request omitted are recovered through complete
+    // single-network requests; the aggregate fails only when one of them cannot
+    // produce a validated result.
     const fallbackResults = await this._fetchAccountDeFiPositionsPerNetwork({
       ...resolvedParams,
       networkIds: refetchNetworkIds,
+      saveToLocal: deferCompletePersistence ? false : params.saveToLocal,
     });
     const resultByNetworkId = new Map<
       string,
@@ -1044,7 +1211,35 @@ class ServiceDeFi extends ServiceBase {
     fallbackResults.forEach((result, index) => {
       resultByNetworkId.set(refetchNetworkIds[index], result);
     });
-    return networkIds.map((networkId) => resultByNetworkId.get(networkId));
+    const finalResults = networkIds.map((networkId) =>
+      resultByNetworkId.get(networkId),
+    );
+    if (params.requireComplete) {
+      const completeFinalResults = finalResults.filter(
+        (result): result is NonNullable<typeof result> => Boolean(result),
+      );
+      if (completeFinalResults.length !== finalResults.length) {
+        throw new OneKeyLocalError('Incomplete DeFi portfolio response');
+      }
+      if (deferCompletePersistence && (accountAddress || xpub)) {
+        await this._saveLocalDeFiOverview({
+          accountAddress,
+          xpub,
+          request: overviewRequest,
+          overview: Object.fromEntries(
+            completeFinalResults.map((result) => [
+              result.networkId,
+              this._buildLocalDeFiOverviewEntry({
+                overview: result.overview,
+                sourceCurrencyInfo,
+                targetCurrencyInfo,
+              }),
+            ]),
+          ),
+        });
+      }
+    }
+    return finalResults;
   }
 
   @backgroundMethod()

@@ -305,7 +305,7 @@ export default class ServicePassword extends ServiceBase {
   async clearCachedPassword() {
     this.cachedPassword = undefined;
     void this.backgroundApi.serviceKeylessCloudSync.cancelHardwareCloudKeyOperation();
-    void clearPbkdf2CacheAsync();
+    void clearPbkdf2CacheAsync().catch(() => undefined);
     // Clear sync credential caches on lock screen (security invariant).
     // For keyless mode, credentials can be re-read from storage without password.
     void this.backgroundApi.servicePrimeCloudSync.clearCachedSyncCredential();
@@ -365,7 +365,7 @@ export default class ServicePassword extends ServiceBase {
         requiresPasswordSetupOrVerify: false,
       }))
       .catch(() => undefined);
-    void clearPbkdf2CacheAsync();
+    void clearPbkdf2CacheAsync().catch(() => undefined);
     if (this.cachedPasswordTimeOutObject) {
       clearTimeout(this.cachedPasswordTimeOutObject);
     }
@@ -1163,6 +1163,18 @@ export default class ServicePassword extends ServiceBase {
       }
       throw error;
     }
+  }
+
+  // BG-only: the wallet-bound manual recovery RPC owns admission checks.
+  // Match the ordinary manual mnemonic prompt (no lock-screen attempt policy)
+  // without Jotai, password caching, global unlock or post-verification work.
+  async verifyPasswordForManualMnemonicRecovery(password: string) {
+    await this.validatePasswordValidRules({
+      password,
+      passwordMode: EPasswordMode.PASSWORD,
+      skipLengthCheck: true,
+    });
+    await localDb.verifyPassword({ password, skipLazyUpgrade: true });
   }
 
   @backgroundMethod()

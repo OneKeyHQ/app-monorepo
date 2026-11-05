@@ -87,6 +87,11 @@ import {
   requestPermissionsAsync,
   setBadgeCountAsync,
 } from '@onekeyhq/shared/src/modules3rdParty/expo-notifications';
+import {
+  INTERCOM_SUPPORT_URL,
+  normalizeIntercomSupportUrl,
+  resolveIntercomSupportUrlOverride,
+} from '@onekeyhq/shared/src/modules3rdParty/intercom/bridge';
 import { NativeLogger } from '@onekeyhq/shared/src/modules3rdParty/react-native-file-logger';
 import {
   getCurrentWebViewPackageInfo,
@@ -165,6 +170,12 @@ const LazyCipherKeyValueDevSettings = LazyLoad(async () => {
   const { CipherKeyValueDevSettings } =
     await import('./CipherKeyValueDevSettings');
   return { default: CipherKeyValueDevSettings };
+});
+
+const LazyNativeStorageRecoveryTestPanel = LazyLoad(async () => {
+  const { NativeStorageRecoveryTestPanel } =
+    await import('./NativeStorageRecoveryTestPanel');
+  return { default: NativeStorageRecoveryTestPanel };
 });
 
 export { showDevOnlyPasswordDialog } from './showDevOnlyPasswordDialog';
@@ -996,6 +1007,50 @@ const BaseDevSettingsSection = () => {
     });
   }, [mockTradingViewKLineEmptyEnabled, mockTradingViewKLineEmptyIntervals]);
 
+  const intercomSupportUrlOverride =
+    resolveIntercomSupportUrlOverride(devSettings);
+  const savedIntercomSupportUrl = devSettings.settings?.intercomSupportUrl;
+  const handleOpenIntercomSupportUrlDialog = useCallback(() => {
+    Dialog.show({
+      title: '客服页面地址',
+      description: `强制替换插件 / iOS / Android 打开的客服页面地址，留空恢复默认 ${INTERCOM_SUPPORT_URL}。必须是 https，http 仅允许 localhost / 127.0.0.1。设置后 iOS / Android 改用 WebView 打开客服（通知打开指定会话仍走原生），登录会话只会发给该地址的 origin。关闭开发者模式后自动失效。`,
+      renderContent: (
+        <Dialog.Form
+          formProps={{ values: { url: savedIntercomSupportUrl ?? '' } }}
+        >
+          <Dialog.FormField
+            name="url"
+            rules={{
+              validate: (value: string | undefined) =>
+                !value?.trim() ||
+                !!normalizeIntercomSupportUrl(value) ||
+                '请输入 https:// 开头的完整地址（http 仅限 localhost / 127.0.0.1）',
+            }}
+          >
+            <Input
+              testID="dev-settings-intercom-support-url-input"
+              placeholder={INTERCOM_SUPPORT_URL}
+              autoCapitalize="none"
+              autoCorrect={false}
+            />
+          </Dialog.FormField>
+        </Dialog.Form>
+      ),
+      onConfirm: async ({ getForm }) => {
+        const { url } = (getForm()?.getValues() ?? {}) as { url?: string };
+        const nextUrl = normalizeIntercomSupportUrl(url);
+        await backgroundApiProxy.serviceDevSetting.updateDevSetting(
+          'intercomSupportUrl',
+          nextUrl,
+        );
+        Toast.success({
+          title: nextUrl ? '客服页面地址已更新' : '已恢复默认客服页面地址',
+          message: nextUrl ?? INTERCOM_SUPPORT_URL,
+        });
+      },
+    });
+  }, [savedIntercomSupportUrl]);
+
   const handleOpenPrimeFreeTrialResetDialog = useCallback(() => {
     Dialog.show({
       title: '重置 Prime 免费试用次数',
@@ -1196,7 +1251,7 @@ const BaseDevSettingsSection = () => {
         title: 'Dev Tools & Dev Settings',
         description: '开发者工具 开发环境设置',
         keywords:
-          '开发者悬浮窗 RTL 禁止桌面快捷键 Desktop Slow 4G Native iOS Android Network Throttle latency 弱网 慢网 禁用IP直连 强制使用IP请求 SNI Queue Abort QA Local Secret Envelope LSE CryptoKey secureStorage keychain IndexedDB Self-Test Restore Cloud Backup Prime Transfer Reset IP Table Cache Check Network info NotificationDevSettings Notification Payload Test AsyncStorageDevSettings AppNotificationBadge 角标 V4MigrationDevSettings Haptics Image',
+          '开发者悬浮窗 RTL 禁止桌面快捷键 Desktop Slow 4G Native iOS Android Network Throttle latency 弱网 慢网 禁用IP直连 强制使用IP请求 SNI Queue Abort QA Local Secret Envelope LSE CryptoKey secureStorage keychain IndexedDB Self-Test Restore Cloud Backup Prime Transfer Reset IP Table Cache Check Network info NotificationDevSettings Notification Payload Test AsyncStorageDevSettings NativeStorageRecoveryTests MMKV Storage recovery migration repair AppNotificationBadge 角标 V4MigrationDevSettings Haptics Image',
       },
       {
         key: 'appUpdate',
@@ -1238,7 +1293,7 @@ const BaseDevSettingsSection = () => {
         title: 'UI Galleries',
         description: 'UI Galleries',
         keywords:
-          'DesktopApiProxy Test PerpGallery CryptoGallery CloudBackupGallery AuthGallery KeylessWalletGallery StorageGallery',
+          'Hardware Derivation Path Test 硬件 派生路径 签名 OK-66332 DesktopApiProxy Test PerpGallery CryptoGallery CloudBackupGallery AuthGallery KeylessWalletGallery StorageGallery',
       },
       {
         key: 'account',
@@ -1884,6 +1939,22 @@ const BaseDevSettingsSection = () => {
                           });
                         }}
                       />
+                      {platformEnv.isNative ? (
+                        <SectionPressItem
+                          icon="StorageOutline"
+                          title="Storage recovery tests"
+                          subtitle="Isolated scenarios and dangerous real-marker test"
+                          testID="native-storage-recovery-tests-menu"
+                          onPress={() => {
+                            Dialog.cancel({
+                              title: 'Storage recovery tests',
+                              renderContent: (
+                                <LazyNativeStorageRecoveryTestPanel />
+                              ),
+                            });
+                          }}
+                        />
+                      ) : null}
                       {platformEnv.isNative ? (
                         <SectionPressItem
                           icon="BagOutline"
@@ -2673,6 +2744,19 @@ const BaseDevSettingsSection = () => {
                       >
                         <Switch size={ESwitchSize.small} />
                       </SectionFieldItem>
+                      {platformEnv.isNative || platformEnv.isExtension ? (
+                        <SectionPressItem
+                          icon="HelpSupportOutline"
+                          title="客服页面地址"
+                          subtitle={
+                            intercomSupportUrlOverride ??
+                            `默认 ${INTERCOM_SUPPORT_URL}`
+                          }
+                          searchKeywords="intercom support customer service url 客服 地址 覆盖"
+                          onPress={handleOpenIntercomSupportUrlDialog}
+                          testID="dev-settings-intercom-support-url"
+                        />
+                      ) : null}
                       {platformEnv.isNative ? (
                         <SectionFieldItem
                           icon="ArrowTopRightOutline"
@@ -2733,6 +2817,26 @@ const BaseDevSettingsSection = () => {
                               navigation.push(
                                 EModalSettingRoutes.SettingDevCryptoGalleryModal,
                               );
+                            }}
+                          />
+                          <SectionPressItem
+                            icon="KeyOutline"
+                            title={intl.formatMessage({
+                              id: ETranslations.dev_hw_path__title,
+                            })}
+                            subtitle={intl.formatMessage({
+                              id: ETranslations.dev_hw_path__desc,
+                            })}
+                            testID="hardware-path-test-menu"
+                            onPress={async () => {
+                              const { HardwareDerivationPathTest } =
+                                await import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/HardwareDerivationPathTest');
+                              Dialog.cancel({
+                                title: intl.formatMessage({
+                                  id: ETranslations.dev_hw_path__title,
+                                }),
+                                renderContent: <HardwareDerivationPathTest />,
+                              });
                             }}
                           />
                           <SectionPressItem

@@ -180,7 +180,7 @@ index f62c39f..8bb5f03 100644
 +    }
      return info.Env().Undefined();
  }
-
+ 
 diff --git a/node_modules/@stoprocent/noble/lib/noble.js b/node_modules/@stoprocent/noble/lib/noble.js
 index 94b4dc7b..dce0f2cf 100644
 --- a/node_modules/@stoprocent/noble/lib/noble.js

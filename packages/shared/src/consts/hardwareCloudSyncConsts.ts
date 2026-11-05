@@ -4,10 +4,9 @@ import platformEnv from '../platformEnv';
 // These values are part of the recoverable key derivation contract. Changing
 // any byte requires an explicit version and migration, not a copy update.
 export const HARDWARE_CLOUD_SYNC_DERIVATION_VERSION = 1;
-// BIP44 Legacy shape, so the device accepts it under default safety checks
-// (OneKey Pro 2 firmware 1.0.3; other models are checked during hardware
-// acceptance). Its account and address indexes are far beyond the accounts the
-// App creates, so the key does not land on a user's account.
+// Accepted with default safety checks on OneKey Pro 2 firmware 1.0.3.
+// Classic 1S firmware limits the address index to 1,000,000 and rejects this
+// path. Changing this recoverable key contract requires a version/migration.
 export const HARDWARE_CLOUD_SYNC_PATH = "m/44'/0'/924823361'/1/835069775";
 export const HARDWARE_CLOUD_SYNC_MESSAGE_PREFIX =
   'WARNING: Sign ONLY in OneKey App. NEVER in other apps or dApps. Signing unlocks ALL your OneKey Cloud data. >>> type=onekey-cloud-key;v=1;wallet=';
@@ -143,13 +142,16 @@ export function getHardwareCloudSyncIdentityTagFromCredentialId(
   );
 }
 
-// Direct desktop/web and native transports use the patched hd-core. The
-// extension's bundled/remote iframe has its own SDK copy and is not covered by
-// that patch; keep generation disabled there until it also redacts signatures.
+// Supported platforms use the default upstream SDK integration; iframe-based
+// transports use official prebuilt assets. Release requires an upstream
+// btcSignMessage redaction fix, an App SDK upgrade, and acceptance checks
+// confirming the same fix in every shipped SDK/iframe.
 export function isHardwareCloudSyncPlatformSupported(): boolean {
   return !!(
-    !platformEnv.isExtension &&
-    (platformEnv.isDesktop || platformEnv.isNative || platformEnv.isWeb)
+    platformEnv.isDesktop ||
+    platformEnv.isNative ||
+    platformEnv.isWeb ||
+    platformEnv.isExtension
   );
 }
 

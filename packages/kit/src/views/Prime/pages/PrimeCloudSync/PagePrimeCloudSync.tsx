@@ -3,6 +3,7 @@ import type { ReactElement } from 'react';
 
 import { useFocusEffect } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
+import { Platform } from 'react-native';
 
 import {
   ActionList,
@@ -272,7 +273,7 @@ function CloudSyncHeader({ onLearnMore }: { onLearnMore: () => void }) {
   const intl = useIntl();
   return (
     <>
-      <Stack px="$5" pb="$3">
+      <Stack px="$5" pt={Platform.select({ ios: '$4' as const })} pb="$3">
         <SizableText size="$bodyMd" color="$textSubdued">
           {`${intl.formatMessage({ id: ETranslations.prime_onekey_cloud_desc })} `}
           <SizableText
@@ -985,33 +986,33 @@ function AppDataSection() {
               {(onPress) => (
                 <ListItem
                   testID="cloud-hardware-key-device"
-                  icon="OnekeyProOutline"
-                  title={intl.formatMessage({
-                    id: ETranslations.hardware_wallet__title,
-                  })}
-                  subtitle={intl.formatMessage({
-                    id: ETranslations.syncing_with_wallet__msg,
-                  })}
-                  drillIn={!hardwareKey.keyMissing}
-                  disabled={hardwareKey.pending}
-                  nativePressableStyle={listItemNativePressableStyle}
-                  onPress={onPress}
-                >
-                  <Stack flexDirection="row" alignItems="center" gap="$1.5">
-                    {/* Same device image as hardware wallets in the account selector. */}
+                  // The device itself leads the row, so its name and the sync
+                  // note each keep one line on narrow phones.
+                  renderAvatar={
                     <WalletAvatar
                       wallet={undefined}
                       img={
                         hardwareSource.deviceAvatar ??
                         getDeviceAvatarImage(hardwareSource.deviceType)
                       }
-                      size="$5"
+                      size="$6"
                     />
-                    <SizableText size="$bodyLg" color="$textSubdued">
-                      {hardwareSource.deviceName}
-                    </SizableText>
-                  </Stack>
-                </ListItem>
+                  }
+                  title={
+                    hardwareSource.deviceName ||
+                    intl.formatMessage({
+                      id: ETranslations.hardware_wallet__title,
+                    })
+                  }
+                  titleProps={{ numberOfLines: 1 }}
+                  subtitle={intl.formatMessage({
+                    id: ETranslations.cloud_sync_hardware_devices_sync__desc,
+                  })}
+                  drillIn={!hardwareKey.keyMissing}
+                  disabled={hardwareKey.pending}
+                  nativePressableStyle={listItemNativePressableStyle}
+                  onPress={onPress}
+                />
               )}
             </HardwareWalletKeyMenu>
           ) : null}

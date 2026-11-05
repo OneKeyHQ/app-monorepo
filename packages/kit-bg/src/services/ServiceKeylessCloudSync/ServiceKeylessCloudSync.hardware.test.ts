@@ -1,5 +1,6 @@
 import { EDeviceType } from '@onekeyfe/hd-shared';
 
+import appGlobals from '@onekeyhq/shared/src/appGlobals';
 import { buildHardwareCloudSyncAuthMessage } from '@onekeyhq/shared/src/consts/hardwareCloudSyncConsts';
 import { EPrimeCloudSyncDataType } from '@onekeyhq/shared/src/consts/primeConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
@@ -7,17 +8,22 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { travelModeManager } from '@onekeyhq/shared/src/travelMode';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import type { IKeylessCloudSyncCredential } from '@onekeyhq/shared/types/keylessCloudSync';
 import { ECloudSyncMode } from '@onekeyhq/shared/types/keylessCloudSync';
 
 import localDb from '../../dbs/local/localDb';
+import { LocalDbBaseContainer } from '../../dbs/local/LocalDbBaseContainer';
+import { EIndexedDBBucketNames } from '../../dbs/local/types';
 import { primeCloudSyncPersistAtom } from '../../states/jotai/atoms';
 import keylessSyncCredentialStorage from '../ServiceKeylessWallet/utils/keylessSyncCredentialStorage';
 import { isSupportedCloudSyncDataType } from '../ServicePrimeCloudSync/cloudSyncCheckUtils';
 
+import * as hardwareMigration from './hardwareCloudSyncMigration';
 import { generateHardwareCloudSyncCredentialWithSdk } from './hardwareCloudSyncSdk';
 import {
   bootstrapHardwareCloudSyncDataKey,
@@ -26,13 +32,21 @@ import {
 } from './hardwareCloudSyncSession';
 import ServiceKeylessCloudSync from './ServiceKeylessCloudSync';
 
-import type { IDBCloudSyncItem } from '../../dbs/local/types';
+import type {
+  IDBCloudSyncItem,
+  ILocalDBAgent,
+  ILocalDBWithTransactionTask,
+} from '../../dbs/local/types';
 import type { IPrimeCloudSyncPersistAtomData } from '../../states/jotai/atoms/prime';
 import type { AxiosInstance } from 'axios';
 
 let mockUseTestEndpoint = false;
 let mockConfig: IPrimeCloudSyncPersistAtomData;
 let mockStored: IKeylessCloudSyncCredential | undefined;
+
+jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
+  defaultLogger: { app: { error: { log: jest.fn() } } },
+}));
 
 jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
   __esModule: true,
@@ -73,6 +87,12 @@ jest.mock('../../states/jotai/atoms', () => ({
 }));
 jest.mock('./hardwareCloudSyncSdk', () => ({
   generateHardwareCloudSyncCredentialWithSdk: jest.fn(),
+}));
+jest.mock('./hardwareCloudSyncMigration', () => ({
+  ...jest.requireActual<typeof import('./hardwareCloudSyncMigration')>(
+    './hardwareCloudSyncMigration',
+  ),
+  migrateHardwareCloudSyncRecords: jest.fn(),
 }));
 // Sign-in and the data key need the server; the key under test stays the
 // device-derived one, as if this device created the data key.
@@ -163,6 +183,9 @@ function withSignIn<T>(value: T) {
 jest.mock('../ServiceKeylessWallet/utils/keylessSyncCredentialStorage', () => ({
   __esModule: true,
   default: {
+    getPendingHardwareKeyMigration: jest.fn(async () =>
+      mockStored?.pendingHardwareKeyMigration ? mockStored : undefined,
+    ),
     getCredential: jest.fn(async (id: string) =>
       mockStored?.keylessWalletId === id ? mockStored : null,
     ),
@@ -363,7 +386,9 @@ describe('hardware Cloud key source lifecycle', () => {
       });
     await expect(
       service.enableHardwareCloudSync({ connectId }),
-    ).rejects.toThrow('Invalid Cloud sync sign-in challenge');
+    ).rejects.toMatchObject({
+      key: ETranslations.cloud_sync_data_unreadable__msg,
+    });
     expect(signAuth).not.toHaveBeenCalled();
     expect(verifyHardwareCloudSyncChallenge).not.toHaveBeenCalled();
     expect(keylessSyncCredentialStorage.saveCredential).not.toHaveBeenCalled();
@@ -440,6 +465,137 @@ describe('hardware Cloud key source lifecycle', () => {
         askPasswordOnlyIfHdXfpMissing: true,
       }),
     );
+  });
+
+  test('startup recovery finishes before queued writers and reads inside the key lock do not deadlock', async () => {
+    const { service } = setup();
+    mockConfig.hardwareCloudSyncKeySource = source;
+    mockConfig.currentCloudSyncKeylessWalletId = source.credentialId;
+    mockConfig.isCloudSyncEnabledKeyless = true;
+    mockStored = credential;
+    let finishRecovery: (() => void) | undefined;
+    const recoveryGate = new Promise<void>((resolve) => {
+      finishRecovery = resolve;
+    });
+    jest
+      .mocked(keylessSyncCredentialStorage.getPendingHardwareKeyMigration)
+      .mockImplementationOnce(async () => {
+        await recoveryGate;
+        return undefined;
+      });
+    let wrote = false;
+    const hydrate = service.hydrateKeylessSyncCredentialFromStorageIfNeeded();
+    const write = service.runWithCloudSyncKeyLock(async () => {
+      expect(await service.getKeylessCloudSyncCredential()).toEqual(credential);
+      wrote = true;
+    });
+    await Promise.resolve();
+    expect(wrote).toBe(false);
+    finishRecovery?.();
+    await Promise.all([hydrate, write]);
+    expect(wrote).toBe(true);
+    expect(
+      keylessSyncCredentialStorage.getPendingHardwareKeyMigration,
+    ).toHaveBeenCalledTimes(1);
+  });
+
+  test('the real account transaction warm-up does not re-enter its recovery lock', async () => {
+    jest.useFakeTimers();
+    const { service } = setup();
+    mockConfig.hardwareCloudSyncKeySource = source;
+    mockConfig.currentCloudSyncKeylessWalletId = source.credentialId;
+    mockConfig.isCloudSyncEnabledKeyless = true;
+    const hardwareSession = {
+      deviceKeyJwk: {
+        kty: 'EC' as const,
+        crv: 'P-256' as const,
+        x: 'public-x',
+        y: 'public-y',
+        d: 'public-d',
+      },
+      accessToken: 'public-access',
+      accessTokenExpiresAt: Number.MAX_SAFE_INTEGER,
+      refreshToken: 'public-refresh',
+      sessionId: 'public-session',
+      dekId: 'public-dek',
+    };
+    const target = {
+      ...credential,
+      hardwareSession,
+      keylessWalletId: 'hardware-cloud-v1-recovery-target',
+      pwdHash: 'target-pwd',
+      source: { ...source, credentialId: 'hardware-cloud-v1-recovery-target' },
+    };
+    mockStored = {
+      ...credential,
+      hardwareSession,
+      pendingHardwareKeyMigration: {
+        target,
+        recordsHash: 'public-hash',
+        phase: 'committing',
+      },
+    };
+    let finishTransaction: (() => void) | undefined;
+    const transactionGate = new Promise<void>((resolve) => {
+      finishTransaction = resolve;
+    });
+    const withTransaction = jest.fn(
+      async <T>(
+        _bucket: EIndexedDBBucketNames,
+        task: ILocalDBWithTransactionTask<T>,
+      ) => {
+        await transactionGate;
+        return task({} as Parameters<ILocalDBWithTransactionTask<T>>[0]);
+      },
+    );
+    const agent = { withTransaction } as unknown as ILocalDBAgent;
+    class TestContainer extends LocalDbBaseContainer {
+      override async reset() {}
+      override get readyDb() {
+        return Promise.resolve(agent);
+      }
+    }
+    const container = new TestContainer();
+    jest.spyOn(travelModeManager, 'getRuntimeEnvironment').mockResolvedValue({
+      persistence: {
+        run: async <T>({ operation }: { operation: () => Promise<T> }) =>
+          operation(),
+      },
+    } as unknown as Awaited<
+      ReturnType<typeof travelModeManager.getRuntimeEnvironment>
+    >);
+    const previousProxy = appGlobals.$backgroundApiProxy;
+    appGlobals.$backgroundApiProxy = {
+      serviceKeylessCloudSync: service,
+    } as typeof previousProxy;
+    jest
+      .spyOn(localDb, 'updateSyncItem')
+      .mockImplementation(async () =>
+        container.withTransaction(
+          EIndexedDBBucketNames.account,
+          async () => undefined,
+        ),
+      );
+    try {
+      const recovery = service.runWithCloudSyncKeyLock(async () => undefined);
+      await jest.advanceTimersByTimeAsync(0);
+      // This task starts only after the real warm-up resolves, with no 5s timer advance.
+      expect(withTransaction).toHaveBeenCalledTimes(1);
+      let readFinished = false;
+      const read = service.getKeylessCloudSyncCredential().then(() => {
+        readFinished = true;
+      });
+      await jest.advanceTimersByTimeAsync(0);
+      expect(readFinished).toBe(false);
+      finishTransaction?.();
+      await Promise.all([recovery, read]);
+      expect(readFinished).toBe(true);
+      expect(mockStored?.pendingHardwareKeyMigration?.phase).toBe('prepared');
+    } finally {
+      finishTransaction?.();
+      appGlobals.$backgroundApiProxy = previousProxy;
+      jest.useRealTimers();
+    }
   });
 
   test('activation without HD wallets to fill does not ask', async () => {
@@ -737,7 +893,9 @@ describe('hardware Cloud key source lifecycle', () => {
     try {
       await expect(
         service.enableHardwareCloudSync({ connectId }),
-      ).rejects.toThrow('not available here');
+      ).rejects.toMatchObject({
+        key: ETranslations.cloud_sync_hardware_unavailable__msg,
+      });
     } finally {
       unsupported.restore();
     }
@@ -811,7 +969,7 @@ describe('hardware Cloud key source lifecycle', () => {
       });
     await expect(
       service.enableHardwareCloudSync({ connectId }),
-    ).rejects.toThrow('cancelled');
+    ).rejects.toMatchObject({ key: ETranslations.update_operation_canceled });
     expect(keylessSyncCredentialStorage.saveCredential).not.toHaveBeenCalled();
     jest
       .mocked(generateHardwareCloudSyncCredentialWithSdk)
@@ -874,7 +1032,9 @@ describe('hardware Cloud key source lifecycle', () => {
     const activation = service.enableHardwareCloudSync({ connectId });
     await device.reached;
     expect(await service.cancelHardwareCloudKeyOperation()).toBe(true);
-    await expect(activation).rejects.toThrow('cancelled');
+    await expect(activation).rejects.toMatchObject({
+      key: ETranslations.update_operation_canceled,
+    });
     expect(device.deviceCancel).toHaveBeenCalledTimes(1);
     expect(keylessSyncCredentialStorage.saveCredential).not.toHaveBeenCalled();
     expect(mockConfig.hardwareCloudSyncKeySource).toBeUndefined();
@@ -890,7 +1050,9 @@ describe('hardware Cloud key source lifecycle', () => {
     const first = service.enableHardwareCloudSync({ connectId });
     await device.reached;
     const second = service.enableHardwareCloudSync({ connectId });
-    await expect(first).rejects.toThrow('cancelled');
+    await expect(first).rejects.toMatchObject({
+      key: ETranslations.update_operation_canceled,
+    });
     await second;
     expect(device.deviceCancel).toHaveBeenCalledTimes(1);
     expect(mockStored).toEqual(expect.objectContaining(credential));
@@ -1923,6 +2085,114 @@ describe('hardware reset session and local data races', () => {
       service.clearKeylessCloudSyncCredentialCache(),
     );
     servicesToClear.clear();
+  });
+
+  test.each([undefined, 'a'.repeat(64)])(
+    'confirmed replacement forwards snapshot %s and commits only after its upload',
+    async (overwriteTargetSnapshot) => {
+      const { service } = setup();
+      const replacementSource = {
+        ...source,
+        credentialId: `hardware-cloud-v1-${'b'.repeat(64)}`,
+        deviceName: 'Other Pro 2',
+        deviceType: EDeviceType.Pro2,
+      };
+      const replacementSession = {
+        ...session,
+        accessToken: 'public-test-new-access',
+        sessionId: 'public-test-new-session',
+      };
+      jest
+        .mocked(sessionApi.verifyHardwareCloudSyncChallenge)
+        .mockResolvedValueOnce(replacementSession);
+      jest
+        .mocked(sessionApi.bootstrapHardwareCloudSyncDataKey)
+        .mockResolvedValueOnce({
+          ...next,
+          generation: 1,
+          previousPwdHashes: [],
+        });
+      jest.spyOn(localDb, 'updateSyncItem').mockResolvedValue(undefined);
+      const migration = jest
+        .spyOn(hardwareMigration, 'migrateHardwareCloudSyncRecords')
+        .mockImplementationOnce(
+          async ({
+            source: from,
+            target,
+            savePending,
+            beforeFlush,
+            overwriteTargetSnapshot: snapshot,
+          }) => {
+            expect(snapshot).toBe(overwriteTargetSnapshot);
+            expect(from.keylessWalletId).toBe(source.credentialId);
+            expect(target.keylessWalletId).toBe(replacementSource.credentialId);
+            expect(target.hardwareSession?.sessionId).toBe(
+              replacementSession.sessionId,
+            );
+            expect(mockConfig.hardwareCloudSyncKeySource).toEqual(source);
+            await savePending({
+              target,
+              recordsHash: 'public-test-hash',
+              phase: 'prepared',
+            });
+            expect(mockStored?.keylessWalletId).toBe(source.credentialId);
+            await beforeFlush();
+          },
+        );
+      jest
+        .mocked(generateHardwareCloudSyncCredentialWithSdk)
+        .mockImplementationOnce(async (params) => {
+          const result = await params.unlock({
+            credentialId: replacementSource.credentialId,
+            source: replacementSource,
+            signAuth: async () => 'public-test-signature',
+            deriveKek: async () => 'public-test-kek',
+          });
+          return {
+            credential: { ...result, source: replacementSource },
+            source: replacementSource,
+          };
+        });
+      await service.resetHardwareCloudSyncKey({
+        connectId,
+        targetCredentialId: replacementSource.credentialId,
+        overwriteTargetSnapshot,
+      });
+      expect(migration).toHaveBeenCalledTimes(1);
+      expect(generateHardwareCloudSyncCredentialWithSdk).toHaveBeenCalledWith(
+        expect.objectContaining({
+          expectedCredentialId: replacementSource.credentialId,
+        }),
+      );
+      expect(mockConfig.hardwareCloudSyncKeySource).toEqual(replacementSource);
+      expect(mockStored?.keylessWalletId).toBe(replacementSource.credentialId);
+      expect(mockStored?.pendingHardwareKeyMigration).toBeUndefined();
+      expect(sessionApi.rotateHardwareCloudSyncDataKey).not.toHaveBeenCalled();
+    },
+  );
+
+  test('a different wallet cannot enter migration without confirming that identity', async () => {
+    const { service } = setup();
+    const migration = jest.spyOn(
+      hardwareMigration,
+      'migrateHardwareCloudSyncRecords',
+    );
+    jest
+      .mocked(generateHardwareCloudSyncCredentialWithSdk)
+      .mockImplementationOnce(async (params) => {
+        await params.unlock({
+          credentialId: 'another-wallet',
+          signAuth: async () => 'public-test-signature',
+          deriveKek: async () => 'public-test-kek',
+        });
+        return { credential: current, source };
+      });
+    await expect(
+      service.resetHardwareCloudSyncKey({ connectId }),
+    ).rejects.toThrow("can't unlock");
+    expect(migration).not.toHaveBeenCalled();
+    expect(mockStored).toBe(current);
+    expect(mockConfig.hardwareCloudSyncKeySource).toEqual(source);
   });
 
   test('reset preflights unknown local ciphertext before replacing the server key', async () => {

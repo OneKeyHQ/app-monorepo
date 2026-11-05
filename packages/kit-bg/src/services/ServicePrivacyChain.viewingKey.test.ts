@@ -149,10 +149,7 @@ function createService({
           const state = await privacyChainState.getXmrAccountState({
             accountId,
           });
-          return {
-            enabled: state.intent === 'on' && !state.operation,
-            pendingOperation: state.operation?.type,
-          };
+          return { enabled: state.intent === 'on' };
         },
       }),
     },
@@ -177,23 +174,25 @@ function storeApi(
   >[0]['backgroundApi'];
 }
 
-async function repairWithOwner(
+type IObtainViewingKey = (params: {
+  networkId: string;
+  accountId: string;
+}) => Promise<{ value: string; created: boolean } | undefined>;
+
+// The enable's key step: the stored key, or one derived with the password or device.
+function obtainViewingKey(
+  service: ReturnType<typeof createService>['service'],
+): IObtainViewingKey {
+  return (
+    service as unknown as { obtainLocalWalletViewingKey: IObtainViewingKey }
+  ).obtainLocalWalletViewingKey.bind(service);
+}
+
+async function obtainKeyValue(
   service: ReturnType<typeof createService>['service'],
   accountId: string,
 ) {
-  const db = service.backgroundApi.simpleDb.privacyChainState;
-  if ((await db.getAccountEpoch({ accountId })) === undefined) {
-    await db.beginXmrEnable({
-      networkId,
-      accountId,
-      birthdayHeight: 3_000_000,
-    });
-  }
-  return service.ensureLocalWalletViewingKey({
-    networkId,
-    accountId,
-    expectedEpoch: await db.getAccountEpoch({ accountId }),
-  });
+  return (await obtainViewingKey(service)({ networkId, accountId }))?.value;
 }
 
 describe('Privacy chain viewing key store', () => {
@@ -210,7 +209,7 @@ describe('Privacy chain viewing key store', () => {
       value: 'stored',
     });
 
-    await expect(repairWithOwner(service, hdAccountId)).resolves.toBe('stored');
+    await expect(obtainKeyValue(service, hdAccountId)).resolves.toBe('stored');
     expect(mockGetVault).not.toHaveBeenCalled();
   });
 
@@ -223,9 +222,7 @@ describe('Privacy chain viewing key store', () => {
       cachedPassword: 'pw',
     });
 
-    await expect(repairWithOwner(service, hdAccountId)).resolves.toBe(
-      'derived',
-    );
+    await expect(obtainKeyValue(service, hdAccountId)).resolves.toBe('derived');
     expect(deriveViewingKey).toHaveBeenCalledWith({
       accountId: hdAccountId,
       password: 'pw',
@@ -237,29 +234,6 @@ describe('Privacy chain viewing key store', () => {
       vkFp: getViewingKeyFingerprint({ networkId, viewingKey: 'derived' }),
       sealed: { format: 'plain', value: 'derived' },
     });
-  });
-
-  it('never prompts: a locked wallet gets no viewing key', async () => {
-    const deriveViewingKey = jest.fn(async () => 'derived');
-    mockGetVault.mockResolvedValue({
-      getLocalWalletCapability: () => ({ deriveViewingKey }),
-    });
-    const { service, promptPasswordVerifyByAccount } = createService({
-      promptedPassword: 'pw',
-    });
-
-    await expect(
-      repairWithOwner(service, hdAccountId),
-    ).resolves.toBeUndefined();
-    expect(deriveViewingKey).not.toHaveBeenCalled();
-    expect(promptPasswordVerifyByAccount).not.toHaveBeenCalled();
-  });
-
-  it('does not derive for a hardware account', async () => {
-    const { service } = createService({ cachedPassword: 'pw' });
-
-    await expect(repairWithOwner(service, 'hw-1--0')).resolves.toBeUndefined();
-    expect(mockGetVault).not.toHaveBeenCalled();
   });
 
   it("asks the device for a hardware account's viewing key on the user's own enable", async () => {
@@ -278,17 +252,8 @@ describe('Privacy chain viewing key store', () => {
       serviceHardwareUI: { withHardwareProcessing },
     });
 
-    const obtain = (
-      service as unknown as {
-        obtainLocalWalletViewingKey: (params: {
-          networkId: string;
-          accountId: string;
-          promptForPassword: boolean;
-        }) => Promise<{ value: string; created: boolean } | undefined>;
-      }
-    ).obtainLocalWalletViewingKey.bind(service);
     await expect(
-      obtain({ networkId, accountId: 'hw-1--0', promptForPassword: true }),
+      obtainViewingKey(service)({ networkId, accountId: 'hw-1--0' }),
     ).resolves.toEqual({ value: 'from-device', created: true });
     expect(getWalletDeviceParams).toHaveBeenCalledWith({
       walletId: 'hw-1',
@@ -305,7 +270,7 @@ describe('Privacy chain viewing key store', () => {
   });
 
   it('ignores a key stored for another network', async () => {
-    const { service, backgroundApi } = createService();
+    const { backgroundApi } = createService();
     await saveLocalWalletViewingKey({
       backgroundApi: storeApi(backgroundApi),
       networkId: 'zec--0',
@@ -314,7 +279,11 @@ describe('Privacy chain viewing key store', () => {
     });
 
     await expect(
-      repairWithOwner(service, hdAccountId),
+      getLocalWalletViewingKey({
+        backgroundApi: storeApi(backgroundApi),
+        networkId,
+        accountId: hdAccountId,
+      }),
     ).resolves.toBeUndefined();
   });
 
@@ -336,7 +305,7 @@ describe('Privacy chain viewing key store', () => {
     };
     await privacyChainKeys.saveKey({ accountId: hdAccountId, record: stored });
 
-    const error = await repairWithOwner(service, hdAccountId).catch(
+    const error = await obtainKeyValue(service, hdAccountId).catch(
       (e: unknown) => e,
     );
 
@@ -360,17 +329,14 @@ describe('Privacy chain viewing key store', () => {
     const { service, privacyChainKeys, privacyChainState } = createService({
       cachedPassword: 'pw',
     });
-    await privacyChainState.beginXmrEnable({
+    await privacyChainState.saveXmrEnabledAccount({
       networkId,
       accountId: hdAccountId,
+      vkFp: getViewingKeyFingerprint({ networkId, viewingKey: 'original' }),
       birthdayHeight: 3_000_000,
     });
-    await privacyChainState.completeXmrEnable({
-      accountId: hdAccountId,
-      vkFp: getViewingKeyFingerprint({ networkId, viewingKey: 'original' }),
-    });
 
-    const error = await repairWithOwner(service, hdAccountId).catch(
+    const error = await obtainKeyValue(service, hdAccountId).catch(
       (e: unknown) => e,
     );
 
@@ -409,50 +375,6 @@ describe('Privacy chain viewing key store', () => {
     expect(
       await privacyChainState.getXmrAccountState({ accountId: hdAccountId }),
     ).toMatchObject({ intent: 'on', birthdayHeight: 3_000_000 });
-  });
-
-  it('does not save a key if deletion supersedes a background derivation', async () => {
-    const { service, privacyChainState, privacyChainKeys } = createService({
-      cachedPassword: 'pw',
-    });
-    let release: () => void = () => undefined;
-    let entered: () => void = () => undefined;
-    const gate = new Promise<void>((resolve) => {
-      release = resolve;
-    });
-    const started = new Promise<void>((resolve) => {
-      entered = resolve;
-    });
-    mockGetVault.mockResolvedValue({
-      getLocalWalletCapability: () => ({
-        deriveViewingKey: async () => {
-          entered();
-          await gate;
-          return 'derived';
-        },
-      }),
-    });
-    const deriving = repairWithOwner(service, hdAccountId);
-    await started;
-    await privacyChainState.requestAccountDeletion({
-      networkId,
-      accountId: hdAccountId,
-    });
-    release();
-    expect(await deriving).toBeUndefined();
-    expect(await privacyChainKeys.listAccountIds()).toEqual([]);
-  });
-
-  it('never derives from an unowned key read', async () => {
-    const { service } = createService({ cachedPassword: 'pw' });
-    mockGetVault.mockClear();
-    expect(
-      await service.ensureLocalWalletViewingKey({
-        networkId,
-        accountId: hdAccountId,
-      }),
-    ).toBeUndefined();
-    expect(mockGetVault).not.toHaveBeenCalled();
   });
 
   it('drops viewing keys and saved balances of removed accounts', async () => {
@@ -653,17 +575,13 @@ describe('Privacy chain viewing key lifecycle', () => {
       deriveViewingKey,
       getAccountState: async () => ({ enabled: false }),
     });
-    await privacyChainState.beginXmrEnable({
+    await privacyChainState.saveXmrEnabledAccount({
       networkId,
       accountId: hdAccountId,
+      vkFp: getViewingKeyFingerprint({ networkId, viewingKey: 'spend:view' }),
       birthdayHeight: 100,
     });
-    await privacyChainState.completeXmrEnable({
-      accountId: hdAccountId,
-      vkFp: getViewingKeyFingerprint({ networkId, viewingKey: 'spend:view' }),
-    });
-    await privacyChainState.beginXmrDisable({ accountId: hdAccountId });
-    await privacyChainState.completeXmrDisable({ accountId: hdAccountId });
+    await privacyChainState.saveXmrDisabledAccount({ accountId: hdAccountId });
 
     await service.deleteLocalWalletAccountData({
       networkId,
@@ -783,5 +701,87 @@ describe('Privacy chain viewing key lifecycle', () => {
     expect(enableAccount).toHaveBeenCalled();
     expect(mockGetVault).not.toHaveBeenCalled();
     await expect(privacyChainKeys.listAccountIds()).resolves.toEqual([]);
+  });
+});
+
+// Enable stores the key first, so an enabled account without one is damaged: it is turned off and
+// the next enable derives the key again.
+describe('Privacy chain account without its viewing key', () => {
+  async function setup({
+    intent,
+    stored,
+    masked = false,
+  }: {
+    intent: 'on' | 'off';
+    stored?: { vkFp: string; value: string };
+    masked?: boolean;
+  }) {
+    const { service, privacyChainKeys, privacyChainState } = createService();
+    await privacyChainState.saveXmrEnabledAccount({
+      networkId,
+      accountId: hdAccountId,
+      vkFp: getViewingKeyFingerprint({ networkId, viewingKey: 'key' }),
+      birthdayHeight: 3_000_000,
+    });
+    if (intent === 'off') {
+      await privacyChainState.saveXmrDisabledAccount({
+        accountId: hdAccountId,
+      });
+    }
+    if (stored) {
+      await privacyChainKeys.saveKey({
+        accountId: hdAccountId,
+        record: {
+          networkId,
+          ...stored,
+          sealed: { format: 'plain', value: stored.value },
+        },
+      });
+    }
+    const disable = jest.fn(async () => undefined);
+    Object.assign(service, {
+      isPersistenceMasked: async () => masked,
+      disableLocalWalletAccountWithTwins: disable,
+    });
+    await service.turnOffLocalWalletAccountWithoutKey({
+      networkId,
+      accountId: hdAccountId,
+    });
+    return { disable };
+  }
+
+  it.each([
+    ['missing', undefined],
+    [
+      'damaged',
+      {
+        vkFp: getViewingKeyFingerprint({ networkId, viewingKey: 'key' }),
+        value: 'damaged',
+      },
+    ],
+  ])('turns an enabled account off when its key is %s', async (_, stored) => {
+    const { disable } = await setup({ intent: 'on', stored });
+    expect(disable).toHaveBeenCalledWith(
+      expect.objectContaining({ networkId, accountId: hdAccountId }),
+    );
+  });
+
+  it('leaves an account with its key alone', async () => {
+    const { disable } = await setup({
+      intent: 'on',
+      stored: {
+        vkFp: getViewingKeyFingerprint({ networkId, viewingKey: 'key' }),
+        value: 'key',
+      },
+    });
+    expect(disable).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ['an account already off', { intent: 'off' as const }],
+    ['masked storage', { intent: 'on' as const, masked: true }],
+  ])('does nothing for %s', async (_, params) => {
+    const { disable } = await setup(params);
+    expect(disable).not.toHaveBeenCalled();
   });
 });

@@ -23,6 +23,7 @@ const mockWebIntercom = jest.fn<Promise<void>, [IShowIntercomParams?]>(
 const mockAddListener = jest.fn();
 const mockNotifyOpenFailed = jest.fn((_error: unknown) => {});
 const mockStorage = new Map<string, boolean>();
+let mockSupportUrlOverride: string | undefined;
 const mockPlatformEnv = {
   isNativeMainThread: true,
   isNativeIOSMacCatalyst: false,
@@ -117,6 +118,7 @@ jest.mock('./utils', () => ({
   ...jest.requireActual<typeof import('./utils')>('./utils'),
   getInstanceId: async () => 'test-instance',
   getIntercomLanguageOverride: async () => 'zh-CN',
+  getIntercomSupportUrlOverride: async () => mockSupportUrlOverride,
 }));
 
 function createToken(userId: string) {
@@ -163,6 +165,7 @@ describe('native Intercom SDK integration', () => {
     mockPlatformEnv.isNativeAndroid = false;
     mockGetCustomerJWT.mockReset();
     mockStorage.clear();
+    mockSupportUrlOverride = undefined;
     // Most cases model an anonymous user who has contacted support before.
     mockStorage.set(SUPPORT_OPENED_KEY, true);
     mockNativeModules.OneKeyIntercom.initialized = true;
@@ -235,6 +238,28 @@ describe('native Intercom SDK integration', () => {
     expect(mockSdk.initialize).not.toHaveBeenCalled();
     expect(mockWebIntercom).toHaveBeenCalledTimes(2);
     expect(subject.getIntercomUnreadCount()).toBe(0);
+  });
+
+  it('opens the hosted page instead of the SDK while a support URL override is set', async () => {
+    mockSupportUrlOverride = 'https://intercom-preview.onekey.test/';
+    await subject.showIntercom({ requestId: 'request-1' });
+    expect(mockWebIntercom).toHaveBeenCalledWith({ requestId: 'request-1' });
+    expect(mockSdk.present).not.toHaveBeenCalled();
+
+    mockSupportUrlOverride = undefined;
+    // Skip the duplicate-open cooldown left by the first presentation.
+    await subject.showIntercom({ requestId: 'request-2' });
+    expect(mockWebIntercom).toHaveBeenCalledTimes(1);
+    expect(mockSdk.present).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps notification conversations on the SDK while a support URL override is set', async () => {
+    mockSupportUrlOverride = 'https://intercom-preview.onekey.test/';
+    await subject.showIntercom({ conversationId: 'conversation-1' });
+    expect(mockWebIntercom).not.toHaveBeenCalled();
+    expect(mockSdk.presentContent).toHaveBeenCalledWith({
+      id: 'conversation-1',
+    });
   });
 
   it('sends lock policy to Android without loading the SDK or using bg state', async () => {

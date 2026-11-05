@@ -225,6 +225,29 @@ export function useHyperliquidReferralPromotion({
         );
       }
     } catch (error) {
+      if (
+        (error as { data?: { referralAlreadySet?: boolean } })?.data
+          ?.referralAlreadySet
+      ) {
+        await backgroundApiProxy.serviceHyperliquidReferral.invalidateBannerCache(
+          { userAddress },
+        );
+        void backgroundApiProxy.serviceHyperliquidReferral.logReferralBindingStep(
+          {
+            step: 'complete',
+            userAddress,
+            message: 'Referrer already set; reconciled local banner cache',
+          },
+        );
+        void backgroundApiProxy.serviceHyperliquidReferral.logReferralBindingResult(
+          {
+            userAddress,
+            success: true,
+            referralCode: HYPERLIQUID_REFERRAL_CODE,
+          },
+        );
+        return;
+      }
       const errorMessage =
         error instanceof Error ? error.message : String(error);
       void backgroundApiProxy.serviceHyperliquidReferral.logReferralBindingStep(

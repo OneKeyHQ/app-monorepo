@@ -10,6 +10,8 @@ import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms'
 import { usePrimeCloudSyncPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/prime';
 import { isHardwareCloudSyncPlatformSupported } from '@onekeyhq/shared/src/consts/hardwareCloudSyncConsts';
 import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
+import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
+import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -48,10 +50,10 @@ export function chooseCloudSyncKey(
         <YStack>
           <ListItem
             testID="cloud-sync-key-keyless"
-            icon="CloudOutline"
+            icon="Wallet4Outline"
             title={intl.formatMessage({ id: ETranslations.keyless_wallet })}
             subtitle={intl.formatMessage({
-              id: ETranslations.create_keyless_wallet_first__desc,
+              id: ETranslations.cloud_sync_keyless_option__desc,
             })}
             drillIn
             onPress={() => pick('keyless')}
@@ -125,10 +127,12 @@ function confirmDialog({
   title,
   description,
   onConfirmText,
+  destructive,
 }: {
   title: string;
   description: string;
   onConfirmText: string;
+  destructive?: boolean;
 }): Promise<boolean> {
   return new Promise((resolve) => {
     let confirmed = false;
@@ -136,6 +140,7 @@ function confirmDialog({
       title,
       description,
       onConfirmText,
+      ...(destructive ? { tone: 'destructive' as const } : {}),
       onConfirm: () => {
         confirmed = true;
       },
@@ -269,7 +274,11 @@ export function useHardwareCloudSyncKey() {
     [intl, signWithDevice],
   );
   const resetWithDevice = useCallback(
-    async (connectId: string) => {
+    async function resetWithDeviceFlow(
+      connectId: string,
+      targetCredentialId?: string,
+      overwriteTargetSnapshot?: string,
+    ): Promise<void> {
       setPending(true);
       let finished = false;
       const waiting = Dialog.show({
@@ -291,7 +300,11 @@ export function useHardwareCloudSyncKey() {
       appEventBus.once(EAppEventBusNames.ShowDialogLoading, onSyncLoading);
       try {
         await backgroundApiProxy.serviceKeylessCloudSync.resetHardwareCloudSyncKey(
-          { connectId },
+          {
+            connectId,
+            ...(targetCredentialId ? { targetCredentialId } : {}),
+            ...(overwriteTargetSnapshot ? { overwriteTargetSnapshot } : {}),
+          },
         );
         void backgroundApiProxy.serviceApp.showToast({
           method: 'success',
@@ -299,6 +312,82 @@ export function useHardwareCloudSyncKey() {
             id: ETranslations.sync_key_changed__title,
           }),
         });
+      } catch (error) {
+        const failure = error as
+          | IOneKeyError<{
+              targetCredentialId?: string;
+              targetSnapshotHash?: string;
+            }>
+          | undefined;
+        const target = failure?.info?.targetCredentialId;
+        const snapshot = failure?.info?.targetSnapshotHash;
+        const switchRequired =
+          !targetCredentialId &&
+          failure?.key ===
+            ETranslations.cloud_sync_hardware_wallet_mismatch__msg;
+        const overwriteRequired =
+          target === targetCredentialId &&
+          failure?.key ===
+            ETranslations.cloud_sync_hardware_switch_target_has_data__msg &&
+          !!snapshot &&
+          /^[\da-f]{64}$/.test(snapshot);
+        if (
+          (!switchRequired && !overwriteRequired) ||
+          !target ||
+          !/^hardware-cloud-v1-[\da-f]{64}$/.test(target)
+        ) {
+          if (
+            failure?.key ===
+              ETranslations.cloud_sync_hardware_wallet_mismatch__msg ||
+            failure?.key ===
+              ETranslations.cloud_sync_hardware_switch_target_has_data__msg
+          ) {
+            errorToastUtils.showToastOfError({ ...failure, autoToast: true });
+          }
+          throw error;
+        }
+        finished = true;
+        await waiting.close();
+        const confirmed = await confirmDialog(
+          overwriteRequired
+            ? {
+                title: intl.formatMessage({
+                  id: ETranslations.cloud_sync_hardware_overwrite__title,
+                  defaultMessage: "Replace this wallet's cloud data?",
+                }),
+                description: intl.formatMessage({
+                  id: ETranslations.cloud_sync_hardware_switch_target_has_data__msg,
+                  defaultMessage:
+                    "This wallet already has synced data. Continuing will replace its cloud data with your current synced data. This can't be undone.",
+                }),
+                onConfirmText: intl.formatMessage({
+                  id: ETranslations.cloud_sync_hardware_overwrite__action,
+                  defaultMessage: 'Replace data',
+                }),
+                destructive: true,
+              }
+            : {
+                title: intl.formatMessage({
+                  id: ETranslations.cloud_sync_hardware_switch__title,
+                  defaultMessage: 'Switch hardware wallet?',
+                }),
+                description: intl.formatMessage({
+                  id: ETranslations.cloud_sync_hardware_switch__desc,
+                  defaultMessage:
+                    "Sync other clients before switching. Your synced data will use this wallet's key; the original cloud copy will be kept. Connect the new wallet on other clients before making further changes.",
+                }),
+                onConfirmText: intl.formatMessage({
+                  id: ETranslations.cloud_sync_hardware_switch__action,
+                  defaultMessage: 'Switch wallet',
+                }),
+              },
+        );
+        if (confirmed)
+          await resetWithDeviceFlow(
+            connectId,
+            target,
+            overwriteRequired ? snapshot : undefined,
+          );
       } finally {
         finished = true;
         appEventBus.off(EAppEventBusNames.ShowDialogLoading, onSyncLoading);
@@ -340,21 +429,35 @@ export function useHardwareCloudSyncKey() {
         return;
       }
       let picked = false;
+      let dismissed = false;
       const dialog = Dialog.show({
         title: intl.formatMessage({
-          id: ETranslations.onboarding_connect_your_device,
+          id: ETranslations.global_connect_hardware_wallet,
         }),
         showFooter: false,
+        boundedSheetLayout: true,
+        sheetDragArea: 'header',
+        contentContainerProps: { pt: '$3', pb: '$5' },
         renderContent: (
           <HardwareCloudSyncDevicePicker
             onPick={async (connectId) => {
+              // A connection can finish after the user dismisses the picker.
+              if (dismissed) return;
               picked = true;
               await dialog.close();
-              await onPick(connectId);
+              try {
+                await onPick(connectId);
+              } catch (error) {
+                // The flow already reports its own failures (service toasts or
+                // the switch dialog); stop them here so they do not surface as
+                // unhandled rejections from the picker's Connect button.
+                errorUtils.autoPrintErrorIgnore(error);
+              }
             }}
           />
         ),
         onClose: () => {
+          dismissed = true;
           if (!picked) {
             void backgroundApiProxy.serviceHardware.clearForceTransportType();
           }
@@ -373,7 +476,9 @@ export function useHardwareCloudSyncKey() {
       description: intl.formatMessage({
         id: ETranslations.change_sync_key__desc,
       }),
-      onConfirmText: intl.formatMessage({ id: ETranslations.global_confirm }),
+      onConfirmText: intl.formatMessage({
+        id: ETranslations.change_sync_key__action,
+      }),
     });
     if (!confirmed) return;
     await pickDevice(resetWithDevice);
