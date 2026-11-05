@@ -1,10 +1,6 @@
-import {
-  hasXmrRuntimeApiLoader,
-  readXmrRuntimeError,
-} from '@onekeyhq/core/src/chains/xmr/sdkXmrRuntime';
+import { readXmrRuntimeError } from '@onekeyhq/core/src/chains/xmr/sdkXmrRuntime';
 import { parseXmrTransaction } from '@onekeyhq/core/src/chains/xmr/transactionReview';
 import {
-  XMR_BUILT_IN_NODE_URLS,
   XMR_DECIMALS,
   XMR_EARLIEST_SCAN_HEIGHT,
   XMR_SEND_MAX_BLOCKS_LEFT,
@@ -38,6 +34,7 @@ import { KeyringHd } from './KeyringHd';
 import { getXmrLifecycleMutex } from './lifecycle';
 import {
   deleteXmrDatabase,
+  fetchXmrChainTipDirect,
   forgetXmrStaleFirst,
   getXmrChainTip,
   getXmrIdentityId,
@@ -66,8 +63,6 @@ import type {
 
 /** No public pool, so publicAddress and privateAddress are the same string; unverified balance is reported as frozen, not total. */
 
-const XMR_PROCESS_STARTED_AT = Date.now();
-
 const ATOMIC_PER_XMR = 10n ** BigInt(XMR_DECIMALS);
 
 function toParsed(atomic: string | undefined): string | undefined {
@@ -87,6 +82,10 @@ function toParsed(atomic: string | undefined): string | undefined {
 // and the scan may hold different capability objects.
 const xmrBalanceWanted = new Set<string>();
 
+// Per network: the account the last turn could not reach, where the next one starts. Module-level:
+// each turn may get a new capability object.
+const xmrTurnStartByNetwork = new Map<string, string>();
+
 export function buildXmrLocalWalletCapability(
   vault: Vault,
 ): ILocalWalletCapability {
@@ -104,7 +103,6 @@ export function buildXmrLocalWalletCapability(
       !expected.deletionPending &&
       current.epoch === expected.epoch &&
       current.intent === expected.intent &&
-      current.operation === undefined &&
       current.birthdayHeight === expected.birthdayHeight &&
       current.birthdayTimestamp === expected.birthdayTimestamp &&
       current.birthdaySource === expected.birthdaySource
@@ -146,21 +144,6 @@ export function buildXmrLocalWalletCapability(
     });
   };
 
-  const deriveScanningAccountKey = async (accountId: string) => {
-    const state = await stateDb().getXmrAccountState({ accountId });
-    if (state.deletionPending) return false;
-    if (state.intent !== 'on' && state.operation?.type !== 'enable')
-      return false;
-    const key = await vault.backgroundApi.servicePrivacyChain
-      .ensureLocalWalletViewingKey({
-        networkId,
-        accountId,
-        expectedEpoch: state.epoch,
-      })
-      .catch(() => undefined);
-    return key !== undefined;
-  };
-
   const getAccountAliases = async ({
     accountId,
   }: {
@@ -193,12 +176,7 @@ export function buildXmrLocalWalletCapability(
     | undefined
   > => {
     let state = await stateDb().getXmrAccountState({ accountId });
-    if (
-      state.deletionPending ||
-      state.intent !== 'on' ||
-      state.operation !== undefined
-    )
-      return undefined;
+    if (state.deletionPending || state.intent !== 'on') return undefined;
     if (
       state.birthdaySource === XMR_BIRTHDAY_PENDING_SOURCE &&
       state.birthdayTimestamp !== undefined
@@ -221,7 +199,6 @@ export function buildXmrLocalWalletCapability(
     }
     if (
       state.intent !== 'on' ||
-      state.operation !== undefined ||
       state.birthdaySource === XMR_BIRTHDAY_PENDING_SOURCE
     ) {
       return undefined;
@@ -235,7 +212,6 @@ export function buildXmrLocalWalletCapability(
       if (
         latest.epoch !== state.epoch ||
         latest.intent !== 'on' ||
-        latest.operation !== undefined ||
         latest.birthdayHeight !== state.birthdayHeight ||
         latest.birthdayTimestamp !== state.birthdayTimestamp ||
         latest.birthdaySource !== state.birthdaySource
@@ -259,7 +235,6 @@ export function buildXmrLocalWalletCapability(
         const current = await stateDb().getXmrAccountState({ accountId });
         if (
           current.intent !== 'on' ||
-          current.operation !== undefined ||
           current.birthdayHeight !== birthdayHeight ||
           current.birthdaySource !== 'automatic-recovery' ||
           current.birthdayTimestamp !== state.birthdayTimestamp
@@ -526,6 +501,23 @@ export function buildXmrLocalWalletCapability(
     }
   };
 
+  const readStorageUsage = async () => {
+    // Opening the runtime creates its database; measuring must not.
+    const holders = await stateDb().listScanDataAccountIds({ networkId });
+    if (!holders?.length) return { bytes: 0 };
+    return readXmrStaleFirst({
+      key: 'storage',
+      fallback: { bytes: null },
+      read: async () => {
+        const api = await getXmrLocalRuntime(vault);
+        const diag = JSON.parse(await api.diagDatabase()) as {
+          logicalBytes?: number;
+        };
+        return { bytes: diag.logicalBytes ?? null };
+      },
+    });
+  };
+
   const syncPolicy: ILocalWalletSyncPolicy = {
     maxSyncDurationMs: XMR_SYNC_WATCHDOG_MS,
     turn: {
@@ -614,9 +606,8 @@ export function buildXmrLocalWalletCapability(
     async getAccountState({ accountId }): Promise<ILocalWalletAccountState> {
       const state = await stateDb().getXmrAccountState({ accountId });
       return {
-        enabled: state.intent === 'on' && !state.operation,
+        enabled: state.intent === 'on',
         paused: state.intent === 'off' && state.resumeFromHeight !== undefined,
-        pendingOperation: state.operation?.type,
         birthdayHeight: state.birthdayHeight,
         birthdaySource: state.birthdaySource,
         birthdayTimestamp: state.birthdayTimestamp,
@@ -637,28 +628,6 @@ export function buildXmrLocalWalletCapability(
       await notifyAccountsChanged({ accountId, backfillActive: false });
     },
 
-    async retryAccountSetup({ accountId }) {
-      const state = await stateDb().getXmrAccountState({ accountId });
-      if (state.operation?.type === 'enable') {
-        if (!(await deriveScanningAccountKey(accountId))) return;
-        await enableAccount(
-          {
-            accountId,
-            birthdayHeight:
-              state.birthdaySource === XMR_BIRTHDAY_PENDING_SOURCE
-                ? undefined
-                : state.birthdayHeight,
-            birthdayTimestamp: state.birthdayTimestamp,
-          },
-          state,
-        );
-        return;
-      }
-      if (state.operation?.type === 'disable') {
-        await stateDb().completeXmrDisable({ accountId, expectedState: state });
-      }
-    },
-
     async getAccountAddresses({
       accountId,
     }): Promise<ILocalWalletAccountAddresses | undefined> {
@@ -667,13 +636,23 @@ export function buildXmrLocalWalletCapability(
         .catch(() => undefined);
       if (!account?.address) return undefined;
       const state = await stateDb().getXmrAccountState({ accountId });
-      const enabled = state.intent === 'on' && !state.operation;
+      const enabled = state.intent === 'on';
       return {
         publicAddress: account.address,
         // Exposed as private only while scanning, or we'd promise visibility
         // we don't have.
         privateAddress: enabled ? account.address : undefined,
       };
+    },
+
+    // Naming only: a paused account is still known by its primary address.
+    async getAccountNamingAddresses({ accountId }) {
+      const account = await vault.backgroundApi.serviceAccount
+        .getAccount({ accountId, networkId: vault.networkId })
+        .catch(() => undefined);
+      return account?.address
+        ? { publicAddress: account.address, privateAddress: account.address }
+        : undefined;
     },
 
     async deriveViewingKey({ accountId, password, deviceParams }) {
@@ -700,7 +679,6 @@ export function buildXmrLocalWalletCapability(
           }))
         )
           return { orphaned: false };
-        if (!hasXmrRuntimeApiLoader()) return { orphaned: false };
         // The record keeps the identity until the runtime step is done; no key needed.
         const vkFp = await stateDb().getAccountVkFp({ networkId, accountId });
         if (vkFp === undefined) return { orphaned: true };
@@ -733,14 +711,9 @@ export function buildXmrLocalWalletCapability(
       // there is no balance to show, not a zero one.
       const paused =
         state.intent === 'off' && state.resumeFromHeight !== undefined;
-      if (
-        state.deletionPending ||
-        (state.intent !== 'on' && !paused) ||
-        state.operation
-      )
+      if (state.deletionPending || (state.intent !== 'on' && !paused))
         return null;
       if (state.epoch !== state.appliedEpoch) return null;
-      if (!hasXmrRuntimeApiLoader()) return null;
 
       // UI read: the saved balance while a scan step holds the runtime or
       // the node is slow to answer, never queued behind either.
@@ -763,7 +736,7 @@ export function buildXmrLocalWalletCapability(
     syncPolicy,
 
     async listAccounts() {
-      const enabled = await stateDb().listXmrEnabledAccountIds({ networkId });
+      const enabled = await stateDb().listScanningAccountIds({ networkId });
       const accounts: ILocalWalletAccount[] = [];
       for (const accountId of enabled) {
         accounts.push({
@@ -788,8 +761,7 @@ export function buildXmrLocalWalletCapability(
     getAccountAliases,
 
     async getChainTip() {
-      if (!hasXmrRuntimeApiLoader()) return null;
-      const tip = await getXmrChainTip(await requireRuntime());
+      const tip = await fetchXmrChainTipDirect(vault);
       await saveLastLocalWalletChainTip({
         backgroundApi: vault.backgroundApi,
         networkId: vault.networkId,
@@ -798,12 +770,13 @@ export function buildXmrLocalWalletCapability(
       return tip;
     },
 
+    getLatestHeight: () => vault.getLocalWalletLatestHeight(),
+
     async getSyncEndpoint() {
       const url = await vault.resolveXmrNodeUrl();
       const health = getXmrNodeHealth();
       return {
         url,
-        defaultUrl: XMR_BUILT_IN_NODE_URLS[0],
         health:
           health?.url === url
             ? { ok: health.ok, latencyMs: health.latencyMs, atMs: health.atMs }
@@ -813,21 +786,10 @@ export function buildXmrLocalWalletCapability(
 
     async onWalletCreated() {},
 
-    async resumePendingOperations() {
-      const pending = await stateDb().listXmrPendingOperations({
-        networkId,
-        startedBefore: XMR_PROCESS_STARTED_AT,
-      });
-      for (const item of pending) {
-        // eslint-disable-next-line no-await-in-loop
-        await this.retryAccountSetup({ accountId: item.accountId });
-      }
-    },
+    async resumePendingOperations() {},
 
     async syncGroup({ accountIds, chainTip }) {
-      if (!hasXmrRuntimeApiLoader() || accountIds.length === 0) {
-        return { synced: false };
-      }
+      if (accountIds.length === 0) return { synced: false };
       const api = await requireRuntime();
       const tip = chainTip ?? (await getXmrChainTip(api));
       const { turn } = syncPolicy;
@@ -846,16 +808,34 @@ export function buildXmrLocalWalletCapability(
         owner: IXmrAccountScanState;
       }[] = [];
       let skipped = 0;
+      // One budget for the whole turn, shared by its accounts, so several of them cannot hold up
+      // Zcash for a turn each.
+      const turnEndsAt = Date.now() + turn.budgetMs;
+      let lastStepMs = turn.expectedStepMs;
+      let firstUnreached: string | undefined;
+      const startIndex = accountIds.indexOf(
+        xmrTurnStartByNetwork.get(networkId) ?? '',
+      );
+      const orderedAccountIds =
+        startIndex > 0
+          ? [
+              ...accountIds.slice(startIndex),
+              ...accountIds.slice(0, startIndex),
+            ]
+          : accountIds;
 
-      for (const accountId of accountIds) {
-        // An account whose key cannot be read yet (locked wallet) waits for unlock; keys are derived
-        // only for accounts still scanning, as this turn list may predate a delete.
-        if (
-          // eslint-disable-next-line no-await-in-loop
-          (await getXmrRuntimeUuid({ vault, accountId })) === undefined &&
-          // eslint-disable-next-line no-await-in-loop
-          !(await deriveScanningAccountKey(accountId))
-        ) {
+      for (const accountId of orderedAccountIds) {
+        // An enabled account always has its key; without one the service turns it off (it checks
+        // the account is still on, as this turn list may predate a delete).
+        // eslint-disable-next-line no-await-in-loop
+        if ((await getXmrRuntimeUuid({ vault, accountId })) === undefined) {
+          void vault.backgroundApi.servicePrivacyChain
+            .turnOffLocalWalletAccountWithoutKey({ networkId, accountId })
+            .catch((error: unknown) => {
+              console.error('[xmr] could not turn off an account without key', {
+                error: error instanceof Error ? error.message : '',
+              });
+            });
           skipped += 1;
           // eslint-disable-next-line no-continue
           continue;
@@ -882,6 +862,21 @@ export function buildXmrLocalWalletCapability(
           // eslint-disable-next-line no-continue
           continue;
         }
+        // Too little left for a step, or a pause / lost data consent since the last account: the
+        // next turn starts with this account. The first always runs.
+        if (
+          steppedRuntimeIds.size > 0 &&
+          (turnEndsAt - Date.now() < lastStepMs ||
+            // eslint-disable-next-line no-await-in-loop
+            (await vault.backgroundApi.servicePrivacyChain.isLocalWalletScanHeld(
+              vault.networkId,
+            )))
+        ) {
+          firstUnreached ??= accountId;
+          backfillRemaining = true;
+          // eslint-disable-next-line no-continue
+          continue;
+        }
         steppedRuntimeIds.add(runtimeId);
         // eslint-disable-next-line no-await-in-loop
         await lifecycleMutex.runExclusive(async () => {
@@ -891,8 +886,12 @@ export function buildXmrLocalWalletCapability(
         });
         // eslint-disable-next-line no-await-in-loop
         const result = await runBoundedSyncTurn({
-          budgetMs: turn.budgetMs,
-          expectedStepMs: turn.expectedStepMs,
+          budgetMs: Math.max(0, turnEndsAt - Date.now()),
+          expectedStepMs: lastStepMs,
+          shouldStop: () =>
+            vault.backgroundApi.servicePrivacyChain.isLocalWalletScanHeld(
+              vault.networkId,
+            ),
           onStep: async () => {
             if (await isCurrentRequest(accountId, owner)) {
               await vault.backgroundApi.servicePrivacyChain.publishLocalWalletSyncProgress(
@@ -970,12 +969,19 @@ export function buildXmrLocalWalletCapability(
               };
             }),
         });
+        lastStepMs = result.lastStepMs;
         // eslint-disable-next-line no-await-in-loop, no-continue
         if (!(await isCurrentRequest(accountId, owner))) continue;
         synced = true;
         if (result.done) caughtUpRuntimeIds.add(runtimeId);
         if (result.stateChanged) stateChanged = true;
         if (!result.done) backfillRemaining = true;
+      }
+
+      if (firstUnreached) {
+        xmrTurnStartByNetwork.set(networkId, firstUnreached);
+      } else {
+        xmrTurnStartByNetwork.delete(networkId);
       }
 
       if (skipped) {
@@ -1022,33 +1028,16 @@ export function buildXmrLocalWalletCapability(
       return false;
     },
 
-    async getStorageUsage() {
-      if (!hasXmrRuntimeApiLoader()) return { bytes: null };
-      // Opening the runtime creates its database; measuring must not.
-      const holders = await stateDb().listScanDataAccountIds({ networkId });
-      if (!holders?.length) return { bytes: 0 };
-      return readXmrStaleFirst({
-        key: 'storage',
-        fallback: { bytes: null },
-        read: async () => {
-          const api = await getXmrLocalRuntime(vault);
-          const diag = JSON.parse(await api.diagDatabase()) as {
-            logicalBytes?: number;
-          };
-          return { bytes: diag.logicalBytes ?? null };
-        },
-      });
-    },
+    getStorageUsage: readStorageUsage,
 
     // Deletes the DB without opening it (an unopenable DB stays recoverable), then re-registers every
     // account holding scan data from its saved birthday. The caller rotates their epochs first.
     async resetStorage() {
-      if (!hasXmrRuntimeApiLoader()) return;
       await deleteXmrDatabase(await vault.getXmrNetwork());
       const holders =
         (await stateDb().listScanDataAccountIds({ networkId })) ?? [];
-      // The database is gone either way. An account whose key is locked
-      // keeps its state: the next scan or resume registers it again.
+      // The database is gone either way. An account that cannot be registered
+      // now keeps its state: the next scan registers it, or turns it off without a key.
       for (const accountId of holders) {
         try {
           // eslint-disable-next-line no-await-in-loop
@@ -1063,13 +1052,15 @@ export function buildXmrLocalWalletCapability(
           });
         }
       }
+      // The old size is wrong now, not just old: measure the new database before scanning resumes.
+      forgetXmrStaleFirst();
+      await readStorageUsage().catch(() => undefined);
     },
 
     listScanDataAccountIds: () =>
       stateDb().listScanDataAccountIds({ networkId }),
 
     async purgeRuntimeOrphans({ retained }) {
-      if (!hasXmrRuntimeApiLoader()) return true;
       // A held runtime may be a stuck call; queueing behind it would stall
       // the scheduler's turn.
       if (isXmrRuntimeBusy()) return false;
@@ -1102,15 +1093,12 @@ export function buildXmrLocalWalletCapability(
     // App reset: deletes even with no account state left, since a
     // pre-existing or half-failed-reset database can still hold view keys.
     async dropLocalData() {
-      if (hasXmrRuntimeApiLoader()) {
-        await deleteXmrDatabase(await vault.getXmrNetwork());
-      }
+      await deleteXmrDatabase(await vault.getXmrNetwork());
     },
 
     async getSyncProgress({
       accountId,
     }): Promise<ILocalWalletSyncProgress | undefined> {
-      if (!hasXmrRuntimeApiLoader()) return undefined;
       const state = await stateDb().getXmrAccountState({ accountId });
       if (state.intent !== 'on') return undefined;
       if (state.epoch !== state.appliedEpoch) return undefined;
@@ -1160,11 +1148,7 @@ export function buildXmrLocalWalletCapability(
       }
       if (dryRun) return { fromHeight };
 
-      if (
-        !current ||
-        current.intent !== 'on' ||
-        current.operation !== undefined
-      )
+      if (current?.intent !== 'on')
         throw new OneKeyLocalError('xmr: enable privacy before rescanning');
       const keys = await vault.getXmrViewingKeys({ accountId });
       fromHeight = Math.max(XMR_EARLIEST_SCAN_HEIGHT, fromHeight);

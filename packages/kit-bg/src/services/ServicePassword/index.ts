@@ -305,7 +305,7 @@ export default class ServicePassword extends ServiceBase {
   async clearCachedPassword() {
     this.cachedPassword = undefined;
     void this.backgroundApi.serviceKeylessCloudSync.cancelHardwareCloudKeyOperation();
-    void clearPbkdf2CacheAsync();
+    void clearPbkdf2CacheAsync().catch(() => undefined);
     // Clear sync credential caches on lock screen (security invariant).
     // For keyless mode, credentials can be re-read from storage without password.
     void this.backgroundApi.servicePrimeCloudSync.clearCachedSyncCredential();
@@ -365,7 +365,7 @@ export default class ServicePassword extends ServiceBase {
         requiresPasswordSetupOrVerify: false,
       }))
       .catch(() => undefined);
-    void clearPbkdf2CacheAsync();
+    void clearPbkdf2CacheAsync().catch(() => undefined);
     if (this.cachedPasswordTimeOutObject) {
       clearTimeout(this.cachedPasswordTimeOutObject);
     }

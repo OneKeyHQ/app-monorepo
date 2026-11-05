@@ -83,7 +83,7 @@ import { preloadPerpsMobileTokenSelectorPage } from '../utils/preloadPerpsTokenS
 // Native sub-indicator panes extend the chart downward; the price pane keeps
 // its height.
 function useMobilePerpChartLayout() {
-  const [{ chartMode = 'tradingView' }] = usePerpsCustomSettingsAtom();
+  const [{ chartMode = 'native' }] = usePerpsCustomSettingsAtom();
   const subIndicatorCount = useTradingViewNativeSubIndicatorCount('perps');
   const growsWithSubIndicators = platformEnv.isNative && chartMode === 'native';
   return {

@@ -100,10 +100,8 @@ export function PerpCandles({
   const [currentAccount] = usePerpsActiveAccountAtom();
   const [{ reloadHook }] = usePerpsCandlesWebviewReloadHookAtom();
   const [{ chartExpanded = false }, setLayoutState] = usePerpsLayoutStateAtom();
-  const [
-    { chartMode: savedChartMode = 'tradingView' },
-    setPerpsCustomSettings,
-  ] = usePerpsCustomSettingsAtom();
+  const [{ chartMode: savedChartMode = 'native' }, setPerpsCustomSettings] =
+    usePerpsCustomSettingsAtom();
   const isTradingViewNative = (chartMode ?? savedChartMode) === 'native';
   const showChartModeSelect = chartMode === undefined;
   const [isMobileChartFullscreen, setIsMobileChartFullscreen] = useState(false);
@@ -180,7 +178,7 @@ export function PerpCandles({
     setIsChartInteracting(false);
     void setPerpsCustomSettings((current) => ({
       ...current,
-      chartMode: current.chartMode === 'native' ? 'tradingView' : 'native',
+      chartMode: current.chartMode === 'tradingView' ? 'native' : 'tradingView',
     }));
   }, [
     handleFullscreenChange,

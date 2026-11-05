@@ -1,6 +1,10 @@
 import appGlobals from '../../appGlobals';
 
-import type { EIntercomBridge } from './bridge';
+import {
+  type EIntercomBridge,
+  INTERCOM_SUPPORT_URL,
+  resolveIntercomSupportUrlOverride,
+} from './bridge';
 
 const INTERCOM_LANGUAGE_OVERRIDES: Record<string, string> = {
   bn: 'bn',
@@ -93,6 +97,30 @@ export const getCurrentLocale = async (): Promise<string | undefined> => {
 
 export const getIntercomLanguageOverride = async (): Promise<string> =>
   toIntercomLanguageOverride(await getCurrentLocale());
+
+// Reads the developer-mode support page override from the background runtime.
+export const getIntercomSupportUrlOverride = async (): Promise<
+  string | undefined
+> => {
+  try {
+    const backgroundApiProxy = appGlobals.$backgroundApiProxy;
+
+    if (!backgroundApiProxy) {
+      return undefined;
+    }
+
+    return resolveIntercomSupportUrlOverride(
+      await backgroundApiProxy.serviceDevSetting.getDevSetting(),
+    );
+  } catch (error) {
+    console.warn('Failed to read Intercom support URL override:', error);
+  }
+
+  return undefined;
+};
+
+export const getIntercomSupportUrl = async (): Promise<string> =>
+  (await getIntercomSupportUrlOverride()) ?? INTERCOM_SUPPORT_URL;
 
 export type IShowIntercomParams = {
   requestId?: string;

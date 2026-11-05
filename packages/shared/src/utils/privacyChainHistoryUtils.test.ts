@@ -2,6 +2,7 @@ import {
   isPrivacyChainHistoryVisible,
   mergePrivacyChainHistoryTxs,
   projectPrivacyChainHistoryTxToPool,
+  splitPrivacyChainHistoryTxsBySide,
 } from './privacyChainHistoryUtils';
 
 import type {
@@ -606,5 +607,97 @@ describe('projectPrivacyChainHistoryTxToPool with shielded endpoints', () => {
       shieldedFrom: { poolId: 4, isOwn: true },
       shieldedTo: {},
     });
+  });
+});
+
+describe('splitPrivacyChainHistoryTxsBySide', () => {
+  const withdraw = {
+    id: 'w',
+    privacyChainHistoryPoolIds: [0, 4],
+    privacyChainHistorySide: 'mixed',
+    privacyChainHistoryPoolDeltas: { '0': '0.028112', '4': '-0.028212' },
+    decodedTx: {
+      txid: 'w',
+      owner: 't1own',
+      nativeAmount: '0.028112',
+      totalFeeInNative: '0.0001',
+      actions: [
+        {
+          assetTransfer: {
+            from: '',
+            to: 't1own',
+            shieldedFrom: {},
+            sends: [],
+            receives: [{ from: '', to: 't1own', amount: '0.028112' }],
+          },
+        },
+      ],
+    },
+  } as unknown as IAccountHistoryTx;
+  const received = {
+    id: 'r',
+    privacyChainHistoryPoolIds: [4],
+    privacyChainHistorySide: 'private',
+    privacyChainHistoryPoolDeltas: { '4': '1' },
+    decodedTx: { txid: 'r', actions: [] },
+  } as unknown as IAccountHistoryTx;
+
+  it('lists a move between the sides once on each side', () => {
+    const [publicRow, privateRow, ...rest] = splitPrivacyChainHistoryTxsBySide([
+      withdraw,
+    ]);
+    expect(rest).toEqual([]);
+    expect(publicRow).toEqual({ tx: withdraw, poolId: 0 });
+    expect(privateRow).toMatchObject({
+      poolId: 4,
+      sourceId: 'w',
+      tx: {
+        id: 'w:4',
+        decodedTx: { txid: 'w', nativeAmount: '0.028112' },
+      },
+    });
+    expect(privateRow.tx.decodedTx.actions[0].assetTransfer).toMatchObject({
+      shieldedFrom: { poolId: 4, isOwn: true },
+      to: 't1own',
+      sends: [{ amount: '0.028112' }],
+      receives: [],
+    });
+  });
+
+  it('keeps a row on one side as it is', () => {
+    expect(splitPrivacyChainHistoryTxsBySide([received])).toEqual([
+      { tx: received },
+    ]);
+  });
+
+  // A tx can also touch an older shielded pool; the private row is the shown pool's.
+  it('splits the private row from the newest pool with a delta', () => {
+    const withOlderPool = (deltas: Record<string, string>) =>
+      ({
+        ...withdraw,
+        privacyChainHistoryPoolIds: [0, 2, 4],
+        privacyChainHistoryPoolDeltas: deltas,
+      }) as IAccountHistoryTx;
+    const cases: Record<string, string>[] = [
+      { '0': '0.028112', '2': '0.5', '4': '-0.028212' },
+      { '0': '0.028112', '4': '-0.028212' },
+    ];
+    for (const deltas of cases) {
+      const [, privateRow, ...rest] = splitPrivacyChainHistoryTxsBySide([
+        withOlderPool(deltas),
+      ]);
+      expect(rest).toEqual([]);
+      expect(privateRow).toMatchObject({ poolId: 4, tx: { id: 'w:4' } });
+    }
+  });
+
+  it('keeps a row it cannot show from the private side as one row', () => {
+    const publicOnlyDelta = {
+      ...withdraw,
+      privacyChainHistoryPoolDeltas: { '0': '0.028112' },
+    } as IAccountHistoryTx;
+    expect(splitPrivacyChainHistoryTxsBySide([publicOnlyDelta])).toEqual([
+      { tx: publicOnlyDelta },
+    ]);
   });
 });

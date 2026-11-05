@@ -56,10 +56,31 @@ it('accepts a missing probe DB without opening a wallet', async () => {
   );
 });
 
+it('asks the node the caller resolved', async () => {
+  runtime.chainTipAt.mockResolvedValueOnce(3_600_000);
+  await expect(
+    runRuntimeSelfTest({
+      stage: 'network',
+      lightwalletdUrl: 'https://node.example',
+    }),
+  ).resolves.toEqual({ stage: 'network', chainTip: 3_600_000 });
+  expect(runtime.chainTipAt).toHaveBeenCalledWith('https://node.example');
+});
+
+it('asks no node when the caller gives none', async () => {
+  await expect(runRuntimeSelfTest({ stage: 'network' })).rejects.toThrow(
+    'no node to ask',
+  );
+  expect(runtime.chainTipAt).not.toHaveBeenCalled();
+});
+
 it('rejects an invalid network height', async () => {
   runtime.chainTipAt.mockResolvedValueOnce(0);
-  await expect(runRuntimeSelfTest({ stage: 'network' })).rejects.toThrow(
-    'invalid chain tip',
-  );
+  await expect(
+    runRuntimeSelfTest({
+      stage: 'network',
+      lightwalletdUrl: 'https://node.example',
+    }),
+  ).rejects.toThrow('invalid chain tip');
   expect(getRuntime).not.toHaveBeenCalled();
 });

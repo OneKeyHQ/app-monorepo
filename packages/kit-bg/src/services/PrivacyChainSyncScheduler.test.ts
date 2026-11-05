@@ -2,6 +2,7 @@ import {
   getPrivacyChainFailureBackoffMs,
   getPrivacyChainSyncReason,
   pickPrivacyChainSyncCandidate,
+  setActiveTimeout,
 } from './PrivacyChainSyncScheduler';
 
 describe('PrivacyChainSyncScheduler', () => {
@@ -90,5 +91,54 @@ describe('backfill rotation order', () => {
       last = next?.runtimeStateKey;
     }
     expect(new Set(visited).size).toBe(3);
+  });
+});
+
+describe('setActiveTimeout', () => {
+  beforeEach(() => {
+    jest.useFakeTimers();
+  });
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
+  it('fires once the process has run for the whole span', () => {
+    const onTimeout = jest.fn();
+    setActiveTimeout(onTimeout, 5000);
+    jest.advanceTimersByTime(4000);
+    expect(onTimeout).not.toHaveBeenCalled();
+    jest.advanceTimersByTime(1000);
+    expect(onTimeout).toHaveBeenCalledTimes(1);
+  });
+
+  // A phone in the background or a laptop asleep wakes far past the deadline.
+  it('does not count a suspension', () => {
+    const onTimeout = jest.fn();
+    setActiveTimeout(onTimeout, 5000);
+    jest.setSystemTime(Date.now() + 10 * 60 * 1000);
+    // The wake counts as one tick, not ten minutes.
+    jest.advanceTimersByTime(1000);
+    expect(onTimeout).not.toHaveBeenCalled();
+    jest.advanceTimersByTime(3000);
+    expect(onTimeout).not.toHaveBeenCalled();
+    jest.advanceTimersByTime(1000);
+    expect(onTimeout).toHaveBeenCalledTimes(1);
+  });
+
+  // A hidden window slows timers to about once a minute; that time still ran.
+  it('still counts a throttled tick', () => {
+    const onTimeout = jest.fn();
+    setActiveTimeout(onTimeout, 60_000);
+    jest.setSystemTime(Date.now() + 59_000);
+    jest.advanceTimersByTime(1000);
+    expect(onTimeout).toHaveBeenCalledTimes(1);
+  });
+
+  it('stops when cancelled', () => {
+    const onTimeout = jest.fn();
+    const cancel = setActiveTimeout(onTimeout, 2000);
+    cancel();
+    jest.advanceTimersByTime(5000);
+    expect(onTimeout).not.toHaveBeenCalled();
   });
 });

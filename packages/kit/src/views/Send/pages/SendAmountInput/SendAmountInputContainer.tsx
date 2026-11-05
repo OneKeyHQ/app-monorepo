@@ -72,6 +72,8 @@ import {
   useSendConfirmActions,
 } from '@onekeyhq/kit/src/states/jotai/contexts/sendConfirm';
 import { convertTokenFiatToCurrency } from '@onekeyhq/kit/src/utils/fiatConvert';
+import { formatPrivacyChainPoolKindLabel } from '@onekeyhq/kit/src/utils/privacyChainEndpointLabel';
+import { confirmLocalWalletDeviceVerify } from '@onekeyhq/kit/src/views/AssetDetails/pages/TokenDetails/LocalWalletFrozenLines';
 import { LocalWalletPasswordAlert } from '@onekeyhq/kit/src/views/AssetDetails/pages/TokenDetails/LocalWalletPasswordAlert';
 import { tryOpenHeadlessBuy } from '@onekeyhq/kit/src/views/FiatCrypto/utils/openFiatCryptoOrHeadless';
 import { SendTestIDs } from '@onekeyhq/kit/src/views/Send/testIDs';
@@ -3230,6 +3232,29 @@ function SendAmountInputContainer() {
             return;
           }
 
+          // A hardware account's device must verify new funds before a send
+          // is built; explain first so the device does not ask unprompted.
+          if (
+            hasLocalWallet &&
+            accountUtils.isHwAccount({ accountId: currentAccountId })
+          ) {
+            const unverified =
+              await backgroundApiProxy.servicePrivacyChain.getLocalWalletDeviceVerifyAmount(
+                { networkId, accountId: currentAccountId },
+              );
+            if (unverified) {
+              await dismissAmountInputKeyboardBeforeOverlayOpen();
+              const shouldVerify = await confirmLocalWalletDeviceVerify({
+                intl,
+                amount: `${unverified} ${network?.symbol ?? ''}`.trim(),
+              });
+              if (!shouldVerify) return;
+              await backgroundApiProxy.servicePrivacyChain.verifyLocalWalletWithPassword(
+                { networkId, accountId: currentAccountId },
+              );
+            }
+          }
+
           const submitRecipientAddress = recipientValidation.recipientAddress;
           const submitRecipientIsContract =
             recipientValidation.recipientIsContract;
@@ -3798,6 +3823,9 @@ function SendAmountInputContainer() {
       intl,
       rebaseMultiplier,
       convertDisplayAmountToRawAmount,
+      hasLocalWallet,
+      networkId,
+      dismissAmountInputKeyboardBeforeOverlayOpen,
     ],
   );
 
@@ -4226,6 +4254,14 @@ function SendAmountInputContainer() {
     }
 
     if (sendPools?.length && (sendPools.length > 1 || !selectedSendPool)) {
+      const sendPoolLabel = (pool: { key: string; label: string }) => {
+        const kind = vaultSettings?.localWallet?.pools.find(
+          (item) => item.key === pool.key,
+        )?.kind;
+        return kind
+          ? formatPrivacyChainPoolKindLabel({ intl, kind })
+          : pool.label;
+      };
       addons.push(
         <Select
           key="send-pool-picker"
@@ -4235,7 +4271,7 @@ function SendAmountInputContainer() {
           placement="top-end"
           value={selectedSendPool?.key ?? ''}
           items={sendPools.map((pool) => ({
-            label: pool.label,
+            label: sendPoolLabel(pool),
             value: pool.key,
             description: [
               `${pool.spendableParsed ?? '—'} ${tokenSymbol}`.trim(),
@@ -4266,8 +4302,9 @@ function SendAmountInputContainer() {
               }}
             >
               <Badge.Text>
-                {selectedSendPool?.label ??
-                  intl.formatMessage({ id: ETranslations.global_from })}
+                {selectedSendPool
+                  ? sendPoolLabel(selectedSendPool)
+                  : intl.formatMessage({ id: ETranslations.global_from })}
               </Badge.Text>
               <Icon
                 size="$4"
@@ -4315,6 +4352,7 @@ function SendAmountInputContainer() {
     pulseSignal,
     sendConfirmActions,
     vaultSettings?.mergeDeriveAssetsEnabled,
+    vaultSettings?.localWallet?.pools,
     walletId,
     intl,
     selectedSendPool,
