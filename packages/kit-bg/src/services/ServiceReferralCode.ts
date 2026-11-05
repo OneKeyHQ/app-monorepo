@@ -163,9 +163,16 @@ class ServiceReferralCode extends ServiceBase {
       const client = await this.getClient(EServiceEndpointEnum.Rebate);
       const response = await client.get<{
         data: IInviteRewardScopesResponse;
-      }>('/rebate/v1/invite/reward-scopes', {
-        headers: { 'x-onekey-request-locale': locale },
-      });
+      }>('/rebate/v1/invite/reward-scopes');
+      // Interceptors choose the request locale. Reject if the app locale
+      // differs from the cache key when the response arrives.
+      const currentLocale =
+        await this.backgroundApi.serviceSetting.getCurrentLocale();
+      if (currentLocale.toLowerCase() !== locale) {
+        throw new OneKeyLocalError(
+          'Locale changed during reward scopes request',
+        );
+      }
       return response.data.data?.rewardScopes ?? [];
     },
     { promise: true, maxAge: timerUtils.getTimeDurationMs({ minute: 5 }) },

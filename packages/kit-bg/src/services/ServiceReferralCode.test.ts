@@ -499,9 +499,7 @@ describe('ServiceReferralCode Swap rebate API', () => {
 
     expect(getClientSpy).toHaveBeenCalledWith(EServiceEndpointEnum.Rebate);
     expect(getOneKeyIdClientSpy).not.toHaveBeenCalled();
-    expect(get).toHaveBeenCalledWith('/rebate/v1/invite/reward-scopes', {
-      headers: { 'x-onekey-request-locale': 'en' },
-    });
+    expect(get).toHaveBeenCalledWith('/rebate/v1/invite/reward-scopes');
   });
 
   test('caches reward scopes separately for each request locale', async () => {
@@ -522,9 +520,40 @@ describe('ServiceReferralCode Swap rebate API', () => {
     await expect(service.getInviteRewardScopes()).resolves.toBe(english);
 
     expect(get).toHaveBeenCalledTimes(2);
-    expect(get).toHaveBeenNthCalledWith(2, '/rebate/v1/invite/reward-scopes', {
-      headers: { 'x-onekey-request-locale': 'zh-cn' },
+    expect(get).toHaveBeenNthCalledWith(2, '/rebate/v1/invite/reward-scopes');
+  });
+
+  test('does not cache reward scopes when the locale changes during a request', async () => {
+    const { service, backgroundApi } = createService();
+    const english = [{ subject: 'Swap', description: 'en-scope' }];
+    const chinese = [{ subject: 'Swap', description: 'zh-CN-scope' }];
+    type IResponse = { data: { data: { rewardScopes: typeof english } } };
+    let resolveOld!: (value: IResponse) => void;
+    const pendingResponse = new Promise<IResponse>((resolve) => {
+      resolveOld = resolve;
     });
+    const get = jest
+      .fn()
+      .mockReturnValueOnce(pendingResponse)
+      .mockResolvedValueOnce({ data: { data: { rewardScopes: chinese } } })
+      .mockResolvedValueOnce({ data: { data: { rewardScopes: english } } });
+    jest.spyOn(service, 'getClient').mockResolvedValue({ get } as any);
+
+    const oldRead = service
+      .getInviteRewardScopes()
+      .catch((error: unknown) => error);
+    backgroundApi.serviceSetting.getCurrentLocale.mockResolvedValue('zh-CN');
+    await expect(service.getInviteRewardScopes()).resolves.toBe(chinese);
+    resolveOld({ data: { data: { rewardScopes: english } } });
+    await expect(oldRead).resolves.toMatchObject({
+      message: 'Locale changed during reward scopes request',
+    });
+    await new Promise((resolve) => setImmediate(resolve));
+
+    await expect(service.getInviteRewardScopes()).resolves.toBe(chinese);
+    backgroundApi.serviceSetting.getCurrentLocale.mockResolvedValue('en');
+    await expect(service.getInviteRewardScopes()).resolves.toBe(english);
+    expect(get).toHaveBeenCalledTimes(3);
   });
 
   test('shares one reward scopes request and retries after a failure', async () => {

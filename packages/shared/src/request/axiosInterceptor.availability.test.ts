@@ -1,7 +1,6 @@
 import platformEnv from '../platformEnv';
 
 import { DESKTOP_CUSTOM_UA_HEADER } from './customUA';
-import { getRequestHeaders } from './Interceptor';
 import { AVAILABILITY_COUNTED_FETCH_OPTION } from './requestConst';
 import requestHelper from './requestHelper';
 
@@ -118,7 +117,6 @@ describe('API availability counting in request interceptors', () => {
 
   beforeEach(() => {
     mockOutcomes.length = 0;
-    jest.mocked(getRequestHeaders).mockResolvedValue({});
     stubFetch.mockReset();
     stubFetch.mockImplementation(
       async () =>
@@ -126,69 +124,6 @@ describe('API availability counting in request interceptors', () => {
           headers: { 'content-type': 'application/json' },
         }),
     );
-  });
-
-  it.each([undefined, 'x-onekey-request-locale', 'X-Onekey-Request-Locale'])(
-    'uses the request locale override when supplied (%s)',
-    async (localeHeader) => {
-      jest.mocked(getRequestHeaders).mockResolvedValue({
-        'x-onekey-request-locale': 'en',
-        'x-onekey-request-currency': 'usd',
-      });
-      const client = axios.create({
-        adapter: adapterOf((config) => ({
-          config,
-          data: { code: 0 },
-          status: 200,
-          statusText: 'OK',
-          headers: {},
-        })),
-      });
-      const response = await client.get(WALLET_URL, {
-        headers: {
-          'x-onekey-request-currency': 'eur',
-          ...(localeHeader ? { [localeHeader]: 'zh-cn' } : {}),
-        },
-      });
-
-      expect(response.config.headers.get('x-onekey-request-locale')).toBe(
-        localeHeader ? 'zh-cn' : 'en',
-      );
-      expect(response.config.headers.get('x-onekey-request-currency')).toBe(
-        'eur',
-      );
-    },
-  );
-
-  it.each([undefined, 'x-onekey-request-locale', 'X-Onekey-Request-Locale'])(
-    'preserves the request locale through the XHR shim and fetch (%s)',
-    async (localeHeader) => {
-      jest.mocked(getRequestHeaders).mockResolvedValue({
-        'x-onekey-request-locale': 'en',
-      });
-      await axios.create().get(WALLET_URL, {
-        headers: localeHeader ? { [localeHeader]: 'zh-cn' } : {},
-      });
-
-      const headers = new Headers(stubFetch.mock.calls[0][1]?.headers);
-      expect(headers.get('x-onekey-request-locale')).toBe(
-        localeHeader ? 'zh-cn' : 'en',
-      );
-    },
-  );
-
-  it('keeps the requested locale if the app language changes before fetch', async () => {
-    jest
-      .mocked(getRequestHeaders)
-      .mockResolvedValueOnce({ 'x-onekey-request-locale': 'en' })
-      .mockResolvedValueOnce({ 'x-onekey-request-locale': 'zh-cn' });
-
-    await axios.create().get(WALLET_URL, {
-      headers: { 'x-onekey-request-locale': 'en' },
-    });
-
-    const headers = new Headers(stubFetch.mock.calls[0][1]?.headers);
-    expect(headers.get('x-onekey-request-locale')).toBe('en');
   });
 
   it('counts an axios request sent through the XHR shim once', async () => {
