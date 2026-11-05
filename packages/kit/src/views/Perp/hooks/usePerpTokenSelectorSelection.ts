@@ -21,7 +21,6 @@ import {
 } from '@onekeyhq/shared/src/routes/perp';
 import { isSpotInstrument } from '@onekeyhq/shared/src/utils/perpsUtils';
 import type { ISpotUniverse } from '@onekeyhq/shared/types/hyperliquid';
-import { DEFAULT_PERP_TOKEN_ACTIVE_TAB } from '@onekeyhq/shared/types/hyperliquid/perp.constants';
 
 import { usePerpsTradingUiMode } from './usePerpsTradingUiMode';
 
@@ -44,9 +43,11 @@ export function usePerpTokenSelectorOpenAnalytics() {
 }
 
 export function usePerpTokenSelectorSelection({
+  activeTab,
   onLoadingChange,
   spotUniverses,
 }: {
+  activeTab: string;
   onLoadingChange: (isLoading: boolean) => void;
   spotUniverses: ISpotUniverse[];
 }) {
@@ -72,7 +73,7 @@ export function usePerpTokenSelectorSelection({
       try {
         defaultLogger.perp.tokenSelector.perpTokenSelectorTokenClick({
           tradingUiMode,
-          activeTab: selectorConfig?.activeTab ?? DEFAULT_PERP_TOKEN_ACTIVE_TAB,
+          activeTab,
           token: coin,
           tradeMode: isSpot ? 'spot' : 'perp',
           sortField: selectorConfig?.field ?? '',
@@ -127,6 +128,7 @@ export function usePerpTokenSelectorSelection({
     },
     [
       account.walletType,
+      activeTab,
       selectorConfig,
       tradingUiMode,
       actions,

@@ -62,6 +62,7 @@ import {
   isTwapTotalNotionalValid,
   isValidTwapDuration,
 } from '@onekeyhq/shared/src/utils/hyperliquidTwapUtils';
+import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import {
   getPerpsOrderBookTickOptionWithCache,
   getPerpsOrderBookTickOptionsWithCache,
@@ -1601,11 +1602,13 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
         force,
         requestId: existingRequestId,
         subscriptionRecoveryProof,
+        restorationSignal,
         reconcileAfterMetadataHydration,
       }: {
         coin: string;
         force?: boolean;
         requestId?: number;
+        restorationSignal?: AbortSignal;
         subscriptionRecoveryProof?: ISubscriptionRecoveryProof;
         reconcileAfterMetadataHydration?: boolean;
       },
@@ -1613,6 +1616,10 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       const requestId =
         existingRequestId ??
         this.beginActiveInstrumentChange({ mode: 'perp', coin });
+      if (restorationSignal?.aborted) return false;
+      const isCurrent = () =>
+        !restorationSignal?.aborted &&
+        this.isLatestActiveInstrumentChange(requestId);
       let finishChange!: () => void;
       const pendingPerpChange = {
         requestId,
@@ -1667,21 +1674,23 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
             });
           }
         };
-        const prevInstrument = get(activeTradeInstrumentAtom());
-        const shouldSetOptimisticInstrument =
-          prevInstrument.mode !== 'perp' || prevInstrument.coin !== coin;
-        if (
-          shouldSetOptimisticInstrument &&
-          !ContextJotaiActionsHyperliquid._isTradeInstrumentEqual(
-            prevInstrument,
-            optimisticInstrument,
-          )
-        ) {
-          set(activeTradeInstrumentAtom(), optimisticInstrument);
-          set(l2BookAtom(), null);
-          set(bboAtom(), null);
+        const publishInstrument = (next: IActiveTradeInstrument) => {
+          const previous = get(activeTradeInstrumentAtom());
+          if (previous.mode !== next.mode || previous.coin !== next.coin) {
+            set(l2BookAtom(), null);
+            set(bboAtom(), null);
+          }
+          set(activeTradeInstrumentAtom(), next);
+        };
+        // A restore can lose focus during BG lookup. Keep the current market
+        // visible until it is safe to publish the restored instrument.
+        if (!restorationSignal) {
+          const previous = get(activeTradeInstrumentAtom());
+          if (previous.mode !== 'perp' || previous.coin !== coin) {
+            publishInstrument(optimisticInstrument);
+          }
+          hydrateL2BookFromSwr(coin);
         }
-        hydrateL2BookFromSwr(coin);
         await backgroundApiProxy.serviceHyperliquid.cancelPendingActiveAssetChange();
         const activeAsset = await perpsActiveAssetAtom.get();
         if (activeAsset?.coin === coin && !force) {
@@ -1691,7 +1700,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
           const currentMode = await tradingModeAtom.get();
           if (currentMode === 'perp') {
             const next = await this._buildActiveTradeInstrument('perp');
-            if (!this.isLatestActiveInstrumentChange(requestId)) {
+            if (!isCurrent()) {
               return false;
             }
             const prev = get(activeTradeInstrumentAtom());
@@ -1701,7 +1710,8 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
                 next,
               )
             ) {
-              set(activeTradeInstrumentAtom(), next);
+              publishInstrument(next);
+              if (restorationSignal) hydrateL2BookFromSwr(coin);
             }
             // This branch skips syncSubscriptionsAfterInstrumentChange, so
             // consume the proof here or the stale disable survives.
@@ -1719,24 +1729,38 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
         const form = get(tradingFormAtom());
         const shouldUpdateLimitPrice = form.type === 'limit';
 
-        if (!(await this.waitForActiveInstrumentChangeSettle(requestId))) {
+        if (
+          !(await this.waitForActiveInstrumentChangeSettle(requestId)) ||
+          !isCurrent()
+        ) {
           return false;
         }
         // Keep the BG subscription target ahead of slower UI cleanup/work; after
         // the native UI/BG split, the subscription service only reads BG atoms.
         await tradingModeAtom.set('perp');
-        if (!this.isLatestActiveInstrumentChange(requestId)) {
+        if (!isCurrent()) {
           return false;
         }
         await this.clearActiveAssetData.call(set);
-        if (!this.isLatestActiveInstrumentChange(requestId)) {
+        if (!isCurrent()) {
           return false;
         }
-        const nextActiveAsset =
-          await backgroundApiProxy.serviceHyperliquid.changeActiveAsset({
-            coin,
-          });
-        if (!this.isLatestActiveInstrumentChange(requestId)) {
+        // A focus-owned restore must also cancel the matching request in BG.
+        const restorationId = restorationSignal ? generateUUID() : undefined;
+        const cancelRestoration = () => {
+          if (restorationId) {
+            void backgroundApiProxy.serviceHyperliquid.cancelPendingActiveAssetChange(
+              { restorationId },
+            );
+          }
+        };
+        restorationSignal?.addEventListener('abort', cancelRestoration);
+        const nextActiveAsset = await backgroundApiProxy.serviceHyperliquid
+          .changeActiveAsset({ coin, restorationId })
+          .finally(() =>
+            restorationSignal?.removeEventListener('abort', cancelRestoration),
+          );
+        if (!isCurrent()) {
           return false;
         }
 
@@ -1765,11 +1789,11 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
           assetId: nextActiveAsset?.assetId,
           universe: nextActiveAsset?.universe,
         };
-        if (!this.isLatestActiveInstrumentChange(requestId)) {
+        if (!isCurrent()) {
           return false;
         }
         this.updateTradingForm.call(set, nextFormUpdates);
-        set(activeTradeInstrumentAtom(), nextInstrument);
+        publishInstrument(nextInstrument);
         void this.syncSubscriptionsAfterInstrumentChange({
           instrument: nextInstrument,
           orderBookTickOptions: get(orderBookTickOptionsAtom()),
@@ -2011,6 +2035,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
         mode: 'perp' | 'spot';
         coin: string;
         force?: boolean;
+        restorationSignal?: AbortSignal;
         spotUniverse?: ISpotUniverse;
         subscriptionRecoveryProof?: ISubscriptionRecoveryProof;
       },
@@ -2050,6 +2075,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       }
 
       const result = await this.changeActiveAsset.call(set, {
+        restorationSignal: params.restorationSignal,
         coin: params.coin,
         force: params.force,
         requestId,

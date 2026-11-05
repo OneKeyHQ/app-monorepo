@@ -55,6 +55,93 @@ function buildLinearPoints(count: number): IMarketTokenKLineDataPoint[] {
 }
 
 describe('TradingViewNative shared chart scene', () => {
+  it.each([0.45, 0.93])(
+    'shows readable dates across a mobile 4H chart at zoom %s',
+    (zoomScale) => {
+      const interval = 4 * 3600;
+      const points = buildLinearPoints(180).map((point, index) => ({
+        ...point,
+        t: Date.UTC(2026, 10, 5, 16) / 1000 - (179 - index) * interval,
+      }));
+      const scene = buildTradingViewNativeChartScene({
+        candleLabels: CANDLE_LABELS,
+        candleIntervalSeconds: interval,
+        chartType: 'candlestick',
+        crosshair: { visible: false, x: 0, y: 0 },
+        hasVolume: false,
+        height: 320,
+        marketDetailLayout: true,
+        measureTextWidth: (text) => text.length * 6,
+        points,
+        priceAxisWidth: 60,
+        viewport: { offset: 0, zoomScale },
+        watermarkOpacity: 0,
+        width: 380,
+      });
+      const dates = scene.commands.filter(
+        (item) => item.kind === 'text' && item.font === 'axis',
+      );
+      expect(dates.length).toBeGreaterThanOrEqual(4);
+      let right = -Infinity;
+      for (const date of dates) {
+        if (date.kind === 'text') {
+          expect(date.x).toBeGreaterThanOrEqual(right + 4);
+          right = date.x + date.text.length * 6;
+        }
+      }
+    },
+  );
+
+  it.each([280, 400])(
+    'shows the market detail quote only over a held candle at width %i',
+    (width) => {
+      const options = {
+        candleIntervalSeconds: 3600,
+        candleLabels: CANDLE_LABELS,
+        chartType: 'candlestick' as const,
+        hasVolume: false,
+        height: 320,
+        marketDetailLayout: true,
+        measureTextWidth: (text: string) => text.length * 6,
+        points: POINTS,
+        viewport: { offset: 0, zoomScale: 1 },
+        watermarkOpacity: 0,
+        width,
+      };
+      const renderAt = (visible: boolean, x: number) =>
+        buildTradingViewNativeChartScene({
+          ...options,
+          crosshair: { visible, x, y: 80 },
+        });
+      const closeLabel = expect.objectContaining({
+        kind: 'text',
+        font: 'legend',
+        text: 'C',
+      });
+      const idle = renderAt(false, 0);
+      expect(idle.commands).not.toContainEqual(closeLabel);
+      const x = getTradingViewNativeCandleX({
+        ...options.viewport,
+        index: 1,
+        pointCount: POINTS.length,
+        priceAxisX: idle.layout!.priceAxisX,
+      });
+      const held = renderAt(true, x);
+      expect(held.commands).toContainEqual(closeLabel);
+      expect(held.crosshairPointIndex).toBe(1);
+      expect(held.commands).toContainEqual(
+        expect.objectContaining({
+          kind: 'text',
+          font: 'legend',
+          text: '-2 (-1.98%)',
+        }),
+      );
+      expect(held.layout).toEqual(idle.layout);
+      expect(renderAt(true, x - 50).commands).not.toContainEqual(closeLabel);
+      expect(renderAt(false, x).commands).not.toContainEqual(closeLabel);
+    },
+  );
+
   it.each([
     { offset: 0, zoomScale: 1, width: 840 },
     { offset: 57, zoomScale: 1.25, width: 840 },

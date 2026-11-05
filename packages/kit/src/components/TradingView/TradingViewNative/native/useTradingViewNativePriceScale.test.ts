@@ -477,8 +477,9 @@ describe('useTradingViewNativePriceScale', () => {
     expect(result.current.mode).toBe('linear');
   });
 
-  it('toggles Auto and resets the range only when Auto is re-enabled', () => {
+  it('restores the configured price span when Auto is re-enabled', () => {
     const runtime = createTradingViewNativeChartRuntime({
+      defaultPriceRangeScale: 1.4,
       candleIntervalSeconds: 60,
       chartComponents: [],
       chartSettings: createTradingViewNativeChartSettings(),
@@ -493,11 +494,13 @@ describe('useTradingViewNativePriceScale', () => {
       subIndicatorPanes: [],
     });
     runtime.crosshair = { visible: true, x: 10, y: 20 };
+    expect(runtime.priceRangeScale).toBe(1.4);
     runtime.priceRangeScale = 2;
     runtime.size = { height: 300, width: 360 };
     const chartRuntime = createMockSharedValue(runtime);
     const { result } = renderHook(() =>
       useTradingViewNativePriceScale({
+        defaultPriceRangeScale: 1.4,
         chartRuntime,
         chartSize: { height: 300, width: 360 },
         chartWidth: 300,
@@ -528,7 +531,7 @@ describe('useTradingViewNativePriceScale', () => {
     });
     expect(result.current.isAutoScale).toBe(true);
     expect(chartRuntime.value.pinnedPriceRange).toBeNull();
-    expect(chartRuntime.value.priceRangeScale).toBe(1);
+    expect(chartRuntime.value.priceRangeScale).toBe(1.4);
   });
   it('restores manual and logarithmic price controls when the canvas is remounted', () => {
     const runtime = createTradingViewNativeChartRuntime({

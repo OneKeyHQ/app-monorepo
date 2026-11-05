@@ -4,9 +4,16 @@ import { act, renderHook } from '@testing-library/react';
 
 import { useSimpleMarketFocus } from './useSimpleMarketFocus';
 
-const mockNavigation = { isFocused: jest.fn(() => true) };
+const mockNavigation = {
+  addListener: jest.fn((_event: 'blur', _listener: () => void) => () => {}),
+  isFocused: jest.fn(() => true),
+};
 const mockInstrument = { mode: 'perp', coin: 'ETH' };
-const mockActions = { switchTradeInstrument: jest.fn(async () => true) };
+const mockActions = {
+  switchTradeInstrument: jest.fn(
+    async (_params: { restorationSignal: AbortSignal }) => true,
+  ),
+};
 const mockActionsRef = { current: mockActions };
 const mockIsLocked = jest.fn(async () => false);
 const mockIsVisible = jest.fn(() => true);
@@ -64,6 +71,7 @@ it('restores the focused market with a fresh subscription recovery proof', async
   expect(mockActions.switchTradeInstrument).toHaveBeenCalledWith({
     mode: 'perp',
     coin: 'BTC',
+    restorationSignal: expect.any(AbortSignal),
     subscriptionRecoveryProof: { source: 'simple-market', disabledCount: 3 },
   });
 });
@@ -126,5 +134,28 @@ it.each(['blur', 'unmount'])(
     else unmount();
     await act(async () => finish(3));
     expect(mockActions.switchTradeInstrument).not.toHaveBeenCalled();
+  },
+);
+
+it.each(['blur', 'unmount'])(
+  'aborts a switch already in flight on %s',
+  async (reason) => {
+    let finish!: (result: boolean) => void;
+    mockActions.switchTradeInstrument.mockImplementationOnce(
+      () =>
+        new Promise<boolean>((resolve) => {
+          finish = resolve;
+        }),
+    );
+    const { unmount } = renderHook(() => useSimpleMarketFocus('BTC', true));
+    await act(async () => {});
+    const [{ restorationSignal }] =
+      mockActions.switchTradeInstrument.mock.calls[0];
+    expect(restorationSignal.aborted).toBe(false);
+    if (reason === 'blur')
+      act(() => mockNavigation.addListener.mock.calls[0][1]());
+    else unmount();
+    expect(restorationSignal.aborted).toBe(true);
+    await act(async () => finish(false));
   },
 );

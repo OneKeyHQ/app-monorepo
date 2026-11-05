@@ -78,7 +78,7 @@ export function MDHeader({
   customHeaderRightItems,
   renderCustomHeaderRightItems,
   headerPx = '$5',
-  headerHeight = 44,
+  headerHeight,
   disableHomeHeaderGlass = false,
   pageScrollPosition,
 }: {
@@ -202,10 +202,12 @@ export function MDHeader({
           ) : (
             <>
               <XStack
+                minHeight={headerHeight}
+                maxHeight={headerHeight}
                 alignItems="center"
                 justifyContent="space-between"
                 px={headerPx}
-                h={headerHeight}
+                h={44}
                 {...(top || platformEnv.isNativeAndroid
                   ? { mt: top || '$2' }
                   : {})}

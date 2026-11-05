@@ -351,11 +351,13 @@ function getLegendRowLayout({
 }
 
 export function getTradingViewNativeChartLegendRowLayouts({
+  separateChange = false,
   items,
   maxX,
   measureTextWidth,
   top,
 }: {
+  separateChange?: boolean;
   items: ITradingViewNativeLegendItem[];
   maxX: number;
   measureTextWidth: (text: string) => number;
@@ -391,7 +393,8 @@ export function getTradingViewNativeChartLegendRowLayouts({
         : currentWidth + TRADING_VIEW_NATIVE_LEGEND_ITEM_GAP + itemWidth;
     if (
       currentRow.length > 0 &&
-      TRADING_VIEW_NATIVE_LEGEND_HORIZONTAL_PADDING + nextWidth > clipRight
+      ((separateChange && item.valueColorRole === 'trend') ||
+        TRADING_VIEW_NATIVE_LEGEND_HORIZONTAL_PADDING + nextWidth > clipRight)
     ) {
       rows.push(currentRow);
       currentRow = [];

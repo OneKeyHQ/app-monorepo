@@ -130,6 +130,9 @@ export function TradingViewChartModeSelect({
 export interface ITradingViewChartControlsProps {
   backgroundColor?: ComponentProps<typeof Stack>['backgroundColor'];
   compactMobileLayout?: boolean;
+  renderMobileIntervals?: ComponentProps<
+    typeof TradingViewNativeIntervalSelector
+  >['renderMobileIntervals'];
   mobileControlsPaddingHorizontal?: number;
   intervalConfig: ITradingViewIntervalConfigData | null;
   activeChartType: number | undefined;
@@ -210,6 +213,7 @@ export const TradingViewChartControls = memo(
   ({
     backgroundColor = '$bgApp',
     compactMobileLayout = false,
+    renderMobileIntervals,
     mobileControlsPaddingHorizontal = 8,
     intervalConfig,
     activeChartType,
@@ -501,6 +505,7 @@ export const TradingViewChartControls = memo(
     const intervalSelector = hasVisibleIntervalSelector ? (
       <TradingViewNativeIntervalSelector
         compactMobileLayout={compactMobileLayout}
+        renderMobileIntervals={renderMobileIntervals}
         fullWidth={shouldFillIntervalSelector}
         intervalConfig={intervalConfig}
         intervalControlMode={intervalControlMode}

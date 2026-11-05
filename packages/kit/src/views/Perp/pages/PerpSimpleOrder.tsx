@@ -316,6 +316,7 @@ function SimpleOrderContent() {
     scopedDraft?.source === 'percent' && inputUnit !== 'token'
       ? new BigNumber(amount || 0).toFixed(amountDecimals)
       : amount || '0';
+  const inputAmount = platformEnv.isNative ? displayedAmount : amount;
   const marginBN = new BigNumber(amount || 0)
     .times(inputUnit === 'token' ? orderPriceBN : 1)
     .div(inputUnit === 'margin' ? 1 : leverage || 1);
@@ -324,7 +325,7 @@ function SimpleOrderContent() {
     if (
       submitting ||
       !/^[0-9]*\.?[0-9]*$/.test(value) ||
-      !validateSimpleAmountInput(value, amountDecimals, inputUnit, amount)
+      !validateSimpleAmountInput(value, amountDecimals, inputUnit, inputAmount)
     )
       return;
     setDraft({
@@ -756,7 +757,7 @@ function SimpleOrderContent() {
                   scopedDraft?.source === 'percent' ? 'instant' : 'typing'
                 }
                 inlineTextAlignMode="center"
-                value={platformEnv.isNative ? displayedAmount : amount}
+                value={inputAmount}
                 maxFontSize={
                   platformEnv.isNative ? nativeAmountMaxFontSize : undefined
                 }
@@ -767,7 +768,7 @@ function SimpleOrderContent() {
                     value,
                     amountDecimals,
                     inputUnit,
-                    amount,
+                    inputAmount,
                   )
                 }
                 inputProps={{
@@ -882,7 +883,9 @@ function SimpleOrderContent() {
               compact={compactLayout}
               hideCta
               disabled={submitting}
-              onKeyPress={(key) => setAmount(applySimpleAmountKey(amount, key))}
+              onKeyPress={(key) =>
+                setAmount(applySimpleAmountKey(inputAmount, key))
+              }
               onBackspaceLongPress={() => setAmount('')}
               ctaLabel={intl.formatMessage({ id: ETranslations.global_review })}
               onCtaPress={reviewOrder}

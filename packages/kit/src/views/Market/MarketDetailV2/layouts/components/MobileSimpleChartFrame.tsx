@@ -11,7 +11,7 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
-import type { IXStackProps } from '@onekeyhq/components';
+import type { ISegmentControlProps, IXStackProps } from '@onekeyhq/components';
 import { TRADING_VIEW_NATIVE_CHART_CONTROLS_HEIGHT } from '@onekeyhq/kit/src/components/TradingView/TradingViewV2/components/TradingViewV2ChartControls';
 
 import { MARKET_SIMPLE_CHART_RANGE_LABEL_IDS } from './marketSimpleChartConstants';
@@ -45,6 +45,8 @@ export function MobileSimpleChartFrame<TRange extends IStockSimpleChartRange>({
   testID = 'market-mobile-simple-chart',
   controlsPaddingHorizontal = 8,
   rangeControlVariant = 'buttons',
+  segmentControlStyle,
+  segmentLabelMinWidth,
 }: {
   range: TRange;
   onRangeChange: (range: TRange) => void;
@@ -55,6 +57,11 @@ export function MobileSimpleChartFrame<TRange extends IStockSimpleChartRange>({
   testID?: string;
   controlsPaddingHorizontal?: IXStackProps['px'];
   rangeControlVariant?: 'buttons' | 'segmented';
+  segmentControlStyle?: Pick<
+    ISegmentControlProps,
+    'h' | 'slotBackgroundColor' | 'segmentControlItemStyleProps'
+  >;
+  segmentLabelMinWidth?: number;
 }) {
   const intl = useIntl();
 
@@ -95,6 +102,10 @@ export function MobileSimpleChartFrame<TRange extends IStockSimpleChartRange>({
                 label: (
                   <SizableText
                     size="$bodySmMedium"
+                    minWidth={segmentLabelMinWidth}
+                    textAlign={
+                      segmentLabelMinWidth === undefined ? undefined : 'center'
+                    }
                     color={range === item ? '$text' : '$textSubdued'}
                     numberOfLines={1}
                   >
@@ -112,6 +123,7 @@ export function MobileSimpleChartFrame<TRange extends IStockSimpleChartRange>({
                 alignItems: 'center',
                 justifyContent: 'center',
               }}
+              {...segmentControlStyle}
             />
           ) : (
             chartRanges.map((item) => (

@@ -1,10 +1,7 @@
 import type { IMarketTokenKLineDataPoint } from '@onekeyhq/shared/types/marketV2';
 import type { ITradingViewNativeChartSettings } from '@onekeyhq/shared/types/tradingViewNative';
 
-import {
-  TRADING_VIEW_NATIVE_DEFAULT_ZOOM_SCALE,
-  TRADING_VIEW_NATIVE_SUB_INDICATOR_PANE_HEIGHT,
-} from '../chartConstants';
+import { TRADING_VIEW_NATIVE_SUB_INDICATOR_PANE_HEIGHT } from '../chartConstants';
 import { getTradingViewNativeChartWidth } from '../utils/chartLayout';
 import {
   type ITradingViewNativeChartRuntimeState,
@@ -170,6 +167,8 @@ export function createTradingViewNativeChartRuntime({
   hasVolume,
   indicatorSeries,
   initialRightOffset,
+  initialZoomScale,
+  defaultPriceRangeScale = 1,
   points,
   subIndicatorPanes,
 }: {
@@ -182,11 +181,17 @@ export function createTradingViewNativeChartRuntime({
   hasVolume: boolean;
   indicatorSeries: ITradingViewNativeIndicatorSeries[];
   initialRightOffset?: ITradingViewNativeInitialRightOffset;
+  initialZoomScale?: number;
+  defaultPriceRangeScale?: number;
   points: IMarketTokenKLineDataPoint[];
   subIndicatorPanes: readonly ITradingViewNativeSubIndicatorRenderPane[];
 }): ITradingViewNativeChartRuntime {
+  const state = createTradingViewNativeChartRuntimeState({
+    initialRightOffset,
+    initialZoomScale,
+  });
   return {
-    ...createTradingViewNativeChartRuntimeState({ initialRightOffset }),
+    ...state,
     candleIntervalSeconds,
     candleTimeMode,
     chartComponents,
@@ -205,7 +210,7 @@ export function createTradingViewNativeChartRuntime({
       isActive: false,
       scaleBaseline: 1,
       startOffset: 0,
-      startZoomScale: TRADING_VIEW_NATIVE_DEFAULT_ZOOM_SCALE,
+      startZoomScale: state.viewport.zoomScale,
     },
     pinnedPriceRange: null,
     priceAxisScaleGesture: {
@@ -215,7 +220,7 @@ export function createTradingViewNativeChartRuntime({
       startY: 0,
       top: 0,
     },
-    priceRangeScale: 1,
+    priceRangeScale: defaultPriceRangeScale,
     priceScaleMode: 'linear',
     points,
     size: { height: 0, width: 0 },
@@ -227,7 +232,7 @@ export function createTradingViewNativeChartRuntime({
       isActive: false,
       startOffset: 0,
       startX: 0,
-      startZoomScale: TRADING_VIEW_NATIVE_DEFAULT_ZOOM_SCALE,
+      startZoomScale: state.viewport.zoomScale,
     },
   };
 }

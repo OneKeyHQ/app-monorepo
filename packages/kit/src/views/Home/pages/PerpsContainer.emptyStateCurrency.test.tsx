@@ -250,6 +250,16 @@ jest.mock('@onekeyhq/shared/src/eventBus/appEventBus', () => ({
   },
   appEventBus: { emit: (...args: unknown[]) => mockEmit(...args) },
 }));
+const mockModeSwitch = jest.fn<void, [unknown]>();
+jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
+  defaultLogger: {
+    perp: {
+      common: {
+        perpTradingModeSwitch: (event: unknown) => mockModeSwitch(event),
+      },
+    },
+  },
+}));
 jest.mock('@onekeyhq/shared/src/logger/scopes/perp/perpPageSource', () => ({
   EPerpPageEnterSource: {},
   setPerpPageEnterSource: jest.fn(),
@@ -708,33 +718,54 @@ describe('PerpsContainer mobile trading mode', () => {
     expect(mockSetSettings).not.toHaveBeenCalled();
   });
 
-  it('uses professional mode for spot holdings while preserving other settings', async () => {
-    mockPortfolio.view = {
-      isEmpty: false,
-      isDegraded: false,
-      accountValueUsd: 50,
-      positions: [],
-      holdings: [
-        {
-          symbol: 'HYPE',
-          displaySymbol: 'HYPE',
-          spotUniverseName: '@107',
-          balance: '1',
-          valueUsd: 50,
-          pnlUsd: 1,
-        },
-      ],
-    };
-    render(<PerpsContainer />);
-    fireEvent.click(screen.getAllByText('HYPE')[0]);
-    await waitFor(() =>
-      expect(mockNavigation.switchTab).toHaveBeenCalledWith(ETabRoutes.Perp),
-    );
-    expect(mockSetSettings).toHaveBeenCalledWith(expect.any(Function));
-    expect(mockPerpsSettings).toEqual({
-      hideSmallSpotHoldings: false,
-      mobileTradingMode: 'pro',
-    });
-    expect(mockNavigation.pushModal).not.toHaveBeenCalled();
-  });
+  it.each([true, false])(
+    'commits the spot mode preference and analytics only on successful navigation (success=%s)',
+    async (success) => {
+      if (!success)
+        mockSetPendingInstrument.mockRejectedValueOnce(
+          new Error('navigation failed'),
+        );
+      mockPortfolio.view = {
+        isEmpty: false,
+        isDegraded: false,
+        accountValueUsd: 50,
+        positions: [],
+        holdings: [
+          {
+            symbol: 'HYPE',
+            displaySymbol: 'HYPE',
+            spotUniverseName: '@107',
+            balance: '1',
+            valueUsd: 50,
+            pnlUsd: 1,
+          },
+        ],
+      };
+      render(<PerpsContainer />);
+      fireEvent.click(screen.getAllByText('HYPE')[0]);
+      if (!success) {
+        await waitFor(() =>
+          expect(mockSetPendingInstrument).toHaveBeenCalled(),
+        );
+        expect(mockNavigation.switchTab).not.toHaveBeenCalled();
+        expect(mockSetSettings).not.toHaveBeenCalled();
+        expect(mockModeSwitch).not.toHaveBeenCalled();
+        return;
+      }
+      await waitFor(() =>
+        expect(mockNavigation.switchTab).toHaveBeenCalledWith(ETabRoutes.Perp),
+      );
+      expect(mockModeSwitch).toHaveBeenCalledWith({
+        fromMode: 'simple',
+        toMode: 'pro',
+        source: 'spotEntry',
+      });
+      expect(mockSetSettings).toHaveBeenCalledWith(expect.any(Function));
+      expect(mockPerpsSettings).toEqual({
+        hideSmallSpotHoldings: false,
+        mobileTradingMode: 'pro',
+      });
+      expect(mockNavigation.pushModal).not.toHaveBeenCalled();
+    },
+  );
 });

@@ -49,7 +49,8 @@ const MIN_FLING_VELOCITY = 100;
 export function useTradingViewNativeChartGestures({
   chartRuntime,
   decayOffset,
-  isClickInteractionEnabled,
+  isClickInteractionEnabled: allowClickInteraction,
+  holdToInspect = false,
   isCrosshairEnabled,
   onSubIndicatorSettingsPress,
   onInteractionChange,
@@ -63,6 +64,7 @@ export function useTradingViewNativeChartGestures({
   chartRuntime: SharedValue<ITradingViewNativeChartRuntime>;
   decayOffset: SharedValue<number>;
   isClickInteractionEnabled: boolean;
+  holdToInspect?: boolean;
   isCrosshairEnabled: boolean;
   onInteractionChange?: (isInteracting: boolean) => void;
   onSubIndicatorSettingsPress: (
@@ -87,6 +89,7 @@ export function useTradingViewNativeChartGestures({
 
   const panStartTranslationX = useSharedValue(0);
   const activeGestures = useSharedValue(0);
+  const isClickInteractionEnabled = allowClickInteraction && !holdToInspect;
   return useMemo(() => {
     const setInteraction = (bit: number, active: boolean) => {
       'worklet';
@@ -198,7 +201,7 @@ export function useTradingViewNativeChartGestures({
     };
 
     const crosshairGesture = Gesture.Pan()
-      .enabled(isCrosshairEnabled)
+      .enabled(isCrosshairEnabled || holdToInspect)
       .activateAfterLongPress(TRADING_VIEW_NATIVE_CROSSHAIR_LONG_PRESS_DURATION)
       .maxPointers(1)
       .onTouchesDown((event, stateManager) => {
@@ -230,7 +233,7 @@ export function useTradingViewNativeChartGestures({
         'worklet';
         setInteraction(1, false);
 
-        if (success) {
+        if (success && !holdToInspect) {
           return;
         }
         const runtime = chartRuntime.value;
@@ -635,6 +638,7 @@ export function useTradingViewNativeChartGestures({
     windowWidth,
     shouldWaitForPageScroll,
     isClickInteractionEnabled,
+    holdToInspect,
     isCrosshairEnabled,
     onSubIndicatorSettingsPress,
     onInteractionChange,

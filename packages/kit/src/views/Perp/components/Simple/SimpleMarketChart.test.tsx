@@ -2,22 +2,36 @@
 
 import { type ReactNode, useState } from 'react';
 
-import { fireEvent, render } from '@testing-library/react';
+import { act, fireEvent, render } from '@testing-library/react';
+import { atom, createStore, useAtom } from 'jotai';
 
 import type { ISegmentControlProps } from '@onekeyhq/components';
 import type { ILightweightChartProps } from '@onekeyhq/kit/src/components/LightweightChart/types';
 import { StockPriceLineChart } from '@onekeyhq/kit/src/components/StockPriceLineChart';
+import type { ITradingViewNativeProps } from '@onekeyhq/kit/src/components/TradingView/TradingViewNative/types';
 import { MobileSimpleChartFrame } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/layouts/components/MobileSimpleChartFrame';
+import type { IPerpsCustomSettings } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IMarketTokenChart } from '@onekeyhq/shared/types/market';
 
 import { getSimpleChartDisplayPerformance } from '../../utils/simpleChart';
 
+import { SIMPLE_CHART_CONTROLS } from './SimpleChartControls';
 import { SimpleMarketChart } from './SimpleMarketChart';
 import { SimpleMarketHeader } from './SimpleMarketHeader';
 
 import type { ISimpleMarketChartPrice } from './SimpleMarketChart';
 
+const mockSettingsAtom = atom<
+  Pick<IPerpsCustomSettings, 'simpleMarketChartMode'>
+>({});
+const mockSettingsStore = createStore();
+const mockNativeChart = jest.fn<void, [ITradingViewNativeProps]>();
+const mockChartLines = jest.fn((_enabled: boolean) => ({
+  chartComponents: [{ id: 'position' }],
+  onReferenceLineAction: jest.fn(),
+}));
+const mockChartMarks = jest.fn((_active: boolean) => [{ id: 'perps.fills' }]);
 const mockSubscribe = jest.fn();
 const mockUnsubscribe = jest.fn();
 let mockChartProps: ILightweightChartProps;
@@ -62,6 +76,7 @@ jest.mock('@tamagui/core', () => ({
     Object.fromEntries(
       [
         'textSuccess',
+        'bgAccent',
         'textSubdued',
         'bgApp',
         'borderStrong',
@@ -72,7 +87,10 @@ jest.mock('@tamagui/core', () => ({
         'borderSubdued',
         'text',
         'textDisabled',
-      ].map((name) => [name, { val: '#123456' }]),
+      ].map((name) => [
+        name,
+        { val: name === 'bgAccent' ? '#1fab00' : '#123456' },
+      ]),
     ),
 }));
 jest.mock('@onekeyhq/components', () => {
@@ -146,6 +164,7 @@ jest.mock('@onekeyhq/components', () => {
       </div>
     ),
     Icon: Box,
+    LottieView: Box,
     SizableText: Box,
     NumberSizeableText: Box,
     Skeleton: (props: { width?: string; height?: string }) => (
@@ -200,12 +219,14 @@ jest.mock(
   }),
 );
 jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => ({
+  usePerpsCustomSettingsAtom: () =>
+    useAtom(mockSettingsAtom, { store: mockSettingsStore }),
   usePerpsTradingViewIndicatorSettingsPersistAtom: () => [{}],
 }));
 jest.mock(
   '@onekeyhq/kit/src/components/TradingView/TradingViewNative/indicatorSettingsAdapter',
   () => ({
-    getTradingViewNativeSubIndicatorInstances: () => [],
+    getTradingViewNativeSubIndicatorInstances: () => ['RSI', 'MACD'],
     normalizeTradingViewNativeIndicatorSettings: () => ({}),
   }),
 );
@@ -247,28 +268,32 @@ jest.mock(
     ),
   }),
 );
+jest.mock('../../hooks/usePerpsNativeChartLines', () => ({
+  usePerpsNativeChartLines: (enabled: boolean) => mockChartLines(enabled),
+}));
+jest.mock('../../hooks/usePerpsNativeChartMarks', () => ({
+  usePerpsNativeChartMarks: (active: boolean) => mockChartMarks(active),
+}));
+jest.mock('../../hooks/usePerpsNativeChartMetadata', () => ({
+  usePerpsNativeChartMetadata: () => ({ priceDecimalPlaces: 3 }),
+}));
 jest.mock(
   '@onekeyhq/kit/src/components/TradingView/TradingViewNative/TradingViewNative',
   () => {
     const React = jest.requireActual('react') as typeof import('react');
     return {
-      TradingViewNative: ({
-        active,
-        source,
-        mobileToolbarExtra,
-      }: {
-        active: boolean;
-        source: { coin: string };
-        mobileToolbarExtra?: ReactNode;
-      }) => {
+      TradingViewNative: (props: ITradingViewNativeProps) => {
+        mockNativeChart(props);
+        const { active, source, mobileToolbarExtra } = props;
         const [viewport, setViewport] = React.useState('latest');
         React.useEffect(() => {
           if (!active) return;
+          if (source.kind !== 'hyperliquid') return;
           mockSubscribe(source.coin);
           return () => {
             mockUnsubscribe(source.coin);
           };
-        }, [active, source.coin]);
+        }, [active, source]);
         return (
           <div data-testid="candle-chart">
             <button
@@ -287,6 +312,7 @@ jest.mock(
 );
 
 beforeEach(() => {
+  mockSettingsStore.set(mockSettingsAtom, {});
   mockIsLoading = false;
   jest.clearAllMocks();
   mockSeries = undefined;
@@ -452,6 +478,11 @@ it.each([
     expect(getByTestId('price-header').textContent).toBe(
       '{"coin":"BTC","range":"1D","price":120,"change":"20","changePercent":20}',
     );
+    expect(mockChartProps).toMatchObject({
+      patternColor: '#1fab00',
+      pulseLastPointColor: '#1fab00',
+      secondaryLineColor: '#1fab00',
+    });
     expect(mockChartProps.showPriceScale).toBe(false);
     expect(mockChartProps.showLastValue).toBe(false);
     if (platform.isNative) {
@@ -540,7 +571,8 @@ it('discards a selected point when the range, coin, or focus changes', () => {
 });
 
 it('shows a change skeleton only while unavailable history is loading', () => {
-  const { getByTestId, rerender } = render(<PriceHeader />);
+  const { getByTestId, queryByTestId, rerender } = render(<PriceHeader />);
+  expect(getByTestId('perps-simple-chart-loading')).toBeTruthy();
   const header = () => getByTestId('market-header');
   expect(
     header().querySelector('[data-testid="loading-skeleton"]'),
@@ -548,6 +580,7 @@ it('shows a change skeleton only while unavailable history is loading', () => {
 
   mockSeries = { coin: 'BTC', range: '1D', error: true };
   rerender(<PriceHeader />);
+  expect(queryByTestId('perps-simple-chart-loading')).toBeNull();
   expect(header().querySelector('[data-testid="loading-skeleton"]')).toBeNull();
   expect(header().textContent).toContain('--');
 
@@ -659,6 +692,94 @@ it.each([true, false])(
     expect(mockUnsubscribe).toHaveBeenCalledTimes(2);
   },
 );
+
+it('restores the last chart mode when reopening a different market', () => {
+  const btc = render(<SimpleMarketChart coin="BTC" active />);
+  expect(btc.getByTestId('perps-simple-market-chart')).toBeTruthy();
+  fireEvent.click(btc.getByTestId('perps-simple-chart-mode-toggle'));
+  btc.unmount();
+
+  const eth = render(<SimpleMarketChart coin="ETH" active />);
+  expect(eth.getByTestId('candle-chart')).toBeTruthy();
+  fireEvent.click(eth.getByTestId('perps-simple-chart-mode-toggle'));
+  eth.unmount();
+
+  const reopened = render(<SimpleMarketChart coin="BTC" active />);
+  expect(reopened.getByTestId('perps-simple-market-chart')).toBeTruthy();
+});
+
+it('shows Perps fills and price lines only on candles, with trading actions disabled', () => {
+  const { getByTestId, rerender } = render(
+    <SimpleMarketChart coin="BTC" active />,
+  );
+  expect(mockChartMarks).not.toHaveBeenCalled();
+  fireEvent.click(getByTestId('perps-simple-chart-mode-toggle'));
+  expect(mockChartMarks).toHaveBeenCalledWith(true);
+  expect(mockChartLines).toHaveBeenCalledWith(false);
+  expect(mockNativeChart.mock.lastCall?.[0]).toMatchObject({
+    source: { coin: 'BTC' },
+    showNativeIndicatorQuickBar: true,
+    mobileControlsAppearance: {
+      settingsButton: { width: 28, height: 28, bg: '$bgStrong' },
+    },
+    nativeChartDisplayMode: 'marketDetail',
+    initialZoomScale: 0.45,
+    defaultPriceRangeScale: 1.25,
+    chartComponents: [{ id: 'position' }, { id: 'perps.fills' }],
+    priceDecimalPlaces: 3,
+    onReferenceLineAction: undefined,
+  });
+  act(() =>
+    mockNativeChart.mock.lastCall?.[0].onNativeChartFullscreenChange?.(true),
+  );
+  expect(mockNativeChart.mock.lastCall?.[0].nativeChartDisplayMode).toBe(
+    'default',
+  );
+  expect(
+    mockNativeChart.mock.lastCall?.[0].mobileControlsAppearance,
+  ).toBeUndefined();
+  rerender(<SimpleMarketChart coin="BTC" active={false} />);
+  expect(mockChartMarks).toHaveBeenLastCalledWith(false);
+});
+
+it('shows the active custom interval in More and switches quick intervals directly', () => {
+  const onMorePress = jest.fn();
+  const onSelect = jest.fn();
+  const { getByTestId, getByText } = render(
+    SIMPLE_CHART_CONTROLS.renderIntervals({
+      activeInterval: '240',
+      options: [{ value: '60', label: '1H' }],
+      moreActive: true,
+      moreLabel: '4H',
+      onMorePress,
+      onSelect,
+    }),
+  );
+  const more = getByTestId('trading-view-native-interval-selector-more-select');
+  expect(more.getAttribute('aria-pressed')).toBe('true');
+  fireEvent.click(more);
+  expect(onMorePress).toHaveBeenCalledTimes(1);
+  fireEvent.click(getByText('1H'));
+  expect(onSelect).toHaveBeenCalledWith('60');
+});
+
+it('reserves sub-indicator panes only while the candle chart is visible', () => {
+  mockSettingsStore.set(mockSettingsAtom, { simpleMarketChartMode: 'candles' });
+  mockSeries = { coin: 'BTC', range: '1D', data: [[1000, 100]], error: false };
+  const { getByTestId } = render(<SimpleMarketChart coin="BTC" active />);
+  expect(getByTestId('candle-chart').parentElement?.style.height).toBe('536px');
+
+  fireEvent.click(getByTestId('perps-simple-chart-mode-toggle'));
+  expect(
+    getByTestId('perps-simple-market-chart').parentElement?.style.height,
+  ).toBe('392px');
+  expect(getByTestId('perps-simple-price-line-chart').style.height).toBe(
+    '346px',
+  );
+
+  fireEvent.click(getByTestId('perps-simple-chart-mode-toggle'));
+  expect(getByTestId('candle-chart').parentElement?.style.height).toBe('536px');
+});
 
 it('keeps the selected range when switching chart modes', () => {
   const { getByTestId } = render(<SimpleMarketChart coin="BTC" active />);

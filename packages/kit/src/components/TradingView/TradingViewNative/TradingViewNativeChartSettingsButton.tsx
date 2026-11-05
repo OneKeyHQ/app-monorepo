@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { createContext, useCallback, useContext } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -11,7 +11,14 @@ import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 
 import { pushTradingViewNativeFullscreenModal } from './TradingViewNativePresentation';
 
-import type { ITradingViewNativeStorageNamespace } from './types';
+import type {
+  ITradingViewMobileControlsAppearance,
+  ITradingViewNativeStorageNamespace,
+} from './types';
+
+export const TradingViewToolbarButtonAppearanceContext = createContext<
+  ITradingViewMobileControlsAppearance['settingsButton'] | undefined
+>(undefined);
 
 const SETTINGS_BUTTON_SIZE = 24;
 const PRICE_AXIS_FALLBACK_WIDTH = 52;
@@ -44,6 +51,7 @@ export function TradingViewNativeChartSettingsButton({
   placement?: 'chart' | 'toolbar';
 }) {
   const isToolbar = placement === 'toolbar';
+  const appearance = useContext(TradingViewToolbarButtonAppearanceContext);
   const intl = useIntl();
   const navigation = useAppNavigation();
   const openChartSettingsModal = useCallback(() => {
@@ -100,6 +108,7 @@ export function TradingViewNativeChartSettingsButton({
       {...HEADER_ICON_BUTTON_STYLE_PROPS}
       bg={isToolbar ? '$transparent' : '$bgApp'}
       borderWidth={0}
+      {...appearance}
     />
   );
 }

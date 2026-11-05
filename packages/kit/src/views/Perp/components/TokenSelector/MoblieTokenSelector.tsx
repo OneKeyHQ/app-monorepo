@@ -389,11 +389,6 @@ function MobileTokenSelectorModal({
   const [spotUniverses, setSpotUniverses] = useState<ISpotUniverse[]>([]);
   const [spotLoading, setSpotLoading] = useState(true);
 
-  const handleSelectToken = usePerpTokenSelectorSelection({
-    onLoadingChange,
-    spotUniverses,
-  });
-
   const [{ assetsByDex, query: filteredQuery }] =
     usePerpsAllAssetsFilteredAtom();
   const [{ assetCtxsByDex }] = usePerpsAllAssetCtxsAtom();
@@ -478,6 +473,11 @@ function MobileTokenSelectorModal({
     }
     return getPerpTokenSelectorFallbackTabId(visibleTabs);
   }, [activeTab, visibleTabs]);
+  const handleSelectToken = usePerpTokenSelectorSelection({
+    activeTab: displayActiveTab,
+    onLoadingChange,
+    spotUniverses,
+  });
   const displayPrimaryTab = useMemo(
     () => getPerpTokenSelectorPrimaryTabId(displayActiveTab),
     [displayActiveTab],
