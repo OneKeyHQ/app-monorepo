@@ -16,6 +16,13 @@ import {
 } from '@testing-library/react';
 import { atom, getDefaultStore } from 'jotai';
 
+jest.mock('react-native', () => ({
+  ...jest.requireActual<object>('react-native'),
+  Dimensions: { get: () => ({ width: 400, height: 800 }) },
+}));
+const mockMenuViewportRef: {
+  current: Pick<ViewInstance, 'measureInWindow'> | null;
+} = { current: null };
 const mockRecallEvents = {
   perpRecallEntryShown: jest.fn(),
   perpRecallEntryClicked: jest.fn(),
@@ -279,6 +286,7 @@ jest.mock('@onekeyhq/components', () => {
     XStack: Primitive,
     YStack: Primitive,
     useMedia: () => ({ gtMd: mockGtMd }),
+    useScrollView: () => ({ scrollViewRef: mockMenuViewportRef }),
     useThemeName: () => (mockDarkTheme ? 'dark' : 'light'),
     useTheme: () => ({
       text: { val: mockDarkTheme ? '#EEEEEE' : '#111111' },
@@ -399,6 +407,7 @@ import {
 } from './layout';
 
 import type { IActivityHubCampaign } from './types';
+import type { ViewInstance } from 'react-native';
 
 const CAMPAIGNS: IActivityHubCampaign[] = [
   {
@@ -818,6 +827,42 @@ describe('Perps recall activity integration', () => {
 
   afterEach(() => {
     jest.useRealTimers();
+  });
+
+  it('counts a native menu entry only after it scrolls into the menu viewport', () => {
+    jest.useFakeTimers();
+    platformEnv.isNative = true;
+    mockRecallProgress = { ...progress, activityId: 'clipped-menu' };
+    mockMenuViewportRef.current = {
+      measureInWindow: (cb) => cb(0, 100, 400, 400),
+    };
+    try {
+      render(
+        <PerpsActivityCenterContent
+          entrySource="perpsMenu"
+          closePopover={mockPopoverClose}
+          menuLayout
+        />,
+      );
+      let entryY = 520;
+      Object.assign(screen.getByTestId('activity-hub-detail-entry'), {
+        measureInWindow: (cb: Parameters<ViewInstance['measureInWindow']>[0]) =>
+          cb(0, entryY, 400, 40),
+      });
+      act(() => jest.advanceTimersByTime(300));
+      expect(mockRecallEvents.perpRecallEntryShown).not.toHaveBeenCalled();
+      entryY = 480;
+      act(() => jest.advanceTimersByTime(600));
+      expect(mockRecallEvents.perpRecallEntryShown).toHaveBeenCalledTimes(1);
+      expect(mockRecallEvents.perpRecallEntryShown).toHaveBeenCalledWith(
+        expect.objectContaining({
+          activityId: 'clipped-menu',
+          entrySource: 'perpsMenu',
+        }),
+      );
+    } finally {
+      mockMenuViewportRef.current = null;
+    }
   });
 
   it('counts visible entries once per activity and counts a confirmed reminder again when it becomes visible', () => {

@@ -1,4 +1,5 @@
 import type { IUnsignedMessage } from '@onekeyhq/core/src/types';
+import { appApiClient } from '@onekeyhq/shared/src/appApiClient/appApiClient';
 import type { IBackgroundMethodWithDevOnlyPassword } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import {
   backgroundClass,
@@ -64,6 +65,8 @@ import type {
   IInviteLevelDetail,
   IInvitePaidHistory,
   IInvitePostConfig,
+  IInviteRewardScope,
+  IInviteRewardScopesResponse,
   IInviteSummary,
   IInviteeRewardsModuleResult,
   IInviteeRewardsOverview,
@@ -163,13 +166,16 @@ class ServiceReferralCode extends ServiceBase {
   private fetchPerpsRecallProgressMemo = memoizee(
     async (
       instanceId: string,
-      _endpoint: string,
+      endpoint: string,
       locale: string,
     ): Promise<IPerpsRecallProgress | null> => {
       try {
-        // The raw client retains common request headers but lets this endpoint
-        // handle its expected 204 empty body without the code=0 interceptor.
-        const client = await this.getRawDataClient(EServiceEndpointEnum.Rebate);
+        // Use the endpoint captured with this snapshot, including after a dev endpoint switch.
+        const client = await appApiClient.getBasicClient({
+          name: EServiceEndpointEnum.Rebate,
+          endpoint,
+          autoHandleError: false,
+        });
         const response = await client.get<{ code: number; data?: unknown }>(
           '/rebate/v1/recall/progress',
           {
@@ -216,6 +222,40 @@ class ServiceReferralCode extends ServiceBase {
     }
     return summary.data.data;
   }
+
+  // Unauthenticated, so invitees without a OneKey ID login see it too.
+  @backgroundMethod()
+  async getInviteRewardScopes(): Promise<IInviteRewardScope[]> {
+    try {
+      const locale = await this.backgroundApi.serviceSetting.getCurrentLocale();
+      return await this._getInviteRewardScopesMemo(locale.toLowerCase());
+    } catch (error) {
+      // Optional hint copy: callers hide it on failure, so never toast.
+      errorToastUtils.toastIfErrorDisable(error);
+      throw error;
+    }
+  }
+
+  // Both tabs share localized copy, while failed requests are not cached.
+  private _getInviteRewardScopesMemo = memoizee(
+    async (locale: string): Promise<IInviteRewardScope[]> => {
+      const client = await this.getClient(EServiceEndpointEnum.Rebate);
+      const response = await client.get<{
+        data: IInviteRewardScopesResponse;
+      }>('/rebate/v1/invite/reward-scopes');
+      // Interceptors choose the request locale. Reject if the app locale
+      // differs from the cache key when the response arrives.
+      const currentLocale =
+        await this.backgroundApi.serviceSetting.getCurrentLocale();
+      if (currentLocale.toLowerCase() !== locale) {
+        throw new OneKeyLocalError(
+          'Locale changed during reward scopes request',
+        );
+      }
+      return response.data.data?.rewardScopes ?? [];
+    },
+    { promise: true, maxAge: timerUtils.getTimeDurationMs({ minute: 5 }) },
+  );
 
   @backgroundMethod()
   async getLevelDetail() {

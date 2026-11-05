@@ -6,11 +6,11 @@ import {
   useMemo,
   useRef,
 } from 'react';
-import type { ReactNode } from 'react';
+import type { ReactNode, RefObject } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import type { IButtonProps } from '@onekeyhq/components';
+import type { IButtonProps, IScrollViewRef } from '@onekeyhq/components';
 import {
   Dialog,
   IconButton,
@@ -18,6 +18,7 @@ import {
   YStack,
   useDialogInstance,
   useMedia,
+  useScrollView,
 } from '@onekeyhq/components';
 import {
   ActivityHubAction,
@@ -44,6 +45,7 @@ type IActivityCenterSource = 'activityHub' | 'perpsMenu';
 
 function usePerpsActivityHubProps(
   entrySource: IActivityCenterSource = 'activityHub',
+  viewportRef?: RefObject<IScrollViewRef | null>,
 ) {
   const intl = useIntl();
   const { progress, instanceId, refresh } = usePerpsRecallProgress();
@@ -59,7 +61,12 @@ function usePerpsActivityHubProps(
 
   const handleOpenReferral = useOpenReferralPage();
 
-  const tracking = usePerpsRecallEntry({ progress, instanceId, entrySource });
+  const tracking = usePerpsRecallEntry({
+    progress,
+    instanceId,
+    entrySource,
+    viewportRef,
+  });
   const detailEntry: IActivityHubDetailEntry | undefined = progress
     ? {
         title: intl.formatMessage({ id: ETranslations.perps_recall__title }),
@@ -110,13 +117,19 @@ export function PerpsActivityCenterContent({
   menuFooter?: ReactNode;
   renderMenuReferral?: (referral: ReactNode) => ReactNode;
 }) {
+  const { scrollViewRef } = useScrollView();
   const {
     campaigns,
     handleOpenReferral,
     detailEntry,
     isBannerHidden,
     setBannerHidden,
-  } = usePerpsActivityHubProps(entrySource);
+  } = usePerpsActivityHubProps(
+    entrySource,
+    entrySource === 'perpsMenu' && platformEnv.isNative
+      ? scrollViewRef
+      : undefined,
+  );
   const intl = useIntl();
   const showActivityHub = useShowActivityHub();
   // The menu already lists the campaigns, so the dialog holds only the

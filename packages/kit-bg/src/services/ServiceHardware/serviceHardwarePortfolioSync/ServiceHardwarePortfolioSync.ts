@@ -29,6 +29,7 @@ import {
   EAccountSelectorSceneName,
   EHardwareTransportType,
 } from '@onekeyhq/shared/types';
+import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 import {
   EHardwareCallContext,
   EHardwareVendor,
@@ -167,7 +168,6 @@ const PORTFOLIO_SYNC_RESUME_AFTER_INTERACTION_MS = 5000;
 const DESKTOP_BLE_IDLE_DELAY_MS = 30_000;
 const DESKTOP_BLE_REUSE_WINDOW_MS = 150_000;
 const DESKTOP_BLE_TRANSFER_COOLDOWN_MS = 5 * 60_000;
-const PORTFOLIO_FORCE_REFRESH_COOLDOWN_MS = 5 * 60_000;
 const PORTFOLIO_PACKAGE_MAX_BYTES = PORTFOLIO_ARCHIVE_MAX_BYTES * 2;
 const PORTFOLIO_PACKAGE_MAX_BASE64_LENGTH =
   Math.ceil(PORTFOLIO_PACKAGE_MAX_BYTES / 3) * 4;
@@ -245,9 +245,20 @@ function getPortfolioSyncErrorCode(error: unknown): string | undefined {
     : undefined;
 }
 
-function isMissingNetworkAccountError(error: unknown): boolean {
-  const message = error instanceof Error ? error.message : String(error);
-  return message.includes('indexedAccounts not found');
+function isMissingNetworkAccountError(
+  error: unknown,
+  indexedAccountId: string,
+): boolean {
+  if (!(error instanceof OneKeyLocalError)) {
+    return false;
+  }
+  // getNetworkAccount reports the indexed-account miss only after the lookup
+  // returns no row. A Perps account that was never created fails earlier, in
+  // localDb.getAccount, as OneKeyLocalError('Account not found').
+  return (
+    error.message === 'Account not found' ||
+    error.message === `indexedAccounts not found: ${indexedAccountId}`
+  );
 }
 
 function isSilentUploadBlockedByDevice(error: unknown): boolean {
@@ -338,11 +349,6 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
   private portfolioCategoryRefreshes = new Map<
     string,
     Promise<IPortfolioCategoryRefreshResult>
-  >();
-
-  private portfolioCategoryForceRefreshCooldownByKey = new Map<
-    string,
-    number
   >();
 
   private pendingCooldownPayloadByConnectId = new Map<
@@ -2095,37 +2101,6 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
     const pending = this.portfolioCategoryRefreshes.get(key);
     if (pending) return pending;
 
-    // The force cooldown is scoped to the account/query window only. The dedupe
-    // key above includes the current network state so in-flight requests for
-    // different query shapes stay separate, but including that state here would
-    // let any network/derive toggle bypass the 5-minute bound.
-    const forceCooldownKey = stringUtils.stableStringify({
-      accountId,
-      indexedAccountId,
-      networkId,
-    });
-
-    let shouldForce = force;
-    if (force) {
-      const now = Date.now();
-      for (const [refreshKey, expiresAt] of this
-        .portfolioCategoryForceRefreshCooldownByKey) {
-        if (expiresAt <= now)
-          this.portfolioCategoryForceRefreshCooldownByKey.delete(refreshKey);
-      }
-      if (
-        this.portfolioCategoryForceRefreshCooldownByKey.has(forceCooldownKey)
-      ) {
-        shouldForce = false;
-      } else {
-        // Limit force attempts, including failures, without caching old balances.
-        this.portfolioCategoryForceRefreshCooldownByKey.set(
-          forceCooldownKey,
-          now + PORTFOLIO_FORCE_REFRESH_COOLDOWN_MS,
-        );
-      }
-    }
-
     const controller = new AbortController();
     let timer: ReturnType<typeof setTimeout> | undefined;
     const request = (async () => {
@@ -2134,7 +2109,7 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
           this.getPortfolioCategoryFiat(
             { accountId, indexedAccountId, networkId },
             controller.signal,
-            { force: shouldForce, sources },
+            { force, sources },
           ),
           new Promise<never>((_resolve, reject) => {
             timer = setTimeout(() => {
@@ -2235,25 +2210,35 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
           return { source: 'empty', value: '0' };
         }
         const isAllNetwork = networkId === getNetworkIdsMap().onekeyall;
-        const deriveType = isAllNetwork
-          ? undefined
-          : await this.backgroundApi.serviceNetwork.getGlobalDeriveTypeOfNetwork(
-              { networkId },
-            );
-        if (!isAllNetwork && !deriveType) {
-          deFiOverview = emptyOverview;
-          return { source: 'empty', value: '0' };
-        }
-        const { accountsInfo: cachedAccountsInfo } =
-          await this.backgroundApi.serviceAllNetwork.getAllNetworkAccounts({
-            accountId,
-            indexedAccountId,
-            networkId,
-            deriveType,
-            DeFiEnabledOnly: true,
-            networksEnabledOnly: true,
-            excludeTestNetwork: true,
-          });
+        // A single-network sync must query the selected account, independent of
+        // All Networks visibility and the global derivation selection.
+        const { accountsInfo: cachedAccountsInfo } = isAllNetwork
+          ? await this.backgroundApi.serviceAllNetwork.getAllNetworkAccounts({
+              accountId,
+              indexedAccountId,
+              networkId,
+              DeFiEnabledOnly: true,
+              networksEnabledOnly: true,
+              excludeTestNetwork: true,
+            })
+          : {
+              accountsInfo: [
+                {
+                  accountId,
+                  networkId,
+                  isTestnet: false,
+                  apiAddress:
+                    await this.backgroundApi.serviceAccount.getAccountAddressForApi(
+                      { accountId, networkId },
+                    ),
+                  accountXpub:
+                    await this.backgroundApi.serviceAccount.getAccountXpub({
+                      accountId,
+                      networkId,
+                    }),
+                },
+              ],
+            };
         const accountsInfo = cachedAccountsInfo.filter(
           (account) =>
             enabledNetworksMap[account.networkId] &&
@@ -2265,9 +2250,13 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
                 disabledNetworks: allNetworksState.disabledNetworks,
               })),
         );
-        if (!accountsInfo.length) {
-          deFiOverview = emptyOverview;
-          return { source: 'empty', value: '0' };
+        if (
+          !accountsInfo.length ||
+          accountsInfo.some(
+            (account) => !account.apiAddress && !account.accountXpub,
+          )
+        ) {
+          return { source: 'unknown', value: undefined };
         }
         let forceDeFiRefresh = refresh.force;
         if (forceDeFiRefresh) {
@@ -2399,9 +2388,9 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
             networkId: PERPS_NETWORK_ID,
           });
         if (!deriveType) {
-          return '0';
+          return undefined;
         }
-        let account;
+        let account: INetworkAccount;
         try {
           account = await this.backgroundApi.serviceAccount.getNetworkAccount({
             accountId: undefined,
@@ -2410,36 +2399,26 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
             networkId: PERPS_NETWORK_ID,
           });
         } catch (error) {
-          if (!isMissingNetworkAccountError(error)) {
-            throw error;
+          // Confirmed absence is an empty category. Other lookup failures stay
+          // unknown so they still block Portfolio upload.
+          if (isMissingNetworkAccountError(error, indexedAccountId)) {
+            return '0';
           }
-          return '0';
+          throw error;
         }
         const address =
           account?.addressDetail?.normalizedAddress || account?.address;
         if (!address) {
-          return '0';
+          return undefined;
         }
         const forcePerpsRefresh = refresh.force;
-        let snapshot =
+        const snapshot =
           await this.backgroundApi.serviceHyperliquid.getHyperliquidPortfolioSnapshot(
             {
               address,
               ...(forcePerpsRefresh ? { force: true, requireFresh: true } : {}),
             },
           );
-        if (forcePerpsRefresh && (!snapshot || snapshot.isDegraded)) {
-          // A transient forced fetch failure must not abort the whole explicit
-          // sync while a still-usable cached snapshot exists.
-          try {
-            snapshot =
-              await this.backgroundApi.serviceHyperliquid.getHyperliquidPortfolioSnapshot(
-                { address },
-              );
-          } catch {
-            // Keep the forced result; unavailable data stays unknown.
-          }
-        }
         return snapshot && !snapshot.isDegraded
           ? snapshot.netWorthUsd
           : undefined;

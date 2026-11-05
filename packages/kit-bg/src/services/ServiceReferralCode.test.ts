@@ -48,7 +48,7 @@ jest.mock('@onekeyhq/shared/src/background/backgroundDecorators', () => ({
 jest.mock('@onekeyhq/shared/src/appApiClient/appApiClient', () => ({
   appApiClient: {
     getClient: jest.fn(),
-    getRawDataClient: jest.fn(),
+    getBasicClient: jest.fn(),
   },
 }));
 
@@ -127,10 +127,10 @@ function createService() {
     serviceNetwork: {
       getGlobalDeriveTypeOfNetwork: jest.fn().mockResolvedValue('default'),
     },
-    serviceHardware: {},
     serviceSetting: {
-      getCurrentLocale: jest.fn(async () => 'en-US'),
+      getCurrentLocale: jest.fn(async () => 'en'),
     },
+    serviceHardware: {},
   };
 
   const service = new ServiceReferralCode({ backgroundApi });
@@ -489,6 +489,126 @@ describe('ServiceReferralCode Swap rebate API', () => {
         walletAddress: '0xAbCdEf',
       },
     });
+  });
+
+  test('reads reward scopes without a OneKey ID login', async () => {
+    const { service } = createService();
+    const rewardScopes = [
+      { subject: 'Swap', description: 'Swap providers' },
+      { subject: 'Earn', description: 'DeFi venues' },
+    ];
+    const get = jest
+      .fn()
+      .mockResolvedValue({ data: { data: { rewardScopes } } });
+    const getClientSpy = jest
+      .spyOn(service, 'getClient')
+      .mockResolvedValue({ get } as any);
+    const getOneKeyIdClientSpy = jest.spyOn(service, 'getOneKeyIdClient');
+
+    await expect(service.getInviteRewardScopes()).resolves.toBe(rewardScopes);
+
+    expect(getClientSpy).toHaveBeenCalledWith(EServiceEndpointEnum.Rebate);
+    expect(getOneKeyIdClientSpy).not.toHaveBeenCalled();
+    expect(get).toHaveBeenCalledWith('/rebate/v1/invite/reward-scopes');
+  });
+
+  test('caches reward scopes separately for each request locale', async () => {
+    const { service, backgroundApi } = createService();
+    const english = [{ subject: 'Swap', description: 'en-scope' }];
+    const chinese = [{ subject: 'Swap', description: 'zh-CN-scope' }];
+    const client = axios.create();
+    const get = jest
+      .spyOn(client, 'get')
+      .mockResolvedValueOnce({ data: { data: { rewardScopes: english } } })
+      .mockResolvedValueOnce({ data: { data: { rewardScopes: chinese } } });
+    jest.spyOn(service, 'getClient').mockResolvedValue(client);
+
+    await expect(service.getInviteRewardScopes()).resolves.toBe(english);
+    backgroundApi.serviceSetting.getCurrentLocale.mockResolvedValue('zh-CN');
+    await expect(service.getInviteRewardScopes()).resolves.toBe(chinese);
+    backgroundApi.serviceSetting.getCurrentLocale.mockResolvedValue('en');
+    await expect(service.getInviteRewardScopes()).resolves.toBe(english);
+
+    expect(get).toHaveBeenCalledTimes(2);
+    expect(get).toHaveBeenNthCalledWith(2, '/rebate/v1/invite/reward-scopes');
+  });
+
+  test('does not cache reward scopes when the locale changes during a request', async () => {
+    const { service, backgroundApi } = createService();
+    const english = [{ subject: 'Swap', description: 'en-scope' }];
+    const chinese = [{ subject: 'Swap', description: 'zh-CN-scope' }];
+    type IResponse = { data: { data: { rewardScopes: typeof english } } };
+    let resolveOld!: (value: IResponse) => void;
+    const pendingResponse = new Promise<IResponse>((resolve) => {
+      resolveOld = resolve;
+    });
+    const get = jest
+      .fn()
+      .mockReturnValueOnce(pendingResponse)
+      .mockResolvedValueOnce({ data: { data: { rewardScopes: chinese } } })
+      .mockResolvedValueOnce({ data: { data: { rewardScopes: english } } });
+    jest.spyOn(service, 'getClient').mockResolvedValue({ get } as any);
+
+    const oldRead = service
+      .getInviteRewardScopes()
+      .catch((error: unknown) => error);
+    backgroundApi.serviceSetting.getCurrentLocale.mockResolvedValue('zh-CN');
+    await expect(service.getInviteRewardScopes()).resolves.toBe(chinese);
+    resolveOld({ data: { data: { rewardScopes: english } } });
+    await expect(oldRead).resolves.toMatchObject({
+      message: 'Locale changed during reward scopes request',
+    });
+    await new Promise((resolve) => setImmediate(resolve));
+
+    await expect(service.getInviteRewardScopes()).resolves.toBe(chinese);
+    backgroundApi.serviceSetting.getCurrentLocale.mockResolvedValue('en');
+    await expect(service.getInviteRewardScopes()).resolves.toBe(english);
+    expect(get).toHaveBeenCalledTimes(3);
+  });
+
+  test('shares one reward scopes request and retries after a failure', async () => {
+    const { service } = createService();
+    const rewardScopes = [{ subject: 'Swap', description: 'Swap providers' }];
+    const get = jest
+      .fn()
+      .mockRejectedValueOnce(new Error('offline'))
+      .mockResolvedValue({ data: { data: { rewardScopes } } });
+    jest.spyOn(service, 'getClient').mockResolvedValue({ get } as any);
+
+    // A failed request is not cached: memoizee drops it on a later tick.
+    await expect(service.getInviteRewardScopes()).rejects.toThrow('offline');
+    await new Promise((resolve) => {
+      setTimeout(resolve, 0);
+    });
+    const [first, second] = await Promise.all([
+      service.getInviteRewardScopes(),
+      service.getInviteRewardScopes(),
+    ]);
+    await expect(service.getInviteRewardScopes()).resolves.toBe(rewardScopes);
+
+    expect(first).toBe(rewardScopes);
+    expect(second).toBe(rewardScopes);
+    expect(get).toHaveBeenCalledTimes(2);
+  });
+
+  test('treats missing reward scopes as none', async () => {
+    const { service } = createService();
+    const get = jest.fn().mockResolvedValue({ data: { data: {} } });
+    jest.spyOn(service, 'getClient').mockResolvedValue({ get } as any);
+
+    await expect(service.getInviteRewardScopes()).resolves.toEqual([]);
+  });
+
+  test('mutes reward scope failures while preserving the rejection', async () => {
+    const { service } = createService();
+    const error = Object.assign(new Error('reward scopes unavailable'), {
+      autoToast: true,
+    });
+    const get = jest.fn().mockRejectedValue(error);
+    jest.spyOn(service, 'getClient').mockResolvedValue({ get } as any);
+
+    await expect(service.getInviteRewardScopes()).rejects.toBe(error);
+    expect(error.autoToast).toBe(false);
   });
 
   test('mutes invitee rewards failures while preserving the rejection', async () => {
@@ -1233,7 +1353,7 @@ describe('ServiceReferralCode Perps recall progress', () => {
   function mockRecallClient(get: ReturnType<typeof axios.create>['get']) {
     const client = axios.create();
     client.get = get;
-    jest.mocked(appApiClient.getRawDataClient).mockResolvedValue(client);
+    jest.mocked(appApiClient.getBasicClient).mockResolvedValue(client);
   }
 
   const progress: IPerpsRecallProgress = {
@@ -1281,7 +1401,7 @@ describe('ServiceReferralCode Perps recall progress', () => {
   it('uses the anonymous raw Rebate client and shares concurrent requests', async () => {
     const { service } = createService();
     instanceId = ' TEST-Instance ';
-    const rawClientSpy = jest.spyOn(service, 'getRawDataClient');
+
     const get = jest
       .fn()
       .mockResolvedValue({ status: 200, data: { code: 0, data: progress } });
@@ -1294,9 +1414,13 @@ describe('ServiceReferralCode Perps recall progress', () => {
     expect(get).toHaveBeenCalledTimes(1);
     expect(get).toHaveBeenCalledWith('/rebate/v1/recall/progress', {
       params: { instanceId: 'test-instance' },
-      headers: { 'x-onekey-request-locale': 'en-us' },
+      headers: { 'x-onekey-request-locale': 'en' },
     });
-    expect(rawClientSpy).toHaveBeenCalledWith(EServiceEndpointEnum.Rebate);
+    expect(appApiClient.getBasicClient).toHaveBeenCalledWith({
+      name: EServiceEndpointEnum.Rebate,
+      endpoint: 'https://test.onekey.so',
+      autoHandleError: false,
+    });
     expect(snapshot.progress).toEqual(progress);
   });
 
@@ -1331,7 +1455,7 @@ describe('ServiceReferralCode Perps recall progress', () => {
       snapshot = {
         instanceId,
         endpoint: 'https://test.onekey.so',
-        locale: 'en-us',
+        locale: 'en',
         progress,
       };
       const get = jest.fn().mockResolvedValue(response);
@@ -1427,10 +1551,26 @@ describe('ServiceReferralCode Perps recall progress', () => {
 
   it('separates instance and endpoint caches', async () => {
     const { service } = createService();
-    const get = jest
-      .fn()
-      .mockResolvedValue({ status: 200, data: { code: 0, data: progress } });
-    mockRecallClient(get);
+    const urls: string[] = [];
+    const { appApiClient: realClient } = jest.requireActual<
+      typeof import('@onekeyhq/shared/src/appApiClient/appApiClient')
+    >('@onekeyhq/shared/src/appApiClient/appApiClient');
+    jest
+      .mocked(appApiClient.getBasicClient)
+      .mockImplementation(async (options) => {
+        const client = await realClient.getBasicClient(options);
+        client.defaults.adapter = async (config) => {
+          urls.push(client.getUri(config));
+          return {
+            status: 200,
+            statusText: 'OK',
+            headers: {},
+            config,
+            data: { code: 0, data: progress },
+          };
+        };
+        return client;
+      });
     await service.fetchPerpsRecallProgress();
     instanceId = 'another-instance';
     await service.fetchPerpsRecallProgress();
@@ -1439,7 +1579,11 @@ describe('ServiceReferralCode Perps recall progress', () => {
       endpoint: 'https://other.onekey.so',
     });
     await service.fetchPerpsRecallProgress();
-    expect(get).toHaveBeenCalledTimes(3);
+    expect(urls).toEqual([
+      'https://test.onekey.so/rebate/v1/recall/progress?instanceId=test-instance',
+      'https://test.onekey.so/rebate/v1/recall/progress?instanceId=another-instance',
+      'https://other.onekey.so/rebate/v1/recall/progress?instanceId=another-instance',
+    ]);
     expect(snapshot.instanceId).toBe('another-instance');
     expect(snapshot.endpoint).toBe('https://other.onekey.so');
   });
