@@ -37,7 +37,6 @@ export function EarnPhoneHome({
   showsHoldings,
   isHoldLoading,
   holdRows,
-  networkNames,
   markets,
   isMarketsLoaded,
   faqList,
@@ -64,7 +63,6 @@ export function EarnPhoneHome({
   showsHoldings: boolean;
   isHoldLoading: boolean;
   holdRows: IEarnDesktopHoldRow[];
-  networkNames: Map<string, string>;
   markets: IEarnDesktopMarketReserves[];
   isMarketsLoaded: boolean;
   faqList: Array<{ question: string; answer: string }>;
@@ -88,7 +86,6 @@ export function EarnPhoneHome({
       <EarnDesktopHoldCard
         variant="phone"
         rows={holdRows}
-        networkNames={networkNames}
         onOpenRow={onOpenHoldRow}
         onOpenAll={onOpenHoldings}
       />

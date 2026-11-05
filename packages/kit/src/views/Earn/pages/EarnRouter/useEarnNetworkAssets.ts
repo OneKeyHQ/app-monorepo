@@ -229,8 +229,18 @@ export function useEarnNetworkAssets({
     return bySymbol;
   }, [networkId, wallet.networkGroups]);
 
+  // Every network: the ones the wallet has an account on, as the home's
+  // rows count a token's best rate (an EVM-only wallet gets no Solana offer
+  // it can't deposit in), so the window's pick is the row's
+  const { accountNetworkIds, isLoaded: isWalletLoaded } = wallet;
   return useMemo(() => {
-    const isInScope = (id: string) => !networkId || id === networkId;
+    const accountScope =
+      !networkId && accountNetworkIds.length
+        ? new Set(accountNetworkIds)
+        : undefined;
+    const isInScope = (id: string) =>
+      (!networkId || id === networkId) &&
+      (!accountScope || accountScope.has(id));
     const inScope = protocols.filter(
       (item) => item.symbol && isInScope(item.network.networkId),
     );
@@ -339,12 +349,18 @@ export function useEarnNetworkAssets({
       stableSymbols,
       networkName: network?.name,
       networkLogoURI: network?.logoURI,
-      isLoaded: protocols !== NO_PROTOCOLS && isMarketsLoaded,
+      // Across networks, once the wallet says which networks it has
+      isLoaded:
+        protocols !== NO_PROTOCOLS &&
+        isMarketsLoaded &&
+        (Boolean(networkId) || isWalletLoaded),
     };
   }, [
+    accountNetworkIds,
     assets,
     held,
     isMarketsLoaded,
+    isWalletLoaded,
     lendingOffers,
     network,
     networkId,

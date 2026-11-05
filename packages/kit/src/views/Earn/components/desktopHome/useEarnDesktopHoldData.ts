@@ -8,6 +8,7 @@ import { EarnNavigation } from '../../earnUtils';
 import {
   collectLendingOffers,
   deriveLendingSupply,
+  getHoldRowTarget,
 } from './earnDesktopHome.utils';
 import { useEarnDesktopHoldRows } from './useEarnDesktopHoldRows';
 import {
@@ -79,6 +80,7 @@ export function useEarnDesktopHoldData({
   );
   const hold = useEarnDesktopHoldRows({
     networkGroups: wallet.networkGroups,
+    accountNetworkIds: wallet.accountNetworkIds,
     trendingAssets,
     fixedRateAssets,
     lendingOffers,
@@ -98,20 +100,25 @@ export function useEarnDesktopHoldData({
 }
 
 /**
- * A held token opens the deposit modal with every way to earn on it, on the
- * network it sits on, and the offer whose rate the row showed chosen
+ * A held token opens the deposit modal on the token on all networks, with
+ * every way to earn on it there, and the offer whose rate the row showed
+ * chosen, on its network
  */
 export function useEarnDesktopOpenHoldRow() {
   const navigation = useAppNavigation();
   return useCallback(
-    (row: IEarnDesktopHoldRow) =>
+    (row: IEarnDesktopHoldRow) => {
+      const { networkId, provider, offerKey } = getHoldRowTarget(row);
       EarnNavigation.pushToEarnOffersDeposit(navigation, {
         symbol: row.asset.symbol,
-        networkId: row.networkId,
+        networkId,
+        provider,
         logoURI: row.asset.logoURI || row.token.logoURI,
-        offerKey: row.offers[0]?.key,
+        offerKey,
         wide: row.offers.length > 1,
-      }),
+        allNetworks: true,
+      });
+    },
     [navigation],
   );
 }

@@ -675,7 +675,6 @@ export function EarnDesktopHome({
           showsHoldings={phoneShowsHoldings}
           isHoldLoading={!hasNoWallet && !hold.isLoaded}
           holdRows={hold.rows}
-          networkNames={hold.networkNames}
           markets={markets}
           isMarketsLoaded={isMarketsLoaded}
           faqList={faqList}
@@ -782,7 +781,6 @@ export function EarnDesktopHome({
           ) : null}
           <EarnDesktopTiles
             holdRows={hold.rows}
-            networkNames={hold.networkNames}
             isLoading={!hasNoWallet && !hold.isLoaded}
             markets={markets}
             isMarketsLoaded={isMarketsLoaded}

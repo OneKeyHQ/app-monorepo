@@ -21,15 +21,16 @@ type IProtocolLists = {
 };
 
 const EMPTY_ROWS: IEarnDesktopHoldRow[] = [];
-const EMPTY_NETWORK_NAMES = new Map<string, string>();
 
 /**
- * What the wallet holds, a row per token per network, with what Earn offers
- * for it on that network. The protocol list is asked once per held symbol,
- * the call the table makes when a token opens.
+ * What the wallet holds, a row per token over every network it sits on, with
+ * what Earn offers for it on any network the wallet has an account on. The
+ * protocol list is asked once per held symbol, the call the table makes when
+ * a token opens; it covers every network.
  */
 export function useEarnDesktopHoldRows({
   networkGroups,
+  accountNetworkIds,
   trendingAssets,
   fixedRateAssets,
   lendingOffers,
@@ -37,6 +38,8 @@ export function useEarnDesktopHoldRows({
   isReady,
 }: {
   networkGroups: IEarnDesktopWalletNetworkGroup[];
+  /** The networks the wallet has an account on */
+  accountNetworkIds: string[];
   trendingAssets: IEarnAvailableAsset[];
   fixedRateAssets: IEarnAvailableAsset[];
   lendingOffers: Map<string, IEarnDesktopLendingOffer[]>;
@@ -103,32 +106,16 @@ export function useEarnDesktopHoldRows({
             assets,
             protocolsBySymbol: lists.bySymbol,
             lendingOffers,
+            accountNetworkIds,
           })
         : EMPTY_ROWS,
-    [assets, lendingOffers, lists, networkGroups],
+    [accountNetworkIds, assets, lendingOffers, lists, networkGroups],
   );
   // The protocol lists are asked again when the page comes back into focus
   const rows = useContentStable(builtRows);
 
-  const networkIdsKey = Array.from(new Set(rows.map((row) => row.networkId)))
-    .toSorted()
-    .join(',');
-  const { result: fetchedNetworkNames } = usePromiseResult(
-    async () => {
-      const { networks } =
-        await backgroundApiProxy.serviceNetwork.getNetworksByIds({
-          networkIds: networkIdsKey ? networkIdsKey.split(',') : [],
-        });
-      return new Map(networks.map((network) => [network.id, network.name]));
-    },
-    [networkIdsKey],
-    { initResult: EMPTY_NETWORK_NAMES },
-  );
-  const networkNames = useContentStable(fetchedNetworkNames);
-
   return {
     rows,
-    networkNames,
     // A list for an older set of symbols would show the wrong rows
     isLoaded: isReady && lists?.key === listsKey,
   };

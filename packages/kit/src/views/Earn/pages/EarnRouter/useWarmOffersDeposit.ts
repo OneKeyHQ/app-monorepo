@@ -25,6 +25,7 @@ import {
   keepFirstFrame,
   warmFirstFrame,
 } from './earnFirstFrameCache';
+import { getOfferNetworkId } from './useEarnNetworkAssets';
 
 import type { IEarnDesktopHoldOffer } from '../../components/desktopHome/earnDesktopHome.utils';
 
@@ -38,10 +39,13 @@ function preloadDepositPage() {
 
 type IWarmTarget = {
   symbol: string;
+  // The network the modal opens on: with allNetworks, the opening offer's
   networkId: string;
   offers: IEarnDesktopHoldOffer[];
   /** The offer the modal opens on, when not the best rate */
   offerKey?: string;
+  /** The offers are the token's on every network (a home holding) */
+  allNetworks?: boolean;
 };
 
 type IWarmFormTarget = {
@@ -205,14 +209,30 @@ export function useWarmOffersDeposit() {
 
   return useCallback(
     (
-      { symbol, networkId, offers, offerKey }: IWarmTarget,
+      { symbol, networkId, offers, offerKey, allNetworks }: IWarmTarget,
       { withData = true }: { withData?: boolean } = {},
     ) => {
       preloadDepositPage();
+      // The network's own offers under its key, so a read for that network
+      // alone never lists another network's
+      const networkOffers = allNetworks
+        ? offers.filter((item) => getOfferNetworkId(item) === networkId)
+        : offers;
       keepFirstFrame(
         buildOffersFirstFrameKey({ accountId, networkId, symbol }),
-        offers.length ? offers : undefined,
+        networkOffers.length ? networkOffers : undefined,
       );
+      if (allNetworks) {
+        keepFirstFrame(
+          buildOffersFirstFrameKey({
+            accountId,
+            networkId,
+            symbol,
+            allNetworks,
+          }),
+          offers.length ? offers : undefined,
+        );
+      }
       const offer =
         offers.find((item) => item.key === offerKey) ?? offers.at(0);
       // A lending market's form reads its account first; it loads on open

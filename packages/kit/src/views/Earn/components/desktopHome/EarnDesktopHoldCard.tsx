@@ -19,7 +19,6 @@ import {
 } from '@onekeyhq/components';
 import { ANIMATE_ONLY_OPACITY } from '@onekeyhq/components/src/utils/animationConstants';
 import { Currency } from '@onekeyhq/kit/src/components/Currency';
-import { NetworkAvatar } from '@onekeyhq/kit/src/components/NetworkAvatar/NetworkAvatar';
 import NumberSizeableTextWrapper from '@onekeyhq/kit/src/components/NumberSizeableTextWrapper';
 import { convertFiat } from '@onekeyhq/kit/src/utils/fiatConvert';
 import {
@@ -40,9 +39,11 @@ import { AprText } from '../AprText';
 import { EarnPhoneSectionTitle } from '../EarnPhoneSectionTitle';
 
 import { ANIMATE_ONLY_BG_COLOR } from './earnDesktopColorEase';
+import { getHoldRowTarget } from './earnDesktopHome.utils';
 import { EARN_DESKTOP_DEMO_COPY } from './earnDesktopHomeCopy';
 import {
   EarnDesktopSurfaceProvider,
+  SurfaceNetworkLogos,
   SurfaceToken,
   buildKeyboardPressProps,
   usePressableSurface,
@@ -135,7 +136,8 @@ const getOfferBadge = (offer: IEarnDesktopHoldOffer | undefined) =>
 const NARROW_RATE_WIDTH = 96;
 // Two lines of a row (an amount at 24 over its 16 tall second line) and the
 // token's icon (md)
-const TWO_LINES_HEIGHT = 24 + 16;
+const NARROW_SECOND_LINE_HEIGHT = 16;
+const TWO_LINES_HEIGHT = 24 + NARROW_SECOND_LINE_HEIGHT;
 const TOKEN_ICON_SIZE = 32;
 // The rows' first lines on one line across the tiles: a row with a badge
 // grows downwards. This much above and below two lines makes the tile's
@@ -220,13 +222,11 @@ function RowBalance({ row }: { row: IEarnDesktopHoldRow }) {
 
 function BasicHoldRow({
   row,
-  networkName,
   isWide,
   onOpenRow,
   onWarmRow,
 }: {
   row: IEarnDesktopHoldRow;
-  networkName?: string;
   isWide: boolean;
   onOpenRow: (row: IEarnDesktopHoldRow) => void;
   // Gets the deposit modal's form ready, so it opens complete
@@ -294,10 +294,11 @@ function BasicHoldRow({
       {intl.formatMessage({ id: ETranslations.defi_fixed_rate })}
     </SizableText>
   ) : null;
+  const tokenImageUri = row.token.logoURI || row.asset.logoURI;
   return (
     <EarnDesktopSurfaceProvider value={surface}>
       <XStack
-        testID={`earn-desktop-hold-${row.networkId}-${symbol}`}
+        testID={`earn-desktop-hold-${symbol}`}
         role="button"
         ai={isWide ? 'center' : 'flex-start'}
         gap={ROW_GAP}
@@ -320,13 +321,9 @@ function BasicHoldRow({
         {isWide ? (
           <>
             <XStack {...COLUMNS.asset} ai="center" gap="$3">
-              {/* The chain on the token too, as every token row under the
-                  hero shows it */}
-              <SurfaceToken
-                size="md"
-                tokenImageUri={row.token.logoURI || row.asset.logoURI}
-                networkId={row.networkId}
-              />
+              {/* No chain on the token: the row is the token on every
+                  network, and the next column names them */}
+              <SurfaceToken size="md" tokenImageUri={tokenImageUri} />
               <YStack flex={1} minWidth={0}>
                 <XStack ai="center" gap="$1.5" minWidth={0}>
                   {symbolText}
@@ -335,11 +332,11 @@ function BasicHoldRow({
                 {fixedLine}
               </YStack>
             </XStack>
-            <XStack {...COLUMNS.network} ai="center" gap="$2">
-              <NetworkAvatar networkId={row.networkId} size="$5" />
-              <SizableText size="$bodyMd" numberOfLines={1} flexShrink={1}>
-                {networkName ?? ''}
-              </SizableText>
+            <XStack {...COLUMNS.network} ai="center">
+              <SurfaceNetworkLogos
+                networkIds={row.networkIds}
+                testID={`earn-desktop-hold-networks-${symbol}`}
+              />
             </XStack>
             <YStack {...COLUMNS.balance}>
               <RowBalance row={row} />
@@ -350,7 +347,7 @@ function BasicHoldRow({
             </YStack>
             <XStack w={ACTION_WIDTH} flexShrink={0} jc="flex-end">
               <Button
-                testID={`earn-desktop-hold-earn-${row.networkId}-${symbol}`}
+                testID={`earn-desktop-hold-earn-${symbol}`}
                 size="small"
                 variant="secondary"
                 // The row is the Tab stop with the same action: one stop a
@@ -371,24 +368,21 @@ function BasicHoldRow({
           </>
         ) : (
           <>
-            {/* One column has no room for a network column: the badge and
-                the second line carry the network */}
             <YStack mt={NARROW_ICON_MT}>
-              <SurfaceToken
-                size="md"
-                tokenImageUri={row.token.logoURI || row.asset.logoURI}
-                networkId={row.networkId}
-              />
+              <SurfaceToken size="md" tokenImageUri={tokenImageUri} />
             </YStack>
+            {/* One column has no room for a network column: the networks
+                take the second line, their rings over its edges so the row
+                keeps its height */}
             <YStack flex={1} minWidth={0}>
               {symbolText}
-              <SizableText
-                size="$bodySm"
-                color="$textSubdued"
-                numberOfLines={1}
-              >
-                {networkName ?? ''}
-              </SizableText>
+              <XStack h={NARROW_SECOND_LINE_HEIGHT} ai="center">
+                <SurfaceNetworkLogos
+                  networkIds={row.networkIds}
+                  size="$3.5"
+                  testID={`earn-desktop-hold-networks-${symbol}`}
+                />
+              </XStack>
             </YStack>
             {/* A number is never cut short: the names give way first */}
             <YStack ai="flex-end" flexShrink={0}>
@@ -462,18 +456,20 @@ function HoldLabels() {
   );
 }
 
+// The modal opens on the token on every network, at the offer the row shows
 const toWarmTarget = (row: IEarnDesktopHoldRow) => ({
   symbol: row.asset.symbol,
-  networkId: row.networkId,
+  networkId: getHoldRowTarget(row).networkId,
   offers: row.offers,
+  allNetworks: true,
 });
 
 /**
- * Earns on your holding: what the wallet holds, a row per token per network,
- * with the best rate Earn has for it on that network. The title and labels
- * stand on the page and every row is a tile of its own, so the section reads
- * in layers instead of as one flat card. A row opens the deposit modal for that
- * token on that network.
+ * Earns on your holding: what the wallet holds, a row per token over every
+ * network it sits on, with the best rate Earn has for it on any network the
+ * wallet uses. The title and labels stand on the page and every row is a
+ * tile of its own, so the section reads in layers instead of as one flat
+ * card. A row opens the deposit modal for that token on all networks.
  *
  * On the phone home the section shows its first rows under the phone's
  * section title, whose chevron opens the page with every row; that page
@@ -481,13 +477,11 @@ const toWarmTarget = (row: IEarnDesktopHoldRow) => ({
  */
 function BasicEarnDesktopHoldCard({
   rows,
-  networkNames,
   onOpenRow,
   variant = 'section',
   onOpenAll,
 }: {
   rows: IEarnDesktopHoldRow[];
-  networkNames: Map<string, string>;
   onOpenRow: (row: IEarnDesktopHoldRow) => void;
   variant?: 'section' | 'phone' | 'page';
   /** The phone home: the page with every row */
@@ -540,7 +534,6 @@ function BasicEarnDesktopHoldCard({
     <HoldRow
       key={row.key}
       row={row}
-      networkName={networkNames.get(row.networkId)}
       isWide={isWide}
       onOpenRow={onOpenRow}
       onWarmRow={handleWarmRow}
@@ -737,9 +730,9 @@ export function EarnDesktopHoldCardSkeleton({
                   <Skeleton w="$8" h="$8" radius="round" />
                   <Skeleton w={56} h={16} borderRadius="$2" />
                 </XStack>
-                <XStack {...COLUMNS.network} ai="center" gap="$2">
-                  <Skeleton w="$5" h="$5" radius="round" />
-                  <Skeleton w={64} h={14} borderRadius="$2" />
+                {/* Two network logos' outline, inside their rings */}
+                <XStack {...COLUMNS.network} ai="center" pl="$0.5">
+                  <Skeleton w={38} h={20} borderRadius="$full" />
                 </XStack>
                 <YStack {...COLUMNS.balance}>
                   <SkeletonPair top={72} bottom={48} />
@@ -755,7 +748,10 @@ export function EarnDesktopHoldCardSkeleton({
               <>
                 <Skeleton w="$8" h="$8" radius="round" />
                 <YStack flex={1} minWidth={0}>
-                  <SkeletonPair top={48} bottom={64} />
+                  <SkeletonLine height={24} width={48} barHeight={16} />
+                  <YStack h={NARROW_SECOND_LINE_HEIGHT} jc="center" pl="$0.5">
+                    <Skeleton w={28} h={14} borderRadius="$full" />
+                  </YStack>
                 </YStack>
                 <YStack ai="flex-end">
                   <SkeletonPair top={72} bottom={48} />

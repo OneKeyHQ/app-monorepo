@@ -28,8 +28,9 @@ import { useEarnPortfolio } from '../../hooks/useEarnPortfolio';
 
 /**
  * Every row of Earns on your holding, which the phone home shows the first
- * of: what the wallet holds that Earn takes, a row per token per network,
- * the most valuable first. A row opens the deposit window, as on the home
+ * of: what the wallet holds that Earn takes, a row per token over every
+ * network it sits on, the most valuable first. A row opens the deposit
+ * window, as on the home
  */
 function EarnHoldingsContent() {
   const intl = useIntl();
@@ -54,7 +55,6 @@ function EarnHoldingsContent() {
       <EarnDesktopHoldCard
         variant="page"
         rows={hold.rows}
-        networkNames={hold.networkNames}
         onOpenRow={handleOpenRow}
       />
     ) : (

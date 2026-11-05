@@ -27,6 +27,7 @@ import {
   findPositionDeposit,
   formatSharePercent,
   getAssetSortApr,
+  getHoldRowTarget,
   getLoanAssetType,
   getLoanNetApy,
   parseCompactFiatText,
@@ -39,7 +40,10 @@ import {
   sumWalletHoldings,
 } from './earnDesktopHome.utils';
 
-import type { IEarnDesktopLendingOffer } from './earnDesktopHome.utils';
+import type {
+  IEarnDesktopLendingOffer,
+  IEarnDesktopWalletNetworkGroup,
+} from './earnDesktopHome.utils';
 
 const investment = (
   code: string,
@@ -1255,61 +1259,156 @@ describe('buildHoldRows', () => {
       protocols: [],
     }) as unknown as IEarnAvailableAsset;
 
-  it('lists a token once per network with the offers on that network', () => {
-    // The 10-21 test wallet: USDC on Arbitrum, Ethereum and Avalanche
+  // The 10-21 test wallet: USDC on Arbitrum, Ethereum and Avalanche
+  const usdcGroups: IEarnDesktopWalletNetworkGroup[] = [
+    {
+      accountId: 'a',
+      networkId: 'evm--1',
+      tokens: [walletToken('USDC', 'eth_usdc', { logoURI: 'eth.png' })],
+      map: { eth_usdc: walletFiat('4.025784', '4.02') },
+    },
+    {
+      accountId: 'b',
+      networkId: 'evm--42161',
+      tokens: [walletToken('USDC', 'arb_usdc', { logoURI: 'arb.png' })],
+      map: { arb_usdc: walletFiat('355.739591', '355.53') },
+    },
+    {
+      accountId: 'c',
+      networkId: 'evm--43114',
+      tokens: [walletToken('USDC', 'avax_usdc')],
+      map: { avax_usdc: walletFiat('105.4', '105.34') },
+    },
+  ];
+  const usdcProtocols = new Map([
+    [
+      'usdc',
+      [
+        protocol('spark', 'evm--1', '5.42'),
+        protocol('morpho', 'evm--1', '3.82'),
+        protocol('kamino', 'sol--101', '6.1'),
+      ],
+    ],
+  ]);
+  const usdcLending = new Map([
+    [
+      'usdc',
+      [
+        lending('aave', 'evm--42161', '2.37'),
+        lending('aave', 'evm--1', '3.85'),
+      ],
+    ],
+  ]);
+
+  it('lists a token once, added up over the networks it sits on', () => {
+    const rows = buildHoldRows({
+      groups: usdcGroups,
+      assets: [earnAsset('USDC')],
+      protocolsBySymbol: usdcProtocols,
+      lendingOffers: usdcLending,
+    });
+    expect(rows).toHaveLength(1);
+    const [usdc] = rows;
+    expect(usdc.key).toBe('usdc');
+    // Avalanche pays nothing but its USDC counts: Earn bridges it
+    expect(usdc.amount).toBe('465.165375');
+    expect(usdc.fiatValueUsd).toBe('464.89');
+    // The networks it sits on, the most valuable first
+    expect(usdc.networkIds).toEqual(['evm--42161', 'evm--43114', 'evm--1']);
+    // The token as listed where the wallet holds the most of it
+    expect(usdc.token.logoURI).toBe('arb.png');
+    // Every network's offers, the best rate first
+    expect(usdc.offers.map((offer) => offer.apr)).toEqual([
+      6.1, 5.42, 3.85, 3.82, 2.37,
+    ]);
+    expect(getHoldRowTarget(usdc)).toEqual({
+      networkId: 'sol--101',
+      provider: 'kamino',
+      offerKey: 'sol--101-kamino-kamino-vault',
+    });
+  });
+
+  it('counts only the offers on networks the wallet has an account on', () => {
+    // An EVM address has no Solana account to deposit Kamino's USDC from
+    const [usdc] = buildHoldRows({
+      groups: usdcGroups,
+      assets: [earnAsset('USDC')],
+      protocolsBySymbol: usdcProtocols,
+      lendingOffers: usdcLending,
+      accountNetworkIds: ['evm--1', 'evm--42161', 'evm--43114'],
+    });
+    expect(usdc.offers.map((offer) => offer.apr)).toEqual([
+      5.42, 3.85, 3.82, 2.37,
+    ]);
+    expect(getHoldRowTarget(usdc)).toEqual({
+      networkId: 'evm--1',
+      provider: 'spark',
+      offerKey: 'evm--1-spark-spark-vault',
+    });
+    // A lending market's protocol is the market's own
+    const [onArbitrum] = buildHoldRows({
+      groups: usdcGroups,
+      assets: [earnAsset('USDC')],
+      protocolsBySymbol: usdcProtocols,
+      lendingOffers: usdcLending,
+      accountNetworkIds: ['evm--42161'],
+    });
+    expect(getHoldRowTarget(onArbitrum)).toEqual({
+      networkId: 'evm--42161',
+      provider: 'aave',
+      offerKey: 'aave:evm--42161:usdc',
+    });
+  });
+
+  it('leaves out a token Earn offers nowhere the wallet can take it', () => {
     const rows = buildHoldRows({
       groups: [
         {
           accountId: 'a',
           networkId: 'evm--1',
-          tokens: [walletToken('USDC', 'eth_usdc')],
-          map: { eth_usdc: walletFiat('4.025784', '4.02') },
-        },
-        {
-          accountId: 'a',
-          networkId: 'evm--42161',
-          tokens: [walletToken('USDC', 'arb_usdc')],
-          map: { arb_usdc: walletFiat('355.739591', '355.53') },
-        },
-        {
-          accountId: 'a',
-          networkId: 'evm--43114',
-          tokens: [walletToken('USDC', 'avax_usdc')],
-          map: { avax_usdc: walletFiat('105.4', '105.34') },
+          tokens: [
+            walletToken('USDC', 'eth_usdc'),
+            walletToken('PEPE', 'eth_pepe'),
+            walletToken('USDT', 'eth_usdt'),
+          ],
+          map: {
+            eth_usdc: walletFiat('10', '10'),
+            eth_pepe: walletFiat('1000', '50'),
+            eth_usdt: walletFiat('20', '20'),
+          },
         },
       ],
+      // PEPE isn't listed; USDT is, but pays only on Solana
+      assets: [earnAsset('USDC'), earnAsset('USDT')],
+      protocolsBySymbol: new Map([
+        ['usdc', [protocol('spark', 'evm--8453', '4')]],
+        ['usdt', [protocol('kamino', 'sol--101', '5')]],
+      ]),
+      lendingOffers: new Map(),
+      accountNetworkIds: ['evm--1', 'evm--8453'],
+    });
+    // USDC pays on Base only, where the wallet holds none: it still counts
+    expect(rows.map((row) => [row.token.symbol, row.networkIds])).toEqual([
+      ['USDC', ['evm--1']],
+    ]);
+  });
+
+  it('leads with the offer that needs no bridge when two pay the same', () => {
+    const [usdc] = buildHoldRows({
+      groups: usdcGroups,
       assets: [earnAsset('USDC')],
       protocolsBySymbol: new Map([
         [
           'usdc',
           [
-            protocol('spark', 'evm--1', '5.42'),
-            protocol('morpho', 'evm--1', '3.82'),
+            protocol('spark', 'evm--8453', '4'),
+            protocol('spark', 'evm--1', '4'),
           ],
         ],
       ]),
-      lendingOffers: new Map([
-        [
-          'usdc',
-          [
-            lending('aave', 'evm--42161', '2.37'),
-            lending('aave', 'evm--1', '3.85'),
-          ],
-        ],
-      ]),
+      lendingOffers: new Map(),
     });
-    // Avalanche has nothing to earn on, so it stays out; the most valuable
-    // first, each with its best rate first
-    expect(
-      rows.map((row) => [
-        row.networkId,
-        row.amount,
-        row.offers.map((offer) => offer.apr),
-      ]),
-    ).toEqual([
-      ['evm--42161', '355.739591', [2.37]],
-      ['evm--1', '4.025784', [5.42, 3.85, 3.82]],
-    ]);
+    expect(getHoldRowTarget(usdc).networkId).toBe('evm--1');
   });
 
   it('leaves out redeem-only and zero-rate offers, and a market listed twice', () => {
@@ -1398,8 +1497,10 @@ describe('ready to earn', () => {
   });
 
   it('sums what the rows are worth and earn in a year at their rates', () => {
-    expect(rows).toHaveLength(4);
-    expect(sumHoldRows(rows)).toEqual({ valueUsd: 480, yearlyUsd: 16 });
+    // USDC on Arbitrum and Ethereum is one row, at the best rate anywhere
+    expect(rows).toHaveLength(3);
+    // 400 at 5%, 50 at 4% and 30 at 10%
+    expect(sumHoldRows(rows)).toEqual({ valueUsd: 480, yearlyUsd: 25 });
     expect(sumHoldRows([])).toEqual({ valueUsd: 0, yearlyUsd: 0 });
   });
 

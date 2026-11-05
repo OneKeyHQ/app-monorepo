@@ -1563,15 +1563,19 @@ export type IEarnDesktopHoldOffer =
 
 export type IEarnDesktopHoldRow = {
   key: string;
-  accountId: string;
-  networkId: string;
+  /** The token as the wallet lists it where it holds the most of it */
   token: IAccountToken;
-  /** The balance in display units */
+  /** The balance added up over networks, in display units */
   amount: string;
   /** Its value in USD, the basis the token cache keeps; shown converted */
   fiatValueUsd: string;
+  /** The networks the wallet holds it on, the most valuable first */
+  networkIds: string[];
   asset: IEarnAvailableAsset;
-  /** What the token can earn on its own network, the best rate first */
+  /**
+   * What the token can earn on any network the wallet uses, the best rate
+   * first: Earn bridges it from where it sits
+   */
   offers: IEarnDesktopHoldOffer[];
 };
 
@@ -1628,20 +1632,66 @@ export function collectNetworkOffers({
   return [...protocolOffers, ...lendingRows].toSorted((a, b) => b.apr - a.apr);
 }
 
-// Each token the wallet holds, one row per network, with what Earn offers
-// for it on that same network; the most valuable first. A token with nothing
-// to earn where it sits is left out, since earning it means moving it first
+const getHoldOfferNetworkId = (offer: IEarnDesktopHoldOffer) =>
+  offer.kind === 'protocol'
+    ? offer.item.network.networkId
+    : offer.offer.market.networkId;
+
+// What Earn offers for one token on every network, the best rate first: each
+// network's offers as collectNetworkOffers counts them there. With networks
+// given, the offers on those alone
+export function collectTokenOffers({
+  protocols,
+  lendingOffers,
+  networkIds,
+}: {
+  protocols: IStakeProtocolListItem[];
+  lendingOffers: IEarnDesktopLendingOffer[];
+  networkIds?: Set<string>;
+}): IEarnDesktopHoldOffer[] {
+  const offerNetworkIds = new Set([
+    ...protocols.map((item) => item.network.networkId),
+    ...lendingOffers.map((offer) => offer.market.networkId),
+  ]);
+  return Array.from(offerNetworkIds)
+    .filter((networkId) => !networkIds || networkIds.has(networkId))
+    .flatMap((networkId) =>
+      collectNetworkOffers({ networkId, protocols, lendingOffers }),
+    )
+    .toSorted((a, b) => b.apr - a.apr);
+}
+
+type IHeldToken = {
+  token: IAccountToken;
+  amount: BigNumber;
+  fiatValueUsd: BigNumber;
+  /** What it is worth on each network it sits on */
+  byNetwork: Map<string, BigNumber>;
+  /** What it is worth on the network the token above is listed on */
+  tokenValueUsd: BigNumber;
+};
+
+// Each token the wallet holds, one row over every network it sits on (since
+// 11-05), with what Earn offers for it on any network the wallet can take it
+// to: Earn bridges it there. The most valuable first. A token Earn offers
+// nowhere is left out
 export function buildHoldRows({
   groups,
   assets,
   protocolsBySymbol,
   lendingOffers,
+  accountNetworkIds,
 }: {
   groups: IEarnDesktopWalletNetworkGroup[];
   assets: IEarnAvailableAsset[];
   /** The protocol lists, keyed by lowercased symbol */
   protocolsBySymbol: Map<string, IStakeProtocolListItem[]>;
   lendingOffers: Map<string, IEarnDesktopLendingOffer[]>;
+  /**
+   * The networks the wallet has an account on, as All Networks lists them:
+   * an offer elsewhere is one it can't deposit in. Unset, every network
+   */
+  accountNetworkIds?: string[];
 }): IEarnDesktopHoldRow[] {
   const assetBySymbol = new Map<string, IEarnAvailableAsset>();
   assets.forEach((asset) => {
@@ -1650,8 +1700,8 @@ export function buildHoldRows({
       assetBySymbol.set(key, asset);
     }
   });
-  const rows: IEarnDesktopHoldRow[] = [];
-  groups.forEach(({ accountId, networkId, tokens, map }) => {
+  const held = new Map<string, IHeldToken>();
+  groups.forEach(({ networkId, tokens, map }) => {
     tokens.forEach((token) => {
       const fiat = map[token.$key];
       // Risk tokens never come in; DeFi-marked tokens are positions, not
@@ -1660,8 +1710,7 @@ export function buildHoldRows({
         return;
       }
       const symbolKey = token.symbol.toLowerCase();
-      const asset = assetBySymbol.get(symbolKey);
-      if (!asset) {
+      if (!assetBySymbol.has(symbolKey)) {
         return;
       }
       const amount = new BigNumber(
@@ -1673,34 +1722,96 @@ export function buildHoldRows({
       if (!amount.isFinite() || amount.lte(0)) {
         return;
       }
-      const offers = collectNetworkOffers({
-        networkId,
-        protocols: protocolsBySymbol.get(symbolKey) ?? [],
-        lendingOffers: lendingOffers.get(symbolKey) ?? [],
-      });
-      if (!offers.length) {
+      // A value in another basis than USD counts as none rather than being
+      // added to dollars
+      const fiatValue = new BigNumber(fiat.fiatValue);
+      const value =
+        fiatValue.isFinite() &&
+        (fiat.currency ?? USD_CURRENCY_ID) === USD_CURRENCY_ID
+          ? fiatValue
+          : new BigNumber(0);
+      const kept = held.get(symbolKey);
+      if (!kept) {
+        held.set(symbolKey, {
+          token,
+          amount,
+          fiatValueUsd: value,
+          byNetwork: new Map([[networkId, value]]),
+          tokenValueUsd: value,
+        });
         return;
       }
-      const value = new BigNumber(fiat.fiatValue);
-      rows.push({
-        key: `${accountId}|${networkId}|${token.$key}`,
-        accountId,
+      kept.amount = kept.amount.plus(amount);
+      kept.fiatValueUsd = kept.fiatValueUsd.plus(value);
+      kept.byNetwork.set(
         networkId,
-        token,
-        amount: amount.toFixed(),
-        fiatValueUsd:
-          value.isFinite() &&
-          (fiat.currency ?? USD_CURRENCY_ID) === USD_CURRENCY_ID
-            ? value.toFixed()
-            : '0',
-        asset,
-        offers,
-      });
+        (kept.byNetwork.get(networkId) ?? new BigNumber(0)).plus(value),
+      );
+      if (value.gt(kept.tokenValueUsd)) {
+        kept.token = token;
+        kept.tokenValueUsd = value;
+      }
+    });
+  });
+  const usable = accountNetworkIds ? new Set(accountNetworkIds) : undefined;
+  const rows: IEarnDesktopHoldRow[] = [];
+  held.forEach((item, symbolKey) => {
+    const asset = assetBySymbol.get(symbolKey);
+    const offers = collectTokenOffers({
+      protocols: protocolsBySymbol.get(symbolKey) ?? [],
+      lendingOffers: lendingOffers.get(symbolKey) ?? [],
+      networkIds: usable,
+    });
+    if (!asset || !offers.length) {
+      return;
+    }
+    const networkIds = Array.from(item.byNetwork)
+      .toSorted((a, b) => b[1].comparedTo(a[1]) ?? 0)
+      .map(([networkId]) => networkId);
+    // Two offers paying the same: the one on a network the wallet holds the
+    // token on needs no bridge, so it leads
+    const heldRank = (offer: IEarnDesktopHoldOffer) => {
+      const rank = networkIds.indexOf(getHoldOfferNetworkId(offer));
+      return rank === -1 ? networkIds.length : rank;
+    };
+    rows.push({
+      key: symbolKey,
+      token: item.token,
+      amount: item.amount.toFixed(),
+      fiatValueUsd: item.fiatValueUsd.toFixed(),
+      networkIds,
+      asset,
+      offers: offers.toSorted(
+        (a, b) => b.apr - a.apr || heldRank(a) - heldRank(b),
+      ),
     });
   });
   return rows.toSorted(
     (a, b) => Number(b.fiatValueUsd) - Number(a.fiatValueUsd),
   );
+}
+
+/**
+ * Where a held token's Earn opens: on the offer whose rate the row shows,
+ * its network and protocol, with the token's offers on every network listed
+ */
+export function getHoldRowTarget(row: IEarnDesktopHoldRow): {
+  networkId: string;
+  provider: string;
+  offerKey?: string;
+} {
+  const [best] = row.offers;
+  if (!best) {
+    return { networkId: row.networkIds[0] ?? '', provider: '' };
+  }
+  return {
+    networkId: getHoldOfferNetworkId(best),
+    provider:
+      best.kind === 'protocol'
+        ? best.item.provider.name
+        : best.offer.market.provider,
+    offerKey: best.key,
+  };
 }
 
 // ---------- Offer cards ----------

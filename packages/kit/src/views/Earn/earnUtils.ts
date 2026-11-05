@@ -530,12 +530,16 @@ export const EarnNavigation = {
   },
 
   // The deposit modal for a token on one network, choosing among its offers
-  // there (desktop demo, 10-22)
+  // there (desktop demo, 10-22), or on every network (a home holding, by
+  // token since 11-05)
   pushToEarnOffersDeposit(
     navigation: IAppNavigation,
     params: {
       symbol: string;
+      // The network it opens on: with allNetworks, the starting offer's
       networkId: string;
+      // The starting offer's protocol; unset, each offer names its own
+      provider?: string;
       logoURI?: string;
       // The offer to start on; the best rate otherwise
       offerKey?: string;
@@ -547,7 +551,7 @@ export const EarnNavigation = {
       wide?: boolean;
       // Every token of the kind on the network, the symbol's among them
       assetClass?: IEarnAssetClass;
-      // On every network, not networkId's alone (a home row by token, 11-05)
+      // The token's offers on every network, not the one network's alone
       allNetworks?: boolean;
     },
   ) {
@@ -556,8 +560,7 @@ export const EarnNavigation = {
       params: {
         networkId: params.networkId,
         symbol: params.symbol,
-        // Each offer names its own
-        provider: '',
+        provider: params.provider ?? '',
         tab: 'deposit',
         tokenImageUri: params.logoURI,
         earnOffers: {

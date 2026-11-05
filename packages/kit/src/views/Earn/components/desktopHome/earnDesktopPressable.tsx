@@ -2,7 +2,7 @@ import { createContext, useContext, useMemo, useState } from 'react';
 
 import { useReducedMotion } from 'react-native-reanimated';
 
-import { Stack } from '@onekeyhq/components';
+import { SizableText, Stack, XStack } from '@onekeyhq/components';
 import { NetworkAvatar } from '@onekeyhq/kit/src/components/NetworkAvatar';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import type { ITokenProps } from '@onekeyhq/kit/src/components/Token';
@@ -97,6 +97,54 @@ const RING_MOTION = {
   transition: 'quick',
   animateOnly: ANIMATE_ONLY_BG_COLOR,
 } as const;
+
+// As many network logos as a position's asset logos show, then a count
+const NETWORK_LOGOS_SHOWN = 4;
+// How far each logo slides under the one before, at each size used
+const NETWORK_LOGO_OVERLAP = { '$5': '$-1.5', '$3.5': '$-1' } as const;
+
+/**
+ * A token's networks as their logos overlapping, the first on top, as a
+ * position's asset logos show (EarnLoanAssetLogos). Each sits in a ring of
+ * the card or row it is on, eased with it as SurfaceToken's badge is, so the
+ * overlap reads as a cut rather than a border.
+ */
+export function SurfaceNetworkLogos({
+  networkIds,
+  size = '$5',
+  testID,
+}: {
+  networkIds: string[];
+  size?: keyof typeof NETWORK_LOGO_OVERLAP;
+  testID?: string;
+}) {
+  const surfaces = useEarnDesktopSurfaces();
+  const reduceMotion = useReducedMotion();
+  const ringColor = useContext(SurfaceContext) ?? surfaces.rest;
+  const shown = networkIds.slice(0, NETWORK_LOGOS_SHOWN);
+  return (
+    <XStack testID={testID} ai="center" flexShrink={0}>
+      {shown.map((networkId, index) => (
+        <Stack
+          key={networkId}
+          p="$0.5"
+          ml={index ? NETWORK_LOGO_OVERLAP[size] : undefined}
+          zIndex={shown.length - index}
+          bg={ringColor}
+          borderRadius="$full"
+          {...(reduceMotion ? undefined : RING_MOTION)}
+        >
+          <NetworkAvatar networkId={networkId} size={size} />
+        </Stack>
+      ))}
+      {networkIds.length > shown.length ? (
+        <SizableText size="$bodySm" color="$textSubdued" ml="$1">
+          {`+${networkIds.length - shown.length}`}
+        </SizableText>
+      ) : null}
+    </XStack>
+  );
+}
 
 /**
  * Token's network badge sits in a ring of the page color, a dark circle on a

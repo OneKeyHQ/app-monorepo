@@ -527,7 +527,6 @@ const OFFER_KINDS: IEarnDesktopOfferKind[] = [
  */
 function BasicEarnDesktopTiles({
   holdRows,
-  networkNames,
   isLoading,
   markets,
   isMarketsLoaded,
@@ -543,7 +542,6 @@ function BasicEarnDesktopTiles({
   onOpenLoanPair,
 }: {
   holdRows: IEarnDesktopHoldRow[];
-  networkNames: Map<string, string>;
   /** Until the wallet, the Earn lists and the markets have each answered */
   isLoading: boolean;
   markets: IEarnDesktopMarketReserves[];
@@ -672,11 +670,7 @@ function BasicEarnDesktopTiles({
   if (holdRows.length) {
     return (
       <SwapHeightEase contentKey="holdings">
-        <EarnDesktopHoldCard
-          rows={holdRows}
-          networkNames={networkNames}
-          onOpenRow={onOpenHoldRow}
-        />
+        <EarnDesktopHoldCard rows={holdRows} onOpenRow={onOpenHoldRow} />
       </SwapHeightEase>
     );
   }

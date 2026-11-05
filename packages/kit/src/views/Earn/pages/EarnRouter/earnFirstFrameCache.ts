@@ -73,15 +73,20 @@ export function warmFirstFrame<T>(
   return promise;
 }
 
+// A token's offers on one network, or with allNetworks on every network (a
+// home holding, by token since 11-05), whatever network it opens on
 export const buildOffersFirstFrameKey = ({
   accountId,
   networkId,
   symbol,
+  allNetworks,
 }: {
   accountId?: string;
   networkId: string;
   symbol: string;
-}) => `offers:${accountId ?? ''}:${networkId}:${symbol.toLowerCase()}`;
+  allNetworks?: boolean;
+}) =>
+  `offers:${accountId ?? ''}:${allNetworks ? '*' : networkId}:${symbol.toLowerCase()}`;
 
 export const buildManagePageFirstFrameKey = (requestKey: string) =>
   `manage:${requestKey}`;

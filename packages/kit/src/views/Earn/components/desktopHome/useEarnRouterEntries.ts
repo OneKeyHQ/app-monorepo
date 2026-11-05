@@ -10,7 +10,11 @@ import { isEarnAssetClass } from '../../pages/EarnAssetSelect/earnAssetSelect.ut
 import { buildLoanSelectTokens } from '../../pages/EarnLoanRouter/loanRouter.utils';
 import { listPayTokens } from '../../pages/EarnRouter/earnRouter.utils';
 
-import { getLoanAssetType, isSameLoanAsset } from './earnDesktopHome.utils';
+import {
+  getHoldRowTarget,
+  getLoanAssetType,
+  isSameLoanAsset,
+} from './earnDesktopHome.utils';
 import { EARN_GUIDE_SYMBOL, getEarnGuideNetworkId } from './earnGuide.utils';
 
 import type {
@@ -25,11 +29,12 @@ const NO_STABLE_SYMBOLS = new Set<string>();
 
 /**
  * The two routers' quick entries (the phone home's Earn and Loans tiles; the
- * wide home has none, its rows open the routers). Earn opens the deposit window on
- * what the wallet holds most of, comparing its whole kind there, paid with
- * the token itself. Loans opens the Loans window on the most valuable token
- * a market takes as collateral, against stable tokens (against ETH when the
- * collateral is stable itself). With nothing to start from (no wallet, or
+ * wide home has none, its rows open the routers). Earn opens the deposit
+ * window on what the wallet holds most of over every network, comparing its
+ * whole kind on all networks, paid with the token itself. Loans opens the
+ * Loans window on the most valuable token a market takes as collateral,
+ * against stable tokens (against ETH when the collateral is stable
+ * itself). With nothing to start from (no wallet, or
  * nothing it holds earns or backs a loan), each still opens its window: Earn
  * on USDC on Base, the guide's example, and Loans on ETH against stable
  * tokens; their rates show, and without a wallet the button connects one
@@ -63,13 +68,18 @@ export function useEarnRouterEntries({
       return;
     }
     const type = getLoanAssetType(top.asset.symbol, NO_STABLE_SYMBOLS);
+    // The holding is the token on every network: the window compares on all
+    // of them too, from the network of its best rate
+    const { networkId, provider } = getHoldRowTarget(top);
     EarnNavigation.pushToEarnOffersDeposit(navigation, {
       symbol: top.asset.symbol,
-      networkId: top.networkId,
+      networkId,
+      provider,
       logoURI: top.asset.logoURI || top.token.logoURI,
       // A kind lists its offers beside the form
       wide: isEarnAssetClass(type) || top.offers.length > 1,
       assetClass: isEarnAssetClass(type) ? type : undefined,
+      allNetworks: true,
     });
   }, [navigation]);
 

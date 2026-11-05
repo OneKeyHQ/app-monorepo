@@ -323,6 +323,7 @@ const INITIAL_WALLET_CACHE: IWalletCache = {
 const INITIAL_WALLET_FRESH: IWalletFresh = { groups: new Map() };
 const EMPTY_HOLDINGS = new Map<string, IEarnDesktopWalletHolding>();
 const EMPTY_NETWORK_GROUPS: IEarnDesktopWalletNetworkGroup[] = [];
+const EMPTY_NETWORK_IDS: string[] = [];
 // Names these fetches for aborts and logs
 const WALLET_HOLDINGS_FLAG = 'earn-desktop-home-holdings';
 // A list this recent is kept when the page regains focus or another network
@@ -558,6 +559,7 @@ export function useEarnDesktopWalletHoldings({
       return {
         holdings: EMPTY_HOLDINGS,
         networkGroups: EMPTY_NETWORK_GROUPS,
+        accountNetworkIds: EMPTY_NETWORK_IDS,
       };
     }
     const groups = new Map(cache.groups);
@@ -566,7 +568,7 @@ export function useEarnDesktopWalletHoldings({
     }
     return {
       holdings: sumWalletHoldings(Array.from(groups.values())),
-      // The same lists a network at a time, for the rows per network
+      // The same lists a network at a time, for where each token sits
       networkGroups: Array.from(
         groups,
         ([key, group]): IEarnDesktopWalletNetworkGroup => {
@@ -578,11 +580,16 @@ export function useEarnDesktopWalletHoldings({
           };
         },
       ),
+      // Where the wallet can receive a token, holding any there or not
+      accountNetworkIds: Array.from(
+        new Set(cache.accounts.map((item) => item.networkId)),
+      ).toSorted(),
     };
   }, [cache, fresh, scope]);
   // A refetch on focus answers with the same balances as new objects
   const holdings = useContentStable(derived.holdings);
   const networkGroups = useContentStable(derived.networkGroups);
+  const accountNetworkIds = useContentStable(derived.accountNetworkIds);
 
   // A settled transaction moves wallet balances too
   const refresh = useCallback(() => {
@@ -597,5 +604,5 @@ export function useEarnDesktopWalletHoldings({
     cache.scope === scope &&
     (cache.hasTokens || !refreshKey || fresh.scope === scope);
 
-  return { holdings, networkGroups, isLoaded, refresh };
+  return { holdings, networkGroups, accountNetworkIds, isLoaded, refresh };
 }
