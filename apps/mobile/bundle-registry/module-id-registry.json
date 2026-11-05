@@ -26910,6 +26910,7 @@
     "packages/kit/src/views/Swap/pages/components/SwapTipsContainer.tsx": 9132,
     "packages/kit/src/views/Swap/pages/components/SwapTipsContainer.utils.ts": 17985,
     "packages/kit/src/views/Swap/pages/components/swapHeaderMarketDetail.ts": 15542,
+    "packages/kit/src/views/Swap/pages/components/useStockReceiveDisplaySnapshot.tsx": 16050,
     "packages/kit/src/views/Swap/pages/modal/LimitOrderDetailModal.tsx": 24164,
     "packages/kit/src/views/Swap/pages/modal/LimitOrderListModal.tsx": 22337,
     "packages/kit/src/views/Swap/pages/modal/SwapHistoryDetailModal.tsx": 8971,
