@@ -26,12 +26,14 @@ export type IDeFiActionTxConfirmDialogResult =
 function DeFiActionTxConfirmResult({
   accountId,
   networkId,
+  expectedAccountAddress,
   txid,
   onDone,
   onStatusChange,
 }: {
   accountId: string;
   networkId: string;
+  expectedAccountAddress?: string;
   txid: string;
   onDone: (result: IDeFiActionTxConfirmDialogResult) => void;
   onStatusChange: (result: IDeFiActionTxConfirmDialogResult) => void;
@@ -48,6 +50,7 @@ function DeFiActionTxConfirmResult({
       const result = await waitForTxFinalStatus({
         accountId,
         networkId,
+        expectedAccountAddress,
         txid,
         signal: controller.signal,
       });
@@ -68,7 +71,7 @@ function DeFiActionTxConfirmResult({
       // truth for a broadcast-but-not-yet-final tx.
     })();
     return () => controller.abort();
-  }, [accountId, networkId, onStatusChange, txid]);
+  }, [accountId, networkId, expectedAccountAddress, onStatusChange, txid]);
 
   // PreSwapConfirmResult is fully prop-driven; it reads only status / txHash off
   // the step and networkId off fromToken (to build the explorer link). The
@@ -126,11 +129,13 @@ export function getLastSignedTxid(
 export function showDeFiActionTxConfirmDialog({
   accountId,
   networkId,
+  expectedAccountAddress,
   data,
   resolveOnClose,
 }: {
   accountId?: string;
   networkId: string;
+  expectedAccountAddress?: string;
   data: ISendTxOnSuccessData[];
   resolveOnClose?: boolean;
 }): Promise<IDeFiActionTxConfirmDialogResult> {
@@ -154,6 +159,7 @@ export function showDeFiActionTxConfirmDialog({
         <DeFiActionTxConfirmResult
           accountId={accountId}
           networkId={networkId}
+          expectedAccountAddress={expectedAccountAddress}
           txid={txid}
           onStatusChange={(result) => {
             latestResult = result;

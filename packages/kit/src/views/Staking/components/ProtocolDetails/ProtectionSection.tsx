@@ -12,9 +12,9 @@ import {
 } from '@onekeyhq/components';
 import { ANIMATE_ONLY_TRANSFORM } from '@onekeyhq/components/src/utils/animationConstants';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
+import { getEarnProtocol } from '@onekeyhq/kit/src/views/Earn/protocols';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import type { IStakeProtocolDetails } from '@onekeyhq/shared/types/staking';
 
 function AutoRiskControlContent() {
@@ -133,9 +133,7 @@ export const ProtectionSection = ({
   const intl = useIntl();
   if (
     !details ||
-    !earnUtils.isMorphoProvider({
-      providerName: details.provider.name,
-    })
+    !getEarnProtocol(details.provider.name).showsProtectionSection()
   ) {
     return null;
   }

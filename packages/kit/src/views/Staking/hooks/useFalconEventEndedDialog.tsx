@@ -3,9 +3,9 @@ import { useCallback } from 'react';
 import { useIntl } from 'react-intl';
 
 import { Checkbox, Dialog } from '@onekeyhq/components';
+import { getEarnProtocol } from '@onekeyhq/kit/src/views/Earn/protocols';
 import { formatApy } from '@onekeyhq/kit/src/views/Staking/components/utils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
@@ -33,11 +33,11 @@ export function useFalconEventEndedDialog({
   const showFalconEventEndedDialog = useCallback(
     async (): Promise<void> =>
       new Promise((resolve) => {
-        const isFalconProvider = earnUtils.isFalconProvider({
-          providerName,
+        const notice = getEarnProtocol(providerName).getDepositEventNotice({
+          isEventActive,
+          dismissed: falconDepositDoNotShowAgain,
         });
-
-        if (!isFalconProvider || isEventActive || falconDepositDoNotShowAgain) {
+        if (notice !== 'falcon-apy-change') {
           resolve();
           return;
         }

@@ -70,19 +70,32 @@ export const { atom: earnLoadingStatesAtom, use: useEarnLoadingStatesAtom } =
 export const {
   atom: earnPortfolioInvestmentsAtom,
   use: useEarnPortfolioInvestmentsAtom,
-} = contextAtom<Record<string, IEarnPortfolioInvestment[]>>({});
+} = contextAtom<
+  Record<
+    string,
+    {
+      accountScope: string;
+      investments: IEarnPortfolioInvestment[];
+    }
+  >
+>({});
 
 /**
  * Phone positions page (OK-61377): the last response of every
- * (account, network, provider) scope, keyed by scope under the earn account
- * key, so the page renders what it showed last time the moment it opens and
- * each scope is replaced in place as its refresh lands.
+ * (account, network, provider) scope, stored under the earn account key and
+ * bound to the wallet's current address scope.
  */
 export const {
   atom: earnPortfolioPositionsAtom,
   use: useEarnPortfolioPositionsAtom,
 } = contextAtom<
-  Record<string, Record<string, IEarnPortfolioPositionsResponse>>
+  Record<
+    string,
+    {
+      accountScope: string;
+      scopes: Record<string, IEarnPortfolioPositionsResponse>;
+    }
+  >
 >({});
 
 export const useEarnAtom = () => useContextAtom(earnAtom());

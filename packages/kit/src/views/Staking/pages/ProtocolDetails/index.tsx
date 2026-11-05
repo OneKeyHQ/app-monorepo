@@ -12,16 +12,15 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useAppRoute } from '@onekeyhq/kit/src/hooks/useAppRoute';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useRouteIsFocused as useIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
+import { getEarnProtocol } from '@onekeyhq/kit/src/views/Earn/protocols';
 import { useEarnEventActive } from '@onekeyhq/kit/src/views/Staking/hooks/useEarnEventActive';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   EModalStakingRoutes,
   type IModalStakingParamList,
 } from '@onekeyhq/shared/src/routes';
-import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
-import { EEarnProviderEnum } from '@onekeyhq/shared/types/earn';
 
 import { BabylonTrackingAlert } from '../../components/BabylonTrackingAlert';
 import {
@@ -99,7 +98,7 @@ const ProtocolDetailsPage = () => {
   const { result: trackingResp, run: refreshTracking } = usePromiseResult(
     async () => {
       if (
-        provider.toLowerCase() !== EEarnProviderEnum.Babylon.toLowerCase() ||
+        getEarnProtocol(provider).getOrderTrackingPolicy() !== 'babylon' ||
         !earnAccount
       ) {
         return [];
@@ -289,14 +288,13 @@ const ProtocolDetailsPage = () => {
   );
 
   const falconUSDfRegister = useEarnSignMessage();
-  const shouldRegisterBeforeStake = useMemo(() => {
-    if (
-      earnUtils.isFalconProvider({ providerName: result?.provider.name ?? '' })
-    ) {
-      return !result?.hasRegister;
-    }
-    return false;
-  }, [result?.hasRegister, result?.provider.name]);
+  const shouldRegisterBeforeStake = useMemo(
+    () =>
+      getEarnProtocol(result?.provider.name ?? '').requiresStakeRegistration({
+        isRegistered: result?.hasRegister,
+      }),
+    [result?.hasRegister, result?.provider.name],
+  );
 
   const registerButtonProps = useMemo<ComponentProps<typeof Button>>(
     () => ({
@@ -446,7 +444,7 @@ const ProtocolDetailsPage = () => {
               error={isErrorState({ result, isLoading })}
               onRefresh={run}
             >
-              <ProtocolDetails details={result}>
+              <ProtocolDetails details={result} symbol={symbol}>
                 {earnAccount?.accountAddress ? (
                   <>
                     <StakedValueSection

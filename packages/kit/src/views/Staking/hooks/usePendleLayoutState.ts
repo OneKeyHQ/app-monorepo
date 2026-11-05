@@ -1,18 +1,21 @@
 import { useMemo } from 'react';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import type { IStakeTransactionConfirmation } from '@onekeyhq/shared/types/staking';
+import type {
+  ECheckAmountActionType,
+  IEarnStakeType,
+  IStakeTransactionConfirmation,
+} from '@onekeyhq/shared/types/staking';
 
 import { usePendleTransactionDetails } from '../components/ProtocolDetails/PendleSharedComponents';
 
-import { useIsPendleProvider } from './useIsPendleProvider';
-
+import type { IEarnTransactionLayout } from '../../Earn/protocols/EarnProtocol';
 import type { IManagePageV2ReceiveInputConfig } from '../components/ManagePageV2ReceiveInput';
 
 const ARROW_OVERLAY_OFFSET = -13;
 
 type IUsePendleLayoutStateParams = {
-  providerName: string;
+  transactionLayout: IEarnTransactionLayout;
   transactionConfirmation: IStakeTransactionConfirmation | undefined;
   amountValue: string;
   showApyDetail: boolean;
@@ -20,10 +23,13 @@ type IUsePendleLayoutStateParams = {
   networkLogoURI: string | undefined;
   isQuoteExpired: boolean | undefined;
   loading?: boolean;
+  stakeType?: IEarnStakeType;
+  action?: ECheckAmountActionType | 'approve';
+  hideYieldPreview?: boolean;
 };
 
 export function usePendleLayoutState({
-  providerName,
+  transactionLayout,
   transactionConfirmation,
   amountValue,
   showApyDetail,
@@ -31,12 +37,16 @@ export function usePendleLayoutState({
   networkLogoURI,
   isQuoteExpired,
   loading,
+  stakeType,
+  action,
+  hideYieldPreview,
 }: IUsePendleLayoutStateParams) {
-  const isPendleProvider = useIsPendleProvider(providerName);
-  const isPendleLikeLayout = isPendleProvider;
+  const isPendleLikeLayout = transactionLayout === 'market';
+  const isPreparationStep = stakeType === 'wrap' || action === 'approve';
+  const shouldHideYield = isPreparationStep || hideYieldPreview;
 
   const normalizedPendleTipText = useMemo(() => {
-    if (!isPendleProvider) {
+    if (!isPendleLikeLayout) {
       return undefined;
     }
     const tipText = transactionConfirmation?.tip?.text;
@@ -48,7 +58,7 @@ export function usePendleLayoutState({
       ...tipText,
       text: normalizedText,
     };
-  }, [isPendleProvider, transactionConfirmation?.tip?.text]);
+  }, [isPendleLikeLayout, transactionConfirmation?.tip?.text]);
 
   const pendleAccordionItems = usePendleTransactionDetails({
     transactionConfirmation,
@@ -75,7 +85,8 @@ export function usePendleLayoutState({
   const transactionDetailsTriggerText =
     transactionConfirmation?.transactionDetails?.text;
   const apyDetail = transactionConfirmation?.apyDetail;
-  const showApyHeader = showApyDetail && !!apyDetail && !isPendleLikeLayout;
+  const showApyHeader =
+    !shouldHideYield && showApyDetail && !!apyDetail && !isPendleLikeLayout;
   const hasLegacySummaryContent =
     !!transactionConfirmation?.title ||
     !!transactionConfirmation?.tooltip ||
@@ -84,7 +95,8 @@ export function usePendleLayoutState({
     !!transactionConfirmation?.availableLiquidity ||
     (transactionConfirmation?.rewards?.length ?? 0) > 0;
   const hasSummarySection =
-    showApyHeader || usePendleSummaryLayout || hasLegacySummaryContent;
+    !shouldHideYield &&
+    (showApyHeader || usePendleSummaryLayout || hasLegacySummaryContent);
 
   const pendleTipText =
     isPendleLikeLayout && normalizedPendleTipText
@@ -105,8 +117,9 @@ export function usePendleLayoutState({
   ]);
 
   const showExpiredRefresh =
+    !isPreparationStep &&
     isQuoteExpired &&
-    isPendleProvider &&
+    isPendleLikeLayout &&
     !!amountValue &&
     Number(amountValue) > 0;
 
@@ -136,7 +149,6 @@ export function usePendleLayoutState({
   }, []);
 
   return {
-    isPendleProvider,
     isPendleLikeLayout,
     normalizedPendleTipText,
     pendleAccordionItems,

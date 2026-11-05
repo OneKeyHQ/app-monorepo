@@ -1,8 +1,16 @@
 import type { ComponentProps, ReactElement } from 'react';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 
 import { useIntl } from 'react-intl';
 
+import { Alert, Spinner } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
@@ -22,16 +30,16 @@ import {
   useUniversalBorrowBorrow,
   useUniversalBorrowSupply,
 } from '@onekeyhq/kit/src/views/Borrow/hooks/useUniversalBorrowHooks';
+import { getEarnProtocol } from '@onekeyhq/kit/src/views/Earn/protocols';
+import type { IEarnStakeConfirmParams } from '@onekeyhq/kit/src/views/Staking/earnDepositTask/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EModalRoutes, EModalStakingRoutes } from '@onekeyhq/shared/src/routes';
 import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
-import { EEarnProviderEnum } from '@onekeyhq/shared/types/earn';
 import type { IFeeUTXO } from '@onekeyhq/shared/types/fee';
 import { EApproveType, EEarnLabels } from '@onekeyhq/shared/types/staking';
 import type {
-  IApproveConfirmFnParams,
   IEarnSelectField,
   IEarnTokenInfo,
   IEarnTokenItem,
@@ -39,18 +47,26 @@ import type {
 } from '@onekeyhq/shared/types/staking';
 import type { IToken } from '@onekeyhq/shared/types/token';
 
-import { UniversalStake } from '../../../components/UniversalStake';
+import { RetainedTaskFallback } from '../../../components/EarnProtocolForms/RetainedTaskFallback';
+import { EarnStakeForm } from '../../../components/EarnProtocolForms/Stake';
+import { findRetainedDepositAsset } from '../../../earnDepositTask/retainedAsset';
+import {
+  getDepositTaskOwnerKey,
+  useRetainedDepositTask,
+} from '../../../earnDepositTask/useRetainedDepositTask';
 import { useBorrowApiParams } from '../../../hooks/useBorrowApiParams';
-import { useIsPendleProvider } from '../../../hooks/useIsPendleProvider';
+import { useEtherFiStakeApproval } from '../../../hooks/useEtherFiStakeApproval';
+import { useStakeAssets } from '../../../hooks/useStakeAssets';
 import { useUniversalStake } from '../../../hooks/useUniversalHooks';
 import {
   buildBorrowTag,
   buildStakeTokenUniqueKey,
   normalizeStakeTokenAddress,
-  resolveNativeEarnProtocolSymbol,
-  resolveNativeEarnStakeRequestSymbol,
-  resolveNativeEarnStakeType,
+  resolveEarnStakeRequestSymbol,
+  resolveEarnStakeType,
+  resolveSelectedStakeAsset,
   resolveStakeTokenAddress,
+  resolveWrappedStakeAsset,
 } from '../../../utils/utils';
 
 import { resolveStakeInitialAllowanceTarget } from './StakeSection.utils';
@@ -75,6 +91,9 @@ const StakeSectionContent = ({
   protocolInfo,
   isDisabled,
   onSuccess,
+  onTaskRecoveryComplete,
+  onLegacyApprovalCleared,
+  isLegacyApprovalBlocked,
   beforeFooter,
   footerActionOverride,
   showApyDetail,
@@ -101,6 +120,9 @@ const StakeSectionContent = ({
   protocolInfo?: IProtocolInfo;
   isDisabled?: boolean;
   onSuccess?: () => void;
+  onTaskRecoveryComplete?: () => void;
+  onLegacyApprovalCleared?: () => void;
+  isLegacyApprovalBlocked?: boolean;
   beforeFooter?: ReactElement | null;
   footerActionOverride?: IManagePositionFooterAction;
   showApyDetail?: boolean;
@@ -130,11 +152,22 @@ const StakeSectionContent = ({
     () => protocolInfo?.provider ?? '',
     [protocolInfo?.provider],
   );
-  const isPendleProvider = useIsPendleProvider(providerName);
-  const isNativeProvider = useMemo(
-    () => earnUtils.isNativeProvider({ providerName }),
+  const retainedOwnerKey = getDepositTaskOwnerKey({
+    accountId,
+    accountAddress: protocolInfo?.earnAccount?.accountAddress,
+    networkId,
+    provider: providerName,
+    vault: protocolInfo?.vault,
+  });
+  const retained = useRetainedDepositTask(retainedOwnerKey);
+  const retainedTask = retained.status === 'ready' ? retained.value : null;
+  const earnProtocol = useMemo(
+    () => getEarnProtocol(providerName),
     [providerName],
   );
+  const stakeAssetPolicy = earnProtocol.getStakeAssetPolicy();
+  const stakePresentation = earnProtocol.getStakePresentation();
+  const stakeTracking = earnProtocol.getOrderTrackingPolicy();
   const borrowProviderDisplayName = useMemo(() => {
     if (
       protocolInfo?.providerDetail.name &&
@@ -151,11 +184,10 @@ const StakeSectionContent = ({
   >(undefined);
   const stakeAssetsSymbol = useMemo(
     () =>
-      resolveNativeEarnProtocolSymbol({
-        isNativeProvider,
+      earnProtocol.resolveStakeRequestSymbol({
         protocolSymbol: protocolInfo?.symbol,
       }),
-    [isNativeProvider, protocolInfo?.symbol],
+    [earnProtocol, protocolInfo?.symbol],
   );
   const borrowApiCtx = useBorrowApiParams({
     useBorrowApi,
@@ -191,60 +223,62 @@ const StakeSectionContent = ({
     };
   }, [accountId, borrowApiCtx, networkId, protocolInfo?.borrowAllowance]);
 
-  const { result: stakeAssetsList, isLoading: isStakeAssetsLoading } =
-    usePromiseResult(
-      async () => {
-        if (
-          !hasRequiredData ||
-          !(isPendleProvider || isNativeProvider) ||
-          !accountId ||
-          !stakeAssetsSymbol
-        ) {
-          return undefined;
-        }
-        return backgroundApiProxy.serviceStaking.getEarnAssetsList({
-          accountId,
-          networkId,
-          provider: providerName,
-          symbol: stakeAssetsSymbol,
-          vault: protocolInfo?.vault || undefined,
-          action: 'stake',
-        });
-      },
-      [
-        hasRequiredData,
-        isPendleProvider,
-        isNativeProvider,
-        accountId,
-        networkId,
-        providerName,
-        protocolInfo?.vault,
-        stakeAssetsSymbol,
-      ],
-      {
-        watchLoading: true,
-      },
-    );
+  const nativeWrapSelectedRef = useRef(false);
+  const {
+    result: stakeAssetsList,
+    isLoading: isStakeAssetsLoading,
+    run: retryStakeAssets,
+    scopeKey: stakeAssetsScopeKey,
+    wrappedToken,
+    isWrappedTokenLoading,
+    retryWrappedToken,
+  } = useStakeAssets({
+    enabled: Boolean(hasRequiredData && stakeAssetPolicy.selection !== 'fixed'),
+    accountId,
+    networkId,
+    providerName,
+    symbol: stakeAssetsSymbol,
+    vault: protocolInfo?.vault,
+    nativeWrapSelectedRef,
+  });
 
   const selectableStakeAssets = useMemo(() => {
-    return stakeAssetsList?.assets ?? [];
-  }, [stakeAssetsList?.assets]);
+    return stakeAssetsList?.scopeKey === stakeAssetsScopeKey &&
+      stakeAssetsList.isCurrentScope()
+      ? stakeAssetsList.assets
+      : [];
+  }, [stakeAssetsList, stakeAssetsScopeKey]);
+  const stakeAssetsError =
+    stakeAssetPolicy.assetError === 'always' &&
+    isStakeAssetsLoading !== true &&
+    stakeAssetsList?.scopeKey === stakeAssetsScopeKey &&
+    stakeAssetsList.isCurrentScope() &&
+    stakeAssetsList.status === 'error';
+
   const reconciledStakeAssetsRef = useRef(selectableStakeAssets);
 
   const isWaitingForStakeAsset =
     Boolean(hasRequiredData && accountId && stakeAssetsSymbol) &&
     !isBorrowStake &&
-    (isPendleProvider || isNativeProvider) &&
-    ((!selectedStakeAsset && isStakeAssetsLoading !== false) ||
-      (selectableStakeAssets.length > 0 &&
-        (!selectedStakeAsset ||
-          (reconciledStakeAssetsRef.current !== selectableStakeAssets &&
-            !selectableStakeAssets.some((asset) =>
-              isSameStakeAsset(asset, selectedStakeAsset),
-            )))));
+    stakeAssetPolicy.selection !== 'fixed' &&
+    (stakeAssetPolicy.assetResolution === 'initial-token'
+      ? isStakeAssetsLoading !== false ||
+        Boolean(
+          stakeAssetsList &&
+          (stakeAssetsList.scopeKey !== stakeAssetsScopeKey ||
+            !stakeAssetsList.isCurrentScope()),
+        )
+      : (!selectedStakeAsset && isStakeAssetsLoading !== false) ||
+        (selectableStakeAssets.length > 0 &&
+          (!selectedStakeAsset ||
+            (reconciledStakeAssetsRef.current !== selectableStakeAssets &&
+              !selectableStakeAssets.some((asset) =>
+                isSameStakeAsset(asset, selectedStakeAsset),
+              )))));
 
   useEffect(() => {
     reconciledStakeAssetsRef.current = selectableStakeAssets;
+    if (stakeAssetPolicy.assetResolution === 'initial-token') return;
     if (!selectableStakeAssets.length) {
       setSelectedStakeAsset(undefined);
       return;
@@ -262,22 +296,44 @@ const StakeSectionContent = ({
 
       return selectableStakeAssets[0];
     });
-  }, [selectableStakeAssets]);
+  }, [stakeAssetPolicy.assetResolution, selectableStakeAssets]);
+
+  let activeStakeAsset = selectedStakeAsset;
+  if (stakeAssetPolicy.assetResolution === 'initial-token') {
+    activeStakeAsset = resolveSelectedStakeAsset({
+      assets: selectableStakeAssets,
+      selectedToken: selectedStakeAsset?.info,
+      initialToken: tokenInfo?.token,
+    });
+  } else if (reconciledStakeAssetsRef.current !== selectableStakeAssets) {
+    activeStakeAsset =
+      selectableStakeAssets.find(
+        (asset) =>
+          selectedStakeAsset && isSameStakeAsset(asset, selectedStakeAsset),
+      ) ?? selectedStakeAsset;
+  }
+  if (retainedTask) {
+    activeStakeAsset = findRetainedDepositAsset({
+      assets: selectableStakeAssets,
+      networkId,
+      inputTokenAddress: retainedTask.task.identity.inputTokenAddress,
+    });
+  }
 
   const effectiveStakeTokenInfo = useMemo(() => {
-    if (!tokenInfo || !selectedStakeAsset) {
+    if (!tokenInfo || !activeStakeAsset) {
       return tokenInfo;
     }
     return {
       ...tokenInfo,
-      balanceParsed: selectedStakeAsset.balanceParsed || '0',
-      price: selectedStakeAsset.price || '0',
+      balanceParsed: activeStakeAsset.balanceParsed || '0',
+      price: activeStakeAsset.price || '0',
       token: {
         ...tokenInfo.token,
-        ...selectedStakeAsset.info,
+        ...activeStakeAsset.info,
       } as IEarnTokenInfo['token'],
     };
-  }, [selectedStakeAsset, tokenInfo]);
+  }, [activeStakeAsset, tokenInfo]);
 
   const selectedStakeTokenAddress = useMemo(
     () =>
@@ -290,54 +346,122 @@ const StakeSectionContent = ({
       effectiveStakeTokenInfo?.token.isNative,
     ],
   );
-  const nativeWrappedStakeAsset = useMemo(() => {
-    if (!isNativeProvider) {
+  const wrappedStakeAsset = useMemo(() => {
+    if (stakeAssetPolicy.selection !== 'wrapped') {
       return undefined;
     }
-    return selectableStakeAssets.find(
-      (asset) =>
-        !asset.info.isNative && asset.info.symbol.toUpperCase() === 'WETH',
+    return (
+      resolveWrappedStakeAsset({
+        assets: selectableStakeAssets,
+        networkId,
+        providerName,
+      }) ?? (wrappedToken ? { info: wrappedToken } : undefined)
     );
-  }, [isNativeProvider, selectableStakeAssets]);
-  const nativeStakeType = useMemo(
+  }, [
+    stakeAssetPolicy.selection,
+    selectableStakeAssets,
+    networkId,
+    providerName,
+    wrappedToken,
+  ]);
+  const stakeType = useMemo(
     () =>
-      resolveNativeEarnStakeType({
-        isNativeProvider,
+      resolveEarnStakeType({
+        providerName,
+        tokenSymbol: effectiveStakeTokenInfo?.token.symbol,
         vaultSymbol: stakeAssetsSymbol,
         tokenIsNative: effectiveStakeTokenInfo?.token?.isNative,
       }),
     [
       effectiveStakeTokenInfo?.token?.isNative,
-      isNativeProvider,
+      effectiveStakeTokenInfo?.token.symbol,
+      providerName,
       stakeAssetsSymbol,
     ],
   );
+  useLayoutEffect(() => {
+    nativeWrapSelectedRef.current =
+      stakeAssetPolicy.assetError === 'selected-wrap' &&
+      !borrowApiCtx.isBorrow &&
+      stakeType === 'wrap';
+  }, [borrowApiCtx.isBorrow, stakeAssetPolicy.assetError, stakeType]);
   const stakeRequestSymbol = useMemo(
     () =>
-      resolveNativeEarnStakeRequestSymbol({
-        isNativeProvider,
+      resolveEarnStakeRequestSymbol({
+        providerName,
         protocolSymbol: stakeAssetsSymbol || protocolInfo?.symbol,
         tokenSymbol:
           effectiveStakeTokenInfo?.token.symbol || tokenInfo?.token.symbol,
         tokenIsNative: effectiveStakeTokenInfo?.token?.isNative,
-        wrappedTokenSymbol: nativeWrappedStakeAsset?.info.symbol,
+        wrappedTokenSymbol: wrappedStakeAsset?.info.symbol,
       }),
     [
       effectiveStakeTokenInfo?.token?.isNative,
       effectiveStakeTokenInfo?.token.symbol,
-      isNativeProvider,
-      nativeWrappedStakeAsset?.info.symbol,
+      providerName,
+      wrappedStakeAsset?.info.symbol,
       protocolInfo?.symbol,
       stakeAssetsSymbol,
       tokenInfo?.token.symbol,
     ],
   );
+  const selectedStakeApproval = useEtherFiStakeApproval({
+    enabled: stakeAssetPolicy.approval === 'selected-asset',
+    networkId,
+    provider: providerName,
+    symbol:
+      stakeType === 'wrap'
+        ? wrappedStakeAsset && activeStakeAsset?.info.symbol
+        : activeStakeAsset?.info.symbol,
+    vault: protocolInfo?.vault,
+    wrappedNative: stakeType === 'wrap',
+  });
+  const stakeApprove =
+    stakeAssetPolicy.approval === 'selected-asset'
+      ? selectedStakeApproval.approve
+      : protocolInfo?.approve;
+  const missingWrappedStakeAsset = Boolean(
+    stakeAssetPolicy.selection === 'wrapped' &&
+    !borrowApiCtx.isBorrow &&
+    stakeType === 'wrap' &&
+    isStakeAssetsLoading !== true &&
+    !isWrappedTokenLoading &&
+    stakeAssetsList?.scopeKey === stakeAssetsScopeKey &&
+    stakeAssetsList.isCurrentScope() &&
+    stakeAssetsList.status === 'success' &&
+    !wrappedStakeAsset,
+  );
+  const wrappedStakeAssetsError = Boolean(
+    stakeAssetPolicy.assetError === 'selected-wrap' &&
+    !borrowApiCtx.isBorrow &&
+    stakeType === 'wrap' &&
+    isStakeAssetsLoading !== true &&
+    stakeAssetsList?.scopeKey === stakeAssetsScopeKey &&
+    stakeAssetsList.isCurrentScope() &&
+    stakeAssetsList.status === 'error',
+  );
+  const isStakeAssetReady =
+    (borrowApiCtx.isBorrow ||
+      stakeType !== 'wrap' ||
+      Boolean(
+        wrappedStakeAsset &&
+        stakeAssetsList?.scopeKey === stakeAssetsScopeKey &&
+        stakeAssetsList.isCurrentScope() &&
+        stakeAssetsList.status === 'success' &&
+        isStakeAssetsLoading !== true,
+      )) &&
+    (stakeAssetPolicy.approval !== 'selected-asset' ||
+      Boolean(
+        activeStakeAsset &&
+        stakeApprove?.approveTarget &&
+        stakeApprove.approveType,
+      ));
   const approveSpenderAddress = useMemo(() => {
     if (borrowApiCtx.isBorrow) {
       return resolveBorrowTokenApproveSpenderAddress({
         providerName: protocolInfo?.provider,
         marketAddress: borrowApiCtx.borrowApiParams.marketAddress,
-        backendApproveTarget: protocolInfo?.approve?.approveTarget,
+        backendApproveTarget: stakeApprove?.approveTarget,
         tokenIsNative: effectiveStakeTokenInfo?.token?.isNative,
       });
     }
@@ -345,14 +469,14 @@ const StakeSectionContent = ({
     return earnUtils.resolveEarnApproveSpenderAddress({
       providerName: protocolInfo?.provider || '',
       protocolVault: protocolInfo?.vault,
-      backendApproveTarget: protocolInfo?.approve?.approveTarget,
+      backendApproveTarget: stakeApprove?.approveTarget,
     });
   }, [
     borrowApiCtx,
     effectiveStakeTokenInfo?.token?.isNative,
     protocolInfo?.provider,
     protocolInfo?.vault,
-    protocolInfo?.approve?.approveTarget,
+    stakeApprove?.approveTarget,
   ]);
   const effectiveApproveType = useMemo(() => {
     return earnUtils.resolveEarnApproveType({
@@ -360,23 +484,23 @@ const StakeSectionContent = ({
       networkId,
       tokenIsNative: effectiveStakeTokenInfo?.token?.isNative,
       approveSpenderAddress,
-      backendApproveType: protocolInfo?.approve?.approveType,
+      backendApproveType: stakeApprove?.approveType,
     });
   }, [
     protocolInfo?.provider,
-    protocolInfo?.approve?.approveType,
+    stakeApprove?.approveType,
     effectiveStakeTokenInfo?.token?.isNative,
     approveSpenderAddress,
     networkId,
   ]);
 
   const selectedStakeTokenUniqueKey = useMemo(() => {
-    if (selectedStakeAsset?.info) {
+    if (activeStakeAsset?.info) {
       return buildStakeTokenUniqueKey({
-        uniqueKey: selectedStakeAsset.info.uniqueKey,
-        address: selectedStakeAsset.info.address,
-        symbol: selectedStakeAsset.info.symbol,
-        isNative: selectedStakeAsset.info.isNative,
+        uniqueKey: activeStakeAsset.info.uniqueKey,
+        address: activeStakeAsset.info.address,
+        symbol: activeStakeAsset.info.symbol,
+        isNative: activeStakeAsset.info.isNative,
       });
     }
     return buildStakeTokenUniqueKey({
@@ -385,13 +509,13 @@ const StakeSectionContent = ({
       symbol: effectiveStakeTokenInfo?.token.symbol,
       isNative: effectiveStakeTokenInfo?.token.isNative,
     });
-  }, [selectedStakeAsset?.info, effectiveStakeTokenInfo?.token]);
+  }, [activeStakeAsset?.info, effectiveStakeTokenInfo?.token]);
 
   const handleOpenStakeTokenSelector = useCallback(() => {
     if (!accountId || !stakeAssetsSymbol) return;
-    const currentAddress = selectedStakeAsset?.info?.isNative
+    const currentAddress = activeStakeAsset?.info?.isNative
       ? 'native'
-      : selectedStakeAsset?.info?.address;
+      : activeStakeAsset?.info?.address;
     navigation.pushModal(EModalRoutes.StakingModal, {
       screen: EModalStakingRoutes.EarnTokenSelect,
       params: {
@@ -412,14 +536,14 @@ const StakeSectionContent = ({
     networkId,
     providerName,
     protocolInfo?.vault,
-    selectedStakeAsset?.info,
+    activeStakeAsset?.info,
     navigation,
     stakeAssetsSymbol,
   ]);
 
   const stakeTokenSelectorTriggerProps = useMemo(() => {
     if (
-      !(isPendleProvider || isNativeProvider) ||
+      stakeAssetPolicy.selection === 'fixed' ||
       !selectableStakeAssets.length
     ) {
       return undefined;
@@ -433,8 +557,7 @@ const StakeSectionContent = ({
           : undefined,
     };
   }, [
-    isPendleProvider,
-    isNativeProvider,
+    stakeAssetPolicy.selection,
     selectableStakeAssets.length,
     handleOpenStakeTokenSelector,
   ]);
@@ -463,13 +586,10 @@ const StakeSectionContent = ({
   const { removePermitCache } = useEarnActions().current;
 
   const onFeeRateChange = useMemo(() => {
-    if (
-      protocolInfo?.provider.toLowerCase() ===
-      EEarnProviderEnum.Babylon.toLowerCase()
-    ) {
+    if (stakePresentation.feeInput === 'utxo') {
       return (value: string) => setBtcFeeRate(value);
     }
-  }, [protocolInfo?.provider]);
+  }, [stakePresentation.feeInput]);
 
   useEffect(() => {
     if (
@@ -525,6 +645,14 @@ const StakeSectionContent = ({
     token: effectiveStakeTokenInfo?.token,
   });
 
+  const allowanceScopeKey = [
+    accountId,
+    networkId,
+    initialAllowanceTarget.approveType,
+    initialAllowanceTarget.spenderAddress,
+    initialAllowanceTarget.token?.address,
+  ].join(':');
+
   const { result: initialAllowanceResult, isLoading: _isLoading = true } =
     usePromiseResult(
       async () => {
@@ -548,6 +676,7 @@ const StakeSectionContent = ({
             accountId,
             networkId,
             spenderAddress: earnUtils.resolveEarnAllowanceSpenderAddress({
+              providerName,
               networkId,
               approveType: initialAllowanceTarget.approveType,
               approveSpenderAddress: initialAllowanceTarget.spenderAddress,
@@ -555,12 +684,14 @@ const StakeSectionContent = ({
             tokenAddress: initialAllowanceTarget.token?.address || '',
           });
 
-        return { allowanceParsed };
+        return { allowanceParsed, scopeKey: allowanceScopeKey };
       },
       [
+        allowanceScopeKey,
         hasRequiredData,
         accountId,
         networkId,
+        providerName,
         initialAllowanceTarget.approveType,
         initialAllowanceTarget.spenderAddress,
         initialAllowanceTarget.token?.isNative,
@@ -572,31 +703,73 @@ const StakeSectionContent = ({
       },
     );
 
-  const handleStake = useUniversalStake({ accountId, networkId });
-  const handleBorrowSupply = useUniversalBorrowSupply({ accountId, networkId });
-  const handleBorrowBorrow = useUniversalBorrowBorrow({ accountId, networkId });
+  const handleStake = useUniversalStake({
+    accountId,
+    networkId,
+    scopeKey: [
+      providerName,
+      protocolInfo?.vault,
+      selectedStakeTokenAddress,
+      stakeType,
+    ].join('|'),
+  });
+  const borrowAccountAddress =
+    protocolInfo?.earnAccount?.accountId === accountId &&
+    protocolInfo.earnAccount.networkId === networkId
+      ? protocolInfo.earnAccount.accountAddress
+      : undefined;
+  const handleBorrowSupply = useUniversalBorrowSupply({
+    accountId,
+    networkId,
+    accountAddress: borrowAccountAddress,
+  });
+  const handleBorrowBorrow = useUniversalBorrowBorrow({
+    accountId,
+    networkId,
+    accountAddress: borrowAccountAddress,
+  });
 
   const onConfirm = useCallback(
-    async ({
-      amount,
-      approveType,
-      permitSignature,
-      unsignedMessage,
-      message,
-      effectiveApy,
-      validatorPubkey,
-      stakeType: confirmStakeType,
-      onStepChange,
-    }: IApproveConfirmFnParams) => {
+    async (
+      {
+        amount,
+        approveType,
+        permitSignature,
+        unsignedMessage,
+        message,
+        effectiveApy,
+        validatorPubkey,
+        stakeType: confirmStakeType,
+        taskMode,
+        taskAccountAddress,
+        isSendCurrent,
+        stakefishSignTask,
+        workflowHandoff,
+        workflowSpenderAddress,
+        resumeTaskState,
+        directDepositTask,
+        prepareWrappedDeposit,
+        beforeDepositTaskSend,
+        canSendDepositTask,
+        onDepositTaskReady,
+        onDepositTaskChange,
+        onDepositTaskSettled,
+        canRecoverDepositRecording,
+        onStepChange,
+        onWrapStateChange,
+      }: IEarnStakeConfirmParams,
+      isActionCurrent?: () => boolean,
+    ) => {
       // Nothing was started, so the form keeps what the user typed.
-      if (!hasRequiredData) return false;
+      if (!hasRequiredData || !isStakeAssetReady) return false;
 
       const token = effectiveStakeTokenInfo?.token as IToken;
-      const effectiveStakeType = confirmStakeType ?? nativeStakeType;
+      const effectiveStakeType = confirmStakeType ?? stakeType;
 
       if (borrowApiCtx.isBorrow) return false;
 
       return handleStake({
+        isActionCurrent,
         amount,
         approveType,
         permitSignature,
@@ -609,15 +782,33 @@ const StakeSectionContent = ({
         slippage: pendleSlippage,
         effectiveApy,
         stakeType: effectiveStakeType,
+        taskMode,
+        taskAccountAddress,
+        isSendCurrent,
+        stakefishSignTask,
+        workflowHandoff,
+        workflowSpenderAddress,
+        resumeTaskState,
+        directDepositTask,
+        prepareWrappedDeposit,
+        beforeDepositTaskSend,
+        canSendDepositTask,
+        onDepositTaskReady,
+        onDepositTaskChange,
+        onDepositTaskSettled,
+        canRecoverDepositRecording,
         postWrapStakeToken:
-          effectiveStakeType === 'wrap'
-            ? nativeWrappedStakeAsset?.info
-            : undefined,
+          effectiveStakeType === 'wrap' ? wrappedStakeAsset?.info : undefined,
+        inputToken: effectiveStakeType === 'wrap' ? token : undefined,
         postWrapApproveSpenderAddress:
           effectiveStakeType === 'wrap' ? approveSpenderAddress : undefined,
         onStepChange,
+        onWrapStateChange,
         stakingInfo: {
-          label: isPendleProvider ? EEarnLabels.Buy : EEarnLabels.Stake,
+          label:
+            stakePresentation.action === 'swap'
+              ? EEarnLabels.Buy
+              : EEarnLabels.Stake,
           protocol: earnUtils.getEarnProviderName({
             providerName,
           }),
@@ -635,37 +826,50 @@ const StakeSectionContent = ({
           : undefined,
         // Stakefish specific param
         validatorPublicKey: validatorPubkey,
-        onSuccess: async (txs) => {
-          onSuccess?.();
-          defaultLogger.staking.page.staking({
-            token,
-            stakingProtocol: providerName,
-          });
-          const tx = txs[0];
-          if (approveType === EApproveType.Permit && permitSignature) {
+        onSubmitted: async (txid) => {
+          if (
+            !workflowHandoff &&
+            approveType === EApproveType.Permit &&
+            permitSignature
+          ) {
             removePermitCache({
               accountId,
               networkId,
+              providerName,
+              approveSpenderAddress:
+                earnUtils.resolveEarnAllowanceSpenderAddress({
+                  providerName,
+                  networkId,
+                  approveType,
+                  approveSpenderAddress,
+                }),
               tokenAddress: effectiveStakeTokenInfo?.token.address || '',
               amount,
+              expectedSignature: permitSignature,
+              ...(taskAccountAddress
+                ? { expectedAccountAddress: taskAccountAddress }
+                : undefined),
             });
           }
-          if (
-            tx &&
-            providerName.toLowerCase() ===
-              EEarnProviderEnum.Babylon.toLowerCase()
-          ) {
+          if (stakeTracking === 'babylon') {
             await backgroundApiProxy.serviceStaking.addBabylonTrackingItem({
-              txId: tx.decodedTx.txid,
+              txId: txid,
               action: 'stake',
               createAt: Date.now(),
               accountId,
               networkId,
               amount,
-              // TODO: remove term after babylon remove term
               minStakeTerm: undefined,
             });
           }
+        },
+        onSuccess: () => {
+          if (!(isSendCurrent?.() ?? true)) return;
+          onSuccess?.();
+          defaultLogger.staking.page.staking({
+            token,
+            stakingProtocol: providerName,
+          });
         },
       });
     },
@@ -673,6 +877,7 @@ const StakeSectionContent = ({
       hasRequiredData,
       effectiveStakeTokenInfo?.token,
       handleStake,
+      isStakeAssetReady,
       protocolInfo?.providerDetail.logoURI,
       protocolInfo?.vault,
       btcFeeRate,
@@ -687,9 +892,10 @@ const StakeSectionContent = ({
       receiveInputConfig?.tokenAddress,
       borrowApiCtx.isBorrow,
       pendleSlippage,
-      isPendleProvider,
-      nativeStakeType,
-      nativeWrappedStakeAsset?.info,
+      stakePresentation.action,
+      stakeTracking,
+      stakeType,
+      wrappedStakeAsset?.info,
       approveSpenderAddress,
     ],
   );
@@ -718,7 +924,11 @@ const StakeSectionContent = ({
 
   const onBorrowConfirm = useCallback(
     async (params: IManagePositionConfirmParams) => {
-      const { amount } = params;
+      const {
+        amount,
+        accountAddress: approvalAccountAddress,
+        workflowHandoff,
+      } = params;
       if (
         !hasRequiredData ||
         !borrowApiCtx.isBorrow ||
@@ -758,6 +968,8 @@ const StakeSectionContent = ({
 
       return (action === 'borrow' ? handleBorrowBorrow : handleBorrowSupply)({
         amount,
+        accountAddress: approvalAccountAddress,
+        workflowHandoff,
         provider,
         marketAddress,
         reserveAddress,
@@ -823,7 +1035,9 @@ const StakeSectionContent = ({
       );
     }
     return (
-      <UniversalStake
+      <EarnStakeForm
+        onLegacyApprovalCleared={onLegacyApprovalCleared}
+        isLegacyApprovalBlocked={isLegacyApprovalBlocked}
         accountId={accountId}
         networkId={networkId}
         balance="0"
@@ -840,6 +1054,37 @@ const StakeSectionContent = ({
         beforeFooter={beforeFooter}
         footerActionOverride={footerActionOverride}
         protocolSwitchConfig={protocolSwitchConfig}
+      />
+    );
+  }
+
+  let retainedView: ReactElement | undefined;
+  if (retained.status === 'checking') {
+    retainedView = <Spinner />;
+  } else if (retained.status === 'unavailable') {
+    retainedView = (
+      <Alert
+        type="critical"
+        title={intl.formatMessage({
+          id: ETranslations.global_an_error_occurred,
+        })}
+        action={{
+          primary: intl.formatMessage({ id: ETranslations.global_retry }),
+          onPrimaryPress: () => {
+            retained.retry();
+            void retryStakeAssets();
+          },
+        }}
+      />
+    );
+  } else if (retainedTask && !activeStakeAsset) {
+    retainedView = (
+      <RetainedTaskFallback
+        ownerKey={retainedOwnerKey}
+        retainedTask={retainedTask}
+        assetsLoading={isStakeAssetsLoading !== false}
+        onRetryAssets={() => void retryStakeAssets()}
+        onFinished={onTaskRecoveryComplete}
       />
     );
   }
@@ -888,82 +1133,130 @@ const StakeSectionContent = ({
           isInModalContext={isInModalContext}
         />
       ) : (
-        <UniversalStake
-          // Include protocol identity (provider/vault) so switching between
-          // protocols that share the same deposit token still remounts the
-          // form and drops the previous protocol's transactionConfirmation.
-          // Sourced from protocolInfo (same origin as the manage data), so the
-          // key flips exactly when fresh protocol data lands.
-          key={`stake-input-${protocolInfo?.provider ?? ''}-${protocolInfo?.vault ?? ''}-${selectedStakeTokenUniqueKey || tokenInfo?.token?.uniqueKey || 'default'}`}
-          accountId={accountId}
-          networkId={networkId}
-          decimals={
-            protocolInfo?.protocolInputDecimals ??
-            effectiveStakeTokenInfo?.token?.decimals
-          }
-          balance={effectiveStakeTokenInfo?.balanceParsed ?? ''}
-          tokenImageUri={
-            effectiveStakeTokenInfo?.token.logoURI || fallbackTokenImageUri
-          }
-          // Token metadata not in yet and no image came from route params:
-          // skeleton the icon rather than flashing the placeholder coin.
-          // Guarded on the metadata being absent (not merely on a missing
-          // image) so a token that genuinely has no logo still renders its
-          // fallback instead of a skeleton that never resolves (OK-59961).
-          tokenImageLoading={
-            !effectiveStakeTokenInfo?.token && !fallbackTokenImageUri
-          }
-          tokenSymbol={effectiveStakeTokenInfo?.token.symbol}
-          isStakeAssetLoading={isWaitingForStakeAsset}
-          providerLogo={protocolInfo?.providerDetail.logoURI}
-          providerName={protocolInfo?.provider}
-          onConfirm={onConfirm}
-          approveType={effectiveApproveType}
-          currentAllowance={initialAllowanceResult?.allowanceParsed}
-          minTransactionFee={protocolInfo?.minTransactionFee}
-          estimateFeeUTXO={estimateFeeUTXO}
-          onFeeRateChange={onFeeRateChange}
-          tokenInfo={effectiveStakeTokenInfo}
-          protocolInfo={protocolInfo}
-          isDisabled={isDisabled}
-          approveTarget={{
-            accountId,
-            networkId,
-            spenderAddress: approveSpenderAddress,
-            token: effectiveStakeTokenInfo?.token,
-          }}
-          postWrapApproveTarget={
-            nativeStakeType === 'wrap'
-              ? {
-                  spenderAddress: approveSpenderAddress,
-                  token: nativeWrappedStakeAsset?.info,
-                }
-              : undefined
-          }
-          beforeFooter={beforeFooter}
-          footerActionOverride={footerActionOverride}
-          showApyDetail={showApyDetail}
-          suppressPlatformBonus={suppressPlatformBonus}
-          isInModalContext={isInModalContext}
-          protocolSwitchConfig={protocolSwitchConfig}
-          ongoingValidator={ongoingValidator}
-          receiveInputConfig={receiveInputConfig}
-          inputTitle={
-            isPendleProvider
-              ? intl.formatMessage({ id: ETranslations.content__amount })
-              : undefined
-          }
-          tokenSelectorTriggerProps={stakeTokenSelectorTriggerProps}
-          requestSymbol={stakeRequestSymbol}
-          transactionInputTokenAddress={selectedStakeTokenAddress}
-          transactionOutputTokenAddress={receiveInputConfig?.tokenAddress ?? ''}
-          stakeType={nativeStakeType}
-          isQuoteExpired={isQuoteExpired}
-          onQuoteReset={onQuoteReset}
-          refreshKey={refreshKey}
-          onQuoteRefreshingChange={onQuoteRefreshingChange}
-          pendleSlippage={pendleSlippage}
-        />
+        retainedView || (
+          <EarnStakeForm
+            retainedTask={retainedTask}
+            onLegacyApprovalCleared={onLegacyApprovalCleared}
+            isLegacyApprovalBlocked={isLegacyApprovalBlocked}
+            // Include protocol identity (provider/vault) so switching between
+            // protocols that share the same deposit token still remounts the
+            // form and drops the previous protocol's transactionConfirmation.
+            // Sourced from protocolInfo (same origin as the manage data), so the
+            // key flips exactly when fresh protocol data lands.
+            key={`stake-input-${protocolInfo?.provider ?? ''}-${protocolInfo?.vault ?? ''}-${selectedStakeTokenUniqueKey || tokenInfo?.token?.uniqueKey || 'default'}`}
+            accountId={accountId}
+            networkId={networkId}
+            decimals={
+              protocolInfo?.protocolInputDecimals ??
+              effectiveStakeTokenInfo?.token?.decimals
+            }
+            balance={effectiveStakeTokenInfo?.balanceParsed ?? ''}
+            tokenImageUri={
+              effectiveStakeTokenInfo?.token.logoURI || fallbackTokenImageUri
+            }
+            // Token metadata not in yet and no image came from route params:
+            // skeleton the icon rather than flashing the placeholder coin.
+            // Guarded on the metadata being absent (not merely on a missing
+            // image) so a token that genuinely has no logo still renders its
+            // fallback instead of a skeleton that never resolves (OK-59961).
+            tokenImageLoading={
+              !effectiveStakeTokenInfo?.token && !fallbackTokenImageUri
+            }
+            tokenSymbol={effectiveStakeTokenInfo?.token.symbol}
+            isStakeAssetLoading={isWaitingForStakeAsset}
+            providerLogo={protocolInfo?.providerDetail.logoURI}
+            providerName={protocolInfo?.provider}
+            onConfirm={onConfirm}
+            approveType={effectiveApproveType}
+            currentAllowance={
+              stakeAssetPolicy.approval !== 'selected-asset' ||
+              initialAllowanceResult?.scopeKey === allowanceScopeKey
+                ? initialAllowanceResult?.allowanceParsed
+                : undefined
+            }
+            minTransactionFee={protocolInfo?.minTransactionFee}
+            estimateFeeUTXO={estimateFeeUTXO}
+            onFeeRateChange={onFeeRateChange}
+            tokenInfo={effectiveStakeTokenInfo}
+            protocolInfo={protocolInfo}
+            isDisabled={isDisabled || !isStakeAssetReady}
+            approveTarget={{
+              accountId,
+              networkId,
+              spenderAddress: approveSpenderAddress,
+              token: effectiveStakeTokenInfo?.token,
+            }}
+            postWrapApproveTarget={
+              stakeType === 'wrap'
+                ? {
+                    spenderAddress: approveSpenderAddress,
+                    token: wrappedStakeAsset?.info,
+                  }
+                : undefined
+            }
+            beforeFooter={
+              stakeAssetsError ||
+              wrappedStakeAssetsError ||
+              missingWrappedStakeAsset ||
+              selectedStakeApproval.error ? (
+                <>
+                  {beforeFooter}
+                  <Alert
+                    type="critical"
+                    title={intl.formatMessage({
+                      id: ETranslations.global_an_error_occurred,
+                    })}
+                    action={{
+                      primary: intl.formatMessage({
+                        id: ETranslations.global_retry,
+                      }),
+                      onPrimaryPress: () => {
+                        if (
+                          stakeAssetsError ||
+                          wrappedStakeAssetsError ||
+                          missingWrappedStakeAsset
+                        ) {
+                          void retryStakeAssets();
+                          void retryWrappedToken();
+                        }
+                        if (selectedStakeApproval.error) {
+                          void selectedStakeApproval.retry();
+                        }
+                      },
+                    }}
+                  />
+                </>
+              ) : (
+                beforeFooter
+              )
+            }
+            footerActionOverride={footerActionOverride}
+            showApyDetail={showApyDetail}
+            suppressPlatformBonus={suppressPlatformBonus}
+            isInModalContext={isInModalContext}
+            protocolSwitchConfig={protocolSwitchConfig}
+            ongoingValidator={ongoingValidator}
+            receiveInputConfig={receiveInputConfig}
+            inputTitle={
+              stakePresentation.transactionLayout === 'market'
+                ? intl.formatMessage({ id: ETranslations.content__amount })
+                : undefined
+            }
+            tokenSelectorTriggerProps={stakeTokenSelectorTriggerProps}
+            requestSymbol={stakeRequestSymbol}
+            transactionInputTokenAddress={selectedStakeTokenAddress}
+            transactionOutputTokenAddress={
+              receiveInputConfig?.tokenAddress ?? ''
+            }
+            stakeType={stakeType}
+            isQuoteExpired={isQuoteExpired}
+            onQuoteReset={onQuoteReset}
+            onTaskRecoveryComplete={onTaskRecoveryComplete}
+            refreshKey={refreshKey}
+            onQuoteRefreshingChange={onQuoteRefreshingChange}
+            pendleSlippage={pendleSlippage}
+          />
+        )
       )}
     </>
   );
@@ -975,8 +1268,7 @@ export function StakeSection(
   const provider = props.protocolInfo?.provider ?? '';
   const needsAssetList =
     !props.useBorrowApi &&
-    (earnUtils.isNativeProvider({ providerName: provider }) ||
-      earnUtils.isPendleProvider({ providerName: provider }));
+    getEarnProtocol(provider).getStakeAssetPolicy().selection !== 'fixed';
   const key = needsAssetList
     ? JSON.stringify([
         props.accountId,

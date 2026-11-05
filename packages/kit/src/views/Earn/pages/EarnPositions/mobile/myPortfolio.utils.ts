@@ -1,8 +1,8 @@
 import BigNumber from 'bignumber.js';
 
 import type { IProtocolValueState } from '@onekeyhq/kit/src/components/DeFi/protocolValueUtils';
+import { getEarnProtocol } from '@onekeyhq/kit/src/views/Earn/protocols';
 import { buildLocalTxStatusSyncId } from '@onekeyhq/kit/src/views/Staking/utils/utils';
-import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import type { IEarnPortfolioPosition } from '@onekeyhq/shared/types/earn/portfolioPositions';
 import type {
   IEarnActionIcon,
@@ -71,11 +71,10 @@ export function hasPositionDetailPage(
   position: IEarnPortfolioPosition,
 ): boolean {
   const { earn } = position;
-  return !(
-    earnUtils.isPendleProvider({ providerName: earn.manage.provider }) &&
-    earn.symbol === 'USDe' &&
-    (earn.investment.buttons?.length ?? 0) === 0
-  );
+  return getEarnProtocol(earn.manage.provider).hasPositionDetail({
+    symbol: earn.symbol,
+    actionCount: earn.investment.buttons?.length ?? 0,
+  });
 }
 
 const EMPTY_TEXT = { text: '' };
@@ -104,6 +103,7 @@ function positionClaimMetadata(position: IEarnPortfolioPosition) {
   const { earn } = position;
   return {
     protocol: {
+      symbol: earn.manage.symbol,
       ...(earn.vault ? { vault: earn.vault } : {}),
       ...(earn.vaultName ? { vaultName: earn.vaultName } : {}),
       providerDetail: {
@@ -369,8 +369,9 @@ export function canRedeemFromCard(position: IEarnPositionView): boolean {
   return (
     position.sections.some((section) => section.kind === 'deposited') &&
     hasPositionDetailPage(source) &&
-    (earnUtils.isPendleProvider({ providerName: manage.provider }) ||
-      manage.symbol.toUpperCase() !== 'USDE')
+    getEarnProtocol(manage.provider).canRedeemPosition({
+      symbol: manage.symbol,
+    })
   );
 }
 
@@ -400,10 +401,9 @@ export function positionMatured(
  */
 export function sellsEarly(position: IEarnPortfolioPosition): boolean {
   const { earn } = position;
-  if (!earnUtils.isPendleProvider({ providerName: earn.manage.provider })) {
-    return false;
-  }
-  return !(positionMatured(position) ?? false);
+  return getEarnProtocol(earn.manage.provider).shouldSellBeforeMaturity({
+    matured: positionMatured(position) ?? false,
+  });
 }
 
 /**

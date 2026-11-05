@@ -17,8 +17,8 @@ type IHeaderRightProps = {
   onHistory?: (params?: { filterType?: string }) => void;
   onRefresh?: () => void;
   onRefreshPending?: (refreshFn: () => Promise<void>) => void;
-  // Pendle quote lifecycle
-  isPendleProvider?: boolean;
+  showSlippageControl?: boolean;
+  showQuoteRefresh?: boolean;
   onRefreshQuote?: () => void;
   refreshLoading?: boolean;
   refreshCooldownTrigger?: number;
@@ -33,7 +33,8 @@ export const HeaderRight = ({
   onHistory,
   onRefresh,
   onRefreshPending,
-  isPendleProvider,
+  showSlippageControl,
+  showQuoteRefresh,
   onRefreshQuote,
   refreshLoading,
   refreshCooldownTrigger,
@@ -50,8 +51,8 @@ export const HeaderRight = ({
   }, [onRefreshPending, refreshPending]);
 
   const showHistory = historyAction && !historyAction.disabled;
-  const showPendleControls = isPendleProvider;
-  const hasContent = pendingCount || showHistory || showPendleControls;
+  const hasContent =
+    pendingCount || showHistory || showSlippageControl || showQuoteRefresh;
 
   if (!hasContent) {
     return null;
@@ -60,7 +61,7 @@ export const HeaderRight = ({
   // Figma order: Slippage → History → Refresh
   return (
     <XStack ai="center" gap="$3.5">
-      {showPendleControls ? (
+      {showSlippageControl ? (
         <IconButton
           testID="staking-has-content-icon-btn"
           icon="SliderHorOutline"
@@ -86,7 +87,7 @@ export const HeaderRight = ({
           {historyAction?.text.text}
         </Button>
       ) : null}
-      {showPendleControls && onRefreshQuote ? (
+      {showQuoteRefresh && onRefreshQuote ? (
         <RefreshCooldownButton
           onPress={onRefreshQuote}
           loading={refreshLoading}

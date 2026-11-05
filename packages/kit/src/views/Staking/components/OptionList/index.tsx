@@ -197,6 +197,7 @@ type IOptionListProps = {
   token: IToken;
   onPress?: IOnSelectOption;
   onConfirmText?: string;
+  onCancelText?: string;
   network?: {
     networkId: string;
     name: string;
@@ -215,6 +216,7 @@ export const OptionList = ({
   network,
   onPress,
   onConfirmText,
+  onCancelText,
   extraFields,
   ListHeaderComponent,
   description,
@@ -298,6 +300,7 @@ export const OptionList = ({
         />
         <Page.Footer
           onConfirmText={onConfirmText}
+          onCancelText={onCancelText}
           confirmButtonProps={{
             onPress: onSubmit,
             disabled: isDisabled,

@@ -655,7 +655,15 @@ const ProtocolDetailsPage = () => {
     void run();
   }, [refreshAccount, run]);
 
-  const handleWithdraw = useHandleWithdraw();
+  const handleWithdraw = useHandleWithdraw(
+    JSON.stringify([
+      earnAccount?.accountId,
+      earnAccount?.accountAddress,
+      networkId,
+      protocolInfo?.provider,
+      protocolInfo?.vault,
+    ]),
+  );
   const handleStake = useHandleStake();
   const { handleSwap } = useHandleSwap();
 

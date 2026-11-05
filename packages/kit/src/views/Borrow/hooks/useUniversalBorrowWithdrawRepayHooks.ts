@@ -1,22 +1,29 @@
 import { useCallback } from 'react';
 
-import type { IEncodedTx } from '@onekeyhq/core/src/types';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import {
-  type IDeFiActionTxConfirmDialogResult,
-  showDeFiActionTxConfirmDialog,
-} from '@onekeyhq/kit/src/components/DeFi/DeFiActionTxConfirmResult';
 import { useSignatureConfirm } from '@onekeyhq/kit/src/hooks/useSignatureConfirm';
+import {
+  getTaskAccountAddress,
+  isTaskAccountCurrent,
+  normalizeTaskAccountAddress,
+} from '@onekeyhq/kit/src/views/Earn/tasks/taskAccount';
 import { useEarnRiskWarningGate } from '@onekeyhq/kit/src/views/Staking/components/EarnRiskWarningDialog';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import type { IModalSendParamList } from '@onekeyhq/shared/src/routes';
-import { EOnChainHistoryTxStatus } from '@onekeyhq/shared/types/history';
-import { EEarnLabels, type IStakingInfo } from '@onekeyhq/shared/types/staking';
-import type { ISendTxOnSuccessData } from '@onekeyhq/shared/types/tx';
+import type { IStakingInfo } from '@onekeyhq/shared/types/staking';
 
-export type IBorrowSettleResult = {
-  status: IDeFiActionTxConfirmDialogResult;
-  data: ISendTxOnSuccessData[];
-};
+import { runBorrowConfirmationTask } from './borrowConfirmationTask';
+import { useBorrowConfirmationScope } from './useBorrowConfirmationScope';
+
+import type { IBorrowWorkflowHandoff } from './borrowConfirmationTask';
+import type { IBorrowSettleResult } from './borrowTransactionUtils';
+
+export {
+  attachBorrowOrderId,
+  handleBorrowSuccess,
+  parseBorrowEncodedTx,
+} from './borrowTransactionUtils';
+export type { IBorrowSettleResult } from './borrowTransactionUtils';
 
 export type IBorrowBuildTxParams = {
   amount: string;
@@ -32,7 +39,11 @@ export type IBorrowBuildTxParams = {
   routeKey?: string;
   stakingInfo?: IStakingInfo;
   onSetupLutReadyForRepay?: () => void;
+  isActionCurrent?: () => boolean;
   onBeforeNavigate?: () => void | Promise<void>;
+  canContinueAfterOwnerClose?: () => boolean;
+  accountAddress?: string;
+  workflowHandoff?: IBorrowWorkflowHandoff;
   ignoreOrderTrackingError?: boolean;
   onSettleResult?: (
     result: IBorrowSettleResult,
@@ -47,118 +58,6 @@ export type IBorrowBuildTxParams = {
 const getRiskGateSymbol = (stakingInfo?: IStakingInfo) =>
   stakingInfo?.send?.token.symbol ?? stakingInfo?.receive?.token.symbol;
 
-export function parseBorrowEncodedTx(tx: string): IEncodedTx {
-  try {
-    const parsed = JSON.parse(tx) as unknown;
-    if (parsed && typeof parsed === 'object') {
-      return parsed as IEncodedTx;
-    }
-  } catch {
-    // Ignore parsing errors and fallback to raw string.
-  }
-  return tx;
-}
-
-export const attachBorrowOrderId = ({
-  stakingInfo,
-  orderId,
-}: {
-  stakingInfo?: IStakingInfo;
-  orderId?: string;
-}): IStakingInfo | undefined =>
-  stakingInfo ? { ...stakingInfo, orderId } : undefined;
-
-const getLatestTxId = (data: ISendTxOnSuccessData[]) => {
-  for (let index = data.length - 1; index >= 0; index -= 1) {
-    const item = data[index];
-    const txId = item?.signedTx?.txid || item?.decodedTx?.txid;
-    if (txId) {
-      return txId;
-    }
-  }
-
-  return undefined;
-};
-
-const getEarnOrderTrackingInfo = (stakingInfo?: IStakingInfo) => ({
-  stakingLabel: stakingInfo?.label,
-  stakingProtocol: stakingInfo?.protocol,
-  stakingTags: stakingInfo?.tags,
-});
-
-export const handleBorrowSuccess = async ({
-  data,
-  orderId,
-  networkId,
-  accountId,
-  stakingInfo,
-  waitForFinalStatus,
-  ignoreOrderTrackingError,
-  onSettleResult,
-  onSuccess,
-}: {
-  data: ISendTxOnSuccessData[];
-  orderId?: string;
-  networkId: string;
-  accountId?: string;
-  stakingInfo?: IStakingInfo;
-  waitForFinalStatus?: boolean;
-  ignoreOrderTrackingError?: boolean;
-  onSettleResult?: (
-    result: IBorrowSettleResult,
-  ) => boolean | void | Promise<boolean | void>;
-  onSuccess?: IModalSendParamList['SendConfirm']['onSuccess'];
-}) => {
-  const latestTxId =
-    Array.isArray(data) && data.length > 0 ? getLatestTxId(data) : undefined;
-
-  const label = stakingInfo?.label;
-  const shouldShowConfirmSheet =
-    !!accountId &&
-    (waitForFinalStatus ||
-      label === EEarnLabels.Withdraw ||
-      label === EEarnLabels.Repay);
-
-  if (orderId && latestTxId) {
-    const addEarnOrderPromise = backgroundApiProxy.serviceStaking.addEarnOrder({
-      orderId,
-      networkId,
-      txId: latestTxId,
-      status: data[data.length - 1]?.decodedTx.status,
-      ...getEarnOrderTrackingInfo(stakingInfo),
-    });
-    if (shouldShowConfirmSheet || ignoreOrderTrackingError) {
-      void addEarnOrderPromise.catch(() => undefined);
-    } else {
-      await addEarnOrderPromise;
-    }
-  }
-
-  if (shouldShowConfirmSheet && accountId) {
-    const finalStatus = await showDeFiActionTxConfirmDialog({
-      accountId,
-      networkId,
-      data,
-    });
-    if (onSettleResult) {
-      const shouldContinueSuccess = await onSettleResult({
-        status: finalStatus,
-        data,
-      });
-      if (shouldContinueSuccess === false) {
-        return;
-      }
-    }
-    if (
-      finalStatus === EOnChainHistoryTxStatus.Failed ||
-      (waitForFinalStatus && finalStatus !== EOnChainHistoryTxStatus.Success)
-    ) {
-      return;
-    }
-  }
-  onSuccess?.(data);
-};
-
 /**
  * Resolves true once the flow has been handed to the transaction confirm page,
  * false when it never started — today only a declined risk disclaimer, but the
@@ -169,9 +68,11 @@ export const handleBorrowSuccess = async ({
 export function useUniversalBorrowWithdraw({
   networkId,
   accountId,
+  accountAddress,
 }: {
   networkId: string;
   accountId: string;
+  accountAddress?: string;
 }) {
   const { navigationToTxConfirm } = useSignatureConfirm({
     accountId,
@@ -179,6 +80,15 @@ export function useUniversalBorrowWithdraw({
   });
 
   const ensureRiskAccepted = useEarnRiskWarningGate();
+  const captureScope = useBorrowConfirmationScope(
+    JSON.stringify([
+      accountId,
+      networkId,
+      accountAddress
+        ? normalizeTaskAccountAddress(networkId, accountAddress)
+        : undefined,
+    ]),
+  );
 
   return useCallback(
     async ({
@@ -190,11 +100,16 @@ export function useUniversalBorrowWithdraw({
       unwrap,
       stakingInfo,
       onBeforeNavigate,
+      canContinueAfterOwnerClose,
+      accountAddress: approvalAccountAddress,
+      workflowHandoff,
       onSettleResult,
       onSuccess,
       onFail,
       onCancel,
     }: IBorrowBuildTxParams): Promise<boolean> => {
+      const scope = captureScope(canContinueAfterOwnerClose);
+      if (!scope.isCurrent()) return false;
       // OK-59196: one-time DeFi risk disclaimer, same gate the earn stake flow
       // uses. Returns false so the caller can tell a rejection apart from a
       // completed hand-off and leave the form untouched.
@@ -207,47 +122,81 @@ export function useUniversalBorrowWithdraw({
       ) {
         return false;
       }
-
-      const resp =
-        await backgroundApiProxy.serviceStaking.borrowBuildWithdrawTransaction({
-          networkId,
-          accountId,
-          provider,
-          marketAddress,
-          reserveAddress,
-          amount,
-          withdrawAll,
-          ...(unwrap !== undefined ? { unwrap } : {}),
-        });
-
-      const stakingInfoWithOrderId = attachBorrowOrderId({
-        stakingInfo,
-        orderId: resp.orderId,
+      if (!scope.isCurrent()) return false;
+      if (
+        !approvalAccountAddress &&
+        !accountAddress &&
+        !scope.isOwnedCurrent()
+      ) {
+        throw new OneKeyLocalError('Borrow approval account unavailable');
+      }
+      const frozenAddress =
+        approvalAccountAddress ??
+        accountAddress ??
+        (await getTaskAccountAddress({ accountId, networkId }));
+      if (
+        !approvalAccountAddress &&
+        !accountAddress &&
+        !scope.isOwnedCurrent()
+      ) {
+        throw new OneKeyLocalError('Borrow approval account unavailable');
+      }
+      if (!scope.isCurrent()) return false;
+      const accountMatches = await isTaskAccountCurrent({
+        accountId,
+        networkId,
+        accountAddress: frozenAddress,
       });
-
-      await onBeforeNavigate?.();
-
-      await navigationToTxConfirm({
-        encodedTx: parseBorrowEncodedTx(resp.tx),
-        stakingInfo: stakingInfoWithOrderId,
-        onSuccess: async (data) => {
-          await handleBorrowSuccess({
-            data,
-            orderId: resp.orderId,
+      if (!scope.isCurrent()) return false;
+      if (!accountMatches) {
+        throw new OneKeyLocalError('Borrow transaction confirmation expired');
+      }
+      return runBorrowConfirmationTask({
+        identity: {
+          accountId,
+          networkId,
+          accountAddress: frozenAddress,
+          provider,
+          action: 'withdraw',
+          intent: {
+            marketAddress,
+            reserveAddress,
+            amount,
+            withdrawAll,
+            unwrap,
+          },
+        },
+        build: () =>
+          backgroundApiProxy.serviceStaking.borrowBuildWithdrawTransaction({
             networkId,
             accountId,
-            stakingInfo: stakingInfoWithOrderId,
-            onSettleResult,
-            onSuccess,
-          });
-        },
+            expectedAccountAddress: frozenAddress,
+            provider,
+            marketAddress,
+            reserveAddress,
+            amount,
+            withdrawAll,
+            ...(unwrap !== undefined ? { unwrap } : {}),
+          }),
+        stakingInfo,
+        navigationToTxConfirm,
+        isCurrent: scope.isCurrent,
+        onBeforeNavigate,
+        onSettleResult,
+        onSuccess,
         onFail,
         onCancel,
+        workflowHandoff,
       });
-
-      return true;
     },
-    [accountId, ensureRiskAccepted, networkId, navigationToTxConfirm],
+    [
+      accountAddress,
+      accountId,
+      captureScope,
+      ensureRiskAccepted,
+      networkId,
+      navigationToTxConfirm,
+    ],
   );
 }
 
@@ -261,9 +210,11 @@ export function useUniversalBorrowWithdraw({
 export function useUniversalBorrowRepay({
   networkId,
   accountId,
+  accountAddress,
 }: {
   networkId: string;
   accountId: string;
+  accountAddress?: string;
 }) {
   const { navigationToTxConfirm } = useSignatureConfirm({
     accountId,
@@ -271,6 +222,15 @@ export function useUniversalBorrowRepay({
   });
 
   const ensureRiskAccepted = useEarnRiskWarningGate();
+  const captureScope = useBorrowConfirmationScope(
+    JSON.stringify([
+      accountId,
+      networkId,
+      accountAddress
+        ? normalizeTaskAccountAddress(networkId, accountAddress)
+        : undefined,
+    ]),
+  );
 
   return useCallback(
     async ({
@@ -281,12 +241,17 @@ export function useUniversalBorrowRepay({
       repayAll,
       stakingInfo,
       onBeforeNavigate,
+      canContinueAfterOwnerClose,
+      accountAddress: approvalAccountAddress,
+      workflowHandoff,
       ignoreOrderTrackingError,
       onSettleResult,
       onSuccess,
       onFail,
       onCancel,
     }: IBorrowBuildTxParams): Promise<boolean> => {
+      const scope = captureScope(canContinueAfterOwnerClose);
+      if (!scope.isCurrent()) return false;
       // OK-59196: one-time DeFi risk disclaimer, same gate the earn stake flow
       // uses. Returns false so the caller can tell a rejection apart from a
       // completed hand-off and leave the form untouched.
@@ -299,46 +264,74 @@ export function useUniversalBorrowRepay({
       ) {
         return false;
       }
-
-      const resp =
-        await backgroundApiProxy.serviceStaking.borrowBuildRepayTransaction({
-          networkId,
-          accountId,
-          provider,
-          marketAddress,
-          reserveAddress,
-          amount,
-          repayAll,
-        });
-
-      const stakingInfoWithOrderId = attachBorrowOrderId({
-        stakingInfo,
-        orderId: resp.orderId,
+      if (!scope.isCurrent()) return false;
+      if (
+        !approvalAccountAddress &&
+        !accountAddress &&
+        !scope.isOwnedCurrent()
+      ) {
+        throw new OneKeyLocalError('Borrow approval account unavailable');
+      }
+      const frozenAddress =
+        approvalAccountAddress ??
+        accountAddress ??
+        (await getTaskAccountAddress({ accountId, networkId }));
+      if (
+        !approvalAccountAddress &&
+        !accountAddress &&
+        !scope.isOwnedCurrent()
+      ) {
+        throw new OneKeyLocalError('Borrow approval account unavailable');
+      }
+      if (!scope.isCurrent()) return false;
+      const accountMatches = await isTaskAccountCurrent({
+        accountId,
+        networkId,
+        accountAddress: frozenAddress,
       });
-
-      await onBeforeNavigate?.();
-
-      await navigationToTxConfirm({
-        encodedTx: parseBorrowEncodedTx(resp.tx),
-        stakingInfo: stakingInfoWithOrderId,
-        onSuccess: async (data) => {
-          await handleBorrowSuccess({
-            data,
-            orderId: resp.orderId,
+      if (!scope.isCurrent()) return false;
+      if (!accountMatches) {
+        throw new OneKeyLocalError('Borrow transaction confirmation expired');
+      }
+      return runBorrowConfirmationTask({
+        identity: {
+          accountId,
+          networkId,
+          accountAddress: frozenAddress,
+          provider,
+          action: 'repay',
+          intent: { marketAddress, reserveAddress, amount, repayAll },
+        },
+        build: () =>
+          backgroundApiProxy.serviceStaking.borrowBuildRepayTransaction({
             networkId,
             accountId,
-            stakingInfo: stakingInfoWithOrderId,
-            ignoreOrderTrackingError,
-            onSettleResult,
-            onSuccess,
-          });
-        },
+            expectedAccountAddress: frozenAddress,
+            provider,
+            marketAddress,
+            reserveAddress,
+            amount,
+            repayAll,
+          }),
+        stakingInfo,
+        navigationToTxConfirm,
+        isCurrent: scope.isCurrent,
+        onBeforeNavigate,
+        ignoreOrderTrackingError,
+        onSettleResult,
+        onSuccess,
         onFail,
         onCancel,
+        workflowHandoff,
       });
-
-      return true;
     },
-    [accountId, ensureRiskAccepted, networkId, navigationToTxConfirm],
+    [
+      accountAddress,
+      accountId,
+      captureScope,
+      ensureRiskAccepted,
+      networkId,
+      navigationToTxConfirm,
+    ],
   );
 }
