@@ -34,6 +34,12 @@ const FULLSCREEN_LAYER_READY_TIMEOUT_MS = 2000;
 // Rotate back anyway if the returned status bar never reports a top inset,
 // e.g. a window that keeps it off the landscape layout.
 const STATUS_BAR_RETURN_TIMEOUT_MS = 500;
+// Page layouts queued in landscape can still arrive once the window reports
+// portrait again.
+const WINDOW_ROTATION_SETTLE_MS = 300;
+// End the rotation anyway if the window stays landscape after the session,
+// e.g. one that ignores the portrait lock.
+const WINDOW_ROTATION_RETURN_TIMEOUT_MS = 2000;
 
 interface IFullscreenSession {
   isRevealing: boolean;
@@ -78,7 +84,11 @@ function lockScreenOrientation(
 
 export function TradingViewNative(props: ITradingViewNativeProps) {
   const isOwnerFullscreen = Boolean(props.isNativeChartFullscreen);
-  const { onNativeChartFullscreenChange } = props;
+  const {
+    onNativeChartFullscreenChange,
+    onNativeChartWindowRotationChange,
+    ...containerProps
+  } = props;
   const isAndroid = platformEnv.isNativeAndroid === true;
   // Android keeps the owner's page on screen whenever the window rotates: a
   // requested fullscreen reaches the owner, which hides its page, only after
@@ -122,14 +132,21 @@ export function TradingViewNative(props: ITradingViewNativeProps) {
     width,
   });
   const onFullscreenChangeRef = useRef(onNativeChartFullscreenChange);
+  const onWindowRotationChangeRef = useRef(onNativeChartWindowRotationChange);
   const isOwnerFullscreenRef = useRef(isOwnerFullscreen);
   const isStatusBarHiddenRef = useRef(isStatusBarHidden);
   // Runs before the session effect below, which reads these refs.
   useLayoutEffect(() => {
     onFullscreenChangeRef.current = onNativeChartFullscreenChange;
+    onWindowRotationChangeRef.current = onNativeChartWindowRotationChange;
     isOwnerFullscreenRef.current = isOwnerFullscreen;
     isStatusBarHiddenRef.current = isStatusBarHidden;
-  }, [isOwnerFullscreen, isStatusBarHidden, onNativeChartFullscreenChange]);
+  }, [
+    isOwnerFullscreen,
+    isStatusBarHidden,
+    onNativeChartFullscreenChange,
+    onNativeChartWindowRotationChange,
+  ]);
   useEffect(() => {
     // The owner has taken over the requested fullscreen.
     if (isOwnerFullscreen) setIsEntering(false);
@@ -142,6 +159,32 @@ export function TradingViewNative(props: ITradingViewNativeProps) {
       isAndroid && !shouldUseCurrentAndroidWindowForFullscreen();
   }
   const isLandscapeLayout = landscapeLayoutRef.current ?? false;
+
+  // The owner's page lays out in landscape while a session rotates the window,
+  // and a window that is landscape on its own is never rotated.
+  const [isRotatingWindow, setIsRotatingWindow] = useState(false);
+  if (isLandscapeLayout && !isRotatingWindow) {
+    setIsRotatingWindow(true);
+  }
+  useEffect(() => {
+    if (!isRotatingWindow || isFullscreen) {
+      return;
+    }
+    const timeout = setTimeout(
+      () => setIsRotatingWindow(false),
+      width > height
+        ? WINDOW_ROTATION_RETURN_TIMEOUT_MS
+        : WINDOW_ROTATION_SETTLE_MS,
+    );
+    return () => clearTimeout(timeout);
+  }, [height, isFullscreen, isRotatingWindow, width]);
+  useLayoutEffect(() => {
+    if (!isRotatingWindow) {
+      return;
+    }
+    onWindowRotationChangeRef.current?.(true);
+    return () => onWindowRotationChangeRef.current?.(false);
+  }, [isRotatingWindow]);
 
   const sessionRef = useRef<IFullscreenSession | undefined>(undefined);
   const handleFullscreenChange = useCallback(
@@ -319,7 +362,7 @@ export function TradingViewNative(props: ITradingViewNativeProps) {
   return (
     <TradingViewNativeFullscreenTransitionContext.Provider value={transition}>
       <TradingViewNativeContainer
-        {...props}
+        {...containerProps}
         isNativeChartFullscreen={isFullscreen}
         onNativeChartFullscreenChange={
           onNativeChartFullscreenChange ? handleFullscreenChange : undefined

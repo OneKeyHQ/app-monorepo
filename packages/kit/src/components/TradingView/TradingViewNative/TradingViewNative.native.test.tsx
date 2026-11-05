@@ -553,6 +553,109 @@ describe('TradingViewNative screen orientation', () => {
     expect(mockPopStatusBarEntry).toHaveBeenCalledWith(mockStatusBarEntry);
   });
 
+  it('reports the window rotation until the window settles in portrait', async () => {
+    const handleFullscreenChange = jest.fn();
+    const handleWindowRotationChange = jest.fn();
+    const chart = (isNativeChartFullscreen: boolean) => (
+      <TradingViewNative
+        source={source}
+        isNativeChartFullscreen={isNativeChartFullscreen}
+        onNativeChartFullscreenChange={handleFullscreenChange}
+        onNativeChartWindowRotationChange={handleWindowRotationChange}
+      />
+    );
+    mockLockAsync.mockImplementation(async (orientationLock) => {
+      const isLandscape = orientationLock === 'LANDSCAPE';
+      mockWindowDimensions.height = isLandscape ? 390 : 844;
+      mockWindowDimensions.width = isLandscape ? 844 : 390;
+    });
+    const { rerender } = render(chart(false));
+
+    // The page lays out in landscape from the moment the window rotates.
+    requestFullscreen(true);
+    expect(handleWindowRotationChange).toHaveBeenLastCalledWith(true);
+    reportLayerReady();
+    await waitFor(() => {
+      expect(handleFullscreenChange).toHaveBeenCalledWith(true);
+    });
+    rerender(chart(true));
+    expect(getContainerProps()).not.toHaveProperty(
+      'onNativeChartWindowRotationChange',
+    );
+
+    requestFullscreen(false);
+    rerender(chart(false));
+    await waitFor(() => {
+      expect(getContainerProps()?.isNativeChartFullscreen).toBe(false);
+    });
+    // Layouts queued in landscape can still arrive once the window is portrait.
+    expect(handleWindowRotationChange).toHaveBeenCalledTimes(1);
+
+    await waitFor(() => {
+      expect(handleWindowRotationChange).toHaveBeenLastCalledWith(false);
+    });
+    expect(handleWindowRotationChange).toHaveBeenCalledTimes(2);
+  });
+
+  it('stops reporting the rotation when the window stays landscape', () => {
+    const handleWindowRotationChange = jest.fn();
+    const chart = () => (
+      <TradingViewNative
+        source={source}
+        onNativeChartFullscreenChange={jest.fn()}
+        onNativeChartWindowRotationChange={handleWindowRotationChange}
+      />
+    );
+    jest.useFakeTimers();
+    try {
+      const { rerender } = render(chart());
+      requestFullscreen(true);
+      expect(handleWindowRotationChange).toHaveBeenLastCalledWith(true);
+
+      // The session ends in a landscape window that ignores the portrait lock.
+      mockWindowDimensions.height = 390;
+      mockWindowDimensions.width = 844;
+      rerender(chart());
+      requestFullscreen(false);
+      act(() => {
+        jest.advanceTimersByTime(1999);
+      });
+      expect(handleWindowRotationChange).toHaveBeenCalledTimes(1);
+
+      act(() => {
+        jest.advanceTimersByTime(1);
+      });
+      expect(handleWindowRotationChange).toHaveBeenLastCalledWith(false);
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it('reports no rotation for an Android window that is already landscape', async () => {
+    mockWindowDimensions.height = 390;
+    mockWindowDimensions.width = 844;
+    const handleWindowRotationChange = jest.fn();
+    const chart = (isNativeChartFullscreen: boolean) => (
+      <TradingViewNative
+        source={source}
+        isNativeChartFullscreen={isNativeChartFullscreen}
+        onNativeChartFullscreenChange={jest.fn()}
+        onNativeChartWindowRotationChange={handleWindowRotationChange}
+      />
+    );
+
+    const { rerender } = render(chart(true));
+    reportLayerReady();
+    await waitFor(() => {
+      expect(mockTransition?.isRevealed).toBe(true);
+    });
+    requestFullscreen(false);
+    rerender(chart(false));
+
+    expect(getContainerProps()?.isNativeChartFullscreen).toBe(false);
+    expect(handleWindowRotationChange).not.toHaveBeenCalled();
+  });
+
   it('locks a folded Android portrait window to landscape', async () => {
     const handleFullscreenChange = jest.fn();
     mockIsSpanning.mockReturnValue(false);

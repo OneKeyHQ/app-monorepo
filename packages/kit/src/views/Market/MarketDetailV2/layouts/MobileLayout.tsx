@@ -42,7 +42,6 @@ import { TRADING_VIEW_NATIVE_SUB_INDICATOR_PANE_HEIGHT } from '@onekeyhq/kit/src
 import { getTradingViewNativeIntervalStorageNamespace } from '@onekeyhq/kit/src/components/TradingView/TradingViewNative/data/tradingViewNativeIntervalStorage';
 import type { ITradingViewNativeIntervalStorageNamespace } from '@onekeyhq/kit/src/components/TradingView/TradingViewNative/data/tradingViewNativeIntervalStorage';
 import { TradingViewNativeTokenHeader } from '@onekeyhq/kit/src/components/TradingView/TradingViewNative/TradingViewNativeTokenHeader';
-import { isTradingViewNativePhoneWindow } from '@onekeyhq/kit/src/components/TradingView/TradingViewNative/utils/fullscreenLayout';
 import { shouldReserveTradingViewNativeIndicatorQuickBar } from '@onekeyhq/kit/src/components/TradingView/TradingViewV2';
 import type { ITradingViewNativeIndicatorQuickBarState } from '@onekeyhq/kit/src/components/TradingView/TradingViewV2';
 import {
@@ -731,23 +730,21 @@ export function MobileLayout({
   const preserveInlineViewport =
     preservesPortraitLayout &&
     (isChartFullscreen || windowWidth > windowHeight);
-  // Android phones only reach landscape through the native chart fullscreen;
-  // keep the page's portrait measurements through its rotations.
-  const keepsPortraitPageLayout = Boolean(
-    preservesPortraitLayout ||
-    (platformEnv.isNativeAndroid &&
-      isTradingViewNativePhoneWindow({
-        height: windowHeight,
-        width: windowWidth,
-      })),
-  );
+  // Android: set while the native chart fullscreen rotates the window. Keep the
+  // page's portrait measurements through those rotations only; the window can
+  // also be landscape on its own, e.g. in split screen.
+  const isChartRotatingWindowRef = useRef(false);
+  const handleChartWindowRotationChange = useCallback((isRotating: boolean) => {
+    isChartRotatingWindowRef.current = isRotating;
+  }, []);
 
   const handleContainerLayout = useCallback(
     (event: { nativeEvent: { layout: { height: number; width: number } } }) => {
       if (
         preserveInlineViewport ||
         isTransientLandscapePageLayout({
-          keepsPortraitLayout: keepsPortraitPageLayout,
+          keepsPortraitLayout:
+            preservesPortraitLayout || isChartRotatingWindowRef.current,
           layoutWidth: event.nativeEvent.layout.width,
           windowHeight,
           windowWidth,
@@ -768,7 +765,6 @@ export function MobileLayout({
       }
     },
     [
-      keepsPortraitPageLayout,
       preserveInlineViewport,
       preservesPortraitLayout,
       windowHeight,
@@ -786,7 +782,8 @@ export function MobileLayout({
         preserveInlineViewport ||
         // A queued landscape layout can arrive after Dimensions is portrait.
         isTransientLandscapePageLayout({
-          keepsPortraitLayout: keepsPortraitPageLayout,
+          keepsPortraitLayout:
+            preservesPortraitLayout || isChartRotatingWindowRef.current,
           layoutWidth: event.nativeEvent.layout.width,
           windowHeight,
           windowWidth,
@@ -805,10 +802,10 @@ export function MobileLayout({
       }
     },
     [
-      keepsPortraitPageLayout,
       pageViewportCacheKey,
       preserveInlineViewport,
       preservesAndroidTabHeight,
+      preservesPortraitLayout,
       usesMeasuredPageViewport,
       windowHeight,
       windowWidth,
@@ -1051,6 +1048,9 @@ export function MobileLayout({
                         }
                         onChartSwitch={onChartSwitch}
                         onNativeChartFullscreenChange={onChartFullscreenChange}
+                        onNativeChartWindowRotationChange={
+                          handleChartWindowRotationChange
+                        }
                       />
                     ) : (
                       // Same controls row + masked canvas the chart mounts with.
@@ -1145,6 +1145,7 @@ export function MobileLayout({
     chartHeaderLogoUrl,
     chartHeaderSymbol,
     detailKind,
+    handleChartWindowRotationChange,
     handleIndicatorsDialogOpenChange,
     handleInteractionOverlayOpenChange,
     handleNativeChartPriceUpdate,

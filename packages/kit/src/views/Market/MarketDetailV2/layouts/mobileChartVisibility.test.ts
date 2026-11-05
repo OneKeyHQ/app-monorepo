@@ -101,6 +101,17 @@ describe('isTransientLandscapePageLayout', () => {
     ).toBe(false);
   });
 
+  it('measures a phone window that is landscape on its own', () => {
+    // E.g. split screen: no fullscreen rotation is under way.
+    expect(
+      isTransientLandscapePageLayout({
+        keepsPortraitLayout: false,
+        layoutWidth: 640,
+        ...landscapeWindow,
+      }),
+    ).toBe(false);
+  });
+
   it('measures every layout of a window that rotates freely', () => {
     expect(
       isTransientLandscapePageLayout({
