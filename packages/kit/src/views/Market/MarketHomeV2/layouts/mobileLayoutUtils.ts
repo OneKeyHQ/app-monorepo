@@ -111,6 +111,54 @@ export function getMarketMobileSecondaryHeaderHeight() {
   return MARKET_MOBILE_SECONDARY_HEADER_HEIGHT;
 }
 
+export function getMarketMobileSecondaryLayoutHeight({
+  wideColumns,
+  isEmptyWatchlist,
+  isCompactSpot,
+}: {
+  wideColumns: boolean;
+  isEmptyWatchlist: boolean;
+  isCompactSpot: boolean;
+}) {
+  if (isEmptyWatchlist) return 0;
+  if (isCompactSpot) {
+    return wideColumns ? 0 : MARKET_MOBILE_COMPACT_SECONDARY_HEADER_HEIGHT;
+  }
+  return wideColumns
+    ? MARKET_MOBILE_CATEGORY_ROW_HEIGHT
+    : MARKET_MOBILE_SECONDARY_HEADER_HEIGHT;
+}
+
+export function resolveMarketProgressDisplayKey({
+  pages,
+  sourceKey,
+  position,
+  offset,
+  enabled,
+}: {
+  pages: readonly { key: string; height: number }[];
+  sourceKey: string | undefined;
+  position: number;
+  offset: number;
+  enabled: boolean;
+}) {
+  const progress = position + offset;
+  if (
+    !enabled ||
+    !Number.isFinite(position) ||
+    !Number.isFinite(offset) ||
+    !Number.isFinite(progress)
+  ) {
+    return undefined;
+  }
+  const source = pages.find((page) => page.key === sourceKey);
+  const index = Math.max(0, Math.min(pages.length - 1, Math.round(progress)));
+  const candidate = pages[index];
+  return source && candidate && source.height === candidate.height
+    ? candidate.key
+    : undefined;
+}
+
 export function getMarketNativeCompactListStyle(isCompact: boolean) {
   return isCompact
     ? ({

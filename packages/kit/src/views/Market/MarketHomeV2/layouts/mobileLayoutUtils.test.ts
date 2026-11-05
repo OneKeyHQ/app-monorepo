@@ -2,11 +2,13 @@ import {
   getMarketEmptyWatchlistContainerProps,
   getMarketMobileBannerHeaderHeight,
   getMarketMobileSecondaryHeaderHeight,
+  getMarketMobileSecondaryLayoutHeight,
   getMarketNativeCompactListStyle,
   getMarketRecommendContainerPaddingTop,
   getMarketWebSecondaryHeaderHeight,
   resolveMarketBannerHeaderDecision,
   resolveMarketBannerHeaderHeight,
+  resolveMarketProgressDisplayKey,
 } from './mobileLayoutUtils';
 
 describe('getMarketMobileBannerHeaderHeight', () => {
@@ -209,5 +211,82 @@ describe('getMarketWebSecondaryHeaderHeight', () => {
         hasSpotSecondaryControls: false,
       }),
     ).toBe(88);
+  });
+});
+
+describe('Market secondary display ownership', () => {
+  it.each([
+    [false, false, false, 88],
+    [true, false, false, 56],
+    [false, false, true, 44],
+    [true, false, true, 0],
+    [false, true, false, 0],
+    [true, true, false, 0],
+  ])(
+    'preserves existing secondary layout branches',
+    (wideColumns, isEmptyWatchlist, isCompactSpot, expected) => {
+      expect(
+        getMarketMobileSecondaryLayoutHeight({
+          wideColumns,
+          isEmptyWatchlist,
+          isCompactSpot,
+        }),
+      ).toBe(expected);
+    },
+  );
+
+  const pages = [
+    { key: 'stocks', height: 88 },
+    { key: 'robinhood', height: 88 },
+    { key: 'compact', height: 44 },
+  ];
+  const resolve = (
+    position: number,
+    offset: number,
+    enabled = true,
+    sourceKey: string | undefined = 'stocks',
+  ) =>
+    resolveMarketProgressDisplayKey({
+      pages,
+      position,
+      offset,
+      enabled,
+      sourceKey,
+    });
+  it('uses the nearest equal-height page and follows a return before UP', () => {
+    expect(resolve(0, 0.6)).toBe('robinhood');
+    expect(resolve(0, 0.4)).toBe('stocks');
+    expect(resolve(1, 0.6)).toBeUndefined();
+  });
+  it('rejects late progress after a command or idle and invalid source identities', () => {
+    expect(resolve(0, 0.9, false)).toBeUndefined();
+    expect(resolve(0, 0.9, true, 'removed')).toBeUndefined();
+  });
+  it('rejects invalid progress and clamps valid endpoints', () => {
+    expect(resolve(NaN, 0.5)).toBeUndefined();
+    expect(resolve(0, Infinity)).toBeUndefined();
+    expect(resolve(Number.MAX_VALUE, Number.MAX_VALUE)).toBeUndefined();
+    expect(resolve(-1, 0)).toBe('stocks');
+    expect(resolve(9, 0)).toBeUndefined();
+  });
+  it('resolves reordered pages by stable key and rechecks current heights', () => {
+    expect(
+      resolveMarketProgressDisplayKey({
+        pages: [pages[1], pages[0]],
+        sourceKey: 'stocks',
+        position: 0,
+        offset: 0,
+        enabled: true,
+      }),
+    ).toBe('robinhood');
+    expect(
+      resolveMarketProgressDisplayKey({
+        pages: [{ key: 'stocks', height: 56 }, pages[1]],
+        sourceKey: 'stocks',
+        position: 0,
+        offset: 0.8,
+        enabled: true,
+      }),
+    ).toBeUndefined();
   });
 });
