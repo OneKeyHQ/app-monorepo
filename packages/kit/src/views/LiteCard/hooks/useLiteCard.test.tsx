@@ -147,6 +147,10 @@ beforeEach(() => {
   mockWrite.mockResolvedValue(success());
 });
 
+afterEach(() => {
+  jest.restoreAllMocks();
+});
+
 it('refreshes initialized card state after an unsuccessful new-card write and confirms overwrite', async () => {
   mockRead
     .mockResolvedValueOnce(success())
@@ -215,7 +219,7 @@ it('keeps the first card identity across retries', async () => {
   expect(mockUpdateBackup).not.toHaveBeenCalled();
 });
 
-it('drops late native success after unmount', async () => {
+it('persists confirmed native success after unmount without showing success UI', async () => {
   let finish: ((value: ReturnType<typeof success>) => void) | undefined;
   mockWrite.mockImplementation(
     () =>
@@ -229,9 +233,82 @@ it('drops late native success after unmount', async () => {
   unmount();
   finish?.(success());
   await expect(pending).resolves.toBe(false);
+  expect(mockUpdateBackup).toHaveBeenCalledTimes(1);
+  expect(mockUpdateBackup).toHaveBeenCalledWith({
+    walletId: 'wallet',
+    isBackedUp: true,
+  });
   expect(mockSuccess).not.toHaveBeenCalled();
+  expect(mockEmit).not.toHaveBeenCalled();
   expect(mockBackupResult.mock.calls).toEqual([[{ isSuccess: false }]]);
 });
+
+it.each<{
+  outcome: string;
+  writeResult: IResult;
+  shouldPersist: boolean;
+}>([
+  { outcome: 'confirmed success', writeResult: success(), shouldPersist: true },
+  {
+    outcome: 'native error',
+    writeResult: { ...success(), error: { code: 4001 } },
+    shouldPersist: false,
+  },
+  {
+    outcome: 'unsuccessful payload',
+    writeResult: { ...success(), data: false },
+    shouldPersist: false,
+  },
+  {
+    outcome: 'different card',
+    writeResult: success({ ...freshCard, serialNum: 'other-card' }),
+    shouldPersist: false,
+  },
+])(
+  'persists only confirmed writes after unmount cancels the NFC wait: $outcome',
+  async ({ writeResult, shouldPersist }) => {
+    let finishWrite: ((value: IResult) => void) | undefined;
+    let cancelConnection: (() => void) | undefined;
+    let nativeCompletion: Promise<unknown> | undefined;
+    mockWrite.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          finishWrite = resolve;
+        }),
+    );
+    jest.spyOn(mockNFC, 'createNFCConnection').mockImplementation(
+      <T,>(callback: () => Promise<T>) =>
+        () =>
+          new Promise<T>((resolve, reject) => {
+            cancelConnection = () =>
+              reject(new Error('NFC operation cancelled'));
+            const operation = callback();
+            nativeCompletion = operation;
+            void operation.then(resolve, reject);
+          }),
+    );
+    const { result, unmount } = renderHook(() => useLiteCard());
+    const pending = result.current.backupWallet();
+    await waitFor(() => expect(mockWrite).toHaveBeenCalledTimes(1));
+    unmount();
+    cancelConnection?.();
+    await expect(pending).resolves.toBe(false);
+    expect(mockUpdateBackup).not.toHaveBeenCalled();
+    expect(nativeCompletion).toBeDefined();
+    finishWrite?.(writeResult);
+    await nativeCompletion;
+    expect(mockUpdateBackup).toHaveBeenCalledTimes(shouldPersist ? 1 : 0);
+    if (shouldPersist) {
+      expect(mockUpdateBackup).toHaveBeenCalledWith({
+        walletId: 'wallet',
+        isBackedUp: true,
+      });
+    }
+    expect(mockDecision).toHaveBeenCalledTimes(1);
+    expect(mockSuccess).not.toHaveBeenCalled();
+    expect(mockEmit).not.toHaveBeenCalled();
+  },
+);
 
 it('does not import or report success until validation completes', async () => {
   mockImport.mockResolvedValue({ ...success(), data: 'encoded-fixture' });

@@ -129,14 +129,29 @@ export default function useLiteCard() {
               overwrite,
             });
             const expectedSerial = expectedCard.serialNum;
-            const write = await nfc.createNFCConnection(() =>
-              LiteCard.setMnemonic(
+            const write = await nfc.createNFCConnection(async () => {
+              const result = await LiteCard.setMnemonic(
                 encodedMnemonic,
                 pin,
                 overwrite,
                 expectedSerial,
-              ),
-            )();
+              );
+              if (
+                !result.error &&
+                result.data === true &&
+                result.cardInfo?.serialNum === expectedSerial &&
+                selectedWalletId
+              ) {
+                // Persist even if unmounting cancelled the UI's NFC wait.
+                await backgroundApiProxy.serviceAccount.updateWalletBackupStatus(
+                  {
+                    walletId: selectedWalletId,
+                    isBackedUp: true,
+                  },
+                );
+              }
+              return result;
+            })();
             if (!mounted.current) return false;
             log('native-result', {
               nativeMethod: 'setMnemonic',
@@ -155,16 +170,12 @@ export default function useLiteCard() {
               throw new OneKeyLocalError('Lite backup cancelled');
             if (!mounted.current) return false;
             if (writeAction === 'continue') {
-              if (write.data !== true)
+              if (
+                write.data !== true ||
+                write.cardInfo?.serialNum !== expectedSerial
+              )
                 throw new OneKeyLocalError('Lite backup result missing');
               if (selectedWalletId) {
-                await backgroundApiProxy.serviceAccount.updateWalletBackupStatus(
-                  {
-                    walletId: selectedWalletId,
-                    isBackedUp: true,
-                  },
-                );
-                if (!mounted.current) return false;
                 appEventBus.emit(EAppEventBusNames.WalletUpdate, undefined);
               }
               showBackupSuccessDialog();
