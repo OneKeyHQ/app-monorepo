@@ -1439,9 +1439,7 @@ async function runFetchStreamSenderFlow() {
     results.push({ label: 'real child frame IPC denied' });
     const beforeForeign = requests.length;
     await instance.evaluate(async () => globalThis.fixtureHost.createForeign());
-    const foreign = (await instance.windows()).find(
-      (candidate) => candidate !== page,
-    );
+    const foreign = instance.windows().find((candidate) => candidate !== page);
     assert.deepEqual(
       await foreign.evaluate(
         (url) => globalThis.fixture.invoke({ action: 'open', url }),
@@ -1576,7 +1574,7 @@ async function runFetchStreamSenderFlow() {
       JSON.stringify({ error: String(error), results, requests }, null, 2),
     );
     if (instance) {
-      const pages = await instance.windows();
+      const pages = instance.windows();
       await pages[0]
         ?.screenshot({ path: path.join(out, 'failure.png') })
         .catch(() => {});
