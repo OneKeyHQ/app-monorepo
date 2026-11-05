@@ -38,6 +38,7 @@ export async function testHardwareCipherKeyValue(
       const features = await hardware.getFeaturesWithoutCache({ connectId });
       const sdk = await hardware.getSDKInstance({ connectId });
       assertActive();
+      let sessionAcquired = false;
       try {
         const session = await convertDeviceResponse(() =>
           sdk.openWalletSession(connectId, {
@@ -45,6 +46,7 @@ export async function testHardwareCipherKeyValue(
             keepSession: true,
           }),
         );
+        sessionAcquired = true;
         if (
           session.walletType !== 'standard' ||
           session.passphraseState ||
@@ -97,12 +99,15 @@ export async function testHardwareCipherKeyValue(
           decryptMs: durations[2],
         };
       } finally {
-        // A freshly connected device may have no DB record for outer cleanup.
-        await hardware.cancel({
-          connectId,
-          oneKeyOperationLease: lease,
-          immediate: true,
-        });
+        // Setup failures must not re-enter BLE pairing without a session.
+        // A fresh device may have no DB record for outer session cleanup.
+        if (sessionAcquired) {
+          await hardware.cancel({
+            connectId,
+            oneKeyOperationLease: lease,
+            immediate: true,
+          });
+        }
       }
     },
     {

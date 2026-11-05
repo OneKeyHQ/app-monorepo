@@ -242,3 +242,30 @@ test('waits for session cleanup before releasing the hardware operation', async 
   await operation;
   expect(settled).toHaveBeenCalledTimes(1);
 });
+
+test('does not re-enter transport cleanup when pairing fails before a session is acquired', async () => {
+  const { api, sdk, hardware, cipher } = setup();
+  const pairingError = new Error('Bluetooth pairing failed');
+  sdk.openWalletSession.mockRejectedValueOnce(pairingError);
+  await expect(
+    testHardwareCipherKeyValue(api, { connectId: 'selected-id', key }),
+  ).rejects.toBe(pairingError);
+  expect(cipher).not.toHaveBeenCalled();
+  expect(hardware.cancel).not.toHaveBeenCalled();
+});
+
+test('cleans up an acquired session even when it is not the standard wallet', async () => {
+  const { api, sdk, hardware, lease } = setup();
+  sdk.openWalletSession.mockResolvedValueOnce({
+    success: true,
+    payload: { deviceId: 'test-device', walletType: 'hidden' },
+  });
+  await expect(
+    testHardwareCipherKeyValue(api, { connectId: 'selected-id', key }),
+  ).rejects.toThrow('Use the standard wallet');
+  expect(hardware.cancel).toHaveBeenCalledWith({
+    connectId: 'compatible-id',
+    oneKeyOperationLease: lease,
+    immediate: true,
+  });
+});
