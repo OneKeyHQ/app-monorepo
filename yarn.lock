@@ -10318,13 +10318,13 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@onekeyfe/react-native-lite-card@npm:6.7.0-23":
-  version: 6.7.0-23
-  resolution: "@onekeyfe/react-native-lite-card@npm:6.7.0-23"
+"@onekeyfe/react-native-lite-card@npm:6.7.0-alpha.448":
+  version: 6.7.0-alpha.448
+  resolution: "@onekeyfe/react-native-lite-card@npm:6.7.0-alpha.448"
   peerDependencies:
     react: "*"
     react-native: "*"
-  checksum: 10/ebb40eed2f37a22fdab414c19a7c1cfe670da186b804fabef0edb4bd72488daca661d158c4c330647ca7292629cde9b8b623f8867eaf325c8b4370efe83c6e1b
+  checksum: 10/18779d872f287e7880ac9ed2d20ed10a68aeb47a31a369843db86bd3acb4b74a9bd139cf3d819abe51240768925af5d888d05d5743efca8af1eb559bf8dbef1d
   languageName: node
   linkType: hard
 
@@ -11014,7 +11014,7 @@ __metadata:
     "@onekeyfe/react-native-image": "npm:6.7.0-23"
     "@onekeyfe/react-native-image-crop-picker": "npm:6.7.0-23"
     "@onekeyfe/react-native-keychain-module": "npm:6.7.0-23"
-    "@onekeyfe/react-native-lite-card": "npm:6.7.0-23"
+    "@onekeyfe/react-native-lite-card": "npm:6.7.0-alpha.448"
     "@onekeyfe/react-native-native-list": "npm:6.7.0-23"
     "@onekeyfe/react-native-native-logger": "npm:6.7.0-23"
     "@onekeyfe/react-native-native-overlay": "npm:6.7.0-23"

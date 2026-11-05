@@ -53,6 +53,8 @@ function NFCAnimation(props: ComponentProps<typeof LiteCardNFCAnimation>) {
   );
 }
 
+export type ILiteCardErrorAction = 'continue' | 'retry' | 'retryPin' | 'cancel';
+
 enum ENFCEventCode {
   CONNECTED = 1,
   TRANSFERRING_DATA = 2,
@@ -62,6 +64,9 @@ enum ENFCEventCode {
 export default function useNFC() {
   const intl = useIntl();
   const willCloseDialogInstance = useRef<IDialogInstance>(undefined);
+  const activeCancel = useRef<(() => void) | undefined>(undefined);
+  const programmaticDialogs = useRef(new WeakSet<IDialogInstance>());
+  const pendingCancels = useRef(new Set<() => void>());
   const diagnosticContext = useRef<{ operationId: string; startedAt: number }>(
     undefined,
   );
@@ -100,22 +105,32 @@ export default function useNFC() {
   );
   const handlerNFCConnectStatus = useCallback(
     ({ code }: { code: number }) => {
+      if (!activeCancel.current) return;
       logNFC('connection-event', {
         eventCode: code,
         hasDialogRef: Boolean(willCloseDialogInstance.current),
       });
       if (code !== ENFCEventCode.TRANSFERRING_DATA) {
         if (code === ENFCEventCode.FINISHED) {
+          const dialog = willCloseDialogInstance.current;
           setTimeout(() => {
-            void willCloseDialogInstance.current?.close();
+            if (dialog) programmaticDialogs.current.add(dialog);
+            void dialog?.close();
           });
         }
         return;
       }
-      void willCloseDialogInstance.current?.close?.();
+      const dialog = willCloseDialogInstance.current;
+      if (dialog) programmaticDialogs.current.add(dialog);
+      void dialog?.close();
       logNFC('dialog-show-request');
-      willCloseDialogInstance.current = Dialog.show({
+      const transferDialog = Dialog.show({
         ...closeCallbacks(),
+        onClose: (extra) => {
+          closeCallbacks().onClose(extra);
+          if (!programmaticDialogs.current.has(transferDialog))
+            activeCancel.current?.();
+        },
         title: intl.formatMessage({
           id: ETranslations.hardware_transferring_data,
         }),
@@ -125,6 +140,7 @@ export default function useNFC() {
         showFooter: false,
         renderContent: <NFCAnimation state="connecting" height={225} />,
       });
+      willCloseDialogInstance.current = transferDialog;
       logNFC('dialog-show-returned');
     },
     [intl, logNFC, closeCallbacks],
@@ -136,6 +152,14 @@ export default function useNFC() {
     LiteCard.addConnectListener(handlerNFCConnectStatus);
     return () => LiteCard.removeConnectListeners();
   }, [handlerNFCConnectStatus]);
+  useEffect(
+    () => () => {
+      for (const cancel of pendingCancels.current) cancel();
+      pendingCancels.current.clear();
+      void willCloseDialogInstance.current?.close();
+    },
+    [],
+  );
   const checkNFCEnabledPermission = useCallback(
     () =>
       new Promise<void>((resolve, reject) => {
@@ -143,67 +167,80 @@ export default function useNFC() {
           reject(new Error('OneKey Lite is unavailable on Mac Catalyst'));
           return;
         }
+        let cancelled = false;
+        const cancel = () => {
+          cancelled = true;
+          pendingCancels.current.delete(cancel);
+          reject(new Error('NFC permission check cancelled'));
+        };
+        pendingCancels.current.add(cancel);
         const context = { operationId: generateUUID(), startedAt: Date.now() };
         logNFC('permission-start', {}, context);
-        void LiteCard.checkNFCPermission().then(({ error }) => {
-          logNFC(
-            'permission-result',
-            {
-              errorCode: error?.code,
-              isSuccess: !error,
-            },
-            context,
-          );
-          if (!error) {
-            resolve();
-            return;
-          }
-          switch (error?.code) {
-            case CardErrors.NotExistsNFC:
-              Dialog.confirm({
-                icon: 'ErrorOutline',
-                tone: 'destructive',
-                title: intl.formatMessage({
-                  id: ETranslations.settings_unable_to_connect,
-                }),
-                description: intl.formatMessage({
-                  id: ETranslations.settings_nfc_not_supported,
-                }),
-                onConfirmText: intl.formatMessage({
-                  id: ETranslations.global_i_got_it,
-                }),
-              });
-              break;
-            case CardErrors.NotEnableNFC:
-            case CardErrors.NotNFCPermission:
-              Alert.alert(
-                intl.formatMessage({ id: ETranslations.settings_turn_on_nfc }),
-                intl.formatMessage({
-                  id: ETranslations.settings_go_to_settings_page_now,
-                }),
-                [
-                  {
-                    text: intl.formatMessage({
-                      id: ETranslations.global_cancel,
-                    }),
-                    style: 'cancel',
-                  },
-                  {
-                    text: intl.formatMessage({
-                      id: ETranslations.global_confirm,
-                    }),
-                    onPress: () => {
-                      LiteCard.intoSetting();
+        void LiteCard.checkNFCPermission()
+          .then(({ error }) => {
+            if (cancelled) return;
+            logNFC(
+              'permission-result',
+              {
+                errorCode: error?.code,
+                isSuccess: !error,
+              },
+              context,
+            );
+            if (!error) {
+              resolve();
+              return;
+            }
+            switch (error?.code) {
+              case CardErrors.NotExistsNFC:
+                Dialog.confirm({
+                  icon: 'ErrorOutline',
+                  tone: 'destructive',
+                  title: intl.formatMessage({
+                    id: ETranslations.settings_unable_to_connect,
+                  }),
+                  description: intl.formatMessage({
+                    id: ETranslations.settings_nfc_not_supported,
+                  }),
+                  onConfirmText: intl.formatMessage({
+                    id: ETranslations.global_i_got_it,
+                  }),
+                });
+                break;
+              case CardErrors.NotEnableNFC:
+              case CardErrors.NotNFCPermission:
+                Alert.alert(
+                  intl.formatMessage({
+                    id: ETranslations.settings_turn_on_nfc,
+                  }),
+                  intl.formatMessage({
+                    id: ETranslations.settings_go_to_settings_page_now,
+                  }),
+                  [
+                    {
+                      text: intl.formatMessage({
+                        id: ETranslations.global_cancel,
+                      }),
+                      style: 'cancel',
                     },
-                  },
-                ],
-              );
-              break;
-            default:
-              break;
-          }
-          reject(new Error('NFC permission check failed'));
-        });
+                    {
+                      text: intl.formatMessage({
+                        id: ETranslations.global_confirm,
+                      }),
+                      onPress: () => {
+                        LiteCard.intoSetting();
+                      },
+                    },
+                  ],
+                );
+                break;
+              default:
+                break;
+            }
+            reject(new Error('NFC permission check failed'));
+          })
+          .catch(reject)
+          .finally(() => pendingCancels.current.delete(cancel));
       }),
     [intl, logNFC],
   );
@@ -214,7 +251,9 @@ export default function useNFC() {
       { hasDialogRef: Boolean(willCloseDialogInstance.current) },
       context,
     );
-    await willCloseDialogInstance?.current?.close?.();
+    const dialog = willCloseDialogInstance.current;
+    if (dialog) programmaticDialogs.current.add(dialog);
+    await dialog?.close();
     logNFC(
       'hide-settled',
       { hasDialogRef: Boolean(willCloseDialogInstance.current) },
@@ -226,16 +265,12 @@ export default function useNFC() {
       error,
       cardInfo,
       lastCardInfo,
-      retryNFCAction,
-      retryPINAction,
     }: {
       error?: CallbackError;
       cardInfo?: CardInfo;
       lastCardInfo?: CardInfo;
-      retryNFCAction?: () => Promise<void>;
-      retryPINAction?: () => Promise<void>;
     }) =>
-      new Promise<void>((resolve, reject) => {
+      new Promise<ILiteCardErrorAction>((resolve) => {
         logNFC('error-handler', {
           errorCode: error?.code,
           hasCardInfo: Boolean(cardInfo),
@@ -243,31 +278,73 @@ export default function useNFC() {
           isNewCard: cardInfo?.isNewCard,
         });
         void hideNFCConnectDialog();
-        if (error) {
-          if (
-            cardInfo &&
+        let settled = false;
+        let errorDialog: IDialogInstance | undefined;
+        function cancel() {
+          finish('cancel');
+          void errorDialog?.close();
+        }
+        function finish(action: ILiteCardErrorAction) {
+          if (settled) return;
+          settled = true;
+          pendingCancels.current.delete(cancel);
+          resolve(action);
+        }
+        pendingCancels.current.add(cancel);
+        const onClose = () => finish('cancel');
+        const retry = () => {
+          logNFC('retry-nfc');
+          finish('retry');
+        };
+        if (
+          error?.code === CardErrors.DeviceMismatch ||
+          (cardInfo &&
             lastCardInfo &&
-            lastCardInfo?.serialNum !== cardInfo?.serialNum &&
-            error
-          ) {
-            Dialog.confirm({
-              icon: 'ErrorOutline',
-              tone: 'destructive',
-              title: intl.formatMessage({
-                id: ETranslations.hardware_connect_failed,
-              }),
-              description: intl.formatMessage({
-                id: ETranslations.hardware_two_onekey_lite_not_same,
-              }),
-              onConfirmText: intl.formatMessage({
-                id: ETranslations.global_i_got_it,
-              }),
-            });
+            lastCardInfo.serialNum !== cardInfo.serialNum)
+        ) {
+          errorDialog = Dialog.confirm({
+            onClose,
+            onConfirm: cancel,
+            icon: 'ErrorOutline',
+            tone: 'destructive',
+            title: intl.formatMessage({
+              id: ETranslations.hardware_connect_failed,
+            }),
+            description: intl.formatMessage({
+              id: ETranslations.hardware_two_onekey_lite_not_same,
+            }),
+            onConfirmText: intl.formatMessage({
+              id: ETranslations.global_i_got_it,
+            }),
+          });
+          return;
+        }
+        if (error) {
+          if (error.code === CardErrors.UserCancel) {
+            finish('cancel');
             return;
           }
           switch (error?.code) {
+            case CardErrors.InitializedError:
+              errorDialog = Dialog.show({
+                onClose,
+                icon: 'ErrorOutline',
+                tone: 'warning',
+                title: intl.formatMessage({
+                  id: ETranslations.global_unknown_error,
+                }),
+                description: intl.formatMessage({
+                  id: ETranslations.global_unknown_error_retry_message,
+                }),
+                onConfirmText: intl.formatMessage({
+                  id: ETranslations.global_retry,
+                }),
+                onConfirm: retry,
+              });
+              break;
             case CardErrors.InterruptError:
-              Dialog.show({
+              errorDialog = Dialog.show({
+                onClose,
                 icon: 'ErrorOutline',
                 tone: 'destructive',
                 title: intl.formatMessage({
@@ -279,16 +356,12 @@ export default function useNFC() {
                 onConfirmText: intl.formatMessage({
                   id: ETranslations.global_retry,
                 }),
-                onConfirm: retryNFCAction
-                  ? () => {
-                      logNFC('retry-nfc');
-                      return retryNFCAction();
-                    }
-                  : undefined,
+                onConfirm: retry,
               });
               break;
             case CardErrors.NotInitializedError:
-              Dialog.show({
+              errorDialog = Dialog.show({
+                onClose,
                 icon: 'ErrorOutline',
                 tone: 'warning',
                 title: intl.formatMessage({
@@ -300,16 +373,12 @@ export default function useNFC() {
                 onConfirmText: intl.formatMessage({
                   id: ETranslations.global_retry,
                 }),
-                onConfirm: retryNFCAction
-                  ? () => {
-                      logNFC('retry-nfc');
-                      return retryNFCAction();
-                    }
-                  : undefined,
+                onConfirm: retry,
               });
               break;
             case CardErrors.PasswordWrong:
-              Dialog.show({
+              errorDialog = Dialog.show({
+                onClose,
                 icon: 'ErrorOutline',
                 tone: 'destructive',
                 title: intl.formatMessage({
@@ -330,17 +399,16 @@ export default function useNFC() {
                 onConfirmText: intl.formatMessage({
                   id: ETranslations.global_retry,
                 }),
-                onConfirm: async (dialogInstance) => {
-                  void dialogInstance.close();
+                onConfirm: () => {
                   logNFC('retry-pin');
-                  await retryPINAction?.();
-                  logNFC('retry-nfc');
-                  await retryNFCAction?.();
+                  finish('retryPin');
                 },
               });
               break;
             case CardErrors.UpperErrorAutoReset:
-              Dialog.confirm({
+              errorDialog = Dialog.confirm({
+                onClose,
+                onConfirm: cancel,
                 icon: 'ErrorOutline',
                 tone: 'destructive',
                 title: intl.formatMessage({
@@ -355,7 +423,8 @@ export default function useNFC() {
               });
               break;
             default:
-              Dialog.show({
+              errorDialog = Dialog.show({
+                onClose,
                 icon: 'ErrorOutline',
                 tone: 'destructive',
                 title: intl.formatMessage({
@@ -367,63 +436,127 @@ export default function useNFC() {
                 onConfirmText: intl.formatMessage({
                   id: ETranslations.global_retry,
                 }),
-                onConfirm: retryNFCAction
-                  ? () => {
-                      logNFC('retry-nfc');
-                      return retryNFCAction();
-                    }
-                  : undefined,
+                onConfirm: retry,
               });
               break;
           }
-          reject(new Error('NFC error handler failed'));
         } else {
-          resolve();
+          finish('continue');
         }
       }),
     [intl, hideNFCConnectDialog, logNFC],
   );
   const createNFCConnection = useCallback(
-    (callback: () => void) => async () => {
-      const context = { operationId: generateUUID(), startedAt: Date.now() };
-      diagnosticContext.current = context;
-      logNFC('dialog-show-request', {}, context);
-      if (platformEnv.isNativeAndroid) {
-        willCloseDialogInstance.current = Dialog.show({
-          ...closeCallbacks(context),
-          title: intl.formatMessage({
-            id: ETranslations.hardware_searching_for_device,
-          }),
-          description: intl.formatMessage({
-            id: ETranslations.hardware_keep_lite_placed_until_found,
-          }),
-          showFooter: false,
-          renderContent: <NFCAnimation state="searching" height={205} />,
-        });
-        logNFC('dialog-show-returned', {}, context);
-        logNFC('callback-enter', {}, context);
-        callback();
-        return;
-      }
-      willCloseDialogInstance.current = Dialog.confirm({
-        ...closeCallbacks(context),
-        title: intl.formatMessage({
-          id: ETranslations.hardware_place_onekey_lite_close_to_phone,
+    <T,>(callback: () => Promise<T>) =>
+      () =>
+        new Promise<T>((resolve, reject) => {
+          const context = {
+            operationId: generateUUID(),
+            startedAt: Date.now(),
+          };
+          diagnosticContext.current = context;
+          let connectionDialog: IDialogInstance | undefined;
+          let started = false;
+          let nativeStarted = false;
+          let settled = false;
+          const cancel = () => {
+            if (settled) return;
+            settled = true;
+            pendingCancels.current.delete(cancel);
+            if (activeCancel.current === cancel)
+              activeCancel.current = undefined;
+            if (nativeStarted) LiteCard.cancel();
+            void connectionDialog?.close();
+            reject(new Error('NFC operation cancelled'));
+          };
+          pendingCancels.current.add(cancel);
+          activeCancel.current = cancel;
+          const run = () => {
+            if (started || settled) return;
+            started = true;
+            logNFC('callback-enter', {}, context);
+            void Promise.resolve()
+              .then(() => {
+                if (settled)
+                  return Promise.reject(new Error('NFC operation cancelled'));
+                nativeStarted = true;
+                return callback();
+              })
+              .then(
+                (value) => {
+                  if (settled) return;
+                  settled = true;
+                  pendingCancels.current.delete(cancel);
+                  if (activeCancel.current === cancel)
+                    activeCancel.current = undefined;
+                  resolve(value);
+                },
+                (error: unknown) => {
+                  if (settled) return;
+                  settled = true;
+                  pendingCancels.current.delete(cancel);
+                  const dialog =
+                    activeCancel.current === cancel
+                      ? willCloseDialogInstance.current
+                      : connectionDialog;
+                  if (activeCancel.current === cancel)
+                    activeCancel.current = undefined;
+                  if (dialog) programmaticDialogs.current.add(dialog);
+                  void dialog?.close();
+                  reject(error);
+                },
+              );
+          };
+          const onClose = (extra?: { flag?: string }) => {
+            closeCallbacks(context).onClose(extra);
+            // Transfer and completion events close running connection dialogs.
+            if (
+              !connectionDialog ||
+              !programmaticDialogs.current.has(connectionDialog)
+            )
+              cancel();
+          };
+          logNFC('dialog-show-request', {}, context);
+          if (platformEnv.isNativeAndroid) {
+            connectionDialog = Dialog.show({
+              ...closeCallbacks(context),
+              onClose,
+              title: intl.formatMessage({
+                id: ETranslations.hardware_searching_for_device,
+              }),
+              description: intl.formatMessage({
+                id: ETranslations.hardware_keep_lite_placed_until_found,
+              }),
+              showFooter: false,
+              renderContent: <NFCAnimation state="searching" height={205} />,
+            });
+            willCloseDialogInstance.current = connectionDialog;
+            logNFC('dialog-show-returned', {}, context);
+            run();
+            return;
+          }
+          connectionDialog = Dialog.confirm({
+            ...closeCallbacks(context),
+            onClose,
+            title: intl.formatMessage({
+              id: ETranslations.hardware_place_onekey_lite_close_to_phone,
+            }),
+            description: intl.formatMessage({
+              id: ETranslations.hardware_place_onekey_lite_close_to_phone_desc,
+            }),
+            renderContent: <NFCAnimation state="searching" height={205} />,
+            onConfirmText: intl.formatMessage({
+              id: ETranslations.global_connect,
+            }),
+            onConfirm: ({ preventClose }) => {
+              preventClose();
+              logNFC('connect-confirm', {}, context);
+              run();
+            },
+          });
+          willCloseDialogInstance.current = connectionDialog;
+          logNFC('dialog-show-returned', {}, context);
         }),
-        description: intl.formatMessage({
-          id: ETranslations.hardware_place_onekey_lite_close_to_phone_desc,
-        }),
-        renderContent: <NFCAnimation state="searching" height={205} />,
-        onConfirmText: intl.formatMessage({ id: ETranslations.global_connect }),
-        onConfirm: ({ preventClose }) => {
-          logNFC('connect-confirm', {}, context);
-          preventClose();
-          logNFC('callback-enter', {}, context);
-          callback();
-        },
-      });
-      logNFC('dialog-show-returned', {}, context);
-    },
     [intl, logNFC, closeCallbacks],
   );
   return useMemo(
