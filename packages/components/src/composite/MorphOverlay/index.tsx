@@ -126,13 +126,19 @@ function getFocusCandidates(container: HTMLElement) {
   );
 }
 
+function focusInitialCandidate(container: HTMLElement) {
+  const candidates = getFocusCandidates(container);
+  const target = candidates.find((element) =>
+    element.hasAttribute('data-morph-initial-focus'),
+  );
+  (target ?? candidates[0] ?? container).focus({ preventScroll: true });
+}
+
 function handleMountAutoFocus(event: Event) {
   const container = event.currentTarget;
   if (!(container instanceof HTMLElement)) return;
   event.preventDefault();
-  (getFocusCandidates(container)[0] ?? container).focus({
-    preventScroll: true,
-  });
+  focusInitialCandidate(container);
 }
 
 function handleFocusKeyDown(event: KeyboardEvent<HTMLElement>) {
@@ -167,19 +173,38 @@ function handleFocusBlur(event: FocusEvent<HTMLElement>) {
       !container.closest('[inert]') &&
       document.activeElement === document.body
     ) {
-      (getFocusCandidates(container)[0] ?? container).focus({
-        preventScroll: true,
-      });
+      focusInitialCandidate(container);
     }
   });
 }
 
 function OverlayLayer({
   ownsFocus,
+  focusKey,
   ...props
-}: IStackProps & { ownsFocus: boolean }) {
+}: IStackProps & { ownsFocus: boolean; focusKey: string }) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const wasActiveRef = useRef(false);
+  useEffect(() => {
+    const wasActive = wasActiveRef.current;
+    wasActiveRef.current = ownsFocus;
+    const container = containerRef.current;
+    // This runs inside the portal, after the new panel's inert state commits.
+    // Scope activation handles its own autofocus and saves the return target.
+    if (!ownsFocus || !wasActive || !container) return;
+    if (
+      document.activeElement !== document.body &&
+      !container.contains(document.activeElement)
+    ) {
+      return;
+    }
+    getFocusCandidates(container)
+      .find((element) => element.hasAttribute('data-morph-initial-focus'))
+      ?.focus({ preventScroll: true });
+  }, [focusKey, ownsFocus]);
   return (
     <FocusScope
+      ref={containerRef}
       enabled={ownsFocus}
       trapped={ownsFocus}
       onMountAutoFocus={handleMountAutoFocus}
@@ -1543,6 +1568,7 @@ export function MorphOverlay<T>({
           but nothing inside takes a touch. Keep the native view. */}
       <OverlayLayer
         ownsFocus={ownsFocus}
+        focusKey={`${pose}:${activeSeatKey ?? ''}`}
         {...(platformEnv.isNative
           ? null
           : {

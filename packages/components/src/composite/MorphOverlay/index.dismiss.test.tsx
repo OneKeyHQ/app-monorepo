@@ -377,15 +377,15 @@ const focusSeats: IMorphOverlayProps<string>['seats'] = [
   {
     key: 'parked',
     active: false,
-    node: <input aria-label="Parked input" />,
+    node: <input aria-label="Parked input" data-morph-initial-focus />,
   },
   {
     key: 'input',
     active: true,
     node: (
       <>
-        <input aria-label="Passphrase" />
         <button type="button">Details</button>
+        <input aria-label="Passphrase" data-morph-initial-focus />
         <button type="button" onKeyDown={preventKeyDefault}>
           Confirm
         </button>
@@ -447,16 +447,16 @@ describe('MorphOverlay focus ownership', () => {
     await waitFor(() => expect(document.activeElement).toBe(input));
     fireEvent.change(input, { target: { value: 'test-passphrase' } });
     fireEvent.keyDown(input, { key: 'Tab' });
-    expect(document.activeElement).toBe(details);
-    fireEvent.keyDown(details, { key: 'Tab' });
     expect(document.activeElement).toBe(confirm);
     fireEvent.keyDown(confirm, { key: 'Tab' });
+    expect(document.activeElement).toBe(details);
+    fireEvent.keyDown(details, { key: 'Tab' });
     expect(document.activeElement).toBe(input);
     fireEvent.keyDown(input, { key: 'Tab', shiftKey: true });
-    expect(document.activeElement).toBe(confirm);
-    fireEvent.keyDown(confirm, { key: 'Tab', shiftKey: true });
     expect(document.activeElement).toBe(details);
     fireEvent.keyDown(details, { key: 'Tab', shiftKey: true });
+    expect(document.activeElement).toBe(confirm);
+    fireEvent.keyDown(confirm, { key: 'Tab', shiftKey: true });
     expect(document.activeElement).toBe(input);
 
     view.rerender(<Harness pose="hidden" />);
@@ -466,6 +466,41 @@ describe('MorphOverlay focus ownership', () => {
 
     view.rerender(<Harness pose="card" />);
     await waitFor(() => expect(document.activeElement).toBe(input));
+  });
+
+  it('focuses the designated input after a wait, without refocusing on ordinary rerenders', async () => {
+    const view = render(<Harness pose="hidden" />);
+    await waitFor(() =>
+      expect(document.activeElement).toBe(view.getByText('Trigger')),
+    );
+    view.rerender(<Harness pose="capsule" />);
+    const layer = view.getByTestId('morph-overlay-wall').parentElement;
+    await waitFor(() => expect(document.activeElement).toBe(layer));
+    view.rerender(<Harness pose="card" />);
+    await waitFor(() =>
+      expect(document.activeElement).toBe(view.getByLabelText('Passphrase')),
+    );
+    const details = view.getByText('Details');
+    act(() => details.focus());
+    view.rerender(<Harness pose="card" />);
+    expect(document.activeElement).toBe(details);
+  });
+
+  it('does not take initial focus from a dialog opened above the hardware prompt', async () => {
+    const view = render(<Harness pose="capsule" />);
+    const layer = view.getByTestId('morph-overlay-wall').parentElement;
+    await waitFor(() => expect(document.activeElement).toBe(layer));
+    const dialog = render(
+      <FocusScope trapped loop>
+        <div>
+          <button type="button">New dialog action</button>
+        </div>
+      </FocusScope>,
+    );
+    const action = dialog.getByText('New dialog action');
+    await waitFor(() => expect(document.activeElement).toBe(action));
+    view.rerender(<Harness pose="card" />);
+    expect(document.activeElement).toBe(action);
   });
 
   it('recovers focus when a step parks the focused input, without stealing it after exit', async () => {
