@@ -327,9 +327,9 @@ function createWebColdAiHints({ report, buildDir, repoRoot }) {
       report.legacyTopLevelFieldsNote ||
         'Use scenarios[] as the source of truth. Top-level summary/budgetChecks/runs are legacy-compatible fields for the first scenario only.',
       report.metricDefinitions?.resourceCount ||
-        'resourceCount is the raw PerformanceResourceTiming resource entry count used by the hard budget gate.',
+        'resourceCount counts static assets once per URL (including query parameters) and API requests individually.',
       report.metricDefinitions?.scriptCount ||
-        'scriptCount is the raw PerformanceResourceTiming JavaScript resource entry count used by the hard budget gate.',
+        'scriptCount counts JavaScript entries after static-resource URL de-duplication.',
       report.metricDefinitions?.jsDecodedBytes ||
         'jsDecodedBytes is the sum of decodedBodySize for raw JavaScript resource entries.',
       report.metricDefinitions?.uniqueScriptCount ||
@@ -347,7 +347,7 @@ function createWebColdAiHints({ report, buildDir, repoRoot }) {
       'Fix the OneKey web cold/startup budget without relaxing thresholds.',
       'Use scenarios[] as the source of truth; top-level summary/budgetChecks/runs are legacy-compatible first-scenario fields.',
       'Start from failedOrWarnBudgetChecks, then inspect duplicateScripts, scenarioOnlyScriptCandidates, and smallScriptCandidates.',
-      'scriptCount/resourceCount/jsDecodedBytes are raw hard-gate metrics; use uniqueResourceCount, uniqueScriptCount, uniqueJsDecodedBytes, and duplicateScripts to inspect repeated preload/script/cache entries.',
+      'resourceCount/scriptCount deduplicate static assets by URL, preserving query parameters; API requests remain per-request. jsDecodedBytes remains a raw byte metric. Use rawResourceCount/rawScriptEntryCount to inspect repeated static requests, and uniqueResourceCount/uniqueScriptCount/uniqueJsDecodedBytes for URL-normalized diagnostics.',
       'Do not assume only the home page can fail: any change entering the global shell, shared modules, first-screen synchronous imports, or lazy loads auto-mounted within the cold-start window can affect this budget.',
       'For scriptCount/resourceCount failures, prefer merging related lazy import() boundaries or delaying non-first-screen providers.',
       'Do not edit development/perf-ci/thresholds or workflow budget env values to silence a regression.',
