@@ -7528,7 +7528,9 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       : await this.prepareIndexedAccountsCreationData({
           walletId: dbWalletId,
           indexes: [firstAccountIndex],
-          skipIfExists: true,
+          // Prepare even an existing first account: it may be deleted before
+          // the tx, whose own recheck still skips records that remain present.
+          skipIfExists: false,
           walletSnapshot: {
             wallet: {
               ...existingWallet,

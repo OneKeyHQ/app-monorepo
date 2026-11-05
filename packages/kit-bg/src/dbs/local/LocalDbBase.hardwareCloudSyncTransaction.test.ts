@@ -124,5 +124,30 @@ test.each([false, true])(
     });
     expect(records).toHaveLength(1);
     expect(records[0]).toMatchObject({ walletId, index: 0 });
+
+    // A reconnect can race deletion after preparation. The transaction must
+    // still recreate account 0 instead of only advancing accountHdIndex.
+    const prepare = db.prepareIndexedAccountsCreationData.bind(db);
+    jest
+      .spyOn(db, 'prepareIndexedAccountsCreationData')
+      .mockImplementationOnce(async (options) => {
+        const prepared = await prepare(options);
+        await db.withTransaction(EIndexedDBBucketNames.account, async (tx) => {
+          await db.txRemoveRecords({
+            tx,
+            name: ELocalDBStoreNames.IndexedAccount,
+            ids: [`${walletId}--0`],
+          });
+        });
+        return prepared;
+      });
+    await expect(db.createHwWallet(params)).resolves.toMatchObject({
+      wallet: { id: walletId },
+    });
+    const recreated = await db.getRecordsByIds({
+      name: ELocalDBStoreNames.IndexedAccount,
+      ids: [`${walletId}--0`],
+    });
+    expect(recreated.records[0]).toMatchObject({ walletId, index: 0 });
   },
 );
