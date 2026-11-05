@@ -6,8 +6,9 @@ import {
   useRef,
   useState,
 } from 'react';
-import type { ReactNode } from 'react';
+import type { FocusEvent, KeyboardEvent, ReactNode } from 'react';
 
+import { FocusScope } from '@tamagui/focus-scope';
 import {
   PixelRatio,
   StyleSheet,
@@ -56,6 +57,7 @@ import { usableWindowBottom } from '../../utils/usableWindowBottom';
 
 import { dynamicIslandRect } from './dynamicIsland';
 
+import type { IStackProps } from '../../primitives';
 import type { LayoutChangeEvent } from 'react-native';
 import type { SharedValue } from 'react-native-reanimated';
 
@@ -106,6 +108,94 @@ import type { SharedValue } from 'react-native-reanimated';
  */
 
 export type IMorphOverlayPose = 'hidden' | 'capsule' | 'card';
+
+// Parked panels stay mounted for animation. FocusScope's default candidate
+// list does not exclude inert descendants, so handle Tab within the live UI.
+function getFocusCandidates(container: HTMLElement) {
+  return Array.from(
+    container.querySelectorAll<HTMLElement>(
+      'button, input, select, textarea, a[href], [tabindex]',
+    ),
+  ).filter(
+    (element) =>
+      element.tabIndex >= 0 &&
+      !element.matches(':disabled') &&
+      !element.closest('[inert]') &&
+      element.getClientRects().length > 0 &&
+      getComputedStyle(element).visibility !== 'hidden',
+  );
+}
+
+function handleMountAutoFocus(event: Event) {
+  const container = event.currentTarget;
+  if (!(container instanceof HTMLElement)) return;
+  event.preventDefault();
+  (getFocusCandidates(container)[0] ?? container).focus({
+    preventScroll: true,
+  });
+}
+
+function handleFocusKeyDown(event: KeyboardEvent<HTMLElement>) {
+  if (
+    event.defaultPrevented ||
+    event.key !== 'Tab' ||
+    event.altKey ||
+    event.ctrlKey ||
+    event.metaKey
+  ) {
+    return;
+  }
+  const container = event.currentTarget;
+  const candidates = getFocusCandidates(container);
+  const index = candidates.findIndex(
+    (element) => element === document.activeElement,
+  );
+  const next = event.shiftKey
+    ? (index <= 0 ? candidates.length : index) - 1
+    : (index + 1) % candidates.length;
+  event.preventDefault();
+  (candidates[next] ?? container).focus({ preventScroll: true });
+}
+
+function handleFocusBlur(event: FocusEvent<HTMLElement>) {
+  if (event.relatedTarget) return;
+  const container = event.currentTarget;
+  // A step change can make the focused control inert without unmounting it.
+  requestAnimationFrame(() => {
+    if (
+      container.isConnected &&
+      !container.closest('[inert]') &&
+      document.activeElement === document.body
+    ) {
+      (getFocusCandidates(container)[0] ?? container).focus({
+        preventScroll: true,
+      });
+    }
+  });
+}
+
+function OverlayLayer({
+  ownsFocus,
+  ...props
+}: IStackProps & { ownsFocus: boolean }) {
+  return (
+    <FocusScope
+      enabled={ownsFocus}
+      trapped={ownsFocus}
+      onMountAutoFocus={handleMountAutoFocus}
+    >
+      <Stack
+        {...props}
+        {...(ownsFocus
+          ? {
+              onKeyDownCapture: handleFocusKeyDown,
+              onBlurCapture: handleFocusBlur,
+            }
+          : null)}
+      />
+    </FocusScope>
+  );
+}
 
 /**
  * One thing the overlay can hold: the caller's live value, the rest
@@ -913,6 +1003,7 @@ export function MorphOverlay<T>({
     };
   }, [dragAllowed, dragEnabled]);
   const blocking = modal || scrim;
+  const ownsFocus = !platformEnv.isNative && blocking && pose !== 'hidden';
   // The capsule's close button rides outside the measured row, so the
   // box simply widens by the button when the grant arrives — no
   // re-measure, and the row's words never rebuild for it.
@@ -1450,7 +1541,11 @@ export function MorphOverlay<T>({
           box-none layer out of the native hierarchy, and the flattened
           path loses hit-testing for the whole subtree — the stage draws
           but nothing inside takes a touch. Keep the native view. */}
-      <Stack
+      <OverlayLayer
+        ownsFocus={ownsFocus}
+        {...(platformEnv.isNative
+          ? null
+          : { tabIndex: -1, inert: pose === 'hidden' })}
         style={styles.layer}
         pointerEvents="box-none"
         collapsable={false}
@@ -1497,7 +1592,12 @@ export function MorphOverlay<T>({
                     is lit, on the empty beat, and builds nothing. No
                     mount fades anywhere here — the wrapper owns every
                     fade, and seats never leave. */}
-                <Animated.View style={cardStyle}>
+                <Animated.View
+                  style={cardStyle}
+                  {...(platformEnv.isNative
+                    ? null
+                    : { inert: pose !== 'card' })}
+                >
                   {seats.map((seat) => (
                     <PanelSeat
                       key={seat.key}
@@ -1514,6 +1614,9 @@ export function MorphOverlay<T>({
                     above whatever column is lit. */}
                 <Animated.View
                   style={toolbarStyle}
+                  {...(platformEnv.isNative
+                    ? null
+                    : { inert: pose !== 'card' })}
                   pointerEvents={pose === 'card' ? 'box-none' : 'none'}
                 >
                   {cornerBadge ? (
@@ -1539,6 +1642,9 @@ export function MorphOverlay<T>({
                 </Animated.View>
                 <Animated.View
                   style={pillStyle}
+                  {...(platformEnv.isNative
+                    ? null
+                    : { inert: pose !== 'capsule' })}
                   pointerEvents={pose === 'capsule' ? 'box-none' : 'none'}
                 >
                   {/* Keyed by its words: a key change swaps the row in
@@ -1576,7 +1682,7 @@ export function MorphOverlay<T>({
             ) : null}
           </Animated.View>
         </GestureDetector>
-      </Stack>
+      </OverlayLayer>
     </Portal.Body>
   );
 }

@@ -269,8 +269,6 @@ export async function showEnableTradingStepsDialog({
     const dialogInstance = Dialog.show({
       disableDrag: true,
       dismissOnOverlayPress: false,
-      // Hardware passphrase entry is rendered outside this dialog.
-      trapFocus: false,
       showExitButton: true,
       renderContent: (
         <>

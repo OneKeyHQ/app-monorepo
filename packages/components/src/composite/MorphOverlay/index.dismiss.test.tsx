@@ -1,12 +1,20 @@
 /**
  * @jest-environment jsdom
+ * @jest-environment-options {"customExportConditions": ["node", "node-addons"]}
  */
 
-import type { ReactNode } from 'react';
+import type { KeyboardEvent, ReactNode } from 'react';
 
 import { MorphOverlay, useMorphOverlay } from '.';
 
-import { act, fireEvent, render, renderHook } from '@testing-library/react';
+import { FocusScope } from '@tamagui/focus-scope';
+import {
+  act,
+  fireEvent,
+  render,
+  renderHook,
+  waitFor,
+} from '@testing-library/react';
 import { useWindowDimensions } from 'react-native';
 import {
   GestureDetector,
@@ -328,6 +336,117 @@ describe('MorphOverlay wall', () => {
     view.unmount();
     const open = setup();
     expect(open.view.queryByTestId('morph-overlay-wall')).toBeNull();
+  });
+});
+
+const preventKeyDefault = (event: KeyboardEvent) => event.preventDefault();
+const focusSeats: IMorphOverlayProps<string>['seats'] = [
+  {
+    key: 'parked',
+    active: false,
+    node: <input aria-label="Parked input" />,
+  },
+  {
+    key: 'input',
+    active: true,
+    node: (
+      <>
+        <input aria-label="Passphrase" />
+        <button type="button" onKeyDown={preventKeyDefault}>
+          Confirm
+        </button>
+      </>
+    ),
+  },
+];
+
+describe('MorphOverlay focus ownership', () => {
+  beforeEach(() => {
+    // jsdom has no layout; all visibility changes here use inert.
+    const rect = document.body.getBoundingClientRect();
+    jest.spyOn(HTMLElement.prototype, 'getClientRects').mockReturnValue({
+      0: rect,
+      length: 1,
+      item: () => rect,
+      [Symbol.iterator]: () => [rect][Symbol.iterator](),
+    });
+  });
+  afterEach(() => jest.restoreAllMocks());
+
+  function Harness({
+    pose,
+    modal = true,
+  }: {
+    pose: IMorphOverlayPose;
+    modal?: boolean;
+  }) {
+    const morph = useMorphOverlay({ pose, key: 'input', value: 'input' });
+    return (
+      <>
+        <FocusScope trapped loop>
+          <div>
+            <button type="button">Trigger</button>
+            <button type="button">Underlying action</button>
+          </div>
+        </FocusScope>
+        <MorphOverlay
+          morph={morph}
+          modal={modal}
+          cardInnerHeight={240}
+          cardContentMeasured
+          capsuleKey="wait"
+          capsule={null}
+          seats={focusSeats}
+        />
+      </>
+    );
+  }
+
+  it('hands focus to the live panel, loops past parked inputs, and restores the dialog', async () => {
+    const view = render(<Harness pose="hidden" />);
+    const trigger = view.getByText('Trigger');
+    await waitFor(() => expect(document.activeElement).toBe(trigger));
+    view.rerender(<Harness pose="card" />);
+    const input = view.getByLabelText('Passphrase');
+    const confirm = view.getByText('Confirm');
+    await waitFor(() => expect(document.activeElement).toBe(input));
+    fireEvent.change(input, { target: { value: 'test-passphrase' } });
+    fireEvent.keyDown(input, { key: 'Tab' });
+    expect(document.activeElement).toBe(confirm);
+    fireEvent.keyDown(confirm, { key: 'Tab' });
+    expect(document.activeElement).toBe(input);
+    fireEvent.keyDown(input, { key: 'Tab', shiftKey: true });
+    expect(document.activeElement).toBe(confirm);
+
+    view.rerender(<Harness pose="hidden" />);
+    await waitFor(() => expect(document.activeElement).toBe(trigger));
+    fireEvent.keyDown(trigger, { key: 'Tab', shiftKey: true });
+    expect(document.activeElement).toBe(view.getByText('Underlying action'));
+
+    view.rerender(<Harness pose="card" />);
+    await waitFor(() => expect(document.activeElement).toBe(input));
+  });
+
+  it('focuses the container during a wait without interactive controls', async () => {
+    const view = render(<Harness pose="hidden" />);
+    await waitFor(() =>
+      expect(document.activeElement).toBe(view.getByText('Trigger')),
+    );
+    view.rerender(<Harness pose="capsule" />);
+    const layer = view.getByTestId('morph-overlay-wall').parentElement;
+    await waitFor(() => expect(document.activeElement).toBe(layer));
+    fireEvent.keyDown(layer as HTMLElement, { key: 'Tab' });
+    expect(document.activeElement).toBe(layer);
+  });
+
+  it('does not take focus for a non-blocking overlay', async () => {
+    const view = render(<Harness pose="hidden" modal={false} />);
+    const trigger = view.getByText('Trigger');
+    await waitFor(() => expect(document.activeElement).toBe(trigger));
+    view.rerender(<Harness pose="card" modal={false} />);
+    expect(document.activeElement).toBe(trigger);
+    fireEvent.keyDown(trigger, { key: 'Tab', shiftKey: true });
+    expect(document.activeElement).toBe(view.getByText('Underlying action'));
   });
 });
 
