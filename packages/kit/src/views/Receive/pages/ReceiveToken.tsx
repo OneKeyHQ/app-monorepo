@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useRoute } from '@react-navigation/core';
+import { useAtomValue } from 'jotai';
+import { selectAtom } from 'jotai/utils';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 import { getColors } from 'react-native-image-colors';
@@ -29,6 +31,7 @@ import {
   useHardwareUiStateAtom,
   useThirdPartyHardwareUiStateAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { privacyChainAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/privacyChain';
 import { useReceivePreferencesPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/receivePreferences';
 import type {
   ILocalWalletAccountAddresses,
@@ -130,12 +133,12 @@ const LOCAL_WALLET_ADDRESS_ERROR_MESSAGES: Record<
   failed: ETranslations.global_unknown_error_retry_message,
 };
 
-// Scoped to the network and account it was read for.
 type ILocalWalletAddressRead = {
-  networkId: string;
-  accountId: string;
+  scope: {
+    account: { networkId: string; accountId: string };
+    chainPaused: boolean;
+  };
   addresses: ILocalWalletAccountAddresses | undefined;
-  paused?: boolean;
   state?: ILocalWalletAccountState;
   support?: ILocalWalletAccountSupport;
   errorKind?: ILocalWalletAddressErrorKind;
@@ -374,35 +377,56 @@ function ReceiveToken() {
 
   // Local-wallet chains expose a public and a private receive form; address, QR and on-device verification follow the displayed one.
   const localWalletAddressForms = vaultSettings?.localWallet?.addressForms;
+  const chainPauseAtom = useMemo(
+    () =>
+      selectAtom(privacyChainAtom.atom(), (value) =>
+        value.pausedNetworkIds.includes(networkId),
+      ),
+    [networkId],
+  );
+  const chainPaused = useAtomValue(chainPauseAtom);
+  const addressReadScope = useMemo<
+    ILocalWalletAddressRead['scope'] | undefined
+  >(
+    () =>
+      localWalletAddressForms && network?.id && currentAccount?.id
+        ? {
+            account: { networkId: network.id, accountId: currentAccount.id },
+            chainPaused,
+          }
+        : undefined,
+    [localWalletAddressForms, network?.id, currentAccount?.id, chainPaused],
+  );
   const {
     result: localWalletAddressResult,
     run: reloadLocalWalletAddresses,
     isLoading: isLocalWalletAddressLoading,
   } = usePromiseResult(
     async (): Promise<ILocalWalletAddressRead | undefined> => {
-      if (!localWalletAddressForms || !currentAccount?.id || !network?.id) {
+      if (!addressReadScope) {
         return undefined;
       }
-      const scope = { networkId: network.id, accountId: currentAccount.id };
+      const { account } = addressReadScope;
       let support: ILocalWalletAccountSupport | undefined;
       let state: ILocalWalletAccountState | undefined;
       try {
         support =
           await backgroundApiProxy.servicePrivacyChain.getLocalWalletAccountSupport(
-            scope,
+            account,
           );
         if (support !== 'supported')
-          return { ...scope, support, addresses: undefined };
+          return { scope: addressReadScope, support, addresses: undefined };
         state =
           await backgroundApiProxy.servicePrivacyChain.getLocalWalletAccountState(
-            scope,
+            account,
           );
-        const addresses = state.privacyDisabled
-          ? undefined
-          : await backgroundApiProxy.servicePrivacyChain.getLocalWalletAccountAddresses(
-              scope,
-            );
-        return { ...scope, addresses, support, state, paused: state.paused };
+        const addresses =
+          state.privacyDisabled || state.paused || addressReadScope.chainPaused
+            ? undefined
+            : await backgroundApiProxy.servicePrivacyChain.getLocalWalletAccountAddresses(
+                account,
+              );
+        return { scope: addressReadScope, addresses, support, state };
       } catch (error) {
         console.error('[privacyChain] receive address read failed', {
           error: error instanceof Error ? error.message : '',
@@ -413,16 +437,22 @@ function ReceiveToken() {
         } else {
           // Set by an enable that derived another key; only deleting local data helps.
           state = await backgroundApiProxy.servicePrivacyChain
-            .getLocalWalletAccountState(scope)
+            .getLocalWalletAccountState(account)
             .catch(() => undefined);
           if (state?.identityMismatch) {
             errorKind = 'identityMismatch';
           }
         }
-        return { ...scope, addresses: undefined, support, state, errorKind };
+        return {
+          scope: addressReadScope,
+          addresses: undefined,
+          support,
+          state,
+          errorKind,
+        };
       }
     },
-    [localWalletAddressForms, network?.id, currentAccount?.id],
+    [addressReadScope],
     { watchLoading: true, revalidateOnFocus: true },
   );
   useEffect(() => {
@@ -447,11 +477,10 @@ function ReceiveToken() {
     network?.id,
     reloadLocalWalletAddresses,
   ]);
-  // The read lags a network or account switch and does not re-run while the
-  // network picker covers the page: another scope's result is still loading.
+  // A pause invalidates the QR immediately. Resuming, even on the same account,
+  // needs a fresh address read before copy, share or device verification can run.
   const localWalletAddressRead =
-    localWalletAddressResult?.networkId === network?.id &&
-    localWalletAddressResult?.accountId === currentAccount?.id
+    localWalletAddressResult?.scope === addressReadScope
       ? localWalletAddressResult
       : undefined;
   const localWalletAddresses = localWalletAddressRead?.addresses;
@@ -492,6 +521,12 @@ function ReceiveToken() {
     localWalletAddressRead?.support === 'tempWallet' ||
     !!localWalletAddressRead?.state?.privacyDisabled;
   const localWalletPrivateAddress = localWalletAddresses?.privateAddress;
+  const isChainOnlyPaused =
+    chainPaused &&
+    !!localWalletAddressRead?.state?.enabled &&
+    !localWalletAddressRead.state.paused;
+  const isPrivateReceivePaused =
+    !!localWalletAddressRead?.state?.paused || isChainOnlyPaused;
   // Keep the requested form when private receive is unavailable. Switching to
   // a public address must be an explicit choice; Monero only has a private form.
   const receiveAddressForm: 'public' | 'private' =
@@ -508,8 +543,7 @@ function ReceiveToken() {
     !isLocalWalletAddressLoading &&
     canEnablePrivateReceive &&
     !localWalletAddressRead.state?.pendingOperation &&
-    (!localWalletAddressRead.state?.enabled ||
-      localWalletAddressRead.state.paused) &&
+    (!localWalletAddressRead.state?.enabled || isPrivateReceivePaused) &&
     !localWalletPrivateAddress;
   const privateReceiveErrorKind =
     localWalletAddressForms && receiveAddressForm === 'private'
@@ -522,9 +556,8 @@ function ReceiveToken() {
     (!localWalletAddressRead ||
       (canEnablePrivateReceive &&
         !localWalletAddressRead.errorKind &&
-        !localWalletAddressRead.state?.paused &&
-        (localWalletAddressRead.state?.enabled ||
-          localWalletAddressRead.state?.pendingOperation) &&
+        (localWalletAddressRead.state?.pendingOperation ||
+          (localWalletAddressRead.state?.enabled && !isPrivateReceivePaused)) &&
         !localWalletPrivateAddress));
 
   let displayAddress = currentAccount?.address ?? '';
@@ -1296,11 +1329,16 @@ function ReceiveToken() {
     } finally {
       setIsPreparingShare(false);
     }
+    if (
+      shownAddressRef.current.networkId !== networkId ||
+      shownAddressRef.current.address !== shareData.address
+    )
+      return;
     // fall back to in-dialog generation if pre-generation failed
     showReceiveShareDialog(shareData, {
       presetImage: presetImage || undefined,
     });
-  }, [shareData, isPreparingShare]);
+  }, [networkId, shareData, isPreparingShare]);
 
   const handleDonePress = useCallback(() => {
     navigation.popStack();
@@ -2307,7 +2345,7 @@ function ReceiveToken() {
           !localWalletAddressRead?.state?.pendingOperation ? (
             <ReceivePrivacyPromotion
               loading={isPrivacySetupBusy}
-              paused={localWalletAddressRead?.paused}
+              paused={localWalletAddressRead?.state?.paused}
               onEnable={() => void openPrivacySyncSetup()}
             />
           ) : null}
@@ -2380,9 +2418,13 @@ function ReceiveToken() {
               headerRight={cardHeaderRight}
             >
               <ReceivePrivacySyncGate
-                paused={localWalletAddressRead?.paused}
+                paused={isPrivateReceivePaused}
                 loading={isPrivacySetupBusy}
-                onEnable={() => void openPrivacySyncSetup()}
+                onEnable={() =>
+                  void openPrivacySyncSetup(
+                    isChainOnlyPaused ? 'resumeChain' : undefined,
+                  )
+                }
               />
             </ReceiveCard>
           ) : null}

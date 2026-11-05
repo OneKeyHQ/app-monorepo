@@ -3,6 +3,7 @@
 import type { ReactNode } from 'react';
 
 import { act, fireEvent, render, waitFor } from '@testing-library/react';
+import { atom, getDefaultStore } from 'jotai';
 
 import type {
   ILocalWalletAccountState,
@@ -20,6 +21,13 @@ type IMockAccountChangeEvent = {
 type IMockAppEventHandler = (event?: IMockAccountChangeEvent) => void;
 
 let mockRouteParams: IMockRouteParams = {};
+const mockScanAtom = atom<{ pausedNetworkIds: string[] }>({
+  pausedNetworkIds: [],
+});
+const mockStartForegroundBoost = jest.fn<
+  Promise<void>,
+  [{ networkId: string; accountId: string; trigger: string }]
+>();
 const mockPush = jest.fn();
 const mockPushModal = jest.fn();
 const mockVerifyHWAccountAddresses = jest.fn<Promise<string[]>, [unknown]>();
@@ -360,6 +368,10 @@ jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms/receivePreferences', () => {
     },
   };
 });
+
+jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms/privacyChain', () => ({
+  privacyChainAtom: { atom: () => mockScanAtom },
+}));
 jest.mock('../components/ReceivePrivacyStatus', () => ({
   ReceivePrivacySyncStatus: () => null,
 }));
@@ -507,6 +519,11 @@ jest.mock('../../../background/instance/backgroundApiProxy', () => ({
       syncBTCFreshAddressByAccountId: jest.fn(),
     },
     servicePrivacyChain: {
+      startForegroundBoost: (params: {
+        networkId: string;
+        accountId: string;
+        trigger: string;
+      }) => mockStartForegroundBoost(params),
       getLocalWalletAccountSupport: (params: unknown) =>
         mockGetLocalWalletAccountSupport(params),
       enableLocalWalletAccount: (params: unknown) =>
@@ -912,6 +929,13 @@ async function openSelectorAndSelect(
 
 describe('ReceiveToken network switch', () => {
   beforeEach(() => {
+    getDefaultStore().set(mockScanAtom, { pausedNetworkIds: [] });
+    mockStartForegroundBoost.mockReset();
+    mockStartForegroundBoost.mockImplementation(async ({ networkId }) => {
+      getDefaultStore().set(mockScanAtom, ({ pausedNetworkIds }) => ({
+        pausedNetworkIds: pausedNetworkIds.filter((id) => id !== networkId),
+      }));
+    });
     mockReceivePreferences = { addressForms: {} };
     mockDialogShow.mockReset();
     mockGetLocalWalletAccountSupport.mockReset();
@@ -1182,21 +1206,161 @@ describe('ReceiveToken network switch', () => {
     const runtimeUnavailableError = Object.assign(new Error('worker died'), {
       data: { privacyChainRuntimeFailure: 'handshake' },
     });
+    const moneroPrivateParams = {
+      networkId: 'xmr--0',
+      accountId: 'hd-1--xmr',
+      walletId: 'hd-1',
+      indexedAccountId: 'hd-1--0',
+    };
 
     it.each([
-      { network: 'Zcash', routeParams: zcashPrivateParams },
+      { routeParams: zcashPrivateParams, privateAddress: 'u1Resumed' },
+      { routeParams: moneroPrivateParams, privateAddress: 'xmrResumed' },
+    ])(
+      'resumes the paused chain for an enabled $routeParams.networkId account before showing its private address',
+      async ({ routeParams, privateAddress }) => {
+        const { networkId, accountId } = routeParams;
+        getDefaultStore().set(mockScanAtom, {
+          pausedNetworkIds: ['zec--0', 'xmr--0'],
+        });
+        mockGetLocalWalletAccountAddresses.mockImplementation(async () =>
+          getDefaultStore()
+            .get(mockScanAtom)
+            .pausedNetworkIds.includes(networkId)
+            ? { privateAddress: undefined }
+            : { privateAddress },
+        );
+        mockRouteParams = routeParams;
+        const { getByTestId, queryByTestId } = render(<ReceiveToken />);
+        const resumeButton = await waitFor(() => {
+          const button = getByTestId('receive-open-privacy-settings');
+          expect(button.textContent).toBe('global_resume');
+          return button;
+        });
+        expect(queryByTestId('qr-value')).toBeNull();
+        expect(queryByTestId('address')).toBeNull();
+        expect(queryByTestId('receive-copy-address-button')).toBeNull();
+        expect(queryByTestId('share-image')).toBeNull();
+        expect(mockStartForegroundBoost).not.toHaveBeenCalled();
+
+        fireEvent.click(resumeButton);
+        await waitFor(() =>
+          expect(getByTestId('qr-value').textContent).toBe(privateAddress),
+        );
+        expect(mockStartForegroundBoost).toHaveBeenCalledTimes(1);
+        expect(mockStartForegroundBoost).toHaveBeenCalledWith({
+          networkId,
+          accountId,
+          trigger: 'manual-sync',
+        });
+        expect(getByTestId('address').textContent).toBe(privateAddress);
+        expect(getByTestId('share-image').getAttribute('data-address')).toBe(
+          privateAddress,
+        );
+        expect(mockEnableLocalWalletAccount).not.toHaveBeenCalled();
+        expect(mockDialogShow).not.toHaveBeenCalled();
+        expect(queryByTestId('receive-privacy-sync-gate')).toBeNull();
+      },
+    );
+
+    it('hides an existing private address on an external chain pause and waits for a fresh address on resume', async () => {
+      mockRouteParams = zcashPrivateParams;
+      const { getByTestId, queryByTestId } = render(<ReceiveToken />);
+      await waitFor(() =>
+        expect(getByTestId('qr-value').textContent).toBe('u1Private'),
+      );
+
+      mockGetLocalWalletAccountAddresses.mockResolvedValue(undefined);
+      act(() => {
+        getDefaultStore().set(mockScanAtom, { pausedNetworkIds: ['zec--0'] });
+      });
+      expect(queryByTestId('qr-value')).toBeNull();
+      expect(queryByTestId('address')).toBeNull();
+      expect(queryByTestId('receive-copy-address-button')).toBeNull();
+      expect(queryByTestId('share-image')).toBeNull();
+      await waitFor(() =>
+        expect(getByTestId('receive-open-privacy-settings').textContent).toBe(
+          'global_resume',
+        ),
+      );
+
+      let resolveRead!: (result: { privateAddress: string }) => void;
+      mockGetLocalWalletAccountAddresses.mockImplementation(
+        () =>
+          new Promise((resolve) => {
+            resolveRead = resolve;
+          }),
+      );
+      const readsWhilePaused =
+        mockGetLocalWalletAccountAddresses.mock.calls.length;
+      act(() => {
+        getDefaultStore().set(mockScanAtom, { pausedNetworkIds: [] });
+      });
+      await waitFor(() =>
+        expect(
+          mockGetLocalWalletAccountAddresses.mock.calls.length,
+        ).toBeGreaterThan(readsWhilePaused),
+      );
+      expect(queryByTestId('qr-value')).toBeNull();
+      expect(queryByTestId('share-image')).toBeNull();
+
+      await act(async () => {
+        resolveRead({ privateAddress: 'u1Fresh' });
+      });
+      expect(getByTestId('qr-value').textContent).toBe('u1Fresh');
+      expect(getByTestId('address').textContent).toBe('u1Fresh');
+      expect(mockStartForegroundBoost).not.toHaveBeenCalled();
+    });
+
+    it('keeps the Public address during a chain pause and requires an explicit Resume after choosing Private', async () => {
+      getDefaultStore().set(mockScanAtom, { pausedNetworkIds: ['zec--0'] });
+      mockGetLocalWalletAccountAddresses.mockResolvedValue(undefined);
+      mockRouteParams = {
+        ...zcashPrivateParams,
+        localWalletAddressForm: 'public',
+      };
+      const { getByTestId, queryByTestId } = render(<ReceiveToken />);
+      await waitFor(() =>
+        expect(getByTestId('qr-value').textContent).toBe('t1HdTransparent'),
+      );
+      expect(queryByTestId('receive-privacy-sync-gate')).toBeNull();
+
+      fireEvent.change(
+        getByTestId('receive-local-wallet-address-form-select'),
+        {
+          target: { value: 'private' },
+        },
+      );
+      await waitFor(() =>
+        expect(getByTestId('receive-open-privacy-settings').textContent).toBe(
+          'global_resume',
+        ),
+      );
+      expect(queryByTestId('qr-value')).toBeNull();
+      expect(mockStartForegroundBoost).not.toHaveBeenCalled();
+      expect(mockDialogShow).not.toHaveBeenCalled();
+    });
+
+    it.each([
+      { network: 'Zcash', routeParams: zcashPrivateParams, chainPaused: false },
       {
         network: 'Monero',
-        routeParams: {
-          networkId: 'xmr--0',
-          accountId: 'hd-1--xmr',
-          walletId: 'hd-1',
-          indexedAccountId: 'hd-1--0',
-        },
+        routeParams: moneroPrivateParams,
+        chainPaused: false,
+      },
+      {
+        network: 'Zcash with its chain paused',
+        routeParams: zcashPrivateParams,
+        chainPaused: true,
       },
     ])(
       'offers to enable $network when an account has never provided private addresses',
-      async ({ routeParams }) => {
+      async ({ routeParams, chainPaused }) => {
+        if (chainPaused) {
+          getDefaultStore().set(mockScanAtom, {
+            pausedNetworkIds: [routeParams.networkId],
+          });
+        }
         mockGetLocalWalletAccountAddresses.mockResolvedValue(undefined);
         mockGetLocalWalletAccountState.mockResolvedValue({
           enabled: false,
@@ -1232,36 +1396,44 @@ describe('ReceiveToken network switch', () => {
           }),
         );
         expect(mockPushModal).not.toHaveBeenCalled();
+        expect(mockStartForegroundBoost).not.toHaveBeenCalled();
       },
     );
 
-    it('offers to resume a paused account without showing an address or QR code', async () => {
-      mockGetLocalWalletAccountAddresses.mockResolvedValue(undefined);
-      mockGetLocalWalletAccountState.mockResolvedValue({
-        enabled: true,
-        paused: true,
-      });
-      mockRouteParams = zcashPrivateParams;
-      const { getByTestId, queryByTestId } = render(<ReceiveToken />);
+    it.each([false, true])(
+      'offers to resume a paused account without showing an address or QR code (chain paused: %s)',
+      async (chainPaused) => {
+        if (chainPaused) {
+          getDefaultStore().set(mockScanAtom, { pausedNetworkIds: ['zec--0'] });
+        }
+        mockGetLocalWalletAccountAddresses.mockResolvedValue(undefined);
+        mockGetLocalWalletAccountState.mockResolvedValue({
+          enabled: true,
+          paused: true,
+        });
+        mockRouteParams = zcashPrivateParams;
+        const { getByTestId, queryByTestId } = render(<ReceiveToken />);
 
-      await waitFor(() =>
-        expect(getByTestId('receive-open-privacy-settings').textContent).toBe(
-          'global_resume',
-        ),
-      );
-      expect(queryByTestId('qr-value')).toBeNull();
-      expect(queryByTestId('address')).toBeNull();
+        await waitFor(() =>
+          expect(getByTestId('receive-open-privacy-settings').textContent).toBe(
+            'global_resume',
+          ),
+        );
+        expect(queryByTestId('qr-value')).toBeNull();
+        expect(queryByTestId('address')).toBeNull();
 
-      fireEvent.click(getByTestId('receive-open-privacy-settings'));
-      await waitFor(() =>
-        expect(mockEnableLocalWalletAccount).toHaveBeenCalledWith({
-          networkId: 'zec--0',
-          accountId: 'hd-1--zec',
-        }),
-      );
-      expect(mockDialogShow).not.toHaveBeenCalled();
-      expect(mockPushModal).not.toHaveBeenCalled();
-    });
+        fireEvent.click(getByTestId('receive-open-privacy-settings'));
+        await waitFor(() =>
+          expect(mockEnableLocalWalletAccount).toHaveBeenCalledWith({
+            networkId: 'zec--0',
+            accountId: 'hd-1--zec',
+          }),
+        );
+        expect(mockDialogShow).not.toHaveBeenCalled();
+        expect(mockPushModal).not.toHaveBeenCalled();
+        expect(mockStartForegroundBoost).not.toHaveBeenCalled();
+      },
+    );
 
     it('keeps the transparent address when inline enable is cancelled', async () => {
       mockGetLocalWalletAccountAddresses.mockResolvedValue(undefined);

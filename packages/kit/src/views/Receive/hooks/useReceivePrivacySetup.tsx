@@ -50,142 +50,157 @@ export function useReceivePrivacySetup({
     setBusy(false);
   }, [scope]);
 
-  const open = useCallback(async () => {
-    if (!accountId || !settings || activeRequestRef.current !== undefined)
-      return;
-    requestRef.current += 1;
-    const request = requestRef.current;
-    activeRequestRef.current = request;
-    const isActive = () =>
-      mountedRef.current &&
-      scopeRef.current === scope &&
-      activeRequestRef.current === request;
-    const finish = () => {
-      if (!isActive()) return;
-      activeRequestRef.current = undefined;
-      setBusy(false);
-    };
-    const params = { networkId, accountId };
-    setBusy(true);
-    const showError = (error: unknown) => {
-      if (
-        !isActive() ||
-        errorToastUtils.isUserCancelStyleError(error) ||
-        errorToastUtils.wasAutoToastShown(error)
-      )
+  const open = useCallback(
+    async (action?: 'resumeChain') => {
+      if (!accountId || !settings || activeRequestRef.current !== undefined)
         return;
-      if (isLocalWalletSlotsFullError(error)) {
-        showPrivacyChainSlotsFullDialog({ intl, onOpenSettings });
-      } else {
-        Toast.error({
-          title: intl.formatMessage({
-            id: ETranslations.global_an_error_occurred,
-          }),
-        });
-      }
-    };
-    try {
-      const [support, state] = await Promise.all([
-        backgroundApiProxy.servicePrivacyChain.getLocalWalletAccountSupport(
-          params,
-        ),
-        backgroundApiProxy.servicePrivacyChain.getLocalWalletAccountState(
-          params,
-        ),
-      ]);
-      if (!isActive()) return;
-      if (support !== 'supported' || state.privacyDisabled) {
-        Toast.error({
-          title: intl.formatMessage({ id: ETranslations.global_not_available }),
-        });
-        finish();
-        return;
-      }
-      const enable = async (birthday: {
-        birthdayHeight?: number;
-        birthdayTimestamp?: number;
-      }) => {
+      requestRef.current += 1;
+      const request = requestRef.current;
+      activeRequestRef.current = request;
+      const isActive = () =>
+        mountedRef.current &&
+        scopeRef.current === scope &&
+        activeRequestRef.current === request;
+      const finish = () => {
         if (!isActive()) return;
-        await backgroundApiProxy.servicePrivacyChain.enableLocalWalletAccount({
-          ...params,
-          ...birthday,
-        });
-        if (isActive()) onEnabled();
+        activeRequestRef.current = undefined;
+        setBusy(false);
       };
-      if (state.pendingOperation || (state.enabled && !state.paused)) {
-        onEnabled();
-        finish();
-        return;
-      }
-      if (state.paused || !settings.accountSetup.requiresBirthday) {
-        await enable({});
-        finish();
-        return;
-      }
-      await backgroundApiProxy.servicePrivacyChain.assertLocalWalletAccountAdmission(
-        params,
-      );
-      if (!isActive()) return;
-      const twinBirthday =
-        await backgroundApiProxy.servicePrivacyChain.getLocalWalletTwinBirthday(
+      const params = { networkId, accountId };
+      setBusy(true);
+      const showError = (error: unknown) => {
+        if (
+          !isActive() ||
+          errorToastUtils.isUserCancelStyleError(error) ||
+          errorToastUtils.wasAutoToastShown(error)
+        )
+          return;
+        if (isLocalWalletSlotsFullError(error)) {
+          showPrivacyChainSlotsFullDialog({ intl, onOpenSettings });
+        } else {
+          Toast.error({
+            title: intl.formatMessage({
+              id: ETranslations.global_an_error_occurred,
+            }),
+          });
+        }
+      };
+      try {
+        const [support, state] = await Promise.all([
+          backgroundApiProxy.servicePrivacyChain.getLocalWalletAccountSupport(
+            params,
+          ),
+          backgroundApiProxy.servicePrivacyChain.getLocalWalletAccountState(
+            params,
+          ),
+        ]);
+        if (!isActive()) return;
+        if (support !== 'supported' || state.privacyDisabled) {
+          Toast.error({
+            title: intl.formatMessage({
+              id: ETranslations.global_not_available,
+            }),
+          });
+          finish();
+          return;
+        }
+        const enable = async (birthday: {
+          birthdayHeight?: number;
+          birthdayTimestamp?: number;
+        }) => {
+          if (!isActive()) return;
+          await backgroundApiProxy.servicePrivacyChain.enableLocalWalletAccount(
+            {
+              ...params,
+              ...birthday,
+            },
+          );
+          if (isActive()) onEnabled();
+        };
+        if (state.pendingOperation || (state.enabled && !state.paused)) {
+          if (action === 'resumeChain' && !state.pendingOperation) {
+            await backgroundApiProxy.servicePrivacyChain.startForegroundBoost({
+              ...params,
+              trigger: 'manual-sync',
+            });
+          }
+          if (isActive()) onEnabled();
+          finish();
+          return;
+        }
+        if (state.paused || !settings.accountSetup.requiresBirthday) {
+          await enable({});
+          finish();
+          return;
+        }
+        await backgroundApiProxy.servicePrivacyChain.assertLocalWalletAccountAdmission(
           params,
         );
-      if (!isActive()) return;
-      if (twinBirthday) {
-        await enable(twinBirthday);
-        finish();
-        return;
-      }
-      const earliestBirthday = settings.accountSetup.earliestBirthday;
-      const formRef = createPrivacyEnableForm({ earliestBirthday });
-      Dialog.show({
-        showCancelButton: true,
-        showConfirmButton: true,
-        title: intl.formatMessage({
-          id: ETranslationsMock.privacy_enable_account__title,
-          defaultMessage: ETranslationsMock.privacy_enable_account__title,
-        }),
-        renderContent: (
-          <PrivacyEnableContent
-            networkId={networkId}
-            accountId={accountId}
-            deviceExportsViewKey={settings.accountSetup.deviceExportsViewKey}
-            formRef={formRef}
-            earliestBirthday={earliestBirthday}
-            birthdayHintTimestamp={state.birthdayHintTimestamp}
-          />
-        ),
-        onConfirmText: intl.formatMessage({ id: ETranslations.global_enable }),
-        onClose: finish,
-        onConfirm: async ({ preventClose }) => {
-          if (!isActive()) return;
-          const birthday = readEnableBirthday(
-            formRef.current,
-            earliestBirthday,
-            networkId,
+        if (!isActive()) return;
+        const twinBirthday =
+          await backgroundApiProxy.servicePrivacyChain.getLocalWalletTwinBirthday(
+            params,
           );
-          if (!birthday) {
-            Toast.error({
-              title: intl.formatMessage({
-                id: getBirthdayInputError(formRef.current.mode),
-              }),
-            });
-            preventClose();
-            return;
-          }
-          try {
-            await enable(birthday);
-          } catch (error) {
-            showError(error);
-            if (!isLocalWalletSlotsFullError(error)) preventClose();
-          }
-        },
-      });
-    } catch (error) {
-      showError(error);
-      finish();
-    }
-  }, [accountId, intl, networkId, onEnabled, onOpenSettings, scope, settings]);
+        if (!isActive()) return;
+        if (twinBirthday) {
+          await enable(twinBirthday);
+          finish();
+          return;
+        }
+        const earliestBirthday = settings.accountSetup.earliestBirthday;
+        const formRef = createPrivacyEnableForm({ earliestBirthday });
+        Dialog.show({
+          showCancelButton: true,
+          showConfirmButton: true,
+          title: intl.formatMessage({
+            id: ETranslationsMock.privacy_enable_account__title,
+            defaultMessage: ETranslationsMock.privacy_enable_account__title,
+          }),
+          renderContent: (
+            <PrivacyEnableContent
+              networkId={networkId}
+              accountId={accountId}
+              deviceExportsViewKey={settings.accountSetup.deviceExportsViewKey}
+              formRef={formRef}
+              earliestBirthday={earliestBirthday}
+              birthdayHintTimestamp={state.birthdayHintTimestamp}
+            />
+          ),
+          onConfirmText: intl.formatMessage({
+            id: ETranslations.global_enable,
+          }),
+          onClose: finish,
+          onConfirm: async ({ preventClose }) => {
+            if (!isActive()) return;
+            const birthday = readEnableBirthday(
+              formRef.current,
+              earliestBirthday,
+              networkId,
+            );
+            if (!birthday) {
+              Toast.error({
+                title: intl.formatMessage({
+                  id: getBirthdayInputError(formRef.current.mode),
+                }),
+              });
+              preventClose();
+              return;
+            }
+            try {
+              await enable(birthday);
+            } catch (error) {
+              showError(error);
+              if (!isLocalWalletSlotsFullError(error)) preventClose();
+            }
+          },
+        });
+      } catch (error) {
+        showError(error);
+        finish();
+      }
+    },
+    [accountId, intl, networkId, onEnabled, onOpenSettings, scope, settings],
+  );
 
   return { open, busy };
 }
