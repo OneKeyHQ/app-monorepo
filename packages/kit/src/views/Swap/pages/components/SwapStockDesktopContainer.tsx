@@ -37,8 +37,11 @@ import {
   useSwapActions,
   useSwapFromTokenAmountAtom,
   useSwapQuoteActionLockAtom,
+  useSwapQuoteCurrentEventProviderKeysAtom,
   useSwapQuoteEventCompletedAtom,
   useSwapQuoteEventErrorAtom,
+  useSwapQuoteEventTotalCountAtom,
+  useSwapShouldRefreshQuoteAtom,
   useSwapToTokenAmountAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import { shouldRedirectOnboardingToTravelMode } from '@onekeyhq/kit/src/utils/onboardingEntryGate';
@@ -50,6 +53,7 @@ import { useStockDetail } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/ho
 import {
   type EJotaiContextStoreNames,
   useInAppNotificationAtom,
+  useSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -112,6 +116,7 @@ import {
 import {
   getStockQuoteTradeControl,
   isQuoteRequestForStockTrade,
+  isQuoteResultForStockTrade,
 } from '../../utils/swapStockTradeControl';
 
 import SwapActionsState from './SwapActionsState';
@@ -123,7 +128,11 @@ import SwapQuoteResult from './SwapQuoteResult';
 import {
   STOCK_DESKTOP_HEADER_SLOT_PROPS,
   getStockDisabledActionButtonProps,
+  getStockReceiveDisplayScope,
+  isStockReceivePairSynced,
+  isStockReceiveQuoteCurrent,
   shouldDeferStockInitialContent,
+  shouldInvalidateStockReceiveSnapshot,
   shouldResetStockTradeQuoteState,
   shouldShowStockQuoteActionLoading,
 } from './SwapStockDesktopContainer.utils';
@@ -150,6 +159,7 @@ import {
   useSwapStockTradeContext,
 } from './SwapStockTradeProvider';
 import SwapTipsContainer from './SwapTipsContainer';
+import { useStockReceiveDisplaySnapshot } from './useStockReceiveDisplaySnapshot';
 
 import type { KeyboardAwareScrollViewRef } from 'react-native-keyboard-controller';
 
@@ -231,6 +241,8 @@ function StockTradeSideSwitch({
 
 function StockEstimatedReceive({
   forceLoading,
+  receiveDisplayScope,
+  quoteMatchesAccount,
   quoteResult,
   quoteLoading,
   quoteEventFetching,
@@ -239,6 +251,8 @@ function StockEstimatedReceive({
   stockReviewToken,
 }: {
   forceLoading?: boolean;
+  receiveDisplayScope?: string;
+  quoteMatchesAccount: boolean;
   quoteResult?: IFetchQuoteResult;
   quoteLoading: boolean;
   quoteEventFetching: boolean;
@@ -249,6 +263,36 @@ function StockEstimatedReceive({
   const intl = useIntl();
   const [fromTokenAmount] = useSwapFromTokenAmountAtom();
   const [quoteEventError] = useSwapQuoteEventErrorAtom();
+  const [quoteEventCompleted] = useSwapQuoteEventCompletedAtom();
+  const [quoteEventTotalCount] = useSwapQuoteEventTotalCountAtom();
+  const [currentEventProviderKeys] = useSwapQuoteCurrentEventProviderKeysAtom();
+  const [shouldRefreshQuote] = useSwapShouldRefreshQuoteAtom();
+  const hasPositiveAmount = new BigNumber(fromTokenAmount.value || 0).gt(0);
+  const invalidateSnapshot = shouldInvalidateStockReceiveSnapshot({
+    hasPositiveAmount,
+    matchesAccount: quoteMatchesAccount,
+    completed: quoteEventCompleted,
+    shouldRefreshQuote,
+    currentEventProviderKeys,
+  });
+  const quoteIsCurrentEvent = isStockReceiveQuoteCurrent({
+    quote: quoteResult,
+    eventId: quoteEventTotalCount.eventId,
+    currentEventProviderKeys,
+    matchesAccount: quoteMatchesAccount,
+    matchesTrade: isQuoteResultForStockTrade({
+      quoteResult,
+      sendAmount: fromTokenAmount.value,
+      sendToken:
+        stockChannel.tradeSide === ESwapStockTradeSide.Buy
+          ? stockChannel.payToken
+          : stockChannel.currentStockToken,
+      receiveToken:
+        stockChannel.tradeSide === ESwapStockTradeSide.Buy
+          ? stockChannel.currentStockToken
+          : stockChannel.payToken,
+    }),
+  });
   const shouldHideQuoteResult = useMemo(() => {
     const hasStockQuoteControl = Boolean(
       getStockQuoteTradeControl({
@@ -280,41 +324,90 @@ function StockEstimatedReceive({
   );
   const {
     canSelectReceiveToken,
-    currencySymbol,
+    currencySymbol: currentCurrencySymbol,
     isLoading,
     isSellSide,
     isReceiveTokenPopoverOpen,
     onReceiveTokenPress,
     quoteMatchesStockTrade,
-    rateDifference,
-    receiveAmount,
-    receiveFiatValue,
+    rateDifference: currentRateDifference,
+    receiveAmount: currentReceiveAmount,
+    receiveFiatValue: currentReceiveFiatValue,
     receiveToken,
     setIsReceiveTokenPopoverOpen,
   } = useSwapStockEstimatedReceiveState({
-    forceHideQuote: shouldHideQuoteResult || forceLoading,
+    forceHideQuote:
+      shouldHideQuoteResult ||
+      forceLoading ||
+      invalidateSnapshot ||
+      (hasPositiveAmount && !quoteIsCurrentEvent),
     quoteEventFetching: false,
     quoteLoading: receiveQuoteLoading,
     quoteResult,
     stockChannel,
   });
-  const receiveTokenSymbol = receiveToken?.symbol ?? '';
+  const currentReceiveTokenSymbol = receiveToken?.symbol ?? '';
   const estimatedStockTokenAmount =
     stockChannel.tradeSide === ESwapStockTradeSide.Buy
       ? quoteResult?.toAmount
       : quoteResult?.fromAmount;
   const tokenToAssetRatio = stockReviewToken?.stock?.tokenToAssetRatio;
-  const estimatedShares = calculateSwapStockEstimatedShares({
+  const currentEstimatedShares = calculateSwapStockEstimatedShares({
     stockTokenAmount: quoteMatchesStockTrade
       ? estimatedStockTokenAmount
       : undefined,
     tokenToAssetRatio,
   });
-  const stockUnderlyingSymbol =
+  const currentStockUnderlyingSymbol =
     stockReviewToken?.stock?.underlyingAssetTicker ?? '';
-  const shouldShowEstimatedShares = Boolean(
+  const currentShouldShowEstimatedShares = Boolean(
     getValidStockTokenToAssetRatio(tokenToAssetRatio),
   );
+  const displayScope = receiveDisplayScope
+    ? JSON.stringify([receiveDisplayScope, currentCurrencySymbol])
+    : undefined;
+  const snapshot = useStockReceiveDisplaySnapshot({
+    scope: displayScope,
+    isLoading,
+    hideQuote: shouldHideQuoteResult,
+    invalidate: invalidateSnapshot,
+    canSave:
+      (!hasPositiveAmount && !quoteResult) ||
+      (quoteEventCompleted && quoteIsCurrentEvent && quoteMatchesStockTrade),
+    value: {
+      currencySymbol: currentCurrencySymbol,
+      rateDifference: currentRateDifference,
+      receiveAmount: hasPositiveAmount ? currentReceiveAmount : '',
+      receiveFiatValue: hasPositiveAmount ? currentReceiveFiatValue : '0',
+      receiveTokenSymbol: currentReceiveTokenSymbol,
+      estimatedShares: currentEstimatedShares,
+      stockUnderlyingSymbol: currentStockUnderlyingSymbol,
+      shouldShowEstimatedShares: currentShouldShowEstimatedShares,
+    },
+  });
+  const showReceiveSkeleton = isLoading && !snapshot;
+  const currencySymbol = snapshot?.currencySymbol ?? currentCurrencySymbol;
+  const rateDifference = snapshot
+    ? snapshot.rateDifference
+    : currentRateDifference;
+  const receiveAmount = snapshot
+    ? snapshot.receiveAmount
+    : currentReceiveAmount;
+  const receiveFiatValue = snapshot
+    ? snapshot.receiveFiatValue
+    : currentReceiveFiatValue;
+  const receiveTokenSymbol = snapshot
+    ? snapshot.receiveTokenSymbol
+    : currentReceiveTokenSymbol;
+  const estimatedShares = snapshot
+    ? snapshot.estimatedShares
+    : currentEstimatedShares;
+  const stockUnderlyingSymbol = snapshot
+    ? snapshot.stockUnderlyingSymbol
+    : currentStockUnderlyingSymbol;
+  const shouldShowEstimatedShares = snapshot
+    ? snapshot.shouldShowEstimatedShares
+    : currentShouldShowEstimatedShares;
   const hasReceiveAmount = Boolean(receiveAmount && receiveTokenSymbol);
   const shouldShowReceiveToken = Boolean(
     hasReceiveAmount || (isSellSide && receiveTokenSymbol),
@@ -328,7 +421,7 @@ function StockEstimatedReceive({
   let estimatedSharesContent: ReactNode = (
     <SizableText size="$bodyMdMedium">--</SizableText>
   );
-  if (isLoading) {
+  if (showReceiveSkeleton) {
     estimatedSharesContent = <Skeleton h="$5" w="$20" />;
   } else if (estimatedShares) {
     estimatedSharesContent = (
@@ -467,7 +560,7 @@ function StockEstimatedReceive({
           alignItems="flex-end"
           minWidth={0}
         >
-          {isLoading ? (
+          {showReceiveSkeleton ? (
             <>
               <XStack
                 h={STOCK_ESTIMATED_RECEIVE_PRIMARY_ROW_HEIGHT}
@@ -506,7 +599,7 @@ function StockEstimatedReceive({
                   {receiveFiatValue || '0'}
                 </NumberSizeableText>
                 <SwapRateDifferenceText
-                  loading={isLoading}
+                  loading={showReceiveSkeleton}
                   rateDifference={rateDifference}
                   size="$bodyMd"
                 />
@@ -1154,6 +1247,40 @@ function StockTradeTicket({
   const swapFromAddressInfo = useSwapAddressInfo(ESwapDirectionType.FROM);
   const swapToAddressInfo = useSwapAddressInfo(ESwapDirectionType.TO);
   const amountInputState = useSwapStockAmountInputState({ stockChannel });
+  const [settings] = useSettingsPersistAtom();
+  const [quoteActionLock] = useSwapQuoteActionLockAtom();
+  const fromTokenKey = getTokenIdentityKey(stockChannel.fromToken);
+  const toTokenKey = getTokenIdentityKey(stockChannel.toToken);
+  const receiveDisplayScope =
+    swapFromAddressInfo.isAddressInfoReady &&
+    swapToAddressInfo.isAddressInfoReady &&
+    isStockReceivePairSynced({
+      fromTokenKey,
+      toTokenKey,
+      stockTokenKey: getTokenIdentityKey(stockChannel.currentStockToken),
+      payTokenKey: getTokenIdentityKey(stockChannel.payToken),
+      tradeSide: stockChannel.tradeSide,
+    })
+      ? getStockReceiveDisplayScope({
+          accounts: [
+            swapFromAddressInfo.activeAccount?.wallet?.id,
+            swapFromAddressInfo.activeAccount?.indexedAccount?.id,
+            swapFromAddressInfo.activeAccount?.account?.id,
+            swapFromAddressInfo.accountInfo?.account?.id,
+            swapToAddressInfo.activeAccount?.wallet?.id,
+            swapToAddressInfo.activeAccount?.indexedAccount?.id,
+            swapToAddressInfo.activeAccount?.account?.id,
+            swapToAddressInfo.accountInfo?.account?.id,
+          ],
+          fromAddress: swapFromAddressInfo.address,
+          toAddress: swapToAddressInfo.address,
+          fromTokenKey,
+          toTokenKey,
+          tradeSide: stockChannel.tradeSide,
+          amount: amountInputState.inputValue,
+          currencyId: settings.currencyInfo.id,
+        })
+      : undefined;
   const startedWithoutAmountInputRef = useRef(!amountInputState.inputToken);
   const deferInitialAmountContent = shouldDeferStockInitialContent({
     channelStage: stockChannel.channelStage,
@@ -1240,6 +1367,16 @@ function StockTradeTicket({
         />
         <StockEstimatedReceive
           forceLoading={showEstimatedReceiveSkeleton}
+          receiveDisplayScope={receiveDisplayScope}
+          quoteMatchesAccount={isQuoteRequestForStockTrade({
+            currentAccountId: swapFromAddressInfo.accountInfo?.account?.id,
+            currentAddress: swapFromAddressInfo.address,
+            currentReceivingAddress: swapToAddressInfo.address,
+            quoteRequest: quoteActionLock,
+            receiveToken: stockChannel.toToken,
+            sendAmount: amountInputState.inputValue,
+            sendToken: stockChannel.fromToken,
+          })}
           quoteResult={quoteResult}
           quoteLoading={quoteLoading}
           quoteEventFetching={quoteEventFetching}

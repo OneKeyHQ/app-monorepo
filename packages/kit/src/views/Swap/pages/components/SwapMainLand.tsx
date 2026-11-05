@@ -192,6 +192,7 @@ import {
 } from './SwapStockDesktopContainer';
 import SwapSwapMbContainer from './SwapSwapMbContainer';
 import SwapTipsContainer from './SwapTipsContainer';
+import { StockReceiveSnapshotProvider } from './useStockReceiveDisplaySnapshot';
 
 import type { ScrollViewInstance } from 'react-native';
 
@@ -1887,7 +1888,7 @@ const SwapMainLoad = ({
   );
 
   const pageContent = (
-    <>
+    <StockReceiveSnapshotProvider>
       <Page.Container flex={1} layout={containerLayout} padded={false}>
         <YStack
           testID={SwapTestIDs.pageContainer}
@@ -1937,7 +1938,7 @@ const SwapMainLoad = ({
           )}
         </YStack>
       </Page.Container>
-    </>
+    </StockReceiveSnapshotProvider>
   );
   return pageContent;
 };
