@@ -25,7 +25,6 @@ import type { ISendTxOnSuccessData } from '@onekeyhq/shared/types/tx';
 import { preloadEarnPayWithTokenSelect } from '../../../Staking/router';
 import { completeBroadcastedSwapSuccess } from '../../../Swap/hooks/swapBroadcastSuccess';
 import { generateSwapHistoryItemForContext } from '../../../Swap/hooks/useSwapTxHistory';
-import { isSameLoanAsset } from '../../components/desktopHome/earnDesktopHome.utils';
 import {
   readPayWithPickerAccountAddress,
   readPayWithPickerNetwork,
@@ -53,7 +52,11 @@ import {
   waitForEarnSwapBalance,
 } from '../EarnRouter/earnRouterSwap';
 
+import { getLoanPayPath, pickLoanPayToken } from './loanRouter.utils';
+import { getLoanNetworkAccountId } from './useLoanRouterFacts';
+
 import type { ILoanRoute } from './loanRouter.utils';
+import type { ILoanRouterAccount } from './useLoanRouterFacts';
 import type { IEarnRouterPayToken } from '../EarnRouter/earnRouter.utils';
 import type {
   IEarnSwapAccount,
@@ -62,10 +65,12 @@ import type {
 } from '../EarnRouter/earnRouterSwap';
 
 // The Loans window's Pay with, as the deposit modal's: what leaves the
-// wallet for the collateral. The collateral itself where the wallet holds it
-// on the market's network, else what it holds most of there, or a token
-// picked in Swap's picker. Paid with another token, a swap comes first and
-// what it brings is supplied
+// wallet for the collateral. Since 11-05 it pays from any network: the
+// wallet's largest holding of the collateral wherever it is, else what it
+// holds most of, or a token picked in Swap's picker. Paid with another token
+// on the market's network, a swap comes first; from another network, a
+// bridge to the market's (a swap on the way where it is another token). What
+// either brings is supplied
 
 // Typing settles before the swap service is asked, as in the deposit modal
 const QUOTE_DEBOUNCE_MS = 500;
@@ -99,12 +104,17 @@ const toSwapToken = (networkId: string, item: IEarnRouterPayToken) =>
 export function useLoanPayWith({
   route,
   networkAccountId,
+  loanAccount,
   typedAmount,
   isLocked,
   startKey,
 }: {
   route?: ILoanRoute;
+  // The account on the market's network: where the collateral lands and is
+  // supplied from
   networkAccountId?: string;
+  // The wallet's account, for its account on a network it holds nothing on
+  loanAccount: ILoanRouterAccount;
   // What the box holds: an amount of the pay token
   typedAmount: string;
   isLocked: boolean;
@@ -121,28 +131,45 @@ export function useLoanPayWith({
     networkId,
     depositSymbol: collateral?.symbol ?? '',
     enabled: Boolean(route),
+    acrossNetworks: true,
   });
-  // A token picked in the picker, kept while the market stays on its
-  // network; on another network Pay with starts on that one's default
+  // A token picked in the picker, kept on every market: one on another
+  // network than the market's is bridged there
   const [pickedKey, setPickedKey] = useState<string | undefined>(startKey);
   const [swapPhase, setSwapPhase] = useState<ILoanSwapPhase>('idle');
   const isFrozen = isLocked || swapPhase !== 'idle';
   const picked = findPayToken(pay.tokens, pickedKey);
-  const isCollateralToken = useCallback(
-    (item: IEarnRouterPayToken) =>
-      Boolean(
-        collateral &&
-        (item.isDepositToken ||
-          isSameLoanAsset(item.token.symbol, collateral.symbol)),
-      ),
-    [collateral],
+  // What pays for a market's collateral: the token picked, else the
+  // wallet's largest holding of the collateral on any network, else its
+  // largest holding. The window asks for each market's card too
+  const { heldTokens } = pay;
+  const payTokenFor = useCallback(
+    (collateralSymbol: string) =>
+      picked ?? pickLoanPayToken(heldTokens, collateralSymbol),
+    [heldTokens, picked],
   );
-  const payToken =
-    picked ?? pay.heldTokens.find(isCollateralToken) ?? pay.defaultToken;
-  // Paid with something else: a swap brings the collateral first. A wrapped
-  // twin (ETH for WETH) is the collateral itself, as the market takes it
-  const isSwapping = Boolean(payToken && !isCollateralToken(payToken));
+  const payToken = collateral ? payTokenFor(collateral.symbol) : undefined;
+  // Paid with something else than the collateral there, a swap or a bridge
+  // brings it first. A wrapped twin (ETH for WETH) is the collateral itself,
+  // as the market takes it
+  const path = collateral
+    ? getLoanPayPath({
+        payToken: payToken && {
+          networkId: payToken.networkId,
+          symbol: payToken.token.symbol,
+        },
+        collateral,
+      })
+    : 'direct';
+  const isSwapping = path !== 'direct';
+  const isBridging = path === 'bridge';
+  // Where what pays is: the market's network unless it bridges
+  const payNetworkId = isBridging
+    ? payToken?.networkId || networkId
+    : networkId;
 
+  // The account on the market's network: where a bridge's tokens land, and
+  // the one that pays a swap there
   const { result: address } = usePromiseResult(
     async () =>
       accountId && networkId
@@ -159,16 +186,51 @@ export function useLoanPayWith({
         : undefined,
     [accountId, address, networkId],
   );
-  // What the network's coin keeps back for fees, as the Swap page's Max does
+  // The account that pays a bridge, on the pay token's network: the
+  // wallet's there where it holds the token, else found as the Earn pages
+  // find an account on a network
+  const payTokenAccountId = payToken?.accountId;
+  const { result: bridgeAccount } = usePromiseResult(async (): Promise<
+    IEarnSwapAccount | undefined
+  > => {
+    if (!isBridging || !payNetworkId) {
+      return undefined;
+    }
+    const id =
+      payTokenAccountId ||
+      (await getLoanNetworkAccountId({
+        account: loanAccount,
+        networkId: payNetworkId,
+      }));
+    if (!id) {
+      return undefined;
+    }
+    const bridgeAddress = await backgroundApiProxy.serviceAccount
+      .getAccountAddressForApi({ accountId: id, networkId: payNetworkId })
+      .catch(() => undefined);
+    return bridgeAddress
+      ? { accountId: id, networkId: payNetworkId, address: bridgeAddress }
+      : undefined;
+  }, [isBridging, loanAccount, payNetworkId, payTokenAccountId]);
+  // The one that pays, and where a bridge lands (none for a swap: the payer).
+  // The last network's account, while another's is read, pays nothing
+  const isBridgeAccountRead = bridgeAccount?.networkId === payNetworkId;
+  let fromAccount = account;
+  if (isBridging) {
+    fromAccount = isBridgeAccountRead ? bridgeAccount : undefined;
+  }
+  const toAccount = isBridging ? account : undefined;
+  // What the pay token's network's coin keeps back for fees, as the Swap
+  // page's Max does
   const isNativePay = Boolean(payToken?.token.isNative);
   const { result: nativeConfig } = usePromiseResult(
     async () =>
-      isNativePay && networkId
+      isNativePay && payNetworkId
         ? backgroundApiProxy.serviceSwap
-            .fetchSwapNativeTokenConfig({ networkId })
+            .fetchSwapNativeTokenConfig({ networkId: payNetworkId })
             .catch(() => undefined)
         : undefined,
-    [isNativePay, networkId],
+    [isNativePay, payNetworkId],
   );
   const payMax = payToken
     ? getEarnSwapPayMax({
@@ -179,11 +241,13 @@ export function useLoanPayWith({
       })
     : undefined;
 
-  // The swap's two tokens
+  // The swap's two tokens, each on its own network
   const fromToken = useMemo(
     () =>
-      payToken && networkId ? toSwapToken(networkId, payToken) : undefined,
-    [networkId, payToken],
+      payToken && payNetworkId
+        ? toSwapToken(payNetworkId, payToken)
+        : undefined,
+    [payNetworkId, payToken],
   );
   const toToken = useMemo(
     () =>
@@ -250,7 +314,8 @@ export function useLoanPayWith({
         fromToken: tokens.fromToken,
         toToken: tokens.toToken,
         amount: amountKey,
-        account,
+        account: fromAccount,
+        toAccount,
         signal: controller.signal,
         onBest: (quote) =>
           setQuoteState({ amount: amountKey, quote, isLoading: true }),
@@ -272,18 +337,17 @@ export function useLoanPayWith({
       clearTimeout(timer);
       controller.abort();
     };
-  }, [account, amountKey, canQuote, isFrozen, tokensKey]);
+  }, [amountKey, canQuote, fromAccount, isFrozen, toAccount, tokensKey]);
   // The collateral the amount brings, once quoted for exactly this amount
   const quoteFor = (value: string) =>
     quoteState.amount === value && quoteState.quote?.toAmount
       ? quoteState.quote.toAmount
       : undefined;
   const estimatedSupply = canQuote ? quoteFor(amountKey) : undefined;
-  // The last amount's estimate, shown dimmed while this one's is asked for
-  const shownSupply =
-    canQuote && quoteState.quote?.toAmount
-      ? quoteState.quote.toAmount
-      : undefined;
+  // The last amount's quote, shown dimmed while this one's is asked for: its
+  // estimate, and a bridge's time and fee
+  const shownQuote = canQuote ? quoteState.quote : undefined;
+  const shownSupply = shownQuote?.toAmount || undefined;
   const isQuoting =
     canQuote && (quoteState.isLoading || quoteState.amount !== amountKey);
   const hasNoRoute =
@@ -299,9 +363,15 @@ export function useLoanPayWith({
   const [{ swapShowLpTokensOnly }] = useTokenSelectorFilterPersistAtom();
   const { gtMd } = useMedia();
   const isWide = Boolean((platformEnv.isDesktop || platformEnv.isWeb) && gtMd);
+  // The picker opens on the market's network: the wallet's tokens there
   const payTokenAddressesKey = useMemo(
-    () => pay.heldTokens.map(getPayTokenAddress).filter(Boolean).join(','),
-    [pay.heldTokens],
+    () =>
+      heldTokens
+        .filter((item) => item.networkId === networkId)
+        .map(getPayTokenAddress)
+        .filter(Boolean)
+        .join(','),
+    [heldTokens, networkId],
   );
   // Read ahead, so the picker's first open is complete
   useEffect(() => {
@@ -346,20 +416,36 @@ export function useLoanPayWith({
             ? {
                 address: payToken.token.address,
                 isNative: Boolean(payToken.token.isNative),
+                networkId: payToken.networkId,
               }
             : undefined,
+          // Swap's network column too: a token on another network is bridged
+          // to the market's first (11-05)
+          acrossNetworks: true,
           onSelect: (token: ISwapToken) => {
+            // The wallet's account on the token's network, where known
+            const tokenAccountId =
+              token.networkId === networkId
+                ? accountId
+                : heldTokens.find((held) => held.networkId === token.networkId)
+                    ?.accountId;
             const item = toPickedPayToken({
               token,
-              tokens: pay.heldTokens,
+              tokens: heldTokens,
               depositToken: collateral
                 ? { address: collateral.address, isNative: !collateral.address }
                 : undefined,
               depositSymbol: collateral?.symbol ?? '',
+              depositNetworkId: networkId,
+              accountId: tokenAccountId,
             });
-            if (!pay.heldTokens.some((held) => held.key === item.key)) {
-              rememberPickedPayToken(networkId, item);
-              void refreshPickedPayToken({ accountId, networkId, item });
+            if (!heldTokens.some((held) => held.key === item.key)) {
+              rememberPickedPayToken(token.networkId, item);
+              void refreshPickedPayToken({
+                accountId: tokenAccountId || accountId,
+                networkId: token.networkId,
+                item,
+              });
             }
             setPickedKey(item.key);
             onPicked(item.key !== payToken?.key);
@@ -370,19 +456,20 @@ export function useLoanPayWith({
     [
       accountId,
       collateral,
+      heldTokens,
       navigation,
       networkId,
-      pay.heldTokens,
       payToken,
       payTokenAddressesKey,
     ],
   );
 
-  // ---------- The swap ----------
+  // ---------- The swap or the bridge ----------
 
+  // Signed where it pays: the pay token's network
   const { navigationToTxConfirm } = useSignatureConfirm({
-    accountId,
-    networkId,
+    accountId: fromAccount?.accountId ?? accountId,
+    networkId: fromAccount?.networkId ?? networkId,
   });
   // The wallet's confirm for the swap, as the Swap page sends one (with an
   // approval in the same confirm): what went out, nothing when rejected
@@ -445,9 +532,11 @@ export function useLoanPayWith({
   const runRef = useRef<AbortController | undefined>(undefined);
   useEffect(() => () => runRef.current?.abort(), []);
   /**
-   * One press's swap: a fresh quote, the wallet's confirm, the wait for it
-   * on chain. What it brought (rounded down to what the market takes), or
-   * nothing when it was rejected or failed (a toast says why)
+   * One press's swap or bridge: a fresh quote, the wallet's confirm on the
+   * pay token's network, the wait for what it brings to land on the market's
+   * (a bridge, until it is out on the other side). What it brought (rounded
+   * down to what the market takes), or nothing when it was rejected or failed
+   * (a toast says why)
    */
   const swap = useCallback(
     async ({
@@ -455,7 +544,7 @@ export function useLoanPayWith({
     }: {
       payAmount: string;
     }): Promise<{ amount: string; balance?: string } | undefined> => {
-      if (!account || !fromToken || !toToken || !collateral) {
+      if (!fromAccount || !account || !fromToken || !toToken || !collateral) {
         return undefined;
       }
       const controller = new AbortController();
@@ -469,7 +558,8 @@ export function useLoanPayWith({
           fromToken,
           toToken,
           amount: payAmount,
-          account,
+          account: fromAccount,
+          toAccount,
           signal,
         });
         setQuoteState({
@@ -482,8 +572,10 @@ export function useLoanPayWith({
           fromToken,
           toToken,
           amount: payAmount,
-          account,
+          account: fromAccount,
+          toAccount,
         });
+        // The collateral is read where it lands: the market's network
         const balanceBefore = await readEarnSwapBalance({
           token: toToken,
           account,
@@ -505,7 +597,8 @@ export function useLoanPayWith({
           txId: sent.signedTx.txid,
           prepared,
           toToken,
-          account,
+          account: fromAccount,
+          toAccount,
           landedBalance:
             balanceBefore === undefined
               ? undefined
@@ -541,7 +634,11 @@ export function useLoanPayWith({
           return undefined;
         }
         const reason = error instanceof EarnSwapError ? error.reason : 'failed';
-        const messageId = SWAP_ERROR_MESSAGE[reason];
+        // A bridge that failed says so in the Swap history's words
+        const messageId =
+          reason === 'failed' && toAccount
+            ? ETranslations.swap_history_detail_badge_bridge_failed
+            : SWAP_ERROR_MESSAGE[reason];
         if (messageId) {
           Toast.error({
             title: intl.formatMessage({ id: messageId }),
@@ -558,32 +655,43 @@ export function useLoanPayWith({
       account,
       collateral,
       confirmSwap,
+      fromAccount,
       fromToken,
       intl,
       pay,
       recordSwap,
+      toAccount,
       toToken,
     ],
   );
 
   return {
     payToken,
+    // What pays for a market's collateral, for the markets' cards
+    payTokenFor,
+    // What comes before the supply: nothing, a swap, or a bridge
+    path,
+    // A swap or a bridge brings the collateral first
     isSwapping,
+    isBridging,
     payMax,
-    // Picked in the picker (on this network), against the default
+    // Picked in the picker, against the default
     isPicked: Boolean(picked),
     pickedKey,
     setPickedKey,
     openPicker,
     estimatedSupply,
     shownSupply,
+    shownQuote,
     isQuoting,
     hasNoRoute,
     quoteFor,
     swap,
     swapPhase,
     isSwapRunning: swapPhase !== 'idle',
-    canSwap: Boolean(account && fromToken && toToken),
+    canSwap: Boolean(
+      fromAccount && fromToken && toToken && (!isBridging || toAccount),
+    ),
     isLoaded: pay.isLoaded,
     refresh: pay.refresh,
   };

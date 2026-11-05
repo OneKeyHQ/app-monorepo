@@ -49,7 +49,9 @@ import {
   ETabEarnRoutes,
 } from '@onekeyhq/shared/src/routes';
 import type { IModalStakingParamList } from '@onekeyhq/shared/src/routes';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
+import { formatSwapQuoteDuration } from '@onekeyhq/shared/src/utils/swapQuoteDurationUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import { EAvailableAssetsTypeEnum } from '@onekeyhq/shared/types/earn';
 
@@ -86,11 +88,16 @@ import { EarnNavigation } from '../../earnUtils';
 import { leaveEarnWindowFor } from '../../earnWindowReturn';
 import { getEarnAssetClassLabel } from '../EarnAssetSelect/earnAssetClassLabel';
 import {
+  listAssetSelectNetworks,
+  scopeAssetSelectTokens,
+} from '../EarnAssetSelect/earnAssetSelect.utils';
+import {
   EarnDoneHeader,
   formatDoneAmount,
 } from '../EarnRouter/EarnDepositDone';
 import {
   EARN_OFFER_ROUTES_COLUMN_WIDTH,
+  getEarnSwapFee,
   listPayTokens,
 } from '../EarnRouter/earnRouter.utils';
 
@@ -104,11 +111,14 @@ import {
   getLoanForPositionLtv,
   getLoanHealthTone,
   getLoanLtvBar,
+  getLoanPayPath,
   getLoanRouteMetrics,
   getLoanSteps,
   isLoanPlanStopped,
+  listLoanSelectNetworks,
   pickLoanBorrowPick,
   rankLoanRoutes,
+  scopeLoanPick,
 } from './loanRouter.utils';
 import { EARN_LOAN_MODAL_SIZE } from './loanRouterModal';
 import {
@@ -130,6 +140,7 @@ import { useLoanRouterRun } from './useLoanRouterRun';
 
 import type { ILoanLtvTone } from './loanLtvBar.types';
 import type {
+  ILoanPayPath,
   ILoanPositionAsset,
   ILoanRoute,
   ILoanRouteBlock,
@@ -139,7 +150,10 @@ import type { ILoanReserveSide, ILoanRouteItem } from './LoanRouterParts';
 import type { ILoanRunDone, ILoanRunPlan } from './useLoanRouterRun';
 import type { IHealthFactorDetail } from '../../../Borrow/components/healthFactorValueColor';
 import type { IEarnOutcome } from '../../../Staking/components/UniversalStake/EarnFormSummary';
-import type { IEarnAssetPick } from '../EarnAssetSelect/earnAssetSelect.utils';
+import type {
+  IEarnAssetPick,
+  IEarnAssetSelectNetwork,
+} from '../EarnAssetSelect/earnAssetSelect.utils';
 
 // A collateral and a loan, and every market that takes the pair, as
 // LlamaSwap's Borrow tab lays them out: the amounts on the left, the markets
@@ -173,9 +187,38 @@ const SUPPLY_LINE_MS = 200;
 // Each step's word over the button, the one the button itself uses
 const LOAN_STEP_WORDS: Record<ILoanStep, ETranslations> = {
   swap: ETranslations.global_swap,
+  bridge: ETranslations.swap_page_bridge,
   approve: ETranslations.global_approve,
   supply: ETranslations.defi_supply,
   borrow: ETranslations.global_borrow,
+};
+
+// A network by its id: from the markets where one is there, else the app's
+// own list (a network Pay with pays from that no market is on)
+const findLoanNetwork = (
+  networks: Map<string, IEarnAssetSelectNetwork>,
+  networkId?: string,
+): IEarnAssetSelectNetwork | undefined => {
+  if (!networkId) {
+    return undefined;
+  }
+  const known = networks.get(networkId);
+  if (known) {
+    return known;
+  }
+  const local = networkUtils.getLocalNetworkInfo(networkId);
+  return local
+    ? { id: local.id, name: local.name, logoURI: local.logoURI }
+    : undefined;
+};
+
+// The larger of two balances, either of which may be unknown
+const maxBalance = (a?: string, b?: string) => {
+  const known = [a, b].flatMap((value) => {
+    const parsed = new BigNumber(value ?? '');
+    return parsed.isFinite() ? [parsed] : [];
+  });
+  return known.length ? BigNumber.max(...known).toFixed() : undefined;
 };
 
 // A pick's name: the token, or the kind's ("Stable Tokens", "BTC")
@@ -468,6 +511,7 @@ function EarnLoanRouterPage() {
     borrow: routeBorrow,
     collateralClass: routeCollateralClass,
     borrowClass: routeBorrowClass,
+    networkId: routeNetworkId,
     routeKey,
     wide,
     collateralAmount: startCollateralAmount,
@@ -500,6 +544,19 @@ function EarnLoanRouterPage() {
       ? { kind: 'class', assetClass: routeBorrowClass }
       : { kind: 'token', symbol: routeBorrow },
   );
+  // The one network both sides are on, a loan being one market's: picked on
+  // either side, it is both sides'. None: every network (11-05)
+  const [scopeNetworkId, setScopeNetworkId] = useState<string | undefined>(
+    routeNetworkId,
+  );
+  const collateralScoped = useMemo(
+    () => scopeLoanPick(collateralPick, scopeNetworkId),
+    [collateralPick, scopeNetworkId],
+  );
+  const borrowScoped = useMemo(
+    () => scopeLoanPick(borrowPick, scopeNetworkId),
+    [borrowPick, scopeNetworkId],
+  );
   const isClassMode =
     collateralPick.kind === 'class' || borrowPick.kind === 'class';
   // What the first box holds: an amount of what Pay with pays with (the
@@ -529,11 +586,13 @@ function EarnLoanRouterPage() {
   const [done, setDone] = useState<ILoanRunDone>();
   // After a press whose supply went in and whose loan didn't
   const [suppliedNote, setSuppliedNote] = useState<string>();
-  // A swap brought the collateral: the box holds what came in, as the
-  // collateral itself, and the press goes on by itself once
+  // A swap or a bridge brought the collateral: the box holds what came in,
+  // as the collateral itself, and the press goes on by itself once. The
+  // balance it left there counts until the market's own figures catch up
   const [handoff, setHandoff] = useState<{
     routeKey: string;
     autoStart: boolean;
+    balance?: string;
   }>();
 
   const { markets, isLoaded: isMarketsLoaded } = useEarnDesktopMarkets({
@@ -597,6 +656,8 @@ function EarnLoanRouterPage() {
       }),
     [holdings, markets, stableSymbols],
   );
+  // What is lent against the collateral on any network: the selector's
+  // network column narrows it
   const borrowTokens = useMemo(
     () =>
       buildLoanSelectTokens({
@@ -607,15 +668,41 @@ function EarnLoanRouterPage() {
       }),
     [collateralPick, markets, stableSymbols],
   );
+  // Each side's network column, in one order: where the wallet holds the
+  // most collateral first, then by name
+  const supplyNetworks = useMemo(
+    () => listAssetSelectNetworks(supplyTokens),
+    [supplyTokens],
+  );
+  const borrowNetworks = useMemo(
+    () =>
+      listLoanSelectNetworks({ order: supplyNetworks, tokens: borrowTokens }),
+    [borrowTokens, supplyNetworks],
+  );
+  // Every network a market is on, by id
+  const loanNetworkById = useMemo(() => {
+    const byId = new Map<string, IEarnAssetSelectNetwork>();
+    markets.forEach(({ market }) => {
+      if (!byId.has(market.networkId)) {
+        byId.set(market.networkId, {
+          id: market.networkId,
+          name: market.network.name,
+          logoURI: market.network.logoURI,
+        });
+      }
+    });
+    return byId;
+  }, [markets]);
+  const scopeNetwork = findLoanNetwork(loanNetworkById, scopeNetworkId);
   const routes = useMemo(
     () =>
       buildLoanRoutesForPicks({
         markets,
-        collateral: collateralPick,
-        borrow: borrowPick,
+        collateral: collateralScoped,
+        borrow: borrowScoped,
         stableSymbols,
       }),
-    [borrowPick, collateralPick, markets, stableSymbols],
+    [borrowScoped, collateralScoped, markets, stableSymbols],
   );
   const {
     byRoute,
@@ -630,14 +717,20 @@ function EarnLoanRouterPage() {
   const payWith = useLoanPayWith({
     route: payRoute,
     networkAccountId: payRouteFacts?.networkAccountId,
+    loanAccount,
     typedAmount: collateralAmount,
     isLocked: false,
     startKey: startPayKey,
   });
   const { payToken } = payWith;
-  // Paid with another token: a swap buys the collateral first. Once it has,
-  // the box holds the collateral itself
+  // Paid with another token, or from another network: a swap or a bridge
+  // brings the collateral first. Once it has, the box holds the collateral
+  // itself
   const isSwapping = payWith.isSwapping && !handoff;
+  let conversion: Exclude<ILoanPayPath, 'direct'> | undefined;
+  if (isSwapping) {
+    conversion = payWith.isBridging ? 'bridge' : 'swap';
+  }
   // One unit of what pays, in the currency the markets answer in
   const payPrice = (() => {
     const usd = new BigNumber(payToken?.priceUsd ?? '');
@@ -816,16 +909,35 @@ function EarnLoanRouterPage() {
   // the account can't use the network
   const stopsPlan = (block?: ILoanRouteBlock) =>
     isLoanPlanStopped(block, isSupplyAlone);
-  const holdsCollateral = (item: ILoanRouteItem) =>
-    toBigNumber(item.facts?.walletBalance).gt(0);
-  // Unpicked, the check goes to the best market whose collateral the wallet
-  // holds there (no swap first), else to the best one: one that lends the
-  // pair first, then one that takes a supply alone
+  // How Pay with pays for a market's collateral: as it is, or after a swap
+  // or a bridge
+  const { payTokenFor } = payWith;
+  const payPathOf = useCallback(
+    (item: ILoanRoute): ILoanPayPath => {
+      const token = payTokenFor(item.collateral.symbol);
+      return getLoanPayPath({
+        payToken: token && {
+          networkId: token.networkId,
+          symbol: token.token.symbol,
+        },
+        collateral: item.collateral,
+      });
+    },
+    [payTokenFor],
+  );
+  // The wallet pays with the collateral there: no swap or bridge first
+  const paysDirectly = (item: ILoanRouteItem) =>
+    Boolean(payTokenFor(item.route.collateral.symbol)) &&
+    payPathOf(item.route) === 'direct';
+  // Unpicked, the check goes to the best market Pay with pays directly
+  // (the wallet's largest holding of the collateral is there), else to the
+  // best one: one that lends the pair first, then one that takes a supply
+  // alone
   const usableItem =
-    items.find((item) => !item.metrics.block && holdsCollateral(item)) ??
+    items.find((item) => !item.metrics.block && paysDirectly(item)) ??
     items.find((item) => !item.metrics.block) ??
     items.find(
-      (item) => !stopsPlan(item.metrics.block) && holdsCollateral(item),
+      (item) => !stopsPlan(item.metrics.block) && paysDirectly(item),
     ) ??
     items.find((item) => !stopsPlan(item.metrics.block));
   // The market of the row the modal opened from (or one picked while the
@@ -841,12 +953,13 @@ function EarnLoanRouterPage() {
     usableItem ??
     items[0];
   // With no market picked, the best one is checked once every market's
-  // figures are in, and stays checked: typing never moves the check to
-  // another market or network. One it can't take any more shows why
+  // figures are in, and the wallet's tokens (which market Pay with pays
+  // directly), and stays checked: typing never moves the check to another
+  // market or network. One it can't take any more shows why
   const isPickListed =
     pickedKey !== undefined && routes.some((item) => item.key === pickedKey);
   const autoPickKey =
-    (!isPickListed || isPickClosed) && isFactsLoaded
+    (!isPickListed || isPickClosed) && isFactsLoaded && payWith.isLoaded
       ? selected?.route.key
       : undefined;
   useEffect(() => {
@@ -931,10 +1044,21 @@ function EarnLoanRouterPage() {
     borrowToken?.symbol ??
     (borrowPick.kind === 'token' ? borrowPick.symbol : '');
   const networkLogoURI = selectedRoute?.market.network.logoURI;
-  // What the box can take: the pay token's balance, or the collateral's
+  // The box's token carries its network: what pays, from wherever it is
+  const boxNetworkLogoURI = isSwapping
+    ? findLoanNetwork(loanNetworkById, payToken?.networkId)?.logoURI
+    : networkLogoURI;
+  // What the box can take: the pay token's balance, or the collateral's,
+  // with what a swap or a bridge just brought until the market's figures
+  // count it
   const boxBalance = isSwapping
     ? payToken?.amount
-    : selectedFacts?.walletBalance;
+    : maxBalance(
+        selectedFacts?.walletBalance,
+        handoff && handoff.routeKey === selectedRoute?.key
+          ? handoff.balance
+          : undefined,
+      );
   const boxDecimals = isSwapping
     ? (payToken?.token.decimals ?? 8)
     : (collateralToken?.decimals ?? 8);
@@ -1048,7 +1172,10 @@ function EarnLoanRouterPage() {
   // The box keeps its value when another market moves Pay with to another
   // token (another network): the same plan in the new token. A pick in Pay
   // with's picker starts it over instead
-  const boxTokenKey = `${payRoute?.market.networkId ?? ''}|${boxSymbol}`;
+  const boxNetworkId = isSwapping
+    ? payToken?.networkId
+    : payRoute?.market.networkId;
+  const boxTokenKey = `${boxNetworkId ?? ''}|${boxSymbol}`;
   const boxPrice = isSwapping ? payPrice : payRouteFacts?.collateralPrice;
   const lastBoxRef = useRef({
     key: boxTokenKey,
@@ -1063,8 +1190,11 @@ function EarnLoanRouterPage() {
       price: boxPrice,
     };
     // A box whose token wasn't known yet (the markets still loading, as when
-    // the window reopens with its amount) keeps that amount
+    // the window reopens with its amount) keeps that amount. So does what a
+    // swap or a bridge brought: it came in as the collateral, not as a value
+    // to work out again in it
     if (
+      handoff ||
       last.key === boxTokenKey ||
       !last.symbol ||
       !toBigNumber(collateralAmount).gt(0)
@@ -1089,10 +1219,12 @@ function EarnLoanRouterPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [boxTokenKey]);
 
-  // The picks, in the shared selector over the window
+  // The picks, in the shared selector over the window. Either side's network
+  // (or All Networks) becomes both sides'
   const handleCollateralPick = useCallback(
     (pick: IEarnAssetPick) => {
-      setCollateralPick(pick);
+      setScopeNetworkId(pick.networkId);
+      setCollateralPick(scopeLoanPick(pick));
       setCollateralAmount('');
       setSuppliedNote(undefined);
       setHandoff(undefined);
@@ -1104,6 +1236,7 @@ function EarnLoanRouterPage() {
         collateral: pick,
         current: borrowPick,
         stableSymbols,
+        networkId: pick.networkId,
       });
       if (nextBorrow) {
         setBorrowPick(nextBorrow);
@@ -1111,10 +1244,12 @@ function EarnLoanRouterPage() {
     },
     [borrowPick, markets, payWith, resetLoan, stableSymbols],
   );
-  // A loan typed in one token means nothing in another
+  // A loan typed in one token means nothing in another. The borrow list
+  // offers a network only where a market takes the collateral too
   const handleBorrowPick = useCallback(
     (pick: IEarnAssetPick) => {
-      setBorrowPick(pick);
+      setScopeNetworkId(pick.networkId);
+      setBorrowPick(scopeLoanPick(pick));
       setHandoff(undefined);
       setPickedKey(undefined);
       resetLoan();
@@ -1134,19 +1269,22 @@ function EarnLoanRouterPage() {
               : ETranslations.global_borrow,
           }),
           tokens: isSupply ? supplyTokens : borrowTokens,
-          selected: isSupply ? collateralPick : borrowPick,
+          networks: isSupply ? supplyNetworks : borrowNetworks,
+          selected: isSupply ? collateralScoped : borrowScoped,
           onSelect: isSupply ? handleCollateralPick : handleBorrowPick,
         },
       });
     },
     [
-      borrowPick,
+      borrowNetworks,
+      borrowScoped,
       borrowTokens,
-      collateralPick,
+      collateralScoped,
       handleBorrowPick,
       handleCollateralPick,
       intl,
       navigation,
+      supplyNetworks,
       supplyTokens,
     ],
   );
@@ -1158,7 +1296,8 @@ function EarnLoanRouterPage() {
     () => openSelect('borrow'),
     [openSelect],
   );
-  // Pay with's own picker: Swap's, on the market's network
+  // Pay with's own picker: Swap's, opening on the market's network with the
+  // others beside it
   const handleOpenPayWith = useCallback(() => {
     payWith.openPicker((isNewToken) => {
       if (isNewToken) {
@@ -1214,6 +1353,22 @@ function EarnLoanRouterPage() {
           collateralToken.symbol
         }`
       : '–';
+  // A bridge says before the press how long it takes and what the network
+  // charges, from the same quote, as the Swap page's route does. The fee
+  // comes in the currency the app asks the swap service in: the app's own
+  const bridgeQuote =
+    conversion === 'bridge' && hasCollateral ? payWith.shownQuote : undefined;
+  const bridgeDuration = bridgeQuote
+    ? formatSwapQuoteDuration(bridgeQuote)
+    : undefined;
+  const bridgeFeeValue = getEarnSwapFee(bridgeQuote);
+  const bridgeFee =
+    bridgeFeeValue === undefined
+      ? undefined
+      : numberFormat(String(bridgeFeeValue), {
+          formatter: 'value',
+          formatterOptions: { currency },
+        });
   const collateralBox = (
     <YStack>
       <StakingAmountInput
@@ -1236,7 +1391,7 @@ function EarnLoanRouterPage() {
             ? payToken?.token.logoURI
             : collateralLogo,
           selectedTokenImageLoading: !collateralLogo && !isMarketsLoaded,
-          selectedNetworkImageUri: networkLogoURI,
+          selectedNetworkImageUri: boxNetworkLogoURI,
           selectedTokenSymbol: isSwapping
             ? payToken?.token.symbol
             : (collateralToken?.symbol ?? pickLabel(collateralPick)),
@@ -1262,8 +1417,9 @@ function EarnLoanRouterPage() {
         maxAmountText={intl.formatMessage({ id: ETranslations.global_max })}
         inputProps={{ testID: 'earn-loan-collateral-input', placeholder: '0' }}
       />
-      {/* What the swap brings and goes in as collateral, under what pays
-          for it. It grows in with a pick of another token in Pay with */}
+      {/* What the swap or the bridge brings and goes in as collateral,
+          under what pays for it; a bridge's time and fee under that. It
+          grows in with a pick of another token in Pay with */}
       <HeightTransition duration={SUPPLY_LINE_MS} hide={!isSwapping}>
         <YStack pt="$2" aria-hidden={!isSwapping}>
           <StakingAmountResultLine
@@ -1273,6 +1429,28 @@ function EarnLoanRouterPage() {
             isPlaceholder={!supplyLine.startsWith('≈')}
             loading={payWith.isQuoting}
           />
+          {conversion === 'bridge' ? (
+            <YStack pt="$1">
+              <StakingAmountResultLine
+                testID="earn-loan-bridge-duration"
+                label={intl.formatMessage({
+                  id: ETranslations.provider_swap_duration,
+                })}
+                value={bridgeDuration ?? '–'}
+                isPlaceholder={!bridgeDuration}
+                loading={payWith.isQuoting}
+              />
+              <StakingAmountResultLine
+                testID="earn-loan-bridge-fee"
+                label={intl.formatMessage({
+                  id: ETranslations.provider_network_fee,
+                })}
+                value={bridgeFee ?? '–'}
+                isPlaceholder={!bridgeFee}
+                loading={payWith.isQuoting}
+              />
+            </YStack>
+          ) : null}
         </YStack>
       </HeightTransition>
     </YStack>
@@ -1597,8 +1775,8 @@ function EarnLoanRouterPage() {
     ) : null;
 
   // The window closes for one of the market's pages. Back from that page
-  // opens the window again as it was left: the pair or kinds, the market,
-  // the amounts and Pay with's token (demo 10-30)
+  // opens the window again as it was left: the pair or kinds, their network,
+  // the market, the amounts and Pay with's token (demo 10-30)
   const payPickedKey = payWith.pickedKey;
   const leaveWindowFor = useCallback(
     (page: ETabEarnRoutes, marketRouteKey?: string) => {
@@ -1616,6 +1794,7 @@ function EarnLoanRouterPage() {
           borrow: borrowPick.kind === 'token' ? borrowPick.symbol : routeBorrow,
           borrowClass:
             borrowPick.kind === 'class' ? borrowPick.assetClass : undefined,
+          networkId: scopeNetworkId,
           routeKey: marketRouteKey,
           wide,
           collateralAmount: collateralAmount || undefined,
@@ -1635,6 +1814,7 @@ function EarnLoanRouterPage() {
       payPickedKey,
       routeBorrow,
       routeCollateral,
+      scopeNetworkId,
       typedBorrow,
       wide,
     ],
@@ -1788,28 +1968,35 @@ function EarnLoanRouterPage() {
   // The steps the press runs and the button names. A loan typed with no
   // collateral borrows against what the market already holds; a supply
   // with no loan typed is all a press does. Paid with another token, a swap
-  // brings the collateral first
+  // brings the collateral first; from another network, a bridge
   const pressSteps = getLoanSteps({
     hasCollateral,
     hasLoan,
-    isSwapping,
+    conversion,
     hasApproval: false,
   });
   const supplyWord = intl.formatMessage({ id: ETranslations.defi_supply });
-  let actionLabel = isSwapping
-    ? EARN_DESKTOP_DEMO_COPY.swapSupplyAndBorrow
-    : EARN_DESKTOP_DEMO_COPY.supplyAndBorrow;
+  let actionLabel = EARN_DESKTOP_DEMO_COPY.supplyAndBorrow;
+  if (conversion === 'swap') {
+    actionLabel = EARN_DESKTOP_DEMO_COPY.swapSupplyAndBorrow;
+  } else if (conversion === 'bridge') {
+    actionLabel = EARN_DESKTOP_DEMO_COPY.loanBridgeSupplyAndBorrow;
+  }
   if (!pressSteps.includes('supply')) {
     actionLabel = intl.formatMessage({ id: ETranslations.global_borrow });
   } else if (!pressSteps.includes('borrow')) {
-    actionLabel = isSwapping
-      ? EARN_DESKTOP_DEMO_COPY.swapAnd(supplyWord)
-      : supplyWord;
+    actionLabel = supplyWord;
+    if (conversion === 'swap') {
+      actionLabel = EARN_DESKTOP_DEMO_COPY.swapAnd(supplyWord);
+    } else if (conversion === 'bridge') {
+      actionLabel = EARN_DESKTOP_DEMO_COPY.bridgeAnd(supplyWord);
+    }
   }
   const buttonText = isInsufficient
     ? intl.formatMessage({ id: ETranslations.earn_insufficient_balance })
     : actionLabel;
-  // The swap needs its quote for exactly this amount, and a route
+  // The swap or the bridge needs its quote for exactly this amount, and a
+  // route
   const isSwapReady =
     !isSwapping ||
     !hasCollateral ||
@@ -1841,10 +2028,10 @@ function EarnLoanRouterPage() {
     [borrowAmount, run, selectedFacts?.networkAccountId, selectedRoute],
   );
   const { swap } = payWith;
-  // One press: the market's risk notice, then the swap; once what it bought
-  // is in the wallet the box holds it as the collateral and the press goes
-  // on by itself (the supply, then any loan). A rejected swap changes
-  // nothing
+  // One press: the market's risk notice, then the swap or the bridge; once
+  // what it brought is in the wallet on the market's network, the box holds
+  // it as the collateral and the press goes on by itself (the supply, then
+  // any loan). A rejected swap or bridge changes nothing
   const startSwapPlan = useCallback(async () => {
     if (!selectedRoute) {
       return;
@@ -1862,7 +2049,11 @@ function EarnLoanRouterPage() {
       return;
     }
     setCollateralAmount(swapped.amount);
-    setHandoff({ routeKey: selectedRoute.key, autoStart: true });
+    setHandoff({
+      routeKey: selectedRoute.key,
+      autoStart: true,
+      balance: swapped.balance,
+    });
     void refresh();
   }, [collateralAmount, ensureRiskAccepted, refresh, selectedRoute, swap]);
   const handlePress = useCallback(() => {
@@ -1887,9 +2078,9 @@ function EarnLoanRouterPage() {
     startSwapPlan,
     supplyAmountOf,
   ]);
-  // After the swap: the press goes on once by itself with what came in,
-  // unless the market can't take the loan with it (it came in under the
-  // quote): then the form shows why, ready to press
+  // After the swap or the bridge: the press goes on once by itself with
+  // what came in, unless the market can't take the loan with it (it came in
+  // under the quote): then the form shows why, ready to press
   const handoffStartKey =
     handoff?.autoStart && run.phase === 'idle' ? handoff.routeKey : undefined;
   useEffect(() => {
@@ -1958,16 +2149,16 @@ function EarnLoanRouterPage() {
       />
     );
   };
-  // While the swap runs: its step, then those after it. Once it is in, the
-  // supply's own steps take over (an approval among them where needed).
-  // Before the press, the steps it will run
+  // While the swap or the bridge runs: its step, then those after it. Once
+  // it is in, the supply's own steps take over (an approval among them where
+  // needed). Before the press, the steps it will run
   let progress: ReactElement | null;
   if (payWith.isSwapRunning) {
     progress = renderSteps(
       getLoanSteps({
         hasCollateral: true,
         hasLoan,
-        isSwapping: true,
+        conversion: conversion ?? 'swap',
         hasApproval: false,
       }),
       1,
@@ -1977,7 +2168,7 @@ function EarnLoanRouterPage() {
     const runSteps = getLoanSteps({
       hasCollateral,
       hasLoan,
-      isSwapping,
+      conversion,
       hasApproval: run.hasApprovalStep,
     });
     progress = renderSteps(
@@ -2057,14 +2248,25 @@ function EarnLoanRouterPage() {
       ) : null,
     [done, isDoneSupplyAlone],
   );
-  // Each half in the steps' word, so the bar reads as the press runs
+  // The picks as their network sees them: a kind's logos are its tokens
+  // there
+  const supplyTokensShown = useMemo(
+    () => scopeAssetSelectTokens(supplyTokens, scopeNetworkId),
+    [scopeNetworkId, supplyTokens],
+  );
+  const borrowTokensShown = useMemo(
+    () => scopeAssetSelectTokens(borrowTokens, scopeNetworkId),
+    [borrowTokens, scopeNetworkId],
+  );
+  // Each half in the steps' word, so the bar reads as the press runs, with
+  // the network both picks are on
   const pickRow = (
     <LoanPickBar
       supply={{
         testID: 'earn-loan-collateral-pick',
         caption: supplyWord,
         pick: collateralPick,
-        tokens: supplyTokens,
+        tokens: supplyTokensShown,
         purpose: 'loanSupply',
         fallbackLogoURI: collateralLogo,
         onPress: openCollateralSelect,
@@ -2073,53 +2275,37 @@ function EarnLoanRouterPage() {
         testID: 'earn-loan-borrow-pick',
         caption: intl.formatMessage({ id: ETranslations.global_borrow }),
         pick: borrowPick,
-        tokens: borrowTokens,
+        tokens: borrowTokensShown,
         purpose: 'loanBorrow',
         fallbackLogoURI: borrowLogo,
         onPress: openBorrowSelect,
       }}
-      networkLogoURI={networkLogoURI}
+      network={scopeNetwork}
     />
   );
 
-  // A kind of token on a side: each card names its own pair. A card whose
-  // collateral the wallet doesn't hold there (or not the token Pay with was
-  // set to) buys it first
+  // A kind of token on a side: each card names its own pair. A card Pay
+  // with's token (the one picked, else the wallet's largest holding of the
+  // card's collateral) doesn't pay for as it is says what comes first: a
+  // swap there, or a bridge from another network
+  const isPayLoaded = payWith.isLoaded;
   const listItems = useMemo(
     () =>
       items.map((item) => {
-        const onPayNetwork =
-          Boolean(payRoute) &&
-          item.route.market.networkId === payRoute?.market.networkId;
-        let needsSwap = false;
-        if (item.facts) {
-          needsSwap =
-            onPayNetwork && payWith.isPicked && payToken
-              ? !isSameLoanAsset(
-                  payToken.token.symbol,
-                  item.route.collateral.symbol,
-                )
-              : !toBigNumber(item.facts.walletBalance).gt(0);
-        }
+        const payPath = isPayLoaded ? payPathOf(item.route) : 'direct';
+        const isHandedOff = Boolean(
+          handoff && item.route.key === handoff.routeKey,
+        );
         return {
           ...item,
           pairLabel: isClassMode
             ? `${item.route.collateral.symbol} / ${item.route.borrow.symbol}`
             : undefined,
-          needsSwap:
-            needsSwap && !(handoff && item.route.key === handoff.routeKey),
+          payPath: payPath === 'direct' || isHandedOff ? undefined : payPath,
           isBlocked: isLoanPlanStopped(item.metrics.block, isSupplyAlone),
         };
       }),
-    [
-      handoff,
-      isClassMode,
-      isSupplyAlone,
-      items,
-      payRoute,
-      payToken,
-      payWith.isPicked,
-    ],
+    [handoff, isClassMode, isPayLoaded, isSupplyAlone, items, payPathOf],
   );
 
   const routeList = (

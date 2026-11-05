@@ -155,4 +155,8 @@ export const EARN_DESKTOP_DEMO_COPY = {
     `${supplied} supplied to ${market}`,
   // The picked market's links to its two reserve pages (demo 11-03)
   loanAssetOn: (symbol: string, market: string) => `${symbol} on ${market}`,
+  // The Loans window (11-05): collateral Pay with pays for on another network
+  // is bridged to the market's network first, named in the button as a
+  // swap first is (one action alone: bridgeAnd)
+  loanBridgeSupplyAndBorrow: 'Bridge, Supply and Borrow',
 };

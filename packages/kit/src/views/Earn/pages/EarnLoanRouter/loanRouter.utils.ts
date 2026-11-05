@@ -21,6 +21,8 @@ import { EARN_DESKTOP_DEMO_COPY } from '../../components/desktopHome/earnDesktop
 import {
   EARN_ASSET_CLASS_ORDER,
   isInAssetPick,
+  listAssetSelectNetworks,
+  scopeAssetSelectTokens,
 } from '../EarnAssetSelect/earnAssetSelect.utils';
 
 import type { ILoanLtvTone } from './loanLtvBar.types';
@@ -32,7 +34,9 @@ import type {
 } from '../../components/desktopHome/earnDesktopHome.utils';
 import type {
   IEarnAssetPick,
+  IEarnAssetSelectNetwork,
   IEarnAssetSelectToken,
+  IEarnAssetSelectTokenNetwork,
 } from '../EarnAssetSelect/earnAssetSelect.utils';
 
 // The Loans router: a collateral and a loan, and every market that takes the
@@ -227,8 +231,23 @@ const toRoute = (
 });
 
 /**
+ * A pick on one network, or on every network where none is given. The two
+ * sides share it: a loan is one market's (11-05)
+ */
+export const scopeLoanPick = (
+  pick: IEarnAssetPick,
+  networkId?: string,
+): IEarnAssetPick => {
+  const scope = networkId ? { networkId } : {};
+  return pick.kind === 'class'
+    ? { kind: 'class', assetClass: pick.assetClass, ...scope }
+    : { kind: 'token', symbol: pick.symbol, ...scope };
+};
+
+/**
  * Every market and pair the two picks take in: a token on a side, or any
- * token of a kind there. Never a token against itself (ETH and WETH)
+ * token of a kind there, on the picks' network or on every network. Never a
+ * token against itself (ETH and WETH)
  */
 export function buildLoanRoutesForPicks({
   markets,
@@ -244,9 +263,11 @@ export function buildLoanRoutesForPicks({
   const routes: ILoanRoute[] = [];
   markets.forEach((entry) => {
     const assets = getMarketAssets(entry);
+    const { networkId } = entry.market;
     const supplied = assets.collateral.filter((asset) =>
       isInAssetPick({
         symbol: asset.token.symbol,
+        networkId,
         pick: collateral,
         stableSymbols,
       }),
@@ -254,6 +275,7 @@ export function buildLoanRoutesForPicks({
     const lent = assets.borrow.filter((asset) =>
       isInAssetPick({
         symbol: asset.token.symbol,
+        networkId,
         pick: borrow,
         stableSymbols,
       }),
@@ -274,20 +296,19 @@ export function buildLoanRoutesForPicks({
   return routes;
 }
 
-type ISelectTokenDraft = IEarnAssetSelectToken & { networkIds: Set<string> };
-
-// A token the selector lists once, gathering each network it is offered on
+// A token the selector lists once, gathering each network it is offered on:
+// the network's entry, for its own figures
 function gatherSelectToken({
   bySymbol,
   asset,
   market,
   stableSymbols,
 }: {
-  bySymbol: Map<string, ISelectTokenDraft>;
+  bySymbol: Map<string, IEarnAssetSelectToken>;
   asset: IMarketAsset;
   market: IEarnDesktopMarketReserves['market'];
   stableSymbols: Set<string>;
-}) {
+}): IEarnAssetSelectTokenNetwork {
   const key = asset.token.symbol.toUpperCase();
   let draft = bySymbol.get(key);
   if (!draft) {
@@ -298,17 +319,17 @@ function gatherSelectToken({
       type: getLoanAssetType(asset.token.symbol, stableSymbols),
       networks: [],
       addresses: [],
-      networkIds: new Set(),
     };
     bySymbol.set(key, draft);
   }
-  if (!draft.networkIds.has(market.networkId)) {
-    draft.networkIds.add(market.networkId);
-    draft.networks.push({
+  let network = draft.networks.find((item) => item.id === market.networkId);
+  if (!network) {
+    network = {
       id: market.networkId,
       name: market.network.name,
       logoURI: market.network.logoURI,
-    });
+    };
+    draft.networks.push(network);
   }
   const address = asset.token.address?.toLowerCase();
   if (
@@ -319,18 +340,16 @@ function gatherSelectToken({
   ) {
     draft.addresses.push({ networkId: market.networkId, address });
   }
-  return draft;
+  return network;
 }
 
-const toSelectTokens = (bySymbol: Map<string, ISelectTokenDraft>) =>
-  [...bySymbol.values()].map(
-    ({ networkIds: _networkIds, ...token }): IEarnAssetSelectToken => token,
-  );
-
 /**
- * The Loans window's two lists for the selector: every collateral a market
- * lends something else against, with what the wallet holds of it there; and
- * what the markets lend against the collateral picked, at its lowest rate
+ * The Loans window's two lists for the selector, each token once with its
+ * figures on each network it is offered on (11-05): every collateral a
+ * market lends something else against, with what the wallet holds of it
+ * there and in all; and what the markets lend against the collateral picked
+ * (on any network: the selector's network column narrows it), at its lowest
+ * rate there and of all
  */
 export function buildLoanSelectTokens({
   markets,
@@ -347,7 +366,7 @@ export function buildLoanSelectTokens({
   // What the wallet holds, by symbol (in upper case) and network
   holdings?: Map<string, Map<string, { amount: string; fiatValueUsd: string }>>;
 }): IEarnAssetSelectToken[] {
-  const bySymbol = new Map<string, ISelectTokenDraft>();
+  const bySymbol = new Map<string, IEarnAssetSelectToken>();
   markets.forEach((entry) => {
     const assets = getMarketAssets(entry);
     if (side === 'supply') {
@@ -386,40 +405,79 @@ export function buildLoanSelectTokens({
       ) {
         return;
       }
-      const draft = gatherSelectToken({
+      const network = gatherSelectToken({
         bySymbol,
         asset,
         market: entry.market,
         stableSymbols,
       });
       const apy = toNumber(asset.apyDetail?.apy);
-      if (apy > 0 && (draft.rate === undefined || apy < draft.rate)) {
-        draft.rate = apy;
+      if (apy > 0 && (network.rate === undefined || apy < network.rate)) {
+        network.rate = apy;
       }
     });
   });
-  if (side === 'supply' && holdings) {
-    bySymbol.forEach((draft, key) => {
-      const byNetwork = holdings.get(key);
-      if (!byNetwork) {
-        return;
+  return [...bySymbol.values()].map((token) => {
+    if (side === 'borrow') {
+      const rates = token.networks.flatMap((network) =>
+        network.rate === undefined ? [] : [network.rate],
+      );
+      return rates.length ? { ...token, rate: Math.min(...rates) } : token;
+    }
+    const byNetwork = holdings?.get(token.symbol.toUpperCase());
+    if (!byNetwork) {
+      return token;
+    }
+    let amount = new BigNumber(0);
+    let fiat = new BigNumber(0);
+    const networks = token.networks.map((network) => {
+      const held = byNetwork.get(network.id);
+      const heldAmount = new BigNumber(held?.amount ?? 0);
+      if (!heldAmount.isFinite() || heldAmount.lte(0)) {
+        return network;
       }
-      let amount = new BigNumber(0);
-      let fiat = new BigNumber(0);
-      draft.networkIds.forEach((networkId) => {
-        const held = byNetwork.get(networkId);
-        if (held) {
-          amount = amount.plus(held.amount);
-          fiat = fiat.plus(held.fiatValueUsd);
-        }
-      });
-      if (amount.gt(0)) {
-        draft.balance = amount.toFixed();
-        draft.fiatValue = fiat.toNumber();
+      const heldFiat = new BigNumber(held?.fiatValueUsd ?? 0);
+      amount = amount.plus(heldAmount);
+      if (heldFiat.isFinite() && heldFiat.gt(0)) {
+        fiat = fiat.plus(heldFiat);
       }
+      return {
+        ...network,
+        balance: heldAmount.toFixed(),
+        fiatValue:
+          heldFiat.isFinite() && heldFiat.gt(0)
+            ? heldFiat.toNumber()
+            : undefined,
+      };
     });
-  }
-  return toSelectTokens(bySymbol);
+    return {
+      ...token,
+      networks,
+      balance: amount.gt(0) ? amount.toFixed() : undefined,
+      fiatValue: fiat.gt(0) ? fiat.toNumber() : undefined,
+    };
+  });
+}
+
+/**
+ * A side's network column: the networks its tokens are on, in one order for
+ * both sides (the supply side's: where the wallet holds the most of its
+ * collateral first, then by name), so the column reads the same in either
+ */
+export function listLoanSelectNetworks({
+  order,
+  tokens,
+}: {
+  order: IEarnAssetSelectNetwork[];
+  tokens: IEarnAssetSelectToken[];
+}): IEarnAssetSelectNetwork[] {
+  const own = listAssetSelectNetworks(tokens);
+  const ownIds = new Set(own.map((network) => network.id));
+  const orderIds = new Set(order.map((network) => network.id));
+  return [
+    ...order.filter((network) => ownIds.has(network.id)),
+    ...own.filter((network) => !orderIds.has(network.id)),
+  ];
 }
 
 /** Every market that takes the collateral and lends the loan */
@@ -558,25 +616,31 @@ export function getLoanBorrowOptions({
 /**
  * The loan once the collateral is picked again: the one picked while the
  * markets still lend it (a kind of token while they lend any of it), else the
- * one the most networks lend, a stable token first
+ * one the most networks lend, a stable token first. Given the picks' network,
+ * on that network alone
  */
 export function pickLoanBorrowPick({
   markets,
   collateral,
   current,
   stableSymbols,
+  networkId,
 }: {
   markets: IEarnDesktopMarketReserves[];
   collateral: IEarnAssetPick;
   current: IEarnAssetPick;
   stableSymbols: Set<string>;
+  networkId?: string;
 }): IEarnAssetPick | undefined {
-  const lent = buildLoanSelectTokens({
-    markets,
-    side: 'borrow',
-    collateral,
-    stableSymbols,
-  });
+  const lent = scopeAssetSelectTokens(
+    buildLoanSelectTokens({
+      markets,
+      side: 'borrow',
+      collateral,
+      stableSymbols,
+    }),
+    networkId,
+  );
   const keeps =
     current.kind === 'token'
       ? lent.some((token) => isSameSymbol(token.symbol, current.symbol))
@@ -1110,36 +1174,97 @@ export function getLoanForLtv({
   );
 }
 
-// ---------- What a press runs ----------
-
-export type ILoanStep = 'swap' | 'approve' | 'supply' | 'borrow';
+// ---------- Pay with ----------
 
 /**
- * The steps one press runs, in the button's order: the swap where another
- * token pays, the approval once the run finds the collateral needs one, the
- * supply where collateral is typed, the loan where one is. With nothing typed
- * yet, the window's own: a supply, then a loan
+ * What comes before a market's supply: nothing where Pay with pays with the
+ * collateral there (or its wrapped twin, which the market takes too), a swap
+ * where it pays with another token on the market's network, a bridge from any
+ * other network, a swap on the way where it is another token (11-05)
+ */
+export type ILoanPayPath = 'direct' | 'swap' | 'bridge';
+
+export function getLoanPayPath({
+  payToken,
+  collateral,
+}: {
+  payToken?: { networkId: string; symbol: string };
+  collateral: { networkId: string; symbol: string };
+}): ILoanPayPath {
+  if (!payToken) {
+    return 'direct';
+  }
+  if (payToken.networkId && payToken.networkId !== collateral.networkId) {
+    return 'bridge';
+  }
+  return isSameLoanAsset(payToken.symbol, collateral.symbol)
+    ? 'direct'
+    : 'swap';
+}
+
+type ILoanPayCandidate = {
+  token: { symbol: string };
+  amount: string;
+  // '0' where the value isn't known in USD
+  fiatValueUsd: string;
+};
+
+/**
+ * Where Pay with starts for a market's collateral (11-05, the 10-21 rule
+ * taken to every network): the wallet's largest holding of it on any network
+ * (its wrapped twin counts), else its largest holding of anything. Holdings
+ * of equal value keep the list's order, the market's network first
+ */
+export function pickLoanPayToken<T extends ILoanPayCandidate>(
+  tokens: T[],
+  collateralSymbol: string,
+): T | undefined {
+  const byValue = (a: T, b: T) =>
+    new BigNumber(b.fiatValueUsd).comparedTo(a.fiatValueUsd) ?? 0;
+  // One asset's amounts compare where no value is known
+  const byAmount = (a: T, b: T) =>
+    new BigNumber(b.amount).comparedTo(a.amount) ?? 0;
+  const same = collateralSymbol
+    ? tokens
+        .filter((item) => isSameLoanAsset(item.token.symbol, collateralSymbol))
+        .toSorted((a, b) => byValue(a, b) || byAmount(a, b))
+    : [];
+  return same[0] ?? tokens.toSorted(byValue)[0];
+}
+
+// ---------- What a press runs ----------
+
+export type ILoanStep = 'swap' | 'bridge' | 'approve' | 'supply' | 'borrow';
+
+/**
+ * The steps one press runs, in the button's order: the swap or the bridge
+ * where Pay with pays with something other than the collateral there, the
+ * approval once the run finds the collateral needs one, the supply where
+ * collateral is typed, the loan where one is. With nothing typed yet, the
+ * window's own: a supply, then a loan
  */
 export function getLoanSteps({
   hasCollateral,
   hasLoan,
-  isSwapping,
+  conversion,
   hasApproval,
 }: {
   hasCollateral: boolean;
   hasLoan: boolean;
-  // Another token pays: a swap brings the collateral first
-  isSwapping: boolean;
+  // What brings the collateral first: a swap, or a bridge from another
+  // network; none where the wallet pays with the collateral itself
+  conversion?: Exclude<ILoanPayPath, 'direct'>;
   hasApproval: boolean;
 }): ILoanStep[] {
   if (!hasCollateral && !hasLoan) {
-    return isSwapping ? ['swap', 'supply', 'borrow'] : ['supply', 'borrow'];
+    return conversion ? [conversion, 'supply', 'borrow'] : ['supply', 'borrow'];
   }
   const steps: ILoanStep[] = [];
   if (hasCollateral) {
-    // The allowance is read once the swap has brought the collateral
-    if (isSwapping) {
-      steps.push('swap');
+    // The allowance is read once the swap or the bridge has brought the
+    // collateral
+    if (conversion) {
+      steps.push(conversion);
     } else if (hasApproval) {
       steps.push('approve');
     }

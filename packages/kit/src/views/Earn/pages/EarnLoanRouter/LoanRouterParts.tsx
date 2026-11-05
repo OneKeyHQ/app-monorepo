@@ -26,6 +26,7 @@ import type {
   IScrollViewRef,
 } from '@onekeyhq/components';
 import { ANIMATE_ONLY_OPACITY } from '@onekeyhq/components/src/utils/animationConstants';
+import { NetworkAvatarBase } from '@onekeyhq/kit/src/components/NetworkAvatar';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -43,6 +44,7 @@ import { sortAssetSelectTokens } from '../EarnAssetSelect/earnAssetSelect.utils'
 import { useLoanToneColors } from './loanToneColors';
 
 import type {
+  ILoanPayPath,
   ILoanRoute,
   ILoanRouteBlock,
   ILoanRouteFacts,
@@ -52,6 +54,7 @@ import type {
 } from './loanRouter.utils';
 import type {
   IEarnAssetPick,
+  IEarnAssetSelectNetwork,
   IEarnAssetSelectPurpose,
   IEarnAssetSelectToken,
 } from '../EarnAssetSelect/earnAssetSelect.utils';
@@ -393,8 +396,9 @@ export type ILoanRouteItem = {
   metrics: ILoanRouteMetrics;
   // A kind of token on a side: the card names its own pair
   pairLabel?: string;
-  // The wallet doesn't hold this collateral there: a swap buys it first
-  needsSwap?: boolean;
+  // Pay with doesn't pay with this collateral there: a swap buys it first,
+  // or a bridge brings it from another network
+  payPath?: Exclude<ILoanPayPath, 'direct'>;
   // The market can't take the plan as typed, so it can't be picked. Without
   // it, any reason the market has stops it
   isBlocked?: boolean;
@@ -535,13 +539,13 @@ function PairOnMarketImage({
 function MarketCell({
   route,
   pairLabel,
-  needsSwap,
+  payPath,
   ringColor,
   hoverRingColor,
 }: {
   route: ILoanRoute;
   pairLabel?: string;
-  needsSwap?: boolean;
+  payPath?: Exclude<ILoanPayPath, 'direct'>;
   // The card's color around the pair's logos, and as it is hovered
   ringColor: IColorTokens;
   hoverRingColor?: IColorTokens;
@@ -565,8 +569,8 @@ function MarketCell({
         <SizableText size="$bodyLgMedium" numberOfLines={1}>
           {route.marketLabel}
         </SizableText>
-        {/* The swap's tag sits by the tokens, as on the deposit modal's
-            cards */}
+        {/* The swap's or the bridge's tag sits by the tokens, as on the
+            deposit modal's cards */}
         <XStack ai="center" gap="$1.5" minWidth={0}>
           <SizableText
             size="$bodySm"
@@ -581,10 +585,11 @@ function MarketCell({
                 )
               : route.market.network.name}
           </SizableText>
-          {needsSwap ? (
+          {payPath ? (
             <Badge
-              testID={`earn-loan-route-swap-${route.key}`}
-              badgeType="default"
+              testID={`earn-loan-route-${payPath}-${route.key}`}
+              // As the Earn window's cards tag what comes before a deposit
+              badgeType="info"
               badgeSize="sm"
               flexShrink={0}
               // Taller than the small line it sits on: it overhangs it
@@ -592,7 +597,12 @@ function MarketCell({
               my="$-0.5"
             >
               <Badge.Text>
-                {intl.formatMessage({ id: ETranslations.global_swap })}
+                {intl.formatMessage({
+                  id:
+                    payPath === 'bridge'
+                      ? ETranslations.swap_page_bridge
+                      : ETranslations.global_swap,
+                })}
               </Badge.Text>
             </Badge>
           ) : null}
@@ -909,7 +919,7 @@ function RouteRow({
         <MarketCell
           route={route}
           pairLabel={item.pairLabel}
-          needsSwap={item.needsSwap}
+          payPath={item.payPath}
           ringColor={cardColor}
           hoverRingColor={
             isSelected || isBlocked || !isSettled ? undefined : '$bgHover'
@@ -1164,13 +1174,13 @@ export type ILoanPickSide = {
 
 function LoanPickHalf({
   side,
-  networkLogoURI,
+  network,
   isTrailing,
   hasArrow,
 }: {
   side: ILoanPickSide;
-  // The token carries its chain, as the amount box's token does
-  networkLogoURI?: string;
+  // The network both picks are on; none, every network
+  network?: IEarnAssetSelectNetwork;
   // The right half, past the seam
   isTrailing: boolean;
   // The arrow sits on the seam: the text keeps clear of it
@@ -1223,9 +1233,29 @@ function LoanPickHalf({
       onPress={onPress}
       {...buildKeyboardPressProps(onPress, 2)}
     >
-      <SizableText size="$bodySm" color="$textSubdued" numberOfLines={1}>
-        {caption}
-      </SizableText>
+      {/* The side's role, then where it is, as Swap's boxes say "From" and
+          the network */}
+      <XStack testID={`${testID}-network`} ai="center" gap="$1.5" minWidth={0}>
+        <SizableText
+          size="$bodySm"
+          color="$textSubdued"
+          numberOfLines={1}
+          flexShrink={0}
+        >
+          {caption}
+        </SizableText>
+        <XStack ai="center" gap="$1" minWidth={0} flexShrink={1}>
+          <NetworkAvatarBase
+            logoURI={network?.logoURI ?? ''}
+            isAllNetworks={!network}
+            size="$3.5"
+          />
+          <SizableText size="$bodySm" numberOfLines={1} flexShrink={1}>
+            {network?.name ??
+              intl.formatMessage({ id: ETranslations.global_all_networks })}
+          </SizableText>
+        </XStack>
+      </XStack>
       <XStack ai="center" gap="$2" minWidth={0}>
         {pick.kind === 'class' ? (
           <EarnAssetLogos
@@ -1238,7 +1268,7 @@ function LoanPickHalf({
           <Token
             size="sm"
             tokenImageUri={token?.logoURI || fallbackLogoURI}
-            networkImageUri={networkLogoURI}
+            networkImageUri={network?.logoURI}
           />
         )}
         <SizableText size="$bodyLgMedium" numberOfLines={1} flexShrink={1}>
@@ -1259,31 +1289,33 @@ function LoanPickHalf({
 /**
  * The two picks heading the Loans form, as a flight search's from and to: what
  * is supplied on the left, what is borrowed on the right, an arrow on the
- * seam. Each half says its role over its token and opens its own list; one
- * row at every width, a long name cut short. At phone width the halves meet
+ * seam. Each half says its role and the network over its token and opens its
+ * own list; one row at every width, a long name cut short. The two share the
+ * network, a loan being one market's (11-05). At phone width the halves meet
  * without the arrow, their captions alone saying which side is which
  */
 export function LoanPickBar({
   supply,
   borrow,
-  networkLogoURI,
+  network,
 }: {
   supply: ILoanPickSide;
   borrow: ILoanPickSide;
-  networkLogoURI?: string;
+  // The network both picks are on; none, every network
+  network?: IEarnAssetSelectNetwork;
 }) {
   const { gtMd } = useMedia();
   return (
     <XStack testID="earn-loan-pick-bar" gap={PICK_SEAM} position="relative">
       <LoanPickHalf
         side={supply}
-        networkLogoURI={networkLogoURI}
+        network={network}
         isTrailing={false}
         hasArrow={gtMd}
       />
       <LoanPickHalf
         side={borrow}
-        networkLogoURI={networkLogoURI}
+        network={network}
         isTrailing
         hasArrow={gtMd}
       />
