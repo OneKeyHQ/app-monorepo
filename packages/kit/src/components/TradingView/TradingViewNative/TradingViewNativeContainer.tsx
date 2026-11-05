@@ -1115,11 +1115,15 @@ const TradingViewNativeContent = memo(
         storageNamespace,
       ],
     );
+    const chartSessionKey =
+      platformEnv.isNative && storageNamespace === 'perps'
+        ? dataProviderKey
+        : `${dataProviderKey}:${candleIntervalSeconds}`;
     const chartRuntimeRef = useMemo<ITradingViewNativeChartProps['runtimeRef']>(
       () => ({ current: null }),
-      // A new symbol or interval owns a fresh viewport; presentation changes reuse it.
+      // Native interval changes reset the viewport without remounting the canvas.
       // eslint-disable-next-line react-hooks/exhaustive-deps
-      [dataProviderKey, candleIntervalSeconds],
+      [chartSessionKey],
     );
 
     const drawingSourceKey =
@@ -1168,7 +1172,7 @@ const TradingViewNativeContent = memo(
           />
           <TradingViewNativeChartArea onSizeChange={handleChartAreaLayout}>
             <TradingViewNativeChart
-              key={`${dataProviderKey}:${candleIntervalSeconds}`}
+              key={chartSessionKey}
               enableDrawings={
                 enableDrawings &&
                 !isCompactDisplayMode &&

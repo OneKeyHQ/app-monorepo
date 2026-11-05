@@ -43,6 +43,7 @@ type IMockGestureHandler = (...args: unknown[]) => void;
 
 const mockPanGestureHandlers: Record<string, IMockGestureHandler>[] = [];
 const mockTapGestureHandlers: Record<string, IMockGestureHandler>[] = [];
+let mockIntervalReaction: (interval: number, previous: number | null) => void;
 
 function createMockSharedValue<T>(value: T): SharedValue<T> {
   const sharedValue: SharedValue<T> = {
@@ -115,6 +116,12 @@ jest.mock('react-native', () => ({
 
 jest.mock('react-native-reanimated', () => ({
   cancelAnimation: jest.fn(),
+  useAnimatedReaction: (
+    _prepare: () => number,
+    reaction: typeof mockIntervalReaction,
+  ) => {
+    mockIntervalReaction = reaction;
+  },
   useSharedValue: <T>(value: T) =>
     jest.requireActual<typeof import('react')>('react').useRef({ value })
       .current,
@@ -232,6 +239,26 @@ describe('useTradingViewNativePriceScale', () => {
     I18nManager.isRTL = false;
     mockPanGestureHandlers.length = 0;
     mockTapGestureHandlers.length = 0;
+  });
+
+  it('resets manual and logarithmic controls when the interval runtime resets', () => {
+    const { chartRuntime, result } = renderPriceScaleAtOffset(1000);
+    act(() => {
+      result.current.handleAutoScalePress();
+      result.current.handleLogScalePress();
+    });
+    expect(result.current.mode).toBe('logarithmic');
+    act(() => {
+      chartRuntime.value = {
+        ...chartRuntime.value,
+        candleIntervalSeconds: 900,
+        pinnedPriceRange: null,
+        priceScaleMode: 'linear',
+      };
+      mockIntervalReaction(900, 60);
+    });
+    expect(result.current.isAutoScale).toBe(true);
+    expect(result.current.mode).toBe('linear');
   });
 
   it.each([
