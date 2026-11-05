@@ -14,6 +14,7 @@ import {
   useTheme,
 } from '@onekeyhq/components';
 import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
+import type { IImpressionHost } from '@onekeyhq/kit/src/hooks/useVisibleImpression';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IPerpsRecallProgress } from '@onekeyhq/shared/src/referralCode/recall';
 
@@ -28,9 +29,11 @@ export function PerpsRecallProgressCard({
   progress,
   hasEnded,
   onOpenHelp,
+  impressionRef,
 }: {
   progress: IPerpsRecallProgress;
   hasEnded: boolean;
+  impressionRef?: (node: IImpressionHost) => void;
   onOpenHelp?: () => void;
 }) {
   const intl = useIntl();
@@ -83,7 +86,13 @@ export function PerpsRecallProgressCard({
   }
 
   return (
-    <YStack testID="perps-recall-progress" gap="$6" py="$2">
+    <YStack
+      ref={impressionRef}
+      collapsable={false}
+      testID="perps-recall-progress"
+      gap="$6"
+      py="$2"
+    >
       <XStack alignItems="center" gap="$3">
         <YStack flex={1} minWidth={0} gap="$2">
           <YStack gap="$1">

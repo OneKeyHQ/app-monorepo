@@ -12,6 +12,7 @@ import {
 import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
 
 import type { IActivityHubShortcutBasis } from './layout';
+import type { IActivityHubDetailEntry } from './types';
 
 export const MENU_SHORTCUT_GRID_PROPS: IXStackProps = {
   px: '$2',
@@ -25,6 +26,7 @@ export function ActivityShortcutCard({
   title,
   subtitle,
   leadingContent,
+  impressionRef,
   iconName,
   iconBadge,
   lottieSrc,
@@ -38,6 +40,7 @@ export function ActivityShortcutCard({
   title: string;
   subtitle?: string;
   leadingContent?: ReactNode;
+  impressionRef?: IActivityHubDetailEntry['impressionRef'];
   iconName?: IButtonProps['icon'];
   iconBadge?: ReactNode;
   lottieSrc?: object;
@@ -56,6 +59,7 @@ export function ActivityShortcutCard({
   if (listLayout) {
     return (
       <XStack
+        ref={impressionRef}
         testID={testID}
         minHeight="$11"
         px="$3"
@@ -101,6 +105,7 @@ export function ActivityShortcutCard({
   }
   return (
     <YStack
+      ref={impressionRef}
       testID={testID}
       flexBasis={flexBasis}
       flexShrink={0}

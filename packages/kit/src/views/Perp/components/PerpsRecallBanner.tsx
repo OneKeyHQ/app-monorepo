@@ -1,3 +1,6 @@
+import type { RefObject } from 'react';
+
+import { useIsFocused } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
 import {
@@ -17,11 +20,14 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useActiveTradeDisplay } from '../hooks/useActiveTradeDisplay';
 import { usePerpsRecallBannerVisibility } from '../hooks/usePerpsRecallBannerVisibility';
+import { usePerpsRecallEntry } from '../hooks/usePerpsRecallEntry';
 import { usePerpsRecallProgress } from '../hooks/usePerpsRecallProgress';
 
 import { PerpsRecallDesktopHint } from './PerpsRecallDesktopHint';
 import { showPerpsRecallDialog } from './PerpsRecallDialog';
 import { PerpsRecallIllustration } from './PerpsRecallIllustration';
+
+import type { ViewInstance } from 'react-native';
 
 function RecallEntryHint({
   pairLabel,
@@ -107,7 +113,13 @@ function RecallEntryHint({
   );
 }
 
-export function PerpsRecallBanner({ compact = false }: { compact?: boolean }) {
+export function PerpsRecallBanner({
+  compact = false,
+  viewportRef,
+}: {
+  compact?: boolean;
+  viewportRef?: RefObject<Pick<ViewInstance, 'measureInWindow'> | null>;
+}) {
   const intl = useIntl();
   const { gtMd } = useMedia();
   const { displayName, mode } = useActiveTradeDisplay();
@@ -116,11 +128,21 @@ export function PerpsRecallBanner({ compact = false }: { compact?: boolean }) {
     instanceId,
     progress,
   });
+  const isFocused = useIsFocused();
+  const tracking = usePerpsRecallEntry({
+    progress,
+    instanceId,
+    entrySource: 'banner',
+    enabled: isFocused && !isBannerHidden && Boolean(progress?.title?.trim()),
+    viewportRef,
+  });
   if (!progress?.title?.trim() || isBannerHidden) return null;
   const title = progress.title.replace(/\bUSDT\b/g, 'USDC');
 
   return (
     <YStack
+      ref={tracking.impressionRef}
+      collapsable={false}
       mx={compact ? '$3' : '$4'}
       mt={compact ? '$4' : undefined}
       mb={compact ? '$0' : '$4'}
@@ -153,10 +175,12 @@ export function PerpsRecallBanner({ compact = false }: { compact?: boolean }) {
         )}
         testID="perps-recall-banner"
         onPress={() => {
+          tracking.trackClick();
           void refresh();
           showPerpsRecallDialog({
             intl,
             activityId: progress.activityId,
+            entrySource: 'banner',
             instanceId,
           });
         }}
@@ -203,7 +227,10 @@ export function PerpsRecallBanner({ compact = false }: { compact?: boolean }) {
               }),
               showCancelButton: false,
               showExitButton: false,
-              onConfirm: () => setBannerHidden(true),
+              onConfirm: () => {
+                setBannerHidden(true);
+                tracking.trackDismiss();
+              },
             });
           }}
         />

@@ -16,6 +16,19 @@ import {
 } from '@testing-library/react';
 import { atom, getDefaultStore } from 'jotai';
 
+const mockRecallEvents = {
+  perpRecallEntryShown: jest.fn(),
+  perpRecallEntryClicked: jest.fn(),
+  perpRecallDetailShown: jest.fn(),
+  perpRecallBannerDismissed: jest.fn(),
+  perpRecallHelpClicked: jest.fn(),
+};
+jest.mock('@react-navigation/core', () => ({
+  ...jest.requireActual<typeof import('@react-navigation/core')>(
+    '@react-navigation/core',
+  ),
+  useIsFocused: () => true,
+}));
 const mockOpenUrlExternal = jest.fn();
 const mockOpenUrlInApp = jest.fn();
 const mockOpenUrlInDiscovery = jest.fn();
@@ -32,6 +45,13 @@ let mockRecallProgress: IPerpsRecallProgress | null = null;
 let mockRecallEnded = false;
 const mockRecallRefresh = jest.fn();
 const mockVisibilityListeners = new Set<(visible: boolean) => void>();
+jest.mock('@onekeyhq/shared/src/utils/appVisibility', () => ({
+  getCurrentVisibilityState: () => true,
+  onVisibilityStateChange: (listener: (visible: boolean) => void) => {
+    mockVisibilityListeners.add(listener);
+    return () => mockVisibilityListeners.delete(listener);
+  },
+}));
 const mockPerpsCustomSettingsAtom = atom<{
   dismissedRecallBanners?: Record<string, boolean | number>;
   showTradeMarks?: boolean;
@@ -147,12 +167,14 @@ jest.mock('@onekeyhq/components', () => {
     typeof import('../../../../components/src/actions/ActionList/runAfterClose')
   >('../../../../components/src/actions/ActionList/runAfterClose');
   const Primitive = ({
+    ref,
     children,
     flexBasis,
     accessibilityLabel,
     testID,
     onPress,
   }: {
+    ref?: React.Ref<HTMLElement>;
     children?: ReactNode;
     flexBasis?: string;
     accessibilityLabel?: string;
@@ -162,6 +184,7 @@ jest.mock('@onekeyhq/components', () => {
     React.createElement(
       onPress ? 'button' : 'div',
       {
+        ref,
         'data-flex-basis': flexBasis,
         'aria-label': accessibilityLabel,
         'data-testid': testID,
@@ -280,6 +303,11 @@ jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms/prime', () => ({
 
 jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
   defaultLogger: {
+    perp: {
+      get recall() {
+        return mockRecallEvents;
+      },
+    },
     referral: {
       activityHub: {
         activityHubShown: (...args: unknown[]) => {
@@ -792,6 +820,116 @@ describe('Perps recall activity integration', () => {
     jest.useRealTimers();
   });
 
+  it('counts visible entries once per activity and counts a confirmed reminder again when it becomes visible', () => {
+    jest.useFakeTimers();
+    const original = globalThis.IntersectionObserver;
+    const callbacks = new Map<Element, (ratio: number) => void>();
+    globalThis.IntersectionObserver = jest.fn(
+      (callback: IntersectionObserverCallback) => ({
+        observe: (el: Element) =>
+          callbacks.set(el, (ratio) =>
+            callback(
+              [
+                {
+                  target: el,
+                  isIntersecting: ratio > 0,
+                  intersectionRatio: ratio,
+                } as IntersectionObserverEntry,
+              ],
+              {} as IntersectionObserver,
+            ),
+          ),
+        disconnect: jest.fn(),
+      }),
+    ) as unknown as typeof IntersectionObserver;
+    try {
+      const tree = () => (
+        <>
+          <PerpsRecallBanner />
+          <PerpsRecallAction />
+          <PerpsActivityCenterContent
+            closePopover={mockPopoverClose}
+            menuLayout
+          />
+          <PerpsActivityCenterContent
+            entrySource="perpsMenu"
+            closePopover={mockPopoverClose}
+            menuLayout
+          />
+        </>
+      );
+      const view = render(tree());
+      const expose = () => {
+        for (const cb of callbacks.values()) cb(1);
+      };
+      expect(mockRecallEvents.perpRecallEntryShown).not.toHaveBeenCalled();
+      act(() => {
+        for (const cb of callbacks.values()) cb(0);
+      });
+      expect(mockRecallEvents.perpRecallEntryShown).not.toHaveBeenCalled();
+      act(expose);
+      const banner = {
+        activityId: progress.activityId,
+        entrySource: 'banner',
+        layout: 'compact',
+        activityStatus: 'running',
+        progressStatus: 'running',
+        payoutStatus: 'pending',
+        currentTierIndex: 1,
+      };
+      expect(mockRecallEvents.perpRecallEntryShown).toHaveBeenCalledWith({
+        ...banner,
+        closable: true,
+      });
+      expect(mockRecallEvents.perpRecallEntryShown).toHaveBeenCalledWith({
+        ...banner,
+        entrySource: 'activityHub',
+      });
+      expect(mockRecallEvents.perpRecallEntryShown).toHaveBeenCalledWith({
+        ...banner,
+        entrySource: 'perpsMenu',
+      });
+      expect(mockRecallEvents.perpRecallEntryShown).toHaveBeenCalledWith({
+        ...banner,
+        entrySource: 'headerIcon',
+      });
+      mockRecallProgress = { ...progress, volume: '1200' };
+      view.rerender(tree());
+      act(expose);
+      expect(mockRecallEvents.perpRecallEntryShown).toHaveBeenCalledTimes(4);
+      fireEvent.click(screen.getByTestId('perps-recall-banner'));
+      expect(mockRecallEvents.perpRecallEntryClicked).toHaveBeenCalledWith(
+        banner,
+      );
+      const detail = render(
+        <>{mockDialogShow.mock.calls[0][0].renderContent}</>,
+      );
+      act(expose);
+      expect(mockRecallEvents.perpRecallDetailShown).toHaveBeenCalledWith(
+        banner,
+      );
+      act(expose);
+      expect(mockRecallEvents.perpRecallDetailShown).toHaveBeenCalledTimes(1);
+      detail.unmount();
+      fireEvent.click(screen.getByTestId('perps-recall-banner-close'));
+      expect(mockRecallEvents.perpRecallBannerDismissed).not.toHaveBeenCalled();
+      act(() => mockDialogShow.mock.calls.at(-1)?.[0].onConfirm?.());
+      expect(mockRecallEvents.perpRecallBannerDismissed).toHaveBeenCalledWith({
+        ...banner,
+        reopenAfterMinutes: 30,
+      });
+      act(() => jest.advanceTimersByTime(30 * 60_000));
+      act(expose);
+      expect(mockRecallEvents.perpRecallEntryShown).toHaveBeenCalledTimes(5);
+      expect(mockRecallEvents.perpRecallEntryShown).toHaveBeenLastCalledWith({
+        ...banner,
+        closable: true,
+      });
+    } finally {
+      globalThis.IntersectionObserver = original;
+    }
+  });
+
   it.each([true, false])(
     'opens recall details from the ticket without a notification dot (native: %s)',
     (native) => {
@@ -898,6 +1036,9 @@ describe('Perps recall activity integration', () => {
       fireEvent.click(screen.getByTestId('activity-hub-detail-entry'));
       expect(closePopover).toHaveBeenCalledTimes(1);
       expect(mockDialogShow).not.toHaveBeenCalled();
+      expect(mockRecallEvents.perpRecallEntryClicked).toHaveBeenCalledWith(
+        expect.objectContaining({ entrySource: 'activityHub' }),
+      );
       resolveClose?.();
       await waitFor(() => expect(mockDialogShow).toHaveBeenCalledTimes(1));
       render(<>{mockDialogShow.mock.calls[0][0].renderContent}</>);
@@ -1483,11 +1624,16 @@ describe('Perps recall activity integration', () => {
       );
       render(
         <PerpsRecallDialogContent
+          entrySource="banner"
           activityId="recall-1"
           instanceId="test-instance"
         />,
       );
       fireEvent.click(screen.getByTestId('perps-recall-help'));
+      expect(mockRecallEvents.perpRecallHelpClicked).toHaveBeenCalledTimes(1);
+      expect(mockRecallEvents.perpRecallHelpClicked).toHaveBeenCalledWith(
+        expect.objectContaining({ entrySource: 'banner' }),
+      );
       expect(mockPopoverClose).toHaveBeenCalledTimes(1);
       expect(mockOpenUrlInApp).not.toHaveBeenCalled();
       expect(mockOpenUrlInDiscovery).not.toHaveBeenCalled();

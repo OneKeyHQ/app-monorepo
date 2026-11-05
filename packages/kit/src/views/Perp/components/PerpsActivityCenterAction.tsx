@@ -33,13 +33,18 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { usePerpsRecallBannerVisibility } from '../hooks/usePerpsRecallBannerVisibility';
+import { usePerpsRecallEntry } from '../hooks/usePerpsRecallEntry';
 import { usePerpsRecallProgress } from '../hooks/usePerpsRecallProgress';
 
 import { PerpsCampaignIllustration } from './PerpsCampaignIllustration';
 import { showPerpsRecallDialog } from './PerpsRecallDialog';
 import { PerpsRecallIllustration } from './PerpsRecallIllustration';
 
-function usePerpsActivityHubProps() {
+type IActivityCenterSource = 'activityHub' | 'perpsMenu';
+
+function usePerpsActivityHubProps(
+  entrySource: IActivityCenterSource = 'activityHub',
+) {
   const intl = useIntl();
   const { progress, instanceId, refresh } = usePerpsRecallProgress();
   const { isBannerHidden, setBannerHidden } = usePerpsRecallBannerVisibility({
@@ -54,6 +59,7 @@ function usePerpsActivityHubProps() {
 
   const handleOpenReferral = useOpenReferralPage();
 
+  const tracking = usePerpsRecallEntry({ progress, instanceId, entrySource });
   const detailEntry: IActivityHubDetailEntry | undefined = progress
     ? {
         title: intl.formatMessage({ id: ETranslations.perps_recall__title }),
@@ -62,10 +68,13 @@ function usePerpsActivityHubProps() {
         }),
         icon: 'GiftOutline',
         illustration: <PerpsRecallIllustration trimmed />,
+        impressionRef: tracking.impressionRef,
+        onPress: tracking.trackClick,
         onOpen: () => {
           showPerpsRecallDialog({
             intl,
             activityId: progress.activityId,
+            entrySource,
             instanceId,
           });
         },
@@ -83,6 +92,7 @@ function usePerpsActivityHubProps() {
 }
 
 export function PerpsActivityCenterContent({
+  entrySource = 'activityHub',
   closePopover,
   showTitle = true,
   menuLayout = false,
@@ -91,6 +101,7 @@ export function PerpsActivityCenterContent({
   menuFooter,
   renderMenuReferral,
 }: {
+  entrySource?: IActivityCenterSource;
   closePopover: () => void;
   showTitle?: boolean;
   menuLayout?: boolean;
@@ -105,7 +116,7 @@ export function PerpsActivityCenterContent({
     detailEntry,
     isBannerHidden,
     setBannerHidden,
-  } = usePerpsActivityHubProps();
+  } = usePerpsActivityHubProps(entrySource);
   const intl = useIntl();
   const showActivityHub = useShowActivityHub();
   // The menu already lists the campaigns, so the dialog holds only the

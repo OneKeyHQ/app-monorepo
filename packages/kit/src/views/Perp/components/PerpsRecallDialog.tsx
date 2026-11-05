@@ -1,3 +1,6 @@
+import { useRef } from 'react';
+
+import { useIsFocused } from '@react-navigation/core';
 import { type IntlShape, useIntl } from 'react-intl';
 
 import {
@@ -7,10 +10,18 @@ import {
   SizableText,
   Stack,
   useDialogInstance,
+  useMedia,
 } from '@onekeyhq/components';
+import { useVisibleImpression } from '@onekeyhq/kit/src/hooks/useVisibleImpression';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import {
+  type IPerpRecallEntrySource,
+  getPerpRecallEventParams,
+} from '@onekeyhq/shared/src/logger/scopes/perp/scenes/recall';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import { usePerpsRecallEntry } from '../hooks/usePerpsRecallEntry';
 import { usePerpsRecallProgress } from '../hooks/usePerpsRecallProgress';
 
 import { openGuideUrl } from './Guide/perpGuideData';
@@ -18,21 +29,41 @@ import { PerpsRecallActivityIcon } from './PerpsRecallActivityIcon';
 import { PerpsRecallProgressCard } from './PerpsRecallProgressCard';
 
 type IPerpsRecallDialogProps = {
+  entrySource: IPerpRecallEntrySource;
   activityId: string;
   instanceId: string;
 };
 
 export function PerpsRecallDialogContent({
+  entrySource,
   activityId,
   instanceId,
 }: IPerpsRecallDialogProps) {
   const intl = useIntl();
   const recall = usePerpsRecallProgress();
   const { close } = useDialogInstance();
-  if (
-    recall.instanceId !== instanceId ||
-    recall.progress?.activityId !== activityId
-  ) {
+  const { gtMd } = useMedia();
+  const progress =
+    recall.instanceId === instanceId &&
+    recall.progress?.activityId === activityId
+      ? recall.progress
+      : null;
+  const params =
+    progress &&
+    getPerpRecallEventParams(
+      progress,
+      entrySource,
+      gtMd && !platformEnv.isNative ? 'wide' : 'compact',
+    );
+  const seen = useRef(new Set<string>()).current;
+  const impressionRef = useVisibleImpression({
+    impressionKey: params?.activityId,
+    seen,
+    onShown: () => {
+      if (params) defaultLogger.perp.recall.perpRecallDetailShown(params);
+    },
+  });
+  if (!progress || !params) {
     return (
       <SizableText color="$textSubdued">
         {intl.formatMessage({
@@ -42,9 +73,10 @@ export function PerpsRecallDialogContent({
     );
   }
 
-  const { blogUrl } = recall.progress;
+  const { blogUrl } = progress;
   const onOpenHelp = async () => {
     if (!blogUrl) return;
+    defaultLogger.perp.recall.perpRecallHelpClicked(params);
     if (platformEnv.isNative || platformEnv.isDesktop) {
       await close();
     } else {
@@ -55,7 +87,8 @@ export function PerpsRecallDialogContent({
   };
   return (
     <PerpsRecallProgressCard
-      progress={recall.progress}
+      impressionRef={impressionRef}
+      progress={progress}
       hasEnded={recall.hasEnded}
       onOpenHelp={onOpenHelp}
     />
@@ -82,10 +115,24 @@ export function showPerpsRecallDialog({
 export function PerpsRecallAction() {
   const intl = useIntl();
   const { progress, instanceId, refresh } = usePerpsRecallProgress();
+  const isFocused = useIsFocused();
+  const tracking = usePerpsRecallEntry({
+    progress,
+    instanceId,
+    entrySource: 'headerIcon',
+    enabled: isFocused,
+  });
   if (!progress) return null;
 
   return (
-    <Stack w="$5" h="$5" alignItems="center" justifyContent="center">
+    <Stack
+      ref={tracking.impressionRef}
+      collapsable={false}
+      w="$5"
+      h="$5"
+      alignItems="center"
+      justifyContent="center"
+    >
       <Button
         testID="perp-mobile-activity-center"
         size="small"
@@ -100,10 +147,12 @@ export function PerpsRecallAction() {
           id: ETranslations.perps_recall__title,
         })}
         onPress={() => {
+          tracking.trackClick();
           void refresh();
           showPerpsRecallDialog({
             intl,
             activityId: progress.activityId,
+            entrySource: 'headerIcon',
             instanceId,
           });
         }}

@@ -605,6 +605,7 @@ function PerpSettingsMenuContent({
         showActivityCenterEntry
           ? (menuShortcuts) => (
               <PerpsActivityCenterContent
+                entrySource="perpsMenu"
                 closePopover={closePopover}
                 showTitle={false}
                 menuLayout

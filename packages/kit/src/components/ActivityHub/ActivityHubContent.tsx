@@ -51,6 +51,7 @@ function ActivityCampaignCard({
   fallbackIconName = 'GiftOutline',
   variant = 'outlined',
   illustration,
+  impressionRef,
   listLayout = false,
   testID,
   onPress,
@@ -61,6 +62,7 @@ function ActivityCampaignCard({
   fallbackIconName?: IButtonProps['icon'];
   variant?: 'filled' | 'outlined';
   illustration?: ReactNode;
+  impressionRef?: IActivityHubDetailEntry['impressionRef'];
   listLayout?: boolean;
   testID?: string;
   onPress: () => void;
@@ -71,6 +73,7 @@ function ActivityCampaignCard({
   if (listLayout) {
     return (
       <ActivityShortcutCard
+        impressionRef={impressionRef}
         testID={testID}
         title={title}
         subtitle={subtitle}
@@ -100,6 +103,7 @@ function ActivityCampaignCard({
 
   return (
     <XStack
+      ref={impressionRef}
       testID={testID}
       onPress={onPress}
       alignItems="center"
@@ -385,6 +389,7 @@ export function ActivityHubContent({
             <YStack gap="$2">
               {detailEntry ? (
                 <ActivityCampaignCard
+                  impressionRef={detailEntry.impressionRef}
                   testID="activity-hub-detail-entry"
                   fallbackIconName={detailEntry.icon}
                   illustration={detailEntry.illustration}
@@ -393,6 +398,7 @@ export function ActivityHubContent({
                   title={detailEntry.title}
                   subtitle={detailEntry.subtitle}
                   onPress={() => {
+                    detailEntry.onPress?.();
                     closeThenRun(closePopover, detailEntry.onOpen);
                   }}
                 />
