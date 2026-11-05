@@ -35,6 +35,7 @@ import {
   findOffer,
   findPayToken,
   getPayTokenAddress,
+  pickDefaultPayTokenAcrossNetworks,
   resolvePayMode,
   toPayTokenSwapToken,
   toPickedPayToken,
@@ -403,12 +404,24 @@ export const StakeSection = ({
     if (picked) {
       return picked;
     }
+    // Comparing a kind: the token Pay with stays on. Across networks, where
+    // the wallet holds most of it, as a token's own default is (11-05)
     const preferSymbol = payWith?.preferSymbol?.toLowerCase();
     const preferred = preferSymbol
       ? pay.heldTokens.find(
           (item) => item.token.symbol.toLowerCase() === preferSymbol,
         )
       : undefined;
+    if (preferred && isPayAcrossNetworks && preferSymbol) {
+      return (
+        pickDefaultPayTokenAcrossNetworks(
+          pay.heldTokens.filter(
+            (item) => item.token.symbol.toLowerCase() === preferSymbol,
+          ),
+          preferSymbol,
+        ) ?? preferred
+      );
+    }
     if (preferred) {
       return preferred;
     }

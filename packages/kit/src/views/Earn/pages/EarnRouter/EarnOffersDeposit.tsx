@@ -839,10 +839,9 @@ export function EarnOffersDeposit({
   );
   // What a card's form pays with, as its Pay with picks for it: the token
   // picked there; else the card's own token (comparing a kind, the kind's
-  // largest holding), on the card's network where it's held there and the
-  // form keeps to it (an amount typed, or the card's own token compared),
-  // else where the wallet holds most of it. Nothing of it held: the form's
-  // own choice, the same for every card
+  // largest holding), where the wallet holds most of it, or on the card's
+  // network where the form keeps to it (an amount to start on, held there).
+  // Nothing of it held: the form's own choice, the same for every card
   const payPlaceOf = useCallback(
     (
       offer: IEarnDesktopHoldOffer,
@@ -862,9 +861,7 @@ export function EarnOffersDeposit({
         return payToken;
       }
       const offerNetworkId = getOfferNetworkId(offer);
-      const keepsCardNetwork = pickedClass
-        ? paySymbol.toLowerCase() === offerSymbol.toLowerCase()
-        : Boolean(amount);
+      const keepsCardNetwork = !pickedClass && Boolean(amount);
       return {
         symbol: paySymbol,
         networkId:
