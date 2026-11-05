@@ -78,7 +78,7 @@ export function MDHeader({
   customHeaderRightItems,
   renderCustomHeaderRightItems,
   headerPx = '$5',
-  headerHeight = 44,
+  headerHeight,
   disableHomeHeaderGlass = false,
   pageScrollPosition,
 }: {
@@ -205,10 +205,11 @@ export function MDHeader({
                 alignItems="center"
                 justifyContent="space-between"
                 px={headerPx}
-                h={headerHeight}
+                h={44}
                 {...(top || platformEnv.isNativeAndroid
                   ? { mt: top || '$2' }
                   : {})}
+                {...(headerHeight !== undefined && { h: headerHeight })}
               >
                 <View>
                   <HeaderLeft

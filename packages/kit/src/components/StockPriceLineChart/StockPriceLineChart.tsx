@@ -151,7 +151,6 @@ export function StockPriceLineChart({
   const intl = useIntl();
   const { formatDate } = useFormatDate();
   const [hoverData, setHoverData] = useState<IChartHoverData | null>(null);
-  const [chartWidth, setChartWidth] = useState(0);
   const useNativeScrub = platformEnv.isNative;
   const pointerTrackingRef = useRef(false);
   const startHover = useCallback(() => {
@@ -161,6 +160,7 @@ export function StockPriceLineChart({
     pointerTrackingRef.current = false;
     setHoverData(null);
   }, []);
+  const [chartWidth, setChartWidth] = useState(0);
   const priceFormatter = useCallback(
     (price: number) => {
       if (priceScaleFormat === 'full') return formatChartPriceFull(price);
@@ -295,14 +295,14 @@ export function StockPriceLineChart({
   // moves; only the solid overlay drawn on top of it is cut at the cursor.
   const hoveredTime = hoverData?.time;
   const solidData = useMemo(() => {
-    if (useNativeScrub || hoveredTime === undefined) {
+    if (platformEnv.isNative || hoveredTime === undefined) {
       return data;
     }
     const upToCursor = data.filter(([time]) => time <= hoveredTime);
     // An empty overlay would drop the overlay series entirely and rebuild the
     // chart mid-scrub, so it always keeps at least the first point.
     return upToCursor.length > 0 ? upToCursor : data.slice(0, 1);
-  }, [data, hoveredTime, useNativeScrub]);
+  }, [data, hoveredTime]);
 
   const nativeScrubOptions = useMemo<
     ILightweightChartNativeScrubOptions | undefined
@@ -445,9 +445,13 @@ export function StockPriceLineChart({
         crosshairVertLineColor={crosshairVertLineColor}
         crosshairVertLineStyle={CROSSHAIR_VERT_LINE_STYLE}
         seriesType="dotted-area"
-        showPriceScale={showPriceScale}
+        showPriceScale
         referenceLine={referenceLine}
-        showLastValue={showPriceScale && showCurrentPriceLabel}
+        showLastValue={showCurrentPriceLabel}
+        {...(!showPriceScale && {
+          showPriceScale: false,
+          showLastValue: false,
+        })}
         showLastValuePriceLine={false}
         lastValueLabelColor={currentPriceLabelColor}
         showLastPointMarker={false}
