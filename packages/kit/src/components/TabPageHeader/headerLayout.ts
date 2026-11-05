@@ -1,3 +1,4 @@
+import { isFoldableIPhone } from '@onekeyhq/shared/src/modules/DualScreenInfo/isFoldableIPhone';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 /**
@@ -20,3 +21,13 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 export const HEADER_WIDE_MEDIA_KEY = platformEnv.isDesktop ? 'gtXl' : 'gtLg';
 
 export const HEADER_SEARCH_MIN_WIDTH = 320;
+
+// Foldable iPhones keep the status bar in the side strip, so the top inset is 0
+// while native bar buttons stay centered on this line, level with the camera.
+const FOLDABLE_IPHONE_BAR_CENTER_Y = 48;
+
+export const HEADER_SEARCH_BAR_HEIGHT = 44;
+
+export function getFoldableIPhoneHeaderTop(rowHeight: number) {
+  return isFoldableIPhone() ? FOLDABLE_IPHONE_BAR_CENTER_Y - rowHeight / 2 : 0;
+}

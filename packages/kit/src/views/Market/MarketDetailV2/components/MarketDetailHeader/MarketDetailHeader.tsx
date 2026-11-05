@@ -32,6 +32,7 @@ import {
   ECopyFrom,
   EWatchlistFrom,
 } from '@onekeyhq/shared/src/logger/scopes/dex';
+import { isFoldableIPhone } from '@onekeyhq/shared/src/modules/DualScreenInfo/isFoldableIPhone';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes, ETabRoutes } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
@@ -199,15 +200,22 @@ export function MarketDetailHeader({
   // Reserve the bar margins, back/action capsules, and the title's side gaps.
   // Custom bar items resist native compression, so constrain long identities
   // before UIKit lays out the left and right item groups.
+  // On foldable iPhones the side strip takes the icon items. UIKit still keeps
+  // the title slot narrow and centered, so the title lives in a wide left item
+  // that starts at the bar's leading edge and stays in the horizontal bar. It
+  // stays there in every posture: moving between slots on rotation leaves it
+  // under the back button. Too wide an item folds into an overflow menu, and
+  // without the side strip the status bar shares the top row.
+  const isTitleInLeftItem = isFoldableIPhone();
+  let nativeHeaderTitleReservedWidth =
+    40 + 44 + (showFavoriteButton ? 100 : 44) + 32;
+  if (isTitleInLeftItem) {
+    nativeHeaderTitleReservedWidth =
+      safeAreaRight > 0 ? 80 : nativeHeaderTitleReservedWidth + 134;
+  }
   const nativeHeaderTitleMaxWidth = Math.max(
     0,
-    windowWidth -
-      safeAreaLeft -
-      safeAreaRight -
-      40 -
-      44 -
-      (showFavoriteButton ? 100 : 44) -
-      32,
+    windowWidth - safeAreaLeft - safeAreaRight - nativeHeaderTitleReservedWidth,
   );
 
   const renderNativeHeaderTitle = useCallback(
@@ -446,8 +454,17 @@ export function MarketDetailHeader({
         identifier: 'market-detail-back',
         onPress: handleBackPress,
       },
+      ...(isTitleInLeftItem
+        ? [
+            {
+              type: 'custom' as const,
+              element: renderNativeHeaderTitle(),
+              hidesSharedBackground: true,
+            },
+          ]
+        : []),
     ],
-    [handleBackPress, intl],
+    [handleBackPress, intl, isTitleInLeftItem, renderNativeHeaderTitle],
   );
 
   if (media.md && platformEnv.isNativeIOS26Plus) {
@@ -461,7 +478,7 @@ export function MarketDetailHeader({
         // A fixed-width titleView avoids the initial intrinsic-size growth that
         // previously let long identities overlap the bar items. Keeping it in
         // the native title slot also avoids a custom left-item snapshot on pop.
-        headerTitle={renderNativeHeaderTitle}
+        headerTitle={isTitleInLeftItem ? '' : renderNativeHeaderTitle}
         unstable_headerLeftItems={buildNativeHeaderLeftItems}
         unstable_headerRightItems={buildNativeHeaderRightItems}
       />

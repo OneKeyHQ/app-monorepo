@@ -24,6 +24,10 @@ import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/Acco
 import { LazyPageContainer } from '@onekeyhq/kit/src/components/LazyPageContainer';
 import { TabletHomeContainer } from '@onekeyhq/kit/src/components/TabletHomeContainer';
 import { TabPageHeader } from '@onekeyhq/kit/src/components/TabPageHeader';
+import {
+  HEADER_SEARCH_BAR_HEIGHT,
+  getFoldableIPhoneHeaderTop,
+} from '@onekeyhq/kit/src/components/TabPageHeader/headerLayout';
 import { LegacyUniversalSearchInput } from '@onekeyhq/kit/src/components/TabPageHeader/LegacyUniversalSearchInput';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import useListenTabFocusState from '@onekeyhq/kit/src/hooks/useListenTabFocusState';
@@ -535,6 +539,10 @@ function MobileBrowser() {
     discoverSearchTop = top + 5;
   } else if (searchGlassActive) {
     discoverSearchTop = top + 6;
+  }
+  if (!top) {
+    discoverSearchTop =
+      getFoldableIPhoneHeaderTop(HEADER_SEARCH_BAR_HEIGHT) || discoverSearchTop;
   }
   const takeScreenshot = useTakeScreenshot(activeTabId);
 
