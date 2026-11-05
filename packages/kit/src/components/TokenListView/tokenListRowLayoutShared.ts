@@ -37,6 +37,10 @@ export function getTokenRowIconSize(gtMd: boolean): number {
   return gtMd ? TOKEN_ROW_ICON_SIZE_WIDE : TOKEN_ROW_ICON_SIZE_COMPACT;
 }
 
+// Row box style handed to NativeList as `style.container`; undefined keeps
+// the engine default.
+export type ITokenRowContainerStyle = { cornerRadius: number } | undefined;
+
 export type ITokenListHeaderLayout = {
   // Width of the slot the header keeps empty above the row's token icon.
   leadingWidth: number;
