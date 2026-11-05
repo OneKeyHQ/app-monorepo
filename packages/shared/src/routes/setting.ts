@@ -144,7 +144,12 @@ export type IModalSettingParamList = {
   [EModalSettingRoutes.SettingFloatingIconModal]: undefined;
   [EModalSettingRoutes.SettingPrivacy]: undefined;
   [EModalSettingRoutes.SettingPrivacyNetwork]:
-    | { networkId?: string; walletId?: string }
+    | {
+        networkId?: string;
+        walletId?: string;
+        accountId?: string;
+        enableSync?: boolean;
+      }
     | undefined;
   [EModalSettingRoutes.SettingDevZcashRuntimeModal]: undefined;
   // Dev JS Bundle Manager
