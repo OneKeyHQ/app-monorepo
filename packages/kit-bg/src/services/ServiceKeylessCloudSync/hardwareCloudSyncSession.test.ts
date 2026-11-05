@@ -7,6 +7,7 @@ import {
   buildHardwareCloudSyncMessage,
 } from '@onekeyhq/shared/src/consts/hardwareCloudSyncConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import systemTimeUtils from '@onekeyhq/shared/src/utils/systemTimeUtils';
 import type { IHardwareCloudSyncSession } from '@onekeyhq/shared/types/keylessCloudSync';
 
@@ -20,9 +21,11 @@ import {
   getHardwareCloudSyncDeviceKeyThumbprint,
   getHardwareCloudSyncDevicePublicJwk,
   reencryptHardwareCloudSyncItems,
+  refreshHardwareCloudSyncSessionIfNeeded,
   requestHardwareCloudSyncChallenge,
   requestWithHardwareCloudSyncSession,
   rotateHardwareCloudSyncDataKey,
+  verifyHardwareCloudSyncChallenge,
 } from './hardwareCloudSyncSession';
 
 import type { AxiosInstance } from 'axios';
@@ -237,6 +240,139 @@ describe('hardware Cloud sync session', () => {
     );
     expect(valid).toBe(true);
   });
+
+  describe.each(['verify', 'refresh'] as const)(
+    '%s token response',
+    (operation) => {
+      const tokens = {
+        accessToken: 'public-test-opaque-access',
+        accessTokenExpiresIn: 90.5,
+        refreshToken: 'public-test-opaque-refresh',
+        sessionId: 'public-test-session-id',
+      };
+      const requestSession = (
+        client: AxiosInstance,
+        current: IHardwareCloudSyncSession,
+      ) =>
+        operation === 'verify'
+          ? verifyHardwareCloudSyncChallenge({
+              client,
+              jwk: current.deviceKeyJwk,
+              challengeId: 'public-test-challenge',
+              signature: 'public-test-signature',
+            })
+          : refreshHardwareCloudSyncSessionIfNeeded({
+              client,
+              session: current,
+              force: true,
+            });
+
+      test.each([90.5, 90.5005])(
+        'accepts opaque tokens with a lifetime of %s seconds',
+        async (lifetime) => {
+          const now = 1_700_000_000_000;
+          jest.spyOn(Date, 'now').mockReturnValue(now);
+          const { client, post } = fakeClient();
+          const current = { ...session(), dekId: 'public-test-dek-id' };
+          post.mockResolvedValue(
+            ok({ ...tokens, accessTokenExpiresIn: lifetime }),
+          );
+
+          await expect(requestSession(client, current)).resolves.toEqual({
+            deviceKeyJwk: current.deviceKeyJwk,
+            accessToken: tokens.accessToken,
+            accessTokenExpiresAt: now + lifetime * 1000,
+            refreshToken: tokens.refreshToken,
+            sessionId: tokens.sessionId,
+            dekId: operation === 'refresh' ? current.dekId : '',
+          });
+        },
+      );
+
+      const malformedResponses: [string, unknown][] = [
+        ['missing data', undefined],
+        ['null data', null],
+        ['non-object data', 'invalid-response'],
+        ['missing token fields', {}],
+        [
+          'missing lifetime',
+          {
+            accessToken: tokens.accessToken,
+            refreshToken: tokens.refreshToken,
+            sessionId: tokens.sessionId,
+          },
+        ],
+        ['string lifetime', { ...tokens, accessTokenExpiresIn: '90.5' }],
+        ['zero lifetime', { ...tokens, accessTokenExpiresIn: 0 }],
+        ['negative lifetime', { ...tokens, accessTokenExpiresIn: -1 }],
+        ['NaN lifetime', { ...tokens, accessTokenExpiresIn: Number.NaN }],
+        ['infinite lifetime', { ...tokens, accessTokenExpiresIn: Infinity }],
+        [
+          'negative infinite lifetime',
+          { ...tokens, accessTokenExpiresIn: -Infinity },
+        ],
+        [
+          'overflowing expiry',
+          { ...tokens, accessTokenExpiresIn: Number.MAX_VALUE },
+        ],
+        [
+          'unsafe expiry',
+          { ...tokens, accessTokenExpiresIn: Number.MAX_SAFE_INTEGER },
+        ],
+        [
+          'unrepresentable expiry',
+          { ...tokens, accessTokenExpiresIn: Number.MIN_VALUE },
+        ],
+      ];
+
+      test.each(malformedResponses)(
+        'rejects %s without exposing the response',
+        async (_label, data) => {
+          const logSpy = jest.spyOn(defaultLogger.app.error, 'log');
+          const { client, post } = fakeClient();
+          const current = session();
+          const original = { ...current };
+          post.mockResolvedValue(ok(data));
+
+          await expect(requestSession(client, current)).rejects.toMatchObject({
+            reason: 'Invalid Cloud sync session response',
+          });
+          expect(current).toEqual(original);
+          expect(logSpy).toHaveBeenLastCalledWith(
+            '[HardwareCloudSync] Data check failed: Invalid Cloud sync session response',
+          );
+        },
+      );
+
+      describe.each(['accessToken', 'refreshToken', 'sessionId'] as const)(
+        '%s',
+        (field) => {
+          test.each([
+            ['missing', undefined],
+            ['null', null],
+            ['empty', ''],
+            ['blank', ' \t\n'],
+            ['non-string', 123],
+          ])('rejects %s values', async (_label, value) => {
+            const { client, post } = fakeClient();
+            const data: Record<string, unknown> = { ...tokens };
+            if (value === undefined) {
+              delete data[field];
+            } else {
+              data[field] = value;
+            }
+            post.mockResolvedValue(ok(data));
+
+            await expect(
+              requestSession(client, session()),
+            ).rejects.toMatchObject({
+              reason: 'Invalid Cloud sync session response',
+            });
+          });
+        },
+      );
+    },
+  );
 
   test('the first device creates the data key and flushes it wrapped', async () => {
     const { client, get, post } = fakeClient();

@@ -219,14 +219,46 @@ async function requestRaw<T>({
 }
 
 function toSession(
-  tokens: ITokenResponse,
+  tokens: unknown,
   jwk: IHardwareCloudSyncDeviceKeyJwk,
   dekId: string,
 ): IHardwareCloudSyncSession {
+  if (
+    typeof tokens !== 'object' ||
+    tokens === null ||
+    !('accessToken' in tokens) ||
+    typeof tokens.accessToken !== 'string' ||
+    !tokens.accessToken.trim() ||
+    !('refreshToken' in tokens) ||
+    typeof tokens.refreshToken !== 'string' ||
+    !tokens.refreshToken.trim() ||
+    !('sessionId' in tokens) ||
+    typeof tokens.sessionId !== 'string' ||
+    !tokens.sessionId.trim() ||
+    !('accessTokenExpiresIn' in tokens) ||
+    typeof tokens.accessTokenExpiresIn !== 'number' ||
+    !Number.isFinite(tokens.accessTokenExpiresIn) ||
+    tokens.accessTokenExpiresIn <= 0
+  ) {
+    throw createHardwareCloudSyncDataError(
+      'Invalid Cloud sync session response',
+    );
+  }
+  const now = Date.now();
+  const accessTokenExpiresAt = now + tokens.accessTokenExpiresIn * 1000;
+  if (
+    !Number.isFinite(accessTokenExpiresAt) ||
+    accessTokenExpiresAt > Number.MAX_SAFE_INTEGER ||
+    accessTokenExpiresAt <= now
+  ) {
+    throw createHardwareCloudSyncDataError(
+      'Invalid Cloud sync session response',
+    );
+  }
   return {
     deviceKeyJwk: jwk,
     accessToken: tokens.accessToken,
-    accessTokenExpiresAt: Date.now() + tokens.accessTokenExpiresIn * 1000,
+    accessTokenExpiresAt,
     refreshToken: tokens.refreshToken,
     sessionId: tokens.sessionId,
     dekId,
