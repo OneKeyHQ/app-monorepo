@@ -87,42 +87,66 @@ test('a scanned device is connected, then its connectId is handed back', async (
   expect(onPick).toHaveBeenCalledWith('connect-A');
 });
 
-test('USB-blocked Bluetooth errors reach the shared hardware error flow and permit retry', async () => {
+test.each([false, true])(
+  'USB-blocked Bluetooth errors reach the shared hardware error flow and permit retry (autoToast=%s)',
+  async (autoToast) => {
+    const { onPick, props } = renderPicker();
+    const device = { connectId: 'connect-A', commType: 'ble' };
+    const failure = convertDeviceError({
+      code: HardwareErrorCode.BleUnavailableWhileUsbConnected,
+    });
+    failure.autoToast = autoToast;
+    mockConnect.mockRejectedValueOnce(failure);
+
+    await act(async () => {
+      await expect(props.connectDevice({ device })).resolves.toBeUndefined();
+    });
+
+    expect(onPick).not.toHaveBeenCalled();
+    expect(mockEndBurst).toHaveBeenCalledWith({
+      token: 41,
+      doneI18n: undefined,
+      error: expect.objectContaining({
+        code: HardwareErrorCode.BleUnavailableWhileUsbConnected,
+        message: failure.message,
+        key: failure.key,
+        $isHardwareError: true,
+        autoToast,
+      }),
+    });
+    expect(mockBeginBurst.mock.invocationCallOrder[0]).toBeLessThan(
+      mockConnect.mock.invocationCallOrder[0],
+    );
+    expect(failure.autoToast).toBe(autoToast);
+
+    await act(async () => props.connectDevice({ device }));
+    expect(mockConnect).toHaveBeenCalledTimes(2);
+    expect(onPick).toHaveBeenCalledTimes(1);
+    expect(mockEndBurst.mock.invocationCallOrder[1]).toBeLessThan(
+      onPick.mock.invocationCallOrder[0],
+    );
+  },
+);
+
+test('unexpected connection errors remain on the existing caller error path', async () => {
   const { onPick, props } = renderPicker();
-  const device = { connectId: 'connect-A', commType: 'ble' };
-  const failure = convertDeviceError({
-    code: HardwareErrorCode.BleUnavailableWhileUsbConnected,
-  });
-  failure.autoToast = false;
+  const failure = new Error('Unexpected connection failure');
   mockConnect.mockRejectedValueOnce(failure);
 
   await act(async () => {
-    await expect(props.connectDevice({ device })).rejects.toBe(failure);
+    await expect(
+      props.connectDevice({
+        device: { connectId: 'connect-A', commType: 'ble' },
+      }),
+    ).rejects.toBe(failure);
   });
 
   expect(onPick).not.toHaveBeenCalled();
   expect(mockEndBurst).toHaveBeenCalledWith({
     token: 41,
+    error: undefined,
     doneI18n: undefined,
-    error: expect.objectContaining({
-      code: HardwareErrorCode.BleUnavailableWhileUsbConnected,
-      message: failure.message,
-      key: failure.key,
-      $isHardwareError: true,
-      autoToast: false,
-    }),
   });
-  expect(mockBeginBurst.mock.invocationCallOrder[0]).toBeLessThan(
-    mockConnect.mock.invocationCallOrder[0],
-  );
-  expect(failure.autoToast).toBe(false);
-
-  await act(async () => props.connectDevice({ device }));
-  expect(mockConnect).toHaveBeenCalledTimes(2);
-  expect(onPick).toHaveBeenCalledTimes(1);
-  expect(mockEndBurst.mock.invocationCallOrder[1]).toBeLessThan(
-    onPick.mock.invocationCallOrder[0],
-  );
 });
 
 test('a failure after picking is not reported as a connection failure', async () => {

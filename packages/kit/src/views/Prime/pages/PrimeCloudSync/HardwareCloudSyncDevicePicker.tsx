@@ -4,6 +4,7 @@ import { YStack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useDeviceStageBurst } from '@onekeyhq/kit/src/hooks/useDeviceStageBurst';
 import { ConnectDeviceChannels } from '@onekeyhq/kit/src/views/Onboardingv2/pages/ConnectYourDevice';
+import { isOneKeyHardwareError } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import type { IConnectYourDeviceItem } from '@onekeyhq/shared/types/device';
 import { EHardwareCallContext } from '@onekeyhq/shared/types/device';
@@ -42,7 +43,12 @@ export function HardwareCloudSyncDevicePicker({
           forceProtocolDetection: deviceUtils.isBluetoothSearchDevice(device),
         });
       } catch (error) {
-        connectionError = error;
+        if (isOneKeyHardwareError(error)) {
+          connectionError = error;
+          // Match onboarding: the stage owns hardware failures; returning
+          // keeps the caller's toast fallback from showing the same error.
+          return;
+        }
         throw error;
       } finally {
         // Onboarding's shared stage owns connection errors, including those
