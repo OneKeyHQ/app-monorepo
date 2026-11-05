@@ -23039,6 +23039,7 @@
     "packages/kit/src/components/TradingView/TradingViewNative/TradingViewNativeFullscreenButton.native.tsx": 10742,
     "packages/kit/src/components/TradingView/TradingViewNative/TradingViewNativeFullscreenHost.android.tsx": 22650,
     "packages/kit/src/components/TradingView/TradingViewNative/TradingViewNativeFullscreenHost.tsx": 4828,
+    "packages/kit/src/components/TradingView/TradingViewNative/TradingViewNativeFullscreenTransitionContext.ts": 21591,
     "packages/kit/src/components/TradingView/TradingViewNative/TradingViewNativeMultiChart.tsx": 14378,
     "packages/kit/src/components/TradingView/TradingViewNative/TradingViewNativePresentation.ios.tsx": 2151,
     "packages/kit/src/components/TradingView/TradingViewNative/TradingViewNativePresentation.native.tsx": 2791,
