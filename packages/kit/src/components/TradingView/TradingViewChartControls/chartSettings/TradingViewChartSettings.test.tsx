@@ -22,15 +22,22 @@ jest.mock('react-native', () => ({
 jest.mock('@onekeyhq/components', () => {
   const View = ({
     children,
+    disabled,
     onPress,
     testID,
   }: {
     children?: ReactNode;
+    disabled?: boolean;
     onPress?: () => void;
     testID?: string;
   }) =>
     onPress ? (
-      <button data-testid={testID} onClick={onPress} type="button">
+      <button
+        data-testid={testID}
+        disabled={disabled}
+        onClick={onPress}
+        type="button"
+      >
         {children}
       </button>
     ) : (
@@ -385,6 +392,61 @@ describe('TradingViewChartSettings', () => {
         ) as HTMLSelectElement
       ).value,
     ).toBe('auto');
+  });
+
+  it('keeps controls enabled and ignores repeat presses while reset persists', async () => {
+    let resolveConfirm: () => void = () => {};
+    const onConfirm = jest.fn<Promise<void>, [ITradingViewChartSettingsValue]>(
+      () =>
+        new Promise<void>((resolve) => {
+          resolveConfirm = resolve;
+        }),
+    );
+
+    render(
+      <TradingViewChartSettings
+        defaultValue={{
+          ...createTradingViewChartSettingsValue(),
+          chartType: 'line',
+        }}
+        usePageFooter
+        showChartType
+        onConfirm={onConfirm}
+      />,
+    );
+
+    const resetButton = screen.getByTestId(
+      'trading-view-settings-mock-reset',
+    ) as HTMLButtonElement;
+
+    await act(async () => {
+      fireEvent.click(resetButton);
+    });
+
+    // Reset resolves almost instantly, so flipping the dialog into its
+    // submitting state for that window reads as a flash.
+    expect(resetButton.disabled).toBe(false);
+    expect(
+      (
+        screen.getByTestId(
+          'trading-view-settings-select-chart-type',
+        ) as HTMLSelectElement
+      ).value,
+    ).toBe('auto');
+
+    await act(async () => {
+      fireEvent.click(resetButton);
+    });
+    expect(onConfirm).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      resolveConfirm();
+    });
+
+    await act(async () => {
+      fireEvent.click(resetButton);
+    });
+    expect(onConfirm).toHaveBeenCalledTimes(2);
   });
 
   it('keeps the reset draft and reports the error when applying it fails', async () => {

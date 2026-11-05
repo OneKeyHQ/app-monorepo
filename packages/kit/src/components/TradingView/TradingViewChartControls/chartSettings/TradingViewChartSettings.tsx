@@ -1,5 +1,5 @@
 // cspell:ignore heikin Ashi
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 
 import { useIntl } from 'react-intl';
@@ -407,6 +407,7 @@ export function TradingViewChartSettings({
   const [selectedAppearanceSectionId, setSelectedAppearanceSectionId] =
     useState<ITradingViewSettingsMockAppearanceSectionId>('candles');
   const [isCommitting, setIsCommitting] = useState(false);
+  const isResettingRef = useRef(false);
   const submitInProgress = isSubmitting || isCommitting;
 
   const isAppearanceSectionVisible = useCallback(
@@ -504,8 +505,7 @@ export function TradingViewChartSettings({
     onClose?.();
   };
 
-  const commitValue = async (nextValue: ITradingViewChartSettingsValue) => {
-    setIsCommitting(true);
+  const persistValue = async (nextValue: ITradingViewChartSettingsValue) => {
     try {
       await onConfirm?.(nextValue);
       commitSettingsValue();
@@ -513,24 +513,39 @@ export function TradingViewChartSettings({
     } catch (error) {
       onConfirmError?.(error);
       return false;
+    }
+  };
+
+  const commitValue = async (nextValue: ITradingViewChartSettingsValue) => {
+    setIsCommitting(true);
+    try {
+      return await persistValue(nextValue);
     } finally {
       setIsCommitting(false);
     }
   };
 
   const handleReset = async () => {
-    if (submitInProgress) {
+    if (submitInProgress || isResettingRef.current) {
       return;
     }
+    isResettingRef.current = true;
     const resetValue = createTradingViewChartSettingsValue();
     updateSettingsValue(() => resetValue);
     // Reset is a sibling action of Confirm rather than a pending edit, so the
-    // defaults are applied right away while the settings stay open.
-    await commitValue(resetValue);
+    // defaults are applied right away while the settings stay open. The draft
+    // already shows them and persisting resolves within a frame or two, so
+    // skip the submitting state: toggling every control disabled for that
+    // long makes the whole dialog flash.
+    try {
+      await persistValue(resetValue);
+    } finally {
+      isResettingRef.current = false;
+    }
   };
 
   const handleConfirm = async () => {
-    if (submitInProgress) {
+    if (submitInProgress || isResettingRef.current) {
       return false;
     }
 
