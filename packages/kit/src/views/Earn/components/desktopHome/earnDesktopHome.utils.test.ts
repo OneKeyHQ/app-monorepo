@@ -22,6 +22,7 @@ import {
   collectNetworkOffers,
   collectTileRows,
   computeNetWorth,
+  countsAsLoanCollateral,
   deriveLendingSupply,
   estimateBorrowInterest24h,
   findPositionDeposit,
@@ -38,6 +39,7 @@ import {
   sumHoldRows,
   sumPortfolioDeposits,
   sumWalletHoldings,
+  summarizeLoanPosition,
 } from './earnDesktopHome.utils';
 
 import type {
@@ -715,6 +717,62 @@ describe('loan totals', () => {
         borrowedTotal: sumBorrowedFiat([]),
       }),
     ).toBe('0');
+  });
+});
+
+describe("a position's collateral", () => {
+  type ISuppliedAsset = Parameters<typeof countsAsLoanCollateral>[0];
+  // Aave Arbitrum as the server read it (11-05): USDC switched on though it
+  // can't be switched on again (LTV 0 there), USDT and ARB switched off
+  const position = {
+    supplied: {
+      assets: (
+        [
+          ['USDC', '10.04', true, false],
+          ['USDT', '2.01', false, false],
+          ['ARB', '0.17', false, false],
+        ] as const
+      ).map(([symbol, fiatValue, usageAsCollateral, canBeCollateral]) => ({
+        reserveAddress: `Supply-${symbol}`,
+        token: token(symbol),
+        suppliedAmount: { fiatValue },
+        usageAsCollateral,
+        canBeCollateral,
+      })),
+    },
+    borrowed: {
+      assets: [
+        {
+          reserveAddress: 'Borrowed-ETH',
+          token: token('ETH'),
+          borrowedAmount: { fiatValue: '5.70' },
+        },
+      ],
+    },
+  } as unknown as IBorrowReserveItem;
+
+  it("counts an asset switched on, as the market's health factor does", () => {
+    const summary = summarizeLoanPosition(position);
+    expect(summary.collateralValue).toBeCloseTo(10.04, 10);
+    expect(summary.collateralAssets.map((asset) => asset.symbol)).toEqual([
+      'USDC',
+    ]);
+    expect(summary.debtValue).toBeCloseTo(5.7, 10);
+  });
+
+  it("goes by whether an asset can back a loan where the switch isn't given", () => {
+    const asset = (fields: Partial<ISuppliedAsset>) =>
+      ({ ...fields }) as ISuppliedAsset;
+    expect(countsAsLoanCollateral(asset({ canBeCollateral: true }))).toBe(true);
+    expect(countsAsLoanCollateral(asset({ canBeCollateral: false }))).toBe(
+      false,
+    );
+    expect(countsAsLoanCollateral(asset({}))).toBe(true);
+    expect(
+      countsAsLoanCollateral(
+        asset({ usageAsCollateral: false, canBeCollateral: true }),
+      ),
+    ).toBe(false);
   });
 });
 

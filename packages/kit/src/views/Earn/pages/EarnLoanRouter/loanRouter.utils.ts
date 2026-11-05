@@ -615,9 +615,9 @@ export function getLoanBorrowOptions({
 
 /**
  * The loan once the collateral is picked again: the one picked while the
- * markets still lend it (a kind of token while they lend any of it), else the
- * one the most networks lend, a stable token first. Given the picks' network,
- * on that network alone
+ * markets still lend it (a kind of token while they lend any of it), else a
+ * stable token first: given the picks' network, the cheapest lent there
+ * (11-05); on every network, the one the most networks lend
  */
 export function pickLoanBorrowPick({
   markets,
@@ -648,9 +648,14 @@ export function pickLoanBorrowPick({
   if (keeps) {
     return current;
   }
+  // Scoped to one network, a token's rate is that network's; one with no
+  // rate there goes last
+  const rateOf = (token: IEarnAssetSelectToken) =>
+    token.rate ?? Number.POSITIVE_INFINITY;
   const [first] = lent.toSorted(
     (a, b) =>
       Number(b.type === 'stable') - Number(a.type === 'stable') ||
+      (networkId ? Math.sign(rateOf(a) - rateOf(b)) || 0 : 0) ||
       b.networks.length - a.networks.length ||
       a.symbol.localeCompare(b.symbol),
   );

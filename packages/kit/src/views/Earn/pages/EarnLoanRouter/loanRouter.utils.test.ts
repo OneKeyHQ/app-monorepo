@@ -268,6 +268,37 @@ describe('the network both picks are on', () => {
     expect(pick(BASE_ID)).toEqual(dai);
     expect(pick('evm--1')).toEqual(USDC);
   });
+
+  it('falls back to the cheapest stable token the network lends', () => {
+    const ARBITRUM_ID = 'evm--42161';
+    // Aave Arbitrum as it lent against ETH on 11-05: GHO comes first by
+    // name, USDC is cheaper
+    const markets = [
+      onNetwork(
+        market(
+          'Arbitrum',
+          '0xarbitrum',
+          [supplyAsset('ETH')],
+          [
+            borrowAsset('GHO', { apy: '4.57' }),
+            borrowAsset('USDC', { apy: '4.16' }),
+            borrowAsset('WBTC', { apy: '0.31' }),
+          ],
+        ),
+        ARBITRUM_ID,
+        'Arbitrum',
+      ),
+    ];
+    expect(
+      pickLoanBorrowPick({
+        markets,
+        collateral: { kind: 'token', symbol: 'ETH' },
+        current: { kind: 'token', symbol: 'USDtb' },
+        stableSymbols: new Set(['GHO', 'USDC', 'USDtb']),
+        networkId: ARBITRUM_ID,
+      }),
+    ).toEqual(USDC);
+  });
 });
 
 describe('buildLoanSelectTokens', () => {

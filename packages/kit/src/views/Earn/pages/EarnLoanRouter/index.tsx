@@ -791,20 +791,21 @@ function EarnLoanRouterPage() {
       payRouteFacts?.collateralPrice ?? priceRoute?.facts.collateralPrice;
     return price ? typed.times(price).toNumber() : 0;
   })();
-  // The collateral each market takes in for it: the amount itself in the
-  // box's own token; what the swap brings for the market Pay with pays
-  // into; the same value in its token for the others, so the markets
-  // compare the same plan
+  // The collateral each market takes in for it: what the swap or the bridge
+  // brings for the market Pay with pays into (the collateral itself bridged
+  // from another network arrives less the bridge's cost); the amount itself
+  // in the box's own token; the same value in its token for the others, so
+  // the markets compare the same plan
   const supplyAmountOf = useCallback(
     (item?: ILoanRoute) => {
       if (!item || !toBigNumber(collateralAmount).gt(0)) {
         return '';
       }
-      if (boxSymbol && isSameLoanAsset(item.collateral.symbol, boxSymbol)) {
-        return collateralAmount;
-      }
       if (isSwapping && item.key === payRoute?.key && payWith.estimatedSupply) {
         return payWith.estimatedSupply;
+      }
+      if (boxSymbol && isSameLoanAsset(item.collateral.symbol, boxSymbol)) {
+        return collateralAmount;
       }
       const price = byRoute.get(item.key)?.collateralPrice;
       if (!price || !typedValue) {

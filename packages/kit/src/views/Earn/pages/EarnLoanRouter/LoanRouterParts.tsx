@@ -570,13 +570,22 @@ function MarketCell({
           {route.marketLabel}
         </SizableText>
         {/* The swap's or the bridge's tag sits by the tokens, as on the
-            deposit modal's cards */}
-        <XStack ai="center" gap="$1.5" minWidth={0}>
+            deposit modal's cards. The pair is what tells a kind's cards
+            apart: it keeps its width, and the tag goes under it where the
+            column is too narrow for both */}
+        <XStack
+          ai="center"
+          columnGap="$1.5"
+          rowGap="$1.5"
+          minWidth={0}
+          flexWrap="wrap"
+        >
           <SizableText
             size="$bodySm"
             color="$textSubdued"
             numberOfLines={1}
-            flexShrink={1}
+            flexShrink={0}
+            maxWidth="100%"
           >
             {pairLabel
               ? EARN_DESKTOP_DEMO_COPY.loanPairOn(

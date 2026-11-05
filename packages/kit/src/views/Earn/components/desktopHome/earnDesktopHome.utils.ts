@@ -346,9 +346,15 @@ type IBorrowSuppliedAsset = NonNullable<
   IBorrowReserveItem['supplied']
 >['assets'][number];
 
-/** Supplied and backing the market's loans: not switched off, and able to */
+/**
+ * Supplied and backing the market's loans. The collateral switch decides
+ * where the market reports it: an asset switched on counts even where it
+ * can't be switched on again (Aave's LTV-0 assets still count toward the
+ * health factor at their liquidation LTV, as the server's figure does).
+ * Where the market doesn't say (Kamino), whether it can back a loan at all
+ */
 export const countsAsLoanCollateral = (asset: IBorrowSuppliedAsset) =>
-  asset.usageAsCollateral !== false && asset.canBeCollateral !== false;
+  asset.usageAsCollateral ?? asset.canBeCollateral !== false;
 
 /**
  * A market position at face value: what backs its loans and what is

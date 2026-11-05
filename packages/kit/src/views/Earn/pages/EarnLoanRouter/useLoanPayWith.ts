@@ -36,6 +36,7 @@ import {
   getEarnSwapDepositAmount,
   getEarnSwapPayMax,
   getPayTokenAddress,
+  toPayTokenSwapToken,
   toPickedPayToken,
 } from '../EarnRouter/earnRouter.utils';
 import {
@@ -420,8 +421,15 @@ export function useLoanPayWith({
               }
             : undefined,
           // Swap's network column too: a token on another network is bridged
-          // to the market's first (11-05)
+          // to the market's first (11-05). All Networks lists the wallet's
+          // tokens and the column sums them, as the deposit modal's picker
           acrossNetworks: true,
+          heldTokens: heldTokens.map(toPayTokenSwapToken),
+          accountIdByNetwork: Object.fromEntries(
+            heldTokens.flatMap((item) =>
+              item.accountId ? [[item.networkId, item.accountId]] : [],
+            ),
+          ),
           onSelect: (token: ISwapToken) => {
             // The wallet's account on the token's network, where known
             const tokenAccountId =
