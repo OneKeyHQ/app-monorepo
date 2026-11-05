@@ -196,6 +196,27 @@ function RowCheck({ isSelected }: { isSelected: boolean }) {
   );
 }
 
+// Where the token is offered when that is more than one network: their logos
+// after its name
+function NetworkLogos({ token }: { token: IEarnAssetSelectToken }) {
+  if (token.networks.length < 2) {
+    return null;
+  }
+  const shown = token.networks.slice(0, 3);
+  return (
+    <XStack ai="center" gap="$1" flexShrink={0}>
+      {shown.map((network) => (
+        <Token key={network.id} size="xxs" tokenImageUri={network.logoURI} />
+      ))}
+      {token.networks.length > shown.length ? (
+        <SizableText size="$bodySm" color="$textSubdued">
+          {`+${token.networks.length - shown.length}`}
+        </SizableText>
+      ) : null}
+    </XStack>
+  );
+}
+
 // A row's menu place (its button's width), where the row has none
 function MenuPlace() {
   return <Stack w="$6" flexShrink={0} />;
@@ -313,6 +334,11 @@ function TokenRow({
                   trailingLength: 4,
                 })}
               </SizableText>
+            ) : null}
+            {/* Across every network; with one chosen, the logo's badge says
+                where */}
+            {!matchedAddress && !networkId ? (
+              <NetworkLogos token={token} />
             ) : null}
           </XStack>
         }
