@@ -4,6 +4,8 @@
 
 import { act, renderHook } from '@testing-library/react';
 
+import { TRADING_VIEW_NATIVE_CROSSHAIR_LONG_PRESS_DURATION } from '../chartConstants';
+
 import {
   TRADING_VIEW_NATIVE_NAVIGATION_IDLE_HIDE_DELAY,
   useTradingViewNativeNavigationVisibility,
@@ -15,6 +17,7 @@ interface IMockTapGesture {
   enabled: jest.Mock;
   handlers: Record<string, IMockHandler>;
   maxDistance: jest.Mock;
+  maxDuration: jest.Mock;
 }
 
 const mockTapGestures: IMockTapGesture[] = [];
@@ -24,7 +27,13 @@ jest.mock('react-native-gesture-handler', () => ({
     Tap: jest.fn(() => {
       const handlers: Record<string, IMockHandler> = {};
       const gesture = { handlers } as IMockTapGesture & Record<string, unknown>;
-      for (const method of ['enabled', 'maxDistance', 'onBegin', 'onEnd']) {
+      for (const method of [
+        'enabled',
+        'maxDistance',
+        'maxDuration',
+        'onBegin',
+        'onEnd',
+      ]) {
         gesture[method] = jest.fn((argument: unknown) => {
           if (method.startsWith('on')) {
             handlers[method] = argument as IMockHandler;
@@ -35,6 +44,22 @@ jest.mock('react-native-gesture-handler', () => ({
       mockTapGestures.push(gesture);
       return gesture;
     }),
+  },
+}));
+
+let mockIsScreenReaderEnabled = false;
+let mockScreenReaderListener: ((enabled: boolean) => void) | undefined;
+
+jest.mock('react-native', () => ({
+  AccessibilityInfo: {
+    isScreenReaderEnabled: () => Promise.resolve(mockIsScreenReaderEnabled),
+    addEventListener: (
+      _event: string,
+      listener: (enabled: boolean) => void,
+    ) => {
+      mockScreenReaderListener = listener;
+      return { remove: () => undefined };
+    },
   },
 }));
 
@@ -64,6 +89,8 @@ describe('useTradingViewNativeNavigationVisibility', () => {
   beforeEach(() => {
     jest.useFakeTimers();
     mockTapGestures.length = 0;
+    mockIsScreenReaderEnabled = false;
+    mockScreenReaderListener = undefined;
   });
 
   afterEach(() => {
@@ -168,5 +195,38 @@ describe('useTradingViewNativeNavigationVisibility', () => {
   it('treats only short touches as taps', () => {
     renderVisibility();
     expect(mockTapGestures.at(-1)?.maxDistance).toHaveBeenCalledWith(10);
+  });
+
+  it('does not treat a hold that starts the crosshair as a tap', () => {
+    renderVisibility();
+    expect(mockTapGestures.at(-1)?.maxDuration).toHaveBeenCalledWith(
+      TRADING_VIEW_NATIVE_CROSSHAIR_LONG_PRESS_DURATION,
+    );
+  });
+
+  it('keeps the buttons visible while a screen reader is on', async () => {
+    mockIsScreenReaderEnabled = true;
+    const { result } = renderVisibility();
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(result.current.isVisible).toBe(true);
+
+    act(() => {
+      jest.advanceTimersByTime(TRADING_VIEW_NATIVE_NAVIGATION_IDLE_HIDE_DELAY);
+    });
+    expect(result.current.isVisible).toBe(true);
+
+    act(() => mockScreenReaderListener?.(false));
+    expect(result.current.isVisible).toBe(false);
+  });
+
+  it('keeps screen reader visibility behind the navigation setting', async () => {
+    mockIsScreenReaderEnabled = true;
+    const { result } = renderVisibility(false);
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(result.current.isVisible).toBe(false);
   });
 });
