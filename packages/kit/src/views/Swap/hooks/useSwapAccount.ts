@@ -349,7 +349,11 @@ export function useSwapAddressInfo(
   type: ESwapDirectionType,
   {
     useCustomRecipientAddress = true,
-  }: { useCustomRecipientAddress?: boolean } = {},
+    networkScope = 'trade',
+  }: {
+    useCustomRecipientAddress?: boolean;
+    networkScope?: 'trade' | 'selector';
+  } = {},
 ) {
   const [{ swapToAnotherAccountSwitchOn }] = useSettingsAtom();
   const useRecipientAccount =
@@ -403,15 +407,18 @@ export function useSwapAddressInfo(
             : swapProSellToToken
           )?.networkId ?? '');
     }
+    const selectorNetworkId =
+      networkScope === 'selector' ? currentSelectNetwork?.networkId : undefined;
     return type === ESwapDirectionType.FROM
-      ? (currentSelectNetwork?.networkId ?? fromToken?.networkId ?? '')
-      : (currentSelectNetwork?.networkId ?? toToken?.networkId ?? '');
+      ? (selectorNetworkId ?? fromToken?.networkId ?? '')
+      : (selectorNetworkId ?? toToken?.networkId ?? '');
   }, [
     focusSwapPro,
     type,
     fromToken?.networkId,
     toToken?.networkId,
     currentSelectNetwork?.networkId,
+    networkScope,
     swapProDirection,
     swapProSelectToken,
     swapProUseSelectBuyToken,
@@ -574,9 +581,14 @@ export function useSwapAddressInfo(
     };
     // Keep the confirmed custom recipient even when cross-chain TO account
     // resolution has not materialized a network account yet.
-    if (
+    // Native LIMIT has a separate Pro account path; preserve its existing
+    // recipient selection until quote and build share the same account source.
+    const shouldUseCustomRecipient =
       useCustomRecipientAddress &&
-      shouldUseSwapCustomRecipientAddress({
+      (focusSwapPro ||
+        networkScope === 'selector' ||
+        Boolean(tokenNetworkId)) &&
+      (shouldUseSwapCustomRecipientAddress({
         type,
         swapToAnotherAccountSwitchOn,
         selectedRecipientAddress: swapToAnotherAccountAddressAtom.address,
@@ -584,18 +596,32 @@ export function useSwapAddressInfo(
         activeNetworkId: activeAccount.network?.id,
         tokenNetworkId,
         isAllNetwork,
-      })
-    ) {
+      }) ||
+        (focusSwapPro &&
+          !isAllNetwork &&
+          shouldUseSwapCustomRecipientAddress({
+            type,
+            swapToAnotherAccountSwitchOn,
+            selectedRecipientAddress: swapToAnotherAccountAddressAtom.address,
+            selectedRecipientNetworkId:
+              swapToAnotherAccountAddressAtom.networkId,
+            activeNetworkId: activeAccount.network?.id,
+            isAllNetwork,
+          })));
+    if (shouldUseCustomRecipient) {
       const recipientAddress = swapToAnotherAccountAddressAtom.address ?? '';
       const recipientNetworkId = swapToAnotherAccountAddressAtom.networkId;
       const targetRecipientNetworkId =
         tokenNetworkId || activeAccount.network?.id || recipientNetworkId || '';
       const savedRecipientAccountInfo =
         swapToAnotherAccountAddressAtom.accountInfo;
-      const targetNetworkAccountMatchesRecipient = isSameSwapRecipientAddress({
-        address: accountForTargetNetwork?.addressDetail?.address,
-        targetAddress: recipientAddress,
-      });
+      const targetNetworkAccountMatchesRecipient =
+        shouldResolveTargetNetworkAccount &&
+        isAddressInfoReady &&
+        isSameSwapRecipientAddress({
+          address: accountForTargetNetwork?.addressDetail?.address,
+          targetAddress: recipientAddress,
+        });
       const activeAccountMatchesRecipient = isSameSwapRecipientAddress({
         address: activeAccount.account?.addressDetail?.address,
         targetAddress: recipientAddress,
@@ -638,6 +664,31 @@ export function useSwapAddressInfo(
         activeAccount: {
           ...activeAccount,
         },
+      };
+    }
+
+    if (
+      useCustomRecipientAddress &&
+      !focusSwapPro &&
+      networkScope === 'trade' &&
+      type === ESwapDirectionType.TO &&
+      swapToAnotherAccountSwitchOn
+    ) {
+      // A saved recipient for another network must never become either the
+      // execution address or an implicit fallback to the TO account slot.
+      return {
+        ...res,
+        networkId: tokenNetworkId || undefined,
+        isAddressInfoReady: Boolean(tokenNetworkId) && isAddressInfoReady,
+        activeAccount: { ...activeAccount },
+        accountInfo: buildSwapAddressAccountInfo({
+          activeAccount,
+          shouldResolveTargetNetworkAccount,
+          targetNetworkAccount:
+            shouldResolveTargetNetworkAccount && isAddressInfoReady
+              ? accountForTargetNetwork
+              : undefined,
+        }),
       };
     }
 
@@ -694,6 +745,8 @@ export function useSwapAddressInfo(
   }, [
     type,
     useCustomRecipientAddress,
+    focusSwapPro,
+    networkScope,
     swapToAnotherAccountSwitchOn,
     swapToAnotherAccountAddressAtom.address,
     swapToAnotherAccountAddressAtom.networkId,

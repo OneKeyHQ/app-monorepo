@@ -7,7 +7,6 @@ import type {
   ILocaleJSONSymbol,
   ILocaleSymbol,
 } from '@onekeyhq/shared/src/locale';
-import { ETranslations as ETranslationsShared } from '@onekeyhq/shared/src/locale/enum/translations';
 import { LOCALES } from '@onekeyhq/shared/src/locale/localeJsonMap';
 
 import * as store from './libs/store';
@@ -108,4 +107,4 @@ export const i18nFormat = (
   );
 };
 
-export const ElectronTranslations = ETranslationsShared;
+export { ETranslations as ElectronTranslations } from '@onekeyhq/shared/src/locale/enum/translations';
