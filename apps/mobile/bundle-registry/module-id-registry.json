@@ -25504,6 +25504,7 @@
     "packages/kit/src/views/Perp/hooks/usePerpsNativeChartLines.ts": 10753,
     "packages/kit/src/views/Perp/hooks/usePerpsNativeChartMarks.ts": 7272,
     "packages/kit/src/views/Perp/hooks/usePerpsNativeChartMetadata.ts": 661,
+    "packages/kit/src/views/Perp/hooks/usePerpsTradingUiMode.ts": 22809,
     "packages/kit/src/views/Perp/hooks/usePerpsUnifoldDepositSession.ts": 18298,
     "packages/kit/src/views/Perp/hooks/usePopularTickers.ts": 11375,
     "packages/kit/src/views/Perp/hooks/usePrewarmPerpsTokenSelectorImages.ts": 7395,
