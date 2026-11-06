@@ -179,6 +179,8 @@ const useDesktopEvents = platformEnv.isDesktop
           response &&
           getUpdateFileType(response) === EUpdateFileType.appShell &&
           response.updateStrategy !== EUpdateStrategy.force &&
+          response.updateStrategy !== EUpdateStrategy.seamless &&
+          response.status !== EAppUpdateStatus.manualInstall &&
           !response.storeUrl &&
           response.downloadUrl?.startsWith('https://')
         ) {

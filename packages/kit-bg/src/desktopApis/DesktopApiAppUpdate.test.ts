@@ -293,10 +293,12 @@ afterEach(async () => {
       macInstallInProgress: boolean;
       appImageInstallInProgress: boolean;
       installInProgress: boolean;
+      macStagedIdentity?: string;
     };
     state.macInstallInProgress = false;
     state.appImageInstallInProgress = false;
     state.installInProgress = false;
+    state.macStagedIdentity = undefined;
     await api.clearUpdateCache();
   }
   jest.restoreAllMocks();
@@ -829,6 +831,41 @@ test('macOS forces exit if native update quit stalls', async () => {
   }
 });
 
+test('macOS native staging rejects cache clearing until handoff completes', async () => {
+  const { api, params, file } = await preparePackage('darwin');
+  let started!: () => void;
+  const stagingStarted = new Promise<void>((resolve) => {
+    started = resolve;
+  });
+  mockNativeUpdater.checkForUpdates.mockImplementationOnce(() => {
+    started();
+  });
+  const install = api.installPackage(params);
+  await stagingStarted;
+  await expect(api.clearUpdateCache()).rejects.toThrow(
+    '"code":"INSTALL_FAILED"',
+  );
+  expect(fs.existsSync(file)).toBe(true);
+  mockNativeUpdater.emit('update-downloaded');
+  expect(await install).toBe(true);
+});
+
+test('macOS staged package cannot be cleared and remains installable', async () => {
+  const { api, params, file } = await preparePackage('darwin');
+  const internal = api as unknown as {
+    readRecord: () => { downloadedFile: string };
+    stageMacUpdate: (record: { downloadedFile: string }) => Promise<void>;
+  };
+  await internal.stageMacUpdate(internal.readRecord());
+  await expect(api.clearUpdateCache()).rejects.toThrow(
+    '"code":"INSTALL_FAILED"',
+  );
+  expect(fs.existsSync(file)).toBe(true);
+  expect(api.downloadedEvent).toBeDefined();
+  expect(await api.installPackage(params)).toBe(true);
+  expect(mockNativeUpdater.quitAndInstall).toHaveBeenCalledTimes(1);
+});
+
 test('macOS restages when the checksum changes at the same cache path', async () => {
   const { api } = await preparePackage('darwin');
   const internal = api as unknown as {
@@ -1014,6 +1051,100 @@ test('Linux quit update replaces the original versioned AppImage path and keeps 
   ).toBe(false);
 });
 
+test.each([false, true])(
+  'targeted quit cancellation cannot clear a newer preparation (pending=%s)',
+  async (pending) => {
+    const { api, params } = await preparePackage('win32');
+    const internal = api as unknown as {
+      getInstallRecord: (value: typeof params) => Promise<unknown>;
+    };
+    const getRecord = internal.getInstallRecord.bind(internal);
+    let release!: () => void;
+    const barrier = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const verify = jest
+      .spyOn(internal, 'getInstallRecord')
+      .mockImplementation(async (value) => {
+        await barrier;
+        return getRecord(value);
+      });
+    const preparing = api.prepareQuitInstall(params);
+    if (!pending) {
+      release();
+      await preparing;
+    }
+    await api.prepareQuitInstall(undefined, {
+      latestVersion: '5.9.9',
+      downloadUrl: 'https://cdn.onekey.so/old.exe',
+    });
+    if (pending) {
+      release();
+      await preparing;
+    }
+    expect(api.hasPreparedQuitInstall()).toBe(true);
+    verify.mockRestore();
+  },
+);
+
+test('cancelled quit preparation does not revive after verification resolves', async () => {
+  const { api, params } = await preparePackage('win32');
+  const internal = api as unknown as {
+    getInstallRecord: (value: typeof params) => Promise<unknown>;
+  };
+  const getRecord = internal.getInstallRecord.bind(internal);
+  let release!: () => void;
+  const barrier = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  jest.spyOn(internal, 'getInstallRecord').mockImplementation(async (value) => {
+    await barrier;
+    return getRecord(value);
+  });
+  const preparing = api.prepareQuitInstall(params);
+  await api.prepareQuitInstall(undefined, params);
+  release();
+  await preparing;
+  expect(api.hasPreparedQuitInstall()).toBe(false);
+  expect(await api.installOnQuit()).toBe(false);
+  expect(mockSpawn).not.toHaveBeenCalled();
+});
+
+test('quit revocation cannot acknowledge success while a selected installer is validating', async () => {
+  const { api, params } = await preparePackage('win32');
+  await api.prepareQuitInstall(params);
+  const internal = api as unknown as {
+    getInstallRecord: (value: typeof params) => Promise<unknown>;
+  };
+  const getRecord = internal.getInstallRecord.bind(internal);
+  let release!: () => void;
+  let started!: () => void;
+  const barrier = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  const validating = new Promise<void>((resolve) => {
+    started = resolve;
+  });
+  jest
+    .spyOn(internal, 'getInstallRecord')
+    .mockImplementationOnce(async (value) => {
+      started();
+      await barrier;
+      return getRecord(value);
+    });
+  const installing = api.installOnQuit();
+  await validating;
+  try {
+    await expect(api.prepareQuitInstall(undefined, params)).rejects.toThrow(
+      '"code":"INSTALL_FAILED"',
+    );
+    expect(mockSpawn).not.toHaveBeenCalled();
+  } finally {
+    release();
+  }
+  expect(await installing).toBe(true);
+});
+
 test('Linux quit update holds the install lock until AppImage replacement finishes', async () => {
   const current = path.join(
     mockTempDir,
@@ -1041,6 +1172,9 @@ test('Linux quit update holds the install lock until AppImage replacement finish
 
   const installing = api.installOnQuit();
   await started;
+  await expect(api.prepareQuitInstall(undefined, params)).rejects.toThrow(
+    '"code":"INSTALL_FAILED"',
+  );
   expect(await api.installPackage(params)).toBe(false);
   await expect(api.clearUpdateCache()).rejects.toThrow(
     '"code":"INSTALL_FAILED"',

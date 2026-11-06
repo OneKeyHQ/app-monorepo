@@ -1090,6 +1090,51 @@ describe('processPendingInstallTask', () => {
     expect(appUpdateState.status).toBe(EAppUpdateStatus.ready);
   });
 
+  test('repeated app-install UAC cancellations keep the task pending for another attempt', async () => {
+    resetAppUpdateState({
+      latestVersion: '2.0.0',
+      status: EAppUpdateStatus.ready,
+      updateStrategy: EUpdateStrategy.seamless,
+      downloadUrl: 'https://cdn.onekey.so/app-2.0.0.pkg',
+      downloadedEvent: {
+        latestVersion: '2.0.0',
+        downloadUrl: 'https://cdn.onekey.so/app-2.0.0.pkg',
+      },
+    });
+    resetPendingTask({
+      ...makeSwitchTask(),
+      taskId: 'appShell:2.0.0:direct',
+      action: 'install-app',
+      type: 'app-install',
+      targetAppVersion: '2.0.0',
+      targetBundleVersion: '1',
+      payload: {
+        latestVersion: '2.0.0',
+        channel: 'direct',
+        downloadUrl: 'https://cdn.onekey.so/app-2.0.0.pkg',
+      },
+    });
+    autoUpdate.AppUpdate.installPackage.mockRejectedValue(
+      createUpdateError({ code: EUpdateErrorCode.cancelled, step: 'install' }),
+    );
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      await service.processPendingInstallTask();
+      expect(pendingTaskValue).toMatchObject({
+        status: 'pending',
+        retryCount: 0,
+      });
+      expect(pendingTaskValue.runningStartedAt).toBeUndefined();
+      expect(pendingTaskValue.nextRetryAt).toBeUndefined();
+      expect(appUpdateState.freezeUntil).toBeUndefined();
+      expect(appUpdateState.ignoredTargets).toEqual({});
+    }
+    expect(autoUpdate.AppUpdate.installPackage).toHaveBeenCalledTimes(3);
+    autoUpdate.AppUpdate.installPackage.mockResolvedValue(true);
+    await service.processPendingInstallTask();
+    expect(pendingTaskValue.status).toBe('applied_waiting_verify');
+    expect(autoUpdate.AppUpdate.installPackage).toHaveBeenCalledTimes(4);
+  });
+
   test('app-install restart mismatch waits during external installer grace period', async () => {
     resetPendingTask({
       taskId: 'appShell:2.0.0:direct',

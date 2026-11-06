@@ -1569,6 +1569,11 @@ class ServicePendingInstallTask {
       return started;
     } catch (error) {
       await restoreStartupSource();
+      if (
+        getUpdateError(error, 'install').code === EUpdateErrorCode.cancelled
+      ) {
+        return false;
+      }
       throw error;
     }
   }

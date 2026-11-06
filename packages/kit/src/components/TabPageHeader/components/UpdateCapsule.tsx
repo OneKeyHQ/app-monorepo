@@ -29,10 +29,7 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { useDownloadProgress } from '@onekeyhq/shared/src/modules3rdParty/auto-update';
-import {
-  EUpdateErrorCode,
-  isRetryableUpdateError,
-} from '@onekeyhq/shared/src/modules3rdParty/auto-update/error';
+import { EUpdateErrorCode } from '@onekeyhq/shared/src/modules3rdParty/auto-update/error';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
 import {
@@ -130,15 +127,6 @@ function getCapsuleMode(data: IAppUpdateInfo): ICapsuleMode {
     data.status === EAppUpdateStatus.downloadPackageFailed ||
     data.status === EAppUpdateStatus.updateIncomplete
   ) {
-    if (
-      !data.downloadRetryExhausted &&
-      data.updateError &&
-      isRetryableUpdateError(data.updateError)
-    ) {
-      if (data.status === EAppUpdateStatus.downloadPackageFailed)
-        return 'download';
-      if (data.status !== EAppUpdateStatus.failed) return 'verify';
-    }
     return 'error';
   }
   return 'download';
@@ -636,7 +624,7 @@ export function UpdateCapsule({
                   </SizableText>
                   <SizableText size="$bodyMd">
                     {intl.formatMessage({
-                      id: ETranslations.app_update_file_removed__desc,
+                      id: ETranslations.app_update_cant_continue__msg,
                     })}
                   </SizableText>
                   <Button

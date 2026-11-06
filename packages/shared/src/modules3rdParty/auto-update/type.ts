@@ -111,7 +111,13 @@ export interface IAppUpdate {
   checkPackageAvailability: ICheckPackageAvailability;
   installPackage: IInstallPackage;
   prepareMacInstall?: (params: IAppUpdateInfo) => Promise<void>;
-  prepareQuitInstall?: (params: IAppUpdateInfo) => Promise<void>;
+  prepareQuitInstall?: (
+    params?: IAppUpdateInfo,
+    expectedTarget?: Pick<
+      IDownloadPackageParams,
+      'latestVersion' | 'downloadUrl'
+    >,
+  ) => Promise<void>;
   manualInstallPackage: IManualInstallPackage;
   clearPackage: IClearPackage;
   /**

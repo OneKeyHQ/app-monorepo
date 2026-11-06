@@ -407,6 +407,13 @@ class DesktopApiAppUpdate {
 
   private quitInstallParams?: IInstallUpdateParams;
 
+  private quitInstallGeneration = 0;
+
+  private preparingQuitInstall?: Pick<
+    IInstallUpdateParams,
+    'latestVersion' | 'downloadUrl'
+  >;
+
   private installHandoffStarted = false;
 
   private cachedRuntimeArch?: string;
@@ -689,13 +696,15 @@ class DesktopApiAppUpdate {
   }
 
   async clearUpdateCache(): Promise<void> {
-    if (this.installInProgress) {
+    if (this.installInProgress || this.macStagedIdentity) {
       throw createUpdateError({
         code: EUpdateErrorCode.installFailed,
         step: 'cleanup',
       });
     }
     this.quitInstallParams = undefined;
+    this.preparingQuitInstall = undefined;
+    this.quitInstallGeneration += 1;
     if (this.cacheClearPromise) {
       try {
         return await this.cacheClearPromise;
@@ -1461,21 +1470,57 @@ class DesktopApiAppUpdate {
     return app.moveToApplicationsFolder();
   }
 
-  async prepareQuitInstall(params: IInstallUpdateParams): Promise<void> {
-    this.quitInstallParams = undefined;
-    if (isStoreVersion || (!isWin && !isAppImage)) return;
-    if (isWin) {
-      if (getWindowsInstallScope() !== 'currentUser') return;
-      try {
-        fs.accessSync(path.dirname(process.execPath), fs.constants.W_OK);
-      } catch {
-        return;
+  async prepareQuitInstall(
+    params?: IInstallUpdateParams,
+    expectedTarget?: Pick<
+      IInstallUpdateParams,
+      'latestVersion' | 'downloadUrl'
+    >,
+  ): Promise<void> {
+    if (!params) {
+      if (this.installInProgress) {
+        throw createUpdateError({
+          code: EUpdateErrorCode.installFailed,
+          step: 'install',
+        });
       }
-    } else if (!this.canAutoInstallAppImage()) {
+      const matches = (
+        target?: Pick<IInstallUpdateParams, 'latestVersion' | 'downloadUrl'>,
+      ) =>
+        target &&
+        (!expectedTarget ||
+          (target.latestVersion === expectedTarget.latestVersion &&
+            target.downloadUrl === expectedTarget.downloadUrl));
+      if (matches(this.quitInstallParams)) this.quitInstallParams = undefined;
+      if (matches(this.preparingQuitInstall)) {
+        this.preparingQuitInstall = undefined;
+        this.quitInstallGeneration += 1;
+      }
       return;
     }
-    await this.getInstallRecord(params);
-    this.quitInstallParams = params;
+    this.quitInstallGeneration += 1;
+    const generation = this.quitInstallGeneration;
+    this.quitInstallParams = undefined;
+    this.preparingQuitInstall = params;
+    try {
+      if (isStoreVersion || (!isWin && !isAppImage)) return;
+      if (isWin) {
+        if (getWindowsInstallScope() !== 'currentUser') return;
+        try {
+          fs.accessSync(path.dirname(process.execPath), fs.constants.W_OK);
+        } catch {
+          return;
+        }
+      } else if (!this.canAutoInstallAppImage()) {
+        return;
+      }
+      await this.getInstallRecord(params);
+      if (this.quitInstallGeneration === generation)
+        this.quitInstallParams = params;
+    } finally {
+      if (this.quitInstallGeneration === generation)
+        this.preparingQuitInstall = undefined;
+    }
   }
 
   hasPreparedQuitInstall(): boolean {

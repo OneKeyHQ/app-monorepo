@@ -35,6 +35,7 @@ jest.mock('../../background/instance/backgroundApiProxy', () => {
     verifyPackageFailed: jest.fn(),
     readyToInstall: jest.fn(),
     canRestartForUpdate: jest.fn().mockResolvedValue(true),
+    canDownloadCurrentTarget: jest.fn().mockResolvedValue(true),
     recordInstallSource: jest.fn().mockResolvedValue(undefined),
     restoreInstallSource: jest.fn().mockResolvedValue(undefined),
     installLocationFailed: jest.fn().mockResolvedValue(undefined),
@@ -74,6 +75,9 @@ jest.mock('../../background/instance/backgroundApiProxy', () => {
     default: {
       serviceAppUpdate: svc,
       serviceDevSetting: dev,
+      serviceSetting: {
+        getEnableAutoDownloadAppUpdate: jest.fn().mockResolvedValue(true),
+      },
       serviceDApp: dapp,
     },
   };
@@ -3116,6 +3120,55 @@ describe('useAppUpdateInfo useEffect', () => {
       expect(svc.refreshUpdateStatus).toHaveBeenCalled();
     });
   });
+
+  test('cold desktop ready state restores the quit installer before dispatch', async () => {
+    mockPlatformEnv.isDesktop = true;
+    setAtom({
+      latestVersion: '2.0.0',
+      status: EAppUpdateStatus.ready,
+      updateStrategy: EUpdateStrategy.manual,
+      downloadUrl: 'https://cdn.onekey.so/app.exe',
+      downloadedEvent: {
+        latestVersion: '2.0.0',
+        downloadUrl: 'https://cdn.onekey.so/app.exe',
+      },
+    });
+    const hooks = requireFreshHooks();
+    const hook = renderHook(() => hooks.useAppUpdateInfo(false, true));
+    await act(async () => {
+      await jest.runAllTimersAsync();
+    });
+    expect(svc.readyToInstall).toHaveBeenCalledTimes(1);
+    hook.unmount();
+  });
+
+  test.each([EUpdateStrategy.manual, EUpdateStrategy.force])(
+    'automatic download event respects desktop release strategy %s',
+    async (strategy) => {
+      mockPlatformEnv.isDesktop = true;
+      setAtom({
+        latestVersion: '2.0.0',
+        status: EAppUpdateStatus.notify,
+        updateStrategy: strategy,
+        downloadUrl: 'https://cdn.onekey.so/app.exe',
+      });
+      const hooks = requireFreshHooks();
+      const hook = renderHook(() => hooks.useAppUpdateInfo(false, true));
+      await act(async () => {
+        await jest.runAllTimersAsync();
+      });
+      svc.downloadPackage.mockClear();
+      await act(async () => {
+        appEventBus.emitToSelf({
+          type: EAppEventBusNames.StartAutoDownloadUpdate,
+          payload: { decision: 'autoDownloadEnabled' },
+        });
+        await Promise.resolve();
+      });
+      expect(svc.downloadPackage).not.toHaveBeenCalled();
+      hook.unmount();
+    },
+  );
 
   // ----- C5. fetchUpdateInfo result handling -----
   describe('fetchUpdateInfo result handling', () => {

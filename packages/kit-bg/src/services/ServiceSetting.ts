@@ -11,6 +11,7 @@ import {
   EAppUpdateStatus,
   EUpdateFileType,
   getUpdateFileType,
+  isAutoUpdateStrategy,
 } from '@onekeyhq/shared/src/appUpdate';
 import {
   backgroundClass,
@@ -919,6 +920,7 @@ class ServiceSetting extends ServiceBase {
     const update = await appUpdatePersistAtom.get();
     if (
       update.status === EAppUpdateStatus.notify &&
+      isAutoUpdateStrategy(update.updateStrategy) &&
       getUpdateFileType(update) === EUpdateFileType.appShell &&
       !update.storeUrl &&
       (await this.backgroundApi.serviceAppUpdate.canDownloadCurrentTarget())

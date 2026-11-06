@@ -43,12 +43,16 @@ http
       knownPath &&
       (origin === 'http://localhost:3001' || origin === 'http://127.0.0.1:3001')
     ) {
-      res.setHeader('Access-Control-Allow-Origin', origin);
+      if (origin === 'http://localhost:3001') {
+        res.setHeader('Access-Control-Allow-Origin', 'http://localhost:3001');
+      } else {
+        res.setHeader('Access-Control-Allow-Origin', 'http://127.0.0.1:3001');
+      }
       res.setHeader('Vary', 'Origin');
       res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
       res.setHeader(
         'Access-Control-Allow-Headers',
-        req.headers['access-control-request-headers'] || 'content-type',
+        'content-type, authorization, x-onekey-request-id, x-amzn-trace-id, x-onekey-request-currency, x-onekey-instance-id, x-onekey-request-locale, x-onekey-request-theme, x-onekey-request-platform, x-onekey-request-platform-name, x-onekey-request-device-name, x-onekey-request-version, x-onekey-hide-asset-details, x-onekey-request-build-number, x-onekey-request-jsbundle-version',
       );
     }
     res.setHeader('Cache-Control', 'no-store');

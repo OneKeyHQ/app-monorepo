@@ -227,7 +227,18 @@ const prepareMacInstall = async (params: IAppUpdateInfo): Promise<void> => {
   );
 };
 
-const prepareQuitInstall = async (params: IAppUpdateInfo): Promise<void> => {
+const prepareQuitInstall: NonNullable<
+  IAppUpdate['prepareQuitInstall']
+> = async (params, expectedTarget) => {
+  if (!params) {
+    await runUpdateOperation('install', () =>
+      globalThis.desktopApiProxy.appUpdate.prepareQuitInstall(
+        undefined,
+        expectedTarget,
+      ),
+    );
+    return;
+  }
   if (!params.downloadedEvent?.downloadUrl || !params.latestVersion) return;
   await runUpdateOperation('install', () =>
     globalThis.desktopApiProxy.appUpdate.prepareQuitInstall({

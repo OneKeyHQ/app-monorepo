@@ -442,6 +442,18 @@ export function useAppUpdateForegroundEffects(enabled = true) {
       const info =
         await backgroundApiProxy.serviceAppUpdate.reconcileAppShellPackage();
       if (cancelled) return;
+      if (
+        platformEnv.isDesktop &&
+        !platformEnv.isDesktopMac &&
+        info.status === EAppUpdateStatus.ready &&
+        getUpdateFileType(info) === EUpdateFileType.appShell &&
+        info.updateStrategy !== EUpdateStrategy.force &&
+        !info.storeUrl &&
+        !isFirstLaunchAfterUpdated(info)
+      ) {
+        await backgroundApiProxy.serviceAppUpdate.readyToInstall();
+        if (cancelled) return;
+      }
 
       if (isFirstLaunchAfterUpdated(info)) {
         // Defer, don't skip: everything below is one-shot (analytics event,
@@ -667,7 +679,8 @@ export function useAppUpdateForegroundEffects(enabled = true) {
         if (
           platformEnv.isDesktop &&
           getUpdateFileType(info) === EUpdateFileType.appShell &&
-          (!(await backgroundApiProxy.serviceSetting.getEnableAutoDownloadAppUpdate()) ||
+          (!isAutoUpdateStrategy(info.updateStrategy) ||
+            !(await backgroundApiProxy.serviceSetting.getEnableAutoDownloadAppUpdate()) ||
             !(await backgroundApiProxy.serviceAppUpdate.canDownloadCurrentTarget()))
         ) {
           return;
