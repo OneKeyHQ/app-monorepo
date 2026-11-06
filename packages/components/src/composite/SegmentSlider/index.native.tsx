@@ -6,14 +6,25 @@ import {
   type SegmentSliderProps,
   SegmentSliderView,
 } from '@onekeyfe/react-native-segment-slider';
-import { StyleSheet } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import {
   type HybridRef,
   type NitroViewWrappedCallback,
   callback,
 } from 'react-native-nitro-modules';
 
+import LazyLoad from '@onekeyhq/shared/src/lazyLoad';
+
 import { useTheme } from '../../hooks/useStyle';
+
+const DottedSlider = LazyLoad<ISegmentSliderProps>(
+  () =>
+    import('./DottedSlider.native').then((module) => ({
+      default: module.DottedSlider,
+    })),
+  undefined,
+  <View style={{ height: 40, width: '100%' }} />,
+);
 
 // Touch/hit area height, matching the web variant's HIT_AREA_HEIGHT.
 const HIT_AREA_HEIGHT = 24;
@@ -52,6 +63,8 @@ const styles = StyleSheet.create({
 export interface ISegmentSliderProps {
   value: number;
   sliderHeight?: number;
+  activeColor?: string;
+  appearance?: 'default' | 'dotted';
   onChange: (value: number) => void;
   segments: number;
   /**
@@ -64,8 +77,8 @@ export interface ISegmentSliderProps {
   onSlideStart?: () => void;
   onSlideComplete?: () => void;
   /**
-   * When true, a tap (a press that does not turn into a drag) snaps the value to
-   * the nearest segment mark; a drag still moves freely to any value. No-op when
+   * When true, taps within a segment mark hot zone snap to that mark. Taps
+   * elsewhere and drags select any value continuously. No-op when
    * `segments` is 0. Default false. Native-only for now — the web variant
    * (`./index.tsx`) does not yet honor this and keeps its tap-on-mark snapping.
    */
@@ -109,6 +122,7 @@ export interface ISegmentSliderProps {
 function SegmentSliderComponent({
   value,
   sliderHeight = DEFAULT_TRACK_HEIGHT,
+  activeColor,
   onChange,
   segments,
   onSlideStart,
@@ -123,7 +137,7 @@ function SegmentSliderComponent({
   const theme = useTheme();
   // `.val` re-reads on theme change (useTheme re-runs the component), so the
   // native view repaints with fresh colors on light/dark switches.
-  const bgPrimary = theme.bgPrimary.val;
+  const bgPrimary = activeColor ?? theme.bgPrimary.val;
   const neutral5 = theme.neutral5.val;
   const bg = theme.bg.val;
   const borderStrong = theme.borderStrong.val;
@@ -243,5 +257,13 @@ function SegmentSliderComponent({
   );
 }
 
-export const SegmentSlider = memo(SegmentSliderComponent);
+function PlatformSegmentSlider(props: ISegmentSliderProps) {
+  return props.appearance === 'dotted' ? (
+    <DottedSlider {...props} />
+  ) : (
+    <SegmentSliderComponent {...props} />
+  );
+}
+
+export const SegmentSlider = memo(PlatformSegmentSlider);
 SegmentSlider.displayName = 'SegmentSlider';

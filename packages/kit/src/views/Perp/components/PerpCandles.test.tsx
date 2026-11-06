@@ -359,6 +359,9 @@ describe.each([
     render(<Chart />);
 
     expect(mockNativeChart).toHaveBeenCalled();
+    expect(
+      mockNativeChart.mock.lastCall?.[0].mobileControlsAppearance,
+    ).toBeUndefined();
     expect(mockChartMount).not.toHaveBeenCalled();
     expect(mockSetCustomSettings).not.toHaveBeenCalled();
   });

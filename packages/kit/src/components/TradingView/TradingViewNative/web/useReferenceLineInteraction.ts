@@ -220,9 +220,10 @@ export function useReferenceLineInteraction({
         const layout = pointer.projection.layout;
         const startY = getTradingViewNativePriceY(pointer.hit.price, layout);
         const y = Math.min(
-          TRADING_VIEW_NATIVE_CHART_TOP_PADDING + layout.priceChartHeight,
+          (layout.priceChartTop ?? TRADING_VIEW_NATIVE_CHART_TOP_PADDING) +
+            layout.priceChartHeight,
           Math.max(
-            TRADING_VIEW_NATIVE_CHART_TOP_PADDING,
+            layout.priceChartTop ?? TRADING_VIEW_NATIVE_CHART_TOP_PADDING,
             startY + event.clientY - pointer.startClientY,
           ),
         );

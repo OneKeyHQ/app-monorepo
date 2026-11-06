@@ -46,6 +46,7 @@ import type {
 } from '@onekeyhq/shared/src/logger/scopes/perp/type';
 import type { IUnifoldSourceSelectorResult } from '@onekeyhq/shared/src/routes/perp';
 import { parseUnifoldExecutionCreatedAtMs } from '@onekeyhq/shared/src/utils/unifoldDepositUtils';
+import type { IPerpsTradingUiMode } from '@onekeyhq/shared/types/hyperliquid/types';
 import type {
   IUnifoldSupportedAsset,
   IUnifoldSupportedAssetChain,
@@ -335,6 +336,7 @@ export const UnifoldTransferContent = forwardRef<
     onOpenMobileTokenSelector?: () => void;
     onOpenMobileChainSelector?: () => void;
     analyticsEntrySource?: TPerpDepositEntrySource;
+    tradingUiMode?: IPerpsTradingUiMode;
     trackDefaultSourceSelection?: boolean;
   }
 >(
@@ -354,6 +356,7 @@ export const UnifoldTransferContent = forwardRef<
       onOpenMobileTokenSelector,
       onOpenMobileChainSelector,
       analyticsEntrySource,
+      tradingUiMode = 'pro',
       trackDefaultSourceSelection = false,
     },
     ref,
@@ -405,6 +408,7 @@ export const UnifoldTransferContent = forwardRef<
         }
         lastTrackedSourceRef.current = sourceKey;
         defaultLogger.perp.deposit.perpDepositAddressSourceSelect({
+          tradingUiMode,
           entrySource: analyticsEntrySource,
           walletType: activePerpsAccount.walletType ?? 'unknown',
           sourceTokenSymbol: asset.symbol,
@@ -414,7 +418,7 @@ export const UnifoldTransferContent = forwardRef<
           selectionSource,
         });
       },
-      [activePerpsAccount.walletType, analyticsEntrySource],
+      [activePerpsAccount.walletType, analyticsEntrySource, tradingUiMode],
     );
 
     const handleSelectToken = useCallback(

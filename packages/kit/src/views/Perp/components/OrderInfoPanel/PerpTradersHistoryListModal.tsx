@@ -35,6 +35,7 @@ import {
   usePerpTradesHistoryViewAllUrl,
   usePerpTwapHistoryViewAllUrl,
 } from '../../hooks/usePerpOrderInfoPanel';
+import { usePerpsTradingUiMode } from '../../hooks/usePerpsTradingUiMode';
 import { useUnifoldDepositTrackerAvailability } from '../../hooks/useShowDepositWithdrawModal';
 import { useTradeHistoryFilters } from '../../hooks/useTradeHistoryFilters';
 import { PerpsAccountSelectorProviderMirror } from '../../PerpsAccountSelectorProviderMirror';
@@ -134,6 +135,7 @@ function TabHeader({
 }
 
 export function PerpTradersHistoryListModal() {
+  const tradingUiMode = usePerpsTradingUiMode();
   const intl = useIntl();
   const { perpTabShowWeb } = usePerpTabConfig();
   const actions = useHyperliquidActions();
@@ -163,7 +165,7 @@ export function PerpTradersHistoryListModal() {
   const { onViewAllUrl: onViewAllFundingUrl } =
     usePerpFundingHistoryViewAllUrl();
   const [activeTab, setActiveTab] = useState<ITabName>(initialTab);
-  const tradeHistoryFilters = useTradeHistoryFilters();
+  const tradeHistoryFilters = useTradeHistoryFilters(route.params?.coin);
   const [fundingHistorySideFilter, setFundingHistorySideFilter] =
     useState<IFundingHistorySideFilter>('all');
   const [fundingHistoryMarketFilter, setFundingHistoryMarketFilter] = useState<
@@ -205,8 +207,10 @@ export function PerpTradersHistoryListModal() {
     }
     navigation.push(EModalPerpRoutes.MobileUnifoldDepositTracker, {
       expectedRecipient: safeRecipient,
+      tradingUiMode,
+      analyticsEntrySource: 'depositHistory',
     });
-  }, [navigation, safeRecipient]);
+  }, [navigation, safeRecipient, tradingUiMode]);
 
   useEffect(() => {
     if (activeTab === 'Account') {
@@ -295,6 +299,7 @@ export function PerpTradersHistoryListModal() {
                 </XStack>
                 <PerpTradesHistoryList
                   isMobile
+                  sourceSimpleMarketCoin={route.params?.sourceSimpleMarketCoin}
                   useTabsList={false}
                   filters={tradeHistoryFilters.filters}
                   onMarketOptionsChange={

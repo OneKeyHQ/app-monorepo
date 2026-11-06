@@ -7,6 +7,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { travelModeManager } from '@onekeyhq/shared/src/travelMode';
 
 import { EAtomNames } from './atomNames';
+import { initializePreferences } from './initializePreferences';
 import {
   buildJotaiStorageKey,
   getTravelModeCurrencyReferenceState,
@@ -140,6 +141,31 @@ async function jotaiInitImpl() {
     debugLandingLog('jotaiInit atoms imported & storage preloaded');
   }
 
+  const backupedInstanceMeta =
+    !isTravelModeActive &&
+    !platformEnv.isWeb &&
+    isNil(
+      preloadedStorage.get(
+        buildJotaiStorageKey(EAtomNames.settingsPersistAtom),
+      ),
+    )
+      ? await (async () => {
+          // Read restored identity before deciding defaults for a fresh client.
+          const { default: localDbLazy } =
+            await import('../../dbs/local/localDb');
+          await localDbLazy.readyDb;
+          const { default: dbBackupToolsLazy } =
+            await import('../../services/ServiceDBBackup/dbBackupTools');
+          return dbBackupToolsLazy.getBackupedInstanceMeta();
+        })()
+      : undefined;
+  if (!isTravelModeActive) {
+    await initializePreferences(
+      preloadedStorage,
+      Boolean(backupedInstanceMeta),
+    );
+  }
+
   const atoms: { [key: string]: JotaiCrossAtom<any> } = {};
   Object.entries(allAtoms).forEach(([key, value]) => {
     if (value instanceof JotaiCrossAtom && value.name) {
@@ -200,15 +226,6 @@ async function jotaiInitImpl() {
           storageKey === buildJotaiStorageKey(EAtomNames.settingsPersistAtom) &&
           isPlainObject(initValue)
         ) {
-          // Lazy import dbBackupTools — only needed on first launch
-          // Ensure localDb is ready before reading backup metadata
-          const { default: localDbLazy } =
-            await import('../../dbs/local/localDb');
-          await localDbLazy.readyDb;
-          const { default: dbBackupToolsLazy } =
-            await import('../../services/ServiceDBBackup/dbBackupTools');
-          const backupedInstanceMeta =
-            await dbBackupToolsLazy.getBackupedInstanceMeta();
           if (backupedInstanceMeta) {
             const initValueToUpdate = cloneDeep(
               initValue || {},

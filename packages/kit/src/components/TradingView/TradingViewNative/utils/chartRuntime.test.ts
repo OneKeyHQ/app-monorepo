@@ -15,6 +15,38 @@ describe('TradingViewNative chart runtime', () => {
     });
   });
 
+  it('opens a denser viewport at the latest candle and retains manual zoom on updates', () => {
+    const chartWidth = 320;
+    const pointCount = 500;
+    const state = reduceTradingViewNativeChartRuntime(
+      createTradingViewNativeChartRuntimeState({ initialZoomScale: 0.45 }),
+      { type: 'initialWidthMeasured', width: chartWidth },
+    );
+    const range = getTradingViewNativeChartRuntimeVisiblePointRange({
+      state,
+      chartWidth,
+      pointCount,
+    });
+    expect(range.endIndex).toBe(pointCount);
+    // At four hours per candle, a phone-sized plot covers over 19 days.
+    expect((range.endIndex - range.startIndex) * 4).toBeGreaterThan(19 * 24);
+    const zoomed = reduceTradingViewNativeChartRuntime(state, {
+      type: 'zoomed',
+      nextZoomScale: 1.5,
+      anchorX: 120,
+      chartWidth,
+      pointCount,
+    });
+    expect(
+      reduceTradingViewNativeChartRuntime(zoomed, {
+        type: 'dataUpdated',
+        appendedPointCount: 1,
+        chartWidth,
+        pointCount: pointCount + 1,
+      }).viewport.zoomScale,
+    ).toBe(1.5);
+  });
+
   it('accepts a chart-width percentage as initial configuration', () => {
     expect(
       createTradingViewNativeChartRuntimeState({

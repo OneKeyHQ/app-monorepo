@@ -105,6 +105,7 @@ export function MDHeader({
   customHeaderRightItems,
   renderCustomHeaderRightItems,
   headerPx = '$5',
+  headerHeight,
   disableHomeHeaderGlass = false,
   pageScrollPosition,
 }: {
@@ -120,6 +121,7 @@ export function MDHeader({
     fixedItems: ReactNode;
   }) => ReactNode;
   headerPx?: string;
+  headerHeight?: number;
   disableHomeHeaderGlass?: boolean;
   pageScrollPosition?: SharedValue<number>;
 }) {
@@ -249,6 +251,8 @@ export function MDHeader({
           ) : (
             <>
               <XStack
+                minHeight={headerHeight}
+                maxHeight={headerHeight}
                 alignItems="center"
                 justifyContent="space-between"
                 px={headerPx}

@@ -1,7 +1,13 @@
 import { LottieView, Stack } from '@onekeyhq/components';
 import TradingViewChartLoadingAnimation from '@onekeyhq/kit/assets/animations/swap_order_pending.json';
 
-export function TradingViewChartLoadingMask({ testID }: { testID?: string }) {
+export function TradingViewChartLoadingMask({
+  testID,
+  backgroundColor,
+}: {
+  testID?: string;
+  backgroundColor?: string;
+}) {
   return (
     <Stack
       position="absolute"
@@ -10,7 +16,7 @@ export function TradingViewChartLoadingMask({ testID }: { testID?: string }) {
       bottom={0}
       left={0}
       zIndex={2}
-      bg="$bgApp"
+      bg={backgroundColor ?? '$bgApp'}
       alignItems="center"
       justifyContent="center"
       pointerEvents="none"

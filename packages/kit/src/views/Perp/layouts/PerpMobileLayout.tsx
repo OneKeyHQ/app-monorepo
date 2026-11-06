@@ -81,6 +81,12 @@ export enum ETabName {
   SwapOrderHistory = 'SwapOrderHistory',
 }
 
+function getMobileInfoPanelTab(tab: string): ETabName {
+  if (tab === 'Balances') return ETabName.Balances;
+  if (tab === 'OpenOrders') return ETabName.OpenOrders;
+  return ETabName.Positions;
+}
+
 const tabNameToTranslationKey: Record<
   ETabName,
   | ETranslations.perp_position_title
@@ -175,9 +181,7 @@ export function PerpMobileLayout() {
   const [pendingInfoPanelTab, setPendingInfoPanelTab] =
     usePerpsPendingInfoPanelTabAtom();
   const [activeTab, setActiveTab] = useState<ETabName>(
-    tradeRouteViewState.infoPanelTab === 'Balances'
-      ? ETabName.Balances
-      : ETabName.Positions,
+    getMobileInfoPanelTab(tradeRouteViewState.infoPanelTab),
   );
   const [refreshing, setRefreshing] = useState(false);
   const layoutRectsRef = useRef<
@@ -190,11 +194,7 @@ export function PerpMobileLayout() {
   const actions = useHyperliquidActions();
 
   useEffect(() => {
-    setActiveTab(
-      tradeRouteViewState.infoPanelTab === 'Balances'
-        ? ETabName.Balances
-        : ETabName.Positions,
-    );
+    setActiveTab(getMobileInfoPanelTab(tradeRouteViewState.infoPanelTab));
   }, [tradeRouteViewState.infoPanelTab]);
 
   useEffect(() => {
@@ -225,9 +225,17 @@ export function PerpMobileLayout() {
     };
   }, [actions]);
 
+  const handleTabChange = useCallback(
+    (tab: ETabName) => {
+      setActiveTab(tab);
+      actions.current.setTradeRouteViewState({ infoPanelTab: tab });
+    },
+    [actions],
+  );
+
   const handleViewTpslOrders = useCallback(() => {
-    setActiveTab(ETabName.OpenOrders);
-  }, []);
+    handleTabChange(ETabName.OpenOrders);
+  }, [handleTabChange]);
 
   const handleViewTradesHistory = useCallback(() => {
     navigation.pushModal(EModalRoutes.PerpModal, {
@@ -467,18 +475,18 @@ export function PerpMobileLayout() {
               <TabBarItem
                 name={ETabName.Positions}
                 isFocused={activeTab === ETabName.Positions}
-                onPress={setActiveTab}
+                onPress={handleTabChange}
                 tabCount={positionsTabCount}
               />
               <TabBarItem
                 name={ETabName.OpenOrders}
                 isFocused={activeTab === ETabName.OpenOrders}
-                onPress={setActiveTab}
+                onPress={handleTabChange}
                 tabCount={openOrdersTabCount}
               />
               <MobileHoldingsTabBarItem
                 isFocused={activeTab === ETabName.Balances}
-                onPress={setActiveTab}
+                onPress={handleTabChange}
                 balances={displayBalances}
                 hasPerpsUsdc={hasPerpsUsdc}
               />

@@ -9,6 +9,7 @@ import {
 } from 'react';
 import type { ReactElement, ReactNode } from 'react';
 
+import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 import { type LayoutChangeEvent, StyleSheet } from 'react-native';
 
@@ -18,7 +19,9 @@ import {
   DebugRenderTracker,
   Dialog,
   Divider,
+  type IColorTokens,
   SizableText,
+  Skeleton,
   XStack,
   YStack,
   useMedia,
@@ -84,8 +87,10 @@ import {
   type IOrderBookSelection,
   OrderBook,
   OrderBookMobile,
+  OrderBookSideRatio,
 } from './OrderBook';
 import { DefaultLoadingNode } from './OrderBook/DefaultLoadingNode';
+import { useAggregatedBook } from './OrderBook/useAggregatedBook';
 import { useTickOptions } from './OrderBook/useTickOptions';
 import { PerpOrderBookMobileVerticalShell } from './PerpOrderBookMobileVerticalShell';
 
@@ -609,12 +614,47 @@ function PerpOrderBookDataBridge({
 }
 const PerpOrderBookDataBridgeMemo = memo(PerpOrderBookDataBridge);
 
+function PerpOrderBookSummary({
+  book,
+  tickOption,
+  priceDecimals,
+  sizeDecimals,
+}: {
+  book: IL2BookData;
+  tickOption: ITickParam | undefined;
+  priceDecimals: number;
+  sizeDecimals: number;
+}) {
+  const data = useAggregatedBook(
+    'mobileHorizontal',
+    book.bids,
+    book.asks,
+    13,
+    tickOption,
+    priceDecimals,
+    sizeDecimals,
+  );
+  return (
+    <OrderBookSideRatio
+      bidDepth={new BigNumber(data.bids.at(-1)?.cumSize ?? 0)}
+      askDepth={new BigNumber(data.asks.at(-1)?.cumSize ?? 0)}
+      size="summary"
+    />
+  );
+}
+
 export function PerpOrderBook({
   entry,
   maxLevelsPerSide: propMaxLevelsPerSide,
   initialOrderBookHeight,
+  backgroundColor = '$bgApp',
+  summaryOnly = false,
+  readOnly = false,
 }: {
   entry?: 'perpTab' | 'perpMobileMarket';
+  backgroundColor?: IColorTokens;
+  summaryOnly?: boolean;
+  readOnly?: boolean;
   maxLevelsPerSide?: number;
   initialOrderBookHeight?: number;
 }) {
@@ -883,6 +923,7 @@ export function PerpOrderBook({
 
   const handlePriceSelect = useCallback(
     (price: string) => {
+      if (readOnly) return;
       if (
         !isPerpsL2BookInteractive({
           bookTime: visibleL2Book?.time,
@@ -905,6 +946,7 @@ export function PerpOrderBook({
     },
     [
       actionsRef,
+      readOnly,
       formData.type,
       visibleL2Book?.localReceivedAt,
       visibleL2Book?.isCachedSnapshot,
@@ -1121,12 +1163,31 @@ export function PerpOrderBook({
     />
   );
 
+  if (summaryOnly) {
+    return (
+      <>
+        {dataBridge}
+        {hasRenderOrderBook && visibleL2Book ? (
+          <PerpOrderBookSummary
+            book={visibleL2Book}
+            tickOption={selectedTickOption}
+            priceDecimals={priceDecimals}
+            sizeDecimals={sizeDecimals}
+          />
+        ) : (
+          <Skeleton height={24} width="100%" />
+        )}
+      </>
+    );
+  }
+
   if (!gtMd && entry !== 'perpMobileMarket') {
     const isLoading = !hasRenderOrderBook || !visibleL2Book;
     return (
       <>
         {dataBridge}
         <PerpOrderBookMobileVerticalShell
+          backgroundColor={backgroundColor}
           header={<MobileHeaderMemo />}
           isLoading={isLoading}
           onLayout={(event) =>
@@ -1187,7 +1248,7 @@ export function PerpOrderBook({
         {dataBridge}
         <YStack
           flex={1}
-          bg="$bgApp"
+          bg={backgroundColor}
           onLayout={(event) =>
             handleTraceLayout('mobileHorizontalLoading', event)
           }
@@ -1230,7 +1291,7 @@ export function PerpOrderBook({
   const content = (
     <YStack
       flex={1}
-      bg="$bgApp"
+      bg={backgroundColor}
       onLayout={(event) => handleTraceLayout('rootReady', event)}
     >
       {gtMd ? (

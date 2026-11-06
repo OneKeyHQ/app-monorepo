@@ -66,6 +66,8 @@ export default function MobileUnifoldDepositTransferModal() {
     IUnifoldSupportedAssetChain | undefined
   >(undefined);
   const expectedRecipient = route.params?.expectedRecipient;
+  const tradingUiMode = route.params?.tradingUiMode;
+  const analyticsEntrySource = route.params?.analyticsEntrySource;
   const goBack = useCallback(() => {
     if (flowHistory.length > 1) {
       setFlowHistory((current) => current.slice(0, -1));
@@ -123,8 +125,10 @@ export default function MobileUnifoldDepositTransferModal() {
     navigation.push(EModalPerpRoutes.MobileUnifoldDepositTracker, {
       expectedRecipient,
       openedFromTransfer: true,
+      tradingUiMode,
+      analyticsEntrySource,
     });
-  }, [expectedRecipient, navigation]);
+  }, [expectedRecipient, navigation, tradingUiMode, analyticsEntrySource]);
   const prepareInitialSourceSelector = useCallback(
     ({
       assets,
@@ -182,6 +186,7 @@ export default function MobileUnifoldDepositTransferModal() {
             expectedRecipient={expectedRecipient}
             onOpenTracker={openTracker}
             analyticsEntrySource={route.params?.analyticsEntrySource}
+            tradingUiMode={route.params?.tradingUiMode}
             trackDefaultSourceSelection={
               !route.params?.openSourceSelectorOnReady
             }

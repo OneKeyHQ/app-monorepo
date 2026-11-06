@@ -37,11 +37,13 @@ function getIndicatorTextColor({
 }
 
 function IndicatorQuickBarItem({
+  dense = false,
   indicator,
   isActive,
   isDisabled,
   onPress,
 }: {
+  dense?: boolean;
   indicator: ITradingViewIndicatorOption;
   isActive: boolean;
   isDisabled: boolean;
@@ -50,6 +52,7 @@ function IndicatorQuickBarItem({
   const content = (
     <SizableText
       size={isActive ? '$bodySmMedium' : '$bodySm'}
+      {...(dense && { size: '$bodyXs', fontWeight: isActive ? '500' : '400' })}
       numberOfLines={1}
       adjustsFontSizeToFit
       minimumFontScale={0.82}
@@ -117,20 +120,24 @@ function IndicatorQuickBarItems({
 export const TradingViewIndicatorQuickBar = memo(
   ({
     activeIndicatorValues,
+    backgroundColor,
     mainIndicators,
     subIndicators,
     canToggleIndicatorOn,
     onIndicatorPress: handleIndicatorPress,
+    dense = false,
     splitSections = false,
     settingsControl,
     onControlInteraction,
     onTouchScroll,
   }: {
     activeIndicatorValues: ReadonlySet<string>;
+    backgroundColor?: string;
     mainIndicators: ITradingViewIndicatorOption[];
     subIndicators: ITradingViewIndicatorOption[];
     canToggleIndicatorOn: (indicatorValue: string) => boolean;
     onIndicatorPress: (indicator: ITradingViewIndicatorOption) => void;
+    dense?: boolean;
     splitSections?: boolean;
     settingsControl?: ReactNode;
     onControlInteraction?: () => void;
@@ -183,13 +190,14 @@ export const TradingViewIndicatorQuickBar = memo(
       <XStack
         h={TRADING_VIEW_NATIVE_INDICATOR_QUICK_BAR_HEIGHT}
         px="$5"
-        gap="$4"
+        gap={dense ? '$3.5' : '$4'}
         alignItems="center"
         flexShrink={settingsControl ? 0 : undefined}
       >
         {mainIndicators.map((indicator) => (
           <IndicatorQuickBarItem
             key={indicator.value}
+            dense={dense}
             indicator={indicator}
             isActive={activeIndicatorValues.has(indicator.value)}
             isDisabled={!canToggleIndicatorOn(indicator.value)}
@@ -205,6 +213,7 @@ export const TradingViewIndicatorQuickBar = memo(
         {subIndicators.map((indicator) => (
           <IndicatorQuickBarItem
             key={indicator.value}
+            dense={dense}
             indicator={indicator}
             isActive={activeIndicatorValues.has(indicator.value)}
             isDisabled={!canToggleIndicatorOn(indicator.value)}
@@ -278,7 +287,7 @@ export const TradingViewIndicatorQuickBar = memo(
       <Stack
         testID="trading-view-native-indicator-quick-bar"
         h={TRADING_VIEW_NATIVE_INDICATOR_QUICK_BAR_HEIGHT}
-        bg="$bgApp"
+        bg={backgroundColor ?? '$bgApp'}
         flexShrink={settingsControl ? 0 : undefined}
         zIndex={3}
         onTouchStart={onTouchScroll ? handleTouchStart : undefined}
@@ -298,7 +307,7 @@ export const TradingViewIndicatorQuickBar = memo(
               h={TRADING_VIEW_NATIVE_INDICATOR_QUICK_BAR_HEIGHT}
               alignItems="center"
               flexShrink={0}
-              pr="$2"
+              pr={dense ? '$3' : '$2'}
             >
               <Stack h="$4" w="$px" bg="$borderSubdued" />
               {settingsControl}

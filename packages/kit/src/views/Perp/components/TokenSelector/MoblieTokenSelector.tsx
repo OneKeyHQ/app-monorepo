@@ -31,7 +31,6 @@ import {
   useScrollableFilterBar,
 } from '@onekeyhq/kit/src/components/ScrollableFilterBar';
 import { Token } from '@onekeyhq/kit/src/components/Token';
-import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useHyperliquidActions } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import {
   usePerpsAllAssetCtxsAtom,
@@ -48,6 +47,8 @@ import {
   type ISpotAssetCtxsMap,
   usePerpTokenSelectorConfigPersistAtom,
   usePerpTokenSelectorTabsAtom,
+  usePerpsActiveAccountAtom,
+  usePerpsCustomSettingsAtom,
   usePerpsFavoritesOrderPersistAtom,
   useSpotAssetCtxsMapAtom,
   useSpotExternalMarketCapsAtom,
@@ -68,7 +69,6 @@ import perpsUtils, {
   getSpotMarketCapValue,
   getSpotTokenDisplayName,
   getTokenSubtitle,
-  isSpotInstrument,
   parseDexCoin,
 } from '@onekeyhq/shared/src/utils/perpsUtils';
 import type {
@@ -90,6 +90,11 @@ import {
   usePerpTokenSelector,
   usePerpsFavorites,
 } from '../../hooks';
+import { usePerpsTradingUiMode } from '../../hooks/usePerpsTradingUiMode';
+import {
+  usePerpTokenSelectorOpenAnalytics,
+  usePerpTokenSelectorSelection,
+} from '../../hooks/usePerpTokenSelectorSelection';
 import { PerpsAccountSelectorProviderMirror } from '../../PerpsAccountSelectorProviderMirror';
 import { PerpsProviderMirror } from '../../PerpsProviderMirror';
 import {
@@ -366,10 +371,14 @@ function MobileTokenSelectorModal({
 }: {
   onLoadingChange: (isLoading: boolean) => void;
 }) {
+  usePerpTokenSelectorOpenAnalytics();
+  const tradingUiMode = usePerpsTradingUiMode();
+  const [account] = usePerpsActiveAccountAtom();
   const intl = useIntl();
-  const navigation = useAppNavigation();
   const actions = useHyperliquidActions();
   const { searchQuery, setSearchQuery } = usePerpTokenSelector();
+  const [settings] = usePerpsCustomSettingsAtom();
+  const includeSpot = settings.mobileTradingMode !== 'simple';
 
   // Spot data — try cache first, fallback to refresh if empty.
   // Loading is gated below so the default Perps selector path does not spend
@@ -380,42 +389,6 @@ function MobileTokenSelectorModal({
   const [spotUniverses, setSpotUniverses] = useState<ISpotUniverse[]>([]);
   const [spotLoading, setSpotLoading] = useState(true);
 
-  const handleSelectToken = useCallback(
-    async (symbol: string) => {
-      const isSpotToken = isSpotInstrument(symbol);
-      try {
-        onLoadingChange(true);
-        const subscriptionRecoveryProof =
-          await actions.current.captureInstrumentSwitchSubscriptionProof({
-            source: 'token-selector',
-          });
-        navigation.popStack();
-        if (isSpotToken) {
-          const universe = spotUniverses.find((u) => u.name === symbol);
-          // universe may be undefined if spotMeta hasn't loaded yet;
-          // switchTradeInstrument has a built-in fallback that fetches spotMeta.
-          await actions.current.switchTradeInstrument({
-            mode: 'spot',
-            coin: symbol,
-            spotUniverse: universe,
-            subscriptionRecoveryProof,
-          });
-        } else {
-          await actions.current.switchTradeInstrument({
-            mode: 'perp',
-            coin: symbol,
-            subscriptionRecoveryProof,
-          });
-        }
-      } catch (error) {
-        console.error('Failed to switch token:', error);
-      } finally {
-        onLoadingChange(false);
-      }
-    },
-    [onLoadingChange, navigation, actions, spotUniverses],
-  );
-
   const [{ assetsByDex, query: filteredQuery }] =
     usePerpsAllAssetsFilteredAtom();
   const [{ assetCtxsByDex }] = usePerpsAllAssetCtxsAtom();
@@ -425,10 +398,14 @@ function MobileTokenSelectorModal({
   const { favoriteItems: spotFavoriteItems, isReady: isSpotFavoritesReady } =
     usePerpsFavorites({ mode: 'spot' });
   const favoriteItems = useMemo(
-    () => [...perpFavoriteItems, ...spotFavoriteItems],
-    [perpFavoriteItems, spotFavoriteItems],
+    () =>
+      includeSpot
+        ? [...perpFavoriteItems, ...spotFavoriteItems]
+        : perpFavoriteItems,
+    [includeSpot, perpFavoriteItems, spotFavoriteItems],
   );
-  const isFavoritesReady = isPerpFavoritesReady && isSpotFavoritesReady;
+  const isFavoritesReady =
+    isPerpFavoritesReady && (!includeSpot || isSpotFavoritesReady);
   const [favoritesOrder] = usePerpsFavoritesOrderPersistAtom();
   const [selectorConfig, setSelectorConfig] =
     usePerpTokenSelectorConfigPersistAtom();
@@ -470,8 +447,8 @@ function MobileTokenSelectorModal({
     [intl],
   );
   const primaryTabs = useMemo(
-    () => buildPrimaryTabs(fixedTabNames),
-    [fixedTabNames],
+    () => buildPrimaryTabs(fixedTabNames, { includeSpot }),
+    [fixedTabNames, includeSpot],
   );
   const categoryTabs = useMemo(
     () =>
@@ -486,8 +463,9 @@ function MobileTokenSelectorModal({
       buildPerpTokenSelectorTabs({
         serverTabs: dynamicTabs,
         fixedTabNames,
+        includeSpot,
       }),
-    [dynamicTabs, fixedTabNames],
+    [dynamicTabs, fixedTabNames, includeSpot],
   );
   const displayActiveTab = useMemo(() => {
     if (visibleTabs.some((tab) => tab.tabId === activeTab)) {
@@ -495,15 +473,21 @@ function MobileTokenSelectorModal({
     }
     return getPerpTokenSelectorFallbackTabId(visibleTabs);
   }, [activeTab, visibleTabs]);
+  const handleSelectToken = usePerpTokenSelectorSelection({
+    activeTab: displayActiveTab,
+    onLoadingChange,
+    spotUniverses,
+  });
   const displayPrimaryTab = useMemo(
     () => getPerpTokenSelectorPrimaryTabId(displayActiveTab),
     [displayActiveTab],
   );
   const shouldEnableSpotData = useMemo(
     () =>
-      isPerpTokenSelectorSpotTab(displayPrimaryTab) ||
-      isPerpTokenSelectorFavoritesTab(displayPrimaryTab),
-    [displayPrimaryTab],
+      includeSpot &&
+      (isPerpTokenSelectorSpotTab(displayPrimaryTab) ||
+        isPerpTokenSelectorFavoritesTab(displayPrimaryTab)),
+    [displayPrimaryTab, includeSpot],
   );
   const showCategoryTabs = displayPrimaryTab === 'perps';
   const scrollListToTop = useCallback(() => {
@@ -676,14 +660,33 @@ function MobileTokenSelectorModal({
     },
     [actions, activeTab, setSelectorConfig],
   );
+  const handleCategoryTabPress = useCallback(
+    (tab: string) => {
+      if (tab === displayActiveTab) return;
+      defaultLogger.perp.tokenSelector.perpTokenSelectorCategoryTabClick({
+        tradingUiMode,
+        tab,
+        previousTab: displayActiveTab,
+        walletType: account.walletType ?? 'unknown',
+      });
+      setActiveTab(tab);
+    },
+    [account.walletType, displayActiveTab, setActiveTab, tradingUiMode],
+  );
   const setPrimaryTab = useCallback(
     (tab: string) => {
       if (tab === displayPrimaryTab) {
         return;
       }
+      defaultLogger.perp.tokenSelector.perpTokenSelectorPrimaryTabClick({
+        tradingUiMode,
+        tab,
+        previousTab: displayPrimaryTab,
+        walletType: account.walletType ?? 'unknown',
+      });
       setActiveTab(tab);
     },
-    [displayPrimaryTab, setActiveTab],
+    [account.walletType, displayPrimaryTab, setActiveTab, tradingUiMode],
   );
 
   const computeSortValues = useCallback(
@@ -1207,11 +1210,30 @@ function MobileTokenSelectorModal({
 
   const handleSortPress = useCallback(
     (field: IPerpTokenSortField) => {
+      const nextConfig = getNextPerpTokenSelectorSortConfig({
+        prev: selectorConfig,
+        field,
+      });
+      defaultLogger.perp.tokenSelector.perpTokenSelectorSortClick({
+        tradingUiMode,
+        activeTab: displayActiveTab,
+        field: nextConfig.field,
+        direction: nextConfig.direction,
+        previousField: selectorConfig?.field ?? '',
+        previousDirection: selectorConfig?.direction ?? '',
+        walletType: account.walletType ?? 'unknown',
+      });
       setSelectorConfig((prev: IPerpTokenSelectorConfig | null) => {
         return getNextPerpTokenSelectorSortConfig({ prev, field });
       });
     },
-    [setSelectorConfig],
+    [
+      account.walletType,
+      displayActiveTab,
+      selectorConfig,
+      setSelectorConfig,
+      tradingUiMode,
+    ],
   );
   const activeSortTab =
     selectorConfig?.activeTab ?? DEFAULT_PERP_TOKEN_ACTIVE_TAB;
@@ -1362,7 +1384,7 @@ function MobileTokenSelectorModal({
                   id={tab.tabId}
                   name={tab.name}
                   isFocused={displayActiveTab === tab.tabId}
-                  onPress={setActiveTab}
+                  onPress={handleCategoryTabPress}
                 />
               ))}
             </ScrollableFilterBar>

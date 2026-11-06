@@ -28,6 +28,7 @@ import {
   PRIVACY_POLICY_URL,
   TERMS_OF_SERVICE_URL,
 } from '@onekeyhq/shared/types/hyperliquid/perp.constants';
+import type { IPerpsTradeAnalyticsContext } from '@onekeyhq/shared/types/hyperliquid/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { usePerpsLogo } from '../hooks/usePerpsLogo';
@@ -278,7 +279,9 @@ export function HyperliquidTermsContent({
   );
 }
 
-export async function showHyperliquidTermsDialog(): Promise<boolean> {
+export async function showHyperliquidTermsDialog({
+  tradingUiMode = 'pro',
+}: IPerpsTradeAnalyticsContext = {}): Promise<boolean> {
   const activePerpsAccount = await perpsActiveAccountAtom.get();
   const isTermsAccepted =
     await backgroundApiProxy.simpleDb.perp.getHyperliquidTermsAccepted();
@@ -296,6 +299,7 @@ export async function showHyperliquidTermsDialog(): Promise<boolean> {
       if (!didTrackAgree) {
         didTrackAgree = true;
         defaultLogger.perp.hyperliquid.perpTermsAgree({
+          tradingUiMode,
           walletType: activePerpsAccount.walletType ?? 'unknown',
         });
       }
@@ -309,6 +313,7 @@ export async function showHyperliquidTermsDialog(): Promise<boolean> {
       ) {
         didTrackReject = true;
         defaultLogger.perp.hyperliquid.perpTermsReject({
+          tradingUiMode,
           walletType: activePerpsAccount.walletType ?? 'unknown',
         });
       }

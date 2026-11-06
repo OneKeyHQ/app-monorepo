@@ -46,9 +46,20 @@ jest.mock('../../states/jotai/atoms', () => ({
     get: async () => ({ accountAddress: address, mode: 'unifiedAccount' }),
   },
 }));
+const mockWithdrawLog = jest.fn<void, [unknown]>();
 jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
   defaultLogger: {
-    perp: { hyperliquid: new Proxy({}, { get: () => jest.fn() }) },
+    perp: {
+      hyperliquid: new Proxy(
+        {},
+        {
+          get: (_target, event) =>
+            event === 'withdraw'
+              ? (payload: unknown) => mockWithdrawLog(payload)
+              : jest.fn(),
+        },
+      ),
+    },
   },
 }));
 
@@ -134,6 +145,29 @@ describe('USDC withdrawal emergency policy', () => {
       expect(withdraw3).not.toHaveBeenCalled();
       expect(sendAsset).not.toHaveBeenCalled();
       expect(sendToEvmWithData).not.toHaveBeenCalled();
+    },
+  );
+
+  describe.each(['simple', 'pro', undefined] as const)(
+    'withdraw analytics %s',
+    (tradingUiMode) => {
+      it.each([false, true])('preserves mode on failure=%s', async (fail) => {
+        policy.withdrawChannel = 'legacy';
+        if (fail) withdraw3.mockRejectedValueOnce(new Error('network timeout'));
+        const request = service.withdraw({ ...params, tradingUiMode });
+        if (fail) await expect(request).rejects.toThrow();
+        else await request;
+        expect(mockWithdrawLog).toHaveBeenCalledWith(
+          expect.objectContaining({
+            tradingUiMode: tradingUiMode ?? 'pro',
+            status: fail ? 'fail' : 'success',
+          }),
+        );
+        expect(withdraw3).toHaveBeenCalledWith({
+          amount: '10',
+          destination: address,
+        });
+      });
     },
   );
 

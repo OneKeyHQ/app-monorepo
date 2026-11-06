@@ -17,6 +17,7 @@ import type {
   IBuilderFeeRequest,
   ICancelTwapOrderParams,
   ILeverageUpdateRequest,
+  IPerpsTradingUiMode,
   IPlaceTwapOrderParams,
   ISetReferrerRequest,
   ISpotDustingOptOutRequest,
@@ -50,6 +51,7 @@ export interface IHyperLiquidLogParams<TRequest, TResponse>
   error?: Record<string, unknown>;
   extra?: Record<string, unknown>;
   isFirstTime?: boolean;
+  tradingUiMode?: IPerpsTradingUiMode;
   deviceType?: IDeviceType;
 }
 
@@ -241,12 +243,18 @@ export class HyperLiquidScene extends BaseScene {
   }
 
   @LogToServer()
-  public perpTermsAgree(params: { walletType: string }) {
+  public perpTermsAgree(params: {
+    walletType: string;
+    tradingUiMode?: IPerpsTradingUiMode;
+  }) {
     return params;
   }
 
   @LogToServer()
-  public perpTermsReject(params: { walletType: string }) {
+  public perpTermsReject(params: {
+    walletType: string;
+    tradingUiMode?: IPerpsTradingUiMode;
+  }) {
     return params;
   }
 

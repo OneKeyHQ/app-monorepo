@@ -218,6 +218,7 @@ type ISendAmountAutoSizeInputProps = {
   reversible?: boolean;
   tokenSymbol?: string;
   inlineTextAlignMode?: 'auto' | 'center';
+  inputAnimation?: 'typing' | 'instant';
   // Cap the display font (in px). Defaults to the full 56*scale ramp; pass a
   // smaller value to line the amount up with a sibling hero.
   maxFontSize?: number;
@@ -250,6 +251,7 @@ function SendAutoSizeAmountInputComponent(
     valueProps,
     tokenSymbol,
     inlineTextAlignMode,
+    inputAnimation,
     maxFontSize: maxFontSizeProp,
     extraContent,
     onLayout,
@@ -468,6 +470,7 @@ function SendAutoSizeAmountInputComponent(
       availableInlineWidth={availableInlineWidth}
       isInlineWidthMeasured={layoutWidth > 0}
       inlineTextAlignMode={inlineTextAlignMode}
+      inputAnimation={inputAnimation}
       currencyLabel={currencyLabel}
       inlineTokenSymbol={inlineTokenSymbol}
       inlinePrefixGapPx={inlinePrefixGapPx}

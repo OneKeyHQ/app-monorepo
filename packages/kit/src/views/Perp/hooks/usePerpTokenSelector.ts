@@ -4,6 +4,7 @@ import { debounce } from 'lodash';
 
 import { useHyperliquidActions } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import { usePerpsAllAssetsFilteredAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/atoms';
+import { usePerpsTradingUiMode } from '@onekeyhq/kit/src/views/Perp/hooks/usePerpsTradingUiMode';
 import {
   usePerpTokenSelectorConfigPersistAtom,
   usePerpsActiveAccountAtom,
@@ -51,6 +52,7 @@ function normalizeSearchQuery(query: string) {
 }
 
 export function usePerpTokenSelector() {
+  const tradingUiMode = usePerpsTradingUiMode();
   const [activePerpsAccount] = usePerpsActiveAccountAtom();
   const [searchQuery, setSearchQueryInternal] = useState('');
   const searchQueryRef = useRef(searchQuery);
@@ -168,6 +170,7 @@ export function usePerpTokenSelector() {
           };
 
           defaultLogger.perp.tokenSelector.perpTokenSelectorSearch({
+            tradingUiMode,
             query: params.query,
             resultCount: params.resultCount,
             activeTab: params.activeTab,
@@ -178,7 +181,7 @@ export function usePerpTokenSelector() {
         },
         500,
       ),
-    [activePerpsAccount.walletType],
+    [tradingUiMode, activePerpsAccount.walletType],
   );
 
   useEffect(() => {

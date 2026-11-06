@@ -1,6 +1,7 @@
 import { memo, useCallback } from 'react';
 
 import { Icon, SizableText, XStack } from '@onekeyhq/components';
+import { usePerpsTradingUiMode } from '@onekeyhq/kit/src/views/Perp/hooks/usePerpsTradingUiMode';
 import {
   usePerpTokenSelectorConfigPersistAtom,
   usePerpsActiveAccountAtom,
@@ -32,6 +33,7 @@ function BaseSortableHeaderCell({
   flex,
   minWidth,
 }: ISortableHeaderCellProps) {
+  const tradingUiMode = usePerpsTradingUiMode();
   const [selectorConfig, setSelectorConfig] =
     usePerpTokenSelectorConfigPersistAtom();
   const [activePerpsAccount] = usePerpsActiveAccountAtom();
@@ -56,6 +58,7 @@ function BaseSortableHeaderCell({
     });
 
     defaultLogger.perp.tokenSelector.perpTokenSelectorSortClick({
+      tradingUiMode,
       activeTab: currentActiveTab,
       field: nextConfig.field,
       direction: nextConfig.direction,
@@ -67,7 +70,13 @@ function BaseSortableHeaderCell({
     setSelectorConfig((prev: IPerpTokenSelectorConfig | null) => {
       return getNextPerpTokenSelectorSortConfig({ prev, field });
     });
-  }, [activePerpsAccount.walletType, field, selectorConfig, setSelectorConfig]);
+  }, [
+    tradingUiMode,
+    activePerpsAccount.walletType,
+    field,
+    selectorConfig,
+    setSelectorConfig,
+  ]);
 
   const isActive = isCurrentFieldActive;
   let iconName: string;

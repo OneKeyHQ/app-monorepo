@@ -31,10 +31,7 @@ import {
 import { useTradingViewNativeSubIndicatorCount } from '@onekeyhq/kit/src/components/TradingView/TradingViewNative/useTradingViewNativeSettings';
 import { useActiveTradeInstrumentAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import { PerpDexBadge } from '@onekeyhq/kit/src/views/Market/components/PerpsBadges';
-import {
-  usePerpsActiveAccountAtom,
-  usePerpsCustomSettingsAtom,
-} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { usePerpsCustomSettingsAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { isFoldableIPhone } from '@onekeyhq/shared/src/modules/DualScreenInfo/isFoldableIPhone';
@@ -309,7 +306,6 @@ function MobilePerpMarket() {
     EModalPerpRoutes.MobilePerpMarket
   >();
   const initialTab = route.params?.initialTab ?? 'orderbook';
-  const [activePerpsAccount] = usePerpsActiveAccountAtom();
   const [activeTradeInstrument] = useActiveTradeInstrumentAtom();
   const { baseName, dexLabel, displayName, mode } = useActiveTradeDisplay();
   const intl = useIntl();
@@ -385,23 +381,16 @@ function MobilePerpMarket() {
   const headerHeight = useHeaderHeight();
 
   const onPressTokenSelector = useCallback(() => {
-    void preloadPerpsMobileTokenSelectorPage();
-    void prewarmTokenSelectorImages();
-    defaultLogger.perp.tokenSelector.perpTokenSelectorOpen({
-      currentToken: activeTradeInstrument.coin,
-      tradeMode: mode === 'spot' ? 'spot' : 'perp',
-      walletType: activePerpsAccount.walletType ?? 'unknown',
+    void Promise.all([
+      preloadPerpsMobileTokenSelectorPage(),
+      prewarmTokenSelectorImages(),
+    ]).catch(() => {
+      defaultLogger.app.error.log('Failed to preload the Perps token selector');
     });
     navigation.pushModal(EModalRoutes.PerpModal, {
       screen: EModalPerpRoutes.MobileTokenSelector,
     });
-  }, [
-    activeTradeInstrument.coin,
-    activePerpsAccount.walletType,
-    mode,
-    navigation,
-    prewarmTokenSelectorImages,
-  ]);
+  }, [navigation, prewarmTokenSelectorImages]);
 
   const isSplitDetailActive = useIsSplitDetailActive();
   const { height: windowHeight } = useWindowDimensions();

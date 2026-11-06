@@ -88,7 +88,16 @@ export interface IPlaceOrderParams {
   reduceOnly?: boolean;
 }
 
+export type IPerpsTradingUiMode = 'simple' | 'pro';
+
+export interface IPerpsTradeAnalyticsContext {
+  tradingUiMode?: IPerpsTradingUiMode;
+}
+
 export interface IOrderOpenParams {
+  tradingUiMode?: IPerpsTradingUiMode;
+  cloid?: IHex;
+  expectedAccountAddress?: string;
   assetId: number;
   isBuy: boolean;
   size: string;
@@ -103,6 +112,7 @@ export interface IOrderOpenParams {
 }
 
 export interface IPlaceOrderByCoinParams {
+  cloid?: IHex;
   coin: string;
   expectedAccountAddress: string;
   isBuy: boolean;
@@ -157,7 +167,7 @@ export type IOrderAmendKind =
   | { kind: 'limit'; tif: ITIF }
   | { kind: 'trigger'; isMarket: boolean; tpsl: 'tp' | 'sl' };
 
-export interface IWithdrawParams {
+export interface IWithdrawParams extends IPerpsTradeAnalyticsContext {
   userAccountId: string;
   amount: string;
   destinationId: IUsdcWithdrawDestinationId;
@@ -196,7 +206,7 @@ export interface IAgentApprovalRequest {
   authorize: boolean;
 }
 
-export interface IPositionTpslOrderParams {
+export interface IPositionTpslOrderParams extends IPerpsTradeAnalyticsContext {
   assetId: number;
   expectedAccountAddress: string;
   positionSize: string;

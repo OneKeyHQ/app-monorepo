@@ -26,6 +26,8 @@ import {
   isUnifoldDepositAccountDisabled,
 } from '../utils/unifoldRecipient';
 
+import { usePerpsTradingUiMode } from './usePerpsTradingUiMode';
+
 type IPerpsDepositWithdrawActionType = 'deposit' | 'withdraw';
 
 function isUnifoldDepositFeatureEnabled(remoteEnabled: boolean | undefined) {
@@ -63,6 +65,7 @@ export function useUnifoldDepositTrackerAvailability() {
 }
 
 export function useShowUnifoldDepositTracker() {
+  const tradingUiMode = usePerpsTradingUiMode();
   const intl = useIntl();
   const dialogInTab = useInTabDialog();
   const {
@@ -98,8 +101,10 @@ export function useShowUnifoldDepositTracker() {
       dialogInTab,
       expectedRecipient: latestSafeRecipient,
       intl,
+      tradingUiMode,
+      analyticsEntrySource: 'depositHistory',
     });
-  }, [dialogInTab, intl]);
+  }, [dialogInTab, intl, tradingUiMode]);
 
   return {
     isUnifoldDepositTrackerAvailable,
@@ -111,6 +116,7 @@ export function useShowUnifoldDepositTracker() {
 export function useShowDepositWithdrawModal(
   entrySource: TPerpDepositEntrySource,
 ) {
+  const tradingUiMode = usePerpsTradingUiMode();
   const intl = useIntl();
   const navigation = useAppNavigation();
   const { gtMd } = useMedia();
@@ -138,6 +144,7 @@ export function useShowDepositWithdrawModal(
         await showDepositWithdrawDialog(
           {
             actionType,
+            tradingUiMode,
           },
           dialogInTab,
           intl,
@@ -145,11 +152,18 @@ export function useShowDepositWithdrawModal(
       } else {
         navigation.pushModal(EModalRoutes.PerpModal, {
           screen: EModalPerpRoutes.MobileDepositWithdrawModal,
-          params: { actionType },
+          params: { actionType, tradingUiMode },
         });
       }
     },
-    [gtMd, getLatestDepositDisabled, dialogInTab, intl, navigation],
+    [
+      gtMd,
+      getLatestDepositDisabled,
+      dialogInTab,
+      intl,
+      navigation,
+      tradingUiMode,
+    ],
   );
 
   const showModal = useCallback(
@@ -196,6 +210,7 @@ export function useShowDepositWithdrawModal(
           })
         : 'OneKey Wallet';
       const analyticsContext = {
+        tradingUiMode,
         entrySource,
         walletType: selectedAccount.walletType ?? 'unknown',
       };
@@ -225,12 +240,15 @@ export function useShowDepositWithdrawModal(
                 expectedRecipient: safeRecipient,
                 intl,
                 analyticsEntrySource: entrySource,
+                tradingUiMode,
               });
             } else {
               showUnifoldTrackerDialog({
                 dialogInTab,
                 expectedRecipient: safeRecipient,
                 intl,
+                tradingUiMode,
+                analyticsEntrySource: entrySource,
               });
             }
             return;
@@ -242,13 +260,18 @@ export function useShowDepositWithdrawModal(
                 expectedRecipient: safeRecipient,
                 openSourceSelectorOnReady: true,
                 analyticsEntrySource: entrySource,
+                tradingUiMode,
               },
             });
             return;
           }
           navigation.pushModal(EModalRoutes.PerpModal, {
             screen: EModalPerpRoutes.MobileUnifoldDepositTracker,
-            params: { expectedRecipient: safeRecipient },
+            params: {
+              expectedRecipient: safeRecipient,
+              tradingUiMode,
+              analyticsEntrySource: entrySource,
+            },
           });
         },
       });
@@ -258,6 +281,7 @@ export function useShowDepositWithdrawModal(
       getLatestDepositDisabled,
       openDepositWithdrawForm,
       entrySource,
+      tradingUiMode,
       gtMd,
       dialogInTab,
       intl,

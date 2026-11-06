@@ -24,6 +24,8 @@ export interface IPerpsSliderProps {
   segments?: number;
   disabled?: boolean;
   sliderHeight?: number;
+  activeColor?: string;
+  appearance?: 'default' | 'dotted';
   showBubble?: boolean;
   step?: number;
   centerOrigin?: boolean;
@@ -42,6 +44,8 @@ function PerpsSliderComponent({
   segments = 0,
   disabled = false,
   sliderHeight,
+  activeColor,
+  appearance,
   showBubble = false,
   centerOrigin = false,
   snapTapToSegment = false,
@@ -55,6 +59,8 @@ function PerpsSliderComponent({
       segments={segments}
       disabled={disabled}
       sliderHeight={sliderHeight}
+      activeColor={activeColor}
+      appearance={appearance}
       showBubble={showBubble}
       centerOrigin={centerOrigin}
       snapTapToSegment={snapTapToSegment}

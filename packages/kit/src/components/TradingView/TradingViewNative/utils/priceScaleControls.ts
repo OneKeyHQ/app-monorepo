@@ -16,7 +16,7 @@ export const PRICE_SCALE_CONTROL_NATIVE_SIZING: ITradingViewNativePriceScaleCont
     preferredButtonSize: 28,
   };
 
-export const PRICE_SCALE_CONTROL_WEB_SIZING: ITradingViewNativePriceScaleControlSizing =
+export const PRICE_SCALE_CONTROL_COMPACT_SIZING: ITradingViewNativePriceScaleControlSizing =
   {
     gap: 3,
     minimumButtonSize: 16,

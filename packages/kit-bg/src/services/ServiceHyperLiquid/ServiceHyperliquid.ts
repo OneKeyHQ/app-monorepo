@@ -360,6 +360,8 @@ export default class ServiceHyperliquid extends ServiceBase {
 
   private activeAssetChangeRequestId = 0;
 
+  private activeRestorationId: string | undefined;
+
   private lastCommittedActiveAsset: IChangeActiveAssetResult | undefined;
 
   private activePerpsAccountChangeRequestId = 0;
@@ -367,7 +369,11 @@ export default class ServiceHyperliquid extends ServiceBase {
   private tokenSelectorFavoriteUpdateQueue = Promise.resolve();
 
   @backgroundMethod()
-  async cancelPendingActiveAssetChange(): Promise<void> {
+  async cancelPendingActiveAssetChange(params?: {
+    restorationId: string;
+  }): Promise<void> {
+    if (params && params.restorationId !== this.activeRestorationId) return;
+    this.activeRestorationId = undefined;
     this.activeAssetChangeRequestId += 1;
   }
 
@@ -1543,6 +1549,18 @@ export default class ServiceHyperliquid extends ServiceBase {
       latestTime: 0,
       accountAddress: undefined,
     });
+  }
+
+  @backgroundMethod()
+  async getMobileTradingFees(params: { user: IHex }) {
+    const [fees, builderFee] = await Promise.all([
+      hyperLiquidApiClients.infoClient.userFees({ user: params.user }),
+      this.backgroundApi.simpleDb.perp.getExpectMaxBuilderFee(),
+    ]);
+    return {
+      takerRate: fees.userCrossRate,
+      builderRate: (builderFee ?? 0) / 100_000,
+    };
   }
 
   @backgroundMethod()
@@ -3101,18 +3119,22 @@ export default class ServiceHyperliquid extends ServiceBase {
   @backgroundMethod()
   async changeActiveAsset(params: {
     coin: string;
+    restorationId?: string;
   }): Promise<IChangeActiveAssetResult> {
     markPerpsColdStartPerf('service_change_active_asset_start', {
       coin: params.coin,
     });
     this.activeAssetChangeRequestId += 1;
     const requestId = this.activeAssetChangeRequestId;
+    this.activeRestorationId = params.restorationId;
     const oldActiveAsset = await perpsActiveAssetAtom.get();
     this.rememberCommittedActiveAsset(oldActiveAsset);
     const rollbackActiveAsset = this.lastCommittedActiveAsset ?? oldActiveAsset;
     const oldCoin = oldActiveAsset?.coin;
     const newCoin = params.coin;
-    const shouldSeedSubscriptionTarget = oldCoin !== newCoin;
+    // A page-owned restore can lose focus while resolving metadata.
+    const shouldSeedSubscriptionTarget =
+      !params.restorationId && oldCoin !== newCoin;
 
     try {
       if (shouldSeedSubscriptionTarget) {

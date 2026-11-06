@@ -62,6 +62,7 @@ import {
   isTwapTotalNotionalValid,
   isValidTwapDuration,
 } from '@onekeyhq/shared/src/utils/hyperliquidTwapUtils';
+import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import {
   getPerpsOrderBookTickOptionWithCache,
   getPerpsOrderBookTickOptionsWithCache,
@@ -98,6 +99,8 @@ import {
   ETriggerOrderType,
   type IL2BookOptions,
   type IPerpOrderBookTickOptionPersist,
+  type IPerpsTradeAnalyticsContext,
+  type IPerpsTradingUiMode,
   type IPlaceOrderByCoinParams,
 } from '@onekeyhq/shared/types/hyperliquid/types';
 
@@ -403,6 +406,14 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
 
   private activeInstrumentChangeRequestId = 0;
 
+  private activeInstrumentChangeTarget:
+    | Pick<IActiveTradeInstrument, 'mode' | 'coin'>
+    | undefined;
+
+  private pendingPerpChange:
+    | { requestId: number; settled: Promise<void> }
+    | undefined;
+
   private loadTwapDataRequestId = 0;
 
   private loadTwapDataInFlightByAccount = new Map<
@@ -410,13 +421,30 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
     ITwapDataLoadPromises
   >();
 
-  private beginActiveInstrumentChange(): number {
+  private beginActiveInstrumentChange(
+    target: Pick<IActiveTradeInstrument, 'mode' | 'coin'>,
+  ): number {
     this.activeInstrumentChangeRequestId += 1;
+    this.activeInstrumentChangeTarget = target;
     return this.activeInstrumentChangeRequestId;
   }
 
   private isLatestActiveInstrumentChange(requestId: number): boolean {
     return requestId === this.activeInstrumentChangeRequestId;
+  }
+
+  captureActiveInstrumentChangeGuard(
+    expectedTarget?: Pick<IActiveTradeInstrument, 'mode' | 'coin'>,
+  ): () => boolean {
+    const requestId = this.activeInstrumentChangeRequestId;
+    // Initial page hydration may start another request for the same target.
+    return () =>
+      this.isLatestActiveInstrumentChange(requestId) ||
+      Boolean(
+        expectedTarget &&
+        this.activeInstrumentChangeTarget?.mode === expectedTarget.mode &&
+        this.activeInstrumentChangeTarget.coin === expectedTarget.coin,
+      );
   }
 
   private filterCanceledTwapOrders(
@@ -491,6 +519,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
     requestId: number;
     viewState: ITradeRouteViewState;
     subscriptionRecoveryProof?: ISubscriptionRecoveryProof;
+    reconcileAfterMetadataHydration?: boolean;
   }): Promise<void> {
     if (!this.isLatestActiveInstrumentChange(params.requestId)) {
       return;
@@ -522,6 +551,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
     // watcher regardless. Desktop and web have no watcher, so this is their
     // only gate.
     if (
+      !params.reconcileAfterMetadataHydration &&
       !shouldSyncSubscriptionsAfterInstrumentChange({
         viewState: params.viewState,
         recoveryProof: params.subscriptionRecoveryProof,
@@ -1572,170 +1602,261 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
         force,
         requestId: existingRequestId,
         subscriptionRecoveryProof,
+        restorationSignal,
+        reconcileAfterMetadataHydration,
       }: {
         coin: string;
         force?: boolean;
         requestId?: number;
+        restorationSignal?: AbortSignal;
         subscriptionRecoveryProof?: ISubscriptionRecoveryProof;
+        reconcileAfterMetadataHydration?: boolean;
       },
     ) => {
-      const requestId = existingRequestId ?? this.beginActiveInstrumentChange();
-      const optimisticInstrument: IActiveTradeInstrument = {
-        mode: 'perp',
-        coin,
-        assetId: undefined,
-        universe: undefined,
+      const requestId =
+        existingRequestId ??
+        this.beginActiveInstrumentChange({ mode: 'perp', coin });
+      if (restorationSignal?.aborted) return false;
+      const isCurrent = () =>
+        !restorationSignal?.aborted &&
+        this.isLatestActiveInstrumentChange(requestId);
+      let finishChange!: () => void;
+      const pendingPerpChange = {
+        requestId,
+        settled: new Promise<void>((resolve) => {
+          finishChange = resolve;
+        }),
       };
-      const hydrateL2BookFromSwr = (targetCoin: string) => {
-        const storedTickOptions = getPerpsOrderBookTickOptionWithCache({
-          coin: targetCoin,
-          options: get(orderBookTickOptionsAtom()),
-        });
-        const cachedEntry = swrCacheUtils.getFreshPerpsL2BookSnapshot({
-          coin: targetCoin,
-          nSigFigs: storedTickOptions?.nSigFigs ?? null,
-          mantissa:
-            storedTickOptions?.mantissa === undefined
-              ? undefined
-              : storedTickOptions.mantissa,
-          maxAgeMs: PERPS_L2_BOOK_SWR_CACHE_MAX_AGE_MS,
-          reloadIfOlderThanMs: PERPS_L2_BOOK_SNAPSHOT_CACHE_WRITE_INTERVAL_MS,
-        });
-        const cachedBook = cachedEntry
-          ? withPerpsL2BookLocalReceivedAt(
-              cachedEntry.data,
-              cachedEntry.updatedAt,
-              true,
-            )
-          : undefined;
-        // Cache is a first-frame fallback only; a late read must never replace
-        // a live snapshot for the same coin and precision.
-        if (
-          cachedBook &&
-          shouldUpdatePerpsL2Book({
-            currentBook: get(l2BookAtom()),
-            nextBook: cachedBook,
-          })
-        ) {
-          set(l2BookAtom(), cachedBook);
-          markPerpsColdStartPerfOnce('action_l2_book_swr_hydrated_first', {
-            coin: cachedBook.coin,
-            bidLevels: cachedBook.levels?.[0]?.length ?? 0,
-            askLevels: cachedBook.levels?.[1]?.length ?? 0,
-          });
-        }
-      };
-      const prevInstrument = get(activeTradeInstrumentAtom());
-      const shouldSetOptimisticInstrument =
-        prevInstrument.mode !== 'perp' || prevInstrument.coin !== coin;
-      if (
-        shouldSetOptimisticInstrument &&
-        !ContextJotaiActionsHyperliquid._isTradeInstrumentEqual(
-          prevInstrument,
-          optimisticInstrument,
-        )
-      ) {
-        set(activeTradeInstrumentAtom(), optimisticInstrument);
-        set(l2BookAtom(), null);
-        set(bboAtom(), null);
-      }
-      hydrateL2BookFromSwr(coin);
-      await backgroundApiProxy.serviceHyperliquid.cancelPendingActiveAssetChange();
-      const activeAsset = await perpsActiveAssetAtom.get();
-      if (activeAsset?.coin === coin && !force) {
-        // Mirror changeActiveSpotAsset: short-circuit ONLY when the current
-        // mode already matches, otherwise the trading panel keeps the
-        // previous mode's layout when switching back with an unchanged coin.
-        const currentMode = await tradingModeAtom.get();
-        if (currentMode === 'perp') {
-          const next = await this._buildActiveTradeInstrument('perp');
-          if (!this.isLatestActiveInstrumentChange(requestId)) {
-            return false;
-          }
-          const prev = get(activeTradeInstrumentAtom());
-          if (
-            !ContextJotaiActionsHyperliquid._isTradeInstrumentEqual(prev, next)
-          ) {
-            set(activeTradeInstrumentAtom(), next);
-          }
-          // This branch skips syncSubscriptionsAfterInstrumentChange, so
-          // consume the proof here or the stale disable survives.
-          await recoverSubscriptionsWithProof({
-            recoveryProof: subscriptionRecoveryProof,
-            recover: (disabledCount) =>
-              backgroundApiProxy.serviceHyperliquidSubscription.recoverSubscriptionsAfterLivenessProof(
-                { disabledCount },
-              ),
-          });
-          return true;
-        }
-      }
-
-      const form = get(tradingFormAtom());
-      const shouldUpdateLimitPrice = form.type === 'limit';
-
-      if (!(await this.waitForActiveInstrumentChangeSettle(requestId))) {
-        return false;
-      }
-      // Keep the BG subscription target ahead of slower UI cleanup/work; after
-      // the native UI/BG split, the subscription service only reads BG atoms.
-      await tradingModeAtom.set('perp');
-      if (!this.isLatestActiveInstrumentChange(requestId)) {
-        return false;
-      }
-      await this.clearActiveAssetData.call(set);
-      if (!this.isLatestActiveInstrumentChange(requestId)) {
-        return false;
-      }
-      const nextActiveAsset =
-        await backgroundApiProxy.serviceHyperliquid.changeActiveAsset({
+      this.pendingPerpChange = pendingPerpChange;
+      try {
+        const optimisticInstrument: IActiveTradeInstrument = {
+          mode: 'perp',
           coin,
+          assetId: undefined,
+          universe: undefined,
+        };
+        const hydrateL2BookFromSwr = (targetCoin: string) => {
+          const storedTickOptions = getPerpsOrderBookTickOptionWithCache({
+            coin: targetCoin,
+            options: get(orderBookTickOptionsAtom()),
+          });
+          const cachedEntry = swrCacheUtils.getFreshPerpsL2BookSnapshot({
+            coin: targetCoin,
+            nSigFigs: storedTickOptions?.nSigFigs ?? null,
+            mantissa:
+              storedTickOptions?.mantissa === undefined
+                ? undefined
+                : storedTickOptions.mantissa,
+            maxAgeMs: PERPS_L2_BOOK_SWR_CACHE_MAX_AGE_MS,
+            reloadIfOlderThanMs: PERPS_L2_BOOK_SNAPSHOT_CACHE_WRITE_INTERVAL_MS,
+          });
+          const cachedBook = cachedEntry
+            ? withPerpsL2BookLocalReceivedAt(
+                cachedEntry.data,
+                cachedEntry.updatedAt,
+                true,
+              )
+            : undefined;
+          // Cache is a first-frame fallback only; a late read must never replace
+          // a live snapshot for the same coin and precision.
+          if (
+            cachedBook &&
+            shouldUpdatePerpsL2Book({
+              currentBook: get(l2BookAtom()),
+              nextBook: cachedBook,
+            })
+          ) {
+            set(l2BookAtom(), cachedBook);
+            markPerpsColdStartPerfOnce('action_l2_book_swr_hydrated_first', {
+              coin: cachedBook.coin,
+              bidLevels: cachedBook.levels?.[0]?.length ?? 0,
+              askLevels: cachedBook.levels?.[1]?.length ?? 0,
+            });
+          }
+        };
+        const publishInstrument = (next: IActiveTradeInstrument) => {
+          const previous = get(activeTradeInstrumentAtom());
+          if (previous.mode !== next.mode || previous.coin !== next.coin) {
+            set(l2BookAtom(), null);
+            set(bboAtom(), null);
+          }
+          set(activeTradeInstrumentAtom(), next);
+        };
+        // A restore can lose focus during BG lookup. Keep the current market
+        // visible until it is safe to publish the restored instrument.
+        if (!restorationSignal) {
+          const previous = get(activeTradeInstrumentAtom());
+          if (previous.mode !== 'perp' || previous.coin !== coin) {
+            publishInstrument(optimisticInstrument);
+          }
+          hydrateL2BookFromSwr(coin);
+        }
+        await backgroundApiProxy.serviceHyperliquid.cancelPendingActiveAssetChange();
+        const activeAsset = await perpsActiveAssetAtom.get();
+        if (activeAsset?.coin === coin && !force) {
+          // Mirror changeActiveSpotAsset: short-circuit ONLY when the current
+          // mode already matches, otherwise the trading panel keeps the
+          // previous mode's layout when switching back with an unchanged coin.
+          const currentMode = await tradingModeAtom.get();
+          if (currentMode === 'perp') {
+            const next = await this._buildActiveTradeInstrument('perp');
+            if (!isCurrent()) {
+              return false;
+            }
+            const prev = get(activeTradeInstrumentAtom());
+            if (
+              !ContextJotaiActionsHyperliquid._isTradeInstrumentEqual(
+                prev,
+                next,
+              )
+            ) {
+              publishInstrument(next);
+              if (restorationSignal) hydrateL2BookFromSwr(coin);
+            }
+            // This branch skips syncSubscriptionsAfterInstrumentChange, so
+            // consume the proof here or the stale disable survives.
+            await recoverSubscriptionsWithProof({
+              recoveryProof: subscriptionRecoveryProof,
+              recover: (disabledCount) =>
+                backgroundApiProxy.serviceHyperliquidSubscription.recoverSubscriptionsAfterLivenessProof(
+                  { disabledCount },
+                ),
+            });
+            return true;
+          }
+        }
+
+        const form = get(tradingFormAtom());
+        const shouldUpdateLimitPrice = form.type === 'limit';
+
+        if (
+          !(await this.waitForActiveInstrumentChangeSettle(requestId)) ||
+          !isCurrent()
+        ) {
+          return false;
+        }
+        // Keep the BG subscription target ahead of slower UI cleanup/work; after
+        // the native UI/BG split, the subscription service only reads BG atoms.
+        await tradingModeAtom.set('perp');
+        if (!isCurrent()) {
+          return false;
+        }
+        await this.clearActiveAssetData.call(set);
+        if (!isCurrent()) {
+          return false;
+        }
+        // A focus-owned restore must also cancel the matching request in BG.
+        const restorationId = restorationSignal ? generateUUID() : undefined;
+        const cancelRestoration = () => {
+          if (restorationId) {
+            void backgroundApiProxy.serviceHyperliquid.cancelPendingActiveAssetChange(
+              { restorationId },
+            );
+          }
+        };
+        restorationSignal?.addEventListener('abort', cancelRestoration);
+        const nextActiveAsset = await backgroundApiProxy.serviceHyperliquid
+          .changeActiveAsset({ coin, restorationId })
+          .finally(() =>
+            restorationSignal?.removeEventListener('abort', cancelRestoration),
+          );
+        if (!isCurrent()) {
+          return false;
+        }
+
+        const nextFormUpdates: Partial<ITradingFormData> = {
+          triggerPrice: '',
+          executionPrice: '',
+          triggerReduceOnly: true,
+          twapTriggerPrice: '',
+          twapStopPrice: '',
+        };
+
+        // update limit price once using current atom snapshot.
+        if (shouldUpdateLimitPrice) {
+          const allMids = get(perpsAllMidsAtom());
+          const mid = allMids?.mids?.[coin];
+          const midValue = new BigNumber(mid || '');
+          nextFormUpdates.price =
+            mid && midValue.isFinite() && midValue.gt(0)
+              ? formatPriceToSignificantDigits(mid)
+              : '';
+        }
+
+        const nextInstrument: IActiveTradeInstrument = {
+          mode: 'perp',
+          coin: nextActiveAsset?.coin || coin,
+          assetId: nextActiveAsset?.assetId,
+          universe: nextActiveAsset?.universe,
+        };
+        if (!isCurrent()) {
+          return false;
+        }
+        this.updateTradingForm.call(set, nextFormUpdates);
+        publishInstrument(nextInstrument);
+        void this.syncSubscriptionsAfterInstrumentChange({
+          instrument: nextInstrument,
+          orderBookTickOptions: get(orderBookTickOptionsAtom()),
+          requestId,
+          viewState: get(tradeRouteViewStateAtom()),
+          subscriptionRecoveryProof,
+          reconcileAfterMetadataHydration,
         });
-      if (!this.isLatestActiveInstrumentChange(requestId)) {
-        return false;
+        hydrateL2BookFromSwr(nextInstrument.coin);
+        return true;
+      } finally {
+        finishChange();
+        if (this.pendingPerpChange === pendingPerpChange) {
+          this.pendingPerpChange = undefined;
+        }
       }
+    },
+  );
 
-      const nextFormUpdates: Partial<ITradingFormData> = {
-        triggerPrice: '',
-        executionPrice: '',
-        triggerReduceOnly: true,
-        twapTriggerPrice: '',
-        twapStopPrice: '',
-      };
-
-      // update limit price once using current atom snapshot.
-      if (shouldUpdateLimitPrice) {
-        const allMids = get(perpsAllMidsAtom());
-        const mid = allMids?.mids?.[coin];
-        const midValue = new BigNumber(mid || '');
-        nextFormUpdates.price =
-          mid && midValue.isFinite() && midValue.gt(0)
-            ? formatPriceToSignificantDigits(mid)
-            : '';
-      }
-
-      const nextInstrument: IActiveTradeInstrument = {
-        mode: 'perp',
-        coin: nextActiveAsset?.coin || coin,
-        assetId: nextActiveAsset?.assetId,
-        universe: nextActiveAsset?.universe,
-      };
-      if (!this.isLatestActiveInstrumentChange(requestId)) {
-        return false;
-      }
-      this.updateTradingForm.call(set, nextFormUpdates);
-      set(activeTradeInstrumentAtom(), nextInstrument);
-      void this.syncSubscriptionsAfterInstrumentChange({
-        instrument: nextInstrument,
+  hydrateUnresolvedActivePerp = contextAtomMethod(async (get, set) => {
+    const requestId = this.activeInstrumentChangeRequestId;
+    const target = this.activeInstrumentChangeTarget;
+    const current = get(activeTradeInstrumentAtom());
+    if (
+      target?.mode !== 'perp' ||
+      current.mode !== 'perp' ||
+      !current.coin ||
+      current.coin !== target.coin
+    ) {
+      return false;
+    }
+    const pending = this.pendingPerpChange;
+    if (pending?.requestId === requestId) {
+      // Let the original switch finish so its caller can still navigate.
+      await pending.settled;
+    }
+    if (!this.isLatestActiveInstrumentChange(requestId)) {
+      return false;
+    }
+    const instrument = get(activeTradeInstrumentAtom());
+    if (instrument.mode !== 'perp' || instrument.coin !== target.coin) {
+      return false;
+    }
+    if (
+      typeof instrument.assetId === 'number' &&
+      instrument.assetId >= 0 &&
+      instrument.universe
+    ) {
+      await this.syncSubscriptionsAfterInstrumentChange({
+        instrument,
         orderBookTickOptions: get(orderBookTickOptionsAtom()),
         requestId,
         viewState: get(tradeRouteViewStateAtom()),
-        subscriptionRecoveryProof,
+        reconcileAfterMetadataHydration: true,
       });
-      hydrateL2BookFromSwr(nextInstrument.coin);
-      return true;
-    },
-  );
+      return false;
+    }
+    return this.changeActiveAsset.call(set, {
+      coin: instrument.coin,
+      force: true,
+      reconcileAfterMetadataHydration: true,
+    });
+  });
 
   changeActiveSpotAsset = contextAtomMethod(
     async (
@@ -1755,7 +1876,9 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
         subscriptionRecoveryProof?: ISubscriptionRecoveryProof;
       },
     ) => {
-      const requestId = existingRequestId ?? this.beginActiveInstrumentChange();
+      const requestId =
+        existingRequestId ??
+        this.beginActiveInstrumentChange({ mode: 'spot', coin });
       const optimisticInstrument: IActiveTradeInstrument = {
         mode: 'spot',
         coin,
@@ -1912,6 +2035,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
         mode: 'perp' | 'spot';
         coin: string;
         force?: boolean;
+        restorationSignal?: AbortSignal;
         spotUniverse?: ISpotUniverse;
         subscriptionRecoveryProof?: ISubscriptionRecoveryProof;
       },
@@ -1921,7 +2045,10 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
         coin: params.coin,
         force: !!params.force,
       });
-      const requestId = this.beginActiveInstrumentChange();
+      const requestId = this.beginActiveInstrumentChange({
+        mode: params.mode,
+        coin: params.coin,
+      });
       if (params.mode === 'spot') {
         let spotUniverse = params.spotUniverse;
         if (!spotUniverse) {
@@ -1948,6 +2075,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       }
 
       const result = await this.changeActiveAsset.call(set, {
+        restorationSignal: params.restorationSignal,
         coin: params.coin,
         force: params.force,
         requestId,
@@ -2534,6 +2662,8 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       set,
       params: {
         assetId: number;
+        expectedAccountAddress?: string;
+        tradingUiMode?: IPerpsTradingUiMode;
         formData?: ITradingFormData;
         slippage?: number;
         price: string;
@@ -2572,6 +2702,8 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
             const result =
               await backgroundApiProxy.serviceHyperliquidExchange.orderOpen({
                 assetId: params.assetId,
+                tradingUiMode: params.tradingUiMode ?? 'pro',
+                expectedAccountAddress: params.expectedAccountAddress,
                 isBuy: formData.side === 'long',
                 size: resolvedSize,
                 price: params.price,
@@ -3128,6 +3260,8 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       set,
       params: {
         assetId: number;
+        expectedAccountAddress?: string;
+        tradingUiMode?: IPerpsTradingUiMode;
         formData?: ITradingFormData;
         slippage?: number;
         price: string;
@@ -3188,6 +3322,8 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
 
       return this.orderOpen.call(set, {
         assetId: params.assetId,
+        expectedAccountAddress: params.expectedAccountAddress,
+        tradingUiMode: params.tradingUiMode ?? 'pro',
         formData,
         slippage: params.slippage,
         price: params.price,
@@ -3200,18 +3336,26 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       get,
       set,
       params: {
+        tradingUiMode?: IPerpsTradingUiMode;
         asset: number;
+        expectedAccountAddress?: string;
         leverage: number;
         isCross: boolean;
       },
     ): Promise<{ leverage: number; isCross: boolean }> => {
       return withToast({
         asyncFn: async () => {
-          await backgroundApiProxy.serviceHyperliquidExchange.updateLeverage({
-            asset: params.asset,
-            leverage: params.leverage,
-            isCross: params.isCross,
-          });
+          await backgroundApiProxy.serviceHyperliquidExchange.updateLeverage(
+            {
+              asset: params.asset,
+              leverage: params.leverage,
+              isCross: params.isCross,
+            },
+            {
+              expectedAccountAddress: params.expectedAccountAddress,
+              tradingUiMode: params.tradingUiMode,
+            },
+          );
 
           const formData = get(tradingFormAtom());
           set(tradingFormAtom(), { ...formData, leverage: params.leverage });
@@ -3229,6 +3373,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       get,
       set,
       params: {
+        tradingUiMode?: IPerpsTradingUiMode;
         asset: number;
         isBuy: boolean;
         ntli: number;
@@ -3242,6 +3387,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
               isBuy: params.isBuy,
               ntli: params.ntli,
             },
+            { tradingUiMode: params.tradingUiMode },
           );
         },
         actionType: EActionType.UPDATE_ISOLATED_MARGIN,
@@ -3290,12 +3436,14 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
         limitPx?: string;
         slippage?: number;
       }[],
+      analyticsContext: IPerpsTradeAnalyticsContext = {},
     ) => {
       return withToast({
         asyncFn: async () => {
           const result =
             await backgroundApiProxy.serviceHyperliquidExchange.ordersClose(
               params,
+              analyticsContext,
             );
           return result;
         },
@@ -3366,6 +3514,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       get,
       _set,
       params: {
+        tradingUiMode?: IPerpsTradingUiMode;
         coin: string;
         oid: number;
         newPrice: string;
@@ -3394,6 +3543,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
           return backgroundApiProxy.serviceHyperliquidExchange.amendOrderPriceByOid(
             {
               coin: params.coin,
+              tradingUiMode: params.tradingUiMode,
               oid: params.oid,
               newPrice: params.newPrice,
               isBuy: existing.side === 'B',
@@ -3452,6 +3602,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       get,
       set,
       params: {
+        tradingUiMode?: IPerpsTradingUiMode;
         orders: Array<{
           assetId: number;
           oid: number;
@@ -3466,14 +3617,18 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
             assetId: order.assetId,
             oid: order.oid,
           }));
-          const result = params.expectedAccountAddress
-            ? await backgroundApiProxy.serviceHyperliquidExchange.cancelOrder(
-                cancels,
-                { expectedAccountAddress: params.expectedAccountAddress },
-              )
-            : await backgroundApiProxy.serviceHyperliquidExchange.cancelOrder(
-                cancels,
-              );
+          const result =
+            params.expectedAccountAddress || params.tradingUiMode
+              ? await backgroundApiProxy.serviceHyperliquidExchange.cancelOrder(
+                  cancels,
+                  {
+                    expectedAccountAddress: params.expectedAccountAddress,
+                    tradingUiMode: params.tradingUiMode,
+                  },
+                )
+              : await backgroundApiProxy.serviceHyperliquidExchange.cancelOrder(
+                  cancels,
+                );
           if (params.expectedAccountAddress) {
             const activeAccount = await perpsActiveAccountAtom.get();
             if (
@@ -3539,6 +3694,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       params: {
         assetId: number;
         twapId: number;
+        expectedAccountAddress?: string;
       },
     ) => {
       return withToast({
@@ -3549,11 +3705,28 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
                 assetId: params.assetId,
                 twapId: params.twapId,
               },
+              { expectedAccountAddress: params.expectedAccountAddress },
             );
+
+          if (params.expectedAccountAddress) {
+            const activeAccount = await perpsActiveAccountAtom.get();
+            if (
+              normalizePerpsAccountAddress(activeAccount.accountAddress) !==
+              normalizePerpsAccountAddress(params.expectedAccountAddress)
+            )
+              return result;
+          }
+
+          const prev = get(perpsActiveTwapOrdersAtom());
+          if (
+            params.expectedAccountAddress &&
+            normalizePerpsAccountAddress(prev.accountAddress) !==
+              normalizePerpsAccountAddress(params.expectedAccountAddress)
+          )
+            return result;
 
           this.canceledTwapIds.add(params.twapId);
 
-          const prev = get(perpsActiveTwapOrdersAtom());
           const twapOrders = this.filterCanceledTwapOrders(prev.twapOrders);
           set(perpsActiveTwapOrdersAtom(), {
             ...prev,
@@ -3574,6 +3747,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       get,
       set,
       params: {
+        tradingUiMode?: IPerpsTradingUiMode;
         assetId: number;
         expectedAccountAddress: string;
         positionSize: string;
@@ -3592,6 +3766,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
               await backgroundApiProxy.serviceHyperliquidExchange.setPositionTpsl(
                 {
                   assetId: params.assetId,
+                  tradingUiMode: params.tradingUiMode,
                   expectedAccountAddress: params.expectedAccountAddress,
                   positionSize: params.positionSize,
                   isBuy: params.isBuy,
@@ -3615,6 +3790,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       get,
       set,
       params: {
+        tradingUiMode?: IPerpsTradingUiMode;
         userAccountId: string;
         amount: string;
         destinationId: IUsdcWithdrawDestinationId;
@@ -3625,6 +3801,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       return withToast({
         asyncFn: async () => {
           await backgroundApiProxy.serviceHyperliquidExchange.withdraw({
+            tradingUiMode: params.tradingUiMode,
             userAccountId: params.userAccountId,
             amount: params.amount,
             destinationId: params.destinationId,
@@ -3823,9 +4000,11 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       _get,
       _set,
       params: {
+        tradingUiMode?: IPerpsTradingUiMode;
         position: IPerpsAssetPosition['position'];
         isMobile: boolean;
         onShowDialog: (params: {
+          tradingUiMode?: IPerpsTradingUiMode;
           coin: string;
           szDecimals: number;
           assetId: number;
@@ -3849,6 +4028,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       }
 
       const tpslParams = {
+        tradingUiMode: params.tradingUiMode,
         coin: position.coin,
         szDecimals: tokenInfo.universe?.szDecimals ?? 2,
         assetId: tokenInfo.assetId,
@@ -3892,6 +4072,12 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
 }
 
 const createActions = memoFn(() => new ContextJotaiActionsHyperliquid());
+
+export function capturePerpsInstrumentChangeGuard(
+  expectedTarget?: Pick<IActiveTradeInstrument, 'mode' | 'coin'>,
+): () => boolean {
+  return createActions().captureActiveInstrumentChangeGuard(expectedTarget);
+}
 
 export function useHyperliquidActions() {
   const actions = createActions();
@@ -3947,6 +4133,7 @@ export function useHyperliquidActions() {
     actions.ensureOrderBookTickOptionsLoaded.use();
   const setOrderBookTickOption = actions.setOrderBookTickOption.use();
   const changeActiveAsset = actions.changeActiveAsset.use();
+  const hydrateUnresolvedActivePerp = actions.hydrateUnresolvedActivePerp.use();
   const changeActiveSpotAsset = actions.changeActiveSpotAsset.use();
   const switchTradeInstrument = actions.switchTradeInstrument.use();
   const captureInstrumentSwitchSubscriptionProof =
@@ -3980,6 +4167,7 @@ export function useHyperliquidActions() {
     updateBbo,
     updateConnectionState,
     changeActiveAsset,
+    hydrateUnresolvedActivePerp,
     changeActiveSpotAsset,
     changeActivePerpsAccount,
     updateAllDexsClearinghouseState,

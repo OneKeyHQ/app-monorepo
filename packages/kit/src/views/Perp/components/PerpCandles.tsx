@@ -40,18 +40,15 @@ import {
 
 import { useActiveTradeDisplay } from '../hooks/useActiveTradeDisplay';
 import { usePerpsChartOrderMenu } from '../hooks/usePerpsChartOrderMenu';
-import { usePerpsNativeChartLines } from '../hooks/usePerpsNativeChartLines';
-import { usePerpsNativeChartMarks } from '../hooks/usePerpsNativeChartMarks';
-import { usePerpsNativeChartMetadata } from '../hooks/usePerpsNativeChartMetadata';
+
+import { usePerpsNativeChartLayers } from './PerpsNativeChart';
 
 function PerpNativeCandles({
   enableTradingUi,
   ...props
 }: ITradingViewNativeProps & { enableTradingUi: boolean }) {
-  const { chartComponents: lines, onReferenceLineAction } =
-    usePerpsNativeChartLines(enableTradingUi);
-  const marks = usePerpsNativeChartMarks();
-  const metadata = usePerpsNativeChartMetadata();
+  const { lines, marks, metadata, onReferenceLineAction } =
+    usePerpsNativeChartLayers({ enableTradingUi, active: props.active });
   const orderMenu = usePerpsChartOrderMenu(enableTradingUi);
   const chartComponents = useMemo(() => [...lines, ...marks], [lines, marks]);
   const { baseName, coin, displayName, mode } = useActiveTradeDisplay();

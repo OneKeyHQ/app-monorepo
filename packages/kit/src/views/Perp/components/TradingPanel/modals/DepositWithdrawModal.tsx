@@ -89,6 +89,7 @@ import type {
   IUsdcWithdrawDestinationId,
   IUsdcWithdrawFeeQuote,
 } from '@onekeyhq/shared/types/hyperliquid/perp.constants';
+import type { IPerpsTradeAnalyticsContext } from '@onekeyhq/shared/types/hyperliquid/types';
 import { swapDefaultSetTokens } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import {
   ESwapTxHistoryStatus,
@@ -106,6 +107,7 @@ import {
   PERP_DIALOG_BUTTON_SIZE,
   PERP_MOBILE_DIALOG_CONTENT_CONTAINER_PROPS,
 } from '../../PerpDialogLayout';
+import { PerpsNativeAmountKeypad } from '../../PerpsNativeAmountKeypad';
 import { InputAccessoryDoneButton } from '../inputs/TradingFormInput';
 
 import {
@@ -205,7 +207,7 @@ function getPerpsDepositMinAmountTextColor(
   return selectedAction === 'deposit' ? '$textCritical' : '$textSubdued';
 }
 
-interface IDepositWithdrawParams {
+interface IDepositWithdrawParams extends IPerpsTradeAnalyticsContext {
   actionType: IPerpsDepositWithdrawActionType;
 }
 
@@ -216,18 +218,6 @@ interface IDepositWithdrawContentProps {
   isMobile?: boolean;
   hideDesktopTitle?: boolean;
 }
-
-const CUSTOM_AMOUNT_KEYPAD_ROWS = [
-  ['1', '2', '3'],
-  ['4', '5', '6'],
-  ['7', '8', '9'],
-  ['.', '0', 'backspace'],
-] as const;
-
-const PERPS_KEYPAD_KEY_INTERACTIVE_STYLE = {
-  opacity: 1,
-  bg: '$bgStrong',
-} as const;
 
 // Perps is USD-denominated; always show dollar sign regardless of system fiat setting
 const PERPS_CURRENCY_SYMBOL = '$';
@@ -289,65 +279,6 @@ function usePerpsAccountResult(selectedAccount: IPerpsActiveAccountAtom) {
   return accountResult;
 }
 
-function PerpsNativeAmountKeypad({
-  onKeyPress,
-  onBackspaceLongPress,
-  ctaLabel,
-  ctaDisabled,
-  ctaLoading,
-  onCtaPress,
-}: {
-  onKeyPress: (key: string) => void;
-  onBackspaceLongPress: () => void;
-  ctaLabel: string;
-  ctaDisabled?: boolean;
-  ctaLoading?: boolean;
-  onCtaPress: () => void;
-}) {
-  return (
-    <YStack mt="$2" gap="$2" pb={platformEnv.isNativeAndroid ? '$3' : '$0'}>
-      {CUSTOM_AMOUNT_KEYPAD_ROWS.map((row) => (
-        <XStack key={row.join('-')} gap="$2">
-          {row.map((item) => (
-            <Stack
-              key={item}
-              flex={1}
-              h="$14"
-              alignItems="center"
-              justifyContent="center"
-              borderRadius="$2.5"
-              pressStyle={PERPS_KEYPAD_KEY_INTERACTIVE_STYLE}
-              hoverStyle={PERPS_KEYPAD_KEY_INTERACTIVE_STYLE}
-              onPress={() => onKeyPress(item)}
-              onLongPress={
-                item === 'backspace' ? onBackspaceLongPress : undefined
-              }
-            >
-              {item === 'backspace' ? (
-                <Icon name="XBackspaceOutline" size="$5" color="$iconSubdued" />
-              ) : (
-                <SizableText size="$heading2xl" fontWeight="400" color="$text">
-                  {item}
-                </SizableText>
-              )}
-            </Stack>
-          ))}
-        </XStack>
-      ))}
-      <Button
-        testID="perp-native-amount-cta"
-        size="large"
-        variant="primary"
-        disabled={ctaDisabled}
-        loading={ctaLoading}
-        onPress={onCtaPress}
-      >
-        {ctaLabel}
-      </Button>
-    </YStack>
-  );
-}
-
 function DepositWithdrawContent({
   params,
   selectedAccount,
@@ -358,6 +289,7 @@ function DepositWithdrawContent({
   const intl = useIntl();
   const { gtMd } = useMedia();
   const selectedAction = params.actionType;
+  const tradingUiMode = params.tradingUiMode ?? 'pro';
   const [computedValue] = usePerpsComputedAccountValueAtom();
   const [activeAccount] = usePerpsActiveAccountAtom();
   const [perpsAccountLoading] = usePerpsAccountLoadingInfoAtom();
@@ -1176,6 +1108,8 @@ function DepositWithdrawContent({
     selectedAccount.accountId ?? '',
     shouldEnableDepositQuote ? currentPerpsDepositSelectedToken : undefined,
     shouldEnableDepositQuote && checkFromTokenFiatValue.value,
+    undefined,
+    tradingUiMode,
   );
 
   const isDepositQuotePendingDebounce = useMemo(
@@ -1565,6 +1499,7 @@ function DepositWithdrawContent({
       }
       directDepositResultLogged = true;
       defaultLogger.perp.deposit.perpDepositInitiate({
+        tradingUiMode,
         walletType: selectedAccount.walletType ?? 'unknown',
         token: directDepositToken,
         amount: directDepositAmount,
@@ -1607,6 +1542,7 @@ function DepositWithdrawContent({
                 });
                 directDepositResultLogged = true;
                 defaultLogger.perp.deposit.perpDepositInitiate({
+                  tradingUiMode,
                   walletType: selectedAccount.walletType ?? 'unknown',
                   token: directDepositToken,
                   amount: directDepositAmount,
@@ -1649,6 +1585,7 @@ function DepositWithdrawContent({
         }
       } else {
         await withdraw({
+          tradingUiMode,
           userAccountId: selectedAccount.accountId || '',
           amount,
           destinationId: withdrawDestinationId,
@@ -1680,6 +1617,7 @@ function DepositWithdrawContent({
       setIsSubmitting(false);
     }
   }, [
+    tradingUiMode,
     isValidAmount,
     isWithdrawDestinationReady,
     checkAccountSupport,
@@ -3080,7 +3018,10 @@ function MobileDepositWithdrawModal() {
         <PerpsProviderMirror>
           <YStack px="$4" flex={1}>
             <DepositWithdrawContent
-              params={{ actionType }}
+              params={{
+                actionType,
+                tradingUiMode: route.params?.tradingUiMode,
+              }}
               selectedAccount={selectedAccount}
               onClose={handleClose}
               isMobile

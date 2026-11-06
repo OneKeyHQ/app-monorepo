@@ -2,15 +2,12 @@ import { useCallback, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import {
-  Button,
-  Icon,
-  ScrollView,
-  Stack,
-  XStack,
-  YStack,
+import { Icon, Stack } from '@onekeyhq/components';
+import type {
+  IIconProps,
+  IKeyOfIcons,
+  IStackProps,
 } from '@onekeyhq/components';
-import type { IKeyOfIcons } from '@onekeyhq/components';
 import { TRADING_VIEW_NATIVE_CHART_CONTROLS_HEIGHT } from '@onekeyhq/kit/src/components/TradingView/TradingViewV2/components/TradingViewV2ChartControls';
 import { useMarketDetailChartDisplayModePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -25,28 +22,26 @@ import {
 import { useStockDetail } from '../hooks/StockDetailContext';
 import { useStockPriceSource } from '../hooks/useStockPriceSource';
 
-import { MARKET_SIMPLE_CHART_RANGE_LABEL_IDS } from './components/marketSimpleChartConstants';
+import { MobileSimpleChartFrame } from './components/MobileSimpleChartFrame';
 
 // Keep Simple compact and independent of Pro's indicator panes: a 280pt plot
 // plus the chart's own 28pt time axis.
 export const MOBILE_SIMPLE_CHART_HEIGHT = 308;
-// The range row mirrors the Pro interval bar (TradingViewChartControls on a
-// non-compact mobile layout): 8pt padding, 30pt pills, at least 42pt wide.
-const RANGE_BUTTON_HEIGHT = 30;
-const RANGE_BUTTON_MIN_WIDTH = 42;
 
-const RANGE_ROW_STYLE = {
-  flexGrow: 1,
-  alignItems: 'center',
-} as const;
-
-function ChartModeButton({
+export function ChartModeButton({
   icon,
+  iconSize = '$4.5',
+  buttonStyle,
   label,
   testID,
   onPress,
 }: {
   icon: IKeyOfIcons;
+  iconSize?: IIconProps['size'];
+  buttonStyle?: Pick<
+    IStackProps,
+    'width' | 'height' | 'hitSlop' | 'bg' | 'borderRadius' | 'pressStyle'
+  >;
   label: string;
   testID: string;
   onPress: () => void;
@@ -63,9 +58,10 @@ function ChartModeButton({
       borderRadius="$full"
       bg="$transparent"
       pressStyle={{ bg: '$bgStrongActive' }}
+      {...buttonStyle}
       onPress={onPress}
     >
-      <Icon name={icon} size="$4.5" color="$icon" />
+      <Icon name={icon} size={iconSize} color="$icon" />
     </Stack>
   );
 }
@@ -103,7 +99,6 @@ export function MobileSimpleChart({
 }: {
   marketAssetId?: string;
 }) {
-  const intl = useIntl();
   const [selectedRange, setRange] = useState<IStockSimpleChartRange>('1D');
   const { stockId } = useStockDetail();
   const { priceMode } = useStockPriceSource();
@@ -117,51 +112,26 @@ export function MobileSimpleChart({
       : TOKEN_SIMPLE_CHART_RANGES;
 
   return (
-    <YStack width="100%" testID="market-mobile-simple-chart">
-      <XStack
-        h={TRADING_VIEW_NATIVE_CHART_CONTROLS_HEIGHT}
-        px="$2"
-        gap="$2"
-        alignItems="center"
-        width="100%"
-      >
-        <ScrollView
-          horizontal
-          flex={1}
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={RANGE_ROW_STYLE}
-        >
-          {chartRanges.map((item) => (
-            <Button
-              key={item}
-              testID={`market-mobile-chart-range-${item}`}
-              minWidth={RANGE_BUTTON_MIN_WIDTH}
-              height={RANGE_BUTTON_HEIGHT}
-              m="$0"
-              px="$2.5"
-              borderWidth={0}
-              size="small"
-              variant={range === item ? 'secondary' : 'tertiary'}
-              borderRadius="$full"
-              onPress={() => setRange(item)}
-            >
-              {intl.formatMessage({
-                id: MARKET_SIMPLE_CHART_RANGE_LABEL_IDS[item],
-              })}
-            </Button>
-          ))}
-        </ScrollView>
-        <MobileChartModeControl />
-      </XStack>
-      <Stack height={MOBILE_SIMPLE_CHART_HEIGHT} width="100%">
-        <StockSimpleChart
-          initialHeight={MOBILE_SIMPLE_CHART_HEIGHT}
-          marketAssetId={marketAssetId}
-          range={range}
-          priceMode={priceMode}
-          priceScaleFormat={stockId ? 'stock' : 'full'}
-        />
-      </Stack>
-    </YStack>
+    <MobileSimpleChartFrame
+      height={
+        MOBILE_SIMPLE_CHART_HEIGHT + TRADING_VIEW_NATIVE_CHART_CONTROLS_HEIGHT
+      }
+      range={range}
+      onRangeChange={setRange}
+      chartRanges={chartRanges}
+      controlsPaddingHorizontal="$2"
+      modeControl={<MobileChartModeControl />}
+    >
+      <StockSimpleChart
+        initialHeight={MOBILE_SIMPLE_CHART_HEIGHT}
+        marketAssetId={marketAssetId}
+        range={range}
+        priceMode={priceMode}
+        priceScaleFormat={stockId ? 'stock' : 'full'}
+      />
+    </MobileSimpleChartFrame>
   );
 }
+
+export { MobileSimpleChartFrame } from './components/MobileSimpleChartFrame';
+export type { IMobileSimpleChartRange } from './components/MobileSimpleChartFrame';

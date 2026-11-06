@@ -114,6 +114,7 @@ function getTradingViewNativeRuntimeAutoPriceRange({
 }
 
 export function useTradingViewNativePriceScale({
+  defaultPriceRangeScale = 1,
   chartRuntime,
   chartSize,
   chartWidth,
@@ -125,6 +126,7 @@ export function useTradingViewNativePriceScale({
   subIndicatorPanes,
   timeAxisHeight,
 }: {
+  defaultPriceRangeScale?: number;
   chartRuntime: SharedValue<ITradingViewNativeChartRuntime>;
   chartSize: ITradingViewNativeChartSize;
   chartWidth: number;
@@ -311,7 +313,7 @@ export function useTradingViewNativePriceScale({
         chartRuntime.value = {
           ...runtime,
           pinnedPriceRange: null,
-          priceRangeScale: 1,
+          priceRangeScale: defaultPriceRangeScale,
         };
         scheduleOnRN(handleAutoScaleStateChange, true);
         return;
@@ -337,6 +339,7 @@ export function useTradingViewNativePriceScale({
     chartRuntime,
     decayOffset,
     handleAutoScaleStateChange,
+    defaultPriceRangeScale,
     isAutoScale,
     isTouchVisible,
     priceAxisWidth,
@@ -483,7 +486,7 @@ export function useTradingViewNativePriceScale({
         chartRuntime.value = {
           ...runtime,
           pinnedPriceRange: null,
-          priceRangeScale: 1,
+          priceRangeScale: defaultPriceRangeScale,
         };
         scheduleOnRN(handleAutoScaleStateChange, true);
       })
@@ -637,6 +640,7 @@ export function useTradingViewNativePriceScale({
     chartRuntime,
     decayOffset,
     handleAutoScaleStateChange,
+    defaultPriceRangeScale,
     onInteractionChange,
     isEnabled,
     priceAxisWidth,

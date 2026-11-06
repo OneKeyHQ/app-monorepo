@@ -35,6 +35,7 @@ import {
   validateSizeInput,
 } from '@onekeyhq/shared/src/utils/perpsUtils';
 import type { IPerpsFrontendOrder } from '@onekeyhq/shared/types/hyperliquid/sdk';
+import type { IPerpsTradeAnalyticsContext } from '@onekeyhq/shared/types/hyperliquid/types';
 
 import { useEnsureTradingEnabled } from '../../hooks/useEnableTradingWithDepositFallback';
 import { usePerpsAccountScopedActivePositions } from '../../hooks/usePerpsAccountScopedActivePositions';
@@ -77,7 +78,7 @@ const POSITION_TPSL_SEED_PERCENT = {
   sl: DEFAULT_TPSL_ROE_PERCENT,
 };
 
-export interface ISetTpslParams {
+export interface ISetTpslParams extends IPerpsTradeAnalyticsContext {
   coin: string;
   szDecimals: number;
   assetId: number;
@@ -189,6 +190,7 @@ function ExistingTpslOrderSummary({
 
 const SetTpslForm = memo(
   ({
+    tradingUiMode,
     coin,
     szDecimals,
     assetId,
@@ -332,6 +334,7 @@ const SetTpslForm = memo(
             return;
           }
           await hyperliquidActions.current.cancelOrder({
+            tradingUiMode,
             orders: [
               {
                 assetId: symbolMeta.assetId,
@@ -343,7 +346,12 @@ const SetTpslForm = memo(
           console.error('SetTpslModal handleCancelOrder error:', error);
         }
       },
-      [canSubmitForScopedAccount, ensureTradingEnabled, hyperliquidActions],
+      [
+        canSubmitForScopedAccount,
+        ensureTradingEnabled,
+        hyperliquidActions,
+        tradingUiMode,
+      ],
     );
 
     const entryPrice = useMemo(() => {
@@ -652,6 +660,7 @@ const SetTpslForm = memo(
           }
         }
         await hyperliquidActions.current.setPositionTpsl({
+          tradingUiMode,
           assetId,
           expectedAccountAddress: activeAccount?.accountAddress ?? '',
           positionSize: tpslAmount,
@@ -666,6 +675,7 @@ const SetTpslForm = memo(
         setIsSubmitting(false);
       }
     }, [
+      tradingUiMode,
       configureAmount,
       formData.amount,
       calculatedAmount,
@@ -876,7 +886,7 @@ function SetTpslModal() {
   const route =
     useRoute<RouteProp<IModalPerpParamList, EModalPerpRoutes.MobileSetTpsl>>();
 
-  const { coin, szDecimals, assetId } = route.params;
+  const { coin, szDecimals, assetId, tradingUiMode } = route.params;
   const navigation = useNavigation();
   const handleClose = useCallback(() => {
     navigation.goBack();
@@ -893,6 +903,7 @@ function SetTpslModal() {
           <PerpsProviderMirror>
             <YStack px="$4" flex={1}>
               <SetTpslForm
+                tradingUiMode={tradingUiMode}
                 coin={coin}
                 szDecimals={szDecimals}
                 assetId={assetId}
@@ -908,6 +919,7 @@ function SetTpslModal() {
 
 export default SetTpslModal;
 export function showSetTpslDialog({
+  tradingUiMode,
   coin,
   szDecimals,
   assetId,
@@ -926,6 +938,7 @@ export function showSetTpslDialog({
       <PerpsAccountSelectorProviderMirror>
         <PerpsProviderMirror>
           <SetTpslForm
+            tradingUiMode={tradingUiMode}
             coin={coin}
             szDecimals={szDecimals}
             assetId={assetId}

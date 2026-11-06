@@ -12,14 +12,34 @@ import type {
   PointerEvent as ReactPointerEvent,
 } from 'react';
 
+import { colord } from 'colord';
+
 import { useTheme } from '../../hooks/useStyle';
 
+import {
+  DOTTED_ACTIVE_SCALE,
+  DOTTED_BUBBLE_EDGE_INSET,
+  DOTTED_BUBBLE_HEIGHT,
+  DOTTED_BUBBLE_PATH,
+  DOTTED_BUBBLE_WIDTH,
+} from './dottedSliderConstants';
+import { resolveDottedSliderColor } from './dottedSliderUtils';
+
 const THUMB_SIZE = 16;
+const DOTTED_TRACK_HEIGHT = 28;
+const DOTTED_THUMB_SIZE = 28;
+const DOTTED_INSET = DOTTED_TRACK_HEIGHT / 2;
 const MARK_SIZE = 10;
 // Square hit area around each mark so mouse/touch don't need pixel precision.
 const MARK_HIT_AREA = 24;
 const DEFAULT_TRACK_HEIGHT = 4;
 const HIT_AREA_HEIGHT = 24;
+const bubbleShapeStyle: CSSProperties = {
+  position: 'absolute',
+  inset: 0,
+  zIndex: -1,
+};
+const bubbleTextStyle: CSSProperties = { position: 'relative' };
 
 // Keep half-step marks symmetric when the slider emits integer values.
 function roundHalfToEven(value: number) {
@@ -33,6 +53,8 @@ function roundHalfToEven(value: number) {
 export interface ISegmentSliderProps {
   value: number;
   sliderHeight?: number;
+  activeColor?: string;
+  appearance?: 'default' | 'dotted';
   onChange: (value: number) => void;
   segments: number;
   snapThreshold?: number;
@@ -54,7 +76,7 @@ export interface ISegmentSliderProps {
    */
   centerOrigin?: boolean;
   /**
-   * Native-only for now: when true, a tap snaps to the nearest segment mark
+   * Native-only for now: taps within a mark hot zone snap to that mark
    * while a drag stays free. Accepted here for cross-platform prop parity but
    * not yet honored by the web variant, which keeps its tap-on-mark snapping.
    */
@@ -165,6 +187,8 @@ SegmentMark.displayName = 'SegmentMark';
 function SegmentSliderComponent({
   value,
   sliderHeight = DEFAULT_TRACK_HEIGHT,
+  activeColor,
+  appearance = 'default',
   onChange,
   segments,
   snapThreshold = 0,
@@ -184,6 +208,8 @@ function SegmentSliderComponent({
   const fillRef = useRef<HTMLDivElement>(null);
   const thumbRef = useRef<HTMLDivElement>(null);
   const bubbleRef = useRef<HTMLDivElement>(null);
+  const bubbleTextRef = useRef<HTMLSpanElement>(null);
+  const dottedLabelRefs = useRef<(HTMLSpanElement | null)[]>([]);
   const markRefs = useRef<(HTMLDivElement | null)[]>([]);
   const draggingRef = useRef(false);
   const pointerIdRef = useRef<number | null>(null);
@@ -194,15 +220,42 @@ function SegmentSliderComponent({
   // value to that exact step instead of using the raw clientX position.
   const markOriginRef = useRef<number | null>(null);
   const [focusVisible, setFocusVisible] = useState(false);
+  const [pressed, setPressed] = useState(false);
+  const [hovered, setHovered] = useState(false);
+  const active = !disabled && (pressed || hovered);
+  const hoveredRef = useRef(false);
 
+  const isDotted = appearance === 'dotted';
   const theme = useTheme();
   // Tamagui exposes color tokens via `.val`; useTheme re-runs the component
   // when the theme changes, so we read fresh values on every render.
-  const bgPrimary = theme.bgPrimary.val;
+  const sourceColor = activeColor ?? theme.bgPrimary.val;
+  const bgPrimary = useMemo(
+    () =>
+      isDotted
+        ? resolveDottedSliderColor(
+            sourceColor,
+            theme.neutral3.val,
+            theme.bgApp.val,
+          )
+        : sourceColor,
+    [isDotted, sourceColor, theme.neutral3.val, theme.bgApp.val],
+  );
+  const fillStartColor = useMemo(
+    () =>
+      resolveDottedSliderColor(
+        colord(bgPrimary).alpha(0.75).toRgbString(),
+        theme.neutral3.val,
+        theme.bgApp.val,
+      ),
+    [bgPrimary, theme.neutral3.val, theme.bgApp.val],
+  );
   const neutral5 = theme.neutral5.val;
   const bg = theme.bg.val;
   const borderStrong = theme.borderStrong.val;
   const borderActive = theme.borderActive.val;
+
+  const activeTextColor = colord(bgPrimary).isLight() ? '#000000' : '#FFFFFF';
 
   const range = max - min;
   const safeRange = range || 1;
@@ -247,29 +300,41 @@ function SegmentSliderComponent({
     (v: number) => {
       if (!hasSegments) return;
       const valuePct = valueToPct(v);
+      if (isDotted) {
+        dottedLabelRefs.current.forEach((label, index) => {
+          if (label)
+            label.style.color =
+              segmentIndexToPct(index) <= valuePct
+                ? activeTextColor
+                : theme.textSubdued.val;
+        });
+      }
       markRefs.current.forEach((el, idx) => {
         if (!el) return;
         const markPct = segmentIndexToPct(idx);
-        let active = false;
+        let markActive = false;
         if (centerOrigin) {
           if (v === 0) {
-            active = false;
+            markActive = false;
           } else if (v > 0) {
-            active = markPct > centerPct && markPct <= valuePct;
+            markActive = markPct > centerPct && markPct <= valuePct;
           } else {
-            active = markPct >= valuePct && markPct < centerPct;
+            markActive = markPct >= valuePct && markPct < centerPct;
           }
         } else {
-          active = markPct <= valuePct;
+          markActive = markPct <= valuePct;
         }
         // Inactive marks: opaque page-bg fill with a gray ring so the track
         // line behind them doesn't bleed through.
-        el.style.background = active ? bgPrimary : bg;
-        el.style.borderColor = active ? bgPrimary : neutral5;
+        el.style.background = markActive ? bgPrimary : bg;
+        el.style.borderColor = markActive ? bgPrimary : neutral5;
       });
     },
     [
       hasSegments,
+      isDotted,
+      activeTextColor,
+      theme.textSubdued.val,
       valueToPct,
       segmentIndexToPct,
       centerOrigin,
@@ -298,20 +363,28 @@ function SegmentSliderComponent({
             fill.style.width = `${width}%`;
           }
         } else {
-          fill.style.left = '0%';
-          fill.style.width = `${pct}%`;
+          fill.style.left = isDotted ? `${-DOTTED_INSET}px` : '0%';
+          if (isDotted) {
+            fill.style.width =
+              pct <= 0 ? '0px' : `calc(${pct}% + ${DOTTED_INSET}px)`;
+          } else {
+            fill.style.width = `${pct}%`;
+          }
         }
       }
 
       const bubble = bubbleRef.current;
       if (bubble) {
-        bubble.style.left = `${pct}%`;
-        bubble.textContent = `${Math.round(v)}%`;
+        bubble.style.left = isDotted
+          ? `clamp(${DOTTED_BUBBLE_WIDTH + DOTTED_BUBBLE_EDGE_INSET - DOTTED_INSET}px, ${pct}%, calc(100% + ${DOTTED_INSET - DOTTED_BUBBLE_EDGE_INSET}px))`
+          : `${pct}%`;
+        if (bubbleTextRef.current)
+          bubbleTextRef.current.textContent = `${Math.round(v)}%`;
       }
 
       applyMarkActiveStates(v);
     },
-    [valueToPct, centerOrigin, centerPct, applyMarkActiveStates],
+    [valueToPct, centerOrigin, centerPct, applyMarkActiveStates, isDotted],
   );
 
   // Initial paint, external value sync, and theme repaint. Uses
@@ -366,20 +439,36 @@ function SegmentSliderComponent({
       const rounded = alignSegmentMarksToIntegerValues
         ? roundHalfToEven(snapped)
         : Math.round(snapped);
-      applyVisual(rounded);
+      applyVisual(isDotted ? snapped : rounded);
       if (rounded !== lastEmittedRef.current) {
         lastEmittedRef.current = rounded;
         onChange(rounded);
       }
     },
-    [alignSegmentMarksToIntegerValues, snap, onChange, applyVisual],
+    [alignSegmentMarksToIntegerValues, snap, onChange, applyVisual, isDotted],
   );
 
   const setBubbleVisible = useCallback((visible: boolean) => {
     const bubble = bubbleRef.current;
     if (!bubble) return;
-    bubble.style.opacity = visible ? '1' : '0';
+    const show = visible || hoveredRef.current;
+    bubble.style.opacity = show ? '1' : '0';
   }, []);
+
+  const handlePointerEnter = useCallback(
+    (event: ReactPointerEvent<HTMLDivElement>) => {
+      if (!isDotted || disabled || event.pointerType !== 'mouse') return;
+      hoveredRef.current = true;
+      setHovered(true);
+      setBubbleVisible(true);
+    },
+    [disabled, isDotted, setBubbleVisible],
+  );
+  const handlePointerLeave = useCallback(() => {
+    hoveredRef.current = false;
+    setHovered(false);
+    if (!draggingRef.current) setBubbleVisible(false);
+  }, [setBubbleVisible]);
 
   const snapToStep = useCallback(
     (idx: number) => {
@@ -427,6 +516,7 @@ function SegmentSliderComponent({
         return;
       }
       draggingRef.current = true;
+      if (isDotted) setPressed(true);
     },
     [
       disabled,
@@ -437,6 +527,7 @@ function SegmentSliderComponent({
       snapToStep,
       emit,
       valueFromClientX,
+      isDotted,
     ],
   );
 
@@ -470,6 +561,7 @@ function SegmentSliderComponent({
       // SegmentMark first and consumed inside handlePointerDown to snap to
       // the exact step rather than the raw clientX value.
       draggingRef.current = false;
+      setPressed(false);
       setBubbleVisible(false);
       onSlideComplete?.();
     },
@@ -559,7 +651,7 @@ function SegmentSliderComponent({
     () => ({
       position: 'relative',
       width: '100%',
-      height: HIT_AREA_HEIGHT,
+      height: isDotted ? 44 : HIT_AREA_HEIGHT,
       cursor: disabled ? 'not-allowed' : 'pointer',
       userSelect: 'none',
       touchAction: 'none',
@@ -567,23 +659,29 @@ function SegmentSliderComponent({
       outline: focusVisible ? `2px solid ${borderActive}` : 'none',
       outlineOffset: 2,
       borderRadius: 4,
+      transform: isDotted
+        ? `scale(${1 + Number(active) * (DOTTED_ACTIVE_SCALE - 1)})`
+        : undefined,
+      transition: isDotted
+        ? 'transform 180ms cubic-bezier(0.22, 1, 0.36, 1)'
+        : undefined,
     }),
-    [disabled, focusVisible, borderActive],
+    [disabled, focusVisible, borderActive, isDotted, active],
   );
 
   const trackStyle = useMemo<CSSProperties>(
     () => ({
       position: 'absolute',
       top: '50%',
-      left: THUMB_SIZE / 2,
-      right: THUMB_SIZE / 2,
+      left: isDotted ? DOTTED_INSET : THUMB_SIZE / 2,
+      right: isDotted ? DOTTED_INSET : THUMB_SIZE / 2,
       transform: 'translateY(-50%)',
-      height: sliderHeight,
-      background: neutral5,
-      borderRadius: sliderHeight / 2,
+      height: isDotted ? DOTTED_TRACK_HEIGHT : sliderHeight,
+      background: isDotted ? undefined : neutral5,
+      borderRadius: isDotted ? 999 : sliderHeight / 2,
       pointerEvents: 'none',
     }),
-    [sliderHeight, neutral5],
+    [sliderHeight, neutral5, isDotted],
   );
 
   const fillStyle = useMemo<CSSProperties>(
@@ -593,25 +691,30 @@ function SegmentSliderComponent({
       left: 0,
       width: '0%',
       height: '100%',
-      background: bgPrimary,
-      borderRadius: sliderHeight / 2,
+      backgroundColor: bgPrimary,
+      backgroundImage: isDotted
+        ? `linear-gradient(to right, ${fillStartColor}, ${bgPrimary} calc(100% - ${DOTTED_THUMB_SIZE / 2}px), ${bgPrimary})`
+        : undefined,
+      borderRadius: isDotted ? '14px 0 0 14px' : sliderHeight / 2,
       pointerEvents: 'none',
       willChange: 'left, width',
+      zIndex: isDotted ? 1 : undefined,
     }),
-    [bgPrimary, sliderHeight],
+    [bgPrimary, fillStartColor, sliderHeight, isDotted],
   );
 
   const defaultThumbStyle = useMemo<CSSProperties>(
     () => ({
-      width: THUMB_SIZE,
-      height: THUMB_SIZE,
+      width: isDotted ? DOTTED_THUMB_SIZE : THUMB_SIZE,
+      height: isDotted ? DOTTED_THUMB_SIZE : THUMB_SIZE,
       borderRadius: '50%',
       background: bg,
-      border: `1px solid ${borderStrong}`,
-      boxShadow: '0 1px 2px rgba(0, 0, 0, 0.08)',
+      backgroundClip: isDotted ? 'padding-box' : undefined,
+      border: isDotted ? `3px solid ${bgPrimary}` : `1px solid ${borderStrong}`,
+      boxShadow: isDotted ? undefined : '0 1px 2px rgba(0, 0, 0, 0.08)',
       boxSizing: 'border-box',
     }),
-    [bg, borderStrong],
+    [bg, bgPrimary, borderStrong, isDotted],
   );
 
   const thumbWrapperStyle = useMemo<CSSProperties>(
@@ -622,9 +725,9 @@ function SegmentSliderComponent({
       transform: 'translate(-50%, -50%)',
       pointerEvents: 'none',
       willChange: 'left',
-      zIndex: 2,
+      zIndex: isDotted ? 4 : 2,
     }),
-    [],
+    [isDotted],
   );
 
   const bubbleStyle = useMemo<CSSProperties>(
@@ -632,21 +735,96 @@ function SegmentSliderComponent({
       position: 'absolute',
       bottom: '100%',
       left: '0%',
-      marginBottom: 8,
-      transform: 'translateX(-50%)',
-      padding: '2px 8px',
-      background: bgPrimary,
-      color: bg,
-      borderRadius: 4,
-      fontSize: 12,
+      marginBottom: isDotted ? 0 : 8,
+      transform: isDotted ? 'translateX(-100%)' : 'translateX(-50%)',
+      padding: isDotted ? '2px 0 0' : '2px 8px',
+      background: isDotted ? undefined : bgPrimary,
+      color: isDotted ? theme.text.val : bg,
+      borderRadius: isDotted ? undefined : 4,
+      width: isDotted ? DOTTED_BUBBLE_WIDTH : undefined,
+      height: isDotted ? DOTTED_BUBBLE_HEIGHT : undefined,
+      textAlign: 'center',
+      boxSizing: 'border-box',
+      fontSize: isDotted ? 10 : 12,
       lineHeight: '16px',
       fontWeight: 600,
       opacity: 0,
-      transition: 'opacity 150ms ease',
+      transition: isDotted ? 'none' : 'opacity 150ms ease',
       pointerEvents: 'none',
       whiteSpace: 'nowrap',
+      zIndex: 5,
     }),
-    [bgPrimary, bg],
+    [bgPrimary, bg, isDotted, theme.text.val],
+  );
+  const dottedMarkStyle = useMemo<CSSProperties>(
+    () => ({
+      width: 5,
+      height: 5,
+      borderRadius: '50%',
+      backgroundColor: theme.textSubdued.val,
+      opacity: active ? 0 : 0.45,
+      transition: 'opacity 120ms ease',
+    }),
+    [active, theme.textSubdued.val],
+  );
+  const dottedLabelStyle = useMemo<CSSProperties>(
+    () => ({
+      position: 'absolute',
+      fontSize: 10,
+      fontWeight: 500,
+      whiteSpace: 'nowrap',
+      opacity: active ? 0.65 : 0,
+      transition: 'opacity 120ms ease',
+      pointerEvents: 'none',
+    }),
+    [active],
+  );
+  const dottedLabelStyles = useMemo(
+    () =>
+      markIndices.map((index) => {
+        let offset = 0;
+        if (index === 0) offset = 6;
+        else if (index === segments) offset = -8;
+        return { ...dottedLabelStyle, transform: `translateX(${offset}px)` };
+      }),
+    [dottedLabelStyle, markIndices, segments],
+  );
+  const dottedBackgroundStyle = useMemo<CSSProperties>(
+    () => ({
+      position: 'absolute',
+      top: 0,
+      bottom: 0,
+      left: -DOTTED_INSET,
+      right: -DOTTED_INSET,
+      borderRadius: 999,
+      background: theme.neutral3.val,
+      pointerEvents: 'none',
+    }),
+    [theme.neutral3.val],
+  );
+
+  const registerDottedLabels = useMemo(
+    () =>
+      markIndices.map((idx) => (element: HTMLSpanElement | null) => {
+        dottedLabelRefs.current[idx] = element;
+      }),
+    [markIndices],
+  );
+  const minorMarks = useMemo(
+    () =>
+      markIndices.slice(0, -1).map((idx) => ({
+        index: idx,
+        style: {
+          ...dottedMarkStyle,
+          position: 'absolute' as const,
+          left: `${((idx + 0.5) / segments) * 100}%`,
+          top: '50%',
+          transform: 'translate(-50%, -50%)',
+          opacity: active ? 0.45 : 0,
+          zIndex: 2,
+        },
+      })),
+    [dottedMarkStyle, markIndices, active, segments],
   );
 
   return (
@@ -659,6 +837,8 @@ function SegmentSliderComponent({
       tabIndex={disabled ? -1 : 0}
       onKeyDown={handleKeyDown}
       onPointerDown={handlePointerDown}
+      onPointerEnter={handlePointerEnter}
+      onPointerLeave={handlePointerLeave}
       onPointerMove={handlePointerMove}
       onPointerUp={finishDrag}
       onPointerCancel={finishDrag}
@@ -668,7 +848,12 @@ function SegmentSliderComponent({
       style={containerStyle}
     >
       <div ref={trackRef} style={trackStyle}>
-        <div ref={fillRef} style={fillStyle} />
+        {isDotted ? <div style={dottedBackgroundStyle} /> : null}
+        <div
+          ref={fillRef}
+          data-testid="segment-slider-fill"
+          style={fillStyle}
+        />
 
         {markIndices.map((idx) => (
           <SegmentMark
@@ -679,15 +864,49 @@ function SegmentSliderComponent({
             disabled={disabled}
             registerRef={registerMarkRef}
             reportPointerDown={reportMarkPointerDown}
-            customNode={renderMark ? renderMark({ index: idx }) : undefined}
+            customNode={
+              isDotted ? (
+                <>
+                  <span style={dottedMarkStyle} />
+                  <span
+                    ref={registerDottedLabels[idx]}
+                    style={dottedLabelStyles[idx]}
+                    aria-hidden="true"
+                  >
+                    {segmentIndexToValue(idx)}%
+                  </span>
+                </>
+              ) : (
+                renderMark?.({ index: idx })
+              )
+            }
           />
         ))}
 
+        {isDotted
+          ? minorMarks.map(({ index, style }) => (
+              <span key={`minor-${index}`} aria-hidden="true" style={style} />
+            ))
+          : null}
         <div ref={thumbRef} style={thumbWrapperStyle}>
           {renderThumb ? renderThumb() : <div style={defaultThumbStyle} />}
         </div>
 
-        {showBubble ? <div ref={bubbleRef} style={bubbleStyle} /> : null}
+        {showBubble ? (
+          <div ref={bubbleRef} style={bubbleStyle}>
+            {isDotted ? (
+              <svg
+                width={DOTTED_BUBBLE_WIDTH}
+                height={DOTTED_BUBBLE_HEIGHT}
+                style={bubbleShapeStyle}
+                aria-hidden="true"
+              >
+                <path d={DOTTED_BUBBLE_PATH} fill={theme.neutral3.val} />
+              </svg>
+            ) : null}
+            <span ref={bubbleTextRef} style={bubbleTextStyle} />
+          </div>
+        ) : null}
       </div>
     </div>
   );
