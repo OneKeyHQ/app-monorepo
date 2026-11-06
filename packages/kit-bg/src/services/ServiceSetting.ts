@@ -628,7 +628,9 @@ class ServiceSetting extends ServiceBase {
     },
   );
 
-  private async getTermsConsentRequiredVersion() {
+  // `fallback` answers when the server can't be reached, which unlike an empty
+  // value doesn't mean the version was withdrawn.
+  private async getTermsConsentRequiredVersion(fallback?: string) {
     try {
       return await this._fetchTermsConsentVersion();
     } catch (error) {
@@ -639,7 +641,7 @@ class ServiceSetting extends ServiceBase {
         'fetchTermsConsentVersion error',
         error instanceof Error ? error.message : 'Unknown error',
       );
-      return undefined;
+      return fallback;
     }
   }
 
@@ -717,7 +719,9 @@ class ServiceSetting extends ServiceBase {
     source: ITermsConsentSource;
     version?: string;
   }) {
-    const requiredVersion = await this.getTermsConsentRequiredVersion();
+    // A failed lookup keeps the agreement to the version on screen.
+    const requiredVersion =
+      await this.getTermsConsentRequiredVersion(shownVersion);
     // A dialog or ready page left open while the server moved on or withdrew
     // the version must not record it, or roll the stored acceptance back.
     if (shownVersion && shownVersion !== requiredVersion) {
