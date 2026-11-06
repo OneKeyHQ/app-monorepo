@@ -323,8 +323,9 @@ def patch_library(
     return input_hash, output_hash, True
 
 
-def load_manifest() -> dict:
-    manifest = json.loads(Path(__file__).with_suffix(".json").read_text())
+def load_manifest(manifest_path: Path | None) -> dict:
+    path = manifest_path or Path(__file__).with_suffix(".json")
+    manifest = json.loads(path.read_text())
     if manifest.get("schemaVersion") != 1:
         raise PatchError("Unsupported JPush patch manifest schema")
     if not manifest.get("libraries"):
@@ -371,8 +372,13 @@ def validate_xcframework(root: Path, spec: dict) -> dict:
     return libraries
 
 
-def run(node_modules: Path, check_only: bool, report_only: bool) -> int:
-    manifest = load_manifest()
+def run(
+    node_modules: Path,
+    check_only: bool,
+    report_only: bool,
+    manifest_path: Path | None = None,
+) -> int:
+    manifest = load_manifest(manifest_path)
     for spec in manifest["libraries"]:
         validate_package_version(node_modules, spec)
         xcframework = node_modules / spec["xcframework"]
@@ -425,6 +431,12 @@ def main() -> int:
         )
     )
     parser.add_argument("node_modules", type=Path)
+    parser.add_argument(
+        "--manifest",
+        type=Path,
+        default=None,
+        help="override the reviewed manifest (used by regression tests)",
+    )
     mode = parser.add_mutually_exclusive_group()
     mode.add_argument(
         "--check",
@@ -438,7 +450,12 @@ def main() -> int:
     )
     arguments = parser.parse_args()
     try:
-        return run(arguments.node_modules, arguments.check, arguments.report_hashes)
+        return run(
+            arguments.node_modules,
+            arguments.check,
+            arguments.report_hashes,
+            arguments.manifest,
+        )
     except (
         KeyError,
         OSError,

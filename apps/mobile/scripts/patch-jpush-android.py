@@ -379,12 +379,12 @@ def patch_jar(jar: Path, spec: dict, check_only: bool, report_only: bool) -> str
     infos, entries = read_entries(jar)
     invoke_count, rename_count, details = scan_jar(entries, spec)
     if invoke_count == 0 and rename_count == 0:
-        actual_hashes = {
-            name: digest(entries[name]) for name in spec["patchedClassSha256"]
+        actual_entries = {
+            name: digest(data) for name, data in entries.items()
         }
-        if actual_hashes != spec["patchedClassSha256"]:
+        if actual_entries != spec["patchedEntries"]:
             raise PatchError(
-                "Already-neutralized class bytes do not match the reviewed result: "
+                "Already-neutralized jar content does not match the reviewed result: "
                 + jar.name
             )
         return "already patched"
@@ -437,22 +437,18 @@ def patch_jar(jar: Path, spec: dict, check_only: bool, report_only: bool) -> str
     invoke_after, rename_after, _details = scan_jar(entries, spec)
     if invoke_after or rename_after:
         raise PatchError("Patch did not remove every reviewed call site: " + jar.name)
-    def patched_hash(class_name: str) -> str:
-        return digest(entries[class_name])
-    actual_hashes = {
-        class_name: patched_hash(class_name)
-        for class_name in spec["patchedClassSha256"]
-    }
-    if actual_hashes != spec["patchedClassSha256"]:
+    actual_entries = {name: digest(data) for name, data in entries.items()}
+    if actual_entries != spec["patchedEntries"]:
         raise PatchError(
-            "Patched class SHA-256 does not match the reviewed result: " + jar.name
+            "Patched jar content does not match the reviewed result: " + jar.name
         )
     write_jar(jar, infos, entries)
     return "patched"
 
 
-def load_manifest() -> dict:
-    manifest = json.loads(Path(__file__).with_suffix(".json").read_text())
+def load_manifest(manifest_path: Path | None) -> dict:
+    path = manifest_path or Path(__file__).with_suffix(".json")
+    manifest = json.loads(path.read_text())
     if manifest.get("schemaVersion") != 1:
         raise PatchError("Unsupported JPush Android patch manifest schema")
     if not manifest.get("jars"):
@@ -460,8 +456,13 @@ def load_manifest() -> dict:
     return manifest
 
 
-def run(node_modules: Path, check_only: bool, report_only: bool) -> int:
-    manifest = load_manifest()
+def run(
+    node_modules: Path,
+    check_only: bool,
+    report_only: bool,
+    manifest_path: Path | None = None,
+) -> int:
+    manifest = load_manifest(manifest_path)
     for spec in manifest["jars"]:
         package_json = node_modules / spec["packageJson"]
         version = json.loads(package_json.read_text()).get("version")
@@ -493,6 +494,12 @@ def main() -> int:
         )
     )
     parser.add_argument("node_modules", type=Path)
+    parser.add_argument(
+        "--manifest",
+        type=Path,
+        default=None,
+        help="override the reviewed manifest (used by regression tests)",
+    )
     mode = parser.add_mutually_exclusive_group()
     mode.add_argument(
         "--check",
@@ -506,7 +513,12 @@ def main() -> int:
     )
     arguments = parser.parse_args()
     try:
-        return run(arguments.node_modules, arguments.check, arguments.report)
+        return run(
+            arguments.node_modules,
+            arguments.check,
+            arguments.report,
+            arguments.manifest,
+        )
     except (KeyError, OSError, PatchError, struct.error, zipfile.BadZipFile) as error:
         parser.exit(1, "[JPush] Remote command removal failed: " + str(error) + "\n")
 
