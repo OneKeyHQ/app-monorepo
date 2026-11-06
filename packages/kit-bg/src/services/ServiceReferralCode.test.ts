@@ -4,6 +4,7 @@ import axios from 'axios';
 
 import { appApiClient } from '@onekeyhq/shared/src/appApiClient/appApiClient';
 import { buildLegacyWalletCreatedAtFallback } from '@onekeyhq/shared/src/referralCode/creationRecordUtils';
+import type { IPerpsRecallProgress } from '@onekeyhq/shared/src/referralCode/recall';
 import {
   EExportSubject,
   EExportTab,
@@ -13,6 +14,8 @@ import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import type { IPrimeUserInfo } from '@onekeyhq/shared/types/prime/primeTypes';
 
 import { SimpleDbEntityReferralCode } from '../dbs/simple/entity/SimpleDbEntityReferralCode';
+import { perpsRecallProgressAtom } from '../states/jotai/atoms/perps';
+import { settingsPersistAtom } from '../states/jotai/atoms/settings';
 
 import ServiceReferralCode from './ServiceReferralCode';
 
@@ -45,8 +48,15 @@ jest.mock('@onekeyhq/shared/src/background/backgroundDecorators', () => ({
 jest.mock('@onekeyhq/shared/src/appApiClient/appApiClient', () => ({
   appApiClient: {
     getClient: jest.fn(),
-    getRawDataClient: jest.fn(),
+    getBasicClient: jest.fn(),
   },
+}));
+
+jest.mock('../states/jotai/atoms/perps', () => ({
+  perpsRecallProgressAtom: { get: jest.fn(), set: jest.fn() },
+}));
+jest.mock('../states/jotai/atoms/settings', () => ({
+  settingsPersistAtom: { get: jest.fn() },
 }));
 
 jest.mock('../endpoints', () => ({
@@ -1336,5 +1346,308 @@ describe('ServiceReferralCode.getBoundEvmReferralCodeWalletInfo', () => {
       }),
     ).resolves.toBeUndefined();
     expect(checkWalletBindStatusSpy).not.toHaveBeenCalled();
+  });
+});
+
+describe('ServiceReferralCode Perps recall progress', () => {
+  function mockRecallClient(get: ReturnType<typeof axios.create>['get']) {
+    const client = axios.create();
+    client.get = get;
+    jest.mocked(appApiClient.getBasicClient).mockResolvedValue(client);
+  }
+
+  const progress: IPerpsRecallProgress = {
+    title: 'Trade more to earn 150 USDC',
+    closable: true,
+    reopenAfterMinutes: 30,
+    blogUrl: 'https://onekey.so/blog/recall',
+    activityId: 'recall-1',
+    activityStatus: 'running',
+    status: 'running',
+    volume: '1000.25',
+    totalReward: '150',
+    earnedReward: '30',
+    topTarget: '8000',
+    current: { index: 1, target: '4000', remaining: '2999.75', reward: '45' },
+    deadline: '2030-01-01T00:00:00.000Z',
+    payoutStatus: 'pending',
+    paidAmount: null,
+    paidAt: null,
+  };
+  let instanceId: string;
+  let snapshot: Awaited<ReturnType<typeof perpsRecallProgressAtom.get>>;
+  beforeEach(() => {
+    jest.clearAllMocks();
+    instanceId = 'test-instance';
+    snapshot = { instanceId: '', endpoint: '', locale: '', progress: null };
+    jest
+      .mocked(settingsPersistAtom.get)
+      .mockImplementation(
+        async () =>
+          ({ instanceId }) as Awaited<
+            ReturnType<typeof settingsPersistAtom.get>
+          >,
+      );
+    jest
+      .mocked(perpsRecallProgressAtom.get)
+      .mockImplementation(async () => snapshot);
+    jest
+      .mocked(perpsRecallProgressAtom.set)
+      .mockImplementation(async (value) => {
+        snapshot = typeof value === 'function' ? value(snapshot) : value;
+      });
+  });
+
+  it('uses the anonymous raw Rebate client and shares concurrent requests', async () => {
+    const { service } = createService();
+    instanceId = ' TEST-Instance ';
+
+    const get = jest
+      .fn()
+      .mockResolvedValue({ status: 200, data: { code: 0, data: progress } });
+    mockRecallClient(get);
+    const results = await Promise.all([
+      service.fetchPerpsRecallProgress(),
+      service.fetchPerpsRecallProgress(),
+    ]);
+    expect(results).toEqual([progress, progress]);
+    expect(get).toHaveBeenCalledTimes(1);
+    expect(get).toHaveBeenCalledWith('/rebate/v1/recall/progress', {
+      params: { instanceId: 'test-instance' },
+      headers: { 'x-onekey-request-locale': 'en' },
+    });
+    expect(appApiClient.getBasicClient).toHaveBeenCalledWith({
+      name: EServiceEndpointEnum.Rebate,
+      endpoint: 'https://test.onekey.so',
+      autoHandleError: false,
+    });
+    expect(snapshot.progress).toEqual(progress);
+  });
+
+  it.each([
+    { status: 204, data: '' },
+    { status: 204, data: undefined },
+    { status: 200, data: { code: 1, data: progress } },
+    { status: 200, data: { code: 0, data: { ...progress, volume: 'NaN' } } },
+    { status: 200, data: { code: 0, data: { ...progress, current: null } } },
+    { status: 200, data: { code: 0, data: { ...progress, title: 123 } } },
+    { status: 200, data: { code: 0, data: { ...progress, closable: 'true' } } },
+    {
+      status: 200,
+      data: { code: 0, data: { ...progress, reopenAfterMinutes: -1 } },
+    },
+    {
+      status: 200,
+      data: { code: 0, data: { ...progress, reopenAfterMinutes: Infinity } },
+    },
+    {
+      status: 200,
+      data: { code: 0, data: { ...progress, blogUrl: 'file:///tmp/recall' } },
+    },
+    {
+      status: 200,
+      data: { code: 0, data: { ...progress, deadline: 'invalid' } },
+    },
+  ])(
+    'clears the promotion for empty or invalid responses: %j',
+    async (response) => {
+      const { service } = createService();
+      snapshot = {
+        instanceId,
+        endpoint: 'https://test.onekey.so',
+        locale: 'en',
+        progress,
+      };
+      const get = jest.fn().mockResolvedValue(response);
+      mockRecallClient(get);
+      await expect(service.fetchPerpsRecallProgress()).resolves.toBeNull();
+      expect(snapshot.progress).toBeNull();
+    },
+  );
+
+  it('accepts achieved and finalized paid results with no current target', async () => {
+    const { service } = createService();
+    const final = {
+      ...progress,
+      activityStatus: 'ended',
+      status: 'achieved',
+      current: null,
+      earnedReward: '150',
+      payoutStatus: 'paid',
+      paidAmount: '150',
+      paidAt: '2030-01-02T00:00:00.000Z',
+    };
+    const get = jest
+      .fn()
+      .mockResolvedValue({ status: 200, data: { code: 0, data: final } });
+    mockRecallClient(get);
+    await expect(service.fetchPerpsRecallProgress()).resolves.toEqual(final);
+  });
+
+  it('keeps progress available when optional presentation values are empty', async () => {
+    const { service } = createService();
+    const data = {
+      ...progress,
+      title: null,
+      blogUrl: null,
+      reopenAfterMinutes: null,
+    };
+    mockRecallClient(
+      jest.fn().mockResolvedValue({ status: 200, data: { code: 0, data } }),
+    );
+    await expect(service.fetchPerpsRecallProgress()).resolves.toEqual(data);
+  });
+
+  it('separates locale caches and ignores an older language response', async () => {
+    const { service, backgroundApi } = createService();
+    let notifyStarted: (() => void) | undefined;
+    const requestStarted = new Promise<void>((resolve) => {
+      notifyStarted = resolve;
+    });
+    let resolveOld: ((value: unknown) => void) | undefined;
+    const oldResponse = new Promise((resolve) => {
+      resolveOld = resolve;
+    });
+    const localized = { ...progress, title: '再交易 10K USDT，返 150 USDT' };
+    const get = jest
+      .fn()
+      .mockImplementationOnce(() => {
+        notifyStarted?.();
+        return oldResponse;
+      })
+      .mockResolvedValue({
+        status: 200,
+        data: { code: 0, data: localized },
+      });
+    mockRecallClient(get);
+    const oldRequest = service.fetchPerpsRecallProgress();
+    await requestStarted;
+    expect(get).toHaveBeenCalledTimes(1);
+    backgroundApi.serviceSetting.getCurrentLocale.mockResolvedValue('zh-CN');
+    await service.fetchPerpsRecallProgress();
+    expect(get).toHaveBeenLastCalledWith('/rebate/v1/recall/progress', {
+      params: { instanceId },
+      headers: { 'x-onekey-request-locale': 'zh-cn' },
+    });
+    resolveOld?.({ status: 200, data: { code: 0, data: progress } });
+    await oldRequest;
+    expect(snapshot.locale).toBe('zh-cn');
+    expect(snapshot.progress).toEqual(localized);
+    await service.fetchPerpsRecallProgress();
+    expect(get).toHaveBeenCalledTimes(2);
+  });
+
+  it('silently caches network failures and avoids requests for invalid identities', async () => {
+    const { service } = createService();
+    const get = jest.fn().mockRejectedValue(new Error('offline'));
+    mockRecallClient(get);
+    await expect(service.fetchPerpsRecallProgress()).resolves.toBeNull();
+    await expect(service.fetchPerpsRecallProgress()).resolves.toBeNull();
+    expect(get).toHaveBeenCalledTimes(1);
+    instanceId = 'invalid identity!';
+    await expect(service.fetchPerpsRecallProgress()).resolves.toBeNull();
+    expect(get).toHaveBeenCalledTimes(1);
+  });
+
+  it('separates instance and endpoint caches', async () => {
+    const { service } = createService();
+    const urls: string[] = [];
+    const { appApiClient: realClient } = jest.requireActual<
+      typeof import('@onekeyhq/shared/src/appApiClient/appApiClient')
+    >('@onekeyhq/shared/src/appApiClient/appApiClient');
+    jest
+      .mocked(appApiClient.getBasicClient)
+      .mockImplementation(async (options) => {
+        const client = await realClient.getBasicClient(options);
+        client.defaults.adapter = async (config) => {
+          urls.push(client.getUri(config));
+          return {
+            status: 200,
+            statusText: 'OK',
+            headers: {},
+            config,
+            data: { code: 0, data: progress },
+          };
+        };
+        return client;
+      });
+    await service.fetchPerpsRecallProgress();
+    instanceId = 'another-instance';
+    await service.fetchPerpsRecallProgress();
+    jest.spyOn(service, 'getClientEndpointInfo').mockResolvedValue({
+      name: EServiceEndpointEnum.Rebate,
+      endpoint: 'https://other.onekey.so',
+    });
+    await service.fetchPerpsRecallProgress();
+    expect(urls).toEqual([
+      'https://test.onekey.so/rebate/v1/recall/progress?instanceId=test-instance',
+      'https://test.onekey.so/rebate/v1/recall/progress?instanceId=another-instance',
+      'https://other.onekey.so/rebate/v1/recall/progress?instanceId=another-instance',
+    ]);
+    expect(snapshot.instanceId).toBe('another-instance');
+    expect(snapshot.endpoint).toBe('https://other.onekey.so');
+  });
+
+  it('does not restore an old scope when its locale lookup finishes late', async () => {
+    const { service, backgroundApi } = createService();
+    let notifyStarted: (() => void) | undefined;
+    const lookupStarted = new Promise<void>((resolve) => {
+      notifyStarted = resolve;
+    });
+    let resolveLocale: ((value: string) => void) | undefined;
+    const oldLocale = new Promise<string>((resolve) => {
+      resolveLocale = resolve;
+    });
+    backgroundApi.serviceSetting.getCurrentLocale.mockImplementationOnce(() => {
+      notifyStarted?.();
+      return oldLocale;
+    });
+    const get = jest
+      .fn()
+      .mockResolvedValueOnce({ status: 204, data: '' })
+      .mockResolvedValueOnce({
+        status: 200,
+        data: { code: 0, data: progress },
+      });
+    mockRecallClient(get);
+    const oldRequest = service.fetchPerpsRecallProgress();
+    await lookupStarted;
+    instanceId = 'another-instance';
+    await service.fetchPerpsRecallProgress();
+    expect(snapshot.instanceId).toBe('another-instance');
+    expect(snapshot.progress).toBeNull();
+    resolveLocale?.('en-US');
+    await oldRequest;
+    expect(snapshot.instanceId).toBe('another-instance');
+    expect(snapshot.progress).toBeNull();
+  });
+
+  it('does not let an old instance response overwrite the active snapshot', async () => {
+    const { service } = createService();
+    let notifyStarted: (() => void) | undefined;
+    const requestStarted = new Promise<void>((resolve) => {
+      notifyStarted = resolve;
+    });
+    let resolveOld: ((value: unknown) => void) | undefined;
+    const oldResponse = new Promise((resolve) => {
+      resolveOld = resolve;
+    });
+    const get = jest
+      .fn()
+      .mockImplementationOnce(() => {
+        notifyStarted?.();
+        return oldResponse;
+      })
+      .mockResolvedValueOnce({ status: 204, data: '' });
+    mockRecallClient(get);
+    const oldRequest = service.fetchPerpsRecallProgress();
+    await requestStarted;
+    expect(get).toHaveBeenCalledTimes(1);
+    instanceId = 'another-instance';
+    await service.fetchPerpsRecallProgress();
+    resolveOld?.({ status: 200, data: { code: 0, data: progress } });
+    await oldRequest;
+    expect(snapshot.instanceId).toBe('another-instance');
+    expect(snapshot.progress).toBeNull();
   });
 });

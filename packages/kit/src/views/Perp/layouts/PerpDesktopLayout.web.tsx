@@ -31,6 +31,7 @@ import { PerpMarketWorkspacePanel } from '../components/MarketDetail/PerpMarketW
 import { PerpOrderInfoPanel } from '../components/OrderInfoPanel/PerpOrderInfoPanel';
 import { PerpNetworkAlert } from '../components/PerpNetworkAlert';
 import { PerpOrderBook } from '../components/PerpOrderBook';
+import { PerpsRecallBanner } from '../components/PerpsRecallBanner';
 import { PerpTips } from '../components/PerpTips';
 import { PerpTickerBar } from '../components/TickerBar/PerpTickerBar';
 import {
@@ -152,6 +153,7 @@ function PerpDesktopLayout() {
     return (
       <YStack minHeight={layout.marketContentHeight} flexShrink={0} pb="$4">
         <PerpTradingPanel />
+        <PerpsRecallBanner compact />
       </YStack>
     );
   }, [layout.marketContentHeight]);

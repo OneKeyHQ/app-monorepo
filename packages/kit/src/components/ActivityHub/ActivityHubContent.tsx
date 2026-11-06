@@ -37,6 +37,7 @@ import {
 
 import type {
   IActivityHubCampaign,
+  IActivityHubDetailEntry,
   IActivityHubOpenReferral,
   IActivityHubSource,
 } from './types';
@@ -50,16 +51,20 @@ function ActivityCampaignCard({
   fallbackIconName = 'GiftOutline',
   variant = 'outlined',
   illustration,
+  impressionRef,
   listLayout = false,
+  testID,
   onPress,
 }: {
   title: string;
-  subtitle: string;
+  subtitle?: string;
   imageUrl?: string;
   fallbackIconName?: IButtonProps['icon'];
   variant?: 'filled' | 'outlined';
   illustration?: ReactNode;
+  impressionRef?: IActivityHubDetailEntry['impressionRef'];
   listLayout?: boolean;
+  testID?: string;
   onPress: () => void;
 }) {
   const themeVariant = useThemeVariant();
@@ -68,6 +73,8 @@ function ActivityCampaignCard({
   if (listLayout) {
     return (
       <ActivityShortcutCard
+        impressionRef={impressionRef}
+        testID={testID}
         title={title}
         subtitle={subtitle}
         iconName={fallbackIconName}
@@ -96,6 +103,8 @@ function ActivityCampaignCard({
 
   return (
     <XStack
+      ref={impressionRef}
+      testID={testID}
       onPress={onPress}
       alignItems="center"
       gap="$3"
@@ -195,6 +204,7 @@ export function ActivityHubContent({
   onOpenReferral,
   onOpenInvitePanel,
   campaigns,
+  detailEntry,
 }: {
   source: IActivityHubSource;
   closePopover: () => void | Promise<void>;
@@ -210,6 +220,7 @@ export function ActivityHubContent({
   // layouts, where the panel would crowd the menu.
   onOpenInvitePanel?: () => void;
   campaigns?: IActivityHubCampaign[];
+  detailEntry?: IActivityHubDetailEntry;
 }) {
   const intl = useIntl();
   const [user] = usePrimePersistAtom();
@@ -221,7 +232,7 @@ export function ActivityHubContent({
   const showIconBackground = menuLayout;
   const giftAnimation =
     themeVariant === 'light' ? GiftExpandOnLight : GiftExpandOnDark;
-  const campaignCount = campaignItems.length;
+  const campaignCount = campaignItems.length + (detailEntry ? 1 : 0);
   const hasCampaigns = campaignCount > 0;
   // The Perps menu lists the entry like its other menu items.
   const showInvitePanel = shouldShowActivityHubInvitePanel() && !menuLayout;
@@ -376,6 +387,22 @@ export function ActivityHubContent({
               </SizableText>
             ) : null}
             <YStack gap="$2">
+              {detailEntry ? (
+                <ActivityCampaignCard
+                  impressionRef={detailEntry.impressionRef}
+                  testID="activity-hub-detail-entry"
+                  fallbackIconName={detailEntry.icon}
+                  illustration={detailEntry.illustration}
+                  variant={source === 'Perps' ? 'filled' : 'outlined'}
+                  listLayout={menuLayout && menuPopoverLayout}
+                  title={detailEntry.title}
+                  subtitle={detailEntry.subtitle}
+                  onPress={() => {
+                    detailEntry.onPress?.();
+                    closeThenRun(closePopover, detailEntry.onOpen);
+                  }}
+                />
+              ) : null}
               {campaignItems.map((item) => (
                 <ActivityCampaignCard
                   key={item.id}

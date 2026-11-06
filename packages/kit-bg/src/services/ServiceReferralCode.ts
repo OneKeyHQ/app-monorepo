@@ -1,4 +1,5 @@
 import type { IUnsignedMessage } from '@onekeyhq/core/src/types';
+import { appApiClient } from '@onekeyhq/shared/src/appApiClient/appApiClient';
 import type { IBackgroundMethodWithDevOnlyPassword } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import {
   backgroundClass,
@@ -28,6 +29,8 @@ import {
   isInstallReferrerExpired,
   isValidInviteCode,
 } from '@onekeyhq/shared/src/referralCode/installReferrerUtils';
+import { isPerpsRecallProgress } from '@onekeyhq/shared/src/referralCode/recall';
+import type { IPerpsRecallProgress } from '@onekeyhq/shared/src/referralCode/recall';
 import { EBtcRewardErrorCode } from '@onekeyhq/shared/src/referralCode/type';
 import type {
   EExportTimeRange,
@@ -96,7 +99,9 @@ import { normalizeTokenContractAddress } from '@onekeyhq/shared/src/utils/tokenU
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import type { IHyperLiquidSignatureRSV } from '@onekeyhq/shared/types/hyperliquid/webview';
 
+import { perpsRecallProgressAtom } from '../states/jotai/atoms/perps';
 import { primePersistAtom } from '../states/jotai/atoms/prime';
+import { settingsPersistAtom } from '../states/jotai/atoms/settings';
 
 import ServiceBase from './ServiceBase';
 
@@ -121,6 +126,81 @@ const SILENT_IN_PROD = { autoHandleError: !platformEnv.isProduction } as any;
 
 @backgroundClass()
 class ServiceReferralCode extends ServiceBase {
+  private perpsRecallRequestId = 0;
+
+  @backgroundMethod()
+  async fetchPerpsRecallProgress(): Promise<IPerpsRecallProgress | null> {
+    const requestId = (this.perpsRecallRequestId += 1);
+    const { instanceId: rawInstanceId } = await settingsPersistAtom.get();
+    const instanceId = rawInstanceId.trim().toLowerCase();
+    const locale = (
+      await this.backgroundApi.serviceSetting.getCurrentLocale()
+    ).toLowerCase();
+    const { endpoint } = await this.getClientEndpointInfo(
+      EServiceEndpointEnum.Rebate,
+    );
+    const scope = { instanceId, endpoint, locale };
+    // Scope resolution can finish after a newer request has selected its scope.
+    await perpsRecallProgressAtom.set((previous) =>
+      requestId !== this.perpsRecallRequestId ||
+      (previous.instanceId === instanceId &&
+        previous.endpoint === endpoint &&
+        previous.locale === locale)
+        ? previous
+        : { ...scope, progress: null },
+    );
+    const progress = /^[a-z0-9][a-z0-9_-]{0,63}$/.test(instanceId)
+      ? await this.fetchPerpsRecallProgressMemo(instanceId, endpoint, locale)
+      : null;
+    await perpsRecallProgressAtom.set((previous) =>
+      requestId === this.perpsRecallRequestId &&
+      previous.instanceId === instanceId &&
+      previous.endpoint === endpoint &&
+      previous.locale === locale
+        ? { ...scope, progress }
+        : previous,
+    );
+    return progress;
+  }
+
+  private fetchPerpsRecallProgressMemo = memoizee(
+    async (
+      instanceId: string,
+      endpoint: string,
+      locale: string,
+    ): Promise<IPerpsRecallProgress | null> => {
+      try {
+        // Use the endpoint captured with this snapshot, including after a dev endpoint switch.
+        const client = await appApiClient.getBasicClient({
+          name: EServiceEndpointEnum.Rebate,
+          endpoint,
+          autoHandleError: false,
+        });
+        const response = await client.get<{ code: number; data?: unknown }>(
+          '/rebate/v1/recall/progress',
+          {
+            params: { instanceId },
+            headers: { 'x-onekey-request-locale': locale },
+          },
+        );
+        if (response.status !== 200 || response.data?.code !== 0) return null;
+        return isPerpsRecallProgress(response.data.data)
+          ? response.data.data
+          : null;
+      } catch {
+        // Cache failures briefly too, so multiple activity entry points cannot
+        // repeatedly retry a promotion endpoint while the user is trading.
+        return null;
+      }
+    },
+    {
+      promise: true,
+      primitive: true,
+      maxAge: timerUtils.getTimeDurationMs({ minute: 1 }),
+      max: 2,
+    },
+  );
+
   private _migrationPromise: Promise<void> | null = null;
 
   constructor({ backgroundApi }: { backgroundApi: any }) {
