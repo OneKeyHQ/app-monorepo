@@ -195,6 +195,7 @@ export const useAppUpdateInfo = (isFullModal = false, autoCheck = false) => {
         void installPackage(
           () => {},
           () => showUpdateInCompleteDialog({}),
+          { userInitiated: true, installSource: 'legacy' },
         );
         return;
       }

@@ -1054,6 +1054,42 @@ export function MenuBarTrayListItem({
   );
 }
 
+export function AutoDownloadAppUpdateListItem({
+  logItemClick,
+  analyticsSource,
+  ...props
+}: ICustomElementProps) {
+  const [{ enableAutoDownloadAppUpdate }] = useSettingsPersistAtom();
+  const isEnabled = enableAutoDownloadAppUpdate ?? true;
+  const onChange = useCallback(
+    (value: boolean) => {
+      maybeLogSettingsSearchResultClick({
+        source: analyticsSource,
+        logItemClick,
+      });
+      logSettingValueChanged({
+        itemId: 'auto-download-app-update',
+        from: String(isEnabled),
+        to: String(value),
+      });
+      void backgroundApiProxy.serviceSetting.setEnableAutoDownloadAppUpdate(
+        value,
+      );
+    },
+    [analyticsSource, isEnabled, logItemClick],
+  );
+  return (
+    <TabSettingsListItem {...props} userSelect="none">
+      <Switch
+        testID="settings-auto-download-app-update"
+        size={ESwitchSize.small}
+        value={isEnabled}
+        onChange={onChange}
+      />
+    </TabSettingsListItem>
+  );
+}
+
 export function HapticFeedbackListItem({
   logItemClick,
   analyticsSource,

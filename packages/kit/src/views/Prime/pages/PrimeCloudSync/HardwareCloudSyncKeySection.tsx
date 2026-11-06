@@ -1,27 +1,35 @@
 import { useCallback, useEffect, useState } from 'react';
 
+import { HardwareErrorCode } from '@onekeyfe/hd-shared';
 import { useIntl } from 'react-intl';
 
 import { Dialog, Spinner, YStack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { yieldDeviceStageToDialog } from '@onekeyhq/kit/src/provider/Container/DeviceStageContainer/waitForDeviceStageExit';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { usePrimeCloudSyncPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/prime';
 import { isHardwareCloudSyncPlatformSupported } from '@onekeyhq/shared/src/consts/hardwareCloudSyncConsts';
 import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
+import { isOneKeyHardwareError } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
-import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import {
   EAppEventBusNames,
+  HARDWARE_ERROR_DIALOG_TYPES,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import {
+  isHardwareCloudSyncDirectSdkDialogError,
+  isHardwareCloudSyncStandardPinRequired,
+} from '@onekeyhq/shared/src/hardware/hardwareCloudSyncErrors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes, ERootRoutes } from '@onekeyhq/shared/src/routes';
 import { EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EHardwareTransportType } from '@onekeyhq/shared/types';
+import { EHardwareUiStateAction } from '@onekeyhq/shared/types/hardwareUi';
 
 import { HardwareCloudSyncDevicePicker } from './HardwareCloudSyncDevicePicker';
 
@@ -123,7 +131,7 @@ function DeviceConfirmWaiting() {
   );
 }
 
-function confirmDialog({
+async function confirmDialog({
   title,
   description,
   onConfirmText,
@@ -134,6 +142,7 @@ function confirmDialog({
   onConfirmText: string;
   destructive?: boolean;
 }): Promise<boolean> {
+  await yieldDeviceStageToDialog();
   return new Promise((resolve) => {
     let confirmed = false;
     Dialog.show({
@@ -172,6 +181,101 @@ function confirmSwitchToWebUsb(intl: IntlShape) {
       id: ETranslations.cloud_sync_switch_to_webusb__desc,
     }),
     onConfirmText: intl.formatMessage({ id: ETranslations.global_switch }),
+  });
+}
+
+function deferCloudSyncFailureToPage(error: unknown) {
+  if (
+    !isOneKeyHardwareError(error) ||
+    isHardwareCloudSyncStandardPinRequired(error) ||
+    isHardwareCloudSyncDirectSdkDialogError(error)
+  ) {
+    // The proxy schedules its toast before rethrowing. Claim business errors
+    // before awaiting dialog cleanup, on the UI runtime's same error object.
+    errorToastUtils.toastIfErrorDisable(error);
+  }
+}
+
+function showCloudSyncHardwareRecovery(failure: IOneKeyError): boolean {
+  const request = (uiRequestType: EHardwareUiStateAction) => {
+    appEventBus.emit(EAppEventBusNames.RequestHardwareUIDialog, {
+      uiRequestType,
+    });
+  };
+  switch (failure.code) {
+    case HardwareErrorCode.BlePoweredOff:
+    case HardwareErrorCode.BlePermissionError:
+      request(EHardwareUiStateAction.BLUETOOTH_PERMISSION);
+      return true;
+    case HardwareErrorCode.BleLocationError:
+      request(EHardwareUiStateAction.LOCATION_PERMISSION);
+      return true;
+    case HardwareErrorCode.BleLocationServicesDisabled:
+      request(EHardwareUiStateAction.LOCATION_SERVICE_PERMISSION);
+      return true;
+    case HardwareErrorCode.DeviceNotOpenedPassphrase:
+      appEventBus.emit(EAppEventBusNames.ShowHardwareErrorDialog, {
+        errorType: HARDWARE_ERROR_DIALOG_TYPES.DEVICE_NOT_OPENED_PASSPHRASE,
+        payload: failure.payload,
+      });
+      return true;
+    case HardwareErrorCode.NewFirmwareForceUpdate:
+      appEventBus.emit(EAppEventBusNames.ShowFirmwareUpdateForce, {
+        connectId: failure.payload?.connectId,
+      });
+      return true;
+    default:
+      return false;
+  }
+}
+
+async function showCloudSyncFailure(intl: IntlShape, error: unknown) {
+  const failure = error as IOneKeyError | undefined;
+  const standardPinRequired = isHardwareCloudSyncStandardPinRequired(error);
+  const directSdkDialog = isHardwareCloudSyncDirectSdkDialogError(error);
+  if (
+    (isOneKeyHardwareError(error) &&
+      !standardPinRequired &&
+      !directSdkDialog) ||
+    errorToastUtils.wasAutoToastShown(error) ||
+    errorToastUtils.isUserCancelStyleError(error) ||
+    failure?.key === ETranslations.update_operation_canceled
+  ) {
+    // The SDK flow settles hardware failures on the shared DeviceStage,
+    // retaining the original message and recovery actions.
+    return;
+  }
+  // Service decorators respect autoToast=false. Business failures need an
+  // explicit owner after the waiting/loading dialog has closed.
+  await yieldDeviceStageToDialog();
+  if (directSdkDialog && failure && showCloudSyncHardwareRecovery(failure))
+    return;
+  let description: string;
+  if (standardPinRequired) {
+    description = intl.formatMessage({
+      id: ETranslations.cloud_sync_hardware_hidden_wallet__msg,
+    });
+  } else if (failure?.key) {
+    description = intl.formatMessage(
+      { id: failure.key, defaultMessage: failure.message },
+      failure.info,
+    );
+  } else {
+    description =
+      failure?.message ||
+      intl.formatMessage({ id: ETranslations.global_unknown_error });
+  }
+  Dialog.show({
+    title: intl.formatMessage({ id: ETranslations.global_an_error_occurred }),
+    ...(standardPinRequired
+      ? {
+          dismissOnOverlayPress: false,
+          disableDrag: true,
+          showCancelButton: false,
+        }
+      : {}),
+    description,
+    onConfirmText: intl.formatMessage({ id: ETranslations.global_ok }),
   });
 }
 
@@ -242,11 +346,14 @@ export function useHardwareCloudSyncKey() {
         await backgroundApiProxy.serviceKeylessCloudSync.enableHardwareCloudSync(
           { connectId, switchDevice },
         );
+      } catch (error) {
+        deferCloudSyncFailureToPage(error);
+        throw error;
       } finally {
         appEventBus.off(EAppEventBusNames.ShowDialogLoading, onSyncLoading);
         finished = true;
-        void waiting.close();
         setPending(false);
+        await waiting.close();
       }
     },
     [intl],
@@ -259,11 +366,11 @@ export function useHardwareCloudSyncKey() {
         } catch (error) {
           if (
             (error as IOneKeyError | undefined)?.key !==
-              ETranslations.cloud_sync_hardware_wallet_mismatch__msg ||
-            !(await confirmSwitchDevice(intl))
+            ETranslations.cloud_sync_hardware_wallet_mismatch__msg
           ) {
             throw error;
           }
+          if (!(await confirmSwitchDevice(intl))) return;
           await signWithDevice(connectId, true);
         }
       } finally {
@@ -313,6 +420,7 @@ export function useHardwareCloudSyncKey() {
           }),
         });
       } catch (error) {
+        deferCloudSyncFailureToPage(error);
         const failure = error as
           | IOneKeyError<{
               targetCredentialId?: string;
@@ -336,14 +444,6 @@ export function useHardwareCloudSyncKey() {
           !target ||
           !/^hardware-cloud-v1-[\da-f]{64}$/.test(target)
         ) {
-          if (
-            failure?.key ===
-              ETranslations.cloud_sync_hardware_wallet_mismatch__msg ||
-            failure?.key ===
-              ETranslations.cloud_sync_hardware_switch_target_has_data__msg
-          ) {
-            errorToastUtils.showToastOfError({ ...failure, autoToast: true });
-          }
           throw error;
         }
         finished = true;
@@ -391,8 +491,8 @@ export function useHardwareCloudSyncKey() {
       } finally {
         finished = true;
         appEventBus.off(EAppEventBusNames.ShowDialogLoading, onSyncLoading);
-        void waiting.close();
         setPending(false);
+        await waiting.close();
         void backgroundApiProxy.serviceHardware.clearForceTransportType();
       }
     },
@@ -448,10 +548,7 @@ export function useHardwareCloudSyncKey() {
               try {
                 await onPick(connectId);
               } catch (error) {
-                // The flow already reports its own failures (service toasts or
-                // the switch dialog); stop them here so they do not surface as
-                // unhandled rejections from the picker's Connect button.
-                errorUtils.autoPrintErrorIgnore(error);
+                await showCloudSyncFailure(intl, error);
               }
             }}
           />
@@ -487,26 +584,35 @@ export function useHardwareCloudSyncKey() {
     await backgroundApiProxy.serviceApp.showDialogLoading({
       title: intl.formatMessage({ id: ETranslations.global_syncing }),
     });
-    let success = false;
     try {
-      success = await backgroundApiProxy.servicePrimeCloudSync.syncNowKeyless({
-        callerName: 'Manual hardware Cloud sync',
-        noDebounceUpload: true,
-        forceSync: true,
-        askPasswordOnlyIfHdXfpMissing: true,
+      let success = false;
+      try {
+        success = await backgroundApiProxy.servicePrimeCloudSync.syncNowKeyless(
+          {
+            callerName: 'Manual hardware Cloud sync',
+            noDebounceUpload: true,
+            forceSync: true,
+            askPasswordOnlyIfHdXfpMissing: true,
+          },
+        );
+      } catch (error) {
+        deferCloudSyncFailureToPage(error);
+        throw error;
+      } finally {
+        await timerUtils.wait(1000);
+        await backgroundApiProxy.serviceApp.hideDialogLoading();
+      }
+      void backgroundApiProxy.serviceApp.showToast({
+        method: success ? 'success' : 'error',
+        title: intl.formatMessage({
+          id: success
+            ? ETranslations.global_sync_successfully
+            : ETranslations.global_sync_error,
+        }),
       });
-    } finally {
-      await timerUtils.wait(1000);
-      await backgroundApiProxy.serviceApp.hideDialogLoading();
+    } catch (error) {
+      await showCloudSyncFailure(intl, error);
     }
-    void backgroundApiProxy.serviceApp.showToast({
-      method: success ? 'success' : 'error',
-      title: intl.formatMessage({
-        id: success
-          ? ETranslations.global_sync_successfully
-          : ETranslations.global_sync_error,
-      }),
-    });
   }, [intl]);
   return {
     supported,
