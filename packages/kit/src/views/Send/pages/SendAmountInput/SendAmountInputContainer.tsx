@@ -196,7 +196,10 @@ import {
 } from './privateSendMaxAmountUtils';
 import { selectPrivateSendQuote } from './privateSendQuoteUtils';
 import { useLocalWalletSendPool } from './useLocalWalletSendPool';
-import { useLocalWalletSendReadiness } from './useLocalWalletSendReadiness';
+import {
+  useLocalWalletSendPrewarm,
+  useLocalWalletSendReadiness,
+} from './useLocalWalletSendReadiness';
 
 import type { RouteProp } from '@react-navigation/core';
 
@@ -1373,31 +1376,6 @@ function SendAmountInputContainer() {
   });
   const hasLocalWallet = !isNFT && !!vaultSettings?.localWallet;
   const sendSourcePool = selectedSendPool?.key;
-  useEffect(() => {
-    if (
-      !isRouteFocused ||
-      !hasLocalWallet ||
-      !currentAccountId ||
-      !sendSourcePool
-    ) {
-      return;
-    }
-    void backgroundApiProxy.servicePrivacyChain
-      .prewarmLocalWalletSend({
-        networkId,
-        accountId: currentAccountId,
-        sourcePool: sendSourcePool,
-        toAddress: recipientAddress,
-      })
-      .catch(() => undefined);
-  }, [
-    isRouteFocused,
-    hasLocalWallet,
-    currentAccountId,
-    sendSourcePool,
-    networkId,
-    recipientAddress,
-  ]);
   const { isWaitingForSync, statusText: sendSyncStatusText } =
     useLocalWalletSendReadiness({
       enabled: hasLocalWallet,
@@ -1405,6 +1383,14 @@ function SendAmountInputContainer() {
       accountId: currentAccountId,
       sourcePool: sendSourcePool,
     });
+  useLocalWalletSendPrewarm({
+    enabled: isRouteFocused && hasLocalWallet,
+    networkId,
+    accountId: currentAccountId,
+    sourcePool: sendSourcePool,
+    toAddress: recipientAddress,
+    isWaitingForSync,
+  });
   // Funds a view-only scan cannot prove unspent are not spendable until the
   // password confirms them, so ask before the amount, not after it fails.
   useEffect(() => {
