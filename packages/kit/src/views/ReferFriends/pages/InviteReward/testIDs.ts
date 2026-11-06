@@ -1,1 +1,0 @@
-export { ReferFriendsTestIDs } from '../../testIDs';

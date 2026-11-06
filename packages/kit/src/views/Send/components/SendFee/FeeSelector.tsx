@@ -1,3 +1,0 @@
-function FeeSelector() {}
-
-export { FeeSelector };

@@ -1,1 +1,0 @@
-export { MyRewardsContent } from './MyRewardsContent';

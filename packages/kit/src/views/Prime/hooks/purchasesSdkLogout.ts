@@ -1,1 +1,0 @@
-export { logoutPurchasesSdk } from './purchasesSdkLogoutWeb';

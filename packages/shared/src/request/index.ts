@@ -1,2 +1,0 @@
-import './axiosInterceptor';
-import './fetchInterceptor';

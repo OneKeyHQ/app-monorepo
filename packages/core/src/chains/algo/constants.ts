@@ -1,1 +1,0 @@
-export const NETWORK_REQUEST_ERROR_CODE = 40_005;

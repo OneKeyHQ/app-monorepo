@@ -1,4 +1,0 @@
-{
-  "__": "Do not define MCP servers here. Define them in ~/.cursor/mcp.json",
-  "mcpServers": {}
-}

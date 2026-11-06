@@ -1,1 +1,0 @@
-export { HardwareSalesRewardHeader } from './HardwareSalesRewardHeader';

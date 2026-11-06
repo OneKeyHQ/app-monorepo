@@ -1,1 +1,0 @@
-export { useNavigateToSwapReward } from './useNavigateToSwapReward';

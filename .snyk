@@ -1,9 +1,0 @@
-# Snyk (https://snyk.io) policy file
-version: v1.25.0
-ignore:
-  SNYK-JS-GLOB-14040952:
-    - '*':
-        reason: 'Only affects CLI usage, not library usage'
-  SNYK-JS-BIGINTBUFFER-3364597:
-    - '*':
-        reason: 'Patched via patch-package (patches/bigint-buffer+1.1.5.patch)'

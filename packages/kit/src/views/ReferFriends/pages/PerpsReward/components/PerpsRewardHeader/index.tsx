@@ -1,1 +1,0 @@
-export { PerpsRewardHeader } from './PerpsRewardHeader';

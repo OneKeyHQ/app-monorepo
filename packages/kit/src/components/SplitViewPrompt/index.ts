@@ -1,1 +1,0 @@
-export { SplitViewPrompt } from './SplitViewPrompt';
