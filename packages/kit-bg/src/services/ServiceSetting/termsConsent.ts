@@ -60,3 +60,22 @@ export function resolveTermsConsentPrompt({
     prompt: { version: requiredVersion, deadlineAt, deadlinePassed: false },
   };
 }
+
+// When a put-off prompt is due again: the end of the snooze or the deadline,
+// whichever comes first.
+export function getTermsConsentRecheckAt({
+  acceptedVersion,
+  round,
+}: ITermsConsentState) {
+  if (
+    !round ||
+    round.notNowAt === undefined ||
+    acceptedVersion === round.version
+  ) {
+    return undefined;
+  }
+  return Math.min(
+    round.notNowAt + TERMS_CONSENT_SNOOZE_MS,
+    getDeadlineAt(round.firstPromptAt),
+  );
+}

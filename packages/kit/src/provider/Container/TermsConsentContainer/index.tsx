@@ -12,6 +12,7 @@ import {
   useMedia,
   useOnRouterChange,
 } from '@onekeyhq/components';
+import { getTermsConsentRecheckAt } from '@onekeyhq/kit-bg/src/services/ServiceSetting/termsConsent';
 import { useAppIsLockedAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/passwordLock';
 import { useTermsConsentPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/settings';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -36,21 +37,20 @@ export function TermsConsentContainer() {
   const intl = useIntl();
   const navigation = useAppNavigation();
   const [isLocked] = useAppIsLockedAtom();
-  const [{ acceptedVersion }] = useTermsConsentPersistAtom();
+  const [termsConsentState] = useTermsConsentPersistAtom();
+  const { acceptedVersion } = termsConsentState;
   const [prompt, setPrompt] = useState<ITermsConsentPrompt | undefined>();
   const [isOnBackupPage, setIsOnBackupPage] = useState(false);
+  const [recheckSeq, setRecheckSeq] = useState(0);
   const leaveBackupTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
   const { termsUrl, privacyUrl } = useTermsAndPrivacyLinks();
   const media = useMedia();
 
-  // Checked on launch, after every unlock and on leaving the backup pages,
-  // never mid-flow on resume. A result is only kept while the dialog can
+  // Checked on launch, after every unlock, on leaving the backup pages and
+  // when a Not now runs out. A result is only kept while the dialog can
   // show: one from before a lock or a backup detour is stale by then.
   useEffect(() => {
     if (
-      // The web dApp holds no keys and states the terms where wallets are
-      // connected, so it never asks here.
-      platformEnv.isWebDappMode ||
       isLocked ||
       isOnBackupPage ||
       travelModeManager.getRuntimeEnvironmentSync().profile.kind ===
@@ -71,7 +71,19 @@ export function TermsConsentContainer() {
     return () => {
       cancelled = true;
     };
-  }, [isLocked, isOnBackupPage]);
+  }, [isLocked, isOnBackupPage, recheckSeq]);
+
+  // An app kept open and unlocked never relaunches or unlocks, so a Not now
+  // would outlast its snooze and the deadline without this timer.
+  const recheckAt = getTermsConsentRecheckAt(termsConsentState);
+  useEffect(() => {
+    const delay = recheckAt === undefined ? -1 : recheckAt - Date.now();
+    if (delay < 0) {
+      return undefined;
+    }
+    const timer = setTimeout(() => setRecheckSeq((seq) => seq + 1), delay);
+    return () => clearTimeout(timer);
+  }, [recheckAt]);
 
   useEffect(() => () => clearTimeout(leaveBackupTimerRef.current), []);
 

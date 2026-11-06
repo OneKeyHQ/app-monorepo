@@ -6,6 +6,7 @@ import { ESplitViewType, SplitViewContext } from '@onekeyhq/components';
 import appGlobals from '@onekeyhq/shared/src/appGlobals';
 import { setSplitViewLayoutDisabled } from '@onekeyhq/shared/src/modules/DualScreenInfo';
 import { debugLandingLog } from '@onekeyhq/shared/src/performance/init';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import useAppNavigation from '../../hooks/useAppNavigation';
 import { useShouldUseSplitView } from '../../hooks/useShouldUseSplitView';
@@ -41,7 +42,6 @@ import { PrimeLoginContainerLazy } from './PrimeLoginContainer';
 import { RookieShareContainerLazy } from './RookieShareContainer/Lazy';
 import { SplitViewPerpTabSync } from './SplitViewPerpTabSync';
 import { TableSplitViewContainer } from './TableSplitViewContainer';
-import { TermsConsentContainer } from './TermsConsentContainer';
 import { ThirdPartyHardwareUiStateContainerLazy } from './ThirdPartyHardwareUiStateContainer/Lazy';
 import { VerifyTxContainer } from './VerifyTxContainer';
 import { WalletBackupPreCheckContainerLazy } from './WalletBackupPreCheckContainerLazy';
@@ -54,6 +54,14 @@ import { WebPerformanceMonitorContainer } from './WebPerformanceMonitor';
 const WalletConnectPayDialogContainerLazy = lazy(() =>
   import('./WalletConnectPayDialogContainer').then((m) => ({
     default: m.WalletConnectPayDialogContainer,
+  })),
+);
+
+// Lazy, and never mounted in the web dApp, which holds no keys and states the
+// terms where wallets are connected: the dialog stays off the startup graph.
+const TermsConsentContainerLazy = lazy(() =>
+  import('./TermsConsentContainer').then((m) => ({
+    default: m.TermsConsentContainer,
   })),
 );
 
@@ -87,7 +95,11 @@ function DetailRouter() {
       <LinuxUdevGuideDialogContainer />
       <LocalDbDowngradeDialogContainer />
       <LocalSecretEnvelopeErrorDialogContainer />
-      <TermsConsentContainer />
+      {platformEnv.isWebDappMode ? null : (
+        <Suspense fallback={null}>
+          <TermsConsentContainerLazy />
+        </Suspense>
+      )}
       <CloudBackupContainer />
 
       {/* <PortalBodyContainer /> */}

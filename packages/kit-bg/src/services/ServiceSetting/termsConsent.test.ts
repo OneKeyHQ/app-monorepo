@@ -3,6 +3,7 @@ import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import {
   TERMS_CONSENT_DECISION_MS,
   TERMS_CONSENT_SNOOZE_MS,
+  getTermsConsentRecheckAt,
   resolveTermsConsentPrompt,
 } from './termsConsent';
 
@@ -124,5 +125,47 @@ describe('resolveTermsConsentPrompt', () => {
         deadlinePassed: false,
       },
     });
+  });
+});
+
+describe('getTermsConsentRecheckAt', () => {
+  it('has nothing to wait for until Not now is chosen', () => {
+    expect(getTermsConsentRecheckAt({})).toBeUndefined();
+    expect(
+      getTermsConsentRecheckAt({
+        round: { version: '2026.10', firstPromptAt: START },
+      }),
+    ).toBeUndefined();
+  });
+
+  it('checks again when the snooze ends', () => {
+    const notNowAt = START + DAY_MS;
+    expect(
+      getTermsConsentRecheckAt({
+        round: { version: '2026.10', firstPromptAt: START, notNowAt },
+      }),
+    ).toBe(notNowAt + TERMS_CONSENT_SNOOZE_MS);
+  });
+
+  it('checks again at the deadline when it comes first', () => {
+    const deadlineAt = endOfLocalDay(START + TERMS_CONSENT_DECISION_MS);
+    expect(
+      getTermsConsentRecheckAt({
+        round: {
+          version: '2026.10',
+          firstPromptAt: START,
+          notNowAt: deadlineAt - DAY_MS,
+        },
+      }),
+    ).toBe(deadlineAt);
+  });
+
+  it('stops once the version was accepted', () => {
+    expect(
+      getTermsConsentRecheckAt({
+        acceptedVersion: '2026.10',
+        round: { version: '2026.10', firstPromptAt: START, notNowAt: START },
+      }),
+    ).toBeUndefined();
   });
 });
