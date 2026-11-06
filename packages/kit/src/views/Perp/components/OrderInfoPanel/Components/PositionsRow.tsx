@@ -1341,17 +1341,28 @@ const PositionRowMobileActions = memo(
             minWidth={0}
             childrenAsText={false}
           >
-            <SizableText
-              size={MOBILE_POSITION_ACTION_TEXT_SIZE}
+            <YStack
               width="100%"
               minWidth={0}
-              numberOfLines={1}
-              adjustsFontSizeToFit
-              minimumFontScale={0.75}
-              textAlign="center"
+              minHeight="$4"
+              justifyContent="center"
             >
-              {intl.formatMessage({ id: action.label })}
-            </SizableText>
+              <SizableText
+                size={MOBILE_POSITION_ACTION_TEXT_SIZE}
+                width="100%"
+                minWidth={0}
+                numberOfLines={1}
+                ellipsizeMode="tail"
+                adjustsFontSizeToFit
+                minimumFontScale={0.75}
+                textAlign="center"
+                // iOS keeps a fixed line height's baseline when shrinking the font.
+                // A zero native line height uses natural metrics; the wrapper centers it.
+                style={platformEnv.isNativeIOS ? { lineHeight: 0 } : undefined}
+              >
+                {intl.formatMessage({ id: action.label })}
+              </SizableText>
+            </YStack>
           </Button>
         ))}
       </XStack>

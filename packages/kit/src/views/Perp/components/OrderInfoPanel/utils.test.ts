@@ -13,6 +13,7 @@ import {
   getOrderSizeDisplayName,
   getPerpFillDirectionType,
   getTwapHistoryEventTimeMs,
+  getTwapSideInfo,
   getVisibleSpotHoldingsCount,
   isSpotHoldingStableCoin,
   normalizeEpochMs,
@@ -105,6 +106,58 @@ describe('fill direction translations', () => {
     expect(
       getFillDirectionDisplayInfo({ fill: { coin: 'SOL', dir, side }, intl }),
     ).toEqual({ text: dir, color });
+  });
+});
+
+describe('TWAP order direction translations', () => {
+  const messages: Record<string, string> = {
+    [ETranslations.global_buy]: 'Buy',
+    [ETranslations.global_sell]: 'Sell',
+    [ETranslations.perp_long]: 'Long',
+    [ETranslations.perp_short]: 'Short',
+    [ETranslations.perp_order_close_long]: 'Close Long',
+    [ETranslations.perp_order_close_short]: 'Close Short',
+  };
+  const intl = createIntl(
+    {
+      locale: 'en-US',
+      messages,
+    },
+    createIntlCache(),
+  );
+
+  describe.each(['@107', 'PURR/USDC'])('spot instrument %s', (coin) => {
+    it.each([
+      ['B', false, 'Buy', '$green11'],
+      ['A', false, 'Sell', '$red11'],
+      ['B', true, 'Buy', '$green11'],
+      ['A', true, 'Sell', '$red11'],
+    ] as const)(
+      'shows side=%s reduceOnly=%s as %s',
+      (side, reduceOnly, text, color) => {
+        expect(getTwapSideInfo({ coin, side, reduceOnly }, intl)).toEqual({
+          text,
+          color,
+        });
+      },
+    );
+  });
+
+  describe.each(['BTC', 'xyz:TSLA'])('perp instrument %s', (coin) => {
+    it.each([
+      ['B', false, 'Long', '$green11'],
+      ['A', false, 'Short', '$red11'],
+      ['B', true, 'Close Short', '$green11'],
+      ['A', true, 'Close Long', '$red11'],
+    ] as const)(
+      'preserves side=%s reduceOnly=%s as %s',
+      (side, reduceOnly, text, color) => {
+        expect(getTwapSideInfo({ coin, side, reduceOnly }, intl)).toEqual({
+          text,
+          color,
+        });
+      },
+    );
   });
 });
 
