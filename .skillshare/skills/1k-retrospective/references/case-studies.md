@@ -1304,3 +1304,10 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries �
 **Root Cause**: The interval in the React key remounted the canvas. The retained inline canvas later compared stale pre-fullscreen props and overwrote the fullscreen runtime after handoff. Price controls also assumed every interval change meant automatic/linear mode.
 **Fix**: Retain the native Perps canvas, reset runtime for a genuinely different interval, and check the actual UI runtime interval after handoff before resetting. Synchronize controls from the runtime's actual scale state. Component lifecycle tests cover candle replacement, ordinary interval reset, and preservation of the fullscreen viewport and price scale. The transient flash has iOS recording evidence; prolonged loading remains unverified. Android jitter (OK-65337) is associated only as a suspected common cause, not a successfully reproduced or verified fix.
 **Catchable by**: Section 5: No stale state after parent transitions — test fullscreen interval changes and exit, including queued UI ownership transfer, rather than only mounting or resizing a canvas.
+
+## Case: Perps showed an extra chart selector while TradingView loaded (OK-66555)
+**Date**: 2026-11-06 | **Platforms**: iOS/Android main UI; verified on iOS Simulator. No bg or shared native resource changes.
+**Symptom**: Switching from Original to TradingView briefly showed a standalone TradingView dropdown above the loading chart.
+**Root Cause**: The Perps wrapper passed a loading-only chart selector through `mobileToolbarExtra`, outside the normal toolbar readiness visibility gate.
+**Fix**: Remove that extra selector and its import while retaining the ready-state settings menu switch. Update the existing navigation regression and verify the settings switch tests. iOS verification covers the visible before/after loading state, delayed local chart loading, rendered candles after recovery, and switching back through settings; Android device verification remains for QA.
+**Catchable by**: Section 8: Manual Verification — inspect loading and ready states separately when moving controls into a settings menu.
