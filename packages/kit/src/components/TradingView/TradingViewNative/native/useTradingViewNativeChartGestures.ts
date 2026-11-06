@@ -14,6 +14,7 @@ import { HeaderScrollGestureContext } from '@onekeyhq/components/src/composite/T
 import {
   TRADING_VIEW_NATIVE_CHART_HORIZONTAL_PADDING,
   TRADING_VIEW_NATIVE_CROSSHAIR_LONG_PRESS_DURATION,
+  TRADING_VIEW_NATIVE_CROSSHAIR_TAP_MAX_DISTANCE,
   TRADING_VIEW_NATIVE_PAN_DRAG_RATIO,
   TRADING_VIEW_NATIVE_SUB_INDICATOR_LEGEND_TAP_MAX_DISTANCE,
 } from '../chartConstants';
@@ -94,6 +95,7 @@ export function useTradingViewNativeChartGestures({
     useSharedValue<ITradingViewNativeSubIndicator | null>(null);
 
   const panStartTranslationX = useSharedValue(0);
+  const isLongPressCrosshairStarted = useSharedValue(false);
   const activeGestures = useSharedValue(0);
   return useMemo(() => {
     const setInteraction = (bit: number, active: boolean) => {
@@ -261,6 +263,7 @@ export function useTradingViewNativeChartGestures({
       .onStart((event) => {
         'worklet';
         setInteraction(1, true);
+        isLongPressCrosshairStarted.value = true;
 
         cancelAnimation(decayOffset);
         updateCrosshair(event.x, event.y);
@@ -273,8 +276,16 @@ export function useTradingViewNativeChartGestures({
       .onFinalize((_event, success) => {
         'worklet';
         setInteraction(1, false);
+        const didStart = isLongPressCrosshairStarted.value;
+        isLongPressCrosshairStarted.value = false;
 
         if (success) {
+          return;
+        }
+        // A tap fails the long press only after the tap gesture has placed
+        // the crosshair, so a press that never started must not hide it.
+        // Without click interaction, a tap still dismisses the crosshair.
+        if (!didStart && isClickInteractionEnabled) {
           return;
         }
         hideCrosshair();
@@ -282,6 +293,8 @@ export function useTradingViewNativeChartGestures({
 
     const tapCrosshairGesture = Gesture.Tap()
       .enabled(isCrosshairEnabled && isClickInteractionEnabled)
+      // Pans wait for this tap to fail, so a drag must fail it quickly.
+      .maxDistance(TRADING_VIEW_NATIVE_CROSSHAIR_TAP_MAX_DISTANCE)
       .onTouchesDown(onCrosshairTouchesDown)
       .onEnd((event, success) => {
         'worklet';
@@ -654,6 +667,7 @@ export function useTradingViewNativeChartGestures({
     );
   }, [
     activeGestures,
+    isLongPressCrosshairStarted,
     panStartTranslationX,
     chartRuntime,
     decayOffset,
