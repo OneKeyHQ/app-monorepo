@@ -125,7 +125,17 @@ export function MarketDetailContent({
                 />
               </YStack>
             )}
-            renderTabBar={(props) => <Tabs.TabBar {...props} />}
+            renderTabBar={(props) => (
+              <Tabs.TabBar
+                {...props}
+                renderItem={(itemProps, index) => (
+                  <Tabs.TabBarItem
+                    {...itemProps}
+                    testID={`asset-market-detail-tab-${index}`}
+                  />
+                )}
+              />
+            )}
           >
             <Tabs.Tab
               name={intl.formatMessage({ id: ETranslations.market_chart })}
