@@ -1,4 +1,5 @@
 import type { IDesktopApiGlobal } from './desktopApiPlatformInfo';
+import type { IFetchStreamRequester } from './fetchStream';
 import type { ILocaleSymbol } from '../src/locale';
 import type { ITrayAction, ITrayData } from '../src/types/desktop/tray';
 import type { EBleDisconnectReason } from '@onekeyfe/hd-shared';
@@ -114,6 +115,8 @@ export type IDesktopApiLegacy = IDesktopApiGlobal & {
   setSystemIdleTime: (idleTime: number, cb?: () => void) => void;
   testCrash: () => void;
   nobleBle: INobleBleApi;
+  /** Privacy-chain node requests from the main process (no renderer CORS). */
+  fetchStream: IFetchStreamRequester;
   getCpuUsage: () => Promise<{ usage: number }>;
   getMemoryUsage: () => Promise<{
     private: number;

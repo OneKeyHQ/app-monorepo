@@ -12,6 +12,7 @@ import { withDecay } from 'react-native-reanimated';
 import { scheduleOnRN } from 'react-native-worklets';
 
 import { HeaderScrollGestureContext } from '@onekeyhq/components/src/composite/Tabs/HeaderScrollGestureContext';
+import { createTradingViewNativeChartSettings } from '@onekeyhq/shared/types/tradingViewNative';
 
 import {
   TRADING_VIEW_NATIVE_PAN_DRAG_RATIO,
@@ -29,9 +30,12 @@ import {
   getTradingViewNativeSubIndicatorLegendIndicatorAtPoint,
 } from '../utils/subIndicatorRender';
 
+import {
+  createTradingViewNativeChartRuntime,
+  navigateTradingViewNativeChartRuntime,
+} from './chartRuntime';
 import { useTradingViewNativeChartGestures } from './useTradingViewNativeChartGestures';
 
-import type { ITradingViewNativePriceRange } from '../utils/chartViewport';
 import type { GestureType } from 'react-native-gesture-handler';
 
 type IMockGestureHandler = (...args: unknown[]) => void;
@@ -202,40 +206,26 @@ function renderChartGestures({
 } = {}) {
   const chartRuntime = {
     value: {
+      ...createTradingViewNativeChartRuntime({
+        candleIntervalSeconds: 60,
+        chartComponents: [],
+        chartSettings: createTradingViewNativeChartSettings(),
+        chartType: 'candlestick',
+        currentPriceLabel: '100',
+        hasVolume: false,
+        indicatorSeries: [],
+        points: Array.from({ length: 100 }, (_, index) => ({
+          o: 100,
+          h: 120,
+          l: 80,
+          c: 100,
+          v: 1,
+          t: 1_700_000_000 + index * 60,
+        })),
+        subIndicatorPanes: [],
+      }),
       crosshair: { visible: true, x: 0, y: 0 },
-      indicatorSeries: [],
-      panGesture: { startOffset: 0, translationX: 0 },
-      pinchGesture: {
-        anchorX: 0,
-        currentScale: 1,
-        isActive: false,
-        scaleBaseline: 1,
-        startOffset: 0,
-        startZoomScale: 1,
-      },
-      candleIntervalSeconds: 60,
-      hasVolume: false,
-      pinnedPriceRange: null as ITradingViewNativePriceRange | null,
-      priceRangeScale: 1,
-      priceScaleMode: 'linear',
-      points: Array.from({ length: 100 }, (_, index) => ({
-        o: 100,
-        h: 120,
-        l: 80,
-        c: 100,
-        v: 1,
-        t: 1_700_000_000 + index * 60,
-      })),
       size: { height: 300, width: 320 },
-      subIndicatorPanes: [],
-      timeAxisScaleGesture: {
-        chartWidth: 0,
-        currentX: 0,
-        isActive: false,
-        startOffset: 0,
-        startX: 0,
-        startZoomScale: 1,
-      },
       viewport: { offset: 0, zoomScale: 1 },
     },
   };
@@ -290,6 +280,7 @@ describe('useTradingViewNativeChartGestures', () => {
     jest.clearAllMocks();
     I18nManager.isRTL = false;
     mockPanGestures.length = 0;
+    mockPinchGestures.length = 0;
     mockTapGestures.length = 0;
     mockGetSubIndicatorAtPoint.mockImplementation(
       ({ y }: { y: number }): 'RSI' | null => (y === 100 ? 'RSI' : null),
@@ -530,6 +521,114 @@ describe('useTradingViewNativeChartGestures', () => {
     });
   });
 
+  it('shows the crosshair after a single-finger tap', () => {
+    const { chartRuntime, tapCrosshairGesture } = renderChartGestures();
+    const fail = jest.fn();
+    chartRuntime.value.crosshair.visible = false;
+
+    expect(tapCrosshairGesture).toBeDefined();
+    tapCrosshairGesture?.handlers.onTouchesDown?.(
+      { changedTouches: [{ x: 100, y: 120 }], numberOfTouches: 1 },
+      { fail },
+    );
+    tapCrosshairGesture?.handlers.onEnd?.({ x: 100, y: 120 }, true);
+
+    expect(fail).not.toHaveBeenCalled();
+    expect(chartRuntime.value.crosshair).toEqual({
+      visible: true,
+      x: 100,
+      y: 120,
+    });
+  });
+
+  it.each([true, false])(
+    'blocks crosshair callbacks throughout a pinch (simultaneous touches: %s)',
+    (simultaneousTouches) => {
+      const {
+        chartRuntime,
+        crosshairGesture,
+        pinchGesture,
+        tapCrosshairGesture,
+      } = renderChartGestures();
+      const firstTouch = { x: 100, y: 120 };
+      const secondTouch = { x: 140, y: 120 };
+
+      expect(tapCrosshairGesture).toBeDefined();
+      [crosshairGesture, tapCrosshairGesture].forEach((gesture) => {
+        const fail = jest.fn();
+        if (!simultaneousTouches) {
+          gesture?.handlers.onTouchesDown?.(
+            { changedTouches: [firstTouch], numberOfTouches: 1 },
+            { fail },
+          );
+          expect(fail).not.toHaveBeenCalled();
+        }
+        gesture?.handlers.onTouchesDown?.(
+          {
+            changedTouches: simultaneousTouches
+              ? [firstTouch, secondTouch]
+              : [secondTouch],
+            numberOfTouches: 2,
+          },
+          { fail },
+        );
+        expect(fail).toHaveBeenCalledTimes(1);
+      });
+      expect(chartRuntime.value.crosshair.visible).toBe(false);
+
+      pinchGesture.handlers.onStart?.({ focalX: 120, scale: 1 });
+      crosshairGesture.handlers.onStart?.(firstTouch);
+      expect(chartRuntime.value.crosshair.visible).toBe(false);
+
+      pinchGesture.handlers.onUpdate?.({ scale: 1.5 });
+      expect(chartRuntime.value.viewport.zoomScale).toBe(1.5);
+      expect(chartRuntime.value.crosshair.visible).toBe(false);
+
+      pinchGesture.handlers.onFinalize?.();
+      crosshairGesture.handlers.onUpdate?.({
+        ...firstTouch,
+        numberOfPointers: 1,
+      });
+      tapCrosshairGesture?.handlers.onEnd?.(firstTouch, true);
+      expect(chartRuntime.value.crosshair.visible).toBe(false);
+
+      const failNextTap = jest.fn();
+      tapCrosshairGesture?.handlers.onTouchesDown?.(
+        { changedTouches: [firstTouch], numberOfTouches: 1 },
+        { fail: failNextTap },
+      );
+      tapCrosshairGesture?.handlers.onEnd?.(firstTouch, true);
+      expect(failNextTap).not.toHaveBeenCalled();
+      expect(chartRuntime.value.crosshair).toEqual({
+        visible: true,
+        ...firstTouch,
+      });
+    },
+  );
+
+  it('hides an active long-press crosshair when a second finger lands', () => {
+    const { chartRuntime, crosshairGesture } = renderChartGestures();
+    const fail = jest.fn();
+
+    crosshairGesture.handlers.onStart?.({ x: 100, y: 120 });
+    expect(chartRuntime.value.crosshair.visible).toBe(true);
+
+    crosshairGesture.handlers.onTouchesDown?.(
+      { changedTouches: [{ x: 140, y: 120 }], numberOfTouches: 2 },
+      { fail },
+    );
+    expect(fail).toHaveBeenCalledTimes(1);
+    expect(chartRuntime.value.crosshair.visible).toBe(false);
+
+    crosshairGesture.handlers.onUpdate?.({
+      numberOfPointers: 1,
+      x: 110,
+      y: 120,
+    });
+    crosshairGesture.handlers.onFinalize?.({}, true);
+    expect(chartRuntime.value.crosshair.visible).toBe(false);
+  });
+
   it('hides the crosshair when the long press is interrupted', () => {
     const { chartRuntime } = renderChartGestures();
     const crosshairGesture = mockPanGestures[0];
@@ -555,6 +654,62 @@ describe('useTradingViewNativeChartGestures', () => {
 });
 
 describe('zoom continuity at viewport boundaries', () => {
+  describe.each(['pinch', 'timeAxis'] as const)(
+    '%s navigation continuity',
+    (kind) => {
+      it.each([
+        'zoomIn',
+        'zoomOut',
+        'scrollLeft',
+        'scrollRight',
+        'reset',
+      ] as const)(
+        'continues the active gesture after %s without undoing navigation',
+        (action) => {
+          const {
+            chartRuntime,
+            decayOffset,
+            pinchGesture,
+            timeAxisScaleGesture,
+          } = renderChartGestures();
+          const chartWidth = 276;
+          const gesture =
+            kind === 'pinch' ? pinchGesture : timeAxisScaleGesture;
+          chartRuntime.value.viewport.offset = 120;
+          gesture.handlers.onStart?.(
+            kind === 'pinch' ? { focalX: 140, scale: 1 } : { x: 100 },
+          );
+          const stationaryEvent = kind === 'pinch' ? { scale: 1.5 } : { x: 80 };
+          gesture.handlers.onUpdate?.(stationaryEvent);
+          chartRuntime.value = navigateTradingViewNativeChartRuntime(
+            chartRuntime.value,
+            action,
+            44,
+          );
+          const viewport = { ...chartRuntime.value.viewport };
+
+          gesture.handlers.onUpdate?.(stationaryEvent);
+          expect(chartRuntime.value.viewport.offset).toBeCloseTo(
+            viewport.offset,
+          );
+          expect(chartRuntime.value.viewport.zoomScale).toBeCloseTo(
+            viewport.zoomScale,
+          );
+
+          const zoomRatio = kind === 'pinch' ? 1.2 : Math.exp(20 / chartWidth);
+          gesture.handlers.onUpdate?.(
+            kind === 'pinch' ? { scale: 1.8 } : { x: 70 },
+          );
+          expect(chartRuntime.value.viewport.zoomScale).toBeCloseTo(
+            viewport.zoomScale * zoomRatio,
+          );
+          expect(chartRuntime.value.viewport.offset).not.toBe(viewport.offset);
+          expect(decayOffset.value).toBe(chartRuntime.value.viewport.offset);
+        },
+      );
+    },
+  );
+
   it.each(['pinch', 'timeAxis'] as const)(
     'preserves an appended candle anchor during an active %s gesture',
     (kind) => {
@@ -647,6 +802,40 @@ describe('horizontal chart panning', () => {
     mockPanGestures.length = 0;
     mockTapGestures.length = 0;
   });
+  it.each(['zoomIn', 'zoomOut', 'scrollLeft', 'scrollRight', 'reset'] as const)(
+    'continues dragging from the viewport after %s without jumping',
+    (action) => {
+      const { chartRuntime, contentPanGesture, decayOffset } =
+        renderChartGestures();
+      contentPanGesture.handlers.onStart?.({ translationX: 0 });
+      contentPanGesture.handlers.onUpdate?.({ translationX: 30 });
+      chartRuntime.value = navigateTradingViewNativeChartRuntime(
+        chartRuntime.value,
+        action,
+        44,
+      );
+      const { offset, zoomScale } = chartRuntime.value.viewport;
+
+      // A stationary finger must not undo navigation, and further movement
+      // must still pan from the new viewport.
+      contentPanGesture.handlers.onUpdate?.({ translationX: 30 });
+      expect(chartRuntime.value.viewport.offset).toBeCloseTo(offset);
+      contentPanGesture.handlers.onUpdate?.({ translationX: 50 });
+      expect(chartRuntime.value.viewport.offset).toBeCloseTo(
+        offset + 20 * TRADING_VIEW_NATIVE_PAN_DRAG_RATIO,
+      );
+      expect(chartRuntime.value.viewport.zoomScale).toBe(zoomScale);
+      expect(decayOffset.value).toBe(chartRuntime.value.viewport.offset);
+
+      const nextStartOffset = chartRuntime.value.viewport.offset;
+      contentPanGesture.handlers.onStart?.({ translationX: 0 });
+      contentPanGesture.handlers.onUpdate?.({ translationX: -10 });
+      expect(chartRuntime.value.viewport.offset).toBeCloseTo(
+        nextStartOffset - 10 * TRADING_VIEW_NATIVE_PAN_DRAG_RATIO,
+      );
+    },
+  );
+
   it('keeps other embedded charts independent of parent scroll thresholds', () => {
     const headerScrollGesture = Gesture.Pan();
     const { contentPanGesture } = renderChartGestures({

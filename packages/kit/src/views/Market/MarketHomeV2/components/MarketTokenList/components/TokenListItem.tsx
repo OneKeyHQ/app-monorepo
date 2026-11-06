@@ -3,6 +3,7 @@ import { memo, useCallback } from 'react';
 
 import {
   NumberSizeableText,
+  SizableText,
   XStack,
   useMedia,
   useThemeName,
@@ -35,6 +36,7 @@ interface ITokenListItemProps {
   onLayout?: (event: LayoutChangeEvent) => void;
   isPrimed?: boolean;
   isDragging?: boolean;
+  bannerColumnMode?: 'compact' | 'two' | 'three';
 }
 
 // Fixed like the desktop table rows: 12px padding around the two-line identity
@@ -78,6 +80,7 @@ const BasicTokenListItem: FC<ITokenListItemProps> = ({
   onLayout,
   isPrimed,
   isDragging,
+  bannerColumnMode = 'compact',
 }) => {
   const themeName = useThemeName();
   const media = useMedia();
@@ -106,6 +109,51 @@ const BasicTokenListItem: FC<ITokenListItemProps> = ({
     [onPressIn, prewarmTokenDetail],
   );
 
+  const volumeColumn = !Number.isFinite(item.turnover) ? (
+    <SizableText
+      flex={1}
+      textAlign="right"
+      numberOfLines={1}
+      size="$bodyMd"
+      color="$textSubdued"
+    >
+      --
+    </SizableText>
+  ) : (
+    <NumberSizeableText
+      flex={1}
+      textAlign="right"
+      numberOfLines={1}
+      size="$bodyMd"
+      formatter="marketCap"
+      formatterOptions={{ currency: '$' }}
+    >
+      {item.turnover}
+    </NumberSizeableText>
+  );
+  const widePriceColumn = Number.isFinite(item.price) ? (
+    <NumberSizeableText
+      flex={1}
+      textAlign="right"
+      numberOfLines={1}
+      size="$bodyLgMedium"
+      formatter="price"
+      formatterOptions={{ currency: '$' }}
+    >
+      {item.price}
+    </NumberSizeableText>
+  ) : (
+    <SizableText
+      flex={1}
+      textAlign="right"
+      numberOfLines={1}
+      size="$bodyLgMedium"
+      color="$textSubdued"
+    >
+      --
+    </SizableText>
+  );
+
   return (
     <XStack
       testID={MarketTestIDs.tokenListItem(item.symbol)}
@@ -128,7 +176,12 @@ const BasicTokenListItem: FC<ITokenListItemProps> = ({
       bg={isHighlighted ? '$bgActive' : '$bgApp'}
       style={isDragging ? DRAGGING_STYLE : undefined}
     >
-      <XStack flex={1} alignItems="center" minWidth={0} gap="$2">
+      <XStack
+        flex={bannerColumnMode === 'compact' ? 1 : 2}
+        alignItems="center"
+        minWidth={0}
+        gap="$2"
+      >
         {leading}
         <TokenIdentityItem
           tokenLogoURI={item.tokenImageUri}
@@ -138,7 +191,7 @@ const BasicTokenListItem: FC<ITokenListItemProps> = ({
           symbol={item.symbol}
           address={item.address}
           showVolume={showVolume}
-          volume={item.turnover}
+          volume={bannerColumnMode === 'three' ? undefined : item.turnover}
           communityRecognized={item.communityRecognized}
           stock={item.stock}
           maxLeverage={item.maxLeverage}
@@ -150,19 +203,29 @@ const BasicTokenListItem: FC<ITokenListItemProps> = ({
         />
       </XStack>
 
-      <XStack alignItems="center" gap="$2">
-        <NumberSizeableText
-          userSelect="none"
-          flexShrink={1}
-          numberOfLines={1}
-          size="$bodyLgMedium"
-          formatter="price"
-          formatterOptions={{ currency: '$' }}
-        >
-          {Number.isFinite(item.price) ? item.price : '--'}
-        </NumberSizeableText>
-        <PriceChangeBadge change={priceChange} />
-      </XStack>
+      {bannerColumnMode === 'compact' ? (
+        <XStack alignItems="center" gap="$2">
+          <NumberSizeableText
+            userSelect="none"
+            flexShrink={1}
+            numberOfLines={1}
+            size="$bodyLgMedium"
+            formatter="price"
+            formatterOptions={{ currency: '$' }}
+          >
+            {Number.isFinite(item.price) ? item.price : '--'}
+          </NumberSizeableText>
+          <PriceChangeBadge change={priceChange} />
+        </XStack>
+      ) : (
+        <>
+          {widePriceColumn}
+          <XStack flex={1} jc="flex-end" minWidth={0}>
+            <PriceChangeBadge change={priceChange} />
+          </XStack>
+          {bannerColumnMode === 'three' ? volumeColumn : null}
+        </>
+      )}
     </XStack>
   );
 };

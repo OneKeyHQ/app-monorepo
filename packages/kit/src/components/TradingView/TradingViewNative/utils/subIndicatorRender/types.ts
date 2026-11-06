@@ -126,6 +126,8 @@ export type ITradingViewNativeSubIndicatorScale =
   | ITradingViewNativeSubIndicatorFixedScale;
 
 export interface ITradingViewNativeSubIndicatorFormat {
+  // Fixed decimals for price and inherit formats. For volume, the maximum
+  // decimals of values below one K unit.
   precision?: number;
   type: 'inherit' | 'price' | 'volume';
 }
@@ -180,6 +182,14 @@ export interface ITradingViewNativeSubIndicatorResolvedInstance {
   indicator: ITradingViewNativeSubIndicator;
   isVisible: boolean;
   settings: ITradingViewNativeSubIndicatorResolvedSettings;
+}
+
+export interface ITradingViewNativeSubIndicatorCalculationOptions {
+  /**
+   * Read a zero volume as "not reported" instead of "nothing traded". Stock
+   * charts get zero volume for bars their feed has no volume for.
+   */
+  zeroVolumeIsMissing?: boolean;
 }
 
 export interface ITradingViewNativeSubIndicatorCalculation {

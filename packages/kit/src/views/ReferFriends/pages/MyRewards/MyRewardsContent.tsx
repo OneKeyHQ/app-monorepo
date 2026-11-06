@@ -11,7 +11,6 @@ import {
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
-import type { IKeyOfIcons } from '@onekeyhq/components';
 import {
   Dialog,
   Divider,
@@ -47,16 +46,30 @@ import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IInviteeRewardsOverview } from '@onekeyhq/shared/src/referralCode/type';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import { swrKeys } from '@onekeyhq/shared/src/utils/swrCacheUtils';
 import type { IEarnSummaryV2, IEarnText } from '@onekeyhq/shared/types/staking';
 
 import { CompactFieldRow } from '../../components/CompactFieldRow';
 import { InviteeRewardNoWallet } from '../../components/InviteeRewardNoWallet';
 import { ReferralCardEmpty } from '../../components/ReferralCardEmpty';
-import { BenefitsTabPlaceholder } from '../InviteReward/components/BenefitsTabPlaceholder';
-import { INVITE_REWARD_SUBJECT_ICON } from '../InviteReward/components/getInviteRewardRows';
+import { useInviteRewardScopes } from '../../hooks/useInviteRewardScopes';
+import {
+  BenefitsTabPlaceholder,
+  useBenefitsBindStatus,
+} from '../InviteReward/components/BenefitsTabPlaceholder';
+import {
+  INVITE_REWARD_SUBJECT_ICON,
+  INVITE_REWARD_SUBJECT_TITLE,
+  getInviteRewardScopeDescription,
+  getInviteRewardScopeItems,
+} from '../InviteReward/components/getInviteRewardRows';
 import { InviteStatCell } from '../InviteReward/components/InviteStatCell';
 import { PartDot } from '../InviteReward/components/PartDot';
 import { ReferralTabCrossLink } from '../InviteReward/components/ReferralTabCrossLink';
+import {
+  RewardScopeCompactTitle,
+  RewardScopeDesktopTitle,
+} from '../InviteReward/components/RewardScopeInfo';
 import { REFERRAL_USD_SOURCE_PROPS } from '../InviteReward/components/shared/getRewardSummary';
 import {
   COMPACT_ENTRY_TITLE_PROPS,
@@ -74,6 +87,8 @@ import {
   PerksCampaignBanner,
   usePerksBannerItems,
 } from './PerksCampaignBanner';
+
+import type { IInviteRewardSubject } from '../InviteReward/components/getInviteRewardRows';
 
 type IRewardModule = keyof IInviteeRewardsOverview;
 
@@ -120,20 +135,15 @@ function useMyRewardsCopy() {
   return copy;
 }
 
-const MODULE_ICON: Record<IRewardModule, IKeyOfIcons> = {
-  perps: INVITE_REWARD_SUBJECT_ICON.perps,
-  swap: INVITE_REWARD_SUBJECT_ICON.swap,
-  earn: INVITE_REWARD_SUBJECT_ICON.defi,
-};
-
-// Same product names as the invite tab's breakdown.
-const MODULE_TITLE: Record<IRewardModule, ETranslations> = {
-  perps: ETranslations.perps_perps,
-  swap: ETranslations.global_swap,
-  earn: ETranslations.referral_referred_type_2,
-};
-
 const MODULES: IRewardModule[] = ['perps', 'swap', 'earn'];
+
+// The invite breakdown's product for each module: its icon, name and
+// reward-scope copy are the product's, so both tabs read the same.
+const MODULE_SUBJECT: Record<IRewardModule, IInviteRewardSubject> = {
+  perps: 'perps',
+  swap: 'swap',
+  earn: 'defi',
+};
 
 // Desktop rows bleed 12px past the text, like the invite tab's breakdown, so
 // the text lines up with the section title.
@@ -880,7 +890,10 @@ function ProductTile({ module }: { module: IRewardModule }) {
       jc="center"
       flexShrink={0}
     >
-      <Icon name={MODULE_ICON[module]} size="$5" />
+      <Icon
+        name={INVITE_REWARD_SUBJECT_ICON[MODULE_SUBJECT[module]]}
+        size="$5"
+      />
     </Stack>
   );
 }
@@ -888,11 +901,13 @@ function ProductTile({ module }: { module: IRewardModule }) {
 function DesktopRow({
   row,
   title,
+  scopeDescription,
   noRewardLabel,
   onPress,
 }: {
   row: IModuleRow;
   title: string;
+  scopeDescription: string | null;
   noRewardLabel: string;
   onPress: () => void;
 }) {
@@ -957,9 +972,11 @@ function DesktopRow({
     >
       <DesktopCell first>
         <ProductTile module={row.module} />
-        <SizableText flex={1} size="$bodyLgMedium" numberOfLines={1}>
-          {title}
-        </SizableText>
+        <RewardScopeDesktopTitle
+          title={title}
+          subject={MODULE_SUBJECT[row.module]}
+          description={scopeDescription}
+        />
       </DesktopCell>
       {renderValues()}
       <Icon
@@ -978,11 +995,13 @@ function DesktopRow({
 function CompactRow({
   row,
   title,
+  scopeDescription,
   labels,
   onPress,
 }: {
   row: IModuleRow;
   title: string;
+  scopeDescription: string | null;
   labels: { unpaid: string; noReward: string };
   onPress: () => void;
 }) {
@@ -1021,10 +1040,19 @@ function CompactRow({
     <ListItem
       testID={`my-rewards-module-${row.module}`}
       {...COMPACT_ROW_BLEED_PROPS}
-      icon={MODULE_ICON[row.module]}
+      icon={INVITE_REWARD_SUBJECT_ICON[MODULE_SUBJECT[row.module]]}
       iconProps={COMPACT_ROW_ICON_PROPS}
       titleProps={COMPACT_ENTRY_TITLE_PROPS}
       title={title}
+      renderItemText={
+        scopeDescription ? (
+          <RewardScopeCompactTitle
+            title={title}
+            subject={MODULE_SUBJECT[row.module]}
+            description={scopeDescription}
+          />
+        ) : undefined
+      }
       drillIn
       onPress={onPress}
     >
@@ -1125,6 +1153,7 @@ function MyRewardsContentBody({
   const intl = useIntl();
   const { md } = useMedia();
   const cardStyle = useInviteHomeCardStyle();
+  const rewardScopes = useInviteRewardScopes();
   const {
     activeAccount: { account, indexedAccount, ready: accountReady },
   } = useActiveAccount({ num: 0 });
@@ -1174,9 +1203,18 @@ function MyRewardsContentBody({
       : undefined;
 
   const walletAddress = earnAccount?.accountAddress;
+  // Started here, beside the overview, so an empty Perks tab does not wait on
+  // it once the overview lands.
+  const bindStatus = useBenefitsBindStatus();
 
+  // Overviews this mount fetched. A cached one paints first but is not what
+  // this visit loaded, so the analytics below wait for one of these.
+  const fetchedOverviewResultsRef = useRef(
+    new WeakSet<{ address: string; overview: IInviteeRewardsOverview }>(),
+  );
   const {
     result: overviewResult,
+    setResult: setOverviewResult,
     isLoading: isLoadingOverview,
     run: reloadOverview,
   } = usePromiseResult(
@@ -1189,14 +1227,33 @@ function MyRewardsContentBody({
         await backgroundApiProxy.serviceReferralCode.getInviteeRewardsOverview({
           walletAddress: address,
         });
-      return { address, overview };
+      const fetched = { address, overview };
+      fetchedOverviewResultsRef.current.add(fetched);
+      return fetched;
     },
     [walletAddress],
-    { watchLoading: true, undefinedResultIfReRun: true },
+    {
+      watchLoading: true,
+      // The cached overview paints while the fresh one loads, so the product
+      // skeleton does not collapse into the empty card on every open. The
+      // address check below keeps another address's overview out; it
+      // compares lowercased, like the key, so a cache entry written under
+      // another casing of the same address still paints.
+      swrKey: walletAddress
+        ? swrKeys.referralPerksOverview({ walletAddress })
+        : undefined,
+      // A failed product would reopen on its error row before the retry.
+      swrShouldPersist: (result) =>
+        result !== undefined &&
+        Object.values(result.overview).every(
+          (module) => module.status === 'success',
+        ),
+    },
   );
   // A just-switched account still has the previous overview for one render.
   const overview =
-    overviewResult && overviewResult.address === walletAddress
+    overviewResult &&
+    overviewResult.address.toLowerCase() === walletAddress?.toLowerCase()
       ? overviewResult.overview
       : undefined;
 
@@ -1224,7 +1281,14 @@ function MyRewardsContentBody({
       return;
     } else if (isUnsupported) {
       status = 'no_evm';
-    } else if (isLoadingOverview || !overview) {
+    } else if (
+      isLoadingOverview ||
+      !overview ||
+      !overviewResult ||
+      !fetchedOverviewResultsRef.current.has(overviewResult)
+    ) {
+      // A cached overview reports nothing: the address would be marked as
+      // reported before the fetched one could say what it holds.
       return;
     } else {
       status = getPerksHomeStatus(overview);
@@ -1247,6 +1311,7 @@ function MyRewardsContentBody({
     hasAccount,
     isLoadingOverview,
     overview,
+    overviewResult,
     walletAddress,
   ]);
 
@@ -1267,13 +1332,15 @@ function MyRewardsContentBody({
     (!hasAccount && isAccountPending) ||
     (hasAccount && earnAccount === undefined);
   const isUnsupported = hasAccount && !isResolving && !earnAccount;
-  const isLoading = isResolving || Boolean(isLoadingOverview || !overview);
+  const isLoading = isResolving || !overview;
   const payout = isLoading ? undefined : getPayoutToken(overview);
   const rows = MODULES.map((module) =>
     getModuleRow(module, isLoading, overview),
   );
   const handleRowPress = (row: IModuleRow) => {
     if (row.status === 'error') {
+      // Back to the skeleton while the retry runs.
+      setOverviewResult(undefined);
       void reloadOverview();
       return;
     }
@@ -1285,7 +1352,17 @@ function MyRewardsContentBody({
     }
   };
   const titleFor = (module: IRewardModule) =>
-    intl.formatMessage({ id: MODULE_TITLE[module] });
+    intl.formatMessage({
+      id: INVITE_REWARD_SUBJECT_TITLE[MODULE_SUBJECT[module]],
+    });
+  const scopeFor = (module: IRewardModule) =>
+    getInviteRewardScopeDescription(MODULE_SUBJECT[module], rewardScopes);
+  const scopeItems = getInviteRewardScopeItems(
+    MODULES.map((module) => ({
+      subject: MODULE_SUBJECT[module],
+      scopeDescription: scopeFor(module),
+    })),
+  );
   const sectionTitle = intl.formatMessage({
     id: ETranslations.referral_earnings_by_product__title,
   });
@@ -1307,7 +1384,12 @@ function MyRewardsContentBody({
       );
     }
     if (!isLoading && hasNoRewards(overview)) {
-      return <BenefitsTabPlaceholder />;
+      return (
+        <BenefitsTabPlaceholder
+          bindStatus={bindStatus}
+          scopeItems={scopeItems}
+        />
+      );
     }
     if (md) {
       return (
@@ -1317,6 +1399,7 @@ function MyRewardsContentBody({
               key={row.module}
               row={row}
               title={titleFor(row.module)}
+              scopeDescription={scopeFor(row.module)}
               labels={labels}
               onPress={() => handleRowPress(row)}
             />
@@ -1344,6 +1427,7 @@ function MyRewardsContentBody({
             key={row.module}
             row={row}
             title={titleFor(row.module)}
+            scopeDescription={scopeFor(row.module)}
             noRewardLabel={labels.noReward}
             onPress={() => handleRowPress(row)}
           />

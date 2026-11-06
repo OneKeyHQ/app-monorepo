@@ -11,6 +11,7 @@ import {
   TRADING_VIEW_NATIVE_CHART_TOP_PADDING,
   TRADING_VIEW_NATIVE_CURRENT_PRICE_LABEL_HORIZONTAL_PADDING,
   TRADING_VIEW_NATIVE_MOBILE_WATERMARK_WIDTH_RATIO,
+  TRADING_VIEW_NATIVE_PRICE_AXIS_EXTRA_WIDTH,
   TRADING_VIEW_NATIVE_PRICE_AXIS_LABEL_LEFT_PADDING,
   TRADING_VIEW_NATIVE_PRICE_AXIS_LABEL_RIGHT_PADDING,
   TRADING_VIEW_NATIVE_PRICE_AXIS_MIN_TICK_SPACING,
@@ -245,6 +246,7 @@ function compactTradingViewNativePriceLeadingZeros(value: string) {
 function roundTradingViewNativeSubOnePrice(
   price: number,
   significantDigits: number,
+  roundingMode: 'round' | 'truncate' = 'round',
 ) {
   'worklet';
 
@@ -258,7 +260,7 @@ function roundTradingViewNativeSubOnePrice(
   let exponent = Number(exponentialParts[1]);
   if (digits.length > significantDigits) {
     const kept = digits.slice(0, significantDigits);
-    if (digits.charAt(significantDigits) >= '5') {
+    if (roundingMode === 'round' && digits.charAt(significantDigits) >= '5') {
       const bumped = String(Number(kept) + 1);
       if (bumped.length > kept.length) {
         // 9999 -> 10000: one more integer digit, so the decimal point moves.
@@ -290,12 +292,22 @@ function roundTradingViewNativeSubOnePrice(
   return `${sign}0.${'0'.repeat(-exponent - 1)}${digits}`;
 }
 
+// Decimals the axis uses for a price when the source provides no precision.
+export function getTradingViewNativeDefaultPriceDecimalPlaces(
+  price: number | undefined,
+) {
+  return price !== undefined && Number.isFinite(price) && Math.abs(price) >= 1
+    ? PRICE_INTEGER_FRACTION_DIGITS
+    : undefined;
+}
+
 export function formatTradingViewNativePriceTick(
   price: number,
   // Worklet default parameters cannot read captured constants before __closure is initialized.
   // Keep this literal in sync manually with PRICE_SIGNIFICANT_FRACTION_DIGITS.
   significantFractionDigits: 4 | 6 = 4,
   priceDecimalPlaces?: number,
+  roundingMode: 'round' | 'truncate' = 'round',
 ) {
   'worklet';
 
@@ -305,11 +317,21 @@ export function formatTradingViewNativePriceTick(
 
   if (priceDecimalPlaces !== undefined && Number.isFinite(priceDecimalPlaces)) {
     const decimals = Math.max(0, Math.min(12, Math.floor(priceDecimalPlaces)));
-    if (price === 0) return price.toFixed(decimals);
+    if (price === 0) return '0';
     const magnitude = Math.abs(price);
     const exponent = Number(magnitude.toExponential().split('e')[1]);
     const significantDigits = exponent + 1 + decimals;
-    // Round the decimal representation before padding, as in the shared price labels.
+    if (roundingMode === 'truncate') {
+      // Slice decimal digits directly to avoid binary multiplication at tick boundaries.
+      return significantDigits > 0
+        ? roundTradingViewNativeSubOnePrice(
+            price,
+            significantDigits,
+            'truncate',
+          )
+        : '0';
+    }
+    // Round the decimal representation before limiting the display precision.
     let rounded = 0;
     if (significantDigits > 0) {
       rounded = Number(
@@ -318,7 +340,8 @@ export function formatTradingViewNativePriceTick(
     } else if (magnitude >= 5 * 10 ** (-decimals - 1)) {
       rounded = Math.sign(price) * 10 ** -decimals;
     }
-    return rounded.toFixed(decimals);
+    const fixedPrice = rounded.toFixed(decimals);
+    return fixedPrice.replace(/(\.\d*[1-9])0+$|\.0+$/, '$1');
   }
 
   const absolutePrice = Math.abs(price);
@@ -371,8 +394,20 @@ function getTradingViewNativeWidestDigitLabel(label: string) {
   return widestLabel;
 }
 
-function getTradingViewNativePriceAxisCandidateLabel(price: number) {
+function getTradingViewNativePriceAxisCandidateLabel(
+  price: number,
+  priceDecimalPlaces?: number,
+) {
   'worklet';
+
+  if (priceDecimalPlaces !== undefined && Number.isFinite(priceDecimalPlaces)) {
+    const decimals = Math.max(0, Math.min(12, Math.floor(priceDecimalPlaces)));
+    const roundedPrice = Number(
+      formatTradingViewNativePriceTick(price, 4, decimals),
+    );
+    // Interpolated ticks need every fractional slot even when endpoint zeros are trimmed.
+    return getTradingViewNativeWidestDigitLabel(roundedPrice.toFixed(decimals));
+  }
 
   const absolutePrice = Math.abs(price);
   let label = getTradingViewNativeWidestDigitLabel(
@@ -464,19 +499,15 @@ export function getTradingViewNativePriceAxisLabel(
   }
 
   if (priceDecimalPlaces !== undefined) {
-    const positive = formatTradingViewNativePriceTick(
+    const positive = getTradingViewNativePriceAxisCandidateLabel(
       largestNonNegativePrice,
-      4,
       priceDecimalPlaces,
     );
-    const negative = formatTradingViewNativePriceTick(
+    const negative = getTradingViewNativePriceAxisCandidateLabel(
       largestNegativePrice,
-      4,
       priceDecimalPlaces,
     );
-    return getTradingViewNativeWidestDigitLabel(
-      positive.length >= negative.length ? positive : negative,
-    );
+    return positive.length >= negative.length ? positive : negative;
   }
 
   if (!hasFinitePrice) {
@@ -552,8 +583,8 @@ export function getTradingViewNativeScaledPriceAxisLabel({
   if (priceDecimalPlaces !== undefined) {
     const candidates = [
       baseLabel,
-      formatTradingViewNativePriceTick(minPrice, 4, priceDecimalPlaces),
-      formatTradingViewNativePriceTick(maxPrice, 4, priceDecimalPlaces),
+      getTradingViewNativePriceAxisCandidateLabel(minPrice, priceDecimalPlaces),
+      getTradingViewNativePriceAxisCandidateLabel(maxPrice, priceDecimalPlaces),
     ];
     return getTradingViewNativeWidestDigitLabel(
       candidates.reduce(
@@ -605,6 +636,19 @@ export function getTradingViewNativeCurrentPriceLabel(
     : '';
 }
 
+export function getTradingViewNativeCurrentPriceAxisLabel(
+  label: string,
+  priceDecimalPlaces?: number,
+) {
+  'worklet';
+
+  // Measure every decimal slot even when the displayed current price trims zeros.
+  const price = Number(label);
+  return label !== '' && Number.isFinite(price)
+    ? getTradingViewNativePriceAxisCandidateLabel(price, priceDecimalPlaces)
+    : getTradingViewNativeWidestDigitLabel(label);
+}
+
 export function getTradingViewNativePriceAxisWidth({
   currentPriceLabelWidth,
   minimumWidth = 0,
@@ -634,17 +678,19 @@ export function getTradingViewNativePriceAxisWidth({
   const normalizedMinimumWidth = Number.isFinite(minimumWidth)
     ? Math.max(Math.ceil(minimumWidth), 0)
     : 0;
-  return Math.max(
-    normalizedMinimumWidth,
+  return (
     Math.max(
-      normalizedWidestPriceLabelWidth,
-      normalizedWidestVolumeLabelWidth,
-    ) +
-      TRADING_VIEW_NATIVE_PRICE_AXIS_LABEL_LEFT_PADDING +
-      TRADING_VIEW_NATIVE_PRICE_AXIS_LABEL_RIGHT_PADDING,
-    normalizedCurrentPriceLabelWidth +
-      TRADING_VIEW_NATIVE_PRICE_AXIS_LABEL_LEFT_PADDING +
-      TRADING_VIEW_NATIVE_CURRENT_PRICE_LABEL_HORIZONTAL_PADDING,
+      normalizedMinimumWidth,
+      Math.max(
+        normalizedWidestPriceLabelWidth,
+        normalizedWidestVolumeLabelWidth,
+      ) +
+        TRADING_VIEW_NATIVE_PRICE_AXIS_LABEL_LEFT_PADDING +
+        TRADING_VIEW_NATIVE_PRICE_AXIS_LABEL_RIGHT_PADDING,
+      normalizedCurrentPriceLabelWidth +
+        TRADING_VIEW_NATIVE_PRICE_AXIS_LABEL_LEFT_PADDING +
+        TRADING_VIEW_NATIVE_CURRENT_PRICE_LABEL_HORIZONTAL_PADDING,
+    ) + TRADING_VIEW_NATIVE_PRICE_AXIS_EXTRA_WIDTH
   );
 }
 

@@ -820,7 +820,7 @@ const TokenSelectorRowDesktop = memo(() => {
           borderRadius="$0"
           justifyContent="flex-start"
           width="100%"
-          hoverStyle={{ bg: '$bgHover' }}
+          hoverStyle={registerKeyboardRow ? undefined : { bg: '$bgHover' }}
           bg={isKeyboardSelected ? '$bgHover' : undefined}
           px="$4"
           py="$3"
@@ -855,7 +855,15 @@ const TokenSelectorRowDesktop = memo(() => {
         </XStack>
       </DebugRenderTracker>
     ),
-    [onPress, isSpot, desktopLayout, token.name, isKeyboardSelected, setRowRef],
+    [
+      onPress,
+      isSpot,
+      desktopLayout,
+      token.name,
+      isKeyboardSelected,
+      setRowRef,
+      registerKeyboardRow,
+    ],
   );
   return content;
 });

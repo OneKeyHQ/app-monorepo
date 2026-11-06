@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
@@ -122,10 +122,15 @@ export function preserveMarketDetailPreviewImage({
   const fullDetailConfirmsPreviewImage = previewImageUris
     .filter(Boolean)
     .every((uri) => fullImageUris.includes(uri));
+  // Keeping the preview's source mode must not discard new detail fallbacks.
+  const previewIncludesFullImageSources = fullImageUris
+    .filter(Boolean)
+    .every((uri) => previewImageUris.includes(uri));
   if (
     !tokenDetail ||
     !hasPreviewImage ||
     !fullDetailConfirmsPreviewImage ||
+    !previewIncludesFullImageSources ||
     !isSameTokenIdentity({ previewTokenDetail, tokenDetail })
   ) {
     return tokenDetail;
@@ -151,6 +156,22 @@ export function useMarketDetailDisplayData() {
     () => buildPreviewTokenDetail(tokenDetailPreview),
     [tokenDetailPreview],
   );
+  // Requests clear the preview atom when full detail arrives. Retain it only
+  // for image continuity, never as a fallback for quotes or trading metadata.
+  const [previewImage, setPreviewImage] = useState(previewTokenDetail);
+  const nextPreviewImage =
+    previewTokenDetail ??
+    (previewImage &&
+    isMatchingMarketTokenIdentity(previewImage, {
+      tokenAddress,
+      networkId,
+      isNative,
+    })
+      ? previewImage
+      : undefined);
+  if (nextPreviewImage !== previewImage) {
+    setPreviewImage(nextPreviewImage);
+  }
   const stockPreviewTokenDetail = useMemo(
     () =>
       buildStockPreviewTokenDetail({
@@ -180,7 +201,7 @@ export function useMarketDetailDisplayData() {
     ) {
       return {
         displayTokenDetail: preserveMarketDetailPreviewImage({
-          previewTokenDetail: previewDisplay,
+          previewTokenDetail: previewDisplay ?? previewImage,
           tokenDetail,
         }),
         isPreviewTokenDetail: false,
@@ -193,6 +214,7 @@ export function useMarketDetailDisplayData() {
   }, [
     isNative,
     networkId,
+    previewImage,
     previewTokenDetail,
     stockPreviewTokenDetail,
     tokenAddress,
@@ -217,9 +239,16 @@ export function useMarketDetailDisplayData() {
           }
         : displayTokenDetail;
 
+    // Token and stock previews use the same image component as full details,
+    // including when the first response adds fallback sources.
+    const tokenDetailWithImageSources =
+      resolvedTokenDetail?.logoUrl && !resolvedTokenDetail.logoUrls?.length
+        ? { ...resolvedTokenDetail, logoUrls: [resolvedTokenDetail.logoUrl] }
+        : resolvedTokenDetail;
+
     return {
       ...tokenDetailData,
-      tokenDetail: resolvedTokenDetail,
+      tokenDetail: tokenDetailWithImageSources,
       fullTokenDetail: tokenDetail,
       isPreviewTokenDetail,
       isStockToken:

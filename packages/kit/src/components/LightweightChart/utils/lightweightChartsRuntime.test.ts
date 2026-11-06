@@ -113,6 +113,7 @@ function createNativeChartPage(
     },
   };
   const postMessage = jest.fn();
+  const requestAnimationFrame = jest.fn<number, [() => void]>(() => 1);
   document.documentElement.innerHTML = generateChartHTML(config);
   Object.defineProperty(document.getElementById('chart'), 'clientWidth', {
     value: 400,
@@ -138,7 +139,8 @@ function createNativeChartPage(
       CrosshairMode: { Normal: 0 },
       TrackingModeExitMode: { OnTouchEnd: 0, OnNextTap: 1 },
     },
-    requestAnimationFrame: jest.fn(),
+    requestAnimationFrame,
+    cancelAnimationFrame: jest.fn(),
     ResizeObserver: jest.fn(() => ({ observe: jest.fn() })),
   });
   expect(postMessage).toHaveBeenCalledWith(JSON.stringify({ type: 'ready' }));
@@ -156,6 +158,8 @@ function createNativeChartPage(
     pageWindow,
     hover,
     getView,
+    // Runs the latest queued frame, where the pulse dot is placed.
+    flushFrame: () => requestAnimationFrame.mock.calls.at(-1)?.[0](),
   };
 }
 
@@ -759,4 +763,25 @@ it('repaints a returning native canvas without accepting zero-size layouts', () 
   container.clientWidth = 390;
   listeners.visibilitychange();
   expect(resize).toHaveBeenLastCalledWith(390, 280, true);
+});
+
+it('moves the pulse dot to the crosshair point and back to the tail', () => {
+  const page = createNativeChartPage({ pulseLastPoint: true });
+  const pulse = document.getElementById('pulse');
+  page.flushFrame();
+  expect([pulse?.style.left, pulse?.style.top]).toEqual(['60px', '30px']);
+
+  page.hover({
+    time: 2,
+    point: { x: 40, y: 100 },
+    sourceEvent: {},
+    seriesData: new Map([[page.primary, { value: 2 }]]),
+  });
+  page.flushFrame();
+  expect([pulse?.style.left, pulse?.style.top]).toEqual(['40px', '20px']);
+
+  page.hover({});
+  page.flushFrame();
+  expect([pulse?.style.left, pulse?.style.top]).toEqual(['60px', '30px']);
+  expect(pulse?.style.display).toBe('block');
 });

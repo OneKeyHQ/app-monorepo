@@ -50,6 +50,7 @@ import {
 } from '../MarketStockList/utils';
 import { getTokenAgeLabel } from '../MarketTokenList/hooks/useMarketTokenColumns/tokenAgeLabel';
 import { getMarketWatchlistRowKind } from '../MarketTokenList/utils/marketWatchlistRowKind';
+import { marketTokenKey } from '../MarketTokenList/utils/tokenListHelpers';
 
 import { buildMarketNativeRowPatches } from './marketNativeListRows';
 
@@ -200,8 +201,13 @@ export function WebMarketTokenList({
         ? node
         : null;
   }, []);
+  const sticky = useContext(DesktopStickyHeaderContext);
+  const [stickyInset, setStickyInset] = useState(0);
   const registeredHeight = Math.max(
     400,
+    // Removing a favorite must not shorten the visible page and clamp the
+    // outer scroll offset, which would move all remaining rows downward.
+    watchlistMode ? (scrollElement?.clientHeight ?? 0) - stickyInset : 0,
     data.length * 72 +
       contentPaddingBottom +
       (footer ? 132 : 0) +
@@ -212,8 +218,6 @@ export function WebMarketTokenList({
     if (!element) return undefined;
     return registerContent?.(element, registeredHeight);
   }, [registerContent, registeredHeight]);
-  const sticky = useContext(DesktopStickyHeaderContext);
-  const [stickyInset, setStickyInset] = useState(0);
   useEffect(() => {
     const element = sticky?.portalTarget?.parentElement;
     if (!element) return undefined;
@@ -1107,7 +1111,7 @@ export function WebMarketTokenList({
           };
         });
         const row: MarketRow = {
-          key: item.id,
+          key: marketTokenKey(item),
           type: 'market',
           variant: 'token',
           leading: {
@@ -1196,7 +1200,9 @@ export function WebMarketTokenList({
   }, [patches, snapshot, baseSnapshot]);
   const handleAction = useCallback(
     (event: RowActionEvent) => {
-      const index = data.findIndex((item) => item.id === event.rowKey);
+      const index = data.findIndex(
+        (item) => marketTokenKey(item) === event.rowKey,
+      );
       const item = data[index];
       if (!item) return;
       if (
@@ -1388,7 +1394,9 @@ export function WebMarketTokenList({
           onScrollBegin?.();
         }}
         onReorder={(event) => {
-          const from = data.findIndex((item) => item.id === event.key);
+          const from = data.findIndex(
+            (item) => marketTokenKey(item) === event.key,
+          );
           if (from < 0) return;
           const next = [...data];
           const [dragItem] = next.splice(from, 1);

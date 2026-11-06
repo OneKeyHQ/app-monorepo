@@ -3,13 +3,15 @@ import path from 'path';
 import { fileURLToPath, format as formatUrl } from 'url';
 
 import { BrowserWindow, app, ipcMain, session } from 'electron';
-import isDev from 'electron-is-dev';
+import electronIsDev from 'electron-is-dev';
 import logger from 'electron-log/main';
 
 import { ipcMessageKeys } from './config';
 import { registerInfoHandlers } from './libs/registerInfoHandlers';
 import * as store from './libs/store';
 import { getAppStaticResourcesPath } from './resoucePath';
+
+const isDev = !app?.isPackaged && electronIsDev;
 
 const isMac = process.platform === 'darwin';
 const isWin = process.platform === 'win32';

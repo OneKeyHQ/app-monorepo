@@ -15,6 +15,7 @@ import {
   getHardwareSDKInstance,
   resetHardwareSDKInstance,
 } from '@onekeyhq/shared/src/hardware/instance';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EHardwareTransportType } from '@onekeyhq/shared/types';
@@ -925,7 +926,10 @@ describe('ServiceHardware.getCompatibleConnectId', () => {
           service.checkDeviceReachableForFirmwareUpdate({
             connectId: 'SELECTED_DEVICE',
           }),
-        ).resolves.toBe('LIVE_USB_PATH');
+        ).resolves.toEqual({
+          connectId: 'LIVE_USB_PATH',
+          transportType: EHardwareTransportType.WEBUSB,
+        });
       } else {
         resolve.mockRejectedValue(new Error('USB required'));
         await expect(
@@ -2511,7 +2515,10 @@ describe('ServiceHardware.getCompatibleConnectId', () => {
           connectId: selected ?? path,
         });
         if (mode === 'bootloader' && !selected) {
-          await expect(result).resolves.toBe(path);
+          await expect(result).resolves.toEqual({
+            connectId: path,
+            transportType: EHardwareTransportType.WEBUSB,
+          });
           expect(read).toHaveBeenCalledWith(
             expect.objectContaining({
               connectId: path,
@@ -2571,7 +2578,10 @@ describe('ServiceHardware.getCompatibleConnectId', () => {
             connectId: 'LOADER_BLE_ID',
             features,
           }),
-        ).resolves.toBe(path);
+        ).resolves.toEqual({
+          connectId: path,
+          transportType: EHardwareTransportType.WEBUSB,
+        });
         await expect(
           service.checkDeviceReachableForFirmwareUpdate({
             connectId: 'LOADER_BLE_ID',
@@ -5476,5 +5486,43 @@ describe('ServiceHardware.searchDevices BLE color log', () => {
     await service.searchDevices({ transportType: 'ble' });
 
     expect(colorLog).not.toHaveBeenCalled();
+  });
+});
+
+describe('Cloud key error boundaries inside hardware service helpers', () => {
+  test('state SDK rejections are converted before logging within the sensitive scope', async () => {
+    const service = new ServiceHardware({
+      backgroundApi: {
+        serviceDevSetting: { getFirmwareUpdateDevSettings: async () => false },
+      } as unknown as IBackgroundApi,
+    });
+    const signature = 'ab'.repeat(65);
+    const sdk = {
+      getDeviceState: jest.fn().mockRejectedValue(
+        Object.assign(new Error(`Failure: ${signature}`), {
+          errorCode: HardwareErrorCode.ActionCancelled,
+          data: { signature },
+        }),
+      ),
+    } as unknown as Awaited<ReturnType<ServiceHardware['getSDKInstance']>>;
+    jest.spyOn(service, 'getSDKInstance').mockResolvedValue(sdk);
+    const logged = jest
+      .spyOn(console, 'error')
+      .mockImplementation(() => undefined);
+    try {
+      await expect(
+        service.runWithSensitiveCloudKeyOperation(() =>
+          service._getDeviceStateLowLevel({
+            connectId: 'cloud-device',
+            params: { scope: 'runtime', connectProtocol: 'V2' },
+          }),
+        ),
+      ).rejects.toMatchObject({
+        key: ETranslations.hardware_user_cancel_error,
+      });
+      expect(JSON.stringify(logged.mock.calls)).not.toContain(signature);
+    } finally {
+      logged.mockRestore();
+    }
   });
 });

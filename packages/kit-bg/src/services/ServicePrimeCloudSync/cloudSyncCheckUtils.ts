@@ -8,6 +8,15 @@ const FULL_DB_CHECK_LOCAL_DATA_TYPES: EPrimeCloudSyncDataType[] = [
 ];
 
 const ALL_CHECK_LOCAL_DATA_TYPES = Object.values(EPrimeCloudSyncDataType);
+const SUPPORTED_DATA_TYPES: ReadonlySet<string> = new Set(
+  ALL_CHECK_LOCAL_DATA_TYPES,
+);
+
+export function isSupportedCloudSyncDataType(
+  dataType: unknown,
+): dataType is EPrimeCloudSyncDataType {
+  return typeof dataType === 'string' && SUPPORTED_DATA_TYPES.has(dataType);
+}
 
 export function buildOnlyCheckLocalDataTypes({
   isFullDBChecking,

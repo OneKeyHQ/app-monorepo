@@ -59,6 +59,16 @@ const FloatingIconModal = LazyLoadPage(
   () => import('@onekeyhq/kit/src/views/Setting/pages/FloatingIcon'),
 );
 
+const PrivacySettings = LazyLoadPage(() => import('../pages/Privacy'));
+const PrivacyNetworkSettings = LazyLoadPage(
+  () => import('../pages/PrivacyNetwork'),
+);
+
+const DevZcashRuntime = LazyLoadPage(
+  () =>
+    import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/ZcashWasmGallery'),
+);
+
 const FirmwareUpdateDevSettings = LazyLoadPage(
   () =>
     import('@onekeyhq/kit/src/views/Setting/pages/FirmwareUpdateDevSettings'),
@@ -100,6 +110,11 @@ const PerpGallery = LazyLoadPage(
 const CryptoGallery = LazyLoadPage(
   () =>
     import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/CryptoGallery'),
+);
+
+const HardwareDerivationPathTest = LazyLoadPage(
+  () =>
+    import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/HardwareDerivationPathTest'),
 );
 
 const CloudBackupGallery = LazyLoadPage(
@@ -315,6 +330,10 @@ export const BasicModalSettingStack: IModalFlowNavigatorConfig<
           component: CryptoGallery,
         },
         {
+          name: EModalSettingRoutes.SettingDevHardwarePathTestModal,
+          component: HardwareDerivationPathTest,
+        },
+        {
           name: EModalSettingRoutes.SettingDevCloudBackupGalleryModal,
           component: CloudBackupGallery,
         },
@@ -363,6 +382,18 @@ export const BasicModalSettingStack: IModalFlowNavigatorConfig<
   {
     name: EModalSettingRoutes.SettingFloatingIconModal,
     component: FloatingIconModal,
+  },
+  {
+    name: EModalSettingRoutes.SettingPrivacy,
+    component: PrivacySettings,
+  },
+  {
+    name: EModalSettingRoutes.SettingPrivacyNetwork,
+    component: PrivacyNetworkSettings,
+  },
+  {
+    name: EModalSettingRoutes.SettingDevZcashRuntimeModal,
+    component: DevZcashRuntime,
   },
   // OneKey ID sub-pages
   {

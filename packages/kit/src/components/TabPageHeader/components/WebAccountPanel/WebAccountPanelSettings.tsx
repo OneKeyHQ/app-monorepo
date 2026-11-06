@@ -7,6 +7,7 @@ import {
   Divider,
   ESwitchSize,
   Icon,
+  SELECT_SEARCHABLE_PANEL_HEIGHT,
   SegmentControl,
   Select,
   SizableText,
@@ -213,7 +214,8 @@ function LanguageRow() {
         open={open}
         onChange={handleChange}
         onOpenChange={setOpen}
-        floatingPanelProps={SELECT_FLOATING_PANEL_PROPS}
+        searchable
+        floatingPanelProps={{ maxHeight: SELECT_SEARCHABLE_PANEL_HEIGHT }}
         sheetProps={SELECT_SHEET_PROPS}
         placement="bottom-end"
         offset={SELECT_OFFSET}
@@ -623,6 +625,9 @@ function WebPerpsSpotDustingSetting() {
 
 function DataSection({ onRequestClose }: { onRequestClose: () => void }) {
   const intl = useIntl();
+  const {
+    activeAccount: { network, account, indexedAccount },
+  } = useActiveAccount({ num: 0 });
 
   // Mirror the settings ClearAppCache "Swap history" option behind a destructive
   // confirm: clearCacheOnApp({ swapHistory }) → serviceSwap.cleanSwapHistoryItems().
@@ -669,7 +674,15 @@ function DataSection({ onRequestClose }: { onRequestClose: () => void }) {
         tone: 'destructive',
         onConfirmText: intl.formatMessage({ id: ETranslations.global_clear }),
         onConfirm: async () => {
-          await backgroundApiProxy.serviceSetting.clearPendingTransaction();
+          await backgroundApiProxy.serviceSetting.clearPendingTransaction({
+            selectedAccount: network
+              ? {
+                  networkId: network.id,
+                  accountId: account?.id,
+                  indexedAccountId: indexedAccount?.id,
+                }
+              : undefined,
+          });
           appEventBus.emit(
             EAppEventBusNames.ClearLocalHistoryPendingTxs,
             undefined,
@@ -680,7 +693,7 @@ function DataSection({ onRequestClose }: { onRequestClose: () => void }) {
         },
       });
     }, 150);
-  }, [intl, onRequestClose]);
+  }, [account?.id, indexedAccount?.id, intl, network, onRequestClose]);
 
   return (
     <YStack w="100%">

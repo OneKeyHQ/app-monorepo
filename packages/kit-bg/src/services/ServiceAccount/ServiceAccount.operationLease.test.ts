@@ -1,3 +1,5 @@
+import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
+
 import ServiceBatchCreateAccount from '../ServiceBatchCreateAccount/ServiceBatchCreateAccount';
 import {
   HardwareProcessingManager,
@@ -7,7 +9,9 @@ import {
 import ServiceAccount from './ServiceAccount';
 
 const mockPrepareAccounts = jest.fn(async () => []);
-const mockBatchGetAddresses = jest.fn(async () => []);
+const mockBatchGetAddresses = jest.fn(
+  async (): Promise<{ address: string }[]> => [],
+);
 
 jest.mock('@onekeyhq/shared/src/background/backgroundDecorators', () => ({
   backgroundClass: () => (target: unknown) => target,
@@ -60,6 +64,53 @@ jest.mock('../../vaults/factory', () => ({
 describe('ServiceAccount hardware operation lease', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockBatchGetAddresses.mockResolvedValue([]);
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  it('passes the displayed local-wallet address to the hardware keyring', async () => {
+    jest.spyOn(appLocale.intl, 'formatMessage').mockReturnValue('Address');
+    const expectedAddress = 'u1-on-screen';
+    mockBatchGetAddresses.mockResolvedValue([{ address: expectedAddress }]);
+    const service = new ServiceAccount({
+      backgroundApi: {
+        serviceHardwareUI: {
+          withHardwareProcessing: async (operation: () => Promise<unknown>) =>
+            operation(),
+        },
+        serviceNetwork: {
+          getVaultSettings: async () => ({ accountType: 'simple' }),
+        },
+      },
+    });
+    service.getPrepareHDOrHWAccountsParams = jest.fn().mockResolvedValue({
+      prepareParams: { indexes: [0], deviceParams: {} },
+      deviceParams: { dbDevice: { id: 'device-1' } },
+      networkId: 'zec--0',
+      walletId: 'hw-1',
+    });
+
+    await expect(
+      service.verifyHWAccountAddresses({
+        walletId: 'hw-1',
+        networkId: 'zec--0',
+        indexedAccountId: undefined,
+        deriveType: 'default',
+        expectedAddress,
+        localWalletAddressForm: 'private',
+      }),
+    ).resolves.toEqual([expectedAddress]);
+    expect(mockBatchGetAddresses).toHaveBeenCalledWith(
+      expect.objectContaining({
+        chainExtraParams: expect.objectContaining({
+          localWalletAddressForm: 'private',
+          expectedAddress,
+        }),
+      }),
+    );
   });
 
   it('复用真实外层 lease，避免 prepareAccounts 重入时等待自己持有的硬件锁', async () => {

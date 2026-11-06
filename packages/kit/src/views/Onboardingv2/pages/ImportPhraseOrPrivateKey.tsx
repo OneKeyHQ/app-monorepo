@@ -31,6 +31,7 @@ import {
   EOnboardingPagesV2,
   EOnboardingV2ImportPhraseOrPrivateKeyTab,
 } from '@onekeyhq/shared/src/routes';
+import { EMnemonicType } from '@onekeyhq/shared/src/utils/secret';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import useAppNavigation from '../../../hooks/useAppNavigation';
@@ -267,6 +268,16 @@ export default function ImportPhraseOrPrivateKey() {
         try {
           const { mnemonic, mnemonicType } =
             await phaseInputAreaRef.current.submit();
+          if (mnemonicType === EMnemonicType.TON) {
+            navigation.push(EOnboardingPagesV2.FinalizeWalletSetup, {
+              mnemonic,
+              mnemonicType,
+              isWalletBackedUp: true,
+            });
+            return;
+          }
+          // The privacy-chain scan-start question is asked later on the token
+          // details page (LocalWalletPoolStatus), not during import.
           navigation.push(EOnboardingPagesV2.FinalizeWalletSetup, {
             mnemonic,
             mnemonicType,

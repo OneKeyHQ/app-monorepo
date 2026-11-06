@@ -657,6 +657,9 @@ export function useSwapStockChannel(
   const selectStockToken = useCallback(
     (token: IMarketToken) => {
       const nextSwapToken = buildStockSwapTokenFromMarketToken(token);
+      if (!nextSwapToken) {
+        return;
+      }
       defaultLogger.swap.selectToken.selectToken({
         selectFrom: ESwapSelectTokenSource.NORMAL_SELECT,
         tokenRole: SWAP_STOCK_ANALYTICS_TOKEN_ROLE_STOCK,

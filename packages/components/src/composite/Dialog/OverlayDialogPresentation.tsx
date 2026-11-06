@@ -2,11 +2,13 @@ import { useCallback, useMemo } from 'react';
 import type { ComponentProps, PropsWithChildren } from 'react';
 
 import { OverlayView } from '@onekeyfe/react-native-native-overlay';
-import { useWindowDimensions } from 'react-native';
+import { Platform, useWindowDimensions } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import { useSafeAreaFrame } from '../../hooks/useLayout';
+import { OVERLAY_SHEET_MAX_WIDTH } from '../../hooks/useOverlayWidthClass';
 import { useTheme } from '../../hooks/useStyle';
 import { ScrollView } from '../../layouts/ScrollView';
 import { ThemeableStack } from '../../primitives';
@@ -75,6 +77,16 @@ export function OverlayDialogPresentation({
 }: IOverlayDialogPresentationProps) {
   const theme = useTheme();
   const { width: windowWidth } = useWindowDimensions();
+  const { width: contentWidth } = useSafeAreaFrame();
+  // iOS lays sheet content out at the width UIKit gives the sheet (the
+  // overlay reports it). Android draws the sheet in the app's content view,
+  // which stops at a side navigation bar, so cap the content there; the
+  // overlay's max-width surface is never narrower than this.
+  const sheetWidth = page
+    ? undefined
+    : Platform.select({
+        android: Math.min(contentWidth, OVERLAY_SHEET_MAX_WIDTH),
+      });
   const surfaceColor = useMemo(() => {
     const token = (bg ?? '$bg').replace(/^\$/, '') as keyof typeof theme;
     return String(theme[token]?.val ?? theme.bg.val);
@@ -89,6 +101,7 @@ export function OverlayDialogPresentation({
   );
   const sheet = useMemo<IOverlaySheetOptions>(
     () => ({
+      maxWidth: OVERLAY_SHEET_MAX_WIDTH,
       cornerRadius: SHEET_CORNER_RADIUS,
       showHandle: false,
       backgroundColor: surfaceColor,
@@ -148,6 +161,7 @@ export function OverlayDialogPresentation({
     >
       {isSheet ? (
         <ThemeableStack
+          width={sheetWidth}
           bg={bg ?? '$bg'}
           borderTopLeftRadius="$6"
           borderTopRightRadius="$6"
@@ -178,7 +192,8 @@ export function OverlayDialogPresentation({
           bg={bg ?? '$bg'}
           borderRadius="$4"
           borderCurve="continuous"
-          elevation={20}
+          // The outline separates the card from the backdrop, matching the
+          // former Tamagui dialog; no drop shadow.
           outlineWidth={1}
           outlineOffset={0}
           outlineColor="$neutral3"

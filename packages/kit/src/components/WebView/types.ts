@@ -56,6 +56,10 @@ export interface IInpageProviderWebViewProps
    */
   webviewDebuggingEnabled?: boolean;
   /** @platform native
+   * @description Recreate a terminated WebView, or let its owner replace it.
+   */
+  recreateOnContentProcessTerminate?: boolean | (() => void);
+  /** @platform native
    * @description Open website in desktop mode or mobile mode
    */
   siteMode?: ESiteMode;

@@ -2353,6 +2353,83 @@ describe('SimpleDbEntityPrime Infini pending payment session', () => {
     );
   });
 
+  test.each([
+    [true, true, true],
+    [false, true, false],
+    [true, false, false],
+  ])(
+    'preserves archived send evidence only for remote recovery: sent=%s recovery=%s storedSent=%s',
+    async (sent, isRemoteRecovery, storedSent) => {
+      const { entity } = createSessionStore();
+      const saved = await entity.setInfiniPendingPaymentSession({
+        onekeyUserId: 'user-1',
+        session,
+      });
+      if (sent)
+        await entity.markInfiniPendingPaymentSessionSendStarted({
+          onekeyUserId: 'user-1',
+          paymentCacheKey: saved.paymentCacheKey,
+          transferClaim,
+          latestPayment: session.payment,
+          purchaseStatusSnapshot,
+        });
+      const identity = {
+        onekeyUserId: 'user-1',
+        paymentId: session.payment.paymentId,
+      };
+      await expect(
+        entity.hasInfiniPaymentLocalSendEvidence(identity),
+      ).resolves.toBe(sent);
+      await entity.supersedeInfiniPendingPaymentSession({
+        onekeyUserId: 'user-1',
+        expectedPaymentCacheIdentity: saved.paymentCacheKey,
+        latestPayment: session.payment,
+      });
+      await expect(
+        entity.hasInfiniPaymentLocalSendEvidence(identity),
+      ).resolves.toBe(sent);
+      await expect(
+        entity.hasInfiniPaymentLocalSendEvidence({
+          ...identity,
+          onekeyUserId: 'user-2',
+        }),
+      ).resolves.toBe(false);
+      await expect(
+        entity.hasInfiniPaymentLocalSendEvidence({
+          ...identity,
+          paymentId: 'another-payment',
+        }),
+      ).resolves.toBe(false);
+      // The archive can appear after discovery. Only recovery preserves its
+      // existing send latch; an explicitly new purchase keeps the normal path.
+      const recovered = await entity.setInfiniPendingPaymentSession({
+        onekeyUserId: 'user-1',
+        isRemoteRecovery,
+        session: {
+          ...session,
+          paymentCacheKey: {
+            ...session.paymentCacheKey,
+            bindingId: 'new-binding',
+          },
+        },
+      });
+      expect(recovered.sendStarted).toBe(storedSent);
+      const initialSend = entity.markInfiniPendingPaymentSessionSendStarted({
+        onekeyUserId: 'user-1',
+        paymentCacheKey: recovered.paymentCacheKey,
+        transferClaim,
+        latestPayment: session.payment,
+        purchaseStatusSnapshot,
+      });
+      if (storedSent)
+        await expect(initialSend).rejects.toThrow(
+          'unavailable before broadcast',
+        );
+      else
+        await expect(initialSend).resolves.toMatchObject({ sendStarted: true });
+    },
+  );
+
   test('atomically archives a partially paid invoice before forced replacement', async () => {
     const entity = new SimpleDbEntityPrime();
     const persistedSession = {
@@ -3955,7 +4032,7 @@ describe('SimpleDbEntityPrime web checkout pending session', () => {
     ...overrides,
   });
 
-  test('preserves the payable session per user and drops expired ones', async () => {
+  test('replaces a previous attempt for the same plan and drops expired ones', async () => {
     const expired = buildSession({
       checkoutId: 'old',
       onekeyUserId: 'user-2',
@@ -3966,24 +4043,23 @@ describe('SimpleDbEntityPrime web checkout pending session', () => {
     });
 
     await entity.acquireWebCheckoutPendingSession({ session: buildSession() });
-    const reused = await entity.acquireWebCheckoutPendingSession({
+    const acquired = await entity.acquireWebCheckoutPendingSession({
       session: buildSession({ checkoutId: 'checkout-2' }),
     });
 
     expect(getPersisted().webCheckoutPendingSessionByUserId).toEqual({
       'user-1': buildSession({
-        checkoutId: 'checkout-1',
+        checkoutId: 'checkout-2',
         startedAt: expect.any(Number),
       }),
     });
-    expect(reused.reused).toBe(true);
-    expect(reused.session.checkoutId).toBe('checkout-1');
+    expect(acquired.replacedSession?.checkoutId).toBe('checkout-1');
     await expect(
       entity.getWebCheckoutPendingSession({ onekeyUserId: 'user-2' }),
     ).resolves.toBeUndefined();
   });
 
-  test('atomically gives concurrent plans the same pending session', async () => {
+  test('atomically replaces the current attempt with the newly selected plan', async () => {
     const { entity, getPersisted } = createPrimeAnalyticsEntityWithStore();
     const annual = buildSession();
     const monthly = buildSession({
@@ -4000,15 +4076,15 @@ describe('SimpleDbEntityPrime web checkout pending session', () => {
     ]);
 
     expect(acquisitions).toEqual([
-      { session: annual, reused: false, replacedSession: undefined },
-      { session: annual, reused: true },
+      { replacedSession: undefined },
+      { replacedSession: annual },
     ]);
     expect(
       getPersisted().webCheckoutPendingSessionByUserId?.['user-1'],
-    ).toEqual(annual);
+    ).toEqual(monthly);
   });
 
-  test('keeps different accounts independent and only replaces a different environment', async () => {
+  test('keeps different accounts independent when replacing the environment', async () => {
     const original = buildSession();
     const { entity, getPersisted } = createPrimeAnalyticsEntityWithStore({
       webCheckoutPendingSessionByUserId: { 'user-1': original },
@@ -4022,11 +4098,7 @@ describe('SimpleDbEntityPrime web checkout pending session', () => {
     await entity.acquireWebCheckoutPendingSession({ session: otherUser });
     await expect(
       entity.acquireWebCheckoutPendingSession({ session: production }),
-    ).resolves.toEqual({
-      session: production,
-      reused: false,
-      replacedSession: original,
-    });
+    ).resolves.toEqual({ replacedSession: original });
     expect(getPersisted().webCheckoutPendingSessionByUserId).toEqual({
       'user-1': production,
       'user-2': otherUser,
@@ -4076,6 +4148,25 @@ describe('SimpleDbEntityPrime web checkout pending session', () => {
       }),
     ).resolves.toBe(false);
     expect(getPersisted().webCheckoutPendingSessionByUserId).toEqual({});
+  });
+
+  test('an old settlement cannot clear a newly acquired attempt', async () => {
+    const oldSession = buildSession();
+    const { entity, getPersisted } = createPrimeAnalyticsEntityWithStore({
+      webCheckoutPendingSessionByUserId: { 'user-1': oldSession },
+    });
+    const current = buildSession({ checkoutId: 'checkout-2' });
+    await entity.acquireWebCheckoutPendingSession({ session: current });
+
+    await expect(
+      entity.clearWebCheckoutPendingSession({
+        onekeyUserId: 'user-1',
+        expectedCheckoutId: oldSession.checkoutId,
+      }),
+    ).resolves.toBe(false);
+    expect(
+      getPersisted().webCheckoutPendingSessionByUserId?.['user-1'],
+    ).toEqual(current);
   });
 
   test('records extension tabs only for the current checkout', async () => {

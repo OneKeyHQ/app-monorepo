@@ -1,14 +1,26 @@
-import { type ReactNode, useMemo } from 'react';
+import {
+  type ReactNode,
+  useCallback,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
+
+import { useWindowDimensions } from 'react-native';
 
 import {
   GlassButtonCapsule,
   Page,
   View,
   XStack,
+  YStack,
   isLiquidGlassAvailable,
   useSafeAreaInsets,
 } from '@onekeyhq/components';
+import type { IElement } from '@onekeyhq/components';
 import type { ETranslations } from '@onekeyhq/shared/src/locale';
+import { useWindowControlsLeadingOffset } from '@onekeyhq/shared/src/modules/WindowControlsInsets';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
@@ -23,6 +35,10 @@ import { LazyMoreActionButton } from '../MoreActionButton/LazyMoreActionButton';
 
 import { HeaderNotificationIconButton } from './components/HeaderNotificationIconButton';
 import { HeaderUpdateButton } from './components/HeaderUpdateButton';
+import {
+  HEADER_EMPTY_INSET_SPACER_HEIGHT,
+  getFoldableIPhoneHeaderTop,
+} from './headerLayout';
 import { HeaderLeft } from './HeaderLeft';
 import { HeaderMDSearch } from './HeaderMDSearch';
 import { HeaderRight, SelectorTrigger } from './HeaderRight';
@@ -30,6 +46,17 @@ import { HeaderTitle } from './HeaderTitle';
 import { LegacyUniversalSearchInput } from './LegacyUniversalSearchInput';
 
 import type { SharedValue } from 'react-native-reanimated';
+
+const HOME_HEADER_ROW_HEIGHT = 56;
+const TAB_HEADER_ROW_HEIGHT = 44;
+
+function getHeaderRowTopMargin(top: number, rowHeight: number) {
+  if (top || platformEnv.isNativeAndroid) {
+    return { mt: top || ('$2' as const) };
+  }
+  const foldableTop = getFoldableIPhoneHeaderTop(rowHeight);
+  return foldableTop ? { mt: foldableTop } : {};
+}
 
 function HomeWalletConnectionRow({
   headerPx,
@@ -99,6 +126,29 @@ export function MDHeader({
   pageScrollPosition?: SharedValue<number>;
 }) {
   const { top } = useSafeAreaInsets();
+  const { width, height } = useWindowDimensions();
+  const headerRef = useRef<IElement | null>(null);
+  const measureRequest = useRef(0);
+  const [headerWindowX, setHeaderWindowX] = useState(0);
+  const windowLeadingOffset = useWindowControlsLeadingOffset(20);
+  const measureHeaderPosition = useCallback(() => {
+    if (!windowLeadingOffset) return;
+    const header = headerRef.current;
+    measureRequest.current += 1;
+    const request = measureRequest.current;
+    header?.measureInWindow((x) => {
+      if (request === measureRequest.current && header === headerRef.current) {
+        setHeaderWindowX(x);
+      }
+    });
+  }, [windowLeadingOffset]);
+  useLayoutEffect(measureHeaderPosition, [
+    measureHeaderPosition,
+    width,
+    height,
+  ]);
+  // Measure the host before applying the row margin: a detail pane may start beyond the window controls.
+  const windowControlsOffset = Math.max(0, windowLeadingOffset - headerWindowX);
   const isHomeTab =
     tabRoute === ETabRoutes.Home &&
     sceneName !== EAccountSelectorSceneName.homeUrlAccount;
@@ -138,7 +188,7 @@ export function MDHeader({
       tabRoute === ETabRoutes.DeviceManagement
     );
   }, [tabRoute]);
-  return (
+  const content = (
     <>
       <Page.Header headerShown={false} />
       {showBaseHeader ? (
@@ -149,11 +199,10 @@ export function MDHeader({
               <XStack
                 alignItems="center"
                 px={headerPx}
-                h={56}
+                ml={windowControlsOffset}
+                h={HOME_HEADER_ROW_HEIGHT}
                 gap={headerGlassActive || usePlainHomeHeader ? '$3' : '$6'}
-                {...(top || platformEnv.isNativeAndroid
-                  ? { mt: top || '$2' }
-                  : {})}
+                {...getHeaderRowTopMargin(top, HOME_HEADER_ROW_HEIGHT)}
               >
                 <XStack flex={1}>
                   <LegacyUniversalSearchInput
@@ -207,10 +256,9 @@ export function MDHeader({
                 alignItems="center"
                 justifyContent="space-between"
                 px={headerPx}
-                h={44}
-                {...(top || platformEnv.isNativeAndroid
-                  ? { mt: top || '$2' }
-                  : {})}
+                ml={windowControlsOffset}
+                h={TAB_HEADER_ROW_HEIGHT}
+                {...getHeaderRowTopMargin(top, TAB_HEADER_ROW_HEIGHT)}
               >
                 <View>
                   <HeaderLeft
@@ -234,8 +282,22 @@ export function MDHeader({
           )}
         </>
       ) : (
-        <XStack h={top || '$2'} bg="$bgApp" />
+        <XStack h={top || HEADER_EMPTY_INSET_SPACER_HEIGHT} bg="$bgApp" />
       )}
     </>
+  );
+  return platformEnv.isNativeIOS ? (
+    // box-none: this measuring wrapper spans the page top padding, where
+    // Discovery overlays its absolute search bar; it must not catch those taps.
+    <YStack
+      ref={headerRef}
+      collapsable={false}
+      pointerEvents="box-none"
+      onLayout={measureHeaderPosition}
+    >
+      {content}
+    </YStack>
+  ) : (
+    content
   );
 }

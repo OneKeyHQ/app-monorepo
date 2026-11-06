@@ -59,6 +59,7 @@ import {
 import { EHardwareTransportType } from '@onekeyhq/shared/types';
 
 import { useCloudBackup } from '../../../Onboardingv2/hooks/useCloudBackup';
+import { useLanguageSearchKeywords } from '../../hooks/useLocaleOptions';
 import { SettingTestIDs, settingsSidebarTabTestID } from '../../testIDs';
 
 import {
@@ -217,6 +218,7 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
   }, [appUpdateInfo.data.updateStrategy, appUpdateInfo.data.status]);
   const shouldShowUpdate = isShowAppUpdateUI && appUpdateInfo.isNeedUpdate;
   const intl = useIntl();
+  const languageSearchKeywords = useLanguageSearchKeywords();
   const { isMobileLayout } = useSettingsLayout();
   const onPressAddressBook = useShowAddressBook({
     useNewModal: false,
@@ -410,6 +412,7 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
               title: intl.formatMessage({
                 id: ETranslations.global_language,
               }),
+              keywords: languageSearchKeywords,
               renderElement: <LanguageListItem />,
             },
             {
@@ -559,6 +562,21 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
             }),
             configs: [
               [
+                // Lists the privacy chains, which Web does not offer.
+                !platformEnv.isWeb
+                  ? {
+                      id: 'privacy',
+                      icon: 'ShieldOutline',
+                      title: intl.formatMessage({
+                        id: ETranslations.trade_privacy_mode,
+                      }),
+                      testID: 'settings-wallet-privacy',
+                      settingRoute: EModalSettingRoutes.SettingPrivacy,
+                      onPress: (navigation) => {
+                        navigation?.push(EModalSettingRoutes.SettingPrivacy);
+                      },
+                    }
+                  : undefined,
                 {
                   id: 'address-book',
                   icon: 'ContactsOutline',
@@ -1221,5 +1239,6 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
     privacyPolicyUrl,
     isPrimeActive,
     isMobileLayout,
+    languageSearchKeywords,
   ]);
 };

@@ -53,7 +53,7 @@ import type { ILightweightChartProps } from './types';
 const FONT_FAMILY = platformEnv.isNativeAndroid ? 'sans-serif' : 'System';
 
 export function LightweightChart(props: ILightweightChartProps) {
-  const { height, onHover, nativeScrubOptions } = props;
+  const { height, onHover, nativeScrubOptions, pulseLastPoint } = props;
   const [width, setWidth] = useState(0);
   const chartConfig = useChartConfig(props);
   const config = useMemo(
@@ -224,6 +224,7 @@ export function LightweightChart(props: ILightweightChartProps) {
           touch.value.x,
           touch.value.y,
           nativeScrubOptions,
+          pulseLastPoint,
         )
       : { commands: [], customPaintStyles: scene.customPaintStyles };
     return createTradingViewNativeSkiaCommandPicture({
@@ -232,7 +233,7 @@ export function LightweightChart(props: ILightweightChartProps) {
       width,
       height,
     });
-  }, [scene, width, height, nativeScrubOptions]);
+  }, [scene, width, height, nativeScrubOptions, pulseLastPoint]);
   const onHoverRef = useRef(onHover);
   onHoverRef.current = onHover;
   const reportHover = useCallback(
@@ -308,15 +309,27 @@ export function LightweightChart(props: ILightweightChartProps) {
       touch,
     ],
   );
+  // The pulse rides the point under the crosshair while scrubbing, and goes
+  // back to the tail once the touch ends.
+  const pulsePoint = useDerivedValue(() => {
+    if (active.value) {
+      const hover = getNativeChartHover(scene, touch.value.x, touch.value.y);
+      const point = scene.hoverPoints.find((p) => p.time === hover.time);
+      if (point) return { x: point.x, y: point.y };
+    }
+    return scene.lastPoint ?? { x: 0, y: 0 };
+  }, [scene]);
+  const pulseX = useDerivedValue(() => pulsePoint.value.x);
+  const pulseY = useDerivedValue(() => pulsePoint.value.y);
   const pulse = useSharedValue(0);
   useEffect(() => {
-    if (props.pulseLastPoint)
+    if (pulseLastPoint)
       pulse.value = withRepeat(withTiming(1, { duration: 1400 }), -1, false);
     return () => {
       cancelAnimation(pulse);
       pulse.value = 0;
     };
-  }, [props.pulseLastPoint, pulse]);
+  }, [pulseLastPoint, pulse]);
   const ringRadius = useDerivedValue(() => 4 * (1 + 1.4 * pulse.value));
   const ringOpacity = useDerivedValue(() => (1 - pulse.value) * 0.5);
   const dotRadius = useDerivedValue(
@@ -332,18 +345,18 @@ export function LightweightChart(props: ILightweightChartProps) {
       <GestureDetector gesture={gesture}>
         <Canvas testID="lightweight-chart-skia" style={{ flex: 1 }}>
           <Picture picture={picture} />
-          {props.pulseLastPoint && scene.lastPoint ? (
+          {pulseLastPoint && scene.lastPoint ? (
             <Group clip={scene.plot}>
               <Circle
-                cx={scene.lastPoint.x}
-                cy={scene.lastPoint.y}
+                cx={pulseX}
+                cy={pulseY}
                 r={ringRadius}
                 opacity={ringOpacity}
                 color={props.pulseLastPointColor ?? config.theme.lineColor}
               />
               <Circle
-                cx={scene.lastPoint.x}
-                cy={scene.lastPoint.y}
+                cx={pulseX}
+                cy={pulseY}
                 r={dotRadius}
                 color={props.pulseLastPointColor ?? config.theme.lineColor}
               />

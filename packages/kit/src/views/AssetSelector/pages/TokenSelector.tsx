@@ -1,15 +1,21 @@
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  memo,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import type { ReactNode } from 'react';
 
 import { useRoute } from '@react-navigation/core';
 import { CanceledError } from 'axios';
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
-import Animated, {
-  useAnimatedStyle,
-  useReducedMotion,
-  useSharedValue,
-} from 'react-native-reanimated';
+import { View } from 'react-native';
+import { CollapsiblePagerView } from 'react-native-pager-view';
+import { useReducedMotion } from 'react-native-reanimated';
 import { useDebouncedCallback } from 'use-debounce';
 
 import {
@@ -58,6 +64,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type {
   IAggregateTokenSelectContext,
   IAssetSelectorParamList,
+  ITokenSelectorSecondaryTabListProps,
 } from '@onekeyhq/shared/src/routes';
 import { EAssetSelectorRoutes } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
@@ -102,15 +109,16 @@ import {
 
 import type { ITokenSelectorSearchTokenList } from '../utils/tokenSelectorSearchUtils';
 import type { RouteProp } from '@react-navigation/core';
-import type {
-  LayoutChangeEvent,
-  NativeScrollEvent,
-  NativeSyntheticEvent,
-  ViewInstance,
-} from 'react-native';
+import type { LayoutChangeEvent, ViewInstance } from 'react-native';
 import type { SearchBarTextEventData } from 'react-native-screens';
 
 const num = 0;
+
+const PAGER_SECONDARY_LIST_PROPS: ITokenSelectorSecondaryTabListProps = {
+  onScroll: () => undefined,
+  scrollEventThrottle: 16,
+  contentContainerStyle: { pt: 0 },
+};
 
 // `onLayout` answers after the first paint (react-native-web waits for a
 // ResizeObserver tick plus a timer; native sends an async event), so anything
@@ -133,8 +141,8 @@ function readMountedHeight(node: IElement): number | undefined {
 
 const SEGMENT_CONTENT_ENTER_STYLE = { opacity: 0 } as const;
 
-// Frame for the list of one segment. It mounts anew on every segment switch
-// (the caller keys it by segment), so `fadeIn` plays an opacity-only entrance
+// Frame for the list of one segment. Its pager page mounts it only while
+// active, so `fadeIn` plays an opacity-only entrance
 // like the segmented forms in onboarding: no slide, which would promise a
 // swipe, and no exit, which would need both lists mounted at once. A selector
 // without segments gets its list unwrapped.
@@ -493,7 +501,8 @@ function TokenSelector() {
   // Secondary body segment (see ITokenSelectorSecondaryTab). The search box
   // stays mounted across segments, so its text carries over.
   const [isSecondaryTabActive, setIsSecondaryTabActive] = useState(false);
-  const showSecondaryTab = !!secondaryTab && isSecondaryTabActive;
+  const hasSecondaryTab = !!secondaryTab;
+  const showSecondaryTab = hasSecondaryTab && isSecondaryTabActive;
   const [tokenSelectorFilter, setTokenSelectorFilter] =
     useTokenSelectorFilterPersistAtom();
   // Derive all-networks mode synchronously from the networkId: `network` loads
@@ -2151,66 +2160,25 @@ function TokenSelector() {
     [debounceUpdateSearchKey],
   );
 
-  // Collapsing header for the secondary-tab layout: the segment scrolls away
-  // with the list while the search box stays pinned. The header floats over
-  // the list (which starts below it) and translates up by at most the
-  // segment block's height as the list scrolls; each segment's list starts
-  // at offset 0, so the header expands again on a switch.
-  const collapsingScrollY = useSharedValue(0);
-  const [collapsingHeaderHeight, setCollapsingHeaderHeight] = useState(0);
-  const [collapsibleSegmentHeight, setCollapsibleSegmentHeight] = useState(0);
-  const handleCollapsingHeaderLayout = useCallback(
-    (event: LayoutChangeEvent) => {
-      setCollapsingHeaderHeight(event.nativeEvent.layout.height);
-    },
-    [],
-  );
-  // Seeds the height before the first paint; `onLayout` above only follows
-  // later size changes. Without it the list paints one frame under the
-  // header and then drops by the header's height.
-  const handleCollapsingHeaderRef = useCallback((node: IElement | null) => {
-    const height = node ? readMountedHeight(node) : undefined;
-    if (height) {
-      setCollapsingHeaderHeight(height);
-    }
+  // The pager connects each vertical list to one collapsible segment header
+  // and one pinned search bar without relying on per-frame JS scroll events.
+  const pagerRef = useRef<CollapsiblePagerView>(null);
+  const [segmentHeight, setSegmentHeight] = useState(0);
+  const [searchBarHeight, setSearchBarHeight] = useState(0);
+  const handleSegmentLayout = useCallback((event: LayoutChangeEvent) => {
+    setSegmentHeight(event.nativeEvent.layout.height);
   }, []);
-  const handleCollapsibleSegmentLayout = useCallback(
-    (event: LayoutChangeEvent) => {
-      setCollapsibleSegmentHeight(event.nativeEvent.layout.height);
-    },
-    [],
-  );
-  const handleCollapsingListScroll = useCallback(
-    (event: NativeSyntheticEvent<NativeScrollEvent>) => {
-      collapsingScrollY.value = Math.max(0, event.nativeEvent.contentOffset.y);
-    },
-    [collapsingScrollY],
-  );
-  const collapsingHeaderStyle = useAnimatedStyle(
-    () => ({
-      transform: [
-        {
-          translateY: -Math.min(
-            Math.max(collapsingScrollY.value, 0),
-            collapsibleSegmentHeight,
-          ),
-        },
-      ],
-    }),
-    [collapsibleSegmentHeight],
-  );
-  const collapsingListProps = useMemo(
-    () => ({
-      onScroll: handleCollapsingListScroll,
-      // react-native-web drops scroll ticks that arrive within the throttle
-      // window instead of deferring them, so anything above 1 makes the
-      // header move in visible steps with a touchpad; native batches per
-      // frame at 16.
-      scrollEventThrottle: platformEnv.isNative ? 16 : 1,
-      contentContainerStyle: { pt: collapsingHeaderHeight },
-    }),
-    [collapsingHeaderHeight, handleCollapsingListScroll],
-  );
+  const handleSegmentRef = useCallback((node: IElement | null) => {
+    const height = node ? readMountedHeight(node) : undefined;
+    if (height) setSegmentHeight(height);
+  }, []);
+  const handleSearchBarLayout = useCallback((event: LayoutChangeEvent) => {
+    setSearchBarHeight(event.nativeEvent.layout.height);
+  }, []);
+  const handleSearchBarRef = useCallback((node: IElement | null) => {
+    const height = node ? readMountedHeight(node) : undefined;
+    if (height) setSearchBarHeight(height);
+  }, []);
 
   // A segment's list fades in only when the user switches to it: the first
   // list arrives with the page's own entrance.
@@ -2225,11 +2193,56 @@ function TokenSelector() {
         return;
       }
       secondaryTab?.onTabChange?.({ toSecondary });
-      collapsingScrollY.value = 0;
       setHasSwitchedSegment(true);
       setIsSecondaryTabActive(toSecondary);
     },
-    [collapsingScrollY, isSecondaryTabActive, secondaryTab],
+    [isSecondaryTabActive, secondaryTab],
+  );
+  useLayoutEffect(() => {
+    if (hasSecondaryTab) {
+      pagerRef.current?.setPageWithoutAnimation(isSecondaryTabActive ? 1 : 0);
+    }
+  }, [hasSecondaryTab, isSecondaryTabActive]);
+
+  const tokenListContent = (
+    <TokenListView
+      testID={AssetSelectorTestIDs.tokenSelectorList}
+      tokenItemTestIDPrefix={AssetSelectorTestIDs.tokenSelectorItemTestIDPrefix}
+      accountId={accountId}
+      networkId={networkId}
+      indexedAccountId={indexedAccountId}
+      showActiveAccountTokenList={effectiveShowActiveAccountTokenList}
+      scopedActiveAccountTokenList={scopedActiveTokenList}
+      scopedActiveAccountTokenListState={scopedActiveTokenListState}
+      scopedActiveAccountTokenListMap={scopedActiveTokenListMap}
+      tokenSelectorTokenList={selectorTokenList}
+      tokenSelectorTokenListMap={selectorTokenListMap}
+      tokenSelectorAggregateTokenListMap={selectorAggregateTokenListMap}
+      tokenSelectorAggregateTokenFiatMap={selectorAggregateTokenFiatMap}
+      tokenSelectorInitialized={selectorInitialized}
+      onPressToken={handleTokenOnPress}
+      isAllNetworks={isSelectorAllNetworks}
+      withNetwork={isSelectorAllNetworks}
+      searchAll={searchAll}
+      footerTipText={footerTipText}
+      isTokenSelector
+      tokenSelectorSearchKey={searchKey}
+      tokenSelectorSearchTokenState={searchTokenState}
+      tokenSelectorSearchTokenList={searchTokenList}
+      crossNetworkSearchEnabled={crossNetworkSearchEnabled}
+      onSearchTokensRetry={retrySearchTokens}
+      browseEmptyTitle={browseEmptyTitle}
+      allAggregateTokenMap={allAggregateTokenMap}
+      hideZeroBalanceTokens={effectiveHideZeroBalanceTokens}
+      hideDeFiMarkedTokens={
+        showTokenSelectorFilter ? !showLpTokensOnly : undefined
+      }
+      keepDefaultZeroBalanceTokens={keepDefaultZeroBalanceTokens}
+      showNetworkIcon={isSelectorAllNetworks}
+      exchangeFilter={exchangeFilter}
+      hideBalanceAndValue={hideBalanceAndValue}
+      emptyProps={TOKEN_SELECTOR_EMPTY_PROPS}
+    />
   );
 
   return (
@@ -2248,133 +2261,89 @@ function TokenSelector() {
         headerRightNoGlass
       />
       <Page.Body>
-        {/* Clips the segment as it slides up under the navigation header. */}
-        <Stack flex={1} overflow="hidden">
-          {secondaryTab ? (
-            <Animated.View
-              style={[
-                { position: 'absolute', top: 0, left: 0, right: 0, zIndex: 1 },
-                collapsingHeaderStyle,
-              ]}
-              onLayout={handleCollapsingHeaderLayout}
-            >
-              <YStack ref={handleCollapsingHeaderRef} bg="$bgApp">
-                <Stack
-                  px="$5"
-                  pb="$3"
-                  onLayout={handleCollapsibleSegmentLayout}
-                >
-                  <SegmentControl
-                    testID={secondaryTab.testIDs?.segment}
-                    fullWidth
-                    value={isSecondaryTabActive ? 'secondary' : 'tokens'}
-                    onChange={handleSegmentChange}
-                    options={[
-                      {
-                        label: secondaryTab.tokensTabLabel,
-                        value: 'tokens',
-                        testID: secondaryTab.testIDs?.tokensTab,
-                      },
-                      {
-                        label: secondaryTab.label,
-                        value: 'secondary',
-                        testID: secondaryTab.testIDs?.secondaryTab,
-                      },
-                    ]}
-                  />
-                </Stack>
-                <Stack px="$5" pb="$3">
-                  <SearchBar
-                    testID={secondaryTab.testIDs?.searchBar}
-                    // Same sizing rule as the header search bar: large on
-                    // native, default elsewhere.
-                    size={platformEnv.isNative ? 'large' : undefined}
-                    placeholder={
-                      isSecondaryTabActive
-                        ? secondaryTab.searchPlaceholder
-                        : (searchPlaceholder ??
-                          intl.formatMessage({
-                            id: ETranslations.send_token_selector_search_placeholder,
-                          }))
-                    }
-                    onChangeText={handleBodySearchTextChange}
-                  />
-                </Stack>
-              </YStack>
-            </Animated.View>
-          ) : null}
-          {showSecondaryTab ? (
-            <SegmentContent
-              key="secondary"
-              segmented
-              fadeIn={fadeInSegmentContent}
-            >
-              {secondaryTab.renderContent(searchKey, collapsingListProps)}
-            </SegmentContent>
-          ) : (
-            <SegmentContent
-              key="tokens"
-              segmented={!!secondaryTab}
-              fadeIn={fadeInSegmentContent}
-            >
-              <TokenListView
-                testID={AssetSelectorTestIDs.tokenSelectorList}
-                tokenItemTestIDPrefix={
-                  AssetSelectorTestIDs.tokenSelectorItemTestIDPrefix
-                }
-                accountId={accountId}
-                networkId={networkId}
-                indexedAccountId={indexedAccountId}
-                showActiveAccountTokenList={effectiveShowActiveAccountTokenList}
-                scopedActiveAccountTokenList={scopedActiveTokenList}
-                scopedActiveAccountTokenListState={scopedActiveTokenListState}
-                scopedActiveAccountTokenListMap={scopedActiveTokenListMap}
-                tokenSelectorTokenList={selectorTokenList}
-                tokenSelectorTokenListMap={selectorTokenListMap}
-                tokenSelectorAggregateTokenListMap={
-                  selectorAggregateTokenListMap
-                }
-                tokenSelectorAggregateTokenFiatMap={
-                  selectorAggregateTokenFiatMap
-                }
-                tokenSelectorInitialized={selectorInitialized}
-                onPressToken={handleTokenOnPress}
-                isAllNetworks={isSelectorAllNetworks}
-                withNetwork={isSelectorAllNetworks}
-                searchAll={searchAll}
-                footerTipText={footerTipText}
-                isTokenSelector
-                tokenSelectorSearchKey={searchKey}
-                tokenSelectorSearchTokenState={searchTokenState}
-                tokenSelectorSearchTokenList={searchTokenList}
-                crossNetworkSearchEnabled={crossNetworkSearchEnabled}
-                onSearchTokensRetry={retrySearchTokens}
-                browseEmptyTitle={browseEmptyTitle}
-                allAggregateTokenMap={allAggregateTokenMap}
-                hideZeroBalanceTokens={effectiveHideZeroBalanceTokens}
-                hideDeFiMarkedTokens={
-                  showTokenSelectorFilter ? !showLpTokensOnly : undefined
-                }
-                keepDefaultZeroBalanceTokens={keepDefaultZeroBalanceTokens}
-                showNetworkIcon={isSelectorAllNetworks}
-                exchangeFilter={exchangeFilter}
-                hideBalanceAndValue={hideBalanceAndValue}
-                emptyProps={TOKEN_SELECTOR_EMPTY_PROPS}
-                {...(secondaryTab
-                  ? {
-                      onScroll: collapsingListProps.onScroll,
-                      scrollEventThrottle:
-                        collapsingListProps.scrollEventThrottle,
-                      listViewStyleProps: {
-                        contentContainerStyle:
-                          collapsingListProps.contentContainerStyle,
-                      },
-                    }
-                  : undefined)}
-              />
-            </SegmentContent>
-          )}
-        </Stack>
+        {secondaryTab ? (
+          <CollapsiblePagerView
+            ref={pagerRef}
+            style={{ flex: 1 }}
+            initialPage={0}
+            scrollEnabled={false}
+            nativeSmoothHeaderScrollEnabled
+            pageRetentionDistance={1}
+            headerHeight={segmentHeight}
+            stickyHeaderHeight={searchBarHeight}
+            header={
+              <Stack
+                ref={handleSegmentRef}
+                bg="$bgApp"
+                px="$5"
+                pb="$3"
+                onLayout={handleSegmentLayout}
+              >
+                <SegmentControl
+                  testID={secondaryTab.testIDs?.segment}
+                  fullWidth
+                  value={isSecondaryTabActive ? 'secondary' : 'tokens'}
+                  onChange={handleSegmentChange}
+                  options={[
+                    {
+                      label: secondaryTab.tokensTabLabel,
+                      value: 'tokens',
+                      testID: secondaryTab.testIDs?.tokensTab,
+                    },
+                    {
+                      label: secondaryTab.label,
+                      value: 'secondary',
+                      testID: secondaryTab.testIDs?.secondaryTab,
+                    },
+                  ]}
+                />
+              </Stack>
+            }
+            stickyHeader={
+              <Stack
+                ref={handleSearchBarRef}
+                bg="$bgApp"
+                px="$5"
+                pb="$3"
+                onLayout={handleSearchBarLayout}
+              >
+                <SearchBar
+                  testID={secondaryTab.testIDs?.searchBar}
+                  size={platformEnv.isNative ? 'large' : undefined}
+                  placeholder={
+                    isSecondaryTabActive
+                      ? secondaryTab.searchPlaceholder
+                      : (searchPlaceholder ??
+                        intl.formatMessage({
+                          id: ETranslations.send_token_selector_search_placeholder,
+                        }))
+                  }
+                  onChangeText={handleBodySearchTextChange}
+                />
+              </Stack>
+            }
+          >
+            <View key="tokens" collapsable={false} style={{ flex: 1 }}>
+              {showSecondaryTab ? null : (
+                <SegmentContent segmented fadeIn={fadeInSegmentContent}>
+                  {tokenListContent}
+                </SegmentContent>
+              )}
+            </View>
+            <View key="secondary" collapsable={false} style={{ flex: 1 }}>
+              {showSecondaryTab ? (
+                <SegmentContent segmented fadeIn={fadeInSegmentContent}>
+                  {secondaryTab.renderContent(
+                    searchKey,
+                    PAGER_SECONDARY_LIST_PROPS,
+                  )}
+                </SegmentContent>
+              ) : null}
+            </View>
+          </CollapsiblePagerView>
+        ) : (
+          tokenListContent
+        )}
       </Page.Body>
     </Page>
   );

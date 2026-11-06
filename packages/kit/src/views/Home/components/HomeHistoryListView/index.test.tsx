@@ -7,6 +7,8 @@ import { HomeHistoryListView } from '.';
 
 import { act, fireEvent, render, screen } from '@testing-library/react';
 
+import { HomeHistoryListView as NativeHomeHistoryListView } from './index.native';
+
 import type { IHomeHistoryListViewProps } from './types';
 
 // The installed runtime exposes Activity before the current React type package.
@@ -52,7 +54,10 @@ jest.mock('@onekeyhq/kit/src/components/AppPager/useAppPagerPage', () => ({
   useAppPagerPage: () => mockPage,
 }));
 jest.mock('@onekeyhq/kit/src/components/TxHistoryListView', () => ({
-  TxHistoryListView: () => null,
+  TxHistoryListView: () => <div data-testid="plain-history" />,
+}));
+jest.mock('@onekeyhq/kit/src/components/Loading', () => ({
+  HistoryLoadingView: () => null,
 }));
 jest.mock(
   '@onekeyhq/kit/src/views/Discovery/pages/Browser/WithBrowserProvider',
@@ -61,7 +66,9 @@ jest.mock(
 jest.mock('../../pages/hooks/useFrozenTopHistoryData', () => ({
   FrozenTopHistoryScrollObserver: () => null,
 }));
-jest.mock('./NativeHistoryList', () => ({ NativeHistoryList: () => null }));
+jest.mock('./NativeHistoryList', () => ({
+  NativeHistoryList: () => <div data-testid="native-history" />,
+}));
 
 function props(onEndReached: () => Promise<void>, count = 1) {
   return {
@@ -76,6 +83,39 @@ function props(onEndReached: () => Promise<void>, count = 1) {
     onAwayFromTopChange: jest.fn(),
   } as unknown as IHomeHistoryListViewProps;
 }
+
+it('keeps the NativeList for non-plain history when observation is disabled', () => {
+  render(
+    <HomeHistoryListView
+      {...props(jest.fn().mockResolvedValue(undefined))}
+      observeFrozenTop={false}
+    />,
+  );
+  expect(screen.getByTestId('native-history')).toBeTruthy();
+  expect(screen.queryByTestId('plain-history')).toBeNull();
+});
+
+it('keeps the plain React history preview', () => {
+  render(
+    <HomeHistoryListView
+      {...props(jest.fn().mockResolvedValue(undefined))}
+      plainMode
+    />,
+  );
+  expect(screen.getByTestId('plain-history')).toBeTruthy();
+  expect(screen.queryByTestId('native-history')).toBeNull();
+});
+
+it('uses NativeList on native even when top observation is disabled', async () => {
+  render(
+    <NativeHomeHistoryListView
+      {...props(jest.fn().mockResolvedValue(undefined))}
+      observeFrozenTop={false}
+    />,
+  );
+  expect(await screen.findByTestId('native-history')).toBeTruthy();
+  expect(screen.queryByTestId('plain-history')).toBeNull();
+});
 
 it.each(['reject', 'empty', 'timeout'])(
   'retries a short page after %s without loading commits or scroll and bounds continued failures',

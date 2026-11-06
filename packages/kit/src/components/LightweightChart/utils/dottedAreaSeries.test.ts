@@ -1,6 +1,9 @@
 import { createDottedAreaSeriesPaneView } from './dottedAreaSeries';
 
-import type { IDottedAreaData } from './dottedAreaSeries';
+import type {
+  IDottedAreaData,
+  IDottedAreaSeriesOptions,
+} from './dottedAreaSeries';
 import type {
   Coordinate,
   ICustomSeriesPaneRenderer,
@@ -11,6 +14,7 @@ import type {
 function renderRange(
   visibleRange: { from: number; to: number } | null,
   logicalTimes = [0, 1, 2, 3],
+  options: Partial<IDottedAreaSeriesOptions> = {},
 ) {
   const pane = createDottedAreaSeriesPaneView();
   const context = {
@@ -19,6 +23,7 @@ function renderRange(
     beginPath: jest.fn(),
     moveTo: jest.fn(),
     lineTo: jest.fn(),
+    bezierCurveTo: jest.fn(),
     closePath: jest.fn(),
     clip: jest.fn(),
     arc: jest.fn(),
@@ -40,6 +45,7 @@ function renderRange(
   pane.update(data, {
     ...pane.defaultOptions(),
     patternSpacing: 1000,
+    ...options,
   });
   const renderer = pane.renderer();
   const target = {
@@ -109,4 +115,46 @@ describe('dotted area resize', () => {
       expect(context.arc).not.toHaveBeenCalled();
     },
   );
+});
+
+describe('dotted area curve', () => {
+  it('draws the line and the fill edge as curves through every point', () => {
+    const context = renderRange({ from: 0, to: 4 }, undefined, {
+      curved: true,
+    });
+    // Three segments for the fill edge and three for the stroke.
+    expect(context.bezierCurveTo).toHaveBeenCalledTimes(6);
+    expect(context.bezierCurveTo).toHaveBeenLastCalledWith(
+      expect.any(Number),
+      expect.any(Number),
+      expect.any(Number),
+      expect.any(Number),
+      300,
+      13,
+    );
+  });
+
+  it('stops the line at the cut time but keeps the full-series curve', () => {
+    const full = renderRange({ from: 0, to: 4 }, undefined, {
+      curved: true,
+      showPattern: false,
+    });
+    const cut = renderRange({ from: 0, to: 4 }, undefined, {
+      curved: true,
+      showPattern: false,
+      drawUntilTime: 1,
+    });
+    expect(cut.bezierCurveTo.mock.calls).toEqual(
+      full.bezierCurveTo.mock.calls.slice(0, 1),
+    );
+  });
+
+  it('skips the fill when the pattern is off', () => {
+    const context = renderRange({ from: 0, to: 4 }, undefined, {
+      curved: true,
+      showPattern: false,
+    });
+    expect(context.clip).not.toHaveBeenCalled();
+    expect(context.bezierCurveTo).toHaveBeenCalledTimes(3);
+  });
 });

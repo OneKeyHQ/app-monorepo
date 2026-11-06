@@ -49,6 +49,13 @@ jest.mock('@onekeyhq/shared/src/utils/accountUtils', () => ({
     isUrlAccountFn: ({ accountId }: { accountId: string }) =>
       accountId === 'url-account',
     isOthersAccount: () => false,
+    buildAccountLocalAssetsKey: ({
+      accountAddress,
+      xpub,
+    }: {
+      accountAddress?: string;
+      xpub?: string;
+    }) => (xpub || accountAddress || '').toLowerCase(),
   },
 }));
 jest.mock('@onekeyhq/shared/src/utils/networkUtils', () => ({
@@ -65,6 +72,8 @@ jest.mock('@onekeyhq/shared/src/utils/timerUtils', () => ({
 
 // eslint-disable-next-line import/first
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+// eslint-disable-next-line import/first
+import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
 // eslint-disable-next-line import/first
 import type { IDeFiPosition } from '@onekeyhq/shared/types/defi';
 
@@ -190,6 +199,9 @@ function makeService() {
       serviceAccountProfile: {
         _getWalletTypeHeader: async () => ({ 'x-wallet-type': 'hd' }),
       },
+      serviceSetting: {
+        getCurrencyMap: async () => ({ usd: { id: 'usd', value: 1 } }),
+      },
       simpleDb: {
         deFi: {
           updateAccountDeFiOverview,
@@ -216,6 +228,551 @@ const baseParams = {
   excludeLowValueProtocols: true,
 };
 
+describe('complete Portfolio refresh responses', () => {
+  const params = {
+    accountId: 'hd-1--evm',
+    indexedAccountId: 'idx-1',
+    networkId: 'evm--1',
+    accountAddress: '0xabc',
+    sourceCurrencyInfo: usd,
+    targetCurrencyInfo: usd,
+    saveToLocal: true,
+    requireComplete: true,
+    isForceRefresh: true,
+    timeoutMs: 20_000,
+  };
+
+  it('rejects degraded data before replacing the last cached overview', async () => {
+    const { service, post, updateAccountDeFiOverview } = makeService();
+    const response = multiChainResponse(['evm--1']);
+    response.data.data.meta.degraded = true;
+    post.mockResolvedValue(response);
+    await expect(service.fetchAccountDeFiPositions(params)).rejects.toThrow(
+      'Incomplete DeFi',
+    );
+    expect(updateAccountDeFiOverview).not.toHaveBeenCalled();
+  });
+
+  it('rejects a network which the backend did not query', async () => {
+    const { service, post, updateAccountDeFiOverview } = makeService();
+    const response = multiChainResponse(['evm--1']);
+    response.data.data.meta.queriedNetworkIds = [];
+    response.data.data.data.positions = {};
+    post.mockResolvedValue(response);
+    await expect(service.fetchAccountDeFiPositions(params)).rejects.toThrow(
+      'Incomplete DeFi',
+    );
+    expect(updateAccountDeFiOverview).not.toHaveBeenCalled();
+  });
+
+  it.each(['missing positions', 'empty bucket', 'unrepresented value'])(
+    'rejects single-network %s before cache writes',
+    async (mode) => {
+      const { service, post, updateAccountDeFiOverview } = makeService();
+      const response = multiChainResponse(['evm--1']);
+      response.data.data.data.positions =
+        mode === 'unrepresented value'
+          ? { 'evm--1': response.data.data.data.positions['evm--1'] }
+          : {};
+      if (mode === 'empty bucket')
+        response.data.data.data.positions['evm--1'] = [];
+      if (mode === 'unrepresented value')
+        Object.assign(response.data.data.data.totals, {
+          unrepresentedValue: 1,
+        });
+      post.mockResolvedValue(response);
+      await expect(service.fetchAccountDeFiPositions(params)).rejects.toThrow(
+        'Incomplete DeFi',
+      );
+      expect(post).toHaveBeenCalledTimes(1);
+      expect(updateAccountDeFiOverview).not.toHaveBeenCalled();
+    },
+  );
+
+  it('accepts a complete empty result and requests the explicit USD basis', async () => {
+    const { service, post, updateAccountDeFiOverview } = makeService();
+    const response = multiChainResponse(['evm--1']);
+    response.data.data.data.positions = {};
+    response.data.data.data.protocolSummaries = [];
+    response.data.data.data.totals = {
+      ...response.data.data.data.totals,
+      totalValue: 0,
+      totalDebt: 0,
+      totalReward: 0,
+      netWorth: 0,
+    };
+    response.data.data.meta.networkIds = [];
+    post.mockResolvedValue(response);
+    await expect(
+      service.fetchAccountDeFiPositions(params),
+    ).resolves.toMatchObject({
+      isNetworkQueried: true,
+      overview: { netWorth: 0 },
+    });
+    expect(post).toHaveBeenCalledWith(
+      '/wallet/v1/portfolio/positions',
+      expect.objectContaining({ isForceRefresh: true }),
+      expect.objectContaining({
+        headers: { 'x-wallet-type': 'hd', 'x-onekey-request-currency': 'usd' },
+        timeout: 20_000,
+      }),
+    );
+    expect(updateAccountDeFiOverview).toHaveBeenCalled();
+  });
+
+  it.each([false, true])(
+    'rejects explicitly unqueried networks even with a positions key (nonempty: %s)',
+    async (nonempty) => {
+      const { service, post, updateAccountDeFiOverview } = makeService();
+      const response = multiChainResponse(['evm--1']);
+      response.data.data.meta.queriedNetworkIds = [];
+      response.data.data.data.positions = {
+        'evm--1': nonempty ? response.data.data.data.positions['evm--1'] : [],
+      };
+      post.mockResolvedValue(response);
+      await expect(service.fetchAccountDeFiPositions(params)).rejects.toThrow(
+        'Incomplete DeFi',
+      );
+      expect(updateAccountDeFiOverview).not.toHaveBeenCalled();
+    },
+  );
+
+  it('rejects a complete single-network response resolved in another currency', async () => {
+    const { service, post, updateAccountDeFiOverview } = makeService();
+    const response = multiChainResponse(['evm--1']);
+    response.data.data.data.positions = {
+      'evm--1': response.data.data.data.positions['evm--1'],
+    };
+    response.data.data.data.totals = {
+      ...response.data.data.data.totals,
+      totalValue: 100,
+      totalDebt: 0,
+      totalReward: 0,
+      netWorth: 100,
+    };
+    Object.assign(response.data.data.meta, {
+      currencyInfo: { requested: 'usd', actual: 'cny', source: 'header' },
+    });
+    post.mockResolvedValue(response);
+    await expect(service.fetchAccountDeFiPositions(params)).rejects.toThrow(
+      'Incomplete DeFi',
+    );
+    expect(updateAccountDeFiOverview).not.toHaveBeenCalled();
+  });
+});
+
+describe('complete Portfolio batch queries', () => {
+  const params = {
+    ...baseParams,
+    networkIds: ['evm--1', 'evm--8453'],
+    accountAddress: '0xabc',
+    requireComplete: true,
+    timeoutMs: 20_000,
+  };
+  it('honors the existing currency and timeout options', async () => {
+    const { service, post } = makeService();
+    post.mockResolvedValue(multiChainResponse(params.networkIds));
+    await expect(
+      service.fetchAccountDeFiPositionsBatch(params),
+    ).resolves.toHaveLength(2);
+    expect(post).toHaveBeenCalledWith(
+      '/wallet/v1/portfolio/positions',
+      expect.objectContaining({ networkId: params.networkIds }),
+      expect.objectContaining({
+        timeout: 20_000,
+        headers: { 'x-wallet-type': 'hd', 'x-onekey-request-currency': 'usd' },
+      }),
+    );
+  });
+  it.each([
+    'degraded',
+    'invalid totals',
+    'foreign network',
+    'missing positions',
+    'missing network positions',
+    'empty position buckets',
+    'missing positions and network metadata',
+    'unrepresented value',
+  ])(
+    'rejects %s data without cache writes or request fan-out',
+    async (mode) => {
+      const { service, post, updateAccountDeFiOverview } = makeService();
+      const response = multiChainResponse(params.networkIds);
+      if (mode === 'degraded') response.data.data.meta.degraded = true;
+      if (mode === 'invalid totals')
+        response.data.data.data.totals.netWorth = NaN;
+      if (mode === 'foreign network')
+        response.data.data.meta.networkIds = [
+          'evm--1',
+          'evm--8453',
+          'evm--999',
+        ];
+      if (mode.startsWith('missing positions')) {
+        response.data.data.data.positions = {};
+        if (mode === 'missing positions and network metadata')
+          response.data.data.meta.networkIds = [];
+      }
+      if (mode === 'missing network positions')
+        delete response.data.data.data.positions['evm--8453'];
+      if (mode === 'empty position buckets')
+        response.data.data.data.positions = { 'evm--1': [], 'evm--8453': [] };
+      if (mode === 'unrepresented value')
+        Object.assign(response.data.data.data.totals, {
+          unrepresentedValue: 1,
+        });
+      post.mockResolvedValue(response);
+      await expect(
+        service.fetchAccountDeFiPositionsBatch(params),
+      ).rejects.toThrow('Incomplete DeFi');
+      expect(post).toHaveBeenCalledTimes(1);
+      expect(updateAccountDeFiOverview).not.toHaveBeenCalled();
+    },
+  );
+  it('does not expand a failed complete query into more requests', async () => {
+    const { service, post } = makeService();
+    const error = Object.assign(new Error('Force refresh is rate limited'), {
+      code: 429,
+    });
+    post.mockRejectedValue(error);
+    await expect(service.fetchAccountDeFiPositionsBatch(params)).rejects.toBe(
+      error,
+    );
+    expect(post).toHaveBeenCalledTimes(1);
+  });
+  it('accepts fully represented positions removed by the low-value filter', async () => {
+    const { service, post } = makeService();
+    post.mockResolvedValue(multiChainResponse(params.networkIds));
+    const result = await service.fetchAccountDeFiPositionsBatch({
+      ...params,
+      lowValueProtocolsThresholdUsd: 200,
+    });
+    expect(result.map((value) => value?.overview.netWorth)).toEqual([0, 0]);
+  });
+  it('accepts a complete queried empty result', async () => {
+    const { service, post } = makeService();
+    const response = multiChainResponse(params.networkIds);
+    response.data.data.data.positions = {};
+    response.data.data.data.protocolSummaries = [];
+    response.data.data.data.totals = {
+      ...response.data.data.data.totals,
+      totalValue: 0,
+      totalDebt: 0,
+      totalReward: 0,
+      netWorth: 0,
+    };
+    response.data.data.meta.networkIds = [];
+    post.mockResolvedValue(response);
+    const result = await service.fetchAccountDeFiPositionsBatch(params);
+    expect(result.map((value) => value?.overview.netWorth)).toEqual([0, 0]);
+  });
+  it('rejects a complete response resolved in another currency', async () => {
+    const { service, post, updateAccountDeFiOverview } = makeService();
+    const response = multiChainResponse(params.networkIds);
+    Object.assign(response.data.data.meta, {
+      currencyInfo: { requested: 'usd', actual: 'cny', source: 'header' },
+    });
+    post.mockResolvedValue(response);
+    await expect(
+      service.fetchAccountDeFiPositionsBatch(params),
+    ).rejects.toThrow('Incomplete DeFi');
+    expect(updateAccountDeFiOverview).not.toHaveBeenCalled();
+  });
+
+  it('accepts a complete response pinned to the requested currency', async () => {
+    const { service, post } = makeService();
+    const response = multiChainResponse(params.networkIds);
+    Object.assign(response.data.data.meta, {
+      currencyInfo: { requested: 'usd', actual: 'usd', source: 'header' },
+    });
+    post.mockResolvedValue(response);
+    await expect(
+      service.fetchAccountDeFiPositionsBatch(params),
+    ).resolves.toHaveLength(2);
+  });
+
+  it('accepts a complete mixed group where most networks hold nothing', async () => {
+    const { service, post, updateAccountDeFiOverview } = makeService();
+    const mixedNetworkIds = [
+      'evm--1',
+      'evm--2',
+      'evm--3',
+      'evm--4',
+      'evm--5',
+      'evm--6',
+      'evm--7',
+      'evm--8',
+      'evm--9',
+      'evm--10',
+    ];
+    const response = multiChainResponse(mixedNetworkIds);
+    response.data.data.data.positions = {
+      'evm--1': response.data.data.data.positions['evm--1'],
+    };
+    response.data.data.data.totals = {
+      ...response.data.data.data.totals,
+      totalValue: 100,
+      totalDebt: 0,
+      totalReward: 0,
+      netWorth: 100,
+    };
+    response.data.data.meta.networkIds = ['evm--1'];
+    post.mockResolvedValue(response);
+    const result = await service.fetchAccountDeFiPositionsBatch({
+      ...params,
+      networkIds: mixedNetworkIds,
+      accountAddress: '0xabc',
+    });
+    expect(result.map((value) => value?.overview.netWorth)).toEqual([
+      100, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    ]);
+    expect(post).toHaveBeenCalledTimes(1);
+    expect(updateAccountDeFiOverview).toHaveBeenCalledTimes(1);
+  });
+
+  it('rejects totals that the position rows do not represent', async () => {
+    const { service, post, updateAccountDeFiOverview } = makeService();
+    const response = multiChainResponse(params.networkIds);
+    delete response.data.data.data.positions['evm--8453'];
+    // The metadata no longer claims the missing network, but its value is
+    // still part of the response totals.
+    response.data.data.meta.networkIds = ['evm--1'];
+    post.mockResolvedValue(response);
+    await expect(
+      service.fetchAccountDeFiPositionsBatch(params),
+    ).rejects.toThrow('Incomplete DeFi');
+    expect(updateAccountDeFiOverview).not.toHaveBeenCalled();
+  });
+
+  it('validates a complete batch of one network', async () => {
+    const { service, post } = makeService();
+    const response = multiChainResponse(['evm--1']);
+    response.data.data.data.positions = {
+      'evm--1': response.data.data.data.positions['evm--1'],
+    };
+    response.data.data.data.totals = {
+      ...response.data.data.data.totals,
+      totalValue: 100,
+      totalDebt: 0,
+      totalReward: 0,
+      netWorth: 100,
+    };
+    response.data.data.meta.networkIds = ['evm--1'];
+    response.data.data.meta.queriedNetworkIds = ['evm--1'];
+    response.data.data.meta.requestedNetworkIds = ['evm--1'];
+    post.mockResolvedValue(response);
+    const result = await service.fetchAccountDeFiPositionsBatch({
+      ...params,
+      networkIds: ['evm--1'],
+    });
+    expect(result).toHaveLength(1);
+    expect(result[0]?.networkId).toBe('evm--1');
+    expect(post).toHaveBeenCalledWith(
+      '/wallet/v1/portfolio/positions',
+      expect.objectContaining({ networkId: 'evm--1' }),
+      expect.anything(),
+    );
+  });
+
+  it('fails closed when a complete per-network fallback fails', async () => {
+    const { service, post, updateAccountDeFiOverview } = makeService();
+    post.mockRejectedValueOnce(
+      Object.assign(new Error('array unsupported'), { code: 40_115 }),
+    );
+    jest
+      .spyOn(service, 'fetchAccountDeFiPositions')
+      .mockImplementation(async ({ networkId }) => {
+        if (networkId === 'evm--8453') {
+          throw new OneKeyLocalError('offline');
+        }
+        return singleResult({ networkId, netWorth: 100 });
+      });
+    await expect(
+      service.fetchAccountDeFiPositionsBatch(params),
+    ).rejects.toThrow('Incomplete DeFi');
+    expect(updateAccountDeFiOverview).not.toHaveBeenCalled();
+  });
+
+  it('recovers omitted networks through complete single-network requests', async () => {
+    const { service, post, updateAccountDeFiOverview } = makeService();
+    const arrayResponse = multiChainResponse(params.networkIds);
+    // The backend drops the unsupported network from both metadata lists; it
+    // must be recovered through the complete single-network fallback.
+    arrayResponse.data.data.meta.requestedNetworkIds = ['evm--1'];
+    arrayResponse.data.data.meta.queriedNetworkIds = ['evm--1'];
+    arrayResponse.data.data.data.positions = {
+      'evm--1': arrayResponse.data.data.data.positions['evm--1'],
+    };
+    arrayResponse.data.data.data.totals = {
+      ...arrayResponse.data.data.data.totals,
+      totalValue: 100,
+      totalDebt: 0,
+      totalReward: 0,
+      netWorth: 100,
+    };
+    const singleResponse = multiChainResponse(['evm--8453']);
+    singleResponse.data.data.data.positions = {
+      'evm--8453': singleResponse.data.data.data.positions['evm--8453'],
+    };
+    singleResponse.data.data.data.totals = {
+      ...singleResponse.data.data.data.totals,
+      totalValue: 50,
+      totalDebt: 0,
+      totalReward: 0,
+      netWorth: 50,
+    };
+    singleResponse.data.data.meta.networkIds = ['evm--8453'];
+    singleResponse.data.data.meta.queriedNetworkIds = ['evm--8453'];
+    singleResponse.data.data.meta.requestedNetworkIds = ['evm--8453'];
+    post
+      .mockResolvedValueOnce(arrayResponse)
+      .mockResolvedValueOnce(singleResponse);
+    const results = await service.fetchAccountDeFiPositionsBatch(params);
+    expect(post).toHaveBeenCalledTimes(2);
+    expect(post).toHaveBeenLastCalledWith(
+      '/wallet/v1/portfolio/positions',
+      expect.objectContaining({ networkId: 'evm--8453' }),
+      expect.anything(),
+    );
+    expect(results.map((result) => result?.overview.netWorth)).toEqual([
+      100, 50,
+    ]);
+    expect(updateAccountDeFiOverview).toHaveBeenCalledTimes(1);
+    expect(
+      Object.keys(updateAccountDeFiOverview.mock.calls[0][0].overview),
+    ).toEqual(['evm--1', 'evm--8453']);
+  });
+
+  it('fails closed without partial writes when a recovered network fails', async () => {
+    const { service, post, updateAccountDeFiOverview } = makeService();
+    const arrayResponse = multiChainResponse(params.networkIds);
+    // The backend drops the unsupported network from both metadata lists; it
+    // must be recovered through the complete single-network fallback.
+    arrayResponse.data.data.meta.requestedNetworkIds = ['evm--1'];
+    arrayResponse.data.data.meta.queriedNetworkIds = ['evm--1'];
+    arrayResponse.data.data.data.positions = {
+      'evm--1': arrayResponse.data.data.data.positions['evm--1'],
+    };
+    arrayResponse.data.data.data.totals = {
+      ...arrayResponse.data.data.data.totals,
+      totalValue: 100,
+      totalDebt: 0,
+      totalReward: 0,
+      netWorth: 100,
+    };
+    post
+      .mockResolvedValueOnce(arrayResponse)
+      .mockRejectedValueOnce(new Error('offline'));
+    await expect(
+      service.fetchAccountDeFiPositionsBatch(params),
+    ).rejects.toThrow('Incomplete DeFi');
+    expect(updateAccountDeFiOverview).not.toHaveBeenCalled();
+  });
+
+  it('fails closed when a single-network complete response is not requested', async () => {
+    const { service, post, updateAccountDeFiOverview } = makeService();
+    const response = multiChainResponse(['evm--1']);
+    response.data.data.meta.requestedNetworkIds = [];
+    post.mockResolvedValue(response);
+    await expect(
+      service.fetchAccountDeFiPositionsBatch({
+        ...params,
+        networkIds: ['evm--1'],
+      }),
+    ).rejects.toThrow('Incomplete DeFi');
+    expect(updateAccountDeFiOverview).not.toHaveBeenCalled();
+  });
+
+  it('persists a complete per-network fallback in a single write', async () => {
+    const { service, post, updateAccountDeFiOverview } = makeService();
+    post.mockRejectedValueOnce(
+      Object.assign(new Error('array unsupported'), { code: 40_115 }),
+    );
+    jest
+      .spyOn(service, 'fetchAccountDeFiPositions')
+      .mockImplementation(async ({ networkId }) =>
+        singleResult({ networkId, netWorth: 100 }),
+      );
+    const results = await service.fetchAccountDeFiPositionsBatch(params);
+    expect(results.map((result) => result?.networkId)).toEqual([
+      'evm--1',
+      'evm--8453',
+    ]);
+    expect(updateAccountDeFiOverview).toHaveBeenCalledTimes(1);
+    expect(
+      Object.keys(updateAccountDeFiOverview.mock.calls[0][0].overview),
+    ).toEqual(['evm--1', 'evm--8453']);
+  });
+  it('recovers an unqueried network even when its positions bucket is empty', async () => {
+    const { service, post, updateAccountDeFiOverview } = makeService();
+    const arrayResponse = multiChainResponse(params.networkIds);
+    arrayResponse.data.data.meta.queriedNetworkIds = ['evm--1'];
+    arrayResponse.data.data.data.positions = {
+      'evm--1': arrayResponse.data.data.data.positions['evm--1'],
+      'evm--8453': [],
+    };
+    arrayResponse.data.data.data.totals = {
+      ...arrayResponse.data.data.data.totals,
+      totalValue: 100,
+      totalDebt: 0,
+      totalReward: 0,
+      netWorth: 100,
+    };
+    const singleResponse = multiChainResponse(['evm--8453']);
+    singleResponse.data.data.data.positions = {
+      'evm--8453': singleResponse.data.data.data.positions['evm--8453'],
+    };
+    singleResponse.data.data.data.totals = {
+      ...singleResponse.data.data.data.totals,
+      totalValue: 50,
+      totalDebt: 0,
+      totalReward: 0,
+      netWorth: 50,
+    };
+    singleResponse.data.data.meta.networkIds = ['evm--8453'];
+    singleResponse.data.data.meta.queriedNetworkIds = ['evm--8453'];
+    singleResponse.data.data.meta.requestedNetworkIds = ['evm--8453'];
+    post
+      .mockResolvedValueOnce(arrayResponse)
+      .mockResolvedValueOnce(singleResponse);
+    const results = await service.fetchAccountDeFiPositionsBatch(params);
+    expect(post).toHaveBeenCalledTimes(2);
+    expect(results.map((result) => result?.overview.netWorth)).toEqual([
+      100, 50,
+    ]);
+    expect(updateAccountDeFiOverview).toHaveBeenCalledTimes(1);
+    expect(
+      Object.keys(updateAccountDeFiOverview.mock.calls[0][0].overview),
+    ).toEqual(['evm--1', 'evm--8453']);
+  });
+
+  it('serves smaller complete batches one by one when the backend rejects the array with 13004', async () => {
+    const { service, post, updateAccountDeFiOverview } = makeService();
+    post.mockRejectedValueOnce(
+      Object.assign(new Error('too many networks'), { code: 13_004 }),
+    );
+    const single = jest
+      .spyOn(service, 'fetchAccountDeFiPositions')
+      .mockImplementation(async ({ networkId }) =>
+        singleResult({ networkId, netWorth: 100 }),
+      );
+    const results = await service.fetchAccountDeFiPositionsBatch(params);
+    expect(results.map((result) => result?.networkId)).toEqual([
+      'evm--1',
+      'evm--8453',
+    ]);
+    expect(results.every(Boolean)).toBe(true);
+    expect(updateAccountDeFiOverview).toHaveBeenCalledTimes(1);
+    expect(
+      Object.keys(updateAccountDeFiOverview.mock.calls[0][0].overview),
+    ).toEqual(['evm--1', 'evm--8453']);
+    // The rejected network set is remembered, so the next call skips the array
+    // request instead of paying for another 13004 failure.
+    await service.fetchAccountDeFiPositionsBatch(params);
+    expect(post).toHaveBeenCalledTimes(1);
+    expect(single).toHaveBeenCalledTimes(4);
+  });
+});
+
 function singleResult({
   networkId,
   netWorth,
@@ -241,6 +798,79 @@ function singleResult({
 }
 
 describe('ServiceDeFi.fetchAccountDeFiPositionsBatch', () => {
+  it('forces a recently settled network until its current revision is acknowledged', async () => {
+    const { service, post } = makeService();
+    const marker = service as unknown as {
+      _markRecentDeFiSettlement: (accountId: string, networkId: string) => void;
+    };
+    marker._markRecentDeFiSettlement(baseParams.accountId, 'evm--8453');
+    const revision = await service.getDeFiSettlementRevision({
+      accountId: baseParams.accountId,
+      networkId: 'evm--8453',
+    });
+    expect(revision).toBeDefined();
+    if (revision === undefined) return;
+    post.mockResolvedValue(multiChainResponse(['evm--1', 'evm--8453']));
+    await service.fetchAccountDeFiPositionsBatch({
+      ...baseParams,
+      networkIds: ['evm--1', 'evm--8453'],
+    });
+    expect(post.mock.calls[0][1].isForceRefresh).toBe(true);
+    await service.acknowledgeDeFiSettlement({
+      accountId: baseParams.accountId,
+      networkId: 'evm--8453',
+      revision,
+    });
+    await service.fetchAccountDeFiPositionsBatch({
+      ...baseParams,
+      networkIds: ['evm--1', 'evm--8453'],
+    });
+    expect(post.mock.calls[1][1].isForceRefresh).toBeUndefined();
+  });
+
+  it('does not let an older batch overwrite a newer single-network overview', async () => {
+    const { service, post, updateAccountDeFiOverview } = makeService();
+    let resolveOld:
+      | ((value: ReturnType<typeof multiChainResponse>) => void)
+      | undefined;
+    let markDispatched: (() => void) | undefined;
+    const dispatched = new Promise<void>((resolve) => {
+      markDispatched = resolve;
+    });
+    post.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          resolveOld = resolve;
+          markDispatched?.();
+        }),
+    );
+    const oldRequest = service.fetchAccountDeFiPositionsBatch({
+      ...baseParams,
+      networkIds: ['evm--1', 'evm--8453'],
+    });
+    await dispatched;
+    const newer = multiChainResponse(['evm--8453']);
+    newer.data.data.data.totals.netWorth = 5;
+    newer.data.data.data.totals.totalValue = 5;
+    newer.data.data.data.positions = {};
+    newer.data.data.data.protocolSummaries = [];
+    post.mockResolvedValueOnce(newer);
+    await service.fetchAccountDeFiPositions({
+      ...baseParams,
+      networkId: 'evm--8453',
+      isForceRefresh: true,
+    });
+    resolveOld?.(multiChainResponse(['evm--1', 'evm--8453']));
+    await oldRequest;
+    expect(updateAccountDeFiOverview).toHaveBeenCalledTimes(2);
+    expect(
+      Object.keys(updateAccountDeFiOverview.mock.calls[0][0].overview),
+    ).toEqual(['evm--8453']);
+    expect(
+      Object.keys(updateAccountDeFiOverview.mock.calls[1][0].overview),
+    ).toEqual(['evm--1']);
+  });
+
   it('sends an array for several networks and returns per-network results in order', async () => {
     const { service, post, updateAccountDeFiOverview } = makeService();
     post.mockResolvedValueOnce(multiChainResponse(['evm--1', 'evm--8453']));
@@ -398,20 +1028,30 @@ describe('ServiceDeFi.fetchAccountDeFiPositionsBatch', () => {
     ]);
   });
 
-  it('splits the batch once on 13004', async () => {
+  it('splits oversized requests into consecutive batches', async () => {
     const { service, post } = makeService();
-    post
-      .mockRejectedValueOnce(
-        Object.assign(new Error('too many'), { code: 13_004 }),
-      )
-      .mockResolvedValueOnce(multiChainResponse(['evm--1']))
-      .mockResolvedValueOnce(multiChainResponse(['evm--8453']));
+    const networkIds = Array.from(
+      { length: 12 },
+      (_, index) => `evm--${index + 1}`,
+    );
+    post.mockImplementation(
+      async (_url: string, body: { networkId: string | string[] }) =>
+        multiChainResponse(
+          Array.isArray(body.networkId) ? body.networkId : [body.networkId],
+        ),
+    );
     const results = await service.fetchAccountDeFiPositionsBatch({
       ...baseParams,
-      networkIds: ['evm--1', 'evm--8453'],
+      networkIds,
     });
-    expect(post).toHaveBeenCalledTimes(3);
-    expect(results.map((r) => r?.networkId)).toEqual(['evm--1', 'evm--8453']);
+    expect(post).toHaveBeenCalledTimes(2);
+    expect(
+      (post.mock.calls[0][1] as { networkId: string[] }).networkId,
+    ).toHaveLength(10);
+    expect(
+      (post.mock.calls[1][1] as { networkId: string[] }).networkId,
+    ).toHaveLength(2);
+    expect(results.map((r) => r?.networkId)).toEqual(networkIds);
   });
 
   it('falls back to single-network requests on 40115', async () => {
@@ -610,6 +1250,181 @@ describe('ServiceDeFi.fetchAccountDeFiPositions', () => {
     return resp;
   }
 
+  it('does not publish an omitted network as an empty confirmed position', async () => {
+    const { service, post } = makeService();
+    post.mockResolvedValueOnce(
+      singleChainResponse({ networkId: 'evm--250', queried: false }),
+    );
+    const mockBus = appEventBus as unknown as { emit: jest.Mock };
+    mockBus.emit.mockClear();
+    const refresh = service as unknown as {
+      _fetchDeFiForceRefresh: (params: {
+        accountId: string;
+        networkId: string;
+      }) => Promise<unknown>;
+    };
+    expect(
+      await refresh._fetchDeFiForceRefresh({
+        accountId: 'hd-1--evm',
+        networkId: 'evm--250',
+      }),
+    ).toBeUndefined();
+    expect(mockBus.emit).not.toHaveBeenCalled();
+  });
+
+  it('does not publish a force response superseded by a later request', async () => {
+    const { service, post } = makeService();
+    const retry = jest
+      .spyOn(service as any, '_runDeFiForceRefresh')
+      .mockResolvedValue(undefined);
+    const mockBus = appEventBus as unknown as { emit: jest.Mock };
+    mockBus.emit.mockClear();
+    let resolveOld:
+      | ((value: ReturnType<typeof multiChainResponse>) => void)
+      | undefined;
+    let markDispatched: (() => void) | undefined;
+    const dispatched = new Promise<void>((resolve) => {
+      markDispatched = resolve;
+    });
+    post.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          resolveOld = resolve;
+          markDispatched?.();
+        }),
+    );
+    const refresh = service as unknown as {
+      _fetchDeFiForceRefresh: (params: {
+        accountId: string;
+        networkId: string;
+      }) => Promise<unknown>;
+    };
+    const old = refresh._fetchDeFiForceRefresh({
+      accountId: 'hd-1--evm',
+      networkId: 'evm--250',
+    });
+    await dispatched;
+    post.mockResolvedValueOnce(
+      singleChainResponse({ networkId: 'evm--250', queried: true }),
+    );
+    await service.fetchAccountDeFiPositions({
+      ...baseParams,
+      networkId: 'evm--250',
+    });
+    resolveOld?.(singleChainResponse({ networkId: 'evm--250', queried: true }));
+    expect(await old).toBeUndefined();
+    expect(mockBus.emit).not.toHaveBeenCalled();
+    expect(retry).toHaveBeenCalledTimes(1);
+  });
+
+  it('bounds force refresh retries when consecutive attempts are superseded', async () => {
+    const { service, post } = makeService();
+    const mockBus = appEventBus as unknown as { emit: jest.Mock };
+    mockBus.emit.mockClear();
+    const scope = { accountId: 'hd-1--evm', networkId: 'evm--250' };
+    const response = singleChainResponse({
+      networkId: scope.networkId,
+      queried: true,
+    });
+    let releaseFirst: ((value: typeof response) => void) | undefined;
+    let releaseRetry: ((value: typeof response) => void) | undefined;
+    let firstStarted: (() => void) | undefined;
+    let retryStarted: (() => void) | undefined;
+    const firstDispatched = new Promise<void>((resolve) => {
+      firstStarted = resolve;
+    });
+    const retryDispatched = new Promise<void>((resolve) => {
+      retryStarted = resolve;
+    });
+    let forceCount = 0;
+    post.mockImplementation((_url, body: { isForceRefresh?: boolean }) => {
+      if (!body.isForceRefresh) return Promise.resolve(response);
+      forceCount += 1;
+      if (forceCount === 1) {
+        return new Promise((resolve) => {
+          releaseFirst = resolve;
+          firstStarted?.();
+        });
+      }
+      if (forceCount === 2) {
+        return new Promise((resolve) => {
+          releaseRetry = resolve;
+          retryStarted?.();
+        });
+      }
+      return Promise.resolve(response);
+    });
+    const internals = service as unknown as {
+      _runDeFiForceRefresh: (params: typeof scope) => Promise<unknown>;
+      _deFiForceRefreshInFlight: Map<string, Promise<unknown>>;
+    };
+    const run = jest.spyOn(internals, '_runDeFiForceRefresh');
+    const first = internals._runDeFiForceRefresh(scope);
+    await firstDispatched;
+    await service.fetchAccountDeFiPositions({
+      ...baseParams,
+      networkId: scope.networkId,
+    });
+    releaseFirst?.(response);
+    await first;
+    await retryDispatched;
+    const pending = internals._deFiForceRefreshInFlight.get(
+      `${scope.accountId}__${scope.networkId}`,
+    );
+    expect(pending).toBeDefined();
+    await service.fetchAccountDeFiPositions({
+      ...baseParams,
+      networkId: scope.networkId,
+    });
+    releaseRetry?.(response);
+    await pending;
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(run).toHaveBeenCalledTimes(2);
+    expect(forceCount).toBe(2);
+    expect(mockBus.emit).not.toHaveBeenCalled();
+  });
+
+  it('uses the xpub for the cached overview when an address was supplied', async () => {
+    const { service, post, updateAccountDeFiOverview } = makeService();
+    (service as any).backgroundApi.serviceAccount.getAccountXpub = jest
+      .fn()
+      .mockResolvedValue('xpub-test');
+    post.mockResolvedValueOnce(
+      singleChainResponse({ networkId: 'evm--250', queried: true }),
+    );
+    await service.fetchAccountDeFiPositions({
+      ...baseParams,
+      accountAddress: '0xabc',
+      networkId: 'evm--250',
+    });
+    expect(updateAccountDeFiOverview).toHaveBeenCalledWith(
+      expect.objectContaining({ xpub: 'xpub-test' }),
+    );
+  });
+
+  it('invalidates the scope again when a later force refresh succeeds', async () => {
+    const { service, post } = makeService();
+    const scope = { accountId: 'hd-1--evm', networkId: 'evm--250' };
+    const mockBus = appEventBus as unknown as { emit: jest.Mock };
+    mockBus.emit.mockClear();
+    post.mockResolvedValue(
+      singleChainResponse({ networkId: scope.networkId, queried: true }),
+    );
+    const refresh = service as unknown as {
+      _fetchDeFiForceRefresh: (params: typeof scope) => Promise<unknown>;
+    };
+    await refresh._fetchDeFiForceRefresh(scope);
+    const first = await service.getDeFiSettlementRevision(scope);
+    expect(first).toBeDefined();
+    if (first === undefined) return;
+    await service.acknowledgeDeFiSettlement({ ...scope, revision: first });
+    expect(await service.getDeFiSettlementRevision(scope)).toBeUndefined();
+    await refresh._fetchDeFiForceRefresh(scope);
+    expect(await service.getDeFiSettlementRevision(scope)).toBeDefined();
+    expect(mockBus.emit).toHaveBeenCalledTimes(2);
+  });
+
   it('persists the overview of a queried network', async () => {
     const { service, post, updateAccountDeFiOverview } = makeService();
     post.mockResolvedValueOnce(
@@ -640,6 +1455,7 @@ describe('ServiceDeFi.fetchAccountDeFiPositions', () => {
     });
 
     expect(result.protocols).toEqual([]);
+    expect(result.isNetworkQueried).toBe(false);
     expect(updateAccountDeFiOverview).not.toHaveBeenCalled();
   });
 

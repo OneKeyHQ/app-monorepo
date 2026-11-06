@@ -24,6 +24,7 @@ export type IDustSweepCacheWrite = {
 };
 const latestWrites = new Map<string, IDustSweepCacheWrite>();
 const identityListeners = new Set<() => void>();
+const revisionListeners = new Set<() => void>();
 
 function getKey(params: IDustSweepRouteParams) {
   return JSON.stringify([
@@ -89,6 +90,14 @@ export function invalidateDustSweepNetworksCache(walletId: string) {
   for (const [key, entry] of entries) {
     if (entry.walletId === walletId) entries.delete(key);
   }
+  revisionListeners.forEach((listener) => listener());
+}
+
+export function subscribeDustSweepNetworkCacheRevision(listener: () => void) {
+  revisionListeners.add(listener);
+  return () => {
+    revisionListeners.delete(listener);
+  };
 }
 
 export function beginDustSweepNetworksCacheWrite(
@@ -124,6 +133,7 @@ function invalidateIdentity() {
   entries.clear();
   latestWrites.clear();
   identityListeners.forEach((listener) => listener());
+  revisionListeners.forEach((listener) => listener());
 }
 
 // These events can change the real accounts behind an unchanged All Networks route.

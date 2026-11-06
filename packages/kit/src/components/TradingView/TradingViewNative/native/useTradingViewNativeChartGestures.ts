@@ -40,7 +40,11 @@ import { getTradingViewNativeSkiaTextFont } from './chartSkiaText';
 import type { ITradingViewNativeChartRuntime } from './chartRuntime';
 import type { ITradingViewNativeSkiaResources } from './chartSkiaRenderer';
 import type { ITradingViewNativeSubIndicator } from '../utils/chartIndicators';
-import type { GestureType } from 'react-native-gesture-handler';
+import type {
+  GestureStateManager,
+  GestureTouchEvent,
+  GestureType,
+} from 'react-native-gesture-handler';
 import type { SharedValue } from 'react-native-reanimated';
 
 const PAN_DECELERATION = 0.9982;
@@ -84,6 +88,7 @@ export function useTradingViewNativeChartGestures({
   const isRTL = I18nManager.isRTL;
   const shouldWaitForPageScroll =
     prioritizePageScroll && headerScrollGestures.length > 0;
+  const hasMultipleCrosshairTouches = useSharedValue(false);
   const pressedSubIndicatorSettingsTarget =
     useSharedValue<ITradingViewNativeSubIndicator | null>(null);
 
@@ -139,6 +144,10 @@ export function useTradingViewNativeChartGestures({
     const updateCrosshair = (x: number, y: number) => {
       'worklet';
 
+      if (hasMultipleCrosshairTouches.value) {
+        return;
+      }
+
       const runtime = chartRuntime.value;
       const nextRuntimeState = reduceTradingViewNativeChartRuntime(runtime, {
         chartWidth: getTradingViewNativeChartWidth(
@@ -156,6 +165,45 @@ export function useTradingViewNativeChartGestures({
         ...runtime,
         ...nextRuntimeState,
       };
+    };
+
+    const hideCrosshair = () => {
+      'worklet';
+
+      const runtime = chartRuntime.value;
+      chartRuntime.value = {
+        ...runtime,
+        ...reduceTradingViewNativeChartRuntime(runtime, {
+          type: 'crosshairHidden',
+        }),
+      };
+    };
+
+    const onCrosshairTouchesDown = (
+      event: GestureTouchEvent,
+      stateManager: GestureStateManager,
+    ) => {
+      'worklet';
+
+      if (event.numberOfTouches === 1) {
+        hasMultipleCrosshairTouches.value = false;
+      } else if (event.numberOfTouches > 1) {
+        // Keep crosshair callbacks blocked until a new touch sequence begins.
+        hasMultipleCrosshairTouches.value = true;
+        hideCrosshair();
+        stateManager.fail();
+        return;
+      }
+
+      const touch = event.changedTouches[0];
+      if (
+        touch &&
+        (isNavigationEdgeTouch(touch.absoluteX) ||
+          isPriceAxisTouch(touch.x, touch.y) ||
+          isTimeAxisTouch(touch.x, touch.y))
+      ) {
+        stateManager.fail();
+      }
     };
 
     const getSubIndicatorSettingsTarget = (x: number, y: number) => {
@@ -204,19 +252,7 @@ export function useTradingViewNativeChartGestures({
       .enabled(isCrosshairEnabled || holdToInspect)
       .activateAfterLongPress(TRADING_VIEW_NATIVE_CROSSHAIR_LONG_PRESS_DURATION)
       .maxPointers(1)
-      .onTouchesDown((event, stateManager) => {
-        'worklet';
-
-        const touch = event.changedTouches[0];
-        if (
-          touch &&
-          (isNavigationEdgeTouch(touch.absoluteX) ||
-            isPriceAxisTouch(touch.x, touch.y) ||
-            isTimeAxisTouch(touch.x, touch.y))
-        ) {
-          stateManager.fail();
-        }
-      })
+      .onTouchesDown(onCrosshairTouchesDown)
       .onStart((event) => {
         'worklet';
         setInteraction(1, true);
@@ -236,31 +272,12 @@ export function useTradingViewNativeChartGestures({
         if (success && !holdToInspect) {
           return;
         }
-        const runtime = chartRuntime.value;
-        const nextRuntimeState = reduceTradingViewNativeChartRuntime(runtime, {
-          type: 'crosshairHidden',
-        });
-        chartRuntime.value = {
-          ...runtime,
-          ...nextRuntimeState,
-        };
+        hideCrosshair();
       });
 
     const tapCrosshairGesture = Gesture.Tap()
       .enabled(isCrosshairEnabled && isClickInteractionEnabled)
-      .onTouchesDown((event, stateManager) => {
-        'worklet';
-
-        const touch = event.changedTouches[0];
-        if (
-          touch &&
-          (isNavigationEdgeTouch(touch.absoluteX) ||
-            isPriceAxisTouch(touch.x, touch.y) ||
-            isTimeAxisTouch(touch.x, touch.y))
-        ) {
-          stateManager.fail();
-        }
-      })
+      .onTouchesDown(onCrosshairTouchesDown)
       .onEnd((event, success) => {
         'worklet';
 
@@ -632,6 +649,7 @@ export function useTradingViewNativeChartGestures({
     panStartTranslationX,
     chartRuntime,
     decayOffset,
+    hasMultipleCrosshairTouches,
     headerScrollGestures,
     excludeStartEdgeWidth,
     isRTL,

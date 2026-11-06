@@ -270,17 +270,27 @@ describe('loadDustSweepNetworks request ownership', () => {
     );
     serviceToken.getCachedAccountTokens.mockResolvedValue([cachedResponse()]);
     const onCache = jest.fn();
+    const onContexts = jest.fn();
     const load = loadDustSweepNetworks(
       params,
       new AbortController().signal,
       onCache,
+      { onContexts },
     );
     await new Promise((resolve) => setTimeout(resolve, 0));
     expect(serviceToken.fetchAccountTokens.mock.calls).toHaveLength(0);
     expect(serviceToken.getCachedAccountTokens.mock.calls).toHaveLength(0);
     expect(onCache).not.toHaveBeenCalled();
+    expect(onContexts).not.toHaveBeenCalled();
     providerNetworks.resolve([ethereum]);
     await load;
+    expect(onContexts).toHaveBeenCalledTimes(1);
+    expect(onContexts.mock.calls[0][0]).toMatchObject([
+      {
+        network: { networkId: ethereum.networkId },
+        accountId: params.accountId,
+      },
+    ]);
   });
 
   it('clears a requested network after the provider removes it on refresh', async () => {
@@ -309,13 +319,16 @@ describe('loadDustSweepNetworks request ownership', () => {
       cachedResponse(),
     ]);
     const onCache = jest.fn();
+    const onContexts = jest.fn();
     const load = loadDustSweepNetworks(
       params,
       new AbortController().signal,
       onCache,
+      { onContexts },
     );
     await new Promise((resolve) => setTimeout(resolve, 0));
     expect(onCache).toHaveBeenCalledTimes(1);
+    expect(onContexts).toHaveBeenCalledTimes(1);
     expect(onCache.mock.calls[0][0][0].tokens[0].symbol).toBe('DUST');
     expect(serviceSwap.fetchSwapNetworks.mock.calls).toHaveLength(1);
     expect(serviceToken.getCachedAccountTokens.mock.calls[0][0]).toEqual({
@@ -715,6 +728,53 @@ describe('loadDustSweepNetworks request ownership', () => {
       partialError: false,
       providerInfo: okxProvider().providerInfo,
     });
+  });
+
+  it('uses fresh capabilities on re-entry even when the previous balance request is still pending', async () => {
+    const previousBalances =
+      deferred<Awaited<ReturnType<typeof serviceToken.fetchAccountTokens>>>();
+    serviceToken.fetchAccountTokens.mockReturnValueOnce(
+      previousBalances.promise,
+    );
+    serviceToken.getCachedAccountTokens.mockResolvedValue([cachedResponse()]);
+    const firstController = new AbortController();
+    const firstContexts = jest.fn();
+    const firstCache = jest.fn();
+    const first = loadDustSweepNetworks(
+      params,
+      firstController.signal,
+      firstCache,
+      {
+        onContexts: firstContexts,
+      },
+    );
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(firstContexts.mock.calls[0][0]).toHaveLength(1);
+    expect(firstCache).toHaveBeenCalledTimes(1);
+    firstController.abort();
+    await expect(first).rejects.toThrow('Dust Sweep cancelled');
+
+    swapConfigs.getSwapProviderManager.mockResolvedValue([
+      {
+        providerInfo: okxProvider().providerInfo,
+        enable: false,
+        supportNetworks: [ethereum],
+      },
+    ]);
+    const nextContexts = jest.fn();
+    const next = loadDustSweepNetworks(
+      params,
+      new AbortController().signal,
+      undefined,
+      {
+        forceFresh: true,
+        onContexts: nextContexts,
+      },
+    );
+    await expect(next).resolves.toMatchObject({ networks: [] });
+    expect(nextContexts).toHaveBeenCalledWith([]);
+    expect(swapConfigs.getSwapProviderManager.mock.calls).toHaveLength(2);
+    previousBalances.resolve(cachedResponse());
   });
 
   it('does not fall back to another account for a network-specific entry', async () => {

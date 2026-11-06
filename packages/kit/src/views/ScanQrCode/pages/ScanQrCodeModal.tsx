@@ -14,6 +14,7 @@ import {
   Toast,
   XStack,
   YStack,
+  useMedia,
   useSafeAreaInsets,
 } from '@onekeyhq/components';
 import HeaderIconButton from '@onekeyhq/components/src/layouts/Navigation/Header/HeaderIconButton';
@@ -37,8 +38,13 @@ import { ScanQrCodeTestIDs } from '../testIDs';
 import { scanFromURLAsync } from '../utils/scanFromURLAsync';
 
 import type { RouteProp } from '@react-navigation/core';
+import type { LayoutChangeEvent } from 'react-native';
 
 appGlobals.$$scanNavigation = undefined;
+
+// Width kept for the hints beside the camera in the landscape layout.
+const LANDSCAPE_HINTS_MIN_WIDTH = 260;
+
 function DebugInput({ onText }: { onText: (text: string) => void }) {
   const navigation = useAppNavigation();
   const { bottom } = useSafeAreaInsets();
@@ -268,6 +274,29 @@ export default function ScanQrCodeModal() {
     [callback],
   );
 
+  // A phone sheet wider than it is tall (iPhone Duo inner display in
+  // landscape) can't fit a full-width square camera above the hints, so
+  // put the hints beside it and fit the camera to the remaining space.
+  const media = useMedia();
+  const [bodySize, setBodySize] = useState<{ width: number; height: number }>();
+  const onBodyLayout = useCallback((event: LayoutChangeEvent) => {
+    const { width, height } = event.nativeEvent.layout;
+    setBodySize((prev) =>
+      prev?.width === width && prev?.height === height
+        ? prev
+        : { width, height },
+    );
+  }, []);
+  const landscapeCameraSize = bodySize
+    ? Math.min(bodySize.height, bodySize.width - LANDSCAPE_HINTS_MIN_WIDTH)
+    : 0;
+  const isLandscapeLayout = Boolean(
+    platformEnv.isNative &&
+    media.md &&
+    bodySize &&
+    bodySize.width > bodySize.height,
+  );
+
   const headerRightCall = useCallback(
     () =>
       qrWalletScene ? null : (
@@ -287,9 +316,13 @@ export default function ScanQrCodeModal() {
         title={intl.formatMessage({ id: ETranslations.scan_scan_qr_code })}
         headerRight={headerRightCall}
       />
-      <Page.Body $gtMd={{ jc: 'center' }}>
+      <Page.Body
+        $gtMd={{ jc: 'center' }}
+        flexDirection={isLandscapeLayout ? 'row' : 'column'}
+        onLayout={onBodyLayout}
+      >
         <Stack
-          w="100%"
+          w={isLandscapeLayout ? landscapeCameraSize : '100%'}
           mx="auto"
           $gtMd={{
             maxWidth: '$80',
@@ -321,10 +354,12 @@ export default function ScanQrCodeModal() {
             </YStack>
           </Stack>
         </Stack>
-        <ScanQrCodeModalFooter
-          qrWalletScene={qrWalletScene}
-          showProTutorial={showProTutorial}
-        />
+        <Stack flex={1}>
+          <ScanQrCodeModalFooter
+            qrWalletScene={qrWalletScene}
+            showProTutorial={showProTutorial}
+          />
+        </Stack>
       </Page.Body>
       <Page.Footer safeAreaBottomMode="content">
         <DebugInput onText={(value) => callback(value)} />

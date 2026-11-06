@@ -3,7 +3,14 @@
 
 import SettingTab from './';
 
-import { fireEvent, render, renderHook, waitFor } from '@testing-library/react';
+import {
+  act,
+  fireEvent,
+  render,
+  renderHook,
+  screen,
+  waitFor,
+} from '@testing-library/react';
 
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -17,11 +24,17 @@ import {
 import { SettingTestIDs } from '../../testIDs';
 
 import { useSettingsConfig } from './config';
+import { useSettingsLayout } from './useIsTabNavigator';
 
 const mockPlatform = platformEnv;
 let mockGtMd = false;
+let mockWindowDimensions = { width: 390, height: 844 };
 let mockTravelMode = false;
 let mockDevEnabled = false;
+let mockPaneIndex = 0;
+let mockInactivePaneIndex = 0;
+let mockLayoutVersion = 0;
+const mockLayoutListeners = new Set<() => void>();
 const mockNavigation = {
   dispatch: jest.fn(),
   emit: jest.fn(() => ({ defaultPrevented: false })),
@@ -36,6 +49,10 @@ jest.mock('react-intl', () => ({ useIntl: () => mockIntl }));
 jest.mock('react-native', () => ({
   Keyboard: { dismiss: jest.fn() },
   StyleSheet: { hairlineWidth: 1 },
+  useWindowDimensions: () => mockWindowDimensions,
+}));
+jest.mock('../../../../../../components/src/hooks/useStyle', () => ({
+  useMedia: () => ({ gtMd: mockGtMd }),
 }));
 jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
   __esModule: true,
@@ -90,7 +107,22 @@ jest.mock('@onekeyhq/components', () => {
     YStack: Stack,
     getTokenValue: () => 16,
     isNativeTablet: () => mockPlatform.isNativeIOSPad || mockGtMd,
-    useMedia: () => ({ gtMd: mockGtMd }),
+    useIsWideNativeWindow: jest.requireActual<
+      typeof import('@onekeyhq/components/src/hooks/useIsWideNativeWindow')
+    >('../../../../../../components/src/hooks/useIsWideNativeWindow')
+      .useIsWideNativeWindow,
+    useMedia: () => {
+      React.useSyncExternalStore(
+        (listener) => {
+          mockLayoutListeners.add(listener);
+          return () => {
+            mockLayoutListeners.delete(listener);
+          };
+        },
+        () => mockLayoutVersion,
+      );
+      return { gtMd: mockGtMd };
+    },
     useSafeAreaInsets: () => ({ top: 0, bottom: 0 }),
     DesktopTabItem: ({
       label,
@@ -115,6 +147,22 @@ jest.mock('@onekeyhq/components', () => {
   };
 });
 jest.mock('@react-navigation/native', () => ({
+  useRoute: () => ({ key: 'settings-root' }),
+  useNavigationState: (selector: (state: unknown) => unknown) =>
+    selector({
+      routes: [
+        {
+          key: 'settings-root',
+          state: {
+            index: 0,
+            routes: [
+              { state: { index: mockPaneIndex } },
+              { state: { index: mockInactivePaneIndex } },
+            ],
+          },
+        },
+      ],
+    }),
   CommonActions: {
     navigate: (payload: unknown) => ({ type: 'NAVIGATE', payload }),
   },
@@ -140,21 +188,37 @@ jest.mock('@react-navigation/bottom-tabs', () => {
         const routes = screens.map(({ props }) => ({
           key: props.name,
           name: props.name,
-        }));
-        return tabBar({
           state: {
-            key: 'settings-tabs',
-            routes,
-            index: routes.findIndex(({ name }) => name === initialRouteName),
+            index:
+              props.name === initialRouteName
+                ? mockPaneIndex
+                : mockInactivePaneIndex,
           },
-          descriptors: Object.fromEntries(
-            screens.map(({ props }) => [
-              props.name,
-              { options: props.options },
-            ]),
-          ),
-          navigation: mockNavigation,
-        });
+        }));
+        return React.createElement(
+          React.Fragment,
+          null,
+          mockPaneIndex > 0 || mockInactivePaneIndex > 0
+            ? React.createElement('input', {
+                'aria-label': 'Pane draft',
+                defaultValue: '',
+              })
+            : null,
+          tabBar({
+            state: {
+              key: 'settings-tabs',
+              routes,
+              index: routes.findIndex(({ name }) => name === initialRouteName),
+            },
+            descriptors: Object.fromEntries(
+              screens.map(({ props }) => [
+                props.name,
+                { options: props.options },
+              ]),
+            ),
+            navigation: mockNavigation,
+          }),
+        );
       },
     }),
   };
@@ -366,88 +430,238 @@ const restrictedCategories = [
 ];
 
 describe.each([
-  { name: 'iPhone', isIOSPad: false, isAndroid: false, gtMd: false },
-  { name: 'iPad', isIOSPad: true, isAndroid: false, gtMd: false },
-  { name: 'wide Android', isIOSPad: false, isAndroid: true, gtMd: true },
-])('Travel Mode settings on $name', ({ isIOSPad, isAndroid, gtMd }) => {
-  const isTabNavigator = isIOSPad || gtMd;
-  beforeEach(() => {
-    jest.clearAllMocks();
-    mockTravelMode = true;
-    mockGtMd = gtMd;
-    mockPlatform.isNativeIOSPad = isIOSPad;
-    mockPlatform.isNativeIOS = !isAndroid;
-    mockPlatform.isNativeAndroid = isAndroid;
-  });
-
-  it('shares the hidden and inert category policy across layouts', () => {
-    const { result } = renderHook(() => useSettingsConfig());
-    expect(
-      result.current.find(
-        (category) => category?.name === ESettingsTabNames.About,
-      ),
-    ).toEqual(expect.objectContaining({ isHidden: true }));
-    for (const { name } of restrictedCategories) {
-      expect(
-        result.current.find((category) => category?.name === name),
-      ).toEqual(expect.objectContaining({ ignorePress: true }));
-    }
-    const itemIds = result.current.flatMap(
-      (category) => category?.configs.flat().map((item) => item?.id) ?? [],
-    );
-    expect(itemIds).not.toContain('manual-backup');
-    expect(itemIds).not.toContain('address-book');
-    expect(itemIds).not.toContain('add-network');
-    expect(itemIds).not.toContain('custom-rpc');
-  });
-
-  it('hides About, search, official channels and Support', () => {
-    const view = render(<SettingTab />);
-    expect(view.queryByTestId(SettingTestIDs.aboutItem)).toBeNull();
-    expect(view.queryByRole('textbox')).toBeNull();
-    expect(view.queryByTestId('official-channels-and-support')).toBeNull();
-    expect(view.getByTestId(SettingTestIDs.versionItem)).toBeTruthy();
-  });
-
-  it('keeps restricted rows visible without navigating or emitting tab events', async () => {
-    const view = render(<SettingTab />);
-    for (const { title } of restrictedCategories) {
-      const button = view.getByRole('button', { name: title });
-      expect(button.hasAttribute('disabled')).toBe(false);
-      fireEvent.click(button);
-    }
-    expect(mockNavigation.dispatch).not.toHaveBeenCalled();
-    expect(mockNavigation.push).not.toHaveBeenCalled();
-    expect(mockNavigation.emit).not.toHaveBeenCalled();
-    expect(mockCategoryOpened).not.toHaveBeenCalled();
-
-    fireEvent.click(view.getByTestId(SettingTestIDs.securityItem));
-    await waitFor(() => {
-      expect(mockCategoryOpened).toHaveBeenCalledWith({
-        category: ESettingsTabNames.Security,
-        source: isTabNavigator ? 'sidebar' : 'mobileHome',
-      });
+  {
+    name: 'iPhone',
+    isIOSPad: false,
+    isAndroid: false,
+    gtMd: false,
+    isWideWindow: false,
+  },
+  {
+    name: 'iPhone Duo inner display',
+    isIOSPad: false,
+    isAndroid: false,
+    gtMd: false,
+    isWideWindow: true,
+  },
+  {
+    name: 'iPad',
+    isIOSPad: true,
+    isAndroid: false,
+    gtMd: false,
+    isWideWindow: true,
+  },
+  {
+    name: 'narrow iPad',
+    isIOSPad: true,
+    isAndroid: false,
+    gtMd: false,
+    isWideWindow: false,
+  },
+  {
+    name: 'wide Android',
+    isIOSPad: false,
+    isAndroid: true,
+    gtMd: true,
+    isWideWindow: false,
+  },
+])(
+  'Travel Mode settings on $name',
+  ({ isIOSPad, isAndroid, gtMd, isWideWindow }) => {
+    const isTabNavigator = gtMd || isWideWindow;
+    beforeEach(() => {
+      jest.clearAllMocks();
+      mockTravelMode = true;
+      mockGtMd = gtMd;
+      mockWindowDimensions = isWideWindow
+        ? { width: 834, height: 669 }
+        : { width: 390, height: 844 };
+      mockPlatform.isNativeIOSPad = isIOSPad;
+      mockPlatform.isNativeIOS = !isAndroid;
+      mockPlatform.isNativeAndroid = isAndroid;
     });
-    expect(
-      isTabNavigator ? mockNavigation.dispatch : mockNavigation.push,
-    ).toHaveBeenCalledTimes(1);
-  });
 
-  it('restores categories, search and navigation in normal mode', async () => {
-    mockTravelMode = false;
-    const view = render(<SettingTab />);
-    expect(view.getByTestId(SettingTestIDs.aboutItem)).toBeTruthy();
-    expect(view.getByRole('textbox')).toBeTruthy();
-    if (isTabNavigator) {
-      expect(view.getByTestId('official-channels-and-support')).toBeTruthy();
-    }
-    for (const { title } of restrictedCategories) {
-      fireEvent.click(view.getByRole('button', { name: title }));
-    }
-    await waitFor(() => {
+    it('shares the hidden and inert category policy across layouts', () => {
+      const { result } = renderHook(() => useSettingsConfig());
+      expect(
+        result.current.find(
+          (category) => category?.name === ESettingsTabNames.About,
+        ),
+      ).toEqual(expect.objectContaining({ isHidden: true }));
+      for (const { name } of restrictedCategories) {
+        expect(
+          result.current.find((category) => category?.name === name),
+        ).toEqual(expect.objectContaining({ ignorePress: true }));
+      }
+      const itemIds = result.current.flatMap(
+        (category) => category?.configs.flat().map((item) => item?.id) ?? [],
+      );
+      expect(itemIds).not.toContain('manual-backup');
+      expect(itemIds).not.toContain('address-book');
+      expect(itemIds).not.toContain('add-network');
+      expect(itemIds).not.toContain('custom-rpc');
+    });
+
+    it('hides About, search, official channels and Support', () => {
+      const view = render(<SettingTab />);
+      expect(view.queryByTestId(SettingTestIDs.aboutItem)).toBeNull();
+      expect(view.queryByRole('textbox')).toBeNull();
+      expect(view.queryByTestId('official-channels-and-support')).toBeNull();
+      expect(view.getByTestId(SettingTestIDs.versionItem)).toBeTruthy();
+    });
+
+    it('keeps restricted rows visible without navigating or emitting tab events', async () => {
+      const view = render(<SettingTab />);
+      for (const { title } of restrictedCategories) {
+        const button = view.getByRole('button', { name: title });
+        expect(button.hasAttribute('disabled')).toBe(false);
+        fireEvent.click(button);
+      }
+      expect(mockNavigation.dispatch).not.toHaveBeenCalled();
+      expect(mockNavigation.push).not.toHaveBeenCalled();
+      expect(mockNavigation.emit).not.toHaveBeenCalled();
+      expect(mockCategoryOpened).not.toHaveBeenCalled();
+
+      fireEvent.click(view.getByTestId(SettingTestIDs.securityItem));
+      await waitFor(() => {
+        expect(mockCategoryOpened).toHaveBeenCalledWith({
+          category: ESettingsTabNames.Security,
+          source: isTabNavigator ? 'sidebar' : 'mobileHome',
+        });
+      });
       expect(
         isTabNavigator ? mockNavigation.dispatch : mockNavigation.push,
-      ).toHaveBeenCalledTimes(3);
+      ).toHaveBeenCalledTimes(1);
     });
-  });
-});
+
+    it('restores categories, search and navigation in normal mode', async () => {
+      mockTravelMode = false;
+      const view = render(<SettingTab />);
+      expect(view.getByTestId(SettingTestIDs.aboutItem)).toBeTruthy();
+      expect(view.getByRole('textbox')).toBeTruthy();
+      if (isTabNavigator) {
+        expect(view.getByTestId('official-channels-and-support')).toBeTruthy();
+      }
+      for (const { title } of restrictedCategories) {
+        fireEvent.click(view.getByRole('button', { name: title }));
+      }
+      await waitFor(() => {
+        expect(
+          isTabNavigator ? mockNavigation.dispatch : mockNavigation.push,
+        ).toHaveBeenCalledTimes(3);
+      });
+    });
+  },
+);
+
+describe.each([false, true])(
+  'resizing Settings with isIOSPad=%s',
+  (isIOSPad) => {
+    it('preserves a native pane draft until returning to its root', () => {
+      Object.assign(mockPlatform, {
+        isNative: true,
+        isNativeIOS: true,
+        isNativeIOSPad: isIOSPad,
+      });
+      mockGtMd = false;
+      mockWindowDimensions = { width: 912, height: 669 };
+      mockPaneIndex = 1;
+      mockInactivePaneIndex = 0;
+      const refreshLayout = () =>
+        act(() => {
+          mockLayoutVersion += 1;
+          mockLayoutListeners.forEach((listener) => listener());
+        });
+      render(<SettingTab />);
+      const draft = screen.getByLabelText('Pane draft');
+      fireEvent.change(draft, { target: { value: 'Unsubmitted network' } });
+
+      mockWindowDimensions = { width: 390, height: 844 };
+      refreshLayout();
+      expect(screen.getByLabelText('Pane draft')).toBe(draft);
+      expect((draft as HTMLInputElement).value).toBe('Unsubmitted network');
+      expect(screen.queryByLabelText('Search')).toBeNull();
+      expect(mockNavigation.setOptions).toHaveBeenLastCalledWith({
+        headerShown: false,
+      });
+
+      mockWindowDimensions = { width: 912, height: 669 };
+      refreshLayout();
+      expect(screen.getByLabelText('Pane draft')).toBe(draft);
+
+      mockWindowDimensions = { width: 390, height: 844 };
+      mockPaneIndex = 0;
+      refreshLayout();
+      expect(screen.queryByLabelText('Pane draft')).toBeNull();
+      expect(mockNavigation.setOptions).toHaveBeenLastCalledWith({
+        headerShown: true,
+      });
+    });
+
+    it('retains an inactive category draft when folding from another category root', () => {
+      Object.assign(mockPlatform, {
+        isNative: true,
+        isNativeIOS: true,
+        isNativeIOSPad: isIOSPad,
+      });
+      mockGtMd = false;
+      mockWindowDimensions = { width: 912, height: 669 };
+      mockPaneIndex = 0;
+      mockInactivePaneIndex = 1;
+      const refreshLayout = () =>
+        act(() => {
+          mockLayoutVersion += 1;
+          mockLayoutListeners.forEach((listener) => listener());
+        });
+      render(<SettingTab />);
+      const draft = screen.getByLabelText('Pane draft');
+      fireEvent.change(draft, { target: { value: 'Inactive network draft' } });
+
+      mockWindowDimensions = { width: 390, height: 844 };
+      refreshLayout();
+      expect(screen.getByLabelText('Pane draft')).toBe(draft);
+      expect((draft as HTMLInputElement).value).toBe('Inactive network draft');
+      expect(screen.getByLabelText('Search')).toBeTruthy();
+
+      mockWindowDimensions = { width: 912, height: 669 };
+      refreshLayout();
+      expect(screen.getByLabelText('Pane draft')).toBe(draft);
+      expect((draft as HTMLInputElement).value).toBe('Inactive network draft');
+
+      mockWindowDimensions = { width: 390, height: 844 };
+      mockInactivePaneIndex = 0;
+      refreshLayout();
+      expect(screen.queryByLabelText('Pane draft')).toBeNull();
+      expect(mockNavigation.setOptions).toHaveBeenLastCalledWith({
+        headerShown: true,
+      });
+    });
+  },
+);
+
+it.each([
+  { isIOSPad: true, width: 320, height: 1024, sidebar: false },
+  { isIOSPad: true, width: 410, height: 1024, sidebar: false },
+  { isIOSPad: true, width: 640, height: 1024, sidebar: false },
+  { isIOSPad: true, width: 767, height: 1024, sidebar: false },
+  { isIOSPad: true, width: 768, height: 1024, sidebar: true },
+  { isIOSPad: true, width: 1024, height: 600, sidebar: true },
+  { isIOSPad: false, width: 669, height: 912, sidebar: true },
+  { isIOSPad: false, width: 912, height: 669, sidebar: true },
+  { isIOSPad: false, width: 420, height: 912, sidebar: false },
+  { isIOSPad: false, width: 912, height: 420, sidebar: false },
+])(
+  'uses sidebar=$sidebar at $width x $height with isIOSPad=$isIOSPad',
+  ({ isIOSPad, width, height, sidebar }) => {
+    Object.assign(mockPlatform, {
+      isNative: true,
+      isNativeIOS: true,
+      isNativeIOSPad: isIOSPad,
+    });
+    mockGtMd = false;
+    mockWindowDimensions = { width, height };
+    const { result } = renderHook(() => useSettingsLayout());
+    expect(result.current.isTabNavigator).toBe(sidebar);
+    expect(result.current.isMobileLayout).toBe(!sidebar);
+  },
+);

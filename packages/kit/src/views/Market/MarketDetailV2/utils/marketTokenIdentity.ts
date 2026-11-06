@@ -47,7 +47,7 @@ export function hasMarketContractAddress(address?: string) {
 export function isMarketTokenDecimalsReady(token?: {
   decimals?: number;
   decimalsResolved?: boolean;
-}) {
+}): token is { decimals: number; decimalsResolved?: boolean } {
   return (
     token?.decimalsResolved !== false &&
     typeof token?.decimals === 'number' &&

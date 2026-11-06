@@ -25,7 +25,10 @@ import { MarketStockStar } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/com
 import { parseMarketStockNumber } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketStockList/utils';
 import { applyMarketTokenListLiveOverrides } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketTokenList/hooks/useMarketHomeTokenListWebSocket';
 import { useMarketTokenList } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketTokenList/hooks/useMarketTokenList';
-import { useMarketWatchlistTokenList } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketTokenList/hooks/useMarketWatchlistTokenList';
+import {
+  marketWatchlistDataCacheRef,
+  useMarketWatchlistTokenList,
+} from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketTokenList/hooks/useMarketWatchlistTokenList';
 import { useWatchlistFilteredGroups } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketTokenList/hooks/useWatchlistFilteredGroups';
 import type { IMarketTokenListLiveOverride } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketTokenList/MarketTokenListBase';
 import { getMarketWatchlistRowKind } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketTokenList/utils/marketWatchlistRowKind';
@@ -191,6 +194,9 @@ function BasicMobileMarketSelectorListItem({
   height = ROW_HEIGHT,
   nameGap = '$1',
   star,
+  tableLayout = false,
+  metricValue,
+  volumeValue,
 }: {
   testID?: string;
   tokenImageUri: string;
@@ -213,6 +219,9 @@ function BasicMobileMarketSelectorListItem({
   nameGap?: '$0.5' | '$1';
   /** The favorite star, drawn in the desktop selector's 24px star slot. */
   star?: ReactNode;
+  tableLayout?: boolean;
+  metricValue?: number;
+  volumeValue?: number;
 }) {
   // List rows may arrive without a chain logo (the all-networks list leaves it
   // empty), so it resolves from the row's own network instead.
@@ -226,6 +235,39 @@ function BasicMobileMarketSelectorListItem({
   const hasPrice = price !== undefined && Number.isFinite(price);
   const hasPriceChange =
     priceChange !== undefined && Number.isFinite(priceChange);
+  const priceColumn = (
+    <YStack
+      width={tableLayout ? 120 : undefined}
+      alignItems="flex-end"
+      justifyContent="center"
+      gap="$1"
+    >
+      {hasPrice ? (
+        <NumberSizeableText
+          size="$bodyLgMedium"
+          numberOfLines={1}
+          formatter="price"
+          formatterOptions={{ currency: '$' }}
+        >
+          {price}
+        </NumberSizeableText>
+      ) : (
+        <MissingValue size="$bodyLgMedium" />
+      )}
+      {hasPriceChange ? (
+        <NumberSizeableText
+          size="$bodySmMedium"
+          color={changeColor}
+          formatter="priceChangeCapped"
+          formatterOptions={{ showPlusMinusSigns }}
+        >
+          {priceChange}
+        </NumberSizeableText>
+      ) : (
+        <MissingValue size="$bodySmMedium" />
+      )}
+    </YStack>
+  );
 
   return (
     <XStack
@@ -270,32 +312,31 @@ function BasicMobileMarketSelectorListItem({
         </XStack>
         {subtitle}
       </YStack>
-      <YStack alignItems="flex-end" justifyContent="center" gap="$1">
-        {hasPrice ? (
-          <NumberSizeableText
-            size="$bodyLgMedium"
-            numberOfLines={1}
-            formatter="price"
-            formatterOptions={{ currency: '$' }}
-          >
-            {price}
-          </NumberSizeableText>
-        ) : (
-          <MissingValue size="$bodyLgMedium" />
-        )}
-        {hasPriceChange ? (
-          <NumberSizeableText
-            size="$bodySmMedium"
-            color={changeColor}
-            formatter="priceChangeCapped"
-            formatterOptions={{ showPlusMinusSigns }}
-          >
-            {priceChange}
-          </NumberSizeableText>
-        ) : (
-          <MissingValue size="$bodySmMedium" />
-        )}
-      </YStack>
+      {tableLayout ? (
+        <XStack flexShrink={0}>
+          {priceColumn}
+          {[metricValue, volumeValue].map((value, index) => (
+            <XStack key={index} width={120} justifyContent="flex-end">
+              {value !== undefined && value > 0 ? (
+                <NumberSizeableText
+                  size="$bodyMd"
+                  numberOfLines={1}
+                  formatter="marketCap"
+                  formatterOptions={{ currency: '$', capAtMaxT: true }}
+                >
+                  {value}
+                </NumberSizeableText>
+              ) : (
+                <SizableText size="$bodyMd" color="$textSubdued">
+                  --
+                </SizableText>
+              )}
+            </XStack>
+          ))}
+        </XStack>
+      ) : (
+        priceColumn
+      )}
     </XStack>
   );
 }
@@ -562,8 +603,18 @@ export function MobileSelectorWatchlistList({
       appEventBus.off(EAppEventBusNames.MarketWatchListV2Changed, refresh);
     };
   }, [watchListActions]);
-  const { data, isLoading, isError, refetch } = useMarketWatchlistTokenList({
+  const {
+    data,
+    isLoading,
+    isSpotError,
+    isPerpsError,
+    hasUnresolvedSpotFavorites,
+    hasSettledAllSources,
+    refetch,
+  } = useMarketWatchlistTokenList({
     watchlist: watchListData ?? [],
+    isWatchlistReady: isMounted,
+    dataCacheRef: marketWatchlistDataCacheRef,
     pageSize: Math.max(watchListData?.length ?? 0, 1),
     pollingInterval: TOKEN_SELECTOR_POLLING_INTERVAL,
   });
@@ -572,10 +623,30 @@ export function MobileSelectorWatchlistList({
     groups[watchlistFilter],
     liveTokenOverride,
   );
+  const isError = {
+    all: isSpotError || isPerpsError,
+    spot: isSpotError,
+    // Unresolved spot favorites may be tokenized stocks: their classification
+    // comes from the API and is unknown when a cold request fails.
+    stocks:
+      isSpotError &&
+      (hasUnresolvedSpotFavorites ||
+        rows.some((item) => !item.stockId && !item.assetId)),
+    perps: isPerpsError,
+  }[watchlistFilter];
+  // Missing rows need first-load feedback only until requests settle, including
+  // failures. Later polling keeps the current empty or error view in place.
+  const hasMissingFavorites = data.length < (watchListData?.length ?? 0);
 
-  if (!isMounted || (isLoading && data.length === 0)) {
+  if (
+    !isMounted ||
+    (isLoading &&
+      !hasSettledAllSources &&
+      (data.length === 0 || (hasMissingFavorites && rows.length === 0)))
+  ) {
     return <CenteredSpinner />;
   }
+  // A failed refresh can retain successfully loaded cached sources.
   if (isError && rows.length === 0) {
     return (
       <LoadErrorMessage
@@ -602,7 +673,21 @@ export function MobileSelectorWatchlistList({
     );
   }
   return (
-    <TokenRowsList data={rows} tokenSubtitle="name" onItemPress={onItemPress} />
+    <TokenRowsList
+      data={rows}
+      tokenSubtitle="name"
+      onItemPress={onItemPress}
+      footer={
+        hasMissingFavorites && (!hasSettledAllSources || isError) ? (
+          <LoadMoreFooter
+            isLoading={isLoading && !hasSettledAllSources}
+            isError={isError}
+            testID="mobile-market-token-selector-favorites-retry"
+            onRetry={() => void refetch()}
+          />
+        ) : null
+      }
+    />
   );
 }
 
@@ -762,9 +847,11 @@ export const MobileSelectorStockRow = memo(
   ({
     item,
     onPress,
+    tableLayout,
   }: {
     item: IMarketStockPublicItem;
     onPress: (item: IMarketStockPublicItem) => void;
+    tableLayout?: boolean;
   }) => {
     const handlePress = useCallback(() => onPress(item), [item, onPress]);
     return (
@@ -776,6 +863,9 @@ export const MobileSelectorStockRow = memo(
         star={<MarketStockStar stock={item} from={EWatchlistFrom.Search} />}
         price={parseMarketStockNumber(item.price)}
         priceChange={parseMarketStockNumber(item.priceChange24hPercent)}
+        tableLayout={tableLayout}
+        metricValue={parseMarketStockNumber(item.marketCap)}
+        volumeValue={parseMarketStockNumber(item.volume24h)}
         onPress={handlePress}
       />
     );
@@ -795,11 +885,13 @@ export function MobileSelectorStockTable({
   result,
   onItemPress,
   listHeader,
+  tableLayout,
 }: {
   result: IMobileStockSelectorListResult;
   onItemPress: (item: IMarketStockPublicItem) => void;
   // Scrolls with the rows, e.g. universal search's section title.
   listHeader?: ReactElement;
+  tableLayout?: boolean;
 }) {
   const intl = useIntl();
   const {
@@ -818,9 +910,13 @@ export function MobileSelectorStockTable({
   );
   const renderItem = useCallback(
     ({ item }: { item: IMarketStockPublicItem }) => (
-      <MobileSelectorStockRow item={item} onPress={onItemPress} />
+      <MobileSelectorStockRow
+        item={item}
+        onPress={onItemPress}
+        tableLayout={tableLayout}
+      />
     ),
-    [onItemPress],
+    [onItemPress, tableLayout],
   );
   const handleEndReached = useCallback(() => {
     if (
@@ -993,7 +1089,15 @@ function LiquidityVolumeLine({
  * or liquidity and volume line.
  */
 export const MobileSelectorSearchTokenRow = memo(
-  ({ item, onPress }: { item: IMarketToken; onPress: () => void }) => {
+  ({
+    item,
+    onPress,
+    tableLayout,
+  }: {
+    item: IMarketToken;
+    onPress: () => void;
+    tableLayout?: boolean;
+  }) => {
     const handlePressIn = useCallback(
       () => prewarmMarketTokenImages(item),
       [item],
@@ -1028,10 +1132,12 @@ export const MobileSelectorSearchTokenRow = memo(
             })}
           </SizableText>
         </XStack>
-        <LiquidityVolumeLine
-          liquidity={item.liquidity}
-          volume={item.turnover}
-        />
+        {tableLayout ? null : (
+          <LiquidityVolumeLine
+            liquidity={item.liquidity}
+            volume={item.turnover}
+          />
+        )}
       </YStack>
     );
     return (
@@ -1046,6 +1152,9 @@ export const MobileSelectorSearchTokenRow = memo(
         subtitle={subtitle}
         price={item.price}
         priceChange={getTokenPriceChange(item)}
+        tableLayout={tableLayout}
+        metricValue={item.liquidity}
+        volumeValue={item.turnover}
         height={isNativeCoin ? ROW_HEIGHT : SEARCH_TOKEN_ROW_HEIGHT}
         star={<SelectorTokenStar item={item} />}
         nameGap={isNativeCoin ? '$1' : '$0.5'}
@@ -1080,42 +1189,67 @@ const SEARCH_SKELETON_ROW_COUNT = 8;
  * universal search: the sections then appear at once instead of the late
  * one pushing the other down. It mirrors a section title and the rows.
  */
-export function MobileSelectorSearchSkeleton() {
+export function MobileSelectorSearchSkeleton({
+  tableLayout = false,
+}: {
+  tableLayout?: boolean;
+}) {
   return (
     <YStack pt="$2.5">
       <XStack px="$5" py="$2">
         <SkeletonLine lineHeight={20} h="$3" w="$16" />
       </XStack>
-      {Array.from({ length: SEARCH_SKELETON_ROW_COUNT }, (_, index) => (
-        <XStack
-          key={index}
-          height={ROW_HEIGHT}
-          px="$5"
-          py="$2"
-          gap="$3"
-          alignItems="center"
-        >
-          <XStack alignItems="center" gap={TOKEN_SELECTOR_NAME_GAP}>
-            <Stack
-              width={TOKEN_SELECTOR_STAR_COLUMN_WIDTH}
-              ml={STAR_SLOT_GUTTER_OFFSET}
-              alignItems="center"
-              justifyContent="center"
-            >
-              <Skeleton w="$4" h="$4" radius="round" />
-            </Stack>
-            <Skeleton w="$8" h="$8" radius="round" />
-          </XStack>
-          <YStack flex={1} gap="$1">
-            <SkeletonLine lineHeight={24} h="$3" w="$16" />
-            <SkeletonLine lineHeight={16} h="$2.5" w="$32" />
-          </YStack>
-          <YStack alignItems="flex-end" gap="$1">
+      {Array.from({ length: SEARCH_SKELETON_ROW_COUNT }, (_, index) => {
+        const priceSkeleton = (
+          <YStack
+            width={tableLayout ? 120 : undefined}
+            alignItems="flex-end"
+            gap="$1"
+          >
             <SkeletonLine lineHeight={24} h="$3" w="$16" />
             <SkeletonLine lineHeight={16} h="$2.5" w="$12" />
           </YStack>
-        </XStack>
-      ))}
+        );
+        return (
+          <XStack
+            key={index}
+            height={ROW_HEIGHT}
+            px="$5"
+            py="$2"
+            gap="$3"
+            alignItems="center"
+          >
+            <XStack alignItems="center" gap={TOKEN_SELECTOR_NAME_GAP}>
+              <Stack
+                width={TOKEN_SELECTOR_STAR_COLUMN_WIDTH}
+                ml={STAR_SLOT_GUTTER_OFFSET}
+                alignItems="center"
+                justifyContent="center"
+              >
+                <Skeleton w="$4" h="$4" radius="round" />
+              </Stack>
+              <Skeleton w="$8" h="$8" radius="round" />
+            </XStack>
+            <YStack flex={1} gap="$1">
+              <SkeletonLine lineHeight={24} h="$3" w="$16" />
+              <SkeletonLine lineHeight={16} h="$2.5" w="$32" />
+            </YStack>
+            {tableLayout ? (
+              <XStack flexShrink={0}>
+                {priceSkeleton}
+                <XStack width={120} justifyContent="flex-end">
+                  <Skeleton w="$16" h="$3" />
+                </XStack>
+                <XStack width={120} justifyContent="flex-end">
+                  <Skeleton w="$16" h="$3" />
+                </XStack>
+              </XStack>
+            ) : (
+              priceSkeleton
+            )}
+          </XStack>
+        );
+      })}
     </YStack>
   );
 }

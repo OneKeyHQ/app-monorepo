@@ -10,7 +10,6 @@ import type {
   IListViewProps,
   ISectionListProps,
   IStackProps,
-  ITabContainerRef,
 } from '@onekeyhq/components';
 import {
   ActionList,
@@ -25,7 +24,6 @@ import {
   SizableText,
   Spinner,
   Stack,
-  Tabs,
   Toast,
   XStack,
   useClipboard,
@@ -34,6 +32,10 @@ import {
 import { HeaderIconButton } from '@onekeyhq/components/src/layouts/Navigation/Header';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
+import type {
+  IAppPagerPage,
+  IAppPagerRef,
+} from '@onekeyhq/kit/src/components/AppPager/types';
 import { NetworkAvatar } from '@onekeyhq/kit/src/components/NetworkAvatar';
 import {
   TabletModalContainer,
@@ -47,9 +49,11 @@ import {
 } from '@onekeyhq/kit/src/hooks/useDeriveTypesCollapseState';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { openTokenDetailsUrl } from '@onekeyhq/kit/src/utils/explorerUtils';
+import { formatPrivacyChainPoolKindLabel } from '@onekeyhq/kit/src/utils/privacyChainEndpointLabel';
 import type {
   IAccountDeriveInfo,
   IAccountDeriveTypes,
+  IVaultSettings,
 } from '@onekeyhq/kit-bg/src/vaults/types';
 import {
   EAppEventBusNames,
@@ -62,7 +66,11 @@ import type {
 } from '@onekeyhq/shared/src/routes/assetDetails';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
-import { waitAsync } from '@onekeyhq/shared/src/utils/promiseUtils';
+import { getPrivacyChainMainPools } from '@onekeyhq/shared/src/utils/privacyChainDisplayUtils';
+import {
+  createTimeoutPromise,
+  waitAsync,
+} from '@onekeyhq/shared/src/utils/promiseUtils';
 import {
   buildTokenListMapKey,
   sortTokensCommon,
@@ -85,8 +93,10 @@ import {
 import TokenDetailsFooter from './TokenDetailsFooter';
 import { enableNetworkInAllNetworksOnce } from './tokenDetailsNetworkAutoEnable';
 import TokenDetailsOverview from './TokenDetailsOverview';
+import { TokenDetailsPager } from './TokenDetailsPager';
 import TokenDetailsTabToolbar from './TokenDetailsTabToolbar';
 import TokenDetailsViews from './TokenDetailsView';
+import { preloadLocalWalletPool } from './useLocalWalletPool';
 
 import type { ITokenDetailsContextValue } from './TokenDetailsContext';
 import type { RouteProp } from '@react-navigation/core';
@@ -115,7 +125,15 @@ export type IProps = {
     enabledNetworks: Record<string, boolean>;
   };
   refreshAllNetworkState?: () => void;
+  privacyHistoryPoolId?: number;
+  // The page's own settings, so a privacy chain's header lays out from its
+  // first frame instead of after its own read.
+  privacyChainVaultSettings?: IVaultSettings;
 } & IStackProps;
+
+// How long a privacy chain's page holds its spinner for whether privacy is on.
+const PRIVACY_CHAIN_LAYOUT_WAIT_MS = 300;
+
 function TokenDetailsView() {
   const intl = useIntl();
 
@@ -146,11 +164,38 @@ function TokenDetailsView() {
 
   const { gtMd } = useMedia();
 
-  const tabsRef = useRef<ITabContainerRef | null>(null);
+  const tabsRef = useRef<IAppPagerRef | null>(null);
 
-  const [activeTabIndex, setActiveTabIndex] = useState(0);
+  const [activeTabKey, setActiveTabKey] = useState<string>();
 
   const { vaultSettings, network } = useAccountData({ networkId });
+
+  // Settings decide pool tabs vs a single view; a privacy chain waits for
+  // them so it does not open as a plain token first, and briefly for whether
+  // privacy is on, so it opens as the balance or the enable card, not both.
+  const isPrivacyChain = networkUtils.isLocalWalletNetwork({ networkId });
+  const privacyChainAccountId = isPrivacyChain
+    ? (tokenInfo.accountId ?? accountId)
+    : undefined;
+  const { result: preloadedPrivacyChainAccountId } =
+    usePromiseResult(async () => {
+      if (!privacyChainAccountId) return undefined;
+      await createTimeoutPromise({
+        asyncFunc: () =>
+          preloadLocalWalletPool({
+            networkId,
+            accountId: privacyChainAccountId,
+          }).catch(() => undefined),
+        timeout: PRIVACY_CHAIN_LAYOUT_WAIT_MS,
+        timeoutResult: undefined,
+      });
+      return privacyChainAccountId;
+    }, [networkId, privacyChainAccountId]);
+  const isPrivacyChainLoading =
+    isPrivacyChain &&
+    (!vaultSettings ||
+      preloadedPrivacyChainAccountId !== privacyChainAccountId);
+  const privacyChainVaultSettings = isPrivacyChain ? vaultSettings : undefined;
 
   const {
     result: { tokens },
@@ -654,6 +699,15 @@ function TokenDetailsView() {
     ];
   }, [tokens, overviewTabName, uniqueTabNames]);
 
+  useEffect(() => {
+    if (
+      activeTabKey &&
+      !aggregateTabs?.some((tab) => tab.token?.$key === activeTabKey)
+    ) {
+      setActiveTabKey(undefined);
+    }
+  }, [activeTabKey, aggregateTabs]);
+
   const jumpToMemberTab = useCallback(
     (token: IAccountToken) => {
       tabsRef.current?.jumpToTab(uniqueTabNames.get(token.$key) ?? token.$key);
@@ -667,9 +721,9 @@ function TokenDetailsView() {
   const activeFooterToken = useMemo(
     () =>
       (aggregateTabs
-        ? aggregateTabs[activeTabIndex]?.token
-        : tokens[activeTabIndex]) ?? tokens[0],
-    [activeTabIndex, aggregateTabs, tokens],
+        ? aggregateTabs.find((tab) => tab.token?.$key === activeTabKey)?.token
+        : undefined) ?? tokens[0],
+    [activeTabKey, aggregateTabs, tokens],
   );
   const activeFooterNetworkId = activeFooterToken?.networkId ?? networkId;
 
@@ -700,87 +754,124 @@ function TokenDetailsView() {
     }
   }, [footerTokenMetadata, updateTokenMetadata]);
 
-  const tabs = useMemo(() => {
+  const tabs = useMemo<IAppPagerPage[]>(() => {
     if (aggregateTabs) {
       return aggregateTabs.map(({ name, token }) =>
-        token ? (
-          <Tabs.Tab key={token.$key} name={name}>
-            <TokenDetailsViews
-              inTabList
-              isTabView
-              accountId={token.accountId ?? ''}
-              networkId={token.networkId ?? ''}
-              walletId={walletId}
-              tokenInfo={token}
-              tokenMap={tokenMap}
-              isAllNetworks={isAllNetworks}
-              listViewContentContainerStyle={listViewContentContainerStyle}
-              indexedAccountId={indexedAccountId}
-              allNetworksState={allNetworksState}
-              refreshAllNetworkState={refreshAllNetworkState}
-            />
-          </Tabs.Tab>
-        ) : (
-          <Tabs.Tab key="aggregate-overview" name={name}>
-            <TokenDetailsOverview
-              accountId={accountId}
-              networkId={networkId}
-              walletId={walletId}
-              indexedAccountId={indexedAccountId}
-              tokenInfo={tokenInfo}
-              tokens={tokens}
-              tokenMap={tokenMap}
-              isAllNetworks={isAllNetworks}
-              onSelectToken={jumpToMemberTab}
-            />
-          </Tabs.Tab>
-        ),
+        token
+          ? {
+              key: token.$key,
+              name,
+              children: (
+                <TokenDetailsViews
+                  inTabList
+                  isTabView
+                  accountId={token.accountId ?? ''}
+                  networkId={token.networkId ?? ''}
+                  walletId={walletId}
+                  tokenInfo={token}
+                  tokenMap={tokenMap}
+                  isAllNetworks={isAllNetworks}
+                  listViewContentContainerStyle={listViewContentContainerStyle}
+                  indexedAccountId={indexedAccountId}
+                  allNetworksState={allNetworksState}
+                  refreshAllNetworkState={refreshAllNetworkState}
+                />
+              ),
+            }
+          : {
+              key: 'aggregate-overview',
+              name,
+              children: (
+                <TokenDetailsOverview
+                  accountId={accountId}
+                  networkId={networkId}
+                  walletId={walletId}
+                  indexedAccountId={indexedAccountId}
+                  tokenInfo={tokenInfo}
+                  tokens={tokens}
+                  tokenMap={tokenMap}
+                  isAllNetworks={isAllNetworks}
+                  onSelectToken={jumpToMemberTab}
+                />
+              ),
+            },
       );
     }
 
     if (networkId && walletId) {
+      if (
+        vaultSettings?.localWallet?.balanceShape === 'pooled' &&
+        vaultSettings.localWallet.pools
+      ) {
+        return getPrivacyChainMainPools(vaultSettings.localWallet.pools).map(
+          (pool) => ({
+            key: String(pool.id),
+            name: formatPrivacyChainPoolKindLabel({ intl, kind: pool.kind }),
+            children: (
+              <TokenDetailsViews
+                inTabList
+                isTabView
+                accountId={tokenInfo.accountId ?? ''}
+                networkId={tokenInfo.networkId ?? ''}
+                walletId={walletId}
+                tokenInfo={tokenInfo}
+                tokenMap={tokenMap}
+                isAllNetworks={isAllNetworks}
+                listViewContentContainerStyle={listViewContentContainerStyle}
+                indexedAccountId={indexedAccountId}
+                privacyHistoryPoolId={pool.id}
+                privacyChainVaultSettings={privacyChainVaultSettings}
+              />
+            ),
+          }),
+        );
+      }
+
       if (vaultSettings?.mergeDeriveAssetsEnabled) {
-        return result?.networkAccounts.map((item, index) => (
-          <Tabs.Tab
-            key={String(index)}
-            name={
-              item.deriveInfo.labelKey
-                ? intl.formatMessage({ id: item.deriveInfo.labelKey })
-                : (item.deriveInfo.label ?? String(index))
-            }
-          >
+        return (
+          result?.networkAccounts.map((item, index) => ({
+            key: item.account?.id ?? `${networkId}:${item.deriveType}`,
+            name: item.deriveInfo.labelKey
+              ? intl.formatMessage({ id: item.deriveInfo.labelKey })
+              : (item.deriveInfo.label ?? String(index)),
+            children: (
+              <TokenDetailsViews
+                inTabList
+                isTabView
+                accountId={item.account?.id ?? ''}
+                networkId={tokenInfo.networkId ?? ''}
+                walletId={walletId}
+                deriveInfo={item.deriveInfo}
+                deriveType={item.deriveType}
+                tokenInfo={tokenInfo}
+                tokenMap={tokenMap}
+                allowTokenMapAsInitialDetails={false}
+                isAllNetworks={isAllNetworks}
+                listViewContentContainerStyle={listViewContentContainerStyle}
+                indexedAccountId={indexedAccountId}
+              />
+            ),
+          })) ?? []
+        );
+      }
+
+      return [
+        {
+          key: String(tokenInfo.$key),
+          name: '',
+          children: (
             <TokenDetailsViews
-              inTabList
-              isTabView
-              accountId={item.account?.id ?? ''}
+              accountId={tokenInfo.accountId ?? ''}
               networkId={tokenInfo.networkId ?? ''}
               walletId={walletId}
-              deriveInfo={item.deriveInfo}
-              deriveType={item.deriveType}
               tokenInfo={tokenInfo}
               tokenMap={tokenMap}
-              allowTokenMapAsInitialDetails={false}
               isAllNetworks={isAllNetworks}
               listViewContentContainerStyle={listViewContentContainerStyle}
               indexedAccountId={indexedAccountId}
             />
-          </Tabs.Tab>
-        ));
-      }
-
-      return [
-        <Tabs.Tab key={String(tokenInfo.$key)} name="">
-          <TokenDetailsViews
-            accountId={tokenInfo.accountId ?? ''}
-            networkId={tokenInfo.networkId ?? ''}
-            walletId={walletId}
-            tokenInfo={tokenInfo}
-            tokenMap={tokenMap}
-            isAllNetworks={isAllNetworks}
-            listViewContentContainerStyle={listViewContentContainerStyle}
-            indexedAccountId={indexedAccountId}
-          />
-        </Tabs.Tab>,
+          ),
+        },
       ];
     }
 
@@ -796,6 +887,9 @@ function TokenDetailsView() {
     allNetworksState,
     refreshAllNetworkState,
     vaultSettings?.mergeDeriveAssetsEnabled,
+    vaultSettings?.localWallet?.balanceShape,
+    vaultSettings?.localWallet?.pools,
+    privacyChainVaultSettings,
     tokenInfo,
     tokenMap,
     result?.networkAccounts,
@@ -814,7 +908,7 @@ function TokenDetailsView() {
 
   const handleTabIndexChange = useCallback(
     async (index: number) => {
-      setActiveTabIndex(index);
+      setActiveTabKey(aggregateTabsRef.current?.[index]?.token?.$key);
 
       // The Overview descriptor has no token, so only member tabs can trigger
       // the auto-enable below.
@@ -858,6 +952,7 @@ function TokenDetailsView() {
       (isLoading && !collapsedNetworkAccount) ||
       isLoadingTokens ||
       !isCollapseStateReady ||
+      isPrivacyChainLoading ||
       // Keep aggregate tokens on the spinner until the group is resolved so
       // the aggregate descriptor never reaches the single-token fallback.
       (tokenInfo.isAggregateToken && isLoadingTokens !== false)
@@ -907,32 +1002,28 @@ function TokenDetailsView() {
         />
       );
     }
+    // Pooled privacy chains get tabs for every wallet type: pools belong to
+    // the balance, so `isOthersWallet` must not gate them.
     if (
       (!accountUtils.isOthersWallet({ walletId }) &&
         vaultSettings?.mergeDeriveAssetsEnabled) ||
+      vaultSettings?.localWallet?.balanceShape === 'pooled' ||
       tokens.length > 1
     ) {
-      if (tabs && !isEmpty(tabs) && tabs.length > 1) {
+      if (tabs.length > 1) {
         return (
-          <Tabs.Container
+          <TokenDetailsPager
             width={pageWidth}
-            ref={tabsRef as any}
+            ref={tabsRef}
+            pages={tabs}
             onIndexChange={handleTabIndexChange}
-            renderTabBar={(props) => (
-              <Tabs.TabBar
-                {...props}
-                scrollable
-                renderToolbar={() => (
-                  <TokenDetailsTabToolbar
-                    tokens={tokens}
-                    onSelected={jumpToMemberTab}
-                  />
-                )}
+            toolbar={
+              <TokenDetailsTabToolbar
+                tokens={tokens}
+                onSelected={jumpToMemberTab}
               />
-            )}
-          >
-            {tabs}
-          </Tabs.Container>
+            }
+          />
         );
       }
       return null;
@@ -948,16 +1039,20 @@ function TokenDetailsView() {
         isAllNetworks={isAllNetworks}
         indexedAccountId={indexedAccountId}
         listViewContentContainerStyle={listViewContentContainerStyle}
+        privacyChainVaultSettings={privacyChainVaultSettings}
       />
     );
   }, [
     isLoading,
     isLoadingTokens,
     isCollapseStateReady,
+    isPrivacyChainLoading,
+    privacyChainVaultSettings,
     collapsedNetworkAccount,
     isAggregateTokenUnavailable,
     walletId,
     vaultSettings?.mergeDeriveAssetsEnabled,
+    vaultSettings?.localWallet?.balanceShape,
     tokens,
     tokenInfo,
     effectiveTokenInfo,

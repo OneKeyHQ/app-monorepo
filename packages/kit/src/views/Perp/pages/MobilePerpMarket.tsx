@@ -14,29 +14,27 @@ import {
   type LayoutChangeEvent,
   useWindowDimensions,
 } from 'react-native';
+import { NativeScroller } from 'react-native-pager-view';
 
 import type { IScrollViewRef } from '@onekeyhq/components';
 import {
-  HeaderScrollGestureWrapper,
   Icon,
   Page,
   ScrollView,
   SizableText,
-  Tabs,
   XStack,
   YStack,
   useIsSplitDetailActive,
   usePageWidth,
   useSafeAreaInsets,
-  useTheme,
 } from '@onekeyhq/components';
-import { TRADING_VIEW_NATIVE_SUB_INDICATOR_PANE_HEIGHT } from '@onekeyhq/kit/src/components/TradingView/TradingViewNative/chartConstants';
 import { useTradingViewNativeSubIndicatorCount } from '@onekeyhq/kit/src/components/TradingView/TradingViewNative/useTradingViewNativeSettings';
 import { useActiveTradeInstrumentAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import { PerpDexBadge } from '@onekeyhq/kit/src/views/Market/components/PerpsBadges';
 import { usePerpsCustomSettingsAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import { isFoldableIPhone } from '@onekeyhq/shared/src/modules/DualScreenInfo/isFoldableIPhone';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import {
@@ -49,6 +47,7 @@ import {
   requestHideTabBar,
 } from '@onekeyhq/shared/src/tabBar/hideTabBarRequests';
 
+import { FOLDABLE_IPHONE_TITLE_ITEM_WIDTH } from '../../../components/TabPageHeader/headerLayout';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { useAppRoute } from '../../../hooks/useAppRoute';
 import { PerpFundingChart } from '../components/MarketDetail/PerpFundingChart';
@@ -74,28 +73,29 @@ import {
 } from '../utils/mobileLayoutTrace';
 import {
   type IMobilePerpMarketTab,
+  getMobilePerpMarketChartHeight,
   getMobilePerpMarketPageScrollState,
   getMobilePerpMarketPagerHeight,
 } from '../utils/mobilePerpMarketScrollState';
 import { preloadPerpsMobileTokenSelectorPage } from '../utils/preloadPerpsTokenSelector';
 
-const MOBILE_CHART_HEIGHT = 500;
+import type { NativeStackHeaderItem } from '@react-navigation/native-stack';
 
 // Native sub-indicator panes extend the chart downward; the price pane keeps
 // its height.
 function useMobilePerpChartLayout() {
-  const [{ chartMode = 'tradingView' }] = usePerpsCustomSettingsAtom();
+  const [{ chartMode = 'native' }] = usePerpsCustomSettingsAtom();
   const subIndicatorCount = useTradingViewNativeSubIndicatorCount('perps');
   const growsWithSubIndicators = platformEnv.isNative && chartMode === 'native';
   return {
-    chartHeight: growsWithSubIndicators
-      ? MOBILE_CHART_HEIGHT +
-        subIndicatorCount * TRADING_VIEW_NATIVE_SUB_INDICATOR_PANE_HEIGHT
-      : MOBILE_CHART_HEIGHT,
+    chartHeight: getMobilePerpMarketChartHeight({
+      isNativeChart: chartMode === 'native',
+      isNative: Boolean(platformEnv.isNative),
+      subIndicatorCount,
+    }),
     growsWithSubIndicators,
   };
 }
-const IOS_CHART_BOTTOM_OVERLAP = 56;
 
 const MOBILE_PERP_MARKET_TAB_ITEMS: Array<{
   key: IMobilePerpMarketTab;
@@ -211,9 +211,11 @@ function MobilePerpMarketPageContent({
 }
 
 function MobilePerpCandlesHeader({
+  children,
   isInteractionOverlayOpen,
   onInteractionOverlayOpenChange,
 }: {
+  children: ReactNode;
   isInteractionOverlayOpen: boolean;
   onInteractionOverlayOpenChange: (isOpen: boolean) => void;
 }) {
@@ -232,7 +234,6 @@ function MobilePerpCandlesHeader({
         tracePerpsMobileLayout('mobileMarket.candlesHeader.layout', {
           rect,
           chartHeight,
-          bottomOverlap: IOS_CHART_BOTTOM_OVERLAP,
         });
         layoutRef.current = rect;
       }
@@ -241,26 +242,23 @@ function MobilePerpCandlesHeader({
   );
 
   return (
-    <YStack mb={-IOS_CHART_BOTTOM_OVERLAP} onLayout={handleLayout}>
-      <MobilePerpMarketHeader />
-      <HeaderScrollGestureWrapper
-        disabled={isInteractionOverlayOpen}
-        panActiveOffsetY={[-4, 4]}
-        panFailOffsetX={[-40, 40]}
-        excludeRightEdgeRatio={0.1}
-        scrollScale={1.2}
-        disableMomentum
-        simultaneousWithNativeGesture
-        cancelChildTouches={false}
-      >
+    <NativeScroller
+      testID="perps-market-chart-scroll"
+      style={{ flex: 1 }}
+      scrollEnabled={!isInteractionOverlayOpen}
+      showsVerticalScrollIndicator={false}
+    >
+      <YStack onLayout={handleLayout}>
+        <MobilePerpMarketHeader />
         <YStack h={chartHeight} overflow="hidden">
           <PerpCandles
             onInteractionOverlayOpenChange={onInteractionOverlayOpenChange}
             nativeChartGrowsWithSubIndicators={growsWithSubIndicators}
           />
         </YStack>
-      </HeaderScrollGestureWrapper>
-    </YStack>
+      </YStack>
+      {children}
+    </NativeScroller>
   );
 }
 
@@ -303,11 +301,6 @@ function MobilePerpCandlesStatic({
 }
 
 function MobilePerpMarket() {
-  const theme = useTheme();
-  const chartHeaderStyle = useMemo(
-    () => ({ backgroundColor: theme.bgApp.val }),
-    [theme.bgApp.val],
-  );
   const route = useAppRoute<
     IModalPerpParamList,
     EModalPerpRoutes.MobilePerpMarket
@@ -315,6 +308,7 @@ function MobilePerpMarket() {
   const initialTab = route.params?.initialTab ?? 'orderbook';
   const [activeTradeInstrument] = useActiveTradeInstrumentAtom();
   const { baseName, dexLabel, displayName, mode } = useActiveTradeDisplay();
+  const intl = useIntl();
   const navigation = useAppNavigation();
   const [activeTab, setActiveTab] = useState<IMobilePerpMarketTab>(initialTab);
   const [hasInfoTabMounted, setHasInfoTabMounted] = useState(
@@ -592,6 +586,33 @@ function MobilePerpMarket() {
     [activeTradeInstrument.coin, mode],
   );
 
+  const { top: safeAreaTop } = useSafeAreaInsets();
+  const isTitleInLeftItem = isFoldableIPhone();
+  const buildHeaderLeftItems = useCallback(
+    (): NativeStackHeaderItem[] => [
+      {
+        type: 'button',
+        label: intl.formatMessage({ id: ETranslations.global_back }),
+        accessibilityLabel: intl.formatMessage({
+          id: ETranslations.global_back,
+        }),
+        icon: { type: 'sfSymbol', name: 'chevron.backward' },
+        identifier: 'perp-market-back',
+        onPress: () => navigation.pop(),
+      },
+      {
+        type: 'custom' as const,
+        element: (
+          <XStack width={FOLDABLE_IPHONE_TITLE_ITEM_WIDTH}>
+            {renderHeaderTitle()}
+          </XStack>
+        ),
+        hidesSharedBackground: true,
+      },
+    ],
+    [intl, navigation, renderHeaderTitle],
+  );
+
   // In split-view detail (SUB) pane the page is rendered inline rather than
   // as a navigator screen, so `Page.Header` (which goes through
   // navigation.setOptions) is a no-op and the user loses the pair selector +
@@ -607,13 +628,23 @@ function MobilePerpMarket() {
       ) : (
         <Page.Header
           headerShown
-          headerTitle={renderHeaderTitle}
           headerRight={renderHeaderRight}
+          {...(isTitleInLeftItem
+            ? {
+                headerTitle: '',
+                unstable_headerLeftItems: buildHeaderLeftItems,
+              }
+            : { headerTitle: renderHeaderTitle })}
         />
       ),
-    [isSplitDetailActive, renderHeaderTitle, renderHeaderRight],
+    [
+      buildHeaderLeftItems,
+      isSplitDetailActive,
+      isTitleInLeftItem,
+      renderHeaderTitle,
+      renderHeaderRight,
+    ],
   );
-  const { top: safeAreaTop } = useSafeAreaInsets();
   const inlineHeader = useMemo(
     () =>
       isSplitDetailActive ? (
@@ -754,37 +785,14 @@ function MobilePerpMarket() {
                   </YStack>
                 </YStack>
               ) : platformEnv.isNativeIOS ? (
-                <Tabs.Container
-                  initialTabName="orderbook"
-                  headerContainerStyle={chartHeaderStyle}
-                  renderHeader={() => (
-                    <MobilePerpCandlesHeader
-                      isInteractionOverlayOpen={
-                        isTradingViewInteractionOverlayOpen
-                      }
-                      onInteractionOverlayOpenChange={
-                        handleInteractionOverlayOpenChange
-                      }
-                    />
-                  )}
-                  renderTabBar={() => null}
+                <MobilePerpCandlesHeader
+                  isInteractionOverlayOpen={isTradingViewInteractionOverlayOpen}
+                  onInteractionOverlayOpenChange={
+                    handleInteractionOverlayOpenChange
+                  }
                 >
-                  <Tabs.Tab name="orderbook">
-                    <Tabs.ScrollView
-                      scrollEnabled={!isTradingViewInteractionOverlayOpen}
-                      showsVerticalScrollIndicator={false}
-                      contentContainerStyle={{ flexGrow: 0, minHeight: 0 }}
-                    >
-                      <YStack
-                        onLayout={(event) =>
-                          handleTraceLayout('iosOrderbookTabContent', event)
-                        }
-                      >
-                        {orderBookContent}
-                      </YStack>
-                    </Tabs.ScrollView>
-                  </Tabs.Tab>
-                </Tabs.Container>
+                  {orderBookContent}
+                </MobilePerpCandlesHeader>
               ) : (
                 <YStack
                   onLayout={(event) =>

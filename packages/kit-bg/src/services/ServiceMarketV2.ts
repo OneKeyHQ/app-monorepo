@@ -12,6 +12,7 @@ import {
   MARKET_STOCK_BATCH_MAX_IDS,
 } from '@onekeyhq/shared/src/consts/marketConsts';
 import { OneKeyError, OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -347,7 +348,7 @@ class ServiceMarketV2 extends ServiceBase {
   }
 
   private memoizedFetchMarketBasicConfig = memoizee(
-    async () => {
+    async (autoHandleError?: boolean) => {
       const client = await this.getClient(EServiceEndpointEnum.Utility);
       const response = await client.get<IMarketBasicConfigResponse>(
         '/utility/v2/market/basic-config',
@@ -355,6 +356,7 @@ class ServiceMarketV2 extends ServiceBase {
           params: {
             configVersion: 2,
           },
+          ...(autoHandleError === false ? { autoHandleError: false } : {}),
         },
       );
       return response.data;
@@ -366,13 +368,17 @@ class ServiceMarketV2 extends ServiceBase {
   );
 
   @backgroundMethod()
-  async fetchMarketBasicConfig() {
+  async fetchMarketBasicConfig(options?: { autoHandleError?: boolean }) {
     try {
-      return await this.memoizedFetchMarketBasicConfig();
+      return await this.memoizedFetchMarketBasicConfig(
+        options?.autoHandleError,
+      );
     } catch (error) {
       // memoizee({ promise: true }) retains rejected promises. Drop the
       // failure so reconnect / retry can reach the network again.
-      void this.memoizedFetchMarketBasicConfig.clear();
+      void this.memoizedFetchMarketBasicConfig.delete(options?.autoHandleError);
+      if (options?.autoHandleError === false)
+        errorToastUtils.toastIfErrorDisable(error);
       throw error;
     }
   }
@@ -1074,6 +1080,7 @@ class ServiceMarketV2 extends ServiceBase {
         error,
       );
       if (throwOnError) {
+        errorToastUtils.toastIfErrorDisable(error);
         throw error;
       }
       // Return empty list on error instead of throwing

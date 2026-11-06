@@ -7,6 +7,7 @@ export {
   getTradingViewNativeSubIndicatorCountFromOptions,
   getTradingViewNativeSubIndicatorCountForSnapshot,
   useNativeIndicatorActiveValues,
+  useShowNativeIndicatorsDialog,
 } from './chartControls/TradingViewV2ChartControlsContainer';
 export type {
   ICalendarPanelSubmitPayload,
