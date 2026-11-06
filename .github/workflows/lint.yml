@@ -109,6 +109,7 @@ jobs:
           development/lint/background-api-contract.node-test.js
           development/lint/test-integrity.node-test.js
           development/lint/onekeyfe-patches.node-test.js
+          development/lint/external-sdk.node-test.js
           apps/cli/esbuild.config.node-test.js
           apps/mobile/scripts/check-third-party-async-storage.node-test.js
           apps/mobile/scripts/native-storage-metro-policy.node-test.js

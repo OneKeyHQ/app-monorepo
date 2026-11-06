@@ -1,0 +1,145 @@
+{
+  "version": 1,
+  "sdks": [
+    {
+      "id": "onramper-react-native-ios-sdk",
+      "description": "Closed-source Onramper iOS SDK binary vendored by @onramper/onramper-react-native, plus its Swift bridge. Pinned file-by-file so tampering, a malicious npm publish or an injected framework fails lint.",
+      "root": "node_modules/@onramper/onramper-react-native",
+      "packageVersion": {
+        "file": "package.json",
+        "expect": "1.3.1"
+      },
+      "directories": ["ios/Frameworks/OnramperSDK.xcframework"],
+      "files": [
+        "ios/HybridOnramperCheckoutButton.swift",
+        "ios/HybridOnramperNitro.swift",
+        "ios/OnramperCheckoutBridge.swift",
+        "ios/OnramperSDKBridge.swift",
+        "ios/PreparedIntentRegistry.swift",
+        "ios/SDKLogRelay.swift"
+      ],
+      "hashes": {
+        "ios/Frameworks/OnramperSDK.xcframework/Info.plist": {
+          "sha256": "14f39b8528565586d221b5e6f3d049e56858e19792b309eed51d8163b92d06df",
+          "size": 1322
+        },
+        "ios/Frameworks/OnramperSDK.xcframework/ios-arm64/OnramperSDK.framework/Info.plist": {
+          "sha256": "6b200f9a3807b35fdb8d052055a59f10d097bf3bbcc5ccff24a22733ff72aa5b",
+          "size": 753
+        },
+        "ios/Frameworks/OnramperSDK.xcframework/ios-arm64/OnramperSDK.framework/Modules/OnramperSDK.swiftmodule/arm64-apple-ios.swiftdoc": {
+          "sha256": "8098b894c4e8e37922aaa1321b1194af498598adcaa0918daf515e1fc7d7a6a1",
+          "size": 41740
+        },
+        "ios/Frameworks/OnramperSDK.xcframework/ios-arm64/OnramperSDK.framework/Modules/OnramperSDK.swiftmodule/arm64-apple-ios.swiftinterface": {
+          "sha256": "35cbe1bdb57dcc47b4d01ffa8800e2cadf1a2f6e26d4383fc48be7a8bd0d5413",
+          "size": 33739
+        },
+        "ios/Frameworks/OnramperSDK.xcframework/ios-arm64/OnramperSDK.framework/OnramperSDK": {
+          "sha256": "6a12598c0390731b8951109e69dec5d75377bd960de0d801826274dfd776243f",
+          "size": 3528512
+        },
+        "ios/Frameworks/OnramperSDK.xcframework/ios-arm64/OnramperSDK.framework/OnramperSDK_OnramperSDK.bundle/Info.plist": {
+          "sha256": "ea5ca6db6aba18b6bf0670a18037ab44b4be2bb1313b0a64c2872144ae4f0ce6",
+          "size": 687
+        },
+        "ios/Frameworks/OnramperSDK.xcframework/ios-arm64/OnramperSDK.framework/OnramperSDK_OnramperSDK.bundle/PrivacyInfo.xcprivacy": {
+          "sha256": "8672dc789ae77c09debb0781619ff4dbc595ccd7f137ecfd6620b0ffd7180662",
+          "size": 2341
+        },
+        "ios/Frameworks/OnramperSDK.xcframework/ios-arm64/OnramperSDK.framework/PrivacyInfo.xcprivacy": {
+          "sha256": "8672dc789ae77c09debb0781619ff4dbc595ccd7f137ecfd6620b0ffd7180662",
+          "size": 2341
+        },
+        "ios/Frameworks/OnramperSDK.xcframework/ios-arm64/dSYMs/OnramperSDK.framework.dSYM/Contents/Info.plist": {
+          "sha256": "b1314b27e78d1069605869b3277afd60ec928e26bbcbf7688bd83d2f25c53865",
+          "size": 648
+        },
+        "ios/Frameworks/OnramperSDK.xcframework/ios-arm64/dSYMs/OnramperSDK.framework.dSYM/Contents/Resources/DWARF/OnramperSDK": {
+          "sha256": "67609b65fc4d0aea3eee052ce4825d732db99ddf11aceda8c136c19e40a0a3f6",
+          "size": 6020440
+        },
+        "ios/Frameworks/OnramperSDK.xcframework/ios-arm64/dSYMs/OnramperSDK.framework.dSYM/Contents/Resources/Relocations/aarch64/OnramperSDK.yml": {
+          "sha256": "5f3b4e8a1bb51dee487cff24cf851235027d7032b34d418dc9d5ad29de0fab38",
+          "size": 784227
+        },
+        "ios/Frameworks/OnramperSDK.xcframework/ios-arm64_x86_64-simulator/OnramperSDK.framework/Info.plist": {
+          "sha256": "4e4d63e47421f9b6460eb32a2521669218a34215fb6eeac8a2674c88f3a7a09b",
+          "size": 733
+        },
+        "ios/Frameworks/OnramperSDK.xcframework/ios-arm64_x86_64-simulator/OnramperSDK.framework/Modules/OnramperSDK.swiftmodule/arm64-apple-ios-simulator.swiftdoc": {
+          "sha256": "0d077efa5718d7f72a864e3f87712a50716396182201666295ac0d2f53cb10e8",
+          "size": 41752
+        },
+        "ios/Frameworks/OnramperSDK.xcframework/ios-arm64_x86_64-simulator/OnramperSDK.framework/Modules/OnramperSDK.swiftmodule/arm64-apple-ios-simulator.swiftinterface": {
+          "sha256": "c6e058ff8717dfb4bf40c4345da27b425db0da048a91f108d831b42c68b43b89",
+          "size": 33749
+        },
+        "ios/Frameworks/OnramperSDK.xcframework/ios-arm64_x86_64-simulator/OnramperSDK.framework/Modules/OnramperSDK.swiftmodule/x86_64-apple-ios-simulator.swiftdoc": {
+          "sha256": "0919bacc1d2dd2423474c507f21e099ae18fe13552d24598765228b6ebd15354",
+          "size": 41752
+        },
+        "ios/Frameworks/OnramperSDK.xcframework/ios-arm64_x86_64-simulator/OnramperSDK.framework/Modules/OnramperSDK.swiftmodule/x86_64-apple-ios-simulator.swiftinterface": {
+          "sha256": "079ad72520920bbcbf893c5d4c40f5534f961c7a3e9254ace818a206a6dfd002",
+          "size": 33750
+        },
+        "ios/Frameworks/OnramperSDK.xcframework/ios-arm64_x86_64-simulator/OnramperSDK.framework/OnramperSDK": {
+          "sha256": "6982031e40c478d8ecde54a1706294275bd8f2141a5214f8a65bebb21d729a03",
+          "size": 7046840
+        },
+        "ios/Frameworks/OnramperSDK.xcframework/ios-arm64_x86_64-simulator/OnramperSDK.framework/OnramperSDK_OnramperSDK.bundle/Info.plist": {
+          "sha256": "8ec6213a7c6afe1e638d30581fcae1468ae95b9bafd1db2049824d5b1592a8dc",
+          "size": 667
+        },
+        "ios/Frameworks/OnramperSDK.xcframework/ios-arm64_x86_64-simulator/OnramperSDK.framework/OnramperSDK_OnramperSDK.bundle/PrivacyInfo.xcprivacy": {
+          "sha256": "8672dc789ae77c09debb0781619ff4dbc595ccd7f137ecfd6620b0ffd7180662",
+          "size": 2341
+        },
+        "ios/Frameworks/OnramperSDK.xcframework/ios-arm64_x86_64-simulator/OnramperSDK.framework/PrivacyInfo.xcprivacy": {
+          "sha256": "8672dc789ae77c09debb0781619ff4dbc595ccd7f137ecfd6620b0ffd7180662",
+          "size": 2341
+        },
+        "ios/Frameworks/OnramperSDK.xcframework/ios-arm64_x86_64-simulator/dSYMs/OnramperSDK.framework.dSYM/Contents/Info.plist": {
+          "sha256": "b1314b27e78d1069605869b3277afd60ec928e26bbcbf7688bd83d2f25c53865",
+          "size": 648
+        },
+        "ios/Frameworks/OnramperSDK.xcframework/ios-arm64_x86_64-simulator/dSYMs/OnramperSDK.framework.dSYM/Contents/Resources/DWARF/OnramperSDK": {
+          "sha256": "5a8c8c75d80150f4af08b7b8aa8809935e9b60c9c585aafd3594ab410f9817d7",
+          "size": 12234768
+        },
+        "ios/Frameworks/OnramperSDK.xcframework/ios-arm64_x86_64-simulator/dSYMs/OnramperSDK.framework.dSYM/Contents/Resources/Relocations/aarch64/OnramperSDK.yml": {
+          "sha256": "c14dbe4a6981d61e0855435ef0eb14f36bca05ca1106a0eecfc12cca9878a4d8",
+          "size": 784135
+        },
+        "ios/Frameworks/OnramperSDK.xcframework/ios-arm64_x86_64-simulator/dSYMs/OnramperSDK.framework.dSYM/Contents/Resources/Relocations/x86_64/OnramperSDK.yml": {
+          "sha256": "f827bb63bf18fe81981df9f6dd1c3eb66a500ef2490976aa331deb379317b8be",
+          "size": 777110
+        },
+        "ios/HybridOnramperCheckoutButton.swift": {
+          "sha256": "b9e8875570619d1b69d0db3b8a1aca5c8ac0862b2dcfb0c6511a0b272f23f134",
+          "size": 7017
+        },
+        "ios/HybridOnramperNitro.swift": {
+          "sha256": "eda66bf21e9fbf460a60ea92f6651a818fa35c4193f894a55f3da7bd17b0cd74",
+          "size": 10312
+        },
+        "ios/OnramperCheckoutBridge.swift": {
+          "sha256": "780273cb41513a2506549f8fe1ab33ddad04b9bc77838d6e02500ab6d613f08e",
+          "size": 4430
+        },
+        "ios/OnramperSDKBridge.swift": {
+          "sha256": "27daaf741e86ea284828d84f83b66599a8b72b582dcfedff86d569f41dbcc227",
+          "size": 9057
+        },
+        "ios/PreparedIntentRegistry.swift": {
+          "sha256": "0fede19132a3c3b0c6410caa7e3ae7253788e47f5dd4184acb9624777bf534dd",
+          "size": 7010
+        },
+        "ios/SDKLogRelay.swift": {
+          "sha256": "601126a58090965273602a3bf90cf4be9f7a90169e93db03b8169aa3172d7e38",
+          "size": 1420
+        }
+      }
+    }
+  ]
+}
