@@ -101,7 +101,8 @@ export async function preparePrimeInfiniRemotePayment({
   // A stale/incomplete recovery is a warning with an exit to a new purchase,
   // not a new payment lock. No payer, transaction or old quote is guessed.
   const choice = await chooseNew(
-    lookup.status === 'unavailable' || !lookup.pendingPayment,
+    lookup.status === 'unavailable' ||
+      (!lookup.hasPendingPayments && !lookup.pendingPayment),
   );
   if (
     choice !== 'replace' ||
@@ -147,10 +148,12 @@ export function createPrimeInfiniRemotePendingPaymentResolver() {
     if (!shouldContinue() || !(await validateAuth()) || !shouldContinue())
       return { type: 'cancelled' };
     const { pendingPayment } = lookup;
+    const hasPendingPayments =
+      lookup.hasPendingPayments || Boolean(pendingPayment);
     const lookupUnavailable =
       lookup.status === 'unavailable' ||
-      Boolean(resumePaymentId && !pendingPayment);
-    if (!pendingPayment && !lookupUnavailable)
+      Boolean(resumePaymentId && !hasPendingPayments);
+    if (!hasPendingPayments && !lookupUnavailable)
       return { type: allowNewPayment ? 'new' : 'cancelled' };
     const candidate = !lookupUnavailable
       ? getPrimeInfiniRemotePaymentRecovery({ pendingPayment, assets })
