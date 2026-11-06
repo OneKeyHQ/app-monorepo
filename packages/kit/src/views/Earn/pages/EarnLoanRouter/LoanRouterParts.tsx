@@ -40,6 +40,7 @@ import { buildKeyboardPressProps } from '../../components/desktopHome/earnDeskto
 import { getEarnAssetClassLabel } from '../EarnAssetSelect/earnAssetClassLabel';
 import { EarnAssetLogos } from '../EarnAssetSelect/EarnAssetLogos';
 import { sortAssetSelectTokens } from '../EarnAssetSelect/earnAssetSelect.utils';
+import { warmSwapNetworkParents } from '../EarnAssetSelect/earnAssetSelectNetworkParents';
 
 import { useLoanToneColors } from './loanToneColors';
 
@@ -1274,11 +1275,9 @@ function LoanPickHalf({
             groupHoverRingColor="$bgHover"
           />
         ) : (
-          <Token
-            size="sm"
-            tokenImageUri={token?.logoURI || fallbackLogoURI}
-            networkImageUri={network?.logoURI}
-          />
+          // The line above names the network, as Swap's boxes do: the logo
+          // carries no badge of it
+          <Token size="sm" tokenImageUri={token?.logoURI || fallbackLogoURI} />
         )}
         <SizableText size="$bodyLgMedium" numberOfLines={1} flexShrink={1}>
           {label}
@@ -1314,6 +1313,8 @@ export function LoanPickBar({
   network?: IEarnAssetSelectNetwork;
 }) {
   const { gtMd } = useMedia();
+  // The selectors the halves open group their networks by Swap's list
+  useEffect(warmSwapNetworkParents, []);
   return (
     <XStack testID="earn-loan-pick-bar" gap={PICK_SEAM} position="relative">
       <LoanPickHalf

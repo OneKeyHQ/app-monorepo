@@ -62,6 +62,10 @@ import {
   orderAssetSelectPhoneNetworks,
   splitClassMembers,
 } from './earnAssetSelect.utils';
+import {
+  getLoadedSwapNetworkParents,
+  loadSwapNetworkParents,
+} from './earnAssetSelectNetworkParents';
 import { EARN_ASSET_SELECT_SIZE } from './earnAssetSelectSize';
 
 import type {
@@ -89,12 +93,21 @@ const ALL_NETWORKS_ID = getNetworkIdsMap().onekeyall;
 const NO_NETWORK_IDS: string[] = [];
 const noop = () => undefined;
 
-const toColumnNetwork = (network: IEarnAssetSelectNetwork): ISwapNetwork => ({
-  networkId: network.id,
-  name: network.name,
-  symbol: '',
-  logoURI: network.logoURI,
-});
+// An L2 goes under its mainnet in the column, as in Swap's, once Swap's list
+// says which it is
+const toColumnNetwork = (
+  network: IEarnAssetSelectNetwork,
+  parents?: ReadonlyMap<string, string>,
+): ISwapNetwork => {
+  const parentNetworkId = parents?.get(network.id);
+  return {
+    networkId: network.id,
+    name: network.name,
+    symbol: '',
+    logoURI: network.logoURI,
+    ...(parentNetworkId ? { isL2: true, parentNetworkId } : {}),
+  };
+};
 
 // What the row's right side says: Earn's best rate, a loan's lowest, or what
 // the wallet holds of a collateral. Under it, what the wallet holds in the
@@ -196,6 +209,10 @@ function RowCheck({ isSelected }: { isSelected: boolean }) {
   );
 }
 
+// The one network a token is offered on, where it is on one alone
+const getOnlyNetwork = (token: IEarnAssetSelectToken) =>
+  token.networks.length === 1 ? token.networks[0] : undefined;
+
 // Where the token is offered when that is more than one network: their logos
 // after its name
 function NetworkLogos({ token }: { token: IEarnAssetSelectToken }) {
@@ -292,10 +309,11 @@ function TokenRow({
     () => onPick({ kind: 'token', symbol: token.symbol, networkId }),
     [networkId, onPick, token.symbol],
   );
-  // On one network the logo carries its badge; across every network, none
+  // On one network the logo carries its badge, as does a token offered on
+  // one network alone; one on several has their logos after its name
   const network = networkId
     ? token.networks.find((item) => item.id === networkId)
-    : undefined;
+    : getOnlyNetwork(token);
   return (
     <ListItem
       testID={
@@ -335,8 +353,8 @@ function TokenRow({
                 })}
               </SizableText>
             ) : null}
-            {/* Across every network; with one chosen, the logo's badge says
-                where */}
+            {/* Across every network; with one chosen, or a token on one
+                alone, the logo's badge says where */}
             {!matchedAddress && !networkId ? (
               <NetworkLogos token={token} />
             ) : null}
@@ -514,25 +532,49 @@ function EarnRouterAssetSelectPage() {
     [],
   );
 
+  // Every network's name, the app's own words in every language: the
+  // column's row, the phone's, the list's title and the pill say it alike
+  const allNetworksLabel = intl.formatMessage({
+    id: ETranslations.global_all_networks,
+  });
+  const [networkParents, setNetworkParents] = useState(
+    getLoadedSwapNetworkParents,
+  );
+  useEffect(() => {
+    if (networkParents) {
+      return undefined;
+    }
+    let isActive = true;
+    loadSwapNetworkParents()
+      .then((parents) => {
+        if (isActive) {
+          setNetworkParents(parents);
+        }
+      })
+      .catch(() => undefined);
+    return () => {
+      isActive = false;
+    };
+  }, [networkParents]);
   // The network column, in Swap's own terms
   const allColumnNetwork = useMemo<ISwapNetwork>(
     () => ({
       networkId: ALL_NETWORKS_ID,
-      name: EARN_DESKTOP_DEMO_COPY.allNetworks,
+      name: allNetworksLabel,
       symbol: '',
       isAllNetworks: true,
     }),
-    [],
+    [allNetworksLabel],
   );
   const columnNetworks = useMemo(
-    () => networkList.map(toColumnNetwork),
-    [networkList],
+    () => networkList.map((item) => toColumnNetwork(item, networkParents)),
+    [networkList, networkParents],
   );
   const heldNetworks = useMemo(
     () =>
       listAssetSelectHeldNetworks({ tokens, networks: networkList }).map(
         (item) => ({
-          network: toColumnNetwork(item.network),
+          network: toColumnNetwork(item.network, networkParents),
           fiatValue: convertFiat({
             value: item.fiatValue,
             sourceCurrency: USD_CURRENCY_ID,
@@ -541,22 +583,18 @@ function EarnRouterAssetSelectPage() {
           }),
         }),
       ),
-    [currencyInfo.id, currencyMap, networkList, tokens],
+    [currencyInfo.id, currencyMap, networkList, networkParents, tokens],
   );
   const selectedColumnNetwork =
     columnNetworks.find((item) => item.networkId === networkId) ??
     allColumnNetwork;
-  // As Swap labels it, with a comma for Swap's dot
-  const allNetworksLabel = intl.formatMessage({
-    id: ETranslations.global_all_networks,
-  });
 
   // The phone's row: All Networks, then the networks, More at its end
   const phoneNetworks = useMemo<INetworkToggleGroupItem[]>(
     () => [
       {
         networkId: ALL_NETWORKS_ID,
-        name: EARN_DESKTOP_DEMO_COPY.allNetworks,
+        name: allNetworksLabel,
         isAllNetworks: true,
       },
       ...orderAssetSelectPhoneNetworks(networkList, phoneLeadId).map(
@@ -567,7 +605,7 @@ function EarnRouterAssetSelectPage() {
         }),
       ),
     ],
-    [networkList, phoneLeadId],
+    [allNetworksLabel, networkList, phoneLeadId],
   );
   const handleMoreNetworks = useCallback(() => {
     openChainSelector({
@@ -635,10 +673,13 @@ function EarnRouterAssetSelectPage() {
   const placeholder = intl.formatMessage({
     id: ETranslations.token_selector_search_placeholder,
   });
-  const listLabel = intl.formatMessage(
-    { id: ETranslations.title_tokens_on_network },
-    { network: network?.name ?? EARN_DESKTOP_DEMO_COPY.allNetworks },
-  );
+  // As Swap's list is titled: the network's tokens, or every network's
+  const listLabel = network
+    ? intl.formatMessage(
+        { id: ETranslations.title_tokens_on_network },
+        { network: network.name },
+      )
+    : allNetworksLabel;
   let figureLabel = intl.formatMessage({ id: ETranslations.global_apy });
   if (purpose === 'loanSupply') {
     figureLabel = intl.formatMessage({

@@ -159,12 +159,8 @@ export const EARN_DESKTOP_DEMO_COPY = {
   // is bridged to the market's network first, named in the button as a
   // swap first is (one action alone: bridgeAnd)
   loanBridgeSupplyAndBorrow: 'Bridge, Supply and Borrow',
-  // The routers' token selector with its network column (11-05), and the
-  // Earn window's pill after it ("USDC on All Networks"): every network as
-  // one choice (the All Networks network's own name, as Swap's column shows
-  // it), a kind's tab's first row, and a pasted address no token on any
-  // network has
-  allNetworks: 'All Networks',
+  // The routers' token selector with its network column (11-05): a kind's
+  // tab's first row, and a pasted address no token on any network has
   assetSelectAllOfKind: (kind: string) => `All ${kind}`,
   assetSelectNoEarnAnywhere: 'This token has no Earn options',
 };

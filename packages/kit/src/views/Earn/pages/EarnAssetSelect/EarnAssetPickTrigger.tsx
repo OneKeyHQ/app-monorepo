@@ -1,9 +1,10 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
 import { Icon, SizableText, XStack } from '@onekeyhq/components';
 import { Token } from '@onekeyhq/kit/src/components/Token';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { EARN_DESKTOP_DEMO_COPY } from '../../components/desktopHome/earnDesktopHomeCopy';
 import { buildKeyboardPressProps } from '../../components/desktopHome/earnDesktopPressable';
@@ -14,6 +15,7 @@ import {
   scopeAssetSelectTokens,
   sortAssetSelectTokens,
 } from './earnAssetSelect.utils';
+import { warmSwapNetworkParents } from './earnAssetSelectNetworkParents';
 
 import type {
   IEarnAssetPick,
@@ -51,7 +53,7 @@ export function EarnAssetPickTrigger({
   // The token's logo before the list is in
   fallbackLogoURI?: string;
   // The pill says where the pick is, after it in words ("USDC on Base",
-  // "USDC on All Networks", 11-05), and a token on one network carries its
+  // "USDC on All networks", 11-05), and a token on one network carries its
   // chain, as the amount box's token does. They come from the pick's
   // network; these two stand in for its logo and name before the list is in
   networkLogoURI?: string;
@@ -65,6 +67,8 @@ export function EarnAssetPickTrigger({
   onPress: () => void;
 }) {
   const intl = useIntl();
+  // The selector it opens groups its networks by Swap's list
+  useEffect(warmSwapNetworkParents, []);
   const kindLogos = useMemo(
     () =>
       pick.kind === 'class'
@@ -91,7 +95,7 @@ export function EarnAssetPickTrigger({
   }, [networks, pickNetworkId, tokens]);
   const networkWords = pickNetworkId
     ? (pickNetwork?.name ?? networkName)
-    : EARN_DESKTOP_DEMO_COPY.allNetworks;
+    : intl.formatMessage({ id: ETranslations.global_all_networks });
   const badgeLogoURI = pickNetworkId
     ? (pickNetwork?.logoURI ?? networkLogoURI)
     : undefined;

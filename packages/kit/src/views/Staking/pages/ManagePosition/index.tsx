@@ -682,7 +682,7 @@ const ManagePositionPage = () => {
               purpose="earn"
               fallbackLogoURI={offersEntry.tokenImageUri ?? tokenImageUri}
               // The pick's network before the list names it; the pill
-              // says "on All Networks" itself when the pick has none
+              // says "on All networks" itself when the pick has none
               networkLogoURI={pickNetwork?.logoURI}
               networkName={pickNetwork?.name}
               onPress={handleOpenAssetSelect}

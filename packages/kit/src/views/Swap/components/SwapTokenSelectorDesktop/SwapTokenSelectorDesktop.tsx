@@ -60,6 +60,8 @@ type ISwapTokenSelectorDesktopProps = {
   tokenListEmptyComponent?: ReactElement | null;
   // Kept to one network (Earn's Pay with): the token column alone
   hideNetworkColumn?: boolean;
+  // Another selector's own words over the A–Z networks; Swap's by default
+  allSectionLabel?: string;
 };
 
 function TokenSearchEmpty({
@@ -116,6 +118,7 @@ export function SwapTokenSelectorDesktop({
   currencySymbol,
   tokenListEmptyComponent,
   hideNetworkColumn,
+  allSectionLabel,
 }: ISwapTokenSelectorDesktopProps) {
   const intl = useIntl();
 
@@ -136,6 +139,7 @@ export function SwapTokenSelectorDesktop({
         onSelectNetwork={onSelectNetwork}
         onDisableNetworksClick={onDisableNetworksClick}
         currencySymbol={currencySymbol}
+        allSectionLabel={allSectionLabel}
       />
       <YStack flex={1} minWidth={0} minHeight={0}>
         <YStack px="$4" pt="$3" pb="$2">

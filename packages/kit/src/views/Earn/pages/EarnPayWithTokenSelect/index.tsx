@@ -231,20 +231,24 @@ function EarnPayWithTokenSelectPage() {
         : NO_NETWORKS,
     [acrossNetworks],
   );
-  // Swap's own entry for every network, as its picker builds it
+  // Swap's own entry for every network, as its picker builds it, named in
+  // the app's own words as the Earn window's token selector names it
+  const allNetworksLabel = intl.formatMessage({
+    id: ETranslations.global_all_networks,
+  });
   const allNetwork = useMemo<ISwapNetwork | undefined>(
     () =>
       swapNetworks.length
         ? {
             networkId: getNetworkIdsMap().onekeyall,
-            name: dangerAllNetworkRepresent.name,
+            name: allNetworksLabel,
             symbol: dangerAllNetworkRepresent.symbol,
             logoURI: dangerAllNetworkRepresent.logoURI,
             shortcode: dangerAllNetworkRepresent.shortcode,
             isAllNetworks: true,
           }
         : undefined,
-    [swapNetworks],
+    [allNetworksLabel, swapNetworks],
   );
   // The networks a token can come from: the deposit's, and the ones a
   // bridge leaves from
@@ -994,9 +998,9 @@ function EarnPayWithTokenSelectPage() {
             networkSearchValue={networkSearch}
             tokenSearchValue={searchInput}
             tokenSearchPlaceholder={searchPlaceholder}
-            allNetworksLabel={intl.formatMessage({
-              id: ETranslations.global_all_networks,
-            })}
+            allNetworksLabel={allNetworksLabel}
+            // As the token selector's, a comma for Swap's dot
+            allSectionLabel={`${allNetworksLabel}, A–Z`}
             sameChainLabel=""
             onNetworkSearchChange={setNetworkSearch}
             onTokenSearchChange={setSearchInput}
