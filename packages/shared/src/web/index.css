@@ -327,16 +327,6 @@ textarea {
   cursor: default;
 }
 
-/* The token rows and their swap button follow the app's rows and buttons, which
-   keep the default cursor and signal interactivity through their hover
-   background. Remove once the package changes this upstream. */
-.ok-token-list
-  .ok-native-list-item[data-native-list-row-press-enabled='true']
-  > .ok-native-list-row,
-.ok-token-list .ok-native-list-trailing-button {
-  cursor: default;
-}
-
 /* Watchlist rows stay reorderable but keep the default cursor. */
 [data-testid='market-watchlist-list']
   .ok-native-list-item[data-native-list-reorderable='true']

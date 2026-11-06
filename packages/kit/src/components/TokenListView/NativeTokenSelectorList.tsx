@@ -1134,7 +1134,6 @@ export function NativeTokenSelectorList({
     <Stack
       ref={hostAnchorRef as never}
       position="relative"
-      {...(platformEnv.isNative ? undefined : { className: 'ok-token-list' })}
       {...(useExternalWebScrollHost && !platformEnv.isNative
         ? undefined
         : { flex: 1 })}
