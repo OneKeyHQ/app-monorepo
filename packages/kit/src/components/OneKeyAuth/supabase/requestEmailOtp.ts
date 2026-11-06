@@ -59,7 +59,7 @@ export async function requestEmailOtp({
       message:
         getEmailAuthCaptchaErrorMessage({ error: res.error, intl }) ??
         res.error.message,
-      data: { isEmailOtpSendFailure },
+      data: { isEmailOtpSendFailure, supabaseErrorCode: res.error.code },
     });
     logOneKeyIdLoginFailureReason(
       `OneKey ID email verification code request failed: ${getSanitizedAuthErrorText(res.error)}`,
