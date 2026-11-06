@@ -3,7 +3,7 @@ import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import {
   TERMS_CONSENT_DECISION_MS,
   TERMS_CONSENT_SNOOZE_MS,
-  getTermsConsentRecheckAt,
+  getTermsConsentRecheckDelay,
   resolveTermsConsentPrompt,
 } from './termsConsent';
 
@@ -128,44 +128,62 @@ describe('resolveTermsConsentPrompt', () => {
   });
 });
 
-describe('getTermsConsentRecheckAt', () => {
+describe('getTermsConsentRecheckDelay', () => {
   it('has nothing to wait for until Not now is chosen', () => {
-    expect(getTermsConsentRecheckAt({})).toBeUndefined();
+    expect(getTermsConsentRecheckDelay({}, START)).toBeUndefined();
     expect(
-      getTermsConsentRecheckAt({
-        round: { version: '2026.10', firstPromptAt: START },
-      }),
+      getTermsConsentRecheckDelay(
+        { round: { version: '2026.10', firstPromptAt: START } },
+        START,
+      ),
     ).toBeUndefined();
   });
 
-  it('checks again when the snooze ends', () => {
+  it('waits for the snooze to end', () => {
     const notNowAt = START + DAY_MS;
     expect(
-      getTermsConsentRecheckAt({
-        round: { version: '2026.10', firstPromptAt: START, notNowAt },
-      }),
-    ).toBe(notNowAt + TERMS_CONSENT_SNOOZE_MS);
+      getTermsConsentRecheckDelay(
+        { round: { version: '2026.10', firstPromptAt: START, notNowAt } },
+        notNowAt,
+      ),
+    ).toBe(TERMS_CONSENT_SNOOZE_MS);
   });
 
-  it('checks again at the deadline when it comes first', () => {
+  it('waits for the deadline when it comes first', () => {
+    const notNowAt = endOfLocalDay(START + TERMS_CONSENT_DECISION_MS) - DAY_MS;
+    expect(
+      getTermsConsentRecheckDelay(
+        { round: { version: '2026.10', firstPromptAt: START, notNowAt } },
+        notNowAt,
+      ),
+    ).toBe(DAY_MS);
+  });
+
+  it('checks at once when the Not now arrives after the deadline', () => {
     const deadlineAt = endOfLocalDay(START + TERMS_CONSENT_DECISION_MS);
     expect(
-      getTermsConsentRecheckAt({
-        round: {
-          version: '2026.10',
-          firstPromptAt: START,
-          notNowAt: deadlineAt - DAY_MS,
+      getTermsConsentRecheckDelay(
+        {
+          round: {
+            version: '2026.10',
+            firstPromptAt: START,
+            notNowAt: deadlineAt - 1,
+          },
         },
-      }),
-    ).toBe(deadlineAt);
+        deadlineAt + 50,
+      ),
+    ).toBe(0);
   });
 
   it('stops once the version was accepted', () => {
     expect(
-      getTermsConsentRecheckAt({
-        acceptedVersion: '2026.10',
-        round: { version: '2026.10', firstPromptAt: START, notNowAt: START },
-      }),
+      getTermsConsentRecheckDelay(
+        {
+          acceptedVersion: '2026.10',
+          round: { version: '2026.10', firstPromptAt: START, notNowAt: START },
+        },
+        START,
+      ),
     ).toBeUndefined();
   });
 });

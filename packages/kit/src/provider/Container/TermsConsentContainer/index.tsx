@@ -12,7 +12,7 @@ import {
   useMedia,
   useOnRouterChange,
 } from '@onekeyhq/components';
-import { getTermsConsentRecheckAt } from '@onekeyhq/kit-bg/src/services/ServiceSetting/termsConsent';
+import { getTermsConsentRecheckDelay } from '@onekeyhq/kit-bg/src/services/ServiceSetting/termsConsent';
 import { useAppIsLockedAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/passwordLock';
 import { useTermsConsentPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/settings';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -75,15 +75,14 @@ export function TermsConsentContainer() {
 
   // An app kept open and unlocked never relaunches or unlocks, so a Not now
   // would outlast its snooze and the deadline without this timer.
-  const recheckAt = getTermsConsentRecheckAt(termsConsentState);
   useEffect(() => {
-    const delay = recheckAt === undefined ? -1 : recheckAt - Date.now();
-    if (delay < 0) {
+    const delay = getTermsConsentRecheckDelay(termsConsentState, Date.now());
+    if (delay === undefined) {
       return undefined;
     }
     const timer = setTimeout(() => setRecheckSeq((seq) => seq + 1), delay);
     return () => clearTimeout(timer);
-  }, [recheckAt]);
+  }, [termsConsentState]);
 
   useEffect(() => () => clearTimeout(leaveBackupTimerRef.current), []);
 

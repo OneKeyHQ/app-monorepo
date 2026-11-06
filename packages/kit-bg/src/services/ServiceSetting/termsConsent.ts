@@ -61,12 +61,13 @@ export function resolveTermsConsentPrompt({
   };
 }
 
-// When a put-off prompt is due again: the end of the snooze or the deadline,
-// whichever comes first.
-export function getTermsConsentRecheckAt({
-  acceptedVersion,
-  round,
-}: ITermsConsentState) {
+// How long until a put-off prompt is due again: the end of the snooze or the
+// deadline, whichever comes first. 0 once that has passed, e.g. when the Not
+// now reaches the UI runtime only after the deadline.
+export function getTermsConsentRecheckDelay(
+  { acceptedVersion, round }: ITermsConsentState,
+  now: number,
+) {
   if (
     !round ||
     round.notNowAt === undefined ||
@@ -74,8 +75,9 @@ export function getTermsConsentRecheckAt({
   ) {
     return undefined;
   }
-  return Math.min(
+  const recheckAt = Math.min(
     round.notNowAt + TERMS_CONSENT_SNOOZE_MS,
     getDeadlineAt(round.firstPromptAt),
   );
+  return Math.max(0, recheckAt - now);
 }
