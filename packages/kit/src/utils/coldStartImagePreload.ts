@@ -54,6 +54,21 @@ const COLD_START_IMAGE_PRELOAD_LIMIT = 96;
 // renders with this exact size, so the cold-start prewarm below produces the
 // same resize URL + decode thumbnail as the first paint (cache-key match).
 export const WALLET_BANNER_IMAGE_SIZE = 56;
+// The wide web home (gtMd, minWidth 768) shows one banner at a time with a 48
+// image instead, so the prewarm follows the window width it starts with.
+export const WALLET_BANNER_STRIP_IMAGE_SIZE = 48;
+const WALLET_BANNER_STRIP_MIN_WIDTH = 768;
+function getWalletBannerImageSize() {
+  const width: unknown = globalThis.innerWidth;
+  if (
+    !platformEnv.isNative &&
+    typeof width === 'number' &&
+    width >= WALLET_BANNER_STRIP_MIN_WIDTH
+  ) {
+    return WALLET_BANNER_STRIP_IMAGE_SIZE;
+  }
+  return WALLET_BANNER_IMAGE_SIZE;
+}
 const WALLET_BANNER_IMAGE_LIMIT = 8;
 // Logical size of the network avatar in the home header trigger (`$6`).
 // NetworkAvatar renders at this size, so the prewarm resolves to the same
@@ -217,6 +232,7 @@ function collectWalletBannerImageItems({
   snapshot: IColdStartSnapshot;
 }) {
   const seen = new Set<string>();
+  const resizeWidth = getWalletBannerImageSize();
   for (const value of getSnapshotValuesByColdStartKey({
     snapshot,
     coldStartCacheKey: CONTEXT_ATOM_COLD_START_CACHE_KEYS.walletTopBannersAtom,
@@ -234,7 +250,7 @@ function collectWalletBannerImageItems({
         !seen.has(uri)
       ) {
         seen.add(uri);
-        items.push({ uri, resizeWidth: WALLET_BANNER_IMAGE_SIZE });
+        items.push({ uri, resizeWidth });
       }
     }
   }

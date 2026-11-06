@@ -12,7 +12,7 @@ import Animated, {
   withDecay,
 } from 'react-native-reanimated';
 
-import type { ICheckedState } from '@onekeyhq/components';
+import type { ICheckedState, IYStackProps } from '@onekeyhq/components';
 import {
   Checkbox,
   Dialog,
@@ -25,11 +25,13 @@ import {
   Toast,
   XStack,
   YStack,
+  useMedia,
 } from '@onekeyhq/components';
 import { ANIMATE_ONLY_OPACITY } from '@onekeyhq/components/src/utils/animationConstants';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ResourceBannerCard } from '@onekeyhq/kit/src/components/Resource';
 import { useBotWalletDeactivatedStatus } from '@onekeyhq/kit/src/hooks/useBotWalletDeactivatedStatus';
+import useListenTabFocusState from '@onekeyhq/kit/src/hooks/useListenTabFocusState';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useWalletBanner } from '@onekeyhq/kit/src/hooks/useWalletBanner';
 import {
@@ -38,7 +40,10 @@ import {
 } from '@onekeyhq/kit/src/states/jotai/contexts/accountOverview';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { shouldBlockBotWalletReceive } from '@onekeyhq/kit/src/utils/botWalletStatusUtils';
-import { WALLET_BANNER_IMAGE_SIZE } from '@onekeyhq/kit/src/utils/coldStartImagePreload';
+import {
+  WALLET_BANNER_IMAGE_SIZE,
+  WALLET_BANNER_STRIP_IMAGE_SIZE,
+} from '@onekeyhq/kit/src/utils/coldStartImagePreload';
 import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
 import {
   HYPERLIQUID_REFERRAL_CODE,
@@ -53,6 +58,9 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { ETabRoutes } from '@onekeyhq/shared/src/routes';
+import appStorage from '@onekeyhq/shared/src/storage/appStorage';
+import { EAppSyncStorageKeys } from '@onekeyhq/shared/src/storage/syncStorageKeys';
 import { EMessageTypesEth } from '@onekeyhq/shared/types/message';
 import { ERookieTaskType } from '@onekeyhq/shared/types/rookieGuide';
 import type { IWalletBanner } from '@onekeyhq/shared/types/walletBanner';
@@ -511,6 +519,296 @@ function WebBannerScroller({
         </Stack>
       ) : null}
     </YStack>
+  );
+}
+
+// Wide web home: one banner at a time in a white card. A layered shadow draws
+// the card edge; on dark surfaces only the theme-aware ring remains visible.
+const STRIP_HEIGHT = 72;
+const STRIP_SHADOW =
+  '0 0 0 1px var(--neutral3), 0 1px 3px rgba(0, 0, 0, 0.05), 0 4px 10px -4px rgba(0, 0, 0, 0.05)';
+const STRIP_SHADOW_HOVER =
+  '0 0 0 1px var(--neutral4), 0 1px 3px rgba(0, 0, 0, 0.07), 0 4px 10px -4px rgba(0, 0, 0, 0.08)';
+// The web animation driver writes these names into `transition-property`.
+const ANIMATE_ONLY_BOX_SHADOW = ['box-shadow'];
+const STRIP_CARD_PROPS: IYStackProps = {
+  bg: '$bg',
+  borderRadius: '$5',
+  outlineWidth: 0,
+  my: '$0',
+  boxShadow: STRIP_SHADOW,
+  hoverStyle: { bg: '$bg', boxShadow: STRIP_SHADOW_HOVER },
+  pressStyle: { bg: '$bg', boxShadow: STRIP_SHADOW_HOVER },
+  transition: 'quick',
+  animateOnly: ANIMATE_ONLY_BOX_SHADOW,
+};
+// The Tron resource card beside the strip: same surface, rows fit in 72.
+const STRIP_RESOURCE_CARD_PROPS: IYStackProps = {
+  ...STRIP_CARD_PROPS,
+  px: '$4',
+  py: '$2.5',
+};
+
+const readLastShownBannerId = () =>
+  appStorage.syncStorage.getString(
+    EAppSyncStorageKeys.onekey_wallet_banner_last_shown_id,
+  );
+
+// No timed rotation: each time the user comes back to the wallet tab (mounting
+// counts as one visit), the strip shows the banner after the one last seen, so
+// every banner gets its turn without motion next to the balance. The pick is
+// derived during render from the visit's starting point, so it stays right
+// when the cached list is replaced by the filtered one and never flashes.
+function useStripBanner(banners: IWalletBanner[]) {
+  const [visitStart, setVisitStart] = useState(() => ({
+    visit: 1,
+    lastShownId: readLastShownBannerId(),
+  }));
+  const homeFocusedRef = useRef(true);
+  useListenTabFocusState(ETabRoutes.Home, (isFocus) => {
+    if (isFocus && !homeFocusedRef.current) {
+      setVisitStart((prev) => ({
+        visit: prev.visit + 1,
+        lastShownId: readLastShownBannerId(),
+      }));
+    }
+    homeFocusedRef.current = isFocus;
+  });
+
+  // A banner chosen by hand (indicator, arrow keys, closing the previous one)
+  // holds for the rest of the visit while it is still listed.
+  const [picked, setPicked] = useState<{ visit: number; id: string }>();
+  const count = banners.length;
+  let index = -1;
+  if (picked?.visit === visitStart.visit) {
+    index = banners.findIndex((banner) => banner.id === picked.id);
+  }
+  if (index < 0 && count) {
+    const lastIndex = banners.findIndex(
+      (banner) => banner.id === visitStart.lastShownId,
+    );
+    index = (lastIndex + 1) % count;
+  }
+  const shownId = index >= 0 ? banners[index]?.id : undefined;
+
+  useEffect(() => {
+    if (shownId) {
+      void appStorage.syncStorage.set(
+        EAppSyncStorageKeys.onekey_wallet_banner_last_shown_id,
+        shownId,
+      );
+    }
+  }, [shownId]);
+
+  const show = useCallback(
+    (id: string) => setPicked({ visit: visitStart.visit, id }),
+    [visitStart.visit],
+  );
+  return { index: Math.max(0, index), show };
+}
+
+function StripMedia({ item }: { item: IWalletBanner }) {
+  if (item.src) {
+    return (
+      <Stack
+        w={WALLET_BANNER_STRIP_IMAGE_SIZE}
+        h={WALLET_BANNER_STRIP_IMAGE_SIZE}
+        borderRadius="$2"
+        overflow="hidden"
+        flexShrink={0}
+      >
+        <Image
+          size={WALLET_BANNER_STRIP_IMAGE_SIZE}
+          source={{ uri: item.src }}
+        />
+      </Stack>
+    );
+  }
+  if (item.icon) {
+    return (
+      <Stack
+        w={WALLET_BANNER_STRIP_IMAGE_SIZE}
+        h={WALLET_BANNER_STRIP_IMAGE_SIZE}
+        borderRadius="$2"
+        bg="$bgSuccessSubdued"
+        alignItems="center"
+        justifyContent="center"
+        flexShrink={0}
+      >
+        <Icon name={item.icon} size="$6" color="$iconSuccess" />
+      </Stack>
+    );
+  }
+  return null;
+}
+
+function DesktopBannerStrip({
+  banners,
+  handleBannerOnPress,
+  handleDismiss,
+  leadingContent,
+}: {
+  banners: IWalletBanner[];
+  handleBannerOnPress: (item: IWalletBanner) => void;
+  handleDismiss: (item: IWalletBanner) => void;
+  leadingContent?: ReactNode;
+}) {
+  const intl = useIntl();
+  const { index, show } = useStripBanner(banners);
+  const item = banners[index] as IWalletBanner | undefined;
+  const count = banners.length;
+
+  const go = useCallback(
+    (delta: number) => {
+      if (count < 2) return;
+      show(banners[(index + delta + count) % count].id);
+    },
+    [banners, count, index, show],
+  );
+
+  const onDismiss = useCallback(() => {
+    if (!item) return;
+    // Show the banner that followed the closed one instead of jumping back.
+    const next = banners[index + 1] ?? banners[index - 1];
+    if (next) show(next.id);
+    handleDismiss(item);
+  }, [banners, handleDismiss, index, item, show]);
+
+  const onKeyDown = useCallback(
+    (event: {
+      key: string;
+      target: unknown;
+      currentTarget: unknown;
+      preventDefault: () => void;
+    }) => {
+      // Keys pressed on the indicator or close button belong to them.
+      if (!item || event.target !== event.currentTarget) return;
+      if (event.key === 'Enter' || event.key === ' ') {
+        event.preventDefault();
+        handleBannerOnPress(item);
+      } else if (event.key === 'ArrowRight' || event.key === 'ArrowLeft') {
+        event.preventDefault();
+        go(event.key === 'ArrowRight' ? 1 : -1);
+      }
+    },
+    [go, handleBannerOnPress, item],
+  );
+
+  return (
+    <XStack px="$pagePadding" gap="$3" bg="$bgApp">
+      {leadingContent}
+      {item ? (
+        <XStack
+          testID="home-wallet-banner-strip"
+          flex={1}
+          minWidth={0}
+          h={STRIP_HEIGHT}
+          pl={20}
+          pr="$2.5"
+          alignItems="center"
+          gap="$3"
+          {...STRIP_CARD_PROPS}
+          focusable
+          tabIndex={0}
+          focusVisibleStyle={{
+            outlineColor: '$focusRing',
+            outlineWidth: 2,
+            outlineStyle: 'solid',
+            outlineOffset: -2,
+          }}
+          role="button"
+          aria-label={item.title}
+          onPress={() => handleBannerOnPress(item)}
+          onKeyDown={onKeyDown}
+          userSelect="none"
+        >
+          <StripMedia item={item} />
+          <YStack flex={1} minWidth={0} gap="$0.5">
+            <SizableText
+              size="$bodyMdMedium"
+              numberOfLines={item.description ? 1 : 2}
+            >
+              {item.title}
+            </SizableText>
+            {item.description ? (
+              <SizableText
+                size="$bodySm"
+                color="$textSubdued"
+                numberOfLines={1}
+              >
+                {item.description}
+              </SizableText>
+            ) : null}
+          </YStack>
+          {count > 1 ? (
+            <XStack alignItems="center" flexShrink={0}>
+              {banners.map((banner, i) => (
+                <Stack
+                  key={banner.id}
+                  w={24}
+                  h={40}
+                  alignItems="center"
+                  justifyContent="center"
+                  role="button"
+                  aria-label={`${i + 1} / ${count}`}
+                  aria-current={i === index ? 'true' : undefined}
+                  focusable
+                  tabIndex={0}
+                  onKeyDown={(event: {
+                    key: string;
+                    preventDefault: () => void;
+                  }) => {
+                    if (event.key === 'Enter' || event.key === ' ') {
+                      event.preventDefault();
+                      show(banner.id);
+                    }
+                  }}
+                  focusVisibleStyle={{
+                    outlineColor: '$focusRing',
+                    outlineWidth: 2,
+                    outlineStyle: 'solid',
+                    outlineOffset: -4,
+                  }}
+                  borderRadius="$2"
+                  onPress={(event: GestureResponderEvent) => {
+                    event.stopPropagation();
+                    show(banner.id);
+                  }}
+                >
+                  <Stack
+                    w={12}
+                    h={3}
+                    borderRadius="$full"
+                    bg={i === index ? '$textSubdued' : '$neutral5'}
+                  />
+                </Stack>
+              ))}
+            </XStack>
+          ) : null}
+          {/* Not closable: keep the slot so the bars stay put between banners. */}
+          {item.closeable ? (
+            <IconButton
+              testID="home-wallet-banner-strip-close"
+              variant="tertiary"
+              size="medium"
+              iconSize="$5"
+              p="$2.5"
+              m="$0"
+              icon="CrossedSmallOutline"
+              aria-label={intl.formatMessage({
+                id: ETranslations.global_close,
+              })}
+              onPress={(event: GestureResponderEvent) => {
+                event.stopPropagation();
+                onDismiss();
+              }}
+            />
+          ) : (
+            <Stack w={42} h={42} flexShrink={0} />
+          )}
+        </XStack>
+      ) : null}
+    </XStack>
   );
 }
 
@@ -995,6 +1293,9 @@ function WalletBanner({ hidden = false }: { hidden?: boolean } = {}) {
     void initLocalBanners();
   }, [initLocalBanners]);
 
+  const { gtMd } = useMedia();
+  const isStripLayout = !platformEnv.isNative && gtMd;
+
   const tronCard = useMemo(
     () =>
       vaultSettings?.hasResource && account?.id && network?.id ? (
@@ -1003,10 +1304,11 @@ function WalletBanner({ hidden = false }: { hidden?: boolean } = {}) {
           accountId={account.id}
           networkId={network.id}
           width={TRON_CARD_WIDTH}
-          height={BANNER_ITEM_HEIGHT}
+          height={isStripLayout ? STRIP_HEIGHT : BANNER_ITEM_HEIGHT}
+          cardProps={isStripLayout ? STRIP_RESOURCE_CARD_PROPS : undefined}
         />
       ) : null,
-    [vaultSettings?.hasResource, account?.id, network?.id],
+    [vaultSettings?.hasResource, account?.id, network?.id, isStripLayout],
   );
 
   const { isBotWallet, isBotWalletDeactivated } = useBotWalletDeactivatedStatus(
@@ -1058,6 +1360,17 @@ function WalletBanner({ hidden = false }: { hidden?: boolean } = {}) {
         handleDismiss={handleDismiss}
         leadingContent={tronCard}
         leadingContentWidth={tronCard ? TRON_CARD_WIDTH : 0}
+      />
+    );
+  }
+
+  if (isStripLayout) {
+    return (
+      <DesktopBannerStrip
+        banners={banners}
+        handleBannerOnPress={wrappedHandleBannerOnPress}
+        handleDismiss={handleDismiss}
+        leadingContent={tronCard}
       />
     );
   }

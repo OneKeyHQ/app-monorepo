@@ -26,6 +26,7 @@ export enum EAppSyncStorageKeys {
   onekey_travel_mode_control_v1 = 'onekey_travel_mode_control_v1',
   onekey_referral_last_page_tab = 'onekey_referral_last_page_tab',
   onekey_intercom_native_support_opened = 'onekey_intercom_native_support_opened',
+  onekey_wallet_banner_last_shown_id = 'onekey_wallet_banner_last_shown_id',
 }
 
 // Dev setting keys stored in the separate 'onekey-app-dev-setting' MMKV instance,
