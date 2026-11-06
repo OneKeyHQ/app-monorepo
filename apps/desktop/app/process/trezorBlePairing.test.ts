@@ -47,6 +47,7 @@ function setup() {
   wrapper.handle(THIRD_PARTY_BLE_CHANNELS.scan, async () => [
     { id: 'first', name: 'Trezor Safe 7', address: 'first-address' },
     { id: 'second', name: 'Trezor Safe 7', address: 'second-address' },
+    { id: 'nano', name: 'Nano X 1234', address: 'nano-address' },
   ]);
   wrapper.handle(THIRD_PARTY_BLE_CHANNELS.connect, connect);
   wrapper.handle(THIRD_PARTY_BLE_CHANNELS.cancelPairing, async () => undefined);
@@ -60,38 +61,44 @@ beforeEach(() => {
   mockPairAvailable.mockReturnValue(true);
 });
 
-it('only cancels the matching Windows pairing and never proceeds after late success', async () => {
-  let finish!: () => void;
-  mockPair.mockImplementation(
-    () =>
-      new Promise<string>((resolve) => {
-        finish = () => resolve('already-paired');
-      }),
-  );
-  const { invoke, connect } = setup();
-  await invoke(THIRD_PARTY_BLE_CHANNELS.scan);
-  const pending = invoke(THIRD_PARTY_BLE_CHANNELS.connect, 'first', {
-    vendor: 'trezor',
-  });
-  await flush();
-  await invoke(THIRD_PARTY_BLE_CHANNELS.cancelPairing, {
-    vendor: 'ledger',
-    id: 'first',
-  });
-  await invoke(THIRD_PARTY_BLE_CHANNELS.cancelPairing, {
-    vendor: 'trezor',
-    id: 'second',
-  });
-  expect(mockDecide).not.toHaveBeenCalled();
-  await invoke(THIRD_PARTY_BLE_CHANNELS.cancelPairing, {
-    vendor: 'trezor',
-    id: 'first',
-  });
-  expect(mockDecide).toHaveBeenCalledTimes(1);
-  finish();
-  await expect(pending).rejects.toThrow('connect cancelled');
-  expect(connect).not.toHaveBeenCalled();
-});
+it.each([
+  ['trezor', 'ledger'],
+  ['ledger', 'trezor'],
+] as const)(
+  'only cancels the matching %s Windows pairing and never proceeds after late success',
+  async (vendor, otherVendor) => {
+    let finish!: () => void;
+    mockPair.mockImplementation(
+      () =>
+        new Promise<string>((resolve) => {
+          finish = () => resolve('already-paired');
+        }),
+    );
+    const { invoke, connect } = setup();
+    await invoke(THIRD_PARTY_BLE_CHANNELS.scan);
+    const pending = invoke(THIRD_PARTY_BLE_CHANNELS.connect, 'first', {
+      vendor,
+    });
+    await flush();
+    await invoke(THIRD_PARTY_BLE_CHANNELS.cancelPairing, {
+      vendor: otherVendor,
+      id: 'first',
+    });
+    await invoke(THIRD_PARTY_BLE_CHANNELS.cancelPairing, {
+      vendor,
+      id: 'second',
+    });
+    expect(mockDecide).not.toHaveBeenCalled();
+    await invoke(THIRD_PARTY_BLE_CHANNELS.cancelPairing, {
+      vendor,
+      id: 'first',
+    });
+    expect(mockDecide).toHaveBeenCalledTimes(1);
+    finish();
+    await expect(pending).rejects.toThrow('connect cancelled');
+    expect(connect).not.toHaveBeenCalled();
+  },
+);
 
 it('does not open a queued pairing after that connection was cancelled', async () => {
   let finish!: () => void;
@@ -124,7 +131,8 @@ it('does not open a queued pairing after that connection was cancelled', async (
 
 it.each([
   ['trezor', false],
-  ['ledger', true],
+  ['ledger', false],
+  ['keystone', true],
 ] as const)(
   'passes %s through when OS pairing does not apply (available=%s)',
   async (vendor, available) => {
@@ -138,3 +146,36 @@ it.each([
     expect(connect).toHaveBeenCalledTimes(1);
   },
 );
+
+it('pairs a Ledger at the OS level before noble connects', async () => {
+  mockPair.mockResolvedValue('already-paired');
+  const { invoke, connect } = setup();
+  await invoke(THIRD_PARTY_BLE_CHANNELS.scan, { vendor: 'ledger' });
+  await expect(
+    invoke(THIRD_PARTY_BLE_CHANNELS.connect, 'nano', { vendor: 'ledger' }),
+  ).resolves.toEqual({ id: 'connected' });
+  expect(mockPair).toHaveBeenCalledTimes(1);
+  expect(mockPair.mock.calls[0][0]).toBe('nano-address');
+  expect(mockPair.mock.invocationCallOrder[0]).toBeLessThan(
+    connect.mock.invocationCallOrder[0],
+  );
+});
+
+it('retries the first Ledger connect once after a fresh bond', async () => {
+  jest.useFakeTimers({ doNotFake: ['setImmediate'] });
+  try {
+    mockPair.mockResolvedValue('paired');
+    const { invoke, connect } = setup();
+    connect.mockRejectedValueOnce(new Error('link still held'));
+    await invoke(THIRD_PARTY_BLE_CHANNELS.scan, { vendor: 'ledger' });
+    const pending = invoke(THIRD_PARTY_BLE_CHANNELS.connect, 'nano', {
+      vendor: 'ledger',
+    });
+    await flush();
+    await jest.advanceTimersByTimeAsync(3000);
+    await expect(pending).resolves.toEqual({ id: 'connected' });
+    expect(connect).toHaveBeenCalledTimes(2);
+  } finally {
+    jest.useRealTimers();
+  }
+});

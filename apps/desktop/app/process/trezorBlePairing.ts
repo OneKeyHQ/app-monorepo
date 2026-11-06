@@ -30,13 +30,20 @@ import type {
 } from '@onekeyfe/hwk-desktop-noble-ble';
 import type { BrowserWindow } from 'electron';
 
-// App-side Trezor BLE pairing, inserted at the IPC seam the app already owns —
+// App-side Trezor/Ledger BLE pairing, inserted at the IPC seam the app owns —
 // WITHOUT touching the SDK. noble cannot initiate OS bonding on Windows (it
 // fails GATT service discovery with "Unreachable" because Trezor's GATT is
 // encryption-gated), so before delegating `connect` to the SDK we run the WinRT
 // pairing helper (BlePair.ts -> the onekey-ble-pair CLI). `scan` results are
 // cached to resolve connectId -> BLE address. Non-Windows, or a build without
 // the bundled helper, passes straight through with unchanged behavior.
+
+// Their open-source firmware does not start security on connect, so nothing
+// else starts the bond on Windows.
+const OS_PAIRED_BLE_VENDORS: ReadonlySet<string> = new Set<string>([
+  EHardwareVendor.trezor,
+  EHardwareVendor.ledger,
+]);
 
 /**
  * Does this advertisement belong to a Trezor? Replaces the service-UUID filter
@@ -123,7 +130,7 @@ export function createTrezorBlePairingIpcMain(
   // Set when a ceremony registers, so a dialog left open by an earlier attempt
   // answers nothing instead of answering the attempt that replaced it.
   let ceremonyToken: IPairCeremonyToken | undefined;
-  let pairingConnectId: string | undefined;
+  let pairingConnection: IPendingBleConnection | undefined;
   const pendingConnections = new Set<IPendingBleConnection>();
 
   const showPin = (pin: string) => {
@@ -218,7 +225,7 @@ export function createTrezorBlePairingIpcMain(
     // ensureDevicePaired no-ops (already-paired) when the OS bond already exists.
     // No await between the while-check above and this claim, or the
     // serialization silently breaks.
-    pairingConnectId = connectId;
+    pairingConnection = connection;
     const pairing = ensureDevicePaired(
       address,
       showPin,
@@ -277,7 +284,7 @@ export function createTrezorBlePairingIpcMain(
       // Ownership-checked: another call may have claimed the slot already.
       if (pairingInFlight === claimed) {
         pairingInFlight = null;
-        pairingConnectId = undefined;
+        pairingConnection = undefined;
         ceremonyToken = undefined;
       }
     }
@@ -300,9 +307,6 @@ export function createTrezorBlePairingIpcMain(
           // filtered by the SDK's match and are passed through unchanged.
           const all = result as ThirdPartyBleDeviceInfo[];
           const scanOptions: ElectronBleScanOptions | undefined = args[0];
-          // Ledger results were service-filtered in the SDK and are kept for connect
-          // diagnostics only. Ledger is not OS-paired here: like OneKey devices, it
-          // relies on the pairing prompt Windows raises on first encrypted access.
           const devices =
             scanOptions?.vendor === 'ledger' ? all : all.filter(isTrezorDevice);
 
@@ -402,7 +406,7 @@ export function createTrezorBlePairingIpcMain(
           pendingConnections.add(claim);
           try {
             const pairOutcome =
-              options?.vendor === EHardwareVendor.trezor
+              options?.vendor && OS_PAIRED_BLE_VENDORS.has(options.vendor)
                 ? await ensurePaired(claim)
                 : 'skipped';
 
@@ -522,20 +526,15 @@ export function createTrezorBlePairingIpcMain(
           const options = args[0] as
             | { vendor: string; id?: string }
             | undefined;
-          for (const claim of pendingConnections) {
-            if (
-              options === undefined ||
-              (claim.vendor === options.vendor &&
-                (options.id === undefined || claim.id === options.id))
-            )
-              claim.cancelled = true;
-          }
-          const matchesPairing =
+          const isCancelTarget = (connection: IPendingBleConnection) =>
             options === undefined ||
-            (options.vendor === EHardwareVendor.trezor &&
-              (options.id === undefined || options.id === pairingConnectId));
+            (connection.vendor === options.vendor &&
+              (options.id === undefined || connection.id === options.id));
+          for (const claim of pendingConnections) {
+            if (isCancelTarget(claim)) claim.cancelled = true;
+          }
           const declined =
-            matchesPairing && pairingConnectId !== undefined
+            pairingConnection && isCancelTarget(pairingConnection)
               ? decideActivePairing('cancel', ceremonyToken)
               : false;
           if (declined) {
