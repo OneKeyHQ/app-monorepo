@@ -14,11 +14,15 @@ function useIsScreenReaderEnabled() {
   const [isScreenReaderEnabled, setIsScreenReaderEnabled] = useState(false);
   useEffect(() => {
     let mounted = true;
-    void AccessibilityInfo.isScreenReaderEnabled().then((value) => {
-      if (mounted) {
-        setIsScreenReaderEnabled(value);
-      }
-    });
+    void AccessibilityInfo.isScreenReaderEnabled()
+      .then((value) => {
+        if (mounted) {
+          setIsScreenReaderEnabled(value);
+        }
+      })
+      .catch(() => {
+        // Keep tap-controlled navigation if the native query fails.
+      });
     const subscription = AccessibilityInfo.addEventListener(
       'screenReaderChanged',
       (value) => setIsScreenReaderEnabled(value),

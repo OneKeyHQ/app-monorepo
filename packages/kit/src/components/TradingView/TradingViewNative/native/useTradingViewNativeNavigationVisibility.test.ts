@@ -48,11 +48,15 @@ jest.mock('react-native-gesture-handler', () => ({
 }));
 
 let mockIsScreenReaderEnabled = false;
+let mockScreenReaderQueryError: Error | undefined;
 let mockScreenReaderListener: ((enabled: boolean) => void) | undefined;
 
 jest.mock('react-native', () => ({
   AccessibilityInfo: {
-    isScreenReaderEnabled: () => Promise.resolve(mockIsScreenReaderEnabled),
+    isScreenReaderEnabled: () =>
+      mockScreenReaderQueryError
+        ? Promise.reject(mockScreenReaderQueryError)
+        : Promise.resolve(mockIsScreenReaderEnabled),
     addEventListener: (
       _event: string,
       listener: (enabled: boolean) => void,
@@ -90,6 +94,7 @@ describe('useTradingViewNativeNavigationVisibility', () => {
     jest.useFakeTimers();
     mockTapGestures.length = 0;
     mockIsScreenReaderEnabled = false;
+    mockScreenReaderQueryError = undefined;
     mockScreenReaderListener = undefined;
   });
 
@@ -219,6 +224,18 @@ describe('useTradingViewNativeNavigationVisibility', () => {
 
     act(() => mockScreenReaderListener?.(false));
     expect(result.current.isVisible).toBe(false);
+  });
+
+  it('falls back to tap-controlled buttons when the screen reader query fails', async () => {
+    mockScreenReaderQueryError = new Error('unavailable');
+    const { result, tap } = renderVisibility();
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(result.current.isVisible).toBe(false);
+
+    tap();
+    expect(result.current.isVisible).toBe(true);
   });
 
   it('keeps screen reader visibility behind the navigation setting', async () => {
