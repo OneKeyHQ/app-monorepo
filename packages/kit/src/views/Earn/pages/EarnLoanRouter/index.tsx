@@ -2298,24 +2298,48 @@ function EarnLoanRouterPage() {
   // card's collateral) doesn't pay for as it is says what comes first: a
   // swap there, or a bridge from another network
   const isPayLoaded = payWith.isLoaded;
-  const listItems = useMemo(
-    () =>
-      items.map((item) => {
-        const payPath = isPayLoaded ? payPathOf(item.route) : 'direct';
-        const isHandedOff = Boolean(
-          handoff && item.route.key === handoff.routeKey,
-        );
-        return {
-          ...item,
-          pairLabel: isClassMode
-            ? `${item.route.collateral.symbol} / ${item.route.borrow.symbol}`
-            : undefined,
-          payPath: payPath === 'direct' || isHandedOff ? undefined : payPath,
-          isBlocked: isLoanPlanStopped(item.metrics.block, isSupplyAlone),
-        };
-      }),
-    [handoff, isClassMode, isPayLoaded, isSupplyAlone, items, payPathOf],
-  );
+  // The market of the row the window opened from, where it doesn't lend the
+  // token to the account (a home row's Aave Core under an E-Mode that leaves
+  // the loan out): the check goes to the best market that can, and that
+  // row's card leads the list, saying why
+  const openedItem = routeKey
+    ? items.find((item) => item.route.key === routeKey)
+    : undefined;
+  const leadingKey =
+    isFactsLoaded &&
+    openedItem &&
+    isLendingClosed(openedItem.metrics.block) &&
+    stopsPlan(openedItem.metrics.block)
+      ? openedItem.route.key
+      : undefined;
+  const listItems = useMemo(() => {
+    const listed = items.map((item) => {
+      const payPath = isPayLoaded ? payPathOf(item.route) : 'direct';
+      const isHandedOff = Boolean(
+        handoff && item.route.key === handoff.routeKey,
+      );
+      return {
+        ...item,
+        pairLabel: isClassMode
+          ? `${item.route.collateral.symbol} / ${item.route.borrow.symbol}`
+          : undefined,
+        payPath: payPath === 'direct' || isHandedOff ? undefined : payPath,
+        isBlocked: isLoanPlanStopped(item.metrics.block, isSupplyAlone),
+      };
+    });
+    const lead = leadingKey
+      ? listed.find((item) => item.route.key === leadingKey)
+      : undefined;
+    return lead ? [lead, ...listed.filter((item) => item !== lead)] : listed;
+  }, [
+    handoff,
+    isClassMode,
+    isPayLoaded,
+    isSupplyAlone,
+    items,
+    leadingKey,
+    payPathOf,
+  ]);
 
   const routeList = (
     <LoanRouteList
