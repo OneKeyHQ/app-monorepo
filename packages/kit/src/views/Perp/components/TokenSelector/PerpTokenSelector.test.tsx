@@ -85,7 +85,7 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
       getSpotMeta: async () => ({ universes: [] }),
       refreshSpotMeta: async () => undefined,
       updateTokenSelectorFavorite: async (...args: unknown[]) => {
-        mockFavorite(...args);
+        await mockFavorite(...args);
       },
     },
   },
@@ -363,7 +363,14 @@ function key(input: HTMLElement, value: string, extra = {}) {
   fireEvent.keyDown(input, { key: value, ...extra });
 }
 
-describe('PerpTokenSelector keyboard and pointer interactions', () => {
+function selectFirstResult(input: HTMLElement) {
+  // Reach the first row whether selection starts empty or on an existing row.
+  screen.getAllByTestId(/^row-/).forEach(() => {
+    key(input, 'ArrowUp');
+  });
+}
+
+describe('PerpTokenSelector keyboard interactions', () => {
   beforeEach(() => {
     jest.useFakeTimers();
     jest.clearAllMocks();
@@ -375,17 +382,28 @@ describe('PerpTokenSelector keyboard and pointer interactions', () => {
   });
 
   it.each(['', 'BTC'])(
-    'restores selection after reverting input before debounce (%s)',
+    'selects and submits a reverted search after debounce (%s)',
     async (query) => {
-      const input = await mount({ query });
-      expect(selected()).toBe('BTC');
-      fireEvent.change(input, { target: { value: `${query}a` } });
-      expect(selected()).toBe('');
+      const input = await mount();
       fireEvent.change(input, { target: { value: query } });
-      expect(selected()).toBe('BTC');
       await act(async () => {
         jest.advanceTimersByTime(300);
       });
+      selectFirstResult(input);
+      expect(selected()).toBe('BTC');
+      fireEvent.change(input, { target: { value: `${query}a` } });
+      expect(selected()).toBe('');
+      await act(async () => {
+        key(input, 'Enter');
+        key(input, 's', { ctrlKey: true });
+      });
+      expect(mockSwitch).not.toHaveBeenCalled();
+      expect(mockFavorite).not.toHaveBeenCalled();
+      fireEvent.change(input, { target: { value: query } });
+      await act(async () => {
+        jest.advanceTimersByTime(300);
+      });
+      selectFirstResult(input);
       expect(selected()).toBe('BTC');
       await act(async () => {
         key(input, 'Enter');
@@ -394,9 +412,10 @@ describe('PerpTokenSelector keyboard and pointer interactions', () => {
     },
   );
 
-  it('defaults to the first category and completed search result', async () => {
+  it('selects category and completed search results with arrow keys', async () => {
     const input = await mount();
     fireEvent.click(screen.getByText('Stocks'));
+    key(input, 'ArrowDown');
     expect(selected()).toBe('ETH');
     fireEvent.change(input, { target: { value: 'SOL' } });
     expect(selected()).toBe('');
@@ -409,26 +428,35 @@ describe('PerpTokenSelector keyboard and pointer interactions', () => {
     await act(async () => {
       jest.advanceTimersByTime(300);
     });
+    key(input, 'ArrowDown');
     expect(selected()).toBe('SOL');
   });
 
-  it('wraps primary tabs with a query and preserves modified arrows and IME', async () => {
-    const input = await mount({ query: 'BTC' });
-    fireEvent.change(input, { target: { value: 'BTC' } });
+  it('navigates primary tabs with an empty query and preserves modified arrows and IME', async () => {
+    const input = await mount();
     mockActions.current.setTradeRouteViewState.mockClear();
-    key(input, 'ArrowRight');
+    await act(async () => {
+      key(input, 'ArrowRight');
+    });
     expect(mockActions.current.setTradeRouteViewState).toHaveBeenLastCalledWith(
       { tokenSelectorTab: 'spot' },
     );
-    key(input, 'ArrowRight');
+    await act(async () => {
+      key(input, 'ArrowLeft');
+    });
+    expect(mockActions.current.setTradeRouteViewState).toHaveBeenLastCalledWith(
+      { tokenSelectorTab: 'perps' },
+    );
+    await act(async () => {
+      key(input, 'ArrowLeft');
+    });
     expect(mockActions.current.setTradeRouteViewState).toHaveBeenLastCalledWith(
       { tokenSelectorTab: 'favorites' },
     );
-    expect(selected()).toBe('BTC');
-    key(input, 'ArrowLeft');
-    expect(mockActions.current.setTradeRouteViewState).toHaveBeenLastCalledWith(
-      { tokenSelectorTab: 'spot' },
-    );
+    fireEvent.change(input, { target: { value: 'BTC' } });
+    await act(async () => {
+      jest.advanceTimersByTime(300);
+    });
     mockActions.current.setTradeRouteViewState.mockClear();
     key(input, 'ArrowLeft', { shiftKey: true });
     key(input, 'ArrowRight', { isComposing: true });
@@ -436,11 +464,13 @@ describe('PerpTokenSelector keyboard and pointer interactions', () => {
     expect((input as HTMLInputElement).value).toBe('BTC');
   });
 
-  it('shares one target between pointer, arrow keys, Enter and favorites', async () => {
+  it('shares one target between arrow keys, Enter and favorites', async () => {
     const input = await mount();
+    selectFirstResult(input);
+    expect(selected()).toBe('BTC');
     key(input, 'ArrowDown');
     expect(selected()).toBe('ETH');
-    fireEvent.mouseMove(screen.getByTestId('row-SOL'));
+    key(input, 'ArrowDown');
     expect(selected()).toBe('SOL');
     expect(
       screen
@@ -459,17 +489,23 @@ describe('PerpTokenSelector keyboard and pointer interactions', () => {
     expect(mockSwitch).toHaveBeenCalledWith({ mode: 'perp', coin: 'SOL' });
   });
 
-  it('selects next after deleting the first favorite, previous after last, and none when empty', async () => {
+  it('navigates remaining favorites after deletion and ignores shortcuts when empty', async () => {
     const input = await mount({ tab: 'favorites' });
+    selectFirstResult(input);
+    expect(selected()).toBe('BTC');
     await act(async () => {
       key(input, 's', { ctrlKey: true });
     });
+    expect(screen.queryByTestId('row-BTC')).toBeNull();
+    selectFirstResult(input);
     expect(selected()).toBe('ETH');
     key(input, 'ArrowDown');
     expect(selected()).toBe('SOL');
     await act(async () => {
       key(input, 's', { ctrlKey: true });
     });
+    expect(screen.queryByTestId('row-SOL')).toBeNull();
+    selectFirstResult(input);
     expect(selected()).toBe('ETH');
     await act(async () => {
       key(input, 's', { ctrlKey: true });
