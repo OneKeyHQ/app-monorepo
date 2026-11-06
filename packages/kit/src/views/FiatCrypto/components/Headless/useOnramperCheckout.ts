@@ -110,7 +110,8 @@ type IResult = {
   // and by signOut. False while unknown.
   isSignedIn: boolean;
   // Clears the stored OnramperID login (OIDC tokens); the next checkout
-  // re-runs email + phone verification. Exposed for the header sign-out
+  // re-runs email + phone verification. Also re-quotes, because the SDK
+  // discards the checkout it had prepared. Exposed for the header sign-out
   // button.
   signOut: () => Promise<void>;
   // Logging context (network / token / entry / elapsed) for page-level events
@@ -730,8 +731,9 @@ export function useOnramperCheckout({
     });
   }, [noteTransactionId]);
 
-  // Re-quote after a failure or a review exit. `reason` only feeds the log:
-  // a user-pressed Retry is a funnel signal, an exit-driven re-quote is not.
+  // Re-quote after a failure, a review exit or a sign-out. `reason` only
+  // feeds the log: a user-pressed Retry is a funnel signal, an exit-driven
+  // re-quote is not.
   const refreshQuote = useCallback(() => {
     // Drop the previous quote's data and button up front: the button handle is
     // single-consume (remounting the old element renders blank) and a fast
@@ -788,17 +790,25 @@ export function useOnramperCheckout({
 
   const signOut = useCallback(async () => {
     defaultLogger.fiatCrypto.onramper.signOutPressed(getLogContext());
+    // signOut() makes the SDK drop the checkout it prepared: the mounted
+    // button stops responding, and a quote still in flight is invalidated the
+    // moment the call is made (it rejects with `intentInvalidated`), even if
+    // the sign-out then fails. Retire that quote here and prepare a new
+    // checkout once the call has settled, either way.
+    reqSeqRef.current += 1;
     try {
       await clientRef.current?.signOut();
+      markSignedIn(false);
     } catch (error) {
       defaultLogger.fiatCrypto.onramper.signOutFailed({
         ...getLogContext(),
         errorMessage: getErrorMessageForLog(error),
       });
       throw error;
+    } finally {
+      refreshQuote();
     }
-    markSignedIn(false);
-  }, [getLogContext, markSignedIn]);
+  }, [getLogContext, markSignedIn, refreshQuote]);
 
   return {
     actionState,

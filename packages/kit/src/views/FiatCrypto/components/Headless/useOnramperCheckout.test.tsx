@@ -6,6 +6,10 @@ import { act, renderHook } from '@testing-library/react';
 const mockStore = new Map<string, boolean>();
 let mockStateListener: ((state: IOnramperState) => void) | undefined;
 const mockSignOut = jest.fn<Promise<void>, []>();
+const mockGetCheckoutRequirements = jest.fn<
+  Promise<{ button: string; quote: IOnramperQuote }>,
+  []
+>();
 
 jest.mock('@onekeyhq/shared/src/storage/appStorage', () => ({
   __esModule: true,
@@ -29,7 +33,7 @@ jest.mock('@onekeyhq/shared/src/modules3rdParty/onramper', () => ({
     // Skips the session mint; the state stream below is what is under test.
     isMock: true,
     initialize: async () => {},
-    getCheckoutRequirements: jest.fn(),
+    getCheckoutRequirements: () => mockGetCheckoutRequirements(),
     addEventListener: () => () => {},
     addStateListener: (listener: (state: IOnramperState) => void) => {
       mockStateListener = listener;
@@ -55,9 +59,13 @@ jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
   },
 }));
 
-import type { IOnramperState } from '@onekeyhq/shared/src/modules3rdParty/onramper';
+import type {
+  IOnramperQuote,
+  IOnramperState,
+} from '@onekeyhq/shared/src/modules3rdParty/onramper';
 import { EAppSyncStorageKeys } from '@onekeyhq/shared/src/storage/syncStorageKeys';
 
+import { EBuyActionState } from './types';
 import { useOnramperCheckout } from './useOnramperCheckout';
 
 const KEY = EAppSyncStorageKeys.onekey_onramper_id_signed_in;
@@ -68,11 +76,11 @@ const BUTTON_STYLE = {
   borderRadius: 8,
 };
 
-async function renderCheckout() {
+async function renderCheckout({ amount = 0 }: { amount?: number } = {}) {
   const rendered = renderHook(() =>
     useOnramperCheckout({
-      amount: 0,
-      isAmountValid: false,
+      amount,
+      isAmountValid: amount > 0,
       source: 'usd',
       destination: 'eth',
       network: 'ethereum',
@@ -97,21 +105,43 @@ const LOGIN_FROM_NOTHING: IOnramperState = {
   hasVerifiedUserInfo: false,
 };
 
+const QUOTE: IOnramperQuote = {
+  quoteId: 'quote',
+  ramp: 'coinbase',
+  rate: 0.0004,
+  payout: 0.02,
+  paymentMethod: 'applepay',
+  networkFee: 0.1,
+  transactionFee: 0.1,
+};
+
+// Runs the timers due within `ms` and lets the promises they start settle.
+async function advance(ms: number) {
+  await act(async () => {
+    jest.advanceTimersByTime(ms);
+  });
+}
+
+const QUOTE_DEBOUNCE_MS = 400;
+// refreshQuote defers the SDK reset past the unmount frames.
+const REFRESH_DEFER_MS = 64;
+
+beforeEach(() => {
+  jest.useFakeTimers();
+  mockStore.clear();
+  mockStateListener = undefined;
+  mockSignOut.mockReset();
+  mockSignOut.mockResolvedValue(undefined);
+  mockGetCheckoutRequirements.mockReset();
+});
+
+afterEach(() => {
+  // The unmount defers the client teardown on a timer.
+  jest.runOnlyPendingTimers();
+  jest.useRealTimers();
+});
+
 describe('useOnramperCheckout OnramperID login state', () => {
-  beforeEach(() => {
-    jest.useFakeTimers();
-    mockStore.clear();
-    mockStateListener = undefined;
-    mockSignOut.mockReset();
-    mockSignOut.mockResolvedValue(undefined);
-  });
-
-  afterEach(() => {
-    // The unmount defers the client teardown on a timer.
-    jest.runOnlyPendingTimers();
-    jest.useRealTimers();
-  });
-
   it('starts signed out when no login was ever reported', async () => {
     const { result } = await renderCheckout();
     expect(result.current.isSignedIn).toBe(false);
@@ -173,5 +203,78 @@ describe('useOnramperCheckout OnramperID login state', () => {
 
     expect(result.current.isSignedIn).toBe(true);
     expect(mockStore.get(KEY)).toBe(true);
+  });
+});
+
+// signOut() makes the SDK discard its prepared checkout: the mounted button
+// stops responding and a quote still in flight rejects.
+describe('useOnramperCheckout sign-out', () => {
+  it('prepares a new checkout in place of the one the SDK discarded', async () => {
+    mockGetCheckoutRequirements
+      .mockResolvedValueOnce({ button: 'button-1', quote: QUOTE })
+      .mockResolvedValueOnce({ button: 'button-2', quote: QUOTE });
+    const { result } = await renderCheckout({ amount: 50 });
+    await advance(QUOTE_DEBOUNCE_MS);
+    expect(result.current.actionState).toBe(EBuyActionState.Ready);
+    expect(result.current.nativeButton).toBe('button-1');
+
+    await act(() => result.current.signOut());
+
+    // The dead button is gone at once, not left for a tap to find out.
+    expect(result.current.nativeButton).toBeNull();
+    expect(result.current.actionState).toBe(EBuyActionState.Preparing);
+
+    await advance(REFRESH_DEFER_MS);
+    await advance(QUOTE_DEBOUNCE_MS);
+    expect(mockGetCheckoutRequirements).toHaveBeenCalledTimes(2);
+    expect(result.current.actionState).toBe(EBuyActionState.Ready);
+    expect(result.current.nativeButton).toBe('button-2');
+  });
+
+  it('does not report the quote the sign-out made obsolete as an error', async () => {
+    let rejectObsolete: ((error: unknown) => void) | undefined;
+    mockGetCheckoutRequirements
+      .mockImplementationOnce(
+        () =>
+          new Promise((_resolve, reject) => {
+            rejectObsolete = reject;
+          }),
+      )
+      .mockResolvedValueOnce({ button: 'button-2', quote: QUOTE });
+    const { result } = await renderCheckout({ amount: 50 });
+    await advance(QUOTE_DEBOUNCE_MS);
+    expect(mockGetCheckoutRequirements).toHaveBeenCalledTimes(1);
+
+    await act(() => result.current.signOut());
+    await act(async () => {
+      rejectObsolete?.({ code: 'intentInvalidated', message: 'obsolete' });
+    });
+
+    expect(result.current.actionState).toBe(EBuyActionState.Preparing);
+    expect(result.current.errorMessage).toBeUndefined();
+
+    await advance(REFRESH_DEFER_MS);
+    await advance(QUOTE_DEBOUNCE_MS);
+    expect(result.current.actionState).toBe(EBuyActionState.Ready);
+    expect(result.current.nativeButton).toBe('button-2');
+  });
+
+  // The SDK discards the prepared checkout when signOut is called, not when
+  // it succeeds.
+  it('prepares a new checkout even when the sign-out fails', async () => {
+    mockGetCheckoutRequirements
+      .mockResolvedValueOnce({ button: 'button-1', quote: QUOTE })
+      .mockResolvedValueOnce({ button: 'button-2', quote: QUOTE });
+    mockSignOut.mockRejectedValue(new Error('notInitialized'));
+    const { result } = await renderCheckout({ amount: 50 });
+    await advance(QUOTE_DEBOUNCE_MS);
+
+    await act(async () => {
+      await expect(result.current.signOut()).rejects.toThrow('notInitialized');
+    });
+    await advance(REFRESH_DEFER_MS);
+    await advance(QUOTE_DEBOUNCE_MS);
+
+    expect(result.current.nativeButton).toBe('button-2');
   });
 });
