@@ -19,10 +19,10 @@ import {
   onVisibilityStateChange,
 } from '../utils/appVisibility';
 
-// Native main-runtime imports already get one foreground-gated recovery inside
-// installProdBundleLoader. This boundary adds at most one new import, sharing
-// the loader's total budget of three native attempts per segment. Once that
-// budget is exhausted, retryable=false prevents further boundary retries.
+// Native main-runtime imports already get up to three foreground-gated retries
+// inside installProdBundleLoader, sharing a total budget of four native calls
+// per segment. Once exhausted, retryable=false prevents this boundary from
+// starting another import. Success resets the loader's failure budget.
 // Other runtimes keep their existing single boundary retry.
 export const MAX_LAZY_RETRIES = 1;
 const RETRY_BACKOFF_MS = [150, 600];
