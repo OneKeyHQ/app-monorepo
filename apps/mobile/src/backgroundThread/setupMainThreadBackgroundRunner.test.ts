@@ -471,7 +471,13 @@ describe('main thread background runner', () => {
     });
   });
 
-  it('rejects a remote call when a legacy error contains constructorName', async () => {
+  it.each([
+    [
+      'remote stack',
+      'OneKeyServerApiError: remote failure\n    at remoteCall (bg.js:1:1)',
+    ],
+    ['Hermes placeholder', 'Access error.stack failed in native hermes engine'],
+  ])('rehydrates a legacy remote error with %s', async (_label, stack) => {
     await import('./setupMainThreadBackgroundRunner');
 
     const transport = (
@@ -502,9 +508,10 @@ describe('main thread background runner', () => {
       },
       () => Promise.resolve(undefined),
     );
-    const requestCall = mockSharedRPCWrite.mock.calls.find(
+    const requestCalls = mockSharedRPCWrite.mock.calls.filter(
       ([key]) => typeof key === 'string' && key.startsWith('onekey:bg:req:'),
     );
+    const requestCall = requestCalls[requestCalls.length - 1];
     const callId = (requestCall?.[0] as string).slice('onekey:bg:req:'.length);
 
     expect(() =>
@@ -519,18 +526,28 @@ describe('main thread background runner', () => {
             className: 'OneKeyServerApiError',
             code: 404,
             constructorName: 'OneKeyServerApiError',
+            stack,
           },
         }),
       ),
     ).not.toThrow();
 
-    await expect(requestPromise).rejects.toMatchObject({
+    const error = (await requestPromise.catch(
+      (rejection: unknown) => rejection,
+    )) as Error;
+    expect(error).toMatchObject({
       name: 'OneKeyServerApiError',
       message: '/prime/v1/account/profile Not Found',
       autoToast: true,
       className: 'OneKeyServerApiError',
       code: 404,
     });
+    if (stack.startsWith('Access error.stack failed in native hermes engine')) {
+      expect(error.stack).toBeDefined();
+      expect(error.stack).not.toBe(stack);
+    } else {
+      expect(error.stack).toBe(stack);
+    }
   });
 
   it('rejects a hardware error response without touching getter-only constructorName (OK-61417)', async () => {

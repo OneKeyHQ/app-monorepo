@@ -1,3 +1,4 @@
+import { isFoldableIPhone } from '@onekeyhq/shared/src/modules/DualScreenInfo/isFoldableIPhone';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 /**
@@ -20,3 +21,27 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 export const HEADER_WIDE_MEDIA_KEY = platformEnv.isDesktop ? 'gtXl' : 'gtLg';
 
 export const HEADER_SEARCH_MIN_WIDTH = 320;
+
+// Foldable iPhones keep the status bar in the side strip, so the top inset is 0
+// while native bar buttons stay centered on this line, level with the camera.
+const FOLDABLE_IPHONE_BAR_CENTER_Y = 48;
+
+export const HEADER_SEARCH_BAR_HEIGHT = 44;
+
+// MDHeader's spacer on tabs without a base header row, when the top inset is 0.
+export const HEADER_EMPTY_INSET_SPACER_HEIGHT = 8;
+
+export function getFoldableIPhoneHeaderTop(rowHeight: number) {
+  return isFoldableIPhone() ? FOLDABLE_IPHONE_BAR_CENTER_Y - rowHeight / 2 : 0;
+}
+
+/**
+ * Title width for foldable iPhones. UIKit keeps the title slot narrow and
+ * centered even when the side strip takes the icon items, so these titles live
+ * in a left item in every posture: moving between slots on rotation leaves the
+ * title under the back button. The width fits the outer display and never
+ * follows the window, because an item too wide at the moment of folding moves
+ * into the overflow menu and does not come back. UIKit also shifts a wider item
+ * left of the page inset on the outer display.
+ */
+export const FOLDABLE_IPHONE_TITLE_ITEM_WIDTH = 278;

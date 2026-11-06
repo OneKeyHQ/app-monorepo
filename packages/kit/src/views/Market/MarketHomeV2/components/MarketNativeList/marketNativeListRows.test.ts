@@ -88,6 +88,21 @@ const perp: IMarketPerpsToken = {
 };
 
 describe('market native list rows', () => {
+  it('keeps token identity independent of whitespace in display metadata', () => {
+    const row = buildTokenMarketRow({
+      item: { ...token, id: 'token-id ', symbol: 'TINY ' },
+      presentation,
+    });
+    const original = buildTokenMarketRow({ item: token, presentation });
+    const otherNetwork = buildTokenMarketRow({
+      item: { ...token, networkId: 'evm--56' },
+      presentation,
+    });
+    expect(row.key).toBe(original.key);
+    expect(row.key.trim()).toBe(row.key);
+    expect(row.key).not.toBe(otherNetwork.key);
+  });
+
   it('keeps listing favorites distinct when their chain addresses are empty', () => {
     const items = [
       { assetId: 'bitcoin' },

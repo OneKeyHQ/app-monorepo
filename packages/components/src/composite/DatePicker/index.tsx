@@ -247,6 +247,7 @@ function BasicDatePicker({
   maxDate,
   floatingPanelProps,
   sheetProps,
+  showTodayShortcut = true,
 }: IDatePickerProps) {
   const { placeholder, title, locale } = usePickerI18n(
     placeholderProp,
@@ -302,7 +303,8 @@ function BasicDatePicker({
 
   // Re-evaluated every render (opening re-renders), so a picker left mounted
   // past midnight still offers the right day.
-  const canSelectToday = isDayWithinBounds(getToday(), minDate, maxDate);
+  const canSelectToday =
+    showTodayShortcut && isDayWithinBounds(getToday(), minDate, maxDate);
 
   const pickerContent = useMemo(
     () => (

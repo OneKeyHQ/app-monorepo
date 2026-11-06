@@ -9,12 +9,19 @@ import {
   HARDWARE_CLOUD_SYNC_PATH,
   buildHardwareCloudSyncMessage,
 } from '@onekeyhq/shared/src/consts/hardwareCloudSyncConsts';
-import { HardwareCloudSyncCancelledError } from '@onekeyhq/shared/src/hardware/hardwareCloudSyncError';
-import type { IKeylessCloudSyncCredential } from '@onekeyhq/shared/types/keylessCloudSync';
+import type { IHardwareCloudSyncAuthContext } from '@onekeyhq/shared/src/consts/hardwareCloudSyncConsts';
+import {
+  HardwareCloudSyncCancelledError,
+  HardwareCloudSyncUnlockError,
+} from '@onekeyhq/shared/src/hardware/hardwareCloudSyncError';
+import type {
+  IHardwareCloudSyncKeySource,
+  IKeylessCloudSyncCredential,
+} from '@onekeyhq/shared/types/keylessCloudSync';
 
 import {
   HardwareCloudSyncCheckError,
-  rethrowAsHardwareCloudSyncUnlockError,
+  logHardwareCloudSyncFailure,
 } from './hardwareCloudSyncLog';
 
 export type IHardwareCloudKeyIdentity = {
@@ -42,7 +49,10 @@ export type IHardwareCloudKeyAdapter = {
 
 // Signs a server sign-in challenge on HARDWARE_CLOUD_SYNC_AUTH_PATH; returns a
 // base64 BIP-137 signature.
-export type IHardwareCloudSyncAuthSigner = (message: string) => Promise<string>;
+export type IHardwareCloudSyncAuthSigner = (
+  message: string,
+  expected: IHardwareCloudSyncAuthContext,
+) => Promise<string>;
 
 type IExpectedIdentity = Pick<
   IHardwareCloudKeyIdentity,
@@ -207,9 +217,9 @@ export async function deriveHardwareCloudSyncKek({
         }
         await checkCurrentIdentity();
         return normalized;
-      } catch {
+      } catch (error) {
         normalized.fill(0);
-        throw identityError();
+        throw error;
       }
     };
     first = await sign();
@@ -233,9 +243,11 @@ export async function deriveHardwareCloudSyncKek({
       kek.fill(0);
     }
   } catch (error) {
-    // SDK errors may carry request/response objects; they must not reach RPC
-    // error logging, analytics, or the message-signing UI.
-    return rethrowAsHardwareCloudSyncUnlockError('Unlock failed', error);
+    if (error instanceof HardwareCloudSyncCheckError) {
+      logHardwareCloudSyncFailure('Unlock failed', error);
+      throw new HardwareCloudSyncUnlockError();
+    }
+    throw error;
   } finally {
     first?.fill(0);
     second?.fill(0);
@@ -246,6 +258,7 @@ export async function deriveHardwareCloudSyncKek({
 // challenge, and derive a KEK for an envelope's salt.
 export type IHardwareCloudKeyDevice = {
   credentialId: string;
+  source?: IHardwareCloudSyncKeySource;
   signAuth: IHardwareCloudSyncAuthSigner;
   deriveKek: (kekSalt: string) => Promise<string>;
 };

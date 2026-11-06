@@ -57,6 +57,7 @@ import {
   getTradingViewNativeScaledPriceAxisLabel,
 } from '../utils/chartLayout';
 import { getTradingViewNativeVolumeAxisLabel } from '../utils/chartLegend';
+import { isTradingViewNativeNavigationResetAvailable } from '../utils/chartNavigation';
 import {
   getTradingViewNativeChartRuntimeVisiblePointRange,
   reduceTradingViewNativeChartRuntime,
@@ -1195,6 +1196,30 @@ export const TradingViewNativeChart = memo(
       },
       [chartRuntime, decayOffset, handleMainPriceScaleReset, priceAxisWidth],
     );
+    const showNavigationControls =
+      enableNavigationControls && chartSettings.options.navigationButtons;
+    const [isNavigationResetVisible, setIsNavigationResetVisible] =
+      useState(false);
+    useAnimatedReaction(
+      () => {
+        if (!showNavigationControls) return false;
+        const runtime = chartRuntime.value;
+        return isTradingViewNativeNavigationResetAvailable({
+          chartWidth: getTradingViewNativeChartWidth(
+            runtime.size.width,
+            priceAxisWidth.value,
+          ),
+          isAutoScale: runtime.pinnedPriceRange === null,
+          pointCount: runtime.points.length,
+          viewport: runtime.viewport,
+        });
+      },
+      (isVisible, previous) => {
+        if (isVisible !== previous) {
+          scheduleOnRN(setIsNavigationResetVisible, isVisible);
+        }
+      },
+    );
 
     const chartGestures = useTradingViewNativeChartGestures({
       prioritizePageScroll,
@@ -1288,13 +1313,11 @@ export const TradingViewNativeChart = memo(
               <Picture picture={picture} />
             </Canvas>
           </GestureDetector>
-          {enableNavigationControls &&
-          chartSettings.options.navigationButtons &&
-          chartWidth > 0 &&
-          pointCount > 0 ? (
+          {showNavigationControls && chartWidth > 0 && pointCount > 0 ? (
             <TradingViewNativeNavigationControls
               backgroundColor={background}
               chartWidth={chartWidth}
+              isResetVisible={isNavigationResetVisible}
               onAction={handleNavigationAction}
               timeAxisHeight={timeAxisHeight}
               testID={testID}

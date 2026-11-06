@@ -34,10 +34,7 @@ function createVault({
               accountId,
               meta: { vkFp: String(index).repeat(32) },
             })),
-          listZcashEnabledAccountIds: async () => [
-            'hd-saved--1',
-            'hd-hidden--1',
-          ],
+          listScanningAccountIds: async () => ['hd-saved--1', 'hd-hidden--1'],
           listAccountIds: async () => [],
         },
         privacyChainJournal: {

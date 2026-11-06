@@ -135,11 +135,12 @@ export function canonicalizeZcashWalletAccounts(
 
 // Host owns the account set; an orphaned runtime account (lost host record)
 // would otherwise be trial-decrypted forever with no way to remove it.
-// Accounts being prepared match by key (they may predate labels); the rest by label.
+// The opener matches by key (it may predate labels); the rest by label.
+// False when any orphan may remain, so the host keeps the pass due.
 async function purgeAccountsUnknownToHost(
   rt: Awaited<ReturnType<typeof withWallet>>['rt'],
   known: { ufvks: string[]; labels: string[] },
-): Promise<void> {
+): Promise<boolean> {
   const lookup = (found: string) =>
     (JSON.parse(found) as { uuid: string } | null)?.uuid;
   let knownUuids: Set<string>;
@@ -159,51 +160,62 @@ async function purgeAccountsUnknownToHost(
         error: e instanceof Error ? e.message : String(e),
       },
     );
-    return;
+    return false;
   }
   const all = JSON.parse(rt.listAccounts()) as string[];
   const unknown = all.filter((candidate) => !knownUuids.has(candidate));
+  let complete = true;
   for (const uuid of unknown) {
     try {
       // eslint-disable-next-line no-await-in-loop
       await rt.removeAccount(uuid);
     } catch (e) {
       if (e instanceof WebAssembly.RuntimeError) throw e;
-      // Failed storage cleanup is retried on the next orphan cleanup pass.
+      // Retried on the next orphan cleanup pass.
+      complete = false;
       console.error('[zcash] purge of unknown runtime account failed', {
         uuid,
         error: e instanceof Error ? e.message : String(e),
       });
     }
   }
+  return complete;
+}
+
+// Opens the database through `opener`, one the scan registers anyway. Paused
+// accounts are outside the scan set, so the host names every label it keeps.
+export async function purgeUnknownAccounts(
+  opener: IZcashWalletAccount,
+  options: { retainedLabels: string[] },
+): Promise<boolean> {
+  const [account] = canonicalizeZcashWalletAccounts([opener]);
+  let rt: Awaited<ReturnType<typeof withWallet>>['rt'];
+  try {
+    ({ rt } = await withWallet(account, { registerIfMissing: true }));
+  } catch (error) {
+    // A deferred registration opens nothing, so nothing was purged.
+    if (isZcashAccountImportCheckpointError(error)) return false;
+    throw error;
+  }
+  return purgeAccountsUnknownToHost(rt, {
+    ufvks: [account.ufvk],
+    labels: [...options.retainedLabels, account.label],
+  });
 }
 
 export async function prepareWalletAccounts(
   accounts: IZcashWalletAccount[],
-  options?: { retainedLabels: string[] },
 ): Promise<IZcashWalletAccount[]> {
   // Opens and migrates each account's DB up front, one at a time — the runtime holds only one database open.
   const canonical = canonicalizeZcashWalletAccounts(accounts);
   const registered: IZcashWalletAccount[] = [];
-  let runtime: Awaited<ReturnType<typeof withWallet>>['rt'] | undefined;
   for (const account of canonical) {
     try {
-      const { rt } = await withWallet(account, { registerIfMissing: true });
+      await withWallet(account, { registerIfMissing: true });
       registered.push(account);
-      runtime = rt;
     } catch (error) {
       if (!isZcashAccountImportCheckpointError(error)) throw error;
     }
-  }
-  if (runtime && options) {
-    // Paused accounts keep their cache outside the active scan set; retention must be explicit or purge can't tell what's still owned.
-    await purgeAccountsUnknownToHost(runtime, {
-      ufvks: canonical.map(({ ufvk }) => ufvk),
-      labels: [
-        ...options.retainedLabels,
-        ...canonical.map(({ label }) => label),
-      ],
-    });
   }
   return registered;
 }

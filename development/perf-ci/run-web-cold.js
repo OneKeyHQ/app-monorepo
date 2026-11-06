@@ -43,6 +43,11 @@ const {
   summarizeNetworkStats,
 } = require('./lib/webColdNetwork');
 const { classifyPageErrors } = require('./lib/webColdPageErrors');
+const {
+  countResourceEntries,
+  isStaticResourceResponse,
+  normalizeStaticResourceUrl,
+} = require('./lib/webColdResources');
 
 const MB = 1024 * 1024;
 
@@ -529,6 +534,7 @@ async function runOne({
   url,
   scenario,
   runIndex,
+  buildDir,
   profileDir,
   waitAfterLoadMs,
   businessTimeoutMs,
@@ -547,6 +553,7 @@ async function runOne({
 
   const failedRequests = [];
   const badResponses = [];
+  const resourceResponses = [];
   const pageErrors = [];
   const consoleErrors = [];
   const enableCpuProfile = booleanEnv('PERF_WEB_COLD_CPU_PROFILE');
@@ -620,6 +627,13 @@ async function runOne({
     });
 
     page.on('response', (response) => {
+      const request = response.request();
+      resourceResponses.push({
+        url: response.url(),
+        method: request.method(),
+        resourceType: request.resourceType(),
+        contentType: response.headers()['content-type'],
+      });
       const status = response.status();
       if (status >= 400) {
         badResponses.push({
@@ -704,6 +718,23 @@ async function runOne({
     }
 
     const rawResources = metrics.resources || [];
+    const staticResourceUrls = new Set(
+      resourceResponses
+        .filter((resourceResponse) =>
+          isStaticResourceResponse({
+            ...resourceResponse,
+            buildDir,
+            localOrigin: new URL(url).origin,
+          }),
+        )
+        .map((resourceResponse) =>
+          normalizeStaticResourceUrl(resourceResponse.url),
+        ),
+    );
+    const resourceCounts = countResourceEntries(
+      rawResources,
+      staticResourceUrls,
+    );
     const uniqueResources = dedupeResourceEntries(rawResources);
     const rawScripts = rawResources.filter(
       (entry) =>
@@ -752,10 +783,10 @@ async function runOne({
             businessReady?.domTokenItemCount ||
             (businessReady?.ready ? 1 : 0)
           : 0,
-      resourceCount: rawResources.length,
+      resourceCount: resourceCounts.resourceCount,
       rawResourceCount: rawResources.length,
       uniqueResourceCount: uniqueResources.length,
-      scriptCount: rawScripts.length,
+      scriptCount: resourceCounts.scriptCount,
       rawScriptEntryCount: rawScripts.length,
       uniqueScriptCount: uniqueScripts.length,
       totalTransferBytes:
@@ -1362,6 +1393,7 @@ async function main() {
             url,
             scenario,
             runIndex: i + 1,
+            buildDir,
             profileDir,
             waitAfterLoadMs: numberEnv(
               'PERF_WEB_COLD_WAIT_AFTER_LOAD_MS',
@@ -1435,17 +1467,17 @@ async function main() {
       'Use scenarios[] as the source of truth. Top-level url/budgets/budgetChecks/healthChecks/summary/runs are legacy-compatible fields for the first scenario only.';
     const metricDefinitions = {
       resourceCount:
-        'Raw PerformanceResourceTiming resource entry count used by the hard budget gate.',
+        'Hard-gate resource count: static assets are counted once per URL (including query parameters); API and other dynamic requests are counted individually.',
       rawResourceCount:
-        'Alias of resourceCount for compatibility with diagnostic tooling.',
+        'Raw PerformanceResourceTiming resource entry count, including repeated static assets and API requests.',
       uniqueResourceCount:
         'Count of distinct normalized resource URLs loaded during the cold-start sample; duplicates from preload + fetch, repeated injection, or cache re-use are collapsed.',
       scriptCount:
-        'Raw PerformanceResourceTiming JavaScript resource entry count used by the hard budget gate.',
+        'Hard-gate JavaScript entry count after static-resource URL de-duplication.',
       uniqueScriptCount:
         'Count of distinct normalized JavaScript resource URLs loaded during the cold-start sample; duplicates are collapsed.',
       rawScriptEntryCount:
-        'Alias of scriptCount for compatibility with diagnostic tooling.',
+        'Raw PerformanceResourceTiming JavaScript entry count, including duplicates.',
       jsDecodedBytes:
         'Sum of decodedBodySize for raw JavaScript resource entries, matching the existing hard budget baseline.',
       jsTransferBytes:

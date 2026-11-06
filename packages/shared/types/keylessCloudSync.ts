@@ -56,6 +56,13 @@ export interface IKeylessCloudSyncCredential {
     // Envelope generation of the new key; absent in older saved credentials.
     generation?: number;
   };
+  // Keep both identities until the target upload and local cutover complete.
+  // This journal is local only and uses the credential store's encryption.
+  pendingHardwareKeyMigration?: {
+    target: Omit<IKeylessCloudSyncCredential, 'pendingHardwareKeyMigration'>;
+    recordsHash: string;
+    phase: 'prepared' | 'committing';
+  };
 }
 
 export type IHardwareCloudSyncSession = {

@@ -429,8 +429,8 @@ const SwapHeaderContainer = ({
     gtLg &&
     !platformEnv.isNative &&
     !platformEnv.isExtensionUiSidePanel;
-  const hideDesktopModalStockKLine = Boolean(
-    platformEnv.isDesktop &&
+  const hideStockModalKLine = Boolean(
+    (platformEnv.isDesktop || platformEnv.isNative) &&
     pageType === 'modal' &&
     swapTypeSwitch === ESwapTabSwitchType.STOCK,
   );
@@ -538,7 +538,7 @@ const SwapHeaderContainer = ({
           marketPresetSettings={marketPresetSettings}
           routeSwapType={defaultSwapType}
           compact={Boolean(isCompactLayout && !useDesktopModalHeaderActions)}
-          hideKLine={hideDesktopModalStockKLine}
+          hideKLine={hideStockModalKLine}
         />
       ) : null}
     </XStack>

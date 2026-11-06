@@ -16,9 +16,6 @@ const TARGETS_CACHE_MS = 30 * 1000;
 
 let cachedTargets: { at: number; targets: IRelayTarget[] } | undefined;
 
-// A node URL the user is testing before it is saved (custom-node probe).
-const probeTargets = new Map<string, { target: IRelayTarget; refs: number }>();
-
 function parseRelayTarget(url: string): IRelayTarget | undefined {
   try {
     const parsed = new URL(url.trim());
@@ -68,9 +65,6 @@ export async function isPrivacyChainRelayTargetAllowed(
 ): Promise<boolean> {
   const request = parseRelayTarget(url);
   if (!request) return false;
-  for (const { target } of probeTargets.values()) {
-    if (isUnderTarget(request, target)) return true;
-  }
   const fresh =
     cachedTargets && Date.now() - cachedTargets.at < TARGETS_CACHE_MS
       ? cachedTargets.targets
@@ -78,22 +72,6 @@ export async function isPrivacyChainRelayTargetAllowed(
   if (fresh?.some((target) => isUnderTarget(request, target))) return true;
   const targets = await loadTargets(source);
   return targets.some((target) => isUnderTarget(request, target));
-}
-
-export function allowPrivacyChainRelayProbe(url: string): () => void {
-  const target = parseRelayTarget(url);
-  if (!target) return () => undefined;
-  const key = `${target.protocol}//${target.host}${target.path}`;
-  const entry = probeTargets.get(key) ?? { target, refs: 0 };
-  entry.refs += 1;
-  probeTargets.set(key, entry);
-  let released = false;
-  return () => {
-    if (released) return;
-    released = true;
-    entry.refs -= 1;
-    if (entry.refs <= 0) probeTargets.delete(key);
-  };
 }
 
 export function createPrivacyChainRelayTargetSource(
@@ -125,5 +103,4 @@ export function createPrivacyChainRelayTargetSource(
 
 export function clearPrivacyChainRelayTargetsCacheForTest() {
   cachedTargets = undefined;
-  probeTargets.clear();
 }
