@@ -107,10 +107,10 @@ LocalAuthentication、AdSupport、AppTrackingTransparency。
 
 | # | 问题 | 修复（重建源码） |
 |---|---|---|
-| F1 | 登录 WebView 无条件授予摄像头/麦克风 | `requestMediaCapturePermission` 改 `.deny` 默认；仅 OnramperID 域允许 `.prompt`，永不 `.grant` |
+| F1 | 登录 WebView 无条件授予摄像头/麦克风 | `requestMediaCapturePermission` 改 `.deny` 默认；仅精确 OnramperID 主机且 `type == .camera` 允许 `.prompt`，麦克风始终 deny，永不 `.grant` |
 | F2 | 登录 WebView 新窗口 URL 无校验 | 仅 https + `{id.onramper.com,id.onramper.dev}`；否则忽略并记录 |
-| F3 | checkout 导航用 URL 子串判断 | 改 scheme+host 精确白名单；未知 top-frame → cancel 并关闭 |
-| F4 | provider WebView 无导航策略 / JS 消息不校验来源 | Paybis/MoonPay/Coinbase 加 host 白名单 + `securityOrigin.host` 校验 |
+| F3 | checkout 导航用 URL 子串判断 | 改 scheme+host 精确白名单（不做子域后缀匹配）；非白名单 top-frame 与 subframe → cancel/blocked |
+| F4 | provider WebView 无导航策略 / JS 消息不校验来源 | Paybis/MoonPay/Coinbase 加精确 host 导航白名单 + `securityOrigin.host` 必须等于 trusted frame host（不做子域回退） |
 | F5 | Paybis 全局 monkey-patch `window.postMessage` | 改 `message` 事件 + `event.origin` 过滤 |
 | F6 | 设备指纹含 IDFV/屏幕/语言/时区 | 安装期随机 ID + 机型 + OS 主版本 + SDK 版本 |
 | F7 | 遥测 body 可能携带 PII | 固定 4 字段（checkoutId/eventType/providerEventName/metadata）+ PII 断言 |
@@ -122,6 +122,8 @@ LocalAuthentication、AdSupport、AppTrackingTransparency。
 | F13 | 新增 public `enableWebViewCamera` | **不实施**（会破坏 public API parity）；改用内部常量，默认 deny |
 | F14 | 上游二进制带 `__llvm_prf_*` 插桩 | 重建源码不继承（上游产物问题） |
 | F15 | UI 合约未写明 WebView 安全约束 | 合约与 `ProviderNavigationPolicy` 已固化 |
+
+> **验收整改记录（2026-11-06）**：独立验收发现 F1–F4 仍偏宽，已收紧为「精确 host + camera-only prompt + 非主框架默认拒绝 + 消息 origin 精确等于 trusted host」。F7/F10/F11 仍为部分实现（EventLogRequest 为黑名单过滤、无统一 `pinnedSession(host:pins:)` 方法、`reset()` 未清 Keychain），详见内部安全报告附录 D；不要把 F1–F15 视为全部完成。
 
 ## 4. 反编译与重建结果
 
