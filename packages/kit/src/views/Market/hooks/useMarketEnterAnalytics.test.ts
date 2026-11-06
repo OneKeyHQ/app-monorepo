@@ -136,6 +136,22 @@ describe('useMarketHomeViewAnalytics', () => {
     });
   });
 
+  it('reports a later keyboard-shortcut entry after the first view', () => {
+    const { rerender } = renderHook(
+      ({ isFocused }: { isFocused: boolean }) =>
+        useMarketHomeViewAnalytics(isFocused),
+      { initialProps: { isFocused: true } },
+    );
+    rerender({ isFocused: false });
+    markMarketHomeEntry(EMarketHomeEntrySource.Shortcut);
+    rerender({ isFocused: true });
+    expect(mockMarketHomeView).toHaveBeenCalledTimes(2);
+    expect(mockMarketHomeView).toHaveBeenLastCalledWith({
+      entrySource: EMarketHomeEntrySource.Shortcut,
+      isFirstView: false,
+    });
+  });
+
   it('uses a marker set before the home mounted on its first focus', () => {
     markMarketHomeEntry(EMarketHomeEntrySource.TabBar);
     renderHook(() => useMarketHomeViewAnalytics(true));

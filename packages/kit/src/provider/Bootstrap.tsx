@@ -45,6 +45,10 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import {
+  EMarketHomeEntrySource,
+  markMarketHomeEntry,
+} from '@onekeyhq/shared/src/logger/scopes/market/marketHomeEntry';
+import {
   EPerpPageEnterSource,
   setPerpPageEnterSource,
 } from '@onekeyhq/shared/src/logger/scopes/perp/perpPageSource';
@@ -423,6 +427,7 @@ const useDesktopEvents = platformEnv.isDesktop
             break;
           case EShortcutEvents.TabMarket:
             ensureModalClosedAndNavigate(() => {
+              markMarketHomeEntry(EMarketHomeEntrySource.Shortcut);
               navigation.switchTab(ETabRoutes.Market);
             });
             break;

@@ -2,8 +2,12 @@ export enum EMarketHomeEntrySource {
   TabBar = 'tabBar',
   Discovery = 'discovery',
   WalletHome = 'walletHome',
+  // Desktop keyboard shortcut for the Market tab.
+  Shortcut = 'shortcut',
+  // Desktop tray menu "Market" item.
+  Tray = 'tray',
   // Explicitly unattributed callers, and the first view of a session that had
-  // no marker (app start on Market, keyboard shortcut, deep link).
+  // no marker (app start on Market, deep link).
   Other = 'other',
 }
 
