@@ -181,6 +181,7 @@ export function useSwapStockTokenDetail({
       // Keep the interval identity stable so enabling a quote-driven detail
       // check starts immediately instead of preserving the old cadence.
       pollingInterval: SWAP_STOCK_DETAIL_POLLING_INTERVAL_MS,
+      resumeOnEffectReconnect: true,
       swrKey:
         isActive && tokenDetailScope
           ? swrKeys.swapStockTokenDetail({

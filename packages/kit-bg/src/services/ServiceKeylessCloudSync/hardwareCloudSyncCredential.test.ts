@@ -1,4 +1,4 @@
-import { createHmac } from 'crypto';
+import { createHash, createHmac } from 'crypto';
 
 import { HardwareErrorCode } from '@onekeyfe/hd-shared';
 import { payments } from 'bitcoinjs-lib';
@@ -57,7 +57,7 @@ const TEST_PUBLIC_KEY =
   '0279be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798';
 const TEST_ADDRESS = '1BgGZ9tcN4rm9KBzDn7KprQz87SZ26SAMH';
 const TEST_XFP = `1234--xpub${'A'.repeat(107)}`;
-const EXPECTED_FAILURE = "Couldn't get the encryption key";
+const EXPECTED_FAILURE = 'Couldn’t complete this action';
 
 class MockHardwareCloudKeyAdapter implements IHardwareCloudKeyAdapter {
   identity: IHardwareCloudKeyIdentity = {
@@ -151,10 +151,10 @@ describe('hardware Cloud key credential provider', () => {
       getHardwareCloudSyncIdentityTag(TEST_XFP),
       TEST_SALT,
     );
-    expect(message.length).toBe(185);
-    expect(message).toMatch(/^[\x20-\x7e\n]+$/);
-    expect(message).toContain('Unlock ALL OneKey Cloud data');
-    expect(message.endsWith(`\nKey: ${TEST_SALT}`)).toBe(true);
+    expect(message.length).toBe(199);
+    expect(message).toMatch(/^[\x20-\x7e]+$/);
+    expect(message).toContain('Signing unlocks ALL your OneKey Cloud data.');
+    expect(message.endsWith(`;salt=${TEST_SALT}`)).toBe(true);
     const expectedMaterial = normalizeHardwareCloudSignature(
       bitcoinMessage.sign(message, TEST_PRIVATE_KEY, true).toString('hex'),
     );
@@ -205,6 +205,18 @@ describe('hardware Cloud key credential provider', () => {
     );
     expect(getHardwareCloudSyncIdentityTag(TEST_XFP)).toBe(
       getHardwareCloudSyncIdentityTag(`00001234--xpub${'A'.repeat(107)}`),
+    );
+  });
+
+  test('hashes the complete normalized wallet identity, including the Taproot xpub', () => {
+    expect(getHardwareCloudSyncIdentityTag(TEST_XFP)).toBe(
+      createHash('sha256')
+        .update(`00001234--xpub${'A'.repeat(107)}`, 'utf8')
+        .digest('hex')
+        .slice(0, 16),
+    );
+    expect(getHardwareCloudSyncIdentityTag(TEST_XFP)).not.toBe(
+      getHardwareCloudSyncIdentityTag(`00001234--xpub${'B'.repeat(107)}`),
     );
   });
 
