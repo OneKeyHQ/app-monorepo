@@ -202,6 +202,50 @@ describe('NFT detail image', () => {
     },
   );
 
+  it.each([
+    ['base64', false],
+    ['BASE64', false],
+    ['bAsE64', false],
+    ['BASE64', true],
+  ])(
+    'enforces the decoded base64 budget for marker %s / escaped %s',
+    (marker, escaped) => {
+      const maxBytes = 8 * 1024 * 1024;
+      let encodedLength: number | undefined;
+      for (const size of [maxBytes, maxBytes + 1]) {
+        const payload = Buffer.alloc(size, 32).toString('base64');
+        encodedLength ??= payload.length;
+        expect(payload.length).toBe(encodedLength);
+        const transport = escaped
+          ? `%49${payload.slice(1).replaceAll('=', '%3D')}`
+          : payload;
+        const image = `data:image/svg+xml;${marker},${transport}`;
+        let renderer: ReactTestRenderer;
+        act(() => {
+          renderer = create(
+            <CommonAssetImage
+              nft={
+                {
+                  collectionType: ENFTType.ERC721,
+                  metadata: { image },
+                } as Parameters<typeof CommonAssetImage>[0]['nft']
+              }
+            />,
+          );
+        });
+        if (size === maxBytes) {
+          expect(renderer!.root.findByType('img').props.src).toBe(
+            `data:image/svg+xml;base64,${payload}`,
+          );
+        } else {
+          expect(renderer!.root.findAllByType('img')).toHaveLength(0);
+          expect(renderer!.root.findAllByType('aside')).toHaveLength(1);
+        }
+        act(() => renderer!.unmount());
+      }
+    },
+  );
+
   it('preserves SVG URIs on platforms with an existing data URI path', () => {
     platformEnv.isNativeAndroid = false;
     const image = `data:image/svg+xml,${encodeURIComponent(svg)}`;

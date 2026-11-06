@@ -26,15 +26,43 @@ function CommonAssetImage(props: IProps) {
     }
     const comma = image.indexOf(',');
     if (comma < 0 || comma > 256) return undefined;
+    // Android's data URI loader requires base64; keep the original URI for media fallback identity.
+    const maxBytes = 8 * 1024 * 1024;
     const isBase64 = /;base64$/i.test(image.slice(0, comma));
-    if (isBase64 && !image.includes('%', comma + 1)) {
+    const maxPayloadBytes = isBase64 ? Math.ceil(maxBytes / 3) * 4 : maxBytes;
+    const rawLength = image.length - comma - 1;
+    if (rawLength > maxPayloadBytes * 3) return undefined;
+    const hasPercent = image.includes('%', comma + 1);
+    if (!hasPercent && rawLength > maxPayloadBytes) return undefined;
+
+    const withinBase64Budget = (source: string, start: number) => {
+      let characters = 0;
+      let last = 0;
+      let secondLast = 0;
+      for (let index = start; index < source.length; index += 1) {
+        const code = source.charCodeAt(index);
+        if (code !== 32 && code !== 9 && code !== 13 && code !== 10) {
+          characters += 1;
+          secondLast = last;
+          last = code;
+        }
+      }
+      const remainder = characters % 4;
+      let bytes =
+        Math.floor(characters / 4) * 3 + Math.floor((remainder * 3) / 4);
+      // Match the native preflight's conservative count for invalid final groups.
+      if (remainder === 1) bytes += 3;
+      if (remainder === 0) {
+        if (last === 61) bytes -= 1;
+        if (secondLast === 61) bytes -= 1;
+      }
+      return bytes <= maxBytes;
+    };
+    if (isBase64 && !hasPercent) {
+      if (!withinBase64Budget(image, comma + 1)) return undefined;
       return `data:image/svg+xml;base64,${image.slice(comma + 1)}`;
     }
 
-    // Android's data URI loader requires base64; keep the original URI for media fallback identity.
-    const maxBytes = 8 * 1024 * 1024;
-    const maxPayloadBytes = isBase64 ? Math.ceil(maxBytes / 3) * 4 : maxBytes;
-    if (image.length - comma - 1 > maxPayloadBytes * 3) return undefined;
     // Count decoded UTF-8 bytes before escaping literal '%' (at most 3x this budget).
     let decodedByteCount = 0;
     for (let index = comma + 1; index < image.length; index += 1) {
@@ -63,7 +91,14 @@ function CommonAssetImage(props: IProps) {
         .slice(comma + 1)
         .replace(/%(?![0-9a-f]{2})/gi, '%25');
       const decodedPayload = decodeURIComponent(payload);
-      if (isBase64) return `data:image/svg+xml;base64,${decodedPayload}`;
+      if (isBase64) {
+        if (
+          decodedPayload.length > maxPayloadBytes ||
+          !withinBase64Budget(decodedPayload, 0)
+        )
+          return undefined;
+        return `data:image/svg+xml;base64,${decodedPayload}`;
+      }
       if (
         decodedPayload.length > maxBytes ||
         /[\uD800-\uDFFF]/u.test(decodedPayload)
