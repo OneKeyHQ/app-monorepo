@@ -15,6 +15,23 @@ export enum EMarketHomeEntrySource {
 export const MARKET_HOME_ENTRY_TTL_MS = 10_000;
 
 let pendingEntry: { source: EMarketHomeEntrySource; at: number } | undefined;
+// Per UI runtime, not per component: tablet split layouts remount the Market
+// home on rotation, and a remount without a marker is not a new entry.
+let hasViewedMarketHome = false;
+
+export function hasViewedMarketHomeInSession() {
+  return hasViewedMarketHome;
+}
+
+export function markMarketHomeViewed() {
+  hasViewedMarketHome = true;
+}
+
+// Clears both the pending marker and the viewed flag, for tests.
+export function resetMarketHomeEntryState() {
+  pendingEntry = undefined;
+  hasViewedMarketHome = false;
+}
 
 /**
  * Called by whoever is about to switch to the Market tab, so the Market home

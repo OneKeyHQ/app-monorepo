@@ -10,6 +10,8 @@ import {
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EEnterWay } from '@onekeyhq/shared/src/logger/scopes/dex';
 import {
+  hasViewedMarketHomeInSession,
+  markMarketHomeViewed,
   resolveMarketHomeView,
   takeMarketHomeEntry,
 } from '@onekeyhq/shared/src/logger/scopes/market/marketHomeEntry';
@@ -86,20 +88,20 @@ export function useMarketHomePageEnterAnalytics() {
  */
 export function useMarketHomeViewAnalytics(isFocused: boolean) {
   const wasFocusedRef = useRef(false);
-  const hasViewedRef = useRef(false);
   useEffect(() => {
     const becameFocused = isFocused && !wasFocusedRef.current;
     wasFocusedRef.current = isFocused;
     if (!becameFocused) return;
+    const hasViewed = hasViewedMarketHomeInSession();
     const entrySource = resolveMarketHomeView({
       entrySource: takeMarketHomeEntry(),
-      hasViewed: hasViewedRef.current,
+      hasViewed,
     });
     if (!entrySource) return;
     defaultLogger.market.home.marketHomeView({
       entrySource,
-      isFirstView: !hasViewedRef.current,
+      isFirstView: !hasViewed,
     });
-    hasViewedRef.current = true;
+    markMarketHomeViewed();
   }, [isFocused]);
 }

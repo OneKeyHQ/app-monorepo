@@ -7,7 +7,7 @@ import {
   EMarketHomeEntrySource,
   MARKET_HOME_ENTRY_TTL_MS,
   markMarketHomeEntry,
-  takeMarketHomeEntry,
+  resetMarketHomeEntryState,
 } from '@onekeyhq/shared/src/logger/scopes/market/marketHomeEntry';
 
 import {
@@ -106,7 +106,25 @@ describe('useMarketEnterAnalytics list context', () => {
 describe('useMarketHomeViewAnalytics', () => {
   beforeEach(() => {
     mockMarketHomeView.mockClear();
-    takeMarketHomeEntry();
+    resetMarketHomeEntryState();
+  });
+
+  it('does not report a remount without a new marker as an entry', () => {
+    // Tablet split layouts unmount and remount the home on rotation.
+    const first = renderHook(() => useMarketHomeViewAnalytics(true));
+    expect(mockMarketHomeView).toHaveBeenCalledTimes(1);
+    first.unmount();
+    renderHook(() => useMarketHomeViewAnalytics(true));
+    expect(mockMarketHomeView).toHaveBeenCalledTimes(1);
+
+    markMarketHomeEntry(EMarketHomeEntrySource.TabBar);
+    const remounted = renderHook(() => useMarketHomeViewAnalytics(true));
+    expect(mockMarketHomeView).toHaveBeenCalledTimes(2);
+    expect(mockMarketHomeView).toHaveBeenLastCalledWith({
+      entrySource: EMarketHomeEntrySource.TabBar,
+      isFirstView: false,
+    });
+    remounted.unmount();
   });
 
   it('reports the first view, skips returns, and reports marked entries', () => {
