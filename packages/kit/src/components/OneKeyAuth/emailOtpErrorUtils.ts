@@ -6,6 +6,22 @@ import { getEmailOtpRateLimitRetryAfterSeconds } from './emailOtpRateLimitError'
 
 import type { IntlShape } from 'react-intl';
 
+export function isEmailOtpSignupDisabledError(error: unknown): boolean {
+  const candidate = error as
+    | {
+        name?: unknown;
+        code?: unknown;
+        data?: { supabaseErrorCode?: unknown };
+      }
+    | null
+    | undefined;
+  return (
+    (candidate?.name === 'AuthApiError' &&
+      candidate.code === 'signup_disabled') ||
+    candidate?.data?.supabaseErrorCode === 'signup_disabled'
+  );
+}
+
 export function getEmailAuthCaptchaErrorMessage({
   error,
   intl,
