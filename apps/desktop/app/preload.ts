@@ -88,6 +88,8 @@ export interface IVerifyUpdateParams {
 
 export interface IInstallUpdateParams extends IVerifyUpdateParams {
   buildNumber: string;
+  userInitiated?: boolean;
+  installSource?: 'capsule' | 'quit' | 'startup' | 'legacy';
 }
 
 export type IDesktopEventUnSubscribe = () => void;

@@ -69,6 +69,7 @@ export type ISettingsPersistAtom = {
   enableDesktopBluetooth?: boolean;
   enableBTCFreshAddress?: boolean;
   enableMenuBarTray?: boolean;
+  enableAutoDownloadAppUpdate?: boolean;
   hapticFeedbackEnabled?: boolean;
   // Split-view layout for tablets / Android foldable devices. Undefined === enabled
   // (default-on for back-compat). Toggling triggers app restart.
@@ -120,6 +121,7 @@ export const settingsAtomInitialValue: ISettingsPersistAtom = {
   enableDesktopBluetooth: true,
   enableBTCFreshAddress: true,
   enableMenuBarTray: true,
+  enableAutoDownloadAppUpdate: true,
   hapticFeedbackEnabled: true,
   newBrowserTabPosition: 'bottom',
   useGasAccountByDefault: true,
