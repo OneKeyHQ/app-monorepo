@@ -11,18 +11,35 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import { PrivacyAccountRow } from '@onekeyhq/kit/src/views/Setting/pages/PrivacyNetwork/PrivacyAccountRow';
+import { presetNetworksMap } from '@onekeyhq/shared/src/config/presetNetworks';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 type IPreviewAccount = {
   id: string;
   name: string;
+  networkId: string;
   state: 'enabled' | 'disabled' | 'paused';
 };
 
 const INITIAL_ACCOUNTS: IPreviewAccount[] = [
-  { id: 'preview-enabled', name: 'Account #1', state: 'enabled' },
-  { id: 'preview-disabled', name: 'Account #2', state: 'disabled' },
-  { id: 'preview-paused', name: 'Account #3', state: 'paused' },
+  {
+    id: 'preview-enabled',
+    name: 'Account #1',
+    networkId: presetNetworksMap.zec.id,
+    state: 'enabled',
+  },
+  {
+    id: 'preview-disabled',
+    name: 'Account #1',
+    networkId: presetNetworksMap.xmr.id,
+    state: 'disabled',
+  },
+  {
+    id: 'preview-paused',
+    name: 'Account #2',
+    networkId: presetNetworksMap.xmr.id,
+    state: 'paused',
+  },
 ];
 
 const SCENARIOS = [
@@ -101,6 +118,7 @@ export function PrivacyAccountManagementPreview() {
             <PrivacyAccountRow
               key={account.id}
               accountId={account.id}
+              networkId={account.networkId}
               accountName={
                 scenario === 'long-name'
                   ? `${account.name} · Personal savings and long-term private funds`

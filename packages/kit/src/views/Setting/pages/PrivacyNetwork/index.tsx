@@ -910,6 +910,7 @@ export default function PrivacyNetworkSettings({
         key={entry.accountId}
         accountId={entry.accountId}
         accountName={entry.accountName}
+        networkId={entry.networkId}
         subtitle={[
           entry.walletName,
           showDeriveLabel ? entry.deriveLabel : undefined,

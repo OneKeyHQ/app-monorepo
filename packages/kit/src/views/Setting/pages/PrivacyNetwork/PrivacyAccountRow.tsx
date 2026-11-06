@@ -11,12 +11,15 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
+import { NetworkAvatarBase } from '@onekeyhq/kit/src/components/NetworkAvatar';
 import { AccountManagerTestIDs } from '@onekeyhq/kit/src/views/AccountManagerStacks/testIDs';
+import { presetNetworksMap } from '@onekeyhq/shared/src/config/presetNetworks';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 export function PrivacyAccountRow({
   accountId,
   accountName,
+  networkId,
   subtitle,
   action,
   birthday,
@@ -29,6 +32,7 @@ export function PrivacyAccountRow({
 }: {
   accountId: string;
   accountName: string;
+  networkId: string;
   subtitle: string;
   action?: ReactNode;
   birthday?: string;
@@ -40,6 +44,10 @@ export function PrivacyAccountRow({
   children?: ReactNode;
 }) {
   const intl = useIntl();
+  const network = Object.values(presetNetworksMap).find(
+    (item) => item.id === networkId,
+  );
+  const networkName = network?.name ?? networkId;
   const deleteLabel = intl.formatMessage({
     id: ETranslations.privacy_delete_data__title,
   });
@@ -57,11 +65,37 @@ export function PrivacyAccountRow({
         mx="$0"
         py="$3"
         testID={AccountManagerTestIDs.privacyNetworkAccount(accountId)}
-        icon="ShieldOutline"
-        title={accountName}
-        titleProps={{ numberOfLines: 1 }}
-        subtitle={subtitle}
-        subtitleProps={{ numberOfLines: 2 }}
+        renderAvatar={
+          <NetworkAvatarBase
+            logoURI={network?.logoURI ?? ''}
+            networkName={networkName}
+            size="$6"
+          />
+        }
+        renderItemText={
+          <YStack flex={1} minWidth={0}>
+            <XStack alignItems="center" gap="$2" flexWrap="wrap">
+              <SizableText
+                size="$bodyLgMedium"
+                numberOfLines={1}
+                flexShrink={1}
+              >
+                {accountName}
+              </SizableText>
+              <SizableText
+                testID={`privacy-network-chain-${accountId}`}
+                size="$bodyMd"
+                color="$textSubdued"
+                flexShrink={0}
+              >
+                {networkName}
+              </SizableText>
+            </XStack>
+            <SizableText size="$bodyMd" color="$textSubdued" numberOfLines={2}>
+              {subtitle}
+            </SizableText>
+          </YStack>
+        }
       >
         <XStack alignItems="center" gap="$2" flexShrink={0}>
           {action}
