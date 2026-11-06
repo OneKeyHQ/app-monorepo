@@ -21,6 +21,12 @@ let mockNativeRows: NativeListProps['snapshot']['rows'] | undefined;
 let mockHeaderLayout:
   | ((event: { nativeEvent: { layout: { height: number } } }) => void)
   | undefined;
+let mockStickyHeaderLayout: typeof mockHeaderLayout;
+// Untransformed DOM height of a mocked Stack, as `offsetHeight` reports it.
+let mockStackOffsetHeight: number | undefined;
+let mockPagerHeights:
+  | { headerHeight?: number; stickyHeaderHeight?: number }
+  | undefined;
 let mockShowWalletAccounts = false;
 const mockWalletGroups = [
   {
@@ -102,6 +108,8 @@ jest.mock('react-native-pager-view', () => {
         onPageScrollStateChanged,
         nativeTabBar,
         initialPage,
+        headerHeight,
+        stickyHeaderHeight,
       }: {
         children?: React.ReactNode;
         header?: React.ReactNode;
@@ -110,6 +118,8 @@ jest.mock('react-native-pager-view', () => {
         onPageScrollStateChanged?: typeof mockPageScrollStateChanged;
         nativeTabBar?: typeof mockNativeTabBar;
         initialPage?: number;
+        headerHeight?: number;
+        stickyHeaderHeight?: number;
       },
       ref,
     ) => {
@@ -117,6 +127,7 @@ jest.mock('react-native-pager-view', () => {
       mockPageScrollStateChanged = onPageScrollStateChanged;
       mockNativeTabBar = nativeTabBar;
       mockInitialPage = initialPage;
+      mockPagerHeights = { headerHeight, stickyHeaderHeight };
       React.useImperativeHandle(ref, () => ({
         scrollHeaderToOffset: mockScrollHeaderToOffset,
         scrollHeaderBy: mockScrollHeaderBy,
@@ -143,23 +154,31 @@ jest.mock('@onekeyhq/components', () => {
         onTouchStart,
         onWheel,
         onLayout,
+        pt,
       }: {
         children?: React.ReactNode;
         onTouchStart?: React.TouchEventHandler;
         onWheel?: React.WheelEventHandler;
         onLayout?: typeof mockHeaderLayout;
+        pt?: string;
       },
       ref,
     ) => {
-      if (onLayout) mockHeaderLayout = onLayout;
+      // Only the Web sticky tab bar pads its top; the header does not.
+      if (onLayout && pt) mockStickyHeaderLayout = onLayout;
+      else if (onLayout) mockHeaderLayout = onLayout;
       React.useImperativeHandle(ref, () => ({
         measureInWindow: (callback: (...bounds: number[]) => void) =>
           callback(0, 100, 320, 600),
+        get offsetHeight() {
+          return mockStackOffsetHeight;
+        },
       }));
       return React.createElement(
         'div',
         {
-          'data-testid': ref ? 'pager-viewport' : undefined,
+          // The header Stacks hold refs too; only the viewport takes touches.
+          'data-testid': onTouchStart ? 'pager-viewport' : undefined,
           onTouchStart,
           onWheel,
         },
@@ -363,6 +382,9 @@ describe('RecipientQuickSelect keyboard focus visibility', () => {
     mockNativeTabBar = undefined;
     mockRecentMatchStatus = undefined;
     mockHeaderLayout = undefined;
+    mockStickyHeaderLayout = undefined;
+    mockStackOffsetHeight = undefined;
+    mockPagerHeights = undefined;
     mockNativeRowAction = undefined;
     mockNativeRows = undefined;
     mockShowWalletAccounts = false;
@@ -616,6 +638,41 @@ describe('RecipientQuickSelect keyboard focus visibility', () => {
     );
     act(() => viewportHandlers.get('resize')?.());
     expect(mockScrollHeaderBy).toHaveBeenCalledTimes(1);
+  });
+
+  // A desktop modal mounts this page while it is still scaling in, and Web
+  // layout events report the scaled box.
+  it('sizes the Web pager from untransformed header heights', () => {
+    platformEnv.isNative = false;
+    platformEnv.isNativeIOS = false;
+    platformEnv.isNativeAndroid = false;
+    renderPager(['addressBook']);
+
+    mockStackOffsetHeight = 128;
+    act(() =>
+      mockHeaderLayout?.({ nativeEvent: { layout: { height: 121.6 } } }),
+    );
+    expect(mockPagerHeights?.headerHeight).toBe(128);
+    // The modal overshoots past 1x before it settles.
+    act(() =>
+      mockHeaderLayout?.({ nativeEvent: { layout: { height: 128.55 } } }),
+    );
+    expect(mockPagerHeights?.headerHeight).toBe(128);
+
+    mockStackOffsetHeight = 56;
+    act(() =>
+      mockStickyHeaderLayout?.({ nativeEvent: { layout: { height: 53.2 } } }),
+    );
+    expect(mockPagerHeights?.stickyHeaderHeight).toBe(56);
+  });
+
+  it('sizes the native pager header from the layout event', () => {
+    renderPager();
+    mockStackOffsetHeight = 128;
+    act(() =>
+      mockHeaderLayout?.({ nativeEvent: { layout: { height: 239.2 } } }),
+    );
+    expect(mockPagerHeights?.headerHeight).toBe(240);
   });
 
   it.each(['touch', 'wheel', 'page', 'drag', 'unmount'])(
