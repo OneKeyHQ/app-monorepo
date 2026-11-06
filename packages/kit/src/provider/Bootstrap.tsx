@@ -17,6 +17,7 @@ import {
   rootNavigationRef,
   useShortcuts,
   useSplitSubView,
+  willTabFocusTransition,
 } from '@onekeyhq/components';
 import { ipcMessageKeys } from '@onekeyhq/desktop/app/config';
 import type { IAccountSelectorSelectedAccount } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAccountSelector';
@@ -425,12 +426,19 @@ const useDesktopEvents = platformEnv.isDesktop
               navigation.switchTab(ETabRoutes.Swap);
             });
             break;
-          case EShortcutEvents.TabMarket:
+          case EShortcutEvents.TabMarket: {
+            // Checked before closing modals: pressing it while already on
+            // Market is not an entry, and an unconsumed marker would mislabel
+            // a later return from a detail page.
+            const isMarketEntry = willTabFocusTransition(ETabRoutes.Market);
             ensureModalClosedAndNavigate(() => {
-              markMarketHomeEntry(EMarketHomeEntrySource.Shortcut);
+              if (isMarketEntry) {
+                markMarketHomeEntry(EMarketHomeEntrySource.Shortcut);
+              }
               navigation.switchTab(ETabRoutes.Market);
             });
             break;
+          }
           case EShortcutEvents.TabPerps:
             ensureModalClosedAndNavigate(() => {
               setPerpPageEnterSource(EPerpPageEnterSource.Shortcut);

@@ -1179,9 +1179,12 @@ export function useTrayDataProvider() {
             screen: ETabRoutes.Home,
           });
         } else if (action.route === TRAY_ROUTE_MARKET) {
+          // Same rule as the tab bars: already on Market is not an entry.
+          if (willTabFocusTransition(ETabRoutes.Market)) {
+            markMarketHomeEntry(EMarketHomeEntrySource.Tray);
+          }
           resetAboveMainRoute();
           setTimeout(resetAboveMainRoute, 120);
-          markMarketHomeEntry(EMarketHomeEntrySource.Tray);
           void switchTabAsync(ETabRoutes.Market).then(() => {
             rootNavigationRef.current?.navigate(
               ERootRoutes.Main,
