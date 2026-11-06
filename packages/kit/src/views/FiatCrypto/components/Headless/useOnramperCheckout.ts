@@ -10,6 +10,7 @@ import {
   getErrorMessageForLog,
   getOnramperConfig,
   getOnramperErrorFieldsForLog,
+  getOnramperSignedInFromState,
   getUrlHostForLog,
   isStructuralOnramperError,
   sanitizeOnramperLogRecord,
@@ -22,12 +23,36 @@ import type {
   IOnramperSession,
 } from '@onekeyhq/shared/src/modules3rdParty/onramper';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import appStorage from '@onekeyhq/shared/src/storage/appStorage';
+import { EAppSyncStorageKeys } from '@onekeyhq/shared/src/storage/syncStorageKeys';
 import type { IHeadlessBuyAbandonReason } from '@onekeyhq/shared/types/fiatCrypto';
 
 import { getOnramperErrorMessage } from './onramperErrorCopy';
 import { EBuyActionState } from './types';
 
 const DEBOUNCE_MS = 400;
+
+// The OnramperID login the SDK last reported on this install. The SDK only
+// reveals it once a checkout is prepared (getOnramperSignedInFromState), so
+// this is what the page goes by until then. Undefined when nothing was ever
+// reported: a fresh install, or a login made on a build that did not record
+// it — the Keychain may hold one either way.
+function readRememberedSignedIn(): boolean | undefined {
+  return appStorage.syncStorage.getBoolean(
+    EAppSyncStorageKeys.onekey_onramper_id_signed_in,
+  );
+}
+
+async function rememberSignedIn(signedIn: boolean) {
+  try {
+    await appStorage.syncStorage.set(
+      EAppSyncStorageKeys.onekey_onramper_id_signed_in,
+      signedIn,
+    );
+  } catch {
+    // Not remembered: the next prepared checkout reports the login again.
+  }
+}
 
 type IParams = {
   amount: number; // parsed fiat amount (0 when empty/invalid)
@@ -80,8 +105,17 @@ type IResult = {
   retry: () => void;
   // Silent re-quote for flow-driven refreshes (e.g. leaving review).
   refreshQuote: () => void;
+  // Whether to offer the sign-out action. Follows the OnramperID login as far
+  // as the SDK has told us: remembered from the last visit, then corrected by
+  // every prepared checkout, by a checkout that gets paid after a login made
+  // through its button, and by signOut. While the login is unknown it is
+  // offered only on a failure, where no prepared checkout is coming to report
+  // it: a user who signed in on an earlier build must still be able to switch
+  // accounts from there.
+  canSignOut: boolean;
   // Clears the stored OnramperID login (OIDC tokens); the next checkout
-  // re-runs email + phone verification. Exposed for the header sign-out
+  // re-runs email + phone verification. Also re-quotes, because the SDK
+  // discards the checkout it had prepared. Exposed for the header sign-out
   // button.
   signOut: () => Promise<void>;
   // Logging context (network / token / entry / elapsed) for page-level events
@@ -120,6 +154,19 @@ export function useOnramperCheckout({
   const [errorCode, setErrorCode] = useState<string | undefined>(undefined);
   const [ready, setReady] = useState(false);
   const [retryNonce, setRetryNonce] = useState(0);
+  // Undefined while unknown (readRememberedSignedIn).
+  const [isSignedIn, setIsSignedIn] = useState<boolean | undefined>(
+    readRememberedSignedIn,
+  );
+  const isSignedInRef = useRef(isSignedIn);
+  const markSignedIn = useCallback((signedIn: boolean) => {
+    if (isSignedInRef.current === signedIn) {
+      return;
+    }
+    isSignedInRef.current = signedIn;
+    setIsSignedIn(signedIn);
+    void rememberSignedIn(signedIn);
+  }, []);
 
   // Reference-stable logging context so the (dep-free) event callbacks can read
   // the current token without re-subscribing. `elapsedMs` counts from the
@@ -397,6 +444,10 @@ export function useOnramperCheckout({
         }),
       ),
       client.addStateListener((state) => {
+        const signedIn = getOnramperSignedInFromState(state);
+        if (signedIn !== undefined) {
+          markSignedIn(signedIn);
+        }
         defaultLogger.fiatCrypto.onramper.sdkStateChanged({
           ...getLogContext(),
           state: state.kind,
@@ -687,8 +738,9 @@ export function useOnramperCheckout({
     });
   }, [noteTransactionId]);
 
-  // Re-quote after a failure or a review exit. `reason` only feeds the log:
-  // a user-pressed Retry is a funnel signal, an exit-driven re-quote is not.
+  // Re-quote after a failure, a review exit or a sign-out. `reason` only
+  // feeds the log: a user-pressed Retry is a funnel signal, an exit-driven
+  // re-quote is not.
   const refreshQuote = useCallback(() => {
     // Drop the previous quote's data and button up front: the button handle is
     // single-consume (remounting the old element renders blank) and a fast
@@ -745,16 +797,33 @@ export function useOnramperCheckout({
 
   const signOut = useCallback(async () => {
     defaultLogger.fiatCrypto.onramper.signOutPressed(getLogContext());
+    // signOut() makes the SDK drop the checkout it prepared: the mounted
+    // button stops responding, and a quote still in flight is invalidated the
+    // moment the call is made (it rejects with `intentInvalidated`), even if
+    // the sign-out then fails. Retire that quote here and prepare a new
+    // checkout once the call has settled, either way.
+    reqSeqRef.current += 1;
     try {
       await clientRef.current?.signOut();
+      markSignedIn(false);
     } catch (error) {
       defaultLogger.fiatCrypto.onramper.signOutFailed({
         ...getLogContext(),
         errorMessage: getErrorMessageForLog(error),
       });
       throw error;
+    } finally {
+      refreshQuote();
     }
-  }, [getLogContext]);
+  }, [getLogContext, markSignedIn, refreshQuote]);
+
+  // Unknown login: a sticky init failure or a failed first quote leaves the
+  // page without a prepared checkout to report it, and signOut() works there
+  // (it needs the configured client, not an initialized one).
+  const canSignOut =
+    isSignedIn ??
+    (actionState === EBuyActionState.RetryableError ||
+      actionState === EBuyActionState.WebFallback);
 
   return {
     actionState,
@@ -766,6 +835,7 @@ export function useOnramperCheckout({
     payMock,
     retry,
     refreshQuote,
+    canSignOut,
     signOut,
     getLogContext,
   };
