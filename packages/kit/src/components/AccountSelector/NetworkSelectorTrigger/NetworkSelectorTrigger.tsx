@@ -23,6 +23,11 @@ import { useAccountSelectorLazyAction } from '../../../states/jotai/contexts/acc
 import useConfigurableChainSelector from '../../../views/ChainSelector/hooks/useChainSelector';
 import { ChainSelectorInput } from '../../ChainSelectorInput';
 import { NetworkAvatar } from '../../NetworkAvatar';
+import {
+  DESKTOP_HEADER_TRIGGER_PROPS,
+  DesktopHeaderHitArea,
+  handleDesktopHeaderKeyDown,
+} from '../AccountSelectorTrigger/AccountSelectorTriggerBase';
 import { useNetworkSelectorTrigger } from '../hooks/useNetworkSelectorTrigger';
 import { useUnifiedNetworkSelectorTrigger } from '../hooks/useUnifiedNetworkSelectorTrigger';
 import { AccountSelectorTestIDs } from '../testIDs';
@@ -93,12 +98,14 @@ function NetworkSelectorTriggerHomeCmp({
   hideOnNoAccount = false,
   size = 'large',
   unifiedMode = false,
+  desktopHeader = false,
 }: {
   num: number;
   recordNetworkHistoryEnabled?: boolean;
   hideOnNoAccount?: boolean;
   size?: 'small' | 'large';
   unifiedMode?: boolean;
+  desktopHeader?: boolean;
 }) {
   const {
     activeAccount: { network, accountName },
@@ -166,7 +173,14 @@ function NetworkSelectorTriggerHomeCmp({
       hitSlop={NATIVE_HIT_SLOP}
       userSelect="none"
       onPress={handlePress}
+      {...(desktopHeader && {
+        ...DESKTOP_HEADER_TRIGGER_PROPS,
+        'aria-label': networkTriggerText,
+        onKeyDown: (event: { key: string; preventDefault: () => void }) =>
+          handleDesktopHeaderKeyDown(event, handlePress),
+      })}
     >
+      {desktopHeader ? <DesktopHeaderHitArea /> : null}
       <NetworkAvatar networkId={network?.id} size="$6" />
       {isLarge ? (
         <SizableText

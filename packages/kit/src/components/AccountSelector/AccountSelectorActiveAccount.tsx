@@ -36,15 +36,63 @@ import {
 import { showBotWalletDisabledToast } from '../../utils/botWalletDisabledToast';
 import { shouldBlockBotWalletCopyAddress } from '../../utils/botWalletStatusUtils';
 
+import {
+  DESKTOP_HEADER_TRIGGER_PROPS,
+  DesktopHeaderHitArea,
+  handleDesktopHeaderKeyDown,
+} from './AccountSelectorTrigger/AccountSelectorTriggerBase';
 import { LazyAccountSelectorCreateAddressButton } from './LazyAccountSelectorCreateAddressButton';
 import { AccountSelectorTestIDs } from './testIDs';
+
+// Desktop header copy: the same 32 hover shape and 40 tall reach as the
+// account and network triggers, reachable by keyboard and named for screen
+// readers.
+function DesktopHeaderCopyButton({
+  onPress,
+  disabled,
+}: {
+  onPress: () => void;
+  disabled?: boolean;
+}) {
+  const intl = useIntl();
+  const label = intl.formatMessage({ id: ETranslations.global_copy_address });
+  return (
+    <Tooltip
+      shortcutKey={EShortcutEvents.CopyAddressOrUrl}
+      renderContent={label}
+      placement="bottom"
+      renderTrigger={
+        <XStack
+          testID={AccountSelectorTestIDs.copyAddressButton}
+          {...DESKTOP_HEADER_TRIGGER_PROPS}
+          p="$1.5"
+          m="$-1.5"
+          aria-label={label}
+          hoverStyle={{ bg: disabled ? '$transparent' : '$bgHover' }}
+          pressStyle={{ bg: disabled ? '$transparent' : '$bgActive' }}
+          opacity={disabled ? 0.5 : 1}
+          userSelect="none"
+          onPress={onPress}
+          onKeyDown={(event: { key: string; preventDefault: () => void }) =>
+            handleDesktopHeaderKeyDown(event, onPress)
+          }
+        >
+          <DesktopHeaderHitArea />
+          <Icon size="$5" name="Copy3Outline" color="$iconSubdued" />
+        </XStack>
+      }
+    />
+  );
+}
 
 const AllNetworkAccountSelector = ({
   num,
   showCopyButton,
+  desktopHeader,
 }: {
   num: number;
   showCopyButton: boolean;
+  desktopHeader?: boolean;
 }) => {
   const intl = useIntl();
   const { activeAccount } = useActiveAccount({ num });
@@ -80,6 +128,17 @@ const AllNetworkAccountSelector = ({
 
   if (!isAllNetworkEnabled) {
     return null;
+  }
+
+  if (showCopyButton && desktopHeader) {
+    return (
+      <DesktopHeaderCopyButton
+        onPress={() => {
+          void handleCopyAddress();
+        }}
+        disabled={isCopyDisabled}
+      />
+    );
   }
 
   return showCopyButton ? (
@@ -180,12 +239,14 @@ export function AccountSelectorActiveAccountHome({
   showCopyButton = false,
   showCreateAddressButton = true,
   showNoAddressTip = true,
+  desktopHeader = false,
 }: {
   num: number;
   showAccountAddress?: boolean;
   showCopyButton?: boolean;
   showCreateAddressButton?: boolean;
   showNoAddressTip?: boolean;
+  desktopHeader?: boolean;
 }) {
   const intl = useIntl();
   const { activeAccount } = useActiveAccount({ num });
@@ -343,7 +404,11 @@ export function AccountSelectorActiveAccountHome({
 
   if (isAllNetworkEnabled) {
     return (
-      <AllNetworkAccountSelector num={num} showCopyButton={showCopyButton} />
+      <AllNetworkAccountSelector
+        num={num}
+        showCopyButton={showCopyButton}
+        desktopHeader={desktopHeader}
+      />
     );
   }
 
@@ -405,6 +470,17 @@ export function AccountSelectorActiveAccountHome({
               )}
             </XStack>
           }
+        />
+      );
+    }
+
+    if (showCopyButton && desktopHeader) {
+      return (
+        <DesktopHeaderCopyButton
+          onPress={() => {
+            void handleAddressOnPress();
+          }}
+          disabled={isCopyDisabled}
         />
       );
     }

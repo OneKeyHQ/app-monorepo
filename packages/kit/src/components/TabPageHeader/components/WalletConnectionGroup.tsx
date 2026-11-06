@@ -27,10 +27,12 @@ function AccountSelectorTriggerWithSpotlight({
   isFocus,
   linkNetworkId,
   hideAddress,
+  desktopHeader,
 }: {
   isFocus: boolean;
   linkNetworkId?: string;
   hideAddress?: boolean;
+  desktopHeader?: boolean;
 }) {
   const intl = useIntl();
   const { tourTimes, tourVisited } = useSpotlight(
@@ -49,6 +51,7 @@ function AccountSelectorTriggerWithSpotlight({
       key="accountSelectorTrigger"
       linkNetworkId={linkNetworkId}
       hideAddress={hideAddress}
+      desktopHeader={desktopHeader}
       spotlightProps={{
         visible: spotlightVisible,
         content: (
@@ -122,7 +125,7 @@ export function WalletConnectionGroup({
     showNetworkSelector && tabRoute === ETabRoutes.Home;
 
   const renderNetworkSelectorTrigger = useCallback(
-    (size?: 'small' | 'large') => {
+    (size?: 'small' | 'large', desktopHeader?: boolean) => {
       if (!shouldShowNetworkSelector || isNonBackedUpWallet) {
         return null;
       }
@@ -131,7 +134,13 @@ export function WalletConnectionGroup({
         network?.isAllNetworks &&
         !accountUtils.isOthersWallet({ walletId: wallet?.id ?? '' })
       ) {
-        return <LazyAllNetworksManagerTrigger num={0} unifiedMode />;
+        return (
+          <LazyAllNetworksManagerTrigger
+            num={0}
+            unifiedMode
+            desktopHeader={desktopHeader}
+          />
+        );
       }
       return (
         <NetworkSelectorTriggerHome
@@ -140,6 +149,7 @@ export function WalletConnectionGroup({
           recordNetworkHistoryEnabled
           hideOnNoAccount
           unifiedMode
+          desktopHeader={desktopHeader}
         />
       );
     },
@@ -188,14 +198,17 @@ export function WalletConnectionGroup({
     );
   }
 
+  // Desktop: 16 between the triggers' contents, so their hover shapes (6 in on
+  // the content side, 2 on the chevron side) sit 8 apart.
   return (
-    <XStack gap="$3" ai="center">
+    <XStack gap="$4" ai="center">
       <MemoizedAccountSelectorTriggerWithSpotlight
         isFocus={isFocus}
         linkNetworkId={linkNetworkId}
         hideAddress={hideAddress}
+        desktopHeader
       />
-      {renderNetworkSelectorTrigger()}
+      {renderNetworkSelectorTrigger(undefined, true)}
       {showAccountInfo && !isNonBackedUpWallet ? (
         <AccountSelectorActiveAccountHome
           num={0}
@@ -203,6 +216,7 @@ export function WalletConnectionGroup({
           showCopyButton={tabRoute === ETabRoutes.Home}
           showCreateAddressButton={false}
           showNoAddressTip={false}
+          desktopHeader
         />
       ) : null}
     </XStack>
