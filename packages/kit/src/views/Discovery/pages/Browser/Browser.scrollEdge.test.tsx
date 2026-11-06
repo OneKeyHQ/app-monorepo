@@ -1,7 +1,7 @@
 /** @jest-environment jsdom */
 import type { PropsWithChildren } from 'react';
 
-import { render } from '@testing-library/react';
+import { act, render } from '@testing-library/react';
 
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
@@ -15,6 +15,8 @@ const mockSetSelectedBrowserTab = jest.fn();
 const mockSwitchTab = jest.fn();
 const mockTabs: { id: string }[] = [];
 const mockActions = { setDisplayHomePage: jest.fn(), closeWebTab: jest.fn() };
+let mockOuterTransitionChange: ((transitioning: boolean) => void) | undefined;
+let mockVisiblePagesChange: ((pages: number[]) => void) | undefined;
 
 jest.mock('@react-navigation/core', () => ({
   useRoute: () => ({ params: mockRouteParams }),
@@ -107,23 +109,43 @@ jest.mock(
   () => ({ LegacyUniversalSearchInput: () => null }),
 );
 jest.mock('../../../Earn/EarnHome', () => ({
-  EarnHomeWithProvider: () => <span data-testid="earn-home" />,
+  EarnHomeWithProvider: ({
+    showContent,
+    bannerAutoPlayEnabled,
+  }: {
+    showContent?: boolean;
+    bannerAutoPlayEnabled?: boolean;
+  }) => (
+    <span
+      data-testid="earn-home"
+      data-show-content={String(showContent)}
+      data-banner-autoplay={String(bannerAutoPlayEnabled)}
+    />
+  ),
 }));
 jest.mock('../../components/OuterTabPagerView', () => ({
   OuterTabPagerView: ({
     selectedHeaderTab,
     earnContent,
     browserContent,
+    onTransitioningChange,
+    onVisiblePagesChange,
   }: {
     selectedHeaderTab: ETranslations;
     earnContent: React.ReactNode;
     browserContent: React.ReactNode;
-  }) => (
-    <div data-testid="outer-pager" data-selected-tab={selectedHeaderTab}>
-      {earnContent}
-      {browserContent}
-    </div>
-  ),
+    onTransitioningChange?: (transitioning: boolean) => void;
+    onVisiblePagesChange?: (pages: number[]) => void;
+  }) => {
+    mockOuterTransitionChange = onTransitioningChange;
+    mockVisiblePagesChange = onVisiblePagesChange;
+    return (
+      <div data-testid="outer-pager" data-selected-tab={selectedHeaderTab}>
+        {earnContent}
+        {browserContent}
+      </div>
+    );
+  },
 }));
 jest.mock('../../components/HandleData/HandleRebuildBrowserTabData', () => ({
   HandleRebuildBrowserData: () => null,
@@ -191,5 +213,37 @@ describe('Browser.native Explore tab migration', () => {
     mockRouteParams = { defaultTab: ETranslations.global_market };
     render(<Browser />);
     expect(mockSwitchTab).toHaveBeenCalledWith(ETabRoutes.Market);
+  });
+
+  it('pauses the Earn banner during a swipe and restores permission when it settles', () => {
+    mockSelectedBrowserTab = ETranslations.global_earn;
+    const screen = render(<Browser />);
+    act(() => mockVisiblePagesChange?.([0]));
+    expect(
+      screen.getByTestId('earn-home').getAttribute('data-banner-autoplay'),
+    ).toBe('true');
+    act(() => mockOuterTransitionChange?.(true));
+    expect(
+      screen.getByTestId('earn-home').getAttribute('data-banner-autoplay'),
+    ).toBe('false');
+    act(() => mockOuterTransitionChange?.(false));
+    expect(
+      screen.getByTestId('earn-home').getAttribute('data-banner-autoplay'),
+    ).toBe('true');
+    act(() => mockOuterTransitionChange?.(true));
+    act(() => {
+      mockVisiblePagesChange?.([1]);
+      mockOuterTransitionChange?.(false);
+    });
+    // The persisted selected tab can still lag behind the pager's actual page.
+    expect(
+      screen.getByTestId('earn-home').getAttribute('data-banner-autoplay'),
+    ).toBe('false');
+    screen.unmount();
+    mockSelectedBrowserTab = ETranslations.global_browser;
+    const browserScreen = render(<Browser />);
+    expect(
+      browserScreen.getByTestId('earn-home').getAttribute('data-show-content'),
+    ).toBe('false');
   });
 });

@@ -112,6 +112,11 @@ const CryptoGallery = LazyLoadPage(
     import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/CryptoGallery'),
 );
 
+const HardwareDerivationPathTest = LazyLoadPage(
+  () =>
+    import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/HardwareDerivationPathTest'),
+);
+
 const CloudBackupGallery = LazyLoadPage(
   () =>
     import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/CloudBackupGallery'),
@@ -323,6 +328,10 @@ export const BasicModalSettingStack: IModalFlowNavigatorConfig<
         {
           name: EModalSettingRoutes.SettingDevCryptoGalleryModal,
           component: CryptoGallery,
+        },
+        {
+          name: EModalSettingRoutes.SettingDevHardwarePathTestModal,
+          component: HardwareDerivationPathTest,
         },
         {
           name: EModalSettingRoutes.SettingDevCloudBackupGalleryModal,
