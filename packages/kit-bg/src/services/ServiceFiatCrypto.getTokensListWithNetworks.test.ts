@@ -126,6 +126,23 @@ describe('ServiceFiatCrypto.getTokensListWithNetworks', () => {
     });
   });
 
+  // The region flag on a row (`headlessSupported`) is only as fresh as the
+  // list: the page persists this response and repaints it later, so the
+  // response says when it was fetched.
+  it('says when the list was fetched', async () => {
+    jest.spyOn(Date, 'now').mockReturnValue(1_800_000_000_000);
+    const service = createService();
+
+    const result = await service.getTokensListWithNetworks({
+      networkId: 'onekeyall--0',
+      type: 'buy',
+      accountId: 'hd-1--m/44h/60h/0h/0/0',
+    });
+
+    expect(result.fetchedAt).toBe(1_800_000_000_000);
+    jest.restoreAllMocks();
+  });
+
   it('lists the networks whose vault merges derive assets', async () => {
     const service = createService();
 
