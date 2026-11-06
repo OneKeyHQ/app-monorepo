@@ -35,6 +35,10 @@ import { LazyMoreActionButton } from '../MoreActionButton/LazyMoreActionButton';
 
 import { HeaderNotificationIconButton } from './components/HeaderNotificationIconButton';
 import { HeaderUpdateButton } from './components/HeaderUpdateButton';
+import {
+  HEADER_EMPTY_INSET_SPACER_HEIGHT,
+  getFoldableIPhoneHeaderTop,
+} from './headerLayout';
 import { HeaderLeft } from './HeaderLeft';
 import { HeaderMDSearch } from './HeaderMDSearch';
 import { HeaderRight, SelectorTrigger } from './HeaderRight';
@@ -42,6 +46,17 @@ import { HeaderTitle } from './HeaderTitle';
 import { LegacyUniversalSearchInput } from './LegacyUniversalSearchInput';
 
 import type { SharedValue } from 'react-native-reanimated';
+
+const HOME_HEADER_ROW_HEIGHT = 56;
+const TAB_HEADER_ROW_HEIGHT = 44;
+
+function getHeaderRowTopMargin(top: number, rowHeight: number) {
+  if (top || platformEnv.isNativeAndroid) {
+    return { mt: top || ('$2' as const) };
+  }
+  const foldableTop = getFoldableIPhoneHeaderTop(rowHeight);
+  return foldableTop ? { mt: foldableTop } : {};
+}
 
 function HomeWalletConnectionRow({
   headerPx,
@@ -183,11 +198,9 @@ export function MDHeader({
                 alignItems="center"
                 px={headerPx}
                 ml={windowControlsOffset}
-                h={56}
+                h={HOME_HEADER_ROW_HEIGHT}
                 gap={headerGlassActive || usePlainHomeHeader ? '$3' : '$6'}
-                {...(top || platformEnv.isNativeAndroid
-                  ? { mt: top || '$2' }
-                  : {})}
+                {...getHeaderRowTopMargin(top, HOME_HEADER_ROW_HEIGHT)}
               >
                 <XStack flex={1}>
                   <LegacyUniversalSearchInput
@@ -240,10 +253,8 @@ export function MDHeader({
                 justifyContent="space-between"
                 px={headerPx}
                 ml={windowControlsOffset}
-                h={44}
-                {...(top || platformEnv.isNativeAndroid
-                  ? { mt: top || '$2' }
-                  : {})}
+                h={TAB_HEADER_ROW_HEIGHT}
+                {...getHeaderRowTopMargin(top, TAB_HEADER_ROW_HEIGHT)}
               >
                 <View>
                   <HeaderLeft
@@ -267,7 +278,7 @@ export function MDHeader({
           )}
         </>
       ) : (
-        <XStack h={top || '$2'} bg="$bgApp" />
+        <XStack h={top || HEADER_EMPTY_INSET_SPACER_HEIGHT} bg="$bgApp" />
       )}
     </>
   );

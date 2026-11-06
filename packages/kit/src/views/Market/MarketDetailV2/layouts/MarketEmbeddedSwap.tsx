@@ -10,6 +10,7 @@ import {
 } from '@onekeyhq/components';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import type { ISwapInputAmountDraft } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
+import { SwapRevealSnapshotProvider } from '@onekeyhq/kit/src/views/Swap/pages/components/SwapSmoothReveal';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import LazyLoad from '@onekeyhq/shared/src/lazyLoad';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
@@ -370,23 +371,30 @@ export function MarketEmbeddedSwap({
   stockTradePortfolioData?: IMarketAccountPortfolioDisplayItem[];
   stockTradeResolvedVariantKeys?: string[];
 }) {
+  const draft = (
+    <MarketEmbeddedSwapDraft
+      inputDraftKey={inputDraftKey}
+      swapToken={swapToken}
+      disabled={disabled}
+      isTradeLoading={isTradeLoading}
+      embeddedStockTrade={embeddedStockTrade}
+      stockTradeConfig={stockTradeConfig}
+      stockTradeHeader={stockTradeHeader}
+      stockTradeToken={stockTradeToken}
+      stockTradePortfolioData={stockTradePortfolioData}
+      stockTradeResolvedVariantKeys={stockTradeResolvedVariantKeys}
+    />
+  );
   return (
     <AccountSelectorProviderMirror
       config={{ sceneName: EAccountSelectorSceneName.swap }}
       enabledNum={[0, 1]}
     >
-      <MarketEmbeddedSwapDraft
-        inputDraftKey={inputDraftKey}
-        swapToken={swapToken}
-        disabled={disabled}
-        isTradeLoading={isTradeLoading}
-        embeddedStockTrade={embeddedStockTrade}
-        stockTradeConfig={stockTradeConfig}
-        stockTradeHeader={stockTradeHeader}
-        stockTradeToken={stockTradeToken}
-        stockTradePortfolioData={stockTradePortfolioData}
-        stockTradeResolvedVariantKeys={stockTradeResolvedVariantKeys}
-      />
+      {embeddedStockTrade ? (
+        <SwapRevealSnapshotProvider>{draft}</SwapRevealSnapshotProvider>
+      ) : (
+        draft
+      )}
     </AccountSelectorProviderMirror>
   );
 }

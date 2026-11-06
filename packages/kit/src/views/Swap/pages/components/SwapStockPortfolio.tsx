@@ -65,7 +65,19 @@ export function SwapStockMyPosition() {
     // Include the table gutters inside the reveal's clipping boundary while
     // keeping the parent gap collapsed when there are no positions.
     <Stack mx="$-5" mt={-28}>
-      <SwapSmoothReveal visible={portfolioData.length > 0} keepMounted>
+      <SwapSmoothReveal
+        visible={portfolioData.length > 0}
+        keepMounted
+        snapshotKey="stock-position"
+        snapshotPending={
+          !positions?.positionOwnerKey || positions.positionLoading
+        }
+        snapshotScope={
+          positions?.positionOwnerKey && stockId
+            ? JSON.stringify([positions.positionOwnerKey, stockId])
+            : undefined
+        }
+      >
         <YStack testID="swap-stock-my-position" gap="$3" px="$5" pt="$7">
           <SizableText size="$bodyLgMedium">
             {intl.formatMessage({

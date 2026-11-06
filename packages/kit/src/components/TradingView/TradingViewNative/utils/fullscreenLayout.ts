@@ -13,6 +13,25 @@ function normalizeLayoutValue(value: number) {
   return Number.isFinite(value) ? Math.max(value, 0) : 0;
 }
 
+// Android keeps a phone-sized window in the orientation the app requests, so
+// it only turns landscape for the native chart fullscreen. Larger windows, such
+// as tablets and unfolded phones, rotate freely. The shortest edge keeps the
+// window class stable while the window rotates.
+export function isTradingViewNativePhoneWindow({
+  height,
+  width,
+}: {
+  height: number;
+  width: number;
+}) {
+  const minWindowDimension = Math.min(width, height);
+  return (
+    Number.isFinite(minWindowDimension) &&
+    minWindowDimension > 0 &&
+    minWindowDimension < ANDROID_LARGE_WINDOW_MIN_DIMENSION
+  );
+}
+
 export function shouldHideTradingViewNativeStatusBar({
   height,
   isAndroid,
@@ -29,14 +48,7 @@ export function shouldHideTradingViewNativeStatusBar({
   if (!isAndroid || !isFullscreen || isSpanningWindow) {
     return false;
   }
-
-  // The shortest edge keeps the window class stable when fullscreen rotates.
-  const minWindowDimension = Math.min(width, height);
-  return (
-    Number.isFinite(minWindowDimension) &&
-    minWindowDimension > 0 &&
-    minWindowDimension < ANDROID_LARGE_WINDOW_MIN_DIMENSION
-  );
+  return isTradingViewNativePhoneWindow({ height, width });
 }
 
 export function getTradingViewNativeFullscreenLayout({

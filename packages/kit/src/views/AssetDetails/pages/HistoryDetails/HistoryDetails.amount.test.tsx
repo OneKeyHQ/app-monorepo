@@ -377,7 +377,7 @@ function shieldedOutput(
 
 const DIVERSIFIED = `u1${'d'.repeat(90)}`;
 
-it('names the known source and destination pools without treating change as the destination', () => {
+it('labels private source and destination without exposing pool names', () => {
   setZcashEndpoints({ poolId: 3, own: true }, { shielded: true });
   mockTxDetails = {
     sends: [shieldedOutput(3, { isOwn: true })],
@@ -392,6 +392,7 @@ it('names the known source and destination pools without treating change as the 
   expect(from.getByText(PRIVATE)).toBeTruthy();
   // The change is not a second destination.
   expect(to.getAllByText(PRIVATE)).toHaveLength(1);
+  expect(to.queryByText('Orchard pool')).toBeNull();
   expect(from.queryByRole('button')).toBeNull();
   expect(to.queryByRole('button')).toBeNull();
 });
@@ -476,6 +477,7 @@ it('does not infer a destination pool from change alone', () => {
   const result = render(<HistoryDetails />);
   const to = within(result.getByTestId('history-details-to-pool'));
   expect(to.getAllByText(PRIVATE)).toHaveLength(1);
+  expect(to.queryByText('Orchard pool')).toBeNull();
 });
 
 it.each([
@@ -605,6 +607,9 @@ it('names the recipient pool when the recipient is unknown', () => {
   const result = render(<HistoryDetails />);
   const to = within(result.getByTestId('history-details-to-pool'));
   expect(to.getAllByText(PRIVATE)).toHaveLength(1);
+  expect(
+    to.queryByText(ETranslations.privacy_history_shielded__title),
+  ).toBeNull();
 });
 
 it.each([
@@ -624,7 +629,7 @@ it.each([
   }
 });
 
-it('names a Sapling output although Sapling has no tab', () => {
+it('labels a legacy private output without exposing its pool name', () => {
   setZcashEndpoints({ poolId: 4, own: true }, { shielded: true });
   mockTxDetails = { receives: [shieldedOutput(2)] };
   const result = render(<HistoryDetails />);
