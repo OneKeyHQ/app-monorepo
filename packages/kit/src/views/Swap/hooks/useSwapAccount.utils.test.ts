@@ -690,6 +690,68 @@ describe('shouldUseSwapCustomRecipientAddress', () => {
     ).toBe(false);
   });
 
+  it.each([
+    ['evm--1', 'sol--101'],
+    ['sol--101', 'evm--1'],
+  ])(
+    'does not use the old %s recipient when the token changes to incompatible %s',
+    (oldNetworkId, tokenNetworkId) => {
+      expect(
+        shouldUseSwapCustomRecipientAddress({
+          type: ESwapDirectionType.TO,
+          swapToAnotherAccountSwitchOn: true,
+          selectedRecipientAddress: 'test-recipient',
+          selectedRecipientNetworkId: oldNetworkId,
+          activeNetworkId: oldNetworkId,
+          tokenNetworkId,
+          isAllNetwork: false,
+        }),
+      ).toBe(false);
+    },
+  );
+
+  it('keeps an EVM recipient on another EVM token network when the active network is incompatible', () => {
+    expect(
+      shouldUseSwapCustomRecipientAddress({
+        type: ESwapDirectionType.TO,
+        swapToAnotherAccountSwitchOn: true,
+        selectedRecipientAddress: 'test-recipient',
+        selectedRecipientNetworkId: 'evm--1',
+        activeNetworkId: 'sol--101',
+        tokenNetworkId: 'evm--56',
+        isAllNetwork: false,
+      }),
+    ).toBe(true);
+  });
+
+  it('uses the active network as fallback when there is no token network', () => {
+    expect(
+      shouldUseSwapCustomRecipientAddress({
+        type: ESwapDirectionType.TO,
+        swapToAnotherAccountSwitchOn: true,
+        selectedRecipientAddress: 'test-recipient',
+        selectedRecipientNetworkId: 'evm--1',
+        activeNetworkId: 'evm--56',
+        tokenNetworkId: undefined,
+        isAllNetwork: false,
+      }),
+    ).toBe(true);
+  });
+
+  it('does not use a recipient for an all-network account without a token network', () => {
+    expect(
+      shouldUseSwapCustomRecipientAddress({
+        type: ESwapDirectionType.TO,
+        swapToAnotherAccountSwitchOn: true,
+        selectedRecipientAddress: 'test-recipient',
+        selectedRecipientNetworkId: 'evm--1',
+        activeNetworkId: 'onekeyall--all',
+        tokenNetworkId: undefined,
+        isAllNetwork: true,
+      }),
+    ).toBe(false);
+  });
+
   it('allows the confirmed recipient on all-network accounts when the token network is compatible', () => {
     expect(
       shouldUseSwapCustomRecipientAddress({
