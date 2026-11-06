@@ -114,6 +114,7 @@ import { TradingViewNativeNavigationControls } from './TradingViewNativeNavigati
 import { TradingViewNativePriceScaleControls } from './TradingViewNativePriceScaleControls';
 import { useNativeChartDrawings } from './useNativeChartDrawings';
 import { useTradingViewNativeChartGestures } from './useTradingViewNativeChartGestures';
+import { useTradingViewNativeNavigationVisibility } from './useTradingViewNativeNavigationVisibility';
 import { useTradingViewNativePriceScale } from './useTradingViewNativePriceScale';
 
 import type { ITradingViewNativeChartProps } from '../TradingViewNativeChart.types';
@@ -355,9 +356,21 @@ export const TradingViewNativeChart = memo(
       (active: boolean) => reportInteraction('drawings', active),
       [reportInteraction],
     );
+    const showNavigationControls =
+      enableNavigationControls && chartSettings.options.navigationButtons;
+    const {
+      handleChartDragStart: handleNavigationChartDragStart,
+      handleControlPress: handleNavigationControlPress,
+      isVisible: isNavigationVisible,
+      tapGesture: navigationTapGesture,
+    } = useTradingViewNativeNavigationVisibility(showNavigationControls);
     const handlePriceScaleInteraction = useCallback(
-      (active: boolean) => reportInteraction('priceScale', active),
-      [reportInteraction],
+      (active: boolean) => {
+        // Dragging the price axis rescales the chart like a content drag.
+        if (active) handleNavigationChartDragStart();
+        reportInteraction('priceScale', active);
+      },
+      [handleNavigationChartDragStart, reportInteraction],
     );
     useAnimatedReaction(
       () => drawingPointerId.value !== null,
@@ -1193,9 +1206,7 @@ export const TradingViewNativeChart = memo(
       decayOffset,
       isEnabled: chartSettings.options.yAxis,
       isLogScaleAvailable,
-      onInteractionChange: onInteractionChange
-        ? handlePriceScaleInteraction
-        : undefined,
+      onInteractionChange: handlePriceScaleInteraction,
       priceAxisWidth,
       subIndicatorPanes,
       timeAxisHeight,
@@ -1203,6 +1214,7 @@ export const TradingViewNativeChart = memo(
 
     const handleNavigationAction = useCallback(
       (action: ITradingViewNativeNavigationAction) => {
+        handleNavigationControlPress();
         if (action === 'reset') handleMainPriceScaleReset();
         scheduleOnUI(() => {
           'worklet';
@@ -1217,10 +1229,14 @@ export const TradingViewNativeChart = memo(
           chartRuntime.value = nextRuntime;
         });
       },
-      [chartRuntime, decayOffset, handleMainPriceScaleReset, priceAxisWidth],
+      [
+        chartRuntime,
+        decayOffset,
+        handleMainPriceScaleReset,
+        handleNavigationControlPress,
+        priceAxisWidth,
+      ],
     );
-    const showNavigationControls =
-      enableNavigationControls && chartSettings.options.navigationButtons;
     const [isNavigationResetVisible, setIsNavigationResetVisible] =
       useState(false);
     useAnimatedReaction(
@@ -1250,6 +1266,7 @@ export const TradingViewNativeChart = memo(
       decayOffset,
       isClickInteractionEnabled: chartSettings.options.clickInteraction,
       isCrosshairEnabled: chartSettings.options.crossLine,
+      onChartDragStart: handleNavigationChartDragStart,
       onInteractionChange: onInteractionChange
         ? handleGestureInteraction
         : undefined,
@@ -1262,10 +1279,13 @@ export const TradingViewNativeChart = memo(
     });
     const combinedGestures = useMemo(
       () =>
-        enableDrawings
-          ? Gesture.Exclusive(drawingGesture, chartGestures)
-          : chartGestures,
-      [enableDrawings, drawingGesture, chartGestures],
+        Gesture.Simultaneous(
+          enableDrawings
+            ? Gesture.Exclusive(drawingGesture, chartGestures)
+            : chartGestures,
+          navigationTapGesture,
+        ),
+      [enableDrawings, drawingGesture, chartGestures, navigationTapGesture],
     );
     useAnimatedReaction(
       () => ({
@@ -1341,6 +1361,7 @@ export const TradingViewNativeChart = memo(
               backgroundColor={background}
               chartWidth={chartWidth}
               isResetVisible={isNavigationResetVisible}
+              isVisible={isNavigationVisible}
               onAction={handleNavigationAction}
               timeAxisHeight={timeAxisHeight}
               testID={testID}

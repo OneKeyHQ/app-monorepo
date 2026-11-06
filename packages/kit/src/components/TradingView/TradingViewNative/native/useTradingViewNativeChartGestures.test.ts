@@ -197,10 +197,12 @@ function renderChartGestures({
   headerScrollGestures = [],
   prioritizePageScroll = false,
   excludeStartEdgeWidth = 0,
+  onChartDragStart,
 }: {
   headerScrollGestures?: GestureType[];
   prioritizePageScroll?: boolean;
   excludeStartEdgeWidth?: number;
+  onChartDragStart?: () => void;
 } = {}) {
   const chartRuntime = {
     value: {
@@ -234,6 +236,7 @@ function renderChartGestures({
     prioritizePageScroll,
     isClickInteractionEnabled: true,
     isCrosshairEnabled: true,
+    onChartDragStart,
     onSubIndicatorSettingsPress: jest.fn(),
     priceAxisResetGesture: {},
     priceAxisScaleGesture: {},
@@ -492,6 +495,37 @@ describe('useTradingViewNativeChartGestures', () => {
       }
     },
   );
+
+  it.each(['contentPan', 'timeAxisScale', 'pinch'] as const)(
+    'reports a chart drag when %s starts',
+    (kind) => {
+      const onChartDragStart = jest.fn();
+      const gestures = renderChartGestures({ onChartDragStart });
+      if (kind === 'pinch') {
+        gestures.pinchGesture.handlers.onStart?.({ focalX: 140, scale: 1 });
+      } else {
+        const gesture =
+          kind === 'contentPan'
+            ? gestures.contentPanGesture
+            : gestures.timeAxisScaleGesture;
+        gesture.handlers.onStart?.({ translationX: 0, x: 100 });
+      }
+
+      expect(onChartDragStart).toHaveBeenCalledTimes(1);
+    },
+  );
+
+  it('does not report a chart drag for crosshair gestures', () => {
+    const onChartDragStart = jest.fn();
+    const { crosshairGesture, tapCrosshairGesture } = renderChartGestures({
+      onChartDragStart,
+    });
+
+    crosshairGesture.handlers.onStart?.({ x: 100, y: 120 });
+    tapCrosshairGesture?.handlers.onEnd?.({ x: 100, y: 120 }, true);
+
+    expect(onChartDragStart).not.toHaveBeenCalled();
+  });
 
   it('keeps the crosshair visible after the long press ends', () => {
     const { chartRuntime } = renderChartGestures();

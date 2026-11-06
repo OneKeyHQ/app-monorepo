@@ -55,6 +55,7 @@ export function useTradingViewNativeChartGestures({
   decayOffset,
   isClickInteractionEnabled,
   isCrosshairEnabled,
+  onChartDragStart,
   onSubIndicatorSettingsPress,
   onInteractionChange,
   priceAxisResetGesture,
@@ -68,6 +69,8 @@ export function useTradingViewNativeChartGestures({
   decayOffset: SharedValue<number>;
   isClickInteractionEnabled: boolean;
   isCrosshairEnabled: boolean;
+  /** Called when a pan, pinch or time-axis drag starts moving the chart. */
+  onChartDragStart?: () => void;
   onInteractionChange?: (isInteracting: boolean) => void;
   onSubIndicatorSettingsPress: (
     indicator: ITradingViewNativeSubIndicator,
@@ -100,6 +103,11 @@ export function useTradingViewNativeChartGestures({
       activeGestures.value = next;
       if (onInteractionChange && Boolean(previous) !== Boolean(next))
         scheduleOnRN(onInteractionChange, Boolean(next));
+    };
+    const notifyChartDragStart = () => {
+      'worklet';
+
+      if (onChartDragStart) scheduleOnRN(onChartDragStart);
     };
     const isNavigationEdgeTouch = (absoluteX: number) => {
       'worklet';
@@ -337,6 +345,7 @@ export function useTradingViewNativeChartGestures({
       .onStart((event) => {
         'worklet';
         setInteraction(2, true);
+        notifyChartDragStart();
 
         // Discard movement accumulated while the page decided the drag direction.
         panStartTranslationX.value = shouldWaitForPageScroll
@@ -460,6 +469,7 @@ export function useTradingViewNativeChartGestures({
       .onStart((event) => {
         'worklet';
         setInteraction(4, true);
+        notifyChartDragStart();
 
         cancelAnimation(decayOffset);
         const runtime = chartRuntime.value;
@@ -548,6 +558,7 @@ export function useTradingViewNativeChartGestures({
       .onStart((event) => {
         'worklet';
         setInteraction(8, true);
+        notifyChartDragStart();
 
         cancelAnimation(decayOffset);
         const runtime = chartRuntime.value;
@@ -654,6 +665,7 @@ export function useTradingViewNativeChartGestures({
     shouldWaitForPageScroll,
     isClickInteractionEnabled,
     isCrosshairEnabled,
+    onChartDragStart,
     onSubIndicatorSettingsPress,
     onInteractionChange,
     pressedSubIndicatorSettingsTarget,
