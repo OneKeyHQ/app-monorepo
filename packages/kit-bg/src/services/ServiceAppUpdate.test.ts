@@ -69,6 +69,9 @@ const mockAtom = {
 
 jest.mock('../states/jotai/atoms', () => ({
   appUpdatePersistAtom: mockAtom,
+  settingsPersistAtom: {
+    get: jest.fn(async () => ({ enableAutoDownloadAppUpdate: true })),
+  },
 }));
 
 jest.mock('../states/jotai/atoms/devSettings', () => ({
@@ -139,6 +142,7 @@ jest.mock('@onekeyhq/shared/src/modules3rdParty/auto-update', () => ({
     verifyASC: jest.fn(async () => undefined),
     downloadASC: jest.fn(async () => undefined),
     installPackage: jest.fn(async () => true),
+    prepareQuitInstall: jest.fn(async () => undefined),
     manualInstallPackage: jest.fn(async () => undefined),
     clearPackage: jest.fn(async () => undefined),
   },
@@ -1402,6 +1406,262 @@ describe('ServiceAppUpdate state transitions', () => {
       await service.refreshUpdateStatus();
       expect(atomValue.status).toBe(EAppUpdateStatus.verifyASCFailed);
     });
+
+    test('desktop package integrity failure clears the file and blocks the same URL', async () => {
+      const platform = require('@onekeyhq/shared/src/platformEnv').default;
+      const {
+        AppUpdate,
+      } = require('@onekeyhq/shared/src/modules3rdParty/auto-update');
+      platform.isDesktop = true;
+      try {
+        resetAtom({
+          status: EAppUpdateStatus.downloadPackage,
+          latestVersion: '2.0.0',
+          downloadUrl: 'https://cdn.onekey.so/app-2.0.0.exe',
+        });
+        await service.downloadPackageFailed({
+          code: EUpdateErrorCode.integrityFailed,
+          step: 'download',
+        });
+        expect(AppUpdate.clearPackage).toHaveBeenCalledTimes(1);
+        expect(atomValue.blockedDownloadUrl).toBe(atomValue.downloadUrl);
+        expect(await service.canDownloadCurrentTarget()).toBe(false);
+      } finally {
+        platform.isDesktop = false;
+      }
+    });
+
+    test.each([
+      [EAppUpdateStatus.downloadPackage, 'downloadPackageFailed'],
+      [EAppUpdateStatus.verifyASC, 'verifyASCFailed'],
+      [EAppUpdateStatus.verifyPackage, 'verifyPackageFailed'],
+    ] as const)(
+      'integrity cleanup keeps %s locked until the old target is quarantined',
+      async (status, method) => {
+        const {
+          AppUpdate,
+        } = require('@onekeyhq/shared/src/modules3rdParty/auto-update');
+        const platform = require('@onekeyhq/shared/src/platformEnv').default;
+        platform.isDesktop = true;
+        let finish!: () => void;
+        let started!: () => void;
+        const held = new Promise<void>((resolve) => {
+          finish = resolve;
+        });
+        const clearing = new Promise<void>((resolve) => {
+          started = resolve;
+        });
+        AppUpdate.clearPackage.mockImplementationOnce(async () => {
+          started();
+          await held;
+        });
+        resetAtom({
+          status,
+          latestVersion: '2.0.0',
+          updateStrategy: EUpdateStrategy.manual,
+          downloadUrl: 'https://cdn.onekey.so/A.exe',
+          downloadedEvent: {
+            latestVersion: '2.0.0',
+            downloadUrl: 'https://cdn.onekey.so/A.exe',
+          },
+        });
+        jest.spyOn(service, 'isNeedSyncAppUpdateInfo').mockResolvedValue(true);
+        jest.spyOn(service, 'getAppLatestInfo').mockResolvedValue({
+          version: '3.0.0',
+          updateStrategy: EUpdateStrategy.manual,
+          downloadUrl: 'https://cdn.onekey.so/B.exe',
+        });
+        try {
+          const failure = service[method]({
+            code: EUpdateErrorCode.integrityFailed,
+            step: 'verifyPackage',
+          });
+          await clearing;
+          await service.fetchAppUpdateInfo(true);
+          expect(atomValue.latestVersion).toBe('2.0.0');
+          expect(atomValue.status).toBe(status);
+          expect(atomValue.blockedDownloadUrl).toBe(
+            'https://cdn.onekey.so/A.exe',
+          );
+          finish();
+          await failure;
+          expect(atomValue.downloadedEvent).toBeUndefined();
+          await service.fetchAppUpdateInfo(true);
+          expect(atomValue.latestVersion).toBe('3.0.0');
+          expect(atomValue.blockedDownloadUrl).toBeUndefined();
+          expect(await service.canDownloadCurrentTarget()).toBe(true);
+          expect(AppUpdate.clearPackage).toHaveBeenCalledTimes(1);
+        } finally {
+          finish();
+          platform.isDesktop = false;
+        }
+      },
+    );
+
+    test('superseding a ready package revokes its actual prepared quit target', async () => {
+      const {
+        AppUpdate,
+      } = require('@onekeyhq/shared/src/modules3rdParty/auto-update');
+      const platform = require('@onekeyhq/shared/src/platformEnv').default;
+      platform.isDesktop = true;
+      resetAtom({
+        status: EAppUpdateStatus.ready,
+        latestVersion: '2.0.0',
+        downloadUrl: 'https://cdn.onekey.so/release-A',
+        downloadedEvent: {
+          latestVersion: '2.0.0',
+          downloadUrl: 'https://cdn.onekey.so/artifact-A.exe',
+        },
+      });
+      jest.spyOn(service, 'isNeedSyncAppUpdateInfo').mockResolvedValue(true);
+      jest.spyOn(service, 'getAppLatestInfo').mockResolvedValue({
+        version: '3.0.0',
+        updateStrategy: EUpdateStrategy.manual,
+        downloadUrl: 'https://cdn.onekey.so/B.exe',
+      });
+      try {
+        await service.fetchAppUpdateInfo(true);
+        expect(atomValue.status).toBe(EAppUpdateStatus.notify);
+        expect(AppUpdate.prepareQuitInstall).toHaveBeenCalledWith(undefined, {
+          latestVersion: '2.0.0',
+          downloadUrl: 'https://cdn.onekey.so/artifact-A.exe',
+        });
+      } finally {
+        platform.isDesktop = false;
+      }
+    });
+
+    test('quit revocation finishes before publishing B and serializes cold ready recovery', async () => {
+      const {
+        AppUpdate,
+      } = require('@onekeyhq/shared/src/modules3rdParty/auto-update');
+      const platform = require('@onekeyhq/shared/src/platformEnv').default;
+      platform.isDesktop = true;
+      let finish!: () => void;
+      let started!: () => void;
+      const held = new Promise<void>((resolve) => {
+        finish = resolve;
+      });
+      const revoking = new Promise<void>((resolve) => {
+        started = resolve;
+      });
+      AppUpdate.prepareQuitInstall.mockImplementationOnce(async () => {
+        started();
+        await held;
+      });
+      resetAtom({
+        status: EAppUpdateStatus.ready,
+        latestVersion: '2.0.0',
+        downloadUrl: 'https://cdn.onekey.so/A.exe',
+        downloadedEvent: {
+          latestVersion: '2.0.0',
+          downloadUrl: 'https://cdn.onekey.so/A.exe',
+        },
+      });
+      jest.spyOn(service, 'isNeedSyncAppUpdateInfo').mockResolvedValue(true);
+      jest.spyOn(service, 'getAppLatestInfo').mockResolvedValue({
+        version: '3.0.0',
+        updateStrategy: EUpdateStrategy.manual,
+        downloadUrl: 'https://cdn.onekey.so/B.exe',
+      });
+      try {
+        const fetch = service.fetchAppUpdateInfo(true);
+        await revoking;
+        expect(atomValue.latestVersion).toBe('2.0.0');
+        expect(atomValue.status).toBe(EAppUpdateStatus.ready);
+        const restoreReady = service.readyToInstall();
+        await Promise.resolve();
+        expect(AppUpdate.prepareQuitInstall).toHaveBeenCalledTimes(1);
+        finish();
+        await Promise.all([fetch, restoreReady]);
+        expect(atomValue.latestVersion).toBe('3.0.0');
+        expect(atomValue.status).toBe(EAppUpdateStatus.notify);
+        expect(AppUpdate.prepareQuitInstall).toHaveBeenCalledTimes(1);
+      } finally {
+        finish();
+        platform.isDesktop = false;
+      }
+    });
+
+    test('a rejected quit revocation preserves A instead of publishing B', async () => {
+      const {
+        AppUpdate,
+      } = require('@onekeyhq/shared/src/modules3rdParty/auto-update');
+      const platform = require('@onekeyhq/shared/src/platformEnv').default;
+      platform.isDesktop = true;
+      AppUpdate.prepareQuitInstall.mockRejectedValueOnce(
+        new Error('installer already running'),
+      );
+      resetAtom({
+        status: EAppUpdateStatus.ready,
+        latestVersion: '2.0.0',
+        downloadUrl: 'https://cdn.onekey.so/A.exe',
+        downloadedEvent: {
+          latestVersion: '2.0.0',
+          downloadUrl: 'https://cdn.onekey.so/A.exe',
+        },
+      });
+      jest.spyOn(service, 'isNeedSyncAppUpdateInfo').mockResolvedValue(true);
+      jest.spyOn(service, 'getAppLatestInfo').mockResolvedValue({
+        version: '3.0.0',
+        updateStrategy: EUpdateStrategy.manual,
+        downloadUrl: 'https://cdn.onekey.so/B.exe',
+      });
+      try {
+        await expect(service.fetchAppUpdateInfo(true)).rejects.toThrow(
+          'installer already running',
+        );
+        expect(atomValue.latestVersion).toBe('2.0.0');
+        expect(atomValue.status).toBe(EAppUpdateStatus.ready);
+        expect(atomValue.downloadedEvent?.downloadUrl).toBe(
+          'https://cdn.onekey.so/A.exe',
+        );
+      } finally {
+        platform.isDesktop = false;
+      }
+    });
+
+    test.each([
+      EAppUpdateStatus.verifyPackage,
+      EAppUpdateStatus.downloadPackage,
+    ])(
+      'failed bad-package cleanup preserves integrity failure without a download event (%s)',
+      async (status) => {
+        const platform = require('@onekeyhq/shared/src/platformEnv').default;
+        const {
+          AppUpdate,
+        } = require('@onekeyhq/shared/src/modules3rdParty/auto-update');
+        platform.isDesktop = true;
+        AppUpdate.clearPackage.mockRejectedValueOnce(new Error('file locked'));
+        try {
+          resetAtom({
+            status,
+            latestVersion: '2.0.0',
+            downloadUrl: 'https://cdn.onekey.so/app-2.0.0.exe',
+          });
+          expect(atomValue.downloadedEvent).toBeUndefined();
+          const method =
+            status === EAppUpdateStatus.verifyPackage
+              ? 'verifyPackageFailed'
+              : 'downloadPackageFailed';
+          await service[method]({
+            code: EUpdateErrorCode.integrityFailed,
+            step: 'verifyPackage',
+          });
+          expect(atomValue.blockedDownloadUrl).toBe(atomValue.downloadUrl);
+          expect(atomValue.status).toBe(
+            status === EAppUpdateStatus.verifyPackage
+              ? EAppUpdateStatus.verifyPackageFailed
+              : EAppUpdateStatus.downloadPackageFailed,
+          );
+          expect(atomValue.updateError?.code).toBe(
+            EUpdateErrorCode.integrityFailed,
+          );
+        } finally {
+          platform.isDesktop = false;
+        }
+      },
+    );
   });
 
   // =========================================================================
