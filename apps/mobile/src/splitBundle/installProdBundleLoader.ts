@@ -269,8 +269,14 @@ async function classifyLoadOutcome(
     // verbatim: it already carries the correct code + retryable classification for
     // our own parent / the boundary to propagate one level up.
     if (error instanceof SegmentLoadError && error.segmentKey !== segmentKey) {
-      // Leave THIS segment re-attemptable when the dep is still transient.
-      segmentStates.set(segmentKey, error.retryable ? 'idle' : 'failed');
+      // A transient dependency may already be idle, recovering, or ready.
+      // Its exhausted current-import flag does not imply a permanent failure.
+      const dependencyCanReload =
+        !failedSegments.has(error.segmentKey) &&
+        (error.retryable ||
+          (error.code !== undefined &&
+            RETRYABLE_NATIVE_REJECT_CODES.has(error.code)));
+      segmentStates.set(segmentKey, dependencyCanReload ? 'idle' : 'failed');
       throw error;
     }
 

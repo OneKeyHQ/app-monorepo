@@ -922,13 +922,16 @@ describe('installProdBundleLoader', () => {
         },
       },
     };
-    const { installProdBundleLoader, loadSegment } = getLoader();
+    const { installProdBundleLoader, loadSegment, getSegmentState } =
+      getLoader();
 
     installProdBundleLoader(createMockNativeLoader());
 
     await expect(loadSegment('seg:test.a')).rejects.toThrow(
       'Circular dependency detected',
     );
+    expect(getSegmentState('seg:test.a')).toBe('failed');
+    expect(getSegmentState('seg:test.b')).toBe('failed');
   });
 
   describe('background retry budget exhaustion + dependency propagation', () => {
@@ -979,7 +982,8 @@ describe('installProdBundleLoader', () => {
             ? Promise.reject(timeout)
             : Promise.resolve(undefined),
       );
-      const { installProdBundleLoader, loadSegment } = getLoader();
+      const { installProdBundleLoader, loadSegment, getSegmentState } =
+        getLoader();
       installProdBundleLoader(mock);
 
       // Load the parent 3x; each fails because the dep fails. By the 3rd the dep
@@ -1003,6 +1007,8 @@ describe('installProdBundleLoader', () => {
       // The dep's own native load was attempted exactly MAX_RETRYABLE_ATTEMPTS
       // times, then cached (no further native dispatch).
       expect(mock.loadSegment).toHaveBeenCalledTimes(3);
+      expect(getSegmentState('seg:test.a')).toBe('failed');
+      expect(getSegmentState('seg:test.b')).toBe('failed');
     });
   });
 
@@ -1222,8 +1228,12 @@ describe('installProdBundleLoader', () => {
       for (let attempt = 0; attempt < 4; attempt += 1) {
         mock.loadSegment.mockRejectedValueOnce(timeout());
       }
-      const { installProdBundleLoader, loadSegment, isSegmentLoaded } =
-        getLoader();
+      const {
+        installProdBundleLoader,
+        loadSegment,
+        isSegmentLoaded,
+        getSegmentState,
+      } = getLoader();
       installProdBundleLoader(mock);
       const first = loadSegment('seg:test.b').catch((error: unknown) => error);
       await jest.advanceTimersByTimeAsync(450);
@@ -1232,11 +1242,54 @@ describe('installProdBundleLoader', () => {
         retryable: false,
       });
       expect(mock.loadSegment).toHaveBeenCalledTimes(4);
+      expect(getSegmentState('seg:test.a')).toBe('idle');
+      expect(getSegmentState('seg:test.b')).toBe('idle');
 
       await expect(loadSegment('seg:test.b')).resolves.toBeUndefined();
       expect(mock.loadSegment).toHaveBeenCalledTimes(6);
       expect(isSegmentLoaded('seg:test.a')).toBe(true);
       expect(isSegmentLoaded('seg:test.b')).toBe(true);
+      expect(getSegmentState('seg:test.a')).toBe('ready');
+      expect(getSegmentState('seg:test.b')).toBe('ready');
+    });
+
+    it('keeps the parent idle if another caller has already started dependency recovery', async () => {
+      const mock = createMockNativeLoader();
+      for (let attempt = 0; attempt < 4; attempt += 1) {
+        mock.loadSegment.mockRejectedValueOnce(timeout());
+      }
+      let finishRecovery: (() => void) | undefined;
+      mock.loadSegment.mockImplementationOnce(
+        () =>
+          new Promise<void>((resolve) => {
+            finishRecovery = () => resolve();
+          }),
+      );
+      const { installProdBundleLoader, loadSegment, getSegmentState } =
+        getLoader();
+      installProdBundleLoader(mock);
+      let recovery: Promise<void> | undefined;
+      mockNativeLoggerWrite.mockImplementation(
+        (_level: unknown, message: string) => {
+          if (message.includes('; later imports may retry')) {
+            // Start another request before the original dependency rejection
+            // reaches its parent, keeping the new native load in flight.
+            void Promise.resolve().then(() => {
+              recovery = loadSegment('seg:test.a');
+            });
+          }
+        },
+      );
+      const first = loadSegment('seg:test.b').catch((error: unknown) => error);
+      await jest.advanceTimersByTimeAsync(450);
+      expect(await first).toMatchObject({
+        segmentKey: 'seg:test.a',
+        retryable: false,
+      });
+      expect(getSegmentState('seg:test.a')).toBe('registering');
+      expect(getSegmentState('seg:test.b')).toBe('idle');
+      finishRecovery?.();
+      await recovery;
     });
 
     it('recovers on the third retry even when transient error codes change', async () => {
