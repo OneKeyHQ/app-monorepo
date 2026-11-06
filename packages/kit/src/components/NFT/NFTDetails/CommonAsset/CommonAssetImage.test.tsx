@@ -44,7 +44,14 @@ jest.mock('@onekeyhq/shared/src/utils/nftUtils', () => ({
 
 const svg =
   '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><title>红+蓝</title><rect width="24" height="24" fill="red"/></svg>';
+const percentSVG = svg
+  .replaceAll('24" height="24', '100%" height="100%')
+  .replaceAll('红+蓝', '红+蓝😀 %xx %20');
+const percentDataURI = `data:image/svg+xml,${percentSVG.replaceAll('%20', '%2520')}`;
 const normalizedSVG = `data:image/svg+xml;base64,${Buffer.from(svg).toString('base64')}`;
+const base64SVG = svg.replaceAll('红+蓝', '红+蓝😀');
+const base64Payload = Buffer.from(base64SVG).toString('base64');
+const base64URI = `data:image/svg+xml;base64,${base64Payload}`;
 
 describe('NFT detail image', () => {
   it.each([
@@ -62,7 +69,39 @@ describe('NFT detail image', () => {
     ],
     [`data:image/svg+xml,${svg}`, normalizedSVG],
     [
-      `data:image/svg+xml,${encodeURIComponent(svg).replace('%2B', '+')}`,
+      `data:image/svg+xml;BASE64,${Buffer.from(svg).toString('base64')}`,
+      normalizedSVG,
+    ],
+    [
+      `DATA:IMAGE/SVG+XML;CHARSET=UTF-8;bAsE64,${Buffer.from(svg).toString('base64')}`,
+      normalizedSVG,
+    ],
+    [
+      `data:image/svg+xml;base64,${base64Payload.replaceAll('=', '%3D')}`,
+      base64URI,
+    ],
+    [
+      `data:image/svg+xml;base64,${base64Payload.replaceAll('+', '%2B')}`,
+      base64URI,
+    ],
+    [
+      `data:image/svg+xml;BASE64,${base64Payload.replaceAll('=', '%3D').replaceAll('+', '%2B')}`,
+      base64URI,
+    ],
+    [
+      percentDataURI,
+      `data:image/svg+xml;base64,${Buffer.from(percentSVG).toString('base64')}`,
+    ],
+    [
+      `data:image/svg+xml,${encodeURIComponent(percentSVG).replaceAll('%2B', '+')}`,
+      `data:image/svg+xml;base64,${Buffer.from(percentSVG).toString('base64')}`,
+    ],
+    [
+      'data:image/svg+xml,%ZZ',
+      `data:image/svg+xml;base64,${Buffer.from('%ZZ').toString('base64')}`,
+    ],
+    [
+      `data:image/svg+xml,${encodeURIComponent(svg).replaceAll('%2B', '+')}`,
       normalizedSVG,
     ],
   ])('uses the native image path and fallback for %s', (image, expected) => {
@@ -108,12 +147,14 @@ describe('NFT detail image', () => {
     act(() => renderer!.unmount());
   });
   it.each([
-    'data:image/svg+xml,%ZZ',
     'data:image/svg+xml,%E0%A4',
+    'data:image/svg+xml,%ED%A0%80',
     'data:image/svg+xml,\ud800',
     `data:image/svg+xml,${'x'.repeat(8 * 1024 * 1024 + 1)}`,
     `data:image/svg+xml,${'红'.repeat(Math.ceil((8 * 1024 * 1024) / 3))}`,
     `data:image/svg+xml,${'%20'.repeat(8 * 1024 * 1024 + 1)}`,
+    `data:image/svg+xml,${'%'.repeat(8 * 1024 * 1024 + 1)}`,
+    `data:image/svg+xml;base64,${'%41'.repeat(Math.ceil((8 * 1024 * 1024) / 3) * 4 + 1)}`,
   ])('shows fallback for malformed or oversized SVG URI (%#)', (image) => {
     let renderer: ReactTestRenderer;
     act(() => {
@@ -132,6 +173,34 @@ describe('NFT detail image', () => {
     expect(renderer!.root.findAllByType('aside')).toHaveLength(1);
     act(() => renderer!.unmount());
   });
+
+  it.each(['%', '%25'])(
+    'accepts exactly the decoded byte budget for %s',
+    (percent) => {
+      const image = `data:image/svg+xml,${percent.repeat(8 * 1024 * 1024)}`;
+      let renderer: ReactTestRenderer;
+      act(() => {
+        renderer = create(
+          <CommonAssetImage
+            nft={
+              {
+                collectionType: ENFTType.ERC721,
+                metadata: { image },
+              } as Parameters<typeof CommonAssetImage>[0]['nft']
+            }
+          />,
+        );
+      });
+      const output = renderer!.root.findByType('img').props.src as string;
+      const decoded = Buffer.from(
+        output.slice(output.indexOf(',') + 1),
+        'base64',
+      );
+      expect(decoded.length).toBe(8 * 1024 * 1024);
+      expect(decoded.every((byte) => byte === 37)).toBe(true);
+      act(() => renderer!.unmount());
+    },
+  );
 
   it('preserves SVG URIs on platforms with an existing data URI path', () => {
     platformEnv.isNativeAndroid = false;

@@ -26,17 +26,50 @@ function CommonAssetImage(props: IProps) {
     }
     const comma = image.indexOf(',');
     if (comma < 0 || comma > 256) return undefined;
-    if (/;base64$/i.test(image.slice(0, comma))) return image;
+    const isBase64 = /;base64$/i.test(image.slice(0, comma));
+    if (isBase64 && !image.includes('%', comma + 1)) {
+      return `data:image/svg+xml;base64,${image.slice(comma + 1)}`;
+    }
 
     // Android's data URI loader requires base64; keep the original URI for media fallback identity.
     const maxBytes = 8 * 1024 * 1024;
-    if (image.length - comma - 1 > maxBytes * 3) return undefined;
+    const maxPayloadBytes = isBase64 ? Math.ceil(maxBytes / 3) * 4 : maxBytes;
+    if (image.length - comma - 1 > maxPayloadBytes * 3) return undefined;
+    // Count decoded UTF-8 bytes before escaping literal '%' (at most 3x this budget).
+    let decodedByteCount = 0;
+    for (let index = comma + 1; index < image.length; index += 1) {
+      const code = image.charCodeAt(index);
+      if (
+        code === 37 &&
+        /^[0-9a-f]{2}$/i.test(image.slice(index + 1, index + 3))
+      ) {
+        decodedByteCount += 1;
+        index += 2;
+      } else if (code >= 0xd8_00 && code <= 0xdb_ff) {
+        const next = image.charCodeAt(index + 1);
+        if (!(next >= 0xdc_00 && next <= 0xdf_ff)) return undefined;
+        decodedByteCount += 4;
+        index += 1;
+      } else {
+        if (code >= 0xdc_00 && code <= 0xdf_ff) return undefined;
+        decodedByteCount += 1;
+        if (code >= 0x80) decodedByteCount += code < 0x8_00 ? 1 : 2;
+      }
+      if (decodedByteCount > maxPayloadBytes) return undefined;
+    }
     try {
-      // A data URI is not form data: literal '+' must remain unchanged.
-      const svg = decodeURIComponent(image.slice(comma + 1));
-      if (svg.length > maxBytes || /[\uD800-\uDFFF]/u.test(svg))
+      // Data URLs preserve literal '%' and '+', decoding only valid %HH once.
+      const payload = image
+        .slice(comma + 1)
+        .replace(/%(?![0-9a-f]{2})/gi, '%25');
+      const decodedPayload = decodeURIComponent(payload);
+      if (isBase64) return `data:image/svg+xml;base64,${decodedPayload}`;
+      if (
+        decodedPayload.length > maxBytes ||
+        /[\uD800-\uDFFF]/u.test(decodedPayload)
+      )
         return undefined;
-      const bytes = bufferUtils.utf8ToBytes(svg);
+      const bytes = bufferUtils.utf8ToBytes(decodedPayload);
       if (bytes.length > maxBytes) return undefined;
       return `data:image/svg+xml;base64,${bufferUtils.bytesToBase64(bytes)}`;
     } catch {
