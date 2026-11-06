@@ -114,6 +114,9 @@ jobs:
           apps/mobile/scripts/check-third-party-async-storage.node-test.js
           apps/mobile/scripts/native-storage-metro-policy.node-test.js
 
+      - name: Test JPush native SDK patchers
+        run: python3 -B apps/mobile/scripts/__tests__/patch-jpush-sdks.test.py
+
       - name: Build CLI
         run: yarn workspace @onekeyfe/cli build
 
