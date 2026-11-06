@@ -2,6 +2,7 @@ import { appApiClient } from '@onekeyhq/shared/src/appApiClient/appApiClient';
 import { getEndpointByServiceName } from '@onekeyhq/shared/src/config/endpointsMap';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { getDefaultLocale } from '@onekeyhq/shared/src/locale/getDefaultLocale';
+import requestHelper from '@onekeyhq/shared/src/request/requestHelper';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import { toMarketTokenBatchRequestItems } from '@onekeyhq/shared/src/utils/marketTokenBatchUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
@@ -512,8 +513,17 @@ const memoizedFetchMarketBasicConfigLight = memoizee(
   },
 );
 
+// Use the settings locale, like the request interceptor that overwrites the
+// locale header. A language change requests the config again as soon as
+// settings update, while appLocale still holds the old locale until the new
+// messages finish loading.
+const resolveMarketBasicConfigLocale = async () => {
+  const { locale } = await requestHelper.getSettingsPersistAtom();
+  return (locale === 'system' ? getDefaultLocale() : locale).toLowerCase();
+};
+
 const fetchMarketBasicConfigLight = async () => {
-  const locale = resolveMarketTokenBatchLocale();
+  const locale = await resolveMarketBasicConfigLocale();
   try {
     return await memoizedFetchMarketBasicConfigLight(locale);
   } catch (error) {
