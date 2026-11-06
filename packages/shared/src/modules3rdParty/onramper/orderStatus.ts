@@ -228,6 +228,34 @@ export function applyOnramperTransactionStatus(
   return next;
 }
 
+// The SDK ended this order's checkout on a paid outcome (`completed` /
+// `paymentPending`). That is payment evidence in any case. And an order the
+// client had failed on its own — the payment page reported a failed
+// authorization, or the 24 h rule fired — goes back to processing: the
+// provider accepted a payment after all, and the next lookup settles it. A
+// failure the backend reported is left alone. Returns the same reference
+// when nothing changes.
+export function applyHeadlessBuyPaidOutcome(
+  order: IHeadlessBuyOrder,
+): IHeadlessBuyOrder {
+  if (
+    order.status !== EHeadlessBuyOrderStatus.Failed ||
+    !isClientFailedHeadlessBuyOrder(order)
+  ) {
+    return order.paymentSeen ? order : { ...order, paymentSeen: true };
+  }
+  const next: IHeadlessBuyOrder = {
+    ...order,
+    status: EHeadlessBuyOrderStatus.Processing,
+    paymentSeen: true,
+    timedOut: false,
+  };
+  delete next.authorizationFailed;
+  // Same as a status round: the "unseen failure" mark belongs to one failure.
+  delete next.failureViewedAt;
+  return next;
+}
+
 // Time-based rules, applied on every read so the UI never depends on a
 // network round-trip. Returns undefined when the record should be deleted;
 // returns the same reference when nothing changed.

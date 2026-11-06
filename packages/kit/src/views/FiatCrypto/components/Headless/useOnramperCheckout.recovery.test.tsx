@@ -438,6 +438,33 @@ describe('useOnramperCheckout slow wait', () => {
     expect(result.current.isTakingLong).toBe(false);
   });
 
+  // Entering the page with an amount, the user watches one wait: the init,
+  // then the first quote. The request going out must not take the line away.
+  it('keeps saying so while a slow init hands over to its first quote', async () => {
+    mockIsMockClient = false;
+    mockFetchOnramperSession.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          setTimeout(
+            () => resolve({ sessionId: 'session', sessionToken: 'token' }),
+            SLOW_HINT_MS + 1000,
+          );
+        }),
+    );
+    mockGetCheckoutRequirements.mockImplementation(NEVER);
+    const { result } = await renderCheckout();
+
+    await advance(SLOW_HINT_MS);
+    expect(result.current.isTakingLong).toBe(true);
+
+    // The init completes, then the debounced first request goes out.
+    await advance(1000);
+    await advance(QUOTE_DEBOUNCE_MS);
+    expect(mockGetCheckoutRequirements).toHaveBeenCalledTimes(1);
+    expect(result.current.actionState).toBe(EBuyActionState.Preparing);
+    expect(result.current.isTakingLong).toBe(true);
+  });
+
   it('keeps quiet while there is no amount to wait for', async () => {
     mockIsMockClient = false;
     mockFetchOnramperSession.mockImplementation(NEVER);

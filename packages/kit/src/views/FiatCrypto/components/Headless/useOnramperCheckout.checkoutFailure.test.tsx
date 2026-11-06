@@ -193,5 +193,55 @@ describe('useOnramperCheckout checkout failures', () => {
 
     act(() => result.current.refreshQuote());
     expect(result.current.unknownOutcomeTransactionId).toBeUndefined();
+
+    // What fails from here on is shown again.
+    emit('failed', { transactionId: 'tx2', errorCode: 'networkError' });
+    expect(result.current.errorCode).toBe('networkError');
+    expect(result.current.unknownOutcomeTransactionId).toBeUndefined();
+  });
+
+  // The payment may have gone through, and nothing a later failure of the
+  // same checkout says can settle that: it must not bring the one-tap retry
+  // back, nor replace the copy that sends the user to the order.
+  it('keeps sending the user to the order when another failure of the same checkout follows', async () => {
+    const { result } = await renderCheckout();
+
+    emit('failed', { transactionId: 'tx2', errorCode: 'providerFailed' });
+    emit('failed', {
+      transactionId: 'tx2',
+      errorCode: 'sessionExpirationHandlerFailed',
+    });
+
+    expect(result.current.actionState).toBe(EBuyActionState.RetryableError);
+    expect(result.current.unknownOutcomeTransactionId).toBe('tx2');
+    expect(result.current.errorCode).toBe('providerFailed');
+    expect(result.current.errorMessage).toContain('Payment status unknown');
+    // Logged, and marked as not shown.
+    expect(mockCheckoutFailed).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        errorCode: 'sessionExpirationHandlerFailed',
+        stale: true,
+      }),
+    );
+  });
+
+  it('keeps sending the user to the order when a structural failure follows in the same tick', async () => {
+    const { result } = await renderCheckout();
+
+    act(() => {
+      mockListeners.get('failed')?.({
+        type: 'failed',
+        transactionId: 'tx2',
+        errorCode: 'providerFailed',
+      });
+      mockListeners.get('failed')?.({
+        type: 'failed',
+        transactionId: 'tx2',
+        errorCode: 'deviceBlocked',
+      });
+    });
+
+    expect(result.current.actionState).toBe(EBuyActionState.RetryableError);
+    expect(result.current.unknownOutcomeTransactionId).toBe('tx2');
   });
 });

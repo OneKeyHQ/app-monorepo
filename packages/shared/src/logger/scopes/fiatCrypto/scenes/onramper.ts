@@ -338,8 +338,11 @@ export class OnramperScene extends BaseScene {
         // Coinbase `onramp_api.commit_error`); the SDK's own error fields do
         // not carry it.
         providerReason?: string;
-        // True when a newer quote request had already superseded the checkout
-        // this failure belongs to — logged, but not surfaced to the user.
+        // True when the failure was logged but not surfaced to the user: a
+        // newer quote request had already superseded the checkout it belongs
+        // to, it was published before the client was ready (a failed
+        // initialize), or an unknown payment outcome of the same checkout was
+        // already on screen.
         stale?: boolean;
       },
   ) {

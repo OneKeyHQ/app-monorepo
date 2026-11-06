@@ -78,6 +78,14 @@ const RATE_LIMITED_PAUSE_MS = 60_000;
 const MOCK_TRANSACTION_ID_PREFIX = 'mock-';
 const LOCAL_TRANSACTION_ID_PREFIX = 'local-';
 
+// Checkout failures after which the record is kept and shown: the payment may
+// have gone through (`providerFailed`), or the user needs the failed order
+// (`authorizationFailed`). `cancelled` / `failed` drop a record nothing paid.
+const RECORD_KEEPING_ABANDON_REASONS = new Set<IHeadlessBuyAbandonReason>([
+  'providerFailed',
+  'authorizationFailed',
+]);
+
 function isSyntheticTransactionId(transactionId: string): boolean {
   return (
     transactionId.startsWith(MOCK_TRANSACTION_ID_PREFIX) ||
@@ -535,12 +543,8 @@ class ServiceFiatCrypto extends ServiceBase {
       transactionId,
     });
     if (existing?.submittedAt !== undefined) {
-      if (paymentSeen && !existing.paymentSeen) {
-        await simpleDb.headlessBuyOrders.patchOrder({
-          transactionId,
-          patch: { paymentSeen: true },
-        });
-        this.emitHeadlessBuyOrdersChanged();
+      if (paymentSeen) {
+        await this.settlePaidHeadlessBuyOrder(existing);
       }
       return;
     }
@@ -578,6 +582,12 @@ class ServiceFiatCrypto extends ServiceBase {
         return;
       }
     }
+    if (paymentSeen) {
+      // An authorization-failure write can land between the read above and
+      // the patch: the record is then visible and failed, with this paid
+      // outcome on top of it.
+      next = (await this.settlePaidHeadlessBuyOrder(next)) ?? next;
+    }
     defaultLogger.fiatCrypto.onramper.orderSubmitted({
       networkId: next.networkId,
       tokenSymbol: next.tokenSymbol,
@@ -585,6 +595,31 @@ class ServiceFiatCrypto extends ServiceBase {
       recordedBeforePayment,
     });
     this.emitHeadlessBuyOrdersChanged();
+  }
+
+  // A paid checkout outcome (`completed` / `paymentPending`) for a record that
+  // is already visible. Notes the payment evidence, and puts an order the
+  // client had failed on its own (authorization failed, timed out) back to
+  // processing: the SDK can end a checkout on a paid outcome after its payment
+  // page reported a failure, and the detail the checkout then opens must not
+  // read Failed. Returns the updated record, or undefined when nothing
+  // changed.
+  private async settlePaidHeadlessBuyOrder(
+    order: IHeadlessBuyOrder,
+  ): Promise<IHeadlessBuyOrder | undefined> {
+    if (order.paymentSeen && !isClientFailedHeadlessBuyOrder(order)) {
+      return undefined;
+    }
+    const change =
+      await this.backgroundApi.simpleDb.headlessBuyOrders.applyPaidOutcome({
+        transactionId: order.transactionId,
+      });
+    if (!change?.to) {
+      return undefined;
+    }
+    this.logHeadlessBuyOrderStatusChange(change.from, change.to);
+    this.emitHeadlessBuyOrdersChanged();
+    return change.to;
   }
 
   // cancelled / failed before completion: nothing was paid, drop the hidden
@@ -603,16 +638,30 @@ class ServiceFiatCrypto extends ServiceBase {
     reason: IHeadlessBuyAbandonReason;
   }): Promise<void> {
     const { simpleDb } = this.backgroundApi;
+    // The SDK can publish more than one failure for a checkout. Once the
+    // record exists the first one wins on its own (it makes the record
+    // visible, and a visible record is left alone); while none exists the
+    // last one would decide alone. So a verdict that keeps the record stays
+    // put: a repeated event can neither turn a failed authorization into
+    // "outcome unknown" nor get an unknown-outcome order dropped.
+    const waiting = this.abandonedBeforeRecord.get(transactionId);
+    const effectiveReason =
+      waiting !== undefined && RECORD_KEEPING_ABANDON_REASONS.has(waiting)
+        ? waiting
+        : reason;
     // Noted before the read so an insert racing with this call replays the
     // discard whichever side finishes first.
-    this.abandonedBeforeRecord.set(transactionId, reason);
+    this.abandonedBeforeRecord.set(transactionId, effectiveReason);
     const order = await simpleDb.headlessBuyOrders.getOrder({ transactionId });
     if (!order) {
       // No record yet: addHeadlessBuyOrder replays this once its insert lands.
       return;
     }
     this.abandonedBeforeRecord.delete(transactionId);
-    await this.settleAbandonedHeadlessBuyOrder({ order, reason });
+    await this.settleAbandonedHeadlessBuyOrder({
+      order,
+      reason: effectiveReason,
+    });
   }
 
   // Applies a cancel / failure that found no record when it arrived, now that

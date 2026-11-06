@@ -1,6 +1,7 @@
 import { backgroundMethod } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import {
   applyHeadlessBuyOrderTimeRules,
+  applyHeadlessBuyPaidOutcome,
   applyOnramperTransactionStatus,
 } from '@onekeyhq/shared/src/modules3rdParty/onramper/orderStatus';
 import type {
@@ -122,6 +123,34 @@ export class SimpleDbEntityHeadlessBuyOrders extends SimpleDbEntityBase<IHeadles
       }
       return { orders };
     });
+  }
+
+  // Applies a paid checkout outcome (applyHeadlessBuyPaidOutcome) to an
+  // existing record. The rule runs inside the storage lock, so a failure
+  // write or a status round that landed after the caller's read is merged
+  // into rather than overwritten. Returns the change, or undefined when the
+  // record is missing or already says everything the outcome does.
+  @backgroundMethod()
+  async applyPaidOutcome({
+    transactionId,
+  }: {
+    transactionId: string;
+  }): Promise<IHeadlessBuyOrderChange | undefined> {
+    let change: IHeadlessBuyOrderChange | undefined;
+    await this.setRawData((raw) => {
+      const orders = { ...raw?.orders };
+      const existing = orders[transactionId];
+      change = undefined;
+      if (existing) {
+        const next = applyHeadlessBuyPaidOutcome(existing);
+        if (next !== existing) {
+          orders[transactionId] = next;
+          change = { from: existing, to: next };
+        }
+      }
+      return { orders };
+    });
+    return change;
   }
 
   // Deletes a record only while it is still hidden and has never shown a

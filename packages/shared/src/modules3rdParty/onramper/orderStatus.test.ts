@@ -8,6 +8,7 @@ import {
   HEADLESS_BUY_ORDER_DELAYED_MS,
   HEADLESS_BUY_ORDER_TIMEOUT_MS,
   applyHeadlessBuyOrderTimeRules,
+  applyHeadlessBuyPaidOutcome,
   applyOnramperTransactionStatus,
   getHeadlessBuyAbandonReason,
   getHeadlessBuyFailureKind,
@@ -658,6 +659,69 @@ describe('authorization-failed orders', () => {
         T0 + 3 * HEADLESS_BUY_ORDER_TIMEOUT_MS,
       ),
     ).toBe(failed);
+  });
+});
+
+describe('applyHeadlessBuyPaidOutcome', () => {
+  it('puts an order the client had failed on its own back to processing', () => {
+    for (const clientFailure of [
+      { authorizationFailed: true },
+      { timedOut: true },
+    ]) {
+      const next = applyHeadlessBuyPaidOutcome(
+        order({
+          submittedAt: T0,
+          status: EHeadlessBuyOrderStatus.Failed,
+          failureViewedAt: T0,
+          ...clientFailure,
+        }),
+      );
+      expect(next.status).toBe(EHeadlessBuyOrderStatus.Processing);
+      expect(next.paymentSeen).toBe(true);
+      expect(next.authorizationFailed).toBeUndefined();
+      expect(next.timedOut).toBeFalsy();
+      // The banner's "unseen failure" mark belonged to that failure.
+      expect(next.failureViewedAt).toBeUndefined();
+      // Still refreshed, and never failed by the 24 h rule again.
+      expect(isTerminalHeadlessBuyOrder(next)).toBe(false);
+      expect(
+        applyHeadlessBuyOrderTimeRules(
+          next,
+          T0 + 3 * HEADLESS_BUY_ORDER_TIMEOUT_MS,
+        ),
+      ).toBe(next);
+    }
+  });
+
+  it('leaves a failure the backend reported alone, noting only the payment evidence', () => {
+    const next = applyHeadlessBuyPaidOutcome(
+      order({
+        submittedAt: T0,
+        status: EHeadlessBuyOrderStatus.Failed,
+        statusReason: 'Declined',
+      }),
+    );
+    expect(next.status).toBe(EHeadlessBuyOrderStatus.Failed);
+    expect(next.paymentSeen).toBe(true);
+  });
+
+  it('notes the payment evidence on an order that is still processing', () => {
+    const next = applyHeadlessBuyPaidOutcome(order({ submittedAt: T0 }));
+    expect(next).toMatchObject({
+      status: EHeadlessBuyOrderStatus.Processing,
+      paymentSeen: true,
+    });
+  });
+
+  it('returns the same record when there is nothing to change', () => {
+    const processing = order({ submittedAt: T0, paymentSeen: true });
+    expect(applyHeadlessBuyPaidOutcome(processing)).toBe(processing);
+    const delivered = order({
+      submittedAt: T0,
+      paymentSeen: true,
+      status: EHeadlessBuyOrderStatus.Delivered,
+    });
+    expect(applyHeadlessBuyPaidOutcome(delivered)).toBe(delivered);
   });
 });
 

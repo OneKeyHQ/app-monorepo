@@ -192,7 +192,8 @@ export function useOnramperCheckout({
   const initAttemptRef = useRef(1);
   const initRunStartedAtRef = useRef(Date.now());
   const [canRetryInit, setCanRetryInit] = useState(false);
-  // Bumped per quote request so the slow-wait clock restarts with it.
+  // Bumped per quote request for new inputs so the slow-wait clock restarts
+  // with it (not by the first request after an init, see the quote loop).
   const [waitEpoch, setWaitEpoch] = useState(0);
   const [isTakingLong, setIsTakingLong] = useState(false);
   // Undefined while unknown (readRememberedSignedIn).
@@ -322,6 +323,12 @@ export function useOnramperCheckout({
   const providerErrorRef = useRef<
     { transactionId: string; reason: string } | undefined
   >(undefined);
+  // Set from the moment an unknown-outcome failure is put on screen until the
+  // user moves on (a retry, a review exit, a new quote request). Until then,
+  // later failures of that checkout are logged but not shown: none of them
+  // can settle whether the payment went through, so none may bring the
+  // one-tap retry back or replace the copy that sends the user to the order.
+  const unknownOutcomeShownRef = useRef(false);
   const noteTransactionId = useCallback((transactionId: string | undefined) => {
     if (transactionId && createdTransactionIdRef.current !== transactionId) {
       createdTransactionIdRef.current = transactionId;
@@ -400,9 +407,14 @@ export function useOnramperCheckout({
       // fresh quote's state with an unrelated retry error. Before the client
       // is ready there is no checkout at all: the SDK also publishes `failed`
       // for a failed initialize (before or after the call rejects), and that
-      // one is the init effect's to settle — retry or fallback.
+      // one is the init effect's to settle — retry or fallback. And while an
+      // unknown payment outcome is on screen, a further failure of the same
+      // checkout changes nothing the user should act on (see
+      // unknownOutcomeShownRef).
       const stale =
-        !readyRef.current || quoteSeqRef.current !== reqSeqRef.current;
+        !readyRef.current ||
+        quoteSeqRef.current !== reqSeqRef.current ||
+        unknownOutcomeShownRef.current;
       defaultLogger.fiatCrypto.onramper.checkoutFailed({
         ...getLogContext(),
         ...getOnramperErrorFieldsForLog({
@@ -421,6 +433,10 @@ export function useOnramperCheckout({
       if (stale) {
         return;
       }
+      // Set before the state update lands, so a second `failed` published in
+      // the same tick is already held back.
+      unknownOutcomeShownRef.current =
+        abandonReason === 'providerFailed' && Boolean(event.transactionId);
       // A failed authorization is a definite payment failure, whatever code
       // the SDK filed it under: show the payment-failed copy and keep the
       // in-place retry instead of the "status unknown" handling.
@@ -666,9 +682,16 @@ export function useOnramperCheckout({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initNonce]);
 
+  // Whether the quote loop's previous run already had a ready client.
+  const quoteLoopWasReadyRef = useRef(false);
+
   // Debounced checkout loop: re-quote on amount/token change; keep the old button
   // mounted under a mask (S3) and swap in a single commit; drop stale responses.
   useEffect(() => {
+    const wasReady = quoteLoopWasReadyRef.current;
+    quoteLoopWasReadyRef.current = ready;
+    // Any run of this loop moves the page on from the failure it was showing.
+    unknownOutcomeShownRef.current = false;
     if (!ready) {
       // Init failed for good: keep the web fallback the init effect chose
       // (this effect re-runs on every amount / address edit).
@@ -705,7 +728,12 @@ export function useOnramperCheckout({
     setErrorMessage(undefined);
     setErrorCode(undefined);
     setErrorTransactionId(undefined);
-    setWaitEpoch(seq);
+    // A request the inputs asked for restarts the slow-wait clock. The first
+    // request after an init does not: it is the tail of the wait the user has
+    // been watching since the page (or "Try again") started preparing.
+    if (wasReady) {
+      setWaitEpoch(seq);
+    }
     const provider = onlyOnramps?.[0];
     let retryTimer: ReturnType<typeof setTimeout> | undefined;
     // `attempt` is 1 for the debounced request and 2 for its one automatic
@@ -873,7 +901,8 @@ export function useOnramperCheckout({
 
   // The wait the user can see: an amount is entered and the init or the quote
   // behind it has not answered. Automatic retries keep the state Preparing,
-  // so they count as one wait; a new quote request restarts the clock.
+  // and an init hands over to its first quote without leaving it, so those
+  // count as one wait; a quote request for new inputs restarts the clock.
   const isWaiting =
     isAmountValid &&
     amount > 0 &&
@@ -934,6 +963,8 @@ export function useOnramperCheckout({
     setQuote(undefined);
     setNativeButton(null);
     hasButtonRef.current = false;
+    // The user moved on from whatever failure was on screen.
+    unknownOutcomeShownRef.current = false;
     // Enter Preparing in the SAME commit: the async reset()→re-quote path
     // updates actionState a few frames later, and in that gap "quote cleared
     // but still Ready" the estimate line would flash 0 before its skeleton.
