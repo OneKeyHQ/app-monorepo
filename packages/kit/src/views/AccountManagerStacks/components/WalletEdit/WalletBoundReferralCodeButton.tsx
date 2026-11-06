@@ -27,6 +27,14 @@ import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import { AccountManagerTestIDs } from '../../testIDs';
 
+interface IWalletBoundReferralCodeButtonProps {
+  wallet: IDBWallet | undefined;
+  onClose: () => void;
+  bindWalletInviteCode: ReturnType<
+    typeof useWalletBoundReferralCode
+  >['bindWalletInviteCode'];
+}
+
 function buildButtonState({
   displayStatus,
 }: {
@@ -71,15 +79,10 @@ function NotApplicableTooltip({ description }: { description: string }) {
 function WalletBoundReferralCodeButtonView({
   wallet,
   onClose,
-}: {
-  wallet: IDBWallet | undefined;
-  onClose: () => void;
-}) {
+  bindWalletInviteCode,
+}: IWalletBoundReferralCodeButtonProps) {
   const intl = useIntl();
-  const { bindWalletInviteCode, getReferralCodeBindDisplayStatus } =
-    useWalletBoundReferralCode({
-      entry: 'modal',
-    });
+  const { getReferralCodeBindDisplayStatus } = useWalletBoundReferralCode();
   const isHdOrHwWallet =
     accountUtils.isHdWallet({ walletId: wallet?.id }) ||
     (accountUtils.isHwWallet({ walletId: wallet?.id }) &&
@@ -226,10 +229,8 @@ function WalletBoundReferralCodeButtonView({
 export function WalletBoundReferralCodeButton({
   wallet,
   onClose,
-}: {
-  wallet: IDBWallet | undefined;
-  onClose: () => void;
-}) {
+  bindWalletInviteCode,
+}: IWalletBoundReferralCodeButtonProps) {
   return (
     <AccountSelectorProviderMirror
       config={{
@@ -237,7 +238,11 @@ export function WalletBoundReferralCodeButton({
       }}
       enabledNum={[0]}
     >
-      <WalletBoundReferralCodeButtonView wallet={wallet} onClose={onClose} />
+      <WalletBoundReferralCodeButtonView
+        wallet={wallet}
+        onClose={onClose}
+        bindWalletInviteCode={bindWalletInviteCode}
+      />
     </AccountSelectorProviderMirror>
   );
 }
