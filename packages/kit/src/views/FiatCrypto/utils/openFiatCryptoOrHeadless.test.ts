@@ -175,3 +175,79 @@ describe('tryOpenHeadlessBuy region flag freshness', () => {
     );
   });
 });
+
+// A list request times out after 30 s. A tapped row must not sit there that
+// long with nothing on screen, then open the page after the user has left.
+describe('tryOpenHeadlessBuy region flag re-check deadline', () => {
+  const RECHECK_TIMEOUT_MS = 5000;
+
+  function answerAfter(ms: number, token: IFiatCryptoToken) {
+    mockGetHeadlessBuyToken.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          setTimeout(() => resolve(token), ms);
+        }),
+    );
+  }
+
+  beforeEach(() => {
+    jest.useFakeTimers({ now: NOW });
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
+  it('stops waiting for the server after five seconds and decides from the row', async () => {
+    answerAfter(RECHECK_TIMEOUT_MS + 1000, SERVER_UNSUPPORTED);
+    const oldRow = buildToken({ headlessSupported: true });
+    const opening = open({ token: oldRow, tokenFetchedAt: NOW - 61_000 });
+
+    await jest.advanceTimersByTimeAsync(RECHECK_TIMEOUT_MS - 1);
+    expect(mockNavigate).not.toHaveBeenCalled();
+
+    await jest.advanceTimersByTimeAsync(1);
+    expect(mockNavigate).toHaveBeenCalledTimes(1);
+    await expect(opening).resolves.toBe(true);
+    expect(openedToken()).toBe(oldRow);
+    expect(mockEntryDecided).toHaveBeenCalledWith(
+      expect.objectContaining({ decision: 'native', tokenSource: 'staleRow' }),
+    );
+
+    // The answer that lands afterwards changes nothing.
+    await jest.advanceTimersByTimeAsync(2000);
+    expect(mockNavigate).toHaveBeenCalledTimes(1);
+    expect(mockEntryDecided).toHaveBeenCalledTimes(1);
+  });
+
+  it('uses an answer that lands within the deadline', async () => {
+    answerAfter(RECHECK_TIMEOUT_MS - 1000, SERVER_UNSUPPORTED);
+    const oldRow = buildToken({ headlessSupported: true });
+    const opening = open({ token: oldRow, tokenFetchedAt: NOW - 61_000 });
+
+    await jest.advanceTimersByTimeAsync(RECHECK_TIMEOUT_MS - 1000);
+    await expect(opening).resolves.toBe(false);
+    expect(mockEntryDecided).toHaveBeenCalledWith(
+      expect.objectContaining({
+        reason: 'headlessNotSupported',
+        tokenSource: 'lookup',
+      }),
+    );
+  });
+
+  // Without a row there is nothing to fall back on: the direct-buy entries
+  // keep waiting for their lookup as before.
+  it('keeps a direct entry waiting for its lookup past the deadline', async () => {
+    answerAfter(RECHECK_TIMEOUT_MS + 3000, SERVER_SUPPORTED);
+    const opening = open({});
+
+    await jest.advanceTimersByTimeAsync(RECHECK_TIMEOUT_MS);
+    expect(mockEntryDecided).not.toHaveBeenCalled();
+
+    await jest.advanceTimersByTimeAsync(3000);
+    await expect(opening).resolves.toBe(true);
+    expect(mockEntryDecided).toHaveBeenCalledWith(
+      expect.objectContaining({ decision: 'native', tokenSource: 'lookup' }),
+    );
+  });
+});

@@ -61,8 +61,9 @@ export class OnramperScene extends BaseScene {
       | 'headlessNotSupported'
       | 'noNetworkCode';
     // Where the token's region flag came from: a list row fetched recently,
-    // the server asked at tap time, or — the server unreachable — an older
-    // row. Absent when the gate stopped before resolving a token.
+    // the server asked at tap time, or — the server unreachable or slower
+    // than the tap waits — an older row. Absent when the gate stopped before
+    // resolving a token.
     tokenSource?: 'row' | 'lookup' | 'staleRow';
   }) {
     return params;
