@@ -595,4 +595,32 @@ describe('marketLightApi', () => {
       'x-onekey-request-locale': 'ja-jp',
     });
   });
+
+  it('keeps other cached locales when one locale fails', async () => {
+    const intl = jest.requireMock<{
+      appLocale: { intl: { locale: string } };
+    }>('@onekeyhq/shared/src/locale/appLocale').appLocale.intl;
+    const response = {
+      code: 0,
+      message: 'OK',
+      data: { spotCategories: [{ type: 'trending', name: 'Tendencias' }] },
+    };
+    mockGet
+      .mockResolvedValueOnce({ data: response })
+      .mockRejectedValueOnce(new Error('offline'));
+
+    // Locales no other test fetches the config with keep the cache cold.
+    try {
+      intl.locale = 'es';
+      await expect(fetchMarketBasicConfigLight()).resolves.toEqual(response);
+      intl.locale = 'ko-KR';
+      await expect(fetchMarketBasicConfigLight()).rejects.toThrow('offline');
+      intl.locale = 'es';
+      await expect(fetchMarketBasicConfigLight()).resolves.toEqual(response);
+    } finally {
+      intl.locale = 'zh-CN';
+    }
+
+    expect(mockGet).toHaveBeenCalledTimes(2);
+  });
 });

@@ -513,12 +513,12 @@ const memoizedFetchMarketBasicConfigLight = memoizee(
 );
 
 const fetchMarketBasicConfigLight = async () => {
+  const locale = resolveMarketTokenBatchLocale();
   try {
-    return await memoizedFetchMarketBasicConfigLight(
-      resolveMarketTokenBatchLocale(),
-    );
+    return await memoizedFetchMarketBasicConfigLight(locale);
   } catch (error) {
-    void memoizedFetchMarketBasicConfigLight.clear();
+    // Drop only the failed locale so other cached locales stay usable offline.
+    void memoizedFetchMarketBasicConfigLight.delete(locale);
     throw error;
   }
 };
