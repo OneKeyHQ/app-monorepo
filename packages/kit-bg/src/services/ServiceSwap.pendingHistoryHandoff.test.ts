@@ -740,6 +740,60 @@ describe('durable pending swap history promotion', () => {
     ).toBe(ESwapTxHistoryStatus.PENDING);
   });
 
+  it('retries terminal persistence before releasing the polling owner', async () => {
+    jest.useFakeTimers();
+    try {
+      const history = createPendingHistory({ txId: '0xpoll-promotion-fails' });
+      const updateSwapHistoryItem = jest
+        .fn()
+        .mockRejectedValueOnce(new Error('promotion failed'))
+        .mockResolvedValue(undefined);
+      const service = new ServiceSwap({
+        backgroundApi: {
+          serviceApp: { showToast: jest.fn().mockResolvedValue(undefined) },
+          serviceNetwork: {
+            getNetworksByIds: jest.fn().mockResolvedValue({ networks: [] }),
+          },
+          simpleDb: { swapHistory: { updateSwapHistoryItem } },
+        },
+      });
+      const fetch = jest.spyOn(service, 'fetchTxState').mockResolvedValue({
+        state: ESwapTxHistoryStatus.SUCCESS,
+      });
+      const cleanup = jest.spyOn(service, 'cleanHistoryStateIntervals');
+      jest.spyOn(console, 'error').mockImplementation();
+      await inAppNotificationAtom.set((pre) => ({
+        ...pre,
+        swapHistoryPendingList: [history],
+      }));
+
+      await service.swapHistoryStatusFetchLoop();
+
+      expect(updateSwapHistoryItem).toHaveBeenCalledTimes(1);
+      expect((await findPendingHistory(history.txInfo))?.status).toBe(
+        ESwapTxHistoryStatus.PENDING,
+      );
+      expect(cleanup).not.toHaveBeenCalled();
+      expect(jest.getTimerCount()).toBeGreaterThan(0);
+      await jest.advanceTimersToNextTimerAsync();
+      expect(fetch).toHaveBeenCalledTimes(2);
+      expect(updateSwapHistoryItem).toHaveBeenCalledTimes(2);
+      expect(updateSwapHistoryItem).toHaveBeenLastCalledWith(
+        expect.objectContaining({ status: ESwapTxHistoryStatus.SUCCESS }),
+        undefined,
+      );
+      expect((await findPendingHistory(history.txInfo))?.status).toBe(
+        ESwapTxHistoryStatus.SUCCESS,
+      );
+      expect(cleanup).toHaveBeenCalledWith(history.txInfo.txId);
+      await jest.advanceTimersByTimeAsync(10_000);
+      expect(fetch).toHaveBeenCalledTimes(2);
+    } finally {
+      jest.clearAllTimers();
+      jest.useRealTimers();
+    }
+  });
+
   it('keeps storage and the pending atom deleted when clear wins the race', async () => {
     const history = createPendingHistory({ txId: '0xclear-race' });
     let persistedHistory: ISwapTxHistory | undefined = history;

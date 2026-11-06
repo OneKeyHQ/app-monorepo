@@ -233,39 +233,80 @@ export class SimpleDbEntitySwapHistory extends SimpleDbEntityBase<ISwapTxHistory
 
     let updatedItem: ISwapTxHistory | undefined;
     await this.setRawData((currentData) => {
-      let histories = [...(currentData?.histories ?? [])];
-      const pendingWrites = [...(currentData?.pendingWrites ?? [])];
-      const historyIndex = findSwapHistoryItemIndex(histories, item, oldTxId);
-      const pendingIndex = findSwapHistoryItemIndex(
-        pendingWrites,
+      const result = this.buildHistoryUpdate(
+        currentData,
         item,
         oldTxId,
+        feeUpdate,
       );
-      if (historyIndex !== -1) {
-        updatedItem = mergePrivateSendHistoryFees(
-          histories[historyIndex],
+      updatedItem = result.updatedItem;
+      return result.data;
+    });
+    return updatedItem;
+  }
+
+  // This callback is used only within the background runtime; it must not be
+  // exposed as a cross-runtime RPC argument.
+  async updateSwapHistoryItemIfCurrent(
+    item: ISwapTxHistory,
+    shouldCommit: () => boolean,
+    feeUpdate?: ISwapHistoryFeeUpdate,
+    sourceTxId?: string,
+  ): Promise<ISwapTxHistory | undefined> {
+    let updatedItem: ISwapTxHistory | undefined;
+    const result = await this.setRawDataTransaction({
+      build: (currentData) => {
+        const update = this.buildHistoryUpdate(
+          currentData,
           item,
+          sourceTxId,
           feeUpdate,
         );
-        histories[historyIndex] = updatedItem;
-      } else if (pendingIndex !== -1) {
-        updatedItem = mergePrivateSendHistoryFees(
-          pendingWrites[pendingIndex],
-          item,
-          feeUpdate,
-        );
-        histories = addSwapHistoryToList(histories, updatedItem);
-      }
-      if (pendingIndex !== -1) {
-        pendingWrites.splice(pendingIndex, 1);
-      }
-      return {
+        updatedItem = update.updatedItem;
+        return updatedItem ? { data: update.data } : undefined;
+      },
+      shouldCommit,
+    });
+    return result.committed ? updatedItem : undefined;
+  }
+
+  private buildHistoryUpdate(
+    currentData: ISwapTxHistoryPersistList | null | undefined,
+    item: ISwapTxHistory,
+    oldTxId?: string,
+    feeUpdate?: ISwapHistoryFeeUpdate,
+  ) {
+    let updatedItem: ISwapTxHistory | undefined;
+    let histories = [...(currentData?.histories ?? [])];
+    const pendingWrites = [...(currentData?.pendingWrites ?? [])];
+    const historyIndex = findSwapHistoryItemIndex(histories, item, oldTxId);
+    const pendingIndex = findSwapHistoryItemIndex(pendingWrites, item, oldTxId);
+    if (historyIndex !== -1) {
+      updatedItem = mergePrivateSendHistoryFees(
+        histories[historyIndex],
+        item,
+        feeUpdate,
+      );
+      histories[historyIndex] = updatedItem;
+    } else if (pendingIndex !== -1) {
+      updatedItem = mergePrivateSendHistoryFees(
+        pendingWrites[pendingIndex],
+        item,
+        feeUpdate,
+      );
+      histories = addSwapHistoryToList(histories, updatedItem);
+    }
+    if (pendingIndex !== -1) {
+      pendingWrites.splice(pendingIndex, 1);
+    }
+    return {
+      updatedItem,
+      data: {
         ...currentData,
         histories,
         pendingWrites,
-      };
-    });
-    return updatedItem;
+      },
+    };
   }
 
   @backgroundMethod()

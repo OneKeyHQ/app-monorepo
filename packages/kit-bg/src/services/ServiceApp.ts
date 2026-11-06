@@ -83,6 +83,24 @@ type IExtensionPrimeWebCheckoutContext = {
 // Only the background owns this critical section; extension UIs have separate
 // heaps. Persist the chosen tab before letting another surface look it up.
 const extensionPrimeWebCheckoutTabMutex = new Semaphore(1);
+const LIVE_ACTIVITY_RESET_TIMEOUT_MS = 3000;
+
+async function waitForLiveActivityReset(cleanup: Promise<void>): Promise<void> {
+  let timeout: ReturnType<typeof setTimeout> | undefined;
+  try {
+    await Promise.race([
+      cleanup,
+      new Promise<never>((_resolve, reject) => {
+        timeout = setTimeout(
+          () => reject(new OneKeyLocalError('Live Activity cleanup timed out')),
+          LIVE_ACTIVITY_RESET_TIMEOUT_MS,
+        );
+      }),
+    ]);
+  } finally {
+    if (timeout !== undefined) clearTimeout(timeout);
+  }
+}
 
 function getExtensionCheckoutTab(tabId: number) {
   return new Promise<chrome.tabs.Tab | undefined>((resolve) => {
@@ -445,6 +463,17 @@ class ServiceApp extends ServiceBase {
     preserveBackupRecovery = false,
   }: { preserveBackupRecovery?: boolean } = {}) {
     let recoveryErasureFailed = false;
+    let liveActivityCleanupFailed = false;
+    if (platformEnv.isNativeIOS) {
+      try {
+        await waitForLiveActivityReset(
+          this.backgroundApi.serviceLiveActivity.stopForPrivacyTransition(),
+        );
+      } catch {
+        // Continue erasing wallet data even if the system card could not close.
+        liveActivityCleanupFailed = true;
+      }
+    }
     // Unknown/programmatic callers retain the existing secure-erasure default.
     try {
       await this.backgroundApi.serviceCloudBackupV2.prepareLocalRecoveryForReset(
@@ -487,6 +516,9 @@ class ServiceApp extends ServiceBase {
       defaultLogger.setting.page.clearDataStep('resetData-end');
       if (recoveryErasureFailed) {
         throw new OneKeyLocalError('Recovery cache erasure failed');
+      }
+      if (liveActivityCleanupFailed) {
+        throw new OneKeyLocalError('Live Activity cleanup failed');
       }
     } catch (error) {
       console.error('resetData error', error);

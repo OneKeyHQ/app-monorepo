@@ -140,6 +140,7 @@ import { DiscoverySearchDebugTool } from './DiscoverySearchDebugTool';
 import { HapticsPanel } from './HapticsPanel';
 import { ImagePanel } from './ImagePanel';
 import { IpTableSelector } from './IpTableSelector';
+import { LiveActivityDemo } from './LiveActivityDemo';
 import { NetInfo } from './NetInfo';
 import { NotificationDevSettings } from './NotificationDevSettings';
 import { NotificationPayloadTest } from './NotificationPayloadTest';
@@ -151,6 +152,7 @@ import { SectionLoggerParityItem } from './SectionLoggerParityItem';
 import { SectionPressItem } from './SectionPressItem';
 import { SentryCrashSettings } from './SentryCrashSettings';
 import { showDevOnlyPasswordDialog } from './showDevOnlyPasswordDialog';
+import { SwapLiveActivityPanel } from './SwapLiveActivityPanel';
 import { TestAccountsDevSetting } from './TestAccountsDevSetting';
 
 const LazyNavigationDiagnosticsSection = LazyLoad(async () => {
@@ -1251,7 +1253,7 @@ const BaseDevSettingsSection = () => {
         title: 'Dev Tools & Dev Settings',
         description: '开发者工具 开发环境设置',
         keywords:
-          '开发者悬浮窗 RTL 禁止桌面快捷键 Desktop Slow 4G Native iOS Android Network Throttle latency 弱网 慢网 禁用IP直连 强制使用IP请求 SNI Queue Abort QA Local Secret Envelope LSE CryptoKey secureStorage keychain IndexedDB Self-Test Restore Cloud Backup Prime Transfer Reset IP Table Cache Check Network info NotificationDevSettings Notification Payload Test AsyncStorageDevSettings NativeStorageRecoveryTests MMKV Storage recovery migration repair AppNotificationBadge 角标 V4MigrationDevSettings Haptics Image',
+          '开发者悬浮窗 RTL 禁止桌面快捷键 Desktop Slow 4G Native iOS Android Network Throttle latency 弱网 慢网 禁用IP直连 强制使用IP请求 SNI Queue Abort QA Local Secret Envelope LSE CryptoKey secureStorage keychain IndexedDB Self-Test Restore Cloud Backup Prime Transfer Reset IP Table Cache Check Network info NotificationDevSettings Notification Payload Test Live Activity Demo 灵动岛 实时活动 AsyncStorageDevSettings NativeStorageRecoveryTests MMKV Storage recovery migration repair AppNotificationBadge 角标 V4MigrationDevSettings Haptics Image',
       },
       {
         key: 'appUpdate',
@@ -1918,6 +1920,34 @@ const BaseDevSettingsSection = () => {
                           });
                         }}
                       />
+                      {platformEnv.isNativeIOS ? (
+                        <SectionPressItem
+                          icon="LabOutline"
+                          title="BTC Swap Live Activity"
+                          subtitle="OK-60951 · mock scenarios"
+                          testID="swap-live-activity-menu"
+                          onPress={() => {
+                            inPageDialog.cancel({
+                              title: 'BTC Swap Live Activity',
+                              renderContent: <SwapLiveActivityPanel />,
+                            });
+                          }}
+                        />
+                      ) : null}
+                      {platformEnv.isNativeIOS ? (
+                        <SectionPressItem
+                          icon="LabOutline"
+                          title="Live Activity Demo"
+                          subtitle="灵动岛 / 锁屏实时活动本地测试"
+                          testID="live-activity-demo-menu"
+                          onPress={() => {
+                            inPageDialog.cancel({
+                              title: 'Live Activity Demo',
+                              renderContent: <LiveActivityDemo />,
+                            });
+                          }}
+                        />
+                      ) : null}
                       <SectionPressItem
                         icon="SendOutline"
                         title="Notification Payload Test"
