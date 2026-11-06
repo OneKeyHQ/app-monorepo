@@ -57,6 +57,9 @@ const NETWORK_CHIP_CUTOUT_STYLE = {
   maskImage: NETWORK_CHIP_CUTOUT,
   WebkitMaskImage: NETWORK_CHIP_CUTOUT,
 };
+// The +N count keeps its fill inside the see-through ring, 24 high like the
+// logos; a fill under the ring would make it read 28.
+const NETWORK_COUNT_CHIP_STYLE = { backgroundClip: 'padding-box' };
 
 // Same size as the loaded chips, so the copy button and the page below do not
 // move when the networks arrive (only shown without a cached list).
@@ -408,6 +411,7 @@ function AllNetworksManagerTrigger({
             alignItems="center"
             justifyContent="center"
             h={28}
+            style={cutChips ? NETWORK_COUNT_CHIP_STYLE : undefined}
           >
             <SizableText size="$bodySm">+{hiddenCount}</SizableText>
           </XStack>
