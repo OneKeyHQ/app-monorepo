@@ -12,6 +12,7 @@ export async function waitForTxFinalStatus({
   signal,
   maxAttempts = 24,
   intervalMs = timerUtils.getTimeDurationMs({ seconds: 5 }),
+  expectedAccountAddress,
 }: {
   accountId: string;
   networkId: string;
@@ -19,6 +20,7 @@ export async function waitForTxFinalStatus({
   signal?: AbortSignal;
   maxAttempts?: number;
   intervalMs?: number;
+  expectedAccountAddress?: string;
 }): Promise<EOnChainHistoryTxStatus | undefined> {
   for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
     if (signal?.aborted) {
@@ -32,6 +34,9 @@ export async function waitForTxFinalStatus({
           accountId,
           networkId,
           txid,
+          ...(expectedAccountAddress !== undefined
+            ? { expectedAccountAddress }
+            : undefined),
         });
       txStatus = txDetailsResp?.data?.status;
     } catch (_error) {

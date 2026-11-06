@@ -920,7 +920,10 @@ export function useSwapQuote({
   swapQuoteMixEventActionRef.current = swapQuoteMixEventAction;
   const swapQuoteMixEvent = useCallback(
     async (event: ISwapQuoteEventPayload) => {
-      if (event?.type === 'error') {
+      if (
+        event?.type === 'error' &&
+        event.quoteRequestId === swapQuoteActionLockRef.current.quoteRequestId
+      ) {
         swapQuoteMixEventActionRef.current(JSON.stringify(event.event));
       }
     },

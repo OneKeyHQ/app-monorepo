@@ -20,6 +20,7 @@ import type {
   IManagePositionProps,
   IManagePositionState,
 } from './types';
+import type { IBorrowWorkflowHandoff } from '../../hooks/borrowConfirmationTask';
 
 export function ManagePosition(props: IManagePositionProps) {
   const { isAmountFocused, onAmountFocusChange } = useAmountInputFocus();
@@ -108,27 +109,35 @@ export function ManagePosition(props: IManagePositionProps) {
   }, [action, borrowReserveAddress, setAmountValue]);
 
   // Submit handler
-  const submitBorrowAction = useCallback(async () => {
-    if (!onConfirm) return;
+  const submitBorrowAction = useCallback(
+    async (
+      accountAddress?: string,
+      workflowHandoff?: IBorrowWorkflowHandoff,
+    ) => {
+      if (!onConfirm) return;
 
-    const started = await onConfirm({
-      amount: amountValue,
-      withdrawAll: baseState.isWithdrawAll,
-      repayAll: baseState.isRepayAll,
-    });
+      const started = await onConfirm({
+        amount: amountValue,
+        withdrawAll: baseState.isWithdrawAll,
+        repayAll: baseState.isRepayAll,
+        accountAddress,
+        workflowHandoff,
+      });
 
-    if (started === false) {
-      return;
-    }
+      if (started === false) {
+        return;
+      }
 
-    setAmountValue('');
-  }, [
-    onConfirm,
-    amountValue,
-    baseState.isWithdrawAll,
-    baseState.isRepayAll,
-    setAmountValue,
-  ]);
+      setAmountValue('');
+    },
+    [
+      onConfirm,
+      amountValue,
+      baseState.isWithdrawAll,
+      baseState.isRepayAll,
+      setAmountValue,
+    ],
+  );
 
   const approval = useBorrowApproval({
     action,
@@ -141,6 +150,7 @@ export function ManagePosition(props: IManagePositionProps) {
     borrowDelegationApproveTarget,
     currentAllowance,
     onApprovedSubmit: submitBorrowAction,
+    onApprovedTaskSubmit: submitBorrowAction,
   });
 
   const effectiveTokenSelectorTriggerProps = useMemo(() => {

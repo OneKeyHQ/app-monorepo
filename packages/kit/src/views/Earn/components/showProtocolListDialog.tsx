@@ -419,6 +419,7 @@ export function ProtocolListContent({
       return (
         <XStack
           key={protocolKey}
+          testID={`earn-protocol-switch-${protocolKey}`}
           role="button"
           userSelect="none"
           alignItems="center"

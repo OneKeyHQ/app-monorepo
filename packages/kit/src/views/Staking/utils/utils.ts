@@ -1,20 +1,121 @@
 import BigNumber from 'bignumber.js';
 
+import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
+import { EthereumWETH } from '@onekeyhq/shared/src/consts/addresses';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type {
+  ICheckAmountAlert,
   IEarnStakeType,
   IEarnTokenInfo,
+  IEarnTokenItem,
   IEarnWithdrawActionIcon,
   IProtocolInfo,
   IStakeEarnDetail,
+  IStakeTransactionConfirmation,
 } from '@onekeyhq/shared/types/staking';
+import { ECheckAmountActionType } from '@onekeyhq/shared/types/staking';
+import type { IToken } from '@onekeyhq/shared/types/token';
 
-const NATIVE_EARN_WRAPPED_ETH_SYMBOL = 'WETH';
+import { getEarnProtocol } from '../../Earn/protocols';
+
 const BORROW_CLAIM_SCOPE_VERSION = 'v1';
 const BORROW_SET_COLLATERAL_SCOPE_VERSION = 'v1';
 
-function isNativeEarnEthSymbol(symbol?: string) {
-  return symbol?.toUpperCase() === 'ETH';
+export function normalizeEarnActionAmountScope(amount: string): string {
+  if (!amount.trim()) return amount;
+  const value = new BigNumber(amount);
+  return value.isFinite() ? value.toFixed() : amount;
+}
+
+function getWrappedStakeTokenSpec({
+  providerName,
+  networkId,
+}: {
+  providerName: string;
+  networkId: string;
+}) {
+  const supportsWrappedEth =
+    getEarnProtocol(providerName).supportsCanonicalWrappedStakeToken();
+  if (!supportsWrappedEth || networkId !== getNetworkIdsMap().eth) {
+    return undefined;
+  }
+  return { networkId, address: EthereumWETH, decimals: 18, symbol: 'WETH' };
+}
+
+function matchesWrappedStakeToken({
+  networkId,
+  token,
+  expected,
+}: {
+  networkId: string;
+  token?: IToken;
+  expected: {
+    networkId: string;
+    address: string;
+    decimals: number;
+    symbol: string;
+  };
+}) {
+  return Boolean(
+    networkId === expected.networkId &&
+    token &&
+    (!token.networkId || token.networkId === networkId) &&
+    !token.isNative &&
+    typeof token.symbol === 'string' &&
+    typeof token.address === 'string' &&
+    token.symbol.toUpperCase() === expected.symbol &&
+    token.address.toLowerCase() === expected.address.toLowerCase() &&
+    token.decimals === expected.decimals,
+  );
+}
+
+export function isValidWrappedStakeToken({
+  providerName,
+  networkId,
+  token,
+}: {
+  providerName: string;
+  networkId: string;
+  token?: IToken;
+}) {
+  const expected = getWrappedStakeTokenSpec({ providerName, networkId });
+  return Boolean(
+    expected && matchesWrappedStakeToken({ networkId, token, expected }),
+  );
+}
+
+export function resolveWrappedStakeAsset({
+  assets,
+  networkId,
+  providerName,
+}: {
+  assets: IEarnTokenItem[];
+  networkId: string;
+  providerName: string;
+}) {
+  return assets.find((asset) =>
+    isValidWrappedStakeToken({ providerName, networkId, token: asset.info }),
+  );
+}
+
+export function createEarnActionScopeGuard() {
+  let scope: string | undefined;
+  let generation = 0;
+  return {
+    update(nextScope: string) {
+      if (scope !== nextScope) {
+        scope = nextScope;
+        generation += 1;
+      }
+    },
+    capture() {
+      const captured = generation;
+      return () => captured === generation;
+    },
+    invalidate() {
+      generation += 1;
+    },
+  };
 }
 
 export const buildLocalTxStatusSyncId = ({
@@ -310,74 +411,65 @@ export function resolveStakeTokenAddress(params?: {
   return params.address || '';
 }
 
-export function resolveNativeEarnStakeType({
-  isNativeProvider,
+export function resolveEarnStakeType({
+  providerName,
   vaultSymbol,
+  tokenSymbol,
   tokenIsNative,
 }: {
-  isNativeProvider: boolean;
+  providerName: string;
   vaultSymbol?: string;
+  tokenSymbol?: string;
   tokenIsNative?: boolean;
 }): IEarnStakeType | undefined {
-  if (!isNativeProvider) {
-    return undefined;
-  }
-
-  const normalizedVaultSymbol = vaultSymbol?.toUpperCase();
-  if (normalizedVaultSymbol !== 'ETH' && normalizedVaultSymbol !== 'WETH') {
-    return undefined;
-  }
-
-  return tokenIsNative ? 'wrap' : 'normal';
+  return getEarnProtocol(providerName).resolveStakeType({
+    vaultSymbol,
+    tokenSymbol,
+    tokenIsNative,
+  });
 }
 
-export function resolveNativeEarnProtocolSymbol({
-  isNativeProvider,
-  protocolSymbol,
-}: {
-  isNativeProvider: boolean;
-  protocolSymbol?: string;
-}) {
-  if (!isNativeProvider) {
-    return protocolSymbol || '';
-  }
-  return isNativeEarnEthSymbol(protocolSymbol)
-    ? NATIVE_EARN_WRAPPED_ETH_SYMBOL
-    : protocolSymbol || '';
-}
-
-export function resolveNativeEarnStakeRequestSymbol({
-  isNativeProvider,
+export function resolveEarnStakeRequestSymbol({
+  providerName,
   protocolSymbol,
   tokenSymbol,
   tokenIsNative,
   wrappedTokenSymbol,
 }: {
-  isNativeProvider: boolean;
+  providerName: string;
   protocolSymbol?: string;
   tokenSymbol?: string;
   tokenIsNative?: boolean;
   wrappedTokenSymbol?: string;
 }) {
-  if (!isNativeProvider) {
-    return protocolSymbol || tokenSymbol || '';
-  }
-  if (tokenIsNative) {
-    return (
-      wrappedTokenSymbol ||
-      resolveNativeEarnProtocolSymbol({
-        isNativeProvider,
-        protocolSymbol,
-      })
-    );
-  }
-  return (
-    tokenSymbol ||
-    resolveNativeEarnProtocolSymbol({
-      isNativeProvider,
-      protocolSymbol,
-    })
-  );
+  return getEarnProtocol(providerName).resolveStakeRequestSymbol({
+    protocolSymbol,
+    tokenSymbol,
+    tokenIsNative,
+    wrappedTokenSymbol,
+  });
+}
+
+export function resolveSelectedStakeAsset({
+  assets,
+  selectedToken,
+  initialToken,
+}: {
+  assets: IEarnTokenItem[];
+  selectedToken?: { address?: string; symbol?: string; isNative?: boolean };
+  initialToken?: { address?: string; symbol?: string; isNative?: boolean };
+}) {
+  const findToken = (token?: typeof selectedToken) =>
+    token
+      ? assets.find(
+          ({ info }) =>
+            normalizeStakeTokenAddress(info) ===
+              normalizeStakeTokenAddress(token) &&
+            info.symbol.toLowerCase() === token.symbol?.toLowerCase(),
+        )
+      : undefined;
+  // Preserve the user's selection on balance refresh; otherwise prefer the entry asset.
+  return findToken(selectedToken) ?? findToken(initialToken) ?? assets[0];
 }
 
 export function buildStakeTokenUniqueKey(params?: {
@@ -424,13 +516,13 @@ export function countDecimalPlaces(input: string | number): number {
 
 export function shouldShowStakingSummaryCard({
   isDisabled,
-  isPendleProvider,
+  usesMarketLayout,
   amountValue,
   hasSummarySection,
   showPendleTransactionSection,
 }: {
   isDisabled?: boolean;
-  isPendleProvider: boolean;
+  usesMarketLayout: boolean;
   amountValue: string;
   hasSummarySection: boolean;
   showPendleTransactionSection: boolean;
@@ -439,9 +531,80 @@ export function shouldShowStakingSummaryCard({
     return false;
   }
 
-  if (isPendleProvider && Number(amountValue) <= 0) {
+  if (usesMarketLayout && Number(amountValue) <= 0) {
     return false;
   }
 
   return hasSummarySection || showPendleTransactionSection;
+}
+
+/** A standalone approval earns nothing; permits are consumed by the actual deposit. */
+export function getStakeTransactionConfirmationAction({
+  stakeType,
+  shouldApprove,
+  usePermitApprove,
+}: {
+  stakeType?: IEarnStakeType;
+  shouldApprove: boolean;
+  usePermitApprove: boolean;
+}): ECheckAmountActionType.STAKING | 'approve' {
+  return stakeType !== 'wrap' && shouldApprove && !usePermitApprove
+    ? 'approve'
+    : ECheckAmountActionType.STAKING;
+}
+
+export async function validateWrapStake({
+  check,
+  isCurrent,
+}: {
+  check: () => Promise<{
+    code: unknown;
+    message: string;
+    data?: { alerts?: ICheckAmountAlert[] };
+  }>;
+  isCurrent: () => boolean;
+}): Promise<
+  | { status: 'ready' | 'stale' }
+  | { status: 'invalid'; message: string; alerts: ICheckAmountAlert[] }
+> {
+  const response = await check();
+  if (!isCurrent()) return { status: 'stale' };
+  const alerts = response.data?.alerts || [];
+  const success = response.code === 0 || response.code === '0';
+  if (!success || alerts.length > 0) {
+    return {
+      status: 'invalid',
+      message: success ? '' : response.message,
+      alerts,
+    };
+  }
+  return { status: 'ready' };
+}
+
+export async function resolveStakeSubmissionConfirmation({
+  deferredSetupQuote,
+  isWrapStake,
+  requiresCurrentQuote,
+  shouldApprove,
+  confirmation,
+  isCurrentConfirmation,
+  fetchConfirmation,
+}: {
+  deferredSetupQuote: boolean;
+  isWrapStake: boolean;
+  requiresCurrentQuote: boolean;
+  shouldApprove: boolean;
+  confirmation?: IStakeTransactionConfirmation;
+  isCurrentConfirmation: boolean;
+  fetchConfirmation: () => Promise<IStakeTransactionConfirmation | undefined>;
+}): Promise<IStakeTransactionConfirmation | undefined> {
+  // The wrap's executable amount is checked separately before submission.
+  if (deferredSetupQuote && isWrapStake) return undefined;
+  if (
+    (deferredSetupQuote || requiresCurrentQuote) &&
+    (shouldApprove || !confirmation || !isCurrentConfirmation)
+  ) {
+    return fetchConfirmation();
+  }
+  return confirmation;
 }

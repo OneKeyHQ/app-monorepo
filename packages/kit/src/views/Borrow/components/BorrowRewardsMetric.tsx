@@ -75,6 +75,12 @@ export function BorrowRewardsMetric({
   const handleBorrowClaim = useUniversalBorrowClaim({
     networkId: networkId ?? '',
     accountId: earnAccountId ?? '',
+    accountAddress:
+      earnAccount.data &&
+      earnAccount.data.networkId === networkId &&
+      getBorrowEarnAccountId(earnAccount.data) === earnAccountId
+        ? earnAccount.data.accountAddress
+        : undefined,
   });
 
   const handleShowRewardsDialog = useCallback(() => {

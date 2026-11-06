@@ -148,6 +148,23 @@ describe('ServiceSwap quote event request ownership', () => {
     expect(activeEventSource?.close).toHaveBeenCalledTimes(1);
   });
 
+  it('does not cancel an isolated quote when a legacy caller stops its session', async () => {
+    const { service } = createService();
+    await service.fetchQuotesEvents({
+      ...createQuoteParams('earn-quote'),
+      cancelOnGlobalStop: false,
+    });
+    await service.fetchQuotesEvents(createQuoteParams('legacy-quote'));
+    const [earnSource, legacySource] =
+      globalMockBag.__swapQuoteEventSources ?? [];
+
+    await service.cancelFetchQuoteEvents();
+    expect(legacySource?.close).toHaveBeenCalledTimes(1);
+    expect(earnSource?.close).not.toHaveBeenCalled();
+    await service.cancelFetchQuoteEvents('earn-quote');
+    expect(earnSource?.close).toHaveBeenCalledTimes(1);
+  });
+
   it('cancels a request while it is still preparing without affecting another request', async () => {
     const { service } = createService();
     let resolveFirstPreparation: ((value: undefined) => void) | undefined;

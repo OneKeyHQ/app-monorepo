@@ -1,16 +1,23 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 
 import BigNumber from 'bignumber.js';
 import { debounce, throttle } from 'lodash';
 import pLimit from 'p-limit';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { getEarnProtocol } from '@onekeyhq/kit/src/views/Earn/protocols';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
-import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { earnTestnetNetworkIds } from '@onekeyhq/shared/types/earn/earnProvider.constants';
 import type {
@@ -27,6 +34,11 @@ import {
   useEarnAtom,
   useEarnPortfolioInvestmentsAtom,
 } from '../../../states/jotai/contexts/earn';
+import { useCommittedEarnScopeGuard } from '../../Staking/hooks/useCommittedEarnScopeGuard';
+import {
+  earnPortfolioDataScope,
+  getScopedPortfolioEarnAccount,
+} from '../utils/portfolioAccountScope';
 import {
   buildPortfolioClaimSymbolMap,
   getPortfolioProtocolIdentityKey,
@@ -249,10 +261,16 @@ function normalizeInvestmentResult(
     // Use request vault as fallback (Pendle PT market address).
     requestVault: params.vault,
   });
+  const { positionSymbol, assetSymbol } = getEarnProtocol(
+    result.protocol.providerDetail.code,
+  ).resolvePortfolioSymbols({
+    requestSymbol: params.symbol,
+    responseSymbol: result.protocol.symbol,
+  });
   const normalizedProtocol = {
     ...result.protocol,
     ...(resolvedProtocolVault ? { vault: resolvedProtocolVault } : {}),
-    symbol: params.symbol,
+    symbol: positionSymbol,
   };
 
   const key = createEarnPortfolioRequestKey({
@@ -275,12 +293,16 @@ function normalizeInvestmentResult(
       protocolVault: result.protocol.vault,
       requestVault: params.vault,
     });
+    const assetProtocol =
+      assetSymbol === normalizedProtocol.symbol
+        ? normalizedProtocol
+        : { ...result.protocol, symbol: assetSymbol };
     return {
       ...asset,
       metadata: {
         protocol: resolvedAssetVault
-          ? { ...result.protocol, vault: resolvedAssetVault }
-          : result.protocol,
+          ? { ...assetProtocol, vault: resolvedAssetVault }
+          : assetProtocol,
         network: result.network,
         fiatValue: result.totalFiatValue,
         fiatValueUsd: result.totalFiatValueUsd,
@@ -386,7 +408,6 @@ function useInvestmentState(options: IInvestmentStateOptions = {}) {
         );
       }
 
-      investmentMapRef.current = buildInvestmentMapFromList(validInvestments);
       return sorted;
     },
     [],
@@ -409,64 +430,68 @@ function useInvestmentState(options: IInvestmentStateOptions = {}) {
   };
 }
 
+interface IPortfolioRequest {
+  sequence: number;
+  isCurrent: () => boolean;
+}
+
 interface IRequestControllerState {
-  accountId: string | undefined;
-  indexedAccountId: string | undefined;
-  requestId: string;
+  scope: string;
+  sequence: number;
+  latestFullSequence: number;
   isLoadingNewAccount: boolean;
 }
 
-function useRequestController(
-  accountId: string | undefined,
-  indexedAccountId: string | undefined,
-) {
+function useRequestController(scope: string) {
+  const scopeGuard = useCommittedEarnScopeGuard(scope);
   const stateRef = useRef<IRequestControllerState>({
-    accountId,
-    indexedAccountId,
-    requestId: '',
+    scope,
+    sequence: 0,
+    latestFullSequence: 0,
     isLoadingNewAccount: true,
   });
 
-  const hasAccountChanged = useCallback(() => {
-    const state = stateRef.current;
-    return (
-      state.accountId !== accountId ||
-      state.indexedAccountId !== indexedAccountId
-    );
-  }, [accountId, indexedAccountId]);
-
-  const startNewRequest = useCallback(
-    (isAccountChange = false) => {
-      const newRequestId = generateUUID();
-      stateRef.current = {
-        accountId,
-        indexedAccountId,
-        requestId: newRequestId,
-        isLoadingNewAccount: isAccountChange
-          ? true
-          : stateRef.current.isLoadingNewAccount,
-      };
-      return newRequestId;
-    },
-    [accountId, indexedAccountId],
+  const hasAccountChanged = useCallback(
+    () => stateRef.current.scope !== scope,
+    [scope],
   );
 
-  const isRequestStale = useCallback((requestId: string) => {
-    return requestId !== stateRef.current.requestId;
-  }, []);
-
+  const startNewRequest = useCallback(
+    (isAccountChange = false, isFull = true): IPortfolioRequest => {
+      const state = stateRef.current;
+      state.scope = scope;
+      state.sequence += 1;
+      if (isFull) state.latestFullSequence = state.sequence;
+      if (isAccountChange) state.isLoadingNewAccount = true;
+      return { sequence: state.sequence, isCurrent: scopeGuard.capture() };
+    },
+    [scope, scopeGuard],
+  );
+  const isRequestStale = useCallback(
+    (request: IPortfolioRequest) => !request.isCurrent(),
+    [],
+  );
+  const isLatestFull = useCallback(
+    (request: IPortfolioRequest) =>
+      request.isCurrent() &&
+      request.sequence === stateRef.current.latestFullSequence,
+    [],
+  );
+  const isScopeCurrent = scopeGuard.isCurrent;
   const finishLoadingNewAccount = useCallback(() => {
     stateRef.current.isLoadingNewAccount = false;
   }, []);
-
-  const isLoadingNewAccount = useCallback(() => {
-    return stateRef.current.isLoadingNewAccount;
-  }, []);
+  const isLoadingNewAccount = useCallback(
+    () => stateRef.current.isLoadingNewAccount,
+    [],
+  );
 
   return {
     hasAccountChanged,
     startNewRequest,
     isRequestStale,
+    isLatestFull,
+    isScopeCurrent,
     finishLoadingNewAccount,
     isLoadingNewAccount,
   };
@@ -506,14 +531,29 @@ export const useEarnPortfolio = ({
   const [{ earnAccount }] = useEarnAtom();
   const [portfolioCache, setPortfolioCache] = useEarnPortfolioInvestmentsAtom();
   const earnAccountKey = useEarnAccountKey();
+  const accountScope = earnPortfolioDataScope({
+    earnAccountKey,
+    account,
+    indexedAccountId: indexedAccount?.id,
+  });
+  const committedPortfolioScopeRef = useRef(accountScope);
+  useLayoutEffect(() => {
+    committedPortfolioScopeRef.current = accountScope;
+  }, [accountScope]);
 
-  const currentOverviewData =
+  const storedOverviewData =
     earnAccountKey && earnAccount ? earnAccount[earnAccountKey] : undefined;
+  const currentOverviewData = getScopedPortfolioEarnAccount(
+    storedOverviewData,
+    accountScope,
+  );
 
   const cachedInvestments = useMemo(() => {
     if (!earnAccountKey) return undefined;
-    return portfolioCache[earnAccountKey];
-  }, [portfolioCache, earnAccountKey]);
+    const entry = portfolioCache[earnAccountKey];
+    return entry?.accountScope === accountScope ? entry.investments : undefined;
+  }, [portfolioCache, earnAccountKey, accountScope]);
+  const [displayScope, setDisplayScope] = useState(accountScope);
 
   const [isLoading, setIsLoading] = useState(
     () => !(cachedInvestments && cachedInvestments.length > 0),
@@ -536,46 +576,77 @@ export const useEarnPortfolio = ({
     hasAccountChanged,
     startNewRequest,
     isRequestStale,
+    isLatestFull,
+    isScopeCurrent,
     finishLoadingNewAccount,
     isLoadingNewAccount,
-  } = useRequestController(accountIdValue, indexedAccountIdValue);
+  } = useRequestController(accountScope);
 
   const lastSyncedValuesRef = useRef({ totalFiatValue: '', earnings24h: '' });
+  const sourceVersionsRef = useRef(new Map<string, number>());
+  const metadataVersionRef = useRef(0);
+  const hasSettledSnapshotRef = useRef(cachedInvestments !== undefined);
+  const latestFullKeysRef = useRef<
+    | {
+        sequence: number;
+        normal: Set<string>;
+        airdrop: Set<string>;
+      }
+    | undefined
+  >(undefined);
+  const isScopeCurrentRef = useRef(isScopeCurrent);
+  useLayoutEffect(() => {
+    isScopeCurrentRef.current = isScopeCurrent;
+  }, [isScopeCurrent]);
 
   // Throttled UI update for progressive loading
   const throttledUIUpdate = useMemo(
     () =>
       throttle(
-        (newMap: Map<string, IEarnPortfolioInvestment>) => {
-          updateInvestments(newMap, false);
+        () => {
+          if (isScopeCurrentRef.current()) {
+            updateInvestments(new Map(investmentMapRef.current), false);
+          }
         },
         500,
         { leading: true, trailing: true },
       ),
-    [updateInvestments],
+    [investmentMapRef, updateInvestments],
   );
+
+  useLayoutEffect(() => {
+    throttledUIUpdate.cancel();
+  }, [accountScope, throttledUIUpdate]);
 
   // Handle account changes
   useEffect(() => {
     if (hasAccountChanged()) {
       clearInvestments();
       throttledUIUpdate.cancel();
+      setDisplayScope(accountScope);
       lastSyncedValuesRef.current = { totalFiatValue: '', earnings24h: '' };
+      sourceVersionsRef.current.clear();
+      metadataVersionRef.current = 0;
+      hasSettledSnapshotRef.current = false;
+      latestFullKeysRef.current = undefined;
       startNewRequest(true);
       setIsLoading(true);
     }
-  }, [hasAccountChanged, clearInvestments, throttledUIUpdate, startNewRequest]);
+  }, [
+    hasAccountChanged,
+    clearInvestments,
+    throttledUIUpdate,
+    startNewRequest,
+    accountScope,
+  ]);
 
   // Main fetch function
   const fetchAndUpdateInvestments = useCallback(
     async (options?: IRefreshOptions) => {
-      if (!isActive || !isMountedRef.current) return;
+      if (!isActive || !isMountedRef.current || !isScopeCurrent()) return;
 
-      const requestId = hasAccountChanged()
-        ? startNewRequest(true)
-        : startNewRequest(false);
-
-      const requestMap = new Map(investmentMapRef.current);
+      const isPartialRefresh = Boolean(options);
+      const requestId = startNewRequest(hasAccountChanged(), !isPartialRefresh);
 
       if (!accountIdValue && !indexedAccountIdValue) {
         if (isMountedRef.current) {
@@ -584,7 +655,6 @@ export const useEarnPortfolio = ({
         return;
       }
 
-      const isPartialRefresh = Boolean(options);
       if (!isPartialRefresh && isMountedRef.current) {
         setIsLoading(true);
       }
@@ -603,7 +673,11 @@ export const useEarnPortfolio = ({
         if (isRequestStale(requestId) || !isMountedRef.current) return;
 
         // Update earn accounts in global state
-        if (earnAccountKey) {
+        if (
+          earnAccountKey &&
+          requestId.sequence >= metadataVersionRef.current
+        ) {
+          metadataVersionRef.current = requestId.sequence;
           const normalizedAccounts = accounts.map((accountItem) => ({
             tokens: [],
             networkId: accountItem.networkId,
@@ -611,11 +685,15 @@ export const useEarnPortfolio = ({
             publicKey: accountItem.publicKey,
           }));
           const previousAccountData =
-            actions.current.getEarnAccount(earnAccountKey) || {};
+            actions.current.getEarnAccount(earnAccountKey);
           actions.current.updateEarnAccounts({
             key: earnAccountKey,
             earnAccount: {
               ...previousAccountData,
+              ...(previousAccountData?.portfolioAccountScope !== accountScope
+                ? { totalFiatValue: undefined, earnings24h: undefined }
+                : {}),
+              portfolioAccountScope: accountScope,
               accounts: normalizedAccounts,
               isOverviewLoaded: true,
             },
@@ -725,11 +803,18 @@ export const useEarnPortfolio = ({
         });
 
         const applyResult = (result: IEarnPortfolioInvestmentFetchResult) => {
-          const shouldPreserveAirdrop =
-            result.source === 'normal' &&
-            (isPartialRefresh ||
-              airdropKeysToFetch.has(result.key) ||
-              airdropKeysUpdatedInThisSession.has(result.key));
+          const latestFull = latestFullKeysRef.current;
+          if (
+            latestFull &&
+            latestFull.sequence > requestId.sequence &&
+            !latestFull[result.source].has(result.key)
+          )
+            return;
+          const versionKey = JSON.stringify([result.key, result.source]);
+          const lastVersion = sourceVersionsRef.current.get(versionKey) ?? 0;
+          if (lastVersion > requestId.sequence) return;
+          const requestMap = new Map(investmentMapRef.current);
+          const shouldPreserveAirdrop = result.source === 'normal';
 
           const didUpdate = applyEarnPortfolioFetchResult({
             requestMap,
@@ -744,8 +829,10 @@ export const useEarnPortfolio = ({
             return;
           }
 
+          sourceVersionsRef.current.set(versionKey, requestId.sequence);
+          investmentMapRef.current = requestMap;
           if (isMountedRef.current) {
-            throttledUIUpdate(new Map(requestMap));
+            throttledUIUpdate();
           }
         };
 
@@ -830,7 +917,9 @@ export const useEarnPortfolio = ({
                 return;
               }
 
+              const portfolioProtocol = getEarnProtocol(group.provider);
               const resolvedKeys = new Set<string>();
+              let hasUnidentifiedItem = false;
               response.items.forEach((item) => {
                 const matchedRequest = matchEarnPortfolioBatchRequest({
                   group,
@@ -839,6 +928,7 @@ export const useEarnPortfolio = ({
                     item.assets[0]?.token.info.symbol ||
                     '',
                   vault: item.protocol.vault,
+                  symbolIsAuthoritative: Boolean(item.protocol.symbol?.trim()),
                 });
 
                 if (
@@ -846,6 +936,18 @@ export const useEarnPortfolio = ({
                   (matchedRequest.accountId &&
                     matchedRequest.accountId !== accountIdValue)
                 ) {
+                  if (!item.protocol.vault) hasUnidentifiedItem = true;
+                  return;
+                }
+
+                if (
+                  portfolioProtocol.shouldPreserveUnsettledPortfolioValue(
+                    item.totalFiatValue || '0',
+                  )
+                ) {
+                  const key = createEarnPortfolioRequestKey(matchedRequest);
+                  resolvedKeys.add(key);
+                  normalKeysFailedInThisSession.add(key);
                   return;
                 }
 
@@ -853,11 +955,33 @@ export const useEarnPortfolio = ({
                 resolvedKeys.add(createEarnPortfolioRequestKey(matchedRequest));
               });
 
-              // Errors, missing items and ambiguous vaults cannot prove an empty
-              // position. Keep the previous value until a matching result arrives.
-              group.requestsByKey.forEach((_request, key) => {
+              const failedKeys = new Set<string>();
+              let hasUnidentifiedError = false;
+              response.errors.forEach((error) => {
+                const request = matchEarnPortfolioBatchRequest({
+                  group,
+                  symbol: error.symbol,
+                  vault: error.vault,
+                });
+                if (request) {
+                  failedKeys.add(createEarnPortfolioRequestKey(request));
+                } else if (!error.vault) {
+                  hasUnidentifiedError = true;
+                }
+              });
+              group.requestsByKey.forEach((request, key) => {
                 if (!resolvedKeys.has(key)) {
-                  normalKeysFailedInThisSession.add(key);
+                  if (
+                    portfolioProtocol.removeConfirmedMissingPortfolioVault() &&
+                    request.vault &&
+                    !failedKeys.has(key) &&
+                    !hasUnidentifiedError &&
+                    !hasUnidentifiedItem
+                  ) {
+                    applyResult({ key, source: 'normal', remove: true });
+                  } else {
+                    normalKeysFailedInThisSession.add(key);
+                  }
                 }
               });
             }),
@@ -869,58 +993,68 @@ export const useEarnPortfolio = ({
         if (!isRequestStale(requestId) && isMountedRef.current) {
           throttledUIUpdate.flush();
 
-          // Remove stale entries for full refresh
-          if (!options) {
+          const requestMap = new Map(investmentMapRef.current);
+          if (!isPartialRefresh && isLatestFull(requestId)) {
+            latestFullKeysRef.current = {
+              sequence: requestId.sequence,
+              normal: normalKeysToFetch,
+              airdrop: airdropKeysToFetch,
+            };
             Array.from(requestMap.keys()).forEach((key) => {
-              if (!normalKeysToFetch.has(key) && !airdropKeysToFetch.has(key)) {
-                requestMap.delete(key);
-                return;
-              }
-
+              const removeSource = (source: 'normal' | 'airdrop') => {
+                const versionKey = JSON.stringify([key, source]);
+                if (
+                  (sourceVersionsRef.current.get(versionKey) ?? 0) >
+                  requestId.sequence
+                )
+                  return;
+                removeEarnPortfolioInvestmentSource({
+                  requestMap,
+                  key,
+                  source,
+                });
+                sourceVersionsRef.current.set(versionKey, requestId.sequence);
+              };
               if (
                 !normalKeysToFetch.has(key) ||
                 (!normalKeysUpdatedInThisSession.has(key) &&
                   !normalKeysFailedInThisSession.has(key))
               ) {
-                removeEarnPortfolioInvestmentSource({
-                  requestMap,
-                  key,
-                  source: 'normal',
-                });
+                removeSource('normal');
               }
-
               if (
                 !airdropKeysToFetch.has(key) ||
                 (!airdropKeysUpdatedInThisSession.has(key) &&
                   !airdropKeysFailedInThisSession.has(key))
               ) {
-                removeEarnPortfolioInvestmentSource({
-                  requestMap,
-                  key,
-                  source: 'airdrop',
-                });
+                removeSource('airdrop');
               }
             });
           }
 
-          investmentMapRef.current = new Map(requestMap);
+          investmentMapRef.current = requestMap;
 
-          const latestInvestments = updateInvestments(
-            new Map(requestMap),
-            true,
-          );
+          updateInvestments(new Map(requestMap), true);
 
-          if (earnAccountKey && latestInvestments) {
-            setPortfolioCache((prev) => ({
-              ...prev,
-              [earnAccountKey]: latestInvestments,
-            }));
+          if (!isPartialRefresh && isLatestFull(requestId)) {
+            hasSettledSnapshotRef.current = true;
+            finishLoadingNewAccount();
+            setIsLoading(false);
           }
 
-          finishLoadingNewAccount();
-
-          if (!isPartialRefresh && isMountedRef.current) {
-            setIsLoading(false);
+          if (earnAccountKey && hasSettledSnapshotRef.current) {
+            setPortfolioCache((prev) => {
+              if (isRequestStale(requestId)) return prev;
+              return {
+                ...prev,
+                [earnAccountKey]: {
+                  accountScope,
+                  investments: sortByFiatValueDesc(
+                    filterValidInvestments(investmentMapRef.current.values()),
+                  ),
+                },
+              };
+            });
           }
         }
       } catch (error) {
@@ -928,8 +1062,10 @@ export const useEarnPortfolio = ({
         if (
           !isRequestStale(requestId) &&
           !isPartialRefresh &&
+          isLatestFull(requestId) &&
           isMountedRef.current
         ) {
+          if (hasSettledSnapshotRef.current) finishLoadingNewAccount();
           setIsLoading(false);
         }
       }
@@ -943,6 +1079,9 @@ export const useEarnPortfolio = ({
       hasAccountChanged,
       startNewRequest,
       isRequestStale,
+      isLatestFull,
+      isScopeCurrent,
+      accountScope,
       earnAccountKey,
       actions,
       throttledUIUpdate,
@@ -953,15 +1092,40 @@ export const useEarnPortfolio = ({
     ],
   );
 
+  // Focus recovery and dependency changes can request the same refresh together.
+  const automaticFetchRef = useRef<
+    | {
+        fetch: typeof fetchAndUpdateInvestments;
+        promise: Promise<void>;
+      }
+    | undefined
+  >(undefined);
+  const fetchAutomatically = useCallback(() => {
+    const pending = automaticFetchRef.current;
+    if (pending?.fetch === fetchAndUpdateInvestments) {
+      return pending.promise;
+    }
+
+    const promise = fetchAndUpdateInvestments();
+    automaticFetchRef.current = { fetch: fetchAndUpdateInvestments, promise };
+    const clearPending = () => {
+      if (automaticFetchRef.current?.promise === promise) {
+        automaticFetchRef.current = undefined;
+      }
+    };
+    void promise.then(clearPending, clearPending);
+    return promise;
+  }, [fetchAndUpdateInvestments]);
+
   // Polling with usePromiseResult
   usePromiseResult(
-    fetchAndUpdateInvestments,
+    fetchAutomatically,
     [
       isActive,
       accountIdValue,
       indexedAccountIdValue,
       allNetworkId,
-      fetchAndUpdateInvestments,
+      fetchAutomatically,
     ],
     {
       watchLoading: true,
@@ -973,6 +1137,7 @@ export const useEarnPortfolio = ({
   // Refresh function
   const refresh = useCallback(
     async (options?: IRefreshOptions) => {
+      automaticFetchRef.current = undefined;
       await fetchAndUpdateInvestments(options);
     },
     [fetchAndUpdateInvestments],
@@ -994,6 +1159,7 @@ export const useEarnPortfolio = ({
 
     const handleAccountDataUpdate = () => {
       if (isSyncingAtomRef.current) return;
+      automaticFetchRef.current = undefined;
       void fetchRef.current();
     };
 
@@ -1001,12 +1167,14 @@ export const useEarnPortfolio = ({
       EAppEventBusNames.AccountDataUpdate,
       handleAccountDataUpdate,
     );
+    appEventBus.on(EAppEventBusNames.AccountUpdate, handleAccountDataUpdate);
 
     return () => {
       appEventBus.off(
         EAppEventBusNames.AccountDataUpdate,
         handleAccountDataUpdate,
       );
+      appEventBus.off(EAppEventBusNames.AccountUpdate, handleAccountDataUpdate);
     };
   }, [shouldRegisterAccountListener]);
 
@@ -1018,36 +1186,44 @@ export const useEarnPortfolio = ({
 
   // Debounced global state sync
   const debouncedUpdateGlobalState = useMemo(() => {
-    return debounce((key: string, fiatValue: string, earnings: string) => {
-      const latestAccount = actions.current.getEarnAccount(key);
-      if (!latestAccount) return;
+    return debounce(
+      (key: string, scope: string, fiatValue: string, earnings: string) => {
+        const latestAccount = actions.current.getEarnAccount(key);
+        if (
+          !latestAccount ||
+          latestAccount.portfolioAccountScope !== scope ||
+          committedPortfolioScopeRef.current !== scope
+        )
+          return;
 
-      if (
-        lastSyncedValuesRef.current.totalFiatValue === fiatValue &&
-        lastSyncedValuesRef.current.earnings24h === earnings
-      ) {
-        return;
-      }
+        if (
+          lastSyncedValuesRef.current.totalFiatValue === fiatValue &&
+          lastSyncedValuesRef.current.earnings24h === earnings
+        ) {
+          return;
+        }
 
-      isSyncingAtomRef.current = true;
-      lastSyncedValuesRef.current = {
-        totalFiatValue: fiatValue,
-        earnings24h: earnings,
-      };
-
-      actions.current.updateEarnAccounts({
-        key,
-        earnAccount: {
-          ...latestAccount,
+        isSyncingAtomRef.current = true;
+        lastSyncedValuesRef.current = {
           totalFiatValue: fiatValue,
           earnings24h: earnings,
-        },
-      });
+        };
 
-      setTimeout(() => {
-        isSyncingAtomRef.current = false;
-      }, 100);
-    }, 500);
+        actions.current.updateEarnAccounts({
+          key,
+          earnAccount: {
+            ...latestAccount,
+            totalFiatValue: fiatValue,
+            earnings24h: earnings,
+          },
+        });
+
+        setTimeout(() => {
+          isSyncingAtomRef.current = false;
+        }, 100);
+      },
+      500,
+    );
   }, [actions]);
 
   // Sync totals to global state
@@ -1066,14 +1242,17 @@ export const useEarnPortfolio = ({
 
     debouncedUpdateGlobalState(
       earnAccountKey,
+      accountScope,
       totalFiatValueStr,
       earnings24hStr,
     );
   }, [
     earnAccountKey,
+    accountScope,
     earnTotalFiatValue,
     earnTotalEarnings24hFiatValue,
     debouncedUpdateGlobalState,
+    isLoading,
     isLoadingNewAccount,
   ]);
 
@@ -1090,9 +1269,13 @@ export const useEarnPortfolio = ({
   }, [throttledUIUpdate, debouncedUpdateGlobalState, investmentMapRef]);
 
   return {
-    investments: aggregatedInvestments,
-    earnTotalFiatValue,
-    earnTotalEarnings24hFiatValue,
+    investments: displayScope === accountScope ? aggregatedInvestments : [],
+    earnTotalFiatValue:
+      displayScope === accountScope ? earnTotalFiatValue : new BigNumber(0),
+    earnTotalEarnings24hFiatValue:
+      displayScope === accountScope
+        ? earnTotalEarnings24hFiatValue
+        : new BigNumber(0),
     cachedOverviewTotalFiatValue: currentOverviewData?.totalFiatValue,
     cachedOverviewEarnings24h: currentOverviewData?.earnings24h,
     isLoading,

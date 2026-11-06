@@ -38,6 +38,7 @@ import { useRouteIsFocused as useIsFocused } from '@onekeyhq/kit/src/hooks/useRo
 import { useSignatureConfirm } from '@onekeyhq/kit/src/hooks/useSignatureConfirm';
 import { useEarnActions } from '@onekeyhq/kit/src/states/jotai/contexts/earn/actions';
 import { validateAmountInput } from '@onekeyhq/kit/src/utils/validateAmountInput';
+import { getEarnProtocol } from '@onekeyhq/kit/src/views/Earn/protocols';
 import {
   formatApy,
   formatStakingDistanceToNowStrict,
@@ -159,6 +160,7 @@ export function ApproveBaseStake({
     trackAllowance,
     fetchAllowanceResponse,
   } = useTrackTokenAllowance({
+    providerName,
     accountId: approveTarget.accountId,
     networkId: approveTarget.networkId,
     tokenAddress: approveTarget.token.address,
@@ -225,9 +227,18 @@ export function ApproveBaseStake({
     const amountValueBN = BigNumber(amountValue);
     const allowanceBN = new BigNumber(allowance);
 
+    permitSignatureRef.current = undefined;
+    permit2DataRef.current = undefined;
     if (usePermit2Approve) {
       // Check permit cache first
       const permitCache = getPermitCache({
+        providerName,
+        approveSpenderAddress: earnUtils.resolveEarnAllowanceSpenderAddress({
+          providerName,
+          networkId: approveTarget.networkId,
+          approveType,
+          approveSpenderAddress: approveTarget.spenderAddress,
+        }),
         accountId: approveTarget.accountId,
         networkId: approveTarget.networkId,
         tokenAddress: token.address,
@@ -248,6 +259,9 @@ export function ApproveBaseStake({
     allowance,
     usePermit2Approve,
     getPermitCache,
+    providerName,
+    approveType,
+    approveTarget.spenderAddress,
     approveTarget.accountId,
     approveTarget.networkId,
   ]);
@@ -409,27 +423,21 @@ export function ApproveBaseStake({
 
     if (apys) {
       // handle base token reward
-      const isFalconProvider = earnUtils.isFalconProvider({
+      const rewardEstimate = getEarnProtocol(
         providerName,
+      ).getBaseRewardEstimate({
+        apys,
+        isEventActive,
       });
-      const baseRateBN = new BigNumber(
-        isFalconProvider
-          ? (apys?.weeklyNetApyWithoutFee ?? 0)
-          : (apys?.rate ?? 0),
-      );
+      const baseRateBN = new BigNumber(rewardEstimate.rate);
       if (baseRateBN.gt(0)) {
         let baseAmount = amountBN.multipliedBy(baseRateBN).dividedBy(100);
-        if (isFalconProvider) {
-          baseAmount = baseAmount.dividedBy(365);
+        if (rewardEstimate.periodDivisor !== 1) {
+          baseAmount = baseAmount.dividedBy(rewardEstimate.periodDivisor);
         }
 
         let suffix: string | undefined;
-        if (
-          earnUtils.isFalconProvider({
-            providerName,
-          }) &&
-          isEventActive
-        ) {
+        if (rewardEstimate.showAirdrop) {
           suffix = `+ ${intl.formatMessage({
             id: ETranslations.explore_badge_airdrop,
           })}`;
@@ -558,12 +566,14 @@ export function ApproveBaseStake({
 
   const onSubmit = useCallback(async () => {
     const handleConfirm = async () => {
+      const needsPermit =
+        usePermit2Approve && new BigNumber(amountValue).gt(allowance);
       try {
         await onConfirm?.({
           amount: amountValue,
           approveType,
-          permitSignature: permitSignatureRef.current,
-          unsignedMessage: permit2DataRef.current,
+          permitSignature: needsPermit ? permitSignatureRef.current : undefined,
+          unsignedMessage: needsPermit ? permit2DataRef.current : undefined,
         });
       } catch (error) {
         console.error('Transaction error:', error);
@@ -581,6 +591,7 @@ export function ApproveBaseStake({
     void handleConfirm();
   }, [
     showFalconEventEndedDialog,
+    allowance,
     usePermit2Approve,
     shouldApprove,
     onConfirm,
@@ -717,6 +728,15 @@ export function ApproveBaseStake({
         try {
           // Check permit cache first
           const permitCache = getPermitCache({
+            providerName,
+            approveSpenderAddress: earnUtils.resolveEarnAllowanceSpenderAddress(
+              {
+                providerName,
+                networkId: approveTarget.networkId,
+                approveType,
+                approveSpenderAddress: approveTarget.spenderAddress,
+              },
+            ),
             accountId: approveTarget.accountId,
             networkId: approveTarget.networkId,
             tokenAddress: token.address,
@@ -744,6 +764,15 @@ export function ApproveBaseStake({
 
           // Update permit cache
           updatePermitCache({
+            providerName,
+            approveSpenderAddress: earnUtils.resolveEarnAllowanceSpenderAddress(
+              {
+                providerName,
+                networkId: approveTarget.networkId,
+                approveType,
+                approveSpenderAddress: approveTarget.spenderAddress,
+              },
+            ),
             accountId: approveTarget.accountId,
             networkId: approveTarget.networkId,
             tokenAddress: token.address,
@@ -815,6 +844,7 @@ export function ApproveBaseStake({
     checkEstimateGasAlert,
     getPermitCache,
     getPermitSignature,
+    approveType,
     providerName,
     updatePermitCache,
     onSubmit,

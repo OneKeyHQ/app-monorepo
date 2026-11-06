@@ -14,6 +14,7 @@ import {
 } from '@onekeyhq/components';
 import type { IOnDialogConfirm } from '@onekeyhq/components/src/composite/Dialog/type';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IEarnEstimateFeeResp } from '@onekeyhq/shared/types/staking';
 
@@ -32,11 +33,13 @@ export const useShowStakeEstimateGasAlert = () => {
       estFiatValue,
       onConfirm,
       onCancel,
+      onClose,
     }: {
       estFiatValue: string;
       daysConsumed?: number | string;
       onConfirm?: IOnDialogConfirm;
       onCancel?: () => void;
+      onClose?: () => void;
     }) => {
       const description = daysConsumed
         ? (intl.formatMessage(
@@ -52,7 +55,7 @@ export const useShowStakeEstimateGasAlert = () => {
             },
           ) as string)
         : undefined;
-      Dialog.show({
+      return Dialog.show({
         title: intl.formatMessage({ id: ETranslations.earn_transaction_loss }),
         icon: 'InfoCircleOutline',
         description,
@@ -73,11 +76,84 @@ export const useShowStakeEstimateGasAlert = () => {
         ),
         onConfirm,
         onCancel,
+        onClose,
       });
     },
     [intl, fiatSymbol],
   );
 };
+
+export function waitForStakeEstimateGasAlert({
+  showAlert,
+  estFiatValue,
+  daysConsumed,
+  signal,
+}: {
+  showAlert: ReturnType<typeof useShowStakeEstimateGasAlert>;
+  estFiatValue: string;
+  daysConsumed?: number | string;
+  signal?: AbortSignal;
+}): Promise<boolean> {
+  return new Promise((resolve, reject) => {
+    let settled = false;
+    let confirming = false;
+    let dialog: ReturnType<typeof Dialog.show> | undefined;
+
+    const closeAfterAbort = () => {
+      if (!dialog || confirming) return;
+      void Promise.resolve()
+        .then(() => dialog?.close())
+        .catch(errorToastUtils.showToastOfError);
+    };
+    const onAbort = () => {
+      if (settled) return;
+      settled = true;
+      signal?.removeEventListener('abort', onAbort);
+      resolve(false);
+      closeAfterAbort();
+    };
+    const settle = (result: boolean) => {
+      if (settled) return;
+      settled = true;
+      signal?.removeEventListener('abort', onAbort);
+      resolve(result);
+    };
+
+    if (signal?.aborted) {
+      settle(false);
+      return;
+    }
+    signal?.addEventListener('abort', onAbort, { once: true });
+    try {
+      dialog = showAlert({
+        estFiatValue,
+        daysConsumed,
+        onConfirm: async (instance) => {
+          if (settled || confirming) return;
+          confirming = true;
+          try {
+            await instance.close();
+            settle(!signal?.aborted);
+          } catch (error) {
+            if (!settled) {
+              settled = true;
+              signal?.removeEventListener('abort', onAbort);
+              reject(error);
+            }
+          }
+        },
+        onCancel: () => settle(false),
+        onClose: () => {
+          if (!confirming) settle(false);
+        },
+      });
+      if (signal?.aborted) closeAfterAbort();
+    } catch (error) {
+      signal?.removeEventListener('abort', onAbort);
+      reject(error);
+    }
+  });
+}
 
 export const useShowClaimEstimateGasAlert = () => {
   const intl = useIntl();

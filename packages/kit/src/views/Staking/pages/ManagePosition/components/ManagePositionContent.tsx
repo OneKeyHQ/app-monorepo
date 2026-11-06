@@ -20,10 +20,10 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { BorrowNavigation } from '@onekeyhq/kit/src/views/Borrow/borrowUtils';
 import { BorrowInfoSectionSkeleton } from '@onekeyhq/kit/src/views/Borrow/components/ManagePosition/modules/InfoDisplaySection/BorrowInfoSectionSkeleton';
+import { getEarnProtocol } from '@onekeyhq/kit/src/views/Earn/protocols';
 import { StakingAmountInputSkeleton } from '@onekeyhq/kit/src/views/Staking/components/StakingAmountInput/StakingAmountInputSkeleton';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import type { ISupportedSymbol } from '@onekeyhq/shared/types/earn';
 import type { IStakeProtocolListItem } from '@onekeyhq/shared/types/staking';
 
@@ -101,14 +101,14 @@ const ManageSectionShell = ({
   type,
   symbol,
   defaultTab,
-  isPendleProvider,
+  usesMarketLayout,
   hasProtocolSwitch,
   isInModalContext,
 }: {
   type: EManagePositionType;
   symbol: string;
   defaultTab?: 'deposit' | 'withdraw';
-  isPendleProvider: boolean;
+  usesMarketLayout: boolean;
   // Trending entry (with a protocol switcher) renders a different card stack
   // than the details entry, so the skeleton mirrors whichever will land.
   hasProtocolSwitch?: boolean;
@@ -145,7 +145,7 @@ const ManageSectionShell = ({
   const activeIndex = defaultTab === 'withdraw' ? 1 : 0;
   const tabLabels = [primaryLabel, secondaryLabel];
   let activeLabel = activeIndex === 1 ? secondaryLabel : primaryLabel;
-  if (isPendleProvider) {
+  if (usesMarketLayout) {
     activeLabel = intl.formatMessage({ id: ETranslations.content__amount });
   }
   const borrowAction = useMemo(() => {
@@ -177,7 +177,7 @@ const ManageSectionShell = ({
         {tabLabels.map((label, index) => {
           const isFocused = index === activeIndex;
           let tabBackground: '$bg' | '$bgActive' | 'transparent' = '$bg';
-          if (isPendleProvider) {
+          if (usesMarketLayout) {
             tabBackground = 'transparent';
           } else if (isFocused) {
             tabBackground = '$bgActive';
@@ -192,7 +192,7 @@ const ManageSectionShell = ({
               borderRadius="$2"
               borderCurve="continuous"
             >
-              {isPendleProvider ? (
+              {usesMarketLayout ? (
                 <Skeleton.HeadingMd
                   w={index === 0 ? '$8' : '$12'}
                   borderRadius="$2"
@@ -466,6 +466,7 @@ export function ManagePositionContent({
     managePageData,
     depositDisabled,
     withdrawDisabled,
+    withdrawApprovalUnavailable,
     alerts,
     alertsHolding,
     alertsStake,
@@ -880,17 +881,20 @@ export function ManagePositionContent({
         type={type}
         symbol={symbol}
         defaultTab={defaultTab}
-        isPendleProvider={earnUtils.isPendleProvider({
-          providerName: provider,
-        })}
+        usesMarketLayout={
+          getEarnProtocol(provider).getStakePresentation().transactionLayout ===
+          'market'
+        }
         hasProtocolSwitch={Boolean(stakeProtocolSwitchConfig)}
         isInModalContext={isInModalContext}
       />
     );
   }
 
-  // Pendle special rendering: use ManagePageV2 for future shared layouts.
-  if (earnUtils.isPendleProvider({ providerName: provider })) {
+  if (
+    getEarnProtocol(provider).getStakePresentation().transactionLayout ===
+    'market'
+  ) {
     if (shouldShowWarning && warningElement) {
       return <YStack px="$5">{warningElement}</YStack>;
     }
@@ -995,6 +999,8 @@ export function ManagePositionContent({
   // Normal deposit/withdraw rendering
   return (
     <NormalManageContent
+      actionsBlocked={isSwitchingProtocol}
+      withdrawApprovalUnavailable={withdrawApprovalUnavailable}
       networkId={networkId}
       symbol={symbol}
       provider={provider}

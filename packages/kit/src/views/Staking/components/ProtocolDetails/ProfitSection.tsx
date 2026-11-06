@@ -9,6 +9,7 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import { getEarnProtocol } from '@onekeyhq/kit/src/views/Earn/protocols';
 import { formatApy } from '@onekeyhq/kit/src/views/Staking/components/utils';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -69,9 +70,7 @@ function ProfitInfo({
   ] = useSettingsPersistAtom();
   const apys = details.provider.apys;
   const aprWithoutFee = details.provider.aprWithoutFee;
-  const isFalconProvider = earnUtils.isFalconProvider({
-    providerName: providerName || '',
-  });
+  const protocol = getEarnProtocol(providerName || '');
   const { isEventActive } = useEarnEventActive(details.provider.eventEndTime);
 
   return (
@@ -119,7 +118,10 @@ function ProfitInfo({
                   testID={StakingTestIDs.profitApr}
                 >
                   {`${formatApy(
-                    isFalconProvider ? aprWithoutFee : apys?.dailyNetApy,
+                    protocol.resolveProfitApy({
+                      aprWithoutFee,
+                      dailyNetApy: apys?.dailyNetApy,
+                    }),
                   )}% ${rewardUnit}`}
                 </SizableText>
                 {/* {apys ? (
@@ -197,7 +199,8 @@ function ProfitInfo({
                 <SizableText size="$bodyLgMedium">
                   {receiptToken || rewardTokens}
                 </SizableText>
-                {isFalconProvider && isEventActive ? (
+                {protocol.getRewardTokenTooltip({ isEventActive }) ===
+                'fixed-yield' ? (
                   <Popover
                     placement="top"
                     title={intl.formatMessage({
