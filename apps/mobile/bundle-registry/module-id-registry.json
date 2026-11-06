@@ -24798,6 +24798,8 @@
     "packages/kit/src/views/Home/components/WalletActions/index.tsx": 9312,
     "packages/kit/src/views/Home/components/WalletActions/networkConfigs.ts": 18416,
     "packages/kit/src/views/Home/components/WalletActions/useWalletActionConfig.ts": 23853,
+    "packages/kit/src/views/Home/components/WalletActivityHint/WalletActivityHint.tsx": 19395,
+    "packages/kit/src/views/Home/components/WalletActivityHint/walletActivityHintUtils.ts": 21146,
     "packages/kit/src/views/Home/components/WalletBanner/WalletBanner.tsx": 21927,
     "packages/kit/src/views/Home/components/WalletBanner/index.ts": 19568,
     "packages/kit/src/views/Home/components/WalletXfpStatusReminder/WalletXfpStatusReminder.tsx": 12155,
