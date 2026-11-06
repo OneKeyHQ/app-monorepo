@@ -500,6 +500,7 @@ export function MarketDetailHeader({
           hideNavigationHeader={!showDappHeaderAboveDetail}
         >
           <NavBackButton onPress={handleBackPress} />
+          {platformEnv.isNativeIOS ? null : <XStack w="$3" flexShrink={0} />}
 
           {platformEnv.isNative || isMobileWebLayout ? (
             renderNativeHeaderTitle()

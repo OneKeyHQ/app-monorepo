@@ -26698,6 +26698,7 @@
     "packages/kit/src/views/Staking/pages/ClaimOptions/index.tsx": 8539,
     "packages/kit/src/views/Staking/pages/EarnTokenSelect/index.tsx": 9013,
     "packages/kit/src/views/Staking/pages/HistoryList/index.tsx": 20308,
+    "packages/kit/src/views/Staking/pages/HistoryList/pendingHistory.ts": 9279,
     "packages/kit/src/views/Staking/pages/InvestmentDetails/index.tsx": 19676,
     "packages/kit/src/views/Staking/pages/ManagePosition.tsx": 5599,
     "packages/kit/src/views/Staking/pages/ManagePosition/components/AdaManageContent.tsx": 18877,
