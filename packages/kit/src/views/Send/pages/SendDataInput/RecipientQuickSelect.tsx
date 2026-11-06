@@ -97,6 +97,21 @@ import type { LayoutChangeEvent, ViewInstance } from 'react-native';
 type IFocusMeasurable = Pick<ViewInstance, 'measureInWindow'>;
 type IFocusVisibilityRequest = (field: IFocusMeasurable | null) => void;
 
+// Tamagui's Web `onLayout` reports getBoundingClientRect() sizes, which include
+// ancestor transforms. A desktop modal mounts this page while it is still
+// scaling in (0.95 -> overshoot -> 1), so those heights follow the animation
+// and the pager moves the tabs and the list after the first paint.
+// `offsetHeight` is the untransformed layout height, as native reports it.
+function getLayoutHeight(
+  event: LayoutChangeEvent,
+  node: ViewInstance | null,
+): number {
+  const offsetHeight = platformEnv.isNative
+    ? undefined
+    : (node as unknown as HTMLElement | null)?.offsetHeight;
+  return offsetHeight ?? event.nativeEvent.layout.height;
+}
+
 function DeriveTypeLabelWithTooltip({
   label,
   description,
@@ -1404,6 +1419,8 @@ function RecipientQuickSelect({
   const nativeSegmentedTabs = pagerMode && platformEnv.isNative;
   const pagerRef = useRef<CollapsiblePagerView>(null);
   const pagerViewportRef = useRef<ViewInstance>(null);
+  const pagerHeaderRef = useRef<ViewInstance>(null);
+  const stickyHeaderRef = useRef<ViewInstance>(null);
   const focusedFieldRef = useRef<IFocusMeasurable | null>(null);
   const keyboardTopRef = useRef<number | null>(null);
   const focusGenerationRef = useRef(0);
@@ -1849,7 +1866,7 @@ function RecipientQuickSelect({
 
   const handlePagerHeaderLayout = useCallback(
     (event: LayoutChangeEvent) => {
-      const height = Math.ceil(event.nativeEvent.layout.height);
+      const height = Math.ceil(getLayoutHeight(event, pagerHeaderRef.current));
       setPagerHeaderHeight((previous) =>
         previous === height ? previous : height,
       );
@@ -1861,7 +1878,7 @@ function RecipientQuickSelect({
     ensureFocusedFieldVisible();
   }, [ensureFocusedFieldVisible, pagerHeaderHeight]);
   const handleStickyHeaderLayout = useCallback((event: LayoutChangeEvent) => {
-    const height = Math.ceil(event.nativeEvent.layout.height);
+    const height = Math.ceil(getLayoutHeight(event, stickyHeaderRef.current));
     setStickyHeaderHeight((previous) =>
       previous === height ? previous : height,
     );
@@ -1914,7 +1931,11 @@ function RecipientQuickSelect({
           headerHeight={pagerHeaderHeight}
           stickyHeaderHeight={stickyHeaderHeight}
           header={
-            <Stack px="$5" onLayout={handlePagerHeaderLayout}>
+            <Stack
+              ref={pagerHeaderRef}
+              px="$5"
+              onLayout={handlePagerHeaderLayout}
+            >
               {pagerHeaderContent}
             </Stack>
           }
@@ -1923,6 +1944,7 @@ function RecipientQuickSelect({
               <Stack height={56} bg="$bgApp" pointerEvents="none" />
             ) : (
               <Stack
+                ref={stickyHeaderRef}
                 px="$5"
                 pt="$3"
                 pb="$3"
