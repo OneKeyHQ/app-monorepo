@@ -315,11 +315,15 @@ export function UpdateCapsule({
     try {
       await globalThis.desktopApiProxy.appUpdate.moveToApplicationsFolder();
     } catch {
-      Toast.error({ title: 'Update can’t continue' });
+      Toast.error({
+        title: intl.formatMessage({
+          id: ETranslations.app_update_cant_continue__msg,
+        }),
+      });
     } finally {
       setMoving(false);
     }
-  }, [moving, showBusy]);
+  }, [intl, moving, showBusy]);
 
   const retry = useCallback(async () => {
     if (await backgroundApiProxy.serviceAppUpdate.canDownloadCurrentTarget()) {
@@ -343,10 +347,15 @@ export function UpdateCapsule({
 
   const isReady = mode === 'ready';
   const isError = mode === 'error' || mode === 'securityError';
-  const detailsLabel = 'Update details';
+  const detailsLabel = intl.formatMessage({
+    id: ETranslations.app_update_details__title,
+  });
+  const restartLabel = intl.formatMessage({
+    id: ETranslations.app_update_restart__action,
+  });
   let stateLabel: string;
   if (mode === 'ready') {
-    stateLabel = 'Restart to update';
+    stateLabel = restartLabel;
   } else if (mode === 'verify') {
     stateLabel = intl.formatMessage({ id: ETranslations.update_verifying });
   } else if (isError) {
@@ -357,15 +366,23 @@ export function UpdateCapsule({
       { progress: percent },
     );
   }
-  let errorDescription = 'Update can’t continue';
+  let errorDescription = intl.formatMessage({
+    id: ETranslations.app_update_cant_continue__msg,
+  });
   if (data.updateError?.code === EUpdateErrorCode.installLocation) {
-    errorDescription =
-      'Move OneKey to the Applications folder to install updates.';
+    errorDescription = intl.formatMessage({
+      id: ETranslations.app_update_move_to_applications__desc,
+    });
   } else if (
     data.updateError?.code === EUpdateErrorCode.storageError &&
     data.updateError.step !== 'cleanup'
   ) {
-    errorDescription = `Not enough disk space. Free up ${data.fileSize ? Math.ceil(data.fileSize / (1024 * 1024)) : 0} MB to continue.`;
+    errorDescription = intl.formatMessage(
+      { id: ETranslations.app_update_disk_space__desc },
+      {
+        size: `${intl.formatNumber(data.fileSize ? Math.ceil(data.fileSize / (1024 * 1024)) : 0)} MB`,
+      },
+    );
   }
   let detailIcon: ReactNode;
   if (mode === 'download') {
@@ -435,7 +452,10 @@ export function UpdateCapsule({
           transition: 'opacity 100ms ease-out, transform 100ms ease-out',
         }}
       >
-        {`Updated to ${completedVersion}`}
+        {intl.formatMessage(
+          { id: ETranslations.app_update_updated__msg },
+          { version: completedVersion },
+        )}
       </Button>
     );
   }
@@ -492,7 +512,7 @@ export function UpdateCapsule({
         <Tooltip
           triggerAsChild
           placement="bottom"
-          renderContent="Restart to update"
+          renderContent={restartLabel}
           renderTrigger={
             <Button
               testID="header-update-restart"
@@ -507,7 +527,7 @@ export function UpdateCapsule({
               aria-disabled={restarting || !isReady}
               inert={!isReady || restarting}
               tabIndex={isReady && !restarting ? 0 : -1}
-              aria-label="Restart to update"
+              aria-label={restartLabel}
               onPress={() => void restart()}
               focusVisibleStyle={FOCUS_STYLE}
               style={{
@@ -539,7 +559,7 @@ export function UpdateCapsule({
               )}
               {wide ? (
                 <SizableText size="$bodyMdMedium" color="$textInverse">
-                  Restart to update
+                  {restartLabel}
                 </SizableText>
               ) : null}
             </Button>
@@ -556,7 +576,7 @@ export function UpdateCapsule({
           <XStack width={1} height={16} bg="$textInverse" opacity={0.28} />
         </XStack>
         <Popover
-          title="Update details"
+          title={detailsLabel}
           showHeader={false}
           placement="bottom-end"
           offset={6}
@@ -568,7 +588,7 @@ export function UpdateCapsule({
             p: '$5',
             bg: '$bg',
             role: 'dialog',
-            'aria-label': 'Update details',
+            'aria-label': detailsLabel,
             style: { transformOrigin: 'calc(100% - 15px) top' },
           }}
           renderTrigger={
@@ -602,17 +622,22 @@ export function UpdateCapsule({
               />
               {isReady ? (
                 <SizableText size="$bodySm" color="$textSubdued">
-                  Installs when you quit OneKey.
+                  {intl.formatMessage({
+                    id: ETranslations.app_update_installs_on_quit__desc,
+                  })}
                 </SizableText>
               ) : null}
               {mode === 'securityError' ? (
                 <YStack gap="$3">
                   <SizableText size="$bodyMd">
-                    Couldn’t verify update
+                    {intl.formatMessage({
+                      id: ETranslations.app_update_verify_failed__msg,
+                    })}
                   </SizableText>
                   <SizableText size="$bodyMd">
-                    OneKey deleted the file and didn’t install it. Your funds
-                    are safe.
+                    {intl.formatMessage({
+                      id: ETranslations.app_update_file_removed__desc,
+                    })}
                   </SizableText>
                   <Button
                     testID="header-update-github"
@@ -621,7 +646,9 @@ export function UpdateCapsule({
                     alignSelf="flex-start"
                     onPress={() => openUrlExternal(GITHUB_RELEASES)}
                   >
-                    Download from GitHub
+                    {intl.formatMessage({
+                      id: ETranslations.app_update_download_from_github__action,
+                    })}
                   </Button>
                 </YStack>
               ) : null}
@@ -638,7 +665,9 @@ export function UpdateCapsule({
                       disabled={moving}
                       onPress={() => void moveToApplications()}
                     >
-                      Move to Applications
+                      {intl.formatMessage({
+                        id: ETranslations.app_update_move_to_applications__action,
+                      })}
                     </Button>
                   ) : (
                     <Button
@@ -688,7 +717,9 @@ export function UpdateCapsule({
           bg="$bgStrong"
         >
           <SizableText size="$bodySm">
-            Finish what’s in progress, then restart.
+            {intl.formatMessage({
+              id: ETranslations.app_update_finish_first__msg,
+            })}
           </SizableText>
         </YStack>
       ) : null}

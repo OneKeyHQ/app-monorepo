@@ -965,9 +965,12 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
               ? {
                   id: 'auto-download-app-update',
                   icon: 'FileDownloadOutline',
-                  title: 'Download updates automatically',
-                  subtitle:
-                    'When off, updates download only after you click Update.',
+                  title: intl.formatMessage({
+                    id: ETranslations.app_update_auto_download__title,
+                  }),
+                  subtitle: intl.formatMessage({
+                    id: ETranslations.app_update_auto_download__desc,
+                  }),
                   renderElement: <AutoDownloadAppUpdateListItem />,
                 }
               : undefined,

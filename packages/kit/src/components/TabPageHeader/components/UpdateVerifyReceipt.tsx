@@ -167,11 +167,13 @@ export function UpdateVerifyReceipt({
     totalMb === undefined ? undefined : Math.round((totalMb * percent) / 100);
   let downloadResult: string | undefined;
   if (status === EAppUpdateStatus.downloadPackageFailed) {
-    downloadResult = 'Paused';
+    downloadResult = intl.formatMessage({
+      id: ETranslations.app_update_download_paused__msg,
+    });
   } else if (downloadState === 'done' && totalMb !== undefined) {
-    downloadResult = `${totalMb} MB`;
+    downloadResult = `${intl.formatNumber(totalMb)} MB`;
   } else if (downloadState === 'processing' && totalMb !== undefined) {
-    downloadResult = `${downloadedMb}/${totalMb} MB`;
+    downloadResult = `${intl.formatNumber(downloadedMb ?? 0)}/${intl.formatNumber(totalMb)} MB`;
   }
   let signatureResult: string | undefined;
   if (signatureState === 'done') {
@@ -181,9 +183,13 @@ export function UpdateVerifyReceipt({
   }
   let contentResult: string | undefined;
   if (contentState === 'done') {
-    contentResult = 'Unchanged';
+    contentResult = intl.formatMessage({
+      id: ETranslations.app_update_contents_unchanged__msg,
+    });
   } else if (contentState === 'failed') {
-    contentResult = 'Changed';
+    contentResult = intl.formatMessage({
+      id: ETranslations.app_update_contents_changed__msg,
+    });
   }
   return (
     <YStack>
@@ -195,14 +201,18 @@ export function UpdateVerifyReceipt({
       />
       <Divider />
       <ReceiptRow
-        label="Signed by"
+        label={intl.formatMessage({
+          id: ETranslations.app_update_signed_by__title,
+        })}
         state={signatureState}
         result={signatureResult}
         reducedMotion={reducedMotion}
       />
       <Divider />
       <ReceiptRow
-        label="Contents"
+        label={intl.formatMessage({
+          id: ETranslations.app_update_contents__title,
+        })}
         state={contentState}
         result={contentResult}
         reducedMotion={reducedMotion}
