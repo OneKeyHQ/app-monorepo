@@ -1291,3 +1291,11 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries â€
 **Root Cause**: Both dialog close paths requested a delayed global keyboard dismissal, which could target another native window's first responder after the lower dialog closed.
 **Fix**: Skip the two global keyboard dismissals on iOS and let the closing entry release its own input. Add independent overlay, handoff and reopening scenarios to the existing Gallery. Focused dialog tests check both close paths on iOS and retain non-iOS dismissal. Native/device keyboard acceptance remains open.
 **Catchable by**: Sections 3, 5 and 8: Check global input side effects against independently owned windows and verify focus while closing a lower overlay with an upper input active.
+
+
+## Case: Lite PIN changes checked card identity after mutation
+**Date**: 2026-11-06 | **Platforms**: iOS/Android main UI runtime and process-owned native NFC operation; no bg heap sharing is assumed.
+**Symptom**: Verifying the old PIN on card A and presenting card B with the same PIN could change B's PIN before the App reported a card mismatch.
+**Root Cause**: The native changePin call did not receive the verified serial; the App's result handler compared card identity only after the write.
+**Fix**: Forward the verified serial to the SDK. On Android, validate the acquired card state and mutate through the same connection. On iOS, refresh card identity before PIN dispatch and claim the pending completion with its identity snapshot so a late connection after cancellation cannot become unguarded. Reuse DeviceMismatch and require native rebuilds. Focused App, wrapper and native host regressions cover forwarding, mismatch rejection, V1/V2 and cancellation; physical-card acceptance remains open.
+**Catchable by**: Sections 4-6: A device identity used to authorize mutation must be checked before the mutation on the same native resource; result validation alone cannot undo a wrong-device write.

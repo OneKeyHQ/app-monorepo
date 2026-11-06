@@ -339,7 +339,7 @@ export default function useLiteCard() {
           await showPINFormDialog(true, newPIN);
           if (!mounted.current) return;
           const write = await nfc.createNFCConnection(() =>
-            LiteCard.changePin(currentPin, newPIN),
+            LiteCard.changePin(currentPin, newPIN, card.serialNum),
           )();
           if (!mounted.current) return;
           const writeAction = await nfc.handlerLiteCardError({

@@ -8,6 +8,10 @@ jest.mock('./useLiteCard', () =>
   jest.requireActual<typeof import('./useLiteCard')>('./useLiteCard.tsx'),
 );
 
+jest.mock('@onekeyhq/components', () => ({
+  Toast: { success: jest.fn() },
+}));
+
 type ICard = {
   serialNum: string;
   hasBackup: boolean | null;
@@ -36,6 +40,8 @@ const mockBackupResult = jest.fn<void, unknown[]>();
 const mockUpdateBackup = jest.fn<Promise<void>, unknown[]>();
 const mockEmit = jest.fn<void, unknown[]>();
 const mockImport = jest.fn<Promise<IResult>, []>();
+const mockChangePin = jest.fn<Promise<IResult>, unknown[]>();
+const mockPinSuccess = jest.fn<void, []>();
 const mockValidate = jest.fn<Promise<void>, []>();
 const mockPushModal = jest.fn<void, unknown[]>();
 const mockNFC = {
@@ -53,6 +59,7 @@ jest.mock('./useNFC', () => ({
     getLiteInfo: () => mockRead(),
     setMnemonic: (...args: unknown[]) => mockWrite(...args),
     getMnemonicWithPin: () => mockImport(),
+    changePin: (...args: unknown[]) => mockChangePin(...args),
   },
   CardErrors: { NotInitializedError: 4002 },
 }));
@@ -73,6 +80,7 @@ jest.mock('./useOperationDialog', () => ({
   default: () => ({
     showBackupOverwrittenDialog: () => mockOverwrite(),
     showBackupSuccessDialog: () => mockSuccess(),
+    showChangePINSuccessDialog: () => mockPinSuccess(),
   }),
 }));
 jest.mock('../../../hooks/useAppNavigation', () => ({
@@ -125,6 +133,7 @@ const freshCard = {
   pinRetryCount: 10,
 };
 const initializedCard = { ...freshCard, isNewCard: false };
+const backedUpCard = { ...initializedCard, hasBackup: true };
 const success = (cardInfo: ICard = freshCard) => ({
   error: null,
   data: true,
@@ -149,6 +158,41 @@ beforeEach(() => {
 
 afterEach(() => {
   jest.restoreAllMocks();
+});
+
+it('binds the PIN change to the card that verified the old PIN', async () => {
+  mockImport.mockResolvedValue({ ...success(backedUpCard), data: 'fixture' });
+  mockChangePin.mockResolvedValue(success(backedUpCard));
+  mockPIN
+    .mockResolvedValueOnce('000000')
+    .mockResolvedValueOnce('111111')
+    .mockResolvedValueOnce('111111');
+  const { result } = renderHook(() => useLiteCard());
+  await result.current.changePIN();
+  expect(mockChangePin).toHaveBeenCalledWith(
+    '000000',
+    '111111',
+    backedUpCard.serialNum,
+  );
+  expect(mockPinSuccess).toHaveBeenCalledTimes(1);
+});
+
+it('does not report a successful PIN change when native rejects another card', async () => {
+  mockImport.mockResolvedValue({ ...success(backedUpCard), data: 'fixture' });
+  mockChangePin.mockResolvedValue({
+    ...success({ ...backedUpCard, serialNum: 'other-card' }),
+    error: { code: 2003 },
+    data: false,
+  });
+  const { result } = renderHook(() => useLiteCard());
+  await result.current.changePIN();
+  expect(mockChangePin).toHaveBeenCalledWith(
+    '000000',
+    '000000',
+    backedUpCard.serialNum,
+  );
+  expect(mockChangePin).toHaveBeenCalledTimes(1);
+  expect(mockPinSuccess).not.toHaveBeenCalled();
 });
 
 it('refreshes initialized card state after an unsuccessful new-card write and confirms overwrite', async () => {
