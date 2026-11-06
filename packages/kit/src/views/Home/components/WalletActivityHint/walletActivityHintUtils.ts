@@ -111,46 +111,32 @@ export function updateWalletActivitySeenMap({
 }
 
 /**
- * A glance answers "did it arrive / did it go": the signed amount alone for a
- * send or receive (its value is in the total and in History), "from → to" for
- * a swap. Approvals and contract calls read fine with the title alone.
+ * A glance answers "did it arrive / did it go": the one signed amount that
+ * moved, and for a two-sided action (swap, redeem…) only what arrived; its
+ * value is in the total and the rest is in History. Approvals and contract
+ * calls read fine with the title alone.
  */
-export function getWalletActivityHintAmounts({
+export function getWalletActivityHintAmount({
   direction,
   primary,
-  secondary,
 }: {
   direction: IHistoryTransferDirection | undefined;
+  // The History row's primary amount: what arrived in a two-sided row.
   primary: IWalletActivityHintAmount | undefined;
-  secondary: IWalletActivityHintAmount | undefined;
-}): IWalletActivityHintAmount[] {
-  const hasText = (amount: IWalletActivityHintAmount | undefined) =>
-    !!amount?.text && amount.text !== '-';
-  if (direction === 'send' || direction === 'receive') {
-    return primary && hasText(primary) ? [primary] : [];
-  }
-  if (direction === 'both' && primary && secondary) {
-    if (!hasText(primary) || !hasText(secondary)) return [];
-    // The arrow carries the direction, so the signs go.
-    const unsigned = (text: string) => text.replace(/^[+\-−]\s?/, '');
-    return [
-      { key: 'from', text: unsigned(secondary.text), tone: 'secondary' },
-      { key: 'to', text: unsigned(primary.text), tone: 'positive' },
-    ];
-  }
-  return [];
+}): IWalletActivityHintAmount | undefined {
+  if (!direction || !primary?.text || primary.text === '-') return undefined;
+  return primary;
 }
 
 // What the line says. `key` names the transaction and its state: a new key is
 // a different event (it cross-fades in), the same key is that event updating
-// in place (the time moving on, amounts hidden).
+// in place (the time moving on, the amount hidden).
 export type IWalletActivityHint = {
   key: string;
   status: IWalletActivityHintStatus;
-  // Left out when the amounts already say it: a sign for send and receive,
-  // an arrow for a swap.
+  // Left out when the signed amount already says it: a plain send or receive.
   title?: string;
-  amounts: IWalletActivityHintAmount[];
+  amount?: IWalletActivityHintAmount;
   when: string;
 };
 
@@ -160,16 +146,14 @@ export function isSameWalletActivityHint(
 ) {
   if (a === b) return true;
   if (!a || !b) return false;
-  const amountsText = (hint: IWalletActivityHint) =>
-    hint.amounts
-      .map((amount) => `${amount.key}:${amount.tone ?? ''}:${amount.text}`)
-      .join('|');
+  const amountText = ({ amount }: IWalletActivityHint) =>
+    amount ? `${amount.key}:${amount.tone ?? ''}:${amount.text}` : '';
   return (
     a.key === b.key &&
     a.status === b.status &&
     a.title === b.title &&
     a.when === b.when &&
-    amountsText(a) === amountsText(b)
+    amountText(a) === amountText(b)
   );
 }
 

@@ -1,5 +1,4 @@
 import {
-  Fragment,
   memo,
   useCallback,
   useContext,
@@ -39,7 +38,7 @@ import { HomeStickyHeaderContext } from '../HomeStickyHeaderContext';
 
 import {
   WALLET_ACTIVITY_HINT_WINDOW_MS,
-  getWalletActivityHintAmounts,
+  getWalletActivityHintAmount,
   getWalletActivityHintStatus,
   getWalletActivitySeenScopeKey,
   getWalletActivityTxTime,
@@ -92,6 +91,9 @@ const SWAP_MS = 150;
 // distance to the banner.
 const SLOT_HEIGHT = 32;
 const TABULAR_NUMS: ['tabular-nums'] = ['tabular-nums'];
+// A long token name (PT-stk-EPendle-26MAR2026) ends in an ellipsis instead of
+// stretching the line; ordinary amounts stay well under it.
+const AMOUNT_MAX_WIDTH = 200;
 const WALLET_ACTIVITY_HINT_DEBOUNCE_MS = 150;
 
 function readSeenMap(): IWalletActivitySeenMap {
@@ -103,7 +105,7 @@ function readSeenMap(): IWalletActivitySeenMap {
 }
 
 function WalletActivityHintContent({ hint }: { hint: IWalletActivityHint }) {
-  const { status, title, amounts, when } = hint;
+  const { status, title, amount, when } = hint;
   const failed = status === 'failed';
   return (
     <>
@@ -119,25 +121,18 @@ function WalletActivityHintContent({ hint }: { hint: IWalletActivityHint }) {
           {title}
         </SizableText>
       ) : null}
-      {amounts.map((amount, index) => (
-        <Fragment key={amount.key}>
-          {/* Two amounts are a swap: what left, then what arrived. */}
-          {index > 0 ? (
-            <SizableText size="$bodyMd" color="$textSubdued">
-              →
-            </SizableText>
-          ) : null}
-          <SizableText
-            size="$bodyMdMedium"
-            color={amount.tone === 'positive' ? '$textSuccess' : '$text'}
-            numberOfLines={1}
-            flexShrink={1}
-            fontVariant={TABULAR_NUMS}
-          >
-            {amount.text}
-          </SizableText>
-        </Fragment>
-      ))}
+      {amount ? (
+        <SizableText
+          size="$bodyMdMedium"
+          color={amount.tone === 'positive' ? '$textSuccess' : '$text'}
+          numberOfLines={1}
+          flexShrink={1}
+          maxWidth={AMOUNT_MAX_WIDTH}
+          fontVariant={TABULAR_NUMS}
+        >
+          {amount.text}
+        </SizableText>
+      ) : null}
       <SizableText size="$bodyMd" color="$textSubdued">
         ·
       </SizableText>
@@ -550,14 +545,14 @@ function useWalletActivityHintModel(): IWalletActivityHintViewProps {
     when = intl.formatMessage({ id: ETranslations.global_failed });
   }
 
-  const amounts = getWalletActivityHintAmounts({
+  const amount = getWalletActivityHintAmount({
     direction,
-    primary: row.amounts.find((amount) => amount.key === 'primary'),
-    secondary: row.amounts.find((amount) => amount.key === 'secondary'),
+    primary: row.amounts.find((item) => item.key === 'primary'),
   });
-  // A plain Send / Receive / Swap word only restates the amounts; a backend
-  // label (Claim, Stake…) or an action without amounts still needs words.
-  const showTitle = !!labeledTitle || amounts.length === 0;
+  // The sign alone says send or receive. A two-sided action shows only what
+  // arrived, so it needs its word (Swap, Redeem…), as do backend labels
+  // (Claim, Stake…) and actions without an amount.
+  const showTitle = !!labeledTitle || !amount || direction === 'both';
 
   return {
     hint: {
@@ -566,10 +561,13 @@ function useWalletActivityHintModel(): IWalletActivityHintViewProps {
       title: showTitle
         ? row.title ||
           intl.formatMessage({
-            id: ETranslations.transaction__contract_interaction,
+            id:
+              direction === 'both'
+                ? ETranslations.global_swap
+                : ETranslations.transaction__contract_interaction,
           })
         : undefined,
-      amounts,
+      amount,
       when,
     },
     instantKey,

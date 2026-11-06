@@ -4,7 +4,7 @@ import { EDecodedTxStatus } from '@onekeyhq/shared/types/tx';
 import {
   WALLET_ACTIVITY_HINT_WINDOW_MS,
   WALLET_ACTIVITY_SEEN_SCOPE_LIMIT,
-  getWalletActivityHintAmounts,
+  getWalletActivityHintAmount,
   getWalletActivityTxTime,
   initWalletActivityHintTransition,
   selectWalletActivityHint,
@@ -175,53 +175,40 @@ describe('getWalletActivityTxTime', () => {
   });
 });
 
-describe('getWalletActivityHintAmounts', () => {
+describe('getWalletActivityHintAmount', () => {
   const received = {
     key: 'primary',
     text: '+150 USDC',
     tone: 'positive' as const,
   };
-  const fiat = {
-    key: 'secondary',
-    text: '$150.00',
-    tone: 'secondary' as const,
-  };
 
-  it('keeps only the signed amount for a send or receive', () => {
+  it('keeps the signed amount of a send or receive', () => {
     expect(
-      getWalletActivityHintAmounts({
-        direction: 'receive',
-        primary: received,
-        secondary: fiat,
-      }),
-    ).toEqual([received]);
+      getWalletActivityHintAmount({ direction: 'receive', primary: received }),
+    ).toBe(received);
   });
 
-  it('reads a swap from what left to what arrived, without signs', () => {
+  it('keeps only what arrived for a two-sided action', () => {
+    const arrived = {
+      key: 'primary',
+      text: '+0.0006663 ETH',
+      tone: 'positive' as const,
+    };
     expect(
-      getWalletActivityHintAmounts({
-        direction: 'both',
-        primary: { key: 'primary', text: '+262.4 USDC', tone: 'positive' },
-        secondary: { key: 'secondary', text: '-0.1 ETH', tone: 'secondary' },
-      }).map((amount) => amount.text),
-    ).toEqual(['0.1 ETH', '262.4 USDC']);
+      getWalletActivityHintAmount({ direction: 'both', primary: arrived }),
+    ).toBe(arrived);
   });
 
   it('drops placeholders and non-transfers', () => {
     expect(
-      getWalletActivityHintAmounts({
+      getWalletActivityHintAmount({
         direction: 'send',
         primary: { key: 'primary', text: '-', tone: 'primary' },
-        secondary: undefined,
       }),
-    ).toEqual([]);
+    ).toBeUndefined();
     expect(
-      getWalletActivityHintAmounts({
-        direction: undefined,
-        primary: received,
-        secondary: fiat,
-      }),
-    ).toEqual([]);
+      getWalletActivityHintAmount({ direction: undefined, primary: received }),
+    ).toBeUndefined();
   });
 });
 
@@ -248,7 +235,7 @@ describe('wallet activity line transition', () => {
   const hint = (key: string, when = '1 minute ago'): IWalletActivityHint => ({
     key,
     status: 'done',
-    amounts: [{ key: 'primary', text: '+150 USDC', tone: 'positive' }],
+    amount: { key: 'primary', text: '+150 USDC', tone: 'positive' },
     when,
   });
   const shown = (key: string) =>
