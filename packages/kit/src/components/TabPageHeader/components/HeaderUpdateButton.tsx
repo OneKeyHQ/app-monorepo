@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { Suspense, lazy, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -19,7 +19,15 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { HEADER_WIDE_MEDIA_KEY } from '../headerLayout';
 
-import { UpdateCapsule } from './UpdateCapsule';
+// The capsule is desktop-only. Loading it lazily keeps it out of the web and
+// native startup graph; platformEnv is build-time folded, so those bundles drop
+// the dynamic import entirely.
+const LazyUpdateCapsule = platformEnv.isDesktop
+  ? lazy(async () => {
+      const { UpdateCapsule } = await import('./UpdateCapsule');
+      return { default: UpdateCapsule };
+    })
+  : null;
 
 function BasicHeaderUpdateButton() {
   const intl = useIntl();
@@ -51,19 +59,22 @@ function BasicHeaderUpdateButton() {
   // Keep the banner mounted after the atom is cleared so first-launch success
   // remains visible for its six-second window.
   if (isFullPackage || data.status === EAppUpdateStatus.done) {
+    if (!LazyUpdateCapsule) return null;
     return (
-      <UpdateCapsule
-        data={data}
-        showUpdate={
-          Boolean(isFullPackage) &&
-          isNeedUpdate &&
-          data.updateStrategy !== EUpdateStrategy.seamless &&
-          (data.status !== EAppUpdateStatus.notify ||
-            data.updateStrategy === EUpdateStrategy.manual ||
-            enableAutoDownloadAppUpdate === false)
-        }
-        onWhatsNew={onViewReleaseInfo}
-      />
+      <Suspense fallback={null}>
+        <LazyUpdateCapsule
+          data={data}
+          showUpdate={
+            Boolean(isFullPackage) &&
+            isNeedUpdate &&
+            data.updateStrategy !== EUpdateStrategy.seamless &&
+            (data.status !== EAppUpdateStatus.notify ||
+              data.updateStrategy === EUpdateStrategy.manual ||
+              enableAutoDownloadAppUpdate === false)
+          }
+          onWhatsNew={onViewReleaseInfo}
+        />
+      </Suspense>
     );
   }
   if (!showUpdate) return null;

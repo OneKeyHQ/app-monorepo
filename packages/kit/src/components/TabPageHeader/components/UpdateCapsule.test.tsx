@@ -13,6 +13,8 @@ import { EUpdateErrorCode } from '@onekeyhq/shared/src/modules3rdParty/auto-upda
 import { UpdateCapsule } from './UpdateCapsule';
 
 const mockDownloadPackage = jest.fn();
+const mockDownloadASC = jest.fn();
+const mockVerifyASC = jest.fn();
 const mockCanDownload = jest.fn(async () => true);
 const mockCanRestart = jest.fn(async () => true);
 const mockStartBanner = jest.fn();
@@ -90,6 +92,8 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
 jest.mock('@onekeyhq/kit/src/components/AppUpdate', () => ({
   useDownloadPackage: () => ({
     downloadPackage: mockDownloadPackage,
+    downloadASC: mockDownloadASC,
+    verifyASC: mockVerifyASC,
     installPackage: jest.fn(),
   }),
 }));
@@ -140,12 +144,14 @@ afterEach(() => {
 });
 
 test.each([
-  EAppUpdateStatus.downloadPackageFailed,
-  EAppUpdateStatus.downloadASCFailed,
-  EAppUpdateStatus.verifyASCFailed,
-  EAppUpdateStatus.verifyPackageFailed,
-])('retryable %s exposes a working retry', async (status) => {
+  [EAppUpdateStatus.downloadPackageFailed, mockDownloadPackage],
+  [EAppUpdateStatus.downloadASCFailed, mockDownloadASC],
+  [EAppUpdateStatus.verifyASCFailed, mockVerifyASC],
+  [EAppUpdateStatus.verifyPackageFailed, mockDownloadPackage],
+])('retryable %s resumes the failed step', async (status, expected) => {
   mockDownloadPackage.mockClear();
+  mockDownloadASC.mockClear();
+  mockVerifyASC.mockClear();
   const view = render(
     <UpdateCapsule
       showUpdate
@@ -162,7 +168,13 @@ test.each([
   await act(async () => {
     fireEvent.click(view.getByTestId('header-update-retry'));
   });
-  expect(mockDownloadPackage).toHaveBeenCalledTimes(1);
+  expect(expected).toHaveBeenCalledTimes(1);
+  expect(mockDownloadPackage).toHaveBeenCalledTimes(
+    status === EAppUpdateStatus.downloadPackageFailed ||
+      status === EAppUpdateStatus.verifyPackageFailed
+      ? 1
+      : 0,
+  );
 });
 
 test.each([true, false])(

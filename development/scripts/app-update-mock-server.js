@@ -52,7 +52,7 @@ http
       res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
       res.setHeader(
         'Access-Control-Allow-Headers',
-        'content-type, authorization, x-onekey-request-id, x-amzn-trace-id, x-onekey-request-currency, x-onekey-instance-id, x-onekey-request-locale, x-onekey-request-theme, x-onekey-request-platform, x-onekey-request-platform-name, x-onekey-request-device-name, x-onekey-request-version, x-onekey-hide-asset-details, x-onekey-request-build-number, x-onekey-request-jsbundle-version',
+        'content-type, authorization, x-onekey-custom-user-agent, x-onekey-request-id, x-amzn-trace-id, x-onekey-request-currency, x-onekey-instance-id, x-onekey-request-locale, x-onekey-request-theme, x-onekey-request-platform, x-onekey-request-platform-name, x-onekey-request-device-name, x-onekey-request-version, x-onekey-hide-asset-details, x-onekey-request-build-number, x-onekey-request-jsbundle-version',
       );
     }
     res.setHeader('Cache-Control', 'no-store');

@@ -206,6 +206,26 @@ const useDesktopEvents = platformEnv.isDesktop
             response.updateStrategy ?? EUpdateStrategy.manual,
           );
         if (isNeedUpdate && isOtaStrategy) {
+          // Auto-download is a user preference (Settings → Download updates
+          // automatically), and it only applies to desktop appShell full
+          // packages. Keep the gate identical to AppUpdateForeground's
+          // auto-download gates: jsBundle OTA updates must keep downloading
+          // silently regardless of the setting.
+          const canAutoDownload =
+            !platformEnv.isDesktop ||
+            getUpdateFileType(response) !== EUpdateFileType.appShell ||
+            (await backgroundApiProxy.serviceSetting.getEnableAutoDownloadAppUpdate());
+          if (!canAutoDownload) {
+            // Surface the pending update instead of claiming "up to date": the
+            // setting copy promises "download only after you click Update", and
+            // HeaderUpdateButton already renders the manual Update capsule for
+            // silent appShell updates when auto-download is off. Seamless
+            // updates have no capsule, so this is also the only user feedback
+            // available for that strategy.
+            onUpdateAction();
+            isCheckingUpdate.current = false;
+            return;
+          }
           // serviceAppUpdate.downloadPackage() inside this hook gates on
           // DOWNLOAD_ENTRY_STATUSES, so calling it while already in-flight
           // is a safe no-op. Fire-and-forget — we don't await the download.

@@ -164,7 +164,8 @@ export function UpdateCapsule({
   );
   const previousStatus = useRef(data.status);
   const keyboardStarting = useRef(false);
-  const { downloadPackage, installPackage } = useDownloadPackage();
+  const { downloadPackage, downloadASC, verifyASC, installPackage } =
+    useDownloadPackage();
   const percent = useDownloadProgress(getAppUpdateProgressScope(data));
   const mode = getCapsuleMode(data);
 
@@ -322,11 +323,39 @@ export function UpdateCapsule({
     }
   }, [intl, moving, showBusy]);
 
+  const retryInFlight = useRef(false);
   const retry = useCallback(async () => {
-    if (await backgroundApiProxy.serviceAppUpdate.canDownloadCurrentTarget()) {
-      await downloadPackage();
+    if (retryInFlight.current) return;
+    // Keep the existing target gate: retrying must not bypass a blocked/
+    // ignored update target (e.g. downloadRetryExhausted freeze).
+    if (
+      !(await backgroundApiProxy.serviceAppUpdate.canDownloadCurrentTarget())
+    ) {
+      return;
     }
-  }, [downloadPackage]);
+    retryInFlight.current = true;
+    try {
+      switch (data.status) {
+        case EAppUpdateStatus.downloadASCFailed:
+          // Installer is already on disk; only the ASC fetch failed. Resuming
+          // downloadPackage() would clear downloadedEvent and re-download the
+          // whole installer.
+          await downloadASC();
+          break;
+        case EAppUpdateStatus.verifyASCFailed:
+          // ASC is on disk but verification failed; re-verify instead of
+          // re-downloading anything. integrityFailed never reaches here — it
+          // renders the securityError mode without a Retry button.
+          await verifyASC();
+          break;
+        default:
+          await downloadPackage();
+          break;
+      }
+    } finally {
+      retryInFlight.current = false;
+    }
+  }, [data.status, downloadASC, downloadPackage, verifyASC]);
 
   const startDownload = useCallback(async () => {
     setStarting(true);
