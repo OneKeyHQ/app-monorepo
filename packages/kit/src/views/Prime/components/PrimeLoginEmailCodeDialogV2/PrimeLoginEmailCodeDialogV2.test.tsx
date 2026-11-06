@@ -460,7 +460,7 @@ describe('PrimeLoginEmailCodeDialogV2', () => {
           loginWithCode={loginWithCode}
         />,
       );
-      const hint = await screen.findByTestId('prime-otp-error');
+      const hint = await screen.findByTestId('prime-otp-signup-disabled-hint');
       expect(hint.textContent).toBe(
         ETranslations.onekey_id_email_existing_only__desc,
       );
@@ -477,13 +477,58 @@ describe('PrimeLoginEmailCodeDialogV2', () => {
       fireEvent.click(screen.getByRole('button', { name: 'confirm' }));
       await waitFor(() => expect(loginWithCode).toHaveBeenCalledTimes(1));
       expect(
+        await screen.findByText(ETranslations.prime_invalid_verification_code),
+      ).toBeTruthy();
+      expect(
         screen.getAllByText(ETranslations.onekey_id_email_existing_only__desc),
       ).toHaveLength(1);
+      fireEvent.change(input, { target: { value: '123457' } });
       expect(
         screen.queryByText(ETranslations.prime_invalid_verification_code),
       ).toBeNull();
+      expect(hint.textContent).toBe(
+        ETranslations.onekey_id_email_existing_only__desc,
+      );
     },
   );
+
+  test('shows verification network errors alongside signup guidance and clears both after a successful retry', async () => {
+    const loginWithCode = jest
+      .fn()
+      .mockRejectedValueOnce(
+        new AuthRetryableFetchError('Network unavailable', 0),
+      )
+      .mockResolvedValueOnce(undefined);
+    render(
+      <PrimeLoginEmailCodeDialogV2
+        email="test@example.com"
+        sendCode={jest
+          .fn()
+          .mockRejectedValue(
+            new AuthApiError('Signup disabled', 422, 'signup_disabled'),
+          )}
+        loginWithCode={loginWithCode}
+      />,
+    );
+    await screen.findByTestId('prime-otp-signup-disabled-hint');
+    const input = screen.getByTestId<HTMLInputElement>('prime-otp-code');
+    fireEvent.change(input, { target: { value: '123456' } });
+    const confirm = screen.getByRole('button', { name: 'confirm' });
+    fireEvent.click(confirm);
+    expect(
+      await screen.findByText(ETranslations.global_network_error),
+    ).toBeTruthy();
+    expect(
+      screen.getAllByText(ETranslations.onekey_id_email_existing_only__desc),
+    ).toHaveLength(1);
+    expect(input.value).toBe('123456');
+    fireEvent.click(confirm);
+    await waitFor(() => expect(loginWithCode).toHaveBeenCalledTimes(2));
+    await waitFor(() =>
+      expect(screen.queryByTestId('prime-otp-signup-disabled-hint')).toBeNull(),
+    );
+    expect(screen.queryByTestId('prime-otp-error')).toBeNull();
+  });
 
   test('keeps signup-disabled guidance while retrying and after a network failure, then clears it on successful send', async () => {
     let rejectRetry!: (error: Error) => void;

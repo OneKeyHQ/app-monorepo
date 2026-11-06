@@ -549,10 +549,6 @@ export function PrimeLoginEmailCodeDialogV2(props: {
   const otpAutoComplete = platformEnv.isNativeAndroid
     ? 'sms-otp'
     : 'one-time-code';
-  const errorMessageId = isSignupDisabled
-    ? ETranslations.onekey_id_email_existing_only__desc
-    : state.errorMessageId;
-
   return (
     <Stack>
       <Dialog.Header>
@@ -663,10 +659,22 @@ export function PrimeLoginEmailCodeDialogV2(props: {
           <DevOTPAutoFill email={email} />
         ) : null}
 
-        {errorMessageId ? (
+        {isSignupDisabled ? (
+          <SizableText
+            testID="prime-otp-signup-disabled-hint"
+            size="$bodyMd"
+            color="$red9"
+          >
+            {intl.formatMessage({
+              id: ETranslations.onekey_id_email_existing_only__desc,
+            })}
+          </SizableText>
+        ) : null}
+
+        {state.errorMessageId ? (
           <SizableText testID="prime-otp-error" size="$bodyMd" color="$red9">
             {intl.formatMessage({
-              id: errorMessageId,
+              id: state.errorMessageId,
             })}
           </SizableText>
         ) : null}
