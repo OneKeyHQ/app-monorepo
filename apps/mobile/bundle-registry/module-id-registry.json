@@ -22933,6 +22933,8 @@
     "packages/kit/src/components/TabPageHeader/components/LanguageButton.tsx": 12338,
     "packages/kit/src/components/TabPageHeader/components/OneKeyIdButton.tsx": 16654,
     "packages/kit/src/components/TabPageHeader/components/ThemeButton.tsx": 23061,
+    "packages/kit/src/components/TabPageHeader/components/UpdateCapsule.tsx": 4373,
+    "packages/kit/src/components/TabPageHeader/components/UpdateVerifyReceipt.tsx": 9459,
     "packages/kit/src/components/TabPageHeader/components/WalletConnectionGroup.tsx": 17182,
     "packages/kit/src/components/TabPageHeader/components/WebAccountPanel/PerpsBalancePill.tsx": 393,
     "packages/kit/src/components/TabPageHeader/components/WebAccountPanel/WebAccountPanelAccountList.tsx": 13046,

@@ -51,6 +51,11 @@ export function buildSoftwareUpdateParams(
     updateStrategy:
       updateStrategyMap[appUpdateInfo.updateStrategy] ?? 'unknown',
     platform: getUpdatePlatform(),
+    installSource: appUpdateInfo.installSource,
+    readyAt: appUpdateInfo.readyAt,
+    readyWaitMs: appUpdateInfo.readyAt
+      ? Math.max(0, Date.now() - appUpdateInfo.readyAt)
+      : undefined,
   };
 }
 
