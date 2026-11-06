@@ -1,12 +1,25 @@
 /**
  * @jest-environment jsdom
+ * @jest-environment-options {"customExportConditions": ["node", "node-addons"]}
  */
 
-import type { ReactNode } from 'react';
+import type {
+  CSSProperties,
+  HTMLAttributes,
+  KeyboardEvent,
+  ReactNode,
+} from 'react';
 
 import { MorphOverlay, useMorphOverlay } from '.';
 
-import { act, fireEvent, render, renderHook } from '@testing-library/react';
+import { FocusScope } from '@tamagui/focus-scope';
+import {
+  act,
+  fireEvent,
+  render,
+  renderHook,
+  waitFor,
+} from '@testing-library/react';
 import { useWindowDimensions } from 'react-native';
 import {
   GestureDetector,
@@ -25,6 +38,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { useMedia } from '../../hooks/useStyle';
 
 import type { IMorphOverlayPose, IMorphOverlayProps } from '.';
+import type { StyleProp, ViewStyle } from 'react-native';
 import type { Gesture } from 'react-native-gesture-handler';
 
 // This UI suite needs RN Web, not the CLI's repository-wide manual mock.
@@ -53,9 +67,36 @@ jest.mock('@onekeyhq/components/src/shared/tamagui', () => ({
   getTokenValue: () => '#222',
   useThemeName: () => 'dark',
 }));
-jest.mock('../../primitives', () => ({
-  Stack: jest.requireActual<typeof import('react-native')>('react-native').View,
-}));
+jest.mock('../../primitives', () => {
+  const React = jest.requireActual<typeof import('react')>('react');
+  const { StyleSheet } =
+    jest.requireActual<typeof import('react-native')>('react-native');
+  // Tamagui forwards DOM capture handlers; RN Web's View drops onBlurCapture.
+  return {
+    Stack: React.forwardRef<
+      HTMLDivElement,
+      Omit<HTMLAttributes<HTMLDivElement>, 'style'> & {
+        style?: StyleProp<ViewStyle>;
+      }
+    >(
+      (
+        { children, style, tabIndex, inert, onKeyDownCapture, onBlurCapture },
+        ref,
+      ) => (
+        <div
+          ref={ref}
+          style={StyleSheet.flatten(style) as CSSProperties}
+          tabIndex={tabIndex}
+          inert={inert}
+          onKeyDownCapture={onKeyDownCapture}
+          onBlurCapture={onBlurCapture}
+        >
+          {children}
+        </div>
+      ),
+    ),
+  };
+});
 jest.mock('../../actions/IconButton', () => ({
   IconButton:
     jest.requireActual<typeof import('react-native')>('react-native').Pressable,
@@ -328,6 +369,188 @@ describe('MorphOverlay wall', () => {
     view.unmount();
     const open = setup();
     expect(open.view.queryByTestId('morph-overlay-wall')).toBeNull();
+  });
+});
+
+const preventKeyDefault = (event: KeyboardEvent) => event.preventDefault();
+const focusSeats: IMorphOverlayProps<string>['seats'] = [
+  {
+    key: 'parked',
+    active: false,
+    node: <input aria-label="Parked input" data-morph-initial-focus />,
+  },
+  {
+    key: 'input',
+    active: true,
+    node: (
+      <>
+        <button type="button">Details</button>
+        <input aria-label="Passphrase" data-morph-initial-focus />
+        <button type="button" onKeyDown={preventKeyDefault}>
+          Confirm
+        </button>
+      </>
+    ),
+  },
+];
+
+describe('MorphOverlay focus ownership', () => {
+  beforeEach(() => {
+    // jsdom has no layout; all visibility changes here use inert.
+    const rect = document.body.getBoundingClientRect();
+    jest.spyOn(HTMLElement.prototype, 'getClientRects').mockReturnValue({
+      0: rect,
+      length: 1,
+      item: () => rect,
+      [Symbol.iterator]: () => [rect][Symbol.iterator](),
+    });
+  });
+  afterEach(() => jest.restoreAllMocks());
+
+  function Harness({
+    pose,
+    modal = true,
+  }: {
+    pose: IMorphOverlayPose;
+    modal?: boolean;
+  }) {
+    const morph = useMorphOverlay({ pose, key: 'input', value: 'input' });
+    return (
+      <>
+        <FocusScope trapped loop>
+          <div>
+            <button type="button">Trigger</button>
+            <button type="button">Underlying action</button>
+          </div>
+        </FocusScope>
+        <MorphOverlay
+          morph={morph}
+          modal={modal}
+          cardInnerHeight={240}
+          cardContentMeasured
+          capsuleKey="wait"
+          capsule={null}
+          seats={focusSeats}
+        />
+      </>
+    );
+  }
+
+  it('hands focus to the live panel, loops past parked inputs, and restores the dialog', async () => {
+    const view = render(<Harness pose="hidden" />);
+    const trigger = view.getByText('Trigger');
+    await waitFor(() => expect(document.activeElement).toBe(trigger));
+    view.rerender(<Harness pose="card" />);
+    const input = view.getByLabelText('Passphrase');
+    const details = view.getByText('Details');
+    const confirm = view.getByText('Confirm');
+    await waitFor(() => expect(document.activeElement).toBe(input));
+    fireEvent.change(input, { target: { value: 'test-passphrase' } });
+    fireEvent.keyDown(input, { key: 'Tab' });
+    expect(document.activeElement).toBe(confirm);
+    fireEvent.keyDown(confirm, { key: 'Tab' });
+    expect(document.activeElement).toBe(details);
+    fireEvent.keyDown(details, { key: 'Tab' });
+    expect(document.activeElement).toBe(input);
+    fireEvent.keyDown(input, { key: 'Tab', shiftKey: true });
+    expect(document.activeElement).toBe(details);
+    fireEvent.keyDown(details, { key: 'Tab', shiftKey: true });
+    expect(document.activeElement).toBe(confirm);
+    fireEvent.keyDown(confirm, { key: 'Tab', shiftKey: true });
+    expect(document.activeElement).toBe(input);
+
+    view.rerender(<Harness pose="hidden" />);
+    await waitFor(() => expect(document.activeElement).toBe(trigger));
+    fireEvent.keyDown(trigger, { key: 'Tab', shiftKey: true });
+    expect(document.activeElement).toBe(view.getByText('Underlying action'));
+
+    view.rerender(<Harness pose="card" />);
+    await waitFor(() => expect(document.activeElement).toBe(input));
+  });
+
+  it('focuses the designated input after a wait, without refocusing on ordinary rerenders', async () => {
+    const view = render(<Harness pose="hidden" />);
+    await waitFor(() =>
+      expect(document.activeElement).toBe(view.getByText('Trigger')),
+    );
+    view.rerender(<Harness pose="capsule" />);
+    const layer = view.getByTestId('morph-overlay-wall').parentElement;
+    await waitFor(() => expect(document.activeElement).toBe(layer));
+    view.rerender(<Harness pose="card" />);
+    await waitFor(() =>
+      expect(document.activeElement).toBe(view.getByLabelText('Passphrase')),
+    );
+    const details = view.getByText('Details');
+    act(() => details.focus());
+    view.rerender(<Harness pose="card" />);
+    expect(document.activeElement).toBe(details);
+  });
+
+  it('does not take initial focus from a dialog opened above the hardware prompt', async () => {
+    const view = render(<Harness pose="capsule" />);
+    const layer = view.getByTestId('morph-overlay-wall').parentElement;
+    await waitFor(() => expect(document.activeElement).toBe(layer));
+    const dialog = render(
+      <FocusScope trapped loop>
+        <div>
+          <button type="button">New dialog action</button>
+        </div>
+      </FocusScope>,
+    );
+    const action = dialog.getByText('New dialog action');
+    await waitFor(() => expect(document.activeElement).toBe(action));
+    view.rerender(<Harness pose="card" />);
+    expect(document.activeElement).toBe(action);
+  });
+
+  it('recovers focus when a step parks the focused input, without stealing it after exit', async () => {
+    const view = render(<Harness pose="hidden" />);
+    const trigger = view.getByText('Trigger');
+    await waitFor(() => expect(document.activeElement).toBe(trigger));
+    view.rerender(<Harness pose="card" />);
+    const input = view.getByLabelText('Passphrase');
+    await waitFor(() => expect(document.activeElement).toBe(input));
+
+    view.rerender(<Harness pose="capsule" />);
+    const layer = view.getByTestId('morph-overlay-wall').parentElement;
+    // jsdom does not blur inert controls; replay Chromium's focusout to body.
+    act(() => input.blur());
+    fireEvent.focusOut(input, { relatedTarget: null });
+    await waitFor(() => expect(document.activeElement).toBe(layer));
+
+    view.rerender(<Harness pose="card" />);
+    act(() => input.focus());
+    act(() => input.blur());
+    fireEvent.focusOut(input, { relatedTarget: null });
+    view.rerender(<Harness pose="hidden" />);
+    await waitFor(() => expect(document.activeElement).toBe(trigger));
+    await act(
+      () =>
+        new Promise<void>((resolve) => requestAnimationFrame(() => resolve())),
+    );
+    expect(document.activeElement).toBe(trigger);
+  });
+
+  it('focuses the container during a wait without interactive controls', async () => {
+    const view = render(<Harness pose="hidden" />);
+    await waitFor(() =>
+      expect(document.activeElement).toBe(view.getByText('Trigger')),
+    );
+    view.rerender(<Harness pose="capsule" />);
+    const layer = view.getByTestId('morph-overlay-wall').parentElement;
+    await waitFor(() => expect(document.activeElement).toBe(layer));
+    fireEvent.keyDown(layer as HTMLElement, { key: 'Tab' });
+    expect(document.activeElement).toBe(layer);
+  });
+
+  it('does not take focus for a non-blocking overlay', async () => {
+    const view = render(<Harness pose="hidden" modal={false} />);
+    const trigger = view.getByText('Trigger');
+    await waitFor(() => expect(document.activeElement).toBe(trigger));
+    view.rerender(<Harness pose="card" modal={false} />);
+    expect(document.activeElement).toBe(trigger);
+    fireEvent.keyDown(trigger, { key: 'Tab', shiftKey: true });
+    expect(document.activeElement).toBe(view.getByText('Underlying action'));
   });
 });
 
